@@ -77,11 +77,13 @@ export class GmController {
   }
 
   @Get('editor-catalog')
+/** getEditorCatalog：执行对应的业务逻辑。 */
   getEditorCatalog(): GmEditorCatalogRes {
     return this.gmService.getEditorCatalog();
   }
 
   @Get('maps')
+/** getMaps：执行对应的业务逻辑。 */
   getMaps(): GmMapListRes {
     return this.gmService.getEditableMapList();
   }
@@ -136,6 +138,7 @@ export class GmController {
     @Param('id') id: string,
     @Body() body: GmReplySuggestionReq,
   ): Promise<{ ok: true }> {
+/** updated：定义该变量以承载业务值。 */
     const updated = await this.suggestionService.addReply(id, 'gm', 'gm', '开发者', body?.content ?? '');
     if (!updated) {
       throw new BadRequestException('回复失败');
@@ -152,11 +155,13 @@ export class GmController {
   }
 
   @Get('database/state')
+/** getDatabaseState：执行对应的业务逻辑。 */
   getDatabaseState(): Promise<GmDatabaseStateRes> {
     return this.databaseBackupService.getState();
   }
 
   @Post('database/backup')
+/** triggerDatabaseBackup：执行对应的业务逻辑。 */
   triggerDatabaseBackup(): GmTriggerDatabaseBackupRes {
     try {
       return this.databaseBackupService.triggerManualBackup();
@@ -171,6 +176,7 @@ export class GmController {
     @Res() response: { download: (filePath: string, fileName?: string) => void },
   ): void {
     try {
+/** backup：定义该变量以承载业务值。 */
       const backup = this.databaseBackupService.getBackupDownloadRecord(backupId);
       response.download(backup.filePath, backup.fileName);
     } catch (error) {
@@ -193,6 +199,7 @@ export class GmController {
   /** 获取单个玩家详情 */
   @Get('players/:playerId')
   async getPlayer(@Param('playerId') playerId: string): Promise<GmPlayerDetailRes> {
+/** player：定义该变量以承载业务值。 */
     const player = await this.gmService.getPlayerDetail(playerId);
     if (!player) {
       throw new BadRequestException('目标玩家不存在');
@@ -206,6 +213,7 @@ export class GmController {
     @Param('playerId') playerId: string,
     @Body() body: GmUpdateManagedPlayerPasswordReq,
   ): Promise<{ ok: true }> {
+/** error：定义该变量以承载业务值。 */
     const error = await this.gmService.updateManagedPlayerPassword(playerId, body?.newPassword ?? '');
     if (error) {
       throw new BadRequestException(error);
@@ -219,6 +227,7 @@ export class GmController {
     @Param('playerId') playerId: string,
     @Body() body: GmUpdateManagedPlayerAccountReq,
   ): Promise<{ ok: true }> {
+/** error：定义该变量以承载业务值。 */
     const error = await this.gmService.updateManagedPlayerAccount(playerId, body?.username ?? '');
     if (error) {
       throw new BadRequestException(error);
@@ -231,17 +240,20 @@ export class GmController {
     @Param('playerId') playerId: string,
     @Body() body: GmCreateMailReq,
   ): Promise<{ ok: true; mailId: string }> {
+/** mailId：定义该变量以承载业务值。 */
     const mailId = await this.mailService.createDirectMail(playerId, body ?? {});
     return { ok: true, mailId };
   }
 
   @Post('mail/broadcast')
   async sendBroadcastMail(@Body() body: GmCreateMailReq): Promise<{ ok: true; mailId: string }> {
+/** mailId：定义该变量以承载业务值。 */
     const mailId = await this.mailService.createGlobalMail(body ?? {});
     return { ok: true, mailId };
   }
 
   @Get('redeem-code-groups')
+/** getRedeemCodeGroups：执行对应的业务逻辑。 */
   getRedeemCodeGroups(): Promise<GmRedeemCodeGroupListRes> {
     return this.redeemCodeService.listGroups();
   }
@@ -287,10 +299,15 @@ export class GmController {
     @Query('h') qh: string,
     @Query('viewerId') viewerId?: string,
   ): GmMapRuntimeRes {
+/** x：定义该变量以承载业务值。 */
     const x = parseInt(qx, 10) || 0;
+/** y：定义该变量以承载业务值。 */
     const y = parseInt(qy, 10) || 0;
+/** w：定义该变量以承载业务值。 */
     const w = parseInt(qw, 10) || 20;
+/** h：定义该变量以承载业务值。 */
     const h = parseInt(qh, 10) || 20;
+/** result：定义该变量以承载业务值。 */
     const result = this.gmService.getMapRuntime(
       mapId, x, y, w, h,
       this.tickService.getMapTickSpeed(mapId),
@@ -320,6 +337,7 @@ export class GmController {
     } else if (typeof body?.speed === 'number') {
       this.tickService.setMapTickSpeed(mapId, body.speed);
     } else if (body?.paused === false) {
+/** current：定义该变量以承载业务值。 */
       const current = this.tickService.getMapTickSpeed(mapId);
       this.tickService.setMapTickSpeed(mapId, current || 1);
     }
@@ -332,6 +350,7 @@ export class GmController {
     @Param('mapId') mapId: string,
     @Body() body: GmUpdateMapTimeReq,
   ): { ok: true } {
+/** error：定义该变量以承载业务值。 */
     const error = this.gmService.updateMapTime(mapId, body ?? {});
     if (error) {
       throw new BadRequestException(error);
@@ -348,6 +367,7 @@ export class GmController {
     if (!body?.snapshot) {
       throw new BadRequestException('缺少玩家快照');
     }
+/** error：定义该变量以承载业务值。 */
     const error = await this.gmService.enqueuePlayerUpdate(playerId, body.snapshot, body.section);
     if (error) {
       throw new BadRequestException(error);
@@ -358,6 +378,7 @@ export class GmController {
   /** 重置玩家到出生点 */
   @Post('players/:playerId/reset')
   async resetPlayer(@Param('playerId') playerId: string): Promise<{ ok: true }> {
+/** error：定义该变量以承载业务值。 */
     const error = await this.gmService.enqueueResetPlayer(playerId);
     if (error) {
       throw new BadRequestException(error);
@@ -371,6 +392,7 @@ export class GmController {
     @Param('playerId') playerId: string,
     @Body() body: GmSetPlayerBodyTrainingLevelReq,
   ): Promise<{ ok: true }> {
+/** error：定义该变量以承载业务值。 */
     const error = await this.gmService.setManagedPlayerBodyTrainingLevel(playerId, body?.level);
     if (error) {
       throw new BadRequestException(error);
@@ -384,6 +406,7 @@ export class GmController {
     @Param('playerId') playerId: string,
     @Body() body: GmAddPlayerFoundationReq,
   ): Promise<{ ok: true }> {
+/** error：定义该变量以承载业务值。 */
     const error = await this.gmService.addManagedPlayerFoundation(playerId, body?.amount);
     if (error) {
       throw new BadRequestException(error);
@@ -397,6 +420,7 @@ export class GmController {
     @Param('playerId') playerId: string,
     @Body() body: GmAddPlayerCombatExpReq,
   ): Promise<{ ok: true }> {
+/** error：定义该变量以承载业务值。 */
     const error = await this.gmService.addManagedPlayerCombatExp(playerId, body?.amount);
     if (error) {
       throw new BadRequestException(error);
@@ -407,6 +431,7 @@ export class GmController {
   /** 重置玩家天门测试状态 */
   @Post('players/:playerId/heaven-gate/reset')
   async resetPlayerHeavenGate(@Param('playerId') playerId: string): Promise<{ ok: true }> {
+/** error：定义该变量以承载业务值。 */
     const error = await this.gmService.enqueueResetHeavenGate(playerId);
     if (error) {
       throw new BadRequestException(error);
@@ -416,22 +441,26 @@ export class GmController {
 
   /** 所有角色返回新手村出生点 */
   @Post('shortcuts/players/return-all-to-default-spawn')
+/** returnAllPlayersToDefaultSpawn：执行对应的业务逻辑。 */
   async returnAllPlayersToDefaultSpawn(): Promise<GmShortcutRunRes> {
     return this.gmService.returnAllPlayersToDefaultSpawn();
   }
 
   /** 清理全部玩家背包/仓库/装备中的无效物品 */
   @Post('shortcuts/players/cleanup-invalid-items')
+/** cleanupAllPlayersInvalidItems：执行对应的业务逻辑。 */
   async cleanupAllPlayersInvalidItems(): Promise<GmShortcutRunRes> {
     return this.gmService.cleanupAllPlayersInvalidItems();
   }
 
   @Post('shortcuts/compensation/combat-exp-2026-04-09')
+/** compensateAllPlayersCombatExp：执行对应的业务逻辑。 */
   async compensateAllPlayersCombatExp(): Promise<GmShortcutRunRes> {
     return this.gmService.compensateAllPlayersCombatExp();
   }
 
   @Post('shortcuts/compensation/foundation-2026-04-09')
+/** compensateAllPlayersFoundation：执行对应的业务逻辑。 */
   async compensateAllPlayersFoundation(): Promise<GmShortcutRunRes> {
     return this.gmService.compensateAllPlayersFoundation();
   }
@@ -439,6 +468,7 @@ export class GmController {
   /** 生成 Bot */
   @Post('bots/spawn')
   async spawnBots(@Body() body: GmSpawnBotsReq): Promise<{ ok: true }> {
+/** error：定义该变量以承载业务值。 */
     const error = await this.gmService.enqueueSpawnBots(body.anchorPlayerId, body.count);
     if (error) {
       throw new BadRequestException(error);
@@ -449,6 +479,7 @@ export class GmController {
   /** 移除 Bot */
   @Post('bots/remove')
   removeBots(@Body() body: GmRemoveBotsReq): { ok: true } {
+/** error：定义该变量以承载业务值。 */
     const error = this.gmService.enqueueRemoveBots(body?.playerIds, body?.all);
     if (error) {
       throw new BadRequestException(error);

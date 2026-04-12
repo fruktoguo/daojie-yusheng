@@ -5,21 +5,28 @@
  */
 
 Object.defineProperty(exports, "__esModule", { value: true });
+/** socket_io_client_1：定义该变量以承载业务值。 */
 const socket_io_client_1 = require("socket.io-client");
+/** shared_1：定义该变量以承载业务值。 */
 const shared_1 = require("@mud/shared-next");
+/** env_alias_1：定义该变量以承载业务值。 */
 const env_alias_1 = require("../../config/env-alias");
+/** lib：定义该变量以承载业务值。 */
 const lib = require("../next-protocol-audit-lib");
 /**
  * 记录 server-next 访问地址。
  */
 const SERVER_NEXT_URL = (0, env_alias_1.resolveServerNextUrl)() || 'http://127.0.0.1:3111';
+/** SERVER_NEXT_DATABASE_URL：定义该变量以承载业务值。 */
 const SERVER_NEXT_DATABASE_URL = (0, env_alias_1.resolveServerNextDatabaseUrl)();
 /**
  * 记录运行态API。
  */
 const runtimeApi = lib.createRuntimeApi(SERVER_NEXT_URL);
+/** LEGACY_HTTP_MEMORY_FALLBACK_ENABLED：定义该变量以承载业务值。 */
 const LEGACY_HTTP_MEMORY_FALLBACK_ENABLED = readBooleanEnv('SERVER_NEXT_ALLOW_LEGACY_HTTP_MEMORY_FALLBACK')
     || readBooleanEnv('NEXT_ALLOW_LEGACY_HTTP_MEMORY_FALLBACK');
+/** LEGACY_SOCKET_PROTOCOL_ENABLED：定义该变量以承载业务值。 */
 const LEGACY_SOCKET_PROTOCOL_ENABLED = readBooleanEnv('SERVER_NEXT_ALLOW_LEGACY_SOCKET_PROTOCOL')
     || readBooleanEnv('NEXT_ALLOW_LEGACY_SOCKET_PROTOCOL');
 /**
@@ -91,7 +98,9 @@ async function main() {
         });
         await expectProtocolGuardError(protocolGuardSocket, 'AUTH_PROTOCOL_REQUIRED');
         await expectProtocolGuardError(legacyProtocolGuardSocket, resolveExpectedLegacySocketProtocolGuardCode());
+/** protocolGuardRejectedCode：定义该变量以承载业务值。 */
         const protocolGuardRejectedCode = protocolGuardSocket.protocolGuardCode;
+/** legacyProtocolGuardRejectedCode：定义该变量以承载业务值。 */
         const legacyProtocolGuardRejectedCode = legacyProtocolGuardSocket.protocolGuardCode;
         await runtimeApi.connectPlayer({
             playerId: senderPlayerId,
@@ -355,11 +364,13 @@ function createAuthenticatedNextSocket(token, options = {}) {
         }
     });
     socket.on(shared_1.S2C.Error, (payload) => {
+/** code：定义该变量以承载业务值。 */
         const code = typeof payload?.code === 'string' ? payload.code : null;
         protocolGuardCode = code;
         fatalError = new Error(`legacy socket error: ${JSON.stringify(payload)}`);
     });
     socket.on(shared_1.NEXT_S2C.Error, (payload) => {
+/** code：定义该变量以承载业务值。 */
         const code = typeof payload?.code === 'string' ? payload.code : null;
         protocolGuardCode = code;
         fatalError = new Error(`next socket error: ${JSON.stringify(payload)}`);
@@ -381,12 +392,15 @@ function createAuthenticatedNextSocket(token, options = {}) {
     return {
         socket,
         legacyEvents,
+/** initSessionPayload：执行对应的业务逻辑。 */
         get initSessionPayload() {
             return initSessionPayload;
         },
+/** protocolGuardCode：执行对应的业务逻辑。 */
         get protocolGuardCode() {
             return protocolGuardCode;
         },
+/** onceConnected：执行对应的业务逻辑。 */
         async onceConnected() {
             if (socket.connected) {
                 return;
@@ -407,10 +421,12 @@ function createAuthenticatedNextSocket(token, options = {}) {
                 socket.connect();
             });
         },
+/** emit：执行对应的业务逻辑。 */
         emit(event, payload) {
             throwIfFatal();
             socket.emit(event, payload);
         },
+/** getEventCount：执行对应的业务逻辑。 */
         getEventCount(event) {
             return (byEvent.get(event) ?? []).length;
         },
@@ -452,6 +468,7 @@ function createAuthenticatedNextSocket(token, options = {}) {
                 return null;
             }, timeoutMs, `legacy:${event}:after:${afterCount}`);
         },
+/** close：执行对应的业务逻辑。 */
         close() {
             socket.close();
         },
@@ -601,6 +618,7 @@ async function requestJson(pathname, init) {
  */
     const response = await fetch(`${SERVER_NEXT_URL}${pathname}`, {
         method: init?.method ?? 'GET',
+/** headers：定义该变量以承载业务值。 */
         headers: body === undefined ? undefined : {
             'content-type': 'application/json',
         },
@@ -648,14 +666,18 @@ function buildUniqueDisplayName(seed) {
     }
     return String.fromCodePoint(0x4E00 + (hash % (0x9FFF - 0x4E00 + 1)));
 }
+/** resolveExpectedLegacySocketProtocolGuardCode：执行对应的业务逻辑。 */
 function resolveExpectedLegacySocketProtocolGuardCode() {
     return LEGACY_SOCKET_PROTOCOL_ENABLED ? 'AUTH_PROTOCOL_MISMATCH' : 'LEGACY_PROTOCOL_DISABLED';
 }
+/** readBooleanEnv：执行对应的业务逻辑。 */
 function readBooleanEnv(key) {
+/** value：定义该变量以承载业务值。 */
     const value = process.env[key];
     if (typeof value !== 'string') {
         return false;
     }
+/** normalized：定义该变量以承载业务值。 */
     const normalized = value.trim().toLowerCase();
     return normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'on';
 }

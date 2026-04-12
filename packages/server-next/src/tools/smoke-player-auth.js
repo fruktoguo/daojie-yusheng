@@ -5,7 +5,9 @@
 
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.createSmokePlayerIdentity = void 0;
+/** node_crypto_1：定义该变量以承载业务值。 */
 const node_crypto_1 = require("node:crypto");
+/** ACCESS_KIND：定义该变量以承载业务值。 */
 const ACCESS_KIND = 'access';
 /**
  * 记录next令牌issuer。

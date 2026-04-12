@@ -1,31 +1,46 @@
 "use strict";
+/** __decorate：定义该变量以承载业务值。 */
 var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+/** c：定义该变量以承载业务值。 */
     var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
     if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
     else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
     return c > 3 && r && Object.defineProperty(target, key, r), r;
 };
+/** __metadata：定义该变量以承载业务值。 */
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.WorldPlayerTokenService = exports.clearAuthTrace = exports.readAuthTrace = exports.recordAuthTrace = exports.ensureAuthTraceState = void 0;
+/** common_1：定义该变量以承载业务值。 */
 const common_1 = require("@nestjs/common");
+/** shared_1：定义该变量以承载业务值。 */
 const shared_1 = require("@mud/shared-next");
+/** fs：定义该变量以承载业务值。 */
 const fs = require("fs");
+/** path：定义该变量以承载业务值。 */
 const path = require("path");
+/** world_player_token_codec_service_1：定义该变量以承载业务值。 */
 const world_player_token_codec_service_1 = require("./world-player-token-codec.service");
+/** TRACE_FILE_ENV_VAR：定义该变量以承载业务值。 */
 const TRACE_FILE_ENV_VAR = "NEXT_AUTH_TRACE_FILE";
+/** TRACE_RECORD_LIMIT：定义该变量以承载业务值。 */
 const TRACE_RECORD_LIMIT = 256;
+/** AUTH_TRACE_ENABLE_ENV_KEYS：定义该变量以承载业务值。 */
 const AUTH_TRACE_ENABLE_ENV_KEYS = ['SERVER_NEXT_AUTH_TRACE_ENABLED', 'NEXT_AUTH_TRACE_ENABLED'];
+/** AUTH_TRACE_TRUE_VALUES：定义该变量以承载业务值。 */
 const AUTH_TRACE_TRUE_VALUES = new Set(['1', 'true', 'yes', 'on', 'enable', 'enabled']);
+/** resolveTraceFilePath：执行对应的业务逻辑。 */
 function resolveTraceFilePath() {
+/** configured：定义该变量以承载业务值。 */
     const configured = typeof process.env[TRACE_FILE_ENV_VAR] === "string" ? process.env[TRACE_FILE_ENV_VAR].trim() : "";
     if (!configured) {
         return null;
     }
     return path.resolve(configured);
 }
+/** isAuthTraceEnabled：执行对应的业务逻辑。 */
 function isAuthTraceEnabled() {
     for (const key of AUTH_TRACE_ENABLE_ENV_KEYS) {
         const configured = typeof process.env[key] === "string" ? process.env[key].trim().toLowerCase() : "";
@@ -36,6 +51,7 @@ function isAuthTraceEnabled() {
     return false;
 }
 
+/** ensureAuthTraceState：执行对应的业务逻辑。 */
 function ensureAuthTraceState() {
     if (!globalThis.__NEXT_AUTH_TRACE) {
         globalThis.__NEXT_AUTH_TRACE = {
@@ -50,10 +66,13 @@ function ensureAuthTraceState() {
 }
 exports.ensureAuthTraceState = ensureAuthTraceState;
 
+/** recordAuthTrace：执行对应的业务逻辑。 */
 function recordAuthTrace(entry) {
+/** trace：定义该变量以承载业务值。 */
     const trace = ensureAuthTraceState();
     if (!trace.enabled)
         return;
+/** payload：定义该变量以承载业务值。 */
     const payload = Object.assign({ timestamp: Date.now() }, entry);
     trace.records.push(payload);
     if (trace.records.length > TRACE_RECORD_LIMIT) {
@@ -62,7 +81,9 @@ function recordAuthTrace(entry) {
     appendTraceFile(trace, payload);
 }
 exports.recordAuthTrace = recordAuthTrace;
+/** readAuthTrace：执行对应的业务逻辑。 */
 function readAuthTrace() {
+/** trace：定义该变量以承载业务值。 */
     const trace = ensureAuthTraceState();
     return {
         enabled: trace.enabled,
@@ -74,7 +95,9 @@ function readAuthTrace() {
     };
 }
 exports.readAuthTrace = readAuthTrace;
+/** clearAuthTrace：执行对应的业务逻辑。 */
 function clearAuthTrace() {
+/** trace：定义该变量以承载业务值。 */
     const trace = ensureAuthTraceState();
     trace.records.length = 0;
     if (trace.filePath) {
@@ -92,6 +115,7 @@ function clearAuthTrace() {
     };
 }
 exports.clearAuthTrace = clearAuthTrace;
+/** appendTraceFile：执行对应的业务逻辑。 */
 function appendTraceFile(trace, entry) {
     if (trace.fileErrored || !trace.filePath) {
         return;
@@ -120,14 +144,18 @@ function appendTraceFile(trace, entry) {
         trace.fileErrored = true;
     }
 }
+/** buildAuthTraceSummary：执行对应的业务逻辑。 */
 function buildAuthTraceSummary(records) {
+/** typeCounts：定义该变量以承载业务值。 */
     const typeCounts = {};
+/** token：定义该变量以承载业务值。 */
     const token = {
         acceptCount: 0,
         rejectCount: 0,
         rejectReasonCounts: {},
         tokenKindCounts: {},
     };
+/** identity：定义该变量以承载业务值。 */
     const identity = {
         sourceCounts: {},
         persistedSourceCounts: {},
@@ -139,6 +167,7 @@ function buildAuthTraceSummary(records) {
         persistFailedCount: 0,
         persistFailureStageCounts: {},
     };
+/** snapshot：定义该变量以承载业务值。 */
     const snapshot = {
         sourceCounts: {},
         persistedSourceCounts: {},
@@ -147,6 +176,7 @@ function buildAuthTraceSummary(records) {
         fallbackReasonCounts: {},
         seedPersistedCount: 0,
     };
+/** snapshotRecovery：定义该变量以承载业务值。 */
     const snapshotRecovery = {
         count: 0,
         successCount: 0,
@@ -157,6 +187,7 @@ function buildAuthTraceSummary(records) {
         identityPersistedSourceCounts: {},
         failureStageCounts: {},
     };
+/** bootstrap：定义该变量以承载业务值。 */
     const bootstrap = {
         count: 0,
         protocolCounts: {},
@@ -174,13 +205,17 @@ function buildAuthTraceSummary(records) {
         linkedSourceCounts: {},
         linkedPersistedSourceCounts: {},
     };
+/** latestIdentityByPlayerId：定义该变量以承载业务值。 */
     const latestIdentityByPlayerId = new Map();
+/** latestSnapshotByPlayerId：定义该变量以承载业务值。 */
     const latestSnapshotByPlayerId = new Map();
+/** latestSnapshotPersistedSourceByPlayerId：定义该变量以承载业务值。 */
     const latestSnapshotPersistedSourceByPlayerId = new Map();
     for (const entry of Array.isArray(records) ? records : []) {
         const type = typeof entry?.type === 'string' ? entry.type : 'unknown';
         incrementSummaryCount(typeCounts, type);
         if (type === 'token') {
+/** outcome：定义该变量以承载业务值。 */
             const outcome = typeof entry?.outcome === 'string' ? entry.outcome : 'unknown';
             if (outcome === 'accept') {
                 token.acceptCount += 1;
@@ -193,6 +228,7 @@ function buildAuthTraceSummary(records) {
             continue;
         }
         if (type === 'identity') {
+/** source：定义该变量以承载业务值。 */
             const source = typeof entry?.source === 'string' ? entry.source : 'unknown';
             incrementSummaryCount(identity.sourceCounts, source);
             if (typeof entry?.persistedSource === 'string' && entry.persistedSource) {
@@ -219,6 +255,7 @@ function buildAuthTraceSummary(records) {
             if (typeof entry?.persistFailureStage === 'string' && entry.persistFailureStage) {
                 incrementSummaryCount(identity.persistFailureStageCounts, entry.persistFailureStage);
             }
+/** playerId：定义该变量以承载业务值。 */
             const playerId = typeof entry?.playerId === 'string' ? entry.playerId : '';
             if (playerId) {
                 latestIdentityByPlayerId.set(playerId, source);
@@ -226,6 +263,7 @@ function buildAuthTraceSummary(records) {
             continue;
         }
         if (type === 'snapshot') {
+/** source：定义该变量以承载业务值。 */
             const source = typeof entry?.source === 'string' ? entry.source : 'unknown';
             incrementSummaryCount(snapshot.sourceCounts, source);
             if (typeof entry?.persistedSource === 'string' && entry.persistedSource) {
@@ -243,6 +281,7 @@ function buildAuthTraceSummary(records) {
             if (entry?.seedPersisted === true) {
                 snapshot.seedPersistedCount += 1;
             }
+/** playerId：定义该变量以承载业务值。 */
             const playerId = typeof entry?.playerId === 'string' ? entry.playerId : '';
             if (playerId) {
                 latestSnapshotByPlayerId.set(playerId, source);
@@ -252,6 +291,7 @@ function buildAuthTraceSummary(records) {
         }
         if (type === 'snapshot_recovery') {
             snapshotRecovery.count += 1;
+/** outcome：定义该变量以承载业务值。 */
             const outcome = typeof entry?.outcome === 'string' ? entry.outcome : 'unknown';
             if (outcome === 'success') {
                 snapshotRecovery.successCount += 1;
@@ -294,13 +334,17 @@ function buildAuthTraceSummary(records) {
             if (entry?.gm === true) {
                 bootstrap.gmCount += 1;
             }
+/** playerId：定义该变量以承载业务值。 */
             const playerId = typeof entry?.playerId === 'string' ? entry.playerId : '';
+/** linkedIdentitySource：定义该变量以承载业务值。 */
             const linkedIdentitySource = typeof entry?.linkedIdentitySource === 'string' && entry.linkedIdentitySource
                 ? entry.linkedIdentitySource
                 : playerId ? latestIdentityByPlayerId.get(playerId) ?? 'unknown' : 'unknown';
+/** linkedSnapshotSource：定义该变量以承载业务值。 */
             const linkedSnapshotSource = typeof entry?.linkedSnapshotSource === 'string' && entry.linkedSnapshotSource
                 ? entry.linkedSnapshotSource
                 : playerId ? latestSnapshotByPlayerId.get(playerId) ?? 'unknown' : 'unknown';
+/** linkedSnapshotPersistedSource：定义该变量以承载业务值。 */
             const linkedSnapshotPersistedSource = typeof entry?.linkedSnapshotPersistedSource === 'string' && entry.linkedSnapshotPersistedSource
                 ? entry.linkedSnapshotPersistedSource
                 : playerId ? latestSnapshotPersistedSourceByPlayerId.get(playerId) ?? 'none' : 'none';
@@ -318,23 +362,30 @@ function buildAuthTraceSummary(records) {
         bootstrap,
     };
 }
+/** incrementSummaryCount：执行对应的业务逻辑。 */
 function incrementSummaryCount(target, key) {
+/** normalizedKey：定义该变量以承载业务值。 */
     const normalizedKey = typeof key === 'string' && key ? key : 'unknown';
     target[normalizedKey] = (target[normalizedKey] ?? 0) + 1;
 }
+/** WorldPlayerTokenService：定义该变量以承载业务值。 */
 let WorldPlayerTokenService = class WorldPlayerTokenService {
     logger = new common_1.Logger(WorldPlayerTokenService.name);
     worldPlayerTokenCodecService;
+/** 构造函数：执行实例初始化流程。 */
     constructor(worldPlayerTokenCodecService) {
         this.worldPlayerTokenCodecService = worldPlayerTokenCodecService;
     }
+/** validatePlayerToken：执行对应的业务逻辑。 */
     validatePlayerToken(token) {
+/** payload：定义该变量以承载业务值。 */
         const payload = this.worldPlayerTokenCodecService.validateAccessToken(token);
         if (!payload) {
             this.logger.debug('Reject player token: invalid_access_token');
             recordAuthTrace({ type: 'token', outcome: 'reject', reason: 'invalid_access_token' });
             return null;
         }
+/** tokenKind：定义该变量以承载业务值。 */
         const tokenKind = resolvePlayerTokenKind(payload);
         if (payload.role === 'gm') {
             this.logger.debug('Reject player token: gm_role_not_player');
@@ -355,23 +406,32 @@ let WorldPlayerTokenService = class WorldPlayerTokenService {
             type: 'token',
             outcome: 'accept',
             userId: payload.sub,
+/** playerId：定义该变量以承载业务值。 */
             playerId: typeof payload.playerId === 'string' && payload.playerId.trim()
                 ? payload.playerId.trim()
                 : payload.sub,
             username: payload.username,
+/** role：定义该变量以承载业务值。 */
             role: typeof payload.role === 'string' ? payload.role : 'player',
             tokenKind,
+/** tokenIdentityReady：定义该变量以承载业务值。 */
             tokenIdentityReady: this.resolvePlayerIdentityFromPayload(payload) !== null,
         });
         return payload;
     }
+/** resolvePlayerIdentityFromPayload：执行对应的业务逻辑。 */
     resolvePlayerIdentityFromPayload(payload) {
+/** userId：定义该变量以承载业务值。 */
         const userId = typeof payload?.sub === 'string' ? payload.sub.trim() : '';
+/** username：定义该变量以承载业务值。 */
         const username = typeof payload?.username === 'string' ? payload.username.trim() : '';
+/** playerId：定义该变量以承载业务值。 */
         const playerId = typeof payload?.playerId === 'string' && payload.playerId.trim()
             ? payload.playerId.trim()
             : (userId ? `p_${userId}` : '');
+/** displayName：定义该变量以承载业务值。 */
         const displayName = normalizeDisplayName(payload?.displayName, username);
+/** playerName：定义该变量以承载业务值。 */
         const playerName = normalizePlayerName(payload?.playerName, displayName, username);
         if (!userId || !username || !playerId || !playerName) {
             return null;
@@ -390,26 +450,34 @@ exports.WorldPlayerTokenService = WorldPlayerTokenService = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [world_player_token_codec_service_1.WorldPlayerTokenCodecService])
 ], WorldPlayerTokenService);
+/** resolvePlayerTokenKind：执行对应的业务逻辑。 */
 function resolvePlayerTokenKind(payload) {
+/** kind：定义该变量以承载业务值。 */
     const kind = typeof payload?.kind === 'string' ? payload.kind.trim().toLowerCase() : '';
     if (kind === 'access' || kind === 'refresh') {
         return kind;
     }
+/** scope：定义该变量以承载业务值。 */
     const scope = typeof payload?.scope === 'string' ? payload.scope.trim().toLowerCase() : '';
     if (scope === 'access' || scope === 'refresh') {
         return scope;
     }
     return 'access';
 }
+/** normalizeDisplayName：执行对应的业务逻辑。 */
 function normalizeDisplayName(displayName, username) {
+/** normalized：定义该变量以承载业务值。 */
     const normalized = typeof displayName === 'string' ? displayName.trim().normalize('NFC') : '';
     if (isValidVisibleDisplayName(normalized)) {
         return normalized;
     }
+/** normalizedUsername：定义该变量以承载业务值。 */
     const normalizedUsername = typeof username === 'string' ? username.trim().normalize('NFC') : '';
     return (0, shared_1.resolveDefaultVisibleDisplayName)(normalizedUsername);
 }
+/** normalizePlayerName：执行对应的业务逻辑。 */
 function normalizePlayerName(playerName, displayName, username) {
+/** normalized：定义该变量以承载业务值。 */
     const normalized = typeof playerName === 'string' ? playerName.trim().normalize('NFC') : '';
     if (normalized) {
         return normalized;
@@ -419,6 +487,7 @@ function normalizePlayerName(playerName, displayName, username) {
     }
     return typeof username === 'string' ? username.trim().normalize('NFC') : '';
 }
+/** isValidVisibleDisplayName：执行对应的业务逻辑。 */
 function isValidVisibleDisplayName(value) {
     return typeof value === 'string'
         && value.length > 0

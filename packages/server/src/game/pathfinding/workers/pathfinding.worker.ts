@@ -10,7 +10,9 @@ if (!parentPort) {
 }
 
 parentPort.on('message', (task: PathfindingTask) => {
+/** startedAt：定义该变量以承载业务值。 */
   const startedAt = process.hrtime.bigint();
+/** result：定义该变量以承载业务值。 */
   const result = findBoundedPath(
     task.staticGrid,
     task.blocked,
@@ -22,7 +24,9 @@ parentPort.on('message', (task: PathfindingTask) => {
       cancelFlag: task.cancelFlag,
     },
   );
+/** elapsedMs：定义该变量以承载业务值。 */
   const elapsedMs = Number(process.hrtime.bigint() - startedAt) / 1_000_000;
+/** payload：定义该变量以承载业务值。 */
   const payload: PathfindingTaskResult = {
     ...result,
     requestId: task.requestId,

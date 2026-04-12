@@ -61,13 +61,18 @@ export class HUD {
     this.objectiveDiv.textContent = meta?.boneAgeLabel ?? this.buildBoneAgeLabel(player);
     this.threatDiv.textContent = meta?.lifespanLabel ?? this.buildLifespanLabel(player);
 
+/** realmLabel：定义该变量以承载业务值。 */
     const realmLabel = meta?.realmLabel ?? player.realm?.displayName ?? player.realmName ?? player.realmStage ?? '-';
     this.realmValue.textContent = realmLabel;
+/** realmReviewLabel：定义该变量以承载业务值。 */
     const realmReviewLabel = meta?.realmReviewLabel ?? player.realm?.review ?? player.realmReview ?? '-';
     this.realmSub.textContent = realmReviewLabel;
+/** breakthroughPreview：定义该变量以承载业务值。 */
     const breakthroughPreview = player.realm?.breakthrough;
     if (this.breakthroughButton) {
+/** canBreakthrough：定义该变量以承载业务值。 */
       const canBreakthrough = player.realm?.breakthroughReady && breakthroughPreview;
+/** showRealmAction：定义该变量以承载业务值。 */
       const showRealmAction = meta?.showRealmAction ?? canBreakthrough;
       this.breakthroughButton.hidden = !showRealmAction;
       this.breakthroughButton.textContent = meta?.realmActionLabel ?? (canBreakthrough ? `突破 · ${breakthroughPreview.targetDisplayName}` : '突破');
@@ -75,11 +80,14 @@ export class HUD {
     }
 
     this.setResource(this.hpBar, this.hpText, player.hp, player.maxHp);
+/** qiMax：定义该变量以承载业务值。 */
     const qiMax = Math.max(0, Math.round(player.numericStats?.maxQi ?? 0));
+/** qiCurrent：定义该变量以承载业务值。 */
     const qiCurrent = Math.max(0, Math.round(player.qi));
     this.setResource(this.qiBar, this.qiText, qiCurrent, qiMax);
 
     if (player.realm && player.realm.progressToNext > 0) {
+/** ratio：定义该变量以承载业务值。 */
       const ratio = Math.min(1, player.realm.progress / player.realm.progressToNext);
       this.cultivateBar.style.width = `${Math.round(ratio * 100)}%`;
       this.cultivateText.textContent = `境界修为 (${formatDisplayInteger(player.realm.progress)}/${formatDisplayInteger(player.realm.progressToNext)})`;
@@ -91,19 +99,24 @@ export class HUD {
 
 /** setResource：处理当前场景中的对应操作。 */
   private setResource(bar: HTMLElement, text: HTMLElement, value: number, max: number) {
+/** ratio：定义该变量以承载业务值。 */
     const ratio = max <= 0 ? 0 : Math.max(0, Math.min(1, value / max));
     bar.style.width = `${Math.round(ratio * 100)}%`;
     text.textContent = formatDisplayCurrentMax(Math.max(0, Math.round(value)), Math.max(0, Math.round(max)));
   }
 
+/** buildBoneAgeLabel：执行对应的业务逻辑。 */
   private buildBoneAgeLabel(player: PlayerState): string {
+/** age：定义该变量以承载业务值。 */
     const age = resolveCharacterAge(player);
     return age.days > 0
       ? `${formatDisplayInteger(age.years)} 岁零 ${formatDisplayInteger(age.days)} 天`
       : `${formatDisplayInteger(age.years)} 岁`;
   }
 
+/** buildLifespanLabel：执行对应的业务逻辑。 */
   private buildLifespanLabel(player: PlayerState): string {
+/** lifespanYears：定义该变量以承载业务值。 */
     const lifespanYears = player.lifespanYears ?? player.realm?.lifespanYears ?? null;
     if (lifespanYears == null || lifespanYears <= 0) {
       return '???';

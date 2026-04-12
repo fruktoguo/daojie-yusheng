@@ -74,6 +74,7 @@ export const QI_HALF_LIFE_RATE_SCALE = 1_000_000_000;
  * - 返回值至少为 `1`，避免极端配置下出现完全不流转的资源。
  */
 export function buildQiHalfLifeRateScaled(halfLifeTicks: number): number {
+/** normalizedTicks：定义该变量以承载业务值。 */
   const normalizedTicks = Number.isFinite(halfLifeTicks) && halfLifeTicks > 0
     ? Math.max(1, Math.round(halfLifeTicks))
     : 1;

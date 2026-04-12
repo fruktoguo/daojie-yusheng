@@ -7,18 +7,27 @@ import {
 
 /** GmMailAttachmentDraft：定义该接口的能力与字段约束。 */
 interface GmMailAttachmentDraft {
+/** itemId：定义该变量以承载业务值。 */
   itemId: string;
+/** count：定义该变量以承载业务值。 */
   count: number;
 }
 
 /** GmMailComposerDraft：定义该接口的能力与字段约束。 */
 interface GmMailComposerDraft {
+/** templateId：定义该变量以承载业务值。 */
   templateId: string;
+/** targetPlayerId：定义该变量以承载业务值。 */
   targetPlayerId: string;
+/** senderLabel：定义该变量以承载业务值。 */
   senderLabel: string;
+/** title：定义该变量以承载业务值。 */
   title: string;
+/** body：定义该变量以承载业务值。 */
   body: string;
+/** expireHours：定义该变量以承载业务值。 */
   expireHours: string;
+/** attachments：定义该变量以承载业务值。 */
   attachments: GmMailAttachmentDraft[];
 }
 
@@ -33,6 +42,7 @@ export function getBrowserLocalStorage(): Storage | null {
 
 /** readPersistedGmPassword：执行对应的业务逻辑。 */
 export function readPersistedGmPassword(storageKey = GM_PASSWORD_STORAGE_KEY): string {
+/** storage：定义该变量以承载业务值。 */
   const storage = getBrowserLocalStorage();
   if (!storage) return '';
   try {
@@ -44,8 +54,10 @@ export function readPersistedGmPassword(storageKey = GM_PASSWORD_STORAGE_KEY): s
 
 /** persistGmPassword：执行对应的业务逻辑。 */
 export function persistGmPassword(password: string, storageKey = GM_PASSWORD_STORAGE_KEY): void {
+/** storage：定义该变量以承载业务值。 */
   const storage = getBrowserLocalStorage();
   if (!storage) return;
+/** normalized：定义该变量以承载业务值。 */
   const normalized = password.trim();
   try {
     if (normalized) {
@@ -70,9 +82,13 @@ export function createDefaultMailAttachmentDraft(): GmMailAttachmentDraft {
 export function createDefaultRedeemGroupDraft(
   createRedeemReward: () => RedeemCodeGroupRewardItem = createDefaultRedeemReward,
 ): {
+/** name：定义该变量以承载业务值。 */
   name: string;
+/** rewards：定义该变量以承载业务值。 */
   rewards: RedeemCodeGroupRewardItem[];
+/** createCount：定义该变量以承载业务值。 */
   createCount: string;
+/** appendCount：定义该变量以承载业务值。 */
   appendCount: string;
 } {
   return {
@@ -126,6 +142,7 @@ export function formatJson(value: unknown): string {
 
 /** formatBytes：执行对应的业务逻辑。 */
 export function formatBytes(bytes: number | undefined): string {
+/** safe：定义该变量以承载业务值。 */
   const safe = Number.isFinite(bytes) ? Math.max(0, Number(bytes)) : 0;
   if (safe < 1024) return `${Math.round(safe)} B`;
   if (safe < 1024 * 1024) return `${(safe / 1024).toFixed(1)} KB`;
@@ -159,10 +176,15 @@ export function formatAverageBytesPerEvent(bytes: number, count: number): string
 
 /** formatDurationSeconds：执行对应的业务逻辑。 */
 export function formatDurationSeconds(seconds: number): string {
+/** safe：定义该变量以承载业务值。 */
   const safe = Number.isFinite(seconds) ? Math.max(0, Math.floor(seconds)) : 0;
+/** days：定义该变量以承载业务值。 */
   const days = Math.floor(safe / 86400);
+/** hours：定义该变量以承载业务值。 */
   const hours = Math.floor((safe % 86400) / 3600);
+/** minutes：定义该变量以承载业务值。 */
   const minutes = Math.floor((safe % 3600) / 60);
+/** secs：定义该变量以承载业务值。 */
   const secs = safe % 60;
   if (days > 0) return `${days}天 ${hours}时 ${minutes}分`;
   if (hours > 0) return `${hours}时 ${minutes}分 ${secs}秒`;
@@ -175,6 +197,7 @@ export function formatDateTime(value?: string): string {
   if (!value) {
     return '无';
   }
+/** time：定义该变量以承载业务值。 */
   const time = new Date(value);
   if (Number.isNaN(time.getTime())) {
     return '无';
@@ -186,7 +209,9 @@ export function formatDateTime(value?: string): string {
 export function getPlayerPresenceMeta(
   player: Pick<GmManagedPlayerSummary, 'meta'>,
 ): {
+/** className：定义该变量以承载业务值。 */
   className: 'online' | 'offline';
+/** label：定义该变量以承载业务值。 */
   label: '在线' | '离线挂机' | '离线';
 } {
   if (player.meta.online) {
@@ -200,6 +225,7 @@ export function getPlayerPresenceMeta(
 
 /** getManagedAccountStatusLabel：执行对应的业务逻辑。 */
 export function getManagedAccountStatusLabel(player: Pick<GmManagedPlayerRecord, 'meta'>): string {
+/** presence：定义该变量以承载业务值。 */
   const presence = getPlayerPresenceMeta(player);
   return presence.label;
 }
@@ -211,7 +237,9 @@ export function pathSegments(path: string): string[] {
 
 /** setValueByPath：执行对应的业务逻辑。 */
 export function setValueByPath(target: unknown, path: string, value: unknown): void {
+/** segments：定义该变量以承载业务值。 */
   const segments = pathSegments(path);
+/** cursor：定义该变量以承载业务值。 */
   let cursor = target as Record<string, unknown>;
   for (let index = 0; index < segments.length - 1; index += 1) {
     const key = segments[index]!;
@@ -226,6 +254,7 @@ export function setValueByPath(target: unknown, path: string, value: unknown): v
 
 /** getValueByPath：执行对应的业务逻辑。 */
 export function getValueByPath(target: unknown, path: string): unknown {
+/** cursor：定义该变量以承载业务值。 */
   let cursor = target as Record<string, unknown> | undefined;
   for (const segment of pathSegments(path)) {
     if (cursor === undefined || cursor === null) return undefined;
@@ -236,6 +265,7 @@ export function getValueByPath(target: unknown, path: string): unknown {
 
 /** removeArrayIndex：执行对应的业务逻辑。 */
 export function removeArrayIndex(target: unknown, path: string, index: number): void {
+/** value：定义该变量以承载业务值。 */
   const value = getValueByPath(target, path);
   if (!Array.isArray(value)) return;
   value.splice(index, 1);

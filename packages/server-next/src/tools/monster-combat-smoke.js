@@ -4,8 +4,11 @@
  */
 
 Object.defineProperty(exports, "__esModule", { value: true });
+/** socket_io_client_1：定义该变量以承载业务值。 */
 const socket_io_client_1 = require("socket.io-client");
+/** shared_1：定义该变量以承载业务值。 */
 const shared_1 = require("@mud/shared-next");
+/** env_alias_1：定义该变量以承载业务值。 */
 const env_alias_1 = require("../config/env-alias");
 /**
  * 记录 server-next 访问地址。
@@ -146,6 +149,7 @@ async function main() {
             if (!state.player?.techniques?.techniques?.some((entry) => entry.techId === techniqueId)) {
                 return false;
             }
+/** learnedSkillId：定义该变量以承载业务值。 */
             const learnedSkillId = resolveTechniqueSkillId(state.player, techniqueId);
             return state.player?.actions?.actions?.some((entry) => entry.id === learnedSkillId);
         }, 5000);
@@ -245,6 +249,7 @@ async function main() {
  */
         beforePlayer = await fetchPlayerState(playerId);
         beforeMonster = await fetchMonster(instanceId, resolvedTarget.runtimeId);
+/** beforeEventCount：定义该变量以承载业务值。 */
         const beforeEventCount = worldEvents.length;
         socket.emit(shared_1.NEXT_C2S.CastSkill, buildCastSkillPayload(learnedSkill, resolvedTarget));
         await waitFor(async () => {
@@ -447,6 +452,7 @@ function resolveTechniqueSkill(player, techId) {
         if (!entry || typeof entry.id !== 'string' || !entry.id.trim()) {
             return false;
         }
+/** unlockLevel：定义该变量以承载业务值。 */
         const unlockLevel = Number.isFinite(entry.unlockLevel) ? entry.unlockLevel : 1;
         return level >= unlockLevel;
     }) ?? null;

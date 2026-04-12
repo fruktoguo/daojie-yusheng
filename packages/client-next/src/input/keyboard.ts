@@ -15,6 +15,7 @@ export class KeyboardInput {
   private onKeyDown(e: KeyboardEvent) {
     // 忽略输入框内的按键
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+/** dir：定义该变量以承载业务值。 */
     const dir = KEY_TO_DIRECTION_MAP[e.key];
     if (dir === undefined) return;
     this.onPath([dir]);

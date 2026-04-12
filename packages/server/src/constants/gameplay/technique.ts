@@ -6,6 +6,7 @@
 export const EMPTY_CULTIVATION_RESULT = {
   changed: false,
   dirty: [] as Array<'inv' | 'tech' | 'attr' | 'actions'>,
+/** messages：定义该变量以承载业务值。 */
   messages: [] as Array<{ text: string; kind?: 'system' | 'quest' | 'combat' | 'loot' }>,
 };
 

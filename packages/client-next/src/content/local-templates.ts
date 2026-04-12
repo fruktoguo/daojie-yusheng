@@ -12,9 +12,13 @@ import {
 } from '@mud/shared-next';
 import { LOCAL_EDITOR_CATALOG } from '../constants/world/editor-catalog';
 
+/** itemTemplateMap：定义该变量以承载业务值。 */
 const itemTemplateMap = new Map(LOCAL_EDITOR_CATALOG.items.map((item) => [item.itemId, item] as const));
+/** techniqueTemplateMap：定义该变量以承载业务值。 */
 const techniqueTemplateMap = new Map(LOCAL_EDITOR_CATALOG.techniques.map((technique) => [technique.id, technique] as const));
+/** realmLevelMap：定义该变量以承载业务值。 */
 const realmLevelMap = new Map(LOCAL_EDITOR_CATALOG.realmLevels.map((realm) => [realm.realmLv, realm] as const));
+/** skillTemplateMap：定义该变量以承载业务值。 */
 const skillTemplateMap = new Map(
   LOCAL_EDITOR_CATALOG.techniques.flatMap((technique) =>
     (technique.skills ?? []).map((skill) => [skill.id, skill] as const),
@@ -22,12 +26,15 @@ const skillTemplateMap = new Map(
 );
 /** LocalBuffTemplate：定义该类型的结构与数据语义。 */
 type LocalBuffTemplate = {
+/** buffId：定义该变量以承载业务值。 */
   buffId: string;
+/** name：定义该变量以承载业务值。 */
   name: string;
   shortMark?: string;
   category?: 'buff' | 'debuff';
 };
 
+/** buffTemplateMap：定义该变量以承载业务值。 */
 const buffTemplateMap = new Map<string, LocalBuffTemplate>(
   LOCAL_EDITOR_CATALOG.techniques.flatMap((technique) =>
     (technique.skills ?? []).flatMap((skill) =>
@@ -44,8 +51,10 @@ const buffTemplateMap = new Map<string, LocalBuffTemplate>(
     ),
   ),
 );
+/** divineSkillNameSet：定义该变量以承载业务值。 */
 const divineSkillNameSet = new Set(
   LOCAL_EDITOR_CATALOG.techniques.flatMap((technique) => {
+/** category：定义该变量以承载业务值。 */
     const category = resolveTechniqueCategoryFromTemplate(technique);
     if (category !== 'divine') {
       return [];
@@ -53,7 +62,9 @@ const divineSkillNameSet = new Set(
     return (technique.skills ?? []).map((skill) => skill.name.trim()).filter((name) => name.length > 0);
   }),
 );
+/** techniqueCategoryByBookItemId：定义该变量以承载业务值。 */
 const techniqueCategoryByBookItemId = new Map<string, TechniqueCategory>();
+/** DEFAULT_TECHNIQUE_REALM_LEVEL_BY_GRADE：定义该变量以承载业务值。 */
 const DEFAULT_TECHNIQUE_REALM_LEVEL_BY_GRADE: Record<TechniqueGrade, number> = {
   mortal: 1,
   yellow: 13,
@@ -93,7 +104,9 @@ for (const item of LOCAL_EDITOR_CATALOG.items) {
   if (item.type !== 'skill_book') {
     continue;
   }
+/** techniqueId：定义该变量以承载业务值。 */
   const techniqueId = resolveTechniqueIdFromBookItemId(item.itemId);
+/** category：定义该变量以承载业务值。 */
   const category = resolveTechniqueCategoryFromTemplate(
     techniqueId ? techniqueTemplateMap.get(techniqueId) : undefined,
   );
@@ -104,12 +117,14 @@ for (const item of LOCAL_EDITOR_CATALOG.items) {
 
 /** getLocalItemTemplate：执行对应的业务逻辑。 */
 export function getLocalItemTemplate(itemId: string): GmEditorItemOption | null {
+/** template：定义该变量以承载业务值。 */
   const template = itemTemplateMap.get(itemId);
   return template ? clone(template) : null;
 }
 
 /** getLocalTechniqueTemplate：执行对应的业务逻辑。 */
 export function getLocalTechniqueTemplate(techId: string): GmEditorTechniqueOption | null {
+/** template：定义该变量以承载业务值。 */
   const template = techniqueTemplateMap.get(techId);
   return template ? clone(template) : null;
 }
@@ -124,24 +139,28 @@ export function getLocalRealmLevelEntry(realmLv: number | undefined): GmEditorRe
   if (!Number.isFinite(realmLv)) {
     return null;
   }
+/** entry：定义该变量以承载业务值。 */
   const entry = realmLevelMap.get(Math.max(1, Math.floor(Number(realmLv))));
   return entry ? clone(entry) : null;
 }
 
 /** getLocalSkillTemplate：执行对应的业务逻辑。 */
 export function getLocalSkillTemplate(skillId: string): SkillDef | null {
+/** template：定义该变量以承载业务值。 */
   const template = skillTemplateMap.get(skillId);
   return template ? clone(template) : null;
 }
 
 /** getLocalBuffTemplate：执行对应的业务逻辑。 */
 export function getLocalBuffTemplate(buffId: string): LocalBuffTemplate | null {
+/** template：定义该变量以承载业务值。 */
   const template = buffTemplateMap.get(buffId);
   return template ? { ...template } : null;
 }
 
 /** isLocalDivineSkillName：执行对应的业务逻辑。 */
 export function isLocalDivineSkillName(skillName: string): boolean {
+/** normalizedName：定义该变量以承载业务值。 */
   const normalizedName = skillName.trim();
   return normalizedName.length > 0 && divineSkillNameSet.has(normalizedName);
 }
@@ -159,6 +178,7 @@ function resolveTechniqueRealmLevel(realmLv: number | undefined, grade: Techniqu
 
 /** resolvePreviewItem：执行对应的业务逻辑。 */
 export function resolvePreviewItem(item: ItemStack): ItemStack {
+/** template：定义该变量以承载业务值。 */
   const template = getLocalItemTemplate(item.itemId);
   if (!template) {
     return item;
@@ -190,6 +210,7 @@ export function resolvePreviewItem(item: ItemStack): ItemStack {
 
 /** resolvePreviewSkill：执行对应的业务逻辑。 */
 export function resolvePreviewSkill(skill: SkillDef): SkillDef {
+/** template：定义该变量以承载业务值。 */
   const template = getLocalSkillTemplate(skill.id);
   if (!template) {
     return skill;
@@ -224,10 +245,12 @@ function resolvePreviewTechniqueSkill(
   techniqueRealmLv: number,
   templateSkill?: SkillDef,
 ): SkillDef {
+/** merged：定义该变量以承载业务值。 */
   const merged = resolvePreviewSkill({
     ...(templateSkill ?? {}),
     ...skill,
   } as SkillDef);
+/** costMultiplier：定义该变量以承载业务值。 */
   const costMultiplier = merged.costMultiplier ?? templateSkill?.costMultiplier;
   if (costMultiplier === undefined) {
     return merged;
@@ -245,6 +268,7 @@ function resolvePreviewTechniqueSkill(
 
 /** resolvePreviewTechnique：执行对应的业务逻辑。 */
 export function resolvePreviewTechnique(technique: TechniqueState): TechniqueState {
+/** template：定义该变量以承载业务值。 */
   const template = getLocalTechniqueTemplate(technique.techId);
   if (!template) {
     return {
@@ -255,11 +279,15 @@ export function resolvePreviewTechnique(technique: TechniqueState): TechniqueSta
       category: technique.category ?? (technique.skills.length > 0 ? 'arts' : 'internal'),
     };
   }
+/** resolvedLayers：定义该变量以承载业务值。 */
   const resolvedLayers = technique.layers && technique.layers.length > 0
     ? technique.layers
     : clone(template.layers ?? []);
+/** templateSkills：定义该变量以承载业务值。 */
   const templateSkills = clone(template.skills ?? []);
+/** sourceSkills：定义该变量以承载业务值。 */
   const sourceSkills = technique.skills.length > 0 ? technique.skills : templateSkills;
+/** realmLv：定义该变量以承载业务值。 */
   const realmLv = resolveTechniqueRealmLevel(technique.realmLv, technique.grade ?? template.grade);
   return {
     ...technique,

@@ -12,9 +12,12 @@ import type { FloatingActionTextStyle } from '../../renderer/types';
 export class LegacyCanvasTextRendererAdapter {
   private readonly renderer = new TextRenderer();
   private readonly cameraBridge = new Camera();
+/** canvas：定义该变量以承载业务值。 */
   private canvas: HTMLCanvasElement | null = null;
 
+/** mount：执行对应的业务逻辑。 */
   mount(host: HTMLElement): void {
+/** canvas：定义该变量以承载业务值。 */
     const canvas = host.querySelector<HTMLCanvasElement>('#game-canvas') ?? host.querySelector<HTMLCanvasElement>('canvas');
     if (!canvas) {
       throw new Error('地图宿主节点缺少 canvas');
@@ -23,15 +26,18 @@ export class LegacyCanvasTextRendererAdapter {
     this.renderer.init(canvas);
   }
 
+/** unmount：执行对应的业务逻辑。 */
   unmount(): void {
     this.canvas = null;
   }
 
+/** destroy：执行对应的业务逻辑。 */
   destroy(): void {
     this.renderer.destroy();
     this.canvas = null;
   }
 
+/** resize：执行对应的业务逻辑。 */
   resize(width: number, height: number, backbufferWidth: number, backbufferHeight: number): void {
     if (!this.canvas) {
       return;
@@ -53,6 +59,7 @@ export class LegacyCanvasTextRendererAdapter {
     this.renderer.setTargetingOverlay(scene.overlays.targeting);
     this.renderer.setSenseQiOverlay(scene.overlays.senseQi);
     this.renderer.setGroundPiles(scene.groundPiles);
+/** settleEntityId：定义该变量以承载业务值。 */
     const settleEntityId = transition?.settleMotion === true ? scene.player?.id : undefined;
     this.renderer.updateEntities(
       scene.entities,
@@ -65,6 +72,7 @@ export class LegacyCanvasTextRendererAdapter {
     );
   }
 
+/** enqueueEffect：执行对应的业务逻辑。 */
   enqueueEffect(effect: CombatEffect): void {
     if (effect.type === 'attack') {
       this.renderer.addAttackTrail(effect.fromX, effect.fromY, effect.toX, effect.toY, effect.color);
@@ -92,6 +100,7 @@ export class LegacyCanvasTextRendererAdapter {
     );
   }
 
+/** resetScene：执行对应的业务逻辑。 */
   resetScene(): void {
     this.renderer.resetScene();
     this.renderer.setPathHighlight([]);
@@ -112,6 +121,7 @@ export class LegacyCanvasTextRendererAdapter {
     this.cameraBridge.x = camera.x;
     this.cameraBridge.y = camera.y;
     this.cameraBridge.worldToScreen = (wx, wy, screenW, screenH) => {
+/** point：定义该变量以承载业务值。 */
         const point = projection.worldToScreen(wx, wy, camera, screenW, screenH);
         return {
           sx: point.x,
@@ -140,10 +150,12 @@ export class LegacyCanvasTextRendererAdapter {
     this.renderer.renderFloatingTexts(this.cameraBridge);
   }
 
+/** getCanvas：执行对应的业务逻辑。 */
   getCanvas(): HTMLCanvasElement | null {
     return this.canvas;
   }
 
+/** resolveActionTextStyle：执行对应的业务逻辑。 */
   private resolveActionTextStyle(effect: Extract<CombatEffect, { type: 'float' }>): FloatingActionTextStyle | undefined {
     if (effect.variant !== 'action') {
       return undefined;

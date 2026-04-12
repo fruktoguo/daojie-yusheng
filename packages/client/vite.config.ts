@@ -27,14 +27,20 @@ function createBuildVersionPlugin(buildId: string, builtAt: string): Plugin {
 }
 
 export default defineConfig(({ mode }) => {
+/** env：定义该变量以承载业务值。 */
   const env = loadEnv(mode, __dirname, '');
+/** proxyTarget：定义该变量以承载业务值。 */
   const proxyTarget = env.VITE_DEV_PROXY_TARGET?.trim();
+/** builtAt：定义该变量以承载业务值。 */
   const builtAt = new Date().toISOString();
+/** buildId：定义该变量以承载业务值。 */
   const buildId = createHash('sha1').update(`${mode}:${builtAt}`).digest('hex').slice(0, 12);
+/** clientInputs：定义该变量以承载业务值。 */
   const clientInputs: Record<string, string> = {
     main: path.resolve(__dirname, 'index.html'),
     gm: path.resolve(__dirname, 'gm.html'),
   };
+/** gmV2Entry：定义该变量以承载业务值。 */
   const gmV2Entry = path.resolve(__dirname, 'gm-v2.html');
 
   if (existsSync(gmV2Entry)) {

@@ -107,6 +107,7 @@ type QuantifiableFormulaVar =
   | 'caster.stat.maxQi'
   | `caster.stat.${typeof NUMERIC_SCALAR_STAT_KEYS[number]}`;
 
+/** FORMULA_VAR_VALUE_UNITS：定义该变量以承载业务值。 */
 const FORMULA_VAR_VALUE_UNITS: Partial<Record<QuantifiableFormulaVar, number>> = {
   'caster.maxHp': NUMERIC_STAT_POINTS_PER_VALUE.maxHp,
   'caster.maxQi': NUMERIC_STAT_POINTS_PER_VALUE.maxQi,
@@ -142,50 +143,71 @@ const FORMULA_VAR_VALUE_UNITS: Partial<Record<QuantifiableFormulaVar, number>> =
   'caster.stat.extraArea': NUMERIC_STAT_POINTS_PER_VALUE.extraArea,
 };
 
+/** MULTIPLIER_BASELINE：定义该变量以承载业务值。 */
 const MULTIPLIER_BASELINE = 100;
+/** BUFF_DURATION_BASELINE：定义该变量以承载业务值。 */
 const BUFF_DURATION_BASELINE = 10;
+/** BUFF_DURATION_SHORT_EXPONENT：定义该变量以承载业务值。 */
 const BUFF_DURATION_SHORT_EXPONENT = 0.5;
+/** BUFF_DURATION_LONG_LOG_FACTOR：定义该变量以承载业务值。 */
 const BUFF_DURATION_LONG_LOG_FACTOR = 1.5;
+/** BUFF_DURATION_MAX_MULTIPLIER：定义该变量以承载业务值。 */
 const BUFF_DURATION_MAX_MULTIPLIER = 8;
 
 /** 价值分解条目 */
 export interface ValueBreakdownEntry {
+/** kind：定义该变量以承载业务值。 */
   kind: 'attr' | 'stat' | 'element' | 'skill' | 'buff' | 'technique';
+/** key：定义该变量以承载业务值。 */
   key: string;
+/** amount：定义该变量以承载业务值。 */
   amount: number;
+/** quantifiedValue：定义该变量以承载业务值。 */
   quantifiedValue: number;
   note?: string;
 }
 
 /** 价值汇总结果 */
 export interface ValueSummary {
+/** quantifiedValue：定义该变量以承载业务值。 */
   quantifiedValue: number;
+/** breakdown：定义该变量以承载业务值。 */
   breakdown: ValueBreakdownEntry[];
+/** unquantified：定义该变量以承载业务值。 */
   unquantified: string[];
 }
 
 /** 装备价值汇总（区分基准价值与实际价值） */
 export interface EquipmentValueSummary extends ValueSummary {
+/** baseQuantifiedValue：定义该变量以承载业务值。 */
   baseQuantifiedValue: number;
+/** actualQuantifiedValue：定义该变量以承载业务值。 */
   actualQuantifiedValue: number;
 }
 
 /** 技能价值汇总（含基础价值和乘区倍率） */
 export interface SkillValueSummary extends ValueSummary {
+/** baseQuantifiedValue：定义该变量以承载业务值。 */
   baseQuantifiedValue: number;
+/** multiplier：定义该变量以承载业务值。 */
   multiplier: number;
 }
 
 /** FormulaQuantification：定义该类型的结构与数据语义。 */
 type FormulaQuantification = {
+/** quantifiedValue：定义该变量以承载业务值。 */
   quantifiedValue: number;
+/** unquantified：定义该变量以承载业务值。 */
   unquantified: string[];
 };
 
 /** MultiplierEvaluation：定义该类型的结构与数据语义。 */
 type MultiplierEvaluation = {
+/** ok：定义该变量以承载业务值。 */
   ok: boolean;
+/** value：定义该变量以承载业务值。 */
   value: number;
+/** containsVariable：定义该变量以承载业务值。 */
   containsVariable: boolean;
 };
 
@@ -228,6 +250,7 @@ function formatNumber(value: number): string {
   return value.toFixed(2).replace(/\.?0+$/, '');
 }
 
+/** UNLIMITED_STACK_DISPLAY_THRESHOLD：定义该变量以承载业务值。 */
 const UNLIMITED_STACK_DISPLAY_THRESHOLD = 1_000_000;
 
 /** formatBuffMaxStacks：执行对应的业务逻辑。 */
@@ -251,6 +274,7 @@ export function compileValueStatsToActualStats(valueStats?: PartialNumericStats)
     return undefined;
   }
 
+/** actual：定义该变量以承载业务值。 */
   const actual: PartialNumericStats = {};
   for (const key of NUMERIC_SCALAR_STAT_KEYS) {
     const amount = valueStats[key];
@@ -262,6 +286,7 @@ export function compileValueStatsToActualStats(valueStats?: PartialNumericStats)
   }
 
   if (valueStats.elementDamageBonus) {
+/** elementBonus：定义该变量以承载业务值。 */
     const elementBonus: NonNullable<PartialNumericStats['elementDamageBonus']> = {};
     for (const element of ELEMENT_KEYS) {
       const amount = valueStats.elementDamageBonus[element];
@@ -276,6 +301,7 @@ export function compileValueStatsToActualStats(valueStats?: PartialNumericStats)
   }
 
   if (valueStats.elementDamageReduce) {
+/** elementReduce：定义该变量以承载业务值。 */
     const elementReduce: NonNullable<PartialNumericStats['elementDamageReduce']> = {};
     for (const element of ELEMENT_KEYS) {
       const amount = valueStats.elementDamageReduce[element];
@@ -294,6 +320,7 @@ export function compileValueStatsToActualStats(valueStats?: PartialNumericStats)
 
 /** calculateConfiguredValueStatsValue：执行对应的业务逻辑。 */
 export function calculateConfiguredValueStatsValue(valueStats?: PartialNumericStats): ValueSummary {
+/** breakdown：定义该变量以承载业务值。 */
   const breakdown: ValueBreakdownEntry[] = [];
   if (valueStats) {
     for (const key of NUMERIC_SCALAR_STAT_KEYS) {
@@ -306,6 +333,7 @@ export function calculateConfiguredValueStatsValue(valueStats?: PartialNumericSt
         key,
         amount,
         quantifiedValue: amount,
+/** note：定义该变量以承载业务值。 */
         note: '配置值 1 = 1 价值',
       });
     }
@@ -317,9 +345,11 @@ export function calculateConfiguredValueStatsValue(valueStats?: PartialNumericSt
           key: `elementDamageBonus.${element}`,
           amount: bonus,
           quantifiedValue: bonus,
+/** note：定义该变量以承载业务值。 */
           note: '配置值 1 = 1 价值',
         });
       }
+/** reduce：定义该变量以承载业务值。 */
       const reduce = valueStats.elementDamageReduce?.[element] ?? 0;
       if (reduce) {
         breakdown.push({
@@ -327,6 +357,7 @@ export function calculateConfiguredValueStatsValue(valueStats?: PartialNumericSt
           key: `elementDamageReduce.${element}`,
           amount: reduce,
           quantifiedValue: reduce,
+/** note：定义该变量以承载业务值。 */
           note: '配置值 1 = 1 价值',
         });
       }
@@ -337,6 +368,7 @@ export function calculateConfiguredValueStatsValue(valueStats?: PartialNumericSt
 
 /** getAttrLabel：执行对应的业务逻辑。 */
 function getAttrLabel(key: string): string {
+/** labels：定义该变量以承载业务值。 */
   const labels: Record<string, string> = {
     constitution: '体魄',
     spirit: '神识',
@@ -350,6 +382,7 @@ function getAttrLabel(key: string): string {
 
 /** getNumericStatLabel：执行对应的业务逻辑。 */
 function getNumericStatLabel(key: string): string {
+/** labels：定义该变量以承载业务值。 */
   const labels: Record<string, string> = {
     maxHp: '最大生命',
     maxQi: '最大灵力',
@@ -386,12 +419,14 @@ function getNumericStatLabel(key: string): string {
 
 /** getEquipmentLevelLinearMultiplier：执行对应的业务逻辑。 */
 function getEquipmentLevelLinearMultiplier(level: number | undefined): number {
+/** normalizedLevel：定义该变量以承载业务值。 */
   const normalizedLevel = Math.max(1, Math.floor(level ?? 1));
   return 1 + (normalizedLevel - 1) * 0.1;
 }
 
 /** getEquipmentLevelExponentialMultiplier：执行对应的业务逻辑。 */
 function getEquipmentLevelExponentialMultiplier(level: number | undefined): number {
+/** normalizedLevel：定义该变量以承载业务值。 */
   const normalizedLevel = Math.max(1, Math.floor(level ?? 1));
   return Math.pow(1.1, normalizedLevel - 1);
 }
@@ -403,6 +438,7 @@ function isExponentialEquipmentStat(key: typeof NUMERIC_SCALAR_STAT_KEYS[number]
 
 /** getEquipmentGradeMultiplier：执行对应的业务逻辑。 */
 function getEquipmentGradeMultiplier(grade: TechniqueGrade | undefined): number {
+/** gradeIndex：定义该变量以承载业务值。 */
   const gradeIndex = Math.max(0, TECHNIQUE_GRADE_ORDER.indexOf(grade ?? 'mortal'));
   return 2 ** gradeIndex;
 }
@@ -412,6 +448,7 @@ function scaleAttributes(attrs: Partial<Attributes> | undefined, multiplier: num
   if (!attrs) {
     return undefined;
   }
+/** scaled：定义该变量以承载业务值。 */
   const scaled: Partial<Attributes> = {};
   for (const key of Object.keys(ATTRIBUTE_VALUE_PER_POINT) as AttrKey[]) {
     const amount = attrs[key];
@@ -433,12 +470,14 @@ function scaleNumericStats(
     return undefined;
   }
 
+/** scaled：定义该变量以承载业务值。 */
   const scaled: PartialNumericStats = {};
   for (const key of NUMERIC_SCALAR_STAT_KEYS) {
     const amount = stats[key];
     if (!amount) {
       continue;
     }
+/** levelMultiplier：定义该变量以承载业务值。 */
     const levelMultiplier = isExponentialEquipmentStat(key)
       ? getEquipmentLevelExponentialMultiplier(level)
       : getEquipmentLevelLinearMultiplier(level);
@@ -446,7 +485,9 @@ function scaleNumericStats(
   }
 
   if (stats.elementDamageBonus) {
+/** scaledBonus：定义该变量以承载业务值。 */
     const scaledBonus: NonNullable<PartialNumericStats['elementDamageBonus']> = {};
+/** levelMultiplier：定义该变量以承载业务值。 */
     const levelMultiplier = getEquipmentLevelLinearMultiplier(level);
     for (const element of ELEMENT_KEYS) {
       const amount = stats.elementDamageBonus[element];
@@ -461,7 +502,9 @@ function scaleNumericStats(
   }
 
   if (stats.elementDamageReduce) {
+/** scaledReduce：定义该变量以承载业务值。 */
     const scaledReduce: NonNullable<PartialNumericStats['elementDamageReduce']> = {};
+/** levelMultiplier：定义该变量以承载业务值。 */
     const levelMultiplier = getEquipmentLevelLinearMultiplier(level);
     for (const element of ELEMENT_KEYS) {
       const amount = stats.elementDamageReduce[element];
@@ -483,6 +526,7 @@ function sumAttributePoints(attrs: Partial<Attributes> | undefined): number {
   if (!attrs) {
     return 0;
   }
+/** total：定义该变量以承载业务值。 */
   let total = 0;
   for (const key of Object.keys(ATTRIBUTE_VALUE_PER_POINT) as AttrKey[]) {
     total += attrs[key] ?? 0;
@@ -515,6 +559,7 @@ function describeAttrBonus(attrs?: Partial<Attributes>, mode: 'flat' | 'percent'
   if (!attrs) {
     return [];
   }
+/** parts：定义该变量以承载业务值。 */
   const parts: string[] = [];
   for (const key of Object.keys(ATTRIBUTE_VALUE_PER_POINT) as AttrKey[]) {
     const amount = attrs[key];
@@ -531,6 +576,7 @@ function describeStatBonus(stats?: PartialNumericStats, mode: 'flat' | 'percent'
   if (!stats) {
     return [];
   }
+/** parts：定义该变量以承载业务值。 */
   const parts: string[] = [];
   for (const key of NUMERIC_SCALAR_STAT_KEYS) {
     const amount = stats[key];
@@ -544,6 +590,7 @@ function describeStatBonus(stats?: PartialNumericStats, mode: 'flat' | 'percent'
     if (bonus) {
       parts.push(`${element}行增伤+${mode === 'percent' ? `${formatNumber(bonus)}%` : formatNumber(bonus)}`);
     }
+/** reduce：定义该变量以承载业务值。 */
     const reduce = stats.elementDamageReduce?.[element];
     if (reduce) {
       parts.push(`${element}行减伤+${mode === 'percent' ? `${formatNumber(reduce)}%` : formatNumber(reduce)}`);
@@ -554,10 +601,12 @@ function describeStatBonus(stats?: PartialNumericStats, mode: 'flat' | 'percent'
 
 /** describeEquipmentConditions：执行对应的业务逻辑。 */
 function describeEquipmentConditions(effect: EquipmentEffectDef): string {
+/** conditions：定义该变量以承载业务值。 */
   const conditions = effect.conditions?.items ?? [];
   if (conditions.length === 0) {
     return '';
   }
+/** parts：定义该变量以承载业务值。 */
   const parts = conditions.map((condition) => {
     switch (condition.type) {
       case 'time_segment':
@@ -583,6 +632,7 @@ function describeEquipmentConditions(effect: EquipmentEffectDef): string {
 
 /** getEquipmentTriggerLabel：执行对应的业务逻辑。 */
 function getEquipmentTriggerLabel(trigger: string): string {
+/** labels：定义该变量以承载业务值。 */
   const labels: Record<string, string> = {
     on_equip: '装备时',
     on_unequip: '卸下时',
@@ -601,6 +651,7 @@ function getEquipmentTriggerLabel(trigger: string): string {
 
 /** describeEquipmentEffect：执行对应的业务逻辑。 */
 function describeEquipmentEffect(effect: EquipmentEffectDef): string {
+/** conditionText：定义该变量以承载业务值。 */
   const conditionText = describeEquipmentConditions(effect);
   switch (effect.type) {
     case 'stat_aura':
@@ -608,14 +659,18 @@ function describeEquipmentEffect(effect: EquipmentEffectDef): string {
     case 'progress_boost':
       return `推进特效:${[...describeAttrBonus(effect.attrs, effect.attrMode), ...describeStatBonus(effect.stats, effect.statMode)].join(' / ') || '无数值变化'}${conditionText}`;
     case 'periodic_cost': {
+/** amount：定义该变量以承载业务值。 */
       const amount = effect.mode === 'flat'
         ? formatNumber(effect.value)
         : `${formatNumber(effect.value / 100)}% ${effect.mode === 'max_ratio_bp' ? '最大' : '当前'}${effect.resource === 'hp' ? '生命' : '灵力'}`;
+/** triggerLabel：定义该变量以承载业务值。 */
       const triggerLabel = effect.trigger === 'on_cultivation_tick' ? '修炼时每息' : '每息';
       return `持续代价:${triggerLabel}损失 ${amount}${conditionText}`;
     }
     case 'timed_buff': {
+/** stackLimit：定义该变量以承载业务值。 */
       const stackLimit = formatBuffMaxStacks(effect.buff.maxStacks);
+/** metaParts：定义该变量以承载业务值。 */
       const metaParts = [
         getEquipmentTriggerLabel(effect.trigger),
         effect.target === 'target' ? '目标' : '自身',
@@ -630,7 +685,9 @@ function describeEquipmentEffect(effect: EquipmentEffectDef): string {
       if (effect.chance !== undefined) {
         metaParts.push(`概率${formatNumber(effect.chance * 100)}%`);
       }
+/** effectParts：定义该变量以承载业务值。 */
       const effectParts = [...describeAttrBonus(effect.buff.attrs, effect.buff.attrMode), ...describeStatBonus(effect.buff.stats, effect.buff.statMode)];
+/** descPart：定义该变量以承载业务值。 */
       const descPart = effect.buff.desc ? `；${effect.buff.desc}` : '';
       return `触发特效:${metaParts.join(' · ')}，获得${effect.buff.name}${conditionText}${effectParts.length > 0 ? `，效果:${effectParts.join(' / ')}` : ''}${descPart}`;
     }
@@ -639,6 +696,7 @@ function describeEquipmentEffect(effect: EquipmentEffectDef): string {
 
 /** getFormulaVarLabel：执行对应的业务逻辑。 */
 function getFormulaVarLabel(variable: SkillFormulaVar): string {
+/** labels：定义该变量以承载业务值。 */
   const labels: Partial<Record<SkillFormulaVar, string>> = {
     techLevel: '功法层数',
     targetCount: '目标数量',
@@ -718,6 +776,7 @@ function quantifyFormulaVar(variable: SkillFormulaVar, scale: number): FormulaQu
     };
   }
 
+/** pointsPerValue：定义该变量以承载业务值。 */
   const pointsPerValue = getFormulaVarPointsPerValue(variable);
   if (!pointsPerValue) {
     return {
@@ -738,6 +797,7 @@ function evaluateMultiplierWithBaseline(formula: SkillFormula, baseline: number)
     return { ok: true, value: formula, containsVariable: false };
   }
   if ('var' in formula) {
+/** pointsPerValue：定义该变量以承载业务值。 */
     const pointsPerValue = getFormulaVarPointsPerValue(formula.var);
     if (!pointsPerValue || Math.abs(formula.scale ?? 1) > 0.01 + 1e-9) {
       return { ok: false, value: 0, containsVariable: false };
@@ -752,12 +812,15 @@ function evaluateMultiplierWithBaseline(formula: SkillFormula, baseline: number)
     return { ok: false, value: 0, containsVariable: false };
   }
 
+/** parts：定义该变量以承载业务值。 */
   const parts = formula.args.map((entry) => evaluateMultiplierWithBaseline(entry, baseline));
   if (parts.some((entry) => !entry.ok)) {
     return { ok: false, value: 0, containsVariable: false };
   }
 
+/** values：定义该变量以承载业务值。 */
   const values = parts.map((entry) => entry.value);
+/** containsVariable：定义该变量以承载业务值。 */
   const containsVariable = parts.some((entry) => entry.containsVariable);
   switch (formula.op) {
     case 'add':
@@ -782,7 +845,9 @@ function tryExtractMultiplier(formula: SkillFormula): number | null {
   if (typeof formula === 'number') {
     return formula;
   }
+/** zero：定义该变量以承载业务值。 */
   const zero = evaluateMultiplierWithBaseline(formula, 0);
+/** baseline：定义该变量以承载业务值。 */
   const baseline = evaluateMultiplierWithBaseline(formula, MULTIPLIER_BASELINE);
   if (!zero.ok || !baseline.ok) {
     return null;
@@ -809,9 +874,11 @@ function quantifySkillFormula(formula: SkillFormula): SkillValueSummary {
   }
 
   if ('var' in formula) {
+/** quantified：定义该变量以承载业务值。 */
     const quantified = quantifyFormulaVar(formula.var, formula.scale ?? 1);
     return {
       quantifiedValue: roundValue(quantified.quantifiedValue),
+/** breakdown：定义该变量以承载业务值。 */
       breakdown: quantified.quantifiedValue === 0 ? [] : [{
         kind: 'skill',
         key: formula.var,
@@ -825,7 +892,9 @@ function quantifySkillFormula(formula: SkillFormula): SkillValueSummary {
   }
 
   if (formula.op === 'add') {
+/** parts：定义该变量以承载业务值。 */
     const parts = formula.args.map((entry) => quantifySkillFormula(entry));
+/** breakdown：定义该变量以承载业务值。 */
     const breakdown = parts.flatMap((entry) => entry.breakdown);
     return {
       quantifiedValue: roundValue(parts.reduce((sum, entry) => sum + entry.quantifiedValue, 0)),
@@ -837,7 +906,9 @@ function quantifySkillFormula(formula: SkillFormula): SkillValueSummary {
   }
 
   if (formula.op === 'mul') {
+/** multiplier：定义该变量以承载业务值。 */
     let multiplier = 1;
+/** bodyParts：定义该变量以承载业务值。 */
     const bodyParts: SkillValueSummary[] = [];
 
     for (const arg of formula.args) {
@@ -850,12 +921,14 @@ function quantifySkillFormula(formula: SkillFormula): SkillValueSummary {
     }
 
     if (bodyParts.length === 1) {
+/** body：定义该变量以承载业务值。 */
       const body = bodyParts[0];
       return {
         quantifiedValue: roundValue(body.quantifiedValue * multiplier),
         breakdown: body.breakdown.map((entry) => ({
           ...entry,
           quantifiedValue: entry.quantifiedValue * multiplier,
+/** note：定义该变量以承载业务值。 */
           note: multiplier !== 1 ? `乘区 x${formatNumber(multiplier)}` : entry.note,
         })),
         unquantified: body.unquantified,
@@ -874,16 +947,21 @@ function quantifySkillFormula(formula: SkillFormula): SkillValueSummary {
       };
     }
 
+/** quantifiedBodies：定义该变量以承载业务值。 */
     const quantifiedBodies = bodyParts.filter((entry) => entry.breakdown.length > 0 || entry.quantifiedValue !== 0 || entry.baseQuantifiedValue !== 0);
+/** multiplierLikeBodies：定义该变量以承载业务值。 */
     const multiplierLikeBodies = bodyParts.filter((entry) => !quantifiedBodies.includes(entry));
     if (quantifiedBodies.length === 1) {
+/** body：定义该变量以承载业务值。 */
       const body = quantifiedBodies[0];
+/** multiplierUnquantified：定义该变量以承载业务值。 */
       const multiplierUnquantified = uniqueStrings(multiplierLikeBodies.flatMap((entry) => entry.unquantified));
       return {
         quantifiedValue: roundValue(body.quantifiedValue * multiplier),
         breakdown: body.breakdown.map((entry) => ({
           ...entry,
           quantifiedValue: entry.quantifiedValue * multiplier,
+/** note：定义该变量以承载业务值。 */
           note: multiplier !== 1 ? `乘区 x${formatNumber(multiplier)}` : entry.note,
         })),
         unquantified: uniqueStrings([...body.unquantified, ...multiplierUnquantified]),
@@ -902,8 +980,11 @@ function quantifySkillFormula(formula: SkillFormula): SkillValueSummary {
   }
 
   if (formula.op === 'sub') {
+/** parts：定义该变量以承载业务值。 */
     const parts = formula.args.map((entry) => quantifySkillFormula(entry));
+/** base：定义该变量以承载业务值。 */
     const base = parts[0];
+/** deducted：定义该变量以承载业务值。 */
     const deducted = parts.slice(1).reduce((sum, entry) => sum + entry.quantifiedValue, 0);
     return {
       quantifiedValue: roundValue((base?.quantifiedValue ?? 0) - deducted),
@@ -925,6 +1006,7 @@ function quantifySkillFormula(formula: SkillFormula): SkillValueSummary {
 
 /** 计算六维属性的价值 */
 export function calculateAttributesValue(attrs?: Partial<Attributes>): ValueSummary {
+/** breakdown：定义该变量以承载业务值。 */
   const breakdown: ValueBreakdownEntry[] = [];
   if (attrs) {
     for (const key of Object.keys(ATTRIBUTE_VALUE_PER_POINT) as AttrKey[]) {
@@ -944,17 +1026,20 @@ export function calculateAttributesValue(attrs?: Partial<Attributes>): ValueSumm
 
 /** 计算数值属性的价值 */
 export function calculateNumericStatsValue(stats?: PartialNumericStats): ValueSummary {
+/** breakdown：定义该变量以承载业务值。 */
   const breakdown: ValueBreakdownEntry[] = [];
   if (stats) {
     for (const key of NUMERIC_SCALAR_STAT_KEYS) {
       const amount = stats[key] ?? 0;
       if (!amount) continue;
+/** pointsPerValue：定义该变量以承载业务值。 */
       const pointsPerValue = NUMERIC_STAT_POINTS_PER_VALUE[key];
       breakdown.push({
         kind: 'stat',
         key,
         amount,
         quantifiedValue: amount / pointsPerValue,
+/** note：定义该变量以承载业务值。 */
         note: `${pointsPerValue} 点 = 1 价值`,
       });
     }
@@ -966,9 +1051,11 @@ export function calculateNumericStatsValue(stats?: PartialNumericStats): ValueSu
           key: `elementDamageBonus.${element}`,
           amount: bonus,
           quantifiedValue: bonus,
+/** note：定义该变量以承载业务值。 */
           note: '按 1 点 = 1 价值',
         });
       }
+/** reduce：定义该变量以承载业务值。 */
       const reduce = stats.elementDamageReduce?.[element] ?? 0;
       if (reduce) {
         breakdown.push({
@@ -976,6 +1063,7 @@ export function calculateNumericStatsValue(stats?: PartialNumericStats): ValueSu
           key: `elementDamageReduce.${element}`,
           amount: reduce,
           quantifiedValue: reduce,
+/** note：定义该变量以承载业务值。 */
           note: '按 1 点 = 1 价值',
         });
       }
@@ -986,7 +1074,9 @@ export function calculateNumericStatsValue(stats?: PartialNumericStats): ValueSu
 
 /** 计算属性加成来源的价值（六维 + 数值） */
 export function calculateAttrBonusValue(bonus: Pick<AttrBonus, 'attrs' | 'stats'>): ValueSummary {
+/** attrSummary：定义该变量以承载业务值。 */
   const attrSummary = calculateAttributesValue(bonus.attrs);
+/** statSummary：定义该变量以承载业务值。 */
   const statSummary = calculateNumericStatsValue(bonus.stats);
   return finalizeSummary(
     [...attrSummary.breakdown, ...statSummary.breakdown],
@@ -1000,33 +1090,47 @@ export function calculateEquipmentValue(
     equipValueStats?: PartialNumericStats;
   },
 ): EquipmentValueSummary {
+/** baseAttrSummary：定义该变量以承载业务值。 */
   const baseAttrSummary = calculateAttributesValue(item.equipAttrs ?? {});
+/** baseStatSummary：定义该变量以承载业务值。 */
   const baseStatSummary = item.equipValueStats
     ? calculateConfiguredValueStatsValue(item.equipValueStats)
     : calculateNumericStatsValue(item.equipStats);
+/** baseSummary：定义该变量以承载业务值。 */
   const baseSummary = finalizeSummary(
     [...baseAttrSummary.breakdown, ...baseStatSummary.breakdown],
     [...baseAttrSummary.unquantified, ...baseStatSummary.unquantified],
   );
 
+/** gradeMultiplier：定义该变量以承载业务值。 */
   const gradeMultiplier = getEquipmentGradeMultiplier(item.grade);
+/** scaledAttrs：定义该变量以承载业务值。 */
   const scaledAttrs = scaleAttributes(item.equipAttrs, gradeMultiplier);
+/** actualBaseStats：定义该变量以承载业务值。 */
   const actualBaseStats = item.equipValueStats
     ? compileValueStatsToActualStats(item.equipValueStats)
     : item.equipStats;
+/** scaledStats：定义该变量以承载业务值。 */
   const scaledStats = scaleNumericStats(actualBaseStats, gradeMultiplier, item.level);
+/** attrPoints：定义该变量以承载业务值。 */
   const attrPoints = sumAttributePoints(scaledAttrs);
+/** attrValueMultiplier：定义该变量以承载业务值。 */
   const attrValueMultiplier = 1 + attrPoints * 0.03;
 
+/** actualAttrSummary：定义该变量以承载业务值。 */
   const actualAttrSummary = calculateAttributesValue(scaledAttrs);
+/** actualStatSummary：定义该变量以承载业务值。 */
   const actualStatSummary = calculateNumericStatsValue(scaledStats);
+/** actualBreakdown：定义该变量以承载业务值。 */
   const actualBreakdown = [...actualAttrSummary.breakdown, ...actualStatSummary.breakdown]
     .map((entry) => ({
       ...entry,
       quantifiedValue: entry.quantifiedValue * attrValueMultiplier,
       note: `${entry.note ?? '装备价值'}；六维乘区 x${formatNumber(attrValueMultiplier)}`,
     }));
+/** effectDescriptions：定义该变量以承载业务值。 */
   const effectDescriptions = (item.effects ?? []).map((effect) => describeEquipmentEffect(effect));
+/** summary：定义该变量以承载业务值。 */
   const summary = finalizeSummary(actualBreakdown, effectDescriptions);
   return {
     ...summary,
@@ -1040,17 +1144,21 @@ export function calculateEquipmentValue(
 export function calculateBuffValue(
   effect: Pick<SkillBuffEffectDef, 'buffId' | 'name' | 'desc' | 'duration' | 'attrs' | 'stats'>,
 ): ValueSummary {
+/** duration：定义该变量以承载业务值。 */
   const duration = Math.max(1, effect.duration);
+/** durationMultiplier：定义该变量以承载业务值。 */
   const durationMultiplier = duration <= BUFF_DURATION_BASELINE
     ? Math.pow(duration / BUFF_DURATION_BASELINE, BUFF_DURATION_SHORT_EXPONENT)
     : Math.min(
         BUFF_DURATION_MAX_MULTIPLIER,
         1 + BUFF_DURATION_LONG_LOG_FACTOR * Math.log(duration / BUFF_DURATION_BASELINE),
       );
+/** summary：定义该变量以承载业务值。 */
   const summary = calculateAttrBonusValue({
     attrs: effect.attrs ?? {},
     stats: effect.stats,
   });
+/** breakdown：定义该变量以承载业务值。 */
   const breakdown = summary.breakdown.map((entry) => ({
     ...entry,
     kind: 'buff' as const,
@@ -1058,6 +1166,7 @@ export function calculateBuffValue(
     quantifiedValue: entry.quantifiedValue * durationMultiplier,
     note: `持续 ${duration} 息，折算 x${formatNumber(durationMultiplier)}`,
   }));
+/** unquantified：定义该变量以承载业务值。 */
   const unquantified = [...summary.unquantified];
   if (effect.desc) {
     unquantified.push(effect.desc);
@@ -1067,9 +1176,13 @@ export function calculateBuffValue(
 
 /** 计算技能的价值（含伤害公式量化） */
 export function calculateSkillValue(skill: Pick<SkillDef, 'id' | 'name' | 'desc' | 'cost' | 'cooldown' | 'effects'>): SkillValueSummary {
+/** breakdown：定义该变量以承载业务值。 */
   const breakdown: ValueBreakdownEntry[] = [];
+/** unquantified：定义该变量以承载业务值。 */
   const unquantified: string[] = [];
+/** baseQuantifiedValue：定义该变量以承载业务值。 */
   let baseQuantifiedValue = 0;
+/** multiplier：定义该变量以承载业务值。 */
   let multiplier = 1;
 
   for (const effect of skill.effects) {
@@ -1083,6 +1196,7 @@ export function calculateSkillValue(skill: Pick<SkillDef, 'id' | 'name' | 'desc'
     }
   }
 
+/** summary：定义该变量以承载业务值。 */
   const summary = finalizeSummary(breakdown, unquantified);
   return {
     quantifiedValue: summary.quantifiedValue,
@@ -1100,7 +1214,9 @@ export function calculateTechniqueLayerValue(layer: TechniqueLayerDef): ValueSum
 
 /** 计算功法在当前层数下的总价值 */
 export function calculateTechniqueValue(technique: Pick<TechniqueState, 'level' | 'layers' | 'attrCurves'>): ValueSummary {
+/** attrs：定义该变量以承载业务值。 */
   const attrs = calcTechniqueAttrValues(technique.level, technique.layers, technique.attrCurves);
+/** summary：定义该变量以承载业务值。 */
   const summary = calculateAttributesValue(attrs);
   return finalizeSummary(
     summary.breakdown.map((entry) => ({

@@ -50,10 +50,12 @@ export class AccountController {
 
   /** 从 Authorization header 提取并校验用户 ID */
   private requireUserId(authorization: string | undefined): string {
+/** token：定义该变量以承载业务值。 */
     const token = authorization?.startsWith('Bearer ') ? authorization.slice('Bearer '.length).trim() : '';
     if (!token) {
       throw new UnauthorizedException('未登录');
     }
+/** payload：定义该变量以承载业务值。 */
     const payload = this.authService.validateToken(token);
     if (!payload) {
       throw new UnauthorizedException('登录已失效');

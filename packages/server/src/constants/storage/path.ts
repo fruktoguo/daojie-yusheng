@@ -4,6 +4,7 @@
 
 import * as path from 'path';
 
+/** STATIC_SERVER_DATA_DIR：定义该变量以承载业务值。 */
 const STATIC_SERVER_DATA_DIR = path.resolve(__dirname, '..', '..', '..', 'data');
 
 /** data 目录候选路径，按优先级排序。 */

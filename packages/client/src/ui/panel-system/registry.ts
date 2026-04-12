@@ -4,14 +4,17 @@ import { PanelDefinition, PanelId } from './types';
 export class PanelRegistry {
   private readonly definitions = new Map<PanelId, PanelDefinition>();
 
+/** register：执行对应的业务逻辑。 */
   register(definition: PanelDefinition): void {
     this.definitions.set(definition.id, definition);
   }
 
+/** get：执行对应的业务逻辑。 */
   get(id: PanelId): PanelDefinition | undefined {
     return this.definitions.get(id);
   }
 
+/** list：执行对应的业务逻辑。 */
   list(): PanelDefinition[] {
     return [...this.definitions.values()];
   }
@@ -19,7 +22,9 @@ export class PanelRegistry {
 
 /** buildDefaultPanelRegistry：执行对应的业务逻辑。 */
 export function buildDefaultPanelRegistry(): PanelRegistry {
+/** registry：定义该变量以承载业务值。 */
   const registry = new PanelRegistry();
+/** definitions：定义该变量以承载业务值。 */
   const definitions: PanelDefinition[] = [
     {
       id: 'hud',

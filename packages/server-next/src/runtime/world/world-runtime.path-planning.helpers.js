@@ -1,26 +1,36 @@
 "use strict";
+/** 模块实现文件，负责当前职责边界内的业务逻辑。 */
 Object.defineProperty(exports, "__esModule", { value: true });
+/** shared_1：定义该变量以承载业务值。 */
 const shared_1 = require("@mud/shared-next");
+/** map_template_repository_1：定义该变量以承载业务值。 */
 const map_template_repository_1 = require("../map/map-template.repository");
+/** DIRECTION_OFFSET：定义该变量以承载业务值。 */
 const DIRECTION_OFFSET = {
     [shared_1.Direction.North]: { x: 0, y: -1 },
     [shared_1.Direction.South]: { x: 0, y: 1 },
     [shared_1.Direction.East]: { x: 1, y: 0 },
     [shared_1.Direction.West]: { x: -1, y: 0 },
 };
+/** chebyshevDistance：执行对应的业务逻辑。 */
 function chebyshevDistance(leftX, leftY, rightX, rightY) {
     return Math.max(Math.abs(leftX - rightX), Math.abs(leftY - rightY));
 }
+/** isInBounds：执行对应的业务逻辑。 */
 function isInBounds(x, y, width, height) {
     return x >= 0 && y >= 0 && x < width && y < height;
 }
+/** selectNearestPortal：执行对应的业务逻辑。 */
 function selectNearestPortal(portals, targetMapId, fromX, fromY) {
+/** best：定义该变量以承载业务值。 */
     let best = null;
+/** bestDistance：定义该变量以承载业务值。 */
     let bestDistance = Number.POSITIVE_INFINITY;
     for (const portal of portals) {
         if (portal.targetMapId !== targetMapId) {
             continue;
         }
+/** distance：定义该变量以承载业务值。 */
         const distance = Math.abs(portal.x - fromX) + Math.abs(portal.y - fromY);
         if (distance < bestDistance) {
             best = portal;
@@ -29,12 +39,16 @@ function selectNearestPortal(portals, targetMapId, fromX, fromY) {
     }
     return best;
 }
+/** buildGoalPoints：执行对应的业务逻辑。 */
 function buildGoalPoints(instance, targetX, targetY, allowNearestReachable) {
     return buildGoalPointsFromTemplate(instance.template, targetX, targetY, allowNearestReachable);
 }
+/** buildGoalPointsFromTemplate：执行对应的业务逻辑。 */
 function buildGoalPointsFromTemplate(template, targetX, targetY, allowNearestReachable) {
+/** goals：定义该变量以承载业务值。 */
     const goals = [];
     if (isInBounds(targetX, targetY, template.width, template.height)) {
+/** tileIndex：定义该变量以承载业务值。 */
         const tileIndex = (0, map_template_repository_1.getTileIndex)(targetX, targetY, template.width);
         if (template.walkableMask[tileIndex] === 1) {
             goals.push({ x: targetX, y: targetY });
@@ -49,6 +63,7 @@ function buildGoalPointsFromTemplate(template, targetX, targetY, allowNearestRea
                 if (!isInBounds(x, y, template.width, template.height)) {
                     continue;
                 }
+/** tileIndex：定义该变量以承载业务值。 */
                 const tileIndex = (0, map_template_repository_1.getTileIndex)(x, y, template.width);
                 if (template.walkableMask[tileIndex] !== 1) {
                     continue;
@@ -63,18 +78,23 @@ function buildGoalPointsFromTemplate(template, targetX, targetY, allowNearestRea
     }
     return [];
 }
+/** buildAdjacentGoalPoints：执行对应的业务逻辑。 */
 function buildAdjacentGoalPoints(template, centerX, centerY) {
+/** goals：定义该变量以承载业务值。 */
     const goals = [];
     for (const direction of [shared_1.Direction.North, shared_1.Direction.South, shared_1.Direction.East, shared_1.Direction.West]) {
         const offset = DIRECTION_OFFSET[direction];
         if (!offset) {
             continue;
         }
+/** x：定义该变量以承载业务值。 */
         const x = centerX + offset.x;
+/** y：定义该变量以承载业务值。 */
         const y = centerY + offset.y;
         if (!isInBounds(x, y, template.width, template.height)) {
             continue;
         }
+/** tileIndex：定义该变量以承载业务值。 */
         const tileIndex = (0, map_template_repository_1.getTileIndex)(x, y, template.width);
         if (template.walkableMask[tileIndex] !== 1) {
             continue;
@@ -83,8 +103,11 @@ function buildAdjacentGoalPoints(template, centerX, centerY) {
     }
     return dedupeGoalPoints(goals);
 }
+/** dedupeGoalPoints：执行对应的业务逻辑。 */
 function dedupeGoalPoints(goals) {
+/** result：定义该变量以承载业务值。 */
     const result = [];
+/** seen：定义该变量以承载业务值。 */
     const seen = new Set();
     for (const goal of goals) {
         const key = `${goal.x},${goal.y}`;
@@ -96,7 +119,9 @@ function dedupeGoalPoints(goals) {
     }
     return result;
 }
+/** decodeClientPathHint：执行对应的业务逻辑。 */
 function decodeClientPathHint(packedPathInput, packedPathStepsInput, pathStartXInput, pathStartYInput) {
+/** packedPath：定义该变量以承载业务值。 */
     const packedPath = typeof packedPathInput === 'string' ? packedPathInput.trim() : '';
     if (!packedPath) {
         return null;
@@ -107,14 +132,20 @@ function decodeClientPathHint(packedPathInput, packedPathStepsInput, pathStartXI
     if (!Number.isFinite(pathStartXInput) || !Number.isFinite(pathStartYInput)) {
         return null;
     }
+/** startX：定义该变量以承载业务值。 */
     const startX = Math.trunc(Number(pathStartXInput));
+/** startY：定义该变量以承载业务值。 */
     const startY = Math.trunc(Number(pathStartYInput));
+/** directions：定义该变量以承载业务值。 */
     const directions = (0, shared_1.unpackDirections)(packedPath, Math.trunc(Number(packedPathStepsInput)));
     if (!directions || directions.length === 0) {
         return null;
     }
+/** points：定义该变量以承载业务值。 */
     const points = [];
+/** currentX：定义该变量以承载业务值。 */
     let currentX = startX;
+/** currentY：定义该变量以承载业务值。 */
     let currentY = startY;
     for (const direction of directions) {
         const offset = DIRECTION_OFFSET[direction];
@@ -131,22 +162,29 @@ function decodeClientPathHint(packedPathInput, packedPathStepsInput, pathStartXI
         points,
     };
 }
+/** resolveInitialRunLength：执行对应的业务逻辑。 */
 function resolveInitialRunLength(path, startX, startY, direction) {
     if (!Array.isArray(path) || path.length === 0) {
         return 1;
     }
+/** offset：定义该变量以承载业务值。 */
     const offset = DIRECTION_OFFSET[direction];
     if (!offset) {
         return 1;
     }
+/** previousX：定义该变量以承载业务值。 */
     let previousX = startX;
+/** previousY：定义该变量以承载业务值。 */
     let previousY = startY;
+/** length：定义该变量以承载业务值。 */
     let length = 0;
     for (const step of path) {
         if (!step || typeof step.x !== 'number' || typeof step.y !== 'number') {
             break;
         }
+/** deltaX：定义该变量以承载业务值。 */
         const deltaX = step.x - previousX;
+/** deltaY：定义该变量以承载业务值。 */
         const deltaY = step.y - previousY;
         if (deltaX !== offset.x || deltaY !== offset.y) {
             break;
@@ -157,8 +195,11 @@ function resolveInitialRunLength(path, startX, startY, direction) {
     }
     return Math.max(1, length);
 }
+/** buildPathingBlockMask：执行对应的业务逻辑。 */
 function buildPathingBlockMask(instance, playerId, goals, allowOccupiedGoals = true) {
+/** template：定义该变量以承载业务值。 */
     const template = instance.template;
+/** blocked：定义该变量以承载业务值。 */
     const blocked = new Uint8Array(template.width * template.height);
     instance.forEachPathingBlocker(playerId, (x, y) => {
         blocked[(0, map_template_repository_1.getTileIndex)(x, y, template.width)] = 1;
@@ -173,7 +214,9 @@ function buildPathingBlockMask(instance, playerId, goals, allowOccupiedGoals = t
     }
     return blocked;
 }
+/** computePathCost：执行对应的业务逻辑。 */
 function computePathCost(instance, path) {
+/** cost：定义该变量以承载业务值。 */
     let cost = 0;
     for (const point of path) {
         const stepCost = instance.getTileTraversalCost(point.x, point.y);
@@ -184,18 +227,22 @@ function computePathCost(instance, path) {
     }
     return cost;
 }
+/** buildCoordKey：执行对应的业务逻辑。 */
 function buildCoordKey(x, y) {
     return `${x},${y}`;
 }
+/** resolvePreferredClientPathHint：执行对应的业务逻辑。 */
 function resolvePreferredClientPathHint(instance, playerId, currentX, currentY, goals, clientPathHint) {
     if (!clientPathHint || !Array.isArray(clientPathHint.points) || clientPathHint.points.length === 0) {
         return null;
     }
+/** points：定义该变量以承载业务值。 */
     let points = clientPathHint.points;
     if (clientPathHint.startX === currentX && clientPathHint.startY === currentY) {
         points = clientPathHint.points.slice();
     }
     else {
+/** currentIndex：定义该变量以承载业务值。 */
         const currentIndex = clientPathHint.points.findIndex((point) => point.x === currentX && point.y === currentY);
         if (currentIndex < 0) {
             return null;
@@ -205,28 +252,38 @@ function resolvePreferredClientPathHint(instance, playerId, currentX, currentY, 
     if (points.length === 0) {
         return null;
     }
+/** template：定义该变量以承载业务值。 */
     const template = instance.template;
+/** goalKeys：定义该变量以承载业务值。 */
     const goalKeys = new Set(goals.map((goal) => buildCoordKey(goal.x, goal.y)));
+/** lastPoint：定义该变量以承载业务值。 */
     const lastPoint = points[points.length - 1];
     if (!goalKeys.has(buildCoordKey(lastPoint.x, lastPoint.y))) {
         return null;
     }
+/** blocked：定义该变量以承载业务值。 */
     const blocked = buildPathingBlockMask(instance, playerId, goals, true);
+/** previousX：定义该变量以承载业务值。 */
     let previousX = currentX;
+/** previousY：定义该变量以承载业务值。 */
     let previousY = currentY;
     for (const point of points) {
         if (!isInBounds(point.x, point.y, template.width, template.height)) {
             return null;
         }
+/** deltaX：定义该变量以承载业务值。 */
         const deltaX = point.x - previousX;
+/** deltaY：定义该变量以承载业务值。 */
         const deltaY = point.y - previousY;
         if (Math.abs(deltaX) + Math.abs(deltaY) !== 1) {
             return null;
         }
+/** tileIndex：定义该变量以承载业务值。 */
         const tileIndex = (0, map_template_repository_1.getTileIndex)(point.x, point.y, template.width);
         if (template.walkableMask[tileIndex] !== 1 || blocked[tileIndex] === 1) {
             return null;
         }
+/** stepCost：定义该变量以承载业务值。 */
         const stepCost = instance.getTileTraversalCost(point.x, point.y);
         if (!Number.isFinite(stepCost) || stepCost <= 0) {
             return null;
@@ -239,11 +296,14 @@ function resolvePreferredClientPathHint(instance, playerId, currentX, currentY, 
         cost: computePathCost(instance, points),
     };
 }
+/** findOptimalPathOnMap：执行对应的业务逻辑。 */
 function findOptimalPathOnMap(instance, playerId, startX, startY, goals, allowOccupiedGoals = true) {
     if (goals.length === 0) {
         return null;
     }
+/** template：定义该变量以承载业务值。 */
     const template = instance.template;
+/** goalIndices：定义该变量以承载业务值。 */
     const goalIndices = new Set();
     for (const goal of goals) {
         if (!isInBounds(goal.x, goal.y, template.width, template.height)) {
@@ -254,21 +314,29 @@ function findOptimalPathOnMap(instance, playerId, startX, startY, goals, allowOc
     if (goalIndices.size === 0) {
         return null;
     }
+/** blocked：定义该变量以承载业务值。 */
     const blocked = buildPathingBlockMask(instance, playerId, goals, allowOccupiedGoals);
+/** size：定义该变量以承载业务值。 */
     const size = template.width * template.height;
+/** bestCost：定义该变量以承载业务值。 */
     const bestCost = new Float64Array(size);
     bestCost.fill(Number.POSITIVE_INFINITY);
+/** previous：定义该变量以承载业务值。 */
     const previous = new Int32Array(size);
     previous.fill(-1);
+/** heap：定义该变量以承载业务值。 */
     const heap = [];
+/** startIndex：定义该变量以承载业务值。 */
     const startIndex = (0, map_template_repository_1.getTileIndex)(startX, startY, template.width);
     bestCost[startIndex] = 0;
     pushPathNode(heap, { index: startIndex, cost: 0 });
     while (heap.length > 0) {
+/** currentNode：定义该变量以承载业务值。 */
         const currentNode = popPathNode(heap);
         if (!currentNode) {
             break;
         }
+/** current：定义该变量以承载业务值。 */
         const current = currentNode.index;
         if (currentNode.cost !== bestCost[current]) {
             continue;
@@ -279,26 +347,33 @@ function findOptimalPathOnMap(instance, playerId, startX, startY, goals, allowOc
                 cost: currentNode.cost,
             };
         }
+/** x：定义该变量以承载业务值。 */
         const x = current % template.width;
+/** y：定义该变量以承载业务值。 */
         const y = Math.trunc(current / template.width);
         for (const direction of [shared_1.Direction.North, shared_1.Direction.South, shared_1.Direction.East, shared_1.Direction.West]) {
             const offset = DIRECTION_OFFSET[direction];
             if (!offset) {
                 continue;
             }
+/** nextX：定义该变量以承载业务值。 */
             const nextX = x + offset.x;
+/** nextY：定义该变量以承载业务值。 */
             const nextY = y + offset.y;
             if (!isInBounds(nextX, nextY, template.width, template.height)) {
                 continue;
             }
+/** nextIndex：定义该变量以承载业务值。 */
             const nextIndex = (0, map_template_repository_1.getTileIndex)(nextX, nextY, template.width);
             if (template.walkableMask[nextIndex] !== 1 || blocked[nextIndex] === 1) {
                 continue;
             }
+/** stepCost：定义该变量以承载业务值。 */
             const stepCost = instance.getTileTraversalCost(nextX, nextY);
             if (!Number.isFinite(stepCost) || stepCost <= 0) {
                 continue;
             }
+/** nextCost：定义该变量以承载业务值。 */
             const nextCost = currentNode.cost + stepCost;
             if (nextCost >= bestCost[nextIndex]) {
                 continue;
@@ -310,19 +385,26 @@ function findOptimalPathOnMap(instance, playerId, startX, startY, goals, allowOc
     }
     return null;
 }
+/** findNextDirectionOnMap：执行对应的业务逻辑。 */
 function findNextDirectionOnMap(instance, playerId, startX, startY, goals, allowOccupiedGoals = true) {
+/** result：定义该变量以承载业务值。 */
     const result = findOptimalPathOnMap(instance, playerId, startX, startY, goals, allowOccupiedGoals);
     if (!result || result.points.length === 0) {
         return null;
     }
     return directionFromStep(startX, startY, result.points[0].x, result.points[0].y);
 }
+/** findPathPointsOnMap：执行对应的业务逻辑。 */
 function findPathPointsOnMap(instance, playerId, startX, startY, goals, allowOccupiedGoals = true) {
+/** result：定义该变量以承载业务值。 */
     const result = findOptimalPathOnMap(instance, playerId, startX, startY, goals, allowOccupiedGoals);
     return result?.points ?? null;
 }
+/** reconstructPathPoints：执行对应的业务逻辑。 */
 function reconstructPathPoints(previous, goalIndex, startIndex, width) {
+/** path：定义该变量以承载业务值。 */
     const path = [];
+/** cursor：定义该变量以承载业务值。 */
     let cursor = goalIndex;
     while (cursor !== -1 && cursor !== startIndex) {
         path.push({
@@ -334,10 +416,13 @@ function reconstructPathPoints(previous, goalIndex, startIndex, width) {
     path.reverse();
     return path;
 }
+/** pushPathNode：执行对应的业务逻辑。 */
 function pushPathNode(heap, node) {
     heap.push(node);
+/** index：定义该变量以承载业务值。 */
     let index = heap.length - 1;
     while (index > 0) {
+/** parentIndex：定义该变量以承载业务值。 */
         const parentIndex = Math.trunc((index - 1) / 2);
         if (heap[parentIndex].cost <= node.cost) {
             break;
@@ -347,22 +432,29 @@ function pushPathNode(heap, node) {
     }
     heap[index] = node;
 }
+/** popPathNode：执行对应的业务逻辑。 */
 function popPathNode(heap) {
     if (heap.length === 0) {
         return null;
     }
+/** root：定义该变量以承载业务值。 */
     const root = heap[0];
+/** last：定义该变量以承载业务值。 */
     const last = heap.pop();
     if (!last || heap.length === 0) {
         return root;
     }
+/** index：定义该变量以承载业务值。 */
     let index = 0;
     while (true) {
+/** left：定义该变量以承载业务值。 */
         const left = index * 2 + 1;
+/** right：定义该变量以承载业务值。 */
         const right = left + 1;
         if (left >= heap.length) {
             break;
         }
+/** smallest：定义该变量以承载业务值。 */
         let smallest = left;
         if (right < heap.length && heap[right].cost < heap[left].cost) {
             smallest = right;
@@ -376,6 +468,7 @@ function popPathNode(heap) {
     heap[index] = last;
     return root;
 }
+/** directionFromStep：执行对应的业务逻辑。 */
 function directionFromStep(startX, startY, nextX, nextY) {
     for (const direction of [shared_1.Direction.North, shared_1.Direction.South, shared_1.Direction.East, shared_1.Direction.West]) {
         const offset = DIRECTION_OFFSET[direction];
@@ -388,8 +481,11 @@ function directionFromStep(startX, startY, nextX, nextY) {
     }
     return null;
 }
+/** buildAutoBattleGoalPoints：执行对应的业务逻辑。 */
 function buildAutoBattleGoalPoints(instance, targetX, targetY, range) {
+/** normalizedRange：定义该变量以承载业务值。 */
     const normalizedRange = Math.max(1, Math.round(range));
+/** goals：定义该变量以承载业务值。 */
     const goals = [];
     for (let y = targetY - normalizedRange; y <= targetY + normalizedRange; y += 1) {
         for (let x = targetX - normalizedRange; x <= targetX + normalizedRange; x += 1) {
@@ -399,6 +495,7 @@ function buildAutoBattleGoalPoints(instance, targetX, targetY, range) {
             if (x === targetX && y === targetY) {
                 continue;
             }
+/** distance：定义该变量以承载业务值。 */
             const distance = chebyshevDistance(x, y, targetX, targetY);
             if (distance > normalizedRange) {
                 continue;
@@ -410,11 +507,13 @@ function buildAutoBattleGoalPoints(instance, targetX, targetY, range) {
         - Math.abs(chebyshevDistance(right.x, right.y, targetX, targetY) - normalizedRange)) || (chebyshevDistance(left.x, left.y, targetX, targetY) - chebyshevDistance(right.x, right.y, targetX, targetY)) || left.y - right.y || left.x - right.x);
     return goals;
 }
+/** isTileVisibleInView：执行对应的业务逻辑。 */
 function isTileVisibleInView(view, x, y, radius) {
     if (view.self.x === x && view.self.y === y) {
         return true;
     }
     if (Array.isArray(view.visibleTileIndices) && view.visibleTileIndices.length > 0) {
+/** tileIndex：定义该变量以承载业务值。 */
         const tileIndex = x >= 0 && y >= 0 && x < view.instance.width && y < view.instance.height
             ? y * view.instance.width + x
             : -1;

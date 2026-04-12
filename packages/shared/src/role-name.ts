@@ -17,6 +17,7 @@ export function isHalfWidthRoleNameChar(char: string): boolean {
 
 /** getRoleNameLengthUnits：执行对应的业务逻辑。 */
 export function getRoleNameLengthUnits(roleName: string): number {
+/** units：定义该变量以承载业务值。 */
   let units = 0;
   for (const char of splitGraphemes(roleName)) {
     units += isHalfWidthRoleNameChar(char) ? 1 : 2;
@@ -31,7 +32,9 @@ export function isRoleNameWithinLimit(roleName: string): boolean {
 
 /** truncateRoleName：执行对应的业务逻辑。 */
 export function truncateRoleName(roleName: string): string {
+/** units：定义该变量以承载业务值。 */
   let units = 0;
+/** result：定义该变量以承载业务值。 */
   let result = '';
 
   for (const char of splitGraphemes(roleName)) {

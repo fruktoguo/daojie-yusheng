@@ -5,6 +5,7 @@
 
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
+/** desc：定义该变量以承载业务值。 */
     var desc = Object.getOwnPropertyDescriptor(m, k);
     if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
       desc = { enumerable: true, get: function() { return m[k]; } };
@@ -14,11 +15,13 @@ var __createBinding = (this && this.__createBinding) || (Object.create ? (functi
     if (k2 === undefined) k2 = k;
     o[k2] = m[k];
 }));
+/** __setModuleDefault：定义该变量以承载业务值。 */
 var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
     Object.defineProperty(o, "default", { enumerable: true, value: v });
 }) : function(o, v) {
     o["default"] = v;
 });
+/** __importStar：定义该变量以承载业务值。 */
 var __importStar = (this && this.__importStar) || (function () {
 /**
  * 记录ownkeys。
@@ -46,6 +49,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
+/** node_child_process_1：定义该变量以承载业务值。 */
 const node_child_process_1 = require("node:child_process");
 /**
  * 记录net。
@@ -55,6 +59,7 @@ const net = __importStar(require("node:net"));
  * 记录path路径。
  */
 const path = __importStar(require("node:path"));
+/** env_alias_1：定义该变量以承载业务值。 */
 const env_alias_1 = require("../config/env-alias");
 /**
  * 记录包根目录。

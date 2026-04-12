@@ -6,7 +6,9 @@ import type { GridPoint } from './targeting';
 
 /** 两点间欧氏距离的平方 */
 export function distanceSquared(from: GridPoint, to: GridPoint): number {
+/** dx：定义该变量以承载业务值。 */
   const dx = from.x - to.x;
+/** dy：定义该变量以承载业务值。 */
   const dy = from.y - to.y;
   return dx * dx + dy * dy;
 }
@@ -23,7 +25,9 @@ export function chebyshevDistance(from: GridPoint, to: GridPoint): number {
 
 /** 偏移量对应的格距。 */
 export function offsetDistance(dx: number, dy: number, metric: GridDistanceMetric = GAME_RANGE_DISTANCE_METRIC): number {
+/** absX：定义该变量以承载业务值。 */
   const absX = Math.abs(dx);
+/** absY：定义该变量以承载业务值。 */
   const absY = Math.abs(dy);
   switch (metric) {
     case 'euclidean':
@@ -40,6 +44,7 @@ export function offsetDistance(dx: number, dy: number, metric: GridDistanceMetri
 export function gridDistance(
   from: GridPoint,
   to: GridPoint,
+/** metric：定义该变量以承载业务值。 */
   metric: GridDistanceMetric = GAME_RANGE_DISTANCE_METRIC,
 ): number {
   return offsetDistance(to.x - from.x, to.y - from.y, metric);
@@ -50,6 +55,7 @@ export function isOffsetInRange(
   dx: number,
   dy: number,
   range: number,
+/** metric：定义该变量以承载业务值。 */
   metric: GridDistanceMetric = GAME_RANGE_DISTANCE_METRIC,
 ): boolean {
   // 1 格射程统一允许斜向相邻，避免欧氏口径下对角线需要额外特判。
@@ -72,6 +78,7 @@ export function isPointInRange(
   origin: GridPoint,
   target: GridPoint,
   range: number,
+/** metric：定义该变量以承载业务值。 */
   metric: GridDistanceMetric = GAME_RANGE_DISTANCE_METRIC,
 ): boolean {
   return isOffsetInRange(target.x - origin.x, target.y - origin.y, range, metric);

@@ -16,13 +16,16 @@ function formatSignedNumber(value: number): string {
 
 /** formatSignedPercentValue：执行对应的业务逻辑。 */
 function formatSignedPercentValue(value: number): string {
+/** sign：定义该变量以承载业务值。 */
   const sign = value >= 0 ? '+' : '-';
   return `${sign}${formatDisplayPercent(Math.abs(value))}`;
 }
 
 /** formatSignedStatValue：执行对应的业务逻辑。 */
 function formatSignedStatValue(key: string, value: number): string {
+/** sign：定义该变量以承载业务值。 */
   const sign = value >= 0 ? '+' : '-';
+/** absValue：定义该变量以承载业务值。 */
   const absValue = Math.abs(value);
   if (key === 'critDamage') {
     return `${sign}${formatDisplayPercent(absValue / 10)}`;
@@ -56,6 +59,7 @@ export function describePreviewBonuses(
   attrMode?: BuffModifierMode,
   statMode?: BuffModifierMode,
 ): string[] {
+/** lines：定义该变量以承载业务值。 */
   const lines: string[] = [];
   if (attrs) {
     for (const [key, value] of Object.entries(attrs)) {
@@ -66,6 +70,7 @@ export function describePreviewBonuses(
     }
   }
 
+/** resolvedStats：定义该变量以承载业务值。 */
   const resolvedStats = resolvePreviewStats(stats, valueStats, statMode);
   if (!resolvedStats) {
     return lines;

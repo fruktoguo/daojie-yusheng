@@ -11,11 +11,17 @@ export const TIME_FILTER_LERP = 0.12;
 
 /** TimeAtmosphereProfile：定义该接口的能力与字段约束。 */
 export interface TimeAtmosphereProfile {
+/** overlayBoost：定义该变量以承载业务值。 */
   overlayBoost: number;
+/** skyTint：定义该变量以承载业务值。 */
   skyTint: string;
+/** skyAlpha：定义该变量以承载业务值。 */
   skyAlpha: number;
+/** horizonTint：定义该变量以承载业务值。 */
   horizonTint: string;
+/** horizonAlpha：定义该变量以承载业务值。 */
   horizonAlpha: number;
+/** vignetteAlpha：定义该变量以承载业务值。 */
   vignetteAlpha: number;
 }
 

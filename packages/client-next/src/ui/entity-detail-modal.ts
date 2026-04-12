@@ -31,6 +31,7 @@ function formatNpcQuestMarker(marker: NpcQuestMarker | null | undefined): string
   if (!marker) {
     return '暂无可追踪任务';
   }
+/** stateLabel：定义该变量以承载业务值。 */
   const stateLabel = marker.state === 'ready'
     ? '可交付'
     : marker.state === 'available'
@@ -42,10 +43,13 @@ function formatNpcQuestMarker(marker: NpcQuestMarker | null | undefined): string
 /** EntityDetailModal：封装相关状态与行为。 */
 export class EntityDetailModal {
   private static readonly MODAL_OWNER = 'entity-detail-modal';
+/** pending：定义该变量以承载业务值。 */
   private pending: { kind: NEXT_S2C_Detail['kind']; id: string; title: string } | null = null;
+/** detail：定义该变量以承载业务值。 */
   private detail: NEXT_S2C_Detail | null = null;
   private loading = false;
 
+/** openPending：执行对应的业务逻辑。 */
   openPending(kind: NEXT_S2C_Detail['kind'], id: string, title: string): void {
     this.pending = { kind, id, title };
     this.detail = null;
@@ -53,6 +57,7 @@ export class EntityDetailModal {
     this.render();
   }
 
+/** updateDetail：执行对应的业务逻辑。 */
   updateDetail(detail: NEXT_S2C_Detail): void {
     if (this.pending && (this.pending.kind !== detail.kind || this.pending.id !== detail.id)) {
       return;
@@ -63,6 +68,7 @@ export class EntityDetailModal {
     this.render();
   }
 
+/** clear：执行对应的业务逻辑。 */
   clear(): void {
     this.pending = null;
     this.detail = null;
@@ -70,8 +76,11 @@ export class EntityDetailModal {
     detailModalHost.close(EntityDetailModal.MODAL_OWNER);
   }
 
+/** render：执行对应的业务逻辑。 */
   private render(): void {
+/** title：定义该变量以承载业务值。 */
     const title = this.detail ? this.resolveTitle(this.detail, this.pending?.title) : (this.pending?.title ?? '详情');
+/** subtitle：定义该变量以承载业务值。 */
     const subtitle = this.detail ? `目标类型：${escapeHtml(getEntityKindLabel(this.detail.kind, this.detail.kind))}` : '详情同步中';
     detailModalHost.open({
       ownerId: EntityDetailModal.MODAL_OWNER,
@@ -90,6 +99,7 @@ export class EntityDetailModal {
     });
   }
 
+/** renderBody：执行对应的业务逻辑。 */
   private renderBody(): string {
     if (this.loading && !this.detail) {
       return '<div class="empty-hint">正在读取目标详情……</div>';
@@ -118,6 +128,7 @@ export class EntityDetailModal {
     }
   }
 
+/** resolveTitle：执行对应的业务逻辑。 */
   private resolveTitle(detail: NEXT_S2C_Detail, fallbackTitle?: string): string {
     if (detail.player && fallbackTitle && fallbackTitle.trim() && fallbackTitle !== detail.player.id) {
       return fallbackTitle;
@@ -132,6 +143,7 @@ export class EntityDetailModal {
       ?? detail.id;
   }
 
+/** renderNpc：执行对应的业务逻辑。 */
   private renderNpc(npc: NEXT_S2C_NpcDetail | null): string {
     if (!npc) {
       return '<div class="empty-hint">未读取到 NPC 详情。</div>';
@@ -149,6 +161,7 @@ export class EntityDetailModal {
     `;
   }
 
+/** renderMonster：执行对应的业务逻辑。 */
   private renderMonster(monster: NEXT_S2C_MonsterDetail | null): string {
     if (!monster) {
       return '<div class="empty-hint">未读取到怪物详情。</div>';
@@ -167,11 +180,14 @@ export class EntityDetailModal {
     `;
   }
 
+/** renderPlayer：执行对应的业务逻辑。 */
   private renderPlayer(player: NEXT_S2C_PlayerDetail | null): string {
     if (!player) {
       return '<div class="empty-hint">未读取到玩家详情。</div>';
     }
+/** pendingTitle：定义该变量以承载业务值。 */
     const pendingTitle = this.pending?.kind === 'player' && this.pending.id === player.id ? this.pending.title : '';
+/** titleRow：定义该变量以承载业务值。 */
     const titleRow = pendingTitle && pendingTitle !== player.id
       ? `<div class="quest-detail-section"><strong>称呼</strong><span>${escapeHtml(pendingTitle)}</span></div>`
       : '';
@@ -188,12 +204,16 @@ export class EntityDetailModal {
     `;
   }
 
+/** renderPortal：执行对应的业务逻辑。 */
   private renderPortal(): string {
+/** portal：定义该变量以承载业务值。 */
     const portal = this.detail?.portal;
     if (!portal) {
       return '<div class="empty-hint">未读取到传送点详情。</div>';
     }
+/** portalKind：定义该变量以承载业务值。 */
     const portalKind = portal.kind === 'stairs' ? '楼梯' : portal.kind === 'gate' ? '关隘' : '传送点';
+/** destination：定义该变量以承载业务值。 */
     const destination = typeof portal.targetX === 'number' && typeof portal.targetY === 'number'
       ? `(${portal.targetX}, ${portal.targetY})`
       : '未知';
@@ -208,11 +228,14 @@ export class EntityDetailModal {
     `;
   }
 
+/** renderGround：执行对应的业务逻辑。 */
   private renderGround(): string {
+/** ground：定义该变量以承载业务值。 */
     const ground = this.detail?.ground;
     if (!ground) {
       return '<div class="empty-hint">未读取到地面物详情。</div>';
     }
+/** items：定义该变量以承载业务值。 */
     const items = ground.items.length > 0
       ? `<div class="inline-item-flow">${ground.items.map((item) => renderInlineItemChip(item.itemId, { count: item.count, label: item.name, tone: 'reward' })).join('')}</div>`
       : '<div class="inline-rich-text">这里已经没有可见物品。</div>';
@@ -225,6 +248,7 @@ export class EntityDetailModal {
     `;
   }
 
+/** renderContainer：执行对应的业务逻辑。 */
   private renderContainer(container: NEXT_S2C_ContainerDetail | null): string {
     if (!container) {
       return '<div class="empty-hint">未读取到容器详情。</div>';
@@ -241,15 +265,18 @@ export class EntityDetailModal {
   }
 
   private renderObservation(
+/** observation：定义该变量以承载业务值。 */
     observation: { verdict?: string; lines?: Array<{ label: string; value: string }> } | null | undefined,
     hideVitals = false,
   ): string {
     if (!observation) {
       return '<div class="quest-detail-section"><strong>观测</strong><div>未得更多回响。</div></div>';
     }
+/** lines：定义该变量以承载业务值。 */
     const lines = hideVitals
       ? (observation.lines ?? []).filter((line) => line.label !== '生命' && line.label !== '气血' && line.label !== '灵力')
       : (observation.lines ?? []);
+/** rows：定义该变量以承载业务值。 */
     const rows = lines.length > 0
       ? `<div class="entity-detail-list">${lines.map((line) => `<div class="observe-modal-row"><span class="observe-modal-label">${escapeHtml(line.label)}</span><span class="observe-modal-value">${escapeHtml(line.value)}</span></div>`).join('')}</div>`
       : '<div>暂无额外细节。</div>';
@@ -259,6 +286,7 @@ export class EntityDetailModal {
     `;
   }
 
+/** renderBuffs：执行对应的业务逻辑。 */
   private renderBuffs(buffs: VisibleBuffState[]): string {
     if (buffs.length === 0) {
       return '<div class="quest-detail-section"><strong>状态</strong><div>当前未见明显状态变化。</div></div>';

@@ -15,17 +15,20 @@ type TileResourcePointLike = Partial<GmMapResourceRecord>;
 /** ComposeRotation：定义该类型的结构与数据语义。 */
 type ComposeRotation = 0 | 90 | 180 | 270;
 
+/** QI_FAMILY_LABELS：定义该变量以承载业务值。 */
 const QI_FAMILY_LABELS = {
   aura: '灵气',
   demonic: '魔气',
   sha: '煞气',
 } as const;
 
+/** QI_FORM_LABELS：定义该变量以承载业务值。 */
 const QI_FORM_LABELS = {
   refined: '',
   dispersed: '逸散',
 } as const;
 
+/** QI_ELEMENT_LABELS：定义该变量以承载业务值。 */
 const QI_ELEMENT_LABELS = {
   neutral: '无属性',
   metal: '金',
@@ -65,7 +68,9 @@ export function isEditableTarget(target: EventTarget | null): boolean {
 
 /** setValueByPath：执行对应的业务逻辑。 */
 export function setValueByPath(target: unknown, path: string, value: unknown): void {
+/** segments：定义该变量以承载业务值。 */
   const segments = path.split('.');
+/** cursor：定义该变量以承载业务值。 */
   let cursor = target as Record<string, unknown>;
   for (let index = 0; index < segments.length - 1; index += 1) {
     const key = segments[index]!;
@@ -80,6 +85,7 @@ export function setValueByPath(target: unknown, path: string, value: unknown): v
 
 /** getValueByPath：执行对应的业务逻辑。 */
 export function getValueByPath(target: unknown, path: string): unknown {
+/** cursor：定义该变量以承载业务值。 */
   let cursor = target as Record<string, unknown> | undefined;
   for (const segment of path.split('.')) {
     if (cursor === undefined || cursor === null) return undefined;
@@ -90,6 +96,7 @@ export function getValueByPath(target: unknown, path: string): unknown {
 
 /** removeArrayIndex：执行对应的业务逻辑。 */
 export function removeArrayIndex(target: unknown, path: string, index: number): void {
+/** value：定义该变量以承载业务值。 */
   const value = getValueByPath(target, path);
   if (!Array.isArray(value)) return;
   value.splice(index, 1);
@@ -150,6 +157,7 @@ export function selectField(
   label: string,
   path: string,
   value: string | undefined,
+/** options：定义该变量以承载业务值。 */
   options: Array<{ value: string; label: string }>,
   extraClass = '',
 ): string {
@@ -168,6 +176,7 @@ export function nullableSelectField(
   label: string,
   path: string,
   value: string | undefined,
+/** options：定义该变量以承载业务值。 */
   options: Array<{ value: string; label: string }>,
   extraClass = '',
 ): string {
@@ -242,19 +251,23 @@ export function parseTagGroups(raw: string): string[][] {
 
 /** getResourceRecordKeyName：执行对应的业务逻辑。 */
 export function getResourceRecordKeyName(point: TileResourcePointLike): string {
+/** key：定义该变量以承载业务值。 */
   const key = Object.keys(point).find((entry) => entry.startsWith('resourceK'));
   return key ?? 'resourceKey';
 }
 
 /** getResourceRecordKey：执行对应的业务逻辑。 */
 export function getResourceRecordKey(point: TileResourcePointLike): string {
+/** keyName：定义该变量以承载业务值。 */
   const keyName = getResourceRecordKeyName(point);
+/** value：定义该变量以承载业务值。 */
   const value = (point as Record<string, unknown>)[keyName];
   return typeof value === 'string' ? value.trim() : '';
 }
 
 /** setResourceRecordKey：执行对应的业务逻辑。 */
 export function setResourceRecordKey(point: TileResourcePointLike, resourceKey: string): void {
+/** keyName：定义该变量以承载业务值。 */
   const keyName = getResourceRecordKeyName(point);
   (point as Record<string, unknown>)[keyName] = resourceKey;
 }
@@ -266,6 +279,7 @@ export function getConfiguredAuraLevel(value: number): number {
 
 /** formatAuraLevelText：执行对应的业务逻辑。 */
 export function formatAuraLevelText(value: number): string {
+/** level：定义该变量以承载业务值。 */
   const level = getConfiguredAuraLevel(value);
   return level > 0 ? `${level}级` : `值${value}`;
 }
@@ -277,12 +291,16 @@ export function formatAuraPointLabel(value: number): string {
 
 /** formatResourceTypeLabel：执行对应的业务逻辑。 */
 export function formatResourceTypeLabel(resourceKey: string): string {
+/** descriptor：定义该变量以承载业务值。 */
   const descriptor = parseQiResourceKey(resourceKey);
   if (!descriptor) {
     return resourceKey || '未设资源键';
   }
+/** familyLabel：定义该变量以承载业务值。 */
   const familyLabel = QI_FAMILY_LABELS[descriptor.family];
+/** formLabel：定义该变量以承载业务值。 */
   const formLabel = QI_FORM_LABELS[descriptor.form];
+/** elementLabel：定义该变量以承载业务值。 */
   const elementLabel = QI_ELEMENT_LABELS[descriptor.element];
   if (descriptor.element === 'neutral') {
     return descriptor.form === 'refined'
@@ -307,18 +325,23 @@ export function formatResourceSummary(points: TileResourcePointLike[]): string {
 
 /** getResourceTypeSortKey：执行对应的业务逻辑。 */
 export function getResourceTypeSortKey(resourceKey: string): string {
+/** descriptor：定义该变量以承载业务值。 */
   const descriptor = parseQiResourceKey(resourceKey);
   if (!descriptor) {
     return `9-${resourceKey}`;
   }
+/** familyOrder：定义该变量以承载业务值。 */
   const familyOrder = { aura: 0, demonic: 1, sha: 2 } as const;
+/** formOrder：定义该变量以承载业务值。 */
   const formOrder = { refined: 0, dispersed: 1 } as const;
+/** elementOrder：定义该变量以承载业务值。 */
   const elementOrder = { neutral: 0, metal: 1, wood: 2, water: 3, fire: 4, earth: 5 } as const;
   return `${familyOrder[descriptor.family]}-${formOrder[descriptor.form]}-${elementOrder[descriptor.element]}`;
 }
 
 /** getResourcePointGlyphColor：执行对应的业务逻辑。 */
 export function getResourcePointGlyphColor(point: TileResourcePointLike): string {
+/** descriptor：定义该变量以承载业务值。 */
   const descriptor = parseQiResourceKey(getResourceRecordKey(point));
   if (!descriptor) {
     return '#f6d27e';
@@ -341,6 +364,7 @@ export function getResourcePointGlyphColor(point: TileResourcePointLike): string
 
 /** getResourcePointLabelColor：执行对应的业务逻辑。 */
 export function getResourcePointLabelColor(point: TileResourcePointLike): string {
+/** descriptor：定义该变量以承载业务值。 */
   const descriptor = parseQiResourceKey(getResourceRecordKey(point));
   if (!descriptor) {
     return '#ffe6b2';
@@ -363,6 +387,7 @@ export function getResourcePointLabelColor(point: TileResourcePointLike): string
 
 /** normalizeComposeRotation：执行对应的业务逻辑。 */
 export function normalizeComposeRotation(value: number): ComposeRotation {
+/** normalized：定义该变量以承载业务值。 */
   const normalized = ((Math.round(value / 90) * 90) % 360 + 360) % 360;
   if (normalized === 90 || normalized === 180 || normalized === 270) {
     return normalized;
@@ -400,9 +425,13 @@ export function getQuestCardTitle(quest: GmMapQuestRecord, index: number): strin
 
 /** getQuestCardMeta：执行对应的业务逻辑。 */
 export function getQuestCardMeta(quest: GmMapQuestRecord): string {
+/** lineLabel：定义该变量以承载业务值。 */
   const lineLabel = QUEST_LINE_LABELS[quest.line ?? 'side'] ?? (quest.line ?? 'side');
+/** objectiveType：定义该变量以承载业务值。 */
   const objectiveType = quest.objectiveType ?? 'kill';
+/** objectiveLabel：定义该变量以承载业务值。 */
   const objectiveLabel = QUEST_OBJECTIVE_TYPE_LABELS[objectiveType] ?? objectiveType;
+/** targetLabel：定义该变量以承载业务值。 */
   const targetLabel = quest.targetName?.trim()
     || quest.targetNpcName?.trim()
     || quest.targetNpcId?.trim()

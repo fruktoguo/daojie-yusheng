@@ -142,35 +142,64 @@ import {
 @Injectable()
 /** TickService：封装相关状态与行为。 */
 export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
+/** timers：定义该变量以承载业务值。 */
   private timers: Map<string, ReturnType<typeof setTimeout>> = new Map();
+/** lastTickTime：定义该变量以承载业务值。 */
   private lastTickTime: Map<string, number> = new Map();
+/** mapTickSpeed：定义该变量以承载业务值。 */
   private mapTickSpeed: Map<string, number> = new Map();
+/** pausedMaps：定义该变量以承载业务值。 */
   private pausedMaps: Set<string> = new Set();
+/** lastSentTickState：定义该变量以承载业务值。 */
   private lastSentTickState: Map<string, LastSentTickState> = new Map();
+/** lastSentAttrUpdates：定义该变量以承载业务值。 */
   private lastSentAttrUpdates: Map<string, S2C_AttrUpdate> = new Map();
+/** lastSentRealmStates：定义该变量以承载业务值。 */
   private lastSentRealmStates: Map<string, PlayerState['realm'] | null> = new Map();
+/** lastSentSpecialStatsAt：定义该变量以承载业务值。 */
   private lastSentSpecialStatsAt: Map<string, number> = new Map();
+/** pendingSpecialStatsPlayers：定义该变量以承载业务值。 */
   private pendingSpecialStatsPlayers: Set<string> = new Set();
+/** lastSentTechniqueStates：定义该变量以承载业务值。 */
   private lastSentTechniqueStates: Map<string, Map<string, TechniqueState>> = new Map();
+/** lastSentCultivatingTechIds：定义该变量以承载业务值。 */
   private lastSentCultivatingTechIds: Map<string, string | null> = new Map();
+/** lastSentBodyTrainingStates：定义该变量以承载业务值。 */
   private lastSentBodyTrainingStates: Map<string, PlayerState['bodyTraining'] | null> = new Map();
+/** lastSentActionStates：定义该变量以承载业务值。 */
   private lastSentActionStates: Map<string, Map<string, ActionSyncStateEntry>> = new Map();
+/** lastSentActionPanelStates：定义该变量以承载业务值。 */
   private lastSentActionPanelStates: Map<string, ActionPanelSyncState> = new Map();
+/** lastSentInventoryStates：定义该变量以承载业务值。 */
   private lastSentInventoryStates: Map<string, Inventory> = new Map();
+/** lastSentInventoryCooldownStates：定义该变量以承载业务值。 */
   private lastSentInventoryCooldownStates: Map<string, SyncedInventoryCooldownState[]> = new Map();
+/** lastSentEquipmentStates：定义该变量以承载业务值。 */
   private lastSentEquipmentStates: Map<string, EquipmentSlots> = new Map();
+/** cooldownOnlyActionDirtyPlayers：定义该变量以承载业务值。 */
   private cooldownOnlyActionDirtyPlayers: Set<string> = new Set();
+/** lastSentGroundPiles：定义该变量以承载业务值。 */
   private lastSentGroundPiles: Map<string, Map<string, GroundItemPileView>> = new Map();
+/** lastSentVisibleTiles：定义该变量以承载业务值。 */
   private lastSentVisibleTiles: Map<string, Map<string, VisibleTile>> = new Map();
+/** lastSentRenderEntities：定义该变量以承载业务值。 */
   private lastSentRenderEntities: Map<string, Map<string, RenderEntity>> = new Map();
+/** pendingAlchemyPanelPushPlayers：定义该变量以承载业务值。 */
   private pendingAlchemyPanelPushPlayers: Set<string> = new Set();
+/** pendingEnhancementPanelPushPlayers：定义该变量以承载业务值。 */
   private pendingEnhancementPanelPushPlayers: Set<string> = new Set();
+/** lastPeriodicSyncAt：定义该变量以承载业务值。 */
   private lastPeriodicSyncAt: Map<string, number> = new Map();
+/** forcedTickSyncPlayers：定义该变量以承载业务值。 */
   private forcedTickSyncPlayers: Set<string> = new Set();
+/** autoUsePillInstantCooldowns：定义该变量以承载业务值。 */
   private autoUsePillInstantCooldowns: Map<string, Partial<Record<'hp' | 'qi', number>>> = new Map();
+/** persistTimer：定义该变量以承载业务值。 */
   private persistTimer: ReturnType<typeof setInterval> | null = null;
+/** persistInFlight：定义该变量以承载业务值。 */
   private persistInFlight: Promise<void> | null = null;
   private persistFollowupRequested = false;
+/** persistFollowupReason：定义该变量以承载业务值。 */
   private persistFollowupReason: PersistTrigger | null = null;
   private minTickInterval = 1000;
   private offlinePlayerTimeoutMs = DEFAULT_OFFLINE_PLAYER_TIMEOUT_SEC * 1000;
@@ -254,8 +283,10 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     });
   }
 
+/** loadConfig：执行对应的业务逻辑。 */
   private async loadConfig(): Promise<void> {
     try {
+/** config：定义该变量以承载业务值。 */
       const config = await this.readPersistedConfig();
       this.applyConfig(config);
     } catch (error) {
@@ -264,6 +295,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     }
   }
 
+/** getAuraLevelBaseValue：执行对应的业务逻辑。 */
   getAuraLevelBaseValue(): number {
     return this.auraLevelBaseValue;
   }
@@ -288,17 +320,21 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     this.lastSentActionPanelStates.set(player.id, this.captureActionPanelSyncState(player));
   }
 
+/** reloadConfig：执行对应的业务逻辑。 */
   async reloadConfig(): Promise<void> {
     await this.loadConfig();
   }
 
+/** bootstrapRuntimeState：执行对应的业务逻辑。 */
   private async bootstrapRuntimeState(): Promise<void> {
     try {
+/** recovered：定义该变量以承载业务值。 */
       const recovered = await this.playerService.restoreRetainedPlayers(this.offlinePlayerTimeoutMs);
       this.logger.log(
         `启动恢复完成: 恢复离线挂机 ${recovered.restored} 名, 超时离场 ${recovered.expired} 名, 修正在线残留 ${recovered.recoveredOnline} 名`,
       );
     } catch (error) {
+/** message：定义该变量以承载业务值。 */
       const message = error instanceof Error ? error.message : String(error);
       this.logger.error(`启动恢复离线挂机失败: ${message}`);
     } finally {
@@ -308,13 +344,17 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     }
   }
 
+/** applyConfig：执行对应的业务逻辑。 */
   private applyConfig(config: Partial<TickConfigDocument> | null): void {
+/** minTickInterval：定义该变量以承载业务值。 */
     const minTickInterval = typeof config?.minTickInterval === 'number' && config.minTickInterval > 0
       ? Math.floor(config.minTickInterval)
       : 1000;
+/** offlinePlayerTimeoutSec：定义该变量以承载业务值。 */
     const offlinePlayerTimeoutSec = typeof config?.offlinePlayerTimeoutSec === 'number' && config.offlinePlayerTimeoutSec > 0
       ? Math.floor(config.offlinePlayerTimeoutSec)
       : DEFAULT_OFFLINE_PLAYER_TIMEOUT_SEC;
+/** auraLevelBaseValue：定义该变量以承载业务值。 */
     const auraLevelBaseValue = normalizeAuraLevelBaseValue(config?.auraLevelBaseValue, DEFAULT_AURA_LEVEL_BASE_VALUE);
 
     this.minTickInterval = minTickInterval;
@@ -327,7 +367,9 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     this.mapService.setAuraLevelBaseValue(this.auraLevelBaseValue);
   }
 
+/** readPersistedConfig：执行对应的业务逻辑。 */
   private async readPersistedConfig(): Promise<Partial<TickConfigDocument> | null> {
+/** config：定义该变量以承载业务值。 */
     let config = await this.persistentDocumentService.get<Partial<TickConfigDocument>>(
       SERVER_CONFIG_SCOPE,
       TICK_CONFIG_DOCUMENT_KEY,
@@ -343,29 +385,35 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       return config;
     }
 
+/** defaultConfig：定义该变量以承载业务值。 */
     const defaultConfig = this.buildDefaultConfigDocument();
     await this.persistentDocumentService.save(SERVER_CONFIG_SCOPE, TICK_CONFIG_DOCUMENT_KEY, defaultConfig);
     return defaultConfig;
   }
 
+/** importLegacyConfigIfNeeded：执行对应的业务逻辑。 */
   private async importLegacyConfigIfNeeded(): Promise<void> {
     if (!fs.existsSync(GAME_CONFIG_PATH)) {
       return;
     }
 
     try {
+/** raw：定义该变量以承载业务值。 */
       const raw = JSON.parse(fs.readFileSync(GAME_CONFIG_PATH, 'utf-8')) as Partial<TickConfigDocument>;
       await this.persistentDocumentService.save(
         SERVER_CONFIG_SCOPE,
         TICK_CONFIG_DOCUMENT_KEY,
         {
           version: 1,
+/** minTickInterval：定义该变量以承载业务值。 */
           minTickInterval: typeof raw.minTickInterval === 'number' && raw.minTickInterval > 0
             ? Math.floor(raw.minTickInterval)
             : undefined,
+/** offlinePlayerTimeoutSec：定义该变量以承载业务值。 */
           offlinePlayerTimeoutSec: typeof raw.offlinePlayerTimeoutSec === 'number' && raw.offlinePlayerTimeoutSec > 0
             ? Math.floor(raw.offlinePlayerTimeoutSec)
             : undefined,
+/** auraLevelBaseValue：定义该变量以承载业务值。 */
           auraLevelBaseValue: typeof raw.auraLevelBaseValue === 'number' && Number.isFinite(raw.auraLevelBaseValue)
             ? Math.round(raw.auraLevelBaseValue)
             : undefined,
@@ -373,11 +421,13 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       );
       this.logger.log('已从旧服务端配置 JSON 导入 PostgreSQL');
     } catch (error) {
+/** message：定义该变量以承载业务值。 */
       const message = error instanceof Error ? error.message : String(error);
       this.logger.error(`导入旧服务端配置 JSON 失败: ${message}`);
     }
   }
 
+/** buildDefaultConfigDocument：执行对应的业务逻辑。 */
   private buildDefaultConfigDocument(): TickConfigDocument {
     return {
       ...DEFAULT_TICK_CONFIG_DOCUMENT,
@@ -398,7 +448,9 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     this.applyMapTickSpeed(mapId, speed, true);
   }
 
+/** applyMapTickSpeed：执行对应的业务逻辑。 */
   private applyMapTickSpeed(mapId: string, speed: number, persist: boolean): void {
+/** clamped：定义该变量以承载业务值。 */
     const clamped = Math.max(0, Math.min(100, speed));
     this.mapTickSpeed.set(mapId, clamped);
     if (persist) {
@@ -407,6 +459,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     if (clamped === 0) {
       this.pausedMaps.add(mapId);
     } else {
+/** wasPaused：定义该变量以承载业务值。 */
       const wasPaused = this.pausedMaps.has(mapId);
       this.pausedMaps.delete(mapId);
       if (wasPaused && !this.timers.has(mapId)) {
@@ -416,6 +469,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     }
   }
 
+/** restoreMapTickSpeeds：执行对应的业务逻辑。 */
   private restoreMapTickSpeeds(): void {
     for (const mapId of this.mapService.getAllMapIds()) {
       const persistedSpeed = this.mapService.getPersistedMapTickSpeed(mapId);
@@ -426,31 +480,38 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     }
   }
 
+/** getMapTickSpeed：执行对应的业务逻辑。 */
   getMapTickSpeed(mapId: string): number {
     if (this.pausedMaps.has(mapId)) return 0;
     return this.mapTickSpeed.get(mapId) ?? 1;
   }
 
+/** isMapPaused：执行对应的业务逻辑。 */
   isMapPaused(mapId: string): boolean {
     return this.pausedMaps.has(mapId);
   }
 
+/** resetNetworkPerf：执行对应的业务逻辑。 */
   resetNetworkPerf(): void {
     this.performanceService.resetNetworkStats();
   }
 
+/** resetCpuPerf：执行对应的业务逻辑。 */
   resetCpuPerf(): void {
     this.performanceService.resetCpuStats();
   }
 
+/** resetPathfindingPerf：执行对应的业务逻辑。 */
   resetPathfindingPerf(): void {
     this.performanceService.resetPathfindingStats();
   }
 
+/** getOfflinePlayerTimeoutMs：执行对应的业务逻辑。 */
   getOfflinePlayerTimeoutMs(): number {
     return this.offlinePlayerTimeoutMs;
   }
 
+/** suspendRuntimeForMaintenance：执行对应的业务逻辑。 */
   suspendRuntimeForMaintenance(): void {
     if (this.persistTimer) {
       clearInterval(this.persistTimer);
@@ -464,17 +525,21 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     this.resetAllSyncState();
   }
 
+/** resumeRuntimeAfterMaintenance：执行对应的业务逻辑。 */
   resumeRuntimeAfterMaintenance(): void {
     this.restoreMapTickSpeeds();
     this.ensureMapTicks();
     this.startPersistTimer();
   }
 
+/** flushPersistenceNow：执行对应的业务逻辑。 */
   async flushPersistenceNow(trigger: Extract<PersistTrigger, 'maintenance' | 'shutdown'>): Promise<void> {
     await this.requestPersistenceCycle(trigger, { forceFollowup: true });
   }
 
+/** getEffectiveInterval：执行对应的业务逻辑。 */
   private getEffectiveInterval(mapId: string): number {
+/** speed：定义该变量以承载业务值。 */
     const speed = this.mapTickSpeed.get(mapId) ?? 1;
     if (speed <= 0) return this.minTickInterval;
     return Math.max(10, Math.round(this.minTickInterval / speed));
@@ -482,22 +547,28 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
 
 /** scheduleNextTick：处理当前场景中的对应操作。 */
   private scheduleNextTick(mapId: string, delay: number) {
+/** timer：定义该变量以承载业务值。 */
     const timer = setTimeout(() => {
+/** start：定义该变量以承载业务值。 */
       const start = Date.now();
       if (this.pausedMaps.has(mapId)) {
         this.tickPausedMap(mapId);
       } else {
         this.tick(mapId, start);
       }
+/** elapsed：定义该变量以承载业务值。 */
       const elapsed = Date.now() - start;
       this.performanceService.recordTick(mapId, elapsed);
+/** effectiveInterval：定义该变量以承载业务值。 */
       const effectiveInterval = this.getEffectiveInterval(mapId);
+/** nextDelay：定义该变量以承载业务值。 */
       const nextDelay = Math.max(0, effectiveInterval - elapsed);
       this.scheduleNextTick(mapId, nextDelay);
     }, delay);
     this.timers.set(mapId, timer);
   }
 
+/** startPersistTimer：执行对应的业务逻辑。 */
   private startPersistTimer(): void {
     if (this.persistTimer) {
       return;
@@ -514,7 +585,9 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     trigger: PersistTrigger,
     options?: { forceFollowup?: boolean },
   ): Promise<void> {
+/** forceFollowup：定义该变量以承载业务值。 */
     const forceFollowup = options?.forceFollowup === true;
+/** inFlight：定义该变量以承载业务值。 */
     const inFlight = this.persistInFlight;
     if (!inFlight) {
       await this.startPersistenceCycle(trigger);
@@ -543,15 +616,19 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     }
   }
 
+/** startPersistenceCycle：执行对应的业务逻辑。 */
   private async startPersistenceCycle(trigger: PersistTrigger): Promise<void> {
+/** task：定义该变量以承载业务值。 */
     const task = this.executePersistenceCycle(trigger);
     this.persistInFlight = task.finally(() => {
+/** nextReason：定义该变量以承载业务值。 */
       const nextReason = this.persistFollowupRequested ? (this.persistFollowupReason ?? 'interval_catchup') : null;
       this.persistInFlight = null;
       this.persistFollowupRequested = false;
       this.persistFollowupReason = null;
       if (nextReason) {
         void this.startPersistenceCycle(nextReason).catch((error) => {
+/** message：定义该变量以承载业务值。 */
           const message = error instanceof Error ? error.message : String(error);
           this.logger.error(`补跑落盘失败: ${message}`);
         });
@@ -560,7 +637,9 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     await this.persistInFlight;
   }
 
+/** executePersistenceCycle：执行对应的业务逻辑。 */
   private async executePersistenceCycle(trigger: PersistTrigger): Promise<void> {
+/** startedAt：定义该变量以承载业务值。 */
     const startedAt = process.hrtime.bigint();
     await Promise.all([
       this.playerService.persistAll(),
@@ -568,6 +647,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       this.lootService.persistRuntimeState(),
       this.worldService.persistMonsterRuntimeState(),
     ]);
+/** elapsedMs：定义该变量以承载业务值。 */
     const elapsedMs = Number(process.hrtime.bigint() - startedAt) / 1_000_000;
     this.performanceService.recordCpuSection(elapsedMs, 'io_persist', '落盘与外部 I/O');
     if (elapsedMs > PERSIST_INTERVAL * 1000) {
@@ -577,6 +657,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     }
   }
 
+/** resetAllSyncState：执行对应的业务逻辑。 */
   private resetAllSyncState(): void {
     this.lastSentTickState.clear();
     this.lastSentAttrUpdates.clear();
@@ -606,7 +687,9 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
    */
   private tick(mapId: string, now: number) {
     this.ensureMapTicks();
+/** last：定义该变量以承载业务值。 */
     const last = this.lastTickTime.get(mapId) ?? now;
+/** dt：定义该变量以承载业务值。 */
     const dt = now - last;
     this.lastTickTime.set(mapId, now);
     this.timeService.advanceMapTicks(mapId);
@@ -614,10 +697,15 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       this.mapService.tickDynamicTiles(mapId);
     });
 
+/** messages：定义该变量以承载业务值。 */
     const messages: WorldMessage[] = [];
+/** gmCommands：定义该变量以承载业务值。 */
     const gmCommands = this.measureCpuSection('gm_commands', 'GM 指令处理', () => this.gmService.drainCommands(mapId));
+/** commands：定义该变量以承载业务值。 */
     const commands = this.measureCpuSection('player_command_queue', '玩家指令出队', () => this.playerService.drainCommands(mapId));
+/** affectedPlayers：定义该变量以承载业务值。 */
     const affectedPlayers = new Map<string, PlayerState>();
+/** activePlayerIds：定义该变量以承载业务值。 */
     const activePlayerIds = new Set<string>();
 
     this.measureCpuSection('gm_commands', 'GM 指令处理', () => {
@@ -628,6 +716,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       this.syncGmObservedPlayerBuffs(mapId, affectedPlayers);
     });
 
+/** lootTick：定义该变量以承载业务值。 */
     const lootTick = this.measureCpuSection('loot', '掉落与容器', () => this.lootService.tick(mapId, this.playerService.getPlayersByMap(mapId)));
     for (const playerId of lootTick.dirtyPlayers) {
       this.playerService.markDirty(playerId, 'loot');
@@ -645,6 +734,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     for (const cmd of commands) {
       const player = this.playerService.getPlayer(cmd.playerId);
       if (!player || player.mapId !== mapId || player.inWorld === false) continue;
+/** isDebugReset：定义该变量以承载业务值。 */
       const isDebugReset =
         cmd.type === 'debugResetSpawn' ||
         (cmd.type === 'action' && (cmd.data as { actionId?: string })?.actionId === 'debug:reset_spawn');
@@ -674,6 +764,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
             this.applyEnhancementResult(player.id, this.enhancementService.interruptEnhancement(player, 'move'), messages);
             this.applyCultivationResult(player.id, this.techniqueService.interruptCultivation(player, 'move'), messages);
             const { d } = cmd.data as { d: Direction };
+/** moved：定义该变量以承载业务值。 */
             const moved = this.navigationService.stepPlayerByDirection(player, d);
             if (moved) {
               this.markActionsDirty(player.id);
@@ -706,10 +797,13 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
               y,
               allowNearestReachable,
             } = cmd.data as {
+/** x：定义该变量以承载业务值。 */
               x: number;
+/** y：定义该变量以承载业务值。 */
               y: number;
               allowNearestReachable?: boolean;
             };
+/** error：定义该变量以承载业务值。 */
             const error = this.navigationService.setMoveTarget(player, x, y, {
               allowNearestReachable,
             });
@@ -722,8 +816,10 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         case 'navigateQuest': {
           this.measureCpuSection('player_actions', '玩家交互与杂项', () => {
             const { questId } = cmd.data as { questId: string };
+/** quest：定义该变量以承载业务值。 */
             const quest = player.quests.find((entry) => entry.id === questId && entry.status !== 'completed');
             if (!quest) {
+/** error：定义该变量以承载业务值。 */
               const error = '目标任务不存在或已完成';
               messages.push({ playerId: player.id, text: error, kind: 'system' });
               this.rejectQuestNavigation(player, questId, error);
@@ -746,6 +842,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         case 'navigateMapPoint': {
           this.measureCpuSection('player_actions', '玩家交互与杂项', () => {
             const { mapId, x, y } = cmd.data as { mapId: string; x: number; y: number };
+/** mapMeta：定义该变量以承载业务值。 */
             const mapMeta = this.mapService.getMapMeta(mapId);
             if (!mapMeta) {
               messages.push({ playerId: player.id, text: '目标地图不存在', kind: 'system' });
@@ -785,6 +882,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         case 'takeLoot': {
           this.measureCpuSection('loot', '掉落与容器', () => {
             const { sourceId, itemKey, takeAll } = cmd.data as { sourceId: string; itemKey?: string; takeAll?: boolean };
+/** result：定义该变量以承载业务值。 */
             const result = takeAll
               ? this.lootService.takeAllFromSource(player, sourceId)
               : this.lootService.takeFromSource(player, sourceId, itemKey ?? '');
@@ -807,6 +905,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         case 'debugResetSpawn': {
           this.measureCpuSection('player_actions', '玩家交互与杂项', () => {
             this.logger.log(`执行调试回城: ${player.id}`);
+/** result：定义该变量以承载业务值。 */
             const result = this.worldService.resetPlayerToSpawn(player);
             this.applyWorldUpdate(player.id, result, messages);
           });
@@ -821,6 +920,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
           if (actionId === 'debug:reset_spawn') {
             this.measureCpuSection('player_actions', '玩家交互与杂项', () => {
               this.logger.log(`执行兼容调试回城(action): ${player.id}`);
+/** result：定义该变量以承载业务值。 */
               const result = this.worldService.resetPlayerToSpawn(player);
               this.applyWorldUpdate(player.id, result, messages);
             });
@@ -828,11 +928,13 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
           }
           if (actionId === 'loot:open') {
             this.measureCpuSection('loot', '掉落与容器', () => {
+/** tileTarget：定义该变量以承载业务值。 */
               const tileTarget = target ? parseTileTargetRef(target) : null;
               if (!tileTarget) {
                 messages.push({ playerId: player.id, text: '拿取需要指定目标格子。', kind: 'system' });
                 return;
               }
+/** result：定义该变量以承载业务值。 */
               const result = this.lootService.openLootWindow(player, tileTarget.x, tileTarget.y);
               if (result.error) {
                 messages.push({ playerId: player.id, text: result.error, kind: 'system' });
@@ -848,6 +950,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
             this.measureCpuSection('combat', '战斗与技能计算', () => {
               this.applyAlchemyResult(player.id, this.alchemyService.interruptAlchemy(player, 'attack'), messages);
               this.applyEnhancementResult(player.id, this.enhancementService.interruptEnhancement(player, 'attack'), messages);
+/** result：定义该变量以承载业务值。 */
               const result = this.worldService.engageTarget(player, target);
               this.applyWorldUpdate(player.id, result, messages);
             });
@@ -855,7 +958,9 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
           }
           if (actionId === 'body_training:infuse') {
             this.measureCpuSection('player_actions', '玩家交互与杂项', () => {
+/** requestedFoundation：定义该变量以承载业务值。 */
               const requestedFoundation = Number.parseInt(target ?? '', 10);
+/** result：定义该变量以承载业务值。 */
               const result = this.techniqueService.infuseBodyTrainingWithFoundation(player, requestedFoundation);
               this.applyWorldUpdate(player.id, {
                 error: result.error,
@@ -870,6 +975,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
             break;
           }
           this.syncActionsIfDirty(player, { skipQuestSync: true });
+/** action：定义该变量以承载业务值。 */
           const action = this.actionService.getAction(player, actionId);
           if (!action) {
             messages.push({ playerId: player.id, text: '行动不存在', kind: 'system' });
@@ -880,13 +986,16 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
             break;
           }
           if (action.cooldownLeft > 0) {
+/** actionLabel：定义该变量以承载业务值。 */
             const actionLabel = action.type === 'skill' || action.type === 'battle' ? '招式' : '行动';
             messages.push({ playerId: player.id, text: `${actionLabel}尚在调息中，还需 ${action.cooldownLeft} 息`, kind: 'system' });
             break;
           }
           if (actionId === RETURN_TO_SPAWN_ACTION_ID) {
             this.measureCpuSection('player_actions', '玩家交互与杂项', () => {
+/** result：定义该变量以承载业务值。 */
               const result = this.worldService.resetPlayerToSpawn(player);
+/** cooldownError：定义该变量以承载业务值。 */
               const cooldownError = this.actionService.beginFixedCooldown(player, actionId, RETURN_TO_SPAWN_COOLDOWN_TICKS);
               if (cooldownError) {
                 messages.push({ playerId: player.id, text: cooldownError, kind: 'system' });
@@ -899,21 +1008,25 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
           }
           if (actionId === 'portal:travel' || actionId.startsWith('npc:')) {
             this.measureCpuSection('player_actions', '玩家交互与杂项', () => {
+/** result：定义该变量以承载业务值。 */
               const result = this.worldService.handleInteraction(player, actionId);
               this.applyWorldUpdate(player.id, result, messages);
             });
             break;
           }
 
+/** result：定义该变量以承载业务值。 */
           let result: WorldUpdate;
           if (action.type === 'skill' || action.type === 'battle') {
             this.applyAlchemyResult(player.id, this.alchemyService.interruptAlchemy(player, 'attack'), messages);
             this.applyEnhancementResult(player.id, this.enhancementService.interruptEnhancement(player, 'attack'), messages);
             result = this.measureCpuSection('combat', '战斗与技能计算', () => {
+/** skillResult：定义该变量以承载业务值。 */
               const skillResult = action.requiresTarget === false
                 ? this.worldService.performSkill(player, actionId)
                 : this.worldService.performTargetedSkill(player, actionId, target);
               if (skillResult.consumedAction) {
+/** cooldownError：定义该变量以承载业务值。 */
                 const cooldownError = this.actionService.beginCooldown(player, actionId);
                 if (cooldownError) {
                   return { ...skillResult, error: cooldownError };
@@ -937,6 +1050,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         }
         case 'buyNpcShopItem': {
           this.measureCpuSection('player_actions', '玩家交互与杂项', () => {
+/** result：定义该变量以承载业务值。 */
             const result = this.worldService.buyNpcShopItem(
               player,
               cmd.data as { npcId: string; itemId: string; quantity: number },
@@ -947,6 +1061,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         }
         case 'saveAlchemyPreset': {
           this.measureCpuSection('player_actions', '玩家交互与杂项', () => {
+/** result：定义该变量以承载业务值。 */
             const result = this.alchemyService.savePreset(
               player,
               cmd.data as { presetId?: string; recipeId: string; name: string; ingredients: AlchemyIngredientSelection[] },
@@ -966,6 +1081,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         }
         case 'deleteAlchemyPreset': {
           this.measureCpuSection('player_actions', '玩家交互与杂项', () => {
+/** result：定义该变量以承载业务值。 */
             const result = this.alchemyService.deletePreset(
               player,
               cmd.data as { presetId: string },
@@ -989,6 +1105,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
               messages.push({ playerId: player.id, text: '吟唱中无法分心炼丹。', kind: 'system' });
               return;
             }
+/** result：定义该变量以承载业务值。 */
             const result = this.alchemyService.startAlchemy(
               player,
               cmd.data as { recipeId: string; ingredients: AlchemyIngredientSelection[]; quantity: number },
@@ -1018,6 +1135,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         }
         case 'cancelAlchemy': {
           this.measureCpuSection('player_actions', '玩家交互与杂项', () => {
+/** result：定义该变量以承载业务值。 */
             const result = this.alchemyService.cancelAlchemy(player);
             if (result.error) {
               messages.push({ playerId: player.id, text: result.error, kind: 'system' });
@@ -1033,6 +1151,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
               messages.push({ playerId: player.id, text: '吟唱中无法分心强化。', kind: 'system' });
               return;
             }
+/** result：定义该变量以承载业务值。 */
             const result = this.enhancementService.startEnhancement(
               player,
               cmd.data as C2S_StartEnhancement,
@@ -1082,6 +1201,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         }
         case 'cancelEnhancement': {
           this.measureCpuSection('player_actions', '玩家交互与杂项', () => {
+/** result：定义该变量以承载业务值。 */
             const result = this.enhancementService.cancelEnhancement(player);
             if (result.error) {
               messages.push({ playerId: player.id, text: result.error, kind: 'system' });
@@ -1132,6 +1252,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         }
         case 'mailClaim': {
           this.measureCpuSection('player_actions', '玩家交互与杂项', () => {
+/** result：定义该变量以承载业务值。 */
             const result = this.mailService.applyPreparedClaim(
               player,
               cmd.data as PreparedClaimOperation,
@@ -1146,6 +1267,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         }
         case 'redeemCodes': {
           this.measureCpuSection('player_actions', '玩家交互与杂项', () => {
+/** result：定义该变量以承载业务值。 */
             const result = this.redeemCodeService.applyPreparedRedeem(
               player,
               cmd.data as PreparedRedeemCodeOperation,
@@ -1166,6 +1288,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       this.navigationService.pumpScheduledPaths(mapId);
     });
 
+/** mapPlayers：定义该变量以承载业务值。 */
     const mapPlayers = this.playerService.getPlayersByMap(mapId);
     for (const player of mapPlayers) {
       affectedPlayers.set(player.id, player);
@@ -1176,9 +1299,13 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         });
         continue;
       }
+/** startMapId：定义该变量以承载业务值。 */
       const startMapId = player.mapId;
+/** startX：定义该变量以承载业务值。 */
       const startX = player.x;
+/** startY：定义该变量以承载业务值。 */
       const startY = player.y;
+/** timeUpdate：定义该变量以承载业务值。 */
       const timeUpdate = this.measureCpuSection('time_effects', '时间与环境效果', () => (
         this.timeService.syncPlayerTimeEffects(player, { advanceChronology: true })
       ));
@@ -1188,6 +1315,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       if (timeUpdate.chronologyDayChanged) {
         this.playerService.markDirty(player.id, 'attr');
       }
+/** phaseDispatch：定义该变量以承载业务值。 */
       const phaseDispatch = this.equipmentEffectService.syncTimePhase(player, timeUpdate.state.phase);
       if (phaseDispatch.dirty.length > 0) {
         this.markDirty(player.id, phaseDispatch.dirty as DirtyFlag[]);
@@ -1200,6 +1328,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         this.measureCpuSection('pathfinding', '寻路与移动', () => {
           this.processQuestNavigation(player, messages);
         });
+/** navigation：定义该变量以承载业务值。 */
         const navigation = this.measureCpuSection('pathfinding', '寻路与移动', () => (
           this.navigationService.stepPlayerTowardTarget(player)
         ));
@@ -1216,6 +1345,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         this.markPlayerActive(player, activePlayerIds);
       }
 
+/** pendingSkillUpdate：定义该变量以承载业务值。 */
       const pendingSkillUpdate = this.measureCpuSection('combat', '战斗与技能计算', () => (
         this.worldService.resolvePendingPlayerSkillCast(player)
       ));
@@ -1226,12 +1356,15 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         }
       }
 
+/** autoBattleStartX：定义该变量以承载业务值。 */
       const autoBattleStartX = player.x;
+/** autoBattleStartY：定义该变量以承载业务值。 */
       const autoBattleStartY = player.y;
       if (player.autoBattle) {
         this.applyAlchemyResult(player.id, this.alchemyService.interruptAlchemy(player, 'attack'), messages);
         this.applyEnhancementResult(player.id, this.enhancementService.interruptEnhancement(player, 'attack'), messages);
       }
+/** autoBattle：定义该变量以承载业务值。 */
       const autoBattle = this.measureCpuSection('combat', '战斗与技能计算', () => (
         this.worldService.performAutoBattle(player)
       ));
@@ -1244,6 +1377,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         this.markPlayerActive(player, activePlayerIds);
       }
       if (autoBattle.usedActionId) {
+/** cooldownError：定义该变量以承载业务值。 */
         const cooldownError = this.actionService.beginCooldown(player, autoBattle.usedActionId);
         if (!cooldownError) {
           autoBattle.dirty.push('actions');
@@ -1256,11 +1390,13 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       });
 
       if (this.techniqueService.hasCultivationBuff(player)) {
+/** cultivationEffects：定义该变量以承载业务值。 */
         const cultivationEffects = this.equipmentEffectService.dispatch(player, { trigger: 'on_cultivation_tick' });
         if (cultivationEffects.dirty.length > 0) {
           this.markDirty(player.id, cultivationEffects.dirty as DirtyFlag[]);
         }
       }
+/** cultivation：定义该变量以承载业务值。 */
       const cultivation = this.techniqueService.cultivateTick(player);
       if (cultivation.changed) {
         for (const flag of cultivation.dirty) {
@@ -1278,10 +1414,12 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       this.measureCpuSection('state_recovery', '角色状态: 自然恢复', () => {
         this.applyNaturalRecovery(player);
       });
+/** tickEffects：定义该变量以承载业务值。 */
       const tickEffects = this.equipmentEffectService.dispatch(player, { trigger: 'on_tick' });
       if (tickEffects.dirty.length > 0) {
         this.markDirty(player.id, tickEffects.dirty as DirtyFlag[]);
       }
+/** terrainUpdate：定义该变量以承载业务值。 */
       const terrainUpdate = this.measureCpuSection('state_terrain', '角色状态: 地形结算', () => this.applyTerrainEffects(player));
       this.applyWorldUpdate(player.id, terrainUpdate.update, messages);
       if (terrainUpdate.changed) {
@@ -1290,6 +1428,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       if (terrainUpdate.update.playerDefeated) {
         continue;
       }
+/** buffEffectUpdate：定义该变量以承载业务值。 */
       const buffEffectUpdate = this.measureCpuSection('state_buff_effects', '角色状态: Buff 结算', () => this.applySkillBuffEffects(player));
       this.applyWorldUpdate(player.id, buffEffectUpdate.update, messages);
       if (buffEffectUpdate.changed) {
@@ -1306,6 +1445,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         this.markActionCooldownDirty(player.id);
       }
 
+/** alchemyUpdate：定义该变量以承载业务值。 */
       const alchemyUpdate = this.measureCpuSection('state_alchemy', '角色状态: 炼丹推进', () => this.alchemyService.tickAlchemy(player));
       if (alchemyUpdate.inventoryChanged) {
         this.playerService.markDirty(player.id, 'inv');
@@ -1326,6 +1466,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         messages.push({ playerId: player.id, text: message.text, kind: message.kind ?? 'system' });
       }
 
+/** enhancementUpdate：定义该变量以承载业务值。 */
       const enhancementUpdate = this.measureCpuSection('state_enhancement', '角色状态: 强化推进', () => (
         this.enhancementService.tickEnhancement(player)
       ));
@@ -1357,6 +1498,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
 
       if (player.mapId !== startMapId || player.x !== startX || player.y !== startY) {
         this.markActionsDirty(player.id);
+/** moveEffects：定义该变量以承载业务值。 */
         const moveEffects = this.equipmentEffectService.dispatch(player, { trigger: 'on_move' });
         if (moveEffects.dirty.length > 0) {
           this.markDirty(player.id, moveEffects.dirty as DirtyFlag[]);
@@ -1365,8 +1507,11 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
 
     }
 
+/** hpBeforeMonsterTick：定义该变量以承载业务值。 */
     const hpBeforeMonsterTick = new Map(mapPlayers.map((player) => [player.id, player.hp] as const));
+/** monsterUpdates：定义该变量以承载业务值。 */
     const monsterUpdates = this.worldService.tickMonsters(mapId, mapPlayers);
+/** monsterAffectedPlayerIds：定义该变量以承载业务值。 */
     const monsterAffectedPlayerIds = new Set(monsterUpdates.dirtyPlayers ?? []);
     messages.push(...monsterUpdates.messages);
     for (const playerId of monsterAffectedPlayerIds) {
@@ -1390,6 +1535,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       }
     }
 
+/** finalMapPlayers：定义该变量以承载业务值。 */
     const finalMapPlayers = this.playerService.getPlayersByMap(mapId);
     for (const player of finalMapPlayers) {
       affectedPlayers.set(player.id, player);
@@ -1407,11 +1553,16 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     this.ensureMapTicks();
   }
 
+/** tickPausedMap：执行对应的业务逻辑。 */
   private tickPausedMap(mapId: string): void {
     this.ensureMapTicks();
+/** messages：定义该变量以承载业务值。 */
     const messages: WorldMessage[] = [];
+/** affectedPlayers：定义该变量以承载业务值。 */
     const affectedPlayers = new Map<string, PlayerState>();
+/** activePlayerIds：定义该变量以承载业务值。 */
     const activePlayerIds = new Set<string>();
+/** gmCommands：定义该变量以承载业务值。 */
     const gmCommands = this.measureCpuSection('gm_commands', 'GM 指令处理', () => this.gmService.drainCommands(mapId));
     if (gmCommands.length === 0) {
       return;
@@ -1444,19 +1595,23 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
 
 /** tickPlayerPresence：处理当前场景中的对应操作。 */
   private tickPlayerPresence(mapId: string, now: number) {
+/** mapPlayers：定义该变量以承载业务值。 */
     const mapPlayers = this.playerService.getPlayersByMap(mapId);
     for (const player of mapPlayers) {
       if (player.isBot) {
         continue;
       }
 
+/** lastHeartbeatAt：定义该变量以承载业务值。 */
       const lastHeartbeatAt = player.lastHeartbeatAt ?? 0;
       if (player.online === true && lastHeartbeatAt > 0 && now - lastHeartbeatAt > PLAYER_HEARTBEAT_TIMEOUT_MS) {
+/** socket：定义该变量以承载业务值。 */
         const socket = this.playerService.getSocket(player.id);
         socket?.disconnect(true);
         this.playerService.markPlayerOffline(player.id, now);
       }
 
+/** offlineSinceAt：定义该变量以承载业务值。 */
       const offlineSinceAt = player.offlineSinceAt ?? 0;
       if (player.online !== true && offlineSinceAt > 0 && now - offlineSinceAt >= this.offlinePlayerTimeoutMs) {
         this.worldService.removePlayerFromWorld(player, 'timeout');
@@ -1473,6 +1628,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         continue;
       }
       affectedPlayers.set(player.id, player);
+/** update：定义该变量以承载业务值。 */
       const update = this.worldService.relocatePlayerToInitialSpawn(player, '你所在的地图已被移除，已回到初始地图复活点。');
       this.applyWorldUpdate(player.id, update, messages);
     }
@@ -1483,9 +1639,13 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     buff: NonNullable<NonNullable<ReturnType<ContentService['getItem']>>['consumeBuffs']>[number],
     sourceRealmLv: number,
   ): TemporaryBuffState {
+/** duration：定义该变量以承载业务值。 */
     const duration = Math.max(1, buff.duration);
+/** infiniteDuration：定义该变量以承载业务值。 */
     const infiniteDuration = buff.infiniteDuration === true;
+/** sourceSkillId：定义该变量以承载业务值。 */
     const sourceSkillId = buff.sourceSkillId?.trim() || `item:${item.itemId}`;
+/** sourceSkillName：定义该变量以承载业务值。 */
     const sourceSkillName = (sourceSkillId !== `item:${item.itemId}`
       ? this.contentService.getSkill(sourceSkillId)?.name
       : undefined) ?? item.name;
@@ -1518,10 +1678,14 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     });
   }
 
+/** applyConsumableBuffState：执行对应的业务逻辑。 */
   private applyConsumableBuffState(targetBuffs: TemporaryBuffState[], nextBuff: TemporaryBuffState): TemporaryBuffState {
+/** existing：定义该变量以承载业务值。 */
     const existing = targetBuffs.find((entry) => entry.buffId === nextBuff.buffId);
     if (existing) {
+/** currentRemainingDuration：定义该变量以承载业务值。 */
       const currentRemainingDuration = Math.max(0, existing.remainingTicks - 1);
+/** addedDuration：定义该变量以承载业务值。 */
       const addedDuration = Math.max(1, nextBuff.duration);
       existing.name = nextBuff.name;
       existing.desc = nextBuff.desc;
@@ -1561,19 +1725,29 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
 
   /** 使用物品后应用其效果（恢复、增益、学功法、解锁地图等） */
   private applyItemEffect(player: PlayerState, itemId: string, messages: WorldMessage[], count = 1) {
+/** item：定义该变量以承载业务值。 */
     const item = this.contentService.getItem(itemId);
     if (!item) return;
 
+/** actualCount：定义该变量以承载业务值。 */
     const actualCount = Math.max(1, Math.floor(count));
+/** attrChanged：定义该变量以承载业务值。 */
     let attrChanged = false;
 
+/** restoredParts：定义该变量以承载业务值。 */
     const restoredParts: string[] = [];
     if (item.healAmount || item.healPercent || item.qiPercent) {
+/** previousHp：定义该变量以承载业务值。 */
       const previousHp = player.hp;
+/** maxQi：定义该变量以承载业务值。 */
       const maxQi = Math.max(0, Math.round(player.numericStats?.maxQi ?? player.qi));
+/** previousQi：定义该变量以承载业务值。 */
       const previousQi = player.qi;
+/** flatHeal：定义该变量以承载业务值。 */
       const flatHeal = item.healAmount ? item.healAmount * actualCount : 0;
+/** percentHeal：定义该变量以承载业务值。 */
       const percentHeal = item.healPercent ? Math.round(player.maxHp * item.healPercent * actualCount) : 0;
+/** percentQi：定义该变量以承载业务值。 */
       const percentQi = item.qiPercent ? Math.round(maxQi * item.qiPercent * actualCount) : 0;
       player.hp = Math.min(player.maxHp, player.hp + flatHeal + percentHeal);
       player.qi = Math.min(maxQi, player.qi + percentQi);
@@ -1596,7 +1770,9 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
 
     if (item.consumeBuffs?.length) {
       player.temporaryBuffs ??= [];
+/** appliedSummaries：定义该变量以承载业务值。 */
       const appliedSummaries = new Map<string, string>();
+/** sourceRealmLv：定义该变量以承载业务值。 */
       const sourceRealmLv = Math.max(1, Math.floor(player.realm?.realmLv ?? player.realmLv ?? 1));
       for (let index = 0; index < actualCount; index += 1) {
         for (const buff of item.consumeBuffs) {
@@ -1615,7 +1791,9 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     }
 
     if (item.tileAuraGainAmount) {
+/** addedAura：定义该变量以承载业务值。 */
       const addedAura = item.tileAuraGainAmount * actualCount;
+/** nextAura：定义该变量以承载业务值。 */
       const nextAura = this.mapService.addTileResourceValue(
         player.mapId,
         player.x,
@@ -1635,11 +1813,13 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     }
 
     if (item.learnTechniqueId) {
+/** technique：定义该变量以承载业务值。 */
       const technique = this.contentService.getTechnique(item.learnTechniqueId);
       if (!technique) {
         messages.push({ playerId: player.id, text: '技能书内容残缺，无法参悟。', kind: 'system' });
         return;
       }
+/** err：定义该变量以承载业务值。 */
       const err = this.techniqueService.learnTechnique(
         player,
         technique.id,
@@ -1657,6 +1837,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       this.markDirty(player.id, ['tech', 'actions', 'attr']);
       messages.push({
         playerId: player.id,
+/** text：定义该变量以承载业务值。 */
         text: player.cultivatingTechId === technique.id
           ? `你参悟了 ${technique.name}，并将其设为当前主修。`
           : `你参悟了 ${technique.name}。`,
@@ -1665,11 +1846,13 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     }
 
     if (item.mapUnlockId) {
+/** mapMeta：定义该变量以承载业务值。 */
       const mapMeta = this.mapService.getMapMeta(item.mapUnlockId);
       if (!mapMeta) {
         messages.push({ playerId: player.id, text: '这份地图残缺不全，无法辨认对应区域。', kind: 'system' });
         return;
       }
+/** unlocked：定义该变量以承载业务值。 */
       const unlocked = new Set(player.unlockedMinimapIds ?? []);
       unlocked.add(item.mapUnlockId);
       player.unlockedMinimapIds = [...unlocked].sort();
@@ -1681,7 +1864,9 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     }
 
     if (item.respawnBindMapId) {
+/** mapId：定义该变量以承载业务值。 */
       const mapId = this.mapService.resolvePlayerRespawnMapId(item.respawnBindMapId);
+/** mapMeta：定义该变量以承载业务值。 */
       const mapMeta = this.mapService.getMapMeta(mapId);
       player.respawnMapId = mapId;
       this.playerService.markDirty(player.id, 'actions');
@@ -1694,12 +1879,14 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       });
     }
 
+/** spiritualRootSeedTier：定义该变量以承载业务值。 */
     const spiritualRootSeedTier = item.itemId === HEAVEN_SPIRITUAL_ROOT_SEED_ITEM_ID
       ? 'heaven'
       : item.itemId === DIVINE_SPIRITUAL_ROOT_SEED_ITEM_ID
         ? 'divine'
         : null;
     if (spiritualRootSeedTier) {
+/** result：定义该变量以承载业务值。 */
       const result = this.techniqueService.useSpiritualRootSeed(player, spiritualRootSeedTier);
       if (result.error) {
         messages.push({
@@ -1720,6 +1907,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     }
 
     if (item.itemId === SHATTER_SPIRIT_PILL_ITEM_ID) {
+/** result：定义该变量以承载业务值。 */
       const result = this.techniqueService.useShatterSpiritPill(player);
       if (result.error) {
         messages.push({
@@ -1740,6 +1928,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     }
 
     if (item.itemId === WANGSHENG_PILL_ITEM_ID) {
+/** result：定义该变量以承载业务值。 */
       const result = this.techniqueService.useWangshengPill(player);
       if (result.error) {
         messages.push({
@@ -1765,7 +1954,9 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     }
   }
 
+/** isBattlePillItem：执行对应的业务逻辑。 */
   private isBattlePillItem(itemId: string): boolean {
+/** item：定义该变量以承载业务值。 */
     const item = this.contentService.getItem(itemId);
     if (!item || item.type !== 'consumable') {
       return false;
@@ -1773,6 +1964,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     return (item.healAmount ?? 0) > 0 || (item.healPercent ?? 0) > 0 || (item.qiPercent ?? 0) > 0;
   }
 
+/** normalizeAutoUsePills：执行对应的业务逻辑。 */
   private normalizeAutoUsePills(input: unknown): AutoUsePillConfig[] {
     return normalizeAutoUsePillConfigs(input, {
       allowItemId: (itemId) => this.isBattlePillItem(itemId),
@@ -1789,12 +1981,15 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     messages: WorldMessage[],
     options?: { silent?: boolean },
   ): boolean {
+/** silent：定义该变量以承载业务值。 */
     const silent = options?.silent === true;
+/** pushError：定义该变量以承载业务值。 */
     const pushError = (text: string): void => {
       if (!silent) {
         messages.push({ playerId: player.id, text, kind: 'system' });
       }
     };
+/** item：定义该变量以承载业务值。 */
     const item = this.inventoryService.getItem(player, slotIndex);
     if (!item) {
       pushError('物品不存在');
@@ -1804,6 +1999,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       pushError('使用数量无效');
       return false;
     }
+/** itemDef：定义该变量以承载业务值。 */
     const itemDef = this.contentService.getItem(item.itemId);
     if (requestedCount > 1 && itemDef?.allowBatchUse !== true) {
       pushError('该物品不支持批量使用');
@@ -1814,12 +2010,14 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       return false;
     }
     if (itemDef?.mapUnlockId && (player.unlockedMinimapIds ?? []).includes(itemDef.mapUnlockId)) {
+/** mapMeta：定义该变量以承载业务值。 */
       const mapMeta = this.mapService.getMapMeta(itemDef.mapUnlockId);
 /** pushError：处理当前场景中的对应操作。 */
       pushError(mapMeta ? `${mapMeta.name} 的地图你早已记下。` : '这份地图你早已记下。');
       return false;
     }
     if (itemDef?.respawnBindMapId && this.mapService.resolvePlayerRespawnMapId(player.respawnMapId) === itemDef.respawnBindMapId) {
+/** mapMeta：定义该变量以承载业务值。 */
       const mapMeta = this.mapService.getMapMeta(itemDef.respawnBindMapId);
 /** pushError：处理当前场景中的对应操作。 */
       pushError(mapMeta ? `你的命石早已系在 ${mapMeta.name}。` : '你的命石早已系在此处。');
@@ -1830,6 +2028,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       return false;
     }
     if (itemDef?.spiritualRootSeedTier) {
+/** seedUseError：定义该变量以承载业务值。 */
       const seedUseError = this.techniqueService.canUseSpiritualRootSeed(player, itemDef.spiritualRootSeedTier);
       if (seedUseError) {
         pushError(seedUseError);
@@ -1837,17 +2036,20 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       }
     }
     if (itemDef?.itemId === SHATTER_SPIRIT_PILL_ITEM_ID) {
+/** shatterSpiritPillError：定义该变量以承载业务值。 */
       const shatterSpiritPillError = this.techniqueService.canUseShatterSpiritPill(player);
       if (shatterSpiritPillError) {
         pushError(shatterSpiritPillError);
         return false;
       }
     }
+/** cooldownLeft：定义该变量以承载业务值。 */
     const cooldownLeft = this.getItemUseCooldownRemainingTicks(player, item.itemId);
     if (cooldownLeft > 0) {
       pushError(`${item.name}冷却中，还需 ${cooldownLeft} 息。`);
       return false;
     }
+/** useErr：定义该变量以承载业务值。 */
     const useErr = this.inventoryService.useItem(player, slotIndex, requestedCount);
     if (useErr) {
       pushError(useErr);
@@ -1859,6 +2061,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     return true;
   }
 
+/** shouldEvaluateAutoUsePills：执行对应的业务逻辑。 */
   private shouldEvaluateAutoUsePills(player: PlayerState): boolean {
     return player.dead !== true
       && (
@@ -1868,7 +2071,9 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       );
   }
 
+/** getItemUseCooldownTicks：执行对应的业务逻辑。 */
   private getItemUseCooldownTicks(itemId: string): number {
+/** item：定义该变量以承载业务值。 */
     const item = this.contentService.getItem(itemId);
     if (!item) {
       return 0;
@@ -1885,11 +2090,14 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     return Math.max(0, Math.floor(now / this.minTickInterval));
   }
 
+/** getItemUseCooldownGroups：执行对应的业务逻辑。 */
   private getItemUseCooldownGroups(itemId: string): Array<'hp' | 'qi'> {
+/** item：定义该变量以承载业务值。 */
     const item = this.contentService.getItem(itemId);
     if (!item) {
       return [];
     }
+/** groups：定义该变量以承载业务值。 */
     const groups: Array<'hp' | 'qi'> = [];
     if ((item.healAmount ?? 0) > 0 || (item.healPercent ?? 0) > 0) {
       groups.push('hp');
@@ -1900,21 +2108,28 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     return groups;
   }
 
+/** getItemUseCooldownRemainingTicks：执行对应的业务逻辑。 */
   private getItemUseCooldownRemainingTicks(player: PlayerState, itemId: string): number {
+/** cooldownTicks：定义该变量以承载业务值。 */
     const cooldownTicks = this.getItemUseCooldownTicks(itemId);
     if (cooldownTicks <= 0) {
       return 0;
     }
+/** cooldownGroups：定义该变量以承载业务值。 */
     const cooldownGroups = this.getItemUseCooldownGroups(itemId);
     if (cooldownGroups.length === 0) {
       return 0;
     }
+/** startedAtTicks：定义该变量以承载业务值。 */
     const startedAtTicks = this.autoUsePillInstantCooldowns.get(player.id);
     if (!startedAtTicks) {
       return 0;
     }
+/** currentTick：定义该变量以承载业务值。 */
     const currentTick = this.getCurrentServerTick();
+/** maxRemainingTicks：定义该变量以承载业务值。 */
     let maxRemainingTicks = 0;
+/** hasActiveGroup：定义该变量以承载业务值。 */
     let hasActiveGroup = false;
     for (const group of cooldownGroups) {
       const startedAtTick = startedAtTicks[group];
@@ -1922,7 +2137,9 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         continue;
       }
       hasActiveGroup = true;
+/** elapsedTicks：定义该变量以承载业务值。 */
       const elapsedTicks = Math.max(0, currentTick - Math.floor(startedAtTick));
+/** remainingTicks：定义该变量以承载业务值。 */
       const remainingTicks = Math.max(0, cooldownTicks - elapsedTicks);
       if (remainingTicks > 0) {
         maxRemainingTicks = Math.max(maxRemainingTicks, remainingTicks);
@@ -1938,20 +2155,26 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     return hasActiveGroup ? maxRemainingTicks : 0;
   }
 
+/** isAutoUsePillOnCooldown：执行对应的业务逻辑。 */
   private isAutoUsePillOnCooldown(player: PlayerState, itemId: string): boolean {
     return this.getItemUseCooldownRemainingTicks(player, itemId) > 0;
   }
 
+/** markItemUseCooldown：执行对应的业务逻辑。 */
   private markItemUseCooldown(player: PlayerState, itemId: string): void {
+/** cooldownTicks：定义该变量以承载业务值。 */
     const cooldownTicks = this.getItemUseCooldownTicks(itemId);
     if (cooldownTicks <= 0) {
       return;
     }
+/** cooldownGroups：定义该变量以承载业务值。 */
     const cooldownGroups = this.getItemUseCooldownGroups(itemId);
     if (cooldownGroups.length === 0) {
       return;
     }
+/** nextState：定义该变量以承载业务值。 */
     const nextState = { ...(this.autoUsePillInstantCooldowns.get(player.id) ?? {}) };
+/** currentServerTick：定义该变量以承载业务值。 */
     const currentServerTick = this.getCurrentServerTick();
     for (const group of cooldownGroups) {
       nextState[group] = currentServerTick;
@@ -1960,15 +2183,19 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     this.playerService.markDirty(player.id, 'inv');
   }
 
+/** captureInventoryCooldownStates：执行对应的业务逻辑。 */
   private captureInventoryCooldownStates(player: PlayerState): SyncedInventoryCooldownState[] {
+/** startedAtTicks：定义该变量以承载业务值。 */
     const startedAtTicks = this.autoUsePillInstantCooldowns.get(player.id);
     if (!startedAtTicks) {
       return [];
     }
+/** cooldowns：定义该变量以承载业务值。 */
     const cooldowns = new Map<string, SyncedInventoryCooldownState>();
     for (const item of player.inventory.items) {
       const cooldown = this.getItemUseCooldownTicks(item.itemId);
       const cooldownLeft = this.getItemUseCooldownRemainingTicks(player, item.itemId);
+/** startedAtTick：定义该变量以承载业务值。 */
       const startedAtTick = this.getItemUseCooldownGroups(item.itemId)
         .map((group) => startedAtTicks[group])
         .filter((entry): entry is number => typeof entry === 'number' && Number.isFinite(entry) && entry >= 0)
@@ -1988,8 +2215,11 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     return [...cooldowns.values()].sort((left, right) => left.itemId.localeCompare(right.itemId));
   }
 
+/** shouldSyncInventoryCooldown：执行对应的业务逻辑。 */
   private shouldSyncInventoryCooldown(player: PlayerState): boolean {
+/** nextCooldowns：定义该变量以承载业务值。 */
     const nextCooldowns = this.captureInventoryCooldownStates(player);
+/** previousCooldowns：定义该变量以承载业务值。 */
     const previousCooldowns = this.lastSentInventoryCooldownStates.get(player.id) ?? [];
     if (nextCooldowns.length === 0 && previousCooldowns.length === 0) {
       return false;
@@ -1997,31 +2227,38 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     return !this.isStructuredEqual(previousCooldowns, nextCooldowns);
   }
 
+/** shouldAutoUsePill：执行对应的业务逻辑。 */
   private shouldAutoUsePill(player: PlayerState, config: AutoUsePillConfig): boolean {
     if ((config.conditions?.length ?? 0) === 0) {
       return false;
     }
+/** item：定义该变量以承载业务值。 */
     const item = this.contentService.getItem(config.itemId);
     if (!item || !this.isBattlePillItem(config.itemId)) {
       return false;
     }
     return config.conditions.some((condition) => {
       if (condition.type === 'resource_ratio') {
+/** current：定义该变量以承载业务值。 */
         const current = condition.resource === 'hp' ? player.hp : player.qi;
+/** max：定义该变量以承载业务值。 */
         const max = condition.resource === 'hp'
           ? Math.max(1, player.maxHp)
           : Math.max(0, Math.round(player.numericStats?.maxQi ?? player.qi));
+/** ratioPct：定义该变量以承载业务值。 */
         const ratioPct = max > 0 ? (current / max) * 100 : 0;
         return condition.op === 'lt'
           ? ratioPct < condition.thresholdPct
           : ratioPct > condition.thresholdPct;
       }
+/** buffIds：定义该变量以承载业务值。 */
       const buffIds = (item.consumeBuffs ?? [])
         .map((buff) => buff.buffId)
         .filter((buffId): buffId is string => typeof buffId === 'string' && buffId.length > 0);
       if (buffIds.length === 0) {
         return false;
       }
+/** activeBuffIds：定义该变量以承载业务值。 */
       const activeBuffIds = new Set(
         (player.temporaryBuffs ?? [])
           .filter((buff) => buff.remainingTicks > 0 && buff.stacks > 0)
@@ -2031,6 +2268,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     });
   }
 
+/** tryAutoUsePills：执行对应的业务逻辑。 */
   private tryAutoUsePills(player: PlayerState, messages: WorldMessage[]): boolean {
     if (!this.shouldEvaluateAutoUsePills(player)) {
       return false;
@@ -2042,6 +2280,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       if (this.isAutoUsePillOnCooldown(player, config.itemId)) {
         continue;
       }
+/** slotIndex：定义该变量以承载业务值。 */
       const slotIndex = this.inventoryService.findItem(player, config.itemId);
       if (slotIndex < 0) {
         continue;
@@ -2053,20 +2292,24 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     return false;
   }
 
+/** getUnlockedMinimapIds：执行对应的业务逻辑。 */
   private getUnlockedMinimapIds(player: PlayerState): string[] {
     return [...new Set((player.unlockedMinimapIds ?? []).filter((entry): entry is string => typeof entry === 'string' && entry.length > 0))].sort();
   }
 
   private measureCpuSection<T>(key: string, label: string, work: () => T): T {
+/** startedAt：定义该变量以承载业务值。 */
     const startedAt = process.hrtime.bigint();
     try {
       return work();
     } finally {
+/** elapsedMs：定义该变量以承载业务值。 */
       const elapsedMs = Number(process.hrtime.bigint() - startedAt) / 1_000_000;
       this.performanceService.recordCpuSection(elapsedMs, key, label);
     }
   }
 
+/** buildMinimapLibrarySignature：执行对应的业务逻辑。 */
   private buildMinimapLibrarySignature(unlockedMinimapIds: string[]): string {
     if (unlockedMinimapIds.length === 0) {
       return '';
@@ -2089,10 +2332,12 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     }
   }
 
+/** emitQuestNavigateResult：执行对应的业务逻辑。 */
   private emitQuestNavigateResult(playerId: string, payload: S2C_QuestNavigateResult): void {
     this.playerService.getSocket(playerId)?.emit(S2C.QuestNavigateResult, payload);
   }
 
+/** confirmQuestNavigation：执行对应的业务逻辑。 */
   private confirmQuestNavigation(player: PlayerState, navigation: NonNullable<PlayerState['questNavigation']>): void {
     if (navigation.pendingConfirmation !== true) {
       return;
@@ -2101,12 +2346,14 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     this.emitQuestNavigateResult(player.id, { questId: navigation.questId, ok: true });
   }
 
+/** rejectQuestNavigation：执行对应的业务逻辑。 */
   private rejectQuestNavigation(player: PlayerState, questId: string, error: string): void {
     this.emitQuestNavigateResult(player.id, { questId, ok: false, error });
   }
 
   /** 检测玩家踩到自动传送点时触发地图切换 */
   private applyAutoTravelIfNeeded(player: PlayerState, messages: WorldMessage[]): boolean {
+/** update：定义该变量以承载业务值。 */
     const update = this.worldService.tryAutoTravel(player);
     if (!update) {
       return false;
@@ -2121,12 +2368,15 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     return true;
   }
 
+/** processQuestNavigation：执行对应的业务逻辑。 */
   private processQuestNavigation(player: PlayerState, messages: WorldMessage[]): void {
+/** navigation：定义该变量以承载业务值。 */
     const navigation = player.questNavigation;
     if (!navigation?.questId) {
       return;
     }
 
+/** quest：定义该变量以承载业务值。 */
     const quest = player.quests.find((entry) => entry.id === navigation.questId && entry.status !== 'completed');
     if (!quest) {
       if (navigation.pendingConfirmation === true) {
@@ -2137,8 +2387,10 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       return;
     }
 
+/** goal：定义该变量以承载业务值。 */
     const goal = this.resolveQuestNavigationGoal(player, quest);
     if (!goal) {
+/** error：定义该变量以承载业务值。 */
       const error = '该任务暂时没有可导航的目标地点';
       messages.push({ playerId: player.id, text: error, kind: 'system' });
       this.rejectQuestNavigation(player, navigation.questId, error);
@@ -2163,6 +2415,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         player.questNavigation = undefined;
         return;
       }
+/** error：定义该变量以承载业务值。 */
       const error = this.navigationService.setMoveTarget(player, goal.x, goal.y, { allowNearestReachable: true });
       if (error) {
         messages.push({ playerId: player.id, text: error, kind: 'system' });
@@ -2174,8 +2427,10 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       return;
     }
 
+/** nextPortal：定义该变量以承载业务值。 */
     const nextPortal = this.findNextPortalTowardsMap(player.mapId, goal.mapId);
     if (!nextPortal) {
+/** error：定义该变量以承载业务值。 */
       const error = `无法从当前地图前往 ${goal.mapLabel ?? goal.mapId}`;
       messages.push({ playerId: player.id, text: error, kind: 'system' });
       this.rejectQuestNavigation(player, navigation.questId, error);
@@ -2184,6 +2439,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       return;
     }
 
+/** remainingTicks：定义该变量以承载业务值。 */
     const remainingTicks = this.getQuestCrossMapCooldownRemaining(player);
     if (remainingTicks > 0) {
       this.confirmQuestNavigation(player, navigation);
@@ -2200,8 +2456,10 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
 
     if (player.x === nextPortal.x && player.y === nextPortal.y) {
       if (nextPortal.trigger === 'manual') {
+/** update：定义该变量以承载业务值。 */
         const update = this.worldService.travelThroughManualPortalAtCurrentPosition(player, nextPortal.targetMapId);
         if (!update) {
+/** error：定义该变量以承载业务值。 */
           const error = '当前传送点无法使用';
           messages.push({ playerId: player.id, text: error, kind: 'system' });
           this.rejectQuestNavigation(player, navigation.questId, error);
@@ -2217,6 +2475,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       return;
     }
 
+/** error：定义该变量以承载业务值。 */
     const error = this.navigationService.setMoveTarget(player, nextPortal.x, nextPortal.y, { allowNearestReachable: true });
     if (error) {
       messages.push({ playerId: player.id, text: error, kind: 'system' });
@@ -2227,12 +2486,15 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     }
   }
 
+/** processMapNavigation：执行对应的业务逻辑。 */
   private processMapNavigation(player: PlayerState, messages: WorldMessage[]): void {
+/** navigation：定义该变量以承载业务值。 */
     const navigation = player.mapNavigation;
     if (!navigation) {
       return;
     }
 
+/** targetMapMeta：定义该变量以承载业务值。 */
     const targetMapMeta = this.mapService.getMapMeta(navigation.targetMapId);
     if (!targetMapMeta) {
       messages.push({ playerId: player.id, text: '目标地图不存在', kind: 'system' });
@@ -2262,6 +2524,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         player.mapNavigation = undefined;
         return;
       }
+/** error：定义该变量以承载业务值。 */
       const error = this.navigationService.setMoveTarget(player, navigation.targetX, navigation.targetY, { allowNearestReachable: true });
       if (error) {
         messages.push({ playerId: player.id, text: error, kind: 'system' });
@@ -2270,7 +2533,9 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       return;
     }
 
+/** nextPortal：定义该变量以承载业务值。 */
     const nextPortal = this.findNextPortalTowardsMap(player.mapId, navigation.targetMapId);
+/** targetMapLabel：定义该变量以承载业务值。 */
     const targetMapLabel = navigation.targetMapName ?? targetMapMeta.name ?? navigation.targetMapId;
     if (!nextPortal) {
       messages.push({ playerId: player.id, text: `无法从当前地图前往 ${targetMapLabel}`, kind: 'system' });
@@ -2279,6 +2544,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       return;
     }
 
+/** remainingTicks：定义该变量以承载业务值。 */
     const remainingTicks = this.getQuestCrossMapCooldownRemaining(player);
     if (remainingTicks > 0) {
       navigation.pendingConfirmation = undefined;
@@ -2295,6 +2561,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     navigation.lastBlockedRemainingTicks = undefined;
 
     if (player.x === nextPortal.x && player.y === nextPortal.y) {
+/** update：定义该变量以承载业务值。 */
       const update = nextPortal.trigger === 'manual'
         ? this.worldService.travelThroughManualPortalAtCurrentPosition(player, nextPortal.targetMapId)
         : this.worldService.tryAutoTravel(player);
@@ -2308,6 +2575,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       return;
     }
 
+/** error：定义该变量以承载业务值。 */
     const error = this.navigationService.setMoveTarget(player, nextPortal.x, nextPortal.y, { allowNearestReachable: true });
     if (error) {
       messages.push({ playerId: player.id, text: error, kind: 'system' });
@@ -2320,12 +2588,16 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     quest: PlayerState['quests'][number],
   ): { kind: 'point'; mapId: string; x: number; y: number; mapLabel?: string } | { kind: 'map'; mapId: string; mapLabel?: string } | null {
     if (quest.status === 'ready') {
+/** submitMapId：定义该变量以承载业务值。 */
       const submitMapId = quest.submitMapId ?? quest.giverMapId;
       if (!submitMapId) {
         return null;
       }
+/** submitX：定义该变量以承载业务值。 */
       const submitX = quest.submitX ?? quest.giverX;
+/** submitY：定义该变量以承载业务值。 */
       const submitY = quest.submitY ?? quest.giverY;
+/** submitMapName：定义该变量以承载业务值。 */
       const submitMapName = quest.submitMapName ?? quest.giverMapName;
       if (submitX !== undefined && submitY !== undefined) {
         return { kind: 'point', mapId: submitMapId, x: submitX, y: submitY, mapLabel: submitMapName };
@@ -2333,7 +2605,9 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       return { kind: 'map', mapId: submitMapId, mapLabel: submitMapName };
     }
 
+/** explicitTargetMapId：定义该变量以承载业务值。 */
     const explicitTargetMapId = quest.targetMapId;
+/** targetMapName：定义该变量以承载业务值。 */
     const targetMapName = quest.targetMapName;
     if (explicitTargetMapId && quest.targetX !== undefined && quest.targetY !== undefined) {
       return { kind: 'point', mapId: explicitTargetMapId, x: quest.targetX, y: quest.targetY, mapLabel: targetMapName };
@@ -2349,10 +2623,12 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         }
         return null;
       case 'kill': {
+/** killMapId：定义该变量以承载业务值。 */
         const killMapId = quest.targetMapId ?? quest.giverMapId;
         if (!killMapId || !quest.targetMonsterId) {
           return null;
         }
+/** spawn：定义该变量以承载业务值。 */
         const spawn = this.mapService.getMonsterSpawnInMap(killMapId, quest.targetMonsterId);
         if (!spawn) {
           return null;
@@ -2384,6 +2660,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
   private findNextPortalTowardsMap(
     startMapId: string,
     targetMapId: string,
+/** allowedRouteDomains：定义该变量以承载业务值。 */
     allowedRouteDomains: readonly MapRouteDomain[] = DEFAULT_SYSTEM_ROUTE_DOMAINS,
   ) {
     if (startMapId === targetMapId) {
@@ -2392,10 +2669,14 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     if (!this.mapService.isMapRouteDomainAllowed(targetMapId, allowedRouteDomains)) {
       return undefined;
     }
+/** visited：定义该变量以承载业务值。 */
     const visited = new Set<string>([startMapId]);
+/** queue：定义该变量以承载业务值。 */
     const queue: string[] = [startMapId];
+/** firstPortalByMap：定义该变量以承载业务值。 */
     const firstPortalByMap = new Map<string, ReturnType<MapService['getPortals']>[number]>();
     while (queue.length > 0) {
+/** mapId：定义该变量以承载业务值。 */
       const mapId = queue.shift()!;
       for (const portal of this.mapService.getPortals(mapId, { allowedRouteDomains })) {
         if (portal.hidden || visited.has(portal.targetMapId)) {
@@ -2404,6 +2685,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         if (!this.mapService.isMapRouteDomainAllowed(portal.targetMapId, allowedRouteDomains)) {
           continue;
         }
+/** initialPortal：定义该变量以承载业务值。 */
         const initialPortal = mapId === startMapId ? portal : firstPortalByMap.get(mapId);
         if (!initialPortal) {
           continue;
@@ -2419,13 +2701,18 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     return undefined;
   }
 
+/** getQuestCrossMapCooldownRemaining：执行对应的业务逻辑。 */
   private getQuestCrossMapCooldownRemaining(player: PlayerState): number {
+/** now：定义该变量以承载业务值。 */
     const now = player.lifeElapsedTicks ?? 0;
+/** until：定义该变量以承载业务值。 */
     const until = player.questCrossMapNavCooldownUntilLifeTicks ?? 0;
     return Math.max(0, Math.ceil(until - now));
   }
 
+/** applyQuestCrossMapCooldown：执行对应的业务逻辑。 */
   private applyQuestCrossMapCooldown(player: PlayerState): void {
+/** now：定义该变量以承载业务值。 */
     const now = player.lifeElapsedTicks ?? 0;
     player.questCrossMapNavCooldownUntilLifeTicks = Math.max(
       player.questCrossMapNavCooldownUntilLifeTicks ?? 0,
@@ -2460,6 +2747,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     }
   }
 
+/** applyEnhancementResult：执行对应的业务逻辑。 */
   private applyEnhancementResult(playerId: string, result: ReturnType<EnhancementService['interruptEnhancement']>, messages: WorldMessage[]) {
     if (result.inventoryChanged) {
       this.playerService.markDirty(playerId, 'inv');
@@ -2514,6 +2802,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     }
 
     player.idleTicks = 0;
+/** result：定义该变量以承载业务值。 */
     const result = this.techniqueService.startCultivation(player);
     if (!result.changed) {
       return;
@@ -2545,6 +2834,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       const error = this.gmService.applyCommand(command);
       if (!error) {
         if ('playerId' in command && typeof command.playerId === 'string') {
+/** player：定义该变量以承载业务值。 */
           const player = this.playerService.getPlayer(command.playerId);
           if (player) {
             affectedPlayers.set(player.id, player);
@@ -2566,6 +2856,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     mapId: string,
     affectedPlayers: Map<string, PlayerState>,
   ): void {
+/** changedPlayerIds：定义该变量以承载业务值。 */
     const changedPlayerIds = this.gmService.syncObservedPlayerBuffs(mapId);
     for (const playerId of changedPlayerIds) {
       const player = this.playerService.getPlayer(playerId);
@@ -2577,12 +2868,15 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     }
   }
 
+/** markActionsDirty：执行对应的业务逻辑。 */
   private markActionsDirty(playerId: string): void {
     this.cooldownOnlyActionDirtyPlayers.delete(playerId);
     this.playerService.markDirty(playerId, 'actions');
   }
 
+/** markActionCooldownDirty：执行对应的业务逻辑。 */
   private markActionCooldownDirty(playerId: string): void {
+/** flags：定义该变量以承载业务值。 */
     const flags = this.playerService.getDirtyFlags(playerId);
     this.playerService.markDirty(playerId, 'actions');
     if (!flags?.has('actions')) {
@@ -2590,7 +2884,9 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     }
   }
 
+/** ensurePeriodicSync：执行对应的业务逻辑。 */
   private ensurePeriodicSync(player: PlayerState, now: number): void {
+/** lastSyncAt：定义该变量以承载业务值。 */
     const lastSyncAt = this.lastPeriodicSyncAt.get(player.id);
     if (lastSyncAt === undefined) {
       this.lastPeriodicSyncAt.set(player.id, now);
@@ -2608,15 +2904,18 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
 
   /** 重新构建玩家的可用行动列表，返回是否发生变化 */
   private syncActions(player: PlayerState, options?: SyncActionsOptions): boolean {
+/** before：定义该变量以承载业务值。 */
     const before = this.measureCpuSection('state_actions_before', '动作重建: 重建前快照', () => (
       this.captureActionSyncState(player.actions)
     ));
+/** contextActions：定义该变量以承载业务值。 */
     const contextActions = this.measureCpuSection('state_actions_context', '动作重建: 场景动作收集', () => (
       this.worldService.getContextActions(player, { skipQuestSync: options?.skipQuestSync })
     ));
     this.measureCpuSection('state_actions_core', '动作重建: 核心构建', () => {
       this.actionService.rebuildActions(player, contextActions);
     });
+/** after：定义该变量以承载业务值。 */
     const after = this.measureCpuSection('state_actions_after', '动作重建: 重建后快照', () => (
       this.captureActionSyncState(player.actions)
     ));
@@ -2627,6 +2926,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
    * 只在 actions 已被标脏时才重建动作列表，避免每 tick 对所有玩家无条件重建。
    */
   private syncActionsIfDirty(player: PlayerState, options?: SyncActionsOptions): boolean {
+/** flags：定义该变量以承载业务值。 */
     const flags = this.playerService.getDirtyFlags(player.id);
     if (!flags?.has('actions') || this.cooldownOnlyActionDirtyPlayers.has(player.id)) {
       return false;
@@ -2641,24 +2941,29 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
   executeImmediate(player: PlayerState, type: ImmediateCommandType, data: unknown): void {
     if (!player || player.inWorld === false || player.dead) return;
 
+/** messages：定义该变量以承载业务值。 */
     const messages: WorldMessage[] = [];
 
     switch (type) {
       case 'useItem': {
         const { slotIndex, count } = data as { slotIndex: number; count?: number };
+/** requestedCount：定义该变量以承载业务值。 */
         const requestedCount = Number.isInteger(count) ? Number(count) : 1;
         this.tryUseInventoryItem(player, slotIndex, requestedCount, messages);
         break;
       }
       case 'dropItem': {
         const { slotIndex, count } = data as { slotIndex: number; count: number };
+/** dropped：定义该变量以承载业务值。 */
         const dropped = this.inventoryService.dropItem(player, slotIndex, count);
         if (!dropped) {
           messages.push({ playerId: player.id, text: '物品不存在或数量不足', kind: 'system' });
           break;
         }
         this.playerService.markDirty(player.id, 'inv');
+/** container：定义该变量以承载业务值。 */
         const container = this.mapService.getContainerAt(player.mapId, player.x, player.y);
+/** dirtyPlayerIds：定义该变量以承载业务值。 */
         const dirtyPlayerIds = container
           ? this.lootService.dropToContainer(player.mapId, container.id, dropped)
           : this.lootService.dropToGround(player.mapId, player.x, player.y, dropped);
@@ -2677,6 +2982,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       }
       case 'destroyItem': {
         const { slotIndex, count } = data as { slotIndex: number; count: number };
+/** destroyed：定义该变量以承载业务值。 */
         const destroyed = this.inventoryService.destroyItem(player, slotIndex, count);
         if (!destroyed) {
           messages.push({ playerId: player.id, text: '物品不存在或数量不足', kind: 'system' });
@@ -2698,6 +3004,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       }
       case 'equip': {
         const { slotIndex } = data as { slotIndex: number };
+/** nextItem：定义该变量以承载业务值。 */
         const nextItem = this.inventoryService.getItem(player, slotIndex);
         if (
           nextItem?.equipSlot === 'weapon'
@@ -2707,6 +3014,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
           messages.push({ playerId: player.id, text: '炼丹进行中，暂时不能替换丹炉。', kind: 'system' });
           break;
         }
+/** enhancementLockReason：定义该变量以承载业务值。 */
         const enhancementLockReason = nextItem?.equipSlot
           ? this.enhancementService.getLockedSlotReason(player, nextItem.equipSlot)
           : null;
@@ -2714,6 +3022,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
           messages.push({ playerId: player.id, text: enhancementLockReason, kind: 'system' });
           break;
         }
+/** equipErr：定义该变量以承载业务值。 */
         const equipErr = this.equipmentService.equip(player, slotIndex);
         if (!equipErr) {
           this.markDirty(player.id, ['inv', 'equip', 'attr']);
@@ -2733,11 +3042,13 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
           messages.push({ playerId: player.id, text: '炼丹进行中，暂时不能卸下丹炉。', kind: 'system' });
           break;
         }
+/** enhancementLockReason：定义该变量以承载业务值。 */
         const enhancementLockReason = this.enhancementService.getLockedSlotReason(player, slot as EquipSlot);
         if (enhancementLockReason) {
           messages.push({ playerId: player.id, text: enhancementLockReason, kind: 'system' });
           break;
         }
+/** unequipErr：定义该变量以承载业务值。 */
         const unequipErr = this.equipmentService.unequip(player, slot as any);
         if (!unequipErr) {
           this.markDirty(player.id, ['inv', 'equip', 'attr']);
@@ -2771,6 +3082,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
           break;
         }
 
+/** technique：定义该变量以承载业务值。 */
         const technique = player.techniques.find((entry) => entry.techId === techId);
         if (!technique) {
           messages.push({ playerId: player.id, text: '尚未掌握该功法，无法设为主修。', kind: 'system' });
@@ -2792,6 +3104,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       }
       case 'updateAutoUsePills': {
         const { pills } = data as { pills: AutoUsePillConfig[] };
+/** nextPills：定义该变量以承载业务值。 */
         const nextPills = this.normalizeAutoUsePills(pills);
         if (!isPlainEqual(player.autoUsePills ?? [], nextPills)) {
           player.autoUsePills = nextPills;
@@ -2801,6 +3114,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       }
       case 'updateCombatTargetingRules': {
         const { combatTargetingRules } = data as { combatTargetingRules: PlayerState['combatTargetingRules'] };
+/** nextRules：定义该变量以承载业务值。 */
         const nextRules = normalizeCombatTargetingRules(
           combatTargetingRules,
           buildDefaultCombatTargetingRules({ includeAllPlayersHostile: player.allowAoePlayerHit === true }),
@@ -2814,6 +3128,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       }
       case 'updateAutoBattleTargetingMode': {
         const { mode } = data as { mode: PlayerState['autoBattleTargetingMode'] };
+/** nextMode：定义该变量以承载业务值。 */
         const nextMode = normalizeAutoBattleTargetingMode(mode, player.autoBattleTargetingMode);
         if (player.autoBattleTargetingMode !== nextMode) {
           player.autoBattleTargetingMode = nextMode;
@@ -2838,10 +3153,12 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     this.flushImmediateMessages(player.id, messages);
   }
 
+/** flushPlayerState：执行对应的业务逻辑。 */
   flushPlayerState(player: PlayerState): void {
     this.flushPlayerDirtyUpdates(player);
   }
 
+/** flushPlayerMessages：执行对应的业务逻辑。 */
   flushPlayerMessages(playerId: string, messages: WorldMessage[]): void {
     this.flushImmediateMessages(playerId, messages);
   }
@@ -2853,15 +3170,19 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     }
   }
 
+/** flushAlchemyPanels：执行对应的业务逻辑。 */
   private flushAlchemyPanels(): void {
     for (const playerId of [...this.pendingAlchemyPanelPushPlayers]) {
       this.flushPlayerAlchemyPanel(playerId);
     }
   }
 
+/** flushPlayerAlchemyPanel：执行对应的业务逻辑。 */
   private flushPlayerAlchemyPanel(playerId: string): void {
     this.pendingAlchemyPanelPushPlayers.delete(playerId);
+/** player：定义该变量以承载业务值。 */
     const player = this.playerService.getPlayer(playerId);
+/** socket：定义该变量以承载业务值。 */
     const socket = player ? this.playerService.getSocket(playerId) : null;
     if (!player || !socket) {
       return;
@@ -2869,15 +3190,19 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     socket.emit(S2C.AlchemyPanel, this.alchemyService.buildPanelPayload(player, this.alchemyService.getCatalogVersion()));
   }
 
+/** flushEnhancementPanels：执行对应的业务逻辑。 */
   private flushEnhancementPanels(): void {
     for (const playerId of [...this.pendingEnhancementPanelPushPlayers]) {
       this.flushPlayerEnhancementPanel(playerId);
     }
   }
 
+/** flushPlayerEnhancementPanel：执行对应的业务逻辑。 */
   private flushPlayerEnhancementPanel(playerId: string): void {
     this.pendingEnhancementPanelPushPlayers.delete(playerId);
+/** player：定义该变量以承载业务值。 */
     const player = this.playerService.getPlayer(playerId);
+/** socket：定义该变量以承载业务值。 */
     const socket = player ? this.playerService.getSocket(playerId) : null;
     if (!player || !socket) {
       return;
@@ -2893,8 +3218,10 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     if (this.shouldFlushPendingSpecialStats(player.id)) {
       this.playerService.markDirty(player.id, 'attr');
     }
+/** flags：定义该变量以承载业务值。 */
     const flags = this.playerService.getDirtyFlags(player.id);
     if (!flags || flags.size === 0) return;
+/** needsProgressionSync：定义该变量以承载业务值。 */
     const needsProgressionSync =
       flags.has('attr')
       || flags.has('inv')
@@ -2910,10 +3237,12 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     ) {
       flags.add('attr');
     }
+/** socket：定义该变量以承载业务值。 */
     const socket = this.playerService.getSocket(player.id);
     if (!socket) return;
 
     if (flags.has('attr') || flags.has('inv') || flags.has('equip') || flags.has('tech')) {
+/** realmUpdate：定义该变量以承载业务值。 */
       const realmUpdate = this.buildRealmUpdate(player.id, player.realm ?? null);
       if (realmUpdate) {
         socket.emit(S2C.RealmUpdate, realmUpdate);
@@ -2922,6 +3251,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
 
     if (flags.has('attr')) {
       this.measureCpuSection('state_sync_attr', '状态同步: 属性面板', () => {
+/** update：定义该变量以承载业务值。 */
         const update = this.buildSparseAttrUpdate(player.id, this.captureAttrUpdateState(player));
         if (update) {
           socket.emit(S2C.AttrUpdate, update);
@@ -2930,6 +3260,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     }
     if (flags.has('inv')) {
       this.measureCpuSection('state_sync_inventory', '状态同步: 背包与装备', () => {
+/** update：定义该变量以承载业务值。 */
         const update = this.buildSparseInventoryUpdate(player);
         if (update) {
           socket.emit(S2C.InventoryUpdate, update);
@@ -2938,6 +3269,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     }
     if (flags.has('equip')) {
       this.measureCpuSection('state_sync_inventory', '状态同步: 背包与装备', () => {
+/** update：定义该变量以承载业务值。 */
         const update = this.buildSparseEquipmentUpdate(player.id, player.equipment);
         if (update) {
           socket.emit(S2C.EquipmentUpdate, update);
@@ -2946,6 +3278,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     }
     if (flags.has('tech')) {
       this.measureCpuSection('state_sync_tech', '状态同步: 功法面板', () => {
+/** update：定义该变量以承载业务值。 */
         const update = this.buildSparseTechniqueUpdate(player);
         if (update) {
           socket.emit(S2C.TechniqueUpdate, update);
@@ -2955,6 +3288,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     if (flags.has('actions')) {
       this.syncActionsIfDirty(player, { skipQuestSync: true });
       this.measureCpuSection('state_sync_actions', '状态同步: 动作面板', () => {
+/** update：定义该变量以承载业务值。 */
         const update = this.buildSparseActionsUpdate(player);
         if (update) {
           socket.emit(S2C.ActionsUpdate, update);
@@ -2963,6 +3297,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     }
     if (flags.has('loot')) {
       this.measureCpuSection('state_sync_loot', '状态同步: 掉落面板', () => {
+/** update：定义该变量以承载业务值。 */
         const update: S2C_LootWindowUpdate = {
           window: this.lootService.buildLootWindow(player),
         };
@@ -2971,6 +3306,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     }
     if (flags.has('quest')) {
       this.measureCpuSection('state_sync_quest', '状态同步: 任务面板', () => {
+/** update：定义该变量以承载业务值。 */
         const update: S2C_QuestUpdate = {
           quests: player.quests.map((quest) => ({
             id: quest.id,
@@ -2989,6 +3325,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
   /** 即时推送指定玩家的系统消息 */
   private flushImmediateMessages(playerId: string, messages: WorldMessage[]) {
     if (messages.length === 0) return;
+/** socket：定义该变量以承载业务值。 */
     const socket = this.playerService.getSocket(playerId);
     if (!socket) return;
     this.measureCpuSection('broadcast_messages', '广播: 系统消息分发', () => {
@@ -3009,6 +3346,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     for (const message of messages) {
       const socket = this.playerService.getSocket(message.playerId);
       if (!socket) continue;
+/** payload：定义该变量以承载业务值。 */
       const payload: S2C_SystemMsg = {
         text: message.text,
         kind: message.kind,
@@ -3020,24 +3358,31 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
 
   /** 向地图内所有玩家广播增量 tick 数据包（视野、实体、地块、特效等） */
   private broadcastTicks(mapId: string, players: PlayerState[], dt: number) {
+/** effects：定义该变量以承载业务值。 */
     const effects = this.measureCpuSection('broadcast_effects', '广播: 特效提取', () => (
       this.worldService.drainEffects(mapId)
     ));
     for (const viewer of players) {
       const socket = this.playerService.getSocket(viewer.id);
       if (!socket) continue;
+/** forceSync：定义该变量以承载业务值。 */
       const forceSync = this.forcedTickSyncPlayers.delete(viewer.id);
+/** time：定义该变量以承载业务值。 */
       const time = this.measureCpuSection('broadcast_time', '广播: 时间状态构建', () => (
         this.timeService.buildPlayerTimeState(viewer)
       ));
+/** visibility：定义该变量以承载业务值。 */
       const visibility = this.measureCpuSection('broadcast_aoi', '广播: AOI 可见性', () => (
         this.aoiService.getVisibility(viewer, time.effectiveViewRange)
       ));
+/** clientVisibleTiles：定义该变量以承载业务值。 */
       const clientVisibleTiles = this.measureCpuSection('broadcast_patch_tiles_transform', '地块 Patch: 客户端视图转换', () => (
         this.toClientVisibleTiles(viewer, visibility.tiles)
       ));
+/** overlayParentMapId：定义该变量以承载业务值。 */
       const overlayParentMapId = this.mapService.getOverlayParentMapId(viewer.mapId);
 
+/** visiblePlayers：定义该变量以承载业务值。 */
       const visiblePlayers = this.measureCpuSection('broadcast_players', '广播: 玩家实体构建', () => (
         players
           .filter((player) => visibility.visibleKeys.has(`${player.x},${player.y}`))
@@ -3048,9 +3393,11 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
           ))
       ));
       if (overlayParentMapId) {
+/** projectedParentPlayers：定义该变量以承载业务值。 */
         const projectedParentPlayers = this.measureCpuSection('broadcast_players', '广播: 玩家实体构建', () => (
           this.playerService.getPlayersByMap(overlayParentMapId)
             .flatMap((player) => {
+/** projected：定义该变量以承载业务值。 */
               const projected = this.mapService.projectPointToMap(viewer.mapId, overlayParentMapId, player.x, player.y);
               if (!projected || this.mapService.isPointInMapBounds(viewer.mapId, projected.x, projected.y)) {
                 return [];
@@ -3071,10 +3418,12 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         ));
         visiblePlayers.push(...projectedParentPlayers);
       }
+/** crowdedVisiblePlayers：定义该变量以承载业务值。 */
       const crowdedVisiblePlayers = this.measureCpuSection('broadcast_players', '广播: 玩家实体聚合', () => (
         this.worldService.buildCrowdedPlayerRenderEntities(visiblePlayers, viewer.id)
       ));
 
+/** visibleEntities：定义该变量以承载业务值。 */
       const visibleEntities = this.measureCpuSection('broadcast_entities', '广播: 环境实体构建', () => (
         this.worldService.getVisibleEntities(viewer, visibility.visibleKeys)
       ));
@@ -3083,6 +3432,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
           this.worldService.getProjectedVisibleEntities(viewer, overlayParentMapId, visibility.visibleKeys)
         )));
       }
+/** visibleGroundPiles：定义该变量以承载业务值。 */
       const visibleGroundPiles = this.measureCpuSection('broadcast_ground', '广播: 地面掉落构建', () => (
         this.lootService.getVisibleGroundPiles(viewer, visibility.visibleKeys)
       ));
@@ -3092,6 +3442,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
             overlayParentMapId,
             visibility.visibleKeys,
             (x, y) => {
+/** projected：定义该变量以承载业务值。 */
               const projected = this.mapService.projectPointToMap(viewer.mapId, overlayParentMapId, x, y);
               if (!projected || this.mapService.isPointInMapBounds(viewer.mapId, projected.x, projected.y)) {
                 return null;
@@ -3102,42 +3453,60 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         )));
       }
 
+/** previous：定义该变量以承载业务值。 */
       let previous = this.lastSentTickState.get(viewer.id);
+/** pathVersion：定义该变量以承载业务值。 */
       const pathVersion = this.navigationService.getPathVersion(viewer.id);
+/** mapChanged：定义该变量以承载业务值。 */
       const mapChanged = previous?.mapId !== viewer.mapId;
       if (mapChanged) {
         this.resetPlayerMapSyncState(viewer.id);
         previous = undefined;
       }
+/** visibilityKey：定义该变量以承载业务值。 */
       const visibilityKey = this.buildVisibilityKey(viewer, time.effectiveViewRange);
+/** visibilityChanged：定义该变量以承载业务值。 */
       const visibilityChanged = !previous || previous.visibilityKey !== visibilityKey;
+/** canUseDirtyTilePatches：定义该变量以承载业务值。 */
       const canUseDirtyTilePatches = !overlayParentMapId;
+/** tilePatchRevision：定义该变量以承载业务值。 */
       const tilePatchRevision = canUseDirtyTilePatches
         ? this.mapService.getTilePatchRevision(viewer.mapId)
         : undefined;
+/** mapMeta：定义该变量以承载业务值。 */
       const mapMeta = this.mapService.getMapMeta(viewer.mapId);
+/** unlockedMinimapIds：定义该变量以承载业务值。 */
       const unlockedMinimapIds = this.getUnlockedMinimapIds(viewer);
+/** minimapSignature：定义该变量以承载业务值。 */
       const minimapSignature = unlockedMinimapIds.includes(viewer.mapId)
         ? this.mapService.getMinimapSignature(viewer.mapId)
         : '';
+/** minimapLibrarySignature：定义该变量以承载业务值。 */
       const minimapLibrarySignature = this.buildMinimapLibrarySignature(unlockedMinimapIds);
+/** visibleEntityIds：定义该变量以承载业务值。 */
       const visibleEntityIds = new Set([...crowdedVisiblePlayers, ...visibleEntities].map((entity) => entity.id));
+/** visibleThreatArrows：定义该变量以承载业务值。 */
       const visibleThreatArrows = this.measureCpuSection('broadcast_entities', '广播: 仇恨箭头构建', () => (
         this.worldService.getVisibleThreatArrowRefs(
           overlayParentMapId ? [viewer.mapId, overlayParentMapId] : [viewer.mapId],
           visibleEntityIds,
         ).map(({ ownerId, targetId }) => [ownerId, targetId] as [string, string])
       ));
+/** visibleMinimapMarkers：定义该变量以承载业务值。 */
       const visibleMinimapMarkers = visibilityChanged
         ? this.mapService.getVisibleMinimapMarkers(viewer.mapId, visibility.visibleKeys)
         : (previous?.visibleMinimapMarkers ?? []);
+/** tileOriginX：定义该变量以承载业务值。 */
       const tileOriginX = viewer.x - time.effectiveViewRange;
+/** tileOriginY：定义该变量以承载业务值。 */
       const tileOriginY = viewer.y - time.effectiveViewRange;
+/** groundPilePatches：定义该变量以承载业务值。 */
       const groundPilePatches = this.measureCpuSection('broadcast_patch_ground', '广播: 掉落差量 Patch', () => (
         this.buildSparseGroundPiles(viewer.id, visibleGroundPiles)
       ));
       // 首次同步或缓存缺失时才发送完整视野；移动/视野半径变化优先走 tile patch。
       const shouldSendFullVisibility = !previous || !this.lastSentVisibleTiles.has(viewer.id);
+/** tilePatches：定义该变量以承载业务值。 */
       const tilePatches = shouldSendFullVisibility
         ? []
         : visibilityChanged
@@ -3166,15 +3535,20 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       if (shouldSendFullVisibility) {
         this.syncVisibleTileCache(viewer.id, clientVisibleTiles, tileOriginX, tileOriginY);
       }
+/** playerPatches：定义该变量以承载业务值。 */
       const playerPatches = this.buildSparseRenderEntities(viewer.id, crowdedVisiblePlayers, visibleEntityIds);
+/** entityPatches：定义该变量以承载业务值。 */
       const entityPatches = this.buildSparseRenderEntities(viewer.id, visibleEntities, visibleEntityIds);
+/** effectPatches：定义该变量以承载业务值。 */
       const effectPatches = this.measureCpuSection('broadcast_patch_effects', '广播: 特效过滤', () => (
         this.filterEffectsForViewer(effects, visibility.visibleKeys)
       ));
+/** tickData：定义该变量以承载业务值。 */
       const tickData: S2C_Tick = {
         p: playerPatches,
         e: entityPatches,
       };
+/** mapStaticData：定义该变量以承载业务值。 */
       const mapStaticData: S2C_MapStaticSync = {
         mapId: viewer.mapId,
       };
@@ -3184,6 +3558,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       if (forceSync || mapChanged || !previous) {
         tickData.threatArrows = visibleThreatArrows;
       } else {
+/** threatArrowPatch：定义该变量以承载业务值。 */
         const threatArrowPatch = this.buildSparseThreatArrowPatch(previous.threatArrows, visibleThreatArrows);
         if (threatArrowPatch.adds.length > 0) {
           tickData.threatArrowAdds = threatArrowPatch.adds;
@@ -3198,6 +3573,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       if (tilePatches.length > 0) {
         tickData.t = tilePatches;
       }
+/** removedEntityIds：定义该变量以承载业务值。 */
       const removedEntityIds = this.measureCpuSection('broadcast_cache', '广播: 缓存修剪', () => (
         this.pruneRenderEntityCache(viewer.id, visibleEntityIds)
       ));
@@ -3210,6 +3586,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       if (forceSync || mapChanged || !previous) {
         mapStaticData.visibleMinimapMarkers = visibleMinimapMarkers;
       } else if (visibilityChanged) {
+/** visibleMinimapMarkerPatch：定义该变量以承载业务值。 */
         const visibleMinimapMarkerPatch = this.buildSparseVisibleMinimapMarkerPatch(previous.visibleMinimapMarkers, visibleMinimapMarkers);
         if (visibleMinimapMarkerPatch.adds.length > 0) {
           mapStaticData.visibleMinimapMarkerAdds = visibleMinimapMarkerPatch.adds;
@@ -3250,7 +3627,9 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       if (forceSync || mapChanged || !previous || !this.isStructuredEqual(previous.timeState, time)) {
         tickData.time = time;
       }
+/** hasTickChanges：定义该变量以承载业务值。 */
       const hasTickChanges = this.hasTickPayloadChanges(tickData);
+/** hasMapStaticChanges：定义该变量以承载业务值。 */
       const hasMapStaticChanges = this.hasMapStaticSyncChanges(mapStaticData);
       if (!hasTickChanges && !hasMapStaticChanges) {
         continue;
@@ -3284,6 +3663,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     }
   }
 
+/** hasTickPayloadChanges：执行对应的业务逻辑。 */
   private hasTickPayloadChanges(data: S2C_Tick): boolean {
     return data.p.length > 0
       || data.e.length > 0
@@ -3304,6 +3684,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       || data.path !== undefined;
   }
 
+/** hasMapStaticSyncChanges：执行对应的业务逻辑。 */
   private hasMapStaticSyncChanges(data: S2C_MapStaticSync): boolean {
     return data.mapMeta !== undefined
       || 'minimap' in data
@@ -3313,18 +3694,23 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       || (data.visibleMinimapMarkerRemoves?.length ?? 0) > 0;
   }
 
+/** toClientVisibleTiles：执行对应的业务逻辑。 */
   private toClientVisibleTiles(viewer: PlayerState, tiles: VisibleTile[][]): VisibleTile[][] {
+/** originX：定义该变量以承载业务值。 */
     const originX = viewer.x - Math.floor(tiles[0]?.length ? tiles[0].length / 2 : 0);
+/** originY：定义该变量以承载业务值。 */
     const originY = viewer.y - Math.floor(tiles.length / 2);
     return tiles.map((row, rowIndex) => row.map((tile, columnIndex) => (
       this.toClientVisibleTile(viewer, tile, originX + columnIndex, originY + rowIndex)
     )));
   }
 
+/** toClientVisibleTile：执行对应的业务逻辑。 */
   private toClientVisibleTile(viewer: PlayerState, tile: VisibleTile, x: number, y: number): VisibleTile {
     if (!tile) {
       return null;
     }
+/** auraResources：定义该变量以承载业务值。 */
     const auraResources = this.mapService.getTileAuraResourceValues(viewer.mapId, x, y);
     return {
       ...this.cloneStructured(tile),
@@ -3338,10 +3724,12 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     };
   }
 
+/** captureActionSyncState：执行对应的业务逻辑。 */
   private captureActionSyncState(actions: ActionDef[]): ActionSyncStateEntry[] {
     return actions.map((action) => this.captureSingleActionSyncState(action));
   }
 
+/** captureSingleActionSyncState：执行对应的业务逻辑。 */
   private captureSingleActionSyncState(action: ActionDef): ActionSyncStateEntry {
     return {
       id: action.id,
@@ -3358,7 +3746,9 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     };
   }
 
+/** captureActionPanelSyncState：执行对应的业务逻辑。 */
   private captureActionPanelSyncState(player: PlayerState): ActionPanelSyncState {
+/** combatTargetingRules：定义该变量以承载业务值。 */
     const combatTargetingRules = normalizeCombatTargetingRules(
       player.combatTargetingRules,
       buildDefaultCombatTargetingRules({ includeAllPlayersHostile: player.allowAoePlayerHit === true }),
@@ -3368,16 +3758,23 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       autoUsePills: this.cloneStructured(player.autoUsePills ?? []),
       combatTargetingRules: this.cloneStructured(combatTargetingRules),
       autoBattleTargetingMode: player.autoBattleTargetingMode,
+/** autoRetaliate：定义该变量以承载业务值。 */
       autoRetaliate: player.autoRetaliate !== false,
+/** autoBattleStationary：定义该变量以承载业务值。 */
       autoBattleStationary: player.autoBattleStationary === true,
+/** allowAoePlayerHit：定义该变量以承载业务值。 */
       allowAoePlayerHit: player.allowAoePlayerHit === true,
+/** autoIdleCultivation：定义该变量以承载业务值。 */
       autoIdleCultivation: player.autoIdleCultivation !== false,
+/** autoSwitchCultivation：定义该变量以承载业务值。 */
       autoSwitchCultivation: player.autoSwitchCultivation === true,
       cultivationActive: this.techniqueService.hasCultivationBuff(player),
+/** senseQiActive：定义该变量以承载业务值。 */
       senseQiActive: player.senseQiActive === true,
     };
   }
 
+/** captureAttrUpdateState：执行对应的业务逻辑。 */
   private captureAttrUpdateState(player: PlayerState): S2C_AttrUpdate {
     return {
       finalAttrs: this.attrService.getPlayerFinalAttrs(player),
@@ -3399,6 +3796,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     };
   }
 
+/** buildVisibilityKey：执行对应的业务逻辑。 */
   private buildVisibilityKey(viewer: PlayerState, effectiveViewRange: number): string {
     return [
       viewer.mapId,
@@ -3412,21 +3810,28 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     ].join(':');
   }
 
+/** buildSparseTechniqueUpdate：执行对应的业务逻辑。 */
   private buildSparseTechniqueUpdate(player: PlayerState): S2C_TechniqueUpdate | null {
+/** previousCultivatingTechId：定义该变量以承载业务值。 */
     const previousCultivatingTechId = this.lastSentCultivatingTechIds.get(player.id);
+/** techniquePatch：定义该变量以承载业务值。 */
     const techniquePatch = this.buildSparseTechniqueStates(player.id, player.techniques);
+/** update：定义该变量以承载业务值。 */
     const update: S2C_TechniqueUpdate = {
       techniques: techniquePatch.patches,
     };
     if (techniquePatch.removeTechniqueIds.length > 0) {
       update.removeTechniqueIds = techniquePatch.removeTechniqueIds;
     }
+/** nextCultivatingTechId：定义该变量以承载业务值。 */
     const nextCultivatingTechId = player.cultivatingTechId ?? null;
     if (previousCultivatingTechId === undefined || previousCultivatingTechId !== nextCultivatingTechId) {
       update.cultivatingTechId = nextCultivatingTechId;
     }
     this.lastSentCultivatingTechIds.set(player.id, nextCultivatingTechId);
+/** previousBodyTraining：定义该变量以承载业务值。 */
     const previousBodyTraining = this.lastSentBodyTrainingStates.get(player.id);
+/** nextBodyTraining：定义该变量以承载业务值。 */
     const nextBodyTraining = player.bodyTraining ? this.cloneStructured(player.bodyTraining) : null;
     if (!this.isStructuredEqual(previousBodyTraining ?? null, nextBodyTraining ?? null)) {
       update.bodyTraining = nextBodyTraining;
@@ -3442,11 +3847,17 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
 
   /** 构建背包增量包，仅发送与上次不同的槽位 */
   private buildSparseInventoryUpdate(player: PlayerState): S2C_InventoryUpdate | null {
+/** playerId：定义该变量以承载业务值。 */
     const playerId = player.id;
+/** nextInventory：定义该变量以承载业务值。 */
     const nextInventory = player.inventory;
+/** nextCooldowns：定义该变量以承载业务值。 */
     const nextCooldowns = this.captureInventoryCooldownStates(player);
+/** currentServerTick：定义该变量以承载业务值。 */
     const currentServerTick = this.getCurrentServerTick();
+/** previous：定义该变量以承载业务值。 */
     const previous = this.lastSentInventoryStates.get(playerId);
+/** cachedInventory：定义该变量以承载业务值。 */
     const cachedInventory = this.cloneStructured(nextInventory);
     if (!previous) {
       this.lastSentInventoryStates.set(playerId, cachedInventory);
@@ -3454,7 +3865,9 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       return { inventory: this.toSyncedInventorySnapshot(nextInventory, nextCooldowns, currentServerTick) };
     }
 
+/** slots：定义该变量以承载业务值。 */
     const slots: InventorySlotUpdateEntry[] = [];
+/** sharedLength：定义该变量以承载业务值。 */
     const sharedLength = Math.max(previous.items.length, nextInventory.items.length);
     for (let slotIndex = 0; slotIndex < sharedLength; slotIndex += 1) {
       const previousItem = previous.items[slotIndex];
@@ -3468,6 +3881,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       });
     }
 
+/** update：定义该变量以承载业务值。 */
     const update: S2C_InventoryUpdate = {};
     if (previous.capacity !== nextInventory.capacity) {
       update.capacity = nextInventory.capacity;
@@ -3478,6 +3892,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     if (slots.length > 0) {
       update.slots = slots;
     }
+/** previousCooldowns：定义该变量以承载业务值。 */
     const previousCooldowns = this.lastSentInventoryCooldownStates.get(playerId) ?? [];
     if (!this.isStructuredEqual(previousCooldowns, nextCooldowns)) {
       update.cooldowns = this.cloneStructured(nextCooldowns);
@@ -3496,8 +3911,11 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
 
   /** 构建装备增量包，仅发送变化的槽位 */
   private buildSparseEquipmentUpdate(playerId: string, nextEquipment: EquipmentSlots): S2C_EquipmentUpdate | null {
+/** previous：定义该变量以承载业务值。 */
     const previous = this.lastSentEquipmentStates.get(playerId);
+/** cachedEquipment：定义该变量以承载业务值。 */
     const cachedEquipment = this.cloneStructured(nextEquipment);
+/** slots：定义该变量以承载业务值。 */
     const slots: EquipmentSlotUpdateEntry[] = [];
 
     for (const slot of EQUIP_SLOTS) {
@@ -3516,12 +3934,17 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     return slots.length > 0 ? { slots } : null;
   }
 
+/** buildSparseActionsUpdate：执行对应的业务逻辑。 */
   private buildSparseActionsUpdate(player: PlayerState): S2C_ActionsUpdate | null {
+/** actionPatch：定义该变量以承载业务值。 */
     const actionPatch = this.cooldownOnlyActionDirtyPlayers.has(player.id)
       ? (this.buildCooldownOnlyActionStates(player.id, player.actions) ?? this.buildSparseActionStates(player.id, player.actions))
       : this.buildSparseActionStates(player.id, player.actions);
+/** previousPanelState：定义该变量以承载业务值。 */
     const previousPanelState = this.lastSentActionPanelStates.get(player.id);
+/** nextPanelState：定义该变量以承载业务值。 */
     const nextPanelState = this.captureActionPanelSyncState(player);
+/** update：定义该变量以承载业务值。 */
     const update: S2C_ActionsUpdate = {
       actions: actionPatch.patches,
     };
@@ -3585,8 +4008,11 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
 
   /** 构建属性增量包，仅发送与上次不同的字段 */
   private buildSparseAttrUpdate(playerId: string, nextState: S2C_AttrUpdate): S2C_AttrUpdate | null {
+/** previous：定义该变量以承载业务值。 */
     const previous = this.lastSentAttrUpdates.get(playerId);
+/** patch：定义该变量以承载业务值。 */
     const patch: S2C_AttrUpdate = {};
+/** cachedState：定义该变量以承载业务值。 */
     const cachedState = this.cloneStructured(nextState);
 
     if (!previous || !this.isStructuredEqual(previous.baseAttrs, nextState.baseAttrs)) {
@@ -3613,6 +4039,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     if (!previous || previous.qi !== nextState.qi) {
       patch.qi = nextState.qi;
     }
+/** specialStatsChanged：定义该变量以承载业务值。 */
     const specialStatsChanged = !previous || !this.isStructuredEqual(previous.specialStats, nextState.specialStats);
     if (specialStatsChanged) {
       if (!previous || this.canSyncSpecialStatsNow(playerId)) {
@@ -3655,11 +4082,14 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     return Object.keys(patch).length > 0 ? patch : null;
   }
 
+/** buildRealmUpdate：执行对应的业务逻辑。 */
   private buildRealmUpdate(playerId: string, nextRealm: PlayerState['realm'] | null): S2C_RealmUpdate | null {
+/** previousRealm：定义该变量以承载业务值。 */
     const previousRealm = this.lastSentRealmStates.get(playerId);
     if (this.isStructuredEqual(previousRealm, nextRealm ?? null)) {
       return null;
     }
+/** cachedRealm：定义该变量以承载业务值。 */
     const cachedRealm = nextRealm ? this.cloneStructured(nextRealm) : null;
     this.lastSentRealmStates.set(playerId, cachedRealm);
     return {
@@ -3667,11 +4097,14 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     };
   }
 
+/** shouldFlushPendingSpecialStats：执行对应的业务逻辑。 */
   private shouldFlushPendingSpecialStats(playerId: string): boolean {
     return this.pendingSpecialStatsPlayers.has(playerId) && this.canSyncSpecialStatsNow(playerId);
   }
 
+/** canSyncSpecialStatsNow：执行对应的业务逻辑。 */
   private canSyncSpecialStatsNow(playerId: string): boolean {
+/** lastSentAt：定义该变量以承载业务值。 */
     const lastSentAt = this.lastSentSpecialStatsAt.get(playerId);
     return lastSentAt === undefined || Date.now() - lastSentAt >= PLAYER_SPECIAL_STATS_SYNC_INTERVAL_MS;
   }
@@ -3681,17 +4114,21 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     playerId: string,
     techniques: TechniqueState[],
   ): { patches: TechniqueUpdateEntry[]; removeTechniqueIds: string[] } {
+/** cache：定义该变量以承载业务值。 */
     let cache = this.lastSentTechniqueStates.get(playerId);
     if (!cache) {
       cache = new Map<string, TechniqueState>();
       this.lastSentTechniqueStates.set(playerId, cache);
     }
 
+/** nextCache：定义该变量以承载业务值。 */
     const nextCache = new Map<string, TechniqueState>();
+/** patches：定义该变量以承载业务值。 */
     const patches: TechniqueUpdateEntry[] = [];
     for (const technique of techniques) {
       const previous = cache!.get(technique.techId);
       const patch: TechniqueUpdateEntry = { techId: technique.techId };
+/** knownTechnique：定义该变量以承载业务值。 */
       const knownTechnique = this.contentService.getTechnique(technique.techId);
 
       if (!previous || previous.level !== technique.level) patch.level = technique.level;
@@ -3723,6 +4160,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       }
     }
 
+/** removeTechniqueIds：定义该变量以承载业务值。 */
     const removeTechniqueIds: string[] = [];
     for (const techId of cache.keys()) {
       if (!nextCache.has(techId)) {
@@ -3739,17 +4177,21 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     playerId: string,
     actions: ActionDef[],
   ): { patches: ActionUpdateEntry[]; removeActionIds: string[]; actionOrder?: string[] } {
+/** cache：定义该变量以承载业务值。 */
     let cache = this.lastSentActionStates.get(playerId);
     if (!cache) {
       cache = new Map<string, ActionDef>();
       this.lastSentActionStates.set(playerId, cache);
     }
 
+/** nextCache：定义该变量以承载业务值。 */
     const nextCache = new Map<string, ActionSyncStateEntry>();
+/** patches：定义该变量以承载业务值。 */
     const patches: ActionUpdateEntry[] = [];
     for (const action of actions) {
       const previous = cache!.get(action.id);
       const patch: ActionUpdateEntry = { id: action.id };
+/** knownSkillAction：定义该变量以承载业务值。 */
       const knownSkillAction = action.type === 'skill' && Boolean(this.contentService.getSkill(action.id));
 
       if (!previous || previous.cooldownLeft !== action.cooldownLeft) {
@@ -3788,13 +4230,16 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       }
     }
 
+/** removeActionIds：定义该变量以承载业务值。 */
     const removeActionIds: string[] = [];
     for (const actionId of cache.keys()) {
       if (!nextCache.has(actionId)) {
         removeActionIds.push(actionId);
       }
     }
+/** previousOrder：定义该变量以承载业务值。 */
     const previousOrder = [...cache.keys()];
+/** nextOrder：定义该变量以承载业务值。 */
     const nextOrder = [...nextCache.keys()];
 
     this.lastSentActionStates.set(playerId, nextCache);
@@ -3813,12 +4258,15 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     playerId: string,
     actions: ActionDef[],
   ): { patches: ActionUpdateEntry[]; removeActionIds: string[]; actionOrder?: string[] } | null {
+/** cache：定义该变量以承载业务值。 */
     const cache = this.lastSentActionStates.get(playerId);
     if (!cache || cache.size !== actions.length) {
       return null;
     }
 
+/** nextCache：定义该变量以承载业务值。 */
     const nextCache = new Map<string, ActionSyncStateEntry>();
+/** patches：定义该变量以承载业务值。 */
     const patches: ActionUpdateEntry[] = [];
     for (const action of actions) {
       const previous = cache.get(action.id);
@@ -3857,8 +4305,11 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     };
   }
 
+/** toSyncedItemStack：执行对应的业务逻辑。 */
   private toSyncedItemStack(item: ItemStack, countOverride?: number): SyncedItemStack {
+/** rawCount：定义该变量以承载业务值。 */
     const rawCount = typeof countOverride === 'number' ? countOverride : item.count;
+/** count：定义该变量以承载业务值。 */
     const count = Math.max(1, Math.floor(rawCount));
     if (this.contentService.getItem(item.itemId)) {
       return {
@@ -3906,13 +4357,16 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
 
   /** 构建地面物品堆增量包，仅发送变化的堆 */
   private buildSparseGroundPiles(viewerId: string, piles: GroundItemPileView[]): GroundItemPilePatch[] {
+/** cache：定义该变量以承载业务值。 */
     let cache = this.lastSentGroundPiles.get(viewerId);
     if (!cache) {
       cache = new Map<string, GroundItemPileView>();
       this.lastSentGroundPiles.set(viewerId, cache);
     }
 
+/** nextCache：定义该变量以承载业务值。 */
     const nextCache = new Map<string, GroundItemPileView>();
+/** patches：定义该变量以承载业务值。 */
     const patches: GroundItemPilePatch[] = [];
 
     for (const pile of piles) {
@@ -3953,9 +4407,13 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     previous: Array<[string, string]> | undefined,
     next: Array<[string, string]>,
   ): { adds: Array<[string, string]>; removes: Array<[string, string]> } {
+/** previousMap：定义该变量以承载业务值。 */
     const previousMap = new Map((previous ?? []).map((entry) => [this.buildThreatArrowKey(entry), entry]));
+/** nextMap：定义该变量以承载业务值。 */
     const nextMap = new Map(next.map((entry) => [this.buildThreatArrowKey(entry), entry]));
+/** adds：定义该变量以承载业务值。 */
     const adds: Array<[string, string]> = [];
+/** removes：定义该变量以承载业务值。 */
     const removes: Array<[string, string]> = [];
 
     for (const [key, entry] of nextMap.entries()) {
@@ -3976,9 +4434,13 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     previous: MapMinimapMarker[] | undefined,
     next: MapMinimapMarker[],
   ): { adds: MapMinimapMarker[]; removes: string[] } {
+/** previousMap：定义该变量以承载业务值。 */
     const previousMap = new Map((previous ?? []).map((marker) => [marker.id, marker]));
+/** nextMap：定义该变量以承载业务值。 */
     const nextMap = new Map(next.map((marker) => [marker.id, marker]));
+/** adds：定义该变量以承载业务值。 */
     const adds: MapMinimapMarker[] = [];
+/** removes：定义该变量以承载业务值。 */
     const removes: string[] = [];
 
     for (const [id, marker] of nextMap.entries()) {
@@ -3996,6 +4458,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     return { adds, removes };
   }
 
+/** buildThreatArrowKey：执行对应的业务逻辑。 */
   private buildThreatArrowKey([ownerId, targetId]: [string, string]): string {
     return `${ownerId}->${targetId}`;
   }
@@ -4007,6 +4470,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     originX: number,
     originY: number,
   ): void {
+/** nextCache：定义该变量以承载业务值。 */
     const nextCache = new Map<string, VisibleTile>();
     this.measureCpuSection('broadcast_patch_tiles_reset', '地块 Patch: 全量缓存同步', () => {
       for (let row = 0; row < tiles.length; row += 1) {
@@ -4016,7 +4480,9 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
             continue;
           }
 
+/** x：定义该变量以承载业务值。 */
           const x = originX + col;
+/** y：定义该变量以承载业务值。 */
           const y = originY + row;
           nextCache.set(`${x},${y}`, this.cloneStructured(tile));
         }
@@ -4037,30 +4503,38 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       return [];
     }
 
+/** cache：定义该变量以承载业务值。 */
     let cache = this.lastSentVisibleTiles.get(viewerId);
     if (!cache) {
       cache = new Map<string, VisibleTile>();
       this.lastSentVisibleTiles.set(viewerId, cache);
     }
 
+/** patches：定义该变量以承载业务值。 */
     const patches: VisibleTilePatch[] = [];
+/** changedTiles：定义该变量以承载业务值。 */
     const changedTiles: Array<{ key: string; x: number; y: number; tile: VisibleTile }> = [];
     this.measureCpuSection('broadcast_patch_tiles_scan', '地块 Patch: 扫描比较', () => {
+/** maxRow：定义该变量以承载业务值。 */
       const maxRow = tiles.length - 1;
+/** maxCol：定义该变量以承载业务值。 */
       const maxCol = tiles[0]?.length ? tiles[0].length - 1 : -1;
       for (const key of dirtyTileKeys) {
         const [x, y] = key.split(',').map((value) => Number.parseInt(value, 10));
         const row = y - originY;
+/** col：定义该变量以承载业务值。 */
         const col = x - originX;
         if (row < 0 || col < 0 || row > maxRow || col > maxCol) {
           continue;
         }
 
+/** tile：定义该变量以承载业务值。 */
         const tile = tiles[row]?.[col];
         if (!tile) {
           continue;
         }
 
+/** previous：定义该变量以承载业务值。 */
         const previous = cache.get(key);
         if (previous && this.isStructuredEqual(previous, tile)) {
           continue;
@@ -4086,14 +4560,18 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     originX: number,
     originY: number,
   ): VisibleTilePatch[] {
+/** cache：定义该变量以承载业务值。 */
     let cache = this.lastSentVisibleTiles.get(viewerId);
     if (!cache) {
       cache = new Map<string, VisibleTile>();
       this.lastSentVisibleTiles.set(viewerId, cache);
     }
 
+/** patches：定义该变量以承载业务值。 */
     const patches: VisibleTilePatch[] = [];
+/** changedTiles：定义该变量以承载业务值。 */
     const changedTiles: Array<{ key: string; x: number; y: number; tile: VisibleTile }> = [];
+/** visibleKeys：定义该变量以承载业务值。 */
     const visibleKeys = new Set<string>();
 
     this.measureCpuSection('broadcast_patch_tiles_scan', '地块 Patch: 扫描比较', () => {
@@ -4104,10 +4582,14 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
             continue;
           }
 
+/** x：定义该变量以承载业务值。 */
           const x = originX + col;
+/** y：定义该变量以承载业务值。 */
           const y = originY + row;
+/** key：定义该变量以承载业务值。 */
           const key = `${x},${y}`;
           visibleKeys.add(key);
+/** previous：定义该变量以承载业务值。 */
           const previous = cache.get(key);
           if (!previous || !this.isStructuredEqual(previous, tile)) {
             changedTiles.push({ key, x, y, tile });
@@ -4150,34 +4632,53 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     entities: RenderEntity[],
     visibleEntityIds: Set<string>,
   ): TickRenderEntity[] {
+/** cache：定义该变量以承载业务值。 */
     let cache = this.lastSentRenderEntities.get(viewerId);
     if (!cache) {
       cache = new Map<string, RenderEntity>();
       this.lastSentRenderEntities.set(viewerId, cache);
     }
 
+/** pending：定义该变量以承载业务值。 */
     const pending: Array<{ entity: RenderEntity; next: TickRenderEntity; syncBuffs: boolean }> = [];
 
     this.measureCpuSection('broadcast_patch_entities_scan', '实体 Patch: 扫描比较', () => {
       for (const entity of entities) {
         visibleEntityIds.add(entity.id);
         const previous = cache.get(entity.id);
+/** charChanged：定义该变量以承载业务值。 */
         const charChanged = !previous || previous.char !== entity.char;
+/** colorChanged：定义该变量以承载业务值。 */
         const colorChanged = !previous || previous.color !== entity.color;
+/** nameChanged：定义该变量以承载业务值。 */
         const nameChanged = !previous || previous.name !== entity.name;
+/** kindChanged：定义该变量以承载业务值。 */
         const kindChanged = !previous || previous.kind !== entity.kind;
+/** monsterTierChanged：定义该变量以承载业务值。 */
         const monsterTierChanged = !previous || previous.monsterTier !== entity.monsterTier;
+/** monsterScaleChanged：定义该变量以承载业务值。 */
         const monsterScaleChanged = !previous || previous.monsterScale !== entity.monsterScale;
+/** hpChanged：定义该变量以承载业务值。 */
         const hpChanged = !previous || previous.hp !== entity.hp;
+/** maxHpChanged：定义该变量以承载业务值。 */
         const maxHpChanged = !previous || previous.maxHp !== entity.maxHp;
+/** respawnRemainingTicksChanged：定义该变量以承载业务值。 */
         const respawnRemainingTicksChanged = !previous || previous.respawnRemainingTicks !== entity.respawnRemainingTicks;
+/** respawnTotalTicksChanged：定义该变量以承载业务值。 */
         const respawnTotalTicksChanged = !previous || previous.respawnTotalTicks !== entity.respawnTotalTicks;
+/** qiChanged：定义该变量以承载业务值。 */
         const qiChanged = !previous || previous.qi !== entity.qi;
+/** maxQiChanged：定义该变量以承载业务值。 */
         const maxQiChanged = !previous || previous.maxQi !== entity.maxQi;
+/** npcQuestMarkerChanged：定义该变量以承载业务值。 */
         const npcQuestMarkerChanged = !previous || !this.isStructuredEqual(previous.npcQuestMarker, entity.npcQuestMarker);
+/** observationChanged：定义该变量以承载业务值。 */
         const observationChanged = !previous || !this.isStructuredEqual(previous.observation, entity.observation);
+/** syncBuffs：定义该变量以承载业务值。 */
         const syncBuffs = !previous || !this.isStructuredEqual(previous.buffs, entity.buffs);
+/** moved：定义该变量以承载业务值。 */
         const moved = !previous || previous.x !== entity.x || previous.y !== entity.y;
+/** changed：定义该变量以承载业务值。 */
         const changed = moved
           || charChanged
           || colorChanged
@@ -4199,6 +4700,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
           continue;
         }
 
+/** next：定义该变量以承载业务值。 */
         const next: TickRenderEntity = {
           id: entity.id,
           x: entity.x,
@@ -4244,11 +4746,13 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
 
   /** 清理已离开视野的渲染实体缓存 */
   private pruneRenderEntityCache(viewerId: string, visibleEntityIds: Set<string>): string[] {
+/** cache：定义该变量以承载业务值。 */
     const cache = this.lastSentRenderEntities.get(viewerId);
     if (!cache) {
       return [];
     }
 
+/** removedEntityIds：定义该变量以承载业务值。 */
     const removedEntityIds: string[] = [];
     for (const entityId of cache.keys()) {
       if (!visibleEntityIds.has(entityId)) {
@@ -4259,10 +4763,12 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     return removedEntityIds;
   }
 
+/** isStructuredEqual：执行对应的业务逻辑。 */
   private isStructuredEqual(left: unknown, right: unknown): boolean {
     return isPlainEqual(left, right);
   }
 
+/** cloneStructured：执行对应的业务逻辑。 */
   private cloneStructured<T>(value: T): T {
     return clonePlainValue(value);
   }
@@ -4282,39 +4788,50 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
 
   /** 每 tick 自然回复气血和真气 */
   private applyNaturalRecovery(player: PlayerState) {
+/** numericStats：定义该变量以承载业务值。 */
     const numericStats = this.attrService.getPlayerNumericStats(player);
+/** maxQi：定义该变量以承载业务值。 */
     const maxQi = Math.max(0, Math.round(numericStats.maxQi));
     if (player.hp < player.maxHp && numericStats.hpRegenRate > 0) {
+/** heal：定义该变量以承载业务值。 */
       const heal = Math.max(1, Math.round(player.maxHp * (numericStats.hpRegenRate / 10000)));
       player.hp = Math.min(player.maxHp, player.hp + heal);
     }
     if (player.qi < maxQi && numericStats.qiRegenRate > 0) {
+/** recover：定义该变量以承载业务值。 */
       const recover = Math.max(1, Math.round(maxQi * (numericStats.qiRegenRate / 10000)));
       player.qi = Math.min(maxQi, player.qi + recover);
     }
   }
 
   private applyTerrainEffects(player: PlayerState): { update: WorldUpdate; changed: boolean } {
+/** tile：定义该变量以承载业务值。 */
     const tile = this.mapService.getTile(player.mapId, player.x, player.y);
+/** changed：定义该变量以承载业务值。 */
     let changed = false;
 
     if (tile?.type === TileType.MoltenPool) {
       changed = this.applyMoltenPoolBurnStack(player) || changed;
     }
 
+/** burnBuff：定义该变量以承载业务值。 */
     const burnBuff = this.getMoltenPoolBurnBuff(player);
     if (!burnBuff) {
       return { update: { messages: [], dirty: [] }, changed };
     }
 
+/** baseDamage：定义该变量以承载业务值。 */
     const baseDamage = Math.max(1, Math.round(player.maxHp * burnBuff.stacks * MOLTEN_POOL_BURN_HP_PERCENT_PER_STACK));
+/** update：定义该变量以承载业务值。 */
     const update = this.worldService.applyTerrainDotDamageToPlayer(player, baseDamage, 'fire', MOLTEN_POOL_BURN_NAME);
     return {
       update,
+/** changed：定义该变量以承载业务值。 */
       changed: changed || baseDamage > 0 || update.playerDefeated === true,
     };
   }
 
+/** getMoltenPoolBurnBuff：执行对应的业务逻辑。 */
   private getMoltenPoolBurnBuff(player: PlayerState): TemporaryBuffState | undefined {
     return player.temporaryBuffs?.find((buff) => (
       buff.buffId === MOLTEN_POOL_BURN_BUFF_ID
@@ -4323,6 +4840,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     ));
   }
 
+/** getFireBurnMarkBuff：执行对应的业务逻辑。 */
   private getFireBurnMarkBuff(player: PlayerState): TemporaryBuffState | undefined {
     return player.temporaryBuffs?.find((buff) => (
       buff.buffId === FIRE_BURN_MARK_BUFF_ID
@@ -4332,11 +4850,14 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
   }
 
   private applySkillBuffEffects(player: PlayerState): { update: WorldUpdate; changed: boolean } {
+/** burnBuff：定义该变量以承载业务值。 */
     const burnBuff = this.getFireBurnMarkBuff(player);
     if (!burnBuff) {
       return { update: { messages: [], dirty: [] }, changed: false };
     }
+/** baseDamage：定义该变量以承载业务值。 */
     const baseDamage = Math.max(1, Math.round(player.hp * burnBuff.stacks * FIRE_BURN_MARK_HP_RATIO_PER_STACK));
+/** update：定义该变量以承载业务值。 */
     const update = this.worldService.applyTerrainDotDamageToPlayer(
       player,
       baseDamage,
@@ -4346,13 +4867,17 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     );
     return {
       update,
+/** changed：定义该变量以承载业务值。 */
       changed: baseDamage > 0 || update.playerDefeated === true,
     };
   }
 
+/** applyMoltenPoolBurnStack：执行对应的业务逻辑。 */
   private applyMoltenPoolBurnStack(player: PlayerState): boolean {
     player.temporaryBuffs ??= [];
+/** existing：定义该变量以承载业务值。 */
     const existing = this.getMoltenPoolBurnBuff(player);
+/** realmLv：定义该变量以承载业务值。 */
     const realmLv = Math.max(1, Math.floor(player.realm?.realmLv ?? player.realmLv ?? 1));
     if (existing) {
       existing.name = MOLTEN_POOL_BURN_NAME;
@@ -4403,12 +4928,16 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     if (!player.temporaryBuffs || player.temporaryBuffs.length === 0) {
       return false;
     }
+/** removed：定义该变量以承载业务值。 */
     let removed = false;
+/** resourceSpent：定义该变量以承载业务值。 */
     let resourceSpent = false;
+/** nextBuffs：定义该变量以承载业务值。 */
     const nextBuffs: TemporaryBuffState[] = [];
     for (const buff of player.temporaryBuffs) {
       const sustainCost = getBuffSustainCost(buff);
       if (sustainCost !== null && buff.sustainCost) {
+/** currentResource：定义该变量以承载业务值。 */
         const currentResource = buff.sustainCost.resource === 'hp' ? player.hp : player.qi;
         if (currentResource < sustainCost) {
           removed = true;
@@ -4437,7 +4966,9 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         removed = true;
       }
     }
+/** activeBuffIds：定义该变量以承载业务值。 */
     const activeBuffIds = new Set(nextBuffs.map((buff) => buff.buffId));
+/** filteredBuffs：定义该变量以承载业务值。 */
     const filteredBuffs = nextBuffs.filter((buff) => !buff.expireWithBuffId || activeBuffIds.has(buff.expireWithBuffId));
     if (filteredBuffs.length !== nextBuffs.length) {
       removed = true;

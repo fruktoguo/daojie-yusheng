@@ -7,15 +7,22 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { resolveServerDataPath } from '../common/data-path';
 
+/** HOURLY_BACKUP_RETENTION：定义该变量以承载业务值。 */
 export const HOURLY_BACKUP_RETENTION = 72;
+/** DAILY_BACKUP_RETENTION：定义该变量以承载业务值。 */
 export const DAILY_BACKUP_RETENTION = 14;
+/** DAILY_BACKUP_HOUR：定义该变量以承载业务值。 */
 export const DAILY_BACKUP_HOUR = 4;
+/** DAILY_BACKUP_MINUTE：定义该变量以承载业务值。 */
 export const DAILY_BACKUP_MINUTE = 5;
+/** BACKUP_EXCLUDED_TABLES：定义该变量以承载业务值。 */
 export const BACKUP_EXCLUDED_TABLES = ['redeem_codes', 'redeem_code_groups'] as const;
+/** BACKUP_WORKER_HEARTBEAT_TTL_MS：定义该变量以承载业务值。 */
 export const BACKUP_WORKER_HEARTBEAT_TTL_MS = 60_000;
 
 /** ResolvedBackupRecord：定义该接口的能力与字段约束。 */
 export interface ResolvedBackupRecord extends GmDatabaseBackupRecord {
+/** filePath：定义该变量以承载业务值。 */
   filePath: string;
 }
 
@@ -28,36 +35,52 @@ export interface BackupWorkerStateFile {
 
 /** BackupWorkerHeartbeatFile：定义该接口的能力与字段约束。 */
 export interface BackupWorkerHeartbeatFile {
+/** updatedAt：定义该变量以承载业务值。 */
   updatedAt: string;
+/** workerPid：定义该变量以承载业务值。 */
   workerPid: number;
+/** hostname：定义该变量以承载业务值。 */
   hostname: string;
 }
 
 /** BackupManualRequestFile：定义该接口的能力与字段约束。 */
 export interface BackupManualRequestFile {
+/** job：定义该变量以承载业务值。 */
   job: GmDatabaseJobSnapshot;
+/** requestedAt：定义该变量以承载业务值。 */
   requestedAt: string;
 }
 
 /** BackupRestoreRequestFile：定义该接口的能力与字段约束。 */
 export interface BackupRestoreRequestFile {
+/** job：定义该变量以承载业务值。 */
   job: GmDatabaseJobSnapshot;
+/** sourceBackupId：定义该变量以承载业务值。 */
   sourceBackupId: string;
+/** requestedAt：定义该变量以承载业务值。 */
   requestedAt: string;
 }
 
+/** BACKUP_ROOT_DIR：定义该变量以承载业务值。 */
 export const BACKUP_ROOT_DIR = resolveServerDataPath('backups', 'database');
+/** BACKUP_DIRECTORIES：定义该变量以承载业务值。 */
 export const BACKUP_DIRECTORIES: Record<GmDatabaseBackupKind, string> = {
   hourly: path.join(BACKUP_ROOT_DIR, 'hourly'),
   daily: path.join(BACKUP_ROOT_DIR, 'daily'),
   manual: path.join(BACKUP_ROOT_DIR, 'manual'),
   pre_import: path.join(BACKUP_ROOT_DIR, 'pre_import'),
 };
+/** BACKUP_META_DIR：定义该变量以承载业务值。 */
 export const BACKUP_META_DIR = path.join(BACKUP_ROOT_DIR, '_meta');
+/** BACKUP_REQUESTS_DIR：定义该变量以承载业务值。 */
 export const BACKUP_REQUESTS_DIR = path.join(BACKUP_ROOT_DIR, '_requests');
+/** BACKUP_MANUAL_REQUESTS_DIR：定义该变量以承载业务值。 */
 export const BACKUP_MANUAL_REQUESTS_DIR = path.join(BACKUP_REQUESTS_DIR, 'manual');
+/** BACKUP_RESTORE_REQUESTS_DIR：定义该变量以承载业务值。 */
 export const BACKUP_RESTORE_REQUESTS_DIR = path.join(BACKUP_REQUESTS_DIR, 'restore');
+/** BACKUP_WORKER_STATE_PATH：定义该变量以承载业务值。 */
 export const BACKUP_WORKER_STATE_PATH = path.join(BACKUP_META_DIR, 'worker-state.json');
+/** BACKUP_WORKER_HEARTBEAT_PATH：定义该变量以承载业务值。 */
 export const BACKUP_WORKER_HEARTBEAT_PATH = path.join(BACKUP_META_DIR, 'worker-heartbeat.json');
 
 /** ensureBackupWorkspace：执行对应的业务逻辑。 */
@@ -73,12 +96,14 @@ export function ensureBackupWorkspace(): void {
 
 /** planBackup：执行对应的业务逻辑。 */
 export function planBackup(kind: GmDatabaseBackupKind, now = Date.now()): ResolvedBackupRecord {
+/** id：定义该变量以承载业务值。 */
   const id = createTimestampId(now, kind);
   return createBackupRecord(kind, id, now);
 }
 
 /** createBackupRecord：执行对应的业务逻辑。 */
 export function createBackupRecord(kind: GmDatabaseBackupKind, id: string, timestamp = Date.now()): ResolvedBackupRecord {
+/** fileName：定义该变量以承载业务值。 */
   const fileName = `${id}.dump`;
   return {
     id,
@@ -108,6 +133,7 @@ export function findBackupById(backupId: string): ResolvedBackupRecord | null {
 
 /** listBackupsForKind：执行对应的业务逻辑。 */
 export function listBackupsForKind(kind: GmDatabaseBackupKind): ResolvedBackupRecord[] {
+/** directory：定义该变量以承载业务值。 */
   const directory = BACKUP_DIRECTORIES[kind];
   if (!fs.existsSync(directory)) {
     return [];
@@ -115,9 +141,13 @@ export function listBackupsForKind(kind: GmDatabaseBackupKind): ResolvedBackupRe
   return fs.readdirSync(directory)
     .filter((fileName) => fileName.endsWith('.dump'))
     .map((fileName) => {
+/** filePath：定义该变量以承载业务值。 */
       const filePath = path.join(directory, fileName);
+/** stats：定义该变量以承载业务值。 */
       const stats = fs.statSync(filePath);
+/** id：定义该变量以承载业务值。 */
       const id = fileName.replace(/\.dump$/u, '');
+/** parsedCreatedAt：定义该变量以承载业务值。 */
       const parsedCreatedAt = parseBackupIdTimestamp(id);
       return {
         id,
@@ -159,6 +189,7 @@ export function writeBackupWorkerHeartbeat(heartbeat: BackupWorkerHeartbeatFile)
 /** writeBackupManualRequest：执行对应的业务逻辑。 */
 export function writeBackupManualRequest(request: BackupManualRequestFile): string {
   ensureBackupWorkspace();
+/** requestPath：定义该变量以承载业务值。 */
   const requestPath = path.join(BACKUP_MANUAL_REQUESTS_DIR, `${request.job.id}.json`);
   writeJsonFileAtomic(requestPath, request);
   return requestPath;
@@ -173,6 +204,7 @@ export function listBackupManualRequests(): Array<{ filePath: string; request: B
 /** writeBackupRestoreRequest：执行对应的业务逻辑。 */
 export function writeBackupRestoreRequest(request: BackupRestoreRequestFile): string {
   ensureBackupWorkspace();
+/** requestPath：定义该变量以承载业务值。 */
   const requestPath = path.join(BACKUP_RESTORE_REQUESTS_DIR, `${request.job.id}.json`);
   writeJsonFileAtomic(requestPath, request);
   return requestPath;
@@ -186,11 +218,13 @@ export function listBackupRestoreRequests(): Array<{ filePath: string; request: 
 
 /** parseBackupIdTimestamp：执行对应的业务逻辑。 */
 export function parseBackupIdTimestamp(backupId: string): string | null {
+/** match：定义该变量以承载业务值。 */
   const match = /^(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})-(\d{3})__/.exec(backupId);
   if (!match) {
     return null;
   }
   const [, year, month, day, hour, minute, second, millisecond] = match;
+/** timestamp：定义该变量以承载业务值。 */
   const timestamp = new Date(
     Number(year),
     Number(month) - 1,
@@ -208,34 +242,49 @@ export function parseBackupIdTimestamp(backupId: string): string | null {
 
 /** createTimestampId：执行对应的业务逻辑。 */
 export function createTimestampId(timestamp: number, suffix: string): string {
+/** date：定义该变量以承载业务值。 */
   const date = new Date(timestamp);
+/** year：定义该变量以承载业务值。 */
   const year = date.getFullYear();
+/** month：定义该变量以承载业务值。 */
   const month = String(date.getMonth() + 1).padStart(2, '0');
+/** day：定义该变量以承载业务值。 */
   const day = String(date.getDate()).padStart(2, '0');
+/** hour：定义该变量以承载业务值。 */
   const hour = String(date.getHours()).padStart(2, '0');
+/** minute：定义该变量以承载业务值。 */
   const minute = String(date.getMinutes()).padStart(2, '0');
+/** second：定义该变量以承载业务值。 */
   const second = String(date.getSeconds()).padStart(2, '0');
+/** millisecond：定义该变量以承载业务值。 */
   const millisecond = String(date.getMilliseconds()).padStart(3, '0');
   return `${year}${month}${day}-${hour}${minute}${second}-${millisecond}__${suffix}`;
 }
 
 /** getBackupScheduleSlotId：执行对应的业务逻辑。 */
 export function getBackupScheduleSlotId(kind: 'hourly' | 'daily', timestamp = Date.now()): string {
+/** date：定义该变量以承载业务值。 */
   const date = new Date(timestamp);
+/** year：定义该变量以承载业务值。 */
   const year = date.getFullYear();
+/** month：定义该变量以承载业务值。 */
   const month = String(date.getMonth() + 1).padStart(2, '0');
+/** day：定义该变量以承载业务值。 */
   const day = String(date.getDate()).padStart(2, '0');
   if (kind === 'daily') {
     return `${year}${month}${day}`;
   }
+/** hour：定义该变量以承载业务值。 */
   const hour = String(date.getHours()).padStart(2, '0');
   return `${year}${month}${day}-${hour}`;
 }
 
 /** writeJsonFileAtomic：执行对应的业务逻辑。 */
 export function writeJsonFileAtomic(filePath: string, data: unknown): void {
+/** directory：定义该变量以承载业务值。 */
   const directory = path.dirname(filePath);
   fs.mkdirSync(directory, { recursive: true });
+/** temporaryPath：定义该变量以承载业务值。 */
   const temporaryPath = `${filePath}.${process.pid}.${Date.now()}.tmp`;
   fs.writeFileSync(temporaryPath, JSON.stringify(data, null, 2));
   fs.renameSync(temporaryPath, filePath);
@@ -247,6 +296,7 @@ function readJsonFile<T>(filePath: string): T | null {
     return null;
   }
   try {
+/** raw：定义该变量以承载业务值。 */
     const raw = fs.readFileSync(filePath, 'utf8');
     return JSON.parse(raw) as T;
   } catch {
@@ -263,6 +313,7 @@ function listJsonRequests<T>(directory: string): Array<{ filePath: string; reque
     .filter((fileName) => fileName.endsWith('.json'))
     .sort((left, right) => left.localeCompare(right, 'zh-CN'))
     .map((fileName) => {
+/** filePath：定义该变量以承载业务值。 */
       const filePath = path.join(directory, fileName);
       return {
         filePath,

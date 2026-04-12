@@ -1,5 +1,6 @@
 /** GraphemeSegment：定义该类型的结构与数据语义。 */
 type GraphemeSegment = {
+/** segment：定义该变量以承载业务值。 */
   segment: string;
 };
 
@@ -16,7 +17,9 @@ type IntlWithSegmenter = typeof Intl & {
   ) => GraphemeSegmenter;
 };
 
+/** intlWithSegmenter：定义该变量以承载业务值。 */
 const intlWithSegmenter = Intl as IntlWithSegmenter;
+/** graphemeSegmenter：定义该变量以承载业务值。 */
 const graphemeSegmenter = typeof intlWithSegmenter.Segmenter === 'function'
   ? new intlWithSegmenter.Segmenter(undefined, { granularity: 'grapheme' })
   : null;

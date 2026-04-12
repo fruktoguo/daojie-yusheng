@@ -12,7 +12,9 @@ export class MinimapRuntime {
     this.minimap.setMoveHandler(handler);
   }
 
+/** update：执行对应的业务逻辑。 */
   update(snapshot: MapStoreSnapshot): void {
+/** scene：定义该变量以承载业务值。 */
     const scene: MinimapSceneInput = snapshot.minimap.mapMeta
       ? {
           mapMeta: snapshot.minimap.mapMeta,
@@ -32,10 +34,12 @@ export class MinimapRuntime {
     this.minimap.updateScene(scene);
   }
 
+/** resize：执行对应的业务逻辑。 */
   resize(): void {
     this.minimap.resize();
   }
 
+/** clear：执行对应的业务逻辑。 */
   clear(): void {
     this.minimap.clear();
   }

@@ -44,9 +44,11 @@ export class MapContentDomain {
     private readonly deps: DomainDeps,
   ) {}
 
+/** normalizeMonsterSpawns：执行对应的业务逻辑。 */
   normalizeMonsterSpawns(rawSpawns: unknown, meta: MapMeta): MonsterSpawnConfig[] {
     if (!Array.isArray(rawSpawns)) return [];
 
+/** result：定义该变量以承载业务值。 */
     const result: MonsterSpawnConfig[] = [];
     for (const candidate of rawSpawns) {
       const rawSpawn = candidate as Partial<GmMapMonsterSpawnRecord> & Partial<MonsterSpawnConfig> & {
@@ -58,15 +60,21 @@ export class MapContentDomain {
         respawnSec?: number;
         level?: number;
       };
+/** templateId：定义该变量以承载业务值。 */
       const templateId = this.resolveMonsterSpawnTemplateId(rawSpawn);
+/** template：定义该变量以承载业务值。 */
       const template = templateId ? this.contentService.getMonsterTemplate(templateId) : undefined;
       if (!template) {
         this.deps.warn(`地图 ${meta.id} 存在未匹配怪物模板的刷新点，已忽略: ${String(rawSpawn.id ?? '')}`);
         continue;
       }
+/** level：定义该变量以承载业务值。 */
       const level = Number.isInteger(rawSpawn.level) ? Math.max(1, Number(rawSpawn.level)) : template.level;
+/** equipment：定义该变量以承载业务值。 */
       const equipment = this.contentService.normalizeEquipment(template.equipment);
+/** skills：定义该变量以承载业务值。 */
       const skills = this.contentService.normalizeMonsterSkills(rawSpawn.skills ?? template.skills, String(rawSpawn.id ?? template.id));
+/** valueStats：定义该变量以承载业务值。 */
       const valueStats = template.valueStats
         ?? inferMonsterValueStatsFromLegacy({
           maxHp: template.maxHp,
@@ -74,19 +82,25 @@ export class MapContentDomain {
           level: template.level,
           viewRange: template.viewRange,
         });
+/** legacyNumericStats：定义该变量以承载业务值。 */
       const legacyNumericStats = resolveMonsterNumericStatsFromValueStats(valueStats, level);
+/** attrs：定义该变量以承载业务值。 */
       const attrs = normalizeMonsterAttrs(
         rawSpawn.attrs ?? template.attrs,
         rawSpawn.attrs || template.attrs ? undefined : inferMonsterAttrsFromNumericStats(legacyNumericStats),
       );
+/** statPercents：定义该变量以承载业务值。 */
       const statPercents = normalizeMonsterStatPercents(rawSpawn.statPercents ?? template.statPercents)
         ?? (rawSpawn.attrs || template.attrs
           ? undefined
           : createMonsterAutoStatPercents(legacyNumericStats, attrs, level, equipment));
+/** initialBuffs：定义该变量以承载业务值。 */
       const initialBuffs = Array.isArray(rawSpawn.initialBuffs)
         ? rawSpawn.initialBuffs.map((entry) => ({ ...entry }))
         : (template.initialBuffs?.map((entry) => ({ ...entry })) ?? undefined);
+/** tier：定义该变量以承载业务值。 */
       const tier = normalizeMonsterTier(rawSpawn.tier ?? template.tier);
+/** numericStats：定义该变量以承载业务值。 */
       const numericStats = resolveMonsterNumericStatsFromAttributes({
         attrs,
         equipment,
@@ -95,25 +109,34 @@ export class MapContentDomain {
         grade: rawSpawn.grade ?? template.grade,
         tier,
       });
+/** combatModel：定义该变量以承载业务值。 */
       const combatModel: MonsterCombatModel = 'value_stats';
+/** spawnId：定义该变量以承载业务值。 */
       const spawnId = typeof rawSpawn.id === 'string' && rawSpawn.id.trim().length > 0
         ? rawSpawn.id.trim()
         : templateId;
+/** radius：定义该变量以承载业务值。 */
       const radius = Number.isInteger(rawSpawn.radius) ? Math.max(0, Number(rawSpawn.radius)) : template.radius;
+/** configuredMaxAlive：定义该变量以承载业务值。 */
       const configuredMaxAlive = Number.isInteger(rawSpawn.maxAlive) ? Math.max(1, Number(rawSpawn.maxAlive)) : template.maxAlive;
+/** configuredCount：定义该变量以承载业务值。 */
       const configuredCount = Number.isInteger(rawSpawn.count) ? Math.max(1, Number(rawSpawn.count)) : template.count;
       const { count, maxAlive } = resolveMonsterSpawnPopulation(tier, configuredCount, configuredMaxAlive);
+/** respawnTicks：定义该变量以承载业务值。 */
       const respawnTicks = Number.isInteger(rawSpawn.respawnTicks)
         ? Math.max(1, Number(rawSpawn.respawnTicks))
         : Math.max(1, Number(rawSpawn.respawnSec ?? template.respawnTicks));
+/** wanderRadius：定义该变量以承载业务值。 */
       const wanderRadius = Number.isInteger(rawSpawn.wanderRadius)
         ? Math.max(0, Number(rawSpawn.wanderRadius))
         : radius;
+/** expMultiplier：定义该变量以承载业务值。 */
       const expMultiplier = Number.isFinite(rawSpawn.expMultiplier)
         ? resolveMonsterExpMultiplier(rawSpawn.expMultiplier, tier)
         : (rawSpawn.tier !== undefined && tier !== template.tier
           ? resolveMonsterExpMultiplier(undefined, tier)
           : template.expMultiplier);
+/** valid：定义该变量以承载业务值。 */
       const valid =
         typeof spawnId === 'string' &&
         Number.isInteger(rawSpawn.x) &&
@@ -126,6 +149,7 @@ export class MapContentDomain {
         this.deps.warn(`地图 ${meta.id} 的怪物刷新点越界: ${spawnId}`);
         continue;
       }
+/** drops：定义该变量以承载业务值。 */
       const drops = this.deps.normalizeDrops(template.drops);
       result.push({
         id: spawnId!,
@@ -163,18 +187,22 @@ export class MapContentDomain {
     return result;
   }
 
+/** normalizeContainers：执行对应的业务逻辑。 */
   normalizeContainers(rawLandmarks: unknown, meta: MapMeta): ContainerConfig[] {
     if (!Array.isArray(rawLandmarks)) {
       return [];
     }
 
+/** result：定义该变量以承载业务值。 */
     const result: ContainerConfig[] = [];
     for (const candidate of rawLandmarks) {
       const landmark = candidate as GmMapLandmarkRecord;
       const resourceNodeId = typeof landmark?.resourceNodeId === 'string' && landmark.resourceNodeId.trim().length > 0
         ? landmark.resourceNodeId.trim()
         : undefined;
+/** resourceNode：定义该变量以承载业务值。 */
       const resourceNode = resourceNodeId ? LANDMARK_RESOURCE_NODE_BY_ID.get(resourceNodeId) : undefined;
+/** resolvedContainer：定义该变量以承载业务值。 */
       const resolvedContainer = landmark?.container
         ?? (resourceNode?.kind === 'landmark_container' ? resourceNode.container : undefined);
 
@@ -201,11 +229,15 @@ export class MapContentDomain {
         name: landmark.name,
         x: landmark.x,
         y: landmark.y,
+/** desc：定义该变量以承载业务值。 */
         desc: typeof landmark.desc === 'string' ? landmark.desc : undefined,
+/** variant：定义该变量以承载业务值。 */
         variant: resolvedContainer.variant === 'herb' ? 'herb' : undefined,
+/** char：定义该变量以承载业务值。 */
         char: typeof resolvedContainer.char === 'string' && resolvedContainer.char.trim().length > 0
           ? resolvedContainer.char.trim().slice(0, 1)
           : undefined,
+/** color：定义该变量以承载业务值。 */
         color: typeof resolvedContainer.color === 'string' && resolvedContainer.color.trim().length > 0
           ? resolvedContainer.color.trim()
           : undefined,
@@ -235,10 +267,14 @@ export class MapContentDomain {
     npcs: NpcConfig[],
     monsterSpawns: MonsterSpawnConfig[],
   ): MapMinimapSnapshot {
+/** markers：定义该变量以承载业务值。 */
     const markers: MapMinimapMarker[] = [];
+/** containerLandmarkIds：定义该变量以承载业务值。 */
     const containerLandmarkIds = new Set(containers.map((container) => container.id));
+/** landmarks：定义该变量以承载业务值。 */
     const landmarks = expandMapResourceNodeGroups(document);
 
+/** pushMarker：定义该变量以承载业务值。 */
     const pushMarker = (marker: MapMinimapMarker): void => {
       if (marker.x < 0 || marker.x >= meta.width || marker.y < 0 || marker.y >= meta.height) {
         return;
@@ -259,6 +295,7 @@ export class MapContentDomain {
         x: landmark.x,
         y: landmark.y,
         label: landmark.name,
+/** detail：定义该变量以承载业务值。 */
         detail: typeof landmark.desc === 'string' && landmark.desc.trim() ? landmark.desc.trim() : undefined,
       });
     }
@@ -300,9 +337,12 @@ export class MapContentDomain {
       if (portal.hidden) {
         continue;
       }
+/** targetMapName：定义该变量以承载业务值。 */
       const targetMapName = this.deps.getMapName(portal.targetMapId)?.trim() || undefined;
+/** label：定义该变量以承载业务值。 */
       const label = portal.observeTitle
         ?? (targetMapName ? `通往 ${targetMapName}` : (portal.kind === 'stairs' ? '楼梯' : '传送阵'));
+/** detail：定义该变量以承载业务值。 */
       const detail = portal.observeDesc
         ?? (targetMapName ? `通往 ${targetMapName}` : undefined)
         ?? `通往 ${portal.targetMapId}`;
@@ -316,6 +356,7 @@ export class MapContentDomain {
       });
     }
 
+/** terrainRows：定义该变量以承载业务值。 */
     const terrainRows = document.tiles.map((row) => row.split(''));
     for (const portal of portals) {
       if (portal.hidden) {
@@ -335,6 +376,7 @@ export class MapContentDomain {
     };
   }
 
+/** resolveMonsterSpawnTemplateId：执行对应的业务逻辑。 */
   private resolveMonsterSpawnTemplateId(spawn: { id?: unknown; templateId?: unknown }): string | undefined {
     if (typeof spawn.templateId === 'string' && spawn.templateId.trim().length > 0) {
       return spawn.templateId.trim();

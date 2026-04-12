@@ -9,6 +9,7 @@ import {
   Index,
 } from 'typeorm';
 
+/** BIGINT_NUMBER_TRANSFORMER：定义该变量以承载业务值。 */
 const BIGINT_NUMBER_TRANSFORMER = {
   to: (value: number): number => value,
   from: (value: string | number): number => Number(value),

@@ -40,22 +40,33 @@ import { TimeService } from './time.service';
 
 /** PathStep：定义该接口的能力与字段约束。 */
 interface PathStep {
+/** x：定义该变量以承载业务值。 */
   x: number;
+/** y：定义该变量以承载业务值。 */
   y: number;
 }
 
 /** MoveTargetState：定义该接口的能力与字段约束。 */
 interface MoveTargetState {
+/** targetX：定义该变量以承载业务值。 */
   targetX: number;
+/** targetY：定义该变量以承载业务值。 */
   targetY: number;
+/** path：定义该变量以承载业务值。 */
   path: PathStep[];
+/** blockedTicks：定义该变量以承载业务值。 */
   blockedTicks: number;
   pendingRequestId?: string;
   pendingError?: string;
+/** pathComplete：定义该变量以承载业务值。 */
   pathComplete: boolean;
+/** failureCount：定义该变量以承载业务值。 */
   failureCount: number;
+/** repathAvailableTick：定义该变量以承载业务值。 */
   repathAvailableTick: number;
+/** showFailureMessage：定义该变量以承载业务值。 */
   showFailureMessage: boolean;
+/** requestKind：定义该变量以承载业务值。 */
   requestKind: PathRequestKind;
 }
 
@@ -71,27 +82,36 @@ interface SetMoveTargetOptions {
 
 /** MoveRequestQuotaState：定义该接口的能力与字段约束。 */
 interface MoveRequestQuotaState {
+/** tick：定义该变量以承载业务值。 */
   tick: number;
+/** count：定义该变量以承载业务值。 */
   count: number;
 }
 
 /** MoveChargeState：定义该接口的能力与字段约束。 */
 interface MoveChargeState {
+/** intentKey：定义该变量以承载业务值。 */
   intentKey: string;
+/** points：定义该变量以承载业务值。 */
   points: number;
 }
 
 /** 单步寻路结果 */
 export interface NavigationStepResult {
+/** moved：定义该变量以承载业务值。 */
   moved: boolean;
+/** reached：定义该变量以承载业务值。 */
   reached: boolean;
+/** blocked：定义该变量以承载业务值。 */
   blocked: boolean;
   error?: string;
 }
 
 /** NavigationGoalPoint：定义该接口的能力与字段约束。 */
 export interface NavigationGoalPoint {
+/** x：定义该变量以承载业务值。 */
   x: number;
+/** y：定义该变量以承载业务值。 */
   y: number;
 }
 
@@ -100,14 +120,19 @@ type NavigationActorType = 'player' | 'monster';
 
 /** PathMoveAttemptResult：定义该接口的能力与字段约束。 */
 interface PathMoveAttemptResult {
+/** moved：定义该变量以承载业务值。 */
   moved: boolean;
+/** blocked：定义该变量以承载业务值。 */
   blocked: boolean;
+/** points：定义该变量以承载业务值。 */
   points: number;
 }
 
 /** LocalAdjustmentResult：定义该接口的能力与字段约束。 */
 interface LocalAdjustmentResult {
+/** path：定义该变量以承载业务值。 */
   path: PathStep[];
+/** rejoinIndex：定义该变量以承载业务值。 */
   rejoinIndex: number;
 }
 
@@ -140,16 +165,19 @@ export class NavigationService {
     }
     this.moveTargets.delete(playerId);
     this.pathRequestScheduler.cancelActor(playerId);
+/** charge：定义该变量以承载业务值。 */
     const charge = this.moveCharges.get(playerId);
     if (charge?.intentKey.startsWith('target:')) {
       this.moveCharges.delete(playerId);
     }
   }
 
+/** hasMoveTarget：执行对应的业务逻辑。 */
   hasMoveTarget(playerId: string): boolean {
     return this.moveTargets.has(playerId);
   }
 
+/** clearRuntimeState：执行对应的业务逻辑。 */
   clearRuntimeState(): void {
     for (const actorId of this.moveTargets.keys()) {
       this.pathRequestScheduler.cancelActor(actorId);
@@ -167,6 +195,7 @@ export class NavigationService {
     if (!this.consumePlayerMoveRequestQuota(player)) {
       return '本息调整目标过于频繁';
     }
+/** error：定义该变量以承载业务值。 */
     const error = this.setMoveTarget(player, x, y, {
       ...options,
       forceReplan: true,
@@ -174,6 +203,7 @@ export class NavigationService {
     if (error) {
       return error;
     }
+/** state：定义该变量以承载业务值。 */
     const state = this.moveTargets.get(player.id);
     if (state?.pendingRequestId) {
       this.pathRequestScheduler.dispatchNow(player.mapId, 1);
@@ -183,18 +213,22 @@ export class NavigationService {
 
   /** 获取当前寻路路径的坐标序列 */
   getPathPoints(playerId: string): Array<[number, number]> {
+/** state：定义该变量以承载业务值。 */
     const state = this.moveTargets.get(playerId);
     if (!state) return [];
     return state.path.map((step) => [step.x, step.y]);
   }
 
+/** getPathVersion：执行对应的业务逻辑。 */
   getPathVersion(playerId: string): number {
     return this.pathVersions.get(playerId) ?? 0;
   }
 
   /** 设置玩家寻路目标，交由统一调度器异步计算路径 */
   setMoveTarget(player: PlayerState, x: number, y: number, options?: SetMoveTargetOptions): string | null {
+/** targetX：定义该变量以承载业务值。 */
     let targetX = x;
+/** targetY：定义该变量以承载业务值。 */
     let targetY = y;
 
     if (player.x === targetX && player.y === targetY) {
@@ -215,6 +249,7 @@ export class NavigationService {
         this.clearMoveTarget(player.id);
         return '无法到达该位置';
       }
+/** fallback：定义该变量以承载业务值。 */
       const fallback = this.mapService.findNearbyWalkable(player.mapId, targetX, targetY, 8, {
         occupancyId: player.id,
         actorType: 'player',
@@ -235,6 +270,7 @@ export class NavigationService {
       return '无法到达该位置';
     }
 
+/** existing：定义该变量以承载业务值。 */
     const existing = this.moveTargets.get(player.id);
     if (
       !options?.forceReplan
@@ -246,7 +282,9 @@ export class NavigationService {
       return null;
     }
 
+/** requestKind：定义该变量以承载业务值。 */
     const requestKind: PathRequestKind = player.isBot ? 'bot_roam' : 'player_move_to';
+/** clientPath：定义该变量以承载业务值。 */
     const clientPath = !player.isBot
       ? this.validateClientPath(player, targetX, targetY, options)
       : null;
@@ -266,6 +304,7 @@ export class NavigationService {
       return null;
     }
 
+/** requestId：定义该变量以承载业务值。 */
     const requestId = this.enqueuePathRequest(player, requestKind, targetX, targetY);
     this.moveTargets.set(player.id, {
       targetX,
@@ -285,6 +324,7 @@ export class NavigationService {
 
   /** 每 tick 沿路径推进玩家位置 */
   stepPlayerTowardTarget(player: PlayerState): NavigationStepResult {
+/** state：定义该变量以承载业务值。 */
     const state = this.moveTargets.get(player.id);
     if (!state) {
       return { moved: false, reached: false, blocked: false };
@@ -295,6 +335,7 @@ export class NavigationService {
       return { moved: false, reached: false, blocked: false };
     }
     if (state.pendingError) {
+/** error：定义该变量以承载业务值。 */
       const error = state.pendingError;
       this.clearMoveTarget(player.id);
       return { moved: false, reached: false, blocked: false, error };
@@ -310,6 +351,7 @@ export class NavigationService {
       return { moved: false, reached: false, blocked: false };
     }
 
+/** next：定义该变量以承载业务值。 */
     const next = state.path[0];
     if (!next) {
       if (state.pendingRequestId) {
@@ -323,11 +365,15 @@ export class NavigationService {
       return { moved: false, reached: false, blocked: false };
     }
 
+/** intentKey：定义该变量以承载业务值。 */
     const intentKey = `target:${player.mapId}:${state.targetX},${state.targetY}`;
+/** availablePoints：定义该变量以承载业务值。 */
     const availablePoints = this.rechargeMovePoints(player, intentKey);
+/** attempt：定义该变量以承载业务值。 */
     const attempt = this.consumePathWithinTick(player, state, availablePoints);
     this.commitMovePoints(player.id, intentKey, attempt.points);
     if (attempt.moved) {
+/** reached：定义该变量以承载业务值。 */
       const reached = player.x === state.targetX && player.y === state.targetY;
       if (reached) {
         this.clearMoveTarget(player.id);
@@ -347,12 +393,18 @@ export class NavigationService {
   stepPlayerByDirection(player: PlayerState, direction: Direction): boolean {
     const [dx, dy] = directionToDelta(direction);
     player.facing = direction;
+/** intentKey：定义该变量以承载业务值。 */
     const intentKey = `dir:${player.mapId}:${direction}`;
+/** points：定义该变量以承载业务值。 */
     let points = this.rechargeMovePoints(player, intentKey);
+/** moved：定义该变量以承载业务值。 */
     let moved = false;
     while (true) {
+/** nextX：定义该变量以承载业务值。 */
       const nextX = player.x + dx;
+/** nextY：定义该变量以承载业务值。 */
       const nextY = player.y + dy;
+/** stepCost：定义该变量以承载业务值。 */
       const stepCost = this.getStepMovePointCost(player.mapId, nextX, nextY);
       if (!Number.isFinite(stepCost)) {
         this.moveCharges.delete(player.id);
@@ -378,14 +430,18 @@ export class NavigationService {
     startY: number,
     goals: NavigationGoalPoint[],
     selfOccupancyId: string,
+/** actorType：定义该变量以承载业务值。 */
     actorType: NavigationActorType = 'player',
   ): NavigationGoalPoint | null {
+/** staticGrid：定义该变量以承载业务值。 */
     const staticGrid = this.mapService.getPathfindingStaticGrid(mapId);
+/** blocked：定义该变量以承载业务值。 */
     const blocked = this.mapService.buildPathfindingBlockedGrid(mapId, actorType as PathfindingActorType, selfOccupancyId);
     if (!staticGrid || !blocked || goals.length === 0) {
       return null;
     }
 
+/** result：定义该变量以承载业务值。 */
     const result = findBoundedPath(
       staticGrid,
       blocked,
@@ -401,11 +457,14 @@ export class NavigationService {
       return null;
     }
 
+/** next：定义该变量以承载业务值。 */
     const next = result.path[0];
     return next ? { x: next.x, y: next.y } : null;
   }
 
+/** syncPath：执行对应的业务逻辑。 */
   private syncPath(player: PlayerState, state: MoveTargetState): boolean {
+/** next：定义该变量以承载业务值。 */
     const next = state.path[0];
     if (!next) {
       return false;
@@ -413,6 +472,7 @@ export class NavigationService {
     return manhattanDistance(next, player) === 1;
   }
 
+/** tryMovePlayer：执行对应的业务逻辑。 */
   private tryMovePlayer(player: PlayerState, x: number, y: number): boolean {
     if (!this.mapService.canOccupy(player.mapId, x, y, { occupancyId: player.id, actorType: 'player' })) return false;
     this.mapService.removeOccupant(player.mapId, player.x, player.y, player.id);
@@ -423,14 +483,21 @@ export class NavigationService {
     return true;
   }
 
+/** tryMoveAlongPath：执行对应的业务逻辑。 */
   private tryMoveAlongPath(player: PlayerState, state: MoveTargetState, initialPoints: number): PathMoveAttemptResult {
+/** points：定义该变量以承载业务值。 */
     let points = initialPoints;
+/** moved：定义该变量以承载业务值。 */
     let moved = false;
+/** blocked：定义该变量以承载业务值。 */
     let blocked = false;
+/** initialPathLength：定义该变量以承载业务值。 */
     const initialPathLength = state.path.length;
     while (true) {
+/** next：定义该变量以承载业务值。 */
       const next = state.path[0];
       if (!next) break;
+/** stepCost：定义该变量以承载业务值。 */
       const stepCost = this.getStepMovePointCost(player.mapId, next.x, next.y);
       if (!Number.isFinite(stepCost)) {
         this.moveCharges.delete(player.id);
@@ -459,13 +526,17 @@ export class NavigationService {
     return { moved, blocked, points };
   }
 
+/** consumePathWithinTick：执行对应的业务逻辑。 */
   private consumePathWithinTick(player: PlayerState, state: MoveTargetState, initialPoints: number): PathMoveAttemptResult {
+/** attempt：定义该变量以承载业务值。 */
     let attempt = this.tryMoveAlongPath(player, state, initialPoints);
     if (attempt.blocked) {
+/** adjustment：定义该变量以承载业务值。 */
       const adjustment = this.tryBuildLocalAdjustment(player, state);
       if (adjustment) {
         state.path = adjustment.path.concat(state.path.slice(adjustment.rejoinIndex + 1));
         this.bumpPathVersion(player.id);
+/** continued：定义该变量以承载业务值。 */
         const continued = this.tryMoveAlongPath(player, state, attempt.points);
         attempt = {
           moved: attempt.moved || continued.moved,
@@ -488,13 +559,18 @@ export class NavigationService {
     return attempt;
   }
 
+/** rechargeMovePoints：执行对应的业务逻辑。 */
   private rechargeMovePoints(player: PlayerState, intentKey: string): number {
+/** existing：定义该变量以承载业务值。 */
     const existing = this.moveCharges.get(player.id);
+/** current：定义该变量以承载业务值。 */
     const current = existing?.intentKey === intentKey ? existing.points : 0;
+/** numericStats：定义该变量以承载业务值。 */
     const numericStats = this.attrService.getPlayerNumericStats(player);
     return Math.min(MAX_STORED_MOVE_POINTS, current + getMovePointsPerTick(numericStats.moveSpeed));
   }
 
+/** commitMovePoints：执行对应的业务逻辑。 */
   private commitMovePoints(playerId: string, intentKey: string, points: number): void {
     if (points <= 0) {
       this.moveCharges.delete(playerId);
@@ -506,7 +582,9 @@ export class NavigationService {
     });
   }
 
+/** getStepMovePointCost：执行对应的业务逻辑。 */
   private getStepMovePointCost(mapId: string, x: number, y: number): number {
+/** traversalCost：定义该变量以承载业务值。 */
     const traversalCost = this.mapService.getTraversalCost(mapId, x, y);
     if (!Number.isFinite(traversalCost)) {
       return Number.POSITIVE_INFINITY;
@@ -520,6 +598,7 @@ export class NavigationService {
     targetX: number,
     targetY: number,
   ): string {
+/** moveSpeed：定义该变量以承载业务值。 */
     const moveSpeed = this.attrService.getPlayerNumericStats(player).moveSpeed;
     const { priority, limits } = this.resolveRequestPolicy(player, requestKind);
     return this.pathRequestScheduler.enqueue({
@@ -537,11 +616,13 @@ export class NavigationService {
     });
   }
 
+/** queueRepath：执行对应的业务逻辑。 */
   private queueRepath(player: PlayerState, state: MoveTargetState): void {
     if (state.pendingRequestId) {
       return;
     }
 
+/** currentTick：定义该变量以承载业务值。 */
     const currentTick = this.getCurrentMapPathTick(player.mapId);
     if (currentTick < state.repathAvailableTick) {
       return;
@@ -556,6 +637,7 @@ export class NavigationService {
     state.repathAvailableTick = currentTick + PATH_REPATH_COOLDOWN_TICKS;
   }
 
+/** queuePathContinuation：执行对应的业务逻辑。 */
   private queuePathContinuation(player: PlayerState, state: MoveTargetState): void {
     if (state.pendingRequestId) {
       return;
@@ -570,11 +652,13 @@ export class NavigationService {
     state.repathAvailableTick = this.getCurrentMapPathTick(player.mapId);
   }
 
+/** consumeResolvedPath：执行对应的业务逻辑。 */
   private consumeResolvedPath(player: PlayerState, state: MoveTargetState): void {
     if (!state.pendingRequestId) {
       return;
     }
 
+/** result：定义该变量以承载业务值。 */
     const result = this.pathRequestScheduler.takeResult(player.id, state.pendingRequestId);
     if (!result) {
       return;
@@ -609,9 +693,12 @@ export class NavigationService {
     player: PlayerState,
     requestKind: PathRequestKind,
   ): {
+/** priority：定义该变量以承载业务值。 */
     priority: number;
     limits: {
+/** maxExpandedNodes：定义该变量以承载业务值。 */
       maxExpandedNodes: number;
+/** maxPathLength：定义该变量以承载业务值。 */
       maxPathLength: number;
       maxGoalDistance?: number;
       allowPartialPath?: boolean;
@@ -650,6 +737,7 @@ export class NavigationService {
     };
   }
 
+/** translateFailureReason：执行对应的业务逻辑。 */
   private translateFailureReason(reason: string): string {
     switch (reason) {
       case 'target_too_far':
@@ -665,12 +753,16 @@ export class NavigationService {
     }
   }
 
+/** getCurrentMapPathTick：执行对应的业务逻辑。 */
   private getCurrentMapPathTick(mapId: string): number {
     return this.mapPathTicks.get(mapId) ?? this.timeService.getTotalTicks(mapId);
   }
 
+/** consumePlayerMoveRequestQuota：执行对应的业务逻辑。 */
   private consumePlayerMoveRequestQuota(player: PlayerState): boolean {
+/** currentTick：定义该变量以承载业务值。 */
     const currentTick = this.timeService.getTotalTicks(player.mapId);
+/** quota：定义该变量以承载业务值。 */
     const quota = this.moveRequestQuotaByPlayer.get(player.id);
     if (!quota || quota.tick !== currentTick) {
       this.moveRequestQuotaByPlayer.set(player.id, {
@@ -705,15 +797,21 @@ export class NavigationService {
       return null;
     }
 
+/** packedPath：定义该变量以承载业务值。 */
     const packedPath = options.clientPackedPath;
+/** packedPathSteps：定义该变量以承载业务值。 */
     const packedPathSteps = options.clientPackedPathSteps ?? 0;
+/** directions：定义该变量以承载业务值。 */
     const directions = unpackDirections(packedPath, packedPathSteps);
     if (!directions) {
       return null;
     }
 
+/** path：定义该变量以承载业务值。 */
     const path: PathStep[] = [];
+/** currentX：定义该变量以承载业务值。 */
     let currentX = player.x;
+/** currentY：定义该变量以承载业务值。 */
     let currentY = player.y;
     for (const direction of directions) {
       const [dx, dy] = directionToDelta(direction);
@@ -732,12 +830,15 @@ export class NavigationService {
     return path;
   }
 
+/** tryBuildLocalAdjustment：执行对应的业务逻辑。 */
   private tryBuildLocalAdjustment(player: PlayerState, state: MoveTargetState): LocalAdjustmentResult | null {
     if (state.path.length === 0) {
       return null;
     }
 
+/** goalIndicesByKey：定义该变量以承载业务值。 */
     const goalIndicesByKey = new Map<string, number>();
+/** lookahead：定义该变量以承载业务值。 */
     const lookahead = Math.min(state.path.length, PATH_DYNAMIC_ADJUST_LOOKAHEAD);
     for (let index = 0; index < lookahead; index += 1) {
       const step = state.path[index];
@@ -757,27 +858,43 @@ export class NavigationService {
       return null;
     }
 
+/** radius：定义该变量以承载业务值。 */
     const radius = PATH_DYNAMIC_ADJUST_MAX_RADIUS;
+/** width：定义该变量以承载业务值。 */
     const width = radius * 2 + 1;
+/** total：定义该变量以承载业务值。 */
     const total = width * width;
+/** center：定义该变量以承载业务值。 */
     const center = radius * width + radius;
+/** visited：定义该变量以承载业务值。 */
     const visited = new Uint8Array(total);
+/** parent：定义该变量以承载业务值。 */
     const parent = new Int16Array(total);
     parent.fill(-1);
+/** queue：定义该变量以承载业务值。 */
     const queue = new Int16Array(total);
+/** head：定义该变量以承载业务值。 */
     let head = 0;
+/** tail：定义该变量以承载业务值。 */
     let tail = 0;
     queue[tail++] = center;
     visited[center] = 1;
 
     while (head < tail) {
+/** localIndex：定义该变量以承载业务值。 */
       const localIndex = queue[head++]!;
+/** localX：定义该变量以承载业务值。 */
       const localX = localIndex % width;
+/** localY：定义该变量以承载业务值。 */
       const localY = Math.floor(localIndex / width);
+/** worldX：定义该变量以承载业务值。 */
       const worldX = player.x + (localX - radius);
+/** worldY：定义该变量以承载业务值。 */
       const worldY = player.y + (localY - radius);
+/** goalIndex：定义该变量以承载业务值。 */
       const goalIndex = goalIndicesByKey.get(`${worldX},${worldY}`);
       if (goalIndex !== undefined && localIndex !== center) {
+/** path：定义该变量以承载业务值。 */
         const path = this.reconstructLocalAdjustmentPath(player, parent, localIndex, width, radius);
         return path.length > 0 ? { path, rejoinIndex: goalIndex } : null;
       }
@@ -788,16 +905,21 @@ export class NavigationService {
         { dx: 1, dy: 0 },
         { dx: -1, dy: 0 },
       ]) {
+/** nextLocalX：定义该变量以承载业务值。 */
         const nextLocalX = localX + dx;
+/** nextLocalY：定义该变量以承载业务值。 */
         const nextLocalY = localY + dy;
         if (nextLocalX < 0 || nextLocalX >= width || nextLocalY < 0 || nextLocalY >= width) {
           continue;
         }
+/** nextIndex：定义该变量以承载业务值。 */
         const nextIndex = nextLocalY * width + nextLocalX;
         if (visited[nextIndex] === 1) {
           continue;
         }
+/** nextWorldX：定义该变量以承载业务值。 */
         const nextWorldX = player.x + (nextLocalX - radius);
+/** nextWorldY：定义该变量以承载业务值。 */
         const nextWorldY = player.y + (nextLocalY - radius);
         if (manhattanDistance(player, { x: nextWorldX, y: nextWorldY }) > radius) {
           continue;
@@ -824,11 +946,16 @@ export class NavigationService {
     width: number,
     radius: number,
   ): PathStep[] {
+/** path：定义该变量以承载业务值。 */
     const path: PathStep[] = [];
+/** current：定义该变量以承载业务值。 */
     let current = goalLocalIndex;
+/** center：定义该变量以承载业务值。 */
     const center = radius * width + radius;
     while (current !== center && current !== -1) {
+/** localX：定义该变量以承载业务值。 */
       const localX = current % width;
+/** localY：定义该变量以承载业务值。 */
       const localY = Math.floor(current / width);
       path.push({
         x: player.x + (localX - radius),
@@ -840,7 +967,9 @@ export class NavigationService {
     return path;
   }
 
+/** bumpPathVersion：执行对应的业务逻辑。 */
   private bumpPathVersion(playerId: string): number {
+/** nextVersion：定义该变量以承载业务值。 */
     const nextVersion = (this.pathVersions.get(playerId) ?? 0) + 1;
     this.pathVersions.set(playerId, nextVersion);
     return nextVersion;

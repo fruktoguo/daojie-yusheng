@@ -17,6 +17,7 @@ function clonePanelsState(
 
 /** PanelSystemStore：封装相关状态与行为。 */
 export class PanelSystemStore {
+/** state：定义该变量以承载业务值。 */
   private state: PanelSystemState;
   private readonly listeners = new Set<PanelSystemListener>();
 
@@ -35,6 +36,7 @@ export class PanelSystemStore {
     };
   }
 
+/** getState：执行对应的业务逻辑。 */
   getState(): PanelSystemState {
     return {
       ...this.state,
@@ -56,6 +58,7 @@ export class PanelSystemStore {
     };
   }
 
+/** setCapabilities：执行对应的业务逻辑。 */
   setCapabilities(capabilities: PanelCapabilities, layout: PanelLayoutProfile): void {
     this.patchState({
       capabilities: {
@@ -70,6 +73,7 @@ export class PanelSystemStore {
     });
   }
 
+/** setRuntime：执行对应的业务逻辑。 */
   setRuntime(runtimePatch: Partial<PanelRuntimeState>): void {
     this.patchState({
       runtime: {
@@ -79,7 +83,9 @@ export class PanelSystemStore {
     });
   }
 
+/** patchPanelUi：执行对应的业务逻辑。 */
   patchPanelUi(panelId: PanelId, panelPatch: Partial<PanelUiState>): void {
+/** current：定义该变量以承载业务值。 */
     const current = this.state.panels[panelId] ?? {};
     this.patchState({
       panels: {
@@ -92,12 +98,15 @@ export class PanelSystemStore {
     });
   }
 
+/** patchState：执行对应的业务逻辑。 */
   private patchState(patch: Partial<PanelSystemState>): void {
+/** previousState：定义该变量以承载业务值。 */
     const previousState = this.getState();
     this.state = {
       ...this.state,
       ...patch,
     };
+/** nextState：定义该变量以承载业务值。 */
     const nextState = this.getState();
     for (const listener of this.listeners) {
       listener(nextState, previousState);

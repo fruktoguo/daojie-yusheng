@@ -25,22 +25,32 @@ import { ContentService } from './content.service';
 import { InventoryService } from './inventory.service';
 import { PlayerService } from './player.service';
 
+/** REDEEM_CODE_LENGTH：定义该变量以承载业务值。 */
 const REDEEM_CODE_LENGTH = 36;
+/** REDEEM_CODE_ALPHABET：定义该变量以承载业务值。 */
 const REDEEM_CODE_ALPHABET = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+/** MAX_BATCH_REDEEM_CODES：定义该变量以承载业务值。 */
 const MAX_BATCH_REDEEM_CODES = 50;
+/** MAX_GROUP_CREATE_COUNT：定义该变量以承载业务值。 */
 const MAX_GROUP_CREATE_COUNT = 500;
 
 /** PreparedRedeemCodeEntry：定义该接口的能力与字段约束。 */
 export interface PreparedRedeemCodeEntry {
+/** code：定义该变量以承载业务值。 */
   code: string;
+/** redeemCodeId：定义该变量以承载业务值。 */
   redeemCodeId: string | null;
+/** groupName：定义该变量以承载业务值。 */
   groupName: string | null;
+/** rewards：定义该变量以承载业务值。 */
   rewards: RedeemCodeGroupRewardItem[];
+/** state：定义该变量以承载业务值。 */
   state: 'active' | 'used' | 'destroyed' | 'not_found' | 'invalid_rewards';
 }
 
 /** PreparedRedeemCodeOperation：定义该接口的能力与字段约束。 */
 export interface PreparedRedeemCodeOperation {
+/** entries：定义该变量以承载业务值。 */
   entries: PreparedRedeemCodeEntry[];
 }
 
@@ -57,7 +67,9 @@ export class RedeemCodeService {
     private readonly playerService: PlayerService,
   ) {}
 
+/** listGroups：执行对应的业务逻辑。 */
   async listGroups(): Promise<GmRedeemCodeGroupListRes> {
+/** groups：定义该变量以承载业务值。 */
     const groups = await this.redeemCodeGroupRepo.find({
       relations: ['codes'],
       order: { updatedAt: 'DESC', createdAt: 'DESC' },
@@ -67,8 +79,11 @@ export class RedeemCodeService {
     };
   }
 
+/** getGroupDetail：执行对应的业务逻辑。 */
   async getGroupDetail(groupId: string): Promise<GmRedeemCodeGroupDetailRes> {
+/** group：定义该变量以承载业务值。 */
     const group = await this.requireGroup(groupId);
+/** codes：定义该变量以承载业务值。 */
     const codes = await this.redeemCodeRepo.find({
       where: { groupId },
       order: { createdAt: 'DESC', code: 'ASC' },
@@ -84,19 +99,25 @@ export class RedeemCodeService {
     rewards: RedeemCodeGroupRewardItem[],
     count: number,
   ): Promise<GmCreateRedeemCodeGroupRes> {
+/** normalizedName：定义该变量以承载业务值。 */
     const normalizedName = normalizeGroupName(name);
+/** normalizedRewards：定义该变量以承载业务值。 */
     const normalizedRewards = this.normalizeRewards(rewards);
+/** normalizedCount：定义该变量以承载业务值。 */
     const normalizedCount = normalizeCreateCount(count);
 
+/** existing：定义该变量以承载业务值。 */
     const existing = await this.redeemCodeGroupRepo.findOne({ where: { name: normalizedName } });
     if (existing) {
       throw new BadRequestException('兑换码分组名称已存在');
     }
 
+/** group：定义该变量以承载业务值。 */
     const group = await this.redeemCodeGroupRepo.save(this.redeemCodeGroupRepo.create({
       name: normalizedName,
       rewards: normalizedRewards,
     }));
+/** createdCodes：定义该变量以承载业务值。 */
     const createdCodes = await this.createCodes(group.id, normalizedCount);
     return {
       group: this.toGroupView(group, createdCodes),
@@ -109,10 +130,14 @@ export class RedeemCodeService {
     name: string,
     rewards: RedeemCodeGroupRewardItem[],
   ): Promise<GmRedeemCodeGroupDetailRes> {
+/** group：定义该变量以承载业务值。 */
     const group = await this.requireGroup(groupId);
+/** normalizedName：定义该变量以承载业务值。 */
     const normalizedName = normalizeGroupName(name);
+/** normalizedRewards：定义该变量以承载业务值。 */
     const normalizedRewards = this.normalizeRewards(rewards);
 
+/** conflicting：定义该变量以承载业务值。 */
     const conflicting = await this.redeemCodeGroupRepo.findOne({ where: { name: normalizedName } });
     if (conflicting && conflicting.id !== groupId) {
       throw new BadRequestException('兑换码分组名称已存在');
@@ -124,10 +149,15 @@ export class RedeemCodeService {
     return this.getGroupDetail(groupId);
   }
 
+/** appendCodes：执行对应的业务逻辑。 */
   async appendCodes(groupId: string, count: number): Promise<GmAppendRedeemCodesRes> {
+/** group：定义该变量以承载业务值。 */
     const group = await this.requireGroup(groupId);
+/** normalizedCount：定义该变量以承载业务值。 */
     const normalizedCount = normalizeCreateCount(count);
+/** createdCodes：定义该变量以承载业务值。 */
     const createdCodes = await this.createCodes(group.id, normalizedCount);
+/** allCodes：定义该变量以承载业务值。 */
     const allCodes = await this.redeemCodeRepo.find({ where: { groupId } });
     return {
       group: this.toGroupView(group, allCodes),
@@ -136,6 +166,7 @@ export class RedeemCodeService {
   }
 
   async destroyCode(codeId: string): Promise<{ ok: true }> {
+/** code：定义该变量以承载业务值。 */
     const code = await this.redeemCodeRepo.findOne({ where: { id: codeId } });
     if (!code) {
       throw new BadRequestException('目标兑换码不存在');
@@ -152,19 +183,24 @@ export class RedeemCodeService {
     return { ok: true };
   }
 
+/** prepareRedeemCodes：执行对应的业务逻辑。 */
   async prepareRedeemCodes(codes: string[]): Promise<PreparedRedeemCodeOperation> {
+/** normalizedCodes：定义该变量以承载业务值。 */
     const normalizedCodes = normalizeSubmittedCodes(codes);
     if (normalizedCodes.length === 0) {
       throw new BadRequestException('请至少填写一个兑换码');
     }
 
+/** matchedCodes：定义该变量以承载业务值。 */
     const matchedCodes = normalizedCodes.length > 0
       ? await this.redeemCodeRepo.find({
         where: { code: In(normalizedCodes) },
         relations: ['group'],
       })
       : [];
+/** matchedCodeByValue：定义该变量以承载业务值。 */
     const matchedCodeByValue = new Map(matchedCodes.map((entry) => [entry.code, entry] as const));
+/** entries：定义该变量以承载业务值。 */
     const entries: PreparedRedeemCodeEntry[] = [];
     for (const submittedCode of normalizedCodes) {
       const codeEntity = matchedCodeByValue.get(submittedCode);
@@ -179,8 +215,11 @@ export class RedeemCodeService {
         continue;
       }
 
+/** group：定义该变量以承载业务值。 */
       const group = codeEntity.group;
+/** rewards：定义该变量以承载业务值。 */
       let rewards: RedeemCodeGroupRewardItem[] = [];
+/** state：定义该变量以承载业务值。 */
       let state: PreparedRedeemCodeEntry['state'] = codeEntity.status;
       try {
         rewards = this.normalizeRewards(group?.rewards ?? []);
@@ -203,9 +242,13 @@ export class RedeemCodeService {
     player: PlayerState,
     prepared: PreparedRedeemCodeOperation,
   ): AccountRedeemCodesRes {
+/** results：定义该变量以承载业务值。 */
     const results: AccountRedeemCodeResult[] = [];
+/** stagedInventory：定义该变量以承载业务值。 */
     const stagedInventory = cloneInventoryItems(player.inventory.items);
+/** consumedCodeIds：定义该变量以承载业务值。 */
     const consumedCodeIds: string[] = [];
+/** now：定义该变量以承载业务值。 */
     const now = new Date();
 
     for (const entry of prepared.entries) {
@@ -245,6 +288,7 @@ export class RedeemCodeService {
         continue;
       }
 
+/** items：定义该变量以承载业务值。 */
       const items = entry.rewards.map((reward) => this.contentService.createItem(reward.itemId, reward.count));
       if (items.some((item) => item === null)) {
         results.push({
@@ -256,7 +300,9 @@ export class RedeemCodeService {
         continue;
       }
 
+/** inventorySnapshot：定义该变量以承载业务值。 */
       const inventorySnapshot = cloneInventoryItems(stagedInventory);
+/** inventoryOk：定义该变量以承载业务值。 */
       let inventoryOk = true;
       for (const item of items) {
         if (!item || !this.addItemToInventorySnapshot(inventorySnapshot, player.inventory.capacity, item)) {
@@ -319,7 +365,9 @@ export class RedeemCodeService {
       });
     }
 
+/** payload：定义该变量以承载业务值。 */
     const payload = { results };
+/** socket：定义该变量以承载业务值。 */
     const socket = this.playerService.getSocket(player.id);
     socket?.emit(S2C.RedeemCodesResult, {
       result: payload,
@@ -332,6 +380,7 @@ export class RedeemCodeService {
     capacity: number,
     item: NonNullable<ReturnType<ContentService['createItem']>>,
   ): boolean {
+/** simulatedPlayer：定义该变量以承载业务值。 */
     const simulatedPlayer = {
       inventory: {
         items: inventoryItems,
@@ -341,20 +390,25 @@ export class RedeemCodeService {
     return this.inventoryService.addItem(simulatedPlayer, { ...item });
   }
 
+/** normalizeRewards：执行对应的业务逻辑。 */
   private normalizeRewards(rewards: RedeemCodeGroupRewardItem[]): RedeemCodeGroupRewardItem[] {
     if (!Array.isArray(rewards) || rewards.length === 0) {
       throw new BadRequestException('兑换码分组至少需要一个奖励物品');
     }
+/** normalized：定义该变量以承载业务值。 */
     const normalized: RedeemCodeGroupRewardItem[] = [];
     for (const reward of rewards) {
       if (!reward || typeof reward.itemId !== 'string') {
         continue;
       }
+/** itemId：定义该变量以承载业务值。 */
       const itemId = reward.itemId.trim();
+/** count：定义该变量以承载业务值。 */
       const count = Math.max(1, Math.floor(Number(reward.count) || 0));
       if (!itemId || count <= 0) {
         continue;
       }
+/** template：定义该变量以承载业务值。 */
       const template = this.contentService.getItem(itemId);
       if (!template) {
         throw new BadRequestException(`奖励物品不存在：${itemId}`);
@@ -367,7 +421,9 @@ export class RedeemCodeService {
     return normalized;
   }
 
+/** requireGroup：执行对应的业务逻辑。 */
   private async requireGroup(groupId: string): Promise<RedeemCodeGroupEntity> {
+/** group：定义该变量以承载业务值。 */
     const group = await this.redeemCodeGroupRepo.findOne({
       where: { id: groupId },
       relations: ['codes'],
@@ -378,14 +434,21 @@ export class RedeemCodeService {
     return group;
   }
 
+/** createCodes：执行对应的业务逻辑。 */
   private async createCodes(groupId: string, count: number): Promise<RedeemCodeEntity[]> {
+/** created：定义该变量以承载业务值。 */
     const created: RedeemCodeEntity[] = [];
+/** seenCodes：定义该变量以承载业务值。 */
     const seenCodes = new Set<string>();
     while (created.length < count) {
+/** remaining：定义该变量以承载业务值。 */
       const remaining = count - created.length;
+/** batchSize：定义该变量以承载业务值。 */
       const batchSize = Math.min(remaining * 2, 128);
+/** candidates：定义该变量以承载业务值。 */
       const candidates: string[] = [];
       while (candidates.length < batchSize) {
+/** code：定义该变量以承载业务值。 */
         const code = generateRedeemCode();
         if (seenCodes.has(code)) {
           continue;
@@ -393,11 +456,14 @@ export class RedeemCodeService {
         seenCodes.add(code);
         candidates.push(code);
       }
+/** existing：定义该变量以承载业务值。 */
       const existing = await this.redeemCodeRepo.find({
         where: { code: In(candidates) },
         select: { code: true },
       });
+/** existingCodeSet：定义该变量以承载业务值。 */
       const existingCodeSet = new Set(existing.map((entry) => entry.code));
+/** insertable：定义该变量以承载业务值。 */
       const insertable = candidates
         .filter((code) => !existingCodeSet.has(code))
         .slice(0, remaining)
@@ -413,6 +479,7 @@ export class RedeemCodeService {
       if (insertable.length === 0) {
         continue;
       }
+/** saved：定义该变量以承载业务值。 */
       const saved = await this.redeemCodeRepo.save(insertable);
       created.push(...saved);
     }
@@ -423,8 +490,11 @@ export class RedeemCodeService {
     group: RedeemCodeGroupEntity,
     codes?: RedeemCodeEntity[],
   ): RedeemCodeGroupView {
+/** codeList：定义该变量以承载业务值。 */
     const codeList = codes ?? group.codes ?? [];
+/** usedCodeCount：定义该变量以承载业务值。 */
     let usedCodeCount = 0;
+/** activeCodeCount：定义该变量以承载业务值。 */
     let activeCodeCount = 0;
     for (const code of codeList) {
       if (code.status === 'used') {
@@ -445,6 +515,7 @@ export class RedeemCodeService {
     };
   }
 
+/** toCodeView：执行对应的业务逻辑。 */
   private toCodeView(code: RedeemCodeEntity): RedeemCodeCodeView {
     return {
       id: code.id,
@@ -463,6 +534,7 @@ export class RedeemCodeService {
 
 /** normalizeGroupName：执行对应的业务逻辑。 */
 function normalizeGroupName(name: string): string {
+/** normalized：定义该变量以承载业务值。 */
   const normalized = name.normalize('NFC').trim();
   if (!normalized) {
     throw new BadRequestException('兑换码分组名称不能为空');
@@ -475,6 +547,7 @@ function normalizeGroupName(name: string): string {
 
 /** normalizeCreateCount：执行对应的业务逻辑。 */
 function normalizeCreateCount(count: number): number {
+/** normalized：定义该变量以承载业务值。 */
   const normalized = Math.max(1, Math.floor(Number(count) || 0));
   if (normalized <= 0) {
     throw new BadRequestException('兑换码数量必须大于 0');
@@ -490,12 +563,15 @@ function normalizeSubmittedCodes(codes: string[]): string[] {
   if (!Array.isArray(codes)) {
     return [];
   }
+/** normalized：定义该变量以承载业务值。 */
   const normalized: string[] = [];
+/** seen：定义该变量以承载业务值。 */
   const seen = new Set<string>();
   for (const entry of codes) {
     if (typeof entry !== 'string') {
       continue;
     }
+/** code：定义该变量以承载业务值。 */
     const code = entry.trim().toUpperCase();
     if (!code || seen.has(code)) {
       continue;
@@ -521,7 +597,9 @@ function cloneRewards(rewards: RedeemCodeGroupRewardItem[]): RedeemCodeGroupRewa
 
 /** generateRedeemCode：执行对应的业务逻辑。 */
 function generateRedeemCode(): string {
+/** bytes：定义该变量以承载业务值。 */
   const bytes = randomBytes(REDEEM_CODE_LENGTH);
+/** output：定义该变量以承载业务值。 */
   let output = '';
   for (let index = 0; index < REDEEM_CODE_LENGTH; index += 1) {
     output += REDEEM_CODE_ALPHABET[bytes[index] % REDEEM_CODE_ALPHABET.length];

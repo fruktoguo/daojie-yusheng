@@ -4,12 +4,19 @@
  */
 
 Object.defineProperty(exports, "__esModule", { value: true });
+/** node_child_process_1：定义该变量以承载业务值。 */
 const node_child_process_1 = require("node:child_process");
+/** node_fs_1：定义该变量以承载业务值。 */
 const node_fs_1 = require("node:fs");
+/** node_net_1：定义该变量以承载业务值。 */
 const node_net_1 = require("node:net");
+/** node_path_1：定义该变量以承载业务值。 */
 const node_path_1 = require("node:path");
+/** pg_1：定义该变量以承载业务值。 */
 const pg_1 = require("pg");
+/** env_alias_1：定义该变量以承载业务值。 */
 const env_alias_1 = require("../config/env-alias");
+/** gm_database_proof_lib_1：定义该变量以承载业务值。 */
 const gm_database_proof_lib_1 = require("./gm-database-proof-lib");
 /**
  * 记录包根目录。

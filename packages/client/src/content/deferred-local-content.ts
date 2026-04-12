@@ -6,6 +6,7 @@ type IdleWindow = Window & {
   requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
 };
 
+/** preloadScheduled：定义该变量以承载业务值。 */
 let preloadScheduled = false;
 
 /** scheduleDeferredLocalContentPreload：执行对应的业务逻辑。 */
@@ -21,6 +22,7 @@ export function scheduleDeferredLocalContentPreload(): void {
     void preloadMonsterLocationCatalog();
   };
 
+/** idleWindow：定义该变量以承载业务值。 */
   const idleWindow = window as IdleWindow;
   if (typeof idleWindow.requestIdleCallback === 'function') {
     idleWindow.requestIdleCallback(triggerPreload, { timeout: 1500 });

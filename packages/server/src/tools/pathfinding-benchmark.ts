@@ -19,15 +19,21 @@ import { PathfindingStaticGrid, PathfindingTask, PathfindingTaskResult } from '.
 
 /** BenchmarkOptions：定义该接口的能力与字段约束。 */
 interface BenchmarkOptions {
+/** mapId：定义该变量以承载业务值。 */
   mapId: string;
+/** jobs：定义该变量以承载业务值。 */
   jobs: number;
+/** mode：定义该变量以承载业务值。 */
   mode: 'single' | 'workers';
+/** seed：定义该变量以承载业务值。 */
   seed: number;
 }
 
 /** BenchmarkPoint：定义该接口的能力与字段约束。 */
 interface BenchmarkPoint {
+/** x：定义该变量以承载业务值。 */
   x: number;
+/** y：定义该变量以承载业务值。 */
   y: number;
 }
 
@@ -50,6 +56,7 @@ function parseArgs(argv: string[]): BenchmarkOptions {
   return {
     mapId: entries.get('map')?.trim() || 'yunlai_town',
     jobs: Math.max(1, Math.floor(Number(entries.get('jobs') ?? '200'))),
+/** mode：定义该变量以承载业务值。 */
     mode: entries.get('mode') === 'workers' ? 'workers' : 'single',
     seed: Math.max(1, Math.floor(Number(entries.get('seed') ?? `${Date.now()}`))),
   };

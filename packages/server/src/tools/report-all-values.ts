@@ -9,6 +9,7 @@ import {
   renderMarkdownTable,
 } from './value-report-lib';
 
+/** sections：定义该变量以承载业务值。 */
 const sections = [
   renderMarkdownTable('装备价值报表', buildEquipmentRows()),
   renderMarkdownTable('功法价值报表', buildTechniqueRows()),

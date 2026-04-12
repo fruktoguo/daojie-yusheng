@@ -16,7 +16,9 @@ import { escapeHtml, formatJson } from './pure';
 
 /** PresenceMeta：定义该接口的能力与字段约束。 */
 export interface PresenceMeta {
+/** className：定义该变量以承载业务值。 */
   className: 'online' | 'offline';
+/** label：定义该变量以承载业务值。 */
   label: '在线' | '离线挂机' | '离线';
 }
 
@@ -51,6 +53,7 @@ export function getEditorMetaMarkup(
   presence: PresenceMeta,
   editorDirty: boolean,
 ): string {
+/** pills：定义该变量以承载业务值。 */
   const pills: string[] = [
     `<span class="pill ${presence.className}">${presence.label}</span>`,
     `<span class="pill ${detail.meta.isBot ? 'bot' : ''}">${detail.meta.isBot ? '机器人' : '玩家'}</span>`,
@@ -137,6 +140,7 @@ export function getTechniqueCardTitle(technique: TechniqueState | undefined, ind
 /** getTechniqueCardMeta：执行对应的业务逻辑。 */
 export function getTechniqueCardMeta(technique: TechniqueState | undefined, getRealmLevelLabel: (realmLv: number) => string | undefined): string {
   if (!technique) return '';
+/** realmLevelLabel：定义该变量以承载业务值。 */
   const realmLevelLabel = getRealmLevelLabel(technique.realmLv);
   return `${technique.techId || '未填写功法 ID'} · ${realmLevelLabel ?? `Lv.${technique.realmLv}`} · 等级 ${technique.level} · ${TECHNIQUE_REALM_LABELS[technique.realm] ?? technique.realm}`;
 }
@@ -197,7 +201,9 @@ export function renderSuggestionReply(reply: Suggestion['replies'][number]): str
 
 /** getSuggestionCardMarkup：执行对应的业务逻辑。 */
 export function getSuggestionCardMarkup(suggestion: Suggestion): string {
+/** completed：定义该变量以承载业务值。 */
   const completed = suggestion.status === 'completed';
+/** score：定义该变量以承载业务值。 */
   const score = suggestion.upvotes.length - suggestion.downvotes.length;
   return `
     <div class="gm-suggestion-card ${completed ? 'completed' : ''}" data-suggestion-id="${escapeHtml(suggestion.id)}">
@@ -267,6 +273,7 @@ export function getRedeemCodeStatusLabel(status: RedeemCodeCodeView['status']): 
 
 /** getRedeemCodeMarkup：执行对应的业务逻辑。 */
 export function getRedeemCodeMarkup(code: RedeemCodeCodeView, getDate: (value: string) => string): string {
+/** meta：定义该变量以承载业务值。 */
   const meta = [
     `状态 ${getRedeemCodeStatusLabel(code.status)}`,
     code.usedByRoleName ? `使用者 ${code.usedByRoleName}` : null,

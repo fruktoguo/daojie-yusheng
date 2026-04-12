@@ -6,6 +6,7 @@ function isPlainRecord(value: unknown): value is PlainRecord {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
     return false;
   }
+/** prototype：定义该变量以承载业务值。 */
   const prototype = Object.getPrototypeOf(value);
   return prototype === Object.prototype || prototype === null;
 }
@@ -21,6 +22,7 @@ export function clonePlainValue<T>(value: T): T {
     return value.map((entry) => clonePlainValue(entry)) as T;
   }
   if (isPlainRecord(value)) {
+/** cloned：定义该变量以承载业务值。 */
     const cloned: PlainRecord = {};
     for (const key of getDefinedKeys(value)) {
       cloned[key] = clonePlainValue(value[key]);
@@ -50,7 +52,9 @@ export function isPlainEqual(left: unknown, right: unknown): boolean {
     if (!isPlainRecord(left) || !isPlainRecord(right)) {
       return false;
     }
+/** leftKeys：定义该变量以承载业务值。 */
     const leftKeys = getDefinedKeys(left);
+/** rightKeys：定义该变量以承载业务值。 */
     const rightKeys = getDefinedKeys(right);
     if (leftKeys.length !== rightKeys.length) {
       return false;

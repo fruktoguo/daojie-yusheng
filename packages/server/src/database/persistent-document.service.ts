@@ -11,11 +11,14 @@ export class PersistentDocumentService {
     private readonly documentRepo: Repository<PersistentDocumentEntity>,
   ) {}
 
+/** countScope：执行对应的业务逻辑。 */
   async countScope(scope: string): Promise<number> {
     return this.documentRepo.count({ where: { scope } });
   }
 
+/** get：执行对应的业务逻辑。 */
   async get<T>(scope: string, key: string): Promise<T | null> {
+/** entity：定义该变量以承载业务值。 */
     const entity = await this.documentRepo.findOne({ where: { scope, key } });
     if (!entity) {
       return null;
@@ -24,6 +27,7 @@ export class PersistentDocumentService {
   }
 
   async getScope<T>(scope: string): Promise<Array<{ key: string; payload: T }>> {
+/** entities：定义该变量以承载业务值。 */
     const entities = await this.documentRepo.find({
       where: { scope },
       order: { key: 'ASC' },
@@ -34,6 +38,7 @@ export class PersistentDocumentService {
     }));
   }
 
+/** save：执行对应的业务逻辑。 */
   async save<T>(scope: string, key: string, payload: T): Promise<void> {
     await this.documentRepo.save(this.documentRepo.create({
       scope,
@@ -42,6 +47,7 @@ export class PersistentDocumentService {
     }));
   }
 
+/** saveMany：执行对应的业务逻辑。 */
   async saveMany<T>(scope: string, documents: Array<{ key: string; payload: T }>): Promise<void> {
     if (documents.length === 0) {
       return;
@@ -53,6 +59,7 @@ export class PersistentDocumentService {
     })));
   }
 
+/** delete：执行对应的业务逻辑。 */
   async delete(scope: string, key: string): Promise<void> {
     await this.documentRepo.delete({ scope, key });
   }

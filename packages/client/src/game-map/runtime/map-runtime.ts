@@ -31,14 +31,19 @@ export class MapRuntime implements MapRuntimeApi {
     this.projection,
   );
 
+/** host：定义该变量以承载业务值。 */
   private host: HTMLElement | null = null;
+/** currentScene：定义该变量以承载业务值。 */
   private currentScene: MapSceneSnapshot = this.sceneBuilder.build(this.store.getSnapshot());
+/** frameHandle：定义该变量以承载业务值。 */
   private frameHandle: number | null = null;
   private lastFrameAt = performance.now();
 
+/** attach：执行对应的业务逻辑。 */
   attach(host: HTMLElement): void {
     this.host = host;
     this.renderer.mount(host);
+/** canvas：定义该变量以承载业务值。 */
     const canvas = this.renderer.getCanvas();
     if (canvas) {
       this.interaction.attach(canvas);
@@ -48,6 +53,7 @@ export class MapRuntime implements MapRuntimeApi {
     this.ensureFrameLoop();
   }
 
+/** detach：执行对应的业务逻辑。 */
   detach(): void {
     this.stopFrameLoop();
     this.interaction.detach();
@@ -55,6 +61,7 @@ export class MapRuntime implements MapRuntimeApi {
     this.host = null;
   }
 
+/** destroy：执行对应的业务逻辑。 */
   destroy(): void {
     this.detach();
     this.renderer.destroy();
@@ -62,6 +69,7 @@ export class MapRuntime implements MapRuntimeApi {
     this.interaction.destroy();
   }
 
+/** setViewportSize：执行对应的业务逻辑。 */
   setViewportSize(width: number, height: number, dpr: number, viewportScale = 1): void {
     this.viewport.setViewportSize(width, height, dpr, viewportScale);
     this.resizeRenderer();
@@ -69,18 +77,21 @@ export class MapRuntime implements MapRuntimeApi {
     this.syncViewportDerivedState(true);
   }
 
+/** setSafeArea：执行对应的业务逻辑。 */
   setSafeArea(insets: MapSafeAreaInsets): void {
     this.viewport.setSafeArea(insets);
     this.camera.setSafeArea(insets);
     this.syncViewportDerivedState(true);
   }
 
+/** setZoom：执行对应的业务逻辑。 */
   setZoom(_level: number): void {
     this.syncViewportDerivedState(true);
   }
 
   setProjection(_mode: 'topdown'): void {}
 
+/** applyInit：执行对应的业务逻辑。 */
   applyInit(data: Parameters<MapRuntimeApi['applyInit']>[0]): void {
     this.store.applyInit(data);
     this.camera.setSafeArea(DEFAULT_SAFE_AREA);
@@ -88,17 +99,21 @@ export class MapRuntime implements MapRuntimeApi {
     this.syncViewportDerivedState(true);
   }
 
+/** applyMapStaticSync：执行对应的业务逻辑。 */
   applyMapStaticSync(data: Parameters<MapRuntimeApi['applyMapStaticSync']>[0]): void {
     this.store.applyMapStaticSync(data);
     this.syncSceneFromStore();
   }
 
+/** applyTick：执行对应的业务逻辑。 */
   applyTick(data: Parameters<MapRuntimeApi['applyTick']>[0]): void {
+/** previousMapId：定义该变量以承载业务值。 */
     const previousMapId = this.store.getSnapshot().player?.mapId ?? null;
     for (const effect of data.fx ?? []) {
       this.renderer.enqueueEffect(effect);
     }
     this.store.applyTick(data);
+/** snapshot：定义该变量以承载业务值。 */
     const snapshot = this.store.getSnapshot();
     if (previousMapId && snapshot.player?.mapId !== previousMapId) {
       this.renderer.resetScene();
@@ -113,6 +128,7 @@ export class MapRuntime implements MapRuntimeApi {
     this.syncViewportDerivedState(false);
   }
 
+/** reset：执行对应的业务逻辑。 */
   reset(): void {
     this.store.reset();
     this.camera.reset();
@@ -121,6 +137,7 @@ export class MapRuntime implements MapRuntimeApi {
     this.currentScene = this.sceneBuilder.build(this.store.getSnapshot());
   }
 
+/** setInteractionCallbacks：执行对应的业务逻辑。 */
   setInteractionCallbacks(callbacks: MapRuntimeInteractionCallbacks): void {
     this.interaction.setCallbacks(callbacks);
   }
@@ -129,16 +146,19 @@ export class MapRuntime implements MapRuntimeApi {
     this.minimap.setMoveHandler(handler);
   }
 
+/** setPathCells：执行对应的业务逻辑。 */
   setPathCells(cells: Array<{ x: number; y: number }>): void {
     this.store.setPathCells(cells);
     this.syncSceneFromStore();
   }
 
+/** setTargetingOverlay：执行对应的业务逻辑。 */
   setTargetingOverlay(state: Parameters<MapRuntimeApi['setTargetingOverlay']>[0]): void {
     this.store.setTargetingOverlay(state);
     this.syncSceneFromStore();
   }
 
+/** setSenseQiOverlay：执行对应的业务逻辑。 */
   setSenseQiOverlay(state: Parameters<MapRuntimeApi['setSenseQiOverlay']>[0]): void {
     this.store.setSenseQiOverlay(state);
     this.syncSceneFromStore();
@@ -146,6 +166,7 @@ export class MapRuntime implements MapRuntimeApi {
 
   replaceVisibleEntities(
     entities: Parameters<MapRuntimeApi['replaceVisibleEntities']>[0],
+/** transition：定义该变量以承载业务值。 */
     transition: Parameters<MapRuntimeApi['replaceVisibleEntities']>[1] = null,
   ): void {
     this.store.replaceVisibleEntities(entities, transition ?? null);
@@ -172,14 +193,18 @@ export class MapRuntime implements MapRuntimeApi {
     return this.store.getGroundPileAt(x, y);
   }
 
+/** resizeRenderer：执行对应的业务逻辑。 */
   private resizeRenderer(): void {
+/** viewport：定义该变量以承载业务值。 */
     const viewport = this.viewport.getSnapshot();
     this.renderer.resize(viewport.cssWidth, viewport.cssHeight, viewport.backbufferWidth, viewport.backbufferHeight);
   }
 
+/** syncViewportDerivedState：执行对应的业务逻辑。 */
   private syncViewportDerivedState(resnapCamera: boolean): void {
     this.viewport.syncDisplayMetrics(this.store.getViewRadius() || VIEW_RADIUS);
     this.camera.setCellSize(getCellSize());
+/** snapshot：定义该变量以承载业务值。 */
     const snapshot = this.store.getSnapshot();
     if (resnapCamera && snapshot.player) {
       this.camera.snap(snapshot.player.x, snapshot.player.y);
@@ -188,7 +213,9 @@ export class MapRuntime implements MapRuntimeApi {
     this.minimap.resize();
   }
 
+/** syncSceneFromStore：执行对应的业务逻辑。 */
   private syncSceneFromStore(): void {
+/** snapshot：定义该变量以承载业务值。 */
     const snapshot = this.store.getSnapshot();
     this.currentScene = this.sceneBuilder.build(snapshot);
     this.renderer.syncScene(
@@ -200,6 +227,7 @@ export class MapRuntime implements MapRuntimeApi {
     this.minimap.update(snapshot);
   }
 
+/** ensureFrameLoop：执行对应的业务逻辑。 */
   private ensureFrameLoop(): void {
     if (this.frameHandle !== null) {
       return;
@@ -208,11 +236,15 @@ export class MapRuntime implements MapRuntimeApi {
 /** frame：通过常量导出可复用函数行为。 */
     const frame = () => {
       this.frameHandle = requestAnimationFrame(frame);
+/** now：定义该变量以承载业务值。 */
       const now = performance.now();
+/** dt：定义该变量以承载业务值。 */
       const dt = (now - this.lastFrameAt) / 1000;
       this.lastFrameAt = now;
       this.camera.update(dt);
+/** timing：定义该变量以承载业务值。 */
       const timing = this.store.getTickTiming();
+/** progress：定义该变量以承载业务值。 */
       const progress = timing.durationMs > 0
         ? Math.min((now - timing.startedAt) / timing.durationMs, 1)
         : 1;
@@ -221,6 +253,7 @@ export class MapRuntime implements MapRuntimeApi {
     this.frameHandle = requestAnimationFrame(frame);
   }
 
+/** stopFrameLoop：执行对应的业务逻辑。 */
   private stopFrameLoop(): void {
     if (this.frameHandle === null) {
       return;

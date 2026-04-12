@@ -4,7 +4,9 @@
  */
 
 Object.defineProperty(exports, "__esModule", { value: true });
+/** shared_1：定义该变量以承载业务值。 */
 const shared_1 = require("@mud/shared-next");
+/** world_projector_service_1：定义该变量以承载业务值。 */
 const world_projector_service_1 = require("../network/world-projector.service");
 /**
  * 记录iterations。

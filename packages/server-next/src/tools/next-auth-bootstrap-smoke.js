@@ -4,17 +4,29 @@
  */
 
 Object.defineProperty(exports, "__esModule", { value: true });
+/** pg_1：定义该变量以承载业务值。 */
 const pg_1 = require("pg");
+/** socket_io_client_1：定义该变量以承载业务值。 */
 const socket_io_client_1 = require("socket.io-client");
+/** shared_1：定义该变量以承载业务值。 */
 const shared_1 = require("@mud/shared-next");
+/** env_alias_1：定义该变量以承载业务值。 */
 const env_alias_1 = require("../config/env-alias");
+/** world_gateway_1：定义该变量以承载业务值。 */
 const world_gateway_1 = require("../network/world.gateway");
+/** world_legacy_player_repository_1：定义该变量以承载业务值。 */
 const world_legacy_player_repository_1 = require("../network/world-legacy-player-repository");
+/** world_player_auth_service_1：定义该变量以承载业务值。 */
 const world_player_auth_service_1 = require("../network/world-player-auth.service");
+/** world_client_event_service_1：定义该变量以承载业务值。 */
 const world_client_event_service_1 = require("../network/world-client-event.service");
+/** world_player_snapshot_service_1：定义该变量以承载业务值。 */
 const world_player_snapshot_service_1 = require("../network/world-player-snapshot.service");
+/** world_player_source_service_1：定义该变量以承载业务值。 */
 const world_player_source_service_1 = require("../network/world-player-source.service");
+/** world_player_token_service_1：定义该变量以承载业务值。 */
 const world_player_token_service_1 = require("../network/world-player-token.service");
+/** world_session_bootstrap_service_1：定义该变量以承载业务值。 */
 const world_session_bootstrap_service_1 = require("../network/world-session-bootstrap.service");
 /**
  * 目标 server-next 服务地址。
@@ -28,6 +40,7 @@ const SERVER_NEXT_DATABASE_URL = (0, env_alias_1.resolveServerNextDatabaseUrl)()
  * 标记本次验证是否启用了数据库持久化链路。
  */
 const DATABASE_ENABLED = Boolean((0, env_alias_1.resolveServerNextDatabaseUrl)().trim());
+/** LEGACY_HTTP_MEMORY_FALLBACK_ENABLED：定义该变量以承载业务值。 */
 const LEGACY_HTTP_MEMORY_FALLBACK_ENABLED = isEnvEnabled('SERVER_NEXT_ALLOW_LEGACY_HTTP_MEMORY_FALLBACK')
     || isEnvEnabled('NEXT_ALLOW_LEGACY_HTTP_MEMORY_FALLBACK');
 /**
@@ -50,8 +63,11 @@ const AUTH_TRACE_ENABLED = process.env.NEXT_AUTH_TRACE_ENABLED === '1'
 const SESSION_DETACH_EXPIRE_MS = Number.isFinite(Number(process.env.SERVER_NEXT_SESSION_DETACH_EXPIRE_MS))
     ? Math.max(0, Math.trunc(Number(process.env.SERVER_NEXT_SESSION_DETACH_EXPIRE_MS)))
     : 15_000;
+/** NEXT_AUTH_BOOTSTRAP_PROFILE：定义该变量以承载业务值。 */
 const NEXT_AUTH_BOOTSTRAP_PROFILE = readBootstrapProfile();
+/** RUN_MAINLINE_PROOFS：定义该变量以承载业务值。 */
 const RUN_MAINLINE_PROOFS = NEXT_AUTH_BOOTSTRAP_PROFILE !== 'migration';
+/** RUN_MIGRATION_PROOFS：定义该变量以承载业务值。 */
 const RUN_MIGRATION_PROOFS = NEXT_AUTH_BOOTSTRAP_PROFILE !== 'mainline';
 /**
  * 记录 legacy 下行事件集合，用于断言 next socket 没有串出旧协议消息。
@@ -99,16 +115,20 @@ const LEGACY_S2C_EVENTS = new Set([
  * 为本次 smoke 生成唯一后缀，避免账号和玩家标识冲突。
  */
 const suffix = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+/** isEnvEnabled：执行对应的业务逻辑。 */
 function isEnvEnabled(key) {
+/** raw：定义该变量以承载业务值。 */
     const raw = typeof process.env[key] === 'string' ? process.env[key].trim().toLowerCase() : '';
     return raw === '1' || raw === 'true' || raw === 'yes' || raw === 'on';
 }
+/** buildStrictNativeSkippedProof：执行对应的业务逻辑。 */
 function buildStrictNativeSkippedProof(reason) {
     return {
         skipped: true,
         reason,
     };
 }
+/** buildProfileSkippedProof：执行对应的业务逻辑。 */
 function buildProfileSkippedProof(reason) {
     return {
         skipped: true,
@@ -116,7 +136,9 @@ function buildProfileSkippedProof(reason) {
         profile: NEXT_AUTH_BOOTSTRAP_PROFILE,
     };
 }
+/** withEnvOverrides：执行对应的业务逻辑。 */
 async function withEnvOverrides(overrides, run) {
+/** previous：定义该变量以承载业务值。 */
     const previous = new Map();
     for (const [key, value] of Object.entries(overrides)) {
         previous.set(key, Object.prototype.hasOwnProperty.call(process.env, key) ? process.env[key] : undefined);
@@ -141,7 +163,9 @@ async function withEnvOverrides(overrides, run) {
         }
     }
 }
+/** readBootstrapProfile：执行对应的业务逻辑。 */
 function readBootstrapProfile() {
+/** raw：定义该变量以承载业务值。 */
     const raw = typeof process.env.NEXT_AUTH_BOOTSTRAP_PROFILE === 'string'
         ? process.env.NEXT_AUTH_BOOTSTRAP_PROFILE.trim().toLowerCase()
         : '';
@@ -191,6 +215,7 @@ async function main() {
     const authenticatedMissingSnapshotRecoveryContract = RUN_MAINLINE_PROOFS
         ? await verifyAuthenticatedMissingSnapshotRecoveryContract()
         : buildProfileSkippedProof('profile_migration_skips_mainline');
+/** compatRuntimeSnapshotGuardContract：定义该变量以承载业务值。 */
     const compatRuntimeSnapshotGuardContract = RUN_MAINLINE_PROOFS
         ? await verifyCompatRuntimeSnapshotGuardContract()
         : buildProfileSkippedProof('profile_migration_skips_mainline');
@@ -250,18 +275,23 @@ async function main() {
     const authPreseedSnapshotServiceUnavailableContract = RUN_MAINLINE_PROOFS
         ? await verifyAuthPreseedSnapshotServiceUnavailableContract()
         : buildProfileSkippedProof('profile_migration_skips_mainline');
+/** helloAuthBootstrapForbiddenContract：定义该变量以承载业务值。 */
     const helloAuthBootstrapForbiddenContract = RUN_MAINLINE_PROOFS
         ? await verifyHelloAuthBootstrapForbiddenContract()
         : buildProfileSkippedProof('profile_migration_skips_mainline');
+/** implicitLegacyProtocolEntryContract：定义该变量以承载业务值。 */
     const implicitLegacyProtocolEntryContract = RUN_MAINLINE_PROOFS
         ? await verifyImplicitLegacyProtocolEntryContract()
         : buildProfileSkippedProof('profile_migration_skips_mainline');
+/** gmBootstrapSessionPolicyContract：定义该变量以承载业务值。 */
     const gmBootstrapSessionPolicyContract = RUN_MAINLINE_PROOFS
         ? await verifyGmBootstrapSessionPolicyContract()
         : buildProfileSkippedProof('profile_migration_skips_mainline');
+/** legacyHttpIdentityFallbackGateContract：定义该变量以承载业务值。 */
     const legacyHttpIdentityFallbackGateContract = RUN_MAINLINE_PROOFS
         ? await verifyLegacyHttpIdentityFallbackGateContract()
         : buildProfileSkippedProof('profile_migration_skips_mainline');
+/** legacyHttpIdentityFallbackOptInContract：定义该变量以承载业务值。 */
     const legacyHttpIdentityFallbackOptInContract = RUN_MAINLINE_PROOFS
         ? await verifyLegacyHttpIdentityFallbackOptInContract()
         : buildProfileSkippedProof('profile_migration_skips_mainline');
@@ -319,6 +349,7 @@ async function main() {
  */
         const firstBootstrap = await runNextBootstrap(auth.accessToken, auth.identity);
         runtimePlayerId = firstBootstrap.playerId;
+/** nextProtocolRejectsLegacyEventContract：定义该变量以承载业务值。 */
         const nextProtocolRejectsLegacyEventContract = await verifyNextSocketRejectsLegacyEventContract(auth.accessToken, runtimePlayerId);
 /**
  * 记录认证trace。
@@ -447,6 +478,7 @@ async function expectNextSocketAuthFailure(token, expectedCode = 'AUTH_FAIL', op
         auth: {
             token,
             protocol: 'next',
+/** sessionId：定义该变量以承载业务值。 */
             sessionId: typeof options?.sessionId === 'string' ? options.sessionId : undefined,
         },
     });
@@ -544,6 +576,7 @@ function createNextSocket(token, options = undefined) {
         auth: {
             token,
             protocol: 'next',
+/** sessionId：定义该变量以承载业务值。 */
             sessionId: typeof options?.sessionId === 'string' ? options.sessionId : undefined,
         },
     });
@@ -591,6 +624,7 @@ function createNextSocket(token, options = undefined) {
  * 记录paneldelta数量。
  */
     let panelDeltaCount = 0;
+/** allowedNextErrorCodes：定义该变量以承载业务值。 */
     const allowedNextErrorCodes = new Set(Array.isArray(options?.allowedNextErrorCodes)
         ? options.allowedNextErrorCodes
             .filter((code) => typeof code === 'string')
@@ -608,7 +642,9 @@ function createNextSocket(token, options = undefined) {
             legacyEvents.push(event);
         }
     });
+/** clearBootstrapDisconnectFatalIfRecovered：执行对应的业务逻辑。 */
     function clearBootstrapDisconnectFatalIfRecovered() {
+/** initSessionEventCount：定义该变量以承载业务值。 */
         const initSessionEventCount = (byEvent.get(shared_1.NEXT_S2C.InitSession) ?? []).length;
         if (!(fatalError instanceof Error)
             || !fatalError.message.startsWith('next socket disconnected before bootstrap')
@@ -637,6 +673,7 @@ function createNextSocket(token, options = undefined) {
         if (closedByTest) {
             return;
         }
+/** initSessionEventCount：定义该变量以承载业务值。 */
         const initSessionEventCount = (byEvent.get(shared_1.NEXT_S2C.InitSession) ?? []).length;
         if (initSessionEventCount > 0 || bootstrapCount > 0 || mapEnterCount > 0) {
             return;
@@ -679,27 +716,35 @@ function createNextSocket(token, options = undefined) {
     return {
         socket,
         legacyEvents,
+/** mapEnterCount：执行对应的业务逻辑。 */
         get mapEnterCount() {
             return mapEnterCount;
         },
+/** bootstrapCount：执行对应的业务逻辑。 */
         get bootstrapCount() {
             return bootstrapCount;
         },
+/** mapStaticCount：执行对应的业务逻辑。 */
         get mapStaticCount() {
             return mapStaticCount;
         },
+/** realmCount：执行对应的业务逻辑。 */
         get realmCount() {
             return realmCount;
         },
+/** worldDeltaCount：执行对应的业务逻辑。 */
         get worldDeltaCount() {
             return worldDeltaCount;
         },
+/** selfDeltaCount：执行对应的业务逻辑。 */
         get selfDeltaCount() {
             return selfDeltaCount;
         },
+/** panelDeltaCount：执行对应的业务逻辑。 */
         get panelDeltaCount() {
             return panelDeltaCount;
         },
+/** onceConnected：执行对应的业务逻辑。 */
         async onceConnected() {
             if (socket.connected) {
                 return;
@@ -719,13 +764,16 @@ function createNextSocket(token, options = undefined) {
                 });
             });
         },
+/** emit：执行对应的业务逻辑。 */
         emit(event, payload) {
             throwIfFatal();
             socket.emit(event, payload);
         },
+/** getEventCount：执行对应的业务逻辑。 */
         getEventCount(event) {
             return (byEvent.get(event) ?? []).length;
         },
+/** listEventPayloads：执行对应的业务逻辑。 */
         listEventPayloads(event) {
             return (byEvent.get(event) ?? []).slice();
         },
@@ -748,6 +796,7 @@ function createNextSocket(token, options = undefined) {
                 return null;
             }, timeoutMs, `next:${event}`);
         },
+/** close：执行对应的业务逻辑。 */
         close() {
             closedByTest = true;
             socket.close();
@@ -762,7 +811,9 @@ function assertNoLegacyEvents(target, label) {
         throw new Error(`${label} received legacy events: ${target.legacyEvents.join(', ')}`);
     }
 }
+/** flattenNoticeItems：执行对应的业务逻辑。 */
 function flattenNoticeItems(payloads) {
+/** items：定义该变量以承载业务值。 */
     const items = [];
     for (const payload of payloads) {
         if (!Array.isArray(payload?.items)) {
@@ -774,6 +825,7 @@ function flattenNoticeItems(payloads) {
     }
     return items;
 }
+/** createAuthStarterSnapshotDeps：执行对应的业务逻辑。 */
 function createAuthStarterSnapshotDeps() {
     return {
         playerRuntimeService: {
@@ -894,11 +946,13 @@ async function runNextBootstrap(token, expectedIdentity = null, options = undefi
             initPlayerId: initSession.pid,
             bootstrapPlayerId: runtimePlayerId,
             runtimePlayerId: state.player.playerId,
+/** runtimePlayerName：定义该变量以承载业务值。 */
             runtimePlayerName: typeof state.player.name === 'string' ? state.player.name : null,
         });
         if (typeof options?.expectedNoticeMessageId === 'string' && options.expectedNoticeMessageId.trim()) {
             await successSocket.waitForEvent(shared_1.NEXT_S2C.Notice, (payload) => flattenNoticeItems([payload]).some((item) => item?.messageId === options.expectedNoticeMessageId), 5000);
         }
+/** noticeItems：定义该变量以承载业务值。 */
         const noticeItems = flattenNoticeItems(successSocket.listEventPayloads(shared_1.NEXT_S2C.Notice));
         assertNoLegacyEvents(successSocket, 'next-auth-bootstrap');
         return {
@@ -929,17 +983,22 @@ async function runNextBootstrap(token, expectedIdentity = null, options = undefi
  * 验证 next socket 发出 legacy 事件会被拒绝，且不会降级为 legacy 协议。
  */
 async function verifyNextSocketRejectsLegacyEventContract(token, expectedPlayerId) {
+/** socket：定义该变量以承载业务值。 */
     const socket = createNextSocket(token, {
         allowedNextErrorCodes: ['LEGACY_EVENT_ON_NEXT_PROTOCOL'],
     });
     try {
         await socket.onceConnected();
+/** initSession：定义该变量以承载业务值。 */
         const initSession = await socket.waitForEvent(shared_1.NEXT_S2C.InitSession, (payload) => typeof payload?.pid === 'string' && payload.pid.trim().length > 0, 5000);
+/** bootstrap：定义该变量以承载业务值。 */
         const bootstrap = await socket.waitForEvent(shared_1.NEXT_S2C.Bootstrap, (payload) => typeof payload?.self?.id === 'string' && payload.self.id.trim().length > 0, 5000);
         if (initSession.pid !== expectedPlayerId || bootstrap.self.id !== expectedPlayerId) {
             throw new Error(`next legacy reject contract player mismatch: expected=${expectedPlayerId} init=${initSession.pid} bootstrap=${bootstrap.self.id}`);
         }
+/** legacyRejectProofs：定义该变量以承载业务值。 */
         const legacyRejectProofs = [];
+/** legacyEventsToReject：定义该变量以承载业务值。 */
         const legacyEventsToReject = [
             { event: shared_1.C2S.Ping, payload: { clientAt: Date.now() }, label: 'c:ping' },
             { event: shared_1.C2S.RequestSuggestions, payload: {}, label: 'c:requestSuggestions' },
@@ -977,6 +1036,7 @@ async function verifyNextSocketRejectsLegacyEventContract(token, expectedPlayerI
             const rejectErrorCountBeforeEmit = socket.getEventCount(shared_1.NEXT_S2C.Error);
             socket.emit(entry.event, entry.payload);
             await waitFor(() => socket.getEventCount(shared_1.NEXT_S2C.Error) > rejectErrorCountBeforeEmit, 5000, `nextLegacyReject:${entry.label}`);
+/** rejectPayload：定义该变量以承载业务值。 */
             const rejectPayload = socket.listEventPayloads(shared_1.NEXT_S2C.Error)
                 .slice()
                 .reverse()
@@ -1006,10 +1066,15 @@ async function verifyNextSocketRejectsLegacyEventContract(token, expectedPlayerI
         socket.close();
     }
 }
+/** verifyHelloAuthBootstrapForbiddenContract：执行对应的业务逻辑。 */
 async function verifyHelloAuthBootstrapForbiddenContract() {
+/** emittedErrors：定义该变量以承载业务值。 */
     const emittedErrors = [];
+/** disconnected：定义该变量以承载业务值。 */
     let disconnected = false;
+/** bootstrapCallCount：定义该变量以承载业务值。 */
     let bootstrapCallCount = 0;
+/** gateway：定义该变量以承载业务值。 */
     const gateway = new world_gateway_1.WorldGateway({}, {}, {
         pickSocketToken: () => 'proof_token',
         pickSocketGmToken: () => '',
@@ -1036,6 +1101,7 @@ async function verifyHelloAuthBootstrapForbiddenContract() {
             });
         },
     }, {});
+/** client：定义该变量以承载业务值。 */
     const client = {
         id: 'proof_socket_hello_auth_bootstrap_forbidden',
         handshake: {
@@ -1047,6 +1113,7 @@ async function verifyHelloAuthBootstrapForbiddenContract() {
         data: {
             protocol: 'next',
         },
+/** disconnect：执行对应的业务逻辑。 */
         disconnect(force) {
             disconnected = force === true;
         },
@@ -1074,10 +1141,15 @@ async function verifyHelloAuthBootstrapForbiddenContract() {
         bootstrapCallCount,
     };
 }
+/** verifyImplicitLegacyProtocolEntryContract：执行对应的业务逻辑。 */
 async function verifyImplicitLegacyProtocolEntryContract() {
+/** emittedErrors：定义该变量以承载业务值。 */
     const emittedErrors = [];
+/** emittedEvents：定义该变量以承载业务值。 */
     const emittedEvents = [];
+/** disconnected：定义该变量以承载业务值。 */
     let disconnected = false;
+/** gateway：定义该变量以承载业务值。 */
     const gateway = new world_gateway_1.WorldGateway({}, {}, {}, {
         build: () => ({
             readiness: {
@@ -1098,12 +1170,14 @@ async function verifyImplicitLegacyProtocolEntryContract() {
             });
         },
     }, {});
+/** implicitLegacyClient：定义该变量以承载业务值。 */
     const implicitLegacyClient = {
         id: 'proof_socket_implicit_legacy_protocol',
         handshake: {
             auth: {},
         },
         data: {},
+/** disconnect：执行对应的业务逻辑。 */
         disconnect(force) {
             disconnected = force === true;
         },
@@ -1121,13 +1195,16 @@ async function verifyImplicitLegacyProtocolEntryContract() {
     if (emittedEvents.length !== 0) {
         throw new Error(`expected implicit legacy protocol entry to avoid pong emission, got ${JSON.stringify(emittedEvents)}`);
     }
+/** previousLegacySocketProtocolFlag：定义该变量以承载业务值。 */
     const previousLegacySocketProtocolFlag = process.env.SERVER_NEXT_ALLOW_LEGACY_SOCKET_PROTOCOL;
+/** previousLegacySocketProtocolAlias：定义该变量以承载业务值。 */
     const previousLegacySocketProtocolAlias = process.env.NEXT_ALLOW_LEGACY_SOCKET_PROTOCOL;
     delete process.env.SERVER_NEXT_ALLOW_LEGACY_SOCKET_PROTOCOL;
     delete process.env.NEXT_ALLOW_LEGACY_SOCKET_PROTOCOL;
     emittedErrors.length = 0;
     emittedEvents.length = 0;
     disconnected = false;
+/** explicitLegacyClient：定义该变量以承载业务值。 */
     const explicitLegacyClient = {
         id: 'proof_socket_explicit_legacy_protocol_disabled',
         handshake: {
@@ -1138,6 +1215,7 @@ async function verifyImplicitLegacyProtocolEntryContract() {
         data: {
             protocol: 'legacy',
         },
+/** disconnect：执行对应的业务逻辑。 */
         disconnect(force) {
             disconnected = force === true;
         },
@@ -1171,6 +1249,7 @@ async function verifyImplicitLegacyProtocolEntryContract() {
     if (emittedEvents.length !== 0) {
         throw new Error(`expected explicit legacy protocol entry to avoid pong emission while disabled, got ${JSON.stringify(emittedEvents)}`);
     }
+/** eventService：定义该变量以承载业务值。 */
     const eventService = new world_client_event_service_1.WorldClientEventService({
         getSummary: async () => ({})
     }, {}, {
@@ -1185,9 +1264,11 @@ async function verifyImplicitLegacyProtocolEntryContract() {
     }, {
         openLootWindow: () => ({ window: null }),
     });
+/** eventClient：定义该变量以承载业务值。 */
     const eventClient = {
         data: {},
         emitted: [],
+/** emit：执行对应的业务逻辑。 */
         emit(event, payload) {
             this.emitted.push({ event, payload });
         },
@@ -1198,23 +1279,29 @@ async function verifyImplicitLegacyProtocolEntryContract() {
     if (eventClient.emitted.some((entry) => LEGACY_S2C_EVENTS.has(entry.event))) {
         throw new Error(`expected unknown protocol event emission to avoid legacy events, got ${JSON.stringify(eventClient.emitted)}`);
     }
+/** syncEmission：定义该变量以承载业务值。 */
     const syncEmission = new (require("../network/world-sync-protocol.service").WorldSyncProtocolService)().resolveEmission({ data: {} });
     if (syncEmission.emitLegacy !== false || syncEmission.emitNext !== true || syncEmission.protocol !== null) {
         throw new Error(`expected unknown protocol sync emission to stay next-only, got ${JSON.stringify(syncEmission)}`);
     }
+/** previousLegacySocketProtocolFlagForDeepGuard：定义该变量以承载业务值。 */
     const previousLegacySocketProtocolFlagForDeepGuard = process.env.SERVER_NEXT_ALLOW_LEGACY_SOCKET_PROTOCOL;
+/** previousLegacySocketProtocolAliasForDeepGuard：定义该变量以承载业务值。 */
     const previousLegacySocketProtocolAliasForDeepGuard = process.env.NEXT_ALLOW_LEGACY_SOCKET_PROTOCOL;
     delete process.env.SERVER_NEXT_ALLOW_LEGACY_SOCKET_PROTOCOL;
     delete process.env.NEXT_ALLOW_LEGACY_SOCKET_PROTOCOL;
+/** projectionClient：定义该变量以承载业务值。 */
     const projectionClient = {
         data: {
             protocol: 'legacy',
         },
         emitted: [],
+/** emit：执行对应的业务逻辑。 */
         emit(event, payload) {
             this.emitted.push({ event, payload });
         },
     };
+/** projectionService：定义该变量以承载业务值。 */
     const projectionService = new (require("../network/world-protocol-projection.service").WorldProtocolProjectionService)({
         buildLegacyTileRuntimeDetail: (mapId, payload) => ({
             mapId,
@@ -1222,16 +1309,20 @@ async function verifyImplicitLegacyProtocolEntryContract() {
             y: payload?.y,
         }),
     }, eventService);
+/** explicitLegacyDisabledEventClient：定义该变量以承载业务值。 */
     const explicitLegacyDisabledEventClient = {
         data: {
             protocol: 'legacy',
         },
         emitted: [],
+/** emit：执行对应的业务逻辑。 */
         emit(event, payload) {
             this.emitted.push({ event, payload });
         },
     };
+/** explicitLegacyDisabledSyncEmission：定义该变量以承载业务值。 */
     let explicitLegacyDisabledSyncEmission = null;
+/** gmClient：定义该变量以承载业务值。 */
     let gmClient = null;
     try {
         eventService.emitError(explicitLegacyDisabledEventClient, 'PROOF_EXPLICIT_LEGACY_DISABLED', 'proof explicit legacy disabled');
@@ -1243,7 +1334,9 @@ async function verifyImplicitLegacyProtocolEntryContract() {
             y: 1,
             entities: [],
         });
+/** RuntimeGmStateService：定义该变量以承载业务值。 */
         const RuntimeGmStateService = require("../runtime/gm/runtime-gm-state.service").RuntimeGmStateService;
+/** runtimeGmStateService：定义该变量以承载业务值。 */
         const runtimeGmStateService = new RuntimeGmStateService({
             listSummaries: () => [],
         }, {
@@ -1269,6 +1362,7 @@ async function verifyImplicitLegacyProtocolEntryContract() {
                 protocol: 'legacy',
             },
             emitted: [],
+/** emit：执行对应的业务逻辑。 */
             emit(event, payload) {
                 this.emitted.push({ event, payload });
             },
@@ -1313,9 +1407,13 @@ async function verifyImplicitLegacyProtocolEntryContract() {
         nextOnlyGmStateEvent: gmClient?.emitted?.[0]?.event ?? null,
     };
 }
+/** verifyGmBootstrapSessionPolicyContract：执行对应的业务逻辑。 */
 async function verifyGmBootstrapSessionPolicyContract() {
+/** bootstrapService：定义该变量以承载业务值。 */
     const bootstrapService = new world_session_bootstrap_service_1.WorldSessionBootstrapService(null, null, null, null, null, null, null, null, null, null);
+/** gateway：定义该变量以承载业务值。 */
     const gateway = new world_gateway_1.WorldGateway(null, null, bootstrapService, null, null, null, null, null, null, null, null, null);
+/** gmClient：定义该变量以承载业务值。 */
     const gmClient = {
         id: 'proof_gm_bootstrap_client',
         handshake: {
@@ -1331,6 +1429,7 @@ async function verifyGmBootstrapSessionPolicyContract() {
             bootstrapIdentityPersistedSource: 'native',
         },
     };
+/** playerClient：定义该变量以承载业务值。 */
     const playerClient = {
         handshake: {
             auth: {
@@ -1345,6 +1444,7 @@ async function verifyGmBootstrapSessionPolicyContract() {
             bootstrapIdentityPersistedSource: 'native',
         },
     };
+/** tokenRuntimeClient：定义该变量以承载业务值。 */
     const tokenRuntimeClient = {
         handshake: {
             auth: {
@@ -1358,6 +1458,7 @@ async function verifyGmBootstrapSessionPolicyContract() {
             bootstrapIdentitySource: 'token_runtime',
         },
     };
+/** migrationClient：定义该变量以承载业务值。 */
     const migrationClient = {
         handshake: {
             auth: {
@@ -1371,6 +1472,7 @@ async function verifyGmBootstrapSessionPolicyContract() {
             bootstrapIdentitySource: 'migration_backfill',
         },
     };
+/** tokenClient：定义该变量以承载业务值。 */
     const tokenClient = {
         handshake: {
             auth: {
@@ -1385,6 +1487,7 @@ async function verifyGmBootstrapSessionPolicyContract() {
             bootstrapIdentityPersistedSource: 'token_seed',
         },
     };
+/** nextTokenSeedClient：定义该变量以承载业务值。 */
     const nextTokenSeedClient = {
         handshake: {
             auth: {
@@ -1399,6 +1502,7 @@ async function verifyGmBootstrapSessionPolicyContract() {
             bootstrapIdentityPersistedSource: 'token_seed',
         },
     };
+/** nextLegacyBackfillClient：定义该变量以承载业务值。 */
     const nextLegacyBackfillClient = {
         handshake: {
             auth: {
@@ -1413,6 +1517,7 @@ async function verifyGmBootstrapSessionPolicyContract() {
             bootstrapIdentityPersistedSource: 'legacy_backfill',
         },
     };
+/** nextMissingPersistedClient：定义该变量以承载业务值。 */
     const nextMissingPersistedClient = {
         handshake: {
             auth: {
@@ -1426,6 +1531,7 @@ async function verifyGmBootstrapSessionPolicyContract() {
             bootstrapIdentitySource: 'next',
         },
     };
+/** tokenInvalidPersistedClient：定义该变量以承载业务值。 */
     const tokenInvalidPersistedClient = {
         handshake: {
             auth: {
@@ -1440,6 +1546,7 @@ async function verifyGmBootstrapSessionPolicyContract() {
             bootstrapIdentityPersistedSource: 'legacy_backfill',
         },
     };
+/** nextInvalidPersistedClient：定义该变量以承载业务值。 */
     const nextInvalidPersistedClient = {
         handshake: {
             auth: {
@@ -1454,6 +1561,7 @@ async function verifyGmBootstrapSessionPolicyContract() {
             bootstrapIdentityPersistedSource: 'invalid_meta_source',
         },
     };
+/** noEntryPathNextClient：定义该变量以承载业务值。 */
     const noEntryPathNextClient = {
         handshake: {
             auth: {
@@ -1467,41 +1575,69 @@ async function verifyGmBootstrapSessionPolicyContract() {
             bootstrapIdentityPersistedSource: 'native',
         },
     };
+/** implicitDetachedResumeAllowed：定义该变量以承载业务值。 */
     const implicitDetachedResumeAllowed = bootstrapService.shouldAllowImplicitDetachedResume(gmClient);
+/** requestedDetachedResumeAllowed：定义该变量以承载业务值。 */
     const requestedDetachedResumeAllowed = bootstrapService.shouldAllowRequestedDetachedResume(gmClient);
+/** connectedSessionReuseAllowed：定义该变量以承载业务值。 */
     const connectedSessionReuseAllowed = bootstrapService.shouldAllowConnectedSessionReuse(gmClient);
+/** playerImplicitDetachedResumeAllowed：定义该变量以承载业务值。 */
     const playerImplicitDetachedResumeAllowed = bootstrapService.shouldAllowImplicitDetachedResume(playerClient);
+/** playerRequestedDetachedResumeAllowed：定义该变量以承载业务值。 */
     const playerRequestedDetachedResumeAllowed = bootstrapService.shouldAllowRequestedDetachedResume(playerClient);
+/** playerConnectedSessionReuseAllowed：定义该变量以承载业务值。 */
     const playerConnectedSessionReuseAllowed = bootstrapService.shouldAllowConnectedSessionReuse(playerClient);
+/** tokenImplicitDetachedResumeAllowed：定义该变量以承载业务值。 */
     const tokenImplicitDetachedResumeAllowed = bootstrapService.shouldAllowImplicitDetachedResume(tokenClient);
+/** tokenRequestedDetachedResumeAllowed：定义该变量以承载业务值。 */
     const tokenRequestedDetachedResumeAllowed = bootstrapService.shouldAllowRequestedDetachedResume(tokenClient);
+/** tokenConnectedSessionReuseAllowed：定义该变量以承载业务值。 */
     const tokenConnectedSessionReuseAllowed = bootstrapService.shouldAllowConnectedSessionReuse(tokenClient);
+/** nextTokenSeedImplicitDetachedResumeAllowed：定义该变量以承载业务值。 */
     const nextTokenSeedImplicitDetachedResumeAllowed = bootstrapService.shouldAllowImplicitDetachedResume(nextTokenSeedClient);
+/** nextTokenSeedRequestedDetachedResumeAllowed：定义该变量以承载业务值。 */
     const nextTokenSeedRequestedDetachedResumeAllowed = bootstrapService.shouldAllowRequestedDetachedResume(nextTokenSeedClient);
+/** nextTokenSeedConnectedSessionReuseAllowed：定义该变量以承载业务值。 */
     const nextTokenSeedConnectedSessionReuseAllowed = bootstrapService.shouldAllowConnectedSessionReuse(nextTokenSeedClient);
+/** nextLegacyBackfillImplicitDetachedResumeAllowed：定义该变量以承载业务值。 */
     const nextLegacyBackfillImplicitDetachedResumeAllowed = bootstrapService.shouldAllowImplicitDetachedResume(nextLegacyBackfillClient);
+/** nextLegacyBackfillRequestedDetachedResumeAllowed：定义该变量以承载业务值。 */
     const nextLegacyBackfillRequestedDetachedResumeAllowed = bootstrapService.shouldAllowRequestedDetachedResume(nextLegacyBackfillClient);
+/** nextLegacyBackfillConnectedSessionReuseAllowed：定义该变量以承载业务值。 */
     const nextLegacyBackfillConnectedSessionReuseAllowed = bootstrapService.shouldAllowConnectedSessionReuse(nextLegacyBackfillClient);
+/** nextMissingPersistedImplicitDetachedResumeAllowed：定义该变量以承载业务值。 */
     const nextMissingPersistedImplicitDetachedResumeAllowed = bootstrapService.shouldAllowImplicitDetachedResume(nextMissingPersistedClient);
+/** tokenInvalidPersistedImplicitDetachedResumeAllowed：定义该变量以承载业务值。 */
     const tokenInvalidPersistedImplicitDetachedResumeAllowed = bootstrapService.shouldAllowImplicitDetachedResume(tokenInvalidPersistedClient);
+/** nextInvalidPersistedImplicitDetachedResumeAllowed：定义该变量以承载业务值。 */
     const nextInvalidPersistedImplicitDetachedResumeAllowed = bootstrapService.shouldAllowImplicitDetachedResume(nextInvalidPersistedClient);
+/** nextInvalidPersistedRequestedDetachedResumeAllowed：定义该变量以承载业务值。 */
     const nextInvalidPersistedRequestedDetachedResumeAllowed = bootstrapService.shouldAllowRequestedDetachedResume(nextInvalidPersistedClient);
+/** nextInvalidPersistedConnectedSessionReuseAllowed：定义该变量以承载业务值。 */
     const nextInvalidPersistedConnectedSessionReuseAllowed = bootstrapService.shouldAllowConnectedSessionReuse(nextInvalidPersistedClient);
+/** noEntryPathNextImplicitDetachedResumeAllowed：定义该变量以承载业务值。 */
     const noEntryPathNextImplicitDetachedResumeAllowed = bootstrapService.shouldAllowImplicitDetachedResume(noEntryPathNextClient);
+/** noEntryPathNextRequestedDetachedResumeAllowed：定义该变量以承载业务值。 */
     const noEntryPathNextRequestedDetachedResumeAllowed = bootstrapService.shouldAllowRequestedDetachedResume(noEntryPathNextClient);
+/** noEntryPathNextConnectedSessionReuseAllowed：定义该变量以承载业务值。 */
     const noEntryPathNextConnectedSessionReuseAllowed = bootstrapService.shouldAllowConnectedSessionReuse(noEntryPathNextClient);
+/** gmEntryPath：定义该变量以承载业务值。 */
     const gmEntryPath = gateway.resolveAuthenticatedBootstrapEntryPath(gmClient);
+/** playerEntryPath：定义该变量以承载业务值。 */
     const playerEntryPath = gateway.resolveAuthenticatedBootstrapEntryPath(playerClient);
+/** gmBootstrapInput：定义该变量以承载业务值。 */
     const gmBootstrapInput = gateway.buildAuthenticatedBootstrapInput(gmClient, {
         playerId: 'p_gm',
         playerName: '鉴角',
         displayName: '鉴',
     });
+/** playerBootstrapInput：定义该变量以承载业务值。 */
     const playerBootstrapInput = gateway.buildAuthenticatedBootstrapInput(playerClient, {
         playerId: 'p_player',
         playerName: '丙角',
         displayName: '丙',
     });
+/** tokenBootstrapInput：定义该变量以承载业务值。 */
     const tokenBootstrapInput = gateway.buildAuthenticatedBootstrapInput(tokenClient, {
         playerId: 'p_token',
         playerName: '丁令',
@@ -1509,18 +1645,21 @@ async function verifyGmBootstrapSessionPolicyContract() {
         authSource: 'token',
         persistedSource: 'token_seed',
     });
+/** tokenRuntimeBootstrapInput：定义该变量以承载业务值。 */
     const tokenRuntimeBootstrapInput = gateway.buildAuthenticatedBootstrapInput(tokenRuntimeClient, {
         playerId: 'p_token_runtime',
         playerName: '丁角',
         displayName: '丁',
         authSource: 'token_runtime',
     });
+/** migrationBootstrapInput：定义该变量以承载业务值。 */
     const migrationBootstrapInput = gateway.buildAuthenticatedBootstrapInput(migrationClient, {
         playerId: 'p_migration',
         playerName: '戊角',
         displayName: '戊',
         authSource: 'migration_backfill',
     });
+/** nextTokenSeedBootstrapInput：定义该变量以承载业务值。 */
     const nextTokenSeedBootstrapInput = gateway.buildAuthenticatedBootstrapInput(nextTokenSeedClient, {
         playerId: 'p_next_token_seed',
         playerName: '庚角',
@@ -1528,6 +1667,7 @@ async function verifyGmBootstrapSessionPolicyContract() {
         authSource: 'token',
         persistedSource: 'token_seed',
     });
+/** nextLegacyBackfillBootstrapInput：定义该变量以承载业务值。 */
     const nextLegacyBackfillBootstrapInput = gateway.buildAuthenticatedBootstrapInput(nextLegacyBackfillClient, {
         playerId: 'p_next_legacy_backfill',
         playerName: '辛角',
@@ -1535,6 +1675,7 @@ async function verifyGmBootstrapSessionPolicyContract() {
         authSource: 'next',
         persistedSource: 'legacy_backfill',
     });
+/** nextInvalidPersistedBootstrapInput：定义该变量以承载业务值。 */
     const nextInvalidPersistedBootstrapInput = gateway.buildAuthenticatedBootstrapInput(nextInvalidPersistedClient, {
         playerId: 'p_next_invalid_persisted',
         playerName: '壬角',
@@ -1542,6 +1683,7 @@ async function verifyGmBootstrapSessionPolicyContract() {
         authSource: 'next',
         persistedSource: 'invalid_meta_source',
     });
+/** noEntryPathNextBootstrapInput：定义该变量以承载业务值。 */
     const noEntryPathNextBootstrapInput = gateway.buildAuthenticatedBootstrapInput(noEntryPathNextClient, {
         playerId: 'p_no_entry_path_next',
         playerName: '癸角',
@@ -1549,6 +1691,7 @@ async function verifyGmBootstrapSessionPolicyContract() {
         authSource: 'next',
         persistedSource: 'native',
     });
+/** unknownBootstrapInput：定义该变量以承载业务值。 */
     const unknownBootstrapInput = gateway.buildAuthenticatedBootstrapInput({
         handshake: {
             auth: {
@@ -1566,22 +1709,34 @@ async function verifyGmBootstrapSessionPolicyContract() {
         displayName: '己',
         authSource: 'unknown',
     });
+/** gmContractViolation：定义该变量以承载业务值。 */
     const gmContractViolation = bootstrapService.resolveAuthenticatedBootstrapContractViolation(gmClient, gmBootstrapInput);
+/** playerContractViolation：定义该变量以承载业务值。 */
     const playerContractViolation = bootstrapService.resolveAuthenticatedBootstrapContractViolation(playerClient, playerBootstrapInput);
+/** tokenContractViolation：定义该变量以承载业务值。 */
     const tokenContractViolation = bootstrapService.resolveAuthenticatedBootstrapContractViolation(tokenClient, tokenBootstrapInput);
+/** nextTokenSeedContractViolation：定义该变量以承载业务值。 */
     const nextTokenSeedContractViolation = bootstrapService.resolveAuthenticatedBootstrapContractViolation(nextTokenSeedClient, nextTokenSeedBootstrapInput);
+/** tokenRuntimeContractViolation：定义该变量以承载业务值。 */
     const tokenRuntimeContractViolation = bootstrapService.resolveAuthenticatedBootstrapContractViolation(tokenRuntimeClient, tokenRuntimeBootstrapInput);
+/** migrationContractViolation：定义该变量以承载业务值。 */
     const migrationContractViolation = bootstrapService.resolveAuthenticatedBootstrapContractViolation(migrationClient, migrationBootstrapInput);
+/** nextLegacyBackfillContractViolation：定义该变量以承载业务值。 */
     const nextLegacyBackfillContractViolation = bootstrapService.resolveAuthenticatedBootstrapContractViolation(nextLegacyBackfillClient, nextLegacyBackfillBootstrapInput);
+/** nextMissingPersistedContractViolation：定义该变量以承载业务值。 */
     const nextMissingPersistedContractViolation = bootstrapService.resolveAuthenticatedBootstrapContractViolation(nextMissingPersistedClient, {
         authSource: 'next',
     });
+/** tokenInvalidPersistedContractViolation：定义该变量以承载业务值。 */
     const tokenInvalidPersistedContractViolation = bootstrapService.resolveAuthenticatedBootstrapContractViolation(tokenInvalidPersistedClient, {
         authSource: 'token',
         persistedSource: 'legacy_backfill',
     });
+/** nextInvalidPersistedContractViolation：定义该变量以承载业务值。 */
     const nextInvalidPersistedContractViolation = bootstrapService.resolveAuthenticatedBootstrapContractViolation(nextInvalidPersistedClient, nextInvalidPersistedBootstrapInput);
+/** noEntryPathNextContractViolation：定义该变量以承载业务值。 */
     const noEntryPathNextContractViolation = bootstrapService.resolveAuthenticatedBootstrapContractViolation(noEntryPathNextClient, noEntryPathNextBootstrapInput);
+/** unknownContractViolation：定义该变量以承载业务值。 */
     const unknownContractViolation = bootstrapService.resolveAuthenticatedBootstrapContractViolation({
         handshake: {
             auth: {
@@ -1735,17 +1890,21 @@ async function verifyGmBootstrapSessionPolicyContract() {
         unknownContractViolationStage: unknownContractViolation?.stage ?? null,
     };
 }
+/** verifyLegacyHttpIdentityFallbackGateContract：执行对应的业务逻辑。 */
 async function verifyLegacyHttpIdentityFallbackGateContract() {
     return withEnvOverrides({
         SERVER_NEXT_AUTH_DISABLE_LEGACY_HTTP_IDENTITY_FALLBACK: '1',
         NEXT_AUTH_DISABLE_LEGACY_HTTP_IDENTITY_FALLBACK: null,
     }, async () => {
+/** payload：定义该变量以承载业务值。 */
         const payload = {
             sub: 'proof-user-legacy-http-gate',
             username: 'proof_user_legacy_http_gate',
             displayName: '鉴',
         };
+/** httpCallCount：定义该变量以承载业务值。 */
         let httpCallCount = 0;
+/** service：定义该变量以承载业务值。 */
         const service = new world_player_source_service_1.WorldPlayerSourceService({
             findUserById: async () => {
                 httpCallCount += 1;
@@ -1757,14 +1916,18 @@ async function verifyLegacyHttpIdentityFallbackGateContract() {
                 };
             },
         });
+/** originalEnsurePool：定义该变量以承载业务值。 */
         const originalEnsurePool = service.ensurePool.bind(service);
+/** originalQueryLegacyPlayerIdentityRow：定义该变量以承载业务值。 */
         const originalQueryLegacyPlayerIdentityRow = world_legacy_player_repository_1.queryLegacyPlayerIdentityRow;
         try {
             service.ensurePool = async () => null;
+/** poolUnavailableResult：定义该变量以承载业务值。 */
             const poolUnavailableResult = await service.resolvePlayerIdentityFromCompatSource(payload);
             if (poolUnavailableResult !== null || httpCallCount !== 0) {
                 throw new Error(`expected legacy http identity fallback gate to block pool-unavailable http fallback, got result=${JSON.stringify(poolUnavailableResult)} httpCallCount=${httpCallCount}`);
             }
+/** poolUnavailableExplicitResult：定义该变量以承载业务值。 */
             const poolUnavailableExplicitResult = await service.resolvePlayerIdentityFromCompatSource(payload, {
                 allowLegacyHttpIdentityFallback: true,
             });
@@ -1773,15 +1936,18 @@ async function verifyLegacyHttpIdentityFallbackGateContract() {
             }
             service.ensurePool = async () => ({});
             world_legacy_player_repository_1.queryLegacyPlayerIdentityRow = async () => null;
+/** missingRowResult：定义该变量以承载业务值。 */
             const missingRowResult = await service.resolvePlayerIdentityFromCompatSource(payload);
             if (missingRowResult !== null || httpCallCount !== 0) {
                 throw new Error(`expected legacy http identity fallback gate to block missing-row http fallback, got result=${JSON.stringify(missingRowResult)} httpCallCount=${httpCallCount}`);
             }
             world_legacy_player_repository_1.queryLegacyPlayerIdentityRow = async () => {
+/** error：定义该变量以承载业务值。 */
                 const error = new Error('legacy schema missing');
                 error.code = '42P01';
                 throw error;
             };
+/** missingSchemaResult：定义该变量以承载业务值。 */
             const missingSchemaResult = await service.resolvePlayerIdentityFromCompatSource(payload);
             if (missingSchemaResult !== null || httpCallCount !== 0) {
                 throw new Error(`expected legacy http identity fallback gate to block missing-schema http fallback, got result=${JSON.stringify(missingSchemaResult)} httpCallCount=${httpCallCount}`);
@@ -1801,6 +1967,7 @@ async function verifyLegacyHttpIdentityFallbackGateContract() {
         }
     });
 }
+/** verifyLegacyHttpIdentityFallbackOptInContract：执行对应的业务逻辑。 */
 async function verifyLegacyHttpIdentityFallbackOptInContract() {
     return withEnvOverrides({
         SERVER_NEXT_AUTH_DISABLE_LEGACY_HTTP_IDENTITY_FALLBACK: null,
@@ -1808,12 +1975,15 @@ async function verifyLegacyHttpIdentityFallbackOptInContract() {
         SERVER_NEXT_ALLOW_LEGACY_HTTP_IDENTITY_FALLBACK: null,
         NEXT_ALLOW_LEGACY_HTTP_IDENTITY_FALLBACK: null,
     }, async () => {
+/** payload：定义该变量以承载业务值。 */
         const payload = {
             sub: 'proof-user-legacy-http-opt-in',
             username: 'proof_user_legacy_http_opt_in',
             displayName: '鉴',
         };
+/** httpCallCount：定义该变量以承载业务值。 */
         let httpCallCount = 0;
+/** service：定义该变量以承载业务值。 */
         const service = new world_player_source_service_1.WorldPlayerSourceService({
             findUserById: async () => {
                 httpCallCount += 1;
@@ -1825,14 +1995,18 @@ async function verifyLegacyHttpIdentityFallbackOptInContract() {
                 };
             },
         });
+/** originalEnsurePool：定义该变量以承载业务值。 */
         const originalEnsurePool = service.ensurePool.bind(service);
+/** originalQueryLegacyPlayerIdentityRow：定义该变量以承载业务值。 */
         const originalQueryLegacyPlayerIdentityRow = world_legacy_player_repository_1.queryLegacyPlayerIdentityRow;
         try {
             service.ensurePool = async () => null;
+/** defaultBlockedResult：定义该变量以承载业务值。 */
             const defaultBlockedResult = await service.resolvePlayerIdentityFromCompatSource(payload);
             if (defaultBlockedResult !== null || httpCallCount !== 0) {
                 throw new Error(`expected legacy http fallback to stay blocked without explicit opt-in, got result=${JSON.stringify(defaultBlockedResult)} httpCallCount=${httpCallCount}`);
             }
+/** explicitPoolUnavailableResult：定义该变量以承载业务值。 */
             const explicitPoolUnavailableResult = await service.resolvePlayerIdentityFromCompatSource(payload, {
                 allowLegacyHttpIdentityFallback: true,
             });
@@ -1841,6 +2015,7 @@ async function verifyLegacyHttpIdentityFallbackOptInContract() {
             }
             service.ensurePool = async () => ({});
             world_legacy_player_repository_1.queryLegacyPlayerIdentityRow = async () => null;
+/** explicitMissingRowResult：定义该变量以承载业务值。 */
             const explicitMissingRowResult = await service.resolvePlayerIdentityFromCompatSource(payload, {
                 allowLegacyHttpIdentityFallback: true,
             });
@@ -1848,10 +2023,12 @@ async function verifyLegacyHttpIdentityFallbackOptInContract() {
                 throw new Error(`expected missing-row explicit opt-in to stay blocked without allow env, got result=${JSON.stringify(explicitMissingRowResult)} httpCallCount=${httpCallCount}`);
             }
             world_legacy_player_repository_1.queryLegacyPlayerIdentityRow = async () => {
+/** error：定义该变量以承载业务值。 */
                 const error = new Error('legacy schema missing');
                 error.code = '42P01';
                 throw error;
             };
+/** explicitMissingSchemaResult：定义该变量以承载业务值。 */
             const explicitMissingSchemaResult = await service.resolvePlayerIdentityFromCompatSource(payload, {
                 allowLegacyHttpIdentityFallback: true,
             });
@@ -1863,6 +2040,7 @@ async function verifyLegacyHttpIdentityFallbackOptInContract() {
                 NEXT_ALLOW_LEGACY_HTTP_IDENTITY_FALLBACK: null,
             }, async () => {
                 service.ensurePool = async () => null;
+/** allowEnvPoolUnavailableResult：定义该变量以承载业务值。 */
                 const allowEnvPoolUnavailableResult = await service.resolvePlayerIdentityFromCompatSource(payload, {
                     allowLegacyHttpIdentityFallback: true,
                 });
@@ -1871,6 +2049,7 @@ async function verifyLegacyHttpIdentityFallbackOptInContract() {
                 }
                 service.ensurePool = async () => ({});
                 world_legacy_player_repository_1.queryLegacyPlayerIdentityRow = async () => null;
+/** allowEnvMissingRowResult：定义该变量以承载业务值。 */
                 const allowEnvMissingRowResult = await service.resolvePlayerIdentityFromCompatSource(payload, {
                     allowLegacyHttpIdentityFallback: true,
                 });
@@ -1878,10 +2057,12 @@ async function verifyLegacyHttpIdentityFallbackOptInContract() {
                     throw new Error(`expected explicit opt-in plus allow env to enable missing-row http fallback, got result=${JSON.stringify(allowEnvMissingRowResult)} httpCallCount=${httpCallCount}`);
                 }
                 world_legacy_player_repository_1.queryLegacyPlayerIdentityRow = async () => {
+/** error：定义该变量以承载业务值。 */
                     const error = new Error('legacy schema missing');
                     error.code = '42P01';
                     throw error;
                 };
+/** allowEnvMissingSchemaResult：定义该变量以承载业务值。 */
                 const allowEnvMissingSchemaResult = await service.resolvePlayerIdentityFromCompatSource(payload, {
                     allowLegacyHttpIdentityFallback: true,
                 });
@@ -1969,6 +2150,7 @@ async function verifyAuthenticatedSessionContract(token, expectedIdentity, expec
             initPlayerId: firstInit.pid,
             bootstrapPlayerId: firstBootstrap.self.id,
             runtimePlayerId: expectedPlayerId,
+/** runtimePlayerName：定义该变量以承载业务值。 */
             runtimePlayerName: typeof firstBootstrap.self?.name === 'string' ? firstBootstrap.self.name : null,
         });
         second = createNextSocket(token);
@@ -2159,8 +2341,11 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
         playerId: payload.playerId,
         playerName: 'proof legacy backfill',
     };
+/** starterSnapshotDeps：定义该变量以承载业务值。 */
     const starterSnapshotDeps = createAuthStarterSnapshotDeps();
+/** readLatestIdentityTrace：定义该变量以承载业务值。 */
     const readLatestIdentityTrace = (playerId) => {
+/** trace：定义该变量以承载业务值。 */
         const trace = (0, world_player_token_service_1.readAuthTrace)();
         return {
             entry: trace.records
@@ -2211,6 +2396,7 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
  * 记录no持久化认证服务。
  */
     let noPersistenceCompatIdentityCalls = 0;
+/** noPersistenceAuthService：定义该变量以承载业务值。 */
     const noPersistenceAuthService = new world_player_auth_service_1.WorldPlayerAuthService({
         validatePlayerToken: () => payload,
         resolvePlayerIdentityFromPayload: () => compatIdentity,
@@ -2249,6 +2435,7 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
     if (noPersistenceIdentity !== null) {
         throw new Error(`expected non-persistence auth path to reject runtime compat identity fallback, got ${JSON.stringify(noPersistenceIdentity)}`);
     }
+/** nextProtocolIdentity：定义该变量以承载业务值。 */
     const nextProtocolIdentity = await noPersistenceAuthService.authenticatePlayerToken('proof.token.legacy_backfill', {
         protocol: 'next',
     });
@@ -2298,16 +2485,23 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
             failureStage: 'unexpected_native_snapshot_recovery',
         }),
     });
+/** previousCompatBackfillFlag：定义该变量以承载业务值。 */
     const previousCompatBackfillFlag = process.env.SERVER_NEXT_AUTH_ALLOW_COMPAT_IDENTITY_BACKFILL;
+/** previousCompatBackfillAlias：定义该变量以承载业务值。 */
     const previousCompatBackfillAlias = process.env.NEXT_AUTH_ALLOW_COMPAT_IDENTITY_BACKFILL;
+/** previousCompatBackfillDatabaseUrl：定义该变量以承载业务值。 */
     const previousCompatBackfillDatabaseUrl = process.env.SERVER_NEXT_DATABASE_URL;
+/** previousCompatBackfillDatabaseUrlAlias：定义该变量以承载业务值。 */
     const previousCompatBackfillDatabaseUrlAlias = process.env.DATABASE_URL;
     process.env.SERVER_NEXT_AUTH_ALLOW_COMPAT_IDENTITY_BACKFILL = '1';
     delete process.env.NEXT_AUTH_ALLOW_COMPAT_IDENTITY_BACKFILL;
     process.env.SERVER_NEXT_DATABASE_URL = 'postgres://proof-compat-gate';
     delete process.env.DATABASE_URL;
+/** compatBackfillLegacyProtocolDefault：定义该变量以承载业务值。 */
     let compatBackfillLegacyProtocolDefault = null;
+/** compatBackfillLegacyProtocolExplicit：定义该变量以承载业务值。 */
     let compatBackfillLegacyProtocolExplicit = null;
+/** compatBackfillMigrationProtocol：定义该变量以承载业务值。 */
     let compatBackfillMigrationProtocol = null;
     try {
         compatBackfillLegacyProtocolDefault = await compatMigrationProtocolGateAuthService.authenticatePlayerToken('proof.token.compat_protocol.default', {
@@ -2356,11 +2550,13 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
     if (compatBackfillMigrationProtocol !== null) {
         throw new Error(`expected compat backfill to reject migration protocol runtime entry, got ${JSON.stringify(compatBackfillMigrationProtocol)}`);
     }
+/** tokenPersistedSourceMismatchPayload：定义该变量以承载业务值。 */
     const tokenPersistedSourceMismatchPayload = {
         sub: 'proof_user_token_persisted_source_mismatch',
         playerId: 'proof_player_token_persisted_source_mismatch',
         playerName: 'proof token persisted source mismatch',
     };
+/** tokenPersistedSourceMismatchIdentity：定义该变量以承载业务值。 */
     const tokenPersistedSourceMismatchIdentity = {
         userId: tokenPersistedSourceMismatchPayload.sub,
         username: 'proof_token_persisted_source_mismatch',
@@ -2368,6 +2564,7 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
         playerId: tokenPersistedSourceMismatchPayload.playerId,
         playerName: tokenPersistedSourceMismatchPayload.playerName,
     };
+/** tokenPersistedSourceMismatchAuthService：定义该变量以承载业务值。 */
     const tokenPersistedSourceMismatchAuthService = new world_player_auth_service_1.WorldPlayerAuthService({
         validatePlayerToken: () => tokenPersistedSourceMismatchPayload,
         resolvePlayerIdentityFromPayload: () => tokenPersistedSourceMismatchIdentity,
@@ -2383,7 +2580,9 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
         loadCompatPlayerSnapshotForMigration: async () => null,
     }, starterSnapshotDeps);
     (0, world_player_token_service_1.clearAuthTrace)();
+/** tokenPersistedSourceMismatchResult：定义该变量以承载业务值。 */
     const tokenPersistedSourceMismatchResult = await tokenPersistedSourceMismatchAuthService.authenticatePlayerToken('proof.token.token_persisted_source_mismatch');
+/** tokenPersistedSourceMismatchTrace：定义该变量以承载业务值。 */
     const tokenPersistedSourceMismatchTrace = readLatestIdentityTrace(tokenPersistedSourceMismatchPayload.playerId);
     if (tokenPersistedSourceMismatchResult !== null
         || tokenPersistedSourceMismatchTrace.entry?.source !== 'token_persist_blocked'
@@ -2391,6 +2590,7 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
         || tokenPersistedSourceMismatchTrace.entry?.persistedSource !== 'legacy_backfill') {
         throw new Error(`expected token persistedSource mismatch to block auth before bootstrap, got result=${JSON.stringify(tokenPersistedSourceMismatchResult)} trace=${JSON.stringify(tokenPersistedSourceMismatchTrace)}`);
     }
+/** compatPersistedSourceMismatchAuthService：定义该变量以承载业务值。 */
     const compatPersistedSourceMismatchAuthService = new world_player_auth_service_1.WorldPlayerAuthService({
         validatePlayerToken: () => payload,
         resolvePlayerIdentityFromPayload: () => compatIdentity,
@@ -2413,14 +2613,19 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
             },
         }),
     }, starterSnapshotDeps);
+/** previousMismatchCompatBackfillFlag：定义该变量以承载业务值。 */
     const previousMismatchCompatBackfillFlag = process.env.SERVER_NEXT_AUTH_ALLOW_COMPAT_IDENTITY_BACKFILL;
+/** previousMismatchCompatBackfillAlias：定义该变量以承载业务值。 */
     const previousMismatchCompatBackfillAlias = process.env.NEXT_AUTH_ALLOW_COMPAT_IDENTITY_BACKFILL;
+/** previousMismatchCompatBackfillDatabaseUrl：定义该变量以承载业务值。 */
     const previousMismatchCompatBackfillDatabaseUrl = process.env.SERVER_NEXT_DATABASE_URL;
+/** previousMismatchCompatBackfillDatabaseUrlAlias：定义该变量以承载业务值。 */
     const previousMismatchCompatBackfillDatabaseUrlAlias = process.env.DATABASE_URL;
     process.env.SERVER_NEXT_AUTH_ALLOW_COMPAT_IDENTITY_BACKFILL = '1';
     delete process.env.NEXT_AUTH_ALLOW_COMPAT_IDENTITY_BACKFILL;
     process.env.SERVER_NEXT_DATABASE_URL = 'postgres://proof-compat-mismatch';
     delete process.env.DATABASE_URL;
+/** compatPersistedSourceMismatchResult：定义该变量以承载业务值。 */
     let compatPersistedSourceMismatchResult = null;
     try {
         (0, world_player_token_service_1.clearAuthTrace)();
@@ -2455,6 +2660,7 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
             delete process.env.DATABASE_URL;
         }
     }
+/** compatPersistedSourceMismatchTrace：定义该变量以承载业务值。 */
     const compatPersistedSourceMismatchTrace = readLatestIdentityTrace(payload.playerId);
     if (compatPersistedSourceMismatchResult !== null
         || compatPersistedSourceMismatchTrace.entry?.source !== 'migration_persist_blocked'
@@ -2542,6 +2748,7 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
  * 记录迁移source开关调用次数。
  */
     let compatMigrationIdentityCalls = 0;
+/** compatMigrationSnapshotCalls：定义该变量以承载业务值。 */
     let compatMigrationSnapshotCalls = 0;
 /**
  * 记录迁移source服务。
@@ -2553,8 +2760,11 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
         isEnabled: () => false,
         loadPlayerSnapshotRecord: async () => null,
     });
+/** originalCompatMigrationEnsurePool：定义该变量以承载业务值。 */
     const originalCompatMigrationEnsurePool = compatMigrationSourceService.ensurePool.bind(compatMigrationSourceService);
+/** originalCompatMigrationQueryIdentityRow：定义该变量以承载业务值。 */
     const originalCompatMigrationQueryIdentityRow = world_legacy_player_repository_1.queryLegacyPlayerIdentityRow;
+/** originalCompatMigrationQuerySnapshotRow：定义该变量以承载业务值。 */
     const originalCompatMigrationQuerySnapshotRow = world_legacy_player_repository_1.queryLegacyPlayerSnapshotRow;
     compatMigrationSourceService.ensurePool = async () => ({});
     world_legacy_player_repository_1.queryLegacyPlayerIdentityRow = async () => {
@@ -2628,7 +2838,9 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
         allowCompatMigration: true,
         reason: 'smoke_explicit_snapshot',
     });
+/** previousDisableCompatMigrationSource：定义该变量以承载业务值。 */
     const previousDisableCompatMigrationSource = process.env.SERVER_NEXT_AUTH_DISABLE_COMPAT_MIGRATION_SOURCE;
+/** previousDisableCompatMigrationSourceAlias：定义该变量以承载业务值。 */
     const previousDisableCompatMigrationSourceAlias = process.env.NEXT_AUTH_DISABLE_COMPAT_MIGRATION_SOURCE;
     process.env.SERVER_NEXT_AUTH_DISABLE_COMPAT_MIGRATION_SOURCE = '1';
     delete process.env.NEXT_AUTH_DISABLE_COMPAT_MIGRATION_SOURCE;
@@ -2686,7 +2898,9 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
         world_legacy_player_repository_1.queryLegacyPlayerSnapshotRow = originalCompatMigrationQuerySnapshotRow;
         await compatMigrationSourceService.onModuleDestroy().catch(() => undefined);
     }
+/** compatSnapshotBackfillCalls：定义该变量以承载业务值。 */
     let compatSnapshotBackfillCalls = 0;
+/** compatSnapshotBackfillService：定义该变量以承载业务值。 */
     const compatSnapshotBackfillService = new world_player_snapshot_service_1.WorldPlayerSnapshotService({
         isEnabled: () => true,
         loadPlayerSnapshotRecord: async () => null,
@@ -2711,8 +2925,11 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
         isEnabled: () => true,
         loadPlayerSnapshotRecord: async () => null,
     }));
+/** compatSnapshotBackfillSourceService：定义该变量以承载业务值。 */
     const compatSnapshotBackfillSourceService = compatSnapshotBackfillService.worldPlayerSourceService;
+/** originalCompatSnapshotBackfillEnsurePool：定义该变量以承载业务值。 */
     const originalCompatSnapshotBackfillEnsurePool = compatSnapshotBackfillSourceService.ensurePool.bind(compatSnapshotBackfillSourceService);
+/** originalCompatSnapshotBackfillQuerySnapshotRow：定义该变量以承载业务值。 */
     const originalCompatSnapshotBackfillQuerySnapshotRow = world_legacy_player_repository_1.queryLegacyPlayerSnapshotRow;
     compatSnapshotBackfillSourceService.ensurePool = async () => ({});
     world_legacy_player_repository_1.queryLegacyPlayerSnapshotRow = async () => {
@@ -2753,6 +2970,7 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
             cultivatingTechId: null,
         };
     };
+/** compatSnapshotBackfillResult：定义该变量以承载业务值。 */
     let compatSnapshotBackfillResult = null;
     try {
         compatSnapshotBackfillResult = await compatSnapshotBackfillService.ensureCompatBackfillSnapshot(payload.playerId);
@@ -2768,6 +2986,7 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
         || compatSnapshotBackfillCalls !== 1) {
         throw new Error(`expected compat snapshot backfill to use explicit migration snapshot access and seed native snapshot, got result=${JSON.stringify(compatSnapshotBackfillResult)} compatSnapshotBackfillCalls=${compatSnapshotBackfillCalls}`);
     }
+/** compatSnapshotMissingBackfillService：定义该变量以承载业务值。 */
     const compatSnapshotMissingBackfillService = new world_player_snapshot_service_1.WorldPlayerSnapshotService({
         isEnabled: () => true,
         loadPlayerSnapshotRecord: async () => null,
@@ -2791,11 +3010,15 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
         isEnabled: () => true,
         loadPlayerSnapshotRecord: async () => null,
     }));
+/** compatSnapshotMissingSourceService：定义该变量以承载业务值。 */
     const compatSnapshotMissingSourceService = compatSnapshotMissingBackfillService.worldPlayerSourceService;
+/** originalCompatSnapshotMissingEnsurePool：定义该变量以承载业务值。 */
     const originalCompatSnapshotMissingEnsurePool = compatSnapshotMissingSourceService.ensurePool.bind(compatSnapshotMissingSourceService);
+/** originalCompatSnapshotMissingQuerySnapshotRow：定义该变量以承载业务值。 */
     const originalCompatSnapshotMissingQuerySnapshotRow = world_legacy_player_repository_1.queryLegacyPlayerSnapshotRow;
     compatSnapshotMissingSourceService.ensurePool = async () => ({});
     world_legacy_player_repository_1.queryLegacyPlayerSnapshotRow = async () => null;
+/** compatSnapshotMissingBackfillResult：定义该变量以承载业务值。 */
     let compatSnapshotMissingBackfillResult = null;
     try {
         compatSnapshotMissingBackfillResult = await compatSnapshotMissingBackfillService.ensureCompatBackfillSnapshot(payload.playerId);
@@ -2809,7 +3032,9 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
         || compatSnapshotMissingBackfillResult?.failureStage !== 'compat_snapshot_missing') {
         throw new Error(`expected explicit compat snapshot backfill to fail when compat snapshot is missing instead of seeding native starter, got ${JSON.stringify(compatSnapshotMissingBackfillResult)}`);
     }
+/** nextProtocolLoadedLegacyBackfillSnapshotLoads：定义该变量以承载业务值。 */
     let nextProtocolLoadedLegacyBackfillSnapshotLoads = 0;
+/** nextProtocolLoadedLegacyBackfillBlockedAuthService：定义该变量以承载业务值。 */
     const nextProtocolLoadedLegacyBackfillBlockedAuthService = new world_player_auth_service_1.WorldPlayerAuthService({
         validatePlayerToken: () => payload,
         resolvePlayerIdentityFromPayload: () => compatIdentity,
@@ -2844,9 +3069,11 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
         }),
     });
     (0, world_player_token_service_1.clearAuthTrace)();
+/** nextProtocolLoadedLegacyBackfillBlockedIdentity：定义该变量以承载业务值。 */
     const nextProtocolLoadedLegacyBackfillBlockedIdentity = await nextProtocolLoadedLegacyBackfillBlockedAuthService.authenticatePlayerToken('proof.token.next_loaded_legacy_backfill.blocked', {
         protocol: 'next',
     });
+/** nextProtocolLoadedLegacyBackfillBlockedTrace：定义该变量以承载业务值。 */
     const nextProtocolLoadedLegacyBackfillBlockedTrace = readLatestIdentityTrace(payload.playerId);
     if (nextProtocolLoadedLegacyBackfillBlockedIdentity !== null
         || nextProtocolLoadedLegacyBackfillSnapshotLoads !== 1
@@ -2855,8 +3082,11 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
         || nextProtocolLoadedLegacyBackfillBlockedTrace.entry?.persistedSource !== 'legacy_backfill') {
         throw new Error(`expected next protocol loaded legacy_backfill identity without native snapshot to be rejected, got identity=${JSON.stringify(nextProtocolLoadedLegacyBackfillBlockedIdentity)} loads=${nextProtocolLoadedLegacyBackfillSnapshotLoads} trace=${JSON.stringify(nextProtocolLoadedLegacyBackfillBlockedTrace)}`);
     }
+/** nextProtocolLoadedLegacyBackfillPromotionSaveCalls：定义该变量以承载业务值。 */
     let nextProtocolLoadedLegacyBackfillPromotionSaveCalls = 0;
+/** nextProtocolLoadedLegacyBackfillPromotionSnapshotLoads：定义该变量以承载业务值。 */
     let nextProtocolLoadedLegacyBackfillPromotionSnapshotLoads = 0;
+/** nextProtocolLoadedLegacyBackfillPromotedAuthService：定义该变量以承载业务值。 */
     const nextProtocolLoadedLegacyBackfillPromotedAuthService = new world_player_auth_service_1.WorldPlayerAuthService({
         validatePlayerToken: () => payload,
         resolvePlayerIdentityFromPayload: () => compatIdentity,
@@ -2905,9 +3135,11 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
         }),
     });
     (0, world_player_token_service_1.clearAuthTrace)();
+/** nextProtocolLoadedLegacyBackfillPromotedIdentity：定义该变量以承载业务值。 */
     const nextProtocolLoadedLegacyBackfillPromotedIdentity = await nextProtocolLoadedLegacyBackfillPromotedAuthService.authenticatePlayerToken('proof.token.next_loaded_legacy_backfill.promoted', {
         protocol: 'next',
     });
+/** nextProtocolLoadedLegacyBackfillPromotedTrace：定义该变量以承载业务值。 */
     const nextProtocolLoadedLegacyBackfillPromotedTrace = readLatestIdentityTrace(payload.playerId);
     if (!nextProtocolLoadedLegacyBackfillPromotedIdentity
         || nextProtocolLoadedLegacyBackfillPromotedIdentity.authSource !== 'next'
@@ -2918,8 +3150,11 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
         || nextProtocolLoadedLegacyBackfillPromotedTrace.entry?.persistedSource !== 'native') {
         throw new Error(`expected next protocol loaded legacy_backfill identity with native snapshot to normalize into next/native, got identity=${JSON.stringify(nextProtocolLoadedLegacyBackfillPromotedIdentity)} snapshotLoads=${nextProtocolLoadedLegacyBackfillPromotionSnapshotLoads} saveCalls=${nextProtocolLoadedLegacyBackfillPromotionSaveCalls} trace=${JSON.stringify(nextProtocolLoadedLegacyBackfillPromotedTrace)}`);
     }
+/** nextProtocolLoadedLegacySeededPromotionSaveCalls：定义该变量以承载业务值。 */
     let nextProtocolLoadedLegacySeededPromotionSaveCalls = 0;
+/** nextProtocolLoadedLegacySeededSnapshotLoads：定义该变量以承载业务值。 */
     let nextProtocolLoadedLegacySeededSnapshotLoads = 0;
+/** nextProtocolLoadedLegacySeededPromotedAuthService：定义该变量以承载业务值。 */
     const nextProtocolLoadedLegacySeededPromotedAuthService = new world_player_auth_service_1.WorldPlayerAuthService({
         validatePlayerToken: () => payload,
         resolvePlayerIdentityFromPayload: () => compatIdentity,
@@ -2968,9 +3203,11 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
         }),
     });
     (0, world_player_token_service_1.clearAuthTrace)();
+/** nextProtocolLoadedLegacySeededPromotedIdentity：定义该变量以承载业务值。 */
     const nextProtocolLoadedLegacySeededPromotedIdentity = await nextProtocolLoadedLegacySeededPromotedAuthService.authenticatePlayerToken('proof.token.next_loaded_legacy_backfill.legacy_seeded', {
         protocol: 'next',
     });
+/** nextProtocolLoadedLegacySeededPromotedTrace：定义该变量以承载业务值。 */
     const nextProtocolLoadedLegacySeededPromotedTrace = readLatestIdentityTrace(payload.playerId);
     if (!nextProtocolLoadedLegacySeededPromotedIdentity
         || nextProtocolLoadedLegacySeededPromotedIdentity.authSource !== 'next'
@@ -2981,8 +3218,11 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
         || nextProtocolLoadedLegacySeededPromotedTrace.entry?.persistedSource !== 'native') {
         throw new Error(`expected next protocol loaded legacy_backfill identity with legacy_seeded snapshot to normalize into next/native, got identity=${JSON.stringify(nextProtocolLoadedLegacySeededPromotedIdentity)} snapshotLoads=${nextProtocolLoadedLegacySeededSnapshotLoads} saveCalls=${nextProtocolLoadedLegacySeededPromotionSaveCalls} trace=${JSON.stringify(nextProtocolLoadedLegacySeededPromotedTrace)}`);
     }
+/** nextProtocolLoadedLegacyBackfillBootstrapService：定义该变量以承载业务值。 */
     const nextProtocolLoadedLegacyBackfillBootstrapService = new world_session_bootstrap_service_1.WorldSessionBootstrapService(null, null, null, null, null, null, null, null, null, null);
+/** nextProtocolLoadedLegacyBackfillGateway：定义该变量以承载业务值。 */
     const nextProtocolLoadedLegacyBackfillGateway = new world_gateway_1.WorldGateway(null, null, nextProtocolLoadedLegacyBackfillBootstrapService, null, null, null, null, null, null, null, null, null);
+/** nextProtocolLoadedLegacyBackfillClient：定义该变量以承载业务值。 */
     const nextProtocolLoadedLegacyBackfillClient = {
         id: 'proof_socket_next_loaded_legacy_backfill_promoted',
         handshake: {
@@ -2997,9 +3237,13 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
             bootstrapIdentityPersistedSource: 'native',
         },
     };
+/** nextProtocolLoadedLegacyBackfillImplicitResumeAllowed：定义该变量以承载业务值。 */
     const nextProtocolLoadedLegacyBackfillImplicitResumeAllowed = nextProtocolLoadedLegacyBackfillBootstrapService.shouldAllowImplicitDetachedResume(nextProtocolLoadedLegacyBackfillClient);
+/** nextProtocolLoadedLegacyBackfillRequestedResumeAllowed：定义该变量以承载业务值。 */
     const nextProtocolLoadedLegacyBackfillRequestedResumeAllowed = nextProtocolLoadedLegacyBackfillBootstrapService.shouldAllowRequestedDetachedResume(nextProtocolLoadedLegacyBackfillClient);
+/** nextProtocolLoadedLegacyBackfillConnectedReuseAllowed：定义该变量以承载业务值。 */
     const nextProtocolLoadedLegacyBackfillConnectedReuseAllowed = nextProtocolLoadedLegacyBackfillBootstrapService.shouldAllowConnectedSessionReuse(nextProtocolLoadedLegacyBackfillClient);
+/** nextProtocolLoadedLegacyBackfillBootstrapInput：定义该变量以承载业务值。 */
     const nextProtocolLoadedLegacyBackfillBootstrapInput = nextProtocolLoadedLegacyBackfillGateway.buildAuthenticatedBootstrapInput(nextProtocolLoadedLegacyBackfillClient, nextProtocolLoadedLegacyBackfillPromotedIdentity);
     if (nextProtocolLoadedLegacyBackfillBootstrapInput.requestedSessionId !== 'next_loaded_legacy_backfill_requested_session'
         || !nextProtocolLoadedLegacyBackfillImplicitResumeAllowed
@@ -3007,6 +3251,7 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
         || !nextProtocolLoadedLegacyBackfillConnectedReuseAllowed) {
         throw new Error(`expected normalized next/native identity loaded from legacy_backfill to preserve requestedSessionId and allow reuse, got requested=${nextProtocolLoadedLegacyBackfillBootstrapInput.requestedSessionId} implicit=${nextProtocolLoadedLegacyBackfillImplicitResumeAllowed} requestedReuse=${nextProtocolLoadedLegacyBackfillRequestedResumeAllowed} connectedReuse=${nextProtocolLoadedLegacyBackfillConnectedReuseAllowed}`);
     }
+/** nextProtocolLoadedMigrationBackfillClient：定义该变量以承载业务值。 */
     const nextProtocolLoadedMigrationBackfillClient = {
         id: 'proof_socket_next_loaded_migration_backfill',
         handshake: {
@@ -3022,9 +3267,13 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
             bootstrapIdentityPersistedSource: 'legacy_backfill',
         },
     };
+/** nextProtocolLoadedMigrationBackfillImplicitResumeAllowed：定义该变量以承载业务值。 */
     const nextProtocolLoadedMigrationBackfillImplicitResumeAllowed = nextProtocolLoadedLegacyBackfillBootstrapService.shouldAllowImplicitDetachedResume(nextProtocolLoadedMigrationBackfillClient);
+/** nextProtocolLoadedMigrationBackfillRequestedResumeAllowed：定义该变量以承载业务值。 */
     const nextProtocolLoadedMigrationBackfillRequestedResumeAllowed = nextProtocolLoadedLegacyBackfillBootstrapService.shouldAllowRequestedDetachedResume(nextProtocolLoadedMigrationBackfillClient);
+/** nextProtocolLoadedMigrationBackfillConnectedReuseAllowed：定义该变量以承载业务值。 */
     const nextProtocolLoadedMigrationBackfillConnectedReuseAllowed = nextProtocolLoadedLegacyBackfillBootstrapService.shouldAllowConnectedSessionReuse(nextProtocolLoadedMigrationBackfillClient);
+/** nextProtocolLoadedMigrationBackfillBootstrapInput：定义该变量以承载业务值。 */
     const nextProtocolLoadedMigrationBackfillBootstrapInput = nextProtocolLoadedLegacyBackfillGateway.buildAuthenticatedBootstrapInput(nextProtocolLoadedMigrationBackfillClient, {
         playerId: 'p_next_loaded_migration_backfill',
         playerName: '迁角',
@@ -3042,6 +3291,7 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
  * 记录next读链调用次数。
  */
     let nextSourceIdentityCalls = 0;
+/** nextSourceSnapshotRecordCalls：定义该变量以承载业务值。 */
     let nextSourceSnapshotRecordCalls = 0;
 /**
  * 记录next读链服务。
@@ -3098,10 +3348,15 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
         || nextSourceSnapshotRecordCalls !== 2) {
         throw new Error(`expected next source service to read native identity/snapshot through unified source entry, got identity=${JSON.stringify(nextSourceIdentity)} snapshotRecord=${JSON.stringify(nextSourceSnapshotRecord)} snapshot=${JSON.stringify(nextSourceSnapshot)} identityCalls=${nextSourceIdentityCalls} snapshotRecordCalls=${nextSourceSnapshotRecordCalls}`);
     }
+/** guardedCompatIdentityCalls：定义该变量以承载业务值。 */
     let guardedCompatIdentityCalls = 0;
+/** guardedCompatSnapshotCalls：定义该变量以承载业务值。 */
     let guardedCompatSnapshotCalls = 0;
+/** guardedNextIdentityCalls：定义该变量以承载业务值。 */
     let guardedNextIdentityCalls = 0;
+/** guardedNextSnapshotRecordCalls：定义该变量以承载业务值。 */
     let guardedNextSnapshotRecordCalls = 0;
+/** guardedSourceService：定义该变量以承载业务值。 */
     const guardedSourceService = new world_player_source_service_1.WorldPlayerSourceService(null, {
         isEnabled: () => true,
         loadPlayerIdentity: async () => {
@@ -3135,8 +3390,11 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
             };
         },
     });
+/** originalGuardedEnsurePool：定义该变量以承载业务值。 */
     const originalGuardedEnsurePool = guardedSourceService.ensurePool.bind(guardedSourceService);
+/** originalGuardedQueryIdentityRow：定义该变量以承载业务值。 */
     const originalGuardedQueryIdentityRow = world_legacy_player_repository_1.queryLegacyPlayerIdentityRow;
+/** originalGuardedQuerySnapshotRow：定义该变量以承载业务值。 */
     const originalGuardedQuerySnapshotRow = world_legacy_player_repository_1.queryLegacyPlayerSnapshotRow;
     guardedSourceService.ensurePool = async () => ({});
     world_legacy_player_repository_1.queryLegacyPlayerIdentityRow = async () => {
@@ -3188,19 +3446,27 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
             cultivatingTechId: null,
         };
     };
+/** guardedNextIdentity：定义该变量以承载业务值。 */
     const guardedNextIdentity = await guardedSourceService.loadNextPlayerIdentity(payload.sub);
+/** guardedNextSnapshotRecord：定义该变量以承载业务值。 */
     const guardedNextSnapshotRecord = await guardedSourceService.loadNextPlayerSnapshotRecord(payload.playerId);
+/** guardedNextSnapshot：定义该变量以承载业务值。 */
     const guardedNextSnapshot = await guardedSourceService.loadNextPlayerSnapshot(payload.playerId);
+/** guardedMigrationIdentity：定义该变量以承载业务值。 */
     const guardedMigrationIdentity = await guardedSourceService.resolvePlayerIdentityForMigration(payload);
+/** guardedMigrationSnapshot：定义该变量以承载业务值。 */
     const guardedMigrationSnapshot = await guardedSourceService.loadPlayerSnapshotForMigration(payload.playerId);
+/** guardedExplicitMigrationResult：定义该变量以承载业务值。 */
     const guardedExplicitMigrationResult = await withEnvOverrides({
         SERVER_NEXT_AUTH_DISABLE_COMPAT_MIGRATION_SOURCE: null,
         NEXT_AUTH_DISABLE_COMPAT_MIGRATION_SOURCE: null,
     }, async () => {
+/** explicitMigrationIdentity：定义该变量以承载业务值。 */
         const explicitMigrationIdentity = await guardedSourceService.resolvePlayerIdentityForMigration(payload, {
             allowCompatMigration: true,
             reason: 'guarded_explicit_identity',
         });
+/** explicitMigrationSnapshot：定义该变量以承载业务值。 */
         const explicitMigrationSnapshot = await guardedSourceService.loadPlayerSnapshotForMigration(payload.playerId, {
             allowCompatMigration: true,
             reason: 'guarded_explicit_snapshot',
@@ -3231,6 +3497,7 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
         world_legacy_player_repository_1.queryLegacyPlayerSnapshotRow = originalGuardedQuerySnapshotRow;
         await guardedSourceService.onModuleDestroy().catch(() => undefined);
     }
+/** invalidNextIdentityAuthService：定义该变量以承载业务值。 */
     const invalidNextIdentityAuthService = new world_player_auth_service_1.WorldPlayerAuthService({
         validatePlayerToken: () => payload,
         resolvePlayerIdentityFromPayload: () => compatIdentity,
@@ -3259,7 +3526,9 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
         }),
     }, starterSnapshotDeps);
     (0, world_player_token_service_1.clearAuthTrace)();
+/** invalidNextIdentityResult：定义该变量以承载业务值。 */
     const invalidNextIdentityResult = await invalidNextIdentityAuthService.authenticatePlayerToken('proof.token.invalid_next_identity_persisted_source');
+/** invalidNextIdentityTrace：定义该变量以承载业务值。 */
     const invalidNextIdentityTrace = readLatestIdentityTrace(payload.playerId);
     if (invalidNextIdentityResult !== null
         || invalidNextIdentityTrace.entry?.source !== 'next_invalid'
@@ -3267,6 +3536,7 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
         || invalidNextIdentityTrace.entry?.nextLoadHit !== true) {
         throw new Error(`expected next identity without persistedSource to be rejected before bootstrap, got result=${JSON.stringify(invalidNextIdentityResult)} trace=${JSON.stringify(invalidNextIdentityTrace)}`);
     }
+/** invalidNextPersistedSourceAuthService：定义该变量以承载业务值。 */
     const invalidNextPersistedSourceAuthService = new world_player_auth_service_1.WorldPlayerAuthService({
         validatePlayerToken: () => payload,
         resolvePlayerIdentityFromPayload: () => compatIdentity,
@@ -3296,7 +3566,9 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
         }),
     }, starterSnapshotDeps);
     (0, world_player_token_service_1.clearAuthTrace)();
+/** invalidNextPersistedSourceResult：定义该变量以承载业务值。 */
     const invalidNextPersistedSourceResult = await invalidNextPersistedSourceAuthService.authenticatePlayerToken('proof.token.invalid_next_identity_unknown_persisted_source');
+/** invalidNextPersistedSourceTrace：定义该变量以承载业务值。 */
     const invalidNextPersistedSourceTrace = readLatestIdentityTrace(payload.playerId);
     if (invalidNextPersistedSourceResult !== null
         || invalidNextPersistedSourceTrace.entry?.source !== 'next_invalid'
@@ -3305,6 +3577,7 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
         || invalidNextPersistedSourceTrace.entry?.nextLoadHit !== true) {
         throw new Error(`expected next identity with invalid persistedSource to be rejected before bootstrap, got result=${JSON.stringify(invalidNextPersistedSourceResult)} trace=${JSON.stringify(invalidNextPersistedSourceTrace)}`);
     }
+/** legacyRuntimeIdentity：定义该变量以承载业务值。 */
     const legacyRuntimeIdentity = {
         ...compatIdentity,
         authSource: 'legacy_runtime',
@@ -3314,6 +3587,7 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
  * 记录持久化enabledcalls。
  */
     const persistenceEnabledCalls = [];
+/** readLatestPersistenceEnabledCall：定义该变量以承载业务值。 */
     const readLatestPersistenceEnabledCall = () => persistenceEnabledCalls[persistenceEnabledCalls.length - 1] ?? null;
 /**
  * 记录持久化enabledbootstrap服务。
@@ -3348,7 +3622,9 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
         || readLatestPersistenceEnabledCall()?.fallbackReason !== 'persistence_enabled_blocked:legacy_runtime') {
         throw new Error(`expected persistence-enabled legacy_runtime identity to block compat snapshot fallback, got error=${blockedError instanceof Error ? blockedError.message : String(blockedError)} call=${JSON.stringify(readLatestPersistenceEnabledCall())}`);
     }
+/** legacySyncError：定义该变量以承载业务值。 */
     let legacySyncError = null;
+/** legacySyncIdentity：定义该变量以承载业务值。 */
     const legacySyncIdentity = {
         ...legacyRuntimeIdentity,
         authSource: 'next',
@@ -3502,23 +3778,34 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
         throw new Error(`expected strict native snapshot mode to disable downgraded legacy_runtime fallback, got error=${strictError instanceof Error ? strictError.message : String(strictError)} call=${JSON.stringify(readLatestPersistenceEnabledCall())}`);
     }
     return {
+/** persistenceEnabledAuthAccepted：定义该变量以承载业务值。 */
         persistenceEnabledAuthAccepted: blockedIdentity !== null,
+/** noPersistenceAuthAccepted：定义该变量以承载业务值。 */
         noPersistenceAuthAccepted: noPersistenceIdentity !== null,
         noPersistenceIdentitySource: noPersistenceIdentity?.authSource ?? null,
         nextProtocolIdentitySource: nextProtocolIdentity?.authSource ?? null,
         tokenRuntimeDefaultIdentitySource: tokenRuntimeDefaultIdentity?.authSource ?? null,
         tokenRuntimeNextProtocolIdentitySource: tokenRuntimeNextProtocolIdentity?.authSource ?? null,
+/** tokenRuntimeNextProtocolIdentityRejected：定义该变量以承载业务值。 */
         tokenRuntimeNextProtocolIdentityRejected: tokenRuntimeNextProtocolIdentity === null,
+/** compatMigrationSourceDefaultIdentityEnabled：定义该变量以承载业务值。 */
         compatMigrationSourceDefaultIdentityEnabled: compatMigrationDefaultIdentity !== null,
+/** compatMigrationSourceDefaultSnapshotEnabled：定义该变量以承载业务值。 */
         compatMigrationSourceDefaultSnapshotEnabled: compatMigrationDefaultSnapshot !== null,
+/** compatMigrationSourceExplicitIdentityEnabled：定义该变量以承载业务值。 */
         compatMigrationSourceExplicitIdentityEnabled: compatMigrationExplicitIdentity !== null,
+/** compatMigrationSourceExplicitSnapshotEnabled：定义该变量以承载业务值。 */
         compatMigrationSourceExplicitSnapshotEnabled: compatMigrationExplicitSnapshot !== null,
+/** compatMigrationSourceStrictIdentityEnabled：定义该变量以承载业务值。 */
         compatMigrationSourceStrictIdentityEnabled: compatMigrationStrictIdentity !== null,
+/** compatMigrationSourceStrictSnapshotEnabled：定义该变量以承载业务值。 */
         compatMigrationSourceStrictSnapshotEnabled: compatMigrationStrictSnapshot !== null,
         compatMigrationSourceIdentityCalls: compatMigrationIdentityCalls,
         compatMigrationSourceSnapshotCalls: compatMigrationSnapshotCalls,
+/** compatSnapshotBackfillUsedExplicitMigrationSource：定义该变量以承载业务值。 */
         compatSnapshotBackfillUsedExplicitMigrationSource: compatSnapshotBackfillResult?.ok === true,
         compatSnapshotMissingBackfillFailureStage: compatSnapshotMissingBackfillResult?.failureStage ?? null,
+/** nextProtocolLoadedLegacyBackfillBlocked：定义该变量以承载业务值。 */
         nextProtocolLoadedLegacyBackfillBlocked: nextProtocolLoadedLegacyBackfillBlockedIdentity === null,
         nextProtocolLoadedLegacyBackfillBlockedFailureStage: nextProtocolLoadedLegacyBackfillBlockedTrace.entry?.persistFailureStage ?? null,
         nextProtocolLoadedLegacyBackfillNormalizedSource: nextProtocolLoadedLegacyBackfillPromotedIdentity?.authSource ?? null,
@@ -3577,7 +3864,9 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
  * 验证 snapshot compat runtime fallback 已彻底关闭。
  */
 async function verifyCompatRuntimeSnapshotGuardContract() {
+/** compatSnapshotCalls：定义该变量以承载业务值。 */
     let compatSnapshotCalls = 0;
+/** snapshotService：定义该变量以承载业务值。 */
     const snapshotService = new world_player_snapshot_service_1.WorldPlayerSnapshotService({
         isEnabled: () => false,
         loadPlayerSnapshotRecord: async () => null,
@@ -3600,20 +3889,26 @@ async function verifyCompatRuntimeSnapshotGuardContract() {
             };
         },
     });
+/** blockedResult：定义该变量以承载业务值。 */
     const blockedResult = await snapshotService.loadPlayerSnapshotResult('proof_player_snapshot_guard', true, 'identity_source:next');
     if (blockedResult?.snapshot !== null || compatSnapshotCalls !== 0) {
         throw new Error(`expected non-legacy snapshot fallback reason to block compat runtime read, got result=${JSON.stringify(blockedResult ?? null)} compatSnapshotCalls=${compatSnapshotCalls}`);
     }
+/** blockedLegacyReasonResult：定义该变量以承载业务值。 */
     const blockedLegacyReasonResult = await snapshotService.loadPlayerSnapshotResult('proof_player_snapshot_guard', true, 'identity_source:legacy_runtime');
     if (blockedLegacyReasonResult?.snapshot !== null || compatSnapshotCalls !== 0) {
         throw new Error(`expected legacy_runtime identity reason to stay blocked without migration marker, got result=${JSON.stringify(blockedLegacyReasonResult ?? null)} compatSnapshotCalls=${compatSnapshotCalls}`);
     }
+/** blockedMigrationReasonResult：定义该变量以承载业务值。 */
     const blockedMigrationReasonResult = await snapshotService.loadPlayerSnapshotResult('proof_player_snapshot_guard', true, 'migration_runtime:legacy_snapshot');
     if (blockedMigrationReasonResult?.snapshot !== null || compatSnapshotCalls !== 0) {
         throw new Error(`expected migration_runtime marker to stay blocked after runtime fallback removal, got result=${JSON.stringify(blockedMigrationReasonResult ?? null)} compatSnapshotCalls=${compatSnapshotCalls}`);
     }
+/** migrationNextSnapshotRecordCalls：定义该变量以承载业务值。 */
     let migrationNextSnapshotRecordCalls = 0;
+/** migrationCompatSnapshotCalls：定义该变量以承载业务值。 */
     let migrationCompatSnapshotCalls = 0;
+/** migrationSnapshotService：定义该变量以承载业务值。 */
     const migrationSnapshotService = new world_player_snapshot_service_1.WorldPlayerSnapshotService({
         isEnabled: () => true,
         loadPlayerSnapshotRecord: async () => {
@@ -3650,7 +3945,9 @@ async function verifyCompatRuntimeSnapshotGuardContract() {
             };
         },
     });
+/** migrationNextSnapshotRecord：定义该变量以承载业务值。 */
     const migrationNextSnapshotRecord = await migrationSnapshotService.loadNextPlayerSnapshotRecord('proof_player_snapshot_guard');
+/** migrationCompatSnapshot：定义该变量以承载业务值。 */
     const migrationCompatSnapshot = await migrationSnapshotService.loadMigrationPlayerSnapshot('proof_player_snapshot_guard');
     if (migrationNextSnapshotRecord?.persistedSource !== 'native'
         || migrationNextSnapshotRecordCalls !== 1
@@ -3783,8 +4080,11 @@ async function verifyAuthenticatedMissingSnapshotRecoveryContract() {
  */
     const previousRecoveryEnv = process.env.SERVER_NEXT_AUTH_ALLOW_NATIVE_SNAPSHOT_RECOVERY;
     process.env.SERVER_NEXT_AUTH_ALLOW_NATIVE_SNAPSHOT_RECOVERY = '1';
+/** unknownSourceRejectedError：定义该变量以承载业务值。 */
     let unknownSourceRejectedError = null;
+/** nextMissingPersistedSourceError：定义该变量以承载业务值。 */
     let nextMissingPersistedSourceError = null;
+/** tokenLegacyBackfillRejectedError：定义该变量以承载业务值。 */
     let tokenLegacyBackfillRejectedError = null;
     try {
 /** 
@@ -3855,6 +4155,7 @@ async function verifyAuthenticatedMissingSnapshotRecoveryContract() {
             || !tokenLegacyBackfillRejectedError.message.includes('recoveryReason=persisted_source:legacy_backfill')) {
             throw new Error(`expected authenticated missing snapshot token identity with non-token_seed persistedSource to be rejected, got ${tokenLegacyBackfillRejectedError instanceof Error ? tokenLegacyBackfillRejectedError.message : String(tokenLegacyBackfillRejectedError)}`);
         }
+/** legacyBackfillRejectedError：定义该变量以承载业务值。 */
         let legacyBackfillRejectedError = null;
         try {
             await recoveryBootstrapService.loadAuthenticatedPlayerSnapshot({
@@ -3880,6 +4181,7 @@ async function verifyAuthenticatedMissingSnapshotRecoveryContract() {
             delete process.env.SERVER_NEXT_AUTH_ALLOW_NATIVE_SNAPSHOT_RECOVERY;
         }
     }
+/** expectedRecoveryCalls：定义该变量以承载业务值。 */
     const expectedRecoveryCalls = [
         ['proof_player_missing_snapshot_token_seed', 'persistence_enabled_blocked:next'],
         ['proof_player_missing_snapshot_token_seed_token', 'persistence_enabled_blocked:token'],
@@ -3888,6 +4190,7 @@ async function verifyAuthenticatedMissingSnapshotRecoveryContract() {
         ['proof_player_missing_snapshot_token_legacy_backfill', 'persistence_enabled_blocked:token'],
         ['proof_player_missing_snapshot_legacy_backfill', 'persistence_enabled_blocked:next'],
     ];
+/** missingRecoveryProof：定义该变量以承载业务值。 */
     const missingRecoveryProof = expectedRecoveryCalls.find(([playerId, fallbackReason]) => !recoveryCalls.some((call) => call?.playerId === playerId && call?.fallbackReason === fallbackReason));
     if (recoverySeedCalls !== 2 || missingRecoveryProof) {
         throw new Error(`expected authenticated missing snapshot recovery to seed only token_seed and reject unsupported identities, got recoverySeedCalls=${recoverySeedCalls} missing=${JSON.stringify(missingRecoveryProof ?? null)} calls=${JSON.stringify(recoveryCalls)}`);
@@ -3896,6 +4199,7 @@ async function verifyAuthenticatedMissingSnapshotRecoveryContract() {
  * 记录nativerejectederror。
  */
     let nativeRejectedError = null;
+/** previousRejectedEnv：定义该变量以承载业务值。 */
     const previousRejectedEnv = process.env.SERVER_NEXT_AUTH_ALLOW_NATIVE_SNAPSHOT_RECOVERY;
     process.env.SERVER_NEXT_AUTH_ALLOW_NATIVE_SNAPSHOT_RECOVERY = '1';
     try {
@@ -3928,8 +4232,11 @@ async function verifyAuthenticatedMissingSnapshotRecoveryContract() {
         tokenSeedRecoveryEnabled: true,
         legacyBackfillRecoveryEnabled: false,
         recoverySeedCalls,
+/** unknownSourceRejectedRecoveryReason：定义该变量以承载业务值。 */
         unknownSourceRejectedRecoveryReason: typeof unknownSourceRejectedError?.message === 'string' ? unknownSourceRejectedError.message : null,
+/** nextMissingPersistedSourceRecoveryReason：定义该变量以承载业务值。 */
         nextMissingPersistedSourceRecoveryReason: typeof nextMissingPersistedSourceError?.message === 'string' ? nextMissingPersistedSourceError.message : null,
+/** tokenLegacyBackfillRecoveryReason：定义该变量以承载业务值。 */
         tokenLegacyBackfillRecoveryReason: typeof tokenLegacyBackfillRejectedError?.message === 'string' ? tokenLegacyBackfillRejectedError.message : null,
         nativeRejectedRecoveryAttempted: false,
         rejectedPersistedSource: 'native',
@@ -3958,8 +4265,11 @@ async function verifyAuthenticatedSnapshotRecoveryNoticeContract() {
         }),
         setIdentity: () => undefined,
         queuePendingLogbookMessage: (playerId, message) => {
+/** entries：定义该变量以承载业务值。 */
             const entries = queuedByPlayerId.get(playerId) ?? [];
+/** existingIndex：定义该变量以承载业务值。 */
             const existingIndex = entries.findIndex((entry) => entry.id === message.id);
+/** normalizedMessage：定义该变量以承载业务值。 */
             const normalizedMessage = {
                 id: message.id,
                 kind: message.kind,
@@ -4009,7 +4319,9 @@ async function verifyAuthenticatedSnapshotRecoveryNoticeContract() {
         emitSuggestionUpdate: () => undefined,
         emitMailSummaryForPlayer: async () => undefined,
         emitPendingLogbookMessages: (client, playerId) => {
+/** events：定义该变量以承载业务值。 */
             const events = [];
+/** proxyClient：定义该变量以承载业务值。 */
             const proxyClient = {
                 data: client?.data ?? {},
                 emit: (event, payload) => {
@@ -4023,8 +4335,11 @@ async function verifyAuthenticatedSnapshotRecoveryNoticeContract() {
             emittedEventsByPlayerId.set(playerId, events);
         },
     });
+/** runNoticeCase：执行对应的业务逻辑。 */
     async function runNoticeCase(persistedSource, expectedText) {
+/** playerId：定义该变量以承载业务值。 */
         const playerId = `proof_player_snapshot_recovery_notice_${persistedSource}`;
+/** client：定义该变量以承载业务值。 */
         const client = {
             id: `socket_snapshot_recovery_notice_${persistedSource}`,
             data: {
@@ -4049,7 +4364,9 @@ async function verifyAuthenticatedSnapshotRecoveryNoticeContract() {
                 y: 5,
             }),
         });
+/** queued：定义该变量以承载业务值。 */
         const queued = queuedByPlayerId.get(playerId) ?? [];
+/** emittedEvents：定义该变量以承载业务值。 */
         const emittedEvents = emittedEventsByPlayerId.get(playerId) ?? [];
         if (queued.length !== 1) {
             throw new Error(`expected authenticated snapshot recovery notice to queue exactly once for ${persistedSource}, got ${JSON.stringify(queued)}`);
@@ -4060,6 +4377,7 @@ async function verifyAuthenticatedSnapshotRecoveryNoticeContract() {
         if (typeof queued[0]?.text !== 'string' || !queued[0].text.includes(expectedText)) {
             throw new Error(`expected authenticated snapshot recovery notice text to include ${expectedText}, got ${JSON.stringify(queued[0] ?? null)}`);
         }
+/** emittedNotice：定义该变量以承载业务值。 */
         const emittedNotice = emittedEvents.find((entry) => entry.event === shared_1.NEXT_S2C.Notice
             && Array.isArray(entry.payload?.items)
             && entry.payload.items.some((noticeItem) => noticeItem?.messageId === queued[0]?.id
@@ -4092,9 +4410,13 @@ async function verifyAuthenticatedSnapshotRecoveryNoticeContract() {
         tokenSeedNotice,
     };
 }
+/** withLocalAuthTraceEnabled：执行对应的业务逻辑。 */
 async function withLocalAuthTraceEnabled(run) {
+/** previousServerEnv：定义该变量以承载业务值。 */
     const previousServerEnv = process.env.SERVER_NEXT_AUTH_TRACE_ENABLED;
+/** previousNextEnv：定义该变量以承载业务值。 */
     const previousNextEnv = process.env.NEXT_AUTH_TRACE_ENABLED;
+/** previousTraceState：定义该变量以承载业务值。 */
     const previousTraceState = globalThis.__NEXT_AUTH_TRACE;
     process.env.SERVER_NEXT_AUTH_TRACE_ENABLED = '1';
     process.env.NEXT_AUTH_TRACE_ENABLED = '1';
@@ -4124,8 +4446,11 @@ async function withLocalAuthTraceEnabled(run) {
         }
     }
 }
+/** findLatestSnapshotRecoveryTrace：执行对应的业务逻辑。 */
 function findLatestSnapshotRecoveryTrace(playerId) {
+/** trace：定义该变量以承载业务值。 */
     const trace = (0, world_player_token_service_1.readAuthTrace)();
+/** records：定义该变量以承载业务值。 */
     const records = Array.isArray(trace?.records) ? trace.records : [];
     for (let index = records.length - 1; index >= 0; index -= 1) {
         const entry = records[index];
@@ -4146,9 +4471,11 @@ function findLatestSnapshotRecoveryTrace(playerId) {
  */
 async function verifyAuthenticatedSnapshotRecoveryTraceContract() {
     return withLocalAuthTraceEnabled(async () => {
+/** previousRecoveryEnv：定义该变量以承载业务值。 */
         const previousRecoveryEnv = process.env.SERVER_NEXT_AUTH_ALLOW_NATIVE_SNAPSHOT_RECOVERY;
         process.env.SERVER_NEXT_AUTH_ALLOW_NATIVE_SNAPSHOT_RECOVERY = '1';
         try {
+/** bootstrapService：定义该变量以承载业务值。 */
         const bootstrapService = new world_session_bootstrap_service_1.WorldSessionBootstrapService(null, {
             isPersistenceEnabled: () => true,
             loadPlayerSnapshot: async () => null,
@@ -4167,6 +4494,7 @@ async function verifyAuthenticatedSnapshotRecoveryTraceContract() {
                 persistedSource: 'native',
             }),
         }, null, null, null, null, null, null, null, null);
+/** failureBootstrapService：定义该变量以承载业务值。 */
         const failureBootstrapService = new world_session_bootstrap_service_1.WorldSessionBootstrapService(null, {
             isPersistenceEnabled: () => true,
             loadPlayerSnapshot: async () => null,
@@ -4175,6 +4503,7 @@ async function verifyAuthenticatedSnapshotRecoveryTraceContract() {
                 failureStage: 'native_snapshot_recovery_seed_failed',
             }),
         }, null, null, null, null, null, null, null, null);
+/** tokenSeedPlayerId：定义该变量以承载业务值。 */
         const tokenSeedPlayerId = 'proof_player_snapshot_recovery_trace_token_seed';
         (0, world_player_token_service_1.clearAuthTrace)();
         await bootstrapService.loadAuthenticatedPlayerSnapshot({
@@ -4183,6 +4512,7 @@ async function verifyAuthenticatedSnapshotRecoveryTraceContract() {
             authSource: 'next',
             persistedSource: 'token_seed',
         });
+/** tokenSeedTrace：定义该变量以承载业务值。 */
         const tokenSeedTrace = findLatestSnapshotRecoveryTrace(tokenSeedPlayerId);
         if (tokenSeedTrace.entry?.outcome !== 'success'
             || tokenSeedTrace.entry?.reason !== 'persisted_source:token_seed'
@@ -4191,8 +4521,10 @@ async function verifyAuthenticatedSnapshotRecoveryTraceContract() {
             || Number(tokenSeedTrace.summary?.snapshotRecovery?.successCount ?? 0) < 1) {
             throw new Error(`expected token_seed snapshot recovery trace success record, got ${JSON.stringify(tokenSeedTrace)}`);
         }
+/** legacyBackfillPlayerId：定义该变量以承载业务值。 */
         const legacyBackfillPlayerId = 'proof_player_snapshot_recovery_trace_legacy_backfill';
         (0, world_player_token_service_1.clearAuthTrace)();
+/** legacyBackfillBlockedError：定义该变量以承载业务值。 */
         let legacyBackfillBlockedError = null;
         try {
             await bootstrapService.loadAuthenticatedPlayerSnapshot({
@@ -4205,6 +4537,7 @@ async function verifyAuthenticatedSnapshotRecoveryTraceContract() {
         catch (error) {
             legacyBackfillBlockedError = error;
         }
+/** legacyBackfillTrace：定义该变量以承载业务值。 */
         const legacyBackfillTrace = findLatestSnapshotRecoveryTrace(legacyBackfillPlayerId);
         if (!(legacyBackfillBlockedError instanceof Error)
             || legacyBackfillTrace.entry?.outcome !== 'blocked'
@@ -4213,8 +4546,10 @@ async function verifyAuthenticatedSnapshotRecoveryTraceContract() {
             || Number(legacyBackfillTrace.summary?.snapshotRecovery?.blockedCount ?? 0) < 1) {
             throw new Error(`expected legacy_backfill snapshot recovery trace blocked record, got error=${legacyBackfillBlockedError instanceof Error ? legacyBackfillBlockedError.message : String(legacyBackfillBlockedError)} trace=${JSON.stringify(legacyBackfillTrace)}`);
         }
+/** nativePlayerId：定义该变量以承载业务值。 */
         const nativePlayerId = 'proof_player_snapshot_recovery_trace_native';
         (0, world_player_token_service_1.clearAuthTrace)();
+/** nativeBlockedError：定义该变量以承载业务值。 */
         let nativeBlockedError = null;
         try {
             await bootstrapService.loadAuthenticatedPlayerSnapshot({
@@ -4227,6 +4562,7 @@ async function verifyAuthenticatedSnapshotRecoveryTraceContract() {
         catch (error) {
             nativeBlockedError = error;
         }
+/** nativeBlockedTrace：定义该变量以承载业务值。 */
         const nativeBlockedTrace = findLatestSnapshotRecoveryTrace(nativePlayerId);
         if (!(nativeBlockedError instanceof Error)
             || nativeBlockedTrace.entry?.outcome !== 'blocked'
@@ -4235,8 +4571,10 @@ async function verifyAuthenticatedSnapshotRecoveryTraceContract() {
             || Number(nativeBlockedTrace.summary?.snapshotRecovery?.blockedCount ?? 0) < 1) {
             throw new Error(`expected native snapshot recovery trace blocked record, got error=${nativeBlockedError instanceof Error ? nativeBlockedError.message : String(nativeBlockedError)} trace=${JSON.stringify(nativeBlockedTrace)}`);
         }
+/** failurePlayerId：定义该变量以承载业务值。 */
         const failurePlayerId = 'proof_player_snapshot_recovery_trace_failure';
         (0, world_player_token_service_1.clearAuthTrace)();
+/** failureError：定义该变量以承载业务值。 */
         let failureError = null;
         try {
             await failureBootstrapService.loadAuthenticatedPlayerSnapshot({
@@ -4249,6 +4587,7 @@ async function verifyAuthenticatedSnapshotRecoveryTraceContract() {
         catch (error) {
             failureError = error;
         }
+/** failureTrace：定义该变量以承载业务值。 */
         const failureTrace = findLatestSnapshotRecoveryTrace(failurePlayerId);
         if (!(failureError instanceof Error)
             || failureTrace.entry?.outcome !== 'failure'
@@ -4294,6 +4633,7 @@ async function verifyAuthenticatedSnapshotRecoveryTraceContract() {
  */
 async function verifyAuthenticatedSnapshotRecoveryBootstrapLinkContract() {
     return withLocalAuthTraceEnabled(async () => {
+/** previousRecoveryEnv：定义该变量以承载业务值。 */
         const previousRecoveryEnv = process.env.SERVER_NEXT_AUTH_ALLOW_NATIVE_SNAPSHOT_RECOVERY;
         process.env.SERVER_NEXT_AUTH_ALLOW_NATIVE_SNAPSHOT_RECOVERY = '1';
         try {
@@ -4366,7 +4706,9 @@ async function verifyAuthenticatedSnapshotRecoveryBootstrapLinkContract() {
  * 记录读取最新bootstrap trace。
  */
             const readLatestBootstrapTrace = (playerId) => {
+/** trace：定义该变量以承载业务值。 */
                 const trace = (0, world_player_token_service_1.readAuthTrace)();
+/** records：定义该变量以承载业务值。 */
                 const records = Array.isArray(trace?.records) ? trace.records : [];
                 for (let index = records.length - 1; index >= 0; index -= 1) {
                     const entry = records[index];
@@ -4386,8 +4728,11 @@ async function verifyAuthenticatedSnapshotRecoveryBootstrapLinkContract() {
  * 运行单个bootstrap恢复链证明。
  */
             const runBootstrapRecoveryCase = async (persistedSource) => {
+/** playerId：定义该变量以承载业务值。 */
                 const playerId = `proof_player_snapshot_recovery_bootstrap_${persistedSource}`;
+/** authSource：定义该变量以承载业务值。 */
                 const authSource = persistedSource === 'token_seed' ? 'token' : 'next';
+/** client：定义该变量以承载业务值。 */
                 const client = {
                     id: `socket_snapshot_recovery_bootstrap_${persistedSource}`,
                     data: {
@@ -4417,6 +4762,7 @@ async function verifyAuthenticatedSnapshotRecoveryBootstrapLinkContract() {
                         y: 5,
                     }),
                 });
+/** bootstrapTrace：定义该变量以承载业务值。 */
                 const bootstrapTrace = readLatestBootstrapTrace(playerId);
                 if (bootstrapTrace.entry?.identitySource !== 'next'
                     || bootstrapTrace.entry?.identityPersistedSource !== 'native'
@@ -4452,6 +4798,7 @@ async function verifyAuthenticatedSnapshotRecoveryBootstrapLinkContract() {
                     recoverySnapshotPersistedSource: bootstrapTrace.entry?.recoverySnapshotPersistedSource ?? null,
                 };
             };
+/** tokenSeedBootstrap：定义该变量以承载业务值。 */
             const tokenSeedBootstrap = await runBootstrapRecoveryCase('token_seed');
             return {
                 tokenSeedBootstrap,
@@ -4489,6 +4836,7 @@ async function verifyTokenSeedIdentityContract() {
  * 记录compatsnapshotcalls。
  */
     let compatSnapshotCalls = 0;
+/** starterSnapshotDeps：定义该变量以承载业务值。 */
     const starterSnapshotDeps = createAuthStarterSnapshotDeps();
 /**
  * 记录认证服务。
@@ -4545,6 +4893,7 @@ async function verifyTokenSeedIdentityContract() {
     if (compatIdentityCalls !== 0 || compatSnapshotCalls !== 0) {
         throw new Error(`expected token-seed identity path to avoid compat identity/snapshot lookup, got compatIdentityCalls=${compatIdentityCalls} compatSnapshotCalls=${compatSnapshotCalls}`);
     }
+/** nextStoreIdentity：定义该变量以承载业务值。 */
     const nextStoreIdentity = {
         userId: payload.sub,
         username: payload.username,
@@ -4554,6 +4903,7 @@ async function verifyTokenSeedIdentityContract() {
         persistedSource: 'token_seed',
         authSource: 'next',
     };
+/** nextStoreAuthService：定义该变量以承载业务值。 */
     const nextStoreAuthService = new world_player_auth_service_1.WorldPlayerAuthService({
         validatePlayerToken: () => payload,
         resolvePlayerIdentityFromPayload: () => ({
@@ -4596,6 +4946,7 @@ async function verifyTokenSeedIdentityContract() {
             failureStage: 'unexpected_compat_snapshot_seed',
         }),
     });
+/** nextProtocolIdentity：定义该变量以承载业务值。 */
     const nextProtocolIdentity = await nextStoreAuthService.authenticatePlayerToken('proof.token.token_seed', {
         protocol: 'next',
     });
@@ -4605,8 +4956,11 @@ async function verifyTokenSeedIdentityContract() {
     if (nextProtocolIdentity.persistedSource !== 'token_seed') {
         throw new Error(`expected next protocol token_seed identity store hit to keep persistedSource=token_seed, got ${JSON.stringify(nextProtocolIdentity)}`);
     }
+/** tokenSeedBootstrapService：定义该变量以承载业务值。 */
     const tokenSeedBootstrapService = new world_session_bootstrap_service_1.WorldSessionBootstrapService(null, null, null, null, null, null, null, null, null, null);
+/** tokenSeedGateway：定义该变量以承载业务值。 */
     const tokenSeedGateway = new world_gateway_1.WorldGateway(null, null, tokenSeedBootstrapService, null, null, null, null, null, null, null, null, null);
+/** tokenSeedClient：定义该变量以承载业务值。 */
     const tokenSeedClient = {
         id: 'proof_socket_token_seed_reuse',
         handshake: {
@@ -4621,9 +4975,13 @@ async function verifyTokenSeedIdentityContract() {
             bootstrapIdentityPersistedSource: 'token_seed',
         },
     };
+/** tokenSeedRequestedSessionIdAllowed：定义该变量以承载业务值。 */
     const tokenSeedRequestedSessionIdAllowed = tokenSeedBootstrapService.shouldAllowRequestedDetachedResume(tokenSeedClient);
+/** tokenSeedConnectedSessionReuseAllowed：定义该变量以承载业务值。 */
     const tokenSeedConnectedSessionReuseAllowed = tokenSeedBootstrapService.shouldAllowConnectedSessionReuse(tokenSeedClient);
+/** tokenSeedImplicitDetachedResumeAllowed：定义该变量以承载业务值。 */
     const tokenSeedImplicitDetachedResumeAllowed = tokenSeedBootstrapService.shouldAllowImplicitDetachedResume(tokenSeedClient);
+/** tokenSeedBootstrapInput：定义该变量以承载业务值。 */
     const tokenSeedBootstrapInput = tokenSeedGateway.buildAuthenticatedBootstrapInput(tokenSeedClient, nextProtocolIdentity);
     if (tokenSeedBootstrapInput.requestedSessionId !== 'token_seed_requested_session') {
         throw new Error(`expected next protocol token_seed identity store hit to preserve requestedSessionId through gateway bootstrap input, got ${tokenSeedBootstrapInput.requestedSessionId}`);
@@ -4631,6 +4989,7 @@ async function verifyTokenSeedIdentityContract() {
     if (!tokenSeedRequestedSessionIdAllowed || !tokenSeedConnectedSessionReuseAllowed || !tokenSeedImplicitDetachedResumeAllowed) {
         throw new Error(`expected token/token_seed bootstrap session reuse policy to allow reuse, got implicit=${tokenSeedImplicitDetachedResumeAllowed} requested=${tokenSeedRequestedSessionIdAllowed} connected=${tokenSeedConnectedSessionReuseAllowed}`);
     }
+/** promotedIdentity：定义该变量以承载业务值。 */
     const promotedIdentity = await nextStoreAuthService.promoteTokenSeedIdentityToNative(nextProtocolIdentity);
     if (!promotedIdentity || promotedIdentity.authSource !== 'next' || promotedIdentity.persistedSource !== 'native') {
         throw new Error(`expected token_seed identity promotion to normalize into next/native, got ${JSON.stringify(promotedIdentity)}`);
@@ -4682,6 +5041,7 @@ async function verifyTokenSeedNativeStarterSnapshotContract() {
  * 记录savedsnapshotoptions。
  */
     let savedSnapshotOptions = null;
+/** starterSnapshotDeps：定义该变量以承载业务值。 */
     const starterSnapshotDeps = createAuthStarterSnapshotDeps();
 /**
  * 记录认证服务。
@@ -4710,6 +5070,7 @@ async function verifyTokenSeedNativeStarterSnapshotContract() {
         },
     }, {
         ensureNativeStarterSnapshot: async (playerId) => {
+/** snapshot：定义该变量以承载业务值。 */
             const snapshot = starterSnapshotDeps.playerRuntimeService.buildStarterPersistenceSnapshot(playerId);
             savedSnapshot = snapshot;
             savedSnapshotOptions = {
@@ -4771,6 +5132,7 @@ async function verifyTokenSeedNativeStarterSnapshotContract() {
  * 验证 with-db token_seed 在缺失 next identity 与 compat snapshot 时，能直接 bootstrap 为 next-native starter snapshot。
  */
 async function verifyTokenSeedNativeStarterBootstrapProof() {
+/** expectedRecoveryIdentityPersistedSource：定义该变量以承载业务值。 */
     const expectedRecoveryIdentityPersistedSource = 'token_seed';
 /**
  * 记录认证。
@@ -4844,6 +5206,7 @@ async function verifyTokenSeedNativeStarterBootstrapProof() {
         }
         await expectPersistedIdentityDocument(userId, true);
         await expectPersistedPlayerSnapshotDocument(playerId, true);
+/** persistedIdentityPayload：定义该变量以承载业务值。 */
         const persistedIdentityPayload = await readPersistedIdentityPayload(userId, 'token-seed native starter bootstrap proof');
         if (persistedIdentityPayload?.persistedSource !== 'native') {
             throw new Error(`expected token-seed native starter bootstrap to promote persisted identity to native, got ${JSON.stringify(persistedIdentityPayload)}`);
@@ -4869,6 +5232,7 @@ async function verifyTokenSeedNativeStarterBootstrapProof() {
         if (runtimeItems.length < 1) {
             throw new Error(`expected token-seed native starter bootstrap runtime inventory to keep starter items, got ${JSON.stringify(state?.player?.inventory ?? null)}`);
         }
+/** recoveryNotice：定义该变量以承载业务值。 */
         const recoveryNotice = Array.isArray(bootstrap.noticeItems)
             ? bootstrap.noticeItems.find((entry) => entry?.messageId === `snapshot_recovery:${playerId}:${expectedRecoveryIdentityPersistedSource}`)
             : null;
@@ -4891,6 +5255,7 @@ async function verifyTokenSeedNativeStarterBootstrapProof() {
             starterInventoryCount: runtimeItems.length,
             bootstrapSessionId: bootstrap.sessionId ?? null,
             recoveryNoticeKind: recoveryNotice.kind ?? null,
+/** recoveryNoticePersistUntilAck：定义该变量以承载业务值。 */
             recoveryNoticePersistUntilAck: recoveryNotice.persistUntilAck === true,
         };
     }
@@ -4918,6 +5283,7 @@ async function verifyTokenSeedPersistFailureContract() {
  * 记录compatidentitycalls。
  */
     let compatIdentityCalls = 0;
+/** starterSnapshotDeps：定义该变量以承载业务值。 */
     const starterSnapshotDeps = createAuthStarterSnapshotDeps();
 /**
  * 记录认证服务。
@@ -4970,6 +5336,7 @@ async function verifyTokenSeedPersistFailureContract() {
         throw new Error(`expected token-seed persist failure to avoid compat identity fallback, got compatIdentityCalls=${compatIdentityCalls}`);
     }
     return {
+/** accepted：定义该变量以承载业务值。 */
         accepted: identity !== null,
         compatIdentityCalls,
         persistFailureStage: 'token_seed_save_failed',
@@ -5053,6 +5420,7 @@ async function verifyStrictNativeCompatSnapshotIgnoredContract() {
         await expectPersistedIdentityDocument(userId, true);
         await expectPersistedPlayerSnapshotDocument(playerId, true);
         await expectLegacyCompatPlayerSnapshotDocument(playerId, true);
+/** persistedIdentityPayload：定义该变量以承载业务值。 */
         const persistedIdentityPayload = await readPersistedIdentityPayload(userId, 'strict-native compat-snapshot ignored proof');
         if (persistedIdentityPayload?.persistedSource !== 'native') {
             throw new Error(`expected strict-native compat-snapshot ignored proof to promote persisted identity to native, got ${JSON.stringify(persistedIdentityPayload)}`);
@@ -5078,6 +5446,7 @@ async function verifyStrictNativeCompatSnapshotIgnoredContract() {
         if (runtimeItems.length < 1) {
             throw new Error(`expected strict-native compat-snapshot ignored runtime inventory to keep starter items, got ${JSON.stringify(state?.player?.inventory ?? null)}`);
         }
+/** recoveryNotice：定义该变量以承载业务值。 */
         const recoveryNotice = Array.isArray(bootstrap.noticeItems)
             ? bootstrap.noticeItems.find((entry) => entry?.messageId === `snapshot_recovery:${playerId}:token_seed`)
             : null;
@@ -5101,6 +5470,7 @@ async function verifyStrictNativeCompatSnapshotIgnoredContract() {
             starterInventoryCount: runtimeItems.length,
             bootstrapSessionId: bootstrap.sessionId ?? null,
             recoveryNoticeKind: recoveryNotice.kind ?? null,
+/** recoveryNoticePersistUntilAck：定义该变量以承载业务值。 */
             recoveryNoticePersistUntilAck: recoveryNotice.persistUntilAck === true,
         };
     }
@@ -5119,7 +5489,9 @@ async function verifyAuthPreseedSnapshotServiceUnavailableContract() {
  * 记录读取最新身份trace。
  */
         const readLatestIdentityTrace = (playerId) => {
+/** trace：定义该变量以承载业务值。 */
             const trace = (0, world_player_token_service_1.readAuthTrace)();
+/** records：定义该变量以承载业务值。 */
             const records = Array.isArray(trace?.records) ? trace.records : [];
             for (let index = records.length - 1; index >= 0; index -= 1) {
                 const entry = records[index];
@@ -5180,6 +5552,7 @@ async function verifyAuthPreseedSnapshotServiceUnavailableContract() {
         if (tokenIdentity !== null) {
             throw new Error(`expected missing snapshot service on token preseed path to reject auth, got ${JSON.stringify(tokenIdentity)}`);
         }
+/** tokenTrace：定义该变量以承载业务值。 */
         const tokenTrace = readLatestIdentityTrace(tokenPayload.playerId);
         if (tokenCompatIdentityCalls !== 0
             || tokenTrace.entry?.source !== 'token_preseed_blocked'
@@ -5233,6 +5606,7 @@ async function verifyAuthPreseedSnapshotServiceUnavailableContract() {
         if (legacyIdentity !== null) {
             throw new Error(`expected missing snapshot service on legacy preseed path to reject auth, got ${JSON.stringify(legacyIdentity)}`);
         }
+/** legacyTrace：定义该变量以承载业务值。 */
         const legacyTrace = readLatestIdentityTrace('proof_player_legacy_preseed_service_unavailable');
         if (legacyCompatIdentityCalls !== 0
             || legacyTrace.entry !== null
@@ -5259,6 +5633,7 @@ async function verifyAuthPreseedSnapshotServiceUnavailableContract() {
  * 处理校验snapshotsequence。
  */
 async function verifySnapshotSequence(token, playerId, firstAuthTrace, options = {}) {
+/** includeMigrationProofs：定义该变量以承载业务值。 */
     const includeMigrationProofs = options?.includeMigrationProofs !== false;
     if (!firstAuthTrace) {
         return null;
@@ -5271,11 +5646,13 @@ async function verifySnapshotSequence(token, playerId, firstAuthTrace, options =
  * 记录firstsnapshotpersisted来源。
  */
     const firstSnapshotPersistedSource = firstAuthTrace.snapshotPersistedSource ?? null;
+/** firstSnapshotWasNativeNormalizedNext：定义该变量以承载业务值。 */
     const firstSnapshotWasNativeNormalizedNext = firstSnapshotSource === 'next'
         && firstSnapshotPersistedSource === 'native';
     if (!firstSnapshotWasNativeNormalizedNext) {
         return {
             supported: false,
+/** reason：定义该变量以承载业务值。 */
             reason: firstSnapshotSource === 'next'
                 ? `first_snapshot_persisted_source=${firstSnapshotPersistedSource ?? 'unknown'}`
                 : `first_snapshot_source=${firstSnapshotSource ?? 'unknown'}`,
@@ -5301,9 +5678,11 @@ async function verifySnapshotSequence(token, playerId, firstAuthTrace, options =
     const secondAuthTrace = await waitForAuthTrace(playerId, secondBootstrap.sessionId ?? null, {
         requireReject: false,
     });
+/** secondIdentityIsLoadedNext：定义该变量以承载业务值。 */
     const secondIdentityIsLoadedNext = secondAuthTrace.identitySource === 'next'
         && (secondAuthTrace.identityPersistedSource === 'legacy_sync'
             || secondAuthTrace.identityPersistedSource === 'native');
+/** secondIdentityIsTokenSeedBootstrap：定义该变量以承载业务值。 */
     const secondIdentityIsTokenSeedBootstrap = secondAuthTrace.identitySource === 'token'
         && secondAuthTrace.identityPersistedSource === 'token_seed';
     if (DATABASE_ENABLED && !(secondIdentityIsLoadedNext || secondIdentityIsTokenSeedBootstrap)) {
@@ -5564,6 +5943,7 @@ async function verifyCompatIdentityBackfillNativeStarterSnapshot(token, playerId
     }
     await expectPersistedIdentityDocument(userId, true);
     await expectPersistedPlayerSnapshotDocument(playerId, true);
+/** persistedIdentityPayload：定义该变量以承载业务值。 */
     const persistedIdentityPayload = await readPersistedIdentityPayload(userId, 'compat-identity-backfill native-starter snapshot proof');
     if (persistedIdentityPayload?.persistedSource !== 'native') {
         throw new Error(`expected compat-identity-backfill native-starter snapshot to promote persisted identity to native, got ${JSON.stringify(persistedIdentityPayload)}`);
@@ -5589,6 +5969,7 @@ async function verifyCompatIdentityBackfillNativeStarterSnapshot(token, playerId
     if (runtimeItems.length < 1) {
         throw new Error(`expected compat-identity-backfill native-starter runtime inventory to keep starter items, got ${JSON.stringify(state?.player?.inventory ?? null)}`);
     }
+/** recoveryNotice：定义该变量以承载业务值。 */
     const recoveryNotice = Array.isArray(bootstrap.noticeItems)
         ? bootstrap.noticeItems.find((entry) => entry?.messageId === `snapshot_recovery:${playerId}:token_seed`)
         : null;
@@ -5611,6 +5992,7 @@ async function verifyCompatIdentityBackfillNativeStarterSnapshot(token, playerId
         starterInventoryCount: runtimeItems.length,
         bootstrapSessionId: bootstrap.sessionId ?? null,
         recoveryNoticeKind: recoveryNotice.kind ?? null,
+/** recoveryNoticePersistUntilAck：定义该变量以承载业务值。 */
         recoveryNoticePersistUntilAck: recoveryNotice.persistUntilAck === true,
     };
 }
@@ -6158,8 +6540,11 @@ async function registerAndLoginPlayer(accountSuffix, displayName, roleName) {
  * 记录password。
  */
     const password = `Pass_${accountSuffix}`;
+/** currentDisplayName：定义该变量以承载业务值。 */
     let currentDisplayName = displayName;
+/** currentRoleName：定义该变量以承载业务值。 */
     let currentRoleName = roleName;
+/** registered：定义该变量以承载业务值。 */
     let registered = false;
     for (let attempt = 0; attempt < 4; attempt += 1) {
         try {
@@ -6176,11 +6561,14 @@ async function registerAndLoginPlayer(accountSuffix, displayName, roleName) {
             break;
         }
         catch (error) {
+/** message：定义该变量以承载业务值。 */
             const message = error instanceof Error ? error.message : String(error);
+/** conflictMessage：定义该变量以承载业务值。 */
             const conflictMessage = /已存在|already exists|duplicate/i.test(message);
             if (!conflictMessage || attempt >= 3) {
                 throw error;
             }
+/** retrySuffix：定义该变量以承载业务值。 */
             const retrySuffix = `${suffix.slice(-4)}${attempt}`.slice(0, 5);
             accountName = `acct_${accountSuffix}_${attempt}`;
             currentDisplayName = buildRetryDisplayName(displayName, retrySuffix, attempt + 1);
@@ -6244,8 +6632,11 @@ function parseTokenIdentity(token) {
  */
     const playerName = typeof payload?.playerName === 'string' ? payload.playerName.trim() : '';
     return {
+/** userId：定义该变量以承载业务值。 */
         userId: typeof payload?.sub === 'string' ? payload.sub.trim() : '',
+/** username：定义该变量以承载业务值。 */
         username: typeof payload?.username === 'string' ? payload.username.trim() : '',
+/** displayName：定义该变量以承载业务值。 */
         displayName: typeof payload?.displayName === 'string' ? payload.displayName.trim() : '',
         playerId,
         playerName,
@@ -6426,6 +6817,7 @@ async function waitForFailedIdentitySourceAuthTrace(userId, playerId, expectedSo
         if (!trace?.enabled || !Array.isArray(trace.records)) {
             throw new Error(`unexpected auth trace payload: ${JSON.stringify(payload)}`);
         }
+/** identityIndex：定义该变量以承载业务值。 */
         let identityIndex = -1;
         for (let index = trace.records.length - 1; index >= 0; index -= 1) {
             const entry = trace.records[index];
@@ -6440,12 +6832,15 @@ async function waitForFailedIdentitySourceAuthTrace(userId, playerId, expectedSo
         if (identityIndex < 0) {
             return null;
         }
+/** acceptIndex：定义该变量以承载业务值。 */
         const acceptIndex = trace.records.findIndex((entry, index) => index < identityIndex
             && entry?.type === 'token'
             && entry?.outcome === 'accept');
+/** hasSnapshotAfterIdentity：定义该变量以承载业务值。 */
         const hasSnapshotAfterIdentity = trace.records.some((entry, index) => index > identityIndex
             && entry?.type === 'snapshot'
             && entry?.playerId === playerId);
+/** hasBootstrapAfterIdentity：定义该变量以承载业务值。 */
         const hasBootstrapAfterIdentity = trace.records.some((entry, index) => index > identityIndex
             && entry?.type === 'bootstrap'
             && entry?.playerId === playerId);
@@ -6467,8 +6862,11 @@ async function waitForFailedIdentitySourceAuthTrace(userId, playerId, expectedSo
         enabled: trace.enabled,
         recordCount: trace.records.length,
         identitySource: identity?.source ?? null,
+/** identityPersistAttempted：定义该变量以承载业务值。 */
         identityPersistAttempted: identity?.persistAttempted === true,
+/** identityPersistSucceeded：定义该变量以承载业务值。 */
         identityPersistSucceeded: identity?.persistSucceeded === true ? true : identity?.persistSucceeded === false ? false : null,
+/** identityPersistFailureStage：定义该变量以承载业务值。 */
         identityPersistFailureStage: typeof identity?.persistFailureStage === 'string' ? identity.persistFailureStage : null,
         snapshotPresent: trace.records.some((entry) => entry?.type === 'snapshot' && entry?.playerId === playerId),
         bootstrapPresent: trace.records.some((entry) => entry?.type === 'bootstrap' && entry?.playerId === playerId),
@@ -6631,11 +7029,13 @@ async function waitForAuthTrace(playerId, sessionId, options = undefined) {
         throw new Error(`identity trace inconsistent: source=migration_backfill requires successful persistence, got ${JSON.stringify(identity)}`);
     }
     if (identity.source === 'token') {
+/** tokenFreshSeed：定义该变量以承载业务值。 */
         const tokenFreshSeed = identity.persistenceEnabled === true
             && identity.persistAttempted === true
             && identity.persistSucceeded === true
             && identity.nextLoadHit !== true
             && identity.compatTried === false;
+/** tokenLoadHit：定义该变量以承载业务值。 */
         const tokenLoadHit = identity.persistenceEnabled === true
             && identity.nextLoadHit === true
             && identity.persistAttempted === false
@@ -6682,16 +7082,23 @@ async function waitForAuthTrace(playerId, sessionId, options = undefined) {
         tokenRejectReason: reject?.reason ?? null,
         tokenAcceptSubject: accept.userId ?? accept.playerId ?? null,
         identitySource: identity.source ?? null,
+/** identityPersistedSource：定义该变量以承载业务值。 */
         identityPersistedSource: typeof identity.persistedSource === 'string' ? identity.persistedSource : null,
+/** identityPersistenceEnabled：定义该变量以承载业务值。 */
         identityPersistenceEnabled: identity.persistenceEnabled === true,
+/** identityNextLoadHit：定义该变量以承载业务值。 */
         identityNextLoadHit: identity.nextLoadHit === true,
+/** identityCompatTried：定义该变量以承载业务值。 */
         identityCompatTried: identity.compatTried === true,
+/** identityPersistAttempted：定义该变量以承载业务值。 */
         identityPersistAttempted: identity.persistAttempted === true,
+/** identityPersistSucceeded：定义该变量以承载业务值。 */
         identityPersistSucceeded: identity.persistSucceeded === true
             ? true
             : identity.persistSucceeded === false
                 ? false
                 : null,
+/** identityPersistFailureStage：定义该变量以承载业务值。 */
         identityPersistFailureStage: typeof identity.persistFailureStage === 'string'
             ? identity.persistFailureStage
             : null,
@@ -6701,14 +7108,21 @@ async function waitForAuthTrace(playerId, sessionId, options = undefined) {
         traceSummaryIdentityPersistSucceededCount: Number(summary.identity.persistSucceededCount ?? 0),
         snapshotSource: snapshot.source ?? null,
         snapshotPersistedSource: snapshot.persistedSource ?? null,
+/** snapshotRecoveryOutcome：定义该变量以承载业务值。 */
         snapshotRecoveryOutcome: typeof snapshotRecovery?.outcome === 'string' ? snapshotRecovery.outcome : null,
+/** snapshotRecoveryReason：定义该变量以承载业务值。 */
         snapshotRecoveryReason: typeof snapshotRecovery?.reason === 'string' ? snapshotRecovery.reason : null,
+/** snapshotRecoveryPersistedSource：定义该变量以承载业务值。 */
         snapshotRecoveryPersistedSource: typeof snapshotRecovery?.persistedSource === 'string' ? snapshotRecovery.persistedSource : null,
+/** snapshotRecoveryIdentityPersistedSource：定义该变量以承载业务值。 */
         snapshotRecoveryIdentityPersistedSource: typeof snapshotRecovery?.identityPersistedSource === 'string'
             ? snapshotRecovery.identityPersistedSource
             : null,
+/** snapshotRecoveryFailureStage：定义该变量以承载业务值。 */
         snapshotRecoveryFailureStage: typeof snapshotRecovery?.failureStage === 'string' ? snapshotRecovery.failureStage : null,
+/** snapshotFallbackReason：定义该变量以承载业务值。 */
         snapshotFallbackReason: typeof snapshot.fallbackReason === 'string' ? snapshot.fallbackReason : null,
+/** snapshotSeedPersisted：定义该变量以承载业务值。 */
         snapshotSeedPersisted: snapshot.seedPersisted === true,
         traceSummarySnapshotFallbackReasonCounts: summary.snapshot.fallbackReasonCounts ?? {},
         traceSummarySnapshotRecoveryCount: Number(summary.snapshotRecovery?.count ?? 0),
@@ -6719,15 +7133,25 @@ async function waitForAuthTrace(playerId, sessionId, options = undefined) {
         bootstrapProtocol: bootstrap.protocol ?? null,
         bootstrapEntryPath: bootstrap.entryPath ?? null,
         bootstrapIdentitySource: bootstrap.identitySource ?? null,
+/** bootstrapIdentityPersistedSource：定义该变量以承载业务值。 */
         bootstrapIdentityPersistedSource: typeof bootstrap.identityPersistedSource === 'string' ? bootstrap.identityPersistedSource : null,
+/** bootstrapSnapshotSource：定义该变量以承载业务值。 */
         bootstrapSnapshotSource: typeof bootstrap.snapshotSource === 'string' ? bootstrap.snapshotSource : null,
+/** bootstrapSnapshotPersistedSource：定义该变量以承载业务值。 */
         bootstrapSnapshotPersistedSource: typeof bootstrap.snapshotPersistedSource === 'string' ? bootstrap.snapshotPersistedSource : null,
+/** bootstrapLinkedIdentitySource：定义该变量以承载业务值。 */
         bootstrapLinkedIdentitySource: typeof bootstrap.linkedIdentitySource === 'string' ? bootstrap.linkedIdentitySource : null,
+/** bootstrapLinkedSnapshotSource：定义该变量以承载业务值。 */
         bootstrapLinkedSnapshotSource: typeof bootstrap.linkedSnapshotSource === 'string' ? bootstrap.linkedSnapshotSource : null,
+/** bootstrapLinkedSnapshotPersistedSource：定义该变量以承载业务值。 */
         bootstrapLinkedSnapshotPersistedSource: typeof bootstrap.linkedSnapshotPersistedSource === 'string' ? bootstrap.linkedSnapshotPersistedSource : null,
+/** bootstrapRecoveryOutcome：定义该变量以承载业务值。 */
         bootstrapRecoveryOutcome: typeof bootstrap.recoveryOutcome === 'string' ? bootstrap.recoveryOutcome : null,
+/** bootstrapRecoveryReason：定义该变量以承载业务值。 */
         bootstrapRecoveryReason: typeof bootstrap.recoveryReason === 'string' ? bootstrap.recoveryReason : null,
+/** bootstrapRecoveryIdentityPersistedSource：定义该变量以承载业务值。 */
         bootstrapRecoveryIdentityPersistedSource: typeof bootstrap.recoveryIdentityPersistedSource === 'string' ? bootstrap.recoveryIdentityPersistedSource : null,
+/** bootstrapRecoverySnapshotPersistedSource：定义该变量以承载业务值。 */
         bootstrapRecoverySnapshotPersistedSource: typeof bootstrap.recoverySnapshotPersistedSource === 'string' ? bootstrap.recoverySnapshotPersistedSource : null,
         traceSummaryBootstrapRequestedSessionCount: Number(summary.bootstrap.requestedSessionCount ?? 0),
         traceSummaryBootstrapEntryPathCount: readSummaryCount(summary.bootstrap.entryPathCounts, bootstrap.entryPath),
@@ -6844,9 +7268,11 @@ async function seedLegacyCompatPlayerSnapshot(identity) {
         connectionString: SERVER_NEXT_DATABASE_URL,
     });
     try {
+/** normalizedUsername：定义该变量以承载业务值。 */
         const normalizedUsername = typeof identity.username === 'string' && identity.username.trim()
             ? identity.username.trim()
             : `legacy_${identity.userId}`;
+/** normalizedDisplayName：定义该变量以承载业务值。 */
         const normalizedDisplayName = typeof identity.displayName === 'string' && identity.displayName.trim()
             ? identity.displayName.trim()
             : identity.playerName;
@@ -6952,7 +7378,9 @@ async function hasLegacyCompatPlayerSnapshotDocument(playerId) {
  */
 async function ensureLegacyCompatPlayerSnapshotDocument(identity) {
     await seedLegacyCompatPlayerSnapshot(identity);
+/** seeded：定义该变量以承载业务值。 */
     const seeded = await waitForValue(async () => {
+/** exists：定义该变量以承载业务值。 */
         const exists = await hasLegacyCompatPlayerSnapshotDocument(identity.playerId);
         return exists ? true : null;
     }, 3000, `legacyCompatPlayerSnapshot:${identity.playerId}`);
@@ -7121,6 +7549,7 @@ async function readPersistedPlayerSnapshotPayload(playerId, errorContext) {
         await pool.end().catch(() => undefined);
     }
 }
+/** readPersistedIdentityPayload：执行对应的业务逻辑。 */
 async function readPersistedIdentityPayload(userId, errorContext) {
 /**
  * 记录pool。
@@ -7292,11 +7721,14 @@ async function writePersistedPlayerSnapshotDocument(playerId, persistedSource = 
  */
 async function ensurePersistedPlayerSnapshotDocument(playerId, persistedSource = 'native') {
     await writePersistedPlayerSnapshotDocument(playerId, persistedSource);
+/** visible：定义该变量以承载业务值。 */
     const visible = await waitForValue(async () => {
+/** pool：定义该变量以承载业务值。 */
         const pool = new pg_1.Pool({
             connectionString: SERVER_NEXT_DATABASE_URL,
         });
         try {
+/** result：定义该变量以承载业务值。 */
             const result = await pool.query('SELECT 1 FROM persistent_documents WHERE scope = $1 AND key = $2 LIMIT 1', ['server_next_player_snapshots_v1', playerId]).catch(ignoreMissingCompatCleanupError);
             return Array.isArray(result?.rows) && result.rows.length > 0 ? true : null;
         }
@@ -7696,6 +8128,7 @@ function normalizePersistedIdentity(identity) {
         displayName,
         playerId,
         playerName,
+/** persistedSource：定义该变量以承载业务值。 */
         persistedSource: typeof identity.persistedSource === 'string' && identity.persistedSource.trim()
             ? identity.persistedSource.trim()
             : undefined,
@@ -7715,6 +8148,7 @@ async function requestJson(path, init) {
  */
     const response = await fetch(`${SERVER_NEXT_URL}${path}`, {
         method: init?.method ?? 'GET',
+/** headers：定义该变量以承载业务值。 */
         headers: body === undefined ? undefined : {
             'content-type': 'application/json',
         },
@@ -7786,23 +8220,33 @@ function delay(ms) {
 function buildUniqueDisplayName(seed) {
     return buildRetryDisplayName('鉴', seed, 0);
 }
+/** buildRetryDisplayName：执行对应的业务逻辑。 */
 function buildRetryDisplayName(base, suffixSeed, offset = 0) {
+/** prefix：定义该变量以承载业务值。 */
     const prefix = typeof base === 'string' && base.trim() ? base.trim().charAt(0) : '鉴';
     return buildSingleDisplayNameChar(`${prefix}:${suffixSeed}`, offset);
 }
+/** buildRetryRoleName：执行对应的业务逻辑。 */
 function buildRetryRoleName(base, suffixSeed) {
+/** prefix：定义该变量以承载业务值。 */
     const prefix = typeof base === 'string' && base.trim() ? base.trim().slice(0, 6) : '鉴角';
     return `${prefix}${buildCompactSeed(suffixSeed, 4)}`.slice(0, 12);
 }
+/** buildSingleDisplayNameChar：执行对应的业务逻辑。 */
 function buildSingleDisplayNameChar(seed, offset = 0) {
+/** charStart：定义该变量以承载业务值。 */
     const charStart = 0x4E00;
+/** charSpan：定义该变量以承载业务值。 */
     const charSpan = 0x9FFF - charStart + 1;
+/** codePoint：定义该变量以承载业务值。 */
     const codePoint = charStart + ((computeSeedHash(seed) + offset) % charSpan);
     return String.fromCodePoint(codePoint);
 }
+/** buildCompactSeed：执行对应的业务逻辑。 */
 function buildCompactSeed(seed, width) {
     return computeSeedHash(seed).toString(36).padStart(width, '0').slice(-width);
 }
+/** computeSeedHash：执行对应的业务逻辑。 */
 function computeSeedHash(seed) {
 /**
  * 记录hash。
@@ -7846,12 +8290,17 @@ const { helperFunctionNames } = require('./next-auth-bootstrap-smoke/helpers');
 const { fixtureFunctionNames } = require('./next-auth-bootstrap-smoke/fixtures');
 const { buildVerifyFunctionNames } = require('./next-auth-bootstrap-smoke/contract-verifiers');
 
+/** coreSource：定义该变量以承载业务值。 */
 const coreSource = (() => {
+/** fs：定义该变量以承载业务值。 */
     const fs = require('node:fs');
     return fs.readFileSync(__filename, 'utf8');
 })();
+/** declaredFunctionNames：定义该变量以承载业务值。 */
 const declaredFunctionNames = Array.from(coreSource.matchAll(/^\s*(?:async\s+)?function\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*\(/gm), (match) => match[1]);
+/** collectExports：执行对应的业务逻辑。 */
 function collectExports(names) {
+/** result：定义该变量以承载业务值。 */
     const result = {};
     for (const name of names) {
         let value;
@@ -7867,9 +8316,13 @@ function collectExports(names) {
     }
     return result;
 }
+/** helperFunctions：定义该变量以承载业务值。 */
 const helperFunctions = collectExports(helperFunctionNames);
+/** fixtureFunctions：定义该变量以承载业务值。 */
 const fixtureFunctions = collectExports(fixtureFunctionNames);
+/** verifyFunctionNames：定义该变量以承载业务值。 */
 const verifyFunctionNames = buildVerifyFunctionNames(declaredFunctionNames, helperFunctions, fixtureFunctions);
+/** verifyFunctions：定义该变量以承载业务值。 */
 const verifyFunctions = collectExports(verifyFunctionNames);
 
 module.exports = {

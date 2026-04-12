@@ -7,11 +7,14 @@ import { preserveSelection } from './selection-preserver';
 
 /** 弹层配置项 */
 type DetailModalOptions = {
+/** ownerId：定义该变量以承载业务值。 */
   ownerId: string;
   variantClass?: string;
+/** title：定义该变量以承载业务值。 */
   title: string;
   subtitle?: string;
   hint?: string;
+/** bodyHtml：定义该变量以承载业务值。 */
   bodyHtml: string;
   onClose?: () => void;
   onAfterRender?: (body: HTMLElement) => void;
@@ -25,6 +28,7 @@ class DetailModalHost {
   private subtitle = document.getElementById('detail-modal-subtitle')!;
   private hint = document.getElementById('detail-modal-hint')!;
   private body = document.getElementById('detail-modal-body')!;
+/** ownerId：定义该变量以承载业务值。 */
   private ownerId: string | null = null;
   private onClose: (() => void) | null = null;
   private variantClass = '';
@@ -63,6 +67,7 @@ class DetailModalHost {
     return this.ownerId === ownerId && !this.modal.classList.contains('hidden');
   }
 
+/** ensureInitialized：执行对应的业务逻辑。 */
   private ensureInitialized(): void {
     if (this.initialized) return;
     this.initialized = true;
@@ -79,8 +84,10 @@ class DetailModalHost {
     });
   }
 
+/** dismiss：执行对应的业务逻辑。 */
   private dismiss(notify: boolean): void {
     if (!this.ownerId && this.modal.classList.contains('hidden')) return;
+/** onClose：定义该变量以承载业务值。 */
     const onClose = this.onClose;
     this.ownerId = null;
     this.onClose = null;
@@ -93,6 +100,7 @@ class DetailModalHost {
     }
   }
 
+/** setVariantClass：执行对应的业务逻辑。 */
   private setVariantClass(nextClass: string): void {
     if (this.variantClass) {
       this.modal.classList.remove(this.variantClass);
@@ -106,5 +114,6 @@ class DetailModalHost {
   }
 }
 
+/** detailModalHost：定义该变量以承载业务值。 */
 export const detailModalHost = new DetailModalHost();
 

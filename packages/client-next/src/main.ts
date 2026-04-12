@@ -148,91 +148,156 @@ import {
   isPlainEqual,
 } from '@mud/shared-next';
 
+/** canvasHost：定义该变量以承载业务值。 */
 const canvasHost = document.getElementById('game-stage') as HTMLElement;
+/** zoomSlider：定义该变量以承载业务值。 */
 const zoomSlider = document.getElementById('zoom-slider') as HTMLInputElement | null;
+/** zoomLevelEl：定义该变量以承载业务值。 */
 const zoomLevelEl = document.getElementById('zoom-level');
+/** zoomResetBtn：定义该变量以承载业务值。 */
 const zoomResetBtn = document.getElementById('zoom-reset') as HTMLButtonElement | null;
+/** tickRateEl：定义该变量以承载业务值。 */
 const tickRateEl = document.getElementById('map-tick-rate');
 
 scheduleDeferredLocalContentPreload();
+/** currentTimeEl：定义该变量以承载业务值。 */
 const currentTimeEl = document.getElementById('map-current-time');
+/** currentTimeValueEl：定义该变量以承载业务值。 */
 const currentTimeValueEl = document.getElementById('map-current-time-value');
+/** currentTimePhaseEl：定义该变量以承载业务值。 */
 const currentTimePhaseEl = document.getElementById('map-current-time-phase');
+/** currentTimeHourAEl：定义该变量以承载业务值。 */
 const currentTimeHourAEl = currentTimeValueEl?.querySelector<HTMLElement>('[data-time-part="hour-a"]');
+/** currentTimeHourBEl：定义该变量以承载业务值。 */
 const currentTimeHourBEl = currentTimeValueEl?.querySelector<HTMLElement>('[data-time-part="hour-b"]');
+/** currentTimeDotEl：定义该变量以承载业务值。 */
 const currentTimeDotEl = currentTimeValueEl?.querySelector<HTMLElement>('[data-time-part="dot"]');
+/** currentTimeMinAEl：定义该变量以承载业务值。 */
 const currentTimeMinAEl = currentTimeValueEl?.querySelector<HTMLElement>('[data-time-part="min-a"]');
+/** currentTimeMinBEl：定义该变量以承载业务值。 */
 const currentTimeMinBEl = currentTimeValueEl?.querySelector<HTMLElement>('[data-time-part="min-b"]');
+/** tickRateValueEl：定义该变量以承载业务值。 */
 const tickRateValueEl = document.getElementById('map-tick-rate-value');
+/** tickRateIntEl：定义该变量以承载业务值。 */
 const tickRateIntEl = tickRateValueEl?.querySelector<HTMLElement>('[data-part="int"]');
+/** tickRateDotEl：定义该变量以承载业务值。 */
 const tickRateDotEl = tickRateValueEl?.querySelector<HTMLElement>('[data-part="dot"]');
+/** tickRateFracAEl：定义该变量以承载业务值。 */
 const tickRateFracAEl = tickRateValueEl?.querySelector<HTMLElement>('[data-part="frac-a"]');
+/** tickRateFracBEl：定义该变量以承载业务值。 */
 const tickRateFracBEl = tickRateValueEl?.querySelector<HTMLElement>('[data-part="frac-b"]');
+/** fpsRateEl：定义该变量以承载业务值。 */
 const fpsRateEl = document.getElementById('map-fps-rate');
+/** fpsValueEl：定义该变量以承载业务值。 */
 const fpsValueEl = document.getElementById('map-fps-value');
+/** fpsLowValueEl：定义该变量以承载业务值。 */
 const fpsLowValueEl = document.getElementById('map-fps-low-value');
+/** fpsOnePercentValueEl：定义该变量以承载业务值。 */
 const fpsOnePercentValueEl = document.getElementById('map-fps-one-percent-value');
+/** pingLatencyEl：定义该变量以承载业务值。 */
 const pingLatencyEl = document.getElementById('map-ping-rate');
+/** pingValueEl：定义该变量以承载业务值。 */
 const pingValueEl = document.getElementById('map-ping-value');
+/** pingUnitEl：定义该变量以承载业务值。 */
 const pingUnitEl = document.getElementById('map-ping-unit');
+/** pingHundredsEl：定义该变量以承载业务值。 */
 const pingHundredsEl = pingValueEl?.querySelector<HTMLElement>('[data-ping-part="hundreds"]');
+/** pingTensEl：定义该变量以承载业务值。 */
 const pingTensEl = pingValueEl?.querySelector<HTMLElement>('[data-ping-part="tens"]');
+/** pingOnesEl：定义该变量以承载业务值。 */
 const pingOnesEl = pingValueEl?.querySelector<HTMLElement>('[data-ping-part="ones"]');
+/** joinQqGroupBtns：定义该变量以承载业务值。 */
 const joinQqGroupBtns = document.querySelectorAll<HTMLAnchorElement>('[data-qq-group-link="true"]');
 
+/** QQ_GROUP_NUMBER：定义该变量以承载业务值。 */
 const QQ_GROUP_NUMBER = '940886387';
 const QQ_GROUP_MOBILE_DEEP_LINK = `mqqapi://card/show_pslcard?src_type=internal&version=1&uin=${QQ_GROUP_NUMBER}&card_type=group&source=qrcode`;
 const QQ_GROUP_DESKTOP_DEEP_LINK = `tencent://AddContact/?fromId=45&fromSubId=1&subcmd=all&uin=${QQ_GROUP_NUMBER}`;
 
+/** auraLevelBaseValue：定义该变量以承载业务值。 */
 let auraLevelBaseValue = DEFAULT_AURA_LEVEL_BASE_VALUE;
+/** pendingQuestNavigateId：定义该变量以承载业务值。 */
 let pendingQuestNavigateId: string | null = null;
+/** pendingRedeemCodesRequest：定义该变量以承载业务值。 */
 let pendingRedeemCodesRequest:
   | {
       resolve: (value: AccountRedeemCodesRes) => void;
       reject: (reason?: unknown) => void;
+/** timeoutId：定义该变量以承载业务值。 */
       timeoutId: ReturnType<typeof setTimeout>;
     }
   | null = null;
+/** activeObservedTile：定义该变量以承载业务值。 */
 let activeObservedTile:
   | {
+/** mapId：定义该变量以承载业务值。 */
       mapId: string;
+/** x：定义该变量以承载业务值。 */
       x: number;
+/** y：定义该变量以承载业务值。 */
       y: number;
     }
   | null = null;
+/** activeObservedTileDetail：定义该变量以承载业务值。 */
 let activeObservedTileDetail: NEXT_S2C_TileDetail | null = null;
+/** activeObservedTileError：定义该变量以承载业务值。 */
 let activeObservedTileError: string | null = null;
+/** latestNextInitSession：定义该变量以承载业务值。 */
 let latestNextInitSession: NEXT_S2C_InitSession | null = null;
+/** latestNextMapEnter：定义该变量以承载业务值。 */
 let latestNextMapEnter: NEXT_S2C_MapEnter | null = null;
+/** pendingNextWorldDelta：定义该变量以承载业务值。 */
 let pendingNextWorldDelta: NEXT_S2C_WorldDelta | null = null;
+/** pendingNextSelfDelta：定义该变量以承载业务值。 */
 let pendingNextSelfDelta: NEXT_S2C_SelfDelta | null = null;
+/** pendingNextPanelDelta：定义该变量以承载业务值。 */
 let pendingNextPanelDelta: NEXT_S2C_PanelDelta | null = null;
 
+/** connectionRecoveryTimer：定义该变量以承载业务值。 */
 let connectionRecoveryTimer: ReturnType<typeof setTimeout> | null = null;
+/** connectionRecoveryPromise：定义该变量以承载业务值。 */
 let connectionRecoveryPromise: Promise<void> | null = null;
+/** pingTimer：定义该变量以承载业务值。 */
 let pingTimer: ReturnType<typeof setTimeout> | null = null;
+/** pingRequestSerial：定义该变量以承载业务值。 */
 let pingRequestSerial = 0;
+/** pendingSocketPing：定义该变量以承载业务值。 */
 let pendingSocketPing:
   | {
+/** serial：定义该变量以承载业务值。 */
       serial: number;
+/** clientAt：定义该变量以承载业务值。 */
       clientAt: number;
+/** timeoutId：定义该变量以承载业务值。 */
       timeoutId: ReturnType<typeof setTimeout>;
     }
   | null = null;
+/** currentTimeStateSyncedAt：定义该变量以承载业务值。 */
 let currentTimeStateSyncedAt = performance.now();
+/** currentTimeTickIntervalMs：定义该变量以承载业务值。 */
 let currentTimeTickIntervalMs = 1000;
+/** fpsMonitorFrameRequestId：定义该变量以承载业务值。 */
 let fpsMonitorFrameRequestId: number | null = null;
+/** fpsMonitorEnabled：定义该变量以承载业务值。 */
 let fpsMonitorEnabled = false;
+/** fpsSampleFrameCount：定义该变量以承载业务值。 */
 let fpsSampleFrameCount = 0;
+/** fpsSampleStartedAt：定义该变量以承载业务值。 */
 let fpsSampleStartedAt = performance.now();
+/** fpsLastFrameAt：定义该变量以承载业务值。 */
 let fpsLastFrameAt = 0;
+/** fpsFrameDurations：定义该变量以承载业务值。 */
 let fpsFrameDurations: number[] = [];
+/** fpsFrameDurationWriteIndex：定义该变量以承载业务值。 */
 let fpsFrameDurationWriteIndex = 0;
 
 /** FpsSampleStats：定义该类型的结构与数据语义。 */
 type FpsSampleStats = {
+/** fps：定义该变量以承载业务值。 */
   fps: number | null;
+/** low：定义该变量以承载业务值。 */
   low: number | null;
+/** onePercentLow：定义该变量以承载业务值。 */
   onePercentLow: number | null;
 };
 
@@ -276,6 +341,7 @@ function resetFpsMonitorSamples(now = performance.now()): void {
 
 /** appendFpsFrameDuration：执行对应的业务逻辑。 */
 function appendFpsFrameDuration(frameDurationMs: number): void {
+/** safeDuration：定义该变量以承载业务值。 */
   const safeDuration = Math.max(1, frameDurationMs);
   if (fpsFrameDurations.length < MAP_FPS_SAMPLE_WINDOW_SIZE) {
     fpsFrameDurations.push(safeDuration);
@@ -294,14 +360,19 @@ function resolveFpsLowStats(): Pick<FpsSampleStats, 'low' | 'onePercentLow'> {
       onePercentLow: null,
     };
   }
+/** sortedDurations：定义该变量以承载业务值。 */
   const sortedDurations = [...fpsFrameDurations].sort((left, right) => right - left);
+/** slowestDuration：定义该变量以承载业务值。 */
   const slowestDuration = sortedDurations[0] ?? null;
+/** onePercentCount：定义该变量以承载业务值。 */
   const onePercentCount = Math.max(1, Math.ceil(sortedDurations.length * 0.01));
+/** onePercentTotalDuration：定义该变量以承载业务值。 */
   let onePercentTotalDuration = 0;
   for (let index = 0; index < onePercentCount; index += 1) {
     onePercentTotalDuration += sortedDurations[index] ?? 0;
   }
   return {
+/** low：定义该变量以承载业务值。 */
     low: slowestDuration === null ? null : 1000 / slowestDuration,
     onePercentLow: onePercentTotalDuration > 0 ? 1000 / (onePercentTotalDuration / onePercentCount) : null,
   };
@@ -315,6 +386,7 @@ function tickFpsMonitor(now: number): void {
   }
 
   if (fpsLastFrameAt > 0) {
+/** frameDuration：定义该变量以承载业务值。 */
     const frameDuration = now - fpsLastFrameAt;
     if (frameDuration <= 1000) {
       appendFpsFrameDuration(frameDuration);
@@ -325,9 +397,12 @@ function tickFpsMonitor(now: number): void {
   fpsLastFrameAt = now;
   fpsSampleFrameCount += 1;
 
+/** elapsed：定义该变量以承载业务值。 */
   const elapsed = now - fpsSampleStartedAt;
   if (elapsed >= MAP_FPS_SAMPLE_INTERVAL_MS) {
+/** averageFps：定义该变量以承载业务值。 */
     const averageFps = fpsSampleFrameCount * 1000 / elapsed;
+/** lowStats：定义该变量以承载业务值。 */
     const lowStats = resolveFpsLowStats();
     renderFpsStats({
       fps: averageFps,
@@ -398,28 +473,39 @@ function resolveDisplayedLocalTicks(state: GameTimeState | null, now = performan
   if (!state) {
     return null;
   }
+/** dayLength：定义该变量以承载业务值。 */
   const dayLength = Math.max(1, state.dayLength);
+/** timeScale：定义该变量以承载业务值。 */
   const timeScale = Number.isFinite(state.timeScale) && state.timeScale >= 0 ? state.timeScale : 1;
+/** tickIntervalMs：定义该变量以承载业务值。 */
   const tickIntervalMs = Math.max(1, currentTimeTickIntervalMs);
+/** elapsedMs：定义该变量以承载业务值。 */
   const elapsedMs = Math.max(0, now - currentTimeStateSyncedAt);
+/** elapsedTicks：定义该变量以承载业务值。 */
   const elapsedTicks = elapsedMs / tickIntervalMs * timeScale;
   return ((state.localTicks + elapsedTicks) % dayLength + dayLength) % dayLength;
 }
 
 /** resolveDisplayedPhaseLabel：执行对应的业务逻辑。 */
 function resolveDisplayedPhaseLabel(state: GameTimeState, localTicks: number): string {
+/** phase：定义该变量以承载业务值。 */
   const phase = GAME_TIME_PHASES.find((entry) => localTicks >= entry.startTick && localTicks < entry.endTick);
   return phase?.label ?? state.phaseLabel;
 }
 
 /** renderCurrentTime：执行对应的业务逻辑。 */
 function renderCurrentTime(state: GameTimeState | null, now = performance.now()) {
+/** localTicks：定义该变量以承载业务值。 */
   const localTicks = resolveDisplayedLocalTicks(state, now);
+/** totalMinutes：定义该变量以承载业务值。 */
   const totalMinutes = localTicks === null
     ? null
     : Math.floor((localTicks / Math.max(1, state?.dayLength ?? 1)) * 24 * 60);
+/** hours：定义该变量以承载业务值。 */
   const hours = totalMinutes === null ? '--' : String(Math.floor(totalMinutes / 60) % 24).padStart(2, '0');
+/** minutes：定义该变量以承载业务值。 */
   const minutes = totalMinutes === null ? '--' : String(totalMinutes % 60).padStart(2, '0');
+/** phaseLabel：定义该变量以承载业务值。 */
   const phaseLabel = state && localTicks !== null ? resolveDisplayedPhaseLabel(state, localTicks) : '未明';
   if (currentTimeHourAEl) currentTimeHourAEl.textContent = hours[0] ?? '-';
   if (currentTimeHourBEl) currentTimeHourBEl.textContent = hours[1] ?? '-';
@@ -456,6 +542,7 @@ function renderPingLatency(latencyMs: number | null, status = '毫秒') {
     if (latencyMs === null) {
       return ['-', '-', '-'];
     }
+/** rounded：定义该变量以承载业务值。 */
     const rounded = String(Math.min(999, Math.max(0, Math.round(latencyMs))));
     if (rounded.length >= 3) {
       return rounded.split('');
@@ -470,6 +557,7 @@ function renderPingLatency(latencyMs: number | null, status = '毫秒') {
   if (pingOnesEl) pingOnesEl.textContent = digits[2] ?? '-';
   if (pingUnitEl) pingUnitEl.textContent = status;
   if (pingLatencyEl) {
+/** title：定义该变量以承载业务值。 */
     const title = latencyMs === null
       ? `当前域名 ${window.location.host} 的服务器延迟${status === '离线' ? '不可用' : `状态：${status}`}`
       : `当前域名 ${window.location.host} 上游戏连接往返约 ${Math.round(latencyMs)}ms`;
@@ -498,6 +586,7 @@ async function recoverConnection(forceRefresh = false): Promise<void> {
       return;
     }
 
+/** accessToken：定义该变量以承载业务值。 */
     const accessToken = forceRefresh ? null : getAccessToken();
     if (accessToken) {
       socket.reconnect(accessToken);
@@ -558,9 +647,12 @@ function sampleServerPing(): void {
     renderPingLatency(null, loginUI.hasRefreshToken() ? '重连' : '离线');
     return;
   }
+/** serial：定义该变量以承载业务值。 */
   const serial = ++pingRequestSerial;
+/** clientAt：定义该变量以承载业务值。 */
   const clientAt = performance.now();
   socket.sendPing(clientAt);
+/** timeoutId：定义该变量以承载业务值。 */
   const timeoutId = window.setTimeout(() => {
     markSocketPingTimeout(serial);
   }, SOCKET_PING_TIMEOUT_MS);
@@ -603,6 +695,7 @@ function restartPingLoop(immediate = true): void {
 }
 
 renderTickRate(1);
+/** initialMapPerformanceConfig：定义该变量以承载业务值。 */
 const initialMapPerformanceConfig = initializeMapPerformanceConfig();
 syncFpsMonitorVisibility(initialMapPerformanceConfig.showFpsMonitor);
 renderCurrentTime(null);
@@ -610,6 +703,7 @@ renderPingLatency(null, '待测');
 bindResponsiveViewportCss(window);
 initializeUiStyleConfig();
 window.addEventListener(MAP_PERFORMANCE_CONFIG_CHANGE_EVENT, (event) => {
+/** config：定义该变量以承载业务值。 */
   const config = (event as CustomEvent<MapPerformanceConfig>).detail;
   syncFpsMonitorVisibility(config.showFpsMonitor);
 });
@@ -624,53 +718,88 @@ window.setInterval(() => {
   }
   renderCurrentTime(currentTimeState);
 }, CURRENT_TIME_REFRESH_MS);
+/** socket：定义该变量以承载业务值。 */
 const socket = new SocketManager();
+/** mapRuntime：定义该变量以承载业务值。 */
 const mapRuntime = createMapRuntime();
+/** loginUI：定义该变量以承载业务值。 */
 const loginUI = new LoginUI(socket);
+/** hud：定义该变量以承载业务值。 */
 const hud = new HUD();
+/** chatUI：定义该变量以承载业务值。 */
 const chatUI = new ChatUI();
+/** debugPanel：定义该变量以承载业务值。 */
 const debugPanel = new DebugPanel();
 
 // 修仙系统面板
 const sidePanel = new SidePanel();
+/** attrPanel：定义该变量以承载业务值。 */
 const attrPanel = new AttrPanel();
+/** inventoryPanel：定义该变量以承载业务值。 */
 const inventoryPanel = new InventoryPanel();
+/** equipmentPanel：定义该变量以承载业务值。 */
 const equipmentPanel = new EquipmentPanel();
+/** techniquePanel：定义该变量以承载业务值。 */
 const techniquePanel = new TechniquePanel();
+/** bodyTrainingPanel：定义该变量以承载业务值。 */
 const bodyTrainingPanel = new BodyTrainingPanel();
 bodyTrainingPanel.setInfusionHandler((foundationSpent) => {
   socket.sendAction('body_training:infuse', String(foundationSpent));
 });
+/** questPanel：定义该变量以承载业务值。 */
 const questPanel = new QuestPanel();
+/** marketPanel：定义该变量以承载业务值。 */
 const marketPanel = new MarketPanel();
+/** actionPanel：定义该变量以承载业务值。 */
 const actionPanel = new ActionPanel();
+/** npcShopModal：定义该变量以承载业务值。 */
 const npcShopModal = new NpcShopModal();
+/** npcQuestModal：定义该变量以承载业务值。 */
 const npcQuestModal = new NpcQuestModal();
+/** entityDetailModal：定义该变量以承载业务值。 */
 const entityDetailModal = new EntityDetailModal();
+/** lootPanel：定义该变量以承载业务值。 */
 const lootPanel = new LootPanel();
+/** worldPanel：定义该变量以承载业务值。 */
 const worldPanel = new WorldPanel();
+/** settingsPanel：定义该变量以承载业务值。 */
 const settingsPanel = new SettingsPanel();
+/** mailPanel：定义该变量以承载业务值。 */
 const mailPanel = new MailPanel(socket);
+/** suggestionPanel：定义该变量以承载业务值。 */
 const suggestionPanel = new SuggestionPanel(socket);
 new ChangelogPanel();
 new TutorialPanel();
+/** panelSystem：定义该变量以承载业务值。 */
 const panelSystem = createClientPanelSystem(window);
 mapRuntime.attach(canvasHost);
 mapRuntime.setMoveHandler((x, y) => {
   planPathTo({ x, y });
 });
+/** targetingBadgeEl：定义该变量以承载业务值。 */
 const targetingBadgeEl = document.getElementById('map-targeting-indicator');
+/** observeModalEl：定义该变量以承载业务值。 */
 const observeModalEl = document.getElementById('observe-modal');
+/** observeModalBodyEl：定义该变量以承载业务值。 */
 const observeModalBodyEl = document.getElementById('observe-modal-body');
+/** observeModalSubtitleEl：定义该变量以承载业务值。 */
 const observeModalSubtitleEl = document.getElementById('observe-modal-subtitle');
+/** observeModalShellEl：定义该变量以承载业务值。 */
 const observeModalShellEl = observeModalEl?.querySelector('.observe-modal-shell') as HTMLElement | null;
+/** observeModalAsideEl：定义该变量以承载业务值。 */
 const observeModalAsideEl = document.getElementById('observe-modal-aside');
+/** observeBuffTooltip：定义该变量以承载业务值。 */
 const observeBuffTooltip = new FloatingTooltip();
+/** senseQiTooltip：定义该变量以承载业务值。 */
 const senseQiTooltip = new FloatingTooltip();
+/** pendingTargetedAction：定义该变量以承载业务值。 */
 let pendingTargetedAction: {
+/** actionId：定义该变量以承载业务值。 */
   actionId: string;
+/** actionName：定义该变量以承载业务值。 */
   actionName: string;
   targetMode?: string;
+/** range：定义该变量以承载业务值。 */
   range: number;
   shape?: TargetingShape;
   radius?: number;
@@ -680,10 +809,15 @@ let pendingTargetedAction: {
   hoverX?: number;
   hoverY?: number;
 } | null = null;
+/** hoveredMapTile：定义该变量以承载业务值。 */
 let hoveredMapTile: {
+/** x：定义该变量以承载业务值。 */
   x: number;
+/** y：定义该变量以承载业务值。 */
   y: number;
+/** clientX：定义该变量以承载业务值。 */
   clientX: number;
+/** clientY：定义该变量以承载业务值。 */
   clientY: number;
 } | null = null;
 
@@ -694,10 +828,15 @@ function getTileTypeName(type: TileType): string {
 
 /** ObservedEntity：定义该类型的结构与数据语义。 */
 type ObservedEntity = {
+/** id：定义该变量以承载业务值。 */
   id: string;
+/** wx：定义该变量以承载业务值。 */
   wx: number;
+/** wy：定义该变量以承载业务值。 */
   wy: number;
+/** char：定义该变量以承载业务值。 */
   char: string;
+/** color：定义该变量以承载业务值。 */
   color: string;
   name?: string;
   kind?: string;
@@ -730,20 +869,31 @@ type ObserveEntityCardData = Pick<
 /** PendingAutoInteraction：定义该类型的结构与数据语义。 */
 type PendingAutoInteraction =
   | {
+/** kind：定义该变量以承载业务值。 */
       kind: 'npc';
+/** mapId：定义该变量以承载业务值。 */
       mapId: string;
+/** x：定义该变量以承载业务值。 */
       x: number;
+/** y：定义该变量以承载业务值。 */
       y: number;
+/** npcId：定义该变量以承载业务值。 */
       npcId: string;
     }
   | {
+/** kind：定义该变量以承载业务值。 */
       kind: 'portal';
+/** mapId：定义该变量以承载业务值。 */
       mapId: string;
+/** x：定义该变量以承载业务值。 */
       x: number;
+/** y：定义该变量以承载业务值。 */
       y: number;
+/** actionId：定义该变量以承载业务值。 */
       actionId: 'portal:travel';
     };
 
+/** AUTO_INTERACTION_APPROACH_STEPS：定义该变量以承载业务值。 */
 const AUTO_INTERACTION_APPROACH_STEPS: ReadonlyArray<{ dx: number; dy: number }> = [
   { dx: 0, dy: -1 },
   { dx: 0, dy: 1 },
@@ -791,15 +941,20 @@ function openBreakthroughModal() {
     return;
   }
 
+/** preview：定义该变量以承载业务值。 */
   const preview = myPlayer?.realm?.breakthrough;
+/** currentRealm：定义该变量以承载业务值。 */
   const currentRealm = myPlayer?.realm;
   if (!preview || !currentRealm) {
     showToast('当前境界尚未圆满，暂时不能突破');
     return;
   }
 
+/** hasConsumableRequirements：定义该变量以承载业务值。 */
   const hasConsumableRequirements = preview.requirements.some((requirement) => requirement.type === 'item');
+/** hasIncreaseRequirements：定义该变量以承载业务值。 */
   const hasIncreaseRequirements = preview.requirements.some((requirement) => (requirement.increasePct ?? 0) > 0);
+/** requirementRows：定义该变量以承载业务值。 */
   const requirementRows = preview.requirements.length > 0
     ? preview.requirements.map((requirement) => `
       <div class="action-item breakthrough-requirement-item">
@@ -868,6 +1023,7 @@ function syncTargetingOverlay() {
     return;
   }
   pendingTargetedAction.range = resolveCurrentTargetingRange(pendingTargetedAction);
+/** affectedCells：定义该变量以承载业务值。 */
   const affectedCells = computeAffectedCells(pendingTargetedAction);
   mapRuntime.setTargetingOverlay({
     originX: myPlayer.x,
@@ -881,7 +1037,9 @@ function syncTargetingOverlay() {
     hoverY: pendingTargetedAction.hoverY,
   });
   if (targetingBadgeEl) {
+/** rangeLabel：定义该变量以承载业务值。 */
     const rangeLabel = pendingTargetedAction.actionId === 'client:observe' ? `视野 ${pendingTargetedAction.range}` : `射程 ${pendingTargetedAction.range}`;
+/** shapeLabel：定义该变量以承载业务值。 */
     const shapeLabel = pendingTargetedAction.shape === 'line'
       ? ` · 直线${pendingTargetedAction.maxTargets ? ` ${pendingTargetedAction.maxTargets}目标` : ''}`
       : pendingTargetedAction.shape === 'box'
@@ -933,6 +1091,7 @@ function beginTargeting(actionId: string, actionName: string, targetMode?: strin
     cancelTargeting(true);
     return;
   }
+/** skill：定义该变量以承载业务值。 */
   const skill = getSkillDefByActionId(actionId);
   pendingTargetedAction = {
     actionId,
@@ -973,6 +1132,7 @@ function computeAffectedCellsForAction(
 /** resolveTargetRefForAction：执行对应的业务逻辑。 */
 function resolveTargetRefForAction(
   action: Pick<NonNullable<typeof pendingTargetedAction>, 'actionId' | 'range' | 'shape' | 'radius' | 'width' | 'height' | 'targetMode'>,
+/** target：定义该变量以承载业务值。 */
   target: { x: number; y: number; entityId?: string; entityKind?: string },
 ): string | null {
   return resolveTargetRefForActionHelper(action, target, myPlayer);
@@ -1003,6 +1163,7 @@ function getKnownTileAt(x: number, y: number): Tile | null {
 
 /** isPointInsideCurrentMap：执行对应的业务逻辑。 */
 function isPointInsideCurrentMap(x: number, y: number): boolean {
+/** mapMeta：定义该变量以承载业务值。 */
   const mapMeta = mapRuntime.getMapMeta();
   if (!mapMeta) return true;
   return x >= 0 && y >= 0 && x < mapMeta.width && y < mapMeta.height;
@@ -1032,6 +1193,7 @@ function syncSenseQiOverlay(): void {
     return;
   }
 
+/** tile：定义该变量以承载业务值。 */
   const tile = getVisibleTileAt(hoveredMapTile.x, hoveredMapTile.y);
   if (!tile) {
     senseQiTooltip.hide();
@@ -1104,8 +1266,11 @@ function formatAuraValueText(auraValue: number): string {
 
 /** TileRuntimeResourceDetail：定义该类型的结构与数据语义。 */
 type TileRuntimeResourceDetail = {
+/** key：定义该变量以承载业务值。 */
   key: string;
+/** label：定义该变量以承载业务值。 */
   label: string;
+/** value：定义该变量以承载业务值。 */
   value: number;
   effectiveValue?: number;
   level?: number;
@@ -1114,7 +1279,9 @@ type TileRuntimeResourceDetail = {
 /** ObserveAsideCard：定义该类型的结构与数据语义。 */
 type ObserveAsideCard = {
   mark?: string;
+/** title：定义该变量以承载业务值。 */
   title: string;
+/** lines：定义该变量以承载业务值。 */
   lines: string[];
   tone?: 'buff' | 'debuff';
 };
@@ -1155,11 +1322,14 @@ function formatObservedResourceOverview(resource: TileRuntimeResourceDetail, fal
 
 /** buildObservedResourceAsideLines：执行对应的业务逻辑。 */
 function buildObservedResourceAsideLines(resource: TileRuntimeResourceDetail): string[] {
+/** effectiveValue：定义该变量以承载业务值。 */
   const effectiveValue = typeof resource.effectiveValue === 'number' && Number.isFinite(resource.effectiveValue)
     ? resource.effectiveValue
     : undefined;
+/** hasProjectedValue：定义该变量以承载业务值。 */
   const hasProjectedValue = effectiveValue !== undefined
     && Math.round(effectiveValue) !== Math.round(resource.value);
+/** lines：定义该变量以承载业务值。 */
   const lines = [`当前数值：${formatAuraValueText(hasProjectedValue ? effectiveValue : resource.value)}`];
   if (hasProjectedValue) {
     lines.push(`原始值：${formatAuraValueText(resource.value)}`);
@@ -1187,6 +1357,7 @@ function buildObservedResourceAsideCards(targetX: number, targetY: number, tile:
     return [];
   }
 
+/** detailResources：定义该变量以承载业务值。 */
   const detailResources = getObservedTileRuntimeResources(targetX, targetY);
   if (!activeObservedTileDetail) {
     if ((tile.aura ?? 0) <= 0) {
@@ -1208,6 +1379,7 @@ function buildObservedResourceAsideCards(targetX: number, targetY: number, tile:
   }
 
   return detailResources.map((resource) => {
+/** lines：定义该变量以承载业务值。 */
     const lines = buildObservedResourceAsideLines(resource);
     if (resource.key === 'aura' && !lines.some((line) => line.startsWith('当前等级：'))) {
       lines.unshift(`当前等级：${formatObservedResourceOverview(resource, tile.aura ?? 0)}`);
@@ -1233,6 +1405,7 @@ function renderObserveAsideCards(cards: ObserveAsideCard[]): void {
     return;
   }
   observeModalAsideEl.innerHTML = cards.map((card) => {
+/** detail：定义该变量以承载业务值。 */
     const detail = card.lines
       .map((line) => `<span class="floating-tooltip-aside-line">${escapeHtml(line)}</span>`)
       .join('');
@@ -1260,10 +1433,12 @@ function buildBuffEffectLines(buff: VisibleBuffState): string[] {
 
 /** buildBuffTooltipLines：执行对应的业务逻辑。 */
 function buildBuffTooltipLines(buff: VisibleBuffState): string[] {
+/** lines：定义该变量以承载业务值。 */
   const lines = [
     `类别：${buff.category === 'debuff' ? '减益' : '增益'}`,
     `剩余：${formatBuffDuration(buff)}`,
   ];
+/** stackLimit：定义该变量以承载业务值。 */
   const stackLimit = formatBuffMaxStacks(buff.maxStacks);
   if (stackLimit) {
     lines.push(`层数：${formatDisplayInteger(buff.stacks)} / ${stackLimit}`);
@@ -1271,6 +1446,7 @@ function buildBuffTooltipLines(buff: VisibleBuffState): string[] {
   if (buff.sourceSkillName || buff.sourceSkillId) {
     lines.push(`来源：${buff.sourceSkillName ?? buff.sourceSkillId}`);
   }
+/** effectLines：定义该变量以承载业务值。 */
   const effectLines = buildBuffEffectLines(buff);
   if (effectLines.length > 0) {
     lines.push(`效果：${effectLines.join('，')}`);
@@ -1283,9 +1459,13 @@ function buildBuffTooltipLines(buff: VisibleBuffState): string[] {
 
 /** buildBuffBadgeHtml：执行对应的业务逻辑。 */
 function buildBuffBadgeHtml(buff: VisibleBuffState): string {
+/** title：定义该变量以承载业务值。 */
   const title = escapeHtml(buff.name);
+/** detail：定义该变量以承载业务值。 */
   const detail = escapeHtml(buildBuffTooltipLines(buff).join('\n'));
+/** stackText：定义该变量以承载业务值。 */
   const stackText = buff.maxStacks > 1 ? `<span class="observe-buff-stack">${formatDisplayInteger(buff.stacks)}</span>` : '';
+/** className：定义该变量以承载业务值。 */
   const className = buff.category === 'debuff' ? 'observe-buff-chip debuff' : 'observe-buff-chip buff';
   return `<button class="${className}"
     type="button"
@@ -1380,6 +1560,7 @@ function mergeAttrUpdatePatch(previous: S2C_AttrUpdate | null, patch: S2C_AttrUp
       }),
     boneAgeBaseYears: patch.boneAgeBaseYears ?? previous?.boneAgeBaseYears ?? myPlayer?.boneAgeBaseYears ?? undefined,
     lifeElapsedTicks: patch.lifeElapsedTicks ?? previous?.lifeElapsedTicks ?? myPlayer?.lifeElapsedTicks ?? undefined,
+/** lifespanYears：定义该变量以承载业务值。 */
     lifespanYears: patch.lifespanYears === null
       ? null
       : patch.lifespanYears ?? previous?.lifespanYears ?? myPlayer?.lifespanYears ?? null,
@@ -1398,10 +1579,15 @@ function mergeAttrUpdatePatch(previous: S2C_AttrUpdate | null, patch: S2C_AttrUp
 
 /** mergeTechniquePatch：执行对应的业务逻辑。 */
 function mergeTechniquePatch(patch: TechniqueUpdateEntry, previous?: TechniqueState): TechniqueState {
+/** previousSameTechnique：定义该变量以承载业务值。 */
   const previousSameTechnique = previous?.techId === patch.techId ? previous : undefined;
+/** template：定义该变量以承载业务值。 */
   const template = getLocalTechniqueTemplate(patch.techId);
+/** mergedSkills：定义该变量以承载业务值。 */
   const mergedSkills = applyNullablePatch(patch.skills, previousSameTechnique?.skills);
+/** mergedLayers：定义该变量以承载业务值。 */
   const mergedLayers = applyNullablePatch(patch.layers, previousSameTechnique?.layers);
+/** mergedAttrCurves：定义该变量以承载业务值。 */
   const mergedAttrCurves = applyNullablePatch(patch.attrCurves, previousSameTechnique?.attrCurves);
   return resolvePreviewTechnique({
     techId: patch.techId,
@@ -1429,7 +1615,9 @@ function mergeTechniquePatch(patch: TechniqueUpdateEntry, previous?: TechniqueSt
 
 /** hydrateSyncedItemStack：执行对应的业务逻辑。 */
 function hydrateSyncedItemStack(item: SyncedItemStack, previous?: Inventory['items'][number]): Inventory['items'][number] {
+/** previousSameItem：定义该变量以承载业务值。 */
   const previousSameItem = previous?.itemId === item.itemId ? previous : undefined;
+/** template：定义该变量以承载业务值。 */
   const template = getLocalItemTemplate(item.itemId);
   return {
     itemId: item.itemId,
@@ -1498,6 +1686,7 @@ function mergeInventoryUpdate(previous: Inventory | undefined, patch: S2C_Invent
     };
   }
 
+/** next：定义该变量以承载业务值。 */
   const next: Inventory = previous
     ? cloneJson(previous)
     : { items: [], capacity: 0 };
@@ -1525,6 +1714,7 @@ function mergeInventoryUpdate(previous: Inventory | undefined, patch: S2C_Invent
 
 /** mergeEquipmentUpdate：执行对应的业务逻辑。 */
 function mergeEquipmentUpdate(previous: PlayerState['equipment'] | undefined, patch: S2C_EquipmentUpdate): PlayerState['equipment'] {
+/** next：定义该变量以承载业务值。 */
   const next = previous
     ? cloneJson(previous)
     : {
@@ -1603,16 +1793,20 @@ function hydrateNpcShopResponse(data: S2C_NpcShop) {
 
 /** mergeTechniqueStates：执行对应的业务逻辑。 */
 function mergeTechniqueStates(patches: TechniqueUpdateEntry[], removeTechniqueIds: string[] = []): TechniqueState[] {
+/** removedIdSet：定义该变量以承载业务值。 */
   const removedIdSet = new Set(removeTechniqueIds);
+/** merged：定义该变量以承载业务值。 */
   const merged = [...latestTechniqueMap.values()]
     .filter((technique) => !removedIdSet.has(technique.techId))
     .map((technique) => cloneJson(technique));
+/** nextMap：定义该变量以承载业务值。 */
   const nextMap = new Map(merged.map((technique) => [technique.techId, technique] as const));
 
   for (const patch of patches) {
     const previous = nextMap.get(patch.techId);
     const next = mergeTechniquePatch(patch, previous);
     if (previous) {
+/** index：定义该变量以承载业务值。 */
       const index = merged.findIndex((technique) => technique.techId === patch.techId);
       if (index >= 0) {
         merged[index] = next;
@@ -1629,9 +1823,13 @@ function mergeTechniqueStates(patches: TechniqueUpdateEntry[], removeTechniqueId
 
 /** mergeActionPatch：执行对应的业务逻辑。 */
 function mergeActionPatch(patch: ActionUpdateEntry, previous?: ActionDef): ActionDef {
+/** previousSameAction：定义该变量以承载业务值。 */
   const previousSameAction = previous?.id === patch.id ? previous : undefined;
+/** skillTemplate：定义该变量以承载业务值。 */
   const skillTemplate = getLocalSkillTemplate(patch.id);
+/** nextType：定义该变量以承载业务值。 */
   const nextType = applyNullablePatch(patch.type, previousSameAction?.type) ?? (skillTemplate ? 'skill' : 'interact');
+/** isSkillAction：定义该变量以承载业务值。 */
   const isSkillAction = nextType === 'skill';
   return {
     id: patch.id,
@@ -1655,19 +1853,24 @@ function mergeActionPatch(patch: ActionUpdateEntry, previous?: ActionDef): Actio
 /** mergeActionStates：执行对应的业务逻辑。 */
 function mergeActionStates(
   patches: ActionUpdateEntry[],
+/** removeActionIds：定义该变量以承载业务值。 */
   removeActionIds: string[] = [],
   actionOrder?: string[],
 ): ActionDef[] {
+/** removedIdSet：定义该变量以承载业务值。 */
   const removedIdSet = new Set(removeActionIds);
+/** merged：定义该变量以承载业务值。 */
   const merged = [...latestActionMap.values()]
     .filter((action) => !removedIdSet.has(action.id))
     .map((action) => cloneJson(action));
+/** nextMap：定义该变量以承载业务值。 */
   const nextMap = new Map(merged.map((action) => [action.id, action] as const));
 
   for (const patch of patches) {
     const previous = nextMap.get(patch.id);
     const next = mergeActionPatch(patch, previous);
     if (previous) {
+/** index：定义该变量以承载业务值。 */
       const index = merged.findIndex((action) => action.id === patch.id);
       if (index >= 0) {
         merged[index] = next;
@@ -1679,6 +1882,7 @@ function mergeActionStates(
   }
 
   if (actionOrder && actionOrder.length > 0) {
+/** orderIndex：定义该变量以承载业务值。 */
     const orderIndex = new Map(actionOrder.map((actionId, index) => [actionId, index] as const));
     merged.sort((left, right) => (
       (orderIndex.get(left.id) ?? Number.MAX_SAFE_INTEGER)
@@ -1690,14 +1894,20 @@ function mergeActionStates(
   return merged;
 }
 
+/** NEXT_PLAYER_ENTITY_COLOR：定义该变量以承载业务值。 */
 const NEXT_PLAYER_ENTITY_COLOR = '#8ec5ff';
+/** NEXT_MONSTER_ENTITY_COLOR：定义该变量以承载业务值。 */
 const NEXT_MONSTER_ENTITY_COLOR = '#ff9b73';
+/** NEXT_NPC_ENTITY_COLOR：定义该变量以承载业务值。 */
 const NEXT_NPC_ENTITY_COLOR = '#f3d27a';
+/** NEXT_PORTAL_ENTITY_COLOR：定义该变量以承载业务值。 */
 const NEXT_PORTAL_ENTITY_COLOR = '#b9a7ff';
+/** NEXT_CONTAINER_ENTITY_COLOR：定义该变量以承载业务值。 */
 const NEXT_CONTAINER_ENTITY_COLOR = '#c18b46';
 
 /** getFirstGrapheme：执行对应的业务逻辑。 */
 function getFirstGrapheme(input: string | undefined, fallback: string): string {
+/** normalized：定义该变量以承载业务值。 */
   const normalized = input?.trim();
   if (!normalized) {
     return fallback;
@@ -1707,8 +1917,11 @@ function getFirstGrapheme(input: string | undefined, fallback: string): string {
 
 /** buildNextPlayerTickEntity：执行对应的业务逻辑。 */
 function buildNextPlayerTickEntity(patch: NonNullable<NEXT_S2C_WorldDelta['p']>[number]): TickRenderEntity {
+/** previous：定义该变量以承载业务值。 */
   const previous = latestEntityMap.get(patch.id);
+/** isSelf：定义该变量以承载业务值。 */
   const isSelf = patch.id === myPlayer?.id;
+/** fallbackName：定义该变量以承载业务值。 */
   const fallbackName = isSelf ? (myPlayer?.name ?? previous?.name) : previous?.name;
   return {
     id: patch.id,
@@ -1717,6 +1930,7 @@ function buildNextPlayerTickEntity(patch: NonNullable<NEXT_S2C_WorldDelta['p']>[
     char: previous?.char ?? getFirstGrapheme(isSelf ? (myPlayer?.displayName ?? myPlayer?.name) : previous?.name, isSelf ? '我' : '人'),
     color: previous?.color ?? NEXT_PLAYER_ENTITY_COLOR,
     name: previous?.name ?? fallbackName,
+/** kind：定义该变量以承载业务值。 */
     kind: previous?.kind === 'crowd' ? 'crowd' : 'player',
     hp: isSelf ? (myPlayer?.hp ?? previous?.hp) : previous?.hp,
     maxHp: isSelf ? (myPlayer?.maxHp ?? previous?.maxHp) : previous?.maxHp,
@@ -1730,7 +1944,9 @@ function buildNextPlayerTickEntity(patch: NonNullable<NEXT_S2C_WorldDelta['p']>[
 
 /** buildNextMonsterTickEntity：执行对应的业务逻辑。 */
 function buildNextMonsterTickEntity(patch: NonNullable<NEXT_S2C_WorldDelta['m']>[number]): TickRenderEntity {
+/** previous：定义该变量以承载业务值。 */
   const previous = latestEntityMap.get(patch.id);
+/** name：定义该变量以承载业务值。 */
   const name = patch.n ?? previous?.name;
   return {
     id: patch.id,
@@ -1753,6 +1969,7 @@ function buildNextMonsterTickEntity(patch: NonNullable<NEXT_S2C_WorldDelta['m']>
 
 /** buildNextNpcTickEntity：执行对应的业务逻辑。 */
 function buildNextNpcTickEntity(patch: NonNullable<NEXT_S2C_WorldDelta['n']>[number]): TickRenderEntity {
+/** previous：定义该变量以承载业务值。 */
   const previous = latestEntityMap.get(patch.id);
   return {
     id: patch.id,
@@ -1766,6 +1983,7 @@ function buildNextNpcTickEntity(patch: NonNullable<NEXT_S2C_WorldDelta['n']>[num
     maxHp: previous?.maxHp,
     qi: previous?.qi,
     maxQi: previous?.maxQi,
+/** npcQuestMarker：定义该变量以承载业务值。 */
     npcQuestMarker: patch.qm === null ? null : patch.qm ?? previous?.npcQuestMarker,
     observation: previous?.observation,
     buffs: previous?.buffs,
@@ -1774,6 +1992,7 @@ function buildNextNpcTickEntity(patch: NonNullable<NEXT_S2C_WorldDelta['n']>[num
 
 /** buildNextPortalTickEntity：执行对应的业务逻辑。 */
 function buildNextPortalTickEntity(patch: NonNullable<NEXT_S2C_WorldDelta['o']>[number]): TickRenderEntity {
+/** previous：定义该变量以承载业务值。 */
   const previous = latestEntityMap.get(patch.id);
   return {
     id: patch.id,
@@ -1795,6 +2014,7 @@ function buildNextPortalTickEntity(patch: NonNullable<NEXT_S2C_WorldDelta['o']>[
 
 /** buildNextContainerTickEntity：执行对应的业务逻辑。 */
 function buildNextContainerTickEntity(patch: NonNullable<NEXT_S2C_WorldDelta['c']>[number]): TickRenderEntity {
+/** previous：定义该变量以承载业务值。 */
   const previous = latestEntityMap.get(patch.id);
   return {
     id: patch.id,
@@ -1816,9 +2036,13 @@ function buildNextContainerTickEntity(patch: NonNullable<NEXT_S2C_WorldDelta['c'
 
 /** buildNextWorldDeltaRuntimeInput：执行对应的业务逻辑。 */
 function buildNextWorldDeltaRuntimeInput(data: NEXT_S2C_WorldDelta) {
+/** playerPatches：定义该变量以承载业务值。 */
   const playerPatches: TickRenderEntity[] = [];
+/** entityPatches：定义该变量以承载业务值。 */
   const entityPatches: TickRenderEntity[] = [];
+/** removedEntityIds：定义该变量以承载业务值。 */
   const removedEntityIds: string[] = [];
+/** groundPatches：定义该变量以承载业务值。 */
   const groundPatches: GroundItemPilePatch[] = [];
 
   for (const patch of data.p ?? []) {
@@ -1858,6 +2082,7 @@ function buildNextWorldDeltaRuntimeInput(data: NEXT_S2C_WorldDelta) {
       sourceId: patch.sourceId,
       x: patch.x,
       y: patch.y,
+/** items：定义该变量以承载业务值。 */
       items: patch.items === undefined ? undefined : (patch.items ? cloneJson(patch.items) : null),
     });
   }
@@ -1884,6 +2109,7 @@ function buildNextWorldDeltaRuntimeInput(data: NEXT_S2C_WorldDelta) {
     threatArrowAdds: data.threatArrowAdds ? data.threatArrowAdds.map((entry) => [entry[0], entry[1]] as [string, string]) : undefined,
     threatArrowRemoves: data.threatArrowRemoves ? data.threatArrowRemoves.map((entry) => [entry[0], entry[1]] as [string, string]) : undefined,
     pathCells: data.path ? data.path.map(([x, y]) => ({ x, y })) : undefined,
+/** tickDurationMs：定义该变量以承载业务值。 */
     tickDurationMs: typeof data.dt === 'number' ? data.dt : undefined,
     time: data.time ?? undefined,
     visibleTiles: data.v,
@@ -1907,6 +2133,7 @@ function buildNextSelfRuntimePlayerPatch(data: NEXT_S2C_SelfDelta): TickRenderEn
     char: latestEntityMap.get(myPlayer.id)?.char ?? getFirstGrapheme(myPlayer.displayName ?? myPlayer.name, '我'),
     color: latestEntityMap.get(myPlayer.id)?.color ?? NEXT_PLAYER_ENTITY_COLOR,
     name: latestEntityMap.get(myPlayer.id)?.name ?? myPlayer.name,
+/** kind：定义该变量以承载业务值。 */
     kind: latestEntityMap.get(myPlayer.id)?.kind === 'crowd' ? 'crowd' : 'player',
     hp: data.hp ?? myPlayer.hp,
     maxHp: data.maxHp ?? myPlayer.maxHp,
@@ -1920,6 +2147,7 @@ function buildNextSelfRuntimePlayerPatch(data: NEXT_S2C_SelfDelta): TickRenderEn
 
 /** syncLatestObservedEntitiesFromRuntime：执行对应的业务逻辑。 */
 function syncLatestObservedEntitiesFromRuntime(): void {
+/** entities：定义该变量以承载业务值。 */
   const entities = getLatestObservedEntitiesSnapshot() as ObservedEntity[];
   latestEntities = entities;
   latestEntityMap = new Map(entities.map((entity) => [entity.id, entity]));
@@ -1933,6 +2161,7 @@ function finalizeNextMovementFrame(): void {
   refreshHudChrome();
 
   trimCurrentPathProgress();
+/** autoInteractionTriggered：定义该变量以承载业务值。 */
   const autoInteractionTriggered = triggerAutoInteractionIfReady();
   if (!autoInteractionTriggered && pathTarget && myPlayer && myPlayer.x === pathTarget.x && myPlayer.y === pathTarget.y) {
     clearCurrentPath();
@@ -1949,13 +2178,16 @@ function handleNextWorldDeltaMessage(data: NEXT_S2C_WorldDelta): void {
     pendingNextWorldDelta = data;
     return;
   }
+/** previousState：定义该变量以承载业务值。 */
   const previousState = {
     mapId: myPlayer.mapId,
     x: myPlayer.x,
     y: myPlayer.y,
     facing: myPlayer.facing,
   };
+/** runtimeInput：定义该变量以承载业务值。 */
   const runtimeInput = buildNextWorldDeltaRuntimeInput(data);
+/** selfPatch：定义该变量以承载业务值。 */
   const selfPatch = runtimeInput.playerPatches.find((patch) => patch.id === myPlayer!.id);
   syncAuraLevelBaseValue(data.auraLevelBaseValue);
   syncCurrentTimeState(data.time ?? null);
@@ -1974,7 +2206,9 @@ function handleNextWorldDeltaMessage(data: NEXT_S2C_WorldDelta): void {
       playerId: myPlayer.id,
       before: previousState,
       patch: {
+/** x：定义该变量以承载业务值。 */
         x: typeof selfPatch.x === 'number' ? selfPatch.x : null,
+/** y：定义该变量以承载业务值。 */
         y: typeof selfPatch.y === 'number' ? selfPatch.y : null,
       },
       after: {
@@ -1996,6 +2230,7 @@ function handleNextSelfDeltaMessage(data: NEXT_S2C_SelfDelta): void {
     pendingNextSelfDelta = data;
     return;
   }
+/** previousState：定义该变量以承载业务值。 */
   const previousState = {
     mapId: myPlayer.mapId,
     x: myPlayer.x,
@@ -2003,7 +2238,9 @@ function handleNextSelfDeltaMessage(data: NEXT_S2C_SelfDelta): void {
     facing: myPlayer.facing,
   };
   applyNextSelfVitalsMetadata(data);
+/** previousMapId：定义该变量以承载业务值。 */
   const previousMapId = myPlayer.mapId;
+/** playerPatch：定义该变量以承载业务值。 */
   const playerPatch = buildNextSelfRuntimePlayerPatch(data);
   mapRuntime.applyNextSelfDelta({
     mapId: data.mid,
@@ -2014,6 +2251,7 @@ function handleNextSelfDeltaMessage(data: NEXT_S2C_SelfDelta): void {
     qi: data.qi,
     playerPatch,
   });
+/** mapChanged：定义该变量以承载业务值。 */
   const mapChanged = typeof data.mid === 'string' && previousMapId !== data.mid;
   if (mapChanged) {
     clearCurrentPath();
@@ -2049,7 +2287,9 @@ function handleNextSelfDeltaMessage(data: NEXT_S2C_SelfDelta): void {
       before: previousState,
       delta: {
         mapId: data.mid ?? null,
+/** x：定义该变量以承载业务值。 */
         x: typeof data.x === 'number' ? data.x : null,
+/** y：定义该变量以承载业务值。 */
         y: typeof data.y === 'number' ? data.y : null,
         facing: data.f ?? null,
       },
@@ -2115,6 +2355,7 @@ function applyNextSelfVitalsMetadata(data: NEXT_S2C_SelfDelta): void {
   if (!myPlayer) {
     return;
   }
+/** attrTouched：定义该变量以承载业务值。 */
   let attrTouched = false;
   if (typeof data.maxHp === 'number') {
     myPlayer.maxHp = data.maxHp;
@@ -2127,6 +2368,7 @@ function applyNextSelfVitalsMetadata(data: NEXT_S2C_SelfDelta): void {
     return;
   }
 
+/** nextNumericStats：定义该变量以承载业务值。 */
   const nextNumericStats = myPlayer.numericStats
     ? cloneJson(myPlayer.numericStats)
     : latestAttrUpdate?.numericStats
@@ -2155,6 +2397,7 @@ function formatTraversalCost(tile: Tile): string {
   if (!tile.walkable) {
     return '无法通行';
   }
+/** cost：定义该变量以承载业务值。 */
   const cost = getTileTraversalCost(tile.type);
   return `${cost} 点/格`;
 }
@@ -2229,36 +2472,53 @@ function buildObservedEntityCardHtml(entity: ObserveEntityCardData): string {
       <div class="observe-entity-empty">地图广播已将此格玩家聚合为人群显示，不再实时展开单人的血条、Buff 与细节变化。</div>
     </div>`;
   }
+/** detailRows：定义该变量以承载业务值。 */
   const detailRows = entity.observation?.lines ?? [];
+/** monsterPresentation：定义该变量以承载业务值。 */
   const monsterPresentation = entity.kind === 'monster'
     ? getMonsterPresentation(entity.name, entity.monsterTier)
     : null;
+/** title：定义该变量以承载业务值。 */
   const title = monsterPresentation?.label ?? entity.name ?? entity.id;
+/** badge：定义该变量以承载业务值。 */
   const badge = monsterPresentation?.badgeText
     ? `<span class="${monsterPresentation.badgeClassName}">${escapeHtml(monsterPresentation.badgeText)}</span>`
     : '';
+/** vitalRows：定义该变量以承载业务值。 */
   const vitalRows = [
     { label: '生命', value: formatCurrentMax(entity.hp, entity.maxHp) },
     { label: '灵力', value: formatCurrentMax(entity.qi, entity.maxQi) },
   ].filter((entry) => entry.value !== '—');
+/** fallbackVitalRows：定义该变量以承载业务值。 */
   const fallbackVitalRows = (entity.kind === 'monster' || entity.kind === 'npc' || entity.kind === 'player') && detailRows.length === 0
     ? vitalRows
     : [];
+/** detailGrid：定义该变量以承载业务值。 */
   const detailGrid = detailRows.length > 0 ? [...vitalRows, ...detailRows] : fallbackVitalRows;
+/** visibleBuffs：定义该变量以承载业务值。 */
   const visibleBuffs = entity.buffs ?? [];
+/** publicBuffs：定义该变量以承载业务值。 */
   const publicBuffs = visibleBuffs.filter((buff) => buff.visibility === 'public' && buff.category === 'buff');
+/** publicDebuffs：定义该变量以承载业务值。 */
   const publicDebuffs = visibleBuffs.filter((buff) => buff.visibility === 'public' && buff.category === 'debuff');
+/** observeOnlyBuffs：定义该变量以承载业务值。 */
   const observeOnlyBuffs = visibleBuffs.filter((buff) => buff.visibility === 'observe_only' && buff.category === 'buff');
+/** observeOnlyDebuffs：定义该变量以承载业务值。 */
   const observeOnlyDebuffs = visibleBuffs.filter((buff) => buff.visibility === 'observe_only' && buff.category === 'debuff');
+/** buffSection：定义该变量以承载业务值。 */
   const buffSection = `<div class="observe-buff-columns">
     ${buildBuffSectionHtml('增益状态', [...publicBuffs, ...observeOnlyBuffs], '当前未见明显增益状态')}
     ${buildBuffSectionHtml('减益状态', [...publicDebuffs, ...observeOnlyDebuffs], '当前未见明显减益状态')}
   </div>`;
+/** detailKind：定义该变量以承载业务值。 */
   const detailKind = resolveObserveDetailKind(entity.kind);
+/** detailAttrs：定义该变量以承载业务值。 */
   const detailAttrs = detailKind
     ? ` data-observe-detail-kind="${escapeHtml(detailKind)}" data-observe-detail-id="${escapeHtml(entity.id)}" data-observe-detail-title="${escapeHtml(title)}"`
     : '';
+/** tag：定义该变量以承载业务值。 */
   const tag = detailKind ? 'button' : 'div';
+/** typeAttr：定义该变量以承载业务值。 */
   const typeAttr = detailKind ? ' type="button"' : '';
   return `<${tag} class="observe-entity-card${detailKind ? ' observe-entity-card--interactive' : ''}"${typeAttr}${detailAttrs}>
     <div class="observe-entity-head">
@@ -2285,8 +2545,10 @@ function resolveObserveEntities(targetX: number, targetY: number): ObserveEntity
     return activeObservedTileDetail.entities.map((entity) => normalizeObserveEntityCardData(entity));
   }
 
+/** localEntities：定义该变量以承载业务值。 */
   const localEntities = latestEntities
     .filter((entity) => entity.wx === targetX && entity.wy === targetY);
+/** hasCrowdEntity：定义该变量以承载业务值。 */
   const hasCrowdEntity = localEntities.some((entity) => isCrowdEntityKind(entity.kind));
 
   return localEntities
@@ -2308,11 +2570,14 @@ function buildObservedEntitySectionHtml(entities: ObserveEntityCardData[]): stri
 function bindObserveEntityDetailActions(root: ParentNode): void {
   root.querySelectorAll<HTMLElement>('[data-observe-detail-id][data-observe-detail-kind]').forEach((node) => {
     node.addEventListener('click', (event) => {
+/** kind：定义该变量以承载业务值。 */
       const kind = node.dataset.observeDetailKind as NEXT_S2C_Detail['kind'] | undefined;
+/** id：定义该变量以承载业务值。 */
       const id = node.dataset.observeDetailId?.trim();
       if (!kind || !id) {
         return;
       }
+/** title：定义该变量以承载业务值。 */
       const title = node.dataset.observeDetailTitle?.trim() || node.textContent?.trim() || id;
       entityDetailModal.openPending(kind, id, title);
       socket.sendRequestDetail(kind, id);
@@ -2325,9 +2590,13 @@ function bindObserveEntityDetailActions(root: ParentNode): void {
 /** bindObserveBuffTooltips：执行对应的业务逻辑。 */
 function bindObserveBuffTooltips(root: ParentNode): void {
   root.querySelectorAll<HTMLElement>('[data-buff-tooltip-title]').forEach((node) => {
+/** title：定义该变量以承载业务值。 */
     const title = node.dataset.buffTooltipTitle ?? '';
+/** detail：定义该变量以承载业务值。 */
     const detail = node.dataset.buffTooltipDetail ?? '';
+/** lines：定义该变量以承载业务值。 */
     const lines = detail.split('\n').filter(Boolean);
+/** tapMode：定义该变量以承载业务值。 */
     const tapMode = prefersPinnedTooltipInteraction();
     node.addEventListener('click', (event) => {
       if (!tapMode) {
@@ -2355,23 +2624,34 @@ function bindObserveBuffTooltips(root: ParentNode): void {
 
 /** renderObserveModal：执行对应的业务逻辑。 */
 function renderObserveModal(targetX: number, targetY: number): void {
+/** tile：定义该变量以承载业务值。 */
   const tile = getVisibleTileAt(targetX, targetY);
   if (!tile) {
     showToast('只能观察当前视野内的格子');
     return;
   }
 
+/** observedTileDetail：定义该变量以承载业务值。 */
   const observedTileDetail = isMatchingObservedTile(targetX, targetY) ? activeObservedTileDetail : null;
+/** observeError：定义该变量以承载业务值。 */
   const observeError = isMatchingObservedTile(targetX, targetY) ? activeObservedTileError : null;
+/** groundPile：定义该变量以承载业务值。 */
   const groundPile = getVisibleGroundPileAt(targetX, targetY);
+/** groundItems：定义该变量以承载业务值。 */
   const groundItems = observedTileDetail?.ground?.items ?? groundPile?.items ?? [];
+/** groundSourceId：定义该变量以承载业务值。 */
   const groundSourceId = observedTileDetail?.ground?.sourceId ?? null;
+/** portalDetail：定义该变量以承载业务值。 */
   const portalDetail = observedTileDetail?.portal ?? null;
+/** safeZone：定义该变量以承载业务值。 */
   const safeZone = observedTileDetail?.safeZone ?? null;
+/** sortedEntities：定义该变量以承载业务值。 */
   const sortedEntities = [...resolveObserveEntities(targetX, targetY)].sort((left, right) => {
+/** order：定义该变量以承载业务值。 */
     const order = (kind?: string): number => (kind === 'crowd' ? 0 : kind === 'player' ? 1 : kind === 'container' ? 2 : kind === 'npc' ? 3 : kind === 'monster' ? 4 : 5);
     return order(left.kind) - order(right.kind);
   });
+/** terrainRows：定义该变量以承载业务值。 */
   const terrainRows = [
     { label: '地貌', value: getTileTypeName(tile.type) },
     { label: '是否可通行', value: tile.walkable ? '可通行' : '不可通行' },
@@ -2380,6 +2660,7 @@ function renderObserveModal(targetX: number, targetY: number): void {
   ];
   if (typeof tile.hp === 'number' && typeof tile.maxHp === 'number') {
     terrainRows.push({
+/** label：定义该变量以承载业务值。 */
       label: tile.type === TileType.Wall ? '壁垒稳固' : '地物稳固',
       value: formatCurrentMax(tile.hp, tile.maxHp),
     });
@@ -2398,6 +2679,7 @@ function renderObserveModal(targetX: number, targetY: number): void {
   if (safeZone) {
     terrainRows.push({
       label: '安全区',
+/** value：定义该变量以承载业务值。 */
       value: safeZone.x === targetX && safeZone.y === targetY
         ? `安全区中心 · 半径 ${safeZone.radius}`
         : `已处于安全区内 · 中心 (${safeZone.x}, ${safeZone.y}) · 半径 ${safeZone.radius}`,
@@ -2420,6 +2702,7 @@ function renderObserveModal(targetX: number, targetY: number): void {
     observeModalSubtitleEl.textContent = `坐标 (${targetX}, ${targetY})`;
   }
   if (observeModalBodyEl) {
+/** groundHtml：定义该变量以承载业务值。 */
     const groundHtml = groundItems.length > 0
       ? `<div class="observe-entity-list">${groundItems.map((entry) => `
           <div class="observe-modal-row">
@@ -2430,6 +2713,7 @@ function renderObserveModal(targetX: number, targetY: number): void {
       : observedTileDetail?.ground
         ? '<div class="observe-entity-empty">这里暂时没有可拾取物品。</div>'
         : '<div class="observe-entity-empty">该地块当前没有可见地面物品。</div>';
+/** safeZoneHtml：定义该变量以承载业务值。 */
     const safeZoneHtml = safeZone
       ? `
         <section class="observe-modal-section">
@@ -2447,6 +2731,7 @@ function renderObserveModal(targetX: number, targetY: number): void {
         </section>
       `
       : '';
+/** portalHtml：定义该变量以承载业务值。 */
     const portalHtml = portalDetail
       ? `
         <section class="observe-modal-section">
@@ -2472,6 +2757,7 @@ function renderObserveModal(targetX: number, targetY: number): void {
         </section>
       `
       : '';
+/** groundMetaHtml：定义该变量以承载业务值。 */
     const groundMetaHtml = groundSourceId
       ? `
         <div class="observe-entity-empty">
@@ -2479,6 +2765,7 @@ function renderObserveModal(targetX: number, targetY: number): void {
         </div>
       `
       : '';
+/** errorHtml：定义该变量以承载业务值。 */
     const errorHtml = observeError
       ? `
         <section class="observe-modal-section">
@@ -2607,6 +2894,7 @@ actionPanel.setCallbacks(
     if (actionId.startsWith('npc_quests:')) {
       cancelTargeting();
       hideObserveModal();
+/** npcId：定义该变量以承载业务值。 */
       const npcId = actionId.slice('npc_quests:'.length);
       npcQuestModal.openPending(npcId);
       socket.sendAction(actionId);
@@ -2618,6 +2906,7 @@ actionPanel.setCallbacks(
     }
     cancelTargeting();
     hideObserveModal();
+/** action：定义该变量以承载业务值。 */
     const action = getCurrentActionDef(actionId);
     if (action?.type === 'skill') {
       socket.sendCastSkill(actionId);
@@ -2664,6 +2953,7 @@ function requestRedeemCodes(codes: string[]): Promise<AccountRedeemCodesRes> {
     return Promise.reject(new Error('已有兑换请求正在处理中'));
   }
   return new Promise<AccountRedeemCodesRes>((resolve, reject) => {
+/** timeoutId：定义该变量以承载业务值。 */
     const timeoutId = window.setTimeout(() => {
       if (pendingRedeemCodesRequest?.timeoutId !== timeoutId) {
         return;
@@ -2678,7 +2968,9 @@ function requestRedeemCodes(codes: string[]): Promise<AccountRedeemCodesRes> {
 
 /** applyZoomChange：执行对应的业务逻辑。 */
 function applyZoomChange(nextZoom: number): number {
+/** previous：定义该变量以承载业务值。 */
   const previous = getZoom();
+/** zoom：定义该变量以承载业务值。 */
   const zoom = setZoom(nextZoom);
   refreshZoomChrome(zoom);
   if (zoom !== previous) {
@@ -2693,10 +2985,12 @@ zoomSlider?.addEventListener('input', () => {
   applyZoomChange(Number(zoomSlider.value));
 });
 zoomSlider?.addEventListener('change', () => {
+/** zoom：定义该变量以承载业务值。 */
   const zoom = applyZoomChange(Number(zoomSlider.value));
   showToast(`缩放已调整为 ${formatZoom(zoom)}x`);
 });
 zoomResetBtn?.addEventListener('click', () => {
+/** zoom：定义该变量以承载业务值。 */
   const zoom = applyZoomChange(2);
   showToast(`缩放已重置为 ${formatZoom(zoom)}x`);
 });
@@ -2718,6 +3012,7 @@ function handleRealmUpdate(data: NEXT_S2C_Realm): void {
   if (!myPlayer) {
     return;
   }
+/** nextRealm：定义该变量以承载业务值。 */
   const nextRealm = data.realm ? cloneJson(data.realm) : undefined;
   myPlayer.realm = nextRealm;
   myPlayer.realmLv = nextRealm?.realmLv;
@@ -2784,6 +3079,7 @@ function handleAttrUpdate(data: S2C_AttrUpdate): void {
 
 /** handleInventoryUpdate：执行对应的业务逻辑。 */
 function handleInventoryUpdate(data: S2C_InventoryUpdate): void {
+/** mergedInventory：定义该变量以承载业务值。 */
   const mergedInventory = mergeInventoryUpdate(myPlayer?.inventory, data);
   if (mergedInventory.serverTick !== undefined) {
     syncEstimatedServerTick(mergedInventory.serverTick);
@@ -2799,6 +3095,7 @@ function handleInventoryUpdate(data: S2C_InventoryUpdate): void {
 
 /** handleEquipmentUpdate：执行对应的业务逻辑。 */
 function handleEquipmentUpdate(data: S2C_EquipmentUpdate): void {
+/** mergedEquipment：定义该变量以承载业务值。 */
   const mergedEquipment = mergeEquipmentUpdate(myPlayer?.equipment, data);
   if (myPlayer) {
     myPlayer.equipment = mergedEquipment;
@@ -2809,13 +3106,17 @@ function handleEquipmentUpdate(data: S2C_EquipmentUpdate): void {
 
 /** handleTechniqueUpdate：执行对应的业务逻辑。 */
 function handleTechniqueUpdate(data: S2C_TechniqueUpdate): void {
+/** mergedTechniques：定义该变量以承载业务值。 */
   const mergedTechniques = mergeTechniqueStates(data.techniques, data.removeTechniqueIds ?? []);
+/** nextCultivatingTechId：定义该变量以承载业务值。 */
   const nextCultivatingTechId = data.cultivatingTechId === undefined
     ? myPlayer?.cultivatingTechId
     : data.cultivatingTechId ?? undefined;
+/** nextBodyTraining：定义该变量以承载业务值。 */
   const nextBodyTraining = data.bodyTraining === undefined
     ? myPlayer?.bodyTraining
     : data.bodyTraining ?? undefined;
+/** shouldRefreshTechniquePanel：定义该变量以承载业务值。 */
   const shouldRefreshTechniquePanel = !myPlayer
     || haveTechniqueStructureChanges(myPlayer.techniques, myPlayer.cultivatingTechId, mergedTechniques, nextCultivatingTechId);
   if (myPlayer) {
@@ -2838,23 +3139,41 @@ function handleTechniqueUpdate(data: S2C_TechniqueUpdate): void {
 
 /** handleActionsUpdate：执行对应的业务逻辑。 */
 function handleActionsUpdate(data: S2C_ActionsUpdate): void {
+/** mergedActions：定义该变量以承载业务值。 */
   const mergedActions = mergeActionStates(data.actions, data.removeActionIds ?? [], data.actionOrder);
+/** previousActions：定义该变量以承载业务值。 */
   const previousActions = myPlayer?.actions ?? [];
+/** previousAutoBattle：定义该变量以承载业务值。 */
   const previousAutoBattle = myPlayer?.autoBattle ?? false;
+/** previousAutoRetaliate：定义该变量以承载业务值。 */
   const previousAutoRetaliate = myPlayer?.autoRetaliate ?? true;
+/** previousAutoBattleStationary：定义该变量以承载业务值。 */
   const previousAutoBattleStationary = myPlayer?.autoBattleStationary ?? false;
+/** previousAllowAoePlayerHit：定义该变量以承载业务值。 */
   const previousAllowAoePlayerHit = myPlayer?.allowAoePlayerHit ?? false;
+/** previousAutoIdleCultivation：定义该变量以承载业务值。 */
   const previousAutoIdleCultivation = myPlayer?.autoIdleCultivation ?? true;
+/** previousAutoSwitchCultivation：定义该变量以承载业务值。 */
   const previousAutoSwitchCultivation = myPlayer?.autoSwitchCultivation ?? false;
+/** previousCultivationActive：定义该变量以承载业务值。 */
   const previousCultivationActive = myPlayer?.cultivationActive ?? false;
+/** nextAutoBattle：定义该变量以承载业务值。 */
   const nextAutoBattle = data.autoBattle ?? myPlayer?.autoBattle ?? false;
+/** nextAutoRetaliate：定义该变量以承载业务值。 */
   const nextAutoRetaliate = data.autoRetaliate ?? myPlayer?.autoRetaliate ?? true;
+/** nextAutoBattleStationary：定义该变量以承载业务值。 */
   const nextAutoBattleStationary = data.autoBattleStationary ?? myPlayer?.autoBattleStationary ?? false;
+/** nextAllowAoePlayerHit：定义该变量以承载业务值。 */
   const nextAllowAoePlayerHit = data.allowAoePlayerHit ?? myPlayer?.allowAoePlayerHit ?? false;
+/** nextAutoIdleCultivation：定义该变量以承载业务值。 */
   const nextAutoIdleCultivation = data.autoIdleCultivation ?? myPlayer?.autoIdleCultivation ?? true;
+/** nextAutoSwitchCultivation：定义该变量以承载业务值。 */
   const nextAutoSwitchCultivation = data.autoSwitchCultivation ?? myPlayer?.autoSwitchCultivation ?? false;
+/** nextCultivationActive：定义该变量以承载业务值。 */
   const nextCultivationActive = data.cultivationActive ?? myPlayer?.cultivationActive ?? false;
+/** nextSenseQiActive：定义该变量以承载业务值。 */
   const nextSenseQiActive = data.senseQiActive ?? myPlayer?.senseQiActive ?? false;
+/** shouldRefreshActionPanel：定义该变量以承载业务值。 */
   const shouldRefreshActionPanel = !myPlayer
     || previousAutoBattle !== nextAutoBattle
     || previousAutoRetaliate !== nextAutoRetaliate
@@ -2870,7 +3189,9 @@ function handleActionsUpdate(data: S2C_ActionsUpdate): void {
       .filter((action) => action.type === 'skill')
       .map((action) => ({
         skillId: action.id,
+/** enabled：定义该变量以承载业务值。 */
         enabled: action.autoBattleEnabled !== false,
+/** skillEnabled：定义该变量以承载业务值。 */
         skillEnabled: action.skillEnabled !== false,
       }));
     myPlayer.autoBattle = data.autoBattle ?? myPlayer.autoBattle;
@@ -2899,6 +3220,7 @@ function mergeVisibleBuffStates(
   previous: TemporaryBuffState[] | undefined,
   data: NonNullable<NEXT_S2C_PanelDelta['buff']>,
 ): TemporaryBuffState[] {
+/** next：定义该变量以承载业务值。 */
   const next = new Map((previous ?? []).map((entry) => [entry.buffId, cloneJson(entry)] as const));
   if (data.full) {
     next.clear();
@@ -3040,6 +3362,7 @@ function handleSystemMsg(data: S2C_SystemMsg): void {
     return;
   }
   if (data.kind === 'quest' || data.kind === 'combat' || data.kind === 'loot') {
+/** label：定义该变量以承载业务值。 */
     const label = data.from ?? (data.kind === 'quest' ? '任务' : data.kind === 'combat' ? '战斗' : '掉落');
     void chatUI.addMessage(data.text, label, data.kind);
     if (data.kind === 'quest' || data.kind === 'loot') {
@@ -3048,6 +3371,7 @@ function handleSystemMsg(data: S2C_SystemMsg): void {
     return;
   }
   if (data.kind === 'success' || data.kind === 'warn' || data.kind === 'travel') {
+/** label：定义该变量以承载业务值。 */
     const label = data.from ?? (data.kind === 'success' ? '提示' : data.kind === 'warn' ? '警告' : '行旅');
     void chatUI.addMessage(data.text, label, data.kind);
     showToast(data.text, data.kind);
@@ -3071,6 +3395,7 @@ function resolveSystemMsgIdFromNextNotice(item: NEXT_S2C_NoticeItem): string | u
 
 /** toSystemMsgFromNextNotice：执行对应的业务逻辑。 */
 function toSystemMsgFromNextNotice(item: NEXT_S2C_NoticeItem): S2C_SystemMsg {
+/** kind：定义该变量以承载业务值。 */
   const kind = item.kind === 'chat'
     ? 'chat'
     : item.kind === 'grudge'
@@ -3104,6 +3429,7 @@ socket.onNextNotice((payload) => {
 });
 socket.onError(async (data) => {
   if (data.code === 'AUTH_FAIL') {
+/** restored：定义该变量以承载业务值。 */
     const restored = await loginUI.restoreSession();
     if (restored) return;
     resetGameState();
@@ -3129,6 +3455,7 @@ socket.onConnectError((message) => {
 socket.onDisconnect((reason) => {
   if (reason === 'io client disconnect') return;
   if (pendingRedeemCodesRequest) {
+/** pending：定义该变量以承载业务值。 */
     const pending = pendingRedeemCodesRequest;
     pendingRedeemCodesRequest = null;
     window.clearTimeout(pending.timeoutId);
@@ -3153,27 +3480,40 @@ socket.onPong((data) => {
   renderPingLatency(performance.now() - data.clientAt);
 });
 
+/** pathCells：定义该变量以承载业务值。 */
 let pathCells: { x: number; y: number }[] = [];
+/** pathTarget：定义该变量以承载业务值。 */
 let pathTarget: { x: number; y: number } | null = null;
 
+/** myPlayer：定义该变量以承载业务值。 */
 let myPlayer: PlayerState | null = null;
+/** currentTimeState：定义该变量以承载业务值。 */
 let currentTimeState: GameTimeState | null = null;
+/** latestAttrUpdate：定义该变量以承载业务值。 */
 let latestAttrUpdate: S2C_AttrUpdate | null = null;
+/** latestTechniqueMap：定义该变量以承载业务值。 */
 let latestTechniqueMap = new Map<string, TechniqueState>();
+/** latestActionMap：定义该变量以承载业务值。 */
 let latestActionMap = new Map<string, ActionDef>();
+/** latestEntities：定义该变量以承载业务值。 */
 let latestEntities: ObservedEntity[] = [];
+/** latestEntityMap：定义该变量以承载业务值。 */
 let latestEntityMap = new Map<string, ObservedEntity>();
+/** pendingLayoutViewportSync：定义该变量以承载业务值。 */
 let pendingLayoutViewportSync = false;
+/** pendingAutoInteraction：定义该变量以承载业务值。 */
 let pendingAutoInteraction: PendingAutoInteraction | null = null;
 
 /** showToast：执行对应的业务逻辑。 */
 function showToast(message: string, kind: 'system' | 'chat' | 'quest' | 'combat' | 'loot' | 'grudge' | 'success' | 'warn' | 'travel' = 'system') {
+/** el：定义该变量以承载业务值。 */
   const el = document.getElementById('toast');
   if (!el) return;
   el.className = `toast-kind-${kind}`;
   el.textContent = message;
   el.classList.remove('hidden');
   el.classList.add('show');
+/** durationMs：定义该变量以承载业务值。 */
   const durationMs = kind === 'quest' || kind === 'grudge' ? 4200 : 2500;
   window.setTimeout(() => {
     el.classList.remove('show');
@@ -3183,7 +3523,9 @@ function showToast(message: string, kind: 'system' | 'chat' | 'quest' | 'combat'
 
 /** handleQqGroupLinkClick：执行对应的业务逻辑。 */
 async function handleQqGroupLinkClick(): Promise<void> {
+/** copied：定义该变量以承载业务值。 */
   const copied = await copyTextToClipboard(QQ_GROUP_NUMBER);
+/** qqScheme：定义该变量以承载业务值。 */
   const qqScheme = resolveQqGroupLink();
   window.location.href = qqScheme;
   window.setTimeout(() => {
@@ -3200,7 +3542,9 @@ async function handleQqGroupLinkClick(): Promise<void> {
 
 /** resolveQqGroupLink：执行对应的业务逻辑。 */
 function resolveQqGroupLink(): string {
+/** ua：定义该变量以承载业务值。 */
   const ua = navigator.userAgent.toLowerCase();
+/** isMobile：定义该变量以承载业务值。 */
   const isMobile = /android|iphone|ipad|ipod|mobile/.test(ua);
   return isMobile ? QQ_GROUP_MOBILE_DEEP_LINK : QQ_GROUP_DESKTOP_DEEP_LINK;
 }
@@ -3216,6 +3560,7 @@ async function copyTextToClipboard(text: string): Promise<boolean> {
     // 某些浏览器或非安全上下文会拒绝 Clipboard API，此时回退到 execCommand。
   }
 
+/** textarea：定义该变量以承载业务值。 */
   const textarea = document.createElement('textarea');
   textarea.value = text;
   textarea.setAttribute('readonly', 'true');
@@ -3326,6 +3671,7 @@ function haveTechniqueStructureChanges(
 
 /** resolveMapDanger：执行对应的业务逻辑。 */
 function resolveMapDanger(): string {
+/** fallback：定义该变量以承载业务值。 */
   const fallback = myPlayer ? MAP_FALLBACK[myPlayer.mapId] : undefined;
   if (!myPlayer) {
     return '未知';
@@ -3338,8 +3684,10 @@ function resolveRealmLabel(player: PlayerState): string {
   if (player.realmName) {
     return player.realmStage ? `${player.realmName} · ${player.realmStage}` : player.realmName;
   }
+/** top：定义该变量以承载业务值。 */
   const top = [...player.techniques].sort((a, b) => b.realm - a.realm)[0];
   if (!top) return '凡俗武者';
+/** labels：定义该变量以承载业务值。 */
   const labels: Record<TechniqueRealm, string> = {
     [TechniqueRealm.Entry]: '武学入门',
     [TechniqueRealm.Minor]: '后天圆熟',
@@ -3354,6 +3702,7 @@ function resolveTitleLabel(player: PlayerState): string {
   if (player.realm?.path === 'immortal') {
     return player.realm.shortName === '筑基' ? '云游真修' : '初登仙门';
   }
+/** top：定义该变量以承载业务值。 */
   const top = [...player.techniques].sort((a, b) => b.level - a.level)[0];
   if (!top) return '无名后学';
   if (top.realm >= TechniqueRealm.Perfection) return '名动一方';
@@ -3381,6 +3730,7 @@ function refreshUiChrome() {
 /** refreshHudChrome：执行对应的业务逻辑。 */
 function refreshHudChrome() {
   if (!myPlayer) return;
+/** heavenGateAction：定义该变量以承载业务值。 */
   const heavenGateAction = getHeavenGateHudAction(myPlayer);
   hud.update(myPlayer, {
     mapName: mapRuntime.getMapMeta()?.name ?? myPlayer.mapId,
@@ -3396,9 +3746,12 @@ function refreshHudChrome() {
 /** hasSelectionWithin：执行对应的业务逻辑。 */
 function hasSelectionWithin(root: HTMLElement | null): boolean {
   if (!root) return false;
+/** selection：定义该变量以承载业务值。 */
   const selection = window.getSelection();
   if (!selection || selection.isCollapsed || selection.rangeCount === 0) return false;
+/** anchor：定义该变量以承载业务值。 */
   const anchor = selection.anchorNode;
+/** focus：定义该变量以承载业务值。 */
   const focus = selection.focusNode;
   return !!anchor && !!focus && root.contains(anchor) && root.contains(focus);
 }
@@ -3410,6 +3763,7 @@ function shouldPauseWorldPanelRefresh(): boolean {
 
 /** getInfoRadius：执行对应的业务逻辑。 */
 function getInfoRadius(): number {
+/** baseViewRange：定义该变量以承载业务值。 */
   const baseViewRange = Math.max(1, Math.round(myPlayer?.viewRange ?? VIEW_RADIUS));
   if (currentTimeState) {
     return Math.max(1, Math.ceil(baseViewRange * currentTimeState.visionMultiplier));
@@ -3443,12 +3797,14 @@ function trimCurrentPathProgress() {
     return;
   }
 
+/** currentIndex：定义该变量以承载业务值。 */
   const currentIndex = pathCells.findIndex((cell) => cell.x === myPlayer!.x && cell.y === myPlayer!.y);
   if (currentIndex >= 0) {
     pathCells = pathCells.slice(currentIndex + 1);
     return;
   }
 
+/** firstRemainingCell：定义该变量以承载业务值。 */
   const firstRemainingCell = pathCells[0];
   if (!firstRemainingCell) {
     return;
@@ -3477,6 +3833,7 @@ function sendMoveCommand(dir: Direction) {
 
 /** planPathTo：执行对应的业务逻辑。 */
 function planPathTo(
+/** target：定义该变量以承载业务值。 */
   target: { x: number; y: number },
   options?: { ignoreVisibilityLimit?: boolean; allowNearestReachable?: boolean; preserveAutoInteraction?: boolean },
 ) {
@@ -3485,6 +3842,7 @@ function planPathTo(
     pendingAutoInteraction = null;
   }
   pathTarget = target;
+/** preview：定义该变量以承载业务值。 */
   const preview = buildClientPreviewPath(myPlayer.x, myPlayer.y, target.x, target.y);
   pathCells = preview?.cells ?? [{ x: target.x, y: target.y }];
   mapRuntime.setPathCells(pathCells);
@@ -3492,7 +3850,9 @@ function planPathTo(
     playerId: myPlayer.id,
     from: { x: myPlayer.x, y: myPlayer.y, mapId: myPlayer.mapId },
     target,
+/** allowNearestReachable：定义该变量以承载业务值。 */
     allowNearestReachable: options?.allowNearestReachable === true,
+/** ignoreVisibilityLimit：定义该变量以承载业务值。 */
     ignoreVisibilityLimit: options?.ignoreVisibilityLimit === true,
     previewFound: Boolean(preview),
     previewDirections: preview?.directions ?? [],
@@ -3509,6 +3869,7 @@ function planPathTo(
 
 /** isCellInsideCurrentMap：执行对应的业务逻辑。 */
 function isCellInsideCurrentMap(x: number, y: number): boolean {
+/** mapMeta：定义该变量以承载业务值。 */
   const mapMeta = mapRuntime.getMapMeta();
   return Boolean(mapMeta && x >= 0 && x < mapMeta.width && y >= 0 && y < mapMeta.height);
 }
@@ -3518,7 +3879,9 @@ function isCellAvailableForAutoApproach(x: number, y: number): boolean {
   if (!myPlayer || !isCellInsideCurrentMap(x, y)) {
     return false;
   }
+/** mapMeta：定义该变量以承载业务值。 */
   const mapMeta = mapRuntime.getMapMeta();
+/** tile：定义该变量以承载业务值。 */
   const tile = getKnownTileAt(x, y);
   if (!tile?.walkable) {
     return false;
@@ -3528,6 +3891,7 @@ function isCellAvailableForAutoApproach(x: number, y: number): boolean {
 
 /** findObservedEntityAt：执行对应的业务逻辑。 */
 function findObservedEntityAt(x: number, y: number, kind?: string): ObservedEntity | null {
+/** entity：定义该变量以承载业务值。 */
   const entity = latestEntities.find((entry) => (
     entry.wx === x
     && entry.wy === y
@@ -3552,8 +3916,10 @@ function isVisibleBlockingEntityAt(
   y: number,
   options?: { allowSelf?: boolean; mapMeta?: MapMeta | null; playerOverlapPointKeys?: ReadonlySet<string> },
 ): boolean {
+/** overlapPointKeys：定义该变量以承载业务值。 */
   const overlapPointKeys = options?.playerOverlapPointKeys
     ?? createPlayerOverlapPointKeySet(options?.mapMeta ?? mapRuntime.getMapMeta());
+/** supportsPlayerOverlap：定义该变量以承载业务值。 */
   const supportsPlayerOverlap = overlapPointKeys.has(`${x},${y}`);
   return latestEntities.some((entity) => {
     if (entity.wx !== x || entity.wy !== y || !isPathPreviewBlockingEntity(entity)) {
@@ -3575,6 +3941,7 @@ function resolveNpcApproachTarget(npc: ObservedEntity): { x: number; y: number }
     return null;
   }
 
+/** bestCandidate：定义该变量以承载业务值。 */
   let bestCandidate: { x: number; y: number; pathLength: number; distance: number } | null = null;
 
   for (const step of AUTO_INTERACTION_APPROACH_STEPS) {
@@ -3584,12 +3951,15 @@ function resolveNpcApproachTarget(npc: ObservedEntity): { x: number; y: number }
       continue;
     }
 
+/** previewPath：定义该变量以承载业务值。 */
     const previewPath = buildClientPreviewPath(myPlayer.x, myPlayer.y, candidateX, candidateY);
     if (!previewPath && (myPlayer.x !== candidateX || myPlayer.y !== candidateY)) {
       continue;
     }
 
+/** pathLength：定义该变量以承载业务值。 */
     const pathLength = previewPath?.cells.length ?? 0;
+/** distance：定义该变量以承载业务值。 */
     const distance = gridDistance({ x: myPlayer.x, y: myPlayer.y }, { x: candidateX, y: candidateY });
     if (
       !bestCandidate
@@ -3613,9 +3983,13 @@ function resolveNpcInteractionActionId(npc: Pick<ObservedEntity, 'id' | 'npcQues
   if (!myPlayer) {
     return null;
   }
+/** actionIds：定义该变量以承载业务值。 */
   const actionIds = new Set((myPlayer.actions ?? []).map((action) => action.id));
+/** questActionId：定义该变量以承载业务值。 */
   const questActionId = `npc_quests:${npc.id}`;
+/** shopActionId：定义该变量以承载业务值。 */
   const shopActionId = `npc_shop:${npc.id}`;
+/** talkActionId：定义该变量以承载业务值。 */
   const talkActionId = `npc:${npc.id}`;
 
   if (npc.npcQuestMarker && actionIds.has(questActionId)) {
@@ -3644,12 +4018,14 @@ function triggerAutoInteractionIfReady(): boolean {
     if (myPlayer.x !== pendingAutoInteraction.x || myPlayer.y !== pendingAutoInteraction.y) {
       return false;
     }
+/** actionId：定义该变量以承载业务值。 */
     const actionId = pendingAutoInteraction.actionId;
     clearCurrentPath();
     socket.sendAction(actionId);
     return true;
   }
 
+/** npc：定义该变量以承载业务值。 */
   const npc = latestEntityMap.get(pendingAutoInteraction.npcId)
     ?? findObservedEntityAt(pendingAutoInteraction.x, pendingAutoInteraction.y, 'npc');
   if (!npc || npc.kind !== 'npc') {
@@ -3659,6 +4035,7 @@ function triggerAutoInteractionIfReady(): boolean {
   if (!isPointInRange({ x: myPlayer.x, y: myPlayer.y }, { x: npc.wx, y: npc.wy }, 1)) {
     return false;
   }
+/** actionId：定义该变量以承载业务值。 */
   const actionId = resolveNpcInteractionActionId(npc);
   if (!actionId) {
     return false;
@@ -3688,6 +4065,7 @@ function handleNpcClickTarget(npc: ObservedEntity): boolean {
 
   if (isPointInRange({ x: myPlayer.x, y: myPlayer.y }, { x: npc.wx, y: npc.wy }, 1)) {
     clearCurrentPath();
+/** actionId：定义该变量以承载业务值。 */
     const actionId = resolveNpcInteractionActionId(npc);
     if (actionId) {
       if (actionId.startsWith('npc_shop:')) {
@@ -3712,6 +4090,7 @@ function handleNpcClickTarget(npc: ObservedEntity): boolean {
     return true;
   }
 
+/** approachTarget：定义该变量以承载业务值。 */
   const approachTarget = resolveNpcApproachTarget(npc);
   if (!approachTarget) {
     showToast('找不到能靠近该 NPC 的位置');
@@ -3769,6 +4148,7 @@ function buildClientPreviewPath(
   targetX: number,
   targetY: number,
 ): { cells: { x: number; y: number }[]; directions: Direction[] } | null {
+/** mapMeta：定义该变量以承载业务值。 */
   const mapMeta = mapRuntime.getMapMeta();
   if (!mapMeta) {
     return null;
@@ -3781,13 +4161,16 @@ function buildClientPreviewPath(
   ) {
     return null;
   }
+/** playerOverlapPointKeys：定义该变量以承载业务值。 */
   const playerOverlapPointKeys = createPlayerOverlapPointKeySet(mapMeta);
 
+/** visibleBlockingPositions：定义该变量以承载业务值。 */
   const visibleBlockingPositions = new Set<string>();
   for (const entity of latestEntities) {
     if (!isPathPreviewBlockingEntity(entity)) {
       continue;
     }
+/** coordKey：定义该变量以承载业务值。 */
     const coordKey = `${entity.wx},${entity.wy}`;
     if (entity.kind === 'player' && entity.id === myPlayer?.id) {
       continue;
@@ -3798,6 +4181,7 @@ function buildClientPreviewPath(
     visibleBlockingPositions.add(coordKey);
   }
 
+/** tiles：定义该变量以承载业务值。 */
   const tiles: Tile[][] = [];
   for (let y = 0; y < mapMeta.height; y++) {
     const row: Tile[] = [];
@@ -3807,6 +4191,7 @@ function buildClientPreviewPath(
         type: TileType.Wall,
         walkable: false,
       } as Tile);
+/** occupiedByVisibleEntity：定义该变量以承载业务值。 */
       const occupiedByVisibleEntity = visibleBlockingPositions.has(`${x},${y}`);
       row.push(occupiedByVisibleEntity
         ? {
@@ -3819,13 +4204,17 @@ function buildClientPreviewPath(
     tiles.push(row);
   }
 
+/** previewDirections：定义该变量以承载业务值。 */
   const previewDirections = findPath(tiles, startX, startY, targetX, targetY);
   if (!previewDirections) {
     return null;
   }
 
+/** previewCells：定义该变量以承载业务值。 */
   const previewCells: { x: number; y: number }[] = [];
+/** currentX：定义该变量以承载业务值。 */
   let currentX = startX;
+/** currentY：定义该变量以承载业务值。 */
   let currentY = startY;
   for (const direction of previewDirections) {
     const [dx, dy] = directionToDelta(direction);
@@ -3949,6 +4338,7 @@ sidePanel.setLayoutChangeCallback(() => {
 });
 /** syncChatLogbookVisibility：执行对应的业务逻辑。 */
 function syncChatLogbookVisibility(): void {
+/** logbookPane：定义该变量以承载业务值。 */
   const logbookPane = document.querySelector<HTMLElement>('.split-tab-pane[data-pane="logbook"]');
   chatUI.setLogbookVisible(sidePanel.isVisible() && logbookPane?.classList.contains('active') === true);
 }
@@ -3959,9 +4349,13 @@ syncChatLogbookVisibility();
 
 /** resizeCanvas：执行对应的业务逻辑。 */
 function resizeCanvas() {
+/** cssWidth：定义该变量以承载业务值。 */
   const cssWidth = Math.max(1, canvasHost.clientWidth);
+/** cssHeight：定义该变量以承载业务值。 */
   const cssHeight = Math.max(1, canvasHost.clientHeight);
+/** rect：定义该变量以承载业务值。 */
   const rect = canvasHost.getBoundingClientRect();
+/** viewportScale：定义该变量以承载业务值。 */
   const viewportScale = cssWidth > 0 && rect.width > 0
     ? rect.width / cssWidth
     : 1;
@@ -4022,7 +4416,9 @@ observeModalShellEl?.addEventListener('click', (event) => {
 
 mapRuntime.setInteractionCallbacks({
   onTarget: (target) => {
+/** clickedMonster：定义该变量以承载业务值。 */
     const clickedMonster = findObservedEntityAt(target.x, target.y, 'monster');
+/** clickedNpc：定义该变量以承载业务值。 */
     const clickedNpc = findObservedEntityAt(target.x, target.y, 'npc');
     if (pendingTargetedAction) {
       pendingTargetedAction.range = resolveCurrentTargetingRange(pendingTargetedAction);
@@ -4056,11 +4452,13 @@ mapRuntime.setInteractionCallbacks({
         showToast('该位置范围内没有可命中的目标或可受影响的地块');
         return;
       }
+/** targetRef：定义该变量以承载业务值。 */
       const targetRef = resolveTargetRefForAction(pendingTargetedAction, target);
       if (!targetRef) {
         showToast('该技能需要选中有效目标');
         return;
       }
+/** action：定义该变量以承载业务值。 */
       const action = getCurrentActionDef(pendingTargetedAction.actionId);
       if (action?.type === 'skill') {
         socket.sendCastSkill(pendingTargetedAction.actionId, targetRef);
@@ -4083,6 +4481,7 @@ mapRuntime.setInteractionCallbacks({
       showToast('只能点击当前显示区域内的格子');
       return;
     }
+/** knownTile：定义该变量以承载业务值。 */
     const knownTile = getKnownTileAt(target.x, target.y);
     if (!knownTile) {
       showToast('完全未知的黑色区域无法点击移动');
@@ -4125,11 +4524,13 @@ function flushPendingNextBootstrapEnvelope(): void {
     return;
   }
   if (pendingNextWorldDelta) {
+/** pending：定义该变量以承载业务值。 */
     const pending = pendingNextWorldDelta;
     pendingNextWorldDelta = null;
     handleNextWorldDeltaMessage(pending);
   }
   if (pendingNextSelfDelta) {
+/** pending：定义该变量以承载业务值。 */
     const pending = pendingNextSelfDelta;
     pendingNextSelfDelta = null;
     handleNextSelfDeltaMessage(pending);
@@ -4162,6 +4563,7 @@ function handleBootstrap(data: NEXT_S2C_Bootstrap): void {
   mapRuntime.applyBootstrap(data);
   syncSenseQiOverlay();
 
+/** entities：定义该变量以承载业务值。 */
   const entities = getLatestObservedEntitiesSnapshot() as ObservedEntity[];
   latestTechniqueMap = new Map((myPlayer.techniques ?? []).map((technique) => [technique.techId, cloneJson(technique)]));
   latestActionMap = new Map((myPlayer.actions ?? []).map((action) => [action.id, cloneJson(action)]));
@@ -4224,6 +4626,7 @@ socket.onRedeemCodesResult((data: S2C_RedeemCodesResult) => {
   if (!pendingRedeemCodesRequest) {
     return;
   }
+/** pending：定义该变量以承载业务值。 */
   const pending = pendingRedeemCodesRequest;
   pendingRedeemCodesRequest = null;
   clearTimeout(pending.timeoutId);

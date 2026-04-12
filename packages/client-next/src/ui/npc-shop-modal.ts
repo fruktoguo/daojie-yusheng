@@ -28,8 +28,11 @@ interface NpcShopModalCallbacks {
 
 /** NpcShopItemState：定义该接口的能力与字段约束。 */
 interface NpcShopItemState {
+/** itemId：定义该变量以承载业务值。 */
   itemId: string;
+/** item：定义该变量以承载业务值。 */
   item: ItemStack;
+/** unitPrice：定义该变量以承载业务值。 */
   unitPrice: number;
   remainingQuantity?: number;
   stockLimit?: number;
@@ -38,49 +41,68 @@ interface NpcShopItemState {
 
 /** NpcShopState：定义该接口的能力与字段约束。 */
 interface NpcShopState {
+/** npcId：定义该变量以承载业务值。 */
   npcId: string;
+/** npcName：定义该变量以承载业务值。 */
   npcName: string;
+/** dialogue：定义该变量以承载业务值。 */
   dialogue: string;
+/** currencyItemId：定义该变量以承载业务值。 */
   currencyItemId: string;
+/** currencyItemName：定义该变量以承载业务值。 */
   currencyItemName: string;
+/** items：定义该变量以承载业务值。 */
   items: NpcShopItemState[];
 }
 
 /** NpcShopResponseState：定义该接口的能力与字段约束。 */
 interface NpcShopResponseState {
+/** npcId：定义该变量以承载业务值。 */
   npcId: string;
+/** shop：定义该变量以承载业务值。 */
   shop: NpcShopState | null;
   error?: string;
 }
 
 /** NpcShopModalMeta：定义该接口的能力与字段约束。 */
 interface NpcShopModalMeta {
+/** title：定义该变量以承载业务值。 */
   title: string;
+/** subtitle：定义该变量以承载业务值。 */
   subtitle: string;
 }
 
 /** NpcShopModal：封装相关状态与行为。 */
 export class NpcShopModal {
   private static readonly MODAL_OWNER = 'npc-shop-modal';
+/** callbacks：定义该变量以承载业务值。 */
   private callbacks: NpcShopModalCallbacks | null = null;
+/** inventory：定义该变量以承载业务值。 */
   private inventory: Inventory = { items: [], capacity: 0 };
+/** activeNpcId：定义该变量以承载业务值。 */
   private activeNpcId: string | null = null;
   private loading = false;
+/** shopState：定义该变量以承载业务值。 */
   private shopState: NpcShopResponseState | null = null;
+/** selectedItemId：定义该变量以承载业务值。 */
   private selectedItemId: string | null = null;
   private quantityDrafts = new Map<string, string>();
   private tooltip = new FloatingTooltip('floating-tooltip market-item-tooltip');
+/** tooltipNode：定义该变量以承载业务值。 */
   private tooltipNode: HTMLElement | null = null;
   private delegatedEventsBound = false;
 
+/** setCallbacks：执行对应的业务逻辑。 */
   setCallbacks(callbacks: NpcShopModalCallbacks): void {
     this.callbacks = callbacks;
   }
 
+/** initFromPlayer：执行对应的业务逻辑。 */
   initFromPlayer(player: PlayerState): void {
     this.inventory = player.inventory;
   }
 
+/** syncInventory：执行对应的业务逻辑。 */
   syncInventory(inventory: Inventory): void {
     this.inventory = inventory;
     if (this.activeNpcId && detailModalHost.isOpenFor(NpcShopModal.MODAL_OWNER)) {
@@ -91,6 +113,7 @@ export class NpcShopModal {
     }
   }
 
+/** open：执行对应的业务逻辑。 */
   open(npcId: string): void {
     this.activeNpcId = npcId;
     this.loading = true;
@@ -103,12 +126,14 @@ export class NpcShopModal {
     this.callbacks?.onRequestShop(npcId);
   }
 
+/** updateShop：执行对应的业务逻辑。 */
   updateShop(data: NpcShopResponseState): void {
     if (this.activeNpcId !== data.npcId) {
       return;
     }
     this.shopState = data;
     this.loading = false;
+/** validItemIds：定义该变量以承载业务值。 */
     const validItemIds = new Set(data.shop?.items.map((item) => item.itemId) ?? []);
     if (!this.selectedItemId || !validItemIds.has(this.selectedItemId)) {
       this.selectedItemId = data.shop?.items[0]?.itemId ?? null;
@@ -123,6 +148,7 @@ export class NpcShopModal {
     }
   }
 
+/** clear：执行对应的业务逻辑。 */
   clear(): void {
     this.inventory = { items: [], capacity: 0 };
     this.activeNpcId = null;
@@ -135,10 +161,15 @@ export class NpcShopModal {
     detailModalHost.close(NpcShopModal.MODAL_OWNER);
   }
 
+/** render：执行对应的业务逻辑。 */
   private render(): void {
+/** response：定义该变量以承载业务值。 */
     const response = this.shopState;
+/** shop：定义该变量以承载业务值。 */
     const shop = response?.shop ?? null;
+/** meta：定义该变量以承载业务值。 */
     const meta = this.buildModalMeta();
+/** body：定义该变量以承载业务值。 */
     const body = document.getElementById('detail-modal-body');
     if (detailModalHost.isOpenFor(NpcShopModal.MODAL_OWNER) && body && this.patchBody(body, meta)) {
       return;
@@ -162,12 +193,15 @@ export class NpcShopModal {
     });
   }
 
+/** renderBody：执行对应的业务逻辑。 */
   private renderBody(): string {
     if (this.loading && !this.shopState) {
       return '<div class="empty-hint">商店货架同步中……</div>';
     }
 
+/** response：定义该变量以承载业务值。 */
     const response = this.shopState;
+/** shop：定义该变量以承载业务值。 */
     const shop = response?.shop ?? null;
     if (!shop) {
       return `<div class="empty-hint">${escapeHtml(response?.error ?? '暂时无法打开商店。')}</div>`;
@@ -176,10 +210,13 @@ export class NpcShopModal {
       return '<div class="empty-hint">这家店今天还没有上货。</div>';
     }
 
+/** selectedItem：定义该变量以承载业务值。 */
     const selectedItem = shop.items.find((item) => item.itemId === this.selectedItemId) ?? shop.items[0]!;
+/** listItems：定义该变量以承载业务值。 */
     const listItems = shop.items
       .map((item) => this.renderListItem(item, item.itemId === selectedItem.itemId))
       .join('');
+/** ownedCurrency：定义该变量以承载业务值。 */
     const ownedCurrency = this.findInventoryItemCount(shop.currencyItemId);
 
     return `
@@ -204,11 +241,15 @@ export class NpcShopModal {
     `;
   }
 
+/** renderListItem：执行对应的业务逻辑。 */
   private renderListItem(item: NpcShopItemState, active: boolean): string {
+/** ownedCount：定义该变量以承载业务值。 */
     const ownedCount = this.findInventoryItemCount(item.itemId);
+/** ownedLabel：定义该变量以承载业务值。 */
     const ownedLabel = ownedCount > 0
       ? `<span class="market-item-cell-owned">${formatDisplayCountBadge(ownedCount)}</span>`
       : '';
+/** stockLabel：定义该变量以承载业务值。 */
     const stockLabel = item.remainingQuantity === undefined
       ? escapeHtml(getItemTypeLabel(item.item.type))
       : item.remainingQuantity > 0
@@ -232,28 +273,45 @@ export class NpcShopModal {
     shop: NpcShopState,
     selectedItem: NpcShopItemState,
   ): string {
+/** quantity：定义该变量以承载业务值。 */
     const quantity = this.parseQuantity(selectedItem.itemId);
+/** quantityText：定义该变量以承载业务值。 */
     const quantityText = this.quantityDrafts.get(selectedItem.itemId) ?? '1';
+/** ownedCount：定义该变量以承载业务值。 */
     const ownedCount = this.findInventoryItemCount(selectedItem.itemId);
+/** ownedCurrency：定义该变量以承载业务值。 */
     const ownedCurrency = this.findInventoryItemCount(shop.currencyItemId);
+/** effectLines：定义该变量以承载业务值。 */
     const effectLines = describeItemEffectDetails(selectedItem.item);
+/** affordableCount：定义该变量以承载业务值。 */
     const affordableCount = selectedItem.unitPrice > 0 ? Math.floor(ownedCurrency / selectedItem.unitPrice) : 0;
+/** maxPurchasable：定义该变量以承载业务值。 */
     const maxPurchasable = selectedItem.remainingQuantity === undefined
       ? affordableCount
       : Math.min(affordableCount, selectedItem.remainingQuantity);
+/** totalCost：定义该变量以承载业务值。 */
     const totalCost = quantity === null ? null : quantity * selectedItem.unitPrice;
+/** invalidTotal：定义该变量以承载业务值。 */
     const invalidTotal = totalCost === null || !Number.isSafeInteger(totalCost) || totalCost <= 0;
+/** soldOut：定义该变量以承载业务值。 */
     const soldOut = selectedItem.remainingQuantity !== undefined && selectedItem.remainingQuantity <= 0;
+/** stockExceeded：定义该变量以承载业务值。 */
     const stockExceeded = !soldOut && selectedItem.remainingQuantity !== undefined && quantity !== null && quantity > selectedItem.remainingQuantity;
+/** insufficientCurrency：定义该变量以承载业务值。 */
     const insufficientCurrency = !invalidTotal && totalCost > ownedCurrency;
+/** purchaseBlocked：定义该变量以承载业务值。 */
     const purchaseBlocked = invalidTotal || soldOut || stockExceeded;
+/** displayTotal：定义该变量以承载业务值。 */
     const displayTotal = invalidTotal ? '--' : formatDisplayInteger(totalCost ?? 0);
+/** refreshHint：定义该变量以承载业务值。 */
     const refreshHint = this.formatRefreshHint(selectedItem.refreshAt);
+/** stockSummary：定义该变量以承载业务值。 */
     const stockSummary = selectedItem.remainingQuantity === undefined
       ? null
       : selectedItem.stockLimit
         ? `库存 ${formatDisplayInteger(selectedItem.remainingQuantity)}/${formatDisplayInteger(selectedItem.stockLimit)}`
         : `库存 ${formatDisplayInteger(selectedItem.remainingQuantity)}`;
+/** errorText：定义该变量以承载业务值。 */
     const errorText = soldOut
       ? `此物已售罄${refreshHint ? `，${refreshHint}` : ''}。`
       : stockExceeded
@@ -334,11 +392,14 @@ export class NpcShopModal {
     `;
   }
 
+/** parseQuantity：执行对应的业务逻辑。 */
   private parseQuantity(itemId: string): number | null {
+/** raw：定义该变量以承载业务值。 */
     const raw = this.quantityDrafts.get(itemId) ?? '1';
     if (!raw || !/^\d+$/.test(raw)) {
       return null;
     }
+/** quantity：定义该变量以承载业务值。 */
     const quantity = Number(raw);
     if (!Number.isSafeInteger(quantity) || quantity <= 0) {
       return null;
@@ -346,6 +407,7 @@ export class NpcShopModal {
     return quantity;
   }
 
+/** bindEvents：执行对应的业务逻辑。 */
   private bindEvents(body: HTMLElement): void {
     if (this.delegatedEventsBound) {
       return;
@@ -355,14 +417,18 @@ export class NpcShopModal {
     body.addEventListener('input', (event) => this.handleBodyInput(event));
   }
 
+/** handleBodyClick：执行对应的业务逻辑。 */
   private handleBodyClick(event: Event): void {
+/** target：定义该变量以承载业务值。 */
     const target = event.target;
     if (!(target instanceof HTMLElement)) {
       return;
     }
 
+/** selectButton：定义该变量以承载业务值。 */
     const selectButton = target.closest<HTMLElement>('[data-npc-shop-select-item]');
     if (selectButton) {
+/** itemId：定义该变量以承载业务值。 */
       const itemId = selectButton.dataset.npcShopSelectItem;
       if (!itemId || itemId === this.selectedItemId) {
         return;
@@ -372,15 +438,20 @@ export class NpcShopModal {
       return;
     }
 
+/** quickQtyButton：定义该变量以承载业务值。 */
     const quickQtyButton = target.closest<HTMLElement>('[data-npc-shop-quick-qty]');
     if (quickQtyButton) {
+/** itemId：定义该变量以承载业务值。 */
       const itemId = quickQtyButton.dataset.npcShopQuickQty;
+/** nextQuantity：定义该变量以承载业务值。 */
       const nextQuantity = quickQtyButton.dataset.npcShopQuickQtyValue;
       if (!itemId || !nextQuantity) {
         return;
       }
       this.quantityDrafts.set(itemId, nextQuantity);
+/** body：定义该变量以承载业务值。 */
       const body = document.getElementById('detail-modal-body');
+/** input：定义该变量以承载业务值。 */
       const input = body?.querySelector<HTMLInputElement>(`[data-npc-shop-quantity="${itemId}"]`);
       if (input) {
         input.value = nextQuantity;
@@ -391,12 +462,16 @@ export class NpcShopModal {
       return;
     }
 
+/** buyButton：定义该变量以承载业务值。 */
     const buyButton = target.closest<HTMLElement>('[data-npc-shop-buy]');
     if (!buyButton) {
       return;
     }
+/** npcId：定义该变量以承载业务值。 */
     const npcId = this.activeNpcId;
+/** itemId：定义该变量以承载业务值。 */
     const itemId = buyButton.dataset.npcShopBuy;
+/** quantity：定义该变量以承载业务值。 */
     const quantity = itemId ? this.parseQuantity(itemId) : null;
     if (!npcId || !itemId || quantity === null) {
       return;
@@ -404,27 +479,34 @@ export class NpcShopModal {
     this.callbacks?.onBuyItem(npcId, itemId, quantity);
   }
 
+/** handleBodyInput：执行对应的业务逻辑。 */
   private handleBodyInput(event: Event): void {
+/** target：定义该变量以承载业务值。 */
     const target = event.target;
     if (!(target instanceof HTMLInputElement)) {
       return;
     }
+/** itemId：定义该变量以承载业务值。 */
     const itemId = target.dataset.npcShopQuantity;
     if (!itemId) {
       return;
     }
+/** normalized：定义该变量以承载业务值。 */
     const normalized = target.value.replaceAll(/[^\d]/g, '');
     this.quantityDrafts.set(itemId, normalized);
     if (target.value !== normalized) {
       target.value = normalized;
     }
+/** body：定义该变量以承载业务值。 */
     const body = document.getElementById('detail-modal-body');
     if (body) {
       this.syncPurchaseState(body, itemId);
     }
   }
 
+/** buildModalMeta：执行对应的业务逻辑。 */
   private buildModalMeta(): NpcShopModalMeta {
+/** shop：定义该变量以承载业务值。 */
     const shop = this.shopState?.shop ?? null;
     return {
       title: shop ? `${shop.npcName}的商店` : '商店',
@@ -432,22 +514,29 @@ export class NpcShopModal {
     };
   }
 
+/** patchBody：执行对应的业务逻辑。 */
   private patchBody(body: HTMLElement, meta: NpcShopModalMeta): boolean {
     if (!body.querySelector('.npc-shop-modal-shell')) {
       return false;
     }
+/** shop：定义该变量以承载业务值。 */
     const shop = this.shopState?.shop ?? null;
     if (!shop || shop.items.length === 0 || this.loading) {
       return false;
     }
+/** toolbarMeta：定义该变量以承载业务值。 */
     const toolbarMeta = body.querySelector<HTMLElement>('[data-npc-shop-toolbar-meta="true"]');
+/** listRoot：定义该变量以承载业务值。 */
     const listRoot = body.querySelector<HTMLElement>('[data-npc-shop-list="true"]');
+/** detailRoot：定义该变量以承载业务值。 */
     const detailRoot = body.querySelector<HTMLElement>('[data-npc-shop-detail="true"]');
     if (!toolbarMeta || !listRoot || !detailRoot) {
       return false;
     }
 
+/** selectedItem：定义该变量以承载业务值。 */
     const selectedItem = shop.items.find((item) => item.itemId === this.selectedItemId) ?? shop.items[0]!;
+/** ownedCurrency：定义该变量以承载业务值。 */
     const ownedCurrency = this.findInventoryItemCount(shop.currencyItemId);
     toolbarMeta.textContent = `共 ${formatDisplayInteger(shop.items.length)} 件，持有 ${shop.currencyItemName} ${formatDisplayInteger(ownedCurrency)}`;
     listRoot.innerHTML = shop.items
@@ -459,8 +548,11 @@ export class NpcShopModal {
     return true;
   }
 
+/** patchModalMeta：执行对应的业务逻辑。 */
   private patchModalMeta(meta: NpcShopModalMeta): void {
+/** titleNode：定义该变量以承载业务值。 */
     const titleNode = document.getElementById('detail-modal-title');
+/** subtitleNode：定义该变量以承载业务值。 */
     const subtitleNode = document.getElementById('detail-modal-subtitle');
     if (titleNode) {
       titleNode.textContent = meta.title;
@@ -471,23 +563,37 @@ export class NpcShopModal {
     }
   }
 
+/** syncPurchaseState：执行对应的业务逻辑。 */
   private syncPurchaseState(root: ParentNode, itemId: string): void {
+/** shop：定义该变量以承载业务值。 */
     const shop = this.shopState?.shop;
+/** entry：定义该变量以承载业务值。 */
     const entry = shop?.items.find((item) => item.itemId === itemId);
+/** totalNode：定义该变量以承载业务值。 */
     const totalNode = root.querySelector<HTMLElement>(`[data-npc-shop-total="${itemId}"]`);
+/** buttonNode：定义该变量以承载业务值。 */
     const buttonNode = root.querySelector<HTMLButtonElement>(`[data-npc-shop-buy="${itemId}"]`);
+/** errorNode：定义该变量以承载业务值。 */
     const errorNode = root.querySelector<HTMLElement>(`[data-npc-shop-error="${itemId}"]`);
     if (!shop || !entry || !totalNode || !buttonNode || !errorNode) {
       return;
     }
 
+/** quantity：定义该变量以承载业务值。 */
     const quantity = this.parseQuantity(itemId);
+/** ownedCurrency：定义该变量以承载业务值。 */
     const ownedCurrency = this.findInventoryItemCount(shop.currencyItemId);
+/** totalCost：定义该变量以承载业务值。 */
     const totalCost = quantity === null ? null : quantity * entry.unitPrice;
+/** invalidTotal：定义该变量以承载业务值。 */
     const invalidTotal = totalCost === null || !Number.isSafeInteger(totalCost) || totalCost <= 0;
+/** insufficientCurrency：定义该变量以承载业务值。 */
     const insufficientCurrency = !invalidTotal && totalCost > ownedCurrency;
+/** soldOut：定义该变量以承载业务值。 */
     const soldOut = entry.remainingQuantity !== undefined && entry.remainingQuantity <= 0;
+/** stockExceeded：定义该变量以承载业务值。 */
     const stockExceeded = !soldOut && entry.remainingQuantity !== undefined && quantity !== null && quantity > entry.remainingQuantity;
+/** displayTotal：定义该变量以承载业务值。 */
     const displayTotal = invalidTotal ? '--' : formatDisplayInteger(totalCost ?? 0);
     totalNode.textContent = `${displayTotal} ${shop.currencyItemName}`;
     totalNode.parentElement?.classList.toggle('error', insufficientCurrency || soldOut || stockExceeded);
@@ -500,35 +606,46 @@ export class NpcShopModal {
     buttonNode.disabled = invalidTotal || soldOut || stockExceeded;
   }
 
+/** formatRefreshHint：执行对应的业务逻辑。 */
   private formatRefreshHint(refreshAt: number | undefined): string | null {
     if (!Number.isFinite(refreshAt)) {
       return null;
     }
+/** remainingMs：定义该变量以承载业务值。 */
     const remainingMs = Math.max(0, Number(refreshAt) - Date.now());
     if (remainingMs <= 60_000) {
       return '约 1 分钟内补货';
     }
+/** remainingMinutes：定义该变量以承载业务值。 */
     const remainingMinutes = Math.ceil(remainingMs / 60_000);
     if (remainingMinutes < 60) {
       return `约 ${formatDisplayInteger(remainingMinutes)} 分后补货`;
     }
+/** remainingHours：定义该变量以承载业务值。 */
     const remainingHours = Math.ceil(remainingMinutes / 60);
     return `约 ${formatDisplayInteger(remainingHours)} 小时后补货`;
   }
 
+/** bindItemTooltipEvents：执行对应的业务逻辑。 */
   private bindItemTooltipEvents(body: HTMLElement): void {
+/** shop：定义该变量以承载业务值。 */
     const shop = this.shopState?.shop;
     if (!shop) {
       return;
     }
+/** tapMode：定义该变量以承载业务值。 */
     const tapMode = prefersPinnedTooltipInteraction();
     body.querySelectorAll<HTMLElement>('[data-npc-shop-item-tooltip]').forEach((node) => {
+/** itemId：定义该变量以承载业务值。 */
       const itemId = node.dataset.npcShopItemTooltip;
+/** entry：定义该变量以承载业务值。 */
       const entry = itemId ? shop.items.find((item) => item.itemId === itemId) : null;
       if (!entry) {
         return;
       }
+/** tooltip：定义该变量以承载业务值。 */
       const tooltip = buildItemTooltipPayload(entry.item);
+/** showTooltip：定义该变量以承载业务值。 */
       const showTooltip = (event: PointerEvent): void => {
         this.tooltip.show(tooltip.title, tooltip.lines, event.clientX, event.clientY, {
           allowHtml: tooltip.allowHtml,
@@ -578,6 +695,7 @@ export class NpcShopModal {
     });
   }
 
+/** findInventoryItemCount：执行对应的业务逻辑。 */
   private findInventoryItemCount(itemId: string): number {
     if (!itemId) {
       return 0;

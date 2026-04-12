@@ -5,7 +5,9 @@
 
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.buildBackupFilePath = exports.requireBackupRecord = exports.assertBackupDownload = exports.waitForJobSettled = exports.triggerRestore = exports.triggerBackup = exports.triggerRestoreWithConcurrentRejection = exports.triggerBackupWithConcurrentRejection = exports.authedPost = exports.authedPostJson = exports.authedGetJson = exports.fetchHealth = exports.fetchJson = exports.loginGm = exports.waitForHealth = exports.waitForCondition = exports.normalizeBooleanEnv = void 0;
+/** node_fs_1：定义该变量以承载业务值。 */
 const node_fs_1 = require("node:fs");
+/** node_path_1：定义该变量以承载业务值。 */
 const node_path_1 = require("node:path");
 /**
  * 规范化boolean环境变量。
@@ -396,6 +398,7 @@ exports.buildBackupFilePath = buildBackupFilePath;
  * 处理computechecksumfordocs。
  */
 function computeChecksumForDocs(docs) {
+/** crypto：定义该变量以承载业务值。 */
     const crypto = require('node:crypto');
     return crypto.createHash('sha256').update(JSON.stringify(docs)).digest('hex');
 }

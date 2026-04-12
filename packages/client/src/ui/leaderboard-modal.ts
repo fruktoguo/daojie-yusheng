@@ -14,9 +14,12 @@ import { detailModalHost } from './detail-modal-host';
 /** LeaderboardTab：定义该类型的结构与数据语义。 */
 type LeaderboardTab = 'realm' | 'monsterKills' | 'spiritStones' | 'playerKills' | 'deaths' | 'bodyTraining' | 'supremeAttrs';
 
+/** LEADERBOARD_OWNER_ID：定义该变量以承载业务值。 */
 const LEADERBOARD_OWNER_ID = 'leaderboard-modal';
+/** LEADERBOARD_LIMIT：定义该变量以承载业务值。 */
 const LEADERBOARD_LIMIT = 10;
 
+/** LEADERBOARD_TAB_LABELS：定义该变量以承载业务值。 */
 const LEADERBOARD_TAB_LABELS: Record<LeaderboardTab, string> = {
   realm: '境界',
   monsterKills: '斩妖',
@@ -42,17 +45,24 @@ function formatGeneratedAt(timestamp?: number): string {
   if (!timestamp || !Number.isFinite(timestamp)) {
     return '调卷中';
   }
+/** date：定义该变量以承载业务值。 */
   const date = new Date(timestamp);
+/** month：定义该变量以承载业务值。 */
   const month = String(date.getMonth() + 1).padStart(2, '0');
+/** day：定义该变量以承载业务值。 */
   const day = String(date.getDate()).padStart(2, '0');
+/** hour：定义该变量以承载业务值。 */
   const hour = String(date.getHours()).padStart(2, '0');
+/** minute：定义该变量以承载业务值。 */
   const minute = String(date.getMinutes()).padStart(2, '0');
   return `${month}-${day} ${hour}:${minute}`;
 }
 
 /** LeaderboardModal：封装相关状态与行为。 */
 export class LeaderboardModal {
+/** data：定义该变量以承载业务值。 */
   private data: S2C_Leaderboard | null = null;
+/** activeTab：定义该变量以承载业务值。 */
   private activeTab: LeaderboardTab = 'realm';
   private loading = false;
   private requestData: ((limit: number) => void) | null = null;
@@ -63,12 +73,14 @@ export class LeaderboardModal {
     this.requestData = callbacks.onRequestData;
   }
 
+/** open：执行对应的业务逻辑。 */
   open(): void {
     this.loading = true;
     this.render();
     this.requestData?.(LEADERBOARD_LIMIT);
   }
 
+/** applyData：执行对应的业务逻辑。 */
   applyData(data: S2C_Leaderboard): void {
     this.data = data;
     this.loading = false;
@@ -77,6 +89,7 @@ export class LeaderboardModal {
     }
   }
 
+/** render：执行对应的业务逻辑。 */
   private render(): void {
     detailModalHost.open({
       ownerId: LEADERBOARD_OWNER_ID,
@@ -88,6 +101,7 @@ export class LeaderboardModal {
       onAfterRender: (body) => {
         body.querySelectorAll<HTMLButtonElement>('[data-leaderboard-tab]').forEach((button) => {
           button.addEventListener('click', () => {
+/** tab：定义该变量以承载业务值。 */
             const tab = button.dataset.leaderboardTab as LeaderboardTab | undefined;
             if (!tab || tab === this.activeTab) {
               return;
@@ -107,13 +121,18 @@ export class LeaderboardModal {
     });
   }
 
+/** buildSubtitle：执行对应的业务逻辑。 */
   private buildSubtitle(): string {
+/** limit：定义该变量以承载业务值。 */
     const limit = this.data?.limit ?? LEADERBOARD_LIMIT;
+/** generatedAt：定义该变量以承载业务值。 */
     const generatedAt = formatGeneratedAt(this.data?.generatedAt);
     return `收录前 ${formatDisplayInteger(limit)} 名 · 十分钟一更 · ${generatedAt}`;
   }
 
+/** renderBodyHtml：执行对应的业务逻辑。 */
   private renderBodyHtml(): string {
+/** tabs：定义该变量以承载业务值。 */
     const tabs = (Object.keys(LEADERBOARD_TAB_LABELS) as LeaderboardTab[])
       .map((tab) => `
         <button
@@ -138,6 +157,7 @@ export class LeaderboardModal {
     `;
   }
 
+/** renderActiveBoard：执行对应的业务逻辑。 */
   private renderActiveBoard(): string {
     if (!this.data) {
       return '<div class="empty-hint">暂无榜册内容。</div>';
@@ -162,6 +182,7 @@ export class LeaderboardModal {
     }
   }
 
+/** renderRealmBoard：执行对应的业务逻辑。 */
   private renderRealmBoard(entries: LeaderboardRealmEntry[]): string {
     return this.renderStandardList(
       entries.map((entry) => ({
@@ -172,6 +193,7 @@ export class LeaderboardModal {
     );
   }
 
+/** renderMonsterKillBoard：执行对应的业务逻辑。 */
   private renderMonsterKillBoard(entries: LeaderboardMonsterKillEntry[]): string {
     return this.renderStandardList(
       entries.map((entry) => ({
@@ -183,6 +205,7 @@ export class LeaderboardModal {
     );
   }
 
+/** renderSpiritStoneBoard：执行对应的业务逻辑。 */
   private renderSpiritStoneBoard(entries: LeaderboardSpiritStoneEntry[]): string {
     return this.renderStandardList(
       entries.map((entry) => ({
@@ -193,6 +216,7 @@ export class LeaderboardModal {
     );
   }
 
+/** renderPlayerKillBoard：执行对应的业务逻辑。 */
   private renderPlayerKillBoard(entries: LeaderboardPlayerKillEntry[]): string {
     return this.renderStandardList(
       entries.map((entry) => ({
@@ -203,6 +227,7 @@ export class LeaderboardModal {
     );
   }
 
+/** renderDeathBoard：执行对应的业务逻辑。 */
   private renderDeathBoard(entries: LeaderboardDeathEntry[]): string {
     return this.renderStandardList(
       entries.map((entry) => ({
@@ -213,6 +238,7 @@ export class LeaderboardModal {
     );
   }
 
+/** renderBodyTrainingBoard：执行对应的业务逻辑。 */
   private renderBodyTrainingBoard(entries: LeaderboardBodyTrainingEntry[]): string {
     return this.renderStandardList(
       entries.map((entry) => ({
@@ -223,6 +249,7 @@ export class LeaderboardModal {
     );
   }
 
+/** renderSupremeAttrBoard：执行对应的业务逻辑。 */
   private renderSupremeAttrBoard(entries: LeaderboardSupremeAttrEntry[]): string {
     if (entries.length === 0) {
       return '<div class="empty-hint">暂无榜册内容。</div>';
@@ -241,8 +268,11 @@ export class LeaderboardModal {
   }
 
   private renderStandardList(entries: Array<{
+/** rank：定义该变量以承载业务值。 */
     rank: number;
+/** name：定义该变量以承载业务值。 */
     name: string;
+/** value：定义该变量以承载业务值。 */
     value: string;
     meta?: string;
   }>): string {

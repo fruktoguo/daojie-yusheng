@@ -38,6 +38,7 @@ type EquipmentEventTarget =
 
 /** EquipmentEffectEvent：定义该接口的能力与字段约束。 */
 export interface EquipmentEffectEvent {
+/** trigger：定义该变量以承载业务值。 */
   trigger: EquipmentTrigger;
   target?: EquipmentEventTarget;
   targetKind?: 'monster' | 'player' | 'tile';
@@ -45,20 +46,26 @@ export interface EquipmentEffectEvent {
 
 /** EquipmentEffectDispatchResult：定义该接口的能力与字段约束。 */
 export interface EquipmentEffectDispatchResult {
+/** dirty：定义该变量以承载业务值。 */
   dirty: EquipmentDirtyFlag[];
   dirtyPlayers?: string[];
 }
 
 /** EquippedEffectEntry：定义该接口的能力与字段约束。 */
 interface EquippedEffectEntry {
+/** slot：定义该变量以承载业务值。 */
   slot: ItemStack['equipSlot'];
+/** item：定义该变量以承载业务值。 */
   item: ItemStack;
+/** effect：定义该变量以承载业务值。 */
   effect: EquipmentEffectDef;
 }
 
 /** EquipmentEffectRuntimeState：定义该接口的能力与字段约束。 */
 interface EquipmentEffectRuntimeState {
+/** key：定义该变量以承载业务值。 */
   key: string;
+/** cooldownLeft：定义该变量以承载业务值。 */
   cooldownLeft: number;
 }
 
@@ -71,10 +78,12 @@ type PlayerRuntimeCarrier = PlayerState & {
 
 /** normalizeBuffShortMark：执行对应的业务逻辑。 */
 function normalizeBuffShortMark(raw: string | undefined, fallbackName: string): string {
+/** trimmed：定义该变量以承载业务值。 */
   const trimmed = raw?.trim();
   if (trimmed) {
     return [...trimmed][0] ?? trimmed;
   }
+/** fallback：定义该变量以承载业务值。 */
   const fallback = [...fallbackName.trim()][0];
   return fallback ?? '器';
 }
@@ -90,10 +99,13 @@ export class EquipmentEffectService {
 
   handleEquipmentChange(
     player: PlayerState,
+/** change：定义该变量以承载业务值。 */
     change: { equipped?: ItemStack | null; unequipped?: ItemStack | null },
   ): EquipmentEffectDispatchResult {
     this.pruneRuntimeStates(player);
+/** dirty：定义该变量以承载业务值。 */
     const dirty = new Set<EquipmentDirtyFlag>();
+/** dirtyPlayers：定义该变量以承载业务值。 */
     const dirtyPlayers = new Set<string>();
 
     if (this.refreshPassiveEffects(player)) {
@@ -101,6 +113,7 @@ export class EquipmentEffectService {
     }
 
     if (change.equipped?.effects?.length) {
+/** result：定义该变量以承载业务值。 */
       const result = this.dispatchExplicitItem(player, change.equipped, change.equipped.equipSlot, 'on_equip');
       for (const flag of result.dirty) {
         dirty.add(flag);
@@ -111,6 +124,7 @@ export class EquipmentEffectService {
     }
 
     if (change.unequipped?.effects?.length) {
+/** result：定义该变量以承载业务值。 */
       const result = this.dispatchExplicitItem(player, change.unequipped, change.unequipped.equipSlot, 'on_unequip');
       for (const flag of result.dirty) {
         dirty.add(flag);
@@ -126,8 +140,11 @@ export class EquipmentEffectService {
     };
   }
 
+/** dispatch：执行对应的业务逻辑。 */
   dispatch(player: PlayerState, event: EquipmentEffectEvent): EquipmentEffectDispatchResult {
+/** dirty：定义该变量以承载业务值。 */
     const dirty = new Set<EquipmentDirtyFlag>();
+/** dirtyPlayers：定义该变量以承载业务值。 */
     const dirtyPlayers = new Set<string>();
 
     if (event.trigger === 'on_tick') {
@@ -157,6 +174,7 @@ export class EquipmentEffectService {
           break;
         }
         case 'timed_buff': {
+/** result：定义该变量以承载业务值。 */
           const result = this.applyTimedBuff(player, entry, event);
           for (const flag of result.dirty) {
             dirty.add(flag);
@@ -178,11 +196,15 @@ export class EquipmentEffectService {
     };
   }
 
+/** syncTimePhase：执行对应的业务逻辑。 */
   syncTimePhase(player: PlayerState, phase: TimePhaseId): EquipmentEffectDispatchResult {
+/** carrier：定义该变量以承载业务值。 */
     const carrier = player as PlayerRuntimeCarrier;
+/** previous：定义该变量以承载业务值。 */
     const previous = carrier[LAST_TIME_PHASE_KEY];
     carrier[LAST_TIME_PHASE_KEY] = phase;
     if (!previous || previous === phase) {
+/** changed：定义该变量以承载业务值。 */
       const changed = this.refreshPassiveEffects(player);
       return { dirty: changed ? ['attr'] : [] };
     }
@@ -195,7 +217,9 @@ export class EquipmentEffectService {
     slot: ItemStack['equipSlot'],
     trigger: 'on_equip' | 'on_unequip',
   ): EquipmentEffectDispatchResult {
+/** dirty：定义该变量以承载业务值。 */
     const dirty = new Set<EquipmentDirtyFlag>();
+/** dirtyPlayers：定义该变量以承载业务值。 */
     const dirtyPlayers = new Set<string>();
     for (const effect of item.effects ?? []) {
       if (!this.matchesTrigger(effect, trigger)) {
@@ -207,6 +231,7 @@ export class EquipmentEffectService {
       if (effect.type !== 'timed_buff') {
         continue;
       }
+/** result：定义该变量以承载业务值。 */
       const result = this.applyTimedBuff(player, { slot, item, effect }, { trigger });
       for (const flag of result.dirty) {
         dirty.add(flag);
@@ -221,7 +246,9 @@ export class EquipmentEffectService {
     };
   }
 
+/** getEquippedEffects：执行对应的业务逻辑。 */
   private getEquippedEffects(player: PlayerState): EquippedEffectEntry[] {
+/** entries：定义该变量以承载业务值。 */
     const entries: EquippedEffectEntry[] = [];
     for (const slot of EQUIP_SLOTS) {
       const item = player.equipment[slot];
@@ -235,7 +262,9 @@ export class EquipmentEffectService {
     return entries;
   }
 
+/** refreshPassiveEffects：执行对应的业务逻辑。 */
   private refreshPassiveEffects(player: PlayerState): boolean {
+/** nextBonuses：定义该变量以承载业务值。 */
     const nextBonuses: AttrBonus[] = [];
     for (const entry of this.getEquippedEffects(player)) {
       const effect = entry.effect;
@@ -259,6 +288,7 @@ export class EquipmentEffectService {
       });
     }
 
+/** current：定义该变量以承载业务值。 */
     const current = player.bonuses.filter((bonus) => bonus.source.startsWith(EQUIP_DYNAMIC_SOURCE_PREFIX));
     if (this.isBonusListEqual(current, nextBonuses)) {
       return false;
@@ -272,6 +302,7 @@ export class EquipmentEffectService {
     return true;
   }
 
+/** isBonusListEqual：执行对应的业务逻辑。 */
   private isBonusListEqual(left: AttrBonus[], right: AttrBonus[]): boolean {
     if (left.length !== right.length) {
       return false;
@@ -301,6 +332,7 @@ export class EquipmentEffectService {
     return true;
   }
 
+/** matchesTrigger：执行对应的业务逻辑。 */
   private matchesTrigger(effect: EquipmentEffectDef, trigger: string): boolean {
     if (effect.type === 'periodic_cost' || effect.type === 'timed_buff') {
       return effect.trigger === trigger;
@@ -316,6 +348,7 @@ export class EquipmentEffectService {
     if (!group || group.items.length === 0) {
       return true;
     }
+/** mode：定义该变量以承载业务值。 */
     const mode = group.mode ?? 'all';
     if (mode === 'any') {
       return group.items.some((condition) => this.matchesCondition(player, condition, targetKind));
@@ -334,11 +367,14 @@ export class EquipmentEffectService {
       case 'map':
         return this.mapService.matchesMapCondition(player.mapId, condition.mapIds);
       case 'hp_ratio': {
+/** ratio：定义该变量以承载业务值。 */
         const ratio = player.maxHp > 0 ? player.hp / player.maxHp : 0;
         return condition.op === '<=' ? ratio <= condition.value : ratio >= condition.value;
       }
       case 'qi_ratio': {
+/** maxQi：定义该变量以承载业务值。 */
         const maxQi = Math.max(0, Math.round(player.numericStats?.maxQi ?? 0));
+/** ratio：定义该变量以承载业务值。 */
         const ratio = maxQi > 0 ? player.qi / maxQi : 0;
         return condition.op === '<=' ? ratio <= condition.value : ratio >= condition.value;
       }
@@ -357,26 +393,34 @@ export class EquipmentEffectService {
     }
   }
 
+/** isPlayerCultivating：执行对应的业务逻辑。 */
   private isPlayerCultivating(player: PlayerState): boolean {
     return (player.temporaryBuffs ?? []).some((buff) => buff.buffId === CULTIVATION_BUFF_ID && buff.remainingTicks > 0);
   }
 
+/** applyPeriodicCost：执行对应的业务逻辑。 */
   private applyPeriodicCost(player: PlayerState, effect: Extract<EquipmentEffectDef, { type: 'periodic_cost' }>): boolean {
     if (player.dead) {
       return false;
     }
+/** current：定义该变量以承载业务值。 */
     const current = effect.resource === 'hp' ? player.hp : player.qi;
     if (current <= 0) {
       return false;
     }
+/** numericStats：定义该变量以承载业务值。 */
     const numericStats = this.attrService.getPlayerNumericStats(player);
+/** basis：定义该变量以承载业务值。 */
     const basis = effect.mode === 'flat'
       ? effect.value
       : effect.mode === 'max_ratio_bp'
         ? (effect.resource === 'hp' ? player.maxHp : Math.max(0, Math.round(numericStats.maxQi))) * (effect.value / 10000)
         : current * (effect.value / 10000);
+/** amount：定义该变量以承载业务值。 */
     const amount = Math.max(1, Math.round(basis));
+/** minRemain：定义该变量以承载业务值。 */
     const minRemain = effect.minRemain ?? (effect.resource === 'hp' ? 1 : 0);
+/** next：定义该变量以承载业务值。 */
     const next = Math.max(minRemain, current - amount);
     if (next === current) {
       return false;
@@ -394,14 +438,17 @@ export class EquipmentEffectService {
     entry: EquippedEffectEntry,
     event: Pick<EquipmentEffectEvent, 'target' | 'targetKind' | 'trigger'>,
   ): EquipmentEffectDispatchResult {
+/** effect：定义该变量以承载业务值。 */
     const effect = entry.effect as EquipmentTimedBuffEffectDef;
     if (effect.chance !== undefined && effect.chance < 1 && Math.random() > effect.chance) {
       return { dirty: [] };
     }
+/** runtimeState：定义该变量以承载业务值。 */
     const runtimeState = this.getRuntimeState(player, entry);
     if (runtimeState && runtimeState.cooldownLeft > 0) {
       return { dirty: [] };
     }
+/** target：定义该变量以承载业务值。 */
     const target = effect.target === 'target' ? event.target : { kind: 'player' as const, player };
     if (!target || target.kind === 'tile') {
       return { dirty: [] };
@@ -411,6 +458,7 @@ export class EquipmentEffectService {
       this.setCooldown(player, entry, effect.cooldown);
     }
 
+/** sourceRealmLv：定义该变量以承载业务值。 */
     const sourceRealmLv = Math.max(1, Math.floor(player.realm?.realmLv ?? player.realmLv ?? entry.item.level ?? 1));
     if (target.kind === 'player') {
       this.applyBuffState(target.player, this.buildBuffState(entry.item, effect, sourceRealmLv));
@@ -423,8 +471,11 @@ export class EquipmentEffectService {
     return { dirty: [] };
   }
 
+/** buildBuffState：执行对应的业务逻辑。 */
   private buildBuffState(item: ItemStack, effect: EquipmentTimedBuffEffectDef, sourceRealmLv: number): TemporaryBuffState {
+/** buff：定义该变量以承载业务值。 */
     const buff = effect.buff;
+/** duration：定义该变量以承载业务值。 */
     const duration = Math.max(1, buff.duration);
     return syncDynamicBuffPresentation({
       buffId: buff.buffId,
@@ -449,13 +500,16 @@ export class EquipmentEffectService {
     });
   }
 
+/** applyBuffState：执行对应的业务逻辑。 */
   private applyBuffState(player: PlayerState, nextBuff: TemporaryBuffState): void {
     player.temporaryBuffs ??= [];
     this.applyBuffStateToCollection(player.temporaryBuffs, nextBuff);
     this.attrService.recalcPlayer(player);
   }
 
+/** applyBuffStateToCollection：执行对应的业务逻辑。 */
   private applyBuffStateToCollection(targetBuffs: TemporaryBuffState[], nextBuff: TemporaryBuffState): void {
+/** existing：定义该变量以承载业务值。 */
     const existing = targetBuffs.find((entry) => entry.buffId === nextBuff.buffId);
     if (existing) {
       existing.name = nextBuff.name;
@@ -482,8 +536,11 @@ export class EquipmentEffectService {
     targetBuffs.push(syncDynamicBuffPresentation(nextBuff));
   }
 
+/** tickRuntimeStates：执行对应的业务逻辑。 */
   private tickRuntimeStates(player: PlayerState): void {
+/** carrier：定义该变量以承载业务值。 */
     const carrier = player as PlayerRuntimeCarrier;
+/** states：定义该变量以承载业务值。 */
     const states = carrier[RUNTIME_STATE_KEY];
     if (!states || states.length === 0) {
       return;
@@ -496,26 +553,37 @@ export class EquipmentEffectService {
     carrier[RUNTIME_STATE_KEY] = states.filter((state) => state.cooldownLeft > 0);
   }
 
+/** pruneRuntimeStates：执行对应的业务逻辑。 */
   private pruneRuntimeStates(player: PlayerState): void {
+/** carrier：定义该变量以承载业务值。 */
     const carrier = player as PlayerRuntimeCarrier;
+/** states：定义该变量以承载业务值。 */
     const states = carrier[RUNTIME_STATE_KEY];
     if (!states || states.length === 0) {
       return;
     }
+/** validKeys：定义该变量以承载业务值。 */
     const validKeys = new Set(this.getEquippedEffects(player).map((entry) => this.getRuntimeKey(entry.slot, entry.item, entry.effect.effectId)));
     carrier[RUNTIME_STATE_KEY] = states.filter((state) => validKeys.has(state.key) && state.cooldownLeft > 0);
   }
 
+/** getRuntimeState：执行对应的业务逻辑。 */
   private getRuntimeState(player: PlayerState, entry: EquippedEffectEntry): EquipmentEffectRuntimeState | undefined {
+/** carrier：定义该变量以承载业务值。 */
     const carrier = player as PlayerRuntimeCarrier;
+/** key：定义该变量以承载业务值。 */
     const key = this.getRuntimeKey(entry.slot, entry.item, entry.effect.effectId);
     return carrier[RUNTIME_STATE_KEY]?.find((state) => state.key === key);
   }
 
+/** setCooldown：执行对应的业务逻辑。 */
   private setCooldown(player: PlayerState, entry: EquippedEffectEntry, cooldown: number): void {
+/** carrier：定义该变量以承载业务值。 */
     const carrier = player as PlayerRuntimeCarrier;
     carrier[RUNTIME_STATE_KEY] ??= [];
+/** key：定义该变量以承载业务值。 */
     const key = this.getRuntimeKey(entry.slot, entry.item, entry.effect.effectId);
+/** existing：定义该变量以承载业务值。 */
     const existing = carrier[RUNTIME_STATE_KEY]!.find((state) => state.key === key);
     if (existing) {
       existing.cooldownLeft = Math.max(existing.cooldownLeft, cooldown);
@@ -524,10 +592,12 @@ export class EquipmentEffectService {
     carrier[RUNTIME_STATE_KEY]!.push({ key, cooldownLeft: cooldown });
   }
 
+/** getRuntimeKey：执行对应的业务逻辑。 */
   private getRuntimeKey(slot: ItemStack['equipSlot'], item: ItemStack, effectId: string | undefined): string {
     return `${slot ?? item.equipSlot ?? 'unknown'}:${item.itemId}:${effectId ?? 'effect'}`;
   }
 
+/** getDynamicBonusSource：执行对应的业务逻辑。 */
   private getDynamicBonusSource(entry: EquippedEffectEntry): string {
     return `${EQUIP_DYNAMIC_SOURCE_PREFIX}${entry.slot}:${entry.item.itemId}:${entry.effect.effectId ?? 'effect'}`;
   }

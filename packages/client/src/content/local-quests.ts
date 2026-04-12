@@ -3,12 +3,14 @@ import QUEST_CATALOG from '../constants/world/quest-catalog.generated.json';
 
 /** LocalQuestTemplate：定义该类型的结构与数据语义。 */
 type LocalQuestTemplate = Omit<QuestState, 'status' | 'progress' | 'rewards'> & {
+/** rewards：定义该变量以承载业务值。 */
   rewards: Array<Pick<ItemStack, 'itemId' | 'name' | 'type' | 'count'>>;
 };
 
 /** LocalQuestCatalog：定义该类型的结构与数据语义。 */
 type LocalQuestCatalog = Record<string, LocalQuestTemplate>;
 
+/** localQuestCatalog：定义该变量以承载业务值。 */
 const localQuestCatalog = QUEST_CATALOG as unknown as LocalQuestCatalog;
 
 /** clone：执行对应的业务逻辑。 */
@@ -18,6 +20,7 @@ function clone<T>(value: T): T {
 
 /** getLocalQuestTemplate：执行对应的业务逻辑。 */
 export function getLocalQuestTemplate(questId: string): LocalQuestTemplate | null {
+/** template：定义该变量以承载业务值。 */
   const template = localQuestCatalog[questId];
   return template ? clone(template) : null;
 }
@@ -25,6 +28,7 @@ export function getLocalQuestTemplate(questId: string): LocalQuestTemplate | nul
 /** hydrateQuestStates：执行对应的业务逻辑。 */
 export function hydrateQuestStates(entries: S2C_QuestUpdate['quests']): QuestState[] {
   return entries.map((entry) => {
+/** template：定义该变量以承载业务值。 */
     const template = getLocalQuestTemplate(entry.id);
     if (!template) {
       return {

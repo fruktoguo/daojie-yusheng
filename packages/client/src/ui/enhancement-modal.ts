@@ -40,6 +40,7 @@ function escapeHtml(value: string): string {
 
 /** formatPercent：执行对应的业务逻辑。 */
 function formatPercent(rate: number | undefined): string {
+/** normalized：定义该变量以承载业务值。 */
   const normalized = typeof rate === 'number' ? Math.max(0, Math.min(1, rate)) : 0;
   return `${Math.round(normalized * 100)}%`;
 }
@@ -53,6 +54,7 @@ function formatRefKey(ref: EnhancementTargetRef): string {
 
 /** buildBasePreviewItem：执行对应的业务逻辑。 */
 function buildBasePreviewItem(item: ItemStack): ItemStack {
+/** template：定义该变量以承载业务值。 */
   const template = getLocalItemTemplate(item.itemId);
   return {
     ...item,
@@ -75,6 +77,7 @@ function buildBasePreviewItem(item: ItemStack): ItemStack {
 
 /** getItemNameClass：执行对应的业务逻辑。 */
 function getItemNameClass(name: string): string {
+/** length：定义该变量以承载业务值。 */
   const length = [...name].length;
   if (length >= 7) {
     return 'inventory-cell-name--tiny';
@@ -87,11 +90,15 @@ function getItemNameClass(name: string): string {
 
 /** StoredEnhancementHistoryState：定义该接口的能力与字段约束。 */
 interface StoredEnhancementHistoryState {
+/** version：定义该变量以承载业务值。 */
   version: 1;
+/** totals：定义该变量以承载业务值。 */
   totals: PlayerEnhancementRecord[];
+/** sessionRecord：定义该变量以承载业务值。 */
   sessionRecord: PlayerEnhancementRecord | null;
 }
 
+/** ENHANCEMENT_HISTORY_STORAGE_KEY：定义该变量以承载业务值。 */
 const ENHANCEMENT_HISTORY_STORAGE_KEY = 'mud:enhancement-history:v1';
 
 /** cloneEnhancementRecord：执行对应的业务逻辑。 */
@@ -126,42 +133,58 @@ export class EnhancementModal {
   private static readonly HISTORY_LIST_OWNER = 'enhancement-modal:history-list';
   private static readonly HISTORY_DETAIL_OWNER = 'enhancement-modal:history-detail';
 
+/** callbacks：定义该变量以承载业务值。 */
   private callbacks: EnhancementModalCallbacks | null = null;
   private inventory = { items: [], capacity: 0 } as PlayerState['inventory'];
   private equipment = { weapon: null, head: null, body: null, legs: null, accessory: null } as PlayerState['equipment'];
   private loading = false;
+/** responseError：定义该变量以承载业务值。 */
   private responseError: string | null = null;
+/** panelState：定义该变量以承载业务值。 */
   private panelState: SyncedEnhancementPanelState | null = null;
+/** selectedTargetKey：定义该变量以承载业务值。 */
   private selectedTargetKey: string | null = null;
+/** selectedTargetLevel：定义该变量以承载业务值。 */
   private selectedTargetLevel: number | null = null;
+/** selectedProtectionKey：定义该变量以承载业务值。 */
   private selectedProtectionKey: string | null = null;
+/** selectedProtectionStartLevel：定义该变量以承载业务值。 */
   private selectedProtectionStartLevel: number | null = null;
+/** countdownTimer：定义该变量以承载业务值。 */
   private countdownTimer: ReturnType<typeof setInterval> | null = null;
+/** localJobRemainingTicks：定义该变量以承载业务值。 */
   private localJobRemainingTicks: number | null = null;
+/** lastJobSnapshotKey：定义该变量以承载业务值。 */
   private lastJobSnapshotKey: string | null = null;
   private localHistoryLoaded = false;
   private localHistoryRecords = new Map<string, PlayerEnhancementRecord>();
+/** lastServerSessionRecord：定义该变量以承载业务值。 */
   private lastServerSessionRecord: PlayerEnhancementRecord | null = null;
 
+/** setCallbacks：执行对应的业务逻辑。 */
   setCallbacks(callbacks: EnhancementModalCallbacks): void {
     this.callbacks = callbacks;
   }
 
+/** initFromPlayer：执行对应的业务逻辑。 */
   initFromPlayer(player: PlayerState): void {
     this.inventory = player.inventory;
     this.equipment = player.equipment;
   }
 
+/** syncInventory：执行对应的业务逻辑。 */
   syncInventory(inventory: PlayerState['inventory']): void {
     this.inventory = inventory;
   }
 
+/** syncEquipment：执行对应的业务逻辑。 */
   syncEquipment(equipment: PlayerState['equipment']): void {
     this.equipment = equipment;
   }
 
   syncActions(_actions: PlayerState['actions']): void {}
 
+/** open：执行对应的业务逻辑。 */
   open(): void {
     this.ensureLocalHistoryLoaded();
     this.loading = true;
@@ -170,6 +193,7 @@ export class EnhancementModal {
     this.callbacks?.onRequestPanel();
   }
 
+/** clear：执行对应的业务逻辑。 */
   clear(): void {
     this.loading = false;
     this.responseError = null;
@@ -187,6 +211,7 @@ export class EnhancementModal {
     detailModalHost.close(EnhancementModal.MODAL_OWNER);
   }
 
+/** updatePanel：执行对应的业务逻辑。 */
   updatePanel(data: S2C_EnhancementPanel): void {
     this.ensureLocalHistoryLoaded();
     this.loading = false;
@@ -200,7 +225,9 @@ export class EnhancementModal {
     }
   }
 
+/** ensureSelection：执行对应的业务逻辑。 */
   private ensureSelection(): void {
+/** candidates：定义该变量以承载业务值。 */
     const candidates = this.panelState?.candidates ?? [];
     if (candidates.length === 0) {
       this.selectedTargetKey = null;
@@ -213,13 +240,16 @@ export class EnhancementModal {
       this.selectedTargetKey = null;
       this.selectedTargetLevel = null;
     }
+/** selected：定义该变量以承载业务值。 */
     const selected = this.getSelectedCandidate();
     if (selected) {
+/** minLevel：定义该变量以承载业务值。 */
       const minLevel = selected.currentLevel + 1;
       if (!this.selectedTargetLevel || this.selectedTargetLevel < minLevel) {
         this.selectedTargetLevel = minLevel;
       }
       if (this.selectedProtectionKey) {
+/** maxLevel：定义该变量以承载业务值。 */
         const maxLevel = this.getSelectedTargetLevel(selected) ?? minLevel;
         this.selectedProtectionStartLevel = Math.max(
           2,
@@ -238,6 +268,7 @@ export class EnhancementModal {
     }
   }
 
+/** getSelectedCandidate：执行对应的业务逻辑。 */
   private getSelectedCandidate(): SyncedEnhancementCandidateView | null {
     if (!this.panelState || !this.selectedTargetKey) {
       return null;
@@ -253,27 +284,34 @@ export class EnhancementModal {
     return selected.protectionCandidates.find((entry) => formatRefKey(entry.ref) === this.selectedProtectionKey) ?? null;
   }
 
+/** getSelectedTargetLevel：执行对应的业务逻辑。 */
   private getSelectedTargetLevel(selected: SyncedEnhancementCandidateView | null): number | null {
     if (!selected) {
       return null;
     }
+/** minLevel：定义该变量以承载业务值。 */
     const minLevel = selected.currentLevel + 1;
     return Math.min(MAX_ENHANCE_LEVEL, Math.max(minLevel, Math.floor(Number(this.selectedTargetLevel) || minLevel)));
   }
 
+/** getSelectedProtectionStartLevel：执行对应的业务逻辑。 */
   private getSelectedProtectionStartLevel(selected: SyncedEnhancementCandidateView | null): number | null {
     if (!selected || !this.selectedProtectionKey) {
       return null;
     }
+/** minLevel：定义该变量以承载业务值。 */
     const minLevel = 2;
+/** maxLevel：定义该变量以承载业务值。 */
     const maxLevel = this.getSelectedTargetLevel(selected) ?? Math.max(minLevel, selected.currentLevel + 1);
     return Math.max(minLevel, Math.min(maxLevel, Math.floor(Number(this.selectedProtectionStartLevel) || minLevel)));
   }
 
+/** getActiveJob：执行对应的业务逻辑。 */
   private getActiveJob(): PlayerEnhancementJob | null {
     return this.panelState?.job ?? null;
   }
 
+/** getDisplayedRemainingTicks：执行对应的业务逻辑。 */
   private getDisplayedRemainingTicks(): number {
     if (typeof this.localJobRemainingTicks === 'number') {
       return Math.max(0, this.localJobRemainingTicks);
@@ -281,8 +319,11 @@ export class EnhancementModal {
     return this.getActiveJob()?.remainingTicks ?? 0;
   }
 
+/** syncCountdown：执行对应的业务逻辑。 */
   private syncCountdown(): void {
+/** job：定义该变量以承载业务值。 */
     const job = this.getActiveJob();
+/** nextSnapshotKey：定义该变量以承载业务值。 */
     const nextSnapshotKey = job ? `${job.targetItemId}:${job.targetLevel}:${job.remainingTicks}:${job.startedAt}` : null;
     if (!job) {
       this.localJobRemainingTicks = null;
@@ -313,6 +354,7 @@ export class EnhancementModal {
     }, 1000);
   }
 
+/** stopCountdown：执行对应的业务逻辑。 */
   private stopCountdown(): void {
     if (this.countdownTimer) {
       clearInterval(this.countdownTimer);
@@ -320,11 +362,16 @@ export class EnhancementModal {
     }
   }
 
+/** render：执行对应的业务逻辑。 */
   private render(): void {
     this.ensureLocalHistoryLoaded();
+/** selected：定义该变量以承载业务值。 */
     const selected = this.getSelectedCandidate();
+/** selectedProtection：定义该变量以承载业务值。 */
     const selectedProtection = this.getSelectedProtection(selected);
+/** activeJob：定义该变量以承载业务值。 */
     const activeJob = this.getActiveJob();
+/** hammerName：定义该变量以承载业务值。 */
     const hammerName = this.equipment.weapon?.name ?? '未装备';
     detailModalHost.open({
       ownerId: EnhancementModal.MODAL_OWNER,
@@ -345,6 +392,7 @@ export class EnhancementModal {
 
   private buildBodyHtml(
     selected: SyncedEnhancementCandidateView | null,
+/** selectedProtection：定义该变量以承载业务值。 */
     selectedProtection: { ref: EnhancementTargetRef; item: ItemStack } | null,
     activeJob: PlayerEnhancementJob | null,
   ): string {
@@ -358,6 +406,7 @@ export class EnhancementModal {
       return '<div class="enhancement-empty-state">当前没有可强化的装备。现在任意装备都可强化，但你身上暂时没有可用目标。</div>';
     }
 
+/** selectedRecord：定义该变量以承载业务值。 */
     const selectedRecord = activeJob
       ? this.panelState.records.find((entry) => entry.itemId === activeJob.targetItemId) ?? null
       : selected
@@ -397,8 +446,11 @@ export class EnhancementModal {
     `;
   }
 
+/** renderTargetSlot：执行对应的业务逻辑。 */
   private renderTargetSlot(activeJob: PlayerEnhancementJob | null, selected: SyncedEnhancementCandidateView | null): string {
+/** selectedItem：定义该变量以承载业务值。 */
     const selectedItem = activeJob?.item ?? selected?.item ?? null;
+/** sourceLabel：定义该变量以承载业务值。 */
     const sourceLabel = activeJob
       ? (activeJob.target.source === 'equipment'
         ? `队列锁定 · ${getEquipSlotLabel(activeJob.target.slot ?? 'weapon')}`
@@ -434,17 +486,23 @@ export class EnhancementModal {
     `;
   }
 
+/** renderActiveJob：执行对应的业务逻辑。 */
   private renderActiveJob(job: PlayerEnhancementJob, selected: SyncedEnhancementCandidateView | null): string {
+/** currentPreview：定义该变量以承载业务值。 */
     const currentPreview = applyEnhancementToItemStack({
       ...buildBasePreviewItem(job.item),
       enhanceLevel: job.currentLevel,
     });
+/** resultPreview：定义该变量以承载业务值。 */
     const resultPreview = applyEnhancementToItemStack({
       ...buildBasePreviewItem(job.item),
       enhanceLevel: job.targetLevel,
     });
+/** currentLines：定义该变量以承载业务值。 */
     const currentLines = describeEquipmentBonuses(currentPreview);
+/** resultLines：定义该变量以承载业务值。 */
     const resultLines = describeEquipmentBonuses(resultPreview);
+/** finalTargetLevel：定义该变量以承载业务值。 */
     const finalTargetLevel = Math.max(job.targetLevel, job.desiredTargetLevel ?? job.targetLevel);
     return `
       <div class="enhancement-workbench-grid">
@@ -535,23 +593,32 @@ export class EnhancementModal {
 
   private renderWorkbench(
     selected: SyncedEnhancementCandidateView,
+/** selectedProtection：定义该变量以承载业务值。 */
     selectedProtection: { ref: EnhancementTargetRef; item: ItemStack } | null,
   ): string {
+/** selectedTargetLevel：定义该变量以承载业务值。 */
     const selectedTargetLevel = this.getSelectedTargetLevel(selected) ?? selected.nextLevel;
+/** currentPreview：定义该变量以承载业务值。 */
     const currentPreview = applyEnhancementToItemStack({
       ...buildBasePreviewItem(selected.item),
       enhanceLevel: selected.currentLevel,
     });
+/** nextPreview：定义该变量以承载业务值。 */
     const nextPreview = applyEnhancementToItemStack({
       ...buildBasePreviewItem(selected.item),
       enhanceLevel: selectedTargetLevel,
     });
+/** currentLines：定义该变量以承载业务值。 */
     const currentLines = describeEquipmentBonuses(currentPreview);
+/** nextLines：定义该变量以承载业务值。 */
     const nextLines = describeEquipmentBonuses(nextPreview);
+/** protectionNote：定义该变量以承载业务值。 */
     const protectionNote = selected.protectionItemId
       ? `保护物固定为 ${selected.protectionItemName ?? selected.protectionItemId}`
       : '未配置独立保护物，当前仅可消耗同名装备作为保护';
+/** minProtectionStartLevel：定义该变量以承载业务值。 */
     const minProtectionStartLevel = 2;
+/** protectionStartLevel：定义该变量以承载业务值。 */
     const protectionStartLevel = this.getSelectedProtectionStartLevel(selected);
     return `
       <div class="enhancement-workbench-grid">
@@ -584,7 +651,9 @@ export class EnhancementModal {
             </label>
             ${selected.protectionCandidates.length > 0
               ? selected.protectionCandidates.map((entry) => {
+/** key：定义该变量以承载业务值。 */
                 const key = formatRefKey(entry.ref);
+/** sourceLabel：定义该变量以承载业务值。 */
                 const sourceLabel = `背包槽位 ${(entry.ref.slotIndex ?? 0) + 1} · 数量 ${entry.item.count}`;
                 return `
                   <label class="enhancement-protection-option">
@@ -690,10 +759,14 @@ export class EnhancementModal {
     selected: SyncedEnhancementCandidateView | null,
     record: PlayerEnhancementRecord | null,
   ): string {
+/** referenceItem：定义该变量以承载业务值。 */
     const referenceItem = activeJob?.item ?? selected?.item ?? null;
     if (!referenceItem) {
+/** records：定义该变量以承载业务值。 */
       const records = this.getSortedLocalHistoryRecords();
+/** totalAttempts：定义该变量以承载业务值。 */
       const totalAttempts = records.reduce((total, entry) => total + this.getHistoryAttemptCount(entry), 0);
+/** highestLevel：定义该变量以承载业务值。 */
       const highestLevel = records.reduce((maxLevel, entry) => Math.max(maxLevel, normalizeEnhanceLevel(entry.highestLevel)), 0);
       return `
         <div class="enhancement-requirement-card enhancement-requirement-card--history">
@@ -712,14 +785,19 @@ export class EnhancementModal {
         </div>
       `;
     }
+/** displayRecord：定义该变量以承载业务值。 */
     const displayRecord = this.getDisplayRecord(referenceItem.itemId, record);
+/** roleEnhancementLevel：定义该变量以承载业务值。 */
     const roleEnhancementLevel = activeJob?.roleEnhancementLevel ?? Math.max(1, this.panelState?.enhancementSkillLevel ?? 1);
+/** levelRecords：定义该变量以承载业务值。 */
     const levelRecords = new Map((displayRecord?.levels ?? []).map((entry) => [entry.targetLevel, entry] as const));
+/** highestSeenLevel：定义该变量以承载业务值。 */
     const highestSeenLevel = Math.max(
       normalizeEnhanceLevel(displayRecord?.highestLevel),
       normalizeEnhanceLevel(referenceItem.enhanceLevel) + 2,
       8,
     );
+/** rows：定义该变量以承载业务值。 */
     const rows: string[] = [];
     for (let level = 1; level <= highestSeenLevel; level += 1) {
       const current = levelRecords.get(level);
@@ -754,10 +832,12 @@ export class EnhancementModal {
     `;
   }
 
+/** countInventoryItem：执行对应的业务逻辑。 */
   private countInventoryItem(itemId: string): number {
     return this.inventory.items.reduce((total, entry) => entry.itemId === itemId ? total + entry.count : total, 0);
   }
 
+/** bindEvents：执行对应的业务逻辑。 */
   private bindEvents(body: HTMLElement): void {
     body.querySelector('[data-enhancement-refresh="1"]')?.addEventListener('click', () => {
       this.loading = true;
@@ -790,12 +870,16 @@ export class EnhancementModal {
 
     body.querySelectorAll<HTMLElement>('[data-enhancement-target-adjust]').forEach((button) => {
       button.addEventListener('click', () => {
+/** selected：定义该变量以承载业务值。 */
         const selected = this.getSelectedCandidate();
         if (!selected) {
           return;
         }
+/** delta：定义该变量以承载业务值。 */
         const delta = Math.floor(Number(button.dataset.enhancementTargetAdjust) || 0);
+/** minLevel：定义该变量以承载业务值。 */
         const minLevel = selected.currentLevel + 1;
+/** nextLevel：定义该变量以承载业务值。 */
         const nextLevel = Math.min(MAX_ENHANCE_LEVEL, Math.max(minLevel, (this.getSelectedTargetLevel(selected) ?? minLevel) + delta));
         this.selectedTargetLevel = nextLevel;
         if (this.selectedProtectionKey) {
@@ -809,11 +893,14 @@ export class EnhancementModal {
     });
 
     body.querySelector<HTMLInputElement>('[data-enhancement-target-level-input="1"]')?.addEventListener('change', (event) => {
+/** selected：定义该变量以承载业务值。 */
       const selected = this.getSelectedCandidate();
+/** input：定义该变量以承载业务值。 */
       const input = event.currentTarget;
       if (!selected || !(input instanceof HTMLInputElement)) {
         return;
       }
+/** minLevel：定义该变量以承载业务值。 */
       const minLevel = selected.currentLevel + 1;
       this.selectedTargetLevel = Math.min(MAX_ENHANCE_LEVEL, Math.max(minLevel, Math.floor(Number(input.value) || minLevel)));
       if (this.selectedProtectionKey) {
@@ -827,12 +914,16 @@ export class EnhancementModal {
 
     body.querySelectorAll<HTMLElement>('[data-enhancement-protection-adjust]').forEach((button) => {
       button.addEventListener('click', () => {
+/** selected：定义该变量以承载业务值。 */
         const selected = this.getSelectedCandidate();
         if (!selected || !this.selectedProtectionKey) {
           return;
         }
+/** minLevel：定义该变量以承载业务值。 */
         const minLevel = 2;
+/** maxLevel：定义该变量以承载业务值。 */
         const maxLevel = this.getSelectedTargetLevel(selected) ?? minLevel;
+/** delta：定义该变量以承载业务值。 */
         const delta = Math.floor(Number(button.dataset.enhancementProtectionAdjust) || 0);
         this.selectedProtectionStartLevel = Math.max(
           minLevel,
@@ -843,22 +934,28 @@ export class EnhancementModal {
     });
 
     body.querySelector<HTMLInputElement>('[data-enhancement-protection-start-input="1"]')?.addEventListener('change', (event) => {
+/** selected：定义该变量以承载业务值。 */
       const selected = this.getSelectedCandidate();
+/** input：定义该变量以承载业务值。 */
       const input = event.currentTarget;
       if (!selected || !(input instanceof HTMLInputElement) || !this.selectedProtectionKey) {
         return;
       }
+/** minLevel：定义该变量以承载业务值。 */
       const minLevel = 2;
+/** maxLevel：定义该变量以承载业务值。 */
       const maxLevel = this.getSelectedTargetLevel(selected) ?? minLevel;
       this.selectedProtectionStartLevel = Math.max(minLevel, Math.min(maxLevel, Math.floor(Number(input.value) || minLevel)));
       this.render();
     });
 
     body.querySelector('[data-enhancement-start="1"]')?.addEventListener('click', () => {
+/** selected：定义该变量以承载业务值。 */
       const selected = this.getSelectedCandidate();
       if (!selected || this.getActiveJob()) {
         return;
       }
+/** protection：定义该变量以承载业务值。 */
       const protection = this.getSelectedProtection(selected);
       this.callbacks?.onStartEnhancement({
         target: selected.ref,
@@ -876,6 +973,7 @@ export class EnhancementModal {
     });
   }
 
+/** ensureLocalHistoryLoaded：执行对应的业务逻辑。 */
   private ensureLocalHistoryLoaded(): void {
     if (this.localHistoryLoaded) {
       return;
@@ -885,10 +983,12 @@ export class EnhancementModal {
       return;
     }
     try {
+/** raw：定义该变量以承载业务值。 */
       const raw = window.localStorage.getItem(ENHANCEMENT_HISTORY_STORAGE_KEY);
       if (!raw) {
         return;
       }
+/** parsed：定义该变量以承载业务值。 */
       const parsed = JSON.parse(raw) as Partial<StoredEnhancementHistoryState>;
       this.localHistoryRecords = new Map(
         normalizeEnhancementRecordList(parsed.totals).map((entry) => [entry.itemId, entry] as const),
@@ -900,10 +1000,12 @@ export class EnhancementModal {
     }
   }
 
+/** persistLocalHistory：执行对应的业务逻辑。 */
   private persistLocalHistory(): void {
     if (typeof window === 'undefined') {
       return;
     }
+/** payload：定义该变量以承载业务值。 */
     const payload: StoredEnhancementHistoryState = {
       version: 1,
       totals: [...this.localHistoryRecords.values()]
@@ -916,23 +1018,29 @@ export class EnhancementModal {
     } catch {}
   }
 
+/** mergeServerSessionRecord：执行对应的业务逻辑。 */
   private mergeServerSessionRecord(records: PlayerEnhancementRecord[]): void {
+/** serverRecord：定义该变量以承载业务值。 */
     const serverRecord = normalizeEnhancementRecordList(records)[0] ?? null;
     if (!serverRecord) {
       this.lastServerSessionRecord = null;
       this.persistLocalHistory();
       return;
     }
+/** previousSession：定义该变量以承载业务值。 */
     const previousSession = this.lastServerSessionRecord;
+/** continuousSession：定义该变量以承载业务值。 */
     const continuousSession = Boolean(
       previousSession
       && previousSession.itemId === serverRecord.itemId
       && this.isNonDecreasingSessionSnapshot(previousSession, serverRecord),
     );
+/** deltaRecord：定义该变量以承载业务值。 */
     const deltaRecord = continuousSession && previousSession
       ? this.computeSessionDelta(previousSession, serverRecord)
       : serverRecord;
     if (deltaRecord.highestLevel > 0 || deltaRecord.levels.length > 0) {
+/** persisted：定义该变量以承载业务值。 */
       const persisted = this.localHistoryRecords.get(serverRecord.itemId) ?? {
         itemId: serverRecord.itemId,
         highestLevel: 0,
@@ -952,10 +1060,12 @@ export class EnhancementModal {
     if (normalizeEnhanceLevel(current.highestLevel) < normalizeEnhanceLevel(previous.highestLevel)) {
       return false;
     }
+/** currentLevels：定义该变量以承载业务值。 */
     const currentLevels = new Map<number, PlayerEnhancementRecord['levels'][number]>(
       current.levels.map((entry) => [entry.targetLevel, entry]),
     );
     return previous.levels.every((entry) => {
+/** next：定义该变量以承载业务值。 */
       const next = currentLevels.get(entry.targetLevel);
       if (!next) {
         return false;
@@ -969,6 +1079,7 @@ export class EnhancementModal {
     previous: PlayerEnhancementRecord,
     current: PlayerEnhancementRecord,
   ): PlayerEnhancementRecord {
+/** previousLevels：定义该变量以承载业务值。 */
     const previousLevels = new Map<number, PlayerEnhancementRecord['levels'][number]>(
       previous.levels.map((entry) => [entry.targetLevel, entry]),
     );
@@ -977,6 +1088,7 @@ export class EnhancementModal {
       highestLevel: Math.max(0, normalizeEnhanceLevel(current.highestLevel) - normalizeEnhanceLevel(previous.highestLevel)),
       levels: current.levels
         .map((entry) => {
+/** last：定义该变量以承载业务值。 */
           const last = previousLevels.get(entry.targetLevel);
           return {
             targetLevel: entry.targetLevel,
@@ -997,6 +1109,7 @@ export class EnhancementModal {
       normalizeEnhanceLevel(target.highestLevel),
       normalizeEnhanceLevel(latestHighestLevel),
     );
+/** levelMap：定义该变量以承载业务值。 */
     const levelMap = new Map<number, PlayerEnhancementRecord['levels'][number]>(
       target.levels.map((entry) => [entry.targetLevel, { ...entry }]),
     );
@@ -1013,7 +1126,9 @@ export class EnhancementModal {
     target.levels = [...levelMap.values()].sort((left, right) => left.targetLevel - right.targetLevel);
   }
 
+/** getDisplayRecord：执行对应的业务逻辑。 */
   private getDisplayRecord(itemId: string, serverRecord: PlayerEnhancementRecord | null): PlayerEnhancementRecord | null {
+/** localRecord：定义该变量以承载业务值。 */
     const localRecord = this.localHistoryRecords.get(itemId);
     if (!localRecord && !serverRecord) {
       return null;
@@ -1024,8 +1139,10 @@ export class EnhancementModal {
     if (!serverRecord) {
       return cloneEnhancementRecord(localRecord);
     }
+/** merged：定义该变量以承载业务值。 */
     const merged = cloneEnhancementRecord(localRecord);
     merged.highestLevel = Math.max(merged.highestLevel, normalizeEnhanceLevel(serverRecord.highestLevel));
+/** levelMap：定义该变量以承载业务值。 */
     const levelMap = new Map<number, PlayerEnhancementRecord['levels'][number]>(
       merged.levels.map((entry) => [entry.targetLevel, { ...entry }]),
     );
@@ -1043,14 +1160,17 @@ export class EnhancementModal {
     return merged;
   }
 
+/** getSortedLocalHistoryRecords：执行对应的业务逻辑。 */
   private getSortedLocalHistoryRecords(): PlayerEnhancementRecord[] {
     return [...this.localHistoryRecords.values()]
       .map((entry) => cloneEnhancementRecord(entry))
       .sort((left, right) => {
+/** highestDelta：定义该变量以承载业务值。 */
         const highestDelta = normalizeEnhanceLevel(right.highestLevel) - normalizeEnhanceLevel(left.highestLevel);
         if (highestDelta !== 0) {
           return highestDelta;
         }
+/** attemptsDelta：定义该变量以承载业务值。 */
         const attemptsDelta = this.getHistoryAttemptCount(right) - this.getHistoryAttemptCount(left);
         if (attemptsDelta !== 0) {
           return attemptsDelta;
@@ -1059,14 +1179,17 @@ export class EnhancementModal {
       });
   }
 
+/** getHistoryItemName：执行对应的业务逻辑。 */
   private getHistoryItemName(itemId: string): string {
     return getLocalItemTemplate(itemId)?.name ?? itemId;
   }
 
+/** getHistoryItemLevel：执行对应的业务逻辑。 */
   private getHistoryItemLevel(itemId: string): number {
     return Math.max(1, Math.floor(Number(getLocalItemTemplate(itemId)?.level) || 1));
   }
 
+/** getHistoryAttemptCount：执行对应的业务逻辑。 */
   private getHistoryAttemptCount(record: PlayerEnhancementRecord): number {
     return (record.levels ?? []).reduce(
       (total, entry) => total + Math.max(0, entry.successCount) + Math.max(0, entry.failureCount),
@@ -1074,8 +1197,10 @@ export class EnhancementModal {
     );
   }
 
+/** openHistoryListModal：执行对应的业务逻辑。 */
   private openHistoryListModal(): void {
     this.ensureLocalHistoryLoaded();
+/** records：定义该变量以承载业务值。 */
     const records = this.getSortedLocalHistoryRecords();
     confirmModalHost.open({
       ownerId: EnhancementModal.HISTORY_LIST_OWNER,
@@ -1087,8 +1212,11 @@ export class EnhancementModal {
         ? `
           <div class="enhancement-history-list-modal">
             ${records.map((record) => {
+/** itemName：定义该变量以承载业务值。 */
               const itemName = this.getHistoryItemName(record.itemId);
+/** itemLevel：定义该变量以承载业务值。 */
               const itemLevel = this.getHistoryItemLevel(record.itemId);
+/** attemptCount：定义该变量以承载业务值。 */
               const attemptCount = this.getHistoryAttemptCount(record);
               return `
                 <button
@@ -1106,12 +1234,14 @@ export class EnhancementModal {
         : '<div class="enhancement-empty-state enhancement-empty-state--picker">当前还没有本地强化记录。</div>',
     });
 
+/** modalBody：定义该变量以承载业务值。 */
     const modalBody = document.querySelector<HTMLElement>('.confirm-modal-body');
     if (!modalBody) {
       return;
     }
     modalBody.querySelectorAll<HTMLElement>('[data-enhancement-history-item]').forEach((button) => {
       button.addEventListener('click', () => {
+/** itemId：定义该变量以承载业务值。 */
         const itemId = button.dataset.enhancementHistoryItem ?? '';
         if (!itemId) {
           return;
@@ -1121,18 +1251,27 @@ export class EnhancementModal {
     });
   }
 
+/** openHistoryDetailModal：执行对应的业务逻辑。 */
   private openHistoryDetailModal(itemId: string): void {
     this.ensureLocalHistoryLoaded();
+/** record：定义该变量以承载业务值。 */
     const record = this.localHistoryRecords.get(itemId);
     if (!record) {
       return;
     }
+/** detailRecord：定义该变量以承载业务值。 */
     const detailRecord = cloneEnhancementRecord(record);
+/** itemName：定义该变量以承载业务值。 */
     const itemName = this.getHistoryItemName(itemId);
+/** itemLevel：定义该变量以承载业务值。 */
     const itemLevel = this.getHistoryItemLevel(itemId);
+/** levelMap：定义该变量以承载业务值。 */
     const levelMap = new Map(detailRecord.levels.map((entry) => [entry.targetLevel, entry] as const));
+/** highestSeenLevel：定义该变量以承载业务值。 */
     const highestSeenLevel = Math.max(normalizeEnhanceLevel(detailRecord.highestLevel), 8);
+/** roleEnhancementLevel：定义该变量以承载业务值。 */
     const roleEnhancementLevel = Math.max(1, this.panelState?.enhancementSkillLevel ?? 1);
+/** rows：定义该变量以承载业务值。 */
     const rows: string[] = [];
     for (let level = 1; level <= highestSeenLevel; level += 1) {
       const current = levelMap.get(level);
@@ -1171,7 +1310,9 @@ export class EnhancementModal {
     });
   }
 
+/** openPicker：执行对应的业务逻辑。 */
   private openPicker(): void {
+/** candidates：定义该变量以承载业务值。 */
     const candidates = this.panelState?.candidates ?? [];
     confirmModalHost.open({
       ownerId: EnhancementModal.PICKER_OWNER,
@@ -1183,11 +1324,15 @@ export class EnhancementModal {
         ? `
           <div class="enhancement-picker-grid inventory-grid">
             ${candidates.map((entry) => {
+/** key：定义该变量以承载业务值。 */
               const key = formatRefKey(entry.ref);
+/** itemMeta：定义该变量以承载业务值。 */
               const itemMeta = getItemDisplayMeta(entry.item);
+/** sourceLabel：定义该变量以承载业务值。 */
               const sourceLabel = entry.ref.source === 'equipment'
                 ? `已装备 · ${getEquipSlotLabel(entry.ref.slot ?? 'weapon')}`
                 : `背包槽位 ${formatDisplayInteger((entry.ref.slotIndex ?? 0) + 1)}`;
+/** nameClass：定义该变量以承载业务值。 */
               const nameClass = getItemNameClass(entry.item.name);
               return `
                 <button
@@ -1214,6 +1359,7 @@ export class EnhancementModal {
         : '<div class="enhancement-empty-state enhancement-empty-state--picker">当前没有可强化的装备。</div>',
     });
 
+/** modalBody：定义该变量以承载业务值。 */
     const modalBody = document.querySelector<HTMLElement>('.confirm-modal-body');
     if (!modalBody) {
       return;
@@ -1221,6 +1367,7 @@ export class EnhancementModal {
     modalBody.querySelectorAll<HTMLElement>('[data-enhancement-picker-target]').forEach((button) => {
       button.addEventListener('click', () => {
         this.selectedTargetKey = button.dataset.enhancementPickerTarget ?? null;
+/** selected：定义该变量以承载业务值。 */
         const selected = this.getSelectedCandidate();
         this.selectedTargetLevel = selected ? selected.currentLevel + 1 : null;
         this.selectedProtectionKey = null;

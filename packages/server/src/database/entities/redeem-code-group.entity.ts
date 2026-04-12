@@ -10,7 +10,9 @@ import { RedeemCodeEntity } from './redeem-code.entity';
 
 /** RedeemCodeGroupRewardItemRecord：定义该接口的能力与字段约束。 */
 interface RedeemCodeGroupRewardItemRecord {
+/** itemId：定义该变量以承载业务值。 */
   itemId: string;
+/** count：定义该变量以承载业务值。 */
   count: number;
 }
 

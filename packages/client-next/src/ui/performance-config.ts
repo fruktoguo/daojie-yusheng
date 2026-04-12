@@ -10,7 +10,9 @@ import {
   type MapPerformanceConfig,
 } from '../constants/ui/performance';
 
+/** initialized：定义该变量以承载业务值。 */
 let initialized = false;
+/** currentConfig：定义该变量以承载业务值。 */
 let currentConfig = cloneConfig(DEFAULT_MAP_PERFORMANCE_CONFIG);
 
 export type { MapPerformanceConfig };
@@ -37,6 +39,7 @@ export function getMapPerformanceConfig(): MapPerformanceConfig {
 /** updateMapPerformanceConfig：执行对应的业务逻辑。 */
 export function updateMapPerformanceConfig(patch: Partial<MapPerformanceConfig>): MapPerformanceConfig {
   initialized = true;
+/** previousConfig：定义该变量以承载业务值。 */
   const previousConfig = currentConfig;
   currentConfig = normalizeConfig({
     ...currentConfig,
@@ -65,6 +68,7 @@ export function resetMapPerformanceConfig(): MapPerformanceConfig {
 /** normalizeConfig：执行对应的业务逻辑。 */
 function normalizeConfig(raw: Partial<MapPerformanceConfig> | null | undefined): MapPerformanceConfig {
   return {
+/** showFpsMonitor：定义该变量以承载业务值。 */
     showFpsMonitor: raw?.showFpsMonitor === true,
   };
 }
@@ -81,10 +85,12 @@ function persistConfig(config: MapPerformanceConfig): void {
 /** readStoredConfig：执行对应的业务逻辑。 */
 function readStoredConfig(): Partial<MapPerformanceConfig> | null {
   try {
+/** raw：定义该变量以承载业务值。 */
     const raw = window.localStorage.getItem(MAP_PERFORMANCE_STORAGE_KEY);
     if (!raw) {
       return null;
     }
+/** parsed：定义该变量以承载业务值。 */
     const parsed = JSON.parse(raw);
     if (!parsed || typeof parsed !== 'object') {
       return null;

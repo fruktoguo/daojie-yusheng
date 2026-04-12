@@ -1,18 +1,26 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.buildHealthResponse = buildHealthResponse;
+/** env_alias_1：定义该变量以承载业务值。 */
 const env_alias_1 = require("../config/env-alias");
+/** buildHealthResponse：执行对应的业务逻辑。 */
 function buildHealthResponse(dependencies) {
+/** database：定义该变量以承载业务值。 */
     const database = resolveDatabaseReadiness();
+/** maintenance：定义该变量以承载业务值。 */
     const maintenance = resolveMaintenanceReadiness(dependencies.maintenanceStateService);
+/** persistence：定义该变量以承载业务值。 */
     const persistence = {
         player: resolvePersistenceReadiness(database.configured, dependencies.playerPersistenceService),
         mail: resolvePersistenceReadiness(database.configured, dependencies.mailPersistenceService),
         market: resolvePersistenceReadiness(database.configured, dependencies.marketPersistenceService),
         suggestion: resolvePersistenceReadiness(database.configured, dependencies.suggestionPersistenceService),
     };
+/** legacyAuth：定义该变量以承载业务值。 */
     const legacyAuth = resolveLegacyAuthReadiness(database.source, dependencies.authStateService);
+/** runtime：定义该变量以承载业务值。 */
     const runtime = resolveRuntimeReadiness(dependencies.worldRuntimeService);
+/** readinessOk：定义该变量以承载业务值。 */
     const readinessOk = !maintenance.active
         && database.configured
         && persistence.player.enabled
@@ -38,6 +46,7 @@ function buildHealthResponse(dependencies) {
         },
     };
 }
+/** resolveMaintenanceReadiness：执行对应的业务逻辑。 */
 function resolveMaintenanceReadiness(service) {
     if (!service || typeof service.isRuntimeMaintenanceActive !== 'function') {
         return {
@@ -46,6 +55,7 @@ function resolveMaintenanceReadiness(service) {
             reason: 'inactive',
         };
     }
+/** active：定义该变量以承载业务值。 */
     const active = service.isRuntimeMaintenanceActive();
     return {
         active,
@@ -53,16 +63,21 @@ function resolveMaintenanceReadiness(service) {
         reason: active ? 'runtime_maintenance_active' : 'inactive',
     };
 }
+/** resolveDatabaseReadiness：执行对应的业务逻辑。 */
 function resolveDatabaseReadiness() {
+/** source：定义该变量以承载业务值。 */
     const source = resolveDatabaseSource();
     return {
+/** configured：定义该变量以承载业务值。 */
         configured: source !== null,
         source,
     };
 }
+/** resolveDatabaseSource：执行对应的业务逻辑。 */
 function resolveDatabaseSource() {
     return (0, env_alias_1.resolveServerNextDatabaseEnvSource)();
 }
+/** resolvePersistenceReadiness：执行对应的业务逻辑。 */
 function resolvePersistenceReadiness(databaseConfigured, service) {
     if (!databaseConfigured) {
         return {
@@ -76,16 +91,20 @@ function resolvePersistenceReadiness(databaseConfigured, service) {
             reason: 'service_unavailable',
         };
     }
+/** enabled：定义该变量以承载业务值。 */
     const enabled = inspectPersistenceServiceEnabled(service);
     return {
         enabled,
         reason: enabled ? 'ready' : 'init_incomplete_or_failed',
     };
 }
+/** inspectPersistenceServiceEnabled：执行对应的业务逻辑。 */
 function inspectPersistenceServiceEnabled(service) {
+/** candidate：定义该变量以承载业务值。 */
     const candidate = service;
     return candidate.enabled === true && candidate.pool != null;
 }
+/** resolveLegacyAuthReadiness：执行对应的业务逻辑。 */
 function resolveLegacyAuthReadiness(databaseSource, service) {
     if (!databaseSource) {
         return {
@@ -103,7 +122,9 @@ function resolveLegacyAuthReadiness(databaseSource, service) {
             reason: 'service_unavailable',
         };
     }
+/** candidate：定义该变量以承载业务值。 */
     const candidate = service;
+/** poolAvailable：定义该变量以承载业务值。 */
     const poolAvailable = candidate.pool != null;
     if (poolAvailable) {
         return {
@@ -128,6 +149,7 @@ function resolveLegacyAuthReadiness(databaseSource, service) {
         reason: 'database_init_pending',
     };
 }
+/** resolveRuntimeReadiness：执行对应的业务逻辑。 */
 function resolveRuntimeReadiness(service) {
     if (!service) {
         return {
@@ -139,7 +161,9 @@ function resolveRuntimeReadiness(service) {
             pendingCommandCount: 0,
         };
     }
+/** candidate：定义该变量以承载业务值。 */
     const candidate = service;
+/** getRuntimeSummary：定义该变量以承载业务值。 */
     const getRuntimeSummary = candidate.getRuntimeSummary;
     if (typeof getRuntimeSummary !== 'function') {
         return {
@@ -152,11 +176,17 @@ function resolveRuntimeReadiness(service) {
         };
     }
     try {
+/** summary：定义该变量以承载业务值。 */
         const summary = getRuntimeSummary.call(service);
+/** tick：定义该变量以承载业务值。 */
         const tick = readNonNegativeInt(summary.tick);
+/** instanceCount：定义该变量以承载业务值。 */
         const instanceCount = readNonNegativeInt(summary.instanceCount);
+/** playerCount：定义该变量以承载业务值。 */
         const playerCount = readNonNegativeInt(summary.playerCount);
+/** pendingCommandCount：定义该变量以承载业务值。 */
         const pendingCommandCount = readNonNegativeInt(summary.pendingCommandCount);
+/** ready：定义该变量以承载业务值。 */
         const ready = instanceCount > 0;
         return {
             ready,
@@ -178,6 +208,7 @@ function resolveRuntimeReadiness(service) {
         };
     }
 }
+/** readNonNegativeInt：执行对应的业务逻辑。 */
 function readNonNegativeInt(value) {
     if (typeof value !== 'number' || !Number.isFinite(value)) {
         return 0;

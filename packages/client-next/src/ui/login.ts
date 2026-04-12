@@ -38,10 +38,14 @@ export class LoginUI {
   private submitBtn = document.getElementById('btn-auth-submit') as HTMLButtonElement;
   private submitText = document.getElementById('auth-submit-text')!;
   private errorDiv = document.getElementById('login-error')!;
+/** displayNameCheckTimer：定义该变量以承载业务值。 */
   private displayNameCheckTimer: ReturnType<typeof setTimeout> | null = null;
+/** displayNameAbortController：定义该变量以承载业务值。 */
   private displayNameAbortController: AbortController | null = null;
   private displayNameAvailable = false;
+/** mode：定义该变量以承载业务值。 */
   private mode: AuthMode | null = null;
+/** restoreSessionPromise：定义该变量以承载业务值。 */
   private restoreSessionPromise: Promise<boolean> | null = null;
 
 /** constructor：处理当前场景中的对应操作。 */
@@ -68,12 +72,15 @@ export class LoginUI {
     return this.restoreSessionPromise;
   }
 
+/** performRestoreSession：执行对应的业务逻辑。 */
   private async performRestoreSession(): Promise<boolean> {
+/** refreshToken：定义该变量以承载业务值。 */
     const refreshToken = getRefreshToken();
     if (!refreshToken) return false;
 
     this.setError('正在恢复会话...');
     try {
+/** data：定义该变量以承载业务值。 */
       const data = await restoreTokens(refreshToken);
       this.onSuccess(data);
       this.setError('');
@@ -88,6 +95,7 @@ export class LoginUI {
     }
   }
 
+/** show：执行对应的业务逻辑。 */
   show(message = ''): void {
     this.setMode('login');
     this.overlay.classList.remove('hidden');
@@ -96,6 +104,7 @@ export class LoginUI {
     }
   }
 
+/** hide：执行对应的业务逻辑。 */
   hide(): void {
     this.overlay.classList.add('hidden');
   }
@@ -106,14 +115,17 @@ export class LoginUI {
     this.show(message);
   }
 
+/** clearSession：执行对应的业务逻辑。 */
   clearSession(): void {
     clearStoredTokens();
   }
 
+/** hasRefreshToken：执行对应的业务逻辑。 */
   hasRefreshToken(): boolean {
     return Boolean(getRefreshToken());
   }
 
+/** handleSubmit：执行对应的业务逻辑。 */
   private async handleSubmit(): Promise<void> {
     if (this.mode === 'register') {
       await this.handleRegister();
@@ -122,12 +134,15 @@ export class LoginUI {
     await this.handleLogin();
   }
 
+/** handleLogin：执行对应的业务逻辑。 */
   private async handleLogin(): Promise<void> {
+/** body：定义该变量以承载业务值。 */
     const body: AuthLoginReq = {
       loginName: this.loginNameInput.value.normalize('NFC'),
       password: this.passwordInput.value,
     };
     try {
+/** data：定义该变量以承载业务值。 */
       const data = await requestJson<AuthTokenRes>('/auth/login', {
         method: 'POST',
         body,
@@ -138,27 +153,36 @@ export class LoginUI {
     }
   }
 
+/** handleRegister：执行对应的业务逻辑。 */
   private async handleRegister(): Promise<void> {
+/** accountName：定义该变量以承载业务值。 */
     const accountName = this.accountNameInput.value.normalize('NFC');
+/** password：定义该变量以承载业务值。 */
     const password = this.passwordInput.value;
+/** roleName：定义该变量以承载业务值。 */
     const roleName = this.roleNameInput.value.normalize('NFC').trim();
+/** displayName：定义该变量以承载业务值。 */
     const displayName = this.displayNameInput.value.normalize('NFC');
 
+/** accountNameError：定义该变量以承载业务值。 */
     const accountNameError = validateAccountName(accountName);
     if (accountNameError) {
       this.setError(accountNameError);
       return;
     }
+/** passwordError：定义该变量以承载业务值。 */
     const passwordError = validatePassword(password);
     if (passwordError) {
       this.setError(passwordError);
       return;
     }
+/** displayNameError：定义该变量以承载业务值。 */
     const displayNameError = validateDisplayName(displayName);
     if (displayNameError) {
       this.setError(displayNameError);
       return;
     }
+/** roleNameError：定义该变量以承载业务值。 */
     const roleNameError = validateRoleName(roleName);
     if (roleNameError) {
       this.setError(roleNameError);
@@ -171,6 +195,7 @@ export class LoginUI {
       return;
     }
 
+/** body：定义该变量以承载业务值。 */
     const body: AuthRegisterReq = {
       accountName,
       password,
@@ -179,6 +204,7 @@ export class LoginUI {
     };
 
     try {
+/** data：定义该变量以承载业务值。 */
       const data = await requestJson<AuthTokenRes>('/auth/register', {
         method: 'POST',
         body,
@@ -189,6 +215,7 @@ export class LoginUI {
     }
   }
 
+/** onSuccess：执行对应的业务逻辑。 */
   private onSuccess(data: AuthTokenRes): void {
     storeTokens(data);
     this.socket.connect(data.accessToken);
@@ -197,6 +224,7 @@ export class LoginUI {
     this.setError('');
   }
 
+/** scheduleDisplayNameCheck：执行对应的业务逻辑。 */
   private async scheduleDisplayNameCheck(): Promise<void> {
     if (this.mode !== 'register') {
       return;
@@ -204,7 +232,9 @@ export class LoginUI {
     if (this.displayNameCheckTimer) {
       clearTimeout(this.displayNameCheckTimer);
     }
+/** displayName：定义该变量以承载业务值。 */
     const displayName = this.displayNameInput.value.normalize('NFC');
+/** localError：定义该变量以承载业务值。 */
     const localError = validateDisplayName(displayName);
     if (!displayName) {
       this.setDisplayNameStatus('注册时必填', '');
@@ -230,6 +260,7 @@ export class LoginUI {
     if (this.displayNameAbortController) {
       this.displayNameAbortController.abort();
     }
+/** controller：定义该变量以承载业务值。 */
     const controller = new AbortController();
     this.displayNameAbortController = controller;
     if (options.immediate) {
@@ -237,6 +268,7 @@ export class LoginUI {
     }
 
     try {
+/** result：定义该变量以承载业务值。 */
       const result = await checkDisplayNameAvailability(displayName, controller.signal);
       if (controller.signal.aborted) {
         return;
@@ -255,6 +287,7 @@ export class LoginUI {
     }
   }
 
+/** setDisplayNameStatus：执行对应的业务逻辑。 */
   private setDisplayNameStatus(message: string, tone: '' | 'success' | 'error'): void {
     this.displayNameStatus.textContent = message;
     this.displayNameStatus.classList.remove('success', 'error');
@@ -263,15 +296,18 @@ export class LoginUI {
     }
   }
 
+/** setError：执行对应的业务逻辑。 */
   private setError(message: string): void {
     this.errorDiv.textContent = message;
   }
 
+/** setMode：执行对应的业务逻辑。 */
   private setMode(mode: AuthMode): void {
     if (this.mode === mode) {
       return;
     }
     this.mode = mode;
+/** isRegister：定义该变量以承载业务值。 */
     const isRegister = mode === 'register';
     this.loginTab.classList.toggle('active', !isRegister);
     this.loginTab.setAttribute('aria-selected', String(!isRegister));
@@ -292,6 +328,7 @@ export class LoginUI {
     }
   }
 
+/** resetDisplayNameState：执行对应的业务逻辑。 */
   private resetDisplayNameState(): void {
     if (this.displayNameCheckTimer) {
       clearTimeout(this.displayNameCheckTimer);

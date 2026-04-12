@@ -27,6 +27,7 @@ const MONSTER_PERCENT_SCALING_KEYS = [
 
 /** createUniformPercentProfile：执行对应的业务逻辑。 */
 function createUniformPercentProfile(percent: number): NumericStatPercentages {
+/** result：定义该变量以承载业务值。 */
   const result: NumericStatPercentages = {};
   for (const key of MONSTER_PERCENT_SCALING_KEYS) {
     result[key] = percent;
@@ -41,6 +42,7 @@ function createGradePercentProfile(rank: number): NumericStatPercentages {
 
 /** createTierPercentProfile：执行对应的业务逻辑。 */
 function createTierPercentProfile(allPercent: number, hpPercent: number): NumericStatPercentages {
+/** result：定义该变量以承载业务值。 */
   const result = createUniformPercentProfile(allPercent);
   result.maxHp = hpPercent;
   return result;
@@ -48,6 +50,7 @@ function createTierPercentProfile(allPercent: number, hpPercent: number): Numeri
 
 /** createGlobalMonsterPercentProfile：执行对应的业务逻辑。 */
 function createGlobalMonsterPercentProfile(): NumericStatPercentages {
+/** result：定义该变量以承载业务值。 */
   const result = createUniformPercentProfile(100);
   result.hpRegenRate = 10;
   result.dodge = 10;

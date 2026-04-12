@@ -27,19 +27,29 @@ import { syncDynamicBuffPresentation } from './buff-presentation';
 import { normalizeBuffSustainCost } from './buff-sustain';
 import { ContentService } from './content.service';
 
+/** MONSTER_INITIAL_BUFF_SOURCE_PREFIX：定义该变量以承载业务值。 */
 const MONSTER_INITIAL_BUFF_SOURCE_PREFIX = 'monster:init:';
+/** ITEM_BUFF_SOURCE_PREFIX：定义该变量以承载业务值。 */
 const ITEM_BUFF_SOURCE_PREFIX = 'item:';
+/** EQUIPMENT_BUFF_SOURCE_PREFIX：定义该变量以承载业务值。 */
 const EQUIPMENT_BUFF_SOURCE_PREFIX = 'equip:';
 
 /** PersistedTemporaryBuffSnapshot：定义该接口的能力与字段约束。 */
 export interface PersistedTemporaryBuffSnapshot {
+/** buffId：定义该变量以承载业务值。 */
   buffId: string;
+/** sourceSkillId：定义该变量以承载业务值。 */
   sourceSkillId: string;
   sourceCasterId?: string;
+/** realmLv：定义该变量以承载业务值。 */
   realmLv: number;
+/** remainingTicks：定义该变量以承载业务值。 */
   remainingTicks: number;
+/** duration：定义该变量以承载业务值。 */
   duration: number;
+/** stacks：定义该变量以承载业务值。 */
   stacks: number;
+/** maxStacks：定义该变量以承载业务值。 */
   maxStacks: number;
   sustainTicksElapsed?: number;
   name?: string;
@@ -78,10 +88,12 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 
 /** normalizeShortMark：执行对应的业务逻辑。 */
 function normalizeShortMark(shortMark: string | undefined, name: string): string {
+/** raw：定义该变量以承载业务值。 */
   const raw = shortMark?.trim();
   if (raw) {
     return [...raw][0] ?? raw;
   }
+/** fallback：定义该变量以承载业务值。 */
   const fallback = [...name.trim()][0];
   return fallback ?? '气';
 }
@@ -90,6 +102,7 @@ function normalizeShortMark(shortMark: string | undefined, name: string): string
 function buildKnownBuffState(
   snapshot: PersistedTemporaryBuffSnapshot,
   known: {
+/** name：定义该变量以承载业务值。 */
     name: string;
     desc?: string;
     shortMark?: string;
@@ -106,7 +119,9 @@ function buildKnownBuffState(
     infiniteDuration?: boolean;
     sustainCost?: TemporaryBuffState['sustainCost'];
     expireWithBuffId?: string;
+/** duration：定义该变量以承载业务值。 */
     duration: number;
+/** maxStacks：定义该变量以承载业务值。 */
     maxStacks: number;
   },
 ): TemporaryBuffState {
@@ -123,6 +138,7 @@ function buildKnownBuffState(
     stacks: normalizePositiveInt(snapshot.stacks, 1),
     maxStacks: normalizePositiveInt(snapshot.maxStacks, Math.max(1, known.maxStacks)),
     sourceSkillId: snapshot.sourceSkillId,
+/** sourceCasterId：定义该变量以承载业务值。 */
     sourceCasterId: typeof snapshot.sourceCasterId === 'string' && snapshot.sourceCasterId.length > 0
       ? snapshot.sourceCasterId
       : undefined,
@@ -135,6 +151,7 @@ function buildKnownBuffState(
     statMode: known.statMode,
     qiProjection: known.qiProjection,
     presentationScale: known.presentationScale,
+/** infiniteDuration：定义该变量以承载业务值。 */
     infiniteDuration: known.infiniteDuration === true,
     sustainCost: known.sustainCost,
     sustainTicksElapsed: known.sustainCost
@@ -210,6 +227,7 @@ function buildSkillBuffState(
     name: effect.name,
     desc: effect.desc,
     shortMark: normalizeBuffShortMark(effect),
+/** category：定义该变量以承载业务值。 */
     category: effect.category ?? (effect.target === 'self' ? 'buff' : 'debuff'),
     visibility: effect.visibility ?? 'public',
     sourceSkillName: skill.name,
@@ -220,6 +238,7 @@ function buildSkillBuffState(
     statMode: effect.statMode,
     qiProjection: effect.qiProjection,
     presentationScale: effect.presentationScale,
+/** infiniteDuration：定义该变量以承载业务值。 */
     infiniteDuration: effect.infiniteDuration === true,
     sustainCost: effect.sustainCost,
     expireWithBuffId: effect.expireWithBuffId,
@@ -233,12 +252,16 @@ function parseMonsterInitialBuffSourceId(sourceSkillId: string): { monsterId: st
   if (!sourceSkillId.startsWith(MONSTER_INITIAL_BUFF_SOURCE_PREFIX)) {
     return null;
   }
+/** payload：定义该变量以承载业务值。 */
   const payload = sourceSkillId.slice(MONSTER_INITIAL_BUFF_SOURCE_PREFIX.length);
+/** splitIndex：定义该变量以承载业务值。 */
   const splitIndex = payload.lastIndexOf(':');
   if (splitIndex <= 0 || splitIndex >= payload.length - 1) {
     return null;
   }
+/** monsterId：定义该变量以承载业务值。 */
   const monsterId = payload.slice(0, splitIndex).trim();
+/** buffId：定义该变量以承载业务值。 */
   const buffId = payload.slice(splitIndex + 1).trim();
   if (!monsterId || !buffId) {
     return null;
@@ -252,14 +275,19 @@ function resolveMonsterInitialBuffTemplate(
   buffId: string,
   contentService: ContentService,
 ): {
+/** effect：定义该变量以承载业务值。 */
   effect: MonsterInitialBuffDef;
+/** monsterName：定义该变量以承载业务值。 */
   monsterName: string;
 } | null {
+/** parsed：定义该变量以承载业务值。 */
   const parsed = parseMonsterInitialBuffSourceId(sourceSkillId);
   if (!parsed || parsed.buffId !== buffId) {
     return null;
   }
+/** monster：定义该变量以承载业务值。 */
   const monster = contentService.getMonsterTemplate(parsed.monsterId);
+/** effect：定义该变量以承载业务值。 */
   const effect = monster?.initialBuffs?.find((entry) => entry.buffId === buffId);
   if (!monster || !effect) {
     return null;
@@ -287,6 +315,7 @@ function buildMonsterInitialBuffState(
     statMode: effect.statMode,
     qiProjection: effect.qiProjection,
     presentationScale: effect.presentationScale,
+/** infiniteDuration：定义该变量以承载业务值。 */
     infiniteDuration: effect.infiniteDuration === true,
     sustainCost: effect.sustainCost,
     expireWithBuffId: effect.expireWithBuffId,
@@ -301,17 +330,22 @@ function resolveConsumableBuffTemplate(
   buffId: string,
   contentService: ContentService,
 ): {
+/** itemName：定义该变量以承载业务值。 */
   itemName: string;
+/** buff：定义该变量以承载业务值。 */
   buff: ConsumableBuffDef;
 } | null {
   if (!sourceSkillId.startsWith(ITEM_BUFF_SOURCE_PREFIX)) {
     return null;
   }
+/** itemId：定义该变量以承载业务值。 */
   const itemId = sourceSkillId.slice(ITEM_BUFF_SOURCE_PREFIX.length).trim();
   if (!itemId) {
     return null;
   }
+/** item：定义该变量以承载业务值。 */
   const item = contentService.getItem(itemId);
+/** buff：定义该变量以承载业务值。 */
   const buff = item?.consumeBuffs?.find((entry) => entry.buffId === buffId);
   if (!item || !buff) {
     return null;
@@ -339,6 +373,7 @@ function buildConsumableBuffState(
     statMode: buff.statMode,
     qiProjection: buff.qiProjection,
     presentationScale: buff.presentationScale,
+/** infiniteDuration：定义该变量以承载业务值。 */
     infiniteDuration: buff.infiniteDuration === true,
     sustainCost: buff.sustainCost,
     expireWithBuffId: buff.expireWithBuffId,
@@ -353,23 +388,31 @@ function resolveEquipmentTimedBuffTemplate(
   buffId: string,
   contentService: ContentService,
 ): {
+/** itemName：定义该变量以承载业务值。 */
   itemName: string;
+/** effect：定义该变量以承载业务值。 */
   effect: EquipmentTimedBuffEffectDef;
 } | null {
   if (!sourceSkillId.startsWith(EQUIPMENT_BUFF_SOURCE_PREFIX)) {
     return null;
   }
+/** payload：定义该变量以承载业务值。 */
   const payload = sourceSkillId.slice(EQUIPMENT_BUFF_SOURCE_PREFIX.length);
+/** splitIndex：定义该变量以承载业务值。 */
   const splitIndex = payload.lastIndexOf(':');
   if (splitIndex <= 0 || splitIndex >= payload.length - 1) {
     return null;
   }
+/** itemId：定义该变量以承载业务值。 */
   const itemId = payload.slice(0, splitIndex).trim();
+/** effectId：定义该变量以承载业务值。 */
   const effectId = payload.slice(splitIndex + 1).trim();
   if (!itemId || !effectId) {
     return null;
   }
+/** item：定义该变量以承载业务值。 */
   const item = contentService.getItem(itemId);
+/** effect：定义该变量以承载业务值。 */
   const effect = item?.effects?.find((entry): entry is EquipmentTimedBuffEffectDef => (
     entry.type === 'timed_buff'
       && (entry.effectId?.trim() || 'effect') === effectId
@@ -387,6 +430,7 @@ function buildEquipmentTimedBuffState(
   effect: EquipmentTimedBuffEffectDef,
   itemName: string,
 ): TemporaryBuffState {
+/** buff：定义该变量以承载业务值。 */
   const buff = effect.buff;
   return buildKnownBuffState(snapshot, {
     name: buff.name,
@@ -416,7 +460,9 @@ function canPersistAsMinimalSnapshot(buff: TemporaryBuffState, contentService: C
     return true;
   }
 
+/** skill：定义该变量以承载业务值。 */
   const skill = contentService.getSkill(buff.sourceSkillId);
+/** effect：定义该变量以承载业务值。 */
   const effect = skill?.effects.find((entry): entry is Extract<SkillEffectDef, { type: 'buff' }> => (
     entry.type === 'buff' && entry.buffId === buff.buffId
   ));
@@ -450,34 +496,49 @@ export function normalizePersistedTemporaryBuffSnapshot(raw: unknown): Persisted
     return null;
   }
 
+/** snapshot：定义该变量以承载业务值。 */
   const snapshot: PersistedTemporaryBuffSnapshot = {
     buffId: raw.buffId,
     sourceSkillId: raw.sourceSkillId,
+/** sourceCasterId：定义该变量以承载业务值。 */
     sourceCasterId: typeof raw.sourceCasterId === 'string' && raw.sourceCasterId.length > 0 ? raw.sourceCasterId : undefined,
     realmLv: normalizePositiveInt(raw.realmLv, 1),
     remainingTicks: normalizePositiveInt(raw.remainingTicks, 1),
     duration: normalizePositiveInt(raw.duration, 1),
     stacks: normalizePositiveInt(raw.stacks, 1),
     maxStacks: normalizePositiveInt(raw.maxStacks, 1),
+/** sustainTicksElapsed：定义该变量以承载业务值。 */
     sustainTicksElapsed: raw.sustainTicksElapsed !== undefined ? normalizeNonNegativeInt(raw.sustainTicksElapsed, 0) : undefined,
+/** name：定义该变量以承载业务值。 */
     name: typeof raw.name === 'string' && raw.name.length > 0 ? raw.name : undefined,
+/** shortMark：定义该变量以承载业务值。 */
     shortMark: typeof raw.shortMark === 'string' && raw.shortMark.length > 0 ? raw.shortMark : undefined,
+/** category：定义该变量以承载业务值。 */
     category: raw.category === 'debuff' ? 'debuff' : raw.category === 'buff' ? 'buff' : undefined,
+/** visibility：定义该变量以承载业务值。 */
     visibility: raw.visibility === 'hidden' || raw.visibility === 'observe_only' || raw.visibility === 'public'
       ? raw.visibility
       : undefined,
+/** desc：定义该变量以承载业务值。 */
     desc: typeof raw.desc === 'string' ? raw.desc : undefined,
+/** baseDesc：定义该变量以承载业务值。 */
     baseDesc: typeof raw.baseDesc === 'string' ? raw.baseDesc : undefined,
+/** sourceSkillName：定义该变量以承载业务值。 */
     sourceSkillName: typeof raw.sourceSkillName === 'string' ? raw.sourceSkillName : undefined,
+/** color：定义该变量以承载业务值。 */
     color: typeof raw.color === 'string' ? raw.color : undefined,
     attrs: isPlainObject(raw.attrs) ? raw.attrs as TemporaryBuffState['attrs'] : undefined,
+/** attrMode：定义该变量以承载业务值。 */
     attrMode: raw.attrMode === 'flat' ? 'flat' : raw.attrMode === 'percent' ? 'percent' : undefined,
     stats: isPlainObject(raw.stats) ? raw.stats as TemporaryBuffState['stats'] : undefined,
+/** statMode：定义该变量以承载业务值。 */
     statMode: raw.statMode === 'flat' ? 'flat' : raw.statMode === 'percent' ? 'percent' : undefined,
     qiProjection: Array.isArray(raw.qiProjection) ? raw.qiProjection as TemporaryBuffState['qiProjection'] : undefined,
     presentationScale: Number.isFinite(raw.presentationScale) ? Number(raw.presentationScale) : undefined,
+/** infiniteDuration：定义该变量以承载业务值。 */
     infiniteDuration: raw.infiniteDuration === true,
     sustainCost: normalizeBuffSustainCost(raw.sustainCost),
+/** expireWithBuffId：定义该变量以承载业务值。 */
     expireWithBuffId: typeof raw.expireWithBuffId === 'string' && raw.expireWithBuffId.length > 0
       ? raw.expireWithBuffId
       : undefined,
@@ -494,6 +555,7 @@ export function hydrateTemporaryBuffSnapshot(
     ignore?: (snapshot: PersistedTemporaryBuffSnapshot) => boolean;
   },
 ): TemporaryBuffState | null {
+/** snapshot：定义该变量以承载业务值。 */
   const snapshot = normalizePersistedTemporaryBuffSnapshot(raw);
   if (!snapshot) {
     return null;
@@ -503,17 +565,21 @@ export function hydrateTemporaryBuffSnapshot(
     return null;
   }
 
+/** systemBuff：定义该变量以承载业务值。 */
   const systemBuff = buildSystemBuffState(snapshot);
   if (systemBuff) {
     return systemBuff;
   }
 
+/** initialBuff：定义该变量以承载业务值。 */
   const initialBuff = resolveMonsterInitialBuffTemplate(snapshot.sourceSkillId, snapshot.buffId, contentService);
   if (initialBuff) {
     return buildMonsterInitialBuffState(snapshot, initialBuff.effect, initialBuff.monsterName);
   }
 
+/** skill：定义该变量以承载业务值。 */
   const skill = contentService.getSkill(snapshot.sourceSkillId);
+/** skillEffect：定义该变量以承载业务值。 */
   const skillEffect = skill?.effects.find((entry): entry is Extract<SkillEffectDef, { type: 'buff' }> => (
     entry.type === 'buff' && entry.buffId === snapshot.buffId
   ));
@@ -521,11 +587,13 @@ export function hydrateTemporaryBuffSnapshot(
     return buildSkillBuffState(skill, skillEffect, snapshot);
   }
 
+/** consumableBuff：定义该变量以承载业务值。 */
   const consumableBuff = resolveConsumableBuffTemplate(snapshot.sourceSkillId, snapshot.buffId, contentService);
   if (consumableBuff) {
     return buildConsumableBuffState(snapshot, consumableBuff.buff, consumableBuff.itemName);
   }
 
+/** equipmentBuff：定义该变量以承载业务值。 */
   const equipmentBuff = resolveEquipmentTimedBuffTemplate(snapshot.sourceSkillId, snapshot.buffId, contentService);
   if (equipmentBuff) {
     return buildEquipmentTimedBuffState(snapshot, equipmentBuff.effect, equipmentBuff.itemName);
@@ -558,6 +626,7 @@ export function hydrateTemporaryBuffSnapshot(
     statMode: snapshot.statMode,
     qiProjection: snapshot.qiProjection,
     presentationScale: snapshot.presentationScale,
+/** infiniteDuration：定义该变量以承载业务值。 */
     infiniteDuration: snapshot.infiniteDuration === true,
     sustainCost: snapshot.sustainCost,
     sustainTicksElapsed: snapshot.sustainTicksElapsed,
@@ -587,9 +656,11 @@ export function dehydrateTemporaryBuff(
   buff: TemporaryBuffState,
   contentService: ContentService,
 ): PersistedTemporaryBuffSnapshot {
+/** minimal：定义该变量以承载业务值。 */
   const minimal: PersistedTemporaryBuffSnapshot = {
     buffId: buff.buffId,
     sourceSkillId: buff.sourceSkillId,
+/** sourceCasterId：定义该变量以承载业务值。 */
     sourceCasterId: typeof buff.sourceCasterId === 'string' && buff.sourceCasterId.length > 0 ? buff.sourceCasterId : undefined,
     realmLv: normalizePositiveInt(buff.realmLv, 1),
     remainingTicks: normalizePositiveInt(buff.remainingTicks, 1),

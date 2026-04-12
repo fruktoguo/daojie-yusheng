@@ -90,137 +90,268 @@ import * as gmMarkupHelpers from './gm/helpers/markup';
 import * as gmPureHelpers from './gm/helpers/pure';
 import { startClientVersionReload } from './version-reload';
 
+/** loginOverlay：定义该变量以承载业务值。 */
 const loginOverlay = document.getElementById('login-overlay') as HTMLDivElement;
+/** gmShell：定义该变量以承载业务值。 */
 const gmShell = document.getElementById('gm-shell') as HTMLDivElement;
+/** loginForm：定义该变量以承载业务值。 */
 const loginForm = document.getElementById('gm-login-form') as HTMLFormElement;
+/** passwordInput：定义该变量以承载业务值。 */
 const passwordInput = document.getElementById('gm-password') as HTMLInputElement;
+/** loginSubmitBtn：定义该变量以承载业务值。 */
 const loginSubmitBtn = document.getElementById('login-submit') as HTMLButtonElement;
+/** loginErrorEl：定义该变量以承载业务值。 */
 const loginErrorEl = document.getElementById('login-error') as HTMLDivElement;
+/** statusBarEl：定义该变量以承载业务值。 */
 const statusBarEl = document.getElementById('status-bar') as HTMLDivElement;
+/** statusToastEl：定义该变量以承载业务值。 */
 const statusToastEl = document.getElementById('status-toast') as HTMLDivElement;
+/** playerSearchInput：定义该变量以承载业务值。 */
 const playerSearchInput = document.getElementById('player-search') as HTMLInputElement;
+/** playerSortSelect：定义该变量以承载业务值。 */
 const playerSortSelect = document.getElementById('player-sort') as HTMLSelectElement;
+/** playerListEl：定义该变量以承载业务值。 */
 const playerListEl = document.getElementById('player-list') as HTMLDivElement;
+/** playerPrevPageBtn：定义该变量以承载业务值。 */
 const playerPrevPageBtn = document.getElementById('player-page-prev') as HTMLButtonElement;
+/** playerNextPageBtn：定义该变量以承载业务值。 */
 const playerNextPageBtn = document.getElementById('player-page-next') as HTMLButtonElement;
+/** playerPageMetaEl：定义该变量以承载业务值。 */
 const playerPageMetaEl = document.getElementById('player-page-meta') as HTMLDivElement;
+/** spawnCountInput：定义该变量以承载业务值。 */
 const spawnCountInput = document.getElementById('spawn-count') as HTMLInputElement;
+/** editorEmptyEl：定义该变量以承载业务值。 */
 const editorEmptyEl = document.getElementById('editor-empty') as HTMLDivElement;
+/** editorPanelEl：定义该变量以承载业务值。 */
 const editorPanelEl = document.getElementById('editor-panel') as HTMLDivElement;
+/** editorTitleEl：定义该变量以承载业务值。 */
 const editorTitleEl = document.getElementById('editor-title') as HTMLDivElement;
+/** editorSubtitleEl：定义该变量以承载业务值。 */
 const editorSubtitleEl = document.getElementById('editor-subtitle') as HTMLDivElement;
+/** editorMetaEl：定义该变量以承载业务值。 */
 const editorMetaEl = document.getElementById('editor-meta') as HTMLDivElement;
+/** editorContentEl：定义该变量以承载业务值。 */
 const editorContentEl = document.getElementById('editor-content') as HTMLDivElement;
+/** editorVisualPanelEl：定义该变量以承载业务值。 */
 const editorVisualPanelEl = document.getElementById('editor-visual-panel') as HTMLDivElement;
+/** editorPersistedPanelEl：定义该变量以承载业务值。 */
 const editorPersistedPanelEl = document.getElementById('editor-persisted-panel') as HTMLDivElement;
+/** editorTabBasicBtn：定义该变量以承载业务值。 */
 const editorTabBasicBtn = document.getElementById('editor-tab-basic') as HTMLButtonElement;
+/** editorTabPositionBtn：定义该变量以承载业务值。 */
 const editorTabPositionBtn = document.getElementById('editor-tab-position') as HTMLButtonElement;
+/** editorTabRealmBtn：定义该变量以承载业务值。 */
 const editorTabRealmBtn = document.getElementById('editor-tab-realm') as HTMLButtonElement;
+/** editorTabBuffsBtn：定义该变量以承载业务值。 */
 const editorTabBuffsBtn = document.getElementById('editor-tab-buffs') as HTMLButtonElement;
+/** editorTabTechniquesBtn：定义该变量以承载业务值。 */
 const editorTabTechniquesBtn = document.getElementById('editor-tab-techniques') as HTMLButtonElement;
+/** editorTabShortcutsBtn：定义该变量以承载业务值。 */
 const editorTabShortcutsBtn = document.getElementById('editor-tab-shortcuts') as HTMLButtonElement;
+/** editorTabItemsBtn：定义该变量以承载业务值。 */
 const editorTabItemsBtn = document.getElementById('editor-tab-items') as HTMLButtonElement;
+/** editorTabQuestsBtn：定义该变量以承载业务值。 */
 const editorTabQuestsBtn = document.getElementById('editor-tab-quests') as HTMLButtonElement;
+/** editorTabMailBtn：定义该变量以承载业务值。 */
 const editorTabMailBtn = document.getElementById('editor-tab-mail') as HTMLButtonElement;
+/** editorTabPersistedBtn：定义该变量以承载业务值。 */
 const editorTabPersistedBtn = document.getElementById('editor-tab-persisted') as HTMLButtonElement;
+/** playerJsonEl：定义该变量以承载业务值。 */
 const playerJsonEl = document.getElementById('player-json') as HTMLTextAreaElement;
+/** playerPersistedJsonEl：定义该变量以承载业务值。 */
 const playerPersistedJsonEl = document.getElementById('player-persisted-json') as HTMLTextAreaElement;
+/** applyRawJsonBtn：定义该变量以承载业务值。 */
 const applyRawJsonBtn = document.getElementById('apply-raw-json') as HTMLButtonElement;
+/** savePlayerBtn：定义该变量以承载业务值。 */
 const savePlayerBtn = document.getElementById('save-player') as HTMLButtonElement;
+/** refreshPlayerBtn：定义该变量以承载业务值。 */
 const refreshPlayerBtn = document.getElementById('refresh-player') as HTMLButtonElement;
+/** openPlayerMailBtn：定义该变量以承载业务值。 */
 const openPlayerMailBtn = document.getElementById('open-player-mail') as HTMLButtonElement;
+/** resetPlayerBtn：定义该变量以承载业务值。 */
 const resetPlayerBtn = document.getElementById('reset-player') as HTMLButtonElement;
+/** resetHeavenGateBtn：定义该变量以承载业务值。 */
 const resetHeavenGateBtn = document.getElementById('reset-heaven-gate') as HTMLButtonElement;
+/** removeBotBtn：定义该变量以承载业务值。 */
 const removeBotBtn = document.getElementById('remove-bot') as HTMLButtonElement;
 
+/** summaryTotalEl：定义该变量以承载业务值。 */
 const summaryTotalEl = document.getElementById('summary-total') as HTMLDivElement;
+/** summaryOnlineEl：定义该变量以承载业务值。 */
 const summaryOnlineEl = document.getElementById('summary-online') as HTMLDivElement;
+/** summaryOfflineHangingEl：定义该变量以承载业务值。 */
 const summaryOfflineHangingEl = document.getElementById('summary-offline-hanging') as HTMLDivElement;
+/** summaryOfflineEl：定义该变量以承载业务值。 */
 const summaryOfflineEl = document.getElementById('summary-offline') as HTMLDivElement;
+/** summaryBotsEl：定义该变量以承载业务值。 */
 const summaryBotsEl = document.getElementById('summary-bots') as HTMLDivElement;
+/** summaryTickEl：定义该变量以承载业务值。 */
 const summaryTickEl = document.getElementById('summary-tick') as HTMLDivElement;
+/** summaryTickWindowEl：定义该变量以承载业务值。 */
 const summaryTickWindowEl = document.getElementById('summary-tick-window') as HTMLDivElement;
+/** summaryCpuEl：定义该变量以承载业务值。 */
 const summaryCpuEl = document.getElementById('summary-cpu') as HTMLDivElement;
+/** summaryMemoryEl：定义该变量以承载业务值。 */
 const summaryMemoryEl = document.getElementById('summary-memory') as HTMLDivElement;
+/** summaryNetInEl：定义该变量以承载业务值。 */
 const summaryNetInEl = document.getElementById('summary-net-in') as HTMLDivElement;
+/** summaryNetOutEl：定义该变量以承载业务值。 */
 const summaryNetOutEl = document.getElementById('summary-net-out') as HTMLDivElement;
+/** summaryPathQueueEl：定义该变量以承载业务值。 */
 const summaryPathQueueEl = document.getElementById('summary-path-queue') as HTMLDivElement;
+/** summaryPathWorkersEl：定义该变量以承载业务值。 */
 const summaryPathWorkersEl = document.getElementById('summary-path-workers') as HTMLDivElement;
+/** summaryPathCancelledEl：定义该变量以承载业务值。 */
 const summaryPathCancelledEl = document.getElementById('summary-path-cancelled') as HTMLDivElement;
+/** summaryNetInBreakdownEl：定义该变量以承载业务值。 */
 const summaryNetInBreakdownEl = document.getElementById('summary-net-in-breakdown') as HTMLDivElement;
+/** summaryNetOutBreakdownEl：定义该变量以承载业务值。 */
 const summaryNetOutBreakdownEl = document.getElementById('summary-net-out-breakdown') as HTMLDivElement;
+/** serverSubtabOverviewBtn：定义该变量以承载业务值。 */
 const serverSubtabOverviewBtn = document.getElementById('server-subtab-overview') as HTMLButtonElement;
+/** serverSubtabTrafficBtn：定义该变量以承载业务值。 */
 const serverSubtabTrafficBtn = document.getElementById('server-subtab-traffic') as HTMLButtonElement;
+/** serverSubtabCpuBtn：定义该变量以承载业务值。 */
 const serverSubtabCpuBtn = document.getElementById('server-subtab-cpu') as HTMLButtonElement;
+/** serverSubtabDatabaseBtn：定义该变量以承载业务值。 */
 const serverSubtabDatabaseBtn = document.getElementById('server-subtab-database') as HTMLButtonElement;
+/** serverPanelOverviewEl：定义该变量以承载业务值。 */
 const serverPanelOverviewEl = document.getElementById('server-panel-overview') as HTMLElement;
+/** serverPanelTrafficEl：定义该变量以承载业务值。 */
 const serverPanelTrafficEl = document.getElementById('server-panel-traffic') as HTMLElement;
+/** serverPanelCpuEl：定义该变量以承载业务值。 */
 const serverPanelCpuEl = document.getElementById('server-panel-cpu') as HTMLElement;
+/** serverPanelDatabaseEl：定义该变量以承载业务值。 */
 const serverPanelDatabaseEl = document.getElementById('server-panel-database') as HTMLElement;
+/** trafficResetMetaEl：定义该变量以承载业务值。 */
 const trafficResetMetaEl = document.getElementById('traffic-reset-meta') as HTMLDivElement;
+/** trafficTotalInEl：定义该变量以承载业务值。 */
 const trafficTotalInEl = document.getElementById('traffic-total-in') as HTMLDivElement;
+/** trafficTotalInNoteEl：定义该变量以承载业务值。 */
 const trafficTotalInNoteEl = document.getElementById('traffic-total-in-note') as HTMLDivElement;
+/** trafficTotalOutEl：定义该变量以承载业务值。 */
 const trafficTotalOutEl = document.getElementById('traffic-total-out') as HTMLDivElement;
+/** trafficTotalOutNoteEl：定义该变量以承载业务值。 */
 const trafficTotalOutNoteEl = document.getElementById('traffic-total-out-note') as HTMLDivElement;
+/** resetNetworkStatsBtn：定义该变量以承载业务值。 */
 const resetNetworkStatsBtn = document.getElementById('reset-network-stats') as HTMLButtonElement;
+/** resetCpuStatsBtn：定义该变量以承载业务值。 */
 const resetCpuStatsBtn = document.getElementById('reset-cpu-stats') as HTMLButtonElement;
+/** resetPathfindingStatsBtn：定义该变量以承载业务值。 */
 const resetPathfindingStatsBtn = document.getElementById('reset-pathfinding-stats') as HTMLButtonElement;
+/** cpuCurrentPercentEl：定义该变量以承载业务值。 */
 const cpuCurrentPercentEl = document.getElementById('cpu-current-percent') as HTMLDivElement;
+/** cpuTickWindowPercentEl：定义该变量以承载业务值。 */
 const cpuTickWindowPercentEl = document.getElementById('cpu-tick-window-percent') as HTMLDivElement;
+/** cpuTickWindowNoteEl：定义该变量以承载业务值。 */
 const cpuTickWindowNoteEl = document.getElementById('cpu-tick-window-note') as HTMLDivElement;
+/** cpuProfileMetaEl：定义该变量以承载业务值。 */
 const cpuProfileMetaEl = document.getElementById('cpu-profile-meta') as HTMLDivElement;
+/** cpuCoreCountEl：定义该变量以承载业务值。 */
 const cpuCoreCountEl = document.getElementById('cpu-core-count') as HTMLDivElement;
+/** cpuUserMsEl：定义该变量以承载业务值。 */
 const cpuUserMsEl = document.getElementById('cpu-user-ms') as HTMLDivElement;
+/** cpuSystemMsEl：定义该变量以承载业务值。 */
 const cpuSystemMsEl = document.getElementById('cpu-system-ms') as HTMLDivElement;
+/** cpuLoad1mEl：定义该变量以承载业务值。 */
 const cpuLoad1mEl = document.getElementById('cpu-load-1m') as HTMLDivElement;
+/** cpuLoad5mEl：定义该变量以承载业务值。 */
 const cpuLoad5mEl = document.getElementById('cpu-load-5m') as HTMLDivElement;
+/** cpuLoad15mEl：定义该变量以承载业务值。 */
 const cpuLoad15mEl = document.getElementById('cpu-load-15m') as HTMLDivElement;
+/** cpuProcessUptimeEl：定义该变量以承载业务值。 */
 const cpuProcessUptimeEl = document.getElementById('cpu-process-uptime') as HTMLDivElement;
+/** cpuSystemUptimeEl：定义该变量以承载业务值。 */
 const cpuSystemUptimeEl = document.getElementById('cpu-system-uptime') as HTMLDivElement;
+/** cpuRssMemoryEl：定义该变量以承载业务值。 */
 const cpuRssMemoryEl = document.getElementById('cpu-rss-memory') as HTMLDivElement;
+/** cpuHeapUsedEl：定义该变量以承载业务值。 */
 const cpuHeapUsedEl = document.getElementById('cpu-heap-used') as HTMLDivElement;
+/** cpuHeapTotalEl：定义该变量以承载业务值。 */
 const cpuHeapTotalEl = document.getElementById('cpu-heap-total') as HTMLDivElement;
+/** cpuExternalMemoryEl：定义该变量以承载业务值。 */
 const cpuExternalMemoryEl = document.getElementById('cpu-external-memory') as HTMLDivElement;
+/** pathfindingResetMetaEl：定义该变量以承载业务值。 */
 const pathfindingResetMetaEl = document.getElementById('pathfinding-reset-meta') as HTMLDivElement;
+/** pathfindingAvgQueueMsEl：定义该变量以承载业务值。 */
 const pathfindingAvgQueueMsEl = document.getElementById('pathfinding-avg-queue-ms') as HTMLDivElement;
+/** pathfindingQueueNoteEl：定义该变量以承载业务值。 */
 const pathfindingQueueNoteEl = document.getElementById('pathfinding-queue-note') as HTMLDivElement;
+/** pathfindingAvgRunMsEl：定义该变量以承载业务值。 */
 const pathfindingAvgRunMsEl = document.getElementById('pathfinding-avg-run-ms') as HTMLDivElement;
+/** pathfindingRunNoteEl：定义该变量以承载业务值。 */
 const pathfindingRunNoteEl = document.getElementById('pathfinding-run-note') as HTMLDivElement;
+/** pathfindingAvgExpandedNodesEl：定义该变量以承载业务值。 */
 const pathfindingAvgExpandedNodesEl = document.getElementById('pathfinding-avg-expanded-nodes') as HTMLDivElement;
+/** pathfindingExpandedNoteEl：定义该变量以承载业务值。 */
 const pathfindingExpandedNoteEl = document.getElementById('pathfinding-expanded-note') as HTMLDivElement;
+/** pathfindingDropTotalEl：定义该变量以承载业务值。 */
 const pathfindingDropTotalEl = document.getElementById('pathfinding-drop-total') as HTMLDivElement;
+/** pathfindingDropNoteEl：定义该变量以承载业务值。 */
 const pathfindingDropNoteEl = document.getElementById('pathfinding-drop-note') as HTMLDivElement;
+/** pathfindingFailureListEl：定义该变量以承载业务值。 */
 const pathfindingFailureListEl = document.getElementById('pathfinding-failure-list') as HTMLDivElement;
+/** cpuBreakdownListEl：定义该变量以承载业务值。 */
 const cpuBreakdownListEl = document.getElementById('cpu-breakdown-list') as HTMLDivElement;
+/** cpuBreakdownSortTotalBtn：定义该变量以承载业务值。 */
 const cpuBreakdownSortTotalBtn = document.getElementById('cpu-breakdown-sort-total') as HTMLButtonElement;
+/** cpuBreakdownSortCountBtn：定义该变量以承载业务值。 */
 const cpuBreakdownSortCountBtn = document.getElementById('cpu-breakdown-sort-count') as HTMLButtonElement;
+/** cpuBreakdownSortAvgBtn：定义该变量以承载业务值。 */
 const cpuBreakdownSortAvgBtn = document.getElementById('cpu-breakdown-sort-avg') as HTMLButtonElement;
+/** gmPasswordForm：定义该变量以承载业务值。 */
 const gmPasswordForm = document.getElementById('gm-password-form') as HTMLFormElement;
+/** gmPasswordCurrentInput：定义该变量以承载业务值。 */
 const gmPasswordCurrentInput = document.getElementById('gm-password-current') as HTMLInputElement;
+/** gmPasswordNextInput：定义该变量以承载业务值。 */
 const gmPasswordNextInput = document.getElementById('gm-password-next') as HTMLInputElement;
+/** gmPasswordSaveBtn：定义该变量以承载业务值。 */
 const gmPasswordSaveBtn = document.getElementById('gm-password-save') as HTMLButtonElement;
+/** playerWorkspaceEl：定义该变量以承载业务值。 */
 const playerWorkspaceEl = document.getElementById('player-workspace') as HTMLElement;
+/** redeemWorkspaceEl：定义该变量以承载业务值。 */
 const redeemWorkspaceEl = document.getElementById('redeem-workspace') as HTMLElement;
+/** suggestionWorkspaceEl：定义该变量以承载业务值。 */
 const suggestionWorkspaceEl = document.getElementById('suggestion-workspace') as HTMLElement;
+/** serverWorkspaceEl：定义该变量以承载业务值。 */
 const serverWorkspaceEl = document.getElementById('server-workspace') as HTMLElement;
+/** worldWorkspaceEl：定义该变量以承载业务值。 */
 const worldWorkspaceEl = document.getElementById('world-workspace') as HTMLElement;
+/** shortcutWorkspaceEl：定义该变量以承载业务值。 */
 const shortcutWorkspaceEl = document.getElementById('shortcut-workspace') as HTMLElement;
+/** shortcutMailComposerEl：定义该变量以承载业务值。 */
 const shortcutMailComposerEl = document.getElementById('shortcut-mail-composer') as HTMLDivElement | null;
+/** serverTabBtn：定义该变量以承载业务值。 */
 const serverTabBtn = document.getElementById('gm-tab-server') as HTMLButtonElement;
+/** redeemTabBtn：定义该变量以承载业务值。 */
 const redeemTabBtn = document.getElementById('gm-tab-redeem') as HTMLButtonElement;
+/** playerTabBtn：定义该变量以承载业务值。 */
 const playerTabBtn = document.getElementById('gm-tab-players') as HTMLButtonElement;
+/** suggestionTabBtn：定义该变量以承载业务值。 */
 const suggestionTabBtn = document.getElementById('gm-tab-suggestions') as HTMLButtonElement;
+/** worldTabBtn：定义该变量以承载业务值。 */
 const worldTabBtn = document.getElementById('gm-tab-world') as HTMLButtonElement;
+/** shortcutTabBtn：定义该变量以承载业务值。 */
 const shortcutTabBtn = document.getElementById('gm-tab-shortcuts') as HTMLButtonElement;
+/** suggestionListEl：定义该变量以承载业务值。 */
 const suggestionListEl = document.getElementById('gm-suggestion-list') as HTMLElement;
+/** suggestionSearchInput：定义该变量以承载业务值。 */
 const suggestionSearchInput = document.getElementById('gm-suggestion-search') as HTMLInputElement;
+/** suggestionSearchClearBtn：定义该变量以承载业务值。 */
 const suggestionSearchClearBtn = document.getElementById('gm-suggestion-search-clear') as HTMLButtonElement;
+/** suggestionPrevPageBtn：定义该变量以承载业务值。 */
 const suggestionPrevPageBtn = document.getElementById('gm-suggestion-page-prev') as HTMLButtonElement;
+/** suggestionNextPageBtn：定义该变量以承载业务值。 */
 const suggestionNextPageBtn = document.getElementById('gm-suggestion-page-next') as HTMLButtonElement;
+/** suggestionPageMetaEl：定义该变量以承载业务值。 */
 const suggestionPageMetaEl = document.getElementById('gm-suggestion-page-meta') as HTMLDivElement;
+/** redeemStatusEl：定义该变量以承载业务值。 */
 const redeemStatusEl = document.getElementById('redeem-status') as HTMLDivElement | null;
+/** redeemGroupListEl：定义该变量以承载业务值。 */
 const redeemGroupListEl = document.getElementById('redeem-group-list') as HTMLDivElement | null;
+/** redeemGroupEditorEl：定义该变量以承载业务值。 */
 const redeemGroupEditorEl = document.getElementById('redeem-group-editor') as HTMLDivElement | null;
+/** redeemCodeListEl：定义该变量以承载业务值。 */
 const redeemCodeListEl = document.getElementById('redeem-code-list') as HTMLDivElement | null;
 
 /** GmEditorTab：定义该类型的结构与数据语义。 */
@@ -228,33 +359,48 @@ type GmEditorTab = GmPlayerUpdateSection | 'shortcuts' | 'mail' | 'persisted';
 
 /** GmMailAttachmentDraft：定义该接口的能力与字段约束。 */
 interface GmMailAttachmentDraft {
+/** itemId：定义该变量以承载业务值。 */
   itemId: string;
+/** count：定义该变量以承载业务值。 */
   count: number;
 }
 
 /** GmMailComposerDraft：定义该接口的能力与字段约束。 */
 interface GmMailComposerDraft {
+/** templateId：定义该变量以承载业务值。 */
   templateId: string;
+/** targetPlayerId：定义该变量以承载业务值。 */
   targetPlayerId: string;
+/** senderLabel：定义该变量以承载业务值。 */
   senderLabel: string;
+/** title：定义该变量以承载业务值。 */
   title: string;
+/** body：定义该变量以承载业务值。 */
   body: string;
+/** expireHours：定义该变量以承载业务值。 */
   expireHours: string;
+/** attachments：定义该变量以承载业务值。 */
   attachments: GmMailAttachmentDraft[];
 }
 
 /** RedeemGroupDraft：定义该接口的能力与字段约束。 */
 interface RedeemGroupDraft {
+/** name：定义该变量以承载业务值。 */
   name: string;
+/** rewards：定义该变量以承载业务值。 */
   rewards: RedeemCodeGroupRewardItem[];
+/** createCount：定义该变量以承载业务值。 */
   createCount: string;
+/** appendCount：定义该变量以承载业务值。 */
   appendCount: string;
 }
 
 /** SearchableItemScope：定义该类型的结构与数据语义。 */
 type SearchableItemScope = 'all' | 'inventory-add' | 'equipment-slot';
 
+/** MAIL_ATTACHMENT_ITEM_PAGE_SIZE：定义该变量以承载业务值。 */
 const MAIL_ATTACHMENT_ITEM_PAGE_SIZE = 10;
+/** SEARCHABLE_ITEM_RESULT_LIMIT：定义该变量以承载业务值。 */
 const SEARCHABLE_ITEM_RESULT_LIMIT = 80;
 
 startClientVersionReload({
@@ -263,60 +409,113 @@ startClientVersionReload({
   },
 });
 
+/** token：定义该变量以承载业务值。 */
 let token = sessionStorage.getItem(GM_ACCESS_TOKEN_STORAGE_KEY) ?? '';
+/** state：定义该变量以承载业务值。 */
 let state: GmStateRes | null = null;
+/** databaseState：定义该变量以承载业务值。 */
 let databaseState: GmDatabaseStateRes | null = null;
+/** suggestions：定义该变量以承载业务值。 */
 let suggestions: Suggestion[] = [];
 /** EditorCatalogSource：定义该类型的结构与数据语义。 */
 type EditorCatalogSource = 'server' | 'local-fallback' | 'unavailable';
+/** editorCatalog：定义该变量以承载业务值。 */
 let editorCatalog: GmEditorCatalogRes | null = null;
+/** editorCatalogSource：定义该变量以承载业务值。 */
 let editorCatalogSource: EditorCatalogSource = 'unavailable';
+/** selectedPlayerId：定义该变量以承载业务值。 */
 let selectedPlayerId: string | null = null;
+/** selectedPlayerDetail：定义该变量以承载业务值。 */
 let selectedPlayerDetail: GmManagedPlayerRecord | null = null;
+/** selectedPlayerDetailError：定义该变量以承载业务值。 */
 let selectedPlayerDetailError: string | null = null;
+/** loadingPlayerDetailId：定义该变量以承载业务值。 */
 let loadingPlayerDetailId: string | null = null;
+/** detailRequestNonce：定义该变量以承载业务值。 */
 let detailRequestNonce = 0;
+/** draftSnapshot：定义该变量以承载业务值。 */
 let draftSnapshot: PlayerState | null = null;
+/** editorDirty：定义该变量以承载业务值。 */
 let editorDirty = false;
+/** draftSourcePlayerId：定义该变量以承载业务值。 */
 let draftSourcePlayerId: string | null = null;
+/** pollTimer：定义该变量以承载业务值。 */
 let pollTimer: number | null = null;
+/** currentTab：定义该变量以承载业务值。 */
 let currentTab: 'server' | 'redeem' | 'players' | 'suggestions' | 'world' | 'shortcuts' = 'server';
+/** currentServerTab：定义该变量以承载业务值。 */
 let currentServerTab: 'overview' | 'traffic' | 'cpu' | 'database' = 'overview';
+/** currentCpuBreakdownSort：定义该变量以承载业务值。 */
 let currentCpuBreakdownSort: 'total' | 'count' | 'avg' = 'total';
+/** currentEditorTab：定义该变量以承载业务值。 */
 let currentEditorTab: GmEditorTab = 'basic';
+/** currentInventoryAddType：定义该变量以承载业务值。 */
 let currentInventoryAddType: (typeof ITEM_TYPES)[number] = 'material';
+/** currentPlayerSort：定义该变量以承载业务值。 */
 let currentPlayerSort: GmPlayerSortMode = (playerSortSelect.value as GmPlayerSortMode) || 'realm-desc';
+/** currentPlayerPage：定义该变量以承载业务值。 */
 let currentPlayerPage = 1;
+/** currentPlayerTotalPages：定义该变量以承载业务值。 */
 let currentPlayerTotalPages = 1;
+/** playerSearchTimer：定义该变量以承载业务值。 */
 let playerSearchTimer: number | null = null;
+/** statusToastTimer：定义该变量以承载业务值。 */
 let statusToastTimer: number | null = null;
+/** currentSuggestionPage：定义该变量以承载业务值。 */
 let currentSuggestionPage = 1;
+/** currentSuggestionTotalPages：定义该变量以承载业务值。 */
 let currentSuggestionTotalPages = 1;
+/** currentSuggestionTotal：定义该变量以承载业务值。 */
 let currentSuggestionTotal = 0;
+/** currentSuggestionKeyword：定义该变量以承载业务值。 */
 let currentSuggestionKeyword = '';
+/** suggestionSearchTimer：定义该变量以承载业务值。 */
 let suggestionSearchTimer: number | null = null;
+/** lastPlayerListStructureKey：定义该变量以承载业务值。 */
 let lastPlayerListStructureKey: string | null = null;
+/** lastEditorStructureKey：定义该变量以承载业务值。 */
 let lastEditorStructureKey: string | null = null;
+/** lastSuggestionStructureKey：定义该变量以承载业务值。 */
 let lastSuggestionStructureKey: string | null = null;
+/** lastNetworkInStructureKey：定义该变量以承载业务值。 */
 let lastNetworkInStructureKey: string | null = null;
+/** lastNetworkOutStructureKey：定义该变量以承载业务值。 */
 let lastNetworkOutStructureKey: string | null = null;
+/** lastCpuBreakdownStructureKey：定义该变量以承载业务值。 */
 let lastCpuBreakdownStructureKey: string | null = null;
+/** lastPathfindingFailureStructureKey：定义该变量以承载业务值。 */
 let lastPathfindingFailureStructureKey: string | null = null;
+/** lastShortcutMailComposerStructureKey：定义该变量以承载业务值。 */
 let lastShortcutMailComposerStructureKey: string | null = null;
+/** databaseStateLoading：定义该变量以承载业务值。 */
 let databaseStateLoading = false;
+/** redeemGroupsState：定义该变量以承载业务值。 */
 let redeemGroupsState: RedeemCodeGroupView[] = [];
+/** selectedRedeemGroupId：定义该变量以承载业务值。 */
 let selectedRedeemGroupId: string | null = null;
+/** redeemGroupDetailState：定义该变量以承载业务值。 */
 let redeemGroupDetailState: GmRedeemCodeGroupDetailRes | null = null;
+/** redeemDraft：定义该变量以承载业务值。 */
 let redeemDraft: RedeemGroupDraft = createDefaultRedeemGroupDraft();
+/** redeemLoading：定义该变量以承载业务值。 */
 let redeemLoading = false;
+/** redeemLatestGeneratedCodes：定义该变量以承载业务值。 */
 let redeemLatestGeneratedCodes: string[] = [];
+/** directMailDraftPlayerId：定义该变量以承载业务值。 */
 let directMailDraftPlayerId: string | null = null;
+/** directMailDraft：定义该变量以承载业务值。 */
 let directMailDraft = createDefaultMailComposerDraft();
+/** broadcastMailDraft：定义该变量以承载业务值。 */
 let broadcastMailDraft = createDefaultMailComposerDraft();
+/** shortcutMailComposerRefreshBlocked：定义该变量以承载业务值。 */
 let shortcutMailComposerRefreshBlocked = false;
+/** directMailAttachmentPageByIndex：定义该变量以承载业务值。 */
 let directMailAttachmentPageByIndex = new Map<number, number>();
+/** shortcutMailAttachmentPageByIndex：定义该变量以承载业务值。 */
 let shortcutMailAttachmentPageByIndex = new Map<number, number>();
+/** activeSearchableItemField：定义该变量以承载业务值。 */
 let activeSearchableItemField: HTMLElement | null = null;
+/** editorRenderRefreshBlocked：定义该变量以承载业务值。 */
 let editorRenderRefreshBlocked = false;
 
 /** getBrowserLocalStorage：执行对应的业务逻辑。 */
@@ -336,6 +535,7 @@ function persistGmPassword(password: string): void {
 
 /** syncPersistedGmPasswordToInputs：执行对应的业务逻辑。 */
 function syncPersistedGmPasswordToInputs(): void {
+/** persistedPassword：定义该变量以承载业务值。 */
   const persistedPassword = readPersistedGmPassword();
   passwordInput.value = persistedPassword;
   gmPasswordCurrentInput.value = persistedPassword;
@@ -424,7 +624,9 @@ function formatDateTime(value?: string): string {
 
 /** getPlayerPresenceMeta：执行对应的业务逻辑。 */
 function getPlayerPresenceMeta(player: Pick<GmManagedPlayerSummary, 'meta'>): {
+/** className：定义该变量以承载业务值。 */
   className: 'online' | 'offline';
+/** label：定义该变量以承载业务值。 */
   label: '在线' | '离线挂机' | '离线';
 } {
   return gmPureHelpers.getPlayerPresenceMeta(player);
@@ -509,9 +711,11 @@ function getPlayerRowMarkup(player: GmManagedPlayerSummary): string {
 
 /** patchPlayerRow：执行对应的业务逻辑。 */
 function patchPlayerRow(button: HTMLButtonElement, player: GmManagedPlayerSummary, isActive: boolean): void {
+/** presence：定义该变量以承载业务值。 */
   const presence = getPlayerPresenceMeta(player);
   button.classList.toggle('active', isActive);
   button.querySelector<HTMLElement>('[data-role="name"]')!.textContent = player.roleName;
+/** presenceEl：定义该变量以承载业务值。 */
   const presenceEl = button.querySelector<HTMLElement>('[data-role="presence"]')!;
   presenceEl.classList.toggle('online', presence.className === 'online');
   presenceEl.classList.toggle('offline', presence.className === 'offline');
@@ -533,7 +737,9 @@ function getEditorSubtitle(detail: GmManagedPlayerRecord): string {
 
 /** getEditorMetaMarkup：执行对应的业务逻辑。 */
 function getEditorMetaMarkup(detail: GmManagedPlayerRecord): string {
+/** presence：定义该变量以承载业务值。 */
   const presence = getPlayerPresenceMeta(detail);
+/** base：定义该变量以承载业务值。 */
   const base = gmMarkupHelpers.getEditorMetaMarkup(detail, presence, editorDirty);
   if (hasServerEditorCatalog()) {
     return base;
@@ -639,6 +845,7 @@ function getTechniqueCatalogOptions(includeEmpty = false): Array<{ value: string
 
 /** getLearnedTechniqueOptions：执行对应的业务逻辑。 */
 function getLearnedTechniqueOptions(techniques: TechniqueState[], includeEmpty = false): Array<{ value: string; label: string }> {
+/** options：定义该变量以承载业务值。 */
   const options = techniques.map((technique) => ({
     value: technique.techId,
     label: technique.name || technique.techId,
@@ -702,29 +909,43 @@ function getMailAttachmentItemPageState(
   attachmentIndex: number,
   selectedItemId: string,
 ): {
+/** page：定义该变量以承载业务值。 */
   page: number;
+/** totalPages：定义该变量以承载业务值。 */
   totalPages: number;
+/** options：定义该变量以承载业务值。 */
   options: Array<{ value: string; label: string }>;
 } {
+/** allOptions：定义该变量以承载业务值。 */
   const allOptions = getMailAttachmentItemOptions();
+/** totalPages：定义该变量以承载业务值。 */
   const totalPages = Math.max(1, Math.ceil(allOptions.length / MAIL_ATTACHMENT_ITEM_PAGE_SIZE));
+/** selectedIndex：定义该变量以承载业务值。 */
   const selectedIndex = selectedItemId
     ? allOptions.findIndex((option) => option.value === selectedItemId)
     : -1;
+/** fallbackPage：定义该变量以承载业务值。 */
   const fallbackPage = selectedIndex >= 0
     ? Math.floor(selectedIndex / MAIL_ATTACHMENT_ITEM_PAGE_SIZE) + 1
     : 1;
+/** pageStore：定义该变量以承载业务值。 */
   const pageStore = getMailAttachmentPageStore(scope);
+/** storedPage：定义该变量以承载业务值。 */
   const storedPage = pageStore.get(attachmentIndex) ?? fallbackPage;
+/** page：定义该变量以承载业务值。 */
   const page = Math.min(totalPages, Math.max(1, storedPage));
   if (pageStore.get(attachmentIndex) !== page) {
     pageStore.set(attachmentIndex, page);
   }
+/** start：定义该变量以承载业务值。 */
   const start = (page - 1) * MAIL_ATTACHMENT_ITEM_PAGE_SIZE;
+/** pagedOptions：定义该变量以承载业务值。 */
   const pagedOptions = allOptions.slice(start, start + MAIL_ATTACHMENT_ITEM_PAGE_SIZE);
+/** selectedOption：定义该变量以承载业务值。 */
   const selectedOption = selectedItemId
     ? allOptions.find((option) => option.value === selectedItemId) ?? null
     : null;
+/** options：定义该变量以承载业务值。 */
   const options = selectedOption && !pagedOptions.some((option) => option.value === selectedOption.value)
     ? [selectedOption, ...pagedOptions]
     : pagedOptions;
@@ -737,6 +958,7 @@ function getMailAttachmentItemPageState(
 
 /** updateMailAttachmentItemPage：执行对应的业务逻辑。 */
 function updateMailAttachmentItemPage(scope: 'direct' | 'shortcut', attachmentIndex: number, rawValue: string): void {
+/** page：定义该变量以承载业务值。 */
   const page = Math.max(1, Math.floor(Number(rawValue || '1')) || 1);
   getMailAttachmentPageStore(scope).set(attachmentIndex, page);
 }
@@ -758,7 +980,9 @@ function isServerManagedMailTemplate(templateId: string): boolean {
 
 /** getShortcutMailTargetOptions：执行对应的业务逻辑。 */
 function getShortcutMailTargetOptions(): Array<{ value: string; label: string }> {
+/** players：定义该变量以承载业务值。 */
   const players = state?.players.filter((player) => !player.meta.isBot) ?? [];
+/** options：定义该变量以承载业务值。 */
   const options = [
     { value: '', label: '发送给全服玩家' },
     ...players.map((player) => ({
@@ -766,8 +990,10 @@ function getShortcutMailTargetOptions(): Array<{ value: string; label: string }>
       label: `${player.roleName} · ${player.accountName || '无账号'} · ${player.meta.online ? '在线' : '离线'}`,
     })),
   ];
+/** selectedTargetId：定义该变量以承载业务值。 */
   const selectedTargetId = broadcastMailDraft.targetPlayerId.trim();
   if (selectedTargetId && !options.some((option) => option.value === selectedTargetId)) {
+/** fallbackLabel：定义该变量以承载业务值。 */
     const fallbackLabel = selectedPlayerDetail?.id === selectedTargetId
       ? `${selectedPlayerDetail.roleName} · ${selectedPlayerDetail.account?.username || '无账号'} · 已选中`
       : `当前目标 · ${selectedTargetId}`;
@@ -778,12 +1004,19 @@ function getShortcutMailTargetOptions(): Array<{ value: string; label: string }>
 
 /** getMailComposerPayload：执行对应的业务逻辑。 */
 function getMailComposerPayload(draft: GmMailComposerDraft): GmCreateMailReq {
+/** templateId：定义该变量以承载业务值。 */
   const templateId = draft.templateId.trim();
+/** usesServerManagedTemplate：定义该变量以承载业务值。 */
   const usesServerManagedTemplate = isServerManagedMailTemplate(templateId);
+/** title：定义该变量以承载业务值。 */
   const title = draft.title.trim();
+/** body：定义该变量以承载业务值。 */
   const body = draft.body.trim();
+/** senderLabel：定义该变量以承载业务值。 */
   const senderLabel = draft.senderLabel.trim() || '司命台';
+/** expireHours：定义该变量以承载业务值。 */
   const expireHours = Math.floor(Number(draft.expireHours || '0'));
+/** attachments：定义该变量以承载业务值。 */
   const attachments: MailAttachment[] = usesServerManagedTemplate
     ? []
     : draft.attachments
@@ -811,16 +1044,24 @@ function getMailComposerPayload(draft: GmMailComposerDraft): GmCreateMailReq {
 function getMailComposerMarkup(
   draft: GmMailComposerDraft,
   options: {
+/** scope：定义该变量以承载业务值。 */
     scope: 'direct' | 'shortcut';
+/** submitLabel：定义该变量以承载业务值。 */
     submitLabel: string;
+/** note：定义该变量以承载业务值。 */
     note: string;
     showTargetPlayer?: boolean;
   },
 ): string {
+/** usesServerManagedTemplate：定义该变量以承载业务值。 */
   const usesServerManagedTemplate = isServerManagedMailTemplate(draft.templateId);
+/** templateMeta：定义该变量以承载业务值。 */
   const templateMeta = getMailTemplateOptionMeta(draft.templateId);
+/** catalogActionDisabled：定义该变量以承载业务值。 */
   const catalogActionDisabled = hasServerEditorCatalog() ? '' : ' disabled';
+/** catalogFallbackNote：定义该变量以承载业务值。 */
   const catalogFallbackNote = getEditorCatalogFallbackNote();
+/** attachmentRows：定义该变量以承载业务值。 */
   const attachmentRows = usesServerManagedTemplate
     ? `<div class="editor-note">${escapeHtml(templateMeta?.description || '该模板的附件由服务端固定生成。')}</div>`
     : draft.attachments.length > 0
@@ -851,6 +1092,7 @@ function getMailComposerMarkup(
       `;
       }).join('')
       : '<div class="editor-note">当前没有附件。</div>';
+/** targetPlayerField：定义该变量以承载业务值。 */
   const targetPlayerField = options.showTargetPlayer
     ? `
       <label class="editor-field wide">
@@ -861,6 +1103,7 @@ function getMailComposerMarkup(
       </label>
     `
     : '';
+/** templateField：定义该变量以承载业务值。 */
   const templateField = `
     <label class="editor-field wide">
       <span>邮件模板</span>
@@ -872,6 +1115,7 @@ function getMailComposerMarkup(
       </select>
     </label>
   `;
+/** customContentFields：定义该变量以承载业务值。 */
   const customContentFields = usesServerManagedTemplate
     ? `
       <div class="editor-note" style="margin-top: 10px;">
@@ -888,6 +1132,7 @@ function getMailComposerMarkup(
         <textarea class="editor-textarea" style="min-height: 120px;" spellcheck="false" data-mail-bind="${options.scope}.body" placeholder="可留空，仅发送附件">${escapeHtml(draft.body)}</textarea>
       </label>
     `;
+/** attachmentSection：定义该变量以承载业务值。 */
   const attachmentSection = usesServerManagedTemplate
     ? `
       <div class="editor-section" style="margin-top: 10px;">
@@ -994,7 +1239,9 @@ function getTechniqueTemplateMaxLevel(technique: TechniqueState): number {
 
 /** buildMaxLevelTechniqueState：执行对应的业务逻辑。 */
 function buildMaxLevelTechniqueState(technique: TechniqueState): TechniqueState {
+/** catalogEntry：定义该变量以承载业务值。 */
   const catalogEntry = findTechniqueCatalogEntry(technique.techId);
+/** maxLevel：定义该变量以承载业务值。 */
   const maxLevel = getTechniqueTemplateMaxLevel(technique);
   if (!catalogEntry) {
     return {
@@ -1004,6 +1251,7 @@ function buildMaxLevelTechniqueState(technique: TechniqueState): TechniqueState 
       expToNext: 0,
     };
   }
+/** next：定义该变量以承载业务值。 */
   const next = createTechniqueFromCatalog(technique.techId);
   return {
     ...next,
@@ -1020,6 +1268,7 @@ function getInventoryRowMeta(item: ItemStack): string {
 
 /** getTechniqueEditorControls：执行对应的业务逻辑。 */
 function getTechniqueEditorControls(index: number, technique: TechniqueState): string {
+/** catalogEntry：定义该变量以承载业务值。 */
   const catalogEntry = findTechniqueCatalogEntry(technique.techId);
   if (catalogEntry) {
     return `
@@ -1068,6 +1317,7 @@ function getTechniqueEditorControls(index: number, technique: TechniqueState): s
 
 /** getItemEditorControls：执行对应的业务逻辑。 */
 function getItemEditorControls(basePath: string, item: ItemStack, mode: 'inventory' | 'equipment'): string {
+/** catalogEntry：定义该变量以承载业务值。 */
   const catalogEntry = findItemCatalogEntry(item.itemId);
   if (catalogEntry) {
     return `
@@ -1132,7 +1382,9 @@ function getReadonlyPreviewValue(draft: PlayerState, path: string): string {
 
 /** buildEditorStructureKey：执行对应的业务逻辑。 */
 function buildEditorStructureKey(detail: GmManagedPlayerRecord, draft: PlayerState): string {
+/** mapIds：定义该变量以承载业务值。 */
   const mapIds = Array.from(new Set([...(state?.mapIds ?? []), draft.mapId])).sort().join(',');
+/** equipmentPresence：定义该变量以承载业务值。 */
   const equipmentPresence = EQUIP_SLOTS.map((slot) => (draft.equipment[slot] ? '1' : '0')).join('');
   return [
     detail.id,
@@ -1162,13 +1414,16 @@ function setTextLikeValue(
 
 /** syncVisualEditorFieldsFromDraft：执行对应的业务逻辑。 */
 function syncVisualEditorFieldsFromDraft(draft: PlayerState): void {
+/** fields：定义该变量以承载业务值。 */
   const fields = editorContentEl.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>('[data-bind]');
   for (const field of fields) {
     const path = field.dataset.bind;
     const kind = field.dataset.kind;
     if (!path || !kind) continue;
+/** rawValue：定义该变量以承载业务值。 */
     const rawValue = getValueByPath(draft, path);
     if (kind === 'boolean' && field instanceof HTMLInputElement) {
+/** checked：定义该变量以承载业务值。 */
       const checked = Boolean(rawValue);
       if (document.activeElement === field) continue;
       if (field.checked !== checked) {
@@ -1190,7 +1445,9 @@ function syncVisualEditorFieldsFromDraft(draft: PlayerState): void {
       continue;
     }
     if (kind === 'json') {
+/** emptyJson：定义该变量以承载业务值。 */
       const emptyJson = field.dataset.emptyJson;
+/** fallback：定义该变量以承载业务值。 */
       const fallback = emptyJson === 'array' ? [] : emptyJson === 'null' ? null : {};
       setTextLikeValue(field, formatJson(rawValue ?? fallback));
       continue;
@@ -1202,6 +1459,7 @@ function syncVisualEditorFieldsFromDraft(draft: PlayerState): void {
 
 /** patchEditorPreview：执行对应的业务逻辑。 */
 function patchEditorPreview(detail: GmManagedPlayerRecord, draft: PlayerState): void {
+/** equipment：定义该变量以承载业务值。 */
   const equipment = draft.equipment as EquipmentSlots;
   for (const slot of EQUIP_SLOTS) {
     const item = equipment[slot];
@@ -1214,10 +1472,12 @@ function patchEditorPreview(detail: GmManagedPlayerRecord, draft: PlayerState): 
     editorContentEl.querySelector<HTMLElement>(`[data-preview="bonus-meta"][data-index="${index}"]`)!.textContent = getBonusCardMeta(bonus);
   });
   ensureArray(draft.temporaryBuffs).forEach((buff, index) => {
+/** titleEl：定义该变量以承载业务值。 */
     const titleEl = editorContentEl.querySelector<HTMLElement>(`[data-preview="buff-title"][data-index="${index}"]`);
     if (titleEl) {
       titleEl.textContent = getBuffCardTitle(buff, index);
     }
+/** metaEl：定义该变量以承载业务值。 */
     const metaEl = editorContentEl.querySelector<HTMLElement>(`[data-preview="buff-meta"][data-index="${index}"]`);
     if (metaEl) {
       metaEl.textContent = getBuffCardMeta(buff);
@@ -1240,11 +1500,13 @@ function patchEditorPreview(detail: GmManagedPlayerRecord, draft: PlayerState): 
     editorContentEl.querySelector<HTMLElement>(`[data-preview="quest-meta"][data-index="${index}"]`)!.textContent = getQuestCardMeta(quest);
   });
 
+/** chipListEl：定义该变量以承载业务值。 */
   const chipListEl = editorContentEl.querySelector<HTMLElement>('[data-preview="base-chips"]');
   if (chipListEl) {
     chipListEl.innerHTML = getEditorBodyChipMarkup(detail, draft);
   }
   editorContentEl.querySelectorAll<HTMLElement>('[data-preview="readonly"]').forEach((element) => {
+/** path：定义该变量以承载业务值。 */
     const path = element.dataset.path;
     if (!path) return;
     element.textContent = getReadonlyPreviewValue(draft, path);
@@ -1259,10 +1521,14 @@ function clearEditorRenderCache(): void {
 
 /** getVisibleNetworkBuckets：执行对应的业务逻辑。 */
 function getVisibleNetworkBuckets(buckets: GmNetworkBucket[]): GmNetworkBucket[] {
+/** visibleBuckets：定义该变量以承载业务值。 */
   const visibleBuckets = buckets.slice(0, 8);
+/** hiddenBuckets：定义该变量以承载业务值。 */
   const hiddenBuckets = buckets.slice(8);
   if (hiddenBuckets.length > 0) {
+/** otherBytes：定义该变量以承载业务值。 */
     const otherBytes = hiddenBuckets.reduce((sum, bucket) => sum + bucket.bytes, 0);
+/** otherCount：定义该变量以承载业务值。 */
     const otherCount = hiddenBuckets.reduce((sum, bucket) => sum + bucket.count, 0);
     visibleBuckets.push({
       key: 'other',
@@ -1311,6 +1577,7 @@ function patchStatRow(row: HTMLElement, label: string, meta: string): void {
 function renderStructuredStatList(
   container: HTMLElement,
   structureKey: string | null,
+/** items：定义该变量以承载业务值。 */
   items: Array<{ key: string; label: string; meta: string }>,
   emptyText: string,
 ): string {
@@ -1321,11 +1588,13 @@ function renderStructuredStatList(
     return 'empty';
   }
 
+/** nextStructureKey：定义该变量以承载业务值。 */
   const nextStructureKey = items.map((item) => item.key).join('|');
   if (structureKey !== nextStructureKey) {
     container.innerHTML = items.map((item) => getStatRowMarkup(item.key)).join('');
   }
   items.forEach((item, index) => {
+/** row：定义该变量以承载业务值。 */
     const row = container.children[index];
     if (!(row instanceof HTMLElement)) {
       return;
@@ -1337,6 +1606,7 @@ function renderStructuredStatList(
 
 /** getSortedCpuSections：执行对应的业务逻辑。 */
 function getSortedCpuSections(data: GmStateRes): GmCpuSectionSnapshot[] {
+/** sections：定义该变量以承载业务值。 */
   const sections = [...data.perf.cpu.breakdown];
   sections.sort((left, right) => {
     if (currentCpuBreakdownSort === 'count') {
@@ -1380,7 +1650,9 @@ function getPathfindingFailureMeta(totalFailures: number, count: number): string
 
 /** renderPerfLists：执行对应的业务逻辑。 */
 function renderPerfLists(data: GmStateRes): void {
+/** elapsedSec：定义该变量以承载业务值。 */
   const elapsedSec = Math.max(0, data.perf.networkStatsElapsedSec);
+/** networkInItems：定义该变量以承载业务值。 */
   const networkInItems = data.perf.networkInBytes > 0
     ? getVisibleNetworkBuckets(data.perf.networkInBuckets).map((bucket) => ({
         key: bucket.key,
@@ -1388,6 +1660,7 @@ function renderPerfLists(data: GmStateRes): void {
         meta: getNetworkBucketMeta(data.perf.networkInBytes, bucket, elapsedSec),
       }))
     : [];
+/** networkOutItems：定义该变量以承载业务值。 */
   const networkOutItems = data.perf.networkOutBytes > 0
     ? getVisibleNetworkBuckets(data.perf.networkOutBuckets).map((bucket) => ({
         key: bucket.key,
@@ -1395,12 +1668,15 @@ function renderPerfLists(data: GmStateRes): void {
         meta: getNetworkBucketMeta(data.perf.networkOutBytes, bucket, elapsedSec),
       }))
     : [];
+/** cpuItems：定义该变量以承载业务值。 */
   const cpuItems = getSortedCpuSections(data).map((section) => ({
     key: section.key,
     label: section.label,
     meta: getCpuSectionMeta(section),
   }));
+/** totalFailures：定义该变量以承载业务值。 */
   const totalFailures = data.perf.pathfinding.failed + data.perf.pathfinding.cancelled;
+/** pathfindingFailureItems：定义该变量以承载业务值。 */
   const pathfindingFailureItems = data.perf.pathfinding.failureReasons.map((bucket) => ({
     key: bucket.reason,
     label: bucket.label,
@@ -1553,6 +1829,7 @@ function setPendingStatus(message: string): void {
 
 /** setStatus：执行对应的业务逻辑。 */
 function setStatus(message: string, isError = false): void {
+/** kind：定义该变量以承载业务值。 */
   const kind: StatusKind = !message ? 'idle' : isError ? 'error' : 'success';
   applyStatusState(message, kind);
   if (kind === 'idle') {
@@ -1562,6 +1839,7 @@ function setStatus(message: string, isError = false): void {
   showStatusToast(message, kind);
 }
 
+/** worldViewer：定义该变量以承载业务值。 */
 const worldViewer = new GmWorldViewer(request, setStatus);
 
 /** switchServerTab：执行对应的业务逻辑。 */
@@ -1601,46 +1879,61 @@ function formatDatabaseBackupKind(kind: GmDatabaseBackupRecord['kind']): string 
 
 /** formatDatabaseJobLabel：执行对应的业务逻辑。 */
 function formatDatabaseJobLabel(data: GmDatabaseStateRes | null): string {
+/** job：定义该变量以承载业务值。 */
   const job = data?.runningJob ?? data?.lastJob;
   if (!job) {
     return '当前没有数据库任务记录。';
   }
+/** action：定义该变量以承载业务值。 */
   const action = job.type === 'restore'
     ? `导入 ${job.sourceBackupId ?? '未知备份'}`
     : `导出 ${job.backupId ?? job.kind ?? '备份'}`;
+/** status：定义该变量以承载业务值。 */
   const status = job.status === 'running'
     ? '进行中'
     : job.status === 'completed'
       ? '已完成'
       : '失败';
+/** finishedText：定义该变量以承载业务值。 */
   const finishedText = job.finishedAt ? ` · 结束于 ${formatDateTime(job.finishedAt)}` : '';
+/** errorText：定义该变量以承载业务值。 */
   const errorText = job.error ? ` · ${job.error}` : '';
   return `${action} · ${status} · 开始于 ${formatDateTime(job.startedAt)}${finishedText}${errorText}`;
 }
 
 /** renderDatabasePanel：执行对应的业务逻辑。 */
 function renderDatabasePanel(): void {
+/** busy：定义该变量以承载业务值。 */
   const busy = databaseState?.runningJob?.status === 'running';
+/** backups：定义该变量以承载业务值。 */
   const backups = databaseState?.backups ?? [];
+/** summary：定义该变量以承载业务值。 */
   const summary = databaseStateLoading && !databaseState
     ? '正在读取兼容持久化备份状态…'
     : formatDatabaseJobLabel(databaseState);
+/** schedulesLine：定义该变量以承载业务值。 */
   const schedulesLine = databaseState?.automation?.schedulesActive === false
     ? '当前未启用自动定时备份，现阶段仅支持手工触发导出。'
     : `自动策略：${escapeHtml(databaseState?.schedules.hourly ?? '每小时整点低优先级备份')}；${escapeHtml(databaseState?.schedules.daily ?? '每天 04:05 低优先级备份')}。`;
+/** retentionLine：定义该变量以承载业务值。 */
   const retentionLine = databaseState?.automation?.retentionEnforced === false
     ? '当前未启用自动保留清理，历史备份需要手工管理。'
     : `保留策略：整点备份最多 ${databaseState?.retention.hourly ?? 72} 份，每日备份最多 ${databaseState?.retention.daily ?? 14} 份。手动导出和导入前备份当前不自动删。`;
+/** restoreLine：定义该变量以承载业务值。 */
   const restoreLine = `${databaseState?.automation?.restoreRequiresMaintenance === true ? '导入历史备份前必须先开启维护态；' : ''}${databaseState?.automation?.preImportBackupEnabled === false ? '' : '服务端会先生成一份“导入前备份”，随后暂停 tick、断开玩家连接、覆盖兼容持久化并重建运行时。'}${databaseState?.automation?.preImportBackupEnabled === false ? '导入会直接覆盖当前兼容持久化。' : ''}`;
+/** scopeLine：定义该变量以承载业务值。 */
   const scopeLine = databaseState?.compatScope === 'persistent_documents_only'
     ? '作用范围：仅兼容持久化 persistent_documents。'
     : '作用范围：以服务端返回说明为准。';
+/** restoreModeLine：定义该变量以承载业务值。 */
   const restoreModeLine = databaseState?.restoreMode === 'replace_persistent_documents'
     ? '恢复方式：覆盖兼容持久化中的 persistent_documents。'
     : '恢复方式：以服务端返回说明为准。';
+/** persistenceLine：定义该变量以承载业务值。 */
   const persistenceLine = databaseState?.persistenceEnabled === false
     ? '当前未启用数据库持久化，此面板仅供查看兼容说明。'
     : '当前兼容持久化已启用，可手工导出或恢复其快照。';
+/** rows：定义该变量以承载业务值。 */
   const rows = backups.length > 0
     ? backups.map((backup) => `
         <div class="network-row">
@@ -1687,6 +1980,7 @@ function renderRedeemPanel(): void {
     return;
   }
 
+/** selectedGroupId：定义该变量以承载业务值。 */
   const selectedGroupId = selectedRedeemGroupId;
   redeemStatusEl && (redeemStatusEl.textContent = redeemLoading ? '正在同步兑换码数据…' : (redeemLatestGeneratedCodes.length > 0 ? `最近生成 ${redeemLatestGeneratedCodes.length} 个兑换码` : '兑换码变更会直接写数据库，但数据库备份不会包含兑换码表。'));
 
@@ -1706,8 +2000,11 @@ function renderRedeemPanel(): void {
     `).join('')
     : '<div class="empty-hint">当前还没有兑换码分组。</div>';
 
+/** editingExisting：定义该变量以承载业务值。 */
   const editingExisting = !!redeemGroupDetailState && redeemGroupDetailState.group.id === selectedGroupId;
+/** groupMeta：定义该变量以承载业务值。 */
   const groupMeta = redeemGroupDetailState?.group ?? null;
+/** rewardRows：定义该变量以承载业务值。 */
   const rewardRows = redeemDraft.rewards.length > 0
     ? redeemDraft.rewards.map((reward, index) => `
       <div class="editor-card">
@@ -1792,7 +2089,9 @@ function renderRedeemPanel(): void {
   `;
   syncSearchableItemFields(redeemGroupEditorEl);
 
+/** codeItems：定义该变量以承载业务值。 */
   const codeItems = redeemGroupDetailState?.codes ?? [];
+/** activeCodeCount：定义该变量以承载业务值。 */
   const activeCodeCount = codeItems.filter((code) => code.status === 'active').length;
   redeemCodeListEl.innerHTML = redeemGroupDetailState
     ? `
@@ -1830,6 +2129,7 @@ async function copyTextToClipboard(text: string): Promise<boolean> {
     // 某些浏览器或非安全上下文会拒绝 Clipboard API，此时回退到 execCommand。
   }
 
+/** textarea：定义该变量以承载业务值。 */
   const textarea = document.createElement('textarea');
   textarea.value = text;
   textarea.setAttribute('readonly', 'true');
@@ -1850,7 +2150,9 @@ async function copyTextToClipboard(text: string): Promise<boolean> {
 
 /** copyActiveRedeemCodes：执行对应的业务逻辑。 */
 async function copyActiveRedeemCodes(): Promise<void> {
+/** group：定义该变量以承载业务值。 */
   const group = redeemGroupDetailState?.group;
+/** activeCodes：定义该变量以承载业务值。 */
   const activeCodes = (redeemGroupDetailState?.codes ?? [])
     .filter((code) => code.status === 'active')
     .map((code) => code.code.trim())
@@ -1859,6 +2161,7 @@ async function copyActiveRedeemCodes(): Promise<void> {
     setStatus('当前分组没有可复制的未使用兑换码', true);
     return;
   }
+/** copied：定义该变量以承载业务值。 */
   const copied = await copyTextToClipboard(activeCodes.join('\n'));
   if (!copied) {
     setStatus('复制未使用兑换码失败，请检查浏览器剪贴板权限', true);
@@ -1875,7 +2178,9 @@ function getRedeemCodeStatusLabel(status: RedeemCodeCodeView['status']): string 
 
 /** buildRedeemGroupPayload：执行对应的业务逻辑。 */
 function buildRedeemGroupPayload(): { name: string; rewards: RedeemCodeGroupRewardItem[] } {
+/** name：定义该变量以承载业务值。 */
   const name = redeemDraft.name.trim();
+/** rewards：定义该变量以承载业务值。 */
   const rewards = redeemDraft.rewards
     .filter((entry) => entry.itemId.trim().length > 0 && Number.isFinite(entry.count) && entry.count > 0)
     .map((entry) => ({
@@ -1896,6 +2201,7 @@ async function loadRedeemGroups(silent = false): Promise<void> {
   redeemLoading = true;
   renderRedeemPanel();
   try {
+/** data：定义该变量以承载业务值。 */
     const data = await request<GmRedeemCodeGroupListRes>('/gm/redeem-code-groups');
     redeemGroupsState = data.groups;
     if (selectedRedeemGroupId && !redeemGroupsState.some((group) => group.id === selectedRedeemGroupId)) {
@@ -1925,6 +2231,7 @@ async function loadRedeemGroupDetail(groupId: string, silent = false): Promise<v
   redeemLoading = true;
   renderRedeemPanel();
   try {
+/** detail：定义该变量以承载业务值。 */
     const detail = await request<GmRedeemCodeGroupDetailRes>(`/gm/redeem-code-groups/${encodeURIComponent(groupId)}`);
     if (selectedRedeemGroupId !== groupId) {
       return;
@@ -1947,11 +2254,14 @@ async function loadRedeemGroupDetail(groupId: string, silent = false): Promise<v
 
 /** createRedeemGroup：执行对应的业务逻辑。 */
 async function createRedeemGroup(): Promise<void> {
+/** payloadBase：定义该变量以承载业务值。 */
   const payloadBase = buildRedeemGroupPayload();
+/** payload：定义该变量以承载业务值。 */
   const payload: GmCreateRedeemCodeGroupReq = {
     ...payloadBase,
     count: Math.max(1, Math.min(500, Math.floor(Number(redeemDraft.createCount || '0')) || 0)),
   };
+/** result：定义该变量以承载业务值。 */
   const result = await request<GmCreateRedeemCodeGroupRes>('/gm/redeem-code-groups', {
     method: 'POST',
     body: JSON.stringify(payload),
@@ -1967,6 +2277,7 @@ async function saveRedeemGroup(): Promise<void> {
   if (!selectedRedeemGroupId) {
     throw new Error('请先选择一个分组');
   }
+/** payload：定义该变量以承载业务值。 */
   const payload: GmUpdateRedeemCodeGroupReq = buildRedeemGroupPayload();
   await request<GmRedeemCodeGroupDetailRes>(`/gm/redeem-code-groups/${encodeURIComponent(selectedRedeemGroupId)}`, {
     method: 'PUT',
@@ -1982,9 +2293,11 @@ async function appendRedeemCodes(): Promise<void> {
   if (!selectedRedeemGroupId) {
     throw new Error('请先选择一个分组');
   }
+/** payload：定义该变量以承载业务值。 */
   const payload: GmAppendRedeemCodesReq = {
     count: Math.max(1, Math.min(500, Math.floor(Number(redeemDraft.appendCount || '0')) || 0)),
   };
+/** result：定义该变量以承载业务值。 */
   const result = await request<GmAppendRedeemCodesRes>(`/gm/redeem-code-groups/${encodeURIComponent(selectedRedeemGroupId)}/codes`, {
     method: 'POST',
     body: JSON.stringify(payload),
@@ -2011,6 +2324,7 @@ async function loadDatabaseState(silent = false): Promise<void> {
   databaseStateLoading = true;
   renderDatabasePanel();
   try {
+/** data：定义该变量以承载业务值。 */
     const data = await request<GmDatabaseStateRes>('/gm/database/state');
     databaseState = data;
     if (!silent) {
@@ -2024,6 +2338,7 @@ async function loadDatabaseState(silent = false): Promise<void> {
 
 /** exportCurrentDatabase：执行对应的业务逻辑。 */
 async function exportCurrentDatabase(): Promise<void> {
+/** result：定义该变量以承载业务值。 */
   const result = await request<GmTriggerDatabaseBackupRes>('/gm/database/backup', {
     method: 'POST',
   });
@@ -2033,21 +2348,29 @@ async function exportCurrentDatabase(): Promise<void> {
 
 /** getDownloadFileName：执行对应的业务逻辑。 */
 function getDownloadFileName(response: Response, fallback: string): string {
+/** header：定义该变量以承载业务值。 */
   const header = response.headers.get('content-disposition') ?? '';
+/** utf8Match：定义该变量以承载业务值。 */
   const utf8Match = header.match(/filename\*=UTF-8''([^;]+)/iu);
   if (utf8Match?.[1]) {
     return decodeURIComponent(utf8Match[1]);
   }
+/** basicMatch：定义该变量以承载业务值。 */
   const basicMatch = header.match(/filename="?([^";]+)"?/iu);
   return basicMatch?.[1] ?? fallback;
 }
 
 /** downloadDatabaseBackup：执行对应的业务逻辑。 */
 async function downloadDatabaseBackup(backupId: string): Promise<void> {
+/** response：定义该变量以承载业务值。 */
   const response = await requestBlob(`/gm/database/backups/${encodeURIComponent(backupId)}/download`);
+/** blob：定义该变量以承载业务值。 */
   const blob = await response.blob();
+/** fileName：定义该变量以承载业务值。 */
   const fileName = getDownloadFileName(response, `${backupId}.dump`);
+/** objectUrl：定义该变量以承载业务值。 */
   const objectUrl = URL.createObjectURL(blob);
+/** anchor：定义该变量以承载业务值。 */
   const anchor = document.createElement('a');
   anchor.href = objectUrl;
   anchor.download = fileName;
@@ -2060,16 +2383,20 @@ async function downloadDatabaseBackup(backupId: string): Promise<void> {
 
 /** restoreDatabaseBackup：执行对应的业务逻辑。 */
 async function restoreDatabaseBackup(backupId: string): Promise<void> {
+/** backup：定义该变量以承载业务值。 */
   const backup = databaseState?.backups.find((entry) => entry.id === backupId);
   if (!backup) {
     setStatus('目标备份不存在', true);
     return;
   }
+/** confirmed：定义该变量以承载业务值。 */
   const confirmed = window.confirm(`将使用备份 ${backup.fileName} 覆盖当前兼容持久化。\n服务端会先自动生成一份导入前备份，并断开在线玩家连接。是否继续？`);
   if (!confirmed) {
     return;
   }
+/** body：定义该变量以承载业务值。 */
   const body: GmRestoreDatabaseReq = { backupId };
+/** result：定义该变量以承载业务值。 */
   const result = await request<GmTriggerDatabaseBackupRes>('/gm/database/restore', {
     method: 'POST',
     body: JSON.stringify(body),
@@ -2130,6 +2457,7 @@ function switchTab(tab: 'server' | 'redeem' | 'players' | 'suggestions' | 'world
 /** loadSuggestions：执行对应的业务逻辑。 */
 async function loadSuggestions(): Promise<void> {
   try {
+/** params：定义该变量以承载业务值。 */
     const params = new URLSearchParams({
       page: String(currentSuggestionPage),
       pageSize: '10',
@@ -2137,6 +2465,7 @@ async function loadSuggestions(): Promise<void> {
     if (currentSuggestionKeyword.trim()) {
       params.set('keyword', currentSuggestionKeyword.trim());
     }
+/** result：定义该变量以承载业务值。 */
     const result = await request<GmSuggestionListRes>(`/gm/suggestions?${params.toString()}`);
     suggestions = result.items;
     currentSuggestionPage = result.page;
@@ -2155,6 +2484,7 @@ async function loadEditorCatalog(): Promise<void> {
     editorCatalog = await request<GmEditorCatalogRes>('/gm/editor-catalog');
     editorCatalogSource = 'server';
   } catch {
+/** localCatalog：定义该变量以承载业务值。 */
     const localCatalog = getLocalEditorCatalog();
     editorCatalog = {
       ...localCatalog,
@@ -2171,12 +2501,14 @@ function renderShortcutMailComposer(preserveActiveInteraction = false): void {
   if (!shortcutMailComposerEl) {
     return;
   }
+/** targetPlayer：定义该变量以承载业务值。 */
   const targetPlayer = broadcastMailDraft.targetPlayerId
     ? (
       state?.players.find((player) => player.id === broadcastMailDraft.targetPlayerId)
       ?? (selectedPlayerDetail?.id === broadcastMailDraft.targetPlayerId ? selectedPlayerDetail : null)
     )
     : null;
+/** structureKey：定义该变量以承载业务值。 */
   const structureKey = JSON.stringify({
     targetPlayerId: broadcastMailDraft.targetPlayerId,
     templateId: broadcastMailDraft.templateId,
@@ -2189,7 +2521,9 @@ function renderShortcutMailComposer(preserveActiveInteraction = false): void {
       .filter((player) => !player.meta.isBot)
       .map((player) => `${player.id}:${player.roleName}:${player.accountName || ''}:${player.meta.online ? 1 : 0}`),
   });
+/** activeElement：定义该变量以承载业务值。 */
   const activeElement = document.activeElement;
+/** activeField：定义该变量以承载业务值。 */
   const activeField = activeElement instanceof HTMLInputElement
     || activeElement instanceof HTMLSelectElement
     || activeElement instanceof HTMLTextAreaElement
@@ -2220,7 +2554,9 @@ function flushShortcutMailComposerRefresh(): void {
   if (!shortcutMailComposerEl || !shortcutMailComposerRefreshBlocked) {
     return;
   }
+/** activeElement：定义该变量以承载业务值。 */
   const activeElement = document.activeElement;
+/** activeField：定义该变量以承载业务值。 */
   const activeField = activeElement instanceof HTMLInputElement
     || activeElement instanceof HTMLSelectElement
     || activeElement instanceof HTMLTextAreaElement
@@ -2247,6 +2583,7 @@ function renderSuggestions(): void {
     return;
   }
 
+/** structureKey：定义该变量以承载业务值。 */
   const structureKey = suggestions.map((suggestion) => [
     suggestion.id,
     suggestion.status,
@@ -2309,6 +2646,7 @@ async function removeSuggestion(id: string): Promise<void> {
 
 /** request：执行对应的业务逻辑。 */
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+/** headers：定义该变量以承载业务值。 */
   const headers = new Headers(init.headers ?? {});
   if (!headers.has('Content-Type') && init.body) {
     headers.set('Content-Type', 'application/json');
@@ -2317,8 +2655,11 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     headers.set('Authorization', `Bearer ${token}`);
   }
 
+/** response：定义该变量以承载业务值。 */
   const response = await fetch(path, { ...init, headers });
+/** text：定义该变量以承载业务值。 */
   const text = await response.text();
+/** data：定义该变量以承载业务值。 */
   let data: unknown = null;
   if (text) {
     try {
@@ -2333,6 +2674,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     throw new Error('GM 登录已失效');
   }
   if (!response.ok) {
+/** message：定义该变量以承载业务值。 */
     const message = typeof data === 'object' && data && 'message' in data
       ? String((data as { message: unknown }).message)
       : typeof data === 'string' && data.trim().length > 0
@@ -2345,10 +2687,12 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 
 /** requestBlob：执行对应的业务逻辑。 */
 async function requestBlob(path: string, init: RequestInit = {}): Promise<Response> {
+/** headers：定义该变量以承载业务值。 */
   const headers = new Headers(init.headers ?? {});
   if (token) {
     headers.set('Authorization', `Bearer ${token}`);
   }
+/** response：定义该变量以承载业务值。 */
   const response = await fetch(path, { ...init, headers });
   if (response.status === 401) {
     logout('GM 登录已失效，请重新输入密码');
@@ -2366,6 +2710,7 @@ function updateMailDraftValue(
   path: string,
   rawValue: string,
 ): void {
+/** draft：定义该变量以承载业务值。 */
   const draft = scope === 'direct' ? directMailDraft : broadcastMailDraft;
   if (path === 'templateId') {
     draft.templateId = rawValue;
@@ -2391,12 +2736,16 @@ function updateMailDraftValue(
     draft.expireHours = rawValue;
     return;
   }
+/** attachmentMatch：定义该变量以承载业务值。 */
   const attachmentMatch = path.match(/^attachments\.(\d+)\.(itemId|count)$/);
   if (!attachmentMatch) {
     return;
   }
+/** index：定义该变量以承载业务值。 */
   const index = Number(attachmentMatch[1]);
+/** field：定义该变量以承载业务值。 */
   const field = attachmentMatch[2];
+/** attachment：定义该变量以承载业务值。 */
   const attachment = draft.attachments[index];
   if (!attachment) {
     return;
@@ -2422,12 +2771,16 @@ function updateRedeemDraftValue(path: string, rawValue: string): void {
     redeemDraft.appendCount = rawValue;
     return;
   }
+/** rewardMatch：定义该变量以承载业务值。 */
   const rewardMatch = path.match(/^rewards\.(\d+)\.(itemId|count)$/);
   if (!rewardMatch) {
     return;
   }
+/** index：定义该变量以承载业务值。 */
   const index = Number(rewardMatch[1]);
+/** field：定义该变量以承载业务值。 */
   const field = rewardMatch[2];
+/** reward：定义该变量以承载业务值。 */
   const reward = redeemDraft.rewards[index];
   if (!reward) {
     return;
@@ -2454,6 +2807,7 @@ function addMailAttachment(scope: 'direct' | 'shortcut'): void {
     setStatus('服务端编辑目录不可用，当前不能用模板方式新增邮件附件。', true);
     return;
   }
+/** draft：定义该变量以承载业务值。 */
   const draft = scope === 'direct' ? directMailDraft : broadcastMailDraft;
   draft.attachments.push(createDefaultMailAttachmentDraft());
   resetMailAttachmentPageStore(scope);
@@ -2466,6 +2820,7 @@ function addMailAttachment(scope: 'direct' | 'shortcut'): void {
 
 /** removeMailAttachment：执行对应的业务逻辑。 */
 function removeMailAttachment(scope: 'direct' | 'shortcut', index: number): void {
+/** draft：定义该变量以承载业务值。 */
   const draft = scope === 'direct' ? directMailDraft : broadcastMailDraft;
   if (index < 0 || index >= draft.attachments.length) {
     return;
@@ -2481,6 +2836,7 @@ function removeMailAttachment(scope: 'direct' | 'shortcut', index: number): void
 
 /** sendDirectMail：执行对应的业务逻辑。 */
 async function sendDirectMail(): Promise<void> {
+/** detail：定义该变量以承载业务值。 */
   const detail = getSelectedPlayerDetail();
   if (!detail) {
     throw new Error('当前没有可发送邮件的角色');
@@ -2488,7 +2844,9 @@ async function sendDirectMail(): Promise<void> {
   if (directMailDraft.attachments.some((entry) => entry.itemId.trim().length > 0)) {
     assertTrustedEditorCatalog('带附件邮件发送');
   }
+/** payload：定义该变量以承载业务值。 */
   const payload = getMailComposerPayload(directMailDraft);
+/** result：定义该变量以承载业务值。 */
   const result = await request<{ ok: true; mailId: string }>(`/gm/players/${encodeURIComponent(detail.id)}/mail`, {
     method: 'POST',
     body: JSON.stringify(payload),
@@ -2505,15 +2863,20 @@ async function sendShortcutMail(): Promise<void> {
   if (broadcastMailDraft.attachments.some((entry) => entry.itemId.trim().length > 0)) {
     assertTrustedEditorCatalog('带附件邮件发送');
   }
+/** payload：定义该变量以承载业务值。 */
   const payload = getMailComposerPayload(broadcastMailDraft);
+/** targetPlayerId：定义该变量以承载业务值。 */
   const targetPlayerId = broadcastMailDraft.targetPlayerId.trim();
+/** path：定义该变量以承载业务值。 */
   const path = targetPlayerId
     ? `/gm/players/${encodeURIComponent(targetPlayerId)}/mail`
     : '/gm/mail/broadcast';
+/** result：定义该变量以承载业务值。 */
   const result = await request<{ ok: true; mailId: string; batchId?: string; recipientCount?: number }>(path, {
     method: 'POST',
     body: JSON.stringify(payload),
   });
+/** targetPlayer：定义该变量以承载业务值。 */
   const targetPlayer = targetPlayerId
     ? (state?.players.find((player) => player.id === targetPlayerId) ?? null)
     : null;
@@ -2668,17 +3031,22 @@ function readCatalogSelectValue(
   kind: 'technique' | 'inventory-item' | 'equipment',
   slot?: EquipSlot,
 ): string {
+/** selector：定义该变量以承载业务值。 */
   const selector = kind === 'equipment'
     ? `[data-catalog-select="${kind}"][data-slot="${slot}"]`
     : `[data-catalog-select="${kind}"]`;
+/** field：定义该变量以承载业务值。 */
   const field = editorContentEl.querySelector<HTMLInputElement | HTMLSelectElement>(selector);
   return field?.value ?? '';
 }
 
 /** updateInventoryAddControls：执行对应的业务逻辑。 */
 function updateInventoryAddControls(resetSelectedItem = true): void {
+/** typeSelect：定义该变量以承载业务值。 */
   const typeSelect = editorContentEl.querySelector<HTMLSelectElement>('select[data-catalog-select="inventory-type"]');
+/** itemField：定义该变量以承载业务值。 */
   const itemField = editorContentEl.querySelector<HTMLElement>('[data-item-combobox][data-item-scope="inventory-add"]');
+/** itemValueField：定义该变量以承载业务值。 */
   const itemValueField = editorContentEl.querySelector<HTMLInputElement>('input[data-item-combobox-value][data-catalog-select="inventory-item"]');
   if (!typeSelect || !itemField || !itemValueField) {
     return;
@@ -2687,6 +3055,7 @@ function updateInventoryAddControls(resetSelectedItem = true): void {
   itemField.dataset.placeholder = `点击后输入名称或 ID 搜索${ITEM_TYPE_LABELS[currentInventoryAddType]}模板`;
   if (resetSelectedItem) {
     itemValueField.value = '';
+/** input：定义该变量以承载业务值。 */
     const input = getSearchableItemInput(itemField);
     if (input) {
       input.value = '';
@@ -2733,6 +3102,7 @@ function getSearchableItemDisplayValue(itemId: string): string {
   if (!itemId) {
     return '';
   }
+/** entry：定义该变量以承载业务值。 */
   const entry = gmCatalogHelpers.findItemCatalogEntry(editorCatalog, itemId);
   return entry ? `${entry.name} · ${itemId}` : itemId;
 }
@@ -2760,6 +3130,7 @@ function searchableItemField(
   extraClass = '',
   slot?: EquipSlot,
   placeholder = '点击后输入名称或 ID 搜索物品模板',
+/** wrapperAttrs：定义该变量以承载业务值。 */
   wrapperAttrs: Record<string, string | undefined> = {},
 ): string {
   return `
@@ -2820,40 +3191,58 @@ function normalizeSearchableItemText(value: string): string {
 
 /** renderSearchableItemOptions：执行对应的业务逻辑。 */
 function renderSearchableItemOptions(root: HTMLElement): void {
+/** input：定义该变量以承载业务值。 */
   const input = getSearchableItemInput(root);
+/** valueField：定义该变量以承载业务值。 */
   const valueField = getSearchableItemValueField(root);
+/** listEl：定义该变量以承载业务值。 */
   const listEl = getSearchableItemList(root);
+/** hintEl：定义该变量以承载业务值。 */
   const hintEl = getSearchableItemHint(root);
   if (!input || !valueField || !listEl || !hintEl) {
     return;
   }
 
+/** scope：定义该变量以承载业务值。 */
   const scope = (root.dataset.itemScope as SearchableItemScope | undefined) ?? 'all';
+/** slot：定义该变量以承载业务值。 */
   const slot = root.dataset.slot as EquipSlot | undefined;
+/** allOptions：定义该变量以承载业务值。 */
   const allOptions = getSearchableItemOptions(scope, slot);
+/** selectedValue：定义该变量以承载业务值。 */
   const selectedValue = valueField.value;
+/** normalizedQuery：定义该变量以承载业务值。 */
   const normalizedQuery = normalizeSearchableItemText(input.value);
+/** filteredOptions：定义该变量以承载业务值。 */
   const filteredOptions = normalizedQuery.length > 0
     ? allOptions.filter((option) => normalizeSearchableItemText(`${option.label} ${option.value}`).includes(normalizedQuery))
     : allOptions;
+/** visibleOptions：定义该变量以承载业务值。 */
   let visibleOptions = filteredOptions.slice(0, SEARCHABLE_ITEM_RESULT_LIMIT);
 
   if (selectedValue && !visibleOptions.some((option) => option.value === selectedValue)) {
+/** selectedOption：定义该变量以承载业务值。 */
     const selectedOption = allOptions.find((option) => option.value === selectedValue);
     if (selectedOption && (normalizedQuery.length === 0 || normalizeSearchableItemText(`${selectedOption.label} ${selectedOption.value}`).includes(normalizedQuery))) {
       visibleOptions = [selectedOption, ...visibleOptions.slice(0, Math.max(0, SEARCHABLE_ITEM_RESULT_LIMIT - 1))];
     }
   }
 
+/** renderedOptions：定义该变量以承载业务值。 */
   const renderedOptions = normalizedQuery.length === 0
     ? [{ value: '', label: '清空选择' }, ...visibleOptions]
     : visibleOptions;
+/** defaultActiveIndex：定义该变量以承载业务值。 */
   const defaultActiveIndex = renderedOptions.findIndex((option) => option.value === selectedValue);
+/** fallbackActiveIndex：定义该变量以承载业务值。 */
   const fallbackActiveIndex = renderedOptions.findIndex((option) => option.value !== '');
+/** initialActiveIndex：定义该变量以承载业务值。 */
   const initialActiveIndex = defaultActiveIndex >= 0
     ? defaultActiveIndex
     : Math.max(0, fallbackActiveIndex >= 0 ? fallbackActiveIndex : 0);
+/** storedActiveIndex：定义该变量以承载业务值。 */
   const storedActiveIndex = Number(root.dataset.activeIndex ?? '-1');
+/** activeIndex：定义该变量以承载业务值。 */
   const activeIndex = Number.isInteger(storedActiveIndex) && storedActiveIndex >= 0 && storedActiveIndex < renderedOptions.length
     ? storedActiveIndex
     : initialActiveIndex;
@@ -2883,7 +3272,9 @@ function renderSearchableItemOptions(root: HTMLElement): void {
 
 /** syncSearchableItemField：执行对应的业务逻辑。 */
 function syncSearchableItemField(root: HTMLElement): void {
+/** input：定义该变量以承载业务值。 */
   const input = getSearchableItemInput(root);
+/** valueField：定义该变量以承载业务值。 */
   const valueField = getSearchableItemValueField(root);
   if (!input || !valueField) {
     return;
@@ -2925,7 +3316,9 @@ function openSearchableItemField(root: HTMLElement, resetQuery = true): void {
   if (activeSearchableItemField && activeSearchableItemField !== root) {
     closeSearchableItemField(activeSearchableItemField);
   }
+/** input：定义该变量以承载业务值。 */
   const input = getSearchableItemInput(root);
+/** valueField：定义该变量以承载业务值。 */
   const valueField = getSearchableItemValueField(root);
   if (!input || !valueField) {
     return;
@@ -2943,15 +3336,19 @@ function openSearchableItemField(root: HTMLElement, resetQuery = true): void {
 
 /** moveSearchableItemActiveIndex：执行对应的业务逻辑。 */
 function moveSearchableItemActiveIndex(root: HTMLElement, offset: number): void {
+/** listEl：定义该变量以承载业务值。 */
   const listEl = getSearchableItemList(root);
   if (!listEl) {
     return;
   }
+/** optionButtons：定义该变量以承载业务值。 */
   const optionButtons = Array.from(listEl.querySelectorAll<HTMLButtonElement>('[data-item-option-value]'));
   if (optionButtons.length === 0) {
     return;
   }
+/** currentIndex：定义该变量以承载业务值。 */
   const currentIndex = Number(root.dataset.activeIndex ?? '-1');
+/** nextIndex：定义该变量以承载业务值。 */
   const nextIndex = currentIndex >= 0
     ? Math.min(optionButtons.length - 1, Math.max(0, currentIndex + offset))
     : Math.max(0, Math.min(optionButtons.length - 1, offset > 0 ? 0 : optionButtons.length - 1));
@@ -2961,11 +3358,14 @@ function moveSearchableItemActiveIndex(root: HTMLElement, offset: number): void 
 
 /** commitSearchableItemSelection：执行对应的业务逻辑。 */
 function commitSearchableItemSelection(root: HTMLElement, value: string): void {
+/** input：定义该变量以承载业务值。 */
   const input = getSearchableItemInput(root);
+/** valueField：定义该变量以承载业务值。 */
   const valueField = getSearchableItemValueField(root);
   if (!input || !valueField) {
     return;
   }
+/** changed：定义该变量以承载业务值。 */
   const changed = valueField.value !== value;
   valueField.value = value;
   input.value = getSearchableItemDisplayValue(value);
@@ -3047,9 +3447,11 @@ function selectField(
   label: string,
   path: string,
   value: string | number | undefined,
+/** options：定义该变量以承载业务值。 */
   options: Array<{ value: string | number; label: string }>,
   extraClass = '',
 ): string {
+/** selected：定义该变量以承载业务值。 */
   const selected = value ?? '';
   return `
     <label class="editor-field ${extraClass}">
@@ -3098,20 +3500,34 @@ function renderEditorTabSection(tab: GmEditorTab, content: string): string {
 
 /** renderVisualEditor：执行对应的业务逻辑。 */
 function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): string {
+/** mapIds：定义该变量以承载业务值。 */
   const mapIds = Array.from(new Set([...(state?.mapIds ?? []), draft.mapId])).sort();
+/** equipment：定义该变量以承载业务值。 */
   const equipment = draft.equipment as EquipmentSlots;
+/** bonuses：定义该变量以承载业务值。 */
   const bonuses = ensureArray(draft.bonuses);
+/** buffs：定义该变量以承载业务值。 */
   const buffs = ensureArray(draft.temporaryBuffs);
+/** autoBattleSkills：定义该变量以承载业务值。 */
   const autoBattleSkills = ensureArray(draft.autoBattleSkills);
+/** techniques：定义该变量以承载业务值。 */
   const techniques = ensureArray(draft.techniques);
+/** quests：定义该变量以承载业务值。 */
   const quests = ensureArray(draft.quests);
+/** inventoryItems：定义该变量以承载业务值。 */
   const inventoryItems = ensureArray(draft.inventory.items);
+/** account：定义该变量以承载业务值。 */
   const account = player.account;
+/** activity：定义该变量以承载业务值。 */
   const activity = getManagedAccountActivityMeta(player);
+/** catalogFallbackNote：定义该变量以承载业务值。 */
   const catalogFallbackNote = getEditorCatalogFallbackNote();
+/** catalogActionDisabled：定义该变量以承载业务值。 */
   const catalogActionDisabled = hasServerEditorCatalog() ? '' : ' disabled';
 
+/** equipmentMarkup：定义该变量以承载业务值。 */
   const equipmentMarkup = EQUIP_SLOTS.map((slot) => {
+/** item：定义该变量以承载业务值。 */
     const item = equipment[slot];
     return `
       <div class="editor-card">
@@ -3145,6 +3561,7 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
     `;
   }).join('');
 
+/** bonusMarkup：定义该变量以承载业务值。 */
   const bonusMarkup = bonuses.length > 0
     ? bonuses.map((bonus, index) => `
       <div class="editor-card">
@@ -3166,6 +3583,7 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
     `).join('')
     : '<div class="editor-note">当前没有额外属性加成。</div>';
 
+/** buffMarkup：定义该变量以承载业务值。 */
   const buffMarkup = buffs.length > 0
     ? buffs.map((buff, index) => `
       <div class="editor-card">
@@ -3182,10 +3600,12 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
     `).join('')
     : '<div class="editor-note">当前没有临时效果。</div>';
 
+/** inventoryMarkup：定义该变量以承载业务值。 */
   const inventoryMarkup = inventoryItems.length > 0
     ? inventoryItems.map((item, index) => getCompactInventoryItemMarkup(item, index)).join('')
     : '<div class="editor-note">背包为空。</div>';
 
+/** autoBattleMarkup：定义该变量以承载业务值。 */
   const autoBattleMarkup = autoBattleSkills.length > 0
     ? autoBattleSkills.map((entry, index) => `
       <div class="editor-card">
@@ -3210,6 +3630,7 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
     `).join('')
     : '<div class="editor-note">当前没有自动战斗技能配置。</div>';
 
+/** techniqueMarkup：定义该变量以承载业务值。 */
   const techniqueMarkup = techniques.length > 0
     ? techniques.map((technique, index) => `
       <div class="editor-card">
@@ -3225,6 +3646,7 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
     `).join('')
     : '<div class="editor-note">当前没有已学会功法。</div>';
 
+/** questMarkup：定义该变量以承载业务值。 */
   const questMarkup = quests.length > 0
     ? quests.map((quest, index) => `
       <div class="editor-card">
@@ -3682,8 +4104,11 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
 
 /** renderSummary：执行对应的业务逻辑。 */
 function renderSummary(data: GmStateRes): void {
+/** elapsedSec：定义该变量以承载业务值。 */
   const elapsedSec = Math.max(0, data.perf.networkStatsElapsedSec);
+/** startedAt：定义该变量以承载业务值。 */
   const startedAt = data.perf.networkStatsStartedAt > 0 ? new Date(data.perf.networkStatsStartedAt) : null;
+/** tickPerf：定义该变量以承载业务值。 */
   const tickPerf = getTickPerf(data.perf);
   summaryTotalEl.textContent = `${data.playerStats.totalPlayers}`;
   summaryOnlineEl.textContent = `${data.playerStats.onlinePlayers}`;
@@ -3759,6 +4184,7 @@ function renderPlayerPageMeta(data: GmStateRes): void {
 
 /** renderPlayerList：执行对应的业务逻辑。 */
 function renderPlayerList(data: GmStateRes): void {
+/** filtered：定义该变量以承载业务值。 */
   const filtered = getFilteredPlayers(data);
 
   if (!selectedPlayerId || !filtered.some((player) => player.id === selectedPlayerId)) {
@@ -3774,6 +4200,7 @@ function renderPlayerList(data: GmStateRes): void {
     return;
   }
 
+/** structureKey：定义该变量以承载业务值。 */
   const structureKey = filtered.map((player) => player.id).join('|');
   if (lastPlayerListStructureKey !== structureKey) {
     playerListEl.innerHTML = filtered.map((player) => getPlayerRowMarkup(player)).join('');
@@ -3781,6 +4208,7 @@ function renderPlayerList(data: GmStateRes): void {
   }
 
   filtered.forEach((player, index) => {
+/** row：定义该变量以承载业务值。 */
     const row = playerListEl.children[index];
     if (!(row instanceof HTMLButtonElement)) {
       return;
@@ -3792,6 +4220,7 @@ function renderPlayerList(data: GmStateRes): void {
 
 /** renderEditor：执行对应的业务逻辑。 */
 function renderEditor(data: GmStateRes): void {
+/** selected：定义该变量以承载业务值。 */
   const selected = data.players.find((player) => player.id === selectedPlayerId) ?? null;
   if (!selected) {
     editorEmptyEl.classList.remove('hidden');
@@ -3812,6 +4241,7 @@ function renderEditor(data: GmStateRes): void {
     return;
   }
 
+/** detail：定义该变量以承载业务值。 */
   const detail = getSelectedPlayerDetail();
   if (!detail) {
     editorEmptyEl.classList.remove('hidden');
@@ -3844,7 +4274,9 @@ function renderEditor(data: GmStateRes): void {
   editorSubtitleEl.textContent = getEditorSubtitle(detail);
   editorMetaEl.innerHTML = getEditorMetaMarkup(detail);
 
+/** structureKey：定义该变量以承载业务值。 */
   const structureKey = buildEditorStructureKey(detail, draftSnapshot);
+/** shouldDelayStructureRefresh：定义该变量以承载业务值。 */
   const shouldDelayStructureRefresh = (
     lastEditorStructureKey !== structureKey
     && draftSourcePlayerId === detail.id
@@ -3904,7 +4336,9 @@ function syncVisualEditorToDraft(scope?: ParentNode): { ok: true } | { ok: false
     return { ok: false, message: '当前没有可编辑角色' };
   }
 
+/** next：定义该变量以承载业务值。 */
   const next = clone(draftSnapshot);
+/** fields：定义该变量以承载业务值。 */
   const fields = (scope ?? editorContentEl).querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>('[data-bind]');
 
   for (const field of fields) {
@@ -3912,6 +4346,7 @@ function syncVisualEditorToDraft(scope?: ParentNode): { ok: true } | { ok: false
     const kind = field.dataset.kind;
     if (!path || !kind) continue;
 
+/** value：定义该变量以承载业务值。 */
     let value: unknown;
     if (kind === 'boolean' && field instanceof HTMLInputElement) {
       value = field.checked;
@@ -3921,7 +4356,9 @@ function syncVisualEditorToDraft(scope?: ParentNode): { ok: true } | { ok: false
         return { ok: false, message: `${path} 不是合法数字` };
       }
     } else if (kind === 'nullable-string') {
+/** text：定义该变量以承载业务值。 */
       const text = field.value.trim();
+/** emptyMode：定义该变量以承载业务值。 */
       const emptyMode = field.dataset.emptyMode;
       value = text.length > 0 ? text : emptyMode === 'null' ? null : undefined;
     } else if (kind === 'string-array') {
@@ -3930,8 +4367,10 @@ function syncVisualEditorToDraft(scope?: ParentNode): { ok: true } | { ok: false
         .map((entry) => entry.trim())
         .filter((entry) => entry.length > 0);
     } else if (kind === 'json') {
+/** text：定义该变量以承载业务值。 */
       const text = field.value.trim();
       if (!text) {
+/** emptyJson：定义该变量以承载业务值。 */
         const emptyJson = field.dataset.emptyJson;
         value = emptyJson === 'array' ? [] : emptyJson === 'null' ? null : {};
       } else {
@@ -3956,6 +4395,7 @@ function syncVisualEditorToDraft(scope?: ParentNode): { ok: true } | { ok: false
 
 /** mutateDraft：执行对应的业务逻辑。 */
 function mutateDraft(mutator: (draft: PlayerState) => void): boolean {
+/** synced：定义该变量以承载业务值。 */
   const synced = syncVisualEditorToDraft(getEditorTabSection(currentEditorTab) ?? undefined);
   if (!synced.ok) {
     setStatus(synced.message, true);
@@ -3972,9 +4412,13 @@ function mutateDraft(mutator: (draft: PlayerState) => void): boolean {
 function applyCatalogBindingChange(path: string, value: string): boolean {
   if (!draftSnapshot) return false;
 
+/** inventoryMatch：定义该变量以承载业务值。 */
   const inventoryMatch = path.match(/^inventory\.items\.(\d+)\.itemId$/);
+/** equipmentMatch：定义该变量以承载业务值。 */
   const equipmentMatch = path.match(/^equipment\.(weapon|head|body|legs|accessory)\.itemId$/);
+/** techniqueMatch：定义该变量以承载业务值。 */
   const techniqueMatch = path.match(/^techniques\.(\d+)\.techId$/);
+/** buffMatch：定义该变量以承载业务值。 */
   const buffMatch = path.match(/^temporaryBuffs\.(\d+)\.buffId$/);
   if ((inventoryMatch || equipmentMatch || techniqueMatch || buffMatch) && !hasServerEditorCatalog()) {
     setStatus('服务端编辑目录不可用，当前不能通过模板下拉直接改写角色数据。', true);
@@ -3985,28 +4429,35 @@ function applyCatalogBindingChange(path: string, value: string): boolean {
     return true;
   }
 
+/** changed：定义该变量以承载业务值。 */
   let changed = false;
   if (inventoryMatch) {
+/** index：定义该变量以承载业务值。 */
     const index = Number(inventoryMatch[1]);
+/** previousCount：定义该变量以承载业务值。 */
     const previousCount = draftSnapshot.inventory.items[index]?.count ?? 1;
     draftSnapshot.inventory.items[index] = createItemFromCatalog(value, previousCount);
     changed = true;
   }
 
   if (equipmentMatch) {
+/** slot：定义该变量以承载业务值。 */
     const slot = equipmentMatch[1] as EquipSlot;
     draftSnapshot.equipment[slot] = createItemFromCatalog(value);
     changed = true;
   }
 
   if (techniqueMatch) {
+/** index：定义该变量以承载业务值。 */
     const index = Number(techniqueMatch[1]);
     draftSnapshot.techniques[index] = createTechniqueFromCatalog(value);
     changed = true;
   }
 
   if (buffMatch) {
+/** index：定义该变量以承载业务值。 */
     const index = Number(buffMatch[1]);
+/** previous：定义该变量以承载业务值。 */
     const previous = draftSnapshot.temporaryBuffs?.[index];
     draftSnapshot.temporaryBuffs ??= [];
     draftSnapshot.temporaryBuffs[index] = createBuffFromCatalog(value, {
@@ -4035,19 +4486,23 @@ function applyCatalogBindingChange(path: string, value: string): boolean {
 /** loadState：执行对应的业务逻辑。 */
 async function loadState(silent = false, refreshDetail = false): Promise<void> {
   if (!token) return;
+/** params：定义该变量以承载业务值。 */
   const params = new URLSearchParams({
     page: String(currentPlayerPage),
     pageSize: '50',
     sort: currentPlayerSort,
   });
+/** keyword：定义该变量以承载业务值。 */
   const keyword = playerSearchInput.value.trim();
   if (keyword) {
     params.set('keyword', keyword);
   }
+/** data：定义该变量以承载业务值。 */
   const data = await request<GmStateRes>(`/gm/state?${params.toString()}`);
   state = data;
   currentPlayerPage = data.playerPage.page;
   currentPlayerTotalPages = data.playerPage.totalPages;
+/** previousSelectedPlayerId：定义该变量以承载业务值。 */
   const previousSelectedPlayerId = selectedPlayerId;
   if (!selectedPlayerId || !data.players.some((player) => player.id === selectedPlayerId)) {
     selectedPlayerId = data.players[0]?.id ?? null;
@@ -4056,6 +4511,7 @@ async function loadState(silent = false, refreshDetail = false): Promise<void> {
     }
   }
   render();
+/** shouldLoadDetail：定义该变量以承载业务值。 */
   const shouldLoadDetail = !!selectedPlayerId && (
     refreshDetail
     || selectedPlayerId !== previousSelectedPlayerId
@@ -4082,12 +4538,14 @@ async function loadState(silent = false, refreshDetail = false): Promise<void> {
 
 /** loadSelectedPlayerDetail：执行对应的业务逻辑。 */
 async function loadSelectedPlayerDetail(playerId: string, silent = false): Promise<void> {
+/** nonce：定义该变量以承载业务值。 */
   const nonce = ++detailRequestNonce;
   loadingPlayerDetailId = playerId;
   selectedPlayerDetailError = null;
   clearEditorRenderCache();
   render();
   try {
+/** data：定义该变量以承载业务值。 */
     const data = await request<GmPlayerDetailRes>(`/gm/players/${encodeURIComponent(playerId)}`);
     if (nonce !== detailRequestNonce || selectedPlayerId !== playerId) {
       return;
@@ -4217,6 +4675,7 @@ async function delayRefresh(message: string): Promise<void> {
 
 /** login：执行对应的业务逻辑。 */
 async function login(): Promise<void> {
+/** password：定义该变量以承载业务值。 */
   const password = passwordInput.value.trim();
   if (!password) {
     loginErrorEl.textContent = '请输入 GM 密码';
@@ -4227,6 +4686,7 @@ async function login(): Promise<void> {
   loginErrorEl.textContent = '';
 
   try {
+/** result：定义该变量以承载业务值。 */
     const result = await request<GmLoginRes>('/auth/gm/login', {
       method: 'POST',
       body: JSON.stringify({ password } satisfies GmLoginReq),
@@ -4250,7 +4710,9 @@ async function login(): Promise<void> {
 
 /** changeGmPassword：执行对应的业务逻辑。 */
 async function changeGmPassword(): Promise<void> {
+/** currentPassword：定义该变量以承载业务值。 */
   const currentPassword = gmPasswordCurrentInput.value.trim();
+/** newPassword：定义该变量以承载业务值。 */
   const newPassword = gmPasswordNextInput.value.trim();
   if (!currentPassword || !newPassword) {
     setStatus('请填写当前密码和新密码', true);
@@ -4267,6 +4729,7 @@ async function changeGmPassword(): Promise<void> {
       } satisfies GmChangePasswordReq),
     });
     persistGmPassword(newPassword);
+/** persistedPassword：定义该变量以承载业务值。 */
     const persistedPassword = readPersistedGmPassword();
     passwordInput.value = persistedPassword;
     gmPasswordCurrentInput.value = persistedPassword;
@@ -4282,6 +4745,7 @@ async function changeGmPassword(): Promise<void> {
 
 /** applyRawJson：执行对应的业务逻辑。 */
 async function applyRawJson(): Promise<void> {
+/** selected：定义该变量以承载业务值。 */
   const selected = getSelectedPlayer();
   if (!selected) {
     setStatus('请先选择角色', true);
@@ -4390,6 +4854,7 @@ function buildSectionSnapshot(section: GmPlayerUpdateSection, draft: PlayerState
       return {
         baseAttrs: clone(draft.baseAttrs),
         realmLv: draft.realmLv,
+/** realm：定义该变量以承载业务值。 */
         realm: typeof draft.realm?.progress === 'number'
           ? { progress: draft.realm.progress } as PlayerState['realm']
           : undefined,
@@ -4432,11 +4897,13 @@ function buildSectionSnapshot(section: GmPlayerUpdateSection, draft: PlayerState
 
 /** saveSelectedPlayerSections：执行对应的业务逻辑。 */
 async function saveSelectedPlayerSections(sections: GmPlayerUpdateSection[], message: string): Promise<void> {
+/** selected：定义该变量以承载业务值。 */
   const selected = getSelectedPlayer();
   if (!selected || !draftSnapshot) {
     setStatus('请先选择角色', true);
     return;
   }
+/** uniqueSections：定义该变量以承载业务值。 */
   const uniqueSections = Array.from(new Set(sections));
   if (uniqueSections.length === 0) {
     setStatus('当前没有需要提交的快捷改动', true);
@@ -4456,15 +4923,20 @@ async function saveSelectedPlayerSections(sections: GmPlayerUpdateSection[], mes
 
 /** setSelectedPlayerBodyTrainingLevel：执行对应的业务逻辑。 */
 async function setSelectedPlayerBodyTrainingLevel(): Promise<void> {
+/** detail：定义该变量以承载业务值。 */
   const detail = getSelectedPlayerDetail();
   if (!detail) {
     setStatus('请先选择角色', true);
     return;
   }
 
+/** input：定义该变量以承载业务值。 */
   const input = editorContentEl.querySelector<HTMLInputElement>('#shortcut-body-training-level');
+/** button：定义该变量以承载业务值。 */
   const button = editorContentEl.querySelector<HTMLButtonElement>('[data-action="set-body-training-level"]');
+/** rawValue：定义该变量以承载业务值。 */
   const rawValue = input?.value.trim() ?? '';
+/** level：定义该变量以承载业务值。 */
   const level = Number(rawValue);
 
   if (!rawValue || !Number.isFinite(level) || level < 0 || !Number.isInteger(level)) {
@@ -4495,16 +4967,22 @@ async function setSelectedPlayerBodyTrainingLevel(): Promise<void> {
 
 /** addSelectedPlayerFoundation：执行对应的业务逻辑。 */
 async function addSelectedPlayerFoundation(): Promise<void> {
+/** detail：定义该变量以承载业务值。 */
   const detail = getSelectedPlayerDetail();
   if (!detail) {
     setStatus('请先选择角色', true);
     return;
   }
 
+/** input：定义该变量以承载业务值。 */
   const input = editorContentEl.querySelector<HTMLInputElement>('#shortcut-foundation-amount');
+/** button：定义该变量以承载业务值。 */
   const button = editorContentEl.querySelector<HTMLButtonElement>('[data-action="add-foundation"]');
+/** rawValue：定义该变量以承载业务值。 */
   const rawValue = input?.value.trim() ?? '';
+/** isInteger：定义该变量以承载业务值。 */
   const isInteger = /^-?\d+$/.test(rawValue);
+/** amount：定义该变量以承载业务值。 */
   const amount = isInteger ? Number.parseInt(rawValue, 10) : Number.NaN;
 
   if (!rawValue || !Number.isFinite(amount) || !isInteger) {
@@ -4535,16 +5013,22 @@ async function addSelectedPlayerFoundation(): Promise<void> {
 
 /** addSelectedPlayerCombatExp：执行对应的业务逻辑。 */
 async function addSelectedPlayerCombatExp(): Promise<void> {
+/** detail：定义该变量以承载业务值。 */
   const detail = getSelectedPlayerDetail();
   if (!detail) {
     setStatus('请先选择角色', true);
     return;
   }
 
+/** input：定义该变量以承载业务值。 */
   const input = editorContentEl.querySelector<HTMLInputElement>('#shortcut-combat-exp-amount');
+/** button：定义该变量以承载业务值。 */
   const button = editorContentEl.querySelector<HTMLButtonElement>('[data-action="add-combat-exp"]');
+/** rawValue：定义该变量以承载业务值。 */
   const rawValue = input?.value.trim() ?? '';
+/** isInteger：定义该变量以承载业务值。 */
   const isInteger = /^-?\d+$/.test(rawValue);
+/** amount：定义该变量以承载业务值。 */
   const amount = isInteger ? Number.parseInt(rawValue, 10) : Number.NaN;
 
   if (!rawValue || !Number.isFinite(amount) || !isInteger) {
@@ -4585,12 +5069,16 @@ async function runPlayerTechniqueShortcut(
   assertTrustedEditorCatalog('快捷操作：');
 
   if (action === 'grant-all-unlearned-technique-books') {
+/** learnedTechniqueIds：定义该变量以承载业务值。 */
     const learnedTechniqueIds = new Set(ensureArray(draftSnapshot.techniques).map((technique) => technique.techId).filter(Boolean));
+/** existingInventoryItemIds：定义该变量以承载业务值。 */
     const existingInventoryItemIds = new Set(ensureArray(draftSnapshot.inventory.items).map((item) => item.itemId));
+/** bookItemIds：定义该变量以承载业务值。 */
     const bookItemIds = editorCatalog!.items
       .filter((item) => item.type === 'skill_book')
       .map((item) => item.itemId)
       .filter((itemId) => {
+/** techniqueId：定义该变量以承载业务值。 */
         const techniqueId = resolveTechniqueIdFromBookItemId(itemId);
         return !!techniqueId && !learnedTechniqueIds.has(techniqueId) && !existingInventoryItemIds.has(itemId);
       });
@@ -4598,6 +5086,7 @@ async function runPlayerTechniqueShortcut(
       setStatus('当前没有可补发的未学习功法书');
       return;
     }
+/** changed：定义该变量以承载业务值。 */
     const changed = mutateDraft((draft) => {
       draft.inventory.items.push(...bookItemIds.map((itemId) => createItemFromCatalog(itemId)));
     });
@@ -4609,16 +5098,19 @@ async function runPlayerTechniqueShortcut(
   }
 
   if (action === 'max-all-techniques') {
+/** techniques：定义该变量以承载业务值。 */
     const techniques = ensureArray(draftSnapshot.techniques);
     if (techniques.length === 0) {
       setStatus('当前角色还没有已学习功法');
       return;
     }
+/** upgradableCount：定义该变量以承载业务值。 */
     const upgradableCount = techniques.filter((technique) => technique.level < getTechniqueTemplateMaxLevel(technique) || technique.expToNext !== 0).length;
     if (upgradableCount === 0) {
       setStatus('当前全部功法已经处于满级状态');
       return;
     }
+/** changed：定义该变量以承载业务值。 */
     const changed = mutateDraft((draft) => {
       draft.techniques = ensureArray(draft.techniques).map((technique) => buildMaxLevelTechniqueState(technique));
     });
@@ -4630,11 +5122,13 @@ async function runPlayerTechniqueShortcut(
   }
 
   if (action === 'remove-all-techniques') {
+/** techniques：定义该变量以承载业务值。 */
     const techniques = ensureArray(draftSnapshot.techniques);
     if (techniques.length === 0) {
       setStatus('当前角色没有可移除的已学功法');
       return;
     }
+/** changed：定义该变量以承载业务值。 */
     const changed = mutateDraft((draft) => {
       draft.techniques = [];
       draft.cultivatingTechId = undefined;
@@ -4647,7 +5141,9 @@ async function runPlayerTechniqueShortcut(
     return;
   }
 
+/** learnedTechniqueIds：定义该变量以承载业务值。 */
   const learnedTechniqueIds = new Set(ensureArray(draftSnapshot.techniques).map((technique) => technique.techId).filter(Boolean));
+/** missingTechniqueIds：定义该变量以承载业务值。 */
   const missingTechniqueIds = editorCatalog!.techniques
     .map((technique) => technique.id)
     .filter((techId) => !learnedTechniqueIds.has(techId));
@@ -4655,6 +5151,7 @@ async function runPlayerTechniqueShortcut(
     setStatus('当前角色已经学会目录内全部功法');
     return;
   }
+/** changed：定义该变量以承载业务值。 */
   const changed = mutateDraft((draft) => {
     draft.techniques.push(...missingTechniqueIds.map((techId) => createTechniqueFromCatalog(techId)));
     if (!draft.cultivatingTechId && draft.techniques[0]) {
@@ -4681,6 +5178,7 @@ function openSelectedPlayerMailTab(): void {
 
 /** refreshSelectedPlayer：执行对应的业务逻辑。 */
 async function refreshSelectedPlayer(): Promise<void> {
+/** selected：定义该变量以承载业务值。 */
   const selected = getSelectedPlayer();
   if (!selected) {
     setStatus('请先选择角色', true);
@@ -4713,11 +5211,13 @@ async function refreshSelectedPlayer(): Promise<void> {
 
 /** saveSelectedPlayer：执行对应的业务逻辑。 */
 async function saveSelectedPlayer(): Promise<void> {
+/** selected：定义该变量以承载业务值。 */
   const selected = getSelectedPlayer();
   if (!selected) {
     setStatus('请先选择角色', true);
     return;
   }
+/** section：定义该变量以承载业务值。 */
   const section = getCurrentEditorSaveSection();
   if (!section) {
     setStatus(
@@ -4733,6 +5233,7 @@ async function saveSelectedPlayer(): Promise<void> {
     return;
   }
 
+/** synced：定义该变量以承载业务值。 */
   const synced = syncVisualEditorToDraft(getEditorTabSection(section) ?? undefined);
   if (!synced.ok || !draftSnapshot) {
 /** setStatus：处理当前场景中的对应操作。 */
@@ -4743,6 +5244,7 @@ async function saveSelectedPlayer(): Promise<void> {
   savePlayerBtn.disabled = true;
   try {
     setPendingStatus(`正在提交 ${selected.name} 的${getEditorTabLabel(section)}修改...`);
+/** snapshot：定义该变量以承载业务值。 */
     const snapshot = buildSectionSnapshot(section, draftSnapshot);
     await request<{ ok: true }>(`/gm/players/${encodeURIComponent(selected.id)}`, {
       method: 'PUT',
@@ -4760,14 +5262,18 @@ async function saveSelectedPlayer(): Promise<void> {
 
 /** saveSelectedPlayerPassword：执行对应的业务逻辑。 */
 async function saveSelectedPlayerPassword(): Promise<void> {
+/** detail：定义该变量以承载业务值。 */
   const detail = getSelectedPlayerDetail();
   if (!detail?.account) {
     setStatus('当前目标没有可修改的账号密码', true);
     return;
   }
 
+/** nextInput：定义该变量以承载业务值。 */
   const nextInput = editorContentEl.querySelector<HTMLInputElement>('#player-password-next');
+/** button：定义该变量以承载业务值。 */
   const button = editorContentEl.querySelector<HTMLButtonElement>('[data-action="save-player-password"]');
+/** newPassword：定义该变量以承载业务值。 */
   const newPassword = nextInput?.value.trim() ?? '';
 
   if (!newPassword) {
@@ -4800,14 +5306,18 @@ async function saveSelectedPlayerPassword(): Promise<void> {
 
 /** saveSelectedPlayerAccount：执行对应的业务逻辑。 */
 async function saveSelectedPlayerAccount(): Promise<void> {
+/** detail：定义该变量以承载业务值。 */
   const detail = getSelectedPlayerDetail();
   if (!detail?.account) {
     setStatus('当前目标没有可修改的账号', true);
     return;
   }
 
+/** accountInput：定义该变量以承载业务值。 */
   const accountInput = editorContentEl.querySelector<HTMLInputElement>('#player-account-username');
+/** button：定义该变量以承载业务值。 */
   const button = editorContentEl.querySelector<HTMLButtonElement>('[data-action="save-player-account"]');
+/** username：定义该变量以承载业务值。 */
   const username = accountInput?.value.trim() ?? '';
 
   if (!username) {
@@ -4841,6 +5351,7 @@ async function saveSelectedPlayerAccount(): Promise<void> {
 
 /** resetSelectedPlayer：执行对应的业务逻辑。 */
 async function resetSelectedPlayer(): Promise<void> {
+/** selected：定义该变量以承载业务值。 */
   const selected = getSelectedPlayer();
   if (!selected) {
     setStatus('请先选择角色', true);
@@ -4865,6 +5376,7 @@ async function resetSelectedPlayer(): Promise<void> {
 
 /** resetSelectedPlayerHeavenGate：执行对应的业务逻辑。 */
 async function resetSelectedPlayerHeavenGate(): Promise<void> {
+/** selected：定义该变量以承载业务值。 */
   const selected = getSelectedPlayer();
   if (!selected) {
     setStatus('请先选择角色', true);
@@ -4889,6 +5401,7 @@ async function resetSelectedPlayerHeavenGate(): Promise<void> {
 
 /** removeSelectedBot：执行对应的业务逻辑。 */
 async function removeSelectedBot(): Promise<void> {
+/** selected：定义该变量以承载业务值。 */
   const selected = getSelectedPlayer();
   if (!selected || !selected.meta.isBot) {
     setStatus('当前选中目标不是机器人', true);
@@ -4914,12 +5427,14 @@ async function removeSelectedBot(): Promise<void> {
 
 /** spawnBots：执行对应的业务逻辑。 */
 async function spawnBots(): Promise<void> {
+/** selected：定义该变量以承载业务值。 */
   const selected = getSelectedPlayer();
   if (!selected) {
     setStatus('请先选择一个角色作为生成锚点', true);
     return;
   }
 
+/** count：定义该变量以承载业务值。 */
   const count = Number(spawnCountInput.value);
   if (!Number.isFinite(count) || count <= 0) {
     setStatus('机器人数量必须为正整数', true);
@@ -4963,11 +5478,13 @@ async function returnAllPlayersToDefaultSpawn(): Promise<void> {
     return;
   }
 
+/** button：定义该变量以承载业务值。 */
   const button = document.getElementById('shortcut-return-all-to-default-spawn') as HTMLButtonElement | null;
   if (button) {
     button.disabled = true;
   }
   try {
+/** result：定义该变量以承载业务值。 */
     const result = await request<GmShortcutRunRes>('/gm/shortcuts/players/return-all-to-default-spawn', {
       method: 'POST',
     });
@@ -4991,11 +5508,13 @@ async function cleanupAllPlayersInvalidItems(): Promise<void> {
     return;
   }
 
+/** button：定义该变量以承载业务值。 */
   const button = document.getElementById('shortcut-cleanup-invalid-items') as HTMLButtonElement | null;
   if (button) {
     button.disabled = true;
   }
   try {
+/** result：定义该变量以承载业务值。 */
     const result = await request<GmShortcutRunRes>('/gm/shortcuts/players/cleanup-invalid-items', {
       method: 'POST',
     });
@@ -5019,11 +5538,13 @@ async function compensateAllPlayersCombatExp(): Promise<void> {
     return;
   }
 
+/** button：定义该变量以承载业务值。 */
   const button = document.getElementById('shortcut-compensate-combat-exp-2026-04-09') as HTMLButtonElement | null;
   if (button) {
     button.disabled = true;
   }
   try {
+/** result：定义该变量以承载业务值。 */
     const result = await request<GmShortcutRunRes>('/gm/shortcuts/compensation/combat-exp-2026-04-09', {
       method: 'POST',
     });
@@ -5047,11 +5568,13 @@ async function compensateAllPlayersFoundation(): Promise<void> {
     return;
   }
 
+/** button：定义该变量以承载业务值。 */
   const button = document.getElementById('shortcut-compensate-foundation-2026-04-09') as HTMLButtonElement | null;
   if (button) {
     button.disabled = true;
   }
   try {
+/** result：定义该变量以承载业务值。 */
     const result = await request<GmShortcutRunRes>('/gm/shortcuts/compensation/foundation-2026-04-09', {
       method: 'POST',
     });
@@ -5124,7 +5647,9 @@ async function resetPathfindingStats(): Promise<void> {
 function handleEditorAction(action: string, trigger: HTMLElement): void {
   if (!draftSnapshot) return;
 
+/** index：定义该变量以承载业务值。 */
   const index = Number(trigger.dataset.index ?? '-1');
+/** slot：定义该变量以承载业务值。 */
   const slot = trigger.dataset.slot as EquipSlot | undefined;
 
   switch (action) {
@@ -5160,6 +5685,7 @@ function handleEditorAction(action: string, trigger: HTMLElement): void {
         setStatus('服务端编辑目录不可用，当前不能用模板方式加入物品。', true);
         return;
       }
+/** itemId：定义该变量以承载业务值。 */
       const itemId = readCatalogSelectValue('inventory-item');
       if (!itemId) {
         setStatus('请先选择一个物品模板', true);
@@ -5186,6 +5712,7 @@ function handleEditorAction(action: string, trigger: HTMLElement): void {
           setStatus('服务端编辑目录不可用，当前不能用模板方式创建装备。', true);
           return;
         }
+/** itemId：定义该变量以承载业务值。 */
         const itemId = readCatalogSelectValue('equipment', slot);
         if (!itemId) {
           setStatus('请先选择一个装备模板', true);
@@ -5218,6 +5745,7 @@ function handleEditorAction(action: string, trigger: HTMLElement): void {
         setStatus('服务端编辑目录不可用，当前不能用模板方式加入功法。', true);
         return;
       }
+/** techId：定义该变量以承载业务值。 */
       const techId = readCatalogSelectValue('technique');
       if (!techId) {
         setStatus('请先选择一个功法模板', true);
@@ -5244,7 +5772,9 @@ function handleEditorAction(action: string, trigger: HTMLElement): void {
 }
 
 playerListEl.addEventListener('click', (event) => {
+/** button：定义该变量以承载业务值。 */
   const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-player-id]');
+/** playerId：定义该变量以承载业务值。 */
   const playerId = button?.dataset.playerId;
   if (!playerId || playerId === selectedPlayerId) return;
   if (editorDirty && !window.confirm('当前角色有未保存修改，切换后会丢失这些修改。继续吗？')) {
@@ -5264,7 +5794,9 @@ playerListEl.addEventListener('click', (event) => {
 });
 
 editorContentEl.addEventListener('click', (event) => {
+/** trigger：定义该变量以承载业务值。 */
   const trigger = (event.target as HTMLElement).closest<HTMLElement>('[data-action]');
+/** action：定义该变量以承载业务值。 */
   const action = trigger?.dataset.action;
   if (!action || !trigger) return;
   if (action === 'add-direct-mail-attachment') {
@@ -5327,12 +5859,14 @@ editorContentEl.addEventListener('click', (event) => {
 });
 
 editorContentEl.addEventListener('input', (event) => {
+/** target：定义该变量以承载业务值。 */
   const target = event.target;
   if (
     target instanceof HTMLInputElement
     || target instanceof HTMLTextAreaElement
     || target instanceof HTMLSelectElement
   ) {
+/** binding：定义该变量以承载业务值。 */
     const binding = target.dataset.mailBind;
     if (!binding) {
       return;
@@ -5345,15 +5879,18 @@ editorContentEl.addEventListener('input', (event) => {
 });
 
 editorContentEl.addEventListener('change', (event) => {
+/** target：定义该变量以承载业务值。 */
   const target = event.target;
   if (
     target instanceof HTMLInputElement
     || target instanceof HTMLTextAreaElement
     || target instanceof HTMLSelectElement
   ) {
+/** pageBinding：定义该变量以承载业务值。 */
     const pageBinding = target.dataset.mailItemPage;
     if (pageBinding) {
       const [scope, indexText] = pageBinding.split('.');
+/** attachmentIndex：定义该变量以承载业务值。 */
       const attachmentIndex = Number(indexText);
       if ((scope === 'direct' || scope === 'shortcut') && Number.isInteger(attachmentIndex)) {
         updateMailAttachmentItemPage(scope, attachmentIndex, target.value);
@@ -5363,6 +5900,7 @@ editorContentEl.addEventListener('change', (event) => {
         return;
       }
     }
+/** binding：定义该变量以承载业务值。 */
     const binding = target.dataset.mailBind;
     if (binding) {
       const [scope, ...rest] = binding.split('.');
@@ -5380,6 +5918,7 @@ editorContentEl.addEventListener('change', (event) => {
     updateInventoryAddControls(true);
     return;
   }
+/** synced：定义该变量以承载业务值。 */
   const synced = syncVisualEditorToDraft(
     target instanceof Element
       ? target.closest<HTMLElement>('[data-editor-tab]') ?? undefined
@@ -5394,11 +5933,13 @@ editorContentEl.addEventListener('change', (event) => {
     || target instanceof HTMLTextAreaElement
     || target instanceof HTMLSelectElement
   ) {
+/** path：定义该变量以承载业务值。 */
     const path = target.dataset.bind;
     if (path && applyCatalogBindingChange(path, target.value)) {
       return;
     }
   }
+/** detail：定义该变量以承载业务值。 */
   const detail = getSelectedPlayerDetail();
   if (detail && draftSnapshot) {
     editorMetaEl.innerHTML = getEditorMetaMarkup(detail);
@@ -5413,6 +5954,7 @@ editorContentEl.addEventListener('focusout', () => {
 });
 
 document.addEventListener('pointerdown', (event) => {
+/** target：定义该变量以承载业务值。 */
   const target = event.target;
   if (!(target instanceof Element) || !activeSearchableItemField) {
     return;
@@ -5424,10 +5966,12 @@ document.addEventListener('pointerdown', (event) => {
 });
 
 document.addEventListener('focusin', (event) => {
+/** target：定义该变量以承载业务值。 */
   const target = event.target;
   if (!(target instanceof HTMLInputElement) || target.dataset.itemComboboxInput === undefined) {
     return;
   }
+/** root：定义该变量以承载业务值。 */
   const root = target.closest<HTMLElement>('[data-item-combobox]');
   if (!root || root.dataset.open === 'true') {
     return;
@@ -5436,10 +5980,12 @@ document.addEventListener('focusin', (event) => {
 });
 
 document.addEventListener('input', (event) => {
+/** target：定义该变量以承载业务值。 */
   const target = event.target;
   if (!(target instanceof HTMLInputElement) || target.dataset.itemComboboxInput === undefined) {
     return;
   }
+/** root：定义该变量以承载业务值。 */
   const root = target.closest<HTMLElement>('[data-item-combobox]');
   if (!root) {
     return;
@@ -5452,12 +5998,15 @@ document.addEventListener('input', (event) => {
 });
 
 document.addEventListener('click', (event) => {
+/** target：定义该变量以承载业务值。 */
   const target = event.target;
   if (!(target instanceof Element)) {
     return;
   }
+/** optionButton：定义该变量以承载业务值。 */
   const optionButton = target.closest<HTMLButtonElement>('[data-item-option-value]');
   if (optionButton) {
+/** root：定义该变量以承载业务值。 */
     const root = optionButton.closest<HTMLElement>('[data-item-combobox]');
     if (!root) {
       return;
@@ -5465,10 +6014,12 @@ document.addEventListener('click', (event) => {
     commitSearchableItemSelection(root, optionButton.dataset.itemOptionValue ?? '');
     return;
   }
+/** toggleButton：定义该变量以承载业务值。 */
   const toggleButton = target.closest<HTMLButtonElement>('[data-item-combobox-toggle]');
   if (!toggleButton) {
     return;
   }
+/** root：定义该变量以承载业务值。 */
   const root = toggleButton.closest<HTMLElement>('[data-item-combobox]');
   if (!root) {
     return;
@@ -5483,10 +6034,12 @@ document.addEventListener('click', (event) => {
 });
 
 document.addEventListener('keydown', (event) => {
+/** target：定义该变量以承载业务值。 */
   const target = event.target;
   if (!(target instanceof HTMLInputElement) || target.dataset.itemComboboxInput === undefined) {
     return;
   }
+/** root：定义该变量以承载业务值。 */
   const root = target.closest<HTMLElement>('[data-item-combobox]');
   if (!root) {
     return;
@@ -5511,8 +6064,11 @@ document.addEventListener('keydown', (event) => {
   }
   if (event.key === 'Enter' && root.dataset.open === 'true') {
     event.preventDefault();
+/** listEl：定义该变量以承载业务值。 */
     const listEl = getSearchableItemList(root);
+/** activeIndex：定义该变量以承载业务值。 */
     const activeIndex = Number(root.dataset.activeIndex ?? '-1');
+/** activeButton：定义该变量以承载业务值。 */
     const activeButton = listEl?.querySelectorAll<HTMLButtonElement>('[data-item-option-value]')[activeIndex];
     if (activeButton) {
       commitSearchableItemSelection(root, activeButton.dataset.itemOptionValue ?? '');
@@ -5526,9 +6082,13 @@ document.addEventListener('keydown', (event) => {
 });
 
 suggestionListEl.addEventListener('click', (event) => {
+/** trigger：定义该变量以承载业务值。 */
   const trigger = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-action]');
+/** card：定义该变量以承载业务值。 */
   const card = (event.target as HTMLElement).closest<HTMLElement>('[data-suggestion-id]');
+/** suggestionId：定义该变量以承载业务值。 */
   const suggestionId = card?.dataset.suggestionId;
+/** action：定义该变量以承载业务值。 */
   const action = trigger?.dataset.action;
   if (!trigger || !suggestionId || !action) {
     return;
@@ -5538,7 +6098,9 @@ suggestionListEl.addEventListener('click', (event) => {
     return;
   }
   if (action === 'reply-suggestion') {
+/** replyInput：定义该变量以承载业务值。 */
     const replyInput = card?.querySelector<HTMLTextAreaElement>('[data-role="reply-input"]');
+/** content：定义该变量以承载业务值。 */
     const content = replyInput?.value.trim() ?? '';
     if (!content) {
       setStatus('请输入开发者回复内容', true);
@@ -5689,7 +6251,9 @@ document.getElementById('shortcut-compensate-foundation-2026-04-09')?.addEventLi
   compensateAllPlayersFoundation().catch(() => {});
 });
 shortcutWorkspaceEl.addEventListener('click', (event) => {
+/** trigger：定义该变量以承载业务值。 */
   const trigger = (event.target as HTMLElement).closest<HTMLElement>('[data-action]');
+/** action：定义该变量以承载业务值。 */
   const action = trigger?.dataset.action;
   if (!action || !trigger) {
     return;
@@ -5710,12 +6274,14 @@ shortcutWorkspaceEl.addEventListener('click', (event) => {
   }
 });
 shortcutWorkspaceEl.addEventListener('input', (event) => {
+/** target：定义该变量以承载业务值。 */
   const target = event.target;
   if (
     target instanceof HTMLInputElement
     || target instanceof HTMLTextAreaElement
     || target instanceof HTMLSelectElement
   ) {
+/** binding：定义该变量以承载业务值。 */
     const binding = target.dataset.mailBind;
     if (!binding) {
       return;
@@ -5727,15 +6293,18 @@ shortcutWorkspaceEl.addEventListener('input', (event) => {
   }
 });
 shortcutWorkspaceEl.addEventListener('change', (event) => {
+/** target：定义该变量以承载业务值。 */
   const target = event.target;
   if (
     target instanceof HTMLInputElement
     || target instanceof HTMLTextAreaElement
     || target instanceof HTMLSelectElement
   ) {
+/** pageBinding：定义该变量以承载业务值。 */
     const pageBinding = target.dataset.mailItemPage;
     if (pageBinding) {
       const [scope, indexText] = pageBinding.split('.');
+/** attachmentIndex：定义该变量以承载业务值。 */
       const attachmentIndex = Number(indexText);
       if (scope === 'shortcut' && Number.isInteger(attachmentIndex)) {
         updateMailAttachmentItemPage('shortcut', attachmentIndex, target.value);
@@ -5743,6 +6312,7 @@ shortcutWorkspaceEl.addEventListener('change', (event) => {
         return;
       }
     }
+/** binding：定义该变量以承载业务值。 */
     const binding = target.dataset.mailBind;
     if (!binding) {
       return;
@@ -5762,10 +6332,12 @@ shortcutWorkspaceEl.addEventListener('focusout', () => {
   }, 0);
 });
 redeemWorkspaceEl?.addEventListener('click', (event) => {
+/** trigger：定义该变量以承载业务值。 */
   const trigger = (event.target as HTMLElement).closest<HTMLElement>('[data-action],[data-redeem-group-id],[data-code-id]');
   if (!trigger) {
     return;
   }
+/** groupId：定义该变量以承载业务值。 */
   const groupId = trigger.dataset.redeemGroupId;
   if (groupId) {
     selectedRedeemGroupId = groupId;
@@ -5776,6 +6348,7 @@ redeemWorkspaceEl?.addEventListener('click', (event) => {
     });
     return;
   }
+/** action：定义该变量以承载业务值。 */
   const action = trigger.dataset.action;
   if (!action) {
     return;
@@ -5794,6 +6367,7 @@ redeemWorkspaceEl?.addEventListener('click', (event) => {
     return;
   }
   if (action === 'remove-redeem-reward') {
+/** rewardIndex：定义该变量以承载业务值。 */
     const rewardIndex = Number(trigger.dataset.rewardIndex);
     if (Number.isInteger(rewardIndex) && rewardIndex >= 0 && rewardIndex < redeemDraft.rewards.length) {
       redeemDraft.rewards.splice(rewardIndex, 1);
@@ -5837,6 +6411,7 @@ redeemWorkspaceEl?.addEventListener('click', (event) => {
     return;
   }
   if (action === 'destroy-redeem-code') {
+/** codeId：定义该变量以承载业务值。 */
     const codeId = trigger.dataset.codeId;
     if (!codeId) {
       return;
@@ -5848,12 +6423,14 @@ redeemWorkspaceEl?.addEventListener('click', (event) => {
   }
 });
 redeemWorkspaceEl?.addEventListener('input', (event) => {
+/** target：定义该变量以承载业务值。 */
   const target = event.target;
   if (
     target instanceof HTMLInputElement
     || target instanceof HTMLTextAreaElement
     || target instanceof HTMLSelectElement
   ) {
+/** binding：定义该变量以承载业务值。 */
     const binding = target.dataset.redeemBind;
     if (!binding) {
       return;
@@ -5862,12 +6439,14 @@ redeemWorkspaceEl?.addEventListener('input', (event) => {
   }
 });
 redeemWorkspaceEl?.addEventListener('change', (event) => {
+/** target：定义该变量以承载业务值。 */
   const target = event.target;
   if (
     target instanceof HTMLInputElement
     || target instanceof HTMLTextAreaElement
     || target instanceof HTMLSelectElement
   ) {
+/** binding：定义该变量以承载业务值。 */
     const binding = target.dataset.redeemBind;
     if (!binding) {
       return;
@@ -5886,7 +6465,9 @@ resetPathfindingStatsBtn.addEventListener('click', () => {
   resetPathfindingStats().catch(() => {});
 });
 serverPanelDatabaseEl.addEventListener('click', (event) => {
+/** target：定义该变量以承载业务值。 */
   const target = event.target as HTMLElement | null;
+/** refreshButton：定义该变量以承载业务值。 */
   const refreshButton = target?.closest<HTMLButtonElement>('#database-refresh');
   if (refreshButton) {
     loadDatabaseState(false).catch((error: unknown) => {
@@ -5896,6 +6477,7 @@ serverPanelDatabaseEl.addEventListener('click', (event) => {
     return;
   }
 
+/** exportButton：定义该变量以承载业务值。 */
   const exportButton = target?.closest<HTMLButtonElement>('#database-export-current');
   if (exportButton) {
     exportCurrentDatabase().catch((error: unknown) => {
@@ -5905,6 +6487,7 @@ serverPanelDatabaseEl.addEventListener('click', (event) => {
     return;
   }
 
+/** downloadButton：定义该变量以承载业务值。 */
   const downloadButton = target?.closest<HTMLButtonElement>('[data-db-download]');
   if (downloadButton?.dataset.dbDownload) {
     downloadDatabaseBackup(downloadButton.dataset.dbDownload).catch((error: unknown) => {
@@ -5914,6 +6497,7 @@ serverPanelDatabaseEl.addEventListener('click', (event) => {
     return;
   }
 
+/** restoreButton：定义该变量以承载业务值。 */
   const restoreButton = target?.closest<HTMLButtonElement>('[data-db-restore]');
   if (restoreButton?.dataset.dbRestore) {
     restoreDatabaseBackup(restoreButton.dataset.dbRestore).catch((error: unknown) => {

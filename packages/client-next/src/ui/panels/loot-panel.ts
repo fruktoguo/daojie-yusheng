@@ -20,6 +20,7 @@ function escapeHtml(value: string): string {
 /** LootPanel：封装相关状态与行为。 */
 export class LootPanel {
   private static readonly MODAL_OWNER = 'loot-panel';
+/** windowState：定义该变量以承载业务值。 */
   private windowState: LootWindowState | null = null;
   private onTake: ((sourceId: string, itemKey: string) => void) | null = null;
   private onTakeAll: ((sourceId: string) => void) | null = null;
@@ -32,6 +33,7 @@ export class LootPanel {
     this.onTakeAll = onTakeAll;
   }
 
+/** clear：执行对应的业务逻辑。 */
   clear(): void {
     this.windowState = null;
     detailModalHost.close(LootPanel.MODAL_OWNER);
@@ -47,6 +49,7 @@ export class LootPanel {
     this.render();
   }
 
+/** render：执行对应的业务逻辑。 */
   private render(): void {
     if (!this.windowState) {
       return;
@@ -59,6 +62,7 @@ export class LootPanel {
       title,
       subtitle: `坐标 (${tileX}, ${tileY})`,
       bodyHtml: sources.map((source) => {
+/** searchHtml：定义该变量以承载业务值。 */
         const searchHtml = source.search && source.search.remainingTicks > 0
           ? `<div class="loot-search-state">
               <div class="loot-search-copy">
@@ -68,6 +72,7 @@ export class LootPanel {
               <div class="loot-search-bar"><span class="loot-search-fill" style="width:${Math.max(0, Math.min(100, (source.search.elapsedTicks / Math.max(1, source.search.totalTicks)) * 100))}%"></span></div>
             </div>`
           : '';
+/** itemsHtml：定义该变量以承载业务值。 */
         const itemsHtml = source.items.length > 0
           ? `<div class="inventory-grid loot-item-grid">
               ${source.items.map((entry) => `
@@ -105,7 +110,9 @@ export class LootPanel {
         body.querySelectorAll<HTMLElement>('[data-loot-take="true"]').forEach((button) => {
           button.addEventListener('click', (event) => {
             event.stopPropagation();
+/** sourceId：定义该变量以承载业务值。 */
             const sourceId = button.dataset.sourceId;
+/** itemKey：定义该变量以承载业务值。 */
             const itemKey = button.dataset.itemKey;
             if (!sourceId || !itemKey) {
               return;
@@ -116,6 +123,7 @@ export class LootPanel {
         body.querySelectorAll<HTMLElement>('[data-loot-take-all="true"]').forEach((button) => {
           button.addEventListener('click', (event) => {
             event.stopPropagation();
+/** sourceId：定义该变量以承载业务值。 */
             const sourceId = button.dataset.sourceId;
             if (!sourceId) {
               return;

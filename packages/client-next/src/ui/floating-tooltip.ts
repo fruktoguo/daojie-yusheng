@@ -20,7 +20,9 @@ interface FloatingTooltipShowOptions {
   allowHtml?: boolean;
   asideCards?: Array<{
     mark?: string;
+/** title：定义该变量以承载业务值。 */
     title: string;
+/** lines：定义该变量以承载业务值。 */
     lines: string[];
     tone?: 'buff' | 'debuff';
   }>;
@@ -36,9 +38,11 @@ export function prefersPinnedTooltipInteraction(win: Window = window): boolean {
 
 /** FloatingTooltip：封装相关状态与行为。 */
 export class FloatingTooltip {
+/** el：定义该变量以承载业务值。 */
   private readonly el: HTMLDivElement;
   private lastPoint = { x: 0, y: 0 };
   private pinned = false;
+/** pinnedAnchor：定义该变量以承载业务值。 */
   private pinnedAnchor: Element | null = null;
 
 /** constructor：处理当前场景中的对应操作。 */
@@ -50,6 +54,7 @@ export class FloatingTooltip {
       if (!this.pinned) {
         return;
       }
+/** target：定义该变量以承载业务值。 */
       const target = event.target;
       if (target instanceof Node && this.pinnedAnchor?.contains(target)) {
         return;
@@ -66,12 +71,14 @@ export class FloatingTooltip {
     this.render(title, lines, clientX, clientY, options);
   }
 
+/** showPinned：执行对应的业务逻辑。 */
   showPinned(anchor: Element, title: string, lines: string[], clientX: number, clientY: number, options?: FloatingTooltipShowOptions): void {
     this.pinned = true;
     this.pinnedAnchor = anchor;
     this.render(title, lines, clientX, clientY, options);
   }
 
+/** updateContent：执行对应的业务逻辑。 */
   updateContent(title: string, lines: string[], options?: FloatingTooltipShowOptions): void {
     if (!this.el.classList.contains('visible')) {
       return;
@@ -79,24 +86,32 @@ export class FloatingTooltip {
     this.render(title, lines, this.lastPoint.x, this.lastPoint.y, options);
   }
 
+/** isPinned：执行对应的业务逻辑。 */
   isPinned(): boolean {
     return this.pinned;
   }
 
+/** isPinnedTo：执行对应的业务逻辑。 */
   isPinnedTo(anchor: Element | null): boolean {
     return !!anchor && this.pinned && this.pinnedAnchor === anchor;
   }
 
+/** render：执行对应的业务逻辑。 */
   private render(title: string, lines: string[], clientX: number, clientY: number, options?: FloatingTooltipShowOptions): void {
+/** content：定义该变量以承载业务值。 */
     const content = lines
       .map((line) => line.trim())
       .filter((line) => line.length > 0);
+/** renderedContent：定义该变量以承载业务值。 */
     const renderedContent = content
       .map((line) => `<span class="floating-tooltip-line">${options?.allowHtml ? line : escapeHtml(line)}</span>`)
       .join('');
+/** asideCards：定义该变量以承载业务值。 */
     const asideCards = options?.asideCards ?? [];
+/** renderedAside：定义该变量以承载业务值。 */
     const renderedAside = asideCards.length > 0
       ? `<div class="floating-tooltip-aside">${asideCards.map((card) => {
+/** detail：定义该变量以承载业务值。 */
         const detail = card.lines
           .map((line) => `<span class="floating-tooltip-aside-line">${escapeHtml(line)}</span>`)
           .join('');
@@ -117,24 +132,37 @@ export class FloatingTooltip {
   /** 跟随鼠标移动重新定位，自动避免溢出视口 */
   move(clientX: number, clientY: number): void {
     this.lastPoint = { x: clientX, y: clientY };
+/** padding：定义该变量以承载业务值。 */
     const padding = 12;
+/** offsetX：定义该变量以承载业务值。 */
     const offsetX = 16;
+/** offsetY：定义该变量以承载业务值。 */
     const offsetY = 12;
+/** metrics：定义该变量以承载业务值。 */
     const metrics = getResponsiveViewportMetrics(window);
+/** point：定义该变量以承载业务值。 */
     const point = clientToViewportPoint(window, clientX, clientY);
+/** viewportWidth：定义该变量以承载业务值。 */
     const viewportWidth = metrics.viewportWidth;
+/** viewportHeight：定义该变量以承载业务值。 */
     const viewportHeight = metrics.viewportHeight;
     this.el.style.left = '0px';
     this.el.style.top = '0px';
+/** rect：定义该变量以承载业务值。 */
     const rect = this.el.getBoundingClientRect();
+/** renderedWidth：定义该变量以承载业务值。 */
     const renderedWidth = metrics.locked ? rect.width / metrics.scale : rect.width;
+/** renderedHeight：定义该变量以承载业务值。 */
     const renderedHeight = metrics.locked ? rect.height / metrics.scale : rect.height;
+/** left：定义该变量以承载业务值。 */
     const left = Math.max(padding, Math.min(point.x + offsetX, viewportWidth - renderedWidth - padding));
+/** top：定义该变量以承载业务值。 */
     const top = Math.max(padding, Math.min(point.y + offsetY, viewportHeight - renderedHeight - padding));
     this.el.style.left = `${left}px`;
     this.el.style.top = `${top}px`;
   }
 
+/** hide：执行对应的业务逻辑。 */
   hide(force = false): void {
     if (this.pinned && !force) {
       return;

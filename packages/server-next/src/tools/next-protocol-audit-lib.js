@@ -5,11 +5,17 @@
 
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.loadUniqueItemIds = exports.waitForState = exports.createCaseRuntime = exports.createRuntimeApi = exports.createAuditedSocket = exports.createAuditor = exports.measurePayloadBytes = exports.waitForHealth = exports.stopServer = exports.startIsolatedServer = exports.allocateFreePort = exports.waitForValue = exports.waitFor = exports.delay = exports.repoRoot = exports.distRoot = exports.packageRoot = void 0;
+/** node_child_process_1：定义该变量以承载业务值。 */
 const node_child_process_1 = require("node:child_process");
+/** fs：定义该变量以承载业务值。 */
 const fs = require("node:fs");
+/** net：定义该变量以承载业务值。 */
 const net = require("node:net");
+/** path：定义该变量以承载业务值。 */
 const path = require("node:path");
+/** socket_io_client_1：定义该变量以承载业务值。 */
 const socket_io_client_1 = require("socket.io-client");
+/** env_alias_1：定义该变量以承载业务值。 */
 const env_alias_1 = require("../config/env-alias");
 exports.packageRoot = path.resolve(__dirname, '..', '..');
 exports.distRoot = path.join(exports.packageRoot, 'dist');
@@ -571,9 +577,11 @@ function createRuntimeApi(baseUrl) {
  */
     const response = await fetch(`${baseUrl}${pathname}`, {
       method: options.method ?? 'GET',
+/** headers：定义该变量以承载业务值。 */
       headers: options.body === undefined ? undefined : {
         'content-type': 'application/json',
       },
+/** body：定义该变量以承载业务值。 */
       body: options.body === undefined ? undefined : JSON.stringify(options.body),
     });
     if (!response.ok) {
@@ -590,51 +598,62 @@ function createRuntimeApi(baseUrl) {
   }
   return {
     request,
+/** get：执行对应的业务逻辑。 */
     get(pathname) {
       return request(pathname);
     },
+/** post：执行对应的业务逻辑。 */
     post(pathname, body) {
       return request(pathname, { method: 'POST', body });
     },
+/** delete：执行对应的业务逻辑。 */
     delete(pathname) {
       return request(pathname, { method: 'DELETE' });
     },
+/** connectPlayer：执行对应的业务逻辑。 */
     connectPlayer(payload) {
       return request('/runtime/players/connect', {
         method: 'POST',
         body: payload,
       });
     },
+/** fetchState：执行对应的业务逻辑。 */
     fetchState(playerId) {
       return request(`/runtime/players/${playerId}/state`);
     },
+/** fetchMarket：执行对应的业务逻辑。 */
     fetchMarket(playerId) {
       return request(`/runtime/players/${playerId}/market`);
     },
+/** grantItem：执行对应的业务逻辑。 */
     grantItem(playerId, itemId, count = 1) {
       return request(`/runtime/players/${playerId}/grant-item`, {
         method: 'POST',
         body: { itemId, count },
       });
     },
+/** setVitals：执行对应的业务逻辑。 */
     setVitals(playerId, payload) {
       return request(`/runtime/players/${playerId}/vitals`, {
         method: 'POST',
         body: payload,
       });
     },
+/** createDirectMail：执行对应的业务逻辑。 */
     createDirectMail(playerId, payload) {
       return request(`/runtime/players/${playerId}/mail/direct`, {
         method: 'POST',
         body: payload,
       });
     },
+/** queuePendingLogbookMessage：执行对应的业务逻辑。 */
     queuePendingLogbookMessage(playerId, payload) {
       return request(`/runtime/players/${playerId}/pending-logbook`, {
         method: 'POST',
         body: payload,
       });
     },
+/** deletePlayer：执行对应的业务逻辑。 */
     deletePlayer(playerId) {
       return request(`/runtime/players/${playerId}`, {
         method: 'DELETE',
@@ -660,10 +679,12 @@ function createCaseRuntime(options) {
     auditor: options.auditor,
     caseName: options.caseName,
     baseUrl: options.baseUrl,
+/** trackPlayer：执行对应的业务逻辑。 */
     trackPlayer(playerId) {
       playerIds.add(playerId);
       return playerId;
     },
+/** createSocket：执行对应的业务逻辑。 */
     createSocket(label, auth) {
 /**
  * 记录socket。
@@ -678,9 +699,11 @@ function createCaseRuntime(options) {
       sockets.push(socket);
       return socket;
     },
+/** getSockets：执行对应的业务逻辑。 */
     getSockets() {
       return [...sockets];
     },
+/** cleanup：执行对应的业务逻辑。 */
     async cleanup() {
       for (const socket of sockets.splice(0)) {
         try {
@@ -785,6 +808,7 @@ function loadUniqueItemIds() {
   return result;
 }
 exports.loadUniqueItemIds = loadUniqueItemIds;
+/** shared_next_compat：定义该变量以承载业务值。 */
 const shared_next_compat = require('@mud/shared-next');
 /**
  * 记录rawstartisolated服务端。
@@ -795,16 +819,20 @@ const rawStartIsolatedServer = startIsolatedServer;
  */
 const rawStopServer = stopServer;
 
+/** AuditCollector：定义该类及其职责。 */
 class AuditCollector {
+/** 构造函数：执行实例初始化流程。 */
   constructor() {
     this.entries = new Map();
     this.caseResults = [];
   }
 
+/** startCase：执行对应的业务逻辑。 */
   startCase(name) {
     return { name, startedAt: Date.now() };
   }
 
+/** finishCase：执行对应的业务逻辑。 */
   finishCase(token, status, notes) {
     this.caseResults.push({
       name: token.name,
@@ -814,6 +842,7 @@ class AuditCollector {
     });
   }
 
+/** record：执行对应的业务逻辑。 */
   record(direction, event, payload, caseName, socketLabel) {
 /**
  * 记录key。
@@ -842,10 +871,12 @@ class AuditCollector {
     this.entries.set(key, entry);
   }
 
+/** getEntry：执行对应的业务逻辑。 */
   getEntry(direction, event) {
     return this.entries.get(direction + ':' + event) ?? null;
   }
 
+/** buildCoverageRows：执行对应的业务逻辑。 */
   buildCoverageRows(direction, expectedEvents) {
     return expectedEvents.map((event) => {
 /**
@@ -857,6 +888,7 @@ class AuditCollector {
         event,
         wire: event,
         label: resolveCompatEventLabel(direction, event),
+/** covered：定义该变量以承载业务值。 */
         covered: entry !== null,
         count: entry?.count ?? 0,
         totalBytes: entry?.totalBytes ?? 0,
@@ -866,6 +898,7 @@ class AuditCollector {
     });
   }
 
+/** buildTrafficRows：执行对应的业务逻辑。 */
   buildTrafficRows() {
     return [...this.entries.values()]
       .map((entry) => ({

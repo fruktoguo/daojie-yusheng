@@ -23,8 +23,11 @@ export type QiVisibilityLevel = typeof QI_VISIBILITY_LEVELS[number];
 
 /** QiResourceDescriptor：定义该接口的能力与字段约束。 */
 export interface QiResourceDescriptor {
+/** family：定义该变量以承载业务值。 */
   family: QiFamilyKey;
+/** form：定义该变量以承载业务值。 */
   form: QiFormKey;
+/** element：定义该变量以承载业务值。 */
   element: QiElementKey;
 }
 
@@ -45,37 +48,49 @@ export interface QiProjectionModifier {
 
 /** CompiledQiResourceProjection：定义该接口的能力与字段约束。 */
 export interface CompiledQiResourceProjection {
+/** visibility：定义该变量以承载业务值。 */
   visibility: QiVisibilityLevel;
+/** efficiencyBp：定义该变量以承载业务值。 */
   efficiencyBp: number;
+/** descriptor：定义该变量以承载业务值。 */
   descriptor: QiResourceDescriptor;
 }
 
 /** CompiledQiProjectionProfile：定义该接口的能力与字段约束。 */
 export interface CompiledQiProjectionProfile {
+/** revision：定义该变量以承载业务值。 */
   revision: number;
+/** resourceProfiles：定义该变量以承载业务值。 */
   resourceProfiles: Record<string, CompiledQiResourceProjection>;
+/** familyVisibility：定义该变量以承载业务值。 */
   familyVisibility: Partial<Record<QiFamilyKey, QiVisibilityLevel>>;
 }
 
 /** QiRuntimeFlowConfig：定义该接口的能力与字段约束。 */
 export interface QiRuntimeFlowConfig {
+/** halfLifeRateScale：定义该变量以承载业务值。 */
   halfLifeRateScale: number;
+/** halfLifeRateScaled：定义该变量以承载业务值。 */
   halfLifeRateScaled: number;
+/** minimumDecayPerTick：定义该变量以承载业务值。 */
   minimumDecayPerTick: number;
 }
 
+/** DEFAULT_QI_RESOURCE_DESCRIPTOR：定义该变量以承载业务值。 */
 export const DEFAULT_QI_RESOURCE_DESCRIPTOR: QiResourceDescriptor = {
   family: 'aura',
   form: 'refined',
   element: 'neutral',
 };
 
+/** DISPERSED_AURA_RESOURCE_DESCRIPTOR：定义该变量以承载业务值。 */
 export const DISPERSED_AURA_RESOURCE_DESCRIPTOR: QiResourceDescriptor = {
   family: 'aura',
   form: 'dispersed',
   element: 'neutral',
 };
 
+/** ALL_QI_RESOURCE_DESCRIPTORS：定义该变量以承载业务值。 */
 export const ALL_QI_RESOURCE_DESCRIPTORS: QiResourceDescriptor[] = QI_FAMILY_KEYS.flatMap((family) => (
   QI_FORM_KEYS.flatMap((form) => (
     QI_ELEMENT_KEYS.map((element) => ({
@@ -86,14 +101,18 @@ export const ALL_QI_RESOURCE_DESCRIPTORS: QiResourceDescriptor[] = QI_FAMILY_KEY
   ))
 ));
 
+/** ALL_QI_RESOURCE_KEYS：定义该变量以承载业务值。 */
 export const ALL_QI_RESOURCE_KEYS = ALL_QI_RESOURCE_DESCRIPTORS.map((descriptor) => buildQiResourceKey(descriptor));
 
+/** DEFAULT_PLAYER_QI_RESOURCE_KEYS：定义该变量以承载业务值。 */
 export const DEFAULT_PLAYER_QI_RESOURCE_KEYS = ALL_QI_RESOURCE_DESCRIPTORS
   .filter((descriptor) => descriptor.family === 'aura' && descriptor.element === 'neutral')
   .map((descriptor) => buildQiResourceKey(descriptor));
 
+/** DISPERSED_AURA_RESOURCE_KEY：定义该变量以承载业务值。 */
 export const DISPERSED_AURA_RESOURCE_KEY = buildQiResourceKey(DISPERSED_AURA_RESOURCE_DESCRIPTOR);
 
+/** DEFAULT_QI_RUNTIME_FLOW_CONFIGS：定义该变量以承载业务值。 */
 export const DEFAULT_QI_RUNTIME_FLOW_CONFIGS: Partial<Record<string, QiRuntimeFlowConfig>> = {
   [DISPERSED_AURA_RESOURCE_KEY]: {
     halfLifeRateScale: QI_HALF_LIFE_RATE_SCALE,
@@ -111,11 +130,14 @@ export const DEFAULT_QI_RUNTIME_FLOW_CONFIGS: Partial<Record<string, QiRuntimeFl
  * - 该函数返回“每格”注入值；外围 3x3 的总注入量由调用方决定。
  */
 export function calculateDispersedAuraGainPerTile(qiCost: number): number {
+/** normalizedCost：定义该变量以承载业务值。 */
   const normalizedCost = Number.isFinite(qiCost) ? Math.max(0, Math.floor(qiCost)) : 0;
   if (normalizedCost <= 0) {
     return 0;
   }
+/** overflowLogFactor：定义该变量以承载业务值。 */
   const overflowLogFactor = normalizedCost <= 100 ? 0 : Math.log10(normalizedCost / 100);
+/** conversionDivisor：定义该变量以承载业务值。 */
   const conversionDivisor = 10 * (1 + Math.max(0, overflowLogFactor));
   return Math.max(0, Math.floor(normalizedCost / conversionDivisor));
 }
@@ -198,7 +220,9 @@ export function matchesQiProjectionSelector(
 
 /** applyQiEfficiencyBp：执行对应的业务逻辑。 */
 export function applyQiEfficiencyBp(baseBp: number, multiplierBp: number): number {
+/** normalizedBase：定义该变量以承载业务值。 */
   const normalizedBase = normalizeQiEfficiencyBp(baseBp);
+/** normalizedMultiplier：定义该变量以承载业务值。 */
   const normalizedMultiplier = normalizeQiEfficiencyBp(multiplierBp);
   return Math.max(0, Math.round((normalizedBase * normalizedMultiplier) / QI_PROJECTION_BP_SCALE));
 }

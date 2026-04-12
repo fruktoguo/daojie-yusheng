@@ -24,12 +24,14 @@ export function getTechniqueOptionLabel(
   option: GmEditorTechniqueOption,
   editorCatalog: EditorCatalog,
 ): string {
+/** realmLevelLabel：定义该变量以承载业务值。 */
   const realmLevelLabel = editorCatalog?.realmLevels.find((entry) => entry.realmLv === option.realmLv)?.displayName;
   return `${option.name}${option.grade ? ` · ${TECHNIQUE_GRADE_LABELS[option.grade] ?? option.grade}` : ''}${realmLevelLabel ? ` · ${realmLevelLabel}` : ''}`;
 }
 
 /** getItemOptionLabel：执行对应的业务逻辑。 */
 export function getItemOptionLabel(option: GmEditorItemOption): string {
+/** parts：定义该变量以承载业务值。 */
   const parts = [option.name];
   if (option.type === 'equipment' && option.equipSlot) {
     parts.push(EQUIP_SLOT_LABELS[option.equipSlot]);
@@ -41,12 +43,14 @@ export function getItemOptionLabel(option: GmEditorItemOption): string {
 
 /** getBuffOptionLabel：执行对应的业务逻辑。 */
 export function getBuffOptionLabel(option: GmEditorBuffOption): string {
+/** source：定义该变量以承载业务值。 */
   const source = option.sourceSkillName || option.sourceSkillId;
   return source ? `${option.name} · ${source}` : option.name;
 }
 
 /** getTechniqueCatalogOptions：执行对应的业务逻辑。 */
 export function getTechniqueCatalogOptions(editorCatalog: EditorCatalog, includeEmpty = false): Array<{ value: string; label: string }> {
+/** options：定义该变量以承载业务值。 */
   const options = editorCatalog?.techniques.map((option) => ({
     value: option.id,
     label: getTechniqueOptionLabel(option, editorCatalog),
@@ -59,6 +63,7 @@ export function getLearnedTechniqueOptions(
   techniques: TechniqueState[],
   includeEmpty = false,
 ): Array<{ value: string; label: string }> {
+/** options：定义该变量以承载业务值。 */
   const options = techniques.map((technique) => ({
     value: technique.techId,
     label: technique.name || technique.techId,
@@ -79,6 +84,7 @@ export function getItemCatalogOptions(
   editorCatalog: EditorCatalog,
   filter?: (option: GmEditorItemOption) => boolean,
 ): Array<{ value: string; label: string }> {
+/** items：定义该变量以承载业务值。 */
   const items = filter ? (editorCatalog?.items.filter(filter) ?? []) : (editorCatalog?.items ?? []);
   return items.map((option) => ({
     value: option.itemId,
@@ -88,6 +94,7 @@ export function getItemCatalogOptions(
 
 /** getBuffCatalogOptions：执行对应的业务逻辑。 */
 export function getBuffCatalogOptions(editorCatalog: EditorCatalog, selectedBuffId?: string): Array<{ value: string; label: string }> {
+/** options：定义该变量以承载业务值。 */
   const options = editorCatalog?.buffs.map((option) => ({
     value: option.buffId,
     label: getBuffOptionLabel(option),
@@ -131,10 +138,12 @@ export function createTechniqueFromCatalog(
   createDefaultTechnique: () => TechniqueState,
   clone: <T>(value: T) => T,
 ): TechniqueState {
+/** option：定义该变量以承载业务值。 */
   const option = findTechniqueCatalogEntry(editorCatalog, techId);
   if (!option) {
     return createDefaultTechnique();
   }
+/** initialExpToNext：定义该变量以承载业务值。 */
   const initialExpToNext = option.layers?.find((layer) => layer.level === 1)?.expToNext ?? 0;
   return {
     techId: option.id,
@@ -160,6 +169,7 @@ export function createItemFromCatalog(
   clone: <T>(value: T) => T,
   count = 1,
 ): ItemStack {
+/** option：定义该变量以承载业务值。 */
   const option = findItemCatalogEntry(editorCatalog, itemId);
   if (!option) {
     return createDefaultItem(itemId, count);
@@ -189,6 +199,7 @@ export function createBuffFromCatalog(
   clone: <T>(value: T) => T,
   current?: Pick<TemporaryBuffState, 'stacks' | 'remainingTicks'>,
 ): TemporaryBuffState {
+/** option：定义该变量以承载业务值。 */
   const option = findBuffCatalogEntry(editorCatalog, buffId);
   if (!option) {
     return {
@@ -199,6 +210,7 @@ export function createBuffFromCatalog(
     };
   }
 
+/** next：定义该变量以承载业务值。 */
   const next = clone(option) as TemporaryBuffState;
   next.duration = Math.max(1, next.duration);
   next.maxStacks = Math.max(1, next.maxStacks);
@@ -214,7 +226,9 @@ export function getTechniqueSummary(technique: TechniqueState): string {
 
 /** getTechniqueTemplateMaxLevel：执行对应的业务逻辑。 */
 export function getTechniqueTemplateMaxLevel(technique: TechniqueState, editorCatalog: EditorCatalog): number {
+/** catalogEntry：定义该变量以承载业务值。 */
   const catalogEntry = findTechniqueCatalogEntry(editorCatalog, technique.techId);
+/** levels：定义该变量以承载业务值。 */
   const levels = catalogEntry?.layers?.map((layer) => layer.level)
     ?? technique.layers?.map((layer) => layer.level)
     ?? [];
@@ -226,6 +240,7 @@ export function getTechniqueTemplateMaxLevel(technique: TechniqueState, editorCa
 
 /** getInventoryRowMeta：执行对应的业务逻辑。 */
 export function getInventoryRowMeta(item: ItemStack): string {
+/** parts：定义该变量以承载业务值。 */
   const parts = [ITEM_TYPE_LABELS[item.type] ?? item.type];
   if (item.type === 'equipment' && item.equipSlot) {
     parts.push(EQUIP_SLOT_LABELS[item.equipSlot] ?? item.equipSlot);
@@ -247,6 +262,7 @@ export function isServerManagedMailTemplate(templateId: string): boolean {
 
 /** getMailAttachmentRowMeta：执行对应的业务逻辑。 */
 export function getMailAttachmentRowMeta(editorCatalog: EditorCatalog, itemId: string): string {
+/** entry：定义该变量以承载业务值。 */
   const entry = findItemCatalogEntry(editorCatalog, itemId);
   if (!entry) {
     return itemId ? `未找到物品模板：${itemId}` : '请选择物品模板';

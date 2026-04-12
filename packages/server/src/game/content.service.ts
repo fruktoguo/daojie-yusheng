@@ -78,12 +78,19 @@ import { resolveServerDataPath } from '../common/data-path';
 
 /** TechniqueTemplate：定义该接口的能力与字段约束。 */
 interface TechniqueTemplate {
+/** id：定义该变量以承载业务值。 */
   id: string;
+/** name：定义该变量以承载业务值。 */
   name: string;
+/** skills：定义该变量以承载业务值。 */
   skills: SkillDef[];
+/** grade：定义该变量以承载业务值。 */
   grade: TechniqueGrade;
+/** category：定义该变量以承载业务值。 */
   category: TechniqueCategory;
+/** realmLv：定义该变量以承载业务值。 */
   realmLv: number;
+/** layers：定义该变量以承载业务值。 */
   layers: TechniqueLayerDef[];
 }
 
@@ -100,19 +107,29 @@ interface ItemTemplate extends Omit<ItemStack, 'count'> {
 
 /** EditorTechniqueCatalogEntry：定义该接口的能力与字段约束。 */
 export interface EditorTechniqueCatalogEntry {
+/** id：定义该变量以承载业务值。 */
   id: string;
+/** name：定义该变量以承载业务值。 */
   name: string;
+/** grade：定义该变量以承载业务值。 */
   grade: TechniqueGrade;
+/** category：定义该变量以承载业务值。 */
   category: TechniqueCategory;
+/** realmLv：定义该变量以承载业务值。 */
   realmLv: number;
+/** skills：定义该变量以承载业务值。 */
   skills: SkillDef[];
+/** layers：定义该变量以承载业务值。 */
   layers: TechniqueLayerDef[];
 }
 
 /** EditorItemCatalogEntry：定义该接口的能力与字段约束。 */
 export interface EditorItemCatalogEntry {
+/** itemId：定义该变量以承载业务值。 */
   itemId: string;
+/** name：定义该变量以承载业务值。 */
   name: string;
+/** type：定义该变量以承载业务值。 */
   type: ItemStack['type'];
   groundLabel?: string;
   grade?: TechniqueGrade;
@@ -141,22 +158,29 @@ export interface EditorItemCatalogEntry {
 
 /** StarterInventoryEntry：定义该接口的能力与字段约束。 */
 interface StarterInventoryEntry {
+/** itemId：定义该变量以承载业务值。 */
   itemId: string;
   count?: number;
 }
 
 /** MonsterTemplateDrop：定义该接口的能力与字段约束。 */
 export interface MonsterTemplateDrop {
+/** itemId：定义该变量以承载业务值。 */
   itemId: string;
+/** name：定义该变量以承载业务值。 */
   name: string;
+/** type：定义该变量以承载业务值。 */
   type: ItemType;
+/** count：定义该变量以承载业务值。 */
   count: number;
   chance?: number;
 }
 
 /** MonsterDropContext：定义该接口的能力与字段约束。 */
 interface MonsterDropContext {
+/** grade：定义该变量以承载业务值。 */
   grade: TechniqueGrade;
+/** tier：定义该变量以承载业务值。 */
   tier: MonsterTier;
   level?: number;
   monsterId?: string;
@@ -164,32 +188,55 @@ interface MonsterDropContext {
 
 /** MonsterTemplate：定义该接口的能力与字段约束。 */
 export interface MonsterTemplate {
+/** id：定义该变量以承载业务值。 */
   id: string;
+/** name：定义该变量以承载业务值。 */
   name: string;
+/** char：定义该变量以承载业务值。 */
   char: string;
+/** color：定义该变量以承载业务值。 */
   color: string;
+/** grade：定义该变量以承载业务值。 */
   grade: TechniqueGrade;
+/** attrs：定义该变量以承载业务值。 */
   attrs: Attributes;
+/** equipment：定义该变量以承载业务值。 */
   equipment: EquipmentSlots;
   statPercents?: NumericStatPercentages;
   initialBuffs?: MonsterInitialBuffDef[];
+/** skills：定义该变量以承载业务值。 */
   skills: string[];
+/** tier：定义该变量以承载业务值。 */
   tier: MonsterTier;
   valueStats?: PartialNumericStats;
+/** numericStats：定义该变量以承载业务值。 */
   numericStats: NumericStats;
+/** combatModel：定义该变量以承载业务值。 */
   combatModel: MonsterCombatModel;
+/** hp：定义该变量以承载业务值。 */
   hp: number;
+/** maxHp：定义该变量以承载业务值。 */
   maxHp: number;
+/** attack：定义该变量以承载业务值。 */
   attack: number;
+/** count：定义该变量以承载业务值。 */
   count: number;
+/** radius：定义该变量以承载业务值。 */
   radius: number;
+/** maxAlive：定义该变量以承载业务值。 */
   maxAlive: number;
+/** aggroRange：定义该变量以承载业务值。 */
   aggroRange: number;
+/** viewRange：定义该变量以承载业务值。 */
   viewRange: number;
+/** aggroMode：定义该变量以承载业务值。 */
   aggroMode: MonsterAggroMode;
+/** respawnTicks：定义该变量以承载业务值。 */
   respawnTicks: number;
   level?: number;
+/** expMultiplier：定义该变量以承载业务值。 */
   expMultiplier: number;
+/** drops：定义该变量以承载业务值。 */
   drops: MonsterTemplateDrop[];
 }
 
@@ -204,6 +251,7 @@ export interface ContainerLootPoolQuery {
 
 /** RawSkillDef：定义该接口的能力与字段约束。 */
 interface RawSkillDef extends Omit<SkillDef, 'unlockRealm' | 'unlockPlayerRealm' | 'effects' | 'cost'> {
+/** effects：定义该变量以承载业务值。 */
   effects: unknown;
   cost?: number;
   costMultiplier?: number;
@@ -213,6 +261,7 @@ interface RawSkillDef extends Omit<SkillDef, 'unlockRealm' | 'unlockPlayerRealm'
 
 /** RawSharedTechniqueBuffDef：定义该接口的能力与字段约束。 */
 interface RawSharedTechniqueBuffDef {
+/** id：定义该变量以承载业务值。 */
   id: string;
   target?: 'self' | 'target';
   buffId?: string;
@@ -277,12 +326,17 @@ interface RawTechniqueLayerDef extends Omit<TechniqueLayerDef, 'expToNext'> {
 
 /** RawTechniqueTemplate：定义该接口的能力与字段约束。 */
 interface RawTechniqueTemplate {
+/** id：定义该变量以承载业务值。 */
   id: string;
+/** name：定义该变量以承载业务值。 */
   name: string;
+/** grade：定义该变量以承载业务值。 */
   grade: TechniqueGrade;
   category?: TechniqueCategory;
   realmLv?: number;
+/** layers：定义该变量以承载业务值。 */
   layers: RawTechniqueLayerDef[];
+/** skills：定义该变量以承载业务值。 */
   skills: RawSkillDef[];
 }
 
@@ -291,53 +345,83 @@ type RealmSegmentId = 'martial' | 'immortal' | 'ascended';
 
 /** RealmLevelEntry：定义该接口的能力与字段约束。 */
 export interface RealmLevelEntry {
+/** realmLv：定义该变量以承载业务值。 */
   realmLv: number;
+/** displayName：定义该变量以承载业务值。 */
   displayName: string;
+/** name：定义该变量以承载业务值。 */
   name: string;
+/** phaseName：定义该变量以承载业务值。 */
   phaseName: string | null;
+/** segment：定义该变量以承载业务值。 */
   segment: RealmSegmentId;
+/** path：定义该变量以承载业务值。 */
   path: RealmSegmentId;
+/** grade：定义该变量以承载业务值。 */
   grade: TechniqueGrade;
+/** gradeLabel：定义该变量以承载业务值。 */
   gradeLabel: string;
+/** review：定义该变量以承载业务值。 */
   review: string;
+/** lifespanYears：定义该变量以承载业务值。 */
   lifespanYears: number;
   expToNext?: number;
 }
 
 /** RealmLevelBand：定义该接口的能力与字段约束。 */
 interface RealmLevelBand {
+/** grade：定义该变量以承载业务值。 */
   grade: TechniqueGrade;
+/** gradeLabel：定义该变量以承载业务值。 */
   gradeLabel: string;
+/** levelFrom：定义该变量以承载业务值。 */
   levelFrom: number;
+/** levelTo：定义该变量以承载业务值。 */
   levelTo: number;
 }
 
 /** RealmLevelSegment：定义该接口的能力与字段约束。 */
 interface RealmLevelSegment {
+/** id：定义该变量以承载业务值。 */
   id: RealmSegmentId;
+/** label：定义该变量以承载业务值。 */
   label: string;
+/** levelFrom：定义该变量以承载业务值。 */
   levelFrom: number;
+/** levelTo：定义该变量以承载业务值。 */
   levelTo: number;
+/** rule：定义该变量以承载业务值。 */
   rule: string;
 }
 
 /** RealmLevelsConfig：定义该接口的能力与字段约束。 */
 interface RealmLevelsConfig {
+/** version：定义该变量以承载业务值。 */
   version: number;
+/** baseLevelKey：定义该变量以承载业务值。 */
   baseLevelKey: string;
   expMultiplier?: number;
+/** gradeSpan：定义该变量以承载业务值。 */
   gradeSpan: number;
+/** immortalStageSpan：定义该变量以承载业务值。 */
   immortalStageSpan: number;
+/** segments：定义该变量以承载业务值。 */
   segments: RealmLevelSegment[];
+/** gradeBands：定义该变量以承载业务值。 */
   gradeBands: RealmLevelBand[];
+/** levels：定义该变量以承载业务值。 */
   levels: RealmLevelEntry[];
 }
 
 /** RawBreakthroughItemRequirement：定义该类型的结构与数据语义。 */
 type RawBreakthroughItemRequirement = {
+/** id：定义该变量以承载业务值。 */
   id: string;
+/** type：定义该变量以承载业务值。 */
   type: 'item';
+/** itemId：定义该变量以承载业务值。 */
   itemId: string;
+/** count：定义该变量以承载业务值。 */
   count: number;
   label?: string;
   hidden?: boolean;
@@ -346,7 +430,9 @@ type RawBreakthroughItemRequirement = {
 
 /** RawBreakthroughTechniqueRequirement：定义该类型的结构与数据语义。 */
 type RawBreakthroughTechniqueRequirement = {
+/** id：定义该变量以承载业务值。 */
   id: string;
+/** type：定义该变量以承载业务值。 */
   type: 'technique';
   techniqueId?: string;
   minGrade?: TechniqueGrade;
@@ -360,9 +446,13 @@ type RawBreakthroughTechniqueRequirement = {
 
 /** RawBreakthroughAttributeRequirement：定义该类型的结构与数据语义。 */
 type RawBreakthroughAttributeRequirement = {
+/** id：定义该变量以承载业务值。 */
   id: string;
+/** type：定义该变量以承载业务值。 */
   type: 'attribute';
+/** attr：定义该变量以承载业务值。 */
   attr: AttrKey;
+/** minValue：定义该变量以承载业务值。 */
   minValue: number;
   label?: string;
   hidden?: boolean;
@@ -370,9 +460,12 @@ type RawBreakthroughAttributeRequirement = {
 
 /** RawBreakthroughRootRequirement：定义该类型的结构与数据语义。 */
 type RawBreakthroughRootRequirement = {
+/** id：定义该变量以承载业务值。 */
   id: string;
+/** type：定义该变量以承载业务值。 */
   type: 'root';
   element?: ElementKey;
+/** minValue：定义该变量以承载业务值。 */
   minValue: number;
   label?: string;
   hidden?: boolean;
@@ -394,16 +487,21 @@ export type BreakthroughRequirementDef =
 
 /** BreakthroughConfigEntry：定义该接口的能力与字段约束。 */
 export interface BreakthroughConfigEntry {
+/** fromRealmLv：定义该变量以承载业务值。 */
   fromRealmLv: number;
+/** toRealmLv：定义该变量以承载业务值。 */
   toRealmLv: number;
   title?: string;
+/** requirements：定义该变量以承载业务值。 */
   requirements: BreakthroughRequirementDef[];
 }
 
 /** BreakthroughConfigFile：定义该接口的能力与字段约束。 */
 interface BreakthroughConfigFile {
+/** version：定义该变量以承载业务值。 */
   version: number;
   transitions: Array<{
+/** fromRealmLv：定义该变量以承载业务值。 */
     fromRealmLv: number;
     toRealmLv?: number;
     title?: string;
@@ -421,6 +519,7 @@ function normalizeStringArray(value: unknown): string[] | undefined {
   if (!Array.isArray(value)) {
     return undefined;
   }
+/** normalized：定义该变量以承载业务值。 */
   const normalized = [...new Set(value.filter((entry): entry is string => typeof entry === 'string' && entry.trim().length > 0).map((entry) => entry.trim()))];
   return normalized.length > 0 ? normalized : undefined;
 }
@@ -430,10 +529,12 @@ function normalizeQiKeyArray<T extends string>(value: unknown, allowed: readonly
   if (!Array.isArray(value)) {
     return undefined;
   }
+/** normalized：定义该变量以承载业务值。 */
   const normalized = [...new Set(value.filter((entry): entry is T => typeof entry === 'string' && allowed.includes(entry as T)))];
   return normalized.length > 0 ? normalized : undefined;
 }
 
+/** ITEM_TYPE_TAGS：定义该变量以承载业务值。 */
 const ITEM_TYPE_TAGS: Record<ItemType, string[]> = {
   consumable: ['消耗品'],
   equipment: ['装备'],
@@ -442,6 +543,7 @@ const ITEM_TYPE_TAGS: Record<ItemType, string[]> = {
   skill_book: ['功法', '书籍'],
 };
 
+/** EQUIP_SLOT_TAGS：定义该变量以承载业务值。 */
 const EQUIP_SLOT_TAGS: Record<EquipSlot, string[]> = {
   weapon: ['武器'],
   head: ['护甲', '头部护甲'],
@@ -450,6 +552,7 @@ const EQUIP_SLOT_TAGS: Record<EquipSlot, string[]> = {
   accessory: ['饰品'],
 };
 
+/** ITEM_TAG_OVERRIDES：定义该变量以承载业务值。 */
 const ITEM_TAG_OVERRIDES: Partial<Record<string, string[]>> = {
   'pill.minor_heal': ['基础药品', '外伤药'],
   minor_qi_pill: ['疗伤丹'],
@@ -467,6 +570,7 @@ const ITEM_TAG_OVERRIDES: Partial<Record<string, string[]>> = {
   'book.iron_bone_art': ['炼体'],
 };
 
+/** CULTIVATION_PILL_ITEM_IDS：定义该变量以承载业务值。 */
 const CULTIVATION_PILL_ITEM_IDS = new Set([
   'pill.bitter_cultivation_elixir',
   'pill.guiding_powder',
@@ -496,6 +600,7 @@ function isCultivationPill(item: ItemTemplate): boolean {
     return true;
   }
   return (item.consumeBuffs ?? []).some((buff) => {
+/** valueStats：定义该变量以承载业务值。 */
     const valueStats = buff.valueStats;
     return typeof valueStats?.realmExpPerTick === 'number'
       || typeof valueStats?.techniqueExpPerTick === 'number';
@@ -535,6 +640,7 @@ function isSpecialMedicine(item: ItemTemplate): boolean {
     && !isBuffMedicine(item);
 }
 
+/** ITEM_NAME_TAG_RULES：定义该变量以承载业务值。 */
 const ITEM_NAME_TAG_RULES: Array<{ tag: string; test: (item: ItemTemplate) => boolean }> = [
   {
     tag: '药品',
@@ -587,9 +693,11 @@ export class ContentService implements OnModuleInit {
   private readonly monsters = new Map<string, MonsterTemplate>();
   private readonly sharedTechniqueBuffs = new Map<string, Extract<SkillEffectDef, { type: 'buff' }>>();
   private loaded = false;
+/** realmLevelsConfig：定义该变量以承载业务值。 */
   private realmLevelsConfig: RealmLevelsConfig | null = null;
   private readonly realmLevels = new Map<number, RealmLevelEntry>();
   private readonly breakthroughConfigs = new Map<number, BreakthroughConfigEntry>();
+/** starterInventoryEntries：定义该变量以承载业务值。 */
   private starterInventoryEntries: StarterInventoryEntry[] = [];
   private readonly contentDir = resolveServerDataPath('content');
   private readonly sharedTechniqueBuffsDir = path.join(this.contentDir, 'technique-buffs');
@@ -600,10 +708,12 @@ export class ContentService implements OnModuleInit {
   private readonly realmLevelsPath = path.join(this.contentDir, 'realm-levels.json');
   private readonly breakthroughConfigPath = path.join(this.contentDir, 'breakthroughs.json');
 
+/** onModuleInit：执行对应的业务逻辑。 */
   onModuleInit(): void {
     this.ensureLoaded();
   }
 
+/** ensureLoaded：执行对应的业务逻辑。 */
   ensureLoaded(): void {
     if (this.loaded) {
       return;
@@ -612,6 +722,7 @@ export class ContentService implements OnModuleInit {
     this.loaded = true;
   }
 
+/** loadContent：执行对应的业务逻辑。 */
   private loadContent(): void {
     this.techniques.clear();
     this.items.clear();
@@ -627,31 +738,37 @@ export class ContentService implements OnModuleInit {
     this.applyDerivedAlchemyMaterialTags();
     this.loadStarterInventory();
     this.loadBreakthroughConfigs();
+/** monsterTechniqueCount：定义该变量以承载业务值。 */
     let monsterTechniqueCount = 0;
     for (const techniqueId of this.techniques.keys()) {
       if (techniqueId.startsWith('monster_')) {
         monsterTechniqueCount += 1;
       }
     }
+/** playerTechniqueCount：定义该变量以承载业务值。 */
     const playerTechniqueCount = this.techniques.size - monsterTechniqueCount;
     this.logger.log(
       `内容已加载：玩家功法 ${playerTechniqueCount} 条，怪物功法 ${monsterTechniqueCount} 条，总功法 ${this.techniques.size} 条，物品 ${this.items.size} 条，怪物 ${this.monsters.size} 条，境界 ${this.realmLevels.size} 条，突破配置 ${this.breakthroughConfigs.size} 条`,
     );
   }
 
+/** loadTechniques：执行对应的业务逻辑。 */
   private loadTechniques(): void {
     for (const raw of this.readJsonEntries<RawTechniqueTemplate>(this.techniquesDir)) {
       const realmLv = this.normalizeTechniqueRealmLevel(raw.realmLv, raw.grade);
       const category = this.normalizeTechniqueCategory(raw.category, raw.skills);
+/** layers：定义该变量以承载业务值。 */
       const layers = [...(raw.layers ?? [])]
         .map((layer) => ({
           ...layer,
           attrs: this.normalizeTechniqueLayerAttrs(layer.attrs),
+/** expToNext：定义该变量以承载业务值。 */
           expToNext: layer.expFactor === undefined
             ? Math.max(0, layer.expToNext ?? 0)
             : scaleTechniqueExp(layer.expFactor, realmLv),
         }))
         .sort((left, right) => left.level - right.level);
+/** technique：定义该变量以承载业务值。 */
       const technique: TechniqueTemplate = {
         id: raw.id,
         name: raw.name,
@@ -660,11 +777,14 @@ export class ContentService implements OnModuleInit {
         realmLv,
         layers,
         skills: raw.skills.map((skill) => {
+/** unlockRealm：定义该变量以承载业务值。 */
           const unlockRealm = skill.unlockRealm === undefined ? undefined : this.parseTechniqueRealm(skill.unlockRealm);
+/** unlockLevel：定义该变量以承载业务值。 */
           const unlockLevel = resolveSkillUnlockLevel({
             unlockLevel: skill.unlockLevel,
             unlockRealm,
           });
+/** costMultiplier：定义该变量以承载业务值。 */
           const costMultiplier = this.normalizeSkillCostMultiplier(skill);
           return {
             ...skill,
@@ -677,6 +797,7 @@ export class ContentService implements OnModuleInit {
             effects: this.normalizeSkillEffects(skill.effects),
             unlockLevel,
             unlockRealm,
+/** unlockPlayerRealm：定义该变量以承载业务值。 */
             unlockPlayerRealm: skill.unlockPlayerRealm === undefined
               ? undefined
               : this.parsePlayerRealmStage(skill.unlockPlayerRealm),
@@ -687,6 +808,7 @@ export class ContentService implements OnModuleInit {
     }
   }
 
+/** loadSharedTechniqueBuffs：执行对应的业务逻辑。 */
   private loadSharedTechniqueBuffs(): void {
     if (!fs.existsSync(this.sharedTechniqueBuffsDir)) {
       return;
@@ -695,6 +817,7 @@ export class ContentService implements OnModuleInit {
       if (typeof raw.id !== 'string' || raw.id.trim().length === 0) {
         continue;
       }
+/** effect：定义该变量以承载业务值。 */
       const effect = this.normalizeRawSkillBuffEffect({
         ...raw,
         type: 'buff',
@@ -706,23 +829,29 @@ export class ContentService implements OnModuleInit {
     }
   }
 
+/** normalizeSkillCostMultiplier：执行对应的业务逻辑。 */
   private normalizeSkillCostMultiplier(skill: RawSkillDef): number {
+/** raw：定义该变量以承载业务值。 */
     const raw = skill.costMultiplier ?? skill.cost ?? 0;
     return Number.isFinite(raw) ? Math.max(0, Number(raw)) : 0;
   }
 
+/** normalizeTechniqueRealmLevel：执行对应的业务逻辑。 */
   private normalizeTechniqueRealmLevel(realmLv: number | undefined, grade: TechniqueGrade): number {
     if (Number.isFinite(realmLv)) {
       return Math.max(1, Math.floor(Number(realmLv)));
     }
+/** configured：定义该变量以承载业务值。 */
     const configured = this.realmLevelsConfig?.gradeBands.find((entry) => entry.grade === grade);
     if (configured) {
       return Math.max(1, configured.levelFrom);
     }
+/** fallbackGradeIndex：定义该变量以承载业务值。 */
     const fallbackGradeIndex = Math.max(0, TECHNIQUE_GRADE_ORDER.indexOf(grade));
     return fallbackGradeIndex * 12 + 1;
   }
 
+/** normalizeTechniqueCategory：执行对应的业务逻辑。 */
   private normalizeTechniqueCategory(category: TechniqueCategory | undefined, skills: RawSkillDef[]): TechniqueCategory {
     if (category === 'arts' || category === 'internal' || category === 'divine' || category === 'secret') {
       return category;
@@ -730,15 +859,18 @@ export class ContentService implements OnModuleInit {
     return skills.length > 0 ? 'arts' : 'internal';
   }
 
+/** normalizeTechniqueLayerAttrs：执行对应的业务逻辑。 */
   private normalizeTechniqueLayerAttrs(attrs: TechniqueLayerDef['attrs']): TechniqueLayerDef['attrs'] {
     if (!attrs) return attrs;
     return { ...attrs };
   }
 
+/** normalizeItemAttrs：执行对应的业务逻辑。 */
   private normalizeItemAttrs(attrs: unknown): Partial<Attributes> | undefined {
     if (!isPlainObject(attrs)) {
       return undefined;
     }
+/** normalized：定义该变量以承载业务值。 */
     const normalized: Partial<Attributes> = {};
     for (const key of ATTR_KEYS) {
       const value = attrs[key];
@@ -748,10 +880,12 @@ export class ContentService implements OnModuleInit {
     return Object.keys(normalized).length > 0 ? normalized : undefined;
   }
 
+/** normalizeItemStats：执行对应的业务逻辑。 */
   private normalizeItemStats(stats: unknown): ItemStack['equipStats'] {
     if (!isPlainObject(stats)) {
       return undefined;
     }
+/** normalized：定义该变量以承载业务值。 */
     const normalized: NonNullable<ItemStack['equipStats']> = {};
     for (const key of NUMERIC_SCALAR_STAT_KEYS) {
       const value = stats[key];
@@ -759,6 +893,7 @@ export class ContentService implements OnModuleInit {
       normalized[key] = Number(value);
     }
     if (isPlainObject(stats.elementDamageBonus)) {
+/** group：定义该变量以承载业务值。 */
       const group: NonNullable<ItemStack['equipStats']>['elementDamageBonus'] = {};
       for (const key of ELEMENT_KEYS) {
         const value = stats.elementDamageBonus[key];
@@ -770,6 +905,7 @@ export class ContentService implements OnModuleInit {
       }
     }
     if (isPlainObject(stats.elementDamageReduce)) {
+/** group：定义该变量以承载业务值。 */
       const group: NonNullable<ItemStack['equipStats']>['elementDamageReduce'] = {};
       for (const key of ELEMENT_KEYS) {
         const value = stats.elementDamageReduce[key];
@@ -783,6 +919,7 @@ export class ContentService implements OnModuleInit {
     return Object.keys(normalized).length > 0 ? normalized : undefined;
   }
 
+/** createItemStackFromTemplate：执行对应的业务逻辑。 */
   private createItemStackFromTemplate(item: ItemTemplate, count = 1): ItemStack {
     return applyEnhancementToItemStack({
       itemId: item.itemId,
@@ -814,7 +951,9 @@ export class ContentService implements OnModuleInit {
     });
   }
 
+/** normalizeMonsterEquipment：执行对应的业务逻辑。 */
   private normalizeMonsterEquipment(rawEquipment: unknown, monsterId: string): EquipmentSlots {
+/** normalized：定义该变量以承载业务值。 */
     const normalized = { weapon: null, head: null, body: null, legs: null, accessory: null } as EquipmentSlots;
     if (!isPlainObject(rawEquipment)) {
       return normalized;
@@ -828,6 +967,7 @@ export class ContentService implements OnModuleInit {
       if (!itemId) {
         continue;
       }
+/** item：定义该变量以承载业务值。 */
       const item = this.items.get(itemId);
       if (!item) {
         this.logger.warn(`怪物 ${monsterId} 配置了不存在的装备 ${itemId}，已忽略`);
@@ -848,13 +988,16 @@ export class ContentService implements OnModuleInit {
     equipment: EquipmentSlots,
     context: MonsterDropContext,
   ): MonsterTemplateDrop[] {
+/** drops：定义该变量以承载业务值。 */
     const drops: MonsterTemplateDrop[] = [];
     if (Array.isArray(configuredDrops)) {
       for (const drop of configuredDrops) {
         if (!isPlainObject(drop) || typeof drop.itemId !== 'string') {
           continue;
         }
+/** itemId：定义该变量以承载业务值。 */
         const itemId = drop.itemId.trim();
+/** item：定义该变量以承载业务值。 */
         const item = this.items.get(itemId);
         if (!item) {
           this.logger.warn(
@@ -875,7 +1018,9 @@ export class ContentService implements OnModuleInit {
       }
     }
 
+/** spiritStoneOverride：定义该变量以承载业务值。 */
     let spiritStoneOverride: MonsterTemplateDrop | undefined;
+/** nonSpiritDrops：定义该变量以承载业务值。 */
     const nonSpiritDrops: MonsterTemplateDrop[] = [];
     for (const drop of drops) {
       if (drop.itemId === 'spirit_stone') {
@@ -885,6 +1030,7 @@ export class ContentService implements OnModuleInit {
       nonSpiritDrops.push(this.resolveMonsterDropChance(drop, context));
     }
 
+/** existingItemIds：定义该变量以承载业务值。 */
     const existingItemIds = new Set(nonSpiritDrops.map((drop) => drop.itemId));
     for (const item of Object.values(equipment)) {
       if (!item || existingItemIds.has(item.itemId)) {
@@ -899,6 +1045,7 @@ export class ContentService implements OnModuleInit {
       existingItemIds.add(item.itemId);
     }
 
+/** spiritStoneDrop：定义该变量以承载业务值。 */
     const spiritStoneDrop = this.buildSpiritStoneMonsterDrop(context, spiritStoneOverride);
     if (spiritStoneDrop) {
       nonSpiritDrops.push(spiritStoneDrop);
@@ -907,6 +1054,7 @@ export class ContentService implements OnModuleInit {
     return nonSpiritDrops;
   }
 
+/** resolveMonsterDropChance：执行对应的业务逻辑。 */
   private resolveMonsterDropChance(drop: MonsterTemplateDrop, context: MonsterDropContext): MonsterTemplateDrop {
     if (Number.isFinite(drop.chance)) {
       return {
@@ -920,21 +1068,30 @@ export class ContentService implements OnModuleInit {
     };
   }
 
+/** computeDefaultMonsterDropChance：执行对应的业务逻辑。 */
   private computeDefaultMonsterDropChance(drop: MonsterTemplateDrop, context: MonsterDropContext): number {
     if (drop.type === 'quest_item') {
       return 1;
     }
 
+/** categoryBase：定义该变量以承载业务值。 */
     const categoryBase = this.getMonsterDropCategoryBase(drop);
+/** itemGrade：定义该变量以承载业务值。 */
     const itemGrade = this.getMonsterDropItemGrade(drop);
+/** monsterGradeIndex：定义该变量以承载业务值。 */
     const monsterGradeIndex = TECHNIQUE_GRADE_ORDER.indexOf(context.grade);
+/** itemGradeIndex：定义该变量以承载业务值。 */
     const itemGradeIndex = TECHNIQUE_GRADE_ORDER.indexOf(itemGrade);
+/** gradeDelta：定义该变量以承载业务值。 */
     const gradeDelta = Math.max(-7, monsterGradeIndex - itemGradeIndex);
+/** tierFactor：定义该变量以承载业务值。 */
     const tierFactor = this.getMonsterTierDropFactor(context.tier);
+/** chance：定义该变量以承载业务值。 */
     const chance = 0.01 * categoryBase * (3 ** gradeDelta) * tierFactor;
     return Math.max(Number.MIN_VALUE, Math.min(1, chance));
   }
 
+/** getMonsterDropCategoryBase：执行对应的业务逻辑。 */
   private getMonsterDropCategoryBase(drop: Pick<MonsterTemplateDrop, 'itemId' | 'type'>): number {
     if (drop.itemId === 'spirit_stone') {
       return 1;
@@ -955,6 +1112,7 @@ export class ContentService implements OnModuleInit {
     }
   }
 
+/** getMonsterTierDropFactor：执行对应的业务逻辑。 */
   private getMonsterTierDropFactor(tier: MonsterTier): number {
     switch (tier) {
       case 'variant':
@@ -966,7 +1124,9 @@ export class ContentService implements OnModuleInit {
     }
   }
 
+/** getMonsterDropItemGrade：执行对应的业务逻辑。 */
   private getMonsterDropItemGrade(drop: Pick<MonsterTemplateDrop, 'itemId' | 'type'>): TechniqueGrade {
+/** item：定义该变量以承载业务值。 */
     const item = this.items.get(drop.itemId);
     if (item?.grade) {
       return item.grade;
@@ -980,7 +1140,9 @@ export class ContentService implements OnModuleInit {
     return 'mortal';
   }
 
+/** inferTechniqueGradeFromItemLevel：执行对应的业务逻辑。 */
   private inferTechniqueGradeFromItemLevel(level: number): TechniqueGrade {
+/** normalizedLevel：定义该变量以承载业务值。 */
     const normalizedLevel = Math.max(1, Math.trunc(level));
     if (normalizedLevel >= 85) return 'emperor';
     if (normalizedLevel >= 73) return 'saint';
@@ -996,13 +1158,16 @@ export class ContentService implements OnModuleInit {
     context: MonsterDropContext,
     override?: MonsterTemplateDrop,
   ): MonsterTemplateDrop | null {
+/** item：定义该变量以承载业务值。 */
     const item = this.items.get('spirit_stone');
     if (!item) {
       return null;
     }
+/** count：定义该变量以承载业务值。 */
     const count = Number.isFinite(override?.count)
       ? Math.max(1, Math.trunc(Number(override?.count)))
       : this.computeSpiritStoneDropCount(context);
+/** chance：定义该变量以承载业务值。 */
     const chance = Number.isFinite(override?.chance)
       ? Math.max(0, Math.min(1, Number(override?.chance)))
       : this.computeSpiritStoneDropChance(context.tier);
@@ -1015,6 +1180,7 @@ export class ContentService implements OnModuleInit {
     };
   }
 
+/** computeSpiritStoneDropChance：执行对应的业务逻辑。 */
   private computeSpiritStoneDropChance(tier: MonsterTier): number {
     switch (tier) {
       case 'variant':
@@ -1026,13 +1192,18 @@ export class ContentService implements OnModuleInit {
     }
   }
 
+/** computeSpiritStoneDropCount：执行对应的业务逻辑。 */
   private computeSpiritStoneDropCount(context: MonsterDropContext): number {
+/** gradeIndex：定义该变量以承载业务值。 */
     const gradeIndex = Math.max(0, TECHNIQUE_GRADE_ORDER.indexOf(context.grade));
+/** level：定义该变量以承载业务值。 */
     const level = Number.isFinite(context.level) ? Math.max(1, Math.trunc(Number(context.level))) : 1;
     return Math.max(1, Math.floor(1 + (gradeIndex * 0.5) + (Math.floor(level / 12) * 0.5)));
   }
 
+/** resolveConfiguredStats：执行对应的业务逻辑。 */
   private resolveConfiguredStats(actualStats: unknown, valueStats: unknown): ItemStack['equipStats'] {
+/** configuredValueStats：定义该变量以承载业务值。 */
     const configuredValueStats = this.normalizeItemStats(valueStats);
     if (configuredValueStats) {
       return compileValueStatsToActualStats(configuredValueStats);
@@ -1048,6 +1219,7 @@ export class ContentService implements OnModuleInit {
     if (mode === 'flat') {
       return this.resolveConfiguredStats(actualStats, valueStats);
     }
+/** normalizedActualStats：定义该变量以承载业务值。 */
     const normalizedActualStats = this.normalizeItemStats(actualStats);
     if (normalizedActualStats) {
       return normalizedActualStats;
@@ -1055,34 +1227,42 @@ export class ContentService implements OnModuleInit {
     return this.normalizeItemStats(valueStats);
   }
 
+/** normalizeBuffModifierMode：执行对应的业务逻辑。 */
   private normalizeBuffModifierMode(mode: unknown): BuffModifierMode {
     return mode === 'flat' ? 'flat' : 'percent';
   }
 
+/** normalizeQiProjectionModifiers：执行对应的业务逻辑。 */
   private normalizeQiProjectionModifiers(input: unknown): QiProjectionModifier[] | undefined {
     if (!Array.isArray(input)) {
       return undefined;
     }
+/** modifiers：定义该变量以承载业务值。 */
     const modifiers = input.flatMap((entry) => {
       if (!isPlainObject(entry)) {
         return [];
       }
+/** selector：定义该变量以承载业务值。 */
       const selector = isPlainObject(entry.selector) ? entry.selector : undefined;
+/** normalizedSelector：定义该变量以承载业务值。 */
       const normalizedSelector = selector ? {
         resourceKeys: normalizeStringArray(selector.resourceKeys),
         families: normalizeQiKeyArray(selector.families, QI_FAMILY_KEYS) as QiFamilyKey[] | undefined,
         forms: normalizeQiKeyArray(selector.forms, QI_FORM_KEYS) as QiFormKey[] | undefined,
         elements: normalizeQiKeyArray(selector.elements, QI_ELEMENT_KEYS) as QiElementKey[] | undefined,
       } : undefined;
+/** hasSelector：定义该变量以承载业务值。 */
       const hasSelector = normalizedSelector && (
         normalizedSelector.resourceKeys
         || normalizedSelector.families
         || normalizedSelector.forms
         || normalizedSelector.elements
       );
+/** visibility：定义该变量以承载业务值。 */
       const visibility = entry.visibility === 'observable' || entry.visibility === 'absorbable'
         ? entry.visibility
         : undefined;
+/** efficiencyBpMultiplier：定义该变量以承载业务值。 */
       const efficiencyBpMultiplier = Number.isFinite(entry.efficiencyBpMultiplier)
         ? Math.max(0, Math.round(Number(entry.efficiencyBpMultiplier)))
         : undefined;
@@ -1098,43 +1278,52 @@ export class ContentService implements OnModuleInit {
     return modifiers.length > 0 ? modifiers : undefined;
   }
 
+/** normalizeEquipmentConditionGroup：执行对应的业务逻辑。 */
   private normalizeEquipmentConditionGroup(input: unknown): EquipmentConditionGroup | undefined {
     if (!isPlainObject(input) || !Array.isArray(input.items)) {
       return undefined;
     }
+/** items：定义该变量以承载业务值。 */
     const items = input.items
       .flatMap((entry) => this.normalizeEquipmentCondition(entry));
     if (items.length === 0) {
       return undefined;
     }
     return {
+/** mode：定义该变量以承载业务值。 */
       mode: input.mode === 'any' ? 'any' : 'all',
       items,
     };
   }
 
+/** normalizeEquipmentCondition：执行对应的业务逻辑。 */
   private normalizeEquipmentCondition(input: unknown): EquipmentConditionDef[] {
     if (!isPlainObject(input) || typeof input.type !== 'string') {
       return [];
     }
     switch (input.type) {
       case 'time_segment': {
+/** phases：定义该变量以承载业务值。 */
         const phases = Array.isArray(input.in)
           ? input.in.filter((entry): entry is TimePhaseId => typeof entry === 'string' && TIME_PHASE_IDS.includes(entry as TimePhaseId))
           : [];
         return phases.length > 0 ? [{ type: 'time_segment', in: phases }] : [];
       }
       case 'map': {
+/** mapIds：定义该变量以承载业务值。 */
         const mapIds = normalizeStringArray(input.mapIds);
         return mapIds ? [{ type: 'map', mapIds }] : [];
       }
       case 'hp_ratio':
       case 'qi_ratio': {
+/** op：定义该变量以承载业务值。 */
         const op = input.op === '>=' ? '>=' : input.op === '<=' ? '<=' : null;
+/** rawValue：定义该变量以承载业务值。 */
         const rawValue = Number(input.value);
         if (!op || !Number.isFinite(rawValue)) {
           return [];
         }
+/** value：定义该变量以承载业务值。 */
         const value = rawValue > 1 ? rawValue / 100 : rawValue;
         return value >= 0 ? [{ type: input.type, op, value: Math.min(1, value) }] : [];
       }
@@ -1152,6 +1341,7 @@ export class ContentService implements OnModuleInit {
         }];
       }
       case 'target_kind': {
+/** targetKinds：定义该变量以承载业务值。 */
         const targetKinds = Array.isArray(input.in)
           ? input.in.filter((entry): entry is 'monster' | 'player' | 'tile' => entry === 'monster' || entry === 'player' || entry === 'tile')
           : [];
@@ -1162,21 +1352,26 @@ export class ContentService implements OnModuleInit {
     }
   }
 
+/** normalizeEquipmentEffects：执行对应的业务逻辑。 */
   private normalizeEquipmentEffects(input: unknown, itemId: string): EquipmentEffectDef[] | undefined {
     if (!Array.isArray(input)) {
       return undefined;
     }
+/** effects：定义该变量以承载业务值。 */
     const effects = input.flatMap((entry, index) => this.normalizeEquipmentEffect(entry, itemId, index));
     return effects.length > 0 ? effects : undefined;
   }
 
+/** normalizeEquipmentEffect：执行对应的业务逻辑。 */
   private normalizeEquipmentEffect(input: unknown, itemId: string, index: number): EquipmentEffectDef[] {
     if (!isPlainObject(input) || typeof input.type !== 'string') {
       return [];
     }
+/** effectId：定义该变量以承载业务值。 */
     const effectId = typeof input.effectId === 'string' && input.effectId.trim().length > 0
       ? input.effectId.trim()
       : `${itemId}#${index + 1}`;
+/** conditions：定义该变量以承载业务值。 */
     const conditions = this.normalizeEquipmentConditionGroup(input.conditions);
 
     switch (input.type) {
@@ -1207,14 +1402,18 @@ export class ContentService implements OnModuleInit {
           qiProjection: this.normalizeQiProjectionModifiers(input.qiProjection),
         }];
       case 'periodic_cost': {
+/** trigger：定义该变量以承载业务值。 */
         const trigger = input.trigger === 'on_cultivation_tick' ? 'on_cultivation_tick' : input.trigger === 'on_tick' ? 'on_tick' : null;
         if (!trigger) {
           return [];
         }
+/** resource：定义该变量以承载业务值。 */
         const resource = input.resource === 'qi' ? 'qi' : input.resource === 'hp' ? 'hp' : null;
+/** mode：定义该变量以承载业务值。 */
         const mode = input.mode === 'max_ratio_bp' || input.mode === 'current_ratio_bp' || input.mode === 'flat'
           ? input.mode
           : null;
+/** value：定义该变量以承载业务值。 */
         const value = Number(input.value);
         if (!resource || !mode || !Number.isFinite(value) || value <= 0) {
           return [];
@@ -1231,9 +1430,11 @@ export class ContentService implements OnModuleInit {
         }];
       }
       case 'timed_buff': {
+/** trigger：定义该变量以承载业务值。 */
         const trigger = EQUIPMENT_TRIGGERS.includes(input.trigger as EquipmentTrigger)
           ? input.trigger as EquipmentTrigger
           : null;
+/** buff：定义该变量以承载业务值。 */
         const buff = isPlainObject(input.buff) ? input.buff : null;
         if (!trigger || !buff || typeof buff.buffId !== 'string' || buff.buffId.trim().length === 0 || typeof buff.name !== 'string' || !Number.isFinite(buff.duration)) {
           return [];
@@ -1242,6 +1443,7 @@ export class ContentService implements OnModuleInit {
           effectId,
           type: 'timed_buff',
           trigger,
+/** target：定义该变量以承载业务值。 */
           target: input.target === 'target' ? 'target' : 'self',
           cooldown: Number.isFinite(input.cooldown) ? Math.max(0, Math.floor(Number(input.cooldown))) : undefined,
           chance: Number.isFinite(input.chance) ? Math.max(0, Math.min(1, Number(input.chance))) : undefined,
@@ -1250,12 +1452,17 @@ export class ContentService implements OnModuleInit {
             // Buff 默认走百分比乘区；只有显式声明 flat 时才按固定值解析 valueStats。
             buffId: buff.buffId.trim(),
             name: buff.name,
+/** desc：定义该变量以承载业务值。 */
             desc: typeof buff.desc === 'string' ? buff.desc : undefined,
+/** shortMark：定义该变量以承载业务值。 */
             shortMark: typeof buff.shortMark === 'string' ? buff.shortMark : undefined,
+/** category：定义该变量以承载业务值。 */
             category: buff.category === 'debuff' ? 'debuff' : buff.category === 'buff' ? 'buff' : undefined,
+/** visibility：定义该变量以承载业务值。 */
             visibility: buff.visibility === 'hidden' || buff.visibility === 'observe_only' || buff.visibility === 'public'
               ? buff.visibility
               : undefined,
+/** color：定义该变量以承载业务值。 */
             color: typeof buff.color === 'string' ? buff.color : undefined,
             duration: Math.max(1, Math.floor(Number(buff.duration))),
             maxStacks: Number.isFinite(buff.maxStacks) ? Math.max(1, Math.floor(Number(buff.maxStacks))) : undefined,
@@ -1276,28 +1483,38 @@ export class ContentService implements OnModuleInit {
     }
   }
 
+/** normalizeConsumableBuffs：执行对应的业务逻辑。 */
   private normalizeConsumableBuffs(input: unknown): ConsumableBuffDef[] | undefined {
     if (!Array.isArray(input)) {
       return undefined;
     }
+/** buffs：定义该变量以承载业务值。 */
     const buffs = input.flatMap((entry) => {
       if (!isPlainObject(entry) || typeof entry.buffId !== 'string' || typeof entry.name !== 'string' || !Number.isFinite(entry.duration)) {
         return [];
       }
+/** buffId：定义该变量以承载业务值。 */
       const buffId = entry.buffId.trim();
+/** name：定义该变量以承载业务值。 */
       const name = entry.name.trim();
       if (buffId.length === 0 || name.length === 0) {
         return [];
       }
+/** buff：定义该变量以承载业务值。 */
       const buff: ConsumableBuffDef = {
         buffId,
         name,
+/** desc：定义该变量以承载业务值。 */
         desc: typeof entry.desc === 'string' ? entry.desc : undefined,
+/** shortMark：定义该变量以承载业务值。 */
         shortMark: typeof entry.shortMark === 'string' ? entry.shortMark : undefined,
+/** category：定义该变量以承载业务值。 */
         category: entry.category === 'debuff' ? 'debuff' : entry.category === 'buff' ? 'buff' : undefined,
+/** visibility：定义该变量以承载业务值。 */
         visibility: entry.visibility === 'hidden' || entry.visibility === 'observe_only' || entry.visibility === 'public'
           ? entry.visibility
           : undefined,
+/** color：定义该变量以承载业务值。 */
         color: typeof entry.color === 'string' ? entry.color : undefined,
         duration: Math.max(1, Math.floor(Number(entry.duration))),
         maxStacks: Number.isFinite(entry.maxStacks) ? Math.max(1, Math.floor(Number(entry.maxStacks))) : undefined,
@@ -1311,11 +1528,14 @@ export class ContentService implements OnModuleInit {
         statMode: this.normalizeBuffModifierMode(entry.statMode),
         qiProjection: this.normalizeQiProjectionModifiers(entry.qiProjection),
         presentationScale: Number.isFinite(entry.presentationScale) ? Math.max(0, Number(entry.presentationScale)) : undefined,
+/** infiniteDuration：定义该变量以承载业务值。 */
         infiniteDuration: entry.infiniteDuration === true,
         sustainCost: normalizeBuffSustainCost(entry.sustainCost),
+/** expireWithBuffId：定义该变量以承载业务值。 */
         expireWithBuffId: typeof entry.expireWithBuffId === 'string' && entry.expireWithBuffId.trim().length > 0
           ? entry.expireWithBuffId.trim()
           : undefined,
+/** sourceSkillId：定义该变量以承载业务值。 */
         sourceSkillId: typeof entry.sourceSkillId === 'string' && entry.sourceSkillId.trim().length > 0
           ? entry.sourceSkillId.trim()
           : undefined,
@@ -1325,10 +1545,12 @@ export class ContentService implements OnModuleInit {
     return buffs.length > 0 ? buffs : undefined;
   }
 
+/** loadItems：执行对应的业务逻辑。 */
   private loadItems(): void {
     for (const raw of this.readJsonEntries<RawItemTemplate>(this.itemsDir)) {
       const item: ItemTemplate = {
         ...raw,
+/** groundLabel：定义该变量以承载业务值。 */
         groundLabel: typeof raw.groundLabel === 'string' && raw.groundLabel.trim().length > 0
           ? raw.groundLabel.trim()
           : undefined,
@@ -1358,9 +1580,11 @@ export class ContentService implements OnModuleInit {
         enhancementSpeedRate: Number.isFinite(raw.enhancementSpeedRate)
           ? Math.max(-0.95, Number(raw.enhancementSpeedRate))
           : undefined,
+/** respawnBindMapId：定义该变量以承载业务值。 */
         respawnBindMapId: typeof raw.respawnBindMapId === 'string' && raw.respawnBindMapId.trim().length > 0
           ? raw.respawnBindMapId.trim()
           : undefined,
+/** spiritualRootSeedTier：定义该变量以承载业务值。 */
         spiritualRootSeedTier: raw.spiritualRootSeedTier === 'heaven' || raw.spiritualRootSeedTier === 'divine'
           ? raw.spiritualRootSeedTier
           : undefined,
@@ -1368,6 +1592,7 @@ export class ContentService implements OnModuleInit {
         tileAuraGainAmount: Number.isFinite(raw.tileAuraGainAmount)
           ? Math.max(1, Math.floor(Number(raw.tileAuraGainAmount)))
           : undefined,
+/** allowBatchUse：定义该变量以承载业务值。 */
         allowBatchUse: raw.allowBatchUse === true,
       };
       if ((item.cooldown ?? 0) <= 0 && ((item.healAmount ?? 0) > 0 || (item.healPercent ?? 0) > 0 || (item.qiPercent ?? 0) > 0)) {
@@ -1378,8 +1603,11 @@ export class ContentService implements OnModuleInit {
     }
   }
 
+/** buildItemTags：执行对应的业务逻辑。 */
   private buildItemTags(item: ItemTemplate, explicitTags?: string[]): string[] {
+/** derivedTags：定义该变量以承载业务值。 */
     const derivedTags = new Set(['药品', '恢复', '生命回复', '灵力回复', '增益', '特殊', '修为丹药', '战斗丹药']);
+/** tags：定义该变量以承载业务值。 */
     const tags = new Set<string>((explicitTags ?? []).filter((tag) => !derivedTags.has(tag)));
     for (const tag of ITEM_TAG_OVERRIDES[item.itemId] ?? []) {
       tags.add(tag);
@@ -1403,14 +1631,18 @@ export class ContentService implements OnModuleInit {
     return [...tags];
   }
 
+/** applyDerivedAlchemyMaterialTags：执行对应的业务逻辑。 */
   private applyDerivedAlchemyMaterialTags(): void {
+/** herbMaterialItemIds：定义该变量以承载业务值。 */
     const herbMaterialItemIds = this.collectAlchemyRoleMaterialItemIds('main');
+/** exoticMaterialItemIds：定义该变量以承载业务值。 */
     const exoticMaterialItemIds = this.collectAlchemyRoleMaterialItemIds('aux');
 
     for (const item of this.items.values()) {
       if (item.type !== 'material') {
         continue;
       }
+/** tags：定义该变量以承载业务值。 */
       const tags = new Set((item.tags ?? []).filter((tag) => tag !== '药材' && tag !== '异材'));
       if (herbMaterialItemIds.has(item.itemId)) {
         tags.add('药材');
@@ -1422,9 +1654,13 @@ export class ContentService implements OnModuleInit {
     }
   }
 
+/** collectAlchemyRoleMaterialItemIds：执行对应的业务逻辑。 */
   private collectAlchemyRoleMaterialItemIds(role: 'main' | 'aux'): Set<string> {
+/** recipesPath：定义该变量以承载业务值。 */
     const recipesPath = path.join(this.contentDir, 'alchemy', 'recipes.json');
+/** entries：定义该变量以承载业务值。 */
     const entries = JSON.parse(fs.readFileSync(recipesPath, 'utf8')) as Array<{ ingredients?: Array<{ itemId?: string; role?: 'main' | 'aux' }> }>;
+/** itemIds：定义该变量以承载业务值。 */
     const itemIds = new Set<string>();
     for (const entry of entries) {
       for (const ingredient of entry.ingredients ?? []) {
@@ -1439,6 +1675,7 @@ export class ContentService implements OnModuleInit {
     return itemIds;
   }
 
+/** getEffectiveItemLevel：执行对应的业务逻辑。 */
   private getEffectiveItemLevel(item: Pick<ItemTemplate, 'level' | 'healAmount' | 'grade'>): number {
     if (item.level !== undefined) {
       return item.level;
@@ -1458,22 +1695,30 @@ export class ContentService implements OnModuleInit {
       }
       return 5;
     }
+/** grade：定义该变量以承载业务值。 */
     const grade = this.getEffectiveItemGrade(item);
+/** gradeIndex：定义该变量以承载业务值。 */
     const gradeIndex = TECHNIQUE_GRADE_ORDER.indexOf(grade);
     return gradeIndex >= 0 ? gradeIndex + 1 : 1;
   }
 
+/** getEffectiveItemGrade：执行对应的业务逻辑。 */
   private getEffectiveItemGrade(item: Pick<ItemTemplate, 'grade'>): TechniqueGrade {
     return item.grade ?? 'mortal';
   }
 
+/** isGradeWithinRange：执行对应的业务逻辑。 */
   private isGradeWithinRange(itemGrade: TechniqueGrade, minGrade?: TechniqueGrade, maxGrade?: TechniqueGrade): boolean {
+/** currentIndex：定义该变量以承载业务值。 */
     const currentIndex = TECHNIQUE_GRADE_ORDER.indexOf(itemGrade);
+/** minIndex：定义该变量以承载业务值。 */
     const minIndex = minGrade ? TECHNIQUE_GRADE_ORDER.indexOf(minGrade) : -1;
+/** maxIndex：定义该变量以承载业务值。 */
     const maxIndex = maxGrade ? TECHNIQUE_GRADE_ORDER.indexOf(maxGrade) : Number.POSITIVE_INFINITY;
     return currentIndex >= minIndex && currentIndex <= maxIndex;
   }
 
+/** normalizeTagGroups：执行对应的业务逻辑。 */
   private normalizeTagGroups(tagGroups: string[][] | undefined): string[][] {
     if (!Array.isArray(tagGroups)) {
       return [];
@@ -1483,14 +1728,17 @@ export class ContentService implements OnModuleInit {
       .filter((group) => group.length > 0);
   }
 
+/** matchesTagGroups：执行对应的业务逻辑。 */
   private matchesTagGroups(itemTags: readonly string[] | undefined, tagGroups: string[][]): boolean {
     if (tagGroups.length === 0) {
       return true;
     }
+/** tagSet：定义该变量以承载业务值。 */
     const tagSet = new Set(itemTags ?? []);
     return tagGroups.every((group) => group.some((tag) => tagSet.has(tag)));
   }
 
+/** randomIntInclusive：执行对应的业务逻辑。 */
   private randomIntInclusive(min: number, max: number): number {
     if (max <= min) {
       return min;
@@ -1498,11 +1746,14 @@ export class ContentService implements OnModuleInit {
     return min + Math.floor(Math.random() * (max - min + 1));
   }
 
+/** getLootPoolCandidates：执行对应的业务逻辑。 */
   getLootPoolCandidates(query: ContainerLootPoolQuery): EditorItemCatalogEntry[] {
     this.ensureLoaded();
+/** tagGroups：定义该变量以承载业务值。 */
     const tagGroups = this.normalizeTagGroups(query.tagGroups);
     return [...this.items.values()]
       .filter((item) => {
+/** level：定义该变量以承载业务值。 */
         const level = this.getEffectiveItemLevel(item);
         if (query.minLevel !== undefined && level < query.minLevel) {
           return false;
@@ -1555,32 +1806,44 @@ export class ContentService implements OnModuleInit {
     allowDuplicates?: boolean;
   }): ItemStack[] {
     this.ensureLoaded();
+/** chance：定义该变量以承载业务值。 */
     const chance = typeof query.chance === 'number' ? Math.max(0, Math.min(1, query.chance)) : 1;
     if (Math.random() > chance) {
       return [];
     }
+/** candidates：定义该变量以承载业务值。 */
     const candidates = this.getLootPoolCandidates(query);
     if (candidates.length === 0) {
       return [];
     }
 
+/** rolls：定义该变量以承载业务值。 */
     const rolls = Number.isInteger(query.rolls) && Number(query.rolls) > 0 ? Number(query.rolls) : 1;
+/** countMin：定义该变量以承载业务值。 */
     const countMin = Number.isInteger(query.countMin) && Number(query.countMin) > 0 ? Number(query.countMin) : 1;
+/** countMax：定义该变量以承载业务值。 */
     const countMax = Number.isInteger(query.countMax) && Number(query.countMax) >= countMin ? Number(query.countMax) : countMin;
+/** allowDuplicates：定义该变量以承载业务值。 */
     const allowDuplicates = query.allowDuplicates === true;
+/** pool：定义该变量以承载业务值。 */
     const pool = [...candidates];
+/** result：定义该变量以承载业务值。 */
     const result: ItemStack[] = [];
 
     for (let index = 0; index < rolls; index += 1) {
       if (pool.length === 0) {
         break;
       }
+/** source：定义该变量以承载业务值。 */
       const source = allowDuplicates ? candidates : pool;
+/** pickedIndex：定义该变量以承载业务值。 */
       const pickedIndex = Math.floor(Math.random() * source.length);
+/** picked：定义该变量以承载业务值。 */
       const picked = source[pickedIndex];
       if (!picked) {
         continue;
       }
+/** item：定义该变量以承载业务值。 */
       const item = this.createItem(picked.itemId, this.randomIntInclusive(countMin, countMax));
       if (item) {
         result.push(item);
@@ -1593,6 +1856,7 @@ export class ContentService implements OnModuleInit {
     return result;
   }
 
+/** loadMonsters：执行对应的业务逻辑。 */
   private loadMonsters(): void {
     if (!fs.existsSync(this.monstersDir)) {
       return;
@@ -1609,17 +1873,24 @@ export class ContentService implements OnModuleInit {
       ) {
         continue;
       }
+/** level：定义该变量以承载业务值。 */
       const level = Number.isInteger(raw.level) ? Math.max(1, Number(raw.level)) : undefined;
+/** equipment：定义该变量以承载业务值。 */
       const equipment = this.normalizeMonsterEquipment(raw.equipment, raw.id);
+/** skills：定义该变量以承载业务值。 */
       const skills = this.normalizeMonsterSkills(raw.skills, raw.id);
+/** grade：定义该变量以承载业务值。 */
       const grade = raw.grade ?? 'mortal';
+/** tier：定义该变量以承载业务值。 */
       const tier = normalizeMonsterTier(raw.tier ?? inferMonsterTierFromName(raw.name));
+/** drops：定义该变量以承载业务值。 */
       const drops = this.buildMonsterDrops(raw.drops, equipment, {
         grade,
         tier,
         level,
         monsterId: raw.id,
       });
+/** valueStats：定义该变量以承载业务值。 */
       const valueStats = configuredValueStats
         ?? (hasConfiguredAttrs
           ? undefined
@@ -1631,6 +1902,7 @@ export class ContentService implements OnModuleInit {
                 ? Math.max(0, Number(raw.viewRange))
                 : (Number.isInteger(raw.aggroRange) ? Math.max(0, Number(raw.aggroRange)) : 6),
             }));
+/** legacyNumericStats：定义该变量以承载业务值。 */
       const legacyNumericStats = valueStats
         ? resolveMonsterNumericStatsFromValueStats(valueStats, level)
         : resolveMonsterNumericStatsFromAttributes({
@@ -1638,15 +1910,19 @@ export class ContentService implements OnModuleInit {
             equipment,
             level,
           });
+/** attrs：定义该变量以承载业务值。 */
       const attrs = normalizeMonsterAttrs(
         raw.attrs,
         raw.attrs ? undefined : inferMonsterAttrsFromNumericStats(legacyNumericStats),
       );
+/** statPercents：定义该变量以承载业务值。 */
       const statPercents = normalizeMonsterStatPercents(raw.statPercents)
         ?? (raw.attrs
           ? undefined
           : createMonsterAutoStatPercents(legacyNumericStats, attrs, level, equipment));
+/** initialBuffs：定义该变量以承载业务值。 */
       const initialBuffs = this.normalizeMonsterInitialBuffs(raw.initialBuffs);
+/** numericStats：定义该变量以承载业务值。 */
       const numericStats = resolveMonsterNumericStatsFromAttributes({
         attrs,
         equipment,
@@ -1655,7 +1931,9 @@ export class ContentService implements OnModuleInit {
         grade,
         tier,
       });
+/** combatModel：定义该变量以承载业务值。 */
       const combatModel: MonsterCombatModel = 'value_stats';
+/** monster：定义该变量以承载业务值。 */
       const monster: MonsterTemplate = {
         id: raw.id,
         name: raw.name,
@@ -1697,6 +1975,7 @@ export class ContentService implements OnModuleInit {
     }
   }
 
+/** normalizeSkillEffects：执行对应的业务逻辑。 */
   private normalizeSkillEffects(input: unknown): SkillEffectDef[] {
     if (!Array.isArray(input)) {
       return [];
@@ -1704,19 +1983,24 @@ export class ContentService implements OnModuleInit {
     return input.flatMap((entry) => this.normalizeSkillEffect(entry));
   }
 
+/** normalizeMonsterInitialBuffs：执行对应的业务逻辑。 */
   private normalizeMonsterInitialBuffs(input: unknown): MonsterInitialBuffDef[] | undefined {
     if (!Array.isArray(input)) {
       return undefined;
     }
+/** result：定义该变量以承载业务值。 */
     const result = input.flatMap((entry) => this.normalizeMonsterInitialBuff(entry));
     return result.length > 0 ? result : undefined;
   }
 
+/** normalizeMonsterInitialBuff：执行对应的业务逻辑。 */
   private normalizeMonsterInitialBuff(input: unknown): MonsterInitialBuffDef[] {
     if (!isPlainObject(input)) {
       return [];
     }
+/** resolvedInput：定义该变量以承载业务值。 */
     const resolvedInput = this.resolveSharedTechniqueBuffInput(input);
+/** effect：定义该变量以承载业务值。 */
     const effect = this.normalizeRawSkillBuffEffect({
       ...resolvedInput,
       type: 'buff',
@@ -1750,6 +2034,7 @@ export class ContentService implements OnModuleInit {
     }];
   }
 
+/** normalizeSkillEffect：执行对应的业务逻辑。 */
   private normalizeSkillEffect(input: unknown): SkillEffectDef[] {
     if (!isPlainObject(input) || typeof input.type !== 'string') {
       return [];
@@ -1762,6 +2047,7 @@ export class ContentService implements OnModuleInit {
         }
         return [{
           type: 'damage',
+/** damageKind：定义该变量以承载业务值。 */
           damageKind: input.damageKind === 'physical' || input.damageKind === 'spell' ? input.damageKind : undefined,
           element: ELEMENT_KEYS.includes(input.element as typeof ELEMENT_KEYS[number]) ? input.element as typeof ELEMENT_KEYS[number] : undefined,
           formula: input.formula as SkillFormula,
@@ -1772,11 +2058,14 @@ export class ContentService implements OnModuleInit {
         }
         return [{
           type: 'heal',
+/** target：定义该变量以承载业务值。 */
           target: input.target === 'target' || input.target === 'allies' ? input.target : 'self',
           formula: input.formula as SkillFormula,
         }];
       case 'buff': {
+/** resolvedInput：定义该变量以承载业务值。 */
         const resolvedInput = this.resolveSharedTechniqueBuffInput(input);
+/** effect：定义该变量以承载业务值。 */
         const effect = this.normalizeRawSkillBuffEffect(resolvedInput);
         return effect ? [effect] : [];
       }
@@ -1784,13 +2073,16 @@ export class ContentService implements OnModuleInit {
         if (!Number.isFinite(input.duration)) {
           return [];
         }
+/** validTileTypes：定义该变量以承载业务值。 */
         const validTileTypes = Object.values(TileType);
+/** terrainType：定义该变量以承载业务值。 */
         const terrainType = validTileTypes.includes(input.terrainType as TileType)
           ? input.terrainType as TileType
           : null;
         if (!terrainType) {
           return [];
         }
+/** allowedOriginalTypes：定义该变量以承载业务值。 */
         const allowedOriginalTypes = Array.isArray(input.allowedOriginalTypes)
           ? input.allowedOriginalTypes.filter((entry): entry is TileType => validTileTypes.includes(entry as TileType))
           : [];
@@ -1804,7 +2096,9 @@ export class ContentService implements OnModuleInit {
       case 'cleanse':
         return [{
           type: 'cleanse',
+/** target：定义该变量以承载业务值。 */
           target: input.target === 'target' ? 'target' : 'self',
+/** category：定义该变量以承载业务值。 */
           category: input.category === 'buff' ? 'buff' : 'debuff',
           removeCount: Number.isFinite(input.removeCount) ? Math.max(1, Math.floor(Number(input.removeCount))) : 1,
         }];
@@ -1813,13 +2107,16 @@ export class ContentService implements OnModuleInit {
     }
   }
 
+/** resolveSharedTechniqueBuffInput：执行对应的业务逻辑。 */
   private resolveSharedTechniqueBuffInput(input: Record<string, unknown>): Record<string, unknown> {
+/** buffRef：定义该变量以承载业务值。 */
     const buffRef = typeof input.buffRef === 'string' && input.buffRef.trim().length > 0
       ? input.buffRef.trim()
       : null;
     if (!buffRef) {
       return input;
     }
+/** template：定义该变量以承载业务值。 */
     const template = this.sharedTechniqueBuffs.get(buffRef);
     if (!template) {
       throw new Error(`共享功法 Buff 模板 ${buffRef} 不存在`);
@@ -1846,12 +2143,17 @@ export class ContentService implements OnModuleInit {
       target: input.target,
       buffId: input.buffId.trim(),
       name: input.name,
+/** desc：定义该变量以承载业务值。 */
       desc: typeof input.desc === 'string' ? input.desc : undefined,
+/** shortMark：定义该变量以承载业务值。 */
       shortMark: typeof input.shortMark === 'string' ? input.shortMark : undefined,
+/** category：定义该变量以承载业务值。 */
       category: input.category === 'debuff' ? 'debuff' : input.category === 'buff' ? 'buff' : undefined,
+/** visibility：定义该变量以承载业务值。 */
       visibility: input.visibility === 'hidden' || input.visibility === 'observe_only' || input.visibility === 'public'
         ? input.visibility
         : undefined,
+/** color：定义该变量以承载业务值。 */
       color: typeof input.color === 'string' ? input.color : undefined,
       duration: Math.max(1, Math.floor(Number(input.duration))),
       stacks: Number.isFinite(input.stacks) ? Math.max(1, Math.floor(Number(input.stacks))) : undefined,
@@ -1866,25 +2168,34 @@ export class ContentService implements OnModuleInit {
       statMode: this.normalizeBuffModifierMode(input.statMode),
       qiProjection: this.normalizeQiProjectionModifiers(input.qiProjection),
       presentationScale: Number.isFinite(input.presentationScale) ? Math.max(0, Number(input.presentationScale)) : undefined,
+/** infiniteDuration：定义该变量以承载业务值。 */
       infiniteDuration: input.infiniteDuration === true,
       sustainCost: normalizeBuffSustainCost(input.sustainCost),
+/** expireWithBuffId：定义该变量以承载业务值。 */
       expireWithBuffId: typeof input.expireWithBuffId === 'string' && input.expireWithBuffId.trim().length > 0
         ? input.expireWithBuffId.trim()
         : undefined,
     };
   }
 
+/** loadStarterInventory：执行对应的业务逻辑。 */
   private loadStarterInventory(): void {
+/** raw：定义该变量以承载业务值。 */
     const raw = JSON.parse(fs.readFileSync(this.starterInventoryPath, 'utf-8')) as { items?: StarterInventoryEntry[] };
     this.starterInventoryEntries = Array.isArray(raw.items) ? raw.items : [];
   }
 
+/** loadRealmLevels：执行对应的业务逻辑。 */
   private loadRealmLevels(): void {
+/** raw：定义该变量以承载业务值。 */
     const raw = JSON.parse(fs.readFileSync(this.realmLevelsPath, 'utf-8')) as RealmLevelsConfig;
+/** expMultiplier：定义该变量以承载业务值。 */
     const expMultiplier = Number.isFinite(raw.expMultiplier) ? Math.max(0, Math.floor(raw.expMultiplier ?? 1)) : 1;
+/** levels：定义该变量以承载业务值。 */
     const levels = (raw.levels ?? []).map((entry) => ({
       ...entry,
       lifespanYears: Number.isFinite(entry.lifespanYears) ? Math.max(1, Math.floor(entry.lifespanYears)) : 0,
+/** expToNext：定义该变量以承载业务值。 */
       expToNext: entry.expToNext === undefined
         ? undefined
         : Math.max(0, Math.floor(entry.expToNext)) * expMultiplier,
@@ -1895,24 +2206,30 @@ export class ContentService implements OnModuleInit {
     }
   }
 
+/** loadBreakthroughConfigs：执行对应的业务逻辑。 */
   private loadBreakthroughConfigs(): void {
+/** raw：定义该变量以承载业务值。 */
     const raw = JSON.parse(fs.readFileSync(this.breakthroughConfigPath, 'utf-8')) as BreakthroughConfigFile;
     for (const transition of raw.transitions ?? []) {
       if (!Number.isInteger(transition.fromRealmLv)) continue;
       const fromRealmLv = Number(transition.fromRealmLv);
+/** toRealmLv：定义该变量以承载业务值。 */
       const toRealmLv = Number.isInteger(transition.toRealmLv) ? Number(transition.toRealmLv) : fromRealmLv + 1;
+/** requirements：定义该变量以承载业务值。 */
       const requirements = Array.isArray(transition.requirements)
         ? transition.requirements.flatMap((requirement) => this.normalizeBreakthroughRequirement(requirement))
         : [];
       this.breakthroughConfigs.set(fromRealmLv, {
         fromRealmLv,
         toRealmLv,
+/** title：定义该变量以承载业务值。 */
         title: typeof transition.title === 'string' ? transition.title : undefined,
         requirements,
       });
     }
   }
 
+/** normalizeBreakthroughRequirement：执行对应的业务逻辑。 */
   private normalizeBreakthroughRequirement(input: RawBreakthroughRequirement): BreakthroughRequirementDef[] {
     if (!input || typeof input !== 'object' || typeof input.id !== 'string') {
       return [];
@@ -1924,8 +2241,11 @@ export class ContentService implements OnModuleInit {
         type: 'item',
         itemId: input.itemId,
         count: Math.max(1, Number(input.count)),
+/** label：定义该变量以承载业务值。 */
         label: typeof input.label === 'string' ? input.label : undefined,
+/** hidden：定义该变量以承载业务值。 */
         hidden: input.hidden === true,
+/** increaseAttrRequirementPct：定义该变量以承载业务值。 */
         increaseAttrRequirementPct: typeof input.increaseAttrRequirementPct === 'number' && Number.isFinite(input.increaseAttrRequirementPct)
           ? Math.max(0, Math.floor(input.increaseAttrRequirementPct))
           : undefined,
@@ -1935,13 +2255,18 @@ export class ContentService implements OnModuleInit {
       return [{
         id: input.id,
         type: 'technique',
+/** techniqueId：定义该变量以承载业务值。 */
         techniqueId: typeof input.techniqueId === 'string' ? input.techniqueId : undefined,
         minGrade: input.minGrade,
         minLevel: Number.isInteger(input.minLevel) ? Math.max(1, Number(input.minLevel)) : undefined,
+/** minRealm：定义该变量以承载业务值。 */
         minRealm: input.minRealm === undefined ? undefined : this.parseTechniqueRealm(input.minRealm),
         count: Number.isInteger(input.count) ? Math.max(1, Number(input.count)) : undefined,
+/** label：定义该变量以承载业务值。 */
         label: typeof input.label === 'string' ? input.label : undefined,
+/** hidden：定义该变量以承载业务值。 */
         hidden: input.hidden === true,
+/** increaseAttrRequirementPct：定义该变量以承载业务值。 */
         increaseAttrRequirementPct: typeof input.increaseAttrRequirementPct === 'number' && Number.isFinite(input.increaseAttrRequirementPct)
           ? Math.max(0, Math.floor(input.increaseAttrRequirementPct))
           : undefined,
@@ -1956,7 +2281,9 @@ export class ContentService implements OnModuleInit {
         type: 'attribute',
         attr: input.attr,
         minValue: Math.max(1, Math.floor(input.minValue)),
+/** label：定义该变量以承载业务值。 */
         label: typeof input.label === 'string' ? input.label : undefined,
+/** hidden：定义该变量以承载业务值。 */
         hidden: input.hidden === true,
       }];
     }
@@ -1969,14 +2296,18 @@ export class ContentService implements OnModuleInit {
         type: 'root',
         element: input.element && ELEMENT_KEYS.includes(input.element) ? input.element : undefined,
         minValue: Math.max(1, Math.floor(input.minValue)),
+/** label：定义该变量以承载业务值。 */
         label: typeof input.label === 'string' ? input.label : undefined,
+/** hidden：定义该变量以承载业务值。 */
         hidden: input.hidden === true,
       }];
     }
     return [];
   }
 
+/** readJsonEntries：执行对应的业务逻辑。 */
   private readJsonEntries<T>(dirPath: string): T[] {
+/** result：定义该变量以承载业务值。 */
     const result: T[] = [];
     for (const filePath of this.collectJsonFiles(dirPath)) {
       const raw = JSON.parse(fs.readFileSync(filePath, 'utf-8')) as T[];
@@ -1985,9 +2316,12 @@ export class ContentService implements OnModuleInit {
     return result;
   }
 
+/** collectJsonFiles：执行对应的业务逻辑。 */
   private collectJsonFiles(dirPath: string): string[] {
+/** entries：定义该变量以承载业务值。 */
     const entries = fs.readdirSync(dirPath, { withFileTypes: true })
       .sort((left, right) => left.name.localeCompare(right.name, 'zh-CN'));
+/** files：定义该变量以承载业务值。 */
     const files: string[] = [];
     for (const entry of entries) {
       const entryPath = path.join(dirPath, entry.name);
@@ -2002,6 +2336,7 @@ export class ContentService implements OnModuleInit {
     return files;
   }
 
+/** parseTechniqueRealm：执行对应的业务逻辑。 */
   private parseTechniqueRealm(value: keyof typeof TechniqueRealm | TechniqueRealm): TechniqueRealm {
     if (typeof value === 'number') {
       return value;
@@ -2009,6 +2344,7 @@ export class ContentService implements OnModuleInit {
     return TechniqueRealm[value];
   }
 
+/** parsePlayerRealmStage：执行对应的业务逻辑。 */
   private parsePlayerRealmStage(value: keyof typeof PlayerRealmStage | PlayerRealmStage): PlayerRealmStage {
     if (typeof value === 'number') {
       return value;
@@ -2030,6 +2366,7 @@ export class ContentService implements OnModuleInit {
   /** 根据物品 ID 创建物品栈 */
   createItem(itemId: string, count = 1): ItemStack | null {
     this.ensureLoaded();
+/** item：定义该变量以承载业务值。 */
     const item = this.items.get(itemId);
     if (!item) return null;
     return this.createItemStackFromTemplate(item, count);
@@ -2037,6 +2374,7 @@ export class ContentService implements OnModuleInit {
 
   /** 规范化物品栈：用模板数据补全字段 */
   normalizeItemStack(item: ItemStack): ItemStack {
+/** normalized：定义该变量以承载业务值。 */
     const normalized = this.createItem(item.itemId, item.count);
     if (!normalized) {
       return applyEnhancementToItemStack({
@@ -2054,18 +2392,23 @@ export class ContentService implements OnModuleInit {
 
   /** 规范化背包：合并同类物品、补全模板数据 */
   normalizeInventory(inventory: Inventory): Inventory {
+/** mergedItems：定义该变量以承载业务值。 */
     const mergedItems: ItemStack[] = [];
+/** mergedIndex：定义该变量以承载业务值。 */
     const mergedIndex = new Map<string, ItemStack>();
     for (const item of inventory.items.map((entry) => this.normalizeItemStack(entry))) {
       if (item.count <= 0) {
         continue;
       }
+/** signature：定义该变量以承载业务值。 */
       const signature = createItemStackSignature(item);
+/** existing：定义该变量以承载业务值。 */
       const existing = mergedIndex.get(signature);
       if (existing) {
         existing.count += item.count;
         continue;
       }
+/** created：定义该变量以承载业务值。 */
       const created = { ...item };
       mergedIndex.set(signature, created);
       mergedItems.push(created);
@@ -2079,6 +2422,7 @@ export class ContentService implements OnModuleInit {
 
   /** 规范化装备槽数据 */
   normalizeEquipment(equipment: EquipmentSlots): EquipmentSlots {
+/** normalized：定义该变量以承载业务值。 */
     const normalized = { weapon: null, head: null, body: null, legs: null, accessory: null } as EquipmentSlots;
     for (const slot of EQUIP_SLOTS) {
       const item = equipment[slot];
@@ -2087,16 +2431,20 @@ export class ContentService implements OnModuleInit {
     return normalized;
   }
 
+/** normalizeMonsterSkills：执行对应的业务逻辑。 */
   normalizeMonsterSkills(skills: unknown, monsterId?: string): string[] {
     if (!Array.isArray(skills)) {
       return [];
     }
+/** normalized：定义该变量以承载业务值。 */
     const normalized: string[] = [];
+/** seen：定义该变量以承载业务值。 */
     const seen = new Set<string>();
     for (const entry of skills) {
       if (typeof entry !== 'string') {
         continue;
       }
+/** skillId：定义该变量以承载业务值。 */
       const skillId = entry.trim();
       if (!skillId || seen.has(skillId)) {
         continue;
@@ -2111,24 +2459,31 @@ export class ContentService implements OnModuleInit {
     return normalized;
   }
 
+/** getItem：执行对应的业务逻辑。 */
   getItem(itemId: string): ItemTemplate | undefined {
     this.ensureLoaded();
     return this.items.get(itemId);
   }
 
+/** getMonsterTemplate：执行对应的业务逻辑。 */
   getMonsterTemplate(monsterId: string): MonsterTemplate | undefined {
     this.ensureLoaded();
     return this.monsters.get(monsterId);
   }
 
+/** getTechnique：执行对应的业务逻辑。 */
   getTechnique(techniqueId: string): TechniqueTemplate | undefined {
     return this.techniques.get(techniqueId);
   }
 
+/** getItemSortLevel：执行对应的业务逻辑。 */
   getItemSortLevel(item: Pick<ItemStack, 'itemId' | 'level'>): number {
+/** template：定义该变量以承载业务值。 */
     const template = this.items.get(item.itemId);
     if (template?.learnTechniqueId) {
+/** technique：定义该变量以承载业务值。 */
       const technique = this.getTechnique(template.learnTechniqueId);
+/** techniqueRealmLv：定义该变量以承载业务值。 */
       const techniqueRealmLv = technique?.realmLv;
       if (Number.isFinite(techniqueRealmLv)) {
         return Math.max(1, Math.floor(Number(techniqueRealmLv)));
@@ -2143,14 +2498,17 @@ export class ContentService implements OnModuleInit {
     return this.getEffectiveItemLevel(template);
   }
 
+/** getRealmLevelsConfig：执行对应的业务逻辑。 */
   getRealmLevelsConfig(): RealmLevelsConfig | null {
     return this.realmLevelsConfig;
   }
 
+/** getRealmLevelEntry：执行对应的业务逻辑。 */
   getRealmLevelEntry(realmLv: number): RealmLevelEntry | undefined {
     return this.realmLevels.get(realmLv);
   }
 
+/** getEditorTechniqueCatalog：执行对应的业务逻辑。 */
   getEditorTechniqueCatalog(): EditorTechniqueCatalogEntry[] {
     return [...this.techniques.values()]
       .map((technique) => ({
@@ -2165,6 +2523,7 @@ export class ContentService implements OnModuleInit {
       .sort((left, right) => left.name.localeCompare(right.name, 'zh-CN'));
   }
 
+/** getEditorItemCatalog：执行对应的业务逻辑。 */
   getEditorItemCatalog(): EditorItemCatalogEntry[] {
     return [...this.items.values()]
       .map((item) => ({
@@ -2191,6 +2550,7 @@ export class ContentService implements OnModuleInit {
       .sort((left, right) => left.name.localeCompare(right.name, 'zh-CN'));
   }
 
+/** getEditorRealmCatalog：执行对应的业务逻辑。 */
   getEditorRealmCatalog(): RealmLevelEntry[] {
     return [...this.realmLevels.values()].sort((left, right) => left.realmLv - right.realmLv);
   }
@@ -2199,11 +2559,14 @@ export class ContentService implements OnModuleInit {
     return PLAYER_REALM_STAGE_LEVEL_RANGES[stage] ?? PLAYER_REALM_STAGE_LEVEL_RANGES[PlayerRealmStage.Mortal];
   }
 
+/** getBreakthroughConfig：执行对应的业务逻辑。 */
   getBreakthroughConfig(fromRealmLv: number): BreakthroughConfigEntry | undefined {
     return this.breakthroughConfigs.get(fromRealmLv);
   }
 
+/** getMaxConfiguredBreakthroughRealmLv：执行对应的业务逻辑。 */
   getMaxConfiguredBreakthroughRealmLv(): number {
+/** maxRealmLv：定义该变量以承载业务值。 */
     let maxRealmLv = 1;
     for (const config of this.breakthroughConfigs.values()) {
       if (Number.isInteger(config.toRealmLv) && config.toRealmLv > maxRealmLv) {
@@ -2213,6 +2576,7 @@ export class ContentService implements OnModuleInit {
     return maxRealmLv;
   }
 
+/** getRealmStageStartEntry：执行对应的业务逻辑。 */
   getRealmStageStartEntry(stage: PlayerRealmStage): RealmLevelEntry | undefined {
     return this.getRealmLevelEntry(this.getRealmLevelRange(stage).levelFrom);
   }
@@ -2224,14 +2588,18 @@ export class ContentService implements OnModuleInit {
     progressToNext = 0,
     breakthroughReady = false,
   ): RealmLevelEntry {
+/** range：定义该变量以承载业务值。 */
     const range = this.getRealmLevelRange(stage);
+/** span：定义该变量以承载业务值。 */
     const span = Math.max(1, range.levelTo - range.levelFrom + 1);
+/** realmLv：定义该变量以承载业务值。 */
     let realmLv = range.levelFrom;
 
     if (span > 1) {
       if (breakthroughReady || progressToNext <= 0) {
         realmLv = range.levelTo;
       } else {
+/** normalized：定义该变量以承载业务值。 */
         const normalized = Math.max(0, Math.min(progress / progressToNext, 0.999999));
         realmLv = range.levelFrom + Math.min(span - 1, Math.floor(normalized * span));
       }

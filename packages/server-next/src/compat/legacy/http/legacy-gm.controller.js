@@ -1,5 +1,7 @@
 "use strict";
+/** 模块实现文件，负责当前职责边界内的业务逻辑。 */
 var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+/** c：定义该变量以承载业务值。 */
     var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
     if (typeof Reflect === "object" && typeof Reflect.decorate === "function")
         r = Reflect.decorate(decorators, target, key, desc);
@@ -9,28 +11,39 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
                 r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
     return c > 3 && r && Object.defineProperty(target, key, r), r;
 };
+/** __metadata：定义该变量以承载业务值。 */
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function")
         return Reflect.metadata(k, v);
 };
+/** __param：定义该变量以承载业务值。 */
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.LegacyGmController = void 0;
+/** common_1：定义该变量以承载业务值。 */
 const common_1 = require("@nestjs/common");
+/** legacy_gm_http_auth_guard_1：定义该变量以承载业务值。 */
 const legacy_gm_http_auth_guard_1 = require("./legacy-gm-http-auth.guard");
+/** legacy_gm_mail_compat_service_1：定义该变量以承载业务值。 */
 const legacy_gm_mail_compat_service_1 = require("./legacy-gm-mail-compat.service");
+/** legacy_gm_player_compat_service_1：定义该变量以承载业务值。 */
 const legacy_gm_player_compat_service_1 = require("./legacy-gm-player-compat.service");
+/** legacy_gm_world_compat_service_1：定义该变量以承载业务值。 */
 const legacy_gm_world_compat_service_1 = require("./legacy-gm-world-compat.service");
+/** legacy_managed_account_service_1：定义该变量以承载业务值。 */
 const legacy_managed_account_service_1 = require("./legacy-managed-account.service");
+/** redeem_code_runtime_service_1：定义该变量以承载业务值。 */
 const redeem_code_runtime_service_1 = require("../../../runtime/redeem/redeem-code-runtime.service");
+/** LegacyGmController：定义该变量以承载业务值。 */
 let LegacyGmController = class LegacyGmController {
     legacyGmWorldCompatService;
     legacyManagedAccountService;
     legacyGmPlayerCompatService;
     legacyGmMailCompatService;
     redeemCodeRuntimeService;
+/** 构造函数：执行实例初始化流程。 */
     constructor(legacyGmWorldCompatService, legacyManagedAccountService, legacyGmPlayerCompatService, legacyGmMailCompatService, redeemCodeRuntimeService) {
         this.legacyGmWorldCompatService = legacyGmWorldCompatService;
         this.legacyManagedAccountService = legacyManagedAccountService;
@@ -38,40 +51,51 @@ let LegacyGmController = class LegacyGmController {
         this.legacyGmMailCompatService = legacyGmMailCompatService;
         this.redeemCodeRuntimeService = redeemCodeRuntimeService;
     }
+/** getState：执行对应的业务逻辑。 */
     getState() {
         return this.legacyGmWorldCompatService.getState();
     }
+/** getEditorCatalog：执行对应的业务逻辑。 */
     getEditorCatalog() {
         return this.legacyGmWorldCompatService.getEditorCatalog();
     }
+/** getMaps：执行对应的业务逻辑。 */
     getMaps() {
         return this.legacyGmWorldCompatService.getMaps();
     }
+/** getMapRuntime：执行对应的业务逻辑。 */
     getMapRuntime(mapId, qx, qy, qw, qh, viewerId) {
         return this.legacyGmWorldCompatService.getMapRuntime(mapId, qx, qy, qw, qh, viewerId);
     }
+/** getPlayer：执行对应的业务逻辑。 */
     async getPlayer(playerId) {
+/** player：定义该变量以承载业务值。 */
         const player = await this.legacyGmWorldCompatService.getPlayerDetail(playerId);
         if (!player) {
             throw new common_1.BadRequestException('目标玩家不存在');
         }
         return player;
     }
+/** updatePlayerPassword：执行对应的业务逻辑。 */
     async updatePlayerPassword(playerId, body) {
+/** nextPassword：定义该变量以承载业务值。 */
         const nextPassword = typeof body?.newPassword === 'string' && body.newPassword.trim()
             ? body.newPassword
             : body?.password ?? '';
         await this.legacyManagedAccountService.updateManagedPlayerPassword(playerId, nextPassword);
         return { ok: true };
     }
+/** updatePlayerAccount：执行对应的业务逻辑。 */
     async updatePlayerAccount(playerId, body) {
         await this.legacyManagedAccountService.updateManagedPlayerAccount(playerId, body?.username ?? '');
         return { ok: true };
     }
+/** updatePlayer：执行对应的业务逻辑。 */
     async updatePlayer(playerId, body) {
         await this.legacyGmPlayerCompatService.updatePlayer(playerId, body ?? {});
         return { ok: true };
     }
+/** resetPlayer：执行对应的业务逻辑。 */
     async resetPlayer(playerId) {
         if (this.legacyGmPlayerCompatService.hasRuntimePlayer(playerId)) {
             this.legacyGmPlayerCompatService.resetPlayer(playerId);
@@ -81,82 +105,107 @@ let LegacyGmController = class LegacyGmController {
         }
         return { ok: true };
     }
+/** resetHeavenGate：执行对应的业务逻辑。 */
     async resetHeavenGate(playerId) {
         await this.legacyGmPlayerCompatService.resetHeavenGate(playerId);
         return { ok: true };
     }
+/** spawnBots：执行对应的业务逻辑。 */
     async spawnBots(body) {
         this.legacyGmPlayerCompatService.spawnBots(body?.anchorPlayerId ?? '', body?.count);
         return { ok: true };
     }
+/** removeBots：执行对应的业务逻辑。 */
     async removeBots(body) {
         this.legacyGmPlayerCompatService.removeBots(body?.playerIds, body?.all);
         return { ok: true };
     }
+/** returnAllPlayersToDefaultSpawn：执行对应的业务逻辑。 */
     async returnAllPlayersToDefaultSpawn() {
         return this.legacyGmPlayerCompatService.returnAllPlayersToDefaultSpawn();
     }
+/** resetNetworkPerf：执行对应的业务逻辑。 */
     resetNetworkPerf() {
         this.legacyGmWorldCompatService.resetNetworkPerf();
         return { ok: true };
     }
+/** resetCpuPerf：执行对应的业务逻辑。 */
     resetCpuPerf() {
         this.legacyGmWorldCompatService.resetCpuPerf();
         return { ok: true };
     }
+/** resetPathfindingPerf：执行对应的业务逻辑。 */
     resetPathfindingPerf() {
         this.legacyGmWorldCompatService.resetPathfindingPerf();
         return { ok: true };
     }
+/** createDirectMail：执行对应的业务逻辑。 */
     async createDirectMail(playerId, body) {
+/** mailId：定义该变量以承载业务值。 */
         const mailId = await this.legacyGmMailCompatService.createDirectMail(playerId, body ?? {});
         return { ok: true, mailId };
     }
+/** createBroadcastMail：执行对应的业务逻辑。 */
     async createBroadcastMail(body) {
+/** result：定义该变量以承载业务值。 */
         const result = await this.legacyGmMailCompatService.createBroadcastMail(body ?? {});
         return { ok: true, mailId: result.mailId, batchId: result.batchId, recipientCount: result.recipientCount };
     }
+/** getRedeemCodeGroups：执行对应的业务逻辑。 */
     getRedeemCodeGroups() {
         return this.redeemCodeRuntimeService.listGroups();
     }
+/** createRedeemCodeGroup：执行对应的业务逻辑。 */
     async createRedeemCodeGroup(body) {
         return this.redeemCodeRuntimeService.createGroup(body?.name ?? '', body?.rewards ?? [], Number(body?.count));
     }
+/** getRedeemCodeGroup：执行对应的业务逻辑。 */
     async getRedeemCodeGroup(groupId) {
         return this.redeemCodeRuntimeService.getGroupDetail(groupId);
     }
+/** updateRedeemCodeGroup：执行对应的业务逻辑。 */
     async updateRedeemCodeGroup(groupId, body) {
         return this.redeemCodeRuntimeService.updateGroup(groupId, body?.name ?? '', body?.rewards ?? []);
     }
+/** appendRedeemCodes：执行对应的业务逻辑。 */
     async appendRedeemCodes(groupId, body) {
         return this.redeemCodeRuntimeService.appendCodes(groupId, Number(body?.count));
     }
+/** destroyRedeemCode：执行对应的业务逻辑。 */
     async destroyRedeemCode(codeId) {
         return this.redeemCodeRuntimeService.destroyCode(codeId);
     }
+/** getSuggestions：执行对应的业务逻辑。 */
     getSuggestions(query) {
         return this.legacyGmWorldCompatService.getSuggestions(query ?? {});
     }
+/** completeSuggestion：执行对应的业务逻辑。 */
     async completeSuggestion(id) {
         return this.legacyGmWorldCompatService.completeSuggestion(id);
     }
+/** replySuggestion：执行对应的业务逻辑。 */
     async replySuggestion(id, body) {
         return this.legacyGmWorldCompatService.replySuggestion(id, body ?? {});
     }
+/** removeSuggestion：执行对应的业务逻辑。 */
     async removeSuggestion(id) {
         return this.legacyGmWorldCompatService.removeSuggestion(id);
     }
+/** updateMapTick：执行对应的业务逻辑。 */
     updateMapTick(mapId, body) {
         this.legacyGmWorldCompatService.updateMapTick(mapId, body ?? {});
         return { ok: true };
     }
+/** updateMapTime：执行对应的业务逻辑。 */
     updateMapTime(mapId, body) {
         this.legacyGmWorldCompatService.updateMapTime(mapId, body ?? {});
         return { ok: true };
     }
+/** reloadTickConfig：执行对应的业务逻辑。 */
     reloadTickConfig() {
         return this.legacyGmWorldCompatService.reloadTickConfig();
     }
+/** clearWorldObservation：执行对应的业务逻辑。 */
     clearWorldObservation(viewerId) {
         this.legacyGmWorldCompatService.clearWorldObservation(viewerId);
         return { ok: true };

@@ -106,6 +106,7 @@ export type TerrainDurabilityMaterial =
 
 /** 获取地图境界等级对应的基础血量。 */
 export function getTerrainRealmBaseHp(realmLv: number): number {
+/** normalizedRealmLv：定义该变量以承载业务值。 */
   const normalizedRealmLv = Math.max(1, Math.floor(realmLv));
   return TERRAIN_REALM_BASE_HP * Math.pow(TERRAIN_REALM_HP_GROWTH_RATE, normalizedRealmLv - 1);
 }

@@ -53,6 +53,7 @@ export function buildDefaultRoleName(username: string): string {
 
 /** 优先使用自定义显示名称，为空时回退到账号首字符 */
 export function resolveDisplayName(displayName: string | null | undefined, username: string): string {
+/** normalized：定义该变量以承载业务值。 */
   const normalized = typeof displayName === 'string' ? normalizeDisplayName(displayName) : '';
   if (normalized) {
     return validateDisplayName(normalized) === null ? normalized : DEFAULT_VISIBLE_DISPLAY_NAME;
@@ -62,7 +63,9 @@ export function resolveDisplayName(displayName: string | null | undefined, usern
 
 /** 校验账号格式，返回 null 表示通过，否则返回错误信息 */
 export function validateUsername(username: string): string | null {
+/** normalized：定义该变量以承载业务值。 */
   const normalized = normalizeUsername(username);
+/** length：定义该变量以承载业务值。 */
   const length = [...normalized].length;
   if (length < ACCOUNT_MIN_LENGTH) {
     return `账号长度不能少于 ${ACCOUNT_MIN_LENGTH} 个字符`;
@@ -89,6 +92,7 @@ export function validatePassword(password: string): string | null {
 
 /** 校验显示名称格式（必须为单个字符） */
 export function validateDisplayName(displayName: string): string | null {
+/** normalized：定义该变量以承载业务值。 */
   const normalized = normalizeDisplayName(displayName);
   if (!normalized) {
     return '显示名称不能为空';
@@ -107,6 +111,7 @@ export function validateDisplayName(displayName: string): string | null {
 
 /** 校验角色名称格式 */
 export function validateRoleName(roleName: string): string | null {
+/** normalized：定义该变量以承载业务值。 */
   const normalized = normalizeRoleName(roleName);
   if (!normalized) {
     return '角色名称不能为空';

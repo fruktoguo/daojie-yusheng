@@ -19,14 +19,23 @@ import { ThreatService } from './threat.service';
 
 /** RuntimeMonsterTargetLike：定义该接口的能力与字段约束。 */
 export interface RuntimeMonsterTargetLike {
+/** runtimeId：定义该变量以承载业务值。 */
   runtimeId: string;
+/** mapId：定义该变量以承载业务值。 */
   mapId: string;
+/** x：定义该变量以承载业务值。 */
   x: number;
+/** y：定义该变量以承载业务值。 */
   y: number;
+/** hp：定义该变量以承载业务值。 */
   hp: number;
+/** maxHp：定义该变量以承载业务值。 */
   maxHp: number;
+/** alive：定义该变量以承载业务值。 */
   alive: boolean;
+/** tier：定义该变量以承载业务值。 */
   tier: 'mortal_blood' | 'variant' | 'demon_king';
+/** aggroRange：定义该变量以承载业务值。 */
   aggroRange: number;
 }
 
@@ -39,7 +48,9 @@ export type ResolvedTargetLike =
 
 /** AutoBattleSkillCandidateLike：定义该接口的能力与字段约束。 */
 export interface AutoBattleSkillCandidateLike {
+/** action：定义该变量以承载业务值。 */
   action: ActionDef;
+/** skill：定义该变量以承载业务值。 */
   skill: SkillDef;
 }
 
@@ -51,6 +62,7 @@ interface DomainDeps {
   canPlayerUseHostileEffectOnTarget: (player: PlayerState, target: ResolvedTargetLike) => boolean;
   canReachAttackPosition: (
     mapId: string,
+/** actor：定义该变量以承载业务值。 */
     actor: { x: number; y: number },
     target: ResolvedTargetLike,
     range: number,
@@ -77,11 +89,14 @@ export class WorldTargetingDomain {
     private readonly deps: DomainDeps,
   ) {}
 
+/** getResolvedTargetHpRatio：执行对应的业务逻辑。 */
   getResolvedTargetHpRatio(target: ResolvedTargetLike): number {
     if (target.kind === 'tile' || target.kind === 'container') {
       return 0;
     }
+/** hp：定义该变量以承载业务值。 */
     const hp = target.kind === 'monster' ? target.monster.hp : target.player.hp;
+/** maxHp：定义该变量以承载业务值。 */
     const maxHp = target.kind === 'monster' ? target.monster.maxHp : target.player.maxHp;
     if (!Number.isFinite(maxHp) || maxHp <= 0) {
       return 0;
@@ -98,6 +113,7 @@ export class WorldTargetingDomain {
     lowestHpRatio: number,
     highestHpRatio: number,
   ): number {
+/** multiplier：定义该变量以承载业务值。 */
     const multiplier = gameplayConstants.PLAYER_TARGETING_PREFERENCE_THREAT_MULTIPLIER;
     switch (player.autoBattleTargetingMode) {
       case 'nearest':
@@ -115,7 +131,9 @@ export class WorldTargetingDomain {
     }
   }
 
+/** collectAutoBattleSkillCandidates：执行对应的业务逻辑。 */
   collectAutoBattleSkillCandidates(player: PlayerState): AutoBattleSkillCandidateLike[] {
+/** skillActionMap：定义该变量以承载业务值。 */
     const skillActionMap = new Map(
       player.actions
         .filter((action) => action.type === 'skill')
@@ -127,6 +145,7 @@ export class WorldTargetingDomain {
       .map((entry) => skillActionMap.get(entry.skillId))
       .filter((action): action is ActionDef => action !== undefined && action.skillEnabled !== false && action.cooldownLeft === 0)
       .map((action) => {
+/** skill：定义该变量以承载业务值。 */
         const skill = this.contentService.getSkill(action.id);
         return skill ? { action, skill } : null;
       })
@@ -134,6 +153,7 @@ export class WorldTargetingDomain {
       .filter((entry) => this.deps.canPlayerCastSkill(player, entry.skill));
   }
 
+/** resolveAutoBattlePreferredRange：执行对应的业务逻辑。 */
   resolveAutoBattlePreferredRange(player: PlayerState, skills: AutoBattleSkillCandidateLike[]): number {
     return skills.reduce((maxRange, entry) => Math.max(maxRange, this.deps.buildEffectiveSkillRange(entry.skill, player)), 1);
   }
@@ -168,7 +188,9 @@ export class WorldTargetingDomain {
       ));
   }
 
+/** refreshPlayerThreats：执行对应的业务逻辑。 */
   refreshPlayerThreats(player: PlayerState, effectiveViewRange: number): void {
+/** ownerId：定义该变量以承载业务值。 */
     const ownerId = this.deps.getPlayerThreatId(player);
     for (const monster of this.deps.getMonstersByMap(player.mapId)) {
       if (!monster.alive) continue;
@@ -192,6 +214,7 @@ export class WorldTargetingDomain {
     }
   }
 
+/** resolveThreatTargetForPlayer：执行对应的业务逻辑。 */
   resolveThreatTargetForPlayer(player: PlayerState, targetId: string): ResolvedTargetLike | null {
     return this.resolveTargetRef(player, targetId);
   }
@@ -216,7 +239,9 @@ export class WorldTargetingDomain {
     players: PlayerState[],
     timeState: GameTimeState,
   ): void {
+/** ownerId：定义该变量以承载业务值。 */
     const ownerId = this.deps.getMonsterThreatId(monster);
+/** scanRange：定义该变量以承载业务值。 */
     const scanRange = Math.max(0, Math.min(monster.aggroRange, timeState.effectiveViewRange));
 
     if (this.deps.isMonsterAutoAggroEnabled(monster, timeState)) {
@@ -242,11 +267,14 @@ export class WorldTargetingDomain {
     }
   }
 
+/** resolveThreatPlayerForMonster：执行对应的业务逻辑。 */
   resolveThreatPlayerForMonster(monster: RuntimeMonsterTargetLike, targetId: string): PlayerState | null {
     if (!targetId.startsWith('player:')) {
       return null;
     }
+/** playerId：定义该变量以承载业务值。 */
     const playerId = targetId.slice('player:'.length);
+/** player：定义该变量以承载业务值。 */
     const player = this.playerService.getPlayer(playerId);
     if (!player || player.dead || player.mapId !== monster.mapId) {
       return null;
@@ -282,6 +310,7 @@ export class WorldTargetingDomain {
     target: PlayerState,
     timeState: GameTimeState,
   ): boolean {
+/** scanRange：定义该变量以承载业务值。 */
     const scanRange = Math.max(0, Math.min(monster.aggroRange, timeState.effectiveViewRange));
     if (!this.canMonsterSeeTarget(monster, target, timeState, scanRange)) {
       return false;
@@ -296,8 +325,10 @@ export class WorldTargetingDomain {
     );
   }
 
+/** resolveCombatTarget：执行对应的业务逻辑。 */
   resolveCombatTarget(player: PlayerState): ResolvedTargetLike | undefined {
     if (!player.combatTargetId) return undefined;
+/** target：定义该变量以承载业务值。 */
     const target = this.resolveTargetRef(player, player.combatTargetId);
     if (!target) {
       this.deps.clearCombatTarget(player);
@@ -309,6 +340,7 @@ export class WorldTargetingDomain {
   stopLockedForceAttackForInvalidTile(
     player: PlayerState,
     target: ResolvedTargetLike,
+/** update：定义该变量以承载业务值。 */
     update: { error?: string; messages: Array<{ playerId: string; text: string; kind?: string }>; dirty: string[] },
   ) {
     if (
@@ -336,6 +368,7 @@ export class WorldTargetingDomain {
     };
   }
 
+/** canPlayerSeeTarget：执行对应的业务逻辑。 */
   canPlayerSeeTarget(player: PlayerState, target: ResolvedTargetLike, effectiveViewRange: number): boolean {
     if (!isPointInRange(player, target, effectiveViewRange)) {
       return false;
@@ -343,15 +376,19 @@ export class WorldTargetingDomain {
     return this.aoiService.inView(player, target.x, target.y, effectiveViewRange);
   }
 
+/** resolveTargetRef：执行对应的业务逻辑。 */
   resolveTargetRef(player: PlayerState, targetRef: string): ResolvedTargetLike | null {
     if (targetRef.startsWith('monster:')) {
+/** monster：定义该变量以承载业务值。 */
       const monster = this.deps.getMonstersByMap(player.mapId).find((entry) => entry.runtimeId === targetRef && entry.alive);
       if (!monster) return null;
       return { kind: 'monster', x: monster.x, y: monster.y, monster };
     }
 
     if (targetRef.startsWith('player:')) {
+/** playerId：定义该变量以承载业务值。 */
       const playerId = targetRef.slice('player:'.length);
+/** targetPlayer：定义该变量以承载业务值。 */
       const targetPlayer = this.playerService.getPlayer(playerId);
       if (!targetPlayer || targetPlayer.id === player.id || targetPlayer.mapId !== player.mapId || targetPlayer.dead) {
         return null;
@@ -360,11 +397,14 @@ export class WorldTargetingDomain {
     }
 
     if (targetRef.startsWith('container:')) {
+/** containerId：定义该变量以承载业务值。 */
       const containerId = targetRef.slice('container:'.length);
+/** container：定义该变量以承载业务值。 */
       const container = this.mapService.getContainerById(player.mapId, containerId);
       if (!container || container.variant !== 'herb') {
         return null;
       }
+/** runtime：定义该变量以承载业务值。 */
       const runtime = this.lootService.getContainerRuntimeView(player.mapId, container);
       if (runtime.destroyed || runtime.respawning) {
         return null;
@@ -372,16 +412,20 @@ export class WorldTargetingDomain {
       return { kind: 'container', x: container.x, y: container.y, container };
     }
 
+/** tileTarget：定义该变量以承载业务值。 */
     const tileTarget = parseTileTargetRef(targetRef);
     if (tileTarget) {
       const { x, y } = tileTarget;
+/** container：定义该变量以承载业务值。 */
       const container = this.mapService.getContainerAt(player.mapId, x, y);
       if (container?.variant === 'herb') {
+/** runtime：定义该变量以承载业务值。 */
         const runtime = this.lootService.getContainerRuntimeView(player.mapId, container);
         if (!runtime.destroyed && !runtime.respawning) {
           return { kind: 'container', x: container.x, y: container.y, container };
         }
       }
+/** tile：定义该变量以承载业务值。 */
       const tile = this.mapService.getTile(player.mapId, x, y);
       if (!tile || this.mapService.isTileDestroyed(player.mapId, x, y)) return null;
       return { kind: 'tile', x, y, tileType: tile.type };

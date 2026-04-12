@@ -1,5 +1,7 @@
 "use strict";
+/** 模块实现文件，负责当前职责边界内的业务逻辑。 */
 var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+/** c：定义该变量以承载业务值。 */
     var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
     if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
     else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
@@ -7,11 +9,14 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.RuntimeMapConfigService = void 0;
+/** common_1：定义该变量以承载业务值。 */
 const common_1 = require("@nestjs/common");
+/** RuntimeMapConfigService：定义该变量以承载业务值。 */
 let RuntimeMapConfigService = class RuntimeMapConfigService {
     gmMapTickSpeedByMapId = new Map();
     gmMapPausedByMapId = new Map();
     gmMapTimeConfigByMapId = new Map();
+/** updateMapTick：执行对应的业务逻辑。 */
     updateMapTick(mapId, body) {
         if (body?.paused === true || body?.speed === 0) {
             this.gmMapPausedByMapId.set(mapId, true);
@@ -22,13 +27,17 @@ let RuntimeMapConfigService = class RuntimeMapConfigService {
             this.gmMapPausedByMapId.set(mapId, false);
         }
         if (Number.isFinite(body?.speed)) {
+/** speed：定义该变量以承载业务值。 */
             const speed = clamp(Number(body.speed), 0, 100);
             this.gmMapTickSpeedByMapId.set(mapId, speed);
             this.gmMapPausedByMapId.set(mapId, speed === 0);
         }
     }
+/** updateMapTime：执行对应的业务逻辑。 */
     updateMapTime(mapId, baseTimeConfig, body) {
+/** current：定义该变量以承载业务值。 */
         const current = this.getMapTimeConfig(mapId, baseTimeConfig);
+/** next：定义该变量以承载业务值。 */
         const next = {
             ...current,
         };
@@ -43,6 +52,7 @@ let RuntimeMapConfigService = class RuntimeMapConfigService {
             ...next,
         });
     }
+/** pruneMapConfigs：执行对应的业务逻辑。 */
     pruneMapConfigs(validMapIds) {
         for (const mapId of Array.from(this.gmMapTickSpeedByMapId.keys())) {
             if (!validMapIds.has(mapId)) {
@@ -52,16 +62,20 @@ let RuntimeMapConfigService = class RuntimeMapConfigService {
             }
         }
     }
+/** getMapTickSpeed：执行对应的业务逻辑。 */
     getMapTickSpeed(mapId) {
         if (this.gmMapPausedByMapId.get(mapId) === true) {
             return 0;
         }
+/** speed：定义该变量以承载业务值。 */
         const speed = this.gmMapTickSpeedByMapId.get(mapId);
         return Number.isFinite(speed) ? speed : 1;
     }
+/** isMapPaused：执行对应的业务逻辑。 */
     isMapPaused(mapId) {
         return this.gmMapPausedByMapId.get(mapId) === true || this.getMapTickSpeed(mapId) === 0;
     }
+/** getMapTimeConfig：执行对应的业务逻辑。 */
     getMapTimeConfig(mapId, baseTimeConfig) {
         return {
             ...(baseTimeConfig ?? {}),
@@ -73,6 +87,7 @@ exports.RuntimeMapConfigService = RuntimeMapConfigService;
 exports.RuntimeMapConfigService = RuntimeMapConfigService = __decorate([
     (0, common_1.Injectable)()
 ], RuntimeMapConfigService);
+/** clamp：执行对应的业务逻辑。 */
 function clamp(value, min, max) {
     if (!Number.isFinite(value)) {
         return min;

@@ -41,6 +41,7 @@ import type {
   ObservedMapEntity,
 } from '../types';
 
+/** latestObservedEntitiesSnapshot：定义该变量以承载业务值。 */
 let latestObservedEntitiesSnapshot: readonly ObservedMapEntity[] = [];
 
 /** getLatestObservedEntitiesSnapshot：执行对应的业务逻辑。 */
@@ -178,6 +179,7 @@ function isSameMinimapSnapshot(left: MapMinimapSnapshot | null, right: MapMinima
 
 /** shouldResetRememberedMap：执行对应的业务逻辑。 */
 function shouldResetRememberedMap(mapId: string, nextMeta: MapMeta | null | undefined, nextSnapshot: MapMinimapSnapshot | null | undefined): boolean {
+/** cachedMeta：定义该变量以承载业务值。 */
   const cachedMeta = getCachedMapMeta(mapId);
   if (cachedMeta && nextMeta) {
     if (
@@ -190,6 +192,7 @@ function shouldResetRememberedMap(mapId: string, nextMeta: MapMeta | null | unde
       return true;
     }
   }
+/** cachedSnapshot：定义该变量以承载业务值。 */
   const cachedSnapshot = getCachedMapSnapshot(mapId);
   if (cachedSnapshot && nextSnapshot && !isSameMinimapSnapshot(cachedSnapshot, nextSnapshot)) {
     return true;
@@ -199,30 +202,43 @@ function shouldResetRememberedMap(mapId: string, nextMeta: MapMeta | null | unde
 
 /** MapStore：封装相关状态与行为。 */
 export class MapStore {
+/** mapMeta：定义该变量以承载业务值。 */
   private mapMeta: MapMeta | null = null;
+/** player：定义该变量以承载业务值。 */
   private player: PlayerState | null = null;
+/** minimapSnapshot：定义该变量以承载业务值。 */
   private minimapSnapshot: MapMinimapSnapshot | null = null;
+/** visibleMinimapMarkers：定义该变量以承载业务值。 */
   private visibleMinimapMarkers: MapMinimapMarker[] = [];
   private time = null as MapStoreSnapshot['time'];
   private tileCache = new Map<string, Tile>();
   private visibleTiles = new Set<string>();
   private visibleTileRevision = 0;
+/** entities：定义该变量以承载业务值。 */
   private entities: ObservedMapEntity[] = [];
   private entityMap = new Map<string, ObservedMapEntity>();
   private groundPiles = new Map<string, GroundItemPileView>();
+/** pathCells：定义该变量以承载业务值。 */
   private pathCells: Array<{ x: number; y: number }> = [];
+/** targeting：定义该变量以承载业务值。 */
   private targeting: MapTargetingOverlayState | null = null;
+/** senseQi：定义该变量以承载业务值。 */
   private senseQi: MapSenseQiOverlayState | null = null;
+/** threatArrows：定义该变量以承载业务值。 */
   private threatArrows: Array<{ ownerId: string; targetId: string }> = [];
   private minimapMemoryVersion = 0;
+/** awaitingFullVisibilityMapId：定义该变量以承载业务值。 */
   private awaitingFullVisibilityMapId: string | null = null;
   private tickTiming = {
     startedAt: performance.now(),
     durationMs: 500,
   };
+/** entityTransition：定义该变量以承载业务值。 */
   private entityTransition: MapEntityTransition | null = null;
 
+/** applyBootstrap：执行对应的业务逻辑。 */
   applyBootstrap(data: MapBootstrapInput): void {
+/** player：定义该变量以承载业务值。 */
     const player = cloneJson(data.self);
     this.player = player;
     this.time = data.time ?? null;
@@ -261,10 +277,12 @@ export class MapStore {
     this.tickTiming.startedAt = performance.now();
   }
 
+/** applyMapStaticSync：执行对应的业务逻辑。 */
   applyMapStaticSync(data: S2C_MapStaticSync): void {
     if (!this.player) {
       return;
     }
+/** dataWithTiles：定义该变量以承载业务值。 */
     const dataWithTiles = data as S2C_MapStaticSync & {
       tiles?: VisibleTile[][];
       tilesOriginX?: number;
@@ -318,6 +336,7 @@ export class MapStore {
     }
   }
 
+/** applyNextWorldDelta：执行对应的业务逻辑。 */
   applyNextWorldDelta(data: MapNextWorldDeltaInput): void {
     if (!this.player) {
       return;
@@ -326,8 +345,11 @@ export class MapStore {
       this.player.mapId = data.mapId;
     }
 
+/** oldX：定义该变量以承载业务值。 */
     const oldX = this.player.x;
+/** oldY：定义该变量以承载业务值。 */
     const oldY = this.player.y;
+/** selfPatch：定义该变量以承载业务值。 */
     const selfPatch = data.playerPatches.find((patch) => patch.id === this.player?.id);
     if (selfPatch) {
       if (selfPatch.name) {
@@ -365,12 +387,15 @@ export class MapStore {
     } else if (Array.isArray(data.visibleTilePatches) && data.visibleTilePatches.length > 0) {
       this.applyVisibleTilePatches(this.player.mapId, data.visibleTilePatches);
     }
+/** hasEntityPatch：定义该变量以承载业务值。 */
     const hasEntityPatch = data.playerPatches.length > 0 || data.entityPatches.length > 0 || (data.removedEntityIds?.length ?? 0) > 0;
     if (hasEntityPatch) {
       this.entities = this.mergeTickEntities(data.playerPatches, data.entityPatches, data.removedEntityIds ?? []);
       publishLatestObservedEntitiesSnapshot(this.entities);
     }
+/** moved：定义该变量以承载业务值。 */
     const moved = this.player.x !== oldX || this.player.y !== oldY;
+/** hasSpatialEntityDelta：定义该变量以承载业务值。 */
     const hasSpatialEntityDelta = moved
       || (data.removedEntityIds?.length ?? 0) > 0
       || data.playerPatches.some((patch) => hasSpatialTickEntityDelta(patch))
@@ -390,12 +415,15 @@ export class MapStore {
     }
   }
 
+/** applyNextSelfDelta：执行对应的业务逻辑。 */
   applyNextSelfDelta(data: MapNextSelfDeltaInput): void {
     if (!this.player) {
       return;
     }
 
+/** nextMapId：定义该变量以承载业务值。 */
     const nextMapId = typeof data.mapId === 'string' && data.mapId ? data.mapId : undefined;
+/** mapChanged：定义该变量以承载业务值。 */
     const mapChanged = Boolean(nextMapId && nextMapId !== this.player.mapId);
     if (mapChanged && nextMapId) {
       this.mapMeta = null;
@@ -428,7 +456,9 @@ export class MapStore {
       this.player.facing = data.facing as Direction;
     }
 
+/** oldX：定义该变量以承载业务值。 */
     const oldX = this.player.x;
+/** oldY：定义该变量以承载业务值。 */
     const oldY = this.player.y;
     if (typeof data.x === 'number') {
       this.player.x = data.x;
@@ -444,6 +474,7 @@ export class MapStore {
       publishLatestObservedEntitiesSnapshot(this.entities);
     }
 
+/** moved：定义该变量以承载业务值。 */
     const moved = !mapChanged && (this.player.x !== oldX || this.player.y !== oldY);
     if (mapChanged) {
       this.entityTransition = { snapCamera: true };
@@ -462,6 +493,7 @@ export class MapStore {
     this.entityTransition = null;
   }
 
+/** replaceVisibleEntities：执行对应的业务逻辑。 */
   replaceVisibleEntities(entities: ObservedMapEntity[], transition: MapEntityTransition | null = null): void {
     this.entities = entities.map((entry) => cloneJson(entry));
     this.entityMap = new Map(this.entities.map((entry) => [entry.id, entry]));
@@ -469,18 +501,22 @@ export class MapStore {
     this.entityTransition = transition;
   }
 
+/** setPathCells：执行对应的业务逻辑。 */
   setPathCells(cells: Array<{ x: number; y: number }>): void {
     this.pathCells = cells.map((cell) => ({ x: cell.x, y: cell.y }));
   }
 
+/** setTargetingOverlay：执行对应的业务逻辑。 */
   setTargetingOverlay(state: MapTargetingOverlayState | null): void {
     this.targeting = state ? cloneJson(state) : null;
   }
 
+/** setSenseQiOverlay：执行对应的业务逻辑。 */
   setSenseQiOverlay(state: MapSenseQiOverlayState | null): void {
     this.senseQi = state ? { ...state } : null;
   }
 
+/** reset：执行对应的业务逻辑。 */
   reset(): void {
     this.mapMeta = null;
     this.player = null;
@@ -505,6 +541,7 @@ export class MapStore {
     this.visibleTileRevision += 1;
   }
 
+/** setTickDurationMs：执行对应的业务逻辑。 */
   setTickDurationMs(durationMs: number): void {
     if (!Number.isFinite(durationMs) || durationMs <= 0) {
       return;
@@ -512,19 +549,24 @@ export class MapStore {
     this.tickTiming.durationMs = Math.max(1, Math.round(durationMs));
   }
 
+/** getViewRadius：执行对应的业务逻辑。 */
   getViewRadius(): number {
     return this.time?.effectiveViewRange ?? this.player?.viewRange ?? VIEW_RADIUS;
   }
 
+/** getMapMeta：执行对应的业务逻辑。 */
   getMapMeta(): MapMeta | null {
     return this.mapMeta;
   }
 
+/** getKnownTileAt：执行对应的业务逻辑。 */
   getKnownTileAt(x: number, y: number): Tile | null {
     return this.tileCache.get(`${x},${y}`) ?? null;
   }
 
+/** getVisibleTileAt：执行对应的业务逻辑。 */
   getVisibleTileAt(x: number, y: number): Tile | null {
+/** key：定义该变量以承载业务值。 */
     const key = `${x},${y}`;
     if (!this.visibleTiles.has(key)) {
       return null;
@@ -532,10 +574,12 @@ export class MapStore {
     return this.tileCache.get(key) ?? null;
   }
 
+/** getGroundPileAt：执行对应的业务逻辑。 */
   getGroundPileAt(x: number, y: number): GroundItemPileView | null {
     return this.groundPiles.get(`${x},${y}`) ?? null;
   }
 
+/** getSnapshot：执行对应的业务逻辑。 */
   getSnapshot(): MapStoreSnapshot {
     return {
       mapMeta: this.mapMeta,
@@ -579,6 +623,7 @@ export class MapStore {
     };
   }
 
+/** getTickTiming：执行对应的业务逻辑。 */
   getTickTiming(): MapStoreSnapshot['tickTiming'] {
     return this.tickTiming;
   }
@@ -586,14 +631,19 @@ export class MapStore {
   private mergeTickEntities(
     playerPatches: TickRenderEntity[],
     entityPatches: TickRenderEntity[],
+/** removedEntityIds：定义该变量以承载业务值。 */
     removedEntityIds: string[] = [],
   ): ObservedMapEntity[] {
+/** removedIdSet：定义该变量以承载业务值。 */
     const removedIdSet = new Set(removedEntityIds);
+/** merged：定义该变量以承载业务值。 */
     const merged = this.entities
       .filter((entity) => !removedIdSet.has(entity.id))
       .map((entity) => cloneJson(entity));
+/** nextMap：定义该变量以承载业务值。 */
     const nextMap = new Map<string, ObservedMapEntity>(merged.map((entity) => [entity.id, entity]));
     if (this.player && !removedIdSet.has(this.player.id) && !nextMap.has(this.player.id)) {
+/** localPlayerEntity：定义该变量以承载业务值。 */
       const localPlayerEntity = buildLocalPlayerEntity(this.player, this.entityMap.get(this.player.id));
       merged.unshift(localPlayerEntity);
       nextMap.set(localPlayerEntity.id, localPlayerEntity);
@@ -603,6 +653,7 @@ export class MapStore {
       const previous = nextMap.get(patch.id);
       const next = mergeObservedEntityPatch(patch, previous);
       if (previous) {
+/** index：定义该变量以承载业务值。 */
         const index = merged.findIndex((entity) => entity.id === patch.id);
         if (index >= 0) {
           merged[index] = next;
@@ -617,7 +668,9 @@ export class MapStore {
     return merged;
   }
 
+/** mergeGroundItemPatches：执行对应的业务逻辑。 */
   private mergeGroundItemPatches(patches: GroundItemPilePatch[]): Map<string, GroundItemPileView> {
+/** nextMap：定义该变量以承载业务值。 */
     const nextMap = new Map(this.groundPiles);
     for (const patch of patches) {
       const key = `${patch.x},${patch.y}`;
@@ -642,6 +695,7 @@ export class MapStore {
     adds: MapMinimapMarker[],
     removes: string[],
   ): MapMinimapMarker[] {
+/** nextMap：定义该变量以承载业务值。 */
     const nextMap = new Map(this.visibleMinimapMarkers.map((marker) => [marker.id, cloneJson(marker)]));
     for (const markerId of removes) {
       nextMap.delete(markerId);
@@ -656,6 +710,7 @@ export class MapStore {
     adds: Array<[string, string]>,
     removes: Array<[string, string]>,
   ): Array<{ ownerId: string; targetId: string }> {
+/** nextMap：定义该变量以承载业务值。 */
     const nextMap = new Map(
       this.threatArrows.map((entry) => [buildThreatArrowKey(entry.ownerId, entry.targetId), { ...entry }]),
     );
@@ -671,6 +726,7 @@ export class MapStore {
     return [...nextMap.values()];
   }
 
+/** applyVisibleTilePatches：执行对应的业务逻辑。 */
   private applyVisibleTilePatches(mapId: string, patches: VisibleTilePatch[]): void {
     rememberVisibleTilePatches(mapId, patches);
     for (const patch of patches) {
@@ -686,6 +742,7 @@ export class MapStore {
     this.visibleTileRevision += 1;
   }
 
+/** cacheVisibleTiles：执行对应的业务逻辑。 */
   private cacheVisibleTiles(mapId: string, tiles: VisibleTile[][], originX: number, originY: number): void {
     this.visibleTiles.clear();
     rememberVisibleTiles(mapId, tiles, originX, originY);

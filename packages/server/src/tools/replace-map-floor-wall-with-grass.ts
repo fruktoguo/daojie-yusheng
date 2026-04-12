@@ -10,6 +10,7 @@ import { getMapCharFromTileType, getTileTypeFromMapChar, TileType } from '@mud/s
 
 /** CliOptions：定义该接口的能力与字段约束。 */
 interface CliOptions {
+/** mapId：定义该变量以承载业务值。 */
   mapId: string;
 }
 

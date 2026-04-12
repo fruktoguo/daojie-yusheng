@@ -1,34 +1,55 @@
 "use strict";
+/** __decorate：定义该变量以承载业务值。 */
 var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+/** c：定义该变量以承载业务值。 */
     var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
     if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
     else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
     return c > 3 && r && Object.defineProperty(target, key, r), r;
 };
+/** __metadata：定义该变量以承载业务值。 */
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+/** __param：定义该变量以承载业务值。 */
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); };
 };
+/** WorldRuntimeService_1：定义该变量以承载业务值。 */
 var WorldRuntimeService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.WorldRuntimeService = void 0;
+/** common_1：定义该变量以承载业务值。 */
 const common_1 = require("@nestjs/common");
+/** shared_1：定义该变量以承载业务值。 */
 const shared_1 = require("@mud/shared-next");
+/** movement_debug_1：定义该变量以承载业务值。 */
 const movement_debug_1 = require("../../debug/movement-debug");
+/** legacy_gm_compat_constants_1：定义该变量以承载业务值。 */
 const legacy_gm_compat_constants_1 = require("../../compat/legacy/legacy-gm-compat.constants");
+/** content_template_repository_1：定义该变量以承载业务值。 */
 const content_template_repository_1 = require("../../content/content-template.repository");
+/** world_session_service_1：定义该变量以承载业务值。 */
 const world_session_service_1 = require("../../network/world-session.service");
+/** world_client_event_service_1：定义该变量以承载业务值。 */
 const world_client_event_service_1 = require("../../network/world-client-event.service");
+/** map_persistence_service_1：定义该变量以承载业务值。 */
 const map_persistence_service_1 = require("../../persistence/map-persistence.service");
+/** redeem_code_runtime_service_1：定义该变量以承载业务值。 */
 const redeem_code_runtime_service_1 = require("../redeem/redeem-code-runtime.service");
+/** player_combat_service_1：定义该变量以承载业务值。 */
 const player_combat_service_1 = require("../combat/player-combat.service");
+/** map_instance_runtime_1：定义该变量以承载业务值。 */
 const map_instance_runtime_1 = require("../instance/map-instance.runtime");
+/** map_template_repository_1：定义该变量以承载业务值。 */
 const map_template_repository_1 = require("../map/map-template.repository");
+/** player_runtime_service_1：定义该变量以承载业务值。 */
 const player_runtime_service_1 = require("../player/player-runtime.service");
+/** world_runtime_normalization_helpers_1：定义该变量以承载业务值。 */
 const world_runtime_normalization_helpers_1 = require("./world-runtime.normalization.helpers");
+/** world_runtime_observation_helpers_1：定义该变量以承载业务值。 */
 const world_runtime_observation_helpers_1 = require("./world-runtime.observation.helpers");
+/** world_runtime_path_planning_helpers_1：定义该变量以承载业务值。 */
 const world_runtime_path_planning_helpers_1 = require("./world-runtime.path-planning.helpers");
 const {
     normalizeRuntimeActionId,
@@ -131,9 +152,13 @@ const {
     isTileVisibleInView,
     DIRECTION_OFFSET,
 } = world_runtime_path_planning_helpers_1;
+/** DEFAULT_PLAYER_RESPAWN_MAP_ID：定义该变量以承载业务值。 */
 const DEFAULT_PLAYER_RESPAWN_MAP_ID = 'yunlai_town';
+/** NPC_SHOP_CURRENCY_ITEM_ID：定义该变量以承载业务值。 */
 const NPC_SHOP_CURRENCY_ITEM_ID = 'spirit_stone';
+/** TICK_METRIC_WINDOW_SIZE：定义该变量以承载业务值。 */
 const TICK_METRIC_WINDOW_SIZE = 60;
+/** CONTAINER_SEARCH_TICKS_BY_GRADE：定义该变量以承载业务值。 */
 const CONTAINER_SEARCH_TICKS_BY_GRADE = {
     mortal: 1,
     yellow: 1,
@@ -144,6 +169,7 @@ const CONTAINER_SEARCH_TICKS_BY_GRADE = {
     saint: 4,
     emperor: 4,
 };
+/** STATIC_TOGGLE_CONTEXT_ACTIONS：定义该变量以承载业务值。 */
 const STATIC_TOGGLE_CONTEXT_ACTIONS = [{
         id: 'toggle:auto_battle',
         name: '自动战斗',
@@ -185,6 +211,7 @@ const STATIC_TOGGLE_CONTEXT_ACTIONS = [{
         type: 'toggle',
         desc: '切换感气视角，观察地块灵气层次与变化。',
     }];
+/** WorldRuntimeService：定义该变量以承载业务值。 */
 let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     contentTemplateRepository;
     templateRepository;
@@ -219,6 +246,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     dirtyContainerPersistenceInstanceIds = new Set();
     latestCombatEffectsByInstanceId = new Map();
     nextLegacyCompatBotSequence = 1;
+/** 构造函数：执行实例初始化流程。 */
     constructor(contentTemplateRepository, templateRepository, mapPersistenceService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.templateRepository = templateRepository;
@@ -229,32 +257,42 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.worldClientEventService = worldClientEventService;
         this.redeemCodeRuntimeService = redeemCodeRuntimeService;
     }
+/** onModuleInit：执行对应的业务逻辑。 */
     async onModuleInit() {
         this.bootstrapPublicInstances();
     }
+/** onApplicationBootstrap：执行对应的业务逻辑。 */
     async onApplicationBootstrap() {
         await this.rebuildPersistentRuntimeAfterRestore();
     }
+/** listMapTemplates：执行对应的业务逻辑。 */
     listMapTemplates() {
         return this.templateRepository.listSummaries();
     }
+/** listInstances：执行对应的业务逻辑。 */
     listInstances() {
         return Array.from(this.instances.values(), (instance) => instance.snapshot());
     }
+/** getInstance：执行对应的业务逻辑。 */
     getInstance(instanceId) {
         return this.instances.get(instanceId)?.snapshot() ?? null;
     }
+/** listInstanceMonsters：执行对应的业务逻辑。 */
     listInstanceMonsters(instanceId) {
         return this.getInstanceRuntimeOrThrow(instanceId).listMonsters();
     }
+/** getInstanceMonster：执行对应的业务逻辑。 */
     getInstanceMonster(instanceId, runtimeId) {
         return this.getInstanceRuntimeOrThrow(instanceId).getMonster(runtimeId);
     }
+/** getInstanceTileState：执行对应的业务逻辑。 */
     getInstanceTileState(instanceId, x, y) {
+/** instance：定义该变量以承载业务值。 */
         const instance = this.instances.get(instanceId);
         if (!instance) {
             return null;
         }
+/** aura：定义该变量以承载业务值。 */
         const aura = instance.getTileAura(x, y);
         if (aura === null) {
             return null;
@@ -267,31 +305,41 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             combat: instance.getTileCombatState(x, y),
         };
     }
+/** getLegacyCombatEffects：执行对应的业务逻辑。 */
     getLegacyCombatEffects(instanceId) {
+/** effects：定义该变量以承载业务值。 */
         const effects = this.latestCombatEffectsByInstanceId.get(instanceId);
         return effects ? effects.map((entry) => cloneCombatEffect(entry)) : [];
     }
+/** connectPlayer：执行对应的业务逻辑。 */
     connectPlayer(input) {
+/** playerId：定义该变量以承载业务值。 */
         const playerId = input.playerId.trim();
         if (!playerId) {
             throw new common_1.BadRequestException('playerId is required');
         }
+/** mapId：定义该变量以承载业务值。 */
         const mapId = input.mapId?.trim() || this.resolveDefaultRespawnMapId();
         if (!mapId) {
             throw new common_1.NotFoundException('No map template available');
         }
+/** sessionId：定义该变量以承载业务值。 */
         const sessionId = input.sessionId?.trim() || `session:${playerId}`;
+/** targetInstance：定义该变量以承载业务值。 */
         const targetInstance = this.getOrCreatePublicInstance(mapId);
+/** previous：定义该变量以承载业务值。 */
         const previous = this.playerLocations.get(playerId);
         if (previous && previous.instanceId !== targetInstance.meta.instanceId) {
             this.instances.get(previous.instanceId)?.disconnectPlayer(playerId);
         }
+/** runtimePlayer：定义该变量以承载业务值。 */
         const runtimePlayer = targetInstance.connectPlayer({
             playerId,
             sessionId,
             preferredX: input.preferredX,
             preferredY: input.preferredY,
         });
+/** playerState：定义该变量以承载业务值。 */
         const playerState = this.playerRuntimeService.ensurePlayer(playerId, sessionId);
         targetInstance.setPlayerMoveSpeed(playerId, playerState.attrs.numericStats.moveSpeed);
         this.playerLocations.set(playerId, {
@@ -302,7 +350,9 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.logger.debug(`Player ${playerId} attached to ${targetInstance.meta.instanceId}`);
         return this.getPlayerViewOrThrow(playerId);
     }
+/** disconnectPlayer：执行对应的业务逻辑。 */
     disconnectPlayer(playerId) {
+/** location：定义该变量以承载业务值。 */
         const location = this.playerLocations.get(playerId);
         if (!location) {
             return false;
@@ -310,11 +360,14 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.navigationIntents.delete(playerId);
         this.pendingCommands.delete(playerId);
         this.pendingRespawnPlayerIds.delete(playerId);
+/** disconnected：定义该变量以承载业务值。 */
         const disconnected = this.instances.get(location.instanceId)?.disconnectPlayer(playerId) ?? false;
         this.playerLocations.delete(playerId);
         return disconnected;
     }
+/** removePlayer：执行对应的业务逻辑。 */
     removePlayer(playerId, reason = 'removed') {
+/** normalizedPlayerId：定义该变量以承载业务值。 */
         const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : '';
         if (!normalizedPlayerId) {
             return false;
@@ -323,7 +376,9 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.navigationIntents.delete(normalizedPlayerId);
         this.pendingCommands.delete(normalizedPlayerId);
         this.pendingRespawnPlayerIds.delete(normalizedPlayerId);
+/** disconnected：定义该变量以承载业务值。 */
         const disconnected = this.disconnectPlayer(normalizedPlayerId);
+/** runtimePlayer：定义该变量以承载业务值。 */
         const runtimePlayer = this.playerRuntimeService.getPlayer(normalizedPlayerId);
         if (!runtimePlayer) {
             return disconnected;
@@ -331,9 +386,12 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.playerRuntimeService.removePlayerRuntime(normalizedPlayerId);
         return true;
     }
+/** enqueueMove：执行对应的业务逻辑。 */
     enqueueMove(playerId, directionInput) {
+/** direction：定义该变量以承载业务值。 */
         const direction = parseDirection(directionInput);
         this.getPlayerLocationOrThrow(playerId);
+/** player：定义该变量以承载业务值。 */
         const player = this.playerRuntimeService.getPlayer(playerId);
         this.navigationIntents.delete(playerId);
         this.interruptManualNavigation(playerId);
@@ -356,21 +414,29 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         });
         return this.getPlayerViewOrThrow(playerId);
     }
+/** enqueueMoveTo：执行对应的业务逻辑。 */
     enqueueMoveTo(playerId, xInput, yInput, allowNearestReachableInput, packedPathInput, packedPathStepsInput, pathStartXInput, pathStartYInput) {
+/** location：定义该变量以承载业务值。 */
         const location = this.getPlayerLocationOrThrow(playerId);
+/** instance：定义该变量以承载业务值。 */
         const instance = this.getInstanceRuntimeOrThrow(location.instanceId);
+/** x：定义该变量以承载业务值。 */
         const x = normalizeCoordinate(xInput, 'x');
+/** y：定义该变量以承载业务值。 */
         const y = normalizeCoordinate(yInput, 'y');
         if (!isInBounds(x, y, instance.template.width, instance.template.height)) {
             throw new common_1.BadRequestException('目标超出地图范围');
         }
+/** player：定义该变量以承载业务值。 */
         const player = this.playerRuntimeService.getPlayer(playerId);
         this.interruptManualNavigation(playerId);
+/** clientPathHint：定义该变量以承载业务值。 */
         const clientPathHint = decodeClientPathHint(packedPathInput, packedPathStepsInput, pathStartXInput, pathStartYInput);
         this.pendingCommands.set(playerId, {
             kind: 'moveTo',
             x,
             y,
+/** allowNearestReachable：定义该变量以承载业务值。 */
             allowNearestReachable: allowNearestReachableInput === true,
             clientPathHint,
         });
@@ -388,6 +454,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
                 x,
                 y,
             },
+/** allowNearestReachable：定义该变量以承载业务值。 */
             allowNearestReachable: allowNearestReachableInput === true,
             clientPathHint: clientPathHint
                 ? {
@@ -399,6 +466,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         });
         return this.getPlayerViewOrThrow(playerId);
     }
+/** usePortal：执行对应的业务逻辑。 */
     usePortal(playerId) {
         this.getPlayerLocationOrThrow(playerId);
         this.navigationIntents.delete(playerId);
@@ -406,9 +474,11 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.pendingCommands.set(playerId, { kind: 'portal' });
         return this.getPlayerViewOrThrow(playerId);
     }
+/** navigateQuest：执行对应的业务逻辑。 */
     navigateQuest(playerId, questIdInput) {
         this.getPlayerLocationOrThrow(playerId);
         this.interruptManualNavigation(playerId);
+/** questId：定义该变量以承载业务值。 */
         const questId = typeof questIdInput === 'string' ? questIdInput.trim() : '';
         if (!questId) {
             throw new common_1.BadRequestException('questId is required');
@@ -419,11 +489,15 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         });
         return this.getPlayerViewOrThrow(playerId);
     }
+/** enqueueBasicAttack：执行对应的业务逻辑。 */
     enqueueBasicAttack(playerId, targetPlayerIdInput, targetMonsterIdInput, targetXInput, targetYInput) {
         this.getPlayerLocationOrThrow(playerId);
         this.interruptManualCombat(playerId);
+/** targetPlayerId：定义该变量以承载业务值。 */
         const targetPlayerId = typeof targetPlayerIdInput === 'string' ? targetPlayerIdInput.trim() : '';
+/** targetMonsterId：定义该变量以承载业务值。 */
         const targetMonsterId = typeof targetMonsterIdInput === 'string' ? targetMonsterIdInput.trim() : '';
+/** hasTileTarget：定义该变量以承载业务值。 */
         const hasTileTarget = Number.isFinite(targetXInput) && Number.isFinite(targetYInput);
         if (!targetPlayerId && !targetMonsterId && !hasTileTarget) {
             throw new common_1.BadRequestException('target is required');
@@ -437,11 +511,15 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         });
         return this.getPlayerViewOrThrow(playerId);
     }
+/** enqueueBattleTarget：执行对应的业务逻辑。 */
     enqueueBattleTarget(playerId, locked, targetPlayerIdInput, targetMonsterIdInput, targetXInput, targetYInput) {
         this.getPlayerLocationOrThrow(playerId);
         this.interruptManualCombat(playerId);
+/** targetPlayerId：定义该变量以承载业务值。 */
         const targetPlayerId = typeof targetPlayerIdInput === 'string' ? targetPlayerIdInput.trim() : '';
+/** targetMonsterId：定义该变量以承载业务值。 */
         const targetMonsterId = typeof targetMonsterIdInput === 'string' ? targetMonsterIdInput.trim() : '';
+/** hasTileTarget：定义该变量以承载业务值。 */
         const hasTileTarget = Number.isFinite(targetXInput) && Number.isFinite(targetYInput);
         if (!targetPlayerId && !targetMonsterId && !hasTileTarget) {
             throw new common_1.BadRequestException('target is required');
@@ -456,9 +534,12 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         });
         return this.getPlayerViewOrThrow(playerId);
     }
+/** executeAction：执行对应的业务逻辑。 */
     executeAction(playerId, actionIdInput, targetInput) {
         this.getPlayerLocationOrThrow(playerId);
+/** currentTick：定义该变量以承载业务值。 */
         const currentTick = this.resolveCurrentTickForPlayerId(playerId);
+/** rawActionId：定义该变量以承载业务值。 */
         const rawActionId = typeof actionIdInput === 'string' ? actionIdInput.trim() : '';
         if (!rawActionId) {
             throw new common_1.BadRequestException('actionId is required');
@@ -466,6 +547,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         if (rawActionId.startsWith('npc:')) {
             return this.executeLegacyNpcAction(playerId, rawActionId.slice('npc:'.length));
         }
+/** actionId：定义该变量以承载业务值。 */
         const actionId = normalizeRuntimeActionId(rawActionId);
         if (actionId === 'portal:travel') {
             return {
@@ -483,11 +565,14 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             };
         }
         if (actionId === 'body_training:infuse') {
+/** target：定义该变量以承载业务值。 */
             const target = typeof targetInput === 'string' ? targetInput.trim() : '';
+/** foundationAmount：定义该变量以承载业务值。 */
             const foundationAmount = Number.parseInt(target, 10);
             if (!Number.isFinite(foundationAmount) || foundationAmount <= 0) {
                 throw new common_1.BadRequestException('foundation amount is required');
             }
+/** result：定义该变量以承载业务值。 */
             const result = this.playerRuntimeService.infuseBodyTraining(playerId, foundationAmount);
             this.queuePlayerNotice(playerId, `你将 ${result.foundationSpent} 点底蕴灌入肉身，转化为 ${result.expGained} 点炼体经验`, 'success');
             return {
@@ -496,6 +581,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             };
         }
         if (actionId === 'toggle:auto_battle') {
+/** player：定义该变量以承载业务值。 */
             const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
             this.playerRuntimeService.updateCombatSettings(playerId, {
                 autoBattle: !player.combat.autoBattle,
@@ -506,6 +592,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             };
         }
         if (actionId === 'toggle:auto_retaliate') {
+/** player：定义该变量以承载业务值。 */
             const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
             this.playerRuntimeService.updateCombatSettings(playerId, {
                 autoRetaliate: !player.combat.autoRetaliate,
@@ -513,6 +600,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             return { kind: 'queued', view: this.getPlayerViewOrThrow(playerId) };
         }
         if (actionId === 'toggle:auto_battle_stationary') {
+/** player：定义该变量以承载业务值。 */
             const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
             this.playerRuntimeService.updateCombatSettings(playerId, {
                 autoBattleStationary: !player.combat.autoBattleStationary,
@@ -520,6 +608,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             return { kind: 'queued', view: this.getPlayerViewOrThrow(playerId) };
         }
         if (actionId === 'toggle:allow_aoe_player_hit') {
+/** player：定义该变量以承载业务值。 */
             const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
             this.playerRuntimeService.updateCombatSettings(playerId, {
                 allowAoePlayerHit: !player.combat.allowAoePlayerHit,
@@ -527,6 +616,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             return { kind: 'queued', view: this.getPlayerViewOrThrow(playerId) };
         }
         if (actionId === 'toggle:auto_idle_cultivation') {
+/** player：定义该变量以承载业务值。 */
             const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
             this.playerRuntimeService.updateCombatSettings(playerId, {
                 autoIdleCultivation: !player.combat.autoIdleCultivation,
@@ -534,16 +624,19 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             return { kind: 'queued', view: this.getPlayerViewOrThrow(playerId) };
         }
         if (actionId === 'cultivation:toggle') {
+/** player：定义该变量以承载业务值。 */
             const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
             if (!player.techniques.cultivatingTechId) {
                 throw new common_1.BadRequestException('当前没有主修功法');
             }
+/** nextActive：定义该变量以承载业务值。 */
             const nextActive = !player.combat.cultivationActive;
             this.playerRuntimeService.cultivateTechnique(playerId, nextActive ? player.techniques.cultivatingTechId : null);
             this.queuePlayerNotice(playerId, nextActive ? '已恢复当前修炼' : '已停止当前修炼', 'info');
             return { kind: 'queued', view: this.getPlayerViewOrThrow(playerId) };
         }
         if (actionId === 'toggle:auto_switch_cultivation') {
+/** player：定义该变量以承载业务值。 */
             const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
             this.playerRuntimeService.updateCombatSettings(playerId, {
                 autoSwitchCultivation: !player.combat.autoSwitchCultivation,
@@ -551,6 +644,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             return { kind: 'queued', view: this.getPlayerViewOrThrow(playerId) };
         }
         if (actionId === 'sense_qi:toggle') {
+/** player：定义该变量以承载业务值。 */
             const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
             this.playerRuntimeService.updateCombatSettings(playerId, {
                 senseQiActive: !player.combat.senseQiActive,
@@ -564,6 +658,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             };
         }
         if (actionId.startsWith('npc_quests:')) {
+/** npcId：定义该变量以承载业务值。 */
             const npcId = actionId.slice('npc_quests:'.length);
             this.pendingCommands.set(playerId, {
                 kind: 'interactNpcQuest',
@@ -576,9 +671,13 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         }
         throw new common_1.BadRequestException(`Unsupported actionId: ${actionId}`);
     }
+/** executeLegacyNpcAction：执行对应的业务逻辑。 */
     executeLegacyNpcAction(playerId, npcId) {
+/** questsView：定义该变量以承载业务值。 */
         const questsView = this.buildNpcQuestsView(playerId, npcId);
+/** player：定义该变量以承载业务值。 */
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
+/** readyQuest：定义该变量以承载业务值。 */
         const readyQuest = questsView.quests.find((entry) => entry.status === 'ready' && entry.submitNpcId === npcId);
         if (readyQuest) {
             this.pendingCommands.set(playerId, {
@@ -591,6 +690,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
                 npcQuests: questsView,
             };
         }
+/** availableQuest：定义该变量以承载业务值。 */
         const availableQuest = questsView.quests.find((entry) => entry.status === 'available');
         if (availableQuest) {
             this.pendingCommands.set(playerId, {
@@ -603,6 +703,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
                 npcQuests: questsView,
             };
         }
+/** talkQuest：定义该变量以承载业务值。 */
         const talkQuest = questsView.quests.find((entry) => (entry.status === 'active'
             && entry.objectiveType === 'talk'
             && entry.targetNpcId === npcId
@@ -618,6 +719,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             npcQuests: questsView,
         };
     }
+/** enqueueUseItem：执行对应的业务逻辑。 */
     enqueueUseItem(playerId, slotIndexInput) {
         this.getPlayerLocationOrThrow(playerId);
         this.pendingCommands.set(playerId, {
@@ -626,6 +728,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         });
         return this.getPlayerViewOrThrow(playerId);
     }
+/** enqueueDropItem：执行对应的业务逻辑。 */
     enqueueDropItem(playerId, slotIndexInput, countInput) {
         this.getPlayerLocationOrThrow(playerId);
         this.pendingCommands.set(playerId, {
@@ -635,9 +738,12 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         });
         return this.getPlayerViewOrThrow(playerId);
     }
+/** enqueueTakeGround：执行对应的业务逻辑。 */
     enqueueTakeGround(playerId, sourceIdInput, itemKeyInput) {
         this.getPlayerLocationOrThrow(playerId);
+/** sourceId：定义该变量以承载业务值。 */
         const sourceId = typeof sourceIdInput === 'string' ? sourceIdInput.trim() : '';
+/** itemKey：定义该变量以承载业务值。 */
         const itemKey = typeof itemKeyInput === 'string' ? itemKeyInput.trim() : '';
         if (!sourceId) {
             throw new common_1.BadRequestException('sourceId is required');
@@ -652,8 +758,10 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         });
         return this.getPlayerViewOrThrow(playerId);
     }
+/** enqueueTakeGroundAll：执行对应的业务逻辑。 */
     enqueueTakeGroundAll(playerId, sourceIdInput) {
         this.getPlayerLocationOrThrow(playerId);
+/** sourceId：定义该变量以承载业务值。 */
         const sourceId = typeof sourceIdInput === 'string' ? sourceIdInput.trim() : '';
         if (!sourceId) {
             throw new common_1.BadRequestException('sourceId is required');
@@ -664,6 +772,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         });
         return this.getPlayerViewOrThrow(playerId);
     }
+/** enqueueEquip：执行对应的业务逻辑。 */
     enqueueEquip(playerId, slotIndexInput) {
         this.getPlayerLocationOrThrow(playerId);
         this.pendingCommands.set(playerId, {
@@ -672,6 +781,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         });
         return this.getPlayerViewOrThrow(playerId);
     }
+/** enqueueUnequip：执行对应的业务逻辑。 */
     enqueueUnequip(playerId, slotInput) {
         this.getPlayerLocationOrThrow(playerId);
         this.pendingCommands.set(playerId, {
@@ -680,6 +790,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         });
         return this.getPlayerViewOrThrow(playerId);
     }
+/** enqueueCultivate：执行对应的业务逻辑。 */
     enqueueCultivate(playerId, techniqueIdInput) {
         this.getPlayerLocationOrThrow(playerId);
         this.pendingCommands.set(playerId, {
@@ -688,6 +799,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         });
         return this.getPlayerViewOrThrow(playerId);
     }
+/** enqueueRedeemCodes：执行对应的业务逻辑。 */
     enqueueRedeemCodes(playerId, codesInput) {
         this.getPlayerLocationOrThrow(playerId);
         this.pendingCommands.set(playerId, {
@@ -696,32 +808,43 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         });
         return this.getPlayerViewOrThrow(playerId);
     }
+/** enqueueHeavenGateAction：执行对应的业务逻辑。 */
     enqueueHeavenGateAction(playerId, actionInput, elementInput) {
         this.getPlayerLocationOrThrow(playerId);
+/** action：定义该变量以承载业务值。 */
         const action = typeof actionInput === 'string' ? actionInput.trim() : '';
         if (action !== 'sever' && action !== 'restore' && action !== 'open' && action !== 'reroll' && action !== 'enter') {
             throw new common_1.BadRequestException('heaven gate action is required');
         }
+/** element：定义该变量以承载业务值。 */
         const element = typeof elementInput === 'string' ? elementInput.trim() : '';
         this.pendingCommands.set(playerId, {
             kind: 'heavenGateAction',
             action,
+/** element：定义该变量以承载业务值。 */
             element: element === 'metal' || element === 'wood' || element === 'water' || element === 'fire' || element === 'earth'
                 ? element
                 : undefined,
         });
         return this.getPlayerViewOrThrow(playerId);
     }
+/** enqueueCastSkill：执行对应的业务逻辑。 */
     enqueueCastSkill(playerId, skillIdInput, targetPlayerIdInput, targetMonsterIdInput, targetRefInput = null) {
         this.getPlayerLocationOrThrow(playerId);
+/** skillId：定义该变量以承载业务值。 */
         const skillId = typeof skillIdInput === 'string' ? skillIdInput.trim() : '';
+/** targetPlayerId：定义该变量以承载业务值。 */
         const targetPlayerId = typeof targetPlayerIdInput === 'string' ? targetPlayerIdInput.trim() : '';
+/** targetMonsterId：定义该变量以承载业务值。 */
         const targetMonsterId = typeof targetMonsterIdInput === 'string' ? targetMonsterIdInput.trim() : '';
+/** targetRef：定义该变量以承载业务值。 */
         const targetRef = typeof targetRefInput === 'string' ? targetRefInput.trim() : '';
         if (!skillId) {
             throw new common_1.BadRequestException('skillId is required');
         }
+/** player：定义该变量以承载业务值。 */
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
+/** action：定义该变量以承载业务值。 */
         const action = player.actions.actions.find((entry) => entry.id === skillId && entry.type === 'skill');
         if (!action) {
             throw new common_1.NotFoundException(`Skill action ${skillId} not found`);
@@ -738,17 +861,21 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         });
         return this.getPlayerViewOrThrow(playerId);
     }
+/** enqueueCastSkillTargetRef：执行对应的业务逻辑。 */
     enqueueCastSkillTargetRef(playerId, skillIdInput, targetRefInput) {
         return this.enqueueCastSkill(playerId, skillIdInput, null, null, targetRefInput);
     }
+/** buildNpcShopView：执行对应的业务逻辑。 */
     buildNpcShopView(playerId, npcIdInput) {
         this.getPlayerLocationOrThrow(playerId);
+/** npcId：定义该变量以承载业务值。 */
         const npcId = typeof npcIdInput === 'string' ? npcIdInput.trim() : '';
         if (!npcId) {
             throw new common_1.BadRequestException('npcId is required');
         }
         return this.createNpcShopEnvelope(playerId, npcId);
     }
+/** buildQuestListView：执行对应的业务逻辑。 */
     buildQuestListView(playerId, _input) {
         this.getPlayerLocationOrThrow(playerId);
         this.refreshQuestStates(playerId);
@@ -756,8 +883,10 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             quests: this.playerRuntimeService.listQuests(playerId),
         };
     }
+/** buildNpcQuestsView：执行对应的业务逻辑。 */
     buildNpcQuestsView(playerId, npcIdInput) {
         this.getPlayerLocationOrThrow(playerId);
+/** npcId：定义该变量以承载业务值。 */
         const npcId = typeof npcIdInput === 'string' ? npcIdInput.trim() : '';
         if (!npcId) {
             throw new common_1.BadRequestException('npcId is required');
@@ -765,9 +894,12 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.refreshQuestStates(playerId);
         return this.createNpcQuestsEnvelope(playerId, npcId);
     }
+/** buildDetail：执行对应的业务逻辑。 */
     buildDetail(playerId, input) {
         this.getPlayerLocationOrThrow(playerId);
+/** kind：定义该变量以承载业务值。 */
         const kind = input.kind;
+/** id：定义该变量以承载业务值。 */
         const id = typeof input.id === 'string' ? input.id.trim() : '';
         if (!id) {
             throw new common_1.BadRequestException('id is required');
@@ -775,14 +907,19 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         if (kind !== 'npc' && kind !== 'monster' && kind !== 'ground' && kind !== 'player' && kind !== 'portal' && kind !== 'container') {
             throw new common_1.BadRequestException(`Unsupported detail kind: ${String(kind)}`);
         }
+/** view：定义该变量以承载业务值。 */
         const view = this.getPlayerViewOrThrow(playerId);
+/** location：定义该变量以承载业务值。 */
         const location = this.getPlayerLocationOrThrow(playerId);
+/** instance：定义该变量以承载业务值。 */
         const instance = this.getInstanceRuntimeOrThrow(location.instanceId);
+/** viewer：定义该变量以承载业务值。 */
         const viewer = this.playerRuntimeService.getPlayerOrThrow(playerId);
         if (kind === 'npc') {
             if (!view.localNpcs.some((entry) => entry.npcId === id)) {
                 return { kind, id, error: '目标不在当前视野内' };
             }
+/** npc：定义该变量以承载业务值。 */
             const npc = instance.getNpc(id);
             if (!npc) {
                 return { kind, id, error: '目标不存在' };
@@ -810,6 +947,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             if (!view.localMonsters.some((entry) => entry.runtimeId === id)) {
                 return { kind, id, error: '目标不在当前视野内' };
             }
+/** monster：定义该变量以承载业务值。 */
             const monster = instance.getMonster(id);
             if (!monster) {
                 return { kind, id, error: '目标不存在' };
@@ -840,6 +978,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             if (id !== viewer.playerId && !view.visiblePlayers.some((entry) => entry.playerId === id)) {
                 return { kind, id, error: '目标不在当前视野内' };
             }
+/** target：定义该变量以承载业务值。 */
             const target = this.playerRuntimeService.getPlayer(id);
             if (!target || target.instanceId !== location.instanceId) {
                 return { kind, id, error: '目标不存在' };
@@ -855,16 +994,19 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
                     maxHp: target.maxHp,
                     qi: target.qi,
                     maxQi: target.maxQi,
+/** observation：定义该变量以承载业务值。 */
                     observation: buildPlayerObservation(viewer.attrs.finalAttrs.spirit, target, viewer.playerId === target.playerId),
                     buffs: target.buffs.buffs.map((entry) => cloneVisibleBuff(entry)),
                 },
             };
         }
         if (kind === 'portal') {
+/** portal：定义该变量以承载业务值。 */
             const portal = view.localPortals.find((entry) => buildPortalId(entry.x, entry.y) === id);
             if (!portal) {
                 return { kind, id, error: '目标不在当前视野内' };
             }
+/** targetMapName：定义该变量以承载业务值。 */
             const targetMapName = this.templateRepository.has(portal.targetMapId)
                 ? this.templateRepository.getOrThrow(portal.targetMapId).name
                 : undefined;
@@ -885,11 +1027,14 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             };
         }
         if (kind === 'container') {
+/** containerId：定义该变量以承载业务值。 */
             const containerId = id.startsWith('container:') ? id.slice('container:'.length).trim() : '';
             if (!containerId) {
                 return { kind, id, error: '目标不存在' };
             }
+/** container：定义该变量以承载业务值。 */
             const container = instance.getContainerById(containerId);
+/** viewRadius：定义该变量以承载业务值。 */
             const viewRadius = Math.max(1, Math.round(viewer.attrs.numericStats.viewRange));
             if (!container || !isTileVisibleInView(view, container.x, container.y, viewRadius)) {
                 return { kind, id, error: '目标不在当前视野内' };
@@ -910,6 +1055,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         if (!view.localGroundPiles.some((entry) => entry.sourceId === id)) {
             return { kind, id, error: '目标不在当前视野内' };
         }
+/** pile：定义该变量以承载业务值。 */
         const pile = instance.getGroundPileBySourceId(id);
         if (!pile) {
             return { kind, id, error: '目标不存在' };
@@ -925,12 +1071,18 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             },
         };
     }
+/** buildTileDetail：执行对应的业务逻辑。 */
     buildTileDetail(playerId, input) {
         this.getPlayerLocationOrThrow(playerId);
+/** x：定义该变量以承载业务值。 */
         const x = normalizeCoordinate(typeof input.x === 'number' ? input.x : Number.NaN, 'x');
+/** y：定义该变量以承载业务值。 */
         const y = normalizeCoordinate(typeof input.y === 'number' ? input.y : Number.NaN, 'y');
+/** view：定义该变量以承载业务值。 */
         const view = this.getPlayerViewOrThrow(playerId);
+/** viewer：定义该变量以承载业务值。 */
         const viewer = this.playerRuntimeService.getPlayerOrThrow(playerId);
+/** viewRadius：定义该变量以承载业务值。 */
         const viewRadius = Math.max(1, Math.round(viewer.attrs.numericStats.viewRange));
         if (!isTileVisibleInView(view, x, y, viewRadius)) {
             return {
@@ -939,8 +1091,11 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
                 error: '目标不在当前视野内',
             };
         }
+/** location：定义该变量以承载业务值。 */
         const location = this.getPlayerLocationOrThrow(playerId);
+/** instance：定义该变量以承载业务值。 */
         const instance = this.getInstanceRuntimeOrThrow(location.instanceId);
+/** aura：定义该变量以承载业务值。 */
         const aura = instance.getTileAura(x, y);
         if (aura === null) {
             return {
@@ -949,16 +1104,24 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
                 error: '目标不存在',
             };
         }
+/** groundPile：定义该变量以承载业务值。 */
         const groundPile = instance.getTileGroundPile(x, y);
+/** portal：定义该变量以承载业务值。 */
         const portal = instance.getPortalAtTile(x, y);
+/** safeZone：定义该变量以承载业务值。 */
         const safeZone = instance.getSafeZoneAtTile(x, y);
+/** container：定义该变量以承载业务值。 */
         const container = instance.getContainerAtTile(x, y);
+/** npcs：定义该变量以承载业务值。 */
         const npcs = view.localNpcs.filter((entry) => entry.x === x && entry.y === y);
+/** monsters：定义该变量以承载业务值。 */
         const monsters = view.localMonsters.filter((entry) => entry.x === x && entry.y === y);
+/** players：定义该变量以承载业务值。 */
         const players = [
             ...(view.self.x === x && view.self.y === y ? [viewer.playerId] : []),
             ...view.visiblePlayers.filter((entry) => entry.x === x && entry.y === y).map((entry) => entry.playerId),
         ];
+/** entities：定义该变量以承载业务值。 */
         const entities = [];
         if (portal) {
             entities.push(buildPortalTileEntityDetail(portal, this.templateRepository.has(portal.targetMapId)
@@ -984,6 +1147,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
                 maxHp: target.maxHp,
                 qi: target.qi,
                 maxQi: target.maxQi,
+/** observation：定义该变量以承载业务值。 */
                 observation: buildPlayerObservation(viewer.attrs.finalAttrs.spirit, target, viewer.playerId === target.playerId),
                 buffs: target.buffs.buffs.map((entry) => cloneVisibleBuff(entry)),
             });
@@ -993,6 +1157,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             if (!monster) {
                 continue;
             }
+/** observation：定义该变量以承载业务值。 */
             const observation = buildMonsterObservation(viewer.attrs.finalAttrs.spirit, monster);
             entities.push({
                 id: monster.runtimeId,
@@ -1002,6 +1167,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
                 hp: monster.hp,
                 maxHp: monster.maxHp,
                 observation,
+/** lootPreview：定义该变量以承载业务值。 */
                 lootPreview: observation.clarity === 'complete'
                     ? buildMonsterLootPreview(this.contentTemplateRepository, viewer, monster)
                     : undefined,
@@ -1058,8 +1224,11 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             entities: entities.length > 0 ? entities : undefined,
         };
     }
+/** buildLootWindowSyncState：执行对应的业务逻辑。 */
     buildLootWindowSyncState(playerId, tileX, tileY) {
+/** player：定义该变量以承载业务值。 */
         const player = this.playerRuntimeService.getPlayer(playerId);
+/** view：定义该变量以承载业务值。 */
         const view = this.getPlayerView(playerId);
         if (!player || !view || !player.instanceId) {
             return null;
@@ -1067,8 +1236,11 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         if (Math.max(Math.abs(player.x - tileX), Math.abs(player.y - tileY)) > 1) {
             return null;
         }
+/** instance：定义该变量以承载业务值。 */
         const instance = this.getInstanceRuntimeOrThrow(player.instanceId);
+/** sources：定义该变量以承载业务值。 */
         const sources = [];
+/** groundSources：定义该变量以承载业务值。 */
         const groundSources = view.localGroundPiles
             .filter((entry) => entry.x === tileX && entry.y === tileY && entry.items.length > 0)
             .sort((left, right) => compareStableStrings(left.sourceId, right.sourceId));
@@ -1076,6 +1248,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             sources.push({
                 sourceId: pile.sourceId,
                 kind: 'ground',
+/** title：定义该变量以承载业务值。 */
                 title: index === 0 ? '地面物品' : `地面物品 ${index + 1}`,
                 searchable: false,
                 items: pile.items.map((entry) => ({
@@ -1092,8 +1265,10 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
                 emptyText: '地面上已经没有东西了。',
             });
         }
+/** container：定义该变量以承载业务值。 */
         const container = instance.getContainerAtTile(tileX, tileY);
         if (container) {
+/** containerState：定义该变量以承载业务值。 */
             const containerState = this.ensureContainerState(instance.meta.instanceId, container);
             if (!containerState.activeSearch && hasHiddenContainerEntries(containerState.entries)) {
                 this.beginContainerSearch(containerState, container.grade);
@@ -1129,7 +1304,9 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             sources,
         };
     }
+/** refreshPlayerContextActions：执行对应的业务逻辑。 */
     refreshPlayerContextActions(playerId, view) {
+/** resolvedView：定义该变量以承载业务值。 */
         const resolvedView = view ?? this.getPlayerView(playerId);
         if (!resolvedView) {
             return null;
@@ -1137,9 +1314,12 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.playerRuntimeService.setContextActions(playerId, this.buildContextActions(resolvedView), resolvedView.tick);
         return resolvedView;
     }
+/** enqueueBuyNpcShopItem：执行对应的业务逻辑。 */
     enqueueBuyNpcShopItem(playerId, npcIdInput, itemIdInput, quantityInput) {
         this.getPlayerLocationOrThrow(playerId);
+/** npcId：定义该变量以承载业务值。 */
         const npcId = typeof npcIdInput === 'string' ? npcIdInput.trim() : '';
+/** itemId：定义该变量以承载业务值。 */
         const itemId = typeof itemIdInput === 'string' ? itemIdInput.trim() : '';
         if (!npcId) {
             throw new common_1.BadRequestException('npcId is required');
@@ -1147,6 +1327,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         if (!itemId) {
             throw new common_1.BadRequestException('itemId is required');
         }
+/** quantity：定义该变量以承载业务值。 */
         const quantity = normalizeShopQuantity(quantityInput);
         this.validateNpcShopPurchase(playerId, npcId, itemId, quantity);
         this.pendingCommands.set(playerId, {
@@ -1157,12 +1338,15 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         });
         return this.getPlayerViewOrThrow(playerId);
     }
+/** enqueueLegacyNpcInteraction：执行对应的业务逻辑。 */
     enqueueLegacyNpcInteraction(playerId, actionIdInput) {
         this.getPlayerLocationOrThrow(playerId);
+/** actionId：定义该变量以承载业务值。 */
         const actionId = typeof actionIdInput === 'string' ? actionIdInput.trim() : '';
         if (!actionId.startsWith('npc:')) {
             throw new common_1.BadRequestException('npc actionId is required');
         }
+/** npcId：定义该变量以承载业务值。 */
         const npcId = actionId.slice('npc:'.length).trim();
         if (!npcId) {
             throw new common_1.BadRequestException('npcId is required');
@@ -1173,9 +1357,12 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         });
         return this.getPlayerViewOrThrow(playerId);
     }
+/** enqueueAcceptNpcQuest：执行对应的业务逻辑。 */
     enqueueAcceptNpcQuest(playerId, npcIdInput, questIdInput) {
         this.getPlayerLocationOrThrow(playerId);
+/** npcId：定义该变量以承载业务值。 */
         const npcId = typeof npcIdInput === 'string' ? npcIdInput.trim() : '';
+/** questId：定义该变量以承载业务值。 */
         const questId = typeof questIdInput === 'string' ? questIdInput.trim() : '';
         if (!npcId) {
             throw new common_1.BadRequestException('npcId is required');
@@ -1190,9 +1377,12 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         });
         return this.getPlayerViewOrThrow(playerId);
     }
+/** enqueueSubmitNpcQuest：执行对应的业务逻辑。 */
     enqueueSubmitNpcQuest(playerId, npcIdInput, questIdInput) {
         this.getPlayerLocationOrThrow(playerId);
+/** npcId：定义该变量以承载业务值。 */
         const npcId = typeof npcIdInput === 'string' ? npcIdInput.trim() : '';
+/** questId：定义该变量以承载业务值。 */
         const questId = typeof questIdInput === 'string' ? questIdInput.trim() : '';
         if (!npcId) {
             throw new common_1.BadRequestException('npcId is required');
@@ -1207,8 +1397,11 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         });
         return this.getPlayerViewOrThrow(playerId);
     }
+/** enqueueSpawnMonsterLoot：执行对应的业务逻辑。 */
     enqueueSpawnMonsterLoot(instanceIdInput, monsterIdInput, xInput, yInput, rollsInput) {
+/** instanceId：定义该变量以承载业务值。 */
         const instanceId = typeof instanceIdInput === 'string' ? instanceIdInput.trim() : '';
+/** monsterId：定义该变量以承载业务值。 */
         const monsterId = typeof monsterIdInput === 'string' ? monsterIdInput.trim() : '';
         if (!instanceId) {
             throw new common_1.BadRequestException('instanceId is required');
@@ -1227,8 +1420,11 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         });
         return { queued: true };
     }
+/** enqueueDefeatMonster：执行对应的业务逻辑。 */
     enqueueDefeatMonster(instanceIdInput, runtimeIdInput) {
+/** instanceId：定义该变量以承载业务值。 */
         const instanceId = typeof instanceIdInput === 'string' ? instanceIdInput.trim() : '';
+/** runtimeId：定义该变量以承载业务值。 */
         const runtimeId = typeof runtimeIdInput === 'string' ? runtimeIdInput.trim() : '';
         if (!instanceId) {
             throw new common_1.BadRequestException('instanceId is required');
@@ -1244,8 +1440,11 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         });
         return { queued: true };
     }
+/** enqueueDamageMonster：执行对应的业务逻辑。 */
     enqueueDamageMonster(instanceIdInput, runtimeIdInput, amountInput) {
+/** instanceId：定义该变量以承载业务值。 */
         const instanceId = typeof instanceIdInput === 'string' ? instanceIdInput.trim() : '';
+/** runtimeId：定义该变量以承载业务值。 */
         const runtimeId = typeof runtimeIdInput === 'string' ? runtimeIdInput.trim() : '';
         if (!instanceId) {
             throw new common_1.BadRequestException('instanceId is required');
@@ -1253,6 +1452,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         if (!runtimeId) {
             throw new common_1.BadRequestException('runtimeId is required');
         }
+/** amount：定义该变量以承载业务值。 */
         const amount = Math.max(1, Math.trunc(amountInput));
         if (!Number.isFinite(amount)) {
             throw new common_1.BadRequestException('amount is required');
@@ -1266,11 +1466,14 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         });
         return { queued: true };
     }
+/** enqueueDamagePlayer：执行对应的业务逻辑。 */
     enqueueDamagePlayer(playerIdInput, amountInput) {
+/** playerId：定义该变量以承载业务值。 */
         const playerId = typeof playerIdInput === 'string' ? playerIdInput.trim() : '';
         if (!playerId) {
             throw new common_1.BadRequestException('playerId is required');
         }
+/** amount：定义该变量以承载业务值。 */
         const amount = Math.max(1, Math.trunc(amountInput));
         if (!Number.isFinite(amount)) {
             throw new common_1.BadRequestException('amount is required');
@@ -1283,7 +1486,9 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         });
         return { queued: true };
     }
+/** enqueueRespawnPlayer：执行对应的业务逻辑。 */
     enqueueRespawnPlayer(playerIdInput) {
+/** playerId：定义该变量以承载业务值。 */
         const playerId = typeof playerIdInput === 'string' ? playerIdInput.trim() : '';
         if (!playerId) {
             throw new common_1.BadRequestException('playerId is required');
@@ -1295,7 +1500,9 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         });
         return { queued: true };
     }
+/** enqueueResetPlayerSpawn：执行对应的业务逻辑。 */
     enqueueResetPlayerSpawn(playerIdInput) {
+/** playerId：定义该变量以承载业务值。 */
         const playerId = typeof playerIdInput === 'string' ? playerIdInput.trim() : '';
         if (!playerId) {
             throw new common_1.BadRequestException('playerId is required');
@@ -1307,7 +1514,9 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         });
         return { queued: true };
     }
+/** enqueueLegacyGmUpdatePlayer：执行对应的业务逻辑。 */
     enqueueLegacyGmUpdatePlayer(input) {
+/** playerId：定义该变量以承载业务值。 */
         const playerId = typeof input?.playerId === 'string' ? input.playerId.trim() : '';
         if (!playerId) {
             throw new common_1.BadRequestException('playerId is required');
@@ -1315,15 +1524,19 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.pendingSystemCommands.push({
             kind: 'legacyGmUpdatePlayer',
             playerId,
+/** mapId：定义该变量以承载业务值。 */
             mapId: typeof input?.mapId === 'string' ? input.mapId.trim() : '',
             x: Number.isFinite(input?.x) ? Math.trunc(input.x) : undefined,
             y: Number.isFinite(input?.y) ? Math.trunc(input.y) : undefined,
             hp: Number.isFinite(input?.hp) ? Math.trunc(input.hp) : undefined,
+/** autoBattle：定义该变量以承载业务值。 */
             autoBattle: typeof input?.autoBattle === 'boolean' ? input.autoBattle : undefined,
         });
         return { queued: true };
     }
+/** enqueueLegacyGmResetPlayer：执行对应的业务逻辑。 */
     enqueueLegacyGmResetPlayer(playerIdInput) {
+/** playerId：定义该变量以承载业务值。 */
         const playerId = typeof playerIdInput === 'string' ? playerIdInput.trim() : '';
         if (!playerId) {
             throw new common_1.BadRequestException('playerId is required');
@@ -1334,11 +1547,14 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         });
         return { queued: true };
     }
+/** enqueueLegacyGmSpawnBots：执行对应的业务逻辑。 */
     enqueueLegacyGmSpawnBots(anchorPlayerIdInput, countInput) {
+/** anchorPlayerId：定义该变量以承载业务值。 */
         const anchorPlayerId = typeof anchorPlayerIdInput === 'string' ? anchorPlayerIdInput.trim() : '';
         if (!anchorPlayerId) {
             throw new common_1.BadRequestException('anchorPlayerId is required');
         }
+/** count：定义该变量以承载业务值。 */
         const count = Math.max(0, Math.min(200, Math.trunc(countInput)));
         if (!Number.isFinite(count) || count <= 0) {
             throw new common_1.BadRequestException('count must be greater than 0');
@@ -1350,7 +1566,9 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         });
         return { queued: true };
     }
+/** enqueueLegacyGmRemoveBots：执行对应的业务逻辑。 */
     enqueueLegacyGmRemoveBots(playerIdsInput, allInput) {
+/** playerIds：定义该变量以承载业务值。 */
         const playerIds = Array.isArray(playerIdsInput)
             ? playerIdsInput
                 .filter((entry) => typeof entry === 'string')
@@ -1360,50 +1578,69 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.pendingSystemCommands.push({
             kind: 'legacyGmRemoveBots',
             playerIds,
+/** all：定义该变量以承载业务值。 */
             all: allInput === true,
         });
         return { queued: true };
     }
+/** getPlayerView：执行对应的业务逻辑。 */
     getPlayerView(playerId, radius) {
+/** location：定义该变量以承载业务值。 */
         const location = this.playerLocations.get(playerId);
         if (!location) {
             return null;
         }
+/** derivedRadius：定义该变量以承载业务值。 */
         const derivedRadius = this.playerRuntimeService.getPlayer(playerId)?.attrs.numericStats.viewRange;
+/** normalizedRadius：定义该变量以承载业务值。 */
         const normalizedRadius = typeof derivedRadius === 'number' && Number.isFinite(derivedRadius)
             ? Math.max(1, Math.round(derivedRadius))
             : undefined;
+/** effectiveRadius：定义该变量以承载业务值。 */
         const effectiveRadius = radius ?? normalizedRadius;
+/** view：定义该变量以承载业务值。 */
         const view = this.instances.get(location.instanceId)?.buildPlayerView(playerId, effectiveRadius) ?? null;
         return view ? this.decoratePlayerViewNpcs(playerId, view) : null;
     }
+/** resolveCurrentTickForPlayerId：执行对应的业务逻辑。 */
     resolveCurrentTickForPlayerId(playerId) {
+/** player：定义该变量以承载业务值。 */
         const player = this.playerRuntimeService.getPlayer(playerId);
         if (!player?.instanceId) {
             return this.tick;
         }
         return this.instances.get(player.instanceId)?.tick ?? this.tick;
     }
+/** getLegacyNavigationPath：执行对应的业务逻辑。 */
     getLegacyNavigationPath(playerId) {
+/** intent：定义该变量以承载业务值。 */
         const intent = this.navigationIntents.get(playerId);
         if (!intent) {
             return [];
         }
         try {
+/** player：定义该变量以承载业务值。 */
             const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
+/** location：定义该变量以承载业务值。 */
             const location = this.getPlayerLocationOrThrow(playerId);
+/** instance：定义该变量以承载业务值。 */
             const instance = this.getInstanceRuntimeOrThrow(location.instanceId);
+/** destination：定义该变量以承载业务值。 */
             const destination = this.resolveNavigationDestination(playerId, intent);
             if (destination.mapId !== player.templateId) {
+/** route：定义该变量以承载业务值。 */
                 const route = this.findMapRoute(player.templateId, destination.mapId);
                 if (!route || route.length < 2) {
                     return [];
                 }
+/** nextMapId：定义该变量以承载业务值。 */
                 const nextMapId = route[1];
+/** portal：定义该变量以承载业务值。 */
                 const portal = selectNearestPortal(instance.template.portals, nextMapId, player.x, player.y);
                 if (!portal || (portal.x === player.x && portal.y === player.y)) {
                     return [];
                 }
+/** path：定义该变量以承载业务值。 */
                 const path = findPathPointsOnMap(instance, player.playerId, player.x, player.y, [{
                         x: portal.x,
                         y: portal.y,
@@ -1413,6 +1650,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             if (destination.goals.some((goal) => goal.x === player.x && goal.y === player.y)) {
                 return [];
             }
+/** path：定义该变量以承载业务值。 */
             const path = findPathPointsOnMap(instance, player.playerId, player.x, player.y, destination.goals);
             return path ? path.map((entry) => [entry.x, entry.y]) : [];
         }
@@ -1420,7 +1658,9 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             return [];
         }
     }
+/** getRuntimeSummary：执行对应的业务逻辑。 */
     getRuntimeSummary() {
+/** instances：定义该变量以承载业务值。 */
         const instances = this.listInstances();
         return {
             tick: this.tick,
@@ -1439,7 +1679,9 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             instances,
         };
     }
+/** listDirtyPersistentInstances：执行对应的业务逻辑。 */
     listDirtyPersistentInstances() {
+/** dirty：定义该变量以承载业务值。 */
         const dirty = new Set(this.dirtyContainerPersistenceInstanceIds);
         for (const [instanceId, instance] of this.instances.entries()) {
             if (instance.meta.persistent && instance.isPersistentDirty()) {
@@ -1448,7 +1690,9 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         }
         return Array.from(dirty).sort(compareStableStrings);
     }
+/** buildMapPersistenceSnapshot：执行对应的业务逻辑。 */
     buildMapPersistenceSnapshot(instanceId) {
+/** instance：定义该变量以承载业务值。 */
         const instance = this.instances.get(instanceId);
         if (!instance || !instance.meta.persistent) {
             return null;
@@ -1462,11 +1706,14 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             containerStates: this.buildContainerPersistenceStates(instanceId),
         };
     }
+/** markMapPersisted：执行对应的业务逻辑。 */
     markMapPersisted(instanceId) {
         this.instances.get(instanceId)?.markAuraPersisted();
         this.dirtyContainerPersistenceInstanceIds.delete(instanceId);
     }
+/** buildContainerPersistenceStates：执行对应的业务逻辑。 */
     buildContainerPersistenceStates(instanceId) {
+/** containerStates：定义该变量以承载业务值。 */
         const containerStates = this.containerStatesByInstanceId.get(instanceId);
         if (!containerStates || containerStates.size === 0) {
             return [];
@@ -1490,12 +1737,14 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
                 : undefined,
         })).sort((left, right) => compareStableStrings(left.sourceId, right.sourceId));
     }
+/** hydrateContainerStates：执行对应的业务逻辑。 */
     hydrateContainerStates(instanceId, entries) {
         if (entries.length === 0) {
             this.containerStatesByInstanceId.delete(instanceId);
             this.dirtyContainerPersistenceInstanceIds.delete(instanceId);
             return;
         }
+/** next：定义该变量以承载业务值。 */
         const next = new Map();
         for (const entry of entries) {
             next.set(entry.sourceId, {
@@ -1520,13 +1769,17 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.containerStatesByInstanceId.set(instanceId, next);
         this.dirtyContainerPersistenceInstanceIds.delete(instanceId);
     }
+/** ensureContainerState：执行对应的业务逻辑。 */
     ensureContainerState(instanceId, container) {
+/** states：定义该变量以承载业务值。 */
         let states = this.containerStatesByInstanceId.get(instanceId);
         if (!states) {
             states = new Map();
             this.containerStatesByInstanceId.set(instanceId, states);
         }
+/** sourceId：定义该变量以承载业务值。 */
         const sourceId = buildContainerSourceId(instanceId, container.id);
+/** existing：定义该变量以承载业务值。 */
         const existing = states.get(sourceId);
         if (existing) {
             if (typeof existing.refreshAtTick === 'number'
@@ -1539,6 +1792,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             }
             return existing;
         }
+/** created：定义该变量以承载业务值。 */
         const created = existing ?? {
             sourceId,
             containerId: container.id,
@@ -1552,7 +1806,9 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.markContainerPersistenceDirty(instanceId);
         return created;
     }
+/** generateContainerEntries：执行对应的业务逻辑。 */
     generateContainerEntries(container) {
+/** entries：定义该变量以承载业务值。 */
         const entries = [];
         for (const pool of container.lootPools) {
             const items = this.contentTemplateRepository.rollLootPoolItems({
@@ -1583,6 +1839,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             if (chance <= 0 || Math.random() > chance) {
                 continue;
             }
+/** item：定义该变量以承载业务值。 */
             const item = this.contentTemplateRepository.createItem(drop.itemId, drop.count) ?? {
                 itemId: drop.itemId,
                 count: Math.max(1, Math.trunc(drop.count)),
@@ -1597,14 +1854,17 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         }
         return entries;
     }
+/** beginContainerSearch：执行对应的业务逻辑。 */
     beginContainerSearch(state, grade) {
         if (state.activeSearch) {
             return;
         }
+/** nextHidden：定义该变量以承载业务值。 */
         const nextHidden = groupContainerLootRows(state.entries.filter((entry) => !entry.visible))[0];
         if (!nextHidden) {
             return;
         }
+/** totalTicks：定义该变量以承载业务值。 */
         const totalTicks = CONTAINER_SEARCH_TICKS_BY_GRADE[grade] ?? 1;
         state.activeSearch = {
             itemKey: nextHidden.itemKey,
@@ -1612,12 +1872,14 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             remainingTicks: totalTicks,
         };
     }
+/** advanceContainerSearches：执行对应的业务逻辑。 */
     advanceContainerSearches() {
         for (const [instanceId, states] of this.containerStatesByInstanceId) {
             const instance = this.instances.get(instanceId);
             if (!instance) {
                 continue;
             }
+/** changed：定义该变量以承载业务值。 */
             let changed = false;
             for (const state of states.values()) {
                 const runtimeContainer = instance.template.containers.find((entry) => entry.id === state.containerId) ?? null;
@@ -1637,6 +1899,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
                 if (state.activeSearch.remainingTicks > 0) {
                     continue;
                 }
+/** target：定义该变量以承载业务值。 */
                 const target = state.entries.find((entry) => !entry.visible && createSyncedItemStackSignature(entry.item) === state.activeSearch?.itemKey);
                 if (target) {
                     target.visible = true;
@@ -1652,12 +1915,15 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             }
         }
     }
+/** hasActiveContainerViewer：执行对应的业务逻辑。 */
     hasActiveContainerViewer(instanceId, tileX, tileY) {
         for (const [playerId, location] of this.playerLocations) {
             if (location.instanceId !== instanceId) {
                 continue;
             }
+/** player：定义该变量以承载业务值。 */
             const player = this.playerRuntimeService.getPlayer(playerId);
+/** lootWindowTarget：定义该变量以承载业务值。 */
             const lootWindowTarget = this.playerRuntimeService.getLootWindowTarget(playerId);
             if (!player || !lootWindowTarget) {
                 continue;
@@ -1671,16 +1937,22 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         }
         return false;
     }
+/** markContainerPersistenceDirty：执行对应的业务逻辑。 */
     markContainerPersistenceDirty(instanceId) {
         this.dirtyContainerPersistenceInstanceIds.add(instanceId);
     }
+/** tickAll：执行对应的业务逻辑。 */
     tickAll() {
         return this.advanceFrame(1000);
     }
+/** advanceFrame：执行对应的业务逻辑。 */
     advanceFrame(frameDurationMs = 1000, getInstanceTickSpeed = null) {
+/** startedAt：定义该变量以承载业务值。 */
         const startedAt = performance.now();
         this.latestCombatEffectsByInstanceId.clear();
+/** instanceStepPlans：定义该变量以承载业务值。 */
         const instanceStepPlans = [];
+/** plannedLogicalTicks：定义该变量以承载业务值。 */
         let plannedLogicalTicks = 0;
         for (const instance of this.instances.values()) {
             const speed = getInstanceTickSpeed
@@ -1689,8 +1961,11 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             if (!Number.isFinite(speed) || speed <= 0) {
                 continue;
             }
+/** previousProgress：定义该变量以承载业务值。 */
             const previousProgress = this.instanceTickProgressById.get(instance.meta.instanceId) ?? 0;
+/** accumulated：定义该变量以承载业务值。 */
             const accumulated = previousProgress + speed * (Math.max(0, frameDurationMs) / 1000);
+/** steps：定义该变量以承载业务值。 */
             const steps = Math.floor(accumulated);
             this.instanceTickProgressById.set(instance.meta.instanceId, accumulated - steps);
             if (steps <= 0) {
@@ -1715,22 +1990,31 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.processPendingRespawns();
         this.materializeNavigationCommands();
         this.materializeAutoCombatCommands();
+/** pendingCommandsStartedAt：定义该变量以承载业务值。 */
         const pendingCommandsStartedAt = performance.now();
         this.dispatchPendingCommands();
+/** pendingCommandsMs：定义该变量以承载业务值。 */
         const pendingCommandsMs = performance.now() - pendingCommandsStartedAt;
+/** systemCommandsStartedAt：定义该变量以承载业务值。 */
         const systemCommandsStartedAt = performance.now();
         this.dispatchPendingSystemCommands();
+/** systemCommandsMs：定义该变量以承载业务值。 */
         const systemCommandsMs = performance.now() - systemCommandsStartedAt;
+/** steppedPlayerIds：定义该变量以承载业务值。 */
         const steppedPlayerIds = new Set();
+/** blockedPlayerIds：定义该变量以承载业务值。 */
         const blockedPlayerIds = this.navigationIntents.size > 0
             ? new Set(this.navigationIntents.keys())
             : undefined;
+/** totalLogicalTicks：定义该变量以承载业务值。 */
         let totalLogicalTicks = 0;
+/** instanceTicksStartedAt：定义该变量以承载业务值。 */
         const instanceTicksStartedAt = performance.now();
         for (const { instance, steps } of instanceStepPlans) {
             for (let index = 0; index < steps; index += 1) {
                 this.tick += 1;
                 totalLogicalTicks += 1;
+/** result：定义该变量以承载业务值。 */
                 const result = instance.tickOnce();
                 for (const transfer of result.transfers) {
                     this.applyTransfer(transfer);
@@ -1738,6 +2022,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
                 for (const action of result.monsterActions) {
                     this.applyMonsterAction(action);
                 }
+/** currentPlayerIds：定义该变量以承载业务值。 */
                 const currentPlayerIds = instance.listPlayerIds();
                 if (currentPlayerIds.length > 0) {
                     this.playerRuntimeService.advanceTickForPlayerIds(currentPlayerIds, instance.tick, {
@@ -1749,14 +2034,19 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
                 }
             }
         }
+/** instanceTicksMs：定义该变量以承载业务值。 */
         const instanceTicksMs = performance.now() - instanceTicksStartedAt;
+/** transfersMs：定义该变量以承载业务值。 */
         const transfersMs = 0;
+/** monsterActionsMs：定义该变量以承载业务值。 */
         const monsterActionsMs = 0;
+/** playerAdvanceStartedAt：定义该变量以承载业务值。 */
         const playerAdvanceStartedAt = performance.now();
         this.advanceContainerSearches();
         for (const playerId of steppedPlayerIds) {
             this.refreshQuestStates(playerId);
         }
+/** playerAdvanceMs：定义该变量以承载业务值。 */
         const playerAdvanceMs = performance.now() - playerAdvanceStartedAt;
         this.lastTickPhaseDurations = {
             pendingCommandsMs: roundDurationMs(pendingCommandsMs),
@@ -1770,10 +2060,12 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         pushDurationMetric(this.tickDurationHistoryMs, this.lastTickDurationMs);
         return totalLogicalTicks;
     }
+/** recordSyncFlushDuration：执行对应的业务逻辑。 */
     recordSyncFlushDuration(durationMs) {
         this.lastSyncFlushDurationMs = roundDurationMs(durationMs);
         pushDurationMetric(this.syncFlushDurationHistoryMs, this.lastSyncFlushDurationMs);
     }
+/** bootstrapPublicInstances：执行对应的业务逻辑。 */
     bootstrapPublicInstances() {
         for (const template of this.templateRepository.list()) {
             this.createInstance({
@@ -1785,6 +2077,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         }
         this.logger.log(`Bootstrapped ${this.instances.size} public instances`);
     }
+/** restorePublicInstancePersistence：执行对应的业务逻辑。 */
     async restorePublicInstancePersistence() {
         if (!this.mapPersistenceService.isEnabled()) {
             return;
@@ -1793,6 +2086,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             if (!instance.meta.persistent) {
                 continue;
             }
+/** snapshot：定义该变量以承载业务值。 */
             const snapshot = await this.mapPersistenceService.loadMapSnapshot(instanceId);
             if (!snapshot || snapshot.templateId !== instance.template.id) {
                 continue;
@@ -1802,6 +2096,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             this.hydrateContainerStates(instanceId, snapshot.containerStates ?? []);
         }
     }
+/** rebuildPersistentRuntimeAfterRestore：执行对应的业务逻辑。 */
     async rebuildPersistentRuntimeAfterRestore() {
         this.instances.clear();
         this.playerLocations.clear();
@@ -1816,12 +2111,16 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.bootstrapPublicInstances();
         await this.restorePublicInstancePersistence();
     }
+/** createInstance：执行对应的业务逻辑。 */
     createInstance(input) {
+/** existing：定义该变量以承载业务值。 */
         const existing = this.instances.get(input.instanceId);
         if (existing) {
             return existing;
         }
+/** template：定义该变量以承载业务值。 */
         const template = this.templateRepository.getOrThrow(input.templateId);
+/** instance：定义该变量以承载业务值。 */
         const instance = new map_instance_runtime_1.MapInstanceRuntime({
             instanceId: input.instanceId,
             template,
@@ -1834,6 +2133,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.instanceTickProgressById.set(input.instanceId, 0);
         return instance;
     }
+/** getOrCreatePublicInstance：执行对应的业务逻辑。 */
     getOrCreatePublicInstance(templateId) {
         if (!this.templateRepository.has(templateId)) {
             throw new common_1.NotFoundException(`Unknown map template: ${templateId}`);
@@ -1845,21 +2145,26 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             persistent: true,
         });
     }
+/** resolveDefaultRespawnMapId：执行对应的业务逻辑。 */
     resolveDefaultRespawnMapId() {
         if (this.templateRepository.has(DEFAULT_PLAYER_RESPAWN_MAP_ID)) {
             return DEFAULT_PLAYER_RESPAWN_MAP_ID;
         }
+/** fallback：定义该变量以承载业务值。 */
         const fallback = this.templateRepository.list()[0]?.id;
         if (!fallback) {
             throw new common_1.NotFoundException('No map template available');
         }
         return fallback;
     }
+/** findMapRoute：执行对应的业务逻辑。 */
     findMapRoute(fromMapId, toMapId) {
         if (fromMapId === toMapId) {
             return [fromMapId];
         }
+/** visited：定义该变量以承载业务值。 */
         const visited = new Set([fromMapId]);
+/** queue：定义该变量以承载业务值。 */
         const queue = [{
                 mapId: fromMapId,
                 path: [fromMapId],
@@ -1871,6 +2176,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
                 if (visited.has(portal.targetMapId)) {
                     continue;
                 }
+/** nextPath：定义该变量以承载业务值。 */
                 const nextPath = current.path.concat(portal.targetMapId);
                 if (portal.targetMapId === toMapId) {
                     return nextPath;
@@ -1884,46 +2190,59 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         }
         return null;
     }
+/** getPlayerLocationOrThrow：执行对应的业务逻辑。 */
     getPlayerLocationOrThrow(playerId) {
+/** location：定义该变量以承载业务值。 */
         const location = this.playerLocations.get(playerId);
         if (!location) {
             throw new common_1.NotFoundException(`Player ${playerId} is not connected`);
         }
         return location;
     }
+/** getInstanceRuntimeOrThrow：执行对应的业务逻辑。 */
     getInstanceRuntimeOrThrow(instanceId) {
+/** instance：定义该变量以承载业务值。 */
         const instance = this.instances.get(instanceId);
         if (!instance) {
             throw new common_1.NotFoundException(`Instance ${instanceId} not found`);
         }
         return instance;
     }
+/** cancelPendingInstanceCommand：执行对应的业务逻辑。 */
     cancelPendingInstanceCommand(playerId) {
+/** location：定义该变量以承载业务值。 */
         const location = this.playerLocations.get(playerId);
         if (!location) {
             return false;
         }
         return this.instances.get(location.instanceId)?.cancelPendingCommand(playerId) ?? false;
     }
+/** interruptManualNavigation：执行对应的业务逻辑。 */
     interruptManualNavigation(playerId) {
+/** currentTick：定义该变量以承载业务值。 */
         const currentTick = this.resolveCurrentTickForPlayerId(playerId);
         this.playerRuntimeService.updateCombatSettings(playerId, {
             autoBattle: false,
         }, currentTick);
         this.cancelPendingInstanceCommand(playerId);
     }
+/** interruptManualCombat：执行对应的业务逻辑。 */
     interruptManualCombat(playerId) {
         this.navigationIntents.delete(playerId);
         this.cancelPendingInstanceCommand(playerId);
     }
+/** getPlayerViewOrThrow：执行对应的业务逻辑。 */
     getPlayerViewOrThrow(playerId) {
+/** view：定义该变量以承载业务值。 */
         const view = this.getPlayerView(playerId);
         if (!view) {
             throw new common_1.NotFoundException(`Player ${playerId} not found`);
         }
         return view;
     }
+/** applyTransfer：执行对应的业务逻辑。 */
     applyTransfer(transfer) {
+/** source：定义该变量以承载业务值。 */
         const source = this.instances.get(transfer.fromInstanceId);
         if (!source) {
             return;
@@ -1938,6 +2257,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             reason: transfer.reason,
         });
         source.disconnectPlayer(transfer.playerId);
+/** target：定义该变量以承载业务值。 */
         const target = this.getOrCreatePublicInstance(transfer.targetMapId);
         target.connectPlayer({
             playerId: transfer.playerId,
@@ -1945,18 +2265,21 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             preferredX: transfer.targetX,
             preferredY: transfer.targetY,
         });
+/** runtimePlayer：定义该变量以承载业务值。 */
         const runtimePlayer = this.playerRuntimeService.getPlayer(transfer.playerId);
         target.setPlayerMoveSpeed(transfer.playerId, runtimePlayer?.attrs.numericStats.moveSpeed ?? 0);
         this.playerLocations.set(transfer.playerId, {
             instanceId: target.meta.instanceId,
             sessionId: transfer.sessionId,
         });
+/** navigation：定义该变量以承载业务值。 */
         const navigation = this.navigationIntents.get(transfer.playerId);
         if (navigation?.kind === 'point') {
             this.navigationIntents.delete(transfer.playerId);
         }
         this.queuePlayerNotice(transfer.playerId, `${transfer.reason === 'manual_portal' ? '通过界门' : '穿过灵脉'}抵达 ${target.template.name}`, 'travel');
     }
+/** materializeNavigationCommands：执行对应的业务逻辑。 */
     materializeNavigationCommands() {
         if (this.navigationIntents.size === 0) {
             return;
@@ -1965,12 +2288,14 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             if (this.pendingCommands.has(playerId)) {
                 continue;
             }
+/** player：定义该变量以承载业务值。 */
             const player = this.playerRuntimeService.getPlayer(playerId);
             if (!player || !player.instanceId || player.hp <= 0) {
                 this.navigationIntents.delete(playerId);
                 continue;
             }
             try {
+/** step：定义该变量以承载业务值。 */
                 const step = this.resolveNavigationStep(playerId, intent);
                 (0, movement_debug_1.logServerNextMovement)(this.logger, 'runtime.navigation.step', {
                     playerId,
@@ -1997,6 +2322,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
                 }
             }
             catch (error) {
+/** message：定义该变量以承载业务值。 */
                 const message = error instanceof Error ? error.message : String(error);
                 (0, movement_debug_1.logServerNextMovement)(this.logger, 'runtime.navigation.error', {
                     playerId,
@@ -2008,17 +2334,25 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             }
         }
     }
+/** resolveNavigationStep：执行对应的业务逻辑。 */
     resolveNavigationStep(playerId, intent) {
+/** player：定义该变量以承载业务值。 */
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
+/** location：定义该变量以承载业务值。 */
         const location = this.getPlayerLocationOrThrow(playerId);
+/** instance：定义该变量以承载业务值。 */
         const instance = this.getInstanceRuntimeOrThrow(location.instanceId);
+/** destination：定义该变量以承载业务值。 */
         const destination = this.resolveNavigationDestination(playerId, intent);
         if (destination.mapId !== player.templateId) {
+/** route：定义该变量以承载业务值。 */
             const route = this.findMapRoute(player.templateId, destination.mapId);
             if (!route || route.length < 2) {
                 throw new common_1.BadRequestException(`无法规划前往 ${destination.mapId} 的跨图路线`);
             }
+/** nextMapId：定义该变量以承载业务值。 */
             const nextMapId = route[1];
+/** portal：定义该变量以承载业务值。 */
             const portal = selectNearestPortal(instance.template.portals, nextMapId, player.x, player.y);
             if (!portal) {
                 throw new common_1.BadRequestException(`当前地图没有通往 ${nextMapId} 的界门`);
@@ -2033,6 +2367,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
                 });
                 return { kind: 'portal' };
             }
+/** pathResult：定义该变量以承载业务值。 */
             const pathResult = findOptimalPathOnMap(instance, player.playerId, player.x, player.y, [{
                     x: portal.x,
                     y: portal.y,
@@ -2040,7 +2375,9 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             if (!pathResult || pathResult.points.length === 0) {
                 throw new common_1.BadRequestException('前往界门的路径不可达');
             }
+/** previewPath：定义该变量以承载业务值。 */
             const previewPath = (0, movement_debug_1.isServerNextMovementDebugEnabled)() ? pathResult.points : null;
+/** direction：定义该变量以承载业务值。 */
             const direction = directionFromStep(player.x, player.y, pathResult.points[0].x, pathResult.points[0].y);
             if (direction === null) {
                 throw new common_1.BadRequestException('前往界门的路径不可达');
@@ -2072,20 +2409,25 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             });
             return { kind: 'done' };
         }
+/** preferredPath：定义该变量以承载业务值。 */
         const preferredPath = intent.kind === 'point'
             ? resolvePreferredClientPathHint(instance, player.playerId, player.x, player.y, destination.goals, intent.clientPathHint)
             : null;
+/** serverPathResult：定义该变量以承载业务值。 */
         const serverPathResult = preferredPath
             ? null
             : findOptimalPathOnMap(instance, player.playerId, player.x, player.y, destination.goals);
+/** pathResult：定义该变量以承载业务值。 */
         const pathResult = preferredPath ?? serverPathResult;
         if (!pathResult || pathResult.points.length === 0) {
             throw new common_1.BadRequestException(intent.kind === 'quest' ? '任务目标当前不可达' : '无法到达该位置');
         }
+/** direction：定义该变量以承载业务值。 */
         const direction = directionFromStep(player.x, player.y, pathResult.points[0].x, pathResult.points[0].y);
         if (direction === null) {
             throw new common_1.BadRequestException(intent.kind === 'quest' ? '任务目标当前不可达' : '无法到达该位置');
         }
+/** previewPath：定义该变量以承载业务值。 */
         const previewPath = (0, movement_debug_1.isServerNextMovementDebugEnabled)() ? pathResult.points : null;
         (0, movement_debug_1.logServerNextMovement)(this.logger, 'runtime.navigation.local.path', {
             playerId,
@@ -2104,10 +2446,14 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             path: pathResult.points.map((entry) => ({ x: entry.x, y: entry.y })),
         };
     }
+/** resolveNavigationDestination：执行对应的业务逻辑。 */
     resolveNavigationDestination(playerId, intent) {
         if (intent.kind === 'point') {
+/** location：定义该变量以承载业务值。 */
             const location = this.getPlayerLocationOrThrow(playerId);
+/** instance：定义该变量以承载业务值。 */
             const instance = this.getInstanceRuntimeOrThrow(location.instanceId);
+/** goals：定义该变量以承载业务值。 */
             const goals = buildGoalPoints(instance, intent.x, intent.y, intent.allowNearestReachable);
             if (goals.length === 0) {
                 throw new common_1.BadRequestException('无法到达该位置');
@@ -2117,16 +2463,21 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
                 goals,
             };
         }
+/** player：定义该变量以承载业务值。 */
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
+/** quest：定义该变量以承载业务值。 */
         const quest = player.quests.quests.find((entry) => entry.id === intent.questId && entry.status !== 'completed');
         if (!quest) {
             throw new common_1.NotFoundException('目标任务不存在或已完成');
         }
+/** resolved：定义该变量以承载业务值。 */
         const resolved = this.resolveQuestNavigationTarget(quest);
         if (!resolved) {
             throw new common_1.BadRequestException('当前任务没有可导航目标');
         }
+/** targetTemplate：定义该变量以承载业务值。 */
         const targetTemplate = this.templateRepository.getOrThrow(resolved.mapId);
+/** goals：定义该变量以承载业务值。 */
         const goals = resolved.adjacent
             ? buildAdjacentGoalPoints(targetTemplate, resolved.x, resolved.y)
             : buildGoalPointsFromTemplate(targetTemplate, resolved.x, resolved.y, true);
@@ -2138,11 +2489,13 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             goals,
         };
     }
+/** materializeAutoCombatCommands：执行对应的业务逻辑。 */
     materializeAutoCombatCommands() {
         for (const playerId of this.playerLocations.keys()) {
             if (this.pendingCommands.has(playerId) || this.navigationIntents.has(playerId)) {
                 continue;
             }
+/** player：定义该变量以承载业务值。 */
             const player = this.playerRuntimeService.getPlayer(playerId);
             if (!player || player.hp <= 0) {
                 continue;
@@ -2150,15 +2503,18 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             if (!player.combat.autoBattle && !player.combat.autoRetaliate) {
                 continue;
             }
+/** location：定义该变量以承载业务值。 */
             const location = this.playerLocations.get(playerId);
             if (!location) {
                 continue;
             }
+/** instance：定义该变量以承载业务值。 */
             const instance = this.instances.get(location.instanceId);
             if (!instance) {
                 continue;
             }
             if (player.combat.autoBattle && instance.isSafeZoneTile(player.x, player.y)) {
+/** currentTick：定义该变量以承载业务值。 */
                 const currentTick = this.resolveCurrentTickForPlayerId(playerId);
                 this.playerRuntimeService.updateCombatSettings(playerId, {
                     autoBattle: false,
@@ -2167,26 +2523,33 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
                 this.queuePlayerNotice(playerId, '安全区内无法发起攻击，自动战斗已停止。', 'warn');
                 continue;
             }
+/** command：定义该变量以承载业务值。 */
             const command = this.buildAutoCombatCommand(instance, player);
             if (command) {
                 this.pendingCommands.set(playerId, command);
             }
         }
     }
+/** buildAutoCombatCommand：执行对应的业务逻辑。 */
     buildAutoCombatCommand(instance, player) {
         if (instance.isPointInSafeZone(player.x, player.y)) {
             return null;
         }
+/** radius：定义该变量以承载业务值。 */
         const radius = Math.max(1, Math.round(player.attrs.numericStats.viewRange));
+/** view：定义该变量以承载业务值。 */
         const view = instance.buildPlayerView(player.playerId, radius);
         if (!view || view.localMonsters.length === 0) {
             return null;
         }
+/** target：定义该变量以承载业务值。 */
         const target = this.selectAutoCombatTarget(instance, player, view.localMonsters);
         if (!target) {
             return null;
         }
+/** distance：定义该变量以承载业务值。 */
         const distance = chebyshevDistance(player.x, player.y, target.x, target.y);
+/** skillId：定义该变量以承载业务值。 */
         const skillId = this.pickAutoBattleSkill(player, distance);
         if (skillId) {
             return {
@@ -2208,11 +2571,14 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         if (player.combat.autoBattleStationary) {
             return null;
         }
+/** desiredRange：定义该变量以承载业务值。 */
         const desiredRange = this.resolveAutoBattleDesiredRange(player);
         if (desiredRange > 1 && distance <= desiredRange) {
             return null;
         }
+/** goals：定义该变量以承载业务值。 */
         const goals = buildAutoBattleGoalPoints(instance, target.x, target.y, desiredRange);
+/** direction：定义该变量以承载业务值。 */
         const direction = findNextDirectionOnMap(instance, player.playerId, player.x, player.y, goals, false);
         if (direction === null) {
             return null;
@@ -2223,27 +2589,36 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             continuous: true,
         };
     }
+/** selectAutoCombatTarget：执行对应的业务逻辑。 */
     selectAutoCombatTarget(instance, player, visibleMonsters) {
         if (player.combat.autoBattle) {
+/** trackedTarget：定义该变量以承载业务值。 */
             const trackedTarget = this.resolveTrackedAutoCombatTarget(instance, player, visibleMonsters);
             if (trackedTarget) {
                 return trackedTarget;
             }
         }
+/** best：定义该变量以承载业务值。 */
         let best = null;
+/** bestAggro：定义该变量以承载业务值。 */
         let bestAggro = -1;
+/** bestDistance：定义该变量以承载业务值。 */
         let bestDistance = Number.MAX_SAFE_INTEGER;
+/** bestHp：定义该变量以承载业务值。 */
         let bestHp = Number.MAX_SAFE_INTEGER;
         for (const monster of visibleMonsters) {
             const liveMonster = instance.getMonster(monster.runtimeId);
             if (!liveMonster?.alive) {
                 continue;
             }
+/** retaliating：定义该变量以承载业务值。 */
             const retaliating = liveMonster.aggroTargetPlayerId === player.playerId;
             if (!player.combat.autoBattle && !retaliating) {
                 continue;
             }
+/** aggroRank：定义该变量以承载业务值。 */
             const aggroRank = retaliating ? 1 : 0;
+/** distance：定义该变量以承载业务值。 */
             const distance = chebyshevDistance(player.x, player.y, monster.x, monster.y);
             if (aggroRank > bestAggro
                 || (aggroRank === bestAggro && distance < bestDistance)
@@ -2261,23 +2636,30 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         }
         return best;
     }
+/** resolveTrackedAutoCombatTarget：执行对应的业务逻辑。 */
     resolveTrackedAutoCombatTarget(instance, player, visibleMonsters) {
+/** targetRuntimeId：定义该变量以承载业务值。 */
         const targetRuntimeId = player.combat.combatTargetId;
         if (!targetRuntimeId || targetRuntimeId.startsWith('player:') || targetRuntimeId.startsWith('tile:')) {
             return null;
         }
+/** visibleTarget：定义该变量以承载业务值。 */
         const visibleTarget = visibleMonsters.find((entry) => entry.runtimeId === targetRuntimeId);
         if (visibleTarget) {
             return visibleTarget;
         }
+/** trackedTarget：定义该变量以承载业务值。 */
         const trackedTarget = instance.getMonster(targetRuntimeId);
+/** radius：定义该变量以承载业务值。 */
         const radius = Math.max(1, Math.round(player.attrs.numericStats.viewRange));
         if (trackedTarget?.alive
             && chebyshevDistance(player.x, player.y, trackedTarget.x, trackedTarget.y) <= radius) {
             return trackedTarget;
         }
+/** locked：定义该变量以承载业务值。 */
         const locked = player.combat.combatTargetLocked;
         if (locked) {
+/** currentTick：定义该变量以承载业务值。 */
             const currentTick = this.resolveCurrentTickForPlayerId(player.playerId);
             this.playerRuntimeService.updateCombatSettings(player.playerId, {
                 autoBattle: false,
@@ -2288,6 +2670,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.playerRuntimeService.clearCombatTarget(player.playerId, this.resolveCurrentTickForPlayerId(player.playerId));
         return null;
     }
+/** pickAutoBattleSkill：执行对应的业务逻辑。 */
     pickAutoBattleSkill(player, distance) {
         for (const action of player.actions.actions) {
             if (action.type !== 'skill') {
@@ -2299,10 +2682,12 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             if ((action.cooldownLeft ?? 0) > 0) {
                 continue;
             }
+/** range：定义该变量以承载业务值。 */
             const range = Math.max(1, Math.round(action.range ?? 1));
             if (distance > range) {
                 continue;
             }
+/** skill：定义该变量以承载业务值。 */
             const skill = findPlayerSkill(player, action.id);
             if (!skill) {
                 continue;
@@ -2314,7 +2699,9 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         }
         return null;
     }
+/** resolveAutoBattleDesiredRange：执行对应的业务逻辑。 */
     resolveAutoBattleDesiredRange(player) {
+/** desiredRange：定义该变量以承载业务值。 */
         let desiredRange = 1;
         for (const action of player.actions.actions) {
             if (action.type !== 'skill') {
@@ -2323,6 +2710,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             if (action.autoBattleEnabled === false || action.skillEnabled === false) {
                 continue;
             }
+/** skill：定义该变量以承载业务值。 */
             const skill = findPlayerSkill(player, action.id);
             if (!skill) {
                 continue;
@@ -2334,6 +2722,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         }
         return desiredRange;
     }
+/** dispatchPendingCommands：执行对应的业务逻辑。 */
     dispatchPendingCommands() {
         for (const [playerId, command] of this.pendingCommands) {
             try {
@@ -2345,6 +2734,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
                 }
             }
             catch (error) {
+/** message：定义该变量以承载业务值。 */
                 const message = error instanceof Error ? error.message : String(error);
                 this.logger.warn(`Failed to resolve pending command for ${playerId}: ${command.kind} (${message})`);
                 this.queuePlayerNotice(playerId, message, 'warn');
@@ -2352,30 +2742,37 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         }
         this.pendingCommands.clear();
     }
+/** dispatchPendingSystemCommands：执行对应的业务逻辑。 */
     dispatchPendingSystemCommands() {
         if (this.pendingSystemCommands.length === 0) {
             return;
         }
+/** commands：定义该变量以承载业务值。 */
         const commands = this.pendingSystemCommands.splice(0, this.pendingSystemCommands.length);
         for (const command of commands) {
             try {
                 this.dispatchSystemCommand(command);
             }
             catch (error) {
+/** message：定义该变量以承载业务值。 */
                 const message = error instanceof Error ? error.message : String(error);
                 this.logger.warn(`Failed to resolve system command ${command.kind}: ${message}`);
             }
         }
     }
+/** dispatchInstanceCommand：执行对应的业务逻辑。 */
     dispatchInstanceCommand(playerId, command) {
+/** location：定义该变量以承载业务值。 */
         const location = this.playerLocations.get(playerId);
         if (!location) {
             return;
         }
+/** player：定义该变量以承载业务值。 */
         const player = this.playerRuntimeService.getPlayer(playerId);
         if (!player || player.hp <= 0) {
             return;
         }
+/** instance：定义该变量以承载业务值。 */
         const instance = this.instances.get(location.instanceId);
         if (!instance) {
             return;
@@ -2388,11 +2785,13 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             instance.enqueueMove({
                 playerId,
                 direction: command.direction,
+/** continuous：定义该变量以承载业务值。 */
                 continuous: command.continuous === true,
                 maxSteps: command.maxSteps,
                 path: Array.isArray(command.path)
                     ? command.path.map((entry) => ({ x: entry.x, y: entry.y }))
                     : undefined,
+/** resetBudget：定义该变量以承载业务值。 */
                 resetBudget: command.resetBudget === true,
             });
             return;
@@ -2400,11 +2799,13 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.playerRuntimeService.recordActivity(playerId, this.resolveCurrentTickForPlayerId(playerId), {
             interruptCultivation: true,
         });
+/** manualTransfer：定义该变量以承载业务值。 */
         const manualTransfer = instance.tryPortalTransfer(playerId, 'manual_portal');
         if (manualTransfer) {
             this.applyTransfer(manualTransfer);
             return;
         }
+/** autoTransfer：定义该变量以承载业务值。 */
         const autoTransfer = instance.tryPortalTransfer(playerId, 'auto_portal');
         if (autoTransfer) {
             this.applyTransfer(autoTransfer);
@@ -2412,7 +2813,9 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         }
         instance.enqueuePortalUse({ playerId });
     }
+/** dispatchPlayerCommand：执行对应的业务逻辑。 */
     dispatchPlayerCommand(playerId, command) {
+/** player：定义该变量以承载业务值。 */
         const player = this.playerRuntimeService.getPlayer(playerId);
         if (!player) {
             return;
@@ -2480,22 +2883,28 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
                 return;
         }
     }
+/** dispatchRedeemCodes：执行对应的业务逻辑。 */
     dispatchRedeemCodes(playerId, codes) {
         this.redeemCodeRuntimeService.redeemCodes(playerId, codes)
             .then((payload) => {
+/** socket：定义该变量以承载业务值。 */
             const socket = this.worldSessionService.getSocketByPlayerId(playerId);
             if (socket) {
                 this.worldClientEventService.emitRedeemCodesResult(socket, { result: payload });
             }
         })
             .catch((error) => {
+/** message：定义该变量以承载业务值。 */
             const message = error instanceof Error ? error.message : String(error);
             this.logger.warn(`Failed to resolve redeem codes for ${playerId}: ${message}`);
             this.queuePlayerNotice(playerId, message, 'warn');
         });
     }
+/** dispatchCastSkill：执行对应的业务逻辑。 */
     dispatchCastSkill(playerId, skillId, targetPlayerId, targetMonsterId, targetRef = null) {
+/** attacker：定义该变量以承载业务值。 */
         const attacker = this.playerRuntimeService.getPlayerOrThrow(playerId);
+/** currentTick：定义该变量以承载业务值。 */
         const currentTick = this.resolveCurrentTickForPlayerId(playerId);
         this.playerRuntimeService.recordActivity(playerId, currentTick, {
             interruptCultivation: true,
@@ -2503,12 +2912,14 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         if (!attacker.instanceId) {
             throw new common_1.BadRequestException(`Player ${playerId} not attached to instance`);
         }
+/** skill：定义该变量以承载业务值。 */
         const skill = findPlayerSkill(attacker, skillId);
         if (!skill) {
             throw new common_1.NotFoundException(`Skill ${skillId} not found`);
         }
         this.ensureAttackAllowed(attacker, skill);
         if (targetRef && !targetMonsterId && !targetPlayerId) {
+/** resolvedTarget：定义该变量以承载业务值。 */
             const resolvedTarget = this.resolveLegacySkillTargetRef(attacker, skill, targetRef);
             if (!resolvedTarget) {
                 throw new common_1.BadRequestException('没有可命中的目标');
@@ -2531,12 +2942,16 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         if (!targetPlayerId) {
             throw new common_1.BadRequestException('targetPlayerId or targetMonsterId is required');
         }
+/** target：定义该变量以承载业务值。 */
         const target = this.playerRuntimeService.getPlayerOrThrow(targetPlayerId);
         if (attacker.instanceId !== target.instanceId) {
             throw new common_1.BadRequestException(`Target ${targetPlayerId} not in same instance`);
         }
+/** distance：定义该变量以承载业务值。 */
         const distance = chebyshevDistance(attacker.x, attacker.y, target.x, target.y);
+/** result：定义该变量以承载业务值。 */
         const result = this.playerCombatService.castSkill(attacker, target, skillId, currentTick, distance);
+/** effectColor：定义该变量以承载业务值。 */
         const effectColor = getSkillEffectColor(skill);
         this.pushActionLabelEffect(attacker.instanceId, attacker.x, attacker.y, skill.name);
         this.pushAttackEffect(attacker.instanceId, attacker.x, attacker.y, target.x, target.y, effectColor);
@@ -2546,17 +2961,21 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.playerRuntimeService.recordActivity(target.playerId, currentTick, {
             interruptCultivation: true,
         });
+/** updatedTarget：定义该变量以承载业务值。 */
         const updatedTarget = this.playerRuntimeService.getPlayer(target.playerId);
         if (updatedTarget && updatedTarget.hp <= 0) {
             this.handlePlayerDefeat(updatedTarget.playerId);
         }
     }
+/** resolveLegacySkillTargetRef：执行对应的业务逻辑。 */
     resolveLegacySkillTargetRef(attacker, skill, targetRef) {
         if (!attacker.instanceId) {
             return null;
         }
+/** targetPlayerId：定义该变量以承载业务值。 */
         const targetPlayerId = targetRef.startsWith('player:') ? targetRef.slice('player:'.length).trim() : '';
         if (targetPlayerId) {
+/** target：定义该变量以承载业务值。 */
             const target = this.playerRuntimeService.getPlayer(targetPlayerId);
             if (!target || target.playerId === attacker.playerId || target.instanceId !== attacker.instanceId || target.hp <= 0) {
                 return null;
@@ -2566,8 +2985,10 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
                 playerId: target.playerId,
             };
         }
+/** instance：定义该变量以承载业务值。 */
         const instance = this.getInstanceRuntimeOrThrow(attacker.instanceId);
         if (!targetRef.startsWith('tile:')) {
+/** monster：定义该变量以承载业务值。 */
             const monster = instance.getMonster(targetRef);
             if (!monster?.alive) {
                 return null;
@@ -2577,10 +2998,12 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
                 monsterId: monster.runtimeId,
             };
         }
+/** tile：定义该变量以承载业务值。 */
         const tile = (0, shared_1.parseTileTargetRef)(targetRef);
         if (!tile) {
             return null;
         }
+/** directDistance：定义该变量以承载业务值。 */
         const directDistance = chebyshevDistance(attacker.x, attacker.y, tile.x, tile.y);
         if (directDistance <= resolveRuntimeSkillRange(skill) && instance.getTileCombatState(tile.x, tile.y)) {
             return {
@@ -2589,6 +3012,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
                 y: tile.y,
             };
         }
+/** affectedCells：定义该变量以承载业务值。 */
         const affectedCells = (0, shared_1.computeAffectedCellsFromAnchor)({ x: attacker.x, y: attacker.y }, { x: tile.x, y: tile.y }, {
             range: resolveRuntimeSkillRange(skill),
             shape: skill.targeting?.shape,
@@ -2599,6 +3023,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         if (affectedCells.length === 0) {
             return null;
         }
+/** monsters：定义该变量以承载业务值。 */
         const monsters = instance.listMonsters()
             .filter((entry) => entry.alive)
             .sort((left, right) => chebyshevDistance(tile.x, tile.y, left.x, left.y) - chebyshevDistance(tile.x, tile.y, right.x, right.y));
@@ -2611,6 +3036,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
                 };
             }
         }
+/** players：定义该变量以承载业务值。 */
         const players = this.playerRuntimeService.listPlayerSnapshots()
             .filter((entry) => entry.instanceId === attacker.instanceId && entry.playerId !== attacker.playerId && entry.hp > 0)
             .sort((left, right) => chebyshevDistance(tile.x, tile.y, left.x, left.y) - chebyshevDistance(tile.x, tile.y, right.x, right.y));
@@ -2634,12 +3060,17 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         }
         return null;
     }
+/** dispatchEngageBattle：执行对应的业务逻辑。 */
     dispatchEngageBattle(playerId, targetPlayerId, targetMonsterId, targetX, targetY, locked) {
+/** currentTick：定义该变量以承载业务值。 */
         const currentTick = this.resolveCurrentTickForPlayerId(playerId);
+/** currentPlayer：定义该变量以承载业务值。 */
         const currentPlayer = this.playerRuntimeService.getPlayerOrThrow(playerId);
+/** wasAutoBattleActive：定义该变量以承载业务值。 */
         const wasAutoBattleActive = currentPlayer.combat.autoBattle === true;
         this.interruptManualCombat(playerId);
         if (!targetMonsterId) {
+/** targetRef：定义该变量以承载业务值。 */
             const targetRef = targetPlayerId
                 ? `player:${targetPlayerId}`
                 : (targetX !== null && targetY !== null ? `tile:${targetX}:${targetY}` : null);
@@ -2655,11 +3086,14 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             this.dispatchBasicAttack(playerId, targetPlayerId, null, targetX, targetY);
             return;
         }
+/** player：定义该变量以承载业务值。 */
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
         if (!player.instanceId) {
             throw new common_1.BadRequestException(`Player ${playerId} not attached to instance`);
         }
+/** instance：定义该变量以承载业务值。 */
         const instance = this.getInstanceRuntimeOrThrow(player.instanceId);
+/** monster：定义该变量以承载业务值。 */
         const monster = instance.getMonster(targetMonsterId);
         if (!monster?.alive) {
             throw new common_1.NotFoundException(`Monster ${targetMonsterId} not found`);
@@ -2671,6 +3105,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         if (wasAutoBattleActive) {
             return;
         }
+/** nextCommand：定义该变量以承载业务值。 */
         const nextCommand = this.buildAutoCombatCommand(instance, player);
         if (!nextCommand) {
             return;
@@ -2681,14 +3116,20 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         }
         this.dispatchPlayerCommand(playerId, nextCommand);
     }
+/** dispatchCastSkillToMonster：执行对应的业务逻辑。 */
     dispatchCastSkillToMonster(attacker, skillId, targetMonsterId) {
+/** instance：定义该变量以承载业务值。 */
         const instance = this.getInstanceRuntimeOrThrow(attacker.instanceId);
+/** target：定义该变量以承载业务值。 */
         const target = instance.getMonster(targetMonsterId);
         if (!target) {
             throw new common_1.NotFoundException(`Monster ${targetMonsterId} not found`);
         }
+/** distance：定义该变量以承载业务值。 */
         const distance = chebyshevDistance(attacker.x, attacker.y, target.x, target.y);
+/** currentTick：定义该变量以承载业务值。 */
         const currentTick = this.resolveCurrentTickForPlayerId(attacker.playerId);
+/** result：定义该变量以承载业务值。 */
         const result = this.playerCombatService.castSkillToMonster(attacker, {
             runtimeId: target.runtimeId,
             monsterId: target.monsterId,
@@ -2705,7 +3146,9 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         }, skillId, currentTick, distance, (buff) => {
             instance.applyTemporaryBuffToMonster(targetMonsterId, buff);
         });
+/** skill：定义该变量以承载业务值。 */
         const skill = findPlayerSkill(attacker, skillId);
+/** effectColor：定义该变量以承载业务值。 */
         const effectColor = skill ? getSkillEffectColor(skill) : (0, shared_1.getDamageTrailColor)('spell');
         if (skill) {
             this.pushActionLabelEffect(attacker.instanceId, attacker.x, attacker.y, skill.name);
@@ -2715,20 +3158,27 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             return;
         }
         this.pushDamageFloatEffect(attacker.instanceId, target.x, target.y, result.totalDamage, effectColor);
+/** outcome：定义该变量以承载业务值。 */
         const outcome = instance.applyDamageToMonster(targetMonsterId, result.totalDamage, attacker.playerId);
         if (!outcome?.defeated) {
             return;
         }
         this.handlePlayerMonsterKill(instance, outcome.monster, attacker.playerId);
     }
+/** dispatchCastSkillToTile：执行对应的业务逻辑。 */
     dispatchCastSkillToTile(attacker, skillId, targetX, targetY) {
+/** instance：定义该变量以承载业务值。 */
         const instance = this.getInstanceRuntimeOrThrow(attacker.instanceId);
+/** tileState：定义该变量以承载业务值。 */
         const tileState = instance.getTileCombatState(targetX, targetY);
         if (!tileState || tileState.destroyed) {
             throw new common_1.BadRequestException('该目标无法被攻击');
         }
+/** distance：定义该变量以承载业务值。 */
         const distance = chebyshevDistance(attacker.x, attacker.y, targetX, targetY);
+/** currentTick：定义该变量以承载业务值。 */
         const currentTick = this.resolveCurrentTickForPlayerId(attacker.playerId);
+/** result：定义该变量以承载业务值。 */
         const result = this.playerCombatService.castSkillToMonster(attacker, {
             runtimeId: `tile:${targetX}:${targetY}`,
             monsterId: `tile:${tileState.tileType}`,
@@ -2743,7 +3193,9 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             },
             buffs: [],
         }, skillId, currentTick, distance, () => undefined);
+/** skill：定义该变量以承载业务值。 */
         const skill = findPlayerSkill(attacker, skillId);
+/** effectColor：定义该变量以承载业务值。 */
         const effectColor = skill ? getSkillEffectColor(skill) : (0, shared_1.getDamageTrailColor)('spell');
         if (skill) {
             this.pushActionLabelEffect(attacker.instanceId, attacker.x, attacker.y, skill.name);
@@ -2755,6 +3207,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.pushDamageFloatEffect(attacker.instanceId, targetX, targetY, result.totalDamage, effectColor);
         instance.damageTile(targetX, targetY, result.totalDamage);
     }
+/** dispatchSystemCommand：执行对应的业务逻辑。 */
     dispatchSystemCommand(command) {
         switch (command.kind) {
             case 'spawnMonsterLoot':
@@ -2789,11 +3242,14 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
                 return;
         }
     }
+/** dispatchUseItem：执行对应的业务逻辑。 */
     dispatchUseItem(playerId, slotIndex) {
+/** item：定义该变量以承载业务值。 */
         const item = this.playerRuntimeService.peekInventoryItem(playerId, slotIndex);
         if (!item) {
             throw new common_1.NotFoundException(`Inventory slot ${slotIndex} not found`);
         }
+/** learnedTechniqueId：定义该变量以承载业务值。 */
         const learnedTechniqueId = this.contentTemplateRepository.getLearnTechniqueId(item.itemId);
         if (item.mapUnlockId) {
             if (!this.templateRepository.has(item.mapUnlockId)) {
@@ -2805,14 +3261,19 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             this.playerRuntimeService.unlockMap(playerId, item.mapUnlockId);
             this.playerRuntimeService.consumeInventoryItem(playerId, slotIndex, 1);
             this.refreshQuestStates(playerId);
+/** targetName：定义该变量以承载业务值。 */
             const targetName = this.templateRepository.getOrThrow(item.mapUnlockId).name;
             this.queuePlayerNotice(playerId, `已解锁地图：${targetName}`, 'success');
             return;
         }
         if (item.tileAuraGainAmount) {
+/** location：定义该变量以承载业务值。 */
             const location = this.getPlayerLocationOrThrow(playerId);
+/** player：定义该变量以承载业务值。 */
             const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
+/** instance：定义该变量以承载业务值。 */
             const instance = this.getInstanceRuntimeOrThrow(location.instanceId);
+/** nextAura：定义该变量以承载业务值。 */
             const nextAura = instance.addTileAura(player.x, player.y, item.tileAuraGainAmount);
             if (nextAura === null) {
                 throw new common_1.BadRequestException(`Failed to add aura at ${player.x},${player.y}`);
@@ -2831,17 +3292,22 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         }
         this.queuePlayerNotice(playerId, `使用 ${item.name}`, 'success');
     }
+/** dispatchBreakthrough：执行对应的业务逻辑。 */
     dispatchBreakthrough(playerId) {
         this.playerRuntimeService.attemptBreakthrough(playerId, this.resolveCurrentTickForPlayerId(playerId));
     }
+/** dispatchHeavenGateAction：执行对应的业务逻辑。 */
     dispatchHeavenGateAction(playerId, action, element) {
         this.playerRuntimeService.handleHeavenGateAction(playerId, action, element, this.resolveCurrentTickForPlayerId(playerId));
     }
+/** dispatchMoveTo：执行对应的业务逻辑。 */
     dispatchMoveTo(playerId, x, y, allowNearestReachable, clientPathHint = null) {
+/** player：定义该变量以承载业务值。 */
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
         this.playerRuntimeService.recordActivity(playerId, this.resolveCurrentTickForPlayerId(playerId), {
             interruptCultivation: true,
         });
+/** intent：定义该变量以承载业务值。 */
         const intent = {
             kind: 'point',
             mapId: player.templateId,
@@ -2873,6 +3339,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
                 }
                 : null,
         });
+/** initialStep：定义该变量以承载业务值。 */
         const initialStep = this.resolveNavigationStep(playerId, intent);
         (0, movement_debug_1.logServerNextMovement)(this.logger, 'runtime.dispatch.moveTo.initialStep', {
             playerId,
@@ -2896,8 +3363,11 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             resetBudget: true,
         });
     }
+/** dispatchBasicAttack：执行对应的业务逻辑。 */
     dispatchBasicAttack(playerId, targetPlayerId, targetMonsterId, targetX, targetY) {
+/** attacker：定义该变量以承载业务值。 */
         const attacker = this.playerRuntimeService.getPlayerOrThrow(playerId);
+/** currentTick：定义该变量以承载业务值。 */
         const currentTick = this.resolveCurrentTickForPlayerId(playerId);
         this.playerRuntimeService.recordActivity(playerId, currentTick, {
             interruptCultivation: true,
@@ -2906,12 +3376,16 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             throw new common_1.BadRequestException(`Player ${playerId} not attached to instance`);
         }
         this.ensureAttackAllowed(attacker);
+/** damageKind：定义该变量以承载业务值。 */
         const damageKind = attacker.attrs.numericStats.spellAtk > attacker.attrs.numericStats.physAtk ? 'spell' : 'physical';
+/** baseDamage：定义该变量以承载业务值。 */
         const baseDamage = Math.max(1, Math.round(damageKind === 'spell'
             ? attacker.attrs.numericStats.spellAtk
             : attacker.attrs.numericStats.physAtk));
         if (targetMonsterId) {
+/** instance：定义该变量以承载业务值。 */
             const instance = this.getInstanceRuntimeOrThrow(attacker.instanceId);
+/** monster：定义该变量以承载业务值。 */
             const monster = instance.getMonster(targetMonsterId);
             if (!monster || !monster.alive) {
                 throw new common_1.NotFoundException(`Monster ${targetMonsterId} not found`);
@@ -2919,11 +3393,14 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             if (chebyshevDistance(attacker.x, attacker.y, monster.x, monster.y) > 1) {
                 throw new common_1.BadRequestException('目标超出攻击距离');
             }
+/** resolvedDamage：定义该变量以承载业务值。 */
             const resolvedDamage = computeResolvedDamage(baseDamage, damageKind, attacker.attrs.numericStats, attacker.attrs.ratioDivisors, monster.numericStats, monster.ratioDivisors);
+/** effectColor：定义该变量以承载业务值。 */
             const effectColor = (0, shared_1.getDamageTrailColor)(damageKind);
             this.pushActionLabelEffect(attacker.instanceId, attacker.x, attacker.y, '攻击');
             this.pushAttackEffect(attacker.instanceId, attacker.x, attacker.y, monster.x, monster.y, effectColor);
             this.pushDamageFloatEffect(attacker.instanceId, monster.x, monster.y, resolvedDamage.damage, effectColor);
+/** outcome：定义该变量以承载业务值。 */
             const outcome = instance.applyDamageToMonster(targetMonsterId, resolvedDamage.damage, attacker.playerId);
             if (outcome?.defeated) {
                 this.handlePlayerMonsterKill(instance, outcome.monster, attacker.playerId);
@@ -2932,6 +3409,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             return;
         }
         if (targetPlayerId) {
+/** target：定义该变量以承载业务值。 */
             const target = this.playerRuntimeService.getPlayerOrThrow(targetPlayerId);
             if (target.instanceId !== attacker.instanceId) {
                 throw new common_1.BadRequestException('目标不在同一地图');
@@ -2939,11 +3417,14 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             if (chebyshevDistance(attacker.x, attacker.y, target.x, target.y) > 1) {
                 throw new common_1.BadRequestException('目标超出攻击距离');
             }
+/** resolvedDamage：定义该变量以承载业务值。 */
             const resolvedDamage = computeResolvedDamage(baseDamage, damageKind, attacker.attrs.numericStats, attacker.attrs.ratioDivisors, target.attrs.numericStats, target.attrs.ratioDivisors);
+/** effectColor：定义该变量以承载业务值。 */
             const effectColor = (0, shared_1.getDamageTrailColor)(damageKind);
             this.pushActionLabelEffect(attacker.instanceId, attacker.x, attacker.y, '攻击');
             this.pushAttackEffect(attacker.instanceId, attacker.x, attacker.y, target.x, target.y, effectColor);
             this.pushDamageFloatEffect(attacker.instanceId, target.x, target.y, resolvedDamage.damage, effectColor);
+/** updated：定义该变量以承载业务值。 */
             const updated = this.playerRuntimeService.applyDamage(target.playerId, resolvedDamage.damage);
             this.playerRuntimeService.recordActivity(target.playerId, currentTick, {
                 interruptCultivation: true,
@@ -2956,14 +3437,17 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             return;
         }
         if (targetX !== null && targetY !== null) {
+/** instance：定义该变量以承载业务值。 */
             const instance = this.getInstanceRuntimeOrThrow(attacker.instanceId);
             if (chebyshevDistance(attacker.x, attacker.y, targetX, targetY) > 1) {
                 throw new common_1.BadRequestException('目标超出攻击距离');
             }
+/** result：定义该变量以承载业务值。 */
             const result = instance.damageTile(targetX, targetY, baseDamage);
             if (!result) {
                 throw new common_1.BadRequestException('该目标无法被攻击');
             }
+/** effectColor：定义该变量以承载业务值。 */
             const effectColor = (0, shared_1.getDamageTrailColor)(damageKind);
             this.pushActionLabelEffect(attacker.instanceId, attacker.x, attacker.y, '攻击');
             this.pushAttackEffect(attacker.instanceId, attacker.x, attacker.y, targetX, targetY, effectColor);
@@ -2975,11 +3459,17 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         }
         throw new common_1.BadRequestException('target is required');
     }
+/** dispatchDropItem：执行对应的业务逻辑。 */
     dispatchDropItem(playerId, slotIndex, count) {
+/** location：定义该变量以承载业务值。 */
         const location = this.getPlayerLocationOrThrow(playerId);
+/** player：定义该变量以承载业务值。 */
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
+/** item：定义该变量以承载业务值。 */
         const item = this.playerRuntimeService.splitInventoryItem(playerId, slotIndex, count);
+/** instance：定义该变量以承载业务值。 */
         const instance = this.getInstanceRuntimeOrThrow(location.instanceId);
+/** pile：定义该变量以承载业务值。 */
         const pile = instance.dropGroundItem(player.x, player.y, item);
         if (!pile) {
             this.playerRuntimeService.receiveInventoryItem(playerId, item);
@@ -2988,17 +3478,23 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.refreshQuestStates(playerId);
         this.queuePlayerNotice(playerId, `放下 ${formatItemStackLabel(item)}`, 'info');
     }
+/** dispatchTakeGround：执行对应的业务逻辑。 */
     dispatchTakeGround(playerId, sourceId, itemKey) {
+/** location：定义该变量以承载业务值。 */
         const location = this.getPlayerLocationOrThrow(playerId);
+/** player：定义该变量以承载业务值。 */
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
         if (isContainerSourceId(sourceId)) {
+/** item：定义该变量以承载业务值。 */
             const item = this.takeContainerItem(location.instanceId, playerId, player, sourceId, itemKey);
             this.playerRuntimeService.receiveInventoryItem(playerId, item);
             this.refreshQuestStates(playerId);
             this.queuePlayerNotice(playerId, `获得 ${formatItemStackLabel(item)}`, 'loot');
             return;
         }
+/** instance：定义该变量以承载业务值。 */
         const instance = this.getInstanceRuntimeOrThrow(location.instanceId);
+/** item：定义该变量以承载业务值。 */
         const item = instance.takeGroundItem(sourceId, itemKey, player.x, player.y);
         if (!item) {
             throw new common_1.NotFoundException(`Ground item ${itemKey} not found at ${sourceId}`);
@@ -3007,10 +3503,14 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.refreshQuestStates(playerId);
         this.queuePlayerNotice(playerId, `获得 ${formatItemStackLabel(item)}`, 'loot');
     }
+/** dispatchTakeGroundAll：执行对应的业务逻辑。 */
     dispatchTakeGroundAll(playerId, sourceId) {
+/** location：定义该变量以承载业务值。 */
         const location = this.getPlayerLocationOrThrow(playerId);
+/** player：定义该变量以承载业务值。 */
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
         if (isContainerSourceId(sourceId)) {
+/** takenItems：定义该变量以承载业务值。 */
             const takenItems = this.takeAllContainerItems(location.instanceId, playerId, player, sourceId);
             if (takenItems.length === 0) {
                 throw new common_1.BadRequestException('当前没有可拿取的物品');
@@ -3022,11 +3522,14 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             this.queuePlayerNotice(playerId, `获得 ${formatItemListSummary(takenItems)}`, 'loot');
             return;
         }
+/** instance：定义该变量以承载业务值。 */
         const instance = this.getInstanceRuntimeOrThrow(location.instanceId);
+/** pile：定义该变量以承载业务值。 */
         const pile = instance.getGroundPileBySourceId(sourceId);
         if (!pile || pile.items.length === 0) {
             throw new common_1.NotFoundException(`Ground source ${sourceId} not found`);
         }
+/** takenItems：定义该变量以承载业务值。 */
         const takenItems = [];
         for (const entry of pile.items) {
             if (!canReceiveItemStack(player, entry.item)) {
@@ -3035,6 +3538,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
                 }
                 break;
             }
+/** taken：定义该变量以承载业务值。 */
             const taken = instance.takeGroundItem(sourceId, entry.itemKey, player.x, player.y);
             if (!taken) {
                 continue;
@@ -3051,8 +3555,11 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             this.queuePlayerNotice(playerId, '背包空间不足，剩余物品暂时拿不下。', 'info');
         }
     }
+/** takeContainerItem：执行对应的业务逻辑。 */
     takeContainerItem(instanceId, playerId, player, sourceId, itemKey) {
+/** resolved：定义该变量以承载业务值。 */
         const resolved = this.resolveContainerStateForPlayer(instanceId, playerId, player, sourceId);
+/** row：定义该变量以承载业务值。 */
         const row = groupContainerLootRows(resolved.state.entries.filter((entry) => entry.visible))
             .find((entry) => entry.itemKey === itemKey);
         if (!row) {
@@ -3068,13 +3575,18 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.markContainerPersistenceDirty(instanceId);
         return { ...row.item };
     }
+/** takeAllContainerItems：执行对应的业务逻辑。 */
     takeAllContainerItems(instanceId, playerId, player, sourceId) {
+/** resolved：定义该变量以承载业务值。 */
         const resolved = this.resolveContainerStateForPlayer(instanceId, playerId, player, sourceId);
+/** rows：定义该变量以承载业务值。 */
         const rows = groupContainerLootRows(resolved.state.entries.filter((entry) => entry.visible));
         if (rows.length === 0) {
             return [];
         }
+/** takenItems：定义该变量以承载业务值。 */
         const takenItems = [];
+/** simulatedInventory：定义该变量以承载业务值。 */
         const simulatedInventory = cloneInventorySimulation(player.inventory.items);
         for (const row of rows) {
             if (!canReceiveContainerEntries(simulatedInventory, player.inventory.capacity, row.entries)) {
@@ -3092,7 +3604,9 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         }
         return takenItems;
     }
+/** resolveContainerStateForPlayer：执行对应的业务逻辑。 */
     resolveContainerStateForPlayer(instanceId, playerId, player, sourceId) {
+/** lootWindowTarget：定义该变量以承载业务值。 */
         const lootWindowTarget = this.playerRuntimeService.getLootWindowTarget(playerId);
         if (!lootWindowTarget) {
             throw new common_1.BadRequestException('请先打开拿取界面');
@@ -3101,6 +3615,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             this.playerRuntimeService.clearLootWindow(playerId);
             throw new common_1.BadRequestException('你已离开拿取范围');
         }
+/** parsedSource：定义该变量以承载业务值。 */
         const parsedSource = parseContainerSourceId(sourceId);
         if (!parsedSource) {
             throw new common_1.BadRequestException('非法容器来源');
@@ -3108,7 +3623,9 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         if (parsedSource.instanceId !== instanceId) {
             throw new common_1.BadRequestException('目标容器不在当前实例中');
         }
+/** instance：定义该变量以承载业务值。 */
         const instance = this.getInstanceRuntimeOrThrow(instanceId);
+/** container：定义该变量以承载业务值。 */
         const container = instance.getContainerById(parsedSource.containerId);
         if (!container) {
             this.playerRuntimeService.clearLootWindow(playerId);
@@ -3117,6 +3634,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         if (container.x !== lootWindowTarget.tileX || container.y !== lootWindowTarget.tileY) {
             throw new common_1.BadRequestException('当前拿取界面与目标容器不一致');
         }
+/** expectedSourceId：定义该变量以承载业务值。 */
         const expectedSourceId = buildContainerSourceId(instanceId, container.id);
         if (sourceId !== expectedSourceId) {
             throw new common_1.BadRequestException('当前拿取界面与目标容器不一致');
@@ -3126,17 +3644,23 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             state: this.ensureContainerState(instanceId, container),
         };
     }
+/** dispatchBuyNpcShopItem：执行对应的业务逻辑。 */
     dispatchBuyNpcShopItem(playerId, npcId, itemId, quantity) {
+/** validated：定义该变量以承载业务值。 */
         const validated = this.validateNpcShopPurchase(playerId, npcId, itemId, quantity);
         this.playerRuntimeService.consumeInventoryItemByItemId(playerId, NPC_SHOP_CURRENCY_ITEM_ID, validated.totalCost);
         this.playerRuntimeService.receiveInventoryItem(playerId, validated.item);
         this.refreshQuestStates(playerId);
         this.queuePlayerNotice(playerId, `购买 ${formatItemStackLabel(validated.item)}，消耗 ${this.getNpcShopCurrencyName()} x${validated.totalCost}`, 'success');
     }
+/** dispatchLegacyNpcInteraction：执行对应的业务逻辑。 */
     dispatchLegacyNpcInteraction(playerId, npcId) {
+/** npc：定义该变量以承载业务值。 */
         const npc = this.resolveAdjacentNpc(playerId, npcId);
         this.refreshQuestStates(playerId);
+/** player：定义该变量以承载业务值。 */
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
+/** readyQuest：定义该变量以承载业务值。 */
         const readyQuest = player.quests.quests.find((entry) => (entry.status === 'ready'
             && entry.submitNpcId === npcId
             && (!entry.submitMapId || entry.submitMapId === player.templateId)));
@@ -3144,6 +3668,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             this.dispatchSubmitNpcQuest(playerId, npcId, readyQuest.id);
             return;
         }
+/** talkQuest：定义该变量以承载业务值。 */
         const talkQuest = player.quests.quests.find((entry) => (entry.status === 'active'
             && entry.objectiveType === 'talk'
             && entry.targetNpcId === npcId
@@ -3152,12 +3677,15 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             this.dispatchInteractNpcQuest(playerId, npcId);
             return;
         }
+/** questViews：定义该变量以承载业务值。 */
         const questViews = this.createNpcQuestsEnvelope(playerId, npcId).quests;
+/** availableQuest：定义该变量以承载业务值。 */
         const availableQuest = questViews.find((entry) => entry.status === 'available');
         if (availableQuest) {
             this.dispatchAcceptNpcQuest(playerId, npcId, availableQuest.id);
             return;
         }
+/** activeQuest：定义该变量以承载业务值。 */
         const activeQuest = questViews.find((entry) => entry.status === 'active');
         if (activeQuest) {
             this.queuePlayerNotice(playerId, `${npc.name}：${buildLegacyNpcQuestProgressText(activeQuest)}`, 'info');
@@ -3165,7 +3693,9 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         }
         this.queuePlayerNotice(playerId, `${npc.name}：${npc.dialogue}`, 'info');
     }
+/** dispatchEquipItem：执行对应的业务逻辑。 */
     dispatchEquipItem(playerId, slotIndex) {
+/** item：定义该变量以承载业务值。 */
         const item = this.playerRuntimeService.peekInventoryItem(playerId, slotIndex);
         if (!item) {
             throw new common_1.NotFoundException(`Inventory slot ${slotIndex} not found`);
@@ -3173,7 +3703,9 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.playerRuntimeService.equipItem(playerId, slotIndex);
         this.queuePlayerNotice(playerId, `装备 ${item.name}`, 'success');
     }
+/** dispatchUnequipItem：执行对应的业务逻辑。 */
     dispatchUnequipItem(playerId, slot) {
+/** item：定义该变量以承载业务值。 */
         const item = this.playerRuntimeService.peekEquippedItem(playerId, slot);
         if (!item) {
             throw new common_1.NotFoundException(`Equipment slot ${slot} is empty`);
@@ -3181,18 +3713,24 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.playerRuntimeService.unequipItem(playerId, slot);
         this.queuePlayerNotice(playerId, `卸下 ${item.name}`, 'info');
     }
+/** dispatchCultivateTechnique：执行对应的业务逻辑。 */
     dispatchCultivateTechnique(playerId, techniqueId) {
         this.playerRuntimeService.cultivateTechnique(playerId, techniqueId);
         if (!techniqueId) {
             this.queuePlayerNotice(playerId, '已停止当前修炼', 'info');
             return;
         }
+/** techniqueName：定义该变量以承载业务值。 */
         const techniqueName = this.playerRuntimeService.getTechniqueName(playerId, techniqueId) ?? techniqueId;
         this.queuePlayerNotice(playerId, `开始修炼 ${techniqueName}`, 'success');
     }
+/** dispatchInteractNpcQuest：执行对应的业务逻辑。 */
     dispatchInteractNpcQuest(playerId, npcId) {
+/** npc：定义该变量以承载业务值。 */
         const npc = this.resolveAdjacentNpc(playerId, npcId);
+/** player：定义该变量以承载业务值。 */
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
+/** changed：定义该变量以承载业务值。 */
         let changed = false;
         for (const quest of player.quests.quests) {
             if (quest.status !== 'active' || quest.objectiveType !== 'talk') {
@@ -3217,13 +3755,18 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             this.refreshQuestStates(playerId, true);
         }
     }
+/** dispatchAcceptNpcQuest：执行对应的业务逻辑。 */
     dispatchAcceptNpcQuest(playerId, npcId, questId) {
+/** npc：定义该变量以承载业务值。 */
         const npc = this.resolveAdjacentNpc(playerId, npcId);
+/** questsView：定义该变量以承载业务值。 */
         const questsView = this.createNpcQuestsEnvelope(playerId, npcId).quests;
+/** quest：定义该变量以承载业务值。 */
         const quest = questsView.find((entry) => entry.id === questId && entry.status === 'available');
         if (!quest) {
             throw new common_1.NotFoundException('当前无法接取该任务');
         }
+/** player：定义该变量以承载业务值。 */
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
         if (player.quests.quests.some((entry) => entry.id === questId && entry.status !== 'completed')) {
             throw new common_1.BadRequestException('该任务已经接取');
@@ -3233,9 +3776,13 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.refreshQuestStates(playerId, true);
         this.queuePlayerNotice(playerId, `${npc.name}：${quest.story ?? quest.desc}`, 'success');
     }
+/** dispatchSubmitNpcQuest：执行对应的业务逻辑。 */
     dispatchSubmitNpcQuest(playerId, npcId, questId) {
+/** npc：定义该变量以承载业务值。 */
         const npc = this.resolveAdjacentNpc(playerId, npcId);
+/** player：定义该变量以承载业务值。 */
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
+/** quest：定义该变量以承载业务值。 */
         const quest = player.quests.quests.find((entry) => entry.id === questId);
         if (!quest || quest.status !== 'ready') {
             throw new common_1.NotFoundException('该任务当前无法提交');
@@ -3243,6 +3790,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         if (quest.submitNpcId !== npcId) {
             throw new common_1.BadRequestException('当前不是该任务的提交目标');
         }
+/** rewards：定义该变量以承载业务值。 */
         const rewards = this.buildQuestRewardItems(quest);
         if (!this.canReceiveRewardItems(playerId, rewards)) {
             throw new common_1.BadRequestException('背包空间不足，无法领取奖励');
@@ -3255,6 +3803,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         }
         quest.status = 'completed';
         this.playerRuntimeService.markQuestStateDirty(playerId);
+/** nextQuest：定义该变量以承载业务值。 */
         const nextQuest = this.tryAcceptNextQuest(playerId, quest.nextQuestId);
         this.refreshQuestStates(playerId, true);
         this.queuePlayerNotice(playerId, `${npc.name}：做得不错，这是你的奖励 ${quest.rewardText || '。'}`, 'success');
@@ -3262,8 +3811,11 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             this.queuePlayerNotice(playerId, `新的任务《${nextQuest.title}》已自动接取`, 'info');
         }
     }
+/** dispatchSpawnMonsterLoot：执行对应的业务逻辑。 */
     dispatchSpawnMonsterLoot(instanceId, x, y, monsterId, rolls) {
+/** instance：定义该变量以承载业务值。 */
         const instance = this.getInstanceRuntimeOrThrow(instanceId);
+/** items：定义该变量以承载业务值。 */
         const items = this.contentTemplateRepository.rollMonsterDrops(monsterId, rolls);
         if (items.length === 0) {
             throw new common_1.NotFoundException(`Monster ${monsterId} produced no loot`);
@@ -3272,23 +3824,30 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             this.spawnGroundItem(instance, x, y, item);
         }
     }
+/** dispatchDefeatMonster：执行对应的业务逻辑。 */
     dispatchDefeatMonster(instanceId, runtimeId) {
+/** instance：定义该变量以承载业务值。 */
         const instance = this.getInstanceRuntimeOrThrow(instanceId);
+/** monster：定义该变量以承载业务值。 */
         const monster = instance.defeatMonster(runtimeId);
         if (!monster) {
             throw new common_1.NotFoundException(`Monster ${runtimeId} not found or already dead`);
         }
+/** items：定义该变量以承载业务值。 */
         const items = this.contentTemplateRepository.rollMonsterDrops(monster.monsterId, 1);
         for (const item of items) {
             this.spawnGroundItem(instance, monster.x, monster.y, item);
         }
     }
+/** dispatchDamagePlayer：执行对应的业务逻辑。 */
     dispatchDamagePlayer(playerId, amount) {
+/** player：定义该变量以承载业务值。 */
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
         if (player.hp <= 0) {
             this.handlePlayerDefeat(playerId);
             return;
         }
+/** updated：定义该变量以承载业务值。 */
         const updated = this.playerRuntimeService.applyDamage(playerId, amount);
         this.playerRuntimeService.recordActivity(playerId, this.resolveCurrentTickForPlayerId(playerId), {
             interruptCultivation: true,
@@ -3297,42 +3856,58 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             this.handlePlayerDefeat(playerId);
         }
     }
+/** dispatchDamageMonster：执行对应的业务逻辑。 */
     dispatchDamageMonster(instanceId, runtimeId, amount) {
+/** instance：定义该变量以承载业务值。 */
         const instance = this.getInstanceRuntimeOrThrow(instanceId);
+/** target：定义该变量以承载业务值。 */
         const target = instance.getMonster(runtimeId);
         if (!target) {
             throw new common_1.NotFoundException(`Monster ${runtimeId} not found`);
         }
+/** outcome：定义该变量以承载业务值。 */
         const outcome = instance.applyDamageToMonster(runtimeId, amount);
         if (!outcome?.defeated) {
             return;
         }
+/** items：定义该变量以承载业务值。 */
         const items = this.contentTemplateRepository.rollMonsterDrops(target.monsterId, 1);
         for (const item of items) {
             this.spawnGroundItem(instance, target.x, target.y, item);
         }
     }
+/** spawnGroundItem：执行对应的业务逻辑。 */
     spawnGroundItem(instance, x, y, item) {
+/** pile：定义该变量以承载业务值。 */
         const pile = instance.dropGroundItem(x, y, item);
         if (!pile) {
             throw new common_1.BadRequestException(`Failed to spawn loot at ${x},${y}`);
         }
     }
+/** handlePlayerMonsterKill：执行对应的业务逻辑。 */
     handlePlayerMonsterKill(instance, monster, killerPlayerId) {
         this.queuePlayerNotice(killerPlayerId, `${monster.name} 被你斩杀`, 'combat');
         this.advanceKillQuestProgress(killerPlayerId, monster.monsterId, monster.name);
         this.distributeMonsterKillProgress(instance, monster, killerPlayerId);
+/** killer：定义该变量以承载业务值。 */
         const killer = this.playerRuntimeService.getPlayer(killerPlayerId);
+/** lootRate：定义该变量以承载业务值。 */
         const lootRate = killer?.attrs.numericStats.lootRate ?? 0;
+/** rareLootRate：定义该变量以承载业务值。 */
         const rareLootRate = killer?.attrs.numericStats.rareLootRate ?? 0;
+/** items：定义该变量以承载业务值。 */
         const items = this.contentTemplateRepository.rollMonsterDrops(monster.monsterId, 1, lootRate, rareLootRate);
         for (const item of items) {
             this.deliverMonsterLoot(killerPlayerId, instance, monster.x, monster.y, item);
         }
     }
+/** distributeMonsterKillProgress：执行对应的业务逻辑。 */
     distributeMonsterKillProgress(instance, monster, killerPlayerId) {
+/** participants：定义该变量以承载业务值。 */
         const participants = this.resolveMonsterExpParticipants(instance, monster.runtimeId, killerPlayerId);
+/** topContributionRealmLv：定义该变量以承载业务值。 */
         const topContributionRealmLv = this.resolveMonsterTopContributionRealmLv(participants);
+/** totalContribution：定义该变量以承载业务值。 */
         let totalContribution = 0;
         for (const participant of participants) {
             totalContribution += participant.contribution;
@@ -3345,18 +3920,24 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
                 monsterTier: monster.tier,
                 contributionRatio,
                 expAdjustmentRealmLv: Math.max(topContributionRealmLv, participant.realmLv),
+/** isKiller：定义该变量以承载业务值。 */
                 isKiller: participant.playerId === killerPlayerId,
             }, this.resolveCurrentTickForPlayerId(participant.playerId));
         }
     }
+/** resolveMonsterExpParticipants：执行对应的业务逻辑。 */
     resolveMonsterExpParticipants(instance, runtimeId, killerPlayerId) {
+/** contributions：定义该变量以承载业务值。 */
         const contributions = instance.getMonsterDamageContributionEntries(runtimeId);
+/** participants：定义该变量以承载业务值。 */
         const participants = [];
+/** hasKiller：定义该变量以承载业务值。 */
         let hasKiller = false;
         for (const entry of contributions) {
             if (entry.damage <= 0) {
                 continue;
             }
+/** player：定义该变量以承载业务值。 */
             const player = this.playerRuntimeService.getPlayer(entry.playerId);
             if (!player || player.instanceId !== instance.meta.instanceId) {
                 continue;
@@ -3373,6 +3954,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         if (participants.length > 0 && hasKiller) {
             return participants;
         }
+/** killer：定义该变量以承载业务值。 */
         const killer = this.playerRuntimeService.getPlayer(killerPlayerId);
         if (!killer) {
             return participants;
@@ -3384,8 +3966,11 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         });
         return participants;
     }
+/** resolveMonsterTopContributionRealmLv：执行对应的业务逻辑。 */
     resolveMonsterTopContributionRealmLv(participants) {
+/** topContribution：定义该变量以承载业务值。 */
         let topContribution = 0;
+/** topRealmLv：定义该变量以承载业务值。 */
         let topRealmLv = 1;
         for (const participant of participants) {
             if (participant.contribution <= topContribution) {
@@ -3396,6 +3981,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         }
         return topRealmLv;
     }
+/** deliverMonsterLoot：执行对应的业务逻辑。 */
     deliverMonsterLoot(playerId, instance, x, y, item) {
         if (this.playerRuntimeService.canReceiveInventoryItem(playerId, item.itemId)) {
             this.playerRuntimeService.receiveInventoryItem(playerId, item);
@@ -3405,7 +3991,9 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.spawnGroundItem(instance, x, y, item);
         this.queuePlayerNotice(playerId, `${formatItemStackLabel(item)} 掉落在 (${x}, ${y}) 的地面上，但你的背包已满。`, 'loot');
     }
+/** createNpcShopEnvelope：执行对应的业务逻辑。 */
     createNpcShopEnvelope(playerId, npcId) {
+/** npc：定义该变量以承载业务值。 */
         const npc = this.resolveAdjacentNpc(playerId, npcId);
         if (!npc.hasShop) {
             return {
@@ -3414,6 +4002,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
                 error: '对方现在没有经营商店',
             };
         }
+/** shop：定义该变量以承载业务值。 */
         const shop = this.buildNpcShopState(npc);
         if (!shop) {
             return {
@@ -3427,18 +4016,25 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             shop,
         };
     }
+/** resolveAdjacentNpc：执行对应的业务逻辑。 */
     resolveAdjacentNpc(playerId, npcId) {
+/** location：定义该变量以承载业务值。 */
         const location = this.getPlayerLocationOrThrow(playerId);
+/** instance：定义该变量以承载业务值。 */
         const instance = this.getInstanceRuntimeOrThrow(location.instanceId);
+/** npc：定义该变量以承载业务值。 */
         const npc = instance.getAdjacentNpc(playerId, npcId);
         if (!npc) {
             throw new common_1.NotFoundException('你离这位商人太远了');
         }
         return npc;
     }
+/** buildNpcShopState：执行对应的业务逻辑。 */
     buildNpcShopState(npc) {
+/** items：定义该变量以承载业务值。 */
         const items = npc.shopItems
             .map((entry) => {
+/** item：定义该变量以承载业务值。 */
             const item = this.contentTemplateRepository.createItem(entry.itemId, 1);
             if (!item) {
                 return null;
@@ -3462,7 +4058,9 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             items,
         };
     }
+/** createNpcQuestsEnvelope：执行对应的业务逻辑。 */
     createNpcQuestsEnvelope(playerId, npcId) {
+/** npc：定义该变量以承载业务值。 */
         const npc = this.resolveAdjacentNpc(playerId, npcId);
         return {
             npcId: npc.npcId,
@@ -3470,9 +4068,13 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             quests: this.collectNpcQuestViews(playerId, npc),
         };
     }
+/** collectNpcQuestViews：执行对应的业务逻辑。 */
     collectNpcQuestViews(playerId, npc) {
+/** player：定义该变量以承载业务值。 */
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
+/** byQuestId：定义该变量以承载业务值。 */
         const byQuestId = new Map(player.quests.quests.map((entry) => [entry.id, entry]));
+/** result：定义该变量以承载业务值。 */
         const result = [];
         for (let index = 0; index < npc.quests.length; index += 1) {
             const rawQuest = npc.quests[index];
@@ -3484,6 +4086,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             if (existing?.status === 'completed') {
                 continue;
             }
+/** blockedByPrevious：定义该变量以承载业务值。 */
             const blockedByPrevious = npc.quests
                 .slice(0, index)
                 .some((candidate) => byQuestId.get(candidate.id)?.status !== 'completed');
@@ -3502,16 +4105,20 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         }
         return result.sort(compareQuestViews);
     }
+/** refreshQuestStates：执行对应的业务逻辑。 */
     refreshQuestStates(playerId, forceDirty = false) {
+/** player：定义该变量以承载业务值。 */
         const player = this.playerRuntimeService.getPlayer(playerId);
         if (!player) {
             return;
         }
+/** changed：定义该变量以承载业务值。 */
         let changed = forceDirty;
         for (const quest of player.quests.quests) {
             const previousProgress = quest.progress;
             const previousStatus = quest.status;
             quest.progress = this.resolveQuestProgress(playerId, quest);
+/** nextStatus：定义该变量以承载业务值。 */
             const nextStatus = quest.status === 'completed'
                 ? 'completed'
                 : this.canQuestBecomeReady(playerId, quest)
@@ -3528,6 +4135,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             this.playerRuntimeService.markQuestStateDirty(playerId);
         }
     }
+/** resolveQuestProgress：执行对应的业务逻辑。 */
     resolveQuestProgress(playerId, quest) {
         if (quest.status === 'completed') {
             return quest.required;
@@ -3543,12 +4151,14 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
                     ? quest.required
                     : 0;
             case 'realm_stage': {
+/** player：定义该变量以承载业务值。 */
                 const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
                 return quest.targetRealmStage !== undefined && player.attrs.stage >= quest.targetRealmStage
                     ? quest.required
                     : quest.progress;
             }
             case 'realm_progress': {
+/** player：定义该变量以承载业务值。 */
                 const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
                 return quest.targetRealmStage !== undefined && player.attrs.stage > quest.targetRealmStage
                     ? quest.required
@@ -3558,49 +4168,69 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
                 return quest.progress;
         }
     }
+/** canQuestBecomeReady：执行对应的业务逻辑。 */
     canQuestBecomeReady(playerId, quest) {
         if (quest.progress < quest.required) {
             return false;
         }
         return !quest.requiredItemId || this.playerRuntimeService.getInventoryCountByItemId(playerId, quest.requiredItemId) >= (quest.requiredItemCount ?? 1);
     }
+/** createQuestStateFromSource：执行对应的业务逻辑。 */
     createQuestStateFromSource(playerId, questId, status = 'active') {
+/** source：定义该变量以承载业务值。 */
         const source = this.templateRepository.getQuestSource(questId);
         if (!source) {
             throw new common_1.NotFoundException(`Quest ${questId} not found`);
         }
+/** quest：定义该变量以承载业务值。 */
         const quest = source.quest;
+/** objectiveType：定义该变量以承载业务值。 */
         const objectiveType = normalizeQuestObjectiveType(quest.objectiveType);
+/** required：定义该变量以承载业务值。 */
         const required = normalizeQuestRequired(quest, objectiveType);
+/** targetRealmStage：定义该变量以承载业务值。 */
         const targetRealmStage = normalizeQuestRealmStage(quest.targetRealmStage);
+/** targetNpcLocation：定义该变量以承载业务值。 */
         const targetNpcLocation = typeof quest.targetNpcId === 'string' && quest.targetNpcId.trim()
             ? this.templateRepository.getNpcLocation(quest.targetNpcId.trim())
             : null;
+/** submitNpcLocation：定义该变量以承载业务值。 */
         const submitNpcLocation = typeof quest.submitNpcId === 'string' && quest.submitNpcId.trim()
             ? this.templateRepository.getNpcLocation(quest.submitNpcId.trim())
             : null;
+/** rewardItems：定义该变量以承载业务值。 */
         const rewardItems = this.buildQuestRewardItemsFromRecord(quest);
+/** built：定义该变量以承载业务值。 */
         const built = {
             id: source.quest.id,
             title: source.quest.title,
             desc: source.quest.desc,
             line: normalizeQuestLine(source.quest.line),
+/** chapter：定义该变量以承载业务值。 */
             chapter: typeof source.quest.chapter === 'string' ? source.quest.chapter : undefined,
+/** story：定义该变量以承载业务值。 */
             story: typeof source.quest.story === 'string' ? source.quest.story : undefined,
             status,
             objectiveType,
+/** objectiveText：定义该变量以承载业务值。 */
             objectiveText: typeof source.quest.objectiveText === 'string' ? source.quest.objectiveText : undefined,
             progress: 0,
             required,
+/** targetName：定义该变量以承载业务值。 */
             targetName: resolveQuestTargetLabel(objectiveType, source.quest, targetRealmStage, targetNpcLocation?.npcName, this.contentTemplateRepository.getItemName(typeof source.quest.requiredItemId === 'string' ? source.quest.requiredItemId : ''), this.contentTemplateRepository.getTechniqueName(typeof source.quest.targetTechniqueId === 'string' ? source.quest.targetTechniqueId : '')),
+/** targetTechniqueId：定义该变量以承载业务值。 */
             targetTechniqueId: typeof source.quest.targetTechniqueId === 'string' ? source.quest.targetTechniqueId : undefined,
             targetRealmStage,
             rewardText: buildQuestRewardText(source.quest, rewardItems),
+/** targetMonsterId：定义该变量以承载业务值。 */
             targetMonsterId: typeof source.quest.targetMonsterId === 'string' ? source.quest.targetMonsterId : '',
+/** rewardItemId：定义该变量以承载业务值。 */
             rewardItemId: typeof source.quest.rewardItemId === 'string' ? source.quest.rewardItemId : (rewardItems[0]?.itemId ?? ''),
             rewardItemIds: rewardItems.map((entry) => entry.itemId),
             rewards: rewardItems.map((entry) => ({ ...entry })),
+/** nextQuestId：定义该变量以承载业务值。 */
             nextQuestId: typeof source.quest.nextQuestId === 'string' ? source.quest.nextQuestId : undefined,
+/** requiredItemId：定义该变量以承载业务值。 */
             requiredItemId: typeof source.quest.requiredItemId === 'string' ? source.quest.requiredItemId : undefined,
             requiredItemCount: Number.isInteger(source.quest.requiredItemCount) ? Number(source.quest.requiredItemCount) : undefined,
             giverId: source.giverNpcId,
@@ -3609,26 +4239,35 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             giverMapName: source.giverMapName,
             giverX: source.giverX,
             giverY: source.giverY,
+/** targetMapId：定义该变量以承载业务值。 */
             targetMapId: typeof source.quest.targetMapId === 'string' && source.quest.targetMapId.trim()
                 ? source.quest.targetMapId.trim()
                 : targetNpcLocation?.mapId,
+/** targetMapName：定义该变量以承载业务值。 */
             targetMapName: typeof source.quest.targetMapId === 'string' && this.templateRepository.has(source.quest.targetMapId.trim())
                 ? this.templateRepository.getOrThrow(source.quest.targetMapId.trim()).name
                 : targetNpcLocation?.mapName,
             targetX: Number.isInteger(source.quest.targetX) ? Number(source.quest.targetX) : targetNpcLocation?.x,
             targetY: Number.isInteger(source.quest.targetY) ? Number(source.quest.targetY) : targetNpcLocation?.y,
+/** targetNpcId：定义该变量以承载业务值。 */
             targetNpcId: typeof source.quest.targetNpcId === 'string' ? source.quest.targetNpcId : undefined,
+/** targetNpcName：定义该变量以承载业务值。 */
             targetNpcName: typeof source.quest.targetNpcName === 'string' ? source.quest.targetNpcName : targetNpcLocation?.npcName,
+/** submitNpcId：定义该变量以承载业务值。 */
             submitNpcId: typeof source.quest.submitNpcId === 'string' ? source.quest.submitNpcId : undefined,
+/** submitNpcName：定义该变量以承载业务值。 */
             submitNpcName: typeof source.quest.submitNpcName === 'string' ? source.quest.submitNpcName : submitNpcLocation?.npcName,
+/** submitMapId：定义该变量以承载业务值。 */
             submitMapId: typeof source.quest.submitMapId === 'string' && source.quest.submitMapId.trim()
                 ? source.quest.submitMapId.trim()
                 : submitNpcLocation?.mapId,
+/** submitMapName：定义该变量以承载业务值。 */
             submitMapName: typeof source.quest.submitMapId === 'string' && this.templateRepository.has(source.quest.submitMapId.trim())
                 ? this.templateRepository.getOrThrow(source.quest.submitMapId.trim()).name
                 : submitNpcLocation?.mapName,
             submitX: Number.isInteger(source.quest.submitX) ? Number(source.quest.submitX) : submitNpcLocation?.x,
             submitY: Number.isInteger(source.quest.submitY) ? Number(source.quest.submitY) : submitNpcLocation?.y,
+/** relayMessage：定义该变量以承载业务值。 */
             relayMessage: typeof source.quest.relayMessage === 'string' ? source.quest.relayMessage : undefined,
         };
         built.progress = this.resolveQuestProgress(playerId, built);
@@ -3637,29 +4276,36 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         }
         return built;
     }
+/** tryAcceptNextQuest：执行对应的业务逻辑。 */
     tryAcceptNextQuest(playerId, nextQuestId) {
         if (!nextQuestId) {
             return null;
         }
+/** player：定义该变量以承载业务值。 */
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
         if (player.quests.quests.some((entry) => entry.id === nextQuestId)) {
             return null;
         }
+/** nextQuest：定义该变量以承载业务值。 */
         const nextQuest = this.createQuestStateFromSource(playerId, nextQuestId, 'active');
         player.quests.quests.push(nextQuest);
         this.playerRuntimeService.markQuestStateDirty(playerId);
         return cloneQuestState(nextQuest);
     }
+/** advanceKillQuestProgress：执行对应的业务逻辑。 */
     advanceKillQuestProgress(playerId, monsterId, monsterName) {
+/** player：定义该变量以承载业务值。 */
         const player = this.playerRuntimeService.getPlayer(playerId);
         if (!player) {
             return;
         }
+/** changed：定义该变量以承载业务值。 */
         let changed = false;
         for (const quest of player.quests.quests) {
             if (quest.status !== 'active' || quest.objectiveType !== 'kill' || quest.targetMonsterId !== monsterId) {
                 continue;
             }
+/** nextProgress：定义该变量以承载业务值。 */
             const nextProgress = Math.min(quest.required, quest.progress + 1);
             if (nextProgress !== quest.progress) {
                 quest.progress = nextProgress;
@@ -3673,11 +4319,14 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             this.refreshQuestStates(playerId, true);
         }
     }
+/** advanceLearnTechniqueQuest：执行对应的业务逻辑。 */
     advanceLearnTechniqueQuest(playerId, techniqueId) {
+/** player：定义该变量以承载业务值。 */
         const player = this.playerRuntimeService.getPlayer(playerId);
         if (!player) {
             return;
         }
+/** changed：定义该变量以承载业务值。 */
         let changed = false;
         for (const quest of player.quests.quests) {
             if (quest.status !== 'active' || quest.objectiveType !== 'learn_technique' || quest.targetTechniqueId !== techniqueId) {
@@ -3694,6 +4343,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         }
         this.refreshQuestStates(playerId);
     }
+/** buildQuestRewardItems：执行对应的业务逻辑。 */
     buildQuestRewardItems(quest) {
         if (quest.rewards.length > 0) {
             return quest.rewards.map((entry) => toQuestRewardItem(this.contentTemplateRepository.createItem(entry.itemId, entry.count), {
@@ -3707,6 +4357,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         if (!quest.rewardItemId) {
             return [];
         }
+/** item：定义该变量以承载业务值。 */
         const item = this.contentTemplateRepository.createItem(quest.rewardItemId, 1);
         return [toQuestRewardItem(item, {
                 itemId: quest.rewardItemId,
@@ -3716,14 +4367,18 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
                 desc: quest.rewardItemId,
             })];
     }
+/** buildQuestRewardItemsFromRecord：执行对应的业务逻辑。 */
     buildQuestRewardItemsFromRecord(quest) {
+/** rewards：定义该变量以承载业务值。 */
         const rewards = [];
+/** rewardList：定义该变量以承载业务值。 */
         const rewardList = Array.isArray(quest.reward) ? quest.reward : [];
         for (const entry of rewardList) {
             const itemId = typeof entry?.itemId === 'string' ? entry.itemId.trim() : '';
             if (!itemId) {
                 continue;
             }
+/** count：定义该变量以承载业务值。 */
             const count = Number.isInteger(entry.count) ? Math.max(1, Number(entry.count)) : 1;
             rewards.push(toQuestRewardItem(this.contentTemplateRepository.createItem(itemId, count), {
                 itemId,
@@ -3736,10 +4391,12 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         if (rewards.length > 0) {
             return rewards;
         }
+/** rewardItemId：定义该变量以承载业务值。 */
         const rewardItemId = typeof quest.rewardItemId === 'string' ? quest.rewardItemId.trim() : '';
         if (!rewardItemId) {
             return [];
         }
+/** item：定义该变量以承载业务值。 */
         const item = this.contentTemplateRepository.createItem(rewardItemId, 1);
         return [toQuestRewardItem(item, {
                 itemId: rewardItemId,
@@ -3749,9 +4406,13 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
                 desc: rewardItemId,
             })];
     }
+/** canReceiveRewardItems：执行对应的业务逻辑。 */
     canReceiveRewardItems(playerId, rewards) {
+/** player：定义该变量以承载业务值。 */
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
+/** freeSlots：定义该变量以承载业务值。 */
         let freeSlots = Math.max(0, player.inventory.capacity - player.inventory.items.length);
+/** seenNewItemIds：定义该变量以承载业务值。 */
         const seenNewItemIds = new Set();
         for (const reward of rewards) {
             if (player.inventory.items.some((entry) => entry.itemId === reward.itemId) || seenNewItemIds.has(reward.itemId)) {
@@ -3765,6 +4426,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         }
         return true;
     }
+/** resolveQuestNavigationTarget：执行对应的业务逻辑。 */
     resolveQuestNavigationTarget(quest) {
         if (quest.status === 'ready') {
             if (quest.submitMapId && Number.isInteger(quest.submitX) && Number.isInteger(quest.submitY)) {
@@ -3776,6 +4438,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
                 };
             }
             if (quest.submitNpcId) {
+/** location：定义该变量以承载业务值。 */
                 const location = this.templateRepository.getNpcLocation(quest.submitNpcId);
                 if (location) {
                     return {
@@ -3788,6 +4451,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             }
         }
         if (quest.objectiveType === 'talk' && quest.targetNpcId) {
+/** location：定义该变量以承载业务值。 */
             const location = this.templateRepository.getNpcLocation(quest.targetNpcId);
             if (location) {
                 return {
@@ -3807,6 +4471,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             };
         }
         if (quest.objectiveType === 'kill' && quest.targetMonsterId && quest.targetMapId) {
+/** spawn：定义该变量以承载业务值。 */
             const spawn = this.contentTemplateRepository.createRuntimeMonstersForMap(quest.targetMapId)
                 .find((entry) => entry.monsterId === quest.targetMonsterId);
             if (spawn) {
@@ -3828,11 +4493,14 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         }
         return null;
     }
+/** resolveNpcQuestMarker：执行对应的业务逻辑。 */
     resolveNpcQuestMarker(playerId, npcId) {
+/** player：定义该变量以承载业务值。 */
         const player = this.playerRuntimeService.getPlayer(playerId);
         if (!player) {
             return undefined;
         }
+/** currentMapId：定义该变量以承载业务值。 */
         const currentMapId = player.templateId;
         for (const quest of player.quests.quests) {
             if (quest.status === 'ready' && quest.submitNpcId === npcId && quest.submitMapId === currentMapId) {
@@ -3846,34 +4514,44 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
                 return { line: quest.line, state: 'active' };
             }
         }
+/** npc：定义该变量以承载业务值。 */
         const npc = this.getNpcForPlayerMap(playerId, npcId);
         if (!npc) {
             return undefined;
         }
+/** npcViews：定义该变量以承载业务值。 */
         const npcViews = this.collectNpcQuestViews(playerId, npc);
+/** available：定义该变量以承载业务值。 */
         const available = npcViews.find((entry) => entry.status === 'available');
         return available ? { line: available.line, state: 'available' } : undefined;
     }
+/** getNpcForPlayerMap：执行对应的业务逻辑。 */
     getNpcForPlayerMap(playerId, npcId) {
+/** location：定义该变量以承载业务值。 */
         const location = this.playerLocations.get(playerId);
         if (!location) {
             return null;
         }
         return this.instances.get(location.instanceId)?.getNpc(npcId) ?? null;
     }
+/** validateNpcShopPurchase：执行对应的业务逻辑。 */
     validateNpcShopPurchase(playerId, npcId, itemId, quantity) {
+/** npc：定义该变量以承载业务值。 */
         const npc = this.resolveAdjacentNpc(playerId, npcId);
         if (!npc.hasShop) {
             throw new common_1.BadRequestException('对方现在没有经营商店');
         }
+/** shopItem：定义该变量以承载业务值。 */
         const shopItem = npc.shopItems.find((entry) => entry.itemId === itemId);
         if (!shopItem) {
             throw new common_1.NotFoundException('这位商人没有出售该物品');
         }
+/** totalCost：定义该变量以承载业务值。 */
         const totalCost = quantity * shopItem.price;
         if (!Number.isSafeInteger(totalCost) || totalCost <= 0) {
             throw new common_1.BadRequestException('购买总价过大，暂时无法结算');
         }
+/** item：定义该变量以承载业务值。 */
         const item = this.contentTemplateRepository.createItem(itemId, quantity);
         if (!item) {
             throw new common_1.NotFoundException('商品配置异常，暂时无法购买');
@@ -3889,9 +4567,11 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             totalCost,
         };
     }
+/** getNpcShopCurrencyName：执行对应的业务逻辑。 */
     getNpcShopCurrencyName() {
         return this.contentTemplateRepository.createItem(NPC_SHOP_CURRENCY_ITEM_ID, 1)?.name ?? NPC_SHOP_CURRENCY_ITEM_ID;
     }
+/** decoratePlayerViewNpcs：执行对应的业务逻辑。 */
     decoratePlayerViewNpcs(playerId, view) {
         return {
             ...view,
@@ -3901,8 +4581,11 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             })),
         };
     }
+/** buildContextActions：执行对应的业务逻辑。 */
     buildContextActions(view) {
+/** actions：定义该变量以承载业务值。 */
         const actions = [];
+/** player：定义该变量以承载业务值。 */
         const player = this.playerRuntimeService.getPlayer(view.playerId);
         actions.push({
             id: 'battle:force_attack',
@@ -3934,6 +4617,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             if (portal.trigger !== 'manual' || portal.x !== view.self.x || portal.y !== view.self.y) {
                 continue;
             }
+/** targetName：定义该变量以承载业务值。 */
             const targetName = this.templateRepository.has(portal.targetMapId)
                 ? this.templateRepository.getOrThrow(portal.targetMapId).name
                 : portal.targetMapId;
@@ -3958,8 +4642,10 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             if (npc.questMarker && chebyshevDistance(view.self.x, view.self.y, npc.x, npc.y) <= 1) {
                 actions.push({
                     id: `npc_quests:${npc.npcId}`,
+/** name：定义该变量以承载业务值。 */
                     name: npc.questMarker.state === 'ready' ? `交付任务：${npc.name}` : `任务：${npc.name}`,
                     type: 'quest',
+/** desc：定义该变量以承载业务值。 */
                     desc: npc.questMarker.state === 'ready'
                         ? `向 ${npc.name} 提交当前可完成的任务。`
                         : `查看 ${npc.name} 相关的任务。`,
@@ -3978,6 +4664,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             });
         }
         if (player?.realm?.breakthroughReady) {
+/** preview：定义该变量以承载业务值。 */
             const preview = player.realm.breakthrough;
             actions.push({
                 id: 'realm:breakthrough',
@@ -3990,6 +4677,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         actions.sort((left, right) => compareStableStrings(left.id, right.id));
         return actions;
     }
+/** applyMonsterAction：执行对应的业务逻辑。 */
     applyMonsterAction(action) {
         if (action.kind === 'skill') {
             this.applyMonsterSkill(action);
@@ -3997,37 +4685,47 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         }
         this.applyMonsterBasicAttack(action);
     }
+/** applyMonsterBasicAttack：执行对应的业务逻辑。 */
     applyMonsterBasicAttack(action) {
+/** location：定义该变量以承载业务值。 */
         const location = this.playerLocations.get(action.targetPlayerId);
         if (!location) {
             return;
         }
+/** instance：定义该变量以承载业务值。 */
         const instance = this.instances.get(action.instanceId);
         if (!instance) {
             return;
         }
+/** monster：定义该变量以承载业务值。 */
         const monster = instance.getMonster(action.runtimeId);
         if (!monster || !monster.alive) {
             return;
         }
+/** runtimeTargetPosition：定义该变量以承载业务值。 */
         const runtimeTargetPosition = instance.getPlayerPosition(action.targetPlayerId);
         if (!runtimeTargetPosition) {
             return;
         }
+/** player：定义该变量以承载业务值。 */
         const player = this.playerRuntimeService.getPlayer(action.targetPlayerId);
         if (!player || player.instanceId !== location.instanceId || player.hp <= 0) {
             return;
         }
+/** distance：定义该变量以承载业务值。 */
         const distance = chebyshevDistance(monster.x, monster.y, runtimeTargetPosition.x, runtimeTargetPosition.y);
         if (distance > monster.attackRange) {
             return;
         }
+/** damage：定义该变量以承载业务值。 */
         const damage = typeof action.damage === 'number' ? Math.max(0, Math.round(action.damage)) : 0;
         if (damage <= 0) {
             return;
         }
+/** effectColor：定义该变量以承载业务值。 */
         const effectColor = (0, shared_1.getDamageTrailColor)('physical');
         this.pushActionLabelEffect(action.instanceId, monster.x, monster.y, '攻击');
+/** updated：定义该变量以承载业务值。 */
         const updated = this.playerRuntimeService.applyDamage(action.targetPlayerId, damage);
         this.pushAttackEffect(action.instanceId, monster.x, monster.y, runtimeTargetPosition.x, runtimeTargetPosition.y, effectColor);
         this.pushDamageFloatEffect(action.instanceId, runtimeTargetPosition.x, runtimeTargetPosition.y, damage, effectColor);
@@ -4038,29 +4736,37 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             this.handlePlayerDefeat(updated.playerId);
         }
     }
+/** applyMonsterSkill：执行对应的业务逻辑。 */
     applyMonsterSkill(action) {
         if (!action.skillId) {
             return;
         }
+/** instance：定义该变量以承载业务值。 */
         const instance = this.instances.get(action.instanceId);
         if (!instance) {
             return;
         }
+/** monster：定义该变量以承载业务值。 */
         const monster = instance.getMonster(action.runtimeId);
         if (!monster || !monster.alive) {
             return;
         }
+/** runtimeTargetPosition：定义该变量以承载业务值。 */
         const runtimeTargetPosition = instance.getPlayerPosition(action.targetPlayerId);
         if (!runtimeTargetPosition) {
             return;
         }
+/** player：定义该变量以承载业务值。 */
         const player = this.playerRuntimeService.getPlayer(action.targetPlayerId);
         if (!player || player.instanceId !== action.instanceId || player.hp <= 0) {
             return;
         }
+/** distance：定义该变量以承载业务值。 */
         const distance = chebyshevDistance(monster.x, monster.y, runtimeTargetPosition.x, runtimeTargetPosition.y);
         try {
+/** currentTick：定义该变量以承载业务值。 */
             const currentTick = instance.tick;
+/** result：定义该变量以承载业务值。 */
             const result = this.playerCombatService.castMonsterSkill({
                 runtimeId: monster.runtimeId,
                 monsterId: monster.monsterId,
@@ -4082,7 +4788,9 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             }, (buff) => {
                 this.playerRuntimeService.applyTemporaryBuff(player.playerId, buff);
             });
+/** skill：定义该变量以承载业务值。 */
             const skill = monster.skills.find((entry) => entry.id === action.skillId);
+/** effectColor：定义该变量以承载业务值。 */
             const effectColor = skill ? getSkillEffectColor(skill) : (0, shared_1.getDamageTrailColor)('spell');
             if (skill) {
                 this.pushActionLabelEffect(action.instanceId, monster.x, monster.y, skill.name);
@@ -4094,24 +4802,29 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             this.playerRuntimeService.recordActivity(player.playerId, currentTick, {
                 interruptCultivation: true,
             });
+/** updatedPlayer：定义该变量以承载业务值。 */
             const updatedPlayer = this.playerRuntimeService.getPlayer(player.playerId);
             if (updatedPlayer && updatedPlayer.hp <= 0) {
                 this.handlePlayerDefeat(updatedPlayer.playerId);
             }
         }
         catch (error) {
+/** message：定义该变量以承载业务值。 */
             const message = error instanceof Error ? error.message : String(error);
             this.logger.warn(`Failed to resolve monster skill ${action.skillId} from ${action.runtimeId}: ${message}`);
         }
     }
+/** handlePlayerDefeat：执行对应的业务逻辑。 */
     handlePlayerDefeat(playerId) {
         this.pendingCommands.delete(playerId);
         this.pendingRespawnPlayerIds.add(playerId);
     }
+/** processPendingRespawns：执行对应的业务逻辑。 */
     processPendingRespawns() {
         if (this.pendingRespawnPlayerIds.size === 0) {
             return;
         }
+/** pending：定义该变量以承载业务值。 */
         const pending = Array.from(this.pendingRespawnPlayerIds);
         this.pendingRespawnPlayerIds.clear();
         for (const playerId of pending) {
@@ -4122,15 +4835,23 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             this.respawnPlayer(playerId);
         }
     }
+/** dispatchLegacyGmUpdatePlayer：执行对应的业务逻辑。 */
     dispatchLegacyGmUpdatePlayer(command) {
+/** playerId：定义该变量以承载业务值。 */
         const playerId = command.playerId;
+/** player：定义该变量以承载业务值。 */
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
+/** nextMapId：定义该变量以承载业务值。 */
         const nextMapId = command.mapId || player.templateId || this.resolveDefaultRespawnMapId();
+/** targetInstance：定义该变量以承载业务值。 */
         const targetInstance = this.getOrCreatePublicInstance(nextMapId);
+/** previous：定义该变量以承载业务值。 */
         const previous = this.playerLocations.get(playerId) ?? null;
+/** sessionId：定义该变量以承载业务值。 */
         const sessionId = previous?.sessionId ?? player.sessionId ?? `session:${playerId}`;
         if (!previous) {
             this.playerRuntimeService.ensurePlayer(playerId, sessionId);
+/** runtimePlayer：定义该变量以承载业务值。 */
             const runtimePlayer = targetInstance.connectPlayer({
                 playerId,
                 sessionId,
@@ -4145,6 +4866,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         }
         else if (previous.instanceId !== targetInstance.meta.instanceId) {
             this.instances.get(previous.instanceId)?.disconnectPlayer(playerId);
+/** runtimePlayer：定义该变量以承载业务值。 */
             const runtimePlayer = targetInstance.connectPlayer({
                 playerId,
                 sessionId,
@@ -4160,6 +4882,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         else if (command.x !== undefined && command.y !== undefined) {
             targetInstance.relocatePlayer(playerId, command.x, command.y);
         }
+/** view：定义该变量以承载业务值。 */
         const view = this.getPlayerViewOrThrow(playerId);
         this.refreshPlayerContextActions(playerId, view);
         this.playerRuntimeService.syncFromWorldView(playerId, sessionId, view);
@@ -4175,11 +4898,14 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             }, this.resolveCurrentTickForPlayerId(playerId));
         }
     }
+/** dispatchLegacyGmSpawnBots：执行对应的业务逻辑。 */
     dispatchLegacyGmSpawnBots(anchorPlayerId, count) {
+/** anchor：定义该变量以承载业务值。 */
         const anchor = this.playerRuntimeService.getPlayerOrThrow(anchorPlayerId);
         for (let index = 0; index < count; index += 1) {
             const sequence = this.nextLegacyCompatBotSequence++;
             const playerId = `${legacy_gm_compat_constants_1.LEGACY_GM_COMPAT_BOT_ID_PREFIX}${Date.now().toString(36)}_${sequence.toString(36)}`;
+/** sessionId：定义该变量以承载业务值。 */
             const sessionId = `bot:${playerId}`;
             this.playerRuntimeService.ensurePlayer(playerId, sessionId);
             this.playerRuntimeService.setIdentity(playerId, {
@@ -4193,6 +4919,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
                 preferredX: anchor.x,
                 preferredY: anchor.y,
             });
+/** view：定义该变量以承载业务值。 */
             const view = this.getPlayerViewOrThrow(playerId);
             this.refreshPlayerContextActions(playerId, view);
             this.playerRuntimeService.syncFromWorldView(playerId, sessionId, view);
@@ -4202,10 +4929,13 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             }, this.resolveCurrentTickForPlayerId(playerId));
         }
     }
+/** dispatchLegacyGmRemoveBots：执行对应的业务逻辑。 */
     dispatchLegacyGmRemoveBots(playerIds, removeAll) {
+/** requestedIds：定义该变量以承载业务值。 */
         const requestedIds = Array.isArray(playerIds)
             ? playerIds.filter((entry) => typeof entry === 'string' && (0, legacy_gm_compat_constants_1.isLegacyGmCompatBotPlayerId)(entry))
             : [];
+/** targets：定义该变量以承载业务值。 */
         const targets = removeAll
             ? this.playerRuntimeService.listPlayerSnapshots()
                 .map((player) => player.playerId)
@@ -4215,17 +4945,23 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             this.removePlayer(playerId);
         }
     }
+/** respawnPlayer：执行对应的业务逻辑。 */
     respawnPlayer(playerId) {
+/** player：定义该变量以承载业务值。 */
         const player = this.playerRuntimeService.getPlayer(playerId);
         if (!player) {
             return;
         }
+/** previous：定义该变量以承载业务值。 */
         const previous = this.playerLocations.get(playerId);
+/** targetMapId：定义该变量以承载业务值。 */
         const targetMapId = this.resolveDefaultRespawnMapId();
+/** targetInstance：定义该变量以承载业务值。 */
         const targetInstance = this.getOrCreatePublicInstance(targetMapId);
         if (previous) {
             this.instances.get(previous.instanceId)?.disconnectPlayer(playerId);
         }
+/** runtimePlayer：定义该变量以承载业务值。 */
         const runtimePlayer = targetInstance.connectPlayer({
             playerId,
             sessionId: player.sessionId ?? previous?.sessionId ?? `session:${playerId}`,
@@ -4248,6 +4984,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         });
         this.queuePlayerNotice(playerId, `已在 ${targetInstance.template.name} 复生`, 'travel');
     }
+/** ensureAttackAllowed：执行对应的业务逻辑。 */
     ensureAttackAllowed(player, skill) {
         if (skill && !isHostileSkill(skill)) {
             return;
@@ -4255,12 +4992,14 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         if (!player.instanceId) {
             return;
         }
+/** instance：定义该变量以承载业务值。 */
         const instance = this.instances.get(player.instanceId);
         if (!instance || !instance.isPointInSafeZone(player.x, player.y)) {
             return;
         }
         throw new common_1.BadRequestException('安全区内无法发起攻击。');
     }
+/** queuePlayerNotice：执行对应的业务逻辑。 */
     queuePlayerNotice(playerId, text, kind) {
         try {
             this.playerRuntimeService.enqueueNotice(playerId, {
@@ -4272,7 +5011,9 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             // 玩家已经不在线时忽略通知，避免影响主流程。
         }
     }
+/** pushCombatEffect：执行对应的业务逻辑。 */
     pushCombatEffect(instanceId, effect) {
+/** list：定义该变量以承载业务值。 */
         const list = this.latestCombatEffectsByInstanceId.get(instanceId);
         if (list) {
             list.push(effect);
@@ -4280,6 +5021,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         }
         this.latestCombatEffectsByInstanceId.set(instanceId, [effect]);
     }
+/** pushActionLabelEffect：执行对应的业务逻辑。 */
     pushActionLabelEffect(instanceId, x, y, text) {
         this.pushCombatEffect(instanceId, {
             type: 'float',
@@ -4290,6 +5032,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             variant: 'action',
         });
     }
+/** pushDamageFloatEffect：执行对应的业务逻辑。 */
     pushDamageFloatEffect(instanceId, x, y, damage, color) {
         this.pushCombatEffect(instanceId, {
             type: 'float',
@@ -4300,6 +5043,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             variant: 'damage',
         });
     }
+/** pushAttackEffect：执行对应的业务逻辑。 */
     pushAttackEffect(instanceId, fromX, fromY, toX, toY, color) {
         this.pushCombatEffect(instanceId, {
             type: 'attack',
@@ -4324,1209 +5068,5 @@ exports.WorldRuntimeService = WorldRuntimeService = WorldRuntimeService_1 = __de
         world_client_event_service_1.WorldClientEventService,
         redeem_code_runtime_service_1.RedeemCodeRuntimeService])
 ], WorldRuntimeService);
-/* extracted helper functions moved to world-runtime.normalization.helpers.js, world-runtime.path-planning.helpers.js and world-runtime.observation.helpers.js
-function normalizeRuntimeActionId(actionIdInput) {
-    const actionId = typeof actionIdInput === 'string' ? actionIdInput.trim() : '';
-    if (!actionId) {
-        return '';
-    }
-    if (actionId.startsWith('npc:')) {
-        return `npc_quests:${actionId.slice('npc:'.length)}`;
-    }
-    return actionId;
-}
-function buildPublicInstanceId(templateId) {
-    return `public:${templateId}`;
-}
-function formatItemStackLabel(item) {
-    const label = item.name ?? item.itemId;
-    return item.count > 1 ? `${label} x${item.count}` : label;
-}
-function formatItemListSummary(items) {
-    const preview = items.slice(0, 3).map((entry) => formatItemStackLabel(entry));
-    if (items.length <= 3) {
-        return preview.join('、');
-    }
-    return `${preview.join('、')} 等 ${items.length} 种物品`;
-}
-function cloneCombatEffect(source) {
-    return { ...source };
-}
-function buildContainerSourceId(instanceId, containerId) {
-    return `container:${instanceId}:${containerId}`;
-}
-function isContainerSourceId(sourceId) {
-    return sourceId.startsWith('container:');
-}
-function parseContainerSourceId(sourceId) {
-    if (!isContainerSourceId(sourceId)) {
-        return null;
-    }
-    const prefixLength = 'container:'.length;
-    const splitIndex = sourceId.indexOf(':', prefixLength);
-    if (splitIndex < 0) {
-        return null;
-    }
-    const instanceId = sourceId.slice(prefixLength, splitIndex).trim();
-    const containerId = sourceId.slice(splitIndex + 1).trim();
-    if (!instanceId || !containerId) {
-        return null;
-    }
-    return {
-        instanceId,
-        containerId,
-    };
-}
-function createSyncedItemStackSignature(item) {
-    const comparableEntries = Object.entries(item)
-        .filter(([key, value]) => key !== 'count' && value !== undefined)
-        .sort(([leftKey], [rightKey]) => compareStableKeys(leftKey, rightKey));
-    let signature = '';
-    for (const [key, value] of comparableEntries) {
-        signature += `${key}=`;
-        signature += serializeStableComparableValue(value);
-        signature += ';';
-    }
-    return signature;
-}
-function compareStableKeys(left, right) {
-    if (left < right) {
-        return -1;
-    }
-    if (left > right) {
-        return 1;
-    }
-    return 0;
-}
-function serializeStableComparableValue(value) {
-    if (value === null) {
-        return 'null';
-    }
-    if (typeof value === 'string') {
-        return `s:${value.length}:${value}`;
-    }
-    if (typeof value === 'number') {
-        return Number.isFinite(value) ? `n:${value}` : 'n:null';
-    }
-    if (typeof value === 'boolean') {
-        return value ? 'b:1' : 'b:0';
-    }
-    if (Array.isArray(value)) {
-        let serialized = 'a[';
-        for (let index = 0; index < value.length; index += 1) {
-            if (index > 0) {
-                serialized += ',';
-            }
-            serialized += serializeStableComparableValue(value[index]);
-        }
-        serialized += ']';
-        return serialized;
-    }
-    if (typeof value === 'object') {
-        const entries = Object.entries(value)
-            .filter(([, nestedValue]) => nestedValue !== undefined)
-            .sort(([leftKey], [rightKey]) => compareStableKeys(leftKey, rightKey));
-        let serialized = 'o{';
-        for (let index = 0; index < entries.length; index += 1) {
-            const [nestedKey, nestedValue] = entries[index];
-            if (index > 0) {
-                serialized += ',';
-            }
-            serialized += `${nestedKey}=`;
-            serialized += serializeStableComparableValue(nestedValue);
-        }
-        serialized += '}';
-        return serialized;
-    }
-    return `u:${typeof value}`;
-}
-function groupContainerLootRows(entries) {
-    const rows = [];
-    const index = new Map();
-    const sorted = entries.slice().sort((left, right) => left.createdTick - right.createdTick);
-    for (const entry of sorted) {
-        const itemKey = createSyncedItemStackSignature(entry.item);
-        const existing = index.get(itemKey);
-        if (existing) {
-            existing.item.count += entry.item.count;
-            existing.entries.push(entry);
-            continue;
-        }
-        const created = {
-            itemKey,
-            item: { ...entry.item },
-            entries: [entry],
-        };
-        index.set(itemKey, created);
-        rows.push(created);
-    }
-    return rows;
-}
-function hasHiddenContainerEntries(entries) {
-    return entries.some((entry) => !entry.visible);
-}
-function buildContainerWindowItems(entries) {
-    return groupContainerLootRows(entries.filter((entry) => entry.visible)).map((entry) => ({
-        itemKey: entry.itemKey,
-        item: { ...entry.item },
-    }));
-}
-function cloneInventorySimulation(items) {
-    return items.map((entry) => ({ ...entry }));
-}
-function canReceiveContainerEntries(simulatedInventory, capacity, entries) {
-    const simulated = cloneInventorySimulation(simulatedInventory);
-    applyContainerEntriesToInventorySimulation(simulated, entries);
-    return simulated.length <= capacity;
-}
-function applyContainerEntriesToInventorySimulation(simulatedInventory, entries) {
-    for (const entry of entries) {
-        const item = entry.item;
-        const existing = simulatedInventory.find((candidate) => candidate.itemId === item.itemId);
-        if (existing) {
-            existing.count += item.count;
-            continue;
-        }
-        simulatedInventory.push({ ...item });
-    }
-}
-function canReceiveContainerRow(player, entries) {
-    return canReceiveContainerEntries(cloneInventorySimulation(player.inventory.items), player.inventory.capacity, entries);
-}
-function removeContainerRowEntries(source, removed) {
-    if (removed.length === 0) {
-        return;
-    }
-    const removedSet = new Set(removed);
-    let writeIndex = 0;
-    for (let index = 0; index < source.length; index += 1) {
-        const entry = source[index];
-        if (removedSet.has(entry)) {
-            continue;
-        }
-        source[writeIndex++] = entry;
-    }
-    source.length = writeIndex;
-}
-function buildLegacyNpcQuestProgressText(quest) {
-    switch (quest.objectiveType) {
-        case 'kill':
-            return `去猎杀 ${quest.targetName}（${quest.progress}/${quest.required}）。`;
-        case 'submit_item':
-            return `收集 ${quest.targetName}（${quest.progress}/${quest.required}）。`;
-        case 'talk':
-            return quest.targetNpcName
-                ? `去找 ${quest.targetNpcName} 传话。`
-                : `去找 ${quest.targetName} 传话。`;
-        case 'learn_technique':
-            return `修成 ${quest.targetName}。`;
-        case 'realm_progress':
-        case 'realm_stage':
-            return `继续修炼至 ${quest.targetName}。`;
-        default:
-            return quest.desc || quest.title;
-    }
-}
-function canReceiveItemStack(player, item) {
-    if (player.inventory.items.some((entry) => entry.itemId === item.itemId)) {
-        return true;
-    }
-    return player.inventory.items.length < player.inventory.capacity;
-}
-function toQuestRewardItem(item, fallback) {
-    if (!item) {
-        return fallback;
-    }
-    return {
-        ...fallback,
-        ...item,
-        name: item.name ?? fallback.name,
-        type: item.type ?? fallback.type,
-        desc: item.desc ?? fallback.desc,
-        count: item.count,
-    };
-}
-function roundDurationMs(value) {
-    return Number(value.toFixed(3));
-}
-function pushDurationMetric(history, value) {
-    history.push(value);
-    if (history.length > TICK_METRIC_WINDOW_SIZE) {
-        history.shift();
-    }
-}
-function summarizeDurations(last, history) {
-    if (history.length === 0) {
-        return {
-            last,
-            avg60: last,
-            max60: last,
-        };
-    }
-    let total = 0;
-    let max = 0;
-    for (const value of history) {
-        total += value;
-        if (value > max) {
-            max = value;
-        }
-    }
-    return {
-        last,
-        avg60: roundDurationMs(total / history.length),
-        max60: roundDurationMs(max),
-    };
-}
-function normalizeQuestLine(value) {
-    return value === 'main' || value === 'daily' || value === 'encounter' ? value : 'side';
-}
-function normalizeQuestObjectiveType(value) {
-    return value === 'talk'
-        || value === 'submit_item'
-        || value === 'learn_technique'
-        || value === 'realm_progress'
-        || value === 'realm_stage'
-        ? value
-        : 'kill';
-}
-function normalizeQuestRequired(quest, objectiveType) {
-    if (objectiveType === 'submit_item') {
-        if (Number.isInteger(quest.requiredItemCount) && Number(quest.requiredItemCount) > 0) {
-            return Number(quest.requiredItemCount);
-        }
-    }
-    if (Number.isInteger(quest.required) && Number(quest.required) > 0) {
-        return Number(quest.required);
-    }
-    if (Number.isInteger(quest.targetCount) && Number(quest.targetCount) > 0) {
-        return Number(quest.targetCount);
-    }
-    return 1;
-}
-function normalizeQuestRealmStage(value) {
-    if (typeof value === 'number' && shared_1.PlayerRealmStage[value] !== undefined) {
-        return value;
-    }
-    if (typeof value === 'string' && shared_1.PlayerRealmStage[value] !== undefined) {
-        return shared_1.PlayerRealmStage[value];
-    }
-    return undefined;
-}
-function resolveQuestTargetLabel(objectiveType, quest, targetRealmStage, targetNpcName, requiredItemName, techniqueName) {
-    if (typeof quest.targetName === 'string' && quest.targetName.trim()) {
-        return quest.targetName;
-    }
-    if (objectiveType === 'talk') {
-        return typeof quest.targetNpcName === 'string' && quest.targetNpcName.trim()
-            ? quest.targetNpcName
-            : targetNpcName || (typeof quest.targetNpcId === 'string' ? quest.targetNpcId : quest.title);
-    }
-    if (objectiveType === 'submit_item') {
-        return requiredItemName || (typeof quest.requiredItemId === 'string' ? quest.requiredItemId : quest.title);
-    }
-    if (objectiveType === 'learn_technique') {
-        return techniqueName || (typeof quest.targetTechniqueId === 'string' ? quest.targetTechniqueId : quest.title);
-    }
-    if ((objectiveType === 'realm_progress' || objectiveType === 'realm_stage') && targetRealmStage !== undefined) {
-        return shared_1.PLAYER_REALM_CONFIG[targetRealmStage]?.name ?? shared_1.PlayerRealmStage[targetRealmStage];
-    }
-    if (objectiveType === 'kill' && typeof quest.targetMonsterId === 'string' && quest.targetMonsterId.trim()) {
-        return quest.targetMonsterId;
-    }
-    return quest.title;
-}
-function buildQuestRewardText(quest, rewards) {
-    if (typeof quest.rewardText === 'string' && quest.rewardText.trim()) {
-        return quest.rewardText;
-    }
-    if (rewards.length === 0) {
-        return '';
-    }
-    return rewards.map((entry) => formatItemStackLabel(entry)).join('、');
-}
-function cloneQuestState(quest, status = quest.status) {
-    return {
-        ...quest,
-        status,
-        rewardItemIds: quest.rewardItemIds.slice(),
-        rewards: quest.rewards.map((reward) => ({ ...reward })),
-    };
-}
-function compareQuestViews(left, right) {
-    const statusOrder = {
-        ready: 0,
-        active: 1,
-        available: 2,
-        completed: 3,
-    };
-    return statusOrder[left.status] - statusOrder[right.status]
-        || compareStableStrings(left.line, right.line)
-        || compareStableStrings(left.id, right.id);
-}
-function compareStableStrings(left, right) {
-    if (left < right) {
-        return -1;
-    }
-    if (left > right) {
-        return 1;
-    }
-    return 0;
-}
-function parseDirection(input) {
-    if (typeof input === 'number' && shared_1.Direction[input] !== undefined) {
-        return input;
-    }
-    if (typeof input === 'string') {
-        switch (input.trim().toLowerCase()) {
-            case '0':
-            case 'north':
-            case 'n':
-                return shared_1.Direction.North;
-            case '1':
-            case 'south':
-            case 's':
-                return shared_1.Direction.South;
-            case '2':
-            case 'east':
-            case 'e':
-                return shared_1.Direction.East;
-            case '3':
-            case 'west':
-            case 'w':
-                return shared_1.Direction.West;
-            default:
-                break;
-        }
-    }
-    throw new common_1.BadRequestException(`Unsupported direction: ${String(input)}`);
-}
-function normalizeSlotIndex(input) {
-    if (!Number.isFinite(input)) {
-        throw new common_1.BadRequestException(`Invalid slotIndex: ${String(input)}`);
-    }
-    return Math.max(0, Math.trunc(Number(input)));
-}
-function normalizeEquipSlot(input) {
-    const slot = typeof input === 'string' ? input.trim() : '';
-    if (!shared_1.EQUIP_SLOTS.includes(slot)) {
-        throw new common_1.BadRequestException(`Invalid equip slot: ${String(input)}`);
-    }
-    return slot;
-}
-function normalizeTechniqueId(input) {
-    return typeof input === 'string' && input.trim() ? input.trim() : null;
-}
-function normalizeShopQuantity(input) {
-    if (typeof input !== 'number' || !Number.isSafeInteger(input) || input <= 0) {
-        throw new common_1.BadRequestException('购买数量无效');
-    }
-    return Math.trunc(input);
-}
-function normalizePositiveCount(input) {
-    if (input === undefined || input === null) {
-        return 1;
-    }
-    if (!Number.isFinite(input)) {
-        throw new common_1.BadRequestException(`Invalid count: ${String(input)}`);
-    }
-    return Math.max(1, Math.trunc(Number(input)));
-}
-function normalizeCoordinate(input, label) {
-    if (!Number.isFinite(input)) {
-        throw new common_1.BadRequestException(`Invalid ${label}: ${String(input)}`);
-    }
-    return Math.trunc(Number(input));
-}
-function normalizeRollCount(input) {
-    if (input === undefined || input === null) {
-        return 1;
-    }
-    if (!Number.isFinite(input)) {
-        throw new common_1.BadRequestException(`Invalid rolls: ${String(input)}`);
-    }
-    return Math.max(1, Math.min(1000, Math.trunc(Number(input))));
-}
-function chebyshevDistance(leftX, leftY, rightX, rightY) {
-    return Math.max(Math.abs(leftX - rightX), Math.abs(leftY - rightY));
-}
-function isInBounds(x, y, width, height) {
-    return x >= 0 && y >= 0 && x < width && y < height;
-}
-function selectNearestPortal(portals, targetMapId, fromX, fromY) {
-    let best = null;
-    let bestDistance = Number.POSITIVE_INFINITY;
-    for (const portal of portals) {
-        if (portal.targetMapId !== targetMapId) {
-            continue;
-        }
-        const distance = Math.abs(portal.x - fromX) + Math.abs(portal.y - fromY);
-        if (distance < bestDistance) {
-            best = portal;
-            bestDistance = distance;
-        }
-    }
-    return best;
-}
-function buildGoalPoints(instance, targetX, targetY, allowNearestReachable) {
-    return buildGoalPointsFromTemplate(instance.template, targetX, targetY, allowNearestReachable);
-}
-function buildGoalPointsFromTemplate(template, targetX, targetY, allowNearestReachable) {
-    const goals = [];
-    if (isInBounds(targetX, targetY, template.width, template.height)) {
-        const tileIndex = (0, map_template_repository_1.getTileIndex)(targetX, targetY, template.width);
-        if (template.walkableMask[tileIndex] === 1) {
-            goals.push({ x: targetX, y: targetY });
-        }
-    }
-    if (goals.length > 0 || !allowNearestReachable) {
-        return goals;
-    }
-    for (let radius = 1; radius <= 8; radius += 1) {
-        for (let y = targetY - radius; y <= targetY + radius; y += 1) {
-            for (let x = targetX - radius; x <= targetX + radius; x += 1) {
-                if (!isInBounds(x, y, template.width, template.height)) {
-                    continue;
-                }
-                const tileIndex = (0, map_template_repository_1.getTileIndex)(x, y, template.width);
-                if (template.walkableMask[tileIndex] !== 1) {
-                    continue;
-                }
-                goals.push({ x, y });
-            }
-        }
-        if (goals.length > 0) {
-            goals.sort((left, right) => (Math.abs(left.x - targetX) + Math.abs(left.y - targetY)) - (Math.abs(right.x - targetX) + Math.abs(right.y - targetY)));
-            return dedupeGoalPoints(goals);
-        }
-    }
-    return [];
-}
-function buildAdjacentGoalPoints(template, centerX, centerY) {
-    const goals = [];
-    for (const direction of [shared_1.Direction.North, shared_1.Direction.South, shared_1.Direction.East, shared_1.Direction.West]) {
-        const offset = DIRECTION_OFFSET[direction];
-        if (!offset) {
-            continue;
-        }
-        const x = centerX + offset.x;
-        const y = centerY + offset.y;
-        if (!isInBounds(x, y, template.width, template.height)) {
-            continue;
-        }
-        const tileIndex = (0, map_template_repository_1.getTileIndex)(x, y, template.width);
-        if (template.walkableMask[tileIndex] !== 1) {
-            continue;
-        }
-        goals.push({ x, y });
-    }
-    return dedupeGoalPoints(goals);
-}
-function dedupeGoalPoints(goals) {
-    const result = [];
-    const seen = new Set();
-    for (const goal of goals) {
-        const key = `${goal.x},${goal.y}`;
-        if (seen.has(key)) {
-            continue;
-        }
-        seen.add(key);
-        result.push(goal);
-    }
-    return result;
-}
-function decodeClientPathHint(packedPathInput, packedPathStepsInput, pathStartXInput, pathStartYInput) {
-    const packedPath = typeof packedPathInput === 'string' ? packedPathInput.trim() : '';
-    if (!packedPath) {
-        return null;
-    }
-    if (!Number.isInteger(packedPathStepsInput) || packedPathStepsInput <= 0) {
-        return null;
-    }
-    if (!Number.isFinite(pathStartXInput) || !Number.isFinite(pathStartYInput)) {
-        return null;
-    }
-    const startX = Math.trunc(Number(pathStartXInput));
-    const startY = Math.trunc(Number(pathStartYInput));
-    const directions = (0, shared_1.unpackDirections)(packedPath, Math.trunc(Number(packedPathStepsInput)));
-    if (!directions || directions.length === 0) {
-        return null;
-    }
-    const points = [];
-    let currentX = startX;
-    let currentY = startY;
-    for (const direction of directions) {
-        const offset = DIRECTION_OFFSET[direction];
-        if (!offset) {
-            return null;
-        }
-        currentX += offset.x;
-        currentY += offset.y;
-        points.push({ x: currentX, y: currentY });
-    }
-    return {
-        startX,
-        startY,
-        points,
-    };
-}
-function resolveInitialRunLength(path, startX, startY, direction) {
-    if (!Array.isArray(path) || path.length === 0) {
-        return 1;
-    }
-    const offset = DIRECTION_OFFSET[direction];
-    if (!offset) {
-        return 1;
-    }
-    let previousX = startX;
-    let previousY = startY;
-    let length = 0;
-    for (const step of path) {
-        if (!step || typeof step.x !== 'number' || typeof step.y !== 'number') {
-            break;
-        }
-        const deltaX = step.x - previousX;
-        const deltaY = step.y - previousY;
-        if (deltaX !== offset.x || deltaY !== offset.y) {
-            break;
-        }
-        length += 1;
-        previousX = step.x;
-        previousY = step.y;
-    }
-    return Math.max(1, length);
-}
-function buildPathingBlockMask(instance, playerId, goals, allowOccupiedGoals = true) {
-    const template = instance.template;
-    const blocked = new Uint8Array(template.width * template.height);
-    instance.forEachPathingBlocker(playerId, (x, y) => {
-        blocked[(0, map_template_repository_1.getTileIndex)(x, y, template.width)] = 1;
-    });
-    if (allowOccupiedGoals) {
-        for (const goal of goals) {
-            if (!isInBounds(goal.x, goal.y, template.width, template.height)) {
-                continue;
-            }
-            blocked[(0, map_template_repository_1.getTileIndex)(goal.x, goal.y, template.width)] = 0;
-        }
-    }
-    return blocked;
-}
-function computePathCost(instance, path) {
-    let cost = 0;
-    for (const point of path) {
-        const stepCost = instance.getTileTraversalCost(point.x, point.y);
-        if (!Number.isFinite(stepCost) || stepCost <= 0) {
-            return Number.POSITIVE_INFINITY;
-        }
-        cost += stepCost;
-    }
-    return cost;
-}
-function buildCoordKey(x, y) {
-    return `${x},${y}`;
-}
-function resolvePreferredClientPathHint(instance, playerId, currentX, currentY, goals, clientPathHint) {
-    if (!clientPathHint || !Array.isArray(clientPathHint.points) || clientPathHint.points.length === 0) {
-        return null;
-    }
-    let points = clientPathHint.points;
-    if (clientPathHint.startX === currentX && clientPathHint.startY === currentY) {
-        points = clientPathHint.points.slice();
-    }
-    else {
-        const currentIndex = clientPathHint.points.findIndex((point) => point.x === currentX && point.y === currentY);
-        if (currentIndex < 0) {
-            return null;
-        }
-        points = clientPathHint.points.slice(currentIndex + 1);
-    }
-    if (points.length === 0) {
-        return null;
-    }
-    const template = instance.template;
-    const goalKeys = new Set(goals.map((goal) => buildCoordKey(goal.x, goal.y)));
-    const lastPoint = points[points.length - 1];
-    if (!goalKeys.has(buildCoordKey(lastPoint.x, lastPoint.y))) {
-        return null;
-    }
-    const blocked = buildPathingBlockMask(instance, playerId, goals, true);
-    let previousX = currentX;
-    let previousY = currentY;
-    for (const point of points) {
-        if (!isInBounds(point.x, point.y, template.width, template.height)) {
-            return null;
-        }
-        const deltaX = point.x - previousX;
-        const deltaY = point.y - previousY;
-        if (Math.abs(deltaX) + Math.abs(deltaY) !== 1) {
-            return null;
-        }
-        const tileIndex = (0, map_template_repository_1.getTileIndex)(point.x, point.y, template.width);
-        if (template.walkableMask[tileIndex] !== 1 || blocked[tileIndex] === 1) {
-            return null;
-        }
-        const stepCost = instance.getTileTraversalCost(point.x, point.y);
-        if (!Number.isFinite(stepCost) || stepCost <= 0) {
-            return null;
-        }
-        previousX = point.x;
-        previousY = point.y;
-    }
-    return {
-        points,
-        cost: computePathCost(instance, points),
-    };
-}
-function findOptimalPathOnMap(instance, playerId, startX, startY, goals, allowOccupiedGoals = true) {
-    if (goals.length === 0) {
-        return null;
-    }
-    const template = instance.template;
-    const goalIndices = new Set();
-    for (const goal of goals) {
-        if (!isInBounds(goal.x, goal.y, template.width, template.height)) {
-            continue;
-        }
-        goalIndices.add((0, map_template_repository_1.getTileIndex)(goal.x, goal.y, template.width));
-    }
-    if (goalIndices.size === 0) {
-        return null;
-    }
-    const blocked = buildPathingBlockMask(instance, playerId, goals, allowOccupiedGoals);
-    const size = template.width * template.height;
-    const bestCost = new Float64Array(size);
-    bestCost.fill(Number.POSITIVE_INFINITY);
-    const previous = new Int32Array(size);
-    previous.fill(-1);
-    const heap = [];
-    const startIndex = (0, map_template_repository_1.getTileIndex)(startX, startY, template.width);
-    bestCost[startIndex] = 0;
-    pushPathNode(heap, { index: startIndex, cost: 0 });
-    while (heap.length > 0) {
-        const currentNode = popPathNode(heap);
-        if (!currentNode) {
-            break;
-        }
-        const current = currentNode.index;
-        if (currentNode.cost !== bestCost[current]) {
-            continue;
-        }
-        if (goalIndices.has(current)) {
-            return {
-                points: reconstructPathPoints(previous, current, startIndex, template.width),
-                cost: currentNode.cost,
-            };
-        }
-        const x = current % template.width;
-        const y = Math.trunc(current / template.width);
-        for (const direction of [shared_1.Direction.North, shared_1.Direction.South, shared_1.Direction.East, shared_1.Direction.West]) {
-            const offset = DIRECTION_OFFSET[direction];
-            if (!offset) {
-                continue;
-            }
-            const nextX = x + offset.x;
-            const nextY = y + offset.y;
-            if (!isInBounds(nextX, nextY, template.width, template.height)) {
-                continue;
-            }
-            const nextIndex = (0, map_template_repository_1.getTileIndex)(nextX, nextY, template.width);
-            if (template.walkableMask[nextIndex] !== 1 || blocked[nextIndex] === 1) {
-                continue;
-            }
-            const stepCost = instance.getTileTraversalCost(nextX, nextY);
-            if (!Number.isFinite(stepCost) || stepCost <= 0) {
-                continue;
-            }
-            const nextCost = currentNode.cost + stepCost;
-            if (nextCost >= bestCost[nextIndex]) {
-                continue;
-            }
-            bestCost[nextIndex] = nextCost;
-            previous[nextIndex] = current;
-            pushPathNode(heap, { index: nextIndex, cost: nextCost });
-        }
-    }
-    return null;
-}
-function findNextDirectionOnMap(instance, playerId, startX, startY, goals, allowOccupiedGoals = true) {
-    const result = findOptimalPathOnMap(instance, playerId, startX, startY, goals, allowOccupiedGoals);
-    if (!result || result.points.length === 0) {
-        return null;
-    }
-    return directionFromStep(startX, startY, result.points[0].x, result.points[0].y);
-}
-function findPathPointsOnMap(instance, playerId, startX, startY, goals, allowOccupiedGoals = true) {
-    return findOptimalPathOnMap(instance, playerId, startX, startY, goals, allowOccupiedGoals)?.points ?? null;
-}
-function reconstructPathPoints(previous, goalIndex, startIndex, width) {
-    const path = [];
-    let cursor = goalIndex;
-    while (cursor !== -1 && cursor !== startIndex) {
-        path.push({
-            x: cursor % width,
-            y: Math.trunc(cursor / width),
-        });
-        cursor = previous[cursor];
-    }
-    path.reverse();
-    return path;
-}
-function pushPathNode(heap, node) {
-    heap.push(node);
-    let index = heap.length - 1;
-    while (index > 0) {
-        const parentIndex = Math.trunc((index - 1) / 2);
-        if (heap[parentIndex].cost <= node.cost) {
-            break;
-        }
-        heap[index] = heap[parentIndex];
-        index = parentIndex;
-    }
-    heap[index] = node;
-}
-function popPathNode(heap) {
-    if (heap.length === 0) {
-        return null;
-    }
-    const root = heap[0];
-    const last = heap.pop();
-    if (!last || heap.length === 0) {
-        return root;
-    }
-    let index = 0;
-    while (true) {
-        const left = index * 2 + 1;
-        const right = left + 1;
-        if (left >= heap.length) {
-            break;
-        }
-        let smallest = left;
-        if (right < heap.length && heap[right].cost < heap[left].cost) {
-            smallest = right;
-        }
-        if (heap[smallest].cost >= last.cost) {
-            break;
-        }
-        heap[index] = heap[smallest];
-        index = smallest;
-    }
-    heap[index] = last;
-    return root;
-}
-function directionFromStep(startX, startY, nextX, nextY) {
-    for (const direction of [shared_1.Direction.North, shared_1.Direction.South, shared_1.Direction.East, shared_1.Direction.West]) {
-        const offset = DIRECTION_OFFSET[direction];
-        if (!offset) {
-            continue;
-        }
-        if (startX + offset.x === nextX && startY + offset.y === nextY) {
-            return direction;
-        }
-    }
-    return null;
-}
-const DIRECTION_OFFSET = {
-    [shared_1.Direction.North]: { x: 0, y: -1 },
-    [shared_1.Direction.South]: { x: 0, y: 1 },
-    [shared_1.Direction.East]: { x: 1, y: 0 },
-    [shared_1.Direction.West]: { x: -1, y: 0 },
-};
-function computeResolvedDamage(baseDamage, damageKind, attackerStats, attackerRatios, targetStats, targetRatios) {
-    const hitGap = Math.max(0, targetStats.dodge - attackerStats.hit);
-    if (hitGap > 0 && Math.random() < (0, shared_1.ratioValue)(hitGap, targetRatios.dodge)) {
-        return { rawDamage: 0, damage: 0 };
-    }
-    const defense = damageKind === 'physical' ? targetStats.physDef : targetStats.spellDef;
-    const reduction = Math.max(0, (0, shared_1.ratioValue)(defense, 100));
-    const crit = attackerStats.crit > 0 && Math.random() < (0, shared_1.ratioValue)(attackerStats.crit, attackerRatios.crit);
-    let rawDamage = Math.max(1, Math.round(baseDamage));
-    let damage = Math.max(1, Math.round(rawDamage * (1 - Math.min(0.95, reduction))));
-    if (crit) {
-        const critMultiplier = (200 + Math.max(0, attackerStats.critDamage) / 10) / 100;
-        rawDamage = Math.max(1, Math.round(rawDamage * critMultiplier));
-        damage = Math.max(1, Math.round(damage * critMultiplier));
-    }
-    return {
-        rawDamage,
-        damage: Math.max(1, damage),
-    };
-}
-function formatCombatDamageBreakdown(rawDamage, actualDamage, damageKind, element) {
-    return `原始 ${Math.max(0, Math.round(rawDamage))} - 实际 ${Math.max(0, Math.round(actualDamage))} - ${formatCombatDamageType(damageKind, element)}`;
-}
-function formatCombatActionClause(casterLabel, targetLabel, actionLabel) {
-    return actionLabel === '攻击'
-        ? `${casterLabel}对${targetLabel}发起攻击`
-        : `${casterLabel}对${targetLabel}施展${actionLabel}`;
-}
-function formatCombatDamageType(damageKind, element) {
-    const elementLabel = element ? `${shared_1.ELEMENT_KEY_LABELS[element] ?? element}行` : '';
-    return damageKind === 'physical' ? `${elementLabel}物理` : `${elementLabel}法术`;
-}
-function cloneVisibleBuff(source) {
-    return {
-        ...source,
-        attrs: source.attrs ? { ...source.attrs } : undefined,
-        stats: source.stats ? { ...source.stats } : undefined,
-        qiProjection: source.qiProjection ? source.qiProjection.map((entry) => ({ ...entry })) : undefined,
-    };
-}
-function buildPlayerObservation(viewerSpirit, target, selfView = false) {
-    return buildObservationInsight(viewerSpirit, target.attrs.finalAttrs.spirit, [
-        { threshold: 0.15, label: '气血', value: formatCurrentMaxObservation(target.hp, target.maxHp) },
-        { threshold: 0.28, label: '灵力', value: formatCurrentMaxObservation(target.qi, target.maxQi) },
-        { threshold: 0.42, label: '体魄', value: String(target.attrs.finalAttrs.constitution) },
-        { threshold: 0.58, label: '神识', value: String(target.attrs.finalAttrs.spirit) },
-        { threshold: 0.74, label: '感知', value: String(target.attrs.finalAttrs.perception) },
-        { threshold: 0.88, label: '悟性', value: String(target.attrs.finalAttrs.comprehension) },
-    ], selfView);
-}
-function buildMonsterObservation(viewerSpirit, monster) {
-    return buildObservationInsight(viewerSpirit, monster.attrs.spirit, [
-        { threshold: 0.16, label: '气血', value: formatCurrentMaxObservation(monster.hp, monster.maxHp) },
-        { threshold: 0.34, label: '体魄', value: String(monster.attrs.constitution) },
-        { threshold: 0.58, label: '神识', value: String(monster.attrs.spirit) },
-        { threshold: 0.78, label: '境界', value: `等级 ${monster.level}` },
-    ]);
-}
-function buildMonsterLootPreview(contentTemplateRepository, viewer, monster) {
-    const dropTable = contentTemplateRepository?.monsterDropsByMonsterId?.get(monster.monsterId) ?? [];
-    const lootRate = viewer?.attrs?.numericStats?.lootRate ?? 0;
-    const rareLootRate = viewer?.attrs?.numericStats?.rareLootRate ?? 0;
-    const entries = dropTable
-        .map((drop) => ({
-        itemId: drop.itemId,
-        name: drop.name,
-        type: drop.type,
-        count: drop.count,
-        chance: resolveObservedDropChance(drop.chance, lootRate, rareLootRate),
-    }))
-        .sort((left, right) => right.chance - left.chance || compareStableText(left.itemId, right.itemId));
-    return {
-        entries,
-        emptyText: entries.length > 0 ? undefined : '此獠身上暂未看出稳定掉落。',
-    };
-}
-function resolveObservedDropChance(baseChanceInput, lootRateBonus, rareLootRateBonus) {
-    const baseChance = typeof baseChanceInput === 'number' ? Math.max(0, Math.min(1, baseChanceInput)) : 1;
-    if (baseChance <= 0) {
-        return 0;
-    }
-    const totalRateBonus = (Number.isFinite(lootRateBonus) ? lootRateBonus : 0)
-        + (baseChance <= 0.001 ? (Number.isFinite(rareLootRateBonus) ? rareLootRateBonus : 0) : 0);
-    const killEquivalent = totalRateBonus >= 0
-        ? 1 + totalRateBonus / 10000
-        : 1 / (1 + Math.abs(totalRateBonus) / 10000);
-    if (killEquivalent <= 0) {
-        return 0;
-    }
-    return 1 - Math.pow(1 - baseChance, killEquivalent);
-}
-function compareStableText(left, right) {
-    if (left === right) {
-        return 0;
-    }
-    return left < right ? -1 : 1;
-}
-function buildNpcObservation(npc) {
-    const lines = [
-        { label: '身份', value: npc.role ?? '寻常人物' },
-        { label: '商号', value: npc.hasShop ? '经营货铺' : '暂无营生' },
-    ];
-    if (typeof npc.dialogue === 'string' && npc.dialogue.trim()) {
-        lines.push({ label: '话语', value: npc.dialogue.trim() });
-    }
-    if (npc.quests.length > 0) {
-        lines.push({ label: '委托', value: `可交互 ${npc.quests.length} 项` });
-    }
-    return {
-        clarity: 'clear',
-        verdict: npc.quests.length > 0
-            ? '对方似乎正等着与来客交谈，身上带着几分未了的委托气息。'
-            : npc.hasShop
-                ? '对方神色沉稳，像是久经往来的买卖人。'
-                : '对方气机平和，看不出明显敌意。',
-        lines,
-    };
-}
-function buildPortalTileEntityDetail(portal, targetMapName) {
-    const destination = targetMapName
-        ? `${targetMapName} (${portal.targetX}, ${portal.targetY})`
-        : `${portal.targetMapId} (${portal.targetX}, ${portal.targetY})`;
-    return {
-        id: buildPortalId(portal.x, portal.y),
-        name: buildPortalDisplayName(portal, targetMapName),
-        kind: 'portal',
-        observation: {
-            clarity: 'clear',
-            verdict: portal.trigger === 'auto'
-                ? '此地灵路与空间缝隙已经贯通，踏入其中便会立刻被牵引离去。'
-                : '此地灵路稳定却未主动张开，需要你亲自触动才能穿行。',
-            lines: [
-                { label: '类型', value: buildPortalKindLabel(portal.kind) },
-                { label: '触发', value: portal.trigger === 'auto' ? '踏入即触发' : '需要主动使用' },
-                { label: '去向', value: destination },
-            ],
-        },
-    };
-}
-function buildGroundTileEntityDetail(groundPile) {
-    const totalCount = groundPile.items.reduce((sum, entry) => sum + Math.max(0, Math.round(entry.count ?? 0)), 0);
-    const previews = groundPile.items
-        .slice(0, 3)
-        .map((entry) => `${entry.name ?? entry.itemId} x${Math.max(0, Math.round(entry.count ?? 0))}`);
-    const remainingKinds = Math.max(0, groundPile.items.length - previews.length);
-    const previewText = remainingKinds > 0
-        ? `${previews.join('、')} 等 ${groundPile.items.length} 类`
-        : previews.join('、');
-    return {
-        id: groundPile.sourceId,
-        name: groundPile.items.length === 1
-            ? (groundPile.items[0]?.name ?? groundPile.items[0]?.itemId ?? '地面物品')
-            : `散落物品堆 (${groundPile.items.length})`,
-        kind: 'ground',
-        observation: {
-            clarity: 'clear',
-            verdict: groundPile.items.length === 1
-                ? '地上静静躺着一件可拾取之物。'
-                : '地上散落着几样可拾取之物，像是刚被人匆忙遗落。',
-            lines: [
-                { label: '种类', value: `${groundPile.items.length} 类` },
-                { label: '总量', value: `${totalCount} 件` },
-                { label: '可见', value: previewText || '暂无可辨之物' },
-            ],
-        },
-    };
-}
-function buildContainerTileEntityDetail(container) {
-    return {
-        id: `container:${container.id}`,
-        name: container.name,
-        kind: 'container',
-        observation: {
-            clarity: 'clear',
-            verdict: container.desc?.trim() || `这处${container.name}可以搜索，翻找后或许会有收获。`,
-            lines: [
-                { label: '类别', value: '可搜索陈设' },
-                { label: '名称', value: container.name },
-                { label: '搜索阶次', value: String(container.grade) },
-            ],
-        },
-    };
-}
-function buildObservationInsight(viewerSpirit, targetSpirit, lines, selfView = false) {
-    const progress = selfView ? 1 : computeObservationProgress(viewerSpirit, targetSpirit);
-    return {
-        clarity: resolveObservationClarity(progress),
-        verdict: buildObservationVerdict(progress, selfView),
-        lines: lines.map((line) => ({
-            label: line.label,
-            value: progress >= line.threshold ? line.value : '???',
-        })),
-    };
-}
-function computeObservationProgress(viewerSpirit, targetSpirit) {
-    const normalizedViewer = Math.max(1, Math.round(viewerSpirit));
-    const normalizedTarget = Math.max(1, Math.round(targetSpirit));
-    const ratio = normalizedViewer / normalizedTarget;
-    if (ratio <= OBSERVATION_BLIND_RATIO) {
-        return 0;
-    }
-    if (ratio >= OBSERVATION_FULL_RATIO) {
-        return 1;
-    }
-    return Math.max(0, Math.min(1, (ratio - OBSERVATION_BLIND_RATIO) / (OBSERVATION_FULL_RATIO - OBSERVATION_BLIND_RATIO)));
-}
-function resolveObservationClarity(progress) {
-    if (progress <= 0) {
-        return 'veiled';
-    }
-    if (progress < 0.34) {
-        return 'blurred';
-    }
-    if (progress < 0.68) {
-        return 'partial';
-    }
-    if (progress < 1) {
-        return 'clear';
-    }
-    return 'complete';
-}
-function buildObservationVerdict(progress, selfView) {
-    if (selfView) {
-        return '神识内照，经络与底蕴尽现。';
-    }
-    if (progress <= 0) {
-        return '对方气机晦暗难明，暂时看不透。';
-    }
-    if (progress < 0.34) {
-        return '只能勉强分辨出些许轮廓。';
-    }
-    if (progress < 0.68) {
-        return '已能看出部分深浅，但仍有遮掩。';
-    }
-    if (progress < 1) {
-        return '大致能辨明其底蕴与强弱。';
-    }
-    return '对方虚实已尽收眼底。';
-}
-function formatCurrentMaxObservation(current, max) {
-    return `${Math.max(0, Math.round(current))} / ${Math.max(0, Math.round(max))}`;
-}
-function buildPortalDisplayName(portal, targetMapName) {
-    const base = buildPortalKindLabel(portal.kind);
-    return targetMapName ? `${base} · ${targetMapName}` : base;
-}
-function buildPortalKindLabel(kind) {
-    switch (kind) {
-        case 'stairs':
-            return '楼梯';
-        case 'door':
-            return '门扉';
-        case 'cave':
-            return '洞口';
-        case 'gate':
-            return '关隘';
-        default:
-            return '传送点';
-    }
-}
-function buildPortalId(x, y) {
-    return `${x}:${y}`;
-}
-function findPlayerSkill(player, skillId) {
-    for (const technique of player.techniques.techniques) {
-        for (const skill of technique.skills ?? []) {
-            if (skill.id === skillId) {
-                return skill;
-            }
-        }
-    }
-    return null;
-}
-function isHostileSkill(skill) {
-    return skill.effects.some((effect) => effect.type === 'damage' || (effect.type === 'buff' && effect.target === 'target'));
-}
-function getSkillEffectColor(skill) {
-    for (const effect of skill.effects) {
-        if (effect.type === 'damage') {
-            return (0, shared_1.getDamageTrailColor)(effect.damageKind ?? 'spell', effect.element);
-        }
-    }
-    return (0, shared_1.getDamageTrailColor)('spell');
-}
-function resolveRuntimeSkillRange(skill) {
-    const targetingRange = skill.targeting?.range;
-    if (typeof targetingRange === 'number' && Number.isFinite(targetingRange)) {
-        return Math.max(1, Math.round(targetingRange));
-    }
-    return Math.max(1, Math.round(skill.range ?? 1));
-}
-function resolveAutoBattleSkillQiCost(baseCost, maxQiOutputPerTick) {
-    const normalizedBaseCost = Number.isFinite(baseCost) ? Math.max(0, Math.round(baseCost ?? 0)) : 0;
-    if (normalizedBaseCost <= 0) {
-        return 0;
-    }
-    const outputCap = Number.isFinite(maxQiOutputPerTick) ? Math.max(0, Math.round(maxQiOutputPerTick)) : 0;
-    if (outputCap <= 0) {
-        return normalizedBaseCost;
-    }
-    return Math.min(normalizedBaseCost, outputCap);
-}
-function buildAutoBattleGoalPoints(instance, targetX, targetY, range) {
-    const normalizedRange = Math.max(1, Math.round(range));
-    const goals = [];
-    for (let y = targetY - normalizedRange; y <= targetY + normalizedRange; y += 1) {
-        for (let x = targetX - normalizedRange; x <= targetX + normalizedRange; x += 1) {
-            if (!isInBounds(x, y, instance.template.width, instance.template.height)) {
-                continue;
-            }
-            if (x === targetX && y === targetY) {
-                continue;
-            }
-            const distance = chebyshevDistance(x, y, targetX, targetY);
-            if (distance > normalizedRange) {
-                continue;
-            }
-            goals.push({ x, y });
-        }
-    }
-    goals.sort((left, right) => (Math.abs(chebyshevDistance(left.x, left.y, targetX, targetY) - normalizedRange)
-        - Math.abs(chebyshevDistance(right.x, right.y, targetX, targetY) - normalizedRange)) || (chebyshevDistance(left.x, left.y, targetX, targetY) - chebyshevDistance(right.x, right.y, targetX, targetY)) || left.y - right.y || left.x - right.x);
-    return goals;
-}
-function isTileVisibleInView(view, x, y, radius) {
-    if (view.self.x === x && view.self.y === y) {
-        return true;
-    }
-    if (Array.isArray(view.visibleTileIndices) && view.visibleTileIndices.length > 0) {
-        const tileIndex = x >= 0 && y >= 0 && x < view.instance.width && y < view.instance.height
-            ? y * view.instance.width + x
-            : -1;
-        return view.visibleTileIndices.includes(tileIndex);
-    }
-    return view.visiblePlayers.some((entry) => entry.x === x && entry.y === y)
-        || view.localMonsters.some((entry) => entry.x === x && entry.y === y)
-        || view.localNpcs.some((entry) => entry.x === x && entry.y === y)
-        || view.localPortals.some((entry) => entry.x === x && entry.y === y)
-        || view.localGroundPiles.some((entry) => entry.x === x && entry.y === y)
-        || chebyshevDistance(view.self.x, view.self.y, x, y) <= radius;
-}
-function createTileCombatAttributes() {
-    return {
-        constitution: 0,
-        spirit: 0,
-        perception: 0,
-        talent: 0,
-        comprehension: 0,
-        luck: 0,
-    };
-}
-function createTileCombatNumericStats(maxHp) {
-    return {
-        ...(0, shared_1.cloneNumericStats)(shared_1.PLAYER_REALM_NUMERIC_TEMPLATES[shared_1.DEFAULT_PLAYER_REALM_STAGE].stats),
-        maxHp,
-        maxQi: 0,
-        physAtk: 0,
-        spellAtk: 0,
-        physDef: 0,
-        spellDef: 0,
-        hit: 0,
-        dodge: 0,
-        crit: 0,
-        critDamage: 0,
-        breakPower: 0,
-        resolvePower: 0,
-        maxQiOutputPerTick: 0,
-        qiRegenRate: 0,
-        hpRegenRate: 0,
-        cooldownSpeed: 0,
-        auraCostReduce: 0,
-        auraPowerRate: 0,
-        playerExpRate: 0,
-        techniqueExpRate: 0,
-        realmExpPerTick: 0,
-        techniqueExpPerTick: 0,
-        lootRate: 0,
-        rareLootRate: 0,
-        viewRange: 0,
-        moveSpeed: 0,
-        extraAggroRate: 0,
-        elementDamageBonus: {
-            metal: 0,
-            wood: 0,
-            water: 0,
-            fire: 0,
-            earth: 0,
-        },
-        elementDamageReduce: {
-            metal: 0,
-            wood: 0,
-            water: 0,
-            fire: 0,
-            earth: 0,
-        },
-    };
-}
-*/
+// helper functions were split into dedicated helper modules for maintainability.
 //# sourceMappingURL=world-runtime.service.js.map

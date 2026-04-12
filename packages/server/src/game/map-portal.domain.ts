@@ -21,7 +21,9 @@ export class MapPortalDomain {
     private readonly maps: Map<string, MapData>,
   ) {}
 
+/** getOverlayParentMapId：执行对应的业务逻辑。 */
   getOverlayParentMapId(mapId: string): string | undefined {
+/** meta：定义该变量以承载业务值。 */
     const meta = this.getMapMeta(mapId);
     if (meta?.spaceVisionMode !== 'parent_overlay' || !meta.parentMapId) {
       return undefined;
@@ -29,12 +31,15 @@ export class MapPortalDomain {
     return this.maps.has(meta.parentMapId) ? meta.parentMapId : undefined;
   }
 
+/** projectPointToMap：执行对应的业务逻辑。 */
   projectPointToMap(targetMapId: string, sourceMapId: string, x: number, y: number): ProjectedPoint | null {
     if (targetMapId === sourceMapId) {
       return { x, y };
     }
 
+/** targetMeta：定义该变量以承载业务值。 */
     const targetMeta = this.getMapMeta(targetMapId);
+/** sourceMeta：定义该变量以承载业务值。 */
     const sourceMeta = this.getMapMeta(sourceMapId);
     if (!targetMeta || !sourceMeta) {
       return null;
@@ -67,27 +72,34 @@ export class MapPortalDomain {
     return null;
   }
 
+/** getPortalAt：执行对应的业务逻辑。 */
   getPortalAt(mapId: string, x: number, y: number, options?: PortalQueryOptions): Portal | undefined {
+/** map：定义该变量以承载业务值。 */
     const map = this.maps.get(mapId);
     if (!map) return undefined;
     return map.portals.find((portal) => portal.x === x && portal.y === y && this.matchesPortalQuery(portal, options));
   }
 
+/** getHiddenPortalObservationAt：执行对应的业务逻辑。 */
   getHiddenPortalObservationAt(mapId: string, x: number, y: number): PortalObservationHint | undefined {
+/** localPortal：定义该变量以承载业务值。 */
     const localPortal = this.getPortalAt(mapId, x, y);
     if (localPortal?.hidden) {
       return this.toPortalObservationHint(localPortal);
     }
 
+/** parentMapId：定义该变量以承载业务值。 */
     const parentMapId = this.getOverlayParentMapId(mapId);
     if (!parentMapId || this.isPointInMapBounds(mapId, x, y)) {
       return undefined;
     }
 
+/** projected：定义该变量以承载业务值。 */
     const projected = this.projectPointToMap(parentMapId, mapId, x, y);
     if (!projected) {
       return undefined;
     }
+/** parentPortal：定义该变量以承载业务值。 */
     const parentPortal = this.getPortalAt(parentMapId, projected.x, projected.y);
     if (!parentPortal?.hidden) {
       return undefined;
@@ -95,7 +107,9 @@ export class MapPortalDomain {
     return this.toPortalObservationHint(parentPortal);
   }
 
+/** getPortalNear：执行对应的业务逻辑。 */
   getPortalNear(mapId: string, x: number, y: number, maxDistance = 1, options?: PortalQueryOptions): Portal | undefined {
+/** map：定义该变量以承载业务值。 */
     const map = this.maps.get(mapId);
     if (!map) return undefined;
     return map.portals.find((portal) => (
@@ -103,7 +117,9 @@ export class MapPortalDomain {
     ));
   }
 
+/** getPortals：执行对应的业务逻辑。 */
   getPortals(mapId: string, options?: PortalQueryOptions): Portal[] {
+/** map：定义该变量以承载业务值。 */
     const map = this.maps.get(mapId);
     if (!map) {
       return [];
@@ -111,10 +127,12 @@ export class MapPortalDomain {
     return map.portals.filter((portal) => this.matchesPortalQuery(portal, options));
   }
 
+/** getMapRouteDomain：执行对应的业务逻辑。 */
   getMapRouteDomain(mapId: string): MapRouteDomain {
     return this.getMapMeta(mapId)?.routeDomain ?? 'system';
   }
 
+/** isMapRouteDomainAllowed：执行对应的业务逻辑。 */
   isMapRouteDomainAllowed(mapId: string, allowedRouteDomains?: readonly MapRouteDomain[]): boolean {
     if (!allowedRouteDomains || allowedRouteDomains.length === 0) {
       return true;
@@ -124,25 +142,30 @@ export class MapPortalDomain {
 
   resolveNearestWalkablePointInDocument(
     document: GmMapDocument,
+/** origin：定义该变量以承载业务值。 */
     origin: { x: number; y: number },
   ): { x: number; y: number } | null {
     if (document.width <= 0 || document.height <= 0) {
       return null;
     }
 
+/** clamped：定义该变量以承载业务值。 */
     const clamped = {
       x: Math.min(document.width - 1, Math.max(0, Math.floor(origin.x))),
       y: Math.min(document.height - 1, Math.max(0, Math.floor(origin.y))),
     };
 
+/** portalFallback：定义该变量以承载业务值。 */
     let portalFallback: { x: number; y: number } | null = null;
     for (let radius = 0; radius <= Math.max(document.width, document.height); radius += 1) {
       for (let dy = -radius; dy <= radius; dy += 1) {
         for (let dx = -radius; dx <= radius; dx += 1) {
           if (!isOffsetInRange(dx, dy, radius)) continue;
           const x = clamped.x + dx;
+/** y：定义该变量以承载业务值。 */
           const y = clamped.y + dy;
           if (x < 0 || x >= document.width || y < 0 || y >= document.height) continue;
+/** type：定义该变量以承载业务值。 */
           const type = getTileTypeFromMapChar(document.tiles[y]?.[x] ?? '#');
           if (type === TileType.Portal || type === TileType.Stairs) {
             portalFallback ??= { x, y };
@@ -158,6 +181,7 @@ export class MapPortalDomain {
     return portalFallback;
   }
 
+/** matchesPortalQuery：执行对应的业务逻辑。 */
   private matchesPortalQuery(portal: Portal, options?: PortalQueryOptions): boolean {
     if (!options) return true;
     if (options.trigger && portal.trigger !== options.trigger) return false;
@@ -166,6 +190,7 @@ export class MapPortalDomain {
     return true;
   }
 
+/** toPortalObservationHint：执行对应的业务逻辑。 */
   private toPortalObservationHint(portal: Portal): PortalObservationHint {
     return {
       title: portal.observeTitle
@@ -182,7 +207,9 @@ export class MapPortalDomain {
     return this.maps.get(mapId)?.meta;
   }
 
+/** isPointInMapBounds：执行对应的业务逻辑。 */
   private isPointInMapBounds(mapId: string, x: number, y: number): boolean {
+/** map：定义该变量以承载业务值。 */
     const map = this.maps.get(mapId);
     if (!map) return false;
     return x >= 0 && y >= 0 && x < map.meta.width && y < map.meta.height;

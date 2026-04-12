@@ -57,6 +57,7 @@ export const TILE_TRAVERSAL_COST: Record<TileType, number> = {
 /** 地形类型到地图字符的映射 */
 export const TILE_TYPE_TO_MAP_CHAR: Record<TileType, string> = {
   floor: '.',
+/** road：定义该变量以承载业务值。 */
   road: '=',
   trail: ':',
   wall: '#',
@@ -69,6 +70,7 @@ export const TILE_TYPE_TO_MAP_CHAR: Record<TileType, string> = {
   grass: ',',
   hill: '^',
   cliff: '崖',
+/** mud：定义该变量以承载业务值。 */
   mud: ';',
   swamp: '%',
   cold_bog: '寒',

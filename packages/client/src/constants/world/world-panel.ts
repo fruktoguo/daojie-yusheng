@@ -5,12 +5,19 @@ import { TechniqueRealm } from '@mud/shared';
 
 /** WorldGuide：定义该接口的能力与字段约束。 */
 export interface WorldGuide {
+/** title：定义该变量以承载业务值。 */
   title: string;
+/** recommendedRealm：定义该变量以承载业务值。 */
   recommendedRealm: string;
+/** route：定义该变量以承载业务值。 */
   route: string;
+/** mood：定义该变量以承载业务值。 */
   mood: string;
+/** desc：定义该变量以承载业务值。 */
   desc: string;
+/** resources：定义该变量以承载业务值。 */
   resources: string[];
+/** threats：定义该变量以承载业务值。 */
   threats: string[];
 }
 

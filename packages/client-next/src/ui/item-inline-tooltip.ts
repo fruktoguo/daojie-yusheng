@@ -10,7 +10,9 @@ type InlineItemChipTone = 'reward' | 'required' | 'material' | 'monster' | 'defa
 
 /** InlineItemMention：定义该接口的能力与字段约束。 */
 interface InlineItemMention {
+/** itemId：定义该变量以承载业务值。 */
   itemId: string;
+/** name：定义该变量以承载业务值。 */
   name: string;
 }
 
@@ -21,22 +23,31 @@ interface RenderInlineItemChipOptions {
   tone?: InlineItemChipTone;
 }
 
+/** INLINE_REFERENCE_SELECTOR：定义该变量以承载业务值。 */
 const INLINE_REFERENCE_SELECTOR = '[data-inline-item-id], [data-inline-monster-id]';
+/** inlineItemTooltip：定义该变量以承载业务值。 */
 const inlineItemTooltip = new FloatingTooltip('floating-tooltip inline-item-tooltip');
+/** boundRoots：定义该变量以承载业务值。 */
 const boundRoots = new WeakSet<HTMLElement>();
+/** activeTooltipNode：定义该变量以承载业务值。 */
 let activeTooltipNode: HTMLElement | null = null;
+/** tooltipRequestToken：定义该变量以承载业务值。 */
 let tooltipRequestToken = 0;
 
+/** inlineItemMentions：定义该变量以承载业务值。 */
 const inlineItemMentions = LOCAL_EDITOR_CATALOG.items
   .map((item) => ({ itemId: item.itemId, name: item.name.trim() }))
   .filter((item): item is InlineItemMention => item.name.length > 0)
   .sort((left, right) => right.name.length - left.name.length);
 
+/** mentionCandidatesByFirstChar：定义该变量以承载业务值。 */
 const mentionCandidatesByFirstChar = inlineItemMentions.reduce((result, mention) => {
+/** firstChar：定义该变量以承载业务值。 */
   const firstChar = [...mention.name][0];
   if (!firstChar) {
     return result;
   }
+/** bucket：定义该变量以承载业务值。 */
   const bucket = result.get(firstChar) ?? [];
   bucket.push(mention);
   result.set(firstChar, bucket);
@@ -68,6 +79,7 @@ function normalizeCount(count: number | undefined): number {
 
 /** buildLocalItemStack：执行对应的业务逻辑。 */
 function buildLocalItemStack(itemId: string, count = 1): ItemStack | null {
+/** template：定义该变量以承载业务值。 */
   const template = getLocalItemTemplate(itemId);
   if (!template) {
     return null;
@@ -92,10 +104,14 @@ function buildLocalItemStack(itemId: string, count = 1): ItemStack | null {
 
 /** resolveTooltipPayload：执行对应的业务逻辑。 */
 async function resolveTooltipPayload(node: HTMLElement) {
+/** itemId：定义该变量以承载业务值。 */
   const itemId = node.dataset.inlineItemId;
   if (itemId) {
+/** itemCount：定义该变量以承载业务值。 */
     const itemCount = normalizeCount(Number.parseInt(node.dataset.inlineItemCount ?? '1', 10));
+/** fallbackName：定义该变量以承载业务值。 */
     const fallbackName = node.dataset.inlineItemName?.trim() || itemId;
+/** stack：定义该变量以承载业务值。 */
     const stack = buildLocalItemStack(itemId, itemCount);
     if (!stack) {
       return {
@@ -107,11 +123,14 @@ async function resolveTooltipPayload(node: HTMLElement) {
     }
     return buildItemTooltipPayload(stack);
   }
+/** monsterId：定义该变量以承载业务值。 */
   const monsterId = node.dataset.inlineMonsterId;
   if (!monsterId) {
     return null;
   }
+/** fallbackName：定义该变量以承载业务值。 */
   const fallbackName = node.dataset.inlineMonsterName?.trim() || monsterId;
+/** location：定义该变量以承载业务值。 */
   const location = await loadMonsterLocationEntry(monsterId);
   if (!location) {
     return {
@@ -135,8 +154,10 @@ async function resolveTooltipPayload(node: HTMLElement) {
 
 /** showTooltip：执行对应的业务逻辑。 */
 async function showTooltip(node: HTMLElement, clientX: number, clientY: number): Promise<void> {
+/** requestToken：定义该变量以承载业务值。 */
   const requestToken = ++tooltipRequestToken;
   activeTooltipNode = node;
+/** tooltip：定义该变量以承载业务值。 */
   const tooltip = await resolveTooltipPayload(node);
   if (!tooltip) {
     return;
@@ -152,17 +173,24 @@ async function showTooltip(node: HTMLElement, clientX: number, clientY: number):
 
 /** renderInlineItemChip：执行对应的业务逻辑。 */
 export function renderInlineItemChip(itemId: string, options?: RenderInlineItemChipOptions): string {
+/** template：定义该变量以承载业务值。 */
   const template = getLocalItemTemplate(itemId);
+/** label：定义该变量以承载业务值。 */
   const label = options?.label?.trim() || template?.name || itemId;
+/** count：定义该变量以承载业务值。 */
   const count = options?.count;
+/** countText：定义该变量以承载业务值。 */
   const countText = Number.isFinite(count) ? ` x${normalizeCount(count)}` : '';
+/** tone：定义该变量以承载业务值。 */
   const tone = options?.tone ?? 'default';
   return `<span class="inline-item-chip inline-item-chip--${tone}" data-inline-item-id="${escapeHtmlAttr(itemId)}" data-inline-item-name="${escapeHtmlAttr(label)}"${Number.isFinite(count) ? ` data-inline-item-count="${normalizeCount(count)}"` : ''}>${escapeHtml(label)}${countText ? `<span class="inline-item-chip-count">${escapeHtml(countText)}</span>` : ''}</span>`;
 }
 
 /** renderInlineMonsterChip：执行对应的业务逻辑。 */
 export function renderInlineMonsterChip(monsterId: string, options?: { label?: string }): string {
+/** location：定义该变量以承载业务值。 */
   const location = getMonsterLocationEntry(monsterId);
+/** label：定义该变量以承载业务值。 */
   const label = options?.label?.trim() || location?.monsterName || monsterId;
   return `<span class="inline-item-chip inline-item-chip--monster" data-inline-monster-id="${escapeHtmlAttr(monsterId)}" data-inline-monster-name="${escapeHtmlAttr(label)}">${escapeHtml(label)}</span>`;
 }
@@ -173,11 +201,16 @@ export function renderTextWithInlineItemHighlights(text: string): string {
     return '';
   }
 
+/** html：定义该变量以承载业务值。 */
   let html = '';
+/** index：定义该变量以承载业务值。 */
   let index = 0;
   while (index < text.length) {
+/** firstChar：定义该变量以承载业务值。 */
     const firstChar = text[index];
+/** candidates：定义该变量以承载业务值。 */
     const candidates = mentionCandidatesByFirstChar.get(firstChar) ?? [];
+/** matched：定义该变量以承载业务值。 */
     const matched = candidates.find((candidate) => text.startsWith(candidate.name, index));
     if (matched) {
       html += renderInlineItemChip(matched.itemId, { label: matched.name, tone: 'material' });
@@ -197,16 +230,19 @@ export function bindInlineItemTooltips(root: HTMLElement): void {
   }
   boundRoots.add(root);
 
+/** tapMode：定义该变量以承载业务值。 */
   const tapMode = prefersPinnedTooltipInteraction();
 
   root.addEventListener('click', (event) => {
     if (!tapMode || !(event instanceof PointerEvent)) {
       return;
     }
+/** target：定义该变量以承载业务值。 */
     const target = event.target;
     if (!(target instanceof HTMLElement)) {
       return;
     }
+/** node：定义该变量以承载业务值。 */
     const node = target.closest<HTMLElement>(INLINE_REFERENCE_SELECTOR);
     if (!node) {
       return;
@@ -216,8 +252,11 @@ export function bindInlineItemTooltips(root: HTMLElement): void {
       inlineItemTooltip.hide(true);
       return;
     }
+/** clientX：定义该变量以承载业务值。 */
     const clientX = event.clientX;
+/** clientY：定义该变量以承载业务值。 */
     const clientY = event.clientY;
+/** requestToken：定义该变量以承载业务值。 */
     const requestToken = ++tooltipRequestToken;
     activeTooltipNode = node;
     void resolveTooltipPayload(node).then((tooltip) => {
@@ -237,6 +276,7 @@ export function bindInlineItemTooltips(root: HTMLElement): void {
     if (!(event instanceof PointerEvent) || (tapMode && inlineItemTooltip.isPinned())) {
       return;
     }
+/** target：定义该变量以承载业务值。 */
     const target = event.target;
     if (!(target instanceof HTMLElement)) {
       if (activeTooltipNode && root.contains(activeTooltipNode)) {
@@ -245,6 +285,7 @@ export function bindInlineItemTooltips(root: HTMLElement): void {
       }
       return;
     }
+/** node：定义该变量以承载业务值。 */
     const node = target.closest<HTMLElement>(INLINE_REFERENCE_SELECTOR);
     if (!node) {
       if (activeTooltipNode && root.contains(activeTooltipNode) && !inlineItemTooltip.isPinnedTo(activeTooltipNode)) {
@@ -269,6 +310,7 @@ export function bindInlineItemTooltips(root: HTMLElement): void {
   });
 
   root.addEventListener('pointerdown', (event) => {
+/** target：定义该变量以承载业务值。 */
     const target = event.target;
     if (!(target instanceof HTMLElement) || target.closest(INLINE_REFERENCE_SELECTOR)) {
       return;

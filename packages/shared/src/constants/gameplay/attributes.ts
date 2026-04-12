@@ -180,9 +180,12 @@ function createScalarMultiplierFloorStats(): Omit<NumericStats, 'elementDamageBo
   };
 }
 
+/** TECHNIQUE_EXP_REFERENCE_PER_TICK：定义该变量以承载业务值。 */
 const TECHNIQUE_EXP_REFERENCE_PER_TICK = 5;
+/** VIEW_RANGE_REFERENCE：定义该变量以承载业务值。 */
 const VIEW_RANGE_REFERENCE = 8;
 
+/** ELEMENT_MULTIPLIER_FLOOR：定义该变量以承载业务值。 */
 const ELEMENT_MULTIPLIER_FLOOR: ElementStatGroup = {
   metal: 100,
   wood: 100,

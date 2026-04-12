@@ -4,7 +4,9 @@
  */
 
 Object.defineProperty(exports, "__esModule", { value: true });
+/** shared_1：定义该变量以承载业务值。 */
 const shared_1 = require("@mud/shared-next");
+/** player_combat_service_1：定义该变量以承载业务值。 */
 const player_combat_service_1 = require("../runtime/combat/player-combat.service");
 /**
  * 记录iterations。
@@ -468,6 +470,7 @@ function createRuntimeAdapter(...players) {
  */
     const playersById = new Map(players.map((player) => [player.playerId, player]));
     return {
+/** spendQi：执行对应的业务逻辑。 */
         spendQi(playerId, amount) {
 /**
  * 记录玩家。
@@ -477,6 +480,7 @@ function createRuntimeAdapter(...players) {
             player.selfRevision += 1;
             return player;
         },
+/** setSkillCooldownReadyTick：执行对应的业务逻辑。 */
         setSkillCooldownReadyTick(playerId, skillId, readyTick, currentTick) {
 /**
  * 记录玩家。
@@ -486,6 +490,7 @@ function createRuntimeAdapter(...players) {
             rebuildBenchActions(player, currentTick);
             return player;
         },
+/** applyTemporaryBuff：执行对应的业务逻辑。 */
         applyTemporaryBuff(playerId, buff) {
 /**
  * 记录玩家。
@@ -511,6 +516,7 @@ function createRuntimeAdapter(...players) {
             player.buffs.revision += 1;
             return player;
         },
+/** applyDamage：执行对应的业务逻辑。 */
         applyDamage(playerId, amount) {
 /**
  * 记录玩家。

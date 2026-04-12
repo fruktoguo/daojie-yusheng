@@ -3,18 +3,25 @@ import { LOCAL_EDITOR_CATALOG } from '../constants/world/editor-catalog';
 
 /** RealmLevelRange：定义该类型的结构与数据语义。 */
 type RealmLevelRange = {
+/** minLevel：定义该变量以承载业务值。 */
   minLevel: number;
+/** maxLevel：定义该变量以承载业务值。 */
   maxLevel: number;
+/** displayLabel：定义该变量以承载业务值。 */
   displayLabel: string;
 };
 
 /** MapDangerAssessment：定义该接口的能力与字段约束。 */
 export interface MapDangerAssessment {
+/** recommendedRealmLabel：定义该变量以承载业务值。 */
   recommendedRealmLabel: string;
+/** dangerLabel：定义该变量以承载业务值。 */
   dangerLabel: string;
+/** dangerTone：定义该变量以承载业务值。 */
   dangerTone: number;
 }
 
+/** realmRangeByAlias：定义该变量以承载业务值。 */
 const realmRangeByAlias = new Map<string, RealmLevelRange>();
 
 /** normalizeRealmToken：执行对应的业务逻辑。 */
@@ -24,6 +31,7 @@ function normalizeRealmToken(value: string): string {
 
 /** registerRealmAlias：执行对应的业务逻辑。 */
 function registerRealmAlias(alias: string, range: RealmLevelRange): void {
+/** normalized：定义该变量以承载业务值。 */
   const normalized = normalizeRealmToken(alias);
   if (!normalized) {
     return;
@@ -33,6 +41,7 @@ function registerRealmAlias(alias: string, range: RealmLevelRange): void {
 
 /** buildRealmAliasIndex：执行对应的业务逻辑。 */
 function buildRealmAliasIndex(): void {
+/** groupedByName：定义该变量以承载业务值。 */
   const groupedByName = new Map<string, { minLevel: number; maxLevel: number }>();
   for (const entry of LOCAL_EDITOR_CATALOG.realmLevels) {
     const level = Math.max(1, Math.floor(entry.realmLv));
@@ -54,6 +63,7 @@ function buildRealmAliasIndex(): void {
       });
     }
 
+/** grouped：定义该变量以承载业务值。 */
     const grouped = groupedByName.get(entry.name);
     if (!grouped) {
       groupedByName.set(entry.name, { minLevel: level, maxLevel: level });
@@ -100,21 +110,25 @@ function resolveSingleRealmRange(raw: string): RealmLevelRange | null {
 
 /** resolveRealmRange：执行对应的业务逻辑。 */
 function resolveRealmRange(raw: string): RealmLevelRange | null {
+/** normalized：定义该变量以承载业务值。 */
   const normalized = normalizeRealmToken(raw);
   if (!normalized) {
     return null;
   }
 
+/** direct：定义该变量以承载业务值。 */
   const direct = resolveSingleRealmRange(normalized);
   if (direct) {
     return direct;
   }
 
+/** parts：定义该变量以承载业务值。 */
   const parts = normalized.split(/-|到|至|~|～/).map((part) => normalizeRealmToken(part)).filter(Boolean);
   if (parts.length < 2) {
     return null;
   }
 
+/** resolvedParts：定义该变量以承载业务值。 */
   const resolvedParts = parts
     .map((part) => resolveSingleRealmRange(part))
     .filter((part): part is RealmLevelRange => Boolean(part));
@@ -134,6 +148,7 @@ function resolveRecommendedRealmRange(
   recommendedRealm: string | undefined,
   fallbackRecommendedRealm: string | undefined,
 ): RealmLevelRange | null {
+/** candidates：定义该变量以承载业务值。 */
   const candidates = [recommendedRealm, fallbackRecommendedRealm]
     .map((value) => (typeof value === 'string' ? value.trim() : ''))
     .filter(Boolean);
@@ -151,6 +166,7 @@ function resolveRecommendedRealmRange(
 
 /** resolvePlayerRealmLevel：执行对应的业务逻辑。 */
 function resolvePlayerRealmLevel(player: PlayerState): number {
+/** realmLevel：定义该变量以承载业务值。 */
   const realmLevel = player.realm?.realmLv ?? player.realmLv;
   return Number.isFinite(realmLevel) ? Math.max(1, Math.floor(Number(realmLevel))) : 1;
 }
@@ -195,7 +211,9 @@ export function assessMapDanger(
   recommendedRealm: string | undefined,
   fallbackRecommendedRealm?: string,
 ): MapDangerAssessment {
+/** resolvedRange：定义该变量以承载业务值。 */
   const resolvedRange = resolveRecommendedRealmRange(recommendedRealm, fallbackRecommendedRealm);
+/** recommendedRealmLabel：定义该变量以承载业务值。 */
   const recommendedRealmLabel = resolvedRange?.displayLabel
     ?? recommendedRealm?.trim()
     ?? fallbackRecommendedRealm?.trim()
@@ -209,9 +227,12 @@ export function assessMapDanger(
     };
   }
 
+/** playerLevel：定义该变量以承载业务值。 */
   const playerLevel = resolvePlayerRealmLevel(player);
   if (playerLevel < resolvedRange.minLevel) {
+/** gap：定义该变量以承载业务值。 */
     const gap = resolvedRange.minLevel - playerLevel;
+/** described：定义该变量以承载业务值。 */
     const described = describeHarderDanger(gap);
     return {
       recommendedRealmLabel,
@@ -220,7 +241,9 @@ export function assessMapDanger(
     };
   }
   if (playerLevel > resolvedRange.maxLevel) {
+/** gap：定义该变量以承载业务值。 */
     const gap = playerLevel - resolvedRange.maxLevel;
+/** described：定义该变量以承载业务值。 */
     const described = describeEasierDanger(gap);
     return {
       recommendedRealmLabel,

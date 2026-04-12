@@ -11,20 +11,31 @@ export type UiFontLevelKey = (typeof UI_TEXT_SETTINGS.fontLevels)[number]['key']
 
 /** UiFontLevelDefinition：定义该类型的结构与数据语义。 */
 export type UiFontLevelDefinition = {
+/** key：定义该变量以承载业务值。 */
   key: UiFontLevelKey;
+/** label：定义该变量以承载业务值。 */
   label: string;
+/** description：定义该变量以承载业务值。 */
   description: string;
+/** min：定义该变量以承载业务值。 */
   min: number;
+/** max：定义该变量以承载业务值。 */
   max: number;
+/** defaultSize：定义该变量以承载业务值。 */
   defaultSize: number;
+/** previewText：定义该变量以承载业务值。 */
   previewText: string;
+/** previewClassName：定义该变量以承载业务值。 */
   previewClassName: string;
 };
 
 /** UiStyleConfig：定义该类型的结构与数据语义。 */
 export type UiStyleConfig = {
+/** colorMode：定义该变量以承载业务值。 */
   colorMode: UiColorMode;
+/** globalFontOffset：定义该变量以承载业务值。 */
   globalFontOffset: number;
+/** uiScale：定义该变量以承载业务值。 */
   uiScale: number;
 };
 

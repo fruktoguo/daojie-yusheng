@@ -53,79 +53,125 @@ interface CreateMailInput {
 
 /** VisibleMailRecord：定义该接口的能力与字段约束。 */
 interface VisibleMailRecord {
+/** mailId：定义该变量以承载业务值。 */
   mailId: string;
+/** senderLabel：定义该变量以承载业务值。 */
   senderLabel: string;
+/** templateId：定义该变量以承载业务值。 */
   templateId: string | null;
+/** args：定义该变量以承载业务值。 */
   args: MailTemplateArg[];
+/** fallbackTitle：定义该变量以承载业务值。 */
   fallbackTitle: string | null;
+/** fallbackBody：定义该变量以承载业务值。 */
   fallbackBody: string | null;
+/** attachments：定义该变量以承载业务值。 */
   attachments: MailAttachment[];
+/** hasAttachments：定义该变量以承载业务值。 */
   hasAttachments: boolean;
+/** createdAt：定义该变量以承载业务值。 */
   createdAt: number;
+/** updatedAt：定义该变量以承载业务值。 */
   updatedAt: number;
+/** expireAt：定义该变量以承载业务值。 */
   expireAt: number | null;
+/** firstSeenAt：定义该变量以承载业务值。 */
   firstSeenAt: number | null;
+/** readAt：定义该变量以承载业务值。 */
   readAt: number | null;
+/** claimedAt：定义该变量以承载业务值。 */
   claimedAt: number | null;
+/** deletedAt：定义该变量以承载业务值。 */
   deletedAt: number | null;
+/** receiptUpdatedAt：定义该变量以承载业务值。 */
   receiptUpdatedAt: number | null;
 }
 
 /** PreparedMailReceiptEntry：定义该接口的能力与字段约束。 */
 interface PreparedMailReceiptEntry {
+/** mailId：定义该变量以承载业务值。 */
   mailId: string;
+/** firstSeenAt：定义该变量以承载业务值。 */
   firstSeenAt: number | null;
+/** readAt：定义该变量以承载业务值。 */
   readAt: number | null;
+/** claimedAt：定义该变量以承载业务值。 */
   claimedAt: number | null;
+/** attachments：定义该变量以承载业务值。 */
   attachments: MailAttachment[];
 }
 
 /** PreparedMarkReadOperation：定义该接口的能力与字段约束。 */
 export interface PreparedMarkReadOperation {
+/** mailIds：定义该变量以承载业务值。 */
   mailIds: string[];
+/** entries：定义该变量以承载业务值。 */
   entries: PreparedMailReceiptEntry[];
 }
 
 /** PreparedDeleteOperation：定义该接口的能力与字段约束。 */
 export interface PreparedDeleteOperation {
+/** mailIds：定义该变量以承载业务值。 */
   mailIds: string[];
+/** entries：定义该变量以承载业务值。 */
   entries: PreparedMailReceiptEntry[];
 }
 
 /** PreparedClaimOperation：定义该接口的能力与字段约束。 */
 export interface PreparedClaimOperation {
+/** mailIds：定义该变量以承载业务值。 */
   mailIds: string[];
+/** entries：定义该变量以承载业务值。 */
   entries: PreparedMailReceiptEntry[];
 }
 
 /** MailAggregateRow：定义该接口的能力与字段约束。 */
 interface MailAggregateRow {
+/** unreadCount：定义该变量以承载业务值。 */
   unreadCount: string | number | null;
+/** claimableCount：定义该变量以承载业务值。 */
   claimableCount: string | number | null;
+/** revision：定义该变量以承载业务值。 */
   revision: string | number | null;
 }
 
 /** MailListRawRow：定义该接口的能力与字段约束。 */
 interface MailListRawRow {
+/** campaign_id：定义该变量以承载业务值。 */
   campaign_id: string;
+/** campaign_senderLabel：定义该变量以承载业务值。 */
   campaign_senderLabel: string;
+/** campaign_templateId：定义该变量以承载业务值。 */
   campaign_templateId: string | null;
+/** campaign_args：定义该变量以承载业务值。 */
   campaign_args: MailTemplateArg[] | null;
+/** campaign_fallbackTitle：定义该变量以承载业务值。 */
   campaign_fallbackTitle: string | null;
+/** campaign_fallbackBody：定义该变量以承载业务值。 */
   campaign_fallbackBody: string | null;
+/** campaign_hasAttachments：定义该变量以承载业务值。 */
   campaign_hasAttachments: boolean;
+/** campaign_createdAt：定义该变量以承载业务值。 */
   campaign_createdAt: string | number;
+/** campaign_expireAt：定义该变量以承载业务值。 */
   campaign_expireAt: string | number | null;
+/** receipt_readAt：定义该变量以承载业务值。 */
   receipt_readAt: string | number | null;
+/** receipt_claimedAt：定义该变量以承载业务值。 */
   receipt_claimedAt: string | number | null;
 }
 
 /** MailDetailRawRow：定义该接口的能力与字段约束。 */
 interface MailDetailRawRow extends MailListRawRow {
+/** campaign_attachments：定义该变量以承载业务值。 */
   campaign_attachments: MailAttachment[] | null;
+/** campaign_updatedAt：定义该变量以承载业务值。 */
   campaign_updatedAt: string | number;
+/** receipt_firstSeenAt：定义该变量以承载业务值。 */
   receipt_firstSeenAt: string | number | null;
+/** receipt_deletedAt：定义该变量以承载业务值。 */
   receipt_deletedAt: string | number | null;
+/** receipt_updatedAt：定义该变量以承载业务值。 */
   receipt_updatedAt: string | number | null;
 }
 
@@ -162,7 +208,9 @@ export class MailService {
     private readonly inventoryService: InventoryService,
   ) {}
 
+/** ensureWelcomeMail：执行对应的业务逻辑。 */
   async ensureWelcomeMail(playerId: string): Promise<void> {
+/** existing：定义该变量以承载业务值。 */
     const existing = await this.mailCampaignRepo.createQueryBuilder('campaign')
       .innerJoin(MailAudienceMemberEntity, 'audience', 'audience.mailId = campaign.id AND audience.playerId = :playerId', { playerId })
       .where('campaign.templateId = :templateId', { templateId: MailService.WELCOME_TEMPLATE_ID })
@@ -179,7 +227,9 @@ export class MailService {
     });
   }
 
+/** createDirectMail：执行对应的业务逻辑。 */
   async createDirectMail(playerId: string, input: CreateMailInput): Promise<string> {
+/** campaign：定义该变量以承载业务值。 */
     const campaign = this.buildCampaignEntity('direct', input);
     await this.mailCampaignRepo.save(campaign);
     await this.mailAudienceRepo.save(this.mailAudienceRepo.create({
@@ -191,15 +241,20 @@ export class MailService {
     return campaign.id;
   }
 
+/** createGlobalMail：执行对应的业务逻辑。 */
   async createGlobalMail(input: CreateMailInput): Promise<string> {
+/** campaign：定义该变量以承载业务值。 */
     const campaign = this.buildCampaignEntity('global', input);
     await this.mailCampaignRepo.save(campaign);
     this.emitSummaryForAllOnlinePlayers();
     return campaign.id;
   }
 
+/** getSummary：执行对应的业务逻辑。 */
   async getSummary(playerId: string): Promise<MailSummaryView> {
+/** now：定义该变量以承载业务值。 */
     const now = Date.now();
+/** row：定义该变量以承载业务值。 */
     const row = await this.buildVisibleMailQuery(playerId, now)
       .select('COALESCE(SUM(CASE WHEN receipt.readAt IS NULL THEN 1 ELSE 0 END), 0)', 'unreadCount')
       .addSelect('COALESCE(SUM(CASE WHEN campaign.hasAttachments = true AND receipt.claimedAt IS NULL THEN 1 ELSE 0 END), 0)', 'claimableCount')
@@ -213,14 +268,23 @@ export class MailService {
     };
   }
 
+/** getPage：执行对应的业务逻辑。 */
   async getPage(playerId: string, requestedPage: number, requestedPageSize?: number, requestedFilter?: MailFilter): Promise<MailPageView> {
+/** pageSize：定义该变量以承载业务值。 */
     const pageSize = normalizeMailPageSize(requestedPageSize);
+/** filter：定义该变量以承载业务值。 */
     const filter = normalizeMailFilter(requestedFilter);
+/** now：定义该变量以承载业务值。 */
     const now = Date.now();
+/** baseQuery：定义该变量以承载业务值。 */
     const baseQuery = this.applyMailFilter(this.buildVisibleMailQuery(playerId, now), filter);
+/** total：定义该变量以承载业务值。 */
     const total = await baseQuery.clone().getCount();
+/** totalPages：定义该变量以承载业务值。 */
     const totalPages = Math.max(1, Math.ceil(total / pageSize));
+/** page：定义该变量以承载业务值。 */
     const page = Math.min(totalPages, Math.max(1, Math.floor(requestedPage || 1)));
+/** rows：定义该变量以承载业务值。 */
     const rows = await baseQuery
       .clone()
       .select([
@@ -244,11 +308,13 @@ export class MailService {
 
     return {
       items: rows.map((row) => {
+/** title：定义该变量以承载业务值。 */
         const title = renderMailTitlePlain(
           row.campaign_templateId,
           row.campaign_args ?? [],
           row.campaign_fallbackTitle,
         );
+/** body：定义该变量以承载业务值。 */
         const body = renderMailBodyPlain(
           row.campaign_templateId,
           row.campaign_args ?? [],
@@ -260,9 +326,13 @@ export class MailService {
           summary: buildMailPreviewSnippet(body),
           senderLabel: row.campaign_senderLabel,
           createdAt: Number(row.campaign_createdAt ?? 0),
+/** expireAt：定义该变量以承载业务值。 */
           expireAt: row.campaign_expireAt == null ? null : Number(row.campaign_expireAt),
+/** hasAttachments：定义该变量以承载业务值。 */
           hasAttachments: row.campaign_hasAttachments === true,
+/** read：定义该变量以承载业务值。 */
           read: row.receipt_readAt != null,
+/** claimed：定义该变量以承载业务值。 */
           claimed: row.campaign_hasAttachments !== true || row.receipt_claimedAt != null,
         };
       }),
@@ -274,7 +344,9 @@ export class MailService {
     };
   }
 
+/** getDetail：执行对应的业务逻辑。 */
   async getDetail(playerId: string, mailId: string): Promise<MailDetailView | null> {
+/** row：定义该变量以承载业务值。 */
     const row = await this.findVisibleMailById(playerId, mailId);
     if (!row) {
       return null;
@@ -282,11 +354,14 @@ export class MailService {
     return this.toMailDetailView(row);
   }
 
+/** prepareMarkRead：执行对应的业务逻辑。 */
   async prepareMarkRead(playerId: string, mailIds: string[]): Promise<PreparedMarkReadOperation | null> {
+/** normalizedIds：定义该变量以承载业务值。 */
     const normalizedIds = normalizeMailBatchIds(mailIds);
     if (normalizedIds.length === 0) {
       return null;
     }
+/** rows：定义该变量以承载业务值。 */
     const rows = await this.findVisibleMailByIds(playerId, normalizedIds);
     if (rows.length === 0) {
       return null;
@@ -304,14 +379,17 @@ export class MailService {
   }
 
   async prepareDelete(playerId: string, mailIds: string[]): Promise<{ error?: string; operation?: PreparedDeleteOperation }> {
+/** normalizedIds：定义该变量以承载业务值。 */
     const normalizedIds = normalizeMailBatchIds(mailIds);
     if (normalizedIds.length === 0) {
       return { error: '未选择要删除的邮件。' };
     }
+/** rows：定义该变量以承载业务值。 */
     const rows = await this.findVisibleMailByIds(playerId, normalizedIds);
     if (rows.length === 0) {
       return { error: '目标邮件不存在、已过期，或已被删除。' };
     }
+/** unclaimed：定义该变量以承载业务值。 */
     const unclaimed = rows.find((row) => row.hasAttachments && row.claimedAt == null);
     if (unclaimed) {
       return { error: '仍有未领取附件的邮件，不能直接删除。' };
@@ -331,11 +409,14 @@ export class MailService {
   }
 
   async prepareClaim(playerId: string, mailIds: string[]): Promise<{ error?: string; operation?: PreparedClaimOperation }> {
+/** normalizedIds：定义该变量以承载业务值。 */
     const normalizedIds = normalizeMailBatchIds(mailIds);
     if (normalizedIds.length === 0) {
       return { error: '未选择要领取附件的邮件。' };
     }
+/** rows：定义该变量以承载业务值。 */
     const rows = await this.findVisibleMailByIds(playerId, normalizedIds);
+/** claimable：定义该变量以承载业务值。 */
     const claimable = rows.filter((row) => row.hasAttachments && row.claimedAt == null && row.attachments.length > 0);
     if (claimable.length === 0) {
       return { error: '当前没有可领取附件的邮件。' };
@@ -354,8 +435,11 @@ export class MailService {
     };
   }
 
+/** applyPreparedMarkRead：执行对应的业务逻辑。 */
   applyPreparedMarkRead(playerId: string, prepared: PreparedMarkReadOperation): void {
+/** now：定义该变量以承载业务值。 */
     const now = Date.now();
+/** rows：定义该变量以承载业务值。 */
     const rows = prepared.entries.map((entry) => this.playerMailReceiptRepo.create({
       mailId: entry.mailId,
       playerId,
@@ -374,8 +458,11 @@ export class MailService {
     });
   }
 
+/** applyPreparedDelete：执行对应的业务逻辑。 */
   applyPreparedDelete(playerId: string, prepared: PreparedDeleteOperation): void {
+/** now：定义该变量以承载业务值。 */
     const now = Date.now();
+/** rows：定义该变量以承载业务值。 */
     const rows = prepared.entries.map((entry) => this.playerMailReceiptRepo.create({
       mailId: entry.mailId,
       playerId,
@@ -395,11 +482,14 @@ export class MailService {
   }
 
   applyPreparedClaim(player: PlayerState, prepared: PreparedClaimOperation): { ok: boolean; message?: string } {
+/** resolvedItems：定义该变量以承载业务值。 */
     const resolvedItems = prepared.entries.flatMap((entry) => entry.attachments.map((attachment) => {
+/** item：定义该变量以承载业务值。 */
       const item = this.contentService.createItem(attachment.itemId, attachment.count);
       return item ? { attachment, item } : null;
     }));
     if (resolvedItems.some((entry) => entry === null)) {
+/** message：定义该变量以承载业务值。 */
       const message = '邮件附件包含无效物品，暂时无法领取。';
       this.emitOpResult(player.id, {
         operation: 'claim',
@@ -410,12 +500,15 @@ export class MailService {
       return { ok: false, message };
     }
 
+/** items：定义该变量以承载业务值。 */
     const items = resolvedItems
       .filter((entry): entry is NonNullable<typeof entry> => entry !== null)
       .map((entry) => entry.item);
 
+/** nextInventoryItems：定义该变量以承载业务值。 */
     const nextInventoryItems = this.buildInventoryAfterAttachments(player, items);
     if (!nextInventoryItems) {
+/** message：定义该变量以承载业务值。 */
       const message = '背包空间不足，无法领取全部附件。';
       this.emitOpResult(player.id, {
         operation: 'claim',
@@ -427,7 +520,9 @@ export class MailService {
     }
 
     player.inventory.items = nextInventoryItems;
+/** now：定义该变量以承载业务值。 */
     const now = Date.now();
+/** rows：定义该变量以承载业务值。 */
     const rows = prepared.entries.map((entry) => this.playerMailReceiptRepo.create({
       mailId: entry.mailId,
       playerId: player.id,
@@ -449,7 +544,9 @@ export class MailService {
     return { ok: true };
   }
 
+/** emitSummary：执行对应的业务逻辑。 */
   async emitSummary(playerId: string): Promise<void> {
+/** socket：定义该变量以承载业务值。 */
     const socket = this.playerService.getSocket(playerId);
     if (!socket) {
       return;
@@ -459,10 +556,12 @@ export class MailService {
     } satisfies S2C_MailSummary);
   }
 
+/** emitSummaryAsync：执行对应的业务逻辑。 */
   private emitSummaryAsync(playerId: string): void {
     this.emitSummary(playerId).catch(() => {});
   }
 
+/** emitSummaryForAllOnlinePlayers：执行对应的业务逻辑。 */
   private emitSummaryForAllOnlinePlayers(): void {
     for (const player of this.playerService.getAllPlayers()) {
       if (player.isBot || player.inWorld === false) {
@@ -472,13 +571,18 @@ export class MailService {
     }
   }
 
+/** emitOpResult：执行对应的业务逻辑。 */
   private emitOpResult(playerId: string, result: S2C_MailOpResult): void {
+/** socket：定义该变量以承载业务值。 */
     const socket = this.playerService.getSocket(playerId);
     socket?.emit(S2C.MailOpResult, result);
   }
 
+/** buildCampaignEntity：执行对应的业务逻辑。 */
   private buildCampaignEntity(scope: 'global' | 'direct', input: CreateMailInput): MailCampaignEntity {
+/** now：定义该变量以承载业务值。 */
     const now = Date.now();
+/** attachments：定义该变量以承载业务值。 */
     const attachments = this.normalizeAttachments(this.buildTemplateAttachments(input.templateId, input.attachments));
     return this.mailCampaignRepo.create({
       id: randomUUID(),
@@ -502,7 +606,9 @@ export class MailService {
     templateId: string | null | undefined,
     attachments: MailAttachment[] | undefined,
   ): MailAttachment[] | undefined {
+/** normalizedTemplateId：定义该变量以承载业务值。 */
     const normalizedTemplateId = templateId?.trim();
+/** presetAttachments：定义该变量以承载业务值。 */
     const presetAttachments = normalizedTemplateId === MailService.BEGINNER_JOURNEY_TEMPLATE_ID
       ? this.buildBeginnerJourneyAttachments()
       : normalizedTemplateId === MailService.HEAVEN_ROOT_SEED_TEMPLATE_ID
@@ -518,9 +624,13 @@ export class MailService {
       : presetAttachments;
   }
 
+/** buildBeginnerJourneyAttachments：执行对应的业务逻辑。 */
   private buildBeginnerJourneyAttachments(): MailAttachment[] {
+/** catalog：定义该变量以承载业务值。 */
     const catalog = this.contentService.getEditorItemCatalog();
+/** attachments：定义该变量以承载业务值。 */
     const attachments: MailAttachment[] = [];
+/** seen：定义该变量以承载业务值。 */
     const seen = new Set<string>();
     for (const itemId of MailService.BEGINNER_JOURNEY_EQUIPMENT_ITEM_IDS) {
       const item = catalog.find((entry) => entry.itemId === itemId);
@@ -544,7 +654,9 @@ export class MailService {
     return attachments;
   }
 
+/** isDivineTechniqueBook：执行对应的业务逻辑。 */
   private isDivineTechniqueBook(itemId: string): boolean {
+/** techniqueId：定义该变量以承载业务值。 */
     const techniqueId = this.contentService.getItem(itemId)?.learnTechniqueId
       ?? this.resolveTechniqueIdFromBookItemId(itemId);
     if (!techniqueId) {
@@ -553,12 +665,15 @@ export class MailService {
     return this.contentService.getTechnique(techniqueId)?.category === 'divine';
   }
 
+/** shouldIncludeBeginnerJourneyBook：执行对应的业务逻辑。 */
   private shouldIncludeBeginnerJourneyBook(itemId: string): boolean {
+/** techniqueId：定义该变量以承载业务值。 */
     const techniqueId = this.contentService.getItem(itemId)?.learnTechniqueId
       ?? this.resolveTechniqueIdFromBookItemId(itemId);
     if (!techniqueId) {
       return false;
     }
+/** technique：定义该变量以承载业务值。 */
     const technique = this.contentService.getTechnique(techniqueId);
     if (!technique) {
       return false;
@@ -566,6 +681,7 @@ export class MailService {
     return technique.category !== 'divine' && technique.realmLv <= 30;
   }
 
+/** resolveTechniqueIdFromBookItemId：执行对应的业务逻辑。 */
   private resolveTechniqueIdFromBookItemId(itemId: string): string | null {
     if (itemId.startsWith('book.')) {
       return itemId.slice(5);
@@ -576,10 +692,12 @@ export class MailService {
     return null;
   }
 
+/** normalizeArgs：执行对应的业务逻辑。 */
   private normalizeArgs(args: MailTemplateArg[] | undefined): MailTemplateArg[] {
     if (!Array.isArray(args)) {
       return [];
     }
+/** normalized：定义该变量以承载业务值。 */
     const normalized: MailTemplateArg[] = [];
     for (const entry of args) {
       if (!entry || typeof entry !== 'object' || typeof entry.kind !== 'string') {
@@ -597,6 +715,7 @@ export class MailService {
         normalized.push({
           kind: 'item',
           itemId: entry.itemId.trim(),
+/** label：定义该变量以承载业务值。 */
           label: typeof entry.label === 'string' ? entry.label : undefined,
           count: Number.isFinite(entry.count) ? Math.max(1, Math.floor(Number(entry.count))) : undefined,
         });
@@ -605,16 +724,20 @@ export class MailService {
     return normalized;
   }
 
+/** normalizeAttachments：执行对应的业务逻辑。 */
   private normalizeAttachments(attachments: MailAttachment[] | undefined): MailAttachment[] {
     if (!Array.isArray(attachments)) {
       return [];
     }
+/** normalized：定义该变量以承载业务值。 */
     const normalized: MailAttachment[] = [];
     for (const attachment of attachments) {
       if (!attachment || typeof attachment.itemId !== 'string') {
         continue;
       }
+/** itemId：定义该变量以承载业务值。 */
       const itemId = attachment.itemId.trim();
+/** count：定义该变量以承载业务值。 */
       const count = Number.isFinite(attachment.count) ? Math.max(1, Math.floor(Number(attachment.count))) : 0;
       if (!itemId || count <= 0) {
         continue;
@@ -624,6 +747,7 @@ export class MailService {
     return normalized;
   }
 
+/** buildVisibleMailQuery：执行对应的业务逻辑。 */
   private buildVisibleMailQuery(playerId: string, now: number): SelectQueryBuilder<MailCampaignEntity> {
     return this.mailCampaignRepo.createQueryBuilder('campaign')
       .leftJoin(MailAudienceMemberEntity, 'audience', 'audience.mailId = campaign.id AND audience.playerId = :playerId', { playerId })
@@ -643,6 +767,7 @@ export class MailService {
       .andWhere('receipt.deletedAt IS NULL');
   }
 
+/** applyMailFilter：执行对应的业务逻辑。 */
   private applyMailFilter(query: SelectQueryBuilder<MailCampaignEntity>, filter: MailFilter): SelectQueryBuilder<MailCampaignEntity> {
     if (filter === 'unread') {
       return query.andWhere('receipt.readAt IS NULL');
@@ -655,7 +780,9 @@ export class MailService {
     return query;
   }
 
+/** findVisibleMailById：执行对应的业务逻辑。 */
   private async findVisibleMailById(playerId: string, mailId: string): Promise<VisibleMailRecord | null> {
+/** rows：定义该变量以承载业务值。 */
     const rows = await this.buildVisibleMailQuery(playerId, Date.now())
       .andWhere('campaign.id = :mailId', { mailId })
       .select([
@@ -681,10 +808,12 @@ export class MailService {
     return rows.length > 0 ? this.toVisibleMailRecord(rows[0]) : null;
   }
 
+/** findVisibleMailByIds：执行对应的业务逻辑。 */
   private async findVisibleMailByIds(playerId: string, mailIds: string[]): Promise<VisibleMailRecord[]> {
     if (mailIds.length === 0) {
       return [];
     }
+/** rows：定义该变量以承载业务值。 */
     const rows = await this.buildVisibleMailQuery(playerId, Date.now())
       .andWhere('campaign.id IN (:...mailIds)', { mailIds })
       .select([
@@ -707,7 +836,9 @@ export class MailService {
       ])
       .orderBy('campaign.createdAt', 'DESC')
       .getRawMany<MailDetailRawRow>();
+/** byId：定义该变量以承载业务值。 */
     const byId = new Map(rows.map((row) => {
+/** record：定义该变量以承载业务值。 */
       const record = this.toVisibleMailRecord(row);
       return [record.mailId, record] as const;
     }));
@@ -716,7 +847,9 @@ export class MailService {
       .filter((record): record is VisibleMailRecord => record !== null);
   }
 
+/** toMailDetailView：执行对应的业务逻辑。 */
   private toMailDetailView(row: VisibleMailRecord): MailDetailView {
+/** attachments：定义该变量以承载业务值。 */
     const attachments = row.attachments.map((attachment) => ({ ...attachment }));
     return {
       mailId: row.mailId,
@@ -728,12 +861,16 @@ export class MailService {
       fallbackTitle: row.fallbackTitle,
       fallbackBody: row.fallbackBody,
       attachments,
+/** read：定义该变量以承载业务值。 */
       read: row.readAt != null,
+/** claimed：定义该变量以承载业务值。 */
       claimed: !row.hasAttachments || row.claimedAt != null,
+/** deletable：定义该变量以承载业务值。 */
       deletable: !row.hasAttachments || row.claimedAt != null,
     };
   }
 
+/** toVisibleMailRecord：执行对应的业务逻辑。 */
   private toVisibleMailRecord(row: MailDetailRawRow): VisibleMailRecord {
     return {
       mailId: row.campaign_id,
@@ -743,18 +880,26 @@ export class MailService {
       fallbackTitle: row.campaign_fallbackTitle,
       fallbackBody: row.campaign_fallbackBody,
       attachments: Array.isArray(row.campaign_attachments) ? row.campaign_attachments : [],
+/** hasAttachments：定义该变量以承载业务值。 */
       hasAttachments: row.campaign_hasAttachments === true,
       createdAt: Number(row.campaign_createdAt ?? 0),
       updatedAt: Number(row.campaign_updatedAt ?? 0),
+/** expireAt：定义该变量以承载业务值。 */
       expireAt: row.campaign_expireAt == null ? null : Number(row.campaign_expireAt),
+/** firstSeenAt：定义该变量以承载业务值。 */
       firstSeenAt: row.receipt_firstSeenAt == null ? null : Number(row.receipt_firstSeenAt),
+/** readAt：定义该变量以承载业务值。 */
       readAt: row.receipt_readAt == null ? null : Number(row.receipt_readAt),
+/** claimedAt：定义该变量以承载业务值。 */
       claimedAt: row.receipt_claimedAt == null ? null : Number(row.receipt_claimedAt),
+/** deletedAt：定义该变量以承载业务值。 */
       deletedAt: row.receipt_deletedAt == null ? null : Number(row.receipt_deletedAt),
+/** receiptUpdatedAt：定义该变量以承载业务值。 */
       receiptUpdatedAt: row.receipt_updatedAt == null ? null : Number(row.receipt_updatedAt),
     };
   }
 
+/** persistReceiptRows：执行对应的业务逻辑。 */
   private persistReceiptRows(rows: PlayerMailReceiptEntity[]): void {
     if (rows.length === 0) {
       return;
@@ -762,12 +907,16 @@ export class MailService {
     this.playerMailReceiptRepo.upsert(rows, ['mailId', 'playerId']).catch(() => {});
   }
 
+/** buildInventoryAfterAttachments：执行对应的业务逻辑。 */
   private buildInventoryAfterAttachments(player: PlayerState, items: NonNullable<ReturnType<ContentService['createItem']>>[]): PlayerState['inventory']['items'] | null {
+/** nextItems：定义该变量以承载业务值。 */
     const nextItems = player.inventory.items.map((entry) => ({ ...entry }));
+/** signatureIndex：定义该变量以承载业务值。 */
     const signatureIndex = new Map<string, number>();
     for (let index = 0; index < nextItems.length; index += 1) {
       signatureIndex.set(createItemStackSignature(nextItems[index]), index);
     }
+/** nextSize：定义该变量以承载业务值。 */
     let nextSize = nextItems.length;
     for (const item of items) {
       const signature = createItemStackSignature(item);

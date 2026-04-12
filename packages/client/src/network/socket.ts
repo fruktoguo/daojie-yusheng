@@ -69,8 +69,11 @@ import {
 
 /** 客户端 Socket.IO 连接管理，负责协议编解码与事件分发 */
 export class SocketManager {
+/** socket：定义该变量以承载业务值。 */
   private socket: Socket | null = null;
+/** accessToken：定义该变量以承载业务值。 */
   private accessToken: string | null = null;
+/** heartbeatTimer：定义该变量以承载业务值。 */
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private onTickCallbacks: Array<(data: S2C_Tick) => void> = [];
   private onKickCallbacks: Array<() => void> = [];
@@ -183,6 +186,7 @@ export class SocketManager {
   /** 绑定服务端事件，自动解码 protobuf 载荷后分发给回调 */
   private bindServerEvent<T>(event: string, callbacks: Array<(data: T) => void>): void {
     this.socket?.on(event, (raw: unknown) => {
+/** data：定义该变量以承载业务值。 */
       const data = decodeServerEventPayload<T>(event, raw);
       callbacks.forEach(cb => cb(data));
     });
@@ -198,7 +202,9 @@ export class SocketManager {
     this.disposeSocket({ clearToken: true });
   }
 
+/** reconnect：执行对应的业务逻辑。 */
   reconnect(token?: string): boolean {
+/** nextToken：定义该变量以承载业务值。 */
     const nextToken = token ?? this.accessToken;
     if (!nextToken) {
       return false;
@@ -217,6 +223,7 @@ export class SocketManager {
     this.socket = null;
   }
 
+/** startHeartbeat：执行对应的业务逻辑。 */
   private startHeartbeat(): void {
     this.stopHeartbeat();
     this.heartbeatTimer = setInterval(() => {
@@ -224,6 +231,7 @@ export class SocketManager {
     }, PLAYER_HEARTBEAT_INTERVAL_MS);
   }
 
+/** stopHeartbeat：执行对应的业务逻辑。 */
   private stopHeartbeat(): void {
     if (!this.heartbeatTimer) {
       return;
@@ -232,6 +240,7 @@ export class SocketManager {
     this.heartbeatTimer = null;
   }
 
+/** sendHeartbeat：执行对应的业务逻辑。 */
   private sendHeartbeat(): void {
     this.emitServer(C2S.Heartbeat, { clientAt: Date.now() } satisfies C2S_Heartbeat);
   }
@@ -603,6 +612,7 @@ export class SocketManager {
     this.emitServer(event, payload);
   }
 
+/** connected：执行对应的业务逻辑。 */
   get connected(): boolean {
     return this.socket?.connected ?? false;
   }

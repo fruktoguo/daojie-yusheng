@@ -5,7 +5,9 @@ import { PLAYER_REALM_CONFIG, PlayerRealmStage, QuestObjectiveType } from '@mud/
 
 /** ResolveQuestTargetNameOptions：定义该类型的结构与数据语义。 */
 type ResolveQuestTargetNameOptions = {
+/** objectiveType：定义该变量以承载业务值。 */
   objectiveType: QuestObjectiveType;
+/** title：定义该变量以承载业务值。 */
   title: string;
   targetName?: string | null;
   targetNpcId?: string | null;
@@ -24,6 +26,7 @@ function normalizeKillQuestTargetName(name?: string | null): string | undefined 
   if (!name) {
     return undefined;
   }
+/** sanitized：定义该变量以承载业务值。 */
   const sanitized = name.replaceAll('精英', '').trim();
   return sanitized.length > 0 ? sanitized : name;
 }
@@ -31,6 +34,7 @@ function normalizeKillQuestTargetName(name?: string | null): string | undefined 
 /** 判断字符串是否像内部内容 ID（纯 ASCII、含分隔符、无空格） */
 export function isLikelyInternalContentId(value?: string | null): boolean {
   if (!value) return false;
+/** trimmed：定义该变量以承载业务值。 */
   const trimmed = value.trim();
   if (!trimmed) return false;
   return /^[\x00-\x7F]+$/.test(trimmed) && /[._-]/.test(trimmed) && !/\s/.test(trimmed);
@@ -64,6 +68,7 @@ export function resolveQuestTargetName({
   }
 
   if (objectiveType === 'kill' && targetMonsterId) {
+/** normalizedTargetName：定义该变量以承载业务值。 */
     const normalizedTargetName = normalizeKillQuestTargetName(targetName);
     if (normalizedTargetName && !isLikelyInternalContentId(normalizedTargetName)) {
       return normalizedTargetName;

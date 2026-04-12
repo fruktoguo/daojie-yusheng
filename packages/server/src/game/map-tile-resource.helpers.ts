@@ -25,6 +25,7 @@ export function normalizeTileResourceKey(rawKey: unknown): string | null {
     return null;
   }
 
+/** normalizedKey：定义该变量以承载业务值。 */
   const normalizedKey = rawKey.trim();
   if (!normalizedKey) {
     return null;
@@ -45,6 +46,7 @@ export function normalizeTileResourceRuntimeState(
     return null;
   }
 
+/** candidate：定义该变量以承载业务值。 */
   const candidate = raw as Partial<PersistedTileRuntimeResourceRecord>;
   if (!Number.isFinite(candidate.value)) {
     return null;
@@ -81,6 +83,7 @@ export function setTileResourceStateMap(
     return;
   }
 
+/** bucket：定义该变量以承载业务值。 */
   const bucket = source.get(mapId) ?? new Map<string, TileResourceStateMap>();
   bucket.set(resourceKey, stateMap);
   source.set(mapId, bucket);
@@ -92,6 +95,7 @@ export function deleteTileResourceStateMap(
   mapId: string,
   resourceKey: string,
 ): void {
+/** bucket：定义该变量以承载业务值。 */
   const bucket = source.get(mapId);
   if (!bucket) {
     return;
@@ -111,6 +115,7 @@ export function buildPersistedTileRuntimeResources(
     return undefined;
   }
 
+/** resources：定义该变量以承载业务值。 */
   const resources: Record<string, PersistedTileRuntimeResourceRecord> = {};
   for (const [resourceKey, stateMap] of resourceBucket.entries()) {
     const state = stateMap.get(tileKey);
@@ -130,11 +135,13 @@ export function buildPersistedTileRuntimeResources(
 
 /** getTileResourceFlowConfig：执行对应的业务逻辑。 */
 export function getTileResourceFlowConfig(resourceKey: string): TileResourceFlowConfig | null {
+/** directConfig：定义该变量以承载业务值。 */
   const directConfig = TILE_RESOURCE_FLOW_CONFIGS[resourceKey];
   if (directConfig) {
     return directConfig;
   }
 
+/** descriptor：定义该变量以承载业务值。 */
   const descriptor = parseQiResourceKey(resourceKey);
   if (!descriptor || descriptor.family !== 'aura') {
     return null;
@@ -163,28 +170,36 @@ export function shouldExposeTileResourceDetail(state: TileResourceRuntimeState):
 
 /** tickTileResourceState：执行对应的业务逻辑。 */
 export function tickTileResourceState(resourceKey: string, state: TileResourceRuntimeState): boolean {
+/** flowConfig：定义该变量以承载业务值。 */
   const flowConfig = getTileResourceFlowConfig(resourceKey);
   if (!flowConfig) {
     return false;
   }
 
+/** previousValue：定义该变量以承载业务值。 */
   const previousValue = state.value;
+/** previousDecayRemainder：定义该变量以承载业务值。 */
   const previousDecayRemainder = state.decayRemainder ?? 0;
+/** previousSourceRemainder：定义该变量以承载业务值。 */
   const previousSourceRemainder = state.sourceRemainder ?? 0;
 
   state.decayRemainder = Math.max(0, Math.round(state.decayRemainder ?? 0))
     + previousValue * flowConfig.halfLifeRateScaled;
+/** halfLifeDecayAmount：定义该变量以承载业务值。 */
   const halfLifeDecayAmount = Math.floor(state.decayRemainder / flowConfig.halfLifeRateScale);
   state.decayRemainder %= flowConfig.halfLifeRateScale;
 
   state.sourceRemainder = Math.max(0, Math.round(state.sourceRemainder ?? 0))
     + Math.max(0, Math.round(state.sourceValue ?? 0)) * flowConfig.halfLifeRateScaled;
+/** sourceAmount：定义该变量以承载业务值。 */
   const sourceAmount = Math.floor(state.sourceRemainder / flowConfig.halfLifeRateScale);
   state.sourceRemainder %= flowConfig.halfLifeRateScale;
 
+/** decayAmount：定义该变量以承载业务值。 */
   const decayAmount = previousValue > 0
     ? Math.max(flowConfig.minimumDecayPerTick, halfLifeDecayAmount)
     : 0;
+/** nextValue：定义该变量以承载业务值。 */
   const nextValue = Math.max(0, previousValue - decayAmount + sourceAmount);
   if (nextValue !== previousValue) {
     state.value = nextValue;
@@ -206,13 +221,17 @@ export function getTileResourceLabel(resourceKey: string): string {
     return '无属性灵气';
   }
 
+/** descriptor：定义该变量以承载业务值。 */
   const descriptor = parseQiResourceKey(resourceKey);
   if (!descriptor) {
     return resourceKey;
   }
 
+/** familyLabel：定义该变量以承载业务值。 */
   const familyLabel = QI_FAMILY_LABELS[descriptor.family];
+/** formLabel：定义该变量以承载业务值。 */
   const formLabel = QI_FORM_LABELS[descriptor.form];
+/** elementLabel：定义该变量以承载业务值。 */
   const elementLabel = QI_ELEMENT_LABELS[descriptor.element];
   if (descriptor.family === 'aura' && descriptor.form === 'refined' && descriptor.element === 'neutral') {
     return '无属性灵气';

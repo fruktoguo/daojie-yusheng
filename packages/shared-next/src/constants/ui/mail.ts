@@ -6,6 +6,8 @@
  */
 
 export const MAIL_PAGE_SIZE_DEFAULT = 12;
+/** MAIL_PAGE_SIZE_MAX：定义该变量以承载业务值。 */
 export const MAIL_PAGE_SIZE_MAX = 50;
+/** MAIL_BATCH_OPERATION_MAX：定义该变量以承载业务值。 */
 export const MAIL_BATCH_OPERATION_MAX = 20;
 

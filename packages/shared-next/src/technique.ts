@@ -54,6 +54,7 @@ function normalizeSegments(segments?: TechniqueAttrCurveSegment[]): TechniqueAtt
 /** calcTechniqueCurveValue：执行对应的业务逻辑。 */
 function calcTechniqueCurveValue(level: number, segments?: TechniqueAttrCurveSegment[]): number {
   if (level <= 0) return 0;
+/** total：定义该变量以承载业务值。 */
   let total = 0;
   for (const segment of normalizeSegments(segments)) {
     if (level < segment.startLevel) continue;
@@ -66,6 +67,7 @@ function calcTechniqueCurveValue(level: number, segments?: TechniqueAttrCurveSeg
 
 /** calcTechniqueCurveNextGain：执行对应的业务逻辑。 */
 function calcTechniqueCurveNextGain(level: number, segments?: TechniqueAttrCurveSegment[]): number {
+/** targetLevel：定义该变量以承载业务值。 */
   const targetLevel = Math.max(1, level + 1);
   for (const segment of normalizeSegments(segments)) {
     const segmentEnd = segment.endLevel ?? Number.POSITIVE_INFINITY;
@@ -78,6 +80,7 @@ function calcTechniqueCurveNextGain(level: number, segments?: TechniqueAttrCurve
 
 /** 获取功法最大层数 */
 export function getTechniqueMaxLevel(layers?: TechniqueLayerDef[], currentLevel = 1, legacyCurves?: TechniqueAttrCurves): number {
+/** normalized：定义该变量以承载业务值。 */
   const normalized = normalizeLayers(layers);
   if (normalized.length > 0) {
     return normalized[normalized.length - 1].level;
@@ -116,8 +119,10 @@ export function getTechniqueGradeQiCostMultiplier(grade: TechniqueGrade | undefi
 
 /** 根据当前层数推导功法境界（入门/小成/大成/圆满） */
 export function deriveTechniqueRealm(level: number, layers?: TechniqueLayerDef[], legacyCurves?: TechniqueAttrCurves): TechniqueRealm {
+/** maxLevel：定义该变量以承载业务值。 */
   const maxLevel = Math.max(1, getTechniqueMaxLevel(layers, level, legacyCurves));
   if (level >= maxLevel) return TechniqueRealmEnum.Perfection;
+/** progress：定义该变量以承载业务值。 */
   const progress = maxLevel <= 1 ? 1 : level / maxLevel;
   if (progress >= 0.66) return TechniqueRealmEnum.Major;
   if (progress >= 0.33) return TechniqueRealmEnum.Minor;
@@ -138,7 +143,9 @@ export function calculateTechniqueSkillQiCost(
   grade: TechniqueGrade | undefined,
   realmLv: number | undefined,
 ): number {
+/** normalizedMultiplier：定义该变量以承载业务值。 */
   const normalizedMultiplier = Number.isFinite(costMultiplier) ? Math.max(0, costMultiplier) : 0;
+/** normalizedRealmLv：定义该变量以承载业务值。 */
   const normalizedRealmLv = Number.isFinite(realmLv) ? Math.max(1, Math.floor(realmLv ?? 1)) : 1;
   return Math.max(
     0,
@@ -155,9 +162,13 @@ export function getTechniqueExpLevelAdjustment(
   playerRealmLv: number | undefined,
   techniqueRealmLv: number | undefined,
 ): number {
+/** normalizedPlayerLevel：定义该变量以承载业务值。 */
   const normalizedPlayerLevel = Number.isFinite(playerRealmLv) ? Math.max(1, Math.floor(Number(playerRealmLv))) : 1;
+/** normalizedTechniqueLevel：定义该变量以承载业务值。 */
   const normalizedTechniqueLevel = Number.isFinite(techniqueRealmLv) ? Math.max(1, Math.floor(Number(techniqueRealmLv))) : 1;
+/** stepMultiplier：定义该变量以承载业务值。 */
   const stepMultiplier = 1 + TECHNIQUE_EXP_LEVEL_DELTA_MULTIPLIER_STEP;
+/** penaltyMultiplier：定义该变量以承载业务值。 */
   const penaltyMultiplier = Math.max(0, 1 - TECHNIQUE_EXP_LEVEL_DELTA_MULTIPLIER_STEP);
   if (normalizedPlayerLevel < normalizedTechniqueLevel) {
     return penaltyMultiplier ** (normalizedTechniqueLevel - normalizedPlayerLevel);
@@ -173,21 +184,27 @@ export function shouldWarnTechniqueLearningDifficulty(
   playerRealmLv: number | undefined,
   techniqueRealmLv: number | undefined,
 ): boolean {
+/** normalizedPlayerLevel：定义该变量以承载业务值。 */
   const normalizedPlayerLevel = Number.isFinite(playerRealmLv) ? Math.max(1, Math.floor(Number(playerRealmLv))) : 1;
+/** normalizedTechniqueLevel：定义该变量以承载业务值。 */
   const normalizedTechniqueLevel = Number.isFinite(techniqueRealmLv) ? Math.max(1, Math.floor(Number(techniqueRealmLv))) : 1;
   return normalizedTechniqueLevel - normalizedPlayerLevel > TECHNIQUE_LEARNING_HEAVY_DECAY_WARNING_DELTA;
 }
 
 /** 获取当前炼体层数升到下一层所需经验 */
 export function getBodyTrainingExpToNext(level: number): number {
+/** normalizedLevel：定义该变量以承载业务值。 */
   const normalizedLevel = Math.max(0, Math.floor(level));
   return Math.max(1, Math.round(BODY_TRAINING_EXP_BASE * (BODY_TRAINING_EXP_GROWTH_RATE ** normalizedLevel)));
 }
 
 /** 规范化炼体状态，并把超额经验滚入后续层数 */
 export function normalizeBodyTrainingState(state?: Partial<BodyTrainingState> | null): BodyTrainingState {
+/** level：定义该变量以承载业务值。 */
   let level = Math.max(0, Math.floor(Number(state?.level ?? 0) || 0));
+/** exp：定义该变量以承载业务值。 */
   let exp = Math.max(0, Math.floor(Number(state?.exp ?? 0) || 0));
+/** expToNext：定义该变量以承载业务值。 */
   let expToNext = getBodyTrainingExpToNext(level);
 
   while (expToNext > 0 && exp >= expToNext) {
@@ -205,10 +222,12 @@ export function normalizeBodyTrainingState(state?: Partial<BodyTrainingState> | 
 
 /** 计算炼体累计提供的固定四维加成 */
 export function calcBodyTrainingAttrBonus(level: number): Partial<Attributes> {
+/** normalizedLevel：定义该变量以承载业务值。 */
   const normalizedLevel = Math.max(0, Math.floor(level));
   if (normalizedLevel <= 0) {
     return {};
   }
+/** result：定义该变量以承载业务值。 */
   const result: Partial<Attributes> = {};
   for (const key of BODY_TRAINING_ATTR_KEYS) {
     result[key] = normalizedLevel;
@@ -218,8 +237,10 @@ export function calcBodyTrainingAttrBonus(level: number): Partial<Attributes> {
 
 /** 计算功法在指定层数时累计提供的六维属性加成 */
 export function calcTechniqueAttrValues(level: number, layers?: TechniqueLayerDef[], legacyCurves?: TechniqueAttrCurves): Partial<Attributes> {
+/** result：定义该变量以承载业务值。 */
   const result: Partial<Attributes> = {};
   if (level <= 0) return result;
+/** normalized：定义该变量以承载业务值。 */
   const normalized = normalizeLayers(layers);
   if (normalized.length > 0) {
     for (const layer of normalized) {
@@ -243,10 +264,13 @@ export function calcTechniqueAttrValues(level: number, layers?: TechniqueLayerDe
 
 /** 计算下一层升级时各属性的增量 */
 export function calcTechniqueNextLevelGains(level: number, layers?: TechniqueLayerDef[], legacyCurves?: TechniqueAttrCurves): Partial<Attributes> {
+/** normalized：定义该变量以承载业务值。 */
   const normalized = normalizeLayers(layers);
   if (normalized.length > 0) {
+/** nextLayer：定义该变量以承载业务值。 */
     const nextLayer = normalized.find((entry) => entry.level === level + 1);
     if (!nextLayer?.attrs) return {};
+/** result：定义该变量以承载业务值。 */
     const result: Partial<Attributes> = {};
     for (const key of TECHNIQUE_ATTR_KEYS) {
       const gain = nextLayer.attrs[key] ?? 0;
@@ -255,6 +279,7 @@ export function calcTechniqueNextLevelGains(level: number, layers?: TechniqueLay
     }
     return result;
   }
+/** result：定义该变量以承载业务值。 */
   const result: Partial<Attributes> = {};
   if (!legacyCurves) return result;
   for (const key of TECHNIQUE_ATTR_KEYS) {
@@ -271,12 +296,14 @@ function calcTechniqueSoftDecayedPool(rawPool: number, freeLimit: number, decayS
   if (rawPool <= 0) return 0;
   if (rawPool <= freeLimit) return rawPool;
   if (decaySpan <= 0) return freeLimit;
+/** overflow：定义该变量以承载业务值。 */
   const overflow = rawPool - freeLimit;
   return freeLimit + decaySpan * Math.log1p(overflow / decaySpan);
 }
 
 /** 汇总所有已学功法的最终属性加成（按品阶分组并应用软衰减） */
 export function calcTechniqueFinalAttrBonus(techniques: readonly TechniqueState[]): Attributes {
+/** result：定义该变量以承载业务值。 */
   const result = createZeroAttributes();
 
   for (const key of TECHNIQUE_ATTR_KEYS) {

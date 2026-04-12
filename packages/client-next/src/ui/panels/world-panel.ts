@@ -12,8 +12,11 @@ import { assessMapDanger } from '../../utils/map-danger';
 
 /** VisibleEntity：定义该接口的能力与字段约束。 */
 interface VisibleEntity {
+/** id：定义该变量以承载业务值。 */
   id: string;
+/** wx：定义该变量以承载业务值。 */
   wx: number;
+/** wy：定义该变量以承载业务值。 */
   wy: number;
   name?: string;
   kind?: string;
@@ -24,57 +27,88 @@ interface VisibleEntity {
 
 /** NearbyMonsterView：定义该接口的能力与字段约束。 */
 interface NearbyMonsterView {
+/** id：定义该变量以承载业务值。 */
   id: string;
+/** name：定义该变量以承载业务值。 */
   name: string;
   tier?: MonsterTier;
+/** distance：定义该变量以承载业务值。 */
   distance: number;
+/** hp：定义该变量以承载业务值。 */
   hp: number;
+/** maxHp：定义该变量以承载业务值。 */
   maxHp: number;
 }
 
 /** NearbyNpcView：定义该接口的能力与字段约束。 */
 interface NearbyNpcView {
+/** id：定义该变量以承载业务值。 */
   id: string;
+/** name：定义该变量以承载业务值。 */
   name: string;
 }
 
 /** QuickActionView：定义该接口的能力与字段约束。 */
 interface QuickActionView {
+/** id：定义该变量以承载业务值。 */
   id: string;
+/** name：定义该变量以承载业务值。 */
   name: string;
+/** desc：定义该变量以承载业务值。 */
   desc: string;
 }
 
 /** WorldPanelSnapshot：定义该接口的能力与字段约束。 */
 interface WorldPanelSnapshot {
+/** mapName：定义该变量以承载业务值。 */
   mapName: string;
+/** mapMood：定义该变量以承载业务值。 */
   mapMood: string;
+/** mapDesc：定义该变量以承载业务值。 */
   mapDesc: string;
+/** dangerLabel：定义该变量以承载业务值。 */
   dangerLabel: string;
+/** dangerTone：定义该变量以承载业务值。 */
   dangerTone: number;
+/** recommend：定义该变量以承载业务值。 */
   recommend: string;
+/** realmLabel：定义该变量以承载业务值。 */
   realmLabel: string;
+/** route：定义该变量以承载业务值。 */
   route: string;
+/** resourcesLabel：定义该变量以承载业务值。 */
   resourcesLabel: string;
+/** threatsLabel：定义该变量以承载业务值。 */
   threatsLabel: string;
+/** cultivatingName：定义该变量以承载业务值。 */
   cultivatingName: string;
+/** currentQuestTitle：定义该变量以承载业务值。 */
   currentQuestTitle: string;
+/** currentQuestProgress：定义该变量以承载业务值。 */
   currentQuestProgress: string;
+/** nearbyMonsters：定义该变量以承载业务值。 */
   nearbyMonsters: NearbyMonsterView[];
+/** nearbyNpcs：定义该变量以承载业务值。 */
   nearbyNpcs: NearbyNpcView[];
+/** quickActions：定义该变量以承载业务值。 */
   quickActions: QuickActionView[];
 }
 
 /** NearbyMonsterRefs：定义该接口的能力与字段约束。 */
 interface NearbyMonsterRefs {
+/** nameNode：定义该变量以承载业务值。 */
   nameNode: HTMLElement;
+/** metaNode：定义该变量以承载业务值。 */
   metaNode: HTMLElement;
+/** statusNode：定义该变量以承载业务值。 */
   statusNode: HTMLElement;
 }
 
 /** SuggestionActionRefs：定义该接口的能力与字段约束。 */
 interface SuggestionActionRefs {
+/** titleNode：定义该变量以承载业务值。 */
   titleNode: HTMLElement;
+/** descNode：定义该变量以承载业务值。 */
   descNode: HTMLElement;
 }
 
@@ -93,6 +127,7 @@ function inferRealm(player: PlayerState): string {
   if (player.realmName) {
     return player.realmStage ? `${player.realmName} · ${player.realmStage}` : player.realmName;
   }
+/** highest：定义该变量以承载业务值。 */
   const highest = [...player.techniques].sort((a, b) => b.realm - a.realm)[0];
   if (!highest) return '凡俗武者';
   return TECH_REALM_LABELS[highest.realm] ?? '修行中';
@@ -102,8 +137,10 @@ function inferRealm(player: PlayerState): string {
 function resolveRecommendedRealmLabel(raw: string | undefined, fallback: string): string {
   if (!raw) return fallback;
   if (/[^\x00-\x7F]/.test(raw)) return raw;
+/** parts：定义该变量以承载业务值。 */
   const parts = raw.split('-').map((part) => part.trim()).filter(Boolean);
   if (parts.length === 0) return fallback;
+/** labels：定义该变量以承载业务值。 */
   const labels = parts.map((part) => TECH_REALM_NAME_BY_KEY[part]);
   if (labels.some((label) => !label)) {
     return fallback;
@@ -134,8 +171,11 @@ export class WorldPanel {
   private mapPane = document.getElementById('pane-map-intel')!;
   private nearbyPane = document.getElementById('pane-nearby')!;
   private suggestionPane = document.getElementById('pane-suggestions')!;
+/** lastNearbyMonsterIds：定义该变量以承载业务值。 */
   private lastNearbyMonsterIds: string[] | null = null;
+/** lastNearbyNpcIds：定义该变量以承载业务值。 */
   private lastNearbyNpcIds: string[] | null = null;
+/** lastSuggestionActionIds：定义该变量以承载业务值。 */
   private lastSuggestionActionIds: string[] | null = null;
   private nearbyMonsterRefs = new Map<string, NearbyMonsterRefs>();
   private nearbyNpcNameRefs = new Map<string, HTMLElement>();
@@ -143,18 +183,25 @@ export class WorldPanel {
 
   /** 根据玩家、地图、实体、行动、任务数据刷新三个子面板 */
   update(input: {
+/** player：定义该变量以承载业务值。 */
     player: PlayerState;
+/** mapMeta：定义该变量以承载业务值。 */
     mapMeta: MapMeta | null;
+/** entities：定义该变量以承载业务值。 */
     entities: VisibleEntity[];
+/** actions：定义该变量以承载业务值。 */
     actions: ActionDef[];
+/** quests：定义该变量以承载业务值。 */
     quests: QuestState[];
   }): void {
+/** snapshot：定义该变量以承载业务值。 */
     const snapshot = this.buildSnapshot(input);
     this.syncMapPane(snapshot);
     this.syncNearbyPane(snapshot);
     this.syncSuggestionPane(snapshot);
   }
 
+/** clear：执行对应的业务逻辑。 */
   clear(): void {
     this.mapPane.innerHTML = '<div class="empty-hint">尚未进入世界</div>';
     this.nearbyPane.innerHTML = '<div class="empty-hint">尚未进入世界</div>';
@@ -168,12 +215,18 @@ export class WorldPanel {
   }
 
   private buildSnapshot(input: {
+/** player：定义该变量以承载业务值。 */
     player: PlayerState;
+/** mapMeta：定义该变量以承载业务值。 */
     mapMeta: MapMeta | null;
+/** entities：定义该变量以承载业务值。 */
     entities: VisibleEntity[];
+/** actions：定义该变量以承载业务值。 */
     actions: ActionDef[];
+/** quests：定义该变量以承载业务值。 */
     quests: QuestState[];
   }): WorldPanelSnapshot {
+/** guide：定义该变量以承载业务值。 */
     const guide = WORLD_GUIDE[input.player.mapId] ?? {
       title: input.mapMeta?.name ?? input.player.mapId,
       recommendedRealm: input.mapMeta?.recommendedRealm ?? '未知',
@@ -184,15 +237,20 @@ export class WorldPanel {
       threats: [],
     };
 
+/** danger：定义该变量以承载业务值。 */
     const danger = assessMapDanger(input.player, input.mapMeta?.recommendedRealm, guide.recommendedRealm);
+/** recommend：定义该变量以承载业务值。 */
     const recommend = danger.recommendedRealmLabel === '未知'
       ? resolveRecommendedRealmLabel(input.mapMeta?.recommendedRealm, guide.recommendedRealm)
       : danger.recommendedRealmLabel;
+/** cultivating：定义该变量以承载业务值。 */
     const cultivating = input.player.cultivatingTechId
       ? input.player.techniques.find((entry) => entry.techId === input.player.cultivatingTechId)
       : null;
+/** currentQuest：定义该变量以承载业务值。 */
     const currentQuest = input.quests.find((entry) => entry.status === 'ready')
       ?? input.quests.find((entry) => entry.status === 'active');
+/** nearbyMonsters：定义该变量以承载业务值。 */
     const nearbyMonsters = input.entities
       .filter((entity) => entity.kind === 'monster')
       .map((entity) => ({
@@ -205,6 +263,7 @@ export class WorldPanel {
       }))
       .sort((a, b) => a.distance - b.distance)
       .slice(0, 5);
+/** nearbyNpcs：定义该变量以承载业务值。 */
     const nearbyNpcs = input.entities
       .filter((entity) => entity.kind === 'npc')
       .slice(0, 4)
@@ -212,6 +271,7 @@ export class WorldPanel {
         id: entity.id ?? entity.name ?? '',
         name: entity.name ?? entity.id ?? '未知人物',
       }));
+/** quickActions：定义该变量以承载业务值。 */
     const quickActions = input.actions
       .filter((action) => action.cooldownLeft === 0)
       .slice(0, 6)
@@ -241,6 +301,7 @@ export class WorldPanel {
     };
   }
 
+/** syncMapPane：执行对应的业务逻辑。 */
   private syncMapPane(snapshot: WorldPanelSnapshot): void {
     if (!this.patchMapPane(snapshot)) {
       this.renderMapPane(snapshot);
@@ -248,8 +309,11 @@ export class WorldPanel {
     }
   }
 
+/** syncNearbyPane：执行对应的业务逻辑。 */
   private syncNearbyPane(snapshot: WorldPanelSnapshot): void {
+/** monsterIds：定义该变量以承载业务值。 */
     const monsterIds = snapshot.nearbyMonsters.map((monster) => monster.id);
+/** npcIds：定义该变量以承载业务值。 */
     const npcIds = snapshot.nearbyNpcs.map((npc) => npc.id);
     if (
       !isSameStringSequence(this.lastNearbyMonsterIds, monsterIds)
@@ -261,7 +325,9 @@ export class WorldPanel {
     }
   }
 
+/** syncSuggestionPane：执行对应的业务逻辑。 */
   private syncSuggestionPane(snapshot: WorldPanelSnapshot): void {
+/** actionIds：定义该变量以承载业务值。 */
     const actionIds = snapshot.quickActions.map((action) => action.id);
     if (!isSameStringSequence(this.lastSuggestionActionIds, actionIds) || !this.patchSuggestionPane(snapshot)) {
       this.renderSuggestionPane(snapshot);
@@ -269,7 +335,9 @@ export class WorldPanel {
     }
   }
 
+/** renderMapPane：执行对应的业务逻辑。 */
   private renderMapPane(snapshot: WorldPanelSnapshot): void {
+/** html：定义该变量以承载业务值。 */
     const html = `
       <div class="world-hero compact">
         <div>
@@ -296,7 +364,9 @@ export class WorldPanel {
     });
   }
 
+/** renderNearbyPane：执行对应的业务逻辑。 */
   private renderNearbyPane(snapshot: WorldPanelSnapshot): void {
+/** html：定义该变量以承载业务值。 */
     const html = `
       ${snapshot.nearbyMonsters.length === 0 && snapshot.nearbyNpcs.length === 0 ? '<div class="empty-hint">附近暂时平静</div>' : ''}
       ${snapshot.nearbyMonsters.length > 0 ? `
@@ -337,7 +407,9 @@ export class WorldPanel {
     this.captureNearbyRefs(snapshot);
   }
 
+/** renderSuggestionPane：执行对应的业务逻辑。 */
   private renderSuggestionPane(snapshot: WorldPanelSnapshot): void {
+/** html：定义该变量以承载业务值。 */
     const html = `
       <div class="panel-section">
         <div class="panel-section-title">当前建议</div>
@@ -363,16 +435,27 @@ export class WorldPanel {
     this.captureSuggestionRefs(snapshot);
   }
 
+/** patchMapPane：执行对应的业务逻辑。 */
   private patchMapPane(snapshot: WorldPanelSnapshot): boolean {
+/** moodNode：定义该变量以承载业务值。 */
     const moodNode = this.mapPane.querySelector<HTMLElement>('[data-world-map-mood="true"]');
+/** titleNode：定义该变量以承载业务值。 */
     const titleNode = this.mapPane.querySelector<HTMLElement>('[data-world-map-title="true"]');
+/** descNode：定义该变量以承载业务值。 */
     const descNode = this.mapPane.querySelector<HTMLElement>('[data-world-map-desc="true"]');
+/** dangerNode：定义该变量以承载业务值。 */
     const dangerNode = this.mapPane.querySelector<HTMLElement>('[data-world-map-danger="true"]');
+/** recommendNode：定义该变量以承载业务值。 */
     const recommendNode = this.mapPane.querySelector<HTMLElement>('[data-world-map-recommend="true"]');
+/** realmNode：定义该变量以承载业务值。 */
     const realmNode = this.mapPane.querySelector<HTMLElement>('[data-world-map-realm="true"]');
+/** routeNode：定义该变量以承载业务值。 */
     const routeNode = this.mapPane.querySelector<HTMLElement>('[data-world-map-route="true"]');
+/** resourcesNode：定义该变量以承载业务值。 */
     const resourcesNode = this.mapPane.querySelector<HTMLElement>('[data-world-map-resources="true"]');
+/** threatsNode：定义该变量以承载业务值。 */
     const threatsNode = this.mapPane.querySelector<HTMLElement>('[data-world-map-threats="true"]');
+/** cultivatingNode：定义该变量以承载业务值。 */
     const cultivatingNode = this.mapPane.querySelector<HTMLElement>('[data-world-map-cultivating="true"]');
     if (
       !moodNode
@@ -403,6 +486,7 @@ export class WorldPanel {
     return true;
   }
 
+/** patchNearbyPane：执行对应的业务逻辑。 */
   private patchNearbyPane(snapshot: WorldPanelSnapshot): boolean {
     if (snapshot.nearbyMonsters.length === 0 && snapshot.nearbyNpcs.length === 0) {
       this.lastNearbyMonsterIds = [];
@@ -435,8 +519,11 @@ export class WorldPanel {
     return true;
   }
 
+/** patchSuggestionPane：执行对应的业务逻辑。 */
   private patchSuggestionPane(snapshot: WorldPanelSnapshot): boolean {
+/** priorityNode：定义该变量以承载业务值。 */
     const priorityNode = this.suggestionPane.querySelector<HTMLElement>('[data-world-suggestion-priority="true"]');
+/** progressNode：定义该变量以承载业务值。 */
     const progressNode = this.suggestionPane.querySelector<HTMLElement>('[data-world-suggestion-progress="true"]');
     if (!priorityNode || !progressNode) {
       return false;
@@ -464,13 +551,16 @@ export class WorldPanel {
     return true;
   }
 
+/** captureNearbyRefs：执行对应的业务逻辑。 */
   private captureNearbyRefs(snapshot: WorldPanelSnapshot): void {
     this.nearbyMonsterRefs.clear();
     this.nearbyNpcNameRefs.clear();
     for (const monster of snapshot.nearbyMonsters) {
       const card = this.nearbyPane.querySelector<HTMLElement>(`[data-world-monster-card="${CSS.escape(monster.id)}"]`);
       const nameNode = card?.querySelector<HTMLElement>('[data-world-monster-name]');
+/** metaNode：定义该变量以承载业务值。 */
       const metaNode = card?.querySelector<HTMLElement>('[data-world-monster-meta]');
+/** statusNode：定义该变量以承载业务值。 */
       const statusNode = card?.querySelector<HTMLElement>('[data-world-monster-status]');
       if (card && nameNode && metaNode && statusNode) {
         this.nearbyMonsterRefs.set(monster.id, { nameNode, metaNode, statusNode });
@@ -487,11 +577,13 @@ export class WorldPanel {
     this.lastNearbyNpcIds = snapshot.nearbyNpcs.map((npc) => npc.id);
   }
 
+/** captureSuggestionRefs：执行对应的业务逻辑。 */
   private captureSuggestionRefs(snapshot: WorldPanelSnapshot): void {
     this.suggestionActionRefs.clear();
     for (const action of snapshot.quickActions) {
       const card = this.suggestionPane.querySelector<HTMLElement>(`[data-world-quick-action="${CSS.escape(action.id)}"]`);
       const titleNode = card?.querySelector<HTMLElement>('[data-world-quick-action-title]');
+/** descNode：定义该变量以承载业务值。 */
       const descNode = card?.querySelector<HTMLElement>('[data-world-quick-action-desc]');
       if (card && titleNode && descNode) {
         this.suggestionActionRefs.set(action.id, { titleNode, descNode });
@@ -500,8 +592,11 @@ export class WorldPanel {
     this.lastSuggestionActionIds = snapshot.quickActions.map((action) => action.id);
   }
 
+/** renderMonsterName：执行对应的业务逻辑。 */
   private renderMonsterName(monster: NearbyMonsterView): string {
+/** presentation：定义该变量以承载业务值。 */
     const presentation = getMonsterPresentation(monster.name, monster.tier);
+/** badge：定义该变量以承载业务值。 */
     const badge = presentation.badgeText
       ? `<span class="${presentation.badgeClassName}">${escapeHtml(presentation.badgeText)}</span>`
       : '';

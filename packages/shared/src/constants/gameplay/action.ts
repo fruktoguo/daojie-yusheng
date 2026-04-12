@@ -8,12 +8,16 @@ type SkillEnabledEntry = {
 /** 玩家默认可启用的技能数量。 */
 export const PLAYER_BASE_ENABLED_SKILL_SLOTS = 4;
 
+/** PLAYER_ENABLED_SKILL_SLOT_LEVEL_STEP_EARLY：定义该变量以承载业务值。 */
 export const PLAYER_ENABLED_SKILL_SLOT_LEVEL_STEP_EARLY = 1;
 
+/** PLAYER_ENABLED_SKILL_SLOT_LEVEL_STEP_MID：定义该变量以承载业务值。 */
 export const PLAYER_ENABLED_SKILL_SLOT_LEVEL_STEP_MID = 3;
 
+/** PLAYER_ENABLED_SKILL_SLOT_LEVEL_STEP_LATE：定义该变量以承载业务值。 */
 export const PLAYER_ENABLED_SKILL_SLOT_LEVEL_STEP_LATE = 5;
 
+/** PLAYER_ENABLED_SKILL_SLOT_LEVEL_STEP_ENDGAME：定义该变量以承载业务值。 */
 export const PLAYER_ENABLED_SKILL_SLOT_LEVEL_STEP_ENDGAME = 6;
 
 /** 每 6 级额外奖励的技能槽位。 */
@@ -27,9 +31,12 @@ export const PLAYER_ENABLED_SKILL_SLOT_LEVEL_STEP = PLAYER_ENABLED_SKILL_SLOT_LE
 
 /** 根据玩家等级计算可启用的技能数量。 */
 export function getPlayerEnabledSkillSlotLimitByLevel(level: number | undefined): number {
+/** normalizedLevel：定义该变量以承载业务值。 */
   const normalizedLevel = Number.isFinite(level) ? Math.max(1, Math.floor(Number(level))) : 1;
+/** extraSlots：定义该变量以承载业务值。 */
   let extraSlots = 0;
 
+/** earlyLevels：定义该变量以承载业务值。 */
   const earlyLevels = Math.min(normalizedLevel, 6);
   extraSlots += Math.max(0, earlyLevels - 1);
 
@@ -60,6 +67,7 @@ export function resolvePlayerSkillSlotLimit(
 
 /** 统计当前已启用的技能数量。 */
 export function countEnabledSkillEntries<T extends SkillEnabledEntry>(entries: readonly T[]): number {
+/** count：定义该变量以承载业务值。 */
   let count = 0;
   for (const entry of entries) {
     if (entry.skillEnabled !== false) {
@@ -74,7 +82,9 @@ export function enforceSkillEnabledLimit<T extends SkillEnabledEntry>(
   entries: readonly T[],
   limit: number,
 ): T[] {
+/** normalizedLimit：定义该变量以承载业务值。 */
   const normalizedLimit = Number.isFinite(limit) ? Math.max(0, Math.floor(limit)) : 0;
+/** enabledCount：定义该变量以承载业务值。 */
   let enabledCount = 0;
   return entries.map((entry) => {
     if (entry.skillEnabled === false) {

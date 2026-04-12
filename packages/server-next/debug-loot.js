@@ -5,6 +5,7 @@
 const { io } = require('socket.io-client');
 const { NEXT_C2S, NEXT_S2C } = require('/home/yuohira/mud-mmo/packages/shared-next/dist');
 const base = 'http://127.0.0.1:40111';
+/** dropperId：定义该变量以承载业务值。 */
 const dropperId='dbg_dropper';
 /**
  * 记录looterID。

@@ -43,19 +43,25 @@ type PageId = 'maps' | 'monsters' | 'skills' | 'files' | 'service';
 
 /** LocalConfigFileSummary：定义该类型的结构与数据语义。 */
 type LocalConfigFileSummary = {
+/** path：定义该变量以承载业务值。 */
   path: string;
+/** name：定义该变量以承载业务值。 */
   name: string;
+/** category：定义该变量以承载业务值。 */
   category: string;
 };
 
 /** LocalConfigFileListRes：定义该类型的结构与数据语义。 */
 type LocalConfigFileListRes = {
+/** files：定义该变量以承载业务值。 */
   files: LocalConfigFileSummary[];
 };
 
 /** LocalConfigFileRes：定义该类型的结构与数据语义。 */
 type LocalConfigFileRes = {
+/** path：定义该变量以承载业务值。 */
   path: string;
+/** content：定义该变量以承载业务值。 */
   content: string;
 };
 
@@ -64,6 +70,7 @@ type LocalBuffModifierMode = 'flat' | 'percent';
 
 /** LocalTechniqueBuffTemplate：定义该类型的结构与数据语义。 */
 type LocalTechniqueBuffTemplate = {
+/** id：定义该变量以承载业务值。 */
   id: string;
   target?: 'self' | 'target';
   buffId?: string;
@@ -86,6 +93,7 @@ type LocalTechniqueBuffTemplate = {
 
 /** LocalTechniqueEffect：定义该类型的结构与数据语义。 */
 type LocalTechniqueEffect = {
+/** type：定义该变量以承载业务值。 */
   type: string;
   buffRef?: string;
   target?: 'self' | 'target';
@@ -108,8 +116,11 @@ type LocalTechniqueEffect = {
 
 /** LocalTechniqueSkill：定义该类型的结构与数据语义。 */
 type LocalTechniqueSkill = {
+/** id：定义该变量以承载业务值。 */
   id: string;
+/** name：定义该变量以承载业务值。 */
   name: string;
+/** desc：定义该变量以承载业务值。 */
   desc: string;
   cooldown?: number;
   cost?: number;
@@ -117,48 +128,63 @@ type LocalTechniqueSkill = {
   range?: number;
   unlockLevel?: number;
   unlockRealm?: number | string;
+/** effects：定义该变量以承载业务值。 */
   effects: LocalTechniqueEffect[];
   [key: string]: unknown;
 };
 
 /** LocalTechniqueTemplateRecord：定义该类型的结构与数据语义。 */
 type LocalTechniqueTemplateRecord = {
+/** id：定义该变量以承载业务值。 */
   id: string;
+/** name：定义该变量以承载业务值。 */
   name: string;
+/** grade：定义该变量以承载业务值。 */
   grade: TechniqueGrade;
   category?: TechniqueCategory;
   realmLv?: number;
   layers?: TechniqueLayerDef[];
+/** skills：定义该变量以承载业务值。 */
   skills: LocalTechniqueSkill[];
   [key: string]: unknown;
 };
 
 /** LocalTechniqueEntry：定义该类型的结构与数据语义。 */
 type LocalTechniqueEntry = {
+/** key：定义该变量以承载业务值。 */
   key: string;
+/** filePath：定义该变量以承载业务值。 */
   filePath: string;
+/** index：定义该变量以承载业务值。 */
   index: number;
+/** technique：定义该变量以承载业务值。 */
   technique: LocalTechniqueTemplateRecord;
 };
 
 /** LocalTechniqueListRes：定义该类型的结构与数据语义。 */
 type LocalTechniqueListRes = {
+/** techniques：定义该变量以承载业务值。 */
   techniques: LocalTechniqueEntry[];
+/** sharedBuffs：定义该变量以承载业务值。 */
   sharedBuffs: LocalTechniqueBuffTemplate[];
 };
 
 /** LocalTechniqueSaveRes：定义该类型的结构与数据语义。 */
 type LocalTechniqueSaveRes = BasicOkRes & {
+/** technique：定义该变量以承载业务值。 */
   technique: LocalTechniqueTemplateRecord;
 };
 
 /** LocalServerStatusRes：定义该类型的结构与数据语义。 */
 type LocalServerStatusRes = {
+/** managed：定义该变量以承载业务值。 */
   managed: boolean;
+/** running：定义该变量以承载业务值。 */
   running: boolean;
   pid?: number;
   lastRestartAt?: string;
   lastRestartReason?: string;
+/** mode：定义该变量以承载业务值。 */
   mode: string;
 };
 
@@ -169,20 +195,27 @@ type MonsterTemplateRecord = MonsterTemplateResolvedRecord;
 
 /** LocalMonsterTemplateEntry：定义该类型的结构与数据语义。 */
 type LocalMonsterTemplateEntry = {
+/** key：定义该变量以承载业务值。 */
   key: string;
+/** filePath：定义该变量以承载业务值。 */
   filePath: string;
+/** index：定义该变量以承载业务值。 */
   index: number;
+/** monster：定义该变量以承载业务值。 */
   monster: MonsterTemplateRecord;
 };
 
 /** LocalMonsterTemplateListRes：定义该类型的结构与数据语义。 */
 type LocalMonsterTemplateListRes = {
+/** monsters：定义该变量以承载业务值。 */
   monsters: LocalMonsterTemplateEntry[];
 };
 
 /** LocalMonsterSaveRes：定义该类型的结构与数据语义。 */
 type LocalMonsterSaveRes = BasicOkRes & {
+/** updatedMapCount：定义该变量以承载业务值。 */
   updatedMapCount: number;
+/** monster：定义该变量以承载业务值。 */
   monster: MonsterTemplateRecord;
 };
 
@@ -191,6 +224,7 @@ type LocalEditorItemOption = MonsterTemplateEditorItem;
 
 /** LocalEditorCatalogRes：定义该类型的结构与数据语义。 */
 type LocalEditorCatalogRes = {
+/** items：定义该变量以承载业务值。 */
   items: LocalEditorItemOption[];
 };
 
@@ -202,9 +236,12 @@ type MapSideTabId = 'overview' | 'inspector' | 'json';
 /** TechniqueModifierGroupKey：定义该类型的结构与数据语义。 */
 type TechniqueModifierGroupKey = 'valueStats' | 'stats' | 'attrs';
 
+/** appStatusBarEl：定义该变量以承载业务值。 */
 const appStatusBarEl = document.getElementById('app-status-bar') as HTMLDivElement;
+/** serviceSummaryEl：定义该变量以承载业务值。 */
 const serviceSummaryEl = document.getElementById('service-summary') as HTMLDivElement;
 
+/** pageMap：定义该变量以承载业务值。 */
 const pageMap = {
   maps: document.getElementById('page-maps') as HTMLElement,
   monsters: document.getElementById('page-monsters') as HTMLElement,
@@ -213,6 +250,7 @@ const pageMap = {
   service: document.getElementById('page-service') as HTMLElement,
 };
 
+/** pageTabs：定义该变量以承载业务值。 */
 const pageTabs = {
   maps: document.getElementById('page-tab-maps') as HTMLButtonElement,
   monsters: document.getElementById('page-tab-monsters') as HTMLButtonElement,
@@ -221,144 +259,248 @@ const pageTabs = {
   service: document.getElementById('page-tab-service') as HTMLButtonElement,
 };
 
+/** mapSideTabs：定义该变量以承载业务值。 */
 const mapSideTabs = {
   overview: document.getElementById('map-side-tab-overview') as HTMLButtonElement,
   inspector: document.getElementById('map-side-tab-inspector') as HTMLButtonElement,
   json: document.getElementById('map-side-tab-json') as HTMLButtonElement,
 };
 
+/** mapSidePanels：定义该变量以承载业务值。 */
 const mapSidePanels = {
   overview: document.getElementById('map-side-panel-overview') as HTMLDivElement,
   inspector: document.getElementById('map-side-panel-inspector') as HTMLDivElement,
   json: document.getElementById('map-side-panel-json') as HTMLDivElement,
 };
 
+/** configFileSearchEl：定义该变量以承载业务值。 */
 const configFileSearchEl = document.getElementById('config-file-search') as HTMLInputElement;
+/** configFileRefreshBtn：定义该变量以承载业务值。 */
 const configFileRefreshBtn = document.getElementById('config-file-refresh') as HTMLButtonElement;
+/** configFileListEl：定义该变量以承载业务值。 */
 const configFileListEl = document.getElementById('config-file-list') as HTMLDivElement;
+/** configFileEmptyEl：定义该变量以承载业务值。 */
 const configFileEmptyEl = document.getElementById('config-file-empty') as HTMLDivElement;
+/** configFilePanelEl：定义该变量以承载业务值。 */
 const configFilePanelEl = document.getElementById('config-file-panel') as HTMLDivElement;
+/** configFileCurrentNameEl：定义该变量以承载业务值。 */
 const configFileCurrentNameEl = document.getElementById('config-file-current-name') as HTMLDivElement;
+/** configFileCurrentMetaEl：定义该变量以承载业务值。 */
 const configFileCurrentMetaEl = document.getElementById('config-file-current-meta') as HTMLDivElement;
+/** configFileEditorEl：定义该变量以承载业务值。 */
 const configFileEditorEl = document.getElementById('config-file-editor') as HTMLTextAreaElement;
+/** configFileSaveBtn：定义该变量以承载业务值。 */
 const configFileSaveBtn = document.getElementById('config-file-save') as HTMLButtonElement;
+/** configFileReloadBtn：定义该变量以承载业务值。 */
 const configFileReloadBtn = document.getElementById('config-file-reload') as HTMLButtonElement;
+/** configFileStatusEl：定义该变量以承载业务值。 */
 const configFileStatusEl = document.getElementById('config-file-status') as HTMLDivElement;
 
+/** techniqueSearchEl：定义该变量以承载业务值。 */
 const techniqueSearchEl = document.getElementById('technique-search') as HTMLInputElement;
+/** techniqueRefreshBtn：定义该变量以承载业务值。 */
 const techniqueRefreshBtn = document.getElementById('technique-refresh') as HTMLButtonElement;
+/** techniqueListEl：定义该变量以承载业务值。 */
 const techniqueListEl = document.getElementById('technique-list') as HTMLDivElement;
+/** techniqueEmptyEl：定义该变量以承载业务值。 */
 const techniqueEmptyEl = document.getElementById('technique-empty') as HTMLDivElement;
+/** techniquePanelEl：定义该变量以承载业务值。 */
 const techniquePanelEl = document.getElementById('technique-panel') as HTMLDivElement;
+/** techniqueCurrentNameEl：定义该变量以承载业务值。 */
 const techniqueCurrentNameEl = document.getElementById('technique-current-name') as HTMLDivElement;
+/** techniqueCurrentMetaEl：定义该变量以承载业务值。 */
 const techniqueCurrentMetaEl = document.getElementById('technique-current-meta') as HTMLDivElement;
+/** techniqueSaveBtn：定义该变量以承载业务值。 */
 const techniqueSaveBtn = document.getElementById('technique-save') as HTMLButtonElement;
+/** techniqueReloadBtn：定义该变量以承载业务值。 */
 const techniqueReloadBtn = document.getElementById('technique-reload') as HTMLButtonElement;
+/** techniqueSkillSelectEl：定义该变量以承载业务值。 */
 const techniqueSkillSelectEl = document.getElementById('technique-skill-select') as HTMLSelectElement;
+/** techniqueEffectSelectEl：定义该变量以承载业务值。 */
 const techniqueEffectSelectEl = document.getElementById('technique-effect-select') as HTMLSelectElement;
+/** techniqueSkillSummaryEl：定义该变量以承载业务值。 */
 const techniqueSkillSummaryEl = document.getElementById('technique-skill-summary') as HTMLDivElement;
+/** techniqueEffectSummaryEl：定义该变量以承载业务值。 */
 const techniqueEffectSummaryEl = document.getElementById('technique-effect-summary') as HTMLDivElement;
+/** techniqueEffectEditorEl：定义该变量以承载业务值。 */
 const techniqueEffectEditorEl = document.getElementById('technique-effect-editor') as HTMLDivElement;
+/** techniqueStatusEl：定义该变量以承载业务值。 */
 const techniqueStatusEl = document.getElementById('technique-status') as HTMLDivElement;
 
+/** monsterSearchEl：定义该变量以承载业务值。 */
 const monsterSearchEl = document.getElementById('monster-search') as HTMLInputElement;
+/** monsterRefreshBtn：定义该变量以承载业务值。 */
 const monsterRefreshBtn = document.getElementById('monster-refresh') as HTMLButtonElement;
+/** monsterListEl：定义该变量以承载业务值。 */
 const monsterListEl = document.getElementById('monster-list') as HTMLDivElement;
+/** monsterEmptyEl：定义该变量以承载业务值。 */
 const monsterEmptyEl = document.getElementById('monster-empty') as HTMLDivElement;
+/** monsterPanelEl：定义该变量以承载业务值。 */
 const monsterPanelEl = document.getElementById('monster-panel') as HTMLDivElement;
+/** monsterCurrentNameEl：定义该变量以承载业务值。 */
 const monsterCurrentNameEl = document.getElementById('monster-current-name') as HTMLDivElement;
+/** monsterCurrentMetaEl：定义该变量以承载业务值。 */
 const monsterCurrentMetaEl = document.getElementById('monster-current-meta') as HTMLDivElement;
+/** monsterSaveBtn：定义该变量以承载业务值。 */
 const monsterSaveBtn = document.getElementById('monster-save') as HTMLButtonElement;
+/** monsterReloadBtn：定义该变量以承载业务值。 */
 const monsterReloadBtn = document.getElementById('monster-reload') as HTMLButtonElement;
+/** monsterStatusEl：定义该变量以承载业务值。 */
 const monsterStatusEl = document.getElementById('monster-status') as HTMLDivElement;
+/** monsterIdEl：定义该变量以承载业务值。 */
 const monsterIdEl = document.getElementById('monster-id') as HTMLInputElement;
+/** monsterNameEl：定义该变量以承载业务值。 */
 const monsterNameEl = document.getElementById('monster-name') as HTMLInputElement;
+/** monsterCharEl：定义该变量以承载业务值。 */
 const monsterCharEl = document.getElementById('monster-char') as HTMLInputElement;
+/** monsterColorEl：定义该变量以承载业务值。 */
 const monsterColorEl = document.getElementById('monster-color') as HTMLInputElement;
+/** monsterGradeEl：定义该变量以承载业务值。 */
 const monsterGradeEl = document.getElementById('monster-grade') as HTMLSelectElement;
+/** monsterTierEl：定义该变量以承载业务值。 */
 const monsterTierEl = document.getElementById('monster-tier') as HTMLSelectElement;
+/** monsterAggroModeEl：定义该变量以承载业务值。 */
 const monsterAggroModeEl = document.getElementById('monster-aggro-mode') as HTMLSelectElement;
+/** monsterHpEl：定义该变量以承载业务值。 */
 const monsterHpEl = document.getElementById('monster-hp') as HTMLInputElement;
+/** monsterMaxHpEl：定义该变量以承载业务值。 */
 const monsterMaxHpEl = document.getElementById('monster-max-hp') as HTMLInputElement;
+/** monsterAttackEl：定义该变量以承载业务值。 */
 const monsterAttackEl = document.getElementById('monster-attack') as HTMLInputElement;
+/** monsterLevelEl：定义该变量以承载业务值。 */
 const monsterLevelEl = document.getElementById('monster-level') as HTMLInputElement;
+/** monsterCountEl：定义该变量以承载业务值。 */
 const monsterCountEl = document.getElementById('monster-count') as HTMLInputElement;
+/** monsterMaxAliveEl：定义该变量以承载业务值。 */
 const monsterMaxAliveEl = document.getElementById('monster-max-alive') as HTMLInputElement;
+/** monsterRadiusEl：定义该变量以承载业务值。 */
 const monsterRadiusEl = document.getElementById('monster-radius') as HTMLInputElement;
+/** monsterExpMultiplierEl：定义该变量以承载业务值。 */
 const monsterExpMultiplierEl = document.getElementById('monster-exp-multiplier') as HTMLInputElement;
+/** monsterAggroRangeEl：定义该变量以承载业务值。 */
 const monsterAggroRangeEl = document.getElementById('monster-aggro-range') as HTMLInputElement;
+/** monsterViewRangeEl：定义该变量以承载业务值。 */
 const monsterViewRangeEl = document.getElementById('monster-view-range') as HTMLInputElement;
+/** monsterRespawnSecEl：定义该变量以承载业务值。 */
 const monsterRespawnSecEl = document.getElementById('monster-respawn-sec') as HTMLInputElement;
+/** monsterRespawnTicksEl：定义该变量以承载业务值。 */
 const monsterRespawnTicksEl = document.getElementById('monster-respawn-ticks') as HTMLInputElement;
+/** monsterAttrsEditorEl：定义该变量以承载业务值。 */
 const monsterAttrsEditorEl = document.getElementById('monster-attrs-editor') as HTMLDivElement;
+/** monsterStatPercentsEditorEl：定义该变量以承载业务值。 */
 const monsterStatPercentsEditorEl = document.getElementById('monster-stat-percents-editor') as HTMLDivElement;
+/** monsterEquipmentEditorEl：定义该变量以承载业务值。 */
 const monsterEquipmentEditorEl = document.getElementById('monster-equipment-editor') as HTMLDivElement;
+/** monsterSkillsEl：定义该变量以承载业务值。 */
 const monsterSkillsEl = document.getElementById('monster-skills') as HTMLTextAreaElement;
+/** monsterValueStatsEditorEl：定义该变量以承载业务值。 */
 const monsterValueStatsEditorEl = document.getElementById('monster-value-stats-editor') as HTMLDivElement;
+/** monsterResolvedAttrsPreviewEl：定义该变量以承载业务值。 */
 const monsterResolvedAttrsPreviewEl = document.getElementById('monster-resolved-attrs-preview') as HTMLDivElement;
+/** monsterComputedStatsPreviewEl：定义该变量以承载业务值。 */
 const monsterComputedStatsPreviewEl = document.getElementById('monster-computed-stats-preview') as HTMLDivElement;
+/** monsterDropsEditorEl：定义该变量以承载业务值。 */
 const monsterDropsEditorEl = document.getElementById('monster-drops-editor') as HTMLDivElement;
+/** monsterDropAddBtn：定义该变量以承载业务值。 */
 const monsterDropAddBtn = document.getElementById('monster-drop-add') as HTMLButtonElement;
 
+/** serviceRunningValueEl：定义该变量以承载业务值。 */
 const serviceRunningValueEl = document.getElementById('service-running-value') as HTMLDivElement;
+/** serviceRunningMetaEl：定义该变量以承载业务值。 */
 const serviceRunningMetaEl = document.getElementById('service-running-meta') as HTMLDivElement;
+/** serviceModeEl：定义该变量以承载业务值。 */
 const serviceModeEl = document.getElementById('service-mode') as HTMLDivElement;
+/** serviceLastRestartAtEl：定义该变量以承载业务值。 */
 const serviceLastRestartAtEl = document.getElementById('service-last-restart-at') as HTMLDivElement;
+/** serviceLastRestartReasonEl：定义该变量以承载业务值。 */
 const serviceLastRestartReasonEl = document.getElementById('service-last-restart-reason') as HTMLDivElement;
+/** servicePidEl：定义该变量以承载业务值。 */
 const servicePidEl = document.getElementById('service-pid') as HTMLDivElement;
+/** serviceRestartBtn：定义该变量以承载业务值。 */
 const serviceRestartBtn = document.getElementById('service-restart') as HTMLButtonElement;
+/** serviceRefreshBtn：定义该变量以承载业务值。 */
 const serviceRefreshBtn = document.getElementById('service-refresh') as HTMLButtonElement;
 
+/** currentPage：定义该变量以承载业务值。 */
 let currentPage: PageId = 'maps';
+/** currentMapSideTab：定义该变量以承载业务值。 */
 let currentMapSideTab: MapSideTabId = 'overview';
+/** configFiles：定义该变量以承载业务值。 */
 let configFiles: LocalConfigFileSummary[] = [];
+/** currentConfigFilePath：定义该变量以承载业务值。 */
 let currentConfigFilePath: string | null = null;
+/** configFileDirty：定义该变量以承载业务值。 */
 let configFileDirty = false;
+/** techniqueTemplates：定义该变量以承载业务值。 */
 let techniqueTemplates: LocalTechniqueEntry[] = [];
+/** techniqueBuffTemplates：定义该变量以承载业务值。 */
 let techniqueBuffTemplates: LocalTechniqueBuffTemplate[] = [];
+/** techniqueBuffTemplateById：定义该变量以承载业务值。 */
 let techniqueBuffTemplateById = new Map<string, LocalTechniqueBuffTemplate>();
+/** currentTechniqueKey：定义该变量以承载业务值。 */
 let currentTechniqueKey: string | null = null;
+/** currentTechniqueDraft：定义该变量以承载业务值。 */
 let currentTechniqueDraft: LocalTechniqueTemplateRecord | null = null;
+/** currentTechniqueSkillId：定义该变量以承载业务值。 */
 let currentTechniqueSkillId: string | null = null;
+/** currentTechniqueEffectIndex：定义该变量以承载业务值。 */
 let currentTechniqueEffectIndex: number | null = null;
+/** techniqueDirty：定义该变量以承载业务值。 */
 let techniqueDirty = false;
+/** monsterTemplates：定义该变量以承载业务值。 */
 let monsterTemplates: LocalMonsterTemplateEntry[] = [];
+/** currentMonsterKey：定义该变量以承载业务值。 */
 let currentMonsterKey: string | null = null;
+/** currentMonsterDraft：定义该变量以承载业务值。 */
 let currentMonsterDraft: MonsterTemplateRecord | null = null;
+/** monsterDirty：定义该变量以承载业务值。 */
 let monsterDirty = false;
+/** servicePollTimer：定义该变量以承载业务值。 */
 let servicePollTimer: number | null = null;
+/** serviceManaged：定义该变量以承载业务值。 */
 let serviceManaged = false;
+/** mapEditor：定义该变量以承载业务值。 */
 let mapEditor: GmMapEditor | null = null;
+/** editorItems：定义该变量以承载业务值。 */
 let editorItems: LocalEditorItemOption[] = [];
+/** editorItemById：定义该变量以承载业务值。 */
 let editorItemById = new Map<string, LocalEditorItemOption>();
 
+/** GRADE_OPTIONS：定义该变量以承载业务值。 */
 const GRADE_OPTIONS = Object.entries(TECHNIQUE_GRADE_LABELS) as Array<[TechniqueGrade, string]>;
+/** MONSTER_TIER_OPTIONS：定义该变量以承载业务值。 */
 const MONSTER_TIER_OPTIONS = MONSTER_TIER_ORDER.map((value) => ({ value, label: MONSTER_TIER_LABELS[value] }));
+/** AGGRO_MODE_OPTIONS：定义该变量以承载业务值。 */
 const AGGRO_MODE_OPTIONS: Array<{ value: MonsterAggroMode; label: string }> = [
   { value: 'always', label: '主动攻击' },
   { value: 'retaliate', label: '受击反击' },
   { value: 'day_only', label: '仅白天主动' },
   { value: 'night_only', label: '仅夜晚主动' },
 ];
+/** MONSTER_TIER_SORT_ORDER：定义该变量以承载业务值。 */
 const MONSTER_TIER_SORT_ORDER = MONSTER_TIER_ORDER.reduce<Record<MonsterTier, number>>((accumulator, tier, index) => {
   accumulator[tier] = index;
   return accumulator;
 }, {} as Record<MonsterTier, number>);
+/** TECHNIQUE_GRADE_SORT_ORDER：定义该变量以承载业务值。 */
 const TECHNIQUE_GRADE_SORT_ORDER = TECHNIQUE_GRADE_ORDER.reduce<Record<TechniqueGrade, number>>((accumulator, grade, index) => {
   accumulator[grade] = index;
   return accumulator;
 }, {} as Record<TechniqueGrade, number>);
+/** PLAYER_REALM_STAGE_SORT_ORDER：定义该变量以承载业务值。 */
 const PLAYER_REALM_STAGE_SORT_ORDER = PLAYER_REALM_ORDER.reduce<Record<PlayerRealmStage, number>>((accumulator, stage, index) => {
   accumulator[stage] = index;
   return accumulator;
 }, {} as Record<PlayerRealmStage, number>);
 
+/** MONSTER_SOURCE_MODE_LABELS：定义该变量以承载业务值。 */
 const MONSTER_SOURCE_MODE_LABELS: Record<MonsterTemplateRecord['sourceMode'], string> = {
   legacy: '旧 hp/attack 模式',
   value_stats: 'valueStats 推导模式',
   attributes: 'attrs / statPercents 模式',
 };
 
+/** TECHNIQUE_CATEGORY_LABELS：定义该变量以承载业务值。 */
 const TECHNIQUE_CATEGORY_LABELS: Record<TechniqueCategory, string> = {
   arts: '术法',
   internal: '内功',
@@ -366,6 +508,7 @@ const TECHNIQUE_CATEGORY_LABELS: Record<TechniqueCategory, string> = {
   secret: '秘术',
 };
 
+/** EQUIP_SLOT_LABELS：定义该变量以承载业务值。 */
 const EQUIP_SLOT_LABELS: Record<EquipSlot, string> = {
   weapon: '武器',
   head: '头部',
@@ -374,6 +517,7 @@ const EQUIP_SLOT_LABELS: Record<EquipSlot, string> = {
   accessory: '饰品',
 };
 
+/** MONSTER_VALUE_STAT_GROUPS：定义该变量以承载业务值。 */
 const MONSTER_VALUE_STAT_GROUPS: Array<{ title: string; note: string; keys: NumericScalarStatKey[] }> = [
   {
     title: '生存与攻防',
@@ -397,6 +541,7 @@ const MONSTER_VALUE_STAT_GROUPS: Array<{ title: string; note: string; keys: Nume
   },
 ];
 
+/** MONSTER_COMPUTED_STAT_GROUPS：定义该变量以承载业务值。 */
 const MONSTER_COMPUTED_STAT_GROUPS: Array<{ title: string; keys: NumericScalarStatKey[] }> = [
   ...MONSTER_VALUE_STAT_GROUPS.map((group) => ({ title: group.title, keys: group.keys })),
   {
@@ -431,22 +576,27 @@ function setMonsterStatus(message: string, isError = false): void {
 
 /** request：执行对应的业务逻辑。 */
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+/** headers：定义该变量以承载业务值。 */
   const headers = new Headers(init.headers ?? {});
   if (!headers.has('Content-Type') && init.body) {
     headers.set('Content-Type', 'application/json');
   }
 
+/** response：定义该变量以承载业务值。 */
   const response = await fetch(path, {
     ...init,
     headers,
   });
 
   if (!response.ok) {
+/** message：定义该变量以承载业务值。 */
     let message = `${response.status} ${response.statusText}`;
     try {
+/** payload：定义该变量以承载业务值。 */
       const payload = await response.json() as { error?: string; message?: string };
       message = payload.error ?? payload.message ?? message;
     } catch {
+/** text：定义该变量以承载业务值。 */
       const text = await response.text();
       if (text.trim()) {
         message = text.trim();
@@ -487,7 +637,9 @@ function switchMapSideTab(tab: MapSideTabId): void {
 
 /** renderConfigFileList：执行对应的业务逻辑。 */
 function renderConfigFileList(): void {
+/** keyword：定义该变量以承载业务值。 */
   const keyword = configFileSearchEl.value.trim().toLowerCase();
+/** filtered：定义该变量以承载业务值。 */
   const filtered = configFiles.filter((file) => {
     if (!keyword) return true;
     return file.path.toLowerCase().includes(keyword) || file.name.toLowerCase().includes(keyword);
@@ -516,21 +668,25 @@ function normalizeTechniqueSortRealmLv(realmLv: number | undefined): number {
 
 /** compareTechniqueTemplateEntries：执行对应的业务逻辑。 */
 function compareTechniqueTemplateEntries(left: LocalTechniqueEntry, right: LocalTechniqueEntry): number {
+/** realmDiff：定义该变量以承载业务值。 */
   const realmDiff = normalizeTechniqueSortRealmLv(left.technique.realmLv) - normalizeTechniqueSortRealmLv(right.technique.realmLv);
   if (realmDiff !== 0) {
     return realmDiff;
   }
 
+/** gradeDiff：定义该变量以承载业务值。 */
   const gradeDiff = getMonsterGradeSortWeight(left.technique.grade) - getMonsterGradeSortWeight(right.technique.grade);
   if (gradeDiff !== 0) {
     return gradeDiff;
   }
 
+/** categoryDiff：定义该变量以承载业务值。 */
   const categoryDiff = (left.technique.category ?? 'internal').localeCompare(right.technique.category ?? 'internal', 'zh-Hans-CN');
   if (categoryDiff !== 0) {
     return categoryDiff;
   }
 
+/** nameDiff：定义该变量以承载业务值。 */
   const nameDiff = (left.technique.name || left.technique.id).localeCompare(right.technique.name || right.technique.id, 'zh-Hans-CN');
   if (nameDiff !== 0) {
     return nameDiff;
@@ -541,6 +697,7 @@ function compareTechniqueTemplateEntries(left: LocalTechniqueEntry, right: Local
 
 /** formatTechniqueListMeta：执行对应的业务逻辑。 */
 function formatTechniqueListMeta(entry: LocalTechniqueEntry): string {
+/** parts：定义该变量以承载业务值。 */
   const parts = [
     entry.technique.id,
     `境界 ${normalizeTechniqueSortRealmLv(entry.technique.realmLv)}`,
@@ -555,7 +712,9 @@ function formatTechniqueListMeta(entry: LocalTechniqueEntry): string {
 
 /** renderTechniqueList：执行对应的业务逻辑。 */
 function renderTechniqueList(): void {
+/** keyword：定义该变量以承载业务值。 */
   const keyword = techniqueSearchEl.value.trim().toLowerCase();
+/** filtered：定义该变量以承载业务值。 */
   const filtered = techniqueTemplates.filter((entry) => {
     if (!keyword) return true;
     return entry.technique.name.toLowerCase().includes(keyword)
@@ -598,6 +757,7 @@ function normalizeTechniqueModifierMode(mode: unknown): LocalBuffModifierMode {
 
 /** normalizeTechniqueNumericGroup：执行对应的业务逻辑。 */
 function normalizeTechniqueNumericGroup(raw: unknown): PartialNumericStats {
+/** normalized：定义该变量以承载业务值。 */
   const normalized: PartialNumericStats = {};
   if (!isPlainRecord(raw)) {
     return normalized;
@@ -613,6 +773,7 @@ function normalizeTechniqueNumericGroup(raw: unknown): PartialNumericStats {
 
 /** normalizeTechniqueAttrGroup：执行对应的业务逻辑。 */
 function normalizeTechniqueAttrGroup(raw: unknown): Partial<Attributes> {
+/** normalized：定义该变量以承载业务值。 */
   const normalized: Partial<Attributes> = {};
   if (!isPlainRecord(raw)) {
     return normalized;
@@ -667,15 +828,20 @@ function resolveTechniqueBuffEffect(effect: LocalTechniqueEffect): LocalTechniqu
   if (!isTechniqueBuffEffect(effect)) {
     return effect;
   }
+/** buffRef：定义该变量以承载业务值。 */
   const buffRef = typeof effect.buffRef === 'string' && effect.buffRef.trim() ? effect.buffRef.trim() : '';
+/** template：定义该变量以承载业务值。 */
   const template = buffRef ? techniqueBuffTemplateById.get(buffRef) : undefined;
   return template ? { ...template, ...effect, type: 'buff' } : effect;
 }
 
 /** getTechniqueBuffEffectOptions：执行对应的业务逻辑。 */
 function getTechniqueBuffEffectOptions(skill: LocalTechniqueSkill | null): Array<{
+/** rawIndex：定义该变量以承载业务值。 */
   rawIndex: number;
+/** rawEffect：定义该变量以承载业务值。 */
   rawEffect: LocalTechniqueEffect;
+/** resolvedEffect：定义该变量以承载业务值。 */
   resolvedEffect: LocalTechniqueEffect;
 }> {
   if (!skill) {
@@ -688,19 +854,26 @@ function getTechniqueBuffEffectOptions(skill: LocalTechniqueSkill | null): Array
 
 /** getCurrentTechniqueBuffEffectSelection：执行对应的业务逻辑。 */
 function getCurrentTechniqueBuffEffectSelection(): {
+/** skill：定义该变量以承载业务值。 */
   skill: LocalTechniqueSkill;
+/** rawEffect：定义该变量以承载业务值。 */
   rawEffect: LocalTechniqueEffect;
+/** resolvedEffect：定义该变量以承载业务值。 */
   resolvedEffect: LocalTechniqueEffect;
+/** rawIndex：定义该变量以承载业务值。 */
   rawIndex: number;
 } | null {
+/** skill：定义该变量以承载业务值。 */
   const skill = getCurrentTechniqueSkill();
   if (!skill) {
     return null;
   }
+/** options：定义该变量以承载业务值。 */
   const options = getTechniqueBuffEffectOptions(skill);
   if (options.length === 0) {
     return null;
   }
+/** selected：定义该变量以承载业务值。 */
   const selected = options.find((entry) => entry.rawIndex === currentTechniqueEffectIndex) ?? options[0]!;
   return {
     skill,
@@ -747,8 +920,10 @@ function ensureTechniqueSelection(): void {
     currentTechniqueEffectIndex = null;
     return;
   }
+/** skill：定义该变量以承载业务值。 */
   const skill = getCurrentTechniqueSkill();
   currentTechniqueSkillId = skill?.id ?? null;
+/** effectOptions：定义该变量以承载业务值。 */
   const effectOptions = getTechniqueBuffEffectOptions(skill);
   if (effectOptions.length === 0) {
     currentTechniqueEffectIndex = null;
@@ -771,19 +946,23 @@ function renderTechniqueSelectors(): void {
   }
 
   ensureTechniqueSelection();
+/** skills：定义该变量以承载业务值。 */
   const skills = currentTechniqueDraft.skills;
   techniqueSkillSelectEl.innerHTML = skills.length > 0
     ? skills.map((skill) => `<option value="${escapeHtml(skill.id)}" ${skill.id === currentTechniqueSkillId ? 'selected' : ''}>${escapeHtml(skill.name)} · ${escapeHtml(skill.id)}</option>`).join('')
     : '<option value="">没有技能</option>';
   techniqueSkillSelectEl.disabled = skills.length === 0;
 
+/** effectOptions：定义该变量以承载业务值。 */
   const effectOptions = getTechniqueBuffEffectOptions(getCurrentTechniqueSkill());
   techniqueEffectSelectEl.innerHTML = effectOptions.length > 0
     ? effectOptions.map((entry, index) => {
+/** label：定义该变量以承载业务值。 */
       const label = entry.resolvedEffect.name
         || entry.resolvedEffect.buffId
         || entry.rawEffect.buffRef
         || `Buff 效果 ${index + 1}`;
+/** source：定义该变量以承载业务值。 */
       const source = entry.rawEffect.buffRef ? '共享模板' : '内联';
       return `<option value="${entry.rawIndex}" ${entry.rawIndex === currentTechniqueEffectIndex ? 'selected' : ''}>${escapeHtml(`效果 ${index + 1} · ${label} · ${source}`)}</option>`;
     }).join('')
@@ -793,11 +972,13 @@ function renderTechniqueSelectors(): void {
 
 /** renderTechniqueSkillSummary：执行对应的业务逻辑。 */
 function renderTechniqueSkillSummary(): void {
+/** skill：定义该变量以承载业务值。 */
   const skill = getCurrentTechniqueSkill();
   if (!skill) {
     techniqueSkillSummaryEl.innerHTML = '<div class="empty-hint">当前功法没有技能。</div>';
     return;
   }
+/** lines：定义该变量以承载业务值。 */
   const lines = [
     buildTechniqueMetaRow('技能描述', skill.desc || '-'),
     buildTechniqueMetaRow('冷却 / 射程', `${stringifyOptionalNumber(skill.cooldown)} / ${stringifyOptionalNumber(skill.range)}`),
@@ -810,10 +991,13 @@ function renderTechniqueSkillSummary(): void {
 
 /** renderTechniqueEffectSummary：执行对应的业务逻辑。 */
 function renderTechniqueEffectSummary(): void {
+/** selection：定义该变量以承载业务值。 */
   const selection = getCurrentTechniqueBuffEffectSelection();
   if (!selection) {
+/** skill：定义该变量以承载业务值。 */
     const skill = getCurrentTechniqueSkill();
     if (skill) {
+/** damageCount：定义该变量以承载业务值。 */
       const damageCount = skill.effects.filter((effect) => effect.type === 'damage').length;
       techniqueEffectSummaryEl.innerHTML = [
         buildTechniqueMetaRow('当前状态', '当前技能没有可编辑的 Buff 效果'),
@@ -826,6 +1010,7 @@ function renderTechniqueEffectSummary(): void {
   }
 
   const { rawEffect, resolvedEffect } = selection;
+/** summary：定义该变量以承载业务值。 */
   const summary = [
     buildTechniqueMetaRow('效果名称', resolvedEffect.name || resolvedEffect.buffId || rawEffect.buffRef || '未命名效果'),
     buildTechniqueMetaRow('来源', rawEffect.buffRef ? `共享模板 ${rawEffect.buffRef}` : '技能内联配置'),
@@ -844,6 +1029,7 @@ function buildTechniqueModifierKeyOptions(
   groupKey: TechniqueModifierGroupKey,
   selectedKey: string,
 ): string {
+/** options：定义该变量以承载业务值。 */
   const options = ['<option value="">请选择属性</option>'];
   if (groupKey === 'attrs') {
     for (const key of ATTR_KEYS) {
@@ -862,6 +1048,7 @@ function buildTechniqueModifierRows(
   groupKey: TechniqueModifierGroupKey,
   values: PartialNumericStats | Partial<Attributes>,
 ): string {
+/** entries：定义该变量以承载业务值。 */
   const entries = Object.entries(values);
   if (entries.length === 0) {
     return '<div class="empty-hint">当前没有配置条目，可用上方按钮新增。</div>';
@@ -883,6 +1070,7 @@ function buildTechniqueModifierRows(
 
 /** renderTechniqueEffectEditor：执行对应的业务逻辑。 */
 function renderTechniqueEffectEditor(): void {
+/** selection：定义该变量以承载业务值。 */
   const selection = getCurrentTechniqueBuffEffectSelection();
   if (!selection) {
     techniqueEffectEditorEl.innerHTML = '<div class="empty-hint">当前技能没有可编辑 Buff 效果，切换别的技能后再编辑。</div>';
@@ -890,14 +1078,21 @@ function renderTechniqueEffectEditor(): void {
   }
 
   const { rawEffect, resolvedEffect } = selection;
+/** valueStats：定义该变量以承载业务值。 */
   const valueStats = getTechniqueEffectGroup(rawEffect, resolvedEffect, 'valueStats') as PartialNumericStats;
+/** stats：定义该变量以承载业务值。 */
   const stats = getTechniqueEffectGroup(rawEffect, resolvedEffect, 'stats') as PartialNumericStats;
+/** attrs：定义该变量以承载业务值。 */
   const attrs = getTechniqueEffectGroup(rawEffect, resolvedEffect, 'attrs') as Partial<Attributes>;
+/** statMode：定义该变量以承载业务值。 */
   const statMode = getTechniqueEffectMode(rawEffect, resolvedEffect, 'statMode');
+/** attrMode：定义该变量以承载业务值。 */
   const attrMode = getTechniqueEffectMode(rawEffect, resolvedEffect, 'attrMode');
+/** inheritedHint：定义该变量以承载业务值。 */
   const inheritedHint = rawEffect.buffRef
     ? buildTechniqueChip(`共享模板：${rawEffect.buffRef}`)
     : buildTechniqueChip('技能内联配置');
+/** missingTemplateHint：定义该变量以承载业务值。 */
   const missingTemplateHint = rawEffect.buffRef && !techniqueBuffTemplateById.has(rawEffect.buffRef)
     ? buildTechniqueChip('共享模板未找到', 'warn')
     : '';
@@ -1035,6 +1230,7 @@ function markTechniqueDirty(message = '功法技能有未保存修改'): void {
 
 /** updateTechniqueMode：执行对应的业务逻辑。 */
 function updateTechniqueMode(modeKey: 'statMode' | 'attrMode', value: LocalBuffModifierMode): void {
+/** selection：定义该变量以承载业务值。 */
   const selection = getCurrentTechniqueBuffEffectSelection();
   if (!selection) {
     return;
@@ -1047,11 +1243,14 @@ function updateTechniqueMode(modeKey: 'statMode' | 'attrMode', value: LocalBuffM
 
 /** addTechniqueModifierRow：执行对应的业务逻辑。 */
 function addTechniqueModifierRow(groupKey: TechniqueModifierGroupKey): void {
+/** selection：定义该变量以承载业务值。 */
   const selection = getCurrentTechniqueBuffEffectSelection();
   if (!selection) {
     return;
   }
+/** group：定义该变量以承载业务值。 */
   const group = ensureTechniqueRawEffectGroup(selection.rawEffect, selection.resolvedEffect, groupKey);
+/** candidateKey：定义该变量以承载业务值。 */
   const candidateKey = getTechniqueModifierKeys(groupKey).find((key) => !Object.prototype.hasOwnProperty.call(group, key))
     ?? getTechniqueModifierKeys(groupKey)[0];
   if (!candidateKey) {
@@ -1064,10 +1263,12 @@ function addTechniqueModifierRow(groupKey: TechniqueModifierGroupKey): void {
 
 /** removeTechniqueModifierRow：执行对应的业务逻辑。 */
 function removeTechniqueModifierRow(groupKey: TechniqueModifierGroupKey, key: string): void {
+/** selection：定义该变量以承载业务值。 */
   const selection = getCurrentTechniqueBuffEffectSelection();
   if (!selection) {
     return;
   }
+/** group：定义该变量以承载业务值。 */
   const group = ensureTechniqueRawEffectGroup(selection.rawEffect, selection.resolvedEffect, groupKey);
   delete group[key as keyof typeof group];
   markTechniqueDirty();
@@ -1079,11 +1280,14 @@ function updateTechniqueModifierKey(groupKey: TechniqueModifierGroupKey, previou
   if (!nextKey || previousKey === nextKey) {
     return;
   }
+/** selection：定义该变量以承载业务值。 */
   const selection = getCurrentTechniqueBuffEffectSelection();
   if (!selection) {
     return;
   }
+/** group：定义该变量以承载业务值。 */
   const group = ensureTechniqueRawEffectGroup(selection.rawEffect, selection.resolvedEffect, groupKey);
+/** previousValue：定义该变量以承载业务值。 */
   const previousValue = group[previousKey as keyof typeof group];
   delete group[previousKey as keyof typeof group];
   group[nextKey as keyof typeof group] = (typeof previousValue === 'number' ? previousValue : 0) as never;
@@ -1093,17 +1297,21 @@ function updateTechniqueModifierKey(groupKey: TechniqueModifierGroupKey, previou
 
 /** updateTechniqueModifierValue：执行对应的业务逻辑。 */
 function updateTechniqueModifierValue(groupKey: TechniqueModifierGroupKey, key: string, rawValue: string): void {
+/** selection：定义该变量以承载业务值。 */
   const selection = getCurrentTechniqueBuffEffectSelection();
   if (!selection) {
     return;
   }
+/** group：定义该变量以承载业务值。 */
   const group = ensureTechniqueRawEffectGroup(selection.rawEffect, selection.resolvedEffect, groupKey);
+/** value：定义该变量以承载业务值。 */
   const value = rawValue.trim();
   if (!value) {
     delete group[key as keyof typeof group];
     markTechniqueDirty();
     return;
   }
+/** parsed：定义该变量以承载业务值。 */
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) {
     setTechniqueStatus(`字段 ${key} 不是合法数字`, true);
@@ -1119,12 +1327,14 @@ async function loadTechniqueTemplateList(
   preferredSkillId?: string | null,
   preferredEffectIndex?: number | null,
 ): Promise<void> {
+/** result：定义该变量以承载业务值。 */
   const result = await request<LocalTechniqueListRes>('/api/techniques');
   techniqueTemplates = [...result.techniques].sort(compareTechniqueTemplateEntries);
   techniqueBuffTemplates = result.sharedBuffs;
   techniqueBuffTemplateById = new Map(result.sharedBuffs.map((entry) => [entry.id, entry] as const));
   renderTechniqueList();
 
+/** nextKey：定义该变量以承载业务值。 */
   const nextKey = preferredKey && techniqueTemplates.some((entry) => entry.key === preferredKey)
     ? preferredKey
     : (currentTechniqueKey && techniqueTemplates.some((entry) => entry.key === currentTechniqueKey) ? currentTechniqueKey : techniqueTemplates[0]?.key ?? null);
@@ -1151,12 +1361,14 @@ async function selectTechniqueTemplate(
   preferredEffectIndex?: number | null,
 ): Promise<void> {
   if (techniqueDirty && currentTechniqueKey && currentTechniqueKey !== key) {
+/** proceed：定义该变量以承载业务值。 */
     const proceed = window.confirm('当前功法技能有未保存修改，切换后会丢失这些内容。继续吗？');
     if (!proceed) {
       return;
     }
   }
 
+/** entry：定义该变量以承载业务值。 */
   const entry = techniqueTemplates.find((item) => item.key === key);
   if (!entry) {
     throw new Error('目标功法不存在');
@@ -1182,6 +1394,7 @@ async function saveTechniqueTemplate(): Promise<void> {
 
   techniqueSaveBtn.disabled = true;
   try {
+/** result：定义该变量以承载业务值。 */
     const result = await request<LocalTechniqueSaveRes>('/api/techniques', {
       method: 'PUT',
       body: JSON.stringify({
@@ -1229,6 +1442,7 @@ function normalizeMonsterSortLevel(level: number | undefined): number {
 
 /** resolveMonsterRealmStage：执行对应的业务逻辑。 */
 function resolveMonsterRealmStage(level: number | undefined): PlayerRealmStage {
+/** normalizedLevel：定义该变量以承载业务值。 */
   const normalizedLevel = normalizeMonsterSortLevel(level);
   for (let index = PLAYER_REALM_ORDER.length - 1; index >= 0; index -= 1) {
     const stage = PLAYER_REALM_ORDER[index]!;
@@ -1256,31 +1470,37 @@ function getMonsterRealmStageSortWeight(level: number | undefined): number {
 
 /** compareMonsterTemplateEntries：执行对应的业务逻辑。 */
 function compareMonsterTemplateEntries(left: LocalMonsterTemplateEntry, right: LocalMonsterTemplateEntry): number {
+/** realmStageDiff：定义该变量以承载业务值。 */
   const realmStageDiff = getMonsterRealmStageSortWeight(right.monster.level) - getMonsterRealmStageSortWeight(left.monster.level);
   if (realmStageDiff !== 0) {
     return realmStageDiff;
   }
 
+/** tierDiff：定义该变量以承载业务值。 */
   const tierDiff = getMonsterTierSortWeight(right.monster.tier) - getMonsterTierSortWeight(left.monster.tier);
   if (tierDiff !== 0) {
     return tierDiff;
   }
 
+/** gradeDiff：定义该变量以承载业务值。 */
   const gradeDiff = getMonsterGradeSortWeight(right.monster.grade) - getMonsterGradeSortWeight(left.monster.grade);
   if (gradeDiff !== 0) {
     return gradeDiff;
   }
 
+/** levelDiff：定义该变量以承载业务值。 */
   const levelDiff = normalizeMonsterSortLevel(right.monster.level) - normalizeMonsterSortLevel(left.monster.level);
   if (levelDiff !== 0) {
     return levelDiff;
   }
 
+/** nameDiff：定义该变量以承载业务值。 */
   const nameDiff = (left.monster.name || left.monster.id).localeCompare(right.monster.name || right.monster.id, 'zh-Hans-CN');
   if (nameDiff !== 0) {
     return nameDiff;
   }
 
+/** idDiff：定义该变量以承载业务值。 */
   const idDiff = left.monster.id.localeCompare(right.monster.id);
   if (idDiff !== 0) {
     return idDiff;
@@ -1291,7 +1511,9 @@ function compareMonsterTemplateEntries(left: LocalMonsterTemplateEntry, right: L
 
 /** formatMonsterListMeta：执行对应的业务逻辑。 */
 function formatMonsterListMeta(entry: LocalMonsterTemplateEntry): string {
+/** realmStage：定义该变量以承载业务值。 */
   const realmStage = resolveMonsterRealmStage(entry.monster.level);
+/** realmLabel：定义该变量以承载业务值。 */
   const realmLabel = PLAYER_REALM_CONFIG[realmStage].shortName;
   return [
     entry.monster.id,
@@ -1304,7 +1526,9 @@ function formatMonsterListMeta(entry: LocalMonsterTemplateEntry): string {
 
 /** renderMonsterList：执行对应的业务逻辑。 */
 function renderMonsterList(): void {
+/** keyword：定义该变量以承载业务值。 */
   const keyword = monsterSearchEl.value.trim().toLowerCase();
+/** filtered：定义该变量以承载业务值。 */
   const filtered = monsterTemplates.filter((entry) => {
     if (!keyword) return true;
     return entry.monster.name.toLowerCase().includes(keyword)
@@ -1366,8 +1590,11 @@ function isValidItemType(value: string | undefined): value is ItemType {
 
 /** resolveMonsterDropIdentity：执行对应的业务逻辑。 */
 function resolveMonsterDropIdentity(source: Partial<MonsterTemplateDrop> | undefined): MonsterDropIdentity | null {
+/** itemId：定义该变量以承载业务值。 */
   const itemId = typeof source?.itemId === 'string' ? source.itemId.trim() : '';
+/** name：定义该变量以承载业务值。 */
   const name = typeof source?.name === 'string' ? source.name.trim() : '';
+/** type：定义该变量以承载业务值。 */
   const type = typeof source?.type === 'string' && isValidItemType(source.type) ? source.type : undefined;
   if (!itemId || !name || !type) {
     return null;
@@ -1399,6 +1626,7 @@ function setMonsterDropRowIdentity(row: HTMLElement, identity: MonsterDropIdenti
 
 /** buildEditorItemOptions：执行对应的业务逻辑。 */
 function buildEditorItemOptions(selectedItemId = '', fallbackDrop?: Partial<MonsterTemplateDrop>): string {
+/** options：定义该变量以承载业务值。 */
   const options = ['<option value="">请选择物品</option>'];
   for (const item of editorItems) {
     options.push(
@@ -1406,6 +1634,7 @@ function buildEditorItemOptions(selectedItemId = '', fallbackDrop?: Partial<Mons
     );
   }
   if (selectedItemId && !findEditorItem(selectedItemId)) {
+/** fallback：定义该变量以承载业务值。 */
     const fallback = resolveMonsterDropIdentity(fallbackDrop);
     if (fallback && fallback.itemId === selectedItemId) {
       options.push(
@@ -1420,6 +1649,7 @@ function buildEditorItemOptions(selectedItemId = '', fallbackDrop?: Partial<Mons
 
 /** buildEquipmentItemOptions：执行对应的业务逻辑。 */
 function buildEquipmentItemOptions(slot: EquipSlot, selectedItemId = ''): string {
+/** options：定义该变量以承载业务值。 */
   const options = ['<option value="">未装备</option>'];
   for (const item of editorItems) {
     if (item.type !== 'equipment' || item.equipSlot !== slot) {
@@ -1440,8 +1670,10 @@ function buildMonsterDropMeta(drop: Partial<MonsterTemplateDrop>): string {
   if (!drop.itemId) {
     return '从下拉列表中选择掉落物品。';
   }
+/** item：定义该变量以承载业务值。 */
   const item = findEditorItem(drop.itemId);
   if (item) {
+/** parts：定义该变量以承载业务值。 */
     const parts = [item.itemId, getItemTypeLabel(item.type)];
     if (item.grade) {
       parts.push(TECHNIQUE_GRADE_LABELS[item.grade]);
@@ -1451,6 +1683,7 @@ function buildMonsterDropMeta(drop: Partial<MonsterTemplateDrop>): string {
     }
     return parts.join(' · ');
   }
+/** fallback：定义该变量以承载业务值。 */
   const fallback = resolveMonsterDropIdentity(drop);
   if (fallback) {
     return `${fallback.name} · ${fallback.itemId} · ${getItemTypeLabel(fallback.type)} · 使用模板内记录`;
@@ -1557,8 +1790,11 @@ function renderMonsterEquipmentEditor(equipment?: Partial<Record<EquipSlot, stri
 
 /** buildMonsterElementStatInputs：执行对应的业务逻辑。 */
 function buildMonsterElementStatInputs(groupKey: 'elementDamageBonus' | 'elementDamageReduce', stats?: PartialNumericStats): string {
+/** title：定义该变量以承载业务值。 */
   const title = groupKey === 'elementDamageBonus' ? '五行增伤' : '五行减伤';
+/** note：定义该变量以承载业务值。 */
   const note = groupKey === 'elementDamageBonus' ? '给怪物配置额外的五行伤害加成。' : '给怪物配置额外的五行抗性。';
+/** group：定义该变量以承载业务值。 */
   const group = stats?.[groupKey];
   return `
     <div class="monster-element-card">
@@ -1615,6 +1851,7 @@ function renderMonsterResolvedAttrsPreview(attrs: Attributes): void {
 
 /** renderMonsterComputedStatsPreview：执行对应的业务逻辑。 */
 function renderMonsterComputedStatsPreview(stats: NumericStats): void {
+/** sectionHtml：定义该变量以承载业务值。 */
   const sectionHtml = MONSTER_COMPUTED_STAT_GROUPS
     .filter((group) => group.keys.length > 0)
     .map((group) => `
@@ -1633,6 +1870,7 @@ function renderMonsterComputedStatsPreview(stats: NumericStats): void {
       </div>
     `).join('');
 
+/** elementSections：定义该变量以承载业务值。 */
   const elementSections = ([
     ['elementDamageBonus', '五行增伤'],
     ['elementDamageReduce', '五行减伤'],
@@ -1657,6 +1895,7 @@ function renderMonsterComputedStatsPreview(stats: NumericStats): void {
 
 /** buildMonsterDropRow：执行对应的业务逻辑。 */
 function buildMonsterDropRow(drop: Partial<MonsterTemplateDrop>, index: number): string {
+/** fallback：定义该变量以承载业务值。 */
   const fallback = resolveMonsterDropIdentity(drop);
   return `
     <div
@@ -1691,7 +1930,9 @@ function buildMonsterDropRow(drop: Partial<MonsterTemplateDrop>, index: number):
 
 /** updateMonsterDropEmptyState：执行对应的业务逻辑。 */
 function updateMonsterDropEmptyState(): void {
+/** hasRows：定义该变量以承载业务值。 */
   const hasRows = monsterDropsEditorEl.querySelector('[data-drop-row]') !== null;
+/** emptyHint：定义该变量以承载业务值。 */
   const emptyHint = monsterDropsEditorEl.querySelector<HTMLElement>('[data-drop-empty]');
   if (!hasRows && !emptyHint) {
     monsterDropsEditorEl.innerHTML = '<div class="empty-hint" data-drop-empty>当前没有掉落项，点上方“新增掉落”添加。</div>';
@@ -1714,21 +1955,27 @@ function renderMonsterDropsEditor(drops: MonsterTemplateDrop[]): void {
 /** appendMonsterDropRow：执行对应的业务逻辑。 */
 function appendMonsterDropRow(drop: Partial<MonsterTemplateDrop> = {}): void {
   updateMonsterDropEmptyState();
+/** rows：定义该变量以承载业务值。 */
   const rows = monsterDropsEditorEl.querySelectorAll('[data-drop-row]');
   monsterDropsEditorEl.insertAdjacentHTML('beforeend', buildMonsterDropRow(drop, rows.length));
   updateMonsterDropEmptyState();
+/** nextRow：定义该变量以承载业务值。 */
   const nextRow = monsterDropsEditorEl.querySelectorAll<HTMLElement>('[data-drop-row]')[rows.length];
+/** firstSelect：定义该变量以承载业务值。 */
   const firstSelect = nextRow?.querySelector<HTMLSelectElement>('select[data-drop-field="itemId"]');
   firstSelect?.focus();
 }
 
 /** refreshMonsterDropRowMeta：执行对应的业务逻辑。 */
 function refreshMonsterDropRowMeta(row: HTMLElement): void {
+/** itemId：定义该变量以承载业务值。 */
   const itemId = row.querySelector<HTMLSelectElement>('[data-drop-field="itemId"]')?.value ?? '';
+/** metaEl：定义该变量以承载业务值。 */
   const metaEl = row.querySelector<HTMLElement>('[data-drop-meta]');
   if (!metaEl) {
     return;
   }
+/** identity：定义该变量以承载业务值。 */
   const identity = getMonsterDropRowIdentity(row);
   metaEl.textContent = buildMonsterDropMeta(identity && identity.itemId === itemId ? identity : { itemId });
 }
@@ -1769,21 +2016,26 @@ function syncMonsterExpMultiplierToTierDefaultIfNeeded(): void {
   if (!currentMonsterDraft) {
     return;
   }
+/** previousDefault：定义该变量以承载业务值。 */
   const previousDefault = MONSTER_TIER_EXP_MULTIPLIERS[currentMonsterDraft.tier];
+/** currentValue：定义该变量以承载业务值。 */
   const currentValue = Number(monsterExpMultiplierEl.value.trim());
   if (!Number.isFinite(currentValue) || currentValue !== previousDefault) {
     return;
   }
+/** nextTier：定义该变量以承载业务值。 */
   const nextTier = monsterTierEl.value as MonsterTier;
   monsterExpMultiplierEl.value = String(MONSTER_TIER_EXP_MULTIPLIERS[nextTier]);
 }
 
 /** readOptionalInteger：执行对应的业务逻辑。 */
 function readOptionalInteger(input: HTMLInputElement): number | undefined {
+/** value：定义该变量以承载业务值。 */
   const value = input.value.trim();
   if (!value) {
     return undefined;
   }
+/** parsed：定义该变量以承载业务值。 */
   const parsed = Number.parseInt(value, 10);
   if (!Number.isFinite(parsed)) {
     throw new Error(`字段 ${input.id} 不是合法整数`);
@@ -1793,6 +2045,7 @@ function readOptionalInteger(input: HTMLInputElement): number | undefined {
 
 /** readRequiredInteger：执行对应的业务逻辑。 */
 function readRequiredInteger(input: HTMLInputElement): number {
+/** value：定义该变量以承载业务值。 */
   const value = readOptionalInteger(input);
   if (value === undefined) {
     throw new Error(`字段 ${input.id} 不能为空`);
@@ -1802,10 +2055,12 @@ function readRequiredInteger(input: HTMLInputElement): number {
 
 /** readRequiredNumber：执行对应的业务逻辑。 */
 function readRequiredNumber(input: HTMLInputElement): number {
+/** raw：定义该变量以承载业务值。 */
   const raw = input.value.trim();
   if (!raw) {
     throw new Error(`字段 ${input.id} 不能为空`);
   }
+/** parsed：定义该变量以承载业务值。 */
   const parsed = Number(raw);
   if (!Number.isFinite(parsed)) {
     throw new Error(`字段 ${input.id} 不是合法数字`);
@@ -1815,10 +2070,12 @@ function readRequiredNumber(input: HTMLInputElement): number {
 
 /** readOptionalDecimalInput：执行对应的业务逻辑。 */
 function readOptionalDecimalInput(raw: string, label: string): number | undefined {
+/** value：定义该变量以承载业务值。 */
   const value = raw.trim();
   if (!value) {
     return undefined;
   }
+/** parsed：定义该变量以承载业务值。 */
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) {
     throw new Error(`${label} 不是合法数字`);
@@ -1828,12 +2085,14 @@ function readOptionalDecimalInput(raw: string, label: string): number | undefine
 
 /** readMonsterAttrsFromEditor：执行对应的业务逻辑。 */
 function readMonsterAttrsFromEditor(): Partial<Attributes> | undefined {
+/** attrs：定义该变量以承载业务值。 */
   let attrs: Partial<Attributes> | undefined;
   for (const input of Array.from(monsterAttrsEditorEl.querySelectorAll<HTMLInputElement>('[data-attr-key]'))) {
     const key = input.dataset.attrKey as (typeof ATTR_KEYS)[number] | undefined;
     if (!key) {
       continue;
     }
+/** value：定义该变量以承载业务值。 */
     const value = readOptionalDecimalInput(input.value, `六维属性 ${ATTR_KEY_LABELS[key]}`);
     if (value === undefined) {
       continue;
@@ -1846,12 +2105,14 @@ function readMonsterAttrsFromEditor(): Partial<Attributes> | undefined {
 
 /** readMonsterStatPercentsFromEditor：执行对应的业务逻辑。 */
 function readMonsterStatPercentsFromEditor(): NumericStatPercentages | undefined {
+/** statPercents：定义该变量以承载业务值。 */
   let statPercents: NumericStatPercentages | undefined;
   for (const input of Array.from(monsterStatPercentsEditorEl.querySelectorAll<HTMLInputElement>('[data-stat-percent-key]'))) {
     const key = input.dataset.statPercentKey as NumericScalarStatKey | undefined;
     if (!key) {
       continue;
     }
+/** value：定义该变量以承载业务值。 */
     const value = readOptionalDecimalInput(input.value, `数值倍率 ${NUMERIC_SCALAR_STAT_LABELS[key]}`);
     if (value === undefined) {
       continue;
@@ -1864,6 +2125,7 @@ function readMonsterStatPercentsFromEditor(): NumericStatPercentages | undefined
 
 /** readMonsterEquipmentFromEditor：执行对应的业务逻辑。 */
 function readMonsterEquipmentFromEditor(): Partial<Record<EquipSlot, string>> | undefined {
+/** equipment：定义该变量以承载业务值。 */
   let equipment: Partial<Record<EquipSlot, string>> | undefined;
   for (const select of Array.from(monsterEquipmentEditorEl.querySelectorAll<HTMLSelectElement>('[data-equip-slot]'))) {
     const slot = select.dataset.equipSlot as EquipSlot | undefined;
@@ -1879,6 +2141,7 @@ function readMonsterEquipmentFromEditor(): Partial<Record<EquipSlot, string>> | 
 
 /** readMonsterSkillsFromEditor：执行对应的业务逻辑。 */
 function readMonsterSkillsFromEditor(): string[] {
+/** entries：定义该变量以承载业务值。 */
   const entries = monsterSkillsEl.value
     .split(/\r?\n|,/)
     .map((entry) => entry.trim())
@@ -1888,12 +2151,14 @@ function readMonsterSkillsFromEditor(): string[] {
 
 /** readMonsterValueStatsFromEditor：执行对应的业务逻辑。 */
 function readMonsterValueStatsFromEditor(): PartialNumericStats | undefined {
+/** valueStats：定义该变量以承载业务值。 */
   let valueStats: PartialNumericStats | undefined;
   for (const input of Array.from(monsterValueStatsEditorEl.querySelectorAll<HTMLInputElement>('[data-value-stat-key]'))) {
     const key = input.dataset.valueStatKey as NumericScalarStatKey | undefined;
     if (!key) {
       continue;
     }
+/** value：定义该变量以承载业务值。 */
     const value = readOptionalDecimalInput(input.value, `基准数值 ${NUMERIC_SCALAR_STAT_LABELS[key]}`);
     if (value === undefined) {
       continue;
@@ -1909,6 +2174,7 @@ function readMonsterValueStatsFromEditor(): PartialNumericStats | undefined {
       if (!elementKey) {
         continue;
       }
+/** value：定义该变量以承载业务值。 */
       const value = readOptionalDecimalInput(input.value, `基准数值 ${groupKey}.${ELEMENT_KEY_LABELS[elementKey]}`);
       if (value === undefined) {
         continue;
@@ -1927,22 +2193,30 @@ function readMonsterValueStatsFromEditor(): PartialNumericStats | undefined {
 
 /** readMonsterDropsFromEditor：执行对应的业务逻辑。 */
 function readMonsterDropsFromEditor(): MonsterTemplateDrop[] {
+/** drops：定义该变量以承载业务值。 */
   let drops: MonsterTemplateDrop[] = [];
   for (const row of Array.from(monsterDropsEditorEl.querySelectorAll<HTMLElement>('[data-drop-row]'))) {
     const itemId = row.querySelector<HTMLSelectElement>('[data-drop-field="itemId"]')?.value.trim() ?? '';
     const countRaw = row.querySelector<HTMLInputElement>('[data-drop-field="count"]')?.value.trim() ?? '';
+/** chanceRaw：定义该变量以承载业务值。 */
     const chanceRaw = row.querySelector<HTMLInputElement>('[data-drop-field="chancePercent"]')?.value.trim() ?? '';
+/** rowIsEmpty：定义该变量以承载业务值。 */
     const rowIsEmpty = !itemId && !countRaw && !chanceRaw;
     if (rowIsEmpty) {
       continue;
     }
+/** item：定义该变量以承载业务值。 */
     const item = findEditorItem(itemId);
+/** fallback：定义该变量以承载业务值。 */
     const fallback = getMonsterDropRowIdentity(row);
+/** resolved：定义该变量以承载业务值。 */
     const resolved = item ?? (fallback && fallback.itemId === itemId ? fallback : null);
     if (!resolved) {
       throw new Error(itemId ? `掉落物品不存在: ${itemId}` : '掉落项必须选择物品');
     }
+/** count：定义该变量以承载业务值。 */
     const count = countRaw ? Number(countRaw) : 1;
+/** chancePercent：定义该变量以承载业务值。 */
     const chancePercent = chanceRaw ? Number(chanceRaw) : undefined;
     if (!Number.isFinite(count) || count <= 0) {
       throw new Error(`掉落配置 ${resolved.name} 的数量必须大于 0`);
@@ -1955,6 +2229,7 @@ function readMonsterDropsFromEditor(): MonsterTemplateDrop[] {
       name: resolved.name,
       type: resolved.type,
       count: Math.max(1, Math.floor(count)),
+/** chance：定义该变量以承载业务值。 */
       chance: chancePercent === undefined ? undefined : chancePercent / 100,
     });
   }
@@ -1963,12 +2238,19 @@ function readMonsterDropsFromEditor(): MonsterTemplateDrop[] {
 
 /** syncMonsterDraftFromForm：执行对应的业务逻辑。 */
 function syncMonsterDraftFromForm(): MonsterTemplateRecord {
+/** attrs：定义该变量以承载业务值。 */
   const attrs = readMonsterAttrsFromEditor();
+/** statPercents：定义该变量以承载业务值。 */
   const statPercents = readMonsterStatPercentsFromEditor();
+/** equipment：定义该变量以承载业务值。 */
   const equipment = readMonsterEquipmentFromEditor();
+/** skills：定义该变量以承载业务值。 */
   const skills = readMonsterSkillsFromEditor();
+/** valueStats：定义该变量以承载业务值。 */
   const valueStats = readMonsterValueStatsFromEditor();
+/** drops：定义该变量以承载业务值。 */
   const drops = readMonsterDropsFromEditor();
+/** nextDraft：定义该变量以承载业务值。 */
   const nextDraft = resolveMonsterTemplateRecord({
     id: monsterIdEl.value.trim(),
     name: monsterNameEl.value.trim(),
@@ -2019,10 +2301,12 @@ function onMonsterFormInput(): void {
 
 /** loadMonsterTemplateList：执行对应的业务逻辑。 */
 async function loadMonsterTemplateList(preferredKey?: string | null): Promise<void> {
+/** result：定义该变量以承载业务值。 */
   const result = await request<LocalMonsterTemplateListRes>('/api/monsters');
   monsterTemplates = [...result.monsters].sort(compareMonsterTemplateEntries);
   renderMonsterList();
 
+/** nextKey：定义该变量以承载业务值。 */
   const nextKey = preferredKey && monsterTemplates.some((entry) => entry.key === preferredKey)
     ? preferredKey
     : (currentMonsterKey && monsterTemplates.some((entry) => entry.key === currentMonsterKey) ? currentMonsterKey : monsterTemplates[0]?.key ?? null);
@@ -2043,12 +2327,14 @@ async function loadMonsterTemplateList(preferredKey?: string | null): Promise<vo
 /** selectMonsterTemplate：执行对应的业务逻辑。 */
 async function selectMonsterTemplate(key: string, announce = true): Promise<void> {
   if (monsterDirty && currentMonsterKey && currentMonsterKey !== key) {
+/** proceed：定义该变量以承载业务值。 */
     const proceed = window.confirm('当前怪物模板有未保存修改，切换后会丢失这些内容。继续吗？');
     if (!proceed) {
       return;
     }
   }
 
+/** entry：定义该变量以承载业务值。 */
   const entry = monsterTemplates.find((item) => item.key === key);
   if (!entry) {
     throw new Error('目标怪物模板不存在');
@@ -2074,6 +2360,7 @@ async function saveMonsterTemplate(): Promise<void> {
     return;
   }
 
+/** monster：定义该变量以承载业务值。 */
   let monster: MonsterTemplateRecord;
   try {
     monster = syncMonsterDraftFromForm();
@@ -2085,6 +2372,7 @@ async function saveMonsterTemplate(): Promise<void> {
 
   monsterSaveBtn.disabled = true;
   try {
+/** result：定义该变量以承载业务值。 */
     const result = await request<LocalMonsterSaveRes>('/api/monsters', {
       method: 'PUT',
       body: JSON.stringify({
@@ -2113,6 +2401,7 @@ async function saveMonsterTemplate(): Promise<void> {
 
 /** loadEditorCatalog：执行对应的业务逻辑。 */
 async function loadEditorCatalog(): Promise<void> {
+/** result：定义该变量以承载业务值。 */
   const result = await request<LocalEditorCatalogRes>('/api/editor-catalog');
   editorItems = result.items;
   editorItemById = new Map(result.items.map((item) => [item.itemId, item] as const));
@@ -2138,6 +2427,7 @@ function escapeHtml(input: string): string {
 
 /** loadConfigFileList：执行对应的业务逻辑。 */
 async function loadConfigFileList(): Promise<void> {
+/** result：定义该变量以承载业务值。 */
   const result = await request<LocalConfigFileListRes>('/api/config-files');
   configFiles = result.files;
   renderConfigFileList();
@@ -2149,12 +2439,14 @@ async function loadConfigFileList(): Promise<void> {
 /** selectConfigFile：执行对应的业务逻辑。 */
 async function selectConfigFile(filePath: string, announce = true): Promise<void> {
   if (configFileDirty && currentConfigFilePath && currentConfigFilePath !== filePath) {
+/** proceed：定义该变量以承载业务值。 */
     const proceed = window.confirm('当前配置文件有未保存修改，切换后会丢失这些内容。继续吗？');
     if (!proceed) {
       return;
     }
   }
 
+/** file：定义该变量以承载业务值。 */
   const file = await request<LocalConfigFileRes>(`/api/config-file?path=${encodeURIComponent(filePath)}`);
   currentConfigFilePath = file.path;
   configFileEditorEl.value = file.content;
@@ -2231,6 +2523,7 @@ function renderServiceStatus(status: LocalServerStatusRes): void {
 /** refreshServiceStatus：执行对应的业务逻辑。 */
 async function refreshServiceStatus(): Promise<void> {
   try {
+/** status：定义该变量以承载业务值。 */
     const status = await request<LocalServerStatusRes>('/api/server/status');
     renderServiceStatus(status);
   } catch (error) {
@@ -2277,7 +2570,9 @@ function bindEvents(): void {
     });
   });
   configFileListEl.addEventListener('click', (event) => {
+/** button：定义该变量以承载业务值。 */
     const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-config-path]');
+/** filePath：定义该变量以承载业务值。 */
     const filePath = button?.dataset.configPath;
     if (!filePath) return;
     selectConfigFile(filePath).catch((error: unknown) => {
@@ -2307,7 +2602,9 @@ function bindEvents(): void {
     });
   });
   techniqueListEl.addEventListener('click', (event) => {
+/** button：定义该变量以承载业务值。 */
     const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-technique-key]');
+/** key：定义该变量以承载业务值。 */
     const key = button?.dataset.techniqueKey;
     if (!key) return;
     selectTechniqueTemplate(key).catch((error: unknown) => {
@@ -2321,12 +2618,14 @@ function bindEvents(): void {
     renderTechniquePanel();
   });
   techniqueEffectSelectEl.addEventListener('change', () => {
+/** value：定义该变量以承载业务值。 */
     const value = techniqueEffectSelectEl.value.trim();
     currentTechniqueEffectIndex = value ? Number(value) : null;
     renderTechniqueEffectSummary();
     renderTechniqueEffectEditor();
   });
   techniqueEffectEditorEl.addEventListener('change', (event) => {
+/** target：定义该变量以承载业务值。 */
     const target = event.target as HTMLElement;
     if (target instanceof HTMLSelectElement && target.id === 'technique-stat-mode') {
 /** updateTechniqueMode：处理当前场景中的对应操作。 */
@@ -2339,8 +2638,11 @@ function bindEvents(): void {
       return;
     }
     if (target instanceof HTMLSelectElement && target.hasAttribute('data-tech-bonus-key-select')) {
+/** row：定义该变量以承载业务值。 */
       const row = target.closest<HTMLElement>('[data-tech-bonus-row]');
+/** groupKey：定义该变量以承载业务值。 */
       const groupKey = row?.dataset.techBonusGroup as TechniqueModifierGroupKey | undefined;
+/** previousKey：定义该变量以承载业务值。 */
       const previousKey = row?.dataset.techBonusKey;
       if (!groupKey || !previousKey) {
         return;
@@ -2349,12 +2651,16 @@ function bindEvents(): void {
     }
   });
   techniqueEffectEditorEl.addEventListener('input', (event) => {
+/** target：定义该变量以承载业务值。 */
     const target = event.target as HTMLElement;
     if (!(target instanceof HTMLInputElement) || !target.hasAttribute('data-tech-bonus-value-input')) {
       return;
     }
+/** row：定义该变量以承载业务值。 */
     const row = target.closest<HTMLElement>('[data-tech-bonus-row]');
+/** groupKey：定义该变量以承载业务值。 */
     const groupKey = row?.dataset.techBonusGroup as TechniqueModifierGroupKey | undefined;
+/** key：定义该变量以承载业务值。 */
     const key = row?.dataset.techBonusKey;
     if (!groupKey || !key) {
       return;
@@ -2362,18 +2668,24 @@ function bindEvents(): void {
     updateTechniqueModifierValue(groupKey, key, target.value);
   });
   techniqueEffectEditorEl.addEventListener('click', (event) => {
+/** target：定义该变量以承载业务值。 */
     const target = event.target as HTMLElement;
+/** addButton：定义该变量以承载业务值。 */
     const addButton = target.closest<HTMLButtonElement>('[data-tech-add-row]');
     if (addButton) {
       addTechniqueModifierRow(addButton.dataset.techAddRow as TechniqueModifierGroupKey);
       return;
     }
+/** removeButton：定义该变量以承载业务值。 */
     const removeButton = target.closest<HTMLButtonElement>('[data-tech-remove-row]');
     if (!removeButton) {
       return;
     }
+/** row：定义该变量以承载业务值。 */
     const row = removeButton.closest<HTMLElement>('[data-tech-bonus-row]');
+/** groupKey：定义该变量以承载业务值。 */
     const groupKey = row?.dataset.techBonusGroup as TechniqueModifierGroupKey | undefined;
+/** key：定义该变量以承载业务值。 */
     const key = row?.dataset.techBonusKey;
     if (!groupKey || !key) {
       return;
@@ -2406,7 +2718,9 @@ function bindEvents(): void {
     });
   });
   monsterListEl.addEventListener('click', (event) => {
+/** button：定义该变量以承载业务值。 */
     const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-monster-key]');
+/** key：定义该变量以承载业务值。 */
     const key = button?.dataset.monsterKey;
     if (!key) return;
     selectMonsterTemplate(key).catch((error: unknown) => {
@@ -2448,14 +2762,17 @@ function bindEvents(): void {
   monsterDropsEditorEl.addEventListener('input', onMonsterFormInput);
   monsterDropsEditorEl.addEventListener('change', onMonsterFormInput);
   monsterDropsEditorEl.addEventListener('change', (event) => {
+/** select：定义该变量以承载业务值。 */
     const select = (event.target as HTMLElement).closest<HTMLSelectElement>('select[data-drop-field="itemId"]');
     if (!select) {
       return;
     }
+/** row：定义该变量以承载业务值。 */
     const row = select.closest<HTMLElement>('[data-drop-row]');
     if (!row) {
       return;
     }
+/** item：定义该变量以承载业务值。 */
     const item = findEditorItem(select.value);
     if (item) {
       setMonsterDropRowIdentity(row, {
@@ -2473,11 +2790,13 @@ function bindEvents(): void {
     onMonsterFormInput();
   });
   monsterDropsEditorEl.addEventListener('click', (event) => {
+/** removeButton：定义该变量以承载业务值。 */
     const removeButton = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-drop-remove]');
     if (!removeButton) {
       return;
     }
     removeButton.closest('[data-drop-row]')?.remove();
+/** rows：定义该变量以承载业务值。 */
     const rows = Array.from(monsterDropsEditorEl.querySelectorAll<HTMLElement>('[data-drop-row-title]'));
     rows.forEach((titleEl, index) => {
       titleEl.textContent = `掉落项 ${index + 1}`;
@@ -2501,6 +2820,7 @@ function bindEvents(): void {
 async function bootstrap(): Promise<void> {
   populateMonsterStaticOptions();
   bindEvents();
+/** nextMapEditor：定义该变量以承载业务值。 */
   const nextMapEditor = new GmMapEditor(request, setAppStatus, {
     mapApiBasePath: '/api/maps',
     syncedSummaryLabel: '已与本地文件同步',

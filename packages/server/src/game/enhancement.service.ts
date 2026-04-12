@@ -62,6 +62,7 @@ interface RawEquipmentEnhancementConfig {
 
 /** EnhancementResultMessage：定义该接口的能力与字段约束。 */
 interface EnhancementResultMessage {
+/** text：定义该变量以承载业务值。 */
   text: string;
   kind?: 'system' | 'quest' | 'loot';
 }
@@ -69,7 +70,9 @@ interface EnhancementResultMessage {
 /** EnhancementMutationResult：定义该接口的能力与字段约束。 */
 export interface EnhancementMutationResult {
   error?: string;
+/** messages：定义该变量以承载业务值。 */
   messages: EnhancementResultMessage[];
+/** panelChanged：定义该变量以承载业务值。 */
   panelChanged: boolean;
   inventoryChanged?: boolean;
   equipmentChanged?: boolean;
@@ -83,7 +86,9 @@ type ResolvedEnhancementTarget =
   | { ref: EnhancementTargetRef; item: ItemStack; source: 'inventory'; slotIndex: number }
   | { ref: EnhancementTargetRef; item: ItemStack; source: 'equipment'; slot: EquipSlot };
 
+/** ENHANCEMENT_BUFF_ID：定义该变量以承载业务值。 */
 const ENHANCEMENT_BUFF_ID = 'system.enhancement';
+/** ENHANCEMENT_INTERRUPT_PAUSE_TICKS：定义该变量以承载业务值。 */
 const ENHANCEMENT_INTERRUPT_PAUSE_TICKS = 10;
 
 /** cloneItem：执行对应的业务逻辑。 */
@@ -105,18 +110,22 @@ export class EnhancementService implements OnModuleInit {
     private readonly techniqueService: TechniqueService,
   ) {}
 
+/** onModuleInit：执行对应的业务逻辑。 */
   onModuleInit(): void {
     this.loadConfigs();
   }
 
+/** hasEquippedHammer：执行对应的业务逻辑。 */
   hasEquippedHammer(player: PlayerState): boolean {
     return Boolean(player.equipment.weapon?.tags?.includes(ENHANCEMENT_HAMMER_TAG));
   }
 
+/** hasActiveEnhancementJob：执行对应的业务逻辑。 */
   hasActiveEnhancementJob(player: PlayerState): boolean {
     return (player.enhancementJob?.remainingTicks ?? 0) > 0;
   }
 
+/** getEnhancementAction：执行对应的业务逻辑。 */
   getEnhancementAction(player: PlayerState): ActionDef | null {
     if (!this.hasEquippedHammer(player) && !this.hasActiveEnhancementJob(player)) {
       return null;
@@ -130,14 +139,18 @@ export class EnhancementService implements OnModuleInit {
     };
   }
 
+/** buildVisibleEnhancementBuff：执行对应的业务逻辑。 */
   buildVisibleEnhancementBuff(player: PlayerState): VisibleBuffState | null {
+/** job：定义该变量以承载业务值。 */
     const job = player.enhancementJob;
     if (!job || job.remainingTicks <= 0) {
       return null;
     }
+/** targetLabel：定义该变量以承载业务值。 */
     const targetLabel = job.desiredTargetLevel > job.targetLevel
       ? `当前冲击 +${job.targetLevel} / 最终 +${job.desiredTargetLevel}`
       : `目标 +${job.targetLevel}`;
+/** desc：定义该变量以承载业务值。 */
     const desc = job.phase === 'paused'
       ? `强化暂歇，${job.pausedTicks} 息后继续 ${job.targetItemName} 的${targetLabel}。移动或出手会重新暂停强化。`
       : `正在强化 ${job.targetItemName}，${targetLabel}，剩余 ${job.remainingTicks} 息。移动或出手会让强化暂歇 ${ENHANCEMENT_INTERRUPT_PAUSE_TICKS} 息。`;
@@ -159,8 +172,10 @@ export class EnhancementService implements OnModuleInit {
     };
   }
 
+/** buildPanelPayload：执行对应的业务逻辑。 */
   buildPanelPayload(player: PlayerState): S2C_EnhancementPanel {
     this.normalizePlayerEnhancementState(player);
+/** state：定义该变量以承载业务值。 */
     const state = this.buildPanelState(player);
     return {
       state,
@@ -168,6 +183,7 @@ export class EnhancementService implements OnModuleInit {
     };
   }
 
+/** startEnhancement：执行对应的业务逻辑。 */
   startEnhancement(player: PlayerState, payload: C2S_StartEnhancement): EnhancementMutationResult {
     this.normalizePlayerEnhancementState(player);
     if (!this.hasEquippedHammer(player)) {
@@ -177,6 +193,7 @@ export class EnhancementService implements OnModuleInit {
       return { error: '当前已有强化任务在进行中。', messages: [], panelChanged: false };
     }
 
+/** target：定义该变量以承载业务值。 */
     const target = this.resolveTarget(player, payload.target);
     if (!target) {
       return { error: '强化目标不存在。', messages: [], panelChanged: false };
@@ -185,15 +202,22 @@ export class EnhancementService implements OnModuleInit {
       return { error: '当前仅支持强化装备。', messages: [], panelChanged: false };
     }
 
+/** currentLevel：定义该变量以承载业务值。 */
     const currentLevel = normalizeEnhanceLevel(target.item.enhanceLevel);
     if (currentLevel >= MAX_ENHANCE_LEVEL) {
       return { error: `该装备已达到强化上限 +${MAX_ENHANCE_LEVEL}。`, messages: [], panelChanged: false };
     }
+/** desiredTargetLevel：定义该变量以承载业务值。 */
     const desiredTargetLevel = this.resolveRequestedTargetLevel(currentLevel, payload.targetLevel);
+/** targetLevel：定义该变量以承载业务值。 */
     const targetLevel = currentLevel + 1;
+/** config：定义该变量以承载业务值。 */
     const config = this.configs.get(target.item.itemId);
+/** requirements：定义该变量以承载业务值。 */
     const requirements = this.getStepMaterials(config, targetLevel);
+/** protection：定义该变量以承载业务值。 */
     const protection = payload.protection ? this.resolveProtection(player, payload.protection, target, config) : null;
+/** protectionStartLevel：定义该变量以承载业务值。 */
     const protectionStartLevel = protection
       ? this.resolveProtectionStartLevel(desiredTargetLevel, payload.protectionStartLevel)
       : undefined;
@@ -201,6 +225,7 @@ export class EnhancementService implements OnModuleInit {
       return { error: '保护物不存在或不符合本次强化规则。', messages: [], panelChanged: false };
     }
 
+/** spiritStoneCost：定义该变量以承载业务值。 */
     const spiritStoneCost = getEnhancementSpiritStoneCost(target.item.level, requirements.length > 0);
     if (!this.hasEnoughMaterials(
       player,
@@ -213,12 +238,16 @@ export class EnhancementService implements OnModuleInit {
       return { error: '所需灵石或材料不足。', messages: [], panelChanged: false };
     }
 
+/** inventorySnapshot：定义该变量以承载业务值。 */
     const inventorySnapshot = player.inventory.items.map((entry) => cloneItem(entry));
+/** equipmentSnapshot：定义该变量以承载业务值。 */
     const equipmentSnapshot = structuredClone(player.equipment);
+/** recordSnapshot：定义该变量以承载业务值。 */
     const recordSnapshot = this.getSessionRecordArray(player);
     this.prepareSessionRecord(player, target.item.itemId, currentLevel);
 
     try {
+/** workingItem：定义该变量以承载业务值。 */
       const workingItem = target.source === 'inventory'
         ? this.extractInventoryTarget(player, target.slotIndex)
         : cloneItem(target.item);
@@ -232,21 +261,29 @@ export class EnhancementService implements OnModuleInit {
         }
       }
 
+/** hammer：定义该变量以承载业务值。 */
       const hammer = player.equipment.weapon;
+/** roleEnhancementLevel：定义该变量以承载业务值。 */
       const roleEnhancementLevel = this.getEnhancementSkillLevel(player);
+/** targetItemLevel：定义该变量以承载业务值。 */
       const targetItemLevel = Math.max(1, target.item.level ?? 1);
+/** totalSpeedRate：定义该变量以承载业务值。 */
       const totalSpeedRate = computeEnhancementToolSpeedRate(
         hammer?.enhancementSpeedRate,
         roleEnhancementLevel,
         targetItemLevel,
       );
+/** successRate：定义该变量以承载业务值。 */
       const successRate = computeEnhancementAdjustedSuccessRate(
         targetLevel,
         roleEnhancementLevel,
         targetItemLevel,
       );
+/** totalTicks：定义该变量以承载业务值。 */
       const totalTicks = computeEnhancementJobTicks(targetItemLevel, totalSpeedRate);
+/** protectionItemId：定义该变量以承载业务值。 */
       const protectionItemId = this.getProtectionItemId(config, target.item.itemId);
+/** protectionItemName：定义该变量以承载业务值。 */
       const protectionItemName = protectionItemId
         ? (this.contentService.getItem(protectionItemId)?.name ?? protectionItemId)
         : undefined;
@@ -301,8 +338,10 @@ export class EnhancementService implements OnModuleInit {
     }
   }
 
+/** cancelEnhancement：执行对应的业务逻辑。 */
   cancelEnhancement(player: PlayerState): EnhancementMutationResult {
     this.normalizePlayerEnhancementState(player);
+/** job：定义该变量以承载业务值。 */
     const job = player.enhancementJob;
     if (!job || job.remainingTicks <= 0) {
       return { error: '当前没有可取消的强化任务。', messages: [], panelChanged: false };
@@ -316,13 +355,17 @@ export class EnhancementService implements OnModuleInit {
     );
   }
 
+/** interruptEnhancement：执行对应的业务逻辑。 */
   interruptEnhancement(player: PlayerState, reason: 'move' | 'attack'): EnhancementMutationResult {
     this.normalizePlayerEnhancementState(player);
+/** job：定义该变量以承载业务值。 */
     const job = player.enhancementJob;
     if (!job || job.remainingTicks <= 0) {
       return { messages: [], panelChanged: false };
     }
+/** currentPausedTicks：定义该变量以承载业务值。 */
     const currentPausedTicks = job.phase === 'paused' ? job.pausedTicks : 0;
+/** addedPauseTicks：定义该变量以承载业务值。 */
     const addedPauseTicks = Math.max(0, ENHANCEMENT_INTERRUPT_PAUSE_TICKS - currentPausedTicks);
     job.phase = 'paused';
     job.pausedTicks = ENHANCEMENT_INTERRUPT_PAUSE_TICKS;
@@ -332,6 +375,7 @@ export class EnhancementService implements OnModuleInit {
     }
     return {
       messages: [{
+/** text：定义该变量以承载业务值。 */
         text: reason === 'move'
           ? `${job.targetItemName} 的强化被你移动身形打断，暂歇 ${ENHANCEMENT_INTERRUPT_PAUSE_TICKS} 息后继续。`
           : `${job.targetItemName} 的强化被你出手打断，暂歇 ${ENHANCEMENT_INTERRUPT_PAUSE_TICKS} 息后继续。`,
@@ -341,8 +385,10 @@ export class EnhancementService implements OnModuleInit {
     };
   }
 
+/** tickEnhancement：执行对应的业务逻辑。 */
   tickEnhancement(player: PlayerState): EnhancementMutationResult {
     this.normalizePlayerEnhancementState(player);
+/** job：定义该变量以承载业务值。 */
     const job = player.enhancementJob;
     if (!job || job.remainingTicks <= 0) {
       return { messages: [], panelChanged: false };
@@ -360,6 +406,7 @@ export class EnhancementService implements OnModuleInit {
       return { messages: [], panelChanged: false };
     }
 
+/** success：定义该变量以承载业务值。 */
     const success = Math.random() < job.successRate;
     if (
       success
@@ -382,6 +429,7 @@ export class EnhancementService implements OnModuleInit {
       };
     }
 
+/** protectionActiveForStep：定义该变量以承载业务值。 */
     const protectionActiveForStep = this.shouldUseProtectionForStep(job.targetLevel, job.protectionStartLevel);
     if (
       !success
@@ -404,21 +452,26 @@ export class EnhancementService implements OnModuleInit {
         error: '本阶保护物不足，任务已终止。',
       };
     }
+/** resultingLevel：定义该变量以承载业务值。 */
     const resultingLevel = success
       ? job.targetLevel
       : protectionActiveForStep
         ? Math.max(0, job.currentLevel - 1)
         : 0;
     this.recordEnhancementOutcome(player, job.targetItemId, job.targetLevel, success, resultingLevel);
+/** skillGain：定义该变量以承载业务值。 */
     const skillGain = this.grantEnhancementSkillExp(player, job.targetItemLevel, success);
+/** stepSummaryText：定义该变量以承载业务值。 */
     const stepSummaryText = success
       ? `${job.item.name} 强化成功，已提升至 +${resultingLevel}。`
       : protectionActiveForStep
         ? `${job.item.name} 强化失败，保护生效，降为 +${resultingLevel}。`
         : `${job.item.name} 强化失败，已归零为 +0。`;
+/** stepSummaryKind：定义该变量以承载业务值。 */
     const stepSummaryKind: EnhancementResultMessage['kind'] = success ? 'quest' : 'system';
 
     if (resultingLevel < job.desiredTargetLevel) {
+/** advanceResult：定义该变量以承载业务值。 */
       const advanceResult = this.advanceEnhancementJob(player, job, resultingLevel, stepSummaryText, stepSummaryKind);
       if (!advanceResult) {
         return {
@@ -446,6 +499,7 @@ export class EnhancementService implements OnModuleInit {
       };
     }
 
+/** finishResult：定义该变量以承载业务值。 */
     const finishResult = this.finishEnhancementJob(player, job, resultingLevel, stepSummaryText, stepSummaryKind);
     return {
       ...finishResult,
@@ -455,7 +509,9 @@ export class EnhancementService implements OnModuleInit {
     };
   }
 
+/** resolveRequestedTargetLevel：执行对应的业务逻辑。 */
   private resolveRequestedTargetLevel(currentLevel: number, requestedTargetLevel: unknown): number {
+/** normalized：定义该变量以承载业务值。 */
     const normalized = Math.floor(Number(requestedTargetLevel) || 0);
     return Math.min(MAX_ENHANCE_LEVEL, Math.max(currentLevel + 1, normalized || (currentLevel + 1)));
   }
@@ -464,10 +520,12 @@ export class EnhancementService implements OnModuleInit {
     desiredTargetLevel: number,
     requestedProtectionStartLevel: unknown,
   ): number {
+/** normalized：定义该变量以承载业务值。 */
     const normalized = Math.floor(Number(requestedProtectionStartLevel) || 0);
     return Math.max(2, Math.min(desiredTargetLevel, normalized || 2));
   }
 
+/** shouldUseProtectionForStep：执行对应的业务逻辑。 */
   private shouldUseProtectionForStep(targetLevel: number, protectionStartLevel: number | undefined): boolean {
     return typeof protectionStartLevel === 'number' && targetLevel >= protectionStartLevel;
   }
@@ -479,24 +537,33 @@ export class EnhancementService implements OnModuleInit {
     stepSummaryText: string,
     stepSummaryKind: EnhancementResultMessage['kind'],
   ): {
+/** continued：定义该变量以承载业务值。 */
     continued: boolean;
+/** messages：定义该变量以承载业务值。 */
     messages: EnhancementResultMessage[];
     inventoryChanged?: boolean;
     equipmentChanged?: boolean;
     attrChanged?: boolean;
     dirtyFlags?: Array<'inv' | 'tech' | 'attr' | 'actions'>;
   } | null {
+/** nextTargetLevel：定义该变量以承载业务值。 */
     const nextTargetLevel = resultingLevel + 1;
+/** config：定义该变量以承载业务值。 */
     const config = this.configs.get(job.targetItemId);
+/** nextRequirements：定义该变量以承载业务值。 */
     const nextRequirements = this.getStepMaterials(config, nextTargetLevel);
+/** nextSpiritStoneCost：定义该变量以承载业务值。 */
     const nextSpiritStoneCost = getEnhancementSpiritStoneCost(job.targetItemLevel, nextRequirements.length > 0);
+/** protectionItemId：定义该变量以承载业务值。 */
     const protectionItemId = this.shouldUseProtectionForStep(nextTargetLevel, job.protectionStartLevel)
       ? this.getProtectionItemId(config, job.targetItemId)
       : undefined;
     if (!this.hasEnoughQueuedStepResources(player, protectionItemId, nextSpiritStoneCost, nextRequirements)) {
+/** stopReason：定义该变量以承载业务值。 */
       const stopReason = job.protectionUsed
         ? '后续强化所需灵石、材料或保护物不足，队列已停止。'
         : '后续强化所需灵石或材料不足，队列已停止。';
+/** finish：定义该变量以承载业务值。 */
       const finish = this.finishEnhancementJob(
         player,
         job,
@@ -516,12 +583,15 @@ export class EnhancementService implements OnModuleInit {
       return null;
     }
 
+/** roleEnhancementLevel：定义该变量以承载业务值。 */
     const roleEnhancementLevel = this.getEnhancementSkillLevel(player);
+/** totalSpeedRate：定义该变量以承载业务值。 */
     const totalSpeedRate = computeEnhancementToolSpeedRate(
       player.equipment.weapon?.enhancementSpeedRate,
       roleEnhancementLevel,
       job.targetItemLevel,
     );
+/** totalTicks：定义该变量以承载业务值。 */
     const totalTicks = computeEnhancementJobTicks(job.targetItemLevel, totalSpeedRate);
 
     job.currentLevel = resultingLevel;
@@ -558,6 +628,7 @@ export class EnhancementService implements OnModuleInit {
     text: string,
     kind: EnhancementResultMessage['kind'],
   ): EnhancementMutationResult {
+/** resolvedItem：定义该变量以承载业务值。 */
     const resolvedItem = this.contentService.normalizeItemStack({
       ...job.item,
       count: 1,
@@ -567,6 +638,7 @@ export class EnhancementService implements OnModuleInit {
     if (job.target.source === 'equipment' && job.target.slot) {
       player.equipment[job.target.slot] = resolvedItem;
     } else if (!this.inventoryService.addItem(player, resolvedItem)) {
+/** dirtyPlayers：定义该变量以承载业务值。 */
       const dirtyPlayers = this.lootService.dropToGround(player.mapId, player.x, player.y, resolvedItem);
       player.enhancementJob = null;
       return {
@@ -582,8 +654,11 @@ export class EnhancementService implements OnModuleInit {
     return {
       messages: [{ text, kind }],
       panelChanged: true,
+/** inventoryChanged：定义该变量以承载业务值。 */
       inventoryChanged: job.target.source === 'inventory',
+/** equipmentChanged：定义该变量以承载业务值。 */
       equipmentChanged: job.target.source === 'equipment',
+/** attrChanged：定义该变量以承载业务值。 */
       attrChanged: job.target.source === 'equipment',
     };
   }
@@ -594,6 +669,7 @@ export class EnhancementService implements OnModuleInit {
     spiritStoneCost: number,
     requirements: EnhancementMaterialRequirement[],
   ): boolean {
+/** counts：定义该变量以承载业务值。 */
     const counts = new Map<string, number>();
     for (const item of player.inventory.items) {
       counts.set(item.itemId, (counts.get(item.itemId) ?? 0) + Math.max(0, Math.floor(item.count)));
@@ -626,7 +702,9 @@ export class EnhancementService implements OnModuleInit {
     return true;
   }
 
+/** blocksEquipSlotChange：执行对应的业务逻辑。 */
   blocksEquipSlotChange(player: PlayerState, slot: EquipSlot): boolean {
+/** job：定义该变量以承载业务值。 */
     const job = player.enhancementJob;
     if (!job || job.remainingTicks <= 0) {
       return false;
@@ -637,10 +715,12 @@ export class EnhancementService implements OnModuleInit {
     return job.target.source === 'equipment' && job.target.slot === slot;
   }
 
+/** getLockedSlotReason：执行对应的业务逻辑。 */
   getLockedSlotReason(player: PlayerState, slot: EquipSlot): string | null {
     if (!this.blocksEquipSlotChange(player, slot)) {
       return null;
     }
+/** job：定义该变量以承载业务值。 */
     const job = player.enhancementJob;
     if (!job) {
       return null;
@@ -651,9 +731,11 @@ export class EnhancementService implements OnModuleInit {
     return `${job.targetItemName} 强化进行中，暂时不能更换对应装备槽。`;
   }
 
+/** normalizePlayerEnhancementState：执行对应的业务逻辑。 */
   private normalizePlayerEnhancementState(player: PlayerState): void {
     this.ensureEnhancementSkill(player);
     player.enhancementRecords = this.getSessionRecordArray(player);
+/** job：定义该变量以承载业务值。 */
     const job = player.enhancementJob;
     if (!job) {
       player.enhancementJob = null;
@@ -686,15 +768,19 @@ export class EnhancementService implements OnModuleInit {
     }
   }
 
+/** buildPanelState：执行对应的业务逻辑。 */
   private buildPanelState(player: PlayerState): SyncedEnhancementPanelState | null {
     if (!this.hasEquippedHammer(player) && !this.hasActiveEnhancementJob(player)) {
       return null;
     }
+/** candidates：定义该变量以承载业务值。 */
     const candidates = this.collectCandidates(player);
+/** visibleItemIds：定义该变量以承载业务值。 */
     const visibleItemIds = new Set(candidates.map((entry) => entry.item.itemId));
     if (player.enhancementJob?.targetItemId) {
       visibleItemIds.add(player.enhancementJob.targetItemId);
     }
+/** sessionRecord：定义该变量以承载业务值。 */
     const sessionRecord = this.getSessionRecord(player);
     return {
       hammerItemId: player.equipment.weapon?.tags?.includes(ENHANCEMENT_HAMMER_TAG)
@@ -713,9 +799,12 @@ export class EnhancementService implements OnModuleInit {
     };
   }
 
+/** collectCandidates：执行对应的业务逻辑。 */
   private collectCandidates(player: PlayerState): SyncedEnhancementCandidateView[] {
+/** candidates：定义该变量以承载业务值。 */
     const candidates: SyncedEnhancementCandidateView[] = [];
     player.inventory.items.forEach((item, slotIndex) => {
+/** candidate：定义该变量以承载业务值。 */
       const candidate = this.buildCandidate(player, { source: 'inventory', slotIndex }, item);
       if (candidate) {
         candidates.push(candidate);
@@ -726,6 +815,7 @@ export class EnhancementService implements OnModuleInit {
       if (!item) {
         continue;
       }
+/** candidate：定义该变量以承载业务值。 */
       const candidate = this.buildCandidate(player, { source: 'equipment', slot }, item);
       if (candidate) {
         candidates.push(candidate);
@@ -734,6 +824,7 @@ export class EnhancementService implements OnModuleInit {
     return candidates;
   }
 
+/** buildCandidate：执行对应的业务逻辑。 */
   private buildCandidate(player: PlayerState, ref: EnhancementTargetRef, item: ItemStack): SyncedEnhancementCandidateView | null {
     if (item.type !== 'equipment') {
       return null;
@@ -746,20 +837,28 @@ export class EnhancementService implements OnModuleInit {
       return null;
     }
 
+/** config：定义该变量以承载业务值。 */
     const config = this.configs.get(item.itemId);
+/** currentLevel：定义该变量以承载业务值。 */
     const currentLevel = normalizeEnhanceLevel(item.enhanceLevel);
     if (currentLevel >= MAX_ENHANCE_LEVEL) {
       return null;
     }
+/** nextLevel：定义该变量以承载业务值。 */
     const nextLevel = currentLevel + 1;
+/** hammer：定义该变量以承载业务值。 */
     const hammer = player.equipment.weapon;
+/** roleEnhancementLevel：定义该变量以承载业务值。 */
     const roleEnhancementLevel = this.getEnhancementSkillLevel(player);
+/** totalSpeedRate：定义该变量以承载业务值。 */
     const totalSpeedRate = computeEnhancementToolSpeedRate(
       hammer?.enhancementSpeedRate,
       roleEnhancementLevel,
       item.level,
     );
+/** protectionItemId：定义该变量以承载业务值。 */
     const protectionItemId = this.getProtectionItemId(config, item.itemId);
+/** protectionItemName：定义该变量以承载业务值。 */
     const protectionItemName = protectionItemId
       ? (this.contentService.getItem(protectionItemId)?.name ?? protectionItemId)
       : undefined;
@@ -780,6 +879,7 @@ export class EnhancementService implements OnModuleInit {
     };
   }
 
+/** buildRequirementView：执行对应的业务逻辑。 */
   private buildRequirementView(player: PlayerState, requirement: EnhancementMaterialRequirement): SyncedEnhancementRequirementView {
     return {
       itemId: requirement.itemId,
@@ -793,10 +893,12 @@ export class EnhancementService implements OnModuleInit {
     config: EquipmentEnhancementConfig | undefined,
     targetEnhanceLevel: number,
   ): EnhancementMaterialRequirement[] {
+/** step：定义该变量以承载业务值。 */
     const step = config?.steps.find((entry) => entry.targetEnhanceLevel === targetEnhanceLevel);
     return (step?.materials ?? []).map((entry) => ({ ...entry }));
   }
 
+/** getProtectionItemId：执行对应的业务逻辑。 */
   private getProtectionItemId(config: EquipmentEnhancementConfig | undefined, fallbackItemId: string): string {
     return config?.protectionItemId ?? fallbackItemId;
   }
@@ -807,7 +909,9 @@ export class EnhancementService implements OnModuleInit {
     targetItem: ItemStack,
     config?: EquipmentEnhancementConfig,
   ): SyncedEnhancementProtectionCandidate[] {
+/** protectionItemId：定义该变量以承载业务值。 */
     const protectionItemId = this.getProtectionItemId(config, targetItem.itemId);
+/** candidates：定义该变量以承载业务值。 */
     const candidates: SyncedEnhancementProtectionCandidate[] = [];
     player.inventory.items.forEach((item, slotIndex) => {
       if (item.itemId !== protectionItemId) {
@@ -828,8 +932,10 @@ export class EnhancementService implements OnModuleInit {
     return candidates;
   }
 
+/** resolveTarget：执行对应的业务逻辑。 */
   private resolveTarget(player: PlayerState, ref: EnhancementTargetRef): ResolvedEnhancementTarget | null {
     if (ref.source === 'inventory' && Number.isInteger(ref.slotIndex)) {
+/** item：定义该变量以承载业务值。 */
       const item = player.inventory.items[Number(ref.slotIndex)];
       if (!item) {
         return null;
@@ -842,6 +948,7 @@ export class EnhancementService implements OnModuleInit {
       };
     }
     if (ref.source === 'equipment' && ref.slot && EQUIP_SLOTS.includes(ref.slot)) {
+/** item：定义该变量以承载业务值。 */
       const item = player.equipment[ref.slot];
       if (!item) {
         return null;
@@ -865,10 +972,12 @@ export class EnhancementService implements OnModuleInit {
     if (ref.source !== 'inventory') {
       return null;
     }
+/** protection：定义该变量以承载业务值。 */
     const protection = this.resolveTarget(player, ref);
     if (!protection || protection.source !== 'inventory') {
       return null;
     }
+/** expectedItemId：定义该变量以承载业务值。 */
     const expectedItemId = this.getProtectionItemId(config, target.item.itemId);
     if (protection.item.itemId !== expectedItemId) {
       return null;
@@ -891,6 +1000,7 @@ export class EnhancementService implements OnModuleInit {
     requirements: EnhancementMaterialRequirement[],
     protectionRequired: boolean,
   ): boolean {
+/** counts：定义该变量以承载业务值。 */
     const counts = new Map<string, number>();
     for (const item of player.inventory.items) {
       counts.set(item.itemId, (counts.get(item.itemId) ?? 0) + Math.max(0, Math.floor(item.count)));
@@ -907,7 +1017,9 @@ export class EnhancementService implements OnModuleInit {
     return requirements.every((entry) => (counts.get(entry.itemId) ?? 0) >= entry.count);
   }
 
+/** extractInventoryTarget：执行对应的业务逻辑。 */
   private extractInventoryTarget(player: PlayerState, slotIndex: number): ItemStack | null {
+/** current：定义该变量以承载业务值。 */
     const current = player.inventory.items[slotIndex];
     if (!current || current.count <= 0) {
       return null;
@@ -926,12 +1038,16 @@ export class EnhancementService implements OnModuleInit {
     };
   }
 
+/** consumeProtectionItemForFailure：执行对应的业务逻辑。 */
   private consumeProtectionItemForFailure(player: PlayerState, job: PlayerEnhancementJob): boolean {
+/** protectionItemId：定义该变量以承载业务值。 */
     const protectionItemId = job.protectionItemId ?? job.targetItemId;
     return this.consumeInventoryItemById(player, protectionItemId, 1);
   }
 
+/** consumeInventoryItemById：执行对应的业务逻辑。 */
   private consumeInventoryItemById(player: PlayerState, itemId: string, count: number): boolean {
+/** remaining：定义该变量以承载业务值。 */
     let remaining = Math.max(0, Math.floor(count));
     if (remaining <= 0) {
       return true;
@@ -941,6 +1057,7 @@ export class EnhancementService implements OnModuleInit {
       if (item?.itemId !== itemId) {
         continue;
       }
+/** consume：定义该变量以承载业务值。 */
       const consume = Math.min(remaining, Math.max(0, Math.floor(item.count)));
       if (!this.inventoryService.removeItem(player, index, consume)) {
         return false;
@@ -957,8 +1074,10 @@ export class EnhancementService implements OnModuleInit {
     success: boolean,
     resultingLevel: number,
   ): void {
+/** record：定义该变量以承载业务值。 */
     const record = this.prepareSessionRecord(player, itemId, resultingLevel);
     record.highestLevel = Math.max(normalizeEnhanceLevel(record.highestLevel), normalizeEnhanceLevel(resultingLevel));
+/** levelRecord：定义该变量以承载业务值。 */
     let levelRecord = record.levels.find((entry) => entry.targetLevel === targetLevel);
     if (!levelRecord) {
       levelRecord = {
@@ -979,8 +1098,11 @@ export class EnhancementService implements OnModuleInit {
 
 /** ensureEnhancementSkill：处理当前场景中的对应操作。 */
   private ensureEnhancementSkill(player: PlayerState) {
+/** legacyLevel：定义该变量以承载业务值。 */
     const legacyLevel = Math.max(1, Math.floor(Number(player.enhancementSkill?.level ?? player.enhancementSkillLevel) || 1));
+/** fallbackExpToNext：定义该变量以承载业务值。 */
     const fallbackExpToNext = this.getEnhancementSkillExpToNext(legacyLevel);
+/** normalized：定义该变量以承载业务值。 */
     const normalized = normalizeAlchemySkillState(player.enhancementSkill ?? {
       level: legacyLevel,
       exp: 0,
@@ -994,11 +1116,14 @@ export class EnhancementService implements OnModuleInit {
     return normalized;
   }
 
+/** getEnhancementSkillLevel：执行对应的业务逻辑。 */
   private getEnhancementSkillLevel(player: PlayerState): number {
     return Math.max(1, this.ensureEnhancementSkill(player).level);
   }
 
+/** getEnhancementSkillExpToNext：执行对应的业务逻辑。 */
   private getEnhancementSkillExpToNext(level: number): number {
+/** normalizedLevel：定义该变量以承载业务值。 */
     const normalizedLevel = Math.max(1, Math.floor(Number(level) || 1));
     return Math.max(0, this.contentService.getRealmLevelEntry(normalizedLevel)?.expToNext ?? 0);
   }
@@ -1008,10 +1133,12 @@ export class EnhancementService implements OnModuleInit {
     targetItemLevel: number,
     success: boolean,
   ): { changed: boolean; messages: EnhancementResultMessage[]; dirtyFlags: Array<'inv' | 'tech' | 'attr' | 'actions'> } {
+/** skill：定义该变量以承载业务值。 */
     const skill = this.ensureEnhancementSkill(player);
     if (skill.expToNext <= 0) {
       return { changed: false, messages: [], dirtyFlags: [] };
     }
+/** gainResult：定义该变量以承载业务值。 */
     const gainResult = computeCraftSkillExpGain({
       skillLevel: skill.level,
       targetLevel: targetItemLevel,
@@ -1021,11 +1148,13 @@ export class EnhancementService implements OnModuleInit {
       successMultiplier: 1,
       getExpToNextByLevel: (level) => this.getEnhancementSkillExpToNext(level),
     });
+/** gain：定义该变量以承载业务值。 */
     const gain = gainResult.finalGain;
     if (gain <= 0) {
       return { changed: false, messages: [], dirtyFlags: [] };
     }
     skill.exp += gain;
+/** messages：定义该变量以承载业务值。 */
     const messages: EnhancementResultMessage[] = [];
     while (skill.expToNext > 0 && skill.exp >= skill.expToNext) {
       skill.exp -= skill.expToNext;
@@ -1041,9 +1170,12 @@ export class EnhancementService implements OnModuleInit {
     }
     player.enhancementSkill = skill;
     player.enhancementSkillLevel = skill.level;
+/** craftRealmGain：定义该变量以承载业务值。 */
     const craftRealmGain = this.techniqueService.grantCraftRealmExp(player, gain / 2);
+/** craftRealmMessages：定义该变量以承载业务值。 */
     const craftRealmMessages: EnhancementResultMessage[] = craftRealmGain.messages.map((message) => ({
       text: message.text,
+/** kind：定义该变量以承载业务值。 */
       kind: message.kind === 'loot'
         ? 'loot'
         : message.kind === 'quest'
@@ -1057,7 +1189,9 @@ export class EnhancementService implements OnModuleInit {
     };
   }
 
+/** getSessionRecord：执行对应的业务逻辑。 */
   private getSessionRecord(player: PlayerState): PlayerEnhancementRecord | null {
+/** raw：定义该变量以承载业务值。 */
     const raw = player.enhancementRecords?.[0];
     if (!raw || typeof raw.itemId !== 'string' || raw.itemId.length <= 0) {
       return null;
@@ -1075,11 +1209,14 @@ export class EnhancementService implements OnModuleInit {
     };
   }
 
+/** getSessionRecordArray：执行对应的业务逻辑。 */
   private getSessionRecordArray(player: PlayerState): PlayerEnhancementRecord[] {
+/** record：定义该变量以承载业务值。 */
     const record = this.getSessionRecord(player);
     return record ? [record] : [];
   }
 
+/** cloneEnhancementRecord：执行对应的业务逻辑。 */
   private cloneEnhancementRecord(record: PlayerEnhancementRecord): PlayerEnhancementRecord {
     return {
       itemId: record.itemId,
@@ -1099,12 +1236,14 @@ export class EnhancementService implements OnModuleInit {
     itemId: string,
     initialHighestLevel: number,
   ): PlayerEnhancementRecord {
+/** current：定义该变量以承载业务值。 */
     const current = this.getSessionRecord(player);
     if (current?.itemId === itemId) {
       current.highestLevel = Math.max(current.highestLevel, normalizeEnhanceLevel(initialHighestLevel));
       player.enhancementRecords = [this.cloneEnhancementRecord(current)];
       return current;
     }
+/** next：定义该变量以承载业务值。 */
     const next: PlayerEnhancementRecord = {
       itemId,
       highestLevel: normalizeEnhanceLevel(initialHighestLevel),
@@ -1114,12 +1253,14 @@ export class EnhancementService implements OnModuleInit {
     return next;
   }
 
+/** getInventoryCount：执行对应的业务逻辑。 */
   private getInventoryCount(player: PlayerState, itemId: string): number {
     return player.inventory.items.reduce((total, item) => (
       item.itemId === itemId ? total + Math.max(0, Math.floor(item.count)) : total
     ), 0);
   }
 
+/** loadConfigs：执行对应的业务逻辑。 */
   private loadConfigs(): void {
     this.configs.clear();
     if (!fs.existsSync(this.configDir)) {
@@ -1128,7 +1269,9 @@ export class EnhancementService implements OnModuleInit {
     for (const filePath of this.collectJsonFiles(this.configDir)) {
       const fileName = path.relative(this.configDir, filePath);
       try {
+/** parsed：定义该变量以承载业务值。 */
         const parsed = JSON.parse(fs.readFileSync(filePath, 'utf8')) as unknown;
+/** entries：定义该变量以承载业务值。 */
         const entries = Array.isArray(parsed) ? parsed : [];
         for (const raw of entries) {
           const config = this.normalizeConfig(raw as RawEquipmentEnhancementConfig, fileName);
@@ -1143,7 +1286,9 @@ export class EnhancementService implements OnModuleInit {
     this.logger.log(`已加载 ${this.configs.size} 条强化配置`);
   }
 
+/** collectJsonFiles：执行对应的业务逻辑。 */
   private collectJsonFiles(dir: string): string[] {
+/** files：定义该变量以承载业务值。 */
     const files: string[] = [];
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
       const nextPath = path.join(dir, entry.name);
@@ -1158,21 +1303,26 @@ export class EnhancementService implements OnModuleInit {
     return files;
   }
 
+/** normalizeConfig：执行对应的业务逻辑。 */
   private normalizeConfig(raw: RawEquipmentEnhancementConfig, sourceLabel: string): EquipmentEnhancementConfig | null {
+/** targetItemId：定义该变量以承载业务值。 */
     const targetItemId = typeof raw.targetItemId === 'string' ? raw.targetItemId.trim() : '';
     if (!targetItemId) {
       return null;
     }
+/** item：定义该变量以承载业务值。 */
     const item = this.contentService.getItem(targetItemId);
     if (!item || item.type !== 'equipment') {
       this.logger.warn(`强化配置 ${sourceLabel} 引用了无效装备 ${targetItemId}，已忽略`);
       return null;
     }
+/** steps：定义该变量以承载业务值。 */
     const steps = Array.isArray(raw.steps)
       ? raw.steps
         .map((entry) => this.normalizeStep(entry as RawEquipmentEnhancementStepConfig))
         .filter((entry): entry is EquipmentEnhancementStepConfig => entry !== null)
       : [];
+/** protectionItemId：定义该变量以承载业务值。 */
     const protectionItemId = typeof raw.protectionItemId === 'string' && raw.protectionItemId.trim().length > 0
       ? raw.protectionItemId.trim()
       : undefined;
@@ -1183,11 +1333,14 @@ export class EnhancementService implements OnModuleInit {
     };
   }
 
+/** normalizeStep：执行对应的业务逻辑。 */
   private normalizeStep(raw: RawEquipmentEnhancementStepConfig): EquipmentEnhancementStepConfig | null {
+/** targetEnhanceLevel：定义该变量以承载业务值。 */
     const targetEnhanceLevel = Math.max(1, Math.floor(Number(raw.targetEnhanceLevel) || 0));
     if (targetEnhanceLevel <= 0) {
       return null;
     }
+/** materials：定义该变量以承载业务值。 */
     const materials = Array.isArray(raw.materials)
       ? raw.materials
         .map((entry) => this.normalizeRequirement(entry as RawEnhancementMaterialRequirement))
@@ -1199,8 +1352,11 @@ export class EnhancementService implements OnModuleInit {
     };
   }
 
+/** normalizeRequirement：执行对应的业务逻辑。 */
   private normalizeRequirement(raw: RawEnhancementMaterialRequirement): EnhancementMaterialRequirement | null {
+/** itemId：定义该变量以承载业务值。 */
     const itemId = typeof raw.itemId === 'string' ? raw.itemId.trim() : '';
+/** count：定义该变量以承载业务值。 */
     const count = Math.max(1, Math.floor(Number(raw.count) || 0));
     if (!itemId || count <= 0) {
       return null;

@@ -9,35 +9,53 @@ import {
 
 /** ChatMessageRecord：定义该类型的结构与数据语义。 */
 type ChatMessageRecord = ChatStoredMessage & {
+/** scopeId：定义该变量以承载业务值。 */
   scopeId: string;
+/** channel：定义该变量以承载业务值。 */
   channel: ChatChannel;
 };
 
 /** ChatMessageCursor：定义该类型的结构与数据语义。 */
 type ChatMessageCursor = Pick<ChatStoredMessage, 'at' | 'id'>;
 
+/** CHAT_DB_NAME：定义该变量以承载业务值。 */
 const CHAT_DB_NAME = 'mud-chat-log';
+/** CHAT_DB_VERSION：定义该变量以承载业务值。 */
 const CHAT_DB_VERSION = 1;
+/** CHAT_DB_STORE_NAME：定义该变量以承载业务值。 */
 const CHAT_DB_STORE_NAME = 'messages';
+/** CHAT_DB_INDEX_BY_CHANNEL_TIME：定义该变量以承载业务值。 */
 const CHAT_DB_INDEX_BY_CHANNEL_TIME = 'by-channel-time';
+/** CHAT_PERSIST_FLUSH_DELAY_MS：定义该变量以承载业务值。 */
 const CHAT_PERSIST_FLUSH_DELAY_MS = 200;
+/** CHAT_PERSIST_BATCH_SIZE：定义该变量以承载业务值。 */
 const CHAT_PERSIST_BATCH_SIZE = 200;
 
+/** databasePromise：定义该变量以承载业务值。 */
 let databasePromise: Promise<IDBDatabase | null> | null = null;
+/** legacyStorageCleared：定义该变量以承载业务值。 */
 let legacyStorageCleared = false;
+/** indexedDbUnavailableWarned：定义该变量以承载业务值。 */
 let indexedDbUnavailableWarned = false;
+/** persistLifecycleBound：定义该变量以承载业务值。 */
 let persistLifecycleBound = false;
+/** persistFlushTimer：定义该变量以承载业务值。 */
 let persistFlushTimer: number | null = null;
+/** persistFlushRunning：定义该变量以承载业务值。 */
 let persistFlushRunning = false;
 
 /** PendingPersistEntry：定义该类型的结构与数据语义。 */
 type PendingPersistEntry = {
+/** scopeId：定义该变量以承载业务值。 */
   scopeId: string;
+/** entry：定义该变量以承载业务值。 */
   entry: ChatStoredMessage;
+/** channels：定义该变量以承载业务值。 */
   channels: ChatChannel[];
   resolve: (value: boolean) => void;
 };
 
+/** pendingPersistEntries：定义该变量以承载业务值。 */
 const pendingPersistEntries: PendingPersistEntry[] = [];
 
 /** warnIndexedDbUnavailable：执行对应的业务逻辑。 */
@@ -84,6 +102,7 @@ export function clearLegacyChatStorage(): void {
     return;
   }
   legacyStorageCleared = true;
+/** storage：定义该变量以承载业务值。 */
   const storage = getLegacyStorage();
   if (!storage) {
     return;
@@ -119,9 +138,12 @@ async function openDatabase(): Promise<IDBDatabase | null> {
   if (!databasePromise) {
     databasePromise = new Promise<IDBDatabase | null>((resolve) => {
       try {
+/** request：定义该变量以承载业务值。 */
         const request = window.indexedDB.open(CHAT_DB_NAME, CHAT_DB_VERSION);
         request.onupgradeneeded = () => {
+/** database：定义该变量以承载业务值。 */
           const database = request.result;
+/** store：定义该变量以承载业务值。 */
           const store = database.objectStoreNames.contains(CHAT_DB_STORE_NAME)
             ? request.transaction?.objectStore(CHAT_DB_STORE_NAME)
             : database.createObjectStore(CHAT_DB_STORE_NAME, { keyPath: ['scopeId', 'channel', 'id'] });
@@ -184,6 +206,7 @@ async function readMessagesByRange(
   limit: number,
   range: IDBKeyRange,
 ): Promise<ChatStoredMessage[]> {
+/** database：定义该变量以承载业务值。 */
   const database = await openDatabase();
   if (!database) {
     return [];
@@ -191,11 +214,16 @@ async function readMessagesByRange(
 
   return new Promise<ChatStoredMessage[]>((resolve) => {
     try {
+/** transaction：定义该变量以承载业务值。 */
       const transaction = database.transaction(CHAT_DB_STORE_NAME, 'readonly');
+/** index：定义该变量以承载业务值。 */
       const index = transaction.objectStore(CHAT_DB_STORE_NAME).index(CHAT_DB_INDEX_BY_CHANNEL_TIME);
+/** request：定义该变量以承载业务值。 */
       const request = index.openCursor(range, 'prev');
+/** result：定义该变量以承载业务值。 */
       const result: ChatStoredMessage[] = [];
       request.onsuccess = () => {
+/** cursor：定义该变量以承载业务值。 */
         const cursor = request.result;
         if (!cursor || result.length >= limit) {
           resolve(result.reverse());
@@ -217,29 +245,41 @@ async function readMessagesByRange(
 
 /** pruneChannel：执行对应的业务逻辑。 */
 async function pruneChannel(scopeId: string, channel: ChatChannel): Promise<void> {
+/** database：定义该变量以承载业务值。 */
   const database = await openDatabase();
   if (!database) {
     return;
   }
 
+/** range：定义该变量以承载业务值。 */
   const range = buildChannelRange(scopeId, channel);
   try {
+/** countTransaction：定义该变量以承载业务值。 */
     const countTransaction = database.transaction(CHAT_DB_STORE_NAME, 'readonly');
+/** countIndex：定义该变量以承载业务值。 */
     const countIndex = countTransaction.objectStore(CHAT_DB_STORE_NAME).index(CHAT_DB_INDEX_BY_CHANNEL_TIME);
+/** total：定义该变量以承载业务值。 */
     const total = await withRequestResult(countIndex.count(range));
     await withTransactionComplete(countTransaction);
+/** overflow：定义该变量以承载业务值。 */
     const overflow = total - CHAT_LOG_MAX_PERSISTED_MESSAGES_PER_CHANNEL;
     if (overflow <= 0) {
       return;
     }
 
+/** keysToDelete：定义该变量以承载业务值。 */
     const keysToDelete = await new Promise<IDBValidKey[]>((resolve) => {
+/** collected：定义该变量以承载业务值。 */
       const collected: IDBValidKey[] = [];
       try {
+/** transaction：定义该变量以承载业务值。 */
         const transaction = database.transaction(CHAT_DB_STORE_NAME, 'readonly');
+/** index：定义该变量以承载业务值。 */
         const index = transaction.objectStore(CHAT_DB_STORE_NAME).index(CHAT_DB_INDEX_BY_CHANNEL_TIME);
+/** request：定义该变量以承载业务值。 */
         const request = index.openKeyCursor(range, 'next');
         request.onsuccess = () => {
+/** cursor：定义该变量以承载业务值。 */
           const cursor = request.result;
           if (!cursor || collected.length >= overflow) {
             resolve(collected);
@@ -261,7 +301,9 @@ async function pruneChannel(scopeId: string, channel: ChatChannel): Promise<void
       return;
     }
 
+/** deleteTransaction：定义该变量以承载业务值。 */
     const deleteTransaction = database.transaction(CHAT_DB_STORE_NAME, 'readwrite');
+/** store：定义该变量以承载业务值。 */
     const store = deleteTransaction.objectStore(CHAT_DB_STORE_NAME);
     for (const key of keysToDelete) {
       store.delete(key);
@@ -274,13 +316,16 @@ async function pruneChannel(scopeId: string, channel: ChatChannel): Promise<void
 
 /** persistBatch：执行对应的业务逻辑。 */
 async function persistBatch(entries: PendingPersistEntry[]): Promise<boolean> {
+/** database：定义该变量以承载业务值。 */
   const database = await openDatabase();
   if (!database || entries.length === 0) {
     return false;
   }
 
   try {
+/** dedupedRecords：定义该变量以承载业务值。 */
     const dedupedRecords = new Map<string, ChatMessageRecord>();
+/** touchedChannels：定义该变量以承载业务值。 */
     const touchedChannels = new Map<string, { scopeId: string; channel: ChatChannel }>();
     for (const pending of entries) {
       for (const channel of pending.channels) {
@@ -302,7 +347,9 @@ async function persistBatch(entries: PendingPersistEntry[]): Promise<boolean> {
       }
     }
 
+/** transaction：定义该变量以承载业务值。 */
     const transaction = database.transaction(CHAT_DB_STORE_NAME, 'readwrite');
+/** store：定义该变量以承载业务值。 */
     const store = transaction.objectStore(CHAT_DB_STORE_NAME);
     for (const record of dedupedRecords.values()) {
       store.put(record);
@@ -329,7 +376,9 @@ async function flushPendingPersistEntries(): Promise<void> {
   persistFlushRunning = true;
   try {
     while (pendingPersistEntries.length > 0) {
+/** batch：定义该变量以承载业务值。 */
       const batch = pendingPersistEntries.splice(0, CHAT_PERSIST_BATCH_SIZE);
+/** persisted：定义该变量以承载业务值。 */
       const persisted = await persistBatch(batch);
       batch.forEach(({ resolve }) => resolve(persisted));
     }

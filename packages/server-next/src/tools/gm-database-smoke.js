@@ -4,13 +4,21 @@
  */
 
 Object.defineProperty(exports, "__esModule", { value: true });
+/** node_child_process_1：定义该变量以承载业务值。 */
 const node_child_process_1 = require("node:child_process");
+/** node_fs_1：定义该变量以承载业务值。 */
 const node_fs_1 = require("node:fs");
+/** node_net_1：定义该变量以承载业务值。 */
 const node_net_1 = require("node:net");
+/** node_path_1：定义该变量以承载业务值。 */
 const node_path_1 = require("node:path");
+/** socket_io_client_1：定义该变量以承载业务值。 */
 const socket_io_client_1 = require("socket.io-client");
+/** shared_next_1：定义该变量以承载业务值。 */
 const shared_next_1 = require("@mud/shared-next");
+/** pg_1：定义该变量以承载业务值。 */
 const pg_1 = require("pg");
+/** env_alias_1：定义该变量以承载业务值。 */
 const env_alias_1 = require("../config/env-alias");
 /**
  * 记录包根目录。
@@ -625,7 +633,9 @@ async function requestJson(path, init = {}) {
  */
     const response = await fetch(`${baseUrl}${path}`, {
         method: init.method ?? 'GET',
+/** headers：定义该变量以承载业务值。 */
         headers: init.body === undefined ? undefined : { 'content-type': 'application/json' },
+/** body：定义该变量以承载业务值。 */
         body: init.body === undefined ? undefined : JSON.stringify(init.body),
     });
     if (!response.ok) {
@@ -1410,6 +1420,7 @@ function resolveBackupFilePath(backupId) {
  * 处理computechecksumfordocs。
  */
 function computeChecksumForDocs(docs) {
+/** crypto：定义该变量以承载业务值。 */
     const crypto = require('node:crypto');
     return crypto.createHash('sha256').update(JSON.stringify(docs)).digest('hex');
 }

@@ -44,6 +44,7 @@ export function getAccessToken(): string | null {
 
 /** 从当前 accessToken 读取账号名 */
 export function getCurrentAccountName(): string | null {
+/** accessToken：定义该变量以承载业务值。 */
   const accessToken = getAccessToken();
   if (!accessToken) {
     return null;
@@ -70,6 +71,7 @@ export function clearStoredTokens(): void {
 
 /** 通用 JSON 请求，自动处理 body 序列化与 Bearer 鉴权 */
 export async function requestJson<TResponse>(url: string, options: RequestOptions = {}): Promise<TResponse> {
+/** headers：定义该变量以承载业务值。 */
   const headers: Record<string, string> = {};
   if (options.body !== undefined) {
     headers['Content-Type'] = 'application/json';
@@ -78,9 +80,11 @@ export async function requestJson<TResponse>(url: string, options: RequestOption
     headers.Authorization = `Bearer ${options.accessToken}`;
   }
 
+/** res：定义该变量以承载业务值。 */
   const res = await fetch(url, {
     method: options.method ?? 'GET',
     headers,
+/** body：定义该变量以承载业务值。 */
     body: options.body === undefined ? undefined : JSON.stringify(options.body),
     signal: options.signal,
   });
@@ -108,6 +112,7 @@ export function checkDisplayNameAvailability(
   displayName: string,
   signal?: AbortSignal,
 ): Promise<DisplayNameAvailabilityRes> {
+/** params：定义该变量以承载业务值。 */
   const params = new URLSearchParams({ displayName });
   return requestJson<DisplayNameAvailabilityRes>(`/auth/display-name/check?${params.toString()}`, { signal });
 }
@@ -151,6 +156,7 @@ export function updateRoleName(
 /** readError：执行对应的业务逻辑。 */
 async function readError(res: Response): Promise<string> {
   try {
+/** data：定义该变量以承载业务值。 */
     const data = await res.json() as { message?: string | string[] };
     if (Array.isArray(data.message)) {
       return data.message.join('，');
@@ -188,15 +194,21 @@ function extractAccountName(payload: AuthTokenPayload | null): string | null {
 
 /** parseJwtPayload：执行对应的业务逻辑。 */
 function parseJwtPayload(token: string): AuthTokenPayload | null {
+/** parts：定义该变量以承载业务值。 */
   const parts = token.split('.');
   if (parts.length < 2) {
     return null;
   }
   try {
+/** normalized：定义该变量以承载业务值。 */
     const normalized = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+/** padded：定义该变量以承载业务值。 */
     const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=');
+/** binary：定义该变量以承载业务值。 */
     const binary = window.atob(padded);
+/** bytes：定义该变量以承载业务值。 */
     const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+/** json：定义该变量以承载业务值。 */
     const json = new TextDecoder().decode(bytes);
     return JSON.parse(json) as { username?: string };
   } catch {

@@ -6,18 +6,29 @@ export type EffectiveLayoutBreakpoint = 'mobile' | 'compact' | 'wide';
 
 /** ResponsiveViewportMetrics：定义该接口的能力与字段约束。 */
 export interface ResponsiveViewportMetrics {
+/** locked：定义该变量以承载业务值。 */
   locked: boolean;
+/** rawWidth：定义该变量以承载业务值。 */
   rawWidth: number;
+/** rawHeight：定义该变量以承载业务值。 */
   rawHeight: number;
+/** viewportWidth：定义该变量以承载业务值。 */
   viewportWidth: number;
+/** viewportHeight：定义该变量以承载业务值。 */
   viewportHeight: number;
+/** scale：定义该变量以承载业务值。 */
   scale: number;
+/** offsetX：定义该变量以承载业务值。 */
   offsetX: number;
+/** offsetY：定义该变量以承载业务值。 */
   offsetY: number;
+/** dpr：定义该变量以承载业务值。 */
   dpr: number;
 }
 
+/** RESPONSIVE_VIEWPORT_CHANGE_EVENT：定义该变量以承载业务值。 */
 export const RESPONSIVE_VIEWPORT_CHANGE_EVENT = 'mud:responsive-viewport-change';
+/** MIN_VIEWPORT_SCALE：定义该变量以承载业务值。 */
 const MIN_VIEWPORT_SCALE = 0.01;
 
 /** matchMediaSafe：执行对应的业务逻辑。 */
@@ -27,7 +38,9 @@ function matchMediaSafe(win: Window, query: string): boolean {
 
 /** isWindowsDesktop：执行对应的业务逻辑。 */
 function isWindowsDesktop(win: Window): boolean {
+/** platform：定义该变量以承载业务值。 */
   const platform = win.navigator.platform || '';
+/** userAgent：定义该变量以承载业务值。 */
   const userAgent = win.navigator.userAgent || '';
   return /Win/i.test(platform) || /Windows/i.test(userAgent);
 }
@@ -38,7 +51,9 @@ function shouldCompensateDesktopScaling(win: Window): boolean {
     return false;
   }
 
+/** pointerCoarse：定义该变量以承载业务值。 */
   const pointerCoarse = matchMediaSafe(win, '(pointer: coarse)');
+/** hoverNone：定义该变量以承载业务值。 */
   const hoverNone = matchMediaSafe(win, '(hover: none)');
   return !pointerCoarse && !hoverNone;
 }
@@ -65,20 +80,27 @@ function getDesktopAdjustedViewportHeight(win: Window): number {
 
 /** shouldLockDesktopViewport：执行对应的业务逻辑。 */
 function shouldLockDesktopViewport(win: Window): boolean {
+/** adjustedWidth：定义该变量以承载业务值。 */
   const adjustedWidth = getDesktopAdjustedViewportWidth(win);
   if (adjustedWidth <= UI_RESPONSIVE_BREAKPOINTS.layoutForceMobile) {
     return false;
   }
+/** pointerCoarse：定义该变量以承载业务值。 */
   const pointerCoarse = matchMediaSafe(win, '(pointer: coarse)');
+/** hoverNone：定义该变量以承载业务值。 */
   const hoverNone = matchMediaSafe(win, '(hover: none)');
   return !pointerCoarse && !hoverNone;
 }
 
 /** getResponsiveViewportMetrics：执行对应的业务逻辑。 */
 export function getResponsiveViewportMetrics(win: Window = window): ResponsiveViewportMetrics {
+/** rawWidth：定义该变量以承载业务值。 */
   const rawWidth = getRawViewportWidth(win);
+/** rawHeight：定义该变量以承载业务值。 */
   const rawHeight = getRawViewportHeight(win);
+/** dpr：定义该变量以承载业务值。 */
   const dpr = Number.isFinite(win.devicePixelRatio) ? win.devicePixelRatio : 1;
+/** locked：定义该变量以承载业务值。 */
   const locked = shouldLockDesktopViewport(win);
 
   if (!locked) {
@@ -97,9 +119,13 @@ export function getResponsiveViewportMetrics(win: Window = window): ResponsiveVi
 
   // 桌面端采用类似 Unity Canvas 的高度基准：设计高度固定，宽度随窗口比例变化。
   const scale = Math.max(MIN_VIEWPORT_SCALE, rawHeight / DESIGN_VIEWPORT.height);
+/** viewportWidth：定义该变量以承载业务值。 */
   const viewportWidth = Math.max(1, rawWidth / scale);
+/** viewportHeight：定义该变量以承载业务值。 */
   const viewportHeight = DESIGN_VIEWPORT.height;
+/** scaledWidth：定义该变量以承载业务值。 */
   const scaledWidth = viewportWidth * scale;
+/** scaledHeight：定义该变量以承载业务值。 */
   const scaledHeight = viewportHeight * scale;
 
   return {
@@ -131,6 +157,7 @@ export function clientToViewportPoint(
   clientX: number,
   clientY: number,
 ): { x: number; y: number } {
+/** metrics：定义该变量以承载业务值。 */
   const metrics = getResponsiveViewportMetrics(win);
   if (!metrics.locked || metrics.scale === 1) {
     return {
@@ -149,6 +176,7 @@ export function getDesktopScaleFactor(win: Window): number {
   if (!shouldCompensateDesktopScaling(win)) {
     return 1;
   }
+/** dpr：定义该变量以承载业务值。 */
   const dpr = Number.isFinite(win.devicePixelRatio) ? win.devicePixelRatio : 1;
   return Math.max(1, dpr);
 }
@@ -160,18 +188,21 @@ export function scaleDesktopCssPixels(_win: Window, pixels: number): number {
 
 /** getEffectiveViewportWidth：执行对应的业务逻辑。 */
 export function getEffectiveViewportWidth(win: Window): number {
+/** metrics：定义该变量以承载业务值。 */
   const metrics = getResponsiveViewportMetrics(win);
   return metrics.locked ? Math.round(metrics.viewportWidth) : getDesktopAdjustedViewportWidth(win);
 }
 
 /** getEffectiveViewportHeight：执行对应的业务逻辑。 */
 export function getEffectiveViewportHeight(win: Window): number {
+/** metrics：定义该变量以承载业务值。 */
   const metrics = getResponsiveViewportMetrics(win);
   return metrics.locked ? Math.round(metrics.viewportHeight) : getDesktopAdjustedViewportHeight(win);
 }
 
 /** getEffectiveLayoutBreakpoint：执行对应的业务逻辑。 */
 export function getEffectiveLayoutBreakpoint(win: Window): EffectiveLayoutBreakpoint {
+/** viewportWidth：定义该变量以承载业务值。 */
   const viewportWidth = getEffectiveViewportWidth(win);
   if (viewportWidth <= UI_RESPONSIVE_BREAKPOINTS.layoutForceMobile) {
     return 'mobile';
@@ -184,8 +215,11 @@ export function getEffectiveLayoutBreakpoint(win: Window): EffectiveLayoutBreakp
 
 /** shouldUseMobileUi：执行对应的业务逻辑。 */
 export function shouldUseMobileUi(win: Window): boolean {
+/** viewportWidth：定义该变量以承载业务值。 */
   const viewportWidth = getDesktopAdjustedViewportWidth(win);
+/** pointerCoarse：定义该变量以承载业务值。 */
   const pointerCoarse = matchMediaSafe(win, '(pointer: coarse)');
+/** hoverNone：定义该变量以承载业务值。 */
   const hoverNone = matchMediaSafe(win, '(hover: none)');
 
   return viewportWidth <= UI_RESPONSIVE_BREAKPOINTS.layoutForceMobile
@@ -194,6 +228,7 @@ export function shouldUseMobileUi(win: Window): boolean {
 
 /** syncViewportRootStyles：执行对应的业务逻辑。 */
 function syncViewportRootStyles(win: Window, metrics: ResponsiveViewportMetrics): void {
+/** root：定义该变量以承载业务值。 */
   const root = getViewportRoot(win.document);
   if (!root) {
     return;
@@ -223,7 +258,9 @@ function syncViewportRootStyles(win: Window, metrics: ResponsiveViewportMetrics)
 
 /** syncResponsiveViewportCss：执行对应的业务逻辑。 */
 export function syncResponsiveViewportCss(win: Window): void {
+/** root：定义该变量以承载业务值。 */
   const root = win.document.documentElement;
+/** metrics：定义该变量以承载业务值。 */
   const metrics = getResponsiveViewportMetrics(win);
 
   root.dataset.effectiveLayoutBreakpoint = getEffectiveLayoutBreakpoint(win);
@@ -240,12 +277,15 @@ export function syncResponsiveViewportCss(win: Window): void {
 
 /** bindResponsiveViewportCss：执行对应的业务逻辑。 */
 export function bindResponsiveViewportCss(win: Window = window): () => void {
+/** previousSignature：定义该变量以承载业务值。 */
   let previousSignature = '';
 
 /** refresh：通过常量导出可复用函数行为。 */
   const refresh = () => {
     syncResponsiveViewportCss(win);
+/** metrics：定义该变量以承载业务值。 */
     const metrics = getResponsiveViewportMetrics(win);
+/** signature：定义该变量以承载业务值。 */
     const signature = [
       metrics.locked ? '1' : '0',
       metrics.rawWidth,

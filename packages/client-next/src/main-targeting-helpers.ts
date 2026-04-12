@@ -10,7 +10,9 @@ import {
 
 /** TargetingActionState：定义该类型的结构与数据语义。 */
 export type TargetingActionState = {
+/** actionId：定义该变量以承载业务值。 */
   actionId: string;
+/** range：定义该变量以承载业务值。 */
   range: number;
   shape?: TargetingShape;
   radius?: number;
@@ -21,7 +23,9 @@ export type TargetingActionState = {
 
 /** TargetingTarget：定义该类型的结构与数据语义。 */
 export type TargetingTarget = {
+/** x：定义该变量以承载业务值。 */
   x: number;
+/** y：定义该变量以承载业务值。 */
   y: number;
   entityId?: string;
   entityKind?: string;
@@ -30,7 +34,9 @@ export type TargetingTarget = {
 /** TargetingEntityLike：定义该类型的结构与数据语义。 */
 export type TargetingEntityLike = {
   kind?: string;
+/** wx：定义该变量以承载业务值。 */
   wx: number;
+/** wy：定义该变量以承载业务值。 */
   wy: number;
 };
 
@@ -57,6 +63,7 @@ export function getCurrentSkillTargetingSpec(
   action: Pick<TargetingActionState, 'actionId' | 'range' | 'shape' | 'radius' | 'width' | 'height'>,
   myPlayer: PlayerState | null,
 ): TargetingGeometrySpec {
+/** skill：定义该变量以承载业务值。 */
   const skill = myPlayer
     ? myPlayer.techniques
       .flatMap((technique) => technique.skills)
@@ -91,6 +98,7 @@ export function computeAffectedCellsForAction(
   if (!myPlayer) {
     return [];
   }
+/** spec：定义该变量以承载业务值。 */
   const spec = getCurrentSkillTargetingSpec(action, myPlayer);
   return computeAffectedCellsFromAnchor({ x: myPlayer.x, y: myPlayer.y }, anchor, spec);
 }
@@ -101,11 +109,13 @@ export function resolveTargetRefForAction(
   target: TargetingTarget,
   myPlayer: PlayerState | null,
 ): string | null {
+/** entityTargetRef：定义该变量以承载业务值。 */
   const entityTargetRef = target.entityKind === 'player' && target.entityId
     ? `player:${target.entityId}`
     : target.entityKind === 'monster' && target.entityId
       ? target.entityId
       : null;
+/** geometry：定义该变量以承载业务值。 */
   const geometry = myPlayer ? getCurrentSkillTargetingSpec(action, myPlayer).shape : action.shape;
   if (geometry && geometry !== 'single') {
     return encodeTileTargetRef({ x: target.x, y: target.y });
@@ -129,26 +139,33 @@ export function hasAffectableTargetInArea(
   anchorY: number,
   myPlayer: PlayerState | null,
   args: {
+/** entities：定义该变量以承载业务值。 */
     entities: ReadonlyArray<TargetingEntityLike>;
     getTile: (x: number, y: number) => TargetTileLike | null;
     isPlayerLikeEntityKind: (kind: string | null | undefined) => boolean;
   },
 ): boolean {
+/** spec：定义该变量以承载业务值。 */
   const spec = getCurrentSkillTargetingSpec(action, myPlayer);
   if (!spec.shape || spec.shape === 'single') {
     return true;
   }
+/** origin：定义该变量以承载业务值。 */
   const origin = myPlayer ?? null;
+/** affectedCells：定义该变量以承载业务值。 */
   const affectedCells = computeAffectedCellsForAction(action, { x: anchorX, y: anchorY }, origin);
   if (affectedCells.length === 0) {
     return false;
   }
   return affectedCells.some((cell) => {
+/** hasMonster：定义该变量以承载业务值。 */
     const hasMonster = args.entities.some((entity) => entity.kind === 'monster' && entity.wx === cell.x && entity.wy === cell.y);
+/** hasPlayer：定义该变量以承载业务值。 */
     const hasPlayer = args.entities.some((entity) => args.isPlayerLikeEntityKind(entity.kind) && entity.wx === cell.x && entity.wy === cell.y);
     if (hasMonster || hasPlayer) {
       return true;
     }
+/** tile：定义该变量以承载业务值。 */
     const tile = args.getTile(cell.x, cell.y);
     return Boolean(tile?.hp && tile.hp > 0 && tile.maxHp && tile.maxHp > 0);
   });

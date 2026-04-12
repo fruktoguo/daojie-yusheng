@@ -93,13 +93,16 @@ import {
 type RequestFn = <T>(path: string, init?: RequestInit) => Promise<T>;
 /** StatusFn：定义该类型的结构与数据语义。 */
 type StatusFn = (message: string, isError?: boolean) => void;
+/** MONSTER_GRADE_OPTIONS：定义该变量以承载业务值。 */
 const MONSTER_GRADE_OPTIONS = Object.entries(TECHNIQUE_GRADE_LABELS).map(([value, label]) => ({ value, label }));
+/** MAP_ROUTE_DOMAIN_OPTIONS：定义该变量以承载业务值。 */
 const MAP_ROUTE_DOMAIN_OPTIONS: Array<{ value: MapRouteDomain; label: string }> = [
   { value: 'system', label: '系统地图' },
   { value: 'sect', label: '宗门地图' },
   { value: 'personal', label: '个人地图' },
   { value: 'dynamic', label: '动态图' },
 ];
+/** PORTAL_ROUTE_DOMAIN_OPTIONS：定义该变量以承载业务值。 */
 const PORTAL_ROUTE_DOMAIN_OPTIONS: Array<{ value: PortalRouteDomain; label: string }> = [
   { value: 'inherit', label: '继承地图' },
   { value: 'system', label: '系统传送点' },
@@ -107,10 +110,12 @@ const PORTAL_ROUTE_DOMAIN_OPTIONS: Array<{ value: PortalRouteDomain; label: stri
   { value: 'personal', label: '个人传送点' },
   { value: 'dynamic', label: '动态图传送点' },
 ];
+/** MONSTER_GRADE_OVERRIDE_OPTIONS：定义该变量以承载业务值。 */
 const MONSTER_GRADE_OVERRIDE_OPTIONS = [
   { value: '', label: '跟随模板' },
   ...MONSTER_GRADE_OPTIONS,
 ];
+/** FIVE_ELEMENT_AURA_OPTIONS：定义该变量以承载业务值。 */
 const FIVE_ELEMENT_AURA_OPTIONS = [
   { value: 'aura.refined.metal', label: '金灵气' },
   { value: 'aura.refined.wood', label: '木灵气' },
@@ -165,24 +170,36 @@ type MapComposePiece = {
   rotation: ComposeRotation,
 };
 
+/** DEFAULT_RESOURCE_KEY：定义该变量以承载业务值。 */
 const DEFAULT_RESOURCE_KEY = 'aura.refined.metal';
 
 /** EditorUndoEntry：定义该类型的结构与数据语义。 */
 type EditorUndoEntry = {
+/** draft：定义该变量以承载业务值。 */
   draft: GmMapDocument;
+/** selectedCell：定义该变量以承载业务值。 */
   selectedCell: GridPoint | null;
+/** selectedEntity：定义该变量以承载业务值。 */
   selectedEntity: MapEntitySelection;
+/** resizeWidth：定义该变量以承载业务值。 */
   resizeWidth: number;
+/** resizeHeight：定义该变量以承载业务值。 */
   resizeHeight: number;
+/** resizeFillTileType：定义该变量以承载业务值。 */
   resizeFillTileType: TileType;
+/** composePieces：定义该变量以承载业务值。 */
   composePieces: MapComposePiece[];
+/** selectedComposePieceId：定义该变量以承载业务值。 */
   selectedComposePieceId: string | null;
+/** composeSourceMapId：定义该变量以承载业务值。 */
   composeSourceMapId: string;
+/** dirty：定义该变量以承载业务值。 */
   dirty: boolean;
 };
 
 /** buildResourceBrushPresetKeys：执行对应的业务逻辑。 */
 function buildResourceBrushPresetKeys(existingKeys: string[], currentKey: string): string[] {
+/** result：定义该变量以承载业务值。 */
   const result: string[] = [];
   for (const key of [...FIVE_ELEMENT_AURA_OPTIONS.map((option) => option.value), ...existingKeys, currentKey]) {
     const normalized = key.trim();
@@ -196,6 +213,7 @@ function buildResourceBrushPresetKeys(existingKeys: string[], currentKey: string
 
 /** normalizeFiveElementAuraResourceKey：执行对应的业务逻辑。 */
 function normalizeFiveElementAuraResourceKey(resourceKey: string): string {
+/** normalized：定义该变量以承载业务值。 */
   const normalized = resourceKey.trim();
   if (FIVE_ELEMENT_AURA_OPTIONS.some((option) => option.value === normalized)) {
     return normalized;
@@ -231,46 +249,66 @@ export class GmMapEditor {
   private readonly jsonEl = document.getElementById('map-json') as HTMLTextAreaElement;
   private readonly applyJsonBtn = document.getElementById('map-apply-json') as HTMLButtonElement;
   private readonly ctx = this.canvas.getContext('2d');
+/** mapApiBasePath：定义该变量以承载业务值。 */
   private readonly mapApiBasePath: string;
+/** syncedSummaryLabel：定义该变量以承载业务值。 */
   private readonly syncedSummaryLabel: string;
+/** itemCatalog：定义该变量以承载业务值。 */
   private itemCatalog: GmEditorItemOption[] = [];
 
+/** mapList：定义该变量以承载业务值。 */
   private mapList: GmMapSummary[] = [];
+/** catalogMode：定义该变量以承载业务值。 */
   private catalogMode: MapCatalogMode = 'main';
+/** selectedMapId：定义该变量以承载业务值。 */
   private selectedMapId: string | null = null;
+/** draft：定义该变量以承载业务值。 */
   private draft: GmMapDocument | null = null;
   private dirty = false;
+/** activeTool：定义该变量以承载业务值。 */
   private activeTool: MapTool = 'paint';
+/** forcedTool：定义该变量以承载业务值。 */
   private forcedTool: MapTool | null = null;
+/** paintTileType：定义该变量以承载业务值。 */
   private paintTileType: TileType = TileType.Grass;
+/** paintLayer：定义该变量以承载业务值。 */
   private paintLayer: PaintLayer = 'tile';
   private auraPaintValue = 1;
   private resourcePaintValue = 1;
   private resourcePaintKey = DEFAULT_RESOURCE_KEY;
   private composeSourceMapId = '';
+/** composePieces：定义该变量以承载业务值。 */
   private composePieces: MapComposePiece[] = [];
+/** selectedComposePieceId：定义该变量以承载业务值。 */
   private selectedComposePieceId: string | null = null;
   private readonly composeSourceCache = new Map<string, GmMapDocument>();
   private composeDragActive = false;
   private composeDragOffsetX = 0;
   private composeDragOffsetY = 0;
   private composePieceCounter = 1;
+/** selectedCell：定义该变量以承载业务值。 */
   private selectedCell: { x: number; y: number } | null = null;
+/** hoveredCell：定义该变量以承载业务值。 */
   private hoveredCell: { x: number; y: number } | null = null;
+/** selectedEntity：定义该变量以承载业务值。 */
   private selectedEntity: MapEntitySelection = null;
+/** currentInspectorTab：定义该变量以承载业务值。 */
   private currentInspectorTab: InspectorTabId = 'selection';
   private resizeWidth = 0;
   private resizeHeight = 0;
+/** resizeFillTileType：定义该变量以承载业务值。 */
   private resizeFillTileType: TileType = TileType.Grass;
   private viewCenterX = 0;
   private viewCenterY = 0;
   private paintActive = false;
   private panActive = false;
+/** lastPaintKey：定义该变量以承载业务值。 */
   private lastPaintKey: string | null = null;
   private panStartClientX = 0;
   private panStartClientY = 0;
   private panStartCenterX = 0;
   private panStartCenterY = 0;
+/** activePointerId：定义该变量以承载业务值。 */
   private activePointerId: number | null = null;
   private activePanButtonMask = 0;
   private listLoaded = false;
@@ -278,13 +316,17 @@ export class GmMapEditor {
   private paintSessionHasUndoSnapshot = false;
   private dragEntityActive = false;
   private dragSessionHasUndoSnapshot = false;
+/** linePaintStart：定义该变量以承载业务值。 */
   private linePaintStart: GridPoint | null = null;
+/** undoStack：定义该变量以承载业务值。 */
   private undoStack: EditorUndoEntry[] = [];
+/** renderFrameId：定义该变量以承载业务值。 */
   private renderFrameId: number | null = null;
 
   constructor(
     private readonly request: RequestFn,
     private readonly setGlobalStatus: StatusFn,
+/** options：定义该变量以承载业务值。 */
     options: GmMapEditorOptions = {},
   ) {
     this.mapApiBasePath = options.mapApiBasePath ?? '/gm/maps';
@@ -296,6 +338,7 @@ export class GmMapEditor {
     this.updateUndoButtonState();
   }
 
+/** setItemCatalog：执行对应的业务逻辑。 */
   setItemCatalog(items: GmEditorItemOption[]): void {
     this.itemCatalog = clone(items);
     if (this.currentInspectorTab === 'container') {
@@ -341,6 +384,7 @@ export class GmMapEditor {
     this.setStatus('');
   }
 
+/** forceTool：执行对应的业务逻辑。 */
   forceTool(tool: MapTool): void {
     if (this.forcedTool === tool) return;
     this.endPointerInteraction();
@@ -352,6 +396,7 @@ export class GmMapEditor {
     this.renderCanvas();
   }
 
+/** clearForcedTool：执行对应的业务逻辑。 */
   clearForcedTool(): void {
     if (this.forcedTool === null) return;
     this.endPointerInteraction();
@@ -360,10 +405,12 @@ export class GmMapEditor {
     this.renderCanvas();
   }
 
+/** getCurrentTool：执行对应的业务逻辑。 */
   private getCurrentTool(): MapTool {
     return this.forcedTool ?? this.activeTool;
   }
 
+/** bindEvents：执行对应的业务逻辑。 */
   private bindEvents(): void {
     this.searchInput.addEventListener('input', () => this.renderMapList());
     this.catalogModeMainBtn?.addEventListener('click', () => this.setCatalogMode('main'));
@@ -386,14 +433,18 @@ export class GmMapEditor {
     window.addEventListener('keydown', (event) => this.handleKeyDown(event));
 
     this.listEl.addEventListener('click', (event) => {
+/** button：定义该变量以承载业务值。 */
       const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-map-id]');
+/** mapId：定义该变量以承载业务值。 */
       const mapId = button?.dataset.mapId;
       if (!mapId) return;
       this.selectMap(mapId).catch(() => {});
     });
 
     this.toolButtonsEl.addEventListener('click', (event) => {
+/** button：定义该变量以承载业务值。 */
       const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-tool]');
+/** tool：定义该变量以承载业务值。 */
       const tool = button?.dataset.tool as MapTool | undefined;
       if (!tool) return;
       this.clearForcedTool();
@@ -407,7 +458,9 @@ export class GmMapEditor {
     });
 
     this.paintLayerTabsEl?.addEventListener('click', (event) => {
+/** button：定义该变量以承载业务值。 */
       const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-paint-layer]');
+/** nextLayer：定义该变量以承载业务值。 */
       const nextLayer = button?.dataset.paintLayer as PaintLayer | undefined;
       if (!nextLayer || this.paintLayer === nextLayer) return;
       this.paintLayer = nextLayer;
@@ -416,8 +469,10 @@ export class GmMapEditor {
     });
 
     this.tilePaletteEl.addEventListener('click', (event) => {
+/** button：定义该变量以承载业务值。 */
       const button = (event.target as HTMLElement).closest<HTMLButtonElement>('button');
       if (!button) return;
+/** resourceKey：定义该变量以承载业务值。 */
       const resourceKey = button.dataset.resourceKey;
       if (resourceKey) {
         this.resourcePaintKey = normalizeFiveElementAuraResourceKey(resourceKey);
@@ -425,6 +480,7 @@ export class GmMapEditor {
         this.renderInspector();
         return;
       }
+/** tileType：定义该变量以承载业务值。 */
       const tileType = button.dataset.tileType as TileType | undefined;
       if (tileType) {
         this.paintTileType = tileType;
@@ -432,6 +488,7 @@ export class GmMapEditor {
         this.renderInspector();
         return;
       }
+/** auraValue：定义该变量以承载业务值。 */
       const auraValue = Number(button.dataset.auraValue ?? Number.NaN);
       if (!Number.isFinite(auraValue)) return;
       if (this.paintLayer === 'aura') {
@@ -444,27 +501,35 @@ export class GmMapEditor {
     });
 
     this.inspectorEl.addEventListener('click', (event) => {
+/** tabButton：定义该变量以承载业务值。 */
       const tabButton = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-map-inspector-tab]');
+/** tab：定义该变量以承载业务值。 */
       const tab = tabButton?.dataset.mapInspectorTab as InspectorTabId | undefined;
       if (tab) {
         this.currentInspectorTab = tab;
         this.renderInspector();
         return;
       }
+/** actionEl：定义该变量以承载业务值。 */
       const actionEl = (event.target as HTMLElement).closest<HTMLElement>('[data-map-action]');
+/** action：定义该变量以承载业务值。 */
       const action = actionEl?.dataset.mapAction;
       if (action) {
         this.handleAction(action, actionEl!);
         return;
       }
+/** entityButton：定义该变量以承载业务值。 */
       const entityButton = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-entity-kind]');
+/** composeButton：定义该变量以承载业务值。 */
       const composeButton = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-compose-piece-id]');
       if (composeButton) {
+/** pieceId：定义该变量以承载业务值。 */
         const pieceId = composeButton.dataset.composePieceId;
         if (pieceId) {
           this.selectedComposePieceId = pieceId;
           this.selectedEntity = null;
           this.currentInspectorTab = 'compose';
+/** piece：定义该变量以承载业务值。 */
           const piece = this.getSelectedComposePiece();
           if (piece) {
             this.selectedCell = { x: piece.x, y: piece.y };
@@ -474,12 +539,15 @@ export class GmMapEditor {
         return;
       }
       if (!entityButton) return;
+/** kind：定义该变量以承载业务值。 */
       const kind = entityButton.dataset.entityKind as MapEntityKind | undefined;
+/** index：定义该变量以承载业务值。 */
       const index = Number(entityButton.dataset.entityIndex ?? '-1');
       if (Number.isInteger(index) && kind) {
         this.selectedComposePieceId = null;
         this.selectedEntity = { kind, index } as Exclude<MapEntitySelection, null>;
         this.currentInspectorTab = kind;
+/** point：定义该变量以承载业务值。 */
         const point = this.getSelectedEntityPoint();
         if (point) this.selectedCell = point;
         this.renderInspector();
@@ -487,12 +555,15 @@ export class GmMapEditor {
     });
 
     this.inspectorEl.addEventListener('change', (event) => {
+/** target：定义该变量以承载业务值。 */
       const target = event.target as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
+/** uiField：定义该变量以承载业务值。 */
       const uiField = target.dataset.mapUi;
       if (uiField) {
         this.handleUiFieldChange(uiField, target.value);
         return;
       }
+/** result：定义该变量以承载业务值。 */
       const result = this.syncInspectorToDraft();
       if ('message' in result) {
         this.setStatus(result.message, true);
@@ -523,13 +594,16 @@ export class GmMapEditor {
     }, { passive: false });
   }
 
+/** setStatus：执行对应的业务逻辑。 */
   private setStatus(message: string, isError = false): void {
     this.statusEl.textContent = message;
     this.statusEl.style.color = isError ? 'var(--stamp-red)' : 'var(--ink-grey)';
     this.setGlobalStatus(message, isError);
   }
 
+/** renderToolControls：执行对应的业务逻辑。 */
   private renderToolControls(): void {
+/** currentTool：定义该变量以承载业务值。 */
     const currentTool = this.getCurrentTool();
     this.toolButtonsEl.innerHTML = TOOL_OPTIONS.map((tool) => `
       <button class="map-tool-btn ${currentTool === tool.value ? 'active' : ''}" data-tool="${tool.value}" type="button">
@@ -566,17 +640,21 @@ export class GmMapEditor {
       `).join('')}`;
   }
 
+/** loadMapList：执行对应的业务逻辑。 */
   private async loadMapList(force = false): Promise<void> {
+/** data：定义该变量以承载业务值。 */
     const data = await this.request<GmMapListRes>(this.mapApiBasePath);
     this.mapList = data.maps;
     this.listLoaded = true;
     if (force && this.selectedMapId) {
+/** exists：定义该变量以承载业务值。 */
       const exists = data.maps.some((map) => map.id === this.selectedMapId);
       if (!exists) {
         this.selectedMapId = null;
         this.draft = null;
       }
     }
+/** visibleMaps：定义该变量以承载业务值。 */
     const visibleMaps = this.getVisibleMapList();
     if (!this.selectedMapId && visibleMaps.length > 0) {
       this.selectedMapId = visibleMaps[0]!.id;
@@ -585,11 +663,14 @@ export class GmMapEditor {
     this.renderMapList();
   }
 
+/** getMapCatalogMode：执行对应的业务逻辑。 */
   private getMapCatalogMode(map: GmMapSummary): MapCatalogMode {
     return map.catalogMode === 'piece' ? 'piece' : 'main';
   }
 
+/** getVisibleMapList：执行对应的业务逻辑。 */
   private getVisibleMapList(): GmMapSummary[] {
+/** mapsInMode：定义该变量以承载业务值。 */
     const mapsInMode = this.mapList.filter((map) => this.getMapCatalogMode(map) === this.catalogMode);
     if (mapsInMode.length > 0) {
       return mapsInMode;
@@ -597,7 +678,9 @@ export class GmMapEditor {
     return this.mapList;
   }
 
+/** inferComposeGroupId：执行对应的业务逻辑。 */
   private inferComposeGroupId(mapId: string): string {
+/** marker：定义该变量以承载业务值。 */
     const marker = mapId.lastIndexOf('_');
     if (marker <= 0) {
       return mapId;
@@ -605,7 +688,9 @@ export class GmMapEditor {
     return mapId.slice(0, marker);
   }
 
+/** getComposeGroupIdForMap：执行对应的业务逻辑。 */
   private getComposeGroupIdForMap(mapId: string): string {
+/** summary：定义该变量以承载业务值。 */
     const summary = this.mapList.find((map) => map.id === mapId);
     if (summary?.catalogMode === 'piece') {
       return summary.catalogGroupId?.trim() || this.inferComposeGroupId(mapId);
@@ -613,7 +698,9 @@ export class GmMapEditor {
     return summary?.id || mapId;
   }
 
+/** getComposeSourceOptionsForMap：执行对应的业务逻辑。 */
   private getComposeSourceOptionsForMap(mapId: string): GmMapSummary[] {
+/** groupId：定义该变量以承载业务值。 */
     const groupId = this.getComposeGroupIdForMap(mapId);
     return this.mapList.filter((map) => {
       if (map.id === mapId) {
@@ -626,6 +713,7 @@ export class GmMapEditor {
     });
   }
 
+/** setCatalogMode：执行对应的业务逻辑。 */
   private setCatalogMode(mode: MapCatalogMode): void {
     if (this.catalogMode === mode) {
       return;
@@ -634,13 +722,17 @@ export class GmMapEditor {
     this.renderMapList();
   }
 
+/** renderCatalogModeButtons：执行对应的业务逻辑。 */
   private renderCatalogModeButtons(): void {
     this.catalogModeMainBtn?.classList.toggle('primary', this.catalogMode === 'main');
     this.catalogModePieceBtn?.classList.toggle('primary', this.catalogMode === 'piece');
   }
 
+/** renderMapList：执行对应的业务逻辑。 */
   private renderMapList(): void {
+/** keyword：定义该变量以承载业务值。 */
     const keyword = this.searchInput.value.trim().toLowerCase();
+/** filtered：定义该变量以承载业务值。 */
     const filtered = this.getVisibleMapList().filter((map) => {
       if (!keyword) return true;
       return [map.id, map.name, map.recommendedRealm ?? '', map.description ?? '', map.catalogGroupName ?? '', map.sourcePath ?? '']
@@ -652,9 +744,12 @@ export class GmMapEditor {
       return;
     }
     if (this.catalogMode === 'piece') {
+/** previousGroup：定义该变量以承载业务值。 */
       let previousGroup = '';
       this.listEl.innerHTML = filtered.map((map) => {
+/** groupName：定义该变量以承载业务值。 */
         const groupName = map.catalogGroupName?.trim() || '未分组散图';
+/** heading：定义该变量以承载业务值。 */
         const heading = groupName !== previousGroup
           ? `<div class="map-row-meta" style="margin:10px 0 6px; font-weight:700;">${escapeHtml(groupName)}</div>`
           : '';
@@ -677,6 +772,7 @@ export class GmMapEditor {
     `).join('');
   }
 
+/** selectMap：执行对应的业务逻辑。 */
   private async selectMap(mapId: string): Promise<void> {
     if (mapId === this.selectedMapId && this.draft) return;
     if (this.dirty && !window.confirm('当前地图有未保存修改，切换后会丢失这些修改。继续吗？')) {
@@ -686,7 +782,9 @@ export class GmMapEditor {
     this.renderMapList();
   }
 
+/** loadMap：执行对应的业务逻辑。 */
   private async loadMap(mapId: string, announce = true): Promise<void> {
+/** data：定义该变量以承载业务值。 */
     const data = await this.request<GmMapDetailRes>(`${this.mapApiBasePath}/${encodeURIComponent(mapId)}`);
     this.selectedMapId = mapId;
     this.draft = clone(data.map);
@@ -712,6 +810,7 @@ export class GmMapEditor {
     }
   }
 
+/** renderInspector：执行对应的业务逻辑。 */
   private renderInspector(): void {
     if (!this.draft) {
       this.editorPanelEl.classList.add('hidden');
@@ -727,11 +826,15 @@ export class GmMapEditor {
     this.editorEmptyEl.classList.add('hidden');
     this.canvasEmptyEl.classList.add('hidden');
 
+/** selectedCell：定义该变量以承载业务值。 */
     const selectedCell = this.selectedCell;
+/** selectedTileType：定义该变量以承载业务值。 */
     const selectedTileType = selectedCell ? this.getTileTypeAt(selectedCell.x, selectedCell.y) : null;
+/** selectedEntityPoint：定义该变量以承载业务值。 */
     const selectedEntityPoint = this.getSelectedEntityPoint();
     this.draft.resources = this.draft.resources ?? [];
 
+/** summaryBits：定义该变量以承载业务值。 */
     const summaryBits = [
       `${this.draft.name} (${this.draft.id})`,
       `${this.draft.width} x ${this.draft.height}`,
@@ -766,8 +869,10 @@ export class GmMapEditor {
   }
 
   private renderInspectorTabContent(
+/** selectedCell：定义该变量以承载业务值。 */
     selectedCell: { x: number; y: number } | null,
     selectedTileType: TileType | null,
+/** selectedEntityPoint：定义该变量以承载业务值。 */
     selectedEntityPoint: { x: number; y: number } | null,
   ): string {
     switch (this.currentInspectorTab) {
@@ -798,9 +903,13 @@ export class GmMapEditor {
     }
   }
 
+/** renderSelectionTab：执行对应的业务逻辑。 */
   private renderSelectionTab(selectedCell: { x: number; y: number } | null, selectedTileType: TileType | null): string {
+/** selectedAura：定义该变量以承载业务值。 */
     const selectedAura = selectedCell ? this.getAuraAt(selectedCell.x, selectedCell.y) : null;
+/** selectedResources：定义该变量以承载业务值。 */
     const selectedResources = selectedCell ? this.getResourcesAt(selectedCell.x, selectedCell.y) : [];
+/** resourceSummary：定义该变量以承载业务值。 */
     const resourceSummary = formatResourceSummary(selectedResources);
     return `
       <section class="editor-section">
@@ -828,6 +937,7 @@ export class GmMapEditor {
     `;
   }
 
+/** renderMetaTab：执行对应的业务逻辑。 */
   private renderMetaTab(): string {
     if (!this.draft) return '';
     return `
@@ -874,10 +984,14 @@ export class GmMapEditor {
     `;
   }
 
+/** renderComposeTab：执行对应的业务逻辑。 */
   private renderComposeTab(): string {
     if (!this.draft) return '';
+/** sourceOptions：定义该变量以承载业务值。 */
     const sourceOptions = this.getComposeSourceOptionsForMap(this.draft.id);
+/** selectedPiece：定义该变量以承载业务值。 */
     const selectedPiece = this.getSelectedComposePiece();
+/** selectedSource：定义该变量以承载业务值。 */
     const selectedSource = this.composeSourceMapId
       ? sourceOptions.find((map) => map.id === this.composeSourceMapId) ?? null
       : null;
@@ -929,6 +1043,7 @@ export class GmMapEditor {
     `;
   }
 
+/** renderPortalTab：执行对应的业务逻辑。 */
   private renderPortalTab(selectedPoint: { x: number; y: number } | null): string {
     if (!this.draft) return '';
     return `
@@ -954,6 +1069,7 @@ export class GmMapEditor {
     `;
   }
 
+/** renderNpcTab：执行对应的业务逻辑。 */
   private renderNpcTab(selectedPoint: { x: number; y: number } | null): string {
     if (!this.draft) return '';
     return `
@@ -979,6 +1095,7 @@ export class GmMapEditor {
     `;
   }
 
+/** renderMonsterTab：执行对应的业务逻辑。 */
   private renderMonsterTab(selectedPoint: { x: number; y: number } | null): string {
     if (!this.draft) return '';
     return `
@@ -1004,6 +1121,7 @@ export class GmMapEditor {
     `;
   }
 
+/** renderAuraTab：执行对应的业务逻辑。 */
   private renderAuraTab(selectedPoint: { x: number; y: number } | null): string {
     if (!this.draft) return '';
     return `
@@ -1029,14 +1147,19 @@ export class GmMapEditor {
     `;
   }
 
+/** renderResourceTab：执行对应的业务逻辑。 */
   private renderResourceTab(selectedPoint: { x: number; y: number } | null): string {
     if (!this.draft) return '';
+/** uniqueKeys：定义该变量以承载业务值。 */
     const uniqueKeys = [...new Set((this.draft.resources ?? []).map((point) => getResourceRecordKey(point)).filter(Boolean))]
       .sort((left, right) => {
+/** sortKeyCompare：定义该变量以承载业务值。 */
         const sortKeyCompare = getResourceTypeSortKey(left).localeCompare(getResourceTypeSortKey(right), 'zh-CN');
         return sortKeyCompare !== 0 ? sortKeyCompare : left.localeCompare(right, 'zh-CN');
       });
+/** brushPresetKeys：定义该变量以承载业务值。 */
     const brushPresetKeys = buildResourceBrushPresetKeys(uniqueKeys, this.resourcePaintKey);
+/** resourceGroups：定义该变量以承载业务值。 */
     const resourceGroups = uniqueKeys.map((resourceKey) => ({
       resourceKey,
       label: formatResourceTypeLabel(resourceKey),
@@ -1049,10 +1172,13 @@ export class GmMapEditor {
           || left.index - right.index
         )),
     }));
+/** selectedResource：定义该变量以承载业务值。 */
     const selectedResource = this.selectedEntity?.kind === 'resource'
       ? this.draft.resources?.[this.selectedEntity.index]
       : null;
+/** selectedResourceKey：定义该变量以承载业务值。 */
     const selectedResourceKey = selectedResource ? getResourceRecordKey(selectedResource) : this.resourcePaintKey;
+/** currentBrushLabel：定义该变量以承载业务值。 */
     const currentBrushLabel = `${formatResourceTypeLabel(this.resourcePaintKey || selectedResourceKey)} ${formatAuraLevelText(this.resourcePaintValue)}`;
     return `
       <section class="editor-section">
@@ -1100,6 +1226,7 @@ export class GmMapEditor {
     `;
   }
 
+/** renderSafeZoneTab：执行对应的业务逻辑。 */
   private renderSafeZoneTab(selectedPoint: { x: number; y: number } | null): string {
     if (!this.draft) return '';
     return `
@@ -1125,8 +1252,10 @@ export class GmMapEditor {
     `;
   }
 
+/** renderLandmarkTab：执行对应的业务逻辑。 */
   private renderLandmarkTab(selectedPoint: { x: number; y: number } | null): string {
     if (!this.draft) return '';
+/** landmarks：定义该变量以承载业务值。 */
     const landmarks = (this.draft.landmarks ?? []).flatMap((landmark, index) => landmark.container ? [] : [{ landmark, index }]);
     return `
       <section class="editor-section">
@@ -1151,8 +1280,10 @@ export class GmMapEditor {
     `;
   }
 
+/** renderContainerTab：执行对应的业务逻辑。 */
   private renderContainerTab(selectedPoint: { x: number; y: number } | null): string {
     if (!this.draft) return '';
+/** containers：定义该变量以承载业务值。 */
     const containers = this.getContainerLandmarks();
     return `
       <section class="editor-section">
@@ -1177,6 +1308,7 @@ export class GmMapEditor {
     `;
   }
 
+/** renderSelectedEntitySection：执行对应的业务逻辑。 */
   private renderSelectedEntitySection(selectedPoint: { x: number; y: number } | null): string {
     if (!this.draft || !this.selectedEntity) {
       return `
@@ -1193,9 +1325,12 @@ export class GmMapEditor {
     }
 
     if (this.selectedEntity.kind === 'portal') {
+/** portal：定义该变量以承载业务值。 */
       const portal = this.draft.portals[this.selectedEntity.index];
       if (!portal) return '';
+/** portalKind：定义该变量以承载业务值。 */
       const portalKind = portal.kind === 'stairs' ? 'stairs' : 'portal';
+/** portalTrigger：定义该变量以承载业务值。 */
       const portalTrigger = portal.trigger ?? (portalKind === 'stairs' ? 'auto' : 'manual');
       return `
         <section class="editor-section">
@@ -1231,7 +1366,9 @@ export class GmMapEditor {
     }
 
     if (this.selectedEntity.kind === 'npc') {
+/** npcIndex：定义该变量以承载业务值。 */
       const npcIndex = this.selectedEntity.index;
+/** npc：定义该变量以承载业务值。 */
       const npc = this.draft.npcs[npcIndex];
       if (!npc) return '';
       return `
@@ -1259,6 +1396,7 @@ export class GmMapEditor {
     }
 
     if (this.selectedEntity.kind === 'monster') {
+/** spawn：定义该变量以承载业务值。 */
       const spawn = this.draft.monsterSpawns[this.selectedEntity.index];
       if (!spawn) return '';
       return `
@@ -1291,6 +1429,7 @@ export class GmMapEditor {
     }
 
     if (this.selectedEntity.kind === 'safeZone') {
+/** zone：定义该变量以承载业务值。 */
       const zone = this.draft.safeZones?.[this.selectedEntity.index];
       if (!zone) return '';
       return `
@@ -1312,10 +1451,14 @@ export class GmMapEditor {
     }
 
     if (this.selectedEntity.kind === 'container') {
+/** selectedIndex：定义该变量以承载业务值。 */
       const selectedIndex = this.selectedEntity.index;
+/** containerLandmark：定义该变量以承载业务值。 */
       const containerLandmark = this.getContainerLandmark(selectedIndex);
       if (!containerLandmark || !containerLandmark.container) return '';
+/** container：定义该变量以承载业务值。 */
       const container = containerLandmark.container;
+/** poolRows：定义该变量以承载业务值。 */
       const poolRows = (container.lootPools ?? []).map((pool, poolIndex) => `
         <section class="editor-section" style="margin-top: 12px;">
           <div class="editor-section-head">
@@ -1380,6 +1523,7 @@ export class GmMapEditor {
       `;
     }
 
+/** aura：定义该变量以承载业务值。 */
     const aura = this.draft.auras?.[this.selectedEntity.index];
     if (this.selectedEntity.kind === 'aura') {
       if (!aura) return '';
@@ -1402,8 +1546,10 @@ export class GmMapEditor {
     }
 
     if (this.selectedEntity.kind === 'resource') {
+/** resource：定义该变量以承载业务值。 */
       const resource = this.draft.resources?.[this.selectedEntity.index];
       if (!resource) return '';
+/** resourceKey：定义该变量以承载业务值。 */
       const resourceKey = getResourceRecordKey(resource);
       return `
         <section class="editor-section">
@@ -1433,6 +1579,7 @@ export class GmMapEditor {
       `;
     }
 
+/** landmark：定义该变量以承载业务值。 */
     const landmark = this.draft.landmarks?.[this.selectedEntity.index];
     if (!landmark) return '';
     return `
@@ -1456,7 +1603,9 @@ export class GmMapEditor {
     `;
   }
 
+/** describeSelectedEntity：执行对应的业务逻辑。 */
   private describeSelectedEntity(): string {
+/** selectedComposePiece：定义该变量以承载业务值。 */
     const selectedComposePiece = this.getSelectedComposePiece();
     if (selectedComposePiece) {
       return `拼图块 ${selectedComposePiece.sourceMapName} ${selectedComposePiece.rotation}°`;
@@ -1465,37 +1614,46 @@ export class GmMapEditor {
       return '无';
     }
     if (this.selectedEntity.kind === 'portal') {
+/** portal：定义该变量以承载业务值。 */
       const portal = this.draft.portals[this.selectedEntity.index];
       return portal ? `${portal.kind === 'stairs' ? '楼梯' : '传送阵'} (${portal.x}, ${portal.y}) -> ${this.formatMapTargetLabel(portal.targetMapId)}` : '无';
     }
     if (this.selectedEntity.kind === 'npc') {
+/** npc：定义该变量以承载业务值。 */
       const npc = this.draft.npcs[this.selectedEntity.index];
       return npc ? `NPC ${npc.name || npc.id}` : '无';
     }
     if (this.selectedEntity.kind === 'monster') {
+/** spawn：定义该变量以承载业务值。 */
       const spawn = this.draft.monsterSpawns[this.selectedEntity.index];
       return spawn ? `怪物 ${spawn.name || spawn.id}` : '无';
     }
     if (this.selectedEntity.kind === 'aura') {
+/** aura：定义该变量以承载业务值。 */
       const aura = this.draft.auras?.[this.selectedEntity.index];
       return aura ? formatAuraPointLabel(aura.value) : '无';
     }
     if (this.selectedEntity.kind === 'resource') {
+/** resource：定义该变量以承载业务值。 */
       const resource = this.draft.resources?.[this.selectedEntity.index];
       return resource ? formatResourcePointLabel(resource) : '无';
     }
     if (this.selectedEntity.kind === 'safeZone') {
+/** zone：定义该变量以承载业务值。 */
       const zone = this.draft.safeZones?.[this.selectedEntity.index];
       return zone ? `安全区 半径 ${zone.radius}` : '无';
     }
     if (this.selectedEntity.kind === 'container') {
+/** landmark：定义该变量以承载业务值。 */
       const landmark = this.getContainerLandmark(this.selectedEntity.index);
       return landmark ? `容器 ${landmark.name || landmark.id}` : '无';
     }
+/** landmark：定义该变量以承载业务值。 */
     const landmark = this.draft.landmarks?.[this.selectedEntity.index];
     return landmark ? `地标 ${landmark.name || landmark.id}` : '无';
   }
 
+/** findComposePieceAt：执行对应的业务逻辑。 */
   private findComposePieceAt(x: number, y: number): MapComposePiece | null {
     for (let index = this.composePieces.length - 1; index >= 0; index -= 1) {
       const piece = this.composePieces[index]!;
@@ -1513,12 +1671,15 @@ export class GmMapEditor {
     return this.draft.auras?.find((point) => point.x === x && point.y === y) ?? null;
   }
 
+/** getResourcesAt：执行对应的业务逻辑。 */
   private getResourcesAt(x: number, y: number): TileResourcePoint[] {
     if (!this.draft) return [];
     return (this.draft.resources ?? []).filter((point) => point.x === x && point.y === y);
   }
 
+/** formatMapTargetLabel：执行对应的业务逻辑。 */
   private formatMapTargetLabel(mapId: string): string {
+/** target：定义该变量以承载业务值。 */
     const target = this.mapList.find((map) => map.id === mapId);
     if (!target) {
       return mapId;
@@ -1536,29 +1697,37 @@ export class GmMapEditor {
       .flatMap((landmark, index) => landmark.container ? [{ landmark, index }] : []);
   }
 
+/** getContainerLandmark：执行对应的业务逻辑。 */
   private getContainerLandmark(index: number): GmMapLandmarkRecord | null {
     if (!this.draft) {
       return null;
     }
+/** landmark：定义该变量以承载业务值。 */
     const landmark = this.draft.landmarks?.[index];
     return landmark?.container ? landmark : null;
   }
 
+/** getAvailableItemTags：执行对应的业务逻辑。 */
   private getAvailableItemTags(): string[] {
     return [...new Set(this.itemCatalog.flatMap((item) => item.tags ?? []))]
       .sort((left, right) => left.localeCompare(right, 'zh-CN'));
   }
 
+/** buildContainerTagHint：执行对应的业务逻辑。 */
   private buildContainerTagHint(): string {
+/** tags：定义该变量以承载业务值。 */
     const tags = this.getAvailableItemTags();
     if (tags.length === 0) {
       return '标签来源于物品目录。每行一组，组内用逗号分隔；同一随机池会同时满足每一行至少一个 tag。';
     }
+/** preview：定义该变量以承载业务值。 */
     const preview = tags.slice(0, 40).join('、');
+/** suffix：定义该变量以承载业务值。 */
     const suffix = tags.length > 40 ? ` 等 ${tags.length} 个` : '';
     return `每行一组，组内用逗号分隔；同一随机池会同时满足每一行至少一个 tag。当前可用 tag：${preview}${suffix}`;
   }
 
+/** handleUiFieldChange：执行对应的业务逻辑。 */
   private handleUiFieldChange(field: string, value: string): void {
     if (field === 'resizeWidth') {
       this.resizeWidth = Math.max(1, Math.floor(Number(value) || 1));
@@ -1586,15 +1755,19 @@ export class GmMapEditor {
       if (!this.draft || this.selectedEntity?.kind !== 'resource') {
         return;
       }
+/** resource：定义该变量以承载业务值。 */
       const resource = this.draft.resources?.[this.selectedEntity.index];
       if (!resource) {
         return;
       }
+/** nextKey：定义该变量以承载业务值。 */
       const nextKey = normalizeFiveElementAuraResourceKey(value);
+/** currentKey：定义该变量以承载业务值。 */
       const currentKey = getResourceRecordKey(resource);
       if (nextKey === currentKey) {
         return;
       }
+/** duplicateIndex：定义该变量以承载业务值。 */
       const duplicateIndex = this.findResourceIndex(resource.x, resource.y, nextKey);
       if (duplicateIndex >= 0 && duplicateIndex !== this.selectedEntity.index) {
         this.setStatus('同一格不能重复放同属性灵气', true);
@@ -1617,21 +1790,27 @@ export class GmMapEditor {
     if (!this.draft) {
       return { ok: false, message: '当前没有地图草稿' };
     }
+/** previousJson：定义该变量以承载业务值。 */
     const previousJson = formatJson(this.draft);
+/** next：定义该变量以承载业务值。 */
     const next = clone(this.draft);
+/** fields：定义该变量以承载业务值。 */
     const fields = this.inspectorEl.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>('[data-map-bind]');
     for (const field of Array.from(fields)) {
       const path = field.dataset.mapBind;
       const kind = field.dataset.mapKind;
       if (!path || !kind) continue;
+/** value：定义该变量以承载业务值。 */
       let value: unknown;
       if (kind === 'number') {
+/** num：定义该变量以承载业务值。 */
         const num = Number(field.value || '0');
         if (!Number.isFinite(num)) {
           return { ok: false, message: `${path} 不是合法数字` };
         }
         value = Math.floor(num);
       } else if (kind === 'float') {
+/** num：定义该变量以承载业务值。 */
         const num = Number(field.value || '0');
         if (!Number.isFinite(num)) {
           return { ok: false, message: `${path} 不是合法数字` };
@@ -1641,6 +1820,7 @@ export class GmMapEditor {
         if (!field.value.trim()) {
           value = undefined;
         } else {
+/** num：定义该变量以承载业务值。 */
           const num = Number(field.value);
           if (!Number.isFinite(num)) {
             return { ok: false, message: `${path} 不是合法数字` };
@@ -1651,6 +1831,7 @@ export class GmMapEditor {
         if (!field.value.trim()) {
           value = undefined;
         } else {
+/** num：定义该变量以承载业务值。 */
           const num = Number(field.value);
           if (!Number.isFinite(num)) {
             return { ok: false, message: `${path} 不是合法数字` };
@@ -1674,6 +1855,7 @@ export class GmMapEditor {
       }
       setValueByPath(next, path, value);
     }
+/** nextJson：定义该变量以承载业务值。 */
     const nextJson = formatJson(next);
     if (nextJson === previousJson) {
       return { ok: true };
@@ -1686,8 +1868,10 @@ export class GmMapEditor {
     return { ok: true };
   }
 
+/** handleAction：执行对应的业务逻辑。 */
   private handleAction(action: string, trigger: HTMLElement): void {
     if (!this.draft) return;
+/** synced：定义该变量以承载业务值。 */
     const synced = this.syncInspectorToDraft();
     if ('message' in synced) {
       this.setStatus(synced.message, true);
@@ -1793,11 +1977,13 @@ export class GmMapEditor {
     }
   }
 
+/** addPortalAtCurrentCell：执行对应的业务逻辑。 */
   private addPortalAtCurrentCell(): void {
     if (!this.ensureSelectedCell()) return;
     const { x, y } = this.selectedCell!;
     if (!this.ensureWalkableSelection('传送点')) return;
     this.captureUndoState();
+/** targetMapId：定义该变量以承载业务值。 */
     const targetMapId = this.mapList.find((map) => map.id !== this.draft!.id)?.id ?? this.draft!.id;
     this.draft!.portals.push({
       x,
@@ -1817,21 +2003,28 @@ export class GmMapEditor {
     this.markDirty();
   }
 
+/** ensureComposeSourceMap：执行对应的业务逻辑。 */
   private async ensureComposeSourceMap(sourceMapId: string): Promise<GmMapDocument> {
+/** cached：定义该变量以承载业务值。 */
     const cached = this.composeSourceCache.get(sourceMapId);
     if (cached) {
       return cached;
     }
+/** data：定义该变量以承载业务值。 */
     const data = await this.request<GmMapDetailRes>(`${this.mapApiBasePath}/${encodeURIComponent(sourceMapId)}`);
+/** map：定义该变量以承载业务值。 */
     const map = clone(data.map);
     this.composeSourceCache.set(sourceMapId, map);
     return map;
   }
 
   private getComposePieceSize(piece: MapComposePiece): { width: number; height: number } | null {
+/** source：定义该变量以承载业务值。 */
     const source = this.composeSourceCache.get(piece.sourceMapId);
     if (!source) return null;
+/** interiorWidth：定义该变量以承载业务值。 */
     const interiorWidth = Math.max(0, source.width - 2);
+/** interiorHeight：定义该变量以承载业务值。 */
     const interiorHeight = Math.max(0, source.height - 2);
     if (piece.rotation === 90 || piece.rotation === 270) {
       return { width: interiorHeight, height: interiorWidth };
@@ -1840,6 +2033,7 @@ export class GmMapEditor {
   }
 
   private getComposePieceBounds(piece: MapComposePiece): { x: number; y: number; width: number; height: number } | null {
+/** size：定义该变量以承载业务值。 */
     const size = this.getComposePieceSize(piece);
     if (!size) return null;
     return {
@@ -1850,8 +2044,10 @@ export class GmMapEditor {
     };
   }
 
+/** clampComposePiecePosition：执行对应的业务逻辑。 */
   private clampComposePiecePosition(piece: MapComposePiece): MapComposePiece {
     if (!this.draft) return piece;
+/** size：定义该变量以承载业务值。 */
     const size = this.getComposePieceSize(piece);
     if (!size) return piece;
     return {
@@ -1861,13 +2057,16 @@ export class GmMapEditor {
     };
   }
 
+/** getSelectedComposePiece：执行对应的业务逻辑。 */
   private getSelectedComposePiece(): MapComposePiece | null {
     if (!this.selectedComposePieceId) return null;
     return this.composePieces.find((piece) => piece.id === this.selectedComposePieceId) ?? null;
   }
 
+/** addComposePiece：执行对应的业务逻辑。 */
   private async addComposePiece(): Promise<void> {
     if (!this.draft) return;
+/** sourceMapId：定义该变量以承载业务值。 */
     const sourceMapId = this.composeSourceMapId.trim();
     if (!sourceMapId) {
       this.setStatus('请先选择来源地图', true);
@@ -1877,10 +2076,13 @@ export class GmMapEditor {
       this.setStatus('不能把当前地图自己当成拼图块', true);
       return;
     }
+/** source：定义该变量以承载业务值。 */
     const source = await this.ensureComposeSourceMap(sourceMapId);
+/** anchor：定义该变量以承载业务值。 */
     const anchor = this.selectedCell
       ? { ...this.selectedCell }
       : { x: Math.max(0, Math.floor(this.draft.width / 2) - 2), y: Math.max(0, Math.floor(this.draft.height / 2) - 2) };
+/** piece：定义该变量以承载业务值。 */
     const piece = this.clampComposePiecePosition({
       id: `compose_${this.composePieceCounter}`,
       sourceMapId,
@@ -1901,13 +2103,16 @@ export class GmMapEditor {
   }
 
   private updateComposePiece(pieceId: string, updater: (piece: MapComposePiece) => MapComposePiece): boolean {
+/** index：定义该变量以承载业务值。 */
     const index = this.composePieces.findIndex((piece) => piece.id === pieceId);
     if (index < 0) return false;
     this.composePieces[index] = this.clampComposePiecePosition(updater(this.composePieces[index]!));
     return true;
   }
 
+/** rotateSelectedComposePiece：执行对应的业务逻辑。 */
   private rotateSelectedComposePiece(clockwise: boolean): void {
+/** selected：定义该变量以承载业务值。 */
     const selected = this.getSelectedComposePiece();
     if (!selected) {
       this.setStatus('请先选中一个拼图块', true);
@@ -1918,6 +2123,7 @@ export class GmMapEditor {
       ...piece,
       rotation: clockwise ? rotateComposeClockwise(piece.rotation) : rotateComposeCounterClockwise(piece.rotation),
     }));
+/** updated：定义该变量以承载业务值。 */
     const updated = this.getSelectedComposePiece();
     if (updated) {
       this.selectedCell = { x: updated.x, y: updated.y };
@@ -1926,7 +2132,9 @@ export class GmMapEditor {
     this.setStatus(`已${clockwise ? '右转' : '左转'}拼图块 90°`);
   }
 
+/** removeSelectedComposePiece：执行对应的业务逻辑。 */
   private removeSelectedComposePiece(): void {
+/** selected：定义该变量以承载业务值。 */
     const selected = this.getSelectedComposePiece();
     if (!selected) {
       this.setStatus('请先选中一个拼图块', true);
@@ -1939,6 +2147,7 @@ export class GmMapEditor {
     this.setStatus(`已删除拼图块：${selected.sourceMapName}`);
   }
 
+/** clearComposePieces：执行对应的业务逻辑。 */
   private clearComposePieces(): void {
     if (this.composePieces.length === 0) {
       this.setStatus('当前没有拼图块');
@@ -1955,16 +2164,21 @@ export class GmMapEditor {
     piece: MapComposePiece,
     visitor: (targetX: number, targetY: number, sourceChar: string) => void,
   ): void {
+/** source：定义该变量以承载业务值。 */
     const source = this.composeSourceCache.get(piece.sourceMapId);
     if (!source) return;
+/** interiorWidth：定义该变量以承载业务值。 */
     const interiorWidth = Math.max(0, source.width - 2);
+/** interiorHeight：定义该变量以承载业务值。 */
     const interiorHeight = Math.max(0, source.height - 2);
     for (let sourceY = 1; sourceY < source.height - 1; sourceY += 1) {
       const row = [...source.tiles[sourceY]!];
       for (let sourceX = 1; sourceX < source.width - 1; sourceX += 1) {
         const localX = sourceX - 1;
         const localY = sourceY - 1;
+/** targetOffsetX：定义该变量以承载业务值。 */
         let targetOffsetX = localX;
+/** targetOffsetY：定义该变量以承载业务值。 */
         let targetOffsetY = localY;
         switch (piece.rotation) {
           case 90:
@@ -1987,14 +2201,18 @@ export class GmMapEditor {
     }
   }
 
+/** bakeComposePiece：执行对应的业务逻辑。 */
   private bakeComposePiece(piece: MapComposePiece, recordUndo: boolean): number {
     if (!this.draft) return 0;
+/** changed：定义该变量以承载业务值。 */
     const changed = new Map<number, string[]>();
+/** changedCount：定义该变量以承载业务值。 */
     let changedCount = 0;
     this.forEachComposePieceTile(piece, (targetX, targetY, sourceChar) => {
       if (targetX < 0 || targetY < 0 || targetX >= this.draft!.width || targetY >= this.draft!.height) {
         return;
       }
+/** row：定义该变量以承载业务值。 */
       const row = changed.get(targetY) ?? [...(this.draft!.tiles[targetY] ?? '')];
       if (row[targetX] === sourceChar) {
         changed.set(targetY, row);
@@ -2016,12 +2234,15 @@ export class GmMapEditor {
     return changedCount;
   }
 
+/** bakeSelectedComposePiece：执行对应的业务逻辑。 */
   private bakeSelectedComposePiece(): void {
+/** selected：定义该变量以承载业务值。 */
     const selected = this.getSelectedComposePiece();
     if (!selected) {
       this.setStatus('请先选中一个拼图块', true);
       return;
     }
+/** changed：定义该变量以承载业务值。 */
     const changed = this.bakeComposePiece(selected, true);
     if (changed <= 0) {
       this.setStatus('选中拼图块没有产生地块变化');
@@ -2033,12 +2254,14 @@ export class GmMapEditor {
     this.setStatus(`已烘焙拼图块：${selected.sourceMapName}`);
   }
 
+/** bakeAllComposePieces：执行对应的业务逻辑。 */
   private bakeAllComposePieces(): void {
     if (!this.draft || this.composePieces.length === 0) {
       this.setStatus('当前没有可烘焙的拼图块', true);
       return;
     }
     this.captureUndoState();
+/** changed：定义该变量以承载业务值。 */
     let changed = 0;
     for (const piece of this.composePieces) {
       changed += this.bakeComposePiece(piece, false);
@@ -2055,6 +2278,7 @@ export class GmMapEditor {
     this.setStatus(`已烘焙全部拼图块，共写入 ${changed} 个格子`);
   }
 
+/** addNpcAtCurrentCell：执行对应的业务逻辑。 */
   private addNpcAtCurrentCell(): void {
     if (!this.ensureSelectedCell()) return;
     const { x, y } = this.selectedCell!;
@@ -2075,10 +2299,12 @@ export class GmMapEditor {
     this.markDirty();
   }
 
+/** addQuestToSelectedNpc：执行对应的业务逻辑。 */
   private addQuestToSelectedNpc(): void {
     if (!this.draft || this.selectedEntity?.kind !== 'npc') {
       return;
     }
+/** npc：定义该变量以承载业务值。 */
     const npc = this.draft.npcs[this.selectedEntity.index];
     if (!npc) {
       return;
@@ -2089,10 +2315,12 @@ export class GmMapEditor {
     this.markDirty();
   }
 
+/** removeQuestFromSelectedNpc：执行对应的业务逻辑。 */
   private removeQuestFromSelectedNpc(index: number): void {
     if (!this.draft || this.selectedEntity?.kind !== 'npc' || index < 0) {
       return;
     }
+/** npc：定义该变量以承载业务值。 */
     const npc = this.draft.npcs[this.selectedEntity.index];
     if (!npc?.quests || index >= npc.quests.length) {
       return;
@@ -2102,11 +2330,13 @@ export class GmMapEditor {
     this.markDirty();
   }
 
+/** addMonsterAtCurrentCell：执行对应的业务逻辑。 */
   private addMonsterAtCurrentCell(): void {
     if (!this.ensureSelectedCell()) return;
     const { x, y } = this.selectedCell!;
     if (!this.ensureWalkableSelection('怪物刷新点')) return;
     this.captureUndoState();
+/** fallbackId：定义该变量以承载业务值。 */
     const fallbackId = this.selectedEntity?.kind === 'monster'
       ? this.draft!.monsterSpawns[this.selectedEntity.index]?.id
       : this.draft!.monsterSpawns[0]?.id;
@@ -2122,11 +2352,14 @@ export class GmMapEditor {
     this.markDirty();
   }
 
+/** addAuraAtCurrentCell：执行对应的业务逻辑。 */
   private addAuraAtCurrentCell(): void {
     if (!this.ensureSelectedCell()) return;
     const { x, y } = this.selectedCell!;
+/** changed：定义该变量以承载业务值。 */
     const changed = this.applyAuraPaint([{ x, y }], true, 1);
     if (!changed) return;
+/** index：定义该变量以承载业务值。 */
     const index = this.draft!.auras?.findIndex((point) => point.x === x && point.y === y) ?? -1;
     if (index >= 0) {
       this.selectedEntity = { kind: 'aura', index };
@@ -2134,7 +2367,9 @@ export class GmMapEditor {
     this.markDirty();
   }
 
+/** applyResourceBrushKey：执行对应的业务逻辑。 */
   private applyResourceBrushKey(): void {
+/** normalized：定义该变量以承载业务值。 */
     const normalized = this.resourcePaintKey.trim();
     if (!normalized) {
       this.setStatus('资源键不能为空', true);
@@ -2145,16 +2380,20 @@ export class GmMapEditor {
     this.renderInspector();
   }
 
+/** addResourceAtCurrentCell：执行对应的业务逻辑。 */
   private addResourceAtCurrentCell(): void {
     if (!this.ensureSelectedCell()) return;
     const { x, y } = this.selectedCell!;
+/** normalizedKey：定义该变量以承载业务值。 */
     const normalizedKey = this.resourcePaintKey.trim();
     if (!normalizedKey) {
       this.setStatus('请先选择五行灵气类型', true);
       return;
     }
+/** changed：定义该变量以承载业务值。 */
     const changed = this.applyResourcePaint([{ x, y }], true, this.resourcePaintValue, normalizedKey);
     if (!changed) return;
+/** index：定义该变量以承载业务值。 */
     const index = this.findResourceIndex(x, y, normalizedKey);
     if (index >= 0) {
       this.selectedEntity = { kind: 'resource', index };
@@ -2162,6 +2401,7 @@ export class GmMapEditor {
     this.markDirty();
   }
 
+/** addSafeZoneAtCurrentCell：执行对应的业务逻辑。 */
   private addSafeZoneAtCurrentCell(): void {
     if (!this.ensureSelectedCell()) return;
     const { x, y } = this.selectedCell!;
@@ -2176,6 +2416,7 @@ export class GmMapEditor {
     this.markDirty();
   }
 
+/** addLandmarkAtCurrentCell：执行对应的业务逻辑。 */
   private addLandmarkAtCurrentCell(): void {
     if (!this.ensureSelectedCell()) return;
     const { x, y } = this.selectedCell!;
@@ -2192,6 +2433,7 @@ export class GmMapEditor {
     this.markDirty();
   }
 
+/** addContainerAtCurrentCell：执行对应的业务逻辑。 */
   private addContainerAtCurrentCell(): void {
     if (!this.ensureSelectedCell()) return;
     const { x, y } = this.selectedCell!;
@@ -2223,7 +2465,9 @@ export class GmMapEditor {
     this.markDirty();
   }
 
+/** addLootPoolToSelectedContainer：执行对应的业务逻辑。 */
   private addLootPoolToSelectedContainer(): void {
+/** landmark：定义该变量以承载业务值。 */
     const landmark = this.selectedEntity?.kind === 'container'
       ? this.getContainerLandmark(this.selectedEntity.index)
       : null;
@@ -2236,7 +2480,9 @@ export class GmMapEditor {
     this.markDirty();
   }
 
+/** removeLootPoolFromSelectedContainer：执行对应的业务逻辑。 */
   private removeLootPoolFromSelectedContainer(index: number): void {
+/** landmark：定义该变量以承载业务值。 */
     const landmark = this.selectedEntity?.kind === 'container'
       ? this.getContainerLandmark(this.selectedEntity.index)
       : null;
@@ -2248,20 +2494,25 @@ export class GmMapEditor {
     this.markDirty();
   }
 
+/** moveSelectedEntityToCurrentCell：执行对应的业务逻辑。 */
   private moveSelectedEntityToCurrentCell(): void {
     if (!this.draft || !this.selectedEntity || !this.selectedCell) {
       this.setStatus('请先选中对象和目标格', true);
       return;
     }
+/** moved：定义该变量以承载业务值。 */
     const moved = this.moveSelectedEntityToPoint(this.selectedCell.x, this.selectedCell.y, true, false);
     if (moved) {
       this.markDirty();
     }
   }
 
+/** moveSelectedEntityToPoint：执行对应的业务逻辑。 */
   private moveSelectedEntityToPoint(x: number, y: number, recordUndo: boolean, silent: boolean): boolean {
     if (!this.draft || !this.selectedEntity) return false;
+/** selection：定义该变量以承载业务值。 */
     const selection = this.selectedEntity;
+/** currentPoint：定义该变量以承载业务值。 */
     const currentPoint = this.getSelectedEntityPoint();
     if (!currentPoint) return false;
     if (currentPoint.x === x && currentPoint.y === y) {
@@ -2269,6 +2520,7 @@ export class GmMapEditor {
     }
 
     if (selection.kind === 'aura') {
+/** aura：定义该变量以承载业务值。 */
       const aura = this.draft.auras?.[selection.index];
       if (!aura) return false;
       if (this.hasAuraAt(x, y, selection.index)) {
@@ -2284,8 +2536,10 @@ export class GmMapEditor {
     }
 
     if (selection.kind === 'resource') {
+/** resource：定义该变量以承载业务值。 */
       const resource = this.draft.resources?.[selection.index];
       if (!resource) return false;
+/** resourceKey：定义该变量以承载业务值。 */
       const resourceKey = getResourceRecordKey(resource);
       if (this.hasResourceAt(x, y, resourceKey, selection.index)) {
         if (!silent) this.setStatus('目标格已有同类五行灵气点', true);
@@ -2300,6 +2554,7 @@ export class GmMapEditor {
     }
 
     if (selection.kind === 'safeZone') {
+/** zone：定义该变量以承载业务值。 */
       const zone = this.draft.safeZones?.[selection.index];
       if (!zone) return false;
       if (recordUndo) this.captureUndoState();
@@ -2311,6 +2566,7 @@ export class GmMapEditor {
     }
 
     if (selection.kind === 'landmark') {
+/** landmark：定义该变量以承载业务值。 */
       const landmark = this.draft.landmarks?.[selection.index];
       if (!landmark) return false;
       if (this.hasLandmarkAt(x, y, selection.index)) {
@@ -2326,6 +2582,7 @@ export class GmMapEditor {
     }
 
     if (selection.kind === 'container') {
+/** landmark：定义该变量以承载业务值。 */
       const landmark = this.draft.landmarks?.[selection.index];
       if (!landmark?.container) return false;
       if (this.hasLandmarkAt(x, y, selection.index)) {
@@ -2355,16 +2612,19 @@ export class GmMapEditor {
 
     if (recordUndo) this.captureUndoState();
     if (selection.kind === 'portal') {
+/** portal：定义该变量以承载业务值。 */
       const portal = this.draft.portals[selection.index];
       if (!portal) return false;
       portal.x = x;
       portal.y = y;
     } else if (selection.kind === 'npc') {
+/** npc：定义该变量以承载业务值。 */
       const npc = this.draft.npcs[selection.index];
       if (!npc) return false;
       npc.x = x;
       npc.y = y;
     } else if (selection.kind === 'monster') {
+/** spawn：定义该变量以承载业务值。 */
       const spawn = this.draft.monsterSpawns[selection.index];
       if (!spawn) return false;
       spawn.x = x;
@@ -2375,6 +2635,7 @@ export class GmMapEditor {
     return true;
   }
 
+/** removeSelectedEntity：执行对应的业务逻辑。 */
   private removeSelectedEntity(): void {
     if (!this.draft || !this.selectedEntity) return;
     this.captureUndoState();
@@ -2399,12 +2660,17 @@ export class GmMapEditor {
     this.markDirty();
   }
 
+/** applyResize：执行对应的业务逻辑。 */
   private applyResize(): void {
     if (!this.draft) return;
     this.captureUndoState();
+/** width：定义该变量以承载业务值。 */
     const width = Math.max(1, this.resizeWidth);
+/** height：定义该变量以承载业务值。 */
     const height = Math.max(1, this.resizeHeight);
+/** fillChar：定义该变量以承载业务值。 */
     const fillChar = getMapCharFromTileType(this.resizeFillTileType);
+/** nextTiles：定义该变量以承载业务值。 */
     const nextTiles: string[] = [];
     for (let y = 0; y < height; y += 1) {
       const chars: string[] = [];
@@ -2443,6 +2709,7 @@ export class GmMapEditor {
         for (let dx = -radius; dx <= radius; dx += 1) {
           if (!isOffsetInRange(dx, dy, radius)) continue;
           const x = origin.x + dx;
+/** y：定义该变量以承载业务值。 */
           const y = origin.y + dy;
           if (x < 0 || y < 0 || x >= this.draft.width || y >= this.draft.height) continue;
           if (isTileTypeWalkable(this.getTileTypeAt(x, y))) {
@@ -2454,6 +2721,7 @@ export class GmMapEditor {
     return null;
   }
 
+/** resetDraft：执行对应的业务逻辑。 */
   private resetDraft(): void {
     if (!this.selectedMapId) return;
     if (this.dirty && !window.confirm('确定放弃当前地图的未保存修改吗？')) {
@@ -2462,6 +2730,7 @@ export class GmMapEditor {
     this.loadMap(this.selectedMapId).catch(() => {});
   }
 
+/** reloadCurrentMap：执行对应的业务逻辑。 */
   private async reloadCurrentMap(): Promise<void> {
     if (!this.selectedMapId) return;
     if (this.dirty && !window.confirm('当前有未保存修改，重新载入会丢失这些修改。继续吗？')) {
@@ -2470,9 +2739,11 @@ export class GmMapEditor {
     await this.loadMap(this.selectedMapId);
   }
 
+/** applyRawJson：执行对应的业务逻辑。 */
   private applyRawJson(): void {
     if (!this.selectedMapId) return;
     try {
+/** next：定义该变量以承载业务值。 */
       const next = JSON.parse(this.jsonEl.value) as GmMapDocument;
       if (this.draft) {
         this.captureUndoState();
@@ -2497,11 +2768,13 @@ export class GmMapEditor {
     }
   }
 
+/** saveCurrentMap：执行对应的业务逻辑。 */
   private async saveCurrentMap(): Promise<void> {
     if (!this.draft || !this.selectedMapId) {
       this.setStatus('请先选择地图', true);
       return;
     }
+/** synced：定义该变量以承载业务值。 */
     const synced = this.syncInspectorToDraft();
     if ('message' in synced) {
       this.setStatus(synced.message, true);
@@ -2524,31 +2797,41 @@ export class GmMapEditor {
     }
   }
 
+/** centerView：执行对应的业务逻辑。 */
   private centerView(): void {
     if (!this.draft) return;
+/** cellSize：定义该变量以承载业务值。 */
     const cellSize = this.getCellSize();
     this.viewCenterX = this.draft.width * cellSize / 2;
     this.viewCenterY = this.draft.height * cellSize / 2;
     this.renderCanvas();
   }
 
+/** applyZoom：执行对应的业务逻辑。 */
   private applyZoom(delta: number): void {
+/** oldSize：定义该变量以承载业务值。 */
     const oldSize = this.getCellSize();
+/** gridCenterX：定义该变量以承载业务值。 */
     const gridCenterX = oldSize > 0 ? this.viewCenterX / oldSize : 0;
+/** gridCenterY：定义该变量以承载业务值。 */
     const gridCenterY = oldSize > 0 ? this.viewCenterY / oldSize : 0;
+/** direction：定义该变量以承载业务值。 */
     const direction = Math.sign(delta);
     if (direction === 0) return;
     this.zoomLevelIndex = Math.max(0, Math.min(EDITOR_ZOOM_LEVELS.length - 1, this.zoomLevelIndex + direction));
+/** nextSize：定义该变量以承载业务值。 */
     const nextSize = this.getCellSize();
     this.viewCenterX = gridCenterX * nextSize;
     this.viewCenterY = gridCenterY * nextSize;
     this.renderCanvas();
   }
 
+/** getCellSize：执行对应的业务逻辑。 */
   private getCellSize(): number {
     return EDITOR_BASE_CELL_SIZE * EDITOR_ZOOM_LEVELS[this.zoomLevelIndex];
   }
 
+/** renderCanvas：执行对应的业务逻辑。 */
   private renderCanvas(): void {
     if (this.renderFrameId !== null) {
       return;
@@ -2559,22 +2842,34 @@ export class GmMapEditor {
     });
   }
 
+/** flushCanvasRender：执行对应的业务逻辑。 */
   private flushCanvasRender(): void {
     this.resizeCanvas();
+/** ctx：定义该变量以承载业务值。 */
     const ctx = this.ctx;
     if (!ctx) return;
     ctx.fillStyle = '#1a1816';
     ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
     if (!this.draft) return;
+/** cellSize：定义该变量以承载业务值。 */
     const cellSize = this.getCellSize();
+/** screenW：定义该变量以承载业务值。 */
     const screenW = this.canvas.width;
+/** screenH：定义该变量以承载业务值。 */
     const screenH = this.canvas.height;
+/** camWorldX：定义该变量以承载业务值。 */
     const camWorldX = this.viewCenterX - screenW / 2;
+/** camWorldY：定义该变量以承载业务值。 */
     const camWorldY = this.viewCenterY - screenH / 2;
+/** startGX：定义该变量以承载业务值。 */
     const startGX = Math.floor(camWorldX / cellSize) - 1;
+/** startGY：定义该变量以承载业务值。 */
     const startGY = Math.floor(camWorldY / cellSize) - 1;
+/** endGX：定义该变量以承载业务值。 */
     const endGX = Math.ceil((camWorldX + screenW) / cellSize) + 1;
+/** endGY：定义该变量以承载业务值。 */
     const endGY = Math.ceil((camWorldY + screenH) / cellSize) + 1;
+/** auraPointKeys：定义该变量以承载业务值。 */
     const auraPointKeys = new Set((this.draft.auras ?? []).map((point) => `${point.x},${point.y}`));
 
     ctx.textAlign = 'center';
@@ -2595,6 +2890,7 @@ export class GmMapEditor {
           continue;
         }
 
+/** type：定义该变量以承载业务值。 */
         const type = this.getTileTypeAt(gx, gy);
         ctx.fillStyle = TILE_VISUAL_BG_COLORS[type];
         ctx.fillRect(sx, sy, cellSize, cellSize);
@@ -2602,6 +2898,7 @@ export class GmMapEditor {
         ctx.lineWidth = 0.5;
         ctx.strokeRect(sx, sy, cellSize, cellSize);
 
+/** ch：定义该变量以承载业务值。 */
         const ch = TILE_VISUAL_GLYPHS[type];
         if (ch) {
           ctx.fillStyle = TILE_VISUAL_GLYPH_COLORS[type];
@@ -2618,8 +2915,11 @@ export class GmMapEditor {
           ctx.fillRect(sx + 3, sy + 3, cellSize - 6, cellSize - 6);
         }
 
+/** isLineStart：定义该变量以承载业务值。 */
         const isLineStart = this.linePaintStart?.x === gx && this.linePaintStart?.y === gy;
+/** isSelected：定义该变量以承载业务值。 */
         const isSelected = this.selectedCell?.x === gx && this.selectedCell?.y === gy;
+/** isHovered：定义该变量以承载业务值。 */
         const isHovered = this.hoveredCell?.x === gx && this.hoveredCell?.y === gy;
         if (isSelected || isHovered || isLineStart) {
           ctx.fillStyle = isSelected
@@ -2643,20 +2943,26 @@ export class GmMapEditor {
     this.drawEntities(ctx, screenW, screenH, cellSize);
   }
 
+/** drawComposePieces：执行对应的业务逻辑。 */
   private drawComposePieces(ctx: CanvasRenderingContext2D, screenW: number, screenH: number, cellSize: number): void {
     if (!this.draft || this.composePieces.length === 0) return;
+/** showLabels：定义该变量以承载业务值。 */
     const showLabels = cellSize >= 16;
     for (const piece of this.composePieces) {
       const bounds = this.getComposePieceBounds(piece);
       if (!bounds) continue;
+/** isSelected：定义该变量以承载业务值。 */
       const isSelected = piece.id === this.selectedComposePieceId;
       this.forEachComposePieceTile(piece, (targetX, targetY, sourceChar) => {
         if (targetX < 0 || targetY < 0 || targetX >= this.draft!.width || targetY >= this.draft!.height) {
           return;
         }
+/** sx：定义该变量以承载业务值。 */
         const sx = targetX * cellSize - this.viewCenterX + screenW / 2;
+/** sy：定义该变量以承载业务值。 */
         const sy = targetY * cellSize - this.viewCenterY + screenH / 2;
         if (sx + cellSize < 0 || sx > screenW || sy + cellSize < 0 || sy > screenH) return;
+/** type：定义该变量以承载业务值。 */
         const type = getTileTypeFromMapChar(sourceChar);
         ctx.fillStyle = TILE_VISUAL_BG_COLORS[type];
         ctx.fillRect(sx, sy, cellSize, cellSize);
@@ -2665,6 +2971,7 @@ export class GmMapEditor {
         ctx.strokeStyle = isSelected ? 'rgba(255, 219, 115, 0.42)' : 'rgba(135, 203, 255, 0.26)';
         ctx.lineWidth = 1;
         ctx.strokeRect(sx + 0.5, sy + 0.5, cellSize - 1, cellSize - 1);
+/** glyph：定义该变量以承载业务值。 */
         const glyph = TILE_VISUAL_GLYPHS[type];
         if (glyph) {
           ctx.fillStyle = isSelected ? '#fff0be' : TILE_VISUAL_GLYPH_COLORS[type];
@@ -2673,9 +2980,13 @@ export class GmMapEditor {
         }
       });
 
+/** boxX：定义该变量以承载业务值。 */
       const boxX = bounds.x * cellSize - this.viewCenterX + screenW / 2;
+/** boxY：定义该变量以承载业务值。 */
       const boxY = bounds.y * cellSize - this.viewCenterY + screenH / 2;
+/** boxW：定义该变量以承载业务值。 */
       const boxW = bounds.width * cellSize;
+/** boxH：定义该变量以承载业务值。 */
       const boxH = bounds.height * cellSize;
       ctx.save();
       ctx.shadowBlur = isSelected ? 16 : 10;
@@ -2690,12 +3001,16 @@ export class GmMapEditor {
       ctx.strokeRect(boxX + 4.5, boxY + 4.5, boxW - 9, boxH - 9);
 
       if (!showLabels) continue;
+/** label：定义该变量以承载业务值。 */
       const label = `${piece.sourceMapName} ${piece.rotation}°`;
       ctx.textAlign = 'left';
       ctx.textBaseline = 'middle';
       ctx.font = buildCanvasFont('label', Math.max(11, cellSize * 0.28));
+/** textWidth：定义该变量以承载业务值。 */
       const textWidth = ctx.measureText(label).width;
+/** labelX：定义该变量以承载业务值。 */
       const labelX = boxX + 4;
+/** labelY：定义该变量以承载业务值。 */
       const labelY = boxY - 10;
       ctx.fillStyle = 'rgba(15, 12, 10, 0.78)';
       ctx.fillRect(labelX - 3, labelY - 9, textWidth + 8, 18);
@@ -2704,21 +3019,26 @@ export class GmMapEditor {
     }
   }
 
+/** drawEntities：执行对应的业务逻辑。 */
   private drawEntities(ctx: CanvasRenderingContext2D, screenW: number, screenH: number, cellSize: number): void {
     if (!this.draft) return;
+/** showEntityLabels：定义该变量以承载业务值。 */
     const showEntityLabels = cellSize >= 18;
     if (this.selectedEntity?.kind === 'monster') {
+/** selectedSpawn：定义该变量以承载业务值。 */
       const selectedSpawn = this.draft.monsterSpawns[this.selectedEntity.index];
       if (selectedSpawn) {
         this.drawMonsterSpawnOverlay(ctx, screenW, screenH, cellSize, selectedSpawn);
       }
     }
     if (this.selectedEntity?.kind === 'safeZone') {
+/** selectedZone：定义该变量以承载业务值。 */
       const selectedZone = this.draft.safeZones?.[this.selectedEntity.index];
       if (selectedZone) {
         this.drawSafeZoneOverlay(ctx, screenW, screenH, cellSize, selectedZone);
       }
     }
+/** drawEntity：定义该变量以承载业务值。 */
     const drawEntity = (
       wx: number,
       wy: number,
@@ -2728,7 +3048,9 @@ export class GmMapEditor {
       kind: 'npc' | 'monster' | 'spawn' | 'container' | 'safeZone',
       labelColor?: string,
     ): void => {
+/** sx：定义该变量以承载业务值。 */
       const sx = wx * cellSize - this.viewCenterX + screenW / 2;
+/** sy：定义该变量以承载业务值。 */
       const sy = wy * cellSize - this.viewCenterY + screenH / 2;
       if (sx + cellSize < 0 || sx > screenW || sy + cellSize < 0 || sy > screenH) return;
       ctx.fillStyle = 'rgba(0,0,0,0.3)';
@@ -2762,23 +3084,32 @@ export class GmMapEditor {
       ctx.fillText(name, sx + cellSize / 2, sy - Math.max(6, cellSize * 0.18));
     };
 
+/** drawLandmark：定义该变量以承载业务值。 */
     const drawLandmark = (landmark: GmMapLandmarkRecord): void => {
       if (!showEntityLabels) {
         return;
       }
+/** sx：定义该变量以承载业务值。 */
       const sx = landmark.x * cellSize - this.viewCenterX + screenW / 2;
+/** sy：定义该变量以承载业务值。 */
       const sy = landmark.y * cellSize - this.viewCenterY + screenH / 2;
       if (sx + cellSize < 0 || sx > screenW || sy + cellSize < 0 || sy > screenH) return;
+/** label：定义该变量以承载业务值。 */
       const label = landmark.name || landmark.id;
       if (!label) return;
+/** anchorY：定义该变量以承载业务值。 */
       const anchorY = sy + cellSize + Math.max(12, cellSize * 0.34);
 
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.font = buildCanvasFont('labelStrong', Math.max(12, cellSize * 0.34));
+/** textWidth：定义该变量以承载业务值。 */
       const textWidth = ctx.measureText(label).width;
+/** paddingX：定义该变量以承载业务值。 */
       const paddingX = Math.max(8, cellSize * 0.22);
+/** boxHeight：定义该变量以承载业务值。 */
       const boxHeight = Math.max(20, cellSize * 0.52);
+/** boxWidth：定义该变量以承载业务值。 */
       const boxWidth = textWidth + paddingX * 2;
 
       ctx.fillStyle = 'rgba(15,12,10,0.72)';
@@ -2792,6 +3123,7 @@ export class GmMapEditor {
 
     drawEntity(this.draft.spawnPoint.x, this.draft.spawnPoint.y, '生', '#ffd27a', '出生点', 'spawn');
     this.draft.portals.forEach((portal) => {
+/** isStairs：定义该变量以承载业务值。 */
       const isStairs = portal.kind === 'stairs';
       drawEntity(
         portal.x,
@@ -2840,13 +3172,17 @@ export class GmMapEditor {
     if (!this.draft) {
       return;
     }
+/** spawnRadius：定义该变量以承载业务值。 */
     const spawnRadius = Math.max(0, Math.floor(spawn.radius ?? 0));
+/** wanderRadius：定义该变量以承载业务值。 */
     const wanderRadius = Math.max(0, Math.floor(spawn.wanderRadius ?? spawn.radius ?? 0));
+/** maxRadius：定义该变量以承载业务值。 */
     const maxRadius = Math.max(spawnRadius, wanderRadius);
     if (maxRadius <= 0) {
       return;
     }
 
+/** drawCellOverlay：定义该变量以承载业务值。 */
     const drawCellOverlay = (
       x: number,
       y: number,
@@ -2857,7 +3193,9 @@ export class GmMapEditor {
       if (x < 0 || y < 0 || x >= this.draft!.width || y >= this.draft!.height) {
         return;
       }
+/** sx：定义该变量以承载业务值。 */
       const sx = x * cellSize - this.viewCenterX + screenW / 2;
+/** sy：定义该变量以承载业务值。 */
       const sy = y * cellSize - this.viewCenterY + screenH / 2;
       if (sx + cellSize < 0 || sx > screenW || sy + cellSize < 0 || sy > screenH) {
         return;
@@ -2878,9 +3216,13 @@ export class GmMapEditor {
         if (!isOffsetInRange(dx, dy, maxRadius)) {
           continue;
         }
+/** worldX：定义该变量以承载业务值。 */
         const worldX = spawn.x + dx;
+/** worldY：定义该变量以承载业务值。 */
         const worldY = spawn.y + dy;
+/** inSpawnRadius：定义该变量以承载业务值。 */
         const inSpawnRadius = spawnRadius > 0 && isOffsetInRange(dx, dy, spawnRadius);
+/** inWanderRadius：定义该变量以承载业务值。 */
         const inWanderRadius = wanderRadius > 0 && isOffsetInRange(dx, dy, wanderRadius);
         if (!inSpawnRadius && !inWanderRadius) {
           continue;
@@ -2897,6 +3239,7 @@ export class GmMapEditor {
       }
     }
 
+/** outlineRadius：定义该变量以承载业务值。 */
     const outlineRadius = (radius: number, strokeStyle: string): void => {
       if (radius <= 0) {
         return;
@@ -2930,15 +3273,22 @@ export class GmMapEditor {
     if (cellSize < 18) {
       return;
     }
+/** sx：定义该变量以承载业务值。 */
     const sx = spawn.x * cellSize - this.viewCenterX + screenW / 2;
+/** sy：定义该变量以承载业务值。 */
     const sy = spawn.y * cellSize - this.viewCenterY + screenH / 2;
+/** summary：定义该变量以承载业务值。 */
     const summary = `生${spawnRadius} 漫${wanderRadius}`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.font = buildCanvasFont('badge', Math.max(11, cellSize * 0.28));
+/** paddingX：定义该变量以承载业务值。 */
     const paddingX = Math.max(7, cellSize * 0.18);
+/** boxHeight：定义该变量以承载业务值。 */
     const boxHeight = Math.max(18, cellSize * 0.46);
+/** boxWidth：定义该变量以承载业务值。 */
     const boxWidth = ctx.measureText(summary).width + paddingX * 2;
+/** anchorY：定义该变量以承载业务值。 */
     const anchorY = sy + cellSize + Math.max(12, cellSize * 0.34);
     ctx.fillStyle = 'rgba(12, 18, 16, 0.78)';
     ctx.fillRect(sx + cellSize / 2 - boxWidth / 2, anchorY - boxHeight / 2, boxWidth, boxHeight);
@@ -2959,8 +3309,10 @@ export class GmMapEditor {
     if (!this.draft) {
       return;
     }
+/** radius：定义该变量以承载业务值。 */
     const radius = Math.max(0, Math.floor(zone.radius ?? 0));
 
+/** drawCellOverlay：定义该变量以承载业务值。 */
     const drawCellOverlay = (
       x: number,
       y: number,
@@ -2971,7 +3323,9 @@ export class GmMapEditor {
       if (x < 0 || y < 0 || x >= this.draft!.width || y >= this.draft!.height) {
         return;
       }
+/** sx：定义该变量以承载业务值。 */
       const sx = x * cellSize - this.viewCenterX + screenW / 2;
+/** sy：定义该变量以承载业务值。 */
       const sy = y * cellSize - this.viewCenterY + screenH / 2;
       if (sx + cellSize < 0 || sx > screenW || sy + cellSize < 0 || sy > screenH) {
         return;
@@ -3030,15 +3384,22 @@ export class GmMapEditor {
     if (cellSize < 18) {
       return;
     }
+/** sx：定义该变量以承载业务值。 */
     const sx = zone.x * cellSize - this.viewCenterX + screenW / 2;
+/** sy：定义该变量以承载业务值。 */
     const sy = zone.y * cellSize - this.viewCenterY + screenH / 2;
+/** summary：定义该变量以承载业务值。 */
     const summary = `安${radius}`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.font = buildCanvasFont('badge', Math.max(11, cellSize * 0.28));
+/** paddingX：定义该变量以承载业务值。 */
     const paddingX = Math.max(7, cellSize * 0.18);
+/** boxHeight：定义该变量以承载业务值。 */
     const boxHeight = Math.max(18, cellSize * 0.46);
+/** boxWidth：定义该变量以承载业务值。 */
     const boxWidth = ctx.measureText(summary).width + paddingX * 2;
+/** anchorY：定义该变量以承载业务值。 */
     const anchorY = sy + cellSize + Math.max(12, cellSize * 0.34);
     ctx.fillStyle = 'rgba(9, 22, 18, 0.8)';
     ctx.fillRect(sx + cellSize / 2 - boxWidth / 2, anchorY - boxHeight / 2, boxWidth, boxHeight);
@@ -3049,17 +3410,24 @@ export class GmMapEditor {
     ctx.fillText(summary, sx + cellSize / 2, anchorY + 0.5);
   }
 
+/** resizeCanvas：执行对应的业务逻辑。 */
   private resizeCanvas(): void {
+/** width：定义该变量以承载业务值。 */
     const width = Math.max(1, Math.floor(this.canvasHost.clientWidth));
+/** height：定义该变量以承载业务值。 */
     const height = Math.max(1, Math.floor(this.canvasHost.clientHeight));
     if (this.canvas.width === width && this.canvas.height === height) return;
     this.canvas.width = width;
     this.canvas.height = height;
   }
 
+/** handleCanvasPointerDown：执行对应的业务逻辑。 */
   private handleCanvasPointerDown(event: PointerEvent): void {
+/** point：定义该变量以承载业务值。 */
     const point = this.screenToGrid(event.clientX, event.clientY);
+/** currentTool：定义该变量以承载业务值。 */
     const currentTool = this.getCurrentTool();
+/** wantsPan：定义该变量以承载业务值。 */
     const wantsPan = event.button === 2 || (currentTool === 'pan' && event.button === 0);
     if (wantsPan) {
       this.panActive = true;
@@ -3079,7 +3447,9 @@ export class GmMapEditor {
     if (event.button !== 0) return;
     if (!point) return;
     this.selectedCell = point;
+/** hitComposePiece：定义该变量以承载业务值。 */
     const hitComposePiece = this.findComposePieceAt(point.x, point.y);
+/** hitEntity：定义该变量以承载业务值。 */
     const hitEntity = this.findEntityAt(point.x, point.y);
     this.selectedComposePieceId = hitComposePiece?.id ?? null;
     this.selectedEntity = hitComposePiece ? null : hitEntity;
@@ -3109,6 +3479,7 @@ export class GmMapEditor {
       this.paintSessionHasUndoSnapshot = false;
       this.canvas.setPointerCapture(event.pointerId);
       this.paintActive = true;
+/** changed：定义该变量以承载业务值。 */
       const changed = this.paintLayer === 'tile'
         ? this.paintTileAt(point.x, point.y, true)
         : this.paintLayer === 'aura'
@@ -3120,6 +3491,7 @@ export class GmMapEditor {
     }
 
     if (currentTool === 'select' && hitComposePiece) {
+/** bounds：定义该变量以承载业务值。 */
       const bounds = this.getComposePieceBounds(hitComposePiece);
       this.currentInspectorTab = 'compose';
       this.activePointerId = event.pointerId;
@@ -3144,14 +3516,18 @@ export class GmMapEditor {
     this.renderCanvas();
   }
 
+/** sampleTileAt：执行对应的业务逻辑。 */
   private sampleTileAt(x: number, y: number): void {
+/** nextType：定义该变量以承载业务值。 */
     const nextType = this.getTileTypeAt(x, y);
     this.paintTileType = nextType;
     this.setStatus(`已吸取地块 ${TILE_TYPE_LABELS[nextType]} (${x}, ${y})`);
     this.renderToolControls();
   }
 
+/** handleCanvasPointerMove：执行对应的业务逻辑。 */
   private handleCanvasPointerMove(event: PointerEvent): void {
+/** point：定义该变量以承载业务值。 */
     const point = this.screenToGrid(event.clientX, event.clientY);
     this.hoveredCell = point;
     if (this.activePointerId !== null && event.pointerId !== this.activePointerId) return;
@@ -3172,9 +3548,12 @@ export class GmMapEditor {
       }
       if (point) {
         this.selectedCell = point;
+/** piece：定义该变量以承载业务值。 */
         const piece = this.getSelectedComposePiece();
         if (piece) {
+/** nextX：定义该变量以承载业务值。 */
           const nextX = point.x - this.composeDragOffsetX;
+/** nextY：定义该变量以承载业务值。 */
           const nextY = point.y - this.composeDragOffsetY;
           if (piece.x !== nextX || piece.y !== nextY) {
             if (!this.dragSessionHasUndoSnapshot) {
@@ -3195,6 +3574,7 @@ export class GmMapEditor {
       }
       if (point) {
         this.selectedCell = point;
+/** changed：定义该变量以承载业务值。 */
         const changed = this.moveSelectedEntityToPoint(point.x, point.y, !this.dragSessionHasUndoSnapshot, true);
         this.dragSessionHasUndoSnapshot = this.dragSessionHasUndoSnapshot || changed;
       }
@@ -3208,6 +3588,7 @@ export class GmMapEditor {
       }
     }
     if (this.paintActive && point) {
+/** changed：定义该变量以承载业务值。 */
       const changed = this.paintLayer === 'tile'
         ? this.paintTileAt(point.x, point.y, !this.paintSessionHasUndoSnapshot)
         : this.paintLayer === 'aura'
@@ -3219,6 +3600,7 @@ export class GmMapEditor {
     }
   }
 
+/** endPointerInteraction：执行对应的业务逻辑。 */
   private endPointerInteraction(): void {
     if (this.activePointerId !== null && this.canvas.hasPointerCapture(this.activePointerId)) {
       this.canvas.releasePointerCapture(this.activePointerId);
@@ -3242,44 +3624,60 @@ export class GmMapEditor {
 
   private screenToGrid(clientX: number, clientY: number): { x: number; y: number } | null {
     if (!this.draft) return null;
+/** rect：定义该变量以承载业务值。 */
     const rect = this.canvas.getBoundingClientRect();
+/** sx：定义该变量以承载业务值。 */
     const sx = clientX - rect.left;
+/** sy：定义该变量以承载业务值。 */
     const sy = clientY - rect.top;
     if (sx < 0 || sy < 0 || sx > rect.width || sy > rect.height) return null;
+/** cellSize：定义该变量以承载业务值。 */
     const cellSize = this.getCellSize();
+/** worldX：定义该变量以承载业务值。 */
     const worldX = sx + this.viewCenterX - rect.width / 2;
+/** worldY：定义该变量以承载业务值。 */
     const worldY = sy + this.viewCenterY - rect.height / 2;
+/** x：定义该变量以承载业务值。 */
     const x = Math.floor(worldX / cellSize);
+/** y：定义该变量以承载业务值。 */
     const y = Math.floor(worldY / cellSize);
     if (x < 0 || y < 0 || x >= this.draft.width || y >= this.draft.height) return null;
     return { x, y };
   }
 
+/** paintTileAt：执行对应的业务逻辑。 */
   private paintTileAt(x: number, y: number, recordUndo = false): boolean {
     if (!this.draft) return false;
+/** key：定义该变量以承载业务值。 */
     const key = `${x},${y}`;
     if (this.lastPaintKey === key) return false;
     this.lastPaintKey = key;
     return this.applyTilePaint([{ x, y }], recordUndo) > 0;
   }
 
+/** paintAuraAt：执行对应的业务逻辑。 */
   private paintAuraAt(x: number, y: number, recordUndo = false): boolean {
     if (!this.draft) return false;
+/** key：定义该变量以承载业务值。 */
     const key = `${x},${y}`;
     if (this.lastPaintKey === key) return false;
     this.lastPaintKey = key;
     return this.applyAuraPaint([{ x, y }], recordUndo) > 0;
   }
 
+/** paintResourceAt：执行对应的业务逻辑。 */
   private paintResourceAt(x: number, y: number, recordUndo = false): boolean {
     if (!this.draft) return false;
+/** key：定义该变量以承载业务值。 */
     const key = `${x},${y},${this.resourcePaintKey}`;
     if (this.lastPaintKey === key) return false;
     this.lastPaintKey = key;
     return this.applyResourcePaint([{ x, y }], recordUndo) > 0;
   }
 
+/** applyLinePaint：执行对应的业务逻辑。 */
   private applyLinePaint(start: GridPoint, end: GridPoint): void {
+/** changed：定义该变量以承载业务值。 */
     const changed = this.paintLayer === 'tile'
       ? this.applyTilePaint(this.getLinePoints(start, end), true)
       : this.paintLayer === 'aura'
@@ -3290,16 +3688,22 @@ export class GmMapEditor {
     }
   }
 
+/** applyTilePaint：执行对应的业务逻辑。 */
   private applyTilePaint(points: GridPoint[], recordUndo: boolean): number {
     if (!this.draft) return 0;
+/** nextType：定义该变量以承载业务值。 */
     const nextType = this.paintTileType;
+/** nextChar：定义该变量以承载业务值。 */
     const nextChar = getMapCharFromTileType(nextType);
+/** changedPoints：定义该变量以承载业务值。 */
     const changedPoints: GridPoint[] = [];
+/** visited：定义该变量以承载业务值。 */
     const visited = new Set<string>();
     for (const point of points) {
       const key = `${point.x},${point.y}`;
       if (visited.has(key)) continue;
       visited.add(key);
+/** currentType：定义该变量以承载业务值。 */
       const currentType = this.getTileTypeAt(point.x, point.y);
       if (currentType === nextType) continue;
       if (!isTileTypeWalkable(nextType) && this.hasBlockingMapObjectAt(point.x, point.y)) {
@@ -3314,6 +3718,7 @@ export class GmMapEditor {
     if (recordUndo) {
       this.captureUndoState();
     }
+/** rows：定义该变量以承载业务值。 */
     const rows = new Map<number, string[]>();
     for (const point of changedPoints) {
       const row = rows.get(point.y) ?? [...(this.draft.tiles[point.y] ?? '')];
@@ -3327,16 +3732,22 @@ export class GmMapEditor {
     return changedPoints.length;
   }
 
+/** applyAuraPaint：执行对应的业务逻辑。 */
   private applyAuraPaint(points: GridPoint[], recordUndo: boolean, overrideValue?: number): number {
     if (!this.draft) return 0;
+/** nextValue：定义该变量以承载业务值。 */
     const nextValue = Math.max(0, Math.floor(overrideValue ?? this.auraPaintValue));
+/** selectedAuraPoint：定义该变量以承载业务值。 */
     const selectedAuraPoint = this.selectedEntity?.kind === 'aura' ? this.getSelectedEntityPoint() : null;
+/** nextAuras：定义该变量以承载业务值。 */
     const nextAuras = [...(this.draft.auras ?? [])];
+/** changedKeys：定义该变量以承载业务值。 */
     const changedKeys = new Set<string>();
 
     for (const point of points) {
       const key = `${point.x},${point.y}`;
       if (changedKeys.has(key)) continue;
+/** index：定义该变量以承载业务值。 */
       const index = nextAuras.findIndex((candidate) => candidate.x === point.x && candidate.y === point.y);
       if (nextValue === 0) {
         if (index >= 0) {
@@ -3364,6 +3775,7 @@ export class GmMapEditor {
     }
     this.draft.auras = nextAuras;
     if (selectedAuraPoint) {
+/** nextIndex：定义该变量以承载业务值。 */
       const nextIndex = nextAuras.findIndex((point) => point.x === selectedAuraPoint.x && point.y === selectedAuraPoint.y);
       this.selectedEntity = nextIndex >= 0 ? { kind: 'aura', index: nextIndex } : null;
     }
@@ -3378,19 +3790,25 @@ export class GmMapEditor {
     overrideResourceKey?: string,
   ): number {
     if (!this.draft) return 0;
+/** resourceKey：定义该变量以承载业务值。 */
     const resourceKey = (overrideResourceKey ?? this.resourcePaintKey).trim();
     if (!resourceKey) {
       this.setStatus('资源键不能为空', true);
       return 0;
     }
+/** nextValue：定义该变量以承载业务值。 */
     const nextValue = Math.max(0, Math.floor(overrideValue ?? this.resourcePaintValue));
+/** selectedResourcePoint：定义该变量以承载业务值。 */
     const selectedResourcePoint = this.selectedEntity?.kind === 'resource' ? this.getSelectedEntityPoint() : null;
+/** nextResources：定义该变量以承载业务值。 */
     const nextResources = [...(this.draft.resources ?? [])];
+/** changedKeys：定义该变量以承载业务值。 */
     const changedKeys = new Set<string>();
 
     for (const point of points) {
       const key = `${point.x},${point.y},${resourceKey}`;
       if (changedKeys.has(key)) continue;
+/** index：定义该变量以承载业务值。 */
       const index = nextResources.findIndex((candidate) => (
         candidate.x === point.x
         && candidate.y === point.y
@@ -3411,6 +3829,7 @@ export class GmMapEditor {
         }
         continue;
       }
+/** nextPoint：定义该变量以承载业务值。 */
       const nextPoint: TileResourcePoint = {
         x: point.x,
         y: point.y,
@@ -3429,6 +3848,7 @@ export class GmMapEditor {
     }
     this.draft.resources = nextResources;
     if (selectedResourcePoint) {
+/** nextIndex：定义该变量以承载业务值。 */
       const nextIndex = nextResources.findIndex((point) => point.x === selectedResourcePoint.x && point.y === selectedResourcePoint.y);
       this.selectedEntity = nextIndex >= 0 ? { kind: 'resource', index: nextIndex } : null;
     }
@@ -3437,6 +3857,7 @@ export class GmMapEditor {
     return changedKeys.size;
   }
 
+/** findResourceIndex：执行对应的业务逻辑。 */
   private findResourceIndex(x: number, y: number, resourceKey: string): number {
     if (!this.draft) {
       return -1;
@@ -3444,21 +3865,33 @@ export class GmMapEditor {
     return (this.draft.resources ?? []).findIndex((point) => point.x === x && point.y === y && getResourceRecordKey(point) === resourceKey);
   }
 
+/** getLinePoints：执行对应的业务逻辑。 */
   private getLinePoints(start: GridPoint, end: GridPoint): GridPoint[] {
+/** points：定义该变量以承载业务值。 */
     const points: GridPoint[] = [];
+/** x0：定义该变量以承载业务值。 */
     let x0 = start.x;
+/** y0：定义该变量以承载业务值。 */
     let y0 = start.y;
+/** x1：定义该变量以承载业务值。 */
     const x1 = end.x;
+/** y1：定义该变量以承载业务值。 */
     const y1 = end.y;
+/** dx：定义该变量以承载业务值。 */
     const dx = Math.abs(x1 - x0);
+/** dy：定义该变量以承载业务值。 */
     const dy = Math.abs(y1 - y0);
+/** sx：定义该变量以承载业务值。 */
     const sx = x0 < x1 ? 1 : -1;
+/** sy：定义该变量以承载业务值。 */
     const sy = y0 < y1 ? 1 : -1;
+/** err：定义该变量以承载业务值。 */
     let err = dx - dy;
 
     while (true) {
       points.push({ x: x0, y: y0 });
       if (x0 === x1 && y0 === y1) break;
+/** err2：定义该变量以承载业务值。 */
       const err2 = err * 2;
       if (err2 > -dy) {
         err -= dy;
@@ -3473,6 +3906,7 @@ export class GmMapEditor {
     return points;
   }
 
+/** hasBlockingMapObjectAt：执行对应的业务逻辑。 */
   private hasBlockingMapObjectAt(x: number, y: number, ignoredSelection: MapEntitySelection = null): boolean {
     if (!this.draft) return false;
     if (this.draft.spawnPoint.x === x && this.draft.spawnPoint.y === y) return true;
@@ -3482,11 +3916,13 @@ export class GmMapEditor {
     return false;
   }
 
+/** hasAuraAt：执行对应的业务逻辑。 */
   private hasAuraAt(x: number, y: number, ignoredIndex?: number): boolean {
     if (!this.draft) return false;
     return (this.draft.auras ?? []).some((point, index) => index !== ignoredIndex && point.x === x && point.y === y);
   }
 
+/** hasResourceAt：执行对应的业务逻辑。 */
   private hasResourceAt(x: number, y: number, resourceKey: string, ignoredIndex?: number): boolean {
     if (!this.draft) return false;
     return (this.draft.resources ?? []).some((point, index) => (
@@ -3497,11 +3933,13 @@ export class GmMapEditor {
     ));
   }
 
+/** hasLandmarkAt：执行对应的业务逻辑。 */
   private hasLandmarkAt(x: number, y: number, ignoredIndex?: number): boolean {
     if (!this.draft) return false;
     return (this.draft.landmarks ?? []).some((landmark, index) => index !== ignoredIndex && landmark.x === x && landmark.y === y);
   }
 
+/** ensureSelectedCell：执行对应的业务逻辑。 */
   private ensureSelectedCell(): boolean {
     if (!this.selectedCell) {
       this.setStatus('请先在画布上选中一个格子', true);
@@ -3510,6 +3948,7 @@ export class GmMapEditor {
     return true;
   }
 
+/** ensureWalkableSelection：执行对应的业务逻辑。 */
   private ensureWalkableSelection(label: string): boolean {
     if (!this.selectedCell) return false;
     if (!isTileTypeWalkable(this.getTileTypeAt(this.selectedCell.x, this.selectedCell.y))) {
@@ -3519,27 +3958,37 @@ export class GmMapEditor {
     return true;
   }
 
+/** getTileTypeAt：执行对应的业务逻辑。 */
   private getTileTypeAt(x: number, y: number): TileType {
     if (!this.draft) return TileType.Floor;
     return getTileTypeFromMapChar(this.draft.tiles[y]?.[x] ?? '.');
   }
 
+/** findEntityAt：执行对应的业务逻辑。 */
   private findEntityAt(x: number, y: number): MapEntitySelection {
     if (!this.draft) return null;
+/** npcIndex：定义该变量以承载业务值。 */
     const npcIndex = this.draft.npcs.findIndex((npc) => npc.x === x && npc.y === y);
     if (npcIndex >= 0) return { kind: 'npc', index: npcIndex };
+/** monsterIndex：定义该变量以承载业务值。 */
     const monsterIndex = this.draft.monsterSpawns.findIndex((spawn) => spawn.x === x && spawn.y === y);
     if (monsterIndex >= 0) return { kind: 'monster', index: monsterIndex };
+/** portalIndex：定义该变量以承载业务值。 */
     const portalIndex = this.draft.portals.findIndex((portal) => portal.x === x && portal.y === y);
     if (portalIndex >= 0) return { kind: 'portal', index: portalIndex };
+/** auraIndex：定义该变量以承载业务值。 */
     const auraIndex = (this.draft.auras ?? []).findIndex((point) => point.x === x && point.y === y);
     if (auraIndex >= 0) return { kind: 'aura', index: auraIndex };
+/** resourceIndex：定义该变量以承载业务值。 */
     const resourceIndex = (this.draft.resources ?? []).findIndex((point) => point.x === x && point.y === y);
     if (resourceIndex >= 0) return { kind: 'resource', index: resourceIndex };
+/** safeZoneIndex：定义该变量以承载业务值。 */
     const safeZoneIndex = (this.draft.safeZones ?? []).findIndex((zone) => zone.x === x && zone.y === y);
     if (safeZoneIndex >= 0) return { kind: 'safeZone', index: safeZoneIndex };
+/** containerIndex：定义该变量以承载业务值。 */
     const containerIndex = (this.draft.landmarks ?? []).findIndex((landmark) => landmark.container && landmark.x === x && landmark.y === y);
     if (containerIndex >= 0) return { kind: 'container', index: containerIndex };
+/** landmarkIndex：定义该变量以承载业务值。 */
     const landmarkIndex = (this.draft.landmarks ?? []).findIndex((landmark) => landmark.x === x && landmark.y === y);
     if (landmarkIndex >= 0) return { kind: 'landmark', index: landmarkIndex };
     return null;
@@ -3548,37 +3997,46 @@ export class GmMapEditor {
   private getSelectedEntityPoint(): { x: number; y: number } | null {
     if (!this.draft || !this.selectedEntity) return null;
     if (this.selectedEntity.kind === 'portal') {
+/** portal：定义该变量以承载业务值。 */
       const portal = this.draft.portals[this.selectedEntity.index];
       return portal ? { x: portal.x, y: portal.y } : null;
     }
     if (this.selectedEntity.kind === 'npc') {
+/** npc：定义该变量以承载业务值。 */
       const npc = this.draft.npcs[this.selectedEntity.index];
       return npc ? { x: npc.x, y: npc.y } : null;
     }
     if (this.selectedEntity.kind === 'monster') {
+/** spawn：定义该变量以承载业务值。 */
       const spawn = this.draft.monsterSpawns[this.selectedEntity.index];
       return spawn ? { x: spawn.x, y: spawn.y } : null;
     }
     if (this.selectedEntity.kind === 'aura') {
+/** aura：定义该变量以承载业务值。 */
       const aura = this.draft.auras?.[this.selectedEntity.index];
       return aura ? { x: aura.x, y: aura.y } : null;
     }
     if (this.selectedEntity.kind === 'resource') {
+/** resource：定义该变量以承载业务值。 */
       const resource = this.draft.resources?.[this.selectedEntity.index];
       return resource ? { x: resource.x, y: resource.y } : null;
     }
     if (this.selectedEntity.kind === 'safeZone') {
+/** zone：定义该变量以承载业务值。 */
       const zone = this.draft.safeZones?.[this.selectedEntity.index];
       return zone ? { x: zone.x, y: zone.y } : null;
     }
     if (this.selectedEntity.kind === 'container') {
+/** landmark：定义该变量以承载业务值。 */
       const landmark = this.getContainerLandmark(this.selectedEntity.index);
       return landmark ? { x: landmark.x, y: landmark.y } : null;
     }
+/** landmark：定义该变量以承载业务值。 */
     const landmark = this.draft.landmarks?.[this.selectedEntity.index];
     return landmark ? { x: landmark.x, y: landmark.y } : null;
   }
 
+/** createUndoEntry：执行对应的业务逻辑。 */
   private createUndoEntry(): EditorUndoEntry | null {
     if (!this.draft) return null;
     return {
@@ -3595,7 +4053,9 @@ export class GmMapEditor {
     };
   }
 
+/** captureUndoState：执行对应的业务逻辑。 */
   private captureUndoState(): void {
+/** entry：定义该变量以承载业务值。 */
     const entry = this.createUndoEntry();
     if (!entry) return;
     this.undoStack.push(entry);
@@ -3605,6 +4065,7 @@ export class GmMapEditor {
     this.updateUndoButtonState();
   }
 
+/** restoreUndoEntry：执行对应的业务逻辑。 */
   private restoreUndoEntry(entry: EditorUndoEntry): void {
     this.draft = clone(entry.draft);
     this.selectedCell = entry.selectedCell ? { ...entry.selectedCell } : null;
@@ -3628,7 +4089,9 @@ export class GmMapEditor {
     this.renderCanvas();
   }
 
+/** undo：执行对应的业务逻辑。 */
   private undo(): void {
+/** entry：定义该变量以承载业务值。 */
     const entry = this.undoStack.pop();
     if (!entry) {
       this.setStatus('没有可撤销的修改');
@@ -3640,10 +4103,12 @@ export class GmMapEditor {
     this.setStatus('已撤销上一步修改');
   }
 
+/** updateUndoButtonState：执行对应的业务逻辑。 */
   private updateUndoButtonState(): void {
     this.undoBtn.disabled = !this.draft || this.undoStack.length === 0;
   }
 
+/** handleKeyDown：执行对应的业务逻辑。 */
   private handleKeyDown(event: KeyboardEvent): void {
     if ((event.ctrlKey || event.metaKey) && !event.shiftKey && event.key.toLowerCase() === 'z') {
       if (this.canvasHost.offsetParent === null || isEditableTarget(event.target)) return;
@@ -3652,6 +4117,7 @@ export class GmMapEditor {
     }
   }
 
+/** markDirty：执行对应的业务逻辑。 */
   private markDirty(render = true): void {
     this.dirty = true;
     this.updateUndoButtonState();

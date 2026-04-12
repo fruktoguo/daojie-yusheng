@@ -1,5 +1,6 @@
 import { DEFAULT_PLAYER_MAP_ID } from '@mud/shared';
 
+/** PLAYER_RESPAWN_MAP_IDS：定义该变量以承载业务值。 */
 export const PLAYER_RESPAWN_MAP_IDS = [
   DEFAULT_PLAYER_MAP_ID,
   'qizhen_crossing',

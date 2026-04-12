@@ -7,6 +7,7 @@ function getNextAuraLevelThreshold(currentThreshold: number): number {
 
 /** normalizeAuraLevelBaseValue：执行对应的业务逻辑。 */
 export function normalizeAuraLevelBaseValue(value: unknown, fallback = DEFAULT_AURA_LEVEL_BASE_VALUE): number {
+/** normalizedFallback：定义该变量以承载业务值。 */
   const normalizedFallback = Number.isFinite(fallback) && Number(fallback) > 0
     ? Math.max(1, Math.round(Number(fallback)))
     : DEFAULT_AURA_LEVEL_BASE_VALUE;
@@ -26,11 +27,14 @@ export function normalizeAuraValue(value: unknown): number {
 
 /** getAuraLevelThreshold：执行对应的业务逻辑。 */
 export function getAuraLevelThreshold(level: number, baseValue = DEFAULT_AURA_LEVEL_BASE_VALUE): number {
+/** normalizedLevel：定义该变量以承载业务值。 */
   const normalizedLevel = Math.max(0, Math.floor(level));
   if (normalizedLevel <= 0) {
     return 0;
   }
+/** base：定义该变量以承载业务值。 */
   const base = normalizeAuraLevelBaseValue(baseValue);
+/** threshold：定义该变量以承载业务值。 */
   let threshold = base;
   for (let currentLevel = 1; currentLevel < normalizedLevel; currentLevel += 1) {
     threshold = getNextAuraLevelThreshold(threshold);
@@ -40,13 +44,17 @@ export function getAuraLevelThreshold(level: number, baseValue = DEFAULT_AURA_LE
 
 /** getAuraLevel：执行对应的业务逻辑。 */
 export function getAuraLevel(auraValue: number, baseValue = DEFAULT_AURA_LEVEL_BASE_VALUE): number {
+/** normalizedValue：定义该变量以承载业务值。 */
   const normalizedValue = normalizeAuraValue(auraValue);
+/** base：定义该变量以承载业务值。 */
   const base = normalizeAuraLevelBaseValue(baseValue);
   if (normalizedValue < base) {
     return 0;
   }
 
+/** level：定义该变量以承载业务值。 */
   let level = 0;
+/** threshold：定义该变量以承载业务值。 */
   let threshold = base;
   while (normalizedValue >= threshold) {
     level += 1;
@@ -65,13 +73,16 @@ export function convertLegacyAuraLevelToValue(level: number, baseValue = DEFAULT
 
 /** isLegacyAuraLevelValue：执行对应的业务逻辑。 */
 export function isLegacyAuraLevelValue(value: number, baseValue = DEFAULT_AURA_LEVEL_BASE_VALUE): boolean {
+/** normalizedValue：定义该变量以承载业务值。 */
   const normalizedValue = normalizeAuraValue(value);
+/** base：定义该变量以承载业务值。 */
   const base = normalizeAuraLevelBaseValue(baseValue);
   return Number.isInteger(normalizedValue) && normalizedValue > 0 && normalizedValue < base;
 }
 
 /** normalizeConfiguredAuraValue：执行对应的业务逻辑。 */
 export function normalizeConfiguredAuraValue(value: unknown, baseValue = DEFAULT_AURA_LEVEL_BASE_VALUE): number {
+/** normalizedValue：定义该变量以承载业务值。 */
   const normalizedValue = normalizeAuraValue(value);
   if (normalizedValue <= 0) {
     return 0;

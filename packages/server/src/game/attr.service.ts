@@ -42,9 +42,13 @@ import { SOUL_DEVOUR_EROSION_BUFF_ID } from '../constants/gameplay/equipment';
 import { getSoulDevourErosionRatio } from './buff-presentation';
 import { QiProjectionService } from './qi-projection.service';
 
+/** SOUL_DEVOUR_EROSION_ATTR_KEYS：定义该变量以承载业务值。 */
 const SOUL_DEVOUR_EROSION_ATTR_KEYS: readonly AttrKey[] = ['constitution', 'spirit', 'perception', 'talent'];
+/** REALM_EXPONENTIAL_NUMERIC_KEY_SET：定义该变量以承载业务值。 */
 const REALM_EXPONENTIAL_NUMERIC_KEY_SET = new Set<NumericScalarStatKey>(REALM_EXPONENTIAL_NUMERIC_KEYS);
+/** REALM_LINEAR_NUMERIC_KEY_SET：定义该变量以承载业务值。 */
 const REALM_LINEAR_NUMERIC_KEY_SET = new Set<NumericScalarStatKey>(REALM_LINEAR_NUMERIC_KEYS);
+/** SIGNED_NUMERIC_STAT_KEYS：定义该变量以承载业务值。 */
 const SIGNED_NUMERIC_STAT_KEYS = new Set<NumericScalarStatKey>([
   'moveSpeed',
   'cooldownSpeed',
@@ -98,6 +102,7 @@ function accumulateScaledAttributes(target: Partial<Attributes>, attrs: Partial<
 /** scaleNumericStats：执行对应的业务逻辑。 */
 function scaleNumericStats(stats: PartialNumericStats | undefined, factor: number): PartialNumericStats | undefined {
   if (!stats || factor === 0) return undefined;
+/** result：定义该变量以承载业务值。 */
   const result: PartialNumericStats = {};
   for (const key of NUMERIC_SCALAR_STAT_KEYS) {
     const value = stats[key];
@@ -105,6 +110,7 @@ function scaleNumericStats(stats: PartialNumericStats | undefined, factor: numbe
     result[key] = value * factor;
   }
   if (stats.elementDamageBonus) {
+/** group：定义该变量以承载业务值。 */
     const group: PartialNumericStats['elementDamageBonus'] = {};
     for (const key of ELEMENT_KEYS) {
       const value = stats.elementDamageBonus[key];
@@ -116,6 +122,7 @@ function scaleNumericStats(stats: PartialNumericStats | undefined, factor: numbe
     }
   }
   if (stats.elementDamageReduce) {
+/** group：定义该变量以承载业务值。 */
     const group: PartialNumericStats['elementDamageReduce'] = {};
     for (const key of ELEMENT_KEYS) {
       const value = stats.elementDamageReduce[key];
@@ -149,6 +156,7 @@ function applyAttributePercentMultipliers(target: Attributes, multipliers: Parti
 
 /** getNumericStatValue：执行对应的业务逻辑。 */
 function getNumericStatValue(stats: PartialNumericStats | NumericStats | undefined, key: NumericScalarStatKey): number {
+/** value：定义该变量以承载业务值。 */
   const value = stats?.[key];
   return typeof value === 'number' ? value : 0;
 }
@@ -174,9 +182,11 @@ export class AttrService {
     base: Attributes,
     bonuses: AttrBonus[],
     target?: Attributes,
+/** activeBuffs：定义该变量以承载业务值。 */
     activeBuffs: readonly TemporaryBuffState[] = [],
     realmLv = 1,
   ): Attributes {
+/** result：定义该变量以承载业务值。 */
     const result = target ?? createAttributeSnapshot();
     result.constitution = base.constitution;
     result.spirit = base.spirit;
@@ -185,6 +195,7 @@ export class AttrService {
     result.comprehension = base.comprehension;
     result.luck = base.luck;
 
+/** bonusAttrMultipliers：定义该变量以承载业务值。 */
     const bonusAttrMultipliers: Partial<Attributes> = {};
     for (const bonus of bonuses) {
       if (this.resolveBonusModifierMode(bonus.attrMode) === 'percent') {
@@ -194,8 +205,11 @@ export class AttrService {
       applyAttributeAdditions(result, bonus.attrs);
     }
 
+/** buffAttrMultipliers：定义该变量以承载业务值。 */
     const buffAttrMultipliers: Partial<Attributes> = {};
+/** pillAttrMultipliers：定义该变量以承载业务值。 */
     const pillAttrMultipliers: Partial<Attributes> = {};
+/** flatBuffAttrs：定义该变量以承载业务值。 */
     const flatBuffAttrs: Partial<Attributes> = {};
     for (const buff of activeBuffs) {
       const effectFactor = this.getBuffEffectFactor(buff, realmLv);
@@ -206,6 +220,7 @@ export class AttrService {
         accumulateScaledAttributes(flatBuffAttrs, buff.attrs, effectFactor);
         continue;
       }
+/** bucket：定义该变量以承载业务值。 */
       const bucket = this.isPillBuff(buff) ? pillAttrMultipliers : buffAttrMultipliers;
       accumulateScaledAttributes(bucket, buff.attrs, effectFactor);
     }
@@ -261,10 +276,15 @@ export class AttrService {
 
   /** 重算玩家六维缓存、具体属性缓存，并同步 HP/QI 上限等运行时字段 */
   recalcPlayer(player: PlayerState): void {
+/** previousMaxQi：定义该变量以承载业务值。 */
     const previousMaxQi = Math.max(0, Math.round(player.numericStats?.maxQi ?? player.qi ?? 0));
+/** activeTemporaryBuffs：定义该变量以承载业务值。 */
     const activeTemporaryBuffs = this.getActiveTemporaryBuffs(player);
+/** effectiveBonuses：定义该变量以承载业务值。 */
     const effectiveBonuses = this.getEffectiveBonuses(player);
+/** realmLv：定义该变量以承载业务值。 */
     const realmLv = this.resolvePlayerRealmLv(player);
+/** finalAttrs：定义该变量以承载业务值。 */
     const finalAttrs = this.computeFinal(
       player.baseAttrs,
       effectiveBonuses,
@@ -272,8 +292,11 @@ export class AttrService {
       activeTemporaryBuffs,
       realmLv,
     );
+/** stage：定义该变量以承载业务值。 */
     const stage = player.realm?.stage ?? DEFAULT_PLAYER_REALM_STAGE;
+/** numericStatBreakdowns：定义该变量以承载业务值。 */
     const numericStatBreakdowns = player.numericStatBreakdowns ?? {};
+/** stats：定义该变量以承载业务值。 */
     const stats = this.computeNumericStats(
       finalAttrs,
       effectiveBonuses,
@@ -283,6 +306,7 @@ export class AttrService {
       activeTemporaryBuffs,
       numericStatBreakdowns,
     );
+/** ratioDivisors：定义该变量以承载业务值。 */
     const ratioDivisors = this.getRatioDivisorsForStage(
       stage,
       player.ratioDivisors,
@@ -293,14 +317,18 @@ export class AttrService {
     player.ratioDivisors = ratioDivisors;
     player.numericStatBreakdowns = numericStatBreakdowns;
 
+/** newMaxHp：定义该变量以承载业务值。 */
     const newMaxHp = Math.max(1, Math.round(stats.maxHp));
     if (player.maxHp > 0 && newMaxHp !== player.maxHp) {
+/** ratio：定义该变量以承载业务值。 */
       const ratio = player.hp / player.maxHp;
       player.hp = Math.max(1, Math.round(ratio * newMaxHp));
     }
     player.maxHp = newMaxHp;
+/** newMaxQi：定义该变量以承载业务值。 */
     const newMaxQi = Math.max(0, Math.round(stats.maxQi));
     if (previousMaxQi > 0 && newMaxQi !== previousMaxQi) {
+/** ratio：定义该变量以承载业务值。 */
       const ratio = player.qi / previousMaxQi;
       player.qi = Math.max(0, Math.min(newMaxQi, Math.round(ratio * newMaxQi)));
     } else if (previousMaxQi <= 0 && player.qi <= 0) {
@@ -314,6 +342,7 @@ export class AttrService {
     this.qiProjectionService.recalcPlayer(player);
   }
 
+/** getActiveTemporaryBuffs：执行对应的业务逻辑。 */
   private getActiveTemporaryBuffs(player: PlayerState): TemporaryBuffState[] {
     return (player.temporaryBuffs ?? []).filter((buff) => buff.remainingTicks > 0 && buff.stacks > 0);
   }
@@ -323,11 +352,14 @@ export class AttrService {
     return player.bonuses;
   }
 
+/** applyDynamicTemporaryBuffAttrModifiers：执行对应的业务逻辑。 */
   private applyDynamicTemporaryBuffAttrModifiers(target: Attributes, activeBuffs: readonly TemporaryBuffState[]): void {
+/** soulDevourStacks：定义该变量以承载业务值。 */
     const soulDevourStacks = sumBuffStacks(activeBuffs, SOUL_DEVOUR_EROSION_BUFF_ID);
     if (soulDevourStacks <= 0) {
       return;
     }
+/** multiplier：定义该变量以承载业务值。 */
     const multiplier = 1 - getSoulDevourErosionRatio(soulDevourStacks);
     for (const key of SOUL_DEVOUR_EROSION_ATTR_KEYS) {
       target[key] *= multiplier;
@@ -336,7 +368,9 @@ export class AttrService {
 
   /** 获取当前境界阶段对应的比率除数 */
   private getRatioDivisorsForStage(stage: PlayerRealmStage, previous?: NumericRatioDivisors): NumericRatioDivisors {
+/** template：定义该变量以承载业务值。 */
     const template = PLAYER_REALM_NUMERIC_TEMPLATES[stage] ?? PLAYER_REALM_NUMERIC_TEMPLATES[DEFAULT_PLAYER_REALM_STAGE];
+/** snapshot：定义该变量以承载业务值。 */
     const snapshot = cloneNumericRatioDivisors(template.ratioDivisors);
     if (!previous) {
       return snapshot;
@@ -365,11 +399,17 @@ export class AttrService {
     activeBuffs: readonly TemporaryBuffState[],
     breakdownsTarget?: NumericStatBreakdownMap,
   ): NumericStats {
+/** template：定义该变量以承载业务值。 */
     const template = PLAYER_REALM_NUMERIC_TEMPLATES[stage] ?? PLAYER_REALM_NUMERIC_TEMPLATES[DEFAULT_PLAYER_REALM_STAGE];
+/** attrMultipliers：定义该变量以承载业务值。 */
     const attrMultipliers = createNumericStats();
+/** buffMultipliers：定义该变量以承载业务值。 */
     const buffMultipliers = createNumericStats();
+/** pillMultipliers：定义该变量以承载业务值。 */
     const pillMultipliers = createNumericStats();
+/** staticBaseStats：定义该变量以承载业务值。 */
     const staticBaseStats = createNumericStats();
+/** flatBuffStats：定义该变量以承载业务值。 */
     const flatBuffStats = createNumericStats();
     resetNumericStats(target);
     addPartialNumericStats(target, template.stats);
@@ -397,6 +437,7 @@ export class AttrService {
       if (effectFactor === 0 || !buff.stats) {
         continue;
       }
+/** scaled：定义该变量以承载业务值。 */
       const scaled = scaleNumericStats(buff.stats, effectFactor);
       if (!scaled) {
         continue;
@@ -429,7 +470,9 @@ export class AttrService {
     return target;
   }
 
+/** applyAttrWeight：执行对应的业务逻辑。 */
   private applyAttrWeight(target: NumericStats, key: AttrKey, value: number): void {
+/** weight：定义该变量以承载业务值。 */
     const weight = ATTR_TO_NUMERIC_WEIGHTS[key];
     if (!weight) return;
 
@@ -458,18 +501,22 @@ export class AttrService {
     if (weight.moveSpeed !== undefined) target.moveSpeed += weight.moveSpeed * value;
   }
 
+/** accumulateAttrPercentBonus：执行对应的业务逻辑。 */
   private accumulateAttrPercentBonus(target: NumericStats, key: AttrKey, value: number): void {
+/** weight：定义该变量以承载业务值。 */
     const weight = ATTR_TO_PERCENT_NUMERIC_WEIGHTS[key];
     if (!weight) return;
     addPartialNumericStats(target, scaleNumericStats(weight, value));
   }
 
+/** resolvePlayerRealmLv：执行对应的业务逻辑。 */
   private resolvePlayerRealmLv(player: PlayerState): number {
     return Math.max(1, Math.floor(player.realm?.realmLv ?? player.realmLv ?? 1));
   }
 
   /** 按境界等级对数值面板进行指数/线性缩放 */
   private applyRealmNumericScaling(target: NumericStats, realmLv: number): void {
+/** exponentialMultiplier：定义该变量以承载业务值。 */
     const exponentialMultiplier = getRealmAttributeMultiplier(realmLv);
     if (exponentialMultiplier !== 1) {
       for (const key of REALM_EXPONENTIAL_NUMERIC_KEYS) {
@@ -506,7 +553,9 @@ export class AttrService {
     for (const key of NUMERIC_SCALAR_STAT_KEYS) {
       const realmBaseValue = getNumericStatValue(realmBaseStats, key);
       const baseValue = getNumericStatValue(staticBaseStats, key);
+/** flatBuffValue：定义该变量以承载业务值。 */
       const flatBuffValue = getNumericStatValue(flatBuffStats, key);
+/** preMultiplierValue：定义该变量以承载业务值。 */
       const preMultiplierValue = baseValue + flatBuffValue;
       target[key] = {
         realmBaseValue,
@@ -523,17 +572,20 @@ export class AttrService {
     }
   }
 
+/** getRealmNumericMultiplier：执行对应的业务逻辑。 */
   private getRealmNumericMultiplier(key: NumericScalarStatKey, realmLv: number): number {
     if (REALM_EXPONENTIAL_NUMERIC_KEY_SET.has(key)) {
       return getRealmAttributeMultiplier(realmLv);
     }
     if (REALM_LINEAR_NUMERIC_KEY_SET.has(key)) {
+/** linearGrowthRate：定义该变量以承载业务值。 */
       const linearGrowthRate = getRealmLinearGrowthRate(key);
       return linearGrowthRate === null ? 1 : getRealmLinearGrowthMultiplier(realmLv, linearGrowthRate);
     }
     return 1;
   }
 
+/** roundNumericStats：执行对应的业务逻辑。 */
   private roundNumericStats(target: NumericStats): void {
     for (const key of NUMERIC_SCALAR_STAT_KEYS) {
       const rounded = Math.round(target[key]);
@@ -547,23 +599,29 @@ export class AttrService {
     }
   }
 
+/** resolveBuffModifierMode：执行对应的业务逻辑。 */
   private resolveBuffModifierMode(mode: BuffModifierMode | undefined): BuffModifierMode {
     return mode === 'flat' ? 'flat' : 'percent';
   }
 
+/** resolveBonusModifierMode：执行对应的业务逻辑。 */
   private resolveBonusModifierMode(mode: BuffModifierMode | undefined): BuffModifierMode {
     return mode === 'percent' ? 'percent' : 'flat';
   }
 
+/** isPillBuff：执行对应的业务逻辑。 */
   private isPillBuff(buff: TemporaryBuffState): boolean {
     return buff.sourceSkillId.startsWith('item:');
   }
 
+/** getBuffEffectFactor：执行对应的业务逻辑。 */
   private getBuffEffectFactor(buff: TemporaryBuffState, targetRealmLv: number): number {
     if (buff.remainingTicks <= 0 || buff.stacks <= 0) {
       return 0;
     }
+/** stackFactor：定义该变量以承载业务值。 */
     const stackFactor = Math.max(1, buff.stacks);
+/** realmFactor：定义该变量以承载业务值。 */
     const realmFactor = getBuffRealmEffectivenessMultiplier(buff.realmLv, targetRealmLv);
     return stackFactor * realmFactor;
   }

@@ -19,7 +19,9 @@ export function parseTileTargetRef(targetRef: string): GridPoint | null {
     return null;
   }
   const [, sx, sy] = targetRef.split(':');
+/** x：定义该变量以承载业务值。 */
   const x = Number(sx);
+/** y：定义该变量以承载业务值。 */
   const y = Number(sy);
   if (!Number.isFinite(x) || !Number.isFinite(y)) {
     return null;

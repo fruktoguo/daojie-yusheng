@@ -27,12 +27,19 @@ export const WORLD_DARKNESS_BUFF_DURATION = 2;
 
 /** 时间段定义（昼夜循环中的一个阶段） */
 export interface TimePhaseDefinition {
+/** id：定义该变量以承载业务值。 */
   id: TimePhaseId;
+/** label：定义该变量以承载业务值。 */
   label: string;
+/** startTick：定义该变量以承载业务值。 */
   startTick: number;
+/** endTick：定义该变量以承载业务值。 */
   endTick: number;
+/** skyLightPercent：定义该变量以承载业务值。 */
   skyLightPercent: number;
+/** tint：定义该变量以承载业务值。 */
   tint: string;
+/** overlayAlpha：定义该变量以承载业务值。 */
   overlayAlpha: number;
 }
 

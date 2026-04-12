@@ -10,6 +10,7 @@ export class ChangelogPanel {
     document.getElementById('hud-open-chronicle')?.addEventListener('click', () => this.open());
   }
 
+/** open：执行对应的业务逻辑。 */
   open(): void {
     detailModalHost.open({
       ownerId: ChangelogPanel.MODAL_OWNER,
@@ -20,11 +21,14 @@ export class ChangelogPanel {
     });
   }
 
+/** buildSubtitle：执行对应的业务逻辑。 */
   private buildSubtitle(): string {
+/** latest：定义该变量以承载业务值。 */
     const latest = getLatestChangelogEntry();
     return latest ? `最近记载：${latest.updatedAt}` : '暂无记载';
   }
 
+/** buildBodyHtml：执行对应的业务逻辑。 */
   private buildBodyHtml(): string {
     return `
       <div class="chronicle-shell">
@@ -38,6 +42,7 @@ export class ChangelogPanel {
     `;
   }
 
+/** renderEntry：执行对应的业务逻辑。 */
   private renderEntry(entry: { updatedAt: string; summary: string; items: string[] }): string {
     return `
       <article class="chronicle-entry">

@@ -11,6 +11,7 @@ const UI_TEXT_FAMILIES = {
   monospace: "'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace",
 } as const;
 
+/** UI_TEXT_WEIGHTS：定义该变量以承载业务值。 */
 const UI_TEXT_WEIGHTS = {
   regular: 400,
   medium: 500,
@@ -22,6 +23,7 @@ const UI_TEXT_WEIGHTS = {
   tab: 600,
 } as const;
 
+/** UI_TEXT_FONT_LEVELS：定义该变量以承载业务值。 */
 const UI_TEXT_FONT_LEVELS = [
   {
     key: 'hero',
@@ -95,6 +97,7 @@ const UI_TEXT_FONT_LEVELS = [
   },
 ] as const;
 
+/** UI_TEXT_CANVAS_PRESETS：定义该变量以承载业务值。 */
 const UI_TEXT_CANVAS_PRESETS = {
   tileGlyph: { family: 'brushRegular', weight: UI_TEXT_WEIGHTS.regular },
   entityGlyph: { family: 'brushRegular', weight: UI_TEXT_WEIGHTS.strong },
@@ -105,6 +108,7 @@ const UI_TEXT_CANVAS_PRESETS = {
   floatingDamage: { family: 'serif', weight: UI_TEXT_WEIGHTS.strong },
 } as const;
 
+/** UI_TEXT_SETTINGS：定义该变量以承载业务值。 */
 export const UI_TEXT_SETTINGS = {
   families: UI_TEXT_FAMILIES,
   weights: UI_TEXT_WEIGHTS,
@@ -115,6 +119,7 @@ export const UI_TEXT_SETTINGS = {
 /** UiCanvasTextPresetKey：定义该类型的结构与数据语义。 */
 export type UiCanvasTextPresetKey = keyof typeof UI_TEXT_CANVAS_PRESETS;
 
+/** UI_TEXT_CSS_VARIABLES：定义该变量以承载业务值。 */
 const UI_TEXT_CSS_VARIABLES: ReadonlyArray<readonly [name: string, value: string]> = [
   ['--font-family-brush-wild', UI_TEXT_FAMILIES.brushWild],
   ['--font-family-brush-regular', UI_TEXT_FAMILIES.brushRegular],
@@ -147,8 +152,11 @@ export function applyUiTextCssVariables(style: CSSStyleDeclaration): void {
 
 /** buildCanvasFont：执行对应的业务逻辑。 */
 export function buildCanvasFont(presetKey: UiCanvasTextPresetKey, fontSize: number): string {
+/** preset：定义该变量以承载业务值。 */
   const preset = UI_TEXT_CANVAS_PRESETS[presetKey];
+/** family：定义该变量以承载业务值。 */
   const family = UI_TEXT_FAMILIES[preset.family];
+/** normalizedSize：定义该变量以承载业务值。 */
   const normalizedSize = Math.max(1, Number(fontSize.toFixed(2)));
   return `${preset.weight} ${normalizedSize}px ${family}`;
 }

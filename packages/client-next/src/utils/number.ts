@@ -31,7 +31,9 @@ export function formatDisplayNumber(value: number, options: DisplayNumberOptions
     compactThreshold = 10_000,
     compactMaximumFractionDigits = 1,
   } = options;
+/** absValue：定义该变量以承载业务值。 */
   const absValue = Math.abs(value);
+/** sign：定义该变量以承载业务值。 */
   const sign = value < 0 ? '-' : '';
   if (absValue < compactThreshold) {
     return `${sign}${formatPlainNumber(absValue, maximumFractionDigits)}`;
@@ -52,6 +54,7 @@ export function formatDisplayInteger(value: number, options: Omit<DisplayNumberO
 
 /** formatDisplaySignedNumber：执行对应的业务逻辑。 */
 export function formatDisplaySignedNumber(value: number, options: DisplayNumberOptions = {}): string {
+/** sign：定义该变量以承载业务值。 */
   const sign = value >= 0 ? '+' : '-';
   return `${sign}${formatDisplayNumber(Math.abs(value), options)}`;
 }

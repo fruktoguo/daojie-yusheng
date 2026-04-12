@@ -1,25 +1,39 @@
 "use strict";
+/** __decorate：定义该变量以承载业务值。 */
 var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+/** c：定义该变量以承载业务值。 */
     var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
     if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
     else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
     return c > 3 && r && Object.defineProperty(target, key, r), r;
 };
+/** __metadata：定义该变量以承载业务值。 */
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.WorldSyncService = void 0;
+/** common_1：定义该变量以承载业务值。 */
 const common_1 = require("@nestjs/common");
+/** shared_1：定义该变量以承载业务值。 */
 const shared_1 = require("@mud/shared-next");
+/** movement_debug_1：定义该变量以承载业务值。 */
 const movement_debug_1 = require("../debug/movement-debug");
+/** map_template_repository_1：定义该变量以承载业务值。 */
 const map_template_repository_1 = require("../runtime/map/map-template.repository");
+/** runtime_map_config_service_1：定义该变量以承载业务值。 */
 const runtime_map_config_service_1 = require("../runtime/map/runtime-map-config.service");
+/** world_runtime_service_1：定义该变量以承载业务值。 */
 const world_runtime_service_1 = require("../runtime/world/world-runtime.service");
+/** player_runtime_service_1：定义该变量以承载业务值。 */
 const player_runtime_service_1 = require("../runtime/player/player-runtime.service");
+/** world_projector_service_1：定义该变量以承载业务值。 */
 const world_projector_service_1 = require("./world-projector.service");
+/** world_sync_protocol_service_1：定义该变量以承载业务值。 */
 const world_sync_protocol_service_1 = require("./world-sync-protocol.service");
+/** world_session_service_1：定义该变量以承载业务值。 */
 const world_session_service_1 = require("./world-session.service");
+/** WorldSyncService：定义该变量以承载业务值。 */
 let WorldSyncService = class WorldSyncService {
     worldRuntimeService;
     playerRuntimeService;
@@ -33,6 +47,7 @@ let WorldSyncService = class WorldSyncService {
     lootWindowByPlayerId = new Map();
     nextAuxStateByPlayerId = new Map();
     logger = new common_1.Logger(WorldSyncService.name);
+/** 构造函数：执行实例初始化流程。 */
     constructor(worldRuntimeService, playerRuntimeService, worldProjectorService, worldSessionService, templateRepository, mapRuntimeConfigService, worldSyncProtocolService) {
         this.worldRuntimeService = worldRuntimeService;
         this.playerRuntimeService = playerRuntimeService;
@@ -42,18 +57,24 @@ let WorldSyncService = class WorldSyncService {
         this.mapRuntimeConfigService = mapRuntimeConfigService;
         this.worldSyncProtocolService = worldSyncProtocolService;
     }
+/** emitInitialSync：执行对应的业务逻辑。 */
     emitInitialSync(playerId, socketOverride = undefined) {
+/** binding：定义该变量以承载业务值。 */
         const binding = this.worldSessionService.getBinding(playerId);
         if (!binding) {
             return;
         }
+/** socket：定义该变量以承载业务值。 */
         const socket = socketOverride ?? this.worldSessionService.getSocketByPlayerId(playerId);
+/** view：定义该变量以承载业务值。 */
         const view = this.worldRuntimeService.getPlayerView(playerId);
         if (!socket || !view) {
             return;
         }
         this.worldRuntimeService.refreshPlayerContextActions(playerId, view);
+/** player：定义该变量以承载业务值。 */
         const player = this.playerRuntimeService.syncFromWorldView(binding.playerId, binding.sessionId, view);
+/** envelope：定义该变量以承载业务值。 */
         const envelope = this.appendNextCombatEffects(this.worldProjectorService.createInitialEnvelope(binding, view, player), view, player);
         this.logMovementEnvelope(playerId, 'initial', envelope);
         const { emitLegacy, emitNext } = this.worldSyncProtocolService.resolveEmission(socket);
@@ -69,6 +90,7 @@ let WorldSyncService = class WorldSyncService {
         this.emitQuestSync(socket, binding.playerId, player.quests.revision);
         this.emitPendingNotices(binding.playerId, socket);
     }
+/** flushConnectedPlayers：执行对应的业务逻辑。 */
     flushConnectedPlayers() {
         this.clearPurgedPlayerCaches();
         for (const binding of this.worldSessionService.listBindings()) {
@@ -78,7 +100,9 @@ let WorldSyncService = class WorldSyncService {
                 continue;
             }
             this.worldRuntimeService.refreshPlayerContextActions(binding.playerId, view);
+/** player：定义该变量以承载业务值。 */
             const player = this.playerRuntimeService.syncFromWorldView(binding.playerId, binding.sessionId, view);
+/** envelope：定义该变量以承载业务值。 */
             const envelope = this.appendNextCombatEffects(this.worldProjectorService.createDeltaEnvelope(view, player), view, player);
             this.logMovementEnvelope(binding.playerId, 'delta', envelope);
             const { emitLegacy, emitNext } = this.worldSyncProtocolService.resolveEmission(socket);
@@ -91,6 +115,7 @@ let WorldSyncService = class WorldSyncService {
             else {
                 this.emitNextDeltaSync(binding.playerId, socket, view, player);
             }
+/** lastQuestRevision：定义该变量以承载业务值。 */
             const lastQuestRevision = this.lastQuestRevisionByPlayerId.get(binding.playerId) ?? 0;
             if (lastQuestRevision !== player.quests.revision) {
                 this.emitQuestSync(socket, binding.playerId, player.quests.revision);
@@ -98,6 +123,7 @@ let WorldSyncService = class WorldSyncService {
             this.emitPendingNotices(binding.playerId, socket);
         }
     }
+/** emitNextEnvelope：执行对应的业务逻辑。 */
     emitNextEnvelope(socket, envelope) {
         if (envelope?.initSession) {
             socket.emit(shared_1.NEXT_S2C.InitSession, envelope.initSession);
@@ -115,11 +141,14 @@ let WorldSyncService = class WorldSyncService {
             socket.emit(shared_1.NEXT_S2C.PanelDelta, envelope.panelDelta);
         }
     }
+/** appendNextCombatEffects：执行对应的业务逻辑。 */
     appendNextCombatEffects(envelope, view, player) {
+/** effects：定义该变量以承载业务值。 */
         const effects = this.collectNextCombatEffects(view, player);
         if (effects.length === 0) {
             return envelope;
         }
+/** nextEnvelope：定义该变量以承载业务值。 */
         const nextEnvelope = envelope ?? {};
         nextEnvelope.worldDelta = {
             t: view.tick,
@@ -130,16 +159,22 @@ let WorldSyncService = class WorldSyncService {
         };
         return nextEnvelope;
     }
+/** collectNextCombatEffects：执行对应的业务逻辑。 */
     collectNextCombatEffects(view, player) {
+/** template：定义该变量以承载业务值。 */
         const template = this.templateRepository.getOrThrow(view.instance.templateId);
+/** visibleTileKeys：定义该变量以承载业务值。 */
         const visibleTileKeys = this.buildVisibleTileKeySet(view, player, template);
         return filterLegacyCombatEffects(this.worldRuntimeService.getLegacyCombatEffects(view.instance.instanceId), visibleTileKeys);
     }
+/** logMovementEnvelope：执行对应的业务逻辑。 */
     logMovementEnvelope(playerId, phase, envelope) {
         if (!(0, movement_debug_1.isServerNextMovementDebugEnabled)()) {
             return;
         }
+/** worldSelfPatch：定义该变量以承载业务值。 */
         const worldSelfPatch = envelope?.worldDelta?.p?.find((patch) => patch?.id === playerId);
+/** hasMovementSignal：定义该变量以承载业务值。 */
         const hasMovementSignal = Boolean(envelope?.mapEnter
             || envelope?.initSession
             || envelope?.selfDelta?.mid
@@ -166,7 +201,9 @@ let WorldSyncService = class WorldSyncService {
                 : null,
             worldSelfPatch: worldSelfPatch
                 ? {
+/** x：定义该变量以承载业务值。 */
                     x: typeof worldSelfPatch.x === 'number' ? worldSelfPatch.x : null,
+/** y：定义该变量以承载业务值。 */
                     y: typeof worldSelfPatch.y === 'number' ? worldSelfPatch.y : null,
                     facing: worldSelfPatch.facing ?? null,
                 }
@@ -174,25 +211,40 @@ let WorldSyncService = class WorldSyncService {
             selfDelta: envelope?.selfDelta
                 ? {
                     mapId: envelope.selfDelta.mid ?? null,
+/** x：定义该变量以承载业务值。 */
                     x: typeof envelope.selfDelta.x === 'number' ? envelope.selfDelta.x : null,
+/** y：定义该变量以承载业务值。 */
                     y: typeof envelope.selfDelta.y === 'number' ? envelope.selfDelta.y : null,
                     facing: envelope.selfDelta.f ?? null,
                 }
                 : null,
         });
     }
+/** emitLegacyInitialSync：执行对应的业务逻辑。 */
     emitLegacyInitialSync(context) {
+/** template：定义该变量以承载业务值。 */
         const template = context.templateRepository.getOrThrow(context.view.instance.templateId);
+/** visibleTiles：定义该变量以承载业务值。 */
         const visibleTiles = context.buildVisibleTilesSnapshot(context.view, context.player, template);
+/** renderEntities：定义该变量以承载业务值。 */
         const renderEntities = context.buildRenderEntitiesSnapshot(context.view, context.player);
+/** groundPiles：定义该变量以承载业务值。 */
         const groundPiles = context.toGroundPileMap(context.view.localGroundPiles);
+/** path：定义该变量以承载业务值。 */
         const path = context.worldRuntimeService.getLegacyNavigationPath(context.playerId);
+/** threatArrows：定义该变量以承载业务值。 */
         const threatArrows = context.buildThreatArrows(context.view);
+/** allMinimapMarkers：定义该变量以承载业务值。 */
         const allMinimapMarkers = context.buildMinimapMarkers(template);
+/** visibleMinimapMarkers：定义该变量以承载业务值。 */
         const visibleMinimapMarkers = context.buildVisibleMinimapMarkers(allMinimapMarkers, visibleTiles.byKey);
+/** minimapLibrary：定义该变量以承载业务值。 */
         const minimapLibrary = context.buildMinimapLibrarySync(context.player, template.id);
+/** timeState：定义该变量以承载业务值。 */
         const timeState = context.buildGameTimeState(template, context.view, context.player);
+/** initPayload：定义该变量以承载业务值。 */
         const initPayload = context.buildBootstrapSyncPayload(context.view, context.player, template, visibleTiles, renderEntities, visibleMinimapMarkers, minimapLibrary, timeState);
+/** mapStaticPayload：定义该变量以承载业务值。 */
         const mapStaticPayload = context.buildMapStaticSyncPayload(template, {
             mapMeta: initPayload.mapMeta,
             minimap: initPayload.minimap,
@@ -207,49 +259,70 @@ let WorldSyncService = class WorldSyncService {
         if (emitLegacy) {
             context.socket.emit(shared_1.S2C.Init, initPayload);
         }
+/** realmPayload：定义该变量以承载业务值。 */
         const realmPayload = context.buildRealmSyncPayload(context.player);
         this.worldSyncProtocolService.sendRealm(context.socket, realmPayload);
+/** attrUpdate：定义该变量以承载业务值。 */
         const attrUpdate = context.buildAttrUpdate(null, context.player);
         if (attrUpdate && emitLegacy) {
             context.socket.emit(shared_1.S2C.AttrUpdate, attrUpdate);
         }
+/** inventoryUpdate：定义该变量以承载业务值。 */
         const inventoryUpdate = context.buildInventoryUpdate(null, context.player);
         if (inventoryUpdate && emitLegacy) {
             context.socket.emit(shared_1.S2C.InventoryUpdate, inventoryUpdate);
         }
+/** equipmentUpdate：定义该变量以承载业务值。 */
         const equipmentUpdate = context.buildEquipmentUpdate(null, context.player);
         if (equipmentUpdate && emitLegacy) {
             context.socket.emit(shared_1.S2C.EquipmentUpdate, equipmentUpdate);
         }
+/** techniqueUpdate：定义该变量以承载业务值。 */
         const techniqueUpdate = context.buildTechniqueUpdate(null, context.player);
         if (techniqueUpdate && emitLegacy) {
             context.socket.emit(shared_1.S2C.TechniqueUpdate, techniqueUpdate);
         }
+/** actionsUpdate：定义该变量以承载业务值。 */
         const actionsUpdate = context.buildActionsUpdate(null, context.player);
         if (actionsUpdate && emitLegacy) {
             context.socket.emit(shared_1.S2C.ActionsUpdate, actionsUpdate);
         }
+/** lootWindow：定义该变量以承载业务值。 */
         const lootWindow = context.buildLootWindowSyncState(context.playerId);
         this.worldSyncProtocolService.sendLootWindow(context.socket, { window: lootWindow });
         context.syncStateByPlayerId.set(context.playerId, context.captureSyncSnapshot(context.view, context.player, template, timeState, path, threatArrows, visibleMinimapMarkers, renderEntities, visibleTiles.byKey, groundPiles, lootWindow));
     }
+/** emitLegacyDeltaSync：执行对应的业务逻辑。 */
     emitLegacyDeltaSync(context) {
+/** previous：定义该变量以承载业务值。 */
         const previous = context.syncStateByPlayerId.get(context.playerId) ?? null;
+/** template：定义该变量以承载业务值。 */
         const template = context.templateRepository.getOrThrow(context.view.instance.templateId);
+/** currentTiles：定义该变量以承载业务值。 */
         const currentTiles = context.buildVisibleTilesSnapshot(context.view, context.player, template);
+/** currentEntities：定义该变量以承载业务值。 */
         const currentEntities = context.buildRenderEntitiesSnapshot(context.view, context.player);
+/** currentGroundPiles：定义该变量以承载业务值。 */
         const currentGroundPiles = context.toGroundPileMap(context.view.localGroundPiles);
+/** currentPath：定义该变量以承载业务值。 */
         const currentPath = context.worldRuntimeService.getLegacyNavigationPath(context.playerId);
+/** currentThreatArrows：定义该变量以承载业务值。 */
         const currentThreatArrows = context.buildThreatArrows(context.view);
+/** allMinimapMarkers：定义该变量以承载业务值。 */
         const allMinimapMarkers = context.buildMinimapMarkers(template);
+/** currentVisibleMinimapMarkers：定义该变量以承载业务值。 */
         const currentVisibleMinimapMarkers = context.buildVisibleMinimapMarkers(allMinimapMarkers, currentTiles.byKey);
+/** currentEffects：定义该变量以承载业务值。 */
         const currentEffects = context.filterLegacyCombatEffects(context.worldRuntimeService.getLegacyCombatEffects(context.view.instance.instanceId), currentTiles.byKey);
+/** currentTimeState：定义该变量以承载业务值。 */
         const currentTimeState = context.buildGameTimeState(template, context.view, context.player);
         const { emitLegacy } = this.worldSyncProtocolService.resolveEmission(context.socket);
+/** mapChanged：定义该变量以承载业务值。 */
         const mapChanged = !previous
             || previous.mapId !== context.view.instance.templateId
             || previous.instanceId !== context.view.instance.instanceId;
         if (mapChanged) {
+/** minimapLibrary：定义该变量以承载业务值。 */
             const minimapLibrary = context.buildMinimapLibrarySync(context.player, template.id);
             this.worldSyncProtocolService.sendMapStatic(context.socket, {
                 mapId: template.id,
@@ -260,6 +333,7 @@ let WorldSyncService = class WorldSyncService {
             });
         }
         else if (previous) {
+/** markerPatch：定义该变量以承载业务值。 */
             const markerPatch = context.diffVisibleMinimapMarkers(previous.visibleMinimapMarkers, currentVisibleMinimapMarkers);
             if (markerPatch.adds.length > 0 || markerPatch.removes.length > 0) {
                 this.worldSyncProtocolService.sendMapStatic(context.socket, {
@@ -269,11 +343,13 @@ let WorldSyncService = class WorldSyncService {
                 });
             }
         }
+/** tickPayload：定义该变量以承载业务值。 */
         const tickPayload = context.buildTickPayload(previous, context.view, context.player, template, currentTimeState, currentEntities, currentTiles, currentGroundPiles, currentPath, currentThreatArrows, currentEffects, mapChanged);
         if (tickPayload && emitLegacy) {
             context.socket.emit(shared_1.S2C.Tick, tickPayload);
         }
         if (!previous || previous.attrRevision !== context.player.attrs.revision) {
+/** attrUpdate：定义该变量以承载业务值。 */
             const attrUpdate = context.buildAttrUpdate(previous?.attrState ?? null, context.player);
             if (attrUpdate && emitLegacy) {
                 context.socket.emit(shared_1.S2C.AttrUpdate, attrUpdate);
@@ -282,44 +358,55 @@ let WorldSyncService = class WorldSyncService {
         if (!previous || !context.isSameRealmState(previous.realm, context.player.realm)) {
             this.worldSyncProtocolService.sendRealm(context.socket, context.buildRealmSyncPayload(context.player));
         }
+/** inventoryUpdate：定义该变量以承载业务值。 */
         const inventoryUpdate = context.buildInventoryUpdate(previous, context.player);
         if (inventoryUpdate && emitLegacy) {
             context.socket.emit(shared_1.S2C.InventoryUpdate, inventoryUpdate);
         }
+/** equipmentUpdate：定义该变量以承载业务值。 */
         const equipmentUpdate = context.buildEquipmentUpdate(previous, context.player);
         if (equipmentUpdate && emitLegacy) {
             context.socket.emit(shared_1.S2C.EquipmentUpdate, equipmentUpdate);
         }
+/** techniqueUpdate：定义该变量以承载业务值。 */
         const techniqueUpdate = context.buildTechniqueUpdate(previous, context.player);
         if (techniqueUpdate && emitLegacy) {
             context.socket.emit(shared_1.S2C.TechniqueUpdate, techniqueUpdate);
         }
+/** actionsUpdate：定义该变量以承载业务值。 */
         const actionsUpdate = context.buildActionsUpdate(previous, context.player);
         if (actionsUpdate && emitLegacy) {
             context.socket.emit(shared_1.S2C.ActionsUpdate, actionsUpdate);
         }
+/** lootWindow：定义该变量以承载业务值。 */
         const lootWindow = context.buildLootWindowSyncState(context.playerId);
         if (!context.isSameLootWindow(previous?.lootWindow ?? null, lootWindow)) {
             this.worldSyncProtocolService.sendLootWindow(context.socket, { window: lootWindow });
         }
         context.syncStateByPlayerId.set(context.playerId, context.captureSyncSnapshot(context.view, context.player, template, currentTimeState, currentPath, currentThreatArrows, currentVisibleMinimapMarkers, currentEntities, currentTiles.byKey, currentGroundPiles, lootWindow));
     }
+/** emitQuestSync：执行对应的业务逻辑。 */
     emitQuestSync(socket, playerId, revision) {
+/** payload：定义该变量以承载业务值。 */
         const payload = {
             quests: this.playerRuntimeService.listQuests(playerId),
         };
         this.worldSyncProtocolService.sendQuestSync(socket, payload);
         this.lastQuestRevisionByPlayerId.set(playerId, revision);
     }
+/** clearDetachedPlayerCaches：执行对应的业务逻辑。 */
     clearDetachedPlayerCaches(playerId) {
         this.clearPlayerCaches(playerId, true);
     }
+/** clearPurgedPlayerCaches：执行对应的业务逻辑。 */
     clearPurgedPlayerCaches() {
+/** purgedPlayerIds：定义该变量以承载业务值。 */
         const purgedPlayerIds = this.worldSessionService.consumePurgedPlayerIds();
         for (const playerId of purgedPlayerIds) {
             this.clearPlayerCaches(playerId, false);
         }
     }
+/** clearPlayerCaches：执行对应的业务逻辑。 */
     clearPlayerCaches(playerId, detachRuntimeSession) {
         this.worldProjectorService.clear(playerId);
         if (detachRuntimeSession) {
@@ -330,17 +417,21 @@ let WorldSyncService = class WorldSyncService {
         this.lootWindowByPlayerId.delete(playerId);
         this.nextAuxStateByPlayerId.delete(playerId);
     }
+/** emitLootWindowUpdate：执行对应的业务逻辑。 */
     emitLootWindowUpdate(playerId) {
+/** socket：定义该变量以承载业务值。 */
         const socket = this.worldSessionService.getSocketByPlayerId(playerId);
         if (!socket) {
             return;
         }
+/** payload：定义该变量以承载业务值。 */
         const payload = {
             window: this.buildLootWindowSyncState(playerId),
         };
         const { emitNext } = this.worldSyncProtocolService.resolveEmission(socket);
         this.worldSyncProtocolService.sendLootWindow(socket, payload);
         if (emitNext) {
+/** nextAux：定义该变量以承载业务值。 */
             const nextAux = this.nextAuxStateByPlayerId.get(playerId);
             if (nextAux) {
                 this.nextAuxStateByPlayerId.set(playerId, {
@@ -350,6 +441,7 @@ let WorldSyncService = class WorldSyncService {
             }
         }
     }
+/** openLootWindow：执行对应的业务逻辑。 */
     openLootWindow(playerId, x, y) {
         this.lootWindowByPlayerId.set(playerId, {
             tileX: Math.trunc(x),
@@ -360,15 +452,25 @@ let WorldSyncService = class WorldSyncService {
             window: this.buildLootWindowSyncState(playerId),
         };
     }
+/** emitNextInitialSync：执行对应的业务逻辑。 */
     emitNextInitialSync(playerId, socket, view, player) {
+/** template：定义该变量以承载业务值。 */
         const template = this.templateRepository.getOrThrow(view.instance.templateId);
+/** visibleTiles：定义该变量以承载业务值。 */
         const visibleTiles = this.buildVisibleTilesSnapshot(view, player, template);
+/** renderEntities：定义该变量以承载业务值。 */
         const renderEntities = this.buildRenderEntitiesSnapshot(view, player);
+/** allMinimapMarkers：定义该变量以承载业务值。 */
         const allMinimapMarkers = this.buildMinimapMarkers(template);
+/** visibleMinimapMarkers：定义该变量以承载业务值。 */
         const visibleMinimapMarkers = this.buildVisibleMinimapMarkers(allMinimapMarkers, visibleTiles.byKey);
+/** minimapLibrary：定义该变量以承载业务值。 */
         const minimapLibrary = this.buildMinimapLibrarySync(player, template.id);
+/** timeState：定义该变量以承载业务值。 */
         const timeState = this.buildGameTimeState(template, view, player);
+/** threatArrows：定义该变量以承载业务值。 */
         const threatArrows = this.buildThreatArrows(view);
+/** bootstrapPayload：定义该变量以承载业务值。 */
         const bootstrapPayload = this.buildBootstrapSyncPayload(view, player, template, visibleTiles, renderEntities, visibleMinimapMarkers, minimapLibrary, timeState);
         socket.emit(shared_1.NEXT_S2C.Bootstrap, bootstrapPayload);
         this.worldSyncProtocolService.sendMapStatic(socket, this.buildMapStaticSyncPayload(template, {
@@ -381,6 +483,7 @@ let WorldSyncService = class WorldSyncService {
             minimapLibrary,
         }));
         this.worldSyncProtocolService.sendRealm(socket, this.buildRealmSyncPayload(player));
+/** lootWindow：定义该变量以承载业务值。 */
         const lootWindow = this.buildLootWindowSyncState(playerId);
         this.worldSyncProtocolService.sendLootWindow(socket, { window: lootWindow });
         if (threatArrows.length > 0) {
@@ -401,21 +504,31 @@ let WorldSyncService = class WorldSyncService {
             lootWindow: cloneLootWindow(lootWindow),
         });
     }
+/** emitNextDeltaSync：执行对应的业务逻辑。 */
     emitNextDeltaSync(playerId, socket, view, player) {
+/** previous：定义该变量以承载业务值。 */
         const previous = this.nextAuxStateByPlayerId.get(playerId) ?? null;
         if (!previous) {
             this.emitNextInitialSync(playerId, socket, view, player);
             return;
         }
+/** template：定义该变量以承载业务值。 */
         const template = this.templateRepository.getOrThrow(view.instance.templateId);
+/** visibleTiles：定义该变量以承载业务值。 */
         const visibleTiles = this.buildVisibleTilesSnapshot(view, player, template);
+/** currentVisibleTileKeys：定义该变量以承载业务值。 */
         const currentVisibleTileKeys = this.buildVisibleTileKeySet(view, player, template);
+/** allMinimapMarkers：定义该变量以承载业务值。 */
         const allMinimapMarkers = this.buildMinimapMarkers(template);
+/** currentVisibleMinimapMarkers：定义该变量以承载业务值。 */
         const currentVisibleMinimapMarkers = this.buildVisibleMinimapMarkers(allMinimapMarkers, currentVisibleTileKeys);
+/** currentThreatArrows：定义该变量以承载业务值。 */
         const currentThreatArrows = this.buildThreatArrows(view);
+/** mapChanged：定义该变量以承载业务值。 */
         const mapChanged = previous.mapId !== view.instance.templateId
             || previous.instanceId !== view.instance.instanceId;
         if (mapChanged) {
+/** minimapLibrary：定义该变量以承载业务值。 */
             const minimapLibrary = this.buildMinimapLibrarySync(player, template.id);
             this.worldSyncProtocolService.sendMapStatic(socket, this.buildMapStaticSyncPayload(template, {
                 mapMeta: this.buildMapMetaSync(template),
@@ -428,7 +541,9 @@ let WorldSyncService = class WorldSyncService {
             }));
         }
         else {
+/** tilePatches：定义该变量以承载业务值。 */
             const tilePatches = diffVisibleTiles(previous.visibleTiles ?? null, visibleTiles.byKey);
+/** markerPatch：定义该变量以承载业务值。 */
             const markerPatch = diffVisibleMinimapMarkers(previous.visibleMinimapMarkers, currentVisibleMinimapMarkers);
             if (markerPatch.adds.length > 0 || markerPatch.removes.length > 0 || tilePatches.length > 0) {
                 this.worldSyncProtocolService.sendMapStatic(socket, this.buildMapStaticSyncPayload(template, {
@@ -438,14 +553,17 @@ let WorldSyncService = class WorldSyncService {
                 }));
             }
         }
+/** currentRealm：定义该变量以承载业务值。 */
         const currentRealm = cloneRealmState(player.realm);
         if (!isSameRealmState(previous.realm, currentRealm)) {
             this.worldSyncProtocolService.sendRealm(socket, this.buildRealmSyncPayload(player, currentRealm));
         }
+/** lootWindow：定义该变量以承载业务值。 */
         const lootWindow = this.buildLootWindowSyncState(playerId);
         if (!isSameLootWindow(previous.lootWindow ?? null, lootWindow)) {
             this.worldSyncProtocolService.sendLootWindow(socket, { window: lootWindow });
         }
+/** threatArrowPatch：定义该变量以承载业务值。 */
         const threatArrowPatch = diffThreatArrows(previous.threatArrows ?? null, currentThreatArrows, mapChanged);
         if (threatArrowPatch.full || threatArrowPatch.adds.length > 0 || threatArrowPatch.removes.length > 0) {
             socket.emit(shared_1.NEXT_S2C.WorldDelta, {
@@ -467,6 +585,7 @@ let WorldSyncService = class WorldSyncService {
             lootWindow: cloneLootWindow(lootWindow),
         });
     }
+/** buildLegacySyncContext：执行对应的业务逻辑。 */
     buildLegacySyncContext(playerId, socket, view, player) {
         return {
             playerId,
@@ -503,6 +622,7 @@ let WorldSyncService = class WorldSyncService {
             toGroundPileMap,
         };
     }
+/** buildBootstrapSyncPayload：执行对应的业务逻辑。 */
     buildBootstrapSyncPayload(view, player, template, visibleTiles, renderEntities, visibleMinimapMarkers, minimapLibrary, timeState) {
         return {
             self: this.buildPlayerSyncState(player, view, minimapLibrary.map((entry) => entry.mapId)),
@@ -516,6 +636,7 @@ let WorldSyncService = class WorldSyncService {
             auraLevelBaseValue: shared_1.DEFAULT_AURA_LEVEL_BASE_VALUE,
         };
     }
+/** buildMapStaticSyncPayload：执行对应的业务逻辑。 */
     buildMapStaticSyncPayload(template, options = {}) {
         return {
             mapId: template.id,
@@ -536,36 +657,51 @@ let WorldSyncService = class WorldSyncService {
             realm,
         };
     }
+/** buildPlayerSyncState：执行对应的业务逻辑。 */
     buildPlayerSyncState(player, view, unlockedMinimapIds) {
         return buildPlayerSyncState(player, view, unlockedMinimapIds);
     }
+/** buildMapMetaSync：执行对应的业务逻辑。 */
     buildMapMetaSync(template) {
         return buildMapMetaSync(template);
     }
+/** buildMinimapSnapshotSync：执行对应的业务逻辑。 */
     buildMinimapSnapshotSync(template) {
         return buildMinimapSnapshotSync(template);
     }
+/** buildMinimapMarkers：执行对应的业务逻辑。 */
     buildMinimapMarkers(template) {
         return buildMinimapMarkers(template);
     }
+/** buildVisibleMinimapMarkers：执行对应的业务逻辑。 */
     buildVisibleMinimapMarkers(markers, visibleTiles) {
         return buildVisibleMinimapMarkers(markers, visibleTiles);
     }
+/** getMapTimeConfig：执行对应的业务逻辑。 */
     getMapTimeConfig(mapId) {
         return this.mapRuntimeConfigService.getMapTimeConfig(mapId);
     }
+/** getMapTickSpeed：执行对应的业务逻辑。 */
     getMapTickSpeed(mapId) {
         return this.mapRuntimeConfigService.getMapTickSpeed(mapId);
     }
+/** buildGameTimeState：执行对应的业务逻辑。 */
     buildGameTimeState(template, view, player) {
         return buildGameTimeState(template, view.tick, Math.max(1, Math.round(player.attrs.numericStats.viewRange)), this.getMapTimeConfig(view.instance.templateId), this.getMapTickSpeed(view.instance.templateId));
     }
+/** buildVisibleTilesSnapshot：执行对应的业务逻辑。 */
     buildVisibleTilesSnapshot(view, player, template) {
+/** radius：定义该变量以承载业务值。 */
         const radius = Math.max(1, Math.round(player.attrs.numericStats.viewRange));
+/** originX：定义该变量以承载业务值。 */
         const originX = view.self.x - radius;
+/** originY：定义该变量以承载业务值。 */
         const originY = view.self.y - radius;
+/** visibleTileIndices：定义该变量以承载业务值。 */
         const visibleTileIndices = new Set(Array.isArray(view.visibleTileIndices) ? view.visibleTileIndices : []);
+/** matrix：定义该变量以承载业务值。 */
         const matrix = [];
+/** byKey：定义该变量以承载业务值。 */
         const byKey = new Map();
         for (let row = 0; row < radius * 2 + 1; row += 1) {
             const y = originY + row;
@@ -575,6 +711,7 @@ let WorldSyncService = class WorldSyncService {
                 const tileIndex = x >= 0 && y >= 0 && x < template.width && y < template.height
                     ? (0, map_template_repository_1.getTileIndex)(x, y, template.width)
                     : -1;
+/** tile：定义该变量以承载业务值。 */
                 const tile = visibleTileIndices.size > 0 && !visibleTileIndices.has(tileIndex)
                     ? null
                     : this.buildTileSyncState(template, view.instance.instanceId, x, y);
@@ -590,7 +727,9 @@ let WorldSyncService = class WorldSyncService {
             byKey,
         };
     }
+/** buildRenderEntitiesSnapshot：执行对应的业务逻辑。 */
     buildRenderEntitiesSnapshot(view, player) {
+/** entities：定义该变量以承载业务值。 */
         const entities = new Map();
         entities.set(player.playerId, buildPlayerRenderEntity(player, '#ff0'));
         for (const visible of view.visiblePlayers) {
@@ -640,11 +779,14 @@ let WorldSyncService = class WorldSyncService {
         }
         return entities;
     }
+/** buildMinimapLibrarySync：执行对应的业务逻辑。 */
     buildMinimapLibrarySync(player, currentMapId) {
+/** mapIds：定义该变量以承载业务值。 */
         const mapIds = Array.from(new Set([...player.unlockedMapIds, currentMapId]))
             .filter((entry) => this.templateRepository.has(entry))
             .sort(compareStableStrings);
         return mapIds.map((mapId) => {
+/** template：定义该变量以承载业务值。 */
             const template = this.templateRepository.getOrThrow(mapId);
             return {
                 mapId,
@@ -653,14 +795,17 @@ let WorldSyncService = class WorldSyncService {
             };
         });
     }
+/** buildTileSyncState：执行对应的业务逻辑。 */
     buildTileSyncState(template, instanceId, x, y) {
         if (x < 0 || y < 0 || x >= template.width || y >= template.height) {
             return null;
         }
+/** state：定义该变量以承载业务值。 */
         const state = this.worldRuntimeService.getInstanceTileState(instanceId, x, y);
         if (!state) {
             return null;
         }
+/** tileType：定义该变量以承载业务值。 */
         const tileType = (0, shared_1.getTileTypeFromMapChar)(template.terrainRows[y]?.[x] ?? '#');
         return {
             type: tileType,
@@ -673,29 +818,41 @@ let WorldSyncService = class WorldSyncService {
             maxHp: state.combat?.maxHp,
         };
     }
+/** buildAttrUpdate：执行对应的业务逻辑。 */
     buildAttrUpdate(previous, player) {
         return buildAttrUpdate(previous, player);
     }
+/** buildInventoryUpdate：执行对应的业务逻辑。 */
     buildInventoryUpdate(previous, player) {
         return buildInventoryUpdate(previous, player);
     }
+/** buildEquipmentUpdate：执行对应的业务逻辑。 */
     buildEquipmentUpdate(previous, player) {
         return buildEquipmentUpdate(previous, player);
     }
+/** buildTechniqueUpdate：执行对应的业务逻辑。 */
     buildTechniqueUpdate(previous, player) {
         return buildTechniqueUpdate(previous, player);
     }
+/** buildActionsUpdate：执行对应的业务逻辑。 */
     buildActionsUpdate(previous, player) {
         return buildActionsUpdate(previous, player);
     }
+/** buildTickPayload：执行对应的业务逻辑。 */
     buildTickPayload(previous, view, player, template, timeState, renderEntities, visibleTiles, groundPiles, path, threatArrows, effects, mapChanged) {
         return buildTickPayload(previous, view, player, template, timeState, renderEntities, visibleTiles, groundPiles, path, threatArrows, effects, mapChanged);
     }
+/** buildVisibleTileKeySet：执行对应的业务逻辑。 */
     buildVisibleTileKeySet(view, player, template) {
+/** radius：定义该变量以承载业务值。 */
         const radius = Math.max(1, Math.round(player.attrs.numericStats.viewRange));
+/** originX：定义该变量以承载业务值。 */
         const originX = view.self.x - radius;
+/** originY：定义该变量以承载业务值。 */
         const originY = view.self.y - radius;
+/** visibleTileIndices：定义该变量以承载业务值。 */
         const visibleTileIndices = new Set(Array.isArray(view.visibleTileIndices) ? view.visibleTileIndices : []);
+/** keys：定义该变量以承载业务值。 */
         const keys = new Set();
         for (let row = 0; row < radius * 2 + 1; row += 1) {
             const y = originY + row;
@@ -704,6 +861,7 @@ let WorldSyncService = class WorldSyncService {
                 if (x < 0 || y < 0 || x >= template.width || y >= template.height) {
                     continue;
                 }
+/** tileIndex：定义该变量以承载业务值。 */
                 const tileIndex = (0, map_template_repository_1.getTileIndex)(x, y, template.width);
                 if (visibleTileIndices.size > 0 && !visibleTileIndices.has(tileIndex)) {
                     continue;
@@ -716,15 +874,22 @@ let WorldSyncService = class WorldSyncService {
         }
         return keys;
     }
+/** buildThreatArrows：执行对应的业务逻辑。 */
     buildThreatArrows(view) {
+/** visiblePlayerIds：定义该变量以承载业务值。 */
         const visiblePlayerIds = new Set([
             view.playerId,
             ...view.visiblePlayers.map((entry) => entry.playerId),
         ]);
+/** visibleMonsterIds：定义该变量以承载业务值。 */
         const visibleMonsterIds = new Set(view.localMonsters.map((entry) => entry.runtimeId));
+/** visibleEntityIds：定义该变量以承载业务值。 */
         const visibleEntityIds = new Set([...visiblePlayerIds, ...visibleMonsterIds]);
+/** arrows：定义该变量以承载业务值。 */
         const arrows = [];
+/** seen：定义该变量以承载业务值。 */
         const seen = new Set();
+/** pushArrow：定义该变量以承载业务值。 */
         const pushArrow = (ownerId, targetId) => {
             if (!targetId || ownerId === targetId) {
                 return;
@@ -732,6 +897,7 @@ let WorldSyncService = class WorldSyncService {
             if (!visibleEntityIds.has(ownerId) || !visibleEntityIds.has(targetId)) {
                 return;
             }
+/** key：定义该变量以承载业务值。 */
             const key = `${ownerId}->${targetId}`;
             if (seen.has(key)) {
                 return;
@@ -745,6 +911,7 @@ let WorldSyncService = class WorldSyncService {
             if (typeof targetRef !== 'string' || targetRef.length === 0) {
                 continue;
             }
+/** targetId：定义该变量以承载业务值。 */
             const targetId = targetRef.startsWith('player:')
                 ? targetRef.slice('player:'.length)
                 : targetRef.startsWith('tile:') || targetRef.startsWith('container:')
@@ -762,23 +929,29 @@ let WorldSyncService = class WorldSyncService {
         arrows.sort(compareThreatArrows);
         return arrows;
     }
+/** emitPendingNotices：执行对应的业务逻辑。 */
     emitPendingNotices(playerId, socket) {
+/** items：定义该变量以承载业务值。 */
         const items = this.playerRuntimeService.drainNotices(playerId);
         if (items.length === 0) {
             return;
         }
         this.worldSyncProtocolService.sendNotices(socket, items);
     }
+/** buildLootWindowSyncState：执行对应的业务逻辑。 */
     buildLootWindowSyncState(playerId) {
+/** player：定义该变量以承载业务值。 */
         const player = this.playerRuntimeService.getPlayer(playerId);
         if (!player) {
             this.lootWindowByPlayerId.delete(playerId);
             return null;
         }
+/** target：定义该变量以承载业务值。 */
         const target = this.playerRuntimeService.getLootWindowTarget(playerId) ?? this.lootWindowByPlayerId.get(playerId);
         if (!target) {
             return null;
         }
+/** lootWindow：定义该变量以承载业务值。 */
         const lootWindow = this.worldRuntimeService.buildLootWindowSyncState(playerId, target.tileX, target.tileY);
         if (!lootWindow) {
             this.playerRuntimeService.clearLootWindow(playerId);
@@ -800,7 +973,9 @@ exports.WorldSyncService = WorldSyncService = __decorate([
         runtime_map_config_service_1.RuntimeMapConfigService,
         world_sync_protocol_service_1.WorldSyncProtocolService])
 ], WorldSyncService);
+/** captureSyncSnapshot：执行对应的业务逻辑。 */
 function captureSyncSnapshot(view, player, template, timeState, path, threatArrows, visibleMinimapMarkers, renderEntities, visibleTiles, groundPiles, lootWindow) {
+/** normalizedActions：定义该变量以承载业务值。 */
     const normalizedActions = player.actions.actions.map((entry) => normalizeActionEntry(entry));
     return {
         mapId: view.instance.templateId,
@@ -845,19 +1020,31 @@ function captureSyncSnapshot(view, player, template, timeState, path, threatArro
         lootWindow: cloneLootWindow(lootWindow),
     };
 }
+/** buildTickPayload：执行对应的业务逻辑。 */
 function buildTickPayload(previous, view, player, template, timeState, renderEntities, visibleTiles, groundPiles, path, threatArrows, effects, mapChanged) {
+/** entityPatch：定义该变量以承载业务值。 */
     const entityPatch = diffRenderEntities(previous?.renderEntities ?? null, renderEntities, mapChanged);
+/** tilePatches：定义该变量以承载业务值。 */
     const tilePatches = mapChanged
         ? []
         : diffVisibleTiles(previous?.visibleTiles ?? null, visibleTiles.byKey);
+/** groundPatches：定义该变量以承载业务值。 */
     const groundPatches = diffGroundPiles(previous?.groundPiles ?? null, groundPiles, mapChanged);
+/** pathChanged：定义该变量以承载业务值。 */
     const pathChanged = mapChanged || !previous || !isSamePathTuples(previous.path, path);
+/** threatArrowPatch：定义该变量以承载业务值。 */
     const threatArrowPatch = diffThreatArrows(previous?.threatArrows ?? null, threatArrows, mapChanged);
+/** hpChanged：定义该变量以承载业务值。 */
     const hpChanged = mapChanged || !previous || previous.hp !== player.hp;
+/** qiChanged：定义该变量以承载业务值。 */
     const qiChanged = mapChanged || !previous || previous.qi !== player.qi;
+/** facingChanged：定义该变量以承载业务值。 */
     const facingChanged = mapChanged || !previous || previous.facing !== player.facing;
+/** moved：定义该变量以承载业务值。 */
     const moved = mapChanged || !previous || previous.x !== player.x || previous.y !== player.y;
+/** timeChanged：定义该变量以承载业务值。 */
     const timeChanged = mapChanged || !previous || !isSameGameTimeState(previous.timeState, timeState);
+/** auraLevelBaseChanged：定义该变量以承载业务值。 */
     const auraLevelBaseChanged = mapChanged || !previous || previous.auraLevelBaseValue !== shared_1.DEFAULT_AURA_LEVEL_BASE_VALUE;
     if (!mapChanged
         && !moved
@@ -878,6 +1065,7 @@ function buildTickPayload(previous, view, player, template, timeState, renderEnt
         && !auraLevelBaseChanged) {
         return null;
     }
+/** payload：定义该变量以承载业务值。 */
     const payload = {
         p: entityPatch.players,
         e: entityPatch.entities,
@@ -930,11 +1118,14 @@ function buildTickPayload(previous, view, player, template, timeState, renderEnt
     }
     return payload;
 }
+/** buildAttrUpdate：执行对应的业务逻辑。 */
 function buildAttrUpdate(previous, player) {
+/** next：定义该变量以承载业务值。 */
     const next = captureAttrState(player);
     if (!previous) {
         return next;
     }
+/** patch：定义该变量以承载业务值。 */
     const patch = {};
     if (!isSameAttributes(previous.baseAttrs, next.baseAttrs)) {
         patch.baseAttrs = cloneAttributes(next.baseAttrs);
@@ -980,6 +1171,7 @@ function buildAttrUpdate(previous, player) {
     }
     return Object.keys(patch).length > 0 ? patch : null;
 }
+/** captureAttrState：执行对应的业务逻辑。 */
 function captureAttrState(player) {
     return {
         baseAttrs: cloneAttributes(player.attrs.baseAttrs),
@@ -1001,6 +1193,7 @@ function captureAttrState(player) {
         realmBreakthroughReady: player.realm?.breakthroughReady,
     };
 }
+/** buildInventoryUpdate：执行对应的业务逻辑。 */
 function buildInventoryUpdate(previous, player) {
     if (previous && previous.inventoryRevision === player.inventory.revision) {
         return null;
@@ -1015,8 +1208,11 @@ function buildInventoryUpdate(previous, player) {
             size: player.inventory.items.length,
         };
     }
+/** slots：定义该变量以承载业务值。 */
     const slots = diffInventorySlots(previous.inventoryItems, player.inventory.items);
+/** capacityChanged：定义该变量以承载业务值。 */
     const capacityChanged = previous.inventoryCapacity !== player.inventory.capacity;
+/** sizeChanged：定义该变量以承载业务值。 */
     const sizeChanged = previous.inventoryItems.length !== player.inventory.items.length;
     if (!capacityChanged && !sizeChanged && slots.length === 0) {
         return null;
@@ -1027,15 +1223,18 @@ function buildInventoryUpdate(previous, player) {
         slots: slots.length > 0 ? slots : undefined,
     };
 }
+/** buildEquipmentUpdate：执行对应的业务逻辑。 */
 function buildEquipmentUpdate(previous, player) {
     if (previous && previous.equipmentRevision === player.equipment.revision) {
         return null;
     }
+/** slots：定义该变量以承载业务值。 */
     const slots = !previous
         ? player.equipment.slots.map((entry) => cloneEquipmentSlot(entry))
         : diffEquipmentSlots(previous.equipmentSlots, player.equipment.slots);
     return slots.length > 0 ? { slots } : null;
 }
+/** buildTechniqueUpdate：执行对应的业务逻辑。 */
 function buildTechniqueUpdate(previous, player) {
     if (previous && previous.techniqueRevision === player.techniques.revision) {
         return null;
@@ -1047,9 +1246,13 @@ function buildTechniqueUpdate(previous, player) {
             bodyTraining: player.bodyTraining ? { ...player.bodyTraining } : null,
         };
     }
+/** techniques：定义该变量以承载业务值。 */
     const techniques = diffTechniqueEntries(previous.techniques, player.techniques.techniques);
+/** removeTechniqueIds：定义该变量以承载业务值。 */
     const removeTechniqueIds = diffRemovedIds(previous.techniques.map((entry) => entry.techId), player.techniques.techniques.map((entry) => entry.techId));
+/** cultivatingChanged：定义该变量以承载业务值。 */
     const cultivatingChanged = previous.cultivatingTechId !== player.techniques.cultivatingTechId;
+/** bodyTrainingChanged：定义该变量以承载业务值。 */
     const bodyTrainingChanged = !isSameBodyTrainingState(previous.bodyTraining ?? null, player.bodyTraining ?? null);
     if (techniques.length === 0 && removeTechniqueIds.length === 0 && !cultivatingChanged && !bodyTrainingChanged) {
         return null;
@@ -1061,7 +1264,9 @@ function buildTechniqueUpdate(previous, player) {
         bodyTraining: bodyTrainingChanged ? (player.bodyTraining ? { ...player.bodyTraining } : null) : undefined,
     };
 }
+/** buildActionsUpdate：执行对应的业务逻辑。 */
 function buildActionsUpdate(previous, player) {
+/** normalizedActions：定义该变量以承载业务值。 */
     const normalizedActions = player.actions.actions.map((entry) => normalizeActionEntry(entry));
     if (previous
         && previous.actionRevision === player.actions.revision
@@ -1093,8 +1298,11 @@ function buildActionsUpdate(previous, player) {
             senseQiActive: player.combat.senseQiActive,
         };
     }
+/** actions：定义该变量以承载业务值。 */
     const actions = diffActionEntries(previous.actions, normalizedActions);
+/** removeActionIds：定义该变量以承载业务值。 */
     const removeActionIds = diffRemovedIds(previous.actions.map((entry) => entry.id), normalizedActions.map((entry) => entry.id));
+/** topLevelChanged：定义该变量以承载业务值。 */
     const topLevelChanged = previous.autoBattle !== player.combat.autoBattle
         || previous.combatTargetId !== player.combat.combatTargetId
         || previous.combatTargetLocked !== player.combat.combatTargetLocked
@@ -1124,7 +1332,9 @@ function buildActionsUpdate(previous, player) {
         senseQiActive: player.combat.senseQiActive,
     };
 }
+/** normalizeActionEntry：执行对应的业务逻辑。 */
 function normalizeActionEntry(entry) {
+/** normalizedId：定义该变量以承载业务值。 */
     const normalizedId = entry.id.startsWith('npc_quests:')
         ? `npc:${entry.id.slice('npc_quests:'.length)}`
         : entry.id;
@@ -1136,6 +1346,7 @@ function normalizeActionEntry(entry) {
         id: normalizedId,
     };
 }
+/** buildPlayerSyncState：执行对应的业务逻辑。 */
 function buildPlayerSyncState(player, view, unlockedMinimapIds) {
     return {
         id: player.playerId,
@@ -1158,6 +1369,7 @@ function buildPlayerSyncState(player, view, unlockedMinimapIds) {
         hp: player.hp,
         maxHp: player.maxHp,
         qi: player.qi,
+/** dead：定义该变量以承载业务值。 */
         dead: player.hp <= 0,
         foundation: player.foundation,
         combatExp: player.combatExp,
@@ -1198,6 +1410,7 @@ function buildPlayerSyncState(player, view, unlockedMinimapIds) {
         unlockedMinimapIds,
     };
 }
+/** buildMapMetaSync：执行对应的业务逻辑。 */
 function buildMapMetaSync(template) {
     return {
         id: template.id,
@@ -1216,6 +1429,7 @@ function buildMapMetaSync(template) {
         description: template.source.description,
     };
 }
+/** buildMinimapSnapshotSync：执行对应的业务逻辑。 */
 function buildMinimapSnapshotSync(template) {
     return {
         width: template.width,
@@ -1224,7 +1438,9 @@ function buildMinimapSnapshotSync(template) {
         markers: buildMinimapMarkers(template),
     };
 }
+/** buildMinimapMarkers：执行对应的业务逻辑。 */
 function buildMinimapMarkers(template) {
+/** markers：定义该变量以承载业务值。 */
     const markers = [];
     for (const landmark of template.landmarks) {
         markers.push({
@@ -1264,6 +1480,7 @@ function buildMinimapMarkers(template) {
             kind: portal.kind,
             x: portal.x,
             y: portal.y,
+/** label：定义该变量以承载业务值。 */
             label: portal.kind === 'stairs' ? '楼梯' : '传送点',
             detail: portal.targetMapId,
         });
@@ -1271,10 +1488,12 @@ function buildMinimapMarkers(template) {
     markers.sort((left, right) => left.y - right.y || left.x - right.x || compareStableStrings(left.id, right.id));
     return markers;
 }
+/** buildVisibleMinimapMarkers：执行对应的业务逻辑。 */
 function buildVisibleMinimapMarkers(markers, visibleTiles) {
     if (markers.length === 0 || visibleTiles.size === 0) {
         return [];
     }
+/** visible：定义该变量以承载业务值。 */
     const visible = [];
     for (const marker of markers) {
         if (!visibleTiles.has(buildCoordKey(marker.x, marker.y))) {
@@ -1284,10 +1503,15 @@ function buildVisibleMinimapMarkers(markers, visibleTiles) {
     }
     return visible;
 }
+/** diffVisibleMinimapMarkers：执行对应的业务逻辑。 */
 function diffVisibleMinimapMarkers(previous, current) {
+/** previousById：定义该变量以承载业务值。 */
     const previousById = new Map(previous.map((entry) => [entry.id, entry]));
+/** currentById：定义该变量以承载业务值。 */
     const currentById = new Map(current.map((entry) => [entry.id, entry]));
+/** adds：定义该变量以承载业务值。 */
     const adds = [];
+/** removes：定义该变量以承载业务值。 */
     const removes = [];
     for (const [markerId, marker] of currentById.entries()) {
         const previousMarker = previousById.get(markerId);
@@ -1305,28 +1529,42 @@ function diffVisibleMinimapMarkers(previous, current) {
         removes,
     };
 }
+/** buildGameTimeState：执行对应的业务逻辑。 */
 function buildGameTimeState(template, totalTicks, baseViewRange, overrideConfig, tickSpeed = 1) {
+/** config：定义该变量以承载业务值。 */
     const config = normalizeMapTimeConfig(overrideConfig ?? template.source.time);
+/** localTimeScale：定义该变量以承载业务值。 */
     const localTimeScale = typeof config.scale === 'number' && Number.isFinite(config.scale) && config.scale >= 0
         ? config.scale
         : 1;
+/** timeScale：定义该变量以承载业务值。 */
     const timeScale = tickSpeed > 0 ? localTimeScale : 0;
+/** offsetTicks：定义该变量以承载业务值。 */
     const offsetTicks = typeof config.offsetTicks === 'number' && Number.isFinite(config.offsetTicks)
         ? Math.round(config.offsetTicks)
         : 0;
+/** effectiveTicks：定义该变量以承载业务值。 */
     const effectiveTicks = tickSpeed > 0 ? totalTicks : 0;
+/** localTicks：定义该变量以承载业务值。 */
     const localTicks = ((Math.floor(effectiveTicks * timeScale) + offsetTicks) % shared_1.GAME_DAY_TICKS + shared_1.GAME_DAY_TICKS) % shared_1.GAME_DAY_TICKS;
+/** phase：定义该变量以承载业务值。 */
     const phase = shared_1.GAME_TIME_PHASES.find((entry) => localTicks >= entry.startTick && localTicks < entry.endTick)
         ?? shared_1.GAME_TIME_PHASES[shared_1.GAME_TIME_PHASES.length - 1];
+/** baseLight：定义该变量以承载业务值。 */
     const baseLight = typeof config.light?.base === 'number' && Number.isFinite(config.light.base)
         ? config.light.base
         : 0;
+/** timeInfluence：定义该变量以承载业务值。 */
     const timeInfluence = typeof config.light?.timeInfluence === 'number' && Number.isFinite(config.light.timeInfluence)
         ? config.light.timeInfluence
         : 100;
+/** lightPercent：定义该变量以承载业务值。 */
     const lightPercent = Math.max(0, Math.min(100, Math.round(baseLight + phase.skyLightPercent * (timeInfluence / 100))));
+/** darknessStacks：定义该变量以承载业务值。 */
     const darknessStacks = resolveDarknessStacks(lightPercent);
+/** visionMultiplier：定义该变量以承载业务值。 */
     const visionMultiplier = shared_1.DARKNESS_STACK_TO_VISION_MULTIPLIER[darknessStacks] ?? 0.5;
+/** palette：定义该变量以承载业务值。 */
     const palette = config.palette?.[phase.id];
     return {
         totalTicks,
@@ -1343,7 +1581,9 @@ function buildGameTimeState(template, totalTicks, baseViewRange, overrideConfig,
         overlayAlpha: palette?.alpha ?? Math.max(phase.overlayAlpha, (100 - lightPercent) / 100 * 0.8),
     };
 }
+/** normalizeMapTimeConfig：执行对应的业务逻辑。 */
 function normalizeMapTimeConfig(input) {
+/** candidate：定义该变量以承载业务值。 */
     const candidate = (input ?? {});
     return {
         offsetTicks: candidate.offsetTicks,
@@ -1352,6 +1592,7 @@ function normalizeMapTimeConfig(input) {
         palette: candidate.palette,
     };
 }
+/** resolveDarknessStacks：执行对应的业务逻辑。 */
 function resolveDarknessStacks(lightPercent) {
     if (lightPercent >= 95)
         return 0;
@@ -1365,9 +1606,11 @@ function resolveDarknessStacks(lightPercent) {
         return 4;
     return 5;
 }
+/** cloneGameTimeState：执行对应的业务逻辑。 */
 function cloneGameTimeState(source) {
     return { ...source };
 }
+/** isSameGameTimeState：执行对应的业务逻辑。 */
 function isSameGameTimeState(left, right) {
     return left.totalTicks === right.totalTicks
         && left.localTicks === right.localTicks
@@ -1382,7 +1625,9 @@ function isSameGameTimeState(left, right) {
         && left.tint === right.tint
         && left.overlayAlpha === right.overlayAlpha;
 }
+/** getBuffPresentationScale：执行对应的业务逻辑。 */
 function getBuffPresentationScale(buffs) {
+/** scale：定义该变量以承载业务值。 */
     let scale = 1;
     for (const buff of buffs ?? []) {
         if ((buff?.remainingTicks ?? 0) <= 0 || (buff?.stacks ?? 0) <= 0) {
@@ -1394,6 +1639,7 @@ function getBuffPresentationScale(buffs) {
     }
     return scale;
 }
+/** buildPlayerRenderEntity：执行对应的业务逻辑。 */
 function buildPlayerRenderEntity(player, color) {
     return {
         id: player.playerId,
@@ -1408,9 +1654,13 @@ function buildPlayerRenderEntity(player, color) {
         maxHp: player.maxHp,
     };
 }
+/** diffRenderEntities：执行对应的业务逻辑。 */
 function diffRenderEntities(previous, current, fullSync) {
+/** players：定义该变量以承载业务值。 */
     const players = [];
+/** entities：定义该变量以承载业务值。 */
     const entities = [];
+/** removed：定义该变量以承载业务值。 */
     const removed = [];
     for (const [id, entry] of current) {
         const prev = fullSync ? null : (previous?.get(id) ?? null);
@@ -1434,15 +1684,18 @@ function diffRenderEntities(previous, current, fullSync) {
     }
     return { players, entities, removed };
 }
+/** buildRenderEntityPatch：执行对应的业务逻辑。 */
 function buildRenderEntityPatch(previous, current) {
     if (!previous) {
         return toTickRenderEntity(current);
     }
+/** patch：定义该变量以承载业务值。 */
         const patch = {
             id: current.id,
             x: current.x,
             y: current.y,
         };
+/** changed：定义该变量以承载业务值。 */
     let changed = previous.x !== current.x || previous.y !== current.y;
     if (previous.char !== current.char) {
         patch.char = current.char;
@@ -1482,6 +1735,7 @@ function buildRenderEntityPatch(previous, current) {
     }
     return changed ? patch : null;
 }
+/** toTickRenderEntity：执行对应的业务逻辑。 */
 function toTickRenderEntity(source) {
     return {
         id: source.id,
@@ -1498,7 +1752,9 @@ function toTickRenderEntity(source) {
         npcQuestMarker: source.npcQuestMarker ?? null,
     };
 }
+/** diffVisibleTiles：执行对应的业务逻辑。 */
 function diffVisibleTiles(previous, current) {
+/** patches：定义该变量以承载业务值。 */
     const patches = [];
     for (const [key, tile] of current) {
         const prev = previous?.get(key) ?? null;
@@ -1518,7 +1774,9 @@ function diffVisibleTiles(previous, current) {
     }
     return patches;
 }
+/** diffGroundPiles：执行对应的业务逻辑。 */
 function diffGroundPiles(previous, current, fullSync) {
+/** patches：定义该变量以承载业务值。 */
     const patches = [];
     for (const [sourceId, pile] of current) {
         const prev = fullSync ? null : (previous?.get(sourceId) ?? null);
@@ -1546,8 +1804,11 @@ function diffGroundPiles(previous, current, fullSync) {
     }
     return patches;
 }
+/** diffInventorySlots：执行对应的业务逻辑。 */
 function diffInventorySlots(previous, current) {
+/** patch：定义该变量以承载业务值。 */
     const patch = [];
+/** maxLength：定义该变量以承载业务值。 */
     const maxLength = Math.max(previous.length, current.length);
     for (let index = 0; index < maxLength; index += 1) {
         const prev = previous[index] ?? null;
@@ -1561,8 +1822,11 @@ function diffInventorySlots(previous, current) {
     }
     return patch;
 }
+/** diffEquipmentSlots：执行对应的业务逻辑。 */
 function diffEquipmentSlots(previous, current) {
+/** previousBySlot：定义该变量以承载业务值。 */
     const previousBySlot = new Map(previous.map((entry) => [entry.slot, entry]));
+/** patch：定义该变量以承载业务值。 */
     const patch = [];
     for (const entry of current) {
         const prev = previousBySlot.get(entry.slot) ?? null;
@@ -1572,8 +1836,11 @@ function diffEquipmentSlots(previous, current) {
     }
     return patch;
 }
+/** diffTechniqueEntries：执行对应的业务逻辑。 */
 function diffTechniqueEntries(previous, current) {
+/** previousById：定义该变量以承载业务值。 */
     const previousById = new Map(previous.map((entry) => [entry.techId, entry]));
+/** patch：定义该变量以承载业务值。 */
     const patch = [];
     for (const entry of current) {
         const prev = previousById.get(entry.techId) ?? null;
@@ -1583,8 +1850,11 @@ function diffTechniqueEntries(previous, current) {
     }
     return patch;
 }
+/** diffActionEntries：执行对应的业务逻辑。 */
 function diffActionEntries(previous, current) {
+/** previousById：定义该变量以承载业务值。 */
     const previousById = new Map(previous.map((entry) => [entry.id, entry]));
+/** patch：定义该变量以承载业务值。 */
     const patch = [];
     for (const entry of current) {
         const prev = previousById.get(entry.id) ?? null;
@@ -1594,11 +1864,15 @@ function diffActionEntries(previous, current) {
     }
     return patch;
 }
+/** diffRemovedIds：执行对应的业务逻辑。 */
 function diffRemovedIds(previous, current) {
+/** currentSet：定义该变量以承载业务值。 */
     const currentSet = new Set(current);
     return previous.filter((entry) => !currentSet.has(entry));
 }
+/** buildEquipmentRecord：执行对应的业务逻辑。 */
 function buildEquipmentRecord(entries) {
+/** record：定义该变量以承载业务值。 */
     const record = {
         weapon: null,
         head: null,
@@ -1612,7 +1886,9 @@ function buildEquipmentRecord(entries) {
     }
     return record;
 }
+/** toTechniqueState：执行对应的业务逻辑。 */
 function toTechniqueState(entry) {
+/** skills：定义该变量以承载业务值。 */
     const skills = entry.skills?.map((skill) => cloneTechniqueSkill(skill)) ?? [];
     return {
         techId: entry.techId,
@@ -1622,6 +1898,7 @@ function toTechniqueState(entry) {
         expToNext: entry.expToNext ?? 0,
         realmLv: entry.realmLv ?? 1,
         realm: entry.realm ?? shared_1.TechniqueRealm.Entry,
+/** skillsEnabled：定义该变量以承载业务值。 */
         skillsEnabled: entry.skillsEnabled !== false,
         skills,
         grade: entry.grade ?? undefined,
@@ -1634,7 +1911,9 @@ function toTechniqueState(entry) {
         attrCurves: entry.attrCurves ? { ...entry.attrCurves } : undefined,
     };
 }
+/** toActionDefinition：执行对应的业务逻辑。 */
 function toActionDefinition(entry) {
+/** normalizedEntry：定义该变量以承载业务值。 */
     const normalizedEntry = normalizeActionEntry(entry);
     return {
         id: normalizedEntry.id,
@@ -1650,6 +1929,7 @@ function toActionDefinition(entry) {
         skillEnabled: normalizedEntry.skillEnabled ?? undefined,
     };
 }
+/** toItemStackState：执行对应的业务逻辑。 */
 function toItemStackState(entry) {
     return {
         itemId: entry.itemId,
@@ -1675,13 +1955,17 @@ function toItemStackState(entry) {
         allowBatchUse: entry.allowBatchUse,
     };
 }
+/** toGroundPileMap：执行对应的业务逻辑。 */
 function toGroundPileMap(input) {
     return new Map(input.map((entry) => [entry.sourceId, cloneGroundPile(entry)]));
 }
+/** buildCoordKey：执行对应的业务逻辑。 */
 function buildCoordKey(x, y) {
     return `${x},${y}`;
 }
+/** parseCoordKey：执行对应的业务逻辑。 */
 function parseCoordKey(key) {
+/** separatorIndex：定义该变量以承载业务值。 */
     const separatorIndex = key.indexOf(',');
     if (separatorIndex < 0) {
         return [0, 0];
@@ -1691,12 +1975,14 @@ function parseCoordKey(key) {
         Number(key.slice(separatorIndex + 1)),
     ];
 }
+/** cloneRenderEntity：执行对应的业务逻辑。 */
 function cloneRenderEntity(source) {
     return {
         ...source,
         npcQuestMarker: source.npcQuestMarker ? { ...source.npcQuestMarker } : undefined,
     };
 }
+/** cloneMinimapMarker：执行对应的业务逻辑。 */
 function cloneMinimapMarker(source) {
     return {
         id: source.id,
@@ -1707,12 +1993,14 @@ function cloneMinimapMarker(source) {
         detail: source.detail,
     };
 }
+/** cloneTile：执行对应的业务逻辑。 */
 function cloneTile(source) {
     return {
         ...source,
         hiddenEntrance: source.hiddenEntrance ? { ...source.hiddenEntrance } : undefined,
     };
 }
+/** cloneGroundPile：执行对应的业务逻辑。 */
 function cloneGroundPile(source) {
     return {
         sourceId: source.sourceId,
@@ -1721,12 +2009,15 @@ function cloneGroundPile(source) {
         items: source.items.map((entry) => ({ ...entry })),
     };
 }
+/** cloneThreatArrows：执行对应的业务逻辑。 */
 function cloneThreatArrows(source) {
     return source.map(([ownerId, targetId]) => [ownerId, targetId]);
 }
+/** cloneCombatEffect：执行对应的业务逻辑。 */
 function cloneCombatEffect(source) {
     return { ...source };
 }
+/** cloneLootWindow：执行对应的业务逻辑。 */
 function cloneLootWindow(source) {
     if (!source) {
         return null;
@@ -1751,6 +2042,7 @@ function cloneLootWindow(source) {
         })),
     };
 }
+/** cloneSyncedItem：执行对应的业务逻辑。 */
 function cloneSyncedItem(source) {
     return {
         ...source,
@@ -1762,12 +2054,14 @@ function cloneSyncedItem(source) {
         tags: source.tags?.slice(),
     };
 }
+/** cloneEquipmentSlot：执行对应的业务逻辑。 */
 function cloneEquipmentSlot(source) {
     return {
         slot: source.slot,
         item: source.item ? cloneSyncedItem(source.item) : null,
     };
 }
+/** cloneTechniqueEntry：执行对应的业务逻辑。 */
 function cloneTechniqueEntry(source) {
     return {
         techId: source.techId,
@@ -1776,6 +2070,7 @@ function cloneTechniqueEntry(source) {
         expToNext: source.expToNext,
         realmLv: source.realmLv,
         realm: source.realm,
+/** skillsEnabled：定义该变量以承载业务值。 */
         skillsEnabled: source.skillsEnabled !== false,
         name: null,
         grade: source.grade ?? undefined,
@@ -1789,6 +2084,7 @@ function cloneTechniqueEntry(source) {
         attrCurves: source.attrCurves ? { ...source.attrCurves } : source.attrCurves ?? undefined,
     };
 }
+/** cloneTechniqueSkill：执行对应的业务逻辑。 */
 function cloneTechniqueSkill(source) {
     return {
         ...source,
@@ -1796,9 +2092,13 @@ function cloneTechniqueSkill(source) {
         desc: '',
     };
 }
+/** buildAttrBonuses：执行对应的业务逻辑。 */
 function buildAttrBonuses(player) {
+/** bonuses：定义该变量以承载业务值。 */
     const bonuses = [];
+/** realmStage：定义该变量以承载业务值。 */
     const realmStage = player.realm?.stage ?? player.attrs.stage ?? shared_1.DEFAULT_PLAYER_REALM_STAGE;
+/** realmConfig：定义该变量以承载业务值。 */
     const realmConfig = shared_1.PLAYER_REALM_CONFIG[realmStage];
     if (realmConfig && hasNonZeroAttributes(realmConfig.attrBonus)) {
         bonuses.push({
@@ -1863,6 +2163,7 @@ function buildAttrBonuses(player) {
     }
     return bonuses;
 }
+/** isDerivedRuntimeBonusSource：执行对应的业务逻辑。 */
 function isDerivedRuntimeBonusSource(source) {
     if (typeof source !== 'string' || source.length === 0) {
         return true;
@@ -1876,16 +2177,19 @@ function isDerivedRuntimeBonusSource(source) {
         || source.startsWith('equipment:')
         || source.startsWith('buff:');
 }
+/** hasNonZeroAttributes：执行对应的业务逻辑。 */
 function hasNonZeroAttributes(attrs) {
     if (!attrs) {
         return false;
     }
     return shared_1.ATTR_KEYS.some((key) => Number(attrs[key] ?? 0) !== 0);
 }
+/** hasNonZeroPartialNumericStats：执行对应的业务逻辑。 */
 function hasNonZeroPartialNumericStats(stats) {
     if (!stats) {
         return false;
     }
+/** scalarKeys：定义该变量以承载业务值。 */
     const scalarKeys = [
         'maxHp',
         'maxQi',
@@ -1923,11 +2227,14 @@ function hasNonZeroPartialNumericStats(stats) {
         }
     }
     return ['elementDamageBonus', 'elementDamageReduce'].some((groupKey) => {
+/** group：定义该变量以承载业务值。 */
         const group = stats[groupKey];
         return isPlainObject(group) && Object.values(group).some((value) => Number(value ?? 0) !== 0);
     });
 }
+/** clonePartialAttributes：执行对应的业务逻辑。 */
 function clonePartialAttributes(attrs) {
+/** result：定义该变量以承载业务值。 */
     const result = {};
     for (const key of shared_1.ATTR_KEYS) {
         const value = Number(attrs?.[key] ?? 0);
@@ -1937,11 +2244,14 @@ function clonePartialAttributes(attrs) {
     }
     return result;
 }
+/** clonePartialNumericStats：执行对应的业务逻辑。 */
 function clonePartialNumericStats(stats) {
     if (!stats) {
         return undefined;
     }
+/** clone：定义该变量以承载业务值。 */
     const clone = {};
+/** scalarKeys：定义该变量以承载业务值。 */
     const scalarKeys = [
         'maxHp',
         'maxQi',
@@ -1986,6 +2296,7 @@ function clonePartialNumericStats(stats) {
     }
     return Object.keys(clone).length > 0 ? clone : undefined;
 }
+/** cloneQiProjectionModifiers：执行对应的业务逻辑。 */
 function cloneQiProjectionModifiers(source) {
     if (!Array.isArray(source) || source.length === 0) {
         return undefined;
@@ -2003,9 +2314,11 @@ function cloneQiProjectionModifiers(source) {
             : undefined,
     }));
 }
+/** cloneActionEntry：执行对应的业务逻辑。 */
 function cloneActionEntry(source) {
     return { ...source };
 }
+/** cloneTemporaryBuff：执行对应的业务逻辑。 */
 function cloneTemporaryBuff(source) {
     return {
         ...source,
@@ -2014,6 +2327,7 @@ function cloneTemporaryBuff(source) {
         qiProjection: source.qiProjection?.map((entry) => ({ ...entry })),
     };
 }
+/** cloneQuestState：执行对应的业务逻辑。 */
 function cloneQuestState(source) {
     return {
         ...source,
@@ -2021,6 +2335,7 @@ function cloneQuestState(source) {
         rewards: source.rewards.map((entry) => ({ ...entry })),
     };
 }
+/** cloneRealmState：执行对应的业务逻辑。 */
 function cloneRealmState(source) {
     if (!source) {
         return null;
@@ -2037,6 +2352,7 @@ function cloneRealmState(source) {
         heavenGate: cloneHeavenGateState(source.heavenGate),
     };
 }
+/** isSameRealmState：执行对应的业务逻辑。 */
 function isSameRealmState(left, right) {
     if (!left || !right) {
         return left === right;
@@ -2060,6 +2376,7 @@ function isSameRealmState(left, right) {
         && isSameBreakthroughPreview(left.breakthrough, right.breakthrough)
         && isSameHeavenGateState(left.heavenGate, right.heavenGate);
 }
+/** isSameBreakthroughItemList：执行对应的业务逻辑。 */
 function isSameBreakthroughItemList(left, right) {
     if (left.length !== right.length) {
         return false;
@@ -2073,6 +2390,7 @@ function isSameBreakthroughItemList(left, right) {
     }
     return true;
 }
+/** isSameBreakthroughPreview：执行对应的业务逻辑。 */
 function isSameBreakthroughPreview(left, right) {
     if (!left || !right) {
         return left === right;
@@ -2106,6 +2424,7 @@ function isSameBreakthroughPreview(left, right) {
     }
     return true;
 }
+/** isSameHeavenGateState：执行对应的业务逻辑。 */
 function isSameHeavenGateState(left, right) {
     if (!left || !right) {
         return left === right;
@@ -2116,6 +2435,7 @@ function isSameHeavenGateState(left, right) {
         && isSameStringArray(left.severed, right.severed)
         && isSameHeavenGateRoots(left.roots, right.roots);
 }
+/** isSameHeavenGateRoots：执行对应的业务逻辑。 */
 function isSameHeavenGateRoots(left, right) {
     if (!left || !right) {
         return left === right;
@@ -2126,6 +2446,7 @@ function isSameHeavenGateRoots(left, right) {
         && left.fire === right.fire
         && left.earth === right.earth;
 }
+/** isSameStringArray：执行对应的业务逻辑。 */
 function isSameStringArray(left, right) {
     if (left.length !== right.length) {
         return false;
@@ -2137,6 +2458,7 @@ function isSameStringArray(left, right) {
     }
     return true;
 }
+/** cloneHeavenGateState：执行对应的业务逻辑。 */
 function cloneHeavenGateState(source) {
     if (!source) {
         return null;
@@ -2149,6 +2471,7 @@ function cloneHeavenGateState(source) {
         averageBonus: source.averageBonus,
     };
 }
+/** cloneHeavenGateRoots：执行对应的业务逻辑。 */
 function cloneHeavenGateRoots(source) {
     if (!source) {
         return null;
@@ -2161,9 +2484,11 @@ function cloneHeavenGateRoots(source) {
         earth: source.earth,
     };
 }
+/** clonePathTuples：执行对应的业务逻辑。 */
 function clonePathTuples(source) {
     return source.map(([x, y]) => [x, y]);
 }
+/** isSamePathTuples：执行对应的业务逻辑。 */
 function isSamePathTuples(left, right) {
     if (left.length !== right.length) {
         return false;
@@ -2177,6 +2502,7 @@ function isSamePathTuples(left, right) {
     }
     return true;
 }
+/** diffThreatArrows：执行对应的业务逻辑。 */
 function diffThreatArrows(previous, current, forceFull) {
     if (forceFull || !previous) {
         return {
@@ -2185,9 +2511,13 @@ function diffThreatArrows(previous, current, forceFull) {
             removes: [],
         };
     }
+/** previousKeys：定义该变量以承载业务值。 */
     const previousKeys = new Set(previous.map(([ownerId, targetId]) => buildThreatArrowKey(ownerId, targetId)));
+/** currentKeys：定义该变量以承载业务值。 */
     const currentKeys = new Set(current.map(([ownerId, targetId]) => buildThreatArrowKey(ownerId, targetId)));
+/** adds：定义该变量以承载业务值。 */
     const adds = current.filter(([ownerId, targetId]) => !previousKeys.has(buildThreatArrowKey(ownerId, targetId)));
+/** removes：定义该变量以承载业务值。 */
     const removes = previous.filter(([ownerId, targetId]) => !currentKeys.has(buildThreatArrowKey(ownerId, targetId)));
     return {
         full: null,
@@ -2195,15 +2525,18 @@ function diffThreatArrows(previous, current, forceFull) {
         removes,
     };
 }
+/** buildThreatArrowKey：执行对应的业务逻辑。 */
 function buildThreatArrowKey(ownerId, targetId) {
     return `${ownerId}\n${targetId}`;
 }
+/** compareThreatArrows：执行对应的业务逻辑。 */
 function compareThreatArrows(left, right) {
     if (left[0] !== right[0]) {
         return compareStableStrings(left[0], right[0]);
     }
     return compareStableStrings(left[1], right[1]);
 }
+/** compareStableStrings：执行对应的业务逻辑。 */
 function compareStableStrings(left, right) {
     if (left < right) {
         return -1;
@@ -2213,6 +2546,7 @@ function compareStableStrings(left, right) {
     }
     return 0;
 }
+/** filterLegacyCombatEffects：执行对应的业务逻辑。 */
 function filterLegacyCombatEffects(effects, visibleTiles) {
     if (effects.length === 0 || visibleTiles.size === 0) {
         return [];
@@ -2223,6 +2557,7 @@ function filterLegacyCombatEffects(effects, visibleTiles) {
         : visibleTiles.has(buildCoordKey(effect.x, effect.y)))
         .map((entry) => cloneCombatEffect(entry));
 }
+/** cloneAttributes：执行对应的业务逻辑。 */
 function cloneAttributes(source) {
     return {
         constitution: source.constitution,
@@ -2233,6 +2568,7 @@ function cloneAttributes(source) {
         luck: source.luck,
     };
 }
+/** isSameAttributes：执行对应的业务逻辑。 */
 function isSameAttributes(left, right) {
     return left.constitution === right.constitution
         && left.spirit === right.spirit
@@ -2241,6 +2577,7 @@ function isSameAttributes(left, right) {
         && left.comprehension === right.comprehension
         && left.luck === right.luck;
 }
+/** isSameAttrBonuses：执行对应的业务逻辑。 */
 function isSameAttrBonuses(left, right) {
     if (left === right) {
         return true;
@@ -2263,6 +2600,7 @@ function isSameAttrBonuses(left, right) {
     }
     return true;
 }
+/** isSameNumericRecord：执行对应的业务逻辑。 */
 function isSameNumericRecord(left, right) {
     if (left === right) {
         return true;
@@ -2270,7 +2608,9 @@ function isSameNumericRecord(left, right) {
     if (!left || !right) {
         return left === right;
     }
+/** leftKeys：定义该变量以承载业务值。 */
     const leftKeys = Object.keys(left);
+/** rightKeys：定义该变量以承载业务值。 */
     const rightKeys = Object.keys(right);
     if (leftKeys.length !== rightKeys.length) {
         return false;
@@ -2290,19 +2630,23 @@ function isSameNumericRecord(left, right) {
     }
     return true;
 }
+/** isPlainObject：执行对应的业务逻辑。 */
 function isPlainObject(value) {
     return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
+/** cloneSpecialStats：执行对应的业务逻辑。 */
 function cloneSpecialStats(source) {
     return {
         foundation: source.foundation,
         combatExp: source.combatExp,
     };
 }
+/** isSameSpecialStats：执行对应的业务逻辑。 */
 function isSameSpecialStats(left, right) {
     return left.foundation === right.foundation
         && left.combatExp === right.combatExp;
 }
+/** isSameBodyTrainingState：执行对应的业务逻辑。 */
 function isSameBodyTrainingState(left, right) {
     if (!left || !right) {
         return left === right;
@@ -2311,6 +2655,7 @@ function isSameBodyTrainingState(left, right) {
         && left.exp === right.exp
         && left.expToNext === right.expToNext;
 }
+/** isSameTile：执行对应的业务逻辑。 */
 function isSameTile(left, right) {
     return left.type === right.type
         && left.walkable === right.walkable
@@ -2321,6 +2666,7 @@ function isSameTile(left, right) {
         && left.hp === right.hp
         && left.maxHp === right.maxHp;
 }
+/** isSameMinimapMarker：执行对应的业务逻辑。 */
 function isSameMinimapMarker(left, right) {
     return left.id === right.id
         && left.kind === right.kind
@@ -2329,6 +2675,7 @@ function isSameMinimapMarker(left, right) {
         && left.label === right.label
         && left.detail === right.detail;
 }
+/** isSameGroundPile：执行对应的业务逻辑。 */
 function isSameGroundPile(left, right) {
     if (left.x !== right.x || left.y !== right.y || left.items.length !== right.items.length) {
         return false;
@@ -2345,6 +2692,7 @@ function isSameGroundPile(left, right) {
     }
     return true;
 }
+/** isSameGroundItemEntry：执行对应的业务逻辑。 */
 function isSameGroundItemEntry(left, right) {
     return left.itemKey === right.itemKey
         && left.itemId === right.itemId
@@ -2354,6 +2702,7 @@ function isSameGroundItemEntry(left, right) {
         && left.grade === right.grade
         && left.groundLabel === right.groundLabel;
 }
+/** isSameLootWindow：执行对应的业务逻辑。 */
 function isSameLootWindow(left, right) {
     if (left === right) {
         return true;
@@ -2403,6 +2752,7 @@ function isSameLootWindow(left, right) {
     }
     return true;
 }
+/** isSameSyncedItem：执行对应的业务逻辑。 */
 function isSameSyncedItem(left, right) {
     if (left === right) {
         return true;
@@ -2432,6 +2782,7 @@ function isSameSyncedItem(left, right) {
         && left.tileAuraGainAmount === right.tileAuraGainAmount
         && left.allowBatchUse === right.allowBatchUse;
 }
+/** isSameTechniqueEntry：执行对应的业务逻辑。 */
 function isSameTechniqueEntry(left, right) {
     if (left === right) {
         return true;
@@ -2453,6 +2804,7 @@ function isSameTechniqueEntry(left, right) {
         && shallowEqualArray(left.layers, right.layers)
         && shallowEqualRecord(left.attrCurves, right.attrCurves);
 }
+/** isSameActionEntry：执行对应的业务逻辑。 */
 function isSameActionEntry(left, right) {
     if (left === right) {
         return true;
@@ -2472,9 +2824,11 @@ function isSameActionEntry(left, right) {
         && left.autoBattleOrder === right.autoBattleOrder
         && left.skillEnabled === right.skillEnabled;
 }
+/** isSameNpcQuestMarker：执行对应的业务逻辑。 */
 function isSameNpcQuestMarker(left, right) {
     return left?.line === right?.line && left?.state === right?.state;
 }
+/** shallowEqualArray：执行对应的业务逻辑。 */
 function shallowEqualArray(left, right) {
     if (left === right) {
         return true;
@@ -2489,6 +2843,7 @@ function shallowEqualArray(left, right) {
     }
     return true;
 }
+/** shallowEqualRecord：执行对应的业务逻辑。 */
 function shallowEqualRecord(left, right) {
     if (left === right) {
         return true;
@@ -2496,9 +2851,13 @@ function shallowEqualRecord(left, right) {
     if (!left || !right) {
         return false;
     }
+/** leftRecord：定义该变量以承载业务值。 */
     const leftRecord = left;
+/** rightRecord：定义该变量以承载业务值。 */
     const rightRecord = right;
+/** leftKeys：定义该变量以承载业务值。 */
     const leftKeys = Object.keys(leftRecord);
+/** rightKeys：定义该变量以承载业务值。 */
     const rightKeys = Object.keys(rightRecord);
     if (leftKeys.length !== rightKeys.length) {
         return false;
@@ -2510,6 +2869,7 @@ function shallowEqualRecord(left, right) {
     }
     return true;
 }
+/** isPlainEqual：执行对应的业务逻辑。 */
 function isPlainEqual(left, right) {
     if (left === right) {
         return true;

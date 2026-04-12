@@ -1,39 +1,57 @@
 /** ItemSourceKind：定义该类型的结构与数据语义。 */
 export type ItemSourceKind = 'monster_drop' | 'mining' | 'search' | 'shop' | 'quest';
+/** SPIRIT_STONE_ITEM_ID：定义该变量以承载业务值。 */
 const SPIRIT_STONE_ITEM_ID = 'spirit_stone';
 
 /** ItemSourceBaseEntry：定义该接口的能力与字段约束。 */
 interface ItemSourceBaseEntry {
+/** kind：定义该变量以承载业务值。 */
   kind: ItemSourceKind;
+/** mapId：定义该变量以承载业务值。 */
   mapId: string;
+/** mapName：定义该变量以承载业务值。 */
   mapName: string;
 }
 
 /** MonsterItemSourceEntry：定义该接口的能力与字段约束。 */
 export interface MonsterItemSourceEntry extends ItemSourceBaseEntry {
+/** kind：定义该变量以承载业务值。 */
   kind: 'monster_drop';
+/** monsterId：定义该变量以承载业务值。 */
   monsterId: string;
+/** monsterName：定义该变量以承载业务值。 */
   monsterName: string;
   chance?: number;
+/** count：定义该变量以承载业务值。 */
   count: number;
 }
 
 /** DirectItemNodeSourceEntry：定义该接口的能力与字段约束。 */
 export interface DirectItemNodeSourceEntry extends ItemSourceBaseEntry {
+/** kind：定义该变量以承载业务值。 */
   kind: 'mining' | 'search';
+/** landmarkId：定义该变量以承载业务值。 */
   landmarkId: string;
+/** landmarkName：定义该变量以承载业务值。 */
   landmarkName: string;
+/** mode：定义该变量以承载业务值。 */
   mode: 'direct';
   chance?: number;
+/** count：定义该变量以承载业务值。 */
   count: number;
 }
 
 /** PoolItemNodeSourceEntry：定义该接口的能力与字段约束。 */
 export interface PoolItemNodeSourceEntry extends ItemSourceBaseEntry {
+/** kind：定义该变量以承载业务值。 */
   kind: 'mining' | 'search';
+/** landmarkId：定义该变量以承载业务值。 */
   landmarkId: string;
+/** landmarkName：定义该变量以承载业务值。 */
   landmarkName: string;
+/** mode：定义该变量以承载业务值。 */
   mode: 'pool';
+/** poolIndex：定义该变量以承载业务值。 */
   poolIndex: number;
   poolChance?: number;
   countMin?: number;
@@ -46,8 +64,11 @@ export interface PoolItemNodeSourceEntry extends ItemSourceBaseEntry {
 
 /** QuestItemSourceEntry：定义该接口的能力与字段约束。 */
 export interface QuestItemSourceEntry extends ItemSourceBaseEntry {
+/** kind：定义该变量以承载业务值。 */
   kind: 'quest';
+/** questId：定义该变量以承载业务值。 */
   questId: string;
+/** questTitle：定义该变量以承载业务值。 */
   questTitle: string;
   line?: string;
   chapter?: string;
@@ -55,8 +76,11 @@ export interface QuestItemSourceEntry extends ItemSourceBaseEntry {
 
 /** ShopItemSourceEntry：定义该接口的能力与字段约束。 */
 export interface ShopItemSourceEntry extends ItemSourceBaseEntry {
+/** kind：定义该变量以承载业务值。 */
   kind: 'shop';
+/** npcId：定义该变量以承载业务值。 */
   npcId: string;
+/** npcName：定义该变量以承载业务值。 */
   npcName: string;
 }
 
@@ -70,7 +94,9 @@ export type ItemSourceEntry =
 
 /** ItemSourceCatalog：定义该类型的结构与数据语义。 */
 type ItemSourceCatalog = Record<string, ItemSourceEntry[]>;
+/** itemSourceCatalog：定义该变量以承载业务值。 */
 let itemSourceCatalog: ItemSourceCatalog | null = null;
+/** itemSourceCatalogPromise：定义该变量以承载业务值。 */
 let itemSourceCatalogPromise: Promise<ItemSourceCatalog> | null = null;
 
 /** loadItemSourceCatalog：执行对应的业务逻辑。 */
@@ -160,6 +186,7 @@ function formatSourceDetails(entry: ItemSourceEntry): Array<{ tone: string; text
 
 /** getItemSourceEntries：执行对应的业务逻辑。 */
 export function getItemSourceEntries(itemId: string): ItemSourceEntry[] {
+/** catalog：定义该变量以承载业务值。 */
   const catalog = getLoadedItemSourceCatalog();
   if (!catalog) {
     void loadItemSourceCatalog();
@@ -194,6 +221,7 @@ export function renderItemSourceListHtml(
     compact?: boolean;
   } = {},
 ): string {
+/** specialSummaryHtml：定义该变量以承载业务值。 */
   const specialSummaryHtml = renderSpecialSourceSummaryHtml(itemId);
   if (specialSummaryHtml) {
     return specialSummaryHtml;
@@ -202,13 +230,18 @@ export function renderItemSourceListHtml(
     void loadItemSourceCatalog();
     return '<span class="inventory-source-note">静态来源加载中</span>';
   }
+/** entries：定义该变量以承载业务值。 */
   const entries = getItemSourceEntries(itemId);
   if (entries.length === 0) {
     return '<span class="inventory-source-empty">暂无静态来源</span>';
   }
+/** maxEntries：定义该变量以承载业务值。 */
   const maxEntries = options.maxEntries ? Math.max(1, options.maxEntries) : undefined;
+/** visibleEntries：定义该变量以承载业务值。 */
   const visibleEntries = maxEntries ? entries.slice(0, maxEntries) : entries;
+/** remaining：定义该变量以承载业务值。 */
   const remaining = entries.length - visibleEntries.length;
+/** compactClass：定义该变量以承载业务值。 */
   const compactClass = options.compact ? ' inventory-source-list--compact' : '';
   return `<div class="inventory-source-list${compactClass}">${
     visibleEntries.map((entry) => `

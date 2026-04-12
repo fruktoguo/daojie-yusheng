@@ -10,11 +10,14 @@ import { FloatingTooltip, prefersPinnedTooltipInteraction } from './floating-too
 
 /** TutorialOperationHint：定义该接口的能力与字段约束。 */
 interface TutorialOperationHint {
+/** label：定义该变量以承载业务值。 */
   label: string;
+/** path：定义该变量以承载业务值。 */
   path: string;
   title?: string;
 }
 
+/** TUTORIAL_OPERATION_HINTS：定义该变量以承载业务值。 */
 const TUTORIAL_OPERATION_HINTS: TutorialOperationHint[] = [
   { label: '点击地图格子', path: '地图区域->目标格子' },
   { label: '简易教程', path: '左上角外链区->简易教程' },
@@ -54,6 +57,7 @@ const TUTORIAL_OPERATION_HINTS: TutorialOperationHint[] = [
   { label: 'QQ', path: '左上角外链区->QQ' },
 ];
 
+/** SORTED_TUTORIAL_OPERATION_HINTS：定义该变量以承载业务值。 */
 const SORTED_TUTORIAL_OPERATION_HINTS = [...TUTORIAL_OPERATION_HINTS].sort((left, right) => right.label.length - left.label.length);
 
 /** TutorialMainTabId：定义该类型的结构与数据语义。 */
@@ -61,6 +65,7 @@ type TutorialMainTabId = 'operations' | 'mechanics' | 'flow';
 /** TutorialFlowTopicId：定义该类型的结构与数据语义。 */
 type TutorialFlowTopicId = string;
 
+/** TUTORIAL_MAIN_TABS：定义该变量以承载业务值。 */
 const TUTORIAL_MAIN_TABS: Array<{ id: TutorialMainTabId; label: string }> = [
   { id: 'operations', label: '基础操作' },
   { id: 'mechanics', label: '机制' },
@@ -87,6 +92,7 @@ function splitTooltipLines(detail: string): string[] {
 
 /** renderOperationHint：执行对应的业务逻辑。 */
 function renderOperationHint(hint: TutorialOperationHint): string {
+/** title：定义该变量以承载业务值。 */
   const title = hint.title ?? hint.label;
   return `<span class="tutorial-inline-action" data-tutorial-tip-title="${escapeHtml(title)}" data-tutorial-tip-detail="${escapeHtml(`[${hint.path}]`)}">${escapeHtml(hint.label)}</span>`;
 }
@@ -96,10 +102,14 @@ function renderTutorialRichText(value: string): string {
   if (!value) {
     return '';
   }
+/** cursor：定义该变量以承载业务值。 */
   let cursor = 0;
+/** html：定义该变量以承载业务值。 */
   let html = '';
   while (cursor < value.length) {
+/** nextHint：定义该变量以承载业务值。 */
     let nextHint: TutorialOperationHint | null = null;
+/** nextIndex：定义该变量以承载业务值。 */
     let nextIndex = Number.POSITIVE_INFINITY;
 
     for (const hint of SORTED_TUTORIAL_OPERATION_HINTS) {
@@ -134,9 +144,11 @@ function renderTutorialRichText(value: string): string {
 /** TutorialPanel：封装相关状态与行为。 */
 export class TutorialPanel {
   private static readonly MODAL_OWNER = 'tutorial-panel';
+/** activeMainTabId：定义该变量以承载业务值。 */
   private activeMainTabId: TutorialMainTabId = 'operations';
   private activeTopicId = TUTORIAL_TOPICS[0]?.id ?? 'basics';
   private activeMechanicTopicId = TUTORIAL_MECHANIC_TOPICS[0]?.id ?? 'aura';
+/** activeFlowTopicId：定义该变量以承载业务值。 */
   private activeFlowTopicId: TutorialFlowTopicId = TUTORIAL_FLOW_TOPICS[0]?.id ?? 'how-to-play';
   private readonly tooltip = new FloatingTooltip();
 
@@ -145,6 +157,7 @@ export class TutorialPanel {
     document.getElementById('hud-open-tutorial')?.addEventListener('click', () => this.open());
   }
 
+/** open：执行对应的业务逻辑。 */
   open(): void {
     detailModalHost.open({
       ownerId: TutorialPanel.MODAL_OWNER,
@@ -162,6 +175,7 @@ export class TutorialPanel {
     });
   }
 
+/** renderBody：执行对应的业务逻辑。 */
   private renderBody(): string {
     return `
       <div class="tutorial-modal-body">
@@ -212,7 +226,9 @@ export class TutorialPanel {
     `;
   }
 
+/** renderMainTab：执行对应的业务逻辑。 */
   private renderMainTab(id: TutorialMainTabId, label: string): string {
+/** active：定义该变量以承载业务值。 */
     const active = id === this.activeMainTabId;
     return `
       <button
@@ -227,7 +243,9 @@ export class TutorialPanel {
     `;
   }
 
+/** renderTab：执行对应的业务逻辑。 */
   private renderTab(topic: TutorialTopic): string {
+/** active：定义该变量以承载业务值。 */
     const active = topic.id === this.activeTopicId;
     return `
       <button
@@ -242,7 +260,9 @@ export class TutorialPanel {
     `;
   }
 
+/** renderPane：执行对应的业务逻辑。 */
   private renderPane(topic: TutorialTopic): string {
+/** active：定义该变量以承载业务值。 */
     const active = topic.id === this.activeTopicId;
     return `
       <section
@@ -277,7 +297,9 @@ export class TutorialPanel {
     `;
   }
 
+/** renderMechanicTab：执行对应的业务逻辑。 */
   private renderMechanicTab(topic: TutorialTopic): string {
+/** active：定义该变量以承载业务值。 */
     const active = topic.id === this.activeMechanicTopicId;
     return `
       <button
@@ -292,7 +314,9 @@ export class TutorialPanel {
     `;
   }
 
+/** renderMechanicPane：执行对应的业务逻辑。 */
   private renderMechanicPane(topic: TutorialTopic): string {
+/** active：定义该变量以承载业务值。 */
     const active = topic.id === this.activeMechanicTopicId;
     return `
       <section
@@ -327,6 +351,7 @@ export class TutorialPanel {
     `;
   }
 
+/** renderFlowGuide：执行对应的业务逻辑。 */
   private renderFlowGuide(): string {
     return `
       <div class="tutorial-pane-hero tutorial-pane-hero--flow">
@@ -346,7 +371,9 @@ export class TutorialPanel {
     `;
   }
 
+/** renderFlowTab：执行对应的业务逻辑。 */
   private renderFlowTab(topic: TutorialFlowTopic): string {
+/** active：定义该变量以承载业务值。 */
     const active = topic.id === this.activeFlowTopicId;
     return `
       <button
@@ -361,7 +388,9 @@ export class TutorialPanel {
     `;
   }
 
+/** renderFlowPane：执行对应的业务逻辑。 */
   private renderFlowPane(topic: TutorialFlowTopic): string {
+/** active：定义该变量以承载业务值。 */
     const active = topic.id === this.activeFlowTopicId;
     return `
       <section
@@ -396,9 +425,11 @@ export class TutorialPanel {
     `;
   }
 
+/** bind：执行对应的业务逻辑。 */
   private bind(body: HTMLElement): void {
     body.querySelectorAll<HTMLButtonElement>('[data-tutorial-main-tab]').forEach((button) => {
       button.addEventListener('click', () => {
+/** nextId：定义该变量以承载业务值。 */
         const nextId = button.dataset.tutorialMainTab as TutorialMainTabId | undefined;
         if (!nextId || nextId === this.activeMainTabId) {
           return;
@@ -410,6 +441,7 @@ export class TutorialPanel {
     });
     body.querySelectorAll<HTMLButtonElement>('[data-tutorial-tab]').forEach((button) => {
       button.addEventListener('click', () => {
+/** nextId：定义该变量以承载业务值。 */
         const nextId = button.dataset.tutorialTab;
         if (!nextId || nextId === this.activeTopicId) {
           return;
@@ -420,6 +452,7 @@ export class TutorialPanel {
     });
     body.querySelectorAll<HTMLButtonElement>('[data-tutorial-mechanic-tab]').forEach((button) => {
       button.addEventListener('click', () => {
+/** nextId：定义该变量以承载业务值。 */
         const nextId = button.dataset.tutorialMechanicTab;
         if (!nextId || nextId === this.activeMechanicTopicId) {
           return;
@@ -431,6 +464,7 @@ export class TutorialPanel {
     });
     body.querySelectorAll<HTMLButtonElement>('[data-tutorial-flow-tab]').forEach((button) => {
       button.addEventListener('click', () => {
+/** nextId：定义该变量以承载业务值。 */
         const nextId = button.dataset.tutorialFlowTab;
         if (!nextId || nextId === this.activeFlowTopicId) {
           return;
@@ -443,53 +477,66 @@ export class TutorialPanel {
     this.bindTooltips(body);
   }
 
+/** sync：执行对应的业务逻辑。 */
   private sync(body: HTMLElement): void {
     body.querySelectorAll<HTMLElement>('[data-tutorial-main-tab]').forEach((entry) => {
+/** active：定义该变量以承载业务值。 */
       const active = entry.dataset.tutorialMainTab === this.activeMainTabId;
       entry.classList.toggle('active', active);
       entry.setAttribute('aria-selected', active ? 'true' : 'false');
     });
     body.querySelectorAll<HTMLElement>('[data-tutorial-main-pane]').forEach((entry) => {
+/** active：定义该变量以承载业务值。 */
       const active = entry.dataset.tutorialMainPane === this.activeMainTabId;
       entry.classList.toggle('active', active);
       entry.setAttribute('aria-hidden', active ? 'false' : 'true');
     });
     body.querySelectorAll<HTMLElement>('[data-tutorial-tab]').forEach((entry) => {
+/** active：定义该变量以承载业务值。 */
       const active = entry.dataset.tutorialTab === this.activeTopicId;
       entry.classList.toggle('active', active);
       entry.setAttribute('aria-selected', active ? 'true' : 'false');
     });
     body.querySelectorAll<HTMLElement>('[data-tutorial-pane]').forEach((entry) => {
+/** active：定义该变量以承载业务值。 */
       const active = entry.dataset.tutorialPane === this.activeTopicId;
       entry.classList.toggle('active', active);
       entry.setAttribute('aria-hidden', active ? 'false' : 'true');
     });
     body.querySelectorAll<HTMLElement>('[data-tutorial-mechanic-tab]').forEach((entry) => {
+/** active：定义该变量以承载业务值。 */
       const active = entry.dataset.tutorialMechanicTab === this.activeMechanicTopicId;
       entry.classList.toggle('active', active);
       entry.setAttribute('aria-selected', active ? 'true' : 'false');
     });
     body.querySelectorAll<HTMLElement>('[data-tutorial-mechanic-pane]').forEach((entry) => {
+/** active：定义该变量以承载业务值。 */
       const active = entry.dataset.tutorialMechanicPane === this.activeMechanicTopicId;
       entry.classList.toggle('active', active);
       entry.setAttribute('aria-hidden', active ? 'false' : 'true');
     });
     body.querySelectorAll<HTMLElement>('[data-tutorial-flow-tab]').forEach((entry) => {
+/** active：定义该变量以承载业务值。 */
       const active = entry.dataset.tutorialFlowTab === this.activeFlowTopicId;
       entry.classList.toggle('active', active);
       entry.setAttribute('aria-selected', active ? 'true' : 'false');
     });
     body.querySelectorAll<HTMLElement>('[data-tutorial-flow-pane]').forEach((entry) => {
+/** active：定义该变量以承载业务值。 */
       const active = entry.dataset.tutorialFlowPane === this.activeFlowTopicId;
       entry.classList.toggle('active', active);
       entry.setAttribute('aria-hidden', active ? 'false' : 'true');
     });
   }
 
+/** bindTooltips：执行对应的业务逻辑。 */
   private bindTooltips(body: HTMLElement): void {
+/** tapMode：定义该变量以承载业务值。 */
     const tapMode = prefersPinnedTooltipInteraction();
     body.querySelectorAll<HTMLElement>('[data-tutorial-tip-title]').forEach((node) => {
+/** title：定义该变量以承载业务值。 */
       const title = node.dataset.tutorialTipTitle ?? '';
+/** detail：定义该变量以承载业务值。 */
       const detail = node.dataset.tutorialTipDetail ?? '';
 
       node.addEventListener('click', (event) => {

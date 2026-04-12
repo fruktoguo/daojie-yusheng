@@ -5,9 +5,12 @@
  */
 
 const { spawn } = require("node:child_process");
+/** path：定义该变量以承载业务值。 */
 const path = require("node:path");
 
+/** projectRoot：定义该变量以承载业务值。 */
 const projectRoot = path.resolve(__dirname, "..");
+/** distEntry：定义该变量以承载业务值。 */
 const distEntry = path.join(projectRoot, "dist/main.js");
 /**
  * 记录tscbin。
@@ -149,6 +152,7 @@ function startServer() {
  */
   const generation = ++serverGeneration;
   log(`启动 server-next 进程 #${generation}`);
+/** child：定义该变量以承载业务值。 */
   const child = spawn(process.execPath, [distEntry], {
     cwd: projectRoot,
     env: process.env,
@@ -166,6 +170,7 @@ function startServer() {
   });
 }
 
+/** restartServer：执行对应的业务逻辑。 */
 function restartServer(reason) {
   if (shuttingDown) {
     return;

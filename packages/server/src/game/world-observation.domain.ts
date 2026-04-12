@@ -28,34 +28,54 @@ import { getMonsterDisplayName } from './world.service.shared';
 
 /** NpcPresenceProfile：定义该接口的能力与字段约束。 */
 interface NpcPresenceProfile {
+/** title：定义该变量以承载业务值。 */
   title: string;
+/** spirit：定义该变量以承载业务值。 */
   spirit: number;
+/** hp：定义该变量以承载业务值。 */
   hp: number;
+/** qi：定义该变量以承载业务值。 */
   qi: number;
 }
 
 /** CombatSnapshotLike：定义该接口的能力与字段约束。 */
 interface CombatSnapshotLike {
+/** attrs：定义该变量以承载业务值。 */
   attrs: Attributes;
+/** stats：定义该变量以承载业务值。 */
   stats: NumericStats;
 }
 
 /** RuntimeMonsterLike：定义该接口的能力与字段约束。 */
 interface RuntimeMonsterLike {
+/** runtimeId：定义该变量以承载业务值。 */
   runtimeId: string;
+/** id：定义该变量以承载业务值。 */
   id: string;
+/** name：定义该变量以承载业务值。 */
   name: string;
+/** x：定义该变量以承载业务值。 */
   x: number;
+/** y：定义该变量以承载业务值。 */
   y: number;
+/** hp：定义该变量以承载业务值。 */
   hp: number;
+/** maxHp：定义该变量以承载业务值。 */
   maxHp: number;
+/** qi：定义该变量以承载业务值。 */
   qi: number;
+/** char：定义该变量以承载业务值。 */
   char: string;
+/** color：定义该变量以承载业务值。 */
   color: string;
+/** tier：定义该变量以承载业务值。 */
   tier: 'mortal_blood' | 'variant' | 'demon_king';
   level?: number;
+/** attack：定义该变量以承载业务值。 */
   attack: number;
+/** drops：定义该变量以承载业务值。 */
   drops: DropConfig[];
+/** temporaryBuffs：定义该变量以承载业务值。 */
   temporaryBuffs: TemporaryBuffState[];
 }
 
@@ -82,6 +102,7 @@ export class WorldObservationDomain {
     private readonly deps: ObservationDomainDeps,
   ) {}
 
+/** buildMonsterRenderEntity：执行对应的业务逻辑。 */
   buildMonsterRenderEntity(_viewer: PlayerState, monster: RuntimeMonsterLike): RenderEntity {
     return {
       id: monster.runtimeId,
@@ -99,8 +120,11 @@ export class WorldObservationDomain {
     };
   }
 
+/** buildNpcRenderEntity：执行对应的业务逻辑。 */
   buildNpcRenderEntity(viewer: PlayerState, npc: NpcConfig, mapId: string): RenderEntity {
+/** profile：定义该变量以承载业务值。 */
     const profile = this.buildNpcPresenceProfile(npc, mapId);
+/** npcQuestMarker：定义该变量以承载业务值。 */
     const npcQuestMarker = this.deps.resolveNpcQuestMarker(viewer, npc);
     return {
       id: `npc:${npc.id}`,
@@ -116,7 +140,9 @@ export class WorldObservationDomain {
     };
   }
 
+/** buildPlayerObservationDetail：执行对应的业务逻辑。 */
   buildPlayerObservationDetail(viewer: PlayerState, target: PlayerState): ObservedTileEntityDetail {
+/** snapshot：定义该变量以承载业务值。 */
     const snapshot = this.createPlayerObservationSnapshot(target);
     return {
       id: target.id,
@@ -137,12 +163,16 @@ export class WorldObservationDomain {
     };
   }
 
+/** buildMonsterObservationDetail：执行对应的业务逻辑。 */
   buildMonsterObservationDetail(viewer: PlayerState, monster: RuntimeMonsterLike): ObservedTileEntityDetail {
+/** snapshot：定义该变量以承载业务值。 */
     const snapshot = this.createMonsterObservationSnapshot(monster);
+/** lineSpecs：定义该变量以承载业务值。 */
     const lineSpecs = [
       ...buildObservationLineSpecs(snapshot, true),
       { threshold: 0.28, label: '血脉层次', value: MONSTER_TIER_LABELS[monster.tier] ?? '凡血' },
     ];
+/** observation：定义该变量以承载业务值。 */
     const observation = buildObservationInsight(
       Math.max(1, this.attrService.getPlayerFinalAttrs(viewer).spirit),
       snapshot,
@@ -159,6 +189,7 @@ export class WorldObservationDomain {
       qi: snapshot.qi,
       maxQi: snapshot.maxQi,
       observation,
+/** lootPreview：定义该变量以承载业务值。 */
       lootPreview: observation.clarity === 'complete'
         ? this.buildMonsterObservationLootPreview(viewer, monster)
         : undefined,
@@ -166,9 +197,13 @@ export class WorldObservationDomain {
     };
   }
 
+/** buildNpcObservationDetail：执行对应的业务逻辑。 */
   buildNpcObservationDetail(viewer: PlayerState, npc: NpcConfig, mapId: string): ObservedTileEntityDetail {
+/** profile：定义该变量以承载业务值。 */
     const profile = this.buildNpcPresenceProfile(npc, mapId);
+/** snapshot：定义该变量以承载业务值。 */
     const snapshot = this.createNpcObservationSnapshot(profile);
+/** lineSpecs：定义该变量以承载业务值。 */
     const lineSpecs = [
       { threshold: 0.3, label: '身份', value: profile.title },
       ...buildObservationLineSpecs(snapshot, false),
@@ -190,8 +225,10 @@ export class WorldObservationDomain {
     };
   }
 
+/** buildContainerObservationDetail：执行对应的业务逻辑。 */
   buildContainerObservationDetail(mapId: string, container: ContainerConfig): ObservedTileEntityDetail {
     if (container.variant === 'herb') {
+/** runtime：定义该变量以承载业务值。 */
       const runtime = this.lootService.getContainerRuntimeView(mapId, container);
       if (!runtime.herb) {
         return {
@@ -251,10 +288,15 @@ export class WorldObservationDomain {
     };
   }
 
+/** createPlayerObservationSnapshot：执行对应的业务逻辑。 */
   private createPlayerObservationSnapshot(player: PlayerState): ObservationTargetSnapshot {
+/** stats：定义该变量以承载业务值。 */
     const stats = this.attrService.getPlayerNumericStats(player);
+/** ratios：定义该变量以承载业务值。 */
     const ratios = this.attrService.getPlayerRatioDivisors(player);
+/** attrs：定义该变量以承载业务值。 */
     const attrs = this.attrService.getPlayerFinalAttrs(player);
+/** maxQi：定义该变量以承载业务值。 */
     const maxQi = Math.max(0, Math.round(stats.maxQi));
     return {
       hp: player.hp,
@@ -269,9 +311,13 @@ export class WorldObservationDomain {
     };
   }
 
+/** createMonsterObservationSnapshot：执行对应的业务逻辑。 */
   private createMonsterObservationSnapshot(monster: RuntimeMonsterLike): ObservationTargetSnapshot {
+/** combat：定义该变量以承载业务值。 */
     const combat = this.deps.getMonsterCombatSnapshot(monster);
+/** spirit：定义该变量以承载业务值。 */
     const spirit = Math.max(1, Math.round(combat.attrs.spirit ?? this.estimateMonsterSpirit(monster, combat.stats)));
+/** maxQi：定义该变量以承载业务值。 */
     const maxQi = Math.max(24, Math.round(combat.stats.maxQi > 0 ? combat.stats.maxQi : (spirit * 2 + (monster.level ?? 1) * 8)));
     return {
       hp: monster.hp,
@@ -286,7 +332,9 @@ export class WorldObservationDomain {
     };
   }
 
+/** createNpcObservationSnapshot：执行对应的业务逻辑。 */
   private createNpcObservationSnapshot(profile: NpcPresenceProfile): ObservationTargetSnapshot {
+/** stats：定义该变量以承载业务值。 */
     const stats: NumericStats = createNumericStats();
     stats.maxHp = profile.hp;
     stats.maxQi = profile.qi;
@@ -320,6 +368,7 @@ export class WorldObservationDomain {
 
 /** buildMonsterObservationLootPreview：处理当前场景中的对应操作。 */
   private buildMonsterObservationLootPreview(viewer: PlayerState, monster: RuntimeMonsterLike) {
+/** entries：定义该变量以承载业务值。 */
     const entries = monster.drops.map((drop) => ({
       itemId: drop.itemId,
       name: drop.name,
@@ -333,8 +382,11 @@ export class WorldObservationDomain {
     };
   }
 
+/** buildNpcPresenceProfile：执行对应的业务逻辑。 */
   private buildNpcPresenceProfile(npc: NpcConfig, mapId: string): NpcPresenceProfile {
+/** preset：定义该变量以承载业务值。 */
     const preset = NPC_ROLE_PROFILES[npc.role ?? ''] ?? { title: '过路修者', spirit: 12, hp: 60, qi: 56 };
+/** actualDanger：定义该变量以承载业务值。 */
     const actualDanger = this.mapService.getMapMeta(mapId)?.dangerLevel ?? 1;
     return {
       title: preset.title,
@@ -344,11 +396,14 @@ export class WorldObservationDomain {
     };
   }
 
+/** estimateMonsterSpirit：执行对应的业务逻辑。 */
   private estimateMonsterSpirit(monster: RuntimeMonsterLike, stats?: NumericStats): number {
+/** level：定义该变量以承载业务值。 */
     const level = Math.max(1, monster.level ?? Math.round(monster.attack / 6));
     return estimateMonsterSpiritFromStats(stats ?? this.deps.getMonsterCombatSnapshot(monster).stats, level);
   }
 
+/** deriveAttrsFromStats：执行对应的业务逻辑。 */
   private deriveAttrsFromStats(stats: NumericStats, spirit: number): Attributes {
     return {
       constitution: Math.max(1, Math.round(stats.maxHp / 18)),
@@ -360,6 +415,7 @@ export class WorldObservationDomain {
     };
   }
 
+/** describePlayerRealm：执行对应的业务逻辑。 */
   private describePlayerRealm(player: PlayerState): string {
     if (player.realm?.name) {
       return player.realm.shortName ? `${player.realm.name} · ${player.realm.shortName}` : player.realm.name;
@@ -370,7 +426,9 @@ export class WorldObservationDomain {
     return '行功未明';
   }
 
+/** describeMonsterRealm：执行对应的业务逻辑。 */
   private describeMonsterRealm(monster: RuntimeMonsterLike): string {
+/** level：定义该变量以承载业务值。 */
     const level = Math.max(1, monster.level ?? Math.round(monster.attack / 6));
     return this.contentService.getRealmLevelEntry(level)?.displayName ?? `Lv.${level}`;
   }

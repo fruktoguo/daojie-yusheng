@@ -15,10 +15,12 @@ export class DebugPanel {
     this.onReset = onReset;
   }
 
+/** show：执行对应的业务逻辑。 */
   show(): void {
     this.panel.classList.remove('hidden');
   }
 
+/** hide：执行对应的业务逻辑。 */
   hide(): void {
     this.panel.classList.add('hidden');
   }

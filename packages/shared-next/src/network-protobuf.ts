@@ -8,6 +8,7 @@ import type { NumericRatioDivisors, NumericStats } from './numeric';
 import type { ActionDef, Attributes, AttrBonus, BodyTrainingState, GameTimeState, ItemType, NpcQuestMarker, ObservationInsight, PlayerSpecialStats, QuestLine, TechniqueAttrCurves, TechniqueCategory, TechniqueGrade, TechniqueLayerDef, TechniqueState, VisibleBuffState, VisibleTile } from './types';
 import { clonePlainValue } from './structured';
 
+/** PROTO_SCHEMA：定义该变量以承载业务值。 */
 const PROTO_SCHEMA = `
 syntax = "proto2";
 
@@ -309,10 +310,15 @@ message ElementStatGroupPayload {
 }
 `;
 
+/** root：定义该变量以承载业务值。 */
 const root = protobuf.parse(PROTO_SCHEMA).root;
+/** tickPayloadType：定义该变量以承载业务值。 */
 const tickPayloadType = root.lookupType('TickPayload');
+/** techniquePayloadType：定义该变量以承载业务值。 */
 const techniquePayloadType = root.lookupType('TechniqueUpdatePayload');
+/** actionsPayloadType：定义该变量以承载业务值。 */
 const actionsPayloadType = root.lookupType('ActionsUpdatePayload');
+/** attrPayloadType：定义该变量以承载业务值。 */
 const attrPayloadType = root.lookupType('AttrUpdatePayload');
 
 /** 需要 Protobuf 编码的 S2C 事件集合 */
@@ -355,6 +361,7 @@ function normalizeBinaryPayload(payload: unknown): Uint8Array | null {
     return new Uint8Array(payload);
   }
   if (typeof payload === 'object' && payload !== null && 'buffer' in payload && 'byteLength' in payload) {
+/** view：定义该变量以承载业务值。 */
     const view = payload as { buffer: ArrayBufferLike; byteLength: number; byteOffset?: number };
     return new Uint8Array(view.buffer, view.byteOffset ?? 0, view.byteLength);
   }
@@ -469,6 +476,7 @@ function fromWireNpcQuestMarker(wire: Record<string, unknown> | undefined): NpcQ
 
 /** toWireTickEntity：执行对应的业务逻辑。 */
 function toWireTickEntity(entity: TickRenderEntity): Record<string, unknown> {
+/** wire：定义该变量以承载业务值。 */
   const wire: Record<string, unknown> = {
     id: entity.id,
     x: entity.x,
@@ -504,6 +512,7 @@ function toWireTickEntity(entity: TickRenderEntity): Record<string, unknown> {
 
 /** fromWireTickEntity：执行对应的业务逻辑。 */
 function fromWireTickEntity(wire: Record<string, unknown>): TickRenderEntity {
+/** patch：定义该变量以承载业务值。 */
   const patch: TickRenderEntity = {
     id: String(wire.id ?? ''),
     x: Number(wire.x ?? 0),
@@ -511,20 +520,28 @@ function fromWireTickEntity(wire: Record<string, unknown>): TickRenderEntity {
   };
   if (hasOwn(wire, 'char')) patch.char = String(wire.char ?? '');
   if (hasOwn(wire, 'color')) patch.color = String(wire.color ?? '');
+/** name：定义该变量以承载业务值。 */
   const name = readNullableWireValue<string>(wire, 'name', 'clearName');
   if (name !== undefined) patch.name = name;
+/** kind：定义该变量以承载业务值。 */
   const kind = readNullableWireValue<TickRenderEntity['kind']>(wire, 'kind', 'clearKind');
   if (kind !== undefined) patch.kind = kind;
+/** monsterTier：定义该变量以承载业务值。 */
   const monsterTier = readNullableWireValue<TickRenderEntity['monsterTier']>(wire, 'monsterTier', 'clearMonsterTier');
   if (monsterTier !== undefined) patch.monsterTier = monsterTier;
+/** monsterScale：定义该变量以承载业务值。 */
   const monsterScale = readNullableWireValue<number>(wire, 'monsterScale', 'clearMonsterScale');
   if (monsterScale !== undefined) patch.monsterScale = monsterScale === null ? null : Number(monsterScale);
+/** hp：定义该变量以承载业务值。 */
   const hp = readNullableWireValue<number>(wire, 'hp', 'clearHp');
   if (hp !== undefined) patch.hp = hp === null ? null : Number(hp);
+/** maxHp：定义该变量以承载业务值。 */
   const maxHp = readNullableWireValue<number>(wire, 'maxHp', 'clearMaxHp');
   if (maxHp !== undefined) patch.maxHp = maxHp === null ? null : Number(maxHp);
+/** qi：定义该变量以承载业务值。 */
   const qi = readNullableWireValue<number>(wire, 'qi', 'clearQi');
   if (qi !== undefined) patch.qi = qi === null ? null : Number(qi);
+/** maxQi：定义该变量以承载业务值。 */
   const maxQi = readNullableWireValue<number>(wire, 'maxQi', 'clearMaxQi');
   if (maxQi !== undefined) patch.maxQi = maxQi === null ? null : Number(maxQi);
   if (wire.clearNpcQuestMarker === true) {
@@ -550,6 +567,7 @@ function toWireVisibleTile(tile: VisibleTile): Record<string, unknown> {
   if (!tile) {
     return { hidden: true };
   }
+/** wire：定义该变量以承载业务值。 */
   const wire: Record<string, unknown> = {
     type: tile.type,
     walkable: tile.walkable,
@@ -576,14 +594,17 @@ function fromWireVisibleTile(wire: Record<string, unknown>): VisibleTile {
     walkable: Boolean(wire.walkable),
     blocksSight: Boolean(wire.blocksSight),
     aura: Number(wire.aura ?? 0),
+/** occupiedBy：定义该变量以承载业务值。 */
     occupiedBy: typeof wire.occupiedBy === 'string' && wire.occupiedBy.length > 0 ? wire.occupiedBy : null,
     modifiedAt: hasOwn(wire, 'modifiedAt') ? Number(wire.modifiedAt ?? 0) : null,
     hp: hasOwn(wire, 'hp') ? Number(wire.hp ?? 0) : undefined,
     maxHp: hasOwn(wire, 'maxHp') ? Number(wire.maxHp ?? 0) : undefined,
     hpVisible: hasOwn(wire, 'hpVisible') ? Boolean(wire.hpVisible) : undefined,
+/** hiddenEntrance：定义该变量以承载业务值。 */
     hiddenEntrance: typeof wire.hiddenEntranceTitle === 'string'
       ? {
           title: wire.hiddenEntranceTitle,
+/** desc：定义该变量以承载业务值。 */
           desc: typeof wire.hiddenEntranceDesc === 'string' ? wire.hiddenEntranceDesc : undefined,
         }
       : undefined,
@@ -608,6 +629,7 @@ function fromWireGameTimeState(wire: Record<string, unknown> | undefined): GameT
 
 /** toWireTechniqueEntry：执行对应的业务逻辑。 */
 function toWireTechniqueEntry(entry: TechniqueUpdateEntry): Record<string, unknown> {
+/** wire：定义该变量以承载业务值。 */
   const wire: Record<string, unknown> = {
     techId: entry.techId,
   };
@@ -639,6 +661,7 @@ function toWireTechniqueEntry(entry: TechniqueUpdateEntry): Record<string, unkno
 
 /** fromWireTechniqueEntry：执行对应的业务逻辑。 */
 function fromWireTechniqueEntry(wire: Record<string, unknown>): TechniqueUpdateEntry {
+/** patch：定义该变量以承载业务值。 */
   const patch: TechniqueUpdateEntry = {
     techId: String(wire.techId ?? ''),
   };
@@ -647,10 +670,13 @@ function fromWireTechniqueEntry(wire: Record<string, unknown>): TechniqueUpdateE
   if (hasOwn(wire, 'expToNext')) patch.expToNext = Number(wire.expToNext ?? 0);
   if (hasOwn(wire, 'realmLv')) patch.realmLv = Number(wire.realmLv ?? 1);
   if (hasOwn(wire, 'realm')) patch.realm = Number(wire.realm ?? 0) as TechniqueState['realm'];
+/** name：定义该变量以承载业务值。 */
   const name = readNullableWireValue<string>(wire, 'name', 'clearName');
   if (name !== undefined) patch.name = name;
+/** grade：定义该变量以承载业务值。 */
   const grade = readNullableWireValue<TechniqueGrade>(wire, 'grade', 'clearGrade');
   if (grade !== undefined) patch.grade = grade;
+/** category：定义该变量以承载业务值。 */
   const category = readNullableWireValue<TechniqueCategory>(wire, 'category', 'clearCategory');
   if (category !== undefined) patch.category = category;
   if (wire.clearSkills === true) {
@@ -673,6 +699,7 @@ function fromWireTechniqueEntry(wire: Record<string, unknown>): TechniqueUpdateE
 
 /** toWireActionEntry：执行对应的业务逻辑。 */
 function toWireActionEntry(entry: ActionUpdateEntry): Record<string, unknown> {
+/** wire：定义该变量以承载业务值。 */
   const wire: Record<string, unknown> = {
     id: entry.id,
   };
@@ -693,26 +720,36 @@ function toWireActionEntry(entry: ActionUpdateEntry): Record<string, unknown> {
 
 /** fromWireActionEntry：执行对应的业务逻辑。 */
 function fromWireActionEntry(wire: Record<string, unknown>): ActionUpdateEntry {
+/** patch：定义该变量以承载业务值。 */
   const patch: ActionUpdateEntry = {
     id: String(wire.id ?? ''),
   };
   if (hasOwn(wire, 'cooldownLeft')) patch.cooldownLeft = Number(wire.cooldownLeft ?? 0);
+/** autoBattleEnabled：定义该变量以承载业务值。 */
   const autoBattleEnabled = readNullableWireValue<boolean>(wire, 'autoBattleEnabled', 'clearAutoBattleEnabled');
   if (autoBattleEnabled !== undefined) patch.autoBattleEnabled = autoBattleEnabled;
+/** autoBattleOrder：定义该变量以承载业务值。 */
   const autoBattleOrder = readNullableWireValue<number>(wire, 'autoBattleOrder', 'clearAutoBattleOrder');
   if (autoBattleOrder !== undefined) patch.autoBattleOrder = autoBattleOrder === null ? null : Number(autoBattleOrder);
+/** skillEnabled：定义该变量以承载业务值。 */
   const skillEnabled = readNullableWireValue<boolean>(wire, 'skillEnabled', 'clearSkillEnabled');
   if (skillEnabled !== undefined) patch.skillEnabled = skillEnabled;
+/** name：定义该变量以承载业务值。 */
   const name = readNullableWireValue<string>(wire, 'name', 'clearName');
   if (name !== undefined) patch.name = name;
+/** type：定义该变量以承载业务值。 */
   const type = readNullableWireValue<ActionDef['type']>(wire, 'type', 'clearType');
   if (type !== undefined) patch.type = type;
+/** desc：定义该变量以承载业务值。 */
   const desc = readNullableWireValue<string>(wire, 'desc', 'clearDesc');
   if (desc !== undefined) patch.desc = desc;
+/** range：定义该变量以承载业务值。 */
   const range = readNullableWireValue<number>(wire, 'range', 'clearRange');
   if (range !== undefined) patch.range = range === null ? null : Number(range);
+/** requiresTarget：定义该变量以承载业务值。 */
   const requiresTarget = readNullableWireValue<boolean>(wire, 'requiresTarget', 'clearRequiresTarget');
   if (requiresTarget !== undefined) patch.requiresTarget = requiresTarget;
+/** targetMode：定义该变量以承载业务值。 */
   const targetMode = readNullableWireValue<ActionDef['targetMode']>(wire, 'targetMode', 'clearTargetMode');
   if (targetMode !== undefined) patch.targetMode = targetMode;
   return patch;
@@ -736,6 +773,7 @@ function fromWirePlayerSpecialStats(wire: Record<string, unknown>): PlayerSpecia
 
 /** toWireTick：执行对应的业务逻辑。 */
 function toWireTick(payload: S2C_Tick): Record<string, unknown> {
+/** wire：定义该变量以承载业务值。 */
   const wire: Record<string, unknown> = {
     p: payload.p.map(toWireTickEntity),
     e: payload.e.map(toWireTickEntity),
@@ -761,6 +799,7 @@ function toWireTick(payload: S2C_Tick): Record<string, unknown> {
   }
   if (payload.g) {
     wire.g = payload.g.map((patch) => {
+/** encoded：定义该变量以承载业务值。 */
       const encoded: Record<string, unknown> = {
         sourceId: patch.sourceId,
         x: patch.x,
@@ -801,6 +840,7 @@ function toWireTick(payload: S2C_Tick): Record<string, unknown> {
 
 /** fromWireTick：执行对应的业务逻辑。 */
 function fromWireTick(wire: Record<string, unknown>): S2C_Tick {
+/** payload：定义该变量以承载业务值。 */
   const payload: S2C_Tick = {
     p: Array.isArray(wire.p) ? wire.p.map((entry) => fromWireTickEntity(entry as Record<string, unknown>)) : [],
     e: Array.isArray(wire.e) ? wire.e.map((entry) => fromWireTickEntity(entry as Record<string, unknown>)) : [],
@@ -810,24 +850,28 @@ function fromWireTick(wire: Record<string, unknown>): S2C_Tick {
   }
   if (Array.isArray(wire.threatArrows)) {
     payload.threatArrows = wire.threatArrows.map((pair) => {
+/** entry：定义该变量以承载业务值。 */
       const entry = pair as Record<string, unknown>;
       return [String(entry.left ?? ''), String(entry.right ?? '')] as [string, string];
     });
   }
   if (Array.isArray(wire.threatArrowAdds)) {
     payload.threatArrowAdds = wire.threatArrowAdds.map((pair) => {
+/** entry：定义该变量以承载业务值。 */
       const entry = pair as Record<string, unknown>;
       return [String(entry.left ?? ''), String(entry.right ?? '')] as [string, string];
     });
   }
   if (Array.isArray(wire.threatArrowRemoves)) {
     payload.threatArrowRemoves = wire.threatArrowRemoves.map((pair) => {
+/** entry：定义该变量以承载业务值。 */
       const entry = pair as Record<string, unknown>;
       return [String(entry.left ?? ''), String(entry.right ?? '')] as [string, string];
     });
   }
   if (Array.isArray(wire.t)) {
     payload.t = wire.t.map((entry) => {
+/** patch：定义该变量以承载业务值。 */
       const patch = entry as Record<string, unknown>;
       return {
         x: Number(patch.x ?? 0),
@@ -838,11 +882,13 @@ function fromWireTick(wire: Record<string, unknown>): S2C_Tick {
   }
   if (Array.isArray(wire.g)) {
     payload.g = wire.g.map((entry) => {
+/** patch：定义该变量以承载业务值。 */
       const patch = entry as Record<string, unknown>;
       return {
         sourceId: String(patch.sourceId ?? ''),
         x: Number(patch.x ?? 0),
         y: Number(patch.y ?? 0),
+/** items：定义该变量以承载业务值。 */
         items: patch.clearItems === true
           ? null
           : Array.isArray(patch.items)
@@ -852,9 +898,11 @@ function fromWireTick(wire: Record<string, unknown>): S2C_Tick {
                 name: String((item as Record<string, unknown>).name ?? ''),
                 type: String((item as Record<string, unknown>).type ?? 'material') as ItemType,
                 count: Number((item as Record<string, unknown>).count ?? 0),
+/** grade：定义该变量以承载业务值。 */
                 grade: typeof (item as Record<string, unknown>).grade === 'string'
                   ? String((item as Record<string, unknown>).grade) as TechniqueGrade
                   : undefined,
+/** groundLabel：定义该变量以承载业务值。 */
                 groundLabel: typeof (item as Record<string, unknown>).groundLabel === 'string'
                   ? String((item as Record<string, unknown>).groundLabel)
                   : undefined,
@@ -866,7 +914,9 @@ function fromWireTick(wire: Record<string, unknown>): S2C_Tick {
   if (Array.isArray(wire.fx)) payload.fx = cloneJson(wire.fx) as S2C_Tick['fx'];
   if (Array.isArray(wire.v)) {
     payload.v = wire.v.map((row) => {
+/** rowWire：定义该变量以承载业务值。 */
       const rowWire = row as Record<string, unknown>;
+/** cells：定义该变量以承载业务值。 */
       const cells = Array.isArray(rowWire.cells) ? rowWire.cells : [];
       return cells.map((cell) => fromWireVisibleTile(cell as Record<string, unknown>));
     });
@@ -875,6 +925,7 @@ function fromWireTick(wire: Record<string, unknown>): S2C_Tick {
   if (hasOwn(wire, 'm')) payload.m = String(wire.m ?? '');
   if (Array.isArray(wire.path)) {
     payload.path = wire.path.map((point) => {
+/** entry：定义该变量以承载业务值。 */
       const entry = point as Record<string, unknown>;
       return [Number(entry.x ?? 0), Number(entry.y ?? 0)] as [number, number];
     });
@@ -891,6 +942,7 @@ function fromWireTick(wire: Record<string, unknown>): S2C_Tick {
 
 /** toWireTechniqueUpdate：执行对应的业务逻辑。 */
 function toWireTechniqueUpdate(payload: S2C_TechniqueUpdate): Record<string, unknown> {
+/** wire：定义该变量以承载业务值。 */
   const wire: Record<string, unknown> = {
     techniques: payload.techniques.map(toWireTechniqueEntry),
   };
@@ -912,6 +964,7 @@ function toWireTechniqueUpdate(payload: S2C_TechniqueUpdate): Record<string, unk
 
 /** fromWireTechniqueUpdate：执行对应的业务逻辑。 */
 function fromWireTechniqueUpdate(wire: Record<string, unknown>): S2C_TechniqueUpdate {
+/** payload：定义该变量以承载业务值。 */
   const payload: S2C_TechniqueUpdate = {
     techniques: Array.isArray(wire.techniques)
       ? wire.techniques.map((entry) => fromWireTechniqueEntry(entry as Record<string, unknown>))
@@ -937,6 +990,7 @@ function fromWireTechniqueUpdate(wire: Record<string, unknown>): S2C_TechniqueUp
 
 /** toWireActionsUpdate：执行对应的业务逻辑。 */
 function toWireActionsUpdate(payload: S2C_ActionsUpdate): Record<string, unknown> {
+/** wire：定义该变量以承载业务值。 */
   const wire: Record<string, unknown> = {
     actions: payload.actions.map(toWireActionEntry),
   };
@@ -955,6 +1009,7 @@ function toWireActionsUpdate(payload: S2C_ActionsUpdate): Record<string, unknown
 
 /** fromWireActionsUpdate：执行对应的业务逻辑。 */
 function fromWireActionsUpdate(wire: Record<string, unknown>): S2C_ActionsUpdate {
+/** payload：定义该变量以承载业务值。 */
   const payload: S2C_ActionsUpdate = {
     actions: Array.isArray(wire.actions)
       ? wire.actions.map((entry) => fromWireActionEntry(entry as Record<string, unknown>))
@@ -983,6 +1038,7 @@ function fromWireActionsUpdate(wire: Record<string, unknown>): S2C_ActionsUpdate
 
 /** toWireAttrUpdate：执行对应的业务逻辑。 */
 function toWireAttrUpdate(payload: S2C_AttrUpdate): Record<string, unknown> {
+/** wire：定义该变量以承载业务值。 */
   const wire: Record<string, unknown> = {};
   if (payload.baseAttrs) wire.baseAttrs = toWireAttributes(payload.baseAttrs);
   if (payload.bonuses !== undefined) wire.bonusesJson = JSON.stringify(payload.bonuses);
@@ -1007,6 +1063,7 @@ function toWireAttrUpdate(payload: S2C_AttrUpdate): Record<string, unknown> {
 
 /** fromWireAttrUpdate：执行对应的业务逻辑。 */
 function fromWireAttrUpdate(wire: Record<string, unknown>): S2C_AttrUpdate {
+/** payload：定义该变量以承载业务值。 */
   const payload: S2C_AttrUpdate = {};
   if (hasOwn(wire, 'baseAttrs')) payload.baseAttrs = fromWireAttributes(wire.baseAttrs as Record<string, unknown>);
   if (typeof wire.bonusesJson === 'string') payload.bonuses = parseJson<AttrBonus[]>(wire.bonusesJson);
@@ -1031,6 +1088,7 @@ function fromWireAttrUpdate(wire: Record<string, unknown>): S2C_AttrUpdate {
 
 /** encodeMessage：执行对应的业务逻辑。 */
 function encodeMessage(type: protobuf.Type, payload: Record<string, unknown>): Uint8Array {
+/** message：定义该变量以承载业务值。 */
   const message = type.fromObject(payload);
   return type.encode(message).finish();
 }
@@ -1061,6 +1119,7 @@ export function encodeServerEventPayload<T>(event: string, payload: T): T | Uint
 
 /** 客户端收到后将 Protobuf 二进制解码为业务对象（非二进制原样返回） */
 export function decodeServerEventPayload<T>(event: string, payload: unknown): T {
+/** binary：定义该变量以承载业务值。 */
   const binary = normalizeBinaryPayload(payload);
   if (!binary) {
     return payload as T;

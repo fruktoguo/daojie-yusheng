@@ -26,7 +26,9 @@ function getByteLength(chunk: unknown, encoding?: BufferEncoding): number {
 
 /** 从请求头解析 Content-Length */
 function parseContentLengthHeader(value: unknown): number {
+/** raw：定义该变量以承载业务值。 */
   const raw = Array.isArray(value) ? value[0] : value;
+/** parsed：定义该变量以承载业务值。 */
   const parsed = Number(raw);
   return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 0;
 }
@@ -40,7 +42,9 @@ function normalizeHttpMetricPath(path: string): string {
 
 /** 构建 HTTP 请求的性能指标标签 */
 function buildHttpMetricLabel(req: { method?: string; path?: string; originalUrl?: string; url?: string }): string {
+/** method：定义该变量以承载业务值。 */
   const method = (req.method ?? 'GET').toUpperCase();
+/** rawPath：定义该变量以承载业务值。 */
   const rawPath = req.path
     ?? req.originalUrl?.split('?')[0]
     ?? req.url?.split('?')[0]
@@ -50,16 +54,23 @@ function buildHttpMetricLabel(req: { method?: string; path?: string; originalUrl
 
 /** bootstrap：执行对应的业务逻辑。 */
 async function bootstrap() {
+/** logger：定义该变量以承载业务值。 */
   const logger = new DateConsoleLogger('Bootstrap');
+/** app：定义该变量以承载业务值。 */
   const app = await NestFactory.create(AppModule, { logger });
+/** performanceService：定义该变量以承载业务值。 */
   const performanceService = app.get(PerformanceService);
 
   app.use((req: { headers: Record<string, unknown>; method?: string; path?: string; originalUrl?: string; url?: string }, res: any, next: () => void) => {
+/** metricLabel：定义该变量以承载业务值。 */
     const metricLabel = buildHttpMetricLabel(req);
     performanceService.recordNetworkInBytes(parseContentLengthHeader(req.headers['content-length']), metricLabel, metricLabel);
 
+/** responseBytes：定义该变量以承载业务值。 */
     let responseBytes = 0;
+/** originalWrite：定义该变量以承载业务值。 */
     const originalWrite = res.write.bind(res);
+/** originalEnd：定义该变量以承载业务值。 */
     const originalEnd = res.end.bind(res);
 
     res.write = ((chunk: unknown, encoding?: BufferEncoding, cb?: (...args: unknown[]) => void) => {
@@ -79,7 +90,9 @@ async function bootstrap() {
   app.enableShutdownHooks();
   app.enableCors();
 
+/** port：定义该变量以承载业务值。 */
   const port = Number(process.env.PORT) || SERVER_PORT;
+/** host：定义该变量以承载业务值。 */
   const host = process.env.HOST || '0.0.0.0';
 
   await app.listen(port, host);

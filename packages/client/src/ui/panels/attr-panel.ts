@@ -52,6 +52,7 @@ import {
 
 /** formatRateBp：执行对应的业务逻辑。 */
 function formatRateBp(value: number): string {
+/** percent：定义该变量以承载业务值。 */
   const percent = value / 100;
   return formatDisplayPercent(percent);
 }
@@ -76,17 +77,23 @@ function formatAuraAbsorptionRate(value: number): string {
 
 /** formatCritDamageBonus：执行对应的业务逻辑。 */
 function formatCritDamageBonus(value: number): string {
+/** percent：定义该变量以承载业务值。 */
   const percent = value / 10;
   return formatDisplayPercent(percent);
 }
 
 /** colorWithAlpha：执行对应的业务逻辑。 */
 function colorWithAlpha(color: string, alpha: number): string {
+/** hex：定义该变量以承载业务值。 */
   const hex = color.startsWith('#') ? color.slice(1) : color;
+/** normalized：定义该变量以承载业务值。 */
   const normalized = hex.length === 3 ? hex.split('').map((char) => char + char).join('') : hex;
   if (normalized.length !== 6) return color;
+/** r：定义该变量以承载业务值。 */
   const r = parseInt(normalized.slice(0, 2), 16);
+/** g：定义该变量以承载业务值。 */
   const g = parseInt(normalized.slice(2, 4), 16);
+/** b：定义该变量以承载业务值。 */
   const b = parseInt(normalized.slice(4, 6), 16);
   return `rgba(${r}, ${g}, ${b}, ${alpha.toFixed(2)})`;
 }
@@ -109,31 +116,41 @@ function formatNumericTooltipValue(key: NumericCardKey, value: number): string {
 
 /** buildAttrConversionSummary：执行对应的业务逻辑。 */
 function buildAttrConversionSummary(key: AttrKey, totalValue: number): string {
+/** parts：定义该变量以承载业务值。 */
   const parts = buildAttrConversionEntries(key, totalValue);
   return parts.length > 0 ? parts.join('，') : '暂无具体转化';
 }
 
 /** buildAttrConversionLines：执行对应的业务逻辑。 */
 function buildAttrConversionLines(key: AttrKey, totalValue: number): string[] {
+/** parts：定义该变量以承载业务值。 */
   const parts = buildAttrConversionEntries(key, totalValue);
   return parts.length > 0 ? parts : ['暂无具体转化'];
 }
 
 /** buildAttrConversionEntries：执行对应的业务逻辑。 */
 function buildAttrConversionEntries(key: AttrKey, totalValue: number): string[] {
+/** percentWeights：定义该变量以承载业务值。 */
   const percentWeights = ATTR_TO_PERCENT_NUMERIC_WEIGHTS[key];
+/** weights：定义该变量以承载业务值。 */
   const weights = ATTR_TO_NUMERIC_WEIGHTS[key];
+/** percentParts：定义该变量以承载业务值。 */
   const percentParts = Object.entries(percentWeights)
     .filter(([, entryValue]) => typeof entryValue === 'number' && entryValue !== 0)
     .map(([entryKey, entryValue]) => {
+/** numericKey：定义该变量以承载业务值。 */
       const numericKey = entryKey as NumericCardKey;
+/** total：定义该变量以承载业务值。 */
       const total = entryValue * totalValue;
       return `${NUMERIC_TOOLTIP_LABELS[numericKey] ?? entryKey} +${formatSimplePercent(total)}`;
     });
+/** flatParts：定义该变量以承载业务值。 */
   const flatParts = Object.entries(weights)
     .filter(([entryKey, entryValue]) => entryKey !== 'elementDamageBonus' && entryKey !== 'elementDamageReduce' && typeof entryValue === 'number' && entryValue !== 0)
     .map(([entryKey, entryValue]) => {
+/** numericKey：定义该变量以承载业务值。 */
       const numericKey = entryKey as NumericCardKey;
+/** total：定义该变量以承载业务值。 */
       const total = entryValue * totalValue;
       return `${NUMERIC_TOOLTIP_LABELS[numericKey] ?? entryKey} +${formatNumericTooltipValue(numericKey, total)}`;
     });
@@ -150,16 +167,22 @@ function splitTooltipLines(detail: string): string[] {
 
 /** formatCritDamageDisplay：执行对应的业务逻辑。 */
 function formatCritDamageDisplay(value: number): string {
+/** total：定义该变量以承载业务值。 */
   const total = 200 + value / 10;
   return formatDisplayPercent(total);
 }
 
 /** formatMoveSpeedEffect：执行对应的业务逻辑。 */
 function formatMoveSpeedEffect(value: number): string {
+/** movePoints：定义该变量以承载业务值。 */
   const movePoints = Math.max(1, BASE_MOVE_POINTS_PER_TICK + value);
+/** roadTiles：定义该变量以承载业务值。 */
   const roadTiles = movePoints / getTileTraversalCost(TileType.Road);
+/** trailTiles：定义该变量以承载业务值。 */
   const trailTiles = movePoints / getTileTraversalCost(TileType.Trail);
+/** grassTiles：定义该变量以承载业务值。 */
   const grassTiles = movePoints / getTileTraversalCost(TileType.Grass);
+/** swampTiles：定义该变量以承载业务值。 */
   const swampTiles = movePoints / getTileTraversalCost(TileType.Swamp);
   return `每息获得 ${formatDisplayNumber(movePoints)} 点移动预算，约等于 ${formatDisplayNumber(roadTiles)} 格大路 / ${formatDisplayNumber(trailTiles)} 格小路 / ${formatDisplayNumber(grassTiles)} 格草地 / ${formatDisplayNumber(swampTiles)} 格沼泽`;
 }
@@ -250,7 +273,9 @@ function formatBreakdownValue(key: NumericCardKey, value: number): string {
 
 /** formatSignedBreakdownValue：执行对应的业务逻辑。 */
 function formatSignedBreakdownValue(key: NumericCardKey, value: number): string {
+/** sign：定义该变量以承载业务值。 */
   const sign = value >= 0 ? '+' : '-';
+/** absValue：定义该变量以承载业务值。 */
   const absValue = Math.abs(value);
   if (key === 'critDamage') {
     return `${sign}${formatDisplayPercent(absValue / 10)}`;
@@ -276,6 +301,7 @@ function renderTooltipChildLine(label: string, value: string, tone: 'fixed' | 'p
   return `<span class="attr-tooltip-child ${tone}"><span class="attr-tooltip-child-label">${escapeHtml(label)}</span><span class="attr-tooltip-child-value">${escapeHtml(value)}</span></span>`;
 }
 
+/** SYSTEM_FIXED_BASE_BY_NUMERIC_KEY：定义该变量以承载业务值。 */
 const SYSTEM_FIXED_BASE_BY_NUMERIC_KEY: Partial<Record<NumericCardKey, number>> = {
   realmExpPerTick: 1,
   techniqueExpPerTick: 5,
@@ -283,6 +309,7 @@ const SYSTEM_FIXED_BASE_BY_NUMERIC_KEY: Partial<Record<NumericCardKey, number>> 
 
 /** getAttrFlatContribution：执行对应的业务逻辑。 */
 function getAttrFlatContribution(key: NumericCardKey, attrs: Attributes): number {
+/** total：定义该变量以承载业务值。 */
   let total = 0;
   for (const attrKey of ATTR_KEYS) {
     const weight = ATTR_TO_NUMERIC_WEIGHTS[attrKey][key];
@@ -300,27 +327,40 @@ function buildNumericBreakdownLines(
   key: NumericCardKey,
   attrs: Attributes,
 ): string[] {
+/** breakdown：定义该变量以承载业务值。 */
   const breakdown = breakdowns?.[key];
   if (!breakdown) {
     return [];
   }
+/** attrMultiplier：定义该变量以承载业务值。 */
   const attrMultiplier = percentModifierToMultiplier(breakdown.attrMultiplierPct);
+/** buffMultiplier：定义该变量以承载业务值。 */
   const buffMultiplier = percentModifierToMultiplier(breakdown.buffMultiplierPct);
+/** pillMultiplier：定义该变量以承载业务值。 */
   const pillMultiplier = percentModifierToMultiplier(breakdown.pillMultiplierPct);
+/** totalMultiplier：定义该变量以承载业务值。 */
   const totalMultiplier = attrMultiplier * breakdown.realmMultiplier * buffMultiplier * pillMultiplier;
+/** attrFlatContribution：定义该变量以承载业务值。 */
   const attrFlatContribution = getAttrFlatContribution(key, attrs);
+/** systemFixedBase：定义该变量以承载业务值。 */
   const systemFixedBase = Math.max(0, SYSTEM_FIXED_BASE_BY_NUMERIC_KEY[key] ?? 0);
+/** foldedSystemBase：定义该变量以承载业务值。 */
   const foldedSystemBase = Math.min(systemFixedBase, Math.max(0, breakdown.flatBuffValue));
+/** displayFixedBaseValue：定义该变量以承载业务值。 */
   const displayFixedBaseValue = key === 'moveSpeed'
     ? BASE_MOVE_POINTS_PER_TICK + breakdown.realmBaseValue + attrFlatContribution
     : breakdown.realmBaseValue + attrFlatContribution + foldedSystemBase;
+/** displayExtraValue：定义该变量以承载业务值。 */
   const displayExtraValue = breakdown.baseValue - breakdown.realmBaseValue - attrFlatContribution + breakdown.flatBuffValue - foldedSystemBase;
+/** displayFixedTotalValue：定义该变量以承载业务值。 */
   const displayFixedTotalValue = key === 'moveSpeed'
     ? BASE_MOVE_POINTS_PER_TICK + breakdown.baseValue + breakdown.flatBuffValue
     : breakdown.baseValue + breakdown.flatBuffValue;
+/** displayFinalValue：定义该变量以承载业务值。 */
   const displayFinalValue = key === 'moveSpeed'
     ? BASE_MOVE_POINTS_PER_TICK + breakdown.finalValue
     : breakdown.finalValue;
+/** lines：定义该变量以承载业务值。 */
   const lines = [
     renderTooltipPrimaryLine('实际：', formatBreakdownValue(key, displayFinalValue)),
     renderTooltipSectionLine(`总固定值：${formatBreakdownValue(key, displayFixedTotalValue)}`, 'fixed'),
@@ -347,7 +387,9 @@ function buildNumericTooltip(
   breakdowns?: NumericStatBreakdownMap,
   attrs?: Attributes,
 ): string {
+/** breakdownLines：定义该变量以承载业务值。 */
   const breakdownLines = attrs ? buildNumericBreakdownLines(breakdowns, key, attrs) : [];
+/** lines：定义该变量以承载业务值。 */
   const lines = [NUMERIC_TOOLTIP_DESCRIPTIONS[key] ?? '该属性影响角色的实际战斗表现。'];
   if (breakdownLines.length > 0) {
     lines.push(...breakdownLines);
@@ -375,77 +417,119 @@ function escapeHtml(value: string): string {
 
 /** RadarEntry：定义该接口的能力与字段约束。 */
 interface RadarEntry {
+/** label：定义该变量以承载业务值。 */
   label: string;
+/** value：定义该变量以承载业务值。 */
   value: number;
+/** color：定义该变量以承载业务值。 */
   color: string;
   valueLabel?: string;
+/** tooltipTitle：定义该变量以承载业务值。 */
   tooltipTitle: string;
+/** tooltipDetail：定义该变量以承载业务值。 */
   tooltipDetail: string;
 }
 
 /** AttrRadarNodeSnapshot：定义该接口的能力与字段约束。 */
 interface AttrRadarNodeSnapshot {
+/** label：定义该变量以承载业务值。 */
   label: string;
+/** valueLabel：定义该变量以承载业务值。 */
   valueLabel: string;
+/** color：定义该变量以承载业务值。 */
   color: string;
+/** dotX：定义该变量以承载业务值。 */
   dotX: string;
+/** dotY：定义该变量以承载业务值。 */
   dotY: string;
+/** labelX：定义该变量以承载业务值。 */
   labelX: string;
+/** labelY：定义该变量以承载业务值。 */
   labelY: string;
+/** valueX：定义该变量以承载业务值。 */
   valueX: string;
+/** valueY：定义该变量以承载业务值。 */
   valueY: string;
+/** tooltipTitle：定义该变量以承载业务值。 */
   tooltipTitle: string;
+/** tooltipDetail：定义该变量以承载业务值。 */
   tooltipDetail: string;
 }
 
 /** AttrRadarPaneSnapshot：定义该接口的能力与字段约束。 */
 interface AttrRadarPaneSnapshot {
+/** kind：定义该变量以承载业务值。 */
   kind: 'radar';
+/** title：定义该变量以承载业务值。 */
   title: string;
+/** scale：定义该变量以承载业务值。 */
   scale: number;
+/** paneId：定义该变量以承载业务值。 */
   paneId: string;
+/** areaPoints：定义该变量以承载业务值。 */
   areaPoints: string;
+/** rings：定义该变量以承载业务值。 */
   rings: string[];
+/** axes：定义该变量以承载业务值。 */
   axes: Array<{ x: string; y: string; stroke: string }>;
+/** nodes：定义该变量以承载业务值。 */
   nodes: AttrRadarNodeSnapshot[];
 }
 
 /** AttrNumericCardSnapshot：定义该接口的能力与字段约束。 */
 interface AttrNumericCardSnapshot {
+/** key：定义该变量以承载业务值。 */
   key: string;
+/** label：定义该变量以承载业务值。 */
   label: string;
+/** value：定义该变量以承载业务值。 */
   value: string;
   sub?: string;
+/** tooltipTitle：定义该变量以承载业务值。 */
   tooltipTitle: string;
+/** tooltipDetail：定义该变量以承载业务值。 */
   tooltipDetail: string;
 }
 
 /** AttrNumericPaneSnapshot：定义该接口的能力与字段约束。 */
 interface AttrNumericPaneSnapshot {
+/** kind：定义该变量以承载业务值。 */
   kind: 'numeric';
+/** title：定义该变量以承载业务值。 */
   title: string;
+/** cards：定义该变量以承载业务值。 */
   cards: AttrNumericCardSnapshot[];
 }
 
 /** AttrPlaceholderPaneSnapshot：定义该接口的能力与字段约束。 */
 interface AttrPlaceholderPaneSnapshot {
+/** kind：定义该变量以承载业务值。 */
   kind: 'placeholder';
+/** message：定义该变量以承载业务值。 */
   message: string;
 }
 
 /** AttrCraftSkillSnapshot：定义该接口的能力与字段约束。 */
 interface AttrCraftSkillSnapshot {
+/** key：定义该变量以承载业务值。 */
   key: string;
+/** label：定义该变量以承载业务值。 */
   label: string;
+/** level：定义该变量以承载业务值。 */
   level: string;
+/** progress：定义该变量以承载业务值。 */
   progress: string;
+/** remain：定义该变量以承载业务值。 */
   remain: string;
+/** progressPercent：定义该变量以承载业务值。 */
   progressPercent: string;
 }
 
 /** AttrCraftPaneSnapshot：定义该接口的能力与字段约束。 */
 interface AttrCraftPaneSnapshot {
+/** kind：定义该变量以承载业务值。 */
   kind: 'craft';
+/** skills：定义该变量以承载业务值。 */
   skills: AttrCraftSkillSnapshot[];
 }
 
@@ -454,6 +538,7 @@ type AttrPaneSnapshot = AttrRadarPaneSnapshot | AttrNumericPaneSnapshot | AttrPl
 
 /** AttrPanelSnapshot：定义该接口的能力与字段约束。 */
 interface AttrPanelSnapshot {
+/** panes：定义该变量以承载业务值。 */
   panes: Record<AttrTab, AttrPaneSnapshot>;
 }
 
@@ -465,13 +550,20 @@ interface AttrPanelCallbacks {
 /** AttrPanel：封装相关状态与行为。 */
 export class AttrPanel {
   private pane = document.getElementById('pane-attr')!;
+/** activeTab：定义该变量以承载业务值。 */
   private activeTab: AttrTab = 'base';
   private tooltip = new FloatingTooltip('floating-tooltip attr-tooltip');
+/** lastSnapshot：定义该变量以承载业务值。 */
   private lastSnapshot: AttrPanelSnapshot | null = null;
+/** lastStructureKey：定义该变量以承载业务值。 */
   private lastStructureKey: string | null = null;
+/** tooltipTarget：定义该变量以承载业务值。 */
   private tooltipTarget: Element | null = null;
+/** callbacks：定义该变量以承载业务值。 */
   private callbacks: AttrPanelCallbacks | null = null;
+/** latestData：定义该变量以承载业务值。 */
   private latestData: S2C_AttrUpdate | null = null;
+/** detailData：定义该变量以承载业务值。 */
   private detailData: S2C_AttrDetail | null = null;
   private detailStale = false;
   private detailRequested = false;
@@ -483,10 +575,12 @@ export class AttrPanel {
     this.bindTooltipEvents();
   }
 
+/** setCallbacks：执行对应的业务逻辑。 */
   setCallbacks(callbacks: AttrPanelCallbacks): void {
     this.callbacks = callbacks;
   }
 
+/** clear：执行对应的业务逻辑。 */
   clear(): void {
     this.latestData = null;
     this.detailData = null;
@@ -502,17 +596,20 @@ export class AttrPanel {
   /** 接收属性更新事件并重新渲染 */
   update(data: S2C_AttrUpdate): void {
     this.latestData = data;
+/** finalAttrs：定义该变量以承载业务值。 */
     const finalAttrs = data.finalAttrs ?? this.detailData?.finalAttrs;
     if (!finalAttrs) {
       this.clear();
       return;
     }
+/** snapshot：定义该变量以承载业务值。 */
     const snapshot = this.buildSnapshot(
       finalAttrs,
       data.numericStats,
       data.specialStats,
       this.detailData,
     );
+/** structureKey：定义该变量以承载业务值。 */
     const structureKey = this.buildStructureKey(snapshot);
     if (this.lastStructureKey !== structureKey || !this.patch(snapshot)) {
       this.render(snapshot);
@@ -521,6 +618,7 @@ export class AttrPanel {
     this.lastSnapshot = snapshot;
   }
 
+/** initFromPlayer：执行对应的业务逻辑。 */
   initFromPlayer(player: PlayerState): void {
     this.latestData = {
       baseAttrs: player.baseAttrs,
@@ -542,6 +640,7 @@ export class AttrPanel {
       alchemySkill: player.alchemySkill,
     };
     this.detailStale = false;
+/** snapshot：定义该变量以承载业务值。 */
     const snapshot = this.buildSnapshot(
       this.latestData.finalAttrs ?? player.baseAttrs,
       this.latestData.numericStats,
@@ -551,11 +650,13 @@ export class AttrPanel {
     this.render(snapshot);
   }
 
+/** invalidateDetail：执行对应的业务逻辑。 */
   invalidateDetail(): void {
     this.detailStale = this.detailData !== null;
     this.detailRequested = false;
   }
 
+/** applyDetail：执行对应的业务逻辑。 */
   applyDetail(detail: S2C_AttrDetail): void {
     this.detailData = detail;
     this.detailStale = false;
@@ -617,15 +718,25 @@ export class AttrPanel {
     };
   }
 
+/** buildBaseRadarSnapshot：执行对应的业务逻辑。 */
   private buildBaseRadarSnapshot(final: Attributes, detail?: S2C_AttrDetail | null): AttrRadarPaneSnapshot {
+/** baseAttrs：定义该变量以承载业务值。 */
     const baseAttrs = detail?.baseAttrs ?? this.latestData?.baseAttrs;
+/** bonuses：定义该变量以承载业务值。 */
     const bonuses = detail?.bonuses ?? this.latestData?.bonuses;
+/** maxValue：定义该变量以承载业务值。 */
     const maxValue = Math.max(20, ...ATTR_KEYS.map((key) => final[key]));
+/** radarMax：定义该变量以承载业务值。 */
     const radarMax = Math.ceil(maxValue / 5) * 5 || 20;
+/** entries：定义该变量以承载业务值。 */
     const entries: RadarEntry[] = ATTR_KEYS.map((key, index) => {
+/** finalValue：定义该变量以承载业务值。 */
       const finalValue = final[key];
+/** baseValue：定义该变量以承载业务值。 */
       const baseValue = baseAttrs?.[key];
+/** bonusValue：定义该变量以承载业务值。 */
       const bonusValue = bonuses?.reduce((sum, bonus) => sum + (bonus.attrs[key] ?? 0), 0);
+/** roundedValue：定义该变量以承载业务值。 */
       const roundedValue = Math.round(finalValue);
       return {
         label: ATTR_KEY_LABELS[key],
@@ -650,13 +761,21 @@ export class AttrPanel {
     stats: NumericStats,
     detail?: S2C_AttrDetail | null,
   ): AttrRadarPaneSnapshot {
+/** ratios：定义该变量以承载业务值。 */
     const ratios = detail?.ratioDivisors ?? this.latestData?.ratioDivisors;
+/** bonuses：定义该变量以承载业务值。 */
     const bonuses = detail?.bonuses ?? this.latestData?.bonuses;
+/** roots：定义该变量以承载业务值。 */
     const roots = this.resolveDisplaySpiritualRoots(stats, bonuses);
+/** entries：定义该变量以承载业务值。 */
     const entries: RadarEntry[] = ELEMENT_KEYS.map((key, index) => {
+/** damageBonus：定义该变量以承载业务值。 */
       const damageBonus = stats.elementDamageBonus[key];
+/** reductionDivisor：定义该变量以承载业务值。 */
       const reductionDivisor = ratios?.elementDamageReduce[key] || 100;
+/** roundedBonus：定义该变量以承载业务值。 */
       const roundedBonus = Math.round(damageBonus);
+/** lines：定义该变量以承载业务值。 */
       const lines = [`当前：${formatDisplayInteger(roundedBonus)} 点`, `${ELEMENT_KEY_LABELS[key]}属性伤害增幅：${formatDisplayPercent(roundedBonus)}`];
       if (ratios) {
         lines.push(`${ELEMENT_KEY_LABELS[key]}属性实际减伤：${formatRatioPercent(stats.elementDamageReduce[key], reductionDivisor)}`);
@@ -673,7 +792,9 @@ export class AttrPanel {
         color: ELEMENT_COLORS[index % ELEMENT_COLORS.length],
       };
     });
+/** radarMax：定义该变量以承载业务值。 */
     const radarMax = Math.max(100, ...entries.map((entry) => entry.value)) || 100;
+/** rootTitle：定义该变量以承载业务值。 */
     const rootTitle = describeSpiritualRoots(roots).name;
     return this.buildRadarPaneSnapshot(rootTitle, radarMax, entries, 'root');
   }
@@ -682,8 +803,11 @@ export class AttrPanel {
     stats: NumericStats,
     detail?: S2C_AttrDetail | null,
   ): AttrNumericPaneSnapshot {
+/** bonuses：定义该变量以承载业务值。 */
     const bonuses = detail?.bonuses ?? this.latestData?.bonuses ?? [];
+/** roots：定义该变量以承载业务值。 */
     const roots = this.resolveDisplaySpiritualRoots(stats, bonuses);
+/** cards：定义该变量以承载业务值。 */
     const cards: AttrNumericCardSnapshot[] = [{
       key: 'neutral-aura',
       label: '无属性灵气',
@@ -699,7 +823,9 @@ export class AttrPanel {
       if (rootValue <= 0) {
         continue;
       }
+/** rate：定义该变量以承载业务值。 */
       const rate = getSpiritualRootAbsorptionRate(rootValue);
+/** label：定义该变量以承载业务值。 */
       const label = `${ELEMENT_KEY_LABELS[key]}灵气`;
       cards.push({
         key: `${key}-aura`,
@@ -720,6 +846,7 @@ export class AttrPanel {
     };
   }
 
+/** buildHeavenGateRootsFromStats：执行对应的业务逻辑。 */
   private buildHeavenGateRootsFromStats(stats: NumericStats): HeavenGateRootValues {
     return ELEMENT_KEYS.reduce((roots, key) => {
       roots[key] = Math.max(0, Math.min(100, Math.round(stats.elementDamageBonus[key])));
@@ -735,16 +862,22 @@ export class AttrPanel {
       ?? normalizeSpiritualRoots(this.buildHeavenGateRootsFromStats(stats));
   }
 
+/** buildRadarPaneSnapshot：执行对应的业务逻辑。 */
   private buildRadarPaneSnapshot(title: string, scale: number, entries: RadarEntry[], paneId: string): AttrRadarPaneSnapshot {
+/** center：定义该变量以承载业务值。 */
     const center = 170;
+/** radius：定义该变量以承载业务值。 */
     const radius = 110;
+/** safeScale：定义该变量以承载业务值。 */
     const safeScale = Math.max(scale, 1);
 /** clampRatio：通过常量导出可复用函数行为。 */
     const clampRatio = (value: number) => Math.max(0, Math.min(1, value));
 
 /** pointAt：通过常量导出可复用函数行为。 */
     const pointAt = (index: number, ratio: number, clamp = true) => {
+/** angle：定义该变量以承载业务值。 */
       const angle = ((-90 + index * (360 / entries.length)) * Math.PI) / 180;
+/** r：定义该变量以承载业务值。 */
       const r = radius * (clamp ? clampRatio(ratio) : ratio);
       return {
         x: center + Math.cos(angle) * r,
@@ -752,22 +885,29 @@ export class AttrPanel {
       };
     };
 
+/** entriesRatio：定义该变量以承载业务值。 */
     const entriesRatio = entries.map((entry) => clampRatio(entry.value / safeScale));
+/** areaPoints：定义该变量以承载业务值。 */
     const areaPoints = entriesRatio
       .map((ratio, index) => {
+/** point：定义该变量以承载业务值。 */
         const point = pointAt(index, ratio);
         return `${point.x.toFixed(2)},${point.y.toFixed(2)}`;
       })
       .join(' ');
+/** rings：定义该变量以承载业务值。 */
     const rings = [0.2, 0.4, 0.6, 0.8, 1].map((ratio) => {
       return entries
         .map((_, index) => {
+/** point：定义该变量以承载业务值。 */
           const point = pointAt(index, ratio);
           return `${point.x.toFixed(2)},${point.y.toFixed(2)}`;
         })
         .join(' ');
     });
+/** axes：定义该变量以承载业务值。 */
     const axes = entries.map((entry, index) => {
+/** point：定义该变量以承载业务值。 */
       const point = pointAt(index, 1);
       return {
         x: point.x.toFixed(2),
@@ -775,10 +915,15 @@ export class AttrPanel {
         stroke: colorWithAlpha(entry.color, 0.35),
       };
     });
+/** nodes：定义该变量以承载业务值。 */
     const nodes = entries.map((entry, index) => {
+/** dot：定义该变量以承载业务值。 */
       const dot = pointAt(index, entriesRatio[index]);
+/** labelPoint：定义该变量以承载业务值。 */
       const labelPoint = pointAt(index, 1.14, false);
+/** isUpper：定义该变量以承载业务值。 */
       const isUpper = labelPoint.y <= center;
+/** valuePoint：定义该变量以承载业务值。 */
       const valuePoint = {
         x: labelPoint.x,
         y: labelPoint.y + (isUpper ? -18 : 18),
@@ -820,18 +965,26 @@ export class AttrPanel {
     if (!stats || !meta || !attrs) {
       return { kind: 'placeholder', message: `${title}尚未同步` };
     }
+/** ratios：定义该变量以承载业务值。 */
     const ratios = detail?.ratioDivisors ?? this.latestData?.ratioDivisors;
+/** breakdowns：定义该变量以承载业务值。 */
     const breakdowns = detail?.numericStatBreakdowns ?? this.latestData?.numericStatBreakdowns;
 
     return {
       kind: 'numeric',
       title,
       cards: meta.keys.map((key) => {
+/** rawValue：定义该变量以承载业务值。 */
         const rawValue = stats[key];
+/** numericValue：定义该变量以承载业务值。 */
         const numericValue = typeof rawValue === 'number' ? rawValue : 0;
+/** label：定义该变量以承载业务值。 */
         const label = meta.legends?.[key as string] ?? String(key);
+/** ratioKey：定义该变量以承载业务值。 */
         const ratioKey = meta.ratioKeys.find((ratio) => ratio === key as keyof NumericRatioDivisors);
+/** sub：定义该变量以承载业务值。 */
         let sub: string | undefined;
+/** actualLine：定义该变量以承载业务值。 */
         let actualLine: string | undefined;
         if (ratioKey && ratioKey !== 'elementDamageReduce' && ratios) {
           actualLine = `实际：${formatRatioPercent(numericValue, ratios[ratioKey])}`;
@@ -842,6 +995,7 @@ export class AttrPanel {
         } else if (key === 'moveSpeed') {
           actualLine = `效果：${formatMoveSpeedEffect(numericValue)}`;
         }
+/** value：定义该变量以承载业务值。 */
         const value = key === 'critDamage'
           ? formatCritDamageDisplay(numericValue)
           : key === 'moveSpeed'
@@ -871,9 +1025,13 @@ export class AttrPanel {
       return { kind: 'placeholder', message: '特殊属性尚未同步' };
     }
 
+/** specialCards：定义该变量以承载业务值。 */
     const specialCards: AttrNumericCardSnapshot[] = (['foundation', 'combatExp'] as PlayerSpecialCardKey[]).map((key) => {
+/** numericValue：定义该变量以承载业务值。 */
       const numericValue = Math.max(0, Math.floor(specialStats?.[key] ?? 0));
+/** label：定义该变量以承载业务值。 */
       const label = PLAYER_SPECIAL_TOOLTIP_LABELS[key];
+/** detail：定义该变量以承载业务值。 */
       const detail = [
         PLAYER_SPECIAL_TOOLTIP_DESCRIPTIONS[key],
         `当前数值：${formatDisplayInteger(numericValue)}`,
@@ -887,6 +1045,7 @@ export class AttrPanel {
       };
     });
 
+/** numericPane：定义该变量以承载业务值。 */
     const numericPane = this.buildNumericPaneSnapshot('特殊属性', stats, detail, {
       keys: ['viewRange', 'moveSpeed', 'playerExpRate', 'techniqueExpRate', 'realmExpPerTick', 'techniqueExpPerTick', 'lootRate', 'rareLootRate'],
       ratioKeys: [],
@@ -912,14 +1071,19 @@ export class AttrPanel {
     };
   }
 
+/** buildCraftPaneSnapshot：执行对应的业务逻辑。 */
   private buildCraftPaneSnapshot(detail?: S2C_AttrDetail | null): AttrPaneSnapshot {
+/** alchemySkill：定义该变量以承载业务值。 */
     const alchemySkill = detail?.alchemySkill ?? this.latestData?.alchemySkill;
+/** enhancementSkill：定义该变量以承载业务值。 */
     const enhancementSkill = detail?.enhancementSkill ?? this.latestData?.enhancementSkill;
     if (!alchemySkill && !enhancementSkill) {
       return { kind: 'placeholder', message: '技艺信息尚未同步' };
     }
+/** skills：定义该变量以承载业务值。 */
     const skills: AttrCraftSkillSnapshot[] = [];
     if (alchemySkill) {
+/** remain：定义该变量以承载业务值。 */
       const remain = Math.max(0, alchemySkill.expToNext - alchemySkill.exp);
       skills.push({
         key: 'alchemy',
@@ -931,6 +1095,7 @@ export class AttrPanel {
       });
     }
     if (enhancementSkill) {
+/** remain：定义该变量以承载业务值。 */
       const remain = Math.max(0, enhancementSkill.expToNext - enhancementSkill.exp);
       skills.push({
         key: 'enhancement',
@@ -947,6 +1112,7 @@ export class AttrPanel {
     };
   }
 
+/** render：执行对应的业务逻辑。 */
   private render(snapshot: AttrPanelSnapshot): void {
     this.lastSnapshot = snapshot;
     this.lastStructureKey = this.buildStructureKey(snapshot);
@@ -964,12 +1130,14 @@ export class AttrPanel {
     });
   }
 
+/** renderTabs：执行对应的业务逻辑。 */
   private renderTabs(): string {
     return (Object.keys(ATTR_TAB_LABELS) as AttrTab[])
       .map((tab) => `<button class="action-tab-btn ${this.activeTab === tab ? 'active' : ''}" data-attr-tab="${tab}" type="button">${ATTR_TAB_LABELS[tab]}</button>`)
       .join('');
   }
 
+/** renderPane：执行对应的业务逻辑。 */
   private renderPane(snapshot: AttrPaneSnapshot): string {
     if (snapshot.kind === 'placeholder') {
       return `<div class="panel-section" data-pane-kind="placeholder"><div class="empty-hint" data-placeholder-text="true">${snapshot.message}</div></div>`;
@@ -1006,9 +1174,12 @@ export class AttrPanel {
       </div>`;
     }
 
+/** gradientId：定义该变量以承载业务值。 */
     const gradientId = `attr-radar-area-${snapshot.paneId}`;
+/** gradientStops：定义该变量以承载业务值。 */
     const gradientStops = snapshot.nodes
       .map((node, index) => {
+/** offset：定义该变量以承载业务值。 */
         const offset = snapshot.nodes.length === 1 ? '50%' : `${(index / (snapshot.nodes.length - 1)) * 100}%`;
         return `<stop offset="${offset}" stop-color="${node.color}" stop-opacity="0.4"></stop>`;
       })
@@ -1037,6 +1208,7 @@ export class AttrPanel {
     </div>`;
   }
 
+/** patch：执行对应的业务逻辑。 */
   private patch(snapshot: AttrPanelSnapshot): boolean {
     this.patchTabState();
     return this.patchPane('base', snapshot.panes.base)
@@ -1048,12 +1220,15 @@ export class AttrPanel {
       && this.patchPane('craft', snapshot.panes.craft);
   }
 
+/** patchPane：执行对应的业务逻辑。 */
   private patchPane(tab: AttrTab, snapshot: AttrPaneSnapshot): boolean {
+/** pane：定义该变量以承载业务值。 */
     const pane = this.pane.querySelector<HTMLElement>(`[data-attr-pane="${tab}"]`);
     if (!pane) {
       return false;
     }
     if (snapshot.kind === 'placeholder') {
+/** textNode：定义该变量以承载业务值。 */
       const textNode = pane.querySelector<HTMLElement>('[data-placeholder-text="true"]');
       if (!textNode) {
         return false;
@@ -1062,7 +1237,9 @@ export class AttrPanel {
       return true;
     }
     if (snapshot.kind === 'numeric') {
+/** titleNode：定义该变量以承载业务值。 */
       const titleNode = pane.querySelector<HTMLElement>('[data-numeric-title="true"]');
+/** cardNodes：定义该变量以承载业务值。 */
       const cardNodes = pane.querySelectorAll<HTMLElement>('[data-numeric-card]');
       if (!titleNode || cardNodes.length !== snapshot.cards.length) {
         return false;
@@ -1073,8 +1250,11 @@ export class AttrPanel {
         if (!cardNode) {
           return false;
         }
+/** labelNode：定义该变量以承载业务值。 */
         const labelNode = cardNode.querySelector<HTMLElement>('[data-numeric-label="true"]');
+/** valueNode：定义该变量以承载业务值。 */
         const valueNode = cardNode.querySelector<HTMLElement>('[data-numeric-value="true"]');
+/** subNode：定义该变量以承载业务值。 */
         const subNode = cardNode.querySelector<HTMLElement>('[data-numeric-sub="true"]');
         if (!labelNode || !valueNode || !subNode) {
           return false;
@@ -1089,6 +1269,7 @@ export class AttrPanel {
       return true;
     }
     if (snapshot.kind === 'craft') {
+/** skillNodes：定义该变量以承载业务值。 */
       const skillNodes = pane.querySelectorAll<HTMLElement>('[data-craft-skill]');
       if (skillNodes.length !== snapshot.skills.length) {
         return false;
@@ -1098,10 +1279,15 @@ export class AttrPanel {
         if (!skillNode) {
           return false;
         }
+/** labelNode：定义该变量以承载业务值。 */
         const labelNode = skillNode.querySelector<HTMLElement>('[data-craft-label="true"]');
+/** levelNode：定义该变量以承载业务值。 */
         const levelNode = skillNode.querySelector<HTMLElement>('[data-craft-level="true"]');
+/** progressNode：定义该变量以承载业务值。 */
         const progressNode = skillNode.querySelector<HTMLElement>('[data-craft-progress="true"]');
+/** fillNode：定义该变量以承载业务值。 */
         const fillNode = skillNode.querySelector<HTMLElement>('[data-craft-progress-fill="true"]');
+/** remainNode：定义该变量以承载业务值。 */
         const remainNode = skillNode.querySelector<HTMLElement>('[data-craft-remain="true"]');
         if (!labelNode || !levelNode || !progressNode || !fillNode || !remainNode) {
           return false;
@@ -1115,8 +1301,11 @@ export class AttrPanel {
       return true;
     }
 
+/** scaleNode：定义该变量以承载业务值。 */
     const scaleNode = pane.querySelector<HTMLElement>('[data-radar-scale="true"]');
+/** titleNode：定义该变量以承载业务值。 */
     const titleNode = pane.querySelector<HTMLElement>('.attr-radar-title');
+/** areaNode：定义该变量以承载业务值。 */
     const areaNode = pane.querySelector<SVGPolygonElement>('[data-radar-area="true"]');
     if (!scaleNode || !titleNode || !areaNode) {
       return false;
@@ -1125,6 +1314,7 @@ export class AttrPanel {
     scaleNode.textContent = `刻度 ${snapshot.scale}`;
     areaNode.setAttribute('points', snapshot.areaPoints);
     areaNode.setAttribute('stroke', snapshot.nodes[0]?.color ?? '#ff8a65');
+/** svgNode：定义该变量以承载业务值。 */
     const svgNode = pane.querySelector<SVGSVGElement>('svg.attr-radar');
     svgNode?.setAttribute('aria-label', snapshot.title);
 
@@ -1134,8 +1324,11 @@ export class AttrPanel {
       if (!group) {
         return false;
       }
+/** dot：定义该变量以承载业务值。 */
       const dot = group.querySelector<SVGCircleElement>('[data-radar-dot="true"]');
+/** label：定义该变量以承载业务值。 */
       const label = group.querySelector<SVGTextElement>('[data-radar-label="true"]');
+/** value：定义该变量以承载业务值。 */
       const value = group.querySelector<SVGTextElement>('[data-radar-value="true"]');
       if (!dot || !label || !value) {
         return false;
@@ -1155,7 +1348,9 @@ export class AttrPanel {
     return true;
   }
 
+/** buildStructureKey：执行对应的业务逻辑。 */
   private buildStructureKey(snapshot: AttrPanelSnapshot): string {
+/** entries：定义该变量以承载业务值。 */
     const entries = Object.entries(snapshot.panes).map(([tab, pane]) => {
       if (pane.kind === 'numeric') {
         return [tab, { kind: pane.kind, cards: pane.cards.map((card) => card.key) }];
@@ -1171,16 +1366,20 @@ export class AttrPanel {
     return JSON.stringify(Object.fromEntries(entries));
   }
 
+/** bindPaneEvents：执行对应的业务逻辑。 */
   private bindPaneEvents(): void {
     this.pane.addEventListener('click', (event) => {
+/** target：定义该变量以承载业务值。 */
       const target = event.target;
       if (!(target instanceof HTMLElement)) {
         return;
       }
+/** button：定义该变量以承载业务值。 */
       const button = target.closest<HTMLElement>('[data-attr-tab]');
       if (!button) {
         return;
       }
+/** tab：定义该变量以承载业务值。 */
       const tab = button.dataset.attrTab as AttrTab | undefined;
       if (!tab || tab === this.activeTab) {
         return;
@@ -1190,6 +1389,7 @@ export class AttrPanel {
     });
   }
 
+/** patchTabState：执行对应的业务逻辑。 */
   private patchTabState(): void {
     this.pane.querySelectorAll<HTMLElement>('[data-attr-tab]').forEach((entry) => {
       entry.classList.toggle('active', entry.dataset.attrTab === this.activeTab);
@@ -1199,173 +1399,232 @@ export class AttrPanel {
     });
   }
 
+/** ensureTooltipStyle：执行对应的业务逻辑。 */
   private ensureTooltipStyle(): void {
     if (document.getElementById(TOOLTIP_STYLE_ID)) return;
+/** style：定义该变量以承载业务值。 */
     const style = document.createElement('style');
     style.id = TOOLTIP_STYLE_ID;
     style.textContent = `
       .attr-tooltip {
+/** position：定义该变量以承载业务值。 */
         position: fixed;
         pointer-events: none;
         font-size: var(--font-size-13);
+/** color：定义该变量以承载业务值。 */
         color: var(--ink-black);
         z-index: 2000;
+/** transition：定义该变量以承载业务值。 */
         transition: opacity 120ms ease, transform 120ms ease;
+/** opacity：定义该变量以承载业务值。 */
         opacity: 0;
+/** transform：定义该变量以承载业务值。 */
         transform: translateY(-8px);
         font-family: var(--font-role-body);
         min-width: 0;
       }
       .attr-tooltip.visible {
+/** opacity：定义该变量以承载业务值。 */
         opacity: 1;
       }
       .attr-tooltip .floating-tooltip-shell {
+/** display：定义该变量以承载业务值。 */
         display: block;
         max-width: min(320px, calc(100vw - 24px));
       }
       .attr-tooltip .floating-tooltip-body {
+/** display：定义该变量以承载业务值。 */
         display: flex;
         flex-direction: column;
+/** gap：定义该变量以承载业务值。 */
         gap: 4px;
         line-height: 1.35;
         min-width: 140px;
         max-width: min(320px, calc(100vw - 24px));
+/** padding：定义该变量以承载业务值。 */
         padding: 8px 12px;
         border-radius: 8px;
+/** border：定义该变量以承载业务值。 */
         border: 1px solid rgba(34,26,19,0.15);
+/** background：定义该变量以承载业务值。 */
         background: var(--surface-card-strong);
         box-shadow: 0 8px 24px rgba(0,0,0,0.18);
       }
       .attr-tooltip .floating-tooltip-body strong {
         font-weight: var(--font-weight-semibold);
+/** display：定义该变量以承载业务值。 */
         display: block;
         margin-bottom: 4px;
       }
       .attr-tooltip .floating-tooltip-line {
+/** display：定义该变量以承载业务值。 */
         display: block;
       }
       .attr-tooltip .floating-tooltip-detail {
         font-size: var(--font-size-12);
         line-height: 1.4;
+/** color：定义该变量以承载业务值。 */
         color: var(--ink-grey);
       }
       .attr-tooltip .attr-tooltip-primary {
+/** display：定义该变量以承载业务值。 */
         display: flex;
         align-items: baseline;
         justify-content: space-between;
+/** gap：定义该变量以承载业务值。 */
         gap: 12px;
+/** color：定义该变量以承载业务值。 */
         color: var(--ink-black);
         font-weight: var(--font-weight-semibold);
       }
       .attr-tooltip .attr-tooltip-primary-value {
+/** color：定义该变量以承载业务值。 */
         color: #b85c38;
       }
       .attr-tooltip .attr-tooltip-section {
+/** display：定义该变量以承载业务值。 */
         display: inline-flex;
         align-items: center;
         margin-top: 4px;
+/** padding：定义该变量以承载业务值。 */
         padding: 2px 8px;
         border-radius: 999px;
         font-size: var(--font-size-11);
         font-weight: var(--font-weight-semibold);
       }
       .attr-tooltip .attr-tooltip-section.fixed {
+/** color：定义该变量以承载业务值。 */
         color: #7a4b22;
+/** background：定义该变量以承载业务值。 */
         background: rgba(197, 128, 53, 0.14);
       }
       .attr-tooltip .attr-tooltip-section.percent {
+/** color：定义该变量以承载业务值。 */
         color: #1d5d4f;
+/** background：定义该变量以承载业务值。 */
         background: rgba(45, 140, 115, 0.14);
       }
       .attr-tooltip .attr-tooltip-child {
+/** display：定义该变量以承载业务值。 */
         display: flex;
         align-items: baseline;
         justify-content: space-between;
+/** gap：定义该变量以承载业务值。 */
         gap: 12px;
         padding-left: 12px;
       }
       .attr-tooltip .attr-tooltip-child.fixed .attr-tooltip-child-label {
+/** color：定义该变量以承载业务值。 */
         color: #8c6742;
       }
       .attr-tooltip .attr-tooltip-child.percent .attr-tooltip-child-label {
+/** color：定义该变量以承载业务值。 */
         color: #2f7e6d;
       }
       .attr-tooltip .attr-tooltip-child-value {
+/** color：定义该变量以承载业务值。 */
         color: var(--ink-black);
       }
       .attr-tooltip .attr-tooltip-note {
+/** display：定义该变量以承载业务值。 */
         display: block;
         margin-top: 4px;
+/** color：定义该变量以承载业务值。 */
         color: var(--ink-grey);
       }
       .attr-radar-shell {
+/** display：定义该变量以承载业务值。 */
         display: grid;
+/** gap：定义该变量以承载业务值。 */
         gap: 10px;
+/** padding：定义该变量以承载业务值。 */
         padding: 14px 16px 18px;
         border-radius: 10px;
+/** border：定义该变量以承载业务值。 */
         border: 1px solid rgba(34,26,19,0.18);
+/** background：定义该变量以承载业务值。 */
         background: var(--surface-gradient-tooltip);
         box-shadow: inset 0 0 0 1px rgba(255,255,255,0.35), 0 6px 18px rgba(0,0,0,0.08);
       }
       .attr-radar-head {
+/** display：定义该变量以承载业务值。 */
         display: flex;
         align-items: baseline;
         justify-content: space-between;
+/** gap：定义该变量以承载业务值。 */
         gap: 8px;
       }
       .attr-radar-title {
         font-family: var(--font-role-title);
         font-size: var(--font-size-role-title-16);
+/** color：定义该变量以承载业务值。 */
         color: var(--ink-black);
       }
       .attr-radar-scale {
         font-size: var(--font-size-11);
+/** color：定义该变量以承载业务值。 */
         color: var(--ink-grey);
       }
       .attr-radar {
+/** width：定义该变量以承载业务值。 */
         width: 100%;
         max-width: 320px;
+/** height：定义该变量以承载业务值。 */
         height: 320px;
+/** margin：定义该变量以承载业务值。 */
         margin: 0 auto;
+/** display：定义该变量以承载业务值。 */
         display: block;
+/** overflow：定义该变量以承载业务值。 */
         overflow: visible;
       }
       .attr-radar-ring {
+/** fill：定义该变量以承载业务值。 */
         fill: none;
+/** stroke：定义该变量以承载业务值。 */
         stroke: var(--radar-grid-stroke);
         stroke-width: 1;
       }
       .attr-radar-axis {
+/** stroke：定义该变量以承载业务值。 */
         stroke: var(--radar-grid-stroke-strong);
         stroke-width: 1.5;
       }
       .attr-radar-area {
+/** transition：定义该变量以承载业务值。 */
         transition: opacity 160ms ease;
+/** opacity：定义该变量以承载业务值。 */
         opacity: 0.9;
       }
       .attr-radar-label {
         font-family: var(--font-role-body);
         font-size: var(--font-size-role-body-12);
+/** fill：定义该变量以承载业务值。 */
         fill: var(--ink-black);
       }
       .attr-radar-value {
         font-size: var(--font-size-11);
+/** fill：定义该变量以承载业务值。 */
         fill: var(--ink-grey);
       }
     `;
     document.head.appendChild(style);
   }
 
+/** bindTooltipEvents：执行对应的业务逻辑。 */
   private bindTooltipEvents(): void {
+/** tapMode：定义该变量以承载业务值。 */
     const tapMode = prefersPinnedTooltipInteraction();
     this.pane.addEventListener('click', (event) => {
       if (!tapMode) {
         return;
       }
+/** target：定义该变量以承载业务值。 */
       const target = event.target;
       if (!(target instanceof Element)) {
         return;
       }
+/** tooltipNode：定义该变量以承载业务值。 */
       const tooltipNode = target.closest<HTMLElement>('[data-tooltip-title]');
       if (!tooltipNode) {
         return;
@@ -1377,7 +1636,9 @@ export class AttrPanel {
         return;
       }
       this.tooltipTarget = tooltipNode;
+/** title：定义该变量以承载业务值。 */
       const title = tooltipNode.getAttribute('data-tooltip-title') ?? '';
+/** detail：定义该变量以承载业务值。 */
       const detail = tooltipNode.getAttribute('data-tooltip-detail') ?? '';
       this.tooltip.showPinned(tooltipNode, title, splitTooltipLines(detail), event.clientX, event.clientY, { allowHtml: true });
       event.preventDefault();
@@ -1388,6 +1649,7 @@ export class AttrPanel {
       if (tapMode && this.tooltip.isPinned()) {
         return;
       }
+/** target：定义该变量以承载业务值。 */
       const target = event.target;
       if (!(target instanceof Element)) {
         if (this.tooltipTarget) {
@@ -1397,6 +1659,7 @@ export class AttrPanel {
         return;
       }
 
+/** tooltipNode：定义该变量以承载业务值。 */
       const tooltipNode = target.closest('[data-tooltip-title]');
       if (!tooltipNode) {
         if (this.tooltipTarget) {
@@ -1409,7 +1672,9 @@ export class AttrPanel {
 
       if (this.tooltipTarget !== tooltipNode) {
         this.tooltipTarget = tooltipNode;
+/** title：定义该变量以承载业务值。 */
         const title = tooltipNode.getAttribute('data-tooltip-title') ?? '';
+/** detail：定义该变量以承载业务值。 */
         const detail = tooltipNode.getAttribute('data-tooltip-detail') ?? '';
         this.tooltip.show(title, splitTooltipLines(detail), event.clientX, event.clientY, { allowHtml: true });
         return;
@@ -1432,6 +1697,7 @@ export class AttrPanel {
     });
   }
 
+/** requestDetailIfNeeded：执行对应的业务逻辑。 */
   private requestDetailIfNeeded(): void {
     if (!this.latestData) {
       return;

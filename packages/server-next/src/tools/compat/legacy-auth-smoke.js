@@ -4,10 +4,15 @@
  */
 
 Object.defineProperty(exports, "__esModule", { value: true });
+/** node_crypto_1：定义该变量以承载业务值。 */
 const node_crypto_1 = require("node:crypto");
+/** pg_1：定义该变量以承载业务值。 */
 const pg_1 = require("pg");
+/** socket_io_client_1：定义该变量以承载业务值。 */
 const socket_io_client_1 = require("socket.io-client");
+/** shared_1：定义该变量以承载业务值。 */
 const shared_1 = require("@mud/shared-next");
+/** env_alias_1：定义该变量以承载业务值。 */
 const env_alias_1 = require("../../config/env-alias");
 /**
  * 指定 legacy 认证兼容烟测的目标服务地址。
@@ -29,6 +34,7 @@ const required = process.env.SERVER_NEXT_LEGACY_AUTH_REQUIRED === '1';
  * 标记当前是否具备数据库环境，可决定测试分支。
  */
 const hasDatabaseUrl = Boolean(SERVER_NEXT_DATABASE_URL);
+/** LEGACY_HTTP_MEMORY_FALLBACK_ENABLED：定义该变量以承载业务值。 */
 const LEGACY_HTTP_MEMORY_FALLBACK_ENABLED = readBooleanEnv('SERVER_NEXT_ALLOW_LEGACY_HTTP_MEMORY_FALLBACK')
     || readBooleanEnv('NEXT_ALLOW_LEGACY_HTTP_MEMORY_FALLBACK');
 /**
@@ -884,12 +890,15 @@ async function ensureNativeDocsForAccessToken(token) {
     if (!tokenUserId) {
         return;
     }
+/** pool：定义该变量以承载业务值。 */
     const pool = new pg_1.Pool({
         connectionString: SERVER_NEXT_DATABASE_URL,
     });
     try {
         if (!tokenPlayerId) {
+/** playerResult：定义该变量以承载业务值。 */
             const playerResult = await pool.query('SELECT id, name FROM players WHERE "userId" = $1::uuid LIMIT 1', [tokenUserId]);
+/** playerRow：定义该变量以承载业务值。 */
             const playerRow = Array.isArray(playerResult?.rows) ? playerResult.rows[0] : null;
             tokenPlayerId = typeof playerRow?.id === 'string' ? playerRow.id.trim() : tokenPlayerId;
             if (!tokenPlayerName) {
@@ -897,7 +906,9 @@ async function ensureNativeDocsForAccessToken(token) {
             }
         }
         if (!tokenUsername || !tokenDisplayName) {
+/** userResult：定义该变量以承载业务值。 */
             const userResult = await pool.query('SELECT username, "displayName" FROM users WHERE id = $1::uuid LIMIT 1', [tokenUserId]);
+/** userRow：定义该变量以承载业务值。 */
             const userRow = Array.isArray(userResult?.rows) ? userResult.rows[0] : null;
             if (!tokenUsername) {
                 tokenUsername = typeof userRow?.username === 'string' ? userRow.username.trim() : tokenUsername;
@@ -1321,7 +1332,9 @@ function buildUniqueDisplayName(seed) {
     }
     return String.fromCodePoint(0x4E00 + (hash % (0x9FFF - 0x4E00 + 1)));
 }
+/** updateDisplayNameWithRetry：执行对应的业务逻辑。 */
 async function updateDisplayNameWithRetry(accessToken, seed, maxAttempts = 64) {
+/** lastError：定义该变量以承载业务值。 */
     let lastError = null;
     for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
         const candidate = buildUniqueDisplayName(`${seed}:${attempt}`);
@@ -1336,6 +1349,7 @@ async function updateDisplayNameWithRetry(accessToken, seed, maxAttempts = 64) {
         }
         catch (error) {
             lastError = error;
+/** message：定义该变量以承载业务值。 */
             const message = error instanceof Error ? error.message : String(error);
             if (!message.includes('显示名已被占用') && !message.includes('duplicate key value violates unique constraint')) {
                 throw error;
@@ -1344,17 +1358,21 @@ async function updateDisplayNameWithRetry(accessToken, seed, maxAttempts = 64) {
     }
     throw lastError ?? new Error('display name update failed');
 }
+/** resolveExpectedLegacySocketProtocolGuardCode：执行对应的业务逻辑。 */
 function resolveExpectedLegacySocketProtocolGuardCode() {
     return readBooleanEnv('SERVER_NEXT_ALLOW_LEGACY_SOCKET_PROTOCOL')
         || readBooleanEnv('NEXT_ALLOW_LEGACY_SOCKET_PROTOCOL')
         ? 'AUTH_PROTOCOL_MISMATCH'
         : 'LEGACY_PROTOCOL_DISABLED';
 }
+/** readBooleanEnv：执行对应的业务逻辑。 */
 function readBooleanEnv(key) {
+/** value：定义该变量以承载业务值。 */
     const value = process.env[key];
     if (typeof value !== 'string') {
         return false;
     }
+/** normalized：定义该变量以承载业务值。 */
     const normalized = value.trim().toLowerCase();
     return normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'on';
 }

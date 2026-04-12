@@ -23,18 +23,27 @@ import type {
 
 /** MapSafeAreaInsets：定义该接口的能力与字段约束。 */
 export interface MapSafeAreaInsets {
+/** top：定义该变量以承载业务值。 */
   top: number;
+/** right：定义该变量以承载业务值。 */
   right: number;
+/** bottom：定义该变量以承载业务值。 */
   bottom: number;
+/** left：定义该变量以承载业务值。 */
   left: number;
 }
 
 /** ObservedMapEntity：定义该接口的能力与字段约束。 */
 export interface ObservedMapEntity {
+/** id：定义该变量以承载业务值。 */
   id: string;
+/** wx：定义该变量以承载业务值。 */
   wx: number;
+/** wy：定义该变量以承载业务值。 */
   wy: number;
+/** char：定义该变量以承载业务值。 */
   char: string;
+/** color：定义该变量以承载业务值。 */
   color: string;
   name?: string;
   kind?: string;
@@ -51,8 +60,11 @@ export interface ObservedMapEntity {
 
 /** MapTargetingOverlayState：定义该接口的能力与字段约束。 */
 export interface MapTargetingOverlayState {
+/** originX：定义该变量以承载业务值。 */
   originX: number;
+/** originY：定义该变量以承载业务值。 */
   originY: number;
+/** range：定义该变量以承载业务值。 */
   range: number;
   visibleOnly?: boolean;
   shape?: TargetingShape;
@@ -71,24 +83,39 @@ export interface MapSenseQiOverlayState {
 
 /** MapOverlayState：定义该接口的能力与字段约束。 */
 export interface MapOverlayState {
+/** pathCells：定义该变量以承载业务值。 */
   pathCells: GridPoint[];
+/** targeting：定义该变量以承载业务值。 */
   targeting: MapTargetingOverlayState | null;
+/** senseQi：定义该变量以承载业务值。 */
   senseQi: MapSenseQiOverlayState | null;
+/** threatArrows：定义该变量以承载业务值。 */
   threatArrows: Array<{ ownerId: string; targetId: string }>;
 }
 
 /** MinimapSourceSnapshot：定义该接口的能力与字段约束。 */
 export interface MinimapSourceSnapshot {
+/** mapMeta：定义该变量以承载业务值。 */
   mapMeta: MapMeta | null;
+/** snapshot：定义该变量以承载业务值。 */
   snapshot: MapMinimapSnapshot | null;
+/** rememberedMarkers：定义该变量以承载业务值。 */
   rememberedMarkers: MapMinimapMarker[];
+/** visibleMarkers：定义该变量以承载业务值。 */
   visibleMarkers: MapMinimapMarker[];
+/** tileCache：定义该变量以承载业务值。 */
   tileCache: ReadonlyMap<string, Tile>;
+/** visibleTiles：定义该变量以承载业务值。 */
   visibleTiles: ReadonlySet<string>;
+/** visibleEntities：定义该变量以承载业务值。 */
   visibleEntities: readonly ObservedMapEntity[];
+/** groundPiles：定义该变量以承载业务值。 */
   groundPiles: ReadonlyMap<string, GroundItemPileView>;
+/** player：定义该变量以承载业务值。 */
   player: { x: number; y: number } | null;
+/** viewRadius：定义该变量以承载业务值。 */
   viewRadius: number;
+/** memoryVersion：定义该变量以承载业务值。 */
   memoryVersion: number;
 }
 
@@ -103,41 +130,63 @@ export interface MapEntityTransition {
 
 /** MapTickTiming：定义该接口的能力与字段约束。 */
 export interface MapTickTiming {
+/** startedAt：定义该变量以承载业务值。 */
   startedAt: number;
+/** durationMs：定义该变量以承载业务值。 */
   durationMs: number;
 }
 
 /** MapStoreSnapshot：定义该接口的能力与字段约束。 */
 export interface MapStoreSnapshot {
+/** mapMeta：定义该变量以承载业务值。 */
   mapMeta: MapMeta | null;
   player: {
+/** id：定义该变量以承载业务值。 */
     id: string;
+/** x：定义该变量以承载业务值。 */
     x: number;
+/** y：定义该变量以承载业务值。 */
     y: number;
+/** mapId：定义该变量以承载业务值。 */
     mapId: string;
     viewRange?: number;
     senseQiActive?: boolean;
   } | null;
+/** time：定义该变量以承载业务值。 */
   time: GameTimeState | null;
+/** tileCache：定义该变量以承载业务值。 */
   tileCache: ReadonlyMap<string, Tile>;
+/** visibleTiles：定义该变量以承载业务值。 */
   visibleTiles: ReadonlySet<string>;
+/** entities：定义该变量以承载业务值。 */
   entities: readonly ObservedMapEntity[];
+/** groundPiles：定义该变量以承载业务值。 */
   groundPiles: ReadonlyMap<string, GroundItemPileView>;
+/** overlays：定义该变量以承载业务值。 */
   overlays: MapOverlayState;
+/** minimap：定义该变量以承载业务值。 */
   minimap: MinimapSourceSnapshot;
+/** tickTiming：定义该变量以承载业务值。 */
   tickTiming: MapTickTiming;
+/** visibleTileRevision：定义该变量以承载业务值。 */
   visibleTileRevision: number;
+/** entityTransition：定义该变量以承载业务值。 */
   entityTransition: MapEntityTransition | null;
 }
 
 /** MapInteractionTarget：定义该接口的能力与字段约束。 */
 export interface MapInteractionTarget {
+/** x：定义该变量以承载业务值。 */
   x: number;
+/** y：定义该变量以承载业务值。 */
   y: number;
   entityId?: string;
   entityKind?: string;
+/** walkable：定义该变量以承载业务值。 */
   walkable: boolean;
+/** visible：定义该变量以承载业务值。 */
   visible: boolean;
+/** known：定义该变量以承载业务值。 */
   known: boolean;
   clientX?: number;
   clientY?: number;
@@ -151,22 +200,33 @@ export interface MapRuntimeInteractionCallbacks {
 
 /** MapSceneSnapshot：定义该接口的能力与字段约束。 */
 export interface MapSceneSnapshot {
+/** mapMeta：定义该变量以承载业务值。 */
   mapMeta: MapMeta | null;
+/** player：定义该变量以承载业务值。 */
   player: MapStoreSnapshot['player'];
   terrain: {
+/** tileCache：定义该变量以承载业务值。 */
     tileCache: ReadonlyMap<string, Tile>;
+/** visibleTiles：定义该变量以承载业务值。 */
     visibleTiles: ReadonlySet<string>;
+/** visibleTileRevision：定义该变量以承载业务值。 */
     visibleTileRevision: number;
+/** time：定义该变量以承载业务值。 */
     time: GameTimeState | null;
   };
+/** entities：定义该变量以承载业务值。 */
   entities: readonly ObservedMapEntity[];
+/** groundPiles：定义该变量以承载业务值。 */
   groundPiles: ReadonlyMap<string, GroundItemPileView>;
+/** overlays：定义该变量以承载业务值。 */
   overlays: MapOverlayState;
 }
 
 /** MapNextWorldDeltaInput：定义该接口的能力与字段约束。 */
 export interface MapNextWorldDeltaInput {
+/** playerPatches：定义该变量以承载业务值。 */
   playerPatches: TickRenderEntity[];
+/** entityPatches：定义该变量以承载业务值。 */
   entityPatches: TickRenderEntity[];
   removedEntityIds?: string[];
   groundPatches?: GroundItemPilePatch[];
@@ -195,12 +255,17 @@ export interface MapNextSelfDeltaInput {
 
 /** MapBootstrapInput：定义该接口的能力与字段约束。 */
 export interface MapBootstrapInput {
+/** self：定义该变量以承载业务值。 */
   self: PlayerState;
+/** mapMeta：定义该变量以承载业务值。 */
   mapMeta: MapMeta;
   minimap?: MapMinimapSnapshot | null;
   visibleMinimapMarkers?: MapMinimapMarker[];
+/** minimapLibrary：定义该变量以承载业务值。 */
   minimapLibrary: MapMinimapArchiveEntry[];
+/** tiles：定义该变量以承载业务值。 */
   tiles: VisibleTile[][];
+/** players：定义该变量以承载业务值。 */
   players: RenderEntity[];
   time?: GameTimeState | null;
 }

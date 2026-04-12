@@ -23,6 +23,7 @@ export function normalizeBuffSustainCost(input: unknown): BuffSustainCostDef | u
   if (!input || typeof input !== 'object') {
     return undefined;
   }
+/** candidate：定义该变量以承载业务值。 */
   const candidate = input as Partial<BuffSustainCostDef>;
   if ((candidate.resource !== 'hp' && candidate.resource !== 'qi') || !Number.isFinite(candidate.baseCost)) {
     return undefined;
@@ -43,8 +44,11 @@ export function getBuffSustainCost(buff: BuffSustainState): number | null {
   if (!buff.sustainCost) {
     return null;
   }
+/** growthRate：定义该变量以承载业务值。 */
   const growthRate = normalizeGrowthRate(buff.sustainCost);
+/** baseCost：定义该变量以承载业务值。 */
   const baseCost = normalizeBaseCost(buff.sustainCost);
+/** elapsedTicks：定义该变量以承载业务值。 */
   const elapsedTicks = normalizeElapsedTicks(buff);
   return Math.max(1, Math.round(baseCost * ((1 + growthRate) ** elapsedTicks)));
 }

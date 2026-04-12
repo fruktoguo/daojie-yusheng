@@ -75,19 +75,26 @@ export type ImmediateCommandType = 'equip' | 'unequip' | 'sortInventory' | 'useI
 
 /** 玩家指令，由客户端消息转化后入队，在 tick 中统一执行 */
 export interface PlayerCommand {
+/** playerId：定义该变量以承载业务值。 */
   playerId: string;
+/** type：定义该变量以承载业务值。 */
   type: 'move' | 'moveTo' | 'navigateQuest' | 'navigateMapPoint' | 'action' | 'takeLoot' | 'debugResetSpawn' | 'buyNpcShopItem' | 'saveAlchemyPreset' | 'deleteAlchemyPreset' | 'startAlchemy' | 'cancelAlchemy' | 'startEnhancement' | 'cancelEnhancement' | 'mailRead' | 'mailClaim' | 'mailDelete' | 'redeemCodes';
+/** data：定义该变量以承载业务值。 */
   data: unknown;
+/** timestamp：定义该变量以承载业务值。 */
   timestamp: number;
 }
 
 /** 数据变更类型标记，用于增量同步 */
 export type DirtyFlag = 'attr' | 'inv' | 'equip' | 'tech' | 'actions' | 'loot' | 'quest';
 
+/** PLAYER_PERSIST_CONCURRENCY：定义该变量以承载业务值。 */
 const PLAYER_PERSIST_CONCURRENCY = 8;
+/** USER_BIGINT_PERSIST_COLUMNS：定义该变量以承载业务值。 */
 const USER_BIGINT_PERSIST_COLUMNS = [
   'totalOnlineSeconds',
 ] as const;
+/** PLAYER_BIGINT_PERSIST_COLUMNS：定义该变量以承载业务值。 */
 const PLAYER_BIGINT_PERSIST_COLUMNS = [
   'foundation',
   'combatExp',
@@ -116,6 +123,7 @@ function isPendingLogbookMessage(value: unknown): value is PendingLogbookMessage
   if (!value || typeof value !== 'object') {
     return false;
   }
+/** candidate：定义该变量以承载业务值。 */
   const candidate = value as Partial<PendingLogbookMessage>;
   return typeof candidate.id === 'string'
     && candidate.kind === 'grudge'
@@ -127,12 +135,19 @@ function isPendingLogbookMessage(value: unknown): value is PendingLogbookMessage
 @Injectable()
 /** PlayerService：封装相关状态与行为。 */
 export class PlayerService implements OnModuleInit {
+/** players：定义该变量以承载业务值。 */
   private players: Map<string, PlayerState> = new Map();
+/** commands：定义该变量以承载业务值。 */
   private commands: Map<string, PlayerCommand[]> = new Map();
+/** socketMap：定义该变量以承载业务值。 */
   private socketMap: Map<string, Socket> = new Map();
+/** userToPlayer：定义该变量以承载业务值。 */
   private userToPlayer: Map<string, string> = new Map();
+/** onlineSessionStartedAtByUserId：定义该变量以承载业务值。 */
   private onlineSessionStartedAtByUserId: Map<string, number> = new Map();
+/** dirtyFlags：定义该变量以承载业务值。 */
   private dirtyFlags: Map<string, Set<DirtyFlag>> = new Map();
+/** pendingLogbookPersistions：定义该变量以承载业务值。 */
   private pendingLogbookPersistions: Map<string, Promise<void>> = new Map();
   private readonly logger = new Logger(PlayerService.name);
 
@@ -148,6 +163,7 @@ export class PlayerService implements OnModuleInit {
     private readonly techniqueService: TechniqueService,
   ) {}
 
+/** onModuleInit：执行对应的业务逻辑。 */
   async onModuleInit(): Promise<void> {
     await this.ensureUserCounterColumnCapacity();
     await this.ensurePlayerCounterColumnCapacity();
@@ -157,6 +173,7 @@ export class PlayerService implements OnModuleInit {
 
   /** 标记玩家数据变更 */
   markDirty(playerId: string, flag: DirtyFlag) {
+/** set：定义该变量以承载业务值。 */
     let set = this.dirtyFlags.get(playerId);
     if (!set) {
       set = new Set();
@@ -165,6 +182,7 @@ export class PlayerService implements OnModuleInit {
     set.add(flag);
   }
 
+/** getDirtyFlags：执行对应的业务逻辑。 */
   getDirtyFlags(playerId: string): Set<DirtyFlag> | undefined {
     return this.dirtyFlags.get(playerId);
   }
@@ -179,15 +197,18 @@ export class PlayerService implements OnModuleInit {
     return buildPersistedPlayerCollections(state, this.contentService, this.mapService);
   }
 
+/** normalizePersistedTechniqueState：执行对应的业务逻辑。 */
   private normalizePersistedTechniqueState(state: PlayerState): void {
     state.heavenGate = this.techniqueService.normalizeHeavenGateState(state.heavenGate);
     state.spiritualRoots = this.techniqueService.normalizeHeavenGateRoots(state.spiritualRoots);
   }
 
+/** toNullableJsonbValue：执行对应的业务逻辑。 */
   private toNullableJsonbValue(value: unknown): any {
     return value === null ? (() => "'null'::jsonb") : value;
   }
 
+/** normalizePendingLogbookMessages：执行对应的业务逻辑。 */
   private normalizePendingLogbookMessages(value: unknown): PendingLogbookMessage[] {
     if (!Array.isArray(value)) {
       return [];
@@ -198,6 +219,7 @@ export class PlayerService implements OnModuleInit {
       .map((entry) => ({ ...entry }));
   }
 
+/** toSystemMessage：执行对应的业务逻辑。 */
   private toSystemMessage(entry: PendingLogbookMessage): S2C_SystemMsg {
     return {
       id: entry.id,
@@ -209,13 +231,18 @@ export class PlayerService implements OnModuleInit {
     };
   }
 
+/** schedulePendingLogbookPersistence：执行对应的业务逻辑。 */
   private schedulePendingLogbookPersistence(playerId: string): void {
+/** player：定义该变量以承载业务值。 */
     const player = this.players.get(playerId);
     if (!player || player.isBot) {
       return;
     }
+/** snapshot：定义该变量以承载业务值。 */
     const snapshot = (player.pendingLogbookMessages ?? []).map((entry) => ({ ...entry }));
+/** previous：定义该变量以承载业务值。 */
     const previous = this.pendingLogbookPersistions.get(playerId) ?? Promise.resolve();
+/** task：定义该变量以承载业务值。 */
     const task: Promise<void> = previous
       .catch(() => {})
       .then(async () => {
@@ -223,6 +250,7 @@ export class PlayerService implements OnModuleInit {
           pendingLogbookMessages: snapshot as any,
         });
       });
+/** trackedTask：定义该变量以承载业务值。 */
     const trackedTask = task.finally(() => {
       if (this.pendingLogbookPersistions.get(playerId) === trackedTask) {
         this.pendingLogbookPersistions.delete(playerId);
@@ -281,15 +309,21 @@ export class PlayerService implements OnModuleInit {
       combatTargetingRules: state.combatTargetingRules as any,
       autoBattleTargetingMode: state.autoBattleTargetingMode,
       combatTargetId: state.combatTargetId ?? null,
+/** combatTargetLocked：定义该变量以承载业务值。 */
       combatTargetLocked: state.combatTargetLocked === true,
       autoRetaliate: state.autoRetaliate,
+/** autoBattleStationary：定义该变量以承载业务值。 */
       autoBattleStationary: state.autoBattleStationary === true,
+/** allowAoePlayerHit：定义该变量以承载业务值。 */
       allowAoePlayerHit: state.allowAoePlayerHit === true,
       autoIdleCultivation: state.autoIdleCultivation,
+/** autoSwitchCultivation：定义该变量以承载业务值。 */
       autoSwitchCultivation: state.autoSwitchCultivation === true,
       cultivatingTechId: state.cultivatingTechId ?? null,
       pendingLogbookMessages: (state.pendingLogbookMessages ?? []) as any,
+/** online：定义该变量以承载业务值。 */
       online: state.online === true,
+/** inWorld：定义该变量以承载业务值。 */
       inWorld: state.inWorld !== false,
       lastHeartbeatAt: state.lastHeartbeatAt ? new Date(state.lastHeartbeatAt) : null,
       offlineSinceAt: state.offlineSinceAt ? new Date(state.offlineSinceAt) : null,
@@ -311,9 +345,11 @@ export class PlayerService implements OnModuleInit {
     if (user) {
       await this.settleRecoveredOnlineSession(user);
     }
+/** state：定义该变量以承载业务值。 */
     const state = this.hydratePlayerState(entity, user
       ? resolveDisplayName(user.displayName, user.username)
       : entity.name);
+/** resolvedPosition：定义该变量以承载业务值。 */
     const resolvedPosition = this.resolveRetainedPlayerPosition(state);
     if (resolvedPosition.mapId !== state.mapId || resolvedPosition.x !== state.x || resolvedPosition.y !== state.y) {
       state.mapId = resolvedPosition.mapId;
@@ -338,10 +374,14 @@ export class PlayerService implements OnModuleInit {
    * - 若已超过离线超时，则直接按超时离场收口，不再恢复到世界中。
    */
   async restoreRetainedPlayers(offlinePlayerTimeoutMs: number, now = Date.now()): Promise<{
+/** restored：定义该变量以承载业务值。 */
     restored: number;
+/** expired：定义该变量以承载业务值。 */
     expired: number;
+/** recoveredOnline：定义该变量以承载业务值。 */
     recoveredOnline: number;
   }> {
+/** entities：定义该变量以承载业务值。 */
     const entities = await this.playerRepo.find({
       where: { inWorld: true },
       order: {
@@ -353,13 +393,18 @@ export class PlayerService implements OnModuleInit {
       return { restored: 0, expired: 0, recoveredOnline: 0 };
     }
 
+/** users：定义该变量以承载业务值。 */
     const users = await this.userRepo.findBy({
       id: In(entities.map((entity) => entity.userId)),
     });
+/** userById：定义该变量以承载业务值。 */
     const userById = new Map(users.map((user) => [user.id, user]));
 
+/** restored：定义该变量以承载业务值。 */
     let restored = 0;
+/** expired：定义该变量以承载业务值。 */
     let expired = 0;
+/** recoveredOnline：定义该变量以承载业务值。 */
     let recoveredOnline = 0;
 
     for (const entity of entities) {
@@ -367,9 +412,11 @@ export class PlayerService implements OnModuleInit {
       if (user) {
         await this.settleRecoveredOnlineSession(user, now);
       }
+/** displayName：定义该变量以承载业务值。 */
       const displayName = user
         ? resolveDisplayName(user.displayName, user.username)
         : entity.name;
+/** state：定义该变量以承载业务值。 */
       const state = this.hydratePlayerState(entity, displayName);
 
       if (state.online === true) {
@@ -384,6 +431,7 @@ export class PlayerService implements OnModuleInit {
         continue;
       }
 
+/** resolvedPosition：定义该变量以承载业务值。 */
       const resolvedPosition = this.resolveRetainedPlayerPosition(state);
       state.mapId = resolvedPosition.mapId;
       state.x = resolvedPosition.x;
@@ -460,7 +508,9 @@ export class PlayerService implements OnModuleInit {
     state.eliteMonsterKillCount = normalizeNonNegativeCounter(state.eliteMonsterKillCount);
     state.bossMonsterKillCount = normalizeNonNegativeCounter(state.bossMonsterKillCount);
     state.deathCount = normalizeNonNegativeCounter(state.deathCount);
+/** persisted：定义该变量以承载业务值。 */
     const persisted = this.buildPersistedCollections(state);
+/** payload：定义该变量以承载业务值。 */
     const payload = this.buildPlayerPersistencePayload(state, persisted);
 
     await this.playerRepo.createQueryBuilder()
@@ -479,6 +529,7 @@ export class PlayerService implements OnModuleInit {
 
   /** 单个玩家落盘到 PG */
   async savePlayer(playerId: string): Promise<void> {
+/** state：定义该变量以承载业务值。 */
     const state = this.players.get(playerId);
     if (!state || state.isBot) return;
     await this.persistPlayerState(state);
@@ -486,8 +537,10 @@ export class PlayerService implements OnModuleInit {
 
   /** 批量落盘所有已加载玩家 */
   async persistAll(): Promise<void> {
+/** states：定义该变量以承载业务值。 */
     const states = [...this.players.values()].filter((player) => !player.isBot);
     if (states.length === 0) return;
+/** failures：定义该变量以承载业务值。 */
     const failures: string[] = [];
     for (let index = 0; index < states.length; index += PLAYER_PERSIST_CONCURRENCY) {
       const batch = states.slice(index, index + PLAYER_PERSIST_CONCURRENCY);
@@ -496,6 +549,7 @@ export class PlayerService implements OnModuleInit {
         if (result.status === 'fulfilled') {
           return;
         }
+/** reason：定义该变量以承载业务值。 */
         const reason = result.reason instanceof Error ? result.reason.message : String(result.reason);
         failures.push(`${batch[batchIndex]?.id ?? 'unknown'}: ${reason}`);
       });
@@ -523,6 +577,7 @@ export class PlayerService implements OnModuleInit {
     this.socketMap.delete(playerId);
     this.dirtyFlags.delete(playerId);
     this.pendingLogbookPersistions.delete(playerId);
+/** userId：定义该变量以承载业务值。 */
     const userId = this.getUserIdByPlayerId(playerId);
     if (userId) {
       this.userToPlayer.delete(userId);
@@ -537,20 +592,24 @@ export class PlayerService implements OnModuleInit {
     this.socketMap.delete(playerId);
     this.dirtyFlags.delete(playerId);
     this.pendingLogbookPersistions.delete(playerId);
+/** userId：定义该变量以承载业务值。 */
     const userId = this.getUserIdByPlayerId(playerId);
     if (userId) {
       this.onlineSessionStartedAtByUserId.delete(userId);
     }
   }
 
+/** getPlayer：执行对应的业务逻辑。 */
   getPlayer(playerId: string): PlayerState | undefined {
     return this.players.get(playerId);
   }
 
+/** hydrateStoredPlayerForRead：执行对应的业务逻辑。 */
   hydrateStoredPlayerForRead(entity: PlayerEntity): PlayerState {
     return this.hydratePlayerState(entity, entity.name);
   }
 
+/** incrementMonsterKill：执行对应的业务逻辑。 */
   incrementMonsterKill(player: PlayerState, tier?: MonsterTier): void {
     if (player.isBot) {
       return;
@@ -563,6 +622,7 @@ export class PlayerService implements OnModuleInit {
     }
   }
 
+/** incrementPlayerKill：执行对应的业务逻辑。 */
   incrementPlayerKill(player: PlayerState): void {
     if (player.isBot) {
       return;
@@ -570,6 +630,7 @@ export class PlayerService implements OnModuleInit {
     player.playerKillCount = normalizeNonNegativeCounter(player.playerKillCount) + 1;
   }
 
+/** incrementDeathCount：执行对应的业务逻辑。 */
   incrementDeathCount(player: PlayerState): void {
     if (player.isBot) {
       return;
@@ -577,7 +638,9 @@ export class PlayerService implements OnModuleInit {
     player.deathCount = normalizeNonNegativeCounter(player.deathCount) + 1;
   }
 
+/** getPlayersByMap：执行对应的业务逻辑。 */
   getPlayersByMap(mapId: string): PlayerState[] {
+/** result：定义该变量以承载业务值。 */
     const result: PlayerState[] = [];
     for (const p of this.players.values()) {
       if (p.mapId === mapId && p.inWorld !== false) result.push(p);
@@ -585,10 +648,12 @@ export class PlayerService implements OnModuleInit {
     return result;
   }
 
+/** getAllPlayers：执行对应的业务逻辑。 */
   getAllPlayers(): PlayerState[] {
     return [...this.players.values()];
   }
 
+/** getSocket：执行对应的业务逻辑。 */
   getSocket(playerId: string): Socket | undefined {
     return this.socketMap.get(playerId);
   }
@@ -604,6 +669,7 @@ export class PlayerService implements OnModuleInit {
   }
 
   disconnectAllActiveSockets(timestamp = Date.now()): void {
+/** activeSockets：定义该变量以承载业务值。 */
     const activeSockets = [...this.socketMap.entries()];
     for (const [playerId, socket] of activeSockets) {
       const player = this.players.get(playerId);
@@ -616,6 +682,7 @@ export class PlayerService implements OnModuleInit {
     }
   }
 
+/** clearRuntimeState：执行对应的业务逻辑。 */
   clearRuntimeState(): void {
     this.players.clear();
     this.commands.clear();
@@ -626,10 +693,12 @@ export class PlayerService implements OnModuleInit {
     this.pendingLogbookPersistions.clear();
   }
 
+/** getPlayerByUserId：执行对应的业务逻辑。 */
   getPlayerByUserId(userId: string): string | undefined {
     return this.userToPlayer.get(userId);
   }
 
+/** getUserIdByPlayerId：执行对应的业务逻辑。 */
   getUserIdByPlayerId(playerId: string): string | undefined {
     for (const [userId, mappedPlayerId] of this.userToPlayer.entries()) {
       if (mappedPlayerId === playerId) {
@@ -649,12 +718,14 @@ export class PlayerService implements OnModuleInit {
     this.userToPlayer.delete(userId);
   }
 
+/** getOnlineSessionStartedAt：执行对应的业务逻辑。 */
   getOnlineSessionStartedAt(userId: string): number | undefined {
     return this.onlineSessionStartedAtByUserId.get(userId);
   }
 
 /** syncPlayerRealtimeState：处理当前场景中的对应操作。 */
   syncPlayerRealtimeState(playerId: string) {
+/** player：定义该变量以承载业务值。 */
     const player = this.players.get(playerId);
     if (!player) {
       return;
@@ -662,7 +733,9 @@ export class PlayerService implements OnModuleInit {
     this.syncPlayerCache(player).catch(() => {});
   }
 
+/** getPendingLogbookMessages：执行对应的业务逻辑。 */
   getPendingLogbookMessages(playerId: string): PendingLogbookMessage[] {
+/** player：定义该变量以承载业务值。 */
     const player = this.players.get(playerId);
     if (!player) {
       return [];
@@ -670,12 +743,16 @@ export class PlayerService implements OnModuleInit {
     return (player.pendingLogbookMessages ?? []).map((entry) => ({ ...entry }));
   }
 
+/** queuePendingLogbookMessage：执行对应的业务逻辑。 */
   queuePendingLogbookMessage(playerId: string, message: PendingLogbookMessage): void {
+/** player：定义该变量以承载业务值。 */
     const player = this.players.get(playerId);
     if (!player || player.isBot) {
       return;
     }
+/** next：定义该变量以承载业务值。 */
     const next = [...(player.pendingLogbookMessages ?? [])];
+/** existingIndex：定义该变量以承载业务值。 */
     const existingIndex = next.findIndex((entry) => entry.id === message.id);
     if (existingIndex >= 0) {
       next[existingIndex] = { ...message };
@@ -685,6 +762,7 @@ export class PlayerService implements OnModuleInit {
     player.pendingLogbookMessages = next.slice(-MAX_PENDING_LOGBOOK_MESSAGES);
     this.schedulePendingLogbookPersistence(playerId);
 
+/** socket：定义该变量以承载业务值。 */
     const socket = this.getSocket(playerId);
     if (!socket) {
       return;
@@ -692,18 +770,22 @@ export class PlayerService implements OnModuleInit {
     socket.emit(S2C.SystemMsg, this.toSystemMessage(message));
   }
 
+/** ackPendingLogbookMessages：执行对应的业务逻辑。 */
   ackPendingLogbookMessages(playerId: string, ids: string[]): void {
     if (ids.length === 0) {
       return;
     }
+/** player：定义该变量以承载业务值。 */
     const player = this.players.get(playerId);
     if (!player || !player.pendingLogbookMessages || player.pendingLogbookMessages.length === 0) {
       return;
     }
+/** idSet：定义该变量以承载业务值。 */
     const idSet = new Set(ids.filter((entry) => typeof entry === 'string' && entry.length > 0));
     if (idSet.size === 0) {
       return;
     }
+/** next：定义该变量以承载业务值。 */
     const next = player.pendingLogbookMessages.filter((entry) => !idSet.has(entry.id));
     if (next.length === player.pendingLogbookMessages.length) {
       return;
@@ -712,7 +794,9 @@ export class PlayerService implements OnModuleInit {
     this.schedulePendingLogbookPersistence(playerId);
   }
 
+/** emitPendingLogbookMessages：执行对应的业务逻辑。 */
   emitPendingLogbookMessages(playerId: string): void {
+/** socket：定义该变量以承载业务值。 */
     const socket = this.getSocket(playerId);
     if (!socket) {
       return;
@@ -723,6 +807,7 @@ export class PlayerService implements OnModuleInit {
   }
 
   markPlayerOnline(playerId: string, timestamp = Date.now()) {
+/** player：定义该变量以承载业务值。 */
     const player = this.players.get(playerId);
     if (!player) {
       return;
@@ -731,6 +816,7 @@ export class PlayerService implements OnModuleInit {
     player.inWorld = true;
     player.lastHeartbeatAt = timestamp;
     player.offlineSinceAt = undefined;
+/** userId：定义该变量以承载业务值。 */
     const userId = this.getUserIdByPlayerId(playerId);
     if (userId && !this.onlineSessionStartedAtByUserId.has(userId)) {
       this.onlineSessionStartedAtByUserId.set(userId, timestamp);
@@ -747,6 +833,7 @@ export class PlayerService implements OnModuleInit {
   }
 
   touchHeartbeat(playerId: string, timestamp = Date.now()) {
+/** player：定义该变量以承载业务值。 */
     const player = this.players.get(playerId);
     if (!player) {
       return;
@@ -758,6 +845,7 @@ export class PlayerService implements OnModuleInit {
   }
 
   markPlayerOffline(playerId: string, timestamp = Date.now()) {
+/** player：定义该变量以承载业务值。 */
     const player = this.players.get(playerId);
     if (!player) {
       return;
@@ -765,12 +853,16 @@ export class PlayerService implements OnModuleInit {
     player.online = false;
     player.offlineSinceAt = player.offlineSinceAt ?? timestamp;
     this.socketMap.delete(playerId);
+/** userId：定义该变量以承载业务值。 */
     const userId = this.getUserIdByPlayerId(playerId);
     if (userId) {
+/** startedAt：定义该变量以承载业务值。 */
       const startedAt = this.onlineSessionStartedAtByUserId.get(userId);
       this.onlineSessionStartedAtByUserId.delete(userId);
       if (typeof startedAt === 'number' && startedAt > 0) {
+/** sessionSeconds：定义该变量以承载业务值。 */
         const sessionSeconds = this.computeOnlineSessionSeconds(startedAt, timestamp);
+/** startedAtIso：定义该变量以承载业务值。 */
         const startedAtIso = new Date(startedAt).toISOString();
         this.userRepo.createQueryBuilder()
           .update(UserEntity)
@@ -787,11 +879,14 @@ export class PlayerService implements OnModuleInit {
     this.syncPlayerRealtimeState(playerId);
   }
 
+/** updatePlayerDisplayName：执行对应的业务逻辑。 */
   async updatePlayerDisplayName(userId: string, displayName: string): Promise<void> {
+/** playerId：定义该变量以承载业务值。 */
     const playerId = this.userToPlayer.get(userId);
     if (!playerId) {
       return;
     }
+/** player：定义该变量以承载业务值。 */
     const player = this.players.get(playerId);
     if (!player) {
       return;
@@ -800,11 +895,14 @@ export class PlayerService implements OnModuleInit {
     await this.syncPlayerCache(player);
   }
 
+/** updatePlayerRoleName：执行对应的业务逻辑。 */
   async updatePlayerRoleName(userId: string, roleName: string): Promise<void> {
+/** playerId：定义该变量以承载业务值。 */
     const playerId = this.userToPlayer.get(userId);
     if (!playerId) {
       return;
     }
+/** player：定义该变量以承载业务值。 */
     const player = this.players.get(playerId);
     if (!player) {
       return;
@@ -815,6 +913,7 @@ export class PlayerService implements OnModuleInit {
 
   /** 将玩家指令入队到对应地图的命令队列 */
   enqueueCommand(mapId: string, cmd: PlayerCommand) {
+/** list：定义该变量以承载业务值。 */
     const list = this.commands.get(mapId) ?? [];
     list.push(cmd);
     this.commands.set(mapId, list);
@@ -822,6 +921,7 @@ export class PlayerService implements OnModuleInit {
 
   /** 取出并清空命令队列，同 type+playerId 去重保留最后一条 */
   drainCommands(mapId: string): PlayerCommand[] {
+/** list：定义该变量以承载业务值。 */
     const list = this.commands.get(mapId) ?? [];
     this.commands.set(mapId, []);
     // 按 type+playerId 去重，保留最后一条
@@ -835,10 +935,13 @@ export class PlayerService implements OnModuleInit {
   /** 规范化任务数据：补全目标名称、NPC 位置、奖励信息等 */
   private normalizeQuests(quests: QuestState[]): QuestState[] {
     return quests.map((quest) => {
+/** targetNpcLocation：定义该变量以承载业务值。 */
       const targetNpcLocation = quest.targetNpcId ? this.mapService.getNpcLocation(quest.targetNpcId) : undefined;
+/** submitNpcLocation：定义该变量以承载业务值。 */
       const submitNpcLocation = quest.submitNpcId ? this.mapService.getNpcLocation(quest.submitNpcId) : undefined;
       return {
         ...quest,
+/** line：定义该变量以承载业务值。 */
         line: quest.line === 'main' || quest.line === 'daily' || quest.line === 'encounter'
           ? quest.line
           : 'side',
@@ -868,6 +971,7 @@ export class PlayerService implements OnModuleInit {
         requiredItemId: quest.requiredItemId,
         requiredItemCount: quest.requiredItemCount,
         giverMapId: quest.giverMapId,
+/** giverMapName：定义该变量以承载业务值。 */
         giverMapName: quest.giverMapId && (!quest.giverMapName || quest.giverMapName === quest.giverMapId)
           ? this.mapService.getMapMeta(quest.giverMapId)?.name ?? quest.giverMapName
           : quest.giverMapName,
@@ -923,22 +1027,29 @@ export class PlayerService implements OnModuleInit {
       ));
   }
 
+/** cloneJson：执行对应的业务逻辑。 */
   private cloneJson<T>(value: T): T {
     return clonePlainValue(value);
   }
 
   private normalizePersistedInventoryCapacity(value: unknown): { inventory: Record<string, unknown>; changed: boolean } {
+/** isRecord：定义该变量以承载业务值。 */
     const isRecord = Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+/** source：定义该变量以承载业务值。 */
     const source = isRecord ? value as Record<string, unknown> : {};
+/** numericCapacity：定义该变量以承载业务值。 */
     const numericCapacity = typeof source.capacity === 'number' && Number.isFinite(source.capacity)
       ? Math.trunc(source.capacity)
       : null;
+/** parsedCapacity：定义该变量以承载业务值。 */
     const parsedCapacity = numericCapacity ?? (
       typeof source.capacity === 'string' && source.capacity.trim().length > 0 && Number.isFinite(Number(source.capacity))
         ? Math.trunc(Number(source.capacity))
         : null
     );
+/** nextCapacity：定义该变量以承载业务值。 */
     const nextCapacity = Math.max(DEFAULT_INVENTORY_CAPACITY, parsedCapacity ?? 0);
+/** items：定义该变量以承载业务值。 */
     const items = Array.isArray(source.items) ? source.items : [];
     return {
       inventory: {
@@ -946,11 +1057,14 @@ export class PlayerService implements OnModuleInit {
         items,
         capacity: nextCapacity,
       },
+/** changed：定义该变量以承载业务值。 */
       changed: !isRecord || !Array.isArray(source.items) || numericCapacity !== nextCapacity,
     };
   }
 
+/** ensureDisplayNameUniquenessPolicy：执行对应的业务逻辑。 */
   private async ensureDisplayNameUniquenessPolicy(): Promise<void> {
+/** rows：定义该变量以承载业务值。 */
     const rows = await this.userRepo.query(`
       SELECT con.conname
       FROM pg_constraint con
@@ -976,11 +1090,14 @@ export class PlayerService implements OnModuleInit {
     `);
   }
 
+/** quotePgIdentifier：执行对应的业务逻辑。 */
   private quotePgIdentifier(value: string): string {
     return `"${value.replace(/"/g, '""')}"`;
   }
 
+/** ensureUserCounterColumnCapacity：执行对应的业务逻辑。 */
   private async ensureUserCounterColumnCapacity(): Promise<void> {
+/** rows：定义该变量以承载业务值。 */
     const rows = await this.userRepo.query(`
       SELECT column_name, data_type
       FROM information_schema.columns
@@ -989,6 +1106,7 @@ export class PlayerService implements OnModuleInit {
         AND column_name = ANY($1::text[])
     `, [USER_BIGINT_PERSIST_COLUMNS]);
 
+/** columnsNeedingUpgrade：定义该变量以承载业务值。 */
     const columnsNeedingUpgrade = new Set(
       (rows as Array<{ column_name?: unknown; data_type?: unknown }>)
         .filter((row) => row.data_type === 'integer' && typeof row.column_name === 'string')
@@ -1012,7 +1130,9 @@ export class PlayerService implements OnModuleInit {
     this.logger.warn(`已将 users 表计数字段升级为 bigint: ${[...columnsNeedingUpgrade].join(', ')}`);
   }
 
+/** ensurePlayerCounterColumnCapacity：执行对应的业务逻辑。 */
   private async ensurePlayerCounterColumnCapacity(): Promise<void> {
+/** rows：定义该变量以承载业务值。 */
     const rows = await this.playerRepo.query(`
       SELECT column_name, data_type
       FROM information_schema.columns
@@ -1021,6 +1141,7 @@ export class PlayerService implements OnModuleInit {
         AND column_name = ANY($1::text[])
     `, [PLAYER_BIGINT_PERSIST_COLUMNS]);
 
+/** columnsNeedingUpgrade：定义该变量以承载业务值。 */
     const columnsNeedingUpgrade = new Set(
       (rows as Array<{ column_name?: unknown; data_type?: unknown }>)
         .filter((row) => row.data_type === 'integer' && typeof row.column_name === 'string')
@@ -1044,6 +1165,7 @@ export class PlayerService implements OnModuleInit {
     this.logger.warn(`已将 players 表计数字段升级为 bigint: ${[...columnsNeedingUpgrade].join(', ')}`);
   }
 
+/** normalizePersistedRoleNames：执行对应的业务逻辑。 */
   private async normalizePersistedRoleNames(): Promise<void> {
     const [players, users] = await Promise.all([
       this.playerRepo.find({
@@ -1068,17 +1190,24 @@ export class PlayerService implements OnModuleInit {
       return;
     }
 
+/** userById：定义该变量以承载业务值。 */
     const userById = new Map(users.map((user) => [user.id, user]));
+/** effectiveDisplayNameByUserId：定义该变量以承载业务值。 */
     const effectiveDisplayNameByUserId = new Map<string, string>();
+/** userDisplayUpdates：定义该变量以承载业务值。 */
     const userDisplayUpdates: Array<{ id: string; displayName: string | null }> = [];
+/** defaultDisplayAssignedCount：定义该变量以承载业务值。 */
     let defaultDisplayAssignedCount = 0;
+/** displayNameNormalizedCount：定义该变量以承载业务值。 */
     let displayNameNormalizedCount = 0;
     for (const user of users) {
       const normalizedStoredDisplayName = typeof user.displayName === 'string'
         ? normalizeDisplayName(user.displayName)
         : '';
+/** nextStoredDisplayName：定义该变量以承载业务值。 */
       let nextStoredDisplayName = user.displayName;
       if (normalizedStoredDisplayName) {
+/** displayNameError：定义该变量以承载业务值。 */
         const displayNameError = validateDisplayName(normalizedStoredDisplayName);
         if (displayNameError) {
           nextStoredDisplayName = DEFAULT_VISIBLE_DISPLAY_NAME;
@@ -1099,6 +1228,7 @@ export class PlayerService implements OnModuleInit {
         resolveDisplayName(nextStoredDisplayName, user.username),
       );
     }
+/** occupiedNames：定义该变量以承载业务值。 */
     const occupiedNames = new Set<string>();
     for (const user of users) {
       occupiedNames.add(user.username);
@@ -1107,22 +1237,35 @@ export class PlayerService implements OnModuleInit {
 
 /** StartupPlayerEntry：定义该类型的结构与数据语义。 */
     type StartupPlayerEntry = {
+/** id：定义该变量以承载业务值。 */
       id: string;
+/** userId：定义该变量以承载业务值。 */
       userId: string;
+/** originalName：定义该变量以承载业务值。 */
       originalName: string;
+/** normalizedName：定义该变量以承载业务值。 */
       normalizedName: string;
+/** createdAt：定义该变量以承载业务值。 */
       createdAt: Date | null;
+/** createdAtSource：定义该变量以承载业务值。 */
       createdAtSource: number;
+/** requiresAnonymousRename：定义该变量以承载业务值。 */
       requiresAnonymousRename: boolean;
     };
 
+/** entries：定义该变量以承载业务值。 */
     const entries: StartupPlayerEntry[] = players.map((player) => {
+/** trimmedName：定义该变量以承载业务值。 */
       const trimmedName = player.name.normalize('NFC').trim();
+/** requiresAnonymousRename：定义该变量以承载业务值。 */
       const requiresAnonymousRename = !hasVisibleNameGrapheme(trimmedName);
+/** normalizedName：定义该变量以承载业务值。 */
       const normalizedName = requiresAnonymousRename
         ? DEFAULT_INVISIBLE_ROLE_NAME_BASE
         : truncateRoleName(trimmedName);
+/** user：定义该变量以承载业务值。 */
       const user = userById.get(player.userId);
+/** createdAt：定义该变量以承载业务值。 */
       const createdAt = this.resolvePlayerCreatedAt(player.id, player.createdAt, user?.createdAt ?? null);
       return {
         id: player.id,
@@ -1135,15 +1278,18 @@ export class PlayerService implements OnModuleInit {
       };
     });
 
+/** groupedByName：定义该变量以承载业务值。 */
     const groupedByName = new Map<string, StartupPlayerEntry[]>();
     for (const entry of entries) {
       if (entry.requiresAnonymousRename) {
         continue;
       }
+/** bucket：定义该变量以承载业务值。 */
       const bucket = groupedByName.get(entry.normalizedName) ?? [];
       bucket.push(entry);
       groupedByName.set(entry.normalizedName, bucket);
     }
+/** playerById：定义该变量以承载业务值。 */
     const playerById = new Map(players.map((player) => [player.id, player]));
 
     for (const [name, bucket] of groupedByName.entries()) {
@@ -1152,13 +1298,20 @@ export class PlayerService implements OnModuleInit {
       }
     }
 
+/** normalizedCount：定义该变量以承载业务值。 */
     let normalizedCount = 0;
+/** duplicateRenamedCount：定义该变量以承载业务值。 */
     let duplicateRenamedCount = 0;
+/** anonymousRoleRenamedCount：定义该变量以承载业务值。 */
     let anonymousRoleRenamedCount = 0;
+/** createdAtBackfilledCount：定义该变量以承载业务值。 */
     let createdAtBackfilledCount = 0;
+/** inventoryCapacityBackfilledCount：定义该变量以承载业务值。 */
     let inventoryCapacityBackfilledCount = 0;
+/** updates：定义该变量以承载业务值。 */
     const updates: Array<{ id: string; changes: Pick<Partial<PlayerEntity>, 'name' | 'createdAt' | 'inventory'> }> = [];
 
+/** duplicateGroups：定义该变量以承载业务值。 */
     const duplicateGroups = [...groupedByName.entries()]
       .filter(([, bucket]) => bucket.length > 1)
       .sort(([left], [right]) => left.localeCompare(right, 'zh-Hans-CN'));
@@ -1170,6 +1323,7 @@ export class PlayerService implements OnModuleInit {
       ));
       occupiedNames.add(bucket[0]!.normalizedName);
 
+/** suffix：定义该变量以承载业务值。 */
       let suffix = 2;
       for (let index = 1; index < bucket.length; index += 1) {
         const entry = bucket[index]!;
@@ -1180,12 +1334,14 @@ export class PlayerService implements OnModuleInit {
       }
     }
 
+/** anonymousEntries：定义该变量以承载业务值。 */
     const anonymousEntries = entries
       .filter((entry) => entry.requiresAnonymousRename)
       .sort((left, right) => (
         left.createdAtSource - right.createdAtSource
         || left.id.localeCompare(right.id)
       ));
+/** anonymousSuffix：定义该变量以承载业务值。 */
     let anonymousSuffix = 1;
     for (const entry of anonymousEntries) {
       const renamed = this.allocateDuplicateRoleName(DEFAULT_INVISIBLE_ROLE_NAME_BASE, anonymousSuffix, occupiedNames, 1);
@@ -1206,12 +1362,14 @@ export class PlayerService implements OnModuleInit {
           duplicateRenamedCount += 1;
         }
       }
+/** player：定义该变量以承载业务值。 */
       const player = playerById.get(entry.id);
       if (player && !player.createdAt && entry.createdAt) {
         changes.createdAt = entry.createdAt;
         createdAtBackfilledCount += 1;
       }
       if (player) {
+/** normalizedInventory：定义该变量以承载业务值。 */
         const normalizedInventory = this.normalizePersistedInventoryCapacity(player.inventory);
         if (normalizedInventory.changed) {
           changes.inventory = normalizedInventory.inventory;
@@ -1253,10 +1411,12 @@ export class PlayerService implements OnModuleInit {
     }
   }
 
+/** resolvePlayerCreatedAt：执行对应的业务逻辑。 */
   private resolvePlayerCreatedAt(playerId: string, createdAt: Date | null | undefined, userCreatedAt: Date | null): Date | null {
     if (createdAt instanceof Date && Number.isFinite(createdAt.getTime()) && createdAt.getTime() > 0) {
       return createdAt;
     }
+/** timestampFromId：定义该变量以承载业务值。 */
     const timestampFromId = this.parsePlayerCreatedAtFromId(playerId);
     if (timestampFromId > 0) {
       return new Date(timestampFromId);
@@ -1267,15 +1427,19 @@ export class PlayerService implements OnModuleInit {
     return null;
   }
 
+/** parsePlayerCreatedAtFromId：执行对应的业务逻辑。 */
   private parsePlayerCreatedAtFromId(playerId: string): number {
+/** lastUnderscoreIndex：定义该变量以承载业务值。 */
     const lastUnderscoreIndex = playerId.lastIndexOf('_');
     if (lastUnderscoreIndex <= 0 || lastUnderscoreIndex >= playerId.length - 1) {
       return 0;
     }
+/** suffix：定义该变量以承载业务值。 */
     const suffix = playerId.slice(lastUnderscoreIndex + 1);
     if (!/^\d{10,}$/.test(suffix)) {
       return 0;
     }
+/** parsed：定义该变量以承载业务值。 */
     const parsed = Number.parseInt(suffix, 10);
     return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
   }
@@ -1286,9 +1450,12 @@ export class PlayerService implements OnModuleInit {
     occupiedNames: Set<string>,
     minimumSuffix = 2,
   ): { name: string; nextSuffix: number } {
+/** suffix：定义该变量以承载业务值。 */
     let suffix = Math.max(minimumSuffix, Math.floor(startSuffix));
     while (true) {
+/** suffixText：定义该变量以承载业务值。 */
       const suffixText = `#${suffix}`;
+/** candidate：定义该变量以承载业务值。 */
       const candidate = this.appendRoleNameSuffix(baseName, suffixText);
       if (!occupiedNames.has(candidate)) {
         return {
@@ -1300,7 +1467,9 @@ export class PlayerService implements OnModuleInit {
     }
   }
 
+/** appendRoleNameSuffix：执行对应的业务逻辑。 */
   private appendRoleNameSuffix(baseName: string, suffix: string): string {
+/** trimmedBase：定义该变量以承载业务值。 */
     let trimmedBase = baseName;
     while (trimmedBase.length > 0 && !isRoleNameWithinLimit(`${trimmedBase}${suffix}`)) {
       trimmedBase = [...trimmedBase].slice(0, -1).join('');
@@ -1308,9 +1477,13 @@ export class PlayerService implements OnModuleInit {
     return `${trimmedBase}${suffix}`;
   }
 
+/** hydratePlayerState：执行对应的业务逻辑。 */
   private hydratePlayerState(entity: PlayerEntity, displayName: string): PlayerState {
+/** legacyEnhancementSkillLevel：定义该变量以承载业务值。 */
     const legacyEnhancementSkillLevel = Math.max(1, Math.floor(Number(entity.enhancementSkillLevel) || 1));
+/** enhancementSkillFallbackExpToNext：定义该变量以承载业务值。 */
     const enhancementSkillFallbackExpToNext = Math.max(0, this.contentService.getRealmLevelEntry(legacyEnhancementSkillLevel)?.expToNext ?? 60);
+/** state：定义该变量以承载业务值。 */
     const state: PlayerState = {
       id: entity.id,
       name: entity.name,
@@ -1380,8 +1553,10 @@ export class PlayerService implements OnModuleInit {
       ),
       autoBattleTargetingMode: normalizeAutoBattleTargetingMode(entity.autoBattleTargetingMode),
       combatTargetId: entity.combatTargetId ?? undefined,
+/** combatTargetLocked：定义该变量以承载业务值。 */
       combatTargetLocked: entity.combatTargetLocked === true,
       autoRetaliate: entity.autoRetaliate ?? true,
+/** autoBattleStationary：定义该变量以承载业务值。 */
       autoBattleStationary: entity.autoBattleStationary === true,
       allowAoePlayerHit: hasCombatTargetingRule(
         normalizeCombatTargetingRules(
@@ -1392,6 +1567,7 @@ export class PlayerService implements OnModuleInit {
         'all_players',
       ),
       autoIdleCultivation: entity.autoIdleCultivation ?? true,
+/** autoSwitchCultivation：定义该变量以承载业务值。 */
       autoSwitchCultivation: entity.autoSwitchCultivation === true,
       cultivationActive: false,
       actions: [],
@@ -1409,10 +1585,12 @@ export class PlayerService implements OnModuleInit {
   }
 
   private resolveRetainedPlayerPosition(player: PlayerState): { mapId: string; x: number; y: number } {
+/** placement：定义该变量以承载业务值。 */
     const placement = this.mapService.resolvePlayerPlacement(player.mapId, player.x, player.y, player.id);
     return { mapId: placement.mapId, x: placement.x, y: placement.y };
   }
 
+/** expireRetainedPlayer：执行对应的业务逻辑。 */
   private async expireRetainedPlayer(state: PlayerState): Promise<void> {
     this.techniqueService.stopCultivation(
       state,
@@ -1430,9 +1608,12 @@ export class PlayerService implements OnModuleInit {
     await this.syncPlayerCache(state);
   }
 
+/** persistPlayerState：执行对应的业务逻辑。 */
   private async persistPlayerState(state: PlayerState): Promise<void> {
     this.techniqueService.preparePlayerForPersistence(state);
+/** persisted：定义该变量以承载业务值。 */
     const persisted = this.buildPersistedCollections(state);
+/** payload：定义该变量以承载业务值。 */
     const payload = this.buildPlayerPersistencePayload(state, persisted);
     await this.playerRepo.createQueryBuilder()
       .update(PlayerEntity)
@@ -1445,6 +1626,7 @@ export class PlayerService implements OnModuleInit {
   }
 
   private computeOnlineSessionSeconds(startedAt: number | Date | null | undefined, endedAt = Date.now()): number {
+/** startTimestamp：定义该变量以承载业务值。 */
     const startTimestamp = startedAt instanceof Date ? startedAt.getTime() : startedAt ?? 0;
     if (!Number.isFinite(startTimestamp) || startTimestamp <= 0) {
       return 0;
@@ -1456,6 +1638,7 @@ export class PlayerService implements OnModuleInit {
     if (!user.currentOnlineStartedAt) {
       return;
     }
+/** recoveredSeconds：定义该变量以承载业务值。 */
     const recoveredSeconds = this.computeOnlineSessionSeconds(user.currentOnlineStartedAt, now);
     user.totalOnlineSeconds = Math.max(0, Math.floor(user.totalOnlineSeconds ?? 0)) + recoveredSeconds;
     user.currentOnlineStartedAt = null;

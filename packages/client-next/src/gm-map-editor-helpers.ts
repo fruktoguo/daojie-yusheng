@@ -15,17 +15,20 @@ type TileResourcePointLike = Partial<GmMapResourceRecord>;
 /** ComposeRotation：定义该类型的结构与数据语义。 */
 type ComposeRotation = 0 | 90 | 180 | 270;
 
+/** QI_FAMILY_LABELS：定义该变量以承载业务值。 */
 const QI_FAMILY_LABELS = {
   aura: '灵气',
   demonic: '魔气',
   sha: '煞气',
 } as const;
 
+/** QI_FORM_LABELS：定义该变量以承载业务值。 */
 const QI_FORM_LABELS = {
   refined: '',
   dispersed: '逸散',
 } as const;
 
+/** QI_ELEMENT_LABELS：定义该变量以承载业务值。 */
 const QI_ELEMENT_LABELS = {
   neutral: '无属性',
   metal: '金',
@@ -52,7 +55,9 @@ export function isEditableTarget(target: EventTarget | null): boolean {
 }
 /** setValueByPath：执行对应的业务逻辑。 */
 export function setValueByPath(target: unknown, path: string, value: unknown): void {
+/** segments：定义该变量以承载业务值。 */
   const segments = path.split('.');
+/** cursor：定义该变量以承载业务值。 */
   let cursor = target as Record<string, unknown>;
   for (let index = 0; index < segments.length - 1; index += 1) {
     const key = segments[index]!;
@@ -64,6 +69,7 @@ export function setValueByPath(target: unknown, path: string, value: unknown): v
 }
 /** getValueByPath：执行对应的业务逻辑。 */
 export function getValueByPath(target: unknown, path: string): unknown {
+/** cursor：定义该变量以承载业务值。 */
   let cursor = target as Record<string, unknown> | undefined;
   for (const segment of path.split('.')) {
     if (cursor === undefined || cursor === null) return undefined;
@@ -73,6 +79,7 @@ export function getValueByPath(target: unknown, path: string): unknown {
 }
 /** removeArrayIndex：执行对应的业务逻辑。 */
 export function removeArrayIndex(target: unknown, path: string, index: number): void {
+/** value：定义该变量以承载业务值。 */
   const value = getValueByPath(target, path);
   if (Array.isArray(value)) value.splice(index, 1);
 }

@@ -1,5 +1,7 @@
 "use strict";
+/** 模块实现文件，负责当前职责边界内的业务逻辑。 */
 var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+/** c：定义该变量以承载业务值。 */
     var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
     if (typeof Reflect === "object" && typeof Reflect.decorate === "function")
         r = Reflect.decorate(decorators, target, key, desc);
@@ -9,21 +11,32 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
                 r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
     return c > 3 && r && Object.defineProperty(target, key, r), r;
 };
+/** __metadata：定义该变量以承载业务值。 */
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function")
         return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.LegacyGmPlayerCompatService = void 0;
+/** common_1：定义该变量以承载业务值。 */
 const common_1 = require("@nestjs/common");
+/** shared_1：定义该变量以承载业务值。 */
 const shared_1 = require("@mud/shared-next");
+/** content_template_repository_1：定义该变量以承载业务值。 */
 const content_template_repository_1 = require("../../../content/content-template.repository");
+/** map_template_repository_1：定义该变量以承载业务值。 */
 const map_template_repository_1 = require("../../../runtime/map/map-template.repository");
+/** player_persistence_service_1：定义该变量以承载业务值。 */
 const player_persistence_service_1 = require("../../../persistence/player-persistence.service");
+/** player_progression_service_1：定义该变量以承载业务值。 */
 const player_progression_service_1 = require("../../../runtime/player/player-progression.service");
+/** player_runtime_service_1：定义该变量以承载业务值。 */
 const player_runtime_service_1 = require("../../../runtime/player/player-runtime.service");
+/** world_runtime_service_1：定义该变量以承载业务值。 */
 const world_runtime_service_1 = require("../../../runtime/world/world-runtime.service");
+/** legacy_gm_compat_constants_1：定义该变量以承载业务值。 */
 const legacy_gm_compat_constants_1 = require("../legacy-gm-compat.constants");
+/** LegacyGmPlayerCompatService：定义该变量以承载业务值。 */
 let LegacyGmPlayerCompatService = class LegacyGmPlayerCompatService {
     contentTemplateRepository;
     mapTemplateRepository;
@@ -31,6 +44,7 @@ let LegacyGmPlayerCompatService = class LegacyGmPlayerCompatService {
     playerProgressionService;
     playerRuntimeService;
     worldRuntimeService;
+/** 构造函数：执行实例初始化流程。 */
     constructor(contentTemplateRepository, mapTemplateRepository, playerPersistenceService, playerProgressionService, playerRuntimeService, worldRuntimeService) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.mapTemplateRepository = mapTemplateRepository;
@@ -39,25 +53,33 @@ let LegacyGmPlayerCompatService = class LegacyGmPlayerCompatService {
         this.playerRuntimeService = playerRuntimeService;
         this.worldRuntimeService = worldRuntimeService;
     }
+/** hasRuntimePlayer：执行对应的业务逻辑。 */
     hasRuntimePlayer(playerId) {
         return Boolean(this.playerRuntimeService.snapshot(playerId));
     }
+/** updatePlayer：执行对应的业务逻辑。 */
     async updatePlayer(playerId, body) {
+/** section：定义该变量以承载业务值。 */
         const section = body?.section ?? null;
+/** snapshot：定义该变量以承载业务值。 */
         const snapshot = body?.snapshot ?? {};
+/** runtime：定义该变量以承载业务值。 */
         const runtime = this.playerRuntimeService.snapshot(playerId);
         if (runtime) {
             if (section === 'position') {
                 this.worldRuntimeService.enqueueLegacyGmUpdatePlayer({
                     playerId,
+/** mapId：定义该变量以承载业务值。 */
                     mapId: typeof snapshot.mapId === 'string' ? snapshot.mapId : runtime.templateId,
                     x: Number.isFinite(snapshot.x) ? snapshot.x : runtime.x,
                     y: Number.isFinite(snapshot.y) ? snapshot.y : runtime.y,
                     hp: Number.isFinite(snapshot.hp) ? snapshot.hp : runtime.hp,
+/** autoBattle：定义该变量以承载业务值。 */
                     autoBattle: typeof snapshot.autoBattle === 'boolean' ? snapshot.autoBattle : runtime.combat.autoBattle === true,
                 });
                 return;
             }
+/** next：定义该变量以承载业务值。 */
             const next = runtime;
             this.applyLegacySnapshotMutation(next, snapshot, section);
             this.repairRuntimeSnapshot(next);
@@ -66,6 +88,7 @@ let LegacyGmPlayerCompatService = class LegacyGmPlayerCompatService {
             this.playerRuntimeService.restoreSnapshot(next);
             return;
         }
+/** persisted：定义该变量以承载业务值。 */
         const persisted = await this.playerPersistenceService.loadPlayerSnapshot(playerId);
         if (!persisted) {
             throw new common_1.NotFoundException('目标玩家不存在');
@@ -78,14 +101,18 @@ let LegacyGmPlayerCompatService = class LegacyGmPlayerCompatService {
         }
         await this.playerPersistenceService.savePlayerSnapshot(playerId, persisted);
     }
+/** resetPlayer：执行对应的业务逻辑。 */
     resetPlayer(playerId) {
         this.worldRuntimeService.enqueueLegacyGmResetPlayer(playerId);
     }
+/** resetPersistedPlayer：执行对应的业务逻辑。 */
     async resetPersistedPlayer(playerId) {
+/** persisted：定义该变量以承载业务值。 */
         const persisted = await this.playerPersistenceService.loadPlayerSnapshot(playerId);
         if (!persisted) {
             throw new common_1.NotFoundException('目标玩家不存在');
         }
+/** template：定义该变量以承载业务值。 */
         const template = this.mapTemplateRepository.getOrThrow('yunlai_town');
         persisted.placement.templateId = template.id;
         persisted.placement.x = template.spawnX;
@@ -100,7 +127,9 @@ let LegacyGmPlayerCompatService = class LegacyGmPlayerCompatService {
         persisted.combat.combatTargetLocked = false;
         await this.playerPersistenceService.savePlayerSnapshot(playerId, persisted);
     }
+/** resetHeavenGate：执行对应的业务逻辑。 */
     async resetHeavenGate(playerId) {
+/** runtime：定义该变量以承载业务值。 */
         const runtime = this.playerRuntimeService.snapshot(playerId);
         if (runtime) {
             runtime.heavenGate = null;
@@ -114,6 +143,7 @@ let LegacyGmPlayerCompatService = class LegacyGmPlayerCompatService {
             this.playerRuntimeService.restoreSnapshot(runtime);
             return;
         }
+/** persisted：定义该变量以承载业务值。 */
         const persisted = await this.playerPersistenceService.loadPlayerSnapshot(playerId);
         if (!persisted) {
             throw new common_1.NotFoundException('目标玩家不存在');
@@ -122,21 +152,29 @@ let LegacyGmPlayerCompatService = class LegacyGmPlayerCompatService {
         persisted.progression.spiritualRoots = null;
         await this.playerPersistenceService.savePlayerSnapshot(playerId, persisted);
     }
+/** spawnBots：执行对应的业务逻辑。 */
     spawnBots(anchorPlayerId, count) {
         this.worldRuntimeService.enqueueLegacyGmSpawnBots(anchorPlayerId, count);
     }
+/** removeBots：执行对应的业务逻辑。 */
     removeBots(playerIds, all) {
         this.worldRuntimeService.enqueueLegacyGmRemoveBots(playerIds, all);
     }
+/** returnAllPlayersToDefaultSpawn：执行对应的业务逻辑。 */
     async returnAllPlayersToDefaultSpawn() {
+/** template：定义该变量以承载业务值。 */
         const template = this.mapTemplateRepository.getOrThrow('yunlai_town');
+/** runtimePlayers：定义该变量以承载业务值。 */
         const runtimePlayers = this.playerRuntimeService.listPlayerSnapshots()
             .filter((entry) => !(0, legacy_gm_compat_constants_1.isLegacyGmCompatBotPlayerId)(entry.playerId));
+/** runtimePlayerIds：定义该变量以承载业务值。 */
         const runtimePlayerIds = new Set(runtimePlayers.map((entry) => entry.playerId));
+/** persistedEntries：定义该变量以承载业务值。 */
         const persistedEntries = await this.playerPersistenceService.listPlayerSnapshots();
         for (const runtime of runtimePlayers) {
             this.worldRuntimeService.enqueueLegacyGmResetPlayer(runtime.playerId);
         }
+/** updatedOfflinePlayers：定义该变量以承载业务值。 */
         let updatedOfflinePlayers = 0;
         for (const entry of persistedEntries) {
             if (runtimePlayerIds.has(entry.playerId)) {
@@ -166,6 +204,7 @@ let LegacyGmPlayerCompatService = class LegacyGmPlayerCompatService {
             targetY: template.spawnY,
         };
     }
+/** applyLegacySnapshotMutation：执行对应的业务逻辑。 */
     applyLegacySnapshotMutation(next, snapshot, section) {
         if (section === null || section === 'basic') {
             if (typeof snapshot.name === 'string' && snapshot.name.trim()) {
@@ -215,7 +254,9 @@ let LegacyGmPlayerCompatService = class LegacyGmPlayerCompatService {
                     .filter((entry) => Boolean(entry && typeof entry.skillId === 'string' && entry.skillId.trim()))
                     .map((entry) => ({
                     skillId: entry.skillId.trim(),
+/** enabled：定义该变量以承载业务值。 */
                     enabled: entry.enabled !== false,
+/** skillEnabled：定义该变量以承载业务值。 */
                     skillEnabled: entry.skillEnabled !== false,
                     autoBattleOrder: Number.isFinite(entry.autoBattleOrder) ? Math.max(0, Math.trunc(entry.autoBattleOrder)) : undefined,
                 }));
@@ -235,9 +276,11 @@ let LegacyGmPlayerCompatService = class LegacyGmPlayerCompatService {
             if (Number.isFinite(snapshot.combatExp)) {
                 next.combatExp = Math.max(0, Math.trunc(snapshot.combatExp));
             }
+/** realmLv：定义该变量以承载业务值。 */
             const realmLv = Number.isFinite(snapshot.realmLv)
                 ? Math.trunc(snapshot.realmLv)
                 : next.realm?.realmLv ?? 1;
+/** progress：定义该变量以承载业务值。 */
             const progress = Number.isFinite(snapshot.realm?.progress)
                 ? Math.trunc(snapshot.realm.progress)
                 : next.realm?.progress ?? 0;
@@ -259,7 +302,9 @@ let LegacyGmPlayerCompatService = class LegacyGmPlayerCompatService {
                     .filter((entry) => Boolean(entry && typeof entry.skillId === 'string' && entry.skillId.trim()))
                     .map((entry) => ({
                     skillId: entry.skillId.trim(),
+/** enabled：定义该变量以承载业务值。 */
                     enabled: entry.enabled !== false,
+/** skillEnabled：定义该变量以承载业务值。 */
                     skillEnabled: entry.skillEnabled !== false,
                     autoBattleOrder: Number.isFinite(entry.autoBattleOrder) ? Math.max(0, Math.trunc(entry.autoBattleOrder)) : undefined,
                 }));
@@ -282,15 +327,18 @@ let LegacyGmPlayerCompatService = class LegacyGmPlayerCompatService {
                 }
             }
             if (snapshot.equipment && typeof snapshot.equipment === 'object') {
+/** bySlot：定义该变量以承载业务值。 */
                 const bySlot = new Map(next.equipment.slots.map((entry) => [entry.slot, entry]));
                 for (const slot of shared_1.EQUIP_SLOTS) {
                     if (!(slot in snapshot.equipment)) {
                         continue;
                     }
+/** record：定义该变量以承载业务值。 */
                     const record = bySlot.get(slot);
                     if (!record) {
                         continue;
                     }
+/** item：定义该变量以承载业务值。 */
                     const item = snapshot.equipment[slot];
                     record.item = item && typeof item.itemId === 'string' && item.itemId.trim()
                         ? this.contentTemplateRepository.normalizeItem({
@@ -312,11 +360,13 @@ let LegacyGmPlayerCompatService = class LegacyGmPlayerCompatService {
             next.quests.revision += 1;
         }
     }
+/** applyPositionToPersistenceSnapshot：执行对应的业务逻辑。 */
     applyPositionToPersistenceSnapshot(persisted, snapshot) {
         if (typeof snapshot.mapId === 'string' && snapshot.mapId.trim()) {
             this.mapTemplateRepository.getOrThrow(snapshot.mapId.trim());
             persisted.placement.templateId = snapshot.mapId.trim();
         }
+/** template：定义该变量以承载业务值。 */
         const template = this.mapTemplateRepository.getOrThrow(persisted.placement.templateId);
         if (Number.isFinite(snapshot.x)) {
             persisted.placement.x = clamp(Math.trunc(snapshot.x), 0, Math.max(0, template.width - 1));
@@ -334,6 +384,7 @@ let LegacyGmPlayerCompatService = class LegacyGmPlayerCompatService {
             persisted.combat.autoBattle = snapshot.autoBattle;
         }
     }
+/** applyLegacySnapshotMutationToPersistence：执行对应的业务逻辑。 */
     applyLegacySnapshotMutationToPersistence(persisted, snapshot, section) {
         if (section === null || section === 'basic') {
             if (Number.isFinite(snapshot.maxHp)) {
@@ -383,7 +434,9 @@ let LegacyGmPlayerCompatService = class LegacyGmPlayerCompatService {
                     .filter((entry) => Boolean(entry && typeof entry.skillId === 'string' && entry.skillId.trim()))
                     .map((entry) => ({
                     skillId: entry.skillId.trim(),
+/** enabled：定义该变量以承载业务值。 */
                     enabled: entry.enabled !== false,
+/** skillEnabled：定义该变量以承载业务值。 */
                     skillEnabled: entry.skillEnabled !== false,
                 }));
             }
@@ -399,9 +452,11 @@ let LegacyGmPlayerCompatService = class LegacyGmPlayerCompatService {
             if (Number.isFinite(snapshot.combatExp)) {
                 persisted.progression.combatExp = Math.max(0, Math.trunc(snapshot.combatExp));
             }
+/** realmLv：定义该变量以承载业务值。 */
             const realmLv = Number.isFinite(snapshot.realmLv)
                 ? Math.trunc(snapshot.realmLv)
                 : persisted.progression.realm?.realmLv ?? 1;
+/** progress：定义该变量以承载业务值。 */
             const progress = Number.isFinite(snapshot.realm?.progress)
                 ? Math.trunc(snapshot.realm.progress)
                 : persisted.progression.realm?.progress ?? 0;
@@ -423,7 +478,9 @@ let LegacyGmPlayerCompatService = class LegacyGmPlayerCompatService {
                     .filter((entry) => Boolean(entry && typeof entry.skillId === 'string' && entry.skillId.trim()))
                     .map((entry) => ({
                     skillId: entry.skillId.trim(),
+/** enabled：定义该变量以承载业务值。 */
                     enabled: entry.enabled !== false,
+/** skillEnabled：定义该变量以承载业务值。 */
                     skillEnabled: entry.skillEnabled !== false,
                 }));
             }
@@ -445,11 +502,13 @@ let LegacyGmPlayerCompatService = class LegacyGmPlayerCompatService {
                 }
             }
             if (snapshot.equipment && typeof snapshot.equipment === 'object') {
+/** nextSlots：定义该变量以承载业务值。 */
                 const nextSlots = [];
                 for (const slot of shared_1.EQUIP_SLOTS) {
                     const item = snapshot.equipment[slot];
                     nextSlots.push({
                         slot,
+/** item：定义该变量以承载业务值。 */
                         item: item && typeof item.itemId === 'string' && item.itemId.trim()
                             ? {
                                 ...item,
@@ -472,6 +531,7 @@ let LegacyGmPlayerCompatService = class LegacyGmPlayerCompatService {
             persisted.quests.revision = Math.max(1, (persisted.quests.revision ?? 1) + 1);
         }
     }
+/** repairRuntimeSnapshot：执行对应的业务逻辑。 */
     repairRuntimeSnapshot(snapshot) {
         if (snapshot.maxHp < 1) {
             snapshot.maxHp = 1;
@@ -498,9 +558,11 @@ exports.LegacyGmPlayerCompatService = LegacyGmPlayerCompatService = __decorate([
         player_runtime_service_1.PlayerRuntimeService,
         world_runtime_service_1.WorldRuntimeService])
 ], LegacyGmPlayerCompatService);
+/** clamp：执行对应的业务逻辑。 */
 function clamp(value, min, max) {
     return Math.max(min, Math.min(max, value));
 }
+/** cloneTemporaryBuff：执行对应的业务逻辑。 */
 function cloneTemporaryBuff(entry) {
     return {
         ...entry,

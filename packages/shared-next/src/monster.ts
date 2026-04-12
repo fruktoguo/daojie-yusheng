@@ -33,6 +33,7 @@ import type { NumericScalarStatKey } from './numeric';
 /** MonsterCombatModel：定义该类型的结构与数据语义。 */
 export type MonsterCombatModel = 'legacy' | 'value_stats';
 
+/** MONSTER_EXPONENTIAL_NUMERIC_KEYS：定义该变量以承载业务值。 */
 const MONSTER_EXPONENTIAL_NUMERIC_KEYS = [
   'maxHp',
   'maxQi',
@@ -51,12 +52,14 @@ const MONSTER_EXPONENTIAL_NUMERIC_KEYS = [
   'extraAggroRate',
   'viewRange',
 ] as const satisfies readonly NumericScalarStatKey[];
+/** MONSTER_LINEAR_NUMERIC_KEYS：定义该变量以承载业务值。 */
 const MONSTER_LINEAR_NUMERIC_KEYS = [
   'critDamage',
   'maxQiOutputPerTick',
   'qiRegenRate',
   'hpRegenRate',
 ] as const satisfies readonly NumericScalarStatKey[];
+/** MONSTER_LINEAR_NUMERIC_GROWTH_RATES：定义该变量以承载业务值。 */
 const MONSTER_LINEAR_NUMERIC_GROWTH_RATES: Record<typeof MONSTER_LINEAR_NUMERIC_KEYS[number], number> = {
   critDamage: 0.1,
   maxQiOutputPerTick: 0.1,
@@ -80,7 +83,9 @@ function getMonsterLinearGrowthRate(key: NumericScalarStatKey): number | null {
 
 /** LegacyMonsterNumericProfile：定义该接口的能力与字段约束。 */
 export interface LegacyMonsterNumericProfile {
+/** maxHp：定义该变量以承载业务值。 */
   maxHp: number;
+/** attack：定义该变量以承载业务值。 */
   attack: number;
   level?: number;
   viewRange?: number;
@@ -98,7 +103,9 @@ export interface MonsterFormulaInput {
 
 /** PercentBonusAccumulator：定义该类型的结构与数据语义。 */
 type PercentBonusAccumulator = Pick<NumericStats, 'maxHp' | 'maxQi' | 'physAtk' | 'spellAtk'>;
+/** MONSTER_SECONDARY_ATTR_RATIO：定义该变量以承载业务值。 */
 const MONSTER_SECONDARY_ATTR_RATIO = 0.2;
+/** MONSTER_BASE_HP_REGEN_RATE：定义该变量以承载业务值。 */
 const MONSTER_BASE_HP_REGEN_RATE = 5;
 
 /** normalizeMonsterLevel：执行对应的业务逻辑。 */
@@ -113,6 +120,7 @@ function roundConfigValue(value: number): number {
 
 /** resolveMonsterBaseRealmStage：执行对应的业务逻辑。 */
 function resolveMonsterBaseRealmStage(level?: number): PlayerRealmStage {
+/** normalizedLevel：定义该变量以承载业务值。 */
   const normalizedLevel = normalizeMonsterLevel(level);
   for (const stage of [...PLAYER_REALM_ORDER].reverse()) {
     const range = PLAYER_REALM_STAGE_LEVEL_RANGES[stage];
@@ -142,6 +150,7 @@ export function normalizeMonsterTier(tier: unknown, fallback: MonsterTier = 'mor
 
 /** inferMonsterTierFromName：执行对应的业务逻辑。 */
 export function inferMonsterTierFromName(name: string | undefined): MonsterTier {
+/** normalizedName：定义该变量以承载业务值。 */
   const normalizedName = typeof name === 'string' ? name.trim() : '';
   if (/妖王|荒王|兽王|王$/.test(normalizedName)) {
     return 'demon_king';
@@ -181,8 +190,11 @@ export function getMonsterKillExpLevelAdjustment(
   monsterLevel: number,
   tier: MonsterTier | undefined,
 ): number {
+/** normalizedPlayerLevel：定义该变量以承载业务值。 */
   const normalizedPlayerLevel = Math.max(1, Math.floor(playerRealmLv));
+/** normalizedMonsterLevel：定义该变量以承载业务值。 */
   const normalizedMonsterLevel = Math.max(1, Math.floor(monsterLevel));
+/** levelDelta：定义该变量以承载业务值。 */
   const levelDelta = Math.min(
     MONSTER_KILL_EXP_LEVEL_DELTA_CAP,
     Math.abs(normalizedMonsterLevel - normalizedPlayerLevel),
@@ -191,6 +203,7 @@ export function getMonsterKillExpLevelAdjustment(
     return 1.5 ** levelDelta;
   }
   if (normalizedPlayerLevel > normalizedMonsterLevel) {
+/** reductionRate：定义该变量以承载业务值。 */
     const reductionRate = MONSTER_TIER_OVERLEVEL_EXP_REDUCTION_RATES[normalizeMonsterTier(tier)] ?? 0.5;
     return Math.max(0, 1 - reductionRate) ** levelDelta;
   }
@@ -202,6 +215,7 @@ export function normalizeMonsterAttrs(
   attrs: Partial<Attributes> | undefined,
   fallback?: Attributes,
 ): Attributes {
+/** result：定义该变量以承载业务值。 */
   const result = fallback ? { ...fallback } : createMonsterAttributes();
   for (const key of ATTR_KEYS) {
     const value = attrs?.[key];
@@ -215,6 +229,7 @@ export function normalizeMonsterStatPercents(statPercents: NumericStatPercentage
   if (!statPercents) {
     return undefined;
   }
+/** result：定义该变量以承载业务值。 */
   const result: NumericStatPercentages = {};
   for (const key of Object.keys(statPercents) as NumericScalarStatKey[]) {
     const value = statPercents[key];
@@ -233,6 +248,7 @@ function accumulateAttrPercentBonus(target: PercentBonusAccumulator, attrs: Attr
     if (value === 0) {
       continue;
     }
+/** weight：定义该变量以承载业务值。 */
     const weight = ATTR_TO_PERCENT_NUMERIC_WEIGHTS[key];
     if (!weight) {
       continue;
@@ -251,6 +267,7 @@ function applyAttrWeight(target: NumericStats, attrs: Attributes): void {
     if (value === 0) {
       continue;
     }
+/** weight：定义该变量以承载业务值。 */
     const weight = ATTR_TO_NUMERIC_WEIGHTS[key];
     if (!weight) {
       continue;
@@ -329,14 +346,18 @@ export function computeMonsterBaseNumericStatsFromAttrs(
   equipment?: Partial<EquipmentSlots>,
   level?: number,
 ): NumericStats {
+/** normalizedAttrs：定义该变量以承载业务值。 */
   const normalizedAttrs = mergeMonsterEquipmentAttrs(normalizeMonsterAttrs(attrs), equipment);
+/** template：定义该变量以承载业务值。 */
   const template = PLAYER_REALM_NUMERIC_TEMPLATES[resolveMonsterBaseRealmStage(level)];
+/** percentBonuses：定义该变量以承载业务值。 */
   const percentBonuses: PercentBonusAccumulator = {
     maxHp: 0,
     maxQi: 0,
     physAtk: 0,
     spellAtk: 0,
   };
+/** stats：定义该变量以承载业务值。 */
   const stats = createNumericStats();
   addPartialNumericStats(stats, template.stats);
   // 怪物只保留通用基础 200% 暴伤，不继承玩家境界模板里的额外暴伤。
@@ -351,8 +372,11 @@ export function computeMonsterBaseNumericStatsFromAttrs(
 
 /** applyMonsterLevelScaling：执行对应的业务逻辑。 */
 export function applyMonsterLevelScaling(stats: NumericStats, level?: number): NumericStats {
+/** normalizedLevel：定义该变量以承载业务值。 */
   const normalizedLevel = normalizeMonsterLevel(level);
+/** scaled：定义该变量以承载业务值。 */
   const scaled = cloneNumericStats(stats);
+/** exponentialMultiplier：定义该变量以承载业务值。 */
   const exponentialMultiplier = getRealmAttributeMultiplier(normalizedLevel);
   if (exponentialMultiplier !== 1) {
     for (const key of MONSTER_EXPONENTIAL_NUMERIC_KEYS) {
@@ -386,7 +410,9 @@ export function applyNumericStatPercentages(stats: NumericStats, percents?: Nume
 
 /** resolveMonsterNumericStatsFromAttributes：执行对应的业务逻辑。 */
 export function resolveMonsterNumericStatsFromAttributes(input: MonsterFormulaInput): NumericStats {
+/** base：定义该变量以承载业务值。 */
   const base = computeMonsterBaseNumericStatsFromAttrs(input.attrs, input.equipment, input.level);
+/** scaled：定义该变量以承载业务值。 */
   const scaled = applyMonsterLevelScaling(base, input.level);
   applyNumericStatPercentages(scaled, normalizeMonsterStatPercents(input.statPercents));
   applyNumericStatPercentages(scaled, MONSTER_GRADE_STAT_PERCENTS[input.grade ?? 'mortal']);
@@ -402,7 +428,9 @@ export function createMonsterAutoStatPercents(
   level?: number,
   equipment?: Partial<EquipmentSlots>,
 ): NumericStatPercentages {
+/** base：定义该变量以承载业务值。 */
   const base = applyMonsterLevelScaling(computeMonsterBaseNumericStatsFromAttrs(attrs, equipment, level), level);
+/** percents：定义该变量以承载业务值。 */
   const percents: NumericStatPercentages = {};
   for (const key of NUMERIC_SCALAR_STAT_KEYS) {
     const target = targetStats[key];
@@ -417,30 +445,36 @@ export function createMonsterAutoStatPercents(
 
 /** inferMonsterAttrsFromNumericStats：执行对应的业务逻辑。 */
 export function inferMonsterAttrsFromNumericStats(stats: NumericStats): Attributes {
+/** constitution：定义该变量以承载业务值。 */
   const constitution = Math.max(1, Math.round(Math.max(
     stats.physDef,
     stats.maxHp / 24,
     stats.physAtk * 0.6,
   )));
+/** spirit：定义该变量以承载业务值。 */
   const spirit = Math.max(1, Math.round(Math.max(
     stats.spellDef,
     stats.maxQi / 18,
     stats.spellAtk * 0.8,
   )));
+/** perception：定义该变量以承载业务值。 */
   const perception = Math.max(1, Math.round(Math.max(
     stats.dodge,
     Math.min(stats.hit, Math.max(1, stats.moveSpeed * 0.1)),
   )));
+/** talent：定义该变量以承载业务值。 */
   const talent = Math.max(1, Math.round(Math.max(
     stats.resolvePower,
     stats.maxHp / 42,
     stats.maxQi / 32,
   )));
+/** comprehension：定义该变量以承载业务值。 */
   const comprehension = Math.max(0, Math.round(Math.max(
     stats.breakPower,
     stats.maxQiOutputPerTick,
     stats.qiRegenRate / 16,
   ) * MONSTER_SECONDARY_ATTR_RATIO));
+/** luck：定义该变量以承载业务值。 */
   const luck = Math.max(0, Math.round(Math.max(
     stats.crit,
     stats.antiCrit,
@@ -458,7 +492,9 @@ export function inferMonsterAttrsFromNumericStats(stats: NumericStats): Attribut
 
 /** compileMonsterValueStats：执行对应的业务逻辑。 */
 export function compileMonsterValueStats(valueStats?: PartialNumericStats): NumericStats {
+/** actual：定义该变量以承载业务值。 */
   const actual = compileValueStatsToActualStats(valueStats);
+/** stats：定义该变量以承载业务值。 */
   const stats = createNumericStats();
   addPartialNumericStats(stats, actual);
   return stats;
@@ -471,15 +507,20 @@ export function resolveMonsterNumericStatsFromValueStats(valueStats?: PartialNum
 
 /** estimateMonsterSpiritFromStats：执行对应的业务逻辑。 */
 export function estimateMonsterSpiritFromStats(stats: NumericStats, level?: number): number {
+/** normalizedLevel：定义该变量以承载业务值。 */
   const normalizedLevel = normalizeMonsterLevel(level);
   return Math.max(6, Math.round(normalizedLevel * 12 + stats.physAtk * 0.8 + stats.maxHp * 0.18));
 }
 
 /** buildLegacyMonsterNumericStats：执行对应的业务逻辑。 */
 export function buildLegacyMonsterNumericStats(profile: LegacyMonsterNumericProfile): NumericStats {
+/** level：定义该变量以承载业务值。 */
   const level = normalizeMonsterLevel(profile.level ?? Math.round(profile.attack / 6));
+/** maxHp：定义该变量以承载业务值。 */
   const maxHp = Math.max(1, Math.round(profile.maxHp));
+/** attack：定义该变量以承载业务值。 */
   const attack = Math.max(1, Math.round(profile.attack));
+/** stats：定义该变量以承载业务值。 */
   const stats = createNumericStats();
   stats.maxHp = maxHp;
   stats.maxQi = Math.max(24, Math.round(maxHp * 0.4 + level * 8));
@@ -500,22 +541,31 @@ export function buildLegacyMonsterNumericStats(profile: LegacyMonsterNumericProf
 
 /** inferMonsterValueStatsFromLegacy：执行对应的业务逻辑。 */
 export function inferMonsterValueStatsFromLegacy(profile: LegacyMonsterNumericProfile): PartialNumericStats {
+/** level：定义该变量以承载业务值。 */
   const level = normalizeMonsterLevel(profile.level ?? Math.round(profile.attack / 6));
+/** actualStats：定义该变量以承载业务值。 */
   const actualStats = buildLegacyMonsterNumericStats(profile);
+/** valueStats：定义该变量以承载业务值。 */
   const valueStats: PartialNumericStats = {};
 
+/** applyScalar：定义该变量以承载业务值。 */
   const applyScalar = (key: NumericScalarStatKey): void => {
+/** actual：定义该变量以承载业务值。 */
     const actual = actualStats[key];
     if (!actual) {
       return;
     }
+/** linearGrowthRate：定义该变量以承载业务值。 */
     const linearGrowthRate = getMonsterLinearGrowthRate(key);
+/** multiplier：定义该变量以承载业务值。 */
     const multiplier = (MONSTER_EXPONENTIAL_NUMERIC_KEYS as readonly string[]).includes(key)
       ? getRealmAttributeMultiplier(level)
       : linearGrowthRate !== null
         ? getRealmLinearGrowthMultiplier(level, linearGrowthRate)
         : 1;
+/** configUnit：定义该变量以承载业务值。 */
     const configUnit = NUMERIC_STAT_ACTUAL_POINTS_PER_CONFIG_VALUE[key];
+/** baseValue：定义该变量以承载业务值。 */
     const baseValue = actual / multiplier / configUnit;
     if (Math.abs(baseValue) < 1e-6) {
       return;
