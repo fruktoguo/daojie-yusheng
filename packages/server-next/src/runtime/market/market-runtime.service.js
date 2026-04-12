@@ -677,7 +677,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
         return `当前单价 ${this.formatUnitPrice(unitPrice)} ${this.getCurrencyItemName()} 时，数量必须是 ${minimumQuantity} 的倍数，才能按整灵石结算。`;
     }
     formatUnitPrice(value) {
-        return Number.isInteger(value) ? String(value) : value.toFixed(1).replace(/\.0$/, '');
+        return Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/\.0+$/, '');
     }
     deliverItemToPlayer(playerId, item, context) {
         const player = this.playerRuntimeService.getPlayer(playerId);

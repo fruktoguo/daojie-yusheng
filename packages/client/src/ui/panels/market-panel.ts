@@ -1518,8 +1518,10 @@ export class MarketPanel {
       return this.normalizeTradeDialogPrice(currentPrice / 2, 'down');
     }
     if (action === 'increase') {
-      const probe = Math.min(MARKET_DIALOG_MAX_PRICE, currentPrice + 1);
-      return this.normalizeTradeDialogPrice(currentPrice + getMarketPriceStep(probe), 'up');
+      const step = currentPrice < 1
+        ? getMarketPriceStep(currentPrice)
+        : getMarketPriceStep(Math.min(MARKET_DIALOG_MAX_PRICE, currentPrice + 1));
+      return this.normalizeTradeDialogPrice(currentPrice + step, 'up');
     }
     const probe = Math.max(MARKET_DIALOG_MIN_PRICE, currentPrice - 1);
     return this.normalizeTradeDialogPrice(currentPrice - getMarketPriceStep(probe), 'down');
@@ -1553,8 +1555,8 @@ export class MarketPanel {
 
   private formatMarketUnitPrice(value: number): string {
     return formatDisplayNumber(value, {
-      maximumFractionDigits: value < 1 ? 1 : 0,
-      compactMaximumFractionDigits: value < 1 ? 1 : 0,
+      maximumFractionDigits: value < 1 ? 2 : 0,
+      compactMaximumFractionDigits: value < 1 ? 2 : 0,
     });
   }
 
@@ -1740,4 +1742,3 @@ export class MarketPanel {
     return true;
   }
 }
-

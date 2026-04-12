@@ -1,8 +1,8 @@
-export const MARKET_PRICE_PRESET_VALUES = [0.1, 1, 100, 10_000, 1_000_000] as const;
+export const MARKET_PRICE_PRESET_VALUES = [0.01, 1, 100, 10_000, 1_000_000] as const;
 export const MARKET_MIN_UNIT_PRICE = MARKET_PRICE_PRESET_VALUES[0];
 export const MARKET_MAX_UNIT_PRICE = 10_000_000_000;
 
-const MARKET_FRACTIONAL_PRICE_SCALE = 10;
+const MARKET_FRACTIONAL_PRICE_SCALE = 100;
 const MARKET_PRICE_EPSILON = 1e-9;
 
 /** MarketPriceBand：定义该类型的结构与数据语义。 */
@@ -186,4 +186,3 @@ export function calculateMarketTradeTotalCost(quantity: number, unitPrice: numbe
   }
   return totalScaled / MARKET_FRACTIONAL_PRICE_SCALE;
 }
-
