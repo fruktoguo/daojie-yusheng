@@ -375,7 +375,7 @@
           "name": "断魂灵钉",
           "desc": "认准被熔池烙开的裂口，把残丹灵识压成一根钉，沿着伤脉直接钉穿神魂。",
           "cooldown": 35,
-          "costMultiplier": 8,
+          "costMultiplier": 5,
           "range": 6,
           "targeting": {
             "shape": "single",
@@ -451,14 +451,14 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 32
+          "cost": 20
         },
         {
           "id": "skill.huanling_ronghe_guanmai",
           "name": "熔河贯脉",
           "desc": "把洞府残脉拧成一条赤河直贯出去，整线被拖开的地面都会化作熔流；被卷中的人脚下会被残脉绊住，下一轮更难脱出杀域。",
           "cooldown": 60,
-          "costMultiplier": 8,
+          "costMultiplier": 5,
           "range": 6,
           "targeting": {
             "shape": "line",
@@ -555,14 +555,14 @@
             }
           ],
           "unlockLevel": 2,
-          "cost": 32
+          "cost": 20
         },
         {
           "id": "skill.huanling_lieqi_zhixian",
           "name": "移脉熔宫",
           "desc": "拖着裂丹把洞府残脉猛然拽偏，落点一带尽数熔成赤池，后续杀招都会顺着熔痕灌进去。",
           "cooldown": 55,
-          "costMultiplier": 8,
+          "costMultiplier": 5,
           "range": 5,
           "targeting": {
             "shape": "box",
@@ -659,14 +659,14 @@
             }
           ],
           "unlockLevel": 4,
-          "cost": 32
+          "cost": 20
         },
         {
           "id": "skill.huanling_xingluo_canpan",
           "name": "星罗残盘",
           "desc": "借洞府残阵把落点周围拆成明灭交错的棋盘，错踩一格便会被残火与阴脉同时点穿。",
           "cooldown": 45,
-          "costMultiplier": 8,
+          "costMultiplier": 5,
           "range": 5,
           "targeting": {
             "shape": "checkerboard",
@@ -744,14 +744,14 @@
             }
           ],
           "unlockLevel": 5,
-          "cost": 32
+          "cost": 20
         },
         {
           "id": "skill.huanling_suogong_neihuan",
           "name": "锁宫内环",
           "desc": "先把目标脚边一圈地脉瞬间勒紧，贴得太近的人会被内环直接绞住，必须立刻改步离位。",
           "cooldown": 50,
-          "costMultiplier": 8,
+          "costMultiplier": 5,
           "range": 5,
           "targeting": {
             "shape": "ring",
@@ -830,14 +830,14 @@
             }
           ],
           "unlockLevel": 6,
-          "cost": 32
+          "cost": 20
         },
         {
           "id": "skill.huanling_liefu_waihuan",
           "name": "裂府外环",
           "desc": "把更外层的洞府残脉整圈掀起，外环会晚半拍一齐压落；若前面已经沾了阴痕或灼伤，被卷入这一圈时伤势会被整片放大。",
           "cooldown": 60,
-          "costMultiplier": 8,
+          "costMultiplier": 5,
           "range": 6,
           "targeting": {
             "shape": "ring",
@@ -919,14 +919,14 @@
             }
           ],
           "unlockLevel": 7,
-          "cost": 32
+          "cost": 20
         },
         {
           "id": "skill.huanling_difu_chenyin",
           "name": "地府沉印",
           "desc": "借洞府残阵把熔开的地脉整片往下按，阴痕越多、灼得越深，塌下去的那一刻就越重。",
           "cooldown": 55,
-          "costMultiplier": 8,
+          "costMultiplier": 5,
           "range": 5,
           "targeting": {
             "shape": "box",
@@ -987,7 +987,7 @@
             }
           ],
           "unlockLevel": 8,
-          "cost": 32
+          "cost": 20
         },
         {
           "id": "skill.huanling_canpo_zhang",
@@ -1522,7 +1522,7 @@
           "name": "赤焰诀",
           "desc": "离火化网罩落，灼脉缠身不绝。",
           "cooldown": 12,
-          "costMultiplier": 8,
+          "costMultiplier": 5,
           "range": 3,
           "targeting": {
             "shape": "box",
@@ -1575,7 +1575,7 @@
               "category": "debuff",
               "visibility": "public",
               "color": "#ef6b3b",
-              "duration": 24,
+              "duration": 10,
               "maxStacks": 30,
               "statMode": "percent",
               "type": "buff",
@@ -1583,7 +1583,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 160
+          "cost": 100
         }
       ],
       "layers": [
@@ -1645,7 +1645,7 @@
           "name": "赤曜焚界",
           "desc": "赤曜凝火，三息之后焚界而落。",
           "cooldown": 26,
-          "costMultiplier": 8,
+          "costMultiplier": 5,
           "range": 5,
           "targeting": {
             "shape": "box",
@@ -1702,7 +1702,7 @@
               "category": "debuff",
               "visibility": "public",
               "color": "#ef6b3b",
-              "duration": 24,
+              "duration": 10,
               "maxStacks": 30,
               "statMode": "percent",
               "type": "buff",
@@ -1710,7 +1710,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 552
+          "cost": 345
         }
       ],
       "layers": [
@@ -2744,7 +2744,7 @@
           "name": "分光",
           "desc": "锋炁成线，直破前方三步。",
           "cooldown": 18,
-          "costMultiplier": 8,
+          "costMultiplier": 5,
           "range": 3,
           "targeting": {
             "shape": "line",
@@ -2806,7 +2806,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 304
+          "cost": 190
         }
       ],
       "layers": [
@@ -2982,7 +2982,7 @@
           "name": "归藏",
           "desc": "归藏摄杂，目标减益越多，收束越狠。",
           "cooldown": 20,
-          "costMultiplier": 8,
+          "costMultiplier": 5,
           "range": 5,
           "effects": [
             {
@@ -3020,7 +3020,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 304
+          "cost": 190
         }
       ],
       "layers": [
@@ -3086,7 +3086,7 @@
           "name": "寒魄经",
           "desc": "寒魄化霜，一念封身。",
           "cooldown": 14,
-          "costMultiplier": 8,
+          "costMultiplier": 5,
           "range": 3,
           "targeting": {
             "shape": "box",
@@ -3150,7 +3150,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 384
+          "cost": 240
         }
       ],
       "layers": [
@@ -3361,7 +3361,7 @@
         {
           "id": "skill.houtu_chengyuan",
           "name": "承岳",
-          "desc": "土劲随甲势递增，一击之后再叠山岳之护。",
+          "desc": "土劲厚重沉实，一击之后再叠山岳之护。",
           "cooldown": 18,
           "costMultiplier": 4,
           "range": 1,
@@ -3389,10 +3389,6 @@
                       {
                         "var": "techLevel",
                         "scale": 0.1
-                      },
-                      {
-                        "var": "caster.stat.physDef",
-                        "scale": 0.01
                       }
                     ]
                   }
@@ -3484,7 +3480,7 @@
         {
           "id": "skill.huangting_zaishan",
           "name": "载山",
-          "desc": "黄庭借山成势，以护甲压垮敌身。",
+          "desc": "黄庭借山成势，以厚土重压敌身。",
           "cooldown": 24,
           "costMultiplier": 7,
           "range": 1,
@@ -3512,10 +3508,6 @@
                       {
                         "var": "techLevel",
                         "scale": 0.1
-                      },
-                      {
-                        "var": "caster.stat.physDef",
-                        "scale": 0.01
                       }
                     ]
                   }
@@ -3897,7 +3889,7 @@
           "name": "惊雷掌",
           "desc": "掌劲如雷，先裂护体，再催雷殛入身。",
           "cooldown": 14,
-          "costMultiplier": 8,
+          "costMultiplier": 5,
           "range": 2,
           "effects": [
             {
@@ -3954,7 +3946,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 336
+          "cost": 210
         }
       ],
       "layers": [
@@ -4244,10 +4236,6 @@
                       {
                         "var": "techLevel",
                         "scale": 0.1
-                      },
-                      {
-                        "var": "caster.stat.physDef",
-                        "scale": 0.01
                       }
                     ]
                   }
@@ -4349,7 +4337,7 @@
           "name": "炽息天罗",
           "desc": "离炎成网，烈息罩身。",
           "cooldown": 22,
-          "costMultiplier": 8,
+          "costMultiplier": 5,
           "range": 5,
           "targeting": {
             "shape": "box",
@@ -4402,7 +4390,7 @@
               "category": "debuff",
               "visibility": "public",
               "color": "#ef6b3b",
-              "duration": 24,
+              "duration": 10,
               "maxStacks": 30,
               "statMode": "percent",
               "type": "buff",
@@ -4410,7 +4398,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 304
+          "cost": 190
         }
       ],
       "layers": [
@@ -4476,7 +4464,7 @@
           "name": "流云刀谱",
           "desc": "身随刀走，刀随风掠，一线截开前路。",
           "cooldown": 12,
-          "costMultiplier": 8,
+          "costMultiplier": 5,
           "range": 3,
           "targeting": {
             "shape": "orientedBox",
@@ -4521,7 +4509,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 208
+          "cost": 130
         }
       ],
       "layers": [
@@ -5444,7 +5432,7 @@
           "name": "回春",
           "desc": "木脉铺展，友方回生，敌者受创。",
           "cooldown": 24,
-          "costMultiplier": 8,
+          "costMultiplier": 5,
           "range": 5,
           "targeting": {
             "shape": "box",
@@ -5532,7 +5520,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 304
+          "cost": 190
         }
       ],
       "layers": [
@@ -6544,7 +6532,7 @@
           "name": "潮",
           "desc": "归潮成线，借己身潮势压垮敌体。",
           "cooldown": 24,
-          "costMultiplier": 8,
+          "costMultiplier": 5,
           "range": 3,
           "targeting": {
             "shape": "line",
@@ -6606,7 +6594,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 864
+          "cost": 540
         }
       ],
       "layers": [
@@ -6833,7 +6821,7 @@
           "name": "束魂",
           "desc": "木意锁魂，直压单敌。",
           "cooldown": 20,
-          "costMultiplier": 8,
+          "costMultiplier": 5,
           "range": 5,
           "effects": [
             {
@@ -6868,7 +6856,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 552
+          "cost": 345
         }
       ],
       "layers": [
@@ -8348,7 +8336,7 @@
           "name": "贯星",
           "desc": "枪势贯空，距离越远，星坠越重。",
           "cooldown": 16,
-          "costMultiplier": 8,
+          "costMultiplier": 5,
           "range": 4,
           "targeting": {
             "shape": "line",
@@ -8390,7 +8378,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 432
+          "cost": 270
         }
       ],
       "layers": [
@@ -8586,7 +8574,7 @@
           "name": "枯荣禁脉",
           "desc": "枯荣逆转，断其回息。",
           "cooldown": 28,
-          "costMultiplier": 8,
+          "costMultiplier": 5,
           "range": 5,
           "targeting": {
             "shape": "box",
@@ -8645,7 +8633,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 864
+          "cost": 540
         }
       ],
       "layers": [
@@ -9544,7 +9532,7 @@
           "name": "朱明劫焰",
           "desc": "朱明火势归于己身，三息之后覆压四方。",
           "cooldown": 32,
-          "costMultiplier": 8,
+          "costMultiplier": 5,
           "range": 0,
           "targeting": {
             "shape": "box",
@@ -9601,7 +9589,7 @@
               "category": "debuff",
               "visibility": "public",
               "color": "#ef6b3b",
-              "duration": 24,
+              "duration": 10,
               "maxStacks": 30,
               "statMode": "percent",
               "type": "buff",
@@ -9609,7 +9597,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 864
+          "cost": 540
         }
       ],
       "layers": [
@@ -14325,8 +14313,8 @@
       "shortMark": "灼",
       "category": "debuff",
       "visibility": "public",
-      "remainingTicks": 24,
-      "duration": 24,
+      "remainingTicks": 10,
+      "duration": 10,
       "stacks": 1,
       "maxStacks": 30,
       "sourceSkillId": "skill.redflame_art",

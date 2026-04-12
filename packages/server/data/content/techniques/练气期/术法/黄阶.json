@@ -61,7 +61,7 @@
         "name": "分光",
         "desc": "锋炁成线，直破前方三步。",
         "cooldown": 18,
-        "costMultiplier": 8,
+        "costMultiplier": 5,
         "range": 3,
         "targeting": {
           "shape": "line",
@@ -174,7 +174,7 @@
         "name": "归藏",
         "desc": "归藏摄杂，目标减益越多，收束越狠。",
         "cooldown": 20,
-        "costMultiplier": 8,
+        "costMultiplier": 5,
         "range": 5,
         "effects": [
           {
@@ -489,7 +489,7 @@
         "name": "炽息天罗",
         "desc": "离炎成网，烈息罩身。",
         "cooldown": 22,
-        "costMultiplier": 8,
+        "costMultiplier": 5,
         "range": 5,
         "targeting": {
           "shape": "box",
@@ -605,7 +605,7 @@
         "name": "回春",
         "desc": "木脉铺展，友方回生，敌者受创。",
         "cooldown": 24,
-        "costMultiplier": 8,
+        "costMultiplier": 5,
         "range": 5,
         "targeting": {
           "shape": "box",

@@ -1086,7 +1086,7 @@
         "name": "赤焰诀",
         "desc": "离火化网罩落，灼脉缠身不绝。",
         "cooldown": 12,
-        "costMultiplier": 8,
+        "costMultiplier": 5,
         "range": 3,
         "targeting": {
           "shape": "box",
@@ -1324,7 +1324,7 @@
         "name": "流云刀谱",
         "desc": "身随刀走，刀随风掠，一线截开前路。",
         "cooldown": 12,
-        "costMultiplier": 8,
+        "costMultiplier": 5,
         "range": 3,
         "targeting": {
           "shape": "orientedBox",

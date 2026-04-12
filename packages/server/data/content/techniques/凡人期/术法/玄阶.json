@@ -623,7 +623,7 @@
         "name": "惊雷掌",
         "desc": "掌劲如雷，先裂护体，再催雷殛入身。",
         "cooldown": 14,
-        "costMultiplier": 8,
+        "costMultiplier": 5,
         "range": 2,
         "effects": [
           {
@@ -739,7 +739,7 @@
         "name": "寒魄经",
         "desc": "寒魄化霜，一念封身。",
         "cooldown": 14,
-        "costMultiplier": 8,
+        "costMultiplier": 5,
         "range": 3,
         "targeting": {
           "shape": "box",
@@ -1004,7 +1004,7 @@
         "name": "贯星",
         "desc": "枪势贯空，距离越远，星坠越重。",
         "cooldown": 16,
-        "costMultiplier": 8,
+        "costMultiplier": 5,
         "range": 4,
         "targeting": {
           "shape": "line",

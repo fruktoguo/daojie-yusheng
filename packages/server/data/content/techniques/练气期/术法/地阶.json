@@ -372,7 +372,7 @@
         "name": "潮",
         "desc": "归潮成线，借己身潮势压垮敌体。",
         "cooldown": 24,
-        "costMultiplier": 8,
+        "costMultiplier": 5,
         "range": 3,
         "targeting": {
           "shape": "line",
@@ -493,7 +493,7 @@
         "name": "枯荣禁脉",
         "desc": "枯荣逆转，断其回息。",
         "cooldown": 28,
-        "costMultiplier": 8,
+        "costMultiplier": 5,
         "range": 5,
         "targeting": {
           "shape": "box",
@@ -612,7 +612,7 @@
         "name": "朱明劫焰",
         "desc": "朱明火势归于己身，三息之后覆压四方。",
         "cooldown": 32,
-        "costMultiplier": 8,
+        "costMultiplier": 5,
         "range": 0,
         "targeting": {
           "shape": "box",

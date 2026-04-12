@@ -192,7 +192,7 @@
         "name": "赤曜焚界",
         "desc": "赤曜凝火，三息之后焚界而落。",
         "cooldown": 26,
-        "costMultiplier": 8,
+        "costMultiplier": 5,
         "range": 5,
         "targeting": {
           "shape": "box",
@@ -432,7 +432,7 @@
         "name": "束魂",
         "desc": "木意锁魂，直压单敌。",
         "cooldown": 20,
-        "costMultiplier": 8,
+        "costMultiplier": 5,
         "range": 5,
         "effects": [
           {
