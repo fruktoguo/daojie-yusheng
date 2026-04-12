@@ -27,6 +27,7 @@ import {
   computeAlchemyMaterialPower,
   computeAlchemySuccessRate,
   computeTimedCraftSkillExp,
+  getCraftSkillEarlyLevelExpMultiplier,
   getAlchemySpiritStoneCost,
   isExactAlchemyRecipe,
   normalizeAlchemyIngredientSelections,
@@ -998,10 +999,11 @@ export class AlchemyService implements OnModuleInit {
       recipeBaseBrewTicks,
       0.25,
     );
-    const gain = Math.max(
+    const baseGain = Math.max(
       0,
       Math.round(((successGain * Math.max(0, successCount)) + (failureGain * Math.max(0, failureCount))) / totalAttempts),
     );
+    const gain = Math.max(0, Math.round(baseGain * getCraftSkillEarlyLevelExpMultiplier(skill.level)));
     if (gain <= 0) {
       return { changed: false, messages: [], dirtyFlags: [] };
     }

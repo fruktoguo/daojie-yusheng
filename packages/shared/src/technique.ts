@@ -95,16 +95,7 @@ export function getTechniqueLayerDef(level: number, layers?: TechniqueLayerDef[]
 
 /** 获取当前层升级所需经验 */
 export function getTechniqueExpToNext(level: number, layers?: TechniqueLayerDef[]): number {
-  const baseExpToNext = Math.max(0, getTechniqueLayerDef(level, layers)?.expToNext ?? 0);
-  if (baseExpToNext <= 0) {
-    return 0;
-  }
-  const normalizedLevel = Math.max(1, Math.floor(Number(level)));
-  if (normalizedLevel >= 20) {
-    return baseExpToNext;
-  }
-  const bonusMultiplier = 1 + ((20 - normalizedLevel) * 4) / 19;
-  return Math.max(1, Math.ceil(baseExpToNext / bonusMultiplier));
+  return Math.max(0, getTechniqueLayerDef(level, layers)?.expToNext ?? 0);
 }
 
 /** 解析技能解锁层数（优先 unlockLevel，其次 unlockRealm+1） */

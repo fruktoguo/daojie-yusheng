@@ -31,6 +31,7 @@ import {
   computeEnhancementJobTicks,
   computeEnhancementToolSpeedRate,
   computeTimedCraftSkillExp,
+  getCraftSkillEarlyLevelExpMultiplier,
   getEnhancementSpiritStoneCost,
   normalizeAlchemySkillState,
   normalizeEnhanceLevel,
@@ -1022,7 +1023,7 @@ export class EnhancementService implements OnModuleInit {
       Math.max(1, Math.floor(Number(targetItemLevel) || 1)),
       Math.max(1, Math.floor(Number(skill.level) || 1)),
     );
-    const gain = success
+    const baseGain = success
       ? successGain
       : computeTimedCraftSkillExp(
         this.getEnhancementSkillExpToNext(failureReferenceLevel),
@@ -1030,6 +1031,7 @@ export class EnhancementService implements OnModuleInit {
         computeEnhancementJobBaseTicks(targetItemLevel),
         0.25,
       );
+    const gain = Math.max(0, Math.round(baseGain * getCraftSkillEarlyLevelExpMultiplier(skill.level)));
     if (gain <= 0) {
       return { changed: false, messages: [], dirtyFlags: [] };
     }
