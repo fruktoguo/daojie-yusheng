@@ -1250,8 +1250,8 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     client.emit(S2C.MarketItemBook, {
       currencyItemId: this.marketService.getCurrencyItemId(),
       currencyItemName: this.marketService.getCurrencyItemName(),
-      itemId: data.itemId,
-      book: this.marketService.buildItemBook(data.itemId),
+      itemKey: data.itemKey,
+      book: this.marketService.buildItemBook(data.itemKey),
     });
   }
 

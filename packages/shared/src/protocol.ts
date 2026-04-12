@@ -446,7 +446,7 @@ export interface C2S_DeleteMail {
 
 /** C2S_RequestMarketItemBook：定义该接口的能力与字段约束。 */
 export interface C2S_RequestMarketItemBook {
-  itemId: string;
+  itemKey: string;
 }
 
 /** C2S_RequestMarketTradeHistory：定义该接口的能力与字段约束。 */
@@ -471,7 +471,7 @@ export interface C2S_CreateMarketSellOrder {
 
 /** C2S_CreateMarketBuyOrder：定义该接口的能力与字段约束。 */
 export interface C2S_CreateMarketBuyOrder {
-  itemId: string;
+  itemKey: string;
   quantity: number;
   unitPrice: number;
 }
@@ -1069,10 +1069,25 @@ export interface S2C_MarketUpdate {
 }
 
 /** MarketListingPageEntry：定义该接口的能力与字段约束。 */
-export interface MarketListingPageEntry {
-  itemId: string;
+export interface MarketListingVariantEntry {
+  itemKey: string;
+  item: ItemStack;
   lowestSellPrice?: number;
   highestBuyPrice?: number;
+  sellOrderCount: number;
+  sellQuantity: number;
+  buyOrderCount: number;
+  buyQuantity: number;
+}
+
+/** MarketListingPageEntry：定义该接口的能力与字段约束。 */
+export interface MarketListingPageEntry {
+  itemId: string;
+  item: ItemStack;
+  lowestSellPrice?: number;
+  highestBuyPrice?: number;
+  canEnhance: boolean;
+  variants: MarketListingVariantEntry[];
 }
 
 /** S2C_MarketListings：定义该接口的能力与字段约束。 */
@@ -1093,7 +1108,8 @@ export interface MarketOwnOrderSyncEntry {
   id: string;
   side: MarketOrderSide;
   status: 'open' | 'filled' | 'cancelled';
-  itemId: string;
+  itemKey: string;
+  item: ItemStack;
   remainingQuantity: number;
   unitPrice: number;
   createdAt: number;
@@ -1108,7 +1124,8 @@ export interface S2C_MarketOrders {
 
 /** MarketStorageSyncEntry：定义该接口的能力与字段约束。 */
 export interface MarketStorageSyncEntry {
-  itemId: string;
+  itemKey: string;
+  item: ItemStack;
   count: number;
 }
 
@@ -1119,7 +1136,8 @@ export interface S2C_MarketStorage {
 
 /** MarketItemBookSyncView：定义该接口的能力与字段约束。 */
 export interface MarketItemBookSyncView {
-  itemId: string;
+  itemKey: string;
+  item: ItemStack;
   sells: MarketPriceLevelView[];
   buys: MarketPriceLevelView[];
 }
@@ -1128,7 +1146,7 @@ export interface MarketItemBookSyncView {
 export interface S2C_MarketItemBook {
   currencyItemId: string;
   currencyItemName: string;
-  itemId: string;
+  itemKey: string;
   book: MarketItemBookSyncView | null;
 }
 
@@ -2203,4 +2221,3 @@ export interface GmUpdateMapTimeReq {
   scale?: number;
   offsetTicks?: number;
 }
-

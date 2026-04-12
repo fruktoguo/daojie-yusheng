@@ -2314,10 +2314,10 @@ questPanel.setCallbacks((questId) => {
 marketPanel.setCallbacks({
   onRequestMarket: () => socket.sendRequestMarket(),
   onRequestMarketListings: (payload) => socket.sendRequestMarketListings(payload),
-  onRequestItemBook: (itemId) => socket.sendRequestMarketItemBook(itemId),
+  onRequestItemBook: (itemKey) => socket.sendRequestMarketItemBook(itemKey),
   onRequestTradeHistory: (page) => socket.sendRequestMarketTradeHistory(page),
   onCreateSellOrder: (slotIndex, quantity, unitPrice) => socket.sendCreateMarketSellOrder(slotIndex, quantity, unitPrice),
-  onCreateBuyOrder: (itemId, quantity, unitPrice) => socket.sendCreateMarketBuyOrder(itemId, quantity, unitPrice),
+  onCreateBuyOrder: (itemKey, quantity, unitPrice) => socket.sendCreateMarketBuyOrder(itemKey, quantity, unitPrice),
   onCancelOrder: (orderId) => socket.sendCancelMarketOrder(orderId),
   onClaimStorage: () => socket.sendClaimMarketStorage(),
 });
@@ -3788,16 +3788,10 @@ socket.onMarketOrders((data) => {
 socket.onMarketStorage((data) => {
   if (myPlayer) {
     myPlayer.marketStorage = {
-      items: data.items.map((item) => {
-        const template = getLocalItemTemplate(item.itemId);
-        return {
-          itemId: item.itemId,
-          count: item.count,
-          name: template?.name ?? item.itemId,
-          type: template?.type ?? 'material',
-          desc: template?.desc ?? '',
-        };
-      }),
+      items: data.items.map((item) => ({
+        ...item.item,
+        count: item.count,
+      })),
     };
   }
   marketPanel.updateStorage(data);
@@ -3906,7 +3900,5 @@ socket.onTick((data: S2C_Tick) => {
 
 restartPingLoop();
 void loginUI.restoreSession();
-
-
 
 

@@ -1,5 +1,6 @@
 import {
   calculateMarketTradeTotalCost,
+  createItemStackSignature,
   EQUIP_SLOTS,
   EquipSlot,
   getMarketMinimumTradeQuantity,
@@ -9,6 +10,7 @@ import {
   ItemType,
   MARKET_MAX_UNIT_PRICE,
   MARKET_PRICE_PRESET_VALUES,
+  MAX_ENHANCE_LEVEL,
   MarketListedItemView,
   MarketOwnOrderView,
   MarketStorage,
@@ -64,10 +66,10 @@ interface MarketPanelCallbacks {
     equipmentSlot?: MarketEquipmentFilter;
     techniqueCategory?: MarketTechniqueFilter;
   }) => void;
-  onRequestItemBook: (itemId: string) => void;
+  onRequestItemBook: (itemKey: string) => void;
   onRequestTradeHistory: (page: number) => void;
   onCreateSellOrder: (slotIndex: number, quantity: number, unitPrice: number) => void;
-  onCreateBuyOrder: (itemId: string, quantity: number, unitPrice: number) => void;
+  onCreateBuyOrder: (itemKey: string, quantity: number, unitPrice: number) => void;
   onCancelOrder: (orderId: string) => void;
   onClaimStorage: () => void;
 }
@@ -90,6 +92,9 @@ interface MarketTradeDialogState {
   unitPrice: number;
   confirmPurchase: boolean;
 }
+
+type MarketListingGroupEntry = S2C_MarketListings['items'][number];
+type MarketListingVariantEntry = MarketListingGroupEntry['variants'][number];
 
 const MARKET_DESKTOP_PAGE_SIZE = 32;
 const MARKET_MOBILE_PAGE_SIZE = 12;
@@ -118,7 +123,9 @@ export class MarketPanel {
   private marketOrders: S2C_MarketOrders | null = null;
   private marketStorage: S2C_MarketStorage | null = null;
   private itemBook: S2C_MarketItemBook['book'] | null = null;
+  private selectedGroupItemId: string | null = null;
   private selectedItemKey: string | null = null;
+  private enhancementBrowseItemId: string | null = null;
   private modalTab: MarketModalTab = 'market';
   private activeCategory: MarketCategoryFilter = 'all';
   private activeEquipmentCategory: MarketEquipmentFilter = 'all';
@@ -197,11 +204,16 @@ export class MarketPanel {
     this.marketListings = data;
     this.currentPage = data.page;
     this.marketUpdate = this.buildSyntheticMarketUpdate();
-    if (!this.selectedItemKey && this.marketUpdate?.listedItems.length) {
-      this.selectedItemKey = this.marketUpdate.listedItems[0].itemKey;
+    const groups = data.items;
+    if (!this.selectedGroupItemId || !groups.some((entry) => entry.itemId === this.selectedGroupItemId)) {
+      this.selectedGroupItemId = groups[0]?.itemId ?? null;
     }
-    if (this.selectedItemKey && !this.marketUpdate?.listedItems.some((item) => item.itemKey === this.selectedItemKey)) {
-      this.selectedItemKey = this.marketUpdate?.listedItems[0]?.itemKey ?? null;
+    if (this.enhancementBrowseItemId && !groups.some((entry) => entry.itemId === this.enhancementBrowseItemId && entry.canEnhance)) {
+      this.enhancementBrowseItemId = null;
+    }
+    const variants = this.getCurrentVariantEntries();
+    if (this.selectedItemKey && !variants.some((entry) => entry.itemKey === this.selectedItemKey)) {
+      this.selectedItemKey = null;
       this.itemBook = null;
       this.tradeDialog = null;
     }
@@ -246,7 +258,7 @@ export class MarketPanel {
   }
 
   updateItemBook(data: S2C_MarketItemBook): void {
-    if (data.itemId !== this.selectedItemKey) {
+    if (data.itemKey !== this.selectedItemKey) {
       return;
     }
     this.itemBookLoading = false;
@@ -281,7 +293,9 @@ export class MarketPanel {
     this.marketOrders = null;
     this.marketStorage = null;
     this.itemBook = null;
+    this.selectedGroupItemId = null;
     this.selectedItemKey = null;
+    this.enhancementBrowseItemId = null;
     this.modalTab = 'market';
     this.activeCategory = 'all';
     this.activeEquipmentCategory = 'all';
@@ -317,33 +331,37 @@ export class MarketPanel {
     return {
       currencyItemId,
       currencyItemName,
-      listedItems: (this.marketListings?.items ?? []).map((entry) => ({
-        itemKey: entry.itemId,
-        item: this.buildLocalMarketItem(entry.itemId),
-        sellOrderCount: 0,
-        sellQuantity: 0,
-        lowestSellPrice: entry.lowestSellPrice,
-        buyOrderCount: 0,
-        buyQuantity: 0,
-        highestBuyPrice: entry.highestBuyPrice,
-      })),
+      listedItems: (this.marketListings?.items ?? []).flatMap((entry) =>
+        entry.variants.map((variant) => ({
+          itemKey: variant.itemKey,
+          item: { ...variant.item },
+          sellOrderCount: variant.sellOrderCount,
+          sellQuantity: variant.sellQuantity,
+          lowestSellPrice: variant.lowestSellPrice,
+          buyOrderCount: variant.buyOrderCount,
+          buyQuantity: variant.buyQuantity,
+          highestBuyPrice: variant.highestBuyPrice,
+        }))),
       myOrders: (this.marketOrders?.orders ?? []).map((order) => ({
         id: order.id,
         side: order.side,
         status: order.status,
-        itemKey: order.itemId,
-        item: this.buildLocalMarketItem(order.itemId),
+        itemKey: order.itemKey,
+        item: { ...order.item },
         remainingQuantity: order.remainingQuantity,
         unitPrice: order.unitPrice,
         createdAt: order.createdAt,
       })),
       storage: {
-        items: (this.marketStorage?.items ?? []).map((item) => this.buildLocalMarketItem(item.itemId, item.count)),
+        items: (this.marketStorage?.items ?? []).map((entry) => ({
+          ...entry.item,
+          count: entry.count,
+        })),
       },
     };
   }
 
-  private buildLocalMarketItem(itemId: string, count = 1): ItemStack {
+  private buildLocalMarketItem(itemId: string, count = 1, enhanceLevel?: number): ItemStack {
     const template = getLocalItemTemplate(itemId);
     if (!template) {
       return {
@@ -352,6 +370,7 @@ export class MarketPanel {
         name: itemId,
         type: 'material',
         desc: '',
+        enhanceLevel,
       };
     }
     return {
@@ -373,6 +392,7 @@ export class MarketPanel {
       qiPercent: template.qiPercent,
       consumeBuffs: template.consumeBuffs,
       tags: template.tags,
+      enhanceLevel: enhanceLevel ?? template.enhanceLevel,
       mapUnlockId: template.mapUnlockId,
       tileAuraGainAmount: template.tileAuraGainAmount,
       allowBatchUse: template.allowBatchUse,
@@ -413,8 +433,12 @@ export class MarketPanel {
   }
 
   private openModal(): void {
-    if (!this.selectedItemKey && this.marketUpdate?.listedItems.length) {
-      this.selectedItemKey = this.marketUpdate.listedItems[0].itemKey;
+    if (!this.selectedGroupItemId && this.marketListings?.items.length) {
+      this.selectedGroupItemId = this.marketListings.items[0].itemId;
+    }
+    const activeGroup = this.getActiveListingGroup();
+    if (!this.selectedItemKey && activeGroup && !activeGroup.canEnhance) {
+      this.selectedItemKey = this.getVariantEntriesForGroup(activeGroup)[0]?.itemKey ?? null;
     }
     if (!this.marketListings) {
       this.requestListings(1);
@@ -476,6 +500,9 @@ export class MarketPanel {
             this.activeTechniqueCategory = 'all';
           }
           this.currentPage = 1;
+          this.selectedGroupItemId = null;
+          this.enhancementBrowseItemId = null;
+          this.selectedItemKey = null;
           this.tradeDialog = null;
           this.buyConfirmState = null;
           confirmModalHost.close(MarketPanel.CONFIRM_MODAL_OWNER);
@@ -490,6 +517,9 @@ export class MarketPanel {
           }
           this.activeEquipmentCategory = category;
           this.currentPage = 1;
+          this.selectedGroupItemId = null;
+          this.enhancementBrowseItemId = null;
+          this.selectedItemKey = null;
           this.tradeDialog = null;
           this.buyConfirmState = null;
           confirmModalHost.close(MarketPanel.CONFIRM_MODAL_OWNER);
@@ -504,6 +534,9 @@ export class MarketPanel {
           }
           this.activeTechniqueCategory = category;
           this.currentPage = 1;
+          this.selectedGroupItemId = null;
+          this.enhancementBrowseItemId = null;
+          this.selectedItemKey = null;
           this.tradeDialog = null;
           this.buyConfirmState = null;
           confirmModalHost.close(MarketPanel.CONFIRM_MODAL_OWNER);
@@ -517,6 +550,9 @@ export class MarketPanel {
             return;
           }
           this.currentPage = Math.max(1, Math.floor(nextPage));
+          this.selectedGroupItemId = null;
+          this.enhancementBrowseItemId = null;
+          this.selectedItemKey = null;
           this.tradeDialog = null;
           this.buyConfirmState = null;
           confirmModalHost.close(MarketPanel.CONFIRM_MODAL_OWNER);
@@ -534,9 +570,12 @@ export class MarketPanel {
 
         body.querySelectorAll<HTMLElement>('[data-market-select-item]').forEach((button) => button.addEventListener('click', () => {
           const itemKey = button.dataset.marketSelectItem;
-          if (!itemKey) {
+          const groupItemId = button.dataset.marketSelectItemGroup;
+          if (!itemKey || !groupItemId) {
             return;
           }
+          this.selectedGroupItemId = groupItemId;
+          this.enhancementBrowseItemId = groupItemId;
           this.selectedItemKey = itemKey;
           this.itemBook = null;
           this.tradeDialog = null;
@@ -545,6 +584,44 @@ export class MarketPanel {
           this.requestItemBook(itemKey);
           this.renderModal();
         }));
+
+        body.querySelectorAll<HTMLElement>('[data-market-select-group]').forEach((button) => button.addEventListener('click', () => {
+          const groupItemId = button.dataset.marketSelectGroup;
+          const group = groupItemId
+            ? this.marketListings?.items.find((entry) => entry.itemId === groupItemId) ?? null
+            : null;
+          if (!group || !groupItemId) {
+            return;
+          }
+          this.selectedGroupItemId = groupItemId;
+          this.itemBook = null;
+          this.tradeDialog = null;
+          this.buyConfirmState = null;
+          confirmModalHost.close(MarketPanel.CONFIRM_MODAL_OWNER);
+          if (group.canEnhance) {
+            this.enhancementBrowseItemId = groupItemId;
+            this.selectedItemKey = null;
+            this.renderModal();
+            return;
+          }
+          const directEntry = this.getVariantEntriesForGroup(group)[0] ?? null;
+          this.enhancementBrowseItemId = null;
+          this.selectedItemKey = directEntry?.itemKey ?? null;
+          if (this.selectedItemKey) {
+            this.requestItemBook(this.selectedItemKey);
+          }
+          this.renderModal();
+        }));
+
+        body.querySelector<HTMLElement>('[data-market-back-to-groups]')?.addEventListener('click', () => {
+          this.enhancementBrowseItemId = null;
+          this.selectedItemKey = null;
+          this.itemBook = null;
+          this.tradeDialog = null;
+          this.buyConfirmState = null;
+          confirmModalHost.close(MarketPanel.CONFIRM_MODAL_OWNER);
+          this.renderModal();
+        });
 
         body.querySelectorAll<HTMLElement>('[data-market-open-dialog]').forEach((button) => button.addEventListener('click', () => {
           const kind = button.dataset.marketOpenDialog as MarketTradeDialogKind | undefined;
@@ -598,14 +675,20 @@ export class MarketPanel {
   }
 
   private renderMarketTab(update: S2C_MarketUpdate): string {
-    const listedItems = this.getVisibleListedItems(update);
-    if (listedItems.length === 0) {
+    const listedGroups = this.marketListings?.items ?? [];
+    if (listedGroups.length === 0) {
       return '<div class="empty-hint">当前分类下暂时没有物品。</div>';
     }
-    const pagination = this.getPaginationState(listedItems);
-    const selectedItem = pagination.items.find((item) => item.itemKey === this.selectedItemKey) ?? pagination.items[0];
-    const cards = pagination.items.map((entry) => this.renderListedItem(entry, selectedItem.itemKey)).join('');
-    const orderBook = this.itemBook && this.itemBook.itemId === selectedItem.item.itemId ? this.itemBook : null;
+    const pagination = this.getPaginationState(listedGroups);
+    const selectedGroup = pagination.items.find((item) => item.itemId === this.selectedGroupItemId) ?? pagination.items[0] ?? null;
+    const browsingEnhancementVariants = Boolean(selectedGroup?.canEnhance && this.enhancementBrowseItemId === selectedGroup.itemId);
+    const variants = selectedGroup ? this.getVariantEntriesForGroup(selectedGroup) : [];
+    const selectedVariant = variants.find((entry) => entry.itemKey === this.selectedItemKey) ?? null;
+    const cards = browsingEnhancementVariants
+      ? variants.map((entry) => this.renderVariantItem(entry, selectedGroup?.itemId ?? '', selectedVariant?.itemKey ?? '')).join('')
+      : pagination.items.map((entry) => this.renderGroupItem(entry, selectedGroup?.itemId ?? '')).join('');
+    const selectedItem = selectedVariant ? this.toListedItemView(selectedVariant) : null;
+    const orderBook = selectedItem && this.itemBook && this.itemBook.itemKey === selectedItem.itemKey ? this.itemBook : null;
     const categoryTabs = this.renderCategoryTabs(update);
     const subcategoryTabs = this.activeCategory === 'equipment'
       ? this.renderEquipmentTabs(update)
@@ -613,26 +696,32 @@ export class MarketPanel {
         ? this.renderTechniqueTabs(update)
         : '';
     const compactList = this.hasCompactCategoryLayout();
+    const listToolbar = browsingEnhancementVariants && selectedGroup
+      ? this.renderVariantToolbar(selectedGroup, variants.length)
+      : this.renderListToolbar(pagination.page, pagination.totalPages, pagination.totalItems);
     return `
       <div class="market-market-tab">
         <div class="market-category-tabs">${categoryTabs}</div>
         ${subcategoryTabs ? `<div class="market-category-tabs market-category-tabs--sub">${subcategoryTabs}</div>` : ''}
         <div class="market-board">
           <div class="market-board-list-wrap">
-            ${this.renderListToolbar(pagination.page, pagination.totalPages, pagination.totalItems)}
+            ${listToolbar}
             <div class="market-board-list ${compactList ? 'market-board-list--compact' : ''}">${cards}</div>
           </div>
           <div class="market-book-panel">
-            ${this.renderBookPanel(selectedItem, orderBook, update.currencyItemName)}
+            ${selectedItem
+              ? this.renderBookPanel(selectedItem, orderBook, update.currencyItemName)
+              : this.renderMarketBrowsePlaceholder(selectedGroup, browsingEnhancementVariants)}
           </div>
         </div>
       </div>
     `;
   }
 
-  private renderListedItem(entry: MarketListedItemView, activeItemKey: string): string {
+  private renderGroupItem(entry: MarketListingGroupEntry, activeItemId: string): string {
     const ownedCount = this.findInventoryItemCountByItemId(entry.item.itemId);
     const status = this.getItemStatusState(entry.item);
+    const zeroVariant = this.getGroupZeroVariant(entry);
     const ownedLabel = ownedCount > 0
       ? `<span class="market-item-cell-owned">${formatDisplayCountBadge(ownedCount)}</span>`
       : '';
@@ -641,11 +730,32 @@ export class MarketPanel {
       ? `<span class="market-item-cell-ribbon" aria-hidden="true"><span>${escapeHtml(status.label)}</span></span>`
       : '';
     return `
-      <button class="market-item-cell ${entry.itemKey === activeItemKey ? 'active' : ''}${statusClass}" data-market-select-item="${escapeHtmlAttr(entry.itemKey)}" type="button">
+      <button class="market-item-cell ${entry.itemId === activeItemId ? 'active' : ''}${statusClass}" data-market-select-group="${escapeHtmlAttr(entry.itemId)}" type="button">
         ${statusRibbon}
         <div class="market-item-cell-name" title="${escapeHtmlAttr(entry.item.name)}">
           <span class="market-item-cell-name-text">${escapeHtml(entry.item.name)}</span>
           ${ownedLabel}
+        </div>
+        <div class="market-item-cell-prices">
+          <span>卖 ${zeroVariant?.lowestSellPrice !== undefined ? this.formatMarketUnitPrice(zeroVariant.lowestSellPrice) : '--'} · ${formatDisplayCountBadge(zeroVariant?.sellQuantity ?? 0)}</span>
+          <span>买 ${zeroVariant?.highestBuyPrice !== undefined ? this.formatMarketUnitPrice(zeroVariant.highestBuyPrice) : '--'} · ${formatDisplayCountBadge(zeroVariant?.buyQuantity ?? 0)}</span>
+        </div>
+      </button>
+    `;
+  }
+
+  private renderVariantItem(entry: MarketListingVariantEntry, groupItemId: string, activeItemKey: string): string {
+    const ownedCount = this.findMatchingInventoryCount(entry.item);
+    return `
+      <button
+        class="market-item-cell ${entry.itemKey === activeItemKey ? 'active' : ''}"
+        data-market-select-item="${escapeHtmlAttr(entry.itemKey)}"
+        data-market-select-item-group="${escapeHtmlAttr(groupItemId)}"
+        type="button"
+      >
+        <div class="market-item-cell-name" title="${escapeHtmlAttr(entry.item.name)}">
+          <span class="market-item-cell-name-text">${escapeHtml(this.getMarketDisplayName(entry.item))}</span>
+          ${ownedCount > 0 ? `<span class="market-item-cell-owned">${formatDisplayCountBadge(ownedCount)}</span>` : ''}
         </div>
         <div class="market-item-cell-prices">
           <span>卖 ${entry.lowestSellPrice !== undefined ? this.formatMarketUnitPrice(entry.lowestSellPrice) : '--'}</span>
@@ -669,7 +779,7 @@ export class MarketPanel {
   }
 
   private renderBookPanel(entry: MarketListedItemView, book: S2C_MarketItemBook['book'] | null, currencyName: string): string {
-    const matchedInventoryCount = this.findInventoryItemCountByItemId(entry.item.itemId);
+    const matchedInventoryCount = this.findMatchingInventoryCount(entry.item);
     const sellConflict = this.findConflictingOwnOrder(entry.itemKey, 'sell');
     const buyConflict = this.findConflictingOwnOrder(entry.itemKey, 'buy');
     return `
@@ -708,6 +818,35 @@ export class MarketPanel {
           }) : this.renderBookLoading(this.itemBookLoading ? '买盘同步中……' : '当前还没有求购。')}
         </div>
       </div>
+    `;
+  }
+
+  private renderMarketBrowsePlaceholder(
+    group: MarketListingGroupEntry | null,
+    browsingEnhancementVariants: boolean,
+  ): string {
+    if (!group) {
+      return '<div class="empty-hint">请选择左侧物品。</div>';
+    }
+    if (browsingEnhancementVariants) {
+      return `
+        <div class="market-book-header">
+          <div>
+            <div class="market-item-title">${escapeHtml(group.item.name)}</div>
+            <div class="market-book-subtitle">该物品支持强化，请先从左侧选择要交易的强化等级。</div>
+          </div>
+        </div>
+        <div class="empty-hint">选定具体强化等级后，这里会显示该等级的挂售/求购盘口，并可直接购买、出售、挂售或求购。</div>
+      `;
+    }
+    return `
+      <div class="market-book-header">
+        <div>
+          <div class="market-item-title">${escapeHtml(group.item.name)}</div>
+          <div class="market-book-subtitle">${escapeHtml(getItemTypeLabel(group.item.type))} · 点击左侧物品查看具体盘面</div>
+        </div>
+      </div>
+      <div class="empty-hint">点击左侧物品后，这里会显示当前挂售、求购和快捷交易入口。</div>
     `;
   }
 
@@ -1024,12 +1163,8 @@ export class MarketPanel {
   }
 
   private getSelectedListedItem(update: S2C_MarketUpdate | null): MarketListedItemView | null {
-    const visibleItems = this.getVisibleListedItems(update);
-    if (visibleItems.length === 0) {
-      return null;
-    }
-    const pagination = this.getPaginationState(visibleItems);
-    return pagination.items.find((item) => item.itemKey === this.selectedItemKey) ?? pagination.items[0] ?? null;
+    void update;
+    return this.findListingVariantByKey(this.selectedItemKey);
   }
 
   private renderCategoryTabs(update: S2C_MarketUpdate): string {
@@ -1085,15 +1220,123 @@ export class MarketPanel {
       .join('');
   }
 
+  private getActiveListingGroup(): MarketListingGroupEntry | null {
+    const groups = this.marketListings?.items ?? [];
+    return groups.find((entry) => entry.itemId === this.selectedGroupItemId) ?? groups[0] ?? null;
+  }
+
+  private getCurrentVariantEntries(): MarketListingVariantEntry[] {
+    const activeGroup = this.getActiveListingGroup();
+    if (!activeGroup) {
+      return [];
+    }
+    return this.getVariantEntriesForGroup(activeGroup);
+  }
+
+  private getVariantEntriesForGroup(group: MarketListingGroupEntry): MarketListingVariantEntry[] {
+    const variants = new Map<string | number, MarketListingVariantEntry>();
+    group.variants.forEach((entry) => {
+      const level = Math.max(0, Math.floor(Number(entry.item.enhanceLevel) || 0));
+      const key = group.canEnhance ? level : entry.itemKey;
+      if (group.canEnhance && level > MAX_ENHANCE_LEVEL) {
+        return;
+      }
+      const current = variants.get(key);
+      if (!current) {
+        variants.set(key, {
+          ...entry,
+          item: { ...entry.item },
+        });
+        return;
+      }
+      current.lowestSellPrice = current.lowestSellPrice === undefined
+        ? entry.lowestSellPrice
+        : entry.lowestSellPrice === undefined
+          ? current.lowestSellPrice
+          : Math.min(current.lowestSellPrice, entry.lowestSellPrice);
+      current.highestBuyPrice = current.highestBuyPrice === undefined
+        ? entry.highestBuyPrice
+        : entry.highestBuyPrice === undefined
+          ? current.highestBuyPrice
+          : Math.max(current.highestBuyPrice, entry.highestBuyPrice);
+      current.sellOrderCount += entry.sellOrderCount;
+      current.sellQuantity += entry.sellQuantity;
+      current.buyOrderCount += entry.buyOrderCount;
+      current.buyQuantity += entry.buyQuantity;
+    });
+    if (!group.canEnhance) {
+      this.inventory.items
+        .filter((entry) => entry.itemId === group.itemId)
+        .forEach((entry) => {
+          const itemKey = this.normalizeItemKey(entry);
+          if (variants.has(itemKey)) {
+            return;
+          }
+          variants.set(itemKey, {
+            itemKey,
+            item: {
+              ...entry,
+              count: 1,
+            },
+            lowestSellPrice: undefined,
+            highestBuyPrice: undefined,
+            sellOrderCount: 0,
+            sellQuantity: 0,
+            buyOrderCount: 0,
+            buyQuantity: 0,
+          });
+        });
+    }
+    return [...variants.values()].sort((left, right) => {
+      const leftLevel = Math.max(0, Math.floor(Number(left.item.enhanceLevel) || 0));
+      const rightLevel = Math.max(0, Math.floor(Number(right.item.enhanceLevel) || 0));
+      if (leftLevel !== rightLevel) {
+        return leftLevel - rightLevel;
+      }
+      return left.itemKey.localeCompare(right.itemKey);
+    });
+  }
+
+  private toListedItemView(entry: MarketListingVariantEntry): MarketListedItemView {
+    return {
+      itemKey: entry.itemKey,
+      item: { ...entry.item },
+      sellOrderCount: entry.sellOrderCount,
+      sellQuantity: entry.sellQuantity,
+      lowestSellPrice: entry.lowestSellPrice,
+      buyOrderCount: entry.buyOrderCount,
+      buyQuantity: entry.buyQuantity,
+      highestBuyPrice: entry.highestBuyPrice,
+    };
+  }
+
+  private getGroupZeroVariant(group: MarketListingGroupEntry): MarketListingVariantEntry | null {
+    return this.getVariantEntriesForGroup(group)
+      .find((entry) => Math.max(0, Math.floor(Number(entry.item.enhanceLevel) || 0)) === 0) ?? null;
+  }
+
+  private findListingVariantByKey(itemKey: string | null | undefined): MarketListedItemView | null {
+    if (!itemKey) {
+      return null;
+    }
+    for (const group of this.marketListings?.items ?? []) {
+      const variant = this.getVariantEntriesForGroup(group).find((entry) => entry.itemKey === itemKey);
+      if (variant) {
+        return this.toListedItemView(variant);
+      }
+    }
+    return null;
+  }
+
   private getVisibleListedItems(update: S2C_MarketUpdate | null): MarketListedItemView[] {
     return update?.listedItems ?? [];
   }
 
-  private getPaginationState(items: MarketListedItemView[]): {
+  private getPaginationState<T>(items: T[]): {
     page: number;
     totalPages: number;
     totalItems: number;
-    items: MarketListedItemView[];
+    items: T[];
   } {
     const totalItems = this.marketListings?.total ?? items.length;
     const pageSize = this.marketListings?.pageSize ?? this.getMarketPageSize();
@@ -1141,18 +1384,22 @@ export class MarketPanel {
   }
 
   private syncPageSelection(): void {
-    const visibleItems = this.getVisibleListedItems(this.marketUpdate);
-    const pagination = this.getPaginationState(visibleItems);
+    const groups = this.marketListings?.items ?? [];
+    const pagination = this.getPaginationState(groups);
     const currentItems = pagination.items;
-    const hasSelected = currentItems.some((item) => item.itemKey === this.selectedItemKey);
-    const nextSelected = hasSelected ? this.selectedItemKey : currentItems[0]?.itemKey ?? null;
-    if (nextSelected !== this.selectedItemKey) {
-      this.selectedItemKey = nextSelected;
-      this.itemBook = null;
-      if (this.selectedItemKey && detailModalHost.isOpenFor(MarketPanel.MODAL_OWNER)) {
-        this.requestItemBook(this.selectedItemKey);
-      }
-    }
+    const hasSelectedGroup = currentItems.some((item) => item.itemId === this.selectedGroupItemId);
+    this.selectedGroupItemId = hasSelectedGroup ? this.selectedGroupItemId : currentItems[0]?.itemId ?? null;
+  }
+
+  private renderVariantToolbar(group: MarketListingGroupEntry, totalVariants: number): string {
+    return `
+      <div class="market-list-toolbar">
+        <div class="market-list-toolbar-meta">${escapeHtml(group.item.name)} · 共 ${formatDisplayInteger(totalVariants)} 个强化等级</div>
+        <div class="market-list-toolbar-actions">
+          <button class="small-btn ghost" data-market-back-to-groups type="button">返回物品列表</button>
+        </div>
+      </div>
+    `;
   }
 
   private requestListings(page: number): void {
@@ -1237,7 +1484,7 @@ export class MarketPanel {
     pendingQuantity: number;
   } {
     const book = this.itemBook;
-    if (!book || book.itemId !== entry.item.itemId) {
+    if (!book || book.itemKey !== entry.itemKey) {
       return {
         immediateQuantity: 0,
         pendingQuantity: quantity,
@@ -1265,9 +1512,7 @@ export class MarketPanel {
   private syncBuyConfirmModal(): void {
     const confirmState = this.buyConfirmState;
     const update = this.marketUpdate;
-    const entry = confirmState
-      ? update?.listedItems.find((item) => item.itemKey === confirmState.itemKey) ?? null
-      : null;
+    const entry = this.findListingVariantByKey(confirmState?.itemKey);
     if (!confirmState || !update || !entry || !detailModalHost.isOpenFor(MarketPanel.MODAL_OWNER) || this.modalTab !== 'market') {
       this.buyConfirmState = null;
       confirmModalHost.close(MarketPanel.CONFIRM_MODAL_OWNER);
@@ -1281,16 +1526,14 @@ export class MarketPanel {
       confirmLabel: '确认购买',
       onConfirm: () => {
         const latest = this.buyConfirmState;
-        const latestEntry = latest
-          ? this.marketUpdate?.listedItems.find((item) => item.itemKey === latest.itemKey) ?? null
-          : null;
+        const latestEntry = this.findListingVariantByKey(latest?.itemKey);
         if (!latest || !latestEntry) {
           this.buyConfirmState = null;
           return;
         }
         this.tradeDialog = null;
         this.syncTradeDialogOverlay();
-        this.callbacks?.onCreateBuyOrder(latestEntry.item.itemId, latest.quantity, latest.unitPrice);
+        this.callbacks?.onCreateBuyOrder(latestEntry.itemKey, latest.quantity, latest.unitPrice);
         this.buyConfirmState = null;
       },
       onClose: () => {
@@ -1400,7 +1643,7 @@ export class MarketPanel {
           this.syncBuyConfirmModal();
           return;
         }
-        this.callbacks?.onCreateBuyOrder(selected.item.itemId, quantity, unitPrice);
+        this.callbacks?.onCreateBuyOrder(selected.itemKey, quantity, unitPrice);
         this.tradeDialog = null;
         this.syncTradeDialogOverlay();
         return;
@@ -1564,13 +1807,42 @@ export class MarketPanel {
     return calculateMarketTradeTotalCost(quantity, unitPrice);
   }
 
+  private getMarketEnhanceLevel(item: ItemStack): number {
+    return item.type === 'equipment'
+      ? Math.max(0, Math.floor(Number(item.enhanceLevel) || 0))
+      : 0;
+  }
+
+  private getMarketMatchKey(item: ItemStack): string {
+    return item.type === 'equipment'
+      ? `${item.itemId}::${this.getMarketEnhanceLevel(item)}`
+      : item.itemId;
+  }
+
+  private getMarketDisplayName(item: ItemStack): string {
+    const baseName = item.name.replace(/^\+\d+\s+/, '');
+    const enhanceLevel = this.getMarketEnhanceLevel(item);
+    return enhanceLevel > 0 ? `+${formatDisplayInteger(enhanceLevel)} ${baseName}` : baseName;
+  }
+
+  private normalizeItemKey(item: ItemStack): string {
+    return createItemStackSignature({
+      ...item,
+      count: 1,
+    });
+  }
+
   private findMatchingInventorySlot(item: ItemStack): number | null {
-    const slotIndex = this.inventory.items.findIndex((entry) => entry.itemId === item.itemId);
+    const itemKey = this.getMarketMatchKey(item);
+    const slotIndex = this.inventory.items.findIndex((entry) => this.getMarketMatchKey(entry) === itemKey);
     return slotIndex >= 0 ? slotIndex : null;
   }
 
   private findMatchingInventoryCount(item: ItemStack): number {
-    return this.findInventoryItemCountByItemId(item.itemId);
+    const itemKey = this.getMarketMatchKey(item);
+    return this.inventory.items
+      .filter((entry) => this.getMarketMatchKey(entry) === itemKey)
+      .reduce((sum, entry) => sum + entry.count, 0);
   }
 
   private findInventoryItemCountByItemId(itemId: string): number {
@@ -1603,11 +1875,15 @@ export class MarketPanel {
       if (!leftItem || !rightItem) {
         return false;
       }
-      if (leftItem.itemId !== rightItem.itemId || leftItem.count !== rightItem.count) {
+      if (!this.areMarketItemsEquivalent(leftItem, rightItem)) {
         return false;
       }
     }
     return true;
+  }
+
+  private areMarketItemsEquivalent(left: ItemStack, right: ItemStack): boolean {
+    return left.count === right.count && this.normalizeItemKey(left) === this.normalizeItemKey(right);
   }
 
   private areMarketListingsEqual(left: S2C_MarketListings | null, right: S2C_MarketListings): boolean {
@@ -1632,10 +1908,29 @@ export class MarketPanel {
       const rightItem = right.items[index];
       if (
         leftItem.itemId !== rightItem.itemId
+        || !this.areMarketItemsEquivalent(leftItem.item, rightItem.item)
         || leftItem.lowestSellPrice !== rightItem.lowestSellPrice
         || leftItem.highestBuyPrice !== rightItem.highestBuyPrice
+        || leftItem.canEnhance !== rightItem.canEnhance
+        || leftItem.variants.length !== rightItem.variants.length
       ) {
         return false;
+      }
+      for (let variantIndex = 0; variantIndex < leftItem.variants.length; variantIndex += 1) {
+        const leftVariant = leftItem.variants[variantIndex];
+        const rightVariant = rightItem.variants[variantIndex];
+        if (
+          leftVariant.itemKey !== rightVariant.itemKey
+          || !this.areMarketItemsEquivalent(leftVariant.item, rightVariant.item)
+          || leftVariant.lowestSellPrice !== rightVariant.lowestSellPrice
+          || leftVariant.highestBuyPrice !== rightVariant.highestBuyPrice
+          || leftVariant.sellOrderCount !== rightVariant.sellOrderCount
+          || leftVariant.sellQuantity !== rightVariant.sellQuantity
+          || leftVariant.buyOrderCount !== rightVariant.buyOrderCount
+          || leftVariant.buyQuantity !== rightVariant.buyQuantity
+        ) {
+          return false;
+        }
       }
     }
     return true;
@@ -1659,7 +1954,8 @@ export class MarketPanel {
         leftOrder.id !== rightOrder.id
         || leftOrder.side !== rightOrder.side
         || leftOrder.status !== rightOrder.status
-        || leftOrder.itemId !== rightOrder.itemId
+        || leftOrder.itemKey !== rightOrder.itemKey
+        || !this.areMarketItemsEquivalent(leftOrder.item, rightOrder.item)
         || leftOrder.remainingQuantity !== rightOrder.remainingQuantity
         || leftOrder.unitPrice !== rightOrder.unitPrice
         || leftOrder.createdAt !== rightOrder.createdAt
@@ -1677,7 +1973,11 @@ export class MarketPanel {
     for (let index = 0; index < left.items.length; index += 1) {
       const leftItem = left.items[index];
       const rightItem = right.items[index];
-      if (leftItem.itemId !== rightItem.itemId || leftItem.count !== rightItem.count) {
+      if (
+        leftItem.itemKey !== rightItem.itemKey
+        || !this.areMarketItemsEquivalent(leftItem.item, rightItem.item)
+        || leftItem.count !== rightItem.count
+      ) {
         return false;
       }
     }
@@ -1691,7 +1991,7 @@ export class MarketPanel {
     if (left === right) {
       return true;
     }
-    if (!left || !right || left.itemId !== right.itemId) {
+    if (!left || !right || left.itemKey !== right.itemKey || !this.areMarketItemsEquivalent(left.item, right.item)) {
       return false;
     }
     return this.arePriceLevelsEqual(left.sells, right.sells) && this.arePriceLevelsEqual(left.buys, right.buys);

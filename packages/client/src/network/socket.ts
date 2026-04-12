@@ -407,8 +407,8 @@ export class SocketManager {
   }
 
 /** sendRequestMarketItemBook：处理当前场景中的对应操作。 */
-  sendRequestMarketItemBook(itemId: string) {
-    this.emitServer(C2S.RequestMarketItemBook, { itemId } satisfies C2S_RequestMarketItemBook);
+  sendRequestMarketItemBook(itemKey: string) {
+    this.emitServer(C2S.RequestMarketItemBook, { itemKey } satisfies C2S_RequestMarketItemBook);
   }
 
 /** sendRequestMarketTradeHistory：处理当前场景中的对应操作。 */
@@ -432,8 +432,8 @@ export class SocketManager {
   }
 
 /** sendCreateMarketBuyOrder：处理当前场景中的对应操作。 */
-  sendCreateMarketBuyOrder(itemId: string, quantity: number, unitPrice: number) {
-    this.emitServer(C2S.CreateMarketBuyOrder, { itemId, quantity, unitPrice } satisfies C2S_CreateMarketBuyOrder);
+  sendCreateMarketBuyOrder(itemKey: string, quantity: number, unitPrice: number) {
+    this.emitServer(C2S.CreateMarketBuyOrder, { itemKey, quantity, unitPrice } satisfies C2S_CreateMarketBuyOrder);
   }
 
 /** sendBuyMarketItem：处理当前场景中的对应操作。 */
@@ -607,4 +607,3 @@ export class SocketManager {
     return this.socket?.connected ?? false;
   }
 }
-

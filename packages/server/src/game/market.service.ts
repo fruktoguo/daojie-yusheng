@@ -10,6 +10,7 @@ import {
   getMarketMinimumTradeQuantity,
   ItemStack,
   ItemType,
+  MAX_ENHANCE_LEVEL,
   MarketListedItemView,
   MarketOrderBookView,
   MarketOrderSide,
@@ -149,7 +150,7 @@ export class MarketService implements OnModuleInit {
     const equipmentSlot = input.equipmentSlot ?? 'all';
     const techniqueCategory = input.techniqueCategory ?? 'all';
     const pageSize = this.normalizeListingsPageSize(input.pageSize);
-    const filtered = this.filterListedItems(this.buildListedItems(), {
+    const filtered = this.filterMarketItems(this.buildListingGroups(), {
       category,
       equipmentSlot,
       techniqueCategory,
@@ -169,11 +170,7 @@ export class MarketService implements OnModuleInit {
       techniqueCategory,
       items: filtered
         .slice(start, start + pageSize)
-        .map((entry) => ({
-          itemId: entry.item.itemId,
-          lowestSellPrice: entry.lowestSellPrice,
-          highestBuyPrice: entry.highestBuyPrice,
-        })),
+        .map((entry) => ({ ...entry })),
     };
   }
 
@@ -185,7 +182,8 @@ export class MarketService implements OnModuleInit {
         id: order.id,
         side: order.side,
         status: order.status,
-        itemId: order.item.itemId,
+        itemKey: order.itemKey,
+        item: { ...order.item },
         remainingQuantity: order.remainingQuantity,
         unitPrice: order.unitPrice,
         createdAt: order.createdAt,
@@ -194,17 +192,28 @@ export class MarketService implements OnModuleInit {
   }
 
   buildStorageUpdate(player: PlayerState): S2C_MarketStorage {
-    const grouped = new Map<string, number>();
+    const grouped = new Map<string, { item: ItemStack; count: number }>();
     for (const item of player.marketStorage?.items ?? []) {
       if (!item?.itemId || !Number.isFinite(item.count) || item.count <= 0) {
         continue;
       }
-      grouped.set(item.itemId, (grouped.get(item.itemId) ?? 0) + item.count);
+      const normalized = this.toOrderItem(item);
+      const itemKey = this.buildItemKey(normalized);
+      const current = grouped.get(itemKey) ?? {
+        item: normalized,
+        count: 0,
+      };
+      current.count += item.count;
+      grouped.set(itemKey, current);
     }
     return {
       items: [...grouped.entries()]
-        .map(([itemId, count]) => ({ itemId, count }))
-        .sort((left, right) => left.itemId.localeCompare(right.itemId, 'zh-Hans-CN')),
+        .map(([itemKey, entry]) => ({
+          itemKey,
+          item: { ...entry.item },
+          count: entry.count,
+        }))
+        .sort((left, right) => left.item.name.localeCompare(right.item.name, 'zh-Hans-CN') || left.itemKey.localeCompare(right.itemKey)),
     };
   }
 
@@ -218,21 +227,22 @@ export class MarketService implements OnModuleInit {
     };
   }
 
-  buildItemBook(itemId: string): { itemId: string; sells: MarketPriceLevelView[]; buys: MarketPriceLevelView[] } | null {
+  buildItemBook(itemKey: string): { itemKey: string; item: ItemStack; sells: MarketPriceLevelView[]; buys: MarketPriceLevelView[] } | null {
     const orders = this.openOrders.filter((order) => {
       const orderItem = this.cloneOrderItem(order);
       return order.remainingQuantity > 0
-        && this.canTradeItemOnMarket(orderItem)
+        && this.isSupportedMarketItem(orderItem)
         && this.isOrderItemDefined(orderItem)
-        && orderItem.itemId === itemId;
+        && this.buildItemKey(orderItem) === itemKey;
     });
     if (orders.length === 0) {
       return null;
     }
     return {
-      itemId,
-      sells: this.buildPriceLevelsByItemId(itemId, 'sell'),
-      buys: this.buildPriceLevelsByItemId(itemId, 'buy'),
+      itemKey,
+      item: this.cloneOrderItem(orders[0]),
+      sells: this.buildPriceLevels(itemKey, 'sell'),
+      buys: this.buildPriceLevels(itemKey, 'buy'),
     };
   }
 
@@ -305,6 +315,9 @@ export class MarketService implements OnModuleInit {
     if (!this.canTradeItemOnMarket(item)) {
       return this.singleMessage(player.id, `${this.getCurrencyItemName()}是坊市货币，不能挂售。`);
     }
+    if (!this.isSupportedMarketItem(this.toOrderItem(item))) {
+      return this.singleMessage(player.id, `该物品强化等级超过坊市支持上限 +${MAX_ENHANCE_LEVEL}，无法挂售。`);
+    }
     const orderItem = this.toOrderItem(item);
     const itemKey = this.buildItemKey(orderItem);
     if (this.hasConflictingOpenOrder(player.id, itemKey, 'sell')) {
@@ -374,7 +387,7 @@ export class MarketService implements OnModuleInit {
     return result;
   }
 
-  async createBuyOrder(player: PlayerState, payload: { itemId: string; quantity: number; unitPrice: number }): Promise<MarketActionResult> {
+  async createBuyOrder(player: PlayerState, payload: { itemKey: string; quantity: number; unitPrice: number }): Promise<MarketActionResult> {
     return this.runExclusiveMarketMutation(player.id, async (context) => {
       this.captureOnlinePlayerState(player.id, context);
       return this.createBuyOrderUnsafe(player, payload, context);
@@ -383,15 +396,18 @@ export class MarketService implements OnModuleInit {
 
   private async createBuyOrderUnsafe(
     player: PlayerState,
-    payload: { itemId: string; quantity: number; unitPrice: number },
+    payload: { itemKey: string; quantity: number; unitPrice: number },
     context: MarketMutationContext,
   ): Promise<MarketActionResult> {
-    const item = this.contentService.createItem(payload.itemId, 1);
+    const item = this.resolveBuyOrderItem(player, payload.itemKey);
     if (!item) {
       return this.singleMessage(player.id, '求购的物品不存在。');
     }
     if (!this.canTradeItemOnMarket(item)) {
       return this.singleMessage(player.id, `${this.getCurrencyItemName()}是坊市货币，不能求购。`);
+    }
+    if (!this.isSupportedMarketItem(this.toOrderItem(item))) {
+      return this.singleMessage(player.id, `该物品强化等级超过坊市支持上限 +${MAX_ENHANCE_LEVEL}，无法求购。`);
     }
     const quantity = this.normalizeQuantity(payload.quantity);
     const unitPrice = this.normalizeUnitPrice(payload.unitPrice);
@@ -569,6 +585,9 @@ export class MarketService implements OnModuleInit {
       return this.singleMessage(player.id, `${this.getCurrencyItemName()}是坊市货币，不能出售给求购盘。`);
     }
     const orderItem = this.toOrderItem(item);
+    if (!this.isSupportedMarketItem(orderItem)) {
+      return this.singleMessage(player.id, `该物品强化等级超过坊市支持上限 +${MAX_ENHANCE_LEVEL}，无法出售给求购盘。`);
+    }
     const buys = this.getSortedOrders(this.buildItemKey(orderItem), 'buy')
       .filter((order) => order.ownerId !== player.id);
     if (buys.length === 0) {
@@ -709,7 +728,7 @@ export class MarketService implements OnModuleInit {
 
     for (const catalogItem of this.contentService.getEditorItemCatalog()) {
       const item = this.contentService.createItem(catalogItem.itemId, 1);
-      if (!item || !this.canTradeItemOnMarket(item)) {
+      if (!item || !this.isSupportedMarketItem(item)) {
         continue;
       }
       grouped.set(this.buildItemKey(item), {
@@ -726,7 +745,7 @@ export class MarketService implements OnModuleInit {
         continue;
       }
       const item = this.cloneOrderItem(order);
-      if (!this.canTradeItemOnMarket(item) || !this.isOrderItemDefined(item)) {
+      if (!this.isSupportedMarketItem(item) || !this.isOrderItemDefined(item)) {
         continue;
       }
       const itemKey = this.buildItemKey(item);
@@ -784,13 +803,96 @@ export class MarketService implements OnModuleInit {
       });
   }
 
+  private buildListingGroups(): S2C_MarketListings['items'] {
+    const grouped = new Map<string, S2C_MarketListings['items'][number]>();
+    for (const entry of this.buildListedItems()) {
+      const canEnhance = this.canGroupEnhancementVariants(entry.item);
+      const groupKey = canEnhance ? entry.item.itemId : entry.itemKey;
+      const current = grouped.get(groupKey) ?? {
+        itemId: entry.item.itemId,
+        item: canEnhance
+          ? this.createDisplayItemForListingGroup(entry.item.itemId, entry.item)
+          : { ...entry.item },
+        lowestSellPrice: undefined,
+        highestBuyPrice: undefined,
+        canEnhance,
+        variants: [],
+      };
+      current.lowestSellPrice = current.lowestSellPrice === undefined
+        ? entry.lowestSellPrice
+        : entry.lowestSellPrice === undefined
+          ? current.lowestSellPrice
+          : Math.min(current.lowestSellPrice, entry.lowestSellPrice);
+      current.highestBuyPrice = current.highestBuyPrice === undefined
+        ? entry.highestBuyPrice
+        : entry.highestBuyPrice === undefined
+          ? current.highestBuyPrice
+          : Math.max(current.highestBuyPrice, entry.highestBuyPrice);
+      current.variants.push({
+        itemKey: entry.itemKey,
+        item: { ...entry.item },
+        lowestSellPrice: entry.lowestSellPrice,
+        highestBuyPrice: entry.highestBuyPrice,
+        sellOrderCount: entry.sellOrderCount,
+        sellQuantity: entry.sellQuantity,
+        buyOrderCount: entry.buyOrderCount,
+        buyQuantity: entry.buyQuantity,
+      });
+      grouped.set(groupKey, current);
+    }
+    return [...grouped.values()]
+      .map((entry) => {
+        const variants = entry.canEnhance
+          ? this.fillEnhancementListingVariants(entry.itemId, entry.variants)
+          : [...entry.variants];
+        const zeroVariant = variants.find((variant) => Math.max(0, Math.floor(Number(variant.item.enhanceLevel) || 0)) === 0) ?? null;
+        return {
+          ...entry,
+          item: zeroVariant?.item ? { ...zeroVariant.item } : { ...entry.item },
+          lowestSellPrice: zeroVariant?.lowestSellPrice,
+          highestBuyPrice: zeroVariant?.highestBuyPrice,
+          variants: variants.sort((left, right) => {
+          const leftEnhanceLevel = Math.max(0, Math.floor(Number(left.item.enhanceLevel) || 0));
+          const rightEnhanceLevel = Math.max(0, Math.floor(Number(right.item.enhanceLevel) || 0));
+          if (leftEnhanceLevel !== rightEnhanceLevel) {
+            return leftEnhanceLevel - rightEnhanceLevel;
+          }
+          const leftPrice = left.lowestSellPrice ?? Number.MAX_SAFE_INTEGER;
+          const rightPrice = right.lowestSellPrice ?? Number.MAX_SAFE_INTEGER;
+          if (leftPrice !== rightPrice) {
+            return leftPrice - rightPrice;
+          }
+          return left.itemKey.localeCompare(right.itemKey);
+        }),
+        };
+      })
+      .sort((left, right) => {
+        const leftLevel = this.contentService.getItemSortLevel(left.item);
+        const rightLevel = this.contentService.getItemSortLevel(right.item);
+        if (leftLevel !== rightLevel) {
+          return leftLevel - rightLevel;
+        }
+        const leftHasSell = left.variants.some((variant) => variant.sellQuantity > 0) ? 1 : 0;
+        const rightHasSell = right.variants.some((variant) => variant.sellQuantity > 0) ? 1 : 0;
+        if (leftHasSell !== rightHasSell) {
+          return rightHasSell - leftHasSell;
+        }
+        const leftPrice = left.lowestSellPrice ?? Number.MAX_SAFE_INTEGER;
+        const rightPrice = right.lowestSellPrice ?? Number.MAX_SAFE_INTEGER;
+        if (leftPrice !== rightPrice) {
+          return leftPrice - rightPrice;
+        }
+        return left.item.name.localeCompare(right.item.name, 'zh-Hans-CN');
+      });
+  }
+
   private buildOwnOrders(playerId: string): MarketOwnOrderView[] {
     return this.openOrders
       .filter((order) => {
         const orderItem = this.cloneOrderItem(order);
         return order.ownerId === playerId
           && order.remainingQuantity > 0
-          && this.canTradeItemOnMarket(orderItem)
+          && this.isSupportedMarketItem(orderItem)
           && this.isOrderItemDefined(orderItem);
       })
       .sort((left, right) => right.createdAt - left.createdAt || left.id.localeCompare(right.id))
@@ -814,7 +916,7 @@ export class MarketService implements OnModuleInit {
         this.buildItemKey(orderItem) !== itemKey
         || order.side !== side
         || order.remainingQuantity <= 0
-        || !this.canTradeItemOnMarket(orderItem)
+        || !this.isSupportedMarketItem(orderItem)
         || !this.isOrderItemDefined(orderItem)
       ) {
         continue;
@@ -835,43 +937,14 @@ export class MarketService implements OnModuleInit {
     return levels;
   }
 
-  private buildPriceLevelsByItemId(itemId: string, side: MarketOrderSide): MarketPriceLevelView[] {
-    const grouped = new Map<number, { quantity: number; orderCount: number }>();
-    for (const order of this.openOrders) {
-      const orderItem = this.cloneOrderItem(order);
-      if (
-        orderItem.itemId !== itemId
-        || order.side !== side
-        || order.remainingQuantity <= 0
-        || !this.canTradeItemOnMarket(orderItem)
-        || !this.isOrderItemDefined(orderItem)
-      ) {
-        continue;
-      }
-      const current = grouped.get(order.unitPrice) ?? { quantity: 0, orderCount: 0 };
-      current.quantity += order.remainingQuantity;
-      current.orderCount += 1;
-      grouped.set(order.unitPrice, current);
-    }
-    const levels = [...grouped.entries()].map(([unitPrice, entry]) => ({
-      unitPrice,
-      quantity: entry.quantity,
-      orderCount: entry.orderCount,
-    }));
-    levels.sort((left, right) => side === 'sell'
-      ? left.unitPrice - right.unitPrice
-      : right.unitPrice - left.unitPrice);
-    return levels;
-  }
-
-  private filterListedItems(
-    items: MarketListedItemView[],
+  private filterMarketItems<T extends { item: ItemStack }>(
+    items: T[],
     filter: {
       category: ItemType | 'all';
       equipmentSlot: EquipSlot | 'all';
       techniqueCategory: TechniqueCategory | 'all';
     },
-  ): MarketListedItemView[] {
+  ): T[] {
     return items.filter((item) => {
       if (filter.category !== 'all' && item.item.type !== filter.category) {
         return false;
@@ -918,7 +991,7 @@ export class MarketService implements OnModuleInit {
           return false;
         }
         const orderItem = this.cloneOrderItem(order);
-        return this.canTradeItemOnMarket(orderItem)
+        return this.isSupportedMarketItem(orderItem)
           && this.isOrderItemDefined(orderItem)
           && this.getOrderItemKey(order) === itemKey;
       })
@@ -941,7 +1014,7 @@ export class MarketService implements OnModuleInit {
       && order.side === oppositeSide
       && order.remainingQuantity > 0
       && order.status === 'open'
-      && this.canTradeItemOnMarket(this.cloneOrderItem(order))
+      && this.isSupportedMarketItem(this.cloneOrderItem(order))
       && this.isOrderItemDefined(this.cloneOrderItem(order)));
   }
 
@@ -1020,9 +1093,103 @@ export class MarketService implements OnModuleInit {
   }
 
   private buildItemKey(item: ItemStack): string {
+    const enhanceLevel = this.getSupportedMarketEnhanceLevel(item);
+    if (this.canGroupEnhancementVariants(item) && enhanceLevel !== null) {
+      return createItemStackSignature(this.createEnhancementVariantItem(item.itemId, enhanceLevel));
+    }
     return createItemStackSignature({
       ...item,
       count: 1,
+    });
+  }
+
+  private createDisplayItemForListingGroup(itemId: string, fallback: ItemStack): ItemStack {
+    const template = this.contentService.createItem(itemId, 1);
+    if (template) {
+      return this.toOrderItem(template);
+    }
+    return this.toOrderItem({
+      ...fallback,
+      count: 1,
+      enhanceLevel: 0,
+    });
+  }
+
+  private canGroupEnhancementVariants(item: ItemStack): boolean {
+    return item.type === 'equipment';
+  }
+
+  private fillEnhancementListingVariants(
+    itemId: string,
+    variants: S2C_MarketListings['items'][number]['variants'],
+  ): S2C_MarketListings['items'][number]['variants'] {
+    const byLevel = new Map<number, S2C_MarketListings['items'][number]['variants'][number]>();
+    variants.forEach((variant) => {
+      const level = this.getSupportedMarketEnhanceLevel(variant.item);
+      if (level === null) {
+        return;
+      }
+      const item = this.createEnhancementVariantItem(itemId, level);
+      const current = byLevel.get(level) ?? {
+        itemKey: this.buildItemKey(item),
+        item,
+        lowestSellPrice: undefined,
+        highestBuyPrice: undefined,
+        sellOrderCount: 0,
+        sellQuantity: 0,
+        buyOrderCount: 0,
+        buyQuantity: 0,
+      };
+      current.lowestSellPrice = current.lowestSellPrice === undefined
+        ? variant.lowestSellPrice
+        : variant.lowestSellPrice === undefined
+          ? current.lowestSellPrice
+          : Math.min(current.lowestSellPrice, variant.lowestSellPrice);
+      current.highestBuyPrice = current.highestBuyPrice === undefined
+        ? variant.highestBuyPrice
+        : variant.highestBuyPrice === undefined
+          ? current.highestBuyPrice
+          : Math.max(current.highestBuyPrice, variant.highestBuyPrice);
+      current.sellOrderCount += variant.sellOrderCount;
+      current.sellQuantity += variant.sellQuantity;
+      current.buyOrderCount += variant.buyOrderCount;
+      current.buyQuantity += variant.buyQuantity;
+      byLevel.set(level, current);
+    });
+    for (let level = 0; level <= MAX_ENHANCE_LEVEL; level += 1) {
+      if (byLevel.has(level)) {
+        continue;
+      }
+      const item = this.createEnhancementVariantItem(itemId, level);
+      byLevel.set(level, {
+        itemKey: this.buildItemKey(item),
+        item,
+        lowestSellPrice: undefined,
+        highestBuyPrice: undefined,
+        sellOrderCount: 0,
+        sellQuantity: 0,
+        buyOrderCount: 0,
+        buyQuantity: 0,
+      });
+    }
+    return [...byLevel.entries()]
+      .sort((left, right) => left[0] - right[0])
+      .map(([, entry]) => entry);
+  }
+
+  private createEnhancementVariantItem(itemId: string, enhanceLevel: number): ItemStack {
+    const template = this.contentService.createItem(itemId, 1);
+    const base = template ?? {
+      itemId,
+      count: 1,
+      name: itemId,
+      type: 'equipment' as const,
+      desc: '',
+    };
+    return this.toOrderItem({
+      ...base,
+      count: 1,
+      enhanceLevel,
     });
   }
 
@@ -1054,6 +1221,56 @@ export class MarketService implements OnModuleInit {
 
   private canTradeItemOnMarket(item: Pick<ItemStack, 'itemId'>): boolean {
     return item.itemId !== MARKET_CURRENCY_ITEM_ID;
+  }
+
+  private getSupportedMarketEnhanceLevel(item: ItemStack): number | null {
+    if (!this.canGroupEnhancementVariants(item)) {
+      return 0;
+    }
+    const level = Math.max(0, Math.floor(Number(item.enhanceLevel) || 0));
+    return level <= MAX_ENHANCE_LEVEL ? level : null;
+  }
+
+  private isSupportedMarketItem(item: ItemStack): boolean {
+    return this.canTradeItemOnMarket(item)
+      && (!this.canGroupEnhancementVariants(item) || this.getSupportedMarketEnhanceLevel(item) !== null);
+  }
+
+  private resolveBuyOrderItem(player: PlayerState, itemKey: string): ItemStack | null {
+    const listed = this.buildListedItems().find((entry) => entry.itemKey === itemKey)?.item;
+    if (listed) {
+      return { ...listed };
+    }
+    const inventoryItem = player.inventory.items.find((entry) => this.buildItemKey(this.toOrderItem(entry)) === itemKey);
+    if (inventoryItem) {
+      return this.toOrderItem(inventoryItem);
+    }
+    const parsed = this.parseItemKey(itemKey);
+    if (parsed) {
+      return parsed;
+    }
+    return null;
+  }
+
+  private parseItemKey(itemKey: string): ItemStack | null {
+    try {
+      const candidate = JSON.parse(itemKey) as Partial<ItemStack>;
+      const itemId = typeof candidate.itemId === 'string' ? candidate.itemId.trim() : '';
+      if (!itemId) {
+        return null;
+      }
+      const template = this.contentService.createItem(itemId, 1);
+      if (!template) {
+        return null;
+      }
+      return this.toOrderItem({
+        ...template,
+        ...candidate,
+        count: 1,
+      });
+    } catch {
+      return null;
+    }
   }
 
   private isOrderItemDefined(item: Pick<ItemStack, 'itemId'>): boolean {
@@ -1319,7 +1536,7 @@ export class MarketService implements OnModuleInit {
         await this.removeDeletedItemOrder(order, orderItem, context, result);
         continue;
       }
-      if (!this.canTradeItemOnMarket(orderItem)
+      if (!this.isSupportedMarketItem(orderItem)
         || !validUnitPrice
         || !isValidMarketTradeQuantity(validUnitPrice, order.remainingQuantity)) {
         await this.refundInvalidOrder(order, orderItem, context, result);
