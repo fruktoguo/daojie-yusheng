@@ -12,9 +12,29 @@ import { ATTR_KEYS } from './constants/gameplay/attributes';
 export const DEFAULT_ENHANCE_LEVEL = 0;
 export const MAX_ENHANCE_LEVEL = 20;
 export const ENHANCEMENT_RATE_PER_LEVEL = 0.1;
-export const ENHANCEMENT_BASE_SUCCESS_RATE = 0.5;
-export const ENHANCEMENT_SUCCESS_RATE_STEP = 0.05;
-export const ENHANCEMENT_SUCCESS_RATE_REDUCTION_EVERY = 2;
+export const ENHANCEMENT_TARGET_SUCCESS_RATE_BY_LEVEL = [
+  0.5,
+  0.45,
+  0.45,
+  0.4,
+  0.4,
+  0.4,
+  0.35,
+  0.35,
+  0.35,
+  0.35,
+  0.3,
+  0.3,
+  0.3,
+  0.3,
+  0.3,
+  0.3,
+  0.3,
+  0.3,
+  0.3,
+  0.3,
+  0.3,
+] as const;
 export const ENHANCEMENT_BASE_JOB_TICKS = 5;
 export const ENHANCEMENT_JOB_TICKS_PER_ITEM_LEVEL = 1;
 export const ENHANCEMENT_EXTRA_SPEED_RATE_PER_LEVEL = 0.02;
@@ -34,8 +54,8 @@ export function normalizeEnhanceLevel(value: unknown): number {
 /** getEnhancementTargetSuccessRate：执行对应的业务逻辑。 */
 export function getEnhancementTargetSuccessRate(targetEnhanceLevel: number): number {
   const level = Math.max(1, Math.floor(Number(targetEnhanceLevel) || 1));
-  const reductionSteps = Math.floor((level - 1) / ENHANCEMENT_SUCCESS_RATE_REDUCTION_EVERY);
-  return Math.max(0, ENHANCEMENT_BASE_SUCCESS_RATE - reductionSteps * ENHANCEMENT_SUCCESS_RATE_STEP);
+  const index = Math.min(level, ENHANCEMENT_TARGET_SUCCESS_RATE_BY_LEVEL.length) - 1;
+  return Math.max(0, ENHANCEMENT_TARGET_SUCCESS_RATE_BY_LEVEL[index] ?? 0);
 }
 
 /** getEnhancementSpiritStoneCost：执行对应的业务逻辑。 */
