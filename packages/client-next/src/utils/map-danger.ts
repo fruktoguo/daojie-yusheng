@@ -1,12 +1,14 @@
 import type { PlayerState } from '@mud/shared-next';
 import { LOCAL_EDITOR_CATALOG } from '../constants/world/editor-catalog';
 
+/** RealmLevelRange：定义该类型的结构与数据语义。 */
 type RealmLevelRange = {
   minLevel: number;
   maxLevel: number;
   displayLabel: string;
 };
 
+/** MapDangerAssessment：定义该接口的能力与字段约束。 */
 export interface MapDangerAssessment {
   recommendedRealmLabel: string;
   dangerLabel: string;
@@ -15,10 +17,12 @@ export interface MapDangerAssessment {
 
 const realmRangeByAlias = new Map<string, RealmLevelRange>();
 
+/** normalizeRealmToken：执行对应的业务逻辑。 */
 function normalizeRealmToken(value: string): string {
   return value.trim().replace(/\s+/g, '');
 }
 
+/** registerRealmAlias：执行对应的业务逻辑。 */
 function registerRealmAlias(alias: string, range: RealmLevelRange): void {
   const normalized = normalizeRealmToken(alias);
   if (!normalized) {
@@ -27,6 +31,7 @@ function registerRealmAlias(alias: string, range: RealmLevelRange): void {
   realmRangeByAlias.set(normalized, range);
 }
 
+/** buildRealmAliasIndex：执行对应的业务逻辑。 */
 function buildRealmAliasIndex(): void {
   const groupedByName = new Map<string, { minLevel: number; maxLevel: number }>();
   for (const entry of LOCAL_EDITOR_CATALOG.realmLevels) {
@@ -66,23 +71,34 @@ function buildRealmAliasIndex(): void {
     }
   }
 
+/** registerRealmAlias：处理当前场景中的对应操作。 */
   registerRealmAlias('Entry', { minLevel: 1, maxLevel: 3, displayLabel: '凡胎-锻骨' });
+/** registerRealmAlias：处理当前场景中的对应操作。 */
   registerRealmAlias('Minor', { minLevel: 4, maxLevel: 7, displayLabel: '易筋-通脉' });
+/** registerRealmAlias：处理当前场景中的对应操作。 */
   registerRealmAlias('Major', { minLevel: 8, maxLevel: 12, displayLabel: '瑶光-天玑' });
+/** registerRealmAlias：处理当前场景中的对应操作。 */
   registerRealmAlias('Perfection', { minLevel: 13, maxLevel: 18, displayLabel: '天璇-叩仙门' });
+/** registerRealmAlias：处理当前场景中的对应操作。 */
   registerRealmAlias('锻体', { minLevel: 1, maxLevel: 3, displayLabel: '凡胎-锻骨' });
+/** registerRealmAlias：处理当前场景中的对应操作。 */
   registerRealmAlias('后天', { minLevel: 4, maxLevel: 7, displayLabel: '易筋-通脉' });
+/** registerRealmAlias：处理当前场景中的对应操作。 */
   registerRealmAlias('先天', { minLevel: 8, maxLevel: 18, displayLabel: '瑶光-叩仙门' });
+/** registerRealmAlias：处理当前场景中的对应操作。 */
   registerRealmAlias('练气前夜', { minLevel: 18, maxLevel: 18, displayLabel: '叩仙门' });
+/** registerRealmAlias：处理当前场景中的对应操作。 */
   registerRealmAlias('练气启蒙', { minLevel: 19, maxLevel: 19, displayLabel: '练气一层' });
 }
 
 buildRealmAliasIndex();
 
+/** resolveSingleRealmRange：执行对应的业务逻辑。 */
 function resolveSingleRealmRange(raw: string): RealmLevelRange | null {
   return realmRangeByAlias.get(normalizeRealmToken(raw)) ?? null;
 }
 
+/** resolveRealmRange：执行对应的业务逻辑。 */
 function resolveRealmRange(raw: string): RealmLevelRange | null {
   const normalized = normalizeRealmToken(raw);
   if (!normalized) {
@@ -113,6 +129,7 @@ function resolveRealmRange(raw: string): RealmLevelRange | null {
   };
 }
 
+/** resolveRecommendedRealmRange：执行对应的业务逻辑。 */
 function resolveRecommendedRealmRange(
   recommendedRealm: string | undefined,
   fallbackRecommendedRealm: string | undefined,
@@ -132,11 +149,13 @@ function resolveRecommendedRealmRange(
   return null;
 }
 
+/** resolvePlayerRealmLevel：执行对应的业务逻辑。 */
 function resolvePlayerRealmLevel(player: PlayerState): number {
   const realmLevel = player.realm?.realmLv ?? player.realmLv;
   return Number.isFinite(realmLevel) ? Math.max(1, Math.floor(Number(realmLevel))) : 1;
 }
 
+/** describeHarderDanger：执行对应的业务逻辑。 */
 function describeHarderDanger(gap: number): { label: string; tone: number } {
   if (gap <= 1) {
     return { label: '高你一境，稍有风浪', tone: 3 };
@@ -153,6 +172,7 @@ function describeHarderDanger(gap: number): { label: string; tone: number } {
   return { label: `高你${gap}境，十面埋伏`, tone: 5 };
 }
 
+/** describeEasierDanger：执行对应的业务逻辑。 */
 function describeEasierDanger(gap: number): { label: string; tone: number } {
   if (gap <= 1) {
     return { label: '尚可从容', tone: 2 };
@@ -169,6 +189,7 @@ function describeEasierDanger(gap: number): { label: string; tone: number } {
   return { label: '如履平地', tone: 1 };
 }
 
+/** assessMapDanger：执行对应的业务逻辑。 */
 export function assessMapDanger(
   player: PlayerState,
   recommendedRealm: string | undefined,
@@ -213,3 +234,7 @@ export function assessMapDanger(
     dangerTone: 3,
   };
 }
+
+
+
+

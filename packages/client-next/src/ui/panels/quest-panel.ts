@@ -17,6 +17,7 @@ import {
   STATUS_PRIORITY,
 } from '../../constants/ui/quest-panel';
 
+/** escapeHtml：执行对应的业务逻辑。 */
 function escapeHtml(value: string): string {
   return value
     .replaceAll('&', '&amp;')
@@ -26,6 +27,7 @@ function escapeHtml(value: string): string {
     .replaceAll("'", '&#39;');
 }
 
+/** isSameQuestIdSequence：执行对应的业务逻辑。 */
 function isSameQuestIdSequence(previous: string[] | null, next: string[]): boolean {
   if (!previous || previous.length !== next.length) {
     return false;
@@ -52,6 +54,7 @@ export class QuestPanel {
   private inventory: Inventory | null = null;
   private onNavigateQuest: ((questId: string) => void) | null = null;
 
+/** constructor：处理当前场景中的对应操作。 */
   constructor() {
     this.bindPaneEvents();
     bindInlineItemTooltips(this.pane);
@@ -726,3 +729,4 @@ export class QuestPanel {
     `;
   }
 }
+

@@ -1,5 +1,6 @@
 import type { MonsterTier } from '@mud/shared';
 
+/** MonsterPresentation：定义该接口的能力与字段约束。 */
 export interface MonsterPresentation {
   label: string;
   badgeText?: string;
@@ -7,6 +8,7 @@ export interface MonsterPresentation {
   scale: number;
 }
 
+/** sanitizeMonsterName：执行对应的业务逻辑。 */
 export function sanitizeMonsterName(name: string | undefined, tier: MonsterTier | undefined): string {
   const fallback = name?.trim() || '未知妖兽';
   if (tier !== 'variant') {
@@ -16,6 +18,7 @@ export function sanitizeMonsterName(name: string | undefined, tier: MonsterTier 
   return sanitized.length > 0 ? sanitized : fallback;
 }
 
+/** getMonsterPresentation：执行对应的业务逻辑。 */
 export function getMonsterPresentation(
   name: string | undefined,
   tier: MonsterTier | undefined,
@@ -42,3 +45,4 @@ export function getMonsterPresentation(
     scale: 1,
   };
 }
+

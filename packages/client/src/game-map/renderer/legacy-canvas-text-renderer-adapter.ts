@@ -8,6 +8,7 @@ import type { TopdownProjection } from '../projection/topdown-projection';
 import type { MapEntityTransition, MapSceneSnapshot } from '../types';
 import type { FloatingActionTextStyle } from '../../renderer/types';
 
+/** LegacyCanvasTextRendererAdapter：封装相关状态与行为。 */
 export class LegacyCanvasTextRendererAdapter {
   private readonly renderer = new TextRenderer();
   private readonly cameraBridge = new Camera();
@@ -153,3 +154,4 @@ export class LegacyCanvasTextRendererAdapter {
     return isLocalDivineSkillName(effect.text) ? 'divine' : 'default';
   }
 }
+

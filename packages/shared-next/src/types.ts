@@ -77,6 +77,7 @@ export type MapRouteDomain = 'system' | 'sect' | 'personal' | 'dynamic';
 /** 传送点所属路网域配置 */
 export type PortalRouteDomain = MapRouteDomain | 'inherit';
 
+/** MapMeta：定义该接口的能力与字段约束。 */
 export interface MapMeta {
   id: string;
   name: string;
@@ -471,6 +472,7 @@ export interface ItemStack {
   allowBatchUse?: boolean;
 }
 
+/** AlchemySkillState：定义该接口的能力与字段约束。 */
 export interface AlchemySkillState {
   level: number;
   exp: number;
@@ -1038,6 +1040,7 @@ export interface QuestState {
   relayMessage?: string;
 }
 
+/** QuestNavigationState：定义该接口的能力与字段约束。 */
 export interface QuestNavigationState {
   questId: string;
   pendingConfirmation?: boolean;
@@ -1045,6 +1048,7 @@ export interface QuestNavigationState {
   lastBlockedRemainingTicks?: number;
 }
 
+/** PendingLogbookMessage：定义该接口的能力与字段约束。 */
 export interface PendingLogbookMessage {
   id: string;
   kind: 'system' | 'chat' | 'quest' | 'combat' | 'loot' | 'grudge';
@@ -1220,3 +1224,4 @@ export interface MailDetailView {
   claimed: boolean;
   deletable: boolean;
 }
+

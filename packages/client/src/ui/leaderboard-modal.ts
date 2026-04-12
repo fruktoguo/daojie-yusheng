@@ -11,6 +11,7 @@ import {
 import { formatDisplayInteger } from '../utils/number';
 import { detailModalHost } from './detail-modal-host';
 
+/** LeaderboardTab：定义该类型的结构与数据语义。 */
 type LeaderboardTab = 'realm' | 'monsterKills' | 'spiritStones' | 'playerKills' | 'deaths' | 'bodyTraining' | 'supremeAttrs';
 
 const LEADERBOARD_OWNER_ID = 'leaderboard-modal';
@@ -26,6 +27,7 @@ const LEADERBOARD_TAB_LABELS: Record<LeaderboardTab, string> = {
   supremeAttrs: '四维最强',
 };
 
+/** escapeHtml：执行对应的业务逻辑。 */
 function escapeHtml(value: string): string {
   return value
     .replaceAll('&', '&amp;')
@@ -35,6 +37,7 @@ function escapeHtml(value: string): string {
     .replaceAll("'", '&#39;');
 }
 
+/** formatGeneratedAt：执行对应的业务逻辑。 */
 function formatGeneratedAt(timestamp?: number): string {
   if (!timestamp || !Number.isFinite(timestamp)) {
     return '调卷中';
@@ -47,6 +50,7 @@ function formatGeneratedAt(timestamp?: number): string {
   return `${month}-${day} ${hour}:${minute}`;
 }
 
+/** LeaderboardModal：封装相关状态与行为。 */
 export class LeaderboardModal {
   private data: S2C_Leaderboard | null = null;
   private activeTab: LeaderboardTab = 'realm';
@@ -261,3 +265,4 @@ export class LeaderboardModal {
     `;
   }
 }
+

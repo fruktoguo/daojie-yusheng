@@ -16,6 +16,7 @@ let currentConfig = cloneConfig(DEFAULT_MAP_PERFORMANCE_CONFIG);
 export type { MapPerformanceConfig };
 export { MAP_PERFORMANCE_CONFIG_CHANGE_EVENT };
 
+/** initializeMapPerformanceConfig：执行对应的业务逻辑。 */
 export function initializeMapPerformanceConfig(): MapPerformanceConfig {
   if (initialized) {
     return cloneConfig(currentConfig);
@@ -25,6 +26,7 @@ export function initializeMapPerformanceConfig(): MapPerformanceConfig {
   return cloneConfig(currentConfig);
 }
 
+/** getMapPerformanceConfig：执行对应的业务逻辑。 */
 export function getMapPerformanceConfig(): MapPerformanceConfig {
   if (!initialized) {
     return initializeMapPerformanceConfig();
@@ -32,6 +34,7 @@ export function getMapPerformanceConfig(): MapPerformanceConfig {
   return cloneConfig(currentConfig);
 }
 
+/** updateMapPerformanceConfig：执行对应的业务逻辑。 */
 export function updateMapPerformanceConfig(patch: Partial<MapPerformanceConfig>): MapPerformanceConfig {
   initialized = true;
   const previousConfig = currentConfig;
@@ -48,6 +51,7 @@ export function updateMapPerformanceConfig(patch: Partial<MapPerformanceConfig>)
   return cloneConfig(currentConfig);
 }
 
+/** resetMapPerformanceConfig：执行对应的业务逻辑。 */
 export function resetMapPerformanceConfig(): MapPerformanceConfig {
   initialized = true;
   currentConfig = cloneConfig(DEFAULT_MAP_PERFORMANCE_CONFIG);
@@ -58,12 +62,14 @@ export function resetMapPerformanceConfig(): MapPerformanceConfig {
   return cloneConfig(currentConfig);
 }
 
+/** normalizeConfig：执行对应的业务逻辑。 */
 function normalizeConfig(raw: Partial<MapPerformanceConfig> | null | undefined): MapPerformanceConfig {
   return {
     showFpsMonitor: raw?.showFpsMonitor === true,
   };
 }
 
+/** persistConfig：执行对应的业务逻辑。 */
 function persistConfig(config: MapPerformanceConfig): void {
   try {
     window.localStorage.setItem(MAP_PERFORMANCE_STORAGE_KEY, JSON.stringify(config));
@@ -72,6 +78,7 @@ function persistConfig(config: MapPerformanceConfig): void {
   }
 }
 
+/** readStoredConfig：执行对应的业务逻辑。 */
 function readStoredConfig(): Partial<MapPerformanceConfig> | null {
   try {
     const raw = window.localStorage.getItem(MAP_PERFORMANCE_STORAGE_KEY);
@@ -88,8 +95,10 @@ function readStoredConfig(): Partial<MapPerformanceConfig> | null {
   }
 }
 
+/** cloneConfig：执行对应的业务逻辑。 */
 function cloneConfig(config: MapPerformanceConfig): MapPerformanceConfig {
   return {
     showFpsMonitor: config.showFpsMonitor,
   };
 }
+

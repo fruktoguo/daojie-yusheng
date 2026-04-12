@@ -11,6 +11,7 @@ import { Direction } from './types';
 const PATH_PACK_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
 const PATH_PACK_DECODE = new Map(PATH_PACK_ALPHABET.split('').map((char, index) => [char, index] as const));
 
+/** directionToCode：执行对应的业务逻辑。 */
 function directionToCode(direction: Direction): number {
   switch (direction) {
     case Direction.North:
@@ -26,6 +27,7 @@ function directionToCode(direction: Direction): number {
   }
 }
 
+/** codeToDirection：执行对应的业务逻辑。 */
 function codeToDirection(code: number): Direction | null {
   switch (code) {
     case 0:
@@ -41,6 +43,7 @@ function codeToDirection(code: number): Direction | null {
   }
 }
 
+/** packDirections：执行对应的业务逻辑。 */
 export function packDirections(directions: Direction[]): string {
   if (directions.length === 0) {
     return '';
@@ -56,6 +59,7 @@ export function packDirections(directions: Direction[]): string {
   return packed;
 }
 
+/** unpackDirections：执行对应的业务逻辑。 */
 export function unpackDirections(packed: string, stepCount: number): Direction[] | null {
   if (!Number.isInteger(stepCount) || stepCount < 0) {
     return null;
@@ -93,3 +97,4 @@ export function unpackDirections(packed: string, stepCount: number): Direction[]
 
   return directions.length === stepCount ? directions : null;
 }
+

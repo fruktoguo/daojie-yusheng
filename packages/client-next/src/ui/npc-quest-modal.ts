@@ -4,6 +4,7 @@ import { getQuestLineLabel, getQuestStatusLabel } from '../domain-labels';
 import { detailModalHost } from './detail-modal-host';
 import { bindInlineItemTooltips, renderInlineItemChip, renderInlineMonsterChip, renderTextWithInlineItemHighlights } from './item-inline-tooltip';
 
+/** escapeHtml：执行对应的业务逻辑。 */
 function escapeHtml(value: string): string {
   return value
     .replaceAll('&', '&amp;')
@@ -13,6 +14,7 @@ function escapeHtml(value: string): string {
     .replaceAll("'", '&#39;');
 }
 
+/** NpcQuestModalCallbacks：定义该接口的能力与字段约束。 */
 interface NpcQuestModalCallbacks {
   onRequestQuests: (npcId: string) => void;
   onAcceptQuest: (npcId: string, questId: string) => void;
@@ -20,17 +22,20 @@ interface NpcQuestModalCallbacks {
   onNavigateQuest: (questId: string) => void;
 }
 
+/** NpcQuestModalMeta：定义该类型的结构与数据语义。 */
 type NpcQuestModalMeta = {
   title: string;
   subtitle: string;
 };
 
+/** NpcQuestRenderState：定义该类型的结构与数据语义。 */
 type NpcQuestRenderState = {
   listScrollTop: number;
   detailScrollTop: number;
   focusSelector: string | null;
 };
 
+/** NpcQuestModal：封装相关状态与行为。 */
 export class NpcQuestModal {
   private static readonly MODAL_OWNER = 'npc-quest-modal';
   private callbacks: NpcQuestModalCallbacks | null = null;
@@ -527,3 +532,4 @@ export class NpcQuestModal {
     `;
   }
 }
+

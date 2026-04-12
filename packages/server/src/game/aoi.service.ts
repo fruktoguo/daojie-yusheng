@@ -11,12 +11,14 @@ export interface VisibilitySnapshot {
   tiles: VisibleTile[][];
 }
 
+/** VisibilityCacheEntry：定义该接口的能力与字段约束。 */
 interface VisibilityCacheEntry {
   key: string;
   visibleKeys: Set<string>;
 }
 
 @Injectable()
+/** AoiService：封装相关状态与行为。 */
 export class AoiService {
   private readonly visibilityCache = new Map<string, VisibilityCacheEntry>();
 
@@ -155,3 +157,4 @@ export class AoiService {
     }
   }
 }
+

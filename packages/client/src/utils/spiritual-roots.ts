@@ -4,21 +4,25 @@ import { ELEMENT_KEY_LABELS } from '../domain-labels';
 const ELEMENTS: readonly ElementKey[] = ['metal', 'wood', 'water', 'fire', 'earth'];
 const HEAVEN_GATE_ROOTS_SOURCE = 'heaven_gate:roots';
 
+/** SpiritualRootDescription：定义该接口的能力与字段约束。 */
 export interface SpiritualRootDescription {
   name: string;
   meta: string;
   desc: string;
 }
 
+/** getSpiritualRootAbsorptionRate：执行对应的业务逻辑。 */
 export function getSpiritualRootAbsorptionRate(value: number): number {
   const normalized = Math.max(0, Math.min(100, Number.isFinite(value) ? value : 0));
   return (normalized * normalized) / 100;
 }
 
+/** joinElements：执行对应的业务逻辑。 */
 function joinElements(elements: ElementKey[]): string {
   return elements.map((element) => ELEMENT_KEY_LABELS[element]).join('');
 }
 
+/** normalizeSpiritualRoots：执行对应的业务逻辑。 */
 export function normalizeSpiritualRoots(roots: HeavenGateRootValues | null | undefined): HeavenGateRootValues | null {
   if (!roots) {
     return null;
@@ -30,11 +34,13 @@ export function normalizeSpiritualRoots(roots: HeavenGateRootValues | null | und
   return ELEMENTS.some((element) => normalized[element] > 0) ? normalized : null;
 }
 
+/** resolveSpiritualRootsFromBonuses：执行对应的业务逻辑。 */
 export function resolveSpiritualRootsFromBonuses(bonuses: AttrBonus[]): HeavenGateRootValues | null {
   const rootBonus = bonuses.find((bonus) => bonus.source === HEAVEN_GATE_ROOTS_SOURCE);
   return normalizeSpiritualRoots(rootBonus?.stats?.elementDamageBonus as HeavenGateRootValues | undefined);
 }
 
+/** describeSpiritualRoots：执行对应的业务逻辑。 */
 export function describeSpiritualRoots(roots: HeavenGateRootValues | null | undefined): SpiritualRootDescription {
   const normalized = normalizeSpiritualRoots(roots);
   if (!normalized) {
@@ -154,3 +160,4 @@ export function describeSpiritualRoots(roots: HeavenGateRootValues | null | unde
   }
   return { name: '极品五行灵根', meta: '五灵根 · 极品', desc: '五行俱全且整体总值极高，虽然未必每条都达天品，但底子已经极厚。' };
 }
+

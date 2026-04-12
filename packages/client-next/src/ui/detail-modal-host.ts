@@ -17,6 +17,7 @@ type DetailModalOptions = {
   onAfterRender?: (body: HTMLElement) => void;
 };
 
+/** DetailModalHost：封装相关状态与行为。 */
 class DetailModalHost {
   private modal = document.getElementById('detail-modal')!;
   private card = document.getElementById('detail-modal-card')!;
@@ -106,3 +107,4 @@ class DetailModalHost {
 }
 
 export const detailModalHost = new DetailModalHost();
+

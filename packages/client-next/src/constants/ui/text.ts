@@ -112,6 +112,7 @@ export const UI_TEXT_SETTINGS = {
   canvasPresets: UI_TEXT_CANVAS_PRESETS,
 } as const;
 
+/** UiCanvasTextPresetKey：定义该类型的结构与数据语义。 */
 export type UiCanvasTextPresetKey = keyof typeof UI_TEXT_CANVAS_PRESETS;
 
 const UI_TEXT_CSS_VARIABLES: ReadonlyArray<readonly [name: string, value: string]> = [
@@ -137,15 +138,18 @@ const UI_TEXT_CSS_VARIABLES: ReadonlyArray<readonly [name: string, value: string
   ['--font-weight-role-tab', String(UI_TEXT_WEIGHTS.tab)],
 ] as const;
 
+/** applyUiTextCssVariables：执行对应的业务逻辑。 */
 export function applyUiTextCssVariables(style: CSSStyleDeclaration): void {
   for (const [name, value] of UI_TEXT_CSS_VARIABLES) {
     style.setProperty(name, value);
   }
 }
 
+/** buildCanvasFont：执行对应的业务逻辑。 */
 export function buildCanvasFont(presetKey: UiCanvasTextPresetKey, fontSize: number): string {
   const preset = UI_TEXT_CANVAS_PRESETS[presetKey];
   const family = UI_TEXT_FAMILIES[preset.family];
   const normalizedSize = Math.max(1, Number(fontSize.toFixed(2)));
   return `${preset.weight} ${normalizedSize}px ${family}`;
 }
+

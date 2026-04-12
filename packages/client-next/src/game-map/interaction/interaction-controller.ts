@@ -7,8 +7,10 @@ import type {
   MapStoreSnapshot,
 } from '../types';
 
+/** SnapshotProvider：定义该类型的结构与数据语义。 */
 type SnapshotProvider = () => MapStoreSnapshot;
 
+/** InteractionController：封装相关状态与行为。 */
 export class InteractionController {
   private canvas: HTMLCanvasElement | null = null;
   private callbacks: MapRuntimeInteractionCallbacks = {};
@@ -110,3 +112,4 @@ export class InteractionController {
     };
   }
 }
+

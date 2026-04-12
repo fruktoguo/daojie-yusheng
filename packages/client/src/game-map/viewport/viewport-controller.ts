@@ -2,6 +2,7 @@ import { updateDisplayMetrics } from '../../display';
 import type { MapSafeAreaInsets } from '../types';
 import { MAX_DPR } from '../../constants/visuals/viewport';
 
+/** ViewportSnapshot：定义该接口的能力与字段约束。 */
 export interface ViewportSnapshot {
   cssWidth: number;
   cssHeight: number;
@@ -12,6 +13,7 @@ export interface ViewportSnapshot {
   safeArea: MapSafeAreaInsets;
 }
 
+/** ViewportController：封装相关状态与行为。 */
 export class ViewportController {
   private cssWidth = 1;
   private cssHeight = 1;
@@ -53,3 +55,4 @@ export class ViewportController {
     };
   }
 }
+

@@ -5,6 +5,7 @@ import { Injectable } from '@nestjs/common';
 import { PlayerState, ItemStack, ITEM_USABLE_TYPES, compareInventoryItems, createItemStackSignature } from '@mud/shared';
 
 @Injectable()
+/** InventoryService：封装相关状态与行为。 */
 export class InventoryService {
   /** 获取背包指定槽位的物品 */
   getItem(player: PlayerState, slotIndex: number): ItemStack | null {
@@ -90,3 +91,4 @@ export class InventoryService {
     player.inventory.items = [...mergedItems.values()].sort(compareInventoryItems);
   }
 }
+

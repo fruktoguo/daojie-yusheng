@@ -1,6 +1,7 @@
 import { CAMERA_DELAY_SECONDS, CAMERA_SMOOTH_SPEED } from '@mud/shared';
 import type { MapSafeAreaInsets } from '../types';
 
+/** CameraState：定义该接口的能力与字段约束。 */
 export interface CameraState {
   x: number;
   y: number;
@@ -10,6 +11,7 @@ export interface CameraState {
   offsetY: number;
 }
 
+/** CameraController：封装相关状态与行为。 */
 export class CameraController {
   private state: CameraState = {
     x: 0,
@@ -82,3 +84,4 @@ export class CameraController {
     return this.state;
   }
 }
+

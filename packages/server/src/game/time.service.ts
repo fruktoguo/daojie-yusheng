@@ -19,17 +19,20 @@ import {
 } from '@mud/shared';
 import { MapService } from './map.service';
 
+/** TimedEntity：定义该接口的能力与字段约束。 */
 interface TimedEntity {
   mapId: string;
   viewRange: number;
   temporaryBuffs?: TemporaryBuffState[];
 }
 
+/** SyncPlayerTimeEffectsOptions：定义该接口的能力与字段约束。 */
 interface SyncPlayerTimeEffectsOptions {
   advanceChronology?: boolean;
 }
 
 @Injectable()
+/** TimeService：封装相关状态与行为。 */
 export class TimeService {
   private readonly mapTicks = new Map<string, number>();
 
@@ -227,3 +230,4 @@ export class TimeService {
     entity.temporaryBuffs.push(next);
   }
 }
+

@@ -23,11 +23,13 @@ export {
 
 /** HTTP 请求失败时抛出，携带状态码 */
 export class RequestError extends Error {
+/** constructor：处理当前场景中的对应操作。 */
   constructor(message: string, readonly status: number) {
     super(message);
   }
 }
 
+/** RequestOptions：定义该类型的结构与数据语义。 */
 type RequestOptions = {
   method?: 'GET' | 'POST';
   body?: unknown;
@@ -146,6 +148,7 @@ export function updateRoleName(
   });
 }
 
+/** readError：执行对应的业务逻辑。 */
 async function readError(res: Response): Promise<string> {
   try {
     const data = await res.json() as { message?: string | string[] };
@@ -161,6 +164,7 @@ async function readError(res: Response): Promise<string> {
   return '请求失败';
 }
 
+/** parseJwtPayload：执行对应的业务逻辑。 */
 function parseJwtPayload(token: string): { username?: string } | null {
   const parts = token.split('.');
   if (parts.length < 2) {
@@ -177,3 +181,4 @@ function parseJwtPayload(token: string): { username?: string } | null {
     return null;
   }
 }
+

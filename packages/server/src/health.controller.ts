@@ -4,9 +4,11 @@
 import { Controller, Get } from '@nestjs/common';
 
 @Controller()
+/** HealthController：封装相关状态与行为。 */
 export class HealthController {
   /** 返回服务存活状态 */
   @Get('health')
+/** getHealth：处理当前场景中的对应操作。 */
   getHealth() {
     return {
       status: 'ok',
@@ -15,3 +17,4 @@ export class HealthController {
     };
   }
 }
+

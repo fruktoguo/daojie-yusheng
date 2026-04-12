@@ -30,6 +30,7 @@ import {
 import type { Attributes, EquipmentSlots, MonsterTier, NumericStatPercentages, PlayerRealmStage, TechniqueGrade } from './types';
 import type { NumericScalarStatKey } from './numeric';
 
+/** MonsterCombatModel：定义该类型的结构与数据语义。 */
 export type MonsterCombatModel = 'legacy' | 'value_stats';
 
 const MONSTER_EXPONENTIAL_NUMERIC_KEYS = [
@@ -63,6 +64,7 @@ const MONSTER_LINEAR_NUMERIC_GROWTH_RATES: Record<typeof MONSTER_LINEAR_NUMERIC_
   hpRegenRate: 0.02,
 };
 
+/** getMonsterLinearGrowthRate：执行对应的业务逻辑。 */
 function getMonsterLinearGrowthRate(key: NumericScalarStatKey): number | null {
   switch (key) {
     case 'critDamage':
@@ -76,6 +78,7 @@ function getMonsterLinearGrowthRate(key: NumericScalarStatKey): number | null {
   }
 }
 
+/** LegacyMonsterNumericProfile：定义该接口的能力与字段约束。 */
 export interface LegacyMonsterNumericProfile {
   maxHp: number;
   attack: number;
@@ -83,6 +86,7 @@ export interface LegacyMonsterNumericProfile {
   viewRange?: number;
 }
 
+/** MonsterFormulaInput：定义该接口的能力与字段约束。 */
 export interface MonsterFormulaInput {
   attrs?: Partial<Attributes>;
   equipment?: Partial<EquipmentSlots>;
@@ -92,18 +96,22 @@ export interface MonsterFormulaInput {
   tier?: MonsterTier;
 }
 
+/** PercentBonusAccumulator：定义该类型的结构与数据语义。 */
 type PercentBonusAccumulator = Pick<NumericStats, 'maxHp' | 'maxQi' | 'physAtk' | 'spellAtk'>;
 const MONSTER_SECONDARY_ATTR_RATIO = 0.2;
 const MONSTER_BASE_HP_REGEN_RATE = 5;
 
+/** normalizeMonsterLevel：执行对应的业务逻辑。 */
 function normalizeMonsterLevel(level?: number): number {
   return Math.max(1, Math.floor(level ?? 1));
 }
 
+/** roundConfigValue：执行对应的业务逻辑。 */
 function roundConfigValue(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
+/** resolveMonsterBaseRealmStage：执行对应的业务逻辑。 */
 function resolveMonsterBaseRealmStage(level?: number): PlayerRealmStage {
   const normalizedLevel = normalizeMonsterLevel(level);
   for (const stage of [...PLAYER_REALM_ORDER].reverse()) {
@@ -115,6 +123,7 @@ function resolveMonsterBaseRealmStage(level?: number): PlayerRealmStage {
   return DEFAULT_PLAYER_REALM_STAGE;
 }
 
+/** createMonsterAttributes：执行对应的业务逻辑。 */
 export function createMonsterAttributes(initial = 0): Attributes {
   return {
     constitution: initial,
@@ -126,10 +135,12 @@ export function createMonsterAttributes(initial = 0): Attributes {
   };
 }
 
+/** normalizeMonsterTier：执行对应的业务逻辑。 */
 export function normalizeMonsterTier(tier: unknown, fallback: MonsterTier = 'mortal_blood'): MonsterTier {
   return tier === 'mortal_blood' || tier === 'variant' || tier === 'demon_king' ? tier : fallback;
 }
 
+/** inferMonsterTierFromName：执行对应的业务逻辑。 */
 export function inferMonsterTierFromName(name: string | undefined): MonsterTier {
   const normalizedName = typeof name === 'string' ? name.trim() : '';
   if (/妖王|荒王|兽王|王$/.test(normalizedName)) {
@@ -141,10 +152,12 @@ export function inferMonsterTierFromName(name: string | undefined): MonsterTier 
   return 'mortal_blood';
 }
 
+/** getDefaultMonsterExpMultiplier：执行对应的业务逻辑。 */
 export function getDefaultMonsterExpMultiplier(tier: MonsterTier | undefined): number {
   return MONSTER_TIER_EXP_MULTIPLIERS[normalizeMonsterTier(tier)] ?? 1;
 }
 
+/** resolveMonsterExpMultiplier：执行对应的业务逻辑。 */
 export function resolveMonsterExpMultiplier(expMultiplier: unknown, tier: MonsterTier | undefined): number {
   if (Number.isFinite(expMultiplier)) {
     return Math.max(0, Number(expMultiplier));
@@ -152,14 +165,17 @@ export function resolveMonsterExpMultiplier(expMultiplier: unknown, tier: Monste
   return getDefaultMonsterExpMultiplier(tier);
 }
 
+/** shouldPersistMonsterTier：执行对应的业务逻辑。 */
 export function shouldPersistMonsterTier(tier: MonsterTier | undefined, name: string | undefined): boolean {
   return normalizeMonsterTier(tier) !== inferMonsterTierFromName(name);
 }
 
+/** shouldPersistMonsterExpMultiplier：执行对应的业务逻辑。 */
 export function shouldPersistMonsterExpMultiplier(expMultiplier: unknown, tier: MonsterTier | undefined): boolean {
   return resolveMonsterExpMultiplier(expMultiplier, tier) !== getDefaultMonsterExpMultiplier(tier);
 }
 
+/** getMonsterKillExpLevelAdjustment：执行对应的业务逻辑。 */
 export function getMonsterKillExpLevelAdjustment(
   playerRealmLv: number,
   monsterLevel: number,
@@ -181,6 +197,7 @@ export function getMonsterKillExpLevelAdjustment(
   return 1;
 }
 
+/** normalizeMonsterAttrs：执行对应的业务逻辑。 */
 export function normalizeMonsterAttrs(
   attrs: Partial<Attributes> | undefined,
   fallback?: Attributes,
@@ -193,6 +210,7 @@ export function normalizeMonsterAttrs(
   return result;
 }
 
+/** normalizeMonsterStatPercents：执行对应的业务逻辑。 */
 export function normalizeMonsterStatPercents(statPercents: NumericStatPercentages | undefined): NumericStatPercentages | undefined {
   if (!statPercents) {
     return undefined;
@@ -208,6 +226,7 @@ export function normalizeMonsterStatPercents(statPercents: NumericStatPercentage
   return Object.keys(result).length > 0 ? result : undefined;
 }
 
+/** accumulateAttrPercentBonus：执行对应的业务逻辑。 */
 function accumulateAttrPercentBonus(target: PercentBonusAccumulator, attrs: Attributes): void {
   for (const key of ATTR_KEYS) {
     const value = attrs[key];
@@ -225,6 +244,7 @@ function accumulateAttrPercentBonus(target: PercentBonusAccumulator, attrs: Attr
   }
 }
 
+/** applyAttrWeight：执行对应的业务逻辑。 */
 function applyAttrWeight(target: NumericStats, attrs: Attributes): void {
   for (const key of ATTR_KEYS) {
     const value = attrs[key];
@@ -260,6 +280,7 @@ function applyAttrWeight(target: NumericStats, attrs: Attributes): void {
   }
 }
 
+/** applyPercentBonuses：执行对应的业务逻辑。 */
 function applyPercentBonuses(target: NumericStats, bonuses: PercentBonusAccumulator): void {
   if (bonuses.maxHp !== 0) target.maxHp *= 1 + bonuses.maxHp / 100;
   if (bonuses.maxQi !== 0) target.maxQi *= 1 + bonuses.maxQi / 100;
@@ -267,6 +288,7 @@ function applyPercentBonuses(target: NumericStats, bonuses: PercentBonusAccumula
   if (bonuses.spellAtk !== 0) target.spellAtk *= 1 + bonuses.spellAtk / 100;
 }
 
+/** mergeMonsterEquipmentAttrs：执行对应的业务逻辑。 */
 function mergeMonsterEquipmentAttrs(
   attrs: Attributes,
   equipment?: Partial<EquipmentSlots>,
@@ -287,6 +309,7 @@ function mergeMonsterEquipmentAttrs(
   return attrs;
 }
 
+/** applyMonsterEquipmentStats：执行对应的业务逻辑。 */
 function applyMonsterEquipmentStats(
   target: NumericStats,
   equipment?: Partial<EquipmentSlots>,
@@ -300,6 +323,7 @@ function applyMonsterEquipmentStats(
   }
 }
 
+/** computeMonsterBaseNumericStatsFromAttrs：执行对应的业务逻辑。 */
 export function computeMonsterBaseNumericStatsFromAttrs(
   attrs?: Partial<Attributes>,
   equipment?: Partial<EquipmentSlots>,
@@ -325,6 +349,7 @@ export function computeMonsterBaseNumericStatsFromAttrs(
   return stats;
 }
 
+/** applyMonsterLevelScaling：执行对应的业务逻辑。 */
 export function applyMonsterLevelScaling(stats: NumericStats, level?: number): NumericStats {
   const normalizedLevel = normalizeMonsterLevel(level);
   const scaled = cloneNumericStats(stats);
@@ -344,6 +369,7 @@ export function applyMonsterLevelScaling(stats: NumericStats, level?: number): N
   return scaled;
 }
 
+/** applyNumericStatPercentages：执行对应的业务逻辑。 */
 export function applyNumericStatPercentages(stats: NumericStats, percents?: NumericStatPercentages): NumericStats {
   if (!percents) {
     return stats;
@@ -358,6 +384,7 @@ export function applyNumericStatPercentages(stats: NumericStats, percents?: Nume
   return stats;
 }
 
+/** resolveMonsterNumericStatsFromAttributes：执行对应的业务逻辑。 */
 export function resolveMonsterNumericStatsFromAttributes(input: MonsterFormulaInput): NumericStats {
   const base = computeMonsterBaseNumericStatsFromAttrs(input.attrs, input.equipment, input.level);
   const scaled = applyMonsterLevelScaling(base, input.level);
@@ -368,6 +395,7 @@ export function resolveMonsterNumericStatsFromAttributes(input: MonsterFormulaIn
   return scaled;
 }
 
+/** createMonsterAutoStatPercents：执行对应的业务逻辑。 */
 export function createMonsterAutoStatPercents(
   targetStats: NumericStats,
   attrs: Partial<Attributes> | undefined,
@@ -387,6 +415,7 @@ export function createMonsterAutoStatPercents(
   return percents;
 }
 
+/** inferMonsterAttrsFromNumericStats：执行对应的业务逻辑。 */
 export function inferMonsterAttrsFromNumericStats(stats: NumericStats): Attributes {
   const constitution = Math.max(1, Math.round(Math.max(
     stats.physDef,
@@ -427,6 +456,7 @@ export function inferMonsterAttrsFromNumericStats(stats: NumericStats): Attribut
   };
 }
 
+/** compileMonsterValueStats：执行对应的业务逻辑。 */
 export function compileMonsterValueStats(valueStats?: PartialNumericStats): NumericStats {
   const actual = compileValueStatsToActualStats(valueStats);
   const stats = createNumericStats();
@@ -434,15 +464,18 @@ export function compileMonsterValueStats(valueStats?: PartialNumericStats): Nume
   return stats;
 }
 
+/** resolveMonsterNumericStatsFromValueStats：执行对应的业务逻辑。 */
 export function resolveMonsterNumericStatsFromValueStats(valueStats?: PartialNumericStats, level?: number): NumericStats {
   return applyMonsterLevelScaling(compileMonsterValueStats(valueStats), level);
 }
 
+/** estimateMonsterSpiritFromStats：执行对应的业务逻辑。 */
 export function estimateMonsterSpiritFromStats(stats: NumericStats, level?: number): number {
   const normalizedLevel = normalizeMonsterLevel(level);
   return Math.max(6, Math.round(normalizedLevel * 12 + stats.physAtk * 0.8 + stats.maxHp * 0.18));
 }
 
+/** buildLegacyMonsterNumericStats：执行对应的业务逻辑。 */
 export function buildLegacyMonsterNumericStats(profile: LegacyMonsterNumericProfile): NumericStats {
   const level = normalizeMonsterLevel(profile.level ?? Math.round(profile.attack / 6));
   const maxHp = Math.max(1, Math.round(profile.maxHp));
@@ -465,6 +498,7 @@ export function buildLegacyMonsterNumericStats(profile: LegacyMonsterNumericProf
   return stats;
 }
 
+/** inferMonsterValueStatsFromLegacy：执行对应的业务逻辑。 */
 export function inferMonsterValueStatsFromLegacy(profile: LegacyMonsterNumericProfile): PartialNumericStats {
   const level = normalizeMonsterLevel(profile.level ?? Math.round(profile.attack / 6));
   const actualStats = buildLegacyMonsterNumericStats(profile);
@@ -506,3 +540,4 @@ export function inferMonsterValueStatsFromLegacy(profile: LegacyMonsterNumericPr
 
   return valueStats;
 }
+

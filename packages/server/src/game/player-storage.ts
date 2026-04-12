@@ -54,17 +54,20 @@ import {
   PersistedTemporaryBuffSnapshot,
 } from './temporary-buff-storage';
 
+/** PersistedInventoryItem：定义该接口的能力与字段约束。 */
 interface PersistedInventoryItem {
   itemId: string;
   count: number;
   enhanceLevel?: number;
 }
 
+/** PersistedEquipmentItem：定义该接口的能力与字段约束。 */
 interface PersistedEquipmentItem {
   itemId: string;
   enhanceLevel?: number;
 }
 
+/** PersistedTechniqueItem：定义该接口的能力与字段约束。 */
 interface PersistedTechniqueItem {
   techId: string;
   level: number;
@@ -73,6 +76,7 @@ interface PersistedTechniqueItem {
   skillsEnabled?: boolean;
 }
 
+/** PersistedTemporaryBuffItem：定义该接口的能力与字段约束。 */
 interface PersistedTemporaryBuffItem {
   buffId: string;
   sourceSkillId: string;
@@ -85,23 +89,31 @@ interface PersistedTemporaryBuffItem {
   sustainTicksElapsed?: number;
 }
 
+/** PersistedQuestItem：定义该接口的能力与字段约束。 */
 interface PersistedQuestItem {
   id: string;
   status: QuestStatus;
   progress: number;
 }
 
+/** PersistedInventoryEntry：定义该类型的结构与数据语义。 */
 type PersistedInventoryEntry = PersistedInventoryItem | ItemStack;
+/** PersistedEquipmentEntry：定义该类型的结构与数据语义。 */
 type PersistedEquipmentEntry = PersistedEquipmentItem | ItemStack;
+/** PersistedTechniqueEntry：定义该类型的结构与数据语义。 */
 type PersistedTechniqueEntry = PersistedTechniqueItem | TechniqueState;
+/** PersistedTemporaryBuffEntry：定义该类型的结构与数据语义。 */
 type PersistedTemporaryBuffEntry = PersistedTemporaryBuffItem | TemporaryBuffState;
+/** PersistedQuestEntry：定义该类型的结构与数据语义。 */
 type PersistedQuestEntry = PersistedQuestItem | QuestState;
 
+/** PersistedInventorySnapshot：定义该接口的能力与字段约束。 */
 export interface PersistedInventorySnapshot {
   capacity: number;
   items: PersistedInventoryEntry[];
 }
 
+/** PersistedEquipmentSnapshot：定义该类型的结构与数据语义。 */
 export type PersistedEquipmentSnapshot = Record<EquipSlot, PersistedEquipmentEntry | null>;
 
 /** 持久化后的玩家集合数据（背包、装备、功法、Buff、任务） */
@@ -115,6 +127,7 @@ export interface PersistedPlayerCollections {
   quests: PersistedQuestEntry[];
 }
 
+/** PlayerStorageState：定义该接口的能力与字段约束。 */
 interface PlayerStorageState {
   inventory: Inventory;
   marketStorage?: MarketStorage;
@@ -125,51 +138,63 @@ interface PlayerStorageState {
   quests: QuestState[];
 }
 
+/** isQuestStatus：执行对应的业务逻辑。 */
 function isQuestStatus(value: unknown): value is QuestStatus {
   return typeof value === 'string' && QUEST_STATUS_KEYS.includes(value as QuestStatus);
 }
 
+/** isQuestObjectiveType：执行对应的业务逻辑。 */
 function isQuestObjectiveType(value: unknown): value is QuestObjectiveType {
   return typeof value === 'string' && QUEST_OBJECTIVE_TYPE_KEYS.includes(value as QuestObjectiveType);
 }
 
+/** isPlainObject：执行对应的业务逻辑。 */
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+/** normalizePositiveInt：执行对应的业务逻辑。 */
 function normalizePositiveInt(value: unknown, fallback = 1): number {
   return Math.max(1, Number.isFinite(value) ? Math.floor(Number(value)) : fallback);
 }
 
+/** normalizeNonNegativeInt：执行对应的业务逻辑。 */
 function normalizeNonNegativeInt(value: unknown, fallback = 0): number {
   return Math.max(0, Number.isFinite(value) ? Math.floor(Number(value)) : fallback);
 }
 
+/** isTransientGmObserveBuff：执行对应的业务逻辑。 */
 function isTransientGmObserveBuff(buffId: string, sourceSkillId: string): boolean {
   return buffId === GM_WORLD_OBSERVE_BUFF_ID && sourceSkillId === GM_WORLD_OBSERVE_SOURCE_ID;
 }
 
+/** isItemType：执行对应的业务逻辑。 */
 function isItemType(value: unknown): value is ItemType {
   return typeof value === 'string' && ITEM_TYPES.includes(value as ItemType);
 }
 
+/** isEquipSlot：执行对应的业务逻辑。 */
 function isEquipSlot(value: unknown): value is EquipSlot {
   return typeof value === 'string' && EQUIP_SLOTS.includes(value as EquipSlot);
 }
 
+/** isTechniqueRealm：执行对应的业务逻辑。 */
 function isTechniqueRealm(value: unknown): value is TechniqueRealm {
   return typeof value === 'number'
     && (value === TechniqueRealm.Entry || value === TechniqueRealm.Minor || value === TechniqueRealm.Major || value === TechniqueRealm.Perfection);
 }
 
+/** isTechniqueGrade：执行对应的业务逻辑。 */
 function isTechniqueGrade(value: unknown): value is TechniqueGrade {
   return typeof value === 'string' && TECHNIQUE_GRADES.includes(value as TechniqueGrade);
 }
 
+/** isTechniqueCategory：执行对应的业务逻辑。 */
 function isTechniqueCategory(value: unknown): value is TechniqueCategory {
   return value === 'arts' || value === 'internal' || value === 'divine' || value === 'secret';
 }
 
+/** hydrateItemStack：执行对应的业务逻辑。 */
 function hydrateItemStack(snapshot: unknown, contentService: ContentService, countOverride?: number): ItemStack | null {
   if (!isPlainObject(snapshot) || typeof snapshot.itemId !== 'string' || snapshot.itemId.length === 0) {
     return null;
@@ -202,6 +227,7 @@ function hydrateItemStack(snapshot: unknown, contentService: ContentService, cou
   };
 }
 
+/** dehydrateInventoryItem：执行对应的业务逻辑。 */
 function dehydrateInventoryItem(item: ItemStack, contentService: ContentService): PersistedInventoryEntry {
   const count = normalizePositiveInt(item.count, 1);
   if (contentService.getItem(item.itemId)) {
@@ -213,6 +239,7 @@ function dehydrateInventoryItem(item: ItemStack, contentService: ContentService)
   return { ...item, count };
 }
 
+/** dehydrateEquipmentItem：执行对应的业务逻辑。 */
 function dehydrateEquipmentItem(item: ItemStack, contentService: ContentService): PersistedEquipmentEntry {
   if (contentService.getItem(item.itemId)) {
     const enhanceLevel = normalizeEnhanceLevel(item.enhanceLevel);
@@ -223,6 +250,7 @@ function dehydrateEquipmentItem(item: ItemStack, contentService: ContentService)
   return { ...item, count: 1 };
 }
 
+/** hydrateTechnique：执行对应的业务逻辑。 */
 function hydrateTechnique(snapshot: unknown): TechniqueState | null {
   if (!isPlainObject(snapshot) || typeof snapshot.techId !== 'string' || snapshot.techId.length === 0) {
     return null;
@@ -246,6 +274,7 @@ function hydrateTechnique(snapshot: unknown): TechniqueState | null {
   };
 }
 
+/** dehydrateTechnique：执行对应的业务逻辑。 */
 function dehydrateTechnique(technique: TechniqueState, contentService: ContentService): PersistedTechniqueEntry {
   const level = normalizePositiveInt(technique.level, 1);
   const exp = normalizeNonNegativeInt(technique.exp, 0);
@@ -267,6 +296,7 @@ function dehydrateTechnique(technique: TechniqueState, contentService: ContentSe
   };
 }
 
+/** normalizeBuffShortMark：执行对应的业务逻辑。 */
 function normalizeBuffShortMark(effect: Extract<SkillEffectDef, { type: 'buff' }>): string {
   const raw = effect.shortMark?.trim();
   if (raw) {
@@ -276,6 +306,7 @@ function normalizeBuffShortMark(effect: Extract<SkillEffectDef, { type: 'buff' }
   return fallback ?? '气';
 }
 
+/** buildSkillBuffState：执行对应的业务逻辑。 */
 function buildSkillBuffState(skill: SkillDef, effect: Extract<SkillEffectDef, { type: 'buff' }>, snapshot: PersistedTemporaryBuffItem): TemporaryBuffState {
   return syncDynamicBuffPresentation({
     buffId: effect.buffId,
@@ -307,6 +338,7 @@ function buildSkillBuffState(skill: SkillDef, effect: Extract<SkillEffectDef, { 
   });
 }
 
+/** buildSystemBuffState：执行对应的业务逻辑。 */
 function buildSystemBuffState(snapshot: PersistedTemporaryBuffItem): TemporaryBuffState | null {
   if (snapshot.sourceSkillId === WORLD_TIME_SOURCE_ID && snapshot.buffId === WORLD_DARKNESS_BUFF_ID) {
     return {
@@ -355,6 +387,7 @@ function buildSystemBuffState(snapshot: PersistedTemporaryBuffItem): TemporaryBu
   return null;
 }
 
+/** hydrateTemporaryBuff：执行对应的业务逻辑。 */
 function hydrateTemporaryBuff(snapshot: unknown, contentService: ContentService): TemporaryBuffState | null {
   if (!isPlainObject(snapshot) || typeof snapshot.buffId !== 'string' || typeof snapshot.sourceSkillId !== 'string') {
     return null;
@@ -430,6 +463,7 @@ function hydrateTemporaryBuff(snapshot: unknown, contentService: ContentService)
   return syncDynamicBuffPresentation(hydrated);
 }
 
+/** dehydrateTemporaryBuff：执行对应的业务逻辑。 */
 function dehydrateTemporaryBuff(buff: TemporaryBuffState, contentService: ContentService): PersistedTemporaryBuffEntry {
   const skill = contentService.getSkill(buff.sourceSkillId);
   const effect = skill?.effects.find((entry): entry is Extract<SkillEffectDef, { type: 'buff' }> => (
@@ -460,6 +494,7 @@ function dehydrateTemporaryBuff(buff: TemporaryBuffState, contentService: Conten
   };
 }
 
+/** buildQuestRewardItems：执行对应的业务逻辑。 */
 function buildQuestRewardItems(questId: string, mapService: MapService, contentService: ContentService): ItemStack[] {
   const config = mapService.getQuest(questId);
   if (!config) return [];
@@ -479,6 +514,7 @@ function buildQuestRewardItems(questId: string, mapService: MapService, contentS
     .filter((item): item is ItemStack => Boolean(item));
 }
 
+/** hydrateQuest：执行对应的业务逻辑。 */
 function hydrateQuest(snapshot: unknown, mapService: MapService, contentService: ContentService): QuestState | null {
   if (!isPlainObject(snapshot) || typeof snapshot.id !== 'string' || snapshot.id.length === 0) {
     return null;
@@ -603,6 +639,7 @@ function hydrateQuest(snapshot: unknown, mapService: MapService, contentService:
   };
 }
 
+/** dehydrateQuest：执行对应的业务逻辑。 */
 function dehydrateQuest(quest: QuestState, mapService: MapService): PersistedQuestEntry {
   if (mapService.getQuest(quest.id)) {
     return {
@@ -666,6 +703,7 @@ export function hydrateTechniqueSnapshots(snapshot: unknown): TechniqueState[] {
     .filter((entry): entry is TechniqueState => entry !== null);
 }
 
+/** hydrateBodyTrainingSnapshot：执行对应的业务逻辑。 */
 export function hydrateBodyTrainingSnapshot(snapshot: unknown): BodyTrainingState {
   if (!isPlainObject(snapshot)) {
     return normalizeBodyTrainingState();
@@ -724,3 +762,4 @@ export function buildPersistedPlayerCollections(player: PlayerStorageState, cont
     quests: player.quests.map((quest) => dehydrateQuest(quest, mapService)),
   };
 }
+

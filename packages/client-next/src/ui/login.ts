@@ -16,8 +16,10 @@ import {
 } from './auth-api';
 import { validateAccountName, validateDisplayName, validatePassword, validateRoleName } from './account-rules';
 
+/** AuthMode：定义该类型的结构与数据语义。 */
 type AuthMode = 'login' | 'register';
 
+/** LoginUI：封装相关状态与行为。 */
 export class LoginUI {
   private overlay = document.getElementById('login-overlay')!;
   private loginTab = document.getElementById('tab-login') as HTMLButtonElement;
@@ -42,6 +44,7 @@ export class LoginUI {
   private mode: AuthMode | null = null;
   private restoreSessionPromise: Promise<boolean> | null = null;
 
+/** constructor：处理当前场景中的对应操作。 */
   constructor(private socket: SocketManager) {
     this.loginTab.addEventListener('click', () => this.setMode('login'));
     this.registerTab.addEventListener('click', () => this.setMode('register'));
@@ -302,3 +305,4 @@ export class LoginUI {
     this.setDisplayNameStatus('注册时必填', '');
   }
 }
+

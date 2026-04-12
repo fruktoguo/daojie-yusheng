@@ -1,12 +1,15 @@
+/** ItemSourceKind：定义该类型的结构与数据语义。 */
 export type ItemSourceKind = 'monster_drop' | 'mining' | 'search' | 'shop' | 'quest';
 const SPIRIT_STONE_ITEM_ID = 'spirit_stone';
 
+/** ItemSourceBaseEntry：定义该接口的能力与字段约束。 */
 interface ItemSourceBaseEntry {
   kind: ItemSourceKind;
   mapId: string;
   mapName: string;
 }
 
+/** MonsterItemSourceEntry：定义该接口的能力与字段约束。 */
 export interface MonsterItemSourceEntry extends ItemSourceBaseEntry {
   kind: 'monster_drop';
   monsterId: string;
@@ -15,6 +18,7 @@ export interface MonsterItemSourceEntry extends ItemSourceBaseEntry {
   count: number;
 }
 
+/** DirectItemNodeSourceEntry：定义该接口的能力与字段约束。 */
 export interface DirectItemNodeSourceEntry extends ItemSourceBaseEntry {
   kind: 'mining' | 'search';
   landmarkId: string;
@@ -24,6 +28,7 @@ export interface DirectItemNodeSourceEntry extends ItemSourceBaseEntry {
   count: number;
 }
 
+/** PoolItemNodeSourceEntry：定义该接口的能力与字段约束。 */
 export interface PoolItemNodeSourceEntry extends ItemSourceBaseEntry {
   kind: 'mining' | 'search';
   landmarkId: string;
@@ -39,6 +44,7 @@ export interface PoolItemNodeSourceEntry extends ItemSourceBaseEntry {
   tagGroups?: string[][];
 }
 
+/** QuestItemSourceEntry：定义该接口的能力与字段约束。 */
 export interface QuestItemSourceEntry extends ItemSourceBaseEntry {
   kind: 'quest';
   questId: string;
@@ -47,12 +53,14 @@ export interface QuestItemSourceEntry extends ItemSourceBaseEntry {
   chapter?: string;
 }
 
+/** ShopItemSourceEntry：定义该接口的能力与字段约束。 */
 export interface ShopItemSourceEntry extends ItemSourceBaseEntry {
   kind: 'shop';
   npcId: string;
   npcName: string;
 }
 
+/** ItemSourceEntry：定义该类型的结构与数据语义。 */
 export type ItemSourceEntry =
   | MonsterItemSourceEntry
   | DirectItemNodeSourceEntry
@@ -60,10 +68,12 @@ export type ItemSourceEntry =
   | ShopItemSourceEntry
   | QuestItemSourceEntry;
 
+/** ItemSourceCatalog：定义该类型的结构与数据语义。 */
 type ItemSourceCatalog = Record<string, ItemSourceEntry[]>;
 let itemSourceCatalog: ItemSourceCatalog | null = null;
 let itemSourceCatalogPromise: Promise<ItemSourceCatalog> | null = null;
 
+/** loadItemSourceCatalog：执行对应的业务逻辑。 */
 function loadItemSourceCatalog(): Promise<ItemSourceCatalog> {
   if (itemSourceCatalog) {
     return Promise.resolve(itemSourceCatalog);
@@ -78,18 +88,22 @@ function loadItemSourceCatalog(): Promise<ItemSourceCatalog> {
   return itemSourceCatalogPromise;
 }
 
+/** getLoadedItemSourceCatalog：执行对应的业务逻辑。 */
 function getLoadedItemSourceCatalog(): ItemSourceCatalog | null {
   return itemSourceCatalog;
 }
 
+/** hasLoadedItemSourceCatalog：执行对应的业务逻辑。 */
 export function hasLoadedItemSourceCatalog(): boolean {
   return getLoadedItemSourceCatalog() !== null;
 }
 
+/** preloadItemSourceCatalog：执行对应的业务逻辑。 */
 export async function preloadItemSourceCatalog(): Promise<void> {
   await loadItemSourceCatalog();
 }
 
+/** escapeHtml：执行对应的业务逻辑。 */
 function escapeHtml(value: string): string {
   return value
     .replaceAll('&', '&amp;')
@@ -99,6 +113,7 @@ function escapeHtml(value: string): string {
     .replaceAll("'", '&#39;');
 }
 
+/** getSourceLinkLabel：执行对应的业务逻辑。 */
 function getSourceLinkLabel(kind: ItemSourceKind): string {
   switch (kind) {
     case 'monster_drop':
@@ -114,6 +129,7 @@ function getSourceLinkLabel(kind: ItemSourceKind): string {
   }
 }
 
+/** formatSourceDetails：执行对应的业务逻辑。 */
 function formatSourceDetails(entry: ItemSourceEntry): Array<{ tone: string; text: string }> {
   if (entry.kind === 'monster_drop') {
     return [
@@ -142,6 +158,7 @@ function formatSourceDetails(entry: ItemSourceEntry): Array<{ tone: string; text
   ];
 }
 
+/** getItemSourceEntries：执行对应的业务逻辑。 */
 export function getItemSourceEntries(itemId: string): ItemSourceEntry[] {
   const catalog = getLoadedItemSourceCatalog();
   if (!catalog) {
@@ -151,14 +168,17 @@ export function getItemSourceEntries(itemId: string): ItemSourceEntry[] {
   return catalog[itemId] ?? [];
 }
 
+/** getItemSourceEntryCount：执行对应的业务逻辑。 */
 export function getItemSourceEntryCount(itemId: string): number {
   return getItemSourceEntries(itemId).length;
 }
 
+/** isSpecialSourceSummaryItem：执行对应的业务逻辑。 */
 export function isSpecialSourceSummaryItem(itemId: string): boolean {
   return itemId === SPIRIT_STONE_ITEM_ID;
 }
 
+/** renderSpecialSourceSummaryHtml：执行对应的业务逻辑。 */
 function renderSpecialSourceSummaryHtml(itemId: string): string | null {
   if (itemId !== SPIRIT_STONE_ITEM_ID) {
     return null;
@@ -166,6 +186,7 @@ function renderSpecialSourceSummaryHtml(itemId: string): string | null {
   return '<span class="inventory-source-note">挖矿或者全部怪物击杀都有概率获得</span>';
 }
 
+/** renderItemSourceListHtml：执行对应的业务逻辑。 */
 export function renderItemSourceListHtml(
   itemId: string,
   options: {
@@ -205,3 +226,4 @@ export function renderItemSourceListHtml(
       : ''
   }</div>`;
 }
+

@@ -6,6 +6,7 @@ import { MapMeta, Tile } from '@mud/shared-next';
 import { Camera } from '../renderer/camera';
 import { getCellSize } from '../display';
 
+/** ClickTarget：定义该接口的能力与字段约束。 */
 interface ClickTarget {
   x: number;
   y: number;
@@ -48,12 +49,14 @@ export class MouseInput {
     canvas.addEventListener('mouseleave', () => this.onHover?.(null));
   }
 
+/** onClick：处理当前场景中的对应操作。 */
   private onClick(e: MouseEvent) {
     const target = this.resolveTargetFromMouse(e);
     if (!target) return;
     this.onTarget?.(target);
   }
 
+/** onMove：处理当前场景中的对应操作。 */
   private onMove(e: MouseEvent) {
     this.onHover?.(this.resolveTargetFromMouse(e));
   }
@@ -113,3 +116,4 @@ export class MouseInput {
     };
   }
 }
+

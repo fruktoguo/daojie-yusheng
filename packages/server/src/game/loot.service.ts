@@ -26,14 +26,17 @@ import { InventoryService } from './inventory.service';
 import { ContainerConfig, DropConfig, MapService } from './map.service';
 import { CONTAINER_SEARCH_TICKS } from '../constants/gameplay/loot';
 
+/** LootMessageKind：定义该类型的结构与数据语义。 */
 type LootMessageKind = 'system' | 'loot';
 
+/** LootMessage：定义该接口的能力与字段约束。 */
 interface LootMessage {
   playerId: string;
   text: string;
   kind: LootMessageKind;
 }
 
+/** LootEntry：定义该接口的能力与字段约束。 */
 interface LootEntry {
   item: ItemStack;
   createdTick: number;
@@ -41,6 +44,7 @@ interface LootEntry {
   visible: boolean;
 }
 
+/** GroundPileState：定义该接口的能力与字段约束。 */
 interface GroundPileState {
   sourceId: string;
   mapId: string;
@@ -49,6 +53,7 @@ interface GroundPileState {
   entries: LootEntry[];
 }
 
+/** ContainerState：定义该接口的能力与字段约束。 */
 interface ContainerState {
   sourceId: string;
   mapId: string;
@@ -69,6 +74,7 @@ interface ContainerState {
   };
 }
 
+/** LootSession：定义该接口的能力与字段约束。 */
 interface LootSession {
   playerId: string;
   mapId: string;
@@ -76,16 +82,19 @@ interface LootSession {
   tileY: number;
 }
 
+/** GroupedLootRow：定义该接口的能力与字段约束。 */
 interface GroupedLootRow {
   itemKey: string;
   item: ItemStack;
   entries: LootEntry[];
 }
 
+/** LootTickResult：定义该接口的能力与字段约束。 */
 interface LootTickResult {
   dirtyPlayers: string[];
 }
 
+/** LootActionResult：定义该接口的能力与字段约束。 */
 interface LootActionResult {
   error?: string;
   messages: LootMessage[];
@@ -93,6 +102,7 @@ interface LootActionResult {
   inventoryChanged?: boolean;
 }
 
+/** PersistedLootEntryRecord：定义该接口的能力与字段约束。 */
 interface PersistedLootEntryRecord {
   item: ItemStack;
   createdTick: number;
@@ -100,18 +110,21 @@ interface PersistedLootEntryRecord {
   visible: boolean;
 }
 
+/** PersistedGroundPileRecord：定义该接口的能力与字段约束。 */
 interface PersistedGroundPileRecord {
   x: number;
   y: number;
   entries: PersistedLootEntryRecord[];
 }
 
+/** PersistedContainerSearchRecord：定义该接口的能力与字段约束。 */
 interface PersistedContainerSearchRecord {
   itemKey: string;
   totalTicks: number;
   remainingTicks: number;
 }
 
+/** PersistedContainerRecord：定义该接口的能力与字段约束。 */
 interface PersistedContainerRecord {
   containerId: string;
   variant?: LootSourceVariant;
@@ -126,12 +139,14 @@ interface PersistedContainerRecord {
   activeSearch?: PersistedContainerSearchRecord;
 }
 
+/** PersistedLootMapState：定义该接口的能力与字段约束。 */
 interface PersistedLootMapState {
   tick?: number;
   groundPiles?: PersistedGroundPileRecord[];
   containers?: PersistedContainerRecord[];
 }
 
+/** PersistedLootRuntimeSnapshot：定义该接口的能力与字段约束。 */
 interface PersistedLootRuntimeSnapshot {
   version: 1;
   maps: Record<string, PersistedLootMapState>;
@@ -141,6 +156,7 @@ const RUNTIME_STATE_SCOPE = 'runtime_state';
 const MAP_LOOT_RUNTIME_DOCUMENT_KEY = 'map_loot';
 
 @Injectable()
+/** LootService：封装相关状态与行为。 */
 export class LootService implements OnModuleInit, OnModuleDestroy {
   private readonly mapTicks = new Map<string, number>();
   private readonly groundPiles = new Map<string, GroundPileState>();
@@ -1552,3 +1568,4 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
     this.runtimeStateDirty = true;
   }
 }
+

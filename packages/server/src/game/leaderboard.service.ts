@@ -22,8 +22,10 @@ const DEFAULT_LEADERBOARD_LIMIT = 10;
 const MAX_LEADERBOARD_LIMIT = 10;
 const LEADERBOARD_REFRESH_INTERVAL_MS = 10 * 60 * 1000;
 
+/** SupremeAttrKey：定义该类型的结构与数据语义。 */
 type SupremeAttrKey = 'constitution' | 'spirit' | 'perception' | 'talent';
 
+/** LeaderboardSnapshot：定义该接口的能力与字段约束。 */
 interface LeaderboardSnapshot {
   playerId: string;
   playerName: string;
@@ -51,6 +53,7 @@ const SUPREME_ATTR_LABELS: Record<SupremeAttrKey, string> = {
   talent: '根骨',
 };
 
+/** clampLeaderboardLimit：执行对应的业务逻辑。 */
 function clampLeaderboardLimit(limit?: number): number {
   if (!Number.isFinite(limit)) {
     return DEFAULT_LEADERBOARD_LIMIT;
@@ -58,11 +61,13 @@ function clampLeaderboardLimit(limit?: number): number {
   return Math.max(1, Math.min(MAX_LEADERBOARD_LIMIT, Math.floor(Number(limit))));
 }
 
+/** compareName：执行对应的业务逻辑。 */
 function compareName(left: LeaderboardSnapshot, right: LeaderboardSnapshot): number {
   return left.playerName.localeCompare(right.playerName, 'zh-Hans-CN');
 }
 
 @Injectable()
+/** LeaderboardService：封装相关状态与行为。 */
 export class LeaderboardService {
   private cachedLeaderboard: S2C_Leaderboard | null = null;
 
@@ -282,3 +287,4 @@ export class LeaderboardService {
     ), 0);
   }
 }
+

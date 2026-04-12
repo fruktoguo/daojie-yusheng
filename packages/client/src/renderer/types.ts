@@ -5,6 +5,7 @@
 import { GameTimeState, GridPoint, NpcQuestMarker, TargetingShape, Tile } from '@mud/shared';
 import { Camera } from './camera';
 
+/** FloatingActionTextStyle：定义该类型的结构与数据语义。 */
 export type FloatingActionTextStyle = 'default' | 'divine' | 'chant';
 
 /** 技能瞄准叠加层状态 */
@@ -84,3 +85,4 @@ export interface IRenderer {
   renderAttackTrails(camera: Camera): void;
   destroy(): void;
 }
+

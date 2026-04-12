@@ -11,6 +11,7 @@ import {
   renderMarkdownTable,
 } from './value-report-lib';
 
+/** ReportFileDef：定义该类型的结构与数据语义。 */
 type ReportFileDef = {
   fileName: string;
   title: string;
@@ -80,3 +81,4 @@ function writeReportFiles(): void {
 }
 
 writeReportFiles();
+

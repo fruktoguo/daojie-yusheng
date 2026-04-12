@@ -76,6 +76,7 @@ import {
 import { normalizeBuffSustainCost } from './buff-sustain';
 import { resolveServerDataPath } from '../common/data-path';
 
+/** TechniqueTemplate：定义该接口的能力与字段约束。 */
 interface TechniqueTemplate {
   id: string;
   name: string;
@@ -86,6 +87,7 @@ interface TechniqueTemplate {
   layers: TechniqueLayerDef[];
 }
 
+/** ItemTemplate：定义该接口的能力与字段约束。 */
 interface ItemTemplate extends Omit<ItemStack, 'count'> {
   learnTechniqueId?: string;
   healAmount?: number;
@@ -96,6 +98,7 @@ interface ItemTemplate extends Omit<ItemStack, 'count'> {
   spiritualRootSeedTier?: 'heaven' | 'divine';
 }
 
+/** EditorTechniqueCatalogEntry：定义该接口的能力与字段约束。 */
 export interface EditorTechniqueCatalogEntry {
   id: string;
   name: string;
@@ -106,6 +109,7 @@ export interface EditorTechniqueCatalogEntry {
   layers: TechniqueLayerDef[];
 }
 
+/** EditorItemCatalogEntry：定义该接口的能力与字段约束。 */
 export interface EditorItemCatalogEntry {
   itemId: string;
   name: string;
@@ -135,11 +139,13 @@ export interface EditorItemCatalogEntry {
   allowBatchUse?: boolean;
 }
 
+/** StarterInventoryEntry：定义该接口的能力与字段约束。 */
 interface StarterInventoryEntry {
   itemId: string;
   count?: number;
 }
 
+/** MonsterTemplateDrop：定义该接口的能力与字段约束。 */
 export interface MonsterTemplateDrop {
   itemId: string;
   name: string;
@@ -148,12 +154,14 @@ export interface MonsterTemplateDrop {
   chance?: number;
 }
 
+/** MonsterDropContext：定义该接口的能力与字段约束。 */
 interface MonsterDropContext {
   grade: TechniqueGrade;
   tier: MonsterTier;
   level?: number;
 }
 
+/** MonsterTemplate：定义该接口的能力与字段约束。 */
 export interface MonsterTemplate {
   id: string;
   name: string;
@@ -184,6 +192,7 @@ export interface MonsterTemplate {
   drops: MonsterTemplateDrop[];
 }
 
+/** ContainerLootPoolQuery：定义该接口的能力与字段约束。 */
 export interface ContainerLootPoolQuery {
   minLevel?: number;
   maxLevel?: number;
@@ -192,6 +201,7 @@ export interface ContainerLootPoolQuery {
   tagGroups?: string[][];
 }
 
+/** RawSkillDef：定义该接口的能力与字段约束。 */
 interface RawSkillDef extends Omit<SkillDef, 'unlockRealm' | 'unlockPlayerRealm' | 'effects' | 'cost'> {
   effects: unknown;
   cost?: number;
@@ -200,6 +210,7 @@ interface RawSkillDef extends Omit<SkillDef, 'unlockRealm' | 'unlockPlayerRealm'
   unlockPlayerRealm?: keyof typeof PlayerRealmStage | PlayerRealmStage;
 }
 
+/** RawSharedTechniqueBuffDef：定义该接口的能力与字段约束。 */
 interface RawSharedTechniqueBuffDef {
   id: string;
   target?: 'self' | 'target';
@@ -224,6 +235,7 @@ interface RawSharedTechniqueBuffDef {
   expireWithBuffId?: string;
 }
 
+/** RawItemTemplate：定义该接口的能力与字段约束。 */
 interface RawItemTemplate extends Omit<ItemTemplate, 'equipStats' | 'equipValueStats' | 'effects' | 'consumeBuffs'> {
   equipStats?: unknown;
   equipValueStats?: unknown;
@@ -231,6 +243,7 @@ interface RawItemTemplate extends Omit<ItemTemplate, 'equipStats' | 'equipValueS
   consumeBuffs?: unknown;
 }
 
+/** RawMonsterTemplate：定义该接口的能力与字段约束。 */
 interface RawMonsterTemplate extends Omit<MonsterTemplate, 'grade' | 'attrs' | 'equipment' | 'statPercents' | 'initialBuffs' | 'skills' | 'tier' | 'valueStats' | 'numericStats' | 'combatModel' | 'hp' | 'maxHp' | 'attack' | 'count' | 'radius' | 'maxAlive' | 'aggroRange' | 'viewRange' | 'aggroMode' | 'respawnTicks' | 'expMultiplier' | 'drops'> {
   grade?: TechniqueGrade;
   attrs?: Partial<Attributes>;
@@ -255,11 +268,13 @@ interface RawMonsterTemplate extends Omit<MonsterTemplate, 'grade' | 'attrs' | '
   drops?: MonsterTemplateDrop[];
 }
 
+/** RawTechniqueLayerDef：定义该接口的能力与字段约束。 */
 interface RawTechniqueLayerDef extends Omit<TechniqueLayerDef, 'expToNext'> {
   expToNext?: number;
   expFactor?: number;
 }
 
+/** RawTechniqueTemplate：定义该接口的能力与字段约束。 */
 interface RawTechniqueTemplate {
   id: string;
   name: string;
@@ -270,8 +285,10 @@ interface RawTechniqueTemplate {
   skills: RawSkillDef[];
 }
 
+/** RealmSegmentId：定义该类型的结构与数据语义。 */
 type RealmSegmentId = 'martial' | 'immortal' | 'ascended';
 
+/** RealmLevelEntry：定义该接口的能力与字段约束。 */
 export interface RealmLevelEntry {
   realmLv: number;
   displayName: string;
@@ -286,6 +303,7 @@ export interface RealmLevelEntry {
   expToNext?: number;
 }
 
+/** RealmLevelBand：定义该接口的能力与字段约束。 */
 interface RealmLevelBand {
   grade: TechniqueGrade;
   gradeLabel: string;
@@ -293,6 +311,7 @@ interface RealmLevelBand {
   levelTo: number;
 }
 
+/** RealmLevelSegment：定义该接口的能力与字段约束。 */
 interface RealmLevelSegment {
   id: RealmSegmentId;
   label: string;
@@ -301,6 +320,7 @@ interface RealmLevelSegment {
   rule: string;
 }
 
+/** RealmLevelsConfig：定义该接口的能力与字段约束。 */
 interface RealmLevelsConfig {
   version: number;
   baseLevelKey: string;
@@ -312,6 +332,7 @@ interface RealmLevelsConfig {
   levels: RealmLevelEntry[];
 }
 
+/** RawBreakthroughItemRequirement：定义该类型的结构与数据语义。 */
 type RawBreakthroughItemRequirement = {
   id: string;
   type: 'item';
@@ -322,6 +343,7 @@ type RawBreakthroughItemRequirement = {
   increaseAttrRequirementPct?: number;
 };
 
+/** RawBreakthroughTechniqueRequirement：定义该类型的结构与数据语义。 */
 type RawBreakthroughTechniqueRequirement = {
   id: string;
   type: 'technique';
@@ -335,6 +357,7 @@ type RawBreakthroughTechniqueRequirement = {
   increaseAttrRequirementPct?: number;
 };
 
+/** RawBreakthroughAttributeRequirement：定义该类型的结构与数据语义。 */
 type RawBreakthroughAttributeRequirement = {
   id: string;
   type: 'attribute';
@@ -344,6 +367,7 @@ type RawBreakthroughAttributeRequirement = {
   hidden?: boolean;
 };
 
+/** RawBreakthroughRootRequirement：定义该类型的结构与数据语义。 */
 type RawBreakthroughRootRequirement = {
   id: string;
   type: 'root';
@@ -353,18 +377,21 @@ type RawBreakthroughRootRequirement = {
   hidden?: boolean;
 };
 
+/** RawBreakthroughRequirement：定义该类型的结构与数据语义。 */
 type RawBreakthroughRequirement =
   | RawBreakthroughItemRequirement
   | RawBreakthroughTechniqueRequirement
   | RawBreakthroughAttributeRequirement
   | RawBreakthroughRootRequirement;
 
+/** BreakthroughRequirementDef：定义该类型的结构与数据语义。 */
 export type BreakthroughRequirementDef =
   | RawBreakthroughItemRequirement
   | (Omit<RawBreakthroughTechniqueRequirement, 'minRealm'> & { minRealm?: TechniqueRealm })
   | RawBreakthroughAttributeRequirement
   | RawBreakthroughRootRequirement;
 
+/** BreakthroughConfigEntry：定义该接口的能力与字段约束。 */
 export interface BreakthroughConfigEntry {
   fromRealmLv: number;
   toRealmLv: number;
@@ -372,6 +399,7 @@ export interface BreakthroughConfigEntry {
   requirements: BreakthroughRequirementDef[];
 }
 
+/** BreakthroughConfigFile：定义该接口的能力与字段约束。 */
 interface BreakthroughConfigFile {
   version: number;
   transitions: Array<{
@@ -382,10 +410,12 @@ interface BreakthroughConfigFile {
   }>;
 }
 
+/** isPlainObject：执行对应的业务逻辑。 */
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+/** normalizeStringArray：执行对应的业务逻辑。 */
 function normalizeStringArray(value: unknown): string[] | undefined {
   if (!Array.isArray(value)) {
     return undefined;
@@ -394,6 +424,7 @@ function normalizeStringArray(value: unknown): string[] | undefined {
   return normalized.length > 0 ? normalized : undefined;
 }
 
+/** normalizeQiKeyArray：执行对应的业务逻辑。 */
 function normalizeQiKeyArray<T extends string>(value: unknown, allowed: readonly T[]): T[] | undefined {
   if (!Array.isArray(value)) {
     return undefined;
@@ -443,6 +474,7 @@ const CULTIVATION_PILL_ITEM_IDS = new Set([
   'pill.wangsheng',
 ]);
 
+/** isMedicineItem：执行对应的业务逻辑。 */
 function isMedicineItem(item: ItemTemplate): boolean {
   return item.type === 'consumable'
     && (
@@ -454,6 +486,7 @@ function isMedicineItem(item: ItemTemplate): boolean {
     );
 }
 
+/** isCultivationPill：执行对应的业务逻辑。 */
 function isCultivationPill(item: ItemTemplate): boolean {
   if (!isMedicineItem(item)) {
     return false;
@@ -468,6 +501,7 @@ function isCultivationPill(item: ItemTemplate): boolean {
   });
 }
 
+/** isHealthRestoreMedicine：执行对应的业务逻辑。 */
 function isHealthRestoreMedicine(item: ItemTemplate): boolean {
   return isMedicineItem(item)
     && (item.healAmount ?? 0) + (item.healPercent ?? 0) > 0
@@ -475,6 +509,7 @@ function isHealthRestoreMedicine(item: ItemTemplate): boolean {
     && (item.consumeBuffs?.length ?? 0) === 0;
 }
 
+/** isQiRestoreMedicine：执行对应的业务逻辑。 */
 function isQiRestoreMedicine(item: ItemTemplate): boolean {
   return isMedicineItem(item)
     && (item.qiPercent ?? 0) > 0
@@ -482,6 +517,7 @@ function isQiRestoreMedicine(item: ItemTemplate): boolean {
     && (item.consumeBuffs?.length ?? 0) === 0;
 }
 
+/** isBuffMedicine：执行对应的业务逻辑。 */
 function isBuffMedicine(item: ItemTemplate): boolean {
   return isMedicineItem(item)
     && (item.consumeBuffs?.length ?? 0) > 0
@@ -490,6 +526,7 @@ function isBuffMedicine(item: ItemTemplate): boolean {
     && !isCultivationPill(item);
 }
 
+/** isSpecialMedicine：执行对应的业务逻辑。 */
 function isSpecialMedicine(item: ItemTemplate): boolean {
   return isMedicineItem(item)
     && !isHealthRestoreMedicine(item)
@@ -541,6 +578,7 @@ const ITEM_NAME_TAG_RULES: Array<{ tag: string; test: (item: ItemTemplate) => bo
 ];
 
 @Injectable()
+/** ContentService：封装相关状态与行为。 */
 export class ContentService implements OnModuleInit {
   private readonly logger = new Logger(ContentService.name);
   private readonly techniques = new Map<string, TechniqueTemplate>();
@@ -2211,3 +2249,4 @@ export class ContentService implements OnModuleInit {
     return undefined;
   }
 }
+

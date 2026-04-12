@@ -4,8 +4,11 @@
  */
 import { NumericStats, PlayerSpecialStats } from '@mud/shared';
 
+/** AttrTab：定义该类型的结构与数据语义。 */
 export type AttrTab = 'base' | 'root' | 'vein' | 'combat' | 'qi' | 'special' | 'craft';
+/** NumericCardKey：定义该类型的结构与数据语义。 */
 export type NumericCardKey = Exclude<keyof NumericStats, 'elementDamageBonus' | 'elementDamageReduce'>;
+/** PlayerSpecialCardKey：定义该类型的结构与数据语义。 */
 export type PlayerSpecialCardKey = keyof PlayerSpecialStats;
 
 export const ATTR_TAB_LABELS: Record<AttrTab, string> = {
@@ -103,3 +106,4 @@ export const PLAYER_SPECIAL_TOOLTIP_DESCRIPTIONS: Record<PlayerSpecialCardKey, s
   foundation: '在能够获得境界修为时，优先把本次境界修为抬高到三倍上限；实际额外补上的部分会等量消耗底蕴。',
   combatExp: '通过战斗获得的境界修为会一比一累计到战斗经验，并按双方差距影响攻击时的命中、受击时的闪避，以及普通攻击 20% 到 500% 的独立伤害乘区。',
 };
+

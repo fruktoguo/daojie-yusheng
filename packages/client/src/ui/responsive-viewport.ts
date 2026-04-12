@@ -1,8 +1,10 @@
 import { UI_RESPONSIVE_BREAKPOINTS } from '../constants/ui/responsive';
 import { DESIGN_VIEWPORT } from '../constants/ui/viewport';
 
+/** EffectiveLayoutBreakpoint：定义该类型的结构与数据语义。 */
 export type EffectiveLayoutBreakpoint = 'mobile' | 'compact' | 'wide';
 
+/** ResponsiveViewportMetrics：定义该接口的能力与字段约束。 */
 export interface ResponsiveViewportMetrics {
   locked: boolean;
   rawWidth: number;
@@ -18,16 +20,19 @@ export interface ResponsiveViewportMetrics {
 export const RESPONSIVE_VIEWPORT_CHANGE_EVENT = 'mud:responsive-viewport-change';
 const MIN_VIEWPORT_SCALE = 0.01;
 
+/** matchMediaSafe：执行对应的业务逻辑。 */
 function matchMediaSafe(win: Window, query: string): boolean {
   return typeof win.matchMedia === 'function' ? win.matchMedia(query).matches : false;
 }
 
+/** isWindowsDesktop：执行对应的业务逻辑。 */
 function isWindowsDesktop(win: Window): boolean {
   const platform = win.navigator.platform || '';
   const userAgent = win.navigator.userAgent || '';
   return /Win/i.test(platform) || /Windows/i.test(userAgent);
 }
 
+/** shouldCompensateDesktopScaling：执行对应的业务逻辑。 */
 function shouldCompensateDesktopScaling(win: Window): boolean {
   if (!isWindowsDesktop(win)) {
     return false;
@@ -38,22 +43,27 @@ function shouldCompensateDesktopScaling(win: Window): boolean {
   return !pointerCoarse && !hoverNone;
 }
 
+/** getRawViewportWidth：执行对应的业务逻辑。 */
 function getRawViewportWidth(win: Window): number {
   return Math.max(0, win.innerWidth || 0);
 }
 
+/** getRawViewportHeight：执行对应的业务逻辑。 */
 function getRawViewportHeight(win: Window): number {
   return Math.max(0, win.innerHeight || 0);
 }
 
+/** getDesktopAdjustedViewportWidth：执行对应的业务逻辑。 */
 function getDesktopAdjustedViewportWidth(win: Window): number {
   return Math.round(getRawViewportWidth(win) * getDesktopScaleFactor(win));
 }
 
+/** getDesktopAdjustedViewportHeight：执行对应的业务逻辑。 */
 function getDesktopAdjustedViewportHeight(win: Window): number {
   return Math.round(getRawViewportHeight(win) * getDesktopScaleFactor(win));
 }
 
+/** shouldLockDesktopViewport：执行对应的业务逻辑。 */
 function shouldLockDesktopViewport(win: Window): boolean {
   const adjustedWidth = getDesktopAdjustedViewportWidth(win);
   if (adjustedWidth <= UI_RESPONSIVE_BREAKPOINTS.layoutForceMobile) {
@@ -64,6 +74,7 @@ function shouldLockDesktopViewport(win: Window): boolean {
   return !pointerCoarse && !hoverNone;
 }
 
+/** getResponsiveViewportMetrics：执行对应的业务逻辑。 */
 export function getResponsiveViewportMetrics(win: Window = window): ResponsiveViewportMetrics {
   const rawWidth = getRawViewportWidth(win);
   const rawHeight = getRawViewportHeight(win);
@@ -104,14 +115,17 @@ export function getResponsiveViewportMetrics(win: Window = window): ResponsiveVi
   };
 }
 
+/** getViewportScale：执行对应的业务逻辑。 */
 export function getViewportScale(win: Window = window): number {
   return getResponsiveViewportMetrics(win).scale;
 }
 
+/** getViewportRoot：执行对应的业务逻辑。 */
 export function getViewportRoot(doc: Document = document): HTMLElement | null {
   return doc.getElementById('app-viewport-root');
 }
 
+/** clientToViewportPoint：执行对应的业务逻辑。 */
 export function clientToViewportPoint(
   win: Window,
   clientX: number,
@@ -130,6 +144,7 @@ export function clientToViewportPoint(
   };
 }
 
+/** getDesktopScaleFactor：执行对应的业务逻辑。 */
 export function getDesktopScaleFactor(win: Window): number {
   if (!shouldCompensateDesktopScaling(win)) {
     return 1;
@@ -138,20 +153,24 @@ export function getDesktopScaleFactor(win: Window): number {
   return Math.max(1, dpr);
 }
 
+/** scaleDesktopCssPixels：执行对应的业务逻辑。 */
 export function scaleDesktopCssPixels(_win: Window, pixels: number): number {
   return pixels;
 }
 
+/** getEffectiveViewportWidth：执行对应的业务逻辑。 */
 export function getEffectiveViewportWidth(win: Window): number {
   const metrics = getResponsiveViewportMetrics(win);
   return metrics.locked ? Math.round(metrics.viewportWidth) : getDesktopAdjustedViewportWidth(win);
 }
 
+/** getEffectiveViewportHeight：执行对应的业务逻辑。 */
 export function getEffectiveViewportHeight(win: Window): number {
   const metrics = getResponsiveViewportMetrics(win);
   return metrics.locked ? Math.round(metrics.viewportHeight) : getDesktopAdjustedViewportHeight(win);
 }
 
+/** getEffectiveLayoutBreakpoint：执行对应的业务逻辑。 */
 export function getEffectiveLayoutBreakpoint(win: Window): EffectiveLayoutBreakpoint {
   const viewportWidth = getEffectiveViewportWidth(win);
   if (viewportWidth <= UI_RESPONSIVE_BREAKPOINTS.layoutForceMobile) {
@@ -163,6 +182,7 @@ export function getEffectiveLayoutBreakpoint(win: Window): EffectiveLayoutBreakp
   return 'wide';
 }
 
+/** shouldUseMobileUi：执行对应的业务逻辑。 */
 export function shouldUseMobileUi(win: Window): boolean {
   const viewportWidth = getDesktopAdjustedViewportWidth(win);
   const pointerCoarse = matchMediaSafe(win, '(pointer: coarse)');
@@ -172,6 +192,7 @@ export function shouldUseMobileUi(win: Window): boolean {
     || ((pointerCoarse || hoverNone) && viewportWidth <= UI_RESPONSIVE_BREAKPOINTS.layoutTouchMobile);
 }
 
+/** syncViewportRootStyles：执行对应的业务逻辑。 */
 function syncViewportRootStyles(win: Window, metrics: ResponsiveViewportMetrics): void {
   const root = getViewportRoot(win.document);
   if (!root) {
@@ -200,6 +221,7 @@ function syncViewportRootStyles(win: Window, metrics: ResponsiveViewportMetrics)
   root.style.transform = `translate(-50%, -50%) scale(${metrics.scale.toFixed(6)})`;
 }
 
+/** syncResponsiveViewportCss：执行对应的业务逻辑。 */
 export function syncResponsiveViewportCss(win: Window): void {
   const root = win.document.documentElement;
   const metrics = getResponsiveViewportMetrics(win);
@@ -216,9 +238,11 @@ export function syncResponsiveViewportCss(win: Window): void {
   syncViewportRootStyles(win, metrics);
 }
 
+/** bindResponsiveViewportCss：执行对应的业务逻辑。 */
 export function bindResponsiveViewportCss(win: Window = window): () => void {
   let previousSignature = '';
 
+/** refresh：通过常量导出可复用函数行为。 */
   const refresh = () => {
     syncResponsiveViewportCss(win);
     const metrics = getResponsiveViewportMetrics(win);
@@ -251,3 +275,4 @@ export function bindResponsiveViewportCss(win: Window = window): () => void {
     win.visualViewport?.removeEventListener('resize', refresh);
   };
 }
+

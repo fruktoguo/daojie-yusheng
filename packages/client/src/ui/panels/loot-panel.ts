@@ -7,6 +7,7 @@ import { LootWindowState } from '@mud/shared';
 import { detailModalHost } from '../detail-modal-host';
 import { formatDisplayCountBadge, formatDisplayInteger } from '../../utils/number';
 
+/** escapeHtml：执行对应的业务逻辑。 */
 function escapeHtml(value: string): string {
   return value
     .replaceAll('&', '&amp;')
@@ -16,6 +17,7 @@ function escapeHtml(value: string): string {
     .replaceAll("'", '&#39;');
 }
 
+/** LootPanel：封装相关状态与行为。 */
 export class LootPanel {
   private static readonly MODAL_OWNER = 'loot-panel';
   private static readonly MODAL_VARIANT_CLASSES = ['detail-modal--loot', 'detail-modal--herb-gather'] as const;
@@ -271,3 +273,4 @@ export class LootPanel {
     `;
   }
 }
+

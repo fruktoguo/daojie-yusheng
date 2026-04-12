@@ -5,12 +5,14 @@ export const MARKET_MAX_UNIT_PRICE = 10_000_000_000;
 const MARKET_FRACTIONAL_PRICE_SCALE = 10;
 const MARKET_PRICE_EPSILON = 1e-9;
 
+/** MarketPriceBand：定义该类型的结构与数据语义。 */
 type MarketPriceBand = {
   start: number;
   end: number;
   step: number;
 };
 
+/** greatestCommonDivisor：执行对应的业务逻辑。 */
 function greatestCommonDivisor(left: number, right: number): number {
   let a = Math.abs(Math.trunc(left));
   let b = Math.abs(Math.trunc(right));
@@ -22,6 +24,7 @@ function greatestCommonDivisor(left: number, right: number): number {
   return Math.max(1, a);
 }
 
+/** normalizeFractionalPriceUnits：执行对应的业务逻辑。 */
 function normalizeFractionalPriceUnits(value: number): number | null {
   if (!Number.isFinite(value) || value < MARKET_MIN_UNIT_PRICE || value >= 1) {
     return null;
@@ -36,6 +39,7 @@ function normalizeFractionalPriceUnits(value: number): number | null {
   return scaled;
 }
 
+/** normalizeBasePrice：执行对应的业务逻辑。 */
 function normalizeBasePrice(value: number): number {
   if (!Number.isFinite(value) || value <= 1) {
     return 1;
@@ -43,6 +47,7 @@ function normalizeBasePrice(value: number): number {
   return 10 ** Math.floor(Math.log10(value));
 }
 
+/** getMarketPriceBand：执行对应的业务逻辑。 */
 function getMarketPriceBand(value: number): MarketPriceBand {
   const price = Math.max(1, Math.floor(value));
   const base = normalizeBasePrice(price);
@@ -68,6 +73,7 @@ function getMarketPriceBand(value: number): MarketPriceBand {
   };
 }
 
+/** getMarketPriceStep：执行对应的业务逻辑。 */
 export function getMarketPriceStep(value: number): number {
   if (value < 1) {
     return MARKET_MIN_UNIT_PRICE;
@@ -75,6 +81,7 @@ export function getMarketPriceStep(value: number): number {
   return getMarketPriceBand(value).step;
 }
 
+/** isValidMarketPrice：执行对应的业务逻辑。 */
 export function isValidMarketPrice(value: number): boolean {
   if (!Number.isFinite(value) || value <= 0 || value > MARKET_MAX_UNIT_PRICE) {
     return false;
@@ -89,6 +96,7 @@ export function isValidMarketPrice(value: number): boolean {
   return (value - band.start) % band.step === 0;
 }
 
+/** normalizeMarketPriceUp：执行对应的业务逻辑。 */
 export function normalizeMarketPriceUp(value: number): number {
   if (!Number.isFinite(value)) {
     return MARKET_MIN_UNIT_PRICE;
@@ -117,6 +125,7 @@ export function normalizeMarketPriceUp(value: number): number {
   }
 }
 
+/** normalizeMarketPriceDown：执行对应的业务逻辑。 */
 export function normalizeMarketPriceDown(value: number): number {
   if (!Number.isFinite(value)) {
     return MARKET_MIN_UNIT_PRICE;
@@ -142,6 +151,7 @@ export function normalizeMarketPriceDown(value: number): number {
   }
 }
 
+/** getMarketMinimumTradeQuantity：执行对应的业务逻辑。 */
 export function getMarketMinimumTradeQuantity(unitPrice: number): number {
   const scaled = normalizeFractionalPriceUnits(unitPrice);
   if (scaled === null) {
@@ -150,6 +160,7 @@ export function getMarketMinimumTradeQuantity(unitPrice: number): number {
   return MARKET_FRACTIONAL_PRICE_SCALE / greatestCommonDivisor(MARKET_FRACTIONAL_PRICE_SCALE, scaled);
 }
 
+/** isValidMarketTradeQuantity：执行对应的业务逻辑。 */
 export function isValidMarketTradeQuantity(unitPrice: number, quantity: number): boolean {
   if (!Number.isFinite(quantity) || !Number.isInteger(quantity) || quantity <= 0) {
     return false;
@@ -157,6 +168,7 @@ export function isValidMarketTradeQuantity(unitPrice: number, quantity: number):
   return quantity % getMarketMinimumTradeQuantity(unitPrice) === 0;
 }
 
+/** calculateMarketTradeTotalCost：执行对应的业务逻辑。 */
 export function calculateMarketTradeTotalCost(quantity: number, unitPrice: number): number | null {
   if (!Number.isFinite(quantity) || !Number.isInteger(quantity) || quantity <= 0 || !isValidMarketPrice(unitPrice)) {
     return null;
@@ -174,3 +186,4 @@ export function calculateMarketTradeTotalCost(quantity: number, unitPrice: numbe
   }
   return totalScaled / MARKET_FRACTIONAL_PRICE_SCALE;
 }
+

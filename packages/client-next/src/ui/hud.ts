@@ -6,6 +6,7 @@
 import { PlayerState, resolveCharacterAge } from '@mud/shared-next';
 import { formatDisplayCurrentMax, formatDisplayInteger } from '../utils/number';
 
+/** HUDMeta：定义该接口的能力与字段约束。 */
 interface HUDMeta {
   mapName?: string;
   mapDanger?: string;
@@ -21,6 +22,7 @@ interface HUDMeta {
   titleLabel?: string;
 }
 
+/** HUD：封装相关状态与行为。 */
 export class HUD {
   private nameDiv = document.getElementById('hud-name')!;
   private titleDiv = document.getElementById('hud-title')!;
@@ -39,6 +41,7 @@ export class HUD {
   private cultivateBar = document.getElementById('hud-cultivate-bar')!;
   private onBreakthrough: (() => void) | null = null;
 
+/** constructor：处理当前场景中的对应操作。 */
   constructor() {
     this.breakthroughButton?.addEventListener('click', () => {
       this.onBreakthrough?.();
@@ -86,6 +89,7 @@ export class HUD {
     }
   }
 
+/** setResource：处理当前场景中的对应操作。 */
   private setResource(bar: HTMLElement, text: HTMLElement, value: number, max: number) {
     const ratio = max <= 0 ? 0 : Math.max(0, Math.min(1, value / max));
     bar.style.width = `${Math.round(ratio * 100)}%`;
@@ -107,3 +111,4 @@ export class HUD {
     return `${formatDisplayInteger(lifespanYears)} 岁`;
   }
 }
+

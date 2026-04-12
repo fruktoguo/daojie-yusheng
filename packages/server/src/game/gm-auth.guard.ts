@@ -5,6 +5,7 @@ import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from
 import { AuthService } from '../auth/auth.service';
 
 @Injectable()
+/** GmAuthGuard：封装相关状态与行为。 */
 export class GmAuthGuard implements CanActivate {
   constructor(private readonly authService: AuthService) {}
 
@@ -18,3 +19,4 @@ export class GmAuthGuard implements CanActivate {
     return true;
   }
 }
+

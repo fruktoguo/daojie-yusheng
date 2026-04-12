@@ -30,6 +30,7 @@ const REDEEM_CODE_ALPHABET = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 const MAX_BATCH_REDEEM_CODES = 50;
 const MAX_GROUP_CREATE_COUNT = 500;
 
+/** PreparedRedeemCodeEntry：定义该接口的能力与字段约束。 */
 export interface PreparedRedeemCodeEntry {
   code: string;
   redeemCodeId: string | null;
@@ -38,11 +39,13 @@ export interface PreparedRedeemCodeEntry {
   state: 'active' | 'used' | 'destroyed' | 'not_found' | 'invalid_rewards';
 }
 
+/** PreparedRedeemCodeOperation：定义该接口的能力与字段约束。 */
 export interface PreparedRedeemCodeOperation {
   entries: PreparedRedeemCodeEntry[];
 }
 
 @Injectable()
+/** RedeemCodeService：封装相关状态与行为。 */
 export class RedeemCodeService {
   constructor(
     @InjectRepository(RedeemCodeGroupEntity)
@@ -458,6 +461,7 @@ export class RedeemCodeService {
   }
 }
 
+/** normalizeGroupName：执行对应的业务逻辑。 */
 function normalizeGroupName(name: string): string {
   const normalized = name.normalize('NFC').trim();
   if (!normalized) {
@@ -469,6 +473,7 @@ function normalizeGroupName(name: string): string {
   return normalized;
 }
 
+/** normalizeCreateCount：执行对应的业务逻辑。 */
 function normalizeCreateCount(count: number): number {
   const normalized = Math.max(1, Math.floor(Number(count) || 0));
   if (normalized <= 0) {
@@ -480,6 +485,7 @@ function normalizeCreateCount(count: number): number {
   return normalized;
 }
 
+/** normalizeSubmittedCodes：执行对应的业务逻辑。 */
 function normalizeSubmittedCodes(codes: string[]): string[] {
   if (!Array.isArray(codes)) {
     return [];
@@ -503,14 +509,17 @@ function normalizeSubmittedCodes(codes: string[]): string[] {
   return normalized;
 }
 
+/** cloneInventoryItems：执行对应的业务逻辑。 */
 function cloneInventoryItems(items: PlayerState['inventory']['items']): PlayerState['inventory']['items'] {
   return items.map((entry) => ({ ...entry }));
 }
 
+/** cloneRewards：执行对应的业务逻辑。 */
 function cloneRewards(rewards: RedeemCodeGroupRewardItem[]): RedeemCodeGroupRewardItem[] {
   return rewards.map((entry) => ({ ...entry }));
 }
 
+/** generateRedeemCode：执行对应的业务逻辑。 */
 function generateRedeemCode(): string {
   const bytes = randomBytes(REDEEM_CODE_LENGTH);
   let output = '';
@@ -519,3 +528,4 @@ function generateRedeemCode(): string {
   }
   return output;
 }
+

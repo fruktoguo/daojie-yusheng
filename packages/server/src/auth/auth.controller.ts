@@ -16,19 +16,23 @@ import {
 } from '@mud/shared';
 import { buildDefaultRoleName } from './account-validation';
 
+/** LegacyAuthLoginReq：定义该类型的结构与数据语义。 */
 type LegacyAuthLoginReq = {
   username?: string;
 };
 
+/** LegacyAuthRegisterReq：定义该类型的结构与数据语义。 */
 type LegacyAuthRegisterReq = {
   username?: string;
 };
 
+/** pickString：执行对应的业务逻辑。 */
 function pickString(value: unknown): string {
   return typeof value === 'string' ? value : '';
 }
 
 @Controller('auth')
+/** AuthController：封装相关状态与行为。 */
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
@@ -87,3 +91,4 @@ export class AuthController {
     return { ok: true };
   }
 }
+

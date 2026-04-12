@@ -3,6 +3,7 @@
  */
 import { TechniqueRealm } from '@mud/shared-next';
 
+/** WorldGuide：定义该接口的能力与字段约束。 */
 export interface WorldGuide {
   title: string;
   recommendedRealm: string;
@@ -126,3 +127,4 @@ export const MAP_FALLBACK: Record<string, { recommendedRealm: string }> = {
   spirit_ridge: { recommendedRealm: '天玑-大宗师' },
   sky_ruins: { recommendedRealm: '宗师-叩仙门' },
 };
+

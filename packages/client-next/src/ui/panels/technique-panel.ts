@@ -29,13 +29,16 @@ import { preserveSelection } from '../selection-preserver';
 import { TechniqueConstellationCanvas, TechniqueConstellationCanvasData, TechniqueConstellationHoverPayload } from './technique-constellation-canvas';
 import { formatDisplayInteger, formatDisplayNumber } from '../../utils/number';
 
+/** TechniquePanelState：定义该类型的结构与数据语义。 */
 type TechniquePanelState = {
   cultivatingTechId?: string;
   previewPlayer?: PlayerState;
   techniques: TechniqueState[];
 };
 
+/** TechniqueCategoryFilter：定义该类型的结构与数据语义。 */
 type TechniqueCategoryFilter = 'all' | TechniqueCategory;
+/** TechniqueStatusFilter：定义该类型的结构与数据语义。 */
 type TechniqueStatusFilter = 'in_progress' | 'completed' | 'all';
 
 const TECHNIQUE_CATEGORY_FILTERS: Array<{ value: TechniqueCategoryFilter; label: string }> = [
@@ -52,6 +55,7 @@ const TECHNIQUE_STATUS_FILTERS: Array<{ value: TechniqueStatusFilter; label: str
   { value: 'all', label: '全部' },
 ];
 
+/** escapeHtml：执行对应的业务逻辑。 */
 function escapeHtml(value: string): string {
   return value
     .replaceAll('&', '&amp;')
@@ -61,6 +65,7 @@ function escapeHtml(value: string): string {
     .replaceAll("'", '&#39;');
 }
 
+/** formatAttrMap：执行对应的业务逻辑。 */
 function formatAttrMap(attrs: Partial<Attributes>, fallback = '无属性提升'): string {
   const entries = TECHNIQUE_ATTR_KEYS
     .map((key) => [key, attrs[key] ?? 0] as const)
@@ -71,6 +76,7 @@ function formatAttrMap(attrs: Partial<Attributes>, fallback = '无属性提升')
   return entries.map(([key, value]) => `${ATTR_KEY_LABELS[key]}+${formatDisplayNumber(value)}`).join(' / ');
 }
 
+/** subtractAttrMap：执行对应的业务逻辑。 */
 function subtractAttrMap(left: Partial<Attributes>, right: Partial<Attributes>): Partial<Attributes> {
   const result: Partial<Attributes> = {};
   for (const key of TECHNIQUE_ATTR_KEYS) {
@@ -82,20 +88,24 @@ function subtractAttrMap(left: Partial<Attributes>, right: Partial<Attributes>):
   return result;
 }
 
+/** calcTechniqueEffectiveContribution：执行对应的业务逻辑。 */
 function calcTechniqueEffectiveContribution(techniques: TechniqueState[], techId: string): Partial<Attributes> {
   const totalAttrs = calcTechniqueFinalAttrBonus(techniques);
   const totalWithoutCurrent = calcTechniqueFinalAttrBonus(techniques.filter((tech) => tech.techId !== techId));
   return subtractAttrMap(totalAttrs, totalWithoutCurrent);
 }
 
+/** formatTechniqueContributionSummary：执行对应的业务逻辑。 */
 function formatTechniqueContributionSummary(totalAttrs: Partial<Attributes>, rawAttrs: Partial<Attributes>): string {
   return `${formatAttrMap(totalAttrs)}（原始：${formatAttrMap(rawAttrs)}）`;
 }
 
+/** resolveTechniqueCategory：执行对应的业务逻辑。 */
 function resolveTechniqueCategory(tech: TechniqueState): TechniqueCategory {
   return tech.category ?? (tech.skills.length > 0 ? 'arts' : 'internal');
 }
 
+/** areTechniqueSkillsEnabled：执行对应的业务逻辑。 */
 function areTechniqueSkillsEnabled(tech: TechniqueState, previewPlayer?: PlayerState): boolean {
   if (typeof tech.skillsEnabled === 'boolean') {
     return tech.skillsEnabled;
@@ -121,6 +131,7 @@ function areTechniqueSkillsEnabled(tech: TechniqueState, previewPlayer?: PlayerS
   return !hasResolvedSkill ? true : false;
 }
 
+/** getTechniqueProgressRatio：执行对应的业务逻辑。 */
 function getTechniqueProgressRatio(tech: TechniqueState): number {
   if (tech.expToNext <= 0) {
     return 1;
@@ -128,6 +139,7 @@ function getTechniqueProgressRatio(tech: TechniqueState): number {
   return Math.max(0, Math.min(1, tech.exp / tech.expToNext));
 }
 
+/** getTechniqueRemainingExp：执行对应的业务逻辑。 */
 function getTechniqueRemainingExp(tech: TechniqueState): number {
   if (tech.expToNext <= 0) {
     return 0;
@@ -135,18 +147,21 @@ function getTechniqueRemainingExp(tech: TechniqueState): number {
   return Math.max(0, tech.expToNext - tech.exp);
 }
 
+/** formatTechniqueProgressText：执行对应的业务逻辑。 */
 function formatTechniqueProgressText(tech: TechniqueState): string {
   return tech.expToNext > 0
     ? `${formatDisplayInteger(tech.exp)}/${formatDisplayInteger(tech.expToNext)}`
     : '已满层';
 }
 
+/** formatTechniqueRemainText：执行对应的业务逻辑。 */
 function formatTechniqueRemainText(tech: TechniqueState): string {
   return tech.expToNext > 0
     ? `距下一层还需 ${formatDisplayInteger(getTechniqueRemainingExp(tech))} 功法经验`
     : '当前已达圆满层';
 }
 
+/** calcTechniqueTotalExp：执行对应的业务逻辑。 */
 function calcTechniqueTotalExp(tech: TechniqueState): number {
   if (!tech.layers || tech.layers.length === 0) {
     return tech.exp;
@@ -161,10 +176,12 @@ function calcTechniqueTotalExp(tech: TechniqueState): number {
   return totalExp;
 }
 
+/** getResolvedTechniqueRealm：执行对应的业务逻辑。 */
 function getResolvedTechniqueRealm(tech: TechniqueState): TechniqueRealm {
   return deriveTechniqueRealm(tech.level, tech.layers, tech.attrCurves);
 }
 
+/** getTechniqueRealmLevelLabel：执行对应的业务逻辑。 */
 function getTechniqueRealmLevelLabel(tech: TechniqueState): string {
   const entry = getLocalRealmLevelEntry(tech.realmLv);
   return entry
@@ -172,16 +189,19 @@ function getTechniqueRealmLevelLabel(tech: TechniqueState): string {
     : `Lv.${formatDisplayInteger(tech.realmLv)}`;
 }
 
+/** getPlayerRealmLv：执行对应的业务逻辑。 */
 function getPlayerRealmLv(player?: PlayerState): number | null {
   const realmLv = player?.realm?.realmLv ?? player?.realmLv;
   return Number.isFinite(realmLv) ? Math.max(1, Math.floor(Number(realmLv))) : null;
 }
 
+/** getRealmLevelDisplayName：执行对应的业务逻辑。 */
 function getRealmLevelDisplayName(realmLv: number): string {
   const entry = getLocalRealmLevelEntry(realmLv);
   return entry?.displayName ?? `Lv.${formatDisplayInteger(realmLv)}`;
 }
 
+/** buildTechniqueExpTooltipLines：执行对应的业务逻辑。 */
 function buildTechniqueExpTooltipLines(tech: TechniqueState, player?: PlayerState): string[] {
   const stepPercent = Math.round(TECHNIQUE_EXP_LEVEL_DELTA_MULTIPLIER_STEP * 100);
   const lines = [
@@ -208,6 +228,7 @@ function buildTechniqueExpTooltipLines(tech: TechniqueState, player?: PlayerStat
   return lines;
 }
 
+/** findTechniqueRealmStartLevel：执行对应的业务逻辑。 */
 function findTechniqueRealmStartLevel(
   realm: TechniqueRealm,
   maxLevel: number,
@@ -222,6 +243,7 @@ function findTechniqueRealmStartLevel(
   return null;
 }
 
+/** buildTechniqueMilestones：执行对应的业务逻辑。 */
 function buildTechniqueMilestones(tech: TechniqueState, maxLevel: number): Map<number, TechniqueRealm> {
   const milestones = new Map<number, TechniqueRealm>();
   for (const realm of [TechniqueRealm.Minor, TechniqueRealm.Major, TechniqueRealm.Perfection]) {
@@ -233,6 +255,7 @@ function buildTechniqueMilestones(tech: TechniqueState, maxLevel: number): Map<n
   return milestones;
 }
 
+/** TechniquePanel：封装相关状态与行为。 */
 export class TechniquePanel {
   private static readonly MODAL_OWNER = 'technique-panel';
   private pane = document.getElementById('pane-technique')!;
@@ -247,6 +270,7 @@ export class TechniquePanel {
   private lastState: TechniquePanelState = { techniques: [] };
   private lastVisibleTechniqueIds: string[] | null = null;
 
+/** constructor：处理当前场景中的对应操作。 */
   constructor() {
     this.bindPaneEvents();
   }
@@ -1207,3 +1231,4 @@ export class TechniquePanel {
     return technique ? resolvePreviewTechnique(technique) : undefined;
   }
 }
+

@@ -43,8 +43,10 @@ import {
   INVENTORY_PANEL_USABLE_ITEM_TYPES,
 } from '../../constants/ui/inventory-panel';
 
+/** InventoryActionKind：定义该类型的结构与数据语义。 */
 type InventoryActionKind = 'use' | 'drop' | 'destroy';
 
+/** InventoryActionDialogState：定义该接口的能力与字段约束。 */
 interface InventoryActionDialogState {
   kind: InventoryActionKind;
   slotIndex: number;
@@ -52,11 +54,13 @@ interface InventoryActionDialogState {
   confirmDestroy: boolean;
 }
 
+/** InventoryStructureState：定义该接口的能力与字段约束。 */
 interface InventoryStructureState {
   filter: InventoryFilter;
   items: Array<{ slotIndex: number; identity: string }>;
 }
 
+/** InventoryPrimaryAction：定义该接口的能力与字段约束。 */
 interface InventoryPrimaryAction {
   label: string;
   kind: 'use' | 'equip' | 'status';
@@ -72,6 +76,7 @@ const INVENTORY_INITIAL_RENDER_COUNT = 72;
 const INVENTORY_RENDER_BATCH_SIZE = 48;
 const INVENTORY_LOAD_MORE_THRESHOLD_PX = 240;
 
+/** formatItemEffects：执行对应的业务逻辑。 */
 function formatItemEffects(item: ItemStack): string[] {
   return describeItemEffectDetails(item);
 }
@@ -105,6 +110,7 @@ export class InventoryPanel {
   private renderedVisibleCount = INVENTORY_INITIAL_RENDER_COUNT;
   private pendingLoadMoreFrame: number | null = null;
   private cooldownRefreshTimer: number | null = null;
+/** handleScrollCapture：将函数作为字段暴露，承接调用行为。 */
   private handleScrollCapture = (event: Event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) {
@@ -116,6 +122,7 @@ export class InventoryPanel {
     this.maybeLoadMoreVisibleItems(target);
   };
 
+/** constructor：处理当前场景中的对应操作。 */
   constructor() {
     this.ensureTooltipStyle();
     this.bindPaneEvents();
@@ -375,6 +382,7 @@ export class InventoryPanel {
 
   private bindTooltipEvents(): void {
     const tapMode = prefersPinnedTooltipInteraction();
+/** show：通过常量导出可复用函数行为。 */
     const show = (cell: HTMLElement, event: PointerEvent) => {
       const rawIndex = cell.dataset.itemSlot;
       if (!rawIndex || !this.lastInventory) {
@@ -1385,6 +1393,7 @@ export class InventoryPanel {
     return true;
   }
 
+/** buildTooltipPayload：处理当前场景中的对应操作。 */
   private buildTooltipPayload(item: ItemStack) {
     return buildItemTooltipPayload({
       ...item,
@@ -1493,3 +1502,4 @@ export class InventoryPanel {
       .replaceAll("'", '&#39;');
   }
 }
+

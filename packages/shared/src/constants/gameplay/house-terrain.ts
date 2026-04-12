@@ -21,6 +21,7 @@ export type HouseDecorTileDefinition = {
   minimapColor: string;
 };
 
+/** HouseDecorTileType：定义该类型的结构与数据语义。 */
 export type HouseDecorTileType =
   | TileType.HouseEave
   | TileType.HouseCorner
@@ -117,3 +118,4 @@ export const HOUSE_DECOR_WALKABLE_TILE_TYPES = new Set(
 export const HOUSE_DECOR_BLOCK_SIGHT_TILE_TYPES = new Set(
   HOUSE_DECOR_TILE_DEFINITIONS.filter((entry) => entry.blocksSight).map((entry) => entry.type),
 );
+

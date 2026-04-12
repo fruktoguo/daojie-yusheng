@@ -13,22 +13,27 @@ export const ALCHEMY_PREPARATION_TICKS = 10;
 export const ALCHEMY_FURNACE_OUTPUT_COUNT = 6;
 const DEFAULT_ALCHEMY_SKILL_EXP_TO_NEXT = 60;
 
+/** clampUnitRate：执行对应的业务逻辑。 */
 function clampUnitRate(value: number): number {
   return Math.max(0, Math.min(1, Number.isFinite(value) ? value : 0));
 }
 
+/** normalizeAlchemyLevel：执行对应的业务逻辑。 */
 function normalizeAlchemyLevel(value: number | undefined): number {
   return Math.max(1, Math.floor(Number(value) || 1));
 }
 
+/** normalizeAlchemyQuantity：执行对应的业务逻辑。 */
 export function normalizeAlchemyQuantity(value: number | undefined): number {
   return Math.max(1, Math.floor(Number(value) || 1));
 }
 
+/** computeAlchemyBatchOutputCount：执行对应的业务逻辑。 */
 export function computeAlchemyBatchOutputCount(outputCount: number | undefined): number {
   return computeAlchemyBatchOutputCountWithSize(outputCount, ALCHEMY_FURNACE_OUTPUT_COUNT);
 }
 
+/** computeAlchemyBatchOutputCountWithSize：执行对应的业务逻辑。 */
 export function computeAlchemyBatchOutputCountWithSize(
   outputCount: number | undefined,
   furnaceOutputCount: number | undefined,
@@ -38,6 +43,7 @@ export function computeAlchemyBatchOutputCountWithSize(
   return normalizedOutputCount * normalizedFurnaceOutputCount;
 }
 
+/** getAlchemySpiritStoneCost：执行对应的业务逻辑。 */
 export function getAlchemySpiritStoneCost(
   recipeLevel: number | undefined,
   consumesSpiritStone = true,
@@ -48,6 +54,7 @@ export function getAlchemySpiritStoneCost(
   return normalizeAlchemyLevel(recipeLevel);
 }
 
+/** computeAlchemyTotalJobTicks：执行对应的业务逻辑。 */
 export function computeAlchemyTotalJobTicks(
   batchBrewTicks: number,
   quantity: number | undefined,
@@ -58,6 +65,7 @@ export function computeAlchemyTotalJobTicks(
   return normalizedPreparationTicks + (normalizedBatchTicks * normalizeAlchemyQuantity(quantity));
 }
 
+/** applyBoundedSuccessModifier：执行对应的业务逻辑。 */
 function applyBoundedSuccessModifier(rate: number, modifier: number): number {
   const clampedRate = clampUnitRate(rate);
   if (clampedRate >= 1) {
@@ -72,11 +80,13 @@ function applyBoundedSuccessModifier(rate: number, modifier: number): number {
   return clampUnitRate(clampedRate * Math.max(0, 1 + modifier));
 }
 
+/** resolveAlchemyGradeValue：执行对应的业务逻辑。 */
 export function resolveAlchemyGradeValue(grade: TechniqueGrade | undefined): number {
   const index = TECHNIQUE_GRADE_ORDER.indexOf(grade ?? 'mortal');
   return Math.max(1, index + 1);
 }
 
+/** normalizeAlchemySkillState：执行对应的业务逻辑。 */
 export function normalizeAlchemySkillState(
   value: unknown,
   fallbackExpToNext = DEFAULT_ALCHEMY_SKILL_EXP_TO_NEXT,
@@ -97,6 +107,7 @@ export function normalizeAlchemySkillState(
   return { level, exp, expToNext };
 }
 
+/** computeAlchemyMaterialPower：执行对应的业务逻辑。 */
 export function computeAlchemyMaterialPower(
   level: number | undefined,
   grade: TechniqueGrade | undefined,
@@ -107,6 +118,7 @@ export function computeAlchemyMaterialPower(
   return normalizedLevel * (resolveAlchemyGradeValue(grade) ** 2) * normalizedCount;
 }
 
+/** buildAlchemyIngredientCountMap：执行对应的业务逻辑。 */
 export function buildAlchemyIngredientCountMap(
   ingredients: readonly AlchemyIngredientSelection[] | undefined,
 ): Map<string, number> {
@@ -125,6 +137,7 @@ export function buildAlchemyIngredientCountMap(
   return map;
 }
 
+/** isExactAlchemyRecipe：执行对应的业务逻辑。 */
 export function isExactAlchemyRecipe(
   recipe: Pick<AlchemyRecipeCatalogEntry, 'ingredients'>,
   submitted: readonly AlchemyIngredientSelection[] | undefined,
@@ -141,6 +154,7 @@ export function isExactAlchemyRecipe(
   return true;
 }
 
+/** computeAlchemySubmittedPower：执行对应的业务逻辑。 */
 export function computeAlchemySubmittedPower(
   recipe: Pick<AlchemyRecipeCatalogEntry, 'ingredients'>,
   submitted: readonly AlchemyIngredientSelection[] | undefined,
@@ -157,6 +171,7 @@ export function computeAlchemySubmittedPower(
   return total;
 }
 
+/** computeAlchemyPowerRatio：执行对应的业务逻辑。 */
 export function computeAlchemyPowerRatio(
   recipe: Pick<AlchemyRecipeCatalogEntry, 'fullPower' | 'ingredients'>,
   submitted: readonly AlchemyIngredientSelection[] | undefined,
@@ -168,6 +183,7 @@ export function computeAlchemyPowerRatio(
   return Math.max(0, Math.min(1, ratio));
 }
 
+/** computeAlchemySuccessRate：执行对应的业务逻辑。 */
 export function computeAlchemySuccessRate(
   recipe: Pick<AlchemyRecipeCatalogEntry, 'fullPower' | 'ingredients'>,
   submitted: readonly AlchemyIngredientSelection[] | undefined,
@@ -179,6 +195,7 @@ export function computeAlchemySuccessRate(
   return Math.max(0, Math.min(1, ratio ** 2));
 }
 
+/** computeAlchemyAdjustedSuccessRate：执行对应的业务逻辑。 */
 export function computeAlchemyAdjustedSuccessRate(
   baseRate: number,
   recipeLevel: number | undefined,
@@ -197,6 +214,7 @@ export function computeAlchemyAdjustedSuccessRate(
   return applyBoundedSuccessModifier(nextRate, furnaceSuccessRate);
 }
 
+/** computeAlchemyBrewTicks：执行对应的业务逻辑。 */
 export function computeAlchemyBrewTicks(
   baseBrewTicks: number,
   recipe: Pick<AlchemyRecipeCatalogEntry, 'fullPower' | 'ingredients'>,
@@ -212,6 +230,7 @@ export function computeAlchemyBrewTicks(
   return Math.max(1, Math.ceil(normalizedBase * Math.max(0, ratio))) * normalizedFurnaceOutputCount;
 }
 
+/** computeAlchemySpeedMultiplier：执行对应的业务逻辑。 */
 export function computeAlchemySpeedMultiplier(
   recipeLevel: number | undefined,
   alchemyLevel: number | undefined,
@@ -236,6 +255,7 @@ export function computeAlchemySpeedMultiplier(
   return Math.max(0.05, multiplier);
 }
 
+/** computeAlchemyAdjustedBrewTicks：执行对应的业务逻辑。 */
 export function computeAlchemyAdjustedBrewTicks(
   baseBrewTicks: number,
   recipe: Pick<AlchemyRecipeCatalogEntry, 'fullPower' | 'ingredients'>,
@@ -250,6 +270,7 @@ export function computeAlchemyAdjustedBrewTicks(
   return Math.max(1, Math.ceil(baseTicks / speedMultiplier));
 }
 
+/** normalizeAlchemyIngredientSelections：执行对应的业务逻辑。 */
 export function normalizeAlchemyIngredientSelections(
   value: unknown,
 ): AlchemyIngredientSelection[] {
@@ -272,6 +293,7 @@ export function normalizeAlchemyIngredientSelections(
   ).entries()).map(([itemId, count]) => ({ itemId, count }));
 }
 
+/** normalizePlayerAlchemyPreset：执行对应的业务逻辑。 */
 export function normalizePlayerAlchemyPreset(value: unknown): PlayerAlchemyPreset | null {
   if (!value || typeof value !== 'object') {
     return null;
@@ -292,6 +314,7 @@ export function normalizePlayerAlchemyPreset(value: unknown): PlayerAlchemyPrese
   };
 }
 
+/** normalizePlayerAlchemyPresets：执行对应的业务逻辑。 */
 export function normalizePlayerAlchemyPresets(value: unknown): PlayerAlchemyPreset[] {
   if (!Array.isArray(value)) {
     return [];
@@ -312,6 +335,7 @@ export function normalizePlayerAlchemyPresets(value: unknown): PlayerAlchemyPres
   return result;
 }
 
+/** normalizePlayerAlchemyJob：执行对应的业务逻辑。 */
 export function normalizePlayerAlchemyJob(value: unknown): PlayerAlchemyJob | null {
   if (!value || typeof value !== 'object') {
     return null;
@@ -350,3 +374,4 @@ export function normalizePlayerAlchemyJob(value: unknown): PlayerAlchemyJob | nu
     startedAt: Math.max(0, Math.floor(Number(candidate.startedAt) || 0)),
   };
 }
+

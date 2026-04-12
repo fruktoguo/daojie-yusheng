@@ -7,6 +7,7 @@ import { formatDisplayCountBadge, formatDisplayInteger } from '../utils/number';
 import { detailModalHost } from './detail-modal-host';
 import { confirmModalHost } from './confirm-modal-host';
 
+/** escapeHtml：执行对应的业务逻辑。 */
 function escapeHtml(value: string): string {
   return value
     .replaceAll('&', '&amp;')
@@ -16,15 +17,18 @@ function escapeHtml(value: string): string {
     .replaceAll("'", '&#39;');
 }
 
+/** escapeHtmlAttr：执行对应的业务逻辑。 */
 function escapeHtmlAttr(value: string): string {
   return escapeHtml(value);
 }
 
+/** NpcShopModalCallbacks：定义该接口的能力与字段约束。 */
 interface NpcShopModalCallbacks {
   onRequestShop: (npcId: string) => void;
   onBuyItem: (npcId: string, itemId: string, quantity: number) => void;
 }
 
+/** NpcShopItemState：定义该接口的能力与字段约束。 */
 interface NpcShopItemState {
   itemId: string;
   item: ItemStack;
@@ -34,6 +38,7 @@ interface NpcShopItemState {
   refreshAt?: number;
 }
 
+/** NpcShopState：定义该接口的能力与字段约束。 */
 interface NpcShopState {
   npcId: string;
   npcName: string;
@@ -43,12 +48,14 @@ interface NpcShopState {
   items: NpcShopItemState[];
 }
 
+/** NpcShopResponseState：定义该接口的能力与字段约束。 */
 interface NpcShopResponseState {
   npcId: string;
   shop: NpcShopState | null;
   error?: string;
 }
 
+/** NpcShopPurchaseState：定义该接口的能力与字段约束。 */
 interface NpcShopPurchaseState {
   quantity: number | null;
   affordableCount: number;
@@ -63,11 +70,13 @@ interface NpcShopPurchaseState {
   errorText: string | null;
 }
 
+/** NpcShopModalMeta：定义该接口的能力与字段约束。 */
 interface NpcShopModalMeta {
   title: string;
   subtitle: string;
 }
 
+/** NpcShopModal：封装相关状态与行为。 */
 export class NpcShopModal {
   private static readonly MODAL_OWNER = 'npc-shop-modal';
   private static readonly CONFIRM_MODAL_OWNER = 'npc-shop-modal:confirm-purchase';
@@ -749,3 +758,4 @@ export class NpcShopModal {
       .reduce((total, item) => total + item.count, 0);
   }
 }
+

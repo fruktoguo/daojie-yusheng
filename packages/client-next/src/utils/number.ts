@@ -1,7 +1,9 @@
+/** trimTrailingZeros：执行对应的业务逻辑。 */
 function trimTrailingZeros(text: string): string {
   return text.replace(/\.?0+$/, '');
 }
 
+/** formatPlainNumber：执行对应的业务逻辑。 */
 function formatPlainNumber(value: number, maximumFractionDigits: number): string {
   if (!Number.isFinite(value)) {
     return '0';
@@ -12,12 +14,14 @@ function formatPlainNumber(value: number, maximumFractionDigits: number): string
   return trimTrailingZeros(value.toFixed(maximumFractionDigits));
 }
 
+/** DisplayNumberOptions：定义该接口的能力与字段约束。 */
 export interface DisplayNumberOptions {
   maximumFractionDigits?: number;
   compactThreshold?: number;
   compactMaximumFractionDigits?: number;
 }
 
+/** formatDisplayNumber：执行对应的业务逻辑。 */
 export function formatDisplayNumber(value: number, options: DisplayNumberOptions = {}): string {
   if (!Number.isFinite(value)) {
     return '0';
@@ -38,6 +42,7 @@ export function formatDisplayNumber(value: number, options: DisplayNumberOptions
   return `${sign}${formatPlainNumber(absValue / 10_000, compactMaximumFractionDigits)}万`;
 }
 
+/** formatDisplayInteger：执行对应的业务逻辑。 */
 export function formatDisplayInteger(value: number, options: Omit<DisplayNumberOptions, 'maximumFractionDigits'> = {}): string {
   return formatDisplayNumber(Math.round(value), {
     ...options,
@@ -45,19 +50,24 @@ export function formatDisplayInteger(value: number, options: Omit<DisplayNumberO
   });
 }
 
+/** formatDisplaySignedNumber：执行对应的业务逻辑。 */
 export function formatDisplaySignedNumber(value: number, options: DisplayNumberOptions = {}): string {
   const sign = value >= 0 ? '+' : '-';
   return `${sign}${formatDisplayNumber(Math.abs(value), options)}`;
 }
 
+/** formatDisplayPercent：执行对应的业务逻辑。 */
 export function formatDisplayPercent(value: number, options: DisplayNumberOptions = {}): string {
   return `${formatDisplayNumber(value, options)}%`;
 }
 
+/** formatDisplayCurrentMax：执行对应的业务逻辑。 */
 export function formatDisplayCurrentMax(current: number, max: number): string {
   return `${formatDisplayInteger(current)} / ${formatDisplayInteger(max)}`;
 }
 
+/** formatDisplayCountBadge：执行对应的业务逻辑。 */
 export function formatDisplayCountBadge(count: number): string {
   return `x${formatDisplayInteger(count)}`;
 }
+

@@ -11,8 +11,10 @@ import { getLocalBuffTemplate, resolvePreviewSkill, resolvePreviewSkills } from 
 import { describePreviewBonuses } from './stat-preview';
 import { formatDisplayInteger, formatDisplayNumber, formatDisplayPercent } from '../utils/number';
 
+/** SkillTooltipPreviewPlayer：定义该类型的结构与数据语义。 */
 type SkillTooltipPreviewPlayer = Pick<PlayerState, 'x' | 'y' | 'hp' | 'maxHp' | 'qi' | 'numericStats' | 'finalAttrs' | 'temporaryBuffs'>;
 
+/** SkillTooltipPreviewContext：定义该接口的能力与字段约束。 */
 export interface SkillTooltipPreviewContext {
   techLevel?: number;
   unlockLevel?: number;
@@ -21,15 +23,19 @@ export interface SkillTooltipPreviewContext {
   knownSkills?: SkillDef[];
 }
 
+/** PreviewPlayer：定义该类型的结构与数据语义。 */
 type PreviewPlayer = NonNullable<SkillTooltipPreviewContext['player']>;
 
+/** ScalingMeta：定义该类型的结构与数据语义。 */
 type ScalingMeta = SkillScalingMeta;
 
+/** FormulaPreview：定义该类型的结构与数据语义。 */
 type FormulaPreview = {
   html: string;
   resolved: number | null;
 };
 
+/** StructuredDamagePreview：定义该类型的结构与数据语义。 */
 type StructuredDamagePreview = {
   total: number;
   fixedTotal: number;
@@ -39,27 +45,32 @@ type StructuredDamagePreview = {
   percentHtml: string;
 };
 
+/** PercentFactorPreview：定义该类型的结构与数据语义。 */
 type PercentFactorPreview = {
   multiplier: number;
   html: string;
 };
 
+/** ResolvedPreviewValue：定义该类型的结构与数据语义。 */
 type ResolvedPreviewValue = {
   value: number;
   known: boolean;
 };
 
+/** BuffFormulaMeta：定义该类型的结构与数据语义。 */
 type BuffFormulaMeta = {
   side: 'caster' | 'target';
   buffId: string;
 };
 
+/** ResolvedBuffMeta：定义该类型的结构与数据语义。 */
 type ResolvedBuffMeta = {
   name: string;
   mark: string;
   tone: 'buff' | 'debuff';
 };
 
+/** SkillTooltipAsideCard：定义该接口的能力与字段约束。 */
 export interface SkillTooltipAsideCard {
   mark?: string;
   title: string;
@@ -67,11 +78,13 @@ export interface SkillTooltipAsideCard {
   tone?: 'buff' | 'debuff';
 }
 
+/** SkillTooltipContent：定义该接口的能力与字段约束。 */
 export interface SkillTooltipContent {
   lines: string[];
   asideCards: SkillTooltipAsideCard[];
 }
 
+/** SkillPreviewMetrics：定义该接口的能力与字段约束。 */
 export interface SkillPreviewMetrics {
   actualDamage: number | null;
   actualQiCost: number;
@@ -86,6 +99,7 @@ export interface SkillPreviewMetrics {
   isRanged: boolean;
 }
 
+/** escapeHtml：执行对应的业务逻辑。 */
 function escapeHtml(value: string): string {
   return value
     .replaceAll('&', '&amp;')
@@ -95,24 +109,29 @@ function escapeHtml(value: string): string {
     .replaceAll("'", '&#39;');
 }
 
+/** formatPercent：执行对应的业务逻辑。 */
 function formatPercent(scale: number): string {
   return formatDisplayPercent(scale * 100);
 }
 
+/** normalizeBuffMark：执行对应的业务逻辑。 */
 function normalizeBuffMark(name: string, shortMark?: string): string {
   const value = shortMark?.trim();
   if (value) return [...value][0] ?? value;
   return [...name.trim()][0] ?? '气';
 }
 
+/** renderLabelLine：执行对应的业务逻辑。 */
 function renderLabelLine(label: string, value: string): string {
   return `<span class="skill-tooltip-label">${escapeHtml(label)}：</span>${value}`;
 }
 
+/** renderPlainLine：执行对应的业务逻辑。 */
 function renderPlainLine(label: string, value: string): string {
   return renderLabelLine(label, escapeHtml(value));
 }
 
+/** buildQiCostValue：执行对应的业务逻辑。 */
 function buildQiCostValue(cost: number, context: SkillTooltipPreviewContext): string {
   const baseCost = escapeHtml(formatDisplayNumber(cost));
   const maxQiOutputPerTick = context.player?.numericStats?.maxQiOutputPerTick;
@@ -130,20 +149,24 @@ function buildQiCostValue(cost: number, context: SkillTooltipPreviewContext): st
   return `${baseCost}<span class="skill-tooltip-cost-actual-separator"> · </span><span class="${actualClassName}">实际 ${escapeHtml(actualText)}</span>`;
 }
 
+/** describeBuffEffect：执行对应的业务逻辑。 */
 function describeBuffEffect(effect: Extract<SkillDef['effects'][number], { type: 'buff' }>): string[] {
   return describePreviewBonuses(effect.attrs, effect.stats, effect.valueStats);
 }
 
+/** buildBuffInlineBadge：执行对应的业务逻辑。 */
 function buildBuffInlineBadge(effect: Extract<SkillDef['effects'][number], { type: 'buff' }>): string {
   const toneClass = effect.category === 'debuff' ? 'debuff' : 'buff';
   const mark = normalizeBuffMark(effect.name, effect.shortMark);
   return `<span class="skill-tooltip-buff-entry ${toneClass}"><span class="skill-tooltip-buff-mark">${escapeHtml(mark)}</span><span>${escapeHtml(effect.name)}</span></span>`;
 }
 
+/** buildBuffInlineBadgeFromMeta：执行对应的业务逻辑。 */
 function buildBuffInlineBadgeFromMeta(meta: ResolvedBuffMeta): string {
   return `<span class="skill-tooltip-buff-entry ${meta.tone}"><span class="skill-tooltip-buff-mark">${escapeHtml(meta.mark)}</span><span>${escapeHtml(meta.name)}</span></span>`;
 }
 
+/** buildBuffAsideCard：执行对应的业务逻辑。 */
 function buildBuffAsideCard(effect: Extract<SkillDef['effects'][number], { type: 'buff' }>): SkillTooltipAsideCard {
   const targetLabel = effect.target === 'target' ? '目标' : effect.target === 'allies' ? '友方' : '自身';
   const effectLines = describeBuffEffect(effect);
@@ -161,14 +184,17 @@ function buildBuffAsideCard(effect: Extract<SkillDef['effects'][number], { type:
   };
 }
 
+/** renderScalingBadge：执行对应的业务逻辑。 */
 function renderScalingBadge(meta: ScalingMeta): string {
   return `<span class="skill-scaling ${meta.badgeClassName}"><span class="skill-scaling-icon">${escapeHtml(meta.icon)}</span><span>${escapeHtml(meta.label)}</span></span>`;
 }
 
+/** renderFormulaTerm：执行对应的业务逻辑。 */
 function renderFormulaTerm(content: string, className: string): string {
   return `<span class="skill-formula-term ${className}">${content}</span>`;
 }
 
+/** parseBuffFormulaVar：执行对应的业务逻辑。 */
 function parseBuffFormulaVar(varName: SkillFormulaVar): BuffFormulaMeta | null {
   const matched = varName.match(/^(caster|target)\.buff\.(.+)\.stacks$/);
   if (!matched) {
@@ -180,10 +206,12 @@ function parseBuffFormulaVar(varName: SkillFormulaVar): BuffFormulaMeta | null {
   };
 }
 
+/** resolveBuffStacks：执行对应的业务逻辑。 */
 function resolveBuffStacks(buffs: TemporaryBuffState[] | undefined, buffId: string): number {
   return buffs?.find((entry) => entry.buffId === buffId && entry.remainingTicks > 0)?.stacks ?? 0;
 }
 
+/** resolveBuffFormulaMeta：执行对应的业务逻辑。 */
 function resolveBuffFormulaMeta(varName: SkillFormulaVar, context: SkillTooltipPreviewContext): ResolvedBuffMeta | null {
   const parsed = parseBuffFormulaVar(varName);
   if (!parsed) {
@@ -204,6 +232,7 @@ function resolveBuffFormulaMeta(varName: SkillFormulaVar, context: SkillTooltipP
   };
 }
 
+/** buildBuffStackReference：执行对应的业务逻辑。 */
 function buildBuffStackReference(varName: SkillFormulaVar, context: SkillTooltipPreviewContext, stacks?: number | null): string | null {
   const parsed = parseBuffFormulaVar(varName);
   if (!parsed) {
@@ -217,6 +246,7 @@ function buildBuffStackReference(varName: SkillFormulaVar, context: SkillTooltip
   return `<span class="skill-formula-buff-ref"><span class="skill-formula-buff-side">${escapeHtml(sideLabel)}</span>${buildBuffInlineBadgeFromMeta(buffMeta)}<span class="skill-formula-buff-stacks">${stacks === null || stacks === undefined ? '层数' : `${formatDisplayNumber(stacks)}层`}</span></span>`;
 }
 
+/** resolveStatValue：执行对应的业务逻辑。 */
 function resolveStatValue(player: PreviewPlayer | null | undefined, key: NumericScalarStatKey): ResolvedPreviewValue {
   if (!player?.numericStats) {
     return { value: 0, known: false };
@@ -224,10 +254,12 @@ function resolveStatValue(player: PreviewPlayer | null | undefined, key: Numeric
   return { value: player.numericStats[key] ?? 0, known: true };
 }
 
+/** resolveTargetPreview：执行对应的业务逻辑。 */
 function resolveTargetPreview(context: SkillTooltipPreviewContext): PreviewPlayer | null | undefined {
   return context.target ?? null;
 }
 
+/** resolvePreviewValue：执行对应的业务逻辑。 */
 function resolvePreviewValue(varName: SkillFormulaVar, context: SkillTooltipPreviewContext): ResolvedPreviewValue {
   const player = context.player;
   const target = resolveTargetPreview(context);
@@ -287,6 +319,7 @@ function resolvePreviewValue(varName: SkillFormulaVar, context: SkillTooltipPrev
   }
 }
 
+/** resolveAttrValue：执行对应的业务逻辑。 */
 function resolveAttrValue(
   player: SkillTooltipPreviewPlayer | null | undefined,
   key: AttrKey,
@@ -296,11 +329,13 @@ function resolveAttrValue(
     : { value: 0, known: false };
 }
 
+/** resolvePreviewVar：执行对应的业务逻辑。 */
 function resolvePreviewVar(varName: SkillFormulaVar, context: SkillTooltipPreviewContext): number | null {
   const resolved = resolvePreviewValue(varName, context);
   return resolved.known ? resolved.value : null;
 }
 
+/** renderVariableFormula：执行对应的业务逻辑。 */
 function renderVariableFormula(varName: SkillFormulaVar, scale: number, context: SkillTooltipPreviewContext): FormulaPreview {
   if (varName === 'techLevel') {
     const techLevel = context.techLevel;
@@ -361,14 +396,17 @@ function renderVariableFormula(varName: SkillFormulaVar, scale: number, context:
   };
 }
 
+/** isAddFormula：执行对应的业务逻辑。 */
 function isAddFormula(formula: SkillFormula): formula is { op: 'add'; args: SkillFormula[] } {
   return typeof formula !== 'number' && !('var' in formula) && formula.op === 'add';
 }
 
+/** isMulFormula：执行对应的业务逻辑。 */
 function isMulFormula(formula: SkillFormula): formula is { op: 'mul'; args: SkillFormula[] } {
   return typeof formula !== 'number' && !('var' in formula) && formula.op === 'mul';
 }
 
+/** isPercentFactorFormula：执行对应的业务逻辑。 */
 function isPercentFactorFormula(formula: SkillFormula): formula is { op: 'add'; args: SkillFormula[] } {
   return isAddFormula(formula)
     && formula.args.length > 0
@@ -376,6 +414,7 @@ function isPercentFactorFormula(formula: SkillFormula): formula is { op: 'add'; 
     && Math.abs((formula.args[0] as number) - 1) <= 1e-6;
 }
 
+/** previewPercentFactor：执行对应的业务逻辑。 */
 function previewPercentFactor(formula: SkillFormula, context: SkillTooltipPreviewContext): PercentFactorPreview | null {
   if (!isPercentFactorFormula(formula)) {
     return null;
@@ -391,6 +430,7 @@ function previewPercentFactor(formula: SkillFormula, context: SkillTooltipPrevie
   };
 }
 
+/** extractStructuredDamagePreview：执行对应的业务逻辑。 */
 function extractStructuredDamagePreview(formula: SkillFormula, context: SkillTooltipPreviewContext): StructuredDamagePreview | null {
   if (!isMulFormula(formula) || formula.args.length < 2) {
     return null;
@@ -428,6 +468,7 @@ function extractStructuredDamagePreview(formula: SkillFormula, context: SkillToo
   };
 }
 
+/** previewPercentPart：执行对应的业务逻辑。 */
 function previewPercentPart(formula: SkillFormula, context: SkillTooltipPreviewContext): FormulaPreview {
   if (typeof formula === 'number') {
     return {
@@ -480,10 +521,12 @@ function previewPercentPart(formula: SkillFormula, context: SkillTooltipPreviewC
   return previewFormula(formula, context);
 }
 
+/** joinFormulaParts：执行对应的业务逻辑。 */
 function joinFormulaParts(parts: string[], operator: string): string {
   return parts.join(`<span class="skill-formula-operator"> ${operator} </span>`);
 }
 
+/** previewFormula：执行对应的业务逻辑。 */
 function previewFormula(formula: SkillFormula, context: SkillTooltipPreviewContext): FormulaPreview {
   if (typeof formula === 'number') {
     return {
@@ -572,6 +615,7 @@ function previewFormula(formula: SkillFormula, context: SkillTooltipPreviewConte
   }
 }
 
+/** formatDamageFormula：执行对应的业务逻辑。 */
 function formatDamageFormula(formula: SkillFormula, context: SkillTooltipPreviewContext, damageKind: 'physical' | 'spell'): string {
   const structured = extractStructuredDamagePreview(formula, context);
   if (structured) {
@@ -593,6 +637,7 @@ function formatDamageFormula(formula: SkillFormula, context: SkillTooltipPreview
   return `<span class="skill-damage-total skill-damage-total-${damageKind}">${formatDisplayNumber(preview.resolved)}</span><span class="skill-formula-breakdown">（${preview.html}）</span>`;
 }
 
+/** summarizeSkillPreviewMetrics：执行对应的业务逻辑。 */
 export function summarizeSkillPreviewMetrics(skill: SkillDef, context: SkillTooltipPreviewContext = {}): SkillPreviewMetrics {
   const previewSkill = resolvePreviewSkill(skill);
   let totalDamage = 0;
@@ -645,6 +690,7 @@ export function summarizeSkillPreviewMetrics(skill: SkillDef, context: SkillTool
   };
 }
 
+/** formatTargeting：执行对应的业务逻辑。 */
 function formatTargeting(skill: SkillDef): string {
   const shape = skill.targeting?.shape ?? 'single';
   if (shape === 'line') {
@@ -726,3 +772,4 @@ export function buildSkillTooltipContent(skill: SkillDef, context: SkillTooltipP
 export function buildSkillTooltipLines(skill: SkillDef, context: SkillTooltipPreviewContext = {}): string[] {
   return buildSkillTooltipContent(skill, context).lines;
 }
+

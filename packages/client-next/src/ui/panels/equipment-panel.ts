@@ -12,6 +12,7 @@ import { buildItemTooltipPayload } from '../equipment-tooltip';
 import { describePreviewBonuses } from '../stat-preview';
 import { formatDisplayInteger, formatDisplayPercent } from '../../utils/number';
 
+/** formatEffectCondition：执行对应的业务逻辑。 */
 function formatEffectCondition(effect: EquipmentEffectDef): string {
   const conditions = effect?.conditions?.items ?? [];
   if (conditions.length === 0) {
@@ -40,6 +41,7 @@ function formatEffectCondition(effect: EquipmentEffectDef): string {
   return parts.length > 0 ? ` [${parts.join('，')}]` : '';
 }
 
+/** formatItemEffects：执行对应的业务逻辑。 */
 function formatItemEffects(item: EquipmentSlots[EquipSlot]): string[] {
   const previewItem = item ? resolvePreviewItem(item) : null;
   if (!previewItem?.effects?.length) {
@@ -85,6 +87,7 @@ function formatItemEffects(item: EquipmentSlots[EquipSlot]): string[] {
   }).filter((line) => line.length > 0);
 }
 
+/** formatItemBonuses：执行对应的业务逻辑。 */
 function formatItemBonuses(item: EquipmentSlots[EquipSlot]): string {
   if (!item) return '暂无词条';
   const previewItem = resolvePreviewItem(item);
@@ -94,6 +97,7 @@ function formatItemBonuses(item: EquipmentSlots[EquipSlot]): string {
   return parts.length > 0 ? parts.join(' / ') : '暂无词条';
 }
 
+/** EquipmentSlotView：定义该类型的结构与数据语义。 */
 type EquipmentSlotView = {
   root: HTMLDivElement;
   name: HTMLSpanElement;
@@ -114,6 +118,7 @@ export class EquipmentPanel {
   private emptyStateEl: HTMLDivElement | null = null;
   private sectionEl: HTMLDivElement | null = null;
 
+/** constructor：处理当前场景中的对应操作。 */
   constructor() {
     this.ensureTooltipStyle();
     this.bindActionEvents();
@@ -399,3 +404,4 @@ export class EquipmentPanel {
     document.head.appendChild(style);
   }
 }
+

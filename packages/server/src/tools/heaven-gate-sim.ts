@@ -6,12 +6,14 @@
  */
 import { ELEMENT_KEYS, type ElementKey, type HeavenGateRootValues } from '@mud/shared';
 
+/** Segment：定义该接口的能力与字段约束。 */
 interface Segment {
   min: number;
   max: number;
   weight: number;
 }
 
+/** CliOptions：定义该接口的能力与字段约束。 */
 interface CliOptions {
   remaining: number;
   bonus: number;
@@ -19,6 +21,7 @@ interface CliOptions {
   seed: number;
 }
 
+/** SimulationSummary：定义该接口的能力与字段约束。 */
 interface SimulationSummary {
   sampledAverageQuality: number;
   sampledTotalAverage: number;
@@ -494,3 +497,4 @@ function main(): void {
 }
 
 main();
+

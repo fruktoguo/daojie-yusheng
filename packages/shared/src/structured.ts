@@ -1,5 +1,7 @@
+/** PlainRecord：定义该类型的结构与数据语义。 */
 type PlainRecord = Record<string, unknown>;
 
+/** isPlainRecord：执行对应的业务逻辑。 */
 function isPlainRecord(value: unknown): value is PlainRecord {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
     return false;
@@ -8,6 +10,7 @@ function isPlainRecord(value: unknown): value is PlainRecord {
   return prototype === Object.prototype || prototype === null;
 }
 
+/** getDefinedKeys：执行对应的业务逻辑。 */
 function getDefinedKeys(record: PlainRecord): string[] {
   return Object.keys(record).filter((key) => record[key] !== undefined);
 }
@@ -61,3 +64,4 @@ export function isPlainEqual(left: unknown, right: unknown): boolean {
   }
   return false;
 }
+

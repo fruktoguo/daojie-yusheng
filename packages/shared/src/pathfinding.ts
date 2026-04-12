@@ -5,6 +5,7 @@ import { CARDINAL_DIRECTION_STEPS } from './direction';
 import { manhattanDistance } from './geometry';
 import { PATHFINDING_MIN_STEP_COST } from './constants/gameplay/navigation';
 
+/** PathResultFailureReason：定义该类型的结构与数据语义。 */
 export type PathResultFailureReason =
   | 'no_path'
   | 'step_limit'
@@ -13,11 +14,13 @@ export type PathResultFailureReason =
   | 'invalid_goal'
   | 'cancelled';
 
+/** PathPoint：定义该接口的能力与字段约束。 */
 export interface PathPoint {
   x: number;
   y: number;
 }
 
+/** PathfindingStaticGrid：定义该接口的能力与字段约束。 */
 export interface PathfindingStaticGrid {
   mapId: string;
   mapRevision: number;
@@ -27,6 +30,7 @@ export interface PathfindingStaticGrid {
   traversalCost: Uint16Array;
 }
 
+/** PathfindingSearchLimits：定义该接口的能力与字段约束。 */
 export interface PathfindingSearchLimits {
   maxExpandedNodes: number;
   maxPathLength: number;
@@ -34,6 +38,7 @@ export interface PathfindingSearchLimits {
   allowPartialPath?: boolean;
 }
 
+/** PathfindingSearchSuccess：定义该接口的能力与字段约束。 */
 export interface PathfindingSearchSuccess {
   status: 'success';
   path: PathPoint[];
@@ -42,24 +47,29 @@ export interface PathfindingSearchSuccess {
   complete: boolean;
 }
 
+/** PathfindingSearchFailure：定义该接口的能力与字段约束。 */
 export interface PathfindingSearchFailure {
   status: 'failed';
   reason: PathResultFailureReason;
   expandedNodes: number;
 }
 
+/** PathfindingSearchResult：定义该类型的结构与数据语义。 */
 export type PathfindingSearchResult = PathfindingSearchSuccess | PathfindingSearchFailure;
 
+/** HeapNode：定义该接口的能力与字段约束。 */
 interface HeapNode {
   index: number;
   score: number;
 }
 
+/** PathfindingRunOptions：定义该接口的能力与字段约束。 */
 interface PathfindingRunOptions {
   cancelFlag?: Int32Array;
   cancelCheckInterval?: number;
 }
 
+/** MinHeap：封装相关状态与行为。 */
 class MinHeap {
   private readonly items: HeapNode[] = [];
 
@@ -118,10 +128,12 @@ class MinHeap {
   }
 }
 
+/** toIndex：执行对应的业务逻辑。 */
 function toIndex(x: number, y: number, width: number): number {
   return y * width + x;
 }
 
+/** reconstructPath：执行对应的业务逻辑。 */
 function reconstructPath(parent: Int32Array, goalIndex: number, startIndex: number, width: number): PathPoint[] {
   const path: PathPoint[] = [];
   let current = goalIndex;
@@ -136,6 +148,7 @@ function reconstructPath(parent: Int32Array, goalIndex: number, startIndex: numb
   return path;
 }
 
+/** failed：执行对应的业务逻辑。 */
 function failed(reason: PathfindingSearchFailure['reason'], expandedNodes: number): PathfindingSearchFailure {
   return {
     status: 'failed',
@@ -144,6 +157,7 @@ function failed(reason: PathfindingSearchFailure['reason'], expandedNodes: numbe
   };
 }
 
+/** nearestGoalHeuristic：执行对应的业务逻辑。 */
 function nearestGoalHeuristic(x: number, y: number, goals: PathPoint[]): number {
   let best = Number.POSITIVE_INFINITY;
   for (const goal of goals) {
@@ -158,6 +172,7 @@ function nearestGoalHeuristic(x: number, y: number, goals: PathPoint[]): number 
   return best * PATHFINDING_MIN_STEP_COST;
 }
 
+/** isCancelled：执行对应的业务逻辑。 */
 function isCancelled(cancelFlag?: Int32Array): boolean {
   if (!cancelFlag || cancelFlag.length === 0) {
     return false;
@@ -165,6 +180,7 @@ function isCancelled(cancelFlag?: Int32Array): boolean {
   return Atomics.load(cancelFlag, 0) === 1;
 }
 
+/** validateGoals：执行对应的业务逻辑。 */
 function validateGoals(
   grid: PathfindingStaticGrid,
   blocked: Uint8Array,
@@ -197,6 +213,7 @@ function validateGoals(
   return { indices: goalIndices, goalByIndex };
 }
 
+/** buildSuccess：执行对应的业务逻辑。 */
 function buildSuccess(
   parent: Int32Array,
   goalIndex: number,
@@ -217,6 +234,7 @@ function buildSuccess(
   };
 }
 
+/** findBoundedPath：执行对应的业务逻辑。 */
 export function findBoundedPath(
   grid: PathfindingStaticGrid,
   blocked: Uint8Array,
@@ -386,3 +404,4 @@ export function findBoundedPath(
 
   return failed('no_path', expandedNodes);
 }
+

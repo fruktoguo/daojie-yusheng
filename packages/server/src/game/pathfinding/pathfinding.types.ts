@@ -19,13 +19,16 @@ export type {
   PathResultFailureReason,
 } from '@mud/shared';
 
+/** PathfindingActorType：定义该类型的结构与数据语义。 */
 export type PathfindingActorType = 'player' | 'monster';
 
+/** PathRequestKind：定义该类型的结构与数据语义。 */
 export type PathRequestKind =
   | 'player_move_to'
   | 'player_repath'
   | 'bot_roam';
 
+/** PathfindingTask：定义该接口的能力与字段约束。 */
 export interface PathfindingTask {
   requestId: string;
   actorId: string;
@@ -44,6 +47,7 @@ export interface PathfindingTask {
   limits: PathfindingSearchLimits;
 }
 
+/** PathfindingTaskResult：定义该类型的结构与数据语义。 */
 export type PathfindingTaskResult = PathfindingSearchResult & {
   requestId: string;
   actorId: string;
@@ -52,3 +56,4 @@ export type PathfindingTaskResult = PathfindingSearchResult & {
   mapRevision: number;
   elapsedMs: number;
 };
+

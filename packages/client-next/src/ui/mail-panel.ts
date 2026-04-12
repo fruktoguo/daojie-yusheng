@@ -11,6 +11,7 @@ import type { SocketManager } from '../network/socket';
 import { getLocalItemTemplate } from '../content/local-templates';
 import { detailModalHost } from './detail-modal-host';
 
+/** escapeHtml：执行对应的业务逻辑。 */
 function escapeHtml(value: string): string {
   return value
     .replaceAll('&', '&amp;')
@@ -20,6 +21,7 @@ function escapeHtml(value: string): string {
     .replaceAll("'", '&#39;');
 }
 
+/** escapeHtmlAttr：执行对应的业务逻辑。 */
 function escapeHtmlAttr(value: string): string {
   return escapeHtml(value);
 }
@@ -47,17 +49,20 @@ const EMPTY_PAGE: MailPageView = {
 
 const MAIL_ATTACHMENT_PAGE_SIZE = 10;
 
+/** MailRenderState：定义该类型的结构与数据语义。 */
 type MailRenderState = {
   listScrollTop: number;
   detailScrollTop: number;
   focusSelector: string | null;
 };
 
+/** MailModalMeta：定义该类型的结构与数据语义。 */
 type MailModalMeta = {
   subtitle: string;
   hint: string;
 };
 
+/** MailPanel：封装相关状态与行为。 */
 export class MailPanel {
   private static readonly MODAL_OWNER = 'mail-panel';
   private playerId = '';
@@ -71,6 +76,7 @@ export class MailPanel {
   private statusMessage = '';
   private delegatedEventsBound = false;
 
+/** constructor：处理当前场景中的对应操作。 */
   constructor(private readonly socket: SocketManager) {
     document.getElementById('hud-open-mail')?.addEventListener('click', () => this.open());
   }
@@ -646,3 +652,4 @@ export class MailPanel {
     button.dataset.hasUnread = hasUnread ? 'true' : 'false';
   }
 }
+

@@ -1,7 +1,9 @@
 import { PanelCapabilities, PanelId, PanelLayoutProfile, PanelRuntimeState, PanelSystemState, PanelUiState } from './types';
 
+/** PanelSystemListener：定义该类型的结构与数据语义。 */
 type PanelSystemListener = (state: PanelSystemState, previousState: PanelSystemState) => void;
 
+/** clonePanelsState：执行对应的业务逻辑。 */
 function clonePanelsState(
   panels: Partial<Record<PanelId, PanelUiState>>,
 ): Partial<Record<PanelId, PanelUiState>> {
@@ -13,10 +15,12 @@ function clonePanelsState(
   ) as Partial<Record<PanelId, PanelUiState>>;
 }
 
+/** PanelSystemStore：封装相关状态与行为。 */
 export class PanelSystemStore {
   private state: PanelSystemState;
   private readonly listeners = new Set<PanelSystemListener>();
 
+/** constructor：处理当前场景中的对应操作。 */
   constructor(initialState: PanelSystemState) {
     this.state = {
       ...initialState,
@@ -100,3 +104,4 @@ export class PanelSystemStore {
     }
   }
 }
+

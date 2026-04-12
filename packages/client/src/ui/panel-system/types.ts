@@ -1,3 +1,4 @@
+/** PanelId：定义该类型的结构与数据语义。 */
 export type PanelId =
   | 'hud'
   | 'chat'
@@ -21,8 +22,10 @@ export type PanelId =
   | 'minimap'
   | 'debug';
 
+/** PanelViewport：定义该类型的结构与数据语义。 */
 export type PanelViewport = 'desktop' | 'mobile';
 
+/** PanelPlacement：定义该类型的结构与数据语义。 */
 export type PanelPlacement =
   | 'left-lower'
   | 'center-intel'
@@ -33,8 +36,10 @@ export type PanelPlacement =
   | 'overlay'
   | 'external';
 
+/** PanelTemplateKind：定义该类型的结构与数据语义。 */
 export type PanelTemplateKind = 'embedded' | 'modal' | 'hud' | 'floating';
 
+/** PanelDefinition：定义该接口的能力与字段约束。 */
 export interface PanelDefinition {
   id: PanelId;
   title: string;
@@ -45,6 +50,7 @@ export interface PanelDefinition {
   preservesInteractionState?: boolean;
 }
 
+/** PanelCapabilities：定义该接口的能力与字段约束。 */
 export interface PanelCapabilities {
   viewportWidth: number;
   viewportHeight: number;
@@ -61,17 +67,20 @@ export interface PanelCapabilities {
   };
 }
 
+/** PanelLayoutSlot：定义该接口的能力与字段约束。 */
 export interface PanelLayoutSlot {
   placement: PanelPlacement;
   panelIds: PanelId[];
 }
 
+/** PanelLayoutProfile：定义该接口的能力与字段约束。 */
 export interface PanelLayoutProfile {
   id: PanelViewport;
   slots: PanelLayoutSlot[];
   overlayPanelIds: PanelId[];
 }
 
+/** PanelUiState：定义该接口的能力与字段约束。 */
 export interface PanelUiState {
   activeTab?: string;
   selectedId?: string | null;
@@ -80,6 +89,7 @@ export interface PanelUiState {
   modalOpen?: boolean;
 }
 
+/** PanelRuntimeState：定义该接口的能力与字段约束。 */
 export interface PanelRuntimeState {
   connected: boolean;
   playerId: string | null;
@@ -87,9 +97,11 @@ export interface PanelRuntimeState {
   shellVisible: boolean;
 }
 
+/** PanelSystemState：定义该接口的能力与字段约束。 */
 export interface PanelSystemState {
   capabilities: PanelCapabilities;
   layout: PanelLayoutProfile;
   runtime: PanelRuntimeState;
   panels: Partial<Record<PanelId, PanelUiState>>;
 }
+

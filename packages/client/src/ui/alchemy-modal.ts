@@ -28,8 +28,10 @@ import { confirmModalHost } from './confirm-modal-host';
 import { detailModalHost } from './detail-modal-host';
 import { bindInlineItemTooltips, renderInlineItemChip } from './item-inline-tooltip';
 
+/** AlchemyTab：定义该类型的结构与数据语义。 */
 type AlchemyTab = 'simple' | 'full';
 
+/** AlchemyModalCallbacks：定义该接口的能力与字段约束。 */
 interface AlchemyModalCallbacks {
   onRequestPanel: (knownCatalogVersion?: number) => void;
   onSavePreset: (payload: C2S_SaveAlchemyPreset) => void;
@@ -38,6 +40,7 @@ interface AlchemyModalCallbacks {
   onCancelAlchemy: () => void;
 }
 
+/** AlchemyScrollState：定义该接口的能力与字段约束。 */
 interface AlchemyScrollState {
   bodyTop: number;
   bodyLeft: number;
@@ -48,12 +51,14 @@ interface AlchemyScrollState {
   presetLeft: number;
 }
 
+/** AlchemyRenderOptions：定义该接口的能力与字段约束。 */
 interface AlchemyRenderOptions {
   preserveScroll?: boolean;
   resetDetailScroll?: boolean;
   resetRecipeListScroll?: boolean;
 }
 
+/** AlchemyMetricSnapshot：定义该接口的能力与字段约束。 */
 interface AlchemyMetricSnapshot {
   powerText: string;
   successText: string;
@@ -62,6 +67,7 @@ interface AlchemyMetricSnapshot {
 
 const SPIRIT_STONE_ITEM_ID = 'spirit_stone';
 
+/** escapeHtml：执行对应的业务逻辑。 */
 function escapeHtml(value: string): string {
   return value
     .replaceAll('&', '&amp;')
@@ -71,16 +77,19 @@ function escapeHtml(value: string): string {
     .replaceAll("'", '&#39;');
 }
 
+/** formatPercent：执行对应的业务逻辑。 */
 function formatPercent(rate: number): string {
   const normalized = Math.max(0, Math.min(1, rate));
   const percent = normalized * 100;
   return `${percent % 1 === 0 ? percent.toFixed(0) : percent.toFixed(1)}%`;
 }
 
+/** cloneIngredients：执行对应的业务逻辑。 */
 function cloneIngredients(ingredients: readonly AlchemyIngredientSelection[]): AlchemyIngredientSelection[] {
   return ingredients.map((ingredient) => ({ ...ingredient }));
 }
 
+/** AlchemyModal：封装相关状态与行为。 */
 export class AlchemyModal {
   private static readonly MODAL_OWNER = 'alchemy-modal';
   private static readonly CONFIRM_MODAL_OWNER = 'alchemy-modal:confirm-start';
@@ -1824,3 +1833,4 @@ export class AlchemyModal {
     return Math.max(0, remainingTicks - pausedTicks) > brewTotalTicks ? 'preparing' : 'brewing';
   }
 }
+

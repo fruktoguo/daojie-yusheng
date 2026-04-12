@@ -26,6 +26,7 @@ import {
   loadRecentChannelMessages,
 } from './chat-storage';
 
+/** ChatChannelState：定义该接口的能力与字段约束。 */
 interface ChatChannelState {
   messages: ChatStoredMessage[];
   messageIds: Set<string>;
@@ -34,12 +35,14 @@ interface ChatChannelState {
   loadingOlder: boolean;
 }
 
+/** ChatAddMessageOptions：定义该接口的能力与字段约束。 */
 interface ChatAddMessageOptions {
   id?: string;
   at?: number;
   scope?: ChatMessageScope;
 }
 
+/** ParsedCombatDamageSegment：定义该接口的能力与字段约束。 */
 interface ParsedCombatDamageSegment {
   before: string;
   connector: string;
@@ -68,18 +71,22 @@ const COMBAT_DAMAGE_ELEMENT_LABEL_TO_KEY: Record<string, ElementKey> = {
   土: 'earth',
 };
 
+/** isChatChannel：执行对应的业务逻辑。 */
 function isChatChannel(value: unknown): value is ChatChannel {
   return typeof value === 'string' && CHAT_CHANNELS.includes(value as ChatChannel);
 }
 
+/** isChatMessageKind：执行对应的业务逻辑。 */
 function isChatMessageKind(value: unknown): value is ChatMessageKind {
   return typeof value === 'string' && CHAT_MESSAGE_KINDS.includes(value as ChatMessageKind);
 }
 
+/** isChatMessageScope：执行对应的业务逻辑。 */
 function isChatMessageScope(value: unknown): value is ChatMessageScope {
   return typeof value === 'string' && CHAT_MESSAGE_SCOPES.includes(value as ChatMessageScope);
 }
 
+/** isChatStoredMessage：执行对应的业务逻辑。 */
 function isChatStoredMessage(value: unknown): value is ChatStoredMessage {
   if (!value || typeof value !== 'object') {
     return false;
@@ -93,6 +100,7 @@ function isChatStoredMessage(value: unknown): value is ChatStoredMessage {
     && (candidate.scope === undefined || isChatMessageScope(candidate.scope));
 }
 
+/** createChannelState：执行对应的业务逻辑。 */
 function createChannelState(): ChatChannelState {
   return {
     messages: [],
@@ -103,6 +111,7 @@ function createChannelState(): ChatChannelState {
   };
 }
 
+/** sortMessagesByTime：执行对应的业务逻辑。 */
 function sortMessagesByTime(messages: ChatStoredMessage[]): ChatStoredMessage[] {
   return messages.slice().sort((left, right) => {
     if (left.at !== right.at) {
@@ -112,6 +121,7 @@ function sortMessagesByTime(messages: ChatStoredMessage[]): ChatStoredMessage[] 
   });
 }
 
+/** mergeMessages：执行对应的业务逻辑。 */
 function mergeMessages(
   current: ChatStoredMessage[],
   incoming: ChatStoredMessage[],
@@ -133,6 +143,7 @@ function mergeMessages(
   };
 }
 
+/** formatStamp：执行对应的业务逻辑。 */
 function formatStamp(at: number): string {
   const date = new Date(at);
   const year = String(date.getFullYear());
@@ -143,10 +154,12 @@ function formatStamp(at: number): string {
   return `${year}-${month}-${day} ${hours}:${minutes}`;
 }
 
+/** buildLineText：执行对应的业务逻辑。 */
 function buildLineText(entry: ChatStoredMessage): string {
   return `${formatStamp(entry.at)} ${entry.from ? `[${entry.from}] ` : ''}${entry.text}`;
 }
 
+/** parseCombatDamageSegment：执行对应的业务逻辑。 */
 function parseCombatDamageSegment(text: string): ParsedCombatDamageSegment | null {
   const damageMatch = COMBAT_DAMAGE_PATTERN.exec(text);
   if (damageMatch?.groups) {
@@ -221,6 +234,7 @@ function parseCombatDamageSegment(text: string): ParsedCombatDamageSegment | nul
   };
 }
 
+/** toAlphaColor：执行对应的业务逻辑。 */
 function toAlphaColor(hex: string, alpha: number): string {
   const normalized = hex.trim();
   const value = normalized.startsWith('#') ? normalized.slice(1) : normalized;
@@ -236,6 +250,7 @@ function toAlphaColor(hex: string, alpha: number): string {
   return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
 }
 
+/** buildLineFragment：执行对应的业务逻辑。 */
 function buildLineFragment(entry: ChatStoredMessage): DocumentFragment {
   const fragment = document.createDocumentFragment();
   const linePrefix = `${formatStamp(entry.at)} ${entry.from ? `[${entry.from}] ` : ''}`;
@@ -270,6 +285,7 @@ function buildLineFragment(entry: ChatStoredMessage): DocumentFragment {
   return fragment;
 }
 
+/** ChatUI：封装相关状态与行为。 */
 export class ChatUI {
   private panel = document.getElementById('chat-panel')!;
   private input = document.getElementById('chat-input') as HTMLInputElement;
@@ -290,6 +306,7 @@ export class ChatUI {
   private readonly damageTooltipTapMode = prefersPinnedTooltipInteraction();
   private hoveredDamageTooltipTarget: HTMLElement | null = null;
 
+/** constructor：处理当前场景中的对应操作。 */
   constructor() {
     clearPreviousChatStorage();
     this.sendBtn.addEventListener('click', () => this.submit());
@@ -538,6 +555,7 @@ export class ChatUI {
         ? target.closest<HTMLElement>('[data-chat-damage-tooltip-title]')
         : null
     );
+/** showDamageTooltip：通过常量导出可复用函数行为。 */
     const showDamageTooltip = (pill: HTMLElement, clientX: number, clientY: number, pinned = false) => {
       const title = pill.dataset.chatDamageTooltipTitle ?? '伤害';
       const lines = (pill.dataset.chatDamageTooltipLines ?? '')
@@ -747,3 +765,4 @@ export class ChatUI {
     }
   }
 }
+

@@ -105,6 +105,7 @@ const GM_PLAYER_PAGE_SIZE_DEFAULT = 50;
 const GM_PLAYER_PAGE_SIZE_MAX = 100;
 const GM_PLAYER_KEYWORD_MAX_LENGTH = 60;
 
+/** GmCommand：定义该类型的结构与数据语义。 */
 type GmCommand =
   | {
       type: 'updatePlayer';
@@ -163,11 +164,13 @@ type GmCommand =
       all?: boolean;
     };
 
+/** GmPlayerUserIdentity：定义该接口的能力与字段约束。 */
 interface GmPlayerUserIdentity {
   userId?: string;
   accountName?: string;
 }
 
+/** GmWorldObservationSession：定义该接口的能力与字段约束。 */
 interface GmWorldObservationSession {
   viewerId: string;
   mapId: string;
@@ -178,6 +181,7 @@ interface GmWorldObservationSession {
   lastSeenAt: number;
 }
 
+/** InvalidItemCleanupSummary：定义该接口的能力与字段约束。 */
 interface InvalidItemCleanupSummary {
   inventoryStacksRemoved: number;
   marketStorageStacksRemoved: number;
@@ -185,6 +189,7 @@ interface InvalidItemCleanupSummary {
 }
 
 @Injectable()
+/** GmService：封装相关状态与行为。 */
 export class GmService {
   private readonly commandsByMap = new Map<string, GmCommand[]>();
   private readonly worldObservationSessions = new Map<string, GmWorldObservationSession>();
@@ -2293,3 +2298,4 @@ export class GmService {
     };
   }
 }
+

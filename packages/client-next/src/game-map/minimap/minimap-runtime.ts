@@ -1,8 +1,10 @@
 import { Minimap } from '../../ui/minimap';
 import type { MapStoreSnapshot } from '../types';
 
+/** MinimapSceneInput：定义该类型的结构与数据语义。 */
 type MinimapSceneInput = Parameters<Minimap['updateScene']>[0];
 
+/** MinimapRuntime：封装相关状态与行为。 */
 export class MinimapRuntime {
   private readonly minimap = new Minimap();
 
@@ -38,3 +40,4 @@ export class MinimapRuntime {
     this.minimap.clear();
   }
 }
+

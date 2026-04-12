@@ -39,6 +39,7 @@ import {
   HEAVEN_SPIRITUAL_ROOT_SEED_ITEM_ID,
 } from '../constants/gameplay/technique';
 
+/** CreateMailInput：定义该接口的能力与字段约束。 */
 interface CreateMailInput {
   templateId?: string | null;
   args?: MailTemplateArg[];
@@ -50,6 +51,7 @@ interface CreateMailInput {
   expireAt?: number | null;
 }
 
+/** VisibleMailRecord：定义该接口的能力与字段约束。 */
 interface VisibleMailRecord {
   mailId: string;
   senderLabel: string;
@@ -69,6 +71,7 @@ interface VisibleMailRecord {
   receiptUpdatedAt: number | null;
 }
 
+/** PreparedMailReceiptEntry：定义该接口的能力与字段约束。 */
 interface PreparedMailReceiptEntry {
   mailId: string;
   firstSeenAt: number | null;
@@ -77,27 +80,32 @@ interface PreparedMailReceiptEntry {
   attachments: MailAttachment[];
 }
 
+/** PreparedMarkReadOperation：定义该接口的能力与字段约束。 */
 export interface PreparedMarkReadOperation {
   mailIds: string[];
   entries: PreparedMailReceiptEntry[];
 }
 
+/** PreparedDeleteOperation：定义该接口的能力与字段约束。 */
 export interface PreparedDeleteOperation {
   mailIds: string[];
   entries: PreparedMailReceiptEntry[];
 }
 
+/** PreparedClaimOperation：定义该接口的能力与字段约束。 */
 export interface PreparedClaimOperation {
   mailIds: string[];
   entries: PreparedMailReceiptEntry[];
 }
 
+/** MailAggregateRow：定义该接口的能力与字段约束。 */
 interface MailAggregateRow {
   unreadCount: string | number | null;
   claimableCount: string | number | null;
   revision: string | number | null;
 }
 
+/** MailListRawRow：定义该接口的能力与字段约束。 */
 interface MailListRawRow {
   campaign_id: string;
   campaign_senderLabel: string;
@@ -112,6 +120,7 @@ interface MailListRawRow {
   receipt_claimedAt: string | number | null;
 }
 
+/** MailDetailRawRow：定义该接口的能力与字段约束。 */
 interface MailDetailRawRow extends MailListRawRow {
   campaign_attachments: MailAttachment[] | null;
   campaign_updatedAt: string | number;
@@ -121,6 +130,7 @@ interface MailDetailRawRow extends MailListRawRow {
 }
 
 @Injectable()
+/** MailService：封装相关状态与行为。 */
 export class MailService {
   private static readonly WELCOME_TEMPLATE_ID = 'mail.welcome.v1';
   private static readonly BEGINNER_JOURNEY_TEMPLATE_ID = MAIL_TEMPLATE_BEGINNER_JOURNEY_ID;
@@ -776,3 +786,4 @@ export class MailService {
     return nextItems;
   }
 }
+

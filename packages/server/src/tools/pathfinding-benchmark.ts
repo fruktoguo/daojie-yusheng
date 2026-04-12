@@ -17,6 +17,7 @@ import { findBoundedPath } from '../game/pathfinding/pathfinding-core';
 import { PathWorkerPoolService } from '../game/pathfinding/path-worker-pool.service';
 import { PathfindingStaticGrid, PathfindingTask, PathfindingTaskResult } from '../game/pathfinding/pathfinding.types';
 
+/** BenchmarkOptions：定义该接口的能力与字段约束。 */
 interface BenchmarkOptions {
   mapId: string;
   jobs: number;
@@ -24,6 +25,7 @@ interface BenchmarkOptions {
   seed: number;
 }
 
+/** BenchmarkPoint：定义该接口的能力与字段约束。 */
 interface BenchmarkPoint {
   x: number;
   y: number;
@@ -363,3 +365,4 @@ void main().catch((error) => {
   process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
   process.exitCode = 1;
 });
+

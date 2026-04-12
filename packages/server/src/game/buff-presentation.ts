@@ -3,6 +3,7 @@ import { SOUL_DEVOUR_EROSION_BUFF_ID } from '../constants/gameplay/equipment';
 import { FIRE_BURN_MARK_BUFF_ID } from '../constants/gameplay/technique-buffs';
 import { getBuffSustainCost, getBuffSustainResourceLabel, getNextBuffSustainCost } from './buff-sustain';
 
+/** getSoulDevourErosionRatio：执行对应的业务逻辑。 */
 export function getSoulDevourErosionRatio(stacks: number): number {
   const safeStacks = Math.max(0, stacks);
   if (safeStacks <= 0) {
@@ -11,6 +12,7 @@ export function getSoulDevourErosionRatio(stacks: number): number {
   return safeStacks / (safeStacks + 1000);
 }
 
+/** formatDynamicPercent：执行对应的业务逻辑。 */
 function formatDynamicPercent(value: number): string {
   const percent = Math.max(0, value * 100);
   if (percent === 0) {
@@ -22,6 +24,7 @@ function formatDynamicPercent(value: number): string {
   return `${percent.toFixed(2)}%`;
 }
 
+/** appendSustainDescription：执行对应的业务逻辑。 */
 function appendSustainDescription(
   buff: Pick<TemporaryBuffState, 'sustainCost' | 'sustainTicksElapsed'>,
   fallback?: string,
@@ -39,6 +42,7 @@ function appendSustainDescription(
   return fallback ? `${fallback} ${sustainText}` : sustainText;
 }
 
+/** buildDynamicBuffDescription：执行对应的业务逻辑。 */
 export function buildDynamicBuffDescription(
   buff: Pick<TemporaryBuffState, 'buffId' | 'stacks' | 'desc' | 'baseDesc' | 'sustainCost' | 'sustainTicksElapsed'>,
 ): string | undefined {
@@ -53,7 +57,9 @@ export function buildDynamicBuffDescription(
   return appendSustainDescription(buff, fallback);
 }
 
+/** syncDynamicBuffPresentation：执行对应的业务逻辑。 */
 export function syncDynamicBuffPresentation<T extends Pick<TemporaryBuffState, 'buffId' | 'stacks' | 'desc' | 'baseDesc' | 'sustainCost' | 'sustainTicksElapsed'>>(buff: T): T {
   buff.desc = buildDynamicBuffDescription(buff);
   return buff;
 }
+

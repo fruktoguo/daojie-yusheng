@@ -1,9 +1,11 @@
 import { detailModalHost } from './detail-modal-host';
 import { CHANGELOG_ENTRIES, getLatestChangelogEntry } from './changelog-data';
 
+/** ChangelogPanel：封装相关状态与行为。 */
 export class ChangelogPanel {
   private static readonly MODAL_OWNER = 'changelog-panel';
 
+/** constructor：处理当前场景中的对应操作。 */
   constructor() {
     document.getElementById('hud-open-chronicle')?.addEventListener('click', () => this.open());
   }
@@ -51,6 +53,7 @@ export class ChangelogPanel {
   }
 }
 
+/** escapeHtml：执行对应的业务逻辑。 */
 function escapeHtml(input: string): string {
   return input
     .replaceAll('&', '&amp;')
@@ -59,3 +62,4 @@ function escapeHtml(input: string): string {
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#39;');
 }
+

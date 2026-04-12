@@ -11,7 +11,9 @@ import type { SocketManager } from '../network/socket';
 import { detailModalHost } from './detail-modal-host';
 import { SUGGESTION_PANEL_REFRESH_INTERVAL_MS } from '../constants/ui/suggestion';
 
+/** SuggestionListTab：定义该类型的结构与数据语义。 */
 type SuggestionListTab = 'all' | 'mine';
+/** SuggestionEditableFieldId：定义该类型的结构与数据语义。 */
 type SuggestionEditableFieldId = 'suggest-title' | 'suggest-desc' | 'suggest-reply-content' | 'suggest-search';
 
 const SUGGESTION_PAGE_SIZE = 6;
@@ -22,6 +24,7 @@ const SUGGESTION_EDITABLE_FIELD_IDS = new Set<SuggestionEditableFieldId>([
   'suggest-search',
 ]);
 
+/** SuggestionRenderState：定义该类型的结构与数据语义。 */
 type SuggestionRenderState = {
   focusedFieldId: SuggestionEditableFieldId | null;
   selectionStart: number | null;
@@ -31,6 +34,7 @@ type SuggestionRenderState = {
   threadScrollTop: number;
 };
 
+/** SuggestionModalMeta：定义该类型的结构与数据语义。 */
 type SuggestionModalMeta = {
   subtitle: string;
 };
@@ -51,6 +55,7 @@ export class SuggestionPanel {
   private lastRefreshRequestAt = 0;
   private delegatedEventsBound = false;
 
+/** constructor：处理当前场景中的对应操作。 */
   constructor(private readonly socket: SocketManager) {
     this.setupGlobalListeners();
   }
@@ -808,6 +813,7 @@ export class SuggestionPanel {
   }
 }
 
+/** escapeHtml：执行对应的业务逻辑。 */
 function escapeHtml(input: string): string {
   return input
     .replaceAll('&', '&amp;')
@@ -817,6 +823,8 @@ function escapeHtml(input: string): string {
     .replaceAll("'", '&#39;');
 }
 
+/** escapeHtmlAttr：执行对应的业务逻辑。 */
 function escapeHtmlAttr(input: string): string {
   return escapeHtml(input);
 }
+

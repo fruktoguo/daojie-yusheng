@@ -34,12 +34,14 @@ import { ContentService } from './content.service';
 import { InventoryService } from './inventory.service';
 import { PlayerService } from './player.service';
 
+/** MarketMessage：定义该接口的能力与字段约束。 */
 interface MarketMessage {
   playerId: string;
   text: string;
   kind?: 'system' | 'loot';
 }
 
+/** MarketPlayerSnapshot：定义该接口的能力与字段约束。 */
 interface MarketPlayerSnapshot {
   inventory: {
     items: ItemStack[];
@@ -48,6 +50,7 @@ interface MarketPlayerSnapshot {
   marketStorage: MarketStorage;
 }
 
+/** MarketMutationContext：定义该接口的能力与字段约束。 */
 interface MarketMutationContext {
   orderRepo: Repository<MarketOrderEntity>;
   tradeHistoryRepo: Repository<MarketTradeHistoryEntity>;
@@ -57,6 +60,7 @@ interface MarketMutationContext {
   touchedOnlinePlayerIds: Set<string>;
 }
 
+/** MarketActionResult：定义该接口的能力与字段约束。 */
 export interface MarketActionResult {
   affectedPlayerIds: string[];
   messages: MarketMessage[];
@@ -66,6 +70,7 @@ export interface MarketActionResult {
 }
 
 @Injectable()
+/** MarketService：封装相关状态与行为。 */
 export class MarketService implements OnModuleInit {
   private readonly logger = new Logger(MarketService.name);
   private static readonly MARKET_PRICE_COLUMN_TABLES = [
@@ -1466,3 +1471,4 @@ export class MarketService implements OnModuleInit {
     }));
   }
 }
+

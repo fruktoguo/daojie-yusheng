@@ -488,3 +488,4 @@ export function calcQiCostWithOutputLimit(plannedCost: number, maxQiOutputPerTic
   const remainderCost = remainder * (fullSegments + 2);
   return maxQiOutputPerTick + fullSegmentCost + remainderCost;
 }
+

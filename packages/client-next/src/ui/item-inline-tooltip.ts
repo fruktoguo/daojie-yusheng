@@ -5,13 +5,16 @@ import { LOCAL_EDITOR_CATALOG } from '../constants/world/editor-catalog';
 import { buildItemTooltipPayload } from './equipment-tooltip';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from './floating-tooltip';
 
+/** InlineItemChipTone：定义该类型的结构与数据语义。 */
 type InlineItemChipTone = 'reward' | 'required' | 'material' | 'monster' | 'default';
 
+/** InlineItemMention：定义该接口的能力与字段约束。 */
 interface InlineItemMention {
   itemId: string;
   name: string;
 }
 
+/** RenderInlineItemChipOptions：定义该接口的能力与字段约束。 */
 interface RenderInlineItemChipOptions {
   count?: number;
   label?: string;
@@ -40,6 +43,7 @@ const mentionCandidatesByFirstChar = inlineItemMentions.reduce((result, mention)
   return result;
 }, new Map<string, InlineItemMention[]>());
 
+/** escapeHtml：执行对应的业务逻辑。 */
 function escapeHtml(value: string): string {
   return value
     .replaceAll('&', '&amp;')
@@ -49,10 +53,12 @@ function escapeHtml(value: string): string {
     .replaceAll("'", '&#39;');
 }
 
+/** escapeHtmlAttr：执行对应的业务逻辑。 */
 function escapeHtmlAttr(value: string): string {
   return escapeHtml(value);
 }
 
+/** normalizeCount：执行对应的业务逻辑。 */
 function normalizeCount(count: number | undefined): number {
   if (!Number.isFinite(count)) {
     return 1;
@@ -60,6 +66,7 @@ function normalizeCount(count: number | undefined): number {
   return Math.max(1, Math.floor(Number(count)));
 }
 
+/** buildLocalItemStack：执行对应的业务逻辑。 */
 function buildLocalItemStack(itemId: string, count = 1): ItemStack | null {
   const template = getLocalItemTemplate(itemId);
   if (!template) {
@@ -83,6 +90,7 @@ function buildLocalItemStack(itemId: string, count = 1): ItemStack | null {
   };
 }
 
+/** resolveTooltipPayload：执行对应的业务逻辑。 */
 async function resolveTooltipPayload(node: HTMLElement) {
   const itemId = node.dataset.inlineItemId;
   if (itemId) {
@@ -125,6 +133,7 @@ async function resolveTooltipPayload(node: HTMLElement) {
   };
 }
 
+/** showTooltip：执行对应的业务逻辑。 */
 async function showTooltip(node: HTMLElement, clientX: number, clientY: number): Promise<void> {
   const requestToken = ++tooltipRequestToken;
   activeTooltipNode = node;
@@ -141,6 +150,7 @@ async function showTooltip(node: HTMLElement, clientX: number, clientY: number):
   });
 }
 
+/** renderInlineItemChip：执行对应的业务逻辑。 */
 export function renderInlineItemChip(itemId: string, options?: RenderInlineItemChipOptions): string {
   const template = getLocalItemTemplate(itemId);
   const label = options?.label?.trim() || template?.name || itemId;
@@ -150,12 +160,14 @@ export function renderInlineItemChip(itemId: string, options?: RenderInlineItemC
   return `<span class="inline-item-chip inline-item-chip--${tone}" data-inline-item-id="${escapeHtmlAttr(itemId)}" data-inline-item-name="${escapeHtmlAttr(label)}"${Number.isFinite(count) ? ` data-inline-item-count="${normalizeCount(count)}"` : ''}>${escapeHtml(label)}${countText ? `<span class="inline-item-chip-count">${escapeHtml(countText)}</span>` : ''}</span>`;
 }
 
+/** renderInlineMonsterChip：执行对应的业务逻辑。 */
 export function renderInlineMonsterChip(monsterId: string, options?: { label?: string }): string {
   const location = getMonsterLocationEntry(monsterId);
   const label = options?.label?.trim() || location?.monsterName || monsterId;
   return `<span class="inline-item-chip inline-item-chip--monster" data-inline-monster-id="${escapeHtmlAttr(monsterId)}" data-inline-monster-name="${escapeHtmlAttr(label)}">${escapeHtml(label)}</span>`;
 }
 
+/** renderTextWithInlineItemHighlights：执行对应的业务逻辑。 */
 export function renderTextWithInlineItemHighlights(text: string): string {
   if (!text.trim()) {
     return '';
@@ -178,6 +190,7 @@ export function renderTextWithInlineItemHighlights(text: string): string {
   return html;
 }
 
+/** bindInlineItemTooltips：执行对应的业务逻辑。 */
 export function bindInlineItemTooltips(root: HTMLElement): void {
   if (boundRoots.has(root)) {
     return;
@@ -267,3 +280,4 @@ export function bindInlineItemTooltips(root: HTMLElement): void {
     }
   });
 }
+

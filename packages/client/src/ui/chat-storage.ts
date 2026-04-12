@@ -7,11 +7,13 @@ import {
   type ChatStoredMessage,
 } from '../constants/ui/chat';
 
+/** ChatMessageRecord：定义该类型的结构与数据语义。 */
 type ChatMessageRecord = ChatStoredMessage & {
   scopeId: string;
   channel: ChatChannel;
 };
 
+/** ChatMessageCursor：定义该类型的结构与数据语义。 */
 type ChatMessageCursor = Pick<ChatStoredMessage, 'at' | 'id'>;
 
 const CHAT_DB_NAME = 'mud-chat-log';
@@ -28,6 +30,7 @@ let persistLifecycleBound = false;
 let persistFlushTimer: number | null = null;
 let persistFlushRunning = false;
 
+/** PendingPersistEntry：定义该类型的结构与数据语义。 */
 type PendingPersistEntry = {
   scopeId: string;
   entry: ChatStoredMessage;
@@ -37,6 +40,7 @@ type PendingPersistEntry = {
 
 const pendingPersistEntries: PendingPersistEntry[] = [];
 
+/** warnIndexedDbUnavailable：执行对应的业务逻辑。 */
 function warnIndexedDbUnavailable(error: unknown): void {
   if (indexedDbUnavailableWarned) {
     return;
@@ -45,6 +49,7 @@ function warnIndexedDbUnavailable(error: unknown): void {
   console.warn('[chat] IndexedDB 不可用，本次会话将退回仅内存聊天记录。', error);
 }
 
+/** withRequestResult：执行对应的业务逻辑。 */
 function withRequestResult<T>(request: IDBRequest<T>): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     request.onsuccess = () => resolve(request.result);
@@ -52,6 +57,7 @@ function withRequestResult<T>(request: IDBRequest<T>): Promise<T> {
   });
 }
 
+/** withTransactionComplete：执行对应的业务逻辑。 */
 function withTransactionComplete(transaction: IDBTransaction): Promise<void> {
   return new Promise<void>((resolve, reject) => {
     transaction.oncomplete = () => resolve();
@@ -60,6 +66,7 @@ function withTransactionComplete(transaction: IDBTransaction): Promise<void> {
   });
 }
 
+/** getLegacyStorage：执行对应的业务逻辑。 */
 function getLegacyStorage(): Storage | null {
   if (typeof window === 'undefined') {
     return null;
@@ -71,6 +78,7 @@ function getLegacyStorage(): Storage | null {
   }
 }
 
+/** clearLegacyChatStorage：执行对应的业务逻辑。 */
 export function clearLegacyChatStorage(): void {
   if (legacyStorageCleared) {
     return;
@@ -87,6 +95,7 @@ export function clearLegacyChatStorage(): void {
   }
 }
 
+/** bindPersistLifecycle：执行对应的业务逻辑。 */
 function bindPersistLifecycle(): void {
   if (persistLifecycleBound || typeof window === 'undefined') {
     return;
@@ -102,6 +111,7 @@ function bindPersistLifecycle(): void {
   });
 }
 
+/** openDatabase：执行对应的业务逻辑。 */
 async function openDatabase(): Promise<IDBDatabase | null> {
   if (typeof window === 'undefined' || !('indexedDB' in window)) {
     return null;
@@ -137,6 +147,7 @@ async function openDatabase(): Promise<IDBDatabase | null> {
   return databasePromise;
 }
 
+/** toStoredMessage：执行对应的业务逻辑。 */
 function toStoredMessage(record: ChatMessageRecord): ChatStoredMessage {
   return {
     id: record.id,
@@ -148,6 +159,7 @@ function toStoredMessage(record: ChatMessageRecord): ChatStoredMessage {
   };
 }
 
+/** buildChannelRange：执行对应的业务逻辑。 */
 function buildChannelRange(scopeId: string, channel: ChatChannel): IDBKeyRange {
   return IDBKeyRange.bound(
     [scopeId, channel, 0, ''],
@@ -155,6 +167,7 @@ function buildChannelRange(scopeId: string, channel: ChatChannel): IDBKeyRange {
   );
 }
 
+/** buildOlderThanRange：执行对应的业务逻辑。 */
 function buildOlderThanRange(scopeId: string, channel: ChatChannel, before: ChatMessageCursor): IDBKeyRange {
   return IDBKeyRange.bound(
     [scopeId, channel, 0, ''],
@@ -164,6 +177,7 @@ function buildOlderThanRange(scopeId: string, channel: ChatChannel, before: Chat
   );
 }
 
+/** readMessagesByRange：执行对应的业务逻辑。 */
 async function readMessagesByRange(
   scopeId: string,
   channel: ChatChannel,
@@ -201,6 +215,7 @@ async function readMessagesByRange(
   });
 }
 
+/** pruneChannel：执行对应的业务逻辑。 */
 async function pruneChannel(scopeId: string, channel: ChatChannel): Promise<void> {
   const database = await openDatabase();
   if (!database) {
@@ -257,6 +272,7 @@ async function pruneChannel(scopeId: string, channel: ChatChannel): Promise<void
   }
 }
 
+/** persistBatch：执行对应的业务逻辑。 */
 async function persistBatch(entries: PendingPersistEntry[]): Promise<boolean> {
   const database = await openDatabase();
   if (!database || entries.length === 0) {
@@ -301,6 +317,7 @@ async function persistBatch(entries: PendingPersistEntry[]): Promise<boolean> {
   }
 }
 
+/** flushPendingPersistEntries：执行对应的业务逻辑。 */
 async function flushPendingPersistEntries(): Promise<void> {
   if (persistFlushTimer !== null && typeof window !== 'undefined') {
     window.clearTimeout(persistFlushTimer);
@@ -324,6 +341,7 @@ async function flushPendingPersistEntries(): Promise<void> {
   }
 }
 
+/** schedulePersistFlush：执行对应的业务逻辑。 */
 function schedulePersistFlush(): void {
   bindPersistLifecycle();
   if (persistFlushTimer !== null || typeof window === 'undefined') {
@@ -334,6 +352,7 @@ function schedulePersistFlush(): void {
   }, CHAT_PERSIST_FLUSH_DELAY_MS);
 }
 
+/** loadRecentChannelMessages：执行对应的业务逻辑。 */
 export async function loadRecentChannelMessages(
   scopeId: string,
   channel: ChatChannel,
@@ -342,6 +361,7 @@ export async function loadRecentChannelMessages(
   return readMessagesByRange(scopeId, channel, limit, buildChannelRange(scopeId, channel));
 }
 
+/** loadOlderChannelMessages：执行对应的业务逻辑。 */
 export async function loadOlderChannelMessages(
   scopeId: string,
   channel: ChatChannel,
@@ -351,6 +371,7 @@ export async function loadOlderChannelMessages(
   return readMessagesByRange(scopeId, channel, limit, buildOlderThanRange(scopeId, channel, before));
 }
 
+/** appendChannelMessages：执行对应的业务逻辑。 */
 export async function appendChannelMessages(
   scopeId: string,
   entry: ChatStoredMessage,
@@ -369,3 +390,4 @@ export async function appendChannelMessages(
     schedulePersistFlush();
   });
 }
+

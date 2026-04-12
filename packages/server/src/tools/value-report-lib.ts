@@ -24,6 +24,7 @@ import {
   TechniqueLayerDef,
 } from '@mud/shared';
 
+/** RawTechnique：定义该类型的结构与数据语义。 */
 type RawTechnique = {
   id: string;
   name: string;
@@ -33,6 +34,7 @@ type RawTechnique = {
   skills: Array<Omit<SkillDef, 'cost'> & { cost?: number; costMultiplier?: number }>;
 };
 
+/** RawEquipment：定义该类型的结构与数据语义。 */
 type RawEquipment = {
   itemId: string;
   name: string;
@@ -47,16 +49,19 @@ type RawEquipment = {
   effects?: unknown;
 };
 
+/** RawMap：定义该类型的结构与数据语义。 */
 type RawMap = {
   dangerLevel?: number;
 };
 
+/** RealmLevelEntry：定义该类型的结构与数据语义。 */
 type RealmLevelEntry = {
   realmLv: number;
   displayName?: string | null;
   name?: string | null;
 };
 
+/** RealmLevelsConfig：定义该类型的结构与数据语义。 */
 type RealmLevelsConfig = {
   levels?: RealmLevelEntry[];
 };
@@ -885,3 +890,4 @@ export function renderMarkdownTable(title: string, rows: ValueReportRow[]): stri
   ];
   return lines.join('\n');
 }
+

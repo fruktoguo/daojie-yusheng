@@ -3,6 +3,7 @@
  */
 import { ItemStack } from './types';
 
+/** ComparableValue：定义该类型的结构与数据语义。 */
 type ComparableValue =
   | null
   | boolean
@@ -11,6 +12,7 @@ type ComparableValue =
   | ComparableValue[]
   | { [key: string]: ComparableValue };
 
+/** normalizeComparableValue：执行对应的业务逻辑。 */
 function normalizeComparableValue(value: unknown): ComparableValue | undefined {
   if (value === undefined) {
     return undefined;
@@ -49,3 +51,4 @@ export function createItemStackSignature(item: ItemStack): string {
 export function canStackItemStacks(left: ItemStack, right: ItemStack): boolean {
   return createItemStackSignature(left) === createItemStackSignature(right);
 }
+

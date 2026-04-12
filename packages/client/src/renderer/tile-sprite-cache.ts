@@ -6,6 +6,7 @@ import {
 } from '@mud/shared';
 import { buildCanvasFont } from '../constants/ui/text';
 
+/** TileSprite：定义该接口的能力与字段约束。 */
 export interface TileSprite {
   key: string;
   tileType: TileType;
@@ -13,16 +14,19 @@ export interface TileSprite {
   canvas: HTMLCanvasElement;
 }
 
+/** TileSpriteCacheEntry：定义该接口的能力与字段约束。 */
 interface TileSpriteCacheEntry extends TileSprite {
   lastAccess: number;
 }
 
+/** TileSpriteCacheOptions：定义该接口的能力与字段约束。 */
 interface TileSpriteCacheOptions {
   maxEntries?: number;
 }
 
 const DEFAULT_MAX_ENTRIES = 512;
 
+/** normalizeCellSize：执行对应的业务逻辑。 */
 function normalizeCellSize(cellSize: number): number {
   if (!Number.isFinite(cellSize)) {
     return 1;
@@ -30,10 +34,12 @@ function normalizeCellSize(cellSize: number): number {
   return Math.max(1, Math.round(cellSize));
 }
 
+/** buildSpriteKey：执行对应的业务逻辑。 */
 function buildSpriteKey(tileType: TileType, cellSize: number): string {
   return `${tileType}:${cellSize}`;
 }
 
+/** createSpriteCanvas：执行对应的业务逻辑。 */
 function createSpriteCanvas(size: number): HTMLCanvasElement {
   const canvas = document.createElement('canvas');
   canvas.width = size;
@@ -41,6 +47,7 @@ function createSpriteCanvas(size: number): HTMLCanvasElement {
   return canvas;
 }
 
+/** renderTileSprite：执行对应的业务逻辑。 */
 function renderTileSprite(canvas: HTMLCanvasElement, tileType: TileType, cellSize: number): void {
   const ctx = canvas.getContext('2d');
   if (!ctx) {
@@ -72,11 +79,13 @@ function renderTileSprite(canvas: HTMLCanvasElement, tileType: TileType, cellSiz
   }
 }
 
+/** TileSpriteCache：封装相关状态与行为。 */
 export class TileSpriteCache {
   private readonly cache = new Map<string, TileSpriteCacheEntry>();
   private readonly maxEntries: number;
   private accessSerial = 1;
 
+/** constructor：处理当前场景中的对应操作。 */
   constructor(options?: TileSpriteCacheOptions) {
     const requestedLimit = options?.maxEntries ?? DEFAULT_MAX_ENTRIES;
     this.maxEntries = Math.max(64, Math.floor(requestedLimit));
@@ -159,3 +168,4 @@ export class TileSpriteCache {
     }
   }
 }
+

@@ -38,14 +38,17 @@ import {
 
 const SUPPORTED_MAP_TILE_CHARS = new Set(['#', '.', '=', ':', 'P', 'S', '+', 'W', 'B', ',', '^', '崖', ';', '%', '~', '寒', '熔', '云', '霞', '空', 'T', '竹', 'o', 'L', '铁', '刃', ...HOUSE_DECOR_TILE_MAP_CHARS]);
 
+/** clone：执行对应的业务逻辑。 */
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
+/** normalizePortalKind：执行对应的业务逻辑。 */
 function normalizePortalKind(kind: unknown): PortalKind {
   return kind === 'stairs' ? 'stairs' : 'portal';
 }
 
+/** normalizePortalTrigger：执行对应的业务逻辑。 */
 function normalizePortalTrigger(trigger: unknown, kind?: unknown): PortalTrigger {
   if (trigger === 'manual' || trigger === 'auto') {
     return trigger;
@@ -53,6 +56,7 @@ function normalizePortalTrigger(trigger: unknown, kind?: unknown): PortalTrigger
   return kind === 'stairs' ? 'auto' : 'manual';
 }
 
+/** normalizeMapSpaceVisionMode：执行对应的业务逻辑。 */
 function normalizeMapSpaceVisionMode(mode: unknown, parentMapId?: unknown): MapSpaceVisionMode {
   if (mode === 'parent_overlay' && typeof parentMapId === 'string' && parentMapId.trim()) {
     return 'parent_overlay';
@@ -60,6 +64,7 @@ function normalizeMapSpaceVisionMode(mode: unknown, parentMapId?: unknown): MapS
   return 'isolated';
 }
 
+/** normalizeContainerGrade：执行对应的业务逻辑。 */
 function normalizeContainerGrade(grade: unknown): TechniqueGrade {
   if (
     grade === 'mortal'
@@ -76,6 +81,7 @@ function normalizeContainerGrade(grade: unknown): TechniqueGrade {
   return 'mortal';
 }
 
+/** normalizeEditableNpcShopItemRecord：执行对应的业务逻辑。 */
 function normalizeEditableNpcShopItemRecord(raw: unknown): GmMapNpcShopItemRecord | null {
   const item = raw as Partial<GmMapNpcShopItemRecord>;
   if (typeof item.itemId !== 'string') {
@@ -97,6 +103,7 @@ function normalizeEditableNpcShopItemRecord(raw: unknown): GmMapNpcShopItemRecor
   };
 }
 
+/** normalizeOptionalTrimmedString：执行对应的业务逻辑。 */
 function normalizeOptionalTrimmedString(value: unknown): string | undefined {
   if (typeof value !== 'string') {
     return undefined;
@@ -105,16 +112,19 @@ function normalizeOptionalTrimmedString(value: unknown): string | undefined {
   return trimmed.length > 0 ? trimmed : undefined;
 }
 
+/** normalizeOptionalInteger：执行对应的业务逻辑。 */
 function normalizeOptionalInteger(value: unknown): number | undefined {
   return Number.isFinite(value) ? Math.floor(Number(value)) : undefined;
 }
 
+/** normalizeQuestLine：执行对应的业务逻辑。 */
 function normalizeQuestLine(value: unknown): QuestLine | undefined {
   return value === 'main' || value === 'side' || value === 'daily' || value === 'encounter'
     ? value
     : undefined;
 }
 
+/** normalizeQuestObjectiveType：执行对应的业务逻辑。 */
 function normalizeQuestObjectiveType(value: unknown): QuestObjectiveType | undefined {
   return value === 'kill'
     || value === 'talk'
@@ -126,24 +136,28 @@ function normalizeQuestObjectiveType(value: unknown): QuestObjectiveType | undef
     : undefined;
 }
 
+/** normalizeMapRouteDomain：执行对应的业务逻辑。 */
 function normalizeMapRouteDomain(value: unknown): MapRouteDomain | undefined {
   return value === 'system' || value === 'sect' || value === 'personal' || value === 'dynamic'
     ? value
     : undefined;
 }
 
+/** normalizePortalRouteDomain：执行对应的业务逻辑。 */
 function normalizePortalRouteDomain(value: unknown): PortalRouteDomain | undefined {
   return value === 'inherit' || value === 'system' || value === 'sect' || value === 'personal' || value === 'dynamic'
     ? value
     : undefined;
 }
 
+/** normalizeMonsterAggroMode：执行对应的业务逻辑。 */
 function normalizeMonsterAggroMode(value: unknown): MonsterAggroMode | undefined {
   return value === 'always' || value === 'retaliate' || value === 'day_only' || value === 'night_only'
     ? value
     : undefined;
 }
 
+/** normalizeMapTimeConfig：执行对应的业务逻辑。 */
 function normalizeMapTimeConfig(raw: unknown): MapTimeConfig {
   const candidate = (raw ?? {}) as Partial<MapTimeConfig>;
   const palette = candidate.palette && typeof candidate.palette === 'object' ? candidate.palette : {};
@@ -179,6 +193,7 @@ function normalizeMapTimeConfig(raw: unknown): MapTimeConfig {
   };
 }
 
+/** normalizeEditableContainerRecord：执行对应的业务逻辑。 */
 function normalizeEditableContainerRecord(input: unknown): GmMapContainerRecord | undefined {
   if (!input || typeof input !== 'object') {
     return undefined;
@@ -209,6 +224,7 @@ function normalizeEditableContainerRecord(input: unknown): GmMapContainerRecord 
   };
 }
 
+/** normalizeEditableContainerLootPoolRecord：执行对应的业务逻辑。 */
 function normalizeEditableContainerLootPoolRecord(input: unknown): GmMapContainerLootPoolRecord | undefined {
   if (!input || typeof input !== 'object') {
     return undefined;
@@ -237,6 +253,7 @@ function normalizeEditableContainerLootPoolRecord(input: unknown): GmMapContaine
   };
 }
 
+/** normalizeEditableResourceNodePlacementRecord：执行对应的业务逻辑。 */
 function normalizeEditableResourceNodePlacementRecord(input: unknown): GmMapResourceNodePlacementRecord | undefined {
   if (!input || typeof input !== 'object') {
     return undefined;
@@ -251,6 +268,7 @@ function normalizeEditableResourceNodePlacementRecord(input: unknown): GmMapReso
   };
 }
 
+/** normalizeEditableResourceNodeGroupRecord：执行对应的业务逻辑。 */
 function normalizeEditableResourceNodeGroupRecord(input: unknown): GmMapResourceNodeGroupRecord | undefined {
   if (!input || typeof input !== 'object') {
     return undefined;
@@ -269,6 +287,7 @@ function normalizeEditableResourceNodeGroupRecord(input: unknown): GmMapResource
   };
 }
 
+/** normalizeResourceNodeLandmarkIdPrefix：执行对应的业务逻辑。 */
 function normalizeResourceNodeLandmarkIdPrefix(resourceNodeId: string, explicitPrefix?: string): string {
   const normalizedPrefix = explicitPrefix?.trim();
   if (normalizedPrefix) {
@@ -278,6 +297,7 @@ function normalizeResourceNodeLandmarkIdPrefix(resourceNodeId: string, explicitP
   return fallback.length > 0 ? fallback : 'resource_node';
 }
 
+/** expandMapResourceNodeGroups：执行对应的业务逻辑。 */
 export function expandMapResourceNodeGroups(
   document: Pick<GmMapDocument, 'landmarks' | 'resourceNodeGroups'>,
 ): GmMapLandmarkRecord[] {
@@ -313,6 +333,7 @@ export function expandMapResourceNodeGroups(
   return baseLandmarks;
 }
 
+/** normalizeEditableDropRecord：执行对应的业务逻辑。 */
 function normalizeEditableDropRecord(input: unknown): GmMapDropRecord | undefined {
   if (!input || typeof input !== 'object') {
     return undefined;
@@ -327,6 +348,7 @@ function normalizeEditableDropRecord(input: unknown): GmMapDropRecord | undefine
   };
 }
 
+/** normalizeEditableQuestRecord：执行对应的业务逻辑。 */
 function normalizeEditableQuestRecord(input: unknown): GmMapQuestRecord | undefined {
   if (!input || typeof input !== 'object') {
     return undefined;
@@ -381,6 +403,7 @@ function normalizeEditableQuestRecord(input: unknown): GmMapQuestRecord | undefi
   };
 }
 
+/** syncPortalTiles：执行对应的业务逻辑。 */
 function syncPortalTiles(document: GmMapDocument): GmMapDocument {
   const rows = document.tiles.map((row) => [...row].map((char) => (char === 'P' || char === 'S') ? '.' : char));
   for (const portal of document.portals) {
@@ -394,6 +417,7 @@ function syncPortalTiles(document: GmMapDocument): GmMapDocument {
   };
 }
 
+/** resolveNearestWalkablePointInDocument：执行对应的业务逻辑。 */
 function resolveNearestWalkablePointInDocument(
   document: GmMapDocument,
   origin: { x: number; y: number },
@@ -430,6 +454,7 @@ function resolveNearestWalkablePointInDocument(
   return portalFallback;
 }
 
+/** repairEditableMapDocument：执行对应的业务逻辑。 */
 function repairEditableMapDocument(document: GmMapDocument): GmMapDocument {
   return {
     ...document,
@@ -437,10 +462,12 @@ function repairEditableMapDocument(document: GmMapDocument): GmMapDocument {
   };
 }
 
+/** cloneMapDocument：执行对应的业务逻辑。 */
 export function cloneMapDocument(document: GmMapDocument): GmMapDocument {
   return clone(document);
 }
 
+/** normalizeEditableMapDocument：执行对应的业务逻辑。 */
 export function normalizeEditableMapDocument(raw: unknown): GmMapDocument {
   const source = raw as Partial<GmMapDocument>;
   const tiles = Array.isArray(source.tiles)
@@ -668,6 +695,7 @@ export function normalizeEditableMapDocument(raw: unknown): GmMapDocument {
   }));
 }
 
+/** validateEditableMapDocument：执行对应的业务逻辑。 */
 export function validateEditableMapDocument(document: GmMapDocument): string | null {
   if (!document.id.trim()) return '地图 ID 不能为空';
   if (!document.name.trim()) return '地图名称不能为空';
@@ -1068,6 +1096,7 @@ export function validateEditableMapDocument(document: GmMapDocument): string | n
   return null;
 }
 
+/** buildEditableMapSummary：执行对应的业务逻辑。 */
 export function buildEditableMapSummary(document: GmMapDocument): GmMapSummary {
   return {
     id: document.id,
@@ -1084,6 +1113,7 @@ export function buildEditableMapSummary(document: GmMapDocument): GmMapSummary {
   };
 }
 
+/** buildEditableMapList：执行对应的业务逻辑。 */
 export function buildEditableMapList(documents: GmMapDocument[]): GmMapListRes {
   return {
     maps: documents
@@ -1091,3 +1121,4 @@ export function buildEditableMapList(documents: GmMapDocument[]): GmMapListRes {
       .sort((left, right) => left.id.localeCompare(right.id, 'zh-CN')),
   };
 }
+

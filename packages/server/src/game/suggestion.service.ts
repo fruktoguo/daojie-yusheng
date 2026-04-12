@@ -11,6 +11,7 @@ import { Suggestion, SuggestionPage, SuggestionReply, SuggestionReplyAuthorType,
 import { SuggestionEntity } from '../database/entities/suggestion.entity';
 import { resolveServerDataPath } from '../common/data-path';
 
+/** SuggestionPageOptions：定义该接口的能力与字段约束。 */
 interface SuggestionPageOptions {
   keyword?: string;
   page?: number;
@@ -18,6 +19,7 @@ interface SuggestionPageOptions {
 }
 
 @Injectable()
+/** SuggestionService：封装相关状态与行为。 */
 export class SuggestionService implements OnModuleInit {
   private static readonly DEFAULT_PAGE_SIZE = 10;
   private static readonly MAX_PAGE_SIZE = 50;
@@ -438,3 +440,4 @@ export class SuggestionService implements OnModuleInit {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
   }
 }
+

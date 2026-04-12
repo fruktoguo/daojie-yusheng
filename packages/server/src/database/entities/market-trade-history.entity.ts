@@ -10,6 +10,7 @@ const NUMERIC_NUMBER_TRANSFORMER = {
 };
 
 @Entity('market_trade_history')
+/** MarketTradeHistoryEntity：封装相关状态与行为。 */
 export class MarketTradeHistoryEntity {
   @PrimaryColumn({ type: 'uuid' })
   id!: string;
@@ -32,3 +33,4 @@ export class MarketTradeHistoryEntity {
   @Column({ type: 'bigint', transformer: NUMERIC_NUMBER_TRANSFORMER })
   createdAt!: number;
 }
+

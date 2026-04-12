@@ -23,11 +23,13 @@ export interface TargetingGeometrySpec {
   checkerParity?: 'even' | 'odd';
 }
 
+/** TargetingGeometryModifiers：定义该接口的能力与字段约束。 */
 export interface TargetingGeometryModifiers {
   extraRange?: number;
   extraArea?: number;
 }
 
+/** TargetingGeometryResolution：定义该接口的能力与字段约束。 */
 export interface TargetingGeometryResolution {
   finalRange?: number;
   extraArea?: number;
@@ -114,6 +116,7 @@ export function getBoxCells(center: GridPoint, width: number, height: number): G
   return cells;
 }
 
+/** getOrientedBoxCells：执行对应的业务逻辑。 */
 function getOrientedBoxCells(origin: GridPoint, anchor: GridPoint, width: number, height: number): GridPoint[] {
   const normalizedWidth = Math.max(1, Math.floor(width));
   const normalizedHeight = Math.max(1, Math.floor(height));
@@ -175,6 +178,7 @@ export function getCheckerboardCells(
   });
 }
 
+/** getDistanceSquaredToSegment：执行对应的业务逻辑。 */
 function getDistanceSquaredToSegment(point: GridPoint, start: GridPoint, end: GridPoint): number {
   const dx = end.x - start.x;
   const dy = end.y - start.y;
@@ -194,6 +198,7 @@ function getDistanceSquaredToSegment(point: GridPoint, start: GridPoint, end: Gr
   return offsetX * offsetX + offsetY * offsetY;
 }
 
+/** getWideLineCells：执行对应的业务逻辑。 */
 function getWideLineCells(start: GridPoint, end: GridPoint, width: number): GridPoint[] {
   const line = getLineCells(start, end);
   if (line.length <= 1) {
@@ -232,10 +237,12 @@ function getWideLineCells(start: GridPoint, end: GridPoint, width: number): Grid
   return cells;
 }
 
+/** normalizeTargetingShape：执行对应的业务逻辑。 */
 function normalizeTargetingShape(spec: TargetingGeometrySpec): TargetingShape {
   return spec.shape ?? 'single';
 }
 
+/** resolveSingleTargetingGeometry：执行对应的业务逻辑。 */
 function resolveSingleTargetingGeometry(range: number, extraArea: number): TargetingGeometrySpec {
   if (extraArea <= 0) {
     return { range, shape: 'single' };
@@ -248,6 +255,7 @@ function resolveSingleTargetingGeometry(range: number, extraArea: number): Targe
   };
 }
 
+/** resolveLineTargetingGeometry：执行对应的业务逻辑。 */
 function resolveLineTargetingGeometry(spec: TargetingGeometrySpec, range: number, extraArea: number): TargetingGeometrySpec {
   return {
     range,
@@ -256,6 +264,7 @@ function resolveLineTargetingGeometry(spec: TargetingGeometrySpec, range: number
   };
 }
 
+/** resolveAreaTargetingGeometry：执行对应的业务逻辑。 */
 function resolveAreaTargetingGeometry(spec: TargetingGeometrySpec, range: number, extraArea: number): TargetingGeometrySpec {
   return {
     range,
@@ -264,6 +273,7 @@ function resolveAreaTargetingGeometry(spec: TargetingGeometrySpec, range: number
   };
 }
 
+/** resolveRingTargetingGeometry：执行对应的业务逻辑。 */
 function resolveRingTargetingGeometry(spec: TargetingGeometrySpec, range: number, extraArea: number): TargetingGeometrySpec {
   return {
     range,
@@ -276,6 +286,7 @@ function resolveRingTargetingGeometry(spec: TargetingGeometrySpec, range: number
   };
 }
 
+/** resolveBoxLikeTargetingGeometry：执行对应的业务逻辑。 */
 function resolveBoxLikeTargetingGeometry(
   spec: TargetingGeometrySpec,
   range: number,
@@ -291,6 +302,7 @@ function resolveBoxLikeTargetingGeometry(
   };
 }
 
+/** resolveTargetingGeometry：执行对应的业务逻辑。 */
 export function resolveTargetingGeometry(
   spec: TargetingGeometrySpec,
   resolution?: TargetingGeometryResolution,
@@ -317,6 +329,7 @@ export function resolveTargetingGeometry(
   return { ...spec, shape, range };
 }
 
+/** buildEffectiveTargetingGeometry：执行对应的业务逻辑。 */
 export function buildEffectiveTargetingGeometry(
   spec: TargetingGeometrySpec,
   modifiers?: TargetingGeometryModifiers,
@@ -358,3 +371,4 @@ export function computeAffectedCellsFromAnchor(
   }
   return [{ x: anchor.x, y: anchor.y }];
 }
+

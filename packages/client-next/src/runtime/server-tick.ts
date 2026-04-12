@@ -2,6 +2,7 @@ let currentServerTick: number | null = null;
 let currentServerTickSyncedAt = performance.now();
 let currentServerTickIntervalMs = 1000;
 
+/** syncEstimatedServerTick：执行对应的业务逻辑。 */
 export function syncEstimatedServerTick(serverTick: number | null | undefined): void {
   currentServerTick = typeof serverTick === 'number' && Number.isFinite(serverTick)
     ? Math.max(0, Math.floor(serverTick))
@@ -9,6 +10,7 @@ export function syncEstimatedServerTick(serverTick: number | null | undefined): 
   currentServerTickSyncedAt = performance.now();
 }
 
+/** syncEstimatedServerTickInterval：执行对应的业务逻辑。 */
 export function syncEstimatedServerTickInterval(dtMs: number | null | undefined): void {
   if (typeof dtMs !== 'number' || !Number.isFinite(dtMs) || dtMs <= 0) {
     return;
@@ -16,6 +18,7 @@ export function syncEstimatedServerTickInterval(dtMs: number | null | undefined)
   currentServerTickIntervalMs = dtMs;
 }
 
+/** getEstimatedServerTick：执行对应的业务逻辑。 */
 export function getEstimatedServerTick(now = performance.now()): number | null {
   if (currentServerTick === null) {
     return null;
@@ -25,6 +28,7 @@ export function getEstimatedServerTick(now = performance.now()): number | null {
   return currentServerTick + elapsedTicks;
 }
 
+/** resolveInventoryCooldownLeft：执行对应的业务逻辑。 */
 export function resolveInventoryCooldownLeft(cooldown: number, startedAtTick: number, now = performance.now()): number {
   const normalizedCooldown = Math.max(0, Math.floor(cooldown));
   if (normalizedCooldown <= 0) {
@@ -37,3 +41,4 @@ export function resolveInventoryCooldownLeft(cooldown: number, startedAtTick: nu
   const elapsedTicks = Math.max(0, currentTick - Math.max(0, Math.floor(startedAtTick)));
   return Math.max(0, normalizedCooldown - elapsedTicks);
 }
+

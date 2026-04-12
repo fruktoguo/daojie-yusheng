@@ -2,10 +2,12 @@ import { PanelCapabilities } from './types';
 import { UI_RESPONSIVE_BREAKPOINTS } from '../../constants/ui/responsive';
 import { getEffectiveViewportHeight, getEffectiveViewportWidth } from '../responsive-viewport';
 
+/** matchMediaSafe：执行对应的业务逻辑。 */
 function matchMediaSafe(win: Window, query: string): boolean {
   return typeof win.matchMedia === 'function' ? win.matchMedia(query).matches : false;
 }
 
+/** readSafeAreaInsets：执行对应的业务逻辑。 */
 function readSafeAreaInsets(win: Window): PanelCapabilities['safeAreaInsets'] {
   const probe = win.document.createElement('div');
   probe.setAttribute('aria-hidden', 'true');
@@ -33,6 +35,7 @@ function readSafeAreaInsets(win: Window): PanelCapabilities['safeAreaInsets'] {
   return insets;
 }
 
+/** detectPanelCapabilities：执行对应的业务逻辑。 */
 export function detectPanelCapabilities(win: Window): PanelCapabilities {
   const viewportWidth = getEffectiveViewportWidth(win);
   const viewportHeight = getEffectiveViewportHeight(win);
@@ -57,6 +60,7 @@ export function detectPanelCapabilities(win: Window): PanelCapabilities {
   };
 }
 
+/** PanelCapabilityMonitor：封装相关状态与行为。 */
 export class PanelCapabilityMonitor {
   private readonly win: Window;
   private readonly listener: (capabilities: PanelCapabilities) => void;
@@ -92,3 +96,4 @@ export class PanelCapabilityMonitor {
     this.win.visualViewport?.removeEventListener('resize', this.boundRefresh);
   }
 }
+

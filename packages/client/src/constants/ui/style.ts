@@ -4,9 +4,12 @@
 
 import { UI_TEXT_SETTINGS } from './text';
 
+/** UiColorMode：定义该类型的结构与数据语义。 */
 export type UiColorMode = 'light' | 'dark';
+/** UiFontLevelKey：定义该类型的结构与数据语义。 */
 export type UiFontLevelKey = (typeof UI_TEXT_SETTINGS.fontLevels)[number]['key'];
 
+/** UiFontLevelDefinition：定义该类型的结构与数据语义。 */
 export type UiFontLevelDefinition = {
   key: UiFontLevelKey;
   label: string;
@@ -18,6 +21,7 @@ export type UiFontLevelDefinition = {
   previewClassName: string;
 };
 
+/** UiStyleConfig：定义该类型的结构与数据语义。 */
 export type UiStyleConfig = {
   colorMode: UiColorMode;
   globalFontOffset: number;
@@ -55,3 +59,4 @@ export const DEFAULT_UI_STYLE_CONFIG: UiStyleConfig = {
   globalFontOffset: UI_GLOBAL_FONT_OFFSET_RANGE.defaultValue,
   uiScale: UI_SCALE_RANGE.defaultValue,
 };
+

@@ -8,6 +8,7 @@ interface SelectionSnapshot {
   end: number;
 }
 
+/** containsSelection：执行对应的业务逻辑。 */
 function containsSelection(root: HTMLElement): boolean {
   const selection = window.getSelection();
   if (!selection || selection.rangeCount === 0) {
@@ -17,6 +18,7 @@ function containsSelection(root: HTMLElement): boolean {
   return root.contains(range.startContainer) && root.contains(range.endContainer);
 }
 
+/** pointToOffset：执行对应的业务逻辑。 */
 function pointToOffset(root: HTMLElement, node: Node, offset: number): number {
   const range = document.createRange();
   range.selectNodeContents(root);
@@ -24,6 +26,7 @@ function pointToOffset(root: HTMLElement, node: Node, offset: number): number {
   return range.toString().length;
 }
 
+/** captureSelection：执行对应的业务逻辑。 */
 function captureSelection(root: HTMLElement): SelectionSnapshot | null {
   if (!containsSelection(root)) {
     return null;
@@ -39,6 +42,7 @@ function captureSelection(root: HTMLElement): SelectionSnapshot | null {
   };
 }
 
+/** resolveOffset：执行对应的业务逻辑。 */
 function resolveOffset(root: HTMLElement, offset: number): { node: Node; offset: number } | null {
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
   let current: Node | null = walker.nextNode();
@@ -60,6 +64,7 @@ function resolveOffset(root: HTMLElement, offset: number): { node: Node; offset:
   return null;
 }
 
+/** restoreSelection：执行对应的业务逻辑。 */
 function restoreSelection(root: HTMLElement, snapshot: SelectionSnapshot | null): void {
   if (!snapshot) {
     return;
@@ -88,3 +93,4 @@ export function preserveSelection(root: HTMLElement, mutate: () => void): void {
   mutate();
   restoreSelection(root, snapshot);
 }
+

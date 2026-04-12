@@ -48,6 +48,7 @@ const PRESYNC_MARKET_PRICE_COLUMNS = [
   { table: 'market_trade_history', column: 'unitPrice' },
 ] as const;
 
+/** PgBootstrapConnectionOptions：定义该类型的结构与数据语义。 */
 type PgBootstrapConnectionOptions = {
   connectionString?: string;
   host?: string;
@@ -57,11 +58,13 @@ type PgBootstrapConnectionOptions = {
   database?: string;
 };
 
+/** PgBootstrapQueryResult：定义该接口的能力与字段约束。 */
 interface PgBootstrapQueryResult<Row> {
   rowCount: number | null;
   rows: Row[];
 }
 
+/** PgBootstrapClient：定义该接口的能力与字段约束。 */
 interface PgBootstrapClient {
   connect(): Promise<void>;
   query<Row>(sql: string, params?: unknown[]): Promise<PgBootstrapQueryResult<Row>>;
@@ -122,8 +125,10 @@ const { Client: PgClient } = require('pg') as {
   providers: [RedisService, PersistentDocumentService],
   exports: [TypeOrmModule, RedisService, PersistentDocumentService],
 })
+/** DatabaseModule：封装相关状态与行为。 */
 export class DatabaseModule {}
 
+/** buildBasePostgresOptions：执行对应的业务逻辑。 */
 function buildBasePostgresOptions(cfg: ConfigService): PgBootstrapConnectionOptions {
   const url = cfg.get<string>('DATABASE_URL');
   if (url) {
@@ -141,6 +146,7 @@ function buildBasePostgresOptions(cfg: ConfigService): PgBootstrapConnectionOpti
   };
 }
 
+/** applyPreSynchronizeCompatibilityFixes：执行对应的业务逻辑。 */
 async function applyPreSynchronizeCompatibilityFixes(connectionOptions: PgBootstrapConnectionOptions): Promise<void> {
   const client = new PgClient(connectionOptions);
   await client.connect();
@@ -218,6 +224,8 @@ async function applyPreSynchronizeCompatibilityFixes(connectionOptions: PgBootst
   }
 }
 
+/** quotePgIdentifier：执行对应的业务逻辑。 */
 function quotePgIdentifier(value: string): string {
   return `"${value.replace(/"/g, '""')}"`;
 }
+

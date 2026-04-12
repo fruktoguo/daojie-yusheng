@@ -11,6 +11,7 @@ const BIGINT_NUMBER_TRANSFORMER = {
 };
 
 @Entity('mail_campaigns')
+/** MailCampaignEntity：封装相关状态与行为。 */
 export class MailCampaignEntity {
   @PrimaryColumn({ type: 'uuid' })
   id!: string;
@@ -54,4 +55,5 @@ export class MailCampaignEntity {
   @Column({ type: 'bigint', transformer: BIGINT_NUMBER_TRANSFORMER, nullable: true })
   expireAt!: number | null;
 }
+
 

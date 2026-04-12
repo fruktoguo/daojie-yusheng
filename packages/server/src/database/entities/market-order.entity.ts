@@ -11,6 +11,7 @@ const NUMERIC_NUMBER_TRANSFORMER = {
 };
 
 @Entity('market_orders')
+/** MarketOrderEntity：封装相关状态与行为。 */
 export class MarketOrderEntity {
   @PrimaryColumn({ type: 'uuid' })
   id!: string;
@@ -45,3 +46,4 @@ export class MarketOrderEntity {
   @Column({ type: 'bigint', transformer: NUMERIC_NUMBER_TRANSFORMER })
   updatedAt!: number;
 }
+

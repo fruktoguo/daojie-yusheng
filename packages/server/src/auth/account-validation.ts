@@ -21,6 +21,7 @@ export {
   PASSWORD_MIN_LENGTH,
 };
 
+/** containsWhitespace：执行对应的业务逻辑。 */
 function containsWhitespace(value: string): boolean {
   return /\s/.test(value);
 }
@@ -121,3 +122,4 @@ export function validateRoleName(roleName: string): string | null {
   }
   return null;
 }
+

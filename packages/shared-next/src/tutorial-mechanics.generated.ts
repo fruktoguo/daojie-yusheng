@@ -8,6 +8,7 @@ export interface SharedTutorialTopicSection {
   items: string[];
 }
 
+/** SharedTutorialTopic：定义该接口的能力与字段约束。 */
 export interface SharedTutorialTopic {
   id: string;
   label: string;
@@ -256,3 +257,4 @@ export const TUTORIAL_MECHANIC_TOPICS: SharedTutorialTopic[] = [
     ]
   }
 ];
+

@@ -14,6 +14,7 @@ import { AuthService } from '../auth/auth.service';
 import { AccountService } from './account.service';
 
 @Controller('account')
+/** AccountController：封装相关状态与行为。 */
 export class AccountController {
   constructor(
     private readonly authService: AuthService,
@@ -60,3 +61,4 @@ export class AccountController {
     return payload.userId;
   }
 }
+

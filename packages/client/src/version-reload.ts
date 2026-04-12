@@ -15,11 +15,13 @@ import {
   CLIENT_BUILD_VERSION_PATH,
 } from './constants/ui/update';
 
+/** ClientBuildVersionResponse：定义该类型的结构与数据语义。 */
 type ClientBuildVersionResponse = {
   buildId?: string;
   builtAt?: string;
 };
 
+/** StartClientVersionReloadOptions：定义该类型的结构与数据语义。 */
 type StartClientVersionReloadOptions = {
   onBeforeReload?: (nextBuildId: string) => void;
 };
@@ -29,6 +31,7 @@ let pollStarted = false;
 let checkInFlight = false;
 let pollOptions: StartClientVersionReloadOptions = {};
 
+/** clearPollTimer：执行对应的业务逻辑。 */
 function clearPollTimer(): void {
   if (pollTimer !== null) {
     window.clearTimeout(pollTimer);
@@ -36,6 +39,7 @@ function clearPollTimer(): void {
   }
 }
 
+/** scheduleNextPoll：执行对应的业务逻辑。 */
 function scheduleNextPoll(delayMs = CLIENT_BUILD_POLL_INTERVAL_MS): void {
   clearPollTimer();
   pollTimer = window.setTimeout(() => {
@@ -43,6 +47,7 @@ function scheduleNextPoll(delayMs = CLIENT_BUILD_POLL_INTERVAL_MS): void {
   }, delayMs);
 }
 
+/** readSessionStorage：执行对应的业务逻辑。 */
 function readSessionStorage(key: string): string | null {
   try {
     return window.sessionStorage.getItem(key);
@@ -51,6 +56,7 @@ function readSessionStorage(key: string): string | null {
   }
 }
 
+/** writeSessionStorage：执行对应的业务逻辑。 */
 function writeSessionStorage(key: string, value: string): void {
   try {
     window.sessionStorage.setItem(key, value);
@@ -59,6 +65,7 @@ function writeSessionStorage(key: string, value: string): void {
   }
 }
 
+/** hasRecentForcedReload：执行对应的业务逻辑。 */
 function hasRecentForcedReload(nextBuildId: string): boolean {
   const lastBuildId = readSessionStorage(CLIENT_BUILD_LAST_FORCED_RELOAD_ID_STORAGE_KEY);
   if (lastBuildId !== nextBuildId) {
@@ -72,11 +79,13 @@ function hasRecentForcedReload(nextBuildId: string): boolean {
   return Date.now() - lastReloadAt < CLIENT_BUILD_FORCED_RELOAD_COOLDOWN_MS;
 }
 
+/** markForcedReload：执行对应的业务逻辑。 */
 function markForcedReload(nextBuildId: string): void {
   writeSessionStorage(CLIENT_BUILD_LAST_FORCED_RELOAD_ID_STORAGE_KEY, nextBuildId);
   writeSessionStorage(CLIENT_BUILD_LAST_FORCED_RELOAD_AT_STORAGE_KEY, String(Date.now()));
 }
 
+/** buildForcedReloadUrl：执行对应的业务逻辑。 */
 function buildForcedReloadUrl(nextBuildId: string): string {
   const url = new URL(window.location.href);
   url.searchParams.set(CLIENT_BUILD_RELOAD_VERSION_QUERY_KEY, nextBuildId);
@@ -84,6 +93,7 @@ function buildForcedReloadUrl(nextBuildId: string): string {
   return url.toString();
 }
 
+/** fetchLatestBuildId：执行对应的业务逻辑。 */
 async function fetchLatestBuildId(): Promise<string | null> {
   const controller = new AbortController();
   const timeoutId = window.setTimeout(() => {
@@ -113,6 +123,7 @@ async function fetchLatestBuildId(): Promise<string | null> {
   }
 }
 
+/** runClientBuildCheck：执行对应的业务逻辑。 */
 async function runClientBuildCheck(options?: StartClientVersionReloadOptions): Promise<void> {
   if (import.meta.env.DEV || checkInFlight) {
     return;
@@ -142,6 +153,7 @@ async function runClientBuildCheck(options?: StartClientVersionReloadOptions): P
   }
 }
 
+/** startClientVersionReload：执行对应的业务逻辑。 */
 export function startClientVersionReload(options: StartClientVersionReloadOptions = {}): void {
   if (pollStarted || import.meta.env.DEV) {
     return;
@@ -157,3 +169,4 @@ export function startClientVersionReload(options: StartClientVersionReloadOption
 
   void runClientBuildCheck(pollOptions);
 }
+

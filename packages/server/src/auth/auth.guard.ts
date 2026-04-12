@@ -6,6 +6,7 @@ import { AuthService } from './auth.service';
 
 /** 从 Socket 握手中提取并校验 JWT，通过后将用户信息挂载到 client.data */
 @Injectable()
+/** AuthGuard：封装相关状态与行为。 */
 export class AuthGuard implements CanActivate {
   constructor(private readonly authService: AuthService) {}
 
@@ -19,3 +20,4 @@ export class AuthGuard implements CanActivate {
     return true;
   }
 }
+

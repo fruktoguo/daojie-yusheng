@@ -4,6 +4,7 @@ export class DebugPanel {
   private resetBtn = document.getElementById('debug-reset-spawn') as HTMLButtonElement;
   private onReset: (() => void) | null = null;
 
+/** constructor：处理当前场景中的对应操作。 */
   constructor() {
     this.resetBtn.addEventListener('click', () => {
       this.onReset?.();
@@ -22,3 +23,4 @@ export class DebugPanel {
     this.panel.classList.add('hidden');
   }
 }
+

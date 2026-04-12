@@ -17,6 +17,7 @@ import { NavigationService } from './navigation.service';
 import { PlayerService } from './player.service';
 
 @Injectable()
+/** BotService：封装相关状态与行为。 */
 export class BotService {
   private readonly botIds = new Set<string>();
   private nextBotSeq = 1;
@@ -169,3 +170,4 @@ export class BotService {
     return candidates[Math.floor(Math.random() * candidates.length)];
   }
 }
+

@@ -31,6 +31,7 @@ const MONSTER_INITIAL_BUFF_SOURCE_PREFIX = 'monster:init:';
 const ITEM_BUFF_SOURCE_PREFIX = 'item:';
 const EQUIPMENT_BUFF_SOURCE_PREFIX = 'equip:';
 
+/** PersistedTemporaryBuffSnapshot：定义该接口的能力与字段约束。 */
 export interface PersistedTemporaryBuffSnapshot {
   buffId: string;
   sourceSkillId: string;
@@ -60,18 +61,22 @@ export interface PersistedTemporaryBuffSnapshot {
   expireWithBuffId?: string;
 }
 
+/** normalizePositiveInt：执行对应的业务逻辑。 */
 function normalizePositiveInt(value: unknown, fallback = 1): number {
   return Math.max(1, Number.isFinite(value) ? Math.floor(Number(value)) : fallback);
 }
 
+/** normalizeNonNegativeInt：执行对应的业务逻辑。 */
 function normalizeNonNegativeInt(value: unknown, fallback = 0): number {
   return Math.max(0, Number.isFinite(value) ? Math.floor(Number(value)) : fallback);
 }
 
+/** isPlainObject：执行对应的业务逻辑。 */
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+/** normalizeShortMark：执行对应的业务逻辑。 */
 function normalizeShortMark(shortMark: string | undefined, name: string): string {
   const raw = shortMark?.trim();
   if (raw) {
@@ -81,6 +86,7 @@ function normalizeShortMark(shortMark: string | undefined, name: string): string
   return fallback ?? '气';
 }
 
+/** buildKnownBuffState：执行对应的业务逻辑。 */
 function buildKnownBuffState(
   snapshot: PersistedTemporaryBuffSnapshot,
   known: {
@@ -138,6 +144,7 @@ function buildKnownBuffState(
   });
 }
 
+/** buildSystemBuffState：执行对应的业务逻辑。 */
 function buildSystemBuffState(snapshot: PersistedTemporaryBuffSnapshot): TemporaryBuffState | null {
   if (snapshot.sourceSkillId === WORLD_TIME_SOURCE_ID && snapshot.buffId === WORLD_DARKNESS_BUFF_ID) {
     return buildKnownBuffState(snapshot, {
@@ -188,10 +195,12 @@ function buildSystemBuffState(snapshot: PersistedTemporaryBuffSnapshot): Tempora
   return null;
 }
 
+/** normalizeBuffShortMark：执行对应的业务逻辑。 */
 function normalizeBuffShortMark(effect: Extract<SkillEffectDef, { type: 'buff' }>): string {
   return normalizeShortMark(effect.shortMark, effect.name);
 }
 
+/** buildSkillBuffState：执行对应的业务逻辑。 */
 function buildSkillBuffState(
   skill: SkillDef,
   effect: Extract<SkillEffectDef, { type: 'buff' }>,
@@ -219,6 +228,7 @@ function buildSkillBuffState(
   });
 }
 
+/** parseMonsterInitialBuffSourceId：执行对应的业务逻辑。 */
 function parseMonsterInitialBuffSourceId(sourceSkillId: string): { monsterId: string; buffId: string } | null {
   if (!sourceSkillId.startsWith(MONSTER_INITIAL_BUFF_SOURCE_PREFIX)) {
     return null;
@@ -236,6 +246,7 @@ function parseMonsterInitialBuffSourceId(sourceSkillId: string): { monsterId: st
   return { monsterId, buffId };
 }
 
+/** resolveMonsterInitialBuffTemplate：执行对应的业务逻辑。 */
 function resolveMonsterInitialBuffTemplate(
   sourceSkillId: string,
   buffId: string,
@@ -256,6 +267,7 @@ function resolveMonsterInitialBuffTemplate(
   return { effect, monsterName: monster.name };
 }
 
+/** buildMonsterInitialBuffState：执行对应的业务逻辑。 */
 function buildMonsterInitialBuffState(
   snapshot: PersistedTemporaryBuffSnapshot,
   effect: MonsterInitialBuffDef,
@@ -283,6 +295,7 @@ function buildMonsterInitialBuffState(
   });
 }
 
+/** resolveConsumableBuffTemplate：执行对应的业务逻辑。 */
 function resolveConsumableBuffTemplate(
   sourceSkillId: string,
   buffId: string,
@@ -306,6 +319,7 @@ function resolveConsumableBuffTemplate(
   return { itemName: item.name, buff };
 }
 
+/** buildConsumableBuffState：执行对应的业务逻辑。 */
 function buildConsumableBuffState(
   snapshot: PersistedTemporaryBuffSnapshot,
   buff: ConsumableBuffDef,
@@ -333,6 +347,7 @@ function buildConsumableBuffState(
   });
 }
 
+/** resolveEquipmentTimedBuffTemplate：执行对应的业务逻辑。 */
 function resolveEquipmentTimedBuffTemplate(
   sourceSkillId: string,
   buffId: string,
@@ -366,6 +381,7 @@ function resolveEquipmentTimedBuffTemplate(
   return { itemName: item.name, effect };
 }
 
+/** buildEquipmentTimedBuffState：执行对应的业务逻辑。 */
 function buildEquipmentTimedBuffState(
   snapshot: PersistedTemporaryBuffSnapshot,
   effect: EquipmentTimedBuffEffectDef,
@@ -390,6 +406,7 @@ function buildEquipmentTimedBuffState(
   });
 }
 
+/** canPersistAsMinimalSnapshot：执行对应的业务逻辑。 */
 function canPersistAsMinimalSnapshot(buff: TemporaryBuffState, contentService: ContentService): boolean {
   if (
     (buff.sourceSkillId === WORLD_TIME_SOURCE_ID && buff.buffId === WORLD_DARKNESS_BUFF_ID)
@@ -422,10 +439,12 @@ function canPersistAsMinimalSnapshot(buff: TemporaryBuffState, contentService: C
   return false;
 }
 
+/** buildMonsterInitialBuffSourceId：执行对应的业务逻辑。 */
 export function buildMonsterInitialBuffSourceId(monsterId: string, buffId: string): string {
   return `${MONSTER_INITIAL_BUFF_SOURCE_PREFIX}${monsterId}:${buffId}`;
 }
 
+/** normalizePersistedTemporaryBuffSnapshot：执行对应的业务逻辑。 */
 export function normalizePersistedTemporaryBuffSnapshot(raw: unknown): PersistedTemporaryBuffSnapshot | null {
   if (!isPlainObject(raw) || typeof raw.buffId !== 'string' || typeof raw.sourceSkillId !== 'string') {
     return null;
@@ -467,6 +486,7 @@ export function normalizePersistedTemporaryBuffSnapshot(raw: unknown): Persisted
   return snapshot;
 }
 
+/** hydrateTemporaryBuffSnapshot：执行对应的业务逻辑。 */
 export function hydrateTemporaryBuffSnapshot(
   raw: unknown,
   contentService: ContentService,
@@ -545,6 +565,7 @@ export function hydrateTemporaryBuffSnapshot(
   });
 }
 
+/** hydrateTemporaryBuffSnapshots：执行对应的业务逻辑。 */
 export function hydrateTemporaryBuffSnapshots(
   snapshot: unknown,
   contentService: ContentService,
@@ -561,6 +582,7 @@ export function hydrateTemporaryBuffSnapshots(
     .filter((entry): entry is TemporaryBuffState => entry !== null);
 }
 
+/** dehydrateTemporaryBuff：执行对应的业务逻辑。 */
 export function dehydrateTemporaryBuff(
   buff: TemporaryBuffState,
   contentService: ContentService,
@@ -602,3 +624,4 @@ export function dehydrateTemporaryBuff(
     expireWithBuffId: buff.expireWithBuffId,
   };
 }
+

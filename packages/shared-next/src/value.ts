@@ -99,6 +99,7 @@ export const NUMERIC_STAT_ACTUAL_POINTS_PER_CONFIG_VALUE = {
   extraArea: 1,
 } satisfies Record<typeof NUMERIC_SCALAR_STAT_KEYS[number], number>;
 
+/** QuantifiableFormulaVar：定义该类型的结构与数据语义。 */
 type QuantifiableFormulaVar =
   | 'caster.maxHp'
   | 'caster.maxQi'
@@ -175,25 +176,30 @@ export interface SkillValueSummary extends ValueSummary {
   multiplier: number;
 }
 
+/** FormulaQuantification：定义该类型的结构与数据语义。 */
 type FormulaQuantification = {
   quantifiedValue: number;
   unquantified: string[];
 };
 
+/** MultiplierEvaluation：定义该类型的结构与数据语义。 */
 type MultiplierEvaluation = {
   ok: boolean;
   value: number;
   containsVariable: boolean;
 };
 
+/** roundValue：执行对应的业务逻辑。 */
 function roundValue(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
+/** uniqueStrings：执行对应的业务逻辑。 */
 function uniqueStrings(values: string[]): string[] {
   return [...new Set(values.map((entry) => entry.trim()).filter((entry) => entry.length > 0))];
 }
 
+/** finalizeSummary：执行对应的业务逻辑。 */
 function finalizeSummary(breakdown: ValueBreakdownEntry[], unquantified: string[]): ValueSummary {
   return {
     quantifiedValue: roundValue(breakdown.reduce((sum, entry) => sum + entry.quantifiedValue, 0)),
@@ -206,6 +212,7 @@ function finalizeSummary(breakdown: ValueBreakdownEntry[], unquantified: string[
   };
 }
 
+/** mergeFormulaParts：执行对应的业务逻辑。 */
 function mergeFormulaParts(parts: FormulaQuantification[]): FormulaQuantification {
   return {
     quantifiedValue: roundValue(parts.reduce((sum, part) => sum + part.quantifiedValue, 0)),
@@ -213,6 +220,7 @@ function mergeFormulaParts(parts: FormulaQuantification[]): FormulaQuantificatio
   };
 }
 
+/** formatNumber：执行对应的业务逻辑。 */
 function formatNumber(value: number): string {
   if (Math.abs(value % 1) < 1e-6) {
     return String(Math.round(value));
@@ -222,6 +230,7 @@ function formatNumber(value: number): string {
 
 const UNLIMITED_STACK_DISPLAY_THRESHOLD = 1_000_000;
 
+/** formatBuffMaxStacks：执行对应的业务逻辑。 */
 export function formatBuffMaxStacks(maxStacks?: number): string | null {
   if (!Number.isFinite(maxStacks) || (maxStacks ?? 0) <= 1) {
     return null;
@@ -231,10 +240,12 @@ export function formatBuffMaxStacks(maxStacks?: number): string | null {
     : formatNumber(maxStacks!);
 }
 
+/** formatPercent：执行对应的业务逻辑。 */
 function formatPercent(scale: number): string {
   return `${formatNumber(scale * 100)}%`;
 }
 
+/** compileValueStatsToActualStats：执行对应的业务逻辑。 */
 export function compileValueStatsToActualStats(valueStats?: PartialNumericStats): PartialNumericStats | undefined {
   if (!valueStats) {
     return undefined;
@@ -281,6 +292,7 @@ export function compileValueStatsToActualStats(valueStats?: PartialNumericStats)
   return Object.keys(actual).length > 0 ? actual : undefined;
 }
 
+/** calculateConfiguredValueStatsValue：执行对应的业务逻辑。 */
 export function calculateConfiguredValueStatsValue(valueStats?: PartialNumericStats): ValueSummary {
   const breakdown: ValueBreakdownEntry[] = [];
   if (valueStats) {
@@ -323,6 +335,7 @@ export function calculateConfiguredValueStatsValue(valueStats?: PartialNumericSt
   return finalizeSummary(breakdown, []);
 }
 
+/** getAttrLabel：执行对应的业务逻辑。 */
 function getAttrLabel(key: string): string {
   const labels: Record<string, string> = {
     constitution: '体魄',
@@ -335,6 +348,7 @@ function getAttrLabel(key: string): string {
   return labels[key] ?? key;
 }
 
+/** getNumericStatLabel：执行对应的业务逻辑。 */
 function getNumericStatLabel(key: string): string {
   const labels: Record<string, string> = {
     maxHp: '最大生命',
@@ -370,25 +384,30 @@ function getNumericStatLabel(key: string): string {
   return labels[key] ?? key;
 }
 
+/** getEquipmentLevelLinearMultiplier：执行对应的业务逻辑。 */
 function getEquipmentLevelLinearMultiplier(level: number | undefined): number {
   const normalizedLevel = Math.max(1, Math.floor(level ?? 1));
   return 1 + (normalizedLevel - 1) * 0.1;
 }
 
+/** getEquipmentLevelExponentialMultiplier：执行对应的业务逻辑。 */
 function getEquipmentLevelExponentialMultiplier(level: number | undefined): number {
   const normalizedLevel = Math.max(1, Math.floor(level ?? 1));
   return Math.pow(1.1, normalizedLevel - 1);
 }
 
+/** isExponentialEquipmentStat：执行对应的业务逻辑。 */
 function isExponentialEquipmentStat(key: typeof NUMERIC_SCALAR_STAT_KEYS[number]): boolean {
   return key === 'physAtk' || key === 'spellAtk' || key === 'maxHp' || key === 'maxQi';
 }
 
+/** getEquipmentGradeMultiplier：执行对应的业务逻辑。 */
 function getEquipmentGradeMultiplier(grade: TechniqueGrade | undefined): number {
   const gradeIndex = Math.max(0, TECHNIQUE_GRADE_ORDER.indexOf(grade ?? 'mortal'));
   return 2 ** gradeIndex;
 }
 
+/** scaleAttributes：执行对应的业务逻辑。 */
 function scaleAttributes(attrs: Partial<Attributes> | undefined, multiplier: number): Partial<Attributes> | undefined {
   if (!attrs) {
     return undefined;
@@ -404,6 +423,7 @@ function scaleAttributes(attrs: Partial<Attributes> | undefined, multiplier: num
   return Object.keys(scaled).length > 0 ? scaled : undefined;
 }
 
+/** scaleNumericStats：执行对应的业务逻辑。 */
 function scaleNumericStats(
   stats: PartialNumericStats | undefined,
   gradeMultiplier: number,
@@ -458,6 +478,7 @@ function scaleNumericStats(
   return Object.keys(scaled).length > 0 ? scaled : undefined;
 }
 
+/** sumAttributePoints：执行对应的业务逻辑。 */
 function sumAttributePoints(attrs: Partial<Attributes> | undefined): number {
   if (!attrs) {
     return 0;
@@ -469,6 +490,7 @@ function sumAttributePoints(attrs: Partial<Attributes> | undefined): number {
   return total;
 }
 
+/** formatEquipmentStatValue：执行对应的业务逻辑。 */
 function formatEquipmentStatValue(key: string, value: number): string {
   if (key === 'critDamage') {
     return `${formatNumber(value / 10)}%`;
@@ -488,6 +510,7 @@ function formatEquipmentStatValue(key: string, value: number): string {
   return formatNumber(value);
 }
 
+/** describeAttrBonus：执行对应的业务逻辑。 */
 function describeAttrBonus(attrs?: Partial<Attributes>): string[] {
   if (!attrs) {
     return [];
@@ -503,6 +526,7 @@ function describeAttrBonus(attrs?: Partial<Attributes>): string[] {
   return parts;
 }
 
+/** describeStatBonus：执行对应的业务逻辑。 */
 function describeStatBonus(stats?: PartialNumericStats): string[] {
   if (!stats) {
     return [];
@@ -528,6 +552,7 @@ function describeStatBonus(stats?: PartialNumericStats): string[] {
   return parts;
 }
 
+/** describeEquipmentConditions：执行对应的业务逻辑。 */
 function describeEquipmentConditions(effect: EquipmentEffectDef): string {
   const conditions = effect.conditions?.items ?? [];
   if (conditions.length === 0) {
@@ -556,6 +581,7 @@ function describeEquipmentConditions(effect: EquipmentEffectDef): string {
   return parts.length > 0 ? ` [${parts.join('，')}]` : '';
 }
 
+/** getEquipmentTriggerLabel：执行对应的业务逻辑。 */
 function getEquipmentTriggerLabel(trigger: string): string {
   const labels: Record<string, string> = {
     on_equip: '装备时',
@@ -573,6 +599,7 @@ function getEquipmentTriggerLabel(trigger: string): string {
   return labels[trigger] ?? trigger;
 }
 
+/** describeEquipmentEffect：执行对应的业务逻辑。 */
 function describeEquipmentEffect(effect: EquipmentEffectDef): string {
   const conditionText = describeEquipmentConditions(effect);
   switch (effect.type) {
@@ -610,6 +637,7 @@ function describeEquipmentEffect(effect: EquipmentEffectDef): string {
   }
 }
 
+/** getFormulaVarLabel：执行对应的业务逻辑。 */
 function getFormulaVarLabel(variable: SkillFormulaVar): string {
   const labels: Partial<Record<SkillFormulaVar, string>> = {
     techLevel: '功法层数',
@@ -649,10 +677,12 @@ function getFormulaVarLabel(variable: SkillFormulaVar): string {
   return variable;
 }
 
+/** describeFormulaVar：执行对应的业务逻辑。 */
 function describeFormulaVar(variable: SkillFormulaVar, scale: number): string {
   return `${getFormulaVarLabel(variable)}×${formatPercent(scale)}`;
 }
 
+/** getFormulaVarPointsPerValue：执行对应的业务逻辑。 */
 function getFormulaVarPointsPerValue(variable: SkillFormulaVar): number | null {
   if (variable in FORMULA_VAR_VALUE_UNITS) {
     return FORMULA_VAR_VALUE_UNITS[variable as QuantifiableFormulaVar] ?? null;
@@ -660,6 +690,7 @@ function getFormulaVarPointsPerValue(variable: SkillFormulaVar): number | null {
   return null;
 }
 
+/** quantifyFormulaVar：执行对应的业务逻辑。 */
 function quantifyFormulaVar(variable: SkillFormulaVar, scale: number): FormulaQuantification {
   if ((variable.startsWith('caster.buff.') || variable.startsWith('target.buff.')) && variable.endsWith('.stacks')) {
     return {
@@ -701,6 +732,7 @@ function quantifyFormulaVar(variable: SkillFormulaVar, scale: number): FormulaQu
   };
 }
 
+/** evaluateMultiplierWithBaseline：执行对应的业务逻辑。 */
 function evaluateMultiplierWithBaseline(formula: SkillFormula, baseline: number): MultiplierEvaluation {
   if (typeof formula === 'number') {
     return { ok: true, value: formula, containsVariable: false };
@@ -745,6 +777,7 @@ function evaluateMultiplierWithBaseline(formula: SkillFormula, baseline: number)
   }
 }
 
+/** tryExtractMultiplier：执行对应的业务逻辑。 */
 function tryExtractMultiplier(formula: SkillFormula): number | null {
   if (typeof formula === 'number') {
     return formula;
@@ -763,6 +796,7 @@ function tryExtractMultiplier(formula: SkillFormula): number | null {
   return baseline.value;
 }
 
+/** quantifySkillFormula：执行对应的业务逻辑。 */
 function quantifySkillFormula(formula: SkillFormula): SkillValueSummary {
   if (typeof formula === 'number') {
     return {
@@ -1076,3 +1110,4 @@ export function calculateTechniqueValue(technique: Pick<TechniqueState, 'level' 
     summary.unquantified,
   );
 }
+

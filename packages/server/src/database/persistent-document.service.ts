@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { PersistentDocumentEntity } from './entities/persistent-document.entity';
 
 @Injectable()
+/** PersistentDocumentService：封装相关状态与行为。 */
 export class PersistentDocumentService {
   constructor(
     @InjectRepository(PersistentDocumentEntity)
@@ -56,3 +57,4 @@ export class PersistentDocumentService {
     await this.documentRepo.delete({ scope, key });
   }
 }
+

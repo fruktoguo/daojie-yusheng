@@ -8,12 +8,14 @@ import {
 } from 'typeorm';
 import { RedeemCodeEntity } from './redeem-code.entity';
 
+/** RedeemCodeGroupRewardItemRecord：定义该接口的能力与字段约束。 */
 interface RedeemCodeGroupRewardItemRecord {
   itemId: string;
   count: number;
 }
 
 @Entity('redeem_code_groups')
+/** RedeemCodeGroupEntity：封装相关状态与行为。 */
 export class RedeemCodeGroupEntity {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
@@ -33,3 +35,4 @@ export class RedeemCodeGroupEntity {
   @UpdateDateColumn({ type: 'timestamptz' })
   updatedAt!: Date;
 }
+

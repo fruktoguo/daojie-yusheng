@@ -18,14 +18,18 @@ import {
 import { buildCanvasFont } from '../constants/ui/text';
 import { formatDisplayCountBadge, formatDisplayInteger } from '../utils/number';
 
+/** CatalogFilter：定义该类型的结构与数据语义。 */
 type CatalogFilter = 'all' | 'memory' | 'unlock';
+/** MinimapDisplayMode：定义该类型的结构与数据语义。 */
 type MinimapDisplayMode = 'memory' | 'unlock';
 
+/** DisplaySourceAvailability：定义该接口的能力与字段约束。 */
 interface DisplaySourceAvailability {
   hasMemory: boolean;
   hasUnlock: boolean;
 }
 
+/** MinimapScene：定义该接口的能力与字段约束。 */
 interface MinimapScene {
   mapMeta: MapMeta | null;
   snapshot: MapMinimapSnapshot | null;
@@ -46,6 +50,7 @@ interface MinimapScene {
   memoryVersion: number;
 }
 
+/** CatalogEntry：定义该接口的能力与字段约束。 */
 interface CatalogEntry {
   mapId: string;
   mapMeta: MapMeta | null;
@@ -53,6 +58,7 @@ interface CatalogEntry {
   hasUnlock: boolean;
 }
 
+/** DisplayMapScene：定义该接口的能力与字段约束。 */
 interface DisplayMapScene {
   mapId: string;
   mapMeta: MapMeta;
@@ -78,6 +84,7 @@ interface DisplayMapScene {
   hasUnlock: boolean;
 }
 
+/** ViewportMetrics：定义该接口的能力与字段约束。 */
 interface ViewportMetrics {
   width: number;
   height: number;
@@ -99,6 +106,7 @@ interface ViewportMetrics {
   maxPanY: number;
 }
 
+/** ModalPanState：定义该接口的能力与字段约束。 */
 interface ModalPanState {
   pointerId: number;
   startClientX: number;
@@ -107,10 +115,12 @@ interface ModalPanState {
   startPanY: number;
 }
 
+/** clamp：执行对应的业务逻辑。 */
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
 
+/** parseTileKey：执行对应的业务逻辑。 */
 function parseTileKey(key: string): { x: number; y: number } | null {
   const [rawX, rawY] = key.split(',');
   const x = Number(rawX);
@@ -124,6 +134,7 @@ function parseTileKey(key: string): { x: number; y: number } | null {
   };
 }
 
+/** ensureCanvasSize：执行对应的业务逻辑。 */
 function ensureCanvasSize(canvas: HTMLCanvasElement): boolean {
   const rect = canvas.getBoundingClientRect();
   const dpr = window.devicePixelRatio || 1;
@@ -137,6 +148,7 @@ function ensureCanvasSize(canvas: HTMLCanvasElement): boolean {
   return true;
 }
 
+/** buildFallbackMapMeta：执行对应的业务逻辑。 */
 function buildFallbackMapMeta(mapId: string, snapshot: MapMinimapSnapshot | null, tileCache: Map<string, Tile>): MapMeta {
   let width = snapshot?.width ?? 1;
   let height = snapshot?.height ?? 1;
@@ -158,6 +170,7 @@ function buildFallbackMapMeta(mapId: string, snapshot: MapMinimapSnapshot | null
   };
 }
 
+/** getCanvasPixels：执行对应的业务逻辑。 */
 function getCanvasPixels(canvas: HTMLCanvasElement, clientX: number, clientY: number): { x: number; y: number } | null {
   const rect = canvas.getBoundingClientRect();
   if (rect.width <= 0 || rect.height <= 0) {
@@ -169,6 +182,7 @@ function getCanvasPixels(canvas: HTMLCanvasElement, clientX: number, clientY: nu
   };
 }
 
+/** Minimap：封装相关状态与行为。 */
 export class Minimap {
   private static readonly MOVE_CONFIRM_OWNER = 'map-minimap:move-confirm';
   private static readonly DELETE_MEMORY_OWNER = 'map-minimap:delete-memory';
@@ -217,6 +231,7 @@ export class Minimap {
   private readonly catalogEntryNodes = new Map<string, HTMLButtonElement>();
   private catalogEmptyNode: HTMLElement | null = null;
 
+/** constructor：处理当前场景中的对应操作。 */
   constructor() {
     this.mountModalToBody();
 
@@ -1869,3 +1884,4 @@ export class Minimap {
     return lines;
   }
 }
+

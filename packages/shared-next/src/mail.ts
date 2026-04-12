@@ -5,19 +5,24 @@ import {
 } from './constants/ui/mail';
 import type { MailAttachment, MailFilter, MailTemplateArg } from './types';
 
+/** MailTargetScope：定义该类型的结构与数据语义。 */
 export type MailTargetScope = 'global' | 'direct';
+/** MailCampaignStatus：定义该类型的结构与数据语义。 */
 export type MailCampaignStatus = 'active' | 'cancelled';
 
+/** MailTemplateToken：定义该类型的结构与数据语义。 */
 export type MailTemplateToken =
   | { kind: 'text'; value: string }
   | { kind: 'arg'; index: number };
 
+/** MailTemplateDef：定义该接口的能力与字段约束。 */
 export interface MailTemplateDef {
   id: string;
   title: MailTemplateToken[];
   body: MailTemplateToken[];
 }
 
+/** GmMailTemplateOption：定义该接口的能力与字段约束。 */
 export interface GmMailTemplateOption {
   templateId: string;
   label: string;
@@ -113,6 +118,7 @@ export const GM_MAIL_TEMPLATE_OPTIONS: GmMailTemplateOption[] = [
   },
 ];
 
+/** getMailTemplateDef：执行对应的业务逻辑。 */
 export function getMailTemplateDef(templateId: string | null | undefined): MailTemplateDef | null {
   if (!templateId) {
     return null;
@@ -120,6 +126,7 @@ export function getMailTemplateDef(templateId: string | null | undefined): MailT
   return MAIL_TEMPLATE_DEFS[templateId] ?? null;
 }
 
+/** stringifyMailArg：执行对应的业务逻辑。 */
 function stringifyMailArg(arg: MailTemplateArg): string {
   switch (arg.kind) {
     case 'text':
@@ -133,6 +140,7 @@ function stringifyMailArg(arg: MailTemplateArg): string {
   }
 }
 
+/** renderTokensPlain：执行对应的业务逻辑。 */
 function renderTokensPlain(tokens: MailTemplateToken[], args: MailTemplateArg[]): string {
   let output = '';
   for (const token of tokens) {
@@ -149,6 +157,7 @@ function renderTokensPlain(tokens: MailTemplateToken[], args: MailTemplateArg[])
   return output;
 }
 
+/** renderMailTitlePlain：执行对应的业务逻辑。 */
 export function renderMailTitlePlain(
   templateId: string | null | undefined,
   args: MailTemplateArg[] | undefined,
@@ -162,6 +171,7 @@ export function renderMailTitlePlain(
   return rendered.trim() || fallbackTitle?.trim() || '未命名邮件';
 }
 
+/** renderMailBodyPlain：执行对应的业务逻辑。 */
 export function renderMailBodyPlain(
   templateId: string | null | undefined,
   args: MailTemplateArg[] | undefined,
@@ -175,6 +185,7 @@ export function renderMailBodyPlain(
   return rendered.trim() || fallbackBody?.trim() || '';
 }
 
+/** buildMailPreviewSnippet：执行对应的业务逻辑。 */
 export function buildMailPreviewSnippet(body: string, maxLength = 72): string {
   const normalized = body.replace(/\s+/g, ' ').trim();
   if (normalized.length <= maxLength) {
@@ -183,17 +194,20 @@ export function buildMailPreviewSnippet(body: string, maxLength = 72): string {
   return `${normalized.slice(0, Math.max(0, maxLength - 1)).trimEnd()}…`;
 }
 
+/** normalizeMailFilter：执行对应的业务逻辑。 */
 export function normalizeMailFilter(filter: unknown): MailFilter {
   return typeof filter === 'string' && MAIL_FILTERS.includes(filter as MailFilter)
     ? filter as MailFilter
     : 'all';
 }
 
+/** normalizeMailPageSize：执行对应的业务逻辑。 */
 export function normalizeMailPageSize(value: unknown): number {
   const requested = Number.isFinite(value) ? Math.floor(Number(value)) : MAIL_PAGE_SIZE_DEFAULT;
   return Math.min(MAIL_PAGE_SIZE_MAX, Math.max(1, requested || MAIL_PAGE_SIZE_DEFAULT));
 }
 
+/** normalizeMailBatchIds：执行对应的业务逻辑。 */
 export function normalizeMailBatchIds(ids: unknown): string[] {
   if (!Array.isArray(ids)) {
     return [];
@@ -216,3 +230,4 @@ export function normalizeMailBatchIds(ids: unknown): string[] {
   }
   return unique;
 }
+

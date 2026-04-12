@@ -10,6 +10,7 @@ import { formatDisplayCurrentMax, formatDisplayInteger } from '../../utils/numbe
 import { getMonsterPresentation } from '../../monster-presentation';
 import { assessMapDanger } from '../../utils/map-danger';
 
+/** VisibleEntity：定义该接口的能力与字段约束。 */
 interface VisibleEntity {
   id: string;
   wx: number;
@@ -21,6 +22,7 @@ interface VisibleEntity {
   maxHp?: number;
 }
 
+/** NearbyMonsterView：定义该接口的能力与字段约束。 */
 interface NearbyMonsterView {
   id: string;
   name: string;
@@ -30,17 +32,20 @@ interface NearbyMonsterView {
   maxHp: number;
 }
 
+/** NearbyNpcView：定义该接口的能力与字段约束。 */
 interface NearbyNpcView {
   id: string;
   name: string;
 }
 
+/** QuickActionView：定义该接口的能力与字段约束。 */
 interface QuickActionView {
   id: string;
   name: string;
   desc: string;
 }
 
+/** WorldPanelSnapshot：定义该接口的能力与字段约束。 */
 interface WorldPanelSnapshot {
   mapName: string;
   mapMood: string;
@@ -60,17 +65,20 @@ interface WorldPanelSnapshot {
   quickActions: QuickActionView[];
 }
 
+/** NearbyMonsterRefs：定义该接口的能力与字段约束。 */
 interface NearbyMonsterRefs {
   nameNode: HTMLElement;
   metaNode: HTMLElement;
   statusNode: HTMLElement;
 }
 
+/** SuggestionActionRefs：定义该接口的能力与字段约束。 */
 interface SuggestionActionRefs {
   titleNode: HTMLElement;
   descNode: HTMLElement;
 }
 
+/** escapeHtml：执行对应的业务逻辑。 */
 function escapeHtml(value: string): string {
   return value
     .replaceAll('&', '&amp;')
@@ -80,6 +88,7 @@ function escapeHtml(value: string): string {
     .replaceAll("'", '&#39;');
 }
 
+/** inferRealm：执行对应的业务逻辑。 */
 function inferRealm(player: PlayerState): string {
   if (player.realmName) {
     return player.realmStage ? `${player.realmName} · ${player.realmStage}` : player.realmName;
@@ -89,6 +98,7 @@ function inferRealm(player: PlayerState): string {
   return TECH_REALM_LABELS[highest.realm] ?? '修行中';
 }
 
+/** resolveRecommendedRealmLabel：执行对应的业务逻辑。 */
 function resolveRecommendedRealmLabel(raw: string | undefined, fallback: string): string {
   if (!raw) return fallback;
   if (/[^\x00-\x7F]/.test(raw)) return raw;
@@ -101,10 +111,12 @@ function resolveRecommendedRealmLabel(raw: string | undefined, fallback: string)
   return labels.join('到');
 }
 
+/** buildMonsterStatus：执行对应的业务逻辑。 */
 function buildMonsterStatus(distance: number): string {
   return distance <= 2 ? '近身' : distance <= 5 ? '逼近' : '远处';
 }
 
+/** isSameStringSequence：执行对应的业务逻辑。 */
 function isSameStringSequence(previous: string[] | null, next: string[]): boolean {
   if (!previous || previous.length !== next.length) {
     return false;
@@ -117,6 +129,7 @@ function isSameStringSequence(previous: string[] | null, next: string[]): boolea
   return true;
 }
 
+/** WorldPanel：封装相关状态与行为。 */
 export class WorldPanel {
   private mapPane = document.getElementById('pane-map-intel')!;
   private nearbyPane = document.getElementById('pane-nearby')!;
@@ -495,3 +508,4 @@ export class WorldPanel {
     return `${badge}${escapeHtml(presentation.label)}`;
   }
 }
+

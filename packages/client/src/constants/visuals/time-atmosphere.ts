@@ -9,6 +9,7 @@ export const TILE_HIDDEN_FADE_MS = 220;
 /** 时间过滤器 lerp 速率（用于平滑过渡） */
 export const TIME_FILTER_LERP = 0.12;
 
+/** TimeAtmosphereProfile：定义该接口的能力与字段约束。 */
 export interface TimeAtmosphereProfile {
   overlayBoost: number;
   skyTint: string;
@@ -30,3 +31,4 @@ export const TIME_ATMOSPHERE_PROFILES: Record<TimePhaseId, TimeAtmosphereProfile
   night: { overlayBoost: 1.04, skyTint: '#1c2944', skyAlpha: 0.23, horizonTint: '#44587b', horizonAlpha: 0.12, vignetteAlpha: 0.2 },
   midnight: { overlayBoost: 1.06, skyTint: '#121b30', skyAlpha: 0.3, horizonTint: '#2e4968', horizonAlpha: 0.14, vignetteAlpha: 0.25 },
 };
+

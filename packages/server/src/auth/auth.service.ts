@@ -38,12 +38,14 @@ const LEGACY_ACCOUNT_TO_ROLE_NAME_MIGRATION_KEY = 'legacy_account_to_role_name_v
 /** 仅迁移账号/角色名拆分上线前创建的旧用户，避免后续新账号在重启时被误改。 */
 const ACCOUNT_ROLE_LOGIN_SPLIT_RELEASED_AT = Date.parse('2026-03-27T17:14:47+08:00');
 
+/** MigrationMarkerDocument：定义该接口的能力与字段约束。 */
 interface MigrationMarkerDocument {
   completedAt: string;
   updatedUsers: number;
 }
 
 @Injectable()
+/** AuthService：封装相关状态与行为。 */
 export class AuthService implements OnModuleInit {
   private readonly logger = new Logger(AuthService.name);
 
@@ -471,3 +473,4 @@ export class AuthService implements OnModuleInit {
     );
   }
 }
+

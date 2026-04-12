@@ -1,7 +1,9 @@
 import { TECHNIQUE_CONSTELLATION_NODE_NAMES } from '../../constants/ui/technique-constellation';
 
+/** TechniqueConstellationMilestone：定义该类型的结构与数据语义。 */
 type TechniqueConstellationMilestone = '小成' | '大成' | '圆满';
 
+/** TechniqueConstellationNode：定义该类型的结构与数据语义。 */
 type TechniqueConstellationNode = {
   level: number;
   milestone?: TechniqueConstellationMilestone;
@@ -9,6 +11,7 @@ type TechniqueConstellationNode = {
   hoverLines: string[];
 };
 
+/** TechniqueConstellationCanvasData：定义该类型的结构与数据语义。 */
 export type TechniqueConstellationCanvasData = {
   techniqueName: string;
   maxLevels: number;
@@ -18,12 +21,14 @@ export type TechniqueConstellationCanvasData = {
   nodes: TechniqueConstellationNode[];
 };
 
+/** TechniqueConstellationHoverPayload：定义该类型的结构与数据语义。 */
 export type TechniqueConstellationHoverPayload = {
   level: number;
   title: string;
   lines: string[];
 };
 
+/** InternalNode：定义该类型的结构与数据语义。 */
 type InternalNode = TechniqueConstellationNode & {
   index: number;
   name: string;
@@ -41,8 +46,10 @@ type InternalNode = TechniqueConstellationNode & {
   anchorDirY: number;
 };
 
+/** RawNode：定义该类型的结构与数据语义。 */
 type RawNode = InternalNode;
 
+/** Particle：定义该类型的结构与数据语义。 */
 type Particle = {
   x: number;
   y: number;
@@ -66,6 +73,7 @@ const cyrb53 = (str: string, seed = 0): number => {
   return 4294967296 * (2097151 & h2) + (h1 >>> 0);
 };
 
+/** PRNG：封装相关状态与行为。 */
 class PRNG {
   constructor(private seed: number) {}
 
@@ -87,6 +95,7 @@ class PRNG {
   }
 }
 
+/** TechniqueConstellationCanvas：封装相关状态与行为。 */
 export class TechniqueConstellationCanvas {
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
@@ -934,3 +943,4 @@ export class TechniqueConstellationCanvas {
       .replaceAll("'", '&#39;');
   }
 }
+

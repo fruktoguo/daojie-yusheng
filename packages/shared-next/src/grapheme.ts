@@ -1,11 +1,14 @@
+/** GraphemeSegment：定义该类型的结构与数据语义。 */
 type GraphemeSegment = {
   segment: string;
 };
 
+/** GraphemeSegmenter：定义该类型的结构与数据语义。 */
 type GraphemeSegmenter = {
   segment(input: string): Iterable<GraphemeSegment>;
 };
 
+/** IntlWithSegmenter：定义该类型的结构与数据语义。 */
 type IntlWithSegmenter = typeof Intl & {
   Segmenter?: new (
     locales?: string | string[],
@@ -18,6 +21,7 @@ const graphemeSegmenter = typeof intlWithSegmenter.Segmenter === 'function'
   ? new intlWithSegmenter.Segmenter(undefined, { granularity: 'grapheme' })
   : null;
 
+/** splitGraphemes：执行对应的业务逻辑。 */
 export function splitGraphemes(value: string): string[] {
   if (!value) {
     return [];
@@ -28,10 +32,13 @@ export function splitGraphemes(value: string): string[] {
   return Array.from(graphemeSegmenter.segment(value), (entry) => entry.segment);
 }
 
+/** getGraphemeCount：执行对应的业务逻辑。 */
 export function getGraphemeCount(value: string): number {
   return splitGraphemes(value).length;
 }
 
+/** getFirstGrapheme：执行对应的业务逻辑。 */
 export function getFirstGrapheme(value: string): string {
   return splitGraphemes(value)[0] ?? '';
 }
+

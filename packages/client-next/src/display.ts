@@ -7,11 +7,13 @@ import { BASE_CELL_SIZE, DEFAULT_ZOOM, MAX_ZOOM, MIN_ZOOM, ZOOM_STEP } from './c
 const MAP_ZOOM_STORAGE_KEY = 'mud:map-zoom';
 const MAP_DEFAULT_ZOOM = 2;
 
+/** clampZoom：执行对应的业务逻辑。 */
 function clampZoom(value: number): number {
   const clamped = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, value));
   return Number(clamped.toFixed(2));
 }
 
+/** readStoredZoom：执行对应的业务逻辑。 */
 function readStoredZoom(): number {
   if (typeof window === 'undefined' || !window.localStorage) {
     return MAP_DEFAULT_ZOOM;
@@ -24,6 +26,7 @@ function readStoredZoom(): number {
   return clampZoom(parsed);
 }
 
+/** persistZoom：执行对应的业务逻辑。 */
 function persistZoom(nextZoom: number): void {
   if (typeof window === 'undefined' || !window.localStorage) {
     return;
@@ -97,3 +100,4 @@ export function getDisplayRangeX(): number {
 export function getDisplayRangeY(): number {
   return displayRangeY;
 }
+

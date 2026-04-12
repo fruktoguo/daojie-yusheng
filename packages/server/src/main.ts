@@ -48,6 +48,7 @@ function buildHttpMetricLabel(req: { method?: string; path?: string; originalUrl
   return `HTTP ${method} ${normalizeHttpMetricPath(rawPath)}`;
 }
 
+/** bootstrap：执行对应的业务逻辑。 */
 async function bootstrap() {
   const logger = new DateConsoleLogger('Bootstrap');
   const app = await NestFactory.create(AppModule, { logger });
@@ -85,3 +86,4 @@ async function bootstrap() {
   logger.log(`Server running on http://${host}:${port}`);
 }
 bootstrap();
+

@@ -11,8 +11,10 @@ import { detailModalHost } from '../detail-modal-host';
 import { preserveSelection } from '../selection-preserver';
 import { formatDisplayInteger } from '../../utils/number';
 
+/** BodyTrainingPlayerSnapshot：定义该类型的结构与数据语义。 */
 type BodyTrainingPlayerSnapshot = Pick<PlayerState, 'bodyTraining' | 'foundation'>;
 
+/** BodyTrainingInfusionPlan：定义该类型的结构与数据语义。 */
 type BodyTrainingInfusionPlan = {
   levelGain: number;
   expNeeded: number;
@@ -20,8 +22,10 @@ type BodyTrainingInfusionPlan = {
   previewState: BodyTrainingState;
 };
 
+/** BodyTrainingInfusionMode：定义该类型的结构与数据语义。 */
 type BodyTrainingInfusionMode = 'level' | 'all';
 
+/** escapeHtml：执行对应的业务逻辑。 */
 function escapeHtml(value: string): string {
   return value
     .replaceAll('&', '&amp;')
@@ -31,6 +35,7 @@ function escapeHtml(value: string): string {
     .replaceAll("'", '&#39;');
 }
 
+/** getProgressRatio：执行对应的业务逻辑。 */
 function getProgressRatio(state: BodyTrainingState): number {
   if (state.expToNext <= 0) {
     return 1;
@@ -38,6 +43,7 @@ function getProgressRatio(state: BodyTrainingState): number {
   return Math.max(0, Math.min(1, state.exp / state.expToNext));
 }
 
+/** formatBonusSummary：执行对应的业务逻辑。 */
 function formatBonusSummary(state: BodyTrainingState): string {
   const attrs = calcBodyTrainingAttrBonus(state.level);
   if (state.level <= 0) {
@@ -48,10 +54,12 @@ function formatBonusSummary(state: BodyTrainingState): string {
     .join(' / ');
 }
 
+/** normalizeFoundation：执行对应的业务逻辑。 */
 function normalizeFoundation(value: number | null | undefined): number {
   return typeof value === 'number' && Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
 }
 
+/** applyFoundationInfusion：执行对应的业务逻辑。 */
 function applyFoundationInfusion(state: BodyTrainingState, foundationSpent: number): BodyTrainingState {
   if (foundationSpent <= 0) {
     return state;
@@ -63,6 +71,7 @@ function applyFoundationInfusion(state: BodyTrainingState, foundationSpent: numb
   });
 }
 
+/** getExpNeededForLevelGain：执行对应的业务逻辑。 */
 function getExpNeededForLevelGain(state: BodyTrainingState, levelGain: number): number {
   const normalizedGain = Math.max(0, Math.floor(levelGain));
   if (normalizedGain <= 0) {
@@ -81,6 +90,7 @@ function getExpNeededForLevelGain(state: BodyTrainingState, levelGain: number): 
   return expNeeded;
 }
 
+/** getMaxAffordableLevelGain：执行对应的业务逻辑。 */
 function getMaxAffordableLevelGain(state: BodyTrainingState, foundation: number): number {
   const normalizedFoundation = normalizeFoundation(foundation);
   if (normalizedFoundation <= 0) {
@@ -104,6 +114,7 @@ function getMaxAffordableLevelGain(state: BodyTrainingState, foundation: number)
   }
 }
 
+/** buildInfusionPlan：执行对应的业务逻辑。 */
 function buildInfusionPlan(state: BodyTrainingState, levelGain: number): BodyTrainingInfusionPlan {
   const normalizedLevelGain = Math.max(0, Math.floor(levelGain));
   const expNeeded = getExpNeededForLevelGain(state, normalizedLevelGain);
@@ -116,6 +127,7 @@ function buildInfusionPlan(state: BodyTrainingState, levelGain: number): BodyTra
   };
 }
 
+/** buildAllInfusionPlan：执行对应的业务逻辑。 */
 function buildAllInfusionPlan(state: BodyTrainingState, foundation: number): BodyTrainingInfusionPlan {
   const foundationCost = normalizeFoundation(foundation);
   return {
@@ -130,6 +142,7 @@ function buildAllInfusionPlan(state: BodyTrainingState, foundation: number): Bod
   };
 }
 
+/** BodyTrainingPanel：封装相关状态与行为。 */
 export class BodyTrainingPanel {
   private static readonly MODAL_OWNER = 'body-training-infuse-modal';
 
@@ -492,3 +505,4 @@ export class BodyTrainingPanel {
     return buildInfusionPlan(this.baseState, this.clampLevelGain(this.selectedLevelGain));
   }
 }
+

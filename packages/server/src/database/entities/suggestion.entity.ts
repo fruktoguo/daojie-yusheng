@@ -14,6 +14,7 @@ const BIGINT_NUMBER_TRANSFORMER = {
 };
 
 @Entity('suggestions')
+/** SuggestionEntity：封装相关状态与行为。 */
 export class SuggestionEntity {
   @PrimaryColumn({ type: 'uuid' })
   id!: string;
@@ -48,3 +49,4 @@ export class SuggestionEntity {
   @Column({ type: 'bigint', transformer: BIGINT_NUMBER_TRANSFORMER })
   createdAt!: number;
 }
+

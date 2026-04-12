@@ -143,6 +143,7 @@ export const ATTR_TO_PERCENT_NUMERIC_WEIGHTS: Record<AttrKey, PartialNumericStat
   },
 };
 
+/** createScalarMultiplierFloorStats：执行对应的业务逻辑。 */
 function createScalarMultiplierFloorStats(): Omit<NumericStats, 'elementDamageBonus' | 'elementDamageReduce'> {
   return {
     maxHp: BASE_MAX_HP,
@@ -233,3 +234,4 @@ export const NUMERIC_STAT_MULTIPLIER_FLOORS: NumericStats = {
   elementDamageBonus: { ...ELEMENT_MULTIPLIER_FLOOR },
   elementDamageReduce: { ...ELEMENT_MULTIPLIER_FLOOR },
 };
+

@@ -6,18 +6,22 @@ import { PlayerEntity } from '../database/entities/player.entity';
 import { UserEntity } from '../database/entities/user.entity';
 import { normalizeRoleName, normalizeUsername, resolveDisplayName } from './account-validation';
 
+/** UniqueNameKind：定义该类型的结构与数据语义。 */
 export type UniqueNameKind = 'account' | 'display' | 'role';
 
+/** NameConflictEntry：定义该类型的结构与数据语义。 */
 type NameConflictEntry = {
   kind: UniqueNameKind;
   userId: string;
 };
 
+/** NameConflictCheckOptions：定义该类型的结构与数据语义。 */
 type NameConflictCheckOptions = {
   exclude?: NameConflictEntry[];
 };
 
 @Injectable()
+/** NameUniquenessService：封装相关状态与行为。 */
 export class NameUniquenessService {
   constructor(
     @InjectRepository(UserEntity)
@@ -117,3 +121,4 @@ export class NameUniquenessService {
     return '显示名称已存在';
   }
 }
+

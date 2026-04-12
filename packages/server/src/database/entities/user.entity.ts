@@ -20,6 +20,7 @@ const BIGINT_NUMBER_TRANSFORMER = {
   where: `"displayName" IS NOT NULL AND "displayName" <> '人'`,
 })
 @Entity('users')
+/** UserEntity：封装相关状态与行为。 */
 export class UserEntity {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
@@ -51,3 +52,4 @@ export class UserEntity {
   @CreateDateColumn()
   createdAt!: Date;
 }
+

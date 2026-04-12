@@ -11,6 +11,7 @@ import {
   listBackupsForKind,
 } from './database-backup-shared';
 
+/** DatabaseConnectionConfig：定义该接口的能力与字段约束。 */
 interface DatabaseConnectionConfig {
   host?: string;
   port?: number;
@@ -19,6 +20,7 @@ interface DatabaseConnectionConfig {
   database: string;
 }
 
+/** ProcessSpec：定义该接口的能力与字段约束。 */
 interface ProcessSpec {
   command: string;
   args: string[];
@@ -28,6 +30,7 @@ interface ProcessSpec {
 const PROCESS_TIMEOUT_MS = resolveProcessTimeoutMs();
 const PROCESS_FORCE_KILL_GRACE_MS = 5_000;
 
+/** createBackupFile：执行对应的业务逻辑。 */
 export async function createBackupFile(record: ResolvedBackupRecord): Promise<void> {
   ensureBackupWorkspace();
   await fs.promises.mkdir(path.dirname(record.filePath), { recursive: true });
@@ -39,6 +42,7 @@ export async function createBackupFile(record: ResolvedBackupRecord): Promise<vo
   }
 }
 
+/** restoreBackupFile：执行对应的业务逻辑。 */
 export async function restoreBackupFile(filePath: string): Promise<void> {
   if (!fs.existsSync(filePath)) {
     throw new Error('目标备份文件不存在');
@@ -46,6 +50,7 @@ export async function restoreBackupFile(filePath: string): Promise<void> {
   await runRestoreProcess(filePath);
 }
 
+/** pruneBackups：执行对应的业务逻辑。 */
 async function pruneBackups(kind: 'hourly' | 'daily', keep: number): Promise<void> {
   const backups = listBackupsForKind(kind);
   const stale = backups.slice(keep);
@@ -54,6 +59,7 @@ async function pruneBackups(kind: 'hourly' | 'daily', keep: number): Promise<voi
   }));
 }
 
+/** runDumpProcess：执行对应的业务逻辑。 */
 async function runDumpProcess(filePath: string): Promise<void> {
   const spec = resolveDumpProcessSpec();
   await new Promise<void>((resolve, reject) => {
@@ -112,6 +118,7 @@ async function runDumpProcess(filePath: string): Promise<void> {
   });
 }
 
+/** runRestoreProcess：执行对应的业务逻辑。 */
 async function runRestoreProcess(filePath: string): Promise<void> {
   const spec = resolveRestoreProcessSpec();
   await new Promise<void>((resolve, reject) => {
@@ -172,6 +179,7 @@ async function runRestoreProcess(filePath: string): Promise<void> {
   });
 }
 
+/** resolveDumpProcessSpec：执行对应的业务逻辑。 */
 function resolveDumpProcessSpec(): ProcessSpec {
   const connection = getDatabaseConnectionConfig();
   const dumpArgs = [
@@ -198,6 +206,7 @@ function resolveDumpProcessSpec(): ProcessSpec {
   return wrapWithNice(dumpArgs[0]!, dumpArgs.slice(1), connection.password);
 }
 
+/** resolveRestoreProcessSpec：执行对应的业务逻辑。 */
 function resolveRestoreProcessSpec(): ProcessSpec {
   const connection = getDatabaseConnectionConfig();
   const restoreArgs = [
@@ -225,6 +234,7 @@ function resolveRestoreProcessSpec(): ProcessSpec {
   return wrapWithNice(restoreArgs[0]!, restoreArgs.slice(1), connection.password);
 }
 
+/** getDatabaseConnectionConfig：执行对应的业务逻辑。 */
 function getDatabaseConnectionConfig(): DatabaseConnectionConfig {
   const url = process.env.DATABASE_URL;
   if (url) {
@@ -246,6 +256,7 @@ function getDatabaseConnectionConfig(): DatabaseConnectionConfig {
   };
 }
 
+/** wrapWithNice：执行对应的业务逻辑。 */
 function wrapWithNice(command: string, args: string[], password?: string): ProcessSpec {
   const env = {
     ...process.env,
@@ -261,6 +272,7 @@ function wrapWithNice(command: string, args: string[], password?: string): Proce
   };
 }
 
+/** commandExists：执行对应的业务逻辑。 */
 function commandExists(command: string): boolean {
   const result = spawnSync('sh', ['-lc', `command -v ${command}`], {
     stdio: 'ignore',
@@ -268,6 +280,7 @@ function commandExists(command: string): boolean {
   return result.status === 0;
 }
 
+/** createProcessTimeout：执行对应的业务逻辑。 */
 function createProcessTimeout(
   child: ReturnType<typeof spawn>,
   label: 'pg_dump' | 'pg_restore',
@@ -294,6 +307,7 @@ function createProcessTimeout(
   };
 }
 
+/** resolveProcessTimeoutMs：执行对应的业务逻辑。 */
 function resolveProcessTimeoutMs(): number {
   const raw = Number(process.env.DB_BACKUP_PROCESS_TIMEOUT_MS ?? 15 * 60_000);
   if (!Number.isFinite(raw) || raw <= 0) {
@@ -302,6 +316,7 @@ function resolveProcessTimeoutMs(): number {
   return Math.max(60_000, Math.floor(raw));
 }
 
+/** formatDurationLabel：执行对应的业务逻辑。 */
 function formatDurationLabel(durationMs: number): string {
   const totalSeconds = Math.max(0, Math.floor(durationMs / 1000));
   if (totalSeconds < 60) {
@@ -316,3 +331,4 @@ function formatDurationLabel(durationMs: number): string {
   const minutes = totalMinutes % 60;
   return minutes > 0 ? `${totalHours} 小时 ${minutes} 分` : `${totalHours} 小时`;
 }
+

@@ -38,25 +38,31 @@ import {
 } from '@mud/shared';
 import { GmMapEditor } from '../../client/src/gm-map-editor';
 
+/** PageId：定义该类型的结构与数据语义。 */
 type PageId = 'maps' | 'monsters' | 'skills' | 'files' | 'service';
 
+/** LocalConfigFileSummary：定义该类型的结构与数据语义。 */
 type LocalConfigFileSummary = {
   path: string;
   name: string;
   category: string;
 };
 
+/** LocalConfigFileListRes：定义该类型的结构与数据语义。 */
 type LocalConfigFileListRes = {
   files: LocalConfigFileSummary[];
 };
 
+/** LocalConfigFileRes：定义该类型的结构与数据语义。 */
 type LocalConfigFileRes = {
   path: string;
   content: string;
 };
 
+/** LocalBuffModifierMode：定义该类型的结构与数据语义。 */
 type LocalBuffModifierMode = 'flat' | 'percent';
 
+/** LocalTechniqueBuffTemplate：定义该类型的结构与数据语义。 */
 type LocalTechniqueBuffTemplate = {
   id: string;
   target?: 'self' | 'target';
@@ -78,6 +84,7 @@ type LocalTechniqueBuffTemplate = {
   type?: string;
 };
 
+/** LocalTechniqueEffect：定义该类型的结构与数据语义。 */
 type LocalTechniqueEffect = {
   type: string;
   buffRef?: string;
@@ -99,6 +106,7 @@ type LocalTechniqueEffect = {
   [key: string]: unknown;
 };
 
+/** LocalTechniqueSkill：定义该类型的结构与数据语义。 */
 type LocalTechniqueSkill = {
   id: string;
   name: string;
@@ -113,6 +121,7 @@ type LocalTechniqueSkill = {
   [key: string]: unknown;
 };
 
+/** LocalTechniqueTemplateRecord：定义该类型的结构与数据语义。 */
 type LocalTechniqueTemplateRecord = {
   id: string;
   name: string;
@@ -124,6 +133,7 @@ type LocalTechniqueTemplateRecord = {
   [key: string]: unknown;
 };
 
+/** LocalTechniqueEntry：定义该类型的结构与数据语义。 */
 type LocalTechniqueEntry = {
   key: string;
   filePath: string;
@@ -131,15 +141,18 @@ type LocalTechniqueEntry = {
   technique: LocalTechniqueTemplateRecord;
 };
 
+/** LocalTechniqueListRes：定义该类型的结构与数据语义。 */
 type LocalTechniqueListRes = {
   techniques: LocalTechniqueEntry[];
   sharedBuffs: LocalTechniqueBuffTemplate[];
 };
 
+/** LocalTechniqueSaveRes：定义该类型的结构与数据语义。 */
 type LocalTechniqueSaveRes = BasicOkRes & {
   technique: LocalTechniqueTemplateRecord;
 };
 
+/** LocalServerStatusRes：定义该类型的结构与数据语义。 */
 type LocalServerStatusRes = {
   managed: boolean;
   running: boolean;
@@ -149,9 +162,12 @@ type LocalServerStatusRes = {
   mode: string;
 };
 
+/** MonsterTemplateDrop：定义该类型的结构与数据语义。 */
 type MonsterTemplateDrop = MonsterTemplateDropRecord;
+/** MonsterTemplateRecord：定义该类型的结构与数据语义。 */
 type MonsterTemplateRecord = MonsterTemplateResolvedRecord;
 
+/** LocalMonsterTemplateEntry：定义该类型的结构与数据语义。 */
 type LocalMonsterTemplateEntry = {
   key: string;
   filePath: string;
@@ -159,24 +175,31 @@ type LocalMonsterTemplateEntry = {
   monster: MonsterTemplateRecord;
 };
 
+/** LocalMonsterTemplateListRes：定义该类型的结构与数据语义。 */
 type LocalMonsterTemplateListRes = {
   monsters: LocalMonsterTemplateEntry[];
 };
 
+/** LocalMonsterSaveRes：定义该类型的结构与数据语义。 */
 type LocalMonsterSaveRes = BasicOkRes & {
   updatedMapCount: number;
   monster: MonsterTemplateRecord;
 };
 
+/** LocalEditorItemOption：定义该类型的结构与数据语义。 */
 type LocalEditorItemOption = MonsterTemplateEditorItem;
 
+/** LocalEditorCatalogRes：定义该类型的结构与数据语义。 */
 type LocalEditorCatalogRes = {
   items: LocalEditorItemOption[];
 };
 
+/** MonsterDropIdentity：定义该类型的结构与数据语义。 */
 type MonsterDropIdentity = Pick<MonsterTemplateDrop, 'itemId' | 'name' | 'type'>;
 
+/** MapSideTabId：定义该类型的结构与数据语义。 */
 type MapSideTabId = 'overview' | 'inspector' | 'json';
+/** TechniqueModifierGroupKey：定义该类型的结构与数据语义。 */
 type TechniqueModifierGroupKey = 'valueStats' | 'stats' | 'attrs';
 
 const appStatusBarEl = document.getElementById('app-status-bar') as HTMLDivElement;
@@ -382,26 +405,31 @@ const MONSTER_COMPUTED_STAT_GROUPS: Array<{ title: string; keys: NumericScalarSt
   },
 ];
 
+/** setAppStatus：执行对应的业务逻辑。 */
 function setAppStatus(message: string, isError = false): void {
   appStatusBarEl.textContent = message;
   appStatusBarEl.style.color = isError ? '#ffb0b0' : 'var(--text-muted)';
 }
 
+/** setConfigFileStatus：执行对应的业务逻辑。 */
 function setConfigFileStatus(message: string, isError = false): void {
   configFileStatusEl.textContent = message;
   configFileStatusEl.style.color = isError ? '#ffb0b0' : 'var(--text-muted)';
 }
 
+/** setTechniqueStatus：执行对应的业务逻辑。 */
 function setTechniqueStatus(message: string, isError = false): void {
   techniqueStatusEl.textContent = message;
   techniqueStatusEl.style.color = isError ? '#ffb0b0' : 'var(--text-muted)';
 }
 
+/** setMonsterStatus：执行对应的业务逻辑。 */
 function setMonsterStatus(message: string, isError = false): void {
   monsterStatusEl.textContent = message;
   monsterStatusEl.style.color = isError ? '#ffb0b0' : 'var(--text-muted)';
 }
 
+/** request：执行对应的业务逻辑。 */
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers ?? {});
   if (!headers.has('Content-Type') && init.body) {
@@ -433,6 +461,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return response.json() as Promise<T>;
 }
 
+/** switchPage：执行对应的业务逻辑。 */
 function switchPage(page: PageId): void {
   currentPage = page;
   (Object.keys(pageMap) as PageId[]).forEach((key) => {
@@ -441,6 +470,7 @@ function switchPage(page: PageId): void {
   });
 }
 
+/** switchMapSideTab：执行对应的业务逻辑。 */
 function switchMapSideTab(tab: MapSideTabId): void {
   currentMapSideTab = tab;
   (Object.keys(mapSideTabs) as MapSideTabId[]).forEach((key) => {
@@ -455,6 +485,7 @@ function switchMapSideTab(tab: MapSideTabId): void {
   mapEditor.clearForcedTool();
 }
 
+/** renderConfigFileList：执行对应的业务逻辑。 */
 function renderConfigFileList(): void {
   const keyword = configFileSearchEl.value.trim().toLowerCase();
   const filtered = configFiles.filter((file) => {
@@ -475,6 +506,7 @@ function renderConfigFileList(): void {
   `).join('');
 }
 
+/** normalizeTechniqueSortRealmLv：执行对应的业务逻辑。 */
 function normalizeTechniqueSortRealmLv(realmLv: number | undefined): number {
   if (!Number.isFinite(realmLv)) {
     return 1;
@@ -482,6 +514,7 @@ function normalizeTechniqueSortRealmLv(realmLv: number | undefined): number {
   return Math.max(1, Math.floor(realmLv ?? 1));
 }
 
+/** compareTechniqueTemplateEntries：执行对应的业务逻辑。 */
 function compareTechniqueTemplateEntries(left: LocalTechniqueEntry, right: LocalTechniqueEntry): number {
   const realmDiff = normalizeTechniqueSortRealmLv(left.technique.realmLv) - normalizeTechniqueSortRealmLv(right.technique.realmLv);
   if (realmDiff !== 0) {
@@ -506,6 +539,7 @@ function compareTechniqueTemplateEntries(left: LocalTechniqueEntry, right: Local
   return left.filePath.localeCompare(right.filePath, 'zh-Hans-CN');
 }
 
+/** formatTechniqueListMeta：执行对应的业务逻辑。 */
 function formatTechniqueListMeta(entry: LocalTechniqueEntry): string {
   const parts = [
     entry.technique.id,
@@ -519,6 +553,7 @@ function formatTechniqueListMeta(entry: LocalTechniqueEntry): string {
   return parts.join(' · ');
 }
 
+/** renderTechniqueList：执行对应的业务逻辑。 */
 function renderTechniqueList(): void {
   const keyword = techniqueSearchEl.value.trim().toLowerCase();
   const filtered = techniqueTemplates.filter((entry) => {
@@ -541,22 +576,27 @@ function renderTechniqueList(): void {
   `).join('');
 }
 
+/** isPlainRecord：执行对应的业务逻辑。 */
 function isPlainRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+/** hasOwnField：执行对应的业务逻辑。 */
 function hasOwnField(target: unknown, key: string): boolean {
   return isPlainRecord(target) && Object.prototype.hasOwnProperty.call(target, key);
 }
 
+/** cloneTechniqueTemplateRecord：执行对应的业务逻辑。 */
 function cloneTechniqueTemplateRecord(technique: LocalTechniqueTemplateRecord): LocalTechniqueTemplateRecord {
   return JSON.parse(JSON.stringify(technique)) as LocalTechniqueTemplateRecord;
 }
 
+/** normalizeTechniqueModifierMode：执行对应的业务逻辑。 */
 function normalizeTechniqueModifierMode(mode: unknown): LocalBuffModifierMode {
   return mode === 'flat' ? 'flat' : 'percent';
 }
 
+/** normalizeTechniqueNumericGroup：执行对应的业务逻辑。 */
 function normalizeTechniqueNumericGroup(raw: unknown): PartialNumericStats {
   const normalized: PartialNumericStats = {};
   if (!isPlainRecord(raw)) {
@@ -571,6 +611,7 @@ function normalizeTechniqueNumericGroup(raw: unknown): PartialNumericStats {
   return normalized;
 }
 
+/** normalizeTechniqueAttrGroup：执行对应的业务逻辑。 */
 function normalizeTechniqueAttrGroup(raw: unknown): Partial<Attributes> {
   const normalized: Partial<Attributes> = {};
   if (!isPlainRecord(raw)) {
@@ -585,10 +626,12 @@ function normalizeTechniqueAttrGroup(raw: unknown): Partial<Attributes> {
   return normalized;
 }
 
+/** formatTechniqueModeLabel：执行对应的业务逻辑。 */
 function formatTechniqueModeLabel(mode: LocalBuffModifierMode): string {
   return mode === 'flat' ? '基础值' : '百分比';
 }
 
+/** buildTechniqueMetaRow：执行对应的业务逻辑。 */
 function buildTechniqueMetaRow(label: string, value: string): string {
   return `
     <div class="technique-meta-row">
@@ -598,10 +641,12 @@ function buildTechniqueMetaRow(label: string, value: string): string {
   `;
 }
 
+/** buildTechniqueChip：执行对应的业务逻辑。 */
 function buildTechniqueChip(text: string, extraClass = ''): string {
   return `<span class="technique-inline-chip ${escapeHtml(extraClass)}">${escapeHtml(text)}</span>`;
 }
 
+/** getCurrentTechniqueSkill：执行对应的业务逻辑。 */
 function getCurrentTechniqueSkill(): LocalTechniqueSkill | null {
   if (!currentTechniqueDraft) {
     return null;
@@ -612,10 +657,12 @@ function getCurrentTechniqueSkill(): LocalTechniqueSkill | null {
   return currentTechniqueDraft.skills.find((skill) => skill.id === currentTechniqueSkillId) ?? currentTechniqueDraft.skills[0] ?? null;
 }
 
+/** isTechniqueBuffEffect：执行对应的业务逻辑。 */
 function isTechniqueBuffEffect(effect: LocalTechniqueEffect | undefined): effect is LocalTechniqueEffect {
   return Boolean(effect && effect.type === 'buff');
 }
 
+/** resolveTechniqueBuffEffect：执行对应的业务逻辑。 */
 function resolveTechniqueBuffEffect(effect: LocalTechniqueEffect): LocalTechniqueEffect {
   if (!isTechniqueBuffEffect(effect)) {
     return effect;
@@ -625,6 +672,7 @@ function resolveTechniqueBuffEffect(effect: LocalTechniqueEffect): LocalTechniqu
   return template ? { ...template, ...effect, type: 'buff' } : effect;
 }
 
+/** getTechniqueBuffEffectOptions：执行对应的业务逻辑。 */
 function getTechniqueBuffEffectOptions(skill: LocalTechniqueSkill | null): Array<{
   rawIndex: number;
   rawEffect: LocalTechniqueEffect;
@@ -638,6 +686,7 @@ function getTechniqueBuffEffectOptions(skill: LocalTechniqueSkill | null): Array
     .filter((entry) => isTechniqueBuffEffect(entry.rawEffect));
 }
 
+/** getCurrentTechniqueBuffEffectSelection：执行对应的业务逻辑。 */
 function getCurrentTechniqueBuffEffectSelection(): {
   skill: LocalTechniqueSkill;
   rawEffect: LocalTechniqueEffect;
@@ -661,6 +710,7 @@ function getCurrentTechniqueBuffEffectSelection(): {
   };
 }
 
+/** getTechniqueEffectGroup：执行对应的业务逻辑。 */
 function getTechniqueEffectGroup(
   rawEffect: LocalTechniqueEffect,
   resolvedEffect: LocalTechniqueEffect,
@@ -678,6 +728,7 @@ function getTechniqueEffectGroup(
   return normalizeTechniqueNumericGroup(resolvedEffect[groupKey]);
 }
 
+/** getTechniqueEffectMode：执行对应的业务逻辑。 */
 function getTechniqueEffectMode(
   rawEffect: LocalTechniqueEffect,
   resolvedEffect: LocalTechniqueEffect,
@@ -689,6 +740,7 @@ function getTechniqueEffectMode(
   return normalizeTechniqueModifierMode(resolvedEffect[modeKey]);
 }
 
+/** ensureTechniqueSelection：执行对应的业务逻辑。 */
 function ensureTechniqueSelection(): void {
   if (!currentTechniqueDraft) {
     currentTechniqueSkillId = null;
@@ -708,6 +760,7 @@ function ensureTechniqueSelection(): void {
   currentTechniqueEffectIndex = effectOptions[0]!.rawIndex;
 }
 
+/** renderTechniqueSelectors：执行对应的业务逻辑。 */
 function renderTechniqueSelectors(): void {
   if (!currentTechniqueDraft) {
     techniqueSkillSelectEl.innerHTML = '<option value="">没有技能</option>';
@@ -738,6 +791,7 @@ function renderTechniqueSelectors(): void {
   techniqueEffectSelectEl.disabled = effectOptions.length === 0;
 }
 
+/** renderTechniqueSkillSummary：执行对应的业务逻辑。 */
 function renderTechniqueSkillSummary(): void {
   const skill = getCurrentTechniqueSkill();
   if (!skill) {
@@ -754,6 +808,7 @@ function renderTechniqueSkillSummary(): void {
   techniqueSkillSummaryEl.innerHTML = lines.join('');
 }
 
+/** renderTechniqueEffectSummary：执行对应的业务逻辑。 */
 function renderTechniqueEffectSummary(): void {
   const selection = getCurrentTechniqueBuffEffectSelection();
   if (!selection) {
@@ -784,6 +839,7 @@ function renderTechniqueEffectSummary(): void {
   techniqueEffectSummaryEl.innerHTML = summary.join('');
 }
 
+/** buildTechniqueModifierKeyOptions：执行对应的业务逻辑。 */
 function buildTechniqueModifierKeyOptions(
   groupKey: TechniqueModifierGroupKey,
   selectedKey: string,
@@ -801,6 +857,7 @@ function buildTechniqueModifierKeyOptions(
   return options.join('');
 }
 
+/** buildTechniqueModifierRows：执行对应的业务逻辑。 */
 function buildTechniqueModifierRows(
   groupKey: TechniqueModifierGroupKey,
   values: PartialNumericStats | Partial<Attributes>,
@@ -824,6 +881,7 @@ function buildTechniqueModifierRows(
   `).join('');
 }
 
+/** renderTechniqueEffectEditor：执行对应的业务逻辑。 */
 function renderTechniqueEffectEditor(): void {
   const selection = getCurrentTechniqueBuffEffectSelection();
   if (!selection) {
@@ -920,6 +978,7 @@ function renderTechniqueEffectEditor(): void {
   `;
 }
 
+/** renderTechniquePanel：执行对应的业务逻辑。 */
 function renderTechniquePanel(): void {
   if (!currentTechniqueDraft) {
     techniqueEmptyEl.classList.remove('hidden');
@@ -945,6 +1004,7 @@ function renderTechniquePanel(): void {
   renderTechniqueEffectEditor();
 }
 
+/** ensureTechniqueRawEffectGroup：执行对应的业务逻辑。 */
 function ensureTechniqueRawEffectGroup(
   rawEffect: LocalTechniqueEffect,
   resolvedEffect: LocalTechniqueEffect,
@@ -962,15 +1022,18 @@ function ensureTechniqueRawEffectGroup(
   return rawEffect[groupKey] as PartialNumericStats;
 }
 
+/** getTechniqueModifierKeys：执行对应的业务逻辑。 */
 function getTechniqueModifierKeys(groupKey: TechniqueModifierGroupKey): readonly string[] {
   return groupKey === 'attrs' ? ATTR_KEYS : NUMERIC_SCALAR_STAT_KEYS;
 }
 
+/** markTechniqueDirty：执行对应的业务逻辑。 */
 function markTechniqueDirty(message = '功法技能有未保存修改'): void {
   techniqueDirty = true;
   setTechniqueStatus(message);
 }
 
+/** updateTechniqueMode：执行对应的业务逻辑。 */
 function updateTechniqueMode(modeKey: 'statMode' | 'attrMode', value: LocalBuffModifierMode): void {
   const selection = getCurrentTechniqueBuffEffectSelection();
   if (!selection) {
@@ -982,6 +1045,7 @@ function updateTechniqueMode(modeKey: 'statMode' | 'attrMode', value: LocalBuffM
   renderTechniqueEffectEditor();
 }
 
+/** addTechniqueModifierRow：执行对应的业务逻辑。 */
 function addTechniqueModifierRow(groupKey: TechniqueModifierGroupKey): void {
   const selection = getCurrentTechniqueBuffEffectSelection();
   if (!selection) {
@@ -998,6 +1062,7 @@ function addTechniqueModifierRow(groupKey: TechniqueModifierGroupKey): void {
   renderTechniqueEffectEditor();
 }
 
+/** removeTechniqueModifierRow：执行对应的业务逻辑。 */
 function removeTechniqueModifierRow(groupKey: TechniqueModifierGroupKey, key: string): void {
   const selection = getCurrentTechniqueBuffEffectSelection();
   if (!selection) {
@@ -1009,6 +1074,7 @@ function removeTechniqueModifierRow(groupKey: TechniqueModifierGroupKey, key: st
   renderTechniqueEffectEditor();
 }
 
+/** updateTechniqueModifierKey：执行对应的业务逻辑。 */
 function updateTechniqueModifierKey(groupKey: TechniqueModifierGroupKey, previousKey: string, nextKey: string): void {
   if (!nextKey || previousKey === nextKey) {
     return;
@@ -1025,6 +1091,7 @@ function updateTechniqueModifierKey(groupKey: TechniqueModifierGroupKey, previou
   renderTechniqueEffectEditor();
 }
 
+/** updateTechniqueModifierValue：执行对应的业务逻辑。 */
 function updateTechniqueModifierValue(groupKey: TechniqueModifierGroupKey, key: string, rawValue: string): void {
   const selection = getCurrentTechniqueBuffEffectSelection();
   if (!selection) {
@@ -1046,6 +1113,7 @@ function updateTechniqueModifierValue(groupKey: TechniqueModifierGroupKey, key: 
   markTechniqueDirty();
 }
 
+/** loadTechniqueTemplateList：执行对应的业务逻辑。 */
 async function loadTechniqueTemplateList(
   preferredKey?: string | null,
   preferredSkillId?: string | null,
@@ -1075,6 +1143,7 @@ async function loadTechniqueTemplateList(
   await selectTechniqueTemplate(nextKey, false, preferredSkillId ?? currentTechniqueSkillId, preferredEffectIndex ?? currentTechniqueEffectIndex);
 }
 
+/** selectTechniqueTemplate：执行对应的业务逻辑。 */
 async function selectTechniqueTemplate(
   key: string,
   announce = true,
@@ -1100,9 +1169,11 @@ async function selectTechniqueTemplate(
   techniqueDirty = false;
   renderTechniqueList();
   renderTechniquePanel();
+/** setTechniqueStatus：处理当前场景中的对应操作。 */
   setTechniqueStatus(announce ? `已载入功法 ${entry.technique.name}` : '');
 }
 
+/** saveTechniqueTemplate：执行对应的业务逻辑。 */
 async function saveTechniqueTemplate(): Promise<void> {
   if (!currentTechniqueKey || !currentTechniqueDraft) {
     setTechniqueStatus('请先选择一个功法', true);
@@ -1128,12 +1199,14 @@ async function saveTechniqueTemplate(): Promise<void> {
     await loadTechniqueTemplateList(currentTechniqueKey, currentTechniqueSkillId, currentTechniqueEffectIndex);
     await refreshServiceStatus();
   } catch (error) {
+/** setTechniqueStatus：处理当前场景中的对应操作。 */
     setTechniqueStatus(error instanceof Error ? error.message : '保存功法技能失败', true);
   } finally {
     techniqueSaveBtn.disabled = false;
   }
 }
 
+/** populateMonsterStaticOptions：执行对应的业务逻辑。 */
 function populateMonsterStaticOptions(): void {
   monsterGradeEl.innerHTML = GRADE_OPTIONS
     .map(([value, label]) => `<option value="${escapeHtml(value)}">${escapeHtml(label)}</option>`)
@@ -1146,6 +1219,7 @@ function populateMonsterStaticOptions(): void {
     .join('');
 }
 
+/** normalizeMonsterSortLevel：执行对应的业务逻辑。 */
 function normalizeMonsterSortLevel(level: number | undefined): number {
   if (!Number.isFinite(level)) {
     return 1;
@@ -1153,6 +1227,7 @@ function normalizeMonsterSortLevel(level: number | undefined): number {
   return Math.max(1, Math.floor(level ?? 1));
 }
 
+/** resolveMonsterRealmStage：执行对应的业务逻辑。 */
 function resolveMonsterRealmStage(level: number | undefined): PlayerRealmStage {
   const normalizedLevel = normalizeMonsterSortLevel(level);
   for (let index = PLAYER_REALM_ORDER.length - 1; index >= 0; index -= 1) {
@@ -1164,18 +1239,22 @@ function resolveMonsterRealmStage(level: number | undefined): PlayerRealmStage {
   return PLAYER_REALM_ORDER[0]!;
 }
 
+/** getMonsterTierSortWeight：执行对应的业务逻辑。 */
 function getMonsterTierSortWeight(tier: MonsterTier): number {
   return MONSTER_TIER_SORT_ORDER[tier] ?? -1;
 }
 
+/** getMonsterGradeSortWeight：执行对应的业务逻辑。 */
 function getMonsterGradeSortWeight(grade: TechniqueGrade): number {
   return TECHNIQUE_GRADE_SORT_ORDER[grade] ?? -1;
 }
 
+/** getMonsterRealmStageSortWeight：执行对应的业务逻辑。 */
 function getMonsterRealmStageSortWeight(level: number | undefined): number {
   return PLAYER_REALM_STAGE_SORT_ORDER[resolveMonsterRealmStage(level)] ?? -1;
 }
 
+/** compareMonsterTemplateEntries：执行对应的业务逻辑。 */
 function compareMonsterTemplateEntries(left: LocalMonsterTemplateEntry, right: LocalMonsterTemplateEntry): number {
   const realmStageDiff = getMonsterRealmStageSortWeight(right.monster.level) - getMonsterRealmStageSortWeight(left.monster.level);
   if (realmStageDiff !== 0) {
@@ -1210,6 +1289,7 @@ function compareMonsterTemplateEntries(left: LocalMonsterTemplateEntry, right: L
   return left.filePath.localeCompare(right.filePath, 'zh-Hans-CN');
 }
 
+/** formatMonsterListMeta：执行对应的业务逻辑。 */
 function formatMonsterListMeta(entry: LocalMonsterTemplateEntry): string {
   const realmStage = resolveMonsterRealmStage(entry.monster.level);
   const realmLabel = PLAYER_REALM_CONFIG[realmStage].shortName;
@@ -1222,6 +1302,7 @@ function formatMonsterListMeta(entry: LocalMonsterTemplateEntry): string {
   ].join(' · ');
 }
 
+/** renderMonsterList：执行对应的业务逻辑。 */
 function renderMonsterList(): void {
   const keyword = monsterSearchEl.value.trim().toLowerCase();
   const filtered = monsterTemplates.filter((entry) => {
@@ -1244,10 +1325,12 @@ function renderMonsterList(): void {
   `).join('');
 }
 
+/** stringifyOptionalNumber：执行对应的业务逻辑。 */
 function stringifyOptionalNumber(value: number | undefined): string {
   return value === undefined ? '' : String(value);
 }
 
+/** formatDisplayNumber：执行对应的业务逻辑。 */
 function formatDisplayNumber(value: number): string {
   if (!Number.isFinite(value)) {
     return '-';
@@ -1258,10 +1341,12 @@ function formatDisplayNumber(value: number): string {
   return value.toFixed(2).replace(/\.?0+$/, '');
 }
 
+/** getItemTypeLabel：执行对应的业务逻辑。 */
 function getItemTypeLabel(type: ItemType): string {
   return ITEM_TYPE_LABELS[type] ?? type;
 }
 
+/** formatDropChancePercent：执行对应的业务逻辑。 */
 function formatDropChancePercent(chance: number | undefined): string {
   if (chance === undefined) {
     return '';
@@ -1269,14 +1354,17 @@ function formatDropChancePercent(chance: number | undefined): string {
   return formatDisplayNumber(chance * 100);
 }
 
+/** findEditorItem：执行对应的业务逻辑。 */
 function findEditorItem(itemId: string): LocalEditorItemOption | undefined {
   return editorItemById.get(itemId);
 }
 
+/** isValidItemType：执行对应的业务逻辑。 */
 function isValidItemType(value: string | undefined): value is ItemType {
   return value !== undefined && Object.prototype.hasOwnProperty.call(ITEM_TYPE_LABELS, value);
 }
 
+/** resolveMonsterDropIdentity：执行对应的业务逻辑。 */
 function resolveMonsterDropIdentity(source: Partial<MonsterTemplateDrop> | undefined): MonsterDropIdentity | null {
   const itemId = typeof source?.itemId === 'string' ? source.itemId.trim() : '';
   const name = typeof source?.name === 'string' ? source.name.trim() : '';
@@ -1287,6 +1375,7 @@ function resolveMonsterDropIdentity(source: Partial<MonsterTemplateDrop> | undef
   return { itemId, name, type };
 }
 
+/** getMonsterDropRowIdentity：执行对应的业务逻辑。 */
 function getMonsterDropRowIdentity(row: HTMLElement): MonsterDropIdentity | null {
   return resolveMonsterDropIdentity({
     itemId: row.dataset.dropItemId,
@@ -1295,6 +1384,7 @@ function getMonsterDropRowIdentity(row: HTMLElement): MonsterDropIdentity | null
   });
 }
 
+/** setMonsterDropRowIdentity：执行对应的业务逻辑。 */
 function setMonsterDropRowIdentity(row: HTMLElement, identity: MonsterDropIdentity | null): void {
   if (!identity) {
     delete row.dataset.dropItemId;
@@ -1307,6 +1397,7 @@ function setMonsterDropRowIdentity(row: HTMLElement, identity: MonsterDropIdenti
   row.dataset.dropItemType = identity.type;
 }
 
+/** buildEditorItemOptions：执行对应的业务逻辑。 */
 function buildEditorItemOptions(selectedItemId = '', fallbackDrop?: Partial<MonsterTemplateDrop>): string {
   const options = ['<option value="">请选择物品</option>'];
   for (const item of editorItems) {
@@ -1327,6 +1418,7 @@ function buildEditorItemOptions(selectedItemId = '', fallbackDrop?: Partial<Mons
   return options.join('');
 }
 
+/** buildEquipmentItemOptions：执行对应的业务逻辑。 */
 function buildEquipmentItemOptions(slot: EquipSlot, selectedItemId = ''): string {
   const options = ['<option value="">未装备</option>'];
   for (const item of editorItems) {
@@ -1343,6 +1435,7 @@ function buildEquipmentItemOptions(slot: EquipSlot, selectedItemId = ''): string
   return options.join('');
 }
 
+/** buildMonsterDropMeta：执行对应的业务逻辑。 */
 function buildMonsterDropMeta(drop: Partial<MonsterTemplateDrop>): string {
   if (!drop.itemId) {
     return '从下拉列表中选择掉落物品。';
@@ -1365,6 +1458,7 @@ function buildMonsterDropMeta(drop: Partial<MonsterTemplateDrop>): string {
   return `未在物品目录中找到 ${drop.itemId}`;
 }
 
+/** buildMonsterScalarStatInput：执行对应的业务逻辑。 */
 function buildMonsterScalarStatInput(key: NumericScalarStatKey, value: number | undefined): string {
   return `
     <div class="monster-stat-card">
@@ -1379,6 +1473,7 @@ function buildMonsterScalarStatInput(key: NumericScalarStatKey, value: number | 
   `;
 }
 
+/** buildMonsterAttrInput：执行对应的业务逻辑。 */
 function buildMonsterAttrInput(key: (typeof ATTR_KEYS)[number], value: number | undefined): string {
   return `
     <div class="monster-stat-card">
@@ -1393,6 +1488,7 @@ function buildMonsterAttrInput(key: (typeof ATTR_KEYS)[number], value: number | 
   `;
 }
 
+/** buildMonsterStatPercentInput：执行对应的业务逻辑。 */
 function buildMonsterStatPercentInput(key: NumericScalarStatKey, value: number | undefined): string {
   return `
     <div class="monster-stat-card">
@@ -1407,6 +1503,7 @@ function buildMonsterStatPercentInput(key: NumericScalarStatKey, value: number |
   `;
 }
 
+/** renderMonsterAttrsEditor：执行对应的业务逻辑。 */
 function renderMonsterAttrsEditor(attrs?: Partial<Attributes>): void {
   monsterAttrsEditorEl.innerHTML = `
     <div class="monster-stat-section">
@@ -1421,6 +1518,7 @@ function renderMonsterAttrsEditor(attrs?: Partial<Attributes>): void {
   `;
 }
 
+/** renderMonsterStatPercentsEditor：执行对应的业务逻辑。 */
 function renderMonsterStatPercentsEditor(statPercents?: NumericStatPercentages): void {
   monsterStatPercentsEditorEl.innerHTML = `
     <div class="monster-stat-section">
@@ -1435,6 +1533,7 @@ function renderMonsterStatPercentsEditor(statPercents?: NumericStatPercentages):
   `;
 }
 
+/** renderMonsterEquipmentEditor：执行对应的业务逻辑。 */
 function renderMonsterEquipmentEditor(equipment?: Partial<Record<EquipSlot, string>>): void {
   monsterEquipmentEditorEl.innerHTML = `
     <div class="monster-stat-section">
@@ -1456,6 +1555,7 @@ function renderMonsterEquipmentEditor(equipment?: Partial<Record<EquipSlot, stri
   `;
 }
 
+/** buildMonsterElementStatInputs：执行对应的业务逻辑。 */
 function buildMonsterElementStatInputs(groupKey: 'elementDamageBonus' | 'elementDamageReduce', stats?: PartialNumericStats): string {
   const title = groupKey === 'elementDamageBonus' ? '五行增伤' : '五行减伤';
   const note = groupKey === 'elementDamageBonus' ? '给怪物配置额外的五行伤害加成。' : '给怪物配置额外的五行抗性。';
@@ -1484,6 +1584,7 @@ function buildMonsterElementStatInputs(groupKey: 'elementDamageBonus' | 'element
   `;
 }
 
+/** renderMonsterValueStatsEditor：执行对应的业务逻辑。 */
 function renderMonsterValueStatsEditor(stats?: PartialNumericStats): void {
   monsterValueStatsEditorEl.innerHTML = MONSTER_VALUE_STAT_GROUPS.map((group) => `
     <div class="monster-stat-section">
@@ -1498,6 +1599,7 @@ function renderMonsterValueStatsEditor(stats?: PartialNumericStats): void {
   `).join('') + buildMonsterElementStatInputs('elementDamageBonus', stats) + buildMonsterElementStatInputs('elementDamageReduce', stats);
 }
 
+/** renderMonsterResolvedAttrsPreview：执行对应的业务逻辑。 */
 function renderMonsterResolvedAttrsPreview(attrs: Attributes): void {
   monsterResolvedAttrsPreviewEl.innerHTML = `
     <div class="monster-computed-grid">
@@ -1511,6 +1613,7 @@ function renderMonsterResolvedAttrsPreview(attrs: Attributes): void {
   `;
 }
 
+/** renderMonsterComputedStatsPreview：执行对应的业务逻辑。 */
 function renderMonsterComputedStatsPreview(stats: NumericStats): void {
   const sectionHtml = MONSTER_COMPUTED_STAT_GROUPS
     .filter((group) => group.keys.length > 0)
@@ -1552,6 +1655,7 @@ function renderMonsterComputedStatsPreview(stats: NumericStats): void {
   monsterComputedStatsPreviewEl.innerHTML = sectionHtml + elementSections;
 }
 
+/** buildMonsterDropRow：执行对应的业务逻辑。 */
 function buildMonsterDropRow(drop: Partial<MonsterTemplateDrop>, index: number): string {
   const fallback = resolveMonsterDropIdentity(drop);
   return `
@@ -1585,6 +1689,7 @@ function buildMonsterDropRow(drop: Partial<MonsterTemplateDrop>, index: number):
   `;
 }
 
+/** updateMonsterDropEmptyState：执行对应的业务逻辑。 */
 function updateMonsterDropEmptyState(): void {
   const hasRows = monsterDropsEditorEl.querySelector('[data-drop-row]') !== null;
   const emptyHint = monsterDropsEditorEl.querySelector<HTMLElement>('[data-drop-empty]');
@@ -1597,6 +1702,7 @@ function updateMonsterDropEmptyState(): void {
   }
 }
 
+/** renderMonsterDropsEditor：执行对应的业务逻辑。 */
 function renderMonsterDropsEditor(drops: MonsterTemplateDrop[]): void {
   if (drops.length === 0) {
     monsterDropsEditorEl.innerHTML = '<div class="empty-hint" data-drop-empty>当前没有掉落项，点上方“新增掉落”添加。</div>';
@@ -1605,6 +1711,7 @@ function renderMonsterDropsEditor(drops: MonsterTemplateDrop[]): void {
   monsterDropsEditorEl.innerHTML = drops.map((drop, index) => buildMonsterDropRow(drop, index)).join('');
 }
 
+/** appendMonsterDropRow：执行对应的业务逻辑。 */
 function appendMonsterDropRow(drop: Partial<MonsterTemplateDrop> = {}): void {
   updateMonsterDropEmptyState();
   const rows = monsterDropsEditorEl.querySelectorAll('[data-drop-row]');
@@ -1615,6 +1722,7 @@ function appendMonsterDropRow(drop: Partial<MonsterTemplateDrop> = {}): void {
   firstSelect?.focus();
 }
 
+/** refreshMonsterDropRowMeta：执行对应的业务逻辑。 */
 function refreshMonsterDropRowMeta(row: HTMLElement): void {
   const itemId = row.querySelector<HTMLSelectElement>('[data-drop-field="itemId"]')?.value ?? '';
   const metaEl = row.querySelector<HTMLElement>('[data-drop-meta]');
@@ -1625,6 +1733,7 @@ function refreshMonsterDropRowMeta(row: HTMLElement): void {
   metaEl.textContent = buildMonsterDropMeta(identity && identity.itemId === itemId ? identity : { itemId });
 }
 
+/** fillMonsterForm：执行对应的业务逻辑。 */
 function fillMonsterForm(monster: MonsterTemplateRecord): void {
   monsterIdEl.value = monster.id;
   monsterNameEl.value = monster.name;
@@ -1655,6 +1764,7 @@ function fillMonsterForm(monster: MonsterTemplateRecord): void {
   renderMonsterDropsEditor(monster.drops);
 }
 
+/** syncMonsterExpMultiplierToTierDefaultIfNeeded：执行对应的业务逻辑。 */
 function syncMonsterExpMultiplierToTierDefaultIfNeeded(): void {
   if (!currentMonsterDraft) {
     return;
@@ -1668,6 +1778,7 @@ function syncMonsterExpMultiplierToTierDefaultIfNeeded(): void {
   monsterExpMultiplierEl.value = String(MONSTER_TIER_EXP_MULTIPLIERS[nextTier]);
 }
 
+/** readOptionalInteger：执行对应的业务逻辑。 */
 function readOptionalInteger(input: HTMLInputElement): number | undefined {
   const value = input.value.trim();
   if (!value) {
@@ -1680,6 +1791,7 @@ function readOptionalInteger(input: HTMLInputElement): number | undefined {
   return parsed;
 }
 
+/** readRequiredInteger：执行对应的业务逻辑。 */
 function readRequiredInteger(input: HTMLInputElement): number {
   const value = readOptionalInteger(input);
   if (value === undefined) {
@@ -1688,6 +1800,7 @@ function readRequiredInteger(input: HTMLInputElement): number {
   return value;
 }
 
+/** readRequiredNumber：执行对应的业务逻辑。 */
 function readRequiredNumber(input: HTMLInputElement): number {
   const raw = input.value.trim();
   if (!raw) {
@@ -1700,6 +1813,7 @@ function readRequiredNumber(input: HTMLInputElement): number {
   return parsed;
 }
 
+/** readOptionalDecimalInput：执行对应的业务逻辑。 */
 function readOptionalDecimalInput(raw: string, label: string): number | undefined {
   const value = raw.trim();
   if (!value) {
@@ -1712,6 +1826,7 @@ function readOptionalDecimalInput(raw: string, label: string): number | undefine
   return parsed;
 }
 
+/** readMonsterAttrsFromEditor：执行对应的业务逻辑。 */
 function readMonsterAttrsFromEditor(): Partial<Attributes> | undefined {
   let attrs: Partial<Attributes> | undefined;
   for (const input of Array.from(monsterAttrsEditorEl.querySelectorAll<HTMLInputElement>('[data-attr-key]'))) {
@@ -1729,6 +1844,7 @@ function readMonsterAttrsFromEditor(): Partial<Attributes> | undefined {
   return attrs;
 }
 
+/** readMonsterStatPercentsFromEditor：执行对应的业务逻辑。 */
 function readMonsterStatPercentsFromEditor(): NumericStatPercentages | undefined {
   let statPercents: NumericStatPercentages | undefined;
   for (const input of Array.from(monsterStatPercentsEditorEl.querySelectorAll<HTMLInputElement>('[data-stat-percent-key]'))) {
@@ -1746,6 +1862,7 @@ function readMonsterStatPercentsFromEditor(): NumericStatPercentages | undefined
   return statPercents;
 }
 
+/** readMonsterEquipmentFromEditor：执行对应的业务逻辑。 */
 function readMonsterEquipmentFromEditor(): Partial<Record<EquipSlot, string>> | undefined {
   let equipment: Partial<Record<EquipSlot, string>> | undefined;
   for (const select of Array.from(monsterEquipmentEditorEl.querySelectorAll<HTMLSelectElement>('[data-equip-slot]'))) {
@@ -1760,6 +1877,7 @@ function readMonsterEquipmentFromEditor(): Partial<Record<EquipSlot, string>> | 
   return equipment;
 }
 
+/** readMonsterSkillsFromEditor：执行对应的业务逻辑。 */
 function readMonsterSkillsFromEditor(): string[] {
   const entries = monsterSkillsEl.value
     .split(/\r?\n|,/)
@@ -1768,6 +1886,7 @@ function readMonsterSkillsFromEditor(): string[] {
   return Array.from(new Set(entries));
 }
 
+/** readMonsterValueStatsFromEditor：执行对应的业务逻辑。 */
 function readMonsterValueStatsFromEditor(): PartialNumericStats | undefined {
   let valueStats: PartialNumericStats | undefined;
   for (const input of Array.from(monsterValueStatsEditorEl.querySelectorAll<HTMLInputElement>('[data-value-stat-key]'))) {
@@ -1806,6 +1925,7 @@ function readMonsterValueStatsFromEditor(): PartialNumericStats | undefined {
   return valueStats;
 }
 
+/** readMonsterDropsFromEditor：执行对应的业务逻辑。 */
 function readMonsterDropsFromEditor(): MonsterTemplateDrop[] {
   let drops: MonsterTemplateDrop[] = [];
   for (const row of Array.from(monsterDropsEditorEl.querySelectorAll<HTMLElement>('[data-drop-row]'))) {
@@ -1841,6 +1961,7 @@ function readMonsterDropsFromEditor(): MonsterTemplateDrop[] {
   return drops;
 }
 
+/** syncMonsterDraftFromForm：执行对应的业务逻辑。 */
 function syncMonsterDraftFromForm(): MonsterTemplateRecord {
   const attrs = readMonsterAttrsFromEditor();
   const statPercents = readMonsterStatPercentsFromEditor();
@@ -1884,16 +2005,19 @@ function syncMonsterDraftFromForm(): MonsterTemplateRecord {
   return nextDraft;
 }
 
+/** onMonsterFormInput：执行对应的业务逻辑。 */
 function onMonsterFormInput(): void {
   monsterDirty = true;
   try {
     syncMonsterDraftFromForm();
     setMonsterStatus('怪物模板有未保存修改');
   } catch (error) {
+/** setMonsterStatus：处理当前场景中的对应操作。 */
     setMonsterStatus(error instanceof Error ? error.message : '怪物模板输入非法', true);
   }
 }
 
+/** loadMonsterTemplateList：执行对应的业务逻辑。 */
 async function loadMonsterTemplateList(preferredKey?: string | null): Promise<void> {
   const result = await request<LocalMonsterTemplateListRes>('/api/monsters');
   monsterTemplates = [...result.monsters].sort(compareMonsterTemplateEntries);
@@ -1916,6 +2040,7 @@ async function loadMonsterTemplateList(preferredKey?: string | null): Promise<vo
   await selectMonsterTemplate(nextKey, false);
 }
 
+/** selectMonsterTemplate：执行对应的业务逻辑。 */
 async function selectMonsterTemplate(key: string, announce = true): Promise<void> {
   if (monsterDirty && currentMonsterKey && currentMonsterKey !== key) {
     const proceed = window.confirm('当前怪物模板有未保存修改，切换后会丢失这些内容。继续吗？');
@@ -1937,10 +2062,12 @@ async function selectMonsterTemplate(key: string, announce = true): Promise<void
   monsterCurrentNameEl.textContent = `${entry.monster.name} · ${entry.monster.id}`;
   monsterCurrentMetaEl.textContent = `${entry.filePath} · 第 ${entry.index + 1} 项 · ${MONSTER_SOURCE_MODE_LABELS[entry.monster.sourceMode]}`;
   fillMonsterForm(currentMonsterDraft);
+/** setMonsterStatus：处理当前场景中的对应操作。 */
   setMonsterStatus(announce ? `已载入怪物模板 ${entry.monster.name}` : '');
   renderMonsterList();
 }
 
+/** saveMonsterTemplate：执行对应的业务逻辑。 */
 async function saveMonsterTemplate(): Promise<void> {
   if (!currentMonsterKey) {
     setMonsterStatus('请先选择一个怪物模板', true);
@@ -1951,6 +2078,7 @@ async function saveMonsterTemplate(): Promise<void> {
   try {
     monster = syncMonsterDraftFromForm();
   } catch (error) {
+/** setMonsterStatus：处理当前场景中的对应操作。 */
     setMonsterStatus(error instanceof Error ? error.message : '怪物模板数据非法', true);
     return;
   }
@@ -1976,12 +2104,14 @@ async function saveMonsterTemplate(): Promise<void> {
     await loadMonsterTemplateList(currentMonsterKey);
     await refreshServiceStatus();
   } catch (error) {
+/** setMonsterStatus：处理当前场景中的对应操作。 */
     setMonsterStatus(error instanceof Error ? error.message : '保存怪物模板失败', true);
   } finally {
     monsterSaveBtn.disabled = false;
   }
 }
 
+/** loadEditorCatalog：执行对应的业务逻辑。 */
 async function loadEditorCatalog(): Promise<void> {
   const result = await request<LocalEditorCatalogRes>('/api/editor-catalog');
   editorItems = result.items;
@@ -1996,6 +2126,7 @@ async function loadEditorCatalog(): Promise<void> {
   }
 }
 
+/** escapeHtml：执行对应的业务逻辑。 */
 function escapeHtml(input: string): string {
   return input
     .replaceAll('&', '&amp;')
@@ -2005,6 +2136,7 @@ function escapeHtml(input: string): string {
     .replaceAll("'", '&#39;');
 }
 
+/** loadConfigFileList：执行对应的业务逻辑。 */
 async function loadConfigFileList(): Promise<void> {
   const result = await request<LocalConfigFileListRes>('/api/config-files');
   configFiles = result.files;
@@ -2014,6 +2146,7 @@ async function loadConfigFileList(): Promise<void> {
   }
 }
 
+/** selectConfigFile：执行对应的业务逻辑。 */
 async function selectConfigFile(filePath: string, announce = true): Promise<void> {
   if (configFileDirty && currentConfigFilePath && currentConfigFilePath !== filePath) {
     const proceed = window.confirm('当前配置文件有未保存修改，切换后会丢失这些内容。继续吗？');
@@ -2030,10 +2163,12 @@ async function selectConfigFile(filePath: string, announce = true): Promise<void
   configFilePanelEl.classList.remove('hidden');
   configFileCurrentNameEl.textContent = file.path.split('/').pop() ?? file.path;
   configFileCurrentMetaEl.textContent = file.path;
+/** setConfigFileStatus：处理当前场景中的对应操作。 */
   setConfigFileStatus(announce ? `已载入配置文件 ${file.path}` : '');
   renderConfigFileList();
 }
 
+/** saveConfigFile：执行对应的业务逻辑。 */
 async function saveConfigFile(): Promise<void> {
   if (!currentConfigFilePath) {
     setConfigFileStatus('请先选择一个配置文件', true);
@@ -2065,12 +2200,14 @@ async function saveConfigFile(): Promise<void> {
     );
     await refreshServiceStatus();
   } catch (error) {
+/** setConfigFileStatus：处理当前场景中的对应操作。 */
     setConfigFileStatus(error instanceof Error ? error.message : '保存配置文件失败', true);
   } finally {
     configFileSaveBtn.disabled = false;
   }
 }
 
+/** renderServiceStatus：执行对应的业务逻辑。 */
 function renderServiceStatus(status: LocalServerStatusRes): void {
   serviceManaged = status.managed;
   serviceSummaryEl.textContent = status.managed
@@ -2091,15 +2228,18 @@ function renderServiceStatus(status: LocalServerStatusRes): void {
   serviceRestartBtn.disabled = !status.managed;
 }
 
+/** refreshServiceStatus：执行对应的业务逻辑。 */
 async function refreshServiceStatus(): Promise<void> {
   try {
     const status = await request<LocalServerStatusRes>('/api/server/status');
     renderServiceStatus(status);
   } catch (error) {
+/** setAppStatus：处理当前场景中的对应操作。 */
     setAppStatus(error instanceof Error ? error.message : '读取服务状态失败', true);
   }
 }
 
+/** restartService：执行对应的业务逻辑。 */
 async function restartService(): Promise<void> {
   serviceRestartBtn.disabled = true;
   try {
@@ -2110,12 +2250,14 @@ async function restartService(): Promise<void> {
     setAppStatus('已触发编辑器托管服务重启');
     await refreshServiceStatus();
   } catch (error) {
+/** setAppStatus：处理当前场景中的对应操作。 */
     setAppStatus(error instanceof Error ? error.message : '重启服务失败', true);
   } finally {
     serviceRestartBtn.disabled = !serviceManaged;
   }
 }
 
+/** bindEvents：执行对应的业务逻辑。 */
 function bindEvents(): void {
   pageTabs.maps.addEventListener('click', () => switchPage('maps'));
   pageTabs.monsters.addEventListener('click', () => switchPage('monsters'));
@@ -2130,6 +2272,7 @@ function bindEvents(): void {
   configFileSearchEl.addEventListener('input', () => renderConfigFileList());
   configFileRefreshBtn.addEventListener('click', () => {
     loadConfigFileList().catch((error: unknown) => {
+/** setConfigFileStatus：处理当前场景中的对应操作。 */
       setConfigFileStatus(error instanceof Error ? error.message : '加载配置文件列表失败', true);
     });
   });
@@ -2138,6 +2281,7 @@ function bindEvents(): void {
     const filePath = button?.dataset.configPath;
     if (!filePath) return;
     selectConfigFile(filePath).catch((error: unknown) => {
+/** setConfigFileStatus：处理当前场景中的对应操作。 */
       setConfigFileStatus(error instanceof Error ? error.message : '读取配置文件失败', true);
     });
   });
@@ -2150,6 +2294,7 @@ function bindEvents(): void {
   configFileReloadBtn.addEventListener('click', () => {
     if (!currentConfigFilePath) return;
     selectConfigFile(currentConfigFilePath).catch((error: unknown) => {
+/** setConfigFileStatus：处理当前场景中的对应操作。 */
       setConfigFileStatus(error instanceof Error ? error.message : '重新读取配置文件失败', true);
     });
   });
@@ -2157,6 +2302,7 @@ function bindEvents(): void {
   techniqueSearchEl.addEventListener('input', () => renderTechniqueList());
   techniqueRefreshBtn.addEventListener('click', () => {
     loadTechniqueTemplateList(currentTechniqueKey, currentTechniqueSkillId, currentTechniqueEffectIndex).catch((error: unknown) => {
+/** setTechniqueStatus：处理当前场景中的对应操作。 */
       setTechniqueStatus(error instanceof Error ? error.message : '加载功法列表失败', true);
     });
   });
@@ -2165,6 +2311,7 @@ function bindEvents(): void {
     const key = button?.dataset.techniqueKey;
     if (!key) return;
     selectTechniqueTemplate(key).catch((error: unknown) => {
+/** setTechniqueStatus：处理当前场景中的对应操作。 */
       setTechniqueStatus(error instanceof Error ? error.message : '读取功法失败', true);
     });
   });
@@ -2182,10 +2329,12 @@ function bindEvents(): void {
   techniqueEffectEditorEl.addEventListener('change', (event) => {
     const target = event.target as HTMLElement;
     if (target instanceof HTMLSelectElement && target.id === 'technique-stat-mode') {
+/** updateTechniqueMode：处理当前场景中的对应操作。 */
       updateTechniqueMode('statMode', target.value === 'flat' ? 'flat' : 'percent');
       return;
     }
     if (target instanceof HTMLSelectElement && target.id === 'technique-attr-mode') {
+/** updateTechniqueMode：处理当前场景中的对应操作。 */
       updateTechniqueMode('attrMode', target.value === 'flat' ? 'flat' : 'percent');
       return;
     }
@@ -2237,6 +2386,7 @@ function bindEvents(): void {
   techniqueReloadBtn.addEventListener('click', () => {
     if (!currentTechniqueKey) return;
     selectTechniqueTemplate(currentTechniqueKey, true, currentTechniqueSkillId, currentTechniqueEffectIndex).catch((error: unknown) => {
+/** setTechniqueStatus：处理当前场景中的对应操作。 */
       setTechniqueStatus(error instanceof Error ? error.message : '重新读取功法失败', true);
     });
   });
@@ -2251,6 +2401,7 @@ function bindEvents(): void {
   monsterSearchEl.addEventListener('input', () => renderMonsterList());
   monsterRefreshBtn.addEventListener('click', () => {
     loadMonsterTemplateList(currentMonsterKey).catch((error: unknown) => {
+/** setMonsterStatus：处理当前场景中的对应操作。 */
       setMonsterStatus(error instanceof Error ? error.message : '加载怪物模板列表失败', true);
     });
   });
@@ -2259,6 +2410,7 @@ function bindEvents(): void {
     const key = button?.dataset.monsterKey;
     if (!key) return;
     selectMonsterTemplate(key).catch((error: unknown) => {
+/** setMonsterStatus：处理当前场景中的对应操作。 */
       setMonsterStatus(error instanceof Error ? error.message : '读取怪物模板失败', true);
     });
   });
@@ -2339,11 +2491,13 @@ function bindEvents(): void {
   monsterReloadBtn.addEventListener('click', () => {
     if (!currentMonsterKey) return;
     selectMonsterTemplate(currentMonsterKey).catch((error: unknown) => {
+/** setMonsterStatus：处理当前场景中的对应操作。 */
       setMonsterStatus(error instanceof Error ? error.message : '重新读取怪物模板失败', true);
     });
   });
 }
 
+/** bootstrap：执行对应的业务逻辑。 */
 async function bootstrap(): Promise<void> {
   populateMonsterStaticOptions();
   bindEvents();
@@ -2370,6 +2524,7 @@ async function bootstrap(): Promise<void> {
 }
 
 bootstrap().catch((error: unknown) => {
+/** setAppStatus：处理当前场景中的对应操作。 */
   setAppStatus(error instanceof Error ? error.message : '本地配置编辑器初始化失败', true);
 });
 
@@ -2378,3 +2533,7 @@ window.addEventListener('beforeunload', () => {
     window.clearInterval(servicePollTimer);
   }
 });
+
+
+
+

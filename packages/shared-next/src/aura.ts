@@ -1,9 +1,11 @@
 import { DEFAULT_AURA_LEVEL_BASE_VALUE } from './constants/gameplay/aura';
 
+/** getNextAuraLevelThreshold：执行对应的业务逻辑。 */
 function getNextAuraLevelThreshold(currentThreshold: number): number {
   return Math.max(1, Math.ceil(currentThreshold * 1.5));
 }
 
+/** normalizeAuraLevelBaseValue：执行对应的业务逻辑。 */
 export function normalizeAuraLevelBaseValue(value: unknown, fallback = DEFAULT_AURA_LEVEL_BASE_VALUE): number {
   const normalizedFallback = Number.isFinite(fallback) && Number(fallback) > 0
     ? Math.max(1, Math.round(Number(fallback)))
@@ -14,6 +16,7 @@ export function normalizeAuraLevelBaseValue(value: unknown, fallback = DEFAULT_A
   return Math.max(1, Math.round(Number(value)));
 }
 
+/** normalizeAuraValue：执行对应的业务逻辑。 */
 export function normalizeAuraValue(value: unknown): number {
   if (!Number.isFinite(value)) {
     return 0;
@@ -21,6 +24,7 @@ export function normalizeAuraValue(value: unknown): number {
   return Math.max(0, Math.round(Number(value)));
 }
 
+/** getAuraLevelThreshold：执行对应的业务逻辑。 */
 export function getAuraLevelThreshold(level: number, baseValue = DEFAULT_AURA_LEVEL_BASE_VALUE): number {
   const normalizedLevel = Math.max(0, Math.floor(level));
   if (normalizedLevel <= 0) {
@@ -34,6 +38,7 @@ export function getAuraLevelThreshold(level: number, baseValue = DEFAULT_AURA_LE
   return threshold;
 }
 
+/** getAuraLevel：执行对应的业务逻辑。 */
 export function getAuraLevel(auraValue: number, baseValue = DEFAULT_AURA_LEVEL_BASE_VALUE): number {
   const normalizedValue = normalizeAuraValue(auraValue);
   const base = normalizeAuraLevelBaseValue(baseValue);
@@ -53,16 +58,19 @@ export function getAuraLevel(auraValue: number, baseValue = DEFAULT_AURA_LEVEL_B
   return level;
 }
 
+/** convertLegacyAuraLevelToValue：执行对应的业务逻辑。 */
 export function convertLegacyAuraLevelToValue(level: number, baseValue = DEFAULT_AURA_LEVEL_BASE_VALUE): number {
   return getAuraLevelThreshold(level, baseValue);
 }
 
+/** isLegacyAuraLevelValue：执行对应的业务逻辑。 */
 export function isLegacyAuraLevelValue(value: number, baseValue = DEFAULT_AURA_LEVEL_BASE_VALUE): boolean {
   const normalizedValue = normalizeAuraValue(value);
   const base = normalizeAuraLevelBaseValue(baseValue);
   return Number.isInteger(normalizedValue) && normalizedValue > 0 && normalizedValue < base;
 }
 
+/** normalizeConfiguredAuraValue：执行对应的业务逻辑。 */
 export function normalizeConfiguredAuraValue(value: unknown, baseValue = DEFAULT_AURA_LEVEL_BASE_VALUE): number {
   const normalizedValue = normalizeAuraValue(value);
   if (normalizedValue <= 0) {
@@ -73,3 +81,4 @@ export function normalizeConfiguredAuraValue(value: unknown, baseValue = DEFAULT
   }
   return normalizedValue;
 }
+

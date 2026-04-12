@@ -1,3 +1,4 @@
+/** MonsterLocationEntry：定义该接口的能力与字段约束。 */
 export interface MonsterLocationEntry {
   monsterId: string;
   monsterName: string;
@@ -7,10 +8,12 @@ export interface MonsterLocationEntry {
   totalMaps: number;
 }
 
+/** MonsterLocationCatalog：定义该类型的结构与数据语义。 */
 type MonsterLocationCatalog = Record<string, MonsterLocationEntry>;
 let monsterLocationCatalog: MonsterLocationCatalog | null = null;
 let monsterLocationCatalogPromise: Promise<MonsterLocationCatalog> | null = null;
 
+/** loadMonsterLocationCatalog：执行对应的业务逻辑。 */
 function loadMonsterLocationCatalog(): Promise<MonsterLocationCatalog> {
   if (monsterLocationCatalog) {
     return Promise.resolve(monsterLocationCatalog);
@@ -25,14 +28,17 @@ function loadMonsterLocationCatalog(): Promise<MonsterLocationCatalog> {
   return monsterLocationCatalogPromise;
 }
 
+/** hasLoadedMonsterLocationCatalog：执行对应的业务逻辑。 */
 export function hasLoadedMonsterLocationCatalog(): boolean {
   return monsterLocationCatalog !== null;
 }
 
+/** preloadMonsterLocationCatalog：执行对应的业务逻辑。 */
 export async function preloadMonsterLocationCatalog(): Promise<void> {
   await loadMonsterLocationCatalog();
 }
 
+/** getMonsterLocationEntry：执行对应的业务逻辑。 */
 export function getMonsterLocationEntry(monsterId: string): MonsterLocationEntry | null {
   if (!monsterLocationCatalog) {
     void loadMonsterLocationCatalog();
@@ -41,7 +47,9 @@ export function getMonsterLocationEntry(monsterId: string): MonsterLocationEntry
   return monsterLocationCatalog[monsterId] ?? null;
 }
 
+/** loadMonsterLocationEntry：执行对应的业务逻辑。 */
 export async function loadMonsterLocationEntry(monsterId: string): Promise<MonsterLocationEntry | null> {
   const catalog = await loadMonsterLocationCatalog();
   return catalog[monsterId] ?? null;
 }
+

@@ -136,3 +136,4 @@ export const LEGACY_MAP_TERRAIN_PROFILE_IDS: Partial<Record<string, TerrainDurab
   beast_valley: 'earth_stone_wild',
   sky_ruins: 'earth_sky_metal',
 };
+

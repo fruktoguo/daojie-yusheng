@@ -1,8 +1,10 @@
+/** CacheEntry：定义该类型的结构与数据语义。 */
 type CacheEntry = {
   width: number;
   lastAccess: number;
 };
 
+/** TextMeasureCacheOptions：定义该接口的能力与字段约束。 */
 export interface TextMeasureCacheOptions {
   maxEntries?: number;
   pruneBatchSize?: number;
@@ -21,6 +23,7 @@ export class TextMeasureCache {
   private readonly entries = new Map<string, CacheEntry>();
   private accessSerial = 0;
 
+/** constructor：处理当前场景中的对应操作。 */
   constructor(options?: TextMeasureCacheOptions) {
     this.maxEntries = Math.max(16, Math.floor(options?.maxEntries ?? DEFAULT_MAX_ENTRIES));
     this.pruneBatchSize = Math.max(1, Math.floor(options?.pruneBatchSize ?? DEFAULT_PRUNE_BATCH_SIZE));
@@ -92,3 +95,4 @@ export class TextMeasureCache {
     }
   }
 }
+

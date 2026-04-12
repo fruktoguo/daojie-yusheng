@@ -57,6 +57,7 @@ const SIGNED_NUMERIC_STAT_KEYS = new Set<NumericScalarStatKey>([
   'extraAggroRate',
 ]);
 
+/** getRealmLinearGrowthRate：执行对应的业务逻辑。 */
 function getRealmLinearGrowthRate(key: NumericScalarStatKey): number | null {
   switch (key) {
     case 'critDamage':
@@ -70,6 +71,7 @@ function getRealmLinearGrowthRate(key: NumericScalarStatKey): number | null {
   }
 }
 
+/** createAttributeSnapshot：执行对应的业务逻辑。 */
 function createAttributeSnapshot(initial = 0): Attributes {
   return {
     constitution: initial,
@@ -81,6 +83,7 @@ function createAttributeSnapshot(initial = 0): Attributes {
   };
 }
 
+/** accumulateScaledAttributes：执行对应的业务逻辑。 */
 function accumulateScaledAttributes(target: Partial<Attributes>, attrs: Partial<Attributes> | undefined, factor: number): void {
   if (!attrs || factor === 0) return;
   for (const key of ATTR_KEYS) {
@@ -90,6 +93,7 @@ function accumulateScaledAttributes(target: Partial<Attributes>, attrs: Partial<
   }
 }
 
+/** scaleNumericStats：执行对应的业务逻辑。 */
 function scaleNumericStats(stats: PartialNumericStats | undefined, factor: number): PartialNumericStats | undefined {
   if (!stats || factor === 0) return undefined;
   const result: PartialNumericStats = {};
@@ -123,6 +127,7 @@ function scaleNumericStats(stats: PartialNumericStats | undefined, factor: numbe
   return Object.keys(result).length > 0 ? result : undefined;
 }
 
+/** applyAttributeAdditions：执行对应的业务逻辑。 */
 function applyAttributeAdditions(target: Attributes, patch: Partial<Attributes>): void {
   for (const key of ATTR_KEYS) {
     const value = patch[key];
@@ -131,6 +136,7 @@ function applyAttributeAdditions(target: Attributes, patch: Partial<Attributes>)
   }
 }
 
+/** applyAttributePercentMultipliers：执行对应的业务逻辑。 */
 function applyAttributePercentMultipliers(target: Attributes, multipliers: Partial<Attributes>): void {
   for (const key of ATTR_KEYS) {
     const percent = multipliers[key];
@@ -139,11 +145,13 @@ function applyAttributePercentMultipliers(target: Attributes, multipliers: Parti
   }
 }
 
+/** getNumericStatValue：执行对应的业务逻辑。 */
 function getNumericStatValue(stats: PartialNumericStats | NumericStats | undefined, key: NumericScalarStatKey): number {
   const value = stats?.[key];
   return typeof value === 'number' ? value : 0;
 }
 
+/** sumBuffStacks：执行对应的业务逻辑。 */
 function sumBuffStacks(buffs: readonly TemporaryBuffState[], buffId: string): number {
   return buffs.reduce((total, buff) => (
     buff.buffId === buffId && buff.remainingTicks > 0 && buff.stacks > 0
@@ -153,6 +161,7 @@ function sumBuffStacks(buffs: readonly TemporaryBuffState[], buffId: string): nu
 }
 
 @Injectable()
+/** AttrService：封装相关状态与行为。 */
 export class AttrService {
   constructor(
     private readonly qiProjectionService: QiProjectionService,
@@ -557,3 +566,4 @@ export class AttrService {
     return stackFactor * realmFactor;
   }
 }
+

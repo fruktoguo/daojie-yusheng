@@ -11,6 +11,7 @@ export class KeyboardInput {
     window.addEventListener('keydown', (e) => this.onKeyDown(e));
   }
 
+/** onKeyDown：处理当前场景中的对应操作。 */
   private onKeyDown(e: KeyboardEvent) {
     // 忽略输入框内的按键
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
@@ -19,3 +20,4 @@ export class KeyboardInput {
     this.onPath([dir]);
   }
 }
+

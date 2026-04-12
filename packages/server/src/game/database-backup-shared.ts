@@ -14,27 +14,32 @@ export const DAILY_BACKUP_MINUTE = 5;
 export const BACKUP_EXCLUDED_TABLES = ['redeem_codes', 'redeem_code_groups'] as const;
 export const BACKUP_WORKER_HEARTBEAT_TTL_MS = 60_000;
 
+/** ResolvedBackupRecord：定义该接口的能力与字段约束。 */
 export interface ResolvedBackupRecord extends GmDatabaseBackupRecord {
   filePath: string;
 }
 
+/** BackupWorkerStateFile：定义该接口的能力与字段约束。 */
 export interface BackupWorkerStateFile {
   runningJob?: GmDatabaseJobSnapshot;
   lastJob?: GmDatabaseJobSnapshot;
   lastScheduledSlots?: Partial<Record<'hourly' | 'daily', string>>;
 }
 
+/** BackupWorkerHeartbeatFile：定义该接口的能力与字段约束。 */
 export interface BackupWorkerHeartbeatFile {
   updatedAt: string;
   workerPid: number;
   hostname: string;
 }
 
+/** BackupManualRequestFile：定义该接口的能力与字段约束。 */
 export interface BackupManualRequestFile {
   job: GmDatabaseJobSnapshot;
   requestedAt: string;
 }
 
+/** BackupRestoreRequestFile：定义该接口的能力与字段约束。 */
 export interface BackupRestoreRequestFile {
   job: GmDatabaseJobSnapshot;
   sourceBackupId: string;
@@ -55,6 +60,7 @@ export const BACKUP_RESTORE_REQUESTS_DIR = path.join(BACKUP_REQUESTS_DIR, 'resto
 export const BACKUP_WORKER_STATE_PATH = path.join(BACKUP_META_DIR, 'worker-state.json');
 export const BACKUP_WORKER_HEARTBEAT_PATH = path.join(BACKUP_META_DIR, 'worker-heartbeat.json');
 
+/** ensureBackupWorkspace：执行对应的业务逻辑。 */
 export function ensureBackupWorkspace(): void {
   fs.mkdirSync(BACKUP_ROOT_DIR, { recursive: true });
   for (const directory of Object.values(BACKUP_DIRECTORIES)) {
@@ -65,11 +71,13 @@ export function ensureBackupWorkspace(): void {
   fs.mkdirSync(BACKUP_RESTORE_REQUESTS_DIR, { recursive: true });
 }
 
+/** planBackup：执行对应的业务逻辑。 */
 export function planBackup(kind: GmDatabaseBackupKind, now = Date.now()): ResolvedBackupRecord {
   const id = createTimestampId(now, kind);
   return createBackupRecord(kind, id, now);
 }
 
+/** createBackupRecord：执行对应的业务逻辑。 */
 export function createBackupRecord(kind: GmDatabaseBackupKind, id: string, timestamp = Date.now()): ResolvedBackupRecord {
   const fileName = `${id}.dump`;
   return {
@@ -82,6 +90,7 @@ export function createBackupRecord(kind: GmDatabaseBackupKind, id: string, times
   };
 }
 
+/** listBackups：执行对应的业务逻辑。 */
 export function listBackups(): GmDatabaseBackupRecord[] {
   ensureBackupWorkspace();
   return (Object.keys(BACKUP_DIRECTORIES) as GmDatabaseBackupKind[])
@@ -90,12 +99,14 @@ export function listBackups(): GmDatabaseBackupRecord[] {
     .map(({ filePath: _filePath, ...record }) => record);
 }
 
+/** findBackupById：执行对应的业务逻辑。 */
 export function findBackupById(backupId: string): ResolvedBackupRecord | null {
   return (Object.keys(BACKUP_DIRECTORIES) as GmDatabaseBackupKind[])
     .flatMap((kind) => listBackupsForKind(kind))
     .find((entry) => entry.id === backupId) ?? null;
 }
 
+/** listBackupsForKind：执行对应的业务逻辑。 */
 export function listBackupsForKind(kind: GmDatabaseBackupKind): ResolvedBackupRecord[] {
   const directory = BACKUP_DIRECTORIES[kind];
   if (!fs.existsSync(directory)) {
@@ -121,26 +132,31 @@ export function listBackupsForKind(kind: GmDatabaseBackupKind): ResolvedBackupRe
     .sort((left, right) => right.id.localeCompare(left.id, 'zh-CN'));
 }
 
+/** readBackupWorkerState：执行对应的业务逻辑。 */
 export function readBackupWorkerState(): BackupWorkerStateFile {
   ensureBackupWorkspace();
   return readJsonFile<BackupWorkerStateFile>(BACKUP_WORKER_STATE_PATH) ?? {};
 }
 
+/** writeBackupWorkerState：执行对应的业务逻辑。 */
 export function writeBackupWorkerState(state: BackupWorkerStateFile): void {
   ensureBackupWorkspace();
   writeJsonFileAtomic(BACKUP_WORKER_STATE_PATH, state);
 }
 
+/** readBackupWorkerHeartbeat：执行对应的业务逻辑。 */
 export function readBackupWorkerHeartbeat(): BackupWorkerHeartbeatFile | null {
   ensureBackupWorkspace();
   return readJsonFile<BackupWorkerHeartbeatFile>(BACKUP_WORKER_HEARTBEAT_PATH);
 }
 
+/** writeBackupWorkerHeartbeat：执行对应的业务逻辑。 */
 export function writeBackupWorkerHeartbeat(heartbeat: BackupWorkerHeartbeatFile): void {
   ensureBackupWorkspace();
   writeJsonFileAtomic(BACKUP_WORKER_HEARTBEAT_PATH, heartbeat);
 }
 
+/** writeBackupManualRequest：执行对应的业务逻辑。 */
 export function writeBackupManualRequest(request: BackupManualRequestFile): string {
   ensureBackupWorkspace();
   const requestPath = path.join(BACKUP_MANUAL_REQUESTS_DIR, `${request.job.id}.json`);
@@ -148,11 +164,13 @@ export function writeBackupManualRequest(request: BackupManualRequestFile): stri
   return requestPath;
 }
 
+/** listBackupManualRequests：执行对应的业务逻辑。 */
 export function listBackupManualRequests(): Array<{ filePath: string; request: BackupManualRequestFile }> {
   ensureBackupWorkspace();
   return listJsonRequests<BackupManualRequestFile>(BACKUP_MANUAL_REQUESTS_DIR);
 }
 
+/** writeBackupRestoreRequest：执行对应的业务逻辑。 */
 export function writeBackupRestoreRequest(request: BackupRestoreRequestFile): string {
   ensureBackupWorkspace();
   const requestPath = path.join(BACKUP_RESTORE_REQUESTS_DIR, `${request.job.id}.json`);
@@ -160,11 +178,13 @@ export function writeBackupRestoreRequest(request: BackupRestoreRequestFile): st
   return requestPath;
 }
 
+/** listBackupRestoreRequests：执行对应的业务逻辑。 */
 export function listBackupRestoreRequests(): Array<{ filePath: string; request: BackupRestoreRequestFile }> {
   ensureBackupWorkspace();
   return listJsonRequests<BackupRestoreRequestFile>(BACKUP_RESTORE_REQUESTS_DIR);
 }
 
+/** parseBackupIdTimestamp：执行对应的业务逻辑。 */
 export function parseBackupIdTimestamp(backupId: string): string | null {
   const match = /^(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})-(\d{3})__/.exec(backupId);
   if (!match) {
@@ -186,6 +206,7 @@ export function parseBackupIdTimestamp(backupId: string): string | null {
   return timestamp.toISOString();
 }
 
+/** createTimestampId：执行对应的业务逻辑。 */
 export function createTimestampId(timestamp: number, suffix: string): string {
   const date = new Date(timestamp);
   const year = date.getFullYear();
@@ -198,6 +219,7 @@ export function createTimestampId(timestamp: number, suffix: string): string {
   return `${year}${month}${day}-${hour}${minute}${second}-${millisecond}__${suffix}`;
 }
 
+/** getBackupScheduleSlotId：执行对应的业务逻辑。 */
 export function getBackupScheduleSlotId(kind: 'hourly' | 'daily', timestamp = Date.now()): string {
   const date = new Date(timestamp);
   const year = date.getFullYear();
@@ -210,6 +232,7 @@ export function getBackupScheduleSlotId(kind: 'hourly' | 'daily', timestamp = Da
   return `${year}${month}${day}-${hour}`;
 }
 
+/** writeJsonFileAtomic：执行对应的业务逻辑。 */
 export function writeJsonFileAtomic(filePath: string, data: unknown): void {
   const directory = path.dirname(filePath);
   fs.mkdirSync(directory, { recursive: true });
@@ -218,6 +241,7 @@ export function writeJsonFileAtomic(filePath: string, data: unknown): void {
   fs.renameSync(temporaryPath, filePath);
 }
 
+/** readJsonFile：执行对应的业务逻辑。 */
 function readJsonFile<T>(filePath: string): T | null {
   if (!fs.existsSync(filePath)) {
     return null;
@@ -230,6 +254,7 @@ function readJsonFile<T>(filePath: string): T | null {
   }
 }
 
+/** listJsonRequests：执行对应的业务逻辑。 */
 function listJsonRequests<T>(directory: string): Array<{ filePath: string; request: T }> {
   if (!fs.existsSync(directory)) {
     return [];
@@ -246,3 +271,4 @@ function listJsonRequests<T>(directory: string): Array<{ filePath: string; reque
     })
     .filter((entry): entry is { filePath: string; request: T } => entry.request !== null);
 }
+

@@ -1,6 +1,7 @@
 import { TileType, type GmMapContainerRecord } from '@mud/shared';
 import resourceNodesJson from '../../../data/content/resource-nodes.json';
 
+/** RuntimeTileResourceNode：定义该类型的结构与数据语义。 */
 export type RuntimeTileResourceNode = {
   id: string;
   kind: 'runtime_tile';
@@ -11,6 +12,7 @@ export type RuntimeTileResourceNode = {
   baseChanceBps: number;
 };
 
+/** LandmarkMarkerResourceNode：定义该类型的结构与数据语义。 */
 export type LandmarkMarkerResourceNode = {
   id: string;
   kind: 'landmark_marker';
@@ -19,6 +21,7 @@ export type LandmarkMarkerResourceNode = {
   itemId: string;
 };
 
+/** LandmarkContainerResourceNode：定义该类型的结构与数据语义。 */
 export type LandmarkContainerResourceNode = {
   id: string;
   kind: 'landmark_container';
@@ -26,11 +29,13 @@ export type LandmarkContainerResourceNode = {
   container: GmMapContainerRecord;
 };
 
+/** ResourceNodeDefinition：定义该类型的结构与数据语义。 */
 export type ResourceNodeDefinition =
   | RuntimeTileResourceNode
   | LandmarkMarkerResourceNode
   | LandmarkContainerResourceNode;
 
+/** ResourceNodesJson：定义该类型的结构与数据语义。 */
 type ResourceNodesJson = {
   resourceNodes?: ResourceNodeDefinition[];
 };
@@ -55,3 +60,4 @@ export const LANDMARK_RESOURCE_NODE_BY_ID = new Map(
     ))
     .map((node) => [node.id, node] as const),
 );
+

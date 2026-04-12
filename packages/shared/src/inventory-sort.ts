@@ -11,6 +11,7 @@ const TECHNIQUE_GRADE_SORT_ORDER = TECHNIQUE_GRADE_ORDER.reduce<Record<Technique
   return accumulator;
 }, {} as Record<TechniqueGrade, number>);
 
+/** getGradeSortWeight：执行对应的业务逻辑。 */
 function getGradeSortWeight(grade: TechniqueGrade | undefined): number {
   if (!grade) {
     return -1;
@@ -18,6 +19,7 @@ function getGradeSortWeight(grade: TechniqueGrade | undefined): number {
   return TECHNIQUE_GRADE_SORT_ORDER[grade] ?? -1;
 }
 
+/** getItemLevelSortWeight：执行对应的业务逻辑。 */
 function getItemLevelSortWeight(level: number | undefined): number {
   if (!Number.isFinite(level)) {
     return -1;
@@ -67,3 +69,4 @@ export function compareInventoryItems(left: ItemStack, right: ItemStack): number
 
   return right.count - left.count;
 }
+

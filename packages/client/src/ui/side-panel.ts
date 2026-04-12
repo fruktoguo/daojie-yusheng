@@ -2,6 +2,7 @@
 import { DESKTOP_LAYOUT_DRAG_LIMITS } from '../constants/ui/responsive';
 import { getViewportScale, shouldUseMobileUi } from './responsive-viewport';
 
+/** MobilePaneId：定义该类型的结构与数据语义。 */
 type MobilePaneId =
   | 'mobile-overview'
   | 'mobile-attrs'
@@ -9,8 +10,10 @@ type MobilePaneId =
   | 'mobile-bag'
   | 'mobile-action';
 
+/** LayoutTarget：定义该类型的结构与数据语义。 */
 type LayoutTarget = 'left' | 'right' | 'bottom';
 
+/** SidePanelPersistedState：定义该类型的结构与数据语义。 */
 type SidePanelPersistedState = {
   version: 1;
   layoutState?: Partial<Record<`${LayoutTarget}Collapsed`, boolean>>;
@@ -20,6 +23,7 @@ type SidePanelPersistedState = {
 
 const SIDE_PANEL_STORAGE_KEY = 'mud:side-panel-state:v1';
 
+/** MobileSectionMount：定义该类型的结构与数据语义。 */
 type MobileSectionMount = {
   element: HTMLElement;
   paneId: MobilePaneId;
@@ -27,6 +31,7 @@ type MobileSectionMount = {
   originalNextSibling: ChildNode | null;
 };
 
+/** SidePanel：封装相关状态与行为。 */
 export class SidePanel {
   private static readonly DRAG_START_THRESHOLD_PX = 6;
   private panel: HTMLElement;
@@ -54,6 +59,7 @@ export class SidePanel {
     bottomCollapsed: false,
   };
 
+/** constructor：处理当前场景中的对应操作。 */
   constructor() {
     this.panel = document.getElementById('game-shell')!;
     this.mobileShell = document.getElementById('mobile-ui-shell');
@@ -206,6 +212,7 @@ export class SidePanel {
         this.onLayoutChange?.();
       });
 
+/** finishPointer：通过常量导出可复用函数行为。 */
       const finishPointer = (event: PointerEvent) => {
         if (!this.dragState || this.dragState.pointerId !== event.pointerId) {
           return;
@@ -240,6 +247,7 @@ export class SidePanel {
   }
 
   private bindResponsiveLayout(): void {
+/** refresh：通过常量导出可复用函数行为。 */
     const refresh = () => {
       this.syncResponsiveLayout();
     };
@@ -567,3 +575,4 @@ export class SidePanel {
     }
   }
 }
+

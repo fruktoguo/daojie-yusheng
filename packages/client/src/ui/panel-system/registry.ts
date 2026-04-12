@@ -1,5 +1,6 @@
 import { PanelDefinition, PanelId } from './types';
 
+/** PanelRegistry：封装相关状态与行为。 */
 export class PanelRegistry {
   private readonly definitions = new Map<PanelId, PanelDefinition>();
 
@@ -16,6 +17,7 @@ export class PanelRegistry {
   }
 }
 
+/** buildDefaultPanelRegistry：执行对应的业务逻辑。 */
 export function buildDefaultPanelRegistry(): PanelRegistry {
   const registry = new PanelRegistry();
   const definitions: PanelDefinition[] = [
@@ -207,3 +209,4 @@ export function buildDefaultPanelRegistry(): PanelRegistry {
 
   return registry;
 }
+

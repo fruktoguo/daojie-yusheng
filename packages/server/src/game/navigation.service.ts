@@ -38,11 +38,13 @@ import { findBoundedPath } from './pathfinding/pathfinding-core';
 import { PathRequestKind, PathfindingActorType } from './pathfinding/pathfinding.types';
 import { TimeService } from './time.service';
 
+/** PathStep：定义该接口的能力与字段约束。 */
 interface PathStep {
   x: number;
   y: number;
 }
 
+/** MoveTargetState：定义该接口的能力与字段约束。 */
 interface MoveTargetState {
   targetX: number;
   targetY: number;
@@ -57,6 +59,7 @@ interface MoveTargetState {
   requestKind: PathRequestKind;
 }
 
+/** SetMoveTargetOptions：定义该接口的能力与字段约束。 */
 interface SetMoveTargetOptions {
   allowNearestReachable?: boolean;
   clientPackedPath?: string;
@@ -66,11 +69,13 @@ interface SetMoveTargetOptions {
   forceReplan?: boolean;
 }
 
+/** MoveRequestQuotaState：定义该接口的能力与字段约束。 */
 interface MoveRequestQuotaState {
   tick: number;
   count: number;
 }
 
+/** MoveChargeState：定义该接口的能力与字段约束。 */
 interface MoveChargeState {
   intentKey: string;
   points: number;
@@ -84,25 +89,30 @@ export interface NavigationStepResult {
   error?: string;
 }
 
+/** NavigationGoalPoint：定义该接口的能力与字段约束。 */
 export interface NavigationGoalPoint {
   x: number;
   y: number;
 }
 
+/** NavigationActorType：定义该类型的结构与数据语义。 */
 type NavigationActorType = 'player' | 'monster';
 
+/** PathMoveAttemptResult：定义该接口的能力与字段约束。 */
 interface PathMoveAttemptResult {
   moved: boolean;
   blocked: boolean;
   points: number;
 }
 
+/** LocalAdjustmentResult：定义该接口的能力与字段约束。 */
 interface LocalAdjustmentResult {
   path: PathStep[];
   rejoinIndex: number;
 }
 
 @Injectable()
+/** NavigationService：封装相关状态与行为。 */
 export class NavigationService {
   private readonly moveTargets = new Map<string, MoveTargetState>();
   private readonly moveCharges = new Map<string, MoveChargeState>();
@@ -836,3 +846,4 @@ export class NavigationService {
     return nextVersion;
   }
 }
+

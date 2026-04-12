@@ -1,5 +1,6 @@
 import type { CameraState } from '../camera/camera-controller';
 
+/** TopdownProjection：封装相关状态与行为。 */
 export class TopdownProjection {
   worldToScreen(
     worldX: number,
@@ -27,3 +28,4 @@ export class TopdownProjection {
     };
   }
 }
+

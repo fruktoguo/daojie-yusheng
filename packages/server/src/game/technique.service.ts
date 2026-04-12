@@ -65,14 +65,18 @@ import {
   TECHNIQUE_SOURCE_PREFIX,
 } from '../constants/gameplay/technique';
 
+/** TechniqueDirtyFlag：定义该类型的结构与数据语义。 */
 type TechniqueDirtyFlag = 'inv' | 'tech' | 'attr' | 'actions';
+/** TechniqueMessageKind：定义该类型的结构与数据语义。 */
 type TechniqueMessageKind = 'system' | 'quest' | 'combat' | 'loot';
 
+/** TechniqueMessage：定义该接口的能力与字段约束。 */
 interface TechniqueMessage {
   text: string;
   kind?: TechniqueMessageKind;
 }
 
+/** CultivationResult：定义该接口的能力与字段约束。 */
 interface CultivationResult {
   error?: string;
   changed: boolean;
@@ -80,6 +84,7 @@ interface CultivationResult {
   messages: TechniqueMessage[];
 }
 
+/** TechniqueExpAdvanceResult：定义该接口的能力与字段约束。 */
 interface TechniqueExpAdvanceResult {
   changed: boolean;
   gained: number;
@@ -89,18 +94,21 @@ interface TechniqueExpAdvanceResult {
   messages: TechniqueMessage[];
 }
 
+/** BreakthroughResult：定义该接口的能力与字段约束。 */
 interface BreakthroughResult {
   error?: string;
   dirty: TechniqueDirtyFlag[];
   messages: TechniqueMessage[];
 }
 
+/** HeavenGateActionResult：定义该接口的能力与字段约束。 */
 interface HeavenGateActionResult {
   error?: string;
   dirty: TechniqueDirtyFlag[];
   messages: TechniqueMessage[];
 }
 
+/** ResolvedBreakthroughRequirement：定义该接口的能力与字段约束。 */
 interface ResolvedBreakthroughRequirement {
   def: BreakthroughRequirementDef;
   completed: boolean;
@@ -108,6 +116,7 @@ interface ResolvedBreakthroughRequirement {
   view: BreakthroughRequirementView;
 }
 
+/** MonsterKillExpInput：定义该接口的能力与字段约束。 */
 interface MonsterKillExpInput {
   monsterLevel?: number;
   monsterName?: string;
@@ -118,6 +127,7 @@ interface MonsterKillExpInput {
   expAdjustmentRealmLv?: number;
 }
 
+/** RealmExpAdvanceOptions：定义该接口的能力与字段约束。 */
 interface RealmExpAdvanceOptions {
   expBonus?: number;
   minimumGain?: number;
@@ -126,6 +136,7 @@ interface RealmExpAdvanceOptions {
   trackCombatExp?: boolean;
 }
 
+/** SpiritualRootSeedTier：定义该类型的结构与数据语义。 */
 type SpiritualRootSeedTier = 'heaven' | 'divine';
 
 const HEAVEN_GATE_REALM_LEVEL = 18;
@@ -189,6 +200,7 @@ const HEAVEN_GATE_DISTRIBUTION_SPREAD: Record<number, number> = {
   1: 0,
 };
 
+/** RealmExpAdvanceResult：定义该接口的能力与字段约束。 */
 interface RealmExpAdvanceResult {
   changed: boolean;
   gained: number;
@@ -209,6 +221,7 @@ const SPIRITUAL_ROOT_SEED_REROLL_EQUIVALENTS: Record<SpiritualRootSeedTier, numb
 };
 
 @Injectable()
+/** TechniqueService：封装相关状态与行为。 */
 export class TechniqueService {
   private readonly progressionInitialized = new WeakSet<PlayerState>();
 
@@ -2434,3 +2447,4 @@ export class TechniqueService {
     return `你成功突破，当前已踏入 ${nextName}。`;
   }
 }
+

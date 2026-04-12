@@ -15,6 +15,7 @@ import { AttrService } from './attr.service';
 import { TechniqueService } from './technique.service';
 
 @Injectable()
+/** ActionService：封装相关状态与行为。 */
 export class ActionService {
   constructor(
     private readonly techniqueService: TechniqueService,
@@ -163,3 +164,4 @@ export class ActionService {
     return true;
   }
 }
+

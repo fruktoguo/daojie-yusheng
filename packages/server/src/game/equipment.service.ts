@@ -14,6 +14,7 @@ import { EquipmentEffectService } from './equipment-effect.service';
 import { InventoryService } from './inventory.service';
 
 @Injectable()
+/** EquipmentService：封装相关状态与行为。 */
 export class EquipmentService {
   constructor(
     private readonly attrService: AttrService,
@@ -100,3 +101,4 @@ export class EquipmentService {
     this.attrService.recalcPlayer(player);
   }
 }
+

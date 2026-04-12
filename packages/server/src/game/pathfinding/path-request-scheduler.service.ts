@@ -17,6 +17,7 @@ import {
 } from './pathfinding.types';
 import { PerformanceService } from '../performance.service';
 
+/** PendingPathRequest：定义该接口的能力与字段约束。 */
 interface PendingPathRequest {
   requestId: string;
   actorId: string;
@@ -34,6 +35,7 @@ interface PendingPathRequest {
   limits: PathfindingSearchLimits;
 }
 
+/** EnqueuePathRequestInput：定义该接口的能力与字段约束。 */
 interface EnqueuePathRequestInput {
   actorId: string;
   actorType: PathfindingActorType;
@@ -49,6 +51,7 @@ interface EnqueuePathRequestInput {
 }
 
 @Injectable()
+/** PathRequestSchedulerService：封装相关状态与行为。 */
 export class PathRequestSchedulerService {
   private sequence = 1;
   private readonly pendingById = new Map<string, PendingPathRequest>();
@@ -240,3 +243,4 @@ export class PathRequestSchedulerService {
     this.performanceService.setPathfindingQueueDepth(this.pendingById.size);
   }
 }
+

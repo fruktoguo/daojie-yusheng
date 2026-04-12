@@ -41,18 +41,22 @@ import type {
 
 let latestObservedEntitiesSnapshot: readonly ObservedMapEntity[] = [];
 
+/** getLatestObservedEntitiesSnapshot：执行对应的业务逻辑。 */
 export function getLatestObservedEntitiesSnapshot(): readonly ObservedMapEntity[] {
   return latestObservedEntitiesSnapshot;
 }
 
+/** publishLatestObservedEntitiesSnapshot：执行对应的业务逻辑。 */
 function publishLatestObservedEntitiesSnapshot(entities: readonly ObservedMapEntity[]): void {
   latestObservedEntitiesSnapshot = entities;
 }
 
+/** cloneJson：执行对应的业务逻辑。 */
 function cloneJson<T>(value: T): T {
   return clonePlainValue(value);
 }
 
+/** applyNullablePatch：执行对应的业务逻辑。 */
 function applyNullablePatch<T>(value: T | null | undefined, fallback: T | undefined): T | undefined {
   if (value === null) {
     return undefined;
@@ -63,6 +67,7 @@ function applyNullablePatch<T>(value: T | null | undefined, fallback: T | undefi
   return fallback;
 }
 
+/** toObservedEntity：执行对应的业务逻辑。 */
 function toObservedEntity(entity: RenderEntity): ObservedMapEntity {
   return {
     id: entity.id,
@@ -86,6 +91,7 @@ function toObservedEntity(entity: RenderEntity): ObservedMapEntity {
   };
 }
 
+/** mergeObservedEntityPatch：执行对应的业务逻辑。 */
 function mergeObservedEntityPatch(patch: TickRenderEntity, previous?: ObservedMapEntity): ObservedMapEntity {
   return {
     id: patch.id,
@@ -109,10 +115,12 @@ function mergeObservedEntityPatch(patch: TickRenderEntity, previous?: ObservedMa
   };
 }
 
+/** buildThreatArrowKey：执行对应的业务逻辑。 */
 function buildThreatArrowKey(ownerId: string, targetId: string): string {
   return `${ownerId}->${targetId}`;
 }
 
+/** isSameMinimapSnapshot：执行对应的业务逻辑。 */
 function isSameMinimapSnapshot(left: MapMinimapSnapshot | null, right: MapMinimapSnapshot | null): boolean {
   if (!left || !right) {
     return left === right;
@@ -142,6 +150,7 @@ function isSameMinimapSnapshot(left: MapMinimapSnapshot | null, right: MapMinima
   return true;
 }
 
+/** shouldResetRememberedMap：执行对应的业务逻辑。 */
 function shouldResetRememberedMap(mapId: string, nextMeta: MapMeta | null | undefined, nextSnapshot: MapMinimapSnapshot | null | undefined): boolean {
   const cachedMeta = getCachedMapMeta(mapId);
   if (cachedMeta && nextMeta) {
@@ -162,6 +171,7 @@ function shouldResetRememberedMap(mapId: string, nextMeta: MapMeta | null | unde
   return false;
 }
 
+/** MapStore：封装相关状态与行为。 */
 export class MapStore {
   private mapMeta: MapMeta | null = null;
   private player: PlayerState | null = null;
@@ -204,6 +214,7 @@ export class MapStore {
         : null
     );
     if (data.minimap) {
+/** cacheMapSnapshot：处理当前场景中的对应操作。 */
       cacheMapSnapshot(this.player.mapId, data.minimap, { meta: data.mapMeta, unlocked: true });
     }
 
@@ -599,3 +610,7 @@ export class MapStore {
     }
   }
 }
+
+
+
+

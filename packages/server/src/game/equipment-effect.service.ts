@@ -28,40 +28,48 @@ import {
   RUNTIME_STATE_KEY,
 } from '../constants/gameplay/equipment';
 
+/** EquipmentDirtyFlag：定义该类型的结构与数据语义。 */
 type EquipmentDirtyFlag = 'attr';
+/** EquipmentEventTarget：定义该类型的结构与数据语义。 */
 type EquipmentEventTarget =
   | { kind: 'player'; player: PlayerState }
   | { kind: 'monster'; monster: { temporaryBuffs?: TemporaryBuffState[] } }
   | { kind: 'tile' };
 
+/** EquipmentEffectEvent：定义该接口的能力与字段约束。 */
 export interface EquipmentEffectEvent {
   trigger: EquipmentTrigger;
   target?: EquipmentEventTarget;
   targetKind?: 'monster' | 'player' | 'tile';
 }
 
+/** EquipmentEffectDispatchResult：定义该接口的能力与字段约束。 */
 export interface EquipmentEffectDispatchResult {
   dirty: EquipmentDirtyFlag[];
   dirtyPlayers?: string[];
 }
 
+/** EquippedEffectEntry：定义该接口的能力与字段约束。 */
 interface EquippedEffectEntry {
   slot: ItemStack['equipSlot'];
   item: ItemStack;
   effect: EquipmentEffectDef;
 }
 
+/** EquipmentEffectRuntimeState：定义该接口的能力与字段约束。 */
 interface EquipmentEffectRuntimeState {
   key: string;
   cooldownLeft: number;
 }
 
+/** PlayerRuntimeCarrier：定义该类型的结构与数据语义。 */
 type PlayerRuntimeCarrier = PlayerState & {
   [RUNTIME_STATE_KEY]?: EquipmentEffectRuntimeState[];
   [LAST_TIME_PHASE_KEY]?: TimePhaseId;
 };
 
 
+/** normalizeBuffShortMark：执行对应的业务逻辑。 */
 function normalizeBuffShortMark(raw: string | undefined, fallbackName: string): string {
   const trimmed = raw?.trim();
   if (trimmed) {
@@ -72,6 +80,7 @@ function normalizeBuffShortMark(raw: string | undefined, fallbackName: string): 
 }
 
 @Injectable()
+/** EquipmentEffectService：封装相关状态与行为。 */
 export class EquipmentEffectService {
   constructor(
     private readonly attrService: AttrService,
@@ -523,3 +532,4 @@ export class EquipmentEffectService {
     return `${EQUIP_DYNAMIC_SOURCE_PREFIX}${entry.slot}:${entry.item.itemId}:${entry.effect.effectId ?? 'effect'}`;
   }
 }
+

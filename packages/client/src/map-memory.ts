@@ -13,16 +13,24 @@ import {
   VisibleTilePatch,
 } from '@mud/shared';
 
+/** RememberedTile：定义该类型的结构与数据语义。 */
 type RememberedTile = Pick<Tile, 'type' | 'walkable' | 'blocksSight' | 'aura'>;
+/** RememberedMarker：定义该类型的结构与数据语义。 */
 type RememberedMarker = Pick<MapMinimapMarker, 'id' | 'kind' | 'x' | 'y' | 'label' | 'detail'>;
+/** SerializedMapTileMemory：定义该类型的结构与数据语义。 */
 type SerializedMapTileMemory = Record<string, RememberedTile>;
+/** SerializedMapMarkerMemory：定义该类型的结构与数据语义。 */
 type SerializedMapMarkerMemory = Record<string, RememberedMarker>;
+/** SerializedMapMemoryEntry：定义该类型的结构与数据语义。 */
 type SerializedMapMemoryEntry = {
   tiles?: SerializedMapTileMemory;
   markers?: SerializedMapMarkerMemory;
 };
+/** SerializedLegacyMapMemory：定义该类型的结构与数据语义。 */
 type SerializedLegacyMapMemory = Record<string, SerializedMapTileMemory>;
+/** SerializedMapMemory：定义该类型的结构与数据语义。 */
 type SerializedMapMemory = Record<string, SerializedMapMemoryEntry>;
+/** SerializedMapMemoryEnvelope：定义该类型的结构与数据语义。 */
 type SerializedMapMemoryEnvelope = {
   version: typeof MAP_MEMORY_FORMAT_VERSION;
   maps: SerializedMapMemory;
@@ -37,10 +45,12 @@ let persistDisabled = false;
 let persistTimer: number | null = null;
 let hasPendingPersist = false;
 
+/** isTileType：执行对应的业务逻辑。 */
 function isTileType(value: unknown): value is TileType {
   return typeof value === 'string' && Object.values(TileType).includes(value as TileType);
 }
 
+/** toRememberedTile：执行对应的业务逻辑。 */
 function toRememberedTile(tile: Pick<Tile, 'type' | 'walkable' | 'blocksSight' | 'aura'>): Tile {
   return {
     type: tile.type,
@@ -52,10 +62,12 @@ function toRememberedTile(tile: Pick<Tile, 'type' | 'walkable' | 'blocksSight' |
   };
 }
 
+/** cloneMarker：执行对应的业务逻辑。 */
 function cloneMarker(marker: MapMinimapMarker): MapMinimapMarker {
   return JSON.parse(JSON.stringify(marker)) as MapMinimapMarker;
 }
 
+/** isSerializedRememberedTile：执行对应的业务逻辑。 */
 function isSerializedRememberedTile(value: unknown): value is RememberedTile {
   if (!value || typeof value !== 'object') {
     return false;
@@ -67,6 +79,7 @@ function isSerializedRememberedTile(value: unknown): value is RememberedTile {
     && (typeof candidate.aura === 'number' || candidate.aura === undefined);
 }
 
+/** isSerializedRememberedMarker：执行对应的业务逻辑。 */
 function isSerializedRememberedMarker(value: unknown): value is RememberedMarker {
   if (!value || typeof value !== 'object') {
     return false;
@@ -80,6 +93,7 @@ function isSerializedRememberedMarker(value: unknown): value is RememberedMarker
     && (candidate.detail === undefined || typeof candidate.detail === 'string');
 }
 
+/** getStorage：执行对应的业务逻辑。 */
 function getStorage(): Storage | null {
   if (typeof window === 'undefined') {
     return null;
@@ -104,6 +118,7 @@ function getStorage(): Storage | null {
   }
 }
 
+/** getStoredEnvelope：执行对应的业务逻辑。 */
 function getStoredEnvelope(parsed: unknown): SerializedMapMemoryEnvelope | null {
   if (!parsed || typeof parsed !== 'object') {
     return null;
@@ -135,6 +150,7 @@ function getStoredEnvelope(parsed: unknown): SerializedMapMemoryEnvelope | null 
   return null;
 }
 
+/** importRememberedMaps：执行对应的业务逻辑。 */
 function importRememberedMaps(serialized: SerializedMapMemory): boolean {
   let hasValidMemory = false;
 
@@ -171,6 +187,7 @@ function importRememberedMaps(serialized: SerializedMapMemory): boolean {
   return hasValidMemory;
 }
 
+/** buildSerializedMapMemory：执行对应的业务逻辑。 */
 function buildSerializedMapMemory(): SerializedMapMemoryEnvelope {
   const maps: SerializedMapMemory = {};
   const mapIds = new Set<string>([
@@ -219,6 +236,7 @@ function buildSerializedMapMemory(): SerializedMapMemoryEnvelope {
   };
 }
 
+/** disablePersistence：执行对应的业务逻辑。 */
 function disablePersistence(reason: string, error?: unknown): void {
   persistDisabled = true;
   hasPendingPersist = false;
@@ -229,6 +247,7 @@ function disablePersistence(reason: string, error?: unknown): void {
   console.warn(`[map-memory] ${reason}`, error);
 }
 
+/** flushPersistMemory：执行对应的业务逻辑。 */
 function flushPersistMemory(): void {
   persistTimer = null;
   if (!hasPendingPersist || persistDisabled) {
@@ -261,6 +280,7 @@ function flushPersistMemory(): void {
   }
 }
 
+/** flushPersistMemoryNow：执行对应的业务逻辑。 */
 function flushPersistMemoryNow(): void {
   if (persistTimer !== null && typeof window !== 'undefined') {
     window.clearTimeout(persistTimer);
@@ -269,6 +289,7 @@ function flushPersistMemoryNow(): void {
   flushPersistMemory();
 }
 
+/** ensurePersistenceLifecycle：执行对应的业务逻辑。 */
 function ensurePersistenceLifecycle(): void {
   if (didBindPersistenceLifecycle || typeof window === 'undefined') {
     return;
@@ -283,6 +304,7 @@ function ensurePersistenceLifecycle(): void {
   });
 }
 
+/** schedulePersistMemory：执行对应的业务逻辑。 */
 function schedulePersistMemory(): void {
   if (persistDisabled) {
     return;
@@ -299,6 +321,7 @@ function schedulePersistMemory(): void {
   }, MAP_MEMORY_PERSIST_DEBOUNCE_MS);
 }
 
+/** ensureMemoryLoaded：执行对应的业务逻辑。 */
 function ensureMemoryLoaded(): void {
   if (didLoadMemory) {
     return;
@@ -338,10 +361,12 @@ function ensureMemoryLoaded(): void {
   }
 }
 
+/** persistMemory：执行对应的业务逻辑。 */
 function persistMemory(): void {
   schedulePersistMemory();
 }
 
+/** getRememberedTileMap：执行对应的业务逻辑。 */
 function getRememberedTileMap(mapId: string): Map<string, Tile> {
   ensureMemoryLoaded();
   let remembered = rememberedTilesByMap.get(mapId);
@@ -352,6 +377,7 @@ function getRememberedTileMap(mapId: string): Map<string, Tile> {
   return remembered;
 }
 
+/** getRememberedMarkerMap：执行对应的业务逻辑。 */
 function getRememberedMarkerMap(mapId: string): Map<string, MapMinimapMarker> {
   ensureMemoryLoaded();
   let remembered = rememberedMarkersByMap.get(mapId);
@@ -362,6 +388,7 @@ function getRememberedMarkerMap(mapId: string): Map<string, MapMinimapMarker> {
   return remembered;
 }
 
+/** areMarkersEqual：执行对应的业务逻辑。 */
 function areMarkersEqual(left: MapMinimapMarker | undefined, right: MapMinimapMarker): boolean {
   return !!left
     && left.kind === right.kind
@@ -511,3 +538,4 @@ export function deleteRememberedMap(mapId: string): void {
     persistMemory();
   }
 }
+

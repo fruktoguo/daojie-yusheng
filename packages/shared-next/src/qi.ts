@@ -12,17 +12,23 @@ import {
 import { getAuraLevel } from './aura';
 import { DEFAULT_AURA_LEVEL_BASE_VALUE } from './constants/gameplay/aura';
 
+/** QiFamilyKey：定义该类型的结构与数据语义。 */
 export type QiFamilyKey = typeof QI_FAMILY_KEYS[number];
+/** QiFormKey：定义该类型的结构与数据语义。 */
 export type QiFormKey = typeof QI_FORM_KEYS[number];
+/** QiElementKey：定义该类型的结构与数据语义。 */
 export type QiElementKey = typeof QI_ELEMENT_KEYS[number];
+/** QiVisibilityLevel：定义该类型的结构与数据语义。 */
 export type QiVisibilityLevel = typeof QI_VISIBILITY_LEVELS[number];
 
+/** QiResourceDescriptor：定义该接口的能力与字段约束。 */
 export interface QiResourceDescriptor {
   family: QiFamilyKey;
   form: QiFormKey;
   element: QiElementKey;
 }
 
+/** QiProjectionSelector：定义该接口的能力与字段约束。 */
 export interface QiProjectionSelector {
   resourceKeys?: string[];
   families?: QiFamilyKey[];
@@ -30,24 +36,28 @@ export interface QiProjectionSelector {
   elements?: QiElementKey[];
 }
 
+/** QiProjectionModifier：定义该接口的能力与字段约束。 */
 export interface QiProjectionModifier {
   selector?: QiProjectionSelector;
   visibility?: Exclude<QiVisibilityLevel, 'hidden'>;
   efficiencyBpMultiplier?: number;
 }
 
+/** CompiledQiResourceProjection：定义该接口的能力与字段约束。 */
 export interface CompiledQiResourceProjection {
   visibility: QiVisibilityLevel;
   efficiencyBp: number;
   descriptor: QiResourceDescriptor;
 }
 
+/** CompiledQiProjectionProfile：定义该接口的能力与字段约束。 */
 export interface CompiledQiProjectionProfile {
   revision: number;
   resourceProfiles: Record<string, CompiledQiResourceProjection>;
   familyVisibility: Partial<Record<QiFamilyKey, QiVisibilityLevel>>;
 }
 
+/** QiRuntimeFlowConfig：定义该接口的能力与字段约束。 */
 export interface QiRuntimeFlowConfig {
   halfLifeRateScale: number;
   halfLifeRateScaled: number;
@@ -92,10 +102,12 @@ export const DEFAULT_QI_RUNTIME_FLOW_CONFIGS: Partial<Record<string, QiRuntimeFl
   },
 };
 
+/** buildQiResourceKey：执行对应的业务逻辑。 */
 export function buildQiResourceKey(descriptor: QiResourceDescriptor): string {
   return `${descriptor.family}.${descriptor.form}.${descriptor.element}`;
 }
 
+/** parseQiResourceKey：执行对应的业务逻辑。 */
 export function parseQiResourceKey(resourceKey: string): QiResourceDescriptor | null {
   const [family, form, element] = resourceKey.split('.');
   if (!QI_FAMILY_KEYS.includes(family as QiFamilyKey)) {
@@ -114,14 +126,17 @@ export function parseQiResourceKey(resourceKey: string): QiResourceDescriptor | 
   };
 }
 
+/** isQiFamilyResource：执行对应的业务逻辑。 */
 export function isQiFamilyResource(resourceKey: string, family: QiFamilyKey): boolean {
   return parseQiResourceKey(resourceKey)?.family === family;
 }
 
+/** isAuraQiResourceKey：执行对应的业务逻辑。 */
 export function isAuraQiResourceKey(resourceKey: string): boolean {
   return isQiFamilyResource(resourceKey, 'aura');
 }
 
+/** normalizeQiEfficiencyBp：执行对应的业务逻辑。 */
 export function normalizeQiEfficiencyBp(value: unknown, fallback = DEFAULT_QI_EFFICIENCY_BP): number {
   if (!Number.isFinite(value)) {
     return fallback;
@@ -129,14 +144,17 @@ export function normalizeQiEfficiencyBp(value: unknown, fallback = DEFAULT_QI_EF
   return Math.max(0, Math.round(Number(value)));
 }
 
+/** getQiVisibilityRank：执行对应的业务逻辑。 */
 export function getQiVisibilityRank(visibility: QiVisibilityLevel): number {
   return QI_VISIBILITY_LEVELS.indexOf(visibility);
 }
 
+/** maxQiVisibility：执行对应的业务逻辑。 */
 export function maxQiVisibility(left: QiVisibilityLevel, right: QiVisibilityLevel): QiVisibilityLevel {
   return getQiVisibilityRank(left) >= getQiVisibilityRank(right) ? left : right;
 }
 
+/** matchesQiProjectionSelector：执行对应的业务逻辑。 */
 export function matchesQiProjectionSelector(
   descriptor: QiResourceDescriptor,
   resourceKey: string,
@@ -160,12 +178,14 @@ export function matchesQiProjectionSelector(
   return true;
 }
 
+/** applyQiEfficiencyBp：执行对应的业务逻辑。 */
 export function applyQiEfficiencyBp(baseBp: number, multiplierBp: number): number {
   const normalizedBase = normalizeQiEfficiencyBp(baseBp);
   const normalizedMultiplier = normalizeQiEfficiencyBp(multiplierBp);
   return Math.max(0, Math.round((normalizedBase * normalizedMultiplier) / QI_PROJECTION_BP_SCALE));
 }
 
+/** projectQiValue：执行对应的业务逻辑。 */
 export function projectQiValue(rawValue: number, efficiencyBp: number): number {
   if (!Number.isFinite(rawValue) || rawValue <= 0) {
     return 0;
@@ -173,6 +193,8 @@ export function projectQiValue(rawValue: number, efficiencyBp: number): number {
   return Math.max(0, Math.round((Math.round(rawValue) * normalizeQiEfficiencyBp(efficiencyBp)) / QI_PROJECTION_BP_SCALE));
 }
 
+/** getProjectedAuraLevel：执行对应的业务逻辑。 */
 export function getProjectedAuraLevel(auraValue: number, efficiencyBp = DEFAULT_QI_EFFICIENCY_BP, baseValue = DEFAULT_AURA_LEVEL_BASE_VALUE): number {
   return getAuraLevel(projectQiValue(auraValue, efficiencyBp), baseValue);
 }
+

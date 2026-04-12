@@ -15,6 +15,7 @@ import {
 import { getElementKeyLabel, getTechniqueCategoryLabel, getTechniqueGradeLabel } from '../domain-labels';
 import { formatDisplayInteger } from '../utils/number';
 
+/** ItemAffinityBadge：定义该接口的能力与字段约束。 */
 export interface ItemAffinityBadge {
   label: string;
   title: string;
@@ -22,6 +23,7 @@ export interface ItemAffinityBadge {
   element: ElementKey | 'multi' | 'neutral';
 }
 
+/** ItemDisplayMeta：定义该接口的能力与字段约束。 */
 export interface ItemDisplayMeta {
   displayItem: ItemStack;
   grade: TechniqueGrade | null;
@@ -30,12 +32,14 @@ export interface ItemDisplayMeta {
   affinityBadge: ItemAffinityBadge | null;
 }
 
+/** appendUnique：执行对应的业务逻辑。 */
 function appendUnique<T>(list: T[], value: T): void {
   if (!list.includes(value)) {
     list.push(value);
   }
 }
 
+/** resolveTechniqueDamageProfile：执行对应的业务逻辑。 */
 function resolveTechniqueDamageProfile(skills: SkillDef[]): {
   kinds: SkillDamageKind[];
   elements: ElementKey[];
@@ -47,6 +51,7 @@ function resolveTechniqueDamageProfile(skills: SkillDef[]): {
       if (effect.type !== 'damage') {
         continue;
       }
+/** appendUnique：处理当前场景中的对应操作。 */
       appendUnique(kinds, effect.damageKind === 'physical' ? 'physical' : 'spell');
       if (effect.element) {
         appendUnique(elements, effect.element);
@@ -56,6 +61,7 @@ function resolveTechniqueDamageProfile(skills: SkillDef[]): {
   return { kinds, elements };
 }
 
+/** formatAffinityLabel：执行对应的业务逻辑。 */
 function formatAffinityLabel(
   kind: ItemAffinityBadge['tone'],
   element: ItemAffinityBadge['element'],
@@ -91,6 +97,7 @@ function formatAffinityLabel(
   };
 }
 
+/** getTechniqueBookTemplate：执行对应的业务逻辑。 */
 function getTechniqueBookTemplate(item: ItemStack) {
   if (item.type !== 'skill_book') {
     return null;
@@ -102,6 +109,7 @@ function getTechniqueBookTemplate(item: ItemStack) {
   return getLocalTechniqueTemplate(techniqueId);
 }
 
+/** getItemDisplayMeta：执行对应的业务逻辑。 */
 export function getItemDisplayMeta(item: ItemStack): ItemDisplayMeta {
   const displayItem = resolvePreviewItem(item);
   const techniqueTemplate = getTechniqueBookTemplate(displayItem);
@@ -122,20 +130,24 @@ export function getItemDisplayMeta(item: ItemStack): ItemDisplayMeta {
   };
 }
 
+/** getItemDecorGrade：执行对应的业务逻辑。 */
 export function getItemDecorGrade(item: ItemStack): TechniqueGrade | null {
   return getItemDisplayMeta(item).grade;
 }
 
+/** getItemDecorClassName：执行对应的业务逻辑。 */
 export function getItemDecorClassName(baseClassName: string, item: ItemStack): string {
   const grade = getItemDisplayMeta(item).grade;
   return `${baseClassName}${grade ? ` inventory-cell--grade inventory-cell--grade-${grade}` : ''}`;
 }
 
+/** getItemAffixTypeLabel：执行对应的业务逻辑。 */
 export function getItemAffixTypeLabel(item: ItemStack, typeLabel: string): string {
   const meta = getItemDisplayMeta(item);
   return meta.gradeLabel ? `${typeLabel} · ${meta.gradeLabel}` : typeLabel;
 }
 
+/** getItemAffinityBadge：执行对应的业务逻辑。 */
 export function getItemAffinityBadge(item: ItemStack): ItemAffinityBadge | null {
   const technique = getTechniqueBookTemplate(item);
   if (!technique) {
@@ -162,3 +174,7 @@ export function getItemAffinityBadge(item: ItemStack): ItemAffinityBadge | null 
     element,
   };
 }
+
+
+
+

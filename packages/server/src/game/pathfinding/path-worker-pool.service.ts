@@ -8,6 +8,7 @@ import { PATHFINDING_WORKER_COUNT } from '../../constants/gameplay/pathfinding';
 import { PerformanceService } from '../performance.service';
 import { PathfindingTask, PathfindingTaskResult } from './pathfinding.types';
 
+/** WorkerSlot：定义该接口的能力与字段约束。 */
 interface WorkerSlot {
   id: number;
   worker: Worker;
@@ -15,6 +16,7 @@ interface WorkerSlot {
 }
 
 @Injectable()
+/** PathWorkerPoolService：封装相关状态与行为。 */
 export class PathWorkerPoolService implements OnModuleDestroy {
   private readonly logger = new Logger(PathWorkerPoolService.name);
   private readonly workerPath = path.join(__dirname, 'workers', 'pathfinding.worker.js');
@@ -165,3 +167,4 @@ export class PathWorkerPoolService implements OnModuleDestroy {
     );
   }
 }
+

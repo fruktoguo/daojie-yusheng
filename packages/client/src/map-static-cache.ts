@@ -4,22 +4,26 @@
 
 import { MAP_STATIC_CACHE_STORAGE_KEY, MapMeta, MapMinimapArchiveEntry, MapMinimapSnapshot } from '@mud/shared';
 
+/** CachedMapMeta：定义该类型的结构与数据语义。 */
 type CachedMapMeta = Pick<
   MapMeta,
   'id' | 'name' | 'width' | 'height' | 'dangerLevel' | 'recommendedRealm' | 'floorLevel' | 'floorName' | 'description' | 'playerOverlapPoints'
 >;
 
+/** CachedMapEntry：定义该接口的能力与字段约束。 */
 interface CachedMapEntry {
   meta?: CachedMapMeta;
   snapshot?: MapMinimapSnapshot;
   unlocked?: boolean;
 }
 
+/** SerializedStaticCache：定义该类型的结构与数据语义。 */
 type SerializedStaticCache = Record<string, CachedMapEntry | MapMinimapSnapshot>;
 
 let loaded = false;
 const cachedEntries = new Map<string, CachedMapEntry>();
 
+/** getStorage：执行对应的业务逻辑。 */
 function getStorage(): Storage | null {
   if (typeof window === 'undefined') {
     return null;
@@ -31,6 +35,7 @@ function getStorage(): Storage | null {
   }
 }
 
+/** isSnapshot：执行对应的业务逻辑。 */
 function isSnapshot(value: unknown): value is MapMinimapSnapshot {
   if (!value || typeof value !== 'object') {
     return false;
@@ -70,6 +75,7 @@ function isSnapshot(value: unknown): value is MapMinimapSnapshot {
     });
 }
 
+/** isCachedMapMeta：执行对应的业务逻辑。 */
 function isCachedMapMeta(value: unknown): value is CachedMapMeta {
   if (!value || typeof value !== 'object') {
     return false;
@@ -93,14 +99,17 @@ function isCachedMapMeta(value: unknown): value is CachedMapMeta {
     );
 }
 
+/** cloneSnapshot：执行对应的业务逻辑。 */
 function cloneSnapshot(snapshot: MapMinimapSnapshot): MapMinimapSnapshot {
   return JSON.parse(JSON.stringify(snapshot)) as MapMinimapSnapshot;
 }
 
+/** cloneMeta：执行对应的业务逻辑。 */
 function cloneMeta(meta: CachedMapMeta): MapMeta {
   return JSON.parse(JSON.stringify(meta)) as MapMeta;
 }
 
+/** toCachedMeta：执行对应的业务逻辑。 */
 function toCachedMeta(meta: MapMeta): CachedMapMeta {
   return {
     id: meta.id,
@@ -116,6 +125,7 @@ function toCachedMeta(meta: MapMeta): CachedMapMeta {
   };
 }
 
+/** normalizeEntry：执行对应的业务逻辑。 */
 function normalizeEntry(value: unknown): CachedMapEntry | null {
   if (isSnapshot(value)) {
     return {
@@ -143,6 +153,7 @@ function normalizeEntry(value: unknown): CachedMapEntry | null {
   return normalized;
 }
 
+/** ensureLoaded：执行对应的业务逻辑。 */
 function ensureLoaded(): void {
   if (loaded) {
     return;
@@ -176,6 +187,7 @@ function ensureLoaded(): void {
   }
 }
 
+/** persist：执行对应的业务逻辑。 */
 function persist(): void {
   const storage = getStorage();
   if (!storage) {
@@ -198,6 +210,7 @@ function persist(): void {
   }
 }
 
+/** getOrCreateEntry：执行对应的业务逻辑。 */
 function getOrCreateEntry(mapId: string): CachedMapEntry {
   ensureLoaded();
   const existing = cachedEntries.get(mapId);
@@ -301,3 +314,4 @@ export function listCachedUnlockedMapSummaries(): Array<{ mapId: string; mapMeta
   });
   return result;
 }
+

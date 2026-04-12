@@ -1,18 +1,21 @@
 import { preloadItemSourceCatalog } from './item-sources';
 import { preloadMonsterLocationCatalog } from './monster-locations';
 
+/** IdleWindow：定义该类型的结构与数据语义。 */
 type IdleWindow = Window & {
   requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
 };
 
 let preloadScheduled = false;
 
+/** scheduleDeferredLocalContentPreload：执行对应的业务逻辑。 */
 export function scheduleDeferredLocalContentPreload(): void {
   if (preloadScheduled) {
     return;
   }
   preloadScheduled = true;
 
+/** triggerPreload：通过常量导出可复用函数行为。 */
   const triggerPreload = () => {
     void preloadItemSourceCatalog();
     void preloadMonsterLocationCatalog();
@@ -26,3 +29,4 @@ export function scheduleDeferredLocalContentPreload(): void {
 
   window.setTimeout(triggerPreload, 300);
 }
+

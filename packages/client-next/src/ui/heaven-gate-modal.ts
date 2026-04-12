@@ -17,10 +17,12 @@ const HEAVEN_GATE_MIN_REALM_LEVEL = 18;
 const ELEMENTS: readonly ElementKey[] = ['metal', 'wood', 'water', 'fire', 'earth'];
 const HEAVEN_GATE_SEVER_COST_PERCENT = Math.round(HEAVEN_GATE_SEVER_COST_RATIO * 100);
 
+/** PendingAction：定义该类型的结构与数据语义。 */
 type PendingAction =
   | { kind: 'sever' | 'restore'; element: ElementKey }
   | { kind: 'open' | 'reroll' | 'enter' };
 
+/** HeavenGateSession：定义该接口的能力与字段约束。 */
 interface HeavenGateSession {
   realmName: string;
   currentExp: number;
@@ -31,6 +33,7 @@ interface HeavenGateSession {
   entered: boolean;
 }
 
+/** HeavenGateModalOptions：定义该接口的能力与字段约束。 */
 interface HeavenGateModalOptions {
   showToast: (message: string, kind?: 'system' | 'chat' | 'quest' | 'combat' | 'loot' | 'grudge') => void;
   sendAction: (action: 'sever' | 'restore' | 'open' | 'reroll' | 'enter', element?: ElementKey) => void;
@@ -43,6 +46,7 @@ let animationToken = 0;
 let lastAnimatedRootsKey: string | null = null;
 let lastRenderedSessionKey: string | null = null;
 
+/** escapeHtml：执行对应的业务逻辑。 */
 function escapeHtml(input: string): string {
   return input
     .replaceAll('&', '&amp;')
@@ -52,10 +56,12 @@ function escapeHtml(input: string): string {
     .replaceAll("'", '&#39;');
 }
 
+/** cloneRoots：执行对应的业务逻辑。 */
 function cloneRoots(roots: HeavenGateRootValues | null | undefined): HeavenGateRootValues | null {
   return normalizeSpiritualRoots(roots);
 }
 
+/** getHeavenGateState：执行对应的业务逻辑。 */
 function getHeavenGateState(player: PlayerState | null | undefined): HeavenGateState | null {
   const realm = player?.realm;
   if (!realm || realm.realmLv < HEAVEN_GATE_MIN_REALM_LEVEL) {
@@ -64,6 +70,7 @@ function getHeavenGateState(player: PlayerState | null | undefined): HeavenGateS
   return realm.heavenGate ?? player?.heavenGate ?? null;
 }
 
+/** buildSession：执行对应的业务逻辑。 */
 function buildSession(player: PlayerState): HeavenGateSession | null {
   const realm = player.realm;
   const heavenGate = getHeavenGateState(player);
@@ -84,14 +91,17 @@ function buildSession(player: PlayerState): HeavenGateSession | null {
   };
 }
 
+/** getSeverCost：执行对应的业务逻辑。 */
 function getSeverCost(session: HeavenGateSession): number {
   return Math.max(1, Math.round(session.maxExp * HEAVEN_GATE_SEVER_COST_RATIO));
 }
 
+/** getRerollCost：执行对应的业务逻辑。 */
 function getRerollCost(session: HeavenGateSession): number {
   return Math.max(1, Math.round(session.maxExp * HEAVEN_GATE_REROLL_COST_RATIO));
 }
 
+/** createPlaceholderRoots：执行对应的业务逻辑。 */
 function createPlaceholderRoots(session: HeavenGateSession): HeavenGateRootValues {
   return ELEMENTS.reduce((result, element) => {
     result[element] = session.severed.has(element) ? 0 : 1;
@@ -99,10 +109,12 @@ function createPlaceholderRoots(session: HeavenGateSession): HeavenGateRootValue
   }, {} as HeavenGateRootValues);
 }
 
+/** getRootsKey：执行对应的业务逻辑。 */
 function getRootsKey(roots: HeavenGateRootValues | null): string | null {
   return roots ? JSON.stringify(roots) : null;
 }
 
+/** getSessionRenderKey：执行对应的业务逻辑。 */
 function getSessionRenderKey(session: HeavenGateSession): string {
   return JSON.stringify({
     realmName: session.realmName,
@@ -114,10 +126,12 @@ function getSessionRenderKey(session: HeavenGateSession): string {
   });
 }
 
+/** describeRoots：执行对应的业务逻辑。 */
 function describeRoots(roots: HeavenGateRootValues): { name: string; meta: string; desc: string } {
   return describeSpiritualRoots(roots);
 }
 
+/** getLineValueStyle：执行对应的业务逻辑。 */
 function getLineValueStyle(element: ElementKey): string {
   switch (element) {
     case 'metal':
@@ -133,6 +147,7 @@ function getLineValueStyle(element: ElementKey): string {
   }
 }
 
+/** renderBoard：执行对应的业务逻辑。 */
 function renderBoard(session: HeavenGateSession): string {
   const displayRoots = session.roots ?? createPlaceholderRoots(session);
   return `
@@ -200,6 +215,7 @@ function renderBoard(session: HeavenGateSession): string {
   `;
 }
 
+/** renderBoardActions：执行对应的业务逻辑。 */
 function renderBoardActions(session: HeavenGateSession): string {
   return `
     <div class="heaven-gate-board-actions ${session.roots ? '' : 'hidden'}">
@@ -208,6 +224,7 @@ function renderBoardActions(session: HeavenGateSession): string {
   `;
 }
 
+/** renderPendingPopup：执行对应的业务逻辑。 */
 function renderPendingPopup(session: HeavenGateSession): string {
   if (!pendingAction) {
     return '';
@@ -273,6 +290,7 @@ function renderPendingPopup(session: HeavenGateSession): string {
   `;
 }
 
+/** stopValueAnimation：执行对应的业务逻辑。 */
 function stopValueAnimation(): void {
   if (animationFrame) {
     cancelAnimationFrame(animationFrame);
@@ -281,6 +299,7 @@ function stopValueAnimation(): void {
   animationToken += 1;
 }
 
+/** animateValues：执行对应的业务逻辑。 */
 function animateValues(body: HTMLElement, session: HeavenGateSession, rootsKey: string): void {
   if (!session.roots) {
     return;
@@ -301,6 +320,7 @@ function animateValues(body: HTMLElement, session: HeavenGateSession, rootsKey: 
   });
   const startedAt = performance.now();
   const duration = 1080;
+/** tick：通过常量导出可复用函数行为。 */
   const tick = (now: number) => {
     if (token !== animationToken) {
       return;
@@ -327,12 +347,14 @@ function animateValues(body: HTMLElement, session: HeavenGateSession, rootsKey: 
   animationFrame = requestAnimationFrame(tick);
 }
 
+/** bindCursor：执行对应的业务逻辑。 */
 function bindCursor(body: HTMLElement): void {
   const board = body.querySelector<HTMLElement>('[data-heaven-gate-board]');
   const cursor = body.querySelector<HTMLElement>('[data-heaven-gate-cursor]');
   if (!board || !cursor) {
     return;
   }
+/** syncCursor：通过常量导出可复用函数行为。 */
   const syncCursor = (event: MouseEvent, label: string) => {
     const point = clientToViewportPoint(window, event.clientX, event.clientY);
     cursor.classList.remove('hidden');
@@ -341,6 +363,7 @@ function bindCursor(body: HTMLElement): void {
     cursor.style.top = `${point.y}px`;
     document.body.classList.add('heaven-gate-brush-cursor');
   };
+/** hideCursor：通过常量导出可复用函数行为。 */
   const hideCursor = () => {
     cursor.classList.add('hidden');
     document.body.classList.remove('heaven-gate-brush-cursor');
@@ -354,10 +377,12 @@ function bindCursor(body: HTMLElement): void {
   cursorCleanup = hideCursor;
 }
 
+/** clearPendingAction：执行对应的业务逻辑。 */
 function clearPendingAction(): void {
   pendingAction = null;
 }
 
+/** renderHeavenGateModal：执行对应的业务逻辑。 */
 function renderHeavenGateModal(player: PlayerState, session: HeavenGateSession, options: HeavenGateModalOptions): void {
   cursorCleanup?.();
   cursorCleanup = null;
@@ -457,6 +482,7 @@ function renderHeavenGateModal(player: PlayerState, session: HeavenGateSession, 
   });
 }
 
+/** refreshHeavenGateModal：执行对应的业务逻辑。 */
 export function refreshHeavenGateModal(player: PlayerState | null | undefined, options: HeavenGateModalOptions): void {
   if (!detailModalHost.isOpenFor(HEAVEN_GATE_OWNER)) {
     return;
@@ -477,6 +503,7 @@ export function refreshHeavenGateModal(player: PlayerState | null | undefined, o
   renderHeavenGateModal(player, session, options);
 }
 
+/** getHeavenGateHudAction：执行对应的业务逻辑。 */
 export function getHeavenGateHudAction(player: PlayerState | null | undefined): { visible: boolean; label: string } | null {
   const session = player ? buildSession(player) : null;
   if (!session?.unlocked) {
@@ -488,6 +515,7 @@ export function getHeavenGateHudAction(player: PlayerState | null | undefined): 
   };
 }
 
+/** openHeavenGateModal：执行对应的业务逻辑。 */
 export function openHeavenGateModal(player: PlayerState | null | undefined, options: HeavenGateModalOptions): boolean {
   if (!player) {
     options.showToast('当前未获取到角色状态。');
@@ -501,3 +529,4 @@ export function openHeavenGateModal(player: PlayerState | null | undefined, opti
   renderHeavenGateModal(player, session, options);
   return true;
 }
+

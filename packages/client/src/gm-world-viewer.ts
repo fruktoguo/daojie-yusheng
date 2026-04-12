@@ -22,13 +22,17 @@ import { Camera } from './renderer/camera';
 import { getCellSize, setZoom, updateDisplayMetrics } from './display';
 import { GM_WORLD_VIEW_MAX } from './constants/world/gm-world-viewer';
 
+/** RequestFn：定义该类型的结构与数据语义。 */
 type RequestFn = <T>(path: string, init?: RequestInit) => Promise<T>;
+/** StatusFn：定义该类型的结构与数据语义。 */
 type StatusFn = (message: string, isError?: boolean) => void;
 
+/** escapeHtml：执行对应的业务逻辑。 */
 function escapeHtml(s: string): string {
   return s.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
 }
 
+/** formatClockFromTicks：执行对应的业务逻辑。 */
 function formatClockFromTicks(localTicks: number, dayLength: number): string {
   const safeDayLength = Math.max(1, dayLength);
   const normalizedTicks = ((localTicks % safeDayLength) + safeDayLength) % safeDayLength;
@@ -38,10 +42,12 @@ function formatClockFromTicks(localTicks: number, dayLength: number): string {
   return `${hours}:${minutes}`;
 }
 
+/** formatDebugNumber：执行对应的业务逻辑。 */
 function formatDebugNumber(value: number, digits = 2): string {
   return Number.isFinite(value) ? value.toFixed(digits) : '-';
 }
 
+/** createViewerId：执行对应的业务逻辑。 */
 function createViewerId(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID();
@@ -49,6 +55,7 @@ function createViewerId(): string {
   return `gm-viewer-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+/** GmWorldViewer：封装相关状态与行为。 */
 export class GmWorldViewer {
   private canvas: HTMLCanvasElement;
   private mapListEl: HTMLElement;
@@ -165,6 +172,7 @@ export class GmWorldViewer {
   private startRaf(): void {
     if (this.rafId !== null) return;
     let lastTime = performance.now();
+/** loop：通过常量导出可复用函数行为。 */
     const loop = (now: number) => {
       const dt = (now - lastTime) / 1000;
       lastTime = now;
@@ -747,3 +755,4 @@ export class GmWorldViewer {
     this.infoEl.innerHTML = html;
   }
 }
+

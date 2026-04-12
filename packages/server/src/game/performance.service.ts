@@ -6,24 +6,28 @@ import * as os from 'os';
 import { GmNetworkBucket, GmPerformanceSnapshot } from '@mud/shared';
 import { PathfindingTaskResult } from './pathfinding/pathfinding.types';
 
+/** NetworkBucketCounter：定义该接口的能力与字段约束。 */
 interface NetworkBucketCounter {
   label: string;
   bytes: number;
   count: number;
 }
 
+/** CpuSectionCounter：定义该接口的能力与字段约束。 */
 interface CpuSectionCounter {
   label: string;
   totalMs: number;
   count: number;
 }
 
+/** PathfindingFailureCounter：定义该接口的能力与字段约束。 */
 interface PathfindingFailureCounter {
   reason: string;
   label: string;
   count: number;
 }
 
+/** PathfindingStatsState：定义该接口的能力与字段约束。 */
 interface PathfindingStatsState {
   startedAt: number;
   workerCount: number;
@@ -49,6 +53,7 @@ interface PathfindingStatsState {
 }
 
 @Injectable()
+/** PerformanceService：封装相关状态与行为。 */
 export class PerformanceService {
   private lastCpuUsage = process.cpuUsage();
   private lastCpuTime = process.hrtime.bigint();
@@ -133,6 +138,7 @@ export class PerformanceService {
     this.cpuSections.set(key, section);
   }
 
+/** buildCpuBreakdownSnapshot：处理当前场景中的对应操作。 */
   private buildCpuBreakdownSnapshot() {
     const totalTrackedMs = [...this.cpuSections.values()].reduce((sum, section) => sum + section.totalMs, 0);
     return [...this.cpuSections.entries()]
@@ -299,6 +305,7 @@ export class PerformanceService {
     }
   }
 
+/** buildPathfindingSnapshot：处理当前场景中的对应操作。 */
   private buildPathfindingSnapshot() {
     const stats = this.pathfindingStats;
     const elapsedSec = Math.max(0, (Date.now() - stats.startedAt) / 1000);
@@ -410,3 +417,4 @@ export class PerformanceService {
     };
   }
 }
+

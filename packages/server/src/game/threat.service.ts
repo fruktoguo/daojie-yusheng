@@ -3,12 +3,14 @@ import {
   gameplayConstants,
 } from '@mud/shared';
 
+/** ThreatEntry：定义该接口的能力与字段约束。 */
 export interface ThreatEntry {
   targetId: string;
   value: number;
   lastUpdatedAt: number;
 }
 
+/** AddThreatParams：定义该接口的能力与字段约束。 */
 export interface AddThreatParams {
   ownerId: string;
   targetId: string;
@@ -20,6 +22,7 @@ export interface AddThreatParams {
 }
 
 @Injectable()
+/** ThreatService：封装相关状态与行为。 */
 export class ThreatService {
   private readonly tables = new Map<string, Map<string, ThreatEntry>>();
 
@@ -177,3 +180,4 @@ export class ThreatService {
     return created;
   }
 }
+

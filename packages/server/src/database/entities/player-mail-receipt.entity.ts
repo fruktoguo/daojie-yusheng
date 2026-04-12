@@ -10,6 +10,7 @@ const BIGINT_NUMBER_TRANSFORMER = {
 };
 
 @Entity('player_mail_receipts')
+/** PlayerMailReceiptEntity：封装相关状态与行为。 */
 export class PlayerMailReceiptEntity {
   @PrimaryColumn({ type: 'uuid' })
   mailId!: string;
@@ -32,3 +33,4 @@ export class PlayerMailReceiptEntity {
   @Column({ type: 'bigint', transformer: BIGINT_NUMBER_TRANSFORMER })
   updatedAt!: number;
 }
+

@@ -5,6 +5,7 @@
 
 import { clientToViewportPoint, getResponsiveViewportMetrics, getViewportRoot } from './responsive-viewport';
 
+/** escapeHtml：执行对应的业务逻辑。 */
 function escapeHtml(value: string): string {
   return value
     .replaceAll('&', '&amp;')
@@ -14,6 +15,7 @@ function escapeHtml(value: string): string {
     .replaceAll("'", '&#39;');
 }
 
+/** FloatingTooltipShowOptions：定义该接口的能力与字段约束。 */
 interface FloatingTooltipShowOptions {
   allowHtml?: boolean;
   asideCards?: Array<{
@@ -24,6 +26,7 @@ interface FloatingTooltipShowOptions {
   }>;
 }
 
+/** prefersPinnedTooltipInteraction：执行对应的业务逻辑。 */
 export function prefersPinnedTooltipInteraction(win: Window = window): boolean {
   if (typeof win.matchMedia !== 'function') {
     return false;
@@ -31,12 +34,14 @@ export function prefersPinnedTooltipInteraction(win: Window = window): boolean {
   return win.matchMedia('(pointer: coarse)').matches || win.matchMedia('(hover: none)').matches;
 }
 
+/** FloatingTooltip：封装相关状态与行为。 */
 export class FloatingTooltip {
   private readonly el: HTMLDivElement;
   private lastPoint = { x: 0, y: 0 };
   private pinned = false;
   private pinnedAnchor: Element | null = null;
 
+/** constructor：处理当前场景中的对应操作。 */
   constructor(className = 'floating-tooltip') {
     this.el = document.createElement('div');
     this.el.className = className;
@@ -145,3 +150,4 @@ export class FloatingTooltip {
     this.move(this.lastPoint.x, this.lastPoint.y);
   }
 }
+

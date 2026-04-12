@@ -58,6 +58,7 @@ import { RedeemCodeService } from './redeem-code.service';
 
 @Controller('gm')
 @UseGuards(GmAuthGuard)
+/** GmController：封装相关状态与行为。 */
 export class GmController {
   constructor(
     private readonly gmService: GmService,
@@ -455,3 +456,4 @@ export class GmController {
     return { ok: true };
   }
 }
+

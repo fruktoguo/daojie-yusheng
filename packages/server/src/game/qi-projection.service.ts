@@ -25,6 +25,7 @@ import {
 } from '@mud/shared';
 
 @Injectable()
+/** QiProjectionService：封装相关状态与行为。 */
 export class QiProjectionService {
   private readonly profiles = new Map<string, CompiledQiProjectionProfile>();
   private nextRevision = 1;
@@ -199,3 +200,4 @@ export class QiProjectionService {
     ));
   }
 }
+

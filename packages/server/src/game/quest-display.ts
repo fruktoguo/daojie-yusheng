@@ -3,6 +3,7 @@
  */
 import { PLAYER_REALM_CONFIG, PlayerRealmStage, QuestObjectiveType } from '@mud/shared';
 
+/** ResolveQuestTargetNameOptions：定义该类型的结构与数据语义。 */
 type ResolveQuestTargetNameOptions = {
   objectiveType: QuestObjectiveType;
   title: string;
@@ -18,6 +19,7 @@ type ResolveQuestTargetNameOptions = {
   resolveItemName?: (itemId: string) => string | undefined;
 };
 
+/** normalizeKillQuestTargetName：执行对应的业务逻辑。 */
 function normalizeKillQuestTargetName(name?: string | null): string | undefined {
   if (!name) {
     return undefined;
@@ -87,3 +89,4 @@ export function resolveQuestTargetName({
 
   return targetName ?? title;
 }
+

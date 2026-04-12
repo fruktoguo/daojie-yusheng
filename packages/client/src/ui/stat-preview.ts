@@ -9,15 +9,18 @@ import { getAttrKeyLabel, getElementKeyLabel, getNumericScalarStatKeyLabel } fro
 import { PERCENT_STAT_KEYS } from '../constants/ui/stat-preview';
 import { formatDisplayNumber, formatDisplaySignedNumber, formatDisplayPercent } from '../utils/number';
 
+/** formatSignedNumber：执行对应的业务逻辑。 */
 function formatSignedNumber(value: number): string {
   return formatDisplaySignedNumber(value);
 }
 
+/** formatSignedPercentValue：执行对应的业务逻辑。 */
 function formatSignedPercentValue(value: number): string {
   const sign = value >= 0 ? '+' : '-';
   return `${sign}${formatDisplayPercent(Math.abs(value))}`;
 }
 
+/** formatSignedStatValue：执行对应的业务逻辑。 */
 function formatSignedStatValue(key: string, value: number): string {
   const sign = value >= 0 ? '+' : '-';
   const absValue = Math.abs(value);
@@ -30,6 +33,7 @@ function formatSignedStatValue(key: string, value: number): string {
   return `${sign}${formatDisplayNumber(absValue)}`;
 }
 
+/** resolvePreviewStats：执行对应的业务逻辑。 */
 export function resolvePreviewStats(
   stats?: PartialNumericStats,
   valueStats?: PartialNumericStats,
@@ -44,6 +48,7 @@ export function resolvePreviewStats(
   return valueStats ? compileValueStatsToActualStats(valueStats) : undefined;
 }
 
+/** describePreviewBonuses：执行对应的业务逻辑。 */
 export function describePreviewBonuses(
   attrs?: Partial<Attributes>,
   stats?: PartialNumericStats,
@@ -94,3 +99,4 @@ export function describePreviewBonuses(
 
   return lines;
 }
+

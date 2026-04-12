@@ -39,16 +39,19 @@ export function createZeroAttributes(): Attributes {
   };
 }
 
+/** normalizeLayers：执行对应的业务逻辑。 */
 function normalizeLayers(layers?: TechniqueLayerDef[]): TechniqueLayerDef[] {
   if (!layers || layers.length === 0) return [];
   return [...layers].sort((left, right) => left.level - right.level);
 }
 
+/** normalizeSegments：执行对应的业务逻辑。 */
 function normalizeSegments(segments?: TechniqueAttrCurveSegment[]): TechniqueAttrCurveSegment[] {
   if (!segments || segments.length === 0) return [];
   return [...segments].sort((left, right) => left.startLevel - right.startLevel);
 }
 
+/** calcTechniqueCurveValue：执行对应的业务逻辑。 */
 function calcTechniqueCurveValue(level: number, segments?: TechniqueAttrCurveSegment[]): number {
   if (level <= 0) return 0;
   let total = 0;
@@ -61,6 +64,7 @@ function calcTechniqueCurveValue(level: number, segments?: TechniqueAttrCurveSeg
   return total;
 }
 
+/** calcTechniqueCurveNextGain：执行对应的业务逻辑。 */
 function calcTechniqueCurveNextGain(level: number, segments?: TechniqueAttrCurveSegment[]): number {
   const targetLevel = Math.max(1, level + 1);
   for (const segment of normalizeSegments(segments)) {
@@ -146,6 +150,7 @@ export function calculateTechniqueSkillQiCost(
   );
 }
 
+/** getTechniqueExpLevelAdjustment：执行对应的业务逻辑。 */
 export function getTechniqueExpLevelAdjustment(
   playerRealmLv: number | undefined,
   techniqueRealmLv: number | undefined,
@@ -163,6 +168,7 @@ export function getTechniqueExpLevelAdjustment(
   return 1;
 }
 
+/** shouldWarnTechniqueLearningDifficulty：执行对应的业务逻辑。 */
 export function shouldWarnTechniqueLearningDifficulty(
   playerRealmLv: number | undefined,
   techniqueRealmLv: number | undefined,
@@ -260,6 +266,7 @@ export function calcTechniqueNextLevelGains(level: number, layers?: TechniqueLay
   return result;
 }
 
+/** calcTechniqueSoftDecayedPool：执行对应的业务逻辑。 */
 function calcTechniqueSoftDecayedPool(rawPool: number, freeLimit: number, decaySpan: number): number {
   if (rawPool <= 0) return 0;
   if (rawPool <= freeLimit) return rawPool;
@@ -294,3 +301,4 @@ export function calcTechniqueFinalAttrBonus(techniques: readonly TechniqueState[
 
   return result;
 }
+

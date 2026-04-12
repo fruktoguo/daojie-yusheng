@@ -5,6 +5,7 @@
 
 import { C2S_GmUpdatePlayer, GmPlayerSummary, S2C_GmState, Suggestion } from '@mud/shared';
 
+/** GmCallbacks：定义该接口的能力与字段约束。 */
 interface GmCallbacks {
   onRefresh: () => void;
   onResetSelf: () => void;
@@ -18,14 +19,17 @@ interface GmCallbacks {
   onRemoveSuggestion: (id: string) => void;
 }
 
+/** getPlayerAccountLabel：执行对应的业务逻辑。 */
 function getPlayerAccountLabel(player: GmPlayerSummary): string {
   return player.accountName ?? (player.isBot ? '机器人' : '无');
 }
 
+/** getPlayerMapLabel：执行对应的业务逻辑。 */
 function getPlayerMapLabel(player: GmPlayerSummary): string {
   return player.mapName || player.mapId;
 }
 
+/** createEmptyGmState：执行对应的业务逻辑。 */
 function createEmptyGmState(): S2C_GmState {
   return {
     players: [],
@@ -96,6 +100,7 @@ function createEmptyGmState(): S2C_GmState {
   };
 }
 
+/** GmPanel：封装相关状态与行为。 */
 export class GmPanel {
   private pane = document.getElementById('pane-gm')!;
   private state: S2C_GmState = createEmptyGmState();
@@ -144,11 +149,13 @@ export class GmPanel {
     this.updateSuggestions();
   }
 
+/** updateSuggestionsData：处理当前场景中的对应操作。 */
   updateSuggestionsData(suggestions: Suggestion[]) {
     this.suggestions = suggestions;
     this.updateSuggestions();
   }
 
+/** updateSuggestions：处理当前场景中的对应操作。 */
   private updateSuggestions() {
     if (!this.suggestionListEl) return;
 
@@ -741,3 +748,4 @@ export class GmPanel {
     return Boolean(element && document.activeElement === element);
   }
 }
+

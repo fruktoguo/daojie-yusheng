@@ -1,3 +1,4 @@
+/** ConfirmModalOptions：定义该类型的结构与数据语义。 */
 type ConfirmModalOptions = {
   ownerId: string;
   title: string;
@@ -11,6 +12,7 @@ type ConfirmModalOptions = {
   onClose?: () => void;
 };
 
+/** ConfirmModalHost：封装相关状态与行为。 */
 class ConfirmModalHost {
   private modal: HTMLElement | null = null;
   private card: HTMLElement | null = null;
@@ -136,3 +138,4 @@ class ConfirmModalHost {
 }
 
 export const confirmModalHost = new ConfirmModalHost();
+

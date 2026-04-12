@@ -3,6 +3,7 @@ import { getEntityKindLabel, getQuestLineLabel } from '../domain-labels';
 import { detailModalHost } from './detail-modal-host';
 import { bindInlineItemTooltips, renderInlineItemChip } from './item-inline-tooltip';
 
+/** escapeHtml：执行对应的业务逻辑。 */
 function escapeHtml(value: string): string {
   return value
     .replaceAll('&', '&amp;')
@@ -12,10 +13,12 @@ function escapeHtml(value: string): string {
     .replaceAll("'", '&#39;');
 }
 
+/** formatPortalTrigger：执行对应的业务逻辑。 */
 function formatPortalTrigger(trigger: 'manual' | 'auto' | undefined): string {
   return trigger === 'auto' ? '踏入即触发' : '需要主动使用';
 }
 
+/** formatRespawnTicks：执行对应的业务逻辑。 */
 function formatRespawnTicks(respawnTicks: number | undefined): string {
   if (typeof respawnTicks !== 'number' || !Number.isFinite(respawnTicks) || respawnTicks <= 0) {
     return '即将重生';
@@ -23,6 +26,7 @@ function formatRespawnTicks(respawnTicks: number | undefined): string {
   return `${Math.max(1, Math.round(respawnTicks))} 息后重生`;
 }
 
+/** formatNpcQuestMarker：执行对应的业务逻辑。 */
 function formatNpcQuestMarker(marker: NpcQuestMarker | null | undefined): string {
   if (!marker) {
     return '暂无可追踪任务';
@@ -35,6 +39,7 @@ function formatNpcQuestMarker(marker: NpcQuestMarker | null | undefined): string
   return `${getQuestLineLabel(marker.line)} · ${stateLabel}`;
 }
 
+/** EntityDetailModal：封装相关状态与行为。 */
 export class EntityDetailModal {
   private static readonly MODAL_OWNER = 'entity-detail-modal';
   private pending: { kind: NEXT_S2C_Detail['kind']; id: string; title: string } | null = null;
@@ -263,3 +268,4 @@ export class EntityDetailModal {
     `;
   }
 }
+

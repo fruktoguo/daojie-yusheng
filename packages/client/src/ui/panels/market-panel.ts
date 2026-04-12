@@ -39,6 +39,7 @@ import { MARKET_MODAL_TABS, MARKET_PANE_HINT, MarketModalTab } from '../../const
 import { formatDisplayCountBadge, formatDisplayInteger, formatDisplayNumber } from '../../utils/number';
 import { getEquipSlotLabel, getItemTypeLabel, getTechniqueCategoryLabel } from '../../domain-labels';
 
+/** escapeHtml：执行对应的业务逻辑。 */
 function escapeHtml(value: string): string {
   return value
     .replaceAll('&', '&amp;')
@@ -48,10 +49,12 @@ function escapeHtml(value: string): string {
     .replaceAll("'", '&#39;');
 }
 
+/** escapeHtmlAttr：执行对应的业务逻辑。 */
 function escapeHtmlAttr(value: string): string {
   return escapeHtml(value);
 }
 
+/** MarketPanelCallbacks：定义该接口的能力与字段约束。 */
 interface MarketPanelCallbacks {
   onRequestMarket: () => void;
   onRequestMarketListings: (payload: {
@@ -69,12 +72,18 @@ interface MarketPanelCallbacks {
   onClaimStorage: () => void;
 }
 
+/** MarketCategoryFilter：定义该类型的结构与数据语义。 */
 type MarketCategoryFilter = 'all' | ItemType;
+/** MarketEquipmentFilter：定义该类型的结构与数据语义。 */
 type MarketEquipmentFilter = 'all' | EquipSlot;
+/** MarketTechniqueFilter：定义该类型的结构与数据语义。 */
 type MarketTechniqueFilter = 'all' | TechniqueCategory;
+/** MarketTradeDialogKind：定义该类型的结构与数据语义。 */
 type MarketTradeDialogKind = 'buy' | 'sell';
+/** MarketPriceAction：定义该类型的结构与数据语义。 */
 type MarketPriceAction = 'decrease' | 'increase' | 'double' | 'half' | 'preset';
 
+/** MarketTradeDialogState：定义该接口的能力与字段约束。 */
 interface MarketTradeDialogState {
   kind: MarketTradeDialogKind;
   quantity: number;
@@ -97,6 +106,7 @@ const MARKET_TECHNIQUE_FILTERS: Array<{ id: MarketTechniqueFilter; label: string
   { id: 'secret', label: getTechniqueCategoryLabel('secret') },
 ];
 
+/** MarketPanel：封装相关状态与行为。 */
 export class MarketPanel {
   private static readonly MODAL_OWNER = 'market-panel';
   private static readonly CONFIRM_MODAL_OWNER = 'market-panel:confirm-purchase';
@@ -126,6 +136,7 @@ export class MarketPanel {
   private tooltip = new FloatingTooltip('floating-tooltip market-item-tooltip');
   private tooltipNode: HTMLElement | null = null;
 
+/** constructor：处理当前场景中的对应操作。 */
   constructor() {
     this.bindPaneEvents();
     this.renderPane();
@@ -1729,3 +1740,4 @@ export class MarketPanel {
     return true;
   }
 }
+

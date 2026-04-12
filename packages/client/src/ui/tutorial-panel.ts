@@ -8,6 +8,7 @@ import {
 import { detailModalHost } from './detail-modal-host';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from './floating-tooltip';
 
+/** TutorialOperationHint：定义该接口的能力与字段约束。 */
 interface TutorialOperationHint {
   label: string;
   path: string;
@@ -55,7 +56,9 @@ const TUTORIAL_OPERATION_HINTS: TutorialOperationHint[] = [
 
 const SORTED_TUTORIAL_OPERATION_HINTS = [...TUTORIAL_OPERATION_HINTS].sort((left, right) => right.label.length - left.label.length);
 
+/** TutorialMainTabId：定义该类型的结构与数据语义。 */
 type TutorialMainTabId = 'operations' | 'mechanics' | 'flow';
+/** TutorialFlowTopicId：定义该类型的结构与数据语义。 */
 type TutorialFlowTopicId = string;
 
 const TUTORIAL_MAIN_TABS: Array<{ id: TutorialMainTabId; label: string }> = [
@@ -64,6 +67,7 @@ const TUTORIAL_MAIN_TABS: Array<{ id: TutorialMainTabId; label: string }> = [
   { id: 'flow', label: '流程指导' },
 ];
 
+/** escapeHtml：执行对应的业务逻辑。 */
 function escapeHtml(value: string): string {
   return value
     .replaceAll('&', '&amp;')
@@ -73,6 +77,7 @@ function escapeHtml(value: string): string {
     .replaceAll("'", '&#39;');
 }
 
+/** splitTooltipLines：执行对应的业务逻辑。 */
 function splitTooltipLines(detail: string): string[] {
   return detail
     .split('\n')
@@ -80,11 +85,13 @@ function splitTooltipLines(detail: string): string[] {
     .filter((line) => line.length > 0);
 }
 
+/** renderOperationHint：执行对应的业务逻辑。 */
 function renderOperationHint(hint: TutorialOperationHint): string {
   const title = hint.title ?? hint.label;
   return `<span class="tutorial-inline-action" data-tutorial-tip-title="${escapeHtml(title)}" data-tutorial-tip-detail="${escapeHtml(`[${hint.path}]`)}">${escapeHtml(hint.label)}</span>`;
 }
 
+/** renderTutorialRichText：执行对应的业务逻辑。 */
 function renderTutorialRichText(value: string): string {
   if (!value) {
     return '';
@@ -124,6 +131,7 @@ function renderTutorialRichText(value: string): string {
   return html;
 }
 
+/** TutorialPanel：封装相关状态与行为。 */
 export class TutorialPanel {
   private static readonly MODAL_OWNER = 'tutorial-panel';
   private activeMainTabId: TutorialMainTabId = 'operations';
@@ -132,6 +140,7 @@ export class TutorialPanel {
   private activeFlowTopicId: TutorialFlowTopicId = TUTORIAL_FLOW_TOPICS[0]?.id ?? 'how-to-play';
   private readonly tooltip = new FloatingTooltip();
 
+/** constructor：处理当前场景中的对应操作。 */
   constructor() {
     document.getElementById('hud-open-tutorial')?.addEventListener('click', () => this.open());
   }
@@ -516,3 +525,4 @@ export class TutorialPanel {
     });
   }
 }
+

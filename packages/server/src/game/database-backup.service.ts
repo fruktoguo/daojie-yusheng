@@ -39,6 +39,7 @@ import { PlayerService } from './player.service';
 import { TickService } from './tick.service';
 import { WorldService } from './world.service';
 
+/** InternalJobState：定义该接口的能力与字段约束。 */
 interface InternalJobState {
   id: string;
   type: 'backup' | 'restore';
@@ -52,6 +53,7 @@ interface InternalJobState {
 }
 
 @Injectable()
+/** DatabaseBackupService：封装相关状态与行为。 */
 export class DatabaseBackupService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(DatabaseBackupService.name);
   private readonly restoreMonitorIntervalMs = 1_000;
@@ -673,3 +675,4 @@ export class DatabaseBackupService implements OnModuleInit, OnModuleDestroy {
     return hours > 0 ? `${days} 天 ${hours} 小时` : `${days} 天`;
   }
 }
+

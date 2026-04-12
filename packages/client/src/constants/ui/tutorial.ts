@@ -1,10 +1,12 @@
 import { TUTORIAL_MECHANIC_TOPICS as SHARED_TUTORIAL_MECHANIC_TOPICS } from '@mud/shared';
 
+/** TutorialTopicSection：定义该接口的能力与字段约束。 */
 export interface TutorialTopicSection {
   title: string;
   items: string[];
 }
 
+/** TutorialTopic：定义该接口的能力与字段约束。 */
 export interface TutorialTopic {
   id: string;
   label: string;
@@ -13,6 +15,7 @@ export interface TutorialTopic {
   tips?: string[];
 }
 
+/** TutorialFlowTopic：定义该接口的能力与字段约束。 */
 export interface TutorialFlowTopic {
   id: string;
   label: string;
@@ -549,3 +552,4 @@ export const TUTORIAL_FLOW_TOPICS: TutorialFlowTopic[] = [
     ],
   },
 ];
+

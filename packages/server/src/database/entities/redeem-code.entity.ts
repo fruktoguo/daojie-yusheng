@@ -14,6 +14,7 @@ import { RedeemCodeGroupEntity } from './redeem-code-group.entity';
 @Index('idx_redeem_codes_code', ['code'], { unique: true })
 @Index('idx_redeem_codes_group_id', ['groupId'])
 @Index('idx_redeem_codes_status', ['status'])
+/** RedeemCodeEntity：封装相关状态与行为。 */
 export class RedeemCodeEntity {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
@@ -49,3 +50,4 @@ export class RedeemCodeEntity {
   @UpdateDateColumn({ type: 'timestamptz' })
   updatedAt!: Date;
 }
+

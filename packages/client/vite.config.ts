@@ -3,10 +3,12 @@ import { existsSync } from 'node:fs';
 import { defineConfig, loadEnv, type Plugin } from 'vite';
 import path from 'path';
 
+/** createBuildVersionPlugin：执行对应的业务逻辑。 */
 function createBuildVersionPlugin(buildId: string, builtAt: string): Plugin {
   return {
     name: 'mud-client-build-version',
     apply: 'build',
+/** generateBundle：处理当前场景中的对应操作。 */
     generateBundle() {
       this.emitFile({
         type: 'asset',
@@ -53,6 +55,7 @@ export default defineConfig(({ mode }) => {
       rollupOptions: {
         input: clientInputs,
         output: {
+/** manualChunks：处理当前场景中的对应操作。 */
           manualChunks(id) {
             if (id.includes('/node_modules/')) {
               return 'vendor';
@@ -93,3 +96,4 @@ export default defineConfig(({ mode }) => {
       : undefined,
   };
 });
+

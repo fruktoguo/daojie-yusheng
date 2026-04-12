@@ -23,6 +23,7 @@ import { NameUniquenessService } from '../auth/name-uniqueness.service';
 import { RoleNameModerationService } from '../auth/role-name-moderation.service';
 
 @Injectable()
+/** AccountService：封装相关状态与行为。 */
 export class AccountService {
   constructor(
     @InjectRepository(UserEntity)
@@ -185,3 +186,4 @@ export class AccountService {
     return { roleName: normalizedRoleName };
   }
 }
+

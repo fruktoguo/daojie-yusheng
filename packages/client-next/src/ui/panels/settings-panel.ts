@@ -34,6 +34,7 @@ import {
   updateMapPerformanceConfig,
 } from '../performance-config';
 
+/** SettingsPanelOptions：定义该类型的结构与数据语义。 */
 type SettingsPanelOptions = {
   getCurrentAccountName: () => string;
   getCurrentDisplayName: () => string;
@@ -44,6 +45,7 @@ type SettingsPanelOptions = {
   onLogout: () => void;
 };
 
+/** SettingsPanel：封装相关状态与行为。 */
 export class SettingsPanel {
   private activeTab: 'account' | 'redeem' | 'ui' | 'performance' = 'account';
   private currentAccountName = '';
@@ -54,6 +56,7 @@ export class SettingsPanel {
   private displayNameAvailable = false;
   private options: SettingsPanelOptions | null = null;
 
+/** constructor：处理当前场景中的对应操作。 */
   constructor() {
     document.getElementById('hud-open-settings')?.addEventListener('click', () => this.open());
     document.getElementById('hud-logout')?.addEventListener('click', () => {
@@ -208,11 +211,13 @@ export class SettingsPanel {
         this.syncUiModeButtons(body, colorMode as UiColorMode);
         this.syncUiGlobalFontOffsetRow(body, nextConfig.globalFontOffset);
         this.syncUiScaleRow(body, nextConfig.uiScale);
+/** setStatus：处理当前场景中的对应操作。 */
         setStatus(styleStatus, `已切换为${colorMode === 'dark' ? '深色' : '浅色'}模式`, 'success');
       });
     });
 
     if (globalRangeInput && globalNumberInput) {
+/** applyGlobalOffset：通过常量导出可复用函数行为。 */
       const applyGlobalOffset = (rawValue: string) => {
         const parsed = Number.parseInt(rawValue, 10);
         const nextValue = Number.isFinite(parsed)
@@ -235,6 +240,7 @@ export class SettingsPanel {
     }
 
     if (scaleRangeInput && scaleNumberInput) {
+/** applyScale：通过常量导出可复用函数行为。 */
       const applyScale = (rawValue: string) => {
         const parsed = Number.parseFloat(rawValue);
         const nextValue = Number.isFinite(parsed)
@@ -293,6 +299,7 @@ export class SettingsPanel {
           showFpsMonitor: nextValue,
         });
         this.syncPerformanceFpsButtons(body, nextConfig.showFpsMonitor);
+/** setStatus：处理当前场景中的对应操作。 */
         setStatus(statusEl, nextConfig.showFpsMonitor ? '已开启地图帧率浮层，并自动保存到本机' : '已关闭地图帧率浮层，并自动保存到本机', 'success');
       });
     });
@@ -586,6 +593,7 @@ export class SettingsPanel {
         </div>
       `).join('');
     } catch (error) {
+/** setStatus：处理当前场景中的对应操作。 */
       setStatus(statusEl, error instanceof Error ? error.message : '兑换失败', 'error');
       resultEl.innerHTML = '';
     } finally {
@@ -648,6 +656,7 @@ export class SettingsPanel {
         return;
       }
       this.displayNameAvailable = false;
+/** setStatus：处理当前场景中的对应操作。 */
       setStatus(statusEl, error instanceof Error ? error.message : '检测失败', 'error');
     }
   }
@@ -686,6 +695,7 @@ export class SettingsPanel {
       this.options?.onDisplayNameUpdated(result.displayName);
       setStatus(statusEl, '显示名称已更新', 'success');
     } catch (error) {
+/** setStatus：处理当前场景中的对应操作。 */
       setStatus(statusEl, error instanceof Error ? error.message : '保存失败', 'error');
     } finally {
       button.disabled = false;
@@ -725,6 +735,7 @@ export class SettingsPanel {
       newPasswordInput.value = '';
       setStatus(statusEl, '密码已更新', 'success');
     } catch (error) {
+/** setStatus：处理当前场景中的对应操作。 */
       setStatus(statusEl, error instanceof Error ? error.message : '保存失败', 'error');
     } finally {
       button.disabled = false;
@@ -762,6 +773,7 @@ export class SettingsPanel {
       this.options?.onRoleNameUpdated(result.roleName);
       setStatus(statusEl, '角色名称已更新', 'success');
     } catch (error) {
+/** setStatus：处理当前场景中的对应操作。 */
       setStatus(statusEl, error instanceof Error ? error.message : '保存失败', 'error');
     } finally {
       button.disabled = false;
@@ -769,10 +781,12 @@ export class SettingsPanel {
   }
 }
 
+/** formatGlobalFontOffset：执行对应的业务逻辑。 */
 function formatGlobalFontOffset(value: number): string {
   return `${value >= 0 ? '+' : ''}${value}px`;
 }
 
+/** setStatus：执行对应的业务逻辑。 */
 function setStatus(target: HTMLElement | null, message: string, tone: '' | 'success' | 'error'): void {
   if (!target) {
     return;
@@ -784,6 +798,7 @@ function setStatus(target: HTMLElement | null, message: string, tone: '' | 'succ
   }
 }
 
+/** escapeHtml：执行对应的业务逻辑。 */
 function escapeHtml(input: string): string {
   return input
     .replaceAll('&', '&amp;')
@@ -793,6 +808,7 @@ function escapeHtml(input: string): string {
     .replaceAll("'", '&#39;');
 }
 
+/** parseRedeemCodes：执行对应的业务逻辑。 */
 function parseRedeemCodes(raw: string): string[] {
   const entries = raw
     .split(/[\s,，;；]+/u)
@@ -800,3 +816,7 @@ function parseRedeemCodes(raw: string): string[] {
     .filter((entry) => entry.length > 0);
   return [...new Set(entries)].slice(0, 50);
 }
+
+
+
+
