@@ -851,23 +851,22 @@
   .detail-modal-card.detail-modal--enhancement .enhancement-modal-shell {
     gap: 8px;
   }
-  .detail-modal-card.detail-modal--enhancement .enhancement-layout {
+  .detail-modal-card.detail-modal--enhancement .enhancement-layout,
+  .detail-modal-card.detail-modal--enhancement .enhancement-layout--single-slot {
     grid-template-columns: minmax(0, 1fr);
-  }
-  .detail-modal-card.detail-modal--enhancement .enhancement-candidate-list {
-    order: 2;
   }
   .detail-modal-card.detail-modal--enhancement .enhancement-workbench {
     order: 1;
   }
   .detail-modal-card.detail-modal--enhancement .enhancement-history-panel {
-    order: 3;
+    order: 2;
   }
   .detail-modal-card.detail-modal--enhancement .enhancement-summary-metrics,
   .detail-modal-card.detail-modal--enhancement .enhancement-preview-grid {
     grid-template-columns: minmax(0, 1fr);
   }
   .detail-modal-card.detail-modal--enhancement .enhancement-toolbar,
+  .detail-modal-card.detail-modal--enhancement .enhancement-target-slot-head,
   .detail-modal-card.detail-modal--enhancement .enhancement-summary-head,
   .detail-modal-card.detail-modal--enhancement .enhancement-action-row,
   .detail-modal-card.detail-modal--enhancement .enhancement-material-row,

@@ -15,6 +15,7 @@ import type {
   TickRenderEntity,
 } from '@mud/shared';
 
+/** MapSafeAreaInsets：定义该接口的能力与字段约束。 */
 export interface MapSafeAreaInsets {
   top: number;
   right: number;
@@ -22,6 +23,7 @@ export interface MapSafeAreaInsets {
   left: number;
 }
 
+/** ObservedMapEntity：定义该接口的能力与字段约束。 */
 export interface ObservedMapEntity {
   id: string;
   wx: number;
@@ -43,6 +45,7 @@ export interface ObservedMapEntity {
   buffs?: VisibleBuffState[];
 }
 
+/** MapTargetingOverlayState：定义该接口的能力与字段约束。 */
 export interface MapTargetingOverlayState {
   originX: number;
   originY: number;
@@ -55,12 +58,14 @@ export interface MapTargetingOverlayState {
   hoverY?: number;
 }
 
+/** MapSenseQiOverlayState：定义该接口的能力与字段约束。 */
 export interface MapSenseQiOverlayState {
   hoverX?: number;
   hoverY?: number;
   levelBaseValue?: number;
 }
 
+/** MapOverlayState：定义该接口的能力与字段约束。 */
 export interface MapOverlayState {
   pathCells: GridPoint[];
   targeting: MapTargetingOverlayState | null;
@@ -68,6 +73,7 @@ export interface MapOverlayState {
   threatArrows: Array<{ ownerId: string; targetId: string }>;
 }
 
+/** MinimapSourceSnapshot：定义该接口的能力与字段约束。 */
 export interface MinimapSourceSnapshot {
   mapMeta: MapMeta | null;
   snapshot: MapMinimapSnapshot | null;
@@ -82,6 +88,7 @@ export interface MinimapSourceSnapshot {
   memoryVersion: number;
 }
 
+/** MapEntityTransition：定义该接口的能力与字段约束。 */
 export interface MapEntityTransition {
   movedId?: string;
   shiftX?: number;
@@ -90,11 +97,13 @@ export interface MapEntityTransition {
   settleMotion?: boolean;
 }
 
+/** MapTickTiming：定义该接口的能力与字段约束。 */
 export interface MapTickTiming {
   startedAt: number;
   durationMs: number;
 }
 
+/** MapStoreSnapshot：定义该接口的能力与字段约束。 */
 export interface MapStoreSnapshot {
   mapMeta: MapMeta | null;
   player: {
@@ -117,6 +126,7 @@ export interface MapStoreSnapshot {
   entityTransition: MapEntityTransition | null;
 }
 
+/** MapInteractionTarget：定义该接口的能力与字段约束。 */
 export interface MapInteractionTarget {
   x: number;
   y: number;
@@ -129,11 +139,13 @@ export interface MapInteractionTarget {
   clientY?: number;
 }
 
+/** MapRuntimeInteractionCallbacks：定义该接口的能力与字段约束。 */
 export interface MapRuntimeInteractionCallbacks {
   onTarget?: (target: MapInteractionTarget) => void;
   onHover?: (target: MapInteractionTarget | null) => void;
 }
 
+/** MapSceneSnapshot：定义该接口的能力与字段约束。 */
 export interface MapSceneSnapshot {
   mapMeta: MapMeta | null;
   player: MapStoreSnapshot['player'];
@@ -148,6 +160,7 @@ export interface MapSceneSnapshot {
   overlays: MapOverlayState;
 }
 
+/** MapRuntimeApi：定义该接口的能力与字段约束。 */
 export interface MapRuntimeApi {
   attach(host: HTMLElement): void;
   detach(): void;
@@ -161,7 +174,7 @@ export interface MapRuntimeApi {
   applyTick(data: S2C_Tick): void;
   reset(): void;
   setInteractionCallbacks(callbacks: MapRuntimeInteractionCallbacks): void;
-  setMoveHandler(handler: ((x: number, y: number) => void) | null): void;
+  setMoveHandler(handler: ((target: { mapId: string; x: number; y: number; isCurrentMap: boolean }) => void) | null): void;
   setPathCells(cells: GridPoint[]): void;
   setTargetingOverlay(state: MapTargetingOverlayState | null): void;
   setSenseQiOverlay(state: MapSenseQiOverlayState | null): void;
@@ -174,3 +187,4 @@ export interface MapRuntimeApi {
   getVisibleTileAt(x: number, y: number): Tile | null;
   getGroundPileAt(x: number, y: number): GroundItemPileView | null;
 }
+

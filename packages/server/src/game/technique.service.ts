@@ -955,6 +955,24 @@ export class TechniqueService {
     };
   }
 
+  grantCraftRealmExp(player: PlayerState, baseGain: number): CultivationResult {
+    this.initializePlayerProgression(player);
+    const normalizedBaseGain = Math.max(0, Math.round(Number(baseGain) || 0));
+    if (normalizedBaseGain <= 0) {
+      return EMPTY_CULTIVATION_RESULT;
+    }
+    const realmResult = this.advanceRealmProgress(player, normalizedBaseGain, {
+      minimumGain: 0,
+      useFoundation: false,
+      overflowToFoundation: true,
+    });
+    return {
+      changed: realmResult.changed,
+      dirty: realmResult.dirty,
+      messages: realmResult.messages,
+    };
+  }
+
   private advanceRealmProgress(player: PlayerState, baseGain: number, options: RealmExpAdvanceOptions = {}): RealmExpAdvanceResult {
     const realm = player.realm;
     if (!realm || baseGain <= 0) {
@@ -2447,4 +2465,3 @@ export class TechniqueService {
     return `你成功突破，当前已踏入 ${nextName}。`;
   }
 }
-

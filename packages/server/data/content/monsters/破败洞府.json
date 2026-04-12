@@ -15,12 +15,12 @@
     "viewRange": 11,
     "respawnSec": 120,
     "attrs": {
-      "constitution": 9999,
-      "spirit": 9999,
-      "perception": 9999,
-      "talent": 9999,
-      "comprehension": 999,
-      "luck": 999
+      "constitution": 2000,
+      "spirit": 2000,
+      "perception": 2000,
+      "talent": 2000,
+      "comprehension": 100,
+      "luck": 100
     },
     "initialBuffs": [
       {
@@ -74,22 +74,6 @@
         "count": 1
       }
     ],
-    "aggroMode": "always",
-    "statPercents": {
-      "maxHp": 430,
-      "maxQi": 10,
-      "physAtk": 10,
-      "spellAtk": 10,
-      "physDef": 10,
-      "spellDef": 10,
-      "hit": 10,
-      "dodge": 10,
-      "crit": 10,
-      "critDamage": 10,
-      "breakPower": 10,
-      "resolvePower": 10,
-      "qiRegenRate": 10,
-      "hpRegenRate": 10
-    }
+    "aggroMode": "always"
   }
 ]

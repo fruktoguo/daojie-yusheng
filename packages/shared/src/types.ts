@@ -79,6 +79,7 @@ export type MapRouteDomain = 'system' | 'sect' | 'personal' | 'dynamic';
 /** 传送点所属路网域配置 */
 export type PortalRouteDomain = MapRouteDomain | 'inherit';
 
+/** MapMeta：定义该接口的能力与字段约束。 */
 export interface MapMeta {
   id: string;
   name: string;
@@ -493,13 +494,16 @@ export interface ItemStack {
   allowBatchUse?: boolean;
 }
 
+/** AlchemyIngredientRole：定义该类型的结构与数据语义。 */
 export type AlchemyIngredientRole = 'main' | 'aux';
 
+/** AlchemyIngredientSelection：定义该接口的能力与字段约束。 */
 export interface AlchemyIngredientSelection {
   itemId: string;
   count: number;
 }
 
+/** AlchemyRecipeIngredientDef：定义该接口的能力与字段约束。 */
 export interface AlchemyRecipeIngredientDef extends AlchemyIngredientSelection {
   name: string;
   role: AlchemyIngredientRole;
@@ -508,8 +512,10 @@ export interface AlchemyRecipeIngredientDef extends AlchemyIngredientSelection {
   powerPerUnit: number;
 }
 
+/** AlchemyRecipeCategory：定义该类型的结构与数据语义。 */
 export type AlchemyRecipeCategory = 'recovery' | 'buff';
 
+/** AlchemyRecipeCatalogEntry：定义该接口的能力与字段约束。 */
 export interface AlchemyRecipeCatalogEntry {
   recipeId: string;
   outputItemId: string;
@@ -522,6 +528,7 @@ export interface AlchemyRecipeCatalogEntry {
   ingredients: AlchemyRecipeIngredientDef[];
 }
 
+/** PlayerAlchemyPreset：定义该接口的能力与字段约束。 */
 export interface PlayerAlchemyPreset {
   presetId: string;
   recipeId: string;
@@ -530,12 +537,14 @@ export interface PlayerAlchemyPreset {
   updatedAt: number;
 }
 
+/** AlchemySkillState：定义该接口的能力与字段约束。 */
 export interface AlchemySkillState {
   level: number;
   exp: number;
   expToNext: number;
 }
 
+/** PlayerAlchemyJob：定义该接口的能力与字段约束。 */
 export interface PlayerAlchemyJob {
   recipeId: string;
   outputItemId: string;
@@ -558,51 +567,86 @@ export interface PlayerAlchemyJob {
   startedAt: number;
 }
 
+/** SyncedAlchemyPanelState：定义该接口的能力与字段约束。 */
 export interface SyncedAlchemyPanelState {
   furnaceItemId?: string;
   presets: PlayerAlchemyPreset[];
   job: PlayerAlchemyJob | null;
 }
 
+/** PlayerEnhancementJob：定义该接口的能力与字段约束。 */
+export interface PlayerEnhancementJob {
+  target: EnhancementTargetRef;
+  item: ItemStack;
+  targetItemId: string;
+  targetItemName: string;
+  targetItemLevel: number;
+  currentLevel: number;
+  targetLevel: number;
+  desiredTargetLevel: number;
+  spiritStoneCost: number;
+  materials: EnhancementMaterialRequirement[];
+  protectionUsed: boolean;
+  protectionStartLevel?: number;
+  protectionItemId?: string;
+  protectionItemName?: string;
+  phase: 'enhancing' | 'paused';
+  pausedTicks: number;
+  successRate: number;
+  totalTicks: number;
+  remainingTicks: number;
+  startedAt: number;
+  roleEnhancementLevel: number;
+  totalSpeedRate: number;
+}
+
+/** EnhancementMaterialRequirement：定义该接口的能力与字段约束。 */
 export interface EnhancementMaterialRequirement {
   itemId: string;
   count: number;
 }
 
+/** EquipmentEnhancementStepConfig：定义该接口的能力与字段约束。 */
 export interface EquipmentEnhancementStepConfig {
   targetEnhanceLevel: number;
   materials?: EnhancementMaterialRequirement[];
 }
 
+/** EquipmentEnhancementConfig：定义该接口的能力与字段约束。 */
 export interface EquipmentEnhancementConfig {
   targetItemId: string;
   protectionItemId?: string;
   steps: EquipmentEnhancementStepConfig[];
 }
 
+/** EnhancementTargetRef：定义该接口的能力与字段约束。 */
 export interface EnhancementTargetRef {
   source: 'inventory' | 'equipment';
   slotIndex?: number;
   slot?: EquipSlot;
 }
 
+/** PlayerEnhancementLevelRecord：定义该接口的能力与字段约束。 */
 export interface PlayerEnhancementLevelRecord {
   targetLevel: number;
   successCount: number;
   failureCount: number;
 }
 
+/** PlayerEnhancementRecord：定义该接口的能力与字段约束。 */
 export interface PlayerEnhancementRecord {
   itemId: string;
   highestLevel: number;
   levels: PlayerEnhancementLevelRecord[];
 }
 
+/** SyncedEnhancementProtectionCandidate：定义该接口的能力与字段约束。 */
 export interface SyncedEnhancementProtectionCandidate {
   ref: EnhancementTargetRef;
   item: ItemStack;
 }
 
+/** SyncedEnhancementRequirementView：定义该接口的能力与字段约束。 */
 export interface SyncedEnhancementRequirementView {
   itemId: string;
   name: string;
@@ -610,15 +654,15 @@ export interface SyncedEnhancementRequirementView {
   ownedCount: number;
 }
 
+/** SyncedEnhancementCandidateView：定义该接口的能力与字段约束。 */
 export interface SyncedEnhancementCandidateView {
   ref: EnhancementTargetRef;
   item: ItemStack;
   currentLevel: number;
-  nextLevel: number | null;
-  maxLevel: number;
+  nextLevel: number;
   spiritStoneCost: number;
-  successRate?: number;
-  actionCooldownTicks: number;
+  successRate: number;
+  durationTicks: number;
   materials: SyncedEnhancementRequirementView[];
   protectionItemId?: string;
   protectionItemName?: string;
@@ -626,11 +670,13 @@ export interface SyncedEnhancementCandidateView {
   protectionCandidates: SyncedEnhancementProtectionCandidate[];
 }
 
+/** SyncedEnhancementPanelState：定义该接口的能力与字段约束。 */
 export interface SyncedEnhancementPanelState {
   hammerItemId?: string;
-  actionCooldownLeft: number;
+  enhancementSkillLevel: number;
   candidates: SyncedEnhancementCandidateView[];
   records: PlayerEnhancementRecord[];
+  job: PlayerEnhancementJob | null;
 }
 
 /** 背包 */
@@ -1100,6 +1146,7 @@ export interface SkillDef {
   monsterCast?: SkillMonsterCastDef;
 }
 
+/** PendingPlayerSkillCast：定义该接口的能力与字段约束。 */
 export interface PendingPlayerSkillCast {
   skillId: string;
   targetX: number;
@@ -1188,18 +1235,22 @@ export interface AutoUsePillConfig {
 export const AUTO_USE_PILL_RESOURCES = ['hp', 'qi'] as const satisfies readonly AutoUsePillResource[];
 export const AUTO_USE_PILL_CONDITION_OPERATORS = ['lt', 'gt'] as const satisfies readonly AutoUsePillConditionOperator[];
 
+/** isAutoUsePillResource：执行对应的业务逻辑。 */
 export function isAutoUsePillResource(value: unknown): value is AutoUsePillResource {
   return typeof value === 'string' && (AUTO_USE_PILL_RESOURCES as readonly string[]).includes(value);
 }
 
+/** isAutoUsePillConditionOperator：执行对应的业务逻辑。 */
 export function isAutoUsePillConditionOperator(value: unknown): value is AutoUsePillConditionOperator {
   return typeof value === 'string' && (AUTO_USE_PILL_CONDITION_OPERATORS as readonly string[]).includes(value);
 }
 
+/** isAutoUsePillConditionRecord：执行对应的业务逻辑。 */
 function isAutoUsePillConditionRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
+/** normalizeAutoUsePillConditions：执行对应的业务逻辑。 */
 export function normalizeAutoUsePillConditions(
   value: unknown,
   options?: {
@@ -1252,6 +1303,7 @@ export function normalizeAutoUsePillConditions(
   return normalized;
 }
 
+/** normalizeAutoUsePillConfigs：执行对应的业务逻辑。 */
 export function normalizeAutoUsePillConfigs(
   value: unknown,
   options?: {
@@ -1292,7 +1344,9 @@ export function normalizeAutoUsePillConfigs(
   return normalized;
 }
 
+/** CombatTargetingRuleScope：定义该类型的结构与数据语义。 */
 export type CombatTargetingRuleScope = 'hostile' | 'friendly';
+/** CombatTargetingRuleKey：定义该类型的结构与数据语义。 */
 export type CombatTargetingRuleKey =
   | 'monster'
   | 'all_players'
@@ -1302,6 +1356,7 @@ export type CombatTargetingRuleKey =
   | 'party'
   | 'sect';
 
+/** CombatTargetingRules：定义该接口的能力与字段约束。 */
 export interface CombatTargetingRules {
   hostile: CombatTargetingRuleKey[];
   friendly: CombatTargetingRuleKey[];
@@ -1336,6 +1391,7 @@ export const DEFAULT_FRIENDLY_COMBAT_TARGETING_RULES = [
   'non_hostile_players',
 ] as const satisfies readonly CombatTargetingRuleKey[];
 
+/** normalizeCombatTargetingRuleList：执行对应的业务逻辑。 */
 function normalizeCombatTargetingRuleList(
   value: unknown,
   allowedKeys: readonly CombatTargetingRuleKey[],
@@ -1358,6 +1414,7 @@ function normalizeCombatTargetingRuleList(
   return normalized;
 }
 
+/** buildDefaultCombatTargetingRules：执行对应的业务逻辑。 */
 export function buildDefaultCombatTargetingRules(options?: {
   includeAllPlayersHostile?: boolean;
 }): CombatTargetingRules {
@@ -1371,6 +1428,7 @@ export function buildDefaultCombatTargetingRules(options?: {
   };
 }
 
+/** normalizeCombatTargetingRules：执行对应的业务逻辑。 */
 export function normalizeCombatTargetingRules(
   value: unknown,
   fallback: CombatTargetingRules = buildDefaultCombatTargetingRules(),
@@ -1384,6 +1442,7 @@ export function normalizeCombatTargetingRules(
   };
 }
 
+/** hasCombatTargetingRule：执行对应的业务逻辑。 */
 export function hasCombatTargetingRule(
   rules: CombatTargetingRules | null | undefined,
   scope: CombatTargetingRuleScope,
@@ -1397,10 +1456,12 @@ export type AutoBattleTargetingMode = 'auto' | 'nearest' | 'low_hp' | 'full_hp' 
 
 export const AUTO_BATTLE_TARGETING_MODES = ['auto', 'nearest', 'low_hp', 'full_hp', 'boss', 'player'] as const satisfies readonly AutoBattleTargetingMode[];
 
+/** isAutoBattleTargetingMode：执行对应的业务逻辑。 */
 export function isAutoBattleTargetingMode(value: unknown): value is AutoBattleTargetingMode {
   return typeof value === 'string' && (AUTO_BATTLE_TARGETING_MODES as readonly string[]).includes(value);
 }
 
+/** normalizeAutoBattleTargetingMode：执行对应的业务逻辑。 */
 export function normalizeAutoBattleTargetingMode(
   value: unknown,
   fallback: AutoBattleTargetingMode = 'auto',
@@ -1516,6 +1577,7 @@ export interface QuestState {
   relayMessage?: string;
 }
 
+/** QuestNavigationState：定义该接口的能力与字段约束。 */
 export interface QuestNavigationState {
   questId: string;
   pendingConfirmation?: boolean;
@@ -1523,6 +1585,7 @@ export interface QuestNavigationState {
   lastBlockedRemainingTicks?: number;
 }
 
+/** MapNavigationState：定义该接口的能力与字段约束。 */
 export interface MapNavigationState {
   targetMapId: string;
   targetMapName?: string;
@@ -1533,6 +1596,7 @@ export interface MapNavigationState {
   lastBlockedRemainingTicks?: number;
 }
 
+/** PendingLogbookMessage：定义该接口的能力与字段约束。 */
 export interface PendingLogbookMessage {
   id: string;
   kind: 'system' | 'chat' | 'quest' | 'combat' | 'loot' | 'grudge';
@@ -1620,6 +1684,9 @@ export interface PlayerState {
   alchemySkill?: AlchemySkillState;
   alchemyPresets?: PlayerAlchemyPreset[];
   alchemyJob?: PlayerAlchemyJob | null;
+  enhancementSkill?: AlchemySkillState;
+  enhancementSkillLevel?: number;
+  enhancementJob?: PlayerEnhancementJob | null;
   enhancementRecords?: PlayerEnhancementRecord[];
 }
 

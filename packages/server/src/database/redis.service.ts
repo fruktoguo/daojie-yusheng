@@ -8,10 +8,12 @@ import type { PersistedPlayerCollections } from '../game/player-storage';
 import { PLAYER_KEY } from '../constants/storage/redis';
 
 @Injectable()
+/** RedisService：封装相关状态与行为。 */
 export class RedisService implements OnModuleDestroy {
   private readonly client: Redis;
   private readonly logger = new Logger(RedisService.name);
 
+/** constructor：处理当前场景中的对应操作。 */
   constructor() {
     const redisUrl = process.env.REDIS_URL;
     this.client = redisUrl
@@ -26,6 +28,7 @@ export class RedisService implements OnModuleDestroy {
     });
   }
 
+/** onModuleDestroy：处理当前场景中的对应操作。 */
   async onModuleDestroy() {
     await this.client.quit();
   }
@@ -67,6 +70,7 @@ export class RedisService implements OnModuleDestroy {
       spiritualRoots: JSON.stringify(state.spiritualRoots ?? null),
       unlockedMinimapIds: JSON.stringify(state.unlockedMinimapIds ?? []),
       alchemySkill: JSON.stringify(state.alchemySkill ?? null),
+      enhancementSkill: JSON.stringify(state.enhancementSkill ?? null),
       alchemyPresets: JSON.stringify(state.alchemyPresets ?? []),
       alchemyJob: JSON.stringify(state.alchemyJob ?? null),
       autoBattle: state.autoBattle ? '1' : '0',
@@ -105,3 +109,4 @@ export class RedisService implements OnModuleDestroy {
     } while (cursor !== '0');
   }
 }
+

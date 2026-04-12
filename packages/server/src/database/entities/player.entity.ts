@@ -23,6 +23,7 @@ const BIGINT_NUMBER_TRANSFORMER = {
 
 /** 玩家角色存档表，主键为角色存档 ID */
 @Entity('players')
+/** PlayerEntity：封装相关状态与行为。 */
 export class PlayerEntity {
   @PrimaryColumn({ type: 'varchar', length: 100 })
   id!: string;
@@ -175,9 +176,17 @@ export class PlayerEntity {
   @Column({ type: 'jsonb', default: () => '\'null\'' })
   alchemyJob!: unknown | null;
 
-  /** 装备强化历史记录 */
+  /** 角色强化等级（兼容旧存档镜像） */
+  @Column({ type: 'int', default: 1 })
+  enhancementSkillLevel!: number;
+
+  /** 当前进行中的强化任务 */
+  @Column({ type: 'jsonb', default: () => '\'null\'' })
+  enhancementJob!: unknown | null;
+
+  /** 强化技艺状态兼容存档（复用旧 jsonb 列） */
   @Column({ type: 'jsonb', default: () => '\'[]\'' })
-  enhancementRecords!: unknown[];
+  enhancementRecords!: unknown;
 
   /** 是否开启自动战斗 */
   @Column({ type: 'boolean', default: false })
@@ -258,3 +267,4 @@ export class PlayerEntity {
   @UpdateDateColumn()
   updatedAt!: Date;
 }
+

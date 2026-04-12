@@ -26,6 +26,7 @@ import {
   computeAlchemyBatchOutputCountWithSize,
   computeAlchemyMaterialPower,
   computeAlchemySuccessRate,
+  computeTimedCraftSkillExp,
   getAlchemySpiritStoneCost,
   isExactAlchemyRecipe,
   normalizeAlchemyIngredientSelections,
@@ -37,13 +38,16 @@ import { MARKET_CURRENCY_ITEM_ID } from '../constants/gameplay/market';
 import { InventoryService } from './inventory.service';
 import { ContentService } from './content.service';
 import { LootService } from './loot.service';
+import { TechniqueService } from './technique.service';
 
+/** RawAlchemyRecipeIngredient：定义该接口的能力与字段约束。 */
 interface RawAlchemyRecipeIngredient {
   itemId: string;
   count: number;
   role: 'main' | 'aux';
 }
 
+/** RawAlchemyRecipe：定义该接口的能力与字段约束。 */
 interface RawAlchemyRecipe {
   recipeId: string;
   outputItemId: string;
@@ -52,19 +56,24 @@ interface RawAlchemyRecipe {
   ingredients: RawAlchemyRecipeIngredient[];
 }
 
+/** AlchemyResultMessage：定义该接口的能力与字段约束。 */
 interface AlchemyResultMessage {
   text: string;
   kind?: 'system' | 'quest' | 'loot';
 }
 
+/** AlchemyMutationResult：定义该接口的能力与字段约束。 */
 export interface AlchemyMutationResult {
   error?: string;
   messages: AlchemyResultMessage[];
   panelChanged: boolean;
   inventoryChanged?: boolean;
   dirtyPlayers?: string[];
+  attrChanged?: boolean;
+  dirtyFlags?: Array<'inv' | 'tech' | 'attr' | 'actions'>;
 }
 
+/** AlchemyBatchResolution：定义该接口的能力与字段约束。 */
 interface AlchemyBatchResolution {
   inventoryChanged: boolean;
   dirtyPlayers: string[];
@@ -73,6 +82,7 @@ interface AlchemyBatchResolution {
   failureCount: number;
 }
 
+/** AlchemyGrantResolution：定义该接口的能力与字段约束。 */
 interface AlchemyGrantResolution {
   inventoryChanged: boolean;
   dirtyPlayers: string[];
@@ -86,17 +96,19 @@ const ALCHEMY_MAX_NAME_LENGTH = 24;
 const DEFAULT_ALCHEMY_EXP_TO_NEXT = 60;
 const ALCHEMY_BUFF_ID = 'system.alchemy';
 const ALCHEMY_INTERRUPT_PAUSE_TICKS = 10;
-const ALCHEMY_SKILL_EXP_TICK_DIVISOR = 3600;
 
+/** normalizePositiveInt：执行对应的业务逻辑。 */
 function normalizePositiveInt(value: unknown, fallback = 1): number {
   return Math.max(1, Math.floor(Number(value) || fallback));
 }
 
+/** normalizePresetName：执行对应的业务逻辑。 */
 function normalizePresetName(name: string | undefined, fallback: string): string {
   const normalized = (name ?? '').trim();
   return (normalized || fallback).slice(0, ALCHEMY_MAX_NAME_LENGTH);
 }
 
+/** clampAlchemyModifier：执行对应的业务逻辑。 */
 function clampAlchemyModifier(value: number | undefined): number {
   if (!Number.isFinite(value)) {
     return 0;
@@ -105,6 +117,7 @@ function clampAlchemyModifier(value: number | undefined): number {
 }
 
 @Injectable()
+/** AlchemyService：封装相关状态与行为。 */
 export class AlchemyService implements OnModuleInit {
   private readonly logger = new Logger(AlchemyService.name);
   private readonly recipes = new Map<string, AlchemyRecipeCatalogEntry>();
@@ -114,6 +127,7 @@ export class AlchemyService implements OnModuleInit {
     private readonly contentService: ContentService,
     private readonly inventoryService: InventoryService,
     private readonly lootService: LootService,
+    private readonly techniqueService: TechniqueService,
   ) {}
 
   onModuleInit(): void {
@@ -516,14 +530,14 @@ export class AlchemyService implements OnModuleInit {
     job.successCount += batchResolution.successCount;
     job.failureCount += batchResolution.failureCount;
 
-    const skillMessages = this.grantAlchemySkillExp(
+    const skillGain = this.grantAlchemySkillExp(
       player,
       recipe.outputLevel,
       recipe.baseBrewTicks,
       batchResolution.successCount,
       batchResolution.failureCount,
     );
-    const messages = [...batchResolution.messages, ...skillMessages];
+    const messages = [...batchResolution.messages, ...skillGain.messages];
     const finished = job.completedCount >= job.quantity;
     if (finished) {
       const totalOutputCount = job.quantity * Math.max(1, job.outputCount);
@@ -536,6 +550,8 @@ export class AlchemyService implements OnModuleInit {
         panelChanged: true,
         inventoryChanged: batchResolution.inventoryChanged,
         dirtyPlayers: batchResolution.dirtyPlayers,
+        attrChanged: skillGain.changed,
+        dirtyFlags: skillGain.dirtyFlags,
       };
     }
 
@@ -545,6 +561,8 @@ export class AlchemyService implements OnModuleInit {
       panelChanged: true,
       inventoryChanged: batchResolution.inventoryChanged,
       dirtyPlayers: batchResolution.dirtyPlayers,
+      attrChanged: skillGain.changed,
+      dirtyFlags: skillGain.dirtyFlags,
     };
   }
 
@@ -956,24 +974,40 @@ export class AlchemyService implements OnModuleInit {
     recipeBaseBrewTicks: number,
     successCount: number,
     failureCount: number,
-  ): AlchemyResultMessage[] {
+  ): { changed: boolean; messages: AlchemyResultMessage[]; dirtyFlags: Array<'inv' | 'tech' | 'attr' | 'actions'> } {
     const skill = this.ensureAlchemySkill(player);
     if (skill.expToNext <= 0) {
-      return [];
+      return { changed: false, messages: [], dirtyFlags: [] };
     }
-    const referenceExp = this.getAlchemySkillExpToNext(recipeLevel);
-    const normalizedBaseBrewTicks = Math.max(0, Math.floor(Number(recipeBaseBrewTicks) || 0));
-    const successGain = Math.max(
-      0,
-      Math.round(referenceExp * (normalizedBaseBrewTicks / ALCHEMY_SKILL_EXP_TICK_DIVISOR)),
+    const totalAttempts = Math.max(0, successCount) + Math.max(0, failureCount);
+    if (totalAttempts <= 0) {
+      return { changed: false, messages: [], dirtyFlags: [] };
+    }
+    const successGain = computeTimedCraftSkillExp(
+      this.getAlchemySkillExpToNext(recipeLevel),
+      recipeLevel,
+      recipeBaseBrewTicks,
     );
-    const failureGain = Math.max(0, Math.round(successGain / 2));
-    const gain = (successGain * Math.max(0, successCount)) + (failureGain * Math.max(0, failureCount));
+    const failureReferenceLevel = Math.min(
+      Math.max(1, Math.floor(recipeLevel || 1)),
+      Math.max(1, Math.floor(skill.level || 1)),
+    );
+    const failureGain = computeTimedCraftSkillExp(
+      this.getAlchemySkillExpToNext(failureReferenceLevel),
+      failureReferenceLevel,
+      recipeBaseBrewTicks,
+      0.25,
+    );
+    const gain = Math.max(
+      0,
+      Math.round(((successGain * Math.max(0, successCount)) + (failureGain * Math.max(0, failureCount))) / totalAttempts),
+    );
     if (gain <= 0) {
-      return [];
+      return { changed: false, messages: [], dirtyFlags: [] };
     }
     skill.exp += gain;
     const messages: AlchemyResultMessage[] = [];
+    const dirtyFlags = new Set<'inv' | 'tech' | 'attr' | 'actions'>();
     while (skill.expToNext > 0 && skill.exp >= skill.expToNext) {
       skill.exp -= skill.expToNext;
       skill.level += 1;
@@ -987,6 +1021,20 @@ export class AlchemyService implements OnModuleInit {
       });
     }
     player.alchemySkill = skill;
-    return messages;
+    const craftRealmGain = this.techniqueService.grantCraftRealmExp(player, gain / 2);
+    for (const flag of craftRealmGain.dirty) {
+      dirtyFlags.add(flag);
+    }
+    for (const message of craftRealmGain.messages) {
+      messages.push({
+        text: message.text,
+        kind: message.kind === 'loot'
+          ? 'loot'
+          : message.kind === 'quest'
+            ? 'quest'
+            : 'system',
+      });
+    }
+    return { changed: true, messages, dirtyFlags: [...dirtyFlags] };
   }
 }

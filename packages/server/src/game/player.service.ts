@@ -24,6 +24,7 @@ import {
   normalizeAlchemySkillState,
   normalizePlayerAlchemyJob,
   normalizePlayerAlchemyPresets,
+  normalizePlayerEnhancementJob,
   QuestState,
   DEFAULT_BASE_ATTRS,
   DEFAULT_BONE_AGE_YEARS,
@@ -75,7 +76,7 @@ export type ImmediateCommandType = 'equip' | 'unequip' | 'sortInventory' | 'useI
 /** 玩家指令，由客户端消息转化后入队，在 tick 中统一执行 */
 export interface PlayerCommand {
   playerId: string;
-  type: 'move' | 'moveTo' | 'navigateQuest' | 'navigateMapPoint' | 'action' | 'takeLoot' | 'debugResetSpawn' | 'buyNpcShopItem' | 'saveAlchemyPreset' | 'deleteAlchemyPreset' | 'startAlchemy' | 'cancelAlchemy' | 'startEnhancement' | 'mailRead' | 'mailClaim' | 'mailDelete' | 'redeemCodes';
+  type: 'move' | 'moveTo' | 'navigateQuest' | 'navigateMapPoint' | 'action' | 'takeLoot' | 'debugResetSpawn' | 'buyNpcShopItem' | 'saveAlchemyPreset' | 'deleteAlchemyPreset' | 'startAlchemy' | 'cancelAlchemy' | 'startEnhancement' | 'cancelEnhancement' | 'mailRead' | 'mailClaim' | 'mailDelete' | 'redeemCodes';
   data: unknown;
   timestamp: number;
 }
@@ -97,6 +98,7 @@ const PLAYER_BIGINT_PERSIST_COLUMNS = [
   'deathCount',
 ] as const;
 
+/** normalizeUnlockedMinimapIds：执行对应的业务逻辑。 */
 function normalizeUnlockedMinimapIds(value: unknown): string[] {
   if (!Array.isArray(value)) {
     return [];
@@ -104,10 +106,12 @@ function normalizeUnlockedMinimapIds(value: unknown): string[] {
   return [...new Set(value.filter((entry): entry is string => typeof entry === 'string' && entry.length > 0))].sort();
 }
 
+/** normalizeNonNegativeCounter：执行对应的业务逻辑。 */
 function normalizeNonNegativeCounter(value: unknown): number {
   return Math.max(0, Number.isFinite(value) ? Math.floor(Number(value)) : 0);
 }
 
+/** isPendingLogbookMessage：执行对应的业务逻辑。 */
 function isPendingLogbookMessage(value: unknown): value is PendingLogbookMessage {
   if (!value || typeof value !== 'object') {
     return false;
@@ -121,6 +125,7 @@ function isPendingLogbookMessage(value: unknown): value is PendingLogbookMessage
 }
 
 @Injectable()
+/** PlayerService：封装相关状态与行为。 */
 export class PlayerService implements OnModuleInit {
   private players: Map<string, PlayerState> = new Map();
   private commands: Map<string, PlayerCommand[]> = new Map();
@@ -164,10 +169,12 @@ export class PlayerService implements OnModuleInit {
     return this.dirtyFlags.get(playerId);
   }
 
+/** clearDirtyFlags：处理当前场景中的对应操作。 */
   clearDirtyFlags(playerId: string) {
     this.dirtyFlags.delete(playerId);
   }
 
+/** buildPersistedCollections：处理当前场景中的对应操作。 */
   private buildPersistedCollections(state: PlayerState) {
     return buildPersistedPlayerCollections(state, this.contentService, this.mapService);
   }
@@ -224,6 +231,7 @@ export class PlayerService implements OnModuleInit {
     this.pendingLogbookPersistions.set(playerId, trackedTask);
   }
 
+/** buildPlayerPersistencePayload：处理当前场景中的对应操作。 */
   private buildPlayerPersistencePayload(state: PlayerState, persisted: ReturnType<PlayerService['buildPersistedCollections']>) {
     this.normalizePersistedTechniqueState(state);
     return {
@@ -264,7 +272,9 @@ export class PlayerService implements OnModuleInit {
       alchemySkill: state.alchemySkill as any,
       alchemyPresets: (state.alchemyPresets ?? []) as any,
       alchemyJob: this.toNullableJsonbValue(state.alchemyJob),
-      enhancementRecords: (state.enhancementRecords ?? []) as any,
+      enhancementSkillLevel: Math.max(1, Math.floor(Number(state.enhancementSkill?.level ?? state.enhancementSkillLevel) || 1)),
+      enhancementJob: this.toNullableJsonbValue(state.enhancementJob),
+      enhancementRecords: (state.enhancementSkill ?? null) as any,
       autoBattle: state.autoBattle,
       autoBattleSkills: state.autoBattleSkills as any,
       autoUsePills: (state.autoUsePills ?? []) as any,
@@ -583,10 +593,12 @@ export class PlayerService implements OnModuleInit {
     return this.socketMap.get(playerId);
   }
 
+/** setSocket：处理当前场景中的对应操作。 */
   setSocket(playerId: string, socket: Socket) {
     this.socketMap.set(playerId, socket);
   }
 
+/** removeSocket：处理当前场景中的对应操作。 */
   removeSocket(playerId: string) {
     this.socketMap.delete(playerId);
   }
@@ -627,10 +639,12 @@ export class PlayerService implements OnModuleInit {
     return undefined;
   }
 
+/** setUserMapping：处理当前场景中的对应操作。 */
   setUserMapping(userId: string, playerId: string) {
     this.userToPlayer.set(userId, playerId);
   }
 
+/** removeUserMapping：处理当前场景中的对应操作。 */
   removeUserMapping(userId: string) {
     this.userToPlayer.delete(userId);
   }
@@ -639,6 +653,7 @@ export class PlayerService implements OnModuleInit {
     return this.onlineSessionStartedAtByUserId.get(userId);
   }
 
+/** syncPlayerRealtimeState：处理当前场景中的对应操作。 */
   syncPlayerRealtimeState(playerId: string) {
     const player = this.players.get(playerId);
     if (!player) {
@@ -1090,6 +1105,7 @@ export class PlayerService implements OnModuleInit {
       occupiedNames.add(effectiveDisplayNameByUserId.get(user.id) ?? resolveDisplayName(user.displayName, user.username));
     }
 
+/** StartupPlayerEntry：定义该类型的结构与数据语义。 */
     type StartupPlayerEntry = {
       id: string;
       userId: string;
@@ -1293,6 +1309,8 @@ export class PlayerService implements OnModuleInit {
   }
 
   private hydratePlayerState(entity: PlayerEntity, displayName: string): PlayerState {
+    const legacyEnhancementSkillLevel = Math.max(1, Math.floor(Number(entity.enhancementSkillLevel) || 1));
+    const enhancementSkillFallbackExpToNext = Math.max(0, this.contentService.getRealmLevelEntry(legacyEnhancementSkillLevel)?.expToNext ?? 60);
     const state: PlayerState = {
       id: entity.id,
       name: entity.name,
@@ -1340,9 +1358,19 @@ export class PlayerService implements OnModuleInit {
       ),
       alchemyPresets: normalizePlayerAlchemyPresets(entity.alchemyPresets),
       alchemyJob: normalizePlayerAlchemyJob(entity.alchemyJob),
-      enhancementRecords: Array.isArray(entity.enhancementRecords)
-        ? entity.enhancementRecords as PlayerState['enhancementRecords']
-        : [],
+      enhancementSkill: normalizeAlchemySkillState(
+        Array.isArray(entity.enhancementRecords)
+          ? {
+              level: legacyEnhancementSkillLevel,
+              exp: 0,
+              expToNext: enhancementSkillFallbackExpToNext,
+            }
+          : entity.enhancementRecords,
+        enhancementSkillFallbackExpToNext,
+      ),
+      enhancementSkillLevel: legacyEnhancementSkillLevel,
+      enhancementJob: normalizePlayerEnhancementJob(entity.enhancementJob),
+      enhancementRecords: [],
       autoBattle: entity.autoBattle ?? false,
       autoBattleSkills: (entity.autoBattleSkills ?? []) as AutoBattleSkillConfig[],
       autoUsePills: normalizeAutoUsePillConfigs(entity.autoUsePills),
@@ -1434,3 +1462,4 @@ export class PlayerService implements OnModuleInit {
     await this.userRepo.save(user);
   }
 }
+

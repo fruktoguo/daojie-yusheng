@@ -5,6 +5,7 @@
   "height": 60,
   "routeDomain": "system",
   "terrainProfileId": "mortal_settlement",
+  "terrainRealmLv": 19,
   "spaceVisionMode": "isolated",
   "description": "练气期主城栖真渡重做为三重错台与折线街巷：北侧压基坪和听脉台像被硬抬起来的接引石台，中轴大道压住渡心堂，西边百工巷靠炉棚与拆件院层层咬合，东边静气坊顺着水线半围出静院，南段行修街则用棚街和摊巷把火路收住，整体更像一座被临时秩序勉强束成形的前线渡城。",
   "dangerLevel": 2,
@@ -317,12 +318,7 @@
   "safeZones": [
     {
       "x": 29,
-      "y": 29,
-      "radius": 20
-    },
-    {
-      "x": 29,
-      "y": 12,
+      "y": 11,
       "radius": 8
     }
   ],
@@ -377,6 +373,7 @@
       "desc": "旧渡口沿着东水线一截一截外挑，木栈和石桩都是后补的，所以看起来总像还在慢慢长。"
     }
   ],
+  "resourceNodeGroups": [],
   "npcs": [
     {
       "id": "npc_lu_wei",
@@ -557,6 +554,5 @@
       "quests": []
     }
   ],
-  "monsterSpawns": [],
-  "terrainRealmLv": 19
+  "monsterSpawns": []
 }

@@ -35,17 +35,38 @@ import { getActionTypeLabel, getElementKeyLabel } from '../../domain-labels';
 import { ACTION_SHORTCUTS_KEY, ACTION_SKILL_PRESETS_KEY, RETURN_TO_SPAWN_ACTION_ID } from '../../constants/ui/action';
 import { getLocalItemTemplate, resolvePreviewItem } from '../../content/local-templates';
 import { formatDisplayNumber } from '../../utils/number';
+import {
+  appendUnique,
+  decodePresetTextValue,
+  escapeHtml,
+  getSkillAffinityBadge,
+  getSkillEnabledTechniques,
+  isAutoUseConsumableCandidate,
+  isRecord,
+  normalizeShortcutKey,
+  readBoolean,
+} from './action-panel-helpers';
 
+/** ActionMainTab：定义该类型的结构与数据语义。 */
 type ActionMainTab = 'dialogue' | 'skill' | 'toggle' | 'utility';
+/** SkillSubTab：定义该类型的结构与数据语义。 */
 type SkillSubTab = 'auto' | 'manual';
+/** SkillManagementTab：定义该类型的结构与数据语义。 */
 type SkillManagementTab = SkillSubTab | 'disabled';
+/** SkillManagementBulkMode：定义该类型的结构与数据语义。 */
 type SkillManagementBulkMode = SkillSubTab | 'enabled' | 'disabled';
+/** SkillManagementSortField：定义该类型的结构与数据语义。 */
 type SkillManagementSortField = 'custom' | 'actualDamage' | 'qiCost' | 'range' | 'targetCount' | 'cooldown';
+/** SkillManagementSortDirection：定义该类型的结构与数据语义。 */
 type SkillManagementSortDirection = 'asc' | 'desc';
+/** SkillManagementFilterToggle：定义该类型的结构与数据语义。 */
 type SkillManagementFilterToggle = 'melee' | 'ranged' | 'physical' | 'spell' | 'single' | 'aoe';
+/** SkillPresetStatusTone：定义该类型的结构与数据语义。 */
 type SkillPresetStatusTone = 'success' | 'error' | 'info';
+/** CombatSettingsTab：定义该类型的结构与数据语义。 */
 type CombatSettingsTab = 'auto_pills' | 'targeting';
 
+/** ActionRowRefs：定义该接口的能力与字段约束。 */
 interface ActionRowRefs {
   row: HTMLElement;
   cdNode: HTMLElement;
@@ -55,11 +76,13 @@ interface ActionRowRefs {
   toggleNode?: HTMLButtonElement;
 }
 
+/** SkillManagementEntry：定义该接口的能力与字段约束。 */
 interface SkillManagementEntry {
   action: ActionDef;
   metrics: SkillPreviewMetrics;
 }
 
+/** ActionSkillAffinityBadge：定义该接口的能力与字段约束。 */
 interface ActionSkillAffinityBadge {
   label: string;
   title: string;
@@ -67,18 +90,21 @@ interface ActionSkillAffinityBadge {
   element: ElementKey | 'multi' | 'neutral';
 }
 
+/** SkillPresetSkillState：定义该接口的能力与字段约束。 */
 interface SkillPresetSkillState {
   skillId: string;
   enabled: boolean;
   skillEnabled: boolean;
 }
 
+/** SkillPresetRecord：定义该接口的能力与字段约束。 */
 interface SkillPresetRecord {
   id: string;
   name: string;
   skills: SkillPresetSkillState[];
 }
 
+/** SkillPresetLibrary：定义该接口的能力与字段约束。 */
 interface SkillPresetLibrary {
   v: number;
   p: Array<{
@@ -87,11 +113,13 @@ interface SkillPresetLibrary {
   }>;
 }
 
+/** SkillPresetStatus：定义该接口的能力与字段约束。 */
 interface SkillPresetStatus {
   tone: SkillPresetStatusTone;
   text: string;
 }
 
+/** AutoUsePillViewEntry：定义该接口的能力与字段约束。 */
 interface AutoUsePillViewEntry {
   itemId: string;
   name: string;
@@ -105,8 +133,10 @@ interface AutoUsePillViewEntry {
   conditions: AutoUsePillCondition[];
 }
 
+/** AutoUsePillSubview：定义该类型的结构与数据语义。 */
 type AutoUsePillSubview = 'main' | 'picker' | 'conditions';
 
+/** CombatTargetingOption：定义该接口的能力与字段约束。 */
 interface CombatTargetingOption {
   key: CombatTargetingRuleKey;
   label: string;
@@ -114,6 +144,7 @@ interface CombatTargetingOption {
   disabled?: boolean;
 }
 
+/** CombatTargetingGroup：定义该接口的能力与字段约束。 */
 interface CombatTargetingGroup {
   scope: CombatTargetingRuleScope;
   title: string;
@@ -163,130 +194,7 @@ const COMBAT_TARGETING_GROUPS: CombatTargetingGroup[] = [
   },
 ];
 
-function normalizeShortcutKey(key: string): string | null {
-  if (key.length !== 1) return null;
-  const lower = key.toLowerCase();
-  if ((lower >= 'a' && lower <= 'z') || (lower >= '0' && lower <= '9')) {
-    return lower;
-  }
-  return null;
-}
-
-function escapeHtml(value: string): string {
-  return value
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;');
-}
-
-function appendUnique<T>(list: T[], value: T): void {
-  if (!list.includes(value)) {
-    list.push(value);
-  }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
-
-function readBoolean(...values: unknown[]): boolean {
-  for (const value of values) {
-    if (typeof value === 'boolean') {
-      return value;
-    }
-  }
-  return true;
-}
-
-function isAutoUseConsumableCandidate(item: Pick<ItemStack, 'healAmount' | 'healPercent' | 'qiPercent'>): boolean {
-  return (item.healAmount ?? 0) > 0 || (item.healPercent ?? 0) > 0 || (item.qiPercent ?? 0) > 0;
-}
-
-function decodePresetTextValue(value: string): string {
-  try {
-    return decodeURIComponent(value);
-  } catch {
-    return value;
-  }
-}
-
-function resolveSkillDamageProfile(skill: SkillDef): { kinds: SkillDamageKind[]; elements: ElementKey[] } {
-  const kinds: SkillDamageKind[] = [];
-  const elements: ElementKey[] = [];
-  for (const effect of skill.effects) {
-    if (effect.type !== 'damage') {
-      continue;
-    }
-    appendUnique(kinds, effect.damageKind === 'physical' ? 'physical' : 'spell');
-    if (effect.element) {
-      appendUnique(elements, effect.element);
-    }
-  }
-  return { kinds, elements };
-}
-
-function formatSkillAffinityLabel(
-  kind: ActionSkillAffinityBadge['tone'],
-  element: ActionSkillAffinityBadge['element'],
-): { label: string; title: string } {
-  const shortKindLabel = kind === 'physical'
-    ? '物'
-    : kind === 'spell'
-      ? '法'
-      : kind === 'mixed'
-        ? '混'
-        : '辅';
-  const fullKindLabel = kind === 'physical'
-    ? '物理'
-    : kind === 'spell'
-      ? '法术'
-      : kind === 'mixed'
-        ? '混合'
-        : '辅助';
-  const elementLabel = element === 'multi'
-    ? '五行'
-    : element === 'neutral'
-      ? ''
-      : `${getElementKeyLabel(element)}行`;
-  if (!elementLabel) {
-    return {
-      label: kind === 'utility' ? '辅助' : fullKindLabel,
-      title: kind === 'utility' ? '辅助型技能' : fullKindLabel,
-    };
-  }
-  return {
-    label: `${element === 'multi' ? elementLabel : getElementKeyLabel(element)}${shortKindLabel}`,
-    title: `${elementLabel}${fullKindLabel}`,
-  };
-}
-
-function getSkillAffinityBadge(skill: SkillDef): ActionSkillAffinityBadge {
-  const { kinds, elements } = resolveSkillDamageProfile(skill);
-  if (kinds.length === 0) {
-    return {
-      label: '辅助',
-      title: '辅助型技能',
-      tone: 'utility',
-      element: 'neutral',
-    };
-  }
-  const tone: ActionSkillAffinityBadge['tone'] = kinds.length > 1 ? 'mixed' : (kinds[0] === 'physical' ? 'physical' : 'spell');
-  const element: ActionSkillAffinityBadge['element'] = elements.length > 1 ? 'multi' : (elements[0] ?? 'neutral');
-  const text = formatSkillAffinityLabel(tone, element);
-  return {
-    label: text.label,
-    title: text.title,
-    tone,
-    element,
-  };
-}
-
-function getSkillEnabledTechniques(player: PlayerState): PlayerState['techniques'] {
-  return player.techniques.filter((technique) => technique.skillsEnabled !== false);
-}
-
+/** ActionPanel：封装相关状态与行为。 */
 export class ActionPanel {
   private static readonly SKILL_MANAGEMENT_MODAL_OWNER = 'action-panel-skill-management';
   private static readonly AUTO_USE_PILL_OVERVIEW_MODAL_OWNER = 'action-panel-auto-use-pill-overview';
@@ -346,6 +254,7 @@ export class ActionPanel {
   private autoUsePillTooltipNode: HTMLElement | null = null;
   private actionRowRefs = new Map<string, ActionRowRefs>();
 
+/** constructor：处理当前场景中的对应操作。 */
   constructor() {
     this.shortcutBindings = this.loadShortcutBindings();
     this.skillPresets = this.loadSkillPresets();
@@ -4165,3 +4074,4 @@ export class ActionPanel {
     </div>`;
   }
 }
+

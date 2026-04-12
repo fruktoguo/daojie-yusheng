@@ -23,7 +23,6 @@ import {
   CombatEffect,
   resolveTargetingGeometry,
   computeAffectedCellsFromAnchor,
-  createItemStackSignature,
   createNumericStats,
   DEFAULT_RATIO_DIVISOR,
   DISPERSED_AURA_RESOURCE_KEY,
@@ -31,7 +30,6 @@ import {
   ElementKey,
   ELEMENT_KEYS,
   ELEMENT_KEY_LABELS,
-  estimateMonsterSpiritFromStats,
   gameplayConstants,
   GameTimeState,
   getBasicAttackCombatExperienceDamageMultiplier,
@@ -50,14 +48,10 @@ import {
   NumericStats,
   PartialNumericStats,
   percentModifierToMultiplier,
-  NpcQuestMarker,
-  ObservationInsight,
-  ObservationLootPreview,
   normalizeCombatTargetingRules,
   parseTileTargetRef,
   PendingLogbookMessage,
   PlayerState,
-  PlayerRealmStage,
   Portal,
   QuestState,
   RenderEntity,
@@ -102,25 +96,16 @@ import { ContainerConfig, DropConfig, MapService, MonsterSpawnConfig, NpcConfig,
 import { NavigationService } from './navigation.service';
 import { PerformanceService } from './performance.service';
 import { PlayerService } from './player.service';
-import { isLikelyInternalContentId, resolveQuestTargetName } from './quest-display';
+import { resolveQuestTargetName } from './quest-display';
 import { TechniqueService } from './technique.service';
 import { ThreatService } from './threat.service';
 import { TimeService } from './time.service';
 import { AlchemyService } from './alchemy.service';
 import { EnhancementService } from './enhancement.service';
-import {
-  buildMonsterInitialBuffSourceId,
-  dehydrateTemporaryBuff,
-  hydrateTemporaryBuffSnapshots,
-  normalizePersistedTemporaryBuffSnapshot,
-  PersistedTemporaryBuffSnapshot,
-} from './temporary-buff-storage';
+import { buildMonsterInitialBuffSourceId } from './temporary-buff-storage';
 import {
   DEFAULT_MONSTER_RATIO_DIVISORS,
   EMPTY_UPDATE,
-  NPC_ROLE_PROFILES,
-  OBSERVATION_BLIND_RATIO,
-  OBSERVATION_FULL_RATIO,
   PLAYER_CROWD_CHAR,
   PLAYER_CROWD_COLOR,
   PLAYER_CROWD_DENSE_COLOR,
@@ -143,118 +128,65 @@ import {
   ORDINARY_MONSTER_OVERLEVEL_SPIRIT_STONE_DROP_MULTIPLIER,
   ORDINARY_MONSTER_OVERLEVEL_SPIRIT_STONE_DROP_THRESHOLD,
 } from '../constants/gameplay/monster';
+import {
+  applyAttributeAdditions,
+  applyAttributePercentMultipliers,
+  createMonsterAttributeSnapshot,
+  DEFENSE_REDUCTION_ATTACK_RATIO,
+  DEFENSE_REDUCTION_BASELINE,
+  HUANLING_CANMAI_SUOBU_BUFF_ID,
+  HUANLING_CANPO_ZHANG_SKILL_ID,
+  HUANLING_DIFU_CHENYIN_SKILL_ID,
+  HUANLING_DUANHUN_DING_SKILL_ID,
+  HUANLING_FAXIANG_BUFF_ID,
+  HUANLING_FAXIANG_SKILL_ID,
+  HUANLING_LIEFU_WAIHUAN_SKILL_ID,
+  HUANLING_LIEQI_ZHIXIAN_SKILL_ID,
+  HUANLING_RONGHE_GUANMAI_SKILL_ID,
+  HUANLING_RONGMAI_YIN_BUFF_ID,
+  HUANLING_SUOGONG_NEIHUAN_SKILL_ID,
+  HUANLING_XINGLUO_CANPAN_SKILL_ID,
+  HUANLING_ZHENREN_MONSTER_ID,
+  INTRO_BODY_TECHNIQUE_BOOK_ID,
+  INTRO_BODY_TECHNIQUE_ID,
+  INTRO_BODY_TEMPERING_QUEST_ID,
+  MAP_MONSTER_RUNTIME_DOCUMENT_KEY,
+  MONSTER_ATTR_KEYS,
+  NPC_SHOP_RUNTIME_DOCUMENT_KEY,
+  RUNTIME_STATE_SCOPE,
+  STATIC_CONTEXT_TOGGLE_ACTIONS,
+  TERRAIN_MOLTEN_POOL_BURN_BUFF_ID,
+} from './world.service.shared';
+import {
+  applyMonsterBuffStats as applyMonsterBuffStatsHelper,
+  collectMonsterBuffAttrBonuses as collectMonsterBuffAttrBonusesHelper,
+  getMonsterFinalAttrs as getMonsterFinalAttrsHelper,
+  hasMonsterAttributeModifiers as hasMonsterAttributeModifiersHelper,
+} from './world-monster-attrs.helpers';
+import {
+  evaluateSkillFormula as evaluateSkillFormulaHelper,
+  SkillFormulaContext,
+} from './world-skill-formula.helpers';
+import { WorldObservationDomain } from './world-observation.domain';
+import { WorldQuestDomain } from './world-quest.domain';
+import {
+  MonsterSpawnAccelerationState,
+  PendingMonsterSkillCast,
+  PersistedMonsterRuntimeRecord,
+  PersistedMonsterRuntimeSnapshot,
+  PersistedMonsterSpawnAccelerationRecord,
+  PersistedNpcShopRuntimeRecord,
+  PersistedNpcShopRuntimeSnapshot,
+  WorldRuntimePersistenceDomain,
+} from './world-runtime-persistence.domain';
+import { WorldTargetingDomain } from './world-targeting.domain';
 
-const MONSTER_ATTR_KEYS: readonly (keyof Attributes)[] = [
-  'constitution',
-  'spirit',
-  'perception',
-  'talent',
-  'comprehension',
-  'luck',
-];
-
-function createMonsterAttributeSnapshot(initial = 0): Attributes {
-  return {
-    constitution: initial,
-    spirit: initial,
-    perception: initial,
-    talent: initial,
-    comprehension: initial,
-    luck: initial,
-  };
-}
-
-function applyAttributeAdditions(target: Attributes, patch: Partial<Attributes> | undefined): void {
-  if (!patch) {
-    return;
-  }
-  for (const key of MONSTER_ATTR_KEYS) {
-    const value = patch[key];
-    if (value === undefined || value === 0) {
-      continue;
-    }
-    target[key] += value;
-  }
-}
-
-function applyAttributePercentMultipliers(target: Attributes, patch: Partial<Attributes> | undefined): void {
-  if (!patch) {
-    return;
-  }
-  for (const key of MONSTER_ATTR_KEYS) {
-    const value = patch[key];
-    if (value === undefined || value === 0) {
-      continue;
-    }
-    target[key] = Math.max(0, target[key] * percentModifierToMultiplier(value));
-  }
-}
-
-const STATIC_CONTEXT_TOGGLE_ACTIONS: readonly ActionDef[] = [{
-  id: 'toggle:auto_battle',
-  name: '自动战斗',
-  type: 'toggle',
-  desc: '自动追击附近妖兽并释放技能，可随时切换开关。',
-  cooldownLeft: 0,
-}, {
-  id: 'toggle:auto_retaliate',
-  name: '自动反击',
-  type: 'toggle',
-  desc: '控制被攻击时是否自动开战。',
-  cooldownLeft: 0,
-}, {
-  id: 'toggle:auto_battle_stationary',
-  name: '原地战斗',
-  type: 'toggle',
-  desc: '控制自动战斗时是否原地输出，还是按射程追击目标。',
-  cooldownLeft: 0,
-}, {
-  id: 'toggle:allow_aoe_player_hit',
-  name: '全体攻击',
-  type: 'toggle',
-  desc: '控制是否允许主动攻击其他玩家；关闭后只会对袭击你的玩家进行反击。',
-  cooldownLeft: 0,
-}, {
-  id: 'toggle:auto_idle_cultivation',
-  name: '闲置自动修炼',
-  type: 'toggle',
-  desc: '控制角色闲置一段时间后是否自动开始修炼。',
-  cooldownLeft: 0,
-}, {
-  id: 'toggle:auto_switch_cultivation',
-  name: '修满自动切换',
-  type: 'toggle',
-  desc: '控制主修功法圆满后是否自动切到下一门未圆满功法。',
-  cooldownLeft: 0,
-}, {
-  id: 'sense_qi:toggle',
-  name: '感气视角',
-  type: 'toggle',
-  desc: '切换感气视角，观察地块灵气层次与变化。',
-  cooldownLeft: 0,
-}];
-
-const INTRO_BODY_TECHNIQUE_ID = 'standing_stake_art';
-const INTRO_BODY_TECHNIQUE_BOOK_ID = 'book.standing_stake_art';
-const INTRO_BODY_TEMPERING_QUEST_ID = 'q_intro_body_tempering';
-const HUANLING_ZHENREN_MONSTER_ID = 'm_huanling_zhenren';
-const HUANLING_FAXIANG_SKILL_ID = 'skill.huanling_candan_faxiang';
-const HUANLING_LIEFU_WAIHUAN_SKILL_ID = 'skill.huanling_liefu_waihuan';
-const HUANLING_XINGLUO_CANPAN_SKILL_ID = 'skill.huanling_xingluo_canpan';
-const HUANLING_RONGHE_GUANMAI_SKILL_ID = 'skill.huanling_ronghe_guanmai';
-const HUANLING_LIEQI_ZHIXIAN_SKILL_ID = 'skill.huanling_lieqi_zhixian';
-const HUANLING_SUOGONG_NEIHUAN_SKILL_ID = 'skill.huanling_suogong_neihuan';
-const HUANLING_DIFU_CHENYIN_SKILL_ID = 'skill.huanling_difu_chenyin';
-const HUANLING_DUANHUN_DING_SKILL_ID = 'skill.huanling_duanhun_ding';
-const HUANLING_CANPO_ZHANG_SKILL_ID = 'skill.huanling_canpo_zhang';
-const HUANLING_FAXIANG_BUFF_ID = 'buff.huanling_candan_faxiang';
-const HUANLING_RONGMAI_YIN_BUFF_ID = 'buff.huanling_rongmai_yin';
-const HUANLING_CANMAI_SUOBU_BUFF_ID = 'buff.huanling_canmai_suobu';
-const TERRAIN_MOLTEN_POOL_BURN_BUFF_ID = 'terrain_molten_pool_burn';
-
+/** MessageKind：定义该类型的结构与数据语义。 */
 type MessageKind = 'system' | 'quest' | 'combat' | 'loot';
+/** WorldDirtyFlag：定义该类型的结构与数据语义。 */
 type WorldDirtyFlag = 'inv' | 'quest' | 'actions' | 'tech' | 'attr' | 'loot';
 
+/** RuntimeMonster：定义该接口的能力与字段约束。 */
 interface RuntimeMonster extends MonsterSpawnConfig {
   runtimeId: string;
   mapId: string;
@@ -276,93 +208,7 @@ interface RuntimeMonster extends MonsterSpawnConfig {
   pendingCast?: PendingMonsterSkillCast;
 }
 
-interface PendingMonsterSkillCast {
-  skillId: string;
-  targetX: number;
-  targetY: number;
-  remainingTicks: number;
-  qiCost: number;
-  warningColor?: string;
-}
-
-interface NpcInteractionState {
-  quest?: QuestConfig;
-  questState?: QuestState;
-  relation?: 'giver' | 'target' | 'submit';
-}
-
-interface ObservationTargetSnapshot {
-  hp: number;
-  maxHp: number;
-  qi: number;
-  maxQi: number;
-  spirit: number;
-  stats: NumericStats;
-  ratios: NumericRatioDivisors;
-  attrs?: Attributes;
-  realmLabel?: string;
-}
-
-interface ObservationLineSpec {
-  threshold: number;
-  label: string;
-  value: string;
-}
-
-interface NpcPresenceProfile {
-  title: string;
-  spirit: number;
-  hp: number;
-  qi: number;
-}
-
-interface PersistedMonsterRuntimeRecord {
-  runtimeId: string;
-  x: number;
-  y: number;
-  hp: number;
-  qi?: number;
-  alive: boolean;
-  respawnLeft: number;
-  temporaryBuffs?: PersistedTemporaryBuffSnapshot[];
-  skillCooldowns?: Record<string, number>;
-  damageContributors?: Record<string, number>;
-  facing?: Direction;
-  targetPlayerId?: string;
-  lastSeenTargetX?: number;
-  lastSeenTargetY?: number;
-  lastSeenTargetTick?: number;
-  pendingCast?: PendingMonsterSkillCast;
-}
-
-interface PersistedMonsterRuntimeSnapshot {
-  version: 1 | 2 | 3 | 4;
-  maps: Record<string, PersistedMonsterRuntimeRecord[]>;
-  spawnAccelerationStates?: Record<string, PersistedMonsterSpawnAccelerationRecord[]>;
-}
-
-interface MonsterSpawnAccelerationState {
-  spawnKey: string;
-  respawnSpeedBonusPercent: number;
-  clearDeadlineTick: number;
-}
-
-interface PersistedMonsterSpawnAccelerationRecord {
-  spawnKey: string;
-  respawnSpeedBonusPercent: number;
-  clearDeadlineTick: number;
-}
-
-interface PersistedNpcShopRuntimeRecord {
-  refreshWindowStartMs: number;
-  soldQuantity: number;
-}
-
-interface PersistedNpcShopRuntimeSnapshot {
-  version: 1;
-  items: Record<string, PersistedNpcShopRuntimeRecord>;
-}
-
+/** ResolvedNpcShopStockState：定义该接口的能力与字段约束。 */
 interface ResolvedNpcShopStockState {
   stateKey: string;
   stockLimit: number;
@@ -372,23 +218,13 @@ interface ResolvedNpcShopStockState {
   remainingQuantity: number;
 }
 
+/** ResolvedNpcShopItemRuntime：定义该接口的能力与字段约束。 */
 interface ResolvedNpcShopItemRuntime {
   item: ItemStack;
   unitPrice: number;
   stock?: ResolvedNpcShopStockState;
 }
 
-const RUNTIME_STATE_SCOPE = 'runtime_state';
-const MAP_MONSTER_RUNTIME_DOCUMENT_KEY = 'map_monster';
-const NPC_SHOP_RUNTIME_DOCUMENT_KEY = 'npc_shop';
-
-function getMonsterDisplayName(name: string, tier: 'mortal_blood' | 'variant' | 'demon_king'): string {
-  if (tier !== 'variant') {
-    return name;
-  }
-  const sanitized = name.replaceAll('精英', '').trim();
-  return sanitized.length > 0 ? sanitized : name;
-}
 
 /** tick 中产生的消息，最终推送给对应玩家 */
 export interface WorldMessage {
@@ -415,6 +251,7 @@ export interface WorldUpdate {
 }
 
 
+/** CombatSnapshot：定义该接口的能力与字段约束。 */
 interface CombatSnapshot {
   attrs: Attributes;
   stats: NumericStats;
@@ -423,6 +260,7 @@ interface CombatSnapshot {
   combatExp: number;
 }
 
+/** ResolvedHit：定义该接口的能力与字段约束。 */
 interface ResolvedHit {
   hit: boolean;
   rawDamage: number;
@@ -435,48 +273,39 @@ interface ResolvedHit {
   qiCost: number;
 }
 
-const DEFENSE_REDUCTION_ATTACK_RATIO = 0.25;
-const DEFENSE_REDUCTION_BASELINE = 100;
 
+/** MonsterExpParticipant：定义该接口的能力与字段约束。 */
 interface MonsterExpParticipant {
   player: PlayerState;
   contribution: number;
 }
 
+/** MonsterLootRecipient：定义该接口的能力与字段约束。 */
 interface MonsterLootRecipient {
   player: PlayerState;
   weight: number;
 }
 
+/** ResolvedTarget：定义该类型的结构与数据语义。 */
 type ResolvedTarget =
   | { kind: 'monster'; x: number; y: number; monster: RuntimeMonster }
   | { kind: 'player'; x: number; y: number; player: PlayerState }
   | { kind: 'container'; x: number; y: number; container: ContainerConfig }
   | { kind: 'tile'; x: number; y: number; tileType?: string };
 
-interface SkillFormulaContext {
-  player?: PlayerState;
-  monsterCaster?: RuntimeMonster;
-  skill: SkillDef;
-  techLevel: number;
-  targetCount: number;
-  casterStats: NumericStats;
-  casterAttrs?: Attributes;
-  target?: ResolvedTarget;
-  targetStats?: NumericStats;
-  targetAttrs?: Attributes;
-}
-
+/** AutoBattleSkillCandidate：定义该接口的能力与字段约束。 */
 interface AutoBattleSkillCandidate {
   action: ActionDef;
   skill: SkillDef;
 }
 
+/** BuffTargetEntity：定义该类型的结构与数据语义。 */
 type BuffTargetEntity =
   | { kind: 'player'; player: PlayerState }
   | { kind: 'monster'; monster: RuntimeMonster };
 
 @Injectable()
+/** WorldService：封装相关状态与行为。 */
 export class WorldService implements OnModuleInit, OnModuleDestroy {
   private readonly monstersByMap = new Map<string, RuntimeMonster[]>();
   private readonly monsterSpawnGroupsByMap = new Map<string, Map<string, RuntimeMonster[]>>();
@@ -489,6 +318,10 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
   private readonly npcShopRuntimeStates = new Map<string, PersistedNpcShopRuntimeRecord>();
   private readonly logger = new Logger(WorldService.name);
   private readonly monsterRuntimeStatePath = resolveServerDataPath('runtime', 'map-monster-runtime-state.json');
+  private readonly observationDomain: WorldObservationDomain;
+  private readonly questDomain: WorldQuestDomain;
+  private readonly runtimePersistenceDomain: WorldRuntimePersistenceDomain;
+  private readonly targetingDomain: WorldTargetingDomain;
   private monsterRuntimeDirty = false;
   private npcShopRuntimeDirty = false;
 
@@ -509,7 +342,73 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     private readonly persistentDocumentService: PersistentDocumentService,
     private readonly alchemyService: AlchemyService,
     private readonly enhancementService: EnhancementService,
-  ) {}
+  ) {
+    this.questDomain = new WorldQuestDomain(
+      this.mapService,
+      this.contentService,
+      this.inventoryService,
+      this.lootService,
+      this.playerService,
+      {
+        getCurrentMainQuestId: (player) => this.getCurrentMainQuestId(player),
+        getEffectiveDropChance: (player, monster, drop) => this.getEffectiveDropChance(player, monster as RuntimeMonster, drop),
+      },
+    );
+    this.observationDomain = new WorldObservationDomain(
+      this.attrService,
+      this.mapService,
+      this.contentService,
+      this.lootService,
+      {
+        getMonsterCombatSnapshot: (monster) => this.getMonsterCombatSnapshot(monster as RuntimeMonster),
+        getMonsterPresentationScale: (monster) => this.getMonsterPresentationScale(monster as RuntimeMonster),
+        getTemporaryBuffPresentationScale: (buffs) => this.getTemporaryBuffPresentationScale(buffs),
+        getMapRenderableBuffs: (buffs) => this.getMapRenderableBuffs(buffs) ?? [],
+        getRenderableBuffs: (buffs) => this.getRenderableBuffs(buffs) ?? [],
+        getPlayerRenderableBuffs: (player) => this.getPlayerRenderableBuffs(player) ?? [],
+        getEffectiveDropChance: (viewer, monster, drop) => this.getEffectiveDropChance(viewer, monster as RuntimeMonster, drop),
+        resolveNpcQuestMarker: (viewer, npc) => this.questDomain.resolveNpcQuestMarker(viewer, npc),
+        formatRespawnTicks: (ticks) => this.formatRespawnTicks(ticks),
+      },
+    );
+    this.runtimePersistenceDomain = new WorldRuntimePersistenceDomain(
+      this.mapService,
+      this.contentService,
+      {
+        syncMonsterRuntimeResources: (runtime, resourceDelta) => this.syncMonsterRuntimeResources(runtime as RuntimeMonster, resourceDelta),
+        findSpawnPosition: (mapId, runtime) => this.findSpawnPosition(mapId, runtime as RuntimeMonster),
+        areAllMonstersAlive: (monsters) => this.areAllMonstersAlive(monsters as RuntimeMonster[]),
+      },
+    );
+    this.targetingDomain = new WorldTargetingDomain(
+      this.attrService,
+      this.contentService,
+      this.aoiService,
+      this.playerService,
+      this.mapService,
+      this.lootService,
+      this.threatService,
+      {
+        getMonstersByMap: (mapId) => this.monstersByMap.get(mapId) ?? [],
+        canPlayerCastSkill: (player, skill) => this.canPlayerCastSkill(player, skill),
+        buildEffectiveSkillRange: (skill, player) => this.buildEffectiveSkillGeometry(skill, this.attrService.getPlayerNumericStats(player)).range,
+        canPlayerUseHostileEffectOnTarget: (player, target) => this.canPlayerUseHostileEffectOnTarget(player, target as ResolvedTarget),
+        canReachAttackPosition: (mapId, actor, target, range, selfOccupancyId, actorType) => this.canReachAttackPosition(
+          mapId,
+          actor,
+          target as ResolvedTarget,
+          range,
+          selfOccupancyId,
+          actorType,
+        ),
+        getPlayerThreatId: (player) => this.getPlayerThreatId(player),
+        getMonsterThreatId: (monster) => this.getMonsterThreatId(monster as RuntimeMonster),
+        getExtraAggroRate: (target) => this.getExtraAggroRate(target as PlayerState | RuntimeMonster),
+        isMonsterAutoAggroEnabled: (monster, timeState) => this.isMonsterAutoAggroEnabled(monster as RuntimeMonster, timeState),
+        clearCombatTarget: (player) => this.clearCombatTarget(player),
+      },
+    );
+  }
 
   async onModuleInit(): Promise<void> {
     await this.loadPersistedMonsterRuntimeState();
@@ -621,7 +520,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
           return [];
         }
         return [{
-          ...this.buildNpcRenderEntity(viewer, npc, sourceMapId),
+          ...this.observationDomain.buildNpcRenderEntity(viewer, npc, sourceMapId),
           x: projected.x,
           y: projected.y,
         }];
@@ -637,7 +536,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
           return [];
         }
         return [{
-          ...this.buildMonsterRenderEntity(viewer, monster),
+          ...this.observationDomain.buildMonsterRenderEntity(viewer, monster),
           x: projected.x,
           y: projected.y,
         }];
@@ -650,8 +549,10 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
   reloadMapRuntime(mapId: string): void {
     const monsters = this.monstersByMap.get(mapId) ?? [];
     if (monsters.length > 0) {
-      this.persistedMonstersByMap.set(mapId, this.captureMonsterRuntimeState(monsters));
-      const spawnStates = this.captureMonsterSpawnAccelerationState(mapId);
+      this.persistedMonstersByMap.set(mapId, this.runtimePersistenceDomain.captureMonsterRuntimeState(monsters));
+      const spawnStates = this.runtimePersistenceDomain.captureMonsterSpawnAccelerationState(
+        this.monsterSpawnAccelerationStatesByMap.get(mapId)?.values() ?? [],
+      );
       if (spawnStates.size > 0) {
         this.persistedMonsterSpawnAccelerationStatesByMap.set(mapId, spawnStates);
       } else {
@@ -844,7 +745,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     }
 
     for (const npc of this.getAdjacentNpcs(player)) {
-      const interaction = this.getNpcInteractionState(player, npc);
+      const interaction = this.questDomain.getNpcInteractionState(player, npc);
       let name = `交谈：${npc.name}`;
       let desc = npc.dialogue;
       let type: ActionDef['type'] = 'interact';
@@ -863,7 +764,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
           : `任务：${interaction.questState.title}`;
         desc = interaction.relation === 'target' && interaction.questState.objectiveType === 'talk'
           ? (interaction.questState.relayMessage?.trim() || interaction.quest?.relayMessage?.trim() || '把口信转达给对方。')
-          : this.describeQuestProgress(player, interaction.questState, interaction.quest);
+          : this.questDomain.describeQuestProgress(player, interaction.questState, interaction.quest);
         type = 'quest';
       }
 
@@ -925,7 +826,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
         npcName: npc.name,
         dialogue: npc.dialogue,
         currencyItemId: MARKET_CURRENCY_ITEM_ID,
-        currencyItemName: this.getShopCurrencyItemName(),
+        currencyItemName: this.questDomain.getShopCurrencyItemName(),
         items,
       },
     };
@@ -1009,15 +910,15 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     if (!purchasedItem) {
       return { ...EMPTY_UPDATE, error: '商品配置异常，暂时无法购买' };
     }
-    if (!this.canReceiveItems(player, [purchasedItem])) {
+    if (!this.questDomain.canReceiveItems(player, [purchasedItem])) {
       return { ...EMPTY_UPDATE, error: '背包空间不足，无法购买' };
     }
 
-    const currencyName = this.getShopCurrencyItemName();
-    if (this.getInventoryCount(player, MARKET_CURRENCY_ITEM_ID) < totalCost) {
+    const currencyName = this.questDomain.getShopCurrencyItemName();
+    if (this.questDomain.getInventoryCount(player, MARKET_CURRENCY_ITEM_ID) < totalCost) {
       return { ...EMPTY_UPDATE, error: `${currencyName}不足` };
     }
-    const consumeError = this.consumeInventoryItem(player, MARKET_CURRENCY_ITEM_ID, totalCost, `${currencyName}不足`);
+    const consumeError = this.questDomain.consumeInventoryItem(player, MARKET_CURRENCY_ITEM_ID, totalCost, `${currencyName}不足`);
     if (consumeError) {
       return { ...EMPTY_UPDATE, error: consumeError };
     }
@@ -1313,8 +1214,8 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       if (quest.status === 'completed') continue;
       const config = this.mapService.getQuest(quest.id);
       if (!config) continue;
-      changed = this.syncQuestNpcLocations(quest) || changed;
-      const nextProgress = this.resolveQuestProgress(player, quest, config);
+      changed = this.questDomain.syncQuestNpcLocations(quest) || changed;
+      const nextProgress = this.questDomain.resolveQuestProgress(player, quest, config);
       if (nextProgress !== quest.progress) {
         quest.progress = nextProgress;
         changed = true;
@@ -1339,7 +1240,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
-    const statusChanged = this.refreshQuestStatuses(player);
+    const statusChanged = this.questDomain.refreshQuestStatuses(player);
     if (changed || statusChanged) {
       return (mainQuestRepairChanged || statusChanged) ? ['quest', 'actions'] : ['quest'];
     }
@@ -1351,7 +1252,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     if (player.techniques.some((entry) => entry.techId === INTRO_BODY_TECHNIQUE_ID)) {
       return false;
     }
-    if (this.getInventoryCount(player, INTRO_BODY_TECHNIQUE_BOOK_ID) > 0) {
+    if (this.questDomain.getInventoryCount(player, INTRO_BODY_TECHNIQUE_BOOK_ID) > 0) {
       return false;
     }
 
@@ -1411,15 +1312,15 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     const dirty = new Set<WorldDirtyFlag>();
     const effectiveViewRange = this.timeService.getEffectiveViewRangeFromBuff(player.viewRange, player.temporaryBuffs);
     const stationaryMode = player.autoBattleStationary === true;
-    const availableSkills = this.collectAutoBattleSkillCandidates(player);
-    const preferredRange = this.resolveAutoBattlePreferredRange(player, availableSkills);
+    const availableSkills = this.targetingDomain.collectAutoBattleSkillCandidates(player);
+    const preferredRange = this.targetingDomain.resolveAutoBattlePreferredRange(player, availableSkills);
 
     let target: ResolvedTarget | undefined;
     let targetVisible = true;
 
     if (player.combatTargetLocked) {
       const retaliationTargetId = player.retaliatePlayerTargetId;
-      target = this.resolveCombatTarget(player);
+      target = this.targetingDomain.resolveCombatTarget(player) as ResolvedTarget | undefined;
       if (!target) {
         player.autoBattle = false;
         this.clearCombatTarget(player);
@@ -1434,7 +1335,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
           dirty: ['actions'],
         };
       }
-      targetVisible = this.canPlayerSeeTarget(player, target, effectiveViewRange);
+      targetVisible = this.targetingDomain.canPlayerSeeTarget(player, target, effectiveViewRange);
     }
 
     if (!target) {
@@ -1452,12 +1353,12 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     const targetRef = this.getTargetRef(target);
 
     if (targetVisible) {
-      const selectedSkill = this.selectAutoBattleSkillForTarget(player, target, availableSkills);
+      const selectedSkill = this.targetingDomain.selectAutoBattleSkillForTarget(player, target, availableSkills);
       if (selectedSkill) {
         const update = selectedSkill.skill.requiresTarget === false
           ? this.performSkill(player, selectedSkill.skill.id)
           : this.performTargetedSkill(player, selectedSkill.skill.id, targetRef);
-        const stopUpdate = this.stopLockedForceAttackForInvalidTile(player, target, update);
+        const stopUpdate = this.targetingDomain.stopLockedForceAttackForInvalidTile(player, target, update) as WorldUpdate | null;
         if (stopUpdate) {
           return stopUpdate;
         }
@@ -1469,7 +1370,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       if (isPointInRange(player, target, 1)) {
         this.faceToward(player, target.x, target.y);
         const update = this.performBasicAttack(player, target);
-        return this.stopLockedForceAttackForInvalidTile(player, target, update) ?? update;
+        return this.targetingDomain.stopLockedForceAttackForInvalidTile(player, target, update) as WorldUpdate | null ?? update;
       }
     }
 
@@ -1539,7 +1440,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       return { ...EMPTY_UPDATE, error: '请选择目标' };
     }
 
-    const target = this.resolveTargetRef(player, targetRef);
+    const target = this.targetingDomain.resolveTargetRef(player, targetRef) as ResolvedTarget | null;
     if (!target) {
       return { ...EMPTY_UPDATE, error: '目标不存在或不可选中' };
     }
@@ -1767,7 +1668,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       return { messages: [], dirty: [] };
     }
     const primaryTarget = pendingCast.targetRef
-      ? this.resolveTargetRef(player, pendingCast.targetRef) ?? undefined
+      ? this.targetingDomain.resolveTargetRef(player, pendingCast.targetRef) as ResolvedTarget | null ?? undefined
       : undefined;
     return this.castSkillAtAnchor(
       player,
@@ -1813,7 +1714,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
   ): WorldUpdate {
     const windupTicks = this.getPlayerSkillWindupTicks(skill);
     if (windupTicks <= 0) {
-      const primaryTarget = targetRef ? this.resolveTargetRef(player, targetRef) ?? undefined : undefined;
+      const primaryTarget = targetRef ? this.targetingDomain.resolveTargetRef(player, targetRef) as ResolvedTarget | null ?? undefined : undefined;
       return this.castSkillAtAnchor(player, skill, anchor, { primaryTarget, playerStats });
     }
     const warningCells = this.buildPlayerSkillAffectedCells(player, skill, anchor, playerStats);
@@ -1906,7 +1807,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     if (!targetRef) {
       return { ...EMPTY_UPDATE, error: '缺少目标' };
     }
-    const target = this.resolveTargetRef(player, targetRef);
+    const target = this.targetingDomain.resolveTargetRef(player, targetRef) as ResolvedTarget | null;
     if (!target || target.kind !== 'monster') {
       return { ...EMPTY_UPDATE, error: '只能锁定敌对单位' };
     }
@@ -1931,7 +1832,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     if (!targetRef) {
       return { ...EMPTY_UPDATE, error: '请选择目标' };
     }
-    const target = this.resolveTargetRef(player, targetRef);
+    const target = this.targetingDomain.resolveTargetRef(player, targetRef) as ResolvedTarget | null;
     if (!target) {
       return { ...EMPTY_UPDATE, error: '目标不存在或不可选中' };
     }
@@ -1939,7 +1840,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       return { ...EMPTY_UPDATE, error: '已关闭全体攻击，当前不会主动攻击其他玩家。' };
     }
     const effectiveViewRange = this.timeService.getEffectiveViewRangeFromBuff(player.viewRange, player.temporaryBuffs);
-    if (!isPointInRange(player, target, effectiveViewRange) || !this.canPlayerSeeTarget(player, target, effectiveViewRange)) {
+    if (!isPointInRange(player, target, effectiveViewRange) || !this.targetingDomain.canPlayerSeeTarget(player, target, effectiveViewRange)) {
       return { ...EMPTY_UPDATE, error: '目标超出可锁定范围' };
     }
     if (target.kind === 'tile' && !this.mapService.canDamageTile(player.mapId, target.x, target.y)) {
@@ -1967,6 +1868,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     };
   }
 
+/** buildEffectiveSkillGeometry：处理当前场景中的对应操作。 */
   private buildEffectiveSkillGeometry(skill: SkillDef, stats: NumericStats | undefined) {
     const baseGeometry = {
       range: skill.range,
@@ -2417,6 +2319,10 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     if (alchemyBuff) {
       visible.push(alchemyBuff);
     }
+    const enhancementBuff = this.enhancementService.buildVisibleEnhancementBuff(player);
+    if (enhancementBuff) {
+      visible.push(enhancementBuff);
+    }
     return visible.length > 0 ? visible : undefined;
   }
 
@@ -2426,6 +2332,16 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     if (alchemyBuff) {
       visible.push({
         ...alchemyBuff,
+        remainingTicks: 0,
+        duration: 0,
+        stacks: 1,
+        maxStacks: 1,
+      });
+    }
+    const enhancementBuff = this.enhancementService.buildVisibleEnhancementBuff(player);
+    if (enhancementBuff) {
+      visible.push({
+        ...enhancementBuff,
         remainingTicks: 0,
         duration: 0,
         stacks: 1,
@@ -2456,21 +2372,21 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
 
     const containers = this.mapService.getContainers(sourceMapId)
       .filter((container) => container.x === resolvedX && container.y === resolvedY)
-      .map<ObservedTileEntityDetail>((container) => this.buildContainerObservationDetail(sourceMapId, container));
+      .map<ObservedTileEntityDetail>((container) => this.observationDomain.buildContainerObservationDetail(sourceMapId, container));
 
     const npcs = this.mapService.getNpcs(sourceMapId)
       .filter((npc) => npc.x === resolvedX && npc.y === resolvedY)
-      .map<ObservedTileEntityDetail>((npc) => this.buildNpcObservationDetail(viewer, npc, sourceMapId));
+      .map<ObservedTileEntityDetail>((npc) => this.observationDomain.buildNpcObservationDetail(viewer, npc, sourceMapId));
 
     const monsters = (this.monstersByMap.get(sourceMapId) ?? [])
       .filter((monster) => monster.alive && monster.x === resolvedX && monster.y === resolvedY)
-      .map<ObservedTileEntityDetail>((monster) => this.buildMonsterObservationDetail(viewer, monster));
+      .map<ObservedTileEntityDetail>((monster) => this.observationDomain.buildMonsterObservationDetail(viewer, monster));
 
     const playersAtTile = this.playerService.getPlayersByMap(sourceMapId)
       .filter((player) => player.x === resolvedX && player.y === resolvedY);
     const players = playersAtTile.length >= PLAYER_CROWD_RENDER_THRESHOLD
       ? [this.buildCrowdObservationDetail(resolvedX, resolvedY, playersAtTile.length)]
-      : playersAtTile.map<ObservedTileEntityDetail>((player) => this.buildPlayerObservationDetail(viewer, player));
+      : playersAtTile.map<ObservedTileEntityDetail>((player) => this.observationDomain.buildPlayerObservationDetail(viewer, player));
 
     return [...players, ...containers, ...npcs, ...monsters];
   }
@@ -2747,134 +2663,9 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
   }
 
   private evaluateSkillFormula(formula: SkillFormula, context: SkillFormulaContext): number {
-    if (typeof formula === 'number') {
-      return formula;
-    }
-    if ('var' in formula) {
-      return this.resolveSkillFormulaVar(formula.var, context) * (formula.scale ?? 1);
-    }
-    if (formula.op === 'clamp') {
-      const value = this.evaluateSkillFormula(formula.value, context);
-      const min = formula.min === undefined ? Number.NEGATIVE_INFINITY : this.evaluateSkillFormula(formula.min, context);
-      const max = formula.max === undefined ? Number.POSITIVE_INFINITY : this.evaluateSkillFormula(formula.max, context);
-      return Math.min(max, Math.max(min, value));
-    }
-
-    const values = formula.args.map((entry) => this.evaluateSkillFormula(entry, context));
-    switch (formula.op) {
-      case 'add':
-        return values.reduce((sum, value) => sum + value, 0);
-      case 'sub':
-        return values.slice(1).reduce((sum, value) => sum - value, values[0] ?? 0);
-      case 'mul':
-        return values.reduce((sum, value) => sum * value, 1);
-      case 'div':
-        return values.slice(1).reduce((sum, value) => (value === 0 ? sum : sum / value), values[0] ?? 0);
-      case 'min':
-        return values.length > 0 ? Math.min(...values) : 0;
-      case 'max':
-        return values.length > 0 ? Math.max(...values) : 0;
-      default:
-        return 0;
-    }
-  }
-
-  private resolveSkillFormulaVar(variable: SkillFormulaVar, context: SkillFormulaContext): number {
-    const parsedBuffVar = this.parseBuffStackVariable(variable);
-    if (parsedBuffVar) {
-      return this.resolveBuffStackVariable(parsedBuffVar.side, parsedBuffVar.buffId, context);
-    }
-    switch (variable) {
-      case 'techLevel':
-        return context.techLevel;
-      case 'targetCount':
-        return context.targetCount;
-      case 'caster.hp':
-        return context.player?.hp ?? context.monsterCaster?.hp ?? 0;
-      case 'caster.maxHp':
-        return context.player?.maxHp ?? context.monsterCaster?.maxHp ?? 0;
-      case 'caster.qi':
-        return context.player?.qi ?? context.monsterCaster?.qi ?? 0;
-      case 'caster.maxQi':
-        return Math.max(0, Math.round(context.casterStats.maxQi));
-      case 'target.debuffCount':
-        return Math.max(0, (context.target?.kind === 'player'
-          ? context.target.player.temporaryBuffs
-          : context.target?.kind === 'monster'
-            ? context.target.monster.temporaryBuffs
-            : []
-        )?.filter((buff) => buff.remainingTicks > 0 && buff.category === 'debuff').length ?? 0);
-      case 'target.distance':
-        return context.target ? gridDistance(context.player ?? context.monsterCaster ?? { x: 0, y: 0 }, context.target) : 0;
-      case 'target.hp':
-        return context.target?.kind === 'monster'
-          ? context.target.monster.hp
-          : context.target?.kind === 'player'
-            ? context.target.player.hp
-            : 0;
-      case 'target.maxHp':
-        return context.target?.kind === 'monster'
-          ? context.target.monster.maxHp
-          : context.target?.kind === 'player'
-            ? context.target.player.maxHp
-            : 0;
-      case 'target.qi':
-        return context.target?.kind === 'player' ? context.target.player.qi : 0;
-      case 'target.maxQi':
-        return context.target?.kind === 'player'
-          ? Math.max(0, Math.round(this.attrService.getPlayerNumericStats(context.target.player).maxQi))
-          : 0;
-      default:
-        if (variable.startsWith('caster.attr.')) {
-          const key = variable.slice('caster.attr.'.length) as keyof Attributes;
-          return typeof context.casterAttrs?.[key] === 'number' ? context.casterAttrs[key] as number : 0;
-        }
-        if (variable.startsWith('target.attr.')) {
-          const key = variable.slice('target.attr.'.length) as keyof Attributes;
-          return typeof context.targetAttrs?.[key] === 'number' ? context.targetAttrs[key] as number : 0;
-        }
-        if (variable.startsWith('caster.stat.')) {
-          const key = variable.slice('caster.stat.'.length) as keyof NumericStats;
-          return typeof context.casterStats[key] === 'number' ? context.casterStats[key] as number : 0;
-        }
-        if (variable.startsWith('target.stat.')) {
-          const key = variable.slice('target.stat.'.length) as keyof NumericStats;
-          const targetStats = context.targetStats;
-          return targetStats && typeof targetStats[key] === 'number' ? targetStats[key] as number : 0;
-        }
-        return 0;
-    }
-  }
-
-  private parseBuffStackVariable(variable: SkillFormulaVar): { side: 'caster' | 'target'; buffId: string } | null {
-    if (variable.startsWith('caster.buff.') && variable.endsWith('.stacks')) {
-      return {
-        side: 'caster',
-        buffId: variable.slice('caster.buff.'.length, -'.stacks'.length),
-      };
-    }
-    if (variable.startsWith('target.buff.') && variable.endsWith('.stacks')) {
-      return {
-        side: 'target',
-        buffId: variable.slice('target.buff.'.length, -'.stacks'.length),
-      };
-    }
-    return null;
-  }
-
-  private resolveBuffStackVariable(side: 'caster' | 'target', buffId: string, context: SkillFormulaContext): number {
-    if (side === 'caster') {
-      return context.player?.temporaryBuffs?.find((buff) => buff.buffId === buffId && buff.remainingTicks > 0)?.stacks
-        ?? context.monsterCaster?.temporaryBuffs?.find((buff) => buff.buffId === buffId && buff.remainingTicks > 0)?.stacks
-        ?? 0;
-    }
-    if (context.target?.kind === 'player') {
-      return context.target.player.temporaryBuffs?.find((buff) => buff.buffId === buffId && buff.remainingTicks > 0)?.stacks ?? 0;
-    }
-    if (context.target?.kind === 'monster') {
-      return context.target.monster.temporaryBuffs?.find((buff) => buff.buffId === buffId && buff.remainingTicks > 0)?.stacks ?? 0;
-    }
-    return 0;
+    return evaluateSkillFormulaHelper(formula, context, {
+      getPlayerMaxQi: (player) => this.attrService.getPlayerNumericStats(player).maxQi,
+    });
   }
 
   resetPlayerToSpawn(player: PlayerState): WorldUpdate {
@@ -3959,7 +3750,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
 
   private handleNpcInteraction(player: PlayerState, npc: NpcConfig): WorldUpdate {
     this.syncQuestState(player);
-    const interaction = this.getNpcInteractionState(player, npc);
+    const interaction = this.questDomain.getNpcInteractionState(player, npc);
 
     if (!interaction.quest) {
       return {
@@ -3969,7 +3760,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     }
 
     if (!interaction.questState) {
-      const acceptRequirementText = this.getQuestAcceptRequirementText(player, interaction.quest);
+      const acceptRequirementText = this.questDomain.getQuestAcceptRequirementText(player, interaction.quest);
       if (acceptRequirementText) {
         return {
           messages: [{
@@ -3999,7 +3790,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       && interaction.relation === 'target'
     ) {
       interaction.questState.progress = interaction.questState.required;
-      const dirty: WorldDirtyFlag[] = this.refreshQuestStatuses(player) ? ['quest', 'actions'] : ['quest'];
+      const dirty: WorldDirtyFlag[] = this.questDomain.refreshQuestStatuses(player) ? ['quest', 'actions'] : ['quest'];
       const relayText = interaction.questState.relayMessage?.trim() || interaction.quest.relayMessage?.trim();
       return {
         messages: [{
@@ -4014,14 +3805,14 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     }
 
     if (interaction.questState.status === 'ready') {
-      const rewards = this.buildRewardItems(interaction.quest);
-      if (!this.canReceiveItems(player, rewards)) {
+      const rewards = this.questDomain.buildRewardItems(interaction.quest);
+      if (!this.questDomain.canReceiveItems(player, rewards)) {
         return { ...EMPTY_UPDATE, error: '背包空间不足，无法领取奖励' };
       }
 
       const dirty: WorldDirtyFlag[] = ['quest', 'actions'];
       if (interaction.quest.requiredItemId && (interaction.quest.requiredItemCount ?? 1) > 0) {
-        const err = this.consumeInventoryItem(player, interaction.quest.requiredItemId, interaction.quest.requiredItemCount ?? 1);
+        const err = this.questDomain.consumeInventoryItem(player, interaction.quest.requiredItemId, interaction.quest.requiredItemCount ?? 1);
         if (err) {
           return { ...EMPTY_UPDATE, error: err };
         }
@@ -4069,7 +3860,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
           playerId: player.id,
           text: interaction.relation === 'target' && interaction.questState.objectiveType === 'talk'
             ? `${npc.name}：若你有话要带来，直说便是。`
-            : `${npc.name}：${this.describeQuestProgress(player, interaction.questState, interaction.quest)}`,
+            : `${npc.name}：${this.questDomain.describeQuestProgress(player, interaction.questState, interaction.quest)}`,
           kind: 'quest',
         }],
         dirty: ['actions'],
@@ -4116,7 +3907,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       rewardItemId: quest.rewardItemId,
       rewardItemIds: [...quest.rewardItemIds],
       rewards: quest.rewards
-        .map((reward) => this.createItemFromDrop(reward))
+        .map((reward) => this.questDomain.createItemFromDrop(reward))
         .filter((item): item is ItemStack => Boolean(item)),
       nextQuestId: quest.nextQuestId,
       requiredItemId: quest.requiredItemId,
@@ -4141,8 +3932,8 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       submitY: quest.submitY,
       relayMessage: quest.relayMessage,
     };
-    questState.progress = this.resolveQuestProgress(player, questState, quest);
-    if (this.canQuestBecomeReady(player, questState, quest)) {
+    questState.progress = this.questDomain.resolveQuestProgress(player, questState, quest);
+    if (this.questDomain.canQuestBecomeReady(player, questState, quest)) {
       questState.status = 'ready';
     }
     return questState;
@@ -4403,19 +4194,19 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       kind: 'combat',
     });
 
-    for (const flag of this.advanceQuestProgress(killer, monster.id, monster.name)) {
+    for (const flag of this.questDomain.advanceQuestProgress(killer, monster.id, monster.name)) {
       localDirty.add(flag);
     }
 
     this.distributeMonsterKillExp(monster, killer, expParticipants, highestSettlementRealmLv, localDirty, messages);
 
     const monsterLootRecipients = this.resolveMonsterLootRecipients(expParticipants, killer);
-    for (const loot of this.rollMonsterDrops(killer, monster)) {
+    for (const loot of this.questDomain.rollMonsterDrops(killer, monster)) {
       const recipient = this.pickMonsterLootRecipient(monsterLootRecipients, killer);
-      this.deliverMonsterLoot(recipient, monster, loot, killer.id, localDirty, messages);
+      this.questDomain.deliverMonsterLoot(recipient, monster, loot, killer.id, localDirty, messages);
     }
 
-    if (this.refreshQuestStatuses(killer)) {
+    if (this.questDomain.refreshQuestStatuses(killer)) {
       localDirty.add('quest');
       localDirty.add('actions');
     }
@@ -5640,45 +5431,17 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
   }
 
   private applyMonsterBuffStats(stats: NumericStats, buffs: TemporaryBuffState[] | undefined, targetRealmLv: number): void {
-    if (!buffs || buffs.length === 0) {
-      return;
-    }
-    const percentBuffs = createNumericStats();
-    for (const buff of buffs) {
-      if (buff.remainingTicks <= 0 || buff.stacks <= 0 || !buff.stats) {
-        continue;
-      }
-      const effectFactor = Math.max(1, buff.stacks) * getBuffRealmEffectivenessMultiplier(buff.realmLv, targetRealmLv);
-      const scaled = this.scaleNumericStats(buff.stats, effectFactor);
-      if (!scaled) {
-        continue;
-      }
-      if (this.resolveBuffModifierMode(buff.statMode) === 'flat') {
-        addPartialNumericStats(stats, scaled);
-        continue;
-      }
-      addPartialNumericStats(percentBuffs, scaled);
-    }
-    applyNumericStatsPercentMultiplier(stats, percentBuffs);
-  }
-
-  private scaleMonsterAttributes(attrs: Partial<Attributes> | undefined, factor: number): Partial<Attributes> | undefined {
-    if (!attrs || factor === 0) {
-      return undefined;
-    }
-    const result: Partial<Attributes> = {};
-    for (const key of MONSTER_ATTR_KEYS) {
-      const value = attrs[key];
-      if (value === undefined || value === 0) {
-        continue;
-      }
-      result[key] = value * factor;
-    }
-    return Object.keys(result).length > 0 ? result : undefined;
+    applyMonsterBuffStatsHelper(
+      stats,
+      buffs,
+      targetRealmLv,
+      (mode) => this.resolveBuffModifierMode(mode),
+      (partialStats, factor) => this.scaleNumericStats(partialStats, factor),
+    );
   }
 
   private hasMonsterAttributeModifiers(attrs: Pick<Attributes, keyof Attributes>): boolean {
-    return MONSTER_ATTR_KEYS.some((key) => attrs[key] !== 0);
+    return hasMonsterAttributeModifiersHelper(attrs);
   }
 
   private collectMonsterBuffAttrBonuses(
@@ -5688,21 +5451,11 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     flatAttrs: Attributes;
     percentAttrs: Attributes;
   } {
-    const flatAttrs = createMonsterAttributeSnapshot();
-    const percentAttrs = createMonsterAttributeSnapshot();
-    for (const buff of monster.temporaryBuffs ?? []) {
-      if (buff.remainingTicks <= 0 || buff.stacks <= 0 || !buff.attrs) {
-        continue;
-      }
-      const effectFactor = Math.max(1, buff.stacks) * getBuffRealmEffectivenessMultiplier(buff.realmLv, targetRealmLv);
-      const scaled = this.scaleMonsterAttributes(buff.attrs, effectFactor);
-      if (!scaled) {
-        continue;
-      }
-      const bucket = this.resolveBuffModifierMode(buff.attrMode) === 'flat' ? flatAttrs : percentAttrs;
-      applyAttributeAdditions(bucket, scaled);
-    }
-    return { flatAttrs, percentAttrs };
+    return collectMonsterBuffAttrBonusesHelper(
+      monster.temporaryBuffs,
+      targetRealmLv,
+      (mode) => this.resolveBuffModifierMode(mode),
+    );
   }
 
   private getMonsterFinalAttrs(
@@ -5710,16 +5463,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     passiveBonuses: ReturnType<WorldService['collectMonsterEquipmentPassiveBonuses']>,
     buffBonuses: ReturnType<WorldService['collectMonsterBuffAttrBonuses']>,
   ): Attributes {
-    const attrs = createMonsterAttributeSnapshot();
-    applyAttributeAdditions(attrs, monster.attrs);
-    applyAttributeAdditions(attrs, passiveBonuses.flatAttrs);
-    applyAttributePercentMultipliers(attrs, passiveBonuses.percentAttrs);
-    applyAttributeAdditions(attrs, buffBonuses.flatAttrs);
-    applyAttributePercentMultipliers(attrs, buffBonuses.percentAttrs);
-    for (const key of MONSTER_ATTR_KEYS) {
-      attrs[key] = Math.max(0, attrs[key]);
-    }
-    return attrs;
+    return getMonsterFinalAttrsHelper(monster.attrs, passiveBonuses, buffBonuses);
   }
 
   private getMonsterCombatSnapshot(monster: RuntimeMonster): CombatSnapshot {
@@ -5872,421 +5616,6 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  private buildMonsterRenderEntity(viewer: PlayerState, monster: RuntimeMonster): RenderEntity {
-    return {
-      id: monster.runtimeId,
-      x: monster.x,
-      y: monster.y,
-      char: monster.char,
-      color: monster.color,
-      name: getMonsterDisplayName(monster.name, monster.tier),
-      kind: 'monster',
-      monsterTier: monster.tier,
-      monsterScale: this.getMonsterPresentationScale(monster),
-      hp: monster.hp,
-      maxHp: monster.maxHp,
-      buffs: this.getMapRenderableBuffs(monster.temporaryBuffs),
-    };
-  }
-
-  private buildNpcRenderEntity(viewer: PlayerState, npc: NpcConfig, mapId: string): RenderEntity {
-    const profile = this.buildNpcPresenceProfile(npc, mapId);
-    const npcQuestMarker = this.resolveNpcQuestMarker(viewer, npc);
-    return {
-      id: `npc:${npc.id}`,
-      x: npc.x,
-      y: npc.y,
-      char: npc.char,
-      color: npc.color,
-      name: npc.name,
-      kind: 'npc',
-      hp: profile.hp,
-      maxHp: profile.hp,
-      npcQuestMarker,
-    };
-  }
-
-  private buildPlayerObservationDetail(viewer: PlayerState, target: PlayerState): ObservedTileEntityDetail {
-    const snapshot = this.createPlayerObservationSnapshot(target);
-    return {
-      id: target.id,
-      name: target.name,
-      kind: 'player',
-      monsterScale: this.getTemporaryBuffPresentationScale(target.temporaryBuffs),
-      hp: target.hp,
-      maxHp: target.maxHp,
-      qi: target.qi,
-      maxQi: snapshot.maxQi,
-      observation: this.buildObservationInsight(
-        viewer,
-        snapshot,
-        this.buildObservationLineSpecs(snapshot, true),
-        viewer.id === target.id,
-      ),
-      buffs: this.getPlayerRenderableBuffs(target),
-    };
-  }
-
-  private buildMonsterObservationDetail(viewer: PlayerState, monster: RuntimeMonster): ObservedTileEntityDetail {
-    const snapshot = this.createMonsterObservationSnapshot(monster);
-    const lineSpecs = [
-      ...this.buildObservationLineSpecs(snapshot, true),
-      { threshold: 0.28, label: '血脉层次', value: MONSTER_TIER_LABELS[monster.tier] ?? '凡血' },
-    ];
-    const observation = this.buildObservationInsight(
-      viewer,
-      snapshot,
-      lineSpecs,
-    );
-    return {
-      id: monster.runtimeId,
-      name: getMonsterDisplayName(monster.name, monster.tier),
-      kind: 'monster',
-      monsterTier: monster.tier,
-      monsterScale: this.getMonsterPresentationScale(monster),
-      hp: monster.hp,
-      maxHp: monster.maxHp,
-      qi: snapshot.qi,
-      maxQi: snapshot.maxQi,
-      observation,
-      lootPreview: observation.clarity === 'complete'
-        ? this.buildMonsterObservationLootPreview(viewer, monster)
-        : undefined,
-      buffs: this.getRenderableBuffs(monster.temporaryBuffs),
-    };
-  }
-
-  private buildNpcObservationDetail(viewer: PlayerState, npc: NpcConfig, mapId: string): ObservedTileEntityDetail {
-    const profile = this.buildNpcPresenceProfile(npc, mapId);
-    const snapshot = this.createNpcObservationSnapshot(profile);
-    const lineSpecs = [
-      { threshold: 0.3, label: '身份', value: profile.title },
-      ...this.buildObservationLineSpecs(snapshot, false),
-    ];
-    return {
-      id: `npc:${npc.id}`,
-      name: npc.name,
-      kind: 'npc',
-      hp: snapshot.hp,
-      maxHp: snapshot.maxHp,
-      qi: snapshot.qi,
-      maxQi: snapshot.maxQi,
-      npcQuestMarker: this.resolveNpcQuestMarker(viewer, npc),
-      observation: this.buildObservationInsight(
-        viewer,
-        snapshot,
-        lineSpecs,
-      ),
-    };
-  }
-
-  private buildContainerObservationDetail(mapId: string, container: ContainerConfig): ObservedTileEntityDetail {
-    if (container.variant === 'herb') {
-      const runtime = this.lootService.getContainerRuntimeView(mapId, container);
-      if (!runtime.herb) {
-        return {
-          id: `container:${mapId}:${container.id}`,
-          name: container.name,
-          kind: 'container',
-          observation: {
-            clarity: 'clear',
-            verdict: container.desc?.trim() || `${container.name}可以采集，但此时药性尚未凝稳。`,
-            lines: [
-              { label: '类别', value: '可采集草药' },
-            ],
-          },
-        };
-      }
-      return {
-        id: `container:${mapId}:${container.id}`,
-        name: container.name,
-        kind: 'container',
-        hp: runtime.hp,
-        maxHp: runtime.maxHp,
-        observation: {
-          clarity: 'clear',
-          verdict: runtime.destroyed
-            ? (runtime.respawnRemainingTicks !== undefined
-              ? `${container.name}已经枯毁，残枝里药气断绝，约 ${this.formatRespawnTicks(runtime.respawnRemainingTicks)} 后再生。`
-              : `${container.name}已经枯毁，枝叶里再无药气。`)
-            : (runtime.respawning
-              ? `${container.name}已被采尽，药性仍在回转，约 ${this.formatRespawnTicks(runtime.respawnRemainingTicks)} 后再生。`
-              : (container.desc?.trim() || `${container.name}药性尚存，可以用拿取行动慢慢采集。`)),
-          lines: [
-            { label: '类别', value: '可采集草药' },
-            { label: '药材', value: runtime.herb.name },
-            { label: '品阶', value: runtime.herb.grade ?? 'mortal' },
-            { label: '等级', value: `${runtime.herb.level ?? 1}` },
-            { label: '采集耗时', value: `${runtime.herb.gatherTicks} 息` },
-            { label: '状态', value: runtime.destroyed ? '已摧毁' : (runtime.respawning ? '回生中' : '可采集') },
-            ...((runtime.destroyed || runtime.respawning) ? [{
-              label: '再生剩余',
-              value: this.formatRespawnTicks(runtime.respawnRemainingTicks),
-            }] : []),
-          ],
-        },
-      };
-    }
-    return {
-      id: `container:${mapId}:${container.id}`,
-      name: container.name,
-      kind: 'container',
-      observation: {
-        clarity: 'clear',
-        verdict: container.desc?.trim() || `这处${container.name}可以搜索，翻找后或许会有收获。`,
-        lines: [
-          { label: '类别', value: '可搜索陈设' },
-          { label: '名称', value: container.name },
-          { label: '搜索阶次', value: `${container.grade}` },
-        ],
-      },
-    };
-  }
-
-  private createPlayerObservationSnapshot(player: PlayerState): ObservationTargetSnapshot {
-    const stats = this.attrService.getPlayerNumericStats(player);
-    const ratios = this.attrService.getPlayerRatioDivisors(player);
-    const attrs = this.attrService.getPlayerFinalAttrs(player);
-    const maxQi = Math.max(0, Math.round(stats.maxQi));
-    return {
-      hp: player.hp,
-      maxHp: player.maxHp,
-      qi: player.qi,
-      maxQi,
-      spirit: Math.max(1, attrs.spirit),
-      stats,
-      ratios,
-      attrs: { ...attrs },
-      realmLabel: this.describePlayerRealm(player),
-    };
-  }
-
-  private createMonsterObservationSnapshot(monster: RuntimeMonster): ObservationTargetSnapshot {
-    const combat = this.getMonsterCombatSnapshot(monster);
-    const spirit = Math.max(1, Math.round(combat.attrs.spirit ?? this.estimateMonsterSpirit(monster, combat.stats)));
-    const maxQi = Math.max(24, Math.round(combat.stats.maxQi > 0 ? combat.stats.maxQi : (spirit * 2 + (monster.level ?? 1) * 8)));
-    return {
-      hp: monster.hp,
-      maxHp: monster.maxHp,
-      qi: Math.max(0, Math.min(maxQi, Math.round(monster.qi))),
-      maxQi,
-      spirit,
-      stats: combat.stats,
-      ratios: combat.ratios,
-      attrs: { ...combat.attrs },
-      realmLabel: this.describeMonsterRealm(monster),
-    };
-  }
-
-  private createNpcObservationSnapshot(profile: NpcPresenceProfile): ObservationTargetSnapshot {
-    const stats = createNumericStats();
-    stats.maxHp = profile.hp;
-    stats.maxQi = profile.qi;
-    stats.physAtk = Math.max(4, Math.round(profile.hp * 0.18 + profile.spirit * 0.6));
-    stats.spellAtk = Math.max(4, Math.round(profile.qi * 0.2 + profile.spirit * 0.7));
-    stats.physDef = Math.max(3, Math.round(profile.hp * 0.12 + profile.spirit * 0.4));
-    stats.spellDef = Math.max(3, Math.round(profile.qi * 0.14 + profile.spirit * 0.45));
-    stats.hit = Math.max(8, Math.round(profile.spirit * 0.9));
-    stats.dodge = Math.max(0, Math.round(profile.spirit * 0.45));
-    stats.crit = Math.max(0, Math.round(profile.spirit * 0.28));
-    stats.antiCrit = Math.max(0, Math.round(profile.spirit * 0.28));
-    stats.critDamage = Math.max(0, Math.round(profile.spirit * 5));
-    stats.breakPower = Math.max(0, Math.round(profile.spirit * 0.35));
-    stats.resolvePower = Math.max(0, Math.round(profile.spirit * 0.42));
-    stats.maxQiOutputPerTick = Math.max(0, Math.round(profile.qi * 0.22));
-    stats.qiRegenRate = Math.max(0, Math.round(profile.spirit * 18));
-    stats.hpRegenRate = Math.max(0, Math.round(profile.spirit * 12));
-    stats.viewRange = 8 + Math.round(profile.spirit * 0.08);
-    stats.moveSpeed = Math.max(0, Math.round(profile.spirit * 0.2));
-    return {
-      hp: profile.hp,
-      maxHp: profile.hp,
-      qi: profile.qi,
-      maxQi: profile.qi,
-      spirit: Math.max(1, profile.spirit),
-      stats,
-      ratios: DEFAULT_MONSTER_RATIO_DIVISORS,
-      attrs: this.deriveAttrsFromStats(stats, profile.spirit),
-    };
-  }
-
-  private buildObservationLineSpecs(
-    snapshot: ObservationTargetSnapshot,
-    includeResources: boolean,
-  ): ObservationLineSpec[] {
-    const lines: ObservationLineSpec[] = [];
-    if (includeResources) {
-      lines.push(
-        { threshold: 0.18, label: '生命', value: this.formatCurrentMax(snapshot.hp, snapshot.maxHp) },
-        { threshold: 0.24, label: '灵力', value: this.formatCurrentMax(snapshot.qi, snapshot.maxQi) },
-      );
-    }
-
-    lines.push(
-      { threshold: 0.32, label: '物理攻击', value: this.formatWhole(snapshot.stats.physAtk) },
-      { threshold: 0.36, label: '物理防御', value: this.formatWhole(snapshot.stats.physDef) },
-      { threshold: 0.4, label: '法术攻击', value: this.formatWhole(snapshot.stats.spellAtk) },
-      { threshold: 0.44, label: '法术防御', value: this.formatWhole(snapshot.stats.spellDef) },
-      { threshold: 0.52, label: '命中', value: this.formatWhole(snapshot.stats.hit) },
-      { threshold: 0.56, label: '闪避', value: this.formatWhole(snapshot.stats.dodge) },
-      { threshold: 0.62, label: '暴击', value: this.formatWhole(snapshot.stats.crit) },
-      { threshold: 0.66, label: '免爆', value: this.formatWhole(snapshot.stats.antiCrit) },
-      { threshold: 0.7, label: '暴击伤害', value: this.formatCritDamage(snapshot.stats.critDamage) },
-      { threshold: 0.76, label: '破招', value: this.formatWhole(snapshot.stats.breakPower) },
-      { threshold: 0.8, label: '化解', value: this.formatWhole(snapshot.stats.resolvePower) },
-      { threshold: 0.84, label: '最大灵力输出速率', value: `${this.formatWhole(snapshot.stats.maxQiOutputPerTick)} / 息` },
-      { threshold: 0.87, label: '灵力回复', value: `${this.formatRate(snapshot.stats.qiRegenRate)} / 息` },
-      { threshold: 0.89, label: '生命回复', value: `${this.formatRate(snapshot.stats.hpRegenRate)} / 息` },
-    );
-
-    if (snapshot.realmLabel) {
-      lines.push({ threshold: 0.9, label: '境界', value: snapshot.realmLabel });
-    }
-
-    if (snapshot.attrs) {
-      lines.push(
-        { threshold: 0.92, label: '体魄', value: this.formatWhole(snapshot.attrs.constitution) },
-        { threshold: 0.94, label: '神识', value: this.formatWhole(snapshot.attrs.spirit) },
-        { threshold: 0.96, label: '身法', value: this.formatWhole(snapshot.attrs.perception) },
-        { threshold: 0.98, label: '根骨', value: this.formatWhole(snapshot.attrs.talent) },
-        { threshold: 0.99, label: '悟性', value: this.formatWhole(snapshot.attrs.comprehension) },
-        { threshold: 1, label: '气运', value: this.formatWhole(snapshot.attrs.luck) },
-      );
-    }
-
-    return lines;
-  }
-
-  private buildObservationInsight(
-    viewer: PlayerState,
-    snapshot: ObservationTargetSnapshot,
-    lineSpecs: ObservationLineSpec[],
-    selfView = false,
-  ): ObservationInsight {
-    const viewerSpirit = Math.max(1, this.attrService.getPlayerFinalAttrs(viewer).spirit);
-    const progress = selfView ? 1 : this.computeObservationProgress(viewerSpirit, snapshot.spirit);
-    return {
-      clarity: this.resolveObservationClarity(progress),
-      verdict: this.buildObservationVerdict(progress, selfView),
-      lines: lineSpecs.map((line) => ({
-        label: line.label,
-        value: progress >= line.threshold ? line.value : '???',
-      })),
-    };
-  }
-
-  private buildMonsterObservationLootPreview(
-    viewer: PlayerState,
-    monster: RuntimeMonster,
-  ): ObservationLootPreview {
-    const entries = monster.drops.map((drop) => ({
-      itemId: drop.itemId,
-      name: drop.name,
-      type: drop.type,
-      count: drop.count,
-      chance: this.getEffectiveDropChance(viewer, monster, drop),
-    }));
-    return {
-      entries,
-      emptyText: entries.length > 0 ? undefined : '此獠身上暂未看出稳定掉落。',
-    };
-  }
-
-  private computeObservationProgress(viewerSpirit: number, targetSpirit: number): number {
-    if (targetSpirit <= 0) return 1;
-    const ratio = viewerSpirit / targetSpirit;
-    if (ratio <= OBSERVATION_BLIND_RATIO) return 0;
-    if (ratio >= OBSERVATION_FULL_RATIO) return 1;
-    return Math.max(0, Math.min(1, (ratio - OBSERVATION_BLIND_RATIO) / (OBSERVATION_FULL_RATIO - OBSERVATION_BLIND_RATIO)));
-  }
-
-  private resolveObservationClarity(progress: number): ObservationInsight['clarity'] {
-    if (progress <= 0) return 'veiled';
-    if (progress < 0.34) return 'blurred';
-    if (progress < 0.68) return 'partial';
-    if (progress < 1) return 'clear';
-    return 'complete';
-  }
-
-  private buildObservationVerdict(progress: number, selfView: boolean): string {
-    if (selfView) {
-      return '神识内照，经络与底蕴尽现。';
-    }
-    if (progress <= 0) {
-      return '对方气机晦涩，神识难以穿透。';
-    }
-    if (progress < 0.34) {
-      return '仅能捕捉几缕外泄气机，难辨真底。';
-    }
-    if (progress < 0.68) {
-      return '攻守轮廓渐明，深层底蕴仍藏于雾中。';
-    }
-    if (progress < 1) {
-      return '神识已触及其根底，大半虚实可辨。';
-    }
-    return '神识压过其身，诸般底细尽入眼底。';
-  }
-
-  private buildNpcPresenceProfile(npc: NpcConfig, mapId: string): NpcPresenceProfile {
-    const preset = NPC_ROLE_PROFILES[npc.role ?? ''] ?? { title: '过路修者', spirit: 12, hp: 60, qi: 56 };
-    const actualDanger = this.mapService.getMapMeta(mapId)?.dangerLevel ?? 1;
-    return {
-      title: preset.title,
-      spirit: Math.max(1, preset.spirit + actualDanger * 18),
-      hp: Math.max(1, preset.hp + actualDanger * 24),
-      qi: Math.max(0, preset.qi + actualDanger * 20),
-    };
-  }
-
-  private estimateMonsterSpirit(monster: RuntimeMonster, stats?: NumericStats): number {
-    const level = Math.max(1, monster.level ?? Math.round(monster.attack / 6));
-    return estimateMonsterSpiritFromStats(stats ?? this.getMonsterCombatSnapshot(monster).stats, level);
-  }
-
-  private deriveAttrsFromStats(stats: NumericStats, spirit: number): Attributes {
-    return {
-      constitution: Math.max(1, Math.round(stats.maxHp / 18)),
-      spirit: Math.max(1, Math.round(spirit)),
-      perception: Math.max(1, Math.round((stats.hit + stats.dodge) / 14)),
-      talent: Math.max(1, Math.round((stats.physAtk + stats.physDef) / 18)),
-      comprehension: Math.max(1, Math.round((stats.spellAtk + stats.spellDef) / 18)),
-      luck: Math.max(1, Math.round((stats.crit + stats.breakPower) / 12)),
-    };
-  }
-
-  private describePlayerRealm(player: PlayerState): string {
-    if (player.realm?.name) {
-      return player.realm.shortName ? `${player.realm.name} · ${player.realm.shortName}` : player.realm.name;
-    }
-    if (player.realmName) {
-      return player.realmStage ? `${player.realmName} · ${player.realmStage}` : player.realmName;
-    }
-    return '行功未明';
-  }
-
-  private describeMonsterRealm(monster: RuntimeMonster): string {
-    const level = Math.max(1, monster.level ?? Math.round(monster.attack / 6));
-    return this.contentService.getRealmLevelEntry(level)?.displayName ?? `Lv.${level}`;
-  }
-
-  private formatCurrentMax(current: number, max: number): string {
-    return `${this.formatWhole(current)} / ${this.formatWhole(max)}`;
-  }
-
-  private formatWhole(value: number): string {
-    return `${Math.max(0, Math.round(value))}`;
-  }
-
-  private formatRate(value: number): string {
-    const percent = value / 100;
-    return `${percent.toFixed(percent % 1 === 0 ? 0 : percent % 0.1 === 0 ? 1 : 2)}%`;
-  }
-
-  private formatCritDamage(value: number): string {
-    const total = 200 + Math.max(0, value) / 10;
-    return `${total.toFixed(total % 1 === 0 ? 0 : total % 0.1 === 0 ? 1 : 2)}%`;
-  }
-
   private consumeQiForSkill(player: PlayerState, skill: SkillDef): number | string {
     const actualCost = this.getSkillQiCost(player, skill);
     if (actualCost === null) {
@@ -6379,113 +5708,20 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     return effects;
   }
 
-  private advanceQuestProgress(player: PlayerState, monsterId: string, monsterName: string): WorldDirtyFlag[] {
-    let changed = false;
-    for (const quest of player.quests) {
-      if (quest.status !== 'active' || quest.objectiveType !== 'kill' || quest.targetMonsterId !== monsterId) continue;
-      quest.progress = Math.min(quest.required, quest.progress + 1);
-      const targetName = resolveQuestTargetName({
-        objectiveType: quest.objectiveType,
-        title: quest.title,
-        targetName: quest.targetName,
-        targetMonsterId: quest.targetMonsterId,
-        resolveMonsterName: () => monsterName,
-      });
-      if (quest.targetName !== targetName) {
-        quest.targetName = targetName;
-      }
-      changed = true;
-    }
-
-    if (changed && this.refreshQuestStatuses(player)) {
-      return ['quest', 'actions'];
-    }
-    return changed ? ['quest'] : [];
-  }
-
-  private refreshQuestStatuses(player: PlayerState): boolean {
-    let changed = false;
-    for (const quest of player.quests) {
-      const config = this.mapService.getQuest(quest.id);
-      if (!config) continue;
-      const canBecomeReady = this.canQuestBecomeReady(player, quest, config);
-      if (quest.status === 'active' && canBecomeReady) {
-        quest.status = 'ready';
-        changed = true;
-      } else if (quest.status === 'ready' && !canBecomeReady) {
-        quest.status = 'active';
-        changed = true;
-      }
-    }
-    return changed;
-  }
-
-  private canQuestBecomeReady(player: PlayerState, quest: QuestState, config: QuestConfig): boolean {
-    if (quest.progress < quest.required) {
-      return false;
-    }
-    return !config.requiredItemId || this.getInventoryCount(player, config.requiredItemId) >= (config.requiredItemCount ?? 1);
-  }
-
-  private resolveQuestProgress(player: PlayerState, questState: QuestState, config: QuestConfig): number {
-    switch (config.objectiveType) {
-      case 'talk':
-        return questState.progress;
-      case 'submit_item':
-        return config.requiredItemId
-          ? Math.min(questState.required, this.getInventoryCount(player, config.requiredItemId))
-          : questState.progress;
-      case 'learn_technique':
-        return player.techniques.some((entry) => entry.techId === config.targetTechniqueId)
-          ? questState.required
-          : 0;
-      case 'realm_progress': {
-        if (!player.realm) return 0;
-        if (config.targetRealmLv !== undefined) {
-          return player.realm.realmLv > config.targetRealmLv
-            ? questState.required
-            : player.realm.realmLv < config.targetRealmLv
-              ? 0
-              : Math.min(questState.required, player.realm.progress);
-        }
-        if (config.targetRealmStage === undefined) return 0;
-        if (player.realm.stage > config.targetRealmStage) {
-          return questState.required;
-        }
-        if (player.realm.stage < config.targetRealmStage) {
-          return 0;
-        }
-        return Math.min(questState.required, player.realm.progress);
-      }
-      case 'realm_stage':
-        if (!player.realm) {
-          return 0;
-        }
-        if (config.targetRealmLv !== undefined) {
-          return player.realm.realmLv >= config.targetRealmLv ? questState.required : 0;
-        }
-        return config.targetRealmStage !== undefined && player.realm.stage >= config.targetRealmStage
-          ? questState.required
-          : 0;
-      case 'kill':
-      default:
-        return questState.progress;
-    }
-  }
-
+/** ensureMapInitialized：处理当前场景中的对应操作。 */
   private ensureMapInitialized(mapId: string) {
     if (this.monstersByMap.has(mapId)) return;
 
-    const persistedStates = this.persistedMonstersByMap.get(mapId);
+      const persistedStates = this.persistedMonstersByMap.get(mapId);
     const persistedSpawnStates = this.persistedMonsterSpawnAccelerationStatesByMap.get(mapId);
     const monsters: RuntimeMonster[] = [];
     const monsterGroups = new Map<string, RuntimeMonster[]>();
     for (const spawn of this.mapService.getMonsterSpawns(mapId)) {
-      const spawnKey = this.buildMonsterSpawnKey(mapId, spawn.id, spawn.x, spawn.y);
+      const spawnKey = this.runtimePersistenceDomain.buildMonsterSpawnKey(mapId, spawn.id, spawn.x, spawn.y);
       for (let index = 0; index < spawn.maxAlive; index++) {
         const runtime: RuntimeMonster = {
           ...spawn,
-          runtimeId: this.buildMonsterRuntimeId(mapId, spawn.id, spawn.x, spawn.y, index),
+          runtimeId: this.runtimePersistenceDomain.buildMonsterRuntimeId(mapId, spawn.id, spawn.x, spawn.y, index),
           mapId,
           spawnKey,
           spawnX: spawn.x,
@@ -6505,7 +5741,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
         };
         const persisted = persistedStates?.get(runtime.runtimeId);
         if (persisted) {
-          this.applyPersistedMonsterState(mapId, runtime, persisted);
+          this.runtimePersistenceDomain.applyPersistedMonsterState(mapId, runtime, persisted);
         } else {
           this.applyMonsterInitialBuffs(runtime);
           const pos = this.findSpawnPosition(mapId, runtime);
@@ -6541,8 +5777,8 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       accelerationStates.set(
         spawnKey,
         persistedState
-          ? this.applyPersistedMonsterSpawnAccelerationState(persistedState)
-          : this.createDefaultMonsterSpawnAccelerationState(spawnKey, group, currentTick),
+          ? this.runtimePersistenceDomain.applyPersistedMonsterSpawnAccelerationState(persistedState)
+          : this.runtimePersistenceDomain.createDefaultMonsterSpawnAccelerationState(spawnKey, group, currentTick),
       );
     }
 
@@ -6556,334 +5792,6 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     } else {
       this.monsterSpawnAccelerationStatesByMap.delete(mapId);
     }
-  }
-
-  private syncQuestNpcLocations(quest: QuestState): boolean {
-    let changed = false;
-    if (
-      (
-        !quest.giverMapName
-        || quest.giverX === undefined
-        || quest.giverY === undefined
-        || (quest.giverMapId && quest.giverMapName === quest.giverMapId)
-      )
-      && quest.giverId
-    ) {
-      const giverLocation = this.mapService.getNpcLocation(quest.giverId);
-      if (giverLocation) {
-        quest.giverMapId = giverLocation.mapId;
-        quest.giverMapName = giverLocation.mapName;
-        quest.giverX = giverLocation.x;
-        quest.giverY = giverLocation.y;
-        changed = true;
-      }
-    }
-
-    if (quest.targetNpcId) {
-      const targetLocation = this.mapService.getNpcLocation(quest.targetNpcId);
-      if (targetLocation && (
-        quest.targetMapId !== targetLocation.mapId
-        || quest.targetMapName !== targetLocation.mapName
-        || quest.targetX !== targetLocation.x
-        || quest.targetY !== targetLocation.y
-        || quest.targetNpcName !== targetLocation.name
-      )) {
-        quest.targetMapId = targetLocation.mapId;
-        quest.targetMapName = targetLocation.mapName;
-        quest.targetX = targetLocation.x;
-        quest.targetY = targetLocation.y;
-        quest.targetNpcName = targetLocation.name;
-        changed = true;
-      }
-    }
-
-    if (quest.submitNpcId) {
-      const submitLocation = this.mapService.getNpcLocation(quest.submitNpcId);
-      if (submitLocation && (
-        quest.submitMapId !== submitLocation.mapId
-        || quest.submitMapName !== submitLocation.mapName
-        || quest.submitX !== submitLocation.x
-        || quest.submitY !== submitLocation.y
-        || quest.submitNpcName !== submitLocation.name
-      )) {
-        quest.submitMapId = submitLocation.mapId;
-        quest.submitMapName = submitLocation.mapName;
-        quest.submitX = submitLocation.x;
-        quest.submitY = submitLocation.y;
-        quest.submitNpcName = submitLocation.name;
-        changed = true;
-      }
-    }
-    return changed;
-  }
-
-  private isQuestTargetNpc(quest: QuestState, npc: NpcConfig, currentMapId: string): boolean {
-    return quest.targetNpcId === npc.id
-      && (!quest.targetMapId || quest.targetMapId === currentMapId);
-  }
-
-  private isQuestSubmitNpc(quest: QuestState, npc: NpcConfig, currentMapId: string): boolean {
-    return quest.submitNpcId === npc.id
-      && quest.submitMapId === currentMapId;
-  }
-
-  private getNpcInteractionState(player: PlayerState, npc: NpcConfig): NpcInteractionState {
-    const readySubmitQuest = player.quests.find((entry) => (
-      entry.status === 'ready'
-      && this.isQuestSubmitNpc(entry, npc, player.mapId)
-    ));
-    if (readySubmitQuest) {
-      return {
-        quest: this.mapService.getQuest(readySubmitQuest.id),
-        questState: readySubmitQuest,
-        relation: 'submit',
-      };
-    }
-
-    const activeTargetQuest = player.quests.find((entry) => (
-      entry.status === 'active'
-      && entry.objectiveType === 'talk'
-      && this.isQuestTargetNpc(entry, npc, player.mapId)
-    ));
-    if (activeTargetQuest) {
-      return {
-        quest: this.mapService.getQuest(activeTargetQuest.id),
-        questState: activeTargetQuest,
-        relation: 'target',
-      };
-    }
-
-    const currentMainQuestId = this.getCurrentMainQuestId(player);
-    if (currentMainQuestId) {
-      const currentMainQuest = npc.quests.find((quest) => quest.id === currentMainQuestId);
-      if (currentMainQuest) {
-        const questState = player.quests.find((entry) => entry.id === currentMainQuest.id);
-        if (questState && questState.status !== 'completed') {
-          return { quest: currentMainQuest, questState, relation: 'giver' };
-        }
-        if (!questState) {
-          return { quest: currentMainQuest, relation: 'giver' };
-        }
-      }
-    }
-
-    for (const quest of npc.quests) {
-      if (quest.line === 'main' && currentMainQuestId && quest.id !== currentMainQuestId) {
-        continue;
-      }
-      const questState = player.quests.find((entry) => entry.id === quest.id);
-      if (questState && questState.status !== 'completed') {
-        return { quest, questState, relation: 'giver' };
-      }
-      if (!questState) {
-        const previousIncomplete = npc.quests
-          .slice(0, npc.quests.indexOf(quest))
-          .some((candidate) => player.quests.find((entry) => entry.id === candidate.id)?.status !== 'completed');
-        if (!previousIncomplete) {
-          return { quest, relation: 'giver' };
-        }
-        break;
-      }
-    }
-    return {};
-  }
-
-  private resolveNpcQuestMarker(player: PlayerState, npc: NpcConfig): NpcQuestMarker | undefined {
-    const interaction = this.getNpcInteractionState(player, npc);
-    if (interaction.quest && !interaction.questState && !this.getQuestAcceptRequirementText(player, interaction.quest)) {
-      return { line: interaction.quest.line, state: 'available' };
-    }
-    if (interaction.questState?.status === 'ready') {
-      return { line: interaction.questState.line, state: 'ready' };
-    }
-    if (interaction.questState?.status === 'active' && interaction.relation !== 'submit') {
-      return { line: interaction.questState.line, state: 'active' };
-    }
-    return undefined;
-  }
-
-  private getQuestAcceptRequirementText(player: PlayerState, quest: QuestConfig): string | null {
-    const currentRealmLv = Math.max(1, Math.floor(player.realm?.realmLv ?? player.realmLv ?? 1));
-    const currentStage = player.realm?.stage;
-    if (quest.acceptRealmLv !== undefined && currentRealmLv < quest.acceptRealmLv) {
-      return this.contentService.getRealmLevelEntry(quest.acceptRealmLv)?.displayName ?? `Lv.${quest.acceptRealmLv}`;
-    }
-    if (quest.acceptRealmStage !== undefined && (currentStage === undefined || currentStage < quest.acceptRealmStage)) {
-      return this.contentService.getRealmStageStartEntry(quest.acceptRealmStage)?.displayName ?? '指定境界';
-    }
-    return null;
-  }
-
-  private buildRewardItems(quest: QuestConfig): ItemStack[] {
-    const rewards = quest.rewards.length > 0
-      ? quest.rewards
-      : quest.rewardItemIds.map((itemId) => ({
-          itemId,
-          name: itemId,
-          type: 'material' as const,
-          count: 1,
-          chance: 1,
-        }));
-    return rewards
-      .map((reward) => this.createItemFromDrop(reward))
-      .filter((item): item is ItemStack => Boolean(item));
-  }
-
-  private buildQuestStateRewards(quest: QuestState): ItemStack[] {
-    if (quest.rewards?.length) {
-      return quest.rewards
-        .map((reward) => this.contentService.createItem(reward.itemId, reward.count) ?? { ...reward })
-        .filter((item): item is ItemStack => Boolean(item));
-    }
-    const rewardIds = quest.rewardItemIds?.length ? quest.rewardItemIds : [quest.rewardItemId];
-    return rewardIds
-      .map((itemId) => this.contentService.createItem(itemId))
-      .filter((item): item is ItemStack => Boolean(item));
-  }
-
-  private canReceiveItems(player: PlayerState, items: ItemStack[]): boolean {
-    const simulated = player.inventory.items.map((item) => ({ ...item }));
-    for (const item of items) {
-      const signature = createItemStackSignature(item);
-      const existing = simulated.find((entry) => createItemStackSignature(entry) === signature);
-      if (existing) {
-        existing.count += item.count;
-        continue;
-      }
-      if (simulated.length >= player.inventory.capacity) {
-        return false;
-      }
-      simulated.push({ ...item });
-    }
-    return true;
-  }
-
-  private createItemFromDrop(drop: DropConfig): ItemStack | null {
-    return this.contentService.createItem(drop.itemId, drop.count) ?? {
-      itemId: drop.itemId,
-      name: drop.name,
-      type: drop.type,
-      count: drop.count,
-      desc: drop.name,
-    };
-  }
-
-  private rollMonsterDrops(killer: PlayerState, monster: RuntimeMonster): ItemStack[] {
-    const loots: ItemStack[] = [];
-    for (const drop of monster.drops) {
-      if (Math.random() > this.getEffectiveDropChance(killer, monster, drop)) {
-        continue;
-      }
-      const loot = this.createItemFromDrop(drop);
-      if (loot) {
-        loots.push(loot);
-      }
-    }
-    return loots;
-  }
-
-  private deliverMonsterLoot(
-    player: PlayerState,
-    monster: RuntimeMonster,
-    loot: ItemStack,
-    killerId: string,
-    dirty: Set<WorldDirtyFlag>,
-    messages: WorldMessage[],
-  ): void {
-    if (this.inventoryService.addItem(player, loot)) {
-      messages.push({
-        playerId: player.id,
-        text: `你获得了 ${loot.name} x${loot.count}。`,
-        kind: 'loot',
-      });
-      if (player.id === killerId) {
-        dirty.add('inv');
-      } else {
-        this.playerService.markDirty(player.id, 'inv');
-      }
-      return;
-    }
-    this.lootService.dropToGround(monster.mapId, monster.x, monster.y, loot);
-    messages.push({
-      playerId: player.id,
-      text: `${loot.name} 分配给你时背包已满，已掉落在 (${monster.x}, ${monster.y}) 的地面上。`,
-      kind: 'loot',
-    });
-  }
-
-  private consumeInventoryItem(
-    player: PlayerState,
-    itemId: string,
-    count: number,
-    errorMessage = '任务物品不足，暂时无法交付',
-  ): string | null {
-    let remaining = count;
-    while (remaining > 0) {
-      const slotIndex = this.inventoryService.findItem(player, itemId);
-      if (slotIndex < 0) {
-        return errorMessage;
-      }
-      const stack = this.inventoryService.getItem(player, slotIndex);
-      if (!stack) {
-        return errorMessage;
-      }
-      const removed = this.inventoryService.removeItem(player, slotIndex, remaining);
-      if (!removed) {
-        return errorMessage;
-      }
-      remaining -= removed.count;
-    }
-    return null;
-  }
-
-  private getShopCurrencyItemName(): string {
-    return this.contentService.getItem(MARKET_CURRENCY_ITEM_ID)?.name ?? '灵石';
-  }
-
-  private getInventoryCount(player: PlayerState, itemId: string): number {
-    return player.inventory.items
-      .filter((item) => item.itemId === itemId)
-      .reduce((total, item) => total + item.count, 0);
-  }
-
-  private describeQuestProgress(player: PlayerState, questState: QuestState, questConfig?: QuestConfig): string {
-    const objective = questState.objectiveText ?? questConfig?.objectiveText ?? questState.desc;
-    const parts = [objective];
-    switch (questState.objectiveType) {
-      case 'talk':
-        parts.push(questState.progress >= questState.required ? '口信已传达' : '尚未把口信带到');
-        break;
-      case 'submit_item':
-        parts.push(`当前持有 ${questState.progress}/${questState.required}`);
-        break;
-      case 'learn_technique':
-        parts.push(questState.progress >= questState.required
-          ? `已参悟 ${questState.targetName}`
-          : `尚未参悟 ${questState.targetName}`);
-        break;
-      case 'realm_stage':
-        parts.push(questState.progress >= questState.required
-          ? `已达到 ${questState.targetName}`
-          : `尚未达到 ${questState.targetName}`);
-        break;
-      case 'realm_progress':
-      case 'kill':
-      default:
-        parts.push(`当前进度 ${questState.progress}/${questState.required}`);
-        break;
-    }
-    if (questConfig?.requiredItemId) {
-      const itemName = this.contentService.getItem(questConfig.requiredItemId)?.name
-        ?? (isLikelyInternalContentId(questConfig.requiredItemId) ? '任务物品' : questConfig.requiredItemId);
-      const requiredItemCount = Math.max(1, questConfig.requiredItemCount ?? 1);
-      const currentItemCount = Math.min(requiredItemCount, this.getInventoryCount(player, questConfig.requiredItemId));
-      parts.push(`当前持有 ${itemName} ${currentItemCount}/${requiredItemCount}`);
-    }
-    return parts.join('，');
-  }
-
-  private getRealmStageName(stage: PlayerRealmStage): string {
-    return this.contentService.getRealmStageStartEntry(stage)?.displayName ?? '未知境界';
   }
 
   private findNearestLivingMonster(player: PlayerState, maxDistance: number): RuntimeMonster | undefined {
@@ -6925,20 +5833,20 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     timeState: GameTimeState,
     currentTick: number,
   ): PlayerState | undefined {
-    this.refreshMonsterThreats(monster, players, timeState);
+    this.targetingDomain.refreshMonsterThreats(monster, players, timeState);
     const ownerId = this.getMonsterThreatId(monster);
     const targetId = this.threatService.getHighestAttackableThreatTarget(ownerId, (candidateId) => {
-      const target = this.resolveThreatPlayerForMonster(monster, candidateId);
+      const target = this.targetingDomain.resolveThreatPlayerForMonster(monster, candidateId);
       if (!target) {
         return false;
       }
-      return this.canMonsterAttackTarget(monster, target, timeState);
+      return this.targetingDomain.canMonsterAttackTarget(monster, target, timeState);
     });
     if (!targetId) {
       return undefined;
     }
 
-    const target = this.resolveThreatPlayerForMonster(monster, targetId);
+    const target = this.targetingDomain.resolveThreatPlayerForMonster(monster, targetId);
     if (target) {
       this.rememberMonsterTargetSight(monster, target, currentTick);
     }
@@ -7014,6 +5922,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+/** respawnPlayer：处理当前场景中的对应操作。 */
   private respawnPlayer(player: PlayerState) {
     this.restorePlayerAfterDefeat(player, true);
   }
@@ -7025,6 +5934,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+/** restorePlayerAfterDefeat：处理当前场景中的对应操作。 */
   private restorePlayerAfterDefeat(player: PlayerState, occupy: boolean) {
     const respawnPlacement = this.mapService.resolveDefaultPlayerSpawnPosition(player.id, player.respawnMapId);
     player.pendingSkillCast = undefined;
@@ -7410,7 +6320,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     availableSkills: AutoBattleSkillCandidate[],
     stationaryMode: boolean,
   ): ResolvedTarget | undefined {
-    this.refreshPlayerThreats(player, effectiveViewRange);
+    this.targetingDomain.refreshPlayerThreats(player, effectiveViewRange);
     const ownerId = this.getPlayerThreatId(player);
     const threshold = this.getAggroThreshold(player);
     return this.findPlayerAutoBattleTargetByThreat(
@@ -7419,8 +6329,8 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       threshold,
       (target) => (
         stationaryMode
-          ? this.canPlayerCastAutoBattleSkillFromCurrentPosition(player, target, effectiveViewRange, availableSkills)
-          : this.canPlayerAttackTarget(player, target, effectiveViewRange, preferredRange)
+          ? this.targetingDomain.canPlayerCastAutoBattleSkillFromCurrentPosition(player, target, effectiveViewRange, availableSkills)
+          : this.targetingDomain.canPlayerAttackTarget(player, target, effectiveViewRange, preferredRange)
       ),
     );
   }
@@ -7442,7 +6352,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       if (entry.value < threshold) {
         continue;
       }
-      const target = this.resolveThreatTargetForPlayer(player, entry.targetId);
+      const target = this.targetingDomain.resolveThreatTargetForPlayer(player, entry.targetId) as ResolvedTarget | null;
       if (!target || target.kind === 'tile') {
         continue;
       }
@@ -7456,7 +6366,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
         target,
         threatValue: entry.value,
         distance: gridDistance(player, target),
-        hpRatio: this.getResolvedTargetHpRatio(target),
+        hpRatio: this.targetingDomain.getResolvedTargetHpRatio(target),
       });
     }
     if (candidates.length === 0) {
@@ -7471,7 +6381,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
 
     for (const candidate of candidates) {
       const score = this.getDynamicThreatSelectionScore(candidate.distance, candidate.threatValue)
-        * this.getPlayerTargetingThreatMultiplier(
+        * this.targetingDomain.getPlayerTargetingThreatMultiplier(
           player,
           candidate.target,
           candidate.distance,
@@ -7496,326 +6406,6 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       ? 1
       : Math.pow(gameplayConstants.THREAT_DISTANCE_FALLOFF_PER_TILE, distance - 1);
     return threatValue * distanceMultiplier;
-  }
-
-  private getResolvedTargetHpRatio(target: ResolvedTarget): number {
-    if (target.kind === 'tile' || target.kind === 'container') {
-      return 0;
-    }
-    const hp = target.kind === 'monster' ? target.monster.hp : target.player.hp;
-    const maxHp = target.kind === 'monster' ? target.monster.maxHp : target.player.maxHp;
-    if (!Number.isFinite(maxHp) || maxHp <= 0) {
-      return 0;
-    }
-    return Math.max(0, Math.min(1, hp / maxHp));
-  }
-
-  private getPlayerTargetingThreatMultiplier(
-    player: PlayerState,
-    target: ResolvedTarget,
-    distance: number,
-    hpRatio: number,
-    nearestDistance: number,
-    lowestHpRatio: number,
-    highestHpRatio: number,
-  ): number {
-    const multiplier = gameplayConstants.PLAYER_TARGETING_PREFERENCE_THREAT_MULTIPLIER;
-    switch (player.autoBattleTargetingMode) {
-      case 'nearest':
-        return distance === nearestDistance ? multiplier : 1;
-      case 'low_hp':
-        return Math.abs(hpRatio - lowestHpRatio) <= 1e-6 ? multiplier : 1;
-      case 'full_hp':
-        return Math.abs(hpRatio - highestHpRatio) <= 1e-6 ? multiplier : 1;
-      case 'boss':
-        return target.kind === 'monster' && target.monster.tier === 'demon_king' ? multiplier : 1;
-      case 'player':
-        return target.kind === 'player' ? multiplier : 1;
-      case 'auto':
-      default:
-        return 1;
-    }
-  }
-
-  private collectAutoBattleSkillCandidates(player: PlayerState): AutoBattleSkillCandidate[] {
-    const skillActionMap = new Map(
-      player.actions
-        .filter((action) => action.type === 'skill')
-        .map((action) => [action.id, action] as const),
-    );
-
-    return player.autoBattleSkills
-      .filter((entry) => entry.enabled && entry.skillEnabled !== false)
-      .map((entry) => skillActionMap.get(entry.skillId))
-      .filter((action): action is ActionDef => action !== undefined && action.skillEnabled !== false && action.cooldownLeft === 0)
-      .map((action) => {
-        const skill = this.contentService.getSkill(action.id);
-        return skill ? { action, skill } : null;
-      })
-      .filter((entry): entry is AutoBattleSkillCandidate => entry !== null)
-      .filter((entry) => this.canPlayerCastSkill(player, entry.skill));
-  }
-
-  private resolveAutoBattlePreferredRange(player: PlayerState, skills: AutoBattleSkillCandidate[]): number {
-    const playerStats = this.attrService.getPlayerNumericStats(player);
-    return skills.reduce((maxRange, entry) => Math.max(maxRange, this.buildEffectiveSkillGeometry(entry.skill, playerStats).range), 1);
-  }
-
-  private selectAutoBattleSkillForTarget(
-    player: PlayerState,
-    target: ResolvedTarget,
-    skills: AutoBattleSkillCandidate[],
-  ): AutoBattleSkillCandidate | undefined {
-    const playerStats = this.attrService.getPlayerNumericStats(player);
-    return skills.find((entry) => (
-      entry.skill.requiresTarget === false
-      || isPointInRange(player, target, this.buildEffectiveSkillGeometry(entry.skill, playerStats).range)
-    ));
-  }
-
-  private canPlayerCastAutoBattleSkillFromCurrentPosition(
-    player: PlayerState,
-    target: ResolvedTarget,
-    effectiveViewRange: number,
-    skills: AutoBattleSkillCandidate[],
-  ): boolean {
-    if (!this.canPlayerUseHostileEffectOnTarget(player, target) || target.kind === 'tile') {
-      return false;
-    }
-    if (!this.canPlayerSeeTarget(player, target, effectiveViewRange)) {
-      return false;
-    }
-    const playerStats = this.attrService.getPlayerNumericStats(player);
-    return isPointInRange(player, target, 1)
-      || skills.some((entry) => (
-        entry.skill.requiresTarget === false
-        || isPointInRange(player, target, this.buildEffectiveSkillGeometry(entry.skill, playerStats).range)
-      ));
-  }
-
-  private refreshPlayerThreats(player: PlayerState, effectiveViewRange: number): void {
-    const ownerId = this.getPlayerThreatId(player);
-    for (const monster of this.monstersByMap.get(player.mapId) ?? []) {
-      if (!monster.alive) continue;
-      if (!this.canPlayerSeeTarget(player, { kind: 'monster', x: monster.x, y: monster.y, monster }, effectiveViewRange)) {
-        continue;
-      }
-      this.threatService.addThreat({
-        ownerId,
-        targetId: this.getMonsterThreatId(monster),
-        baseThreat: gameplayConstants.DEFAULT_PASSIVE_THREAT_PER_TICK,
-        targetExtraAggroRate: this.getExtraAggroRate(monster),
-        distance: gridDistance(player, monster),
-      });
-    }
-
-    for (const entry of this.threatService.getThreatEntries(ownerId)) {
-      const target = this.resolveThreatTargetForPlayer(player, entry.targetId);
-      if (!target || target.kind === 'tile' || !this.canPlayerSeeTarget(player, target, effectiveViewRange)) {
-        this.threatService.decayThreat(ownerId, entry.targetId, player.maxHp);
-      }
-    }
-  }
-
-  private resolveThreatTargetForPlayer(player: PlayerState, targetId: string): ResolvedTarget | null {
-    return this.resolveTargetRef(player, targetId);
-  }
-
-  private canPlayerAttackTarget(
-    player: PlayerState,
-    target: ResolvedTarget,
-    effectiveViewRange: number,
-    range: number,
-  ): boolean {
-    if (!this.canPlayerUseHostileEffectOnTarget(player, target)) {
-      return false;
-    }
-    if (!this.canPlayerSeeTarget(player, target, effectiveViewRange)) {
-      return false;
-    }
-    return this.canReachAttackPosition(player.mapId, player, target, range, player.id, 'player');
-  }
-
-  private refreshMonsterThreats(
-    monster: RuntimeMonster,
-    players: PlayerState[],
-    timeState: GameTimeState,
-  ): void {
-    const ownerId = this.getMonsterThreatId(monster);
-    const scanRange = Math.max(0, Math.min(monster.aggroRange, timeState.effectiveViewRange));
-
-    if (this.isMonsterAutoAggroEnabled(monster, timeState)) {
-      for (const player of players) {
-        if (!this.canMonsterSeeTarget(monster, player, timeState, scanRange)) {
-          continue;
-        }
-        this.threatService.addThreat({
-          ownerId,
-          targetId: this.getPlayerThreatId(player),
-          baseThreat: gameplayConstants.DEFAULT_PASSIVE_THREAT_PER_TICK,
-          targetExtraAggroRate: this.getExtraAggroRate(player),
-          distance: gridDistance(monster, player),
-        });
-      }
-    }
-
-    for (const entry of this.threatService.getThreatEntries(ownerId)) {
-      const target = this.resolveThreatPlayerForMonster(monster, entry.targetId);
-      if (!target || !this.canMonsterSeeTarget(monster, target, timeState, scanRange)) {
-        this.threatService.decayThreat(ownerId, entry.targetId, monster.maxHp);
-      }
-    }
-  }
-
-  private resolveThreatPlayerForMonster(monster: RuntimeMonster, targetId: string): PlayerState | null {
-    if (!targetId.startsWith('player:')) {
-      return null;
-    }
-    const playerId = targetId.slice('player:'.length);
-    const player = this.playerService.getPlayer(playerId);
-    if (!player || player.dead || player.mapId !== monster.mapId) {
-      return null;
-    }
-    return player;
-  }
-
-  private canMonsterSeeTarget(
-    monster: RuntimeMonster,
-    target: PlayerState,
-    timeState: GameTimeState,
-    scanRange: number,
-  ): boolean {
-    if (target.dead || target.mapId !== monster.mapId) {
-      return false;
-    }
-    if (!isPointInRange(monster, target, scanRange)) {
-      return false;
-    }
-    return this.aoiService.inViewAt(
-      monster.mapId,
-      monster.x,
-      monster.y,
-      timeState.effectiveViewRange,
-      target.x,
-      target.y,
-      monster.runtimeId,
-    );
-  }
-
-  private canMonsterAttackTarget(
-    monster: RuntimeMonster,
-    target: PlayerState,
-    timeState: GameTimeState,
-  ): boolean {
-    const scanRange = Math.max(0, Math.min(monster.aggroRange, timeState.effectiveViewRange));
-    if (!this.canMonsterSeeTarget(monster, target, timeState, scanRange)) {
-      return false;
-    }
-    return this.canReachAttackPosition(
-      monster.mapId,
-      monster,
-      { kind: 'player', x: target.x, y: target.y, player: target },
-      1,
-      monster.runtimeId,
-      'monster',
-    );
-  }
-
-  private resolveCombatTarget(player: PlayerState): ResolvedTarget | undefined {
-    if (!player.combatTargetId) return undefined;
-    const target = this.resolveTargetRef(player, player.combatTargetId);
-    if (!target) {
-      this.clearCombatTarget(player);
-      return undefined;
-    }
-    return target;
-  }
-
-  private stopLockedForceAttackForInvalidTile(
-    player: PlayerState,
-    target: ResolvedTarget,
-    update: WorldUpdate,
-  ): WorldUpdate | null {
-    if (
-      !player.combatTargetLocked
-      || target.kind !== 'tile'
-      || (update.error !== '该目标无法被攻击' && update.error !== '没有可命中的目标')
-    ) {
-      return null;
-    }
-
-    player.autoBattle = false;
-    this.clearCombatTarget(player);
-    return {
-      ...update,
-      error: undefined,
-      messages: [
-        ...update.messages,
-        {
-          playerId: player.id,
-          text: '强制攻击目标无法被攻击，自动战斗已停止。',
-          kind: 'combat',
-        },
-      ],
-      dirty: [...new Set<WorldDirtyFlag>([...update.dirty, 'actions'])],
-    };
-  }
-
-  private canPlayerSeeTarget(player: PlayerState, target: ResolvedTarget, effectiveViewRange: number): boolean {
-    if (!isPointInRange(player, target, effectiveViewRange)) {
-      return false;
-    }
-    return this.aoiService.inView(player, target.x, target.y, effectiveViewRange);
-  }
-
-  private resolveTargetRef(
-    player: PlayerState,
-    targetRef: string,
-  ): ResolvedTarget | null {
-    if (targetRef.startsWith('monster:')) {
-      const monster = (this.monstersByMap.get(player.mapId) ?? []).find((entry) => entry.runtimeId === targetRef && entry.alive);
-      if (!monster) return null;
-      return { kind: 'monster', x: monster.x, y: monster.y, monster };
-    }
-
-    if (targetRef.startsWith('player:')) {
-      const playerId = targetRef.slice('player:'.length);
-      const targetPlayer = this.playerService.getPlayer(playerId);
-      if (!targetPlayer || targetPlayer.id === player.id || targetPlayer.mapId !== player.mapId || targetPlayer.dead) {
-        return null;
-      }
-      return { kind: 'player', x: targetPlayer.x, y: targetPlayer.y, player: targetPlayer };
-    }
-
-    if (targetRef.startsWith('container:')) {
-      const containerId = targetRef.slice('container:'.length);
-      const container = this.mapService.getContainerById(player.mapId, containerId);
-      if (!container || container.variant !== 'herb') {
-        return null;
-      }
-      const runtime = this.lootService.getContainerRuntimeView(player.mapId, container);
-      if (runtime.destroyed || runtime.respawning) {
-        return null;
-      }
-      return { kind: 'container', x: container.x, y: container.y, container };
-    }
-
-    const tileTarget = parseTileTargetRef(targetRef);
-    if (tileTarget) {
-      const { x, y } = tileTarget;
-      const container = this.mapService.getContainerAt(player.mapId, x, y);
-      if (container?.variant === 'herb') {
-        const runtime = this.lootService.getContainerRuntimeView(player.mapId, container);
-        if (!runtime.destroyed && !runtime.respawning) {
-          return { kind: 'container', x: container.x, y: container.y, container };
-        }
-      }
-      const tile = this.mapService.getTile(player.mapId, x, y);
-      if (!tile || this.mapService.isTileDestroyed(player.mapId, x, y)) return null;
-      return { kind: 'tile', x, y, tileType: tile.type };
-    }
-
-    return null;
   }
 
   private attackTerrain(
@@ -8002,6 +6592,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     return Math.min(10000, chanceBps);
   }
 
+/** pushEffect：处理当前场景中的对应操作。 */
   private pushEffect(mapId: string, effect: CombatEffect) {
     const list = this.effectsByMap.get(mapId) ?? [];
     list.push(effect);
@@ -8030,6 +6621,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
+/** faceToward：处理当前场景中的对应操作。 */
   private faceToward(entity: { x: number; y: number; facing?: Direction }, targetX: number, targetY: number) {
     const dx = targetX - entity.x;
     const dy = targetY - entity.y;
@@ -8105,6 +6697,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     player.retaliatePlayerTargetId = undefined;
   }
 
+/** getPlayerCombatTargetingRules：处理当前场景中的对应操作。 */
   private getPlayerCombatTargetingRules(player: PlayerState) {
     return normalizeCombatTargetingRules(
       player.combatTargetingRules,
@@ -8469,40 +7062,15 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
   }
 
   private normalizePersistedNpcShopRuntimeRecord(raw: unknown): PersistedNpcShopRuntimeRecord | null {
-    const candidate = raw as Partial<PersistedNpcShopRuntimeRecord>;
-    if (
-      !Number.isInteger(candidate?.refreshWindowStartMs)
-      || !Number.isInteger(candidate?.soldQuantity)
-      || Number(candidate.refreshWindowStartMs) < 0
-      || Number(candidate.soldQuantity) < 0
-    ) {
-      return null;
-    }
-    return {
-      refreshWindowStartMs: Number(candidate.refreshWindowStartMs),
-      soldQuantity: Number(candidate.soldQuantity),
-    };
+    return this.runtimePersistenceDomain.normalizePersistedNpcShopRuntimeRecord(raw);
   }
 
   private buildAllowedMonsterRuntimeIds(mapId: string): Set<string> {
-    const result = new Set<string>();
-    for (const spawn of this.mapService.getMonsterSpawns(mapId)) {
-      for (let index = 0; index < spawn.maxAlive; index += 1) {
-        result.add(this.buildMonsterRuntimeId(mapId, spawn.id, spawn.x, spawn.y, index));
-      }
-    }
-    return result;
+    return this.runtimePersistenceDomain.buildAllowedMonsterRuntimeIds(mapId);
   }
 
   private buildAllowedMonsterSpawnKeys(mapId: string): Set<string> {
-    const result = new Set<string>();
-    for (const spawn of this.mapService.getMonsterSpawns(mapId)) {
-      if (spawn.tier !== 'mortal_blood') {
-        continue;
-      }
-      result.add(this.buildMonsterSpawnKey(mapId, spawn.id, spawn.x, spawn.y));
-    }
-    return result;
+    return this.runtimePersistenceDomain.buildAllowedMonsterSpawnKeys(mapId);
   }
 
   private buildMonsterSpawnKey(
@@ -8511,7 +7079,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     spawnX: number,
     spawnY: number,
   ): string {
-    return `monster_spawn:${mapId}:${spawnId}:${spawnX}:${spawnY}`;
+    return this.runtimePersistenceDomain.buildMonsterSpawnKey(mapId, spawnId, spawnX, spawnY);
   }
 
   private buildMonsterRuntimeId(
@@ -8521,62 +7089,27 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     spawnY: number,
     index: number,
   ): string {
-    return `monster:${mapId}:${spawnId}:${spawnX}:${spawnY}:${index}`;
+    return this.runtimePersistenceDomain.buildMonsterRuntimeId(mapId, spawnId, spawnX, spawnY, index);
   }
 
   private captureMonsterRuntimeState(monsters: RuntimeMonster[]): Map<string, PersistedMonsterRuntimeRecord> {
-    const result = new Map<string, PersistedMonsterRuntimeRecord>();
-    for (const monster of monsters) {
-      result.set(monster.runtimeId, this.captureMonsterRuntimeRecord(monster));
-    }
-    return result;
+    return this.runtimePersistenceDomain.captureMonsterRuntimeState(monsters);
   }
 
   private captureMonsterSpawnAccelerationState(mapId: string): Map<string, PersistedMonsterSpawnAccelerationRecord> {
-    const result = new Map<string, PersistedMonsterSpawnAccelerationRecord>();
-    for (const state of this.monsterSpawnAccelerationStatesByMap.get(mapId)?.values() ?? []) {
-      result.set(state.spawnKey, this.captureMonsterSpawnAccelerationRecord(state));
-    }
-    return result;
+    return this.runtimePersistenceDomain.captureMonsterSpawnAccelerationState(
+      this.monsterSpawnAccelerationStatesByMap.get(mapId)?.values() ?? [],
+    );
   }
 
   private captureMonsterRuntimeRecord(monster: RuntimeMonster): PersistedMonsterRuntimeRecord {
-    return {
-      runtimeId: monster.runtimeId,
-      x: monster.x,
-      y: monster.y,
-      hp: monster.hp,
-      qi: monster.qi,
-      alive: monster.alive,
-      respawnLeft: monster.respawnLeft,
-      temporaryBuffs: monster.temporaryBuffs.length > 0
-        ? monster.temporaryBuffs.map((buff) => dehydrateTemporaryBuff(buff, this.contentService))
-        : undefined,
-      skillCooldowns: Object.keys(monster.skillCooldowns).length > 0
-        ? { ...monster.skillCooldowns }
-        : undefined,
-      pendingCast: monster.pendingCast
-        ? { ...monster.pendingCast }
-        : undefined,
-      damageContributors: monster.damageContributors.size > 0
-        ? Object.fromEntries([...monster.damageContributors.entries()].map(([playerId, damage]) => [playerId, damage]))
-        : undefined,
-      facing: monster.facing,
-      targetPlayerId: monster.targetPlayerId,
-      lastSeenTargetX: monster.lastSeenTargetX,
-      lastSeenTargetY: monster.lastSeenTargetY,
-      lastSeenTargetTick: monster.lastSeenTargetTick,
-    };
+    return this.runtimePersistenceDomain.captureMonsterRuntimeRecord(monster);
   }
 
   private captureMonsterSpawnAccelerationRecord(
     state: MonsterSpawnAccelerationState,
   ): PersistedMonsterSpawnAccelerationRecord {
-    return {
-      spawnKey: state.spawnKey,
-      respawnSpeedBonusPercent: this.normalizeMonsterRespawnSpeedBonusPercent(state.respawnSpeedBonusPercent),
-      clearDeadlineTick: Math.max(0, Math.round(state.clearDeadlineTick)),
-    };
+    return this.runtimePersistenceDomain.captureMonsterSpawnAccelerationRecord(state);
   }
 
   private applyPersistedMonsterState(
@@ -8584,56 +7117,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     runtime: RuntimeMonster,
     persisted: PersistedMonsterRuntimeRecord,
   ): void {
-    const persistedHp = Math.round(persisted.hp);
-    const persistedQi = Math.round(persisted.qi ?? runtime.qi);
-    runtime.hp = Math.max(0, Math.min(runtime.maxHp, persistedHp));
-    runtime.qi = Math.max(0, Math.min(Math.max(0, Math.round(runtime.numericStats.maxQi)), persistedQi));
-    runtime.facing = persisted.facing;
-    runtime.targetPlayerId = typeof persisted.targetPlayerId === 'string' ? persisted.targetPlayerId : undefined;
-    runtime.lastSeenTargetX = Number.isInteger(persisted.lastSeenTargetX) ? Number(persisted.lastSeenTargetX) : undefined;
-    runtime.lastSeenTargetY = Number.isInteger(persisted.lastSeenTargetY) ? Number(persisted.lastSeenTargetY) : undefined;
-    runtime.lastSeenTargetTick = Number.isInteger(persisted.lastSeenTargetTick) ? Number(persisted.lastSeenTargetTick) : undefined;
-    runtime.temporaryBuffs = hydrateTemporaryBuffSnapshots(persisted.temporaryBuffs, this.contentService);
-    this.syncMonsterRuntimeResources(runtime, { previousHp: persistedHp, previousQi: persistedQi });
-    runtime.skillCooldowns = Object.fromEntries(
-      Object.entries(persisted.skillCooldowns ?? {})
-        .filter(([, ticks]) => Number.isFinite(ticks) && Number(ticks) > 0)
-        .map(([skillId, ticks]) => [skillId, Math.max(1, Math.round(Number(ticks)))])
-    );
-    runtime.pendingCast = this.normalizePendingMonsterSkillCast(persisted.pendingCast);
-    runtime.damageContributors = new Map<string, number>(
-      Object.entries(persisted.damageContributors ?? {})
-        .filter(([, damage]) => Number.isFinite(damage) && Number(damage) > 0)
-        .map(([playerId, damage]) => [playerId, Math.max(1, Math.round(Number(damage)))]),
-    );
-
-    const canRestoreAlive = persisted.alive === true && runtime.hp > 0;
-    const preferredX = Number.isInteger(persisted.x) ? Number(persisted.x) : runtime.spawnX;
-    const preferredY = Number.isInteger(persisted.y) ? Number(persisted.y) : runtime.spawnY;
-    if (canRestoreAlive && this.mapService.isWalkable(mapId, preferredX, preferredY, { actorType: 'monster' })) {
-      runtime.x = preferredX;
-      runtime.y = preferredY;
-      runtime.alive = true;
-      runtime.respawnLeft = 0;
-      this.mapService.addOccupant(mapId, runtime.x, runtime.y, runtime.runtimeId, 'monster');
-      return;
-    }
-
-    const fallbackPos = canRestoreAlive ? this.findSpawnPosition(mapId, runtime) : null;
-    if (canRestoreAlive && fallbackPos && this.mapService.isWalkable(mapId, fallbackPos.x, fallbackPos.y, { actorType: 'monster' })) {
-      runtime.x = fallbackPos.x;
-      runtime.y = fallbackPos.y;
-      runtime.alive = true;
-      runtime.respawnLeft = 0;
-      this.mapService.addOccupant(mapId, runtime.x, runtime.y, runtime.runtimeId, 'monster');
-      return;
-    }
-
-    runtime.x = preferredX;
-    runtime.y = preferredY;
-    runtime.alive = false;
-    runtime.pendingCast = undefined;
-    runtime.respawnLeft = Math.max(1, Number.isFinite(persisted.respawnLeft) ? Math.round(persisted.respawnLeft) : runtime.respawnTicks);
+    this.runtimePersistenceDomain.applyPersistedMonsterState(mapId, runtime, persisted);
   }
 
   private createDefaultMonsterSpawnAccelerationState(
@@ -8641,127 +7125,27 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     monsters: RuntimeMonster[],
     currentTick: number,
   ): MonsterSpawnAccelerationState {
-    const sample = monsters[0];
-    const respawnSpeedBonusPercent = 0;
-    return {
-      spawnKey,
-      respawnSpeedBonusPercent,
-      clearDeadlineTick: sample && this.areAllMonstersAlive(monsters)
-        ? currentTick + this.resolveMonsterRespawnTicksWithBonus(sample.respawnTicks, respawnSpeedBonusPercent)
-        : 0,
-    };
+    return this.runtimePersistenceDomain.createDefaultMonsterSpawnAccelerationState(spawnKey, monsters, currentTick);
   }
 
   private applyPersistedMonsterSpawnAccelerationState(
     persisted: PersistedMonsterSpawnAccelerationRecord,
   ): MonsterSpawnAccelerationState {
-    return {
-      spawnKey: persisted.spawnKey,
-      respawnSpeedBonusPercent: this.normalizeMonsterRespawnSpeedBonusPercent(persisted.respawnSpeedBonusPercent),
-      clearDeadlineTick: Math.max(0, Math.round(persisted.clearDeadlineTick)),
-    };
+    return this.runtimePersistenceDomain.applyPersistedMonsterSpawnAccelerationState(persisted);
   }
 
   private normalizePersistedMonsterRuntimeRecord(raw: unknown): PersistedMonsterRuntimeRecord | null {
-    if (!raw || typeof raw !== 'object') {
-      return null;
-    }
-
-    const candidate = raw as Partial<PersistedMonsterRuntimeRecord>;
-    if (
-      typeof candidate.runtimeId !== 'string'
-      || !Number.isInteger(candidate.x)
-      || !Number.isInteger(candidate.y)
-      || !Number.isFinite(candidate.hp)
-      || typeof candidate.alive !== 'boolean'
-      || !Number.isFinite(candidate.respawnLeft)
-    ) {
-      return null;
-    }
-
-    return {
-      runtimeId: candidate.runtimeId,
-      x: Number(candidate.x),
-      y: Number(candidate.y),
-      hp: Math.max(0, Math.round(Number(candidate.hp))),
-      qi: Number.isFinite(candidate.qi) ? Math.max(0, Math.round(Number(candidate.qi))) : undefined,
-      alive: candidate.alive,
-      respawnLeft: Math.max(0, Math.round(Number(candidate.respawnLeft))),
-      temporaryBuffs: Array.isArray(candidate.temporaryBuffs)
-        ? candidate.temporaryBuffs
-            .map((buff) => normalizePersistedTemporaryBuffSnapshot(buff))
-            .filter((buff): buff is PersistedTemporaryBuffSnapshot => buff !== null)
-        : undefined,
-      skillCooldowns: candidate.skillCooldowns && typeof candidate.skillCooldowns === 'object'
-        ? Object.fromEntries(
-            Object.entries(candidate.skillCooldowns)
-              .filter(([, ticks]) => Number.isFinite(ticks) && Number(ticks) > 0)
-              .map(([skillId, ticks]) => [skillId, Math.max(1, Math.round(Number(ticks)))])
-          )
-        : undefined,
-      pendingCast: this.normalizePendingMonsterSkillCast(candidate.pendingCast),
-      damageContributors: candidate.damageContributors && typeof candidate.damageContributors === 'object'
-        ? Object.fromEntries(
-            Object.entries(candidate.damageContributors)
-              .filter(([, damage]) => Number.isFinite(damage) && Number(damage) > 0)
-              .map(([playerId, damage]) => [playerId, Math.max(1, Math.round(Number(damage)))]),
-          )
-        : undefined,
-      facing: candidate.facing,
-      targetPlayerId: typeof candidate.targetPlayerId === 'string' ? candidate.targetPlayerId : undefined,
-      lastSeenTargetX: Number.isInteger(candidate.lastSeenTargetX) ? Number(candidate.lastSeenTargetX) : undefined,
-      lastSeenTargetY: Number.isInteger(candidate.lastSeenTargetY) ? Number(candidate.lastSeenTargetY) : undefined,
-      lastSeenTargetTick: Number.isInteger(candidate.lastSeenTargetTick) ? Number(candidate.lastSeenTargetTick) : undefined,
-    };
+    return this.runtimePersistenceDomain.normalizePersistedMonsterRuntimeRecord(raw);
   }
 
   private normalizePendingMonsterSkillCast(raw: unknown): PendingMonsterSkillCast | undefined {
-    if (!raw || typeof raw !== 'object') {
-      return undefined;
-    }
-    const candidate = raw as Record<string, unknown>;
-    if (
-      typeof candidate.skillId !== 'string'
-      || !Number.isInteger(candidate.targetX)
-      || !Number.isInteger(candidate.targetY)
-      || !Number.isFinite(candidate.remainingTicks)
-      || !Number.isFinite(candidate.qiCost)
-    ) {
-      return undefined;
-    }
-    return {
-      skillId: candidate.skillId,
-      targetX: Number(candidate.targetX),
-      targetY: Number(candidate.targetY),
-      remainingTicks: Math.max(1, Math.round(Number(candidate.remainingTicks))),
-      qiCost: Math.max(0, Math.round(Number(candidate.qiCost))),
-      warningColor: typeof candidate.warningColor === 'string' && candidate.warningColor.trim().length > 0
-        ? candidate.warningColor.trim()
-        : undefined,
-    };
+    return this.runtimePersistenceDomain.normalizePendingMonsterSkillCast(raw);
   }
 
   private normalizePersistedMonsterSpawnAccelerationRecord(
     raw: unknown,
   ): PersistedMonsterSpawnAccelerationRecord | null {
-    if (!raw || typeof raw !== 'object') {
-      return null;
-    }
-
-    const candidate = raw as Partial<PersistedMonsterSpawnAccelerationRecord>;
-    if (
-      typeof candidate.spawnKey !== 'string'
-      || !Number.isFinite(candidate.respawnSpeedBonusPercent)
-      || !Number.isFinite(candidate.clearDeadlineTick)
-    ) {
-      return null;
-    }
-
-    return {
-      spawnKey: candidate.spawnKey,
-      respawnSpeedBonusPercent: this.normalizeMonsterRespawnSpeedBonusPercent(Number(candidate.respawnSpeedBonusPercent)),
-      clearDeadlineTick: Math.max(0, Math.round(Number(candidate.clearDeadlineTick))),
-    };
+    return this.runtimePersistenceDomain.normalizePersistedMonsterSpawnAccelerationRecord(raw);
   }
 
   private isOrdinaryMonster(monster: Pick<RuntimeMonster, 'tier'>): boolean {
@@ -8815,12 +7199,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
   }
 
   private normalizeMonsterRespawnSpeedBonusPercent(value: number): number {
-    if (!Number.isFinite(value)) {
-      return 0;
-    }
-    const normalized = Math.round(Number(value) / MONSTER_RESPAWN_ACCELERATION_STEP_PERCENT)
-      * MONSTER_RESPAWN_ACCELERATION_STEP_PERCENT;
-    return Math.max(0, Math.min(MONSTER_RESPAWN_ACCELERATION_MAX_PERCENT, normalized));
+    return this.runtimePersistenceDomain.normalizeMonsterRespawnSpeedBonusPercent(value);
   }
 
   private resolveMonsterRespawnTicks(monster: RuntimeMonster): number {
@@ -8829,15 +7208,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
   }
 
   private resolveMonsterRespawnTicksWithBonus(respawnTicks: number, bonusPercent: number): number {
-    const safeTicks = Math.max(1, Math.round(respawnTicks));
-    const safeBonusPercent = this.normalizeMonsterRespawnSpeedBonusPercent(bonusPercent);
-    return Math.max(
-      1,
-      Math.round(
-        safeTicks * MONSTER_RESPAWN_ACCELERATION_BASE_PERCENT
-          / (MONSTER_RESPAWN_ACCELERATION_BASE_PERCENT + safeBonusPercent),
-      ),
-    );
+    return this.runtimePersistenceDomain.resolveMonsterRespawnTicksWithBonus(respawnTicks, bonusPercent);
   }
 
   private handleMonsterRespawn(monster: RuntimeMonster): void {
@@ -8938,3 +7309,4 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     }));
   }
 }
+

@@ -50,15 +50,18 @@ import {
 } from '../../utils/spiritual-roots';
 
 
+/** formatRateBp：执行对应的业务逻辑。 */
 function formatRateBp(value: number): string {
   const percent = value / 100;
   return formatDisplayPercent(percent);
 }
 
+/** formatSimplePercent：执行对应的业务逻辑。 */
 function formatSimplePercent(value: number): string {
   return formatDisplayPercent(value);
 }
 
+/** getCraftProgressRatio：执行对应的业务逻辑。 */
 function getCraftProgressRatio(exp: number, expToNext: number): number {
   if (expToNext <= 0) {
     return 1;
@@ -66,15 +69,18 @@ function getCraftProgressRatio(exp: number, expToNext: number): number {
   return Math.max(0, Math.min(1, exp / expToNext));
 }
 
+/** formatAuraAbsorptionRate：执行对应的业务逻辑。 */
 function formatAuraAbsorptionRate(value: number): string {
   return formatDisplayPercent(value, { maximumFractionDigits: 2 });
 }
 
+/** formatCritDamageBonus：执行对应的业务逻辑。 */
 function formatCritDamageBonus(value: number): string {
   const percent = value / 10;
   return formatDisplayPercent(percent);
 }
 
+/** colorWithAlpha：执行对应的业务逻辑。 */
 function colorWithAlpha(color: string, alpha: number): string {
   const hex = color.startsWith('#') ? color.slice(1) : color;
   const normalized = hex.length === 3 ? hex.split('').map((char) => char + char).join('') : hex;
@@ -85,10 +91,12 @@ function colorWithAlpha(color: string, alpha: number): string {
   return `rgba(${r}, ${g}, ${b}, ${alpha.toFixed(2)})`;
 }
 
+/** formatRatioPercent：执行对应的业务逻辑。 */
 function formatRatioPercent(raw: number, divisor: number): string {
   return formatDisplayPercent(signedRatioValue(raw, divisor) * 100);
 }
 
+/** formatNumericTooltipValue：执行对应的业务逻辑。 */
 function formatNumericTooltipValue(key: NumericCardKey, value: number): string {
   if (key === 'critDamage') {
     return formatCritDamageBonus(value);
@@ -99,16 +107,19 @@ function formatNumericTooltipValue(key: NumericCardKey, value: number): string {
   return formatDisplayInteger(value);
 }
 
+/** buildAttrConversionSummary：执行对应的业务逻辑。 */
 function buildAttrConversionSummary(key: AttrKey, totalValue: number): string {
   const parts = buildAttrConversionEntries(key, totalValue);
   return parts.length > 0 ? parts.join('，') : '暂无具体转化';
 }
 
+/** buildAttrConversionLines：执行对应的业务逻辑。 */
 function buildAttrConversionLines(key: AttrKey, totalValue: number): string[] {
   const parts = buildAttrConversionEntries(key, totalValue);
   return parts.length > 0 ? parts : ['暂无具体转化'];
 }
 
+/** buildAttrConversionEntries：执行对应的业务逻辑。 */
 function buildAttrConversionEntries(key: AttrKey, totalValue: number): string[] {
   const percentWeights = ATTR_TO_PERCENT_NUMERIC_WEIGHTS[key];
   const weights = ATTR_TO_NUMERIC_WEIGHTS[key];
@@ -129,6 +140,7 @@ function buildAttrConversionEntries(key: AttrKey, totalValue: number): string[] 
   return [...percentParts, ...flatParts];
 }
 
+/** splitTooltipLines：执行对应的业务逻辑。 */
 function splitTooltipLines(detail: string): string[] {
   return detail
     .split('\n')
@@ -136,11 +148,13 @@ function splitTooltipLines(detail: string): string[] {
     .filter((line) => line.length > 0);
 }
 
+/** formatCritDamageDisplay：执行对应的业务逻辑。 */
 function formatCritDamageDisplay(value: number): string {
   const total = 200 + value / 10;
   return formatDisplayPercent(total);
 }
 
+/** formatMoveSpeedEffect：执行对应的业务逻辑。 */
 function formatMoveSpeedEffect(value: number): string {
   const movePoints = Math.max(1, BASE_MOVE_POINTS_PER_TICK + value);
   const roadTiles = movePoints / getTileTraversalCost(TileType.Road);
@@ -150,10 +164,12 @@ function formatMoveSpeedEffect(value: number): string {
   return `每息获得 ${formatDisplayNumber(movePoints)} 点移动预算，约等于 ${formatDisplayNumber(roadTiles)} 格大路 / ${formatDisplayNumber(trailTiles)} 格小路 / ${formatDisplayNumber(grassTiles)} 格草地 / ${formatDisplayNumber(swampTiles)} 格沼泽`;
 }
 
+/** formatMoveSpeedDisplay：执行对应的业务逻辑。 */
 function formatMoveSpeedDisplay(value: number): string {
   return formatDisplayInteger(BASE_MOVE_POINTS_PER_TICK + Math.max(0, value));
 }
 
+/** buildCombatFormulaLines：执行对应的业务逻辑。 */
 function buildCombatFormulaLines(key: NumericCardKey): string[] {
   switch (key) {
     case 'physDef':
@@ -208,14 +224,17 @@ function buildCombatFormulaLines(key: NumericCardKey): string[] {
   }
 }
 
+/** formatSignedPercent：执行对应的业务逻辑。 */
 function formatSignedPercent(value: number): string {
   return `${formatDisplaySignedNumber(value)}%`;
 }
 
+/** formatMultiplierDisplay：执行对应的业务逻辑。 */
 function formatMultiplierDisplay(multiplier: number): string {
   return `X${formatDisplayNumber(multiplier * 100)}%`;
 }
 
+/** formatBreakdownValue：执行对应的业务逻辑。 */
 function formatBreakdownValue(key: NumericCardKey, value: number): string {
   if (key === 'critDamage') {
     return formatDisplayPercent(value / 10);
@@ -229,6 +248,7 @@ function formatBreakdownValue(key: NumericCardKey, value: number): string {
   return formatDisplayNumber(value);
 }
 
+/** formatSignedBreakdownValue：执行对应的业务逻辑。 */
 function formatSignedBreakdownValue(key: NumericCardKey, value: number): string {
   const sign = value >= 0 ? '+' : '-';
   const absValue = Math.abs(value);
@@ -241,14 +261,17 @@ function formatSignedBreakdownValue(key: NumericCardKey, value: number): string 
   return `${sign}${formatDisplayNumber(absValue)}`;
 }
 
+/** renderTooltipPrimaryLine：执行对应的业务逻辑。 */
 function renderTooltipPrimaryLine(label: string, value: string): string {
   return `<span class="attr-tooltip-primary"><span class="attr-tooltip-primary-label">${escapeHtml(label)}</span><span class="attr-tooltip-primary-value">${escapeHtml(value)}</span></span>`;
 }
 
+/** renderTooltipSectionLine：执行对应的业务逻辑。 */
 function renderTooltipSectionLine(label: string, tone: 'fixed' | 'percent'): string {
   return `<span class="attr-tooltip-section ${tone}">${escapeHtml(label)}</span>`;
 }
 
+/** renderTooltipChildLine：执行对应的业务逻辑。 */
 function renderTooltipChildLine(label: string, value: string, tone: 'fixed' | 'percent'): string {
   return `<span class="attr-tooltip-child ${tone}"><span class="attr-tooltip-child-label">${escapeHtml(label)}</span><span class="attr-tooltip-child-value">${escapeHtml(value)}</span></span>`;
 }
@@ -258,6 +281,7 @@ const SYSTEM_FIXED_BASE_BY_NUMERIC_KEY: Partial<Record<NumericCardKey, number>> 
   techniqueExpPerTick: 5,
 };
 
+/** getAttrFlatContribution：执行对应的业务逻辑。 */
 function getAttrFlatContribution(key: NumericCardKey, attrs: Attributes): number {
   let total = 0;
   for (const attrKey of ATTR_KEYS) {
@@ -270,6 +294,7 @@ function getAttrFlatContribution(key: NumericCardKey, attrs: Attributes): number
   return total;
 }
 
+/** buildNumericBreakdownLines：执行对应的业务逻辑。 */
 function buildNumericBreakdownLines(
   breakdowns: NumericStatBreakdownMap | undefined,
   key: NumericCardKey,
@@ -313,6 +338,7 @@ function buildNumericBreakdownLines(
   return lines;
 }
 
+/** buildNumericTooltip：执行对应的业务逻辑。 */
 function buildNumericTooltip(
   label: string,
   key: NumericCardKey,
@@ -337,6 +363,7 @@ function buildNumericTooltip(
   return lines.join('\n');
 }
 
+/** escapeHtml：执行对应的业务逻辑。 */
 function escapeHtml(value: string): string {
   return value
     .replaceAll('&', '&amp;')
@@ -346,6 +373,7 @@ function escapeHtml(value: string): string {
     .replaceAll("'", '&#39;');
 }
 
+/** RadarEntry：定义该接口的能力与字段约束。 */
 interface RadarEntry {
   label: string;
   value: number;
@@ -355,6 +383,7 @@ interface RadarEntry {
   tooltipDetail: string;
 }
 
+/** AttrRadarNodeSnapshot：定义该接口的能力与字段约束。 */
 interface AttrRadarNodeSnapshot {
   label: string;
   valueLabel: string;
@@ -369,6 +398,7 @@ interface AttrRadarNodeSnapshot {
   tooltipDetail: string;
 }
 
+/** AttrRadarPaneSnapshot：定义该接口的能力与字段约束。 */
 interface AttrRadarPaneSnapshot {
   kind: 'radar';
   title: string;
@@ -380,6 +410,7 @@ interface AttrRadarPaneSnapshot {
   nodes: AttrRadarNodeSnapshot[];
 }
 
+/** AttrNumericCardSnapshot：定义该接口的能力与字段约束。 */
 interface AttrNumericCardSnapshot {
   key: string;
   label: string;
@@ -389,17 +420,20 @@ interface AttrNumericCardSnapshot {
   tooltipDetail: string;
 }
 
+/** AttrNumericPaneSnapshot：定义该接口的能力与字段约束。 */
 interface AttrNumericPaneSnapshot {
   kind: 'numeric';
   title: string;
   cards: AttrNumericCardSnapshot[];
 }
 
+/** AttrPlaceholderPaneSnapshot：定义该接口的能力与字段约束。 */
 interface AttrPlaceholderPaneSnapshot {
   kind: 'placeholder';
   message: string;
 }
 
+/** AttrCraftSkillSnapshot：定义该接口的能力与字段约束。 */
 interface AttrCraftSkillSnapshot {
   key: string;
   label: string;
@@ -409,21 +443,26 @@ interface AttrCraftSkillSnapshot {
   progressPercent: string;
 }
 
+/** AttrCraftPaneSnapshot：定义该接口的能力与字段约束。 */
 interface AttrCraftPaneSnapshot {
   kind: 'craft';
   skills: AttrCraftSkillSnapshot[];
 }
 
+/** AttrPaneSnapshot：定义该类型的结构与数据语义。 */
 type AttrPaneSnapshot = AttrRadarPaneSnapshot | AttrNumericPaneSnapshot | AttrPlaceholderPaneSnapshot | AttrCraftPaneSnapshot;
 
+/** AttrPanelSnapshot：定义该接口的能力与字段约束。 */
 interface AttrPanelSnapshot {
   panes: Record<AttrTab, AttrPaneSnapshot>;
 }
 
+/** AttrPanelCallbacks：定义该接口的能力与字段约束。 */
 interface AttrPanelCallbacks {
   onRequestDetail: () => void;
 }
 
+/** AttrPanel：封装相关状态与行为。 */
 export class AttrPanel {
   private pane = document.getElementById('pane-attr')!;
   private activeTab: AttrTab = 'base';
@@ -437,6 +476,7 @@ export class AttrPanel {
   private detailStale = false;
   private detailRequested = false;
 
+/** constructor：处理当前场景中的对应操作。 */
   constructor() {
     this.ensureTooltipStyle();
     this.bindPaneEvents();
@@ -699,8 +739,10 @@ export class AttrPanel {
     const center = 170;
     const radius = 110;
     const safeScale = Math.max(scale, 1);
+/** clampRatio：通过常量导出可复用函数行为。 */
     const clampRatio = (value: number) => Math.max(0, Math.min(1, value));
 
+/** pointAt：通过常量导出可复用函数行为。 */
     const pointAt = (index: number, ratio: number, clamp = true) => {
       const angle = ((-90 + index * (360 / entries.length)) * Math.PI) / 180;
       const r = radius * (clamp ? clampRatio(ratio) : ratio);
@@ -872,20 +914,36 @@ export class AttrPanel {
 
   private buildCraftPaneSnapshot(detail?: S2C_AttrDetail | null): AttrPaneSnapshot {
     const alchemySkill = detail?.alchemySkill ?? this.latestData?.alchemySkill;
-    if (!alchemySkill) {
+    const enhancementSkill = detail?.enhancementSkill ?? this.latestData?.enhancementSkill;
+    if (!alchemySkill && !enhancementSkill) {
       return { kind: 'placeholder', message: '技艺信息尚未同步' };
     }
-    const remain = Math.max(0, alchemySkill.expToNext - alchemySkill.exp);
-    return {
-      kind: 'craft',
-      skills: [{
+    const skills: AttrCraftSkillSnapshot[] = [];
+    if (alchemySkill) {
+      const remain = Math.max(0, alchemySkill.expToNext - alchemySkill.exp);
+      skills.push({
         key: 'alchemy',
         label: '炼丹',
         level: `LV ${formatDisplayInteger(alchemySkill.level)}`,
         progress: `${formatDisplayInteger(alchemySkill.exp)}/${formatDisplayInteger(alchemySkill.expToNext)}`,
         remain: `距下一级还需 ${formatDisplayInteger(remain)} 炼丹经验`,
         progressPercent: `${(getCraftProgressRatio(alchemySkill.exp, alchemySkill.expToNext) * 100).toFixed(2)}%`,
-      }],
+      });
+    }
+    if (enhancementSkill) {
+      const remain = Math.max(0, enhancementSkill.expToNext - enhancementSkill.exp);
+      skills.push({
+        key: 'enhancement',
+        label: '强化',
+        level: `LV ${formatDisplayInteger(enhancementSkill.level)}`,
+        progress: `${formatDisplayInteger(enhancementSkill.exp)}/${formatDisplayInteger(enhancementSkill.expToNext)}`,
+        remain: `距下一级还需 ${formatDisplayInteger(remain)} 强化经验`,
+        progressPercent: `${(getCraftProgressRatio(enhancementSkill.exp, enhancementSkill.expToNext) * 100).toFixed(2)}%`,
+      });
+    }
+    return {
+      kind: 'craft',
+      skills,
     };
   }
 
@@ -1388,3 +1446,4 @@ export class AttrPanel {
     this.callbacks?.onRequestDetail();
   }
 }
+

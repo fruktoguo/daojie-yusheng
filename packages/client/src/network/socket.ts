@@ -38,6 +38,7 @@ import {
   C2S_CancelAlchemy,
   C2S_RequestEnhancementPanel,
   C2S_StartEnhancement,
+  C2S_CancelEnhancement,
   C2S_HeavenGateAction,
   S2C_Tick, S2C_Init, S2C_MapStaticSync, S2C_RealmUpdate, S2C_AttrUpdate, S2C_InventoryUpdate,
   S2C_EquipmentUpdate, S2C_TechniqueUpdate, S2C_ActionsUpdate, S2C_LootWindowUpdate, S2C_QuestUpdate, S2C_QuestNavigateResult, S2C_SystemMsg, S2C_GmState,
@@ -192,6 +193,7 @@ export class SocketManager {
     this.socket?.emit(event, encodeClientEventPayload(event, payload));
   }
 
+/** disconnect：处理当前场景中的对应操作。 */
   disconnect() {
     this.disposeSocket({ clearToken: true });
   }
@@ -205,6 +207,7 @@ export class SocketManager {
     return true;
   }
 
+/** disposeSocket：处理当前场景中的对应操作。 */
   private disposeSocket(options: { clearToken: boolean }) {
     if (options.clearToken) {
       this.accessToken = null;
@@ -238,6 +241,7 @@ export class SocketManager {
     return clientAt;
   }
 
+/** sendMove：处理当前场景中的对应操作。 */
   sendMove(direction: Direction) {
     this.emitServer(C2S.Move, { d: direction } satisfies C2S_Move);
   }
@@ -266,12 +270,14 @@ export class SocketManager {
     } satisfies C2S_MoveTo);
   }
 
+/** sendNavigateQuest：处理当前场景中的对应操作。 */
   sendNavigateQuest(questId: string) {
     this.emitServer(C2S.NavigateQuest, {
       questId,
     } satisfies C2S_NavigateQuest);
   }
 
+/** sendNavigateMapPoint：处理当前场景中的对应操作。 */
   sendNavigateMapPoint(mapId: string, x: number, y: number) {
     this.emitServer(C2S.NavigateMapPoint, {
       mapId,
@@ -280,215 +286,273 @@ export class SocketManager {
     } satisfies C2S_NavigateMapPoint);
   }
 
+/** sendGmGetState：处理当前场景中的对应操作。 */
   sendGmGetState() {
     this.emitServer(C2S.GmGetState, {} satisfies C2S_GmGetState);
   }
 
+/** sendGmSpawnBots：处理当前场景中的对应操作。 */
   sendGmSpawnBots(count: number) {
     this.emitServer(C2S.GmSpawnBots, { count } satisfies C2S_GmSpawnBots);
   }
 
+/** sendGmRemoveBots：处理当前场景中的对应操作。 */
   sendGmRemoveBots(playerIds?: string[], all = false) {
     this.emitServer(C2S.GmRemoveBots, { playerIds, all } satisfies C2S_GmRemoveBots);
   }
 
+/** sendGmUpdatePlayer：处理当前场景中的对应操作。 */
   sendGmUpdatePlayer(payload: C2S_GmUpdatePlayer) {
     this.emitServer(C2S.GmUpdatePlayer, payload satisfies C2S_GmUpdatePlayer);
   }
 
+/** sendGmResetPlayer：处理当前场景中的对应操作。 */
   sendGmResetPlayer(playerId: string) {
     this.emitServer(C2S.GmResetPlayer, { playerId } satisfies C2S_GmResetPlayer);
   }
 
+/** sendUseItem：处理当前场景中的对应操作。 */
   sendUseItem(slotIndex: number, count?: number) {
     this.emitServer(C2S.UseItem, { slotIndex, count } satisfies C2S_UseItem);
   }
 
+/** sendDropItem：处理当前场景中的对应操作。 */
   sendDropItem(slotIndex: number, count: number) {
     this.emitServer(C2S.DropItem, { slotIndex, count } satisfies C2S_DropItem);
   }
 
+/** sendDestroyItem：处理当前场景中的对应操作。 */
   sendDestroyItem(slotIndex: number, count: number) {
     this.emitServer(C2S.DestroyItem, { slotIndex, count } satisfies C2S_DestroyItem);
   }
 
+/** sendTakeLoot：处理当前场景中的对应操作。 */
   sendTakeLoot(sourceId: string, itemKey?: string, takeAll = false) {
     this.emitServer(C2S.TakeLoot, { sourceId, itemKey, takeAll } satisfies C2S_TakeLoot);
   }
 
+/** sendSortInventory：处理当前场景中的对应操作。 */
   sendSortInventory() {
     this.emitServer(C2S.SortInventory, {} satisfies C2S_SortInventory);
   }
 
+/** sendInspectTileRuntime：处理当前场景中的对应操作。 */
   sendInspectTileRuntime(x: number, y: number) {
     this.emitServer(C2S.InspectTileRuntime, { x, y } satisfies C2S_InspectTileRuntime);
   }
 
+/** sendEquip：处理当前场景中的对应操作。 */
   sendEquip(slotIndex: number) {
     this.emitServer(C2S.Equip, { slotIndex } satisfies C2S_Equip);
   }
 
+/** sendUnequip：处理当前场景中的对应操作。 */
   sendUnequip(slot: EquipSlot) {
     this.emitServer(C2S.Unequip, { slot } satisfies C2S_Unequip);
   }
 
+/** sendCultivate：处理当前场景中的对应操作。 */
   sendCultivate(techId: string | null) {
     this.emitServer(C2S.Cultivate, { techId } satisfies C2S_Cultivate);
   }
 
+/** sendRequestSuggestions：处理当前场景中的对应操作。 */
   sendRequestSuggestions() {
     this.emitServer(C2S.RequestSuggestions, {} satisfies C2S_RequestSuggestions);
   }
 
+/** sendRequestMailSummary：处理当前场景中的对应操作。 */
   sendRequestMailSummary() {
     this.emitServer(C2S.RequestMailSummary, {} satisfies C2S_RequestMailSummary);
   }
 
+/** sendRequestMailPage：处理当前场景中的对应操作。 */
   sendRequestMailPage(page: number, pageSize?: number, filter?: C2S_RequestMailPage['filter']) {
     this.emitServer(C2S.RequestMailPage, { page, pageSize, filter } satisfies C2S_RequestMailPage);
   }
 
+/** sendRequestMailDetail：处理当前场景中的对应操作。 */
   sendRequestMailDetail(mailId: string) {
     this.emitServer(C2S.RequestMailDetail, { mailId } satisfies C2S_RequestMailDetail);
   }
 
+/** sendRedeemCodes：处理当前场景中的对应操作。 */
   sendRedeemCodes(codes: string[]) {
     this.emitServer(C2S.RedeemCodes, { codes } satisfies C2S_RedeemCodes);
   }
 
+/** sendMarkMailRead：处理当前场景中的对应操作。 */
   sendMarkMailRead(mailIds: string[]) {
     this.emitServer(C2S.MarkMailRead, { mailIds } satisfies C2S_MarkMailRead);
   }
 
+/** sendClaimMailAttachments：处理当前场景中的对应操作。 */
   sendClaimMailAttachments(mailIds: string[]) {
     this.emitServer(C2S.ClaimMailAttachments, { mailIds } satisfies C2S_ClaimMailAttachments);
   }
 
+/** sendDeleteMail：处理当前场景中的对应操作。 */
   sendDeleteMail(mailIds: string[]) {
     this.emitServer(C2S.DeleteMail, { mailIds } satisfies C2S_DeleteMail);
   }
 
+/** sendRequestMarket：处理当前场景中的对应操作。 */
   sendRequestMarket() {
     this.emitServer(C2S.RequestMarket, {} satisfies C2S_RequestMarket);
   }
 
+/** sendRequestMarketListings：处理当前场景中的对应操作。 */
   sendRequestMarketListings(payload: C2S_RequestMarketListings) {
     this.emitServer(C2S.RequestMarketListings, payload satisfies C2S_RequestMarketListings);
   }
 
+/** sendRequestMarketItemBook：处理当前场景中的对应操作。 */
   sendRequestMarketItemBook(itemId: string) {
     this.emitServer(C2S.RequestMarketItemBook, { itemId } satisfies C2S_RequestMarketItemBook);
   }
 
+/** sendRequestMarketTradeHistory：处理当前场景中的对应操作。 */
   sendRequestMarketTradeHistory(page: number) {
     this.emitServer(C2S.RequestMarketTradeHistory, { page } satisfies C2S_RequestMarketTradeHistory);
   }
 
+/** sendRequestAttrDetail：处理当前场景中的对应操作。 */
   sendRequestAttrDetail() {
     this.emitServer(C2S.RequestAttrDetail, {} satisfies C2S_RequestAttrDetail);
   }
 
+/** sendRequestLeaderboard：处理当前场景中的对应操作。 */
   sendRequestLeaderboard(limit?: number) {
     this.emitServer(C2S.RequestLeaderboard, { limit } satisfies C2S_RequestLeaderboard);
   }
 
+/** sendCreateMarketSellOrder：处理当前场景中的对应操作。 */
   sendCreateMarketSellOrder(slotIndex: number, quantity: number, unitPrice: number) {
     this.emitServer(C2S.CreateMarketSellOrder, { slotIndex, quantity, unitPrice } satisfies C2S_CreateMarketSellOrder);
   }
 
+/** sendCreateMarketBuyOrder：处理当前场景中的对应操作。 */
   sendCreateMarketBuyOrder(itemId: string, quantity: number, unitPrice: number) {
     this.emitServer(C2S.CreateMarketBuyOrder, { itemId, quantity, unitPrice } satisfies C2S_CreateMarketBuyOrder);
   }
 
+/** sendBuyMarketItem：处理当前场景中的对应操作。 */
   sendBuyMarketItem(itemKey: string, quantity: number) {
     this.emitServer(C2S.BuyMarketItem, { itemKey, quantity } satisfies C2S_BuyMarketItem);
   }
 
+/** sendSellMarketItem：处理当前场景中的对应操作。 */
   sendSellMarketItem(slotIndex: number, quantity: number) {
     this.emitServer(C2S.SellMarketItem, { slotIndex, quantity } satisfies C2S_SellMarketItem);
   }
 
+/** sendCancelMarketOrder：处理当前场景中的对应操作。 */
   sendCancelMarketOrder(orderId: string) {
     this.emitServer(C2S.CancelMarketOrder, { orderId } satisfies C2S_CancelMarketOrder);
   }
 
+/** sendClaimMarketStorage：处理当前场景中的对应操作。 */
   sendClaimMarketStorage() {
     this.emitServer(C2S.ClaimMarketStorage, {} satisfies C2S_ClaimMarketStorage);
   }
 
+/** sendRequestNpcShop：处理当前场景中的对应操作。 */
   sendRequestNpcShop(npcId: string) {
     this.emitServer(C2S.RequestNpcShop, { npcId } satisfies C2S_RequestNpcShop);
   }
 
+/** sendBuyNpcShopItem：处理当前场景中的对应操作。 */
   sendBuyNpcShopItem(npcId: string, itemId: string, quantity: number) {
     this.emitServer(C2S.BuyNpcShopItem, { npcId, itemId, quantity } satisfies C2S_BuyNpcShopItem);
   }
 
+/** sendRequestAlchemyPanel：处理当前场景中的对应操作。 */
   sendRequestAlchemyPanel(knownCatalogVersion?: number) {
     this.emitServer(C2S.RequestAlchemyPanel, { knownCatalogVersion } satisfies C2S_RequestAlchemyPanel);
   }
 
+/** sendSaveAlchemyPreset：处理当前场景中的对应操作。 */
   sendSaveAlchemyPreset(payload: C2S_SaveAlchemyPreset) {
     this.emitServer(C2S.SaveAlchemyPreset, payload);
   }
 
+/** sendDeleteAlchemyPreset：处理当前场景中的对应操作。 */
   sendDeleteAlchemyPreset(presetId: string) {
     this.emitServer(C2S.DeleteAlchemyPreset, { presetId } satisfies C2S_DeleteAlchemyPreset);
   }
 
+/** sendStartAlchemy：处理当前场景中的对应操作。 */
   sendStartAlchemy(payload: C2S_StartAlchemy) {
     this.emitServer(C2S.StartAlchemy, payload);
   }
 
+/** sendCancelAlchemy：处理当前场景中的对应操作。 */
   sendCancelAlchemy() {
     this.emitServer(C2S.CancelAlchemy, {} satisfies C2S_CancelAlchemy);
   }
 
+/** sendRequestEnhancementPanel：处理当前场景中的对应操作。 */
   sendRequestEnhancementPanel() {
     this.emitServer(C2S.RequestEnhancementPanel, {} satisfies C2S_RequestEnhancementPanel);
   }
 
+/** sendStartEnhancement：处理当前场景中的对应操作。 */
   sendStartEnhancement(payload: C2S_StartEnhancement) {
     this.emitServer(C2S.StartEnhancement, payload);
   }
 
+/** sendCancelEnhancement：处理当前场景中的对应操作。 */
+  sendCancelEnhancement() {
+    this.emitServer(C2S.CancelEnhancement, {} satisfies C2S_CancelEnhancement);
+  }
+
+/** sendHeavenGateAction：处理当前场景中的对应操作。 */
   sendHeavenGateAction(action: C2S_HeavenGateAction['action'], element?: C2S_HeavenGateAction['element']) {
     this.emitServer(C2S.HeavenGateAction, { action, element } satisfies C2S_HeavenGateAction);
   }
 
+/** sendAction：处理当前场景中的对应操作。 */
   sendAction(actionId: string, target?: string) {
     this.emitServer(C2S.Action, { actionId, type: actionId, target } satisfies C2S_Action);
   }
 
+/** sendUpdateAutoBattleSkills：处理当前场景中的对应操作。 */
   sendUpdateAutoBattleSkills(skills: AutoBattleSkillConfig[]) {
     this.emitServer(C2S.UpdateAutoBattleSkills, { skills } satisfies C2S_UpdateAutoBattleSkills);
   }
 
+/** sendUpdateAutoUsePills：处理当前场景中的对应操作。 */
   sendUpdateAutoUsePills(pills: AutoUsePillConfig[]) {
     this.emitServer(C2S.UpdateAutoUsePills, { pills } satisfies C2S_UpdateAutoUsePills);
   }
 
+/** sendUpdateCombatTargetingRules：处理当前场景中的对应操作。 */
   sendUpdateCombatTargetingRules(combatTargetingRules: CombatTargetingRules) {
     this.emitServer(C2S.UpdateCombatTargetingRules, { combatTargetingRules } satisfies C2S_UpdateCombatTargetingRules);
   }
 
+/** sendUpdateAutoBattleTargetingMode：处理当前场景中的对应操作。 */
   sendUpdateAutoBattleTargetingMode(mode: AutoBattleTargetingMode) {
     this.emitServer(C2S.UpdateAutoBattleTargetingMode, { mode } satisfies C2S_UpdateAutoBattleTargetingMode);
   }
 
+/** sendUpdateTechniqueSkillAvailability：处理当前场景中的对应操作。 */
   sendUpdateTechniqueSkillAvailability(techId: string, enabled: boolean) {
     this.emitServer(C2S.UpdateTechniqueSkillAvailability, { techId, enabled } satisfies C2S_UpdateTechniqueSkillAvailability);
   }
 
+/** sendDebugResetSpawn：处理当前场景中的对应操作。 */
   sendDebugResetSpawn() {
     this.emitServer(C2S.DebugResetSpawn, { force: true } satisfies C2S_DebugResetSpawn);
     this.emitServer(C2S.Action, { actionId: 'debug:reset_spawn', type: 'debug:reset_spawn' } satisfies C2S_Action);
   }
 
+/** sendChat：处理当前场景中的对应操作。 */
   sendChat(message: string) {
     this.emitServer(C2S.Chat, { message } satisfies C2S_Chat);
   }
 
+/** ackSystemMessages：处理当前场景中的对应操作。 */
   ackSystemMessages(ids: string[]) {
     if (ids.length === 0) {
       return;
@@ -534,6 +598,7 @@ export class SocketManager {
   onDisconnect(cb: (reason: string) => void) { this.onDisconnectCallbacks.push(cb); }
   onConnectError(cb: (message: string) => void) { this.onConnectErrorCallbacks.push(cb); }
 
+/** emit：处理当前场景中的对应操作。 */
   emit(event: string, payload: any) {
     this.emitServer(event, payload);
   }
@@ -542,3 +607,4 @@ export class SocketManager {
     return this.socket?.connected ?? false;
   }
 }
+

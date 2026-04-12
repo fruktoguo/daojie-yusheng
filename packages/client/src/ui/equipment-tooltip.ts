@@ -30,6 +30,7 @@ import { SkillTooltipAsideCard, SkillTooltipContent } from './skill-tooltip';
 import { describePreviewBonuses } from './stat-preview';
 import { formatDisplayInteger, formatDisplayNumber, formatDisplayPercent } from '../utils/number';
 
+/** escapeHtml：执行对应的业务逻辑。 */
 function escapeHtml(value: string): string {
   return value
     .replaceAll('&', '&amp;')
@@ -39,14 +40,17 @@ function escapeHtml(value: string): string {
     .replaceAll("'", '&#39;');
 }
 
+/** renderLabelLine：执行对应的业务逻辑。 */
 function renderLabelLine(label: string, value: string): string {
   return `<span class="skill-tooltip-label">${escapeHtml(label)}：</span>${value}`;
 }
 
+/** renderPlainLine：执行对应的业务逻辑。 */
 function renderPlainLine(label: string, value: string): string {
   return renderLabelLine(label, escapeHtml(value));
 }
 
+/** resolveMedicineCategoryLabel：执行对应的业务逻辑。 */
 function resolveMedicineCategoryLabel(item: ItemStack): string | null {
   const tags = item.tags ?? [];
   const labels: string[] = [];
@@ -71,18 +75,21 @@ function resolveMedicineCategoryLabel(item: ItemStack): string | null {
   return labels.length > 0 ? labels.join(' / ') : null;
 }
 
+/** normalizeBuffMark：执行对应的业务逻辑。 */
 function normalizeBuffMark(name: string, shortMark?: string): string {
   const value = shortMark?.trim();
   if (value) return [...value][0] ?? value;
   return [...name.trim()][0] ?? '气';
 }
 
+/** buildBuffInlineBadge：执行对应的业务逻辑。 */
 function buildBuffInlineBadge(name: string, shortMark?: string, category?: 'buff' | 'debuff'): string {
   const toneClass = category === 'debuff' ? 'debuff' : 'buff';
   const mark = normalizeBuffMark(name, shortMark);
   return `<span class="skill-tooltip-buff-entry ${toneClass}"><span class="skill-tooltip-buff-mark">${escapeHtml(mark)}</span><span>${escapeHtml(name)}</span></span>`;
 }
 
+/** describeBuffStats：执行对应的业务逻辑。 */
 function describeBuffStats(
   attrs?: NonNullable<ItemStack['equipAttrs']>,
   stats?: ItemStack['equipStats'],
@@ -93,14 +100,17 @@ function describeBuffStats(
   return describePreviewBonuses(attrs, stats, valueStats, attrMode, statMode);
 }
 
+/** getTimePhaseLabel：执行对应的业务逻辑。 */
 function getTimePhaseLabel(phaseId: string): string {
   return GAME_TIME_PHASES.find((entry) => entry.id === phaseId)?.label ?? phaseId;
 }
 
+/** getMapLabel：执行对应的业务逻辑。 */
 function getMapLabel(mapId: string): string {
   return getCachedMapMeta(mapId)?.name ?? mapId;
 }
 
+/** getConditionTargetKindLabel：执行对应的业务逻辑。 */
 function getConditionTargetKindLabel(kind: 'monster' | 'player' | 'tile'): string {
   if (kind === 'tile') {
     return '地块';
@@ -108,6 +118,7 @@ function getConditionTargetKindLabel(kind: 'monster' | 'player' | 'tile'): strin
   return getEntityKindLabel(kind, kind);
 }
 
+/** formatEquipmentConditionText：执行对应的业务逻辑。 */
 export function formatEquipmentConditionText(effect: EquipmentEffectDef): string[] {
   const conditions = effect.conditions?.items ?? [];
   return conditions.map((condition) => {
@@ -132,6 +143,7 @@ export function formatEquipmentConditionText(effect: EquipmentEffectDef): string
   }).filter((entry) => entry.length > 0);
 }
 
+/** formatTriggerLabel：执行对应的业务逻辑。 */
 function formatTriggerLabel(trigger: EquipmentEffectDef extends infer _T ? string : never): string {
   const labels: Record<string, string> = {
     on_equip: '装备时',
@@ -149,6 +161,7 @@ function formatTriggerLabel(trigger: EquipmentEffectDef extends infer _T ? strin
   return labels[trigger] ?? trigger;
 }
 
+/** buildTimedBuffAsideCard：执行对应的业务逻辑。 */
 function buildTimedBuffAsideCard(effect: Extract<EquipmentEffectDef, { type: 'timed_buff' }>): SkillTooltipAsideCard {
   const stackLimit = formatBuffMaxStacks(effect.buff.maxStacks);
   const stackText = stackLimit ? ` · 最多 ${stackLimit} 层` : '';
@@ -170,6 +183,7 @@ function buildTimedBuffAsideCard(effect: Extract<EquipmentEffectDef, { type: 'ti
   };
 }
 
+/** buildEffectSummary：执行对应的业务逻辑。 */
 function buildEffectSummary(effect: EquipmentEffectDef): { lines: string[]; asideCard?: SkillTooltipAsideCard } {
   const conditionLines = formatEquipmentConditionText(effect);
   switch (effect.type) {
@@ -228,6 +242,7 @@ function buildEffectSummary(effect: EquipmentEffectDef): { lines: string[]; asid
   }
 }
 
+/** ItemTooltipPayload：定义该接口的能力与字段约束。 */
 export interface ItemTooltipPayload {
   title: string;
   lines: string[];
@@ -235,11 +250,13 @@ export interface ItemTooltipPayload {
   allowHtml: boolean;
 }
 
+/** ItemTooltipCooldownState：定义该接口的能力与字段约束。 */
 export interface ItemTooltipCooldownState {
   cooldown: number;
   cooldownLeft: number;
 }
 
+/** ItemTooltipContext：定义该接口的能力与字段约束。 */
 export interface ItemTooltipContext {
   learnedTechniqueIds?: ReadonlySet<string>;
   unlockedMinimapIds?: ReadonlySet<string>;
@@ -247,6 +264,7 @@ export interface ItemTooltipContext {
   itemCooldown?: ItemTooltipCooldownState | null;
 }
 
+/** resolveItemStatusLabel：执行对应的业务逻辑。 */
 function resolveItemStatusLabel(item: ItemStack, context?: ItemTooltipContext): string | null {
   const itemCooldown = context?.itemCooldown;
   const activeCooldown: ItemTooltipCooldownState | null = itemCooldown !== null && itemCooldown !== undefined && itemCooldown.cooldownLeft > 0
@@ -267,6 +285,7 @@ function resolveItemStatusLabel(item: ItemStack, context?: ItemTooltipContext): 
   return null;
 }
 
+/** buildPlainEffectSummary：执行对应的业务逻辑。 */
 function buildPlainEffectSummary(effect: EquipmentEffectDef): string[] {
   const conditionLines = formatEquipmentConditionText(effect);
   switch (effect.type) {
@@ -312,6 +331,7 @@ function buildPlainEffectSummary(effect: EquipmentEffectDef): string[] {
   }
 }
 
+/** buildConsumableEffectDetails：执行对应的业务逻辑。 */
 function buildConsumableEffectDetails(item: ItemStack, itemCooldown?: ItemTooltipCooldownState | null): string[] {
   const previewItem = resolvePreviewItem(item);
   if (previewItem.type !== 'consumable') {
@@ -367,6 +387,7 @@ function buildConsumableEffectDetails(item: ItemStack, itemCooldown?: ItemToolti
   return lines;
 }
 
+/** describeItemEffectDetails：执行对应的业务逻辑。 */
 export function describeItemEffectDetails(item: ItemStack): string[] {
   const previewItem = resolvePreviewItem(item);
   if (previewItem.effects?.length) {
@@ -375,7 +396,8 @@ export function describeItemEffectDetails(item: ItemStack): string[] {
   return buildConsumableEffectDetails(previewItem);
 }
 
-function describeEquipmentUtilityBonuses(item: ItemStack): string[] {
+/** describeEquipmentUtilityBonuses：执行对应的业务逻辑。 */
+export function describeEquipmentUtilityBonuses(item: ItemStack): string[] {
   const lines: string[] = [];
   if (typeof item.alchemySpeedRate === 'number' && item.alchemySpeedRate !== 0) {
     lines.push(`炼丹速度 ${item.alchemySpeedRate > 0 ? '+' : ''}${formatDisplayPercent(item.alchemySpeedRate * 100)}`);
@@ -389,10 +411,19 @@ function describeEquipmentUtilityBonuses(item: ItemStack): string[] {
   return lines;
 }
 
+/** describeEquipmentBonuses：执行对应的业务逻辑。 */
+export function describeEquipmentBonuses(item: ItemStack): string[] {
+  const previewItem = resolvePreviewItem(item);
+  return [
+    ...describeBuffStats(previewItem.equipAttrs, previewItem.equipStats, previewItem.equipValueStats),
+    ...describeEquipmentUtilityBonuses(previewItem),
+  ];
+}
+
+/** buildEquipmentComparisonAsideCard：执行对应的业务逻辑。 */
 function buildEquipmentComparisonAsideCard(item: ItemStack): SkillTooltipAsideCard {
   const previewItem = resolvePreviewItem(item);
-  const staticLines = describeBuffStats(previewItem.equipAttrs, previewItem.equipStats, previewItem.equipValueStats);
-  const utilityLines = describeEquipmentUtilityBonuses(previewItem);
+  const propertyLines = describeEquipmentBonuses(previewItem);
   const effectLines = (previewItem.effects ?? []).flatMap((effect) => buildPlainEffectSummary(effect));
   return {
     mark: '装',
@@ -400,14 +431,14 @@ function buildEquipmentComparisonAsideCard(item: ItemStack): SkillTooltipAsideCa
     lines: [
       previewItem.name,
       ...(previewItem.equipSlot ? [`部位：${getEquipSlotLabel(previewItem.equipSlot)}`] : []),
-      ...(staticLines.length > 0 ? [`静态词条：${staticLines.join('，')}`] : []),
-      ...utilityLines,
+      ...(propertyLines.length > 0 ? [`装备属性：${propertyLines.join('，')}`] : []),
       ...effectLines,
     ],
     tone: 'buff',
   };
 }
 
+/** formatTechniqueAttrSummary：执行对应的业务逻辑。 */
 function formatTechniqueAttrSummary(attrs: ReturnType<typeof calcTechniqueAttrValues>): string {
   const parts = TECHNIQUE_ATTR_KEYS
     .map((key) => {
@@ -421,6 +452,7 @@ function formatTechniqueAttrSummary(attrs: ReturnType<typeof calcTechniqueAttrVa
   return parts.length > 0 ? parts.join(' / ') : '无属性提升';
 }
 
+/** buildTechniqueBookTooltipLines：执行对应的业务逻辑。 */
 function buildTechniqueBookTooltipLines(item: ItemStack): string[] {
   const techniqueId = resolveTechniqueIdFromBookItemId(item.itemId);
   if (!techniqueId) {
@@ -454,6 +486,7 @@ function buildTechniqueBookTooltipLines(item: ItemStack): string[] {
   ];
 }
 
+/** buildItemTooltipPayload：执行对应的业务逻辑。 */
 export function buildItemTooltipPayload(item: ItemStack, context?: ItemTooltipContext): ItemTooltipPayload {
   const previewItem = resolvePreviewItem(item);
   const sourceListHtml = renderItemSourceListHtml(previewItem.itemId, { maxEntries: 3, compact: true });
@@ -485,17 +518,14 @@ export function buildItemTooltipPayload(item: ItemStack, context?: ItemTooltipCo
     };
   }
 
-  const staticLines = [
-    ...describeBuffStats(previewItem.equipAttrs, previewItem.equipStats, previewItem.equipValueStats),
-    ...describeEquipmentUtilityBonuses(previewItem),
-  ];
+  const propertyLines = describeEquipmentBonuses(previewItem);
   const effectSummaries = (previewItem.effects ?? []).map((effect) => buildEffectSummary(effect));
   const lines: string[] = [
     `<span class="skill-tooltip-desc">${escapeHtml(previewItem.desc ?? '')}</span>`,
     renderPlainLine('类型', getItemTypeLabel(previewItem.type)),
     ...(previewItem.equipSlot ? [renderPlainLine('部位', getEquipSlotLabel(previewItem.equipSlot))] : []),
     ...(statusLabel ? [renderPlainLine('状态', statusLabel)] : []),
-    ...(staticLines.length > 0 ? [renderPlainLine('静态词条', staticLines.join('，'))] : []),
+    ...(propertyLines.length > 0 ? [renderPlainLine('装备属性', propertyLines.join('，'))] : []),
     ...effectSummaries.flatMap((entry) => entry.lines),
     `<div class="inventory-source-block"><span class="skill-tooltip-label">来源：</span>${sourceListHtml}</div>`,
   ];
@@ -514,6 +544,7 @@ export function buildItemTooltipPayload(item: ItemStack, context?: ItemTooltipCo
   };
 }
 
+/** buildEquipmentTooltipContent：执行对应的业务逻辑。 */
 export function buildEquipmentTooltipContent(item: ItemStack, context?: ItemTooltipContext): SkillTooltipContent {
   const payload = buildItemTooltipPayload(item, context);
   return {
@@ -521,3 +552,4 @@ export function buildEquipmentTooltipContent(item: ItemStack, context?: ItemTool
     asideCards: payload.asideCards,
   };
 }
+

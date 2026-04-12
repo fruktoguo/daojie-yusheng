@@ -4,27 +4,17 @@
  */
 import { Injectable, OnModuleInit, OnModuleDestroy, Logger } from '@nestjs/common';
 import {
-  buildEditableMapList as buildEditableMapListResult,
-  cloneMapDocument as cloneEditableMapDocument,
   calculateTerrainDurability,
-  createMonsterAutoStatPercents,
   DEFAULT_MAP_TIME_CONFIG,
   doesTileTypeBlockSight,
-  inferMonsterAttrsFromNumericStats,
   getTileTypeFromMapChar,
   GmMapAuraRecord,
-  GmMapContainerRecord,
-  GmMapContainerLootPoolRecord,
   GmMapDocument,
   GmMapLandmarkRecord,
   GmMapListRes,
-  GmMapMonsterSpawnRecord,
   GmMapNpcRecord,
   GmMapPortalRecord,
-  GmMapResourceRecord,
   GmMapSafeZoneRecord,
-  GmMapSummary,
-  inferMonsterValueStatsFromLegacy,
   isTileTypeWalkable,
   isOffsetInRange,
   isPointInRange,
@@ -37,35 +27,22 @@ import {
   MapRouteDomain,
   MapSpaceVisionMode,
   MapTimeConfig,
-  MonsterAggroMode,
   MonsterCombatModel,
   MonsterInitialBuffDef,
   MonsterTier,
   NumericStats,
   NumericStatPercentages,
-  normalizeEditableMapDocument as normalizeEditableMapDocumentValue,
-  resolveMonsterExpMultiplier,
-  normalizeMonsterAttrs,
-  normalizeMonsterStatPercents,
   normalizeMonsterTier,
   PartialNumericStats,
   Portal,
   PortalKind,
   PortalRouteDomain,
   PortalTrigger,
-  resolveMonsterNumericStatsFromAttributes,
-  resolveMonsterNumericStatsFromValueStats,
   VIEW_RADIUS,
-  validateEditableMapDocument as validateEditableMapDocumentValue,
-  ItemType,
   VisibleTile,
   getTileTraversalCost,
   getAuraLevel,
   normalizeAuraLevelBaseValue,
-  normalizeConfiguredAuraValue,
-  PlayerRealmStage,
-  QuestLine,
-  QuestObjectiveType,
   TerrainDurabilityMaterial,
   TERRAIN_DESTROYED_RESTORE_TICKS,
   TERRAIN_REGEN_RATE_PER_TICK,
@@ -85,16 +62,12 @@ import {
   EquipmentSlots,
   isAuraQiResourceKey,
   LootSourceVariant,
-  parseQiResourceKey,
 } from '@mud/shared';
 import * as fs from 'fs';
-import * as path from 'path';
 import { resolveServerDataPath } from '../common/data-path';
-import { isPlayerRespawnMapId, PLAYER_RESPAWN_MAP_IDS } from '../constants/gameplay/respawn';
 import { PersistentDocumentService } from '../database/persistent-document.service';
 import { ContentService } from './content.service';
 import { PathfindingActorType, PathfindingStaticGrid } from './pathfinding/pathfinding.types';
-import { resolveRealmStageTargetLabel } from './quest-display';
 import {
   DEFAULT_TERRAIN_DURABILITY_BY_TILE,
   LEGACY_MAP_TERRAIN_PROFILE_IDS,
@@ -107,405 +80,91 @@ import {
   ORDINARY_MONSTER_SPAWN_MAX_ALIVE,
 } from '../constants/gameplay/monster';
 import { LANDMARK_RESOURCE_NODE_BY_ID } from '../constants/gameplay/resource-nodes';
+import {
+  AURA_RESOURCE_KEY,
+  DISPERSED_AURA_RESOURCE_KEY,
+  DynamicTileState,
+  LEGACY_AURA_RESOURCE_KEY,
+  MAP_TILE_RUNTIME_DOCUMENT_KEY,
+  MapAuraPoint,
+  MapData,
+  MapTileResourcePoint,
+  MonsterSpawnConfig,
+  NpcConfig,
+  NpcLocation,
+  NpcShopItemConfig,
+  OccupancyCheckOptions,
+  OccupantKind,
+  PersistedAuraRecord,
+  PersistedAuraSnapshot,
+  PersistedDynamicTileRecord,
+  PersistedDynamicTileSnapshot,
+  PersistedMapTimeState,
+  PersistedTileRuntimeRecord,
+  PersistedTileRuntimeResourceRecord,
+  PersistedTileRuntimeSnapshot,
+  PersistedTileRuntimeTerrainRecord,
+  PortalObservationHint,
+  PortalQueryOptions,
+  ProjectedPoint,
+  QuestConfig,
+  resolveMonsterSpawnPopulation,
+  RUNTIME_STATE_SCOPE,
+  SafeZoneConfig,
+  SyncedMapDocument,
+  TILE_RESOURCE_FLOW_CONFIGS,
+  TileResourceBucketMap,
+  TileResourceFlowConfig,
+  TileResourceRuntimeState,
+  TileResourceStateMap,
+  type ContainerConfig,
+  type ContainerLootPoolConfig,
+  type DropConfig,
+} from './map.service.shared';
+import {
+  normalizeAuraPoints as normalizeAuraPointsHelper,
+  normalizeContainerGrade as normalizeContainerGradeHelper,
+  normalizeContainerLootPools as normalizeContainerLootPoolsHelper,
+  normalizeDrops as normalizeDropsHelper,
+  normalizeTileResourcePoints as normalizeTileResourcePointsHelper,
+} from './map-normalize.helpers';
+import {
+  buildPersistedTileRuntimeResources as buildPersistedTileRuntimeResourcesHelper,
+  deleteTileResourceStateMap as deleteTileResourceStateMapHelper,
+  getTileResourceFlowConfig as getTileResourceFlowConfigHelper,
+  getTileResourceLabel as getTileResourceLabelHelper,
+  getTileResourceStateMap as getTileResourceStateMapHelper,
+  normalizeTileResourceKey as normalizeTileResourceKeyHelper,
+  normalizeTileResourceRuntimeState as normalizeTileResourceRuntimeStateHelper,
+  setTileResourceStateMap as setTileResourceStateMapHelper,
+  shouldExposeTileResourceDetail as shouldExposeTileResourceDetailHelper,
+  shouldKeepTileResourceRuntimeState as shouldKeepTileResourceRuntimeStateHelper,
+  tickTileResourceState as tickTileResourceStateHelper,
+  tileStateKey as tileStateKeyHelper,
+  toPublicTileResourceKey as toPublicTileResourceKeyHelper,
+} from './map-tile-resource.helpers';
+import { MapQuestDomain } from './map-quest.domain';
+import { MapContentDomain } from './map-content.domain';
+import { MapEditableDomain } from './map-editable.domain';
+import { MapDocumentDomain } from './map-document.domain';
+import { MapOccupancyDomain } from './map-occupancy.domain';
+import { MapPortalDomain } from './map-portal.domain';
 
-export interface QuestConfig {
-  id: string;
-  title: string;
-  desc: string;
-  line: QuestLine;
-  chapter?: string;
-  story?: string;
-  objectiveType: QuestObjectiveType;
-  objectiveText?: string;
-  targetName: string;
-  targetMonsterId?: string;
-  targetTechniqueId?: string;
-  targetRealmStage?: PlayerRealmStage;
-  targetRealmLv?: number;
-  acceptRealmStage?: PlayerRealmStage;
-  acceptRealmLv?: number;
-  required: number;
-  rewards: DropConfig[];
-  rewardItemIds: string[];
-  rewardItemId: string;
-  rewardText: string;
-  nextQuestId?: string;
-  requiredItemId?: string;
-  requiredItemCount?: number;
-  targetMapId?: string;
-  targetMapName?: string;
-  targetX?: number;
-  targetY?: number;
-  targetNpcId?: string;
-  targetNpcName?: string;
-  submitNpcId?: string;
-  submitNpcName?: string;
-  submitMapId?: string;
-  submitMapName?: string;
-  submitX?: number;
-  submitY?: number;
-  relayMessage?: string;
-  unlockBreakthroughRequirementIds?: string[];
-  giverId: string;
-  giverName: string;
-  giverMapId: string;
-  giverMapName: string;
-  giverX: number;
-  giverY: number;
-}
+export type {
+  ContainerConfig,
+  ContainerLootPoolConfig,
+  DropConfig,
+  MonsterSpawnConfig,
+  NpcConfig,
+  NpcLocation,
+  NpcShopItemConfig,
+  QuestConfig,
+  SafeZoneConfig,
+} from './map.service.shared';
 
-interface QuestFileRecord {
-  id?: string;
-  title?: string;
-  desc?: string;
-  line?: QuestLine;
-  chapter?: string;
-  story?: string;
-  objectiveType?: QuestObjectiveType;
-  objectiveText?: string;
-  targetName?: string;
-  targetMapId?: string;
-  targetX?: number;
-  targetY?: number;
-  targetNpcId?: string;
-  targetNpcName?: string;
-  targetMonsterId?: string;
-  targetTechniqueId?: string;
-  targetRealmStage?: keyof typeof PlayerRealmStage | PlayerRealmStage;
-  targetRealmLv?: number;
-  acceptRealmStage?: keyof typeof PlayerRealmStage | PlayerRealmStage;
-  acceptRealmLv?: number;
-  required?: number;
-  targetCount?: number;
-  rewardItemId?: string;
-  rewardText?: string;
-  reward?: Array<{ itemId?: string; name?: string; type?: ItemType; count?: number }>;
-  nextQuestId?: string;
-  requiredItemId?: string;
-  requiredItemCount?: number;
-  giverMapId?: string;
-  giverNpcId?: string;
-  submitNpcId?: string;
-  submitMapId?: string;
-  relayMessage?: string;
-  unlockBreakthroughRequirementIds?: string[];
-}
-
-interface QuestFileDocument {
-  quests?: QuestFileRecord[];
-}
-
-export interface NpcConfig {
-  id: string;
-  name: string;
-  x: number;
-  y: number;
-  char: string;
-  color: string;
-  dialogue: string;
-  role?: string;
-  shopItems: NpcShopItemConfig[];
-  quests: QuestConfig[];
-}
-
-export interface NpcShopItemConfig {
-  itemId: string;
-  price?: number;
-  stockLimit?: number;
-  refreshSeconds?: number;
-  priceFormula?: 'technique_realm_square_grade';
-}
-
-export interface DropConfig {
-  itemId: string;
-  name: string;
-  type: ItemType;
-  count: number;
-  chance: number;
-}
-
-export interface ContainerLootPoolConfig {
-  rolls: number;
-  chance: number;
-  minLevel?: number;
-  maxLevel?: number;
-  minGrade?: TechniqueGrade;
-  maxGrade?: TechniqueGrade;
-  tagGroups: string[][];
-  countMin?: number;
-  countMax?: number;
-  allowDuplicates: boolean;
-}
-
-export interface ContainerConfig {
-  id: string;
-  name: string;
-  x: number;
-  y: number;
-  desc?: string;
-  variant?: LootSourceVariant;
-  char?: string;
-  color?: string;
-  grade: TechniqueGrade;
-  refreshTicks?: number;
-  refreshTicksMin?: number;
-  refreshTicksMax?: number;
-  drops: DropConfig[];
-  lootPools: ContainerLootPoolConfig[];
-}
-
-export interface SafeZoneConfig {
-  x: number;
-  y: number;
-  radius: number;
-}
-
-export interface MonsterSpawnConfig {
-  id: string;
-  name: string;
-  x: number;
-  y: number;
-  char: string;
-  color: string;
-  grade: TechniqueGrade;
-  attrs: Attributes;
-  equipment: EquipmentSlots;
-  statPercents?: NumericStatPercentages;
-  initialBuffs?: MonsterInitialBuffDef[];
-  skills: string[];
-  tier: MonsterTier;
-  valueStats?: PartialNumericStats;
-  numericStats: NumericStats;
-  combatModel: MonsterCombatModel;
-  hp: number;
-  maxHp: number;
-  attack: number;
-  count: number;
-  radius: number;
-  maxAlive: number;
-  wanderRadius: number;
-  aggroRange: number;
-  viewRange: number;
-  aggroMode: MonsterAggroMode;
-  respawnTicks: number;
-  level?: number;
-  expMultiplier: number;
-  drops: DropConfig[];
-}
-
-interface MapData {
-  meta: MapMeta;
-  tiles: Tile[][];
-  portals: Portal[];
-  auraPoints: MapAuraPoint[];
-  baseAuraValues: Map<string, number>;
-  baseResourceValues: Map<string, Map<string, number>>;
-  safeZones: SafeZoneConfig[];
-  containers: ContainerConfig[];
-  npcs: NpcConfig[];
-  monsterSpawns: MonsterSpawnConfig[];
-  minimap: MapMinimapSnapshot;
-  minimapSignature: string;
-  spawnPoint: { x: number; y: number };
-  source: GmMapDocument;
-}
-
-interface MapAuraPoint {
-  x: number;
-  y: number;
-  value: number;
-}
-
-interface MapTileResourcePoint {
-  x: number;
-  y: number;
-  resourceKey: string;
-  value: number;
-}
-
-interface DynamicTileState {
-  x: number;
-  y: number;
-  originalType: TileType;
-  hp: number;
-  maxHp: number;
-  destroyed: boolean;
-  restoreTicksLeft?: number;
-  transformedType?: TileType;
-  transformTicksLeft?: number;
-}
-
-function resolveMonsterSpawnPopulation(
-  tier: MonsterTier,
-  configuredCount: number,
-  configuredMaxAlive: number,
-): { count: number; maxAlive: number } {
-  if (tier === 'mortal_blood') {
-    return {
-      count: ORDINARY_MONSTER_SPAWN_COUNT,
-      maxAlive: ORDINARY_MONSTER_SPAWN_MAX_ALIVE,
-    };
-  }
-
-  const maxAlive = Math.max(1, Math.round(configuredMaxAlive));
-  const count = Math.min(Math.max(1, Math.round(configuredCount)), maxAlive);
-  return { count, maxAlive };
-}
-
-interface PersistedDynamicTileRecord {
-  x: number;
-  y: number;
-  hp: number;
-  destroyed: boolean;
-  restoreTicksLeft?: number;
-  transformedType?: TileType;
-  transformTicksLeft?: number;
-}
-
-interface PersistedDynamicTileSnapshot {
-  version: 1;
-  maps: Record<string, PersistedDynamicTileRecord[]>;
-}
-
-interface PersistedAuraRecord {
-  x: number;
-  y: number;
-  value: number;
-  sourceValue?: number;
-  decayRemainder?: number;
-  sourceRemainder?: number;
-}
-
-interface PersistedAuraSnapshot {
-  version: 1;
-  maps: Record<string, PersistedAuraRecord[]>;
-}
-
-interface TileResourceRuntimeState extends PersistedTileRuntimeResourceRecord {
-  x: number;
-  y: number;
-}
-
-type TileResourceStateMap = Map<string, TileResourceRuntimeState>;
-type TileResourceBucketMap = Map<string, TileResourceStateMap>;
-
-interface PersistedTileRuntimeTerrainRecord {
-  hp: number;
-  destroyed: boolean;
-  restoreTicksLeft?: number;
-  transformedType?: TileType;
-  transformTicksLeft?: number;
-}
-
-interface PersistedTileRuntimeResourceRecord {
-  value: number;
-  sourceValue?: number;
-  decayRemainder?: number;
-  sourceRemainder?: number;
-}
-
-interface PersistedTileRuntimeRecord {
-  x: number;
-  y: number;
-  terrain?: PersistedTileRuntimeTerrainRecord;
-  resources?: Record<string, PersistedTileRuntimeResourceRecord>;
-}
-
-interface PersistedMapTimeState {
-  totalTicks?: number;
-  config?: MapTimeConfig;
-  tickSpeed?: number;
-}
-
-interface PersistedTileRuntimeSnapshot {
-  version: 1 | 2;
-  maps: Record<string, PersistedTileRuntimeRecord[]>;
-  time?: Record<string, PersistedMapTimeState>;
-}
-
-interface SyncedMapDocument {
-  document: GmMapDocument;
-  previousDocument?: GmMapDocument;
-}
-
-const MAP_DOCUMENT_SCOPE = 'map_document';
-const RUNTIME_STATE_SCOPE = 'runtime_state';
-const MAP_TILE_RUNTIME_DOCUMENT_KEY = 'map_tile';
-const LEGACY_AURA_RESOURCE_KEY = 'aura';
-const AURA_RESOURCE_KEY = buildQiResourceKey(DEFAULT_QI_RESOURCE_DESCRIPTOR);
-const DISPERSED_AURA_RESOURCE_KEY = buildQiResourceKey(DISPERSED_AURA_RESOURCE_DESCRIPTOR);
-
-interface TileResourceFlowConfig {
-  halfLifeRateScale: number;
-  halfLifeRateScaled: number;
-  minimumDecayPerTick: number;
-}
-
-const TILE_RESOURCE_FLOW_CONFIGS: Partial<Record<string, TileResourceFlowConfig>> = {
-  [AURA_RESOURCE_KEY]: {
-    halfLifeRateScale: TILE_AURA_HALF_LIFE_RATE_SCALE,
-    halfLifeRateScaled: TILE_AURA_HALF_LIFE_RATE_SCALED,
-    minimumDecayPerTick: 0,
-  },
-  [DISPERSED_AURA_RESOURCE_KEY]: {
-    halfLifeRateScale: TILE_AURA_HALF_LIFE_RATE_SCALE,
-    halfLifeRateScaled: DISPERSED_AURA_HALF_LIFE_RATE_SCALED,
-    minimumDecayPerTick: DISPERSED_AURA_MIN_DECAY_PER_TICK,
-  },
-};
-
-const QI_FAMILY_LABELS = {
-  aura: '灵气',
-  demonic: '魔气',
-  sha: '煞气',
-} as const;
-
-const QI_FORM_LABELS = {
-  refined: '凝练',
-  dispersed: '逸散',
-} as const;
-
-const QI_ELEMENT_LABELS = {
-  neutral: '',
-  metal: '金',
-  wood: '木',
-  water: '水',
-  fire: '火',
-  earth: '土',
-} as const;
-
-type OccupantKind = 'player' | 'monster';
-
-interface OccupancyCheckOptions {
-  occupancyId?: string | null;
-  actorType?: OccupantKind;
-}
-
-export interface NpcLocation {
-  mapId: string;
-  mapName: string;
-  x: number;
-  y: number;
-  name: string;
-}
-
-interface PortalQueryOptions {
-  trigger?: PortalTrigger;
-  kind?: PortalKind;
-  allowedRouteDomains?: readonly MapRouteDomain[];
-}
-
-interface ProjectedPoint {
-  x: number;
-  y: number;
-}
-
-interface PortalObservationHint {
-  title: string;
-  desc?: string;
-}
 
 @Injectable()
+/** MapService：封装相关状态与行为。 */
 export class MapService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(MapService.name);
   private maps: Map<string, MapData> = new Map();
@@ -538,12 +197,57 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
   private runtimeSnapshotCache: PersistedTileRuntimeSnapshot = { version: 2, maps: {} };
   private dirtyTileRuntimeMapIds = new Set<string>();
   private dirtyMapTimeStateMapIds = new Set<string>();
+  private readonly contentDomain: MapContentDomain;
+  private readonly editableDomain: MapEditableDomain;
+  private readonly documentDomain: MapDocumentDomain;
+  private readonly occupancyDomain: MapOccupancyDomain;
+  private readonly portalDomain: MapPortalDomain;
 
   constructor(
     private readonly contentService: ContentService,
     private readonly persistentDocumentService: PersistentDocumentService,
-  ) {}
+  ) {
+    this.contentDomain = new MapContentDomain(this.contentService, {
+      warn: (message) => this.logger.warn(message),
+      normalizeContainerGrade: (grade) => this.normalizeContainerGrade(grade),
+      normalizeDrops: (rawDrops) => this.normalizeDrops(rawDrops),
+      normalizeContainerLootPools: (rawPools) => this.normalizeContainerLootPools(rawPools),
+      getMapName: (mapId) => this.getMapMeta(mapId)?.name,
+    });
+    this.editableDomain = new MapEditableDomain(this.contentService, {
+      resolveMonsterSpawnTemplateId: (spawn) => this.resolveMonsterSpawnTemplateId(spawn),
+    });
+    this.documentDomain = new MapDocumentDomain(this.persistentDocumentService, this.editableDomain, {
+      mapsDir: this.mapsDir,
+      getLoadedMaps: () => this.maps.values(),
+      getLoadedMap: (mapId) => this.maps.get(mapId),
+      loadMapIntoRuntime: (document, previousDocument) => this.loadMap(document, previousDocument),
+      afterDocumentMutation: () => {
+        this.rebuildMapConditionAliases();
+        this.reloadQuestBindingsFromFiles();
+      },
+      log: (message) => this.logger.log(message),
+      error: (message) => this.logger.error(message),
+    });
+    this.occupancyDomain = new MapOccupancyDomain(
+      this.maps,
+      this.revisions,
+      this.pathfindingStaticGrids,
+      this.occupantsByMap,
+      {
+        tileStateKey: (x, y) => this.tileStateKey(x, y),
+        getPlayerOverlapPointsByMap: () => this.playerOverlapPointsByMap,
+        replacePlayerOverlapPointsByMap: (next) => {
+          this.playerOverlapPointsByMap = next;
+        },
+        getMapRevision: (mapId) => this.getMapRevision(mapId),
+        markTileDirty: (mapId, x, y) => this.markTileDirty(mapId, x, y),
+      },
+    );
+    this.portalDomain = new MapPortalDomain(this.maps);
+  }
 
+/** onModuleInit：处理当前场景中的对应操作。 */
   async onModuleInit() {
     await this.loadPersistedTileRuntimeStates();
     this.contentService.ensureLoaded();
@@ -551,6 +255,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     this.loadAllMaps(syncedMaps);
   }
 
+/** onModuleDestroy：处理当前场景中的对应操作。 */
   async onModuleDestroy() {
     await this.persistTileRuntimeStates();
   }
@@ -589,7 +294,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
       return;
     }
     this.auraLevelBaseValue = normalizedValue;
-    for (const document of [...this.maps.values()].map((map) => this.cloneMapDocument(map.source))) {
+    for (const document of [...this.maps.values()].map((map) => this.editableDomain.cloneMapDocument(map.source))) {
       this.loadMap(document, document);
     }
     this.reloadQuestBindingsFromFiles();
@@ -599,6 +304,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     return this.auraLevelBaseValue;
   }
 
+/** loadPersistedTileRuntimeStates：处理当前场景中的对应操作。 */
   private async loadPersistedTileRuntimeStates() {
     this.persistedDynamicTileStates.clear();
     this.persistedResourceStates.clear();
@@ -761,11 +467,13 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     this.logger.log('已从旧版动态地块 JSON 导入 PostgreSQL');
   }
 
+/** loadLegacyPersistedTileRuntimeStates：处理当前场景中的对应操作。 */
   private loadLegacyPersistedTileRuntimeStates() {
     this.loadLegacyPersistedDynamicTileStates();
     this.loadLegacyPersistedAuraStates();
   }
 
+/** loadLegacyPersistedDynamicTileStates：处理当前场景中的对应操作。 */
   private loadLegacyPersistedDynamicTileStates() {
     if (!fs.existsSync(this.legacyDynamicTileStatePath)) {
       return;
@@ -824,6 +532,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+/** loadLegacyPersistedAuraStates：处理当前场景中的对应操作。 */
   private loadLegacyPersistedAuraStates() {
     if (!fs.existsSync(this.legacyAuraStatePath)) {
       return;
@@ -907,107 +616,10 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async syncMapDocumentsFromFiles(): Promise<SyncedMapDocument[]> {
-    const persistedDocuments = await this.persistentDocumentService.getScope<unknown>(MAP_DOCUMENT_SCOPE);
-    const persistedByMapId = new Map<string, GmMapDocument>(
-      persistedDocuments.map((entry) => [entry.key, this.normalizeEditableMapDocument(entry.payload)]),
-    );
-
-    const files = this.collectMapJsonFiles(this.mapsDir);
-
-    const synced: SyncedMapDocument[] = [];
-    const fileMapIds = new Set<string>();
-    let createdCount = 0;
-    let updatedCount = 0;
-
-    for (const file of files) {
-      try {
-        const raw = JSON.parse(fs.readFileSync(file, 'utf-8'));
-        const normalized = this.normalizeEditableMapDocument(raw);
-        const nextPayload = this.dehydrateEditableMapDocument(normalized);
-        const previousDocument = persistedByMapId.get(normalized.id);
-        const previousPayload = previousDocument ? this.dehydrateEditableMapDocument(previousDocument) : null;
-        if (JSON.stringify(previousPayload) !== JSON.stringify(nextPayload)) {
-          await this.persistentDocumentService.save(MAP_DOCUMENT_SCOPE, normalized.id, nextPayload);
-          if (previousDocument) {
-            updatedCount += 1;
-          } else {
-            createdCount += 1;
-          }
-        }
-        fileMapIds.add(normalized.id);
-        synced.push({ document: normalized, previousDocument });
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        this.logger.error(`地图同步失败 ${file}: ${message}`);
-      }
-    }
-
-    let deletedCount = 0;
-    for (const mapId of persistedByMapId.keys()) {
-      if (fileMapIds.has(mapId)) {
-        continue;
-      }
-      await this.persistentDocumentService.delete(MAP_DOCUMENT_SCOPE, mapId);
-      deletedCount += 1;
-    }
-
-    if (createdCount > 0 || updatedCount > 0 || deletedCount > 0) {
-      this.logger.log(`已同步地图静态镜像：新增 ${createdCount} 张，更新 ${updatedCount} 张，删除 ${deletedCount} 张`);
-    }
-
-    return synced;
+    return this.documentDomain.syncMapDocumentsFromFiles();
   }
 
-  private collectMapJsonFiles(dirPath: string): string[] {
-    const entries = fs.readdirSync(dirPath, { withFileTypes: true })
-      .sort((left, right) => left.name.localeCompare(right.name, 'zh-CN'));
-    const files: string[] = [];
-    for (const entry of entries) {
-      const entryPath = path.join(dirPath, entry.name);
-      if (entry.isDirectory()) {
-        files.push(...this.collectMapJsonFiles(entryPath));
-        continue;
-      }
-      if (entry.isFile() && entry.name.endsWith('.json')) {
-        files.push(entryPath);
-      }
-    }
-    return files;
-  }
-
-  private buildEditableMapCatalogMetaById(): Map<string, Pick<GmMapSummary, 'catalogMode' | 'catalogGroupId' | 'catalogGroupName' | 'sourcePath'>> {
-    const result = new Map<string, Pick<GmMapSummary, 'catalogMode' | 'catalogGroupId' | 'catalogGroupName' | 'sourcePath'>>();
-    const files = this.collectMapJsonFiles(this.mapsDir);
-    for (const filePath of files) {
-      const relativePath = path.relative(this.mapsDir, filePath).replace(/\\/g, '/');
-      const mapId = path.basename(filePath, '.json');
-      if (relativePath.startsWith('compose/')) {
-        const segments = relativePath.split('/');
-        const catalogGroupId = segments[1]?.trim() || this.inferComposeGroupIdFromMapId(mapId);
-        result.set(mapId, {
-          catalogMode: 'piece',
-          catalogGroupId,
-          catalogGroupName: this.maps.get(catalogGroupId)?.source.name ?? catalogGroupId,
-          sourcePath: relativePath,
-        });
-        continue;
-      }
-      result.set(mapId, {
-        catalogMode: 'main',
-        sourcePath: relativePath,
-      });
-    }
-    return result;
-  }
-
-  private inferComposeGroupIdFromMapId(mapId: string): string {
-    const marker = mapId.lastIndexOf('_');
-    if (marker <= 0) {
-      return mapId;
-    }
-    return mapId.slice(0, marker);
-  }
-
+/** loadAllMaps：处理当前场景中的对应操作。 */
   private loadAllMaps(entries: SyncedMapDocument[]) {
     this.contentService.ensureLoaded();
     for (const entry of entries) {
@@ -1025,7 +637,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
       aliasesById.set(mapId, new Set([mapId]));
     }
 
-    const catalogMetaById = this.buildEditableMapCatalogMetaById();
+    const catalogMetaById = this.documentDomain.buildEditableMapCatalogMetaById();
     for (const [mapId, meta] of catalogMetaById.entries()) {
       const aliases = aliasesById.get(mapId);
       if (!aliases) {
@@ -1063,8 +675,9 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     return false;
   }
 
+/** loadMap：处理当前场景中的对应操作。 */
   private loadMap(raw: unknown, previousDocument?: GmMapDocument) {
-    const document = this.normalizeEditableMapDocument(raw);
+    const document = this.editableDomain.normalizeEditableMapDocument(raw);
     const tileRows = document.tiles;
     const tiles: Tile[][] = tileRows.map((row, y) =>
       [...row].map((char, x) => {
@@ -1182,100 +795,28 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
   }
 
   getEditableMapList(): GmMapListRes {
-    const baseList = buildEditableMapListResult([...this.maps.values()].map((map) => map.source));
-    const catalogMetaById = this.buildEditableMapCatalogMetaById();
-    return {
-      maps: baseList.maps.map((summary) => ({
-        ...summary,
-        ...catalogMetaById.get(summary.id),
-      })),
-    };
+    return this.documentDomain.getEditableMapList();
   }
 
   getEditableMap(mapId: string): GmMapDocument | undefined {
-    const map = this.maps.get(mapId);
-    if (!map) return undefined;
-    return this.cloneMapDocument(map.source);
+    return this.documentDomain.getEditableMap(mapId);
   }
 
   async saveEditableMap(mapId: string, document: GmMapDocument): Promise<string | null> {
-    if (mapId !== document.id) {
-      return '地图 ID 不允许在编辑器中直接修改';
-    }
-
-    const normalized = this.normalizeEditableMapDocument(document);
-    const error = this.validateEditableMapDocument(normalized);
-    if (error) {
-      return error;
-    }
-
-    const filePath = path.join(this.mapsDir, `${mapId}.json`);
-    const previousDocument = this.maps.get(mapId)?.source;
-    const previousPersisted = previousDocument
-      ? this.dehydrateEditableMapDocument(previousDocument)
-      : null;
-    const previousFileContent = fs.existsSync(filePath)
-      ? fs.readFileSync(filePath, 'utf-8')
-      : null;
-
-    try {
-      const persisted = this.dehydrateEditableMapDocument(normalized);
-      fs.writeFileSync(filePath, `${JSON.stringify(persisted, null, 2)}\n`, 'utf-8');
-      await this.persistentDocumentService.save(MAP_DOCUMENT_SCOPE, mapId, persisted);
-      this.loadMap(normalized, previousDocument);
-      this.rebuildMapConditionAliases();
-      this.reloadQuestBindingsFromFiles();
-      return null;
-    } catch (saveError) {
-      const message = saveError instanceof Error ? saveError.message : '地图保存失败';
-
-      try {
-        if (previousFileContent === null) {
-          if (fs.existsSync(filePath)) {
-            fs.unlinkSync(filePath);
-          }
-        } else {
-          fs.writeFileSync(filePath, previousFileContent, 'utf-8');
-        }
-      } catch (rollbackError) {
-        const rollbackMessage = rollbackError instanceof Error ? rollbackError.message : String(rollbackError);
-        this.logger.error(`地图文件回滚失败 ${mapId}: ${rollbackMessage}`);
-      }
-
-      try {
-        if (previousPersisted) {
-          await this.persistentDocumentService.save(MAP_DOCUMENT_SCOPE, mapId, previousPersisted);
-        } else {
-          await this.persistentDocumentService.delete(MAP_DOCUMENT_SCOPE, mapId);
-        }
-      } catch (rollbackError) {
-        const rollbackMessage = rollbackError instanceof Error ? rollbackError.message : String(rollbackError);
-        this.logger.error(`地图静态镜像回滚失败 ${mapId}: ${rollbackMessage}`);
-      }
-
-      if (previousDocument) {
-        try {
-          this.loadMap(previousDocument, previousDocument);
-          this.rebuildMapConditionAliases();
-          this.reloadQuestBindingsFromFiles();
-        } catch (rollbackError) {
-          const rollbackMessage = rollbackError instanceof Error ? rollbackError.message : String(rollbackError);
-          this.logger.error(`地图内存回滚失败 ${mapId}: ${rollbackMessage}`);
-        }
-      }
-
-      return message;
-    }
+    return this.documentDomain.saveEditableMap(mapId, document);
   }
 
+/** persistDynamicTileStates：处理当前场景中的对应操作。 */
   persistDynamicTileStates() {
     return this.persistTileRuntimeStates();
   }
 
+/** persistAuraStates：处理当前场景中的对应操作。 */
   persistAuraStates() {
     return this.persistTileRuntimeStates();
   }
 
+/** persistTileRuntimeStates：处理当前场景中的对应操作。 */
   async persistTileRuntimeStates() {
     if (!this.dynamicTileStatesDirty && !this.resourceStatesDirty && !this.mapTimeStatesDirty) {
       return;
@@ -1318,6 +859,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+/** tickDynamicTiles：处理当前场景中的对应操作。 */
   tickDynamicTiles(mapId: string) {
     const stateMap = this.dynamicTileStates.get(mapId);
     const resourceStateBucket = this.resourceStates.get(mapId);
@@ -1467,6 +1009,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+/** rehydrateDynamicTileStates：处理当前场景中的对应操作。 */
   private rehydrateDynamicTileStates(mapId: string, document: GmMapDocument, tiles: Tile[][], previousDocument?: GmMapDocument) {
     const persistedSourceStates = this.persistedDynamicTileStates.get(mapId);
     const sourceStates = this.dynamicTileStates.get(mapId) ?? persistedSourceStates;
@@ -1539,6 +1082,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+/** rehydrateAuraStates：处理当前场景中的对应操作。 */
   private rehydrateAuraStates(mapId: string, tiles: Tile[][], baseAuraValues: Map<string, number>) {
     const persistedSourceStates = this.getTileResourceStateMap(this.persistedResourceStates, mapId, AURA_RESOURCE_KEY);
     const sourceStates = this.getTileResourceStateMap(this.resourceStates, mapId, AURA_RESOURCE_KEY) ?? persistedSourceStates;
@@ -1609,6 +1153,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+/** applyDynamicTileStateToTile：处理当前场景中的对应操作。 */
   private applyDynamicTileStateToTile(tile: Tile, state: DynamicTileState) {
     const type = state.destroyed
       ? this.destroyedTileType(state.originalType)
@@ -1623,6 +1168,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     tile.modifiedAt = state.destroyed || !!state.transformedType || state.hp < state.maxHp ? Date.now() : null;
   }
 
+/** resetTileToBaseState：处理当前场景中的对应操作。 */
   private resetTileToBaseState(mapId: string, x: number, y: number) {
     const tile = this.getTile(mapId, x, y);
     const originalType = this.getBaseTileType(mapId, x, y);
@@ -1694,125 +1240,43 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
   }
 
   private hasBlockingEntityAt(mapId: string, x: number, y: number): boolean {
-    const occupants = this.getOccupantsAt(mapId, x, y);
+    const occupants = this.occupantsByMap.get(mapId)?.get(this.tileStateKey(x, y));
     return (occupants?.size ?? 0) > 0 || this.hasNpcAt(mapId, x, y);
   }
 
   private rebuildPlayerOverlapPointIndex(): void {
-    const next = new Map<string, Set<string>>();
-    for (const [mapId, map] of this.maps.entries()) {
-      this.addOverlapArea(next, mapId, map.spawnPoint.x, map.spawnPoint.y, true);
-      for (const portal of map.portals) {
-        this.addOverlapArea(next, mapId, portal.x, portal.y, true);
-        this.addOverlapArea(next, portal.targetMapId, portal.targetX, portal.targetY, true);
-      }
-      for (const zone of map.safeZones) {
-        this.addSafeZoneOverlapArea(next, mapId, zone.x, zone.y, zone.radius);
-      }
-      for (const npc of map.npcs) {
-        this.addOverlapArea(next, mapId, npc.x, npc.y, false);
-      }
-    }
-    this.playerOverlapPointsByMap = next;
-    this.syncPlayerOverlapPointsToMapMeta();
-  }
-
-  private syncPlayerOverlapPointsToMapMeta(): void {
-    for (const [mapId, map] of this.maps.entries()) {
-      const points = [...(this.playerOverlapPointsByMap.get(mapId) ?? new Set<string>())]
-        .map((key) => {
-          const [rawX, rawY] = key.split(',');
-          return { x: Number(rawX), y: Number(rawY) };
-        })
-        .filter((point) => Number.isInteger(point.x) && Number.isInteger(point.y))
-        .sort((left, right) => (left.y - right.y) || (left.x - right.x));
-      map.meta.playerOverlapPoints = points.length > 0 ? points : undefined;
-    }
-  }
-
-  private addOverlapArea(
-    index: Map<string, Set<string>>,
-    mapId: string,
-    centerX: number,
-    centerY: number,
-    includeCenter: boolean,
-  ): void {
-    for (let dy = -1; dy <= 1; dy += 1) {
-      for (let dx = -1; dx <= 1; dx += 1) {
-        if (!includeCenter && dx === 0 && dy === 0) {
-          continue;
-        }
-        const x = centerX + dx;
-        const y = centerY + dy;
-        if (!this.getTile(mapId, x, y)?.walkable) {
-          continue;
-        }
-        this.addOverlapPoint(index, mapId, x, y);
-      }
-    }
-  }
-
-  private addOverlapPoint(index: Map<string, Set<string>>, mapId: string, x: number, y: number): void {
-    const key = this.tileStateKey(x, y);
-    const points = index.get(mapId) ?? new Set<string>();
-    points.add(key);
-    index.set(mapId, points);
-  }
-
-  private addSafeZoneOverlapArea(
-    index: Map<string, Set<string>>,
-    mapId: string,
-    centerX: number,
-    centerY: number,
-    radius: number,
-  ): void {
-    const normalizedRadius = Math.max(0, Math.floor(radius));
-    for (let dy = -normalizedRadius; dy <= normalizedRadius; dy += 1) {
-      for (let dx = -normalizedRadius; dx <= normalizedRadius; dx += 1) {
-        if (!isOffsetInRange(dx, dy, normalizedRadius)) {
-          continue;
-        }
-        const x = centerX + dx;
-        const y = centerY + dy;
-        if (!this.getTile(mapId, x, y)?.walkable) {
-          continue;
-        }
-        this.addOverlapPoint(index, mapId, x, y);
-      }
-    }
-  }
-
-  private supportsPlayerOverlap(mapId: string, x: number, y: number): boolean {
-    return this.playerOverlapPointsByMap.get(mapId)?.has(this.tileStateKey(x, y)) === true;
-  }
-
-  private getOccupantsAt(mapId: string, x: number, y: number): Map<string, OccupantKind> | undefined {
-    return this.occupantsByMap.get(mapId)?.get(this.tileStateKey(x, y));
+    this.occupancyDomain.rebuildPlayerOverlapPointIndex();
   }
 
   hasOccupant(mapId: string, x: number, y: number, occupancyId: string): boolean {
-    return this.getOccupantsAt(mapId, x, y)?.has(occupancyId) === true;
+    return this.occupancyDomain.hasOccupant(mapId, x, y, occupancyId);
   }
 
   private syncOccupancyDisplay(mapId: string, x?: number, y?: number): void {
     const map = this.maps.get(mapId);
-    if (!map) return;
-
+    if (!map) {
+      return;
+    }
     if (x !== undefined && y !== undefined) {
       const tile = map.tiles[y]?.[x];
-      if (!tile) return;
-      const occupants = this.getOccupantsAt(mapId, x, y);
+      if (!tile) {
+        return;
+      }
+      const occupants = this.occupantsByMap.get(mapId)?.get(this.tileStateKey(x, y));
       tile.occupiedBy = occupants ? [...occupants.keys()][0] ?? null : null;
       return;
     }
-
     for (let rowIndex = 0; rowIndex < map.tiles.length; rowIndex += 1) {
       const row = map.tiles[rowIndex];
-      if (!row) continue;
+      if (!row) {
+        continue;
+      }
       for (let colIndex = 0; colIndex < row.length; colIndex += 1) {
         const tile = row[colIndex];
-        if (!tile) continue;
-        const occupants = this.getOccupantsAt(mapId, colIndex, rowIndex);
+        if (!tile) {
+          continue;
+        }
+        const occupants = this.occupantsByMap.get(mapId)?.get(this.tileStateKey(colIndex, rowIndex));
         tile.occupiedBy = occupants ? [...occupants.keys()][0] ?? null : null;
       }
     }
@@ -1874,38 +1338,11 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
   }
 
   private normalizeTileResourceKey(rawKey: unknown): string | null {
-    if (typeof rawKey !== 'string') {
-      return null;
-    }
-
-    const normalizedKey = rawKey.trim();
-    if (!normalizedKey) {
-      return null;
-    }
-    if (normalizedKey === LEGACY_AURA_RESOURCE_KEY) {
-      return AURA_RESOURCE_KEY;
-    }
-    return normalizedKey;
+    return normalizeTileResourceKeyHelper(rawKey);
   }
 
   private normalizeTileResourceRuntimeState(x: unknown, y: unknown, raw: unknown): TileResourceRuntimeState | null {
-    if (!Number.isInteger(x) || !Number.isInteger(y) || !raw || typeof raw !== 'object') {
-      return null;
-    }
-
-    const candidate = raw as Partial<PersistedTileRuntimeResourceRecord>;
-    if (!Number.isFinite(candidate.value)) {
-      return null;
-    }
-
-    return {
-      x: Number(x),
-      y: Number(y),
-      value: Math.max(0, Math.round(Number(candidate.value))),
-      sourceValue: Number.isFinite(candidate.sourceValue) ? Math.max(0, Math.round(Number(candidate.sourceValue))) : 0,
-      decayRemainder: Number.isFinite(candidate.decayRemainder) ? Math.max(0, Math.round(Number(candidate.decayRemainder))) : 0,
-      sourceRemainder: Number.isFinite(candidate.sourceRemainder) ? Math.max(0, Math.round(Number(candidate.sourceRemainder))) : 0,
-    };
+    return normalizeTileResourceRuntimeStateHelper(x, y, raw);
   }
 
   private getTileResourceStateMap(
@@ -1913,7 +1350,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     mapId: string,
     resourceKey: string,
   ): TileResourceStateMap | undefined {
-    return source.get(mapId)?.get(resourceKey);
+    return getTileResourceStateMapHelper(source, mapId, resourceKey);
   }
 
   private setTileResourceStateMap(
@@ -1922,14 +1359,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     resourceKey: string,
     stateMap: TileResourceStateMap,
   ): void {
-    if (stateMap.size === 0) {
-      this.deleteTileResourceStateMap(source, mapId, resourceKey);
-      return;
-    }
-
-    const bucket = source.get(mapId) ?? new Map<string, TileResourceStateMap>();
-    bucket.set(resourceKey, stateMap);
-    source.set(mapId, bucket);
+    setTileResourceStateMapHelper(source, mapId, resourceKey, stateMap);
   }
 
   private deleteTileResourceStateMap(
@@ -1937,14 +1367,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     mapId: string,
     resourceKey: string,
   ): void {
-    const bucket = source.get(mapId);
-    if (!bucket) {
-      return;
-    }
-    bucket.delete(resourceKey);
-    if (bucket.size === 0) {
-      source.delete(mapId);
-    }
+    deleteTileResourceStateMapHelper(source, mapId, resourceKey);
   }
 
   private listTileKeysForResourceBucket(resourceBucket: TileResourceBucketMap | undefined): string[] {
@@ -2013,44 +1436,11 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     resourceBucket: TileResourceBucketMap | undefined,
     tileKey: string,
   ): Record<string, PersistedTileRuntimeResourceRecord> | undefined {
-    if (!resourceBucket) {
-      return undefined;
-    }
-
-    const resources: Record<string, PersistedTileRuntimeResourceRecord> = {};
-    for (const [resourceKey, stateMap] of resourceBucket.entries()) {
-      const state = stateMap.get(tileKey);
-      if (!state) {
-        continue;
-      }
-      resources[resourceKey] = {
-        value: state.value,
-        sourceValue: state.sourceValue,
-        decayRemainder: state.decayRemainder,
-        sourceRemainder: state.sourceRemainder,
-      };
-    }
-
-    return Object.keys(resources).length > 0 ? resources : undefined;
+    return buildPersistedTileRuntimeResourcesHelper(resourceBucket, tileKey);
   }
 
   private getTileResourceFlowConfig(resourceKey: string): TileResourceFlowConfig | null {
-    const directConfig = TILE_RESOURCE_FLOW_CONFIGS[resourceKey];
-    if (directConfig) {
-      return directConfig;
-    }
-
-    const descriptor = parseQiResourceKey(resourceKey);
-    if (!descriptor || descriptor.family !== 'aura') {
-      return null;
-    }
-    if (descriptor.form === 'refined') {
-      return TILE_RESOURCE_FLOW_CONFIGS[AURA_RESOURCE_KEY] ?? null;
-    }
-    if (descriptor.form === 'dispersed') {
-      return TILE_RESOURCE_FLOW_CONFIGS[DISPERSED_AURA_RESOURCE_KEY] ?? null;
-    }
-    return null;
+    return getTileResourceFlowConfigHelper(resourceKey);
   }
 
   private calculateAuraFamilyValueForTile(
@@ -2269,150 +1659,41 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
   }
 
   private shouldKeepTileResourceRuntimeState(state: TileResourceRuntimeState): boolean {
-    return (state.sourceValue ?? 0) > 0
-      || state.value > 0
-      || (state.decayRemainder ?? 0) > 0
-      || (state.sourceRemainder ?? 0) > 0;
+    return shouldKeepTileResourceRuntimeStateHelper(state);
   }
 
   private shouldExposeTileResourceDetail(state: TileResourceRuntimeState): boolean {
-    return (state.sourceValue ?? 0) > 0 || state.value > 0;
+    return shouldExposeTileResourceDetailHelper(state);
   }
 
   private tickTileResourceState(resourceKey: string, state: TileResourceRuntimeState): boolean {
-    const flowConfig = this.getTileResourceFlowConfig(resourceKey);
-    if (!flowConfig) {
-      return false;
-    }
-
-    const previousValue = state.value;
-    const previousDecayRemainder = state.decayRemainder ?? 0;
-    const previousSourceRemainder = state.sourceRemainder ?? 0;
-
-    state.decayRemainder = Math.max(0, Math.round(state.decayRemainder ?? 0))
-      + previousValue * flowConfig.halfLifeRateScaled;
-    const halfLifeDecayAmount = Math.floor(state.decayRemainder / flowConfig.halfLifeRateScale);
-    state.decayRemainder %= flowConfig.halfLifeRateScale;
-
-    state.sourceRemainder = Math.max(0, Math.round(state.sourceRemainder ?? 0))
-      + Math.max(0, Math.round(state.sourceValue ?? 0)) * flowConfig.halfLifeRateScaled;
-    const sourceAmount = Math.floor(state.sourceRemainder / flowConfig.halfLifeRateScale);
-    state.sourceRemainder %= flowConfig.halfLifeRateScale;
-
-    const decayAmount = previousValue > 0
-      ? Math.max(flowConfig.minimumDecayPerTick, halfLifeDecayAmount)
-      : 0;
-    const nextValue = Math.max(0, previousValue - decayAmount + sourceAmount);
-    if (nextValue !== previousValue) {
-      state.value = nextValue;
-    }
-
-    return nextValue !== previousValue
-      || state.decayRemainder !== previousDecayRemainder
-      || state.sourceRemainder !== previousSourceRemainder;
+    return tickTileResourceStateHelper(resourceKey, state);
   }
 
   private toPublicTileResourceKey(resourceKey: string): string {
-    return resourceKey;
+    return toPublicTileResourceKeyHelper(resourceKey);
   }
 
   private getTileResourceLabel(resourceKey: string): string {
-    if (resourceKey === AURA_RESOURCE_KEY) {
-      return '无属性灵气';
-    }
-
-    const descriptor = parseQiResourceKey(resourceKey);
-    if (!descriptor) {
-      return resourceKey;
-    }
-
-    const familyLabel = QI_FAMILY_LABELS[descriptor.family];
-    const formLabel = QI_FORM_LABELS[descriptor.form];
-    const elementLabel = QI_ELEMENT_LABELS[descriptor.element];
-    if (descriptor.family === 'aura' && descriptor.form === 'refined' && descriptor.element === 'neutral') {
-      return '无属性灵气';
-    }
-    if (descriptor.form === 'refined' && descriptor.element === 'neutral') {
-      return familyLabel;
-    }
-    if (descriptor.element === 'neutral') {
-      return `${formLabel}${familyLabel}`;
-    }
-    if (descriptor.form === 'refined') {
-      return `${elementLabel}${familyLabel}`;
-    }
-    return `${formLabel}${elementLabel}${familyLabel}`;
+    return getTileResourceLabelHelper(resourceKey);
   }
 
   private tileStateKey(x: number, y: number): string {
-    return `${x},${y}`;
+    return tileStateKeyHelper(x, y);
   }
 
   private normalizeAuraPoints(rawAuras: unknown, meta: MapMeta): MapAuraPoint[] {
-    if (!Array.isArray(rawAuras)) return [];
-
-    const result: MapAuraPoint[] = [];
-    for (const candidate of rawAuras) {
-      const point = candidate as Partial<MapAuraPoint>;
-      const valid =
-        Number.isInteger(point.x) &&
-        Number.isInteger(point.y) &&
-        Number.isInteger(point.value);
-      if (!valid) {
-        this.logger.warn(`地图 ${meta.id} 存在非法灵气配置，已忽略`);
-        continue;
-      }
-      if (
-        point.x! < 0 || point.x! >= meta.width ||
-        point.y! < 0 || point.y! >= meta.height
-      ) {
-        this.logger.warn(`地图 ${meta.id} 的灵气坐标越界: (${point.x}, ${point.y})`);
-        continue;
-      }
-      result.push({
-        x: point.x!,
-        y: point.y!,
-        value: normalizeConfiguredAuraValue(point.value!, this.auraLevelBaseValue),
-      });
-    }
-    return result;
+    return normalizeAuraPointsHelper(rawAuras, meta, this.auraLevelBaseValue, (message) => this.logger.warn(message));
   }
 
   private normalizeTileResourcePoints(rawResources: unknown, meta: MapMeta): MapTileResourcePoint[] {
-    if (!Array.isArray(rawResources)) {
-      return [];
-    }
-
-    const result: MapTileResourcePoint[] = [];
-    for (const candidate of rawResources) {
-      const point = candidate as Partial<GmMapResourceRecord>;
-      const resourceKey = this.normalizeTileResourceKey(point.resourceKey);
-      const valid =
-        Number.isInteger(point.x) &&
-        Number.isInteger(point.y) &&
-        Number.isInteger(point.value) &&
-        typeof resourceKey === 'string' &&
-        resourceKey !== AURA_RESOURCE_KEY &&
-        parseQiResourceKey(resourceKey);
-      if (!valid) {
-        this.logger.warn(`地图 ${meta.id} 存在非法气机配置，已忽略`);
-        continue;
-      }
-      if (
-        point.x! < 0 || point.x! >= meta.width ||
-        point.y! < 0 || point.y! >= meta.height
-      ) {
-        this.logger.warn(`地图 ${meta.id} 的气机坐标越界: (${point.x}, ${point.y})`);
-        continue;
-      }
-      result.push({
-        x: point.x!,
-        y: point.y!,
-        resourceKey,
-        value: normalizeConfiguredAuraValue(point.value!, this.auraLevelBaseValue),
-      });
-    }
-    return result;
+    return normalizeTileResourcePointsHelper(
+      rawResources,
+      meta,
+      this.auraLevelBaseValue,
+      (rawKey) => this.normalizeTileResourceKey(rawKey),
+      (message) => this.logger.warn(message),
+    );
   }
 
   private buildBaseTileResourceValueBucket(
@@ -2615,441 +1896,16 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     return result;
   }
 
-  private loadQuestDocumentsFromFiles(): Array<{ file: string; quests: QuestFileRecord[] }> {
-    if (!fs.existsSync(this.questDir)) {
-      this.logger.warn(`任务目录不存在，已跳过加载: ${this.questDir}`);
-      return [];
-    }
-
-    return fs.readdirSync(this.questDir)
-      .filter((file) => file.endsWith('.json'))
-      .sort((left, right) => left.localeCompare(right, 'zh-CN'))
-      .map((file) => {
-        const filePath = path.join(this.questDir, file);
-        try {
-          const raw = JSON.parse(fs.readFileSync(filePath, 'utf-8')) as QuestFileDocument;
-          return {
-            file,
-            quests: Array.isArray(raw.quests) ? raw.quests : [],
-          };
-        } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
-          this.logger.error(`读取任务文件失败 ${file}: ${message}`);
-          return { file, quests: [] };
-        }
-      });
-  }
-
   private reloadQuestBindingsFromFiles(): void {
-    this.quests.clear();
-    this.mainQuestChain = [];
-    this.mainQuestIndexById.clear();
-    for (const map of this.maps.values()) {
-      for (const npc of map.npcs) {
-        npc.quests = [];
-      }
-    }
-
-    let loadedCount = 0;
-    for (const document of this.loadQuestDocumentsFromFiles()) {
-      for (const rawQuest of document.quests) {
-        const quest = this.normalizeQuestFileRecord(rawQuest, document.file);
-        if (!quest) {
-          continue;
-        }
-        if (this.quests.has(quest.id)) {
-          this.logger.warn(`任务 ID 重复，已忽略后续配置: ${quest.id} (${document.file})`);
-          continue;
-        }
-        const giverNpc = this.getNpcInMap(quest.giverMapId, quest.giverId);
-        if (!giverNpc) {
-          this.logger.warn(`任务 ${quest.id} 的发放 NPC 不存在: ${quest.giverMapId}/${quest.giverId}`);
-          continue;
-        }
-        giverNpc.quests.push(quest);
-        this.quests.set(quest.id, quest);
-        loadedCount += 1;
-      }
-    }
-
-    this.rebuildMainQuestChain();
-
-    this.logger.log(`已加载 ${loadedCount} 条任务配置`);
-  }
-
-  private rebuildMainQuestChain(): void {
-    this.mainQuestChain = [];
-    this.mainQuestIndexById.clear();
-
-    const mainQuests = [...this.quests.values()].filter((quest) => quest.line === 'main');
-    if (mainQuests.length <= 0) {
-      return;
-    }
-
-    const mainQuestIds = new Set(mainQuests.map((quest) => quest.id));
-    const previousQuestIdById = new Map<string, string>();
-    for (const quest of mainQuests) {
-      if (!quest.nextQuestId || !mainQuestIds.has(quest.nextQuestId)) {
-        continue;
-      }
-      const existingPreviousQuestId = previousQuestIdById.get(quest.nextQuestId);
-      if (existingPreviousQuestId) {
-        this.logger.warn(`主线任务 ${quest.nextQuestId} 存在多个前置: ${existingPreviousQuestId}, ${quest.id}`);
-        continue;
-      }
-      previousQuestIdById.set(quest.nextQuestId, quest.id);
-    }
-
-    const startCandidates = mainQuests.filter((quest) => !previousQuestIdById.has(quest.id));
-    if (startCandidates.length !== 1) {
-      this.logger.warn(`主线链起点数量异常，期望 1 条，实际 ${startCandidates.length} 条`);
-    }
-
-    let current: QuestConfig | undefined = startCandidates[0] ?? mainQuests[0];
-    const visitedQuestIds = new Set<string>();
-    while (current && !visitedQuestIds.has(current.id)) {
-      visitedQuestIds.add(current.id);
-      this.mainQuestIndexById.set(current.id, this.mainQuestChain.length);
-      this.mainQuestChain.push(current);
-      current = current.nextQuestId ? this.quests.get(current.nextQuestId) : undefined;
-    }
-
-    if (visitedQuestIds.size !== mainQuests.length) {
-      const danglingQuestIds = mainQuests
-        .map((quest) => quest.id)
-        .filter((questId) => !visitedQuestIds.has(questId));
-      this.logger.warn(`主线链未完全连通，缺失任务: ${danglingQuestIds.join(', ')}`);
-    }
-  }
-
-  private normalizeQuestFileRecord(rawQuest: QuestFileRecord, sourceFile: string): QuestConfig | null {
-    const sourceLabel = `任务文件 ${sourceFile}`;
-    const objectiveType = rawQuest.objectiveType ?? 'kill';
-    const required = Number.isInteger(rawQuest.required) ? rawQuest.required : rawQuest.targetCount;
-    const giverMapId = typeof rawQuest.giverMapId === 'string' && rawQuest.giverMapId.trim().length > 0
-      ? rawQuest.giverMapId.trim()
-      : '';
-    const giverNpcId = typeof rawQuest.giverNpcId === 'string' && rawQuest.giverNpcId.trim().length > 0
-      ? rawQuest.giverNpcId.trim()
-      : '';
-    const submitMapId = typeof rawQuest.submitMapId === 'string' && rawQuest.submitMapId.trim().length > 0
-      ? rawQuest.submitMapId.trim()
-      : '';
-    const submitNpcId = typeof rawQuest.submitNpcId === 'string' && rawQuest.submitNpcId.trim().length > 0
-      ? rawQuest.submitNpcId.trim()
-      : '';
-    const rewardItemIds = Array.isArray(rawQuest.reward)
-      ? rawQuest.reward
-          .map((entry) => entry?.itemId)
-          .filter((itemId): itemId is string => typeof itemId === 'string')
-      : (typeof rawQuest.rewardItemId === 'string' ? [rawQuest.rewardItemId] : []);
-    const rewardText = typeof rawQuest.rewardText === 'string'
-      ? rawQuest.rewardText
-      : Array.isArray(rawQuest.reward) && rawQuest.reward.length > 0
-        ? rawQuest.reward
-            .map((entry) => `${entry.name ?? entry.itemId ?? '未知奖励'} x${entry.count ?? 1}`)
-            .join('、')
-        : '无';
-    const rewards: DropConfig[] = Array.isArray(rawQuest.reward)
-      ? rawQuest.reward
-          .filter((entry): entry is { itemId: string; name: string; type: ItemType; count?: number } =>
-            typeof entry?.itemId === 'string'
-            && typeof entry?.name === 'string'
-            && typeof entry?.type === 'string',
-          )
-          .map((entry) => ({
-            itemId: entry.itemId,
-            name: entry.name,
-            type: entry.type,
-            count: Number.isInteger(entry.count) ? Number(entry.count) : 1,
-            chance: 1,
-          }))
-      : [];
-    const parsedRealmStage = typeof rawQuest.targetRealmStage === 'number'
-      ? rawQuest.targetRealmStage
-      : typeof rawQuest.targetRealmStage === 'string'
-        ? PlayerRealmStage[rawQuest.targetRealmStage]
-        : undefined;
-    const parsedRealmLv = Number.isInteger(rawQuest.targetRealmLv)
-      ? Math.max(1, Number(rawQuest.targetRealmLv))
-      : undefined;
-    const parsedAcceptRealmStage = typeof rawQuest.acceptRealmStage === 'number'
-      ? rawQuest.acceptRealmStage
-      : typeof rawQuest.acceptRealmStage === 'string'
-        ? PlayerRealmStage[rawQuest.acceptRealmStage]
-        : undefined;
-    const parsedAcceptRealmLv = Number.isInteger(rawQuest.acceptRealmLv)
-      ? Math.max(1, Number(rawQuest.acceptRealmLv))
-      : undefined;
-    const validByObjective = (
-      objectiveType === 'kill' && typeof rawQuest.targetMonsterId === 'string' && Number.isInteger(required)
-    ) || (
-      objectiveType === 'talk' && typeof rawQuest.targetNpcId === 'string'
-    ) || (
-      objectiveType === 'submit_item' && typeof rawQuest.requiredItemId === 'string'
-    ) || (
-      objectiveType === 'learn_technique' && typeof rawQuest.targetTechniqueId === 'string'
-    ) || (
-      objectiveType === 'realm_progress' && Number.isInteger(required) && (parsedRealmStage !== undefined || parsedRealmLv !== undefined)
-    ) || (
-      objectiveType === 'realm_stage' && (parsedRealmStage !== undefined || parsedRealmLv !== undefined)
-    );
-    const validQuest =
-      typeof rawQuest.id === 'string'
-      && typeof rawQuest.title === 'string'
-      && typeof rawQuest.desc === 'string'
-      && giverMapId.length > 0
-      && giverNpcId.length > 0
-      && submitMapId.length > 0
-      && submitNpcId.length > 0
-      && validByObjective
-      && (rewardItemIds.length > 0 || rewards.length > 0 || typeof rawQuest.rewardText === 'string');
-    if (!validQuest) {
-      this.logger.warn(`${sourceLabel} 存在非法任务配置: ${rawQuest.id ?? rawQuest.title ?? '未命名任务'}`);
-      return null;
-    }
-
-    const giverMap = this.maps.get(giverMapId);
-    const giverNpc = this.getNpcInMap(giverMapId, giverNpcId);
-    const submitMap = this.maps.get(submitMapId);
-    const submitNpc = this.getNpcInMap(submitMapId, submitNpcId);
-    if (!giverMap || !giverNpc) {
-      this.logger.warn(`${sourceLabel} 的任务 ${rawQuest.id} 发放点不存在: ${giverMapId}/${giverNpcId}`);
-      return null;
-    }
-    if (!submitMap || !submitNpc) {
-      this.logger.warn(`${sourceLabel} 的任务 ${rawQuest.id} 提交点不存在: ${submitMapId}/${submitNpcId}`);
-      return null;
-    }
-
-    const targetMapId = typeof rawQuest.targetMapId === 'string' && rawQuest.targetMapId.trim().length > 0
-      ? rawQuest.targetMapId.trim()
-      : undefined;
-    const targetMap = targetMapId ? this.maps.get(targetMapId) : undefined;
-    if (targetMapId && !targetMap) {
-      this.logger.warn(`${sourceLabel} 的任务 ${rawQuest.id} 目标地图不存在: ${targetMapId}`);
-      return null;
-    }
-    const targetNpcId = typeof rawQuest.targetNpcId === 'string' && rawQuest.targetNpcId.trim().length > 0
-      ? rawQuest.targetNpcId.trim()
-      : undefined;
-    const targetNpcLocation = targetNpcId
-      ? (targetMapId ? this.getNpcLocationInMap(targetMapId, targetNpcId) : this.getNpcLocation(targetNpcId))
-      : undefined;
-    if (objectiveType === 'talk' && targetNpcId && !targetNpcLocation) {
-      this.logger.warn(`${sourceLabel} 的任务 ${rawQuest.id} 目标 NPC 不存在: ${targetMapId ?? '任意地图'}/${targetNpcId}`);
-      return null;
-    }
-
-    const normalizedRequired = objectiveType === 'submit_item'
-      ? (Number.isInteger(rawQuest.requiredItemCount) ? rawQuest.requiredItemCount! : (Number.isInteger(required) ? required! : 1))
-      : (Number.isInteger(required) ? required! : 1);
-    const targetName = typeof rawQuest.targetName === 'string'
-      ? rawQuest.targetName
-      : objectiveType === 'kill'
-        ? rawQuest.targetMonsterId!
-        : objectiveType === 'talk'
-          ? rawQuest.targetNpcName ?? targetNpcLocation?.name ?? targetNpcId ?? rawQuest.title!
-          : objectiveType === 'submit_item'
-            ? rawQuest.requiredItemId ?? rawQuest.title!
-            : objectiveType === 'learn_technique'
-              ? rawQuest.targetTechniqueId!
-              : parsedRealmStage !== undefined
-                ? resolveRealmStageTargetLabel(parsedRealmStage) ?? PlayerRealmStage[parsedRealmStage]
-                : parsedRealmLv !== undefined
-                  ? this.contentService.getRealmLevelEntry(parsedRealmLv)?.displayName ?? `realmLv ${parsedRealmLv}`
-                : rawQuest.title!;
-
-    return {
-      id: rawQuest.id!,
-      title: rawQuest.title!,
-      desc: rawQuest.desc!,
-      line: rawQuest.line === 'main' || rawQuest.line === 'daily' || rawQuest.line === 'encounter'
-        ? rawQuest.line
-        : 'side',
-      chapter: typeof rawQuest.chapter === 'string' ? rawQuest.chapter : undefined,
-      story: typeof rawQuest.story === 'string' ? rawQuest.story : undefined,
-      objectiveType,
-      objectiveText: typeof rawQuest.objectiveText === 'string' ? rawQuest.objectiveText : undefined,
-      targetName,
-      targetMapId: targetMapId ?? targetNpcLocation?.mapId,
-      targetMapName: targetMap?.meta.name ?? (targetNpcLocation?.mapId ? this.getMapMeta(targetNpcLocation.mapId)?.name : undefined),
-      targetX: Number.isInteger(rawQuest.targetX) ? rawQuest.targetX : targetNpcLocation?.x,
-      targetY: Number.isInteger(rawQuest.targetY) ? rawQuest.targetY : targetNpcLocation?.y,
-      targetNpcId,
-      targetNpcName: typeof rawQuest.targetNpcName === 'string' ? rawQuest.targetNpcName : targetNpcLocation?.name,
-      targetMonsterId: typeof rawQuest.targetMonsterId === 'string' ? rawQuest.targetMonsterId : undefined,
-      targetTechniqueId: typeof rawQuest.targetTechniqueId === 'string' ? rawQuest.targetTechniqueId : undefined,
-      targetRealmStage: parsedRealmStage,
-      targetRealmLv: parsedRealmLv,
-      acceptRealmStage: parsedAcceptRealmStage,
-      acceptRealmLv: parsedAcceptRealmLv,
-      required: normalizedRequired,
-      rewards,
-      rewardItemIds,
-      rewardItemId: rewardItemIds[0] ?? '',
-      rewardText,
-      nextQuestId: typeof rawQuest.nextQuestId === 'string' ? rawQuest.nextQuestId : undefined,
-      requiredItemId: typeof rawQuest.requiredItemId === 'string' ? rawQuest.requiredItemId : undefined,
-      requiredItemCount: Number.isInteger(rawQuest.requiredItemCount) ? rawQuest.requiredItemCount : undefined,
-      submitNpcId,
-      submitNpcName: submitNpc.name,
-      submitMapId,
-      submitMapName: submitMap.meta.name,
-      submitX: submitNpc.x,
-      submitY: submitNpc.y,
-      relayMessage: typeof rawQuest.relayMessage === 'string' ? rawQuest.relayMessage : undefined,
-      unlockBreakthroughRequirementIds: Array.isArray(rawQuest.unlockBreakthroughRequirementIds)
-        ? rawQuest.unlockBreakthroughRequirementIds.filter((entry): entry is string => typeof entry === 'string')
-        : undefined,
-      giverId: giverNpc.id,
-      giverName: giverNpc.name,
-      giverMapId,
-      giverMapName: giverMap.meta.name,
-      giverX: giverNpc.x,
-      giverY: giverNpc.y,
-    };
-  }
-
-  private getNpcInMap(mapId: string, npcId: string): NpcConfig | undefined {
-    return this.maps.get(mapId)?.npcs.find((npc) => npc.id === npcId);
-  }
-
-  private getNpcLocationInMap(mapId: string, npcId: string): NpcLocation | undefined {
-    const npc = this.getNpcInMap(mapId, npcId);
-    if (!npc) {
-      return undefined;
-    }
-    const mapMeta = this.maps.get(mapId)?.meta;
-    if (!mapMeta) {
-      return undefined;
-    }
-    return {
-      mapId,
-      mapName: mapMeta.name,
-      x: npc.x,
-      y: npc.y,
-      name: npc.name,
-    };
+    const domain = new MapQuestDomain(this.contentService, this.questDir, this.logger, this.maps);
+    const result = domain.reloadQuestBindingsFromFiles();
+    this.quests = result.quests;
+    this.mainQuestChain = result.mainQuestChain;
+    this.mainQuestIndexById = result.mainQuestIndexById;
   }
 
   private normalizeMonsterSpawns(rawSpawns: unknown, meta: MapMeta): MonsterSpawnConfig[] {
-    if (!Array.isArray(rawSpawns)) return [];
-
-    const result: MonsterSpawnConfig[] = [];
-    for (const candidate of rawSpawns) {
-      const rawSpawn = candidate as Partial<GmMapMonsterSpawnRecord> & Partial<MonsterSpawnConfig> & {
-        templateId?: string;
-        count?: number;
-        radius?: number;
-        maxAlive?: number;
-        wanderRadius?: number;
-        respawnSec?: number;
-        level?: number;
-      };
-      const templateId = this.resolveMonsterSpawnTemplateId(rawSpawn);
-      const template = templateId ? this.contentService.getMonsterTemplate(templateId) : undefined;
-      if (!template) {
-        this.logger.warn(`地图 ${meta.id} 存在未匹配怪物模板的刷新点，已忽略: ${String(rawSpawn.id ?? '')}`);
-        continue;
-      }
-      const level = Number.isInteger(rawSpawn.level) ? Math.max(1, Number(rawSpawn.level)) : template.level;
-      const equipment = this.contentService.normalizeEquipment(template.equipment);
-      const skills = this.contentService.normalizeMonsterSkills(rawSpawn.skills ?? template.skills, String(rawSpawn.id ?? template.id));
-      const valueStats = template.valueStats
-        ?? inferMonsterValueStatsFromLegacy({
-          maxHp: template.maxHp,
-          attack: template.attack,
-          level: template.level,
-          viewRange: template.viewRange,
-        });
-      const legacyNumericStats = resolveMonsterNumericStatsFromValueStats(valueStats, level);
-      const attrs = normalizeMonsterAttrs(
-        rawSpawn.attrs ?? template.attrs,
-        rawSpawn.attrs || template.attrs ? undefined : inferMonsterAttrsFromNumericStats(legacyNumericStats),
-      );
-      const statPercents = normalizeMonsterStatPercents(rawSpawn.statPercents ?? template.statPercents)
-        ?? (rawSpawn.attrs || template.attrs
-          ? undefined
-          : createMonsterAutoStatPercents(legacyNumericStats, attrs, level, equipment));
-      const initialBuffs = Array.isArray(rawSpawn.initialBuffs)
-        ? rawSpawn.initialBuffs.map((entry) => ({ ...entry }))
-        : (template.initialBuffs?.map((entry) => ({ ...entry })) ?? undefined);
-      const tier = normalizeMonsterTier(rawSpawn.tier ?? template.tier);
-      const numericStats = resolveMonsterNumericStatsFromAttributes({
-        attrs,
-        equipment,
-        level,
-        statPercents,
-        grade: rawSpawn.grade ?? template.grade,
-        tier,
-      });
-      const combatModel: MonsterCombatModel = 'value_stats';
-      const spawnId = typeof rawSpawn.id === 'string' && rawSpawn.id.trim().length > 0
-        ? rawSpawn.id.trim()
-        : templateId;
-      const radius = Number.isInteger(rawSpawn.radius) ? Math.max(0, Number(rawSpawn.radius)) : template.radius;
-      const configuredMaxAlive = Number.isInteger(rawSpawn.maxAlive) ? Math.max(1, Number(rawSpawn.maxAlive)) : template.maxAlive;
-      const configuredCount = Number.isInteger(rawSpawn.count) ? Math.max(1, Number(rawSpawn.count)) : template.count;
-      const { count, maxAlive } = resolveMonsterSpawnPopulation(tier, configuredCount, configuredMaxAlive);
-      const respawnTicks = Number.isInteger(rawSpawn.respawnTicks)
-        ? Math.max(1, Number(rawSpawn.respawnTicks))
-        : Math.max(1, Number(rawSpawn.respawnSec ?? template.respawnTicks));
-      const wanderRadius = Number.isInteger(rawSpawn.wanderRadius)
-        ? Math.max(0, Number(rawSpawn.wanderRadius))
-        : radius;
-      const expMultiplier = Number.isFinite(rawSpawn.expMultiplier)
-        ? resolveMonsterExpMultiplier(rawSpawn.expMultiplier, tier)
-        : (rawSpawn.tier !== undefined && tier !== template.tier
-          ? resolveMonsterExpMultiplier(undefined, tier)
-          : template.expMultiplier);
-      const valid =
-        typeof spawnId === 'string' &&
-        Number.isInteger(rawSpawn.x) &&
-        Number.isInteger(rawSpawn.y);
-      if (!valid) {
-        this.logger.warn(`地图 ${meta.id} 存在非法怪物刷新点配置，已忽略`);
-        continue;
-      }
-      if (rawSpawn.x! < 0 || rawSpawn.x! >= meta.width || rawSpawn.y! < 0 || rawSpawn.y! >= meta.height) {
-        this.logger.warn(`地图 ${meta.id} 的怪物刷新点越界: ${spawnId}`);
-        continue;
-      }
-      const drops = this.normalizeDrops(template.drops);
-      result.push({
-        id: spawnId!,
-        name: template.name,
-        x: rawSpawn.x!,
-        y: rawSpawn.y!,
-        char: template.char,
-        color: template.color,
-        grade: this.normalizeContainerGrade(rawSpawn.grade ?? template.grade),
-        attrs,
-        equipment,
-        statPercents,
-        initialBuffs,
-        skills,
-        tier,
-        valueStats,
-        numericStats,
-        combatModel,
-        hp: Math.max(1, Math.round(numericStats.maxHp || template.hp)),
-        maxHp: Math.max(1, Math.round(numericStats.maxHp || template.maxHp || template.hp)),
-        attack: Math.max(1, Math.round(numericStats.physAtk || numericStats.spellAtk || template.attack || 1)),
-        count,
-        radius,
-        maxAlive,
-        wanderRadius,
-        aggroRange: template.aggroRange,
-        viewRange: template.viewRange,
-        aggroMode: template.aggroMode,
-        respawnTicks,
-        level,
-        expMultiplier,
-        drops,
-      });
-    }
-    return result;
+    return this.contentDomain.normalizeMonsterSpawns(rawSpawns, meta);
   }
 
   private resolveMonsterSpawnTemplateId(spawn: { id?: unknown; templateId?: unknown }): string | undefined {
@@ -3063,83 +1919,11 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
   }
 
   private normalizeContainers(rawLandmarks: unknown, meta: MapMeta): ContainerConfig[] {
-    if (!Array.isArray(rawLandmarks)) {
-      return [];
-    }
-
-    const result: ContainerConfig[] = [];
-    for (const candidate of rawLandmarks) {
-      const landmark = candidate as GmMapLandmarkRecord;
-      const resourceNodeId = typeof landmark?.resourceNodeId === 'string' && landmark.resourceNodeId.trim().length > 0
-        ? landmark.resourceNodeId.trim()
-        : undefined;
-      const resourceNode = resourceNodeId ? LANDMARK_RESOURCE_NODE_BY_ID.get(resourceNodeId) : undefined;
-      const resolvedContainer = landmark?.container
-        ?? (resourceNode?.kind === 'landmark_container' ? resourceNode.container : undefined);
-
-      if (resourceNodeId && !resourceNode) {
-        this.logger.warn(`地图 ${meta.id} 的资源节点不存在: ${resourceNodeId}`);
-        continue;
-      }
-      if (!resolvedContainer || typeof landmark.id !== 'string' || typeof landmark.name !== 'string') {
-        continue;
-      }
-      if (!Number.isInteger(landmark.x) || !Number.isInteger(landmark.y)) {
-        continue;
-      }
-      if (landmark.x < 0 || landmark.x >= meta.width || landmark.y < 0 || landmark.y >= meta.height) {
-        this.logger.warn(`地图 ${meta.id} 的容器越界: ${landmark.id}`);
-        continue;
-      }
-      if (resourceNode && resourceNode.kind !== 'landmark_container' && !landmark.container) {
-        continue;
-      }
-
-      result.push({
-        id: landmark.id,
-        name: landmark.name,
-        x: landmark.x,
-        y: landmark.y,
-        desc: typeof landmark.desc === 'string' ? landmark.desc : undefined,
-        variant: resolvedContainer.variant === 'herb' ? 'herb' : undefined,
-        char: typeof resolvedContainer.char === 'string' && resolvedContainer.char.trim().length > 0
-          ? resolvedContainer.char.trim().slice(0, 1)
-          : undefined,
-        color: typeof resolvedContainer.color === 'string' && resolvedContainer.color.trim().length > 0
-          ? resolvedContainer.color.trim()
-          : undefined,
-        grade: this.normalizeContainerGrade(resolvedContainer.grade),
-        refreshTicks: Number.isInteger(resolvedContainer.refreshTicks) && resolvedContainer.refreshTicks! > 0
-          ? Number(resolvedContainer.refreshTicks)
-          : undefined,
-        refreshTicksMin: Number.isInteger(resolvedContainer.refreshTicksMin) && resolvedContainer.refreshTicksMin! > 0
-          ? Number(resolvedContainer.refreshTicksMin)
-          : undefined,
-        refreshTicksMax: Number.isInteger(resolvedContainer.refreshTicksMax) && resolvedContainer.refreshTicksMax! > 0
-          ? Number(resolvedContainer.refreshTicksMax)
-          : undefined,
-        drops: this.normalizeDrops(resolvedContainer.drops),
-        lootPools: this.normalizeContainerLootPools(resolvedContainer.lootPools),
-      });
-    }
-
-    return result;
+    return this.contentDomain.normalizeContainers(rawLandmarks, meta);
   }
 
   private normalizeContainerGrade(grade: unknown): TechniqueGrade {
-    if (
-      grade === 'mortal' ||
-      grade === 'yellow' ||
-      grade === 'mystic' ||
-      grade === 'earth' ||
-      grade === 'heaven' ||
-      grade === 'spirit' ||
-      grade === 'saint' ||
-      grade === 'emperor'
-    ) {
-      return grade;
-    }
-    return 'mortal';
+    return normalizeContainerGradeHelper(grade);
   }
 
   private buildMinimapSnapshot(
@@ -3150,169 +1934,15 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     npcs: NpcConfig[],
     monsterSpawns: MonsterSpawnConfig[],
   ): MapMinimapSnapshot {
-    const markers: MapMinimapMarker[] = [];
-    const containerLandmarkIds = new Set(containers.map((container) => container.id));
-    const landmarks = expandMapResourceNodeGroups(document);
-
-    const pushMarker = (marker: MapMinimapMarker): void => {
-      if (marker.x < 0 || marker.x >= meta.width || marker.y < 0 || marker.y >= meta.height) {
-        return;
-      }
-      markers.push(marker);
-    };
-
-    for (const landmark of landmarks) {
-      if (!Number.isInteger(landmark.x) || !Number.isInteger(landmark.y)) {
-        continue;
-      }
-      if (containerLandmarkIds.has(landmark.id)) {
-        continue;
-      }
-      pushMarker({
-        id: `landmark:${landmark.id}`,
-        kind: 'landmark',
-        x: landmark.x,
-        y: landmark.y,
-        label: landmark.name,
-        detail: typeof landmark.desc === 'string' && landmark.desc.trim() ? landmark.desc.trim() : undefined,
-      });
-    }
-
-    for (const container of containers) {
-      pushMarker({
-        id: `container:${container.id}`,
-        kind: 'container',
-        x: container.x,
-        y: container.y,
-        label: container.name,
-        detail: container.desc?.trim() || '可搜索容器',
-      });
-    }
-
-    for (const npc of npcs) {
-      pushMarker({
-        id: `npc:${npc.id}`,
-        kind: 'npc',
-        x: npc.x,
-        y: npc.y,
-        label: npc.name,
-        detail: npc.role ? `NPC · ${npc.role}` : 'NPC',
-      });
-    }
-
-    for (const spawn of monsterSpawns) {
-      pushMarker({
-        id: `monster_spawn:${spawn.id}`,
-        kind: 'monster_spawn',
-        x: spawn.x,
-        y: spawn.y,
-        label: spawn.name,
-        detail: `刷新点 · 半径 ${spawn.radius}`,
-      });
-    }
-
-    for (const portal of portals) {
-      if (portal.hidden) {
-        continue;
-      }
-      const targetMapName = this.getMapMeta(portal.targetMapId)?.name?.trim() || undefined;
-      const label = portal.observeTitle
-        ?? (targetMapName ? `通往 ${targetMapName}` : (portal.kind === 'stairs' ? '楼梯' : '传送阵'));
-      const detail = portal.observeDesc
-        ?? (targetMapName ? `通往 ${targetMapName}` : undefined)
-        ?? `通往 ${portal.targetMapId}`;
-      pushMarker({
-        id: `${portal.kind}:${portal.x},${portal.y}:${portal.targetMapId}`,
-        kind: portal.kind,
-        x: portal.x,
-        y: portal.y,
-        label,
-        detail,
-      });
-    }
-
-    const terrainRows = document.tiles.map((row) => row.split(''));
-    for (const portal of portals) {
-      if (portal.hidden) {
-        continue;
-      }
-      if (!terrainRows[portal.y]?.[portal.x]) {
-        continue;
-      }
-      terrainRows[portal.y]![portal.x] = portal.kind === 'stairs' ? 'S' : 'P';
-    }
-
-    return {
-      width: meta.width,
-      height: meta.height,
-      terrainRows: terrainRows.map((row) => row.join('')),
-      markers,
-    };
+    return this.contentDomain.buildMinimapSnapshot(meta, document, portals, containers, npcs, monsterSpawns);
   }
 
   private normalizeDrops(rawDrops: unknown): DropConfig[] {
-    if (!Array.isArray(rawDrops)) {
-      return [];
-    }
-
-    const drops: DropConfig[] = [];
-    for (const rawDrop of rawDrops) {
-      const drop = rawDrop as Partial<DropConfig>;
-      if (
-        typeof drop.itemId !== 'string' ||
-        typeof drop.name !== 'string' ||
-        typeof drop.type !== 'string'
-      ) {
-        continue;
-      }
-      drops.push({
-        itemId: drop.itemId,
-        name: drop.name,
-        type: drop.type as ItemType,
-        count: Number.isInteger(drop.count) ? Number(drop.count) : 1,
-        chance: typeof drop.chance === 'number' ? drop.chance : 1,
-      });
-    }
-    return drops;
+    return normalizeDropsHelper(rawDrops);
   }
 
   private normalizeContainerLootPools(rawPools: unknown): ContainerLootPoolConfig[] {
-    if (!Array.isArray(rawPools)) {
-      return [];
-    }
-
-    const pools: ContainerLootPoolConfig[] = [];
-    for (const rawPool of rawPools) {
-      const pool = rawPool as Partial<GmMapContainerLootPoolRecord>;
-      const normalizedTagGroups = Array.isArray(pool.tagGroups)
-        ? pool.tagGroups
-          .map((group) => Array.isArray(group)
-            ? group
-              .filter((entry): entry is string => typeof entry === 'string' && entry.trim().length > 0)
-              .map((entry) => entry.trim())
-            : [])
-          .filter((group) => group.length > 0)
-        : [];
-      const rolls = Number.isInteger(pool.rolls) && Number(pool.rolls) > 0 ? Number(pool.rolls) : 1;
-      const chance = typeof pool.chance === 'number' ? Math.max(0, Math.min(1, Number(pool.chance))) : 1;
-      const minLevel = Number.isInteger(pool.minLevel) && Number(pool.minLevel) > 0 ? Number(pool.minLevel) : undefined;
-      const maxLevel = Number.isInteger(pool.maxLevel) && Number(pool.maxLevel) > 0 ? Number(pool.maxLevel) : undefined;
-      const countMin = Number.isInteger(pool.countMin) && Number(pool.countMin) > 0 ? Number(pool.countMin) : undefined;
-      const countMax = Number.isInteger(pool.countMax) && Number(pool.countMax) > 0 ? Number(pool.countMax) : undefined;
-      pools.push({
-        rolls,
-        chance,
-        minLevel,
-        maxLevel,
-        minGrade: pool.minGrade ? this.normalizeContainerGrade(pool.minGrade) : undefined,
-        maxGrade: pool.maxGrade ? this.normalizeContainerGrade(pool.maxGrade) : undefined,
-        tagGroups: normalizedTagGroups,
-        countMin,
-        countMax,
-        allowDuplicates: pool.allowDuplicates === true,
-      });
-    }
-    return pools;
+    return normalizeContainerLootPoolsHelper(rawPools);
   }
 
   getMapMeta(mapId: string): MapMeta | undefined {
@@ -3455,44 +2085,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
   }
 
   getPathfindingStaticGrid(mapId: string): PathfindingStaticGrid | null {
-    const map = this.maps.get(mapId);
-    if (!map) {
-      return null;
-    }
-
-    const revision = this.getMapRevision(mapId);
-    const cached = this.pathfindingStaticGrids.get(mapId);
-    if (cached && cached.mapRevision === revision) {
-      return cached;
-    }
-
-    const total = map.meta.width * map.meta.height;
-    const walkable = new Uint8Array(total);
-    const traversalCost = new Uint16Array(total);
-    for (let y = 0; y < map.meta.height; y += 1) {
-      for (let x = 0; x < map.meta.width; x += 1) {
-        const index = y * map.meta.width + x;
-        const tile = map.tiles[y]?.[x];
-        if (!tile || !tile.walkable) {
-          walkable[index] = 0;
-          traversalCost[index] = 0;
-          continue;
-        }
-        walkable[index] = 1;
-        traversalCost[index] = getTileTraversalCost(tile.type);
-      }
-    }
-
-    const snapshot: PathfindingStaticGrid = {
-      mapId,
-      mapRevision: revision,
-      width: map.meta.width,
-      height: map.meta.height,
-      walkable,
-      traversalCost,
-    };
-    this.pathfindingStaticGrids.set(mapId, snapshot);
-    return snapshot;
+    return this.occupancyDomain.getPathfindingStaticGrid(mapId);
   }
 
   buildPathfindingBlockedGrid(
@@ -3500,43 +2093,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     actorType: PathfindingActorType,
     selfOccupancyId?: string | null,
   ): Uint8Array | null {
-    const grid = this.getPathfindingStaticGrid(mapId);
-    const map = this.maps.get(mapId);
-    if (!grid || !map) {
-      return null;
-    }
-
-    const blocked = new Uint8Array(grid.width * grid.height);
-    for (const npc of map.npcs) {
-      if (npc.x < 0 || npc.x >= grid.width || npc.y < 0 || npc.y >= grid.height) {
-        continue;
-      }
-      blocked[npc.y * grid.width + npc.x] = 1;
-    }
-
-    const occupants = this.occupantsByMap.get(mapId);
-    if (!occupants) {
-      return blocked;
-    }
-
-    for (const [key, entries] of occupants.entries()) {
-      const [rawX, rawY] = key.split(',');
-      const x = Number(rawX);
-      const y = Number(rawY);
-      if (!Number.isInteger(x) || !Number.isInteger(y) || x < 0 || x >= grid.width || y < 0 || y >= grid.height) {
-        continue;
-      }
-      const blockers = [...entries.entries()].filter(([id]) => id !== selfOccupancyId);
-      if (blockers.length === 0) {
-        continue;
-      }
-      if (actorType === 'player' && this.supportsPlayerOverlap(mapId, x, y)) {
-        continue;
-      }
-      blocked[y * grid.width + x] = 1;
-    }
-
-    return blocked;
+    return this.occupancyDomain.buildPathfindingBlockedGrid(mapId, actorType, selfOccupancyId);
   }
 
   getVisibilityRevision(mapId: string): string {
@@ -3560,6 +2117,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     this.dirtyTileKeysByMap.delete(mapId);
   }
 
+/** bumpMapRevision：处理当前场景中的对应操作。 */
   private bumpMapRevision(mapId: string) {
     this.revisions.set(mapId, (this.revisions.get(mapId) ?? 0) + 1);
   }
@@ -3583,124 +2141,35 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
   }
 
   getOverlayParentMapId(mapId: string): string | undefined {
-    const meta = this.getMapMeta(mapId);
-    if (meta?.spaceVisionMode !== 'parent_overlay' || !meta.parentMapId) {
-      return undefined;
-    }
-    return this.maps.has(meta.parentMapId) ? meta.parentMapId : undefined;
+    return this.portalDomain.getOverlayParentMapId(mapId);
   }
 
   projectPointToMap(targetMapId: string, sourceMapId: string, x: number, y: number): ProjectedPoint | null {
-    if (targetMapId === sourceMapId) {
-      return { x, y };
-    }
-
-    const targetMeta = this.getMapMeta(targetMapId);
-    const sourceMeta = this.getMapMeta(sourceMapId);
-    if (!targetMeta || !sourceMeta) {
-      return null;
-    }
-
-    if (
-      targetMeta.parentMapId === sourceMapId &&
-      targetMeta.spaceVisionMode === 'parent_overlay' &&
-      Number.isInteger(targetMeta.parentOriginX) &&
-      Number.isInteger(targetMeta.parentOriginY)
-    ) {
-      return {
-        x: x - targetMeta.parentOriginX!,
-        y: y - targetMeta.parentOriginY!,
-      };
-    }
-
-    if (
-      sourceMeta.parentMapId === targetMapId &&
-      sourceMeta.spaceVisionMode === 'parent_overlay' &&
-      Number.isInteger(sourceMeta.parentOriginX) &&
-      Number.isInteger(sourceMeta.parentOriginY)
-    ) {
-      return {
-        x: x + sourceMeta.parentOriginX!,
-        y: y + sourceMeta.parentOriginY!,
-      };
-    }
-
-    return null;
+    return this.portalDomain.projectPointToMap(targetMapId, sourceMapId, x, y);
   }
 
   getPortalAt(mapId: string, x: number, y: number, options?: PortalQueryOptions): Portal | undefined {
-    const map = this.maps.get(mapId);
-    if (!map) return undefined;
-    return map.portals.find((portal) => portal.x === x && portal.y === y && this.matchesPortalQuery(portal, options));
+    return this.portalDomain.getPortalAt(mapId, x, y, options);
   }
 
   getHiddenPortalObservationAt(mapId: string, x: number, y: number): PortalObservationHint | undefined {
-    const localPortal = this.getPortalAt(mapId, x, y);
-    if (localPortal?.hidden) {
-      return this.toPortalObservationHint(localPortal);
-    }
-
-    const parentMapId = this.getOverlayParentMapId(mapId);
-    if (!parentMapId || this.isPointInMapBounds(mapId, x, y)) {
-      return undefined;
-    }
-
-    const projected = this.projectPointToMap(parentMapId, mapId, x, y);
-    if (!projected) {
-      return undefined;
-    }
-    const parentPortal = this.getPortalAt(parentMapId, projected.x, projected.y);
-    if (!parentPortal?.hidden) {
-      return undefined;
-    }
-    return this.toPortalObservationHint(parentPortal);
+    return this.portalDomain.getHiddenPortalObservationAt(mapId, x, y);
   }
 
   getPortalNear(mapId: string, x: number, y: number, maxDistance = 1, options?: PortalQueryOptions): Portal | undefined {
-    const map = this.maps.get(mapId);
-    if (!map) return undefined;
-    return map.portals.find((portal) =>
-      isPointInRange(portal, { x, y }, maxDistance) && this.matchesPortalQuery(portal, options));
+    return this.portalDomain.getPortalNear(mapId, x, y, maxDistance, options);
   }
 
   getPortals(mapId: string, options?: PortalQueryOptions): Portal[] {
-    const map = this.maps.get(mapId);
-    if (!map) {
-      return [];
-    }
-    return map.portals.filter((portal) => this.matchesPortalQuery(portal, options));
-  }
-
-  private matchesPortalQuery(portal: Portal, options?: PortalQueryOptions): boolean {
-    if (!options) return true;
-    if (options.trigger && portal.trigger !== options.trigger) return false;
-    if (options.kind && portal.kind !== options.kind) return false;
-    if (options.allowedRouteDomains && options.allowedRouteDomains.length > 0 && !options.allowedRouteDomains.includes(portal.routeDomain)) {
-      return false;
-    }
-    return true;
+    return this.portalDomain.getPortals(mapId, options);
   }
 
   getMapRouteDomain(mapId: string): MapRouteDomain {
-    return this.normalizeMapRouteDomain(this.maps.get(mapId)?.meta.routeDomain);
+    return this.portalDomain.getMapRouteDomain(mapId);
   }
 
   isMapRouteDomainAllowed(mapId: string, allowedRouteDomains?: readonly MapRouteDomain[]): boolean {
-    if (!allowedRouteDomains || allowedRouteDomains.length <= 0) {
-      return true;
-    }
-    return allowedRouteDomains.includes(this.getMapRouteDomain(mapId));
-  }
-
-  private toPortalObservationHint(portal: Portal): PortalObservationHint {
-    return {
-      title: portal.observeTitle
-        ?? (portal.kind === 'stairs' ? '隐藏楼梯' : '隐匿入口'),
-      desc: portal.observeDesc
-        ?? (portal.kind === 'stairs'
-          ? '细看之下，这里像是藏着一道被刻意掩去痕迹的阶口。'
-          : '细看之下，这里隐约残留着一处被刻意遮掩的入口痕迹。'),
-    };
+    return this.portalDomain.isMapRouteDomainAllowed(mapId, allowedRouteDomains);
   }
 
   getNpcs(mapId: string): NpcConfig[] {
@@ -4074,41 +2543,26 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
   }
 
   hasNpcAt(mapId: string, x: number, y: number): boolean {
-    const map = this.maps.get(mapId);
-    if (!map) return false;
-    return map.npcs.some((npc) => npc.x === x && npc.y === y);
+    return this.occupancyDomain.hasNpcAt(mapId, x, y);
   }
 
   isTerrainWalkable(mapId: string, x: number, y: number): boolean {
-    const tile = this.getTile(mapId, x, y);
-    return tile !== null && tile.walkable;
+    return this.occupancyDomain.isTerrainWalkable(mapId, x, y);
   }
 
   isPlayerOverlapTile(mapId: string, x: number, y: number): boolean {
-    return this.supportsPlayerOverlap(mapId, x, y);
+    return this.occupancyDomain.isPlayerOverlapTile(mapId, x, y);
   }
 
   resolvePlayerRespawnMapId(preferredMapId?: string | null): string {
-    if (isPlayerRespawnMapId(preferredMapId) && this.getMapMeta(preferredMapId)) {
-      return preferredMapId;
-    }
-    const configuredFallback = PLAYER_RESPAWN_MAP_IDS.find((mapId) => this.getMapMeta(mapId));
-    if (configuredFallback) {
-      return configuredFallback;
-    }
-    return this.getMapMeta(DEFAULT_PLAYER_MAP_ID)
-      ? DEFAULT_PLAYER_MAP_ID
-      : (this.getAllMapIds()[0] ?? DEFAULT_PLAYER_MAP_ID);
+    return this.occupancyDomain.resolvePlayerRespawnMapId(preferredMapId);
   }
 
   resolveDefaultPlayerSpawnPosition(
     occupancyId?: string | null,
     preferredMapId?: string | null,
   ): { mapId: string; x: number; y: number } {
-    const mapId = this.resolvePlayerRespawnMapId(preferredMapId);
-    const spawn = this.getSpawnPoint(mapId) ?? { x: 10, y: 10 };
-    const pos = this.resolveWalkablePlayerPositionInMap(mapId, spawn.x, spawn.y, occupancyId);
-    return { mapId, x: pos.x, y: pos.y };
+    return this.occupancyDomain.resolveDefaultPlayerSpawnPosition(occupancyId, preferredMapId);
   }
 
   resolvePlayerPlacement(
@@ -4117,47 +2571,15 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     y: number,
     occupancyId?: string | null,
   ): { mapId: string; x: number; y: number; mapMissing: boolean } {
-    if (!this.getMapMeta(mapId)) {
-      return {
-        ...this.resolveDefaultPlayerSpawnPosition(occupancyId),
-        mapMissing: true,
-      };
-    }
-
-    const pos = this.resolveWalkablePlayerPositionInMap(mapId, x, y, occupancyId);
-    return {
-      mapId,
-      x: pos.x,
-      y: pos.y,
-      mapMissing: false,
-    };
+    return this.occupancyDomain.resolvePlayerPlacement(mapId, x, y, occupancyId);
   }
 
   isWalkable(mapId: string, x: number, y: number, options: OccupancyCheckOptions = {}): boolean {
-    const tile = this.getTile(mapId, x, y);
-    if (tile === null || !tile.walkable || this.hasNpcAt(mapId, x, y)) {
-      return false;
-    }
-    return this.canOccupy(mapId, x, y, options);
+    return this.occupancyDomain.isWalkable(mapId, x, y, options);
   }
 
   canOccupy(mapId: string, x: number, y: number, options: OccupancyCheckOptions = {}): boolean {
-    const tile = this.getTile(mapId, x, y);
-    if (!tile || !tile.walkable) return false;
-    if (this.hasNpcAt(mapId, x, y)) return false;
-
-    const { occupancyId, actorType = 'player' } = options;
-    const occupants = this.getOccupantsAt(mapId, x, y);
-    if (!occupants || occupants.size === 0) {
-      return true;
-    }
-
-    const blockingOccupants = [...occupants.entries()].filter(([id]) => id !== occupancyId);
-    if (blockingOccupants.length === 0) {
-      return true;
-    }
-
-    return actorType === 'player' && this.supportsPlayerOverlap(mapId, x, y);
+    return this.occupancyDomain.canOccupy(mapId, x, y, options);
   }
 
   blocksSight(mapId: string, x: number, y: number): boolean {
@@ -4172,44 +2594,15 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
   }
 
   canTraverseTerrain(mapId: string, x: number, y: number): boolean {
-    const tile = this.getTile(mapId, x, y);
-    if (!tile || !tile.walkable) {
-      return false;
-    }
-    return !this.hasNpcAt(mapId, x, y);
+    return this.occupancyDomain.canTraverseTerrain(mapId, x, y);
   }
 
   addOccupant(mapId: string, x: number, y: number, occupancyId: string, kind: OccupantKind = 'player'): void {
-    const tile = this.getTile(mapId, x, y);
-    if (!tile) return;
-
-    const mapOccupants = this.occupantsByMap.get(mapId) ?? new Map<string, Map<string, OccupantKind>>();
-    const key = this.tileStateKey(x, y);
-    const occupants = mapOccupants.get(key) ?? new Map<string, OccupantKind>();
-    occupants.set(occupancyId, kind);
-    mapOccupants.set(key, occupants);
-    this.occupantsByMap.set(mapId, mapOccupants);
-    this.syncOccupancyDisplay(mapId, x, y);
-    this.markTileDirty(mapId, x, y);
+    this.occupancyDomain.addOccupant(mapId, x, y, occupancyId, kind);
   }
 
   removeOccupant(mapId: string, x: number, y: number, occupancyId: string): void {
-    const mapOccupants = this.occupantsByMap.get(mapId);
-    if (!mapOccupants) return;
-
-    const key = this.tileStateKey(x, y);
-    const occupants = mapOccupants.get(key);
-    if (!occupants) return;
-
-    occupants.delete(occupancyId);
-    if (occupants.size === 0) {
-      mapOccupants.delete(key);
-    }
-    if (mapOccupants.size === 0) {
-      this.occupantsByMap.delete(mapId);
-    }
-    this.syncOccupancyDisplay(mapId, x, y);
-    this.markTileDirty(mapId, x, y);
+    this.occupancyDomain.removeOccupant(mapId, x, y, occupancyId);
   }
 
   damageTile(
@@ -4279,19 +2672,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     maxRadius = 6,
     options: OccupancyCheckOptions = {},
   ): { x: number; y: number } | null {
-    for (let radius = 0; radius <= maxRadius; radius++) {
-      for (let dy = -radius; dy <= radius; dy++) {
-        for (let dx = -radius; dx <= radius; dx++) {
-          if (!isOffsetInRange(dx, dy, radius)) continue;
-          const nx = x + dx;
-          const ny = y + dy;
-          if (this.isWalkable(mapId, nx, ny, options)) {
-            return { x: nx, y: ny };
-          }
-        }
-      }
-    }
-    return null;
+    return this.occupancyDomain.findNearbyWalkable(mapId, x, y, maxRadius, options);
   }
 
   private resolveWalkablePlayerPositionInMap(
@@ -4300,30 +2681,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     y: number,
     occupancyId?: string | null,
   ): { x: number; y: number } {
-    const options: OccupancyCheckOptions = { occupancyId, actorType: 'player' };
-    if (this.canOccupy(mapId, x, y, options)) {
-      return { x, y };
-    }
-
-    const nearby = this.findNearbyWalkable(mapId, x, y, 10, options);
-    if (nearby) {
-      return nearby;
-    }
-
-    const spawn = this.getSpawnPoint(mapId);
-    if (spawn && this.canOccupy(mapId, spawn.x, spawn.y, options)) {
-      return spawn;
-    }
-
-    if (spawn) {
-      const nearSpawn = this.findNearbyWalkable(mapId, spawn.x, spawn.y, 12, options);
-      if (nearSpawn) {
-        return nearSpawn;
-      }
-      return spawn;
-    }
-
-    return { x, y };
+    return this.occupancyDomain.resolveWalkablePlayerPositionInMap(mapId, x, y, occupancyId);
   }
 
   getViewTiles(mapId: string, cx: number, cy: number, radius = VIEW_RADIUS, visibleKeys?: Set<string>): VisibleTile[][] {
@@ -4360,224 +2718,6 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     return [...this.maps.keys()];
   }
 
-  private cloneMapDocument(document: GmMapDocument): GmMapDocument {
-    return cloneEditableMapDocument(document);
-  }
-
-  private normalizeEditableMapDocument(raw: unknown): GmMapDocument {
-    return normalizeEditableMapDocumentValue(this.hydrateEditableMapDocument(raw));
-  }
-
-  private hydrateEditableMapDocument(raw: unknown): unknown {
-    if (!raw || typeof raw !== 'object') {
-      return raw;
-    }
-    const source = raw as {
-      monsterSpawns?: unknown[];
-      terrainProfileId?: unknown;
-      terrainRealmLv?: unknown;
-    };
-    return {
-      ...source,
-      terrainProfileId: typeof source.terrainProfileId === 'string' ? source.terrainProfileId : undefined,
-      terrainRealmLv: Number.isFinite(source.terrainRealmLv) ? Math.max(1, Math.floor(Number(source.terrainRealmLv))) : undefined,
-      monsterSpawns: Array.isArray(source.monsterSpawns)
-        ? source.monsterSpawns.map((spawn) => this.hydrateMonsterSpawnRecord(spawn))
-        : [],
-    };
-  }
-
-  private hydrateMonsterSpawnRecord(raw: unknown): unknown {
-    if (!raw || typeof raw !== 'object') {
-      return raw;
-    }
-    const spawn = raw as Partial<GmMapMonsterSpawnRecord> & { templateId?: unknown };
-    const templateId = this.resolveMonsterSpawnTemplateId(spawn);
-    const template = templateId ? this.contentService.getMonsterTemplate(templateId) : undefined;
-    if (!template) {
-      return raw;
-    }
-    const radius = Number.isInteger(spawn.radius) ? Math.max(0, Number(spawn.radius)) : template.radius;
-    const level = Number.isInteger(spawn.level) ? Math.max(1, Number(spawn.level)) : template.level;
-    const equipment = this.contentService.normalizeEquipment(template.equipment);
-    const skills = this.contentService.normalizeMonsterSkills(spawn.skills ?? template.skills, String(spawn.id ?? template.id));
-    const valueStats = template.valueStats
-      ?? inferMonsterValueStatsFromLegacy({
-        maxHp: template.maxHp,
-        attack: template.attack,
-        level: template.level,
-        viewRange: template.viewRange,
-      });
-    const legacyNumericStats = resolveMonsterNumericStatsFromValueStats(valueStats, level);
-    const attrs = normalizeMonsterAttrs(
-      spawn.attrs ?? template.attrs,
-      spawn.attrs || template.attrs ? undefined : inferMonsterAttrsFromNumericStats(legacyNumericStats),
-    );
-    const statPercents = normalizeMonsterStatPercents(spawn.statPercents ?? template.statPercents)
-      ?? (spawn.attrs || template.attrs
-        ? undefined
-        : createMonsterAutoStatPercents(legacyNumericStats, attrs, level, equipment));
-    const initialBuffs = Array.isArray(spawn.initialBuffs)
-      ? spawn.initialBuffs.map((entry) => ({ ...entry }))
-      : (template.initialBuffs?.map((entry) => ({ ...entry })) ?? undefined);
-    const tier = normalizeMonsterTier(spawn.tier ?? template.tier);
-    const configuredMaxAlive = Number.isInteger(spawn.maxAlive) ? Math.max(1, Number(spawn.maxAlive)) : template.maxAlive;
-    const configuredCount = Number.isInteger(spawn.count) ? Math.max(1, Number(spawn.count)) : template.count;
-    const { count, maxAlive } = resolveMonsterSpawnPopulation(tier, configuredCount, configuredMaxAlive);
-    const expMultiplier = Number.isFinite(spawn.expMultiplier)
-      ? resolveMonsterExpMultiplier(spawn.expMultiplier, tier)
-      : (spawn.tier !== undefined && tier !== template.tier
-        ? resolveMonsterExpMultiplier(undefined, tier)
-        : template.expMultiplier);
-    const numericStats = resolveMonsterNumericStatsFromAttributes({
-      attrs,
-      equipment,
-      level,
-      statPercents,
-      grade: spawn.grade ?? template.grade,
-      tier,
-    });
-    return {
-      ...template,
-      id: typeof spawn.id === 'string' && spawn.id.trim().length > 0 ? spawn.id : template.id,
-      templateId,
-      x: Number.isInteger(spawn.x) ? Number(spawn.x) : 0,
-      y: Number.isInteger(spawn.y) ? Number(spawn.y) : 0,
-      grade: spawn.grade ?? template.grade,
-      attrs,
-      equipment,
-      statPercents,
-      initialBuffs,
-      skills,
-      tier,
-      hp: Math.max(1, Math.round(numericStats.maxHp || template.hp)),
-      maxHp: Math.max(1, Math.round(numericStats.maxHp || template.maxHp || template.hp)),
-      attack: Math.max(1, Math.round(numericStats.physAtk || numericStats.spellAtk || template.attack || 1)),
-      count,
-      radius,
-      maxAlive,
-      wanderRadius: Number.isInteger(spawn.wanderRadius) ? Math.max(0, Number(spawn.wanderRadius)) : radius,
-      respawnTicks: Number.isInteger(spawn.respawnTicks)
-        ? Math.max(1, Number(spawn.respawnTicks))
-        : undefined,
-      respawnSec: Number.isInteger(spawn.respawnSec)
-        ? Math.max(1, Number(spawn.respawnSec))
-        : undefined,
-      level,
-      expMultiplier,
-    };
-  }
-
-  private dehydrateEditableMapDocument(document: GmMapDocument): unknown {
-    return {
-      ...document,
-      monsterSpawns: document.monsterSpawns.map((spawn) => this.dehydrateMonsterSpawnRecord(spawn)),
-    };
-  }
-
-  private dehydrateMonsterSpawnRecord(spawn: GmMapMonsterSpawnRecord): unknown {
-    const templateId = typeof spawn.templateId === 'string' && spawn.templateId.trim().length > 0
-      ? spawn.templateId
-      : spawn.id;
-    const template = this.contentService.getMonsterTemplate(templateId);
-    if (!template) {
-      return spawn;
-    }
-    const persisted: Partial<GmMapMonsterSpawnRecord> = {
-      id: spawn.id,
-      x: spawn.x,
-      y: spawn.y,
-    };
-    if (templateId !== spawn.id) {
-      persisted.templateId = templateId;
-    }
-    if (spawn.grade !== template.grade) persisted.grade = spawn.grade;
-    if (spawn.tier !== template.tier) persisted.tier = spawn.tier;
-    if (JSON.stringify(spawn.attrs) !== JSON.stringify(template.attrs)) persisted.attrs = spawn.attrs;
-    if (JSON.stringify(spawn.statPercents ?? null) !== JSON.stringify(template.statPercents ?? null)) {
-      persisted.statPercents = spawn.statPercents;
-    }
-    if (JSON.stringify(spawn.initialBuffs ?? null) !== JSON.stringify(template.initialBuffs ?? null)) {
-      persisted.initialBuffs = spawn.initialBuffs;
-    }
-    if (JSON.stringify(spawn.skills) !== JSON.stringify(template.skills)) persisted.skills = spawn.skills;
-    const effectiveTier = normalizeMonsterTier(spawn.tier ?? template.tier);
-    const baselinePopulation = resolveMonsterSpawnPopulation(effectiveTier, template.count, template.maxAlive);
-    if ((spawn.count ?? baselinePopulation.count) !== baselinePopulation.count) persisted.count = spawn.count;
-    if ((spawn.radius ?? 3) !== template.radius) persisted.radius = spawn.radius;
-    if ((spawn.maxAlive ?? baselinePopulation.maxAlive) !== baselinePopulation.maxAlive) persisted.maxAlive = spawn.maxAlive;
-    const defaultWanderRadius = spawn.radius ?? template.radius;
-    if ((spawn.wanderRadius ?? defaultWanderRadius) !== defaultWanderRadius) persisted.wanderRadius = spawn.wanderRadius;
-    const effectiveRespawnTicks = Number.isInteger(spawn.respawnTicks)
-      ? Math.max(1, Number(spawn.respawnTicks))
-      : Number.isInteger(spawn.respawnSec)
-        ? Math.max(1, Number(spawn.respawnSec))
-        : template.respawnTicks;
-    if (effectiveRespawnTicks !== template.respawnTicks) {
-      persisted.respawnTicks = spawn.respawnTicks;
-      if (persisted.respawnTicks === undefined && spawn.respawnSec !== undefined) {
-        persisted.respawnSec = spawn.respawnSec;
-      }
-    }
-    if ((spawn.level ?? undefined) !== template.level) persisted.level = spawn.level;
-    const baselineExpMultiplier = spawn.tier === template.tier
-      ? template.expMultiplier
-      : resolveMonsterExpMultiplier(undefined, spawn.tier);
-    if (spawn.expMultiplier !== baselineExpMultiplier) persisted.expMultiplier = spawn.expMultiplier;
-    return persisted;
-  }
-
-  private normalizeEditableContainerRecord(input: unknown): GmMapContainerRecord | undefined {
-    if (!input || typeof input !== 'object') {
-      return undefined;
-    }
-    const container = input as GmMapContainerRecord;
-    return {
-      variant: container.variant === 'herb' ? 'herb' : undefined,
-      grade: this.normalizeContainerGrade(container.grade),
-      refreshTicks: Number.isFinite(container.refreshTicks) ? Number(container.refreshTicks) : undefined,
-      refreshTicksMin: Number.isFinite(container.refreshTicksMin) ? Number(container.refreshTicksMin) : undefined,
-      refreshTicksMax: Number.isFinite(container.refreshTicksMax) ? Number(container.refreshTicksMax) : undefined,
-      char: typeof container.char === 'string' && container.char.trim().length > 0
-        ? container.char.trim().slice(0, 1)
-        : undefined,
-      color: typeof container.color === 'string' && container.color.trim().length > 0
-        ? container.color.trim()
-        : undefined,
-      drops: Array.isArray(container.drops)
-        ? container.drops.map((drop) => ({
-          itemId: String(drop.itemId ?? ''),
-          name: String(drop.name ?? ''),
-          type: drop.type,
-          count: Number.isFinite(drop.count) ? Number(drop.count) : 1,
-          chance: Number.isFinite(drop.chance) ? Number(drop.chance) : undefined,
-        }))
-        : [],
-      lootPools: Array.isArray(container.lootPools)
-        ? container.lootPools.map((pool) => ({
-          rolls: Number.isFinite(pool.rolls) ? Number(pool.rolls) : undefined,
-          chance: Number.isFinite(pool.chance) ? Number(pool.chance) : undefined,
-          minLevel: Number.isFinite(pool.minLevel) ? Number(pool.minLevel) : undefined,
-          maxLevel: Number.isFinite(pool.maxLevel) ? Number(pool.maxLevel) : undefined,
-          minGrade: pool.minGrade ? this.normalizeContainerGrade(pool.minGrade) : undefined,
-          maxGrade: pool.maxGrade ? this.normalizeContainerGrade(pool.maxGrade) : undefined,
-          tagGroups: Array.isArray(pool.tagGroups)
-            ? pool.tagGroups
-              .map((group) => Array.isArray(group)
-                ? group
-                  .filter((entry): entry is string => typeof entry === 'string' && entry.trim().length > 0)
-                  .map((entry) => entry.trim())
-                : [])
-              .filter((group) => group.length > 0)
-            : [],
-          countMin: Number.isFinite(pool.countMin) ? Number(pool.countMin) : undefined,
-          countMax: Number.isFinite(pool.countMax) ? Number(pool.countMax) : undefined,
-          allowDuplicates: pool.allowDuplicates === true,
-        }))
-        : [],
-    };
-  }
-
   private normalizeMapTimeConfig(raw: unknown): MapTimeConfig {
     const candidate = (raw ?? {}) as Partial<MapTimeConfig>;
     const palette = candidate.palette && typeof candidate.palette === 'object' ? candidate.palette : {};
@@ -4611,74 +2751,6 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
       },
       palette: normalizedPalette,
     };
-  }
-
-  private normalizeMonsterAggroMode(value: unknown): MonsterAggroMode | undefined {
-    return value === 'always' || value === 'retaliate' || value === 'day_only' || value === 'night_only'
-      ? value
-      : undefined;
-  }
-
-  private syncPortalTiles(document: GmMapDocument): GmMapDocument {
-    const rows = document.tiles.map((row) => [...row].map((char) => (char === 'P' || char === 'S') ? '.' : char));
-    for (const portal of document.portals) {
-      if (portal.hidden) continue;
-      if (!rows[portal.y]?.[portal.x]) continue;
-      rows[portal.y]![portal.x] = portal.kind === 'stairs' ? 'S' : 'P';
-    }
-    return {
-      ...document,
-      tiles: rows.map((row) => row.join('')),
-    };
-  }
-
-  private repairEditableMapDocument(document: GmMapDocument): GmMapDocument {
-    const repairedSpawnPoint = this.resolveNearestWalkablePointInDocument(document, document.spawnPoint)
-      ?? document.spawnPoint;
-    return {
-      ...document,
-      spawnPoint: repairedSpawnPoint,
-    };
-  }
-
-  private resolveNearestWalkablePointInDocument(
-    document: GmMapDocument,
-    origin: { x: number; y: number },
-  ): { x: number; y: number } | null {
-    if (document.width <= 0 || document.height <= 0) {
-      return null;
-    }
-
-    const clamped = {
-      x: Math.min(document.width - 1, Math.max(0, Math.floor(origin.x))),
-      y: Math.min(document.height - 1, Math.max(0, Math.floor(origin.y))),
-    };
-
-    let portalFallback: { x: number; y: number } | null = null;
-    for (let radius = 0; radius <= Math.max(document.width, document.height); radius += 1) {
-      for (let dy = -radius; dy <= radius; dy += 1) {
-        for (let dx = -radius; dx <= radius; dx += 1) {
-          if (!isOffsetInRange(dx, dy, radius)) continue;
-          const x = clamped.x + dx;
-          const y = clamped.y + dy;
-          if (x < 0 || x >= document.width || y < 0 || y >= document.height) continue;
-          const type = getTileTypeFromMapChar(document.tiles[y]?.[x] ?? '#');
-          if (type === TileType.Portal || type === TileType.Stairs) {
-            portalFallback ??= { x, y };
-            continue;
-          }
-          if (isTileTypeWalkable(type)) {
-            return { x, y };
-          }
-        }
-      }
-    }
-
-    return portalFallback;
-  }
-
-  private validateEditableMapDocument(document: GmMapDocument): string | null {
-    return validateEditableMapDocumentValue(document);
   }
 
   private tileDurability(mapId: string, type: TileType): number {
@@ -4746,3 +2818,4 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
   }
 
 }
+

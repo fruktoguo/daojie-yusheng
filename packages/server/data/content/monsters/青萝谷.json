@@ -558,7 +558,7 @@
       "breakPower": 105.8,
       "resolvePower": 146.4,
       "maxQiOutputPerTick": 165.8,
-      "hpRegenRate": 1,
+      "hpRegenRate": 100,
       "moveSpeed": 102.3
     },
     "skills": [

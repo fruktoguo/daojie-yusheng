@@ -73,6 +73,14 @@ import { getAccessToken, getCurrentAccountName } from './ui/auth-api';
 import { formatDisplayCountBadge, formatDisplayCurrentMax, formatDisplayInteger } from './utils/number';
 import { findPath } from './pathfinding';
 import {
+  computeAffectedCellsForAction as computeAffectedCellsForActionHelper,
+  getEffectiveTargetingGeometry as getEffectiveTargetingGeometryHelper,
+  getSkillDefByActionId as getSkillDefByActionIdHelper,
+  hasAffectableTargetInArea as hasAffectableTargetInAreaHelper,
+  resolveCurrentTargetingRange as resolveCurrentTargetingRangeHelper,
+  resolveTargetRefForAction as resolveTargetRefForActionHelper,
+} from './main-targeting-helpers';
+import {
   ActionDef,
   AccountRedeemCodesRes,
   buildEffectiveTargetingGeometry,
@@ -211,12 +219,14 @@ let fpsFrameDurationWriteIndex = 0;
 const PING_BLOCKED_TICK_INTERVAL_MS = 1_500;
 const PING_BLOCKED_TICK_GRACE_MS = 8_000;
 
+/** FpsSampleStats：定义该类型的结构与数据语义。 */
 type FpsSampleStats = {
   fps: number | null;
   low: number | null;
   onePercentLow: number | null;
 };
 
+/** formatFpsMetric：执行对应的业务逻辑。 */
 function formatFpsMetric(value: number | null): string {
   if (value === null) {
     return '---';
@@ -224,6 +234,7 @@ function formatFpsMetric(value: number | null): string {
   return String(Math.min(999, Math.max(0, Math.round(value)))).padStart(3, '0');
 }
 
+/** renderFpsStats：执行对应的业务逻辑。 */
 function renderFpsStats(stats: FpsSampleStats): void {
   if (fpsValueEl) {
     fpsValueEl.textContent = formatFpsMetric(stats.fps);
@@ -244,6 +255,7 @@ function renderFpsStats(stats: FpsSampleStats): void {
   }
 }
 
+/** resetFpsMonitorSamples：执行对应的业务逻辑。 */
 function resetFpsMonitorSamples(now = performance.now()): void {
   fpsSampleFrameCount = 0;
   fpsSampleStartedAt = now;
@@ -252,6 +264,7 @@ function resetFpsMonitorSamples(now = performance.now()): void {
   fpsFrameDurationWriteIndex = 0;
 }
 
+/** appendFpsFrameDuration：执行对应的业务逻辑。 */
 function appendFpsFrameDuration(frameDurationMs: number): void {
   const safeDuration = Math.max(1, frameDurationMs);
   if (fpsFrameDurations.length < MAP_FPS_SAMPLE_WINDOW_SIZE) {
@@ -263,6 +276,7 @@ function appendFpsFrameDuration(frameDurationMs: number): void {
   fpsFrameDurationWriteIndex = (fpsFrameDurationWriteIndex + 1) % MAP_FPS_SAMPLE_WINDOW_SIZE;
 }
 
+/** resolveFpsLowStats：执行对应的业务逻辑。 */
 function resolveFpsLowStats(): Pick<FpsSampleStats, 'low' | 'onePercentLow'> {
   if (fpsFrameDurations.length === 0) {
     return {
@@ -283,6 +297,7 @@ function resolveFpsLowStats(): Pick<FpsSampleStats, 'low' | 'onePercentLow'> {
   };
 }
 
+/** tickFpsMonitor：执行对应的业务逻辑。 */
 function tickFpsMonitor(now: number): void {
   if (!fpsMonitorEnabled) {
     fpsMonitorFrameRequestId = null;
@@ -316,6 +331,7 @@ function tickFpsMonitor(now: number): void {
   fpsMonitorFrameRequestId = requestAnimationFrame(tickFpsMonitor);
 }
 
+/** startFpsMonitor：执行对应的业务逻辑。 */
 function startFpsMonitor(): void {
   if (fpsMonitorEnabled || !fpsRateEl || !fpsValueEl || !fpsLowValueEl || !fpsOnePercentValueEl) {
     return;
@@ -331,6 +347,7 @@ function startFpsMonitor(): void {
   fpsMonitorFrameRequestId = requestAnimationFrame(tickFpsMonitor);
 }
 
+/** stopFpsMonitor：执行对应的业务逻辑。 */
 function stopFpsMonitor(): void {
   fpsMonitorEnabled = false;
   if (fpsMonitorFrameRequestId !== null) {
@@ -348,6 +365,7 @@ function stopFpsMonitor(): void {
   }
 }
 
+/** syncFpsMonitorVisibility：执行对应的业务逻辑。 */
 function syncFpsMonitorVisibility(showFpsMonitor: boolean): void {
   if (showFpsMonitor) {
     startFpsMonitor();
@@ -356,6 +374,7 @@ function syncFpsMonitorVisibility(showFpsMonitor: boolean): void {
   stopFpsMonitor();
 }
 
+/** renderTickRate：执行对应的业务逻辑。 */
 function renderTickRate(seconds: number) {
   const [integer, fraction] = seconds.toFixed(2).split('.');
   if (tickRateIntEl) tickRateIntEl.textContent = integer;
@@ -364,6 +383,7 @@ function renderTickRate(seconds: number) {
   if (tickRateFracBEl) tickRateFracBEl.textContent = fraction[1] ?? '0';
 }
 
+/** resolveDisplayedLocalTicks：执行对应的业务逻辑。 */
 function resolveDisplayedLocalTicks(state: GameTimeState | null, now = performance.now()): number | null {
   if (!state) {
     return null;
@@ -376,11 +396,13 @@ function resolveDisplayedLocalTicks(state: GameTimeState | null, now = performan
   return ((state.localTicks + elapsedTicks) % dayLength + dayLength) % dayLength;
 }
 
+/** resolveDisplayedPhaseLabel：执行对应的业务逻辑。 */
 function resolveDisplayedPhaseLabel(state: GameTimeState, localTicks: number): string {
   const phase = GAME_TIME_PHASES.find((entry) => localTicks >= entry.startTick && localTicks < entry.endTick);
   return phase?.label ?? state.phaseLabel;
 }
 
+/** renderCurrentTime：执行对应的业务逻辑。 */
 function renderCurrentTime(state: GameTimeState | null, now = performance.now()) {
   const localTicks = resolveDisplayedLocalTicks(state, now);
   const totalMinutes = localTicks === null
@@ -400,12 +422,14 @@ function renderCurrentTime(state: GameTimeState | null, now = performance.now())
   }
 }
 
+/** syncCurrentTimeState：执行对应的业务逻辑。 */
 function syncCurrentTimeState(state: GameTimeState | null): void {
   currentTimeState = state;
   currentTimeStateSyncedAt = performance.now();
   renderCurrentTime(currentTimeState, currentTimeStateSyncedAt);
 }
 
+/** syncCurrentTimeTickInterval：执行对应的业务逻辑。 */
 function syncCurrentTimeTickInterval(dtMs: number | null | undefined): void {
   if (typeof dtMs !== 'number' || !Number.isFinite(dtMs) || dtMs <= 0) {
     return;
@@ -415,7 +439,9 @@ function syncCurrentTimeTickInterval(dtMs: number | null | undefined): void {
   syncEstimatedServerTickInterval(dtMs);
 }
 
+/** renderPingLatency：执行对应的业务逻辑。 */
 function renderPingLatency(latencyMs: number | null, status = '毫秒') {
+/** digits：通过常量导出可复用函数行为。 */
   const digits = (() => {
     if (latencyMs === null) {
       return ['-', '-', '-'];
@@ -443,21 +469,25 @@ function renderPingLatency(latencyMs: number | null, status = '毫秒') {
   }
 }
 
+/** hasRecentTickStall：执行对应的业务逻辑。 */
 function hasRecentTickStall(now = performance.now()): boolean {
   return currentTimeTickIntervalMs >= PING_BLOCKED_TICK_INTERVAL_MS
     && now - currentTimeTickIntervalUpdatedAt <= PING_BLOCKED_TICK_GRACE_MS;
 }
 
+/** waitFor：执行对应的业务逻辑。 */
 async function waitFor(ms: number): Promise<void> {
   await new Promise<void>((resolve) => {
     window.setTimeout(resolve, ms);
   });
 }
 
+/** recoverConnection：执行对应的业务逻辑。 */
 async function recoverConnection(forceRefresh = false): Promise<void> {
   if (connectionRecoveryPromise) {
     return connectionRecoveryPromise;
   }
+/** connectionRecoveryPromise：将函数作为字段暴露，承接调用行为。 */
   connectionRecoveryPromise = (async () => {
     if (document.visibilityState === 'hidden') {
       return;
@@ -482,6 +512,7 @@ async function recoverConnection(forceRefresh = false): Promise<void> {
   return connectionRecoveryPromise;
 }
 
+/** scheduleConnectionRecovery：执行对应的业务逻辑。 */
 function scheduleConnectionRecovery(delayMs = 0, forceRefresh = false): void {
   if (connectionRecoveryTimer !== null) {
     window.clearTimeout(connectionRecoveryTimer);
@@ -492,6 +523,7 @@ function scheduleConnectionRecovery(delayMs = 0, forceRefresh = false): void {
   }, delayMs);
 }
 
+/** clearPendingSocketPing：执行对应的业务逻辑。 */
 function clearPendingSocketPing(): void {
   if (!pendingSocketPing) {
     return;
@@ -500,6 +532,7 @@ function clearPendingSocketPing(): void {
   pendingSocketPing = null;
 }
 
+/** markSocketPingTimeout：执行对应的业务逻辑。 */
 function markSocketPingTimeout(serial: number): void {
   if (!pendingSocketPing || pendingSocketPing.serial !== serial) {
     return;
@@ -508,6 +541,7 @@ function markSocketPingTimeout(serial: number): void {
   renderPingLatency(null, socket.connected ? (hasRecentTickStall() ? '阻塞' : '超时') : '离线');
 }
 
+/** sampleServerPing：执行对应的业务逻辑。 */
 function sampleServerPing(): void {
   if (document.visibilityState === 'hidden') {
     return;
@@ -530,6 +564,7 @@ function sampleServerPing(): void {
   pendingSocketPing = { serial, clientAt, timeoutId };
 }
 
+/** stopPingLoop：执行对应的业务逻辑。 */
 function stopPingLoop(): void {
   if (pingTimer !== null) {
     window.clearTimeout(pingTimer);
@@ -538,6 +573,7 @@ function stopPingLoop(): void {
   clearPendingSocketPing();
 }
 
+/** scheduleNextPing：执行对应的业务逻辑。 */
 function scheduleNextPing(delayMs = SERVER_PING_INTERVAL_MS): void {
   if (pingTimer !== null) {
     window.clearTimeout(pingTimer);
@@ -549,6 +585,7 @@ function scheduleNextPing(delayMs = SERVER_PING_INTERVAL_MS): void {
   }, delayMs);
 }
 
+/** restartPingLoop：执行对应的业务逻辑。 */
 function restartPingLoop(immediate = true): void {
   stopPingLoop();
   if (document.visibilityState === 'hidden') {
@@ -619,6 +656,7 @@ const panelSystem = createClientPanelSystem(window);
 mapRuntime.attach(canvasHost);
 mapRuntime.setMoveHandler((target) => {
   if (target.isCurrentMap || myPlayer?.mapId === target.mapId) {
+/** planPathTo：处理当前场景中的对应操作。 */
     planPathTo({ x: target.x, y: target.y });
     return;
   }
@@ -657,10 +695,12 @@ let hoveredMapTile: {
   clientY: number;
 } | null = null;
 
+/** getTileTypeName：执行对应的业务逻辑。 */
 function getTileTypeName(type: TileType): string {
   return getTileTypeLabel(type, '未知地貌');
 }
 
+/** ObservedEntity：定义该类型的结构与数据语义。 */
 type ObservedEntity = {
   id: string;
   wx: number;
@@ -681,19 +721,23 @@ type ObservedEntity = {
   buffs?: VisibleBuffState[];
 };
 
+/** isCrowdEntityKind：执行对应的业务逻辑。 */
 function isCrowdEntityKind(kind: string | null | undefined): boolean {
   return kind === 'crowd';
 }
 
+/** isPlayerLikeEntityKind：执行对应的业务逻辑。 */
 function isPlayerLikeEntityKind(kind: string | null | undefined): boolean {
   return kind === 'player' || isCrowdEntityKind(kind);
 }
 
+/** ObserveEntityCardData：定义该类型的结构与数据语义。 */
 type ObserveEntityCardData = Pick<
   ObservedEntity,
   'id' | 'name' | 'kind' | 'monsterTier' | 'hp' | 'maxHp' | 'qi' | 'maxQi' | 'npcQuestMarker' | 'observation' | 'lootPreview' | 'buffs'
 >;
 
+/** PendingAutoInteraction：定义该类型的结构与数据语义。 */
 type PendingAutoInteraction =
   | {
       kind: 'npc';
@@ -717,6 +761,7 @@ const AUTO_INTERACTION_APPROACH_STEPS: ReadonlyArray<{ dx: number; dy: number }>
   { dx: 1, dy: 0 },
 ];
 
+/** escapeHtml：执行对应的业务逻辑。 */
 function escapeHtml(input: string): string {
   return input
     .replaceAll('&', '&amp;')
@@ -726,12 +771,14 @@ function escapeHtml(input: string): string {
     .replaceAll("'", '&#39;');
 }
 
+/** getBreakthroughRequirementStatusLabel：执行对应的业务逻辑。 */
 function getBreakthroughRequirementStatusLabel(requirement: BreakthroughRequirementView): string {
   return requirement.blocksBreakthrough === false
     ? (requirement.completed ? '已生效' : '未生效')
     : (requirement.completed ? '已达成' : '未达成');
 }
 
+/** getBreakthroughRequirementStatusDetail：执行对应的业务逻辑。 */
 function getBreakthroughRequirementStatusDetail(requirement: BreakthroughRequirementView): string {
   if (requirement.hidden) {
     return '该要求尚未解锁，只能通过主线或支线任务逐步获知。';
@@ -745,6 +792,7 @@ function getBreakthroughRequirementStatusDetail(requirement: BreakthroughRequire
   return requirement.detail ?? (requirement.completed ? '当前已满足。' : '当前尚未满足。');
 }
 
+/** openBreakthroughModal：执行对应的业务逻辑。 */
 function openBreakthroughModal() {
   if (openHeavenGateModal(myPlayer, {
     showToast,
@@ -821,6 +869,7 @@ hud.setCallbacks(() => {
   openBreakthroughModal();
 });
 
+/** syncTargetingOverlay：执行对应的业务逻辑。 */
 function syncTargetingOverlay() {
   if (!myPlayer || !pendingTargetedAction) {
     mapRuntime.setTargetingOverlay(null);
@@ -862,6 +911,7 @@ function syncTargetingOverlay() {
   syncSenseQiOverlay();
 }
 
+/** cancelTargeting：执行对应的业务逻辑。 */
 function cancelTargeting(showMessage = false) {
   if (!pendingTargetedAction) return;
   pendingTargetedAction = null;
@@ -871,63 +921,31 @@ function cancelTargeting(showMessage = false) {
   }
 }
 
+/** getSkillDefByActionId：执行对应的业务逻辑。 */
 function getSkillDefByActionId(actionId: string): SkillDef | null {
-  if (!myPlayer) return null;
-  for (const technique of myPlayer.techniques) {
-    const skill = technique.skills.find((entry) => entry.id === actionId);
-    if (skill) {
-      return skill;
-    }
-  }
-  return null;
+  return getSkillDefByActionIdHelper(myPlayer, actionId);
 }
 
-function getPlayerTargetingModifiers(): { extraRange: number; extraArea: number } | undefined {
-  const stats = myPlayer?.numericStats;
-  if (!stats) {
-    return undefined;
-  }
-  return {
-    extraRange: Math.max(0, Math.floor(stats.extraRange ?? 0)),
-    extraArea: Math.max(0, Math.floor(stats.extraArea ?? 0)),
-  };
-}
-
+/** getEffectiveTargetingGeometry：执行对应的业务逻辑。 */
 function getEffectiveTargetingGeometry(
   action: Pick<NonNullable<typeof pendingTargetedAction>, 'actionId' | 'range' | 'shape' | 'radius' | 'innerRadius' | 'width' | 'height'>,
 ): TargetingGeometrySpec {
-  const skill = getSkillDefByActionId(action.actionId);
-  const baseSpec: TargetingGeometrySpec = {
-    range: Math.max(1, skill?.range ?? action.range),
-    shape: skill?.targeting?.shape ?? action.shape ?? 'single',
-    radius: skill?.targeting?.radius ?? action.radius,
-    innerRadius: skill?.targeting?.innerRadius ?? action.innerRadius,
-    width: skill?.targeting?.width ?? action.width,
-    height: skill?.targeting?.height ?? action.height,
-  };
-  if (!skill) {
-    return baseSpec;
-  }
-  const modifiers = getPlayerTargetingModifiers();
-  return resolveTargetingGeometry(baseSpec, {
-    finalRange: Math.max(0, Math.floor(baseSpec.range) + Math.max(0, Math.floor(modifiers?.extraRange ?? 0))),
-    extraArea: Math.max(0, Math.floor(modifiers?.extraArea ?? 0)),
-  });
+  return getEffectiveTargetingGeometryHelper(action, myPlayer);
 }
 
+/** resolveCurrentTargetingRange：执行对应的业务逻辑。 */
 function resolveCurrentTargetingRange(
   action: Pick<NonNullable<typeof pendingTargetedAction>, 'actionId' | 'range' | 'shape' | 'radius' | 'innerRadius' | 'width' | 'height'>,
 ): number {
-  if (action.actionId === 'client:observe' || action.actionId === 'battle:force_attack') {
-    return Math.max(1, getInfoRadius());
-  }
-  return Math.max(1, getEffectiveTargetingGeometry(action).range);
+  return resolveCurrentTargetingRangeHelper(action, myPlayer, getInfoRadius());
 }
 
+/** doesTargetingRequireVision：执行对应的业务逻辑。 */
 function doesTargetingRequireVision(actionId: string): boolean {
   return actionId === 'client:observe' || actionId === 'battle:force_attack';
 }
 
+/** beginTargeting：执行对应的业务逻辑。 */
 function beginTargeting(actionId: string, actionName: string, targetMode?: string, range = 1) {
   if (pendingTargetedAction?.actionId === actionId) {
     cancelTargeting(true);
@@ -954,6 +972,7 @@ function beginTargeting(actionId: string, actionName: string, targetMode?: strin
   showToast(`请选择 ${resolveCurrentTargetingRange(pendingTargetedAction)} 格内目标，Esc 或右键取消`);
 }
 
+/** computeAffectedCells：执行对应的业务逻辑。 */
 function computeAffectedCells(action: NonNullable<typeof pendingTargetedAction>): Array<{ x: number; y: number }> {
   if (action.hoverX === undefined || action.hoverY === undefined) {
     return [];
@@ -961,91 +980,58 @@ function computeAffectedCells(action: NonNullable<typeof pendingTargetedAction>)
   return computeAffectedCellsForAction(action, { x: action.hoverX, y: action.hoverY });
 }
 
+/** computeAffectedCellsForAction：执行对应的业务逻辑。 */
 function computeAffectedCellsForAction(
   action: Pick<NonNullable<typeof pendingTargetedAction>, 'actionId' | 'range' | 'shape' | 'radius' | 'innerRadius' | 'width' | 'height'>,
   anchor: GridPoint,
 ): GridPoint[] {
-  if (!myPlayer) {
-    return [];
-  }
-  const spec = getEffectiveTargetingGeometry(action);
-  return computeAffectedCellsFromAnchor({ x: myPlayer.x, y: myPlayer.y }, anchor, spec);
+  return computeAffectedCellsForActionHelper(action, anchor, myPlayer);
 }
 
+/** resolveTargetRefForAction：执行对应的业务逻辑。 */
 function resolveTargetRefForAction(
   action: Pick<NonNullable<typeof pendingTargetedAction>, 'actionId' | 'shape' | 'range' | 'radius' | 'innerRadius' | 'width' | 'height' | 'targetMode'>,
   target: { x: number; y: number; entityId?: string; entityKind?: string },
 ): string | null {
-  const entityTargetRef = target.entityKind === 'player' && target.entityId
-    ? `player:${target.entityId}`
-    : target.entityKind === 'monster' && target.entityId
-      ? target.entityId
-      : null;
-  const geometry = getEffectiveTargetingGeometry(action);
-  if ((geometry.shape ?? 'single') !== 'single') {
-    return encodeTileTargetRef({ x: target.x, y: target.y });
-  }
-  if (action.targetMode === 'entity') {
-    return entityTargetRef;
-  }
-  if (action.targetMode === 'tile') {
-    return encodeTileTargetRef({ x: target.x, y: target.y });
-  }
-  if (entityTargetRef) {
-    return entityTargetRef;
-  }
-  return encodeTileTargetRef({ x: target.x, y: target.y });
+  return resolveTargetRefForActionHelper(action, target, myPlayer);
 }
 
+/** hasAffectableTargetInArea：执行对应的业务逻辑。 */
 function hasAffectableTargetInArea(
   action: Pick<NonNullable<typeof pendingTargetedAction>, 'actionId' | 'shape' | 'range' | 'radius' | 'innerRadius' | 'width' | 'height'>,
   anchorX: number,
   anchorY: number,
 ): boolean {
-  const geometry = getEffectiveTargetingGeometry(action);
-  if (!geometry.shape || geometry.shape === 'single') {
-    return true;
-  }
-  const affectedCells = computeAffectedCellsForAction(action, { x: anchorX, y: anchorY });
-  if (affectedCells.length === 0) {
-    return false;
-  }
-  return affectedCells.some((cell) => {
-    const hasMonster = latestEntities.some((entity) => entity.kind === 'monster' && entity.wx === cell.x && entity.wy === cell.y);
-    const hasPlayer = latestEntities.some((entity) => isPlayerLikeEntityKind(entity.kind) && entity.wx === cell.x && entity.wy === cell.y);
-    const hasAttackableContainer = latestEntities.some((entity) => (
-      entity.kind === 'container'
-      && entity.wx === cell.x
-      && entity.wy === cell.y
-      && (entity.hp ?? 0) > 0
-      && (entity.maxHp ?? 0) > 0
-    ));
-    if (hasMonster || hasPlayer || hasAttackableContainer) {
-      return true;
-    }
-    const tile = getVisibleTileAt(cell.x, cell.y);
-    return Boolean(tile?.hp && tile.hp > 0 && tile.maxHp && tile.maxHp > 0);
+  return hasAffectableTargetInAreaHelper(action, anchorX, anchorY, myPlayer, {
+    entities: latestEntities,
+    getTile: getVisibleTileAt,
+    isPlayerLikeEntityKind,
   });
 }
 
+/** getVisibleTileAt：执行对应的业务逻辑。 */
 function getVisibleTileAt(x: number, y: number): Tile | null {
   return mapRuntime.getVisibleTileAt(x, y);
 }
 
+/** getKnownTileAt：执行对应的业务逻辑。 */
 function getKnownTileAt(x: number, y: number): Tile | null {
   return mapRuntime.getKnownTileAt(x, y);
 }
 
+/** isPointInsideCurrentMap：执行对应的业务逻辑。 */
 function isPointInsideCurrentMap(x: number, y: number): boolean {
   const mapMeta = mapRuntime.getMapMeta();
   if (!mapMeta) return true;
   return x >= 0 && y >= 0 && x < mapMeta.width && y < mapMeta.height;
 }
 
+/** getVisibleGroundPileAt：执行对应的业务逻辑。 */
 function getVisibleGroundPileAt(x: number, y: number): GroundItemPileView | null {
   return mapRuntime.getGroundPileAt(x, y);
 }
 
+/** syncSenseQiOverlay：执行对应的业务逻辑。 */
 function syncSenseQiOverlay(): void {
   if (!myPlayer?.senseQiActive) {
     mapRuntime.setSenseQiOverlay(null);
@@ -1081,6 +1067,7 @@ function syncSenseQiOverlay(): void {
   );
 }
 
+/** isWithinDisplayedMemoryBounds：执行对应的业务逻辑。 */
 function isWithinDisplayedMemoryBounds(x: number, y: number): boolean {
   if (!myPlayer) {
     return false;
@@ -1088,6 +1075,7 @@ function isWithinDisplayedMemoryBounds(x: number, y: number): boolean {
   return Math.abs(x - myPlayer.x) <= getDisplayRangeX() && Math.abs(y - myPlayer.y) <= getDisplayRangeY();
 }
 
+/** hideObserveModal：执行对应的业务逻辑。 */
 function hideObserveModal(): void {
   observeBuffTooltip.hide(true);
   observeModalEl?.classList.add('hidden');
@@ -1098,12 +1086,14 @@ function hideObserveModal(): void {
   activeObservedTileDetail = null;
 }
 
+/** buildObservationRows：执行对应的业务逻辑。 */
 function buildObservationRows(rows: Array<{ label: string; value?: string; valueHtml?: string }>): string {
   return rows
     .map((row) => `<div class="observe-modal-row"><span class="observe-modal-label">${escapeHtml(row.label)}</span><span class="observe-modal-value">${row.valueHtml ?? escapeHtml(row.value ?? '')}</span></div>`)
     .join('');
 }
 
+/** formatCurrentMax：执行对应的业务逻辑。 */
 function formatCurrentMax(current?: number, max?: number): string {
   if (typeof current !== 'number' || typeof max !== 'number') {
     return '未明';
@@ -1111,6 +1101,7 @@ function formatCurrentMax(current?: number, max?: number): string {
   return formatDisplayCurrentMax(Math.max(0, Math.round(current)), Math.max(0, Math.round(max)));
 }
 
+/** syncAuraLevelBaseValue：执行对应的业务逻辑。 */
 function syncAuraLevelBaseValue(nextValue?: number): void {
   if (typeof nextValue !== 'number' || !Number.isFinite(nextValue) || nextValue <= 0) {
     return;
@@ -1118,15 +1109,19 @@ function syncAuraLevelBaseValue(nextValue?: number): void {
   auraLevelBaseValue = Math.max(1, Math.round(nextValue));
 }
 
+/** formatAuraLevelText：执行对应的业务逻辑。 */
 function formatAuraLevelText(auraValue: number): string {
   return `灵气 ${formatDisplayInteger(Math.max(0, Math.round(auraValue)))}`;
 }
 
+/** formatAuraValueText：执行对应的业务逻辑。 */
 function formatAuraValueText(auraValue: number): string {
   return formatDisplayInteger(Math.max(0, Math.round(auraValue)));
 }
 
+/** TileRuntimeResourceDetail：定义该类型的结构与数据语义。 */
 type TileRuntimeResourceDetail = S2C_TileRuntimeDetail['resources'][number];
+/** ObserveAsideCard：定义该类型的结构与数据语义。 */
 type ObserveAsideCard = {
   mark?: string;
   title: string;
@@ -1134,6 +1129,7 @@ type ObserveAsideCard = {
   tone?: 'buff' | 'debuff';
 };
 
+/** createObserveAsideLineElement：执行对应的业务逻辑。 */
 function createObserveAsideLineElement(line: string): HTMLSpanElement {
   const element = document.createElement('span');
   element.className = 'floating-tooltip-aside-line';
@@ -1141,6 +1137,7 @@ function createObserveAsideLineElement(line: string): HTMLSpanElement {
   return element;
 }
 
+/** patchObserveAsideLineElements：执行对应的业务逻辑。 */
 function patchObserveAsideLineElements(container: HTMLElement, lines: string[]): void {
   while (container.children.length > lines.length) {
     container.lastElementChild?.remove();
@@ -1158,6 +1155,7 @@ function patchObserveAsideLineElements(container: HTMLElement, lines: string[]):
   });
 }
 
+/** patchObserveAsideCardElement：执行对应的业务逻辑。 */
 function patchObserveAsideCardElement(cardEl: HTMLElement, card: ObserveAsideCard): void {
   cardEl.className = `floating-tooltip-aside-card ${card.tone === 'debuff' ? 'debuff' : 'buff'}`;
 
@@ -1207,6 +1205,7 @@ function patchObserveAsideCardElement(cardEl: HTMLElement, card: ObserveAsideCar
   patchObserveAsideLineElements(nextDetailEl, card.lines);
 }
 
+/** getObservedTileRuntimeResources：执行对应的业务逻辑。 */
 function getObservedTileRuntimeResources(targetX: number, targetY: number): TileRuntimeResourceDetail[] {
   if (
     !myPlayer
@@ -1221,6 +1220,7 @@ function getObservedTileRuntimeResources(targetX: number, targetY: number): Tile
   return activeObservedTileDetail.resources;
 }
 
+/** formatObservedResourceOverview：执行对应的业务逻辑。 */
 function formatObservedResourceOverview(resource: TileRuntimeResourceDetail, fallbackLevel?: number): string {
   if (typeof resource.level === 'number') {
     return formatDisplayInteger(Math.max(0, Math.round(resource.level)));
@@ -1231,6 +1231,7 @@ function formatObservedResourceOverview(resource: TileRuntimeResourceDetail, fal
   return formatAuraValueText(resource.value);
 }
 
+/** buildObservedResourceAsideLines：执行对应的业务逻辑。 */
 function buildObservedResourceAsideLines(resource: TileRuntimeResourceDetail): string[] {
   const effectiveValue = typeof resource.effectiveValue === 'number' && Number.isFinite(resource.effectiveValue)
     ? resource.effectiveValue
@@ -1247,6 +1248,7 @@ function buildObservedResourceAsideLines(resource: TileRuntimeResourceDetail): s
   return lines;
 }
 
+/** isMatchingObservedTile：执行对应的业务逻辑。 */
 function isMatchingObservedTile(targetX: number, targetY: number): boolean {
   return Boolean(
     myPlayer
@@ -1257,6 +1259,7 @@ function isMatchingObservedTile(targetX: number, targetY: number): boolean {
   );
 }
 
+/** buildObservedResourceAsideCards：执行对应的业务逻辑。 */
 function buildObservedResourceAsideCards(targetX: number, targetY: number, tile: Tile): ObserveAsideCard[] {
   if (!myPlayer?.senseQiActive || !isMatchingObservedTile(targetX, targetY)) {
     return [];
@@ -1296,6 +1299,7 @@ function buildObservedResourceAsideCards(targetX: number, targetY: number, tile:
   });
 }
 
+/** renderObserveAsideCards：执行对应的业务逻辑。 */
 function renderObserveAsideCards(cards: ObserveAsideCard[]): void {
   if (!observeModalAsideEl) {
     return;
@@ -1323,6 +1327,7 @@ function renderObserveAsideCards(cards: ObserveAsideCard[]): void {
   observeModalAsideEl.setAttribute('aria-hidden', 'false');
 }
 
+/** formatBuffDuration：执行对应的业务逻辑。 */
 function formatBuffDuration(buff: VisibleBuffState): string {
   if (buff.infiniteDuration) {
     return '∞';
@@ -1330,6 +1335,7 @@ function formatBuffDuration(buff: VisibleBuffState): string {
   return `${formatDisplayInteger(Math.max(0, Math.round(buff.remainingTicks)))} / ${formatDisplayInteger(Math.max(1, Math.round(buff.duration)))} 息`;
 }
 
+/** scaleBuffAttrs：执行对应的业务逻辑。 */
 function scaleBuffAttrs(
   attrs: VisibleBuffState['attrs'],
   stacks: number,
@@ -1347,6 +1353,7 @@ function scaleBuffAttrs(
   return Object.keys(scaled).length > 0 ? scaled : undefined;
 }
 
+/** scaleBuffStats：执行对应的业务逻辑。 */
 function scaleBuffStats(
   stats: VisibleBuffState['stats'],
   stacks: number,
@@ -1377,6 +1384,7 @@ function scaleBuffStats(
   return Object.keys(scaled).length > 0 ? scaled : undefined;
 }
 
+/** buildBuffEffectLines：执行对应的业务逻辑。 */
 function buildBuffEffectLines(buff: VisibleBuffState): string[] {
   const stackFactor = Math.max(1, Math.floor(buff.stacks || 1));
   return describePreviewBonuses(
@@ -1388,6 +1396,7 @@ function buildBuffEffectLines(buff: VisibleBuffState): string[] {
   );
 }
 
+/** buildBuffTooltipLines：执行对应的业务逻辑。 */
 function buildBuffTooltipLines(buff: VisibleBuffState): string[] {
   const lines = [
     `类别：${buff.category === 'debuff' ? '减益' : '增益'}`,
@@ -1410,6 +1419,7 @@ function buildBuffTooltipLines(buff: VisibleBuffState): string[] {
   return lines;
 }
 
+/** buildBuffBadgeHtml：执行对应的业务逻辑。 */
 function buildBuffBadgeHtml(buff: VisibleBuffState): string {
   const title = escapeHtml(buff.name);
   const detail = escapeHtml(buildBuffTooltipLines(buff).join('\n'));
@@ -1426,6 +1436,7 @@ function buildBuffBadgeHtml(buff: VisibleBuffState): string {
   </button>`;
 }
 
+/** buildBuffSectionHtml：执行对应的业务逻辑。 */
 function buildBuffSectionHtml(title: string, buffs: VisibleBuffState[], emptyText: string): string {
   return `<section class="observe-buff-section">
     <div class="observe-buff-title">${escapeHtml(title)}</div>
@@ -1435,6 +1446,7 @@ function buildBuffSectionHtml(title: string, buffs: VisibleBuffState[], emptyTex
   </section>`;
 }
 
+/** applyNullablePatch：执行对应的业务逻辑。 */
 function applyNullablePatch<T>(value: T | null | undefined, fallback: T | undefined): T | undefined {
   if (value === null) {
     return undefined;
@@ -1445,10 +1457,12 @@ function applyNullablePatch<T>(value: T | null | undefined, fallback: T | undefi
   return fallback;
 }
 
+/** cloneJson：执行对应的业务逻辑。 */
 function cloneJson<T>(value: T): T {
   return clonePlainValue(value);
 }
 
+/** buildAttrStateFromPlayer：执行对应的业务逻辑。 */
 function buildAttrStateFromPlayer(player: PlayerState): S2C_AttrUpdate {
   return {
     baseAttrs: cloneJson(player.baseAttrs),
@@ -1470,9 +1484,11 @@ function buildAttrStateFromPlayer(player: PlayerState): S2C_AttrUpdate {
     realmProgressToNext: player.realm?.progressToNext,
     realmBreakthroughReady: player.realm?.breakthroughReady ?? player.breakthroughReady,
     alchemySkill: player.alchemySkill ? cloneJson(player.alchemySkill) : undefined,
+    enhancementSkill: player.enhancementSkill ? cloneJson(player.enhancementSkill) : undefined,
   };
 }
 
+/** mergeAttrUpdatePatch：执行对应的业务逻辑。 */
 function mergeAttrUpdatePatch(previous: S2C_AttrUpdate | null, patch: S2C_AttrUpdate): S2C_AttrUpdate {
   return {
     baseAttrs: patch.baseAttrs ? cloneJson(patch.baseAttrs) : cloneJson(previous?.baseAttrs ?? myPlayer?.baseAttrs ?? {
@@ -1522,9 +1538,13 @@ function mergeAttrUpdatePatch(previous: S2C_AttrUpdate | null, patch: S2C_AttrUp
     alchemySkill: patch.alchemySkill
       ? cloneJson(patch.alchemySkill)
       : (previous?.alchemySkill ? cloneJson(previous.alchemySkill) : (myPlayer?.alchemySkill ? cloneJson(myPlayer.alchemySkill) : undefined)),
+    enhancementSkill: patch.enhancementSkill
+      ? cloneJson(patch.enhancementSkill)
+      : (previous?.enhancementSkill ? cloneJson(previous.enhancementSkill) : (myPlayer?.enhancementSkill ? cloneJson(myPlayer.enhancementSkill) : undefined)),
   };
 }
 
+/** mergeTechniquePatch：执行对应的业务逻辑。 */
 function mergeTechniquePatch(patch: TechniqueUpdateEntry, previous?: TechniqueState): TechniqueState {
   const previousSameTechnique = previous?.techId === patch.techId ? previous : undefined;
   const template = getLocalTechniqueTemplate(patch.techId);
@@ -1556,6 +1576,7 @@ function mergeTechniquePatch(patch: TechniqueUpdateEntry, previous?: TechniqueSt
   });
 }
 
+/** hydrateSyncedItemStack：执行对应的业务逻辑。 */
 function hydrateSyncedItemStack(item: SyncedItemStack, previous?: Inventory['items'][number]): Inventory['items'][number] {
   const nextEnhanceLevel = item.enhanceLevel ?? 0;
   const previousSameItem = previous?.itemId === item.itemId && (previous.enhanceLevel ?? 0) === nextEnhanceLevel
@@ -1618,6 +1639,7 @@ function hydrateSyncedItemStack(item: SyncedItemStack, previous?: Inventory['ite
   };
 }
 
+/** mergeInventoryUpdate：执行对应的业务逻辑。 */
 function mergeInventoryUpdate(previous: Inventory | undefined, patch: S2C_InventoryUpdate): Inventory {
   if (patch.inventory) {
     return {
@@ -1655,6 +1677,7 @@ function mergeInventoryUpdate(previous: Inventory | undefined, patch: S2C_Invent
   return next;
 }
 
+/** mergeEquipmentUpdate：执行对应的业务逻辑。 */
 function mergeEquipmentUpdate(previous: PlayerState['equipment'] | undefined, patch: S2C_EquipmentUpdate): PlayerState['equipment'] {
   const next = previous
     ? cloneJson(previous)
@@ -1681,6 +1704,7 @@ function mergeEquipmentUpdate(previous: PlayerState['equipment'] | undefined, pa
   return next;
 }
 
+/** hydrateLootWindowState：执行对应的业务逻辑。 */
 function hydrateLootWindowState(window: S2C_LootWindowUpdate['window']): LootWindowState | null {
   if (!window) {
     return null;
@@ -1709,6 +1733,7 @@ function hydrateLootWindowState(window: S2C_LootWindowUpdate['window']): LootWin
   };
 }
 
+/** hydrateNpcShopResponse：执行对应的业务逻辑。 */
 function hydrateNpcShopResponse(data: S2C_NpcShop) {
   return {
     npcId: data.npcId,
@@ -1733,6 +1758,7 @@ function hydrateNpcShopResponse(data: S2C_NpcShop) {
   };
 }
 
+/** mergeTechniqueStates：执行对应的业务逻辑。 */
 function mergeTechniqueStates(patches: TechniqueUpdateEntry[], removeTechniqueIds: string[] = []): TechniqueState[] {
   const removedIdSet = new Set(removeTechniqueIds);
   const merged = [...latestTechniqueMap.values()]
@@ -1758,6 +1784,7 @@ function mergeTechniqueStates(patches: TechniqueUpdateEntry[], removeTechniqueId
   return merged;
 }
 
+/** mergeActionPatch：执行对应的业务逻辑。 */
 function mergeActionPatch(patch: ActionUpdateEntry, previous?: ActionDef): ActionDef {
   const previousSameAction = previous?.id === patch.id ? previous : undefined;
   const skillTemplate = getLocalSkillTemplate(patch.id);
@@ -1782,6 +1809,7 @@ function mergeActionPatch(patch: ActionUpdateEntry, previous?: ActionDef): Actio
   };
 }
 
+/** mergeActionStates：执行对应的业务逻辑。 */
 function mergeActionStates(
   patches: ActionUpdateEntry[],
   removeActionIds: string[] = [],
@@ -1819,6 +1847,7 @@ function mergeActionStates(
   return merged;
 }
 
+/** formatTraversalCost：执行对应的业务逻辑。 */
 function formatTraversalCost(tile: Tile): string {
   if (!tile.walkable) {
     return '无法通行';
@@ -1827,6 +1856,7 @@ function formatTraversalCost(tile: Tile): string {
   return `${cost} 点/格`;
 }
 
+/** toObserveEntityCardData：执行对应的业务逻辑。 */
 function toObserveEntityCardData(entity: ObservedEntity): ObserveEntityCardData {
   if (isCrowdEntityKind(entity.kind)) {
     return {
@@ -1851,6 +1881,7 @@ function toObserveEntityCardData(entity: ObservedEntity): ObserveEntityCardData 
   };
 }
 
+/** normalizeObserveEntityCardData：执行对应的业务逻辑。 */
 function normalizeObserveEntityCardData(entity: NonNullable<S2C_TileRuntimeDetail['entities']>[number]): ObserveEntityCardData {
   if (isCrowdEntityKind(entity.kind)) {
     return {
@@ -1876,6 +1907,7 @@ function normalizeObserveEntityCardData(entity: NonNullable<S2C_TileRuntimeDetai
   };
 }
 
+/** buildObservedEntityCardHtml：执行对应的业务逻辑。 */
 function buildObservedEntityCardHtml(entity: ObserveEntityCardData): string {
   if (isCrowdEntityKind(entity.kind)) {
     return `<div class="observe-entity-card">
@@ -1937,6 +1969,7 @@ function buildObservedEntityCardHtml(entity: ObserveEntityCardData): string {
   </div>`;
 }
 
+/** findObservedEntityById：执行对应的业务逻辑。 */
 function findObservedEntityById(entityId: string): ObserveEntityCardData | null {
   const entities = activeObservedTileDetail?.entities;
   if (!entities) {
@@ -1946,6 +1979,7 @@ function findObservedEntityById(entityId: string): ObserveEntityCardData | null 
   return matched ? normalizeObserveEntityCardData(matched) : null;
 }
 
+/** formatObserveLootChance：执行对应的业务逻辑。 */
 function formatObserveLootChance(chance: number): string {
   const normalized = Math.max(0, Math.min(1, Number.isFinite(chance) ? chance : 0));
   const percent = normalized * 100;
@@ -1958,6 +1992,7 @@ function formatObserveLootChance(chance: number): string {
   return `${percent.toFixed(3)}%`;
 }
 
+/** openObserveLootPreview：执行对应的业务逻辑。 */
 function openObserveLootPreview(entity: ObserveEntityCardData): void {
   if (entity.kind !== 'monster' || entity.observation?.clarity !== 'complete' || !entity.lootPreview) {
     return;
@@ -1987,6 +2022,7 @@ function openObserveLootPreview(entity: ObserveEntityCardData): void {
   });
 }
 
+/** bindObserveLootPreviewActions：执行对应的业务逻辑。 */
 function bindObserveLootPreviewActions(root: HTMLElement): void {
   if (observeLootPreviewDelegatedBound) {
     return;
@@ -2018,6 +2054,7 @@ function bindObserveLootPreviewActions(root: HTMLElement): void {
   });
 }
 
+/** resolveObserveEntities：执行对应的业务逻辑。 */
 function resolveObserveEntities(targetX: number, targetY: number): ObserveEntityCardData[] {
   if (
     activeObservedTile
@@ -2038,6 +2075,7 @@ function resolveObserveEntities(targetX: number, targetY: number): ObserveEntity
     .map((entity) => toObserveEntityCardData(entity));
 }
 
+/** buildObservedEntitySectionHtml：执行对应的业务逻辑。 */
 function buildObservedEntitySectionHtml(entities: ObserveEntityCardData[]): string {
   return `<section class="observe-modal-section">
     <div class="observe-modal-section-title">角色信息</div>
@@ -2047,6 +2085,7 @@ function buildObservedEntitySectionHtml(entities: ObserveEntityCardData[]): stri
   </section>`;
 }
 
+/** resolveObserveBuffTooltipNode：执行对应的业务逻辑。 */
 function resolveObserveBuffTooltipNode(target: EventTarget | null): HTMLElement | null {
   if (!(target instanceof HTMLElement)) {
     return null;
@@ -2054,6 +2093,7 @@ function resolveObserveBuffTooltipNode(target: EventTarget | null): HTMLElement 
   return target.closest<HTMLElement>('[data-buff-tooltip-title]');
 }
 
+/** readObserveBuffTooltipPayload：执行对应的业务逻辑。 */
 function readObserveBuffTooltipPayload(node: HTMLElement): { title: string; lines: string[] } {
   return {
     title: node.dataset.buffTooltipTitle ?? '',
@@ -2061,6 +2101,7 @@ function readObserveBuffTooltipPayload(node: HTMLElement): { title: string; line
   };
 }
 
+/** bindObserveBuffTooltips：执行对应的业务逻辑。 */
 function bindObserveBuffTooltips(root: HTMLElement): void {
   if (observeBuffTooltipDelegatedBound) {
     return;
@@ -2140,6 +2181,7 @@ function bindObserveBuffTooltips(root: HTMLElement): void {
   });
 }
 
+/** renderObserveModal：执行对应的业务逻辑。 */
 function renderObserveModal(targetX: number, targetY: number): void {
   const tile = getVisibleTileAt(targetX, targetY);
   if (!tile) {
@@ -2221,6 +2263,7 @@ function renderObserveModal(targetX: number, targetY: number): void {
   observeModalEl?.setAttribute('aria-hidden', 'false');
 }
 
+/** showObserveModal：执行对应的业务逻辑。 */
 function showObserveModal(targetX: number, targetY: number): void {
   if (!myPlayer) {
     return;
@@ -2292,6 +2335,7 @@ alchemyModal.setCallbacks({
 enhancementModal.setCallbacks({
   onRequestPanel: () => socket.sendRequestEnhancementPanel(),
   onStartEnhancement: (payload) => socket.sendStartEnhancement(payload),
+  onCancelEnhancement: () => socket.sendCancelEnhancement(),
 });
 actionPanel.setCallbacks(
   (actionId, requiresTarget, targetMode, range, actionName) => {
@@ -2370,6 +2414,7 @@ settingsPanel.setOptions({
   },
 });
 
+/** requestRedeemCodes：执行对应的业务逻辑。 */
 function requestRedeemCodes(codes: string[]): Promise<AccountRedeemCodesRes> {
   if (!socket.connected) {
     return Promise.reject(new Error('当前连接不可用，请稍后重试'));
@@ -2390,6 +2435,7 @@ function requestRedeemCodes(codes: string[]): Promise<AccountRedeemCodesRes> {
   });
 }
 
+/** applyZoomChange：执行对应的业务逻辑。 */
 function applyZoomChange(nextZoom: number): number {
   const previous = getZoom();
   const zoom = setZoom(nextZoom);
@@ -2478,6 +2524,7 @@ socket.onAttrUpdate((data) => {
     }
     myPlayer.breakthroughReady = latestAttrUpdate.realmBreakthroughReady ?? myPlayer.breakthroughReady;
     myPlayer.alchemySkill = latestAttrUpdate.alchemySkill ?? myPlayer.alchemySkill;
+    myPlayer.enhancementSkill = latestAttrUpdate.enhancementSkill ?? myPlayer.enhancementSkill;
     if (myPlayer.realm) {
       myPlayer.realm.progress = latestAttrUpdate.realmProgress ?? myPlayer.realm.progress;
       myPlayer.realm.progressToNext = latestAttrUpdate.realmProgressToNext ?? myPlayer.realm.progressToNext;
@@ -2724,6 +2771,7 @@ socket.onConnectError((message) => {
     scheduleConnectionRecovery(300, true);
     return;
   }
+/** showToast：处理当前场景中的对应操作。 */
   showToast(`连接失败: ${message}`);
 });
 socket.onDisconnect((reason) => {
@@ -2735,11 +2783,13 @@ socket.onDisconnect((reason) => {
     pending.reject(new Error('连接已断开，兑换结果未返回'));
   }
   clearPendingSocketPing();
+/** renderPingLatency：处理当前场景中的对应操作。 */
   renderPingLatency(null, navigator.onLine ? '重连' : '断网');
   panelSystem.store.setRuntime({ connected: false });
   if (myPlayer) {
     showToast('连接已断开，正在尝试恢复');
   }
+/** scheduleConnectionRecovery：处理当前场景中的对应操作。 */
   scheduleConnectionRecovery(document.visibilityState === 'visible' ? 300 : 0);
 });
 socket.onPong((data) => {
@@ -2769,6 +2819,7 @@ let latestEntityMap = new Map<string, ObservedEntity>();
 let pendingLayoutViewportSync = false;
 let pendingAutoInteraction: PendingAutoInteraction | null = null;
 
+/** showToast：执行对应的业务逻辑。 */
 function showToast(message: string, kind: 'system' | 'chat' | 'quest' | 'combat' | 'loot' | 'grudge' = 'system') {
   const el = document.getElementById('toast');
   if (!el) return;
@@ -2783,6 +2834,7 @@ function showToast(message: string, kind: 'system' | 'chat' | 'quest' | 'combat'
   }, durationMs);
 }
 
+/** handleQqGroupLinkClick：执行对应的业务逻辑。 */
 async function handleQqGroupLinkClick(): Promise<void> {
   const copied = await copyTextToClipboard(QQ_GROUP_NUMBER);
   const qqScheme = resolveQqGroupLink();
@@ -2799,12 +2851,14 @@ async function handleQqGroupLinkClick(): Promise<void> {
   }, 600);
 }
 
+/** resolveQqGroupLink：执行对应的业务逻辑。 */
 function resolveQqGroupLink(): string {
   const ua = navigator.userAgent.toLowerCase();
   const isMobile = /android|iphone|ipad|ipod|mobile/.test(ua);
   return isMobile ? QQ_GROUP_MOBILE_DEEP_LINK : QQ_GROUP_DESKTOP_DEEP_LINK;
 }
 
+/** copyTextToClipboard：执行对应的业务逻辑。 */
 async function copyTextToClipboard(text: string): Promise<boolean> {
   try {
     if (navigator.clipboard?.writeText) {
@@ -2833,10 +2887,12 @@ async function copyTextToClipboard(text: string): Promise<boolean> {
   }
 }
 
+/** formatZoom：执行对应的业务逻辑。 */
 function formatZoom(zoom: number): string {
   return zoom.toFixed(2).replace(/\.00$/, '').replace(/(\.\d)0$/, '$1');
 }
 
+/** refreshZoomChrome：执行对应的业务逻辑。 */
 function refreshZoomChrome(zoom = getZoom()) {
   if (zoomSlider) {
     zoomSlider.value = zoom.toFixed(2);
@@ -2865,11 +2921,13 @@ function refreshZoomChrome(zoom = getZoom()) {
   }
 }
 
+/** refreshZoomViewport：执行对应的业务逻辑。 */
 function refreshZoomViewport() {
   resizeCanvas();
   mapRuntime.setZoom(getZoom());
 }
 
+/** haveActionRenderStructureChanges：执行对应的业务逻辑。 */
 function haveActionRenderStructureChanges(previousActions: ActionDef[], nextActions: ActionDef[]): boolean {
   if (previousActions.length !== nextActions.length) {
     return true;
@@ -2894,6 +2952,7 @@ function haveActionRenderStructureChanges(previousActions: ActionDef[], nextActi
   return false;
 }
 
+/** haveTechniqueStructureChanges：执行对应的业务逻辑。 */
 function haveTechniqueStructureChanges(
   previousTechniques: TechniqueState[],
   previousCultivatingTechId: string | undefined,
@@ -2937,6 +2996,7 @@ function haveTechniqueStructureChanges(
   return false;
 }
 
+/** resolveMapDanger：执行对应的业务逻辑。 */
 function resolveMapDanger(): string {
   const fallback = myPlayer ? MAP_FALLBACK[myPlayer.mapId] : undefined;
   if (!myPlayer) {
@@ -2945,6 +3005,7 @@ function resolveMapDanger(): string {
   return assessMapDanger(myPlayer, mapRuntime.getMapMeta()?.recommendedRealm, fallback?.recommendedRealm).dangerLabel;
 }
 
+/** resolveRealmLabel：执行对应的业务逻辑。 */
 function resolveRealmLabel(player: PlayerState): string {
   if (player.realmName) {
     return player.realmStage ? `${player.realmName} · ${player.realmStage}` : player.realmName;
@@ -2960,6 +3021,7 @@ function resolveRealmLabel(player: PlayerState): string {
   return labels[top.realm] ?? '修行中';
 }
 
+/** resolveTitleLabel：执行对应的业务逻辑。 */
 function resolveTitleLabel(player: PlayerState): string {
   if (player.realm?.path === 'immortal') {
     return player.realm.shortName === '筑基' ? '云游真修' : '初登仙门';
@@ -2972,6 +3034,7 @@ function resolveTitleLabel(player: PlayerState): string {
   return '见习弟子';
 }
 
+/** refreshUiChrome：执行对应的业务逻辑。 */
 function refreshUiChrome() {
   refreshHudChrome();
   if (!myPlayer) return;
@@ -2987,6 +3050,7 @@ function refreshUiChrome() {
   });
 }
 
+/** refreshHudChrome：执行对应的业务逻辑。 */
 function refreshHudChrome() {
   if (!myPlayer) return;
   const heavenGateAction = getHeavenGateHudAction(myPlayer);
@@ -3001,6 +3065,7 @@ function refreshHudChrome() {
   });
 }
 
+/** hasSelectionWithin：执行对应的业务逻辑。 */
 function hasSelectionWithin(root: HTMLElement | null): boolean {
   if (!root) return false;
   const selection = window.getSelection();
@@ -3010,10 +3075,12 @@ function hasSelectionWithin(root: HTMLElement | null): boolean {
   return !!anchor && !!focus && root.contains(anchor) && root.contains(focus);
 }
 
+/** shouldPauseWorldPanelRefresh：执行对应的业务逻辑。 */
 function shouldPauseWorldPanelRefresh(): boolean {
   return hasSelectionWithin(document.getElementById('layout-center'));
 }
 
+/** getInfoRadius：执行对应的业务逻辑。 */
 function getInfoRadius(): number {
   const baseViewRange = Math.max(1, Math.round(myPlayer?.viewRange ?? VIEW_RADIUS));
   if (currentTimeState) {
@@ -3022,6 +3089,7 @@ function getInfoRadius(): number {
   return baseViewRange;
 }
 
+/** scheduleLayoutViewportSync：执行对应的业务逻辑。 */
 function scheduleLayoutViewportSync(): void {
   if (pendingLayoutViewportSync) {
     return;
@@ -3033,6 +3101,7 @@ function scheduleLayoutViewportSync(): void {
   });
 }
 
+/** clearCurrentPath：执行对应的业务逻辑。 */
 function clearCurrentPath() {
   pathCells = [];
   pathTarget = null;
@@ -3040,6 +3109,7 @@ function clearCurrentPath() {
   mapRuntime.setPathCells(pathCells);
 }
 
+/** sendMoveCommand：执行对应的业务逻辑。 */
 function sendMoveCommand(dir: Direction) {
   if (!myPlayer) return;
   clearCurrentPath();
@@ -3047,6 +3117,7 @@ function sendMoveCommand(dir: Direction) {
   socket.sendMove(dir);
 }
 
+/** planPathTo：执行对应的业务逻辑。 */
 function planPathTo(
   target: { x: number; y: number },
   options?: { ignoreVisibilityLimit?: boolean; allowNearestReachable?: boolean; preserveAutoInteraction?: boolean },
@@ -3068,11 +3139,13 @@ function planPathTo(
   });
 }
 
+/** isCellInsideCurrentMap：执行对应的业务逻辑。 */
 function isCellInsideCurrentMap(x: number, y: number): boolean {
   const mapMeta = mapRuntime.getMapMeta();
   return Boolean(mapMeta && x >= 0 && x < mapMeta.width && y >= 0 && y < mapMeta.height);
 }
 
+/** isCellAvailableForAutoApproach：执行对应的业务逻辑。 */
 function isCellAvailableForAutoApproach(x: number, y: number): boolean {
   if (!myPlayer || !isCellInsideCurrentMap(x, y)) {
     return false;
@@ -3085,6 +3158,7 @@ function isCellAvailableForAutoApproach(x: number, y: number): boolean {
   return !isVisibleBlockingEntityAt(x, y, { allowSelf: true, mapMeta });
 }
 
+/** findObservedEntityAt：执行对应的业务逻辑。 */
 function findObservedEntityAt(x: number, y: number, kind?: string): ObservedEntity | null {
   const entity = latestEntities.find((entry) => (
     entry.wx === x
@@ -3094,14 +3168,17 @@ function findObservedEntityAt(x: number, y: number, kind?: string): ObservedEnti
   return entity ?? null;
 }
 
+/** isPathPreviewBlockingEntity：执行对应的业务逻辑。 */
 function isPathPreviewBlockingEntity(entity: ObservedEntity): boolean {
   return entity.kind === 'player' || entity.kind === 'monster' || entity.kind === 'npc';
 }
 
+/** createPlayerOverlapPointKeySet：执行对应的业务逻辑。 */
 function createPlayerOverlapPointKeySet(mapMeta: MapMeta | null): ReadonlySet<string> {
   return new Set((mapMeta?.playerOverlapPoints ?? []).map((point) => `${point.x},${point.y}`));
 }
 
+/** isVisibleBlockingEntityAt：执行对应的业务逻辑。 */
 function isVisibleBlockingEntityAt(
   x: number,
   y: number,
@@ -3124,6 +3201,7 @@ function isVisibleBlockingEntityAt(
   });
 }
 
+/** resolveNpcApproachTarget：执行对应的业务逻辑。 */
 function resolveNpcApproachTarget(npc: ObservedEntity): { x: number; y: number } | null {
   if (!myPlayer) {
     return null;
@@ -3162,6 +3240,7 @@ function resolveNpcApproachTarget(npc: ObservedEntity): { x: number; y: number }
   return bestCandidate ? { x: bestCandidate.x, y: bestCandidate.y } : null;
 }
 
+/** triggerAutoInteractionIfReady：执行对应的业务逻辑。 */
 function triggerAutoInteractionIfReady(): boolean {
   if (!myPlayer || !pendingAutoInteraction || pendingAutoInteraction.mapId !== myPlayer.mapId) {
     pendingAutoInteraction = null;
@@ -3192,6 +3271,7 @@ function triggerAutoInteractionIfReady(): boolean {
   return true;
 }
 
+/** handleNpcClickTarget：执行对应的业务逻辑。 */
 function handleNpcClickTarget(npc: ObservedEntity): boolean {
   if (!myPlayer) {
     return false;
@@ -3229,10 +3309,12 @@ function handleNpcClickTarget(npc: ObservedEntity): boolean {
     y: npc.wy,
     actionId: npc.id,
   };
+/** planPathTo：处理当前场景中的对应操作。 */
   planPathTo(approachTarget, { allowNearestReachable: true, preserveAutoInteraction: true });
   return true;
 }
 
+/** handlePortalClickTarget：执行对应的业务逻辑。 */
 function handlePortalClickTarget(target: { x: number; y: number }, tile: Tile): boolean {
   if (!myPlayer || (tile.type !== TileType.Portal && tile.type !== TileType.Stairs)) {
     return false;
@@ -3259,10 +3341,12 @@ function handlePortalClickTarget(target: { x: number; y: number }, tile: Tile): 
     y: target.y,
     actionId: 'portal:travel',
   };
+/** planPathTo：处理当前场景中的对应操作。 */
   planPathTo({ x: target.x, y: target.y }, { preserveAutoInteraction: true });
   return true;
 }
 
+/** buildClientPreviewPath：执行对应的业务逻辑。 */
 function buildClientPreviewPath(
   startX: number,
   startY: number,
@@ -3331,6 +3415,7 @@ function buildClientPreviewPath(
   };
 }
 
+/** resetGameState：执行对应的业务逻辑。 */
 function resetGameState() {
   myPlayer = null;
   currentTimeTickIntervalMs = 1000;
@@ -3374,6 +3459,7 @@ function resetGameState() {
   document.getElementById('hud')?.classList.add('hidden');
 }
 
+/** applyLocalDisplayName：执行对应的业务逻辑。 */
 function applyLocalDisplayName(displayName: string) {
   if (!myPlayer) {
     return;
@@ -3392,6 +3478,7 @@ function applyLocalDisplayName(displayName: string) {
   refreshHudChrome();
 }
 
+/** applyLocalRoleName：执行对应的业务逻辑。 */
 function applyLocalRoleName(roleName: string) {
   if (!myPlayer) {
     return;
@@ -3430,6 +3517,7 @@ sidePanel.setLayoutChangeCallback(() => {
   }
   scheduleLayoutViewportSync();
 });
+/** syncChatLogbookVisibility：执行对应的业务逻辑。 */
 function syncChatLogbookVisibility(): void {
   const logbookPane = document.querySelector<HTMLElement>('.split-tab-pane[data-pane="logbook"]');
   chatUI.setLogbookVisible(logbookPane?.classList.contains('active') === true);
@@ -3442,6 +3530,7 @@ sidePanel.setTabChangeCallback((tabName) => {
 });
 syncChatLogbookVisibility();
 
+/** resizeCanvas：执行对应的业务逻辑。 */
 function resizeCanvas() {
   const cssWidth = Math.max(1, canvasHost.clientWidth);
   const cssHeight = Math.max(1, canvasHost.clientHeight);
@@ -3817,3 +3906,7 @@ socket.onTick((data: S2C_Tick) => {
 
 restartPingLoop();
 void loginUI.restoreSession();
+
+
+
+

@@ -74,6 +74,7 @@ import {
   C2S_CancelAlchemy,
   C2S_RequestEnhancementPanel,
   C2S_StartEnhancement,
+  C2S_CancelEnhancement,
   C2S_HeavenGateAction,
   PlayerState,
   S2C_AlchemyPanel,
@@ -127,6 +128,7 @@ import { AlchemyService } from './alchemy.service';
 import { EnhancementService } from './enhancement.service';
 
 @WebSocketGateway({ cors: true })
+/** GameGateway：封装相关状态与行为。 */
 export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit {
   @WebSocketServer()
   server!: Server;
@@ -314,6 +316,13 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
       },
       alchemyPresets: [],
       alchemyJob: null,
+      enhancementSkill: {
+        level: 1,
+        exp: 0,
+        expToNext: initialAlchemyExpToNext,
+      },
+      enhancementSkillLevel: 1,
+      enhancementJob: null,
       enhancementRecords: [],
       autoBattle: false,
       autoBattleSkills: [],
@@ -368,6 +377,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.Heartbeat)
+/** handleHeartbeat：处理当前场景中的对应操作。 */
   handleHeartbeat(client: Socket, _data: C2S_Heartbeat) {
     const playerId = client.data?.playerId as string;
     if (!playerId) return;
@@ -375,6 +385,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.Ping)
+/** handlePing：处理当前场景中的对应操作。 */
   handlePing(client: Socket, data: C2S_Ping) {
     const playerId = client.data?.playerId as string;
     if (!playerId) {
@@ -387,6 +398,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.Move)
+/** handleMove：处理当前场景中的对应操作。 */
   handleMove(client: Socket, data: C2S_Move) {
     const playerId = client.data?.playerId as string;
     const player = this.playerService.getPlayer(playerId);
@@ -401,6 +413,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.MoveTo)
+/** handleMoveTo：处理当前场景中的对应操作。 */
   handleMoveTo(client: Socket, data: C2S_MoveTo) {
     const playerId = client.data?.playerId as string;
     const player = this.playerService.getPlayer(playerId);
@@ -430,6 +443,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.NavigateQuest)
+/** handleNavigateQuest：处理当前场景中的对应操作。 */
   handleNavigateQuest(client: Socket, data: C2S_NavigateQuest) {
     const playerId = client.data?.playerId as string;
     const player = this.playerService.getPlayer(playerId);
@@ -444,6 +458,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.NavigateMapPoint)
+/** handleNavigateMapPoint：处理当前场景中的对应操作。 */
   handleNavigateMapPoint(client: Socket, data: C2S_NavigateMapPoint) {
     const playerId = client.data?.playerId as string;
     const player = this.playerService.getPlayer(playerId);
@@ -458,6 +473,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.Action)
+/** handleAction：处理当前场景中的对应操作。 */
   handleAction(client: Socket, data: C2S_Action) {
     const playerId = client.data?.playerId as string;
     const player = this.playerService.getPlayer(playerId);
@@ -472,6 +488,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.HeavenGateAction)
+/** handleHeavenGateAction：处理当前场景中的对应操作。 */
   async handleHeavenGateAction(client: Socket, data: C2S_HeavenGateAction) {
     const playerId = client.data?.playerId as string;
     const player = this.playerService.getPlayer(playerId);
@@ -501,6 +518,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.RequestNpcShop)
+/** handleRequestNpcShop：处理当前场景中的对应操作。 */
   handleRequestNpcShop(client: Socket, data: C2S_RequestNpcShop) {
     const playerId = client.data?.playerId as string;
     const player = this.playerService.getPlayer(playerId);
@@ -514,6 +532,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.BuyNpcShopItem)
+/** handleBuyNpcShopItem：处理当前场景中的对应操作。 */
   handleBuyNpcShopItem(client: Socket, data: C2S_BuyNpcShopItem) {
     const playerId = client.data?.playerId as string;
     const player = this.playerService.getPlayer(playerId);
@@ -528,6 +547,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.RequestAlchemyPanel)
+/** handleRequestAlchemyPanel：处理当前场景中的对应操作。 */
   handleRequestAlchemyPanel(client: Socket, data: C2S_RequestAlchemyPanel) {
     const playerId = client.data?.playerId as string;
     const player = this.playerService.getPlayer(playerId);
@@ -536,6 +556,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.SaveAlchemyPreset)
+/** handleSaveAlchemyPreset：处理当前场景中的对应操作。 */
   handleSaveAlchemyPreset(client: Socket, data: C2S_SaveAlchemyPreset) {
     const playerId = client.data?.playerId as string;
     const player = this.playerService.getPlayer(playerId);
@@ -550,6 +571,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.DeleteAlchemyPreset)
+/** handleDeleteAlchemyPreset：处理当前场景中的对应操作。 */
   handleDeleteAlchemyPreset(client: Socket, data: C2S_DeleteAlchemyPreset) {
     const playerId = client.data?.playerId as string;
     const player = this.playerService.getPlayer(playerId);
@@ -564,6 +586,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.StartAlchemy)
+/** handleStartAlchemy：处理当前场景中的对应操作。 */
   handleStartAlchemy(client: Socket, data: C2S_StartAlchemy) {
     const playerId = client.data?.playerId as string;
     const player = this.playerService.getPlayer(playerId);
@@ -578,6 +601,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.CancelAlchemy)
+/** handleCancelAlchemy：处理当前场景中的对应操作。 */
   handleCancelAlchemy(client: Socket, _data: C2S_CancelAlchemy) {
     const playerId = client.data?.playerId as string;
     const player = this.playerService.getPlayer(playerId);
@@ -592,6 +616,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.RequestEnhancementPanel)
+/** handleRequestEnhancementPanel：处理当前场景中的对应操作。 */
   handleRequestEnhancementPanel(client: Socket, _data: C2S_RequestEnhancementPanel) {
     const playerId = client.data?.playerId as string;
     const player = this.playerService.getPlayer(playerId);
@@ -600,6 +625,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.StartEnhancement)
+/** handleStartEnhancement：处理当前场景中的对应操作。 */
   handleStartEnhancement(client: Socket, data: C2S_StartEnhancement) {
     const playerId = client.data?.playerId as string;
     const player = this.playerService.getPlayer(playerId);
@@ -613,7 +639,23 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     });
   }
 
+  @SubscribeMessage(C2S.CancelEnhancement)
+/** handleCancelEnhancement：处理当前场景中的对应操作。 */
+  handleCancelEnhancement(client: Socket, _data: C2S_CancelEnhancement) {
+    const playerId = client.data?.playerId as string;
+    const player = this.playerService.getPlayer(playerId);
+    if (!player) return;
+
+    this.playerService.enqueueCommand(player.mapId, {
+      playerId,
+      type: 'cancelEnhancement',
+      data: {},
+      timestamp: Date.now(),
+    });
+  }
+
   @SubscribeMessage(C2S.UpdateAutoBattleSkills)
+/** handleUpdateAutoBattleSkills：处理当前场景中的对应操作。 */
   handleUpdateAutoBattleSkills(client: Socket, data: C2S_UpdateAutoBattleSkills) {
     const playerId = client.data?.playerId as string;
     const player = this.playerService.getPlayer(playerId);
@@ -622,6 +664,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.UpdateAutoUsePills)
+/** handleUpdateAutoUsePills：处理当前场景中的对应操作。 */
   handleUpdateAutoUsePills(client: Socket, data: C2S_UpdateAutoUsePills) {
     const playerId = client.data?.playerId as string;
     const player = this.playerService.getPlayer(playerId);
@@ -630,6 +673,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.UpdateCombatTargetingRules)
+/** handleUpdateCombatTargetingRules：处理当前场景中的对应操作。 */
   handleUpdateCombatTargetingRules(client: Socket, data: C2S_UpdateCombatTargetingRules) {
     const playerId = client.data?.playerId as string;
     const player = this.playerService.getPlayer(playerId);
@@ -638,6 +682,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.UpdateAutoBattleTargetingMode)
+/** handleUpdateAutoBattleTargetingMode：处理当前场景中的对应操作。 */
   handleUpdateAutoBattleTargetingMode(client: Socket, data: C2S_UpdateAutoBattleTargetingMode) {
     const playerId = client.data?.playerId as string;
     const player = this.playerService.getPlayer(playerId);
@@ -646,6 +691,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.UpdateTechniqueSkillAvailability)
+/** handleUpdateTechniqueSkillAvailability：处理当前场景中的对应操作。 */
   handleUpdateTechniqueSkillAvailability(client: Socket, data: C2S_UpdateTechniqueSkillAvailability) {
     const playerId = client.data?.playerId as string;
     const player = this.playerService.getPlayer(playerId);
@@ -654,6 +700,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.DebugResetSpawn)
+/** handleDebugResetSpawn：处理当前场景中的对应操作。 */
   handleDebugResetSpawn(client: Socket, data: C2S_DebugResetSpawn) {
     const playerId = client.data?.playerId as string;
     const player = this.playerService.getPlayer(playerId);
@@ -670,6 +717,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.UseItem)
+/** handleUseItem：处理当前场景中的对应操作。 */
   handleUseItem(client: Socket, data: C2S_UseItem) {
     const playerId = client.data?.playerId as string;
     const player = this.playerService.getPlayer(playerId);
@@ -678,6 +726,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.DropItem)
+/** handleDropItem：处理当前场景中的对应操作。 */
   handleDropItem(client: Socket, data: C2S_DropItem) {
     const playerId = client.data?.playerId as string;
     const player = this.playerService.getPlayer(playerId);
@@ -686,6 +735,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.DestroyItem)
+/** handleDestroyItem：处理当前场景中的对应操作。 */
   handleDestroyItem(client: Socket, data: C2S_DestroyItem) {
     const playerId = client.data?.playerId as string;
     const player = this.playerService.getPlayer(playerId);
@@ -694,6 +744,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.TakeLoot)
+/** handleTakeLoot：处理当前场景中的对应操作。 */
   handleTakeLoot(client: Socket, data: C2S_TakeLoot) {
     const playerId = client.data?.playerId as string;
     const player = this.playerService.getPlayer(playerId);
@@ -708,6 +759,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.SortInventory)
+/** handleSortInventory：处理当前场景中的对应操作。 */
   handleSortInventory(client: Socket, data: C2S_SortInventory) {
     const playerId = client.data?.playerId as string;
     const player = this.playerService.getPlayer(playerId);
@@ -716,6 +768,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.InspectTileRuntime)
+/** handleInspectTileRuntime：处理当前场景中的对应操作。 */
   handleInspectTileRuntime(client: Socket, data: C2S_InspectTileRuntime) {
     const playerId = client.data?.playerId as string;
     const player = this.playerService.getPlayer(playerId);
@@ -800,6 +853,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.Equip)
+/** handleEquip：处理当前场景中的对应操作。 */
   handleEquip(client: Socket, data: C2S_Equip) {
     const playerId = client.data?.playerId as string;
     const player = this.playerService.getPlayer(playerId);
@@ -808,6 +862,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.Unequip)
+/** handleUnequip：处理当前场景中的对应操作。 */
   handleUnequip(client: Socket, data: C2S_Unequip) {
     const playerId = client.data?.playerId as string;
     const player = this.playerService.getPlayer(playerId);
@@ -816,6 +871,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.Cultivate)
+/** handleCultivate：处理当前场景中的对应操作。 */
   handleCultivate(client: Socket, data: C2S_Cultivate) {
     const playerId = client.data?.playerId as string;
     const player = this.playerService.getPlayer(playerId);
@@ -824,6 +880,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.Chat)
+/** handleChat：处理当前场景中的对应操作。 */
   handleChat(client: Socket, data: C2S_Chat) {
     const playerId = client.data?.playerId as string;
     const player = this.playerService.getPlayer(playerId);
@@ -847,6 +904,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.AckSystemMessages)
+/** handleAckSystemMessages：处理当前场景中的对应操作。 */
   handleAckSystemMessages(client: Socket, data: C2S_AckSystemMessages) {
     const playerId = client.data?.playerId as string;
     if (!playerId) {
@@ -861,6 +919,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     this.playerService.ackPendingLogbookMessages(playerId, ids);
   }
 
+/** sendInit：处理当前场景中的对应操作。 */
   private sendInit(client: Socket, player: PlayerState) {
     const mapMeta = this.mapService.getMapMeta(player.mapId);
     if (!mapMeta) return;
@@ -945,11 +1004,13 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.RequestSuggestions)
+/** handleRequestSuggestions：处理当前场景中的对应操作。 */
   async handleRequestSuggestions(client: Socket, _data: C2S_RequestSuggestions) {
     client.emit(S2C.SuggestionUpdate, { suggestions: this.suggestionService.getAll() });
   }
 
   @SubscribeMessage(C2S.RequestMailSummary)
+/** handleRequestMailSummary：处理当前场景中的对应操作。 */
   async handleRequestMailSummary(client: Socket, _data: C2S_RequestMailSummary) {
     const playerId = client.data?.playerId as string;
     if (!playerId) {
@@ -959,6 +1020,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.RequestMailPage)
+/** handleRequestMailPage：处理当前场景中的对应操作。 */
   async handleRequestMailPage(client: Socket, data: C2S_RequestMailPage) {
     const playerId = client.data?.playerId as string;
     if (!playerId) {
@@ -970,6 +1032,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.RequestMailDetail)
+/** handleRequestMailDetail：处理当前场景中的对应操作。 */
   async handleRequestMailDetail(client: Socket, data: C2S_RequestMailDetail) {
     const playerId = client.data?.playerId as string;
     if (!playerId) {
@@ -983,6 +1046,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.RedeemCodes)
+/** handleRedeemCodes：处理当前场景中的对应操作。 */
   async handleRedeemCodes(client: Socket, data: C2S_RedeemCodes) {
     const playerId = client.data?.playerId as string;
     const player = this.playerService.getPlayer(playerId);
@@ -1000,6 +1064,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.MarkMailRead)
+/** handleMarkMailRead：处理当前场景中的对应操作。 */
   async handleMarkMailRead(client: Socket, data: C2S_MarkMailRead) {
     const playerId = client.data?.playerId as string;
     const player = this.playerService.getPlayer(playerId);
@@ -1025,6 +1090,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.ClaimMailAttachments)
+/** handleClaimMailAttachments：处理当前场景中的对应操作。 */
   async handleClaimMailAttachments(client: Socket, data: C2S_ClaimMailAttachments) {
     const playerId = client.data?.playerId as string;
     const player = this.playerService.getPlayer(playerId);
@@ -1050,6 +1116,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.DeleteMail)
+/** handleDeleteMail：处理当前场景中的对应操作。 */
   async handleDeleteMail(client: Socket, data: C2S_DeleteMail) {
     const playerId = client.data?.playerId as string;
     const player = this.playerService.getPlayer(playerId);
@@ -1075,6 +1142,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.CreateSuggestion)
+/** handleCreateSuggestion：处理当前场景中的对应操作。 */
   async handleCreateSuggestion(client: Socket, data: C2S_CreateSuggestion) {
     const playerId = client.data?.playerId as string;
     const player = this.playerService.getPlayer(playerId);
@@ -1090,6 +1158,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.VoteSuggestion)
+/** handleVoteSuggestion：处理当前场景中的对应操作。 */
   async handleVoteSuggestion(client: Socket, data: C2S_VoteSuggestion) {
     const playerId = client.data?.playerId as string;
     if (!playerId) return;
@@ -1099,6 +1168,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.ReplySuggestion)
+/** handleReplySuggestion：处理当前场景中的对应操作。 */
   async handleReplySuggestion(client: Socket, data: C2S_ReplySuggestion) {
     const playerId = client.data?.playerId as string;
     const player = this.playerService.getPlayer(playerId);
@@ -1117,6 +1187,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.MarkSuggestionRepliesRead)
+/** handleMarkSuggestionRepliesRead：处理当前场景中的对应操作。 */
   async handleMarkSuggestionRepliesRead(client: Socket, data: C2S_MarkSuggestionRepliesRead) {
     const playerId = client.data?.playerId as string;
     if (!playerId) return;
@@ -1128,18 +1199,21 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.GmMarkSuggestionCompleted)
+/** handleGmMarkSuggestionCompleted：处理当前场景中的对应操作。 */
   async handleGmMarkSuggestionCompleted(client: Socket, data: C2S_GmMarkSuggestionCompleted) {
     await this.suggestionService.markCompleted(data.suggestionId);
     this.broadcastSuggestions();
   }
 
   @SubscribeMessage(C2S.GmRemoveSuggestion)
+/** handleGmRemoveSuggestion：处理当前场景中的对应操作。 */
   async handleGmRemoveSuggestion(client: Socket, data: C2S_GmRemoveSuggestion) {
     await this.suggestionService.remove(data.suggestionId);
     this.broadcastSuggestions();
   }
 
   @SubscribeMessage(C2S.RequestMarket)
+/** handleRequestMarket：处理当前场景中的对应操作。 */
   handleRequestMarket(client: Socket, _data: C2S_RequestMarket) {
     const playerId = client.data?.playerId as string;
     const player = this.playerService.getPlayer(playerId);
@@ -1151,6 +1225,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.RequestMarketListings)
+/** handleRequestMarketListings：处理当前场景中的对应操作。 */
   handleRequestMarketListings(client: Socket, data: C2S_RequestMarketListings) {
     const playerId = client.data?.playerId as string;
     const player = this.playerService.getPlayer(playerId);
@@ -1168,6 +1243,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.RequestMarketItemBook)
+/** handleRequestMarketItemBook：处理当前场景中的对应操作。 */
   handleRequestMarketItemBook(client: Socket, data: C2S_RequestMarketItemBook) {
     client.emit(S2C.MarketItemBook, {
       currencyItemId: this.marketService.getCurrencyItemId(),
@@ -1178,6 +1254,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.RequestMarketTradeHistory)
+/** handleRequestMarketTradeHistory：处理当前场景中的对应操作。 */
   async handleRequestMarketTradeHistory(client: Socket, data: C2S_RequestMarketTradeHistory) {
     const playerId = client.data?.playerId as string;
     if (playerId) {
@@ -1187,6 +1264,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.RequestAttrDetail)
+/** handleRequestAttrDetail：处理当前场景中的对应操作。 */
   handleRequestAttrDetail(client: Socket, _data: C2S_RequestAttrDetail) {
     const playerId = client.data?.playerId as string;
     const player = this.playerService.getPlayer(playerId);
@@ -1201,10 +1279,12 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
       ratioDivisors: this.attrService.getPlayerRatioDivisors(player),
       numericStatBreakdowns: this.attrService.getPlayerNumericStatBreakdowns(player),
       alchemySkill: player.alchemySkill,
+      enhancementSkill: player.enhancementSkill,
     } satisfies S2C_AttrDetail);
   }
 
   @SubscribeMessage(C2S.RequestLeaderboard)
+/** handleRequestLeaderboard：处理当前场景中的对应操作。 */
   async handleRequestLeaderboard(client: Socket, data: C2S_RequestLeaderboard) {
     const playerId = client.data?.playerId as string;
     if (!playerId) {
@@ -1215,6 +1295,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.CreateMarketSellOrder)
+/** handleCreateMarketSellOrder：处理当前场景中的对应操作。 */
   async handleCreateMarketSellOrder(client: Socket, data: C2S_CreateMarketSellOrder) {
     const playerId = client.data?.playerId as string;
     const player = this.playerService.getPlayer(playerId);
@@ -1224,6 +1305,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.CreateMarketBuyOrder)
+/** handleCreateMarketBuyOrder：处理当前场景中的对应操作。 */
   async handleCreateMarketBuyOrder(client: Socket, data: C2S_CreateMarketBuyOrder) {
     const playerId = client.data?.playerId as string;
     const player = this.playerService.getPlayer(playerId);
@@ -1233,6 +1315,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.BuyMarketItem)
+/** handleBuyMarketItem：处理当前场景中的对应操作。 */
   async handleBuyMarketItem(client: Socket, data: C2S_BuyMarketItem) {
     const playerId = client.data?.playerId as string;
     const player = this.playerService.getPlayer(playerId);
@@ -1242,6 +1325,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.SellMarketItem)
+/** handleSellMarketItem：处理当前场景中的对应操作。 */
   async handleSellMarketItem(client: Socket, data: C2S_SellMarketItem) {
     const playerId = client.data?.playerId as string;
     const player = this.playerService.getPlayer(playerId);
@@ -1251,6 +1335,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.CancelMarketOrder)
+/** handleCancelMarketOrder：处理当前场景中的对应操作。 */
   async handleCancelMarketOrder(client: Socket, data: C2S_CancelMarketOrder) {
     const playerId = client.data?.playerId as string;
     const player = this.playerService.getPlayer(playerId);
@@ -1260,6 +1345,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.ClaimMarketStorage)
+/** handleClaimMarketStorage：处理当前场景中的对应操作。 */
   async handleClaimMarketStorage(client: Socket, _data: C2S_ClaimMarketStorage) {
     const playerId = client.data?.playerId as string;
     const player = this.playerService.getPlayer(playerId);
@@ -1455,3 +1541,4 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     }
   }
 }
+

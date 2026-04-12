@@ -1,5 +1,6 @@
 import type { PlayerState } from '../../types';
 
+/** SkillEnabledEntry：定义该类型的结构与数据语义。 */
 type SkillEnabledEntry = {
   skillEnabled?: boolean;
 };
@@ -7,16 +8,12 @@ type SkillEnabledEntry = {
 /** 玩家默认可启用的技能数量。 */
 export const PLAYER_BASE_ENABLED_SKILL_SLOTS = 4;
 
-/** 1-6 级：每级额外 +1。 */
 export const PLAYER_ENABLED_SKILL_SLOT_LEVEL_STEP_EARLY = 1;
 
-/** 7-18 级：每 3 级额外 +1。 */
 export const PLAYER_ENABLED_SKILL_SLOT_LEVEL_STEP_MID = 3;
 
-/** 19-30 级：每 5 级额外 +1。 */
 export const PLAYER_ENABLED_SKILL_SLOT_LEVEL_STEP_LATE = 5;
 
-/** 31 级及以上：每 6 级额外 +1。 */
 export const PLAYER_ENABLED_SKILL_SLOT_LEVEL_STEP_ENDGAME = 6;
 
 /** 每 6 级额外奖励的技能槽位。 */
@@ -93,3 +90,4 @@ export function enforceSkillEnabledLimit<T extends SkillEnabledEntry>(
     };
   });
 }
+
