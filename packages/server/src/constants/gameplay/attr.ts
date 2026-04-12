@@ -18,8 +18,6 @@ export const REALM_EXPONENTIAL_NUMERIC_KEYS = [
   'antiCrit',
   'breakPower',
   'resolvePower',
-  'realmExpPerTick',
-  'techniqueExpPerTick',
 ] as const;
 
 /** 采用线性成长的数值键。 */
@@ -28,6 +26,8 @@ export const REALM_LINEAR_NUMERIC_KEYS = [
   'maxQiOutputPerTick',
   'qiRegenRate',
   'hpRegenRate',
+  'realmExpPerTick',
+  'techniqueExpPerTick',
 ] as const satisfies readonly NumericScalarStatKey[];
 
 /** 各线性成长数值按境界等级使用的增幅率。 */
@@ -36,6 +36,8 @@ export const REALM_LINEAR_NUMERIC_GROWTH_RATES: Record<typeof REALM_LINEAR_NUMER
   maxQiOutputPerTick: 0.1,
   qiRegenRate: 0.02,
   hpRegenRate: 0.02,
+  realmExpPerTick: 0.1,
+  techniqueExpPerTick: 0.1,
 };
 
 /** 玩家特殊养成数值的客户端同步间隔。 */

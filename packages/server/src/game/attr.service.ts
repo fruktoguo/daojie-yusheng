@@ -62,6 +62,8 @@ function getRealmLinearGrowthRate(key: NumericScalarStatKey): number | null {
   switch (key) {
     case 'critDamage':
     case 'maxQiOutputPerTick':
+    case 'realmExpPerTick':
+    case 'techniqueExpPerTick':
       return 0.1;
     case 'qiRegenRate':
     case 'hpRegenRate':
@@ -566,4 +568,3 @@ export class AttrService {
     return stackFactor * realmFactor;
   }
 }
-
