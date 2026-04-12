@@ -11,7 +11,7 @@ import { ATTR_KEYS } from './constants/gameplay/attributes';
 
 export const DEFAULT_ENHANCE_LEVEL = 0;
 export const MAX_ENHANCE_LEVEL = 20;
-export const ENHANCEMENT_RATE_PER_LEVEL = 0.05;
+export const ENHANCEMENT_RATE_PER_LEVEL = 0.1;
 export const ENHANCEMENT_BASE_SUCCESS_RATE = 0.5;
 export const ENHANCEMENT_SUCCESS_RATE_STEP = 0.05;
 export const ENHANCEMENT_SUCCESS_RATE_REDUCTION_EVERY = 2;
