@@ -9,7 +9,7 @@
     "equipSlot": "head",
     "equipValueStats": {
       "resolvePower": 2,
-      "hpRegenRate": 25
+      "hpRegenRate": 0.25
     },
     "effects": [
       {
@@ -85,7 +85,7 @@
     "equipValueStats": {
       "maxQi": 2.25,
       "spellDef": 4,
-      "qiRegenRate": 40
+      "qiRegenRate": 0.4
     }
   },
   {
@@ -254,7 +254,7 @@
           "color": "#8a3f2d",
           "statMode": "flat",
           "valueStats": {
-            "qiRegenRate": 50,
+            "qiRegenRate": 0.5,
             "techniqueExpPerTick": 6
           }
         }
@@ -273,7 +273,7 @@
       "alchemy_furnace"
     ],
     "equipValueStats": {
-      "qiRegenRate": 100,
+      "qiRegenRate": 1,
       "resolvePower": 1
     },
     "alchemySuccessRate": 0.1,

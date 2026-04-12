@@ -10757,7 +10757,7 @@
       "equipSlot": "accessory",
       "equipValueStats": {
         "maxQi": 4.5,
-        "qiRegenRate": 1.1,
+        "qiRegenRate": 0.5,
         "maxQiOutputPerTick": 6
       },
       "effects": [
@@ -11869,7 +11869,7 @@
             "color": "#8a3f2d",
             "statMode": "flat",
             "valueStats": {
-              "qiRegenRate": 1.6,
+              "qiRegenRate": 0.5,
               "techniqueExpPerTick": 6
             }
           }
@@ -11981,7 +11981,7 @@
         "alchemy_furnace"
       ],
       "equipValueStats": {
-        "qiRegenRate": 40,
+        "qiRegenRate": 1,
         "resolvePower": 1
       },
       "alchemySuccessRate": 0.1,
@@ -12155,7 +12155,7 @@
       "equipValueStats": {
         "spellAtk": 18,
         "maxQi": 3,
-        "qiRegenRate": 0.8
+        "qiRegenRate": 0.5
       },
       "effects": [
         {
@@ -12173,8 +12173,8 @@
             "visibility": "public",
             "color": "#7fbc63",
             "valueStats": {
-              "hpRegenRate": 80,
-              "qiRegenRate": 80
+              "hpRegenRate": 0.5,
+              "qiRegenRate": 0.5
             }
           }
         }

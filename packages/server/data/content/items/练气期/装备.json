@@ -540,7 +540,7 @@
     "equipSlot": "accessory",
     "equipValueStats": {
       "maxQi": 4.5,
-      "qiRegenRate": 50,
+      "qiRegenRate": 0.5,
       "maxQiOutputPerTick": 6
     },
     "effects": [
@@ -574,7 +574,7 @@
     "equipValueStats": {
       "spellAtk": 18,
       "maxQi": 3,
-      "qiRegenRate": 50
+      "qiRegenRate": 0.5
     },
     "effects": [
       {
@@ -592,8 +592,8 @@
           "visibility": "public",
           "color": "#7fbc63",
           "valueStats": {
-            "hpRegenRate": 50,
-            "qiRegenRate": 50
+            "hpRegenRate": 0.5,
+            "qiRegenRate": 0.5
           }
         }
       }

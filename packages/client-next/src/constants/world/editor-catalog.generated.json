@@ -375,7 +375,7 @@
           "name": "断魂灵钉",
           "desc": "认准被熔池烙开的裂口，把残丹灵识压成一根钉，沿着伤脉直接钉穿神魂。",
           "cooldown": 35,
-          "costMultiplier": 8,
+          "costMultiplier": 5,
           "range": 6,
           "targeting": {
             "shape": "single",
@@ -451,14 +451,14 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 32
+          "cost": 20
         },
         {
           "id": "skill.huanling_ronghe_guanmai",
           "name": "熔河贯脉",
           "desc": "把洞府残脉拧成一条赤河直贯出去，整线被拖开的地面都会化作熔流；被卷中的人脚下会被残脉绊住，下一轮更难脱出杀域。",
           "cooldown": 60,
-          "costMultiplier": 8,
+          "costMultiplier": 5,
           "range": 6,
           "targeting": {
             "shape": "line",
@@ -555,14 +555,14 @@
             }
           ],
           "unlockLevel": 2,
-          "cost": 32
+          "cost": 20
         },
         {
           "id": "skill.huanling_lieqi_zhixian",
           "name": "移脉熔宫",
           "desc": "拖着裂丹把洞府残脉猛然拽偏，落点一带尽数熔成赤池，后续杀招都会顺着熔痕灌进去。",
           "cooldown": 55,
-          "costMultiplier": 8,
+          "costMultiplier": 5,
           "range": 5,
           "targeting": {
             "shape": "box",
@@ -659,14 +659,14 @@
             }
           ],
           "unlockLevel": 4,
-          "cost": 32
+          "cost": 20
         },
         {
           "id": "skill.huanling_xingluo_canpan",
           "name": "星罗残盘",
           "desc": "借洞府残阵把落点周围拆成明灭交错的棋盘，错踩一格便会被残火与阴脉同时点穿。",
           "cooldown": 45,
-          "costMultiplier": 8,
+          "costMultiplier": 5,
           "range": 5,
           "targeting": {
             "shape": "checkerboard",
@@ -744,14 +744,14 @@
             }
           ],
           "unlockLevel": 5,
-          "cost": 32
+          "cost": 20
         },
         {
           "id": "skill.huanling_suogong_neihuan",
           "name": "锁宫内环",
           "desc": "先把目标脚边一圈地脉瞬间勒紧，贴得太近的人会被内环直接绞住，必须立刻改步离位。",
           "cooldown": 50,
-          "costMultiplier": 8,
+          "costMultiplier": 5,
           "range": 5,
           "targeting": {
             "shape": "ring",
@@ -830,14 +830,14 @@
             }
           ],
           "unlockLevel": 6,
-          "cost": 32
+          "cost": 20
         },
         {
           "id": "skill.huanling_liefu_waihuan",
           "name": "裂府外环",
           "desc": "把更外层的洞府残脉整圈掀起，外环会晚半拍一齐压落；若前面已经沾了阴痕或灼伤，被卷入这一圈时伤势会被整片放大。",
           "cooldown": 60,
-          "costMultiplier": 8,
+          "costMultiplier": 5,
           "range": 6,
           "targeting": {
             "shape": "ring",
@@ -919,14 +919,14 @@
             }
           ],
           "unlockLevel": 7,
-          "cost": 32
+          "cost": 20
         },
         {
           "id": "skill.huanling_difu_chenyin",
           "name": "地府沉印",
           "desc": "借洞府残阵把熔开的地脉整片往下按，阴痕越多、灼得越深，塌下去的那一刻就越重。",
           "cooldown": 55,
-          "costMultiplier": 8,
+          "costMultiplier": 5,
           "range": 5,
           "targeting": {
             "shape": "box",
@@ -987,7 +987,7 @@
             }
           ],
           "unlockLevel": 8,
-          "cost": 32
+          "cost": 20
         },
         {
           "id": "skill.huanling_canpo_zhang",
@@ -1522,7 +1522,7 @@
           "name": "赤焰诀",
           "desc": "离火化网罩落，灼脉缠身不绝。",
           "cooldown": 12,
-          "costMultiplier": 8,
+          "costMultiplier": 5,
           "range": 3,
           "targeting": {
             "shape": "box",
@@ -1575,7 +1575,7 @@
               "category": "debuff",
               "visibility": "public",
               "color": "#ef6b3b",
-              "duration": 24,
+              "duration": 10,
               "maxStacks": 30,
               "statMode": "percent",
               "type": "buff",
@@ -1583,7 +1583,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 160
+          "cost": 100
         }
       ],
       "layers": [
@@ -1645,7 +1645,7 @@
           "name": "赤曜焚界",
           "desc": "赤曜凝火，三息之后焚界而落。",
           "cooldown": 26,
-          "costMultiplier": 8,
+          "costMultiplier": 5,
           "range": 5,
           "targeting": {
             "shape": "box",
@@ -1702,7 +1702,7 @@
               "category": "debuff",
               "visibility": "public",
               "color": "#ef6b3b",
-              "duration": 24,
+              "duration": 10,
               "maxStacks": 30,
               "statMode": "percent",
               "type": "buff",
@@ -1710,7 +1710,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 552
+          "cost": 345
         }
       ],
       "layers": [
@@ -2744,7 +2744,7 @@
           "name": "分光",
           "desc": "锋炁成线，直破前方三步。",
           "cooldown": 18,
-          "costMultiplier": 8,
+          "costMultiplier": 5,
           "range": 3,
           "targeting": {
             "shape": "line",
@@ -2806,7 +2806,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 304
+          "cost": 190
         }
       ],
       "layers": [
@@ -2982,7 +2982,7 @@
           "name": "归藏",
           "desc": "归藏摄杂，目标减益越多，收束越狠。",
           "cooldown": 20,
-          "costMultiplier": 8,
+          "costMultiplier": 5,
           "range": 5,
           "effects": [
             {
@@ -3020,7 +3020,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 304
+          "cost": 190
         }
       ],
       "layers": [
@@ -3086,7 +3086,7 @@
           "name": "寒魄经",
           "desc": "寒魄化霜，一念封身。",
           "cooldown": 14,
-          "costMultiplier": 8,
+          "costMultiplier": 5,
           "range": 3,
           "targeting": {
             "shape": "box",
@@ -3150,7 +3150,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 384
+          "cost": 240
         }
       ],
       "layers": [
@@ -3361,7 +3361,7 @@
         {
           "id": "skill.houtu_chengyuan",
           "name": "承岳",
-          "desc": "土劲随甲势递增，一击之后再叠山岳之护。",
+          "desc": "土劲厚重沉实，一击之后再叠山岳之护。",
           "cooldown": 18,
           "costMultiplier": 4,
           "range": 1,
@@ -3389,10 +3389,6 @@
                       {
                         "var": "techLevel",
                         "scale": 0.1
-                      },
-                      {
-                        "var": "caster.stat.physDef",
-                        "scale": 0.01
                       }
                     ]
                   }
@@ -3484,7 +3480,7 @@
         {
           "id": "skill.huangting_zaishan",
           "name": "载山",
-          "desc": "黄庭借山成势，以护甲压垮敌身。",
+          "desc": "黄庭借山成势，以厚土重压敌身。",
           "cooldown": 24,
           "costMultiplier": 7,
           "range": 1,
@@ -3512,10 +3508,6 @@
                       {
                         "var": "techLevel",
                         "scale": 0.1
-                      },
-                      {
-                        "var": "caster.stat.physDef",
-                        "scale": 0.01
                       }
                     ]
                   }
@@ -3897,7 +3889,7 @@
           "name": "惊雷掌",
           "desc": "掌劲如雷，先裂护体，再催雷殛入身。",
           "cooldown": 14,
-          "costMultiplier": 8,
+          "costMultiplier": 5,
           "range": 2,
           "effects": [
             {
@@ -3954,7 +3946,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 336
+          "cost": 210
         }
       ],
       "layers": [
@@ -4244,10 +4236,6 @@
                       {
                         "var": "techLevel",
                         "scale": 0.1
-                      },
-                      {
-                        "var": "caster.stat.physDef",
-                        "scale": 0.01
                       }
                     ]
                   }
@@ -4349,7 +4337,7 @@
           "name": "炽息天罗",
           "desc": "离炎成网，烈息罩身。",
           "cooldown": 22,
-          "costMultiplier": 8,
+          "costMultiplier": 5,
           "range": 5,
           "targeting": {
             "shape": "box",
@@ -4402,7 +4390,7 @@
               "category": "debuff",
               "visibility": "public",
               "color": "#ef6b3b",
-              "duration": 24,
+              "duration": 10,
               "maxStacks": 30,
               "statMode": "percent",
               "type": "buff",
@@ -4410,7 +4398,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 304
+          "cost": 190
         }
       ],
       "layers": [
@@ -4476,7 +4464,7 @@
           "name": "流云刀谱",
           "desc": "身随刀走，刀随风掠，一线截开前路。",
           "cooldown": 12,
-          "costMultiplier": 8,
+          "costMultiplier": 5,
           "range": 3,
           "targeting": {
             "shape": "orientedBox",
@@ -4521,7 +4509,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 208
+          "cost": 130
         }
       ],
       "layers": [
@@ -5444,7 +5432,7 @@
           "name": "回春",
           "desc": "木脉铺展，友方回生，敌者受创。",
           "cooldown": 24,
-          "costMultiplier": 8,
+          "costMultiplier": 5,
           "range": 5,
           "targeting": {
             "shape": "box",
@@ -5532,7 +5520,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 304
+          "cost": 190
         }
       ],
       "layers": [
@@ -6544,7 +6532,7 @@
           "name": "潮",
           "desc": "归潮成线，借己身潮势压垮敌体。",
           "cooldown": 24,
-          "costMultiplier": 8,
+          "costMultiplier": 5,
           "range": 3,
           "targeting": {
             "shape": "line",
@@ -6606,7 +6594,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 864
+          "cost": 540
         }
       ],
       "layers": [
@@ -6833,7 +6821,7 @@
           "name": "束魂",
           "desc": "木意锁魂，直压单敌。",
           "cooldown": 20,
-          "costMultiplier": 8,
+          "costMultiplier": 5,
           "range": 5,
           "effects": [
             {
@@ -6868,7 +6856,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 552
+          "cost": 345
         }
       ],
       "layers": [
@@ -8348,7 +8336,7 @@
           "name": "贯星",
           "desc": "枪势贯空，距离越远，星坠越重。",
           "cooldown": 16,
-          "costMultiplier": 8,
+          "costMultiplier": 5,
           "range": 4,
           "targeting": {
             "shape": "line",
@@ -8390,7 +8378,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 432
+          "cost": 270
         }
       ],
       "layers": [
@@ -8586,7 +8574,7 @@
           "name": "枯荣禁脉",
           "desc": "枯荣逆转，断其回息。",
           "cooldown": 28,
-          "costMultiplier": 8,
+          "costMultiplier": 5,
           "range": 5,
           "targeting": {
             "shape": "box",
@@ -8645,7 +8633,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 864
+          "cost": 540
         }
       ],
       "layers": [
@@ -9544,7 +9532,7 @@
           "name": "朱明劫焰",
           "desc": "朱明火势归于己身，三息之后覆压四方。",
           "cooldown": 32,
-          "costMultiplier": 8,
+          "costMultiplier": 5,
           "range": 0,
           "targeting": {
             "shape": "box",
@@ -9601,7 +9589,7 @@
               "category": "debuff",
               "visibility": "public",
               "color": "#ef6b3b",
-              "duration": 24,
+              "duration": 10,
               "maxStacks": 30,
               "statMode": "percent",
               "type": "buff",
@@ -9609,7 +9597,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 864
+          "cost": 540
         }
       ],
       "layers": [
@@ -10365,167 +10353,12 @@
       "learnTechniqueId": "hundred_temper_body"
     },
     {
-      "itemId": "equip.darkpeak_fist_seal",
-      "name": "黯峰拳印",
-      "type": "equipment",
-      "grade": "mystic",
-      "level": 29,
-      "desc": "像把一整座黑峰的坠势封进了拳印里，越近身越凶。",
-      "equipSlot": "weapon",
-      "equipAttrs": {
-        "talent": 2
-      },
-      "equipValueStats": {
-        "physAtk": 32,
-        "spellAtk": 8,
-        "hit": 8,
-        "breakPower": 12,
-        "resolvePower": 5
-      },
-      "effects": [
-        {
-          "effectId": "darkpeak-pound",
-          "type": "timed_buff",
-          "trigger": "on_hit",
-          "target": "self",
-          "chance": 0.35,
-          "buff": {
-            "buffId": "equip.darkpeak_pound",
-            "name": "压峰",
-            "duration": 6,
-            "shortMark": "峰",
-            "category": "buff",
-            "visibility": "public",
-            "color": "#9f6846",
-            "valueStats": {
-              "physAtk": 9,
-              "breakPower": 9,
-              "resolvePower": 5
-            }
-          }
-        }
-      ]
-    },
-    {
-      "itemId": "equip.halfbase_ring",
-      "name": "半基灵环",
-      "type": "equipment",
-      "grade": "earth",
-      "level": 30,
-      "desc": "灵胚碎出的一圈淡光压成小环，贴身带着时气海会变得格外愿意听话。",
-      "equipSlot": "accessory",
-      "equipValueStats": {
-        "maxHp": 5,
-        "physAtk": 5,
-        "spellAtk": 5,
-        "qiRegenRate": 1.2
-      },
-      "effects": [
-        {
-          "effectId": "halfbase-ring-harmony",
-          "type": "stat_aura",
-          "conditions": {
-            "mode": "all",
-            "items": [
-              {
-                "type": "map",
-                "mapIds": [
-                  "guizang_vein_cavern"
-                ]
-              }
-            ]
-          },
-          "valueStats": {
-            "physDef": 6,
-            "spellDef": 6,
-            "resolvePower": 6,
-            "maxQiOutputPerTick": 5
-          }
-        }
-      ]
-    },
-    {
       "itemId": "half_base_embryo",
       "name": "半基灵胚",
       "type": "material",
       "level": 30,
       "desc": "旧阵把五炁压成半成品后遗下的灵胚，拿在手里都像要自行立基。",
       "grade": "earth"
-    },
-    {
-      "itemId": "equip.stele_edge_blade",
-      "name": "碑锋刃",
-      "type": "equipment",
-      "grade": "mystic",
-      "level": 27,
-      "desc": "刀身像是从半块残碑里硬剖出来的，挥动时带着沉闷回震。",
-      "equipSlot": "weapon",
-      "equipValueStats": {
-        "physAtk": 26,
-        "spellAtk": 8,
-        "hit": 8,
-        "breakPower": 7
-      },
-      "effects": [
-        {
-          "effectId": "stele-edge-resound",
-          "type": "timed_buff",
-          "trigger": "on_skill_cast",
-          "target": "self",
-          "cooldown": 5,
-          "buff": {
-            "buffId": "equip.stele_edge_resound",
-            "name": "碑鸣",
-            "duration": 4,
-            "shortMark": "鸣",
-            "category": "buff",
-            "visibility": "public",
-            "color": "#a38e6a",
-            "valueStats": {
-              "hit": 5,
-              "breakPower": 5
-            }
-          }
-        }
-      ]
-    },
-    {
-      "itemId": "equip.stele_pattern_helm",
-      "name": "碑纹盔",
-      "type": "equipment",
-      "grade": "mystic",
-      "level": 27,
-      "desc": "盔额上压着断碑纹路，神识稍一收束，眼前线条就会清楚许多。",
-      "equipSlot": "head",
-      "equipAttrs": {
-        "perception": 2
-      },
-      "equipValueStats": {
-        "spellDef": 10,
-        "viewRange": 1,
-        "resolvePower": 5
-      },
-      "effects": [
-        {
-          "effectId": "stele-pattern-focus",
-          "type": "stat_aura",
-          "conditions": {
-            "mode": "all",
-            "items": [
-              {
-                "type": "map",
-                "mapIds": [
-                  "cleft_blade_plain"
-                ]
-              }
-            ]
-          },
-          "valueStats": {
-            "spellAtk": 6,
-            "hit": 3
-          }
-        }
-      ]
     },
     {
       "itemId": "equip.gather_qi_pendant",
@@ -10547,182 +10380,6 @@
       "level": 20,
       "desc": "裂锋原旧兵器在风砂里磨剩下的铁片，边缘依旧带着细碎锋意。",
       "grade": "yellow"
-    },
-    {
-      "itemId": "equip.remnant_banner_spear",
-      "name": "残旌枪",
-      "type": "equipment",
-      "grade": "mystic",
-      "level": 29,
-      "desc": "枪杆极长，最适合踩着前势把人一口气钉退。",
-      "equipSlot": "weapon",
-      "equipValueStats": {
-        "physAtk": 29,
-        "hit": 8,
-        "crit": 5,
-        "breakPower": 7
-      },
-      "effects": [
-        {
-          "effectId": "remnant-banner-push",
-          "type": "timed_buff",
-          "trigger": "on_kill",
-          "target": "self",
-          "cooldown": 6,
-          "buff": {
-            "buffId": "equip.remnant_banner_push",
-            "name": "追阵",
-            "duration": 8,
-            "shortMark": "阵",
-            "category": "buff",
-            "visibility": "public",
-            "color": "#b76d47",
-            "valueStats": {
-              "hit": 5,
-              "crit": 5,
-              "qiRegenRate": 120
-            }
-          }
-        }
-      ]
-    },
-    {
-      "itemId": "equip.remnant_banner_helm",
-      "name": "残旗盔",
-      "type": "equipment",
-      "grade": "mystic",
-      "level": 25,
-      "desc": "旧盔顶上还留着旗杆卡槽，戴着的人总会不自觉把背挺直。",
-      "equipSlot": "head",
-      "equipValueStats": {
-        "maxHp": 2.5,
-        "resolvePower": 5,
-        "hit": 4
-      },
-      "effects": [
-        {
-          "effectId": "banner-helm-aura",
-          "type": "stat_aura",
-          "conditions": {
-            "mode": "all",
-            "items": [
-              {
-                "type": "map",
-                "mapIds": [
-                  "cleft_blade_plain"
-                ]
-              }
-            ]
-          },
-          "valueStats": {
-            "breakPower": 4,
-            "resolvePower": 3
-          }
-        }
-      ]
-    },
-    {
-      "itemId": "equip.banner_war_halberd",
-      "name": "残旗战戟",
-      "type": "equipment",
-      "grade": "mystic",
-      "level": 25,
-      "desc": "戟杆还缠着半截旧旗，越挥越像是在往前压阵。",
-      "equipSlot": "weapon",
-      "equipValueStats": {
-        "physAtk": 24,
-        "hit": 7,
-        "breakPower": 8
-      },
-      "effects": [
-        {
-          "effectId": "banner-war-fury",
-          "type": "timed_buff",
-          "trigger": "on_kill",
-          "target": "self",
-          "cooldown": 6,
-          "buff": {
-            "buffId": "equip.banner_war_fury",
-            "name": "压阵",
-            "duration": 8,
-            "shortMark": "阵",
-            "category": "buff",
-            "visibility": "public",
-            "color": "#b8824c",
-            "valueStats": {
-              "physAtk": 7,
-              "breakPower": 5
-            }
-          }
-        }
-      ]
-    },
-    {
-      "itemId": "equip.starfall_spear",
-      "name": "残星乌铁枪",
-      "type": "equipment",
-      "grade": "mystic",
-      "level": 5,
-      "desc": "枪杆以乌铁重熔，枪锋残留一点旧星砂寒芒，是凡人篇末段少见的过渡重器。",
-      "equipSlot": "weapon",
-      "equipValueStats": {
-        "physAtk": 13,
-        "spellAtk": 8,
-        "hit": 4,
-        "breakPower": 4
-      }
-    },
-    {
-      "itemId": "equip.remnant_array_crown",
-      "name": "残阵束冠",
-      "type": "equipment",
-      "grade": "mystic",
-      "level": 4,
-      "desc": "束冠上的阵眼早已断裂，只剩一点护识的余韵。",
-      "equipSlot": "head",
-      "equipAttrs": {
-        "spirit": 1
-      },
-      "equipValueStats": {
-        "spellDef": 5,
-        "viewRange": 1
-      }
-    },
-    {
-      "itemId": "equip.sinking_vein_hammer",
-      "name": "沉脉锤",
-      "type": "equipment",
-      "grade": "yellow",
-      "level": 21,
-      "desc": "锤头里灌了铅砂，砸在人身上和砸在地脉上一个味道。",
-      "equipSlot": "weapon",
-      "equipValueStats": {
-        "physAtk": 21,
-        "breakPower": 9,
-        "hit": 4
-      },
-      "effects": [
-        {
-          "effectId": "sinking-vein-pound",
-          "type": "timed_buff",
-          "trigger": "on_hit",
-          "target": "self",
-          "chance": 0.3,
-          "buff": {
-            "buffId": "equip.sinking_vein_pound",
-            "name": "沉压",
-            "duration": 4,
-            "shortMark": "沉",
-            "category": "buff",
-            "visibility": "public",
-            "color": "#9a7b56",
-            "valueStats": {
-              "breakPower": 4,
-              "resolvePower": 4
-            }
-          }
-        }
-      ]
     },
     {
       "itemId": "mat.bearingroot_ginseng",
@@ -10884,21 +10541,6 @@
       "qiPercent": 0.32
     },
     {
-      "itemId": "equip.stele_shell_armor",
-      "name": "断碑甲壳",
-      "type": "equipment",
-      "grade": "mystic",
-      "level": 4,
-      "desc": "从残碑外层剥下的厚甲片，沉重但极稳。",
-      "equipSlot": "body",
-      "equipValueStats": {
-        "maxHp": 3,
-        "physDef": 6,
-        "spellDef": 5,
-        "resolvePower": 4
-      }
-    },
-    {
       "itemId": "equip.broken_rune_blade",
       "name": "断碑纹剑",
       "type": "equipment",
@@ -10913,33 +10555,6 @@
       }
     },
     {
-      "itemId": "equip.road_cleaver",
-      "name": "断道柴刀",
-      "type": "equipment",
-      "grade": "mortal",
-      "level": 1,
-      "desc": "从断道废车旁捡来的厚背柴刀，砍路障比砍人更顺手。",
-      "equipSlot": "weapon",
-      "equipValueStats": {
-        "physAtk": 3,
-        "hit": 1
-      }
-    },
-    {
-      "itemId": "equip.rune_robe",
-      "name": "断纹法袍",
-      "type": "equipment",
-      "grade": "mystic",
-      "level": 3,
-      "desc": "遗迹残纹织就的法袍，能稳固神识。",
-      "equipSlot": "body",
-      "equipValueStats": {
-        "maxQi": 4.5,
-        "spellAtk": 8,
-        "spellDef": 6
-      }
-    },
-    {
       "itemId": "rune_shard",
       "name": "断纹石片",
       "type": "material",
@@ -10947,177 +10562,11 @@
       "desc": "遗迹傀儡体内剥落的残纹。"
     },
     {
-      "itemId": "equip.counter_shock_iron_ring",
-      "name": "反震铁环",
-      "type": "equipment",
-      "grade": "mystic",
-      "level": 29,
-      "desc": "以裂纹铁心打成的小环，挨上劲时总会顺着臂骨回出一段闷震。",
-      "equipSlot": "accessory",
-      "equipValueStats": {
-        "breakPower": 7,
-        "spellDef": 7,
-        "crit": 4
-      },
-      "effects": [
-        {
-          "effectId": "counter-shock-ripple",
-          "type": "timed_buff",
-          "trigger": "on_hit",
-          "target": "self",
-          "chance": 0.24,
-          "buff": {
-            "buffId": "equip.counter_shock_ripple",
-            "name": "反震",
-            "duration": 5,
-            "shortMark": "震",
-            "category": "buff",
-            "visibility": "public",
-            "color": "#8e7352",
-            "valueStats": {
-              "physDef": 8,
-              "breakPower": 5
-            }
-          }
-        }
-      ]
-    },
-    {
       "itemId": "bandit_insignia",
       "name": "匪徒腰牌",
       "type": "material",
       "level": 2,
       "desc": "荒野匪徒身份的金属牌。"
-    },
-    {
-      "itemId": "equip.blood_burn_rope",
-      "name": "焚脉黑绳",
-      "type": "equipment",
-      "grade": "yellow",
-      "level": 3,
-      "desc": "以焦血浸过的黑绳缠腕，行功时会反噬经脉，却也逼得气机转得更快。",
-      "equipSlot": "accessory",
-      "tags": [
-        "fanren",
-        "evil_path",
-        "cultivation"
-      ],
-      "effects": [
-        {
-          "effectId": "blood-burn-drain",
-          "type": "periodic_cost",
-          "trigger": "on_cultivation_tick",
-          "resource": "hp",
-          "mode": "max_ratio_bp",
-          "value": 80,
-          "minRemain": 1
-        },
-        {
-          "effectId": "blood-burn-growth",
-          "type": "progress_boost",
-          "statMode": "flat",
-          "conditions": {
-            "mode": "all",
-            "items": [
-              {
-                "type": "is_cultivating",
-                "value": true
-              }
-            ]
-          },
-          "valueStats": {
-            "realmExpPerTick": 2
-          }
-        }
-      ]
-    },
-    {
-      "itemId": "equip.windjoint_boots",
-      "name": "风节行靴",
-      "type": "equipment",
-      "grade": "yellow",
-      "level": 3,
-      "desc": "踩过竹节时几乎不留响动，转步尤其利索。",
-      "equipSlot": "legs",
-      "equipValueStats": {
-        "moveSpeed": 14,
-        "dodge": 2,
-        "hit": 1
-      }
-    },
-    {
-      "itemId": "equip.sealed_edge_stoneheart",
-      "name": "封锋石心",
-      "type": "equipment",
-      "grade": "mystic",
-      "level": 27,
-      "desc": "外头看着像块死石，行功时里头封着的锋气却会一点点醒过来。",
-      "equipSlot": "accessory",
-      "equipAttrs": {
-        "comprehension": 2
-      },
-      "equipValueStats": {
-        "maxQi": 5.5,
-        "maxQiOutputPerTick": 7,
-        "resolvePower": 5
-      },
-      "effects": [
-        {
-          "effectId": "sealed-edge-cultivate",
-          "type": "progress_boost",
-          "statMode": "flat",
-          "conditions": {
-            "mode": "all",
-            "items": [
-              {
-                "type": "is_cultivating",
-                "value": true
-              }
-            ]
-          },
-          "valueStats": {
-            "realmExpPerTick": 7,
-            "techniqueExpPerTick": 11
-          }
-        }
-      ]
-    },
-    {
-      "itemId": "equip.sealridge_iron_ring",
-      "name": "封岭铁环",
-      "type": "equipment",
-      "grade": "mystic",
-      "level": 29,
-      "desc": "戴上后会觉得四肢发沉，但换来的就是格外稳的气机。",
-      "equipSlot": "accessory",
-      "equipValueStats": {
-        "maxQi": 4,
-        "physDef": 7,
-        "resolvePower": 8,
-        "breakPower": 7
-      },
-      "effects": [
-        {
-          "effectId": "sealridge-return",
-          "type": "timed_buff",
-          "trigger": "on_hit",
-          "target": "self",
-          "chance": 0.24,
-          "buff": {
-            "buffId": "equip.sealridge_return",
-            "name": "封回",
-            "duration": 5,
-            "shortMark": "回",
-            "category": "buff",
-            "visibility": "public",
-            "color": "#7c6a57",
-            "valueStats": {
-              "spellDef": 8,
-              "resolvePower": 8
-            }
-          }
-        }
-      ]
     },
     {
       "itemId": "equip.sealed_path_token",
@@ -11194,77 +10643,6 @@
       ]
     },
     {
-      "itemId": "equip.edge_core_shell",
-      "name": "锋核壳甲",
-      "type": "equipment",
-      "grade": "mystic",
-      "level": 27,
-      "desc": "甲心封着一块未散锋核，真气越稳，它反咬出来的劲越足。",
-      "equipSlot": "body",
-      "equipValueStats": {
-        "maxHp": 9,
-        "maxQi": 4,
-        "physDef": 16,
-        "spellDef": 11
-      },
-      "effects": [
-        {
-          "effectId": "edge-core-surge",
-          "type": "stat_aura",
-          "conditions": {
-            "mode": "all",
-            "items": [
-              {
-                "type": "qi_ratio",
-                "op": ">=",
-                "value": 0.5
-              }
-            ]
-          },
-          "valueStats": {
-            "physAtk": 5,
-            "spellAtk": 5
-          }
-        }
-      ]
-    },
-    {
-      "itemId": "equip.edge_command_token",
-      "name": "锋令牌",
-      "type": "equipment",
-      "grade": "mystic",
-      "level": 25,
-      "desc": "旧军令牌的边口被磨得极锋，持有者会本能地找最直接的冲阵线。",
-      "equipSlot": "accessory",
-      "equipValueStats": {
-        "maxQi": 4.5,
-        "breakPower": 7,
-        "resolvePower": 4,
-        "maxQiOutputPerTick": 5
-      },
-      "effects": [
-        {
-          "effectId": "edge-command-line",
-          "type": "stat_aura",
-          "conditions": {
-            "mode": "all",
-            "items": [
-              {
-                "type": "map",
-                "mapIds": [
-                  "cleft_blade_plain"
-                ]
-              }
-            ]
-          },
-          "valueStats": {
-            "hit": 4,
-            "breakPower": 4
-          }
-        }
-      ]
-    },
-    {
       "itemId": "blade_pattern_crystal",
       "name": "锋纹残晶",
       "type": "material",
@@ -11274,92 +10652,6 @@
       "tags": [
         "异材"
       ]
-    },
-    {
-      "itemId": "equip.burden_stele_staff",
-      "name": "负碑杖",
-      "type": "equipment",
-      "grade": "mystic",
-      "level": 27,
-      "desc": "杖头像扛着半块碑，挥出去总有种压塌对面肩背的劲。",
-      "equipSlot": "weapon",
-      "equipValueStats": {
-        "physAtk": 25,
-        "spellAtk": 8,
-        "hit": 7,
-        "breakPower": 9
-      },
-      "effects": [
-        {
-          "effectId": "burden-stele-echo",
-          "type": "timed_buff",
-          "trigger": "on_skill_cast",
-          "target": "self",
-          "cooldown": 5,
-          "buff": {
-            "buffId": "equip.burden_stele_echo",
-            "name": "碑镇",
-            "duration": 4,
-            "shortMark": "镇",
-            "category": "buff",
-            "visibility": "public",
-            "color": "#8b7659",
-            "valueStats": {
-              "spellAtk": 6,
-              "resolvePower": 7
-            }
-          }
-        }
-      ]
-    },
-    {
-      "itemId": "equip.burden_greaves",
-      "name": "负岳胫甲",
-      "type": "equipment",
-      "grade": "yellow",
-      "level": 21,
-      "desc": "看着累赘，真走起来反而会把步子压得很实。",
-      "equipSlot": "legs",
-      "equipValueStats": {
-        "moveSpeed": 20,
-        "physDef": 9,
-        "resolvePower": 4
-      },
-      "effects": [
-        {
-          "effectId": "burden-greaves-brace",
-          "type": "timed_buff",
-          "trigger": "on_move",
-          "target": "self",
-          "cooldown": 2,
-          "buff": {
-            "buffId": "equip.burden_greaves_brace",
-            "name": "稳坠",
-            "duration": 2,
-            "shortMark": "稳",
-            "category": "buff",
-            "visibility": "public",
-            "color": "#7f6d55",
-            "valueStats": {
-              "resolvePower": 5,
-              "spellDef": 4
-            }
-          }
-        }
-      ]
-    },
-    {
-      "itemId": "equip.grassbound_shoes",
-      "name": "赶路草鞋",
-      "type": "equipment",
-      "grade": "mortal",
-      "level": 1,
-      "desc": "麻绳紧扎，踩泥不易滑，穷人赶夜路时常见。",
-      "equipSlot": "legs",
-      "equipValueStats": {
-        "moveSpeed": 8,
-        "dodge": 1
-      }
     },
     {
       "itemId": "equip.geng_gate_blade",
@@ -11404,19 +10696,6 @@
       ]
     },
     {
-      "itemId": "equip.gutter_paws",
-      "name": "沟行爪套",
-      "type": "equipment",
-      "grade": "mortal",
-      "level": 1,
-      "desc": "爪尖磨得极薄，专为烂泥沟和碎土坡上疾窜而生。",
-      "equipSlot": "legs",
-      "equipValueStats": {
-        "moveSpeed": 10,
-        "dodge": 1
-      }
-    },
-    {
       "itemId": "map.ancient_ruins",
       "name": "古遗迹残图",
       "type": "consumable",
@@ -11436,22 +10715,6 @@
       "type": "material",
       "level": 11,
       "desc": "兽谷异蛇的逆鳞碎片。"
-    },
-    {
-      "itemId": "equip.celestial_crown",
-      "name": "观脉骨冠",
-      "type": "equipment",
-      "grade": "mystic",
-      "level": 4,
-      "desc": "以异兽头骨和旧纹骨钉束成的骨冠，戴上后对气脉流转会更敏锐。",
-      "equipSlot": "head",
-      "equipAttrs": {
-        "spirit": 2
-      },
-      "equipValueStats": {
-        "viewRange": 1,
-        "spellDef": 5
-      }
     },
     {
       "itemId": "equip.guizang_conflux_blade",
@@ -11485,21 +10748,6 @@
       "mapUnlockId": "guizang_vein_cavern"
     },
     {
-      "itemId": "equip.guizang_aperture_robe",
-      "name": "归窍法衣",
-      "type": "equipment",
-      "grade": "mystic",
-      "level": 29,
-      "desc": "旧立基法衣残剩的外层，最擅长把多路气机往几个稳当的窍口里导。",
-      "equipSlot": "body",
-      "equipValueStats": {
-        "maxHp": 10.5,
-        "maxQi": 5,
-        "physDef": 11,
-        "spellDef": 11
-      }
-    },
-    {
       "itemId": "equip.returnbreath_copper_pendant",
       "name": "归息铜佩",
       "type": "equipment",
@@ -11509,7 +10757,7 @@
       "equipSlot": "accessory",
       "equipValueStats": {
         "maxQi": 4.5,
-        "qiRegenRate": 1.1,
+        "qiRegenRate": 0.5,
         "maxQiOutputPerTick": 6
       },
       "effects": [
@@ -11601,35 +10849,6 @@
       "mapUnlockId": "black_iron_mine"
     },
     {
-      "itemId": "equip.blackiron_brigandine",
-      "name": "黑铁束身甲",
-      "type": "equipment",
-      "grade": "mystic",
-      "level": 3,
-      "desc": "以旧矿卫残片拼出来的束身甲，缝里还残留着铁腥味。",
-      "equipSlot": "body",
-      "equipValueStats": {
-        "maxHp": 3.17,
-        "physDef": 6,
-        "resolvePower": 3
-      }
-    },
-    {
-      "itemId": "equip.deepvein_plate",
-      "name": "厚脉板甲",
-      "type": "equipment",
-      "grade": "yellow",
-      "level": 21,
-      "desc": "甲片很宽，穿上后整个人都像被地气往下拽住。",
-      "equipSlot": "body",
-      "equipValueStats": {
-        "maxHp": 8.5,
-        "physDef": 17,
-        "spellDef": 6,
-        "resolvePower": 6
-      }
-    },
-    {
       "itemId": "equip.deepvein_core",
       "name": "厚脉核",
       "type": "equipment",
@@ -11669,192 +10888,12 @@
       ]
     },
     {
-      "itemId": "equip.deepvein_gauntlets",
-      "name": "厚脉护手",
-      "type": "equipment",
-      "grade": "mystic",
-      "level": 27,
-      "desc": "拳背和掌侧都压了石片，格挡和发力都特别顶手。",
-      "equipSlot": "accessory",
-      "equipValueStats": {
-        "physAtk": 5,
-        "physDef": 5,
-        "breakPower": 7
-      },
-      "effects": [
-        {
-          "effectId": "deepvein-gauntlet-drive",
-          "type": "timed_buff",
-          "trigger": "on_hit",
-          "target": "self",
-          "chance": 0.24,
-          "buff": {
-            "buffId": "equip.deepvein_gauntlet_drive",
-            "name": "压山",
-            "duration": 4,
-            "shortMark": "压",
-            "category": "buff",
-            "visibility": "public",
-            "color": "#9d7651",
-            "valueStats": {
-              "breakPower": 6,
-              "physDef": 5
-            }
-          }
-        }
-      ]
-    },
-    {
-      "itemId": "equip.deepvein_kneeguards",
-      "name": "厚脉护膝",
-      "type": "equipment",
-      "grade": "yellow",
-      "level": 23,
-      "desc": "膝护边缘做得很厚，专门防着碎石坡上的冷绊子。",
-      "equipSlot": "accessory",
-      "equipValueStats": {
-        "physDef": 6,
-        "resolvePower": 6,
-        "moveSpeed": 8
-      },
-      "effects": [
-        {
-          "effectId": "deepvein-knee-hold",
-          "type": "stat_aura",
-          "conditions": {
-            "mode": "all",
-            "items": [
-              {
-                "type": "map",
-                "mapIds": [
-                  "deepvein_ridge"
-                ]
-              }
-            ]
-          },
-          "valueStats": {
-            "physDef": 4,
-            "moveSpeed": 3
-          }
-        }
-      ]
-    },
-    {
-      "itemId": "equip.deepvein_chestguard",
-      "name": "厚脉护胸",
-      "type": "equipment",
-      "grade": "mystic",
-      "level": 25,
-      "desc": "胸口压着一整块厚脉石板，起手再猛也先得过它这一关。",
-      "equipSlot": "body",
-      "equipValueStats": {
-        "maxHp": 8.5,
-        "physDef": 15,
-        "resolvePower": 7
-      },
-      "effects": [
-        {
-          "effectId": "deepvein-chest-flow",
-          "type": "stat_aura",
-          "conditions": {
-            "mode": "all",
-            "items": [
-              {
-                "type": "qi_ratio",
-                "op": ">=",
-                "value": 0.5
-              }
-            ]
-          },
-          "valueStats": {
-            "spellDef": 6
-          }
-        }
-      ]
-    },
-    {
       "itemId": "map.deepvein_ridge",
       "name": "厚脉岭采脉图",
       "type": "consumable",
       "level": 7,
       "desc": "描出厚脉岭外坪、裂坡和采脉险路。使用后可永久解锁厚脉岭地图。",
       "mapUnlockId": "deepvein_ridge"
-    },
-    {
-      "itemId": "equip.deepvein_relic_shard",
-      "name": "厚脉遗片",
-      "type": "equipment",
-      "grade": "mystic",
-      "level": 29,
-      "desc": "从旧祭器上崩下来的边角，残得厉害，却还记得几分旧法。",
-      "equipSlot": "accessory",
-      "equipAttrs": {
-        "comprehension": 2
-      },
-      "equipValueStats": {
-        "maxHp": 5.5,
-        "maxQi": 4.5,
-        "physDef": 5,
-        "resolvePower": 7
-      },
-      "effects": [
-        {
-          "effectId": "deepvein-shard-study",
-          "type": "progress_boost",
-          "statMode": "flat",
-          "conditions": {
-            "mode": "all",
-            "items": [
-              {
-                "type": "is_cultivating",
-                "value": true
-              }
-            ]
-          },
-          "valueStats": {
-            "realmExpPerTick": 7,
-            "techniqueExpPerTick": 14
-          }
-        }
-      ]
-    },
-    {
-      "itemId": "equip.deepvein_relic",
-      "name": "厚脉遗器",
-      "type": "equipment",
-      "grade": "mystic",
-      "level": 29,
-      "desc": "旧祭器残到只剩一团沉核，贴身带着仍能借到一点古脉余势。",
-      "equipSlot": "accessory",
-      "equipValueStats": {
-        "maxHp": 6.5,
-        "maxQi": 5.5,
-        "physDef": 8,
-        "spellDef": 8,
-        "resolvePower": 8
-      },
-      "effects": [
-        {
-          "effectId": "deepvein-relic-guard",
-          "type": "stat_aura",
-          "conditions": {
-            "mode": "all",
-            "items": [
-              {
-                "type": "map",
-                "mapIds": [
-                  "deepvein_ridge"
-                ]
-              }
-            ]
-          },
-          "valueStats": {
-            "physDef": 6,
-            "spellDef": 6,
-            "breakPower": 5
-          }
-        }
-      ]
     },
     {
       "itemId": "pill.earthrest_paste",
@@ -11909,59 +10948,12 @@
       ]
     },
     {
-      "itemId": "equip.wasteland_cap",
-      "name": "荒路皮帽",
-      "type": "equipment",
-      "grade": "yellow",
-      "level": 2,
-      "desc": "帽檐压得很低，风沙里能保住眼睛。",
-      "equipSlot": "head",
-      "equipValueStats": {
-        "dodge": 2,
-        "viewRange": 1
-      }
-    },
-    {
       "itemId": "map.wildlands",
       "name": "荒原游猎图",
       "type": "consumable",
       "level": 2,
       "desc": "标注荒原地貌、营地遗迹与危险通路。使用后可永久解锁荒原地图。",
       "mapUnlockId": "wildlands"
-    },
-    {
-      "itemId": "equip.yellow_stone_browguard",
-      "name": "黄岩额护",
-      "type": "equipment",
-      "grade": "yellow",
-      "level": 19,
-      "desc": "压在眉骨上的黄石片不算好看，但戴着很稳。",
-      "equipSlot": "head",
-      "equipValueStats": {
-        "maxHp": 3,
-        "physDef": 6,
-        "resolvePower": 6
-      },
-      "effects": [
-        {
-          "effectId": "yellow-stone-settle",
-          "type": "stat_aura",
-          "conditions": {
-            "mode": "all",
-            "items": [
-              {
-                "type": "map",
-                "mapIds": [
-                  "deepvein_ridge"
-                ]
-              }
-            ]
-          },
-          "valueStats": {
-            "resolvePower": 6
-          }
-        }
-      ]
     },
     {
       "itemId": "pill.minor_heal",
@@ -11995,34 +10987,6 @@
       "grade": "yellow"
     },
     {
-      "itemId": "equip.echo_crystal_crest",
-      "name": "回声晶冠",
-      "type": "equipment",
-      "grade": "yellow",
-      "level": 3,
-      "desc": "会顺着洞壁回声判断方位，黑暗中也不易失手。",
-      "equipSlot": "head",
-      "equipValueStats": {
-        "hit": 2,
-        "dodge": 2,
-        "viewRange": 1
-      }
-    },
-    {
-      "itemId": "equip.returnvine_robe",
-      "name": "回藤法衣",
-      "type": "equipment",
-      "grade": "yellow",
-      "level": 21,
-      "desc": "把藤皮一层层回缠成衣，挨打时会先把劲道化开一截。",
-      "equipSlot": "body",
-      "equipValueStats": {
-        "maxHp": 8.5,
-        "spellDef": 14,
-        "hpRegenRate": 0.7
-      }
-    },
-    {
       "itemId": "equip.returnarray_boots",
       "name": "回阵行履",
       "type": "equipment",
@@ -12047,21 +11011,6 @@
       ]
     },
     {
-      "itemId": "equip.soul_ink_pendant",
-      "name": "魂墨坠",
-      "type": "equipment",
-      "grade": "mystic",
-      "level": 4,
-      "desc": "墨痕未干时似有残魂低语，最能催动阴冷灵机。",
-      "equipSlot": "accessory",
-      "equipValueStats": {
-        "maxQi": 2,
-        "spellAtk": 4,
-        "maxQiOutputPerTick": 4,
-        "resolvePower": 3
-      }
-    },
-    {
       "itemId": "mat.swiftwind_reed",
       "name": "疾风苇",
       "type": "material",
@@ -12079,56 +11028,6 @@
       "level": 20,
       "desc": "断剑堆中凝出的锋气丸珠，是金行低阶炼材。",
       "grade": "yellow"
-    },
-    {
-      "itemId": "equip.scorchcourt_battlecoat",
-      "name": "焦庭战衣",
-      "type": "equipment",
-      "grade": "yellow",
-      "level": 21,
-      "desc": "战衣外层尽是旧烫痕，穿着它的人往往不是躲火，而是顶着火线往前冲。",
-      "equipSlot": "body",
-      "equipValueStats": {
-        "maxHp": 8.5,
-        "physDef": 11,
-        "spellAtk": 8
-      }
-    },
-    {
-      "itemId": "equip.gold_coffin_plate",
-      "name": "金棺重甲",
-      "type": "equipment",
-      "grade": "mystic",
-      "level": 29,
-      "desc": "像棺板一样一层层压上的厚甲，沉得惊人，也稳得惊人。",
-      "equipSlot": "body",
-      "equipValueStats": {
-        "maxHp": 12,
-        "physDef": 20,
-        "spellDef": 13,
-        "resolvePower": 8
-      },
-      "effects": [
-        {
-          "effectId": "gold-coffin-hold",
-          "type": "stat_aura",
-          "conditions": {
-            "mode": "all",
-            "items": [
-              {
-                "type": "hp_ratio",
-                "op": "<=",
-                "value": 0.5
-              }
-            ]
-          },
-          "valueStats": {
-            "physDef": 10,
-            "spellDef": 10,
-            "resolvePower": 6
-          }
-        }
-      ]
     },
     {
       "itemId": "mat.goldthread_briar",
@@ -12150,34 +11049,6 @@
       "tags": [
         "异材"
       ]
-    },
-    {
-      "itemId": "equip.crystal_maw_spike",
-      "name": "晶獠骨刺",
-      "type": "equipment",
-      "grade": "yellow",
-      "level": 3,
-      "desc": "矿洞妖物口器中最锋利的一根骨刺，硬得发脆。",
-      "equipSlot": "weapon",
-      "equipValueStats": {
-        "physAtk": 7,
-        "spellAtk": 2,
-        "hit": 2
-      }
-    },
-    {
-      "itemId": "equip.wellward_talisman",
-      "name": "井语避邪符",
-      "type": "equipment",
-      "grade": "yellow",
-      "level": 4,
-      "desc": "旧井边求来的黄符，纸色已旧，仍能替人压下几分邪气与惊悸。",
-      "equipSlot": "accessory",
-      "equipValueStats": {
-        "spellDef": 5,
-        "resolvePower": 3,
-        "hpRegenRate": 0.6
-      }
     },
     {
       "itemId": "equip.cleantide_robe",
@@ -12205,78 +11076,10 @@
       ]
     },
     {
-      "itemId": "equip.bound_chest",
-      "name": "旧皮绑胸",
-      "type": "equipment",
-      "grade": "yellow",
-      "level": 2,
-      "desc": "流匪和脚夫都爱穿，护不住命，但能多扛两下。",
-      "equipSlot": "body",
-      "equipValueStats": {
-        "maxHp": 2.33,
-        "resolvePower": 2
-      }
-    },
-    {
-      "itemId": "equip.rust_saber",
-      "name": "旧铁长刀",
-      "type": "equipment",
-      "grade": "yellow",
-      "level": 2,
-      "desc": "镇防旧库翻出的制式长刀。",
-      "equipSlot": "weapon",
-      "equipValueStats": {
-        "physAtk": 6,
-        "hit": 2
-      }
-    },
-    {
-      "itemId": "equip.old_guard_iron_armor",
-      "name": "旧卫铁甲",
-      "type": "equipment",
-      "grade": "mystic",
-      "level": 29,
-      "desc": "并不漂亮，但就是那种会让人觉得能硬扛到底的老甲。",
-      "equipSlot": "body",
-      "equipValueStats": {
-        "maxHp": 10.5,
-        "physDef": 17,
-        "spellDef": 9,
-        "resolvePower": 7
-      }
-    },
-    {
       "itemId": "colossus_heart",
       "name": "巨像核心",
       "type": "quest_item",
       "desc": "矿脉巨像的驱动核心。"
-    },
-    {
-      "itemId": "equip.porter_jacket",
-      "name": "扛包短褂",
-      "type": "equipment",
-      "grade": "mortal",
-      "level": 1,
-      "desc": "南市脚行穿的短褂，领口粗糙，胜在耐磨。",
-      "equipSlot": "body",
-      "equipValueStats": {
-        "maxHp": 1.67,
-        "physDef": 2
-      }
-    },
-    {
-      "itemId": "equip.threshold_boots",
-      "name": "叩门行靴",
-      "type": "equipment",
-      "grade": "mystic",
-      "level": 4,
-      "desc": "专给叩门前夜赶路的人做的轻靴，既要走得快，也要留得住回旋的余地。",
-      "equipSlot": "legs",
-      "equipValueStats": {
-        "moveSpeed": 16,
-        "cooldownSpeed": 5,
-        "dodge": 2
-      }
     },
     {
       "itemId": "mat.bitterheart_vine",
@@ -12324,63 +11127,6 @@
       "desc": "矿洞深层晶簇凝结出的核心。"
     },
     {
-      "itemId": "equip.oreplate_carapace",
-      "name": "矿壳重甲",
-      "type": "equipment",
-      "grade": "mystic",
-      "level": 3,
-      "desc": "矿层般一层层压上去，沉，却很难被打穿。",
-      "equipSlot": "body",
-      "equipValueStats": {
-        "maxHp": 2.5,
-        "physDef": 5,
-        "spellDef": 4,
-        "resolvePower": 3
-      }
-    },
-    {
-      "itemId": "equip.mineral_pulse_core",
-      "name": "矿脉搏核",
-      "type": "equipment",
-      "grade": "yellow",
-      "level": 3,
-      "desc": "被矿气反复冲刷的内核，吐纳时会带出一股闷沉的劲。",
-      "equipSlot": "accessory",
-      "equipValueStats": {
-        "maxQi": 1.5,
-        "breakPower": 3,
-        "resolvePower": 2,
-        "maxQiOutputPerTick": 3
-      }
-    },
-    {
-      "itemId": "equip.orevein_ring",
-      "name": "矿脉扣环",
-      "type": "equipment",
-      "grade": "yellow",
-      "level": 3,
-      "desc": "矿工拿来记矿脉方位的铁环，久了也能养出一点破势。",
-      "equipSlot": "accessory",
-      "equipValueStats": {
-        "breakPower": 3,
-        "lootRate": 4
-      }
-    },
-    {
-      "itemId": "equip.miner_helmet",
-      "name": "矿卫盔",
-      "type": "equipment",
-      "grade": "mystic",
-      "level": 3,
-      "desc": "旧矿卫制式铁盔，防护结实。",
-      "equipSlot": "head",
-      "equipValueStats": {
-        "maxHp": 2,
-        "physDef": 7,
-        "resolvePower": 3
-      }
-    },
-    {
       "itemId": "equip.orebreak_hammer",
       "name": "矿卫破岩锤",
       "type": "equipment",
@@ -12402,163 +11148,6 @@
       "desc": "噬灵狼的利牙。",
       "tags": [
         "异材"
-      ]
-    },
-    {
-      "itemId": "equip.rampart_plate",
-      "name": "垒垣甲",
-      "type": "equipment",
-      "grade": "mystic",
-      "level": 29,
-      "desc": "一层比一层厚，站定以后像直接把人种进地里。",
-      "equipSlot": "body",
-      "equipValueStats": {
-        "maxHp": 12,
-        "physDef": 20,
-        "spellDef": 12,
-        "resolvePower": 9
-      }
-    },
-    {
-      "itemId": "equip.liyan_crown",
-      "name": "离炎束冠",
-      "type": "equipment",
-      "grade": "yellow",
-      "level": 19,
-      "desc": "束冠里压了一缕燥火，能让人出手时更敢顶着火压往前抢。",
-      "equipSlot": "head",
-      "equipAttrs": {
-        "spirit": 2
-      },
-      "equipValueStats": {
-        "crit": 5,
-        "hit": 5,
-        "spellAtk": 3
-      }
-    },
-    {
-      "itemId": "equip.hunter_cap",
-      "name": "猎风帽",
-      "type": "equipment",
-      "grade": "yellow",
-      "level": 2,
-      "desc": "荒野猎户常用的轻便头具。",
-      "equipSlot": "head",
-      "equipValueStats": {
-        "dodge": 4,
-        "crit": 2
-      }
-    },
-    {
-      "itemId": "equip.bone_dagger",
-      "name": "猎户骨匕",
-      "type": "equipment",
-      "grade": "yellow",
-      "level": 2,
-      "desc": "用野兽腿骨打磨的短匕，轻巧狠辣。",
-      "equipSlot": "weapon",
-      "equipValueStats": {
-        "physAtk": 5,
-        "crit": 3
-      }
-    },
-    {
-      "itemId": "equip.predator_tendon_boots",
-      "name": "猎脉疾靴",
-      "type": "equipment",
-      "grade": "mystic",
-      "level": 4,
-      "desc": "以兽筋抽紧靴帮，爆发扑杀时最能借力。",
-      "equipSlot": "legs",
-      "equipValueStats": {
-        "moveSpeed": 16,
-        "dodge": 2,
-        "crit": 2
-      }
-    },
-    {
-      "itemId": "equip.valley_fang_blade",
-      "name": "裂齿斩骨刀",
-      "type": "equipment",
-      "grade": "mystic",
-      "level": 4,
-      "desc": "刀背厚重，刃口带着兽谷妖骨磨出的细裂纹，专走压血断势一路。",
-      "equipSlot": "weapon",
-      "equipValueStats": {
-        "physAtk": 12,
-        "crit": 3,
-        "breakPower": 4
-      }
-    },
-    {
-      "itemId": "equip.cleft_blade_armguard",
-      "name": "裂锋护臂",
-      "type": "equipment",
-      "grade": "mystic",
-      "level": 27,
-      "desc": "护臂边缘做得比寻常更薄，架招时能顺手把力道顶回去。",
-      "equipSlot": "accessory",
-      "equipValueStats": {
-        "physDef": 7,
-        "breakPower": 5,
-        "hit": 4
-      },
-      "effects": [
-        {
-          "effectId": "cleft-armguard-rebound",
-          "type": "timed_buff",
-          "trigger": "on_hit",
-          "target": "self",
-          "chance": 0.22,
-          "buff": {
-            "buffId": "equip.cleft_armguard_rebound",
-            "name": "回震",
-            "duration": 4,
-            "shortMark": "震",
-            "category": "buff",
-            "visibility": "public",
-            "color": "#9d8254",
-            "valueStats": {
-              "breakPower": 4,
-              "physDef": 4
-            }
-          }
-        }
-      ]
-    },
-    {
-      "itemId": "equip.cleft_blade_shoulder",
-      "name": "裂锋肩甲",
-      "type": "equipment",
-      "grade": "mystic",
-      "level": 29,
-      "desc": "肩口故意做得外突，冲撞和顶肩时很占便宜。",
-      "equipSlot": "accessory",
-      "equipValueStats": {
-        "maxHp": 5.5,
-        "physDef": 7,
-        "resolvePower": 5
-      },
-      "effects": [
-        {
-          "effectId": "cleft-shoulder-line",
-          "type": "stat_aura",
-          "conditions": {
-            "mode": "all",
-            "items": [
-              {
-                "type": "map",
-                "mapIds": [
-                  "cleft_blade_plain"
-                ]
-              }
-            ]
-          },
-          "valueStats": {
-            "physAtk": 4,
-            "resolvePower": 4
-          }
-        }
       ]
     },
     {
@@ -12598,120 +11187,12 @@
       ]
     },
     {
-      "itemId": "equip.cleft_blade_relic_armor",
-      "name": "裂锋遗甲",
-      "type": "equipment",
-      "grade": "mystic",
-      "level": 29,
-      "desc": "遗在古战阵中心的旧甲，碎得厉害，却还保着半口不肯散的锋势。",
-      "equipSlot": "body",
-      "equipValueStats": {
-        "maxHp": 13,
-        "physDef": 19,
-        "spellDef": 13,
-        "breakPower": 5
-      },
-      "effects": [
-        {
-          "effectId": "cleft-relic-echo",
-          "type": "stat_aura",
-          "conditions": {
-            "mode": "all",
-            "items": [
-              {
-                "type": "map",
-                "mapIds": [
-                  "cleft_blade_plain"
-                ]
-              }
-            ]
-          },
-          "valueStats": {
-            "physAtk": 6,
-            "spellAtk": 6
-          }
-        }
-      ]
-    },
-    {
       "itemId": "map.cleft_blade_plain",
       "name": "裂锋原战线图",
       "type": "consumable",
       "level": 9,
       "desc": "按残阵、砂兵线和断兵冢口整理出的长线战图。使用后可永久解锁裂锋原地图。",
       "mapUnlockId": "cleft_blade_plain"
-    },
-    {
-      "itemId": "equip.cleft_edge_ring",
-      "name": "裂锋指环",
-      "type": "equipment",
-      "grade": "yellow",
-      "level": 23,
-      "desc": "环口有一道天然豁口，最适合卡着兵器发力。",
-      "equipSlot": "accessory",
-      "equipValueStats": {
-        "hit": 5,
-        "breakPower": 6,
-        "crit": 3
-      },
-      "effects": [
-        {
-          "effectId": "cleft-edge-mark",
-          "type": "timed_buff",
-          "trigger": "on_hit",
-          "target": "self",
-          "chance": 0.24,
-          "buff": {
-            "buffId": "equip.cleft_edge_mark",
-            "name": "裂印",
-            "duration": 4,
-            "shortMark": "印",
-            "category": "buff",
-            "visibility": "public",
-            "color": "#bfa15d",
-            "valueStats": {
-              "breakPower": 4,
-              "physAtk": 4
-            }
-          }
-        }
-      ]
-    },
-    {
-      "itemId": "equip.cleft_short_blade",
-      "name": "裂痕短刃",
-      "type": "equipment",
-      "grade": "yellow",
-      "level": 19,
-      "desc": "沿断剑残口重新打磨出来的短刃，出手快，锋气也散得快。",
-      "equipSlot": "weapon",
-      "equipValueStats": {
-        "physAtk": 18,
-        "hit": 6,
-        "crit": 3
-      },
-      "effects": [
-        {
-          "effectId": "cleft-short-edge",
-          "type": "timed_buff",
-          "trigger": "on_hit",
-          "target": "self",
-          "chance": 0.28,
-          "buff": {
-            "buffId": "equip.cleft_short_edge",
-            "name": "裂锋",
-            "duration": 4,
-            "shortMark": "锋",
-            "category": "buff",
-            "visibility": "public",
-            "color": "#c9b06a",
-            "valueStats": {
-              "crit": 4,
-              "breakPower": 4
-            }
-          }
-        }
-      ]
     },
     {
       "itemId": "equip.scar_tread_boots",
@@ -12744,40 +11225,6 @@
               "hit": 3,
               "dodge": 3
             }
-          }
-        }
-      ]
-    },
-    {
-      "itemId": "equip.cleft_scale_armor",
-      "name": "裂鳞甲",
-      "type": "equipment",
-      "grade": "mystic",
-      "level": 25,
-      "desc": "层层铁片像断鳞一样扣在一起，硬顶硬拼时更显得可靠。",
-      "equipSlot": "body",
-      "equipValueStats": {
-        "maxHp": 8.5,
-        "physDef": 15,
-        "resolvePower": 5
-      },
-      "effects": [
-        {
-          "effectId": "cleft-scale-laststand",
-          "type": "stat_aura",
-          "conditions": {
-            "mode": "all",
-            "items": [
-              {
-                "type": "hp_ratio",
-                "op": "<=",
-                "value": 0.5
-              }
-            ]
-          },
-          "valueStats": {
-            "physDef": 8,
-            "resolvePower": 5
           }
         }
       ]
@@ -12819,34 +11266,6 @@
       ]
     },
     {
-      "itemId": "equip.cleft_long_halberd",
-      "name": "裂原长戟",
-      "type": "equipment",
-      "grade": "yellow",
-      "level": 21,
-      "desc": "戟锋一长一短，专门拿来挑开兵甲缝隙。",
-      "equipSlot": "weapon",
-      "equipValueStats": {
-        "physAtk": 21,
-        "hit": 6,
-        "breakPower": 6
-      }
-    },
-    {
-      "itemId": "equip.ridge_calm_robe",
-      "name": "灵脊镇息袍",
-      "type": "equipment",
-      "grade": "mystic",
-      "level": 4,
-      "desc": "灵脊冷风里晒出的袍子，穿在身上后，行功时那股浮躁会慢慢沉下去。",
-      "equipSlot": "body",
-      "equipValueStats": {
-        "maxQi": 3,
-        "spellDef": 6,
-        "qiRegenRate": 0.7
-      }
-    },
-    {
       "itemId": "spirit_ridge_sigil",
       "name": "灵岭行令",
       "type": "quest_item",
@@ -12876,19 +11295,6 @@
       "desc": "蕴灵玄铁的碎片。"
     },
     {
-      "itemId": "equip.ridgehide_vest",
-      "name": "岭皮坎肩",
-      "type": "equipment",
-      "grade": "yellow",
-      "level": 19,
-      "desc": "用厚脉岭妖兽硬皮裁出来的坎肩，粗糙但耐磨。",
-      "equipSlot": "body",
-      "equipValueStats": {
-        "maxHp": 8,
-        "physDef": 15
-      }
-    },
-    {
       "itemId": "ridge_beast_claw",
       "name": "岭兽爪",
       "type": "material",
@@ -12908,19 +11314,6 @@
         "physDef": 18,
         "spellDef": 8,
         "resolvePower": 6
-      }
-    },
-    {
-      "itemId": "equip.ash_tread",
-      "name": "炉灰踏靴",
-      "type": "equipment",
-      "grade": "yellow",
-      "level": 3,
-      "desc": "鞋底结了层灰壳，踩在碎石和熄火矿渣上比常鞋稳。",
-      "equipSlot": "legs",
-      "equipValueStats": {
-        "moveSpeed": 10,
-        "physDef": 2
       }
     },
     {
@@ -13094,55 +11487,6 @@
       "level": 1,
       "desc": "以云来镇地脉落脚处为引的命石。使用后会将自己的复活点与遁返落点改为云来镇。",
       "respawnBindMapId": "yunlai_town"
-    },
-    {
-      "itemId": "equip.nanshi_token",
-      "name": "南市木牌",
-      "type": "equipment",
-      "grade": "yellow",
-      "level": 2,
-      "desc": "脚店记工用的木牌，拿在手里时，总会逼着人多跑几趟。",
-      "equipSlot": "accessory",
-      "equipValueStats": {
-        "maxHp": 1,
-        "realmExpPerTick": 2
-      }
-    },
-    {
-      "itemId": "equip.dew_tide_pendant",
-      "name": "凝露潮佩",
-      "type": "equipment",
-      "grade": "mystic",
-      "level": 26,
-      "desc": "把净潮凝露压进佩坠后，法修出手总会带一点更冷更准的尾劲。",
-      "equipSlot": "accessory",
-      "equipValueStats": {
-        "spellAtk": 8,
-        "qiRegenRate": 1,
-        "hit": 4
-      },
-      "effects": [
-        {
-          "effectId": "dew-tide-focus",
-          "type": "timed_buff",
-          "trigger": "on_hit",
-          "target": "self",
-          "chance": 0.24,
-          "buff": {
-            "buffId": "equip.dew_tide_focus",
-            "name": "潮准",
-            "duration": 4,
-            "shortMark": "潮",
-            "category": "buff",
-            "visibility": "public",
-            "color": "#87cde2",
-            "valueStats": {
-              "hit": 4,
-              "cooldownSpeed": 5
-            }
-          }
-        }
-      ]
     },
     {
       "itemId": "pill.ningxiang",
@@ -13333,20 +11677,6 @@
       "grade": "yellow"
     },
     {
-      "itemId": "equip.bamboo_split_blade",
-      "name": "青竹分水刃",
-      "type": "equipment",
-      "grade": "yellow",
-      "level": 3,
-      "desc": "刀身细窄，专为林路斜切和借身转步而造。",
-      "equipSlot": "weapon",
-      "equipValueStats": {
-        "physAtk": 7,
-        "dodge": 2,
-        "hit": 2
-      }
-    },
-    {
       "itemId": "map.bamboo_forest",
       "name": "青竹林野图",
       "type": "consumable",
@@ -13396,20 +11726,6 @@
       "mapUnlockId": "beast_valley"
     },
     {
-      "itemId": "equip.vale_stride_boots",
-      "name": "绕谷轻履",
-      "type": "equipment",
-      "grade": "yellow",
-      "level": 21,
-      "desc": "鞋底轻而韧，最适合在藤桥和碎坡间边绕边退。",
-      "equipSlot": "legs",
-      "equipValueStats": {
-        "moveSpeed": 27,
-        "dodge": 6,
-        "qiRegenRate": 0.5
-      }
-    },
-    {
       "itemId": "mat.sunmelt_seed",
       "name": "融阳子",
       "type": "material",
@@ -13419,88 +11735,6 @@
       "tags": [
         "药材"
       ]
-    },
-    {
-      "itemId": "equip.sand_edge_headband",
-      "name": "砂锋束额",
-      "type": "equipment",
-      "grade": "yellow",
-      "level": 19,
-      "desc": "旧军阵里常见的束额，沾了砂金后反而更显眼利。",
-      "equipSlot": "head",
-      "equipValueStats": {
-        "hit": 5,
-        "dodge": 6,
-        "viewRange": 1
-      },
-      "effects": [
-        {
-          "effectId": "sand-edge-sight",
-          "type": "stat_aura",
-          "conditions": {
-            "mode": "all",
-            "items": [
-              {
-                "type": "map",
-                "mapIds": [
-                  "cleft_blade_plain"
-                ]
-              }
-            ]
-          },
-          "valueStats": {
-            "hit": 3,
-            "viewRange": 1
-          }
-        }
-      ]
-    },
-    {
-      "itemId": "equip.gold_sand_talisman",
-      "name": "砂金符坠",
-      "type": "equipment",
-      "grade": "yellow",
-      "level": 23,
-      "desc": "封着一撮砂金锋屑，静修时真气会沿着符纹自己磨一遍。",
-      "equipSlot": "accessory",
-      "equipValueStats": {
-        "maxQi": 4.5,
-        "qiRegenRate": 1.1,
-        "breakPower": 6
-      },
-      "effects": [
-        {
-          "effectId": "gold-sand-temper",
-          "type": "progress_boost",
-          "statMode": "flat",
-          "conditions": {
-            "mode": "all",
-            "items": [
-              {
-                "type": "is_cultivating",
-                "value": true
-              }
-            ]
-          },
-          "valueStats": {
-            "techniqueExpPerTick": 10
-          }
-        }
-      ]
-    },
-    {
-      "itemId": "equip.gold_sand_cuirass",
-      "name": "砂金胸甲",
-      "type": "equipment",
-      "grade": "yellow",
-      "level": 21,
-      "desc": "以砂金熔层反复压出的胸甲，挨打时会先听见沙石摩擦声。",
-      "equipSlot": "body",
-      "equipValueStats": {
-        "maxHp": 7.5,
-        "physDef": 14,
-        "spellDef": 6
-      }
     },
     {
       "itemId": "equip.sand_ghost_mask",
@@ -13537,57 +11771,6 @@
       ]
     },
     {
-      "itemId": "equip.mountainheart_token",
-      "name": "山心符",
-      "type": "equipment",
-      "grade": "mystic",
-      "level": 25,
-      "desc": "符心像压着一颗小石胆，越乱的时候越能把气机往中宫收。",
-      "equipSlot": "accessory",
-      "equipValueStats": {
-        "maxHp": 4,
-        "maxQi": 4,
-        "physDef": 5,
-        "resolvePower": 8
-      },
-      "effects": [
-        {
-          "effectId": "mountainheart-ridge",
-          "type": "stat_aura",
-          "conditions": {
-            "mode": "all",
-            "items": [
-              {
-                "type": "map",
-                "mapIds": [
-                  "deepvein_ridge"
-                ]
-              }
-            ]
-          },
-          "valueStats": {
-            "physDef": 5,
-            "breakPower": 4
-          }
-        }
-      ]
-    },
-    {
-      "itemId": "equip.snakeshed_vest",
-      "name": "蛇蜕灵甲",
-      "type": "equipment",
-      "grade": "yellow",
-      "level": 3,
-      "desc": "以竹蛇蜕皮层层包缠，柔中带韧。",
-      "equipSlot": "body",
-      "equipValueStats": {
-        "maxHp": 1.8,
-        "maxQi": 1,
-        "physDef": 2,
-        "spellDef": 3
-      }
-    },
-    {
       "itemId": "root_seed.divine",
       "name": "神品灵根幼苗",
       "type": "consumable",
@@ -13606,125 +11789,10 @@
       ]
     },
     {
-      "itemId": "equip.lifepulse_pendant",
-      "name": "生脉木佩",
-      "type": "equipment",
-      "grade": "mystic",
-      "level": 26,
-      "desc": "木心磨出来的佩坠，贴身带着时气海总像有一股慢劲在往上托。",
-      "equipSlot": "accessory",
-      "equipValueStats": {
-        "maxQi": 5.5,
-        "spellAtk": 8,
-        "hpRegenRate": 0.9
-      },
-      "effects": [
-        {
-          "effectId": "lifepulse-map-aura",
-          "type": "stat_aura",
-          "conditions": {
-            "mode": "all",
-            "items": [
-              {
-                "type": "map",
-                "mapIds": [
-                  "verdant_vine_vale"
-                ]
-              }
-            ]
-          },
-          "valueStats": {
-            "spellAtk": 5,
-            "qiRegenRate": 70,
-            "resolvePower": 5
-          }
-        }
-      ]
-    },
-    {
       "itemId": "mine_signal_core",
       "name": "失落信标核心",
       "type": "quest_item",
       "desc": "矿洞旧阵的核心部件。"
-    },
-    {
-      "itemId": "equip.stone_ridge_helm",
-      "name": "石岭盔",
-      "type": "equipment",
-      "grade": "yellow",
-      "level": 23,
-      "desc": "盔沿压得很低，风砂灌进来也不容易乱眼。",
-      "equipSlot": "head",
-      "equipValueStats": {
-        "maxHp": 3.5,
-        "physDef": 8,
-        "resolvePower": 8,
-        "viewRange": 1
-      },
-      "effects": [
-        {
-          "effectId": "stone-ridge-steadfast",
-          "type": "stat_aura",
-          "conditions": {
-            "mode": "all",
-            "items": [
-              {
-                "type": "hp_ratio",
-                "op": "<=",
-                "value": 0.5
-              }
-            ]
-          },
-          "valueStats": {
-            "physDef": 6,
-            "resolvePower": 6
-          }
-        }
-      ]
-    },
-    {
-      "itemId": "equip.scavenger_fang",
-      "name": "拾荒尖牙",
-      "type": "equipment",
-      "grade": "mortal",
-      "level": 1,
-      "desc": "荒沟野兽磨得发亮的一截尖牙，胜在来得突然。",
-      "equipSlot": "weapon",
-      "equipValueStats": {
-        "physAtk": 2,
-        "hit": 1,
-        "breakPower": 1
-      }
-    },
-    {
-      "itemId": "equip.scavenger_crest",
-      "name": "拾荒翎冠",
-      "type": "equipment",
-      "grade": "mortal",
-      "level": 1,
-      "desc": "由乱羽与碎骨缠成，戴上后会本能地先一步察觉动静。",
-      "equipSlot": "head",
-      "equipValueStats": {
-        "dodge": 1,
-        "hit": 1,
-        "viewRange": 1
-      }
-    },
-    {
-      "itemId": "equip.pattern_picker_ring",
-      "name": "拾纹指环",
-      "type": "equipment",
-      "grade": "mystic",
-      "level": 4,
-      "desc": "曾有人戴着它在断碑间抄录阵纹，指环内壁还留着细小刻痕。",
-      "equipSlot": "accessory",
-      "equipAttrs": {
-        "comprehension": 1
-      },
-      "equipValueStats": {
-        "techniqueExpPerTick": 6,
-        "spellAtk": 3
-      }
     },
     {
       "itemId": "equip.soul_devour_token",
@@ -13801,7 +11869,7 @@
             "color": "#8a3f2d",
             "statMode": "flat",
             "valueStats": {
-              "qiRegenRate": 1.6,
+              "qiRegenRate": 0.5,
               "techniqueExpPerTick": 6
             }
           }
@@ -13813,21 +11881,6 @@
       "name": "兽谷核心",
       "type": "quest_item",
       "desc": "谷底裂隙孕出的异质核心。"
-    },
-    {
-      "itemId": "equip.beastbone_mail",
-      "name": "兽骨玄甲",
-      "type": "equipment",
-      "grade": "mystic",
-      "level": 4,
-      "desc": "以妖骨和硬皮层层缀成，杀气越重越显得沉稳。",
-      "equipSlot": "body",
-      "equipValueStats": {
-        "maxHp": 3,
-        "physDef": 6,
-        "spellDef": 4,
-        "crit": 2
-      }
     },
     {
       "itemId": "rat_tail",
@@ -13852,82 +11905,6 @@
       "type": "consumable",
       "level": 29,
       "desc": "药力专碎命宫旧痕。使用后会立刻重置天门，清掉当前已开出的灵根结果，并额外增加 1 次逆天改命累计；同时消耗当前境界修为的 25%。至少需在叩仙门境界使用。"
-    },
-    {
-      "itemId": "equip.firestride_boots",
-      "name": "踏火疾靴",
-      "type": "equipment",
-      "grade": "yellow",
-      "level": 21,
-      "desc": "靴底硬得能直接踏过烫地，最适合追着残血不让对方脱身。",
-      "equipSlot": "legs",
-      "equipValueStats": {
-        "moveSpeed": 28,
-        "crit": 4,
-        "breakPower": 4
-      }
-    },
-    {
-      "itemId": "equip.trace_pattern_boots",
-      "name": "踏纹履",
-      "type": "equipment",
-      "grade": "mystic",
-      "level": 4,
-      "desc": "顺着残纹步点走时，真气会短暂变得更流畅。",
-      "equipSlot": "legs",
-      "equipValueStats": {
-        "moveSpeed": 14,
-        "cooldownSpeed": 4
-      }
-    },
-    {
-      "itemId": "equip.cloud_boots",
-      "name": "踏云履",
-      "type": "equipment",
-      "grade": "yellow",
-      "level": 2,
-      "desc": "鞋底镶有浮云阵纹，行走轻灵。",
-      "equipSlot": "legs",
-      "equipValueStats": {
-        "moveSpeed": 18,
-        "dodge": 2,
-        "hit": 1
-      }
-    },
-    {
-      "itemId": "equip.terrace_guard_armor",
-      "name": "台垣守甲",
-      "type": "equipment",
-      "grade": "mystic",
-      "level": 25,
-      "desc": "像台地边墙一样层层搭起的守甲，很难被一口气打穿。",
-      "equipSlot": "body",
-      "equipValueStats": {
-        "maxHp": 10.5,
-        "physDef": 17,
-        "spellDef": 9,
-        "resolvePower": 7
-      },
-      "effects": [
-        {
-          "effectId": "terrace-guard-last",
-          "type": "stat_aura",
-          "conditions": {
-            "mode": "all",
-            "items": [
-              {
-                "type": "hp_ratio",
-                "op": "<=",
-                "value": 0.5
-              }
-            ]
-          },
-          "valueStats": {
-            "physDef": 8,
-            "resolvePower": 8
-          }
-        }
-      ]
     },
     {
       "itemId": "mantis_blade",
@@ -13976,56 +11953,6 @@
       ]
     },
     {
-      "itemId": "equip.iron_track_boots",
-      "name": "铁辙靴",
-      "type": "equipment",
-      "grade": "yellow",
-      "level": 21,
-      "desc": "踏地很沉，但起步时能把碎地踩出一条直线。",
-      "equipSlot": "legs",
-      "equipValueStats": {
-        "moveSpeed": 25,
-        "physDef": 6,
-        "hit": 3
-      },
-      "effects": [
-        {
-          "effectId": "iron-track-drive",
-          "type": "timed_buff",
-          "trigger": "on_move",
-          "target": "self",
-          "cooldown": 2,
-          "buff": {
-            "buffId": "equip.iron_track_drive",
-            "name": "压步",
-            "duration": 2,
-            "shortMark": "压",
-            "category": "buff",
-            "visibility": "public",
-            "color": "#8f7a52",
-            "valueStats": {
-              "breakPower": 3,
-              "resolvePower": 3
-            }
-          }
-        }
-      ]
-    },
-    {
-      "itemId": "equip.windhear_crown",
-      "name": "听风兽皮冠",
-      "type": "equipment",
-      "grade": "yellow",
-      "level": 4,
-      "desc": "兽皮毛向顺风压平，林响一近便能先一步听出动静。",
-      "equipSlot": "head",
-      "equipValueStats": {
-        "dodge": 3,
-        "crit": 2,
-        "viewRange": 1
-      }
-    },
-    {
       "itemId": "equip.copper_enhancement_hammer",
       "name": "铜强化锤",
       "type": "equipment",
@@ -14054,7 +11981,7 @@
         "alchemy_furnace"
       ],
       "equipValueStats": {
-        "qiRegenRate": 40,
+        "qiRegenRate": 1,
         "resolvePower": 1
       },
       "alchemySuccessRate": 0.1,
@@ -14098,38 +12025,6 @@
       "level": 29,
       "desc": "归藏脉窟里五行乱炁磨出来的细尘，握在掌心都会互相顶撞。",
       "grade": "earth"
-    },
-    {
-      "itemId": "equip.fiveqi_watch_crown",
-      "name": "五炁观脉冠",
-      "type": "equipment",
-      "grade": "mystic",
-      "level": 29,
-      "desc": "冠骨里嵌着五色微纹，最适合在乱流里分辨哪一路气先要顶上来。",
-      "equipSlot": "head",
-      "equipAttrs": {
-        "spirit": 2,
-        "comprehension": 2
-      },
-      "equipValueStats": {
-        "maxQi": 4,
-        "spellDef": 10,
-        "resolvePower": 7
-      }
-    },
-    {
-      "itemId": "equip.mistwalker_boots",
-      "name": "雾行履",
-      "type": "equipment",
-      "grade": "yellow",
-      "level": 21,
-      "desc": "湿地上踩不出多大声响，适合边游边退地拖节奏。",
-      "equipSlot": "legs",
-      "equipValueStats": {
-        "moveSpeed": 25,
-        "dodge": 6,
-        "cooldownSpeed": 5
-      }
     },
     {
       "itemId": "equip.soot_lamp_hood",
@@ -14196,49 +12091,6 @@
       "desc": "可用于炼器的粗矿。"
     },
     {
-      "itemId": "equip.black_iron_sword",
-      "name": "玄铁长剑",
-      "type": "equipment",
-      "grade": "mystic",
-      "level": 3,
-      "desc": "经矿洞灵铁锻造，兼具锋锐与韧性。",
-      "equipSlot": "weapon",
-      "equipValueStats": {
-        "physAtk": 11,
-        "spellAtk": 4,
-        "hit": 4
-      }
-    },
-    {
-      "itemId": "equip.cave_skitter_spurs",
-      "name": "穴行钩爪",
-      "type": "equipment",
-      "grade": "yellow",
-      "level": 3,
-      "desc": "钩爪能牢牢嵌进岩缝，适合洞壁疾窜和突然俯冲。",
-      "equipSlot": "legs",
-      "equipValueStats": {
-        "moveSpeed": 12,
-        "dodge": 3,
-        "hit": 1
-      }
-    },
-    {
-      "itemId": "equip.bloodcore_talisman",
-      "name": "血核妖符",
-      "type": "equipment",
-      "grade": "mystic",
-      "level": 4,
-      "desc": "封着半凝的妖血精核，能让攻势更狠也更躁。",
-      "equipSlot": "accessory",
-      "equipValueStats": {
-        "maxQi": 2,
-        "breakPower": 4,
-        "qiRegenRate": 0.4,
-        "crit": 2
-      }
-    },
-    {
       "itemId": "blood_feather",
       "name": "血羽",
       "type": "material",
@@ -14276,20 +12128,6 @@
       ]
     },
     {
-      "itemId": "equip.spirit_ring",
-      "name": "养灵木戒",
-      "type": "equipment",
-      "grade": "yellow",
-      "level": 4,
-      "desc": "谷外旧修士留下的木戒，导气时能帮人把散乱灵息拢得更稳。",
-      "equipSlot": "accessory",
-      "equipValueStats": {
-        "maxQi": 2,
-        "qiRegenRate": 0.6,
-        "maxQiOutputPerTick": 3
-      }
-    },
-    {
       "itemId": "pill.nurturing_paste",
       "name": "养脉膏",
       "type": "consumable",
@@ -14317,7 +12155,7 @@
       "equipValueStats": {
         "spellAtk": 18,
         "maxQi": 3,
-        "qiRegenRate": 0.8
+        "qiRegenRate": 0.5
       },
       "effects": [
         {
@@ -14335,8 +12173,8 @@
             "visibility": "public",
             "color": "#7fbc63",
             "valueStats": {
-              "hpRegenRate": 80,
-              "qiRegenRate": 80
+              "hpRegenRate": 0.5,
+              "qiRegenRate": 0.5
             }
           }
         }
@@ -14360,19 +12198,6 @@
       ]
     },
     {
-      "itemId": "equip.herb_basket_charm",
-      "name": "药篓挂坠",
-      "type": "equipment",
-      "grade": "yellow",
-      "level": 2,
-      "desc": "篓口系下来的小木坠，药气浸久了，多少沾些回生味。",
-      "equipSlot": "accessory",
-      "equipValueStats": {
-        "hpRegenRate": 0.5,
-        "lootRate": 3
-      }
-    },
-    {
       "itemId": "equip.herb_mist_robe",
       "name": "药烟轻袍",
       "type": "equipment",
@@ -14385,59 +12210,6 @@
         "spellDef": 4,
         "qiRegenRate": 0.4
       }
-    },
-    {
-      "itemId": "equip.leafshadow_crest",
-      "name": "叶隐翎冠",
-      "type": "equipment",
-      "grade": "yellow",
-      "level": 3,
-      "desc": "林风一过，叶影先动，最适合伏在竹影里先手扑杀。",
-      "equipSlot": "head",
-      "equipValueStats": {
-        "dodge": 2,
-        "hit": 2,
-        "viewRange": 1
-      }
-    },
-    {
-      "itemId": "equip.crow_night_mask",
-      "name": "夜鸦面",
-      "type": "equipment",
-      "grade": "yellow",
-      "level": 3,
-      "desc": "镇外守夜人留下的旧面具，白天沉闷，入夜后反而看得更远。",
-      "equipSlot": "head",
-      "tags": [
-        "fanren",
-        "night_walk"
-      ],
-      "effects": [
-        {
-          "effectId": "crow-night-sight",
-          "type": "stat_aura",
-          "conditions": {
-            "mode": "all",
-            "items": [
-              {
-                "type": "time_segment",
-                "in": [
-                  "late_night",
-                  "before_dawn",
-                  "first_night",
-                  "night",
-                  "deep_night",
-                  "dusk"
-                ]
-              }
-            ]
-          },
-          "valueStats": {
-            "viewRange": 1,
-            "hit": 2
-          }
-        }
-      ]
     },
     {
       "itemId": "ruin_keystone",
@@ -14476,84 +12248,6 @@
         }
       ],
       "grade": "yellow"
-    },
-    {
-      "itemId": "equip.guiding_marrow_pendant",
-      "name": "引灵髓坠",
-      "type": "equipment",
-      "grade": "mystic",
-      "level": 4,
-      "desc": "坠芯以兽髓和细纹骨粉压成，引气时不算多快，但能明显稳住导气节奏。",
-      "equipSlot": "accessory",
-      "equipAttrs": {
-        "comprehension": 1
-      },
-      "equipValueStats": {
-        "maxQiOutputPerTick": 5,
-        "maxQi": 2.25
-      }
-    },
-    {
-      "itemId": "equip.dewstep_boots",
-      "name": "引露行靴",
-      "type": "equipment",
-      "grade": "yellow",
-      "level": 3,
-      "desc": "晨露未干时最显轻灵，踏步后脚尖总像还留着一层滑意。",
-      "equipSlot": "legs",
-      "equipValueStats": {
-        "moveSpeed": 16,
-        "crit": 2
-      },
-      "effects": [
-        {
-          "effectId": "dewstep-dash",
-          "type": "timed_buff",
-          "trigger": "on_move",
-          "target": "self",
-          "cooldown": 3,
-          "buff": {
-            "buffId": "equip.dewstep_dash",
-            "name": "露痕",
-            "desc": "步法尚未散尽，短时间内身法更快。",
-            "duration": 2,
-            "shortMark": "露",
-            "category": "buff",
-            "visibility": "public",
-            "color": "#8fb7c9",
-            "valueStats": {
-              "moveSpeed": 8,
-              "dodge": 2
-            }
-          }
-        }
-      ]
-    },
-    {
-      "itemId": "equip.leather_vest",
-      "name": "硬皮护衣",
-      "type": "equipment",
-      "grade": "yellow",
-      "level": 2,
-      "desc": "由粗皮与铜扣缝制的护身衣。",
-      "equipSlot": "body",
-      "equipValueStats": {
-        "maxHp": 3,
-        "physDef": 5
-      }
-    },
-    {
-      "itemId": "equip.step_boots",
-      "name": "游侠靴",
-      "type": "equipment",
-      "grade": "yellow",
-      "level": 2,
-      "desc": "鞋底附有防滑纹路，适合野外奔袭。",
-      "equipSlot": "legs",
-      "equipValueStats": {
-        "moveSpeed": 12,
-        "dodge": 1
-      }
     },
     {
       "itemId": "equip.yuetown_mask",
@@ -14613,23 +12307,6 @@
       ]
     },
     {
-      "itemId": "equip.moonwell_gauze_crown",
-      "name": "月井纱冠",
-      "type": "equipment",
-      "grade": "yellow",
-      "level": 19,
-      "desc": "寒井旁常见的轻纱小冠，最适合在雾里辨位和换气。",
-      "equipSlot": "head",
-      "equipAttrs": {
-        "spirit": 2
-      },
-      "equipValueStats": {
-        "spellDef": 8,
-        "dodge": 6,
-        "viewRange": 1
-      }
-    },
-    {
       "itemId": "mat.moondew_grass",
       "name": "月露草",
       "type": "material",
@@ -14638,43 +12315,6 @@
       "desc": "清晨叶尖常挂月白露珠，是最常见的温和药底。",
       "tags": [
         "药材"
-      ]
-    },
-    {
-      "itemId": "equip.yuepattern_pole",
-      "name": "岳纹杆",
-      "type": "equipment",
-      "grade": "mystic",
-      "level": 25,
-      "desc": "杆身刻着旧岳纹，越是硬碰硬，纹路越会亮。",
-      "equipSlot": "weapon",
-      "equipValueStats": {
-        "physAtk": 24,
-        "spellAtk": 5,
-        "hit": 7,
-        "breakPower": 8
-      },
-      "effects": [
-        {
-          "effectId": "yuepattern-rise",
-          "type": "timed_buff",
-          "trigger": "on_skill_cast",
-          "target": "self",
-          "cooldown": 5,
-          "buff": {
-            "buffId": "equip.yuepattern_rise",
-            "name": "岳纹",
-            "duration": 4,
-            "shortMark": "岳",
-            "category": "buff",
-            "visibility": "public",
-            "color": "#a58c69",
-            "valueStats": {
-              "spellDef": 7,
-              "resolvePower": 5
-            }
-          }
-        }
       ]
     },
     {
@@ -14748,55 +12388,6 @@
       "grade": "yellow"
     },
     {
-      "itemId": "equip.scrap_hide",
-      "name": "杂皮护层",
-      "type": "equipment",
-      "grade": "mortal",
-      "level": 1,
-      "desc": "泥水和旧皮裹成的粗陋护层，挡不住利刃，但能扛住几下乱打。",
-      "equipSlot": "body",
-      "equipValueStats": {
-        "maxHp": 1.5,
-        "physDef": 2,
-        "spellDef": 1
-      }
-    },
-    {
-      "itemId": "equip.loadstone_plate",
-      "name": "载山甲",
-      "type": "equipment",
-      "grade": "mystic",
-      "level": 27,
-      "desc": "甲心嵌着磁石，能把周围散乱的冲劲都往甲面上拽。",
-      "equipSlot": "body",
-      "equipValueStats": {
-        "maxHp": 11,
-        "physDef": 19,
-        "spellDef": 11,
-        "resolvePower": 8
-      },
-      "effects": [
-        {
-          "effectId": "loadstone-shell",
-          "type": "stat_aura",
-          "conditions": {
-            "mode": "all",
-            "items": [
-              {
-                "type": "hp_ratio",
-                "op": "<=",
-                "value": 0.5
-              }
-            ]
-          },
-          "valueStats": {
-            "physDef": 9,
-            "spellDef": 9
-          }
-        }
-      ]
-    },
-    {
       "itemId": "lizard_scale",
       "name": "泽鳞",
       "type": "material",
@@ -14815,54 +12406,6 @@
       "grade": "yellow",
       "tags": [
         "药材"
-      ]
-    },
-    {
-      "itemId": "equip.marsh_poison_gland",
-      "name": "沼毒囊结",
-      "type": "equipment",
-      "grade": "yellow",
-      "level": 2,
-      "desc": "毒液未必致命，但足够扰乱气血和步点。",
-      "equipSlot": "accessory",
-      "equipValueStats": {
-        "spellAtk": 2,
-        "breakPower": 1,
-        "qiRegenRate": 0.2
-      }
-    },
-    {
-      "itemId": "equip.bent_flag_heavy_helm",
-      "name": "折旗重盔",
-      "type": "equipment",
-      "grade": "mystic",
-      "level": 29,
-      "desc": "盔体沉得很，但也真能替人把一口硬气压住。",
-      "equipSlot": "head",
-      "equipValueStats": {
-        "maxHp": 3.5,
-        "physDef": 7,
-        "resolvePower": 7
-      },
-      "effects": [
-        {
-          "effectId": "bent-flag-grit",
-          "type": "stat_aura",
-          "conditions": {
-            "mode": "all",
-            "items": [
-              {
-                "type": "hp_ratio",
-                "op": "<=",
-                "value": 0.5
-              }
-            ]
-          },
-          "valueStats": {
-            "physDef": 8,
-            "resolvePower": 8
-          }
-        }
       ]
     },
     {
@@ -14914,63 +12457,6 @@
       "grade": "yellow"
     },
     {
-      "itemId": "equip.void_talisman",
-      "name": "镇脉玄纹佩",
-      "type": "equipment",
-      "grade": "mystic",
-      "level": 5,
-      "desc": "佩面刻着细碎玄纹，佩久了能缓住气海波动，适合叩门前最后稳一口气。",
-      "equipSlot": "accessory",
-      "equipAttrs": {
-        "spirit": 1,
-        "comprehension": 1
-      },
-      "equipValueStats": {
-        "techniqueExpPerTick": 7,
-        "qiRegenRate": 0.6
-      }
-    },
-    {
-      "itemId": "equip.tomb_gate_general_helm",
-      "name": "镇门将盔",
-      "type": "equipment",
-      "grade": "mystic",
-      "level": 29,
-      "desc": "盔面还压着旧时将纹，看人时天然带股逼视感。",
-      "equipSlot": "head",
-      "equipAttrs": {
-        "perception": 2
-      },
-      "equipValueStats": {
-        "maxHp": 4,
-        "spellDef": 11,
-        "resolvePower": 8,
-        "hit": 5
-      },
-      "effects": [
-        {
-          "effectId": "gate-general-gaze",
-          "type": "stat_aura",
-          "conditions": {
-            "mode": "all",
-            "items": [
-              {
-                "type": "map",
-                "mapIds": [
-                  "cleft_blade_plain"
-                ]
-              }
-            ]
-          },
-          "valueStats": {
-            "hit": 4,
-            "crit": 4,
-            "resolvePower": 5
-          }
-        }
-      ]
-    },
-    {
       "itemId": "equip.rift_guard_armor",
       "name": "镇煞护心甲",
       "type": "equipment",
@@ -14986,46 +12472,6 @@
       }
     },
     {
-      "itemId": "equip.earthlord_helm",
-      "name": "镇岳君盔",
-      "type": "equipment",
-      "grade": "mystic",
-      "level": 29,
-      "desc": "盔冠像缩小后的山岳，戴上后连呼吸都像在往下沉。",
-      "equipSlot": "head",
-      "equipAttrs": {
-        "constitution": 2
-      },
-      "equipValueStats": {
-        "maxHp": 5.5,
-        "physDef": 10,
-        "spellDef": 10,
-        "resolvePower": 11
-      },
-      "effects": [
-        {
-          "effectId": "earthlord-aura",
-          "type": "stat_aura",
-          "conditions": {
-            "mode": "all",
-            "items": [
-              {
-                "type": "map",
-                "mapIds": [
-                  "deepvein_ridge"
-                ]
-              }
-            ]
-          },
-          "valueStats": {
-            "physDef": 8,
-            "resolvePower": 8,
-            "hit": 4
-          }
-        }
-      ]
-    },
-    {
       "itemId": "stonegall_core",
       "name": "镇岳石胆",
       "type": "material",
@@ -15034,44 +12480,6 @@
       "grade": "mystic",
       "tags": [
         "异材"
-      ]
-    },
-    {
-      "itemId": "equip.quakeheart_stone",
-      "name": "震心石",
-      "type": "equipment",
-      "grade": "mystic",
-      "level": 27,
-      "desc": "拿在手里会隐隐发颤，吞纳时却能把经脉震得更开。",
-      "equipSlot": "accessory",
-      "equipAttrs": {
-        "comprehension": 2
-      },
-      "equipValueStats": {
-        "maxQi": 5.5,
-        "breakPower": 7,
-        "resolvePower": 8,
-        "spellDef": 7
-      },
-      "effects": [
-        {
-          "effectId": "quakeheart-advance",
-          "type": "progress_boost",
-          "statMode": "flat",
-          "conditions": {
-            "mode": "all",
-            "items": [
-              {
-                "type": "is_cultivating",
-                "value": true
-              }
-            ]
-          },
-          "valueStats": {
-            "realmExpPerTick": 7,
-            "techniqueExpPerTick": 11
-          }
-        }
       ]
     },
     {
@@ -15085,113 +12493,6 @@
       ]
     },
     {
-      "itemId": "equip.heavystele_helm",
-      "name": "重碑盔",
-      "type": "equipment",
-      "grade": "mystic",
-      "level": 27,
-      "desc": "像直接顶着碑角一样沉，静下来后反而神完气足。",
-      "equipSlot": "head",
-      "equipAttrs": {
-        "constitution": 2
-      },
-      "equipValueStats": {
-        "maxHp": 4,
-        "spellDef": 10,
-        "resolvePower": 8
-      },
-      "effects": [
-        {
-          "effectId": "heavystele-breath",
-          "type": "stat_aura",
-          "conditions": {
-            "mode": "all",
-            "items": [
-              {
-                "type": "map",
-                "mapIds": [
-                  "deepvein_ridge"
-                ]
-              }
-            ]
-          },
-          "valueStats": {
-            "maxQiOutputPerTick": 5,
-            "resolvePower": 5
-          }
-        }
-      ]
-    },
-    {
-      "itemId": "equip.heavy_claw_boots",
-      "name": "重爪靴",
-      "type": "equipment",
-      "grade": "yellow",
-      "level": 19,
-      "desc": "靴底像爪钩一样啃地，踩塌松石坡时不容易被带走。",
-      "equipSlot": "legs",
-      "equipValueStats": {
-        "moveSpeed": 23,
-        "physDef": 7,
-        "breakPower": 3
-      },
-      "effects": [
-        {
-          "effectId": "heavy-claw-root",
-          "type": "timed_buff",
-          "trigger": "on_move",
-          "target": "self",
-          "cooldown": 2,
-          "buff": {
-            "buffId": "equip.heavy_claw_root",
-            "name": "扎根",
-            "duration": 2,
-            "shortMark": "根",
-            "category": "buff",
-            "visibility": "public",
-            "color": "#8c7a60",
-            "valueStats": {
-              "physDef": 5,
-              "resolvePower": 3
-            }
-          }
-        }
-      ]
-    },
-    {
-      "itemId": "equip.bamboo_hat",
-      "name": "竹骨斗笠",
-      "type": "equipment",
-      "grade": "yellow",
-      "level": 3,
-      "desc": "青竹骨架压得极薄，进林后能把风响听得更清。",
-      "equipSlot": "head",
-      "equipValueStats": {
-        "dodge": 3,
-        "viewRange": 1
-      },
-      "effects": [
-        {
-          "effectId": "bamboo-forest-read",
-          "type": "stat_aura",
-          "conditions": {
-            "mode": "all",
-            "items": [
-              {
-                "type": "map",
-                "mapIds": [
-                  "bamboo_forest"
-                ]
-              }
-            ]
-          },
-          "valueStats": {
-            "hit": 2
-          }
-        }
-      ]
-    },
-    {
       "itemId": "serpent_gall",
       "name": "竹蛇胆",
       "type": "material",
@@ -15200,34 +12501,6 @@
       "tags": [
         "异材"
       ]
-    },
-    {
-      "itemId": "equip.bamboo_heart_charm",
-      "name": "竹心灵坠",
-      "type": "equipment",
-      "grade": "yellow",
-      "level": 3,
-      "desc": "内里封着一枚翠竹心，能稳住细碎灵机。",
-      "equipSlot": "accessory",
-      "equipValueStats": {
-        "maxQi": 1.5,
-        "spellAtk": 3,
-        "maxQiOutputPerTick": 3
-      }
-    },
-    {
-      "itemId": "equip.bamboo_fang_blade",
-      "name": "竹牙短刃",
-      "type": "equipment",
-      "grade": "yellow",
-      "level": 3,
-      "desc": "以灵竹根节和兽牙削成，轻狠兼备。",
-      "equipSlot": "weapon",
-      "equipValueStats": {
-        "physAtk": 6,
-        "hit": 2,
-        "crit": 1
-      }
     },
     {
       "itemId": "equip.chasing_edge_boots",
@@ -15264,20 +12537,6 @@
           }
         }
       ]
-    },
-    {
-      "itemId": "equip.moonshadow_boots",
-      "name": "逐月疾靴",
-      "type": "equipment",
-      "grade": "mystic",
-      "level": 4,
-      "desc": "靴帮收得极窄，贴地疾行时像是顺着月影滑出去的一步。",
-      "equipSlot": "legs",
-      "equipValueStats": {
-        "moveSpeed": 18,
-        "dodge": 3,
-        "crit": 2
-      }
     },
     {
       "itemId": "equip.fallrock_maul",
@@ -16218,36 +13477,6 @@
       "statMode": "percent"
     },
     {
-      "buffId": "equip.stele_edge_resound",
-      "name": "碑鸣",
-      "shortMark": "鸣",
-      "category": "buff",
-      "visibility": "public",
-      "remainingTicks": 4,
-      "duration": 4,
-      "stacks": 1,
-      "maxStacks": 1,
-      "sourceSkillId": "equip:equip.stele_edge_blade:stele-edge-resound",
-      "sourceSkillName": "碑锋刃",
-      "realmLv": 1,
-      "color": "#a38e6a"
-    },
-    {
-      "buffId": "equip.burden_stele_echo",
-      "name": "碑镇",
-      "shortMark": "镇",
-      "category": "buff",
-      "visibility": "public",
-      "remainingTicks": 4,
-      "duration": 4,
-      "stacks": 1,
-      "maxStacks": 1,
-      "sourceSkillId": "equip:equip.burden_stele_staff:burden-stele-echo",
-      "sourceSkillName": "负碑杖",
-      "realmLv": 1,
-      "color": "#8b7659"
-    },
-    {
       "buffId": "equip.fallrock_burst",
       "name": "崩岩",
       "shortMark": "崩",
@@ -16338,36 +13567,6 @@
       "realmLv": 1,
       "color": "#7dbfd8",
       "statMode": "percent"
-    },
-    {
-      "buffId": "equip.dew_tide_focus",
-      "name": "潮准",
-      "shortMark": "潮",
-      "category": "buff",
-      "visibility": "public",
-      "remainingTicks": 4,
-      "duration": 4,
-      "stacks": 1,
-      "maxStacks": 1,
-      "sourceSkillId": "equip:equip.dew_tide_pendant:dew-tide-focus",
-      "sourceSkillName": "凝露潮佩",
-      "realmLv": 1,
-      "color": "#87cde2"
-    },
-    {
-      "buffId": "equip.sinking_vein_pound",
-      "name": "沉压",
-      "shortMark": "沉",
-      "category": "buff",
-      "visibility": "public",
-      "remainingTicks": 4,
-      "duration": 4,
-      "stacks": 1,
-      "maxStacks": 1,
-      "sourceSkillId": "equip:equip.sinking_vein_hammer:sinking-vein-pound",
-      "sourceSkillName": "沉脉锤",
-      "realmLv": 1,
-      "color": "#9a7b56"
     },
     {
       "buffId": "buff.earth_guard",
@@ -16500,36 +13699,6 @@
       "color": "#d0b36e"
     },
     {
-      "buffId": "equip.counter_shock_ripple",
-      "name": "反震",
-      "shortMark": "震",
-      "category": "buff",
-      "visibility": "public",
-      "remainingTicks": 5,
-      "duration": 5,
-      "stacks": 1,
-      "maxStacks": 1,
-      "sourceSkillId": "equip:equip.counter_shock_iron_ring:counter-shock-ripple",
-      "sourceSkillName": "反震铁环",
-      "realmLv": 1,
-      "color": "#8e7352"
-    },
-    {
-      "buffId": "equip.sealridge_return",
-      "name": "封回",
-      "shortMark": "回",
-      "category": "buff",
-      "visibility": "public",
-      "remainingTicks": 5,
-      "duration": 5,
-      "stacks": 1,
-      "maxStacks": 1,
-      "sourceSkillId": "equip:equip.sealridge_iron_ring:sealridge-return",
-      "sourceSkillName": "封岭铁环",
-      "realmLv": 1,
-      "color": "#7c6a57"
-    },
-    {
       "buffId": "buff.wood_bloom",
       "name": "回春",
       "desc": "木脉回春，生命自动回复大幅提高。",
@@ -16545,21 +13714,6 @@
       "realmLv": 1,
       "color": "#6eb46a",
       "statMode": "percent"
-    },
-    {
-      "buffId": "equip.cleft_armguard_rebound",
-      "name": "回震",
-      "shortMark": "震",
-      "category": "buff",
-      "visibility": "public",
-      "remainingTicks": 4,
-      "duration": 4,
-      "stacks": 1,
-      "maxStacks": 1,
-      "sourceSkillId": "equip:equip.cleft_blade_armguard:cleft-armguard-rebound",
-      "sourceSkillName": "裂锋护臂",
-      "realmLv": 1,
-      "color": "#9d8254"
     },
     {
       "buffId": "buff.monster_soulbind",
@@ -16664,21 +13818,6 @@
       "statMode": "percent"
     },
     {
-      "buffId": "equip.cleft_short_edge",
-      "name": "裂锋",
-      "shortMark": "锋",
-      "category": "buff",
-      "visibility": "public",
-      "remainingTicks": 4,
-      "duration": 4,
-      "stacks": 1,
-      "maxStacks": 1,
-      "sourceSkillId": "equip:equip.cleft_short_blade:cleft-short-edge",
-      "sourceSkillName": "裂痕短刃",
-      "realmLv": 1,
-      "color": "#c9b06a"
-    },
-    {
       "buffId": "equip.ridgecleft_smash",
       "name": "裂岭",
       "shortMark": "裂",
@@ -16692,21 +13831,6 @@
       "sourceSkillName": "裂岭戟",
       "realmLv": 1,
       "color": "#a86e47"
-    },
-    {
-      "buffId": "equip.cleft_edge_mark",
-      "name": "裂印",
-      "shortMark": "印",
-      "category": "buff",
-      "visibility": "public",
-      "remainingTicks": 4,
-      "duration": 4,
-      "stacks": 1,
-      "maxStacks": 1,
-      "sourceSkillId": "equip:equip.cleft_edge_ring:cleft-edge-mark",
-      "sourceSkillName": "裂锋指环",
-      "realmLv": 1,
-      "color": "#bfa15d"
     },
     {
       "buffId": "buff.monster_skyline",
@@ -16723,22 +13847,6 @@
       "sourceSkillName": "裂羽攒射",
       "realmLv": 1,
       "color": "#9bb7d4"
-    },
-    {
-      "buffId": "equip.dewstep_dash",
-      "name": "露痕",
-      "desc": "步法尚未散尽，短时间内身法更快。",
-      "shortMark": "露",
-      "category": "buff",
-      "visibility": "public",
-      "remainingTicks": 2,
-      "duration": 2,
-      "stacks": 1,
-      "maxStacks": 1,
-      "sourceSkillId": "equip:equip.dewstep_boots:dewstep-dash",
-      "sourceSkillName": "引露行靴",
-      "realmLv": 1,
-      "color": "#8fb7c9"
     },
     {
       "buffId": "equip.cleft_cloak_shift",
@@ -17044,21 +14152,6 @@
       "statMode": "percent"
     },
     {
-      "buffId": "equip.burden_greaves_brace",
-      "name": "稳坠",
-      "shortMark": "稳",
-      "category": "buff",
-      "visibility": "public",
-      "remainingTicks": 2,
-      "duration": 2,
-      "stacks": 1,
-      "maxStacks": 1,
-      "sourceSkillId": "equip:equip.burden_greaves:burden-greaves-brace",
-      "sourceSkillName": "负岳胫甲",
-      "realmLv": 1,
-      "color": "#7f6d55"
-    },
-    {
       "buffId": "item_buff.fivephase_harmony_pellet",
       "name": "五和",
       "desc": "五行不再互相顶撞，4800 息内法术防御 +18%、境界修为与功法经验获取效率各提高 36%。",
@@ -17116,66 +14209,6 @@
       "statMode": "flat"
     },
     {
-      "buffId": "equip.iron_track_drive",
-      "name": "压步",
-      "shortMark": "压",
-      "category": "buff",
-      "visibility": "public",
-      "remainingTicks": 2,
-      "duration": 2,
-      "stacks": 1,
-      "maxStacks": 1,
-      "sourceSkillId": "equip:equip.iron_track_boots:iron-track-drive",
-      "sourceSkillName": "铁辙靴",
-      "realmLv": 1,
-      "color": "#8f7a52"
-    },
-    {
-      "buffId": "equip.darkpeak_pound",
-      "name": "压峰",
-      "shortMark": "峰",
-      "category": "buff",
-      "visibility": "public",
-      "remainingTicks": 6,
-      "duration": 6,
-      "stacks": 1,
-      "maxStacks": 1,
-      "sourceSkillId": "equip:equip.darkpeak_fist_seal:darkpeak-pound",
-      "sourceSkillName": "黯峰拳印",
-      "realmLv": 1,
-      "color": "#9f6846"
-    },
-    {
-      "buffId": "equip.deepvein_gauntlet_drive",
-      "name": "压山",
-      "shortMark": "压",
-      "category": "buff",
-      "visibility": "public",
-      "remainingTicks": 4,
-      "duration": 4,
-      "stacks": 1,
-      "maxStacks": 1,
-      "sourceSkillId": "equip:equip.deepvein_gauntlets:deepvein-gauntlet-drive",
-      "sourceSkillName": "厚脉护手",
-      "realmLv": 1,
-      "color": "#9d7651"
-    },
-    {
-      "buffId": "equip.banner_war_fury",
-      "name": "压阵",
-      "shortMark": "阵",
-      "category": "buff",
-      "visibility": "public",
-      "remainingTicks": 8,
-      "duration": 8,
-      "stacks": 1,
-      "maxStacks": 1,
-      "sourceSkillId": "equip:equip.banner_war_halberd:banner-war-fury",
-      "sourceSkillName": "残旗战戟",
-      "realmLv": 1,
-      "color": "#b8824c"
-    },
-    {
       "buffId": "buff.monster_stonehide",
       "name": "岩壳",
       "desc": "外壳收紧，防御和化解继续上提。",
@@ -17227,36 +14260,6 @@
       "statMode": "percent"
     },
     {
-      "buffId": "equip.yuepattern_rise",
-      "name": "岳纹",
-      "shortMark": "岳",
-      "category": "buff",
-      "visibility": "public",
-      "remainingTicks": 4,
-      "duration": 4,
-      "stacks": 1,
-      "maxStacks": 1,
-      "sourceSkillId": "equip:equip.yuepattern_pole:yuepattern-rise",
-      "sourceSkillName": "岳纹杆",
-      "realmLv": 1,
-      "color": "#a58c69"
-    },
-    {
-      "buffId": "equip.heavy_claw_root",
-      "name": "扎根",
-      "shortMark": "根",
-      "category": "buff",
-      "visibility": "public",
-      "remainingTicks": 2,
-      "duration": 2,
-      "stacks": 1,
-      "maxStacks": 1,
-      "sourceSkillId": "equip:equip.heavy_claw_boots:heavy-claw-root",
-      "sourceSkillName": "重爪靴",
-      "realmLv": 1,
-      "color": "#8c7a60"
-    },
-    {
       "buffId": "buff.anchor_suppression",
       "name": "镇灵",
       "desc": "灵机遭镇，遁速大缓，法抗尽失。",
@@ -17304,29 +14307,14 @@
       "color": "#d4bb77"
     },
     {
-      "buffId": "equip.remnant_banner_push",
-      "name": "追阵",
-      "shortMark": "阵",
-      "category": "buff",
-      "visibility": "public",
-      "remainingTicks": 8,
-      "duration": 8,
-      "stacks": 1,
-      "maxStacks": 1,
-      "sourceSkillId": "equip:equip.remnant_banner_spear:remnant-banner-push",
-      "sourceSkillName": "残旌枪",
-      "realmLv": 1,
-      "color": "#b76d47"
-    },
-    {
       "buffId": "buff.fire_burn_mark",
       "name": "灼脉",
       "desc": "火脉灼入经络，每层每息造成目标当前气血 1% 的火伤，对精英仅 10% 效果，对 Boss 仅 1% 效果。",
       "shortMark": "灼",
       "category": "debuff",
       "visibility": "public",
-      "remainingTicks": 24,
-      "duration": 24,
+      "remainingTicks": 10,
+      "duration": 10,
       "stacks": 1,
       "maxStacks": 30,
       "sourceSkillId": "skill.redflame_art",
