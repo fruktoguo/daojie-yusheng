@@ -222,8 +222,8 @@ export class EnhancementModal {
       if (this.selectedProtectionKey) {
         const maxLevel = this.getSelectedTargetLevel(selected) ?? minLevel;
         this.selectedProtectionStartLevel = Math.max(
-          Math.max(2, minLevel),
-          Math.min(maxLevel, Math.floor(Number(this.selectedProtectionStartLevel) || Math.max(2, minLevel))),
+          2,
+          Math.min(maxLevel, Math.floor(Number(this.selectedProtectionStartLevel) || 2)),
         );
       } else {
         this.selectedProtectionStartLevel = null;
@@ -265,8 +265,8 @@ export class EnhancementModal {
     if (!selected || !this.selectedProtectionKey) {
       return null;
     }
-    const minLevel = Math.max(2, selected.currentLevel + 1);
-    const maxLevel = this.getSelectedTargetLevel(selected) ?? minLevel;
+    const minLevel = 2;
+    const maxLevel = this.getSelectedTargetLevel(selected) ?? Math.max(minLevel, selected.currentLevel + 1);
     return Math.max(minLevel, Math.min(maxLevel, Math.floor(Number(this.selectedProtectionStartLevel) || minLevel)));
   }
 
@@ -551,7 +551,7 @@ export class EnhancementModal {
     const protectionNote = selected.protectionItemId
       ? `保护物固定为 ${selected.protectionItemName ?? selected.protectionItemId}`
       : '未配置独立保护物，当前仅可消耗同名装备作为保护';
-    const minProtectionStartLevel = Math.max(2, selected.currentLevel + 1);
+    const minProtectionStartLevel = 2;
     const protectionStartLevel = this.getSelectedProtectionStartLevel(selected);
     return `
       <div class="enhancement-workbench-grid">
@@ -782,7 +782,7 @@ export class EnhancementModal {
       input.addEventListener('change', () => {
         this.selectedProtectionKey = input.value || null;
         this.selectedProtectionStartLevel = this.selectedProtectionKey
-          ? Math.max(2, (this.getSelectedCandidate()?.currentLevel ?? 0) + 1)
+          ? 2
           : null;
         this.render();
       });
@@ -801,7 +801,7 @@ export class EnhancementModal {
         if (this.selectedProtectionKey) {
           this.selectedProtectionStartLevel = Math.min(
             nextLevel,
-            this.getSelectedProtectionStartLevel(selected) ?? minLevel,
+            this.getSelectedProtectionStartLevel(selected) ?? 2,
           );
         }
         this.render();
@@ -819,7 +819,7 @@ export class EnhancementModal {
       if (this.selectedProtectionKey) {
         this.selectedProtectionStartLevel = Math.min(
           this.selectedTargetLevel,
-          this.getSelectedProtectionStartLevel(selected) ?? minLevel,
+          this.getSelectedProtectionStartLevel(selected) ?? 2,
         );
       }
       this.render();
@@ -831,7 +831,7 @@ export class EnhancementModal {
         if (!selected || !this.selectedProtectionKey) {
           return;
         }
-        const minLevel = Math.max(2, selected.currentLevel + 1);
+        const minLevel = 2;
         const maxLevel = this.getSelectedTargetLevel(selected) ?? minLevel;
         const delta = Math.floor(Number(button.dataset.enhancementProtectionAdjust) || 0);
         this.selectedProtectionStartLevel = Math.max(
@@ -848,7 +848,7 @@ export class EnhancementModal {
       if (!selected || !(input instanceof HTMLInputElement) || !this.selectedProtectionKey) {
         return;
       }
-      const minLevel = Math.max(2, selected.currentLevel + 1);
+      const minLevel = 2;
       const maxLevel = this.getSelectedTargetLevel(selected) ?? minLevel;
       this.selectedProtectionStartLevel = Math.max(minLevel, Math.min(maxLevel, Math.floor(Number(input.value) || minLevel)));
       this.render();

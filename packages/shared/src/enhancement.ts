@@ -173,10 +173,7 @@ export function normalizePlayerEnhancementJob(value: unknown): PlayerEnhancement
       : [],
     protectionUsed: candidate.protectionUsed === true,
     protectionStartLevel: candidate.protectionUsed === true
-      ? Math.max(
-        Math.max(2, Math.floor(Number(candidate.targetLevel) || normalizeEnhanceLevel(candidate.currentLevel) + 1)),
-        Math.floor(Number(candidate.protectionStartLevel) || 0),
-      )
+      ? Math.max(2, Math.floor(Number(candidate.protectionStartLevel) || 0))
       : undefined,
     protectionItemId: typeof candidate.protectionItemId === 'string' && candidate.protectionItemId.trim().length > 0
       ? candidate.protectionItemId.trim()

@@ -196,7 +196,7 @@ export class EnhancementService implements OnModuleInit {
     const requirements = this.getStepMaterials(config, targetLevel);
     const protection = payload.protection ? this.resolveProtection(player, payload.protection, target, config) : null;
     const protectionStartLevel = protection
-      ? this.resolveProtectionStartLevel(currentLevel, desiredTargetLevel, payload.protectionStartLevel)
+      ? this.resolveProtectionStartLevel(desiredTargetLevel, payload.protectionStartLevel)
       : undefined;
     if (payload.protection && !protection) {
       return { error: '保护物不存在或不符合本次强化规则。', messages: [], panelChanged: false };
@@ -462,13 +462,11 @@ export class EnhancementService implements OnModuleInit {
   }
 
   private resolveProtectionStartLevel(
-    currentLevel: number,
     desiredTargetLevel: number,
     requestedProtectionStartLevel: unknown,
   ): number {
-    const minLevel = currentLevel + 1;
     const normalized = Math.floor(Number(requestedProtectionStartLevel) || 0);
-    return Math.max(Math.max(2, minLevel), Math.min(desiredTargetLevel, normalized || Math.max(2, minLevel)));
+    return Math.max(2, Math.min(desiredTargetLevel, normalized || 2));
   }
 
   private shouldUseProtectionForStep(targetLevel: number, protectionStartLevel: number | undefined): boolean {
