@@ -9,7 +9,7 @@
     "category": "debuff",
     "visibility": "public",
     "color": "#ef6b3b",
-    "duration": 24,
+    "duration": 10,
     "maxStacks": 30,
     "statMode": "percent"
   },
