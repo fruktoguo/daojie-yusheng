@@ -1,5 +1,17 @@
 # 新线拆分执行文档
 
+更新时间：2026-04-11（当前轮次）
+
+## 当前轮次判断
+
+这份文档现在要回答的不是“要不要拆线”，而是“拆到哪一步了、哪几个边界已经切开、下一步还该先切什么”。
+
+当前可以直接下结论：
+
+- `client-next` 和 `shared-next` 已经是明确的新线起点，不再只是临时副本
+- `server-next` 仍然处在过渡期，协议、会话、投影和 GM/运维面还有大量 compat 负担
+- 所以现在不是继续扩张新线 compat，而是继续把新线边界往前推，优先切掉重复字段、整量投影和巨型共享状态
+
 ## 背景
 
 当前仓库已经同时存在旧线与 `server-next`：
@@ -56,6 +68,24 @@
 - 除非是为了保证过渡期启动或验证，否则不再继续把新逻辑包成旧接口
 - 新线功能不以“伪装成旧服”为目标
 
+## 当前已经切开的边界
+
+这几条边界现在可以视作已经切开，后续只是在继续收口，不该再倒回去：
+
+1. `client-next` 已经从旧 `client` 分出去，自己的事件面、UI 接入和构建链路都开始独立。
+2. `shared-next` 已经从旧 `shared` 分出去，协议、数值和新线常量有了独立落点。
+3. `server-next` 的 auth / snapshot / session / trace 已经形成独立验证链，不再只是旧后端的影子实现。
+4. `server-next` 的协议审计、replace-ready 和 shadow 门禁已经可以单独跑，不再必须依赖旧线来证明自己。
+
+## 现在还不能切的边界
+
+下面这些边界现在还不适合一刀切开，因为它们仍然和主链真源、门禁或者高频热路径绑在一起：
+
+1. `server-next` 的 `auth/token/bootstrap/snapshot/session` 主链不能和别的真源改动混切。
+2. `WorldProjector` 和 `WorldSyncService` 不能在没有基准和 slice 方案前直接大改。
+3. `PlayerState`、`PanelDelta`、`MapStatic`、`Bootstrap` 这些首包和同步结构不能继续无约束堆字段。
+4. `shared-next` 的协议和类型基线不能只靠人工补洞，必须逐步转成检查驱动。
+
 ## 为什么不继续写兼容层
 
 主要问题有三类：
@@ -84,6 +114,21 @@
 - 不把 `server-next` 一次性整体切到 `shared-next`
 - 不删除 `server-next` 中已有 compat 目录
 - 不修改旧线前后端的既有对接关系
+
+## 下一步最值得切的边界
+
+这一轮优先级要和 [docs/next-remaining-task-breakdown.md](/home/yuohira/mud-mmo/docs/next-remaining-task-breakdown.md) 里的 `T15 / T16 / T20` 对齐，先切下面 5 个边界：
+
+1. `Bootstrap + MapStatic + PanelDelta` 的首包边界。
+   对应 `T15`，目标是先把重复字段和重复分层压薄，不要再把静态、低频和面板初始化混在一起。
+2. `WorldProjector` 的整量 capture/diff 边界。
+   对应 `T16`，目标是把 projector 从“整量快照 + 差量比较”推进到稳定 slice / revision 驱动。
+3. `PlayerState / sync-projector` 的扩展边界。
+   对应 `T20`，目标是以后新增系统默认走 slice 接入，不再往巨型状态结构继续堆字段。
+4. `client-next` 的旧 alias 边界。
+   先把 `onMapStaticSync / onRealmUpdate` 这类兼容层逐步压掉，再把对外事件面完全收成 next-native 命名。
+5. `shared-next` 的字段补全边界。
+   先把 `bootstrap / panel / delta` 的初始化、克隆、重置、投影规则写硬，后续再继续扩一致性检查。
 
 ## 后续迁移顺序
 
@@ -120,6 +165,8 @@
 
 - `pnpm --filter @mud/shared-next build`
 - `pnpm --filter @mud/client-next build`
+- `pnpm --filter @mud/server-next exec node dist/tools/bench-first-package.js`
+- `pnpm --filter @mud/server-next exec node dist/tools/bench-sync.js`
 
 后续切 `server-next` 时，再补：
 

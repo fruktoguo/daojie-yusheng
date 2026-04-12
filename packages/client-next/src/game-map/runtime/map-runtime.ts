@@ -18,6 +18,7 @@ import type {
 import { ViewportController } from '../viewport/viewport-controller';
 import { DEFAULT_SAFE_AREA } from '../../constants/world/map-runtime';
 
+/** MapRuntime：封装相关状态与行为。 */
 export class MapRuntime implements MapRuntimeApi {
   private readonly store = new MapStore();
   private readonly sceneBuilder = new MapScene();
@@ -84,6 +85,10 @@ export class MapRuntime implements MapRuntimeApi {
 
   setProjection(_mode: 'topdown'): void {}
 
+  setTickDurationMs(durationMs: number): void {
+    this.store.setTickDurationMs(durationMs);
+  }
+
   applyBootstrap(data: Parameters<MapRuntimeApi['applyBootstrap']>[0]): void {
     this.store.applyBootstrap(data);
     this.viewport.setSafeArea(this.safeArea);
@@ -98,6 +103,9 @@ export class MapRuntime implements MapRuntimeApi {
   }
 
   applyNextWorldDelta(data: MapNextWorldDeltaInput): void {
+    for (const effect of data.effects ?? []) {
+      this.renderer.enqueueEffect(effect);
+    }
     this.store.applyNextWorldDelta(data);
     const snapshot = this.store.getSnapshot();
     if (snapshot.player) {
@@ -168,18 +176,22 @@ export class MapRuntime implements MapRuntimeApi {
     this.syncSceneFromStore();
   }
 
+/** getMapMeta：处理当前场景中的对应操作。 */
   getMapMeta() {
     return this.store.getMapMeta();
   }
 
+/** getKnownTileAt：处理当前场景中的对应操作。 */
   getKnownTileAt(x: number, y: number) {
     return this.store.getKnownTileAt(x, y);
   }
 
+/** getVisibleTileAt：处理当前场景中的对应操作。 */
   getVisibleTileAt(x: number, y: number) {
     return this.store.getVisibleTileAt(x, y);
   }
 
+/** getGroundPileAt：处理当前场景中的对应操作。 */
   getGroundPileAt(x: number, y: number) {
     return this.store.getGroundPileAt(x, y);
   }
@@ -217,6 +229,7 @@ export class MapRuntime implements MapRuntimeApi {
       return;
     }
     this.lastFrameAt = performance.now();
+/** frame：通过常量导出可复用函数行为。 */
     const frame = () => {
       this.frameHandle = requestAnimationFrame(frame);
       const now = performance.now();
@@ -241,6 +254,8 @@ export class MapRuntime implements MapRuntimeApi {
   }
 }
 
+/** createMapRuntime：执行对应的业务逻辑。 */
 export function createMapRuntime(): MapRuntimeApi {
   return new MapRuntime();
 }
+

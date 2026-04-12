@@ -1,6 +1,6 @@
 # next legacy 清理门槛清单
 
-更新时间：2026-04-07
+更新时间：2026-04-11（当前轮次）
 
 这份文档只回答两件事：
 
@@ -22,12 +22,28 @@
 
 所以不能按“文件名里还有 `legacy`”来判断替换是否完成，也不能按“主链某一段已收口”就直接整批删除。
 
-## 2026-04-07 本轮状态
+## 2026-04-11 本轮状态
 
-- `pnpm --filter @mud/server-next verify:replace-ready` 已再次实跑通过，包含 `legacy-auth / legacy-player-compat / gm-compat` 在内的本地主证明链当前全绿
+- `pnpm --filter @mud/server-next verify:replace-ready` 与无库 `session / next-auth-bootstrap` 当前轮次仍保持可复跑；但 with-db 与真实 shadow destructive 仍缺真实环境补证
 - `legacy-auth` smoke 现在已按真实主链前置对齐：无数据库环境先走 compat HTTP `/auth/register`/`/auth/login` 取真实 token，再验证 socket bootstrap；带数据库环境仍保留 seeded legacy token proof
+- `protocol=next` 时，compat identity online backfill 已继续收成 `migration-only`；`legacy protocol` 也已不再能通过 `hello(next)` 或 `token/gmToken` 混入主链
+- `legacy_runtime -> compat snapshot` 的运行态 fallback 已继续收紧；`hello` 对 token/gmToken 连接也不再承担 bootstrap 兜底入口
 - `docs/next-legacy-boundary-audit.md` 最新 audit 已回到 `0 / 22`、`0`
+- 当前统一工程口径已收成：剩余任务 `25` 项，距离“完整替换游戏整体”仍约差 `35% - 40%`
 - 因此当前最安全还能继续清理的，仍是 `D/E` 两类；`A/B/C` 还不能因为名字里带 `legacy` 就直接删
+
+## 当前轮次先别误删的 4 组
+
+这一节只回答“现在最容易删错的是什么”。
+
+1. `auth/token/bootstrap/snapshot/session` 真源主链相关 legacy。
+   对应 `T01-T07`。这组还在迁移窗口里，不能因为 boundary audit 清零就先删文件。
+2. 对外 compat HTTP / GM / socket 入口。
+   对应 `T13/T24`。这组还没完成长期策略定稿，删早了会把运维和回滚链路一起打断。
+3. `legacy-auth / legacy-player-compat / gm-compat` 这类 smoke 与审计脚本。
+   对应 `L3/L4`。在真实环境证明“没人再用旧入口”之前，它们还是删除门槛的一部分，不是噪音。
+4. `shadow-destructive / gm-database-backup-persistence` 相关 proof 辅助件。
+   对应 `T09/T10/T25`。真实环境没取证前，这组是“未来删除前必须看过”的护栏，不是可以顺手清理的杂物。
 
 ## 一、全删 `legacy` 的正式门槛
 
@@ -96,6 +112,20 @@
 - shadow 验收
 
 都没有再次回头依赖 legacy 壳。
+
+## 一点一、把 `L1-L5` 映射到当前任务账本
+
+这一步是为了避免“删除门槛”和“剩余任务详单”各说各话。
+
+| 删除门槛 | 当前对应任务 | 当前状态 |
+| --- | --- | --- |
+| `L1` 真源替换完成 | `T01-T08` | 未完成，仍是第一阻塞 |
+| `L2` 外部旧入口退役 | `T13/T24` | 未定稿，不能先删入口 |
+| `L3` 自动 proof 全绿 | `T09/T10/T11/T12/T14/T25` | 仓库内命令已基本齐，真实环境补证未完成 |
+| `L4` 真实环境确认无人使用旧入口 | `T12/T13/T24/T25` | 未完成，仍缺运营与维护窗口取证 |
+| `L5` 观察窗口结束 | `T25` | 未进入该阶段 |
+
+一句话说，现在还远没到“看到 legacy 文件就该删”的阶段；当前更接近“先把删除前置条件写硬并持续收口”。
 
 ## 二、当前 legacy/compat 文件分类
 
@@ -175,12 +205,14 @@
 - 把“验证脚本”和“运行时兼容壳”分开目录治理
 - 优先复核并清理无引用孤儿文件
 - 持续减少 `A` 类文件数量
+- 把每个删除动作绑定到 `L1-L5` 或 `T01-T25` 某个明确前置条件
 
 ### 现在不要做的
 
 - 看到 `legacy` 名字就整批删
 - 在 `L1` 没过前搬走所有运行主链 compat 文件
 - 在 `L2` 没过前删 compat HTTP registry 和旧 controller
+- 在 `T09/T10` 没完成真实环境补证前，把 smoke / audit / destructive proof 当成“可删脚手架”
 
 ## 四、推荐的清理顺序
 
@@ -194,6 +226,12 @@
 
 这一批做完，不改变运行语义。
 
+本轮最适合直接做的具体动作：
+
+- 继续复核 `E` 类孤儿候选，明确“删 / 迁 / 保留”三选一
+- 给 `A/B/C/D/E` 五类各补一列“删除前必须看哪个任务”
+- 把 `legacy` 脚本、审计、运行壳在文档里彻底分桶，避免继续混读
+
 ### 第 2 批：退役外部兼容入口
 
 前提：
@@ -206,6 +244,12 @@
 - 下线 legacy `/auth/*`、`/account/*`、`/gm/*`
 - 下线 legacy socket 兼容入口
 
+这一批真正开始前，至少还要先看到：
+
+- `T13/T24` 已定稿外部入口长期策略
+- `T12/T25` 已把自动 gate / 人工 gate 写死
+- `L4` 已有真实环境“无人使用旧入口”的证据
+
 ### 第 3 批：删除运行主链 legacy source
 
 前提：
@@ -216,6 +260,12 @@
 
 - 删除 legacy player source / jwt / token compat / legacy sync / snapshot compat
 
+这一批真正开始前，至少还要先看到：
+
+- `T01/T03/T05/T07` 已完成主链收口
+- next 协议 authenticated 主链不再命中 runtime compat identity/snapshot
+- session 真源边界已经定稿，不再靠 legacy 语义补洞
+
 ### 第 4 批：删除验证脚本
 
 前提：
@@ -225,6 +275,12 @@
 目标：
 
 - 删除 compat smoke 和 legacy boundary audit
+
+这一批真正开始前，至少还要先看到：
+
+- `L3/L4/L5` 已全部满足
+- 至少经历过一个稳定观察窗口，没有再回头启用 legacy compat 验证
+- 替代性的 next gate 已经齐全，不会因为删脚本把删除证据一起删掉
 
 ## 五、当前最真实的回答
 
@@ -238,3 +294,9 @@
 
 - 可以先从 `D/E` 两类开始治理
 - `A/B/C` 这三类先别硬删
+
+如果你问的是“这周最值得直接改什么”，当前答案是：
+
+1. 先把 `D/E` 两类继续分桶并补删除前置条件，不动主链。
+2. 再把 `L1-L5` 和 `T01-T25` 的映射写死，避免后面口径漂移。
+3. 等 `T09/T10/T11/T12/T25` 再稳一点，才讨论下一批真正可删的 compat 入口。

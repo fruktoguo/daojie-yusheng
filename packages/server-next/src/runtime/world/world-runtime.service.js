@@ -27,10 +27,112 @@ const player_combat_service_1 = require("../combat/player-combat.service");
 const map_instance_runtime_1 = require("../instance/map-instance.runtime");
 const map_template_repository_1 = require("../map/map-template.repository");
 const player_runtime_service_1 = require("../player/player-runtime.service");
+const world_runtime_normalization_helpers_1 = require("./world-runtime.normalization.helpers");
+const world_runtime_observation_helpers_1 = require("./world-runtime.observation.helpers");
+const world_runtime_path_planning_helpers_1 = require("./world-runtime.path-planning.helpers");
+const {
+    normalizeRuntimeActionId,
+    buildPublicInstanceId,
+    formatItemStackLabel,
+    formatItemListSummary,
+    cloneCombatEffect,
+    buildContainerSourceId,
+    isContainerSourceId,
+    parseContainerSourceId,
+    createSyncedItemStackSignature,
+    compareStableKeys,
+    serializeStableComparableValue,
+    groupContainerLootRows,
+    hasHiddenContainerEntries,
+    buildContainerWindowItems,
+    cloneInventorySimulation,
+    canReceiveContainerEntries,
+    applyContainerEntriesToInventorySimulation,
+    canReceiveContainerRow,
+    removeContainerRowEntries,
+    buildLegacyNpcQuestProgressText,
+    canReceiveItemStack,
+    toQuestRewardItem,
+    roundDurationMs,
+    pushDurationMetric,
+    summarizeDurations,
+    normalizeQuestLine,
+    normalizeQuestObjectiveType,
+    normalizeQuestRequired,
+    normalizeQuestRealmStage,
+    resolveQuestTargetLabel,
+    buildQuestRewardText,
+    cloneQuestState,
+    compareQuestViews,
+    compareStableStrings,
+    parseDirection,
+    normalizeSlotIndex,
+    normalizeEquipSlot,
+    normalizeTechniqueId,
+    normalizeShopQuantity,
+    normalizePositiveCount,
+    normalizeCoordinate,
+    normalizeRollCount,
+    findPlayerSkill,
+    isHostileSkill,
+    getSkillEffectColor,
+    resolveRuntimeSkillRange,
+    resolveAutoBattleSkillQiCost,
+} = world_runtime_normalization_helpers_1;
+const {
+    createTileCombatAttributes,
+    createTileCombatNumericStats,
+    createTileCombatRatioDivisors,
+    computeResolvedDamage,
+    formatCombatDamageBreakdown,
+    formatCombatActionClause,
+    formatCombatDamageType,
+    cloneVisibleBuff,
+    buildPlayerObservation,
+    buildMonsterObservation,
+    buildMonsterLootPreview,
+    resolveObservedDropChance,
+    compareStableText,
+    buildNpcObservation,
+    buildPortalTileEntityDetail,
+    buildGroundTileEntityDetail,
+    buildContainerTileEntityDetail,
+    buildObservationInsight,
+    computeObservationProgress,
+    resolveObservationClarity,
+    buildObservationVerdict,
+    formatCurrentMaxObservation,
+    buildPortalDisplayName,
+    buildPortalKindLabel,
+    buildPortalId,
+} = world_runtime_observation_helpers_1;
+const {
+    chebyshevDistance,
+    isInBounds,
+    selectNearestPortal,
+    buildGoalPoints,
+    buildGoalPointsFromTemplate,
+    buildAdjacentGoalPoints,
+    dedupeGoalPoints,
+    decodeClientPathHint,
+    resolveInitialRunLength,
+    buildPathingBlockMask,
+    computePathCost,
+    buildCoordKey,
+    resolvePreferredClientPathHint,
+    findOptimalPathOnMap,
+    findNextDirectionOnMap,
+    findPathPointsOnMap,
+    reconstructPathPoints,
+    pushPathNode,
+    popPathNode,
+    directionFromStep,
+    buildAutoBattleGoalPoints,
+    isTileVisibleInView,
+    DIRECTION_OFFSET,
+} = world_runtime_path_planning_helpers_1;
 const DEFAULT_PLAYER_RESPAWN_MAP_ID = 'yunlai_town';
 const NPC_SHOP_CURRENCY_ITEM_ID = 'spirit_stone';
-const OBSERVATION_BLIND_RATIO = 0.2;
-const OBSERVATION_FULL_RATIO = 1.2;
 const TICK_METRIC_WINDOW_SIZE = 60;
 const CONTAINER_SEARCH_TICKS_BY_GRADE = {
     mortal: 1,
@@ -234,10 +336,12 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.getPlayerLocationOrThrow(playerId);
         const player = this.playerRuntimeService.getPlayer(playerId);
         this.navigationIntents.delete(playerId);
+        this.interruptManualNavigation(playerId);
         this.pendingCommands.set(playerId, {
             kind: 'move',
             direction,
             continuous: true,
+            resetBudget: true,
         });
         (0, movement_debug_1.logServerNextMovement)(this.logger, 'runtime.enqueue.move', {
             playerId,
@@ -252,7 +356,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         });
         return this.getPlayerViewOrThrow(playerId);
     }
-    enqueueMoveTo(playerId, xInput, yInput, allowNearestReachableInput) {
+    enqueueMoveTo(playerId, xInput, yInput, allowNearestReachableInput, packedPathInput, packedPathStepsInput, pathStartXInput, pathStartYInput) {
         const location = this.getPlayerLocationOrThrow(playerId);
         const instance = this.getInstanceRuntimeOrThrow(location.instanceId);
         const x = normalizeCoordinate(xInput, 'x');
@@ -261,11 +365,14 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             throw new common_1.BadRequestException('目标超出地图范围');
         }
         const player = this.playerRuntimeService.getPlayer(playerId);
+        this.interruptManualNavigation(playerId);
+        const clientPathHint = decodeClientPathHint(packedPathInput, packedPathStepsInput, pathStartXInput, pathStartYInput);
         this.pendingCommands.set(playerId, {
             kind: 'moveTo',
             x,
             y,
             allowNearestReachable: allowNearestReachableInput === true,
+            clientPathHint,
         });
         (0, movement_debug_1.logServerNextMovement)(this.logger, 'runtime.enqueue.moveTo', {
             playerId,
@@ -282,17 +389,26 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
                 y,
             },
             allowNearestReachable: allowNearestReachableInput === true,
+            clientPathHint: clientPathHint
+                ? {
+                    startX: clientPathHint.startX,
+                    startY: clientPathHint.startY,
+                    points: clientPathHint.points,
+                }
+                : null,
         });
         return this.getPlayerViewOrThrow(playerId);
     }
     usePortal(playerId) {
         this.getPlayerLocationOrThrow(playerId);
         this.navigationIntents.delete(playerId);
+        this.interruptManualNavigation(playerId);
         this.pendingCommands.set(playerId, { kind: 'portal' });
         return this.getPlayerViewOrThrow(playerId);
     }
     navigateQuest(playerId, questIdInput) {
         this.getPlayerLocationOrThrow(playerId);
+        this.interruptManualNavigation(playerId);
         const questId = typeof questIdInput === 'string' ? questIdInput.trim() : '';
         if (!questId) {
             throw new common_1.BadRequestException('questId is required');
@@ -305,6 +421,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     }
     enqueueBasicAttack(playerId, targetPlayerIdInput, targetMonsterIdInput, targetXInput, targetYInput) {
         this.getPlayerLocationOrThrow(playerId);
+        this.interruptManualCombat(playerId);
         const targetPlayerId = typeof targetPlayerIdInput === 'string' ? targetPlayerIdInput.trim() : '';
         const targetMonsterId = typeof targetMonsterIdInput === 'string' ? targetMonsterIdInput.trim() : '';
         const hasTileTarget = Number.isFinite(targetXInput) && Number.isFinite(targetYInput);
@@ -322,7 +439,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     }
     enqueueBattleTarget(playerId, locked, targetPlayerIdInput, targetMonsterIdInput, targetXInput, targetYInput) {
         this.getPlayerLocationOrThrow(playerId);
-        this.navigationIntents.delete(playerId);
+        this.interruptManualCombat(playerId);
         const targetPlayerId = typeof targetPlayerIdInput === 'string' ? targetPlayerIdInput.trim() : '';
         const targetMonsterId = typeof targetMonsterIdInput === 'string' ? targetMonsterIdInput.trim() : '';
         const hasTileTarget = Number.isFinite(targetXInput) && Number.isFinite(targetYInput);
@@ -1781,6 +1898,24 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         }
         return instance;
     }
+    cancelPendingInstanceCommand(playerId) {
+        const location = this.playerLocations.get(playerId);
+        if (!location) {
+            return false;
+        }
+        return this.instances.get(location.instanceId)?.cancelPendingCommand(playerId) ?? false;
+    }
+    interruptManualNavigation(playerId) {
+        const currentTick = this.resolveCurrentTickForPlayerId(playerId);
+        this.playerRuntimeService.updateCombatSettings(playerId, {
+            autoBattle: false,
+        }, currentTick);
+        this.cancelPendingInstanceCommand(playerId);
+    }
+    interruptManualCombat(playerId) {
+        this.navigationIntents.delete(playerId);
+        this.cancelPendingInstanceCommand(playerId);
+    }
     getPlayerViewOrThrow(playerId) {
         const view = this.getPlayerView(playerId);
         if (!view) {
@@ -1856,6 +1991,8 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
                         direction: step.direction,
                         continuous: true,
                         maxSteps: step.maxSteps,
+                        path: step.path ?? undefined,
+                        resetBudget: false,
                     });
                 }
             }
@@ -1896,13 +2033,15 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
                 });
                 return { kind: 'portal' };
             }
-            const previewPath = (0, movement_debug_1.isServerNextMovementDebugEnabled)()
-                ? findPathPointsOnMap(instance, player.playerId, player.x, player.y, [{ x: portal.x, y: portal.y }])
-                : null;
-            const direction = findNextDirectionOnMap(instance, player.playerId, player.x, player.y, [{
+            const pathResult = findOptimalPathOnMap(instance, player.playerId, player.x, player.y, [{
                     x: portal.x,
                     y: portal.y,
                 }]);
+            if (!pathResult || pathResult.points.length === 0) {
+                throw new common_1.BadRequestException('前往界门的路径不可达');
+            }
+            const previewPath = (0, movement_debug_1.isServerNextMovementDebugEnabled)() ? pathResult.points : null;
+            const direction = directionFromStep(player.x, player.y, pathResult.points[0].x, pathResult.points[0].y);
             if (direction === null) {
                 throw new common_1.BadRequestException('前往界门的路径不可达');
             }
@@ -1915,8 +2054,14 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
                 portal,
                 direction,
                 previewPath: previewPath ? previewPath.map((entry) => ({ x: entry.x, y: entry.y })) : null,
+                pathCost: pathResult.cost,
             });
-            return { kind: 'move', direction, maxSteps: resolveInitialRunLength(previewPath, player.x, player.y, direction) };
+            return {
+                kind: 'move',
+                direction,
+                maxSteps: pathResult.points.length,
+                path: pathResult.points.map((entry) => ({ x: entry.x, y: entry.y })),
+            };
         }
         if (destination.goals.some((goal) => goal.x === player.x && goal.y === player.y)) {
             (0, movement_debug_1.logServerNextMovement)(this.logger, 'runtime.navigation.arrived', {
@@ -1927,13 +2072,21 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             });
             return { kind: 'done' };
         }
-        const previewPath = (0, movement_debug_1.isServerNextMovementDebugEnabled)()
-            ? findPathPointsOnMap(instance, player.playerId, player.x, player.y, destination.goals)
+        const preferredPath = intent.kind === 'point'
+            ? resolvePreferredClientPathHint(instance, player.playerId, player.x, player.y, destination.goals, intent.clientPathHint)
             : null;
-        const direction = findNextDirectionOnMap(instance, player.playerId, player.x, player.y, destination.goals);
+        const serverPathResult = preferredPath
+            ? null
+            : findOptimalPathOnMap(instance, player.playerId, player.x, player.y, destination.goals);
+        const pathResult = preferredPath ?? serverPathResult;
+        if (!pathResult || pathResult.points.length === 0) {
+            throw new common_1.BadRequestException(intent.kind === 'quest' ? '任务目标当前不可达' : '无法到达该位置');
+        }
+        const direction = directionFromStep(player.x, player.y, pathResult.points[0].x, pathResult.points[0].y);
         if (direction === null) {
             throw new common_1.BadRequestException(intent.kind === 'quest' ? '任务目标当前不可达' : '无法到达该位置');
         }
+        const previewPath = (0, movement_debug_1.isServerNextMovementDebugEnabled)() ? pathResult.points : null;
         (0, movement_debug_1.logServerNextMovement)(this.logger, 'runtime.navigation.local.path', {
             playerId,
             mapId: destination.mapId,
@@ -1941,8 +2094,15 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             goals: destination.goals,
             direction,
             previewPath: previewPath ? previewPath.map((entry) => ({ x: entry.x, y: entry.y })) : null,
+            pathSource: preferredPath ? 'client_hint' : 'server_optimal',
+            pathCost: pathResult.cost,
         });
-        return { kind: 'move', direction, maxSteps: resolveInitialRunLength(previewPath, player.x, player.y, direction) };
+        return {
+            kind: 'move',
+            direction,
+            maxSteps: pathResult.points.length,
+            path: pathResult.points.map((entry) => ({ x: entry.x, y: entry.y })),
+        };
     }
     resolveNavigationDestination(playerId, intent) {
         if (intent.kind === 'point') {
@@ -2230,6 +2390,10 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
                 direction: command.direction,
                 continuous: command.continuous === true,
                 maxSteps: command.maxSteps,
+                path: Array.isArray(command.path)
+                    ? command.path.map((entry) => ({ x: entry.x, y: entry.y }))
+                    : undefined,
+                resetBudget: command.resetBudget === true,
             });
             return;
         }
@@ -2267,7 +2431,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
                 this.dispatchDropItem(playerId, command.slotIndex, command.count);
                 return;
             case 'moveTo':
-                this.dispatchMoveTo(playerId, command.x, command.y, command.allowNearestReachable);
+                this.dispatchMoveTo(playerId, command.x, command.y, command.allowNearestReachable, command.clientPathHint);
                 return;
             case 'basicAttack':
                 this.dispatchBasicAttack(playerId, command.targetPlayerId, command.targetMonsterId, command.targetX, command.targetY);
@@ -2472,6 +2636,9 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     }
     dispatchEngageBattle(playerId, targetPlayerId, targetMonsterId, targetX, targetY, locked) {
         const currentTick = this.resolveCurrentTickForPlayerId(playerId);
+        const currentPlayer = this.playerRuntimeService.getPlayerOrThrow(playerId);
+        const wasAutoBattleActive = currentPlayer.combat.autoBattle === true;
+        this.interruptManualCombat(playerId);
         if (!targetMonsterId) {
             const targetRef = targetPlayerId
                 ? `player:${targetPlayerId}`
@@ -2481,6 +2648,9 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
                     autoBattle: true,
                 }, currentTick);
                 this.playerRuntimeService.setCombatTarget(playerId, targetRef, true, currentTick);
+                if (wasAutoBattleActive) {
+                    return;
+                }
             }
             this.dispatchBasicAttack(playerId, targetPlayerId, null, targetX, targetY);
             return;
@@ -2498,6 +2668,9 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             autoBattle: true,
         }, currentTick);
         this.playerRuntimeService.setCombatTarget(playerId, monster.runtimeId, locked, currentTick);
+        if (wasAutoBattleActive) {
+            return;
+        }
         const nextCommand = this.buildAutoCombatCommand(instance, player);
         if (!nextCommand) {
             return;
@@ -2664,18 +2837,20 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     dispatchHeavenGateAction(playerId, action, element) {
         this.playerRuntimeService.handleHeavenGateAction(playerId, action, element, this.resolveCurrentTickForPlayerId(playerId));
     }
-    dispatchMoveTo(playerId, x, y, allowNearestReachable) {
+    dispatchMoveTo(playerId, x, y, allowNearestReachable, clientPathHint = null) {
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
         this.playerRuntimeService.recordActivity(playerId, this.resolveCurrentTickForPlayerId(playerId), {
             interruptCultivation: true,
         });
-        this.navigationIntents.set(playerId, {
+        const intent = {
             kind: 'point',
             mapId: player.templateId,
             x,
             y,
             allowNearestReachable,
-        });
+            clientPathHint,
+        };
+        this.navigationIntents.set(playerId, intent);
         (0, movement_debug_1.logServerNextMovement)(this.logger, 'runtime.dispatch.moveTo', {
             playerId,
             from: {
@@ -2690,6 +2865,35 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             },
             allowNearestReachable,
             previewPath: this.getLegacyNavigationPath(playerId),
+            clientPathHint: clientPathHint
+                ? {
+                    startX: clientPathHint.startX,
+                    startY: clientPathHint.startY,
+                    points: clientPathHint.points,
+                }
+                : null,
+        });
+        const initialStep = this.resolveNavigationStep(playerId, intent);
+        (0, movement_debug_1.logServerNextMovement)(this.logger, 'runtime.dispatch.moveTo.initialStep', {
+            playerId,
+            intent,
+            step: initialStep,
+        });
+        if (initialStep.kind === 'done') {
+            this.navigationIntents.delete(playerId);
+            return;
+        }
+        if (initialStep.kind === 'portal') {
+            this.dispatchInstanceCommand(playerId, { kind: 'portal' });
+            return;
+        }
+        this.dispatchInstanceCommand(playerId, {
+            kind: 'move',
+            direction: initialStep.direction,
+            continuous: true,
+            maxSteps: initialStep.maxSteps,
+            path: initialStep.path ?? undefined,
+            resetBudget: true,
         });
     }
     dispatchBasicAttack(playerId, targetPlayerId, targetMonsterId, targetX, targetY) {
@@ -3706,6 +3910,9 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             type: 'battle',
             desc: '无视自动索敌限制，直接锁定你选中的目标发起攻击。',
             cooldownLeft: 0,
+            range: Math.max(1, Math.round(player?.attrs.numericStats.viewRange ?? 1)),
+            requiresTarget: true,
+            targetMode: 'any',
         });
         actions.push({
             id: 'travel:return_spawn',
@@ -4117,6 +4324,7 @@ exports.WorldRuntimeService = WorldRuntimeService = WorldRuntimeService_1 = __de
         world_client_event_service_1.WorldClientEventService,
         redeem_code_runtime_service_1.RedeemCodeRuntimeService])
 ], WorldRuntimeService);
+/* extracted helper functions moved to world-runtime.normalization.helpers.js, world-runtime.path-planning.helpers.js and world-runtime.observation.helpers.js
 function normalizeRuntimeActionId(actionIdInput) {
     const actionId = typeof actionIdInput === 'string' ? actionIdInput.trim() : '';
     if (!actionId) {
@@ -4626,6 +4834,41 @@ function dedupeGoalPoints(goals) {
     }
     return result;
 }
+function decodeClientPathHint(packedPathInput, packedPathStepsInput, pathStartXInput, pathStartYInput) {
+    const packedPath = typeof packedPathInput === 'string' ? packedPathInput.trim() : '';
+    if (!packedPath) {
+        return null;
+    }
+    if (!Number.isInteger(packedPathStepsInput) || packedPathStepsInput <= 0) {
+        return null;
+    }
+    if (!Number.isFinite(pathStartXInput) || !Number.isFinite(pathStartYInput)) {
+        return null;
+    }
+    const startX = Math.trunc(Number(pathStartXInput));
+    const startY = Math.trunc(Number(pathStartYInput));
+    const directions = (0, shared_1.unpackDirections)(packedPath, Math.trunc(Number(packedPathStepsInput)));
+    if (!directions || directions.length === 0) {
+        return null;
+    }
+    const points = [];
+    let currentX = startX;
+    let currentY = startY;
+    for (const direction of directions) {
+        const offset = DIRECTION_OFFSET[direction];
+        if (!offset) {
+            return null;
+        }
+        currentX += offset.x;
+        currentY += offset.y;
+        points.push({ x: currentX, y: currentY });
+    }
+    return {
+        startX,
+        startY,
+        points,
+    };
+}
 function resolveInitialRunLength(path, startX, startY, direction) {
     if (!Array.isArray(path) || path.length === 0) {
         return 1;
@@ -4652,7 +4895,89 @@ function resolveInitialRunLength(path, startX, startY, direction) {
     }
     return Math.max(1, length);
 }
-function findNextDirectionOnMap(instance, playerId, startX, startY, goals, allowOccupiedGoals = true) {
+function buildPathingBlockMask(instance, playerId, goals, allowOccupiedGoals = true) {
+    const template = instance.template;
+    const blocked = new Uint8Array(template.width * template.height);
+    instance.forEachPathingBlocker(playerId, (x, y) => {
+        blocked[(0, map_template_repository_1.getTileIndex)(x, y, template.width)] = 1;
+    });
+    if (allowOccupiedGoals) {
+        for (const goal of goals) {
+            if (!isInBounds(goal.x, goal.y, template.width, template.height)) {
+                continue;
+            }
+            blocked[(0, map_template_repository_1.getTileIndex)(goal.x, goal.y, template.width)] = 0;
+        }
+    }
+    return blocked;
+}
+function computePathCost(instance, path) {
+    let cost = 0;
+    for (const point of path) {
+        const stepCost = instance.getTileTraversalCost(point.x, point.y);
+        if (!Number.isFinite(stepCost) || stepCost <= 0) {
+            return Number.POSITIVE_INFINITY;
+        }
+        cost += stepCost;
+    }
+    return cost;
+}
+function buildCoordKey(x, y) {
+    return `${x},${y}`;
+}
+function resolvePreferredClientPathHint(instance, playerId, currentX, currentY, goals, clientPathHint) {
+    if (!clientPathHint || !Array.isArray(clientPathHint.points) || clientPathHint.points.length === 0) {
+        return null;
+    }
+    let points = clientPathHint.points;
+    if (clientPathHint.startX === currentX && clientPathHint.startY === currentY) {
+        points = clientPathHint.points.slice();
+    }
+    else {
+        const currentIndex = clientPathHint.points.findIndex((point) => point.x === currentX && point.y === currentY);
+        if (currentIndex < 0) {
+            return null;
+        }
+        points = clientPathHint.points.slice(currentIndex + 1);
+    }
+    if (points.length === 0) {
+        return null;
+    }
+    const template = instance.template;
+    const goalKeys = new Set(goals.map((goal) => buildCoordKey(goal.x, goal.y)));
+    const lastPoint = points[points.length - 1];
+    if (!goalKeys.has(buildCoordKey(lastPoint.x, lastPoint.y))) {
+        return null;
+    }
+    const blocked = buildPathingBlockMask(instance, playerId, goals, true);
+    let previousX = currentX;
+    let previousY = currentY;
+    for (const point of points) {
+        if (!isInBounds(point.x, point.y, template.width, template.height)) {
+            return null;
+        }
+        const deltaX = point.x - previousX;
+        const deltaY = point.y - previousY;
+        if (Math.abs(deltaX) + Math.abs(deltaY) !== 1) {
+            return null;
+        }
+        const tileIndex = (0, map_template_repository_1.getTileIndex)(point.x, point.y, template.width);
+        if (template.walkableMask[tileIndex] !== 1 || blocked[tileIndex] === 1) {
+            return null;
+        }
+        const stepCost = instance.getTileTraversalCost(point.x, point.y);
+        if (!Number.isFinite(stepCost) || stepCost <= 0) {
+            return null;
+        }
+        previousX = point.x;
+        previousY = point.y;
+    }
+    return {
+        points,
+        cost: computePathCost(instance, points),
+    };
+}
+function findOptimalPathOnMap(instance, playerId, startX, startY, goals, allowOccupiedGoals = true) {
     if (goals.length === 0) {
         return null;
     }
@@ -4667,37 +4992,30 @@ function findNextDirectionOnMap(instance, playerId, startX, startY, goals, allow
     if (goalIndices.size === 0) {
         return null;
     }
-    const blocked = new Uint8Array(template.width * template.height);
-    instance.forEachPathingBlocker(playerId, (x, y) => {
-        blocked[(0, map_template_repository_1.getTileIndex)(x, y, template.width)] = 1;
-    });
-    if (allowOccupiedGoals) {
-        for (const goalIndex of goalIndices) {
-            blocked[goalIndex] = 0;
-        }
-    }
+    const blocked = buildPathingBlockMask(instance, playerId, goals, allowOccupiedGoals);
     const size = template.width * template.height;
-    const visited = new Uint8Array(size);
+    const bestCost = new Float64Array(size);
+    bestCost.fill(Number.POSITIVE_INFINITY);
     const previous = new Int32Array(size);
     previous.fill(-1);
-    const queue = new Int32Array(size);
-    let head = 0;
-    let tail = 0;
+    const heap = [];
     const startIndex = (0, map_template_repository_1.getTileIndex)(startX, startY, template.width);
-    visited[startIndex] = 1;
-    queue[tail++] = startIndex;
-    while (head < tail) {
-        const current = queue[head++];
+    bestCost[startIndex] = 0;
+    pushPathNode(heap, { index: startIndex, cost: 0 });
+    while (heap.length > 0) {
+        const currentNode = popPathNode(heap);
+        if (!currentNode) {
+            break;
+        }
+        const current = currentNode.index;
+        if (currentNode.cost !== bestCost[current]) {
+            continue;
+        }
         if (goalIndices.has(current)) {
-            let cursor = current;
-            let parent = previous[cursor];
-            while (parent !== -1 && parent !== startIndex) {
-                cursor = parent;
-                parent = previous[cursor];
-            }
-            const nextX = cursor % template.width;
-            const nextY = Math.trunc(cursor / template.width);
-            return directionFromStep(startX, startY, nextX, nextY);
+            return {
+                points: reconstructPathPoints(previous, current, startIndex, template.width),
+                cost: currentNode.cost,
+            };
         }
         const x = current % template.width;
         const y = Math.trunc(current / template.width);
@@ -4712,77 +5030,33 @@ function findNextDirectionOnMap(instance, playerId, startX, startY, goals, allow
                 continue;
             }
             const nextIndex = (0, map_template_repository_1.getTileIndex)(nextX, nextY, template.width);
-            if (visited[nextIndex] === 1 || template.walkableMask[nextIndex] !== 1 || blocked[nextIndex] === 1) {
+            if (template.walkableMask[nextIndex] !== 1 || blocked[nextIndex] === 1) {
                 continue;
             }
-            visited[nextIndex] = 1;
+            const stepCost = instance.getTileTraversalCost(nextX, nextY);
+            if (!Number.isFinite(stepCost) || stepCost <= 0) {
+                continue;
+            }
+            const nextCost = currentNode.cost + stepCost;
+            if (nextCost >= bestCost[nextIndex]) {
+                continue;
+            }
+            bestCost[nextIndex] = nextCost;
             previous[nextIndex] = current;
-            queue[tail++] = nextIndex;
+            pushPathNode(heap, { index: nextIndex, cost: nextCost });
         }
     }
     return null;
 }
+function findNextDirectionOnMap(instance, playerId, startX, startY, goals, allowOccupiedGoals = true) {
+    const result = findOptimalPathOnMap(instance, playerId, startX, startY, goals, allowOccupiedGoals);
+    if (!result || result.points.length === 0) {
+        return null;
+    }
+    return directionFromStep(startX, startY, result.points[0].x, result.points[0].y);
+}
 function findPathPointsOnMap(instance, playerId, startX, startY, goals, allowOccupiedGoals = true) {
-    if (goals.length === 0) {
-        return null;
-    }
-    const template = instance.template;
-    const goalIndices = new Set();
-    for (const goal of goals) {
-        if (!isInBounds(goal.x, goal.y, template.width, template.height)) {
-            continue;
-        }
-        goalIndices.add((0, map_template_repository_1.getTileIndex)(goal.x, goal.y, template.width));
-    }
-    if (goalIndices.size === 0) {
-        return null;
-    }
-    const blocked = new Uint8Array(template.width * template.height);
-    instance.forEachPathingBlocker(playerId, (x, y) => {
-        blocked[(0, map_template_repository_1.getTileIndex)(x, y, template.width)] = 1;
-    });
-    if (allowOccupiedGoals) {
-        for (const goalIndex of goalIndices) {
-            blocked[goalIndex] = 0;
-        }
-    }
-    const size = template.width * template.height;
-    const visited = new Uint8Array(size);
-    const previous = new Int32Array(size);
-    previous.fill(-1);
-    const queue = new Int32Array(size);
-    let head = 0;
-    let tail = 0;
-    const startIndex = (0, map_template_repository_1.getTileIndex)(startX, startY, template.width);
-    visited[startIndex] = 1;
-    queue[tail++] = startIndex;
-    while (head < tail) {
-        const current = queue[head++];
-        if (goalIndices.has(current)) {
-            return reconstructPathPoints(previous, current, startIndex, template.width);
-        }
-        const x = current % template.width;
-        const y = Math.trunc(current / template.width);
-        for (const direction of [shared_1.Direction.North, shared_1.Direction.South, shared_1.Direction.East, shared_1.Direction.West]) {
-            const offset = DIRECTION_OFFSET[direction];
-            if (!offset) {
-                continue;
-            }
-            const nextX = x + offset.x;
-            const nextY = y + offset.y;
-            if (!isInBounds(nextX, nextY, template.width, template.height)) {
-                continue;
-            }
-            const nextIndex = (0, map_template_repository_1.getTileIndex)(nextX, nextY, template.width);
-            if (visited[nextIndex] === 1 || template.walkableMask[nextIndex] !== 1 || blocked[nextIndex] === 1) {
-                continue;
-            }
-            visited[nextIndex] = 1;
-            previous[nextIndex] = current;
-            queue[tail++] = nextIndex;
-        }
-    }
-    return null;
+    return findOptimalPathOnMap(instance, playerId, startX, startY, goals, allowOccupiedGoals)?.points ?? null;
 }
 function reconstructPathPoints(previous, goalIndex, startIndex, width) {
     const path = [];
@@ -4796,6 +5070,48 @@ function reconstructPathPoints(previous, goalIndex, startIndex, width) {
     }
     path.reverse();
     return path;
+}
+function pushPathNode(heap, node) {
+    heap.push(node);
+    let index = heap.length - 1;
+    while (index > 0) {
+        const parentIndex = Math.trunc((index - 1) / 2);
+        if (heap[parentIndex].cost <= node.cost) {
+            break;
+        }
+        heap[index] = heap[parentIndex];
+        index = parentIndex;
+    }
+    heap[index] = node;
+}
+function popPathNode(heap) {
+    if (heap.length === 0) {
+        return null;
+    }
+    const root = heap[0];
+    const last = heap.pop();
+    if (!last || heap.length === 0) {
+        return root;
+    }
+    let index = 0;
+    while (true) {
+        const left = index * 2 + 1;
+        const right = left + 1;
+        if (left >= heap.length) {
+            break;
+        }
+        let smallest = left;
+        if (right < heap.length && heap[right].cost < heap[left].cost) {
+            smallest = right;
+        }
+        if (heap[smallest].cost >= last.cost) {
+            break;
+        }
+        heap[index] = heap[smallest];
+        index = smallest;
+    }
+    heap[index] = last;
+    return root;
 }
 function directionFromStep(startX, startY, nextX, nextY) {
     for (const direction of [shared_1.Direction.North, shared_1.Direction.South, shared_1.Direction.East, shared_1.Direction.West]) {
@@ -5212,7 +5528,5 @@ function createTileCombatNumericStats(maxHp) {
         },
     };
 }
-function createTileCombatRatioDivisors() {
-    return (0, shared_1.cloneNumericRatioDivisors)(shared_1.PLAYER_REALM_NUMERIC_TEMPLATES[shared_1.DEFAULT_PLAYER_REALM_STAGE].ratioDivisors);
-}
+*/
 //# sourceMappingURL=world-runtime.service.js.map

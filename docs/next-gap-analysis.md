@@ -1,6 +1,6 @@
 # next 现状缺口分析
 
-更新时间：2026-04-08
+更新时间：2026-04-11（当前轮次）
 
 ## 一句话结论
 
@@ -10,18 +10,25 @@
 
 如需看后续阶段、工作流拆分、完成定义与执行顺序，直接看 [docs/next-remaining-execution-plan.md](/home/yuohira/mud-mmo/docs/next-remaining-execution-plan.md)。
 
-如需直接看“还差多少”的工程账本、`P0/P1/P2` 拆分、legacy 删除门槛与串并行判断，直接看 [docs/next-remaining-engineering-ledger.md](/home/yuohira/mud-mmo/docs/next-remaining-engineering-ledger.md)。
+如需看一页摘要版工程账本，直接看 [docs/next-remaining-engineering-ledger.md](/home/yuohira/mud-mmo/docs/next-remaining-engineering-ledger.md)。
+
+如需直接看详细任务、依赖关系与最近轮次进展，直接看 [docs/next-remaining-task-breakdown.md](/home/yuohira/mud-mmo/docs/next-remaining-task-breakdown.md)。
 
 截至目前：
 
 - `client-next` 的玩家主链已经基本切到 next-native
 - `client-next` 的 socket 已不再监听任何 legacy 事件名
-- `server-next` 的 `auth/token/bootstrap` 真源替换已经开始第一刀，`token/identity` 优先级已收正
+- `server-next` 的 `auth/token/bootstrap` 真源替换已经进入“主链部分收口”阶段，不再只是第一刀开工
 - `server-next` 的 `snapshot/player-source` 顺序型证明已落地：带库 `next-auth-bootstrap` 已实跑通过“第一次 `legacy_seeded`、第二次 `next(native)`”
 - `server-next` 的 `token/identity` 与 `snapshot/player-source` 异常数据护栏也继续收紧：带库场景下如果 next 持久化里已经存在非法 identity/snapshot 记录、compat `users/players` schema 缺失导致 snapshot fallback 不可判真伪，或 compat snapshot 行里的 `mapId` 本身为空，主链现在都会直接报错并记录 trace，不再把坏真源/坏 fallback/坏 placement 静默当成 miss 后继续跑
+- 带库 `token_seed` 首登链也已真收掉一条 legacy 依赖：当完整 token claims 已有、但 compat snapshot 不存在时，主链当前会直接 seed next-native starter snapshot，不再因为“必须先有 legacy snapshot”而拒绝认证
+- 带库 `compat backfill` 链这轮也已补上同类收口：当 compat identity 仍能解析、但 compat snapshot 已不存在时，主链当前也会直接 seed next-native starter snapshot，而不是继续卡死在 `legacy_preseed_blocked`
+- 带库 `compat backfill` 旧链也已真收掉一条 legacy 依赖：当 compat identity 仍能解析、但 compat snapshot 不存在时，主链当前会直接 seed next-native starter snapshot，不再因为缺失 legacy players 行而卡在 `legacy_preseed_blocked`
 - `/runtime/auth-trace` 的 `summary` 也已固定出一层稳定观测 schema：除 `typeCounts / sourceCounts` 外，现在还会给出 identity 持久化动作计数、bootstrap 的 `requestedSessionCount`，以及 `bootstrap.linkedSourceCounts / linkedPersistedSourceCounts`
-- legacy HTTP auth 与 next socket auth 当前已经共用同一套 next token codec；identity 主顺序也已固定成 `next -> compat -> token fallback`
+- `protocol=next` 时，compat identity runtime 回退、`legacy_runtime -> compat snapshot` 运行态回退、以及带 token 的 `hello` 兜底 bootstrap 都已继续收紧
+- legacy HTTP auth 与 next socket auth 当前已经共用同一套 next token codec；compat online backfill 入口也已继续收成 `migration-only`
 - 但 `server-next` 的登录、bootstrap、同步投影、HTTP/GM 与运行时真源仍大量依赖 legacy
+- 当前统一工程口径已收成：剩余任务 `25` 项，距离“完整替换游戏整体”仍约差 `35% - 40%`
 
 所以结论很明确：
 
@@ -30,7 +37,7 @@
 
 ## 当前可安全并行推进项
 
-截至 `2026-04-06`，当前最适合继续并行推进、且不容易撞上高风险真源替换的，是下面四类：
+截至 `2026-04-11`，当前最适合继续并行推进、且不容易撞上高风险真源替换的，是下面四类：
 
 1. 文档 / 验证链补强。
    包括把 `P0/P1/暂缓` 重新写清、同步最新 replace-ready 实测结果，以及把 `docs/next-legacy-boundary-audit.md` 的 inventory 口径固定成统一对外结论。
@@ -43,7 +50,7 @@
 
 当前不建议拉进这轮“安全并行继续”的内容：
 
-- `server-next` 认证 / token / legacy player source / bootstrap 真源替换
+- `server-next` 认证 / token / legacy player source / bootstrap 真源替换主链
 - 完整旧天机阁七榜迁移
 - 为了协议对称性硬补一条当前前台没有真实入口的冗余链
 
@@ -70,6 +77,25 @@
   - 完整 GM/admin/restore next 化
   - 完整旧七榜迁移
 
+### 当前最值得继续改的文件锚点
+
+如果现在要继续“实打实往前改”，最值得先盯的是下面这些文件：
+
+- [packages/server-next/src/network/world-player-auth.service.js](/home/yuohira/mud-mmo/packages/server-next/src/network/world-player-auth.service.js)
+  这里决定 `T01` 是否能把 next 协议 authenticated 入场彻底收成仅认 next identity
+- [packages/server-next/src/network/world-session-bootstrap.service.js](/home/yuohira/mud-mmo/packages/server-next/src/network/world-session-bootstrap.service.js)
+  这里决定 `T03/T05` 是否能把 snapshot runtime fallback 和 bootstrap 入口彻底收成单线
+- [packages/server-next/src/network/world.gateway.js](/home/yuohira/mud-mmo/packages/server-next/src/network/world.gateway.js)
+  这里决定 `T05/T06` 的 guest / authenticated / GM 三类握手 contract 能不能真正拆开
+- [packages/server-next/src/network/world-session.service.js](/home/yuohira/mud-mmo/packages/server-next/src/network/world-session.service.js)
+  这里决定 `T07` 的 session 真源边界最后如何定稿
+- [packages/server-next/src/network/world-projector.service.js](/home/yuohira/mud-mmo/packages/server-next/src/network/world-projector.service.js)
+  这里是 `T16/T17/T20` 的核心热点，也是“最高性能 / 极高扩展度”最容易继续失血的地方
+- [packages/server-next/src/network/world-sync.service.js](/home/yuohira/mud-mmo/packages/server-next/src/network/world-sync.service.js)
+  这里是 `T15/T18/T19/T20` 的首包、minimap、AOI、同步门禁集中区
+- [packages/shared-next/src/protocol.ts](/home/yuohira/mud-mmo/packages/shared-next/src/protocol.ts)
+  这里是 `T15/T22/T23` 的 shared 类型和协议稳定性核心锚点
+
 ## 如果目标是“完整替换游戏整体”
 
 ### 当前判断
@@ -79,8 +105,8 @@
 - 如果只看“替换旧前台玩家主链”，当前约还差 `20% - 30%`。
 - 如果看 `server-next` 自身独立化，当前约完成 `50% - 60%`。
 - 如果按“完整替换游戏整体”这个最严格口径，当前更合理的综合判断是：
-  - 约完成 `55%`
-  - 约还差 `40% - 45%`
+  - 约完成 `60%`
+  - 约还差 `35% - 40%`
 
 这里的关键区别必须说清：
 
@@ -98,6 +124,17 @@
 5. 后台 GM / HTTP / admin / restore 的运营真源仍未 next 化；但 `shadow destructive` 与 `backup dir` 两条自动 proof 入口现已补齐，当前缺的是维护窗口与真实带库环境执行，不再是仓库内没有命令可跑。
 6. `client-next` 虽然主链已基本 next-native，但前台侧也仍存在“够替换、但还不够极致”的扩展性和性能尾项。
 
+### 当前最该先做的三批动作
+
+这部分不再泛讲方向，只写现在最值得直接推进的三批：
+
+1. 先做 `T11 / T12 / T25`。
+   先把四层门禁、自动 proof / 人工回归边界、以及“完整替换完成”的 gate 映射写死，避免后面每推进一步都重新争口径。
+2. 再主线程单线推进 `T01 / T03 / T05 / T07`。
+   这是当前真正决定“为什么还不能叫完整替换”的主阻塞。
+3. 然后推进 `T15 / T16 / T19 / T22`。
+   这是当前最能把“最小包体 / 最高性能 / 稳定性”从目标口号变成硬约束的一批。
+
 ### direct inventory 清零后，当前真正剩下的是什么
 
 `docs/next-legacy-boundary-audit.md` 已经清到 `0/22`、`0`，所以现在不应该再把主要精力放在“再找一条 direct legacy 命中”上。更真实的剩余缺口已经变成：
@@ -106,7 +143,7 @@
    `acceptance` 现在已经覆盖“本地主证明链 + shadow 实物验收 + shadow GM 关键写路径验证”，`full` 也已继续抬高到“强制 with-db + gm-database + shadow + gm-compat”；当前真正缺的是把每一层自动化门禁与“完整 GM/admin/restore 运营面闭环”明确切开，而不是再要求默认入口必须等于最重链路。
 2. `snapshot/player-source` 真源仍未真正收紧。
    带库 `next-auth-bootstrap` 已经实跑通过“第一次 `legacy_seeded`、第二次 `next(native)`”顺序证明，这说明 provenance 与顺序护栏已具备；但 legacy fallback 仍在默认主链里，不能据此说 snapshot 真源已 next-native。
-   当前已额外收掉五类静默成功链，并补上一类 next 真源宽容归一边界：`legacy_seeded` 写入 next persistence 失败时会直接失败；如果 next 持久化里已经存在非法 snapshot 记录，会直接报错并打 `next_invalid` trace；如果 compat snapshot 查询因为 `users/players` schema 缺失而不可判定，会直接失败并记录 `legacy_source_error`；如果 compat snapshot 行里的 `mapId` 为空，也会直接失败并落到同一条 `legacy_source_error` 护栏，不再静默退回 compat、fresh-player 链或云来镇默认落点；如果 compat `unlockedMinimapIds` 非法，也会直接失败而不是静默压成当前图已解锁；如果 next snapshot 主体有效、只是 `unlockedMapIds` 扩展字段脏掉，则当前会继续 bootstrap，并在运行时读取时归一成空数组，而不是误判成 `next_invalid`。
+   当前已额外收掉七类静默成功链，并补上一类 next 真源宽容归一边界：`legacy_seeded` 写入 next persistence 失败时会直接失败；如果 next 持久化里已经存在非法 snapshot 记录，会直接报错并打 `next_invalid` trace；如果 compat snapshot 查询因为 `users/players` schema 缺失而不可判定，会直接失败并记录 `legacy_source_error`；如果 compat snapshot 行里的 `mapId` 为空，也会直接失败并落到同一条 `legacy_source_error` 护栏，不再静默退回 compat、fresh-player 链或云来镇默认落点；如果 compat `unlockedMinimapIds` 非法，也会直接失败而不是静默压成当前图已解锁；如果带库 `token_seed` 首登缺失 compat snapshot，当前会直接 seed 一份 next-native starter snapshot，而不是继续卡在 legacy preseed；如果带库 `compat backfill` 缺失 compat snapshot，当前也会直接 seed 一份 next-native starter snapshot，而不是继续卡在 `legacy_preseed_blocked`；如果 next snapshot 主体有效、只是 `unlockedMapIds` 扩展字段脏掉，则当前会继续 bootstrap，并在运行时读取时归一成空数组，而不是误判成 `next_invalid`。
 3. `bootstrap/session` 真源仍未真正脱 legacy。
    顺序型 smoke 已经把开工前置补齐，但 `WorldGateway / WorldSessionBootstrapService` 一带的主流程还没有进入单线收口。
    这一轮已新补一层 continuity 硬证明：`legacy_runtime` 下，即使 authenticated reconnect 显式携带旧 `sessionId`，`next-auth-bootstrap` smoke 也必须输出 `explicitRequestedResumed=null`、`expectedExplicitRequestedResume=false`，不再靠人工从 sid 旋转结果里间接推断。
@@ -155,8 +192,11 @@
 - `auth/bootstrap` 这轮继续补了可观测性，但仍没有改完真源语义：显式设置 `SERVER_NEXT_AUTH_TRACE_ENABLED=1` 或 `NEXT_AUTH_TRACE_ENABLED=1` 后，`WorldPlayerTokenService` / `WorldPlayerAuthService` / `WorldPlayerSnapshotService` / `WorldSessionBootstrapService` 会把 `token / identity / snapshot / bootstrap` 四段记录写入 ring buffer，并通过受 runtime debug guard 保护的 `/runtime/auth-trace` 暴露给 `next-auth-bootstrap` smoke 做断言；默认不开启，不改变正常链路。这有利于后续继续拆 auth/bootstrap 真源，但不代表真源替换已经完成。
 - `next-auth-bootstrap` smoke 这轮也补了一条更硬的 identity 一致性门禁：登录得到的 token claims 里的 `playerId / playerName`，现在必须和 `InitSession`、`Bootstrap.self.id` 以及 runtime `player.name` 对齐，避免 token、identity 回填和最终 bootstrap 入场结果漂移后仍被误判为通过。这里补的是证明链严密度，不是 auth/bootstrap 真源替换完成。
 - 带库 `next-auth-bootstrap` proof 这轮也继续收紧了 identity 来源门禁：在 `compatIdentityBackfillSnapshotPreseed` 这条 preseed 成功链上，第一次必须显式落到 `legacy_backfill`，第二次必须显式回到 `next`，不再允许 with-db proof 在这条链上悄悄掉回 `legacy_runtime / token` 仍算通过。这补的是 proof 完整性，不是 bootstrap/session 主链已经 next-native。
-- `identity` trace 这轮也开始把“来源”和“是否落到 next identity persistence”拆开表达：`source` 当前已扩到 `next / next_invalid / token / legacy_runtime / legacy_backfill / legacy_preseed_blocked / legacy_persist_blocked / miss`，并额外暴露 `persistenceEnabled / persistAttempted / persistSucceeded / persistFailureStage` 这组字段；其中 `legacy_backfill` 现在只代表“identity backfill 成功且 snapshot preseed 已确认成功”，一旦 preseed 未确认或 identity 回填保存本身失败，当前都不会再降回 `legacy_runtime` 继续放行，而是直接拒绝。这里补的是观测真实性和一部分真语义收紧，不是 identity 真源替换完成。
+- `identity` trace 这轮也开始把“来源”和“是否落到 next identity persistence”拆开表达：`source` 当前已扩到 `next / next_invalid / token / token_runtime / legacy_runtime / legacy_backfill / legacy_preseed_blocked / legacy_persist_blocked / miss`，并额外暴露 `persistenceEnabled / persistAttempted / persistSucceeded / persistFailureStage` 这组字段；其中 `legacy_backfill` 现在只代表“identity backfill 成功且 snapshot ensure 已确认成功”，这里的 ensure 已同时覆盖 `legacy_seeded` 与缺 compat snapshot 时的 native starter seed；一旦 snapshot ensure 未确认或 identity 回填保存本身失败，当前都不会再降回 `legacy_runtime` 继续放行，而是直接拒绝；而 `token_runtime` 则只表示“无库退化场景下直接使用 token 自带完整玩家 claims，且未再回查 compat identity”。这里补的是观测真实性和一部分真语义收紧，不是 identity 真源替换完成。
 - `snapshot` trace 这轮也更精确了：legacy fallback 命中时，当前已能区分“只是 runtime fallback 的 `legacy_runtime`”和“已成功 seed 到 next persistence 的 `legacy_seeded`”，避免把未落盘的 fallback 误记成已完成 seed。
+- 无库 authenticated next 连接这轮也不再默认落到 compat identity：当 token 自带完整玩家 claims 时，主链当前会显式落成 `token_runtime`，并且 `next-auth-bootstrap` smoke 已固定要求 `identityCompatTried=false`、`snapshotFallbackReason=identity_source:token_runtime`。
+- 带库 `token_seed` 首登链这轮也真正脱离了“必须先有 compat snapshot 才能放行”的旧依赖：当 next identity 已成功落盘、但 next/compat snapshot 都还不存在时，主链现在会直接按默认地图模板生成 next-native starter snapshot；`next-auth-bootstrap` smoke 已固定要求 `compatIdentityCalls=0`、`compatSnapshotCalls=0`、`persistedSource=native`。这里补的是 token 首登真语义收口，不代表 `next identity / compat backfill` 那条 snapshot 主链也已一起退出 legacy。
+- 带库 `compat backfill` 旧链这轮也开始脱离“必须先有 compat snapshot 才能放行”的旧依赖：当 next identity 已删除、compat identity 仍可解析、但 next/compat snapshot 都还不存在时，主链现在也会直接按默认地图模板生成 next-native starter snapshot；仓库内 with-db proof 已固定要求 `identity.source=legacy_backfill`、`snapshotPersistedSource=native`，并要求 starter inventory 在 persisted/runtime 两侧都保留。这里补的是 compat backfill 真语义收口，不代表 `next identity` 缺失 snapshot 的主链异常已经允许静默 starter 降级。
 - `WorldLegacyPlayerSourceService` 这轮也补了一层低风险 auth/bootstrap 收口：无数据库 fallback 时，身份解析不再只信 token 里的陈旧 `displayName`，而会优先回读 legacy 内存账号中的 `displayName / pendingRoleName`，避免 `/account/display-name`、`/account/role-name` 更新后，runtime 或下次 bootstrap 又被旧 token 投影覆回去。这里补的是 fallback 身份一致性，不是 next auth/token/bootstrap 真源替换完成。
 - `WorldGateway` 这轮也继续压薄了一层 compat 直接依赖：此前 `mail / market / suggestion / npc shop` 这组 legacy handler 的结果发包，已改走 `WorldClientEventService` 的中性 emitter；这轮又把 `legacy navigate quest / legacy action / inspect tile runtime` 的网关入口并到中性 handler 与协议感知 helper，`WorldGateway` 现已不再直接调用 `LegacyGatewayCompatService`。随后 legacy bootstrap 最后一条 pending-logbook 兼容发包也已并到 `WorldClientEventService`，`LegacyGatewayCompatService` 与 `LegacySocketBridgeService` 已从 `server-next` 模块中移除。这里补的是网关边界和 compat 壳体收口，不是 auth/bootstrap 真源替换完成，也不代表 legacy bootstrap / tile runtime 兼容已经可以整体删除。
 - `pnpm verify:replace-ready:acceptance` 当前脚本已提升为“本地主证明链 + shadow 实物验收 + shadow GM 关键写路径验证”的组合入口；这会继续压缩 deploy 后的人工检查面，但它仍没有覆盖更完整的 GM/admin/backup/restore 全量日常门禁
@@ -192,15 +232,17 @@
    - 带数据库 proof 现在也已经补上非法 next identity 负向门禁：如果 next persisted identity 非法，同一 token 再连必须在 snapshot 装载前直接失败，不得再靠 compat/token 静默顶过去
 - 带数据库 proof 现在还已经补上 identity backfill save failed 的两条专项 proof：删除 next identity、保留 compat identity 与 next snapshot，并定向拦截 `server_next_player_identities_v1` 写入后，同一 token 再连当前也必须直接失败；trace 必须显式落成 `identity.source=legacy_persist_blocked`、`persistAttempted=true`、`persistSucceeded=false`、`persistFailureStage=compat_backfill_save_failed`，且不得出现 snapshot/bootstrap，即使 next snapshot 文档仍然存在也不能再靠 compat identity runtime 放行
 - 同一组 identity backfill save failed 条件下，如果再同时删除 next/legacy snapshot 源，同一 token 再连同样必须直接失败；trace 仍必须显式落成 `identity.source=legacy_persist_blocked`，且不得出现 snapshot/bootstrap，证明这条阻断已经前移到 identity gate，而不是等到 snapshot=miss 才失败
-   - 带数据库 proof 现在还已经补上 next identity 不再回落 compat snapshot 的专项 proof：保留 next identity、删除 next snapshot、保留 compat snapshot 后，同一 token 再连必须直接失败；trace 必须显式落成 `identity.source=next`、`snapshot.source=miss`，且不得出现 bootstrap
-   - 当前只允许无数据库场景把 `snapshotSource=miss` 作为 compat 入场语义输出；一旦是已鉴权且带数据库的 snapshot proof，`snapshot=miss` 本身就必须判失败
-   - 目前仍未补齐的是更完整的 snapshot 持久化失败矩阵，以及更多 compat schema/字段异常的系统化 proof；但“非 native next identity + snapshot miss”这条 fresh bootstrap 入口已经被新的负向 proof 收掉
+- 带数据库 proof 现在也已经补上 compat backfill 缺旧 snapshot 时的正向门禁：删除 next identity、清空 next/legacy snapshot、但保留 compat identity 后，同一 token 再连当前必须直接 bootstrap 为 `identity.source=legacy_backfill`、`snapshotPersistedSource=native`，且 starter inventory 在 persisted/runtime 两侧都要保留
+- 带数据库 proof 现在还已经补上 next identity 不再回落 compat snapshot 的专项 proof：保留 next identity、删除 next snapshot、保留 compat snapshot 后，同一 token 再连必须直接失败；trace 必须显式落成 `identity.source=next`、`snapshot.source=miss`，且不得出现 bootstrap
+- 带数据库 proof 这轮也已补上 compat backfill 缺失 compat snapshot 时的 native starter 正向 proof：删除 next identity、清空 next/legacy snapshot、但 compat identity 仍存在后，同一 token 再连必须直接 bootstrap 为 `identity.source=legacy_backfill`、`snapshotPersistedSource=native`，且 starter inventory 需要在 persisted/runtime 两侧同时存在
+- 当前只允许无数据库场景把 `snapshotSource=miss` 作为 compat 入场语义输出；一旦是已鉴权且带数据库的 snapshot proof，`snapshot=miss` 本身就必须判失败
+- 目前仍未补齐的是更完整的 snapshot 持久化失败矩阵，以及更多 compat schema/字段异常的系统化 proof；同时 `next identity` 已存在但 `next snapshot` 缺失的 authenticated 主链，当前仍刻意保持 fail-fast，不自动降级成 starter 号，以避免把真实数据缺失静默吞掉；但“非 native next identity + snapshot miss”这条 fresh bootstrap 入口已经被新的负向 proof 收掉
 
 ## 最初目标达成度
 
 ### 本轮已实跑证据
 
-截至 `2026-04-06`，这轮直接确认过的关键验证是：
+截至 `2026-04-11`，当前仍可直接引用、且最近轮次没有被推翻的关键验证是：
 
 - `node node_modules/.pnpm/node_modules/typescript/bin/tsc -p packages/server-next/tsconfig.json`
 - `node packages/server-next/dist/tools/audit/next-legacy-boundary-audit.js`
@@ -220,7 +262,7 @@
 - 最高性能：`未满足`
 - 极高扩展度：`部分满足`
 - 系统稳定性：`部分满足`
-- 完整替换游戏整体：`未满足`，保守仍差 `40% - 45%`
+- 完整替换游戏整体：`未满足`，保守仍差 `35% - 40%`
 
 没有一项可以诚实地说“已经全部满足你最开始设定的目标”。
 

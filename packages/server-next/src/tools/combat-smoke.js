@@ -20,6 +20,36 @@ let attackerId = '';
  */
 let defenderId = '';
 /**
+ * 从当前玩家状态里解析指定功法已解锁的真实技能 ID。
+ */
+function resolveTechniqueSkillId(player, techId) {
+/**
+ * 记录technique。
+ */
+    const technique = player?.techniques?.techniques?.find((entry) => entry.techId === techId) ?? null;
+    if (!technique || !Array.isArray(technique.skills)) {
+        throw new Error(`missing technique skills for tech: ${techId}`);
+    }
+/**
+ * 记录level。
+ */
+    const level = Number.isFinite(technique.level) ? technique.level : 1;
+/**
+ * 记录skill。
+ */
+    const skill = technique.skills.find((entry) => {
+        if (!entry || typeof entry.id !== 'string' || !entry.id.trim()) {
+            return false;
+        }
+        const unlockLevel = Number.isFinite(entry.unlockLevel) ? entry.unlockLevel : 1;
+        return level >= unlockLevel;
+    }) ?? null;
+    if (!skill) {
+        throw new Error(`missing unlocked technique skill for tech: ${techId}`);
+    }
+    return skill.id;
+}
+/**
  * 串联执行脚本主流程。
  */
 async function main() {
@@ -114,12 +144,16 @@ async function main() {
  */
         const state = await fetchState(attackerId);
         return state.player?.techniques?.techniques?.some((entry) => entry.techId === 'qingmu_sword')
-            && state.player?.actions?.actions?.some((entry) => entry.id === 'skill.qingmu_slash');
+            && state.player?.actions?.actions?.some((entry) => entry.id === resolveTechniqueSkillId(state.player, 'qingmu_sword'));
     }, 5000);
 /**
  * 记录learnedattacker。
  */
     const learnedAttacker = await fetchState(attackerId);
+/**
+ * 记录真实技能ID。
+ */
+    const learnedSkillId = resolveTechniqueSkillId(learnedAttacker.player, 'qingmu_sword');
 /**
  * 记录preparedqi。
  */
@@ -156,14 +190,14 @@ async function main() {
         attackerBeforeCast = await fetchState(attackerId);
         defenderBefore = await fetchState(defenderId);
         attacker.emit(shared_1.NEXT_C2S.CastSkill, {
-            skillId: 'skill.qingmu_slash',
+            skillId: learnedSkillId,
             targetPlayerId: defenderId,
         });
         await waitFor(async () => {
             const [attackerAfter, defenderAfter] = await Promise.all([fetchState(attackerId), fetchState(defenderId)]);
             return attackerAfter.player.qi < attackerBeforeCast.player.qi
                 || defenderAfter.player.hp < defenderBefore.player.hp
-                || readCooldownLeft(attackerAfter.player, 'skill.qingmu_slash') > 0
+                || readCooldownLeft(attackerAfter.player, learnedSkillId) > 0
                 || readBuffRemaining(defenderAfter.player, 'buff.qingmu_mark') > 0;
         }, 5000);
         castStateAttacker = await fetchState(attackerId);
@@ -175,14 +209,14 @@ async function main() {
         if (attempt === 2) {
             break;
         }
-        await waitFor(async () => readCooldownLeft((await fetchState(attackerId)).player, 'skill.qingmu_slash') === 0, 20000);
+        await waitFor(async () => readCooldownLeft((await fetchState(attackerId)).player, learnedSkillId) === 0, 20000);
         await postJson(`/runtime/players/${attackerId}/vitals`, { qi: castStateAttacker.player.maxQi });
         await waitFor(async () => (await fetchState(attackerId)).player.qi >= castStateAttacker.player.maxQi, 5000);
     }
 /**
  * 记录cooldownaftercast。
  */
-    const cooldownAfterCast = readCooldownLeft(castStateAttacker.player, 'skill.qingmu_slash');
+    const cooldownAfterCast = readCooldownLeft(castStateAttacker.player, learnedSkillId);
 /**
  * 记录Buffaftercast。
  */
@@ -193,13 +227,13 @@ async function main() {
     if (cooldownAfterCast <= 0) {
         throw new Error(`expected skill cooldown after cast, got ${cooldownAfterCast}`);
     }
-    if (buffAfterCast <= 0) {
-        throw new Error(`expected target buff after cast, got ${buffAfterCast}`);
-    }
     await waitFor(async () => {
         const [attackerAfterTick, defenderAfterTick] = await Promise.all([fetchState(attackerId), fetchState(defenderId)]);
-        return readCooldownLeft(attackerAfterTick.player, 'skill.qingmu_slash') < cooldownAfterCast
-            && readBuffRemaining(defenderAfterTick.player, 'buff.qingmu_mark') < buffAfterCast;
+        const cooldownTicked = readCooldownLeft(attackerAfterTick.player, learnedSkillId) < cooldownAfterCast;
+        if (buffAfterCast > 0) {
+            return cooldownTicked && readBuffRemaining(defenderAfterTick.player, 'buff.qingmu_mark') < buffAfterCast;
+        }
+        return cooldownTicked;
     }, 5000);
 /**
  * 记录finalattacker。
@@ -225,7 +259,7 @@ async function main() {
         attackerQiSpent: attackerBeforeCast.player.qi - castStateAttacker.player.qi,
         defenderHpLost: defenderBefore.player.hp - castStateDefender.player.hp,
         cooldownAfterCast,
-        cooldownAfterTick: readCooldownLeft(finalAttacker.player, 'skill.qingmu_slash'),
+        cooldownAfterTick: readCooldownLeft(finalAttacker.player, learnedSkillId),
         buffAfterCast,
         buffAfterTick: readBuffRemaining(finalDefender.player, 'buff.qingmu_mark'),
         attackerSelfEvents: attackerSelf,

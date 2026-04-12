@@ -11,34 +11,34 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.WorldGmSocketService = void 0;
 const common_1 = require("@nestjs/common");
-const legacy_gm_compat_service_1 = require("../compat/legacy/legacy-gm-compat.service");
+const runtime_gm_state_service_1 = require("../runtime/gm/runtime-gm-state.service");
 let WorldGmSocketService = class WorldGmSocketService {
-    legacyGmCompatService;
-    constructor(legacyGmCompatService) {
-        this.legacyGmCompatService = legacyGmCompatService;
+    runtimeGmStateService;
+    constructor(runtimeGmStateService) {
+        this.runtimeGmStateService = runtimeGmStateService;
     }
     emitState(client) {
-        this.legacyGmCompatService.emitState(client);
+        this.runtimeGmStateService.emitState(client);
     }
     enqueueSpawnBots(requesterPlayerId, count) {
-        this.legacyGmCompatService.enqueueSpawnBots(requesterPlayerId, count);
-        this.legacyGmCompatService.queueStatePush(requesterPlayerId);
+        this.runtimeGmStateService.enqueueSpawnBots(requesterPlayerId, count);
+        this.runtimeGmStateService.queueStatePush(requesterPlayerId);
     }
     enqueueRemoveBots(requesterPlayerId, playerIds, all) {
-        this.legacyGmCompatService.enqueueRemoveBots(playerIds, all);
-        this.legacyGmCompatService.queueStatePush(requesterPlayerId);
+        this.runtimeGmStateService.enqueueRemoveBots(playerIds, all);
+        this.runtimeGmStateService.queueStatePush(requesterPlayerId);
     }
     enqueueUpdatePlayer(requesterPlayerId, payload) {
-        this.legacyGmCompatService.enqueueUpdatePlayer(payload);
-        this.legacyGmCompatService.queueStatePush(requesterPlayerId);
+        this.runtimeGmStateService.enqueueUpdatePlayer(payload);
+        this.runtimeGmStateService.queueStatePush(requesterPlayerId);
     }
     enqueueResetPlayer(requesterPlayerId, playerId) {
-        this.legacyGmCompatService.enqueueResetPlayer(playerId);
-        this.legacyGmCompatService.queueStatePush(requesterPlayerId);
+        this.runtimeGmStateService.enqueueResetPlayer(playerId);
+        this.runtimeGmStateService.queueStatePush(requesterPlayerId);
     }
 };
 exports.WorldGmSocketService = WorldGmSocketService;
 exports.WorldGmSocketService = WorldGmSocketService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [legacy_gm_compat_service_1.LegacyGmCompatService])
+    __metadata("design:paramtypes", [runtime_gm_state_service_1.RuntimeGmStateService])
 ], WorldGmSocketService);

@@ -315,6 +315,9 @@ case "$MODE" in
     export REDIS_PORT="$SERVER_NEXT_REDIS_PORT"
     export SERVER_NEXT_DATABASE_URL="${SERVER_NEXT_DATABASE_URL:-postgres://${DB_USERNAME}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_DATABASE}}"
     export DATABASE_URL="$SERVER_NEXT_DATABASE_URL"
+    export SERVER_NEXT_ALLOW_LEGACY_HTTP_COMPAT="${SERVER_NEXT_ALLOW_LEGACY_HTTP_COMPAT:-1}"
+    export SERVER_NEXT_DEBUG_MOVEMENT="${SERVER_NEXT_DEBUG_MOVEMENT:-${NEXT_DEBUG_MOVEMENT:-0}}"
+    export VITE_NEXT_DEBUG_MOVEMENT="${VITE_NEXT_DEBUG_MOVEMENT:-${SERVER_NEXT_DEBUG_MOVEMENT}}"
     export VITE_DEV_PROXY_TARGET="${VITE_DEV_PROXY_TARGET:-http://127.0.0.1:${SERVER_NEXT_PORT}}"
 
     ensure_local_infra
@@ -344,6 +347,7 @@ case "$MODE" in
     echo "  client API : ${VITE_DEV_PROXY_TARGET}"
     echo "  postgres   : localhost:${DB_PORT}/${DB_DATABASE}"
     echo "  redis      : localhost:${REDIS_PORT}"
+    echo "  move debug : server=${SERVER_NEXT_DEBUG_MOVEMENT} client=${VITE_NEXT_DEBUG_MOVEMENT}"
     echo "  Ctrl+C 停止所有服务"
     echo "========================================="
     echo ""
@@ -366,6 +370,7 @@ case "$MODE" in
     echo "  SERVER_NEXT_DB_PORT=15432  指定 next PostgreSQL 端口"
     echo "  SERVER_NEXT_DB_DATABASE=mud_mmo_next 指定 next PostgreSQL 数据库名"
     echo "  SERVER_NEXT_REDIS_PORT=16379 指定 next Redis 端口"
+    echo "  NEXT_DEBUG_MOVEMENT=1        同时开启前后端移动诊断日志"
     echo "  VITE_DEV_PROXY_TARGET=...  指定前端代理目标"
     exit 1
     ;;

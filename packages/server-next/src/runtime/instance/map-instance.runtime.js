@@ -311,6 +311,13 @@ class MapInstanceRuntime {
             kind: 'move',
             direction: command.direction,
             continuous: command.continuous === true,
+            maxSteps: Number.isFinite(command.maxSteps) ? Math.max(1, Math.trunc(command.maxSteps)) : undefined,
+            path: Array.isArray(command.path)
+                ? command.path
+                    .filter((entry) => Number.isFinite(entry?.x) && Number.isFinite(entry?.y))
+                    .map((entry) => ({ x: Math.trunc(entry.x), y: Math.trunc(entry.y) }))
+                : undefined,
+            resetBudget: command.resetBudget === true,
         });
         return true;
     }
@@ -329,6 +336,9 @@ class MapInstanceRuntime {
         }
         this.pendingCommands.set(command.playerId, { kind: 'portal' });
         return true;
+    }
+    cancelPendingCommand(playerId) {
+        return this.pendingCommands.delete(playerId);
     }
     tryPortalTransfer(playerId, reason) {
         const player = this.playersById.get(playerId);
@@ -357,7 +367,11 @@ class MapInstanceRuntime {
                 continue;
             }
             if (command.kind === 'move') {
-                this.applyMove(player, command.direction, transfers, command.continuous === true);
+                if (command.resetBudget === true) {
+                    player.movePoints = 0;
+                    player.lastMoveBudgetTick = Math.max(0, this.tick - 1);
+                }
+                this.applyMove(player, command.direction, transfers, command.continuous === true, command.maxSteps, command.path);
             }
             else if (command.kind === 'portal') {
                 const transfer = this.tryPortalTransfer(playerId, 'manual_portal');
@@ -888,22 +902,48 @@ class MapInstanceRuntime {
             ...entry.item,
         };
     }
-    applyMove(player, direction, transfers, continuous = false) {
-        if (player.facing !== direction) {
-            player.facing = direction;
-            player.selfRevision += 1;
-        }
+    applyMove(player, direction, transfers, continuous = false, maxSteps = undefined, path = undefined) {
         const offset = DIRECTION_OFFSET[direction];
         if (!offset) {
             return;
         }
         let movePoints = this.rechargePlayerMoveBudget(player);
         let moved = false;
+        let remainingSteps = Number.isFinite(maxSteps) ? Math.max(1, Math.trunc(maxSteps)) : Number.POSITIVE_INFINITY;
+        const remainingPath = Array.isArray(path) && path.length > 0 ? path : null;
+        if (!remainingPath && player.facing !== direction) {
+            player.facing = direction;
+            player.selfRevision += 1;
+        }
         while (true) {
-            const nextX = player.x + offset.x;
-            const nextY = player.y + offset.y;
+            if (remainingSteps <= 0) {
+                break;
+            }
+            let nextX;
+            let nextY;
+            let stepDirection = direction;
+            if (remainingPath) {
+                const nextStep = remainingPath[0];
+                if (!nextStep) {
+                    break;
+                }
+                nextX = nextStep.x;
+                nextY = nextStep.y;
+                const resolvedDirection = (0, shared_1.directionFromTo)(player.x, player.y, nextX, nextY);
+                if (resolvedDirection === null) {
+                    break;
+                }
+                stepDirection = resolvedDirection;
+            }
+            else {
+                nextX = player.x + offset.x;
+                nextY = player.y + offset.y;
+            }
             const stepCost = this.getTileTraversalCost(nextX, nextY);
             if (!Number.isFinite(stepCost) || stepCost <= 0 || movePoints < stepCost) {
+                break;
+            }
+            if (Math.abs(nextX - player.x) + Math.abs(nextY - player.y) !== 1) {
                 break;
             }
             if (!this.isWalkable(nextX, nextY)) {
@@ -916,11 +956,19 @@ class MapInstanceRuntime {
             if (nextOccupancy !== INVALID_OCCUPANCY) {
                 break;
             }
+            if (player.facing !== stepDirection) {
+                player.facing = stepDirection;
+                player.selfRevision += 1;
+            }
             this.setOccupied(player.x, player.y, INVALID_OCCUPANCY);
             player.x = nextX;
             player.y = nextY;
             movePoints -= stepCost;
+            remainingSteps -= 1;
             moved = true;
+            if (remainingPath) {
+                remainingPath.shift();
+            }
             this.setOccupied(player.x, player.y, player.handle);
             this.worldRevision += 1;
             const portal = this.getPortalAt(player.x, player.y);
@@ -929,6 +977,9 @@ class MapInstanceRuntime {
                 break;
             }
             if (!continuous) {
+                break;
+            }
+            if (remainingPath && remainingPath.length === 0) {
                 break;
             }
         }

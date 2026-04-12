@@ -96,6 +96,8 @@ const smokeCases = [
     { name: 'loot', scriptFile: 'loot-smoke.js' },
     { name: 'legacy-auth', scriptFile: 'compat/legacy-auth-smoke.js' },
     { name: 'next-auth-bootstrap', scriptFile: 'next-auth-bootstrap-smoke.js' },
+    { name: 'next-auth-bootstrap-mainline', scriptFile: 'next-auth-bootstrap-smoke.js' },
+    { name: 'next-auth-bootstrap-migration', scriptFile: 'next-auth-bootstrap-smoke.js' },
     { name: 'legacy-player-compat', scriptFile: 'compat/legacy-player-compat-smoke.js' },
     { name: 'gm-compat', scriptFile: 'compat/gm-compat-smoke.js' },
     { name: 'redeem-code', scriptFile: 'redeem-code-smoke.js' },
@@ -359,11 +361,32 @@ function resolveCaseExtraEnv(entry) {
     if ((entry.name === 'legacy-auth' || entry.name === 'legacy-player-compat') && requireLegacyAuth) {
         extraEnv.SERVER_NEXT_LEGACY_AUTH_REQUIRED = '1';
     }
+    if (entry.name === 'legacy-auth'
+        || entry.name === 'legacy-player-compat'
+        || entry.name === 'gm-compat'
+        || entry.name === 'redeem-code'
+        || entry.name === 'persistence'
+        || entry.name === 'gm-database'
+        || entry.name === 'next-auth-bootstrap'
+        || entry.name === 'next-auth-bootstrap-mainline'
+        || entry.name === 'next-auth-bootstrap-migration') {
+        extraEnv.SERVER_NEXT_ALLOW_LEGACY_HTTP_COMPAT = '1';
+    }
     if (entry.name === 'session') {
         extraEnv.SERVER_NEXT_SESSION_DETACH_EXPIRE_MS = '4000';
     }
-    if (entry.name === 'next-auth-bootstrap') {
+    if (entry.name === 'next-auth-bootstrap'
+        || entry.name === 'next-auth-bootstrap-mainline'
+        || entry.name === 'next-auth-bootstrap-migration') {
         extraEnv.SERVER_NEXT_SESSION_DETACH_EXPIRE_MS = '4000';
+        extraEnv.SERVER_NEXT_AUTH_ALLOW_COMPAT_IDENTITY_BACKFILL = '0';
+        extraEnv.NEXT_AUTH_ALLOW_COMPAT_IDENTITY_BACKFILL = '0';
+        if (entry.name === 'next-auth-bootstrap-mainline') {
+            extraEnv.NEXT_AUTH_BOOTSTRAP_PROFILE = 'mainline';
+        }
+        else if (entry.name === 'next-auth-bootstrap-migration') {
+            extraEnv.NEXT_AUTH_BOOTSTRAP_PROFILE = 'migration';
+        }
 /**
  * 记录tracesuffix。
  */

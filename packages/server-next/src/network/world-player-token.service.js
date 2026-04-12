@@ -147,6 +147,16 @@ function buildAuthTraceSummary(records) {
         fallbackReasonCounts: {},
         seedPersistedCount: 0,
     };
+    const snapshotRecovery = {
+        count: 0,
+        successCount: 0,
+        blockedCount: 0,
+        failedCount: 0,
+        reasonCounts: {},
+        persistedSourceCounts: {},
+        identityPersistedSourceCounts: {},
+        failureStageCounts: {},
+    };
     const bootstrap = {
         count: 0,
         protocolCounts: {},
@@ -154,6 +164,13 @@ function buildAuthTraceSummary(records) {
         requestedSessionCount: 0,
         entryPathCounts: {},
         identitySourceCounts: {},
+        identityPersistedSourceCounts: {},
+        snapshotSourceCounts: {},
+        snapshotPersistedSourceCounts: {},
+        recoveryOutcomeCounts: {},
+        recoveryReasonCounts: {},
+        recoveryIdentityPersistedSourceCounts: {},
+        recoverySnapshotPersistedSourceCounts: {},
         linkedSourceCounts: {},
         linkedPersistedSourceCounts: {},
     };
@@ -233,11 +250,44 @@ function buildAuthTraceSummary(records) {
             }
             continue;
         }
+        if (type === 'snapshot_recovery') {
+            snapshotRecovery.count += 1;
+            const outcome = typeof entry?.outcome === 'string' ? entry.outcome : 'unknown';
+            if (outcome === 'success') {
+                snapshotRecovery.successCount += 1;
+            }
+            else if (outcome === 'blocked') {
+                snapshotRecovery.blockedCount += 1;
+            }
+            else if (outcome === 'failure') {
+                snapshotRecovery.failedCount += 1;
+            }
+            if (typeof entry?.reason === 'string' && entry.reason) {
+                incrementSummaryCount(snapshotRecovery.reasonCounts, entry.reason);
+            }
+            if (typeof entry?.persistedSource === 'string' && entry.persistedSource) {
+                incrementSummaryCount(snapshotRecovery.persistedSourceCounts, entry.persistedSource);
+            }
+            if (typeof entry?.identityPersistedSource === 'string' && entry.identityPersistedSource) {
+                incrementSummaryCount(snapshotRecovery.identityPersistedSourceCounts, entry.identityPersistedSource);
+            }
+            if (typeof entry?.failureStage === 'string' && entry.failureStage) {
+                incrementSummaryCount(snapshotRecovery.failureStageCounts, entry.failureStage);
+            }
+            continue;
+        }
         if (type === 'bootstrap') {
             bootstrap.count += 1;
             incrementSummaryCount(bootstrap.protocolCounts, typeof entry?.protocol === 'string' ? entry.protocol : 'unknown');
             incrementSummaryCount(bootstrap.entryPathCounts, typeof entry?.entryPath === 'string' ? entry.entryPath : 'unknown');
             incrementSummaryCount(bootstrap.identitySourceCounts, typeof entry?.identitySource === 'string' ? entry.identitySource : 'unknown');
+            incrementSummaryCount(bootstrap.identityPersistedSourceCounts, typeof entry?.identityPersistedSource === 'string' ? entry.identityPersistedSource : 'none');
+            incrementSummaryCount(bootstrap.snapshotSourceCounts, typeof entry?.snapshotSource === 'string' ? entry.snapshotSource : 'none');
+            incrementSummaryCount(bootstrap.snapshotPersistedSourceCounts, typeof entry?.snapshotPersistedSource === 'string' ? entry.snapshotPersistedSource : 'none');
+            incrementSummaryCount(bootstrap.recoveryOutcomeCounts, typeof entry?.recoveryOutcome === 'string' ? entry.recoveryOutcome : 'none');
+            incrementSummaryCount(bootstrap.recoveryReasonCounts, typeof entry?.recoveryReason === 'string' ? entry.recoveryReason : 'none');
+            incrementSummaryCount(bootstrap.recoveryIdentityPersistedSourceCounts, typeof entry?.recoveryIdentityPersistedSource === 'string' ? entry.recoveryIdentityPersistedSource : 'none');
+            incrementSummaryCount(bootstrap.recoverySnapshotPersistedSourceCounts, typeof entry?.recoverySnapshotPersistedSource === 'string' ? entry.recoverySnapshotPersistedSource : 'none');
             if (typeof entry?.requestedSessionId === 'string' && entry.requestedSessionId) {
                 bootstrap.requestedSessionCount += 1;
             }
@@ -245,9 +295,15 @@ function buildAuthTraceSummary(records) {
                 bootstrap.gmCount += 1;
             }
             const playerId = typeof entry?.playerId === 'string' ? entry.playerId : '';
-            const linkedIdentitySource = playerId ? latestIdentityByPlayerId.get(playerId) ?? 'unknown' : 'unknown';
-            const linkedSnapshotSource = playerId ? latestSnapshotByPlayerId.get(playerId) ?? 'unknown' : 'unknown';
-            const linkedSnapshotPersistedSource = playerId ? latestSnapshotPersistedSourceByPlayerId.get(playerId) ?? 'none' : 'none';
+            const linkedIdentitySource = typeof entry?.linkedIdentitySource === 'string' && entry.linkedIdentitySource
+                ? entry.linkedIdentitySource
+                : playerId ? latestIdentityByPlayerId.get(playerId) ?? 'unknown' : 'unknown';
+            const linkedSnapshotSource = typeof entry?.linkedSnapshotSource === 'string' && entry.linkedSnapshotSource
+                ? entry.linkedSnapshotSource
+                : playerId ? latestSnapshotByPlayerId.get(playerId) ?? 'unknown' : 'unknown';
+            const linkedSnapshotPersistedSource = typeof entry?.linkedSnapshotPersistedSource === 'string' && entry.linkedSnapshotPersistedSource
+                ? entry.linkedSnapshotPersistedSource
+                : playerId ? latestSnapshotPersistedSourceByPlayerId.get(playerId) ?? 'none' : 'none';
             incrementSummaryCount(bootstrap.linkedSourceCounts, `${linkedIdentitySource}|${linkedSnapshotSource}`);
             incrementSummaryCount(bootstrap.linkedPersistedSourceCounts, linkedSnapshotPersistedSource);
         }
@@ -258,6 +314,7 @@ function buildAuthTraceSummary(records) {
         token,
         identity,
         snapshot,
+        snapshotRecovery,
         bootstrap,
     };
 }

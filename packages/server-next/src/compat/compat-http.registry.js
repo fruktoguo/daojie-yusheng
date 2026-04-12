@@ -1,41 +1,83 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.COMPAT_HTTP_PROVIDERS = exports.COMPAT_HTTP_CONTROLLERS = void 0;
-const legacy_auth_service_1 = require("./legacy/legacy-auth.service");
-const legacy_account_http_service_1 = require("./legacy/http/legacy-account-http.service");
-const legacy_account_controller_1 = require("./legacy/http/legacy-account.controller");
-const legacy_auth_http_service_1 = require("./legacy/http/legacy-auth-http.service");
-const legacy_auth_controller_1 = require("./legacy/http/legacy-auth.controller");
-const legacy_gm_auth_controller_1 = require("./legacy/http/legacy-gm-auth.controller");
-const legacy_gm_http_auth_guard_1 = require("./legacy/http/legacy-gm-http-auth.guard");
-const legacy_gm_http_auth_service_1 = require("./legacy/http/legacy-gm-http-auth.service");
-const legacy_gm_admin_compat_service_1 = require("./legacy/http/legacy-gm-admin-compat.service");
-const legacy_database_restore_coordinator_service_1 = require("./legacy/http/legacy-database-restore-coordinator.service");
-const legacy_gm_admin_controller_1 = require("./legacy/http/legacy-gm-admin.controller");
-const legacy_gm_redeem_code_controller_1 = require("./legacy/http/legacy-gm-redeem-code.controller");
-const legacy_gm_http_compat_service_1 = require("./legacy/http/legacy-gm-http-compat.service");
-const legacy_gm_controller_1 = require("./legacy/http/legacy-gm.controller");
-const legacy_gm_compat_service_1 = require("./legacy/legacy-gm-compat.service");
-const legacy_session_bootstrap_service_1 = require("./legacy/legacy-session-bootstrap.service");
-const legacy_auth_readiness_warmup_service_1 = require("../health/legacy-auth-readiness-warmup.service");
-exports.COMPAT_HTTP_CONTROLLERS = [
-    legacy_account_controller_1.LegacyAccountController,
-    legacy_auth_controller_1.LegacyAuthController,
-    legacy_gm_auth_controller_1.LegacyGmAuthController,
-    legacy_gm_controller_1.LegacyGmController,
-    legacy_gm_admin_controller_1.LegacyGmAdminController,
-    legacy_gm_redeem_code_controller_1.LegacyGmRedeemCodeController,
+const compat_tokens_1 = require("./compat.tokens");
+const ALLOW_LEGACY_HTTP_COMPAT_ENV_KEYS = [
+    'SERVER_NEXT_ALLOW_LEGACY_HTTP_COMPAT',
+    'NEXT_ALLOW_LEGACY_HTTP_COMPAT',
 ];
+function isLegacyHttpCompatEnabled() {
+    for (const key of ALLOW_LEGACY_HTTP_COMPAT_ENV_KEYS) {
+        const value = typeof process.env[key] === 'string' ? process.env[key].trim().toLowerCase() : '';
+        if (value === '1' || value === 'true' || value === 'yes' || value === 'on') {
+            return true;
+        }
+    }
+    return false;
+}
+function buildCompatHttpBindings() {
+    if (!isLegacyHttpCompatEnabled()) {
+        return {
+            controllers: [],
+            providers: [],
+        };
+    }
+    const { LegacyAuthService } = require("./legacy/legacy-auth.service");
+    const { LegacyAccountHttpService } = require("./legacy/http/legacy-account-http.service");
+    const { LegacyAccountController } = require("./legacy/http/legacy-account.controller");
+    const { LegacyAuthUserCompatService } = require("./legacy/http/legacy-auth-user-compat.service");
+    const { LegacyManagedAccountService } = require("./legacy/http/legacy-managed-account.service");
+    const { LegacyNextIdentitySyncService } = require("./legacy/http/legacy-next-identity-sync.service");
+    const { LegacyAuthController } = require("./legacy/http/legacy-auth.controller");
+    const { LegacyGmAuthController } = require("./legacy/http/legacy-gm-auth.controller");
+    const { LegacyGmHttpAuthGuard } = require("./legacy/http/legacy-gm-http-auth.guard");
+    const { LegacyGmAdminCompatService } = require("./legacy/http/legacy-gm-admin-compat.service");
+    const { LegacyDatabaseRestoreCoordinatorService } = require("./legacy/http/legacy-database-restore-coordinator.service");
+    const { LegacyGmAdminController } = require("./legacy/http/legacy-gm-admin.controller");
+    const { LegacyGmRedeemCodeController } = require("./legacy/http/legacy-gm-redeem-code.controller");
+    const { LegacyGmMailCompatService } = require("./legacy/http/legacy-gm-mail-compat.service");
+    const { LegacyGmPlayerCompatService } = require("./legacy/http/legacy-gm-player-compat.service");
+    const { LegacyGmWorldCompatService } = require("./legacy/http/legacy-gm-world-compat.service");
+    const { LegacyGmController } = require("./legacy/http/legacy-gm.controller");
+    const { LegacySessionBootstrapService } = require("./legacy/legacy-session-bootstrap.service");
+    const { LegacyAuthReadinessWarmupService } = require("../health/legacy-auth-readiness-warmup.service");
+    return {
+        controllers: [
+            LegacyAccountController,
+            LegacyAuthController,
+            LegacyGmAuthController,
+            LegacyGmController,
+            LegacyGmAdminController,
+            LegacyGmRedeemCodeController,
+        ],
+        providers: [
+            LegacyAuthService,
+            LegacyAccountHttpService,
+            LegacyAuthUserCompatService,
+            LegacyManagedAccountService,
+            LegacyNextIdentitySyncService,
+            LegacyGmHttpAuthGuard,
+            LegacyDatabaseRestoreCoordinatorService,
+            LegacyGmAdminCompatService,
+            LegacyGmMailCompatService,
+            LegacyGmPlayerCompatService,
+            LegacyGmWorldCompatService,
+            LegacySessionBootstrapService,
+            LegacyAuthReadinessWarmupService,
+            {
+                provide: compat_tokens_1.LEGACY_AUTH_STATE_SERVICE,
+                useExisting: LegacyAuthService,
+            },
+            {
+                provide: compat_tokens_1.LEGACY_AUTH_USER_COMPAT_SERVICE,
+                useExisting: LegacyAuthUserCompatService,
+            },
+        ],
+    };
+}
+const COMPAT_HTTP_BINDINGS = buildCompatHttpBindings();
+exports.COMPAT_HTTP_CONTROLLERS = COMPAT_HTTP_BINDINGS.controllers;
+const COMPAT_HTTP_ONLY_PROVIDERS = COMPAT_HTTP_BINDINGS.providers;
 exports.COMPAT_HTTP_PROVIDERS = [
-    legacy_auth_service_1.LegacyAuthService,
-    legacy_account_http_service_1.LegacyAccountHttpService,
-    legacy_auth_http_service_1.LegacyAuthHttpService,
-    legacy_gm_http_auth_service_1.LegacyGmHttpAuthService,
-    legacy_gm_http_auth_guard_1.LegacyGmHttpAuthGuard,
-    legacy_database_restore_coordinator_service_1.LegacyDatabaseRestoreCoordinatorService,
-    legacy_gm_admin_compat_service_1.LegacyGmAdminCompatService,
-    legacy_gm_http_compat_service_1.LegacyGmHttpCompatService,
-    legacy_gm_compat_service_1.LegacyGmCompatService,
-    legacy_session_bootstrap_service_1.LegacySessionBootstrapService,
-    legacy_auth_readiness_warmup_service_1.LegacyAuthReadinessWarmupService,
+    ...COMPAT_HTTP_ONLY_PROVIDERS,
 ];

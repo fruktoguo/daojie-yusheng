@@ -20,29 +20,38 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.LegacyGmController = void 0;
 const common_1 = require("@nestjs/common");
 const legacy_gm_http_auth_guard_1 = require("./legacy-gm-http-auth.guard");
-const legacy_gm_http_compat_service_1 = require("./legacy-gm-http-compat.service");
+const legacy_gm_mail_compat_service_1 = require("./legacy-gm-mail-compat.service");
+const legacy_gm_player_compat_service_1 = require("./legacy-gm-player-compat.service");
+const legacy_gm_world_compat_service_1 = require("./legacy-gm-world-compat.service");
+const legacy_managed_account_service_1 = require("./legacy-managed-account.service");
 const redeem_code_runtime_service_1 = require("../../../runtime/redeem/redeem-code-runtime.service");
 let LegacyGmController = class LegacyGmController {
-    legacyGmHttpCompatService;
+    legacyGmWorldCompatService;
+    legacyManagedAccountService;
+    legacyGmPlayerCompatService;
+    legacyGmMailCompatService;
     redeemCodeRuntimeService;
-    constructor(legacyGmHttpCompatService, redeemCodeRuntimeService) {
-        this.legacyGmHttpCompatService = legacyGmHttpCompatService;
+    constructor(legacyGmWorldCompatService, legacyManagedAccountService, legacyGmPlayerCompatService, legacyGmMailCompatService, redeemCodeRuntimeService) {
+        this.legacyGmWorldCompatService = legacyGmWorldCompatService;
+        this.legacyManagedAccountService = legacyManagedAccountService;
+        this.legacyGmPlayerCompatService = legacyGmPlayerCompatService;
+        this.legacyGmMailCompatService = legacyGmMailCompatService;
         this.redeemCodeRuntimeService = redeemCodeRuntimeService;
     }
     getState() {
-        return this.legacyGmHttpCompatService.getState();
+        return this.legacyGmWorldCompatService.getState();
     }
     getEditorCatalog() {
-        return this.legacyGmHttpCompatService.getEditorCatalog();
+        return this.legacyGmWorldCompatService.getEditorCatalog();
     }
     getMaps() {
-        return this.legacyGmHttpCompatService.getMaps();
+        return this.legacyGmWorldCompatService.getMaps();
     }
     getMapRuntime(mapId, qx, qy, qw, qh, viewerId) {
-        return this.legacyGmHttpCompatService.getMapRuntime(mapId, qx, qy, qw, qh, viewerId);
+        return this.legacyGmWorldCompatService.getMapRuntime(mapId, qx, qy, qw, qh, viewerId);
     }
     async getPlayer(playerId) {
-        const player = await this.legacyGmHttpCompatService.getPlayerDetail(playerId);
+        const player = await this.legacyGmWorldCompatService.getPlayerDetail(playerId);
         if (!player) {
             throw new common_1.BadRequestException('目标玩家不存在');
         }
@@ -52,60 +61,59 @@ let LegacyGmController = class LegacyGmController {
         const nextPassword = typeof body?.newPassword === 'string' && body.newPassword.trim()
             ? body.newPassword
             : body?.password ?? '';
-        await this.legacyGmHttpCompatService.updateManagedPlayerPassword(playerId, nextPassword);
+        await this.legacyManagedAccountService.updateManagedPlayerPassword(playerId, nextPassword);
         return { ok: true };
     }
     async updatePlayerAccount(playerId, body) {
-        await this.legacyGmHttpCompatService.updateManagedPlayerAccount(playerId, body?.username ?? '');
+        await this.legacyManagedAccountService.updateManagedPlayerAccount(playerId, body?.username ?? '');
         return { ok: true };
     }
     async updatePlayer(playerId, body) {
-        await this.legacyGmHttpCompatService.updatePlayer(playerId, body ?? {});
+        await this.legacyGmPlayerCompatService.updatePlayer(playerId, body ?? {});
         return { ok: true };
     }
     async resetPlayer(playerId) {
-        const runtime = this.legacyGmHttpCompatService.playerRuntimeService.snapshot(playerId);
-        if (runtime) {
-            this.legacyGmHttpCompatService.resetPlayer(playerId);
+        if (this.legacyGmPlayerCompatService.hasRuntimePlayer(playerId)) {
+            this.legacyGmPlayerCompatService.resetPlayer(playerId);
         }
         else {
-            await this.legacyGmHttpCompatService.resetPersistedPlayer(playerId);
+            await this.legacyGmPlayerCompatService.resetPersistedPlayer(playerId);
         }
         return { ok: true };
     }
     async resetHeavenGate(playerId) {
-        await this.legacyGmHttpCompatService.resetHeavenGate(playerId);
+        await this.legacyGmPlayerCompatService.resetHeavenGate(playerId);
         return { ok: true };
     }
     async spawnBots(body) {
-        this.legacyGmHttpCompatService.spawnBots(body?.anchorPlayerId ?? '', body?.count);
+        this.legacyGmPlayerCompatService.spawnBots(body?.anchorPlayerId ?? '', body?.count);
         return { ok: true };
     }
     async removeBots(body) {
-        this.legacyGmHttpCompatService.removeBots(body?.playerIds, body?.all);
+        this.legacyGmPlayerCompatService.removeBots(body?.playerIds, body?.all);
         return { ok: true };
     }
     async returnAllPlayersToDefaultSpawn() {
-        return this.legacyGmHttpCompatService.returnAllPlayersToDefaultSpawn();
+        return this.legacyGmPlayerCompatService.returnAllPlayersToDefaultSpawn();
     }
     resetNetworkPerf() {
-        this.legacyGmHttpCompatService.resetNetworkPerf();
+        this.legacyGmWorldCompatService.resetNetworkPerf();
         return { ok: true };
     }
     resetCpuPerf() {
-        this.legacyGmHttpCompatService.resetCpuPerf();
+        this.legacyGmWorldCompatService.resetCpuPerf();
         return { ok: true };
     }
     resetPathfindingPerf() {
-        this.legacyGmHttpCompatService.resetPathfindingPerf();
+        this.legacyGmWorldCompatService.resetPathfindingPerf();
         return { ok: true };
     }
     async createDirectMail(playerId, body) {
-        const mailId = await this.legacyGmHttpCompatService.createDirectMail(playerId, body ?? {});
+        const mailId = await this.legacyGmMailCompatService.createDirectMail(playerId, body ?? {});
         return { ok: true, mailId };
     }
     async createBroadcastMail(body) {
-        const result = await this.legacyGmHttpCompatService.createBroadcastMail(body ?? {});
+        const result = await this.legacyGmMailCompatService.createBroadcastMail(body ?? {});
         return { ok: true, mailId: result.mailId, batchId: result.batchId, recipientCount: result.recipientCount };
     }
     getRedeemCodeGroups() {
@@ -127,30 +135,30 @@ let LegacyGmController = class LegacyGmController {
         return this.redeemCodeRuntimeService.destroyCode(codeId);
     }
     getSuggestions(query) {
-        return this.legacyGmHttpCompatService.getSuggestions(query ?? {});
+        return this.legacyGmWorldCompatService.getSuggestions(query ?? {});
     }
     async completeSuggestion(id) {
-        return this.legacyGmHttpCompatService.completeSuggestion(id);
+        return this.legacyGmWorldCompatService.completeSuggestion(id);
     }
     async replySuggestion(id, body) {
-        return this.legacyGmHttpCompatService.replySuggestion(id, body ?? {});
+        return this.legacyGmWorldCompatService.replySuggestion(id, body ?? {});
     }
     async removeSuggestion(id) {
-        return this.legacyGmHttpCompatService.removeSuggestion(id);
+        return this.legacyGmWorldCompatService.removeSuggestion(id);
     }
     updateMapTick(mapId, body) {
-        this.legacyGmHttpCompatService.updateMapTick(mapId, body ?? {});
+        this.legacyGmWorldCompatService.updateMapTick(mapId, body ?? {});
         return { ok: true };
     }
     updateMapTime(mapId, body) {
-        this.legacyGmHttpCompatService.updateMapTime(mapId, body ?? {});
+        this.legacyGmWorldCompatService.updateMapTime(mapId, body ?? {});
         return { ok: true };
     }
     reloadTickConfig() {
-        return this.legacyGmHttpCompatService.reloadTickConfig();
+        return this.legacyGmWorldCompatService.reloadTickConfig();
     }
     clearWorldObservation(viewerId) {
-        this.legacyGmHttpCompatService.clearWorldObservation(viewerId);
+        this.legacyGmWorldCompatService.clearWorldObservation(viewerId);
         return { ok: true };
     }
 };
@@ -387,6 +395,9 @@ __decorate([
 exports.LegacyGmController = LegacyGmController = __decorate([
     (0, common_1.Controller)('gm'),
     (0, common_1.UseGuards)(legacy_gm_http_auth_guard_1.LegacyGmHttpAuthGuard),
-    __metadata("design:paramtypes", [legacy_gm_http_compat_service_1.LegacyGmHttpCompatService,
+    __metadata("design:paramtypes", [legacy_gm_world_compat_service_1.LegacyGmWorldCompatService,
+        legacy_managed_account_service_1.LegacyManagedAccountService,
+        legacy_gm_player_compat_service_1.LegacyGmPlayerCompatService,
+        legacy_gm_mail_compat_service_1.LegacyGmMailCompatService,
         redeem_code_runtime_service_1.RedeemCodeRuntimeService])
 ], LegacyGmController);

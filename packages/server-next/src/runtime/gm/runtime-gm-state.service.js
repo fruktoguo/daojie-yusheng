@@ -8,21 +8,21 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
-var LegacyGmCompatService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.LegacyGmCompatService = void 0;
+exports.RuntimeGmStateService = void 0;
 const common_1 = require("@nestjs/common");
 const shared_1 = require("@mud/shared-next");
 const os = require("os");
+const legacy_protocol_env_1 = require("../../network/legacy-protocol.env");
 const world_session_service_1 = require("../../network/world-session.service");
-const map_template_repository_1 = require("../../runtime/map/map-template.repository");
-const player_runtime_service_1 = require("../../runtime/player/player-runtime.service");
-const world_runtime_service_1 = require("../../runtime/world/world-runtime.service");
-const legacy_gm_compat_constants_1 = require("./legacy-gm-compat.constants");
+const map_template_repository_1 = require("../map/map-template.repository");
+const player_runtime_service_1 = require("../player/player-runtime.service");
+const world_runtime_service_1 = require("../world/world-runtime.service");
+const legacy_gm_compat_constants_1 = require("../../compat/legacy/legacy-gm-compat.constants");
 const EMPTY_CPU_BREAKDOWN = [];
 const EMPTY_NETWORK_BUCKETS = [];
 const EMPTY_PATHFINDING_FAILURES = [];
-let LegacyGmCompatService = LegacyGmCompatService_1 = class LegacyGmCompatService {
+let RuntimeGmStateService = class RuntimeGmStateService {
     mapTemplateRepository;
     playerRuntimeService;
     worldRuntimeService;
@@ -60,19 +60,6 @@ let LegacyGmCompatService = LegacyGmCompatService_1 = class LegacyGmCompatServic
             socket.emit(this.getGmStateEvent(socket), payload);
         }
     }
-    getGmStateEvent(client) {
-        return this.prefersNext(client) ? shared_1.NEXT_S2C.GmState : shared_1.S2C.GmState;
-    }
-    prefersNext(client) {
-        const protocol = client?.data?.protocol;
-        if (protocol === 'next') {
-            return true;
-        }
-        if (protocol === 'legacy') {
-            return false;
-        }
-        return client?.data?.prefersNext === true;
-    }
     enqueueUpdatePlayer(payload) {
         this.worldRuntimeService.enqueueLegacyGmUpdatePlayer(payload);
     }
@@ -85,37 +72,27 @@ let LegacyGmCompatService = LegacyGmCompatService_1 = class LegacyGmCompatServic
     enqueueRemoveBots(playerIds, all) {
         this.worldRuntimeService.enqueueLegacyGmRemoveBots(playerIds, all);
     }
-    projectLegacyRuntimeTile(input) {
-        const aura = Number.isFinite(input?.aura) ? Math.trunc(input.aura) : 0;
-        const projection = {
-            aura,
-            resources: [buildLegacyAuraResource(aura)],
-        };
-        if (typeof input?.mapChar === 'string') {
-            const tileType = (0, shared_1.getTileTypeFromMapChar)(input.mapChar[0] ?? '#');
-            projection.type = tileType;
-            projection.walkable = (0, shared_1.isTileTypeWalkable)(tileType);
-        }
-        return projection;
+    getGmStateEvent(client) {
+        return this.resolveGmStateEmission(client).emitLegacy ? shared_1.S2C.GmState : shared_1.NEXT_S2C.GmState;
     }
-    buildLegacyTileRuntimeDetail(mapId, payload) {
-        const tile = this.projectLegacyRuntimeTile({
-            aura: payload?.aura,
-        });
+    resolveGmStateEmission(client) {
+        const protocol = this.resolveEffectiveProtocol(client);
         return {
-            mapId,
-            x: payload.x,
-            y: payload.y,
-            hp: typeof payload?.hp === 'number' ? payload.hp : undefined,
-            maxHp: typeof payload?.maxHp === 'number' ? payload.maxHp : undefined,
-            resources: tile.resources,
-            entities: payload.entities?.map((entity) => entity.kind === 'npc'
-                ? {
-                    ...entity,
-                    id: entity.id.startsWith('npc:') ? entity.id : `npc:${entity.id}`,
-                }
-                : entity),
+            protocol,
+            emitNext: protocol !== 'legacy',
+            emitLegacy: protocol === 'legacy',
         };
+    }
+    getExplicitProtocol(client) {
+        const protocol = client?.data?.protocol;
+        return protocol === 'next' || protocol === 'legacy' ? protocol : null;
+    }
+    resolveEffectiveProtocol(client) {
+        const protocol = this.getExplicitProtocol(client);
+        if (protocol === 'legacy' && !(0, legacy_protocol_env_1.isLegacySocketProtocolEnabled)()) {
+            return null;
+        }
+        return protocol;
     }
     buildState() {
         const mapNamesById = new Map(this.mapTemplateRepository.listSummaries().map((entry) => [entry.id, entry.name]));
@@ -234,26 +211,17 @@ let LegacyGmCompatService = LegacyGmCompatService_1 = class LegacyGmCompatServic
         };
     }
 };
-exports.LegacyGmCompatService = LegacyGmCompatService;
-exports.LegacyGmCompatService = LegacyGmCompatService = LegacyGmCompatService_1 = __decorate([
+exports.RuntimeGmStateService = RuntimeGmStateService;
+exports.RuntimeGmStateService = RuntimeGmStateService = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [map_template_repository_1.MapTemplateRepository,
         player_runtime_service_1.PlayerRuntimeService,
         world_runtime_service_1.WorldRuntimeService,
         world_session_service_1.WorldSessionService])
-], LegacyGmCompatService);
+], RuntimeGmStateService);
 function roundMetric(value) {
     return Math.round(value * 100) / 100;
 }
 function bytesToMb(value) {
     return roundMetric(value / (1024 * 1024));
-}
-function buildLegacyAuraResource(aura) {
-    return {
-        key: 'aura',
-        label: '灵气',
-        value: aura,
-        effectiveValue: aura,
-        level: (0, shared_1.getAuraLevel)(aura, shared_1.DEFAULT_AURA_LEVEL_BASE_VALUE),
-    };
 }

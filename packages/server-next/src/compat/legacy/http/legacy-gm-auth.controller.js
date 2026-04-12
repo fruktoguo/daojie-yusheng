@@ -20,7 +20,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.LegacyGmAuthController = void 0;
 const common_1 = require("@nestjs/common");
 const legacy_gm_http_auth_guard_1 = require("./legacy-gm-http-auth.guard");
-const legacy_gm_http_auth_service_1 = require("./legacy-gm-http-auth.service");
+const runtime_gm_auth_service_1 = require("../../../runtime/gm/runtime-gm-auth.service");
 let LegacyGmAuthController = class LegacyGmAuthController {
     authService;
     constructor(authService) {
@@ -52,5 +52,5 @@ __decorate([
 ], LegacyGmAuthController.prototype, "changePassword", null);
 exports.LegacyGmAuthController = LegacyGmAuthController = __decorate([
     (0, common_1.Controller)('auth'),
-    __metadata("design:paramtypes", [legacy_gm_http_auth_service_1.LegacyGmHttpAuthService])
+    __metadata("design:paramtypes", [runtime_gm_auth_service_1.RuntimeGmAuthService])
 ], LegacyGmAuthController);

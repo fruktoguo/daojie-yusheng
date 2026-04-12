@@ -1,0 +1,3779 @@
+{
+  "generatedAt": "2026-04-11T08:42:30.881Z",
+  "summary": {
+    "total": 151,
+    "realms": {
+      "凡人期": 68,
+      "练气期": 83
+    },
+    "slots": {
+      "weapon": 30,
+      "head": 29,
+      "body": 32,
+      "legs": 22,
+      "accessory": 38
+    },
+    "grades": {
+      "mortal": 7,
+      "yellow": 70,
+      "mystic": 73,
+      "earth": 1
+    },
+    "withEffects": 70,
+    "withoutEffects": 81
+  },
+  "duplicateTemplates": [
+    {
+      "key": "凡人期|1|legs|dodge+moveSpeed|plain",
+      "count": 2,
+      "realm": "凡人期",
+      "level": 1,
+      "equipSlot": "legs",
+      "statKeys": [
+        "dodge",
+        "moveSpeed"
+      ],
+      "effectMode": "plain",
+      "items": [
+        {
+          "itemId": "equip.grassbound_shoes",
+          "name": "赶路草鞋",
+          "grade": "mortal"
+        },
+        {
+          "itemId": "equip.gutter_paws",
+          "name": "沟行爪套",
+          "grade": "mortal"
+        }
+      ]
+    },
+    {
+      "key": "凡人期|3|head|dodge+hit+viewRange|plain",
+      "count": 2,
+      "realm": "凡人期",
+      "level": 3,
+      "equipSlot": "head",
+      "statKeys": [
+        "dodge",
+        "hit",
+        "viewRange"
+      ],
+      "effectMode": "plain",
+      "items": [
+        {
+          "itemId": "equip.echo_crystal_crest",
+          "name": "回声晶冠",
+          "grade": "yellow"
+        },
+        {
+          "itemId": "equip.leafshadow_crest",
+          "name": "叶隐翎冠",
+          "grade": "yellow"
+        }
+      ]
+    },
+    {
+      "key": "凡人期|3|legs|dodge+hit+moveSpeed|plain",
+      "count": 2,
+      "realm": "凡人期",
+      "level": 3,
+      "equipSlot": "legs",
+      "statKeys": [
+        "dodge",
+        "hit",
+        "moveSpeed"
+      ],
+      "effectMode": "plain",
+      "items": [
+        {
+          "itemId": "equip.cave_skitter_spurs",
+          "name": "穴行钩爪",
+          "grade": "yellow"
+        },
+        {
+          "itemId": "equip.windjoint_boots",
+          "name": "风节行靴",
+          "grade": "yellow"
+        }
+      ]
+    },
+    {
+      "key": "凡人期|3|weapon|hit+physAtk+spellAtk|plain",
+      "count": 2,
+      "realm": "凡人期",
+      "level": 3,
+      "equipSlot": "weapon",
+      "statKeys": [
+        "hit",
+        "physAtk",
+        "spellAtk"
+      ],
+      "effectMode": "plain",
+      "items": [
+        {
+          "itemId": "equip.black_iron_sword",
+          "name": "玄铁长剑",
+          "grade": "mystic"
+        },
+        {
+          "itemId": "equip.crystal_maw_spike",
+          "name": "晶獠骨刺",
+          "grade": "yellow"
+        }
+      ]
+    },
+    {
+      "key": "凡人期|4|body|maxHp+physDef+resolvePower+spellDef|plain",
+      "count": 2,
+      "realm": "凡人期",
+      "level": 4,
+      "equipSlot": "body",
+      "statKeys": [
+        "maxHp",
+        "physDef",
+        "resolvePower",
+        "spellDef"
+      ],
+      "effectMode": "plain",
+      "items": [
+        {
+          "itemId": "equip.rift_guard_armor",
+          "name": "镇煞护心甲",
+          "grade": "mystic"
+        },
+        {
+          "itemId": "equip.stele_shell_armor",
+          "name": "断碑甲壳",
+          "grade": "mystic"
+        }
+      ]
+    },
+    {
+      "key": "凡人期|4|head|spellDef+viewRange|plain",
+      "count": 2,
+      "realm": "凡人期",
+      "level": 4,
+      "equipSlot": "head",
+      "statKeys": [
+        "spellDef",
+        "viewRange"
+      ],
+      "effectMode": "plain",
+      "items": [
+        {
+          "itemId": "equip.celestial_crown",
+          "name": "观脉骨冠",
+          "grade": "mystic"
+        },
+        {
+          "itemId": "equip.remnant_array_crown",
+          "name": "残阵束冠",
+          "grade": "mystic"
+        }
+      ]
+    },
+    {
+      "key": "凡人期|4|legs|crit+dodge+moveSpeed|plain",
+      "count": 2,
+      "realm": "凡人期",
+      "level": 4,
+      "equipSlot": "legs",
+      "statKeys": [
+        "crit",
+        "dodge",
+        "moveSpeed"
+      ],
+      "effectMode": "plain",
+      "items": [
+        {
+          "itemId": "equip.moonshadow_boots",
+          "name": "逐月疾靴",
+          "grade": "mystic"
+        },
+        {
+          "itemId": "equip.predator_tendon_boots",
+          "name": "猎脉疾靴",
+          "grade": "mystic"
+        }
+      ]
+    },
+    {
+      "key": "练气期|25|body|maxHp+physDef+resolvePower|hasEffect",
+      "count": 2,
+      "realm": "练气期",
+      "level": 25,
+      "equipSlot": "body",
+      "statKeys": [
+        "maxHp",
+        "physDef",
+        "resolvePower"
+      ],
+      "effectMode": "hasEffect",
+      "items": [
+        {
+          "itemId": "equip.cleft_scale_armor",
+          "name": "裂鳞甲",
+          "grade": "mystic"
+        },
+        {
+          "itemId": "equip.deepvein_chestguard",
+          "name": "厚脉护胸",
+          "grade": "mystic"
+        }
+      ]
+    },
+    {
+      "key": "练气期|27|weapon|breakPower+hit+physAtk+spellAtk|hasEffect",
+      "count": 2,
+      "realm": "练气期",
+      "level": 27,
+      "equipSlot": "weapon",
+      "statKeys": [
+        "breakPower",
+        "hit",
+        "physAtk",
+        "spellAtk"
+      ],
+      "effectMode": "hasEffect",
+      "items": [
+        {
+          "itemId": "equip.burden_stele_staff",
+          "name": "负碑杖",
+          "grade": "mystic"
+        },
+        {
+          "itemId": "equip.stele_edge_blade",
+          "name": "碑锋刃",
+          "grade": "mystic"
+        }
+      ]
+    },
+    {
+      "key": "练气期|29|body|maxHp+physDef+resolvePower+spellDef|hasEffect",
+      "count": 2,
+      "realm": "练气期",
+      "level": 29,
+      "equipSlot": "body",
+      "statKeys": [
+        "maxHp",
+        "physDef",
+        "resolvePower",
+        "spellDef"
+      ],
+      "effectMode": "hasEffect",
+      "items": [
+        {
+          "itemId": "equip.gold_coffin_plate",
+          "name": "金棺重甲",
+          "grade": "mystic"
+        },
+        {
+          "itemId": "equip.mountainseal_plate",
+          "name": "封岳甲",
+          "grade": "mystic"
+        }
+      ]
+    },
+    {
+      "key": "练气期|29|body|maxHp+physDef+resolvePower+spellDef|plain",
+      "count": 2,
+      "realm": "练气期",
+      "level": 29,
+      "equipSlot": "body",
+      "statKeys": [
+        "maxHp",
+        "physDef",
+        "resolvePower",
+        "spellDef"
+      ],
+      "effectMode": "plain",
+      "items": [
+        {
+          "itemId": "equip.old_guard_iron_armor",
+          "name": "旧卫铁甲",
+          "grade": "mystic"
+        },
+        {
+          "itemId": "equip.rampart_plate",
+          "name": "垒垣甲",
+          "grade": "mystic"
+        }
+      ]
+    }
+  ],
+  "items": [
+    {
+      "realm": "凡人期",
+      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "itemId": "equip.road_cleaver",
+      "name": "断道柴刀",
+      "grade": "mortal",
+      "level": 1,
+      "equipSlot": "weapon",
+      "desc": "从断道废车旁捡来的厚背柴刀，砍路障比砍人更顺手。",
+      "statKeys": [
+        "hit",
+        "physAtk"
+      ],
+      "stats": {
+        "physAtk": 3,
+        "hit": 1
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "凡人期",
+      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "itemId": "equip.scavenger_fang",
+      "name": "拾荒尖牙",
+      "grade": "mortal",
+      "level": 1,
+      "equipSlot": "weapon",
+      "desc": "荒沟野兽磨得发亮的一截尖牙，胜在来得突然。",
+      "statKeys": [
+        "breakPower",
+        "hit",
+        "physAtk"
+      ],
+      "stats": {
+        "physAtk": 2,
+        "hit": 1,
+        "breakPower": 1
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "凡人期",
+      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "itemId": "equip.scavenger_crest",
+      "name": "拾荒翎冠",
+      "grade": "mortal",
+      "level": 1,
+      "equipSlot": "head",
+      "desc": "由乱羽与碎骨缠成，戴上后会本能地先一步察觉动静。",
+      "statKeys": [
+        "dodge",
+        "hit",
+        "viewRange"
+      ],
+      "stats": {
+        "dodge": 1,
+        "hit": 1,
+        "viewRange": 1
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "凡人期",
+      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "itemId": "equip.porter_jacket",
+      "name": "扛包短褂",
+      "grade": "mortal",
+      "level": 1,
+      "equipSlot": "body",
+      "desc": "南市脚行穿的短褂，领口粗糙，胜在耐磨。",
+      "statKeys": [
+        "maxHp",
+        "physDef"
+      ],
+      "stats": {
+        "maxHp": 1.67,
+        "physDef": 2
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "凡人期",
+      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "itemId": "equip.scrap_hide",
+      "name": "杂皮护层",
+      "grade": "mortal",
+      "level": 1,
+      "equipSlot": "body",
+      "desc": "泥水和旧皮裹成的粗陋护层，挡不住利刃，但能扛住几下乱打。",
+      "statKeys": [
+        "maxHp",
+        "physDef",
+        "spellDef"
+      ],
+      "stats": {
+        "maxHp": 1.5,
+        "physDef": 2,
+        "spellDef": 1
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "凡人期",
+      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "itemId": "equip.grassbound_shoes",
+      "name": "赶路草鞋",
+      "grade": "mortal",
+      "level": 1,
+      "equipSlot": "legs",
+      "desc": "麻绳紧扎，踩泥不易滑，穷人赶夜路时常见。",
+      "statKeys": [
+        "dodge",
+        "moveSpeed"
+      ],
+      "stats": {
+        "moveSpeed": 8,
+        "dodge": 1
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "凡人期",
+      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "itemId": "equip.gutter_paws",
+      "name": "沟行爪套",
+      "grade": "mortal",
+      "level": 1,
+      "equipSlot": "legs",
+      "desc": "爪尖磨得极薄，专为烂泥沟和碎土坡上疾窜而生。",
+      "statKeys": [
+        "dodge",
+        "moveSpeed"
+      ],
+      "stats": {
+        "moveSpeed": 10,
+        "dodge": 1
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "凡人期",
+      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "itemId": "equip.bone_dagger",
+      "name": "猎户骨匕",
+      "grade": "yellow",
+      "level": 2,
+      "equipSlot": "weapon",
+      "desc": "用野兽腿骨打磨的短匕，轻巧狠辣。",
+      "statKeys": [
+        "crit",
+        "physAtk"
+      ],
+      "stats": {
+        "physAtk": 5,
+        "crit": 3
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "凡人期",
+      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "itemId": "equip.copper_pill_furnace",
+      "name": "铜胎丹炉",
+      "grade": "yellow",
+      "level": 2,
+      "equipSlot": "weapon",
+      "desc": "小巧耐烧的铜胎丹炉，炉壁内侧刻着稳火与散药气的浅纹，正适合初学炼丹者随身携带。",
+      "statKeys": [
+        "qiRegenRate",
+        "resolvePower"
+      ],
+      "stats": {
+        "qiRegenRate": 40,
+        "resolvePower": 1
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "凡人期",
+      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "itemId": "equip.rust_saber",
+      "name": "旧铁长刀",
+      "grade": "yellow",
+      "level": 2,
+      "equipSlot": "weapon",
+      "desc": "镇防旧库翻出的制式长刀。",
+      "statKeys": [
+        "hit",
+        "physAtk"
+      ],
+      "stats": {
+        "physAtk": 6,
+        "hit": 2
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "凡人期",
+      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "itemId": "equip.gate_headcloth",
+      "name": "门丁裹头巾",
+      "grade": "yellow",
+      "level": 2,
+      "equipSlot": "head",
+      "desc": "值夜门丁常用的厚布头巾，夜里守门的人比白日看得更细。",
+      "statKeys": [
+        "hpRegenRate",
+        "resolvePower"
+      ],
+      "stats": {
+        "resolvePower": 2,
+        "hpRegenRate": 0.25
+      },
+      "effectCount": 1,
+      "effectIds": [
+        "night-watch"
+      ]
+    },
+    {
+      "realm": "凡人期",
+      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "itemId": "equip.hunter_cap",
+      "name": "猎风帽",
+      "grade": "yellow",
+      "level": 2,
+      "equipSlot": "head",
+      "desc": "荒野猎户常用的轻便头具。",
+      "statKeys": [
+        "crit",
+        "dodge"
+      ],
+      "stats": {
+        "dodge": 4,
+        "crit": 2
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "凡人期",
+      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "itemId": "equip.wasteland_cap",
+      "name": "荒路皮帽",
+      "grade": "yellow",
+      "level": 2,
+      "equipSlot": "head",
+      "desc": "帽檐压得很低，风沙里能保住眼睛。",
+      "statKeys": [
+        "dodge",
+        "viewRange"
+      ],
+      "stats": {
+        "dodge": 2,
+        "viewRange": 1
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "凡人期",
+      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "itemId": "equip.bound_chest",
+      "name": "旧皮绑胸",
+      "grade": "yellow",
+      "level": 2,
+      "equipSlot": "body",
+      "desc": "流匪和脚夫都爱穿，护不住命，但能多扛两下。",
+      "statKeys": [
+        "maxHp",
+        "resolvePower"
+      ],
+      "stats": {
+        "maxHp": 2.33,
+        "resolvePower": 2
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "凡人期",
+      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "itemId": "equip.leather_vest",
+      "name": "硬皮护衣",
+      "grade": "yellow",
+      "level": 2,
+      "equipSlot": "body",
+      "desc": "由粗皮与铜扣缝制的护身衣。",
+      "statKeys": [
+        "maxHp",
+        "physDef"
+      ],
+      "stats": {
+        "maxHp": 3,
+        "physDef": 5
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "凡人期",
+      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "itemId": "equip.cloud_boots",
+      "name": "踏云履",
+      "grade": "yellow",
+      "level": 2,
+      "equipSlot": "legs",
+      "desc": "鞋底镶有浮云阵纹，行走轻灵。",
+      "statKeys": [
+        "dodge",
+        "hit",
+        "moveSpeed"
+      ],
+      "stats": {
+        "moveSpeed": 18,
+        "dodge": 2,
+        "hit": 1
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "凡人期",
+      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "itemId": "equip.step_boots",
+      "name": "游侠靴",
+      "grade": "yellow",
+      "level": 2,
+      "equipSlot": "legs",
+      "desc": "鞋底附有防滑纹路，适合野外奔袭。",
+      "statKeys": [
+        "dodge",
+        "moveSpeed"
+      ],
+      "stats": {
+        "moveSpeed": 12,
+        "dodge": 1
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "凡人期",
+      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "itemId": "equip.trench_runner_boots",
+      "name": "越沟快靴",
+      "grade": "yellow",
+      "level": 2,
+      "equipSlot": "legs",
+      "desc": "鞋跟窄而硬，踩沟跃坎时比寻常鞋更利索。",
+      "statKeys": [
+        "hit",
+        "moveSpeed"
+      ],
+      "stats": {
+        "moveSpeed": 14,
+        "hit": 2
+      },
+      "effectCount": 1,
+      "effectIds": [
+        "runner-step"
+      ]
+    },
+    {
+      "realm": "凡人期",
+      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "itemId": "equip.herb_basket_charm",
+      "name": "药篓挂坠",
+      "grade": "yellow",
+      "level": 2,
+      "equipSlot": "accessory",
+      "desc": "篓口系下来的小木坠，药气浸久了，多少沾些回生味。",
+      "statKeys": [
+        "hpRegenRate",
+        "lootRate"
+      ],
+      "stats": {
+        "hpRegenRate": 0.5,
+        "lootRate": 3
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "凡人期",
+      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "itemId": "equip.marsh_poison_gland",
+      "name": "沼毒囊结",
+      "grade": "yellow",
+      "level": 2,
+      "equipSlot": "accessory",
+      "desc": "毒液未必致命，但足够扰乱气血和步点。",
+      "statKeys": [
+        "breakPower",
+        "qiRegenRate",
+        "spellAtk"
+      ],
+      "stats": {
+        "spellAtk": 2,
+        "breakPower": 1,
+        "qiRegenRate": 0.2
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "凡人期",
+      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "itemId": "equip.nanshi_token",
+      "name": "南市木牌",
+      "grade": "yellow",
+      "level": 2,
+      "equipSlot": "accessory",
+      "desc": "脚店记工用的木牌，拿在手里时，总会逼着人多跑几趟。",
+      "statKeys": [
+        "maxHp",
+        "realmExpPerTick"
+      ],
+      "stats": {
+        "maxHp": 1,
+        "realmExpPerTick": 2
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "凡人期",
+      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "itemId": "equip.bamboo_fang_blade",
+      "name": "竹牙短刃",
+      "grade": "yellow",
+      "level": 3,
+      "equipSlot": "weapon",
+      "desc": "以灵竹根节和兽牙削成，轻狠兼备。",
+      "statKeys": [
+        "crit",
+        "hit",
+        "physAtk"
+      ],
+      "stats": {
+        "physAtk": 6,
+        "hit": 2,
+        "crit": 1
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "凡人期",
+      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "itemId": "equip.bamboo_split_blade",
+      "name": "青竹分水刃",
+      "grade": "yellow",
+      "level": 3,
+      "equipSlot": "weapon",
+      "desc": "刀身细窄，专为林路斜切和借身转步而造。",
+      "statKeys": [
+        "dodge",
+        "hit",
+        "physAtk"
+      ],
+      "stats": {
+        "physAtk": 7,
+        "dodge": 2,
+        "hit": 2
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "凡人期",
+      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "itemId": "equip.black_iron_sword",
+      "name": "玄铁长剑",
+      "grade": "mystic",
+      "level": 3,
+      "equipSlot": "weapon",
+      "desc": "经矿洞灵铁锻造，兼具锋锐与韧性。",
+      "statKeys": [
+        "hit",
+        "physAtk",
+        "spellAtk"
+      ],
+      "stats": {
+        "physAtk": 11,
+        "spellAtk": 4,
+        "hit": 4
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "凡人期",
+      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "itemId": "equip.crystal_maw_spike",
+      "name": "晶獠骨刺",
+      "grade": "yellow",
+      "level": 3,
+      "equipSlot": "weapon",
+      "desc": "矿洞妖物口器中最锋利的一根骨刺，硬得发脆。",
+      "statKeys": [
+        "hit",
+        "physAtk",
+        "spellAtk"
+      ],
+      "stats": {
+        "physAtk": 7,
+        "spellAtk": 2,
+        "hit": 2
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "凡人期",
+      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "itemId": "equip.orebreak_hammer",
+      "name": "矿卫破岩锤",
+      "grade": "mystic",
+      "level": 3,
+      "equipSlot": "weapon",
+      "desc": "锤头沉得惊人，砸石和砸骨头时都带着同一种闷响。",
+      "statKeys": [
+        "breakPower",
+        "hit",
+        "physAtk"
+      ],
+      "stats": {
+        "physAtk": 10,
+        "breakPower": 4,
+        "hit": 2
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "凡人期",
+      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "itemId": "equip.bamboo_hat",
+      "name": "竹骨斗笠",
+      "grade": "yellow",
+      "level": 3,
+      "equipSlot": "head",
+      "desc": "青竹骨架压得极薄，进林后能把风响听得更清。",
+      "statKeys": [
+        "dodge",
+        "viewRange"
+      ],
+      "stats": {
+        "dodge": 3,
+        "viewRange": 1
+      },
+      "effectCount": 1,
+      "effectIds": [
+        "bamboo-forest-read"
+      ]
+    },
+    {
+      "realm": "凡人期",
+      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "itemId": "equip.crow_night_mask",
+      "name": "夜鸦面",
+      "grade": "yellow",
+      "level": 3,
+      "equipSlot": "head",
+      "desc": "镇外守夜人留下的旧面具，白天沉闷，入夜后反而看得更远。",
+      "statKeys": [],
+      "stats": {},
+      "effectCount": 1,
+      "effectIds": [
+        "crow-night-sight"
+      ]
+    },
+    {
+      "realm": "凡人期",
+      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "itemId": "equip.echo_crystal_crest",
+      "name": "回声晶冠",
+      "grade": "yellow",
+      "level": 3,
+      "equipSlot": "head",
+      "desc": "会顺着洞壁回声判断方位，黑暗中也不易失手。",
+      "statKeys": [
+        "dodge",
+        "hit",
+        "viewRange"
+      ],
+      "stats": {
+        "hit": 2,
+        "dodge": 2,
+        "viewRange": 1
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "凡人期",
+      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "itemId": "equip.leafshadow_crest",
+      "name": "叶隐翎冠",
+      "grade": "yellow",
+      "level": 3,
+      "equipSlot": "head",
+      "desc": "林风一过，叶影先动，最适合伏在竹影里先手扑杀。",
+      "statKeys": [
+        "dodge",
+        "hit",
+        "viewRange"
+      ],
+      "stats": {
+        "dodge": 2,
+        "hit": 2,
+        "viewRange": 1
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "凡人期",
+      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "itemId": "equip.miner_helmet",
+      "name": "矿卫盔",
+      "grade": "mystic",
+      "level": 3,
+      "equipSlot": "head",
+      "desc": "旧矿卫制式铁盔，防护结实。",
+      "statKeys": [
+        "maxHp",
+        "physDef",
+        "resolvePower"
+      ],
+      "stats": {
+        "maxHp": 2,
+        "physDef": 7,
+        "resolvePower": 3
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "凡人期",
+      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "itemId": "equip.soot_lamp_hood",
+      "name": "熄火矿灯冠",
+      "grade": "mystic",
+      "level": 3,
+      "equipSlot": "head",
+      "desc": "矿灯虽然熄了，旧灯罩仍能帮人摸清黑暗里的轮廓。",
+      "statKeys": [
+        "maxHp",
+        "resolvePower",
+        "viewRange"
+      ],
+      "stats": {
+        "viewRange": 1,
+        "resolvePower": 2,
+        "maxHp": 1.33
+      },
+      "effectCount": 1,
+      "effectIds": [
+        "mine-sight"
+      ]
+    },
+    {
+      "realm": "凡人期",
+      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "itemId": "equip.blackiron_brigandine",
+      "name": "黑铁束身甲",
+      "grade": "mystic",
+      "level": 3,
+      "equipSlot": "body",
+      "desc": "以旧矿卫残片拼出来的束身甲，缝里还残留着铁腥味。",
+      "statKeys": [
+        "maxHp",
+        "physDef",
+        "resolvePower"
+      ],
+      "stats": {
+        "maxHp": 3.17,
+        "physDef": 6,
+        "resolvePower": 3
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "凡人期",
+      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "itemId": "equip.herb_mist_robe",
+      "name": "药烟轻袍",
+      "grade": "yellow",
+      "level": 3,
+      "equipSlot": "body",
+      "desc": "晒药时沾过苦烟的薄袍，能稍稍护住气海。",
+      "statKeys": [
+        "maxQi",
+        "qiRegenRate",
+        "spellDef"
+      ],
+      "stats": {
+        "maxQi": 2.25,
+        "spellDef": 4,
+        "qiRegenRate": 0.4
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "凡人期",
+      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "itemId": "equip.oreplate_carapace",
+      "name": "矿壳重甲",
+      "grade": "mystic",
+      "level": 3,
+      "equipSlot": "body",
+      "desc": "矿层般一层层压上去，沉，却很难被打穿。",
+      "statKeys": [
+        "maxHp",
+        "physDef",
+        "resolvePower",
+        "spellDef"
+      ],
+      "stats": {
+        "maxHp": 2.5,
+        "physDef": 5,
+        "spellDef": 4,
+        "resolvePower": 3
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "凡人期",
+      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "itemId": "equip.rune_robe",
+      "name": "断纹法袍",
+      "grade": "mystic",
+      "level": 3,
+      "equipSlot": "body",
+      "desc": "遗迹残纹织就的法袍，能稳固神识。",
+      "statKeys": [
+        "maxQi",
+        "spellAtk",
+        "spellDef"
+      ],
+      "stats": {
+        "maxQi": 4.5,
+        "spellAtk": 8,
+        "spellDef": 6
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "凡人期",
+      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "itemId": "equip.snakeshed_vest",
+      "name": "蛇蜕灵甲",
+      "grade": "yellow",
+      "level": 3,
+      "equipSlot": "body",
+      "desc": "以竹蛇蜕皮层层包缠，柔中带韧。",
+      "statKeys": [
+        "maxHp",
+        "maxQi",
+        "physDef",
+        "spellDef"
+      ],
+      "stats": {
+        "maxHp": 1.8,
+        "maxQi": 1,
+        "physDef": 2,
+        "spellDef": 3
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "凡人期",
+      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "itemId": "equip.ash_tread",
+      "name": "炉灰踏靴",
+      "grade": "yellow",
+      "level": 3,
+      "equipSlot": "legs",
+      "desc": "鞋底结了层灰壳，踩在碎石和熄火矿渣上比常鞋稳。",
+      "statKeys": [
+        "moveSpeed",
+        "physDef"
+      ],
+      "stats": {
+        "moveSpeed": 10,
+        "physDef": 2
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "凡人期",
+      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "itemId": "equip.cave_skitter_spurs",
+      "name": "穴行钩爪",
+      "grade": "yellow",
+      "level": 3,
+      "equipSlot": "legs",
+      "desc": "钩爪能牢牢嵌进岩缝，适合洞壁疾窜和突然俯冲。",
+      "statKeys": [
+        "dodge",
+        "hit",
+        "moveSpeed"
+      ],
+      "stats": {
+        "moveSpeed": 12,
+        "dodge": 3,
+        "hit": 1
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "凡人期",
+      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "itemId": "equip.dewstep_boots",
+      "name": "引露行靴",
+      "grade": "yellow",
+      "level": 3,
+      "equipSlot": "legs",
+      "desc": "晨露未干时最显轻灵，踏步后脚尖总像还留着一层滑意。",
+      "statKeys": [
+        "crit",
+        "moveSpeed"
+      ],
+      "stats": {
+        "moveSpeed": 16,
+        "crit": 2
+      },
+      "effectCount": 1,
+      "effectIds": [
+        "dewstep-dash"
+      ]
+    },
+    {
+      "realm": "凡人期",
+      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "itemId": "equip.windjoint_boots",
+      "name": "风节行靴",
+      "grade": "yellow",
+      "level": 3,
+      "equipSlot": "legs",
+      "desc": "踩过竹节时几乎不留响动，转步尤其利索。",
+      "statKeys": [
+        "dodge",
+        "hit",
+        "moveSpeed"
+      ],
+      "stats": {
+        "moveSpeed": 14,
+        "dodge": 2,
+        "hit": 1
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "凡人期",
+      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "itemId": "equip.bamboo_heart_charm",
+      "name": "竹心灵坠",
+      "grade": "yellow",
+      "level": 3,
+      "equipSlot": "accessory",
+      "desc": "内里封着一枚翠竹心，能稳住细碎灵机。",
+      "statKeys": [
+        "maxQi",
+        "maxQiOutputPerTick",
+        "spellAtk"
+      ],
+      "stats": {
+        "maxQi": 1.5,
+        "spellAtk": 3,
+        "maxQiOutputPerTick": 3
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "凡人期",
+      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "itemId": "equip.blood_burn_rope",
+      "name": "焚脉黑绳",
+      "grade": "yellow",
+      "level": 3,
+      "equipSlot": "accessory",
+      "desc": "以焦血浸过的黑绳缠腕，行功时会反噬经脉，却也逼得气机转得更快。",
+      "statKeys": [],
+      "stats": {},
+      "effectCount": 2,
+      "effectIds": [
+        "blood-burn-drain",
+        "blood-burn-growth"
+      ]
+    },
+    {
+      "realm": "凡人期",
+      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "itemId": "equip.gather_qi_pendant",
+      "name": "采气木坠",
+      "grade": "yellow",
+      "level": 3,
+      "equipSlot": "accessory",
+      "desc": "刻着简陋聚气纹的木坠，聊胜于无。",
+      "statKeys": [
+        "maxQi",
+        "techniqueExpPerTick"
+      ],
+      "stats": {
+        "maxQi": 1.5,
+        "techniqueExpPerTick": 5
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "凡人期",
+      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "itemId": "equip.mineral_pulse_core",
+      "name": "矿脉搏核",
+      "grade": "yellow",
+      "level": 3,
+      "equipSlot": "accessory",
+      "desc": "被矿气反复冲刷的内核，吐纳时会带出一股闷沉的劲。",
+      "statKeys": [
+        "breakPower",
+        "maxQi",
+        "maxQiOutputPerTick",
+        "resolvePower"
+      ],
+      "stats": {
+        "maxQi": 1.5,
+        "breakPower": 3,
+        "resolvePower": 2,
+        "maxQiOutputPerTick": 3
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "凡人期",
+      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "itemId": "equip.orevein_ring",
+      "name": "矿脉扣环",
+      "grade": "yellow",
+      "level": 3,
+      "equipSlot": "accessory",
+      "desc": "矿工拿来记矿脉方位的铁环，久了也能养出一点破势。",
+      "statKeys": [
+        "breakPower",
+        "lootRate"
+      ],
+      "stats": {
+        "breakPower": 3,
+        "lootRate": 4
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "凡人期",
+      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "itemId": "equip.broken_rune_blade",
+      "name": "断碑纹剑",
+      "grade": "mystic",
+      "level": 4,
+      "equipSlot": "weapon",
+      "desc": "剑脊嵌着未熄的残纹，挥动时像是在拖着半截旧阵。",
+      "statKeys": [
+        "hit",
+        "physAtk",
+        "spellAtk"
+      ],
+      "stats": {
+        "physAtk": 9,
+        "spellAtk": 6,
+        "hit": 3
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "凡人期",
+      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "itemId": "equip.valley_fang_blade",
+      "name": "裂齿斩骨刀",
+      "grade": "mystic",
+      "level": 4,
+      "equipSlot": "weapon",
+      "desc": "刀背厚重，刃口带着兽谷妖骨磨出的细裂纹，专走压血断势一路。",
+      "statKeys": [
+        "breakPower",
+        "crit",
+        "physAtk"
+      ],
+      "stats": {
+        "physAtk": 12,
+        "crit": 3,
+        "breakPower": 4
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "凡人期",
+      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "itemId": "equip.celestial_crown",
+      "name": "观脉骨冠",
+      "grade": "mystic",
+      "level": 4,
+      "equipSlot": "head",
+      "desc": "以异兽头骨和旧纹骨钉束成的骨冠，戴上后对气脉流转会更敏锐。",
+      "statKeys": [
+        "spellDef",
+        "viewRange"
+      ],
+      "stats": {
+        "viewRange": 1,
+        "spellDef": 5
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "凡人期",
+      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "itemId": "equip.remnant_array_crown",
+      "name": "残阵束冠",
+      "grade": "mystic",
+      "level": 4,
+      "equipSlot": "head",
+      "desc": "束冠上的阵眼早已断裂，只剩一点护识的余韵。",
+      "statKeys": [
+        "spellDef",
+        "viewRange"
+      ],
+      "stats": {
+        "spellDef": 5,
+        "viewRange": 1
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "凡人期",
+      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "itemId": "equip.windhear_crown",
+      "name": "听风兽皮冠",
+      "grade": "yellow",
+      "level": 4,
+      "equipSlot": "head",
+      "desc": "兽皮毛向顺风压平，林响一近便能先一步听出动静。",
+      "statKeys": [
+        "crit",
+        "dodge",
+        "viewRange"
+      ],
+      "stats": {
+        "dodge": 3,
+        "crit": 2,
+        "viewRange": 1
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "凡人期",
+      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "itemId": "equip.beastbone_mail",
+      "name": "兽骨玄甲",
+      "grade": "mystic",
+      "level": 4,
+      "equipSlot": "body",
+      "desc": "以妖骨和硬皮层层缀成，杀气越重越显得沉稳。",
+      "statKeys": [
+        "crit",
+        "maxHp",
+        "physDef",
+        "spellDef"
+      ],
+      "stats": {
+        "maxHp": 3,
+        "physDef": 6,
+        "spellDef": 4,
+        "crit": 2
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "凡人期",
+      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "itemId": "equip.ridge_calm_robe",
+      "name": "灵脊镇息袍",
+      "grade": "mystic",
+      "level": 4,
+      "equipSlot": "body",
+      "desc": "灵脊冷风里晒出的袍子，穿在身上后，行功时那股浮躁会慢慢沉下去。",
+      "statKeys": [
+        "maxQi",
+        "qiRegenRate",
+        "spellDef"
+      ],
+      "stats": {
+        "maxQi": 3,
+        "spellDef": 6,
+        "qiRegenRate": 0.7
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "凡人期",
+      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "itemId": "equip.rift_guard_armor",
+      "name": "镇煞护心甲",
+      "grade": "mystic",
+      "level": 4,
+      "equipSlot": "body",
+      "desc": "甲心嵌着旧镇煞片，护得住胸口那一口气，也护得住人不乱。",
+      "statKeys": [
+        "maxHp",
+        "physDef",
+        "resolvePower",
+        "spellDef"
+      ],
+      "stats": {
+        "maxHp": 3.5,
+        "physDef": 7,
+        "spellDef": 5,
+        "resolvePower": 3
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "凡人期",
+      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "itemId": "equip.stele_shell_armor",
+      "name": "断碑甲壳",
+      "grade": "mystic",
+      "level": 4,
+      "equipSlot": "body",
+      "desc": "从残碑外层剥下的厚甲片，沉重但极稳。",
+      "statKeys": [
+        "maxHp",
+        "physDef",
+        "resolvePower",
+        "spellDef"
+      ],
+      "stats": {
+        "maxHp": 3,
+        "physDef": 6,
+        "spellDef": 5,
+        "resolvePower": 4
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "凡人期",
+      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "itemId": "equip.moonshadow_boots",
+      "name": "逐月疾靴",
+      "grade": "mystic",
+      "level": 4,
+      "equipSlot": "legs",
+      "desc": "靴帮收得极窄，贴地疾行时像是顺着月影滑出去的一步。",
+      "statKeys": [
+        "crit",
+        "dodge",
+        "moveSpeed"
+      ],
+      "stats": {
+        "moveSpeed": 18,
+        "dodge": 3,
+        "crit": 2
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "凡人期",
+      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "itemId": "equip.predator_tendon_boots",
+      "name": "猎脉疾靴",
+      "grade": "mystic",
+      "level": 4,
+      "equipSlot": "legs",
+      "desc": "以兽筋抽紧靴帮，爆发扑杀时最能借力。",
+      "statKeys": [
+        "crit",
+        "dodge",
+        "moveSpeed"
+      ],
+      "stats": {
+        "moveSpeed": 16,
+        "dodge": 2,
+        "crit": 2
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "凡人期",
+      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "itemId": "equip.threshold_boots",
+      "name": "叩门行靴",
+      "grade": "mystic",
+      "level": 4,
+      "equipSlot": "legs",
+      "desc": "专给叩门前夜赶路的人做的轻靴，既要走得快，也要留得住回旋的余地。",
+      "statKeys": [
+        "cooldownSpeed",
+        "dodge",
+        "moveSpeed"
+      ],
+      "stats": {
+        "moveSpeed": 16,
+        "cooldownSpeed": 5,
+        "dodge": 2
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "凡人期",
+      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "itemId": "equip.trace_pattern_boots",
+      "name": "踏纹履",
+      "grade": "mystic",
+      "level": 4,
+      "equipSlot": "legs",
+      "desc": "顺着残纹步点走时，真气会短暂变得更流畅。",
+      "statKeys": [
+        "cooldownSpeed",
+        "moveSpeed"
+      ],
+      "stats": {
+        "moveSpeed": 14,
+        "cooldownSpeed": 4
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "凡人期",
+      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "itemId": "equip.bloodcore_talisman",
+      "name": "血核妖符",
+      "grade": "mystic",
+      "level": 4,
+      "equipSlot": "accessory",
+      "desc": "封着半凝的妖血精核，能让攻势更狠也更躁。",
+      "statKeys": [
+        "breakPower",
+        "crit",
+        "maxQi",
+        "qiRegenRate"
+      ],
+      "stats": {
+        "maxQi": 2,
+        "breakPower": 4,
+        "qiRegenRate": 0.4,
+        "crit": 2
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "凡人期",
+      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "itemId": "equip.guiding_marrow_pendant",
+      "name": "引灵髓坠",
+      "grade": "mystic",
+      "level": 4,
+      "equipSlot": "accessory",
+      "desc": "坠芯以兽髓和细纹骨粉压成，引气时不算多快，但能明显稳住导气节奏。",
+      "statKeys": [
+        "maxQi",
+        "maxQiOutputPerTick"
+      ],
+      "stats": {
+        "maxQiOutputPerTick": 5,
+        "maxQi": 2.25
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "凡人期",
+      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "itemId": "equip.pattern_picker_ring",
+      "name": "拾纹指环",
+      "grade": "mystic",
+      "level": 4,
+      "equipSlot": "accessory",
+      "desc": "曾有人戴着它在断碑间抄录阵纹，指环内壁还留着细小刻痕。",
+      "statKeys": [
+        "spellAtk",
+        "techniqueExpPerTick"
+      ],
+      "stats": {
+        "techniqueExpPerTick": 6,
+        "spellAtk": 3
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "凡人期",
+      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "itemId": "equip.soul_devour_token",
+      "name": "噬元骨牌",
+      "grade": "mystic",
+      "level": 4,
+      "equipSlot": "accessory",
+      "desc": "骨牌内封着一缕不肯散去的残意，静修时残意会层层侵体，杀敌时反能回涌一口浊气。",
+      "statKeys": [],
+      "stats": {},
+      "effectCount": 3,
+      "effectIds": [
+        "soul-devour-erosion",
+        "soul-devour-growth",
+        "soul-devour-feast"
+      ]
+    },
+    {
+      "realm": "凡人期",
+      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "itemId": "equip.soul_ink_pendant",
+      "name": "魂墨坠",
+      "grade": "mystic",
+      "level": 4,
+      "equipSlot": "accessory",
+      "desc": "墨痕未干时似有残魂低语，最能催动阴冷灵机。",
+      "statKeys": [
+        "maxQi",
+        "maxQiOutputPerTick",
+        "resolvePower",
+        "spellAtk"
+      ],
+      "stats": {
+        "maxQi": 2,
+        "spellAtk": 4,
+        "maxQiOutputPerTick": 4,
+        "resolvePower": 3
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "凡人期",
+      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "itemId": "equip.spirit_ring",
+      "name": "养灵木戒",
+      "grade": "yellow",
+      "level": 4,
+      "equipSlot": "accessory",
+      "desc": "谷外旧修士留下的木戒，导气时能帮人把散乱灵息拢得更稳。",
+      "statKeys": [
+        "maxQi",
+        "maxQiOutputPerTick",
+        "qiRegenRate"
+      ],
+      "stats": {
+        "maxQi": 2,
+        "qiRegenRate": 0.6,
+        "maxQiOutputPerTick": 3
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "凡人期",
+      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "itemId": "equip.wellward_talisman",
+      "name": "井语避邪符",
+      "grade": "yellow",
+      "level": 4,
+      "equipSlot": "accessory",
+      "desc": "旧井边求来的黄符，纸色已旧，仍能替人压下几分邪气与惊悸。",
+      "statKeys": [
+        "hpRegenRate",
+        "resolvePower",
+        "spellDef"
+      ],
+      "stats": {
+        "spellDef": 5,
+        "resolvePower": 3,
+        "hpRegenRate": 0.6
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "凡人期",
+      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "itemId": "equip.starfall_spear",
+      "name": "残星乌铁枪",
+      "grade": "mystic",
+      "level": 5,
+      "equipSlot": "weapon",
+      "desc": "枪杆以乌铁重熔，枪锋残留一点旧星砂寒芒，是凡人篇末段少见的过渡重器。",
+      "statKeys": [
+        "breakPower",
+        "hit",
+        "physAtk",
+        "spellAtk"
+      ],
+      "stats": {
+        "physAtk": 13,
+        "spellAtk": 8,
+        "hit": 4,
+        "breakPower": 4
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "凡人期",
+      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "itemId": "equip.void_talisman",
+      "name": "镇脉玄纹佩",
+      "grade": "mystic",
+      "level": 5,
+      "equipSlot": "accessory",
+      "desc": "佩面刻着细碎玄纹，佩久了能缓住气海波动，适合叩门前最后稳一口气。",
+      "statKeys": [
+        "qiRegenRate",
+        "techniqueExpPerTick"
+      ],
+      "stats": {
+        "techniqueExpPerTick": 7,
+        "qiRegenRate": 0.6
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.cleft_short_blade",
+      "name": "裂痕短刃",
+      "grade": "yellow",
+      "level": 19,
+      "equipSlot": "weapon",
+      "desc": "沿断剑残口重新打磨出来的短刃，出手快，锋气也散得快。",
+      "statKeys": [
+        "crit",
+        "hit",
+        "physAtk"
+      ],
+      "stats": {
+        "physAtk": 18,
+        "hit": 6,
+        "crit": 3
+      },
+      "effectCount": 1,
+      "effectIds": [
+        "cleft-short-edge"
+      ]
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.ember_scorch_spear",
+      "name": "赤陨灼枪",
+      "grade": "yellow",
+      "level": 19,
+      "equipSlot": "weapon",
+      "desc": "枪锋烫得发暗，最适合一口气捅进人还没稳住的空门。",
+      "statKeys": [
+        "crit",
+        "physAtk",
+        "spellAtk"
+      ],
+      "stats": {
+        "physAtk": 15,
+        "spellAtk": 12,
+        "crit": 6
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.hanxi_flow_ruler",
+      "name": "寒汐引流尺",
+      "grade": "yellow",
+      "level": 19,
+      "equipSlot": "weapon",
+      "desc": "细尺里封着一缕寒汐潮气，出手时更容易把气机引到对方脉门上。",
+      "statKeys": [
+        "cooldownSpeed",
+        "hit",
+        "spellAtk"
+      ],
+      "stats": {
+        "spellAtk": 18,
+        "hit": 6,
+        "cooldownSpeed": 5
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.vineguide_staff",
+      "name": "养枝引脉杖",
+      "grade": "yellow",
+      "level": 19,
+      "equipSlot": "weapon",
+      "desc": "藤芯削成的细杖，挥出去时像在牵着周身经脉一同舒展开。",
+      "statKeys": [
+        "maxQi",
+        "qiRegenRate",
+        "spellAtk"
+      ],
+      "stats": {
+        "spellAtk": 18,
+        "maxQi": 3,
+        "qiRegenRate": 0.8
+      },
+      "effectCount": 1,
+      "effectIds": [
+        "vineguide-sustain"
+      ]
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.liyan_crown",
+      "name": "离炎束冠",
+      "grade": "yellow",
+      "level": 19,
+      "equipSlot": "head",
+      "desc": "束冠里压了一缕燥火，能让人出手时更敢顶着火压往前抢。",
+      "statKeys": [
+        "crit",
+        "hit",
+        "spellAtk"
+      ],
+      "stats": {
+        "crit": 5,
+        "hit": 5,
+        "spellAtk": 3
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.moonwell_gauze_crown",
+      "name": "月井纱冠",
+      "grade": "yellow",
+      "level": 19,
+      "equipSlot": "head",
+      "desc": "寒井旁常见的轻纱小冠，最适合在雾里辨位和换气。",
+      "statKeys": [
+        "dodge",
+        "spellDef",
+        "viewRange"
+      ],
+      "stats": {
+        "spellDef": 8,
+        "dodge": 6,
+        "viewRange": 1
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.sand_edge_headband",
+      "name": "砂锋束额",
+      "grade": "yellow",
+      "level": 19,
+      "equipSlot": "head",
+      "desc": "旧军阵里常见的束额，沾了砂金后反而更显眼利。",
+      "statKeys": [
+        "dodge",
+        "hit",
+        "viewRange"
+      ],
+      "stats": {
+        "hit": 5,
+        "dodge": 6,
+        "viewRange": 1
+      },
+      "effectCount": 1,
+      "effectIds": [
+        "sand-edge-sight"
+      ]
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.verdant_crown",
+      "name": "青萝束冠",
+      "grade": "yellow",
+      "level": 19,
+      "equipSlot": "head",
+      "desc": "细藤束成的浅冠，戴久了能让人下意识放缓呼吸。",
+      "statKeys": [
+        "resolvePower",
+        "spellDef",
+        "viewRange"
+      ],
+      "stats": {
+        "spellDef": 9,
+        "viewRange": 1,
+        "resolvePower": 5
+      },
+      "effectCount": 1,
+      "effectIds": [
+        "verdant-crown-study"
+      ]
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.yellow_stone_browguard",
+      "name": "黄岩额护",
+      "grade": "yellow",
+      "level": 19,
+      "equipSlot": "head",
+      "desc": "压在眉骨上的黄石片不算好看，但戴着很稳。",
+      "statKeys": [
+        "maxHp",
+        "physDef",
+        "resolvePower"
+      ],
+      "stats": {
+        "maxHp": 3,
+        "physDef": 6,
+        "resolvePower": 6
+      },
+      "effectCount": 1,
+      "effectIds": [
+        "yellow-stone-settle"
+      ]
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.ridgehide_vest",
+      "name": "岭皮坎肩",
+      "grade": "yellow",
+      "level": 19,
+      "equipSlot": "body",
+      "desc": "用厚脉岭妖兽硬皮裁出来的坎肩，粗糙但耐磨。",
+      "statKeys": [
+        "maxHp",
+        "physDef"
+      ],
+      "stats": {
+        "maxHp": 8,
+        "physDef": 15
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.heavy_claw_boots",
+      "name": "重爪靴",
+      "grade": "yellow",
+      "level": 19,
+      "equipSlot": "legs",
+      "desc": "靴底像爪钩一样啃地，踩塌松石坡时不容易被带走。",
+      "statKeys": [
+        "breakPower",
+        "moveSpeed",
+        "physDef"
+      ],
+      "stats": {
+        "moveSpeed": 23,
+        "physDef": 7,
+        "breakPower": 3
+      },
+      "effectCount": 1,
+      "effectIds": [
+        "heavy-claw-root"
+      ]
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.scar_tread_boots",
+      "name": "裂痕踏靴",
+      "grade": "yellow",
+      "level": 19,
+      "equipSlot": "legs",
+      "desc": "鞋底尽是旧裂纹，踩在碎刃和砂地上反而不容易打滑。",
+      "statKeys": [
+        "dodge",
+        "moveSpeed"
+      ],
+      "stats": {
+        "moveSpeed": 28,
+        "dodge": 4
+      },
+      "effectCount": 1,
+      "effectIds": [
+        "scar-tread-step"
+      ]
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.returnbreath_copper_pendant",
+      "name": "归息铜佩",
+      "grade": "yellow",
+      "level": 19,
+      "equipSlot": "accessory",
+      "desc": "听脉之后发下来的小铜佩，佩口虽旧，却很会把散出去的真气慢慢拢回来。",
+      "statKeys": [
+        "maxQi",
+        "maxQiOutputPerTick",
+        "qiRegenRate"
+      ],
+      "stats": {
+        "maxQi": 4.5,
+        "qiRegenRate": 1.1,
+        "maxQiOutputPerTick": 6
+      },
+      "effectCount": 1,
+      "effectIds": [
+        "returnbreath-cultivate"
+      ]
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.cleft_long_halberd",
+      "name": "裂原长戟",
+      "grade": "yellow",
+      "level": 21,
+      "equipSlot": "weapon",
+      "desc": "戟锋一长一短，专门拿来挑开兵甲缝隙。",
+      "statKeys": [
+        "breakPower",
+        "hit",
+        "physAtk"
+      ],
+      "stats": {
+        "physAtk": 21,
+        "hit": 6,
+        "breakPower": 6
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.sinking_vein_hammer",
+      "name": "沉脉锤",
+      "grade": "yellow",
+      "level": 21,
+      "equipSlot": "weapon",
+      "desc": "锤头里灌了铅砂，砸在人身上和砸在地脉上一个味道。",
+      "statKeys": [
+        "breakPower",
+        "hit",
+        "physAtk"
+      ],
+      "stats": {
+        "physAtk": 21,
+        "breakPower": 9,
+        "hit": 4
+      },
+      "effectCount": 1,
+      "effectIds": [
+        "sinking-vein-pound"
+      ]
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.cleantide_robe",
+      "name": "净潮法衣",
+      "grade": "yellow",
+      "level": 21,
+      "equipSlot": "body",
+      "desc": "用净潮水精反复浸过的法衣，最擅长把杂气挡在衣外。",
+      "statKeys": [
+        "maxQi",
+        "resolvePower",
+        "spellDef"
+      ],
+      "stats": {
+        "maxQi": 6,
+        "spellDef": 14,
+        "resolvePower": 6
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.deepvein_plate",
+      "name": "厚脉板甲",
+      "grade": "yellow",
+      "level": 21,
+      "equipSlot": "body",
+      "desc": "甲片很宽，穿上后整个人都像被地气往下拽住。",
+      "statKeys": [
+        "maxHp",
+        "physDef",
+        "resolvePower",
+        "spellDef"
+      ],
+      "stats": {
+        "maxHp": 8.5,
+        "physDef": 17,
+        "spellDef": 6,
+        "resolvePower": 6
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.gold_sand_cuirass",
+      "name": "砂金胸甲",
+      "grade": "yellow",
+      "level": 21,
+      "equipSlot": "body",
+      "desc": "以砂金熔层反复压出的胸甲，挨打时会先听见沙石摩擦声。",
+      "statKeys": [
+        "maxHp",
+        "physDef",
+        "spellDef"
+      ],
+      "stats": {
+        "maxHp": 7.5,
+        "physDef": 14,
+        "spellDef": 6
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.returnvine_robe",
+      "name": "回藤法衣",
+      "grade": "yellow",
+      "level": 21,
+      "equipSlot": "body",
+      "desc": "把藤皮一层层回缠成衣，挨打时会先把劲道化开一截。",
+      "statKeys": [
+        "hpRegenRate",
+        "maxHp",
+        "spellDef"
+      ],
+      "stats": {
+        "maxHp": 8.5,
+        "spellDef": 14,
+        "hpRegenRate": 0.7
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.scorchcourt_battlecoat",
+      "name": "焦庭战衣",
+      "grade": "yellow",
+      "level": 21,
+      "equipSlot": "body",
+      "desc": "战衣外层尽是旧烫痕，穿着它的人往往不是躲火，而是顶着火线往前冲。",
+      "statKeys": [
+        "maxHp",
+        "physDef",
+        "spellAtk"
+      ],
+      "stats": {
+        "maxHp": 8.5,
+        "physDef": 11,
+        "spellAtk": 8
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.burden_greaves",
+      "name": "负岳胫甲",
+      "grade": "yellow",
+      "level": 21,
+      "equipSlot": "legs",
+      "desc": "看着累赘，真走起来反而会把步子压得很实。",
+      "statKeys": [
+        "moveSpeed",
+        "physDef",
+        "resolvePower"
+      ],
+      "stats": {
+        "moveSpeed": 20,
+        "physDef": 9,
+        "resolvePower": 4
+      },
+      "effectCount": 1,
+      "effectIds": [
+        "burden-greaves-brace"
+      ]
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.firestride_boots",
+      "name": "踏火疾靴",
+      "grade": "yellow",
+      "level": 21,
+      "equipSlot": "legs",
+      "desc": "靴底硬得能直接踏过烫地，最适合追着残血不让对方脱身。",
+      "statKeys": [
+        "breakPower",
+        "crit",
+        "moveSpeed"
+      ],
+      "stats": {
+        "moveSpeed": 28,
+        "crit": 4,
+        "breakPower": 4
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.iron_track_boots",
+      "name": "铁辙靴",
+      "grade": "yellow",
+      "level": 21,
+      "equipSlot": "legs",
+      "desc": "踏地很沉，但起步时能把碎地踩出一条直线。",
+      "statKeys": [
+        "hit",
+        "moveSpeed",
+        "physDef"
+      ],
+      "stats": {
+        "moveSpeed": 25,
+        "physDef": 6,
+        "hit": 3
+      },
+      "effectCount": 1,
+      "effectIds": [
+        "iron-track-drive"
+      ]
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.mistwalker_boots",
+      "name": "雾行履",
+      "grade": "yellow",
+      "level": 21,
+      "equipSlot": "legs",
+      "desc": "湿地上踩不出多大声响，适合边游边退地拖节奏。",
+      "statKeys": [
+        "cooldownSpeed",
+        "dodge",
+        "moveSpeed"
+      ],
+      "stats": {
+        "moveSpeed": 25,
+        "dodge": 6,
+        "cooldownSpeed": 5
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.vale_stride_boots",
+      "name": "绕谷轻履",
+      "grade": "yellow",
+      "level": 21,
+      "equipSlot": "legs",
+      "desc": "鞋底轻而韧，最适合在藤桥和碎坡间边绕边退。",
+      "statKeys": [
+        "dodge",
+        "moveSpeed",
+        "qiRegenRate"
+      ],
+      "stats": {
+        "moveSpeed": 27,
+        "dodge": 6,
+        "qiRegenRate": 0.5
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.fallrock_maul",
+      "name": "坠岩槌",
+      "grade": "yellow",
+      "level": 23,
+      "equipSlot": "weapon",
+      "desc": "举起来慢，落下去却像整块坡石滚下来。",
+      "statKeys": [
+        "breakPower",
+        "hit",
+        "physAtk"
+      ],
+      "stats": {
+        "physAtk": 24,
+        "breakPower": 10,
+        "hit": 6
+      },
+      "effectCount": 1,
+      "effectIds": [
+        "fallrock-burst"
+      ]
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.full_edge_blade",
+      "name": "满锋刀",
+      "grade": "yellow",
+      "level": 23,
+      "equipSlot": "weapon",
+      "desc": "刀身每一寸都被重新开锋，狠是够狠，就是不太讲后劲。",
+      "statKeys": [
+        "crit",
+        "hit",
+        "physAtk"
+      ],
+      "stats": {
+        "physAtk": 24,
+        "hit": 7,
+        "crit": 6
+      },
+      "effectCount": 1,
+      "effectIds": [
+        "full-edge-pursue"
+      ]
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.sand_ghost_mask",
+      "name": "砂魇面",
+      "grade": "yellow",
+      "level": 23,
+      "equipSlot": "head",
+      "desc": "戴久了会让人下意识压低呼吸，适合在乱刃间找空门。",
+      "statKeys": [
+        "crit",
+        "dodge",
+        "viewRange"
+      ],
+      "stats": {
+        "dodge": 6,
+        "crit": 6,
+        "viewRange": 1
+      },
+      "effectCount": 1,
+      "effectIds": [
+        "sand-ghost-haze"
+      ]
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.stone_ridge_helm",
+      "name": "石岭盔",
+      "grade": "yellow",
+      "level": 23,
+      "equipSlot": "head",
+      "desc": "盔沿压得很低，风砂灌进来也不容易乱眼。",
+      "statKeys": [
+        "maxHp",
+        "physDef",
+        "resolvePower",
+        "viewRange"
+      ],
+      "stats": {
+        "maxHp": 3.5,
+        "physDef": 8,
+        "resolvePower": 8,
+        "viewRange": 1
+      },
+      "effectCount": 1,
+      "effectIds": [
+        "stone-ridge-steadfast"
+      ]
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.ridgewall_armor",
+      "name": "岭垣甲",
+      "grade": "yellow",
+      "level": 23,
+      "equipSlot": "body",
+      "desc": "甲面像小型岩垣一样一层层垒起，硬挡很出色。",
+      "statKeys": [
+        "maxHp",
+        "physDef",
+        "resolvePower",
+        "spellDef"
+      ],
+      "stats": {
+        "maxHp": 10,
+        "physDef": 18,
+        "spellDef": 8,
+        "resolvePower": 6
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.chasing_edge_boots",
+      "name": "逐锋履",
+      "grade": "yellow",
+      "level": 23,
+      "equipSlot": "legs",
+      "desc": "鞋尖很薄，专为追着对手步点补刀。",
+      "statKeys": [
+        "crit",
+        "hit",
+        "moveSpeed"
+      ],
+      "stats": {
+        "moveSpeed": 30,
+        "hit": 4,
+        "crit": 3
+      },
+      "effectCount": 1,
+      "effectIds": [
+        "chasing-edge-rush"
+      ]
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.cleft_edge_ring",
+      "name": "裂锋指环",
+      "grade": "yellow",
+      "level": 23,
+      "equipSlot": "accessory",
+      "desc": "环口有一道天然豁口，最适合卡着兵器发力。",
+      "statKeys": [
+        "breakPower",
+        "crit",
+        "hit"
+      ],
+      "stats": {
+        "hit": 5,
+        "breakPower": 6,
+        "crit": 3
+      },
+      "effectCount": 1,
+      "effectIds": [
+        "cleft-edge-mark"
+      ]
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.deepvein_kneeguards",
+      "name": "厚脉护膝",
+      "grade": "yellow",
+      "level": 23,
+      "equipSlot": "accessory",
+      "desc": "膝护边缘做得很厚，专门防着碎石坡上的冷绊子。",
+      "statKeys": [
+        "moveSpeed",
+        "physDef",
+        "resolvePower"
+      ],
+      "stats": {
+        "physDef": 6,
+        "resolvePower": 6,
+        "moveSpeed": 8
+      },
+      "effectCount": 1,
+      "effectIds": [
+        "deepvein-knee-hold"
+      ]
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.gold_sand_talisman",
+      "name": "砂金符坠",
+      "grade": "yellow",
+      "level": 23,
+      "equipSlot": "accessory",
+      "desc": "封着一撮砂金锋屑，静修时真气会沿着符纹自己磨一遍。",
+      "statKeys": [
+        "breakPower",
+        "maxQi",
+        "qiRegenRate"
+      ],
+      "stats": {
+        "maxQi": 4.5,
+        "qiRegenRate": 1.1,
+        "breakPower": 6
+      },
+      "effectCount": 1,
+      "effectIds": [
+        "gold-sand-temper"
+      ]
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.shieldvein_stone",
+      "name": "护脉石",
+      "grade": "yellow",
+      "level": 23,
+      "equipSlot": "accessory",
+      "desc": "贴身佩着时，真气会不自觉绕着经脉走得更稳。",
+      "statKeys": [
+        "maxQi",
+        "maxQiOutputPerTick",
+        "physDef",
+        "resolvePower"
+      ],
+      "stats": {
+        "maxQi": 3.5,
+        "physDef": 6,
+        "resolvePower": 8,
+        "maxQiOutputPerTick": 5
+      },
+      "effectCount": 1,
+      "effectIds": [
+        "shieldvein-breathe"
+      ]
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.banner_war_halberd",
+      "name": "残旗战戟",
+      "grade": "mystic",
+      "level": 25,
+      "equipSlot": "weapon",
+      "desc": "戟杆还缠着半截旧旗，越挥越像是在往前压阵。",
+      "statKeys": [
+        "breakPower",
+        "hit",
+        "physAtk"
+      ],
+      "stats": {
+        "physAtk": 24,
+        "hit": 7,
+        "breakPower": 8
+      },
+      "effectCount": 1,
+      "effectIds": [
+        "banner-war-fury"
+      ]
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.yuepattern_pole",
+      "name": "岳纹杆",
+      "grade": "mystic",
+      "level": 25,
+      "equipSlot": "weapon",
+      "desc": "杆身刻着旧岳纹，越是硬碰硬，纹路越会亮。",
+      "statKeys": [
+        "breakPower",
+        "hit",
+        "physAtk",
+        "spellAtk"
+      ],
+      "stats": {
+        "physAtk": 24,
+        "spellAtk": 5,
+        "hit": 7,
+        "breakPower": 8
+      },
+      "effectCount": 1,
+      "effectIds": [
+        "yuepattern-rise"
+      ]
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.remnant_banner_helm",
+      "name": "残旗盔",
+      "grade": "mystic",
+      "level": 25,
+      "equipSlot": "head",
+      "desc": "旧盔顶上还留着旗杆卡槽，戴着的人总会不自觉把背挺直。",
+      "statKeys": [
+        "hit",
+        "maxHp",
+        "resolvePower"
+      ],
+      "stats": {
+        "maxHp": 2.5,
+        "resolvePower": 5,
+        "hit": 4
+      },
+      "effectCount": 1,
+      "effectIds": [
+        "banner-helm-aura"
+      ]
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.yuetown_mask",
+      "name": "御土面",
+      "grade": "mystic",
+      "level": 25,
+      "equipSlot": "head",
+      "desc": "面甲内侧覆着一层细土膜，能把心火和浮气一起压下去。",
+      "statKeys": [
+        "resolvePower",
+        "spellDef",
+        "viewRange"
+      ],
+      "stats": {
+        "spellDef": 8,
+        "resolvePower": 8,
+        "viewRange": 1
+      },
+      "effectCount": 1,
+      "effectIds": [
+        "yuetown-mask-ground"
+      ]
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.cleft_blade_cloak",
+      "name": "裂锋披",
+      "grade": "mystic",
+      "level": 25,
+      "equipSlot": "body",
+      "desc": "披摆里缝了不少碎刃片，转身时总能带出一点险劲。",
+      "statKeys": [
+        "dodge",
+        "maxHp",
+        "spellDef"
+      ],
+      "stats": {
+        "maxHp": 7,
+        "dodge": 5,
+        "spellDef": 7
+      },
+      "effectCount": 1,
+      "effectIds": [
+        "cleft-cloak-shift"
+      ]
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.cleft_scale_armor",
+      "name": "裂鳞甲",
+      "grade": "mystic",
+      "level": 25,
+      "equipSlot": "body",
+      "desc": "层层铁片像断鳞一样扣在一起，硬顶硬拼时更显得可靠。",
+      "statKeys": [
+        "maxHp",
+        "physDef",
+        "resolvePower"
+      ],
+      "stats": {
+        "maxHp": 8.5,
+        "physDef": 15,
+        "resolvePower": 5
+      },
+      "effectCount": 1,
+      "effectIds": [
+        "cleft-scale-laststand"
+      ]
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.deepvein_chestguard",
+      "name": "厚脉护胸",
+      "grade": "mystic",
+      "level": 25,
+      "equipSlot": "body",
+      "desc": "胸口压着一整块厚脉石板，起手再猛也先得过它这一关。",
+      "statKeys": [
+        "maxHp",
+        "physDef",
+        "resolvePower"
+      ],
+      "stats": {
+        "maxHp": 8.5,
+        "physDef": 15,
+        "resolvePower": 7
+      },
+      "effectCount": 1,
+      "effectIds": [
+        "deepvein-chest-flow"
+      ]
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.terrace_guard_armor",
+      "name": "台垣守甲",
+      "grade": "mystic",
+      "level": 25,
+      "equipSlot": "body",
+      "desc": "像台地边墙一样层层搭起的守甲，很难被一口气打穿。",
+      "statKeys": [
+        "maxHp",
+        "physDef",
+        "resolvePower",
+        "spellDef"
+      ],
+      "stats": {
+        "maxHp": 10.5,
+        "physDef": 17,
+        "spellDef": 9,
+        "resolvePower": 7
+      },
+      "effectCount": 1,
+      "effectIds": [
+        "terrace-guard-last"
+      ]
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.edge_command_token",
+      "name": "锋令牌",
+      "grade": "mystic",
+      "level": 25,
+      "equipSlot": "accessory",
+      "desc": "旧军令牌的边口被磨得极锋，持有者会本能地找最直接的冲阵线。",
+      "statKeys": [
+        "breakPower",
+        "maxQi",
+        "maxQiOutputPerTick",
+        "resolvePower"
+      ],
+      "stats": {
+        "maxQi": 4.5,
+        "breakPower": 7,
+        "resolvePower": 4,
+        "maxQiOutputPerTick": 5
+      },
+      "effectCount": 1,
+      "effectIds": [
+        "edge-command-line"
+      ]
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.mountainheart_token",
+      "name": "山心符",
+      "grade": "mystic",
+      "level": 25,
+      "equipSlot": "accessory",
+      "desc": "符心像压着一颗小石胆，越乱的时候越能把气机往中宫收。",
+      "statKeys": [
+        "maxHp",
+        "maxQi",
+        "physDef",
+        "resolvePower"
+      ],
+      "stats": {
+        "maxHp": 4,
+        "maxQi": 4,
+        "physDef": 5,
+        "resolvePower": 8
+      },
+      "effectCount": 1,
+      "effectIds": [
+        "mountainheart-ridge"
+      ]
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.dew_tide_pendant",
+      "name": "凝露潮佩",
+      "grade": "mystic",
+      "level": 26,
+      "equipSlot": "accessory",
+      "desc": "把净潮凝露压进佩坠后，法修出手总会带一点更冷更准的尾劲。",
+      "statKeys": [
+        "hit",
+        "qiRegenRate",
+        "spellAtk"
+      ],
+      "stats": {
+        "spellAtk": 8,
+        "qiRegenRate": 1,
+        "hit": 4
+      },
+      "effectCount": 1,
+      "effectIds": [
+        "dew-tide-focus"
+      ]
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.furnace_red_ring",
+      "name": "炉心赤戒",
+      "grade": "mystic",
+      "level": 26,
+      "equipSlot": "accessory",
+      "desc": "戒心里封着一粒炉心赤晶，真正开打时会把人的火劲再往上顶半截。",
+      "statKeys": [
+        "crit",
+        "maxQiOutputPerTick",
+        "spellAtk"
+      ],
+      "stats": {
+        "spellAtk": 8,
+        "crit": 4,
+        "maxQiOutputPerTick": 8
+      },
+      "effectCount": 1,
+      "effectIds": [
+        "furnace-red-burst"
+      ]
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.lifepulse_pendant",
+      "name": "生脉木佩",
+      "grade": "mystic",
+      "level": 26,
+      "equipSlot": "accessory",
+      "desc": "木心磨出来的佩坠，贴身带着时气海总像有一股慢劲在往上托。",
+      "statKeys": [
+        "hpRegenRate",
+        "maxQi",
+        "spellAtk"
+      ],
+      "stats": {
+        "maxQi": 5.5,
+        "spellAtk": 8,
+        "hpRegenRate": 0.9
+      },
+      "effectCount": 1,
+      "effectIds": [
+        "lifepulse-map-aura"
+      ]
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.burden_stele_staff",
+      "name": "负碑杖",
+      "grade": "mystic",
+      "level": 27,
+      "equipSlot": "weapon",
+      "desc": "杖头像扛着半块碑，挥出去总有种压塌对面肩背的劲。",
+      "statKeys": [
+        "breakPower",
+        "hit",
+        "physAtk",
+        "spellAtk"
+      ],
+      "stats": {
+        "physAtk": 25,
+        "spellAtk": 8,
+        "hit": 7,
+        "breakPower": 9
+      },
+      "effectCount": 1,
+      "effectIds": [
+        "burden-stele-echo"
+      ]
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.stele_edge_blade",
+      "name": "碑锋刃",
+      "grade": "mystic",
+      "level": 27,
+      "equipSlot": "weapon",
+      "desc": "刀身像是从半块残碑里硬剖出来的，挥动时带着沉闷回震。",
+      "statKeys": [
+        "breakPower",
+        "hit",
+        "physAtk",
+        "spellAtk"
+      ],
+      "stats": {
+        "physAtk": 26,
+        "spellAtk": 8,
+        "hit": 8,
+        "breakPower": 7
+      },
+      "effectCount": 1,
+      "effectIds": [
+        "stele-edge-resound"
+      ]
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.heavystele_helm",
+      "name": "重碑盔",
+      "grade": "mystic",
+      "level": 27,
+      "equipSlot": "head",
+      "desc": "像直接顶着碑角一样沉，静下来后反而神完气足。",
+      "statKeys": [
+        "maxHp",
+        "resolvePower",
+        "spellDef"
+      ],
+      "stats": {
+        "maxHp": 4,
+        "spellDef": 10,
+        "resolvePower": 8
+      },
+      "effectCount": 1,
+      "effectIds": [
+        "heavystele-breath"
+      ]
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.stele_pattern_helm",
+      "name": "碑纹盔",
+      "grade": "mystic",
+      "level": 27,
+      "equipSlot": "head",
+      "desc": "盔额上压着断碑纹路，神识稍一收束，眼前线条就会清楚许多。",
+      "statKeys": [
+        "resolvePower",
+        "spellDef",
+        "viewRange"
+      ],
+      "stats": {
+        "spellDef": 10,
+        "viewRange": 1,
+        "resolvePower": 5
+      },
+      "effectCount": 1,
+      "effectIds": [
+        "stele-pattern-focus"
+      ]
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.edge_core_shell",
+      "name": "锋核壳甲",
+      "grade": "mystic",
+      "level": 27,
+      "equipSlot": "body",
+      "desc": "甲心封着一块未散锋核，真气越稳，它反咬出来的劲越足。",
+      "statKeys": [
+        "maxHp",
+        "maxQi",
+        "physDef",
+        "spellDef"
+      ],
+      "stats": {
+        "maxHp": 9,
+        "maxQi": 4,
+        "physDef": 16,
+        "spellDef": 11
+      },
+      "effectCount": 1,
+      "effectIds": [
+        "edge-core-surge"
+      ]
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.loadstone_plate",
+      "name": "载山甲",
+      "grade": "mystic",
+      "level": 27,
+      "equipSlot": "body",
+      "desc": "甲心嵌着磁石，能把周围散乱的冲劲都往甲面上拽。",
+      "statKeys": [
+        "maxHp",
+        "physDef",
+        "resolvePower",
+        "spellDef"
+      ],
+      "stats": {
+        "maxHp": 11,
+        "physDef": 19,
+        "spellDef": 11,
+        "resolvePower": 8
+      },
+      "effectCount": 1,
+      "effectIds": [
+        "loadstone-shell"
+      ]
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.cleft_blade_armguard",
+      "name": "裂锋护臂",
+      "grade": "mystic",
+      "level": 27,
+      "equipSlot": "accessory",
+      "desc": "护臂边缘做得比寻常更薄，架招时能顺手把力道顶回去。",
+      "statKeys": [
+        "breakPower",
+        "hit",
+        "physDef"
+      ],
+      "stats": {
+        "physDef": 7,
+        "breakPower": 5,
+        "hit": 4
+      },
+      "effectCount": 1,
+      "effectIds": [
+        "cleft-armguard-rebound"
+      ]
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.deepvein_gauntlets",
+      "name": "厚脉护手",
+      "grade": "mystic",
+      "level": 27,
+      "equipSlot": "accessory",
+      "desc": "拳背和掌侧都压了石片，格挡和发力都特别顶手。",
+      "statKeys": [
+        "breakPower",
+        "physAtk",
+        "physDef"
+      ],
+      "stats": {
+        "physAtk": 5,
+        "physDef": 5,
+        "breakPower": 7
+      },
+      "effectCount": 1,
+      "effectIds": [
+        "deepvein-gauntlet-drive"
+      ]
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.quakeheart_stone",
+      "name": "震心石",
+      "grade": "mystic",
+      "level": 27,
+      "equipSlot": "accessory",
+      "desc": "拿在手里会隐隐发颤，吞纳时却能把经脉震得更开。",
+      "statKeys": [
+        "breakPower",
+        "maxQi",
+        "resolvePower",
+        "spellDef"
+      ],
+      "stats": {
+        "maxQi": 5.5,
+        "breakPower": 7,
+        "resolvePower": 8,
+        "spellDef": 7
+      },
+      "effectCount": 1,
+      "effectIds": [
+        "quakeheart-advance"
+      ]
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.sealed_edge_stoneheart",
+      "name": "封锋石心",
+      "grade": "mystic",
+      "level": 27,
+      "equipSlot": "accessory",
+      "desc": "外头看着像块死石，行功时里头封着的锋气却会一点点醒过来。",
+      "statKeys": [
+        "maxQi",
+        "maxQiOutputPerTick",
+        "resolvePower"
+      ],
+      "stats": {
+        "maxQi": 5.5,
+        "maxQiOutputPerTick": 7,
+        "resolvePower": 5
+      },
+      "effectCount": 1,
+      "effectIds": [
+        "sealed-edge-cultivate"
+      ]
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.darkpeak_fist_seal",
+      "name": "黯峰拳印",
+      "grade": "mystic",
+      "level": 29,
+      "equipSlot": "weapon",
+      "desc": "像把一整座黑峰的坠势封进了拳印里，越近身越凶。",
+      "statKeys": [
+        "breakPower",
+        "hit",
+        "physAtk",
+        "resolvePower",
+        "spellAtk"
+      ],
+      "stats": {
+        "physAtk": 32,
+        "spellAtk": 8,
+        "hit": 8,
+        "breakPower": 12,
+        "resolvePower": 5
+      },
+      "effectCount": 1,
+      "effectIds": [
+        "darkpeak-pound"
+      ]
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.geng_gate_blade",
+      "name": "庚门断锋",
+      "grade": "mystic",
+      "level": 29,
+      "equipSlot": "weapon",
+      "desc": "埋在门阙下多年的古刃，拔出来时还带着一股压门镇路的狠意。",
+      "statKeys": [
+        "breakPower",
+        "crit",
+        "hit",
+        "physAtk",
+        "spellAtk"
+      ],
+      "stats": {
+        "physAtk": 32,
+        "spellAtk": 11,
+        "hit": 9,
+        "breakPower": 9,
+        "crit": 5
+      },
+      "effectCount": 1,
+      "effectIds": [
+        "geng-gate-break"
+      ]
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.guizang_conflux_blade",
+      "name": "归藏合流刃",
+      "grade": "mystic",
+      "level": 29,
+      "equipSlot": "weapon",
+      "desc": "刀脊里压着多股细气，挥起来像把几路劲同时并成一股。",
+      "statKeys": [
+        "hit",
+        "maxQiOutputPerTick",
+        "physAtk",
+        "spellAtk"
+      ],
+      "stats": {
+        "physAtk": 13,
+        "spellAtk": 13,
+        "hit": 5,
+        "maxQiOutputPerTick": 5
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.remnant_banner_spear",
+      "name": "残旌枪",
+      "grade": "mystic",
+      "level": 29,
+      "equipSlot": "weapon",
+      "desc": "枪杆极长，最适合踩着前势把人一口气钉退。",
+      "statKeys": [
+        "breakPower",
+        "crit",
+        "hit",
+        "physAtk"
+      ],
+      "stats": {
+        "physAtk": 29,
+        "hit": 8,
+        "crit": 5,
+        "breakPower": 7
+      },
+      "effectCount": 1,
+      "effectIds": [
+        "remnant-banner-push"
+      ]
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.ridgecleft_halberd",
+      "name": "裂岭戟",
+      "grade": "mystic",
+      "level": 29,
+      "equipSlot": "weapon",
+      "desc": "戟锋像从山脊豁口里抽出来的一截石铁，砸出去就带裂地声。",
+      "statKeys": [
+        "breakPower",
+        "hit",
+        "physAtk"
+      ],
+      "stats": {
+        "physAtk": 29,
+        "hit": 8,
+        "breakPower": 11
+      },
+      "effectCount": 1,
+      "effectIds": [
+        "ridgecleft-smash"
+      ]
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.bent_flag_heavy_helm",
+      "name": "折旗重盔",
+      "grade": "mystic",
+      "level": 29,
+      "equipSlot": "head",
+      "desc": "盔体沉得很，但也真能替人把一口硬气压住。",
+      "statKeys": [
+        "maxHp",
+        "physDef",
+        "resolvePower"
+      ],
+      "stats": {
+        "maxHp": 3.5,
+        "physDef": 7,
+        "resolvePower": 7
+      },
+      "effectCount": 1,
+      "effectIds": [
+        "bent-flag-grit"
+      ]
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.earthlord_helm",
+      "name": "镇岳君盔",
+      "grade": "mystic",
+      "level": 29,
+      "equipSlot": "head",
+      "desc": "盔冠像缩小后的山岳，戴上后连呼吸都像在往下沉。",
+      "statKeys": [
+        "maxHp",
+        "physDef",
+        "resolvePower",
+        "spellDef"
+      ],
+      "stats": {
+        "maxHp": 5.5,
+        "physDef": 10,
+        "spellDef": 10,
+        "resolvePower": 11
+      },
+      "effectCount": 1,
+      "effectIds": [
+        "earthlord-aura"
+      ]
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.fiveqi_watch_crown",
+      "name": "五炁观脉冠",
+      "grade": "mystic",
+      "level": 29,
+      "equipSlot": "head",
+      "desc": "冠骨里嵌着五色微纹，最适合在乱流里分辨哪一路气先要顶上来。",
+      "statKeys": [
+        "maxQi",
+        "resolvePower",
+        "spellDef"
+      ],
+      "stats": {
+        "maxQi": 4,
+        "spellDef": 10,
+        "resolvePower": 7
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.mount_guard_helm",
+      "name": "镇岭盔",
+      "grade": "mystic",
+      "level": 29,
+      "equipSlot": "head",
+      "desc": "盔壁很厚，像把半圈矮城墙扣在了头上。",
+      "statKeys": [
+        "hit",
+        "maxHp",
+        "physDef",
+        "resolvePower"
+      ],
+      "stats": {
+        "maxHp": 4.5,
+        "physDef": 8,
+        "resolvePower": 10,
+        "hit": 3
+      },
+      "effectCount": 1,
+      "effectIds": [
+        "mount-guard-wall"
+      ]
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.tomb_gate_general_helm",
+      "name": "镇门将盔",
+      "grade": "mystic",
+      "level": 29,
+      "equipSlot": "head",
+      "desc": "盔面还压着旧时将纹，看人时天然带股逼视感。",
+      "statKeys": [
+        "hit",
+        "maxHp",
+        "resolvePower",
+        "spellDef"
+      ],
+      "stats": {
+        "maxHp": 4,
+        "spellDef": 11,
+        "resolvePower": 8,
+        "hit": 5
+      },
+      "effectCount": 1,
+      "effectIds": [
+        "gate-general-gaze"
+      ]
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.cleft_blade_relic_armor",
+      "name": "裂锋遗甲",
+      "grade": "mystic",
+      "level": 29,
+      "equipSlot": "body",
+      "desc": "遗在古战阵中心的旧甲，碎得厉害，却还保着半口不肯散的锋势。",
+      "statKeys": [
+        "breakPower",
+        "maxHp",
+        "physDef",
+        "spellDef"
+      ],
+      "stats": {
+        "maxHp": 13,
+        "physDef": 19,
+        "spellDef": 13,
+        "breakPower": 5
+      },
+      "effectCount": 1,
+      "effectIds": [
+        "cleft-relic-echo"
+      ]
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.gold_coffin_plate",
+      "name": "金棺重甲",
+      "grade": "mystic",
+      "level": 29,
+      "equipSlot": "body",
+      "desc": "像棺板一样一层层压上的厚甲，沉得惊人，也稳得惊人。",
+      "statKeys": [
+        "maxHp",
+        "physDef",
+        "resolvePower",
+        "spellDef"
+      ],
+      "stats": {
+        "maxHp": 12,
+        "physDef": 20,
+        "spellDef": 13,
+        "resolvePower": 8
+      },
+      "effectCount": 1,
+      "effectIds": [
+        "gold-coffin-hold"
+      ]
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.guizang_aperture_robe",
+      "name": "归窍法衣",
+      "grade": "mystic",
+      "level": 29,
+      "equipSlot": "body",
+      "desc": "旧立基法衣残剩的外层，最擅长把多路气机往几个稳当的窍口里导。",
+      "statKeys": [
+        "maxHp",
+        "maxQi",
+        "physDef",
+        "spellDef"
+      ],
+      "stats": {
+        "maxHp": 10.5,
+        "maxQi": 5,
+        "physDef": 11,
+        "spellDef": 11
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.mountainseal_plate",
+      "name": "封岳甲",
+      "grade": "mystic",
+      "level": 29,
+      "equipSlot": "body",
+      "desc": "甲心像压着半座山印，硬碰硬时最能把人往死里钉。",
+      "statKeys": [
+        "maxHp",
+        "physDef",
+        "resolvePower",
+        "spellDef"
+      ],
+      "stats": {
+        "maxHp": 13,
+        "physDef": 21,
+        "spellDef": 13,
+        "resolvePower": 11
+      },
+      "effectCount": 1,
+      "effectIds": [
+        "mountainseal-hold"
+      ]
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.old_guard_iron_armor",
+      "name": "旧卫铁甲",
+      "grade": "mystic",
+      "level": 29,
+      "equipSlot": "body",
+      "desc": "并不漂亮，但就是那种会让人觉得能硬扛到底的老甲。",
+      "statKeys": [
+        "maxHp",
+        "physDef",
+        "resolvePower",
+        "spellDef"
+      ],
+      "stats": {
+        "maxHp": 10.5,
+        "physDef": 17,
+        "spellDef": 9,
+        "resolvePower": 7
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.rampart_plate",
+      "name": "垒垣甲",
+      "grade": "mystic",
+      "level": 29,
+      "equipSlot": "body",
+      "desc": "一层比一层厚，站定以后像直接把人种进地里。",
+      "statKeys": [
+        "maxHp",
+        "physDef",
+        "resolvePower",
+        "spellDef"
+      ],
+      "stats": {
+        "maxHp": 12,
+        "physDef": 20,
+        "spellDef": 12,
+        "resolvePower": 9
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.returnarray_boots",
+      "name": "回阵行履",
+      "grade": "mystic",
+      "level": 29,
+      "equipSlot": "legs",
+      "desc": "靴底留着旧阵步纹，踩在乱流甬道里比寻常鞋更容易抢回步点。",
+      "statKeys": [
+        "cooldownSpeed",
+        "dodge",
+        "moveSpeed"
+      ],
+      "stats": {
+        "moveSpeed": 25,
+        "dodge": 5,
+        "cooldownSpeed": 5
+      },
+      "effectCount": 0,
+      "effectIds": []
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.cleft_blade_shoulder",
+      "name": "裂锋肩甲",
+      "grade": "mystic",
+      "level": 29,
+      "equipSlot": "accessory",
+      "desc": "肩口故意做得外突，冲撞和顶肩时很占便宜。",
+      "statKeys": [
+        "maxHp",
+        "physDef",
+        "resolvePower"
+      ],
+      "stats": {
+        "maxHp": 5.5,
+        "physDef": 7,
+        "resolvePower": 5
+      },
+      "effectCount": 1,
+      "effectIds": [
+        "cleft-shoulder-line"
+      ]
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.counter_shock_iron_ring",
+      "name": "反震铁环",
+      "grade": "mystic",
+      "level": 29,
+      "equipSlot": "accessory",
+      "desc": "以裂纹铁心打成的小环，挨上劲时总会顺着臂骨回出一段闷震。",
+      "statKeys": [
+        "breakPower",
+        "crit",
+        "spellDef"
+      ],
+      "stats": {
+        "breakPower": 7,
+        "spellDef": 7,
+        "crit": 4
+      },
+      "effectCount": 1,
+      "effectIds": [
+        "counter-shock-ripple"
+      ]
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.deepvein_core",
+      "name": "厚脉核",
+      "grade": "mystic",
+      "level": 29,
+      "equipSlot": "accessory",
+      "desc": "像一枚被地气反复压实的脉核，行功时很会往主脉里聚劲。",
+      "statKeys": [
+        "maxQi",
+        "maxQiOutputPerTick",
+        "physDef",
+        "resolvePower",
+        "spellDef"
+      ],
+      "stats": {
+        "maxQi": 6.5,
+        "maxQiOutputPerTick": 8,
+        "physDef": 7,
+        "resolvePower": 11,
+        "spellDef": 8
+      },
+      "effectCount": 1,
+      "effectIds": [
+        "deepvein-core-cultivate"
+      ]
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.deepvein_relic",
+      "name": "厚脉遗器",
+      "grade": "mystic",
+      "level": 29,
+      "equipSlot": "accessory",
+      "desc": "旧祭器残到只剩一团沉核，贴身带着仍能借到一点古脉余势。",
+      "statKeys": [
+        "maxHp",
+        "maxQi",
+        "physDef",
+        "resolvePower",
+        "spellDef"
+      ],
+      "stats": {
+        "maxHp": 6.5,
+        "maxQi": 5.5,
+        "physDef": 8,
+        "spellDef": 8,
+        "resolvePower": 8
+      },
+      "effectCount": 1,
+      "effectIds": [
+        "deepvein-relic-guard"
+      ]
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.deepvein_relic_shard",
+      "name": "厚脉遗片",
+      "grade": "mystic",
+      "level": 29,
+      "equipSlot": "accessory",
+      "desc": "从旧祭器上崩下来的边角，残得厉害，却还记得几分旧法。",
+      "statKeys": [
+        "maxHp",
+        "maxQi",
+        "physDef",
+        "resolvePower"
+      ],
+      "stats": {
+        "maxHp": 5.5,
+        "maxQi": 4.5,
+        "physDef": 5,
+        "resolvePower": 7
+      },
+      "effectCount": 1,
+      "effectIds": [
+        "deepvein-shard-study"
+      ]
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.sealed_path_token",
+      "name": "封路令",
+      "grade": "mystic",
+      "level": 29,
+      "equipSlot": "accessory",
+      "desc": "旧时封山闭路的令牌，修炼时有股强行把气机压回主脉的蛮劲。",
+      "statKeys": [
+        "maxQi",
+        "maxQiOutputPerTick",
+        "resolvePower",
+        "spellAtk"
+      ],
+      "stats": {
+        "maxQi": 6.5,
+        "maxQiOutputPerTick": 8,
+        "spellAtk": 8,
+        "resolvePower": 7
+      },
+      "effectCount": 1,
+      "effectIds": [
+        "sealed-path-march"
+      ]
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.sealridge_iron_ring",
+      "name": "封岭铁环",
+      "grade": "mystic",
+      "level": 29,
+      "equipSlot": "accessory",
+      "desc": "戴上后会觉得四肢发沉，但换来的就是格外稳的气机。",
+      "statKeys": [
+        "breakPower",
+        "maxQi",
+        "physDef",
+        "resolvePower"
+      ],
+      "stats": {
+        "maxQi": 4,
+        "physDef": 7,
+        "resolvePower": 8,
+        "breakPower": 7
+      },
+      "effectCount": 1,
+      "effectIds": [
+        "sealridge-return"
+      ]
+    },
+    {
+      "realm": "练气期",
+      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "itemId": "equip.halfbase_ring",
+      "name": "半基灵环",
+      "grade": "earth",
+      "level": 30,
+      "equipSlot": "accessory",
+      "desc": "灵胚碎出的一圈淡光压成小环，贴身带着时气海会变得格外愿意听话。",
+      "statKeys": [
+        "maxHp",
+        "physAtk",
+        "qiRegenRate",
+        "spellAtk"
+      ],
+      "stats": {
+        "maxHp": 5,
+        "physAtk": 5,
+        "spellAtk": 5,
+        "qiRegenRate": 1.2
+      },
+      "effectCount": 1,
+      "effectIds": [
+        "halfbase-ring-harmony"
+      ]
+    }
+  ]
+}

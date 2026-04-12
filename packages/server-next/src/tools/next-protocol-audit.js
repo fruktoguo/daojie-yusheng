@@ -5,6 +5,7 @@
 
 var fs = require("node:fs");
 var path = require("node:path");
+var pg = require("pg");
 var shared = require("@mud/shared-next");
 var envAlias = require("../config/env-alias");
 var lib = require("./next-protocol-audit-lib");
@@ -73,8 +74,10 @@ var LEGACY_S2C_SET = new Set([
 /**
  * 协议审计 Markdown 报告的输出路径。
  */
+var DOC_OUTPUT = path.resolve(__dirname, "../../../../docs/next-protocol-audit.md");
 
-var HAS_DATABASE = Boolean(envAlias.resolveServerNextDatabaseUrl());
+var SERVER_NEXT_DATABASE_URL = envAlias.resolveServerNextDatabaseUrl();
+var HAS_DATABASE = Boolean(SERVER_NEXT_DATABASE_URL);
 /**
  * 本次审计预期应该覆盖到的 next 上行事件清单。
  */
@@ -87,11 +90,6 @@ var EXPECTED_C2S = [
   NEXT_C2S.UseAction,
   NEXT_C2S.RequestDetail,
   NEXT_C2S.RequestTileDetail,
-  NEXT_C2S.GmGetState,
-  NEXT_C2S.GmSpawnBots,
-  NEXT_C2S.GmRemoveBots,
-  NEXT_C2S.GmUpdatePlayer,
-  NEXT_C2S.GmResetPlayer,
   NEXT_C2S.RequestQuests,
   NEXT_C2S.RequestNpcQuests,
   NEXT_C2S.UsePortal,
@@ -161,13 +159,18 @@ var EXPECTED_S2C = [
   NEXT_S2C.Detail,
   NEXT_S2C.TileDetail,
   NEXT_S2C.NpcShop,
-  NEXT_S2C.GmState,
   NEXT_S2C.Error,
   NEXT_S2C.Kick,
   NEXT_S2C.Pong,
 ];
 if (HAS_DATABASE) {
+  EXPECTED_C2S.push(NEXT_C2S.GmGetState);
+  EXPECTED_C2S.push(NEXT_C2S.GmSpawnBots);
+  EXPECTED_C2S.push(NEXT_C2S.GmRemoveBots);
+  EXPECTED_C2S.push(NEXT_C2S.GmUpdatePlayer);
+  EXPECTED_C2S.push(NEXT_C2S.GmResetPlayer);
   EXPECTED_C2S.push(NEXT_C2S.RedeemCodes);
+  EXPECTED_S2C.push(NEXT_S2C.GmState);
   EXPECTED_S2C.push(NEXT_S2C.RedeemCodesResult);
 }
 /**
@@ -198,6 +201,36 @@ function count(player, itemId) {
  */
   var entry = player.inventory.items.find(function (item) { return item.itemId === itemId; });
   return entry ? entry.count : 0;
+}
+/**
+ * 从当前玩家状态里解析指定功法已解锁的真实技能 ID。
+ */
+function resolveTechniqueSkillId(player, techId) {
+/**
+ * 记录technique。
+ */
+  var technique = player?.techniques?.techniques?.find(function (entry) { return entry.techId === techId; }) ?? null;
+  if (!technique || !Array.isArray(technique.skills)) {
+    throw new Error("missing technique skills for tech: " + techId);
+  }
+/**
+ * 记录level。
+ */
+  var level = Number.isFinite(technique.level) ? technique.level : 1;
+/**
+ * 记录skill。
+ */
+  var skill = technique.skills.find(function (entry) {
+    if (!entry || typeof entry.id !== 'string' || !entry.id.trim()) {
+      return false;
+    }
+    var unlockLevel = Number.isFinite(entry.unlockLevel) ? entry.unlockLevel : 1;
+    return level >= unlockLevel;
+  }) ?? null;
+  if (!skill) {
+    throw new Error("missing unlocked technique skill for tech: " + techId);
+  }
+  return skill.id;
 }
 /**
  * 发送一个上行事件并等待对应下行响应出现。
@@ -359,16 +392,189 @@ async function registerAndLoginPlayer(baseUrl, suffix) {
   if (!payload?.sub || typeof login?.accessToken !== 'string') {
     throw new Error('unexpected login payload: ' + JSON.stringify(login));
   }
+  await ensureNativeDocsForAccessToken(login.accessToken);
 /**
  * 记录玩家ID。
  */
-  var playerId = typeof payload?.playerId === 'string' && payload.playerId.trim()
-    ? payload.playerId.trim()
-    : buildFallbackPlayerId(payload.sub);
+  var playerId = normalizeNextPlayerId(typeof payload?.playerId === 'string' ? payload.playerId.trim() : '')
+    || buildFallbackPlayerId(payload.sub);
   return {
     accessToken: login.accessToken,
     playerId: playerId,
   };
+}
+/**
+ * 在带库审计中，确保 access token 对应账号已有 next identity/snapshot 真源文档。
+ */
+async function ensureNativeDocsForAccessToken(token) {
+  if (!HAS_DATABASE || typeof token !== 'string' || !token.trim()) {
+    return;
+  }
+/**
+ * 记录payload。
+ */
+  var payload = parseJwtPayload(token);
+/**
+ * 记录用户ID。
+ */
+  var tokenUserId = typeof payload?.sub === 'string' ? payload.sub.trim() : '';
+/**
+ * 记录玩家ID。
+ */
+  var tokenPlayerId = normalizeNextPlayerId(typeof payload?.playerId === 'string' ? payload.playerId.trim() : '');
+/**
+ * 记录用户名。
+ */
+  var tokenUsername = typeof payload?.username === 'string' ? payload.username.trim() : '';
+/**
+ * 记录显示名。
+ */
+  var tokenDisplayName = typeof payload?.displayName === 'string' ? payload.displayName.trim() : '';
+/**
+ * 记录角色名。
+ */
+  var tokenPlayerName = typeof payload?.playerName === 'string' ? payload.playerName.trim() : tokenDisplayName;
+  if (!tokenUserId) {
+    return;
+  }
+  var pool = new pg.Pool({
+    connectionString: SERVER_NEXT_DATABASE_URL,
+  });
+  try {
+    if (!tokenPlayerId) {
+      var playerResult = await pool.query('SELECT id, name FROM players WHERE "userId" = $1::uuid LIMIT 1', [tokenUserId]);
+      var playerRow = Array.isArray(playerResult?.rows) ? playerResult.rows[0] : null;
+      tokenPlayerId = normalizeNextPlayerId(typeof playerRow?.id === 'string' ? playerRow.id.trim() : tokenPlayerId);
+      if (!tokenPlayerName) {
+        tokenPlayerName = typeof playerRow?.name === 'string' ? playerRow.name.trim() : tokenPlayerName;
+      }
+    }
+    if (!tokenUsername || !tokenDisplayName) {
+      var userResult = await pool.query('SELECT username, "displayName" FROM users WHERE id = $1::uuid LIMIT 1', [tokenUserId]);
+      var userRow = Array.isArray(userResult?.rows) ? userResult.rows[0] : null;
+      if (!tokenUsername) {
+        tokenUsername = typeof userRow?.username === 'string' ? userRow.username.trim() : tokenUsername;
+      }
+      if (!tokenDisplayName) {
+        tokenDisplayName = typeof userRow?.displayName === 'string' ? userRow.displayName.trim() : tokenDisplayName;
+      }
+    }
+    if (!tokenPlayerName) {
+      tokenPlayerName = tokenDisplayName;
+    }
+    if (!tokenPlayerId || !tokenUsername || !tokenDisplayName || !tokenPlayerName) {
+      return;
+    }
+    await pool.query(`
+      INSERT INTO persistent_documents(scope, key, payload, "updatedAt")
+      VALUES ($1, $2, $3::jsonb, now())
+      ON CONFLICT (scope, key)
+      DO UPDATE SET payload = EXCLUDED.payload, "updatedAt" = now()
+    `, ['server_next_player_identities_v1', tokenUserId, JSON.stringify({
+      version: 1,
+      userId: tokenUserId,
+      username: tokenUsername,
+      displayName: tokenDisplayName,
+      playerId: tokenPlayerId,
+      playerName: tokenPlayerName,
+      persistedSource: 'token_seed',
+      updatedAt: Date.now(),
+    })]);
+    await pool.query(`
+      INSERT INTO persistent_documents(scope, key, payload, "updatedAt")
+      VALUES ($1, $2, $3::jsonb, now())
+      ON CONFLICT (scope, key)
+      DO UPDATE SET payload = EXCLUDED.payload, "updatedAt" = now()
+    `, ['server_next_player_snapshots_v1', tokenPlayerId, JSON.stringify({
+      version: 1,
+      savedAt: Date.now(),
+      placement: {
+        templateId: 'yunlai_town',
+        x: 32,
+        y: 5,
+        facing: 1,
+      },
+      vitals: {
+        hp: 100,
+        maxHp: 100,
+        qi: 0,
+        maxQi: 100,
+      },
+      progression: {
+        foundation: 0,
+        combatExp: 0,
+        bodyTraining: null,
+        boneAgeBaseYears: 18,
+        lifeElapsedTicks: 0,
+        lifespanYears: null,
+        realm: null,
+        heavenGate: null,
+        spiritualRoots: null,
+      },
+      unlockedMapIds: ['yunlai_town'],
+      inventory: {
+        revision: 1,
+        capacity: 24,
+        items: [],
+      },
+      equipment: {
+        revision: 1,
+        slots: [],
+      },
+      techniques: {
+        revision: 1,
+        techniques: [],
+        cultivatingTechId: null,
+      },
+      buffs: {
+        revision: 1,
+        buffs: [],
+      },
+      quests: {
+        revision: 1,
+        entries: [],
+      },
+      combat: {
+        autoBattle: false,
+        autoRetaliate: true,
+        autoBattleStationary: false,
+        combatTargetId: null,
+        combatTargetLocked: false,
+        allowAoePlayerHit: false,
+        autoIdleCultivation: true,
+        autoSwitchCultivation: false,
+        senseQiActive: false,
+        autoBattleSkills: [],
+      },
+      pendingLogbookMessages: [],
+      runtimeBonuses: [],
+      __snapshotMeta: {
+        persistedSource: 'token_seed',
+        seededAt: Date.now(),
+      },
+    })]);
+  } finally {
+    await pool.end().catch(function () { return undefined; });
+  }
+}
+/**
+ * 规范化 next 玩家ID，统一为 p_<uuid> 形态。
+ */
+function normalizeNextPlayerId(value) {
+  if (typeof value !== 'string') {
+    return '';
+  }
+/**
+ * 记录trimmed。
+ */
+  var trimmed = value.trim();
+  if (!trimmed) {
+    return '';
+  }
+  if (trimmed.startsWith('p_')) {
+    return trimmed;
+  }
+  return /^[0-9a-fA-F-]{36}$/.test(trimmed) ? ('p_' + trimmed) : trimmed;
 }
 /**
  * 处理loginGM。
@@ -587,17 +793,13 @@ async function portalCase(runtime) {
  */
 async function kickCase(runtime) {
 /**
- * 记录认证。
- */
-  var auth = await registerAndLoginPlayer(runtime.baseUrl, pid("audit_kick"));
-/**
  * 记录socket。
  */
-  var socket = runtime.createSocket("kick", { token: auth.accessToken, protocol: 'next' });
+  var socket = runtime.createSocket("kick");
 /**
  * 记录会话。
  */
-  var session = await hello(runtime, socket, {});
+  var session = await hello(runtime, socket, { mapId: "yunlai_town", preferredX: 32, preferredY: 5 });
 /**
  * 记录玩家ID。
  */
@@ -707,39 +909,45 @@ async function detailQuestCase(runtime) {
  */
 async function pendingLogbookAckCase(runtime) {
 /**
- * 记录认证。
+ * 记录初始socket。
  */
-  var auth = await registerAndLoginPlayer(runtime.baseUrl, pid("audit_logbook"));
+  var first = runtime.createSocket("logbook:first");
+/**
+ * 记录初始会话。
+ */
+  var firstSession = await hello(runtime, first, { mapId: "yunlai_town", preferredX: 32, preferredY: 5 });
 /**
  * 记录玩家ID。
  */
-  var playerId = auth.playerId;
+  var playerId = firstSession.playerId;
+/**
+ * 记录恢复会话ID。
+ */
+  var resumeSessionId = firstSession.sessionId;
 /**
  * 记录messageID。
  */
   var messageId = "logbook_" + playerId;
-  runtime.trackPlayer(playerId);
-  await runtime.api.connectPlayer({
-    playerId: playerId,
-    mapId: "yunlai_town",
-    preferredX: 32,
-    preferredY: 5,
-  });
+  first.close();
+  await lib.delay(150);
   await runtime.api.queuePendingLogbookMessage(playerId, {
     id: messageId,
     kind: "grudge",
     text: "协议审计待确认 " + playerId,
     from: "系统审计",
-      at: 1711929600000,
+    at: 1711929600000,
   });
 /**
  * 记录socket。
  */
-  var socket = runtime.createSocket("logbook", { token: auth.accessToken, protocol: 'next' });
-  await socket.onceConnected();
-  await socket.waitForEvent(NEXT_S2C.InitSession, function (payload) {
-    return payload && payload.pid === playerId;
-  }, 5000);
+  var socket = runtime.createSocket("logbook");
+/**
+ * 记录恢复会话。
+ */
+  var resumed = await hello(runtime, socket, { sessionId: resumeSessionId });
+  if (resumed.playerId !== playerId) {
+    throw new Error("unexpected resumed playerId for pending logbook ack: expected=" + playerId + " actual=" + resumed.playerId);
+  }
   await socket.waitForEvent(NEXT_S2C.Notice, function (payload) {
     return Array.isArray(payload?.items) && payload.items.some(function (item) {
       return item?.messageId === messageId
@@ -822,13 +1030,34 @@ async function playerControlCase(runtime) {
   await lib.waitForState(runtime.api, playerId, function (current) {
     return current.techniques.techniques.some(function (entry) { return entry.techId === "qingmu_sword"; });
   }, 5000, "unlockSkillForAutoBattle");
+/**
+ * 记录learnedstate。
+ */
+  var learnedState = (await runtime.api.fetchState(playerId)).player;
+/**
+ * 记录真实技能ID。
+ */
+  var learnedSkillId = resolveTechniqueSkillId(learnedState, "qingmu_sword");
+/**
+ * 记录paneldeltaafter。
+ */
+  var autoBattlePanelDeltaAfter = socket.getEventCount(NEXT_S2C.PanelDelta);
   socket.emit(NEXT_C2S.UpdateAutoBattleSkills, {
-    skills: [{ skillId: "skill.qingmu_slash", enabled: true }],
+    skills: [{ skillId: learnedSkillId, enabled: true }],
   });
-  await lib.waitForState(runtime.api, playerId, function (current) {
-    return Array.isArray(current.combat.autoBattleSkills)
-      && current.combat.autoBattleSkills.some(function (entry) { return entry.skillId === "skill.qingmu_slash" && entry.enabled === true; });
-  }, 5000, "updateAutoBattleSkills");
+  if (!(Array.isArray(learnedState?.actions?.actions)
+    && learnedState.actions.actions.some(function (entry) {
+      return entry?.id === learnedSkillId && entry.autoBattleEnabled === true;
+    }))) {
+    await socket.waitForEventAfter(NEXT_S2C.PanelDelta, autoBattlePanelDeltaAfter, function (payload) {
+/**
+ * 记录actionpatched。
+ */
+      return payload?.act?.actions?.some(function (entry) {
+        return entry?.id === learnedSkillId && entry.autoBattleEnabled === true;
+      }) === true;
+    }, 5000);
+  }
 /**
  * 记录paneldeltaafter。
  */
@@ -839,7 +1068,7 @@ async function playerControlCase(runtime) {
   });
   await lib.waitForState(runtime.api, playerId, function (current) {
     return Array.isArray(current.combat.autoBattleSkills)
-      && current.combat.autoBattleSkills.some(function (entry) { return entry.skillId === "skill.qingmu_slash" && entry.skillEnabled === false; });
+      && current.combat.autoBattleSkills.some(function (entry) { return entry.skillId === learnedSkillId && entry.skillEnabled === false; });
   }, 5000, "updateTechniqueSkillAvailability");
   await socket.waitForEventAfter(NEXT_S2C.PanelDelta, panelDeltaAfter, function (payload) {
 /**
@@ -849,7 +1078,7 @@ async function playerControlCase(runtime) {
 /**
  * 记录actionpatched。
  */
-    var actionPatched = payload?.act?.actions?.some(function (entry) { return entry.id === "skill.qingmu_slash" && entry.skillEnabled === false; });
+    var actionPatched = payload?.act?.actions?.some(function (entry) { return entry.id === learnedSkillId && entry.skillEnabled === false; });
     return techniquePatched === true && actionPatched === true;
   }, 5000);
   await emitAndWait(socket, NEXT_C2S.UsePortal, {}, NEXT_S2C.MapEnter, function (payload) {
@@ -1103,6 +1332,11 @@ async function progressionCase(runtime) {
   var player = (await runtime.api.fetchState(attackerId)).player;
   attacker.emit(NEXT_C2S.UseItem, { slotIndex: slot(player, "book.qingmu_sword") });
   await lib.waitForState(runtime.api, attackerId, function (current) { return current.techniques.techniques.some(function (entry) { return entry.techId === "qingmu_sword"; }); }, 5000, "learn");
+  player = (await runtime.api.fetchState(attackerId)).player;
+/**
+ * 记录真实技能ID。
+ */
+  var learnedSkillId = resolveTechniqueSkillId(player, "qingmu_sword");
   await runtime.api.grantItem(attackerId, "equip.road_cleaver", 1);
   player = (await runtime.api.fetchState(attackerId)).player;
   attacker.emit(NEXT_C2S.Equip, { slotIndex: slot(player, "equip.road_cleaver") });
@@ -1115,7 +1349,7 @@ async function progressionCase(runtime) {
   player = (await runtime.api.fetchState(attackerId)).player;
   attacker.emit(NEXT_C2S.UseItem, { slotIndex: slot(player, "pill.minor_heal") });
   await lib.waitForState(runtime.api, attackerId, function (current) { return current.hp > 50; }, 5000, "heal");
-  attacker.emit(NEXT_C2S.CastSkill, { skillId: "skill.qingmu_slash", targetPlayerId: defenderId });
+  attacker.emit(NEXT_C2S.CastSkill, { skillId: learnedSkillId, targetPlayerId: defenderId });
   await lib.waitForState(runtime.api, defenderId, function (current) { return current.hp < 120; }, 8000, "cast");
 }
 /**
@@ -1455,7 +1689,7 @@ async function main() {
     { name: "npc-detail-quests", run: detailQuestCase },
     { name: "pending-logbook-ack", run: pendingLogbookAckCase },
     ...(HAS_DATABASE ? [{ name: "redeem-codes", run: redeemCodesCase }] : []),
-    { name: "gm-next", run: gmCase },
+    ...(HAS_DATABASE ? [{ name: "gm-next", run: gmCase }] : []),
     { name: "suggestions", run: suggestionCase },
     { name: "mail", run: mailCase },
     { name: "progression-combat", run: progressionCase },

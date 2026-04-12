@@ -20,10 +20,10 @@ const world_session_service_1 = require("../../network/world-session.service");
 const world_sync_service_1 = require("../../network/world-sync.service");
 const world_client_event_service_1 = require("../../network/world-client-event.service");
 const legacy_auth_service_1 = require("./legacy-auth.service");
-const legacy_gm_http_auth_service_1 = require("./http/legacy-gm-http-auth.service");
+const runtime_gm_auth_service_1 = require("../../runtime/gm/runtime-gm-auth.service");
 let LegacySessionBootstrapService = class LegacySessionBootstrapService {
     legacyAuthService;
-    legacyGmHttpAuthService;
+    runtimeGmAuthService;
     playerPersistenceService;
     playerRuntimeService;
     mailRuntimeService;
@@ -32,9 +32,9 @@ let LegacySessionBootstrapService = class LegacySessionBootstrapService {
     worldSessionService;
     worldSyncService;
     worldClientEventService;
-    constructor(legacyAuthService, legacyGmHttpAuthService, playerPersistenceService, playerRuntimeService, mailRuntimeService, suggestionRuntimeService, worldRuntimeService, worldSessionService, worldSyncService, worldClientEventService) {
+    constructor(legacyAuthService, runtimeGmAuthService, playerPersistenceService, playerRuntimeService, mailRuntimeService, suggestionRuntimeService, worldRuntimeService, worldSessionService, worldSyncService, worldClientEventService) {
         this.legacyAuthService = legacyAuthService;
-        this.legacyGmHttpAuthService = legacyGmHttpAuthService;
+        this.runtimeGmAuthService = runtimeGmAuthService;
         this.playerPersistenceService = playerPersistenceService;
         this.playerRuntimeService = playerRuntimeService;
         this.mailRuntimeService = mailRuntimeService;
@@ -56,7 +56,7 @@ let LegacySessionBootstrapService = class LegacySessionBootstrapService {
         return this.legacyAuthService.authenticateSocketToken(token);
     }
     authenticateSocketGmToken(token) {
-        return this.legacyGmHttpAuthService.validateAccessToken(token);
+        return this.runtimeGmAuthService.validateAccessToken(token);
     }
     async bootstrapPlayerSession(client, input) {
         const binding = this.worldSessionService.registerSocket(client, input.playerId, input.requestedSessionId);
@@ -93,7 +93,7 @@ exports.LegacySessionBootstrapService = LegacySessionBootstrapService;
 exports.LegacySessionBootstrapService = LegacySessionBootstrapService = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [legacy_auth_service_1.LegacyAuthService,
-        legacy_gm_http_auth_service_1.LegacyGmHttpAuthService,
+        runtime_gm_auth_service_1.RuntimeGmAuthService,
         player_persistence_service_1.PlayerPersistenceService,
         player_runtime_service_1.PlayerRuntimeService,
         mail_runtime_service_1.MailRuntimeService,

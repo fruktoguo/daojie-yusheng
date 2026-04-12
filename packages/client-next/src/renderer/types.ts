@@ -5,6 +5,7 @@
 import { GameTimeState, GridPoint, NpcQuestMarker, TargetingShape, Tile } from '@mud/shared-next';
 import { Camera } from './camera';
 
+/** FloatingActionTextStyle：定义该类型的结构与数据语义。 */
 export type FloatingActionTextStyle = 'default' | 'divine' | 'chant';
 
 /** 技能瞄准叠加层状态 */
@@ -67,7 +68,7 @@ export interface IRenderer {
     settleEntityId?: string,
     motionSyncToken?: number,
   ): void;
-  renderEntities(camera: Camera, progress?: number, localPlayerId?: string): void;
+  renderEntities(camera: Camera, progress?: number, localPlayerId?: string, localPlayerX?: number, localPlayerY?: number): void;
   addFloatingText(
     x: number,
     y: number,
@@ -82,3 +83,4 @@ export interface IRenderer {
   renderAttackTrails(camera: Camera): void;
   destroy(): void;
 }
+

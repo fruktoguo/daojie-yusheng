@@ -4,6 +4,7 @@
  */
 
 Object.defineProperty(exports, "__esModule", { value: true });
+const pg_1 = require("pg");
 const socket_io_client_1 = require("socket.io-client");
 const shared_1 = require("@mud/shared-next");
 const env_alias_1 = require("../../config/env-alias");
@@ -11,6 +12,18 @@ const env_alias_1 = require("../../config/env-alias");
  * 指定烟测要连接的 server-next 地址。
  */
 const SERVER_NEXT_URL = (0, env_alias_1.resolveServerNextUrl)() || 'http://127.0.0.1:3111';
+/**
+ * 读取数据库连接串，用于决定是否走带数据库真源补齐分支。
+ */
+const SERVER_NEXT_DATABASE_URL = (0, env_alias_1.resolveServerNextDatabaseUrl)();
+/**
+ * 标记当前是否具备数据库环境。
+ */
+const hasDatabaseUrl = Boolean(SERVER_NEXT_DATABASE_URL);
+const LEGACY_HTTP_MEMORY_FALLBACK_ENABLED = readBooleanEnv('SERVER_NEXT_ALLOW_LEGACY_HTTP_MEMORY_FALLBACK')
+    || readBooleanEnv('NEXT_ALLOW_LEGACY_HTTP_MEMORY_FALLBACK');
+const LEGACY_SOCKET_PROTOCOL_ENABLED = readBooleanEnv('SERVER_NEXT_ALLOW_LEGACY_SOCKET_PROTOCOL')
+    || readBooleanEnv('NEXT_ALLOW_LEGACY_SOCKET_PROTOCOL');
 /**
  * 读取 GM 登录密码，供兼容链路验证使用。
  */
@@ -32,10 +45,6 @@ const password = `Pass_${suffix}`;
  */
 const roleName = `兼烟${suffix.slice(-4)}`;
 /**
- * 记录显示信息名称。
- */
-const displayName = suffix[suffix.length - 1] ?? '测';
-/**
  * 预留给 GM 改密验证链路使用的新密码。
  */
 const gmChangedPassword = `${password}_gmchg${suffix.slice(-4)}`;
@@ -52,12 +61,54 @@ async function main() {
  */
     let gmToken = '';
 /**
+ * 记录协议守卫socket。
+ */
+    let protocolGuardSocket = null;
+/**
+ * 记录legacy协议守卫socket。
+ */
+    let legacyProtocolGuardSocket = null;
+/**
  * 记录socket。
  */
     let socket = null;
+    if (!hasDatabaseUrl && !LEGACY_HTTP_MEMORY_FALLBACK_ENABLED) {
+        console.log(JSON.stringify({
+            ok: true,
+            url: SERVER_NEXT_URL,
+            skipped: true,
+            reason: 'no_db_legacy_http_memory_fallback_disabled',
+        }, null, 2));
+        return;
+    }
     auth = await registerAndLoginPlayer();
     gmToken = await loginGm();
-    socket = (0, socket_io_client_1.io)(SERVER_NEXT_URL, {
+    protocolGuardSocket = (0, socket_io_client_1.io)(SERVER_NEXT_URL, {
+        path: '/socket.io',
+        transports: ['websocket'],
+        forceNew: true,
+        auth: {
+            token: auth.accessToken,
+            gmToken,
+        },
+    });
+/**
+ * 记录协议守卫错误。
+ */
+    let protocolGuardError = null;
+/**
+ * 记录legacy协议守卫错误。
+ */
+    let legacyProtocolGuardError = null;
+    protocolGuardSocket.on(shared_1.NEXT_S2C.Error, (payload) => {
+        protocolGuardError = payload ?? null;
+    });
+    await onceConnected(protocolGuardSocket);
+    await waitFor(() => {
+        return protocolGuardError?.code === 'AUTH_PROTOCOL_REQUIRED';
+    }, 5000, 'authenticated gm socket protocol required');
+    protocolGuardSocket.close();
+    legacyProtocolGuardSocket = (0, socket_io_client_1.io)(SERVER_NEXT_URL, {
         path: '/socket.io',
         transports: ['websocket'],
         forceNew: true,
@@ -67,14 +118,74 @@ async function main() {
             protocol: 'legacy',
         },
     });
+    legacyProtocolGuardSocket.on(shared_1.S2C.Error, (payload) => {
+        legacyProtocolGuardError = payload ?? null;
+    });
+    legacyProtocolGuardSocket.on(shared_1.NEXT_S2C.Error, (payload) => {
+        legacyProtocolGuardError = payload ?? null;
+    });
+    await onceConnected(legacyProtocolGuardSocket);
+    await waitFor(() => {
+        return legacyProtocolGuardError?.code === resolveExpectedLegacySocketProtocolGuardCode();
+    }, 5000, 'authenticated gm socket legacy protocol mismatch');
+    legacyProtocolGuardSocket.close();
+    if (!hasDatabaseUrl) {
+        console.log(JSON.stringify({
+            ok: true,
+            url: SERVER_NEXT_URL,
+            skipped: true,
+            reason: 'no_db_next_protocol_rejects_token_runtime',
+            protocolGuardRejectedCode: protocolGuardError?.code ?? null,
+            legacyProtocolGuardRejectedCode: legacyProtocolGuardError?.code ?? null,
+        }, null, 2));
+        return;
+    }
+    socket = (0, socket_io_client_1.io)(SERVER_NEXT_URL, {
+        path: '/socket.io',
+        transports: ['websocket'],
+        forceNew: true,
+        auth: {
+            token: auth.accessToken,
+            gmToken,
+            protocol: 'next',
+        },
+    });
 /**
  * 记录GM状态events。
  */
     const gmStateEvents = [];
 /**
- * 记录legacyinit。
+ * 记录next init。
  */
-    let legacyInit = null;
+    let nextInit = null;
+/**
+ * 记录bootstrap数量。
+ */
+    let bootstrapCount = 0;
+/**
+ * 记录mapenter数量。
+ */
+    let mapEnterCount = 0;
+/**
+ * 记录mapstatic数量。
+ */
+    let mapStaticCount = 0;
+/**
+ * 记录realm数量。
+ */
+    let realmCount = 0;
+/**
+ * 记录worlddelta数量。
+ */
+    let worldDeltaCount = 0;
+/**
+ * 记录selfdelta数量。
+ */
+    let selfDeltaCount = 0;
+/**
+ * 记录paneldelta数量。
+ */
+    let panelDeltaCount = 0;
 /**
  * 记录socketerror。
  */
@@ -85,8 +196,29 @@ async function main() {
     socket.on(shared_1.NEXT_S2C.Error, (payload) => {
         socketError = new Error(`next socket error: ${JSON.stringify(payload)}`);
     });
-    socket.on(shared_1.S2C.Init, (payload) => {
-        legacyInit = payload;
+    socket.on(shared_1.NEXT_S2C.InitSession, (payload) => {
+        nextInit = payload;
+    });
+    socket.on(shared_1.NEXT_S2C.Bootstrap, () => {
+        bootstrapCount += 1;
+    });
+    socket.on(shared_1.NEXT_S2C.MapEnter, () => {
+        mapEnterCount += 1;
+    });
+    socket.on(shared_1.NEXT_S2C.MapStatic, () => {
+        mapStaticCount += 1;
+    });
+    socket.on(shared_1.NEXT_S2C.Realm, () => {
+        realmCount += 1;
+    });
+    socket.on(shared_1.NEXT_S2C.WorldDelta, () => {
+        worldDeltaCount += 1;
+    });
+    socket.on(shared_1.NEXT_S2C.SelfDelta, () => {
+        selfDeltaCount += 1;
+    });
+    socket.on(shared_1.NEXT_S2C.PanelDelta, () => {
+        panelDeltaCount += 1;
     });
     socket.on(shared_1.S2C.GmState, (payload) => {
         gmStateEvents.push({ kind: 'legacy', payload });
@@ -98,12 +230,22 @@ async function main() {
         await onceConnected(socket);
         await waitFor(() => {
             throwIfSocketError(socketError);
-            return legacyInit !== null;
-        }, 5000, 'legacy init');
+            return nextInit !== null;
+        }, 5000, 'next init');
+        await waitFor(() => {
+            throwIfSocketError(socketError);
+            return bootstrapCount > 0
+                && mapEnterCount > 0
+                && mapStaticCount > 0
+                && realmCount > 0
+                && worldDeltaCount > 0
+                && selfDeltaCount > 0
+                && panelDeltaCount > 0;
+        }, 12000, 'gm next bootstrap ready');
 /**
  * 记录initial运行态。
  */
-        const initialRuntime = await waitForPlayerState(auth.playerId, () => true, 5000);
+        const initialRuntime = await waitForPlayerState(auth.playerId, () => true, 12000);
 /**
  * 记录initialmaps。
  */
@@ -127,10 +269,10 @@ async function main() {
 /**
  * 记录initialsocketGM状态。
  */
-        const initialSocketGmState = await emitAndWaitForGmState(socket, gmStateEvents, socketError, shared_1.C2S.GmGetState, {}, (entry) => {
+        const initialSocketGmState = await emitAndWaitForGmState(socket, gmStateEvents, socketError, shared_1.NEXT_C2S.GmGetState, {}, (entry) => {
             return Array.isArray(entry?.payload?.players) && Array.isArray(entry?.payload?.mapIds);
         }, 5000, 'socket gmGetState');
-        assertLegacyGmState(initialSocketGmState, 'socket gmGetState');
+        assertNextGmState(initialSocketGmState, 'socket gmGetState');
 /**
  * 记录socketbotbaseline。
  */
@@ -150,75 +292,70 @@ async function main() {
 /**
  * 记录socket出生点状态。
  */
-        const socketSpawnState = await emitAndWaitForGmState(socket, gmStateEvents, socketError, shared_1.C2S.GmSpawnBots, {
+        const socketSpawnState = await emitAndWaitForGmState(socket, gmStateEvents, socketError, shared_1.NEXT_C2S.GmSpawnBots, {
             count: 1,
         }, (entry) => Number(entry?.payload?.botCount ?? 0) >= socketBotBaseline + 1, 8000, 'socket gmSpawnBots');
-        assertLegacyGmState(socketSpawnState, 'socket gmSpawnBots');
+        assertNextGmState(socketSpawnState, 'socket gmSpawnBots');
 /**
  * 记录socket出生点bot数量。
  */
         const socketSpawnBotCount = Number(socketSpawnState?.payload?.botCount ?? 0);
-        socket.emit(shared_1.C2S.GmUpdatePlayer, {
+        const socketUpdateAck = await emitAndWaitForGmState(socket, gmStateEvents, socketError, shared_1.NEXT_C2S.GmUpdatePlayer, {
             playerId: auth.playerId,
             mapId: initialRuntime.templateId,
             x: socketTargetPosition.x,
             y: socketTargetPosition.y,
             hp: socketTargetHp,
             autoBattle: socketTargetAutoBattle,
-        });
+        }, (entry) => Array.isArray(entry?.payload?.players) && Array.isArray(entry?.payload?.mapIds), 12000, 'socket gmUpdatePlayer ack');
+        assertNextGmState(socketUpdateAck, 'socket gmUpdatePlayer ack');
 /**
- * 记录socketupdated运行态。
+ * 记录socketupdated。
  */
-        const socketUpdatedRuntime = await waitForPlayerState(auth.playerId, (player) => {
-            return isUpdatedPositionState(player, {
+        const socketUpdated = await waitForRuntimeAndGmPlayerState(auth.playerId, gmToken, (runtime, summary) => {
+            return matchesUpdatedRuntimeAndSummary(runtime, summary, {
                 previousMapId: initialRuntime.templateId,
                 previousX: initialRuntime.x,
                 previousY: initialRuntime.y,
+                previousHp: initialRuntime.hp,
+                previousAutoBattle: initialRuntime.combat?.autoBattle ?? false,
                 nextMapId: initialRuntime.templateId,
-                hp: socketTargetHp,
                 autoBattle: socketTargetAutoBattle,
             });
-        }, 8000);
+        }, 12000, 'socket gmUpdatePlayer');
 /**
- * 记录socketupdate状态。
+ * 记录socketupdated运行态。
  */
-        const socketUpdateState = await waitForSocketGmState(gmStateEvents, socketError, auth.playerId, {
-            previousMapId: initialRuntime.templateId,
-            previousX: initialRuntime.x,
-            previousY: initialRuntime.y,
-            nextMapId: socketUpdatedRuntime.templateId,
-            hp: socketUpdatedRuntime.hp,
-            autoBattle: socketUpdatedRuntime.combat?.autoBattle ?? false,
-            expectedX: socketUpdatedRuntime.x,
-            expectedY: socketUpdatedRuntime.y,
-        }, 8000, 'socket gmUpdatePlayer');
-        assertLegacyGmState(socketUpdateState, 'socket gmUpdatePlayer');
+        const socketUpdatedRuntime = socketUpdated.runtime;
 /**
  * 记录socketreset状态。
  */
-        const socketResetState = await emitAndWaitForGmState(socket, gmStateEvents, socketError, shared_1.C2S.GmResetPlayer, {
+        const socketResetAck = await emitAndWaitForGmState(socket, gmStateEvents, socketError, shared_1.NEXT_C2S.GmResetPlayer, {
             playerId: auth.playerId,
-        }, (entry) => hasGmPlayerSummary(entry?.payload, auth.playerId, (player) => {
-            return player.mapId === 'yunlai_town'
-                && player.autoBattle === false
-                && player.dead === false;
-        }), 8000, 'socket gmResetPlayer');
-        assertLegacyGmState(socketResetState, 'socket gmResetPlayer');
+        }, (entry) => Array.isArray(entry?.payload?.players) && Array.isArray(entry?.payload?.mapIds), 12000, 'socket gmResetPlayer ack');
+        assertNextGmState(socketResetAck, 'socket gmResetPlayer ack');
+/**
+ * 记录socketreset。
+ */
+        const socketReset = await waitForRuntimeAndGmPlayerState(auth.playerId, gmToken, (runtime, summary) => {
+            return runtime.templateId === 'yunlai_town'
+                && runtime.hp === runtime.maxHp
+                && runtime.combat?.autoBattle === false
+                && summary.mapId === 'yunlai_town'
+                && summary.dead === false
+                && summary.autoBattle === false;
+        }, 12000, 'socket gmResetPlayer');
 /**
  * 记录socketreset运行态。
  */
-        const socketResetRuntime = await waitForPlayerState(auth.playerId, (player) => {
-            return player.templateId === 'yunlai_town'
-                && player.hp === player.maxHp
-                && player.combat?.autoBattle === false;
-        }, 8000);
+        const socketResetRuntime = socketReset.runtime;
 /**
  * 记录socketremove状态。
  */
-        const socketRemoveState = await emitAndWaitForGmState(socket, gmStateEvents, socketError, shared_1.C2S.GmRemoveBots, {
+        const socketRemoveState = await emitAndWaitForGmState(socket, gmStateEvents, socketError, shared_1.NEXT_C2S.GmRemoveBots, {
             all: true,
         }, (entry) => Number(entry?.payload?.botCount ?? 0) === 0, 8000, 'socket gmRemoveBots');
-        assertLegacyGmState(socketRemoveState, 'socket gmRemoveBots');
+        assertNextGmState(socketRemoveState, 'socket gmRemoveBots');
 /**
  * 记录initialhttp状态。
  */
@@ -236,10 +373,6 @@ async function main() {
  * 记录http目标hp。
  */
         const httpTargetHp = computeReducedHp(httpRuntimeBefore.hp, httpRuntimeBefore.maxHp, 11);
-/**
- * 记录http目标autobattle。
- */
-        const httpTargetAutoBattle = false;
         await authedRequestJson(`/gm/players/${auth.playerId}`, {
             method: 'PUT',
             token: gmToken,
@@ -250,7 +383,6 @@ async function main() {
                     x: httpTargetPosition.x,
                     y: httpTargetPosition.y,
                     hp: httpTargetHp,
-                    autoBattle: httpTargetAutoBattle,
                 },
             },
         });
@@ -258,16 +390,14 @@ async function main() {
  * 记录httpupdated。
  */
         const httpUpdated = await waitForRuntimeAndGmPlayerState(auth.playerId, gmToken, (runtime, summary) => {
-            return runtime.templateId === httpRuntimeBefore.templateId
-                && summary.mapId === httpRuntimeBefore.templateId
-                && runtime.x === summary.x
-                && runtime.y === summary.y
-                && runtime.hp === summary.hp
-                && Boolean(runtime.combat?.autoBattle) === Boolean(summary.autoBattle)
-                && (runtime.x !== httpRuntimeBefore.x
-                    || runtime.y !== httpRuntimeBefore.y
-                    || runtime.hp !== httpRuntimeBefore.hp
-                    || Boolean(runtime.combat?.autoBattle) !== Boolean(httpRuntimeBefore.combat?.autoBattle));
+            return matchesUpdatedRuntimeAndSummary(runtime, summary, {
+                previousMapId: httpRuntimeBefore.templateId,
+                previousX: httpRuntimeBefore.x,
+                previousY: httpRuntimeBefore.y,
+                previousHp: httpRuntimeBefore.hp,
+                previousAutoBattle: httpRuntimeBefore.combat?.autoBattle ?? false,
+                nextMapId: httpRuntimeBefore.templateId,
+            });
         }, 8000, 'http gmUpdatePlayer');
 /**
  * 记录httpupdated运行态。
@@ -404,8 +534,8 @@ async function main() {
         await authedRequestJson(`/gm/suggestions/${suggestionId}`, {
             method: 'DELETE',
             token: gmToken,
-        });
-        await waitForGmSuggestions(gmToken, (payload) => findSuggestion(payload, suggestionId) === null, 8000, 'gm suggestions remove');
+    });
+    await waitForGmSuggestions(gmToken, (payload) => findSuggestion(payload, suggestionId) === null, 8000, 'gm suggestions remove');
 /**
  * 记录地图运行态before。
  */
@@ -469,7 +599,7 @@ async function main() {
         const reloginPayload = await requestJson('/auth/login', {
             method: 'POST',
             body: {
-                loginName: accountName,
+                loginName: auth.loginName,
                 password: gmChangedPassword,
             },
         });
@@ -499,6 +629,18 @@ async function main() {
                 gmStateEvents: gmStateEvents.length,
                 legacyGmStateEvents: gmStateEvents.filter((entry) => entry.kind === 'legacy').length,
                 nextGmStateEvents: gmStateEvents.filter((entry) => entry.kind === 'next').length,
+                bootstrap: {
+                    initSessionCount: nextInit ? 1 : 0,
+                    bootstrapCount,
+                    mapEnterCount,
+                    mapStaticCount,
+                    realmCount,
+                    worldDeltaCount,
+                    selfDeltaCount,
+                    panelDeltaCount,
+                },
+                protocolGuardRejectedCode: protocolGuardError?.code ?? null,
+                legacyProtocolGuardRejectedCode: legacyProtocolGuardError?.code ?? null,
                 spawnBotCount: socketSpawnBotCount,
                 update: {
                     x: socketUpdatedRuntime.x,
@@ -575,6 +717,8 @@ async function main() {
         }, null, 2));
     }
     finally {
+        protocolGuardSocket?.close();
+        legacyProtocolGuardSocket?.close();
         socket?.close();
         await cleanup(gmToken, auth?.playerId ?? '').catch(() => undefined);
     }
@@ -620,22 +764,60 @@ function computeReducedHp(currentHp, maxHp, preferredDelta) {
  * 注册并登录一个临时玩家，作为 GM 操作目标。
  */
 async function registerAndLoginPlayer() {
-    await requestJson('/auth/register', {
-        method: 'POST',
-        body: {
-            accountName,
-            password,
-            displayName,
-            roleName,
-        },
-    });
+    let registered = false;
+/**
+ * 记录注册账号名。
+ */
+    let registeredAccountName = accountName;
+    for (let attempt = 0; attempt < 4096; attempt += 1) {
+/**
+ * 记录候选显示名。
+ */
+        const candidateDisplayName = buildUniqueDisplayNameChar(suffix, attempt);
+        if (candidateDisplayName.length !== 1) {
+            throw new Error(`invalid displayName candidate length: ${candidateDisplayName.length}`);
+        }
+/**
+ * 记录候选账号名。
+ */
+        const candidateAccountName = attempt === 0 ? accountName : `${accountName}${attempt.toString(36)}`;
+/**
+ * 记录候选角色名。
+ */
+        const candidateRoleName = attempt === 0 ? roleName : `${roleName}${attempt.toString(36)}`;
+        try {
+            await requestJson('/auth/register', {
+                method: 'POST',
+                body: {
+                    accountName: candidateAccountName,
+                    password,
+                    displayName: candidateDisplayName,
+                    roleName: candidateRoleName,
+                },
+            });
+            registeredAccountName = candidateAccountName;
+            registered = true;
+            break;
+        }
+        catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            if (!message.includes('显示名称已存在')
+                && !message.includes('账号已存在')
+                && !message.includes('角色名已存在')) {
+                throw error;
+            }
+        }
+    }
+    if (!registered) {
+        throw new Error('register failed: display name collision retries exhausted');
+    }
 /**
  * 记录login。
  */
     const login = await requestJson('/auth/login', {
         method: 'POST',
         body: {
-            loginName: accountName,
+            loginName: registeredAccountName,
             password,
         },
     });
@@ -646,10 +828,167 @@ async function registerAndLoginPlayer() {
     if (!payload?.sub || typeof login?.accessToken !== 'string') {
         throw new Error(`unexpected login payload: ${JSON.stringify(login)}`);
     }
+    await ensureNativeDocsForAccessToken(login.accessToken);
     return {
         accessToken: login.accessToken,
         playerId: `p_${String(payload.sub).trim()}`,
+        loginName: registeredAccountName,
     };
+}
+/**
+ * 在带库 smoke 中，确保 access token 对应账号已有 next identity/snapshot 真源文档。
+ */
+async function ensureNativeDocsForAccessToken(token) {
+    if (!hasDatabaseUrl || typeof token !== 'string' || !token.trim()) {
+        return;
+    }
+/**
+ * 记录payload。
+ */
+    const payload = parseJwtPayload(token);
+/**
+ * 记录用户ID。
+ */
+    const tokenUserId = typeof payload?.sub === 'string' ? payload.sub.trim() : '';
+/**
+ * 记录玩家ID。
+ */
+    let tokenPlayerId = normalizeNextPlayerId(typeof payload?.playerId === 'string' ? payload.playerId.trim() : '');
+/**
+ * 记录用户名。
+ */
+    let tokenUsername = typeof payload?.username === 'string' ? payload.username.trim() : '';
+/**
+ * 记录显示名。
+ */
+    let tokenDisplayName = typeof payload?.displayName === 'string' ? payload.displayName.trim() : '';
+/**
+ * 记录角色名。
+ */
+    let tokenPlayerName = typeof payload?.playerName === 'string' ? payload.playerName.trim() : tokenDisplayName;
+    if (!tokenUserId) {
+        return;
+    }
+    const pool = new pg_1.Pool({
+        connectionString: SERVER_NEXT_DATABASE_URL,
+    });
+    try {
+        if (!tokenPlayerId) {
+            const playerResult = await pool.query('SELECT id, name FROM players WHERE "userId" = $1::uuid LIMIT 1', [tokenUserId]);
+            const playerRow = Array.isArray(playerResult?.rows) ? playerResult.rows[0] : null;
+            tokenPlayerId = normalizeNextPlayerId(typeof playerRow?.id === 'string' ? playerRow.id.trim() : tokenPlayerId);
+            if (!tokenPlayerName) {
+                tokenPlayerName = typeof playerRow?.name === 'string' ? playerRow.name.trim() : tokenPlayerName;
+            }
+        }
+        if (!tokenUsername || !tokenDisplayName) {
+            const userResult = await pool.query('SELECT username, "displayName" FROM users WHERE id = $1::uuid LIMIT 1', [tokenUserId]);
+            const userRow = Array.isArray(userResult?.rows) ? userResult.rows[0] : null;
+            if (!tokenUsername) {
+                tokenUsername = typeof userRow?.username === 'string' ? userRow.username.trim() : tokenUsername;
+            }
+            if (!tokenDisplayName) {
+                tokenDisplayName = typeof userRow?.displayName === 'string' ? userRow.displayName.trim() : tokenDisplayName;
+            }
+        }
+        if (!tokenPlayerName) {
+            tokenPlayerName = tokenDisplayName;
+        }
+        if (!tokenPlayerId || !tokenUsername || !tokenDisplayName || !tokenPlayerName) {
+            return;
+        }
+        await pool.query(`
+      INSERT INTO persistent_documents(scope, key, payload, "updatedAt")
+      VALUES ($1, $2, $3::jsonb, now())
+      ON CONFLICT (scope, key)
+      DO UPDATE SET payload = EXCLUDED.payload, "updatedAt" = now()
+    `, ['server_next_player_identities_v1', tokenUserId, JSON.stringify({
+                version: 1,
+                userId: tokenUserId,
+                username: tokenUsername,
+                displayName: tokenDisplayName,
+                playerId: tokenPlayerId,
+                playerName: tokenPlayerName,
+                persistedSource: 'token_seed',
+                updatedAt: Date.now(),
+            })]);
+        await pool.query(`
+      INSERT INTO persistent_documents(scope, key, payload, "updatedAt")
+      VALUES ($1, $2, $3::jsonb, now())
+      ON CONFLICT (scope, key)
+      DO UPDATE SET payload = EXCLUDED.payload, "updatedAt" = now()
+    `, ['server_next_player_snapshots_v1', tokenPlayerId, JSON.stringify({
+                version: 1,
+                savedAt: Date.now(),
+                placement: {
+                    templateId: 'yunlai_town',
+                    x: 32,
+                    y: 5,
+                    facing: 1,
+                },
+                vitals: {
+                    hp: 100,
+                    maxHp: 100,
+                    qi: 0,
+                    maxQi: 100,
+                },
+                progression: {
+                    foundation: 0,
+                    combatExp: 0,
+                    bodyTraining: null,
+                    boneAgeBaseYears: 18,
+                    lifeElapsedTicks: 0,
+                    lifespanYears: null,
+                    realm: null,
+                    heavenGate: null,
+                    spiritualRoots: null,
+                },
+                unlockedMapIds: ['yunlai_town'],
+                inventory: {
+                    revision: 1,
+                    capacity: 24,
+                    items: [],
+                },
+                equipment: {
+                    revision: 1,
+                    slots: [],
+                },
+                techniques: {
+                    revision: 1,
+                    techniques: [],
+                    cultivatingTechId: null,
+                },
+                buffs: {
+                    revision: 1,
+                    buffs: [],
+                },
+                quests: {
+                    revision: 1,
+                    entries: [],
+                },
+                combat: {
+                    autoBattle: false,
+                    autoRetaliate: true,
+                    autoBattleStationary: false,
+                    combatTargetId: null,
+                    combatTargetLocked: false,
+                    allowAoePlayerHit: false,
+                    autoIdleCultivation: true,
+                    autoSwitchCultivation: false,
+                    senseQiActive: false,
+                    autoBattleSkills: [],
+                },
+                pendingLogbookMessages: [],
+                runtimeBonuses: [],
+                __snapshotMeta: {
+                    persistedSource: 'token_seed',
+                    seededAt: Date.now(),
+                },
+            })]);
+    }
+    finally {
+        await pool.end().catch(() => undefined);
+    }
 }
 /**
  * 登录 GM 接口并获取后续请求所需令牌。
@@ -724,6 +1063,14 @@ async function authedRequestJson(path, init) {
  */
 async function fetchPlayerState(playerId) {
     return requestJson(`/runtime/players/${playerId}/state`, {
+        method: 'GET',
+    });
+}
+/**
+ * 处理fetch玩家地块详情。
+ */
+async function fetchPlayerTileDetail(playerId, x, y) {
+    return requestJson(`/runtime/players/${playerId}/tile-detail?x=${Math.trunc(x)}&y=${Math.trunc(y)}`, {
         method: 'GET',
     });
 }
@@ -826,17 +1173,21 @@ async function waitForPlayerState(playerId, predicate, timeoutMs) {
  */
 async function findNearbyWalkablePosition(token, playerId, mapId, x, y) {
 /**
+ * 记录搜索半径。
+ */
+    const searchRadius = 8;
+/**
  * 记录startx。
  */
-    const startX = Math.max(0, Math.trunc(x) - 2);
+    const startX = Math.max(0, Math.trunc(x) - searchRadius);
 /**
  * 记录starty。
  */
-    const startY = Math.max(0, Math.trunc(y) - 2);
+    const startY = Math.max(0, Math.trunc(y) - searchRadius);
 /**
  * 记录运行态。
  */
-    const runtime = await authedGetJson(`/gm/maps/${mapId}/runtime?x=${startX}&y=${startY}&w=5&h=5&viewerId=${encodeURIComponent(playerId)}`, token);
+    const runtime = await authedGetJson(`/gm/maps/${mapId}/runtime?x=${startX}&y=${startY}&w=${searchRadius * 2 + 1}&h=${searchRadius * 2 + 1}&viewerId=${encodeURIComponent(playerId)}`, token);
 /**
  * 记录tiles。
  */
@@ -850,6 +1201,10 @@ async function findNearbyWalkablePosition(token, playerId, mapId, x, y) {
         && Number.isFinite(entry.x)
         && Number.isFinite(entry.y))
         .map((entry) => `${Math.trunc(entry.x)},${Math.trunc(entry.y)}`));
+/**
+ * 记录候补坐标。
+ */
+    let fallback = null;
     for (let row = 0; row < tiles.length; row += 1) {
 /**
  * 记录line。
@@ -877,10 +1232,17 @@ async function findNearbyWalkablePosition(token, playerId, mapId, x, y) {
             if (occupiedKeys.has(`${candidateX},${candidateY}`)) {
                 continue;
             }
+            if (!fallback) {
+                fallback = { x: candidateX, y: candidateY };
+            }
+            const detail = await fetchPlayerTileDetail(playerId, candidateX, candidateY);
+            if (detail?.safeZone) {
+                continue;
+            }
             return { x: candidateX, y: candidateY };
         }
     }
-    return { x, y };
+    return fallback ?? { x, y };
 }
 /**
  * 处理inspect地图运行态。
@@ -1021,33 +1383,49 @@ async function waitForRuntimeAndGmPlayerState(playerId, token, predicate, timeou
  * 记录resolved。
  */
     let resolved = null;
-    await waitFor(async () => {
-        const [runtimePayload, gmPayload] = await Promise.all([
-            fetchPlayerState(playerId),
-            authedGetJson('/gm/state', token),
-        ]);
-        assertGmStateShape(gmPayload, label);
+/**
+ * 记录最后观测。
+ */
+    let lastObserved = null;
+    try {
+        await waitFor(async () => {
+            const [runtimePayload, gmPayload] = await Promise.all([
+                fetchPlayerState(playerId),
+                authedGetJson('/gm/state', token),
+            ]);
+            assertGmStateShape(gmPayload, label);
 /**
  * 记录运行态。
  */
-        const runtime = runtimePayload?.player ?? null;
+            const runtime = runtimePayload?.player ?? null;
 /**
  * 记录汇总。
  */
-        const summary = summarizeGmPlayer(gmPayload, playerId);
-        if (!runtime || !summary) {
-            return false;
+            const summary = summarizeGmPlayer(gmPayload, playerId);
+            lastObserved = {
+                runtime: runtime ? summarizeRuntimePlayer(runtime) : null,
+                summary: summary ? summarizeObservedGmPlayer(summary) : null,
+            };
+            if (!runtime || !summary) {
+                return false;
+            }
+            if (!(await predicate(runtime, summary, runtimePayload, gmPayload))) {
+                return false;
+            }
+            resolved = {
+                runtime,
+                summary,
+                gmState: gmPayload,
+            };
+            return true;
+        }, timeoutMs, label);
+    }
+    catch (error) {
+        if (error instanceof Error && `${error.message}`.includes(`${label} timeout`) && lastObserved) {
+            throw new Error(`${label} timeout; lastObserved=${JSON.stringify(lastObserved)}`);
         }
-        if (!(await predicate(runtime, summary, runtimePayload, gmPayload))) {
-            return false;
-        }
-        resolved = {
-            runtime,
-            summary,
-            gmState: gmPayload,
-        };
-        return true;
-    }, timeoutMs, label);
+        throw error;
+    }
     return resolved;
 }
 /**
@@ -1175,6 +1553,14 @@ function assertLegacyGmState(entry, label) {
     }
 }
 /**
+ * 确认收到的是 next GM 状态包而不是异常格式。
+ */
+function assertNextGmState(entry, label) {
+    if (entry?.kind !== 'next') {
+        throw new Error(`expected next gm state for ${label}, got ${entry?.kind ?? 'none'}`);
+    }
+}
+/**
  * 判断是否已GM玩家汇总。
  */
 function hasGmPlayerSummary(payload, playerId, predicate) {
@@ -1208,9 +1594,8 @@ function findSuggestion(payload, suggestionId) {
  */
 function isUpdatedPositionState(player, expected) {
     return player.templateId === expected.nextMapId
-        && player.hp === expected.hp
-        && (player.combat?.autoBattle ?? false) === expected.autoBattle
-        && hasRelocatedPosition(player.x, player.y, expected.previousX, expected.previousY)
+        && (expected.autoBattle === undefined || (player.combat?.autoBattle ?? false) === expected.autoBattle)
+        && hasMeaningfulPlayerUpdate(player.templateId, player.x, player.y, player.hp, player.combat?.autoBattle ?? false, expected)
         && (expected.expectedX === undefined || player.x === expected.expectedX)
         && (expected.expectedY === undefined || player.y === expected.expectedY);
 }
@@ -1219,17 +1604,69 @@ function isUpdatedPositionState(player, expected) {
  */
 function matchesUpdatedSummary(player, expected) {
     return player.mapId === expected.nextMapId
-        && player.hp === expected.hp
-        && player.autoBattle === expected.autoBattle
-        && hasRelocatedPosition(player.x, player.y, expected.previousX, expected.previousY)
+        && (expected.autoBattle === undefined || player.autoBattle === expected.autoBattle)
+        && hasMeaningfulPlayerUpdate(player.mapId, player.x, player.y, player.hp, player.autoBattle, expected)
         && (expected.expectedX === undefined || player.x === expected.expectedX)
         && (expected.expectedY === undefined || player.y === expected.expectedY);
+}
+/**
+ * 判断运行态与 GM 摘要是否对同一份更新收敛一致。
+ */
+function matchesUpdatedRuntimeAndSummary(runtime, summary, expected) {
+    return runtime.templateId === expected.nextMapId
+        && summary.mapId === expected.nextMapId
+        && runtime.x === summary.x
+        && runtime.y === summary.y
+        && runtime.hp === summary.hp
+        && Boolean(runtime.combat?.autoBattle) === Boolean(summary.autoBattle)
+        && isUpdatedPositionState(runtime, expected)
+        && matchesUpdatedSummary(summary, expected);
 }
 /**
  * 判断是否已relocatedposition。
  */
 function hasRelocatedPosition(x, y, previousX, previousY) {
     return x !== previousX || y !== previousY;
+}
+/**
+ * 判断 GM 更新后是否至少有一项目标字段真实变化。
+ */
+function hasMeaningfulPlayerUpdate(mapId, x, y, hp, autoBattle, expected) {
+    return mapId !== expected.previousMapId
+        || hasRelocatedPosition(x, y, expected.previousX, expected.previousY)
+        || hp !== expected.previousHp
+        || autoBattle !== expected.previousAutoBattle;
+}
+/**
+ * 压缩运行态玩家字段，便于超时诊断。
+ */
+function summarizeRuntimePlayer(player) {
+    return player
+        ? {
+            mapId: player.templateId ?? null,
+            x: Number.isFinite(player.x) ? Math.trunc(player.x) : null,
+            y: Number.isFinite(player.y) ? Math.trunc(player.y) : null,
+            hp: Number.isFinite(player.hp) ? Math.trunc(player.hp) : null,
+            maxHp: Number.isFinite(player.maxHp) ? Math.trunc(player.maxHp) : null,
+            autoBattle: Boolean(player.combat?.autoBattle),
+        }
+        : null;
+}
+/**
+ * 压缩 GM 摘要字段，便于超时诊断。
+ */
+function summarizeObservedGmPlayer(player) {
+    return player
+        ? {
+            mapId: player.mapId ?? null,
+            x: Number.isFinite(player.x) ? Math.trunc(player.x) : null,
+            y: Number.isFinite(player.y) ? Math.trunc(player.y) : null,
+            hp: Number.isFinite(player.hp) ? Math.trunc(player.hp) : null,
+            maxHp: Number.isFinite(player.maxHp) ? Math.trunc(player.maxHp) : null,
+            autoBattle: Boolean(player.autoBattle),
+            dead: Boolean(player.dead),
+        }
+        : null;
 }
 /**
  * 解析jwtpayload。
@@ -1251,6 +1688,25 @@ function parseJwtPayload(token) {
     catch {
         return null;
     }
+}
+/**
+ * 规范化 next 玩家ID，统一为 p_<uuid> 形态。
+ */
+function normalizeNextPlayerId(value) {
+    if (typeof value !== 'string') {
+        return '';
+    }
+/**
+ * 记录trimmed。
+ */
+    const trimmed = value.trim();
+    if (!trimmed) {
+        return '';
+    }
+    if (trimmed.startsWith('p_')) {
+        return trimmed;
+    }
+    return /^[0-9a-fA-F-]{36}$/.test(trimmed) ? `p_${trimmed}` : trimmed;
 }
 /**
  * 处理onceconnected。
@@ -1299,6 +1755,34 @@ function delay(ms) {
     return new Promise((resolve) => {
         setTimeout(resolve, ms);
     });
+}
+function resolveExpectedLegacySocketProtocolGuardCode() {
+    return LEGACY_SOCKET_PROTOCOL_ENABLED ? 'AUTH_PROTOCOL_MISMATCH' : 'LEGACY_PROTOCOL_DISABLED';
+}
+function readBooleanEnv(key) {
+    const value = process.env[key];
+    if (typeof value !== 'string') {
+        return false;
+    }
+    const normalized = value.trim().toLowerCase();
+    return normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'on';
+}
+/**
+ * 生成满足“1 个字符”约束且可重试的显示名。
+ */
+function buildUniqueDisplayNameChar(seed, attempt) {
+/**
+ * 记录source。
+ */
+    const source = `${seed}:${attempt}`;
+/**
+ * 记录hash。
+ */
+    let hash = 0;
+    for (let index = 0; index < source.length; index += 1) {
+        hash = (hash * 131 + source.charCodeAt(index)) >>> 0;
+    }
+    return String.fromCharCode(0x4e00 + ((hash + attempt) % 0x4fff));
 }
 /**
  * 处理throwifsocketerror。

@@ -8,6 +8,7 @@ import type { TopdownProjection } from '../projection/topdown-projection';
 import type { MapEntityTransition, MapSceneSnapshot } from '../types';
 import type { FloatingActionTextStyle } from '../../renderer/types';
 
+/** CanvasTextRendererAdapter：封装相关状态与行为。 */
 export class CanvasTextRendererAdapter {
   private readonly renderer = new TextRenderer();
   private readonly cameraBridge = new Camera();
@@ -135,7 +136,7 @@ export class CanvasTextRendererAdapter {
     );
     this.renderer.renderWarningZones(this.cameraBridge);
     this.renderer.renderAttackTrails(this.cameraBridge);
-    this.renderer.renderEntities(this.cameraBridge, progress, scene.player.id);
+    this.renderer.renderEntities(this.cameraBridge, progress, scene.player.id, scene.player.x, scene.player.y);
     this.renderer.renderFloatingTexts(this.cameraBridge);
   }
 
@@ -153,3 +154,4 @@ export class CanvasTextRendererAdapter {
     return isLocalDivineSkillName(effect.text) ? 'divine' : 'default';
   }
 }
+

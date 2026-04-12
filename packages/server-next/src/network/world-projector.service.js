@@ -154,11 +154,15 @@ function buildMapEnter(view) {
     };
 }
 function buildFullWorldDelta(view) {
-    const players = Array.from(view.visiblePlayers, (entry) => ({
-        id: entry.playerId,
-        x: entry.x,
-        y: entry.y,
-    }));
+    const players = [{
+            id: view.playerId,
+            x: view.self.x,
+            y: view.self.y,
+        }, ...Array.from(view.visiblePlayers, (entry) => ({
+            id: entry.playerId,
+            x: entry.x,
+            y: entry.y,
+        }))];
     const monsters = Array.from(view.localMonsters, (entry) => ({
         id: entry.runtimeId,
         mid: entry.monsterId,
@@ -263,10 +267,13 @@ function captureWorldState(view) {
     return {
         instanceId: view.instance.instanceId,
         worldRevision: view.worldRevision,
-        players: new Map(view.visiblePlayers.map((entry) => [entry.playerId, {
+        players: new Map([[view.playerId, {
+                x: view.self.x,
+                y: view.self.y,
+            }], ...view.visiblePlayers.map((entry) => [entry.playerId, {
                 x: entry.x,
                 y: entry.y,
-            }])),
+            }])]),
         npcs: new Map(view.localNpcs.map((entry) => [entry.npcId, {
                 x: entry.x,
                 y: entry.y,
@@ -494,12 +501,6 @@ function buildSelfDelta(previous, player) {
     }
     if (previous.self.templateId !== player.templateId) {
         delta.mid = player.templateId;
-    }
-    if (previous.self.x !== player.x) {
-        delta.x = player.x;
-    }
-    if (previous.self.y !== player.y) {
-        delta.y = player.y;
     }
     if (previous.self.f !== player.facing) {
         delta.f = player.facing;

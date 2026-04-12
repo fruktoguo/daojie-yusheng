@@ -14,8 +14,8 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ServerReadinessDependenciesService = void 0;
 const common_1 = require("@nestjs/common");
-const legacy_auth_service_1 = require("../compat/legacy/legacy-auth.service");
-const legacy_gm_admin_compat_service_1 = require("../compat/legacy/http/legacy-gm-admin-compat.service");
+const compat_tokens_1 = require("../compat/compat.tokens");
+const runtime_maintenance_service_1 = require("../runtime/world/runtime-maintenance.service");
 let ServerReadinessDependenciesService = class ServerReadinessDependenciesService {
     authStateService;
     maintenanceStateService;
@@ -33,8 +33,9 @@ let ServerReadinessDependenciesService = class ServerReadinessDependenciesServic
 exports.ServerReadinessDependenciesService = ServerReadinessDependenciesService;
 exports.ServerReadinessDependenciesService = ServerReadinessDependenciesService = __decorate([
     (0, common_1.Injectable)(),
+    __param(0, (0, common_1.Inject)(compat_tokens_1.LEGACY_AUTH_STATE_SERVICE)),
     __param(0, (0, common_1.Optional)()),
     __param(1, (0, common_1.Optional)()),
-    __metadata("design:paramtypes", [legacy_auth_service_1.LegacyAuthService,
-        legacy_gm_admin_compat_service_1.LegacyGmAdminCompatService])
+    __metadata("design:paramtypes", [Object,
+        runtime_maintenance_service_1.RuntimeMaintenanceService])
 ], ServerReadinessDependenciesService);

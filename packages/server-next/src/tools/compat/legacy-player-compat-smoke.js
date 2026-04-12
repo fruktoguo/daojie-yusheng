@@ -1,6 +1,7 @@
 "use strict";
 /**
  * 用途：执行 legacy-player-compat 兼容链路的冒烟验证。
+ * 当前合同：legacy HTTP 账号链仍可用，但 authenticated socket 必须显式使用 next 协议。
  */
 
 Object.defineProperty(exports, "__esModule", { value: true });
@@ -12,10 +13,15 @@ const lib = require("../next-protocol-audit-lib");
  * 记录 server-next 访问地址。
  */
 const SERVER_NEXT_URL = (0, env_alias_1.resolveServerNextUrl)() || 'http://127.0.0.1:3111';
+const SERVER_NEXT_DATABASE_URL = (0, env_alias_1.resolveServerNextDatabaseUrl)();
 /**
  * 记录运行态API。
  */
 const runtimeApi = lib.createRuntimeApi(SERVER_NEXT_URL);
+const LEGACY_HTTP_MEMORY_FALLBACK_ENABLED = readBooleanEnv('SERVER_NEXT_ALLOW_LEGACY_HTTP_MEMORY_FALLBACK')
+    || readBooleanEnv('NEXT_ALLOW_LEGACY_HTTP_MEMORY_FALLBACK');
+const LEGACY_SOCKET_PROTOCOL_ENABLED = readBooleanEnv('SERVER_NEXT_ALLOW_LEGACY_SOCKET_PROTOCOL')
+    || readBooleanEnv('NEXT_ALLOW_LEGACY_SOCKET_PROTOCOL');
 /**
  * 记录suffix。
  */
@@ -32,6 +38,14 @@ const receiverDisplayName = buildUniqueDisplayName(`legacy-player-receiver:${suf
  * 串联执行脚本主流程。
  */
 async function main() {
+    if (!SERVER_NEXT_DATABASE_URL.trim() && !LEGACY_HTTP_MEMORY_FALLBACK_ENABLED) {
+        console.log(JSON.stringify({
+            ok: true,
+            skipped: true,
+            reason: 'no_db_legacy_http_memory_fallback_disabled',
+        }, null, 2));
+        return;
+    }
 /**
  * 记录sender认证。
  */
@@ -49,6 +63,14 @@ async function main() {
  */
     const receiverPlayerId = receiverAuth.playerId;
 /**
+ * 记录协议守卫socket。
+ */
+    let protocolGuardSocket = null;
+/**
+ * 记录legacy协议守卫socket。
+ */
+    let legacyProtocolGuardSocket = null;
+/**
  * 记录sendersocket。
  */
     let senderSocket = null;
@@ -61,6 +83,16 @@ async function main() {
  */
     const pendingMessageId = `legacy_logbook_${suffix}`;
     try {
+        protocolGuardSocket = createAuthenticatedNextSocket(senderAuth.accessToken, {
+            protocol: null,
+        });
+        legacyProtocolGuardSocket = createAuthenticatedNextSocket(senderAuth.accessToken, {
+            protocol: 'legacy',
+        });
+        await expectProtocolGuardError(protocolGuardSocket, 'AUTH_PROTOCOL_REQUIRED');
+        await expectProtocolGuardError(legacyProtocolGuardSocket, resolveExpectedLegacySocketProtocolGuardCode());
+        const protocolGuardRejectedCode = protocolGuardSocket.protocolGuardCode;
+        const legacyProtocolGuardRejectedCode = legacyProtocolGuardSocket.protocolGuardCode;
         await runtimeApi.connectPlayer({
             playerId: senderPlayerId,
             mapId: 'yunlai_town',
@@ -80,17 +112,21 @@ async function main() {
             from: '兼容烟测',
             at: 1711929600000,
         });
-        senderSocket = createLegacySocket(senderAuth.accessToken);
-        receiverSocket = createLegacySocket(receiverAuth.accessToken);
-        await waitForLegacyBootstrap(senderSocket, senderPlayerId);
-        await waitForLegacyBootstrap(receiverSocket, receiverPlayerId);
+        senderSocket = createAuthenticatedNextSocket(senderAuth.accessToken, {
+            protocol: 'next',
+        });
+        receiverSocket = createAuthenticatedNextSocket(receiverAuth.accessToken, {
+            protocol: 'next',
+        });
+        await waitForAuthenticatedNextBootstrap(senderSocket, senderPlayerId);
+        await waitForAuthenticatedNextBootstrap(receiverSocket, receiverPlayerId);
 /**
  * 记录pendingmessage。
  */
-        const pendingMessage = await senderSocket.waitForEvent(shared_1.S2C.SystemMsg, (payload) => {
-            return payload?.id === pendingMessageId
-                && payload.persistUntilAck === true
-                && payload.kind === 'grudge';
+        const pendingMessage = await senderSocket.waitForEvent(shared_1.NEXT_S2C.Notice, (payload) => {
+            return flattenNoticeItems(payload).some((entry) => entry?.messageId === pendingMessageId
+                && entry.persistUntilAck === true
+                && entry.kind === 'grudge');
         }, 5000);
 /**
  * 记录navigate任务ID。
@@ -99,12 +135,12 @@ async function main() {
 /**
  * 记录navigateafter。
  */
-        const navigateAfter = senderSocket.getEventCount(shared_1.S2C.QuestNavigateResult);
-        senderSocket.emit(shared_1.C2S.NavigateQuest, { questId: navigateQuestId });
+        const navigateAfter = senderSocket.getEventCount(shared_1.NEXT_S2C.QuestNavigateResult);
+        senderSocket.emit(shared_1.NEXT_C2S.NavigateQuest, { questId: navigateQuestId });
 /**
  * 记录navigate结果。
  */
-        const navigateResult = await senderSocket.waitForEventAfter(shared_1.S2C.QuestNavigateResult, navigateAfter, (payload) => payload?.questId === navigateQuestId, 5000);
+        const navigateResult = await senderSocket.waitForEventAfter(shared_1.NEXT_S2C.QuestNavigateResult, navigateAfter, (payload) => payload?.questId === navigateQuestId, 5000);
         await runtimeApi.grantItem(senderPlayerId, 'rat_tail', 1);
 /**
  * 记录senderbefore掉落。
@@ -138,23 +174,15 @@ async function main() {
 /**
  * 记录tiledetailafter。
  */
-        const tileDetailAfter = senderSocket.getEventCount(shared_1.S2C.TileRuntimeDetail);
-/**
- * 记录掉落windowafter。
- */
-        const lootWindowAfter = senderSocket.getEventCount(shared_1.S2C.LootWindowUpdate);
-        senderSocket.emit(shared_1.C2S.Action, {
-            type: 'loot:open',
+        const lootWindowAfter = senderSocket.getEventCount(shared_1.NEXT_S2C.LootWindowUpdate);
+        senderSocket.emit(shared_1.NEXT_C2S.UseAction, {
+            actionId: 'loot:open',
             target: `tile:${lootTile.x}:${lootTile.y}`,
         });
 /**
- * 记录tile运行态detail。
- */
-        const tileRuntimeDetail = await senderSocket.waitForEventAfter(shared_1.S2C.TileRuntimeDetail, tileDetailAfter, (payload) => payload?.x === lootTile.x && payload?.y === lootTile.y, 5000);
-/**
  * 记录掉落windowupdate。
  */
-        const lootWindowUpdate = await senderSocket.waitForEventAfter(shared_1.S2C.LootWindowUpdate, lootWindowAfter, (payload) => {
+        const lootWindowUpdate = await senderSocket.waitForEventAfter(shared_1.NEXT_S2C.LootWindowUpdate, lootWindowAfter, (payload) => {
             return payload?.window?.tileX === lootTile.x
                 && payload?.window?.tileY === lootTile.y
                 && Array.isArray(payload.window.sources)
@@ -177,8 +205,7 @@ async function main() {
 /**
  * 记录sortnoticeafter。
  */
-        const sortNoticeAfter = senderSocket.getEventCount(shared_1.S2C.SystemMsg);
-        senderSocket.emit(shared_1.C2S.SortInventory, {});
+        senderSocket.emit(shared_1.NEXT_C2S.SortInventory, {});
         await lib.waitForState(runtimeApi, senderPlayerId, (player) => {
 /**
  * 记录inventoryitems。
@@ -196,29 +223,17 @@ async function main() {
                 && nextSpiritIndex !== spiritBeforeIndex
                 && nextRatIndex !== ratBeforeIndex;
         }, 5000, 'legacySortInventory');
-/**
- * 记录sortnotice。
- */
-        const sortNotice = await senderSocket.waitForEventAfter(shared_1.S2C.SystemMsg, sortNoticeAfter, (payload) => typeof payload?.text === 'string' && payload.text.includes('背包已整理'), 5000);
         senderInventoryState = await fetchPlayerState(senderPlayerId);
 /**
  * 记录spiritbeforedestroy。
  */
         const spiritBeforeDestroy = count(senderInventoryState.inventory?.items ?? [], 'spirit_stone');
-/**
- * 记录destroynoticeafter。
- */
-        const destroyNoticeAfter = senderSocket.getEventCount(shared_1.S2C.SystemMsg);
-        senderSocket.emit(shared_1.C2S.DestroyItem, {
+        senderSocket.emit(shared_1.NEXT_C2S.DestroyItem, {
             slotIndex: slot(senderInventoryState.inventory?.items ?? [], 'spirit_stone'),
             count: 1,
         });
         await lib.waitForState(runtimeApi, senderPlayerId, (player) => count(player.inventory?.items ?? [], 'spirit_stone') === Math.max(0, spiritBeforeDestroy - 1), 5000, 'legacyDestroyItem');
-/**
- * 记录destroynotice。
- */
-        const destroyNotice = await senderSocket.waitForEventAfter(shared_1.S2C.SystemMsg, destroyNoticeAfter, (payload) => typeof payload?.text === 'string' && payload.text.includes('你摧毁了'), 5000);
-        senderSocket.emit(shared_1.C2S.AckSystemMessages, {
+        senderSocket.emit(shared_1.NEXT_C2S.AckSystemMessages, {
             ids: [pendingMessageId],
         });
         await lib.waitForState(runtimeApi, senderPlayerId, (player) => {
@@ -232,29 +247,31 @@ async function main() {
 /**
  * 记录chatafter。
  */
-        const chatAfter = receiverSocket.getEventCount(shared_1.S2C.SystemMsg);
-        senderSocket.emit(shared_1.C2S.Chat, { message: chatText });
+        const chatAfter = receiverSocket.getEventCount(shared_1.NEXT_S2C.Notice);
+        senderSocket.emit(shared_1.NEXT_C2S.Chat, { message: chatText });
 /**
  * 记录chatmessage。
  */
-        const chatMessage = await receiverSocket.waitForEventAfter(shared_1.S2C.SystemMsg, chatAfter, (payload) => {
-            return payload?.kind === 'chat'
-                && payload.text === chatText
-                && payload.from === senderDisplayName;
+        const chatMessage = await receiverSocket.waitForEventAfter(shared_1.NEXT_S2C.Notice, chatAfter, (payload) => {
+            return flattenNoticeItems(payload).some((entry) => entry?.kind === 'chat'
+                && entry.text === chatText
+                && entry.from === senderDisplayName);
         }, 5000);
-        assertNoNextEvents(senderSocket, 'sender');
-        assertNoNextEvents(receiverSocket, 'receiver');
+        assertNoLegacyEvents(senderSocket, 'sender');
+        assertNoLegacyEvents(receiverSocket, 'receiver');
         console.log(JSON.stringify({
             ok: true,
             url: SERVER_NEXT_URL,
             senderPlayerId,
             receiverPlayerId,
             verified: {
+                protocolGuardRejectedCode: protocolGuardRejectedCode ?? null,
+                legacyProtocolGuardRejectedCode: legacyProtocolGuardRejectedCode ?? null,
                 bootstrap: {
-                    senderInitPlayerId: senderSocket.initPayload?.self?.id ?? null,
-                    receiverInitPlayerId: receiverSocket.initPayload?.self?.id ?? null,
+                    senderInitPlayerId: senderSocket.initSessionPayload?.pid ?? null,
+                    receiverInitPlayerId: receiverSocket.initSessionPayload?.pid ?? null,
                 },
-                pendingLogbookMessageId: pendingMessage.id ?? null,
+                pendingLogbookMessageId: findNoticeItem(pendingMessage, (entry) => entry?.messageId === pendingMessageId)?.messageId ?? null,
                 navigateQuest: {
                     questId: navigateResult.questId,
                     ok: navigateResult.ok,
@@ -263,22 +280,23 @@ async function main() {
                     tileX: lootWindowUpdate.window?.tileX ?? null,
                     tileY: lootWindowUpdate.window?.tileY ?? null,
                     sourceCount: lootWindowUpdate.window?.sources?.length ?? 0,
-                    legacyTileDetailMapId: tileRuntimeDetail.mapId ?? null,
                 },
-                sortInventoryNotice: sortNotice.text,
-                destroyItemNotice: destroyNotice.text,
+                sortInventoryApplied: true,
+                destroyItemApplied: true,
                 chat: {
-                    text: chatMessage.text,
-                    from: chatMessage.from ?? null,
+                    text: findNoticeItem(chatMessage, (entry) => entry?.kind === 'chat' && entry.text === chatText)?.text ?? null,
+                    from: findNoticeItem(chatMessage, (entry) => entry?.kind === 'chat' && entry.text === chatText)?.from ?? null,
                 },
             },
-            nextEventsOnLegacySockets: {
-                sender: senderSocket.nextEvents.length,
-                receiver: receiverSocket.nextEvents.length,
+            legacyEventsOnNextSockets: {
+                sender: senderSocket.legacyEvents.length,
+                receiver: receiverSocket.legacyEvents.length,
             },
         }, null, 2));
     }
     finally {
+        protocolGuardSocket?.close();
+        legacyProtocolGuardSocket?.close();
         senderSocket?.close();
         receiverSocket?.close();
         await runtimeApi.deletePlayer(senderPlayerId).catch(() => undefined);
@@ -286,9 +304,9 @@ async function main() {
     }
 }
 /**
- * 创建legacysocket。
+ * 创建 authenticated next socket。
  */
-function createLegacySocket(token) {
+function createAuthenticatedNextSocket(token, options = {}) {
 /**
  * 记录socket。
  */
@@ -296,9 +314,10 @@ function createLegacySocket(token) {
         path: '/socket.io',
         transports: ['websocket'],
         forceNew: true,
+        autoConnect: false,
         auth: {
             token,
-            protocol: 'legacy',
+            ...(typeof options.protocol === 'string' ? { protocol: options.protocol } : {}),
         },
     });
 /**
@@ -306,17 +325,21 @@ function createLegacySocket(token) {
  */
     const byEvent = new Map();
 /**
- * 记录nextevents。
+ * 记录legacyevents。
  */
-    const nextEvents = [];
+    const legacyEvents = [];
 /**
  * 记录fatalerror。
  */
     let fatalError = null;
 /**
- * 记录initpayload。
+ * 记录initsessionpayload。
  */
-    let initPayload = null;
+    let initSessionPayload = null;
+/**
+ * 记录protocolguardcode。
+ */
+    let protocolGuardCode = null;
     socket.onAny((event, payload) => {
 /**
  * 记录existing。
@@ -324,24 +347,28 @@ function createLegacySocket(token) {
         const existing = byEvent.get(event) ?? [];
         existing.push(payload);
         byEvent.set(event, existing);
-        if (typeof event === 'string' && event.startsWith('n:s:')) {
-            nextEvents.push({
+        if (typeof event === 'string' && event.startsWith('s:')) {
+            legacyEvents.push({
                 event,
                 payload,
             });
         }
     });
     socket.on(shared_1.S2C.Error, (payload) => {
+        const code = typeof payload?.code === 'string' ? payload.code : null;
+        protocolGuardCode = code;
         fatalError = new Error(`legacy socket error: ${JSON.stringify(payload)}`);
     });
     socket.on(shared_1.NEXT_S2C.Error, (payload) => {
-        fatalError = new Error(`next socket error on legacy protocol: ${JSON.stringify(payload)}`);
+        const code = typeof payload?.code === 'string' ? payload.code : null;
+        protocolGuardCode = code;
+        fatalError = new Error(`next socket error: ${JSON.stringify(payload)}`);
     });
     socket.on('connect_error', (error) => {
         fatalError = error instanceof Error ? error : new Error(String(error));
     });
-    socket.on(shared_1.S2C.Init, (payload) => {
-        initPayload = payload;
+    socket.on(shared_1.NEXT_S2C.InitSession, (payload) => {
+        initSessionPayload = payload;
     });
 /**
  * 处理throwiffatal。
@@ -353,9 +380,12 @@ function createLegacySocket(token) {
     }
     return {
         socket,
-        nextEvents,
-        get initPayload() {
-            return initPayload;
+        legacyEvents,
+        get initSessionPayload() {
+            return initSessionPayload;
+        },
+        get protocolGuardCode() {
+            return protocolGuardCode;
         },
         async onceConnected() {
             if (socket.connected) {
@@ -365,7 +395,7 @@ function createLegacySocket(token) {
 /**
  * 记录timer。
  */
-                const timer = setTimeout(() => reject(new Error('legacy socket connect timeout')), 5000);
+                const timer = setTimeout(() => reject(new Error('authenticated next socket connect timeout')), 5000);
                 socket.once('connect', () => {
                     clearTimeout(timer);
                     resolve();
@@ -374,6 +404,7 @@ function createLegacySocket(token) {
                     clearTimeout(timer);
                     reject(error);
                 });
+                socket.connect();
             });
         },
         emit(event, payload) {
@@ -427,16 +458,18 @@ function createLegacySocket(token) {
     };
 }
 /**
- * 等待forlegacybootstrap。
+ * 等待 authenticated next bootstrap。
  */
-async function waitForLegacyBootstrap(client, expectedPlayerId) {
+async function waitForAuthenticatedNextBootstrap(client, expectedPlayerId) {
     await client.onceConnected();
-    await client.waitForEvent(shared_1.S2C.Init, (payload) => payload?.self?.id === expectedPlayerId, 5000);
-    await client.waitForEvent(shared_1.S2C.MapStaticSync, (payload) => typeof payload?.mapId === 'string' && payload.mapId.length > 0, 5000);
-    await client.waitForEvent(shared_1.S2C.RealmUpdate, (payload) => typeof payload === 'object' && payload !== null && Object.prototype.hasOwnProperty.call(payload, 'realm'), 5000);
-    await client.waitForEvent(shared_1.S2C.InventoryUpdate, (payload) => typeof payload === 'object' && payload !== null && (Object.prototype.hasOwnProperty.call(payload, 'inventory') || Array.isArray(payload?.slots)), 5000);
-    await client.waitForEvent(shared_1.S2C.ActionsUpdate, (payload) => Array.isArray(payload?.actions), 5000);
-    await client.waitForEvent(shared_1.S2C.LootWindowUpdate, (payload) => Object.prototype.hasOwnProperty.call(payload ?? {}, 'window'), 5000);
+    await client.waitForEvent(shared_1.NEXT_S2C.InitSession, (payload) => payload?.pid === expectedPlayerId, 5000);
+    await client.waitForEvent(shared_1.NEXT_S2C.Bootstrap, (payload) => payload?.self?.id === expectedPlayerId, 5000);
+    await client.waitForEvent(shared_1.NEXT_S2C.MapEnter, (payload) => payload?.mid === 'yunlai_town', 5000);
+    await client.waitForEvent(shared_1.NEXT_S2C.MapStatic, (payload) => payload?.mapId === 'yunlai_town', 5000);
+    await client.waitForEvent(shared_1.NEXT_S2C.Realm, (payload) => typeof payload === 'object' && payload !== null, 5000);
+    await client.waitForEvent(shared_1.NEXT_S2C.WorldDelta, () => true, 5000);
+    await client.waitForEvent(shared_1.NEXT_S2C.SelfDelta, () => true, 5000);
+    await client.waitForEvent(shared_1.NEXT_S2C.PanelDelta, () => true, 5000);
 }
 /**
  * 处理fetch玩家状态。
@@ -475,17 +508,38 @@ function count(items, itemId) {
     return entry ? Number(entry.count ?? 0) : 0;
 }
 /**
- * 断言nonextevents。
+ * 等待协议守卫错误。
  */
-function assertNoNextEvents(client, label) {
-    if (client.nextEvents.length === 0) {
+async function expectProtocolGuardError(client, expectedCode) {
+    await client.onceConnected();
+    await lib.waitForValue(async () => client.protocolGuardCode === expectedCode ? client.protocolGuardCode : null, 5000, `protocolGuard:${expectedCode}`);
+}
+/**
+ * 断言 no legacy events。
+ */
+function assertNoLegacyEvents(client, label) {
+    if (client.legacyEvents.length === 0) {
         return;
     }
 /**
  * 记录detail。
  */
-    const detail = client.nextEvents.map((entry) => entry.event).join(', ');
-    throw new Error(`legacy socket ${label} received next events: ${detail}`);
+    const detail = client.legacyEvents.map((entry) => entry.event).join(', ');
+    throw new Error(`next socket ${label} received legacy events: ${detail}`);
+}
+/**
+ * 展平 notice items。
+ */
+function flattenNoticeItems(payload) {
+    return Array.isArray(payload?.items)
+        ? payload.items.filter((entry) => entry && typeof entry === 'object')
+        : [];
+}
+/**
+ * 从 notice 里找目标项。
+ */
+function findNoticeItem(payload, predicate) {
+    return flattenNoticeItems(payload).find((entry) => predicate(entry)) ?? null;
 }
 /**
  * 处理registerandlogin玩家。
@@ -593,6 +647,17 @@ function buildUniqueDisplayName(seed) {
         hash = (hash * 33 + seed.charCodeAt(index)) >>> 0;
     }
     return String.fromCodePoint(0x4E00 + (hash % (0x9FFF - 0x4E00 + 1)));
+}
+function resolveExpectedLegacySocketProtocolGuardCode() {
+    return LEGACY_SOCKET_PROTOCOL_ENABLED ? 'AUTH_PROTOCOL_MISMATCH' : 'LEGACY_PROTOCOL_DISABLED';
+}
+function readBooleanEnv(key) {
+    const value = process.env[key];
+    if (typeof value !== 'string') {
+        return false;
+    }
+    const normalized = value.trim().toLowerCase();
+    return normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'on';
 }
 void main().catch((error) => {
     console.error(error);

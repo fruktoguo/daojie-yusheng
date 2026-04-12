@@ -43,18 +43,22 @@ import type {
 
 let latestObservedEntitiesSnapshot: readonly ObservedMapEntity[] = [];
 
+/** getLatestObservedEntitiesSnapshot：执行对应的业务逻辑。 */
 export function getLatestObservedEntitiesSnapshot(): readonly ObservedMapEntity[] {
   return latestObservedEntitiesSnapshot;
 }
 
+/** publishLatestObservedEntitiesSnapshot：执行对应的业务逻辑。 */
 function publishLatestObservedEntitiesSnapshot(entities: readonly ObservedMapEntity[]): void {
   latestObservedEntitiesSnapshot = entities;
 }
 
+/** cloneJson：执行对应的业务逻辑。 */
 function cloneJson<T>(value: T): T {
   return clonePlainValue(value);
 }
 
+/** applyNullablePatch：执行对应的业务逻辑。 */
 function applyNullablePatch<T>(value: T | null | undefined, fallback: T | undefined): T | undefined {
   if (value === null) {
     return undefined;
@@ -65,6 +69,7 @@ function applyNullablePatch<T>(value: T | null | undefined, fallback: T | undefi
   return fallback;
 }
 
+/** toObservedEntity：执行对应的业务逻辑。 */
 function toObservedEntity(entity: RenderEntity): ObservedMapEntity {
   return {
     id: entity.id,
@@ -86,6 +91,7 @@ function toObservedEntity(entity: RenderEntity): ObservedMapEntity {
   };
 }
 
+/** mergeObservedEntityPatch：执行对应的业务逻辑。 */
 function mergeObservedEntityPatch(patch: TickRenderEntity, previous?: ObservedMapEntity): ObservedMapEntity {
   return {
     id: patch.id,
@@ -107,10 +113,40 @@ function mergeObservedEntityPatch(patch: TickRenderEntity, previous?: ObservedMa
   };
 }
 
+/** buildLocalPlayerEntity：执行对应的业务逻辑。 */
+function buildLocalPlayerEntity(player: PlayerState, previous?: ObservedMapEntity): ObservedMapEntity {
+  return {
+    id: player.id,
+    wx: player.x,
+    wy: player.y,
+    char: previous?.char ?? '我',
+    color: previous?.color ?? '#7ee787',
+    name: player.name,
+    kind: 'player',
+    hp: player.hp,
+    maxHp: player.maxHp,
+    qi: player.qi,
+    maxQi: player.numericStats?.maxQi,
+    npcQuestMarker: previous?.npcQuestMarker,
+    observation: previous?.observation,
+    buffs: previous?.buffs,
+  };
+}
+
+/** buildThreatArrowKey：执行对应的业务逻辑。 */
 function buildThreatArrowKey(ownerId: string, targetId: string): string {
   return `${ownerId}->${targetId}`;
 }
 
+/** hasSpatialTickEntityDelta：执行对应的业务逻辑。 */
+function hasSpatialTickEntityDelta(patch: TickRenderEntity | undefined | null): boolean {
+  if (!patch) {
+    return false;
+  }
+  return typeof patch.x === 'number' || typeof patch.y === 'number';
+}
+
+/** isSameMinimapSnapshot：执行对应的业务逻辑。 */
 function isSameMinimapSnapshot(left: MapMinimapSnapshot | null, right: MapMinimapSnapshot | null): boolean {
   if (!left || !right) {
     return left === right;
@@ -140,6 +176,7 @@ function isSameMinimapSnapshot(left: MapMinimapSnapshot | null, right: MapMinima
   return true;
 }
 
+/** shouldResetRememberedMap：执行对应的业务逻辑。 */
 function shouldResetRememberedMap(mapId: string, nextMeta: MapMeta | null | undefined, nextSnapshot: MapMinimapSnapshot | null | undefined): boolean {
   const cachedMeta = getCachedMapMeta(mapId);
   if (cachedMeta && nextMeta) {
@@ -160,6 +197,7 @@ function shouldResetRememberedMap(mapId: string, nextMeta: MapMeta | null | unde
   return false;
 }
 
+/** MapStore：封装相关状态与行为。 */
 export class MapStore {
   private mapMeta: MapMeta | null = null;
   private player: PlayerState | null = null;
@@ -180,7 +218,7 @@ export class MapStore {
   private awaitingFullVisibilityMapId: string | null = null;
   private tickTiming = {
     startedAt: performance.now(),
-    durationMs: 1000,
+    durationMs: 500,
   };
   private entityTransition: MapEntityTransition | null = null;
 
@@ -203,6 +241,7 @@ export class MapStore {
         : null
     );
     if (data.minimap) {
+/** cacheMapSnapshot：处理当前场景中的对应操作。 */
       cacheMapSnapshot(player.mapId, data.minimap, { meta: data.mapMeta, unlocked: true });
     }
 
@@ -212,7 +251,7 @@ export class MapStore {
     this.cacheVisibleTiles(player.mapId, data.tiles, player.x - this.getViewRadius(), player.y - this.getViewRadius());
     this.awaitingFullVisibilityMapId = null;
 
-    this.entities = data.players.map(toObservedEntity);
+    this.entities = [buildLocalPlayerEntity(player), ...data.players.map(toObservedEntity).filter((entry) => entry.id !== player.id)];
     this.entityMap = new Map(this.entities.map((entry) => [entry.id, entry]));
     publishLatestObservedEntitiesSnapshot(this.entities);
     this.groundPiles.clear();
@@ -225,6 +264,22 @@ export class MapStore {
   applyMapStaticSync(data: S2C_MapStaticSync): void {
     if (!this.player) {
       return;
+    }
+    const dataWithTiles = data as S2C_MapStaticSync & {
+      tiles?: VisibleTile[][];
+      tilesOriginX?: number;
+      tilesOriginY?: number;
+      tilePatches?: VisibleTilePatch[];
+    };
+    if (Array.isArray(dataWithTiles.tiles)
+      && typeof dataWithTiles.tilesOriginX === 'number'
+      && typeof dataWithTiles.tilesOriginY === 'number'
+      && data.mapId === this.player.mapId) {
+      this.cacheVisibleTiles(data.mapId, dataWithTiles.tiles, dataWithTiles.tilesOriginX, dataWithTiles.tilesOriginY);
+    } else if (Array.isArray(dataWithTiles.tilePatches)
+      && dataWithTiles.tilePatches.length > 0
+      && data.mapId === this.player.mapId) {
+      this.applyVisibleTilePatches(data.mapId, dataWithTiles.tilePatches);
     }
 
     if (data.mapMeta && data.mapId === this.player.mapId) {
@@ -267,6 +322,9 @@ export class MapStore {
     if (!this.player) {
       return;
     }
+    if (typeof data.mapId === 'string' && data.mapId && data.mapId !== this.player.mapId) {
+      this.player.mapId = data.mapId;
+    }
 
     const oldX = this.player.x;
     const oldY = this.player.y;
@@ -281,17 +339,55 @@ export class MapStore {
     if (data.groundPatches) {
       this.groundPiles = this.mergeGroundItemPatches(data.groundPatches);
     }
-    this.entities = this.mergeTickEntities(data.playerPatches, data.entityPatches, data.removedEntityIds ?? []);
-    publishLatestObservedEntitiesSnapshot(this.entities);
+    if (data.time) {
+      this.time = data.time;
+    }
+    if (Array.isArray(data.threatArrows)) {
+      this.threatArrows = data.threatArrows
+        .map((entry) => ({ ownerId: entry.ownerId, targetId: entry.targetId }))
+        .filter((entry) => entry.ownerId && entry.targetId);
+    } else if ((data.threatArrowAdds?.length ?? 0) > 0 || (data.threatArrowRemoves?.length ?? 0) > 0) {
+      this.threatArrows = this.mergeThreatArrowPatches(
+        data.threatArrowAdds ?? [],
+        data.threatArrowRemoves ?? [],
+      );
+    }
+    if (Array.isArray(data.pathCells)) {
+      this.pathCells = data.pathCells.map((cell) => ({ x: cell.x, y: cell.y }));
+    }
+    if (Array.isArray(data.visibleTiles)) {
+      this.cacheVisibleTiles(
+        this.player.mapId,
+        data.visibleTiles,
+        this.player.x - this.getViewRadius(),
+        this.player.y - this.getViewRadius(),
+      );
+    } else if (Array.isArray(data.visibleTilePatches) && data.visibleTilePatches.length > 0) {
+      this.applyVisibleTilePatches(this.player.mapId, data.visibleTilePatches);
+    }
+    const hasEntityPatch = data.playerPatches.length > 0 || data.entityPatches.length > 0 || (data.removedEntityIds?.length ?? 0) > 0;
+    if (hasEntityPatch) {
+      this.entities = this.mergeTickEntities(data.playerPatches, data.entityPatches, data.removedEntityIds ?? []);
+      publishLatestObservedEntitiesSnapshot(this.entities);
+    }
     const moved = this.player.x !== oldX || this.player.y !== oldY;
-    this.entityTransition = moved
-      ? {
-          movedId: this.player.id,
-          shiftX: this.player.x - oldX,
-          shiftY: this.player.y - oldY,
-        }
-      : { settleMotion: true };
-    this.tickTiming.startedAt = performance.now();
+    const hasSpatialEntityDelta = moved
+      || (data.removedEntityIds?.length ?? 0) > 0
+      || data.playerPatches.some((patch) => hasSpatialTickEntityDelta(patch))
+      || data.entityPatches.some((patch) => hasSpatialTickEntityDelta(patch));
+    if (hasSpatialEntityDelta) {
+      this.entityTransition = moved
+        ? {
+            movedId: this.player.id,
+            shiftX: this.player.x - oldX,
+            shiftY: this.player.y - oldY,
+          }
+        : { settleMotion: true };
+      if (typeof data.tickDurationMs === 'number' && Number.isFinite(data.tickDurationMs) && data.tickDurationMs > 0) {
+        this.tickTiming.durationMs = Math.max(1, Math.round(data.tickDurationMs * 0.5));
+      }
+      this.tickTiming.startedAt = performance.now();
+    }
   }
 
   applyNextSelfDelta(data: MapNextSelfDeltaInput): void {
@@ -349,16 +445,21 @@ export class MapStore {
     }
 
     const moved = !mapChanged && (this.player.x !== oldX || this.player.y !== oldY);
-    this.entityTransition = mapChanged
-      ? { snapCamera: true }
-      : moved
-        ? {
-            movedId: this.player.id,
-            shiftX: this.player.x - oldX,
-            shiftY: this.player.y - oldY,
-          }
-        : { settleMotion: true };
-    this.tickTiming.startedAt = performance.now();
+    if (mapChanged) {
+      this.entityTransition = { snapCamera: true };
+      this.tickTiming.startedAt = performance.now();
+      return;
+    }
+    if (moved) {
+      this.entityTransition = {
+        movedId: this.player.id,
+        shiftX: this.player.x - oldX,
+        shiftY: this.player.y - oldY,
+      };
+      this.tickTiming.startedAt = performance.now();
+      return;
+    }
+    this.entityTransition = null;
   }
 
   replaceVisibleEntities(entities: ObservedMapEntity[], transition: MapEntityTransition | null = null): void {
@@ -400,8 +501,15 @@ export class MapStore {
     this.entityTransition = null;
     publishLatestObservedEntitiesSnapshot([]);
     this.tickTiming.startedAt = performance.now();
-    this.tickTiming.durationMs = 1000;
+    this.tickTiming.durationMs = 500;
     this.visibleTileRevision += 1;
+  }
+
+  setTickDurationMs(durationMs: number): void {
+    if (!Number.isFinite(durationMs) || durationMs <= 0) {
+      return;
+    }
+    this.tickTiming.durationMs = Math.max(1, Math.round(durationMs));
   }
 
   getViewRadius(): number {
@@ -485,6 +593,11 @@ export class MapStore {
       .filter((entity) => !removedIdSet.has(entity.id))
       .map((entity) => cloneJson(entity));
     const nextMap = new Map<string, ObservedMapEntity>(merged.map((entity) => [entity.id, entity]));
+    if (this.player && !removedIdSet.has(this.player.id) && !nextMap.has(this.player.id)) {
+      const localPlayerEntity = buildLocalPlayerEntity(this.player, this.entityMap.get(this.player.id));
+      merged.unshift(localPlayerEntity);
+      nextMap.set(localPlayerEntity.id, localPlayerEntity);
+    }
 
     for (const patch of [...playerPatches, ...entityPatches]) {
       const previous = nextMap.get(patch.id);
@@ -594,3 +707,7 @@ export class MapStore {
     }
   }
 }
+
+
+
+

@@ -367,6 +367,7 @@ async function startServer(options) {
             SERVER_NEXT_PORT: String(currentPort),
             SERVER_NEXT_DATABASE_URL: databaseUrl,
             SERVER_NEXT_RUNTIME_HTTP: '1',
+            SERVER_NEXT_ALLOW_LEGACY_HTTP_COMPAT: '1',
             SERVER_NEXT_GM_DATABASE_BACKUP_DIR: backupDirectory,
             ...(options.maintenance
                 ? { SERVER_NEXT_RUNTIME_MAINTENANCE: '1' }

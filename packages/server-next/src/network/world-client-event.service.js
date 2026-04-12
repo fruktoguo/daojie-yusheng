@@ -19,6 +19,7 @@ const mail_runtime_service_1 = require("../runtime/mail/mail-runtime.service");
 const market_runtime_service_1 = require("../runtime/market/market-runtime.service");
 const player_runtime_service_1 = require("../runtime/player/player-runtime.service");
 const suggestion_runtime_service_1 = require("../runtime/suggestion/suggestion-runtime.service");
+const legacy_protocol_env_1 = require("./legacy-protocol.env");
 const world_session_service_1 = require("./world-session.service");
 const world_sync_service_1 = require("./world-sync.service");
 let WorldClientEventService = class WorldClientEventService {
@@ -44,31 +45,42 @@ let WorldClientEventService = class WorldClientEventService {
             return;
         }
         client.data.protocol = protocol;
-        client.data.prefersNext = protocol === 'next';
     }
     getProtocol(client) {
-        const protocol = client?.data?.protocol;
-        if (protocol === 'next' || protocol === 'legacy') {
-            return protocol;
-        }
-        return client?.data?.prefersNext === true ? 'next' : 'legacy';
+        return this.resolveProtocolEmission(client).protocol ?? 'next';
     }
     getExplicitProtocol(client) {
         const protocol = client?.data?.protocol;
         return protocol === 'next' || protocol === 'legacy' ? protocol : null;
     }
+    resolveProtocolEmission(client) {
+        const protocol = this.resolveEffectiveProtocol(client);
+        return {
+            protocol,
+            emitNext: protocol !== 'legacy',
+            emitLegacy: protocol === 'legacy',
+        };
+    }
     prefersNext(client) {
-        return this.getProtocol(client) === 'next';
+        return this.resolveProtocolEmission(client).emitLegacy !== true;
+    }
+    resolveEffectiveProtocol(client) {
+        const protocol = this.getExplicitProtocol(client);
+        if (protocol === 'legacy' && !(0, legacy_protocol_env_1.isLegacySocketProtocolEnabled)()) {
+            return null;
+        }
+        return protocol;
     }
     emitByPreference(client, nextEvent, legacyEvent, payload) {
-        client.emit(this.prefersNext(client) ? nextEvent : legacyEvent, payload);
+        const { emitLegacy } = this.resolveProtocolEmission(client);
+        client.emit(emitLegacy ? legacyEvent : nextEvent, payload);
     }
     emitDual(client, nextEvent, legacyEvent, payload) {
-        const protocol = this.getExplicitProtocol(client);
-        if (protocol !== 'legacy') {
+        const { emitNext, emitLegacy } = this.resolveProtocolEmission(client);
+        if (emitNext) {
             client.emit(nextEvent, payload);
         }
-        if (protocol !== 'next') {
+        if (emitLegacy) {
             client.emit(legacyEvent, payload);
         }
     }
@@ -79,14 +91,35 @@ let WorldClientEventService = class WorldClientEventService {
         this.emitError(client, code, error instanceof Error ? error.message : 'unknown error');
     }
     emitProtocolFailure(client, code, text) {
-        const protocol = this.getExplicitProtocol(client);
-        if (protocol !== 'legacy') {
+        const { emitNext, emitLegacy } = this.resolveProtocolEmission(client);
+        if (emitNext) {
             client.emit(shared_1.NEXT_S2C.Error, { code, message: text });
         }
-        if (protocol !== 'next') {
+        if (emitLegacy) {
             client.emit(shared_1.S2C.SystemMsg, {
                 text,
                 kind: 'system',
+            });
+        }
+    }
+    emitSystemMessage(client, text, kind = 'info') {
+        const normalizedText = typeof text === 'string' ? text.trim() : '';
+        if (!normalizedText) {
+            return;
+        }
+        const { emitNext, emitLegacy } = this.resolveProtocolEmission(client);
+        if (emitNext) {
+            client.emit(shared_1.NEXT_S2C.Notice, {
+                items: [{
+                        kind,
+                        text: normalizedText,
+                    }],
+            });
+        }
+        if (emitLegacy) {
+            client.emit(shared_1.S2C.SystemMsg, {
+                text: normalizedText,
+                kind,
             });
         }
     }
@@ -111,8 +144,8 @@ let WorldClientEventService = class WorldClientEventService {
         this.emitDual(client, shared_1.NEXT_S2C.LootWindowUpdate, shared_1.S2C.LootWindowUpdate, payload);
     }
     emitChatMessage(client, payload) {
-        const protocol = this.getExplicitProtocol(client);
-        if (protocol !== 'legacy') {
+        const { emitNext, emitLegacy } = this.resolveProtocolEmission(client);
+        if (emitNext) {
             client.emit(shared_1.NEXT_S2C.Notice, {
                 items: [{
                         kind: 'chat',
@@ -121,19 +154,19 @@ let WorldClientEventService = class WorldClientEventService {
                     }],
             });
         }
-        if (protocol !== 'next') {
+        if (emitLegacy) {
             client.emit(shared_1.S2C.SystemMsg, payload);
         }
     }
     emitPendingLogbookMessages(client, playerId) {
         const pending = this.playerRuntimeService.getPendingLogbookMessages(playerId);
-        const protocol = this.getExplicitProtocol(client);
+        const { emitNext, emitLegacy } = this.resolveProtocolEmission(client);
         for (const entry of pending) {
-            if (protocol !== 'legacy') {
+            if (emitNext) {
                 client.emit(shared_1.NEXT_S2C.Notice, {
                     items: [{
                             messageId: entry.id,
-                            kind: 'grudge',
+                            kind: entry.kind,
                             text: entry.text,
                             from: entry.from,
                             occurredAt: entry.at,
@@ -141,12 +174,12 @@ let WorldClientEventService = class WorldClientEventService {
                         }],
                 });
             }
-            if (protocol !== 'next') {
+            if (emitLegacy) {
                 client.emit(shared_1.S2C.SystemMsg, {
                     id: entry.id,
                     text: entry.text,
                     from: entry.from,
-                    kind: 'grudge',
+                    kind: entry.kind,
                     occurredAt: entry.at,
                     persistUntilAck: true,
                 });

@@ -277,7 +277,7 @@ function normalizePendingLogbookMessages(value) {
         }
         const candidate = {
             id: entry.id.trim(),
-            kind: 'grudge',
+            kind: normalizePendingLogbookKind(entry.kind),
             text: entry.text.trim(),
             from: typeof entry.from === 'string' && entry.from.trim().length > 0 ? entry.from.trim() : undefined,
             at: Math.max(0, Math.trunc(entry.at)),
@@ -302,9 +302,22 @@ function isPendingLogbookMessage(value) {
     }
     const candidate = value;
     return typeof candidate.id === 'string'
-        && candidate.kind === 'grudge'
+        && normalizePendingLogbookKind(candidate.kind) === candidate.kind
         && typeof candidate.text === 'string'
         && (candidate.from === undefined || typeof candidate.from === 'string')
         && isFiniteNumber(candidate.at);
+}
+function normalizePendingLogbookKind(value) {
+    switch (value) {
+        case 'system':
+        case 'chat':
+        case 'quest':
+        case 'combat':
+        case 'loot':
+        case 'grudge':
+            return value;
+        default:
+            return 'grudge';
+    }
 }
 //# sourceMappingURL=player-persistence.service.js.map

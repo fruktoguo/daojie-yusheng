@@ -19,6 +19,8 @@ const SERVER_NEXT_URL = (0, env_alias_1.resolveServerNextUrl)() || 'http://127.0
 const SESSION_DETACH_EXPIRE_MS = Number.isFinite(Number(process.env.SERVER_NEXT_SESSION_DETACH_EXPIRE_MS))
     ? Math.max(0, Math.trunc(Number(process.env.SERVER_NEXT_SESSION_DETACH_EXPIRE_MS)))
     : 15_000;
+const LEGACY_SOCKET_PROTOCOL_ENABLED = readBooleanEnv('SERVER_NEXT_ALLOW_LEGACY_SOCKET_PROTOCOL')
+    || readBooleanEnv('NEXT_ALLOW_LEGACY_SOCKET_PROTOCOL');
 /**
  * 串联执行脚本主流程。
  */
@@ -31,6 +33,119 @@ async function main() {
  * 记录reaper证明链。
  */
     const reaperProof = await verifyWorldSessionReaperProof();
+/**
+ * 记录invalidhello。
+ */
+    const invalidHello = (0, socket_io_client_1.io)(SERVER_NEXT_URL, {
+        path: '/socket.io',
+        transports: ['websocket'],
+    });
+/**
+ * 记录invalidhelloerror。
+ */
+    let invalidHelloError = null;
+/**
+ * 记录invalidhellodisconnected。
+ */
+    let invalidHelloDisconnected = false;
+/**
+ * 记录invalidhelloinitcount。
+ */
+    let invalidHelloInitCount = 0;
+    await onceConnected(invalidHello);
+    invalidHello.on(shared_1.NEXT_S2C.Error, (payload) => {
+        invalidHelloError = payload;
+    });
+    invalidHello.on(shared_1.NEXT_S2C.InitSession, () => {
+        invalidHelloInitCount += 1;
+    });
+    invalidHello.on('disconnect', () => {
+        invalidHelloDisconnected = true;
+    });
+    invalidHello.emit('n:c:hello', {
+        sessionId: 'invalid hello session!*',
+    });
+    await waitFor(() => invalidHelloError !== null && invalidHelloDisconnected, 4000);
+/**
+ * 记录隐式legacy。
+ */
+    const implicitLegacy = (0, socket_io_client_1.io)(SERVER_NEXT_URL, {
+        path: '/socket.io',
+        transports: ['websocket'],
+    });
+/**
+ * 记录隐式legacy错误。
+ */
+    let implicitLegacyError = null;
+/**
+ * 记录隐式legacy断开。
+ */
+    let implicitLegacyDisconnected = false;
+/**
+ * 记录隐式legacy下行pong数量。
+ */
+    let implicitLegacyLegacyPongCount = 0;
+/**
+ * 记录隐式legacy next pong数量。
+ */
+    let implicitLegacyNextPongCount = 0;
+    await onceConnected(implicitLegacy);
+    implicitLegacy.on(shared_1.NEXT_S2C.Error, (payload) => {
+        implicitLegacyError = payload;
+    });
+    implicitLegacy.on(shared_1.S2C.Pong, () => {
+        implicitLegacyLegacyPongCount += 1;
+    });
+    implicitLegacy.on(shared_1.NEXT_S2C.Pong, () => {
+        implicitLegacyNextPongCount += 1;
+    });
+    implicitLegacy.on('disconnect', () => {
+        implicitLegacyDisconnected = true;
+    });
+    implicitLegacy.emit(shared_1.C2S.Ping, {
+        clientAt: Date.now(),
+    });
+    await waitFor(() => implicitLegacyError !== null && implicitLegacyDisconnected, 4000);
+/**
+ * 记录显式legacy。
+ */
+    const explicitLegacy = (0, socket_io_client_1.io)(SERVER_NEXT_URL, {
+        path: '/socket.io',
+        transports: ['websocket'],
+        auth: {
+            protocol: 'legacy',
+        },
+    });
+/**
+ * 记录显式legacy错误。
+ */
+    let explicitLegacyError = null;
+/**
+ * 记录显式legacy pong。
+ */
+    let explicitLegacyLegacyPong = null;
+/**
+ * 记录显式legacy next pong数量。
+ */
+    let explicitLegacyNextPongCount = 0;
+    explicitLegacy.on(shared_1.NEXT_S2C.Error, (payload) => {
+        explicitLegacyError = payload;
+    });
+    explicitLegacy.on(shared_1.S2C.Error, (payload) => {
+        explicitLegacyError = payload;
+    });
+    explicitLegacy.on(shared_1.S2C.Pong, (payload) => {
+        explicitLegacyLegacyPong = payload;
+    });
+    explicitLegacy.on(shared_1.NEXT_S2C.Pong, () => {
+        explicitLegacyNextPongCount += 1;
+    });
+    await onceConnected(explicitLegacy);
+    explicitLegacy.emit(shared_1.C2S.Ping, {
+        clientAt: Date.now(),
+    });
+    await waitFor(() => explicitLegacyLegacyPong !== null || explicitLegacyError !== null, 4000);
+    explicitLegacy.close();
 /**
  * 记录first。
  */
@@ -59,6 +174,10 @@ async function main() {
  */
     let resumedInit = null;
 /**
+ * 记录resumedmapenter。
+ */
+    let resumedMapEnter = null;
+/**
  * 记录rejectedresumeinit。
  */
     let rejectedResumeInit = null;
@@ -78,13 +197,18 @@ async function main() {
  * 记录events。
  */
     const events = [];
+/**
+ * 记录firstmapenter。
+ */
+    let firstMapEnter = null;
     await onceConnected(first);
     first.on(shared_1.NEXT_S2C.InitSession, (payload) => {
         runtimePlayerId = String(payload?.pid ?? '');
         sessionId = payload.sid;
         events.push(payload.resumed ? 'first:init:resumed' : 'first:init:new');
     });
-    first.on(shared_1.NEXT_S2C.MapEnter, () => {
+    first.on(shared_1.NEXT_S2C.MapEnter, (payload) => {
+        firstMapEnter = payload;
         events.push('first:mapEnter');
     });
     first.emit('n:c:hello', {
@@ -108,10 +232,17 @@ async function main() {
         resumedInit = payload;
         events.push(payload.resumed ? 'second:init:resumed' : 'second:init:new');
     });
+    second.on(shared_1.NEXT_S2C.MapEnter, (payload) => {
+        resumedMapEnter = payload;
+        events.push('second:mapEnter');
+    });
     second.emit('n:c:hello', {
         sessionId,
+        mapId: 'wildlands',
+        preferredX: 6,
+        preferredY: 6,
     });
-    await waitFor(() => resumedInit !== null, 4000);
+    await waitFor(() => resumedInit !== null && resumedMapEnter !== null, 4000);
     second.close();
     await delay(1200);
 /**
@@ -206,11 +337,56 @@ async function main() {
  * 记录expiredinit。
  */
     const expiredInit = expiredResumeInit;
+    if ((invalidHelloError?.code ?? null) !== 'HELLO_SESSION_ID_INVALID') {
+        throw new Error(`expected invalid hello sessionId to be rejected with HELLO_SESSION_ID_INVALID, got ${JSON.stringify(invalidHelloError)}`);
+    }
+    if (invalidHelloInitCount !== 0) {
+        throw new Error(`expected invalid hello sessionId to avoid bootstrap init, got ${invalidHelloInitCount}`);
+    }
+    if ((implicitLegacyError?.code ?? null) !== 'LEGACY_PROTOCOL_REQUIRED') {
+        throw new Error(`expected implicit legacy ping to be rejected with LEGACY_PROTOCOL_REQUIRED, got ${JSON.stringify(implicitLegacyError)}`);
+    }
+    if (implicitLegacyLegacyPongCount !== 0 || implicitLegacyNextPongCount !== 0) {
+        throw new Error(`expected implicit legacy ping to avoid pong emission, got legacy=${implicitLegacyLegacyPongCount} next=${implicitLegacyNextPongCount}`);
+    }
+    if (LEGACY_SOCKET_PROTOCOL_ENABLED) {
+        if (!explicitLegacyLegacyPong) {
+            throw new Error('missing explicit legacy pong proof payload');
+        }
+        if (explicitLegacyError !== null) {
+            throw new Error(`expected explicit legacy ping to avoid next error, got ${JSON.stringify(explicitLegacyError)}`);
+        }
+        if (explicitLegacyNextPongCount !== 0) {
+            throw new Error(`expected explicit legacy ping to avoid next pong emission, got ${explicitLegacyNextPongCount}`);
+        }
+    }
+    else {
+        if ((explicitLegacyError?.code ?? null) !== 'LEGACY_PROTOCOL_DISABLED') {
+            throw new Error(`expected explicit legacy ping to be rejected with LEGACY_PROTOCOL_DISABLED, got ${JSON.stringify(explicitLegacyError)}`);
+        }
+        if (explicitLegacyLegacyPong !== null) {
+            throw new Error(`expected explicit legacy ping to avoid legacy pong emission while disabled, got ${JSON.stringify(explicitLegacyLegacyPong)}`);
+        }
+        if (explicitLegacyNextPongCount !== 0) {
+            throw new Error(`expected explicit legacy ping to avoid next pong emission while disabled, got ${explicitLegacyNextPongCount}`);
+        }
+    }
     if (init.pid !== runtimePlayerId) {
         throw new Error(`expected resumed init pid ${runtimePlayerId}, got ${JSON.stringify(init)}`);
     }
     if (init.sid !== sessionId || init.resumed !== true) {
         throw new Error(`expected resumed session ${sessionId}, got ${JSON.stringify(init)}`);
+    }
+    if (!firstMapEnter || !resumedMapEnter) {
+        throw new Error(`missing guest map-enter proof: first=${JSON.stringify(firstMapEnter)} resumed=${JSON.stringify(resumedMapEnter)}`);
+    }
+    if (resumedMapEnter.mid !== firstMapEnter.mid
+        || resumedMapEnter.x !== firstMapEnter.x
+        || resumedMapEnter.y !== firstMapEnter.y) {
+        throw new Error(`expected guest detached resume to keep previous placement instead of hello override, got first=${JSON.stringify(firstMapEnter)} resumed=${JSON.stringify(resumedMapEnter)}`);
+    }
+    if (resumedMapEnter.mid === 'wildlands' || resumedMapEnter.x === 6 || resumedMapEnter.y === 6) {
+        throw new Error(`expected guest detached resume to ignore forged placement override, got ${JSON.stringify(resumedMapEnter)}`);
     }
     if (sessionId === ignoredRequestedSessionId) {
         throw new Error(`expected guest requested sessionId to be ignored on first bootstrap, got ${sessionId}`);
@@ -256,12 +432,18 @@ async function main() {
         ignoredRequestedSessionId,
         forgedResumeSessionId,
         detachExpireMs: SESSION_DETACH_EXPIRE_MS,
+        resumedMapEnter,
         rejectedResumeSid: rejectedInit.sid,
         ignoredRequestedPlayerSid: forgedPlayerPayload.sid,
         expiredResumeSid: expiredInit.sid,
         expiredResumePlayerId,
         serviceProof,
         reaperProof,
+        invalidHelloRejectedCode: invalidHelloError?.code ?? null,
+        implicitLegacyRejectedCode: implicitLegacyError?.code ?? null,
+        explicitLegacyEnabled: LEGACY_SOCKET_PROTOCOL_ENABLED,
+        explicitLegacyRejectedCode: explicitLegacyError?.code ?? null,
+        explicitLegacyPongServerAt: explicitLegacyLegacyPong?.serverAt ?? null,
         events,
     }, null, 2));
 }
@@ -401,11 +583,46 @@ function verifyWorldSessionServicePolicyProof() {
     if (explicitRejectedBinding.resumed === true || explicitRejectedBinding.sessionId === implicitRejectedBinding.sessionId) {
         throw new Error(`expected disabled explicit detached resume to rotate sid, got ${JSON.stringify(explicitRejectedBinding)}`);
     }
+/**
+ * 记录expirezeroservice。
+ */
+    const expireZeroService = new world_session_service_1.WorldSessionService();
+    expireZeroService.sessionDetachExpireMs = 0;
+/**
+ * 记录expirezeroplayerid。
+ */
+    const expireZeroPlayerId = `policy_expire_zero_${Date.now().toString(36)}`;
+/**
+ * 记录expirezerosocket。
+ */
+    const expireZeroSocket = createMockSocket('policy-expire-zero');
+/**
+ * 记录expirezerobinding。
+ */
+    const expireZeroBinding = expireZeroService.registerSocket(expireZeroSocket, expireZeroPlayerId);
+/**
+ * 记录expirezerodetachedbinding。
+ */
+    const expireZeroDetachedBinding = expireZeroService.unregisterSocket(expireZeroSocket.id);
+    if (!expireZeroDetachedBinding || expireZeroDetachedBinding.connected) {
+        throw new Error(`expected immediate detached binding for zero-expire session proof, got ${JSON.stringify(expireZeroDetachedBinding)}`);
+    }
+    if (expireZeroService.getBinding(expireZeroPlayerId) !== null) {
+        throw new Error(`expected zero-expire detach to purge active binding immediately, got ${JSON.stringify(expireZeroService.getBinding(expireZeroPlayerId))}`);
+    }
+    if (expireZeroService.getDetachedBindingBySessionId(expireZeroBinding.sessionId) !== null) {
+        throw new Error(`expected zero-expire detach to block immediate detached resume, got ${JSON.stringify(expireZeroService.getDetachedBindingBySessionId(expireZeroBinding.sessionId))}`);
+    }
+    const expiredBindings = expireZeroService.consumeExpiredBindings();
+    if (expiredBindings.length !== 1 || expiredBindings[0]?.playerId !== expireZeroPlayerId) {
+        throw new Error(`expected zero-expire detach to enqueue expired binding immediately, got ${JSON.stringify(expiredBindings)}`);
+    }
     return {
         initialSid: firstBinding.sessionId,
         connectedReuseBlockedSid: replacedBinding.sessionId,
         implicitResumeBlockedSid: implicitRejectedBinding.sessionId,
         explicitResumeBlockedSid: explicitRejectedBinding.sessionId,
+        immediateExpireSid: expireZeroBinding.sessionId,
     };
 }
 /**
@@ -623,6 +840,14 @@ function delay(ms) {
     return new Promise((resolve) => {
         setTimeout(resolve, ms);
     });
+}
+function readBooleanEnv(key) {
+    const value = process.env[key];
+    if (typeof value !== 'string') {
+        return false;
+    }
+    const normalized = value.trim().toLowerCase();
+    return normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'on';
 }
 /**
  * 处理delete玩家。

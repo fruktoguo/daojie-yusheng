@@ -12,11 +12,11 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.WorldSyncService = void 0;
 const common_1 = require("@nestjs/common");
 const shared_1 = require("@mud/shared-next");
-const legacy_gm_http_compat_service_1 = require("../compat/legacy/http/legacy-gm-http-compat.service");
+const movement_debug_1 = require("../debug/movement-debug");
 const map_template_repository_1 = require("../runtime/map/map-template.repository");
+const runtime_map_config_service_1 = require("../runtime/map/runtime-map-config.service");
 const world_runtime_service_1 = require("../runtime/world/world-runtime.service");
 const player_runtime_service_1 = require("../runtime/player/player-runtime.service");
-const world_legacy_sync_service_1 = require("./world-legacy-sync.service");
 const world_projector_service_1 = require("./world-projector.service");
 const world_sync_protocol_service_1 = require("./world-sync-protocol.service");
 const world_session_service_1 = require("./world-session.service");
@@ -28,12 +28,12 @@ let WorldSyncService = class WorldSyncService {
     templateRepository;
     mapRuntimeConfigService;
     worldSyncProtocolService;
-    worldLegacySyncService;
     lastQuestRevisionByPlayerId = new Map();
     syncStateByPlayerId = new Map();
     lootWindowByPlayerId = new Map();
     nextAuxStateByPlayerId = new Map();
-    constructor(worldRuntimeService, playerRuntimeService, worldProjectorService, worldSessionService, templateRepository, mapRuntimeConfigService, worldSyncProtocolService, worldLegacySyncService) {
+    logger = new common_1.Logger(WorldSyncService.name);
+    constructor(worldRuntimeService, playerRuntimeService, worldProjectorService, worldSessionService, templateRepository, mapRuntimeConfigService, worldSyncProtocolService) {
         this.worldRuntimeService = worldRuntimeService;
         this.playerRuntimeService = playerRuntimeService;
         this.worldProjectorService = worldProjectorService;
@@ -41,30 +41,30 @@ let WorldSyncService = class WorldSyncService {
         this.templateRepository = templateRepository;
         this.mapRuntimeConfigService = mapRuntimeConfigService;
         this.worldSyncProtocolService = worldSyncProtocolService;
-        this.worldLegacySyncService = worldLegacySyncService;
     }
-    emitInitialSync(playerId) {
+    emitInitialSync(playerId, socketOverride = undefined) {
         const binding = this.worldSessionService.getBinding(playerId);
         if (!binding) {
             return;
         }
-        const socket = this.worldSessionService.getSocketByPlayerId(playerId);
+        const socket = socketOverride ?? this.worldSessionService.getSocketByPlayerId(playerId);
         const view = this.worldRuntimeService.getPlayerView(playerId);
         if (!socket || !view) {
             return;
         }
         this.worldRuntimeService.refreshPlayerContextActions(playerId, view);
         const player = this.playerRuntimeService.syncFromWorldView(binding.playerId, binding.sessionId, view);
-        const envelope = this.worldProjectorService.createInitialEnvelope(binding, view, player);
-        const { protocol, emitNext } = this.worldSyncProtocolService.resolveEmission(socket);
+        const envelope = this.appendNextCombatEffects(this.worldProjectorService.createInitialEnvelope(binding, view, player), view, player);
+        this.logMovementEnvelope(playerId, 'initial', envelope);
+        const { emitLegacy, emitNext } = this.worldSyncProtocolService.resolveEmission(socket);
         if (emitNext) {
             this.emitNextEnvelope(socket, envelope);
         }
-        if (protocol === 'next') {
-            this.emitNextInitialSync(binding.playerId, socket, view, player);
+        if (emitLegacy) {
+            this.emitLegacyInitialSync(this.buildLegacySyncContext(binding.playerId, socket, view, player));
         }
         else {
-            this.worldLegacySyncService.emitInitialSync(this.buildLegacySyncContext(binding.playerId, socket, view, player));
+            this.emitNextInitialSync(binding.playerId, socket, view, player);
         }
         this.emitQuestSync(socket, binding.playerId, player.quests.revision);
         this.emitPendingNotices(binding.playerId, socket);
@@ -79,16 +79,17 @@ let WorldSyncService = class WorldSyncService {
             }
             this.worldRuntimeService.refreshPlayerContextActions(binding.playerId, view);
             const player = this.playerRuntimeService.syncFromWorldView(binding.playerId, binding.sessionId, view);
-            const envelope = this.worldProjectorService.createDeltaEnvelope(view, player);
-            const { protocol, emitNext } = this.worldSyncProtocolService.resolveEmission(socket);
+            const envelope = this.appendNextCombatEffects(this.worldProjectorService.createDeltaEnvelope(view, player), view, player);
+            this.logMovementEnvelope(binding.playerId, 'delta', envelope);
+            const { emitLegacy, emitNext } = this.worldSyncProtocolService.resolveEmission(socket);
             if (emitNext) {
                 this.emitNextEnvelope(socket, envelope);
             }
-            if (protocol === 'next') {
-                this.emitNextDeltaSync(binding.playerId, socket, view, player);
+            if (emitLegacy) {
+                this.emitLegacyDeltaSync(this.buildLegacySyncContext(binding.playerId, socket, view, player));
             }
             else {
-                this.worldLegacySyncService.emitDeltaSync(this.buildLegacySyncContext(binding.playerId, socket, view, player));
+                this.emitNextDeltaSync(binding.playerId, socket, view, player);
             }
             const lastQuestRevision = this.lastQuestRevisionByPlayerId.get(binding.playerId) ?? 0;
             if (lastQuestRevision !== player.quests.revision) {
@@ -113,6 +114,195 @@ let WorldSyncService = class WorldSyncService {
         if (envelope?.panelDelta) {
             socket.emit(shared_1.NEXT_S2C.PanelDelta, envelope.panelDelta);
         }
+    }
+    appendNextCombatEffects(envelope, view, player) {
+        const effects = this.collectNextCombatEffects(view, player);
+        if (effects.length === 0) {
+            return envelope;
+        }
+        const nextEnvelope = envelope ?? {};
+        nextEnvelope.worldDelta = {
+            t: view.tick,
+            wr: view.worldRevision,
+            sr: view.selfRevision,
+            ...(nextEnvelope.worldDelta ?? {}),
+            fx: effects.map((entry) => cloneCombatEffect(entry)),
+        };
+        return nextEnvelope;
+    }
+    collectNextCombatEffects(view, player) {
+        const template = this.templateRepository.getOrThrow(view.instance.templateId);
+        const visibleTileKeys = this.buildVisibleTileKeySet(view, player, template);
+        return filterLegacyCombatEffects(this.worldRuntimeService.getLegacyCombatEffects(view.instance.instanceId), visibleTileKeys);
+    }
+    logMovementEnvelope(playerId, phase, envelope) {
+        if (!(0, movement_debug_1.isServerNextMovementDebugEnabled)()) {
+            return;
+        }
+        const worldSelfPatch = envelope?.worldDelta?.p?.find((patch) => patch?.id === playerId);
+        const hasMovementSignal = Boolean(envelope?.mapEnter
+            || envelope?.initSession
+            || envelope?.selfDelta?.mid
+            || typeof envelope?.selfDelta?.x === 'number'
+            || typeof envelope?.selfDelta?.y === 'number'
+            || envelope?.selfDelta?.f !== undefined
+            || (worldSelfPatch && (typeof worldSelfPatch.x === 'number'
+                || typeof worldSelfPatch.y === 'number'
+                || worldSelfPatch.facing !== undefined)));
+        if (!hasMovementSignal) {
+            return;
+        }
+        (0, movement_debug_1.logServerNextMovement)(this.logger, `sync.${phase}`, {
+            playerId,
+            initSession: envelope?.initSession
+                ? { sessionId: envelope.initSession.sid ?? null }
+                : null,
+            mapEnter: envelope?.mapEnter
+                ? {
+                    mapId: envelope.mapEnter.mid ?? null,
+                    x: envelope.mapEnter.x ?? null,
+                    y: envelope.mapEnter.y ?? null,
+                }
+                : null,
+            worldSelfPatch: worldSelfPatch
+                ? {
+                    x: typeof worldSelfPatch.x === 'number' ? worldSelfPatch.x : null,
+                    y: typeof worldSelfPatch.y === 'number' ? worldSelfPatch.y : null,
+                    facing: worldSelfPatch.facing ?? null,
+                }
+                : null,
+            selfDelta: envelope?.selfDelta
+                ? {
+                    mapId: envelope.selfDelta.mid ?? null,
+                    x: typeof envelope.selfDelta.x === 'number' ? envelope.selfDelta.x : null,
+                    y: typeof envelope.selfDelta.y === 'number' ? envelope.selfDelta.y : null,
+                    facing: envelope.selfDelta.f ?? null,
+                }
+                : null,
+        });
+    }
+    emitLegacyInitialSync(context) {
+        const template = context.templateRepository.getOrThrow(context.view.instance.templateId);
+        const visibleTiles = context.buildVisibleTilesSnapshot(context.view, context.player, template);
+        const renderEntities = context.buildRenderEntitiesSnapshot(context.view, context.player);
+        const groundPiles = context.toGroundPileMap(context.view.localGroundPiles);
+        const path = context.worldRuntimeService.getLegacyNavigationPath(context.playerId);
+        const threatArrows = context.buildThreatArrows(context.view);
+        const allMinimapMarkers = context.buildMinimapMarkers(template);
+        const visibleMinimapMarkers = context.buildVisibleMinimapMarkers(allMinimapMarkers, visibleTiles.byKey);
+        const minimapLibrary = context.buildMinimapLibrarySync(context.player, template.id);
+        const timeState = context.buildGameTimeState(template, context.view, context.player);
+        const initPayload = context.buildBootstrapSyncPayload(context.view, context.player, template, visibleTiles, renderEntities, visibleMinimapMarkers, minimapLibrary, timeState);
+        const mapStaticPayload = context.buildMapStaticSyncPayload(template, {
+            mapMeta: initPayload.mapMeta,
+            minimap: initPayload.minimap,
+            visibleMinimapMarkers,
+            minimapLibrary,
+        });
+        const { emitNext, emitLegacy } = this.worldSyncProtocolService.resolveEmission(context.socket);
+        if (emitNext) {
+            context.socket.emit(shared_1.NEXT_S2C.Bootstrap, initPayload);
+        }
+        this.worldSyncProtocolService.sendMapStatic(context.socket, mapStaticPayload);
+        if (emitLegacy) {
+            context.socket.emit(shared_1.S2C.Init, initPayload);
+        }
+        const realmPayload = context.buildRealmSyncPayload(context.player);
+        this.worldSyncProtocolService.sendRealm(context.socket, realmPayload);
+        const attrUpdate = context.buildAttrUpdate(null, context.player);
+        if (attrUpdate && emitLegacy) {
+            context.socket.emit(shared_1.S2C.AttrUpdate, attrUpdate);
+        }
+        const inventoryUpdate = context.buildInventoryUpdate(null, context.player);
+        if (inventoryUpdate && emitLegacy) {
+            context.socket.emit(shared_1.S2C.InventoryUpdate, inventoryUpdate);
+        }
+        const equipmentUpdate = context.buildEquipmentUpdate(null, context.player);
+        if (equipmentUpdate && emitLegacy) {
+            context.socket.emit(shared_1.S2C.EquipmentUpdate, equipmentUpdate);
+        }
+        const techniqueUpdate = context.buildTechniqueUpdate(null, context.player);
+        if (techniqueUpdate && emitLegacy) {
+            context.socket.emit(shared_1.S2C.TechniqueUpdate, techniqueUpdate);
+        }
+        const actionsUpdate = context.buildActionsUpdate(null, context.player);
+        if (actionsUpdate && emitLegacy) {
+            context.socket.emit(shared_1.S2C.ActionsUpdate, actionsUpdate);
+        }
+        const lootWindow = context.buildLootWindowSyncState(context.playerId);
+        this.worldSyncProtocolService.sendLootWindow(context.socket, { window: lootWindow });
+        context.syncStateByPlayerId.set(context.playerId, context.captureSyncSnapshot(context.view, context.player, template, timeState, path, threatArrows, visibleMinimapMarkers, renderEntities, visibleTiles.byKey, groundPiles, lootWindow));
+    }
+    emitLegacyDeltaSync(context) {
+        const previous = context.syncStateByPlayerId.get(context.playerId) ?? null;
+        const template = context.templateRepository.getOrThrow(context.view.instance.templateId);
+        const currentTiles = context.buildVisibleTilesSnapshot(context.view, context.player, template);
+        const currentEntities = context.buildRenderEntitiesSnapshot(context.view, context.player);
+        const currentGroundPiles = context.toGroundPileMap(context.view.localGroundPiles);
+        const currentPath = context.worldRuntimeService.getLegacyNavigationPath(context.playerId);
+        const currentThreatArrows = context.buildThreatArrows(context.view);
+        const allMinimapMarkers = context.buildMinimapMarkers(template);
+        const currentVisibleMinimapMarkers = context.buildVisibleMinimapMarkers(allMinimapMarkers, currentTiles.byKey);
+        const currentEffects = context.filterLegacyCombatEffects(context.worldRuntimeService.getLegacyCombatEffects(context.view.instance.instanceId), currentTiles.byKey);
+        const currentTimeState = context.buildGameTimeState(template, context.view, context.player);
+        const { emitLegacy } = this.worldSyncProtocolService.resolveEmission(context.socket);
+        const mapChanged = !previous
+            || previous.mapId !== context.view.instance.templateId
+            || previous.instanceId !== context.view.instance.instanceId;
+        if (mapChanged) {
+            const minimapLibrary = context.buildMinimapLibrarySync(context.player, template.id);
+            this.worldSyncProtocolService.sendMapStatic(context.socket, {
+                mapId: template.id,
+                mapMeta: context.buildMapMetaSync(template),
+                minimap: context.buildMinimapSnapshotSync(template),
+                visibleMinimapMarkers: currentVisibleMinimapMarkers,
+                minimapLibrary,
+            });
+        }
+        else if (previous) {
+            const markerPatch = context.diffVisibleMinimapMarkers(previous.visibleMinimapMarkers, currentVisibleMinimapMarkers);
+            if (markerPatch.adds.length > 0 || markerPatch.removes.length > 0) {
+                this.worldSyncProtocolService.sendMapStatic(context.socket, {
+                    mapId: template.id,
+                    visibleMinimapMarkerAdds: markerPatch.adds.length > 0 ? markerPatch.adds : undefined,
+                    visibleMinimapMarkerRemoves: markerPatch.removes.length > 0 ? markerPatch.removes : undefined,
+                });
+            }
+        }
+        const tickPayload = context.buildTickPayload(previous, context.view, context.player, template, currentTimeState, currentEntities, currentTiles, currentGroundPiles, currentPath, currentThreatArrows, currentEffects, mapChanged);
+        if (tickPayload && emitLegacy) {
+            context.socket.emit(shared_1.S2C.Tick, tickPayload);
+        }
+        if (!previous || previous.attrRevision !== context.player.attrs.revision) {
+            const attrUpdate = context.buildAttrUpdate(previous?.attrState ?? null, context.player);
+            if (attrUpdate && emitLegacy) {
+                context.socket.emit(shared_1.S2C.AttrUpdate, attrUpdate);
+            }
+        }
+        if (!previous || !context.isSameRealmState(previous.realm, context.player.realm)) {
+            this.worldSyncProtocolService.sendRealm(context.socket, context.buildRealmSyncPayload(context.player));
+        }
+        const inventoryUpdate = context.buildInventoryUpdate(previous, context.player);
+        if (inventoryUpdate && emitLegacy) {
+            context.socket.emit(shared_1.S2C.InventoryUpdate, inventoryUpdate);
+        }
+        const equipmentUpdate = context.buildEquipmentUpdate(previous, context.player);
+        if (equipmentUpdate && emitLegacy) {
+            context.socket.emit(shared_1.S2C.EquipmentUpdate, equipmentUpdate);
+        }
+        const techniqueUpdate = context.buildTechniqueUpdate(previous, context.player);
+        if (techniqueUpdate && emitLegacy) {
+            context.socket.emit(shared_1.S2C.TechniqueUpdate, techniqueUpdate);
+        }
+        const actionsUpdate = context.buildActionsUpdate(previous, context.player);
+        if (actionsUpdate && emitLegacy) {
+            context.socket.emit(shared_1.S2C.ActionsUpdate, actionsUpdate);
+        }
+        const lootWindow = context.buildLootWindowSyncState(context.playerId);
+        if (!context.isSameLootWindow(previous?.lootWindow ?? null, lootWindow)) {
+            this.worldSyncProtocolService.sendLootWindow(context.socket, { window: lootWindow });
+        }
+        context.syncStateByPlayerId.set(context.playerId, context.captureSyncSnapshot(context.view, context.player, template, currentTimeState, currentPath, currentThreatArrows, currentVisibleMinimapMarkers, currentEntities, currentTiles.byKey, currentGroundPiles, lootWindow));
     }
     emitQuestSync(socket, playerId, revision) {
         const payload = {
@@ -178,21 +368,35 @@ let WorldSyncService = class WorldSyncService {
         const visibleMinimapMarkers = this.buildVisibleMinimapMarkers(allMinimapMarkers, visibleTiles.byKey);
         const minimapLibrary = this.buildMinimapLibrarySync(player, template.id);
         const timeState = this.buildGameTimeState(template, view, player);
+        const threatArrows = this.buildThreatArrows(view);
         const bootstrapPayload = this.buildBootstrapSyncPayload(view, player, template, visibleTiles, renderEntities, visibleMinimapMarkers, minimapLibrary, timeState);
         socket.emit(shared_1.NEXT_S2C.Bootstrap, bootstrapPayload);
         this.worldSyncProtocolService.sendMapStatic(socket, this.buildMapStaticSyncPayload(template, {
             mapMeta: bootstrapPayload.mapMeta,
             minimap: bootstrapPayload.minimap,
+            tiles: visibleTiles.matrix,
+            tilesOriginX: view.self.x - Math.max(1, Math.round(player.attrs.numericStats.viewRange)),
+            tilesOriginY: view.self.y - Math.max(1, Math.round(player.attrs.numericStats.viewRange)),
             visibleMinimapMarkers,
             minimapLibrary,
         }));
         this.worldSyncProtocolService.sendRealm(socket, this.buildRealmSyncPayload(player));
         const lootWindow = this.buildLootWindowSyncState(playerId);
         this.worldSyncProtocolService.sendLootWindow(socket, { window: lootWindow });
+        if (threatArrows.length > 0) {
+            socket.emit(shared_1.NEXT_S2C.WorldDelta, {
+                t: view.tick,
+                wr: view.worldRevision,
+                sr: view.selfRevision,
+                threatArrows: cloneThreatArrows(threatArrows),
+            });
+        }
         this.nextAuxStateByPlayerId.set(playerId, {
             mapId: view.instance.templateId,
             instanceId: view.instance.instanceId,
             realm: cloneRealmState(player.realm),
+            threatArrows: cloneThreatArrows(threatArrows),
+            visibleTiles: new Map(Array.from(visibleTiles.byKey.entries(), ([key, tile]) => [key, cloneTile(tile)])),
             visibleMinimapMarkers: visibleMinimapMarkers.map((entry) => cloneMinimapMarker(entry)),
             lootWindow: cloneLootWindow(lootWindow),
         });
@@ -204,9 +408,11 @@ let WorldSyncService = class WorldSyncService {
             return;
         }
         const template = this.templateRepository.getOrThrow(view.instance.templateId);
+        const visibleTiles = this.buildVisibleTilesSnapshot(view, player, template);
         const currentVisibleTileKeys = this.buildVisibleTileKeySet(view, player, template);
         const allMinimapMarkers = this.buildMinimapMarkers(template);
         const currentVisibleMinimapMarkers = this.buildVisibleMinimapMarkers(allMinimapMarkers, currentVisibleTileKeys);
+        const currentThreatArrows = this.buildThreatArrows(view);
         const mapChanged = previous.mapId !== view.instance.templateId
             || previous.instanceId !== view.instance.instanceId;
         if (mapChanged) {
@@ -214,14 +420,19 @@ let WorldSyncService = class WorldSyncService {
             this.worldSyncProtocolService.sendMapStatic(socket, this.buildMapStaticSyncPayload(template, {
                 mapMeta: this.buildMapMetaSync(template),
                 minimap: this.buildMinimapSnapshotSync(template),
+                tiles: visibleTiles.matrix,
+                tilesOriginX: view.self.x - Math.max(1, Math.round(player.attrs.numericStats.viewRange)),
+                tilesOriginY: view.self.y - Math.max(1, Math.round(player.attrs.numericStats.viewRange)),
                 visibleMinimapMarkers: currentVisibleMinimapMarkers,
                 minimapLibrary,
             }));
         }
         else {
+            const tilePatches = diffVisibleTiles(previous.visibleTiles ?? null, visibleTiles.byKey);
             const markerPatch = diffVisibleMinimapMarkers(previous.visibleMinimapMarkers, currentVisibleMinimapMarkers);
-            if (markerPatch.adds.length > 0 || markerPatch.removes.length > 0) {
+            if (markerPatch.adds.length > 0 || markerPatch.removes.length > 0 || tilePatches.length > 0) {
                 this.worldSyncProtocolService.sendMapStatic(socket, this.buildMapStaticSyncPayload(template, {
+                    tilePatches: tilePatches.length > 0 ? tilePatches : undefined,
                     visibleMinimapMarkerAdds: markerPatch.adds.length > 0 ? markerPatch.adds : undefined,
                     visibleMinimapMarkerRemoves: markerPatch.removes.length > 0 ? markerPatch.removes : undefined,
                 }));
@@ -235,10 +446,23 @@ let WorldSyncService = class WorldSyncService {
         if (!isSameLootWindow(previous.lootWindow ?? null, lootWindow)) {
             this.worldSyncProtocolService.sendLootWindow(socket, { window: lootWindow });
         }
+        const threatArrowPatch = diffThreatArrows(previous.threatArrows ?? null, currentThreatArrows, mapChanged);
+        if (threatArrowPatch.full || threatArrowPatch.adds.length > 0 || threatArrowPatch.removes.length > 0) {
+            socket.emit(shared_1.NEXT_S2C.WorldDelta, {
+                t: view.tick,
+                wr: view.worldRevision,
+                sr: view.selfRevision,
+                threatArrows: threatArrowPatch.full ?? undefined,
+                threatArrowAdds: threatArrowPatch.full ? undefined : (threatArrowPatch.adds.length > 0 ? threatArrowPatch.adds : undefined),
+                threatArrowRemoves: threatArrowPatch.full ? undefined : (threatArrowPatch.removes.length > 0 ? threatArrowPatch.removes : undefined),
+            });
+        }
         this.nextAuxStateByPlayerId.set(playerId, {
             mapId: view.instance.templateId,
             instanceId: view.instance.instanceId,
             realm: currentRealm,
+            threatArrows: cloneThreatArrows(currentThreatArrows),
+            visibleTiles: new Map(Array.from(visibleTiles.byKey.entries(), ([key, tile]) => [key, cloneTile(tile)])),
             visibleMinimapMarkers: currentVisibleMinimapMarkers.map((entry) => cloneMinimapMarker(entry)),
             lootWindow: cloneLootWindow(lootWindow),
         });
@@ -298,6 +522,10 @@ let WorldSyncService = class WorldSyncService {
             mapMeta: options.mapMeta,
             minimap: options.minimap,
             minimapLibrary: options.minimapLibrary,
+            tiles: options.tiles,
+            tilesOriginX: options.tilesOriginX,
+            tilesOriginY: options.tilesOriginY,
+            tilePatches: options.tilePatches,
             visibleMinimapMarkers: options.visibleMinimapMarkers,
             visibleMinimapMarkerAdds: options.visibleMinimapMarkerAdds,
             visibleMinimapMarkerRemoves: options.visibleMinimapMarkerRemoves,
@@ -493,16 +721,43 @@ let WorldSyncService = class WorldSyncService {
             view.playerId,
             ...view.visiblePlayers.map((entry) => entry.playerId),
         ]);
+        const visibleMonsterIds = new Set(view.localMonsters.map((entry) => entry.runtimeId));
+        const visibleEntityIds = new Set([...visiblePlayerIds, ...visibleMonsterIds]);
         const arrows = [];
+        const seen = new Set();
+        const pushArrow = (ownerId, targetId) => {
+            if (!targetId || ownerId === targetId) {
+                return;
+            }
+            if (!visibleEntityIds.has(ownerId) || !visibleEntityIds.has(targetId)) {
+                return;
+            }
+            const key = `${ownerId}->${targetId}`;
+            if (seen.has(key)) {
+                return;
+            }
+            seen.add(key);
+            arrows.push([ownerId, targetId]);
+        };
+        for (const playerId of visiblePlayerIds) {
+            const runtimePlayer = this.playerRuntimeService.getPlayer(playerId);
+            const targetRef = runtimePlayer?.combat?.combatTargetId;
+            if (typeof targetRef !== 'string' || targetRef.length === 0) {
+                continue;
+            }
+            const targetId = targetRef.startsWith('player:')
+                ? targetRef.slice('player:'.length)
+                : targetRef.startsWith('tile:') || targetRef.startsWith('container:')
+                    ? null
+                    : targetRef;
+            pushArrow(playerId, targetId);
+        }
         for (const monster of view.localMonsters) {
             const runtimeMonster = this.worldRuntimeService.getInstanceMonster(view.instance.instanceId, monster.runtimeId);
             if (!runtimeMonster?.alive || !runtimeMonster.aggroTargetPlayerId) {
                 continue;
             }
-            if (!visiblePlayerIds.has(runtimeMonster.aggroTargetPlayerId)) {
-                continue;
-            }
-            arrows.push([monster.runtimeId, runtimeMonster.aggroTargetPlayerId]);
+            pushArrow(monster.runtimeId, runtimeMonster.aggroTargetPlayerId);
         }
         arrows.sort(compareThreatArrows);
         return arrows;
@@ -536,14 +791,14 @@ let WorldSyncService = class WorldSyncService {
 exports.WorldSyncService = WorldSyncService;
 exports.WorldSyncService = WorldSyncService = __decorate([
     (0, common_1.Injectable)(),
+    __param(0, (0, common_1.Inject)((0, common_1.forwardRef)(() => world_runtime_service_1.WorldRuntimeService))),
     __metadata("design:paramtypes", [world_runtime_service_1.WorldRuntimeService,
         player_runtime_service_1.PlayerRuntimeService,
         world_projector_service_1.WorldProjectorService,
         world_session_service_1.WorldSessionService,
         map_template_repository_1.MapTemplateRepository,
-        legacy_gm_http_compat_service_1.LegacyGmHttpCompatService,
-        world_sync_protocol_service_1.WorldSyncProtocolService,
-        world_legacy_sync_service_1.WorldLegacySyncService])
+        runtime_map_config_service_1.RuntimeMapConfigService,
+        world_sync_protocol_service_1.WorldSyncProtocolService])
 ], WorldSyncService);
 function captureSyncSnapshot(view, player, template, timeState, path, threatArrows, visibleMinimapMarkers, renderEntities, visibleTiles, groundPiles, lootWindow) {
     const normalizedActions = player.actions.actions.map((entry) => normalizeActionEntry(entry));

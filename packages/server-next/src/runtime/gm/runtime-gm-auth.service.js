@@ -9,27 +9,22 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
                 r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
     return c > 3 && r && Object.defineProperty(target, key, r), r;
 };
-var __metadata = (this && this.__metadata) || function (k, v) {
-    if (typeof Reflect === "object" && typeof Reflect.metadata === "function")
-        return Reflect.metadata(k, v);
-};
-var LegacyGmHttpAuthService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.LegacyGmHttpAuthService = void 0;
+exports.RuntimeGmAuthService = void 0;
 const common_1 = require("@nestjs/common");
 const bcrypt = require("bcryptjs");
 const crypto = require("node:crypto");
 const pg_1 = require("pg");
-const persistent_document_table_1 = require("../../../persistence/persistent-document-table");
-const env_alias_1 = require("../../../config/env-alias");
+const persistent_document_table_1 = require("../../persistence/persistent-document-table");
+const env_alias_1 = require("../../config/env-alias");
 const GM_AUTH_SCOPE = 'server_next_legacy_gm_auth_v1';
 const GM_AUTH_KEY = 'gm_auth';
 const LEGACY_GM_AUTH_SCOPE = 'server_config';
 const DEFAULT_GM_PASSWORD = 'admin123';
 const DEFAULT_TOKEN_TTL_SEC = 12 * 60 * 60;
 const LEGACY_BCRYPT_SENTINEL_SALT = '__legacy_bcrypt__';
-let LegacyGmHttpAuthService = LegacyGmHttpAuthService_1 = class LegacyGmHttpAuthService {
-    logger = new common_1.Logger(LegacyGmHttpAuthService_1.name);
+let RuntimeGmAuthService = class RuntimeGmAuthService {
+    logger = new common_1.Logger(RuntimeGmAuthService.name);
     pool = null;
     persistenceEnabled = false;
     memoryRecord = null;
@@ -46,7 +41,7 @@ let LegacyGmHttpAuthService = LegacyGmHttpAuthService_1 = class LegacyGmHttpAuth
             this.persistenceEnabled = true;
         }
         catch (error) {
-            this.logger.error('Legacy GM HTTP auth persistence init failed', error instanceof Error ? error.stack : String(error));
+            this.logger.error('Runtime GM auth persistence init failed', error instanceof Error ? error.stack : String(error));
             await this.closePool();
         }
     }
@@ -125,13 +120,20 @@ let LegacyGmHttpAuthService = LegacyGmHttpAuthService_1 = class LegacyGmHttpAuth
         const expectedSignature = signTokenPayload(parts[1], this.getSigningSecret());
         return safeEqual(parts[2], expectedSignature);
     }
+    async reloadPasswordRecordFromPersistence() {
+        if (!this.persistenceEnabled || !this.pool) {
+            this.memoryRecord = null;
+            return;
+        }
+        this.memoryRecord = await this.loadPasswordRecordFromDb();
+    }
     issueToken(record) {
         const payloadBase64 = encodeBase64Url(JSON.stringify({
             role: 'gm',
             exp: Date.now() + this.getTokenTtlSec() * 1000,
             rev: record.updatedAt,
         }));
-        const signature = signTokenPayload(payloadBase64, this.getSigningSecret());
+        const signature = signTokenPayload(payloadBase64, this.getSigningSecret(record));
         return `v1.${payloadBase64}.${signature}`;
     }
     getSigningSecret(record = null) {
@@ -176,13 +178,6 @@ let LegacyGmHttpAuthService = LegacyGmHttpAuthService_1 = class LegacyGmHttpAuth
         }
         return this.memoryRecord;
     }
-    async reloadPasswordRecordFromPersistence() {
-        if (!this.persistenceEnabled || !this.pool) {
-            this.memoryRecord = null;
-            return;
-        }
-        this.memoryRecord = await this.loadPasswordRecordFromDb();
-    }
     async loadPasswordRecordFromDb() {
         if (!this.pool) {
             return null;
@@ -215,11 +210,10 @@ let LegacyGmHttpAuthService = LegacyGmHttpAuthService_1 = class LegacyGmHttpAuth
         }
     }
 };
-exports.LegacyGmHttpAuthService = LegacyGmHttpAuthService;
-exports.LegacyGmHttpAuthService = LegacyGmHttpAuthService = LegacyGmHttpAuthService_1 = __decorate([
-    (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [])
-], LegacyGmHttpAuthService);
+exports.RuntimeGmAuthService = RuntimeGmAuthService;
+exports.RuntimeGmAuthService = RuntimeGmAuthService = __decorate([
+    (0, common_1.Injectable)()
+], RuntimeGmAuthService);
 function normalizePasswordRecord(raw) {
     if (!raw || typeof raw !== 'object') {
         return null;

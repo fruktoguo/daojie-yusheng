@@ -20,11 +20,11 @@ const world_sync_service_1 = require("../../../network/world-sync.service");
 const world_session_service_1 = require("../../../network/world-session.service");
 const map_persistence_flush_service_1 = require("../../../persistence/map-persistence-flush.service");
 const player_persistence_flush_service_1 = require("../../../persistence/player-persistence-flush.service");
-const legacy_gm_http_auth_service_1 = require("./legacy-gm-http-auth.service");
 const mail_runtime_service_1 = require("../../../runtime/mail/mail-runtime.service");
 const market_runtime_service_1 = require("../../../runtime/market/market-runtime.service");
 const player_runtime_service_1 = require("../../../runtime/player/player-runtime.service");
 const suggestion_runtime_service_1 = require("../../../runtime/suggestion/suggestion-runtime.service");
+const runtime_gm_auth_service_1 = require("../../../runtime/gm/runtime-gm-auth.service");
 const world_runtime_service_1 = require("../../../runtime/world/world-runtime.service");
 let LegacyDatabaseRestoreCoordinatorService = class LegacyDatabaseRestoreCoordinatorService {
     worldSessionService;
@@ -36,8 +36,8 @@ let LegacyDatabaseRestoreCoordinatorService = class LegacyDatabaseRestoreCoordin
     mailRuntimeService;
     marketRuntimeService;
     suggestionRuntimeService;
-    legacyGmHttpAuthService;
-    constructor(worldSessionService, worldRuntimeService, worldSyncService, playerPersistenceFlushService, mapPersistenceFlushService, playerRuntimeService, mailRuntimeService, marketRuntimeService, suggestionRuntimeService, legacyGmHttpAuthService) {
+    runtimeGmAuthService;
+    constructor(worldSessionService, worldRuntimeService, worldSyncService, playerPersistenceFlushService, mapPersistenceFlushService, playerRuntimeService, mailRuntimeService, marketRuntimeService, suggestionRuntimeService, runtimeGmAuthService) {
         this.worldSessionService = worldSessionService;
         this.worldRuntimeService = worldRuntimeService;
         this.worldSyncService = worldSyncService;
@@ -47,7 +47,7 @@ let LegacyDatabaseRestoreCoordinatorService = class LegacyDatabaseRestoreCoordin
         this.mailRuntimeService = mailRuntimeService;
         this.marketRuntimeService = marketRuntimeService;
         this.suggestionRuntimeService = suggestionRuntimeService;
-        this.legacyGmHttpAuthService = legacyGmHttpAuthService;
+        this.runtimeGmAuthService = runtimeGmAuthService;
     }
     async prepareForRestore() {
         await this.playerPersistenceFlushService.flushAllNow();
@@ -65,7 +65,7 @@ let LegacyDatabaseRestoreCoordinatorService = class LegacyDatabaseRestoreCoordin
         await this.marketRuntimeService.reloadFromPersistence();
         this.mailRuntimeService.clearRuntimeCache();
         await this.suggestionRuntimeService.reloadFromPersistence();
-        await this.legacyGmHttpAuthService.reloadPasswordRecordFromPersistence();
+        await this.runtimeGmAuthService.reloadPasswordRecordFromPersistence();
     }
 };
 exports.LegacyDatabaseRestoreCoordinatorService = LegacyDatabaseRestoreCoordinatorService;
@@ -80,5 +80,5 @@ exports.LegacyDatabaseRestoreCoordinatorService = LegacyDatabaseRestoreCoordinat
         mail_runtime_service_1.MailRuntimeService,
         market_runtime_service_1.MarketRuntimeService,
         suggestion_runtime_service_1.SuggestionRuntimeService,
-        legacy_gm_http_auth_service_1.LegacyGmHttpAuthService])
+        runtime_gm_auth_service_1.RuntimeGmAuthService])
 ], LegacyDatabaseRestoreCoordinatorService);

@@ -14,6 +14,7 @@ const MONSTER_PERCENT_SCALING_KEYS = [
   'hit',
   'dodge',
   'crit',
+  'antiCrit',
   'critDamage',
   'breakPower',
   'resolvePower',
@@ -24,6 +25,7 @@ const MONSTER_PERCENT_SCALING_KEYS = [
   'moveSpeed',
 ] as const satisfies readonly (keyof NumericStatPercentages)[];
 
+/** createUniformPercentProfile：执行对应的业务逻辑。 */
 function createUniformPercentProfile(percent: number): NumericStatPercentages {
   const result: NumericStatPercentages = {};
   for (const key of MONSTER_PERCENT_SCALING_KEYS) {
@@ -32,16 +34,19 @@ function createUniformPercentProfile(percent: number): NumericStatPercentages {
   return result;
 }
 
+/** createGradePercentProfile：执行对应的业务逻辑。 */
 function createGradePercentProfile(rank: number): NumericStatPercentages {
   return createUniformPercentProfile(100 + rank * 10);
 }
 
+/** createTierPercentProfile：执行对应的业务逻辑。 */
 function createTierPercentProfile(allPercent: number, hpPercent: number): NumericStatPercentages {
   const result = createUniformPercentProfile(allPercent);
   result.maxHp = hpPercent;
   return result;
 }
 
+/** createGlobalMonsterPercentProfile：执行对应的业务逻辑。 */
 function createGlobalMonsterPercentProfile(): NumericStatPercentages {
   const result = createUniformPercentProfile(100);
   result.hpRegenRate = 10;
@@ -95,3 +100,4 @@ export const MONSTER_TIER_OVERLEVEL_EXP_REDUCTION_RATES: Record<MonsterTier, num
 
 /** 击杀经验的等级差修正最多只按 10 级计算，避免极端越级导致收益爆炸。 */
 export const MONSTER_KILL_EXP_LEVEL_DELTA_CAP = 10;
+

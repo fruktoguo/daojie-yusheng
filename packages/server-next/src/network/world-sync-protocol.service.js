@@ -9,18 +9,26 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.WorldSyncProtocolService = void 0;
 const common_1 = require("@nestjs/common");
 const shared_1 = require("@mud/shared-next");
+const legacy_protocol_env_1 = require("./legacy-protocol.env");
 let WorldSyncProtocolService = class WorldSyncProtocolService {
     resolveEmission(socket) {
-        const protocol = this.getExplicitProtocol(socket);
+        const protocol = this.resolveEffectiveProtocol(socket);
         return {
             protocol,
             emitNext: protocol !== 'legacy',
-            emitLegacy: protocol !== 'next',
+            emitLegacy: protocol === 'legacy',
         };
     }
     getExplicitProtocol(socket) {
         const protocol = socket?.data?.protocol;
         return protocol === 'next' || protocol === 'legacy' ? protocol : null;
+    }
+    resolveEffectiveProtocol(socket) {
+        const protocol = this.getExplicitProtocol(socket);
+        if (protocol === 'legacy' && !(0, legacy_protocol_env_1.isLegacySocketProtocolEnabled)()) {
+            return null;
+        }
+        return protocol;
     }
     sendQuestSync(socket, payload) {
         const { emitNext, emitLegacy } = this.resolveEmission(socket);

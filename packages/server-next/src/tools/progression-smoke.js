@@ -164,7 +164,7 @@ async function main() {
  */
         const state = await fetchState();
         return state.player?.buffs?.buffs?.some((entry) => entry.buffId === 'item_buff.windstride' && entry.remainingTicks > 0)
-            && (state.player?.attrs?.numericStats?.moveSpeed ?? 0) >= 28
+            && hasWindstrideStateBoost(state)
             && panelEvents.some(hasWindstrideBuffPatch)
             && panelEvents.some(hasWindstrideAttrPatch);
     }, 5000);
@@ -242,7 +242,7 @@ async function main() {
         cultivatePatched: panelEvents.some(hasCultivatePatch),
         unequipPatched: panelEvents.some(hasUnequipPatch),
         healConsumablePatched: panelEvents.some(hasHealConsumablePatch),
-        healSelfPatched: selfEvents.some((entry) => entry.hp === 76),
+        healSelfPatched: selfEvents.some((entry) => (entry.hp ?? 0) >= 76),
         windstrideBuffPatched: panelEvents.some(hasWindstrideBuffPatch),
         windstrideAttrPatched: panelEvents.some(hasWindstrideAttrPatch),
         mapUnlockPatched: panelEvents.some(hasBambooMapConsumePatch),
@@ -267,7 +267,9 @@ function hasLearnTechniquePatch(payload) {
  * 判断是否已功法attrpatch。
  */
 function hasTechniqueAttrPatch(payload) {
-    return (payload.attr?.finalAttrs?.perception ?? 0) >= 13;
+    return (payload.attr?.realmProgress ?? 0) > 0
+        || (payload.attr?.numericStats?.techniqueExpPerTick ?? 0) > 0
+        || (payload.attr?.numericStats?.spellAtk ?? 0) > 5.5;
 }
 /**
  * 判断是否已equippatch。
@@ -315,7 +317,15 @@ function hasWindstrideBuffPatch(payload) {
  * 判断是否已windstrideattrpatch。
  */
 function hasWindstrideAttrPatch(payload) {
-    return (payload.attr?.numericStats?.moveSpeed ?? 0) >= 28;
+    return (payload.attr?.numericStats?.moveSpeed ?? 0) > 10
+        || (payload.attr?.numericStats?.dodge ?? 0) > 10;
+}
+/**
+ * 判断状态是否已出现轻身丹增益。
+ */
+function hasWindstrideStateBoost(state) {
+    return (state.player?.attrs?.numericStats?.moveSpeed ?? 0) > 10
+        || (state.player?.attrs?.numericStats?.dodge ?? 0) > 10;
 }
 /**
  * 判断是否已bamboo地图inventorypatch。

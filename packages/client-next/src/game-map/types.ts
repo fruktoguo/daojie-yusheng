@@ -1,6 +1,7 @@
 import type {
   Direction,
   GameTimeState,
+  CombatEffect,
   GroundItemPilePatch,
   GroundItemPileView,
   GridPoint,
@@ -15,10 +16,12 @@ import type {
   TargetingShape,
   VisibleBuffState,
   VisibleTile,
+  VisibleTilePatch,
   S2C_MapStaticSync,
   TickRenderEntity,
 } from '@mud/shared-next';
 
+/** MapSafeAreaInsets：定义该接口的能力与字段约束。 */
 export interface MapSafeAreaInsets {
   top: number;
   right: number;
@@ -26,6 +29,7 @@ export interface MapSafeAreaInsets {
   left: number;
 }
 
+/** ObservedMapEntity：定义该接口的能力与字段约束。 */
 export interface ObservedMapEntity {
   id: string;
   wx: number;
@@ -45,6 +49,7 @@ export interface ObservedMapEntity {
   buffs?: VisibleBuffState[];
 }
 
+/** MapTargetingOverlayState：定义该接口的能力与字段约束。 */
 export interface MapTargetingOverlayState {
   originX: number;
   originY: number;
@@ -57,12 +62,14 @@ export interface MapTargetingOverlayState {
   hoverY?: number;
 }
 
+/** MapSenseQiOverlayState：定义该接口的能力与字段约束。 */
 export interface MapSenseQiOverlayState {
   hoverX?: number;
   hoverY?: number;
   levelBaseValue?: number;
 }
 
+/** MapOverlayState：定义该接口的能力与字段约束。 */
 export interface MapOverlayState {
   pathCells: GridPoint[];
   targeting: MapTargetingOverlayState | null;
@@ -70,6 +77,7 @@ export interface MapOverlayState {
   threatArrows: Array<{ ownerId: string; targetId: string }>;
 }
 
+/** MinimapSourceSnapshot：定义该接口的能力与字段约束。 */
 export interface MinimapSourceSnapshot {
   mapMeta: MapMeta | null;
   snapshot: MapMinimapSnapshot | null;
@@ -84,6 +92,7 @@ export interface MinimapSourceSnapshot {
   memoryVersion: number;
 }
 
+/** MapEntityTransition：定义该接口的能力与字段约束。 */
 export interface MapEntityTransition {
   movedId?: string;
   shiftX?: number;
@@ -92,11 +101,13 @@ export interface MapEntityTransition {
   settleMotion?: boolean;
 }
 
+/** MapTickTiming：定义该接口的能力与字段约束。 */
 export interface MapTickTiming {
   startedAt: number;
   durationMs: number;
 }
 
+/** MapStoreSnapshot：定义该接口的能力与字段约束。 */
 export interface MapStoreSnapshot {
   mapMeta: MapMeta | null;
   player: {
@@ -119,6 +130,7 @@ export interface MapStoreSnapshot {
   entityTransition: MapEntityTransition | null;
 }
 
+/** MapInteractionTarget：定义该接口的能力与字段约束。 */
 export interface MapInteractionTarget {
   x: number;
   y: number;
@@ -131,11 +143,13 @@ export interface MapInteractionTarget {
   clientY?: number;
 }
 
+/** MapRuntimeInteractionCallbacks：定义该接口的能力与字段约束。 */
 export interface MapRuntimeInteractionCallbacks {
   onTarget?: (target: MapInteractionTarget) => void;
   onHover?: (target: MapInteractionTarget | null) => void;
 }
 
+/** MapSceneSnapshot：定义该接口的能力与字段约束。 */
 export interface MapSceneSnapshot {
   mapMeta: MapMeta | null;
   player: MapStoreSnapshot['player'];
@@ -150,13 +164,25 @@ export interface MapSceneSnapshot {
   overlays: MapOverlayState;
 }
 
+/** MapNextWorldDeltaInput：定义该接口的能力与字段约束。 */
 export interface MapNextWorldDeltaInput {
   playerPatches: TickRenderEntity[];
   entityPatches: TickRenderEntity[];
   removedEntityIds?: string[];
   groundPatches?: GroundItemPilePatch[];
+  effects?: CombatEffect[];
+  threatArrows?: Array<{ ownerId: string; targetId: string }>;
+  threatArrowAdds?: Array<[string, string]>;
+  threatArrowRemoves?: Array<[string, string]>;
+  pathCells?: GridPoint[];
+  tickDurationMs?: number;
+  time?: GameTimeState | null;
+  visibleTiles?: VisibleTile[][];
+  visibleTilePatches?: VisibleTilePatch[];
+  mapId?: string;
 }
 
+/** MapNextSelfDeltaInput：定义该接口的能力与字段约束。 */
 export interface MapNextSelfDeltaInput {
   mapId?: string;
   x?: number;
@@ -167,6 +193,7 @@ export interface MapNextSelfDeltaInput {
   playerPatch?: TickRenderEntity | null;
 }
 
+/** MapBootstrapInput：定义该接口的能力与字段约束。 */
 export interface MapBootstrapInput {
   self: PlayerState;
   mapMeta: MapMeta;
@@ -178,6 +205,7 @@ export interface MapBootstrapInput {
   time?: GameTimeState | null;
 }
 
+/** MapRuntimeApi：定义该接口的能力与字段约束。 */
 export interface MapRuntimeApi {
   attach(host: HTMLElement): void;
   detach(): void;
@@ -186,6 +214,7 @@ export interface MapRuntimeApi {
   setSafeArea(insets: MapSafeAreaInsets): void;
   setZoom(level: number): void;
   setProjection(mode: 'topdown'): void;
+  setTickDurationMs(durationMs: number): void;
   applyBootstrap(data: MapBootstrapInput): void;
   applyMapStaticSync(data: S2C_MapStaticSync): void;
   applyNextWorldDelta(data: MapNextWorldDeltaInput): void;
@@ -205,3 +234,4 @@ export interface MapRuntimeApi {
   getVisibleTileAt(x: number, y: number): Tile | null;
   getGroundPileAt(x: number, y: number): GroundItemPileView | null;
 }
+

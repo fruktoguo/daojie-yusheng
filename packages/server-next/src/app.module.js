@@ -14,7 +14,6 @@ const world_gateway_1 = require("./network/world.gateway");
 const world_auth_registry_1 = require("./network/world-auth.registry");
 const world_client_event_service_1 = require("./network/world-client-event.service");
 const world_gm_socket_service_1 = require("./network/world-gm-socket.service");
-const world_legacy_sync_service_1 = require("./network/world-legacy-sync.service");
 const world_projector_service_1 = require("./network/world-projector.service");
 const world_protocol_projection_service_1 = require("./network/world-protocol-projection.service");
 const world_session_bootstrap_service_1 = require("./network/world-session-bootstrap.service");
@@ -27,7 +26,10 @@ const health_controller_1 = require("./health.controller");
 const health_readiness_service_1 = require("./health/health-readiness.service");
 const server_readiness_dependencies_service_1 = require("./health/server-readiness-dependencies.service");
 const player_combat_service_1 = require("./runtime/combat/player-combat.service");
+const runtime_gm_auth_service_1 = require("./runtime/gm/runtime-gm-auth.service");
+const runtime_gm_state_service_1 = require("./runtime/gm/runtime-gm-state.service");
 const map_template_repository_1 = require("./runtime/map/map-template.repository");
+const runtime_map_config_service_1 = require("./runtime/map/runtime-map-config.service");
 const player_attributes_service_1 = require("./runtime/player/player-attributes.service");
 const player_progression_service_1 = require("./runtime/player/player-progression.service");
 const map_persistence_flush_service_1 = require("./persistence/map-persistence-flush.service");
@@ -46,6 +48,7 @@ const suggestion_runtime_service_1 = require("./runtime/suggestion/suggestion-ru
 const redeem_code_runtime_service_1 = require("./runtime/redeem/redeem-code-runtime.service");
 const world_tick_service_1 = require("./runtime/tick/world-tick.service");
 const world_runtime_controller_1 = require("./runtime/world/world-runtime.controller");
+const runtime_maintenance_service_1 = require("./runtime/world/runtime-maintenance.service");
 const world_runtime_service_1 = require("./runtime/world/world-runtime.service");
 let AppModule = class AppModule {
 };
@@ -66,6 +69,9 @@ exports.AppModule = AppModule = __decorate([
             server_readiness_dependencies_service_1.ServerReadinessDependenciesService,
             health_readiness_service_1.HealthReadinessService,
             map_template_repository_1.MapTemplateRepository,
+            runtime_gm_auth_service_1.RuntimeGmAuthService,
+            runtime_gm_state_service_1.RuntimeGmStateService,
+            runtime_map_config_service_1.RuntimeMapConfigService,
             player_combat_service_1.PlayerCombatService,
             map_persistence_service_1.MapPersistenceService,
             map_persistence_flush_service_1.MapPersistenceFlushService,
@@ -89,11 +95,11 @@ exports.AppModule = AppModule = __decorate([
             world_session_reaper_service_1.WorldSessionReaperService,
             world_client_event_service_1.WorldClientEventService,
             world_gm_socket_service_1.WorldGmSocketService,
-            world_legacy_sync_service_1.WorldLegacySyncService,
             world_protocol_projection_service_1.WorldProtocolProjectionService,
             world_projector_service_1.WorldProjectorService,
             world_sync_protocol_service_1.WorldSyncProtocolService,
             world_sync_service_1.WorldSyncService,
+            runtime_maintenance_service_1.RuntimeMaintenanceService,
             world_runtime_service_1.WorldRuntimeService,
             world_tick_service_1.WorldTickService,
             world_gateway_1.WorldGateway,

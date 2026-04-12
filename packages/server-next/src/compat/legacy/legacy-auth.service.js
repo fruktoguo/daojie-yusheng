@@ -661,7 +661,7 @@ async function ensureDisplayNameUniquenessPolicy(pool) {
       WHERE rel.relname = 'users'
         AND con.contype = 'u'
       GROUP BY con.conname
-      HAVING array_agg(attr.attname ORDER BY key.ordinality) = ARRAY['displayName']
+      HAVING array_agg(attr.attname::text ORDER BY key.ordinality) = ARRAY['displayName']::text[]
     `);
         for (const row of result.rows) {
             const constraintName = typeof row?.conname === 'string' ? row.conname.trim() : '';
@@ -1367,7 +1367,7 @@ function normalizePendingLogbookMessages(value) {
         }
         const candidate = {
             id: typeof entry.id === 'string' ? entry.id.trim() : '',
-            kind: 'grudge',
+            kind: normalizePendingLogbookKind(entry.kind),
             text: typeof entry.text === 'string' ? entry.text.trim() : '',
             from: typeof entry.from === 'string' && entry.from.trim().length > 0 ? entry.from.trim() : undefined,
             at: Number.isFinite(entry.at) ? Math.max(0, Math.trunc(entry.at)) : 0,
@@ -1387,6 +1387,19 @@ function normalizePendingLogbookMessages(value) {
         normalized.forEach((item, index) => indexById.set(item.id, index));
     }
     return normalized;
+}
+function normalizePendingLogbookKind(value) {
+    switch (value) {
+        case 'system':
+        case 'chat':
+        case 'quest':
+        case 'combat':
+        case 'loot':
+        case 'grudge':
+            return value;
+        default:
+            return 'grudge';
+    }
 }
 function normalizeRuntimeBonuses(value) {
     if (!Array.isArray(value)) {

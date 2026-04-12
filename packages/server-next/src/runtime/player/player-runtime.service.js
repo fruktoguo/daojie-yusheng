@@ -14,18 +14,30 @@ const common_1 = require("@nestjs/common");
 const shared_1 = require("@mud/shared-next");
 const legacy_gm_compat_constants_1 = require("../../compat/legacy/legacy-gm-compat.constants");
 const content_template_repository_1 = require("../../content/content-template.repository");
+const map_template_repository_1 = require("../map/map-template.repository");
 const player_attributes_service_1 = require("./player-attributes.service");
 const player_progression_service_1 = require("./player-progression.service");
+const DEFAULT_PLAYER_STARTER_MAP_ID = 'yunlai_town';
 const MAX_PENDING_LOGBOOK_MESSAGES = 200;
 const VITAL_BASELINE_BONUS_SOURCE = 'runtime:vitals_baseline';
+const PENDING_LOGBOOK_KINDS = new Set([
+    'system',
+    'chat',
+    'quest',
+    'combat',
+    'loot',
+    'grudge',
+]);
 let PlayerRuntimeService = class PlayerRuntimeService {
     contentTemplateRepository;
+    mapTemplateRepository;
     playerAttributesService;
     playerProgressionService;
     players = new Map();
     pendingCombatEffectsByPlayerId = new Map();
-    constructor(contentTemplateRepository, playerAttributesService, playerProgressionService) {
+    constructor(contentTemplateRepository, mapTemplateRepository, playerAttributesService, playerProgressionService) {
         this.contentTemplateRepository = contentTemplateRepository;
+        this.mapTemplateRepository = mapTemplateRepository;
         this.playerAttributesService = playerAttributesService;
         this.playerProgressionService = playerProgressionService;
     }
@@ -1016,82 +1028,43 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             .filter((player) => player.persistentRevision > player.persistedRevision)
             .map((player) => player.playerId);
     }
+    buildFreshPersistenceSnapshot(playerId, placement) {
+        const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : '';
+        const templateId = typeof placement?.templateId === 'string' ? placement.templateId.trim() : '';
+        if (!normalizedPlayerId || !templateId) {
+            return null;
+        }
+        const player = this.createFreshPlayer(normalizedPlayerId, null);
+        player.templateId = templateId;
+        player.x = Number.isFinite(placement?.x) ? Math.trunc(placement.x) : 0;
+        player.y = Number.isFinite(placement?.y) ? Math.trunc(placement.y) : 0;
+        player.facing = Number.isFinite(placement?.facing)
+            ? Math.trunc(placement.facing)
+            : shared_1.Direction.South;
+        player.unlockedMapIds = [templateId];
+        return buildRuntimePlayerPersistenceSnapshot(player);
+    }
+    buildStarterPersistenceSnapshot(playerId) {
+        const templateId = this.mapTemplateRepository.has(DEFAULT_PLAYER_STARTER_MAP_ID)
+            ? DEFAULT_PLAYER_STARTER_MAP_ID
+            : (this.mapTemplateRepository.list()[0]?.id ?? '');
+        if (!templateId) {
+            return null;
+        }
+        const template = this.mapTemplateRepository.getOrThrow(templateId);
+        return this.buildFreshPersistenceSnapshot(playerId, {
+            templateId: template.id,
+            x: template.spawnX,
+            y: template.spawnY,
+            facing: shared_1.Direction.South,
+        });
+    }
     buildPersistenceSnapshot(playerId) {
         const player = this.players.get(playerId);
         if (!player || !player.templateId || (0, legacy_gm_compat_constants_1.isLegacyGmCompatBotPlayerId)(playerId)) {
             return null;
         }
-        return {
-            version: 1,
-            savedAt: Date.now(),
-            placement: {
-                templateId: player.templateId,
-                x: player.x,
-                y: player.y,
-                facing: player.facing,
-            },
-            vitals: {
-                hp: player.hp,
-                maxHp: player.maxHp,
-                qi: player.qi,
-                maxQi: player.maxQi,
-            },
-            progression: {
-                foundation: player.foundation,
-                combatExp: player.combatExp,
-                bodyTraining: player.bodyTraining ? { ...player.bodyTraining } : null,
-                boneAgeBaseYears: player.boneAgeBaseYears,
-                lifeElapsedTicks: player.lifeElapsedTicks,
-                lifespanYears: player.lifespanYears,
-                realm: cloneRealmState(player.realm),
-                heavenGate: cloneHeavenGateState(player.heavenGate),
-                spiritualRoots: cloneHeavenGateRoots(player.spiritualRoots),
-            },
-            unlockedMapIds: player.unlockedMapIds.slice(),
-            inventory: {
-                revision: player.inventory.revision,
-                capacity: player.inventory.capacity,
-                items: player.inventory.items.map((entry) => ({ ...entry })),
-            },
-            equipment: {
-                revision: player.equipment.revision,
-                slots: player.equipment.slots.map((entry) => ({
-                    slot: entry.slot,
-                    item: entry.item ? { ...entry.item } : null,
-                })),
-            },
-            techniques: {
-                revision: player.techniques.revision,
-                techniques: player.techniques.techniques.map((entry) => ({ ...entry })),
-                cultivatingTechId: player.techniques.cultivatingTechId,
-            },
-            buffs: {
-                revision: player.buffs.revision,
-                buffs: player.buffs.buffs.map((entry) => cloneTemporaryBuff(entry)),
-            },
-            quests: {
-                revision: player.quests.revision,
-                entries: player.quests.quests.map((entry) => ({
-                    ...entry,
-                    rewardItemIds: entry.rewardItemIds.slice(),
-                    rewards: entry.rewards.map((reward) => ({ ...reward })),
-                })),
-            },
-            combat: {
-                autoBattle: player.combat.autoBattle,
-                autoRetaliate: player.combat.autoRetaliate,
-                autoBattleStationary: player.combat.autoBattleStationary,
-                combatTargetId: player.combat.combatTargetId,
-                combatTargetLocked: player.combat.combatTargetLocked,
-                allowAoePlayerHit: player.combat.allowAoePlayerHit,
-                autoIdleCultivation: player.combat.autoIdleCultivation,
-                autoSwitchCultivation: player.combat.autoSwitchCultivation,
-                senseQiActive: player.combat.senseQiActive,
-                autoBattleSkills: player.combat.autoBattleSkills.map((entry) => ({ ...entry })),
-            },
-            pendingLogbookMessages: player.pendingLogbookMessages.map((entry) => ({ ...entry })),
-            runtimeBonuses: player.runtimeBonuses.map((entry) => cloneRuntimeBonus(entry)),
-        };
+        return buildRuntimePlayerPersistenceSnapshot(player);
     }
     markPersisted(playerId) {
         const player = this.players.get(playerId);
@@ -1292,6 +1265,7 @@ exports.PlayerRuntimeService = PlayerRuntimeService;
 exports.PlayerRuntimeService = PlayerRuntimeService = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [content_template_repository_1.ContentTemplateRepository,
+        map_template_repository_1.MapTemplateRepository,
         player_attributes_service_1.PlayerAttributesService,
         player_progression_service_1.PlayerProgressionService])
 ], PlayerRuntimeService);
@@ -1434,6 +1408,79 @@ function cloneHeavenGateRoots(roots) {
         earth: roots.earth,
     };
 }
+function buildRuntimePlayerPersistenceSnapshot(player) {
+    return {
+        version: 1,
+        savedAt: Date.now(),
+        placement: {
+            templateId: player.templateId,
+            x: player.x,
+            y: player.y,
+            facing: player.facing,
+        },
+        vitals: {
+            hp: player.hp,
+            maxHp: player.maxHp,
+            qi: player.qi,
+            maxQi: player.maxQi,
+        },
+        progression: {
+            foundation: player.foundation,
+            combatExp: player.combatExp,
+            bodyTraining: player.bodyTraining ? { ...player.bodyTraining } : null,
+            boneAgeBaseYears: player.boneAgeBaseYears,
+            lifeElapsedTicks: player.lifeElapsedTicks,
+            lifespanYears: player.lifespanYears,
+            realm: cloneRealmState(player.realm),
+            heavenGate: cloneHeavenGateState(player.heavenGate),
+            spiritualRoots: cloneHeavenGateRoots(player.spiritualRoots),
+        },
+        unlockedMapIds: player.unlockedMapIds.slice(),
+        inventory: {
+            revision: player.inventory.revision,
+            capacity: player.inventory.capacity,
+            items: player.inventory.items.map((entry) => ({ ...entry })),
+        },
+        equipment: {
+            revision: player.equipment.revision,
+            slots: player.equipment.slots.map((entry) => ({
+                slot: entry.slot,
+                item: entry.item ? { ...entry.item } : null,
+            })),
+        },
+        techniques: {
+            revision: player.techniques.revision,
+            techniques: player.techniques.techniques.map((entry) => ({ ...entry })),
+            cultivatingTechId: player.techniques.cultivatingTechId,
+        },
+        buffs: {
+            revision: player.buffs.revision,
+            buffs: player.buffs.buffs.map((entry) => cloneTemporaryBuff(entry)),
+        },
+        quests: {
+            revision: player.quests.revision,
+            entries: player.quests.quests.map((entry) => ({
+                ...entry,
+                rewardItemIds: entry.rewardItemIds.slice(),
+                rewards: entry.rewards.map((reward) => ({ ...reward })),
+            })),
+        },
+        combat: {
+            autoBattle: player.combat.autoBattle,
+            autoRetaliate: player.combat.autoRetaliate,
+            autoBattleStationary: player.combat.autoBattleStationary,
+            combatTargetId: player.combat.combatTargetId,
+            combatTargetLocked: player.combat.combatTargetLocked,
+            allowAoePlayerHit: player.combat.allowAoePlayerHit,
+            autoIdleCultivation: player.combat.autoIdleCultivation,
+            autoSwitchCultivation: player.combat.autoSwitchCultivation,
+            senseQiActive: player.combat.senseQiActive,
+            autoBattleSkills: player.combat.autoBattleSkills.map((entry) => ({ ...entry })),
+        },
+        pendingLogbookMessages: player.pendingLogbookMessages.map((entry) => ({ ...entry })),
+        runtimeBonuses: player.runtimeBonuses.map((entry) => cloneRuntimeBonus(entry)),
+    };
+}
 function normalizeRealmState(realm) {
     return realm ? cloneRealmState(realm) : createDefaultRealmState();
 }
@@ -1493,8 +1540,10 @@ function normalizePendingLogbookMessage(input) {
     }
     const id = typeof input.id === 'string' ? input.id.trim() : '';
     const text = typeof input.text === 'string' ? input.text.trim() : '';
-    const kind = input.kind;
-    if (!id || !text || kind !== 'grudge') {
+    const kind = typeof input.kind === 'string' && PENDING_LOGBOOK_KINDS.has(input.kind)
+        ? input.kind
+        : 'grudge';
+    if (!id || !text) {
         return null;
     }
     const at = Number.isFinite(input.at) ? Math.max(0, Math.trunc(input.at)) : Date.now();
@@ -1503,7 +1552,7 @@ function normalizePendingLogbookMessage(input) {
         : undefined;
     return {
         id,
-        kind: 'grudge',
+        kind,
         text,
         from,
         at,

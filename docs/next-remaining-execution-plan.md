@@ -1,6 +1,6 @@
 # next 剩余完整执行方案
 
-更新时间：2026-04-08
+更新时间：2026-04-11（当前轮次）
 
 ## 1. 目标定义
 
@@ -10,24 +10,32 @@
 
 如果你当前更关心“什么时候才能把仓库里的 `legacy/compat` 全删掉”，直接看 [docs/next-legacy-removal-checklist.md](/home/yuohira/mud-mmo/docs/next-legacy-removal-checklist.md)。
 
-如果你当前更关心“还差多少、每块具体剩什么、哪些能并行、哪些必须串行”，直接看 [docs/next-remaining-engineering-ledger.md](/home/yuohira/mud-mmo/docs/next-remaining-engineering-ledger.md)。
+如果你当前只想看一页摘要版工程账本，直接看 [docs/next-remaining-engineering-ledger.md](/home/yuohira/mud-mmo/docs/next-remaining-engineering-ledger.md)。
+
+如果你当前更关心“每块具体剩什么、哪些能并行、哪些必须串行、最近轮次做到了哪”，直接看 [docs/next-remaining-task-breakdown.md](/home/yuohira/mud-mmo/docs/next-remaining-task-breakdown.md)。
 
 当前统一口径：
 
 - `server-next` 的 direct legacy/perf inventory 已清零，最新 audit 为 `0 / 22`、`0`
-- `auth/token/bootstrap` 真源替换已经开始第一刀，但还没完成 next-native 收口
+- `auth/token/bootstrap` 真源替换已经开始第一刀，但还没完成 next-native 收口；本轮又继续把 `protocol=next` 的 compat identity runtime 回退、`legacy_runtime -> compat snapshot` 的运行态回退、以及带 token 的 `hello` 兜底入口继续收紧
 - 已落地的是 `token/identity` 读优先级收正：`next -> compat -> token fallback`
 - legacy HTTP auth 与 next socket auth 当前已经共用同一套 next token codec
 - `snapshot` persisted provenance 也已开始落地：next 持久化层现在可以区分 native snapshot 与 `legacy_seeded` snapshot
 - `snapshot/player-source` 的异常数据护栏也开始收口：带库场景下，next 持久化里如果已经存在非法 snapshot 记录、compat snapshot 查询因为 `users/players` schema 缺失而不可判定，或 compat snapshot 行里的 `mapId` 本身为空，主链现在都会直接失败并记录 trace
+- 无库场景下 token claims 完整的 authenticated next 连接，当前会显式落成 `identity.source=token_runtime`，不再默认先命中 `legacy_runtime`
+- 带库 `token_seed` 在缺失 compat snapshot 时，当前也已经能直接 seed next-native starter snapshot，不再被 `compat_snapshot_preseed_failed` 这条 legacy 依赖卡死
+- 带库 `compat backfill` 在缺失 compat snapshot 时，当前也已经能直接 seed next-native starter snapshot，不再因为“没有 legacy players 行”而卡死在 `legacy_preseed_blocked`
 - 这不等于 `snapshot/player-source` 与 `bootstrap/session` 主链已经 next-native
 - 这不等于 GM/admin/restore 运营面已经 next 化
 - 这不等于“最小包体、最高性能、极高扩展度、系统稳定性”已经全部满足
-- 保守估计，`next` 距离“完整替换游戏整体”仍约差 `40% - 45%`
-- 当前剩余工作已经可以压缩成最多三块：
+- 本轮本机已复跑 `pnpm --filter @mud/server-next compile` 与无库 `node packages/server-next/dist/tools/smoke-suite.js --case session --case next-auth-bootstrap`；with-db proof 仍待 `DATABASE_URL/SERVER_NEXT_DATABASE_URL`
+- 保守估计，`next` 距离“完整替换游戏整体”仍约差 `35% - 40%`
+- 当前剩余工作已经可以压缩成 5 个主块：
   - `snapshot/player-source -> bootstrap/session` 真源替换本体
   - GM/admin/restore/shadow 证明链补齐
   - 首包/热路径/扩展边界的性能尾项
+  - `shared-next / client-next` 稳定性收口
+  - 替换后的 compat 保留策略定稿
 
 ## 1.1 2026-04-07 最新状态
 
@@ -62,6 +70,30 @@
    - 本轮 summary 已覆盖 `readiness-gate / session / runtime / progression / combat / loot / legacy-auth / next-auth-bootstrap / legacy-player-compat / gm-compat / redeem-code / monster-runtime / monster-combat / monster-ai / monster-skill / monster-reset / monster-loot / player-recovery / player-respawn`
    - 总耗时约 `56087ms`
    - 配套 `next-legacy-boundary-audit` 最新结果也已回到 `0 / 22`、`0`
+
+## 1.2 2026-04-11 当前轮次
+
+这一轮继续把可执行口径收紧成 25 项任务，而不是只停留在“3 块大方向”：
+
+1. `T01-T08` 真源主线仍是第一阻塞，但 `protocol=next` 的 runtime compat 回退、`legacy_runtime -> compat snapshot`、`hello` 兜底入口都已经继续收口。
+2. `T09-T14` 的证明链与运营面补齐已经进入“真实环境补证 + 门禁制度化”阶段，而不是继续停留在仓库内命令层。
+3. `T15-T20` 的性能尾项现在主要集中在首包重复、projector 全量 capture/diff、tick 热路径和扩展切片。
+4. `T21-T23` 的 client/shared 稳定性已比前几轮稳，但仍需要继续压 alias、类型基线和一致性检查。
+5. `T24-T25` 现在明确只剩 compat 策略定稿与完成门禁化，不再是“顺手收尾”的尾巴。
+
+当前轮次新增/继续收口的关键事实：
+
+- 无库 authenticated next 连接在 token claims 完整时会显式落成 `identity.source=token_runtime`
+- `token_seed` 与 `compat backfill` 在缺失 compat snapshot 时都已经可以直接 seed next-native starter snapshot
+- `legacy protocol -> next` 的混流入口继续被拒绝，`hello` 不再承担 authenticated bootstrap 的兜底角色
+- `next-auth-bootstrap` 的 proof 已经从“只证明边界存在”推进到“同时证明正向、负向与失败阶段”
+- 本轮本机仍只跑到无库 `session` / `next-auth-bootstrap`，with-db proof 仍待数据库环境恢复后补跑
+
+因此当前这一页和 task-breakdown 保持同一口径：
+
+- 当前剩余任务：`25`
+- 当前保守剩余：`35% - 40%`
+- 当前最该先做的批次：`T09/T10/T11 -> T01/T03/T05/T07 -> T15/T16/T19/T22 -> T13/T24/T25`
 
 ## 2. 当前基线
 
@@ -99,6 +131,16 @@
 - 先低风险、高证明价值
 - 再高风险、真源替换
 - 最后做替换后的收尾清理
+
+当前任务粒度已经固定为 `25` 项，和 task-breakdown 统一如下：
+
+- `P0` 真源硬阻塞：`T01-T08`
+- `P1` 证明链与运营面：`T09-T14`
+- `P1` 性能 / 包体 / 扩展边界：`T15-T20`
+- `P1` client / shared / 稳定性：`T21-T23`
+- `P2` 替换后 compat 策略：`T24-T25`
+
+这不是新的分组口号，而是当前应该实际按这个颗粒度排期和验收。
 
 ## 4. 工作流拆分
 
@@ -220,7 +262,7 @@
 4. 把 legacy snapshot 从主路径默认依赖降级成显式 fallback。
 5. 为 `bootstrap source=next|legacy|miss` 增加可观测断言与 smoke。
 6. 基于已经落地的 provenance/source 元数据与“第一次 `legacy_seeded`、第二次 `next(native)`”顺序型 smoke 护栏，继续收紧 legacy fallback 的默认触发面。
-   当前已先收掉“seed 写失败”“next 持久化坏记录”“compat schema 缺失仍被吞成 miss”“compat snapshot 坏 placement 被静默改写成默认地图”“compat unlockedMinimapIds 坏值被静默压成当前图已解锁”这五类不该静默成功的异常分支，后续再继续压缩仍然允许命中 legacy snapshot 的正常 fallback 面。
+   当前已先收掉“seed 写失败”“next 持久化坏记录”“compat schema 缺失仍被吞成 miss”“compat snapshot 坏 placement 被静默改写成默认地图”“compat unlockedMinimapIds 坏值被静默压成当前图已解锁”“带库 token_seed 缺旧 snapshot 仍被 legacy preseed 卡死”“带库 compat backfill 缺旧 snapshot 仍被 legacy preseed 卡死”这七类不该静默成功的异常分支，后续再继续压缩仍然允许命中 legacy snapshot 的正常 fallback 面。
 
 #### 完成定义
 
@@ -251,6 +293,10 @@
    当前也可以先安全把这些结果压成读侧摘要：`/runtime/auth-trace` 除原始 ring buffer 外，可继续通过 `summary` 提供 `token/identity/snapshot/bootstrap` 聚合计数；目前已固定到 identity 持久化动作计数、bootstrap 的 `requestedSessionCount`、`entryPathCounts`、`identitySourceCounts`、`bootstrap.linkedSourceCounts` 与 `bootstrap.linkedPersistedSourceCounts` 这层，用来先看清主路径分布，而不提前改真源语义。
    这轮又补了一层 `snapshot` fallback 决策可观测：`WorldSessionBootstrapService` 现会把 authenticated snapshot fallback 的决策原因显式归一成 `identity_source:*` 或 `strict_native_snapshot_required`，`WorldPlayerSnapshotService` 会把该原因写进 trace，`/runtime/auth-trace` 的 `summary.snapshot.fallbackReasonCounts` 也会聚合计数。这样后续继续压缩 legacy snapshot 默认触发面时，可以直接按真实命中原因收口，而不是只看笼统的 `allowLegacyFallback=true/false`。
    在这层可观测补齐后，这轮也已经开始动真语义：当 persistence 已开启时，authenticated `legacy_runtime` 身份当前不再默认允许 compat snapshot fallback；主链现在要求“要么 next snapshot 已存在，要么直接失败”，只把 compat snapshot fallback 继续保留给无数据库/无持久化场景。这一刀还没有让 `A 类` 文件直接退出主链，但已经实质缩小了 `snapshot/player-source` 仍会默认回读 legacy source 的触发面。
+   这一轮又继续缩了一刀无库退化路径：在根本未配置数据库、且 access token 自己已经带全 `playerId/playerName` 的情况下，authenticated next 连接当前会直接落成 `identity.source=token_runtime`，不再默认先命中 compat identity / `legacy_runtime`；对应 trace 也会显式落成 `identityCompatTried=false`、`snapshotFallbackReason=identity_source:token_runtime`。
+   这一轮还继续缩了一刀带库 token 首登链：当 `identity.source=token_seed`、next identity 已成功落盘、但 next/compat snapshot 都还不存在时，主链当前会直接 seed 一份 next-native starter snapshot，而不是继续要求 compat snapshot preseed 成功；对应最小 smoke 现在会硬断言 `compatIdentityCalls=0`、`compatSnapshotCalls=0`，并要求 starter snapshot 通过默认地图模板 + runtime snapshot helper 直接以 `persistedSource=native` 写入。
+   同一轮也继续缩了一刀带库 compat backfill 链：当 next identity 已删除、compat identity 仍可解析、但 compat snapshot 已不存在时，主链当前会直接 seed 一份 next-native starter snapshot，而不是继续落成 `legacy_preseed_blocked`；对应 with-db proof 现在会硬断言 `identity.source=legacy_backfill`、`snapshotPersistedSource=native`，并检查 starter inventory 在 persisted/runtime 两侧都存在。
+   同一条无库路径现在也已经被 `next-auth-bootstrap` smoke 锁成硬门禁；如果后续有人把它又打回 compat identity，smoke 会直接失败，而不是只能从 trace 日志里人工观察。
 
 2. 用 smoke 锁定 source 命中的证明链。
    当前 `next-auth-bootstrap` smoke 已能在显式 trace 模式下系统化断言：
@@ -260,16 +306,20 @@
    - 这次 bootstrap 的 snapshot 来源存在
    - bootstrap ready 记录存在且顺序正确
    - snapshot 来源已开始区分 `legacy_runtime` 与 `legacy_seeded`
+   - 无库且 token claims 完整的 authenticated next 连接，当前会显式落到 `identity.source=token_runtime`，而不是继续落 `legacy_runtime`
    - next 持久化里若命中非法 snapshot 记录，会显式记录 `next_invalid` 而不是静默吞成 miss
    - compat snapshot 查询若因为 schema 缺失而不可判定，会显式记录 `legacy_source_error`，不再落成普通 miss
    - compat snapshot 行里的 `mapId` 若为空，在仍会命中 compat fallback 的链路里会显式落到 `legacy_source_error`，不再静默改写成默认出生图
    - compat snapshot 行里的 `unlockedMinimapIds` 若不是数组，在仍会命中 compat fallback 的链路里也会显式落到 `legacy_source_error`，不再静默压成“当前图已解锁”
    - next 持久化 snapshot 已开始暴露 `snapshotPersistedSource`
+   - 带库 `token_seed` 缺失 compat snapshot 时，当前会直接 seed next-native starter snapshot；proof 会显式断言 `compatIdentityCalls=0`、`compatSnapshotCalls=0` 与 `persistedSource=native`
+   - 带库 `compat backfill` 缺失 compat snapshot 时，当前也会直接 seed next-native starter snapshot；with-db proof 会显式断言 `identity.source=legacy_backfill`、`snapshotPersistedSource=native` 与 starter inventory 保留
    - trace 通过受 runtime debug guard 保护的 `/runtime/auth-trace` 暴露，且只在显式设置 `SERVER_NEXT_AUTH_TRACE_ENABLED=1` 或 `NEXT_AUTH_TRACE_ENABLED=1` 时生效
    - `/runtime/auth-trace` 当前除原始 `records` ring buffer 外，也会附带 `summary` 聚合，可直接观察 `identity/snapshot/bootstrap` 命中计数、identity 持久化动作计数、`bootstrap.requestedSessionCount`、`bootstrap.linkedSourceCounts` 与 `bootstrap.linkedPersistedSourceCounts`
    当前已经补到：
    - 带库场景下固定“第一次 `legacy_seeded`、第二次 `next(native)` 且 persistedSource=native`”的顺序证明
    - 带库场景下固定“第一次 identity=`legacy_backfill`、第二次 identity=`next`”的来源证明
+   - 带库场景下固定“删除 next identity、清空 next/legacy snapshot、但 compat identity 仍存在”后，同一 token 再连必须直接 bootstrap 为 `identity.source=legacy_backfill`、`snapshotPersistedSource=native`，且 starter inventory 在 persisted/runtime 两侧都保留
    - 带库场景下固定“保留 next identity、清空 next/legacy snapshot 源后，同一 token 再连必须直接失败，且不得出现 bootstrap ready”的负向证明
    - 带库场景下固定“保留 next identity 与 next snapshot、把 next snapshot 文档改成非法 payload”后，同一 token 再连必须直接失败；trace 必须显式落成 `identity.source=next`、`snapshot.source=next_invalid`，且不得出现 bootstrap
    - 带库场景下固定“保留 next identity 与 next snapshot、只把 `payload.__snapshotMeta.persistedSource` 改成非法值”后，同一 token 再连仍必须成功 bootstrap；trace 必须显式落成 `identity.source=next`、`snapshot.source=next`、`snapshotPersistedSource=native`
@@ -278,6 +328,7 @@
    - 带库场景下固定“保留 next identity、清空 next snapshot 后把 compat `unlockedMinimapIds` 改坏，同一 token 再连必须直接失败，且不得出现 bootstrap ready”的负向证明
    - 带库场景下固定“把 next persisted identity 写成非法值”后，同一 token 再连必须在 snapshot 装载前直接失败，且不得出现 bootstrap ready
    - 带库场景下固定“删除 next identity、保留 compat identity 与 next snapshot、并定向打掉 identity backfill 保存”后，同一 token 再连当前必须直接失败；trace 必须显式落成 `identity.source=legacy_persist_blocked`、`persistAttempted=true`、`persistSucceeded=false`、`persistFailureStage=compat_backfill_save_failed`，且不得出现 snapshot/bootstrap，identity 文档最终仍不存在
+   - 带库场景下 `compatIdentityBackfillSnapshotSeedFailureRejection` 现在也已细化到真实失败阶段：当 compat snapshot 存在、但写入 next persistence 失败时，trace 必须显式落成 `persistFailureStage=compat_snapshot_legacy_seed_failed`
    - 带库场景下固定“保留 next identity、删除 next snapshot、保留 compat snapshot”后，同一 token 再连必须直接失败；trace 必须显式落成 `identity.source=next`、`snapshot.source=miss`，且不得出现 bootstrap；compat snapshot 文档会被保留、next snapshot 文档最终仍不存在，证明 next identity 主链已不再回落 compat snapshot fallback
    - 无库场景下显式输出 `snapshotSequence.supported=false`，避免误读成已完成真源替换
    - 新增最小带库入口 `pnpm verify:replace-ready:proof:with-db`，可在不跑整条 `with-db` replace-ready 的前提下单独复跑这条真源证明链
@@ -427,6 +478,7 @@
 - 最小带库真源证明链固定
 - GM/admin/database 关键链路并入
 - README / TESTING / workflow / wrapper 对齐
+- 对齐 `T11 / T12 / T25`
 
 阶段完成标志：
 
@@ -441,6 +493,7 @@
 - next snapshot 真源
 - legacy fallback 降级
 - 对应 smoke / 可观测补齐
+- 对齐 `T01 / T02 / T03 / T04 / T05 / T06 / T07 / T08`
 
 阶段完成标志：
 
@@ -454,6 +507,7 @@
 - `gm-database-smoke`
 - shadow 管理只读面与关键写路径 proof
 - 文档 / workflow / wrapper 口径统一
+- 对齐 `T09 / T10 / T11 / T12 / T13 / T14`
 
 阶段完成标志：
 
@@ -467,6 +521,7 @@
 - 首包瘦身
 - 高负载性能门禁
 - sync/projector 扩展边界清理
+- 对齐 `T15 / T16 / T17 / T18 / T19 / T20 / T21 / T22 / T23`
 
 阶段完成标志：
 
@@ -479,6 +534,7 @@
 - 哪些 legacy 保留为兼容壳
 - 哪些可以删除
 - 哪些转为只迁移不常驻
+- 对齐 `T24 / T25`
 
 ## 6. 可安全并行项
 
@@ -526,6 +582,13 @@
 - 再做前端表层收口
 - 直接下潜 auth/token/bootstrap 真源重写而没有更稳的 acceptance 护栏
 
+当前更具体的推进顺序和 task-breakdown 保持一致：
+
+1. `T09 / T10 / T11`，先把“能不能证明接班”收口。
+2. 再主线程单线推进 `T01 / T03 / T05 / T07`。
+3. 然后做 `T15 / T16 / T19 / T22`，把最容易影响“替换后够不够好”的尾项先钉住。
+4. 最后再定 `T13 / T24 / T25`，把 compat 和完成门禁定稿。
+
 ## 8.1 剩余工程账本
 
 这一节不再讲抽象方向，只回答三件事：
@@ -537,8 +600,14 @@
 ### 总体剩余量
 
 - 如果目标是“正式替换旧前台玩家主链”，当前约还差 `20% - 30%`
-- 如果目标是“完整替换游戏整体”，当前保守仍约差 `40% - 45%`
-- 当前剩余工作可压成 `3` 个主阻塞块与 `3` 个尾项块
+- 如果目标是“完整替换游戏整体”，当前保守仍约差 `35% - 40%`
+- 当前剩余工作已经对应到 `25` 项任务，不能再只看 `3` 个主阻塞块
+- 当前最实用的压缩方式是按 `5` 组任务看：
+  - `T01-T08` 真源主线
+  - `T09-T14` 证明链与运营面
+  - `T15-T20` 性能 / 包体 / 扩展尾项
+  - `T21-T23` client / shared / 稳定性
+  - `T24-T25` compat 策略定稿
 
 ### P0 主阻塞
 
@@ -734,18 +803,24 @@
 
 ## 10. 全量剩余工程账本
 
-这一节把前面“仍约差 `40% - 45%`”拆成更可执行的工程块。
+这一节把前面“仍约差 `35% - 40%`”拆成更可执行的工程块。
 
 ### 10.1 总体拆账
 
-按当前口径，剩余工作可粗分成三层：
+按当前口径，剩余工作可粗分成 5 组任务：
 
-1. `P0` 真阻塞。
-   这是“能不能完整替换游戏整体”的硬门槛，当前大约还占剩余工作的 `20% - 25%`。
-2. `P1` 替换后才能站稳的运营面 / legacy 退役门槛。
-   这是“能不能安全宣布接班、开始删 legacy”的硬门槛，当前大约还占 `10% - 12%`。
-3. `P2` 最小包体 / 性能 / 扩展 / 稳定性尾项。
-   这是“替换后够不够好”的剩余项，当前大约还占 `10% - 15%`。
+1. `T01-T08` 真源主线。
+   这是“能不能完整替换游戏整体”的第一硬门槛。
+2. `T09-T14` 证明链与运营面。
+   这是“能不能安全宣布接班、开始删 legacy”的硬门槛。
+3. `T15-T20` 最小包体 / 性能 / 扩展尾项。
+   这是“替换后够不够好”的主要尾项。
+4. `T21-T23` client / shared / 稳定性。
+   这是“替换链路能否长期稳定承载”的配套尾项。
+5. `T24-T25` 替换后的 compat 策略。
+   这是“替换完成后 legacy 怎么处置”的最后门槛。
+
+上面 5 组不是等量切分，只是把 `25` 项任务按当前执行顺序和风险边界重新分层。
 
 上面三项不是精确工时，只是用来回答“还差多少”。
 
@@ -758,6 +833,7 @@
 - `WorldPlayerAuthService` 已把 identity 顺序收成 `next -> compat -> token fallback`
 - `WorldPlayerSnapshotService` 已把 snapshot 顺序收成 `next -> legacy fallback -> miss`
 - 带库顺序 proof 已能证明“第一次 `legacy_seeded`、第二次 `next(native)`”
+- 本轮还继续收掉了 `token_seed` 缺旧 snapshot 与 `compat backfill` 缺旧 snapshot 两条静默失败路径，主链现在会直接 seed next-native starter snapshot
 - 但 `WorldPlayerSourceService` 现在仍只是 `WorldLegacyPlayerSourceService` 的 facade，没有 next-native player source
 
 当前阻塞模块：
@@ -1037,5 +1113,5 @@
 如果只问“现在全量还差多少”，当前最保守、也最接近真实工程状态的回答仍是：
 
 - 距离“正式替换旧前台玩家主链”：约还差 `20% - 30%`
-- 距离“完整替换游戏整体”：约还差 `40% - 45%`
+- 距离“完整替换游戏整体”：约还差 `35% - 40%`
 - 距离“整批安全删除 legacy”：当前仍明显不是最后一步，必须先过 `L1-L5`

@@ -10,6 +10,7 @@ exports.WorldSessionService = void 0;
 const common_1 = require("@nestjs/common");
 const shared_1 = require("@mud/shared-next");
 const DEFAULT_SESSION_DETACH_EXPIRE_MS = 15_000;
+const MAX_REQUESTED_SESSION_ID_LENGTH = 128;
 function resolveSessionDetachExpireMs() {
     const raw = process.env.SERVER_NEXT_SESSION_DETACH_EXPIRE_MS;
     const parsed = Number(raw);
@@ -17,6 +18,19 @@ function resolveSessionDetachExpireMs() {
         return Math.max(0, Math.trunc(parsed));
     }
     return DEFAULT_SESSION_DETACH_EXPIRE_MS;
+}
+function sanitizeRequestedSessionId(rawSessionId) {
+    if (typeof rawSessionId !== 'string') {
+        return '';
+    }
+    const normalizedSessionId = rawSessionId.trim();
+    if (!normalizedSessionId || normalizedSessionId.length > MAX_REQUESTED_SESSION_ID_LENGTH) {
+        return '';
+    }
+    if (!/^[A-Za-z0-9:_-]+$/.test(normalizedSessionId)) {
+        return '';
+    }
+    return normalizedSessionId;
 }
 let WorldSessionService = class WorldSessionService {
     socketsById = new Map();
@@ -32,7 +46,7 @@ let WorldSessionService = class WorldSessionService {
     registerSocket(client, playerId, requestedSessionId, options = undefined) {
         this.socketsById.set(client.id, client);
         const previous = this.bindingByPlayerId.get(playerId);
-        const requested = requestedSessionId?.trim() || '';
+        const requested = sanitizeRequestedSessionId(requestedSessionId);
         const hasDetachedBinding = previous && !previous.connected;
         const allowImplicitDetachedResume = options?.allowImplicitDetachedResume !== false;
         const allowRequestedDetachedResume = options?.allowRequestedDetachedResume !== false;
@@ -40,7 +54,9 @@ let WorldSessionService = class WorldSessionService {
         const resumeMatched = hasDetachedBinding && (requested
             ? allowRequestedDetachedResume && requested === previous.sessionId
             : allowImplicitDetachedResume);
-        const reuseConnectedSession = previous?.connected === true && allowConnectedSessionReuse;
+        const reuseConnectedSession = previous?.connected === true
+            && allowConnectedSessionReuse
+            && (!requested || requested === previous.sessionId);
         const sessionId = resumeMatched
             ? previous.sessionId
             : reuseConnectedSession
@@ -96,6 +112,12 @@ let WorldSessionService = class WorldSessionService {
         };
         this.clearExpiry(binding.playerId);
         this.expiredBindings.delete(binding.playerId);
+        if (this.sessionDetachExpireMs <= 0) {
+            this.bindingByPlayerId.delete(binding.playerId);
+            this.bindingBySessionId.delete(detachedBinding.sessionId);
+            this.expiredBindings.set(binding.playerId, detachedBinding);
+            return detachedBinding;
+        }
         this.bindingByPlayerId.set(binding.playerId, detachedBinding);
         this.bindingBySessionId.set(detachedBinding.sessionId, detachedBinding);
         this.scheduleExpiry(detachedBinding);
@@ -105,7 +127,7 @@ let WorldSessionService = class WorldSessionService {
         return this.bindingByPlayerId.get(playerId) ?? null;
     }
     getBindingBySessionId(sessionId) {
-        const normalizedSessionId = typeof sessionId === 'string' ? sessionId.trim() : '';
+        const normalizedSessionId = sanitizeRequestedSessionId(sessionId);
         if (!normalizedSessionId) {
             return null;
         }
@@ -116,6 +138,13 @@ let WorldSessionService = class WorldSessionService {
         if (!binding || binding.connected === true) {
             return null;
         }
+        if (typeof binding.expireAt === 'number' && Number.isFinite(binding.expireAt) && binding.expireAt <= Date.now()) {
+            this.bindingBySessionId.delete(binding.sessionId);
+            this.bindingByPlayerId.delete(binding.playerId);
+            this.clearExpiry(binding.playerId);
+            this.expiredBindings.set(binding.playerId, binding);
+            return null;
+        }
         return binding;
     }
     getBindingBySocketId(socketId) {
@@ -124,6 +153,9 @@ let WorldSessionService = class WorldSessionService {
     createGuestPlayerId() {
         const sequence = this.nextGuestPlayerSequence++;
         return `guest_${Date.now().toString(36)}_${sequence.toString(36)}`;
+    }
+    isGuestPlayerId(playerId) {
+        return typeof playerId === 'string' && playerId.trim().startsWith('guest_');
     }
     getSocketByPlayerId(playerId) {
         const binding = this.bindingByPlayerId.get(playerId);

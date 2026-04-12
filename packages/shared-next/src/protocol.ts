@@ -196,6 +196,7 @@ export const NEXT_S2C = {
   Pong: 'n:s:pong',
 } as const;
 
+/** NEXT_S2C_Bootstrap：定义该接口的能力与字段约束。 */
 export interface NEXT_S2C_Bootstrap {
   self: PlayerState;
   mapMeta: MapMeta;
@@ -207,20 +208,24 @@ export interface NEXT_S2C_Bootstrap {
   time?: GameTimeState;
   auraLevelBaseValue?: number;
 }
+/** NEXT_S2C_LootWindowUpdate：定义该接口的能力与字段约束。 */
 export interface NEXT_S2C_LootWindowUpdate {
   window: SyncedLootWindowState | null;
 }
 
+/** NEXT_S2C_QuestNavigateResult：定义该接口的能力与字段约束。 */
 export interface NEXT_S2C_QuestNavigateResult {
   questId: string;
   ok: boolean;
   error?: string;
 }
 
+/** NEXT_S2C_RedeemCodesResult：定义该接口的能力与字段约束。 */
 export interface NEXT_S2C_RedeemCodesResult {
   result: AccountRedeemCodesRes;
 }
 
+/** NEXT_S2C_GmState：定义该接口的能力与字段约束。 */
 export interface NEXT_S2C_GmState {
   players: GmPlayerSummary[];
   mapIds: string[];
@@ -228,6 +233,7 @@ export interface NEXT_S2C_GmState {
   perf: GmPerformanceSnapshot;
 }
 
+/** NEXT_S2C_InitSession：定义该接口的能力与字段约束。 */
 export interface NEXT_S2C_InitSession {
   sid: string;
   pid: string;
@@ -235,6 +241,7 @@ export interface NEXT_S2C_InitSession {
   resumed?: boolean;
 }
 
+/** NEXT_S2C_MapEnter：定义该接口的能力与字段约束。 */
 export interface NEXT_S2C_MapEnter {
   iid: string;
   mid: string;
@@ -246,16 +253,22 @@ export interface NEXT_S2C_MapEnter {
   y: number;
 }
 
+/** NEXT_S2C_MapStatic：定义该接口的能力与字段约束。 */
 export interface NEXT_S2C_MapStatic {
   mapId: string;
   mapMeta?: MapMeta;
   minimap?: MapMinimapSnapshot;
   minimapLibrary?: MapMinimapArchiveEntry[];
+  tiles?: VisibleTile[][];
+  tilesOriginX?: number;
+  tilesOriginY?: number;
+  tilePatches?: VisibleTilePatch[];
   visibleMinimapMarkers?: MapMinimapMarker[];
   visibleMinimapMarkerAdds?: MapMinimapMarker[];
   visibleMinimapMarkerRemoves?: string[];
 }
 
+/** NEXT_S2C_NoticeItem：定义该接口的能力与字段约束。 */
 export interface NEXT_S2C_NoticeItem {
   id?: number;
   messageId?: string;
@@ -266,14 +279,17 @@ export interface NEXT_S2C_NoticeItem {
   persistUntilAck?: boolean;
 }
 
+/** NEXT_S2C_Notice：定义该接口的能力与字段约束。 */
 export interface NEXT_S2C_Notice {
   items: NEXT_S2C_NoticeItem[];
 }
 
+/** NEXT_S2C_Realm：定义该接口的能力与字段约束。 */
 export interface NEXT_S2C_Realm {
   realm: PlayerRealmState | null;
 }
 
+/** NEXT_S2C_WorldPlayerPatch：定义该接口的能力与字段约束。 */
 export interface NEXT_S2C_WorldPlayerPatch {
   id: string;
   x?: number;
@@ -282,6 +298,7 @@ export interface NEXT_S2C_WorldPlayerPatch {
   rm?: 1;
 }
 
+/** NEXT_S2C_WorldMonsterPatch：定义该接口的能力与字段约束。 */
 export interface NEXT_S2C_WorldMonsterPatch {
   id: string;
   mid?: string;
@@ -296,6 +313,7 @@ export interface NEXT_S2C_WorldMonsterPatch {
   rm?: 1;
 }
 
+/** NEXT_S2C_WorldNpcPatch：定义该接口的能力与字段约束。 */
 export interface NEXT_S2C_WorldNpcPatch {
   id: string;
   x?: number;
@@ -308,6 +326,7 @@ export interface NEXT_S2C_WorldNpcPatch {
   rm?: 1;
 }
 
+/** NEXT_S2C_WorldPortalPatch：定义该接口的能力与字段约束。 */
 export interface NEXT_S2C_WorldPortalPatch {
   id: string;
   x?: number;
@@ -317,6 +336,7 @@ export interface NEXT_S2C_WorldPortalPatch {
   rm?: 1;
 }
 
+/** NEXT_S2C_WorldGroundPatch：定义该接口的能力与字段约束。 */
 export interface NEXT_S2C_WorldGroundPatch {
   sourceId: string;
   x: number;
@@ -324,6 +344,7 @@ export interface NEXT_S2C_WorldGroundPatch {
   items?: GroundItemEntryView[] | null;
 }
 
+/** NEXT_S2C_WorldContainerPatch：定义该接口的能力与字段约束。 */
 export interface NEXT_S2C_WorldContainerPatch {
   id: string;
   x?: number;
@@ -334,6 +355,7 @@ export interface NEXT_S2C_WorldContainerPatch {
   rm?: 1;
 }
 
+/** NEXT_S2C_WorldDelta：定义该接口的能力与字段约束。 */
 export interface NEXT_S2C_WorldDelta {
   t: number;
   wr: number;
@@ -344,8 +366,20 @@ export interface NEXT_S2C_WorldDelta {
   o?: NEXT_S2C_WorldPortalPatch[];
   g?: NEXT_S2C_WorldGroundPatch[];
   c?: NEXT_S2C_WorldContainerPatch[];
+  threatArrows?: [string, string][];
+  threatArrowAdds?: [string, string][];
+  threatArrowRemoves?: [string, string][];
+  fx?: CombatEffect[];
+  path?: [number, number][];
+  dt?: number;
+  time?: GameTimeState;
+  auraLevelBaseValue?: number;
+  v?: VisibleTile[][];
+  tp?: VisibleTilePatch[];
+  mid?: string;
 }
 
+/** NEXT_S2C_SelfDelta：定义该接口的能力与字段约束。 */
 export interface NEXT_S2C_SelfDelta {
   sr: number;
   iid?: string;
@@ -359,6 +393,7 @@ export interface NEXT_S2C_SelfDelta {
   maxQi?: number;
 }
 
+/** NEXT_S2C_PanelInventoryDelta：定义该接口的能力与字段约束。 */
 export interface NEXT_S2C_PanelInventoryDelta {
   r: number;
   full?: 1;
@@ -367,12 +402,14 @@ export interface NEXT_S2C_PanelInventoryDelta {
   slots?: InventorySlotUpdateEntry[];
 }
 
+/** NEXT_S2C_PanelEquipmentDelta：定义该接口的能力与字段约束。 */
 export interface NEXT_S2C_PanelEquipmentDelta {
   r: number;
   full?: 1;
   slots: EquipmentSlotUpdateEntry[];
 }
 
+/** NEXT_S2C_PanelTechniqueDelta：定义该接口的能力与字段约束。 */
 export interface NEXT_S2C_PanelTechniqueDelta {
   r: number;
   full?: 1;
@@ -382,6 +419,7 @@ export interface NEXT_S2C_PanelTechniqueDelta {
   bodyTraining?: BodyTrainingState | null;
 }
 
+/** NEXT_S2C_PanelAttrDelta：定义该接口的能力与字段约束。 */
 export interface NEXT_S2C_PanelAttrDelta {
   r: number;
   full?: 1;
@@ -400,6 +438,7 @@ export interface NEXT_S2C_PanelAttrDelta {
   realmBreakthroughReady?: boolean;
 }
 
+/** NEXT_S2C_PanelActionDelta：定义该接口的能力与字段约束。 */
 export interface NEXT_S2C_PanelActionDelta {
   r: number;
   full?: 1;
@@ -418,6 +457,7 @@ export interface NEXT_S2C_PanelActionDelta {
   senseQiActive?: boolean;
 }
 
+/** NEXT_S2C_PanelBuffDelta：定义该接口的能力与字段约束。 */
 export interface NEXT_S2C_PanelBuffDelta {
   r: number;
   full?: 1;
@@ -425,6 +465,7 @@ export interface NEXT_S2C_PanelBuffDelta {
   removeBuffIds?: string[];
 }
 
+/** NEXT_S2C_PanelDelta：定义该接口的能力与字段约束。 */
 export interface NEXT_S2C_PanelDelta {
   inv?: NEXT_S2C_PanelInventoryDelta;
   eq?: NEXT_S2C_PanelEquipmentDelta;
@@ -468,6 +509,7 @@ export interface C2S_Ping {
   clientAt: number;
 }
 
+/** C2S_InspectTileRuntime：定义该接口的能力与字段约束。 */
 export interface C2S_InspectTileRuntime {
   x: number;
   y: number;
@@ -479,17 +521,21 @@ export interface S2C_Pong {
   serverAt: number;
 }
 
+/** C2S_GmGetState：定义该接口的能力与字段约束。 */
 export interface C2S_GmGetState {}
 
+/** C2S_GmSpawnBots：定义该接口的能力与字段约束。 */
 export interface C2S_GmSpawnBots {
   count: number;
 }
 
+/** C2S_GmRemoveBots：定义该接口的能力与字段约束。 */
 export interface C2S_GmRemoveBots {
   playerIds?: string[];
   all?: boolean;
 }
 
+/** C2S_GmUpdatePlayer：定义该接口的能力与字段约束。 */
 export interface C2S_GmUpdatePlayer {
   playerId: string;
   mapId: string;
@@ -499,6 +545,7 @@ export interface C2S_GmUpdatePlayer {
   autoBattle: boolean;
 }
 
+/** C2S_GmResetPlayer：定义该接口的能力与字段约束。 */
 export interface C2S_GmResetPlayer {
   playerId: string;
 }
@@ -510,10 +557,12 @@ export interface C2S_Action {
   target?: string;
 }
 
+/** C2S_UpdateAutoBattleSkills：定义该接口的能力与字段约束。 */
 export interface C2S_UpdateAutoBattleSkills {
   skills: AutoBattleSkillConfig[];
 }
 
+/** C2S_UpdateTechniqueSkillAvailability：定义该接口的能力与字段约束。 */
 export interface C2S_UpdateTechniqueSkillAvailability {
   techId: string;
   enabled: boolean;
@@ -529,103 +578,127 @@ export interface C2S_Chat {
   message: string;
 }
 
+/** C2S_AckSystemMessages：定义该接口的能力与字段约束。 */
 export interface C2S_AckSystemMessages {
   ids: string[];
 }
 
+/** C2S_RequestMarket：定义该接口的能力与字段约束。 */
 export interface C2S_RequestMarket {}
 
+/** C2S_RequestMailSummary：定义该接口的能力与字段约束。 */
 export interface C2S_RequestMailSummary {}
 
+/** C2S_RequestMailPage：定义该接口的能力与字段约束。 */
 export interface C2S_RequestMailPage {
   page: number;
   pageSize?: number;
   filter?: MailFilter;
 }
 
+/** C2S_RequestMailDetail：定义该接口的能力与字段约束。 */
 export interface C2S_RequestMailDetail {
   mailId: string;
 }
 
+/** C2S_RequestQuests：定义该接口的能力与字段约束。 */
 export interface C2S_RequestQuests {}
 
+/** C2S_RequestNpcQuests：定义该接口的能力与字段约束。 */
 export interface C2S_RequestNpcQuests {
   npcId: string;
 }
 
+/** C2S_AcceptNpcQuest：定义该接口的能力与字段约束。 */
 export interface C2S_AcceptNpcQuest {
   npcId: string;
   questId: string;
 }
 
+/** C2S_SubmitNpcQuest：定义该接口的能力与字段约束。 */
 export interface C2S_SubmitNpcQuest {
   npcId: string;
   questId: string;
 }
 
+/** C2S_RequestDetail：定义该接口的能力与字段约束。 */
 export interface C2S_RequestDetail {
   kind: 'npc' | 'monster' | 'ground' | 'player' | 'portal' | 'container';
   id: string;
 }
 
+/** C2S_MarkMailRead：定义该接口的能力与字段约束。 */
 export interface C2S_MarkMailRead {
   mailIds: string[];
 }
 
+/** C2S_ClaimMailAttachments：定义该接口的能力与字段约束。 */
 export interface C2S_ClaimMailAttachments {
   mailIds: string[];
 }
 
+/** C2S_DeleteMail：定义该接口的能力与字段约束。 */
 export interface C2S_DeleteMail {
   mailIds: string[];
 }
 
+/** C2S_RequestMarketItemBook：定义该接口的能力与字段约束。 */
 export interface C2S_RequestMarketItemBook {
   itemKey: string;
 }
 
+/** C2S_RequestMarketTradeHistory：定义该接口的能力与字段约束。 */
 export interface C2S_RequestMarketTradeHistory {
   page: number;
 }
 
+/** C2S_CreateMarketSellOrder：定义该接口的能力与字段约束。 */
 export interface C2S_CreateMarketSellOrder {
   slotIndex: number;
   quantity: number;
   unitPrice: number;
 }
 
+/** C2S_CreateMarketBuyOrder：定义该接口的能力与字段约束。 */
 export interface C2S_CreateMarketBuyOrder {
   itemId: string;
   quantity: number;
   unitPrice: number;
 }
 
+/** C2S_BuyMarketItem：定义该接口的能力与字段约束。 */
 export interface C2S_BuyMarketItem {
   itemKey: string;
   quantity: number;
 }
 
+/** C2S_SellMarketItem：定义该接口的能力与字段约束。 */
 export interface C2S_SellMarketItem {
   slotIndex: number;
   quantity: number;
 }
 
+/** C2S_CancelMarketOrder：定义该接口的能力与字段约束。 */
 export interface C2S_CancelMarketOrder {
   orderId: string;
 }
 
+/** C2S_ClaimMarketStorage：定义该接口的能力与字段约束。 */
 export interface C2S_ClaimMarketStorage {}
 
+/** C2S_RequestNpcShop：定义该接口的能力与字段约束。 */
 export interface C2S_RequestNpcShop {
   npcId: string;
 }
 
+/** C2S_BuyNpcShopItem：定义该接口的能力与字段约束。 */
 export interface C2S_BuyNpcShopItem {
   npcId: string;
   itemId: string;
   quantity: number;
 }
 
+/** C2S_HeavenGateAction：定义该接口的能力与字段约束。 */
 export interface C2S_HeavenGateAction {
   action: 'sever' | 'restore' | 'open' | 'reroll' | 'enter';
   element?: ElementKey;
@@ -651,6 +724,7 @@ export interface TickRenderEntity {
   buffs?: VisibleBuffState[] | null;
 }
 
+/** ObservationLootPreviewEntry：定义该接口的能力与字段约束。 */
 export interface ObservationLootPreviewEntry {
   itemId: string;
   name: string;
@@ -659,11 +733,13 @@ export interface ObservationLootPreviewEntry {
   chance: number;
 }
 
+/** ObservationLootPreview：定义该接口的能力与字段约束。 */
 export interface ObservationLootPreview {
   entries: ObservationLootPreviewEntry[];
   emptyText?: string;
 }
 
+/** ObservedTileEntityDetail：定义该接口的能力与字段约束。 */
 export interface ObservedTileEntityDetail {
   id: string;
   name?: string;
@@ -692,9 +768,10 @@ export interface GroundItemPilePatch {
 export interface VisibleTilePatch {
   x: number;
   y: number;
-  tile: VisibleTile;
+  tile: VisibleTile | null;
 }
 
+/** S2C_Tick：定义该接口的能力与字段约束。 */
 export interface S2C_Tick {
   p: TickRenderEntity[];                          // 玩家可见实体（含自身）
   t?: VisibleTilePatch[];                         // 视野内地块动态 patch
@@ -722,6 +799,10 @@ export interface S2C_MapStaticSync {
   mapMeta?: MapMeta;
   minimap?: MapMinimapSnapshot;
   minimapLibrary?: MapMinimapArchiveEntry[];
+  tiles?: VisibleTile[][];
+  tilesOriginX?: number;
+  tilesOriginY?: number;
+  tilePatches?: VisibleTilePatch[];
   visibleMinimapMarkers?: MapMinimapMarker[];
   visibleMinimapMarkerAdds?: MapMinimapMarker[];
   visibleMinimapMarkerRemoves?: string[];
@@ -805,12 +886,14 @@ export interface GmCpuSnapshot {
   breakdown: GmCpuSectionSnapshot[];
 }
 
+/** GmPathfindingFailureBucket：定义该接口的能力与字段约束。 */
 export interface GmPathfindingFailureBucket {
   reason: string;
   label: string;
   count: number;
 }
 
+/** GmPathfindingSnapshot：定义该接口的能力与字段约束。 */
 export interface GmPathfindingSnapshot {
   statsStartedAt: number;
   statsElapsedSec: number;
@@ -837,6 +920,7 @@ export interface GmPathfindingSnapshot {
   failureReasons: GmPathfindingFailureBucket[];
 }
 
+/** GmTickSnapshot：定义该接口的能力与字段约束。 */
 export interface GmTickSnapshot {
   lastMapId: string | null;
   lastMs: number;
@@ -922,6 +1006,7 @@ export interface C2S_Cultivate {
   techId: string | null; // null 表示停止修炼
 }
 
+/** C2S_RedeemCodes：定义该接口的能力与字段约束。 */
 export interface C2S_RedeemCodes {
   codes: string[];
 }
@@ -978,6 +1063,7 @@ export interface SyncedItemStack {
   allowBatchUse?: boolean;
 }
 
+/** SyncedInventorySnapshot：定义该接口的能力与字段约束。 */
 export interface SyncedInventorySnapshot {
   items: SyncedItemStack[];
   capacity: number;
@@ -985,6 +1071,7 @@ export interface SyncedInventorySnapshot {
   serverTick?: number;
 }
 
+/** SyncedInventoryCooldownState：定义该接口的能力与字段约束。 */
 export interface SyncedInventoryCooldownState {
   itemId: string;
   cooldown: number;
@@ -997,6 +1084,7 @@ export interface InventorySlotUpdateEntry {
   item: SyncedItemStack | null;
 }
 
+/** S2C_InventoryUpdate：定义该接口的能力与字段约束。 */
 export interface S2C_InventoryUpdate {
   inventory?: SyncedInventorySnapshot;
   capacity?: number;
@@ -1012,10 +1100,12 @@ export interface EquipmentSlotUpdateEntry {
   item: SyncedItemStack | null;
 }
 
+/** S2C_EquipmentUpdate：定义该接口的能力与字段约束。 */
 export interface S2C_EquipmentUpdate {
   slots: EquipmentSlotUpdateEntry[];
 }
 
+/** S2C_RedeemCodesResult：定义该接口的能力与字段约束。 */
 export interface S2C_RedeemCodesResult {
   result: AccountRedeemCodesRes;
 }
@@ -1083,6 +1173,7 @@ export interface SyncedLootWindowItemView {
   item: SyncedItemStack;
 }
 
+/** SyncedLootWindowSourceView：定义该接口的能力与字段约束。 */
 export interface SyncedLootWindowSourceView {
   sourceId: string;
   kind: LootSourceKind;
@@ -1095,6 +1186,7 @@ export interface SyncedLootWindowSourceView {
   emptyText?: string;
 }
 
+/** SyncedLootWindowState：定义该接口的能力与字段约束。 */
 export interface SyncedLootWindowState {
   tileX: number;
   tileY: number;
@@ -1102,10 +1194,12 @@ export interface SyncedLootWindowState {
   sources: SyncedLootWindowSourceView[];
 }
 
+/** S2C_LootWindowUpdate：定义该接口的能力与字段约束。 */
 export interface S2C_LootWindowUpdate {
   window: SyncedLootWindowState | null;
 }
 
+/** S2C_MarketUpdate：定义该接口的能力与字段约束。 */
 export interface S2C_MarketUpdate {
   currencyItemId: string;
   currencyItemName: string;
@@ -1114,6 +1208,7 @@ export interface S2C_MarketUpdate {
   storage: MarketStorage;
 }
 
+/** S2C_MarketItemBook：定义该接口的能力与字段约束。 */
 export interface S2C_MarketItemBook {
   currencyItemId: string;
   currencyItemName: string;
@@ -1121,6 +1216,7 @@ export interface S2C_MarketItemBook {
   book: MarketOrderBookView | null;
 }
 
+/** S2C_MarketTradeHistory：定义该接口的能力与字段约束。 */
 export interface S2C_MarketTradeHistory {
   page: number;
   pageSize: number;
@@ -1128,6 +1224,7 @@ export interface S2C_MarketTradeHistory {
   records: MarketTradeHistoryEntryView[];
 }
 
+/** SyncedNpcShopItemView：定义该接口的能力与字段约束。 */
 export interface SyncedNpcShopItemView {
   itemId: string;
   item: SyncedItemStack;
@@ -1137,6 +1234,7 @@ export interface SyncedNpcShopItemView {
   refreshAt?: number;
 }
 
+/** SyncedNpcShopView：定义该接口的能力与字段约束。 */
 export interface SyncedNpcShopView {
   npcId: string;
   npcName: string;
@@ -1146,18 +1244,21 @@ export interface SyncedNpcShopView {
   items: SyncedNpcShopItemView[];
 }
 
+/** S2C_NpcShop：定义该接口的能力与字段约束。 */
 export interface S2C_NpcShop {
   npcId: string;
   shop: SyncedNpcShopView | null;
   error?: string;
 }
 
+/** NEXT_S2C_NpcQuests：定义该接口的能力与字段约束。 */
 export interface NEXT_S2C_NpcQuests {
   npcId: string;
   npcName: string;
   quests: QuestState[];
 }
 
+/** NEXT_S2C_PortalDetail：定义该接口的能力与字段约束。 */
 export interface NEXT_S2C_PortalDetail {
   id: string;
   x: number;
@@ -1170,6 +1271,7 @@ export interface NEXT_S2C_PortalDetail {
   trigger?: 'manual' | 'auto';
 }
 
+/** NEXT_S2C_GroundDetail：定义该接口的能力与字段约束。 */
 export interface NEXT_S2C_GroundDetail {
   sourceId: string;
   x: number;
@@ -1177,6 +1279,7 @@ export interface NEXT_S2C_GroundDetail {
   items: ItemStack[];
 }
 
+/** NEXT_S2C_ContainerDetail：定义该接口的能力与字段约束。 */
 export interface NEXT_S2C_ContainerDetail {
   id: string;
   name: string;
@@ -1186,6 +1289,7 @@ export interface NEXT_S2C_ContainerDetail {
   desc?: string;
 }
 
+/** NEXT_S2C_NpcDetail：定义该接口的能力与字段约束。 */
 export interface NEXT_S2C_NpcDetail {
   id: string;
   name: string;
@@ -1201,6 +1305,7 @@ export interface NEXT_S2C_NpcDetail {
   observation?: ObservationInsight;
 }
 
+/** NEXT_S2C_MonsterDetail：定义该接口的能力与字段约束。 */
 export interface NEXT_S2C_MonsterDetail {
   id: string;
   mid: string;
@@ -1219,6 +1324,7 @@ export interface NEXT_S2C_MonsterDetail {
   buffs?: VisibleBuffState[];
 }
 
+/** NEXT_S2C_PlayerDetail：定义该接口的能力与字段约束。 */
 export interface NEXT_S2C_PlayerDetail {
   id: string;
   x: number;
@@ -1231,6 +1337,7 @@ export interface NEXT_S2C_PlayerDetail {
   buffs?: VisibleBuffState[];
 }
 
+/** NEXT_S2C_TileDetail：定义该接口的能力与字段约束。 */
 export interface NEXT_S2C_TileDetail {
   x: number;
   y: number;
@@ -1246,6 +1353,7 @@ export interface NEXT_S2C_TileDetail {
   error?: string;
 }
 
+/** NEXT_S2C_Detail：定义该接口的能力与字段约束。 */
 export interface NEXT_S2C_Detail {
   kind: 'npc' | 'monster' | 'ground' | 'player' | 'portal' | 'container';
   id: string;
@@ -1258,6 +1366,7 @@ export interface NEXT_S2C_Detail {
   container?: NEXT_S2C_ContainerDetail;
 }
 
+/** S2C_TileRuntimeDetail：定义该接口的能力与字段约束。 */
 export interface S2C_TileRuntimeDetail {
   mapId: string;
   x: number;
@@ -1305,19 +1414,23 @@ export interface S2C_SystemMsg {
   };
 }
 
+/** S2C_MailSummary：定义该接口的能力与字段约束。 */
 export interface S2C_MailSummary {
   summary: MailSummaryView;
 }
 
+/** S2C_MailPage：定义该接口的能力与字段约束。 */
 export interface S2C_MailPage {
   page: MailPageView;
 }
 
+/** S2C_MailDetail：定义该接口的能力与字段约束。 */
 export interface S2C_MailDetail {
   detail: MailDetailView | null;
   error?: string;
 }
 
+/** S2C_MailOpResult：定义该接口的能力与字段约束。 */
 export interface S2C_MailOpResult {
   operation: 'markRead' | 'claim' | 'delete';
   ok: boolean;
@@ -1344,19 +1457,23 @@ export interface C2S_VoteSuggestion {
   vote: 'up' | 'down';
 }
 
+/** C2S_ReplySuggestion：定义该接口的能力与字段约束。 */
 export interface C2S_ReplySuggestion {
   suggestionId: string;
   content: string;
 }
 
+/** C2S_MarkSuggestionRepliesRead：定义该接口的能力与字段约束。 */
 export interface C2S_MarkSuggestionRepliesRead {
   suggestionId: string;
 }
 
+/** C2S_GmMarkSuggestionCompleted：定义该接口的能力与字段约束。 */
 export interface C2S_GmMarkSuggestionCompleted {
   suggestionId: string;
 }
 
+/** C2S_GmRemoveSuggestion：定义该接口的能力与字段约束。 */
 export interface C2S_GmRemoveSuggestion {
   suggestionId: string;
 }
@@ -1366,6 +1483,7 @@ export interface S2C_SuggestionUpdate {
   suggestions: Suggestion[];
 }
 
+/** GmCreateMailReq：定义该接口的能力与字段约束。 */
 export interface GmCreateMailReq {
   templateId?: string;
   args?: MailTemplateArg[];
@@ -1403,16 +1521,19 @@ export interface AuthTokenRes {
   refreshToken: string;
 }
 
+/** GmListSuggestionsQuery：定义该接口的能力与字段约束。 */
 export interface GmListSuggestionsQuery {
   page?: number;
   pageSize?: number;
   keyword?: string;
 }
 
+/** GmReplySuggestionReq：定义该接口的能力与字段约束。 */
 export interface GmReplySuggestionReq {
   content: string;
 }
 
+/** GmSuggestionListRes：定义该接口的能力与字段约束。 */
 export interface GmSuggestionListRes {
   items: Suggestion[];
   total: number;
@@ -1439,6 +1560,7 @@ export interface AccountUpdateDisplayNameReq {
   displayName: string;
 }
 
+/** AccountUpdateDisplayNameRes：定义该接口的能力与字段约束。 */
 export interface AccountUpdateDisplayNameRes {
   displayName: string;
 }
@@ -1448,10 +1570,12 @@ export interface AccountUpdateRoleNameReq {
   roleName: string;
 }
 
+/** AccountUpdateRoleNameRes：定义该接口的能力与字段约束。 */
 export interface AccountUpdateRoleNameRes {
   roleName: string;
 }
 
+/** BasicOkRes：定义该接口的能力与字段约束。 */
 export interface BasicOkRes {
   ok: true;
 }
@@ -1461,6 +1585,7 @@ export interface GmLoginReq {
   password: string;
 }
 
+/** GmLoginRes：定义该接口的能力与字段约束。 */
 export interface GmLoginRes {
   accessToken: string;
   expiresInSec: number;
@@ -1532,8 +1657,10 @@ export interface GmManagedPlayerRecord extends GmManagedPlayerSummary {
   persistedSnapshot: unknown;
 }
 
+/** GmPlayerSortMode：定义该类型的结构与数据语义。 */
 export type GmPlayerSortMode = 'realm-desc' | 'realm-asc' | 'online' | 'map' | 'name';
 
+/** GmListPlayersQuery：定义该接口的能力与字段约束。 */
 export interface GmListPlayersQuery {
   page?: number;
   pageSize?: number;
@@ -1541,6 +1668,7 @@ export interface GmListPlayersQuery {
   sort?: GmPlayerSortMode;
 }
 
+/** GmPlayerListPage：定义该接口的能力与字段约束。 */
 export interface GmPlayerListPage {
   page: number;
   pageSize: number;
@@ -1550,6 +1678,7 @@ export interface GmPlayerListPage {
   sort: GmPlayerSortMode;
 }
 
+/** GmPlayerSummaryStats：定义该接口的能力与字段约束。 */
 export interface GmPlayerSummaryStats {
   totalPlayers: number;
   onlinePlayers: number;
@@ -1557,6 +1686,7 @@ export interface GmPlayerSummaryStats {
   offlinePlayers: number;
 }
 
+/** GmStateRes：定义该接口的能力与字段约束。 */
 export interface GmStateRes {
   players: GmManagedPlayerSummary[];
   playerPage: GmPlayerListPage;
@@ -1566,11 +1696,13 @@ export interface GmStateRes {
   perf: GmPerformanceSnapshot;
 }
 
+/** RedeemCodeGroupRewardItem：定义该接口的能力与字段约束。 */
 export interface RedeemCodeGroupRewardItem {
   itemId: string;
   count: number;
 }
 
+/** RedeemCodeGroupView：定义该接口的能力与字段约束。 */
 export interface RedeemCodeGroupView {
   id: string;
   name: string;
@@ -1582,6 +1714,7 @@ export interface RedeemCodeGroupView {
   updatedAt: string;
 }
 
+/** RedeemCodeCodeView：定义该接口的能力与字段约束。 */
 export interface RedeemCodeCodeView {
   id: string;
   groupId: string;
@@ -1595,44 +1728,53 @@ export interface RedeemCodeCodeView {
   updatedAt: string;
 }
 
+/** GmRedeemCodeGroupListRes：定义该接口的能力与字段约束。 */
 export interface GmRedeemCodeGroupListRes {
   groups: RedeemCodeGroupView[];
 }
 
+/** GmRedeemCodeGroupDetailRes：定义该接口的能力与字段约束。 */
 export interface GmRedeemCodeGroupDetailRes {
   group: RedeemCodeGroupView;
   codes: RedeemCodeCodeView[];
 }
 
+/** GmCreateRedeemCodeGroupReq：定义该接口的能力与字段约束。 */
 export interface GmCreateRedeemCodeGroupReq {
   name: string;
   rewards: RedeemCodeGroupRewardItem[];
   count: number;
 }
 
+/** GmUpdateRedeemCodeGroupReq：定义该接口的能力与字段约束。 */
 export interface GmUpdateRedeemCodeGroupReq {
   name: string;
   rewards: RedeemCodeGroupRewardItem[];
 }
 
+/** GmCreateRedeemCodeGroupRes：定义该接口的能力与字段约束。 */
 export interface GmCreateRedeemCodeGroupRes {
   group: RedeemCodeGroupView;
   codes: string[];
 }
 
+/** GmAppendRedeemCodesReq：定义该接口的能力与字段约束。 */
 export interface GmAppendRedeemCodesReq {
   count: number;
 }
 
+/** GmAppendRedeemCodesRes：定义该接口的能力与字段约束。 */
 export interface GmAppendRedeemCodesRes {
   group: RedeemCodeGroupView;
   codes: string[];
 }
 
+/** AccountRedeemCodesReq：定义该接口的能力与字段约束。 */
 export interface AccountRedeemCodesReq {
   codes: string[];
 }
 
+/** AccountRedeemCodeResult：定义该接口的能力与字段约束。 */
 export interface AccountRedeemCodeResult {
   code: string;
   ok: boolean;
@@ -1641,16 +1783,21 @@ export interface AccountRedeemCodeResult {
   rewards?: RedeemCodeGroupRewardItem[];
 }
 
+/** AccountRedeemCodesRes：定义该接口的能力与字段约束。 */
 export interface AccountRedeemCodesRes {
   results: AccountRedeemCodeResult[];
 }
 
+/** GmDatabaseBackupKind：定义该类型的结构与数据语义。 */
 export type GmDatabaseBackupKind = 'hourly' | 'daily' | 'manual' | 'pre_import';
 
+/** GmDatabaseJobType：定义该类型的结构与数据语义。 */
 export type GmDatabaseJobType = 'backup' | 'restore';
 
+/** GmDatabaseJobStatus：定义该类型的结构与数据语义。 */
 export type GmDatabaseJobStatus = 'running' | 'completed' | 'failed';
 
+/** GmDatabaseBackupRecord：定义该接口的能力与字段约束。 */
 export interface GmDatabaseBackupRecord {
   id: string;
   kind: GmDatabaseBackupKind;
@@ -1659,6 +1806,7 @@ export interface GmDatabaseBackupRecord {
   sizeBytes: number;
 }
 
+/** GmDatabaseJobSnapshot：定义该接口的能力与字段约束。 */
 export interface GmDatabaseJobSnapshot {
   id: string;
   type: GmDatabaseJobType;
@@ -1671,6 +1819,7 @@ export interface GmDatabaseJobSnapshot {
   error?: string;
 }
 
+/** GmDatabaseStateRes：定义该接口的能力与字段约束。 */
 export interface GmDatabaseStateRes {
   backups: GmDatabaseBackupRecord[];
   runningJob?: GmDatabaseJobSnapshot;
@@ -1695,20 +1844,24 @@ export interface GmDatabaseStateRes {
   };
 }
 
+/** GmTriggerDatabaseBackupRes：定义该接口的能力与字段约束。 */
 export interface GmTriggerDatabaseBackupRes {
   job: GmDatabaseJobSnapshot;
   compatScope?: 'persistent_documents_only';
   documentsCount?: number;
 }
 
+/** GmRestoreDatabaseReq：定义该接口的能力与字段约束。 */
 export interface GmRestoreDatabaseReq {
   backupId: string;
 }
 
+/** GmPlayerDetailRes：定义该接口的能力与字段约束。 */
 export interface GmPlayerDetailRes {
   player: GmManagedPlayerRecord;
 }
 
+/** GmEditorTechniqueOption：定义该接口的能力与字段约束。 */
 export interface GmEditorTechniqueOption {
   id: string;
   name: string;
@@ -1719,6 +1872,7 @@ export interface GmEditorTechniqueOption {
   layers?: TechniqueLayerDef[];
 }
 
+/** GmEditorItemOption：定义该接口的能力与字段约束。 */
 export interface GmEditorItemOption {
   itemId: string;
   name: string;
@@ -1745,6 +1899,7 @@ export interface GmEditorItemOption {
   allowBatchUse?: boolean;
 }
 
+/** GmEditorRealmOption：定义该接口的能力与字段约束。 */
 export interface GmEditorRealmOption {
   realmLv: number;
   displayName: string;
@@ -1753,8 +1908,10 @@ export interface GmEditorRealmOption {
   review?: string;
 }
 
+/** GmEditorBuffOption：定义该接口的能力与字段约束。 */
 export interface GmEditorBuffOption extends TemporaryBuffState {}
 
+/** GmEditorCatalogRes：定义该接口的能力与字段约束。 */
 export interface GmEditorCatalogRes {
   techniques: GmEditorTechniqueOption[];
   items: GmEditorItemOption[];
@@ -1763,6 +1920,7 @@ export interface GmEditorCatalogRes {
 }
 
 
+/** GmPlayerUpdateSection：定义该类型的结构与数据语义。 */
 export type GmPlayerUpdateSection =
   | 'basic'
   | 'position'
@@ -1772,33 +1930,40 @@ export type GmPlayerUpdateSection =
   | 'items'
   | 'quests';
 
+/** GmUpdatePlayerReq：定义该接口的能力与字段约束。 */
 export interface GmUpdatePlayerReq {
   snapshot: Partial<PlayerState>;
   section?: GmPlayerUpdateSection;
 }
 
+/** GmSetPlayerBodyTrainingLevelReq：定义该接口的能力与字段约束。 */
 export interface GmSetPlayerBodyTrainingLevelReq {
   level: number;
 }
 
+/** GmAddPlayerFoundationReq：定义该接口的能力与字段约束。 */
 export interface GmAddPlayerFoundationReq {
   amount: number;
 }
 
+/** GmAddPlayerCombatExpReq：定义该接口的能力与字段约束。 */
 export interface GmAddPlayerCombatExpReq {
   amount: number;
 }
 
+/** GmSpawnBotsReq：定义该接口的能力与字段约束。 */
 export interface GmSpawnBotsReq {
   anchorPlayerId: string;
   count: number;
 }
 
+/** GmRemoveBotsReq：定义该接口的能力与字段约束。 */
 export interface GmRemoveBotsReq {
   playerIds?: string[];
   all?: boolean;
 }
 
+/** GmShortcutRunRes：定义该接口的能力与字段约束。 */
 export interface GmShortcutRunRes {
   ok: true;
   totalPlayers: number;
@@ -1932,6 +2097,7 @@ export interface GmMapQuestRecord {
   unlockBreakthroughRequirementIds?: string[];
 }
 
+/** GmMapNpcShopItemRecord：定义该接口的能力与字段约束。 */
 export interface GmMapNpcShopItemRecord {
   itemId: string;
   price?: number;
@@ -2033,14 +2199,17 @@ export interface GmMapSummary {
   monsterSpawnCount: number;
 }
 
+/** GmMapListRes：定义该接口的能力与字段约束。 */
 export interface GmMapListRes {
   maps: GmMapSummary[];
 }
 
+/** GmMapDetailRes：定义该接口的能力与字段约束。 */
 export interface GmMapDetailRes {
   map: GmMapDocument;
 }
 
+/** GmUpdateMapReq：定义该接口的能力与字段约束。 */
 export interface GmUpdateMapReq {
   map: GmMapDocument;
 }
@@ -2098,3 +2267,4 @@ export interface GmUpdateMapTimeReq {
   scale?: number;
   offsetTicks?: number;
 }
+

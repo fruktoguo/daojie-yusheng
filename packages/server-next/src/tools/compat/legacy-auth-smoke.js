@@ -29,6 +29,8 @@ const required = process.env.SERVER_NEXT_LEGACY_AUTH_REQUIRED === '1';
  * 标记当前是否具备数据库环境，可决定测试分支。
  */
 const hasDatabaseUrl = Boolean(SERVER_NEXT_DATABASE_URL);
+const LEGACY_HTTP_MEMORY_FALLBACK_ENABLED = readBooleanEnv('SERVER_NEXT_ALLOW_LEGACY_HTTP_MEMORY_FALLBACK')
+    || readBooleanEnv('NEXT_ALLOW_LEGACY_HTTP_MEMORY_FALLBACK');
 /**
  * 本次兼容烟测要使用或伪造的用户 ID。
  */
@@ -41,7 +43,12 @@ const username = process.env.SERVER_NEXT_SMOKE_LEGACY_USERNAME ?? `legacy_${Date
 /**
  * 本次兼容链路验证使用的显示名。
  */
-const displayName = process.env.SERVER_NEXT_SMOKE_LEGACY_DISPLAY_NAME ?? '旧令牌烟测';
+const displayName = process.env.SERVER_NEXT_SMOKE_LEGACY_DISPLAY_NAME
+    ?? `旧令牌烟测${String.fromCodePoint(0x4E00 + (Date.now() % (0x9FFF - 0x4E00 + 1)))}`;
+/**
+ * 指定本次兼容夹具对应的玩家ID。
+ */
+const expectedPlayerId = process.env.SERVER_NEXT_SMOKE_LEGACY_PLAYER_ID ?? `p_${userId}`;
 /**
  * 执行 legacy 令牌引导、账号兼容和登录回退的整套验证流程。
  */
@@ -59,6 +66,9 @@ async function main() {
  */
     let accountCompat = null;
     try {
+        if (!hasDatabaseUrl && !LEGACY_HTTP_MEMORY_FALLBACK_ENABLED) {
+            throw new Error('legacy HTTP 内存兼容已关闭');
+        }
         if (hasDatabaseUrl) {
             await seedLegacyCompatFixture();
         }
@@ -71,16 +81,9 @@ async function main() {
  */
         const expectedPlayerId = bootstrapFixture.playerId;
 /**
- * 记录legacyinitpayload。
- */
-        const legacyInitPayload = tokenBootstrap.legacyInit;
-/**
  * 记录nextinitpayload。
  */
         const nextInitPayload = tokenBootstrap.nextInit;
-        if (!legacyInitPayload?.self || legacyInitPayload.self.id !== expectedPlayerId) {
-            throw new Error(`legacy init player mismatch: expected=${expectedPlayerId} actual=${legacyInitPayload?.self?.id ?? 'null'}`);
-        }
         if (!nextInitPayload?.pid || nextInitPayload.pid !== expectedPlayerId) {
             throw new Error(`next init player mismatch: expected=${expectedPlayerId} actual=${nextInitPayload?.pid ?? 'null'}`);
         }
@@ -102,7 +105,9 @@ async function main() {
             playerId: expectedPlayerId,
             userId: bootstrapFixture.userId,
             sessionId: tokenBootstrap.nextInit.sid,
-            mapId: legacyInitPayload.mapMeta?.id ?? null,
+            protocolGuardRejectedCode: tokenBootstrap.protocolGuardCode,
+            legacyProtocolGuardRejectedCode: tokenBootstrap.legacyProtocolMismatchCode,
+            mapId: state.player?.templateId ?? null,
             mapEnterCount: tokenBootstrap.mapEnterCount,
             loginFallbackChecked: loginFallbackResult.checked,
             loginFallbackSkipped: loginFallbackResult.skipped ?? false,
@@ -142,19 +147,25 @@ async function main() {
     }
 }
 /**
- * 验证旧令牌能否正确引导出 legacy 与 next 双侧初始化结果。
+ * 验证旧令牌在当前合同下的协议守卫与显式 next 引导结果。
  */
 async function verifyLegacyTokenBootstrap(token) {
+    await ensureNativeDocsForAccessToken(token);
+/**
+ * 记录协议守卫code。
+ */
+    const protocolGuardCode = await verifySocketProtocolRequired(token);
+/**
+ * 记录legacy协议不匹配code。
+ */
+    const legacyProtocolMismatchCode = await verifySocketLegacyProtocolMismatch(token);
 /**
  * 记录socket。
  */
     const socket = connectSocket({
         token,
+        protocol: 'next',
     });
-/**
- * 记录legacyinit。
- */
-    let legacyInit = null;
 /**
  * 记录nextinit。
  */
@@ -163,9 +174,6 @@ async function verifyLegacyTokenBootstrap(token) {
  * 记录地图enter数量。
  */
     let mapEnterCount = 0;
-    socket.on(shared_1.S2C.Init, (payload) => {
-        legacyInit = payload;
-    });
     socket.on(shared_1.NEXT_S2C.InitSession, (payload) => {
         nextInit = payload;
     });
@@ -174,9 +182,10 @@ async function verifyLegacyTokenBootstrap(token) {
     });
     try {
         await onceConnected(socket);
-        await waitFor(() => legacyInit !== null && nextInit !== null && mapEnterCount > 0, 4_000);
+        await waitFor(() => nextInit !== null && mapEnterCount > 0, 4_000);
         return {
-            legacyInit,
+            protocolGuardCode,
+            legacyProtocolMismatchCode,
             nextInit,
             mapEnterCount,
         };
@@ -195,7 +204,7 @@ function createSeededLegacyTokenBootstrapFixture() {
             username,
             displayName,
         }),
-        playerId: `p_${userId}`,
+        playerId: expectedPlayerId,
         userId,
     };
 }
@@ -280,7 +289,7 @@ async function verifyLegacyAccountCompat() {
 /**
  * 记录next显示信息名称。
  */
-    const nextDisplayName = buildUniqueDisplayName(`legacy-auth-next:${suffix}`);
+    let nextDisplayName = '';
 /**
  * 记录initialrole名称。
  */
@@ -320,10 +329,11 @@ async function verifyLegacyAccountCompat() {
             password,
         },
     });
+    await ensureNativeDocsForAccessToken(loginResult?.accessToken);
 /**
  * 记录initial会话。
  */
-    const initialSession = await bootstrapLegacyOnlySession(loginResult?.accessToken, initialRoleName, initialDisplayName);
+    const initialSession = await bootstrapExplicitNextSession(loginResult?.accessToken, initialRoleName, initialDisplayName);
 /**
  * 记录玩家ID。
  */
@@ -332,12 +342,7 @@ async function verifyLegacyAccountCompat() {
         roleName: initialRoleName,
         displayName: initialDisplayName,
     }, 4_000, 'initial runtime identity');
-    await authedRequestJson('/account/display-name', loginResult.accessToken, {
-        method: 'POST',
-        body: {
-            displayName: nextDisplayName,
-        },
-    });
+    nextDisplayName = await updateDisplayNameWithRetry(loginResult.accessToken, `legacy-auth-next:${suffix}`);
     await authedRequestJson('/account/role-name', loginResult.accessToken, {
         method: 'POST',
         body: {
@@ -358,7 +363,7 @@ async function verifyLegacyAccountCompat() {
 /**
  * 记录stale令牌会话。
  */
-    const staleTokenSession = await bootstrapLegacyOnlySession(loginResult.accessToken, nextRoleName, nextDisplayName);
+    const staleTokenSession = await bootstrapExplicitNextSession(loginResult.accessToken, nextRoleName, nextDisplayName);
     if (staleTokenSession.playerId !== playerId) {
         throw new Error(`stale token bootstrap player mismatch: expected=${playerId} actual=${staleTokenSession.playerId}`);
     }
@@ -379,7 +384,8 @@ async function verifyLegacyAccountCompat() {
             password: nextPassword,
         },
     });
-    await bootstrapLegacyOnlySession(reloginResult?.accessToken, nextRoleName, nextDisplayName);
+    await ensureNativeDocsForAccessToken(reloginResult?.accessToken);
+    await bootstrapExplicitNextSession(reloginResult?.accessToken, nextRoleName, nextDisplayName);
     return {
         playerId,
         displayName: nextDisplayName,
@@ -751,6 +757,249 @@ async function seedLegacyCompatFixture() {
         "pendingLogbookMessages" = EXCLUDED."pendingLogbookMessages",
         "updatedAt" = now()
     `, [expectedPlayerId, userId, displayName]);
+        await pool.query(`
+      INSERT INTO persistent_documents(scope, key, payload, "updatedAt")
+      VALUES ($1, $2, $3::jsonb, now())
+      ON CONFLICT (scope, key)
+      DO UPDATE SET payload = EXCLUDED.payload, "updatedAt" = now()
+    `, ['server_next_player_identities_v1', userId, JSON.stringify({
+                version: 1,
+                userId,
+                username,
+                displayName,
+                playerId: expectedPlayerId,
+                playerName: displayName,
+                persistedSource: 'legacy_sync',
+                updatedAt: Date.now(),
+            })]);
+        await pool.query(`
+      INSERT INTO persistent_documents(scope, key, payload, "updatedAt")
+      VALUES ($1, $2, $3::jsonb, now())
+      ON CONFLICT (scope, key)
+      DO UPDATE SET payload = EXCLUDED.payload, "updatedAt" = now()
+    `, ['server_next_player_snapshots_v1', expectedPlayerId, JSON.stringify({
+                version: 1,
+                savedAt: Date.now(),
+                placement: {
+                    templateId: 'yunlai_town',
+                    x: 32,
+                    y: 5,
+                    facing: 1,
+                },
+                vitals: {
+                    hp: 87,
+                    maxHp: 100,
+                    qi: 12,
+                    maxQi: 100,
+                },
+                progression: {
+                    foundation: 0,
+                    combatExp: 0,
+                    bodyTraining: null,
+                    boneAgeBaseYears: 18,
+                    lifeElapsedTicks: 0,
+                    lifespanYears: null,
+                    realm: null,
+                    heavenGate: null,
+                    spiritualRoots: null,
+                },
+                unlockedMapIds: ['yunlai_town'],
+                inventory: {
+                    revision: 1,
+                    capacity: 24,
+                    items: [],
+                },
+                equipment: {
+                    revision: 1,
+                    slots: [],
+                },
+                techniques: {
+                    revision: 1,
+                    techniques: [],
+                    cultivatingTechId: null,
+                },
+                buffs: {
+                    revision: 1,
+                    buffs: [],
+                },
+                quests: {
+                    revision: 1,
+                    entries: [],
+                },
+                combat: {
+                    autoBattle: false,
+                    autoRetaliate: true,
+                    autoBattleStationary: false,
+                    combatTargetId: null,
+                    combatTargetLocked: false,
+                    allowAoePlayerHit: false,
+                    autoIdleCultivation: true,
+                    autoSwitchCultivation: false,
+                    senseQiActive: false,
+                    autoBattleSkills: [],
+                },
+                pendingLogbookMessages: [],
+                runtimeBonuses: [],
+                __snapshotMeta: {
+                    persistedSource: 'legacy_seeded',
+                    seededAt: Date.now(),
+                },
+            })]);
+    }
+    finally {
+        await pool.end().catch(() => undefined);
+    }
+}
+/**
+ * 在带库 smoke 中，确保 access token 对应账号已有 next identity/snapshot 真源文档。
+ */
+async function ensureNativeDocsForAccessToken(token) {
+    if (!hasDatabaseUrl || typeof token !== 'string' || !token.trim()) {
+        return;
+    }
+/**
+ * 记录payload。
+ */
+    const payload = parseJwtPayload(token);
+/**
+ * 记录用户ID。
+ */
+    const tokenUserId = typeof payload?.sub === 'string' ? payload.sub.trim() : '';
+/**
+ * 记录玩家ID。
+ */
+    let tokenPlayerId = typeof payload?.playerId === 'string' ? payload.playerId.trim() : '';
+/**
+ * 记录用户名。
+ */
+    let tokenUsername = typeof payload?.username === 'string' ? payload.username.trim() : '';
+/**
+ * 记录显示名。
+ */
+    let tokenDisplayName = typeof payload?.displayName === 'string' ? payload.displayName.trim() : '';
+/**
+ * 记录角色名。
+ */
+    let tokenPlayerName = typeof payload?.playerName === 'string' ? payload.playerName.trim() : tokenDisplayName;
+    if (!tokenUserId) {
+        return;
+    }
+    const pool = new pg_1.Pool({
+        connectionString: SERVER_NEXT_DATABASE_URL,
+    });
+    try {
+        if (!tokenPlayerId) {
+            const playerResult = await pool.query('SELECT id, name FROM players WHERE "userId" = $1::uuid LIMIT 1', [tokenUserId]);
+            const playerRow = Array.isArray(playerResult?.rows) ? playerResult.rows[0] : null;
+            tokenPlayerId = typeof playerRow?.id === 'string' ? playerRow.id.trim() : tokenPlayerId;
+            if (!tokenPlayerName) {
+                tokenPlayerName = typeof playerRow?.name === 'string' ? playerRow.name.trim() : tokenPlayerName;
+            }
+        }
+        if (!tokenUsername || !tokenDisplayName) {
+            const userResult = await pool.query('SELECT username, "displayName" FROM users WHERE id = $1::uuid LIMIT 1', [tokenUserId]);
+            const userRow = Array.isArray(userResult?.rows) ? userResult.rows[0] : null;
+            if (!tokenUsername) {
+                tokenUsername = typeof userRow?.username === 'string' ? userRow.username.trim() : tokenUsername;
+            }
+            if (!tokenDisplayName) {
+                tokenDisplayName = typeof userRow?.displayName === 'string' ? userRow.displayName.trim() : tokenDisplayName;
+            }
+        }
+        if (!tokenPlayerName) {
+            tokenPlayerName = tokenDisplayName;
+        }
+        if (!tokenPlayerId || !tokenUsername || !tokenDisplayName || !tokenPlayerName) {
+            return;
+        }
+        await pool.query(`
+      INSERT INTO persistent_documents(scope, key, payload, "updatedAt")
+      VALUES ($1, $2, $3::jsonb, now())
+      ON CONFLICT (scope, key)
+      DO UPDATE SET payload = EXCLUDED.payload, "updatedAt" = now()
+    `, ['server_next_player_identities_v1', tokenUserId, JSON.stringify({
+                version: 1,
+                userId: tokenUserId,
+                username: tokenUsername,
+                displayName: tokenDisplayName,
+                playerId: tokenPlayerId,
+                playerName: tokenPlayerName,
+                persistedSource: 'token_seed',
+                updatedAt: Date.now(),
+            })]);
+        await pool.query(`
+      INSERT INTO persistent_documents(scope, key, payload, "updatedAt")
+      VALUES ($1, $2, $3::jsonb, now())
+      ON CONFLICT (scope, key)
+      DO UPDATE SET payload = EXCLUDED.payload, "updatedAt" = now()
+    `, ['server_next_player_snapshots_v1', tokenPlayerId, JSON.stringify({
+                version: 1,
+                savedAt: Date.now(),
+                placement: {
+                    templateId: 'yunlai_town',
+                    x: 32,
+                    y: 5,
+                    facing: 1,
+                },
+                vitals: {
+                    hp: 100,
+                    maxHp: 100,
+                    qi: 0,
+                    maxQi: 100,
+                },
+                progression: {
+                    foundation: 0,
+                    combatExp: 0,
+                    bodyTraining: null,
+                    boneAgeBaseYears: 18,
+                    lifeElapsedTicks: 0,
+                    lifespanYears: null,
+                    realm: null,
+                    heavenGate: null,
+                    spiritualRoots: null,
+                },
+                unlockedMapIds: ['yunlai_town'],
+                inventory: {
+                    revision: 1,
+                    capacity: 24,
+                    items: [],
+                },
+                equipment: {
+                    revision: 1,
+                    slots: [],
+                },
+                techniques: {
+                    revision: 1,
+                    techniques: [],
+                    cultivatingTechId: null,
+                },
+                buffs: {
+                    revision: 1,
+                    buffs: [],
+                },
+                quests: {
+                    revision: 1,
+                    entries: [],
+                },
+                combat: {
+                    autoBattle: false,
+                    autoRetaliate: true,
+                    autoBattleStationary: false,
+                    combatTargetId: null,
+                    combatTargetLocked: false,
+                    allowAoePlayerHit: false,
+                    autoIdleCultivation: true,
+                    autoSwitchCultivation: false,
+                    senseQiActive: false,
+                    autoBattleSkills: [],
+                },
+                pendingLogbookMessages: [],
+                runtimeBonuses: [],
+                __snapshotMeta: {
+                    persistedSource: 'native',
+                    seededAt: Date.now(),
+                },
+            })]);
     }
     finally {
         await pool.end().catch(() => undefined);
@@ -767,6 +1016,8 @@ async function cleanupLegacyCompatFixture() {
         connectionString: SERVER_NEXT_DATABASE_URL,
     });
     try {
+        await pool.query('DELETE FROM persistent_documents WHERE scope = $1 AND key = $2', ['server_next_player_snapshots_v1', expectedPlayerId]).catch(ignoreMissingLegacyFixtureCleanupError);
+        await pool.query('DELETE FROM persistent_documents WHERE scope = $1 AND key = $2', ['server_next_player_identities_v1', userId]).catch(ignoreMissingLegacyFixtureCleanupError);
         await pool.query('DELETE FROM players WHERE id = $1', [expectedPlayerId]).catch(ignoreMissingLegacyFixtureCleanupError);
         await pool.query('DELETE FROM users WHERE id = $1::uuid', [userId]).catch(ignoreMissingLegacyFixtureCleanupError);
     }
@@ -858,42 +1109,113 @@ function connectSocket(auth) {
     return socket;
 }
 /**
- * 使用旧令牌建立一次仅 legacy 视角的引导会话并校验身份。
+ * 验证 token/gmToken 缺少握手协议时会被明确拒绝。
  */
-async function bootstrapLegacyOnlySession(token, expectedRoleName, expectedDisplayName) {
+async function verifySocketProtocolRequired(token) {
+/**
+ * 记录socket。
+ */
+    const socket = (0, socket_io_client_1.io)(SERVER_NEXT_URL, {
+        path: '/socket.io',
+        transports: ['websocket'],
+        auth: {
+            token,
+        },
+    });
+/**
+ * 记录协议守卫错误。
+ */
+    let protocolGuardError = null;
+    socket.on(shared_1.S2C.Error, (payload) => {
+        protocolGuardError = payload ?? null;
+    });
+    socket.on(shared_1.NEXT_S2C.Error, (payload) => {
+        protocolGuardError = payload ?? null;
+    });
+    try {
+        await onceConnected(socket);
+        await waitFor(() => protocolGuardError?.code === 'AUTH_PROTOCOL_REQUIRED', 4_000);
+        return protocolGuardError.code;
+    }
+    finally {
+        socket.close();
+    }
+}
+/**
+ * 验证 token 在 legacy 握手下会命中协议不匹配守卫。
+ */
+async function verifySocketLegacyProtocolMismatch(token) {
+/**
+ * 记录socket。
+ */
+    const socket = (0, socket_io_client_1.io)(SERVER_NEXT_URL, {
+        path: '/socket.io',
+        transports: ['websocket'],
+        auth: {
+            token,
+            protocol: 'legacy',
+        },
+    });
+/**
+ * 记录协议守卫错误。
+ */
+    let protocolGuardError = null;
+    socket.on(shared_1.S2C.Error, (payload) => {
+        protocolGuardError = payload ?? null;
+    });
+    socket.on(shared_1.NEXT_S2C.Error, (payload) => {
+        protocolGuardError = payload ?? null;
+    });
+    try {
+        await onceConnected(socket);
+        await waitFor(() => protocolGuardError?.code === resolveExpectedLegacySocketProtocolGuardCode(), 4_000);
+        return protocolGuardError.code;
+    }
+    finally {
+        socket.close();
+    }
+}
+/**
+ * 使用显式 next 握手建立一次兼容访问令牌的引导会话并校验身份。
+ */
+async function bootstrapExplicitNextSession(token, expectedRoleName, expectedDisplayName) {
 /**
  * 记录socket。
  */
     const socket = connectSocket({
         token,
-        protocol: 'legacy',
+        protocol: 'next',
     });
 /**
- * 记录legacyinit。
+ * 记录nextinit。
  */
-    let legacyInit = null;
+    let nextInit = null;
     try {
-        socket.on(shared_1.S2C.Init, (payload) => {
-            legacyInit = payload;
+        socket.on(shared_1.NEXT_S2C.InitSession, (payload) => {
+            nextInit = payload;
         });
         await onceConnected(socket);
-        await waitFor(() => legacyInit !== null, 4_000);
+        await waitFor(() => nextInit !== null, 4_000);
 /**
  * 记录玩家ID。
  */
-        const playerId = legacyInit?.self?.id ?? '';
+        const playerId = nextInit?.pid ?? '';
         if (!playerId) {
-            throw new Error('legacy-only bootstrap missing playerId');
+            throw new Error('explicit-next bootstrap missing playerId');
         }
-        if (expectedRoleName && legacyInit?.self?.name !== expectedRoleName) {
-            throw new Error(`legacy-only bootstrap role mismatch: expected=${expectedRoleName} actual=${legacyInit?.self?.name ?? 'null'}`);
+/**
+ * 记录状态。
+ */
+        const state = await fetchPlayerState(playerId);
+        if (expectedRoleName && state?.player?.name !== expectedRoleName) {
+            throw new Error(`explicit-next bootstrap role mismatch: expected=${expectedRoleName} actual=${state?.player?.name ?? 'null'}`);
         }
-        if (expectedDisplayName && legacyInit?.self?.displayName !== expectedDisplayName) {
-            throw new Error(`legacy-only bootstrap display mismatch: expected=${expectedDisplayName} actual=${legacyInit?.self?.displayName ?? 'null'}`);
+        if (expectedDisplayName && state?.player?.displayName !== expectedDisplayName) {
+            throw new Error(`explicit-next bootstrap display mismatch: expected=${expectedDisplayName} actual=${state?.player?.displayName ?? 'null'}`);
         }
         return {
             playerId,
-            legacyInit,
+            nextInit,
         };
     }
     finally {
@@ -907,7 +1229,8 @@ function isLegacyAuthSkip(error) {
     if (!(error instanceof Error)) {
         return false;
     }
-    return error.message.includes('runtime access unavailable');
+    return error.message.includes('runtime access unavailable')
+        || error.message.includes('legacy HTTP 内存兼容已关闭');
 }
 /**
  * 处理encodejwtsegment。
@@ -997,6 +1320,43 @@ function buildUniqueDisplayName(seed) {
         hash = (hash * 33 + seed.charCodeAt(index)) >>> 0;
     }
     return String.fromCodePoint(0x4E00 + (hash % (0x9FFF - 0x4E00 + 1)));
+}
+async function updateDisplayNameWithRetry(accessToken, seed, maxAttempts = 64) {
+    let lastError = null;
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+        const candidate = buildUniqueDisplayName(`${seed}:${attempt}`);
+        try {
+            await authedRequestJson('/account/display-name', accessToken, {
+                method: 'POST',
+                body: {
+                    displayName: candidate,
+                },
+            });
+            return candidate;
+        }
+        catch (error) {
+            lastError = error;
+            const message = error instanceof Error ? error.message : String(error);
+            if (!message.includes('显示名已被占用') && !message.includes('duplicate key value violates unique constraint')) {
+                throw error;
+            }
+        }
+    }
+    throw lastError ?? new Error('display name update failed');
+}
+function resolveExpectedLegacySocketProtocolGuardCode() {
+    return readBooleanEnv('SERVER_NEXT_ALLOW_LEGACY_SOCKET_PROTOCOL')
+        || readBooleanEnv('NEXT_ALLOW_LEGACY_SOCKET_PROTOCOL')
+        ? 'AUTH_PROTOCOL_MISMATCH'
+        : 'LEGACY_PROTOCOL_DISABLED';
+}
+function readBooleanEnv(key) {
+    const value = process.env[key];
+    if (typeof value !== 'string') {
+        return false;
+    }
+    const normalized = value.trim().toLowerCase();
+    return normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'on';
 }
 /**
  * 处理ignoremissinglegacyfixturecleanuperror。

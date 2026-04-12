@@ -24,7 +24,6 @@ import {
   type GmReplySuggestionReq,
   type GmSetPlayerBodyTrainingLevelReq,
   type GmSuggestionListRes,
-  GM_PASSWORD_STORAGE_KEY,
   type GmCpuSectionSnapshot,
   type GmEditorBuffOption,
   type GmEditorCatalogRes,
@@ -86,6 +85,9 @@ import {
 import { getLocalEditorCatalog } from './content/editor-catalog';
 import { resolveTechniqueIdFromBookItemId } from './content/local-templates';
 import { GmWorldViewer } from './gm-world-viewer';
+import * as gmCatalogHelpers from './gm/helpers/catalog';
+import * as gmMarkupHelpers from './gm/helpers/markup';
+import * as gmPureHelpers from './gm/helpers/pure';
 import { startClientVersionReload } from './version-reload';
 
 const loginOverlay = document.getElementById('login-overlay') as HTMLDivElement;
@@ -221,13 +223,16 @@ const redeemGroupListEl = document.getElementById('redeem-group-list') as HTMLDi
 const redeemGroupEditorEl = document.getElementById('redeem-group-editor') as HTMLDivElement | null;
 const redeemCodeListEl = document.getElementById('redeem-code-list') as HTMLDivElement | null;
 
+/** GmEditorTab：定义该类型的结构与数据语义。 */
 type GmEditorTab = GmPlayerUpdateSection | 'shortcuts' | 'mail' | 'persisted';
 
+/** GmMailAttachmentDraft：定义该接口的能力与字段约束。 */
 interface GmMailAttachmentDraft {
   itemId: string;
   count: number;
 }
 
+/** GmMailComposerDraft：定义该接口的能力与字段约束。 */
 interface GmMailComposerDraft {
   templateId: string;
   targetPlayerId: string;
@@ -238,6 +243,7 @@ interface GmMailComposerDraft {
   attachments: GmMailAttachmentDraft[];
 }
 
+/** RedeemGroupDraft：定义该接口的能力与字段约束。 */
 interface RedeemGroupDraft {
   name: string;
   rewards: RedeemCodeGroupRewardItem[];
@@ -245,6 +251,7 @@ interface RedeemGroupDraft {
   appendCount: string;
 }
 
+/** SearchableItemScope：定义该类型的结构与数据语义。 */
 type SearchableItemScope = 'all' | 'inventory-add' | 'equipment-slot';
 
 const MAIL_ATTACHMENT_ITEM_PAGE_SIZE = 10;
@@ -260,6 +267,7 @@ let token = sessionStorage.getItem(GM_ACCESS_TOKEN_STORAGE_KEY) ?? '';
 let state: GmStateRes | null = null;
 let databaseState: GmDatabaseStateRes | null = null;
 let suggestions: Suggestion[] = [];
+/** EditorCatalogSource：定义该类型的结构与数据语义。 */
 type EditorCatalogSource = 'server' | 'local-fallback' | 'unavailable';
 let editorCatalog: GmEditorCatalogRes | null = null;
 let editorCatalogSource: EditorCatalogSource = 'unavailable';
@@ -311,80 +319,49 @@ let shortcutMailAttachmentPageByIndex = new Map<number, number>();
 let activeSearchableItemField: HTMLElement | null = null;
 let editorRenderRefreshBlocked = false;
 
+/** getBrowserLocalStorage：执行对应的业务逻辑。 */
 function getBrowserLocalStorage(): Storage | null {
-  try {
-    return window.localStorage;
-  } catch {
-    return null;
-  }
+  return gmPureHelpers.getBrowserLocalStorage();
 }
 
+/** readPersistedGmPassword：执行对应的业务逻辑。 */
 function readPersistedGmPassword(): string {
-  const storage = getBrowserLocalStorage();
-  if (!storage) return '';
-  try {
-    return storage.getItem(GM_PASSWORD_STORAGE_KEY)?.trim() ?? '';
-  } catch {
-    return '';
-  }
+  return gmPureHelpers.readPersistedGmPassword();
 }
 
+/** persistGmPassword：执行对应的业务逻辑。 */
 function persistGmPassword(password: string): void {
-  const storage = getBrowserLocalStorage();
-  if (!storage) return;
-  const normalized = password.trim();
-  try {
-    if (normalized) {
-      storage.setItem(GM_PASSWORD_STORAGE_KEY, normalized);
-      return;
-    }
-    storage.removeItem(GM_PASSWORD_STORAGE_KEY);
-  } catch {
-    // 本地存储不可用时忽略，避免影响 GM 主流程。
-  }
+  gmPureHelpers.persistGmPassword(password);
 }
 
+/** syncPersistedGmPasswordToInputs：执行对应的业务逻辑。 */
 function syncPersistedGmPasswordToInputs(): void {
   const persistedPassword = readPersistedGmPassword();
   passwordInput.value = persistedPassword;
   gmPasswordCurrentInput.value = persistedPassword;
 }
 
+/** createDefaultMailAttachmentDraft：执行对应的业务逻辑。 */
 function createDefaultMailAttachmentDraft(): GmMailAttachmentDraft {
-  return {
-    itemId: '',
-    count: 1,
-  };
+  return gmPureHelpers.createDefaultMailAttachmentDraft();
 }
 
+/** createDefaultRedeemGroupDraft：执行对应的业务逻辑。 */
 function createDefaultRedeemGroupDraft(): RedeemGroupDraft {
-  return {
-    name: '',
-    rewards: [createDefaultRedeemReward()],
-    createCount: '10',
-    appendCount: '10',
-  };
+  return gmPureHelpers.createDefaultRedeemGroupDraft(gmPureHelpers.createDefaultRedeemReward);
 }
 
+/** createDefaultRedeemReward：执行对应的业务逻辑。 */
 function createDefaultRedeemReward(): RedeemCodeGroupRewardItem {
-  return {
-    itemId: '',
-    count: 1,
-  };
+  return gmPureHelpers.createDefaultRedeemReward();
 }
 
+/** createDefaultMailComposerDraft：执行对应的业务逻辑。 */
 function createDefaultMailComposerDraft(): GmMailComposerDraft {
-  return {
-    templateId: '',
-    targetPlayerId: '',
-    senderLabel: '司命台',
-    title: '',
-    body: '',
-    expireHours: '72',
-    attachments: [],
-  };
+  return gmPureHelpers.createDefaultMailComposerDraft();
 }
 
+/** ensureDirectMailDraft：执行对应的业务逻辑。 */
 function ensureDirectMailDraft(playerId: string | null): void {
   if (!playerId) {
     directMailDraftPlayerId = null;
@@ -400,93 +377,65 @@ function ensureDirectMailDraft(playerId: string | null): void {
   directMailAttachmentPageByIndex = new Map();
 }
 
+/** clone：执行对应的业务逻辑。 */
 function clone<T>(value: T): T {
-  return JSON.parse(JSON.stringify(value)) as T;
+  return gmPureHelpers.clone(value);
 }
 
+/** escapeHtml：执行对应的业务逻辑。 */
 function escapeHtml(input: string): string {
-  return input
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;');
+  return gmPureHelpers.escapeHtml(input);
 }
 
+/** formatJson：执行对应的业务逻辑。 */
 function formatJson(value: unknown): string {
-  return JSON.stringify(value ?? null, null, 2);
+  return gmPureHelpers.formatJson(value);
 }
 
+/** formatBytes：执行对应的业务逻辑。 */
 function formatBytes(bytes: number | undefined): string {
-  const safe = Number.isFinite(bytes) ? Math.max(0, Number(bytes)) : 0;
-  if (safe < 1024) return `${Math.round(safe)} B`;
-  if (safe < 1024 * 1024) return `${(safe / 1024).toFixed(1)} KB`;
-  if (safe < 1024 * 1024 * 1024) return `${(safe / (1024 * 1024)).toFixed(1)} MB`;
-  return `${(safe / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+  return gmPureHelpers.formatBytes(bytes);
 }
 
+/** formatPercent：执行对应的业务逻辑。 */
 function formatPercent(numerator: number, denominator: number): string {
-  if (!Number.isFinite(numerator) || numerator <= 0 || !Number.isFinite(denominator) || denominator <= 0) {
-    return '0.0%';
-  }
-  return `${((numerator / denominator) * 100).toFixed(1)}%`;
+  return gmPureHelpers.formatPercent(numerator, denominator);
 }
 
+/** formatBytesPerSecond：执行对应的业务逻辑。 */
 function formatBytesPerSecond(bytes: number, elapsedSec: number): string {
-  if (!Number.isFinite(bytes) || bytes <= 0 || !Number.isFinite(elapsedSec) || elapsedSec <= 0) {
-    return '0 B/s';
-  }
-  return `${formatBytes(bytes / elapsedSec)}/s`;
+  return gmPureHelpers.formatBytesPerSecond(bytes, elapsedSec);
 }
 
+/** formatAverageBytesPerEvent：执行对应的业务逻辑。 */
 function formatAverageBytesPerEvent(bytes: number, count: number): string {
-  if (!Number.isFinite(bytes) || bytes <= 0 || !Number.isFinite(count) || count <= 0) {
-    return '0 B';
-  }
-  return formatBytes(bytes / count);
+  return gmPureHelpers.formatAverageBytesPerEvent(bytes, count);
 }
 
+/** formatDurationSeconds：执行对应的业务逻辑。 */
 function formatDurationSeconds(seconds: number): string {
-  const safe = Number.isFinite(seconds) ? Math.max(0, Math.floor(seconds)) : 0;
-  const days = Math.floor(safe / 86400);
-  const hours = Math.floor((safe % 86400) / 3600);
-  const minutes = Math.floor((safe % 3600) / 60);
-  const secs = safe % 60;
-  if (days > 0) return `${days}天 ${hours}时 ${minutes}分`;
-  if (hours > 0) return `${hours}时 ${minutes}分 ${secs}秒`;
-  if (minutes > 0) return `${minutes}分 ${secs}秒`;
-  return `${secs}秒`;
+  return gmPureHelpers.formatDurationSeconds(seconds);
 }
 
+/** formatDateTime：执行对应的业务逻辑。 */
 function formatDateTime(value?: string): string {
-  if (!value) {
-    return '无';
-  }
-  const time = new Date(value);
-  if (Number.isNaN(time.getTime())) {
-    return '无';
-  }
-  return time.toLocaleString('zh-CN');
+  return gmPureHelpers.formatDateTime(value);
 }
 
+/** getPlayerPresenceMeta：执行对应的业务逻辑。 */
 function getPlayerPresenceMeta(player: Pick<GmManagedPlayerSummary, 'meta'>): {
   className: 'online' | 'offline';
   label: '在线' | '离线挂机' | '离线';
 } {
-  if (player.meta.online) {
-    return { className: 'online', label: '在线' };
-  }
-  if (player.meta.inWorld) {
-    return { className: 'offline', label: '离线挂机' };
-  }
-  return { className: 'offline', label: '离线' };
+  return gmPureHelpers.getPlayerPresenceMeta(player);
 }
 
+/** getManagedAccountStatusLabel：执行对应的业务逻辑。 */
 function getManagedAccountStatusLabel(player: Pick<GmManagedPlayerRecord, 'meta'>): string {
-  const presence = getPlayerPresenceMeta(player);
-  return presence.label;
+  return gmPureHelpers.getManagedAccountStatusLabel(player);
 }
 
+/** getManagedAccountActivityMeta：执行对应的业务逻辑。 */
 function getManagedAccountActivityMeta(player: Pick<GmManagedPlayerRecord, 'meta'>): { label: string; value: string; note?: string } {
   if (player.meta.online) {
     return {
@@ -514,10 +463,12 @@ function getManagedAccountActivityMeta(player: Pick<GmManagedPlayerRecord, 'meta
   };
 }
 
+/** hasServerEditorCatalog：执行对应的业务逻辑。 */
 function hasServerEditorCatalog(): boolean {
   return editorCatalogSource === 'server' && editorCatalog !== null;
 }
 
+/** getEditorCatalogFallbackNote：执行对应的业务逻辑。 */
 function getEditorCatalogFallbackNote(): string {
   if (editorCatalogSource === 'local-fallback') {
     return '服务端编辑目录加载失败，当前仅保留本地参考标签；模板快捷写入已停用，避免把本地目录直接写回 server-next。';
@@ -528,6 +479,7 @@ function getEditorCatalogFallbackNote(): string {
   return '';
 }
 
+/** assertTrustedEditorCatalog：执行对应的业务逻辑。 */
 function assertTrustedEditorCatalog(actionLabel: string): void {
   if (hasServerEditorCatalog()) {
     return;
@@ -535,32 +487,27 @@ function assertTrustedEditorCatalog(actionLabel: string): void {
   throw new Error(`${actionLabel}已暂停：GM 编辑目录未从服务端加载成功，当前仅允许查看本地参考标签，避免提交过期目录数据`);
 }
 
+/** getFilteredPlayers：执行对应的业务逻辑。 */
 function getFilteredPlayers(data: GmStateRes): GmManagedPlayerSummary[] {
   return data.players;
 }
 
+/** getPlayerIdentityLine：执行对应的业务逻辑。 */
 function getPlayerIdentityLine(player: GmManagedPlayerSummary): string {
-  return `地图: ${player.mapName}`;
+  return gmMarkupHelpers.getPlayerIdentityLine(player);
 }
 
+/** getPlayerStatsLine：执行对应的业务逻辑。 */
 function getPlayerStatsLine(player: GmManagedPlayerSummary): string {
-  return `${player.meta.isBot ? '机器人' : '玩家'} · ${player.realmLabel}`;
+  return gmMarkupHelpers.getPlayerStatsLine(player);
 }
 
+/** getPlayerRowMarkup：执行对应的业务逻辑。 */
 function getPlayerRowMarkup(player: GmManagedPlayerSummary): string {
-  return `
-    <button class="player-row" data-player-id="${escapeHtml(player.id)}" type="button">
-      <div class="player-top">
-        <div class="player-name" data-role="name"></div>
-        <div class="pill" data-role="presence"></div>
-      </div>
-      <div class="player-meta" data-role="meta"></div>
-      <div class="player-subline" data-role="identity"></div>
-      <div class="player-subline" data-role="stats"></div>
-    </button>
-  `;
+  return gmMarkupHelpers.getPlayerRowMarkup(player);
 }
 
+/** patchPlayerRow：执行对应的业务逻辑。 */
 function patchPlayerRow(button: HTMLButtonElement, player: GmManagedPlayerSummary, isActive: boolean): void {
   const presence = getPlayerPresenceMeta(player);
   button.classList.toggle('active', isActive);
@@ -574,6 +521,7 @@ function patchPlayerRow(button: HTMLButtonElement, player: GmManagedPlayerSummar
   button.querySelector<HTMLElement>('[data-role="stats"]')!.textContent = getPlayerStatsLine(player);
 }
 
+/** getEditorSubtitle：执行对应的业务逻辑。 */
 function getEditorSubtitle(detail: GmManagedPlayerRecord): string {
   return [
     `账号: ${detail.accountName ?? '无'}`,
@@ -583,123 +531,113 @@ function getEditorSubtitle(detail: GmManagedPlayerRecord): string {
   ].join(' · ');
 }
 
+/** getEditorMetaMarkup：执行对应的业务逻辑。 */
 function getEditorMetaMarkup(detail: GmManagedPlayerRecord): string {
   const presence = getPlayerPresenceMeta(detail);
-  const pills: string[] = [
-    `<span class="pill ${presence.className}">${presence.label}</span>`,
-    `<span class="pill ${detail.meta.isBot ? 'bot' : ''}">${detail.meta.isBot ? '机器人' : '玩家'}</span>`,
-    `<span class="pill">${detail.dead ? '死亡' : '存活'}</span>`,
-    `<span class="pill">${detail.autoBattle ? '自动战斗开' : '自动战斗关'}</span>`,
-    `<span class="pill">${detail.autoRetaliate ? '自动反击开' : '自动反击关'}</span>`,
-  ];
-  if (!hasServerEditorCatalog()) {
-    pills.push(`<span class="pill">${editorCatalogSource === 'local-fallback' ? '目录: 本地回退' : '目录: 未加载'}</span>`);
+  const base = gmMarkupHelpers.getEditorMetaMarkup(detail, presence, editorDirty);
+  if (hasServerEditorCatalog()) {
+    return base;
   }
-  if (detail.meta.dirtyFlags.length > 0) {
-    pills.push(`<span class="pill">脏标记: ${escapeHtml(detail.meta.dirtyFlags.join(', '))}</span>`);
-  }
-  if (editorDirty) {
-    pills.push('<span class="pill">编辑中</span>');
-  }
-  return pills.join('');
+  return `${base}<span class="pill">${editorCatalogSource === 'local-fallback' ? '目录: 本地回退' : '目录: 未加载'}</span>`;
 }
 
+/** getEditorBodyChipMarkup：执行对应的业务逻辑。 */
 function getEditorBodyChipMarkup(player: GmManagedPlayerRecord, draft: PlayerState): string {
-  return [
-    `<span class="pill ${player.meta.online ? 'online' : 'offline'}">${player.meta.online ? '在线' : '离线'}</span>`,
-    `<span class="pill ${player.meta.isBot ? 'bot' : ''}">${player.meta.isBot ? '机器人' : '玩家'}</span>`,
-    editorDirty ? '<span class="pill">有未保存修改</span>' : '',
-    draft.dead ? '<span class="pill">草稿标记为死亡</span>' : '',
-  ].filter(Boolean).join('');
+  return gmMarkupHelpers.getEditorBodyChipMarkup(player, draft, editorDirty);
 }
 
+/** getEquipmentCardTitle：执行对应的业务逻辑。 */
 function getEquipmentCardTitle(item: ItemStack | null): string {
-  return item ? item.name || '未命名装备' : '';
+  return gmMarkupHelpers.getEquipmentCardTitle(item);
 }
 
+/** getEquipmentCardMeta：执行对应的业务逻辑。 */
 function getEquipmentCardMeta(item: ItemStack | null): string {
-  return item ? `${item.itemId || '空 ID'} · ${item.grade || '无品阶'} · Lv.${item.level ?? 1}` : '当前为空';
+  return gmMarkupHelpers.getEquipmentCardMeta(item);
 }
 
+/** getBonusCardTitle：执行对应的业务逻辑。 */
 function getBonusCardTitle(bonus: PlayerState['bonuses'][number] | undefined, index: number): string {
-  return bonus?.label || bonus?.source || `加成 ${index + 1}`;
+  return gmMarkupHelpers.getBonusCardTitle(bonus, index);
 }
 
+/** getBonusCardMeta：执行对应的业务逻辑。 */
 function getBonusCardMeta(bonus: PlayerState['bonuses'][number] | undefined): string {
-  return bonus?.source || '未填写来源';
+  return gmMarkupHelpers.getBonusCardMeta(bonus);
 }
 
+/** getBuffCardTitle：执行对应的业务逻辑。 */
 function getBuffCardTitle(buff: TemporaryBuffState | undefined, index: number): string {
-  return buff?.name || buff?.buffId || `临时效果 ${index + 1}`;
+  return gmMarkupHelpers.getBuffCardTitle(buff, index);
 }
 
+/** getBuffCardMeta：执行对应的业务逻辑。 */
 function getBuffCardMeta(buff: TemporaryBuffState | undefined): string {
-  if (!buff) return '';
-  return `${buff.buffId || '未填写 buffId'} · ${buff.category} · ${buff.visibility}`;
+  return gmMarkupHelpers.getBuffCardMeta(buff);
 }
 
+/** getInventoryCardTitle：执行对应的业务逻辑。 */
 function getInventoryCardTitle(item: ItemStack | undefined, index: number): string {
-  return item?.name || item?.itemId || `物品 ${index + 1}`;
+  return gmMarkupHelpers.getInventoryCardTitle(item, index);
 }
 
+/** getInventoryCardMeta：执行对应的业务逻辑。 */
 function getInventoryCardMeta(item: ItemStack | undefined): string {
-  if (!item) return '';
-  return getInventoryRowMeta(item);
+  return gmMarkupHelpers.getInventoryCardMeta(item);
 }
 
+/** getAutoSkillCardTitle：执行对应的业务逻辑。 */
 function getAutoSkillCardTitle(entry: AutoBattleSkillConfig | undefined, index: number): string {
-  return entry?.skillId || `技能槽 ${index + 1}`;
+  return gmMarkupHelpers.getAutoSkillCardTitle(entry, index);
 }
 
+/** getAutoSkillCardMeta：执行对应的业务逻辑。 */
 function getAutoSkillCardMeta(entry: AutoBattleSkillConfig | undefined): string {
-  return entry?.enabled ? '启用' : '禁用';
+  return gmMarkupHelpers.getAutoSkillCardMeta(entry);
 }
 
+/** getTechniqueCardTitle：执行对应的业务逻辑。 */
 function getTechniqueCardTitle(technique: TechniqueState | undefined, index: number): string {
-  return technique?.name || technique?.techId || `功法 ${index + 1}`;
+  return gmMarkupHelpers.getTechniqueCardTitle(technique, index);
 }
 
+/** getTechniqueCardMeta：执行对应的业务逻辑。 */
 function getTechniqueCardMeta(technique: TechniqueState | undefined): string {
   if (!technique) return '';
-  const realmLevelLabel = editorCatalog?.realmLevels.find((entry) => entry.realmLv === technique.realmLv)?.displayName ?? `Lv.${technique.realmLv}`;
-  return `${technique.techId || '未填写功法 ID'} · ${realmLevelLabel} · 等级 ${technique.level} · ${TECHNIQUE_REALM_LABELS[technique.realm] ?? technique.realm}`;
+  return gmMarkupHelpers.getTechniqueCardMeta(technique, (realmLv) => (
+    editorCatalog?.realmLevels.find((entry) => entry.realmLv === realmLv)?.displayName
+  ));
 }
 
+/** getQuestCardTitle：执行对应的业务逻辑。 */
 function getQuestCardTitle(quest: QuestState | undefined, index: number): string {
-  return quest?.title || quest?.id || `任务 ${index + 1}`;
+  return gmMarkupHelpers.getQuestCardTitle(quest, index);
 }
 
+/** getQuestCardMeta：执行对应的业务逻辑。 */
 function getQuestCardMeta(quest: QuestState | undefined): string {
-  if (!quest) return '';
-  return `${quest.id || '未填写任务 ID'} · ${QUEST_LINE_LABELS[quest.line] ?? quest.line} · ${QUEST_STATUS_LABELS[quest.status] ?? quest.status}`;
+  return gmMarkupHelpers.getQuestCardMeta(quest);
 }
 
+/** getTechniqueOptionLabel：执行对应的业务逻辑。 */
 function getTechniqueOptionLabel(option: GmEditorTechniqueOption): string {
-  const realmLevelLabel = editorCatalog?.realmLevels.find((entry) => entry.realmLv === option.realmLv)?.displayName;
-  return `${option.name}${option.grade ? ` · ${TECHNIQUE_GRADE_LABELS[option.grade] ?? option.grade}` : ''}${realmLevelLabel ? ` · ${realmLevelLabel}` : ''}`;
+  return gmCatalogHelpers.getTechniqueOptionLabel(option, editorCatalog);
 }
 
+/** getItemOptionLabel：执行对应的业务逻辑。 */
 function getItemOptionLabel(option: GmEditorItemOption): string {
-  const parts = [option.name];
-  if (option.type === 'equipment' && option.equipSlot) {
-    parts.push(EQUIP_SLOT_LABELS[option.equipSlot]);
-  } else {
-    parts.push(ITEM_TYPE_LABELS[option.type] ?? option.type);
-  }
-  return parts.join(' · ');
+  return gmCatalogHelpers.getItemOptionLabel(option);
 }
 
+/** getTechniqueCatalogOptions：执行对应的业务逻辑。 */
 function getTechniqueCatalogOptions(includeEmpty = false): Array<{ value: string; label: string }> {
   if (!hasServerEditorCatalog()) {
     return includeEmpty ? [{ value: '', label: '未选择' }] : [];
   }
-  const options = editorCatalog?.techniques.map((option) => ({
-    value: option.id,
-    label: getTechniqueOptionLabel(option),
-  })) ?? [];
-  return includeEmpty ? [{ value: '', label: '未选择' }, ...options] : options;
+  return gmCatalogHelpers.getTechniqueCatalogOptions(editorCatalog, includeEmpty);
 }
 
+/** getLearnedTechniqueOptions：执行对应的业务逻辑。 */
 function getLearnedTechniqueOptions(techniques: TechniqueState[], includeEmpty = false): Array<{ value: string; label: string }> {
   const options = techniques.map((technique) => ({
     value: technique.techId,
@@ -708,29 +646,25 @@ function getLearnedTechniqueOptions(techniques: TechniqueState[], includeEmpty =
   return includeEmpty ? [{ value: '', label: '未选择' }, ...options] : options;
 }
 
+/** getRealmCatalogOptions：执行对应的业务逻辑。 */
 function getRealmCatalogOptions(): Array<{ value: number; label: string }> {
-  return editorCatalog?.realmLevels.map((entry) => ({
-    value: entry.realmLv,
-    label: `${entry.displayName} · Lv.${entry.realmLv}`,
-  })) ?? [];
+  return gmCatalogHelpers.getRealmCatalogOptions(editorCatalog);
 }
 
+/** getItemCatalogOptions：执行对应的业务逻辑。 */
 function getItemCatalogOptions(filter?: (option: GmEditorItemOption) => boolean): Array<{ value: string; label: string }> {
   if (!hasServerEditorCatalog()) {
     return [];
   }
-  const items = filter ? (editorCatalog?.items.filter(filter) ?? []) : (editorCatalog?.items ?? []);
-  return items.map((option) => ({
-    value: option.itemId,
-    label: getItemOptionLabel(option),
-  }));
+  return gmCatalogHelpers.getItemCatalogOptions(editorCatalog, filter);
 }
 
+/** getBuffOptionLabel：执行对应的业务逻辑。 */
 function getBuffOptionLabel(option: GmEditorBuffOption): string {
-  const source = option.sourceSkillName || option.sourceSkillId;
-  return source ? `${option.name} · ${source}` : option.name;
+  return gmCatalogHelpers.getBuffOptionLabel(option);
 }
 
+/** getBuffCatalogOptions：执行对应的业务逻辑。 */
 function getBuffCatalogOptions(selectedBuffId?: string): Array<{ value: string; label: string }> {
   if (!hasServerEditorCatalog()) {
     return selectedBuffId
@@ -740,27 +674,20 @@ function getBuffCatalogOptions(selectedBuffId?: string): Array<{ value: string; 
         ]
       : [{ value: '', label: '请选择 Buff' }];
   }
-  const options = editorCatalog?.buffs.map((option) => ({
-    value: option.buffId,
-    label: getBuffOptionLabel(option),
-  })) ?? [];
-  if (selectedBuffId && !options.some((option) => option.value === selectedBuffId)) {
-    options.unshift({
-      value: selectedBuffId,
-      label: selectedBuffId,
-    });
-  }
-  return [{ value: '', label: '请选择 Buff' }, ...options];
+  return gmCatalogHelpers.getBuffCatalogOptions(editorCatalog, selectedBuffId);
 }
 
+/** getMailAttachmentItemOptions：执行对应的业务逻辑。 */
 function getMailAttachmentItemOptions(): Array<{ value: string; label: string }> {
-  return getItemCatalogOptions();
+  return gmCatalogHelpers.getMailAttachmentItemOptions(editorCatalog);
 }
 
+/** getMailAttachmentPageStore：执行对应的业务逻辑。 */
 function getMailAttachmentPageStore(scope: 'direct' | 'shortcut'): Map<number, number> {
   return scope === 'direct' ? directMailAttachmentPageByIndex : shortcutMailAttachmentPageByIndex;
 }
 
+/** resetMailAttachmentPageStore：执行对应的业务逻辑。 */
 function resetMailAttachmentPageStore(scope: 'direct' | 'shortcut'): void {
   if (scope === 'direct') {
     directMailAttachmentPageByIndex = new Map();
@@ -769,6 +696,7 @@ function resetMailAttachmentPageStore(scope: 'direct' | 'shortcut'): void {
   shortcutMailAttachmentPageByIndex = new Map();
 }
 
+/** getMailAttachmentItemPageState：执行对应的业务逻辑。 */
 function getMailAttachmentItemPageState(
   scope: 'direct' | 'shortcut',
   attachmentIndex: number,
@@ -807,29 +735,28 @@ function getMailAttachmentItemPageState(
   };
 }
 
+/** updateMailAttachmentItemPage：执行对应的业务逻辑。 */
 function updateMailAttachmentItemPage(scope: 'direct' | 'shortcut', attachmentIndex: number, rawValue: string): void {
   const page = Math.max(1, Math.floor(Number(rawValue || '1')) || 1);
   getMailAttachmentPageStore(scope).set(attachmentIndex, page);
 }
 
+/** getMailAttachmentRowMeta：执行对应的业务逻辑。 */
 function getMailAttachmentRowMeta(itemId: string): string {
-  const entry = findItemCatalogEntry(itemId);
-  if (!entry) {
-    return itemId ? `未找到物品模板：${itemId}` : '请选择物品模板';
-  }
-  return getItemOptionLabel(entry);
+  return gmCatalogHelpers.getMailAttachmentRowMeta(editorCatalog, itemId);
 }
 
+/** getMailTemplateOptionMeta：执行对应的业务逻辑。 */
 function getMailTemplateOptionMeta(templateId: string): { label: string; description: string } | null {
-  return GM_MAIL_TEMPLATE_OPTIONS.find((entry) => entry.templateId === templateId) ?? null;
+  return gmCatalogHelpers.getMailTemplateOptionMeta(templateId);
 }
 
+/** isServerManagedMailTemplate：执行对应的业务逻辑。 */
 function isServerManagedMailTemplate(templateId: string): boolean {
-  return templateId === MAIL_TEMPLATE_BEGINNER_JOURNEY_ID
-    || templateId === MAIL_TEMPLATE_HEAVEN_ROOT_SEED_ID
-    || templateId === MAIL_TEMPLATE_DIVINE_ROOT_SEED_ID;
+  return gmCatalogHelpers.isServerManagedMailTemplate(templateId);
 }
 
+/** getShortcutMailTargetOptions：执行对应的业务逻辑。 */
 function getShortcutMailTargetOptions(): Array<{ value: string; label: string }> {
   const players = state?.players.filter((player) => !player.meta.isBot) ?? [];
   const options = [
@@ -849,6 +776,7 @@ function getShortcutMailTargetOptions(): Array<{ value: string; label: string }>
   return options;
 }
 
+/** getMailComposerPayload：执行对应的业务逻辑。 */
 function getMailComposerPayload(draft: GmMailComposerDraft): GmCreateMailReq {
   const templateId = draft.templateId.trim();
   const usesServerManagedTemplate = isServerManagedMailTemplate(templateId);
@@ -879,6 +807,7 @@ function getMailComposerPayload(draft: GmMailComposerDraft): GmCreateMailReq {
   };
 }
 
+/** getMailComposerMarkup：执行对应的业务逻辑。 */
 function getMailComposerMarkup(
   draft: GmMailComposerDraft,
   options: {
@@ -1007,6 +936,7 @@ function getMailComposerMarkup(
   `;
 }
 
+/** getInventoryAddTypeOptions：执行对应的业务逻辑。 */
 function getInventoryAddTypeOptions(): Array<{ value: string; label: string }> {
   return ITEM_TYPES.map((type) => ({
     value: type,
@@ -1014,106 +944,55 @@ function getInventoryAddTypeOptions(): Array<{ value: string; label: string }> {
   }));
 }
 
+/** getInventoryAddItemOptions：执行对应的业务逻辑。 */
 function getInventoryAddItemOptions(): Array<{ value: string; label: string }> {
   return getItemCatalogOptions((option) => option.type === currentInventoryAddType);
 }
 
+/** findTechniqueCatalogEntry：执行对应的业务逻辑。 */
 function findTechniqueCatalogEntry(techId: string | undefined): GmEditorTechniqueOption | null {
-  if (!techId) return null;
-  return editorCatalog?.techniques.find((entry) => entry.id === techId) ?? null;
+  return gmCatalogHelpers.findTechniqueCatalogEntry(editorCatalog, techId);
 }
 
+/** findItemCatalogEntry：执行对应的业务逻辑。 */
 function findItemCatalogEntry(itemId: string | undefined): GmEditorItemOption | null {
-  if (!itemId) return null;
-  return editorCatalog?.items.find((entry) => entry.itemId === itemId) ?? null;
+  return gmCatalogHelpers.findItemCatalogEntry(editorCatalog, itemId);
 }
 
+/** findBuffCatalogEntry：执行对应的业务逻辑。 */
 function findBuffCatalogEntry(buffId: string | undefined): GmEditorBuffOption | null {
-  if (!buffId) return null;
-  return editorCatalog?.buffs.find((entry) => entry.buffId === buffId) ?? null;
+  return gmCatalogHelpers.findBuffCatalogEntry(editorCatalog, buffId);
 }
 
+/** createTechniqueFromCatalog：执行对应的业务逻辑。 */
 function createTechniqueFromCatalog(techId: string): TechniqueState {
-  const option = findTechniqueCatalogEntry(techId);
-  if (!option) {
-    return createDefaultTechnique();
-  }
-  const initialExpToNext = option.layers?.find((layer) => layer.level === 1)?.expToNext ?? 0;
-  return {
-    techId: option.id,
-    name: option.name,
-    level: 1,
-    exp: 0,
-    expToNext: initialExpToNext,
-    realmLv: option.realmLv ?? 1,
-    realm: TechniqueRealm.Entry,
-    skills: option.skills ? clone(option.skills) : [],
-    grade: option.grade ?? 'mortal',
-    category: option.category,
-    layers: option.layers ? clone(option.layers) : [],
-    attrCurves: {},
-  };
+  return gmCatalogHelpers.createTechniqueFromCatalog(techId, editorCatalog, createDefaultTechnique, clone);
 }
 
+/** createItemFromCatalog：执行对应的业务逻辑。 */
 function createItemFromCatalog(itemId: string, count = 1): ItemStack {
-  const option = findItemCatalogEntry(itemId);
-  if (!option) {
-    return { ...createDefaultItem(), itemId, count };
-  }
-  return {
-    itemId: option.itemId,
-    name: option.name,
-    type: option.type,
-    count,
-    desc: option.desc ?? '',
-    grade: option.grade,
-    level: option.level,
-    equipSlot: option.equipSlot,
-    equipAttrs: option.equipAttrs ? clone(option.equipAttrs) : undefined,
-    equipStats: option.equipStats ? clone(option.equipStats) : undefined,
-    equipValueStats: option.equipValueStats ? clone(option.equipValueStats) : undefined,
-    tags: option.tags ? [...option.tags] : undefined,
-    effects: option.effects ? clone(option.effects) : undefined,
-  };
+  return gmCatalogHelpers.createItemFromCatalog(itemId, editorCatalog, createDefaultItem, clone, count);
 }
 
+/** createBuffFromCatalog：执行对应的业务逻辑。 */
 function createBuffFromCatalog(
   buffId: string,
   current?: Pick<TemporaryBuffState, 'stacks' | 'remainingTicks'>,
 ): TemporaryBuffState {
-  const option = findBuffCatalogEntry(buffId);
-  if (!option) {
-    return {
-      ...createDefaultBuff(),
-      buffId,
-      remainingTicks: Math.max(0, current?.remainingTicks ?? 1),
-      stacks: Math.max(1, current?.stacks ?? 1),
-    };
-  }
-
-  const next = clone(option);
-  next.duration = Math.max(1, next.duration);
-  next.maxStacks = Math.max(1, next.maxStacks);
-  next.stacks = Math.max(1, Math.min(next.maxStacks, Math.floor(current?.stacks ?? next.stacks ?? 1)));
-  next.remainingTicks = Math.max(0, Math.floor(current?.remainingTicks ?? next.duration));
-  return next;
+  return gmCatalogHelpers.createBuffFromCatalog(buffId, editorCatalog, createDefaultBuff, clone, current);
 }
 
+/** getTechniqueSummary：执行对应的业务逻辑。 */
 function getTechniqueSummary(technique: TechniqueState): string {
-  return `${technique.name || technique.techId} · ${technique.grade ?? 'mortal'} · 境界 Lv.${technique.realmLv} · 等级 ${technique.level}`;
+  return gmCatalogHelpers.getTechniqueSummary(technique);
 }
 
+/** getTechniqueTemplateMaxLevel：执行对应的业务逻辑。 */
 function getTechniqueTemplateMaxLevel(technique: TechniqueState): number {
-  const catalogEntry = findTechniqueCatalogEntry(technique.techId);
-  const levels = catalogEntry?.layers?.map((layer) => layer.level)
-    ?? technique.layers?.map((layer) => layer.level)
-    ?? [];
-  if (levels.length === 0) {
-    return Math.max(1, Math.floor(technique.level || 1));
-  }
-  return Math.max(1, ...levels);
+  return gmCatalogHelpers.getTechniqueTemplateMaxLevel(technique, editorCatalog);
 }
 
+/** buildMaxLevelTechniqueState：执行对应的业务逻辑。 */
 function buildMaxLevelTechniqueState(technique: TechniqueState): TechniqueState {
   const catalogEntry = findTechniqueCatalogEntry(technique.techId);
   const maxLevel = getTechniqueTemplateMaxLevel(technique);
@@ -1134,14 +1013,12 @@ function buildMaxLevelTechniqueState(technique: TechniqueState): TechniqueState 
   };
 }
 
+/** getInventoryRowMeta：执行对应的业务逻辑。 */
 function getInventoryRowMeta(item: ItemStack): string {
-  const parts = [ITEM_TYPE_LABELS[item.type] ?? item.type];
-  if (item.type === 'equipment' && item.equipSlot) {
-    parts.push(EQUIP_SLOT_LABELS[item.equipSlot] ?? item.equipSlot);
-  }
-  return parts.join(' · ');
+  return gmCatalogHelpers.getInventoryRowMeta(item);
 }
 
+/** getTechniqueEditorControls：执行对应的业务逻辑。 */
 function getTechniqueEditorControls(index: number, technique: TechniqueState): string {
   const catalogEntry = findTechniqueCatalogEntry(technique.techId);
   if (catalogEntry) {
@@ -1189,6 +1066,7 @@ function getTechniqueEditorControls(index: number, technique: TechniqueState): s
   `;
 }
 
+/** getItemEditorControls：执行对应的业务逻辑。 */
 function getItemEditorControls(basePath: string, item: ItemStack, mode: 'inventory' | 'equipment'): string {
   const catalogEntry = findItemCatalogEntry(item.itemId);
   if (catalogEntry) {
@@ -1242,40 +1120,17 @@ function getItemEditorControls(basePath: string, item: ItemStack, mode: 'invento
   `;
 }
 
+/** getCompactInventoryItemMarkup：执行对应的业务逻辑。 */
 function getCompactInventoryItemMarkup(item: ItemStack, index: number): string {
-  return `
-    <div class="editor-card inventory-compact-row">
-      <div class="editor-card-head">
-        <div>
-          <div class="editor-card-title" data-preview="inventory-title" data-index="${index}">${escapeHtml(getInventoryCardTitle(item, index))}</div>
-          <div class="editor-card-meta" data-preview="inventory-meta" data-index="${index}">${escapeHtml(getInventoryRowMeta(item))}</div>
-        </div>
-        <button class="small-btn danger" type="button" data-action="remove-inventory-item" data-index="${index}">删除</button>
-      </div>
-      <div class="editor-grid compact">
-        ${numberField('数量', `inventory.items.${index}.count`, item.count)}
-      </div>
-    </div>
-  `;
+  return gmMarkupHelpers.getCompactInventoryItemMarkup(item, index, numberField);
 }
 
+/** getReadonlyPreviewValue：执行对应的业务逻辑。 */
 function getReadonlyPreviewValue(draft: PlayerState, path: string): string {
-  switch (path) {
-    case 'finalAttrs':
-      return formatJson(draft.finalAttrs ?? {});
-    case 'numericStats':
-      return formatJson(draft.numericStats ?? {});
-    case 'ratioDivisors':
-      return formatJson(draft.ratioDivisors ?? {});
-    case 'realm':
-      return formatJson(draft.realm ?? {});
-    case 'actions':
-      return formatJson(draft.actions ?? []);
-    default:
-      return formatJson(null);
-  }
+  return gmMarkupHelpers.getReadonlyPreviewValue(draft, path);
 }
 
+/** buildEditorStructureKey：执行对应的业务逻辑。 */
 function buildEditorStructureKey(detail: GmManagedPlayerRecord, draft: PlayerState): string {
   const mapIds = Array.from(new Set([...(state?.mapIds ?? []), draft.mapId])).sort().join(',');
   const equipmentPresence = EQUIP_SLOTS.map((slot) => (draft.equipment[slot] ? '1' : '0')).join('');
@@ -1292,6 +1147,7 @@ function buildEditorStructureKey(detail: GmManagedPlayerRecord, draft: PlayerSta
   ].join('|');
 }
 
+/** setTextLikeValue：执行对应的业务逻辑。 */
 function setTextLikeValue(
   field: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement,
   value: string,
@@ -1304,6 +1160,7 @@ function setTextLikeValue(
   field.value = value;
 }
 
+/** syncVisualEditorFieldsFromDraft：执行对应的业务逻辑。 */
 function syncVisualEditorFieldsFromDraft(draft: PlayerState): void {
   const fields = editorContentEl.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>('[data-bind]');
   for (const field of fields) {
@@ -1324,6 +1181,7 @@ function syncVisualEditorFieldsFromDraft(draft: PlayerState): void {
       continue;
     }
     if (kind === 'nullable-string') {
+/** setTextLikeValue：处理当前场景中的对应操作。 */
       setTextLikeValue(field, typeof rawValue === 'string' ? rawValue : '');
       continue;
     }
@@ -1342,6 +1200,7 @@ function syncVisualEditorFieldsFromDraft(draft: PlayerState): void {
   syncSearchableItemFields(editorContentEl);
 }
 
+/** patchEditorPreview：执行对应的业务逻辑。 */
 function patchEditorPreview(detail: GmManagedPlayerRecord, draft: PlayerState): void {
   const equipment = draft.equipment as EquipmentSlots;
   for (const slot of EQUIP_SLOTS) {
@@ -1392,11 +1251,13 @@ function patchEditorPreview(detail: GmManagedPlayerRecord, draft: PlayerState): 
   });
 }
 
+/** clearEditorRenderCache：执行对应的业务逻辑。 */
 function clearEditorRenderCache(): void {
   lastEditorStructureKey = null;
   editorContentEl.innerHTML = '';
 }
 
+/** getVisibleNetworkBuckets：执行对应的业务逻辑。 */
 function getVisibleNetworkBuckets(buckets: GmNetworkBucket[]): GmNetworkBucket[] {
   const visibleBuckets = buckets.slice(0, 8);
   const hiddenBuckets = buckets.slice(8);
@@ -1413,6 +1274,7 @@ function getVisibleNetworkBuckets(buckets: GmNetworkBucket[]): GmNetworkBucket[]
   return visibleBuckets;
 }
 
+/** getNetworkBucketMeta：执行对应的业务逻辑。 */
 function getNetworkBucketMeta(
   totalBytes: number,
   bucket: GmNetworkBucket,
@@ -1421,6 +1283,7 @@ function getNetworkBucketMeta(
   return `${formatBytes(bucket.bytes)} · ${formatPercent(bucket.bytes, totalBytes)} · ${bucket.count} 次 · 均次 ${formatAverageBytesPerEvent(bucket.bytes, bucket.count)} · 均秒 ${formatBytesPerSecond(bucket.bytes, elapsedSec)}`;
 }
 
+/** getTickPerf：执行对应的业务逻辑。 */
 function getTickPerf(perf: GmStateRes['perf']) {
   return perf.tick ?? {
     lastMapId: null,
@@ -1433,22 +1296,18 @@ function getTickPerf(perf: GmStateRes['perf']) {
   };
 }
 
+/** getStatRowMarkup：执行对应的业务逻辑。 */
 function getStatRowMarkup(key: string): string {
-  return `
-    <div class="network-row" data-key="${escapeHtml(key)}">
-      <div class="network-row-main">
-        <div class="network-row-label" data-role="label"></div>
-        <div class="network-row-meta" data-role="meta"></div>
-      </div>
-    </div>
-  `;
+  return gmMarkupHelpers.getStatRowMarkup(key);
 }
 
+/** patchStatRow：执行对应的业务逻辑。 */
 function patchStatRow(row: HTMLElement, label: string, meta: string): void {
   row.querySelector<HTMLElement>('[data-role="label"]')!.textContent = label;
   row.querySelector<HTMLElement>('[data-role="meta"]')!.textContent = meta;
 }
 
+/** renderStructuredStatList：执行对应的业务逻辑。 */
 function renderStructuredStatList(
   container: HTMLElement,
   structureKey: string | null,
@@ -1476,6 +1335,7 @@ function renderStructuredStatList(
   return nextStructureKey;
 }
 
+/** getSortedCpuSections：执行对应的业务逻辑。 */
 function getSortedCpuSections(data: GmStateRes): GmCpuSectionSnapshot[] {
   const sections = [...data.perf.cpu.breakdown];
   sections.sort((left, right) => {
@@ -1508,14 +1368,17 @@ function getSortedCpuSections(data: GmStateRes): GmCpuSectionSnapshot[] {
   return sections.slice(0, 12);
 }
 
+/** getCpuSectionMeta：执行对应的业务逻辑。 */
 function getCpuSectionMeta(section: GmCpuSectionSnapshot): string {
   return `${section.totalMs.toFixed(2)} ms · ${section.percent.toFixed(1)}% · ${section.count} 次 · 均次 ${section.avgMs.toFixed(3)} ms`;
 }
 
+/** getPathfindingFailureMeta：执行对应的业务逻辑。 */
 function getPathfindingFailureMeta(totalFailures: number, count: number): string {
   return `${count} 次 · 占失败 ${formatPercent(count, totalFailures)}`;
 }
 
+/** renderPerfLists：执行对应的业务逻辑。 */
 function renderPerfLists(data: GmStateRes): void {
   const elapsedSec = Math.max(0, data.perf.networkStatsElapsedSec);
   const networkInItems = data.perf.networkInBytes > 0
@@ -1570,73 +1433,17 @@ function renderPerfLists(data: GmStateRes): void {
   );
 }
 
+/** renderSuggestionReply：执行对应的业务逻辑。 */
 function renderSuggestionReply(reply: Suggestion['replies'][number]): string {
-  return `
-    <div class="gm-suggestion-reply ${reply.authorType === 'gm' ? 'gm' : ''}">
-      <div class="gm-suggestion-reply-head">
-        <div class="gm-suggestion-reply-author">${escapeHtml(reply.authorType === 'gm' ? '开发者' : '发起人')}</div>
-        <div>${new Date(reply.createdAt).toLocaleString()}</div>
-      </div>
-      <div class="gm-suggestion-reply-content">${escapeHtml(reply.content)}</div>
-    </div>
-  `;
+  return gmMarkupHelpers.renderSuggestionReply(reply);
 }
 
+/** getSuggestionCardMarkup：执行对应的业务逻辑。 */
 function getSuggestionCardMarkup(suggestion: Suggestion): string {
-  const completed = suggestion.status === 'completed';
-  const score = suggestion.upvotes.length - suggestion.downvotes.length;
-  return `
-    <div class="gm-suggestion-card ${completed ? 'completed' : ''}" data-suggestion-id="${escapeHtml(suggestion.id)}">
-      <div class="gm-suggestion-head">
-        <div>
-          <div class="gm-suggestion-title">${escapeHtml(suggestion.title)}</div>
-          <div class="gm-suggestion-meta">
-            发起人：${escapeHtml(suggestion.authorName)}<br />
-            创建时间：${new Date(suggestion.createdAt).toLocaleString()}<br />
-            状态：${completed ? '已完成' : '待处理'}
-          </div>
-        </div>
-        <div class="gm-suggestion-side">
-          <div class="pill" style="background:${completed ? '#2e7d32' : 'var(--ink-grey)'}; color:#fff;">${completed ? '已完成' : '待处理'}</div>
-          <div class="gm-suggestion-meta">赞同 ${suggestion.upvotes.length} · 反对 ${suggestion.downvotes.length} · 分值 ${score > 0 ? '+' : ''}${score}</div>
-        </div>
-      </div>
-      <div class="gm-suggestion-body">
-        <div class="gm-suggestion-description-wrap">
-          <div class="gm-suggestion-section-title">原始意见</div>
-          <div class="gm-suggestion-description">${escapeHtml(suggestion.description)}</div>
-        </div>
-        <div class="gm-suggestion-replies">
-          <div class="gm-suggestion-section-title">回复记录</div>
-          ${suggestion.replies.length > 0
-            ? suggestion.replies.map((reply) => renderSuggestionReply(reply)).join('')
-            : '<div class="empty-hint">当前还没有回复记录</div>'}
-        </div>
-      </div>
-      <div class="gm-suggestion-reply-composer">
-        <div class="gm-suggestion-section-title">开发者回复</div>
-        <textarea
-          class="editor-textarea gm-suggestion-reply-input"
-          rows="3"
-          maxlength="500"
-          data-role="reply-input"
-          placeholder="输入给玩家的回复内容；回复后玩家端会出现未读红点。"
-        ></textarea>
-        <div class="button-row gm-suggestion-reply-actions">
-          <button class="small-btn primary" type="button" data-action="reply-suggestion">发送回复</button>
-        </div>
-      </div>
-      <div class="gm-suggestion-actions">
-        <div class="gm-suggestion-page-meta">该条会话共 ${suggestion.replies.length} 条回复</div>
-        <div class="button-row">
-          ${completed ? '' : '<button class="primary small-btn" type="button" data-action="complete-suggestion">标记完成</button>'}
-          <button class="danger small-btn" type="button" data-action="remove-suggestion">永久移除</button>
-        </div>
-      </div>
-    </div>
-  `;
+  return gmMarkupHelpers.getSuggestionCardMarkup(suggestion);
 }
 
+/** getEditorTabLabel：执行对应的业务逻辑。 */
 function getEditorTabLabel(tab: GmEditorTab): string {
   switch (tab) {
     case 'basic':
@@ -1662,6 +1469,7 @@ function getEditorTabLabel(tab: GmEditorTab): string {
   }
 }
 
+/** switchEditorTab：执行对应的业务逻辑。 */
 function switchEditorTab(tab: GmEditorTab): void {
   currentEditorTab = tab;
   editorTabBasicBtn.classList.toggle('active', tab === 'basic');
@@ -1695,13 +1503,16 @@ function switchEditorTab(tab: GmEditorTab): void {
     || ((tab === 'buffs' || tab === 'techniques' || tab === 'items' || tab === 'quests') && !hasServerEditorCatalog());
 }
 
+/** StatusKind：定义该类型的结构与数据语义。 */
 type StatusKind = 'idle' | 'pending' | 'success' | 'error';
 
+/** applyStatusState：执行对应的业务逻辑。 */
 function applyStatusState(message: string, kind: StatusKind): void {
   statusBarEl.textContent = message;
   statusBarEl.dataset.kind = kind;
 }
 
+/** hideStatusToast：执行对应的业务逻辑。 */
 function hideStatusToast(): void {
   if (statusToastTimer !== null) {
     window.clearTimeout(statusToastTimer);
@@ -1712,6 +1523,7 @@ function hideStatusToast(): void {
   statusToastEl.textContent = '';
 }
 
+/** showStatusToast：执行对应的业务逻辑。 */
 function showStatusToast(message: string, kind: Exclude<StatusKind, 'idle'>): void {
   if (!message) {
     hideStatusToast();
@@ -1732,11 +1544,14 @@ function showStatusToast(message: string, kind: Exclude<StatusKind, 'idle'>): vo
   }, kind === 'error' ? 5200 : 2800);
 }
 
+/** setPendingStatus：执行对应的业务逻辑。 */
 function setPendingStatus(message: string): void {
+/** applyStatusState：处理当前场景中的对应操作。 */
   applyStatusState(message, message ? 'pending' : 'idle');
   showStatusToast(message, 'pending');
 }
 
+/** setStatus：执行对应的业务逻辑。 */
 function setStatus(message: string, isError = false): void {
   const kind: StatusKind = !message ? 'idle' : isError ? 'error' : 'success';
   applyStatusState(message, kind);
@@ -1749,6 +1564,7 @@ function setStatus(message: string, isError = false): void {
 
 const worldViewer = new GmWorldViewer(request, setStatus);
 
+/** switchServerTab：执行对应的业务逻辑。 */
 function switchServerTab(tab: 'overview' | 'traffic' | 'cpu' | 'database'): void {
   currentServerTab = tab;
   serverSubtabOverviewBtn.classList.toggle('active', tab === 'overview');
@@ -1761,11 +1577,13 @@ function switchServerTab(tab: 'overview' | 'traffic' | 'cpu' | 'database'): void
   serverPanelDatabaseEl.classList.toggle('hidden', tab !== 'database');
   if (tab === 'database' && !databaseStateLoading) {
     loadDatabaseState(true).catch((error: unknown) => {
+/** setStatus：处理当前场景中的对应操作。 */
       setStatus(error instanceof Error ? error.message : '加载数据库状态失败', true);
     });
   }
 }
 
+/** formatDatabaseBackupKind：执行对应的业务逻辑。 */
 function formatDatabaseBackupKind(kind: GmDatabaseBackupRecord['kind']): string {
   switch (kind) {
     case 'hourly':
@@ -1781,6 +1599,7 @@ function formatDatabaseBackupKind(kind: GmDatabaseBackupRecord['kind']): string 
   }
 }
 
+/** formatDatabaseJobLabel：执行对应的业务逻辑。 */
 function formatDatabaseJobLabel(data: GmDatabaseStateRes | null): string {
   const job = data?.runningJob ?? data?.lastJob;
   if (!job) {
@@ -1799,6 +1618,7 @@ function formatDatabaseJobLabel(data: GmDatabaseStateRes | null): string {
   return `${action} · ${status} · 开始于 ${formatDateTime(job.startedAt)}${finishedText}${errorText}`;
 }
 
+/** renderDatabasePanel：执行对应的业务逻辑。 */
 function renderDatabasePanel(): void {
   const busy = databaseState?.runningJob?.status === 'running';
   const backups = databaseState?.backups ?? [];
@@ -1861,6 +1681,7 @@ function renderDatabasePanel(): void {
   `;
 }
 
+/** renderRedeemPanel：执行对应的业务逻辑。 */
 function renderRedeemPanel(): void {
   if (!redeemGroupListEl || !redeemGroupEditorEl || !redeemCodeListEl) {
     return;
@@ -1993,26 +1814,12 @@ function renderRedeemPanel(): void {
     : '<div class="empty-hint">请选择一个分组查看兑换码。</div>';
 }
 
+/** getRedeemCodeMarkup：执行对应的业务逻辑。 */
 function getRedeemCodeMarkup(code: RedeemCodeCodeView): string {
-  const meta = [
-    `状态 ${getRedeemCodeStatusLabel(code.status)}`,
-    code.usedByRoleName ? `使用者 ${code.usedByRoleName}` : null,
-    code.usedAt ? `使用时间 ${formatDateTime(code.usedAt)}` : null,
-    code.destroyedAt ? `销毁时间 ${formatDateTime(code.destroyedAt)}` : null,
-  ].filter((entry): entry is string => typeof entry === 'string').join(' · ');
-  return `
-    <div class="network-row">
-      <div class="network-row-label">${escapeHtml(code.code)}</div>
-      <div class="network-row-meta">${escapeHtml(meta || `创建于 ${formatDateTime(code.createdAt)}`)}</div>
-      <div class="button-row" style="margin-top: 8px;">
-        ${code.status === 'active'
-          ? `<button class="small-btn danger" type="button" data-action="destroy-redeem-code" data-code-id="${code.id}">销毁</button>`
-          : ''}
-      </div>
-    </div>
-  `;
+  return gmMarkupHelpers.getRedeemCodeMarkup(code, formatDateTime);
 }
 
+/** copyTextToClipboard：执行对应的业务逻辑。 */
 async function copyTextToClipboard(text: string): Promise<boolean> {
   try {
     if (navigator.clipboard?.writeText) {
@@ -2041,6 +1848,7 @@ async function copyTextToClipboard(text: string): Promise<boolean> {
   }
 }
 
+/** copyActiveRedeemCodes：执行对应的业务逻辑。 */
 async function copyActiveRedeemCodes(): Promise<void> {
   const group = redeemGroupDetailState?.group;
   const activeCodes = (redeemGroupDetailState?.codes ?? [])
@@ -2056,22 +1864,16 @@ async function copyActiveRedeemCodes(): Promise<void> {
     setStatus('复制未使用兑换码失败，请检查浏览器剪贴板权限', true);
     return;
   }
+/** setStatus：处理当前场景中的对应操作。 */
   setStatus(`已复制 ${activeCodes.length} 个未使用兑换码${group ? ` · ${group.name}` : ''}`);
 }
 
+/** getRedeemCodeStatusLabel：执行对应的业务逻辑。 */
 function getRedeemCodeStatusLabel(status: RedeemCodeCodeView['status']): string {
-  switch (status) {
-    case 'active':
-      return '可用';
-    case 'used':
-      return '已使用';
-    case 'destroyed':
-      return '已销毁';
-    default:
-      return status;
-  }
+  return gmMarkupHelpers.getRedeemCodeStatusLabel(status);
 }
 
+/** buildRedeemGroupPayload：执行对应的业务逻辑。 */
 function buildRedeemGroupPayload(): { name: string; rewards: RedeemCodeGroupRewardItem[] } {
   const name = redeemDraft.name.trim();
   const rewards = redeemDraft.rewards
@@ -2089,6 +1891,7 @@ function buildRedeemGroupPayload(): { name: string; rewards: RedeemCodeGroupRewa
   return { name, rewards };
 }
 
+/** loadRedeemGroups：执行对应的业务逻辑。 */
 async function loadRedeemGroups(silent = false): Promise<void> {
   redeemLoading = true;
   renderRedeemPanel();
@@ -2117,6 +1920,7 @@ async function loadRedeemGroups(silent = false): Promise<void> {
   }
 }
 
+/** loadRedeemGroupDetail：执行对应的业务逻辑。 */
 async function loadRedeemGroupDetail(groupId: string, silent = false): Promise<void> {
   redeemLoading = true;
   renderRedeemPanel();
@@ -2141,6 +1945,7 @@ async function loadRedeemGroupDetail(groupId: string, silent = false): Promise<v
   }
 }
 
+/** createRedeemGroup：执行对应的业务逻辑。 */
 async function createRedeemGroup(): Promise<void> {
   const payloadBase = buildRedeemGroupPayload();
   const payload: GmCreateRedeemCodeGroupReq = {
@@ -2157,6 +1962,7 @@ async function createRedeemGroup(): Promise<void> {
   setStatus(`已创建分组 ${result.group.name}，并生成 ${result.codes.length} 个兑换码`);
 }
 
+/** saveRedeemGroup：执行对应的业务逻辑。 */
 async function saveRedeemGroup(): Promise<void> {
   if (!selectedRedeemGroupId) {
     throw new Error('请先选择一个分组');
@@ -2171,6 +1977,7 @@ async function saveRedeemGroup(): Promise<void> {
   setStatus('兑换码分组已保存');
 }
 
+/** appendRedeemCodes：执行对应的业务逻辑。 */
 async function appendRedeemCodes(): Promise<void> {
   if (!selectedRedeemGroupId) {
     throw new Error('请先选择一个分组');
@@ -2187,6 +1994,7 @@ async function appendRedeemCodes(): Promise<void> {
   setStatus(`已追加 ${result.codes.length} 个兑换码`);
 }
 
+/** destroyRedeemCode：执行对应的业务逻辑。 */
 async function destroyRedeemCode(codeId: string): Promise<void> {
   await request<{ ok: true }>(`/gm/redeem-codes/${encodeURIComponent(codeId)}`, {
     method: 'DELETE',
@@ -2195,6 +2003,7 @@ async function destroyRedeemCode(codeId: string): Promise<void> {
   setStatus('兑换码已销毁');
 }
 
+/** loadDatabaseState：执行对应的业务逻辑。 */
 async function loadDatabaseState(silent = false): Promise<void> {
   if (!token) {
     return;
@@ -2213,6 +2022,7 @@ async function loadDatabaseState(silent = false): Promise<void> {
   }
 }
 
+/** exportCurrentDatabase：执行对应的业务逻辑。 */
 async function exportCurrentDatabase(): Promise<void> {
   const result = await request<GmTriggerDatabaseBackupRes>('/gm/database/backup', {
     method: 'POST',
@@ -2221,6 +2031,7 @@ async function exportCurrentDatabase(): Promise<void> {
   await loadDatabaseState(true);
 }
 
+/** getDownloadFileName：执行对应的业务逻辑。 */
 function getDownloadFileName(response: Response, fallback: string): string {
   const header = response.headers.get('content-disposition') ?? '';
   const utf8Match = header.match(/filename\*=UTF-8''([^;]+)/iu);
@@ -2231,6 +2042,7 @@ function getDownloadFileName(response: Response, fallback: string): string {
   return basicMatch?.[1] ?? fallback;
 }
 
+/** downloadDatabaseBackup：执行对应的业务逻辑。 */
 async function downloadDatabaseBackup(backupId: string): Promise<void> {
   const response = await requestBlob(`/gm/database/backups/${encodeURIComponent(backupId)}/download`);
   const blob = await response.blob();
@@ -2246,6 +2058,7 @@ async function downloadDatabaseBackup(backupId: string): Promise<void> {
   setStatus(`已下载兼容持久化备份 ${fileName}`);
 }
 
+/** restoreDatabaseBackup：执行对应的业务逻辑。 */
 async function restoreDatabaseBackup(backupId: string): Promise<void> {
   const backup = databaseState?.backups.find((entry) => entry.id === backupId);
   if (!backup) {
@@ -2265,6 +2078,7 @@ async function restoreDatabaseBackup(backupId: string): Promise<void> {
   await loadDatabaseState(true);
 }
 
+/** setCpuBreakdownSort：执行对应的业务逻辑。 */
 function setCpuBreakdownSort(sort: 'total' | 'count' | 'avg'): void {
   currentCpuBreakdownSort = sort;
   cpuBreakdownSortTotalBtn.classList.toggle('primary', sort === 'total');
@@ -2276,6 +2090,7 @@ function setCpuBreakdownSort(sort: 'total' | 'count' | 'avg'): void {
   }
 }
 
+/** switchTab：执行对应的业务逻辑。 */
 function switchTab(tab: 'server' | 'redeem' | 'players' | 'suggestions' | 'world' | 'shortcuts'): void {
   // 离开世界管理时停止轮询
   if (currentTab === 'world' && tab !== 'world') {
@@ -2298,6 +2113,7 @@ function switchTab(tab: 'server' | 'redeem' | 'players' | 'suggestions' | 'world
     loadSuggestions().catch(() => {});
   } else if (tab === 'redeem') {
     loadRedeemGroups(true).catch((error: unknown) => {
+/** setStatus：处理当前场景中的对应操作。 */
       setStatus(error instanceof Error ? error.message : '加载兑换码面板失败', true);
     });
   } else if (tab === 'world') {
@@ -2311,6 +2127,7 @@ function switchTab(tab: 'server' | 'redeem' | 'players' | 'suggestions' | 'world
   }
 }
 
+/** loadSuggestions：执行对应的业务逻辑。 */
 async function loadSuggestions(): Promise<void> {
   try {
     const params = new URLSearchParams({
@@ -2327,10 +2144,12 @@ async function loadSuggestions(): Promise<void> {
     currentSuggestionTotal = result.total;
     renderSuggestions();
   } catch (error) {
+/** setStatus：处理当前场景中的对应操作。 */
     setStatus(error instanceof Error ? error.message : '加载建议失败', true);
   }
 }
 
+/** loadEditorCatalog：执行对应的业务逻辑。 */
 async function loadEditorCatalog(): Promise<void> {
   try {
     editorCatalog = await request<GmEditorCatalogRes>('/gm/editor-catalog');
@@ -2347,6 +2166,7 @@ async function loadEditorCatalog(): Promise<void> {
   renderShortcutMailComposer();
 }
 
+/** renderShortcutMailComposer：执行对应的业务逻辑。 */
 function renderShortcutMailComposer(preserveActiveInteraction = false): void {
   if (!shortcutMailComposerEl) {
     return;
@@ -2395,6 +2215,7 @@ function renderShortcutMailComposer(preserveActiveInteraction = false): void {
   lastShortcutMailComposerStructureKey = structureKey;
 }
 
+/** flushShortcutMailComposerRefresh：执行对应的业务逻辑。 */
 function flushShortcutMailComposerRefresh(): void {
   if (!shortcutMailComposerEl || !shortcutMailComposerRefreshBlocked) {
     return;
@@ -2413,6 +2234,7 @@ function flushShortcutMailComposerRefresh(): void {
   renderShortcutMailComposer(true);
 }
 
+/** renderSuggestions：执行对应的业务逻辑。 */
 function renderSuggestions(): void {
   if (!suggestions || suggestions.length === 0) {
     if (lastSuggestionStructureKey !== 'empty') {
@@ -2442,16 +2264,19 @@ function renderSuggestions(): void {
   suggestionNextPageBtn.disabled = currentSuggestionPage >= currentSuggestionTotalPages;
 }
 
+/** completeSuggestion：执行对应的业务逻辑。 */
 async function completeSuggestion(id: string): Promise<void> {
   try {
     await request(`/gm/suggestions/${id}/complete`, { method: 'POST' });
     setStatus('建议已标记为完成');
     await loadSuggestions();
   } catch (error) {
+/** setStatus：处理当前场景中的对应操作。 */
     setStatus(error instanceof Error ? error.message : '操作失败', true);
   }
 }
 
+/** replySuggestion：执行对应的业务逻辑。 */
 async function replySuggestion(id: string, content: string): Promise<void> {
   try {
     await request(`/gm/suggestions/${id}/replies`, {
@@ -2461,10 +2286,12 @@ async function replySuggestion(id: string, content: string): Promise<void> {
     setStatus('开发者回复已发送');
     await loadSuggestions();
   } catch (error) {
+/** setStatus：处理当前场景中的对应操作。 */
     setStatus(error instanceof Error ? error.message : '发送回复失败', true);
   }
 }
 
+/** removeSuggestion：执行对应的业务逻辑。 */
 async function removeSuggestion(id: string): Promise<void> {
   if (!confirm('确定要移除这条建议吗？此操作不可撤销。')) return;
   try {
@@ -2475,10 +2302,12 @@ async function removeSuggestion(id: string): Promise<void> {
     }
     await loadSuggestions();
   } catch (error) {
+/** setStatus：处理当前场景中的对应操作。 */
     setStatus(error instanceof Error ? error.message : '移除失败', true);
   }
 }
 
+/** request：执行对应的业务逻辑。 */
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers ?? {});
   if (!headers.has('Content-Type') && init.body) {
@@ -2514,6 +2343,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return data as T;
 }
 
+/** requestBlob：执行对应的业务逻辑。 */
 async function requestBlob(path: string, init: RequestInit = {}): Promise<Response> {
   const headers = new Headers(init.headers ?? {});
   if (token) {
@@ -2530,6 +2360,7 @@ async function requestBlob(path: string, init: RequestInit = {}): Promise<Respon
   return response;
 }
 
+/** updateMailDraftValue：执行对应的业务逻辑。 */
 function updateMailDraftValue(
   scope: 'direct' | 'shortcut',
   path: string,
@@ -2577,6 +2408,7 @@ function updateMailDraftValue(
   attachment.count = Math.max(1, Math.floor(Number(rawValue || '1')) || 1);
 }
 
+/** updateRedeemDraftValue：执行对应的业务逻辑。 */
 function updateRedeemDraftValue(path: string, rawValue: string): void {
   if (path === 'name') {
     redeemDraft.name = rawValue;
@@ -2607,6 +2439,7 @@ function updateRedeemDraftValue(path: string, rawValue: string): void {
   reward.count = Math.max(1, Math.floor(Number(rawValue || '1')) || 1);
 }
 
+/** rerenderDirectMailComposer：执行对应的业务逻辑。 */
 function rerenderDirectMailComposer(): void {
   if (!state) {
     return;
@@ -2615,6 +2448,7 @@ function rerenderDirectMailComposer(): void {
   renderEditor(state);
 }
 
+/** addMailAttachment：执行对应的业务逻辑。 */
 function addMailAttachment(scope: 'direct' | 'shortcut'): void {
   if (!hasServerEditorCatalog()) {
     setStatus('服务端编辑目录不可用，当前不能用模板方式新增邮件附件。', true);
@@ -2630,6 +2464,7 @@ function addMailAttachment(scope: 'direct' | 'shortcut'): void {
   renderShortcutMailComposer();
 }
 
+/** removeMailAttachment：执行对应的业务逻辑。 */
 function removeMailAttachment(scope: 'direct' | 'shortcut', index: number): void {
   const draft = scope === 'direct' ? directMailDraft : broadcastMailDraft;
   if (index < 0 || index >= draft.attachments.length) {
@@ -2644,6 +2479,7 @@ function removeMailAttachment(scope: 'direct' | 'shortcut', index: number): void
   renderShortcutMailComposer();
 }
 
+/** sendDirectMail：执行对应的业务逻辑。 */
 async function sendDirectMail(): Promise<void> {
   const detail = getSelectedPlayerDetail();
   if (!detail) {
@@ -2664,6 +2500,7 @@ async function sendDirectMail(): Promise<void> {
   setStatus(`已向 ${detail.roleName} 发送邮件：${result.mailId}`);
 }
 
+/** sendShortcutMail：执行对应的业务逻辑。 */
 async function sendShortcutMail(): Promise<void> {
   if (broadcastMailDraft.attachments.some((entry) => entry.itemId.trim().length > 0)) {
     assertTrustedEditorCatalog('带附件邮件发送');
@@ -2688,17 +2525,20 @@ async function sendShortcutMail(): Promise<void> {
     : `已发送全服邮件批次 ${result.batchId ?? result.mailId}，覆盖 ${result.recipientCount ?? 0} 人`);
 }
 
+/** getSelectedPlayer：执行对应的业务逻辑。 */
 function getSelectedPlayer(): GmManagedPlayerSummary | null {
   if (!state || !selectedPlayerId) return null;
   return state.players.find((player) => player.id === selectedPlayerId) ?? null;
 }
 
+/** getSelectedPlayerDetail：执行对应的业务逻辑。 */
 function getSelectedPlayerDetail(): GmManagedPlayerRecord | null {
   return selectedPlayerDetail && selectedPlayerDetail.id === selectedPlayerId
     ? selectedPlayerDetail
     : null;
 }
 
+/** createDefaultItem：执行对应的业务逻辑。 */
 function createDefaultItem(equipSlot?: string): ItemStack {
   return {
     itemId: '',
@@ -2716,6 +2556,7 @@ function createDefaultItem(equipSlot?: string): ItemStack {
   };
 }
 
+/** createDefaultTechnique：执行对应的业务逻辑。 */
 function createDefaultTechnique(): TechniqueState {
   return {
     techId: '',
@@ -2733,6 +2574,7 @@ function createDefaultTechnique(): TechniqueState {
   };
 }
 
+/** createDefaultQuest：执行对应的业务逻辑。 */
 function createDefaultQuest(): QuestState {
   return {
     id: '',
@@ -2758,6 +2600,7 @@ function createDefaultQuest(): QuestState {
   };
 }
 
+/** createDefaultBuff：执行对应的业务逻辑。 */
 function createDefaultBuff(): TemporaryBuffState {
   return {
     buffId: '',
@@ -2775,6 +2618,7 @@ function createDefaultBuff(): TemporaryBuffState {
   };
 }
 
+/** createDefaultPlayerSnapshot：执行对应的业务逻辑。 */
 function createDefaultPlayerSnapshot(source?: PlayerState): PlayerState {
   if (source) return clone(source);
   return {
@@ -2819,6 +2663,7 @@ function createDefaultPlayerSnapshot(source?: PlayerState): PlayerState {
   };
 }
 
+/** readCatalogSelectValue：执行对应的业务逻辑。 */
 function readCatalogSelectValue(
   kind: 'technique' | 'inventory-item' | 'equipment',
   slot?: EquipSlot,
@@ -2830,6 +2675,7 @@ function readCatalogSelectValue(
   return field?.value ?? '';
 }
 
+/** updateInventoryAddControls：执行对应的业务逻辑。 */
 function updateInventoryAddControls(resetSelectedItem = true): void {
   const typeSelect = editorContentEl.querySelector<HTMLSelectElement>('select[data-catalog-select="inventory-type"]');
   const itemField = editorContentEl.querySelector<HTMLElement>('[data-item-combobox][data-item-scope="inventory-add"]');
@@ -2849,43 +2695,32 @@ function updateInventoryAddControls(resetSelectedItem = true): void {
   syncSearchableItemField(itemField);
 }
 
+/** pathSegments：执行对应的业务逻辑。 */
 function pathSegments(path: string): string[] {
-  return path.split('.');
+  return gmPureHelpers.pathSegments(path);
 }
 
+/** setValueByPath：执行对应的业务逻辑。 */
 function setValueByPath(target: unknown, path: string, value: unknown): void {
-  const segments = pathSegments(path);
-  let cursor = target as Record<string, unknown>;
-  for (let index = 0; index < segments.length - 1; index += 1) {
-    const key = segments[index]!;
-    const next = cursor[key];
-    if (next === undefined || next === null) {
-      cursor[key] = /^\d+$/.test(segments[index + 1] ?? '') ? [] : {};
-    }
-    cursor = cursor[key] as Record<string, unknown>;
-  }
-  cursor[segments[segments.length - 1]!] = value;
+  return gmPureHelpers.setValueByPath(target, path, value);
 }
 
+/** getValueByPath：执行对应的业务逻辑。 */
 function getValueByPath(target: unknown, path: string): unknown {
-  let cursor = target as Record<string, unknown> | undefined;
-  for (const segment of pathSegments(path)) {
-    if (cursor === undefined || cursor === null) return undefined;
-    cursor = cursor[segment] as Record<string, unknown> | undefined;
-  }
-  return cursor;
+  return gmPureHelpers.getValueByPath(target, path);
 }
 
+/** removeArrayIndex：执行对应的业务逻辑。 */
 function removeArrayIndex(target: unknown, path: string, index: number): void {
-  const value = getValueByPath(target, path);
-  if (!Array.isArray(value)) return;
-  value.splice(index, 1);
+  gmPureHelpers.removeArrayIndex(target, path, index);
 }
 
+/** ensureArray：执行对应的业务逻辑。 */
 function ensureArray<T>(value: T[] | undefined | null): T[] {
-  return Array.isArray(value) ? value : [];
+  return gmPureHelpers.ensureArray(value);
 }
 
+/** buildHtmlAttributes：执行对应的业务逻辑。 */
 function buildHtmlAttributes(attributes: Record<string, string | undefined>): string {
   return Object.entries(attributes)
     .filter(([, value]) => value !== undefined)
@@ -2893,14 +2728,16 @@ function buildHtmlAttributes(attributes: Record<string, string | undefined>): st
     .join('');
 }
 
+/** getSearchableItemDisplayValue：执行对应的业务逻辑。 */
 function getSearchableItemDisplayValue(itemId: string): string {
   if (!itemId) {
     return '';
   }
-  const entry = findItemCatalogEntry(itemId);
+  const entry = gmCatalogHelpers.findItemCatalogEntry(editorCatalog, itemId);
   return entry ? `${entry.name} · ${itemId}` : itemId;
 }
 
+/** getSearchableItemOptions：执行对应的业务逻辑。 */
 function getSearchableItemOptions(scope: SearchableItemScope, slot?: EquipSlot): Array<{ value: string; label: string }> {
   if (scope === 'inventory-add') {
     return getInventoryAddItemOptions();
@@ -2914,6 +2751,7 @@ function getSearchableItemOptions(scope: SearchableItemScope, slot?: EquipSlot):
   return getItemCatalogOptions();
 }
 
+/** searchableItemField：执行对应的业务逻辑。 */
 function searchableItemField(
   label: string,
   value: string,
@@ -2950,30 +2788,37 @@ function searchableItemField(
   `;
 }
 
+/** getSearchableItemValueField：执行对应的业务逻辑。 */
 function getSearchableItemValueField(root: ParentNode): HTMLInputElement | null {
   return root.querySelector<HTMLInputElement>('input[data-item-combobox-value]');
 }
 
+/** getSearchableItemInput：执行对应的业务逻辑。 */
 function getSearchableItemInput(root: ParentNode): HTMLInputElement | null {
   return root.querySelector<HTMLInputElement>('input[data-item-combobox-input]');
 }
 
+/** getSearchableItemList：执行对应的业务逻辑。 */
 function getSearchableItemList(root: ParentNode): HTMLElement | null {
   return root.querySelector<HTMLElement>('[data-item-combobox-list]');
 }
 
+/** getSearchableItemHint：执行对应的业务逻辑。 */
 function getSearchableItemHint(root: ParentNode): HTMLElement | null {
   return root.querySelector<HTMLElement>('[data-item-combobox-hint]');
 }
 
+/** getSearchableItemPopover：执行对应的业务逻辑。 */
 function getSearchableItemPopover(root: ParentNode): HTMLElement | null {
   return root.querySelector<HTMLElement>('[data-item-combobox-popover]');
 }
 
+/** normalizeSearchableItemText：执行对应的业务逻辑。 */
 function normalizeSearchableItemText(value: string): string {
   return value.trim().toLowerCase();
 }
 
+/** renderSearchableItemOptions：执行对应的业务逻辑。 */
 function renderSearchableItemOptions(root: HTMLElement): void {
   const input = getSearchableItemInput(root);
   const valueField = getSearchableItemValueField(root);
@@ -3036,6 +2881,7 @@ function renderSearchableItemOptions(root: HTMLElement): void {
   listEl.querySelector<HTMLElement>('.gm-item-combobox-option.active')?.scrollIntoView({ block: 'nearest' });
 }
 
+/** syncSearchableItemField：执行对应的业务逻辑。 */
 function syncSearchableItemField(root: HTMLElement): void {
   const input = getSearchableItemInput(root);
   const valueField = getSearchableItemValueField(root);
@@ -3050,6 +2896,7 @@ function syncSearchableItemField(root: HTMLElement): void {
   input.placeholder = root.dataset.placeholder ?? '点击后输入名称或 ID 搜索物品模板';
 }
 
+/** syncSearchableItemFields：执行对应的业务逻辑。 */
 function syncSearchableItemFields(scope: ParentNode): void {
   if (activeSearchableItemField && !activeSearchableItemField.isConnected) {
     activeSearchableItemField = null;
@@ -3059,6 +2906,7 @@ function syncSearchableItemFields(scope: ParentNode): void {
   });
 }
 
+/** closeSearchableItemField：执行对应的业务逻辑。 */
 function closeSearchableItemField(root: HTMLElement): void {
   if (activeSearchableItemField === root) {
     activeSearchableItemField = null;
@@ -3072,6 +2920,7 @@ function closeSearchableItemField(root: HTMLElement): void {
   });
 }
 
+/** openSearchableItemField：执行对应的业务逻辑。 */
 function openSearchableItemField(root: HTMLElement, resetQuery = true): void {
   if (activeSearchableItemField && activeSearchableItemField !== root) {
     closeSearchableItemField(activeSearchableItemField);
@@ -3092,6 +2941,7 @@ function openSearchableItemField(root: HTMLElement, resetQuery = true): void {
   renderSearchableItemOptions(root);
 }
 
+/** moveSearchableItemActiveIndex：执行对应的业务逻辑。 */
 function moveSearchableItemActiveIndex(root: HTMLElement, offset: number): void {
   const listEl = getSearchableItemList(root);
   if (!listEl) {
@@ -3109,6 +2959,7 @@ function moveSearchableItemActiveIndex(root: HTMLElement, offset: number): void 
   renderSearchableItemOptions(root);
 }
 
+/** commitSearchableItemSelection：执行对应的业务逻辑。 */
 function commitSearchableItemSelection(root: HTMLElement, value: string): void {
   const input = getSearchableItemInput(root);
   const valueField = getSearchableItemValueField(root);
@@ -3126,6 +2977,7 @@ function commitSearchableItemSelection(root: HTMLElement, value: string): void {
   valueField.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
+/** flushBlockedEditorRender：执行对应的业务逻辑。 */
 function flushBlockedEditorRender(): void {
   if (!editorRenderRefreshBlocked || !state) {
     return;
@@ -3143,12 +2995,14 @@ function flushBlockedEditorRender(): void {
   renderEditor(state);
 }
 
+/** optionsMarkup：执行对应的业务逻辑。 */
 function optionsMarkup<T extends string | number>(options: Array<{ value: T; label: string }>, selected: T | undefined): string {
   return options.map((option) => `
     <option value="${escapeHtml(String(option.value))}" ${selected === option.value ? 'selected' : ''}>${escapeHtml(option.label)}</option>
   `).join('');
 }
 
+/** textField：执行对应的业务逻辑。 */
 function textField(label: string, path: string, value: string | undefined, extraClass = ''): string {
   return `
     <label class="editor-field ${extraClass}">
@@ -3158,6 +3012,7 @@ function textField(label: string, path: string, value: string | undefined, extra
   `;
 }
 
+/** nullableTextField：执行对应的业务逻辑。 */
 function nullableTextField(label: string, path: string, value: string | undefined, emptyMode: 'undefined' | 'null' = 'undefined', extraClass = ''): string {
   return `
     <label class="editor-field ${extraClass}">
@@ -3167,6 +3022,7 @@ function nullableTextField(label: string, path: string, value: string | undefine
   `;
 }
 
+/** numberField：执行对应的业务逻辑。 */
 function numberField(label: string, path: string, value: number | undefined, extraClass = ''): string {
   return `
     <label class="editor-field ${extraClass}">
@@ -3176,6 +3032,7 @@ function numberField(label: string, path: string, value: number | undefined, ext
   `;
 }
 
+/** checkboxField：执行对应的业务逻辑。 */
 function checkboxField(label: string, path: string, checked: boolean | undefined): string {
   return `
     <label class="editor-toggle">
@@ -3185,6 +3042,7 @@ function checkboxField(label: string, path: string, checked: boolean | undefined
   `;
 }
 
+/** selectField：执行对应的业务逻辑。 */
 function selectField(
   label: string,
   path: string,
@@ -3203,6 +3061,7 @@ function selectField(
   `;
 }
 
+/** jsonField：执行对应的业务逻辑。 */
 function jsonField(label: string, path: string, value: unknown, emptyValue: 'null' | 'object' | 'array' = 'object', extraClass = ''): string {
   return `
     <label class="editor-field ${extraClass}">
@@ -3212,6 +3071,7 @@ function jsonField(label: string, path: string, value: unknown, emptyValue: 'nul
   `;
 }
 
+/** stringArrayField：执行对应的业务逻辑。 */
 function stringArrayField(label: string, path: string, value: string[] | undefined, extraClass = ''): string {
   return `
     <label class="editor-field ${extraClass}">
@@ -3221,6 +3081,7 @@ function stringArrayField(label: string, path: string, value: string[] | undefin
   `;
 }
 
+/** readonlyCodeBlock：执行对应的业务逻辑。 */
 function readonlyCodeBlock(title: string, path: string, value: unknown): string {
   return `
     <div class="editor-field wide">
@@ -3230,10 +3091,12 @@ function readonlyCodeBlock(title: string, path: string, value: unknown): string 
   `;
 }
 
+/** renderEditorTabSection：执行对应的业务逻辑。 */
 function renderEditorTabSection(tab: GmEditorTab, content: string): string {
   return `<div data-editor-tab="${tab}">${content}</div>`;
 }
 
+/** renderVisualEditor：执行对应的业务逻辑。 */
 function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): string {
   const mapIds = Array.from(new Set([...(state?.mapIds ?? []), draft.mapId])).sort();
   const equipment = draft.equipment as EquipmentSlots;
@@ -3817,6 +3680,7 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
   `;
 }
 
+/** renderSummary：执行对应的业务逻辑。 */
 function renderSummary(data: GmStateRes): void {
   const elapsedSec = Math.max(0, data.perf.networkStatsElapsedSec);
   const startedAt = data.perf.networkStatsStartedAt > 0 ? new Date(data.perf.networkStatsStartedAt) : null;
@@ -3886,12 +3750,14 @@ function renderSummary(data: GmStateRes): void {
   renderPerfLists(data);
 }
 
+/** renderPlayerPageMeta：执行对应的业务逻辑。 */
 function renderPlayerPageMeta(data: GmStateRes): void {
   playerPageMetaEl.textContent = `第 ${data.playerPage.page} / ${data.playerPage.totalPages} 页 · 共 ${data.playerPage.total} 条`;
   playerPrevPageBtn.disabled = data.playerPage.page <= 1;
   playerNextPageBtn.disabled = data.playerPage.page >= data.playerPage.totalPages;
 }
 
+/** renderPlayerList：执行对应的业务逻辑。 */
 function renderPlayerList(data: GmStateRes): void {
   const filtered = getFilteredPlayers(data);
 
@@ -3924,6 +3790,7 @@ function renderPlayerList(data: GmStateRes): void {
   renderPlayerPageMeta(data);
 }
 
+/** renderEditor：执行对应的业务逻辑。 */
 function renderEditor(data: GmStateRes): void {
   const selected = data.players.find((player) => player.id === selectedPlayerId) ?? null;
   if (!selected) {
@@ -4013,6 +3880,7 @@ function renderEditor(data: GmStateRes): void {
   removeBotBtn.disabled = !detail.meta.isBot;
 }
 
+/** render：执行对应的业务逻辑。 */
 function render(): void {
   if (!state) return;
   switchServerTab(currentServerTab);
@@ -4025,10 +3893,12 @@ function render(): void {
   }
 }
 
+/** getEditorTabSection：执行对应的业务逻辑。 */
 function getEditorTabSection(tab: GmEditorTab): HTMLElement | null {
   return editorContentEl.querySelector<HTMLElement>(`[data-editor-tab="${tab}"]`);
 }
 
+/** syncVisualEditorToDraft：执行对应的业务逻辑。 */
 function syncVisualEditorToDraft(scope?: ParentNode): { ok: true } | { ok: false; message: string } {
   if (!draftSnapshot) {
     return { ok: false, message: '当前没有可编辑角色' };
@@ -4084,6 +3954,7 @@ function syncVisualEditorToDraft(scope?: ParentNode): { ok: true } | { ok: false
   return { ok: true };
 }
 
+/** mutateDraft：执行对应的业务逻辑。 */
 function mutateDraft(mutator: (draft: PlayerState) => void): boolean {
   const synced = syncVisualEditorToDraft(getEditorTabSection(currentEditorTab) ?? undefined);
   if (!synced.ok) {
@@ -4097,6 +3968,7 @@ function mutateDraft(mutator: (draft: PlayerState) => void): boolean {
   return true;
 }
 
+/** applyCatalogBindingChange：执行对应的业务逻辑。 */
 function applyCatalogBindingChange(path: string, value: string): boolean {
   if (!draftSnapshot) return false;
 
@@ -4160,6 +4032,7 @@ function applyCatalogBindingChange(path: string, value: string): boolean {
   return true;
 }
 
+/** loadState：执行对应的业务逻辑。 */
 async function loadState(silent = false, refreshDetail = false): Promise<void> {
   if (!token) return;
   const params = new URLSearchParams({
@@ -4207,6 +4080,7 @@ async function loadState(silent = false, refreshDetail = false): Promise<void> {
   }
 }
 
+/** loadSelectedPlayerDetail：执行对应的业务逻辑。 */
 async function loadSelectedPlayerDetail(playerId: string, silent = false): Promise<void> {
   const nonce = ++detailRequestNonce;
   loadingPlayerDetailId = playerId;
@@ -4237,28 +4111,33 @@ async function loadSelectedPlayerDetail(playerId: string, silent = false): Promi
   }
 }
 
+/** startPolling：执行对应的业务逻辑。 */
 function startPolling(): void {
   if (pollTimer !== null) {
     window.clearInterval(pollTimer);
   }
   pollTimer = window.setInterval(() => {
     loadState(true).catch((error: unknown) => {
+/** setStatus：处理当前场景中的对应操作。 */
       setStatus(error instanceof Error ? error.message : '刷新失败', true);
     });
   }, GM_PANEL_POLL_INTERVAL_MS);
 }
 
+/** showShell：执行对应的业务逻辑。 */
 function showShell(): void {
   loginOverlay.classList.add('hidden');
   gmShell.classList.remove('hidden');
 }
 
+/** showLogin：执行对应的业务逻辑。 */
 function showLogin(): void {
   loginOverlay.classList.remove('hidden');
   gmShell.classList.add('hidden');
   syncPersistedGmPasswordToInputs();
 }
 
+/** logout：执行对应的业务逻辑。 */
 function logout(message?: string): void {
   token = '';
   state = null;
@@ -4328,6 +4207,7 @@ function logout(message?: string): void {
   showLogin();
 }
 
+/** delayRefresh：执行对应的业务逻辑。 */
 async function delayRefresh(message: string): Promise<void> {
   setStatus(message);
   await new Promise((resolve) => window.setTimeout(resolve, GM_APPLY_DELAY_MS));
@@ -4335,6 +4215,7 @@ async function delayRefresh(message: string): Promise<void> {
   setStatus(`${message}，已完成同步`);
 }
 
+/** login：执行对应的业务逻辑。 */
 async function login(): Promise<void> {
   const password = passwordInput.value.trim();
   if (!password) {
@@ -4367,6 +4248,7 @@ async function login(): Promise<void> {
   }
 }
 
+/** changeGmPassword：执行对应的业务逻辑。 */
 async function changeGmPassword(): Promise<void> {
   const currentPassword = gmPasswordCurrentInput.value.trim();
   const newPassword = gmPasswordNextInput.value.trim();
@@ -4391,12 +4273,14 @@ async function changeGmPassword(): Promise<void> {
     gmPasswordNextInput.value = '';
     setStatus('GM 密码已更新');
   } catch (error) {
+/** setStatus：处理当前场景中的对应操作。 */
     setStatus(error instanceof Error ? error.message : 'GM 密码修改失败', true);
   } finally {
     gmPasswordSaveBtn.disabled = false;
   }
 }
 
+/** applyRawJson：执行对应的业务逻辑。 */
 async function applyRawJson(): Promise<void> {
   const selected = getSelectedPlayer();
   if (!selected) {
@@ -4417,10 +4301,12 @@ async function applyRawJson(): Promise<void> {
   }
 }
 
+/** getCurrentEditorSaveSection：执行对应的业务逻辑。 */
 function getCurrentEditorSaveSection(): GmPlayerUpdateSection | null {
   return currentEditorTab === 'persisted' || currentEditorTab === 'mail' || currentEditorTab === 'shortcuts' ? null : currentEditorTab;
 }
 
+/** buildTechniqueSaveSnapshot：执行对应的业务逻辑。 */
 function buildTechniqueSaveSnapshot(technique: TechniqueState): TechniqueState {
   if (!findTechniqueCatalogEntry(technique.techId)) {
     return clone(technique);
@@ -4441,6 +4327,7 @@ function buildTechniqueSaveSnapshot(technique: TechniqueState): TechniqueState {
   };
 }
 
+/** buildInventoryItemSaveSnapshot：执行对应的业务逻辑。 */
 function buildInventoryItemSaveSnapshot(item: ItemStack): ItemStack {
   if (!findItemCatalogEntry(item.itemId)) {
     return clone(item);
@@ -4454,6 +4341,7 @@ function buildInventoryItemSaveSnapshot(item: ItemStack): ItemStack {
   };
 }
 
+/** buildEquipmentItemSaveSnapshot：执行对应的业务逻辑。 */
 function buildEquipmentItemSaveSnapshot(item: ItemStack | null): ItemStack | null {
   if (!item) {
     return null;
@@ -4471,6 +4359,7 @@ function buildEquipmentItemSaveSnapshot(item: ItemStack | null): ItemStack | nul
   };
 }
 
+/** buildSectionSnapshot：执行对应的业务逻辑。 */
 function buildSectionSnapshot(section: GmPlayerUpdateSection, draft: PlayerState): Partial<PlayerState> {
   switch (section) {
     case 'basic':
@@ -4541,6 +4430,7 @@ function buildSectionSnapshot(section: GmPlayerUpdateSection, draft: PlayerState
   }
 }
 
+/** saveSelectedPlayerSections：执行对应的业务逻辑。 */
 async function saveSelectedPlayerSections(sections: GmPlayerUpdateSection[], message: string): Promise<void> {
   const selected = getSelectedPlayer();
   if (!selected || !draftSnapshot) {
@@ -4564,6 +4454,7 @@ async function saveSelectedPlayerSections(sections: GmPlayerUpdateSection[], mes
   await delayRefresh(message);
 }
 
+/** setSelectedPlayerBodyTrainingLevel：执行对应的业务逻辑。 */
 async function setSelectedPlayerBodyTrainingLevel(): Promise<void> {
   const detail = getSelectedPlayerDetail();
   if (!detail) {
@@ -4593,6 +4484,7 @@ async function setSelectedPlayerBodyTrainingLevel(): Promise<void> {
     editorDirty = false;
     await delayRefresh(`已将 ${detail.name} 的炼体等级设置为 ${level} 层`);
   } catch (error) {
+/** setStatus：处理当前场景中的对应操作。 */
     setStatus(error instanceof Error ? error.message : '设置炼体等级失败', true);
   } finally {
     if (button) {
@@ -4601,6 +4493,7 @@ async function setSelectedPlayerBodyTrainingLevel(): Promise<void> {
   }
 }
 
+/** addSelectedPlayerFoundation：执行对应的业务逻辑。 */
 async function addSelectedPlayerFoundation(): Promise<void> {
   const detail = getSelectedPlayerDetail();
   if (!detail) {
@@ -4631,6 +4524,7 @@ async function addSelectedPlayerFoundation(): Promise<void> {
     editorDirty = false;
     await delayRefresh(`已将 ${detail.name} 的底蕴调整 ${amount > 0 ? '+' : ''}${amount}`);
   } catch (error) {
+/** setStatus：处理当前场景中的对应操作。 */
     setStatus(error instanceof Error ? error.message : '调整底蕴失败', true);
   } finally {
     if (button) {
@@ -4639,6 +4533,7 @@ async function addSelectedPlayerFoundation(): Promise<void> {
   }
 }
 
+/** addSelectedPlayerCombatExp：执行对应的业务逻辑。 */
 async function addSelectedPlayerCombatExp(): Promise<void> {
   const detail = getSelectedPlayerDetail();
   if (!detail) {
@@ -4669,6 +4564,7 @@ async function addSelectedPlayerCombatExp(): Promise<void> {
     editorDirty = false;
     await delayRefresh(`已将 ${detail.name} 的战斗经验调整 ${amount > 0 ? '+' : ''}${amount}`);
   } catch (error) {
+/** setStatus：处理当前场景中的对应操作。 */
     setStatus(error instanceof Error ? error.message : '调整战斗经验失败', true);
   } finally {
     if (button) {
@@ -4677,6 +4573,7 @@ async function addSelectedPlayerCombatExp(): Promise<void> {
   }
 }
 
+/** runPlayerTechniqueShortcut：执行对应的业务逻辑。 */
 async function runPlayerTechniqueShortcut(
   action: 'grant-all-unlearned-technique-books' | 'max-all-techniques' | 'learn-all-techniques' | 'remove-all-techniques',
 ): Promise<void> {
@@ -4770,6 +4667,7 @@ async function runPlayerTechniqueShortcut(
   await saveSelectedPlayerSections(['techniques'], `已为当前角色补齐 ${missingTechniqueIds.length} 门功法`);
 }
 
+/** openSelectedPlayerMailTab：执行对应的业务逻辑。 */
 function openSelectedPlayerMailTab(): void {
   if (!selectedPlayerId) {
     setStatus('请先选择角色', true);
@@ -4781,6 +4679,7 @@ function openSelectedPlayerMailTab(): void {
   switchEditorTab('mail');
 }
 
+/** refreshSelectedPlayer：执行对应的业务逻辑。 */
 async function refreshSelectedPlayer(): Promise<void> {
   const selected = getSelectedPlayer();
   if (!selected) {
@@ -4805,12 +4704,14 @@ async function refreshSelectedPlayer(): Promise<void> {
     await loadState(true, true);
     setStatus(`已刷新 ${selected.name} 的角色详情`);
   } catch (error) {
+/** setStatus：处理当前场景中的对应操作。 */
     setStatus(error instanceof Error ? error.message : '刷新角色详情失败', true);
   } finally {
     refreshPlayerBtn.disabled = false;
   }
 }
 
+/** saveSelectedPlayer：执行对应的业务逻辑。 */
 async function saveSelectedPlayer(): Promise<void> {
   const selected = getSelectedPlayer();
   if (!selected) {
@@ -4834,6 +4735,7 @@ async function saveSelectedPlayer(): Promise<void> {
 
   const synced = syncVisualEditorToDraft(getEditorTabSection(section) ?? undefined);
   if (!synced.ok || !draftSnapshot) {
+/** setStatus：处理当前场景中的对应操作。 */
     setStatus(synced.ok ? '当前没有可保存内容' : synced.message, true);
     return;
   }
@@ -4849,12 +4751,14 @@ async function saveSelectedPlayer(): Promise<void> {
     editorDirty = false;
     await delayRefresh(`已提交 ${selected.name} 的${getEditorTabLabel(section)}修改`);
   } catch (error) {
+/** setStatus：处理当前场景中的对应操作。 */
     setStatus(error instanceof Error ? error.message : '保存失败', true);
   } finally {
     savePlayerBtn.disabled = false;
   }
 }
 
+/** saveSelectedPlayerPassword：执行对应的业务逻辑。 */
 async function saveSelectedPlayerPassword(): Promise<void> {
   const detail = getSelectedPlayerDetail();
   if (!detail?.account) {
@@ -4885,6 +4789,7 @@ async function saveSelectedPlayerPassword(): Promise<void> {
     }
     setStatus(`已修改账号 ${detail.account.username} 的密码，服务端已按哈希保存`);
   } catch (error) {
+/** setStatus：处理当前场景中的对应操作。 */
     setStatus(error instanceof Error ? error.message : '修改账号密码失败', true);
   } finally {
     if (button) {
@@ -4893,6 +4798,7 @@ async function saveSelectedPlayerPassword(): Promise<void> {
   }
 }
 
+/** saveSelectedPlayerAccount：执行对应的业务逻辑。 */
 async function saveSelectedPlayerAccount(): Promise<void> {
   const detail = getSelectedPlayerDetail();
   if (!detail?.account) {
@@ -4924,6 +4830,7 @@ async function saveSelectedPlayerAccount(): Promise<void> {
     });
     await delayRefresh(`已将账号从 ${detail.account.username} 修改为 ${username}`);
   } catch (error) {
+/** setStatus：处理当前场景中的对应操作。 */
     setStatus(error instanceof Error ? error.message : '修改账号失败', true);
   } finally {
     if (button) {
@@ -4932,6 +4839,7 @@ async function saveSelectedPlayerAccount(): Promise<void> {
   }
 }
 
+/** resetSelectedPlayer：执行对应的业务逻辑。 */
 async function resetSelectedPlayer(): Promise<void> {
   const selected = getSelectedPlayer();
   if (!selected) {
@@ -4948,12 +4856,14 @@ async function resetSelectedPlayer(): Promise<void> {
     editorDirty = false;
     await delayRefresh(`已让 ${selected.name} 返回出生点`);
   } catch (error) {
+/** setStatus：处理当前场景中的对应操作。 */
     setStatus(error instanceof Error ? error.message : '重置失败', true);
   } finally {
     resetPlayerBtn.disabled = false;
   }
 }
 
+/** resetSelectedPlayerHeavenGate：执行对应的业务逻辑。 */
 async function resetSelectedPlayerHeavenGate(): Promise<void> {
   const selected = getSelectedPlayer();
   if (!selected) {
@@ -4970,12 +4880,14 @@ async function resetSelectedPlayerHeavenGate(): Promise<void> {
     editorDirty = false;
     await delayRefresh(`已重置 ${selected.name} 的天门测试状态`);
   } catch (error) {
+/** setStatus：处理当前场景中的对应操作。 */
     setStatus(error instanceof Error ? error.message : '重置天门失败', true);
   } finally {
     resetHeavenGateBtn.disabled = false;
   }
 }
 
+/** removeSelectedBot：执行对应的业务逻辑。 */
 async function removeSelectedBot(): Promise<void> {
   const selected = getSelectedPlayer();
   if (!selected || !selected.meta.isBot) {
@@ -4993,12 +4905,14 @@ async function removeSelectedBot(): Promise<void> {
     editorDirty = false;
     await delayRefresh(`已移除机器人 ${selected.name}`);
   } catch (error) {
+/** setStatus：处理当前场景中的对应操作。 */
     setStatus(error instanceof Error ? error.message : '移除机器人失败', true);
   } finally {
     removeBotBtn.disabled = false;
   }
 }
 
+/** spawnBots：执行对应的业务逻辑。 */
 async function spawnBots(): Promise<void> {
   const selected = getSelectedPlayer();
   if (!selected) {
@@ -5022,10 +4936,12 @@ async function spawnBots(): Promise<void> {
     });
     await delayRefresh(`已提交在 ${selected.name} 附近生成 ${Math.floor(count)} 个机器人`);
   } catch (error) {
+/** setStatus：处理当前场景中的对应操作。 */
     setStatus(error instanceof Error ? error.message : '生成机器人失败', true);
   }
 }
 
+/** removeAllBots：执行对应的业务逻辑。 */
 async function removeAllBots(): Promise<void> {
   try {
     setPendingStatus('正在移除全部机器人...');
@@ -5036,10 +4952,12 @@ async function removeAllBots(): Promise<void> {
     editorDirty = false;
     await delayRefresh('已提交移除全部机器人');
   } catch (error) {
+/** setStatus：处理当前场景中的对应操作。 */
     setStatus(error instanceof Error ? error.message : '移除机器人失败', true);
   }
 }
 
+/** returnAllPlayersToDefaultSpawn：执行对应的业务逻辑。 */
 async function returnAllPlayersToDefaultSpawn(): Promise<void> {
   if (!window.confirm('这会把所有非机器人角色统一送回新手村出生点。在线角色下一息生效，离线角色会直接改存档。确认继续吗？')) {
     return;
@@ -5058,6 +4976,7 @@ async function returnAllPlayersToDefaultSpawn(): Promise<void> {
       `已提交全部角色回新手村出生点，共 ${result.totalPlayers} 个角色，在线 ${result.queuedRuntimePlayers} 个，离线 ${result.updatedOfflinePlayers} 个`,
     );
   } catch (error) {
+/** setStatus：处理当前场景中的对应操作。 */
     setStatus(error instanceof Error ? error.message : '执行快捷指令失败', true);
   } finally {
     if (button) {
@@ -5066,6 +4985,7 @@ async function returnAllPlayersToDefaultSpawn(): Promise<void> {
   }
 }
 
+/** cleanupAllPlayersInvalidItems：执行对应的业务逻辑。 */
 async function cleanupAllPlayersInvalidItems(): Promise<void> {
   if (!window.confirm('这会手动清理所有非机器人角色背包、坊市托管仓和装备栏里的无效物品。在线角色将在下一息处理并落盘，离线角色会直接改存档。确认继续吗？')) {
     return;
@@ -5084,6 +5004,7 @@ async function cleanupAllPlayersInvalidItems(): Promise<void> {
       `已提交无效物品清理，共 ${result.totalPlayers} 个角色，运行态 ${result.queuedRuntimePlayers} 个，离线 ${result.updatedOfflinePlayers} 个，移除背包堆叠 ${Math.floor(result.totalInvalidInventoryStacksRemoved ?? 0)} 个、托管仓堆叠 ${Math.floor(result.totalInvalidMarketStorageStacksRemoved ?? 0)} 个、装备栏 ${Math.floor(result.totalInvalidEquipmentRemoved ?? 0)} 件`,
     );
   } catch (error) {
+/** setStatus：处理当前场景中的对应操作。 */
     setStatus(error instanceof Error ? error.message : '执行无效物品清理失败', true);
   } finally {
     if (button) {
@@ -5092,6 +5013,7 @@ async function cleanupAllPlayersInvalidItems(): Promise<void> {
   }
 }
 
+/** compensateAllPlayersCombatExp：执行对应的业务逻辑。 */
 async function compensateAllPlayersCombatExp(): Promise<void> {
   if (!window.confirm('这会给所有非机器人角色补偿战斗经验。每个角色获得的数值 = 当前境界升级所需经验 + 当前炼体境界升级所需经验。在线角色下一息生效，离线角色会直接改存档。确认继续吗？')) {
     return;
@@ -5110,6 +5032,7 @@ async function compensateAllPlayersCombatExp(): Promise<void> {
       `已提交战斗经验补偿，共 ${result.totalPlayers} 个角色，在线 ${result.queuedRuntimePlayers} 个，离线 ${result.updatedOfflinePlayers} 个，累计补偿 ${Math.floor(result.totalCombatExpGranted ?? 0)} 点战斗经验`,
     );
   } catch (error) {
+/** setStatus：处理当前场景中的对应操作。 */
     setStatus(error instanceof Error ? error.message : '执行补偿失败', true);
   } finally {
     if (button) {
@@ -5118,6 +5041,7 @@ async function compensateAllPlayersCombatExp(): Promise<void> {
   }
 }
 
+/** compensateAllPlayersFoundation：执行对应的业务逻辑。 */
 async function compensateAllPlayersFoundation(): Promise<void> {
   if (!window.confirm('这会给所有非机器人角色补偿底蕴。每个角色获得的数值 = 当前境界升级所需经验的五倍。在线角色下一息生效，离线和离线挂机角色会直接改存档。确认继续吗？')) {
     return;
@@ -5136,6 +5060,7 @@ async function compensateAllPlayersFoundation(): Promise<void> {
       `已提交底蕴补偿，共 ${result.totalPlayers} 个角色，在线 ${result.queuedRuntimePlayers} 个，离线 ${result.updatedOfflinePlayers} 个，累计补偿 ${Math.floor(result.totalFoundationGranted ?? 0)} 点底蕴`,
     );
   } catch (error) {
+/** setStatus：处理当前场景中的对应操作。 */
     setStatus(error instanceof Error ? error.message : '执行补偿失败', true);
   } finally {
     if (button) {
@@ -5144,6 +5069,7 @@ async function compensateAllPlayersFoundation(): Promise<void> {
   }
 }
 
+/** resetNetworkStats：执行对应的业务逻辑。 */
 async function resetNetworkStats(): Promise<void> {
   resetNetworkStatsBtn.disabled = true;
   try {
@@ -5153,12 +5079,14 @@ async function resetNetworkStats(): Promise<void> {
     await loadState(true);
     setStatus('流量统计已重置');
   } catch (error) {
+/** setStatus：处理当前场景中的对应操作。 */
     setStatus(error instanceof Error ? error.message : '重置流量统计失败', true);
   } finally {
     resetNetworkStatsBtn.disabled = false;
   }
 }
 
+/** resetCpuStats：执行对应的业务逻辑。 */
 async function resetCpuStats(): Promise<void> {
   resetCpuStatsBtn.disabled = true;
   try {
@@ -5168,12 +5096,14 @@ async function resetCpuStats(): Promise<void> {
     await loadState(true);
     setStatus('CPU 统计已重置');
   } catch (error) {
+/** setStatus：处理当前场景中的对应操作。 */
     setStatus(error instanceof Error ? error.message : '重置 CPU 统计失败', true);
   } finally {
     resetCpuStatsBtn.disabled = false;
   }
 }
 
+/** resetPathfindingStats：执行对应的业务逻辑。 */
 async function resetPathfindingStats(): Promise<void> {
   resetPathfindingStatsBtn.disabled = true;
   try {
@@ -5183,12 +5113,14 @@ async function resetPathfindingStats(): Promise<void> {
     await loadState(true);
     setStatus('寻路统计已重置');
   } catch (error) {
+/** setStatus：处理当前场景中的对应操作。 */
     setStatus(error instanceof Error ? error.message : '重置寻路统计失败', true);
   } finally {
     resetPathfindingStatsBtn.disabled = false;
   }
 }
 
+/** handleEditorAction：执行对应的业务逻辑。 */
 function handleEditorAction(action: string, trigger: HTMLElement): void {
   if (!draftSnapshot) return;
 
@@ -5326,6 +5258,7 @@ playerListEl.addEventListener('click', (event) => {
   editorDirty = false;
   render();
   loadSelectedPlayerDetail(playerId, true).catch((error: unknown) => {
+/** setStatus：处理当前场景中的对应操作。 */
     setStatus(error instanceof Error ? error.message : '加载角色详情失败', true);
   });
 });
@@ -5344,6 +5277,7 @@ editorContentEl.addEventListener('click', (event) => {
   }
   if (action === 'send-direct-mail') {
     sendDirectMail().catch((error: unknown) => {
+/** setStatus：处理当前场景中的对应操作。 */
       setStatus(error instanceof Error ? error.message : '发送角色邮件失败', true);
     });
     return;
@@ -5358,18 +5292,21 @@ editorContentEl.addEventListener('click', (event) => {
   }
   if (action === 'set-body-training-level') {
     setSelectedPlayerBodyTrainingLevel().catch((error: unknown) => {
+/** setStatus：处理当前场景中的对应操作。 */
       setStatus(error instanceof Error ? error.message : '设置炼体等级失败', true);
     });
     return;
   }
   if (action === 'add-foundation') {
     addSelectedPlayerFoundation().catch((error: unknown) => {
+/** setStatus：处理当前场景中的对应操作。 */
       setStatus(error instanceof Error ? error.message : '调整底蕴失败', true);
     });
     return;
   }
   if (action === 'add-combat-exp') {
     addSelectedPlayerCombatExp().catch((error: unknown) => {
+/** setStatus：处理当前场景中的对应操作。 */
       setStatus(error instanceof Error ? error.message : '调整战斗经验失败', true);
     });
     return;
@@ -5381,6 +5318,7 @@ editorContentEl.addEventListener('click', (event) => {
     || action === 'remove-all-techniques'
   ) {
     runPlayerTechniqueShortcut(action).catch((error: unknown) => {
+/** setStatus：处理当前场景中的对应操作。 */
       setStatus(error instanceof Error ? error.message : '执行快捷操作失败', true);
     });
     return;
@@ -5659,6 +5597,7 @@ playerSearchInput.addEventListener('input', () => {
   }
   playerSearchTimer = window.setTimeout(() => {
     loadState(true).catch((error: unknown) => {
+/** setStatus：处理当前场景中的对应操作。 */
       setStatus(error instanceof Error ? error.message : '加载角色列表失败', true);
     });
   }, 250);
@@ -5668,6 +5607,7 @@ playerSortSelect.addEventListener('change', () => {
   currentPlayerPage = 1;
   lastPlayerListStructureKey = null;
   loadState(true).catch((error: unknown) => {
+/** setStatus：处理当前场景中的对应操作。 */
     setStatus(error instanceof Error ? error.message : '加载角色列表失败', true);
   });
 });
@@ -5677,6 +5617,7 @@ playerPrevPageBtn.addEventListener('click', () => {
   }
   currentPlayerPage -= 1;
   loadState(true).catch((error: unknown) => {
+/** setStatus：处理当前场景中的对应操作。 */
     setStatus(error instanceof Error ? error.message : '加载角色列表失败', true);
   });
 });
@@ -5686,6 +5627,7 @@ playerNextPageBtn.addEventListener('click', () => {
   }
   currentPlayerPage += 1;
   loadState(true).catch((error: unknown) => {
+/** setStatus：处理当前场景中的对应操作。 */
     setStatus(error instanceof Error ? error.message : '加载角色列表失败', true);
   });
 });
@@ -5723,6 +5665,7 @@ editorTabPersistedBtn.addEventListener('click', () => switchEditorTab('persisted
 
 document.getElementById('refresh-state')?.addEventListener('click', () => {
   loadState(false, true).catch((error: unknown) => {
+/** setStatus：处理当前场景中的对应操作。 */
     setStatus(error instanceof Error ? error.message : '刷新失败', true);
   });
 });
@@ -5761,6 +5704,7 @@ shortcutWorkspaceEl.addEventListener('click', (event) => {
   }
   if (action === 'send-shortcut-mail') {
     sendShortcutMail().catch((error: unknown) => {
+/** setStatus：处理当前场景中的对应操作。 */
       setStatus(error instanceof Error ? error.message : '发送快捷邮件失败', true);
     });
   }
@@ -5827,6 +5771,7 @@ redeemWorkspaceEl?.addEventListener('click', (event) => {
     selectedRedeemGroupId = groupId;
     redeemLatestGeneratedCodes = [];
     loadRedeemGroupDetail(groupId, true).catch((error: unknown) => {
+/** setStatus：处理当前场景中的对应操作。 */
       setStatus(error instanceof Error ? error.message : '加载兑换码分组失败', true);
     });
     return;
@@ -5858,30 +5803,35 @@ redeemWorkspaceEl?.addEventListener('click', (event) => {
   }
   if (action === 'refresh-redeem-groups') {
     loadRedeemGroups(false).catch((error: unknown) => {
+/** setStatus：处理当前场景中的对应操作。 */
       setStatus(error instanceof Error ? error.message : '刷新兑换码分组失败', true);
     });
     return;
   }
   if (action === 'create-redeem-group') {
     createRedeemGroup().catch((error: unknown) => {
+/** setStatus：处理当前场景中的对应操作。 */
       setStatus(error instanceof Error ? error.message : '创建兑换码分组失败', true);
     });
     return;
   }
   if (action === 'save-redeem-group') {
     saveRedeemGroup().catch((error: unknown) => {
+/** setStatus：处理当前场景中的对应操作。 */
       setStatus(error instanceof Error ? error.message : '保存兑换码分组失败', true);
     });
     return;
   }
   if (action === 'append-redeem-codes') {
     appendRedeemCodes().catch((error: unknown) => {
+/** setStatus：处理当前场景中的对应操作。 */
       setStatus(error instanceof Error ? error.message : '追加兑换码失败', true);
     });
     return;
   }
   if (action === 'copy-active-redeem-codes') {
     copyActiveRedeemCodes().catch((error: unknown) => {
+/** setStatus：处理当前场景中的对应操作。 */
       setStatus(error instanceof Error ? error.message : '复制未使用兑换码失败', true);
     });
     return;
@@ -5892,6 +5842,7 @@ redeemWorkspaceEl?.addEventListener('click', (event) => {
       return;
     }
     destroyRedeemCode(codeId).catch((error: unknown) => {
+/** setStatus：处理当前场景中的对应操作。 */
       setStatus(error instanceof Error ? error.message : '销毁兑换码失败', true);
     });
   }
@@ -5939,6 +5890,7 @@ serverPanelDatabaseEl.addEventListener('click', (event) => {
   const refreshButton = target?.closest<HTMLButtonElement>('#database-refresh');
   if (refreshButton) {
     loadDatabaseState(false).catch((error: unknown) => {
+/** setStatus：处理当前场景中的对应操作。 */
       setStatus(error instanceof Error ? error.message : '刷新数据库状态失败', true);
     });
     return;
@@ -5947,6 +5899,7 @@ serverPanelDatabaseEl.addEventListener('click', (event) => {
   const exportButton = target?.closest<HTMLButtonElement>('#database-export-current');
   if (exportButton) {
     exportCurrentDatabase().catch((error: unknown) => {
+/** setStatus：处理当前场景中的对应操作。 */
       setStatus(error instanceof Error ? error.message : '导出数据库失败', true);
     });
     return;
@@ -5955,6 +5908,7 @@ serverPanelDatabaseEl.addEventListener('click', (event) => {
   const downloadButton = target?.closest<HTMLButtonElement>('[data-db-download]');
   if (downloadButton?.dataset.dbDownload) {
     downloadDatabaseBackup(downloadButton.dataset.dbDownload).catch((error: unknown) => {
+/** setStatus：处理当前场景中的对应操作。 */
       setStatus(error instanceof Error ? error.message : '下载数据库备份失败', true);
     });
     return;
@@ -5963,6 +5917,7 @@ serverPanelDatabaseEl.addEventListener('click', (event) => {
   const restoreButton = target?.closest<HTMLButtonElement>('[data-db-restore]');
   if (restoreButton?.dataset.dbRestore) {
     restoreDatabaseBackup(restoreButton.dataset.dbRestore).catch((error: unknown) => {
+/** setStatus：处理当前场景中的对应操作。 */
       setStatus(error instanceof Error ? error.message : '导入数据库失败', true);
     });
   }
@@ -6005,3 +5960,7 @@ if (token) {
 } else {
   showLogin();
 }
+
+
+
+

@@ -16,7 +16,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.LegacyGmHttpAuthGuard = void 0;
 const common_1 = require("@nestjs/common");
-const legacy_gm_http_auth_service_1 = require("./legacy-gm-http-auth.service");
+const runtime_gm_auth_service_1 = require("../../../runtime/gm/runtime-gm-auth.service");
 let LegacyGmHttpAuthGuard = class LegacyGmHttpAuthGuard {
     authService;
     constructor(authService) {
@@ -37,5 +37,5 @@ let LegacyGmHttpAuthGuard = class LegacyGmHttpAuthGuard {
 exports.LegacyGmHttpAuthGuard = LegacyGmHttpAuthGuard;
 exports.LegacyGmHttpAuthGuard = LegacyGmHttpAuthGuard = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [legacy_gm_http_auth_service_1.LegacyGmHttpAuthService])
+    __metadata("design:paramtypes", [runtime_gm_auth_service_1.RuntimeGmAuthService])
 ], LegacyGmHttpAuthGuard);

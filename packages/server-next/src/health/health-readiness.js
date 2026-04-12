@@ -49,7 +49,7 @@ function resolveMaintenanceReadiness(service) {
     const active = service.isRuntimeMaintenanceActive();
     return {
         active,
-        source: active ? 'legacy_gm_admin_compat' : null,
+        source: active ? 'runtime_maintenance_service' : null,
         reason: active ? 'runtime_maintenance_active' : 'inactive',
     };
 }

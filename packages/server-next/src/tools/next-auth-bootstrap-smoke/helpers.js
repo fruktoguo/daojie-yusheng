@@ -1,0 +1,51 @@
+"use strict";
+
+Object.defineProperty(exports, "__esModule", { value: true });
+
+const helperFunctionNames = [
+    'isEnvEnabled',
+    'buildStrictNativeSkippedProof',
+    'buildProfileSkippedProof',
+    'withEnvOverrides',
+    'readBootstrapProfile',
+    'expectNextSocketAuthFailure',
+    'createNextSocket',
+    'assertNoLegacyEvents',
+    'flattenNoticeItems',
+    'createAuthStarterSnapshotDeps',
+    'runNextBootstrap',
+    'shouldExpectImplicitDetachedResume',
+    'shouldExpectConnectedSessionReuse',
+    'shouldExpectRequestedSessionMismatchRotation',
+    'registerAndLoginPlayer',
+    'parseTokenIdentity',
+    'assertBootstrapMatchesExpectedIdentity',
+    'fetchPlayerState',
+    'deletePlayer',
+    'flushPersistence',
+    'fetchAuthTrace',
+    'clearAuthTrace',
+    'waitForFailedSnapshotAuthTrace',
+    'waitForFailedIdentityAuthTrace',
+    'waitForFailedIdentitySourceAuthTrace',
+    'readSummaryCount',
+    'waitForAuthTrace',
+    'withLocalAuthTraceEnabled',
+    'findLatestSnapshotRecoveryTrace',
+    'requestJson',
+    'waitFor',
+    'waitForValue',
+    'waitForPlayerState',
+    'delay',
+    'buildUniqueDisplayName',
+    'buildRetryDisplayName',
+    'buildRetryRoleName',
+    'buildSingleDisplayNameChar',
+    'buildCompactSeed',
+    'computeSeedHash',
+    'parseJwtPayload',
+];
+
+module.exports = {
+    helperFunctionNames,
+};

@@ -18,6 +18,7 @@ const websockets_1 = require("@nestjs/websockets");
 const common_1 = require("@nestjs/common");
 const shared_1 = require("@mud/shared-next");
 const socket_io_1 = require("socket.io");
+const movement_debug_1 = require("../debug/movement-debug");
 const health_readiness_service_1 = require("../health/health-readiness.service");
 const player_persistence_flush_service_1 = require("../persistence/player-persistence-flush.service");
 const mail_runtime_service_1 = require("../runtime/mail/mail-runtime.service");
@@ -30,6 +31,10 @@ const world_gm_socket_service_1 = require("./world-gm-socket.service");
 const world_protocol_projection_service_1 = require("./world-protocol-projection.service");
 const world_session_bootstrap_service_1 = require("./world-session-bootstrap.service");
 const world_session_service_1 = require("./world-session.service");
+const AUTHENTICATED_REQUESTED_SESSION_ID_AUTH_SOURCES = new Set([
+    'next',
+    'token',
+]);
 let WorldGateway = WorldGateway_1 = class WorldGateway {
     worldGmSocketService;
     worldProtocolProjectionService;
@@ -63,6 +68,9 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
     setBootstrapTraceContext(client, entryPath, identity) {
         client.data.bootstrapEntryPath = entryPath;
         client.data.bootstrapIdentitySource = identity?.authSource ?? null;
+        client.data.bootstrapIdentityPersistedSource = identity?.persistedSource ?? null;
+        client.data.bootstrapSnapshotSource = null;
+        client.data.bootstrapSnapshotPersistedSource = null;
     }
     resolveBootstrapPromise(client) {
         const promise = client?.data?.bootstrapPromise;
@@ -78,15 +86,115 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         return promise;
     }
     async awaitPendingBootstrap(client) {
+        const deadline = Date.now() + 1000;
+        while (Date.now() <= deadline) {
+            const promise = this.resolveBootstrapPromise(client);
+            if (promise) {
+                await promise;
+                return true;
+            }
+            if (typeof client?.data?.playerId === 'string' && client.data.playerId.trim()) {
+                return true;
+            }
+            await new Promise((resolve) => setTimeout(resolve, 20));
+        }
         const promise = this.resolveBootstrapPromise(client);
-        if (!promise) {
+        if (promise) {
+            await promise;
+            return true;
+        }
+        return typeof client?.data?.playerId === 'string' && client.data.playerId.trim().length > 0;
+    }
+    hasSocketAuthHint(client) {
+        return this.sessionBootstrapService.pickSocketToken(client).length > 0
+            || this.sessionBootstrapService.pickSocketGmToken(client).length > 0;
+    }
+    resolveSocketProtocol(client) {
+        const protocol = client?.data?.protocol;
+        return typeof protocol === 'string' ? protocol.trim().toLowerCase() : '';
+    }
+    isLegacySocketProtocolEnabled() {
+        return readBooleanEnv('SERVER_NEXT_ALLOW_LEGACY_SOCKET_PROTOCOL')
+            || readBooleanEnv('NEXT_ALLOW_LEGACY_SOCKET_PROTOCOL');
+    }
+    markLegacyProtocolIfAllowed(client, source) {
+        const protocol = this.resolveSocketProtocol(client);
+        if (protocol === 'next') {
+            this.worldClientEventService.emitError(client, 'LEGACY_EVENT_ON_NEXT_PROTOCOL', `next 协议连接禁止 legacy 事件: ${source}`);
+            this.logger.warn(`Rejected legacy protocol downgrade on next socket: source=${source} socket=${client.id}`);
             return false;
         }
-        await promise;
+        if (protocol === 'legacy' && !this.isLegacySocketProtocolEnabled()) {
+            this.worldClientEventService.emitError(client, 'LEGACY_PROTOCOL_DISABLED', `legacy socket 协议默认关闭: ${source}`);
+            this.logger.warn(`Rejected disabled legacy protocol entry: source=${source} socket=${client.id}`);
+            client.disconnect(true);
+            return false;
+        }
+        if (protocol !== 'legacy') {
+            this.worldClientEventService.emitError(client, 'LEGACY_PROTOCOL_REQUIRED', `legacy 事件必须通过 legacy 握手连接: ${source}`);
+            this.logger.warn(`Rejected implicit legacy protocol entry: source=${source} socket=${client.id}`);
+            client.disconnect(true);
+            return false;
+        }
+        this.worldClientEventService.markProtocol(client, 'legacy');
         return true;
     }
-    hasSocketToken(client) {
-        return this.sessionBootstrapService.pickSocketToken(client).length > 0;
+    resolveAuthenticatedBootstrapEntryPath(client) {
+        return client?.data?.isGm === true ? 'connect_gm_token' : 'connect_token';
+    }
+    resolveAuthenticatedIdentitySource(client, identity) {
+        const authSource = typeof identity?.authSource === 'string' ? identity.authSource.trim() : '';
+        if (authSource) {
+            return authSource;
+        }
+        const bootstrapIdentitySource = typeof client?.data?.bootstrapIdentitySource === 'string'
+            ? client.data.bootstrapIdentitySource.trim()
+            : '';
+        return bootstrapIdentitySource;
+    }
+    resolveAuthenticatedIdentityPersistedSource(client, identity) {
+        const persistedSource = typeof identity?.persistedSource === 'string' ? identity.persistedSource.trim() : '';
+        if (persistedSource) {
+            return persistedSource;
+        }
+        const bootstrapIdentityPersistedSource = typeof client?.data?.bootstrapIdentityPersistedSource === 'string'
+            ? client.data.bootstrapIdentityPersistedSource.trim()
+            : '';
+        return bootstrapIdentityPersistedSource;
+    }
+    resolveAuthenticatedRequestedSessionId(client, identity) {
+        const requestedSessionId = this.sessionBootstrapService.pickSocketRequestedSessionId(client);
+        if (!requestedSessionId) {
+            return undefined;
+        }
+        if (client?.data?.isGm === true) {
+            this.logger.warn(`Ignored requested sessionId on GM bootstrap: socket=${client.id} sessionId=${requestedSessionId}`);
+            return undefined;
+        }
+        const authSource = this.resolveAuthenticatedIdentitySource(client, identity);
+        if (!AUTHENTICATED_REQUESTED_SESSION_ID_AUTH_SOURCES.has(authSource)) {
+            this.logger.warn(`Ignored requested sessionId on authenticated bootstrap: socket=${client.id} authSource=${authSource || 'unknown'} sessionId=${requestedSessionId}`);
+            return undefined;
+        }
+        if (!this.sessionBootstrapService.shouldAllowRequestedDetachedResume(client)) {
+            this.logger.warn(`Ignored requested sessionId on authenticated bootstrap due to reuse policy: socket=${client.id} authSource=${authSource || 'unknown'} sessionId=${requestedSessionId}`);
+            return undefined;
+        }
+        return requestedSessionId;
+    }
+    buildAuthenticatedBootstrapInput(client, identity) {
+        return {
+            playerId: identity.playerId,
+            requestedSessionId: this.resolveAuthenticatedRequestedSessionId(client, identity),
+            authSource: this.resolveAuthenticatedIdentitySource(client, identity),
+            persistedSource: this.resolveAuthenticatedIdentityPersistedSource(client, identity),
+            name: identity.playerName,
+            displayName: identity.displayName,
+            mapId: undefined,
+            preferredX: undefined,
+            preferredY: undefined,
+            loadSnapshot: () => this.sessionBootstrapService.loadAuthenticatedPlayerSnapshot(identity, client),
+        };
     }
     startAuthenticatedBootstrap(client, entryPath, identity) {
         const existing = this.resolveBootstrapPromise(client);
@@ -94,17 +202,9 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             return existing;
         }
         this.setBootstrapTraceContext(client, entryPath, identity);
+        client.data.authenticatedSnapshotRecovery = null;
         const promise = (async () => {
-            await this.sessionBootstrapService.bootstrapPlayerSession(client, {
-                playerId: identity.playerId,
-                requestedSessionId: this.sessionBootstrapService.pickSocketRequestedSessionId(client) || undefined,
-                name: identity.playerName,
-                displayName: identity.displayName,
-                mapId: undefined,
-                preferredX: undefined,
-                preferredY: undefined,
-                loadSnapshot: () => this.sessionBootstrapService.loadAuthenticatedPlayerSnapshot(identity),
-            });
+            await this.sessionBootstrapService.bootstrapPlayerSession(client, this.buildAuthenticatedBootstrapInput(client, identity));
             client.data.userId = identity.userId;
         })();
         return this.rememberBootstrapPromise(client, promise);
@@ -113,15 +213,24 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         return this.worldSessionService.getDetachedBindingBySessionId(payloadSessionId);
     }
     buildGuestHelloBootstrapInput(client, payload) {
-        const guestDetachedBinding = this.resolveGuestDetachedBinding(payload?.sessionId);
+        const detachedBinding = this.resolveGuestDetachedBinding(payload?.sessionId);
+        const guestDetachedBinding = detachedBinding && this.worldSessionService.isGuestPlayerId(detachedBinding.playerId)
+            ? detachedBinding
+            : null;
+        if (detachedBinding && !guestDetachedBinding) {
+            this.logger.warn(`Rejected guest hello detached resume for non-guest binding: socket=${client.id} playerId=${detachedBinding.playerId} sessionId=${detachedBinding.sessionId}`);
+        }
         const playerId = guestDetachedBinding?.playerId
             ?? this.worldSessionService.createGuestPlayerId();
+        const mapId = guestDetachedBinding ? undefined : payload.mapId;
+        const preferredX = guestDetachedBinding ? undefined : payload.preferredX;
+        const preferredY = guestDetachedBinding ? undefined : payload.preferredY;
         return {
             playerId,
             requestedSessionId: guestDetachedBinding?.sessionId,
-            mapId: payload.mapId,
-            preferredX: payload.preferredX,
-            preferredY: payload.preferredY,
+            mapId,
+            preferredX,
+            preferredY,
             loadSnapshot: () => this.sessionBootstrapService.loadPlayerSnapshot(playerId, false),
         };
     }
@@ -133,7 +242,26 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         const allowGuest = options?.allowGuest === true;
         const token = this.sessionBootstrapService.pickSocketToken(client);
         const gmToken = this.sessionBootstrapService.pickSocketGmToken(client);
+        const requestedSessionInspection = this.sessionBootstrapService.inspectSocketRequestedSessionId(client);
+        const protocol = typeof client?.data?.protocol === 'string' ? client.data.protocol.trim().toLowerCase() : '';
+        if ((token || gmToken)
+            && protocol === 'next'
+            && requestedSessionInspection.error) {
+            this.worldClientEventService.emitError(client, 'AUTH_SESSION_ID_INVALID', 'next 认证握手 sessionId 非法');
+            client.disconnect(true);
+            return null;
+        }
+        if (protocol === 'legacy' && token) {
+            this.worldClientEventService.emitError(client, 'AUTH_PROTOCOL_MISMATCH', 'legacy 握手连接不支持 token bootstrap');
+            client.disconnect(true);
+            return null;
+        }
         if (gmToken) {
+            if (protocol === 'legacy') {
+                this.worldClientEventService.emitError(client, 'GM_PROTOCOL_MISMATCH', 'legacy 握手连接不支持 GM token bootstrap');
+                client.disconnect(true);
+                return null;
+            }
             if (!this.sessionBootstrapService.authenticateSocketGmToken(gmToken)) {
                 this.worldClientEventService.emitError(client, 'GM_AUTH_FAIL', 'GM 认证失败');
                 client.disconnect(true);
@@ -154,9 +282,27 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
                 }
                 : null;
         }
-        const identity = await this.sessionBootstrapService.authenticateSocketToken(token);
+        const identity = await this.sessionBootstrapService.authenticateSocketToken(token, {
+            protocol,
+        });
         if (!identity) {
             this.worldClientEventService.emitError(client, 'AUTH_FAIL', '认证失败');
+            client.disconnect(true);
+            return null;
+        }
+        if (protocol === 'next'
+            && identity.authSource !== 'next'
+            && identity.authSource !== 'token') {
+            this.worldClientEventService.emitError(client, 'AUTH_FAIL', 'NEXT 协议仅允许 next 真源身份');
+            client.disconnect(true);
+            return null;
+        }
+        const authenticatedBootstrapContractViolation = this.sessionBootstrapService.resolveAuthenticatedBootstrapContractViolation(client, {
+            authSource: this.resolveAuthenticatedIdentitySource(client, identity),
+            persistedSource: this.resolveAuthenticatedIdentityPersistedSource(client, identity),
+        });
+        if (authenticatedBootstrapContractViolation) {
+            this.worldClientEventService.emitError(client, 'AUTH_FAIL', authenticatedBootstrapContractViolation.message);
             client.disconnect(true);
             return null;
         }
@@ -167,8 +313,27 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         const handshakeProtocol = typeof client.handshake?.auth?.protocol === 'string'
             ? client.handshake.auth.protocol.trim().toLowerCase()
             : '';
-        if (handshakeProtocol === 'next' || handshakeProtocol === 'legacy') {
+        const hasAuthHint = this.hasSocketAuthHint(client);
+        if (handshakeProtocol === 'next') {
             this.worldClientEventService.markProtocol(client, handshakeProtocol);
+        }
+        else if (handshakeProtocol === 'legacy') {
+            this.worldClientEventService.markProtocol(client, handshakeProtocol);
+            if (!this.isLegacySocketProtocolEnabled()) {
+                this.worldClientEventService.emitError(client, 'LEGACY_PROTOCOL_DISABLED', 'legacy socket 协议默认关闭，仅兼容环境可显式开启');
+                client.disconnect(true);
+                return;
+            }
+        }
+        else if (handshakeProtocol && hasAuthHint) {
+            this.worldClientEventService.emitError(client, 'AUTH_PROTOCOL_UNSUPPORTED', `不支持的握手协议: ${handshakeProtocol}`);
+            client.disconnect(true);
+            return;
+        }
+        else if (!handshakeProtocol && hasAuthHint) {
+            this.worldClientEventService.emitError(client, 'AUTH_PROTOCOL_REQUIRED', 'token/gmToken 连接必须声明握手协议');
+            client.disconnect(true);
+            return;
         }
         if (this.rejectWhenNotReady(client)) {
             return;
@@ -182,7 +347,10 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
                 return;
             }
             const { identity } = authContext;
-            await this.startAuthenticatedBootstrap(client, 'connect_token', identity);
+            void this.startAuthenticatedBootstrap(client, this.resolveAuthenticatedBootstrapEntryPath(client), identity).catch((error) => {
+                this.worldClientEventService.emitGatewayError(client, 'AUTH_FAIL', error);
+                client.disconnect(true);
+            });
         }
         catch (error) {
             this.worldClientEventService.emitGatewayError(client, 'AUTH_FAIL', error);
@@ -205,6 +373,17 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         this.logger.debug(`Socket detached: ${client.id} -> ${binding.playerId}, expiresAt=${binding.expireAt}`);
     }
     async handleHello(client, payload) {
+        const currentProtocol = typeof client?.data?.protocol === 'string' ? client.data.protocol.trim().toLowerCase() : '';
+        if (currentProtocol === 'legacy') {
+            this.worldClientEventService.emitError(client, 'HELLO_PROTOCOL_MISMATCH', 'legacy 握手连接不能进入 next hello 链路');
+            client.disconnect(true);
+            return;
+        }
+        if (currentProtocol && currentProtocol !== 'next') {
+            this.worldClientEventService.emitError(client, 'HELLO_PROTOCOL_UNSUPPORTED', `不支持的 hello 协议上下文: ${currentProtocol}`);
+            client.disconnect(true);
+            return;
+        }
         this.worldClientEventService.markProtocol(client, 'next');
         try {
             if (this.rejectWhenNotReady(client)) {
@@ -213,8 +392,20 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             if (typeof client.data.playerId === 'string' && client.data.playerId.trim()) {
                 return;
             }
-            if (this.hasSocketToken(client)) {
-                await this.awaitPendingBootstrap(client);
+            if (this.hasSocketAuthHint(client)) {
+                const waited = await this.awaitPendingBootstrap(client);
+                if (waited) {
+                    return;
+                }
+                this.worldClientEventService.emitError(client, 'HELLO_AUTH_BOOTSTRAP_FORBIDDEN', 'token/gmToken 连接只允许 connect 阶段 bootstrap');
+                this.logger.warn(`Rejected token hello bootstrap fallback: socket=${client.id} protocol=${this.resolveSocketProtocol(client) || 'unknown'}`);
+                client.disconnect(true);
+                return;
+            }
+            const requestedSessionInspection = this.sessionBootstrapService.inspectRequestedSessionId(payload?.sessionId, client, 'hello');
+            if (requestedSessionInspection.error) {
+                this.worldClientEventService.emitError(client, 'HELLO_SESSION_ID_INVALID', 'hello 请求 sessionId 非法');
+                client.disconnect(true);
                 return;
             }
             await this.handleGuestHello(client, payload);
@@ -224,6 +415,9 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         }
     }
     handleLegacyHeartbeat(client, _payload) {
+        if (!this.markLegacyProtocolIfAllowed(client, 'legacy_heartbeat')) {
+            return;
+        }
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
@@ -236,6 +430,9 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         }
     }
     handleLegacyPing(client, payload) {
+        if (!this.markLegacyProtocolIfAllowed(client, 'legacy_ping')) {
+            return;
+        }
         this.worldClientEventService.emitPong(client, payload);
     }
     rejectWhenNotReady(client) {
@@ -252,6 +449,9 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         return true;
     }
     handleLegacyGmGetState(client, _payload) {
+        if (!this.markLegacyProtocolIfAllowed(client, 'legacy_gm_get_state')) {
+            return;
+        }
         this.handleGmGetState(client, _payload);
     }
     handleNextGmGetState(client, _payload) {
@@ -265,6 +465,9 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         this.worldGmSocketService.emitState(client);
     }
     handleLegacyGmSpawnBots(client, payload) {
+        if (!this.markLegacyProtocolIfAllowed(client, 'legacy_gm_spawn_bots')) {
+            return;
+        }
         this.handleGmSpawnBots(client, payload);
     }
     handleNextGmSpawnBots(client, payload) {
@@ -283,6 +486,9 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         }
     }
     handleLegacyGmRemoveBots(client, payload) {
+        if (!this.markLegacyProtocolIfAllowed(client, 'legacy_gm_remove_bots')) {
+            return;
+        }
         this.handleGmRemoveBots(client, payload);
     }
     handleNextGmRemoveBots(client, payload) {
@@ -301,6 +507,9 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         }
     }
     handleLegacyGmUpdatePlayer(client, payload) {
+        if (!this.markLegacyProtocolIfAllowed(client, 'legacy_gm_update_player')) {
+            return;
+        }
         this.handleGmUpdatePlayer(client, payload);
     }
     handleNextGmUpdatePlayer(client, payload) {
@@ -319,6 +528,9 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         }
     }
     handleLegacyGmResetPlayer(client, payload) {
+        if (!this.markLegacyProtocolIfAllowed(client, 'legacy_gm_reset_player')) {
+            return;
+        }
         this.handleGmResetPlayer(client, payload);
     }
     handleNextGmResetPlayer(client, payload) {
@@ -337,9 +549,15 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         }
     }
     handleLegacyMove(client, payload) {
+        if (!this.markLegacyProtocolIfAllowed(client, 'legacy_move')) {
+            return;
+        }
         this.handleMove(client, payload);
     }
     handleLegacyMoveTo(client, payload) {
+        if (!this.markLegacyProtocolIfAllowed(client, 'legacy_move_to')) {
+            return;
+        }
         this.handleNextMoveTo(client, payload);
     }
     handleNextMoveTo(client, payload) {
@@ -347,15 +565,32 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         if (!playerId) {
             return;
         }
+        (0, movement_debug_1.logServerNextMovement)(this.logger, 'gateway.recv.moveTo', {
+            playerId,
+            socketId: client.id,
+            protocol: this.resolveSocketProtocol(client) || 'next',
+            payload: {
+                x: payload?.x ?? null,
+                y: payload?.y ?? null,
+                allowNearestReachable: payload?.allowNearestReachable === true,
+                ignoreVisibilityLimit: payload?.ignoreVisibilityLimit === true,
+                packedPathSteps: payload?.packedPathSteps ?? null,
+                packedPath: payload?.packedPath ?? null,
+                pathStartX: payload?.pathStartX ?? null,
+                pathStartY: payload?.pathStartY ?? null,
+            },
+        });
         try {
-            this.worldRuntimeService.enqueueMoveTo(playerId, payload?.x, payload?.y, payload?.allowNearestReachable);
+            this.worldRuntimeService.enqueueMoveTo(playerId, payload?.x, payload?.y, payload?.allowNearestReachable, payload?.packedPath, payload?.packedPathSteps, payload?.pathStartX, payload?.pathStartY);
         }
         catch (error) {
             this.worldClientEventService.emitGatewayError(client, 'MOVE_TO_FAILED', error);
         }
     }
     handleLegacyNavigateQuest(client, payload) {
-        this.worldClientEventService.markProtocol(client, 'legacy');
+        if (!this.markLegacyProtocolIfAllowed(client, 'legacy_navigate_quest')) {
+            return;
+        }
         this.handleNextNavigateQuest(client, payload);
     }
     handleNextNavigateQuest(client, payload) {
@@ -364,6 +599,12 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             return;
         }
         const questId = typeof payload?.questId === 'string' ? payload.questId.trim() : '';
+        (0, movement_debug_1.logServerNextMovement)(this.logger, 'gateway.recv.navigateQuest', {
+            playerId,
+            socketId: client.id,
+            protocol: this.resolveSocketProtocol(client) || 'next',
+            questId,
+        });
         if (!questId) {
             this.worldClientEventService.emitQuestNavigateResult(client, '', false, 'questId is required');
             return;
@@ -381,7 +622,9 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         if (!playerId) {
             return;
         }
-        this.worldClientEventService.markProtocol(client, 'legacy');
+        if (!this.markLegacyProtocolIfAllowed(client, 'legacy_action')) {
+            return;
+        }
         try {
             this.handleProtocolAction(client, playerId, payload);
         }
@@ -394,6 +637,12 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         if (!playerId) {
             return;
         }
+        (0, movement_debug_1.logServerNextMovement)(this.logger, 'gateway.recv.move', {
+            playerId,
+            socketId: client.id,
+            protocol: this.resolveSocketProtocol(client) || 'next',
+            direction: payload?.d ?? null,
+        });
         try {
             this.worldRuntimeService.enqueueMove(playerId, payload?.d);
         }
@@ -402,6 +651,9 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         }
     }
     handleLegacyDestroyItem(client, payload) {
+        if (!this.markLegacyProtocolIfAllowed(client, 'legacy_destroy_item')) {
+            return;
+        }
         this.handleNextDestroyItem(client, payload);
     }
     handleNextDestroyItem(client, payload) {
@@ -421,9 +673,15 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         }
     }
     handleLegacyTakeLoot(client, payload) {
+        if (!this.markLegacyProtocolIfAllowed(client, 'legacy_take_loot')) {
+            return;
+        }
         this.handleTakeGround(client, payload);
     }
     handleLegacySortInventory(client, _payload) {
+        if (!this.markLegacyProtocolIfAllowed(client, 'legacy_sort_inventory')) {
+            return;
+        }
         this.handleNextSortInventory(client, _payload);
     }
     handleNextSortInventory(client, _payload) {
@@ -447,7 +705,9 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         if (!playerId) {
             return;
         }
-        this.worldClientEventService.markProtocol(client, 'legacy');
+        if (!this.markLegacyProtocolIfAllowed(client, 'legacy_inspect_tile_runtime')) {
+            return;
+        }
         try {
             this.worldProtocolProjectionService.emitTileDetail(client, this.worldRuntimeService.buildTileDetail(playerId, payload));
         }
@@ -456,6 +716,9 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         }
     }
     handleLegacyChat(client, payload) {
+        if (!this.markLegacyProtocolIfAllowed(client, 'legacy_chat')) {
+            return;
+        }
         this.handleNextChat(client, payload);
     }
     handleNextChat(client, payload) {
@@ -466,6 +729,9 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         this.worldClientEventService.broadcastChat(playerId, payload);
     }
     handleLegacyAckSystemMessages(client, payload) {
+        if (!this.markLegacyProtocolIfAllowed(client, 'legacy_ack_system_messages')) {
+            return;
+        }
         this.handleNextAckSystemMessages(client, payload);
     }
     handleNextAckSystemMessages(client, payload) {
@@ -476,6 +742,9 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         this.worldClientEventService.acknowledgeSystemMessages(playerId, payload);
     }
     handleLegacyDebugResetSpawn(client, _payload) {
+        if (!this.markLegacyProtocolIfAllowed(client, 'legacy_debug_reset_spawn')) {
+            return;
+        }
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
@@ -490,6 +759,9 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         this.worldRuntimeService.enqueueResetPlayerSpawn(playerId);
     }
     handleLegacyUpdateAutoBattleSkills(client, payload) {
+        if (!this.markLegacyProtocolIfAllowed(client, 'legacy_update_auto_battle_skills')) {
+            return;
+        }
         this.handleNextUpdateAutoBattleSkills(client, payload);
     }
     handleNextUpdateAutoBattleSkills(client, payload) {
@@ -517,6 +789,9 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         }
     }
     handleLegacyHeavenGateAction(client, payload) {
+        if (!this.markLegacyProtocolIfAllowed(client, 'legacy_heaven_gate_action')) {
+            return;
+        }
         this.handleNextHeavenGateAction(client, payload);
     }
     handleNextHeavenGateAction(client, payload) {
@@ -557,92 +832,115 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         }
     }
     async handleRequestMailSummary(client, _payload) {
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
+        if (!this.markLegacyProtocolIfAllowed(client, 'legacy_request_mail_summary')) {
             return;
         }
-        try {
-            await this.emitLegacyMailSummaryForPlayer(client, playerId);
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'REQUEST_MAIL_SUMMARY_FAILED', error);
-        }
+        await this.executeRequestMailSummary(client, 'legacy');
     }
     async handleNextRequestMailSummary(client, payload) {
+        await this.executeRequestMailSummary(client, 'next');
+    }
+    async executeRequestMailSummary(client, protocol) {
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
         }
         try {
-            await this.emitNextMailSummaryForPlayer(client, playerId);
+            if (protocol === 'legacy') {
+                await this.emitLegacyMailSummaryForPlayer(client, playerId);
+            }
+            else {
+                await this.emitNextMailSummaryForPlayer(client, playerId);
+            }
         }
         catch (error) {
             this.worldClientEventService.emitGatewayError(client, 'REQUEST_MAIL_SUMMARY_FAILED', error);
         }
     }
     handleRequestSuggestions(client, _payload) {
+        if (!this.markLegacyProtocolIfAllowed(client, 'legacy_request_suggestions')) {
+            return;
+        }
+        this.executeRequestSuggestions(client, 'legacy');
+    }
+    handleNextRequestSuggestions(client, payload) {
+        this.executeRequestSuggestions(client, 'next');
+    }
+    executeRequestSuggestions(client, protocol) {
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
         }
-        this.emitLegacySuggestionUpdate(client, this.suggestionRuntimeService.getAll());
-    }
-    handleNextRequestSuggestions(client, payload) {
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
+        if (protocol === 'legacy') {
+            this.emitLegacySuggestionUpdate(client, this.suggestionRuntimeService.getAll());
             return;
         }
         this.emitNextSuggestionUpdate(client, this.suggestionRuntimeService.getAll());
     }
     async handleRequestMailPage(client, payload) {
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
+        if (!this.markLegacyProtocolIfAllowed(client, 'legacy_request_mail_page')) {
             return;
         }
-        try {
-            this.emitLegacyMailPage(client, await this.mailRuntimeService.getPage(playerId, payload?.page, payload?.pageSize, payload?.filter));
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'REQUEST_MAIL_PAGE_FAILED', error);
-        }
+        await this.executeRequestMailPage(client, payload, 'legacy');
     }
     async handleNextRequestMailPage(client, payload) {
+        await this.executeRequestMailPage(client, payload, 'next');
+    }
+    async executeRequestMailPage(client, payload, protocol) {
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
         }
         try {
-            this.emitNextMailPage(client, await this.mailRuntimeService.getPage(playerId, payload?.page, payload?.pageSize, payload?.filter));
+            const page = await this.mailRuntimeService.getPage(playerId, payload?.page, payload?.pageSize, payload?.filter);
+            if (protocol === 'legacy') {
+                this.emitLegacyMailPage(client, page);
+            }
+            else {
+                this.emitNextMailPage(client, page);
+            }
         }
         catch (error) {
             this.worldClientEventService.emitGatewayError(client, 'REQUEST_MAIL_PAGE_FAILED', error);
         }
     }
     async handleRequestMailDetail(client, payload) {
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
+        if (!this.markLegacyProtocolIfAllowed(client, 'legacy_request_mail_detail')) {
             return;
         }
-        try {
-            this.emitLegacyMailDetail(client, await this.mailRuntimeService.getDetail(playerId, payload?.mailId ?? ''));
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'REQUEST_MAIL_DETAIL_FAILED', error);
-        }
+        await this.executeRequestMailDetail(client, payload, 'legacy');
     }
     async handleNextRequestMailDetail(client, payload) {
+        await this.executeRequestMailDetail(client, payload, 'next');
+    }
+    async executeRequestMailDetail(client, payload, protocol) {
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
         }
         try {
-            this.emitNextMailDetail(client, await this.mailRuntimeService.getDetail(playerId, payload?.mailId ?? ''));
+            const detail = await this.mailRuntimeService.getDetail(playerId, payload?.mailId ?? '');
+            if (protocol === 'legacy') {
+                this.emitLegacyMailDetail(client, detail);
+            }
+            else {
+                this.emitNextMailDetail(client, detail);
+            }
         }
         catch (error) {
             this.worldClientEventService.emitGatewayError(client, 'REQUEST_MAIL_DETAIL_FAILED', error);
         }
     }
     handleRedeemCodes(client, payload) {
+        if (!this.markLegacyProtocolIfAllowed(client, 'legacy_redeem_codes')) {
+            return;
+        }
+        this.executeRedeemCodes(client, payload);
+    }
+    handleNextRedeemCodes(client, payload) {
+        this.executeRedeemCodes(client, payload);
+    }
+    executeRedeemCodes(client, payload) {
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
@@ -654,10 +952,16 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             this.worldClientEventService.emitGatewayError(client, 'REDEEM_CODES_FAILED', error);
         }
     }
-    handleNextRedeemCodes(client, payload) {
-        this.handleRedeemCodes(client, payload);
-    }
     handleRequestMarket(client, _payload) {
+        if (!this.markLegacyProtocolIfAllowed(client, 'legacy_request_market')) {
+            return;
+        }
+        this.executeRequestMarket(client, 'legacy');
+    }
+    handleNextRequestMarket(client, payload) {
+        this.executeRequestMarket(client, 'next');
+    }
+    executeRequestMarket(client, protocol) {
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
@@ -665,66 +969,56 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         try {
             this.marketSubscriberPlayerIds.add(playerId);
             const response = this.marketRuntimeService.buildMarketUpdate(playerId);
-            this.emitLegacyMarketUpdate(client, response);
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'REQUEST_MARKET_FAILED', error);
-        }
-    }
-    handleNextRequestMarket(client, payload) {
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        try {
-            this.marketSubscriberPlayerIds.add(playerId);
-            this.emitNextMarketUpdate(client, this.marketRuntimeService.buildMarketUpdate(playerId));
+            if (protocol === 'legacy') {
+                this.emitLegacyMarketUpdate(client, response);
+            }
+            else {
+                this.emitNextMarketUpdate(client, response);
+            }
         }
         catch (error) {
             this.worldClientEventService.emitGatewayError(client, 'REQUEST_MARKET_FAILED', error);
         }
     }
     async handleMarkMailRead(client, payload) {
+        if (!this.markLegacyProtocolIfAllowed(client, 'legacy_mark_mail_read')) {
+            return;
+        }
+        await this.executeMarkMailRead(client, payload, 'legacy');
+    }
+    async handleNextMarkMailRead(client, payload) {
+        await this.executeMarkMailRead(client, payload, 'next');
+    }
+    async executeMarkMailRead(client, payload, protocol) {
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
         }
         try {
             const response = await this.mailRuntimeService.markRead(playerId, payload?.mailIds ?? []);
-            this.emitLegacyMailOperationResult(client, response);
-            await this.emitMailSummary(client, playerId);
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'MARK_MAIL_READ_FAILED', error);
-        }
-    }
-    async handleNextMarkMailRead(client, payload) {
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        try {
-            this.emitNextMailOperationResult(client, await this.mailRuntimeService.markRead(playerId, payload?.mailIds ?? []));
-            await this.emitNextMailSummaryForPlayer(client, playerId);
+            if (protocol === 'legacy') {
+                this.emitLegacyMailOperationResult(client, response);
+                await this.emitMailSummary(client, playerId);
+            }
+            else {
+                this.emitNextMailOperationResult(client, response);
+                await this.emitNextMailSummaryForPlayer(client, playerId);
+            }
         }
         catch (error) {
             this.worldClientEventService.emitGatewayError(client, 'MARK_MAIL_READ_FAILED', error);
         }
     }
     async handleCreateSuggestion(client, payload) {
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
+        if (!this.markLegacyProtocolIfAllowed(client, 'legacy_create_suggestion')) {
             return;
         }
-        try {
-            await this.suggestionRuntimeService.create(playerId, playerId, payload?.title ?? '', payload?.description ?? '');
-            this.broadcastSuggestions();
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'CREATE_SUGGESTION_FAILED', error);
-        }
+        await this.executeCreateSuggestion(client, payload);
     }
     async handleNextCreateSuggestion(client, payload) {
+        await this.executeCreateSuggestion(client, payload);
+    }
+    async executeCreateSuggestion(client, payload) {
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
@@ -738,19 +1032,15 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         }
     }
     async handleVoteSuggestion(client, payload) {
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
+        if (!this.markLegacyProtocolIfAllowed(client, 'legacy_vote_suggestion')) {
             return;
         }
-        try {
-            await this.suggestionRuntimeService.vote(playerId, payload?.suggestionId ?? '', payload?.vote);
-            this.broadcastSuggestions();
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'VOTE_SUGGESTION_FAILED', error);
-        }
+        await this.executeVoteSuggestion(client, payload);
     }
     async handleNextVoteSuggestion(client, payload) {
+        await this.executeVoteSuggestion(client, payload);
+    }
+    async executeVoteSuggestion(client, payload) {
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
@@ -764,19 +1054,15 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         }
     }
     async handleReplySuggestion(client, payload) {
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
+        if (!this.markLegacyProtocolIfAllowed(client, 'legacy_reply_suggestion')) {
             return;
         }
-        try {
-            await this.suggestionRuntimeService.addReply(payload?.suggestionId ?? '', 'author', playerId, playerId, payload?.content ?? '');
-            this.broadcastSuggestions();
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'REPLY_SUGGESTION_FAILED', error);
-        }
+        await this.executeReplySuggestion(client, payload);
     }
     async handleNextReplySuggestion(client, payload) {
+        await this.executeReplySuggestion(client, payload);
+    }
+    async executeReplySuggestion(client, payload) {
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
@@ -790,19 +1076,15 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         }
     }
     async handleMarkSuggestionRepliesRead(client, payload) {
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
+        if (!this.markLegacyProtocolIfAllowed(client, 'legacy_mark_suggestion_replies_read')) {
             return;
         }
-        try {
-            await this.suggestionRuntimeService.markRepliesRead(payload?.suggestionId ?? '', playerId);
-            this.broadcastSuggestions();
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'MARK_SUGGESTION_REPLIES_READ_FAILED', error);
-        }
+        await this.executeMarkSuggestionRepliesRead(client, payload);
     }
     async handleNextMarkSuggestionRepliesRead(client, payload) {
+        await this.executeMarkSuggestionRepliesRead(client, payload);
+    }
+    async executeMarkSuggestionRepliesRead(client, payload) {
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
@@ -816,19 +1098,15 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         }
     }
     async handleGmMarkSuggestionCompleted(client, payload) {
-        const playerId = this.requireGm(client);
-        if (!playerId) {
+        if (!this.markLegacyProtocolIfAllowed(client, 'legacy_gm_mark_suggestion_completed')) {
             return;
         }
-        try {
-            await this.suggestionRuntimeService.markCompleted(payload?.suggestionId ?? '');
-            this.broadcastSuggestions();
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'GM_MARK_SUGGESTION_COMPLETED_FAILED', error);
-        }
+        await this.executeGmMarkSuggestionCompleted(client, payload);
     }
     async handleNextGmMarkSuggestionCompleted(client, payload) {
+        await this.executeGmMarkSuggestionCompleted(client, payload);
+    }
+    async executeGmMarkSuggestionCompleted(client, payload) {
         const playerId = this.requireGm(client);
         if (!playerId) {
             return;
@@ -842,19 +1120,15 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         }
     }
     async handleGmRemoveSuggestion(client, payload) {
-        const playerId = this.requireGm(client);
-        if (!playerId) {
+        if (!this.markLegacyProtocolIfAllowed(client, 'legacy_gm_remove_suggestion')) {
             return;
         }
-        try {
-            await this.suggestionRuntimeService.remove(payload?.suggestionId ?? '');
-            this.broadcastSuggestions();
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'GM_REMOVE_SUGGESTION_FAILED', error);
-        }
+        await this.executeGmRemoveSuggestion(client, payload);
     }
     async handleNextGmRemoveSuggestion(client, payload) {
+        await this.executeGmRemoveSuggestion(client, payload);
+    }
+    async executeGmRemoveSuggestion(client, payload) {
         const playerId = this.requireGm(client);
         if (!playerId) {
             return;
@@ -868,104 +1142,112 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         }
     }
     async handleClaimMailAttachments(client, payload) {
+        if (!this.markLegacyProtocolIfAllowed(client, 'legacy_claim_mail_attachments')) {
+            return;
+        }
+        await this.executeClaimMailAttachments(client, payload, 'legacy');
+    }
+    async handleNextClaimMailAttachments(client, payload) {
+        await this.executeClaimMailAttachments(client, payload, 'next');
+    }
+    async executeClaimMailAttachments(client, payload, protocol) {
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
         }
         try {
             const response = await this.mailRuntimeService.claimAttachments(playerId, payload?.mailIds ?? []);
-            this.emitLegacyMailOperationResult(client, response);
-            await this.emitMailSummary(client, playerId);
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'CLAIM_MAIL_ATTACHMENTS_FAILED', error);
-        }
-    }
-    async handleNextClaimMailAttachments(client, payload) {
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        try {
-            this.emitNextMailOperationResult(client, await this.mailRuntimeService.claimAttachments(playerId, payload?.mailIds ?? []));
-            await this.emitNextMailSummaryForPlayer(client, playerId);
+            if (protocol === 'legacy') {
+                this.emitLegacyMailOperationResult(client, response);
+                await this.emitMailSummary(client, playerId);
+            }
+            else {
+                this.emitNextMailOperationResult(client, response);
+                await this.emitNextMailSummaryForPlayer(client, playerId);
+            }
         }
         catch (error) {
             this.worldClientEventService.emitGatewayError(client, 'CLAIM_MAIL_ATTACHMENTS_FAILED', error);
         }
     }
     async handleDeleteMail(client, payload) {
+        if (!this.markLegacyProtocolIfAllowed(client, 'legacy_delete_mail')) {
+            return;
+        }
+        await this.executeDeleteMail(client, payload, 'legacy');
+    }
+    async handleNextDeleteMail(client, payload) {
+        await this.executeDeleteMail(client, payload, 'next');
+    }
+    async executeDeleteMail(client, payload, protocol) {
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
         }
         try {
             const response = await this.mailRuntimeService.deleteMails(playerId, payload?.mailIds ?? []);
-            this.emitLegacyMailOperationResult(client, response);
-            await this.emitMailSummary(client, playerId);
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'DELETE_MAIL_FAILED', error);
-        }
-    }
-    async handleNextDeleteMail(client, payload) {
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        try {
-            this.emitNextMailOperationResult(client, await this.mailRuntimeService.deleteMails(playerId, payload?.mailIds ?? []));
-            await this.emitNextMailSummaryForPlayer(client, playerId);
+            if (protocol === 'legacy') {
+                this.emitLegacyMailOperationResult(client, response);
+                await this.emitMailSummary(client, playerId);
+            }
+            else {
+                this.emitNextMailOperationResult(client, response);
+                await this.emitNextMailSummaryForPlayer(client, playerId);
+            }
         }
         catch (error) {
             this.worldClientEventService.emitGatewayError(client, 'DELETE_MAIL_FAILED', error);
         }
     }
     handleRequestMarketItemBook(client, payload) {
+        if (!this.markLegacyProtocolIfAllowed(client, 'legacy_request_market_item_book')) {
+            return;
+        }
+        this.executeRequestMarketItemBook(client, payload, 'legacy');
+    }
+    handleNextRequestMarketItemBook(client, payload) {
+        this.executeRequestMarketItemBook(client, payload, 'next');
+    }
+    executeRequestMarketItemBook(client, payload, protocol) {
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
         }
         try {
             const response = this.marketRuntimeService.buildItemBook(payload?.itemKey ?? '');
-            this.emitLegacyMarketItemBook(client, response);
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'REQUEST_MARKET_ITEM_BOOK_FAILED', error);
-        }
-    }
-    handleNextRequestMarketItemBook(client, payload) {
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        try {
-            this.emitNextMarketItemBook(client, this.marketRuntimeService.buildItemBook(payload?.itemKey ?? ''));
+            if (protocol === 'legacy') {
+                this.emitLegacyMarketItemBook(client, response);
+            }
+            else {
+                this.emitNextMarketItemBook(client, response);
+            }
         }
         catch (error) {
             this.worldClientEventService.emitGatewayError(client, 'REQUEST_MARKET_ITEM_BOOK_FAILED', error);
         }
     }
     handleRequestMarketTradeHistory(client, payload) {
+        if (!this.markLegacyProtocolIfAllowed(client, 'legacy_request_market_trade_history')) {
+            return;
+        }
+        this.executeRequestMarketTradeHistory(client, payload, 'legacy');
+    }
+    handleNextRequestMarketTradeHistory(client, payload) {
+        this.executeRequestMarketTradeHistory(client, payload, 'next');
+    }
+    executeRequestMarketTradeHistory(client, payload, protocol) {
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
         }
         try {
             const response = this.marketRuntimeService.buildTradeHistoryPage(playerId, payload?.page);
-            this.emitLegacyMarketTradeHistory(client, response);
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'REQUEST_MARKET_TRADE_HISTORY_FAILED', error);
-        }
-    }
-    handleNextRequestMarketTradeHistory(client, payload) {
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        try {
-            this.emitNextMarketTradeHistory(client, this.marketRuntimeService.buildTradeHistoryPage(playerId, payload?.page));
+            if (protocol === 'legacy') {
+                this.emitLegacyMarketTradeHistory(client, response);
+            }
+            else {
+                this.emitNextMarketTradeHistory(client, response);
+            }
         }
         catch (error) {
             this.worldClientEventService.emitGatewayError(client, 'REQUEST_MARKET_TRADE_HISTORY_FAILED', error);
@@ -1014,6 +1296,12 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         }
     }
     handleUseItem(client, payload) {
+        if (!this.markLegacyProtocolIfAllowed(client, 'legacy_use_item')) {
+            return;
+        }
+        this.executeUseItem(client, payload);
+    }
+    executeUseItem(client, payload) {
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
@@ -1026,9 +1314,15 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         }
     }
     handleNextUseItem(client, payload) {
-        this.handleUseItem(client, payload);
+        this.executeUseItem(client, payload);
     }
     handleDropItem(client, payload) {
+        if (!this.markLegacyProtocolIfAllowed(client, 'legacy_drop_item')) {
+            return;
+        }
+        this.executeDropItem(client, payload);
+    }
+    executeDropItem(client, payload) {
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
@@ -1041,7 +1335,7 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         }
     }
     handleNextDropItem(client, payload) {
-        this.handleDropItem(client, payload);
+        this.executeDropItem(client, payload);
     }
     handleTakeGround(client, payload) {
         const playerId = this.requirePlayerId(client);
@@ -1060,6 +1354,12 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         }
     }
     handleEquip(client, payload) {
+        if (!this.markLegacyProtocolIfAllowed(client, 'legacy_equip')) {
+            return;
+        }
+        this.executeEquip(client, payload);
+    }
+    executeEquip(client, payload) {
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
@@ -1072,9 +1372,15 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         }
     }
     handleNextEquip(client, payload) {
-        this.handleEquip(client, payload);
+        this.executeEquip(client, payload);
     }
     handleUnequip(client, payload) {
+        if (!this.markLegacyProtocolIfAllowed(client, 'legacy_unequip')) {
+            return;
+        }
+        this.executeUnequip(client, payload);
+    }
+    executeUnequip(client, payload) {
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
@@ -1087,9 +1393,15 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         }
     }
     handleNextUnequip(client, payload) {
-        this.handleUnequip(client, payload);
+        this.executeUnequip(client, payload);
     }
     handleCultivate(client, payload) {
+        if (!this.markLegacyProtocolIfAllowed(client, 'legacy_cultivate')) {
+            return;
+        }
+        this.executeCultivate(client, payload);
+    }
+    executeCultivate(client, payload) {
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
@@ -1102,7 +1414,7 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         }
     }
     handleNextCultivate(client, payload) {
-        this.handleCultivate(client, payload);
+        this.executeCultivate(client, payload);
     }
     handleCastSkill(client, payload) {
         const playerId = this.requirePlayerId(client);
@@ -1117,6 +1429,9 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         }
     }
     handleRequestNpcShop(client, payload) {
+        if (!this.markLegacyProtocolIfAllowed(client, 'legacy_request_npc_shop')) {
+            return;
+        }
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
@@ -1142,6 +1457,12 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         }
     }
     async handleCreateMarketSellOrder(client, payload) {
+        if (!this.markLegacyProtocolIfAllowed(client, 'legacy_create_market_sell_order')) {
+            return;
+        }
+        await this.executeCreateMarketSellOrder(client, payload);
+    }
+    async executeCreateMarketSellOrder(client, payload) {
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
@@ -1159,9 +1480,15 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         }
     }
     async handleNextCreateMarketSellOrder(client, payload) {
-        await this.handleCreateMarketSellOrder(client, payload);
+        await this.executeCreateMarketSellOrder(client, payload);
     }
     async handleCreateMarketBuyOrder(client, payload) {
+        if (!this.markLegacyProtocolIfAllowed(client, 'legacy_create_market_buy_order')) {
+            return;
+        }
+        await this.executeCreateMarketBuyOrder(client, payload);
+    }
+    async executeCreateMarketBuyOrder(client, payload) {
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
@@ -1179,9 +1506,15 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         }
     }
     async handleNextCreateMarketBuyOrder(client, payload) {
-        await this.handleCreateMarketBuyOrder(client, payload);
+        await this.executeCreateMarketBuyOrder(client, payload);
     }
     async handleBuyMarketItem(client, payload) {
+        if (!this.markLegacyProtocolIfAllowed(client, 'legacy_buy_market_item')) {
+            return;
+        }
+        await this.executeBuyMarketItem(client, payload);
+    }
+    async executeBuyMarketItem(client, payload) {
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
@@ -1198,9 +1531,15 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         }
     }
     async handleNextBuyMarketItem(client, payload) {
-        await this.handleBuyMarketItem(client, payload);
+        await this.executeBuyMarketItem(client, payload);
     }
     async handleSellMarketItem(client, payload) {
+        if (!this.markLegacyProtocolIfAllowed(client, 'legacy_sell_market_item')) {
+            return;
+        }
+        await this.executeSellMarketItem(client, payload);
+    }
+    async executeSellMarketItem(client, payload) {
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
@@ -1217,9 +1556,15 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         }
     }
     async handleNextSellMarketItem(client, payload) {
-        await this.handleSellMarketItem(client, payload);
+        await this.executeSellMarketItem(client, payload);
     }
     async handleCancelMarketOrder(client, payload) {
+        if (!this.markLegacyProtocolIfAllowed(client, 'legacy_cancel_market_order')) {
+            return;
+        }
+        await this.executeCancelMarketOrder(client, payload);
+    }
+    async executeCancelMarketOrder(client, payload) {
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
@@ -1235,9 +1580,15 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         }
     }
     async handleNextCancelMarketOrder(client, payload) {
-        await this.handleCancelMarketOrder(client, payload);
+        await this.executeCancelMarketOrder(client, payload);
     }
     async handleClaimMarketStorage(client, _payload) {
+        if (!this.markLegacyProtocolIfAllowed(client, 'legacy_claim_market_storage')) {
+            return;
+        }
+        await this.executeClaimMarketStorage(client);
+    }
+    async executeClaimMarketStorage(client) {
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
@@ -1251,7 +1602,7 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         }
     }
     async handleNextClaimMarketStorage(client, payload) {
-        await this.handleClaimMarketStorage(client, payload);
+        await this.executeClaimMarketStorage(client);
     }
     handleRequestNpcQuests(client, payload) {
         const playerId = this.requirePlayerId(client);
@@ -1290,6 +1641,12 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         }
     }
     handleBuyNpcShopItem(client, payload) {
+        if (!this.markLegacyProtocolIfAllowed(client, 'legacy_buy_npc_shop_item')) {
+            return;
+        }
+        this.executeBuyNpcShopItem(client, payload);
+    }
+    executeBuyNpcShopItem(client, payload) {
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
@@ -1302,7 +1659,7 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         }
     }
     handleNextBuyNpcShopItem(client, payload) {
-        this.handleBuyNpcShopItem(client, payload);
+        this.executeBuyNpcShopItem(client, payload);
     }
     handlePing(client, payload) {
         this.worldClientEventService.emitPong(client, payload);
@@ -1316,43 +1673,63 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         this.worldClientEventService.emitSuggestionUpdate(client, suggestions);
     }
     emitLegacySuggestionUpdate(client, suggestions) {
-        this.worldClientEventService.markProtocol(client, 'legacy');
+        if (!this.markLegacyProtocolIfAllowed(client, 'emit_legacy_suggestion_update')) {
+            return;
+        }
         this.worldClientEventService.emitSuggestionUpdate(client, suggestions);
     }
     emitLegacyMailSummary(client, summary) {
-        this.worldClientEventService.markProtocol(client, 'legacy');
+        if (!this.markLegacyProtocolIfAllowed(client, 'emit_legacy_mail_summary')) {
+            return;
+        }
         this.worldClientEventService.emitMailSummary(client, summary);
     }
     async emitLegacyMailSummaryForPlayer(client, playerId) {
-        this.worldClientEventService.markProtocol(client, 'legacy');
+        if (!this.markLegacyProtocolIfAllowed(client, 'emit_legacy_mail_summary_for_player')) {
+            return;
+        }
         await this.worldClientEventService.emitMailSummaryForPlayer(client, playerId);
     }
     emitLegacyMailPage(client, page) {
-        this.worldClientEventService.markProtocol(client, 'legacy');
+        if (!this.markLegacyProtocolIfAllowed(client, 'emit_legacy_mail_page')) {
+            return;
+        }
         this.worldClientEventService.emitMailPage(client, page);
     }
     emitLegacyMailDetail(client, detail) {
-        this.worldClientEventService.markProtocol(client, 'legacy');
+        if (!this.markLegacyProtocolIfAllowed(client, 'emit_legacy_mail_detail')) {
+            return;
+        }
         this.worldClientEventService.emitMailDetail(client, detail);
     }
     emitLegacyMailOperationResult(client, payload) {
-        this.worldClientEventService.markProtocol(client, 'legacy');
+        if (!this.markLegacyProtocolIfAllowed(client, 'emit_legacy_mail_operation_result')) {
+            return;
+        }
         this.worldClientEventService.emitMailOperationResult(client, payload);
     }
     emitLegacyMarketUpdate(client, payload) {
-        this.worldClientEventService.markProtocol(client, 'legacy');
+        if (!this.markLegacyProtocolIfAllowed(client, 'emit_legacy_market_update')) {
+            return;
+        }
         this.worldClientEventService.emitMarketUpdate(client, payload);
     }
     emitLegacyMarketItemBook(client, payload) {
-        this.worldClientEventService.markProtocol(client, 'legacy');
+        if (!this.markLegacyProtocolIfAllowed(client, 'emit_legacy_market_item_book')) {
+            return;
+        }
         this.worldClientEventService.emitMarketItemBook(client, payload);
     }
     emitLegacyMarketTradeHistory(client, payload) {
-        this.worldClientEventService.markProtocol(client, 'legacy');
+        if (!this.markLegacyProtocolIfAllowed(client, 'emit_legacy_market_trade_history')) {
+            return;
+        }
         this.worldClientEventService.emitMarketTradeHistory(client, payload);
     }
     emitLegacyNpcShop(client, payload) {
-        this.worldClientEventService.markProtocol(client, 'legacy');
+        if (!this.markLegacyProtocolIfAllowed(client, 'emit_legacy_npc_shop')) {
+            return;
+        }
         this.worldClientEventService.emitNpcShop(client, payload);
     }
     emitNextMailSummary(client, summary) {

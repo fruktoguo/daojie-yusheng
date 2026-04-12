@@ -11,7 +11,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.WorldGmAuthService = void 0;
 const common_1 = require("@nestjs/common");
-const legacy_gm_http_auth_service_1 = require("../compat/legacy/http/legacy-gm-http-auth.service");
+const runtime_gm_auth_service_1 = require("../runtime/gm/runtime-gm-auth.service");
 let WorldGmAuthService = class WorldGmAuthService {
     compatAuthService;
     constructor(compatAuthService) {
@@ -24,6 +24,6 @@ let WorldGmAuthService = class WorldGmAuthService {
 exports.WorldGmAuthService = WorldGmAuthService;
 exports.WorldGmAuthService = WorldGmAuthService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [legacy_gm_http_auth_service_1.LegacyGmHttpAuthService])
+    __metadata("design:paramtypes", [runtime_gm_auth_service_1.RuntimeGmAuthService])
 ], WorldGmAuthService);
 //# sourceMappingURL=world-gm-auth.service.js.map

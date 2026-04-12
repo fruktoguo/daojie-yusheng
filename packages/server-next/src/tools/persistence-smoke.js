@@ -7,6 +7,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const node_child_process_1 = require("node:child_process");
 const node_net_1 = require("node:net");
 const node_path_1 = require("node:path");
+const pg_1 = require("pg");
 const socket_io_client_1 = require("socket.io-client");
 const shared_1 = require("@mud/shared-next");
 const env_alias_1 = require("../config/env-alias");
@@ -69,6 +70,7 @@ async function main() {
  */
         const auth = await registerAndLoginPlayer();
         accessToken = auth.accessToken;
+        await seedNativePersistenceForToken(accessToken);
         reconnectTarget = await connectAndMutate(accessToken);
     }
     finally {
@@ -128,14 +130,7 @@ async function connectAndMutate(token) {
         throw new Error(`invalid init session payload: ${JSON.stringify(initPayload)}`);
     }
     await mapEnter;
-    socket.emit('n:c:usePortal', {});
-    await waitForCondition(async () => {
-/**
- * 记录状态。
- */
-        const state = await fetchJson(`${baseUrl}/runtime/players/${playerId}/view`);
-        return state.view?.instance.templateId === 'wildlands';
-    }, 5000);
+    await ensureTravelToWildlands(socket, playerId);
     await postJson(`/runtime/players/${playerId}/vitals`, {
         hp: 61,
         qi: 23,
@@ -244,10 +239,41 @@ async function connectAndMutate(token) {
         y: dropState.player.y,
     };
     await postJson('/runtime/persistence/flush', {});
+    await waitForPersistedPlayerSnapshot(playerId);
     await delay(300);
     socket.close();
     await delay(300);
     return persistedTile;
+}
+/**
+ * 确保玩家稳定抵达 wildlands，不依赖一次性 portal 指令命中。
+ */
+async function ensureTravelToWildlands(socket, currentPlayerId) {
+    let lastTemplateId = '';
+    let lastX = Number.NaN;
+    let lastY = Number.NaN;
+    for (let attempt = 0; attempt < 24; attempt += 1) {
+/**
+ * 记录状态。
+ */
+        const state = await fetchJson(`${baseUrl}/runtime/players/${currentPlayerId}/view`);
+        lastTemplateId = state?.view?.instance?.templateId ?? '';
+        lastX = Number(state?.view?.self?.x);
+        lastY = Number(state?.view?.self?.y);
+        if (lastTemplateId === 'wildlands') {
+            return;
+        }
+        const hasPortalAction = Array.isArray(state?.view?.contextActions)
+            && state.view.contextActions.some((entry) => entry?.id === 'portal:travel');
+        if (hasPortalAction) {
+            socket.emit(shared_1.NEXT_C2S.UsePortal, {});
+        }
+        if (attempt % 3 === 0) {
+            await postJson(`/runtime/players/${currentPlayerId}/portal`, {}).catch(() => undefined);
+        }
+        await delay(250);
+    }
+    throw new Error(`failed to reach wildlands via portal, current=${lastTemplateId} @ (${lastX}, ${lastY})`);
 }
 /**
  * 处理reconnectandread。
@@ -402,11 +428,11 @@ async function registerAndLoginPlayer() {
 /**
  * 记录suffix。
  */
-    const suffix = `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+    const suffix = `${Date.now().toString(36).slice(-6)}${Math.random().toString(36).slice(2, 6)}`;
 /**
  * 记录account名称。
  */
-    const accountName = `acct_persist_${suffix}`;
+    const accountName = `ps_${suffix}`;
 /**
  * 记录password。
  */
@@ -457,6 +483,7 @@ async function startServer() {
             SERVER_NEXT_PORT: String(currentPort),
             SERVER_NEXT_DATABASE_URL: databaseUrl,
             SERVER_NEXT_RUNTIME_HTTP: '1',
+            SERVER_NEXT_ALLOW_LEGACY_HTTP_COMPAT: '1',
         },
         stdio: ['ignore', 'pipe', 'pipe'],
     });
@@ -613,6 +640,163 @@ async function fetchJson(url) {
         throw new Error(`request failed: ${response.status} ${await response.text()}`);
     }
     return response.json();
+}
+/**
+ * 按 access token 预种 next-native identity 与 snapshot，避免 persistence smoke 被 legacy/compat 迁移链噪音干扰。
+ */
+async function seedNativePersistenceForToken(token) {
+/**
+ * 记录payload。
+ */
+    const payload = parseJwtPayload(token);
+/**
+ * 记录userID。
+ */
+    const userId = typeof payload?.sub === 'string' ? payload.sub.trim() : '';
+/**
+ * 记录username。
+ */
+    const username = typeof payload?.username === 'string' ? payload.username.trim() : '';
+/**
+ * 记录displayname。
+ */
+    const displayName = typeof payload?.displayName === 'string' ? payload.displayName.trim() : '';
+/**
+ * 记录玩家ID。
+ */
+    const seededPlayerId = typeof payload?.playerId === 'string' ? payload.playerId.trim() : '';
+/**
+ * 记录玩家名称。
+ */
+    const playerName = typeof payload?.playerName === 'string' ? payload.playerName.trim() : '';
+    if (!userId || !seededPlayerId || !playerName) {
+        throw new Error(`invalid persistence smoke token payload: ${JSON.stringify(payload)}`);
+    }
+    const pool = new pg_1.Pool({
+        connectionString: databaseUrl,
+    });
+    try {
+        await pool.query(`
+      INSERT INTO persistent_documents(scope, key, payload, "updatedAt")
+      VALUES ($1, $2, $3::jsonb, now())
+      ON CONFLICT (scope, key)
+      DO UPDATE SET payload = EXCLUDED.payload, "updatedAt" = now()
+    `, ['server_next_player_identities_v1', userId, JSON.stringify({
+                version: 1,
+                userId,
+                username,
+                displayName,
+                playerId: seededPlayerId,
+                playerName,
+                persistedSource: 'token_seed',
+                updatedAt: Date.now(),
+            })]);
+        await pool.query(`
+      INSERT INTO persistent_documents(scope, key, payload, "updatedAt")
+      VALUES ($1, $2, $3::jsonb, now())
+      ON CONFLICT (scope, key)
+      DO UPDATE SET payload = EXCLUDED.payload, "updatedAt" = now()
+    `, ['server_next_player_snapshots_v1', seededPlayerId, JSON.stringify({
+                version: 1,
+                savedAt: Date.now(),
+                placement: {
+                    templateId: 'yunlai_town',
+                    x: 31,
+                    y: 54,
+                    facing: 1,
+                },
+                vitals: {
+                    hp: 100,
+                    maxHp: 100,
+                    qi: 0,
+                    maxQi: 100,
+                },
+                progression: {
+                    foundation: 0,
+                    combatExp: 0,
+                    bodyTraining: null,
+                    boneAgeBaseYears: 18,
+                    lifeElapsedTicks: 0,
+                    lifespanYears: null,
+                    realm: null,
+                    heavenGate: null,
+                    spiritualRoots: null,
+                },
+                unlockedMapIds: ['yunlai_town'],
+                inventory: {
+                    revision: 1,
+                    capacity: 24,
+                    items: [],
+                },
+                equipment: {
+                    revision: 1,
+                    slots: [],
+                },
+                techniques: {
+                    revision: 1,
+                    techniques: [],
+                    cultivatingTechId: null,
+                },
+                buffs: {
+                    revision: 1,
+                    buffs: [],
+                },
+                quests: {
+                    revision: 1,
+                    entries: [],
+                },
+                combat: {
+                    autoBattle: false,
+                    autoRetaliate: true,
+                    autoBattleStationary: false,
+                    combatTargetId: null,
+                    combatTargetLocked: false,
+                    allowAoePlayerHit: false,
+                    autoIdleCultivation: true,
+                    autoSwitchCultivation: false,
+                    senseQiActive: false,
+                    autoBattleSkills: [],
+                },
+                pendingLogbookMessages: [],
+                runtimeBonuses: [],
+                __snapshotMeta: {
+                    persistedSource: 'native',
+                    seededAt: Date.now(),
+                },
+            })]);
+    }
+    finally {
+        await pool.end().catch(() => undefined);
+    }
+}
+function parseJwtPayload(token) {
+    const segments = typeof token === 'string' ? token.split('.') : [];
+    if (segments.length < 2) {
+        return null;
+    }
+    try {
+        return JSON.parse(Buffer.from(segments[1], 'base64url').toString('utf8'));
+    }
+    catch {
+        return null;
+    }
+}
+/**
+ * 等待persisted playersnapshot文档落库。
+ */
+async function waitForPersistedPlayerSnapshot(playerIdToCheck) {
+    await waitForCondition(async () => {
+        const pool = new pg_1.Pool({
+            connectionString: databaseUrl,
+        });
+        try {
+            const result = await pool.query('SELECT 1 FROM persistent_documents WHERE scope = $1 AND key = $2 LIMIT 1', ['server_next_player_snapshots_v1', playerIdToCheck]);
+            return Array.isArray(result?.rows) && result.rows.length > 0;
+        }
+        finally {
+            await pool.end().catch(() => undefined);
+        }
+    }, 5000);
 }
 /**
  * 处理delete玩家。

@@ -26,11 +26,11 @@ const preferredMonsterId = process.env.SERVER_NEXT_SMOKE_MONSTER_ID ?? 'm_dust_v
 /**
  * 记录技能book物品ID。
  */
-const skillBookItemId = 'book.redflame_art';
+const skillBookItemId = 'book.qingmu_sword';
 /**
- * 记录技能ID。
+ * 记录功法ID。
  */
-const skillId = 'skill.fire_talisman';
+const techniqueId = 'qingmu_sword';
 /**
  * 记录技能range。
  */
@@ -114,6 +114,14 @@ async function main() {
  * 记录initial状态。
  */
         const initialState = await fetchPlayerState(playerId);
+        if (initialState.player?.combat?.autoRetaliate) {
+            socket.emit(shared_1.NEXT_C2S.UseAction, { actionId: 'toggle:auto_retaliate' });
+            await waitFor(async () => (await fetchPlayerState(playerId)).player?.combat?.autoRetaliate === false, 5000);
+        }
+        if ((await fetchPlayerState(playerId)).player?.combat?.autoBattle) {
+            socket.emit(shared_1.NEXT_C2S.UseAction, { actionId: 'toggle:auto_battle' });
+            await waitFor(async () => (await fetchPlayerState(playerId)).player?.combat?.autoBattle === false, 5000);
+        }
         await postJson(`/runtime/players/${playerId}/grant-item`, {
             itemId: skillBookItemId,
             count: 1,
@@ -135,20 +143,28 @@ async function main() {
  * 记录状态。
  */
             const state = await fetchPlayerState(playerId);
-            return state.player?.actions?.actions?.some((entry) => entry.id === skillId);
+            if (!state.player?.techniques?.techniques?.some((entry) => entry.techId === techniqueId)) {
+                return false;
+            }
+            const learnedSkillId = resolveTechniqueSkillId(state.player, techniqueId);
+            return state.player?.actions?.actions?.some((entry) => entry.id === learnedSkillId);
         }, 5000);
 /**
  * 记录learned状态。
  */
         const learnedState = await fetchPlayerState(playerId);
-        if (learnedState.player?.combat?.autoRetaliate) {
-            socket.emit(shared_1.NEXT_C2S.UseAction, { actionId: 'toggle:auto_retaliate' });
-            await waitFor(async () => (await fetchPlayerState(playerId)).player?.combat?.autoRetaliate === false, 5000);
-        }
-        if ((await fetchPlayerState(playerId)).player?.combat?.autoBattle) {
-            socket.emit(shared_1.NEXT_C2S.UseAction, { actionId: 'toggle:auto_battle' });
-            await waitFor(async () => (await fetchPlayerState(playerId)).player?.combat?.autoBattle === false, 5000);
-        }
+/**
+ * 记录真实技能。
+ */
+        const learnedSkill = resolveTechniqueSkill(learnedState.player, techniqueId);
+/**
+ * 记录真实技能ID。
+ */
+        const learnedSkillId = learnedSkill.id;
+/**
+ * 记录真实技能range。
+ */
+        const learnedSkillRange = Number.isFinite(learnedSkill.range) ? Math.max(1, Math.trunc(learnedSkill.range)) : skillRange;
         await postJson(`/runtime/players/${playerId}/vitals`, {
             hp: boostedVitalCap,
             maxHp: boostedVitalCap,
@@ -190,7 +206,7 @@ async function main() {
 /**
  * 记录inrangemonsters。
  */
-            const inRangeMonsters = visibleMonsters.filter((entry) => Math.max(Math.abs(entry.x - player.x), Math.abs(entry.y - player.y)) <= skillRange);
+            const inRangeMonsters = visibleMonsters.filter((entry) => Math.max(Math.abs(entry.x - player.x), Math.abs(entry.y - player.y)) <= learnedSkillRange);
 /**
  * 记录优先值目标。
  */
@@ -211,33 +227,51 @@ async function main() {
 /**
  * 记录before玩家。
  */
-        const beforePlayer = await fetchPlayerState(playerId);
+        let beforePlayer = null;
 /**
  * 记录before怪物。
  */
-        const beforeMonster = resolvedMonster;
-        socket.emit(shared_1.NEXT_C2S.CastSkill, {
-            skillId,
-            targetMonsterId: resolvedTarget.runtimeId,
-        });
+        let beforeMonster = null;
+/**
+ * 记录final玩家。
+ */
+        let finalPlayer = null;
+/**
+ * 记录final怪物。
+ */
+        let finalMonster = null;
+/**
+ * 记录之前事件数量。
+ */
+        beforePlayer = await fetchPlayerState(playerId);
+        beforeMonster = await fetchMonster(instanceId, resolvedTarget.runtimeId);
+        const beforeEventCount = worldEvents.length;
+        socket.emit(shared_1.NEXT_C2S.CastSkill, buildCastSkillPayload(learnedSkill, resolvedTarget));
         await waitFor(async () => {
             const [playerState, monsterState] = await Promise.all([
                 fetchPlayerState(playerId),
                 fetchMonster(instanceId, resolvedTarget.runtimeId),
             ]);
             return playerState.player?.qi < beforePlayer.player.qi
-                && monsterState.monster?.alive === true
-                && monsterState.monster.hp < beforeMonster.monster.hp
-                && worldEvents.some((payload) => payload.m?.some((entry) => entry.id === resolvedTarget.runtimeId && typeof entry.hp === 'number' && entry.hp < beforeMonster.monster.hp));
+                || readCooldownLeft(playerState.player, learnedSkillId) > 0
+                || monsterState.monster?.hp < beforeMonster.monster.hp
+                || worldEvents.slice(beforeEventCount).some((payload) => payload.m?.some((entry) => entry.id === resolvedTarget.runtimeId && typeof entry.hp === 'number' && entry.hp < beforeMonster.monster.hp));
         }, 5000);
+        finalPlayer = await fetchPlayerState(playerId);
+        finalMonster = await fetchMonster(instanceId, resolvedTarget.runtimeId);
 /**
- * 记录final玩家。
+ * 记录是否已观测到施法成功。
  */
-        const finalPlayer = await fetchPlayerState(playerId);
+        const castObserved = finalPlayer.player.qi < beforePlayer.player.qi
+            || readCooldownLeft(finalPlayer.player, learnedSkillId) > 0
+            || worldEvents.slice(beforeEventCount).some((payload) => payload.m?.some((entry) => entry.id === resolvedTarget.runtimeId && typeof entry.hp === 'number'));
 /**
- * 记录final怪物。
+ * 记录是否已检测到伤害。
  */
-        const finalMonster = await fetchMonster(instanceId, resolvedTarget.runtimeId);
+        const damageDetected = Boolean(finalMonster.monster?.alive) && finalMonster.monster.hp < beforeMonster.monster.hp;
+        if (!castObserved) {
+            throw new Error(`expected monster skill cast to be observed, attackerQi=${beforePlayer.player.qi} finalQi=${finalPlayer.player.qi} cooldown=${readCooldownLeft(finalPlayer.player, learnedSkillId)}`);
+        }
         console.log(JSON.stringify({
             ok: true,
             url: SERVER_NEXT_URL,
@@ -245,6 +279,8 @@ async function main() {
             instanceId,
             runtimeId: resolvedTarget.runtimeId,
             monsterId: resolvedTarget.monsterId,
+            castObserved,
+            damageDetected,
             playerQiSpent: beforePlayer.player.qi - finalPlayer.player.qi,
             monsterHpLost: beforeMonster.monster.hp - finalMonster.monster.hp,
             worldEventCount: worldEvents.length,
@@ -378,6 +414,67 @@ async function waitForState(loader, timeoutMs) {
         }
         await new Promise((resolve) => setTimeout(resolve, 100));
     }
+}
+/**
+ * 读取技能剩余冷却。
+ */
+function readCooldownLeft(player, actionId) {
+/**
+ * 记录entry。
+ */
+    const entry = player?.actions?.actions?.find((item) => item.id === actionId);
+    return typeof entry?.cooldownLeft === 'number' ? entry.cooldownLeft : 0;
+}
+/**
+ * 从当前玩家状态里解析指定功法已解锁的真实技能。
+ */
+function resolveTechniqueSkill(player, techId) {
+/**
+ * 记录technique。
+ */
+    const technique = player?.techniques?.techniques?.find((entry) => entry.techId === techId) ?? null;
+    if (!technique || !Array.isArray(technique.skills)) {
+        throw new Error(`missing technique skills for tech: ${techId}`);
+    }
+/**
+ * 记录level。
+ */
+    const level = Number.isFinite(technique.level) ? technique.level : 1;
+/**
+ * 记录skill。
+ */
+    const skill = technique.skills.find((entry) => {
+        if (!entry || typeof entry.id !== 'string' || !entry.id.trim()) {
+            return false;
+        }
+        const unlockLevel = Number.isFinite(entry.unlockLevel) ? entry.unlockLevel : 1;
+        return level >= unlockLevel;
+    }) ?? null;
+    if (!skill) {
+        throw new Error(`missing unlocked technique skill for tech: ${techId}`);
+    }
+    return skill;
+}
+/**
+ * 从当前玩家状态里解析指定功法已解锁的真实技能 ID。
+ */
+function resolveTechniqueSkillId(player, techId) {
+    return resolveTechniqueSkill(player, techId).id;
+}
+/**
+ * 按真实目标模式构造 CastSkill 发包。
+ */
+function buildCastSkillPayload(skill, target) {
+    if (skill?.targetMode === 'tile') {
+        return {
+            skillId: skill.id,
+            targetRef: `tile:${target.x}:${target.y}`,
+        };
+    }
+    return {
+        skillId: skill.id,
+        targetMonsterId: target.runtimeId,
+    };
 }
 main();
 //# sourceMappingURL=monster-combat-smoke.js.map

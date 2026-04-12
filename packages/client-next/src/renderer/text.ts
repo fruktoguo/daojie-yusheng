@@ -50,6 +50,7 @@ import { getMonsterPresentation } from '../monster-presentation';
 import { TextMeasureCache } from './text-measure-cache';
 import { TileSpriteCache } from './tile-sprite-cache';
 
+/** TimeAtmosphereState：定义该接口的能力与字段约束。 */
 interface TimeAtmosphereState {
   initialized: boolean;
   overlay: [number, number, number, number];
@@ -58,6 +59,7 @@ interface TimeAtmosphereState {
   vignetteAlpha: number;
 }
 
+/** GroundItemTypePalette：定义该类型的结构与数据语义。 */
 type GroundItemTypePalette = {
   fill: string;
   stroke: string;
@@ -65,6 +67,7 @@ type GroundItemTypePalette = {
   text: string;
 };
 
+/** GroundItemGradePalette：定义该类型的结构与数据语义。 */
 type GroundItemGradePalette = {
   border: string;
   glow: string;
@@ -170,6 +173,7 @@ const GROUND_ITEM_ICON_POSITIONS = [
   { col: 0, row: 0 },
 ] as const;
 
+/** resolveGroundItemLabel：执行对应的业务逻辑。 */
 function resolveGroundItemLabel(entry: GroundItemEntryView): string {
   const explicit = [...(entry.groundLabel?.trim() ?? '')].filter((char) => char.trim().length > 0).join('');
   if (explicit) {
@@ -187,14 +191,17 @@ function resolveGroundItemLabel(entry: GroundItemEntryView): string {
   return chars[0]?.slice(0, 1) ?? '?';
 }
 
+/** resolveGroundItemGradePalette：执行对应的业务逻辑。 */
 function resolveGroundItemGradePalette(grade?: TechniqueGrade): GroundItemGradePalette {
   return GROUND_ITEM_GRADE_PALETTES[grade ?? DEFAULT_GROUND_ITEM_GRADE] ?? GROUND_ITEM_GRADE_PALETTES[DEFAULT_GROUND_ITEM_GRADE];
 }
 
+/** easeOutCubic：执行对应的业务逻辑。 */
 function easeOutCubic(t: number): number {
   return 1 - Math.pow(1 - t, 3);
 }
 
+/** easeInOutCubic：执行对应的业务逻辑。 */
 function easeInOutCubic(t: number): number {
   if (t < 0.5) {
     return 4 * t * t * t;
@@ -202,6 +209,7 @@ function easeInOutCubic(t: number): number {
   return 1 - Math.pow(-2 * t + 2, 3) / 2;
 }
 
+/** getSenseQiOverlayStyle：执行对应的业务逻辑。 */
 function getSenseQiOverlayStyle(aura: number, levelBaseValue = DEFAULT_AURA_LEVEL_BASE_VALUE): string {
   void levelBaseValue;
   const normalized = Math.max(0, Math.min(aura, SENSE_QI_OVERLAY_STYLE.maxAuraLevel)) / SENSE_QI_OVERLAY_STYLE.maxAuraLevel;
@@ -212,6 +220,7 @@ function getSenseQiOverlayStyle(aura: number, levelBaseValue = DEFAULT_AURA_LEVE
   return `rgba(${red}, ${green}, ${blue}, ${alpha.toFixed(3)})`;
 }
 
+/** AnimEntity：定义该接口的能力与字段约束。 */
 interface AnimEntity {
   id: string;
   gridX: number;
@@ -232,6 +241,7 @@ interface AnimEntity {
   buffs?: VisibleBuffState[];
 }
 
+/** RenderedAnimEntity：定义该接口的能力与字段约束。 */
 interface RenderedAnimEntity {
   anim: AnimEntity;
   presentation: ReturnType<typeof getMonsterPresentation> | null;
@@ -245,6 +255,7 @@ interface RenderedAnimEntity {
   visualCellSize: number;
 }
 
+/** FloatingText：定义该接口的能力与字段约束。 */
 interface FloatingText {
   id: number;
   x: number;
@@ -257,6 +268,7 @@ interface FloatingText {
   duration: number;
 }
 
+/** AttackTrail：定义该接口的能力与字段约束。 */
 interface AttackTrail {
   id: number;
   fromX: number;
@@ -268,6 +280,7 @@ interface AttackTrail {
   duration: number;
 }
 
+/** WarningZone：定义该接口的能力与字段约束。 */
 interface WarningZone {
   id: number;
   cells: Array<{ x: number; y: number; expandDistance: number }>;
@@ -280,11 +293,13 @@ interface WarningZone {
   duration: number;
 }
 
+/** FloatingTextBurstOffset：定义该接口的能力与字段约束。 */
 interface FloatingTextBurstOffset {
   offsetX: number;
   offsetY: number;
 }
 
+/** FadingPathState：定义该接口的能力与字段约束。 */
 interface FadingPathState {
   cells: { x: number; y: number }[];
   keys: Set<string>;
@@ -337,10 +352,12 @@ export class TextRenderer implements IRenderer {
     vignetteAlpha: 0,
   };
 
+/** init：处理当前场景中的对应操作。 */
   init(canvas: HTMLCanvasElement) {
     this.ctx = canvas.getContext('2d')!;
   }
 
+/** clear：处理当前场景中的对应操作。 */
   clear() {
     if (!this.ctx) return;
     const { width, height } = this.ctx.canvas;
@@ -348,6 +365,7 @@ export class TextRenderer implements IRenderer {
     this.ctx.fillRect(0, 0, width, height);
   }
 
+/** resetScene：处理当前场景中的对应操作。 */
   resetScene() {
     this.entities.clear();
     this.threatArrows = [];
@@ -384,19 +402,23 @@ export class TextRenderer implements IRenderer {
     this.pathTargetKey = cells.length > 0 ? `${cells[cells.length - 1].x},${cells[cells.length - 1].y}` : null;
   }
 
+/** setThreatArrows：处理当前场景中的对应操作。 */
   setThreatArrows(arrows: Array<{ ownerId: string; targetId: string }>) {
     this.threatArrows = arrows.map((entry) => ({ ownerId: entry.ownerId, targetId: entry.targetId }));
   }
 
+/** setTargetingOverlay：处理当前场景中的对应操作。 */
   setTargetingOverlay(state: TargetingOverlayState | null) {
     this.targetingOverlay = state;
     this.targetingAffectedKeys = new Set((state?.affectedCells ?? []).map((cell) => `${cell.x},${cell.y}`));
   }
 
+/** setSenseQiOverlay：处理当前场景中的对应操作。 */
   setSenseQiOverlay(state: SenseQiOverlayState | null) {
     this.senseQiOverlay = state;
   }
 
+/** setGroundPiles：处理当前场景中的对应操作。 */
   setGroundPiles(piles: ReadonlyMap<string, GroundItemPileView> | Iterable<GroundItemPileView>) {
     if (piles instanceof Map) {
       this.groundPiles = piles;
@@ -687,7 +709,7 @@ export class TextRenderer implements IRenderer {
   }
 
   /** 绘制所有实体（角色/怪物/NPC），含位置插值动画 */
-  renderEntities(camera: Camera, progress = 1, localPlayerId?: string) {
+  renderEntities(camera: Camera, progress = 1, localPlayerId?: string, localPlayerX?: number, localPlayerY?: number) {
     if (!this.ctx) return;
     const ctx = this.ctx;
     const sw = ctx.canvas.width;
@@ -730,7 +752,38 @@ export class TextRenderer implements IRenderer {
         .map((entry) => `${entry.anim.gridX},${entry.anim.gridY}`),
     );
 
-    this.renderThreatTargetArrows(renderedEntities, localPlayerId);
+    let localPlayerRendered: RenderedAnimEntity | undefined;
+    if (localPlayerId !== undefined
+      && Number.isFinite(localPlayerX)
+      && Number.isFinite(localPlayerY)
+      && !renderedEntities.some((entry) => entry.anim.id === localPlayerId)) {
+      const { sx, sy } = camera.worldToScreen(localPlayerX as number, localPlayerY as number, sw, sh);
+      localPlayerRendered = {
+        anim: {
+          id: localPlayerId,
+          gridX: localPlayerX as number,
+          gridY: localPlayerY as number,
+          oldWX: localPlayerX as number,
+          oldWY: localPlayerY as number,
+          targetWX: localPlayerX as number,
+          targetWY: localPlayerY as number,
+          char: '@',
+          color: '#fff4dc',
+          kind: 'player',
+        },
+        presentation: null,
+        sx,
+        sy,
+        centerX: sx + cellSize / 2,
+        centerY: sy + cellSize / 2,
+        cellSize,
+        visualSx: sx,
+        visualSy: sy,
+        visualCellSize: cellSize,
+      };
+    }
+
+    this.renderThreatTargetArrows(renderedEntities, localPlayerId, localPlayerRendered);
 
     for (const rendered of renderedEntities) {
       const { anim, presentation: monsterPresentation, sx, sy, cellSize: renderedCellSize, visualSx, visualSy, visualCellSize } = rendered;
@@ -803,12 +856,15 @@ export class TextRenderer implements IRenderer {
     }
   }
 
-  private renderThreatTargetArrows(renderedEntities: RenderedAnimEntity[], localPlayerId?: string): void {
+  private renderThreatTargetArrows(renderedEntities: RenderedAnimEntity[], localPlayerId?: string, localPlayerRendered?: RenderedAnimEntity): void {
     if (!this.ctx || renderedEntities.length === 0) {
       return;
     }
     const ctx = this.ctx;
     const renderedById = new Map(renderedEntities.map((entry) => [entry.anim.id, entry]));
+    if (localPlayerId !== undefined && localPlayerRendered && !renderedById.has(localPlayerId)) {
+      renderedById.set(localPlayerId, localPlayerRendered);
+    }
 
     ctx.save();
     ctx.lineCap = 'round';
@@ -949,6 +1005,7 @@ export class TextRenderer implements IRenderer {
     );
   }
 
+/** drawBuffRows：处理当前场景中的对应操作。 */
   private drawBuffRows(sx: number, sy: number, cellSize: number, buffs?: VisibleBuffState[]) {
     if (!this.ctx || !buffs || buffs.length === 0) return;
     const visible = buffs.filter((buff) => buff.visibility === 'public');
@@ -1037,6 +1094,7 @@ export class TextRenderer implements IRenderer {
     }
   }
 
+/** drawNpcQuestMarker：处理当前场景中的对应操作。 */
   private drawNpcQuestMarker(sx: number, sy: number, cellSize: number, marker: NpcQuestMarker) {
     if (!this.ctx) return;
     const ctx = this.ctx;
@@ -1377,6 +1435,7 @@ export class TextRenderer implements IRenderer {
     }
   }
 
+/** renderWarningZones：处理当前场景中的对应操作。 */
   renderWarningZones(camera: Camera) {
     if (!this.ctx || this.warningZones.length === 0) return;
     const ctx = this.ctx;
@@ -1438,6 +1497,7 @@ export class TextRenderer implements IRenderer {
     }
   }
 
+/** destroy：处理当前场景中的对应操作。 */
   destroy() {
     this.ctx = null;
     this.entities.clear();
@@ -1908,6 +1968,7 @@ export class TextRenderer implements IRenderer {
     return `rgba(${red.toFixed(2)}, ${green.toFixed(2)}, ${blue.toFixed(2)}, ${Math.max(0, Math.min(1, alpha)).toFixed(3)})`;
   }
 
+/** drawGroundPileIndicator：处理当前场景中的对应操作。 */
   private drawGroundPileIndicator(sx: number, sy: number, cellSize: number, pile: GroundItemPileView) {
     if (!this.ctx) {
       return;
@@ -2081,6 +2142,7 @@ export class TextRenderer implements IRenderer {
     return Math.max(6, slotSize * 0.4);
   }
 
+/** drawOutlinedText：处理当前场景中的对应操作。 */
   private drawOutlinedText(text: string, x: number, y: number, fill: string, stroke: string) {
     if (!this.ctx) return;
     this.ctx.lineJoin = 'round';
@@ -2091,6 +2153,7 @@ export class TextRenderer implements IRenderer {
     this.ctx.fillText(text, x, y);
   }
 
+/** drawOutlinedVerticalText：处理当前场景中的对应操作。 */
   private drawOutlinedVerticalText(text: string, x: number, y: number, fill: string, stroke: string, lineHeight: number) {
     if (!this.ctx) return;
     const ctx = this.ctx;
@@ -2110,3 +2173,4 @@ export class TextRenderer implements IRenderer {
   }
 
 }
+
