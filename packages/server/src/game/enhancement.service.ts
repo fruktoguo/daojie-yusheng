@@ -247,9 +247,6 @@ export class EnhancementService implements OnModuleInit {
       ) {
         throw new Error('保护物不存在或数量不足。');
       }
-      if (!this.consumeInventoryItemById(player, ENHANCEMENT_SPIRIT_STONE_ITEM_ID, spiritStoneCost)) {
-        throw new Error('灵石不足。');
-      }
       for (const requirement of requirements) {
         if (!this.consumeInventoryItemById(player, requirement.itemId, requirement.count)) {
           throw new Error(`${requirement.itemId} 数量不足。`);
@@ -335,7 +332,7 @@ export class EnhancementService implements OnModuleInit {
       player,
       job,
       job.currentLevel,
-      `你停止了 ${job.item.name} 的强化，当前这一阶已投入的灵石、材料与保护物不会退回。`,
+      `你停止了 ${job.item.name} 的强化，当前这一阶已投入的材料与保护物不会退回，灵石将在本阶成功后结算。`,
       'system',
     );
   }
@@ -385,6 +382,27 @@ export class EnhancementService implements OnModuleInit {
     }
 
     const success = Math.random() < job.successRate;
+    if (
+      success
+      && !this.consumeInventoryItemById(player, ENHANCEMENT_SPIRIT_STONE_ITEM_ID, job.spiritStoneCost)
+    ) {
+      return {
+        ...this.finishEnhancementJob(
+          player,
+          job,
+          job.currentLevel,
+          `${job.item.name} 强化失败，灵石不足，本阶已终止。`,
+          'system',
+        ),
+        panelChanged: true,
+        messages: [{
+          text: `${job.item.name} 强化失败，灵石不足，本阶已终止。`,
+          kind: 'system',
+        }],
+        error: '本阶灵石不足，任务已终止。',
+      };
+    }
+
     const protectionActiveForStep = this.shouldUseProtectionForStep(job.targetLevel, job.protectionStartLevel);
     const resultingLevel = success
       ? job.targetLevel
@@ -496,7 +514,7 @@ export class EnhancementService implements OnModuleInit {
         attrChanged: finish.attrChanged,
       };
     }
-    if (!this.consumeQueuedStepResources(player, protectionItemId, nextSpiritStoneCost, nextRequirements)) {
+    if (!this.consumeQueuedStepResources(player, protectionItemId, nextRequirements)) {
       return null;
     }
 
@@ -594,13 +612,9 @@ export class EnhancementService implements OnModuleInit {
   private consumeQueuedStepResources(
     player: PlayerState,
     protectionItemId: string | undefined,
-    spiritStoneCost: number,
     requirements: EnhancementMaterialRequirement[],
   ): boolean {
     if (protectionItemId && !this.consumeInventoryItemById(player, protectionItemId, 1)) {
-      return false;
-    }
-    if (!this.consumeInventoryItemById(player, ENHANCEMENT_SPIRIT_STONE_ITEM_ID, spiritStoneCost)) {
       return false;
     }
     for (const requirement of requirements) {
