@@ -1,6 +1,8 @@
 import {
+  computeBestEnhancementExpectedCost,
   calculateMarketTradeTotalCost,
   createItemStackSignature,
+  EnhancementExpectedCostStrategy,
   EQUIP_SLOTS,
   EquipSlot,
   getMarketMinimumTradeQuantity,
@@ -48,6 +50,10 @@ function escapeHtmlAttr(value: string): string {
   return escapeHtml(value);
 }
 
+function renderPlainTooltipLine(label: string, value: string): string {
+  return `<span class="skill-tooltip-label">${escapeHtml(label)}：</span>${escapeHtml(value)}`;
+}
+
 /** MarketPanelCallbacks：定义该接口的能力与字段约束。 */
 interface MarketPanelCallbacks {
   onRequestMarket: () => void;
@@ -80,6 +86,17 @@ interface MarketTradeDialogState {
   unitPrice: number;
 }
 
+/** MarketEnhancementEstimateView：定义坊市强化估算展示结构。 */
+interface MarketEnhancementEstimateView {
+  strategy: EnhancementExpectedCostStrategy;
+  costLine: string;
+  attemptsLine: string;
+  timeLine: string;
+  baseUnitPrice?: number;
+  usesMarketBasePrice: boolean;
+  basePricePending: boolean;
+}
+
 /** MARKET_DESKTOP_PAGE_SIZE：定义该变量以承载业务值。 */
 const MARKET_DESKTOP_PAGE_SIZE = 32;
 /** MARKET_MOBILE_PAGE_SIZE：定义该变量以承载业务值。 */
@@ -102,6 +119,8 @@ const MARKET_TECHNIQUE_FILTERS: Array<{ id: MarketTechniqueFilter; label: string
   { id: 'divine', label: getTechniqueCategoryLabel('divine') },
   { id: 'secret', label: getTechniqueCategoryLabel('secret') },
 ];
+const ENHANCEMENT_BASE_JOB_TICKS = 5;
+const ENHANCEMENT_JOB_TICKS_PER_ITEM_LEVEL = 1;
 
 /** MarketPanel：封装相关状态与行为。 */
 export class MarketPanel {
@@ -114,6 +133,8 @@ export class MarketPanel {
   private marketUpdate: S2C_MarketUpdate | null = null;
 /** itemBook：定义该变量以承载业务值。 */
   private itemBook: MarketOrderBookView | null = null;
+  private readonly itemBookCache = new Map<string, MarketOrderBookView>();
+  private readonly pendingItemBookKeys = new Set<string>();
 /** selectedItemKey：定义该变量以承载业务值。 */
   private selectedItemKey: string | null = null;
 /** modalTab：定义该变量以承载业务值。 */
@@ -159,7 +180,8 @@ export class MarketPanel {
   syncInventory(inventory: Inventory): void {
     this.inventory = inventory;
     if (detailModalHost.isOpenFor(MarketPanel.MODAL_OWNER)) {
-      this.renderModal();
+      this.syncVisibleMarketInventoryState();
+      this.syncTradeDialogOverlay();
     }
   }
 
@@ -189,16 +211,25 @@ export class MarketPanel {
 
 /** updateItemBook：执行对应的业务逻辑。 */
   updateItemBook(data: S2C_MarketItemBook): void {
+    if (data.book) {
+      this.itemBookCache.set(data.itemKey, data.book);
+    } else {
+      this.itemBookCache.delete(data.itemKey);
+    }
+    this.pendingItemBookKeys.delete(data.itemKey);
     if (data.itemKey !== this.selectedItemKey) {
       return;
     }
     this.itemBookLoading = false;
     this.itemBook = data.book;
     if (detailModalHost.isOpenFor(MarketPanel.MODAL_OWNER)) {
-      this.renderModal();
+      if (this.modalTab === 'market') {
+        this.patchSelectedBookPanel();
+      }
     } else {
       this.syncTradeDialogOverlay();
     }
+    this.syncTradeDialogOverlay();
   }
 
 /** updateTradeHistory：执行对应的业务逻辑。 */
@@ -402,18 +433,7 @@ export class MarketPanel {
           this.renderModal();
         }));
 
-        body.querySelectorAll<HTMLElement>('[data-market-open-dialog]').forEach((button) => button.addEventListener('click', () => {
-/** kind：定义该变量以承载业务值。 */
-          const kind = button.dataset.marketOpenDialog as MarketTradeDialogKind | undefined;
-/** selected：定义该变量以承载业务值。 */
-          const selected = this.getSelectedListedItem(this.marketUpdate);
-          if (!kind || !selected) {
-            return;
-          }
-/** presetPrice：定义该变量以承载业务值。 */
-          const presetPrice = this.readDatasetNumber(button.dataset.marketOpenDialogPrice);
-          this.openTradeDialog(selected, kind, presetPrice);
-        }));
+        this.bindBookPanelActionEvents(body);
 
         body.querySelectorAll<HTMLElement>('[data-market-cancel-order]').forEach((button) => button.addEventListener('click', () => {
 /** orderId：定义该变量以承载业务值。 */
@@ -508,7 +528,7 @@ export class MarketPanel {
       ? `<span class="market-item-cell-owned">${formatDisplayCountBadge(ownedCount)}</span>`
       : '';
     return `
-      <button class="market-item-cell ${entry.itemKey === activeItemKey ? 'active' : ''}" data-market-select-item="${escapeHtmlAttr(entry.itemKey)}" type="button">
+      <button class="market-item-cell ${entry.itemKey === activeItemKey ? 'active' : ''}" data-market-select-item="${escapeHtmlAttr(entry.itemKey)}" data-market-item-tooltip="${escapeHtmlAttr(entry.itemKey)}" type="button">
         <div class="market-item-cell-name" title="${escapeHtmlAttr(entry.item.name)}">
           <span class="market-item-cell-name-text">${escapeHtml(entry.item.name)}</span>
           ${ownedLabel}
@@ -852,21 +872,36 @@ export class MarketPanel {
     `;
   }
 
+  private bindBookPanelActionEvents(root: ParentNode): void {
+    root.querySelectorAll<HTMLElement>('[data-market-open-dialog]').forEach((button) => button.addEventListener('click', () => {
+/** kind：定义该变量以承载业务值。 */
+      const kind = button.dataset.marketOpenDialog as MarketTradeDialogKind | undefined;
+/** selected：定义该变量以承载业务值。 */
+      const selected = this.getSelectedListedItem(this.marketUpdate);
+      if (!kind || !selected) {
+        return;
+      }
+/** presetPrice：定义该变量以承载业务值。 */
+      const presetPrice = this.readDatasetNumber(button.dataset.marketOpenDialogPrice);
+      this.openTradeDialog(selected, kind, presetPrice);
+    }));
+  }
+
 /** bindItemTooltipEvents：执行对应的业务逻辑。 */
   private bindItemTooltipEvents(body: HTMLElement): void {
 /** nodes：定义该变量以承载业务值。 */
     const nodes = body.querySelectorAll<HTMLElement>('[data-market-item-tooltip]');
-/** selected：定义该变量以承载业务值。 */
-    const selected = this.getSelectedListedItem(this.marketUpdate);
-    if (nodes.length === 0 || !selected) {
+    if (nodes.length === 0) {
       return;
     }
 /** tapMode：定义该变量以承载业务值。 */
     const tapMode = prefersPinnedTooltipInteraction();
-/** tooltip：定义该变量以承载业务值。 */
-    const tooltip = buildItemTooltipPayload(selected.item);
 /** showTooltip：定义该变量以承载业务值。 */
     const showTooltip = (node: HTMLElement, event: PointerEvent): void => {
+      const tooltip = this.resolveMarketTooltipPayload(node);
+      if (!tooltip) {
+        return;
+      }
       this.tooltip.show(tooltip.title, tooltip.lines, event.clientX, event.clientY, {
         allowHtml: tooltip.allowHtml,
         asideCards: tooltip.asideCards,
@@ -877,6 +912,10 @@ export class MarketPanel {
     nodes.forEach((node) => {
       node.addEventListener('click', (event) => {
         if (!tapMode || !(event instanceof PointerEvent)) {
+          return;
+        }
+        const tooltip = this.resolveMarketTooltipPayload(node);
+        if (!tooltip) {
           return;
         }
         if (this.tooltip.isPinnedTo(node)) {
@@ -914,6 +953,108 @@ export class MarketPanel {
         }
       });
     });
+  }
+
+  private getOpenModalBody(): HTMLElement | null {
+    if (!detailModalHost.isOpenFor(MarketPanel.MODAL_OWNER)) {
+      return null;
+    }
+    return document.getElementById('detail-modal-body');
+  }
+
+  private syncVisibleMarketInventoryState(): void {
+    if (this.modalTab !== 'market') {
+      return;
+    }
+/** body：定义该变量以承载业务值。 */
+    const body = this.getOpenModalBody();
+    if (!body) {
+      return;
+    }
+    body.querySelectorAll<HTMLElement>('[data-market-select-item]').forEach((button) => {
+/** itemKey：定义该变量以承载业务值。 */
+      const itemKey = button.dataset.marketSelectItem;
+/** entry：定义该变量以承载业务值。 */
+      const entry = itemKey
+        ? this.marketUpdate?.listedItems.find((item) => item.itemKey === itemKey) ?? null
+        : null;
+      if (!entry) {
+        return;
+      }
+      this.syncOwnedBadge(button, this.findMatchingInventoryCount(entry.item));
+    });
+    this.syncSelectedBookActionButtons(body);
+  }
+
+  private syncOwnedBadge(button: HTMLElement, ownedCount: number): void {
+/** nameContainer：定义该变量以承载业务值。 */
+    const nameContainer = button.querySelector<HTMLElement>('.market-item-cell-name');
+    if (!nameContainer) {
+      return;
+    }
+/** badge：定义该变量以承载业务值。 */
+    let badge = nameContainer.querySelector<HTMLElement>('.market-item-cell-owned');
+    if (ownedCount > 0) {
+      if (!badge) {
+        badge = document.createElement('span');
+        badge.className = 'market-item-cell-owned';
+        nameContainer.appendChild(badge);
+      }
+      badge.textContent = formatDisplayCountBadge(ownedCount);
+      return;
+    }
+    badge?.remove();
+  }
+
+  private syncSelectedBookActionButtons(body: HTMLElement): void {
+/** selected：定义该变量以承载业务值。 */
+    const selected = this.getSelectedListedItem(this.marketUpdate);
+    if (!selected) {
+      return;
+    }
+/** matchedInventoryCount：定义该变量以承载业务值。 */
+    const matchedInventoryCount = this.findMatchingInventoryCount(selected.item);
+/** sellConflict：定义该变量以承载业务值。 */
+    const sellConflict = this.findConflictingOwnOrder(selected.itemKey, 'sell');
+/** buyConflict：定义该变量以承载业务值。 */
+    const buyConflict = this.findConflictingOwnOrder(selected.itemKey, 'buy');
+    body.querySelectorAll<HTMLElement>('[data-market-open-dialog]').forEach((button) => {
+/** kind：定义该变量以承载业务值。 */
+      const kind = button.dataset.marketOpenDialog as MarketTradeDialogKind | undefined;
+      if (!kind) {
+        return;
+      }
+/** disabled：定义该变量以承载业务值。 */
+      const disabled = kind === 'sell'
+        ? matchedInventoryCount <= 0 || Boolean(sellConflict)
+        : Boolean(buyConflict);
+      button.toggleAttribute('disabled', disabled);
+    });
+  }
+
+  private patchSelectedBookPanel(): void {
+    if (this.modalTab !== 'market') {
+      return;
+    }
+/** body：定义该变量以承载业务值。 */
+    const body = this.getOpenModalBody();
+    if (!body) {
+      return;
+    }
+/** bookPanel：定义该变量以承载业务值。 */
+    const bookPanel = body.querySelector<HTMLElement>('.market-book-panel');
+/** selected：定义该变量以承载业务值。 */
+    const selected = this.getSelectedListedItem(this.marketUpdate);
+/** update：定义该变量以承载业务值。 */
+    const update = this.marketUpdate;
+    if (!bookPanel || !selected || !update) {
+      return;
+    }
+/** orderBook：定义该变量以承载业务值。 */
+    const orderBook = this.itemBook && this.itemBook.itemKey === selected.itemKey ? this.itemBook : null;
+    bookPanel.innerHTML = this.renderBookPanel(selected, orderBook, update.currencyItemName);
+    this.bindBookPanelActionEvents(bookPanel);
+    this.bindItemTooltipEvents(bookPanel);
   }
 
 /** getSelectedListedItem：执行对应的业务逻辑。 */
@@ -1418,9 +1559,177 @@ export class MarketPanel {
     });
   }
 
+  private formatEnhancementEstimateCost(value: number): string {
+    return formatDisplayNumber(value, {
+      maximumFractionDigits: 2,
+      compactMaximumFractionDigits: 2,
+    });
+  }
+
+  private formatEnhancementAttemptCount(value: number): string {
+    return formatDisplayNumber(value, {
+      maximumFractionDigits: 0,
+      compactMaximumFractionDigits: 1,
+    });
+  }
+
+  private computeEnhancementJobBaseTicks(itemLevel: number | undefined): number {
+/** normalizedLevel：定义该变量以承载业务值。 */
+    const normalizedLevel = Math.max(1, Math.floor(Number(itemLevel) || 1));
+    return ENHANCEMENT_BASE_JOB_TICKS + Math.max(0, normalizedLevel - 1) * ENHANCEMENT_JOB_TICKS_PER_ITEM_LEVEL;
+  }
+
+  private formatEnhancementDurationFromTicks(value: number): string {
+/** totalSeconds：定义该变量以承载业务值。 */
+    const totalSeconds = Math.max(0, Math.round(value));
+    if (totalSeconds < 60) {
+      return `${formatDisplayInteger(totalSeconds)}息`;
+    }
+/** hours：定义该变量以承载业务值。 */
+    const hours = Math.floor(totalSeconds / 3600);
+/** minutes：定义该变量以承载业务值。 */
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+/** seconds：定义该变量以承载业务值。 */
+    const seconds = totalSeconds % 60;
+    if (hours > 0) {
+      return `${formatDisplayInteger(hours)}时${formatDisplayInteger(minutes)}分${formatDisplayInteger(seconds)}秒`;
+    }
+    return `${formatDisplayInteger(minutes)}分${formatDisplayInteger(seconds)}秒`;
+  }
+
 /** getMarketTradeTotalCost：执行对应的业务逻辑。 */
   private getMarketTradeTotalCost(quantity: number, unitPrice: number): number | null {
     return calculateMarketTradeTotalCost(quantity, unitPrice);
+  }
+
+  private getMarketEnhanceLevel(item: ItemStack): number {
+    return item.type === 'equipment'
+      ? Math.max(0, Math.floor(Number(item.enhanceLevel) || 0))
+      : 0;
+  }
+
+  private getLocalZeroEnhancementLowestSellPrice(itemId: string): number | undefined {
+    return this.marketUpdate?.listedItems.find((entry) =>
+      entry.item.itemId === itemId
+      && this.getMarketEnhanceLevel(entry.item) === 0
+    )?.lowestSellPrice;
+  }
+
+  private buildMarketItemTooltipPayload(item: ItemStack) {
+    const tooltip = buildItemTooltipPayload(item);
+    const estimate = this.buildEnhancementEstimate(item);
+    if (!estimate) {
+      return tooltip;
+    }
+    return {
+      ...tooltip,
+      lines: [
+        ...tooltip.lines,
+        renderPlainTooltipLine('强化估算', estimate.costLine),
+        renderPlainTooltipLine('期望次数', estimate.attemptsLine),
+        renderPlainTooltipLine('期望时间', estimate.timeLine),
+      ],
+    };
+  }
+
+  private resolveMarketTooltipPayload(node: HTMLElement) {
+    const key = node.dataset.marketItemTooltip;
+    if (!key) {
+      return null;
+    }
+    if (key === 'selected') {
+      const selected = this.getSelectedListedItem(this.marketUpdate);
+      return selected ? this.buildMarketItemTooltipPayload(selected.item) : null;
+    }
+    const listed = this.marketUpdate?.listedItems.find((entry) => entry.itemKey === key) ?? null;
+    return listed ? this.buildMarketItemTooltipPayload(listed.item) : null;
+  }
+
+  private buildEnhancementEstimate(item: ItemStack): MarketEnhancementEstimateView | null {
+    if (item.type !== 'equipment') {
+      return null;
+    }
+/** targetLevel：定义该变量以承载业务值。 */
+    const targetLevel = this.getMarketEnhanceLevel(item);
+    if (targetLevel <= 0) {
+      return null;
+    }
+/** itemLevel：定义该变量以承载业务值。 */
+    const itemLevel = Math.max(1, Math.floor(Number(item.level) || 1));
+/** baseUnitPrice：定义该变量以承载业务值。 */
+    const zeroItemKey = this.getZeroEnhancementItemKey(item);
+    const cachedBaseUnitPrice = zeroItemKey
+      ? this.itemBookCache.get(zeroItemKey)?.sells[0]?.unitPrice
+      : undefined;
+    const localBaseUnitPrice = this.getLocalZeroEnhancementLowestSellPrice(item.itemId);
+    const baseUnitPrice = localBaseUnitPrice ?? cachedBaseUnitPrice;
+    const basePricePending = localBaseUnitPrice === undefined && cachedBaseUnitPrice === undefined;
+    if (basePricePending && zeroItemKey) {
+      this.ensureItemBookCached(zeroItemKey);
+    }
+/** analysis：定义该变量以承载业务值。 */
+    const analysis = computeBestEnhancementExpectedCost({
+      targetLevel,
+      itemLevel,
+      protectionUnitPrice: baseUnitPrice,
+      targetItemUnitPrice: baseUnitPrice,
+      selfProtection: true,
+    });
+/** strategy：定义该变量以承载业务值。 */
+    const strategy = analysis.bestStrategy ?? analysis.strategies[0] ?? null;
+    if (!strategy) {
+      return null;
+    }
+/** usesMarketBasePrice：定义该变量以承载业务值。 */
+    const usesMarketBasePrice = baseUnitPrice !== undefined;
+/** expectedProtectionCost：定义该变量以承载业务值。 */
+    const expectedProtectionCost = strategy.expectedProtectionCost ?? 0;
+/** expectedTotalCost：定义该变量以承载业务值。 */
+    const expectedTotalCost = strategy.expectedSpiritStones + expectedProtectionCost;
+/** protectionStartText：定义该变量以承载业务值。 */
+    const protectionStartText = strategy.protectionStartLevel === null ? '无保护' : `+${strategy.protectionStartLevel}`;
+/** zeroPriceText：定义该变量以承载业务值。 */
+    const zeroPriceText = baseUnitPrice !== undefined
+      ? this.formatMarketUnitPrice(baseUnitPrice)
+      : basePricePending
+        ? '补拉中'
+        : '暂无';
+/** baseTicksPerAttempt：定义该变量以承载业务值。 */
+    const baseTicksPerAttempt = this.computeEnhancementJobBaseTicks(itemLevel);
+/** expectedBaseDurationTicks：定义该变量以承载业务值。 */
+    const expectedBaseDurationTicks = strategy.expectedAttempts * baseTicksPerAttempt;
+/** costLine：定义该变量以承载业务值。 */
+    const costLine = `总灵石 ${this.formatEnhancementEstimateCost(expectedTotalCost)} · 强化消耗 ${this.formatEnhancementEstimateCost(strategy.expectedSpiritStones)} · 保护消耗 ${this.formatEnhancementEstimateCost(expectedProtectionCost)} · +0价格 ${zeroPriceText}`;
+/** attemptsLine：定义该变量以承载业务值。 */
+    const attemptsLine = `${this.formatEnhancementAttemptCount(strategy.expectedAttempts)} 次 · 从${protectionStartText}开始保护 · 期望保护 ${this.formatEnhancementEstimateCost(strategy.expectedProtectionCount)} 个`;
+/** timeLine：定义该变量以承载业务值。 */
+    const timeLine = `${this.formatEnhancementDurationFromTicks(expectedBaseDurationTicks)}（基准每次 ${this.formatEnhancementDurationFromTicks(baseTicksPerAttempt)}）`;
+    return {
+      strategy,
+      costLine,
+      attemptsLine,
+      timeLine,
+      baseUnitPrice,
+      usesMarketBasePrice,
+      basePricePending,
+    };
+  }
+
+  private getZeroEnhancementItemKey(item: ItemStack): string {
+    return createItemStackSignature({
+      ...item,
+      count: 1,
+      enhanceLevel: 0,
+      name: item.name.replace(/^\+\d+\s+/, ''),
+    });
+  }
+
+  private ensureItemBookCached(itemKey: string): void {
+    if (this.itemBookCache.has(itemKey) || this.pendingItemBookKeys.has(itemKey)) {
+      return;
+    }
+    this.pendingItemBookKeys.add(itemKey);
+    this.callbacks?.onRequestItemBook(itemKey);
   }
 
 /** findMatchingInventorySlot：执行对应的业务逻辑。 */
