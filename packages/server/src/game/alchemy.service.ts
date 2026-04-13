@@ -142,6 +142,11 @@ function clampAlchemyModifier(value: number | undefined): number {
   return Math.max(-0.95, Number(value));
 }
 
+/** normalizeAlchemySpeedRate：执行对应的业务逻辑。 */
+function normalizeAlchemySpeedRate(value: number | undefined): number {
+  return Number.isFinite(value) ? Number(value) : 0;
+}
+
 @Injectable()
 /** AlchemyService：封装相关状态与行为。 */
 export class AlchemyService implements OnModuleInit {
@@ -1130,7 +1135,7 @@ export class AlchemyService implements OnModuleInit {
       : null;
     return {
       successRate: clampAlchemyModifier(furnace?.alchemySuccessRate),
-      speedRate: clampAlchemyModifier(furnace?.alchemySpeedRate),
+      speedRate: normalizeAlchemySpeedRate(furnace?.alchemySpeedRate),
     };
   }
 

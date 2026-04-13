@@ -7,6 +7,8 @@ import type {
   PlayerAlchemyPreset,
   TechniqueGrade,
 } from './types';
+import { computeAdjustedCraftTicks } from './craft-duration';
+import { applyAsymptoticSuccessModifier, clampUnitSuccessRate } from './craft-success';
 
 /** ALCHEMY_MAX_PRESET_COUNT：定义该变量以承载业务值。 */
 export const ALCHEMY_MAX_PRESET_COUNT = 24;
@@ -16,11 +18,6 @@ export const ALCHEMY_PREPARATION_TICKS = 10;
 export const ALCHEMY_FURNACE_OUTPUT_COUNT = 6;
 /** DEFAULT_ALCHEMY_SKILL_EXP_TO_NEXT：定义该变量以承载业务值。 */
 const DEFAULT_ALCHEMY_SKILL_EXP_TO_NEXT = 60;
-
-/** clampUnitRate：执行对应的业务逻辑。 */
-function clampUnitRate(value: number): number {
-  return Math.max(0, Math.min(1, Number.isFinite(value) ? value : 0));
-}
 
 /** normalizeAlchemyLevel：执行对应的业务逻辑。 */
 function normalizeAlchemyLevel(value: number | undefined): number {
@@ -71,22 +68,6 @@ export function computeAlchemyTotalJobTicks(
 /** normalizedPreparationTicks：定义该变量以承载业务值。 */
   const normalizedPreparationTicks = Math.max(0, Math.floor(Number(preparationTicks) || 0));
   return normalizedPreparationTicks + (normalizedBatchTicks * normalizeAlchemyQuantity(quantity));
-}
-
-/** applyBoundedSuccessModifier：执行对应的业务逻辑。 */
-function applyBoundedSuccessModifier(rate: number, modifier: number): number {
-/** clampedRate：定义该变量以承载业务值。 */
-  const clampedRate = clampUnitRate(rate);
-  if (clampedRate >= 1) {
-    return 1;
-  }
-  if (!Number.isFinite(modifier) || modifier === 0) {
-    return clampedRate;
-  }
-  if (modifier > 0) {
-    return clampUnitRate(1 - ((1 - clampedRate) * Math.max(0, 1 - modifier)));
-  }
-  return clampUnitRate(clampedRate * Math.max(0, 1 + modifier));
 }
 
 /** resolveAlchemyGradeValue：执行对应的业务逻辑。 */
@@ -227,7 +208,7 @@ export function computeAlchemyAdjustedSuccessRate(
   furnaceSuccessRate = 0,
 ): number {
 /** nextRate：定义该变量以承载业务值。 */
-  let nextRate = clampUnitRate(baseRate);
+  let nextRate = clampUnitSuccessRate(baseRate);
 /** normalizedRecipeLevel：定义该变量以承载业务值。 */
   const normalizedRecipeLevel = normalizeAlchemyLevel(recipeLevel);
 /** normalizedAlchemyLevel：定义该变量以承载业务值。 */
@@ -237,9 +218,9 @@ export function computeAlchemyAdjustedSuccessRate(
   if (levelDelta > 0) {
     nextRate *= 0.9 ** levelDelta;
   } else if (levelDelta < 0) {
-    nextRate = 1 - ((1 - nextRate) * (0.98 ** Math.abs(levelDelta)));
+    nextRate = applyAsymptoticSuccessModifier(nextRate, Math.abs(levelDelta) * Math.log(1 / 0.98));
   }
-  return applyBoundedSuccessModifier(nextRate, furnaceSuccessRate);
+  return applyAsymptoticSuccessModifier(nextRate, furnaceSuccessRate);
 }
 
 /** computeAlchemyBrewTicks：执行对应的业务逻辑。 */
@@ -261,8 +242,8 @@ export function computeAlchemyBrewTicks(
   return Math.max(1, Math.ceil(normalizedBase * Math.max(0, ratio))) * normalizedFurnaceOutputCount;
 }
 
-/** computeAlchemySpeedMultiplier：执行对应的业务逻辑。 */
-export function computeAlchemySpeedMultiplier(
+/** computeAlchemySpeedRate：执行对应的业务逻辑。 */
+export function computeAlchemySpeedRate(
   recipeLevel: number | undefined,
   alchemyLevel: number | undefined,
   furnaceSpeedRate = 0,
@@ -273,21 +254,17 @@ export function computeAlchemySpeedMultiplier(
   const normalizedAlchemyLevel = normalizeAlchemyLevel(alchemyLevel);
 /** levelDelta：定义该变量以承载业务值。 */
   const levelDelta = normalizedRecipeLevel - normalizedAlchemyLevel;
-/** multiplier：定义该变量以承载业务值。 */
-  let multiplier = 1;
+/** speedRate：定义该变量以承载业务值。 */
+  let speedRate = 0;
   if (levelDelta > 0) {
-    multiplier *= 0.9 ** levelDelta;
+    speedRate -= 0.1 * levelDelta;
   } else if (levelDelta < 0) {
-    multiplier += Math.abs(levelDelta) * 0.02;
+    speedRate += Math.abs(levelDelta) * 0.02;
   }
   if (Number.isFinite(furnaceSpeedRate) && furnaceSpeedRate !== 0) {
-    if (furnaceSpeedRate > 0) {
-      multiplier += furnaceSpeedRate;
-    } else {
-      multiplier *= Math.max(0.05, 1 + furnaceSpeedRate);
-    }
+    speedRate += furnaceSpeedRate;
   }
-  return Math.max(0.05, multiplier);
+  return speedRate;
 }
 
 /** computeAlchemyAdjustedBrewTicks：执行对应的业务逻辑。 */
@@ -302,9 +279,9 @@ export function computeAlchemyAdjustedBrewTicks(
 ): number {
 /** baseTicks：定义该变量以承载业务值。 */
   const baseTicks = computeAlchemyBrewTicks(baseBrewTicks, recipe, submitted, furnaceOutputCount);
-/** speedMultiplier：定义该变量以承载业务值。 */
-  const speedMultiplier = computeAlchemySpeedMultiplier(recipeLevel, alchemyLevel, furnaceSpeedRate);
-  return Math.max(1, Math.ceil(baseTicks / speedMultiplier));
+/** speedRate：定义该变量以承载业务值。 */
+  const speedRate = computeAlchemySpeedRate(recipeLevel, alchemyLevel, furnaceSpeedRate);
+  return computeAdjustedCraftTicks(baseTicks, speedRate);
 }
 
 /** normalizeAlchemyIngredientSelections：执行对应的业务逻辑。 */
@@ -426,4 +403,3 @@ export function normalizePlayerAlchemyJob(value: unknown): PlayerAlchemyJob | nu
     startedAt: Math.max(0, Math.floor(Number(candidate.startedAt) || 0)),
   };
 }
-
