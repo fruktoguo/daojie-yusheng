@@ -1678,6 +1678,7 @@ function buildAttrStateFromPlayer(player: PlayerState): S2C_AttrUpdate {
     realmProgressToNext: player.realm?.progressToNext,
     realmBreakthroughReady: player.realm?.breakthroughReady ?? player.breakthroughReady,
     alchemySkill: player.alchemySkill ? cloneJson(player.alchemySkill) : undefined,
+    gatherSkill: player.gatherSkill ? cloneJson(player.gatherSkill) : undefined,
     enhancementSkill: player.enhancementSkill ? cloneJson(player.enhancementSkill) : undefined,
   };
 }
@@ -1733,6 +1734,9 @@ function mergeAttrUpdatePatch(previous: S2C_AttrUpdate | null, patch: S2C_AttrUp
     alchemySkill: patch.alchemySkill
       ? cloneJson(patch.alchemySkill)
       : (previous?.alchemySkill ? cloneJson(previous.alchemySkill) : (myPlayer?.alchemySkill ? cloneJson(myPlayer.alchemySkill) : undefined)),
+    gatherSkill: patch.gatherSkill
+      ? cloneJson(patch.gatherSkill)
+      : (previous?.gatherSkill ? cloneJson(previous.gatherSkill) : (myPlayer?.gatherSkill ? cloneJson(myPlayer.gatherSkill) : undefined)),
     enhancementSkill: patch.enhancementSkill
       ? cloneJson(patch.enhancementSkill)
       : (previous?.enhancementSkill ? cloneJson(previous.enhancementSkill) : (myPlayer?.enhancementSkill ? cloneJson(myPlayer.enhancementSkill) : undefined)),
@@ -2793,6 +2797,7 @@ socket.onAttrUpdate((data) => {
     }
     myPlayer.breakthroughReady = latestAttrUpdate.realmBreakthroughReady ?? myPlayer.breakthroughReady;
     myPlayer.alchemySkill = latestAttrUpdate.alchemySkill ?? myPlayer.alchemySkill;
+    myPlayer.gatherSkill = latestAttrUpdate.gatherSkill ?? myPlayer.gatherSkill;
     myPlayer.enhancementSkill = latestAttrUpdate.enhancementSkill ?? myPlayer.enhancementSkill;
     if (myPlayer.realm) {
       myPlayer.realm.progress = latestAttrUpdate.realmProgress ?? myPlayer.realm.progress;
@@ -4282,4 +4287,3 @@ socket.onTick((data: S2C_Tick) => {
 
 restartPingLoop();
 void loginUI.restoreSession();
-

@@ -333,6 +333,11 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
         exp: 0,
         expToNext: initialAlchemyExpToNext,
       },
+      gatherSkill: {
+        level: 1,
+        exp: 0,
+        expToNext: initialAlchemyExpToNext,
+      },
       alchemyPresets: [],
       alchemyJob: null,
       enhancementSkill: {
@@ -1438,6 +1443,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
       ratioDivisors: this.attrService.getPlayerRatioDivisors(player),
       numericStatBreakdowns: this.attrService.getPlayerNumericStatBreakdowns(player),
       alchemySkill: player.alchemySkill,
+      gatherSkill: player.gatherSkill,
       enhancementSkill: player.enhancementSkill,
     } satisfies S2C_AttrDetail);
   }

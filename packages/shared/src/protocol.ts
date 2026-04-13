@@ -1080,6 +1080,7 @@ export interface S2C_AttrUpdate {
   realmProgressToNext?: number;
   realmBreakthroughReady?: boolean;
   alchemySkill?: PlayerState['alchemySkill'];
+  gatherSkill?: PlayerState['gatherSkill'];
   enhancementSkill?: PlayerState['enhancementSkill'];
 }
 
@@ -1560,6 +1561,7 @@ export interface S2C_AttrDetail {
 /** numericStatBreakdowns：定义该变量以承载业务值。 */
   numericStatBreakdowns: NumericStatBreakdownMap;
   alchemySkill?: PlayerState['alchemySkill'];
+  gatherSkill?: PlayerState['gatherSkill'];
   enhancementSkill?: PlayerState['enhancementSkill'];
 }
 

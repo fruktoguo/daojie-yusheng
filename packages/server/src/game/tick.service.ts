@@ -721,6 +721,14 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     for (const playerId of lootTick.dirtyPlayers) {
       this.playerService.markDirty(playerId, 'loot');
     }
+    for (const entry of lootTick.playerDirtyFlags) {
+      for (const flag of entry.flags) {
+        this.playerService.markDirty(entry.playerId, flag);
+      }
+    }
+    for (const message of lootTick.messages) {
+      messages.push({ playerId: message.playerId, text: message.text, kind: message.kind });
+    }
 
     this.measureCpuSection('player_presence', '在线态与保活', () => {
       this.tickPlayerPresence(mapId, now);
@@ -3795,6 +3803,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       realmProgressToNext: player.realm?.progressToNext,
       realmBreakthroughReady: player.realm?.breakthroughReady,
       alchemySkill: player.alchemySkill ? this.cloneStructured(player.alchemySkill) : undefined,
+      gatherSkill: player.gatherSkill ? this.cloneStructured(player.gatherSkill) : undefined,
       enhancementSkill: player.enhancementSkill ? this.cloneStructured(player.enhancementSkill) : undefined,
     };
   }
@@ -4076,6 +4085,9 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     }
     if (!previous || !this.isStructuredEqual(previous.alchemySkill, nextState.alchemySkill)) {
       patch.alchemySkill = nextState.alchemySkill ? this.cloneStructured(nextState.alchemySkill) : undefined;
+    }
+    if (!previous || !this.isStructuredEqual(previous.gatherSkill, nextState.gatherSkill)) {
+      patch.gatherSkill = nextState.gatherSkill ? this.cloneStructured(nextState.gatherSkill) : undefined;
     }
     if (!previous || !this.isStructuredEqual(previous.enhancementSkill, nextState.enhancementSkill)) {
       patch.enhancementSkill = nextState.enhancementSkill ? this.cloneStructured(nextState.enhancementSkill) : undefined;
@@ -4984,5 +4996,3 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
   }
 
 }
-
-

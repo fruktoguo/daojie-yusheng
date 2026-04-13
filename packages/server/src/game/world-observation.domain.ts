@@ -263,6 +263,7 @@ export class WorldObservationDomain {
             { label: '品阶', value: runtime.herb.grade ?? 'mortal' },
             { label: '等级', value: `${runtime.herb.level ?? 1}` },
             { label: '采集耗时', value: `${runtime.herb.gatherTicks} 息` },
+            { label: '当前存量', value: `${Math.max(0, Math.floor(runtime.availableCount ?? 0))}` },
             { label: '状态', value: runtime.destroyed ? '已摧毁' : (runtime.respawning ? '回生中' : '可采集') },
             ...((runtime.destroyed || runtime.respawning) ? [{
               label: '再生剩余',
@@ -433,4 +434,3 @@ export class WorldObservationDomain {
     return this.contentService.getRealmLevelEntry(level)?.displayName ?? `Lv.${level}`;
   }
 }
-

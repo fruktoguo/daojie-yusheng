@@ -73,6 +73,7 @@ export class RedisService implements OnModuleDestroy {
       spiritualRoots: JSON.stringify(state.spiritualRoots ?? null),
       unlockedMinimapIds: JSON.stringify(state.unlockedMinimapIds ?? []),
       alchemySkill: JSON.stringify(state.alchemySkill ?? null),
+      gatherSkill: JSON.stringify(state.gatherSkill ?? null),
       enhancementSkill: JSON.stringify(state.enhancementSkill ?? null),
       alchemyPresets: JSON.stringify(state.alchemyPresets ?? []),
       alchemyJob: JSON.stringify(state.alchemyJob ?? null),
@@ -122,4 +123,3 @@ export class RedisService implements OnModuleDestroy {
     } while (cursor !== '0');
   }
 }
-

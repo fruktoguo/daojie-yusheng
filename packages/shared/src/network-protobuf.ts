@@ -242,6 +242,7 @@ message AttrUpdatePayload {
   optional string numericStatBreakdownsJson = 18;
   optional string alchemySkillJson = 19;
   optional string enhancementSkillJson = 20;
+  optional string gatherSkillJson = 21;
   optional uint32 maxHp = 6;
   optional uint32 qi = 7;
   optional string realmJson = 8;
@@ -1092,6 +1093,7 @@ function toWireAttrUpdate(payload: S2C_AttrUpdate): Record<string, unknown> {
   if (payload.numericStatBreakdowns !== undefined) wire.numericStatBreakdownsJson = JSON.stringify(payload.numericStatBreakdowns);
   if (payload.alchemySkill !== undefined) wire.alchemySkillJson = JSON.stringify(payload.alchemySkill);
   if (payload.enhancementSkill !== undefined) wire.enhancementSkillJson = JSON.stringify(payload.enhancementSkill);
+  if (payload.gatherSkill !== undefined) wire.gatherSkillJson = JSON.stringify(payload.gatherSkill);
   if (payload.maxHp !== undefined) wire.maxHp = payload.maxHp;
   if (payload.qi !== undefined) wire.qi = payload.qi;
   if (payload.specialStats) wire.specialStats = toWirePlayerSpecialStats(payload.specialStats);
@@ -1120,6 +1122,7 @@ function fromWireAttrUpdate(wire: Record<string, unknown>): S2C_AttrUpdate {
   if (typeof wire.numericStatBreakdownsJson === 'string') payload.numericStatBreakdowns = parseJson(wire.numericStatBreakdownsJson);
   if (typeof wire.alchemySkillJson === 'string') payload.alchemySkill = parseJson(wire.alchemySkillJson);
   if (typeof wire.enhancementSkillJson === 'string') payload.enhancementSkill = parseJson(wire.enhancementSkillJson);
+  if (typeof wire.gatherSkillJson === 'string') payload.gatherSkill = parseJson(wire.gatherSkillJson);
   if (hasOwn(wire, 'maxHp')) payload.maxHp = Number(wire.maxHp ?? 0);
   if (hasOwn(wire, 'qi')) payload.qi = Number(wire.qi ?? 0);
   if (hasOwn(wire, 'specialStats')) payload.specialStats = fromWirePlayerSpecialStats(wire.specialStats as Record<string, unknown>);
@@ -1200,4 +1203,3 @@ export function encodeClientEventPayload<T>(event: string, payload: T): T {
 export function isBinaryPayload(payload: unknown): payload is BinaryPayload {
   return normalizeBinaryPayload(payload) !== null;
 }
-

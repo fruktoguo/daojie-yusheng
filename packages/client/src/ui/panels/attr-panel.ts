@@ -1075,9 +1075,11 @@ export class AttrPanel {
   private buildCraftPaneSnapshot(detail?: S2C_AttrDetail | null): AttrPaneSnapshot {
 /** alchemySkill：定义该变量以承载业务值。 */
     const alchemySkill = detail?.alchemySkill ?? this.latestData?.alchemySkill;
+/** gatherSkill：定义该变量以承载业务值。 */
+    const gatherSkill = detail?.gatherSkill ?? this.latestData?.gatherSkill;
 /** enhancementSkill：定义该变量以承载业务值。 */
     const enhancementSkill = detail?.enhancementSkill ?? this.latestData?.enhancementSkill;
-    if (!alchemySkill && !enhancementSkill) {
+    if (!alchemySkill && !gatherSkill && !enhancementSkill) {
       return { kind: 'placeholder', message: '技艺信息尚未同步' };
     }
 /** skills：定义该变量以承载业务值。 */
@@ -1092,6 +1094,18 @@ export class AttrPanel {
         progress: `${formatDisplayInteger(alchemySkill.exp)}/${formatDisplayInteger(alchemySkill.expToNext)}`,
         remain: `距下一级还需 ${formatDisplayInteger(remain)} 炼丹经验`,
         progressPercent: `${(getCraftProgressRatio(alchemySkill.exp, alchemySkill.expToNext) * 100).toFixed(2)}%`,
+      });
+    }
+    if (gatherSkill) {
+/** remain：定义该变量以承载业务值。 */
+      const remain = Math.max(0, gatherSkill.expToNext - gatherSkill.exp);
+      skills.push({
+        key: 'gather',
+        label: '采集',
+        level: `LV ${formatDisplayInteger(gatherSkill.level)}`,
+        progress: `${formatDisplayInteger(gatherSkill.exp)}/${formatDisplayInteger(gatherSkill.expToNext)}`,
+        remain: `距下一级还需 ${formatDisplayInteger(remain)} 采集经验`,
+        progressPercent: `${(getCraftProgressRatio(gatherSkill.exp, gatherSkill.expToNext) * 100).toFixed(2)}%`,
       });
     }
     if (enhancementSkill) {

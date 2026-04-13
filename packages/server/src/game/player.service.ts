@@ -298,6 +298,7 @@ export class PlayerService implements OnModuleInit {
       spiritualRoots: this.toNullableJsonbValue(state.spiritualRoots),
       unlockedMinimapIds: state.unlockedMinimapIds as any,
       alchemySkill: state.alchemySkill as any,
+      gatherSkill: state.gatherSkill as any,
       alchemyPresets: (state.alchemyPresets ?? []) as any,
       alchemyJob: this.toNullableJsonbValue(state.alchemyJob),
       enhancementSkillLevel: Math.max(1, Math.floor(Number(state.enhancementSkill?.level ?? state.enhancementSkillLevel) || 1)),
@@ -1529,6 +1530,10 @@ export class PlayerService implements OnModuleInit {
         entity.alchemySkill,
         this.contentService.getRealmLevelEntry(1)?.expToNext ?? 60,
       ),
+      gatherSkill: normalizeAlchemySkillState(
+        entity.gatherSkill,
+        this.contentService.getRealmLevelEntry(1)?.expToNext ?? 60,
+      ),
       alchemyPresets: normalizePlayerAlchemyPresets(entity.alchemyPresets),
       alchemyJob: normalizePlayerAlchemyJob(entity.alchemyJob),
       enhancementSkill: normalizeAlchemySkillState(
@@ -1645,4 +1650,3 @@ export class PlayerService implements OnModuleInit {
     await this.userRepo.save(user);
   }
 }
-

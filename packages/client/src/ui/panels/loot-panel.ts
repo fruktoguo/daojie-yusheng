@@ -244,6 +244,8 @@ export class LootPanel {
     if (source.variant !== 'herb' || !source.herb) {
       return '';
     }
+/** totalCount：定义该变量以承载业务值。 */
+    const totalCount = source.items.reduce((sum, entry) => sum + Math.max(0, Math.floor(entry.item.count || 0)), 0);
     return `
       <div class="herb-gather-summary">
         <div class="herb-gather-summary-name">${escapeHtml(source.herb.name)}</div>
@@ -251,6 +253,7 @@ export class LootPanel {
           <span>${escapeHtml(source.herb.grade ?? 'mortal')}</span>
           <span>LV ${formatDisplayInteger(source.herb.level ?? 1)}</span>
           <span>采集 ${formatDisplayInteger(source.herb.gatherTicks)} 息</span>
+          <span>存量 ${formatDisplayInteger(totalCount)} 朵</span>
           <span>${source.destroyed ? '已摧毁' : '可采集'}</span>
         </div>
       </div>
@@ -267,7 +270,7 @@ export class LootPanel {
     return `
       <div class="loot-search-state">
         <div class="loot-search-copy">
-          <strong>${isHerb ? '采集中' : '搜索中'}</strong>
+          <strong>${isHerb ? '连续采摘中' : '搜索中'}</strong>
           <span>${formatDisplayInteger(source.search.elapsedTicks)} / ${formatDisplayInteger(source.search.totalTicks)} 息</span>
         </div>
         <div class="loot-search-bar"><span class="loot-search-fill" style="width:${Math.max(0, Math.min(100, (source.search.elapsedTicks / Math.max(1, source.search.totalTicks)) * 100))}%"></span></div>
@@ -279,6 +282,8 @@ export class LootPanel {
   private renderItems(source: LootWindowState['sources'][number]): string {
 /** isHerb：定义该变量以承载业务值。 */
     const isHerb = source.variant === 'herb';
+/** herbBusy：定义该变量以承载业务值。 */
+    const herbBusy = isHerb && Boolean(source.search && source.search.remainingTicks > 0);
     if (source.items.length === 0) {
       return `<div class="loot-source-empty">${escapeHtml(source.emptyText ?? '这里什么都没有。')}</div>`;
     }
@@ -299,7 +304,7 @@ export class LootPanel {
                 </div>`
               : ''}
             <div class="inventory-cell-actions">
-              <button class="small-btn" data-loot-take="true" data-source-id="${escapeHtml(source.sourceId)}" data-item-key="${escapeHtml(entry.itemKey)}" type="button">${isHerb ? '采摘' : '拿取'}</button>
+              <button class="small-btn" data-loot-take="true" data-source-id="${escapeHtml(source.sourceId)}" data-item-key="${escapeHtml(entry.itemKey)}" type="button"${herbBusy ? ' disabled' : ''}>${isHerb ? (herbBusy ? '连续采摘中' : '开始采摘') : '拿取'}</button>
             </div>
           </div>
         `).join('')}
@@ -307,4 +312,3 @@ export class LootPanel {
     `;
   }
 }
-

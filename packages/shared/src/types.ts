@@ -1047,6 +1047,8 @@ export interface LootWindowHerbMeta {
   level?: number;
 /** gatherTicks：定义该变量以承载业务值。 */
   gatherTicks: number;
+/** nativeGatherTicks：定义该变量以承载业务值。 */
+  nativeGatherTicks?: number;
 }
 
 /** 地面物品条目视图 */
@@ -2148,6 +2150,7 @@ export interface PlayerState {
   questCrossMapNavCooldownUntilLifeTicks?: number;
   pendingSkillCast?: PendingPlayerSkillCast;
   alchemySkill?: AlchemySkillState;
+  gatherSkill?: AlchemySkillState;
   alchemyPresets?: PlayerAlchemyPreset[];
   alchemyJob?: PlayerAlchemyJob | null;
   enhancementSkill?: AlchemySkillState;

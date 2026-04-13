@@ -169,6 +169,10 @@ export class PlayerEntity {
   @Column({ type: 'jsonb', default: () => '\'{"level":1,"exp":0,"expToNext":60}\'' })
   alchemySkill!: unknown;
 
+  /** 采集技艺等级 */
+  @Column({ type: 'jsonb', default: () => '\'{"level":1,"exp":0,"expToNext":60}\'' })
+  gatherSkill!: unknown;
+
   /** 玩家保存的简易丹方 */
   @Column({ type: 'jsonb', default: () => `'[]'` })
   alchemyPresets!: unknown[];
@@ -268,4 +272,3 @@ export class PlayerEntity {
   @UpdateDateColumn()
   updatedAt!: Date;
 }
-
