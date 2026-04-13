@@ -1961,7 +1961,10 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     if (!item || item.type !== 'consumable') {
       return false;
     }
-    return (item.healAmount ?? 0) > 0 || (item.healPercent ?? 0) > 0 || (item.qiPercent ?? 0) > 0;
+    return (item.healAmount ?? 0) > 0
+      || (item.healPercent ?? 0) > 0
+      || (item.qiPercent ?? 0) > 0
+      || (item.consumeBuffs?.length ?? 0) > 0;
   }
 
 /** normalizeAutoUsePills：执行对应的业务逻辑。 */
@@ -4981,6 +4984,5 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
   }
 
 }
-
 
 

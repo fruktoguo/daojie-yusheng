@@ -3654,7 +3654,7 @@ export class ActionPanel {
     const pickerEntries = this.getAutoUsePillPickerEntries();
 /** pickerBody：定义该变量以承载业务值。 */
     const pickerBody = pickerEntries.length === 0
-      ? '<div class="empty-hint">当前没有可选的生命/灵力回复药品。</div>'
+      ? '<div class="empty-hint">当前没有可选的自动服用丹药。</div>'
       : `<div class="auto-pill-picker-grid">
         ${pickerEntries.map((entry) => `
           <button
@@ -4709,4 +4709,3 @@ export class ActionPanel {
     </div>`;
   }
 }
-

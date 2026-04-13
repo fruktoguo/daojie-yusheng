@@ -45,8 +45,13 @@ export function readBoolean(...values: unknown[]): boolean {
 }
 
 /** isAutoUseConsumableCandidate：执行对应的业务逻辑。 */
-export function isAutoUseConsumableCandidate(item: Pick<ItemStack, 'healAmount' | 'healPercent' | 'qiPercent'>): boolean {
-  return (item.healAmount ?? 0) > 0 || (item.healPercent ?? 0) > 0 || (item.qiPercent ?? 0) > 0;
+export function isAutoUseConsumableCandidate(
+  item: Pick<ItemStack, 'healAmount' | 'healPercent' | 'qiPercent' | 'consumeBuffs'>,
+): boolean {
+  return (item.healAmount ?? 0) > 0
+    || (item.healPercent ?? 0) > 0
+    || (item.qiPercent ?? 0) > 0
+    || (item.consumeBuffs?.length ?? 0) > 0;
 }
 
 /** decodePresetTextValue：执行对应的业务逻辑。 */
@@ -157,7 +162,6 @@ export function getSkillAffinityBadge(skill: SkillDef): {
 export function getSkillEnabledTechniques(player: PlayerState): PlayerState['techniques'] {
   return player.techniques.filter((technique) => technique.skillsEnabled !== false);
 }
-
 
 
 
