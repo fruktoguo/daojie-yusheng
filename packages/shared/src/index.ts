@@ -18,6 +18,8 @@ export * from './targeting';
 export * from './target-ref';
 export * from './terrain';
 export * from './alchemy';
+export * from './craft-duration';
+export * from './craft-success';
 export * from './craft-skill';
 export * from './enhancement';
 export * from './value';
