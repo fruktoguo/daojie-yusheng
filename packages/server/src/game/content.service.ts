@@ -570,6 +570,111 @@ const ITEM_TAG_OVERRIDES: Partial<Record<string, string[]>> = {
   'book.iron_bone_art': ['炼体'],
 };
 
+/** LEGACY_ITEM_ID_ALIASES：定义该变量以承载业务值。 */
+const LEGACY_ITEM_ID_ALIASES: Record<string, string> = {
+  'equip.road_cleaver': 'equip.broken_rune_blade',
+  'equip.rust_saber': 'equip.broken_rune_blade',
+  'equip.bone_dagger': 'equip.broken_rune_blade',
+  'equip.scavenger_fang': 'equip.broken_rune_blade',
+  'equip.black_iron_sword': 'equip.orebreak_hammer',
+  'equip.crystal_maw_spike': 'equip.orebreak_hammer',
+  'equip.grassbound_shoes': 'equip.trench_runner_boots',
+  'equip.step_boots': 'equip.trench_runner_boots',
+  'equip.gutter_paws': 'equip.trench_runner_boots',
+  'equip.ash_tread': 'equip.trench_runner_boots',
+  'equip.cave_skitter_spurs': 'equip.trench_runner_boots',
+  'equip.trace_pattern_boots': 'equip.trench_runner_boots',
+  'equip.porter_jacket': 'equip.herb_mist_robe',
+  'equip.bound_chest': 'equip.herb_mist_robe',
+  'equip.scrap_hide': 'equip.herb_mist_robe',
+  'equip.hunter_cap': 'equip.gate_headcloth',
+  'equip.scavenger_crest': 'equip.gate_headcloth',
+  'equip.wasteland_cap': 'equip.gate_headcloth',
+  'equip.miner_helmet': 'equip.soot_lamp_hood',
+  'equip.remnant_array_crown': 'equip.soot_lamp_hood',
+  'equip.oreplate_carapace': 'equip.rift_guard_armor',
+  'equip.blackiron_brigandine': 'equip.rift_guard_armor',
+  'equip.rune_robe': 'equip.rift_guard_armor',
+  'equip.stele_shell_armor': 'equip.rift_guard_armor',
+  'equip.herb_basket_charm': 'equip.gather_qi_pendant',
+  'equip.marsh_poison_gland': 'equip.gather_qi_pendant',
+  'equip.orevein_ring': 'equip.gather_qi_pendant',
+  'equip.pattern_picker_ring': 'equip.gather_qi_pendant',
+  'equip.mineral_pulse_core': 'equip.soul_devour_token',
+  'equip.echo_crystal_crest': 'equip.soul_devour_token',
+  'equip.soul_ink_pendant': 'equip.soul_devour_token',
+  'equip.bamboo_fang_blade': 'equip.vineguide_staff',
+  'equip.bamboo_split_blade': 'equip.vineguide_staff',
+  'equip.leafshadow_crest': 'equip.verdant_crown',
+  'equip.bamboo_hat': 'equip.verdant_crown',
+  'equip.windjoint_boots': 'equip.scar_tread_boots',
+  'equip.dewstep_boots': 'equip.scar_tread_boots',
+  'equip.vale_stride_boots': 'equip.scar_tread_boots',
+  'equip.snakeshed_vest': 'equip.cleantide_robe',
+  'equip.returnvine_robe': 'equip.cleantide_robe',
+  'equip.bamboo_heart_charm': 'equip.returnbreath_copper_pendant',
+  'equip.lifepulse_pendant': 'equip.returnbreath_copper_pendant',
+  'equip.liyan_crown': 'equip.verdant_crown',
+  'equip.firestride_boots': 'equip.scar_tread_boots',
+  'equip.scorchcourt_battlecoat': 'equip.cleft_blade_cloak',
+  'equip.moonwell_gauze_crown': 'equip.yuetown_mask',
+  'equip.dew_tide_pendant': 'equip.returnbreath_copper_pendant',
+  'equip.mistwalker_boots': 'equip.returnarray_boots',
+  'equip.fiveqi_watch_crown': 'equip.yuetown_mask',
+  'equip.guizang_aperture_robe': 'equip.mountainseal_plate',
+  'equip.halfbase_ring': 'equip.deepvein_core',
+  'equip.yellow_stone_browguard': 'equip.mount_guard_helm',
+  'equip.stone_ridge_helm': 'equip.mount_guard_helm',
+  'equip.heavystele_helm': 'equip.mount_guard_helm',
+  'equip.earthlord_helm': 'equip.mount_guard_helm',
+  'equip.ridgehide_vest': 'equip.mountainseal_plate',
+  'equip.deepvein_plate': 'equip.mountainseal_plate',
+  'equip.terrace_guard_armor': 'equip.mountainseal_plate',
+  'equip.loadstone_plate': 'equip.mountainseal_plate',
+  'equip.rampart_plate': 'equip.mountainseal_plate',
+  'equip.heavy_claw_boots': 'equip.returnarray_boots',
+  'equip.burden_greaves': 'equip.returnarray_boots',
+  'equip.sinking_vein_hammer': 'equip.ridgecleft_halberd',
+  'equip.yuepattern_pole': 'equip.ridgecleft_halberd',
+  'equip.burden_stele_staff': 'equip.ridgecleft_halberd',
+  'equip.darkpeak_fist_seal': 'equip.ridgecleft_halberd',
+  'equip.mountainheart_token': 'equip.deepvein_core',
+  'equip.quakeheart_stone': 'equip.deepvein_core',
+  'equip.sealridge_iron_ring': 'equip.deepvein_core',
+  'equip.cleft_short_blade': 'equip.full_edge_blade',
+  'equip.stele_edge_blade': 'equip.full_edge_blade',
+  'equip.sand_edge_headband': 'equip.sand_ghost_mask',
+  'equip.stele_pattern_helm': 'equip.sand_ghost_mask',
+  'equip.cleft_long_halberd': 'equip.ridgecleft_halberd',
+  'equip.banner_war_halberd': 'equip.ridgecleft_halberd',
+  'equip.remnant_banner_spear': 'equip.ridgecleft_halberd',
+  'equip.gold_sand_cuirass': 'equip.cleft_blade_cloak',
+  'equip.cleft_scale_armor': 'equip.cleft_blade_cloak',
+  'equip.edge_core_shell': 'equip.cleft_blade_cloak',
+  'equip.old_guard_iron_armor': 'equip.mountainseal_plate',
+  'equip.gold_coffin_plate': 'equip.mountainseal_plate',
+  'equip.iron_track_boots': 'equip.chasing_edge_boots',
+  'equip.gold_sand_talisman': 'equip.furnace_red_ring',
+  'equip.edge_command_token': 'equip.furnace_red_ring',
+  'equip.counter_shock_iron_ring': 'equip.furnace_red_ring',
+  'equip.sealed_edge_stoneheart': 'equip.furnace_red_ring',
+  'equip.remnant_banner_helm': 'equip.mount_guard_helm',
+  'equip.bent_flag_heavy_helm': 'equip.mount_guard_helm',
+  'equip.tomb_gate_general_helm': 'equip.mount_guard_helm',
+  'equip.valley_fang_blade': 'equip.ridgecleft_halberd',
+  'equip.starfall_spear': 'equip.ember_scorch_spear',
+  'equip.windhear_crown': 'equip.mount_guard_helm',
+  'equip.celestial_crown': 'equip.mount_guard_helm',
+  'equip.beastbone_mail': 'equip.mountainseal_plate',
+  'equip.ridge_calm_robe': 'equip.mountainseal_plate',
+  'equip.predator_tendon_boots': 'equip.returnarray_boots',
+  'equip.threshold_boots': 'equip.returnarray_boots',
+  'equip.spirit_ring': 'equip.deepvein_core',
+  'equip.guiding_marrow_pendant': 'equip.deepvein_core',
+  'equip.void_talisman': 'equip.deepvein_core',
+  'equip.bloodcore_talisman': 'equip.deepvein_core',
+};
+
 /** CULTIVATION_PILL_ITEM_IDS：定义该变量以承载业务值。 */
 const CULTIVATION_PILL_ITEM_IDS = new Set([
   'pill.bitter_cultivation_elixir',
@@ -2367,7 +2472,7 @@ export class ContentService implements OnModuleInit {
   createItem(itemId: string, count = 1): ItemStack | null {
     this.ensureLoaded();
 /** item：定义该变量以承载业务值。 */
-    const item = this.items.get(itemId);
+    const item = this.items.get(this.resolveItemIdAlias(itemId));
     if (!item) return null;
     return this.createItemStackFromTemplate(item, count);
   }
@@ -2459,10 +2564,15 @@ export class ContentService implements OnModuleInit {
     return normalized;
   }
 
-/** getItem：执行对应的业务逻辑。 */
+  /** getItem：执行对应的业务逻辑。 */
   getItem(itemId: string): ItemTemplate | undefined {
     this.ensureLoaded();
-    return this.items.get(itemId);
+    return this.items.get(this.resolveItemIdAlias(itemId));
+  }
+
+/** resolveItemIdAlias：执行对应的业务逻辑。 */
+  private resolveItemIdAlias(itemId: string): string {
+    return LEGACY_ITEM_ID_ALIASES[itemId] ?? itemId;
   }
 
 /** getMonsterTemplate：执行对应的业务逻辑。 */
@@ -2479,7 +2589,7 @@ export class ContentService implements OnModuleInit {
 /** getItemSortLevel：执行对应的业务逻辑。 */
   getItemSortLevel(item: Pick<ItemStack, 'itemId' | 'level'>): number {
 /** template：定义该变量以承载业务值。 */
-    const template = this.items.get(item.itemId);
+    const template = this.getItem(item.itemId);
     if (template?.learnTechniqueId) {
 /** technique：定义该变量以承载业务值。 */
       const technique = this.getTechnique(template.learnTechniqueId);

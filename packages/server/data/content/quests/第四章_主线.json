@@ -52,12 +52,6 @@
       "acceptRealmLv": 14,
       "reward": [
         {
-          "itemId": "equip.valley_fang_blade",
-          "name": "裂齿斩骨刀",
-          "type": "equipment",
-          "count": 1
-        },
-        {
           "itemId": "pill.crimson_bud_elixir",
           "name": "赤芽丹",
           "type": "consumable",
@@ -116,8 +110,8 @@
       "required": 1,
       "reward": [
         {
-          "itemId": "equip.spirit_ring",
-          "name": "养灵木戒",
+          "itemId": "equip.furnace_red_ring",
+          "name": "炉心赤戒",
           "type": "equipment",
           "count": 1
         }
@@ -146,8 +140,8 @@
       "acceptRealmLv": 17,
       "reward": [
         {
-          "itemId": "equip.celestial_crown",
-          "name": "观脉骨冠",
+          "itemId": "equip.verdant_crown",
+          "name": "青萝束冠",
           "type": "equipment",
           "count": 1
         }

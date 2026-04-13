@@ -19,8 +19,8 @@
     "tier": "mortal_blood",
     "count": 5,
     "equipment": {
-      "head": "equip.scavenger_crest",
-      "legs": "equip.gutter_paws"
+      "head": "equip.gate_headcloth",
+      "legs": "equip.trench_runner_boots"
     },
     "attrs": {
       "constitution": 10,
@@ -70,8 +70,8 @@
     "tier": "mortal_blood",
     "count": 4,
     "equipment": {
-      "head": "equip.scavenger_crest",
-      "legs": "equip.gutter_paws"
+      "head": "equip.gate_headcloth",
+      "legs": "equip.trench_runner_boots"
     },
     "attrs": {
       "constitution": 10,
@@ -121,9 +121,9 @@
     "tier": "mortal_blood",
     "count": 4,
     "equipment": {
-      "weapon": "equip.road_cleaver",
-      "body": "equip.porter_jacket",
-      "legs": "equip.grassbound_shoes"
+      "weapon": "equip.broken_rune_blade",
+      "body": "equip.herb_mist_robe",
+      "legs": "equip.trench_runner_boots"
     },
     "attrs": {
       "constitution": 22,
@@ -187,10 +187,10 @@
     "count": 2,
     "aggroMode": "night_only",
     "equipment": {
-      "weapon": "equip.bone_dagger",
-      "head": "equip.wasteland_cap",
+      "weapon": "equip.broken_rune_blade",
+      "head": "equip.gate_headcloth",
       "legs": "equip.trench_runner_boots",
-      "accessory": "equip.herb_basket_charm"
+      "accessory": "equip.gather_qi_pendant"
     },
     "attrs": {
       "constitution": 28,

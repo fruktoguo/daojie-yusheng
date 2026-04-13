@@ -1352,10 +1352,10 @@ async function progressionCase(runtime) {
  * 记录真实技能ID。
  */
   var learnedSkillId = resolveTechniqueSkillId(player, "qingmu_sword");
-  await runtime.api.grantItem(attackerId, "equip.road_cleaver", 1);
+  await runtime.api.grantItem(attackerId, "equip.geng_gate_blade", 1);
   player = (await runtime.api.fetchState(attackerId)).player;
-  attacker.emit(NEXT_C2S.Equip, { slotIndex: slot(player, "equip.road_cleaver") });
-  await lib.waitForState(runtime.api, attackerId, function (current) { return current.equipment.slots.some(function (entry) { return entry.slot === "weapon" && entry.item && entry.item.itemId === "equip.road_cleaver"; }); }, 5000, "equip");
+  attacker.emit(NEXT_C2S.Equip, { slotIndex: slot(player, "equip.geng_gate_blade") });
+  await lib.waitForState(runtime.api, attackerId, function (current) { return current.equipment.slots.some(function (entry) { return entry.slot === "weapon" && entry.item && entry.item.itemId === "equip.geng_gate_blade"; }); }, 5000, "equip");
   attacker.emit(NEXT_C2S.Cultivate, { techId: "qingmu_sword" });
   await lib.waitForState(runtime.api, attackerId, function (current) { return current.techniques.cultivatingTechId === "qingmu_sword"; }, 5000, "cultivate");
   attacker.emit(NEXT_C2S.Unequip, { slot: "weapon" });

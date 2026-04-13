@@ -25,11 +25,11 @@
     "tier": "mortal_blood",
     "count": 8,
     "equipment": {
-      "weapon": "equip.starfall_spear",
-      "head": "equip.celestial_crown",
-      "body": "equip.ridge_calm_robe",
-      "legs": "equip.threshold_boots",
-      "accessory": "equip.void_talisman"
+      "weapon": "equip.ember_scorch_spear",
+      "head": "equip.mount_guard_helm",
+      "body": "equip.mountainseal_plate",
+      "legs": "equip.returnarray_boots",
+      "accessory": "equip.deepvein_core"
     },
     "attrs": {
       "constitution": 125,
@@ -86,10 +86,10 @@
     "tier": "mortal_blood",
     "count": 6,
     "equipment": {
-      "head": "equip.celestial_crown",
+      "head": "equip.mount_guard_helm",
       "body": "equip.rift_guard_armor",
-      "legs": "equip.threshold_boots",
-      "accessory": "equip.guiding_marrow_pendant"
+      "legs": "equip.returnarray_boots",
+      "accessory": "equip.deepvein_core"
     },
     "attrs": {
       "constitution": 213,
@@ -154,11 +154,11 @@
     "tier": "variant",
     "count": 2,
     "equipment": {
-      "weapon": "equip.starfall_spear",
-      "head": "equip.windhear_crown",
+      "weapon": "equip.ember_scorch_spear",
+      "head": "equip.mount_guard_helm",
       "body": "equip.rift_guard_armor",
-      "legs": "equip.threshold_boots",
-      "accessory": "equip.void_talisman"
+      "legs": "equip.returnarray_boots",
+      "accessory": "equip.deepvein_core"
     },
     "attrs": {
       "constitution": 158,
@@ -240,11 +240,11 @@
     "viewRange": 6,
     "aggroMode": "always",
     "equipment": {
-      "weapon": "equip.starfall_spear",
-      "head": "equip.celestial_crown",
+      "weapon": "equip.ember_scorch_spear",
+      "head": "equip.mount_guard_helm",
       "body": "equip.rift_guard_armor",
-      "legs": "equip.threshold_boots",
-      "accessory": "equip.void_talisman"
+      "legs": "equip.returnarray_boots",
+      "accessory": "equip.deepvein_core"
     },
     "attrs": {
       "constitution": 281,

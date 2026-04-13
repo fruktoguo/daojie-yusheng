@@ -335,7 +335,7 @@ export class WorldQuestDomain {
   buildQuestStateRewards(quest: QuestState): ItemStack[] {
     if (quest.rewards?.length) {
       return quest.rewards
-        .map((reward) => this.contentService.createItem(reward.itemId, reward.count) ?? { ...reward })
+        .map((reward) => this.contentService.createItem(reward.itemId, reward.count))
         .filter((item): item is ItemStack => Boolean(item));
     }
 /** rewardIds：定义该变量以承载业务值。 */
@@ -366,13 +366,7 @@ export class WorldQuestDomain {
 
 /** createItemFromDrop：执行对应的业务逻辑。 */
   createItemFromDrop(drop: DropConfig): ItemStack | null {
-    return this.contentService.createItem(drop.itemId, drop.count) ?? {
-      itemId: drop.itemId,
-      name: drop.name,
-      type: drop.type,
-      count: drop.count,
-      desc: drop.name,
-    };
+    return this.contentService.createItem(drop.itemId, drop.count);
   }
 
 /** rollMonsterDrops：执行对应的业务逻辑。 */
@@ -517,4 +511,3 @@ export class WorldQuestDomain {
       && quest.submitMapId === currentMapId;
   }
 }
-

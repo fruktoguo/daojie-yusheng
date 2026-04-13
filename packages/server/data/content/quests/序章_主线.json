@@ -44,20 +44,20 @@
       "required": 1,
       "reward": [
         {
-          "itemId": "equip.grassbound_shoes",
-          "name": "赶路草鞋",
+          "itemId": "equip.trench_runner_boots",
+          "name": "越沟快靴",
           "type": "equipment",
           "count": 1
         },
         {
-          "itemId": "equip.scavenger_fang",
-          "name": "拾荒尖牙",
+          "itemId": "equip.gather_qi_pendant",
+          "name": "采气木坠",
           "type": "equipment",
           "count": 1
         },
         {
-          "itemId": "equip.porter_jacket",
-          "name": "扛包短褂",
+          "itemId": "equip.herb_mist_robe",
+          "name": "药烟轻袍",
           "type": "equipment",
           "count": 1
         }
@@ -114,12 +114,6 @@
       "targetName": "灰尾鼠",
       "required": 6,
       "reward": [
-        {
-          "itemId": "equip.road_cleaver",
-          "name": "断道柴刀",
-          "type": "equipment",
-          "count": 1
-        },
         {
           "itemId": "pill.minor_heal",
           "name": "回春散",

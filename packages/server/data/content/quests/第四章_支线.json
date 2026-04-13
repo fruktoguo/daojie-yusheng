@@ -14,12 +14,6 @@
       "requiredItemCount": 8,
       "reward": [
         {
-          "itemId": "equip.valley_fang_blade",
-          "name": "裂齿斩骨刀",
-          "type": "equipment",
-          "count": 1
-        },
-        {
           "itemId": "pill.crimson_bud_elixir",
           "name": "赤芽丹",
           "type": "consumable",
@@ -45,12 +39,6 @@
       "requiredItemId": "ridge_beast_claw",
       "requiredItemCount": 6,
       "reward": [
-        {
-          "itemId": "equip.moonshadow_boots",
-          "name": "逐月疾靴",
-          "type": "equipment",
-          "count": 1
-        },
         {
           "itemId": "pill.windstride_elixir",
           "name": "轻身丹",
@@ -88,12 +76,6 @@
           "itemId": "pill.break_array_elixir",
           "name": "破阵丹",
           "type": "consumable",
-          "count": 1
-        },
-        {
-          "itemId": "equip.spirit_ring",
-          "name": "养灵木戒",
-          "type": "equipment",
           "count": 1
         },
         {

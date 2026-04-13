@@ -25,8 +25,8 @@
     "tier": "mortal_blood",
     "count": 6,
     "equipment": {
-      "weapon": "equip.scavenger_fang",
-      "body": "equip.scrap_hide"
+      "weapon": "equip.broken_rune_blade",
+      "body": "equip.herb_mist_robe"
     },
     "attrs": {
       "constitution": 20,
@@ -83,9 +83,9 @@
     "tier": "mortal_blood",
     "count": 5,
     "equipment": {
-      "body": "equip.scrap_hide",
-      "legs": "equip.gutter_paws",
-      "accessory": "equip.marsh_poison_gland"
+      "body": "equip.herb_mist_robe",
+      "legs": "equip.trench_runner_boots",
+      "accessory": "equip.gather_qi_pendant"
     },
     "attrs": {
       "constitution": 23,
@@ -142,10 +142,10 @@
     "tier": "mortal_blood",
     "count": 6,
     "equipment": {
-      "weapon": "equip.rust_saber",
+      "weapon": "equip.broken_rune_blade",
       "head": "equip.gate_headcloth",
-      "body": "equip.bound_chest",
-      "legs": "equip.step_boots"
+      "body": "equip.herb_mist_robe",
+      "legs": "equip.trench_runner_boots"
     },
     "attrs": {
       "constitution": 22,
@@ -202,10 +202,10 @@
     "tier": "variant",
     "count": 3,
     "equipment": {
-      "weapon": "equip.scavenger_fang",
-      "head": "equip.scavenger_crest",
-      "legs": "equip.gutter_paws",
-      "accessory": "equip.marsh_poison_gland"
+      "weapon": "equip.broken_rune_blade",
+      "head": "equip.gate_headcloth",
+      "legs": "equip.trench_runner_boots",
+      "accessory": "equip.gather_qi_pendant"
     },
     "attrs": {
       "constitution": 39,
@@ -269,11 +269,11 @@
     "tier": "demon_king",
     "count": 1,
     "equipment": {
-      "weapon": "equip.scavenger_fang",
-      "head": "equip.scavenger_crest",
-      "body": "equip.scrap_hide",
-      "legs": "equip.gutter_paws",
-      "accessory": "equip.marsh_poison_gland"
+      "weapon": "equip.broken_rune_blade",
+      "head": "equip.gate_headcloth",
+      "body": "equip.herb_mist_robe",
+      "legs": "equip.trench_runner_boots",
+      "accessory": "equip.gather_qi_pendant"
     },
     "attrs": {
       "constitution": 53,
@@ -332,9 +332,9 @@
     "tier": "mortal_blood",
     "count": 4,
     "equipment": {
-      "head": "equip.scavenger_crest",
-      "legs": "equip.gutter_paws",
-      "accessory": "equip.marsh_poison_gland"
+      "head": "equip.gate_headcloth",
+      "legs": "equip.trench_runner_boots",
+      "accessory": "equip.gather_qi_pendant"
     },
     "attrs": {
       "constitution": 22,

@@ -45,10 +45,10 @@
         "itemId": "equip.verdant_crown"
       },
       "body": {
-        "itemId": "equip.returnvine_robe"
+        "itemId": "equip.cleantide_robe"
       },
       "accessory": {
-        "itemId": "equip.lifepulse_pendant"
+        "itemId": "equip.returnbreath_copper_pendant"
       }
     },
     "drops": [
@@ -130,10 +130,10 @@
         "itemId": "equip.verdant_crown"
       },
       "legs": {
-        "itemId": "equip.vale_stride_boots"
+        "itemId": "equip.scar_tread_boots"
       },
       "accessory": {
-        "itemId": "equip.lifepulse_pendant"
+        "itemId": "equip.returnbreath_copper_pendant"
       }
     },
     "drops": [
@@ -215,10 +215,10 @@
         "itemId": "equip.vineguide_staff"
       },
       "body": {
-        "itemId": "equip.returnvine_robe"
+        "itemId": "equip.cleantide_robe"
       },
       "accessory": {
-        "itemId": "equip.lifepulse_pendant"
+        "itemId": "equip.returnbreath_copper_pendant"
       }
     },
     "drops": [
@@ -312,8 +312,8 @@
     "equipment": {
       "weapon": "equip.vineguide_staff",
       "head": "equip.verdant_crown",
-      "body": "equip.returnvine_robe",
-      "accessory": "equip.lifepulse_pendant"
+      "body": "equip.cleantide_robe",
+      "accessory": "equip.returnbreath_copper_pendant"
     },
     "drops": [
       {
@@ -406,10 +406,10 @@
         "itemId": "equip.verdant_crown"
       },
       "body": {
-        "itemId": "equip.returnvine_robe"
+        "itemId": "equip.cleantide_robe"
       },
       "legs": {
-        "itemId": "equip.vale_stride_boots"
+        "itemId": "equip.scar_tread_boots"
       }
     },
     "drops": [
@@ -509,9 +509,9 @@
     "equipment": {
       "weapon": "equip.vineguide_staff",
       "head": "equip.verdant_crown",
-      "body": "equip.returnvine_robe",
-      "legs": "equip.vale_stride_boots",
-      "accessory": "equip.lifepulse_pendant"
+      "body": "equip.cleantide_robe",
+      "legs": "equip.scar_tread_boots",
+      "accessory": "equip.returnbreath_copper_pendant"
     },
     "drops": [
       {

@@ -19,10 +19,10 @@
     "tier": "mortal_blood",
     "count": 7,
     "equipment": {
-      "weapon": "equip.valley_fang_blade",
-      "head": "equip.windhear_crown",
-      "body": "equip.beastbone_mail",
-      "legs": "equip.predator_tendon_boots"
+      "weapon": "equip.ridgecleft_halberd",
+      "head": "equip.mount_guard_helm",
+      "body": "equip.mountainseal_plate",
+      "legs": "equip.returnarray_boots"
     },
     "attrs": {
       "constitution": 124,
@@ -81,9 +81,9 @@
     "tier": "mortal_blood",
     "count": 6,
     "equipment": {
-      "head": "equip.celestial_crown",
-      "body": "equip.ridge_calm_robe",
-      "accessory": "equip.spirit_ring"
+      "head": "equip.mount_guard_helm",
+      "body": "equip.mountainseal_plate",
+      "accessory": "equip.deepvein_core"
     },
     "attrs": {
       "constitution": 84,
@@ -156,10 +156,10 @@
     "tier": "variant",
     "count": 2,
     "equipment": {
-      "head": "equip.celestial_crown",
-      "body": "equip.ridge_calm_robe",
-      "legs": "equip.threshold_boots",
-      "accessory": "equip.guiding_marrow_pendant"
+      "head": "equip.mount_guard_helm",
+      "body": "equip.mountainseal_plate",
+      "legs": "equip.returnarray_boots",
+      "accessory": "equip.deepvein_core"
     },
     "attrs": {
       "constitution": 116,
@@ -223,11 +223,11 @@
     "tier": "demon_king",
     "count": 1,
     "equipment": {
-      "weapon": "equip.starfall_spear",
-      "head": "equip.celestial_crown",
+      "weapon": "equip.ember_scorch_spear",
+      "head": "equip.mount_guard_helm",
       "body": "equip.rift_guard_armor",
-      "legs": "equip.threshold_boots",
-      "accessory": "equip.void_talisman"
+      "legs": "equip.returnarray_boots",
+      "accessory": "equip.deepvein_core"
     },
     "attrs": {
       "constitution": 250,

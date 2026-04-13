@@ -45,10 +45,10 @@
         "itemId": "equip.hanxi_flow_ruler"
       },
       "head": {
-        "itemId": "equip.moonwell_gauze_crown"
+        "itemId": "equip.yuetown_mask"
       },
       "accessory": {
-        "itemId": "equip.dew_tide_pendant"
+        "itemId": "equip.returnbreath_copper_pendant"
       }
     },
     "drops": [
@@ -133,13 +133,13 @@
     ],
     "equipment": {
       "head": {
-        "itemId": "equip.moonwell_gauze_crown"
+        "itemId": "equip.yuetown_mask"
       },
       "body": {
         "itemId": "equip.cleantide_robe"
       },
       "legs": {
-        "itemId": "equip.mistwalker_boots"
+        "itemId": "equip.returnarray_boots"
       }
     },
     "drops": [
@@ -224,7 +224,7 @@
         "itemId": "equip.cleantide_robe"
       },
       "accessory": {
-        "itemId": "equip.dew_tide_pendant"
+        "itemId": "equip.returnbreath_copper_pendant"
       }
     },
     "drops": [
@@ -322,13 +322,13 @@
     ],
     "equipment": {
       "head": {
-        "itemId": "equip.moonwell_gauze_crown"
+        "itemId": "equip.yuetown_mask"
       },
       "legs": {
-        "itemId": "equip.mistwalker_boots"
+        "itemId": "equip.returnarray_boots"
       },
       "accessory": {
-        "itemId": "equip.dew_tide_pendant"
+        "itemId": "equip.returnbreath_copper_pendant"
       }
     },
     "drops": [
@@ -398,8 +398,8 @@
     "equipment": {
       "weapon": "equip.hanxi_flow_ruler",
       "body": "equip.cleantide_robe",
-      "legs": "equip.mistwalker_boots",
-      "accessory": "equip.dew_tide_pendant"
+      "legs": "equip.returnarray_boots",
+      "accessory": "equip.returnbreath_copper_pendant"
     },
     "drops": [
       {
@@ -489,13 +489,13 @@
         "itemId": "equip.hanxi_flow_ruler"
       },
       "head": {
-        "itemId": "equip.moonwell_gauze_crown"
+        "itemId": "equip.yuetown_mask"
       },
       "body": {
         "itemId": "equip.cleantide_robe"
       },
       "accessory": {
-        "itemId": "equip.dew_tide_pendant"
+        "itemId": "equip.returnbreath_copper_pendant"
       }
     },
     "drops": [
@@ -593,10 +593,10 @@
     ],
     "equipment": {
       "weapon": "equip.hanxi_flow_ruler",
-      "head": "equip.moonwell_gauze_crown",
+      "head": "equip.yuetown_mask",
       "body": "equip.cleantide_robe",
-      "legs": "equip.mistwalker_boots",
-      "accessory": "equip.dew_tide_pendant"
+      "legs": "equip.returnarray_boots",
+      "accessory": "equip.returnbreath_copper_pendant"
     },
     "drops": [
       {

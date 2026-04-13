@@ -15,11 +15,11 @@
     "respawnSec": 15,
     "equipment": {
       "weapon": {
-        "itemId": "equip.cleft_short_blade",
+        "itemId": "equip.full_edge_blade",
         "count": 1
       },
       "head": {
-        "itemId": "equip.sand_edge_headband",
+        "itemId": "equip.sand_ghost_mask",
         "count": 1
       },
       "legs": {
@@ -103,15 +103,15 @@
     "respawnSec": 16,
     "equipment": {
       "weapon": {
-        "itemId": "equip.cleft_long_halberd",
+        "itemId": "equip.ridgecleft_halberd",
         "count": 1
       },
       "body": {
-        "itemId": "equip.gold_sand_cuirass",
+        "itemId": "equip.cleft_blade_cloak",
         "count": 1
       },
       "legs": {
-        "itemId": "equip.iron_track_boots",
+        "itemId": "equip.chasing_edge_boots",
         "count": 1
       }
     },
@@ -197,7 +197,7 @@
         "count": 1
       },
       "accessory": {
-        "itemId": "equip.gold_sand_talisman",
+        "itemId": "equip.furnace_red_ring",
         "count": 1
       }
     },
@@ -302,19 +302,19 @@
     "respawnSec": 20,
     "equipment": {
       "weapon": {
-        "itemId": "equip.banner_war_halberd",
+        "itemId": "equip.ridgecleft_halberd",
         "count": 1
       },
       "head": {
-        "itemId": "equip.remnant_banner_helm",
+        "itemId": "equip.mount_guard_helm",
         "count": 1
       },
       "body": {
-        "itemId": "equip.cleft_scale_armor",
+        "itemId": "equip.cleft_blade_cloak",
         "count": 1
       },
       "accessory": {
-        "itemId": "equip.edge_command_token",
+        "itemId": "equip.furnace_red_ring",
         "count": 1
       }
     },
@@ -388,10 +388,10 @@
     "viewRange": 12,
     "respawnSec": 24,
     "equipment": {
-      "weapon": "equip.stele_edge_blade",
-      "head": "equip.stele_pattern_helm",
-      "body": "equip.edge_core_shell",
-      "accessory": "equip.sealed_edge_stoneheart"
+      "weapon": "equip.full_edge_blade",
+      "head": "equip.sand_ghost_mask",
+      "body": "equip.cleft_blade_cloak",
+      "accessory": "equip.furnace_red_ring"
     },
     "attrs": {
       "constitution": 495,
@@ -465,19 +465,19 @@
     "respawnSec": 28,
     "equipment": {
       "weapon": {
-        "itemId": "equip.remnant_banner_spear",
+        "itemId": "equip.ridgecleft_halberd",
         "count": 1
       },
       "head": {
-        "itemId": "equip.bent_flag_heavy_helm",
+        "itemId": "equip.mount_guard_helm",
         "count": 1
       },
       "body": {
-        "itemId": "equip.old_guard_iron_armor",
+        "itemId": "equip.mountainseal_plate",
         "count": 1
       },
       "accessory": {
-        "itemId": "equip.counter_shock_iron_ring",
+        "itemId": "equip.furnace_red_ring",
         "count": 1
       }
     },
@@ -568,11 +568,11 @@
         "count": 1
       },
       "head": {
-        "itemId": "equip.tomb_gate_general_helm",
+        "itemId": "equip.mount_guard_helm",
         "count": 1
       },
       "body": {
-        "itemId": "equip.gold_coffin_plate",
+        "itemId": "equip.mountainseal_plate",
         "count": 1
       },
       "accessory": {

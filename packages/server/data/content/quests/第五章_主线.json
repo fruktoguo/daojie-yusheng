@@ -45,12 +45,6 @@
       "requiredItemCount": 4,
       "reward": [
         {
-          "itemId": "equip.starfall_spear",
-          "name": "残星乌铁枪",
-          "type": "equipment",
-          "count": 1
-        },
-        {
           "itemId": "pill.break_array_elixir",
           "name": "破阵丹",
           "type": "consumable",
@@ -83,12 +77,6 @@
           "itemId": "book.starfall_spear",
           "name": "《陨星枪诀》",
           "type": "skill_book",
-          "count": 1
-        },
-        {
-          "itemId": "equip.void_talisman",
-          "name": "镇脉玄纹佩",
-          "type": "equipment",
           "count": 1
         },
         {

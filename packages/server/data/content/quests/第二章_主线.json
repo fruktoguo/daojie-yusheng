@@ -45,12 +45,6 @@
       "requiredItemCount": 4,
       "reward": [
         {
-          "itemId": "equip.step_boots",
-          "name": "游侠靴",
-          "type": "equipment",
-          "count": 1
-        },
-        {
           "itemId": "pill.windstride_elixir",
           "name": "轻身丹",
           "type": "consumable",
@@ -82,12 +76,6 @@
           "itemId": "book.bright_eye_sutra",
           "name": "《明目经》",
           "type": "skill_book",
-          "count": 1
-        },
-        {
-          "itemId": "equip.cloud_boots",
-          "name": "踏云履",
-          "type": "equipment",
           "count": 1
         }
       ],

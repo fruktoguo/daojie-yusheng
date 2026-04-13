@@ -185,15 +185,15 @@ export class MailService {
   private static readonly DEFAULT_SENDER_LABEL = '司命台';
   private static readonly BITTER_CULTIVATION_ELIXIR_ITEM_ID = 'pill.bitter_cultivation_elixir';
   private static readonly BEGINNER_JOURNEY_EQUIPMENT_ITEM_IDS = [
-    'equip.starfall_spear',
-    'equip.spirit_ring',
-    'equip.echo_crystal_crest',
-    'equip.rift_guard_armor',
-    'equip.rune_robe',
-    'equip.dewstep_boots',
-    'equip.void_talisman',
+    'equip.ember_scorch_spear',
+    'equip.deepvein_core',
     'equip.soul_devour_token',
-    'equip.guiding_marrow_pendant',
+    'equip.rift_guard_armor',
+    'equip.rift_guard_armor',
+    'equip.scar_tread_boots',
+    'equip.deepvein_core',
+    'equip.soul_devour_token',
+    'equip.deepvein_core',
   ] as const;
 
   constructor(

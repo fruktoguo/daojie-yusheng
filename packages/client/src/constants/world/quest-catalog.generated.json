@@ -9,12 +9,11 @@
     "objectiveText": "清掉矿洞活尸，并带回玄铁矿块",
     "required": 6,
     "targetName": "矿洞活尸",
-    "rewardText": "大还灵丹 x1、玄铁长剑 x1、破阵丹 x1",
+    "rewardText": "大还灵丹 x1、破阵丹 x1",
     "targetMonsterId": "m_mine_ghoul",
     "rewardItemId": "major_qi_pill",
     "rewardItemIds": [
       "major_qi_pill",
-      "equip.black_iron_sword",
       "pill.break_array_elixir"
     ],
     "rewards": [
@@ -22,12 +21,6 @@
         "itemId": "major_qi_pill",
         "name": "大还灵丹",
         "type": "consumable",
-        "count": 1
-      },
-      {
-        "itemId": "equip.black_iron_sword",
-        "name": "玄铁长剑",
-        "type": "equipment",
         "count": 1
       },
       {
@@ -57,20 +50,13 @@
     "objectiveText": "击败矿脉巨像并取回巨像核心",
     "required": 2,
     "targetName": "矿脉巨像",
-    "rewardText": "矿卫盔 x1、大还灵丹 x2",
+    "rewardText": "大还灵丹 x2",
     "targetMonsterId": "m_ore_colossus",
-    "rewardItemId": "equip.miner_helmet",
+    "rewardItemId": "major_qi_pill",
     "rewardItemIds": [
-      "equip.miner_helmet",
       "major_qi_pill"
     ],
     "rewards": [
-      {
-        "itemId": "equip.miner_helmet",
-        "name": "矿卫盔",
-        "type": "equipment",
-        "count": 1
-      },
       {
         "itemId": "major_qi_pill",
         "name": "大还灵丹",
@@ -97,20 +83,13 @@
     "objectiveText": "清掉遗迹石卫并收回断纹石片",
     "required": 6,
     "targetName": "石卫傀儡",
-    "rewardText": "断纹法袍 x1、明目丹 x1",
+    "rewardText": "明目丹 x1",
     "targetMonsterId": "m_ruin_guardian",
-    "rewardItemId": "equip.rune_robe",
+    "rewardItemId": "pill.clear_eye_elixir",
     "rewardItemIds": [
-      "equip.rune_robe",
       "pill.clear_eye_elixir"
     ],
     "rewards": [
-      {
-        "itemId": "equip.rune_robe",
-        "name": "断纹法袍",
-        "type": "equipment",
-        "count": 1
-      },
       {
         "itemId": "pill.clear_eye_elixir",
         "name": "明目丹",
@@ -214,20 +193,13 @@
     "objectiveText": "清掉林道噬灵狼并带回狼牙",
     "required": 6,
     "targetName": "噬灵狼",
-    "rewardText": "游侠靴 x1、轻身丹 x1",
+    "rewardText": "轻身丹 x1",
     "targetMonsterId": "m_spirit_wolf",
-    "rewardItemId": "equip.step_boots",
+    "rewardItemId": "pill.windstride_elixir",
     "rewardItemIds": [
-      "equip.step_boots",
       "pill.windstride_elixir"
     ],
     "rewards": [
-      {
-        "itemId": "equip.step_boots",
-        "name": "游侠靴",
-        "type": "equipment",
-        "count": 1
-      },
       {
         "itemId": "pill.windstride_elixir",
         "name": "轻身丹",
@@ -256,24 +228,17 @@
     "objectiveText": "调查翻倒的运材车",
     "required": 1,
     "targetName": "翻倒的运材车",
-    "rewardText": "《明目经》 x1、踏云履 x1",
+    "rewardText": "《明目经》 x1",
     "targetMonsterId": "",
     "rewardItemId": "book.bright_eye_sutra",
     "rewardItemIds": [
-      "book.bright_eye_sutra",
-      "equip.cloud_boots"
+      "book.bright_eye_sutra"
     ],
     "rewards": [
       {
         "itemId": "book.bright_eye_sutra",
         "name": "《明目经》",
         "type": "skill_book",
-        "count": 1
-      },
-      {
-        "itemId": "equip.cloud_boots",
-        "name": "踏云履",
-        "type": "equipment",
         "count": 1
       }
     ],
@@ -462,20 +427,13 @@
     "objectiveText": "清掉矿洞活尸并带回矿晶核",
     "required": 6,
     "targetName": "矿洞活尸",
-    "rewardText": "玄铁长剑 x1、破阵丹 x1",
+    "rewardText": "破阵丹 x1",
     "targetMonsterId": "m_mine_ghoul",
-    "rewardItemId": "equip.black_iron_sword",
+    "rewardItemId": "pill.break_array_elixir",
     "rewardItemIds": [
-      "equip.black_iron_sword",
       "pill.break_array_elixir"
     ],
     "rewards": [
-      {
-        "itemId": "equip.black_iron_sword",
-        "name": "玄铁长剑",
-        "type": "equipment",
-        "count": 1
-      },
       {
         "itemId": "pill.break_array_elixir",
         "name": "破阵丹",
@@ -681,16 +639,16 @@
     "objectiveText": "击败符阵看守并取回遗迹钥石",
     "required": 2,
     "targetName": "符阵看守",
-    "rewardText": "断纹法袍 x1",
+    "rewardText": "镇煞护心甲 x1",
     "targetMonsterId": "m_rune_watcher",
-    "rewardItemId": "equip.rune_robe",
+    "rewardItemId": "equip.rift_guard_armor",
     "rewardItemIds": [
-      "equip.rune_robe"
+      "equip.rift_guard_armor"
     ],
     "rewards": [
       {
-        "itemId": "equip.rune_robe",
-        "name": "断纹法袍",
+        "itemId": "equip.rift_guard_armor",
+        "name": "镇煞护心甲",
         "type": "equipment",
         "count": 1
       }
@@ -797,20 +755,13 @@
     "objectiveText": "清掉裂齿妖狼并收回妖狼骨",
     "required": 6,
     "targetName": "裂齿妖狼",
-    "rewardText": "裂齿斩骨刀 x1、赤芽丹 x1",
+    "rewardText": "赤芽丹 x1",
     "targetMonsterId": "m_valley_wolf",
-    "rewardItemId": "equip.valley_fang_blade",
+    "rewardItemId": "pill.crimson_bud_elixir",
     "rewardItemIds": [
-      "equip.valley_fang_blade",
       "pill.crimson_bud_elixir"
     ],
     "rewards": [
-      {
-        "itemId": "equip.valley_fang_blade",
-        "name": "裂齿斩骨刀",
-        "type": "equipment",
-        "count": 1
-      },
       {
         "itemId": "pill.crimson_bud_elixir",
         "name": "赤芽丹",
@@ -837,20 +788,13 @@
     "objectiveText": "击败灵脊虎并收回岭兽爪",
     "required": 6,
     "targetName": "灵脊虎",
-    "rewardText": "逐月疾靴 x1、轻身丹 x1",
+    "rewardText": "轻身丹 x1",
     "targetMonsterId": "m_spirit_tiger",
-    "rewardItemId": "equip.moonshadow_boots",
+    "rewardItemId": "pill.windstride_elixir",
     "rewardItemIds": [
-      "equip.moonshadow_boots",
       "pill.windstride_elixir"
     ],
     "rewards": [
-      {
-        "itemId": "equip.moonshadow_boots",
-        "name": "逐月疾靴",
-        "type": "equipment",
-        "count": 1
-      },
       {
         "itemId": "pill.windstride_elixir",
         "name": "轻身丹",
@@ -878,13 +822,12 @@
     "objectiveText": "猎杀寒翎鹤并收回霜华精粹",
     "required": 6,
     "targetName": "寒翎鹤",
-    "rewardText": "大还灵丹 x2、破阵丹 x1、养灵木戒 x1、寒心膏 x2",
+    "rewardText": "大还灵丹 x2、破阵丹 x1、寒心膏 x2",
     "targetMonsterId": "m_frost_crane",
     "rewardItemId": "major_qi_pill",
     "rewardItemIds": [
       "major_qi_pill",
       "pill.break_array_elixir",
-      "equip.spirit_ring",
       "frost_heart_paste"
     ],
     "rewards": [
@@ -898,12 +841,6 @@
         "itemId": "pill.break_array_elixir",
         "name": "破阵丹",
         "type": "consumable",
-        "count": 1
-      },
-      {
-        "itemId": "equip.spirit_ring",
-        "name": "养灵木戒",
-        "type": "equipment",
         "count": 1
       },
       {
@@ -975,20 +912,13 @@
     "objectiveText": "击败谷主并带回兽谷核心",
     "required": 1,
     "targetName": "谷主妖兽",
-    "rewardText": "裂齿斩骨刀 x1、赤芽丹 x1",
+    "rewardText": "赤芽丹 x1",
     "targetMonsterId": "m_valley_alpha",
-    "rewardItemId": "equip.valley_fang_blade",
+    "rewardItemId": "pill.crimson_bud_elixir",
     "rewardItemIds": [
-      "equip.valley_fang_blade",
       "pill.crimson_bud_elixir"
     ],
     "rewards": [
-      {
-        "itemId": "equip.valley_fang_blade",
-        "name": "裂齿斩骨刀",
-        "type": "equipment",
-        "count": 1
-      },
       {
         "itemId": "pill.crimson_bud_elixir",
         "name": "赤芽丹",
@@ -1052,16 +982,16 @@
     "objectiveText": "向守岭老修问清灵脊岭的旧事",
     "required": 1,
     "targetName": "守岭老修",
-    "rewardText": "养灵木戒 x1",
+    "rewardText": "炉心赤戒 x1",
     "targetMonsterId": "",
-    "rewardItemId": "equip.spirit_ring",
+    "rewardItemId": "equip.furnace_red_ring",
     "rewardItemIds": [
-      "equip.spirit_ring"
+      "equip.furnace_red_ring"
     ],
     "rewards": [
       {
-        "itemId": "equip.spirit_ring",
-        "name": "养灵木戒",
+        "itemId": "equip.furnace_red_ring",
+        "name": "炉心赤戒",
         "type": "equipment",
         "count": 1
       }
@@ -1087,16 +1017,16 @@
     "objectiveText": "清掉守关残魂并带回灵岭行令",
     "required": 2,
     "targetName": "守关残魂",
-    "rewardText": "观脉骨冠 x1",
+    "rewardText": "青萝束冠 x1",
     "targetMonsterId": "m_ridge_ghost",
-    "rewardItemId": "equip.celestial_crown",
+    "rewardItemId": "equip.verdant_crown",
     "rewardItemIds": [
-      "equip.celestial_crown"
+      "equip.verdant_crown"
     ],
     "rewards": [
       {
-        "itemId": "equip.celestial_crown",
-        "name": "观脉骨冠",
+        "itemId": "equip.verdant_crown",
+        "name": "青萝束冠",
         "type": "equipment",
         "count": 1
       }
@@ -1182,20 +1112,13 @@
     "objectiveText": "清掉天宫傀壳",
     "required": 6,
     "targetName": "天宫傀壳",
-    "rewardText": "观脉骨冠 x1、明目丹 x1",
+    "rewardText": "明目丹 x1",
     "targetMonsterId": "m_sky_puppet",
-    "rewardItemId": "equip.celestial_crown",
+    "rewardItemId": "pill.clear_eye_elixir",
     "rewardItemIds": [
-      "equip.celestial_crown",
       "pill.clear_eye_elixir"
     ],
     "rewards": [
-      {
-        "itemId": "equip.celestial_crown",
-        "name": "观脉骨冠",
-        "type": "equipment",
-        "count": 1
-      },
       {
         "itemId": "pill.clear_eye_elixir",
         "name": "明目丹",
@@ -1221,21 +1144,14 @@
     "objectiveText": "击败天宫猎者并收回星陨金",
     "required": 6,
     "targetName": "天宫猎者",
-    "rewardText": "残星乌铁枪 x1、赤芽丹 x1、轻身丹 x1",
+    "rewardText": "赤芽丹 x1、轻身丹 x1",
     "targetMonsterId": "m_void_hunter",
-    "rewardItemId": "equip.starfall_spear",
+    "rewardItemId": "pill.crimson_bud_elixir",
     "rewardItemIds": [
-      "equip.starfall_spear",
       "pill.crimson_bud_elixir",
       "pill.windstride_elixir"
     ],
     "rewards": [
-      {
-        "itemId": "equip.starfall_spear",
-        "name": "残星乌铁枪",
-        "type": "equipment",
-        "count": 1
-      },
       {
         "itemId": "pill.crimson_bud_elixir",
         "name": "赤芽丹",
@@ -1304,20 +1220,13 @@
     "objectiveText": "击败天宫猎者并收回星陨金",
     "required": 6,
     "targetName": "天宫猎者",
-    "rewardText": "残星乌铁枪 x1、破阵丹 x1",
+    "rewardText": "破阵丹 x1",
     "targetMonsterId": "m_void_hunter",
-    "rewardItemId": "equip.starfall_spear",
+    "rewardItemId": "pill.break_array_elixir",
     "rewardItemIds": [
-      "equip.starfall_spear",
       "pill.break_array_elixir"
     ],
     "rewards": [
-      {
-        "itemId": "equip.starfall_spear",
-        "name": "残星乌铁枪",
-        "type": "equipment",
-        "count": 1
-      },
       {
         "itemId": "pill.break_array_elixir",
         "name": "破阵丹",
@@ -1346,12 +1255,11 @@
     "objectiveText": "击败噬星兽并取回天封核心",
     "required": 2,
     "targetName": "噬星兽",
-    "rewardText": "《陨星枪诀》 x1、镇脉玄纹佩 x1、纯阳丹 x2",
+    "rewardText": "《陨星枪诀》 x1、纯阳丹 x2",
     "targetMonsterId": "m_star_devourer",
     "rewardItemId": "book.starfall_spear",
     "rewardItemIds": [
       "book.starfall_spear",
-      "equip.void_talisman",
       "pure_yang_pill"
     ],
     "rewards": [
@@ -1359,12 +1267,6 @@
         "itemId": "book.starfall_spear",
         "name": "《陨星枪诀》",
         "type": "skill_book",
-        "count": 1
-      },
-      {
-        "itemId": "equip.void_talisman",
-        "name": "镇脉玄纹佩",
-        "type": "equipment",
         "count": 1
       },
       {
@@ -1394,21 +1296,14 @@
     "objectiveText": "清掉城边流匪，并交回匪徒腰牌",
     "required": 6,
     "targetName": "城边流匪",
-    "rewardText": "猎户骨匕 x1、小还灵丹 x2、破阵丹 x1",
+    "rewardText": "小还灵丹 x2、破阵丹 x1",
     "targetMonsterId": "m_gate_thug",
-    "rewardItemId": "equip.bone_dagger",
+    "rewardItemId": "minor_qi_pill",
     "rewardItemIds": [
-      "equip.bone_dagger",
       "minor_qi_pill",
       "pill.break_array_elixir"
     ],
     "rewards": [
-      {
-        "itemId": "equip.bone_dagger",
-        "name": "猎户骨匕",
-        "type": "equipment",
-        "count": 1
-      },
       {
         "itemId": "minor_qi_pill",
         "name": "小还灵丹",
@@ -1598,24 +1493,17 @@
     "objectiveText": "猎杀獠牙野彘并带回彘牙",
     "required": 6,
     "targetName": "獠牙野彘",
-    "rewardText": "大还灵丹 x1、猎风帽 x1",
+    "rewardText": "大还灵丹 x1",
     "targetMonsterId": "m_wild_boar",
     "rewardItemId": "major_qi_pill",
     "rewardItemIds": [
-      "major_qi_pill",
-      "equip.hunter_cap"
+      "major_qi_pill"
     ],
     "rewards": [
       {
         "itemId": "major_qi_pill",
         "name": "大还灵丹",
         "type": "consumable",
-        "count": 1
-      },
-      {
-        "itemId": "equip.hunter_cap",
-        "name": "猎风帽",
-        "type": "equipment",
         "count": 1
       }
     ],
@@ -1640,24 +1528,17 @@
     "objectiveText": "击退荒野匪徒并收回腰牌",
     "required": 6,
     "targetName": "荒野匪徒",
-    "rewardText": "破阵丹 x1、南市木牌 x1",
+    "rewardText": "破阵丹 x1",
     "targetMonsterId": "m_wild_bandit",
     "rewardItemId": "pill.break_array_elixir",
     "rewardItemIds": [
-      "pill.break_array_elixir",
-      "equip.nanshi_token"
+      "pill.break_array_elixir"
     ],
     "rewards": [
       {
         "itemId": "pill.break_array_elixir",
         "name": "破阵丹",
         "type": "consumable",
-        "count": 1
-      },
-      {
-        "itemId": "equip.nanshi_token",
-        "name": "南市木牌",
-        "type": "equipment",
         "count": 1
       }
     ],
@@ -1819,20 +1700,13 @@
     "objectiveText": "清掉城边流匪，并交回匪徒腰牌",
     "required": 6,
     "targetName": "城边流匪",
-    "rewardText": "旧铁长刀 x1、破阵丹 x1",
+    "rewardText": "破阵丹 x1",
     "targetMonsterId": "m_gate_thug",
-    "rewardItemId": "equip.rust_saber",
+    "rewardItemId": "pill.break_array_elixir",
     "rewardItemIds": [
-      "equip.rust_saber",
       "pill.break_array_elixir"
     ],
     "rewards": [
-      {
-        "itemId": "equip.rust_saber",
-        "name": "旧铁长刀",
-        "type": "equipment",
-        "count": 1
-      },
       {
         "itemId": "pill.break_array_elixir",
         "name": "破阵丹",
@@ -1906,12 +1780,11 @@
     "objectiveText": "去找赵老六，把脚店的话带到",
     "required": 1,
     "targetName": "赵老六",
-    "rewardText": "小还灵丹 x1、南市木牌 x1、回春散 x2",
+    "rewardText": "小还灵丹 x1、回春散 x2",
     "targetMonsterId": "",
     "rewardItemId": "minor_qi_pill",
     "rewardItemIds": [
       "minor_qi_pill",
-      "equip.nanshi_token",
       "pill.minor_heal"
     ],
     "rewards": [
@@ -1919,12 +1792,6 @@
         "itemId": "minor_qi_pill",
         "name": "小还灵丹",
         "type": "consumable",
-        "count": 1
-      },
-      {
-        "itemId": "equip.nanshi_token",
-        "name": "南市木牌",
-        "type": "equipment",
         "count": 1
       },
       {
@@ -1989,30 +1856,30 @@
     "objectiveText": "和赵老六对话，问清断道上的见闻",
     "required": 1,
     "targetName": "赵老六",
-    "rewardText": "赶路草鞋 x1、拾荒尖牙 x1、扛包短褂 x1",
+    "rewardText": "越沟快靴 x1、采气木坠 x1、药烟轻袍 x1",
     "targetMonsterId": "",
-    "rewardItemId": "equip.grassbound_shoes",
+    "rewardItemId": "equip.trench_runner_boots",
     "rewardItemIds": [
-      "equip.grassbound_shoes",
-      "equip.scavenger_fang",
-      "equip.porter_jacket"
+      "equip.trench_runner_boots",
+      "equip.gather_qi_pendant",
+      "equip.herb_mist_robe"
     ],
     "rewards": [
       {
-        "itemId": "equip.grassbound_shoes",
-        "name": "赶路草鞋",
+        "itemId": "equip.trench_runner_boots",
+        "name": "越沟快靴",
         "type": "equipment",
         "count": 1
       },
       {
-        "itemId": "equip.scavenger_fang",
-        "name": "拾荒尖牙",
+        "itemId": "equip.gather_qi_pendant",
+        "name": "采气木坠",
         "type": "equipment",
         "count": 1
       },
       {
-        "itemId": "equip.porter_jacket",
-        "name": "扛包短褂",
+        "itemId": "equip.herb_mist_robe",
+        "name": "药烟轻袍",
         "type": "equipment",
         "count": 1
       }
@@ -2078,20 +1945,13 @@
     "objectiveText": "击退南门外的灰尾鼠",
     "required": 6,
     "targetName": "灰尾鼠",
-    "rewardText": "断道柴刀 x1、回春散 x3",
+    "rewardText": "回春散 x3",
     "targetMonsterId": "m_town_rat_south",
-    "rewardItemId": "equip.road_cleaver",
+    "rewardItemId": "pill.minor_heal",
     "rewardItemIds": [
-      "equip.road_cleaver",
       "pill.minor_heal"
     ],
     "rewards": [
-      {
-        "itemId": "equip.road_cleaver",
-        "name": "断道柴刀",
-        "type": "equipment",
-        "count": 1
-      },
       {
         "itemId": "pill.minor_heal",
         "name": "回春散",

@@ -42,10 +42,10 @@
     ],
     "equipment": {
       "head": {
-        "itemId": "equip.liyan_crown"
+        "itemId": "equip.verdant_crown"
       },
       "legs": {
-        "itemId": "equip.firestride_boots"
+        "itemId": "equip.scar_tread_boots"
       },
       "accessory": {
         "itemId": "equip.furnace_red_ring"
@@ -130,10 +130,10 @@
         "itemId": "equip.ember_scorch_spear"
       },
       "body": {
-        "itemId": "equip.scorchcourt_battlecoat"
+        "itemId": "equip.cleft_blade_cloak"
       },
       "legs": {
-        "itemId": "equip.firestride_boots"
+        "itemId": "equip.scar_tread_boots"
       }
     },
     "drops": [
@@ -215,7 +215,7 @@
         "itemId": "equip.ember_scorch_spear"
       },
       "head": {
-        "itemId": "equip.liyan_crown"
+        "itemId": "equip.verdant_crown"
       },
       "accessory": {
         "itemId": "equip.furnace_red_ring"
@@ -319,7 +319,7 @@
         "itemId": "equip.ember_scorch_spear"
       },
       "body": {
-        "itemId": "equip.scorchcourt_battlecoat"
+        "itemId": "equip.cleft_blade_cloak"
       },
       "accessory": {
         "itemId": "equip.furnace_red_ring"
@@ -402,8 +402,8 @@
     ],
     "equipment": {
       "weapon": "equip.ember_scorch_spear",
-      "head": "equip.liyan_crown",
-      "legs": "equip.firestride_boots",
+      "head": "equip.verdant_crown",
+      "legs": "equip.scar_tread_boots",
       "accessory": "equip.furnace_red_ring"
     },
     "drops": [
@@ -493,10 +493,10 @@
         "itemId": "equip.ember_scorch_spear"
       },
       "body": {
-        "itemId": "equip.scorchcourt_battlecoat"
+        "itemId": "equip.cleft_blade_cloak"
       },
       "legs": {
-        "itemId": "equip.firestride_boots"
+        "itemId": "equip.scar_tread_boots"
       },
       "accessory": {
         "itemId": "equip.furnace_red_ring"
@@ -597,9 +597,9 @@
     ],
     "equipment": {
       "weapon": "equip.ember_scorch_spear",
-      "head": "equip.liyan_crown",
-      "body": "equip.scorchcourt_battlecoat",
-      "legs": "equip.firestride_boots",
+      "head": "equip.verdant_crown",
+      "body": "equip.cleft_blade_cloak",
+      "legs": "equip.scar_tread_boots",
       "accessory": "equip.furnace_red_ring"
     },
     "drops": [

@@ -41,12 +41,6 @@
       "requiredItemCount": 1,
       "reward": [
         {
-          "itemId": "equip.black_iron_sword",
-          "name": "玄铁长剑",
-          "type": "equipment",
-          "count": 1
-        },
-        {
           "itemId": "pill.break_array_elixir",
           "name": "破阵丹",
           "type": "consumable",

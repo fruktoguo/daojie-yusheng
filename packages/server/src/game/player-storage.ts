@@ -567,13 +567,7 @@ function buildQuestRewardItems(questId: string, mapService: MapService, contentS
   if (!config) return [];
   if (config.rewards.length > 0) {
     return config.rewards
-      .map((reward) => contentService.createItem(reward.itemId, reward.count) ?? {
-        itemId: reward.itemId,
-        name: reward.name,
-        type: reward.type,
-        count: reward.count,
-        desc: reward.name,
-      })
+      .map((reward) => contentService.createItem(reward.itemId, reward.count))
       .filter((item): item is ItemStack => Boolean(item));
   }
   return config.rewardItemIds
@@ -867,4 +861,3 @@ export function buildPersistedPlayerCollections(player: PlayerStorageState, cont
     quests: player.quests.map((quest) => dehydrateQuest(quest, mapService)),
   };
 }
-

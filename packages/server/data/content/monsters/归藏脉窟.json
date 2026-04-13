@@ -42,13 +42,13 @@
     ],
     "equipment": {
       "head": {
-        "itemId": "equip.fiveqi_watch_crown"
+        "itemId": "equip.yuetown_mask"
       },
       "body": {
-        "itemId": "equip.guizang_aperture_robe"
+        "itemId": "equip.mountainseal_plate"
       },
       "accessory": {
-        "itemId": "equip.halfbase_ring"
+        "itemId": "equip.deepvein_core"
       }
     },
     "drops": [
@@ -118,10 +118,10 @@
         "itemId": "equip.guizang_conflux_blade"
       },
       "head": {
-        "itemId": "equip.fiveqi_watch_crown"
+        "itemId": "equip.yuetown_mask"
       },
       "accessory": {
-        "itemId": "equip.halfbase_ring"
+        "itemId": "equip.deepvein_core"
       }
     },
     "drops": [
@@ -197,7 +197,7 @@
         "itemId": "equip.guizang_conflux_blade"
       },
       "body": {
-        "itemId": "equip.guizang_aperture_robe"
+        "itemId": "equip.mountainseal_plate"
       },
       "legs": {
         "itemId": "equip.returnarray_boots"
@@ -276,10 +276,10 @@
         "itemId": "equip.guizang_conflux_blade"
       },
       "head": {
-        "itemId": "equip.fiveqi_watch_crown"
+        "itemId": "equip.yuetown_mask"
       },
       "body": {
-        "itemId": "equip.guizang_aperture_robe"
+        "itemId": "equip.mountainseal_plate"
       }
     },
     "drops": [
@@ -350,13 +350,13 @@
         "itemId": "equip.guizang_conflux_blade"
       },
       "body": {
-        "itemId": "equip.guizang_aperture_robe"
+        "itemId": "equip.mountainseal_plate"
       },
       "legs": {
         "itemId": "equip.returnarray_boots"
       },
       "accessory": {
-        "itemId": "equip.halfbase_ring"
+        "itemId": "equip.deepvein_core"
       }
     },
     "drops": [
@@ -436,13 +436,13 @@
     ],
     "equipment": {
       "head": {
-        "itemId": "equip.fiveqi_watch_crown"
+        "itemId": "equip.yuetown_mask"
       },
       "body": {
-        "itemId": "equip.guizang_aperture_robe"
+        "itemId": "equip.mountainseal_plate"
       },
       "accessory": {
-        "itemId": "equip.halfbase_ring"
+        "itemId": "equip.deepvein_core"
       }
     },
     "drops": [
@@ -507,16 +507,16 @@
         "itemId": "equip.guizang_conflux_blade"
       },
       "head": {
-        "itemId": "equip.fiveqi_watch_crown"
+        "itemId": "equip.yuetown_mask"
       },
       "body": {
-        "itemId": "equip.guizang_aperture_robe"
+        "itemId": "equip.mountainseal_plate"
       },
       "legs": {
         "itemId": "equip.returnarray_boots"
       },
       "accessory": {
-        "itemId": "equip.halfbase_ring"
+        "itemId": "equip.deepvein_core"
       }
     },
     "drops": [

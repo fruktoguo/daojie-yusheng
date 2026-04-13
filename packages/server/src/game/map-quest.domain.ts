@@ -187,36 +187,62 @@ export class MapQuestDomain {
     const submitNpcId = typeof rawQuest.submitNpcId === 'string' && rawQuest.submitNpcId.trim().length > 0
       ? rawQuest.submitNpcId.trim()
       : '';
-/** rewardItemIds：定义该变量以承载业务值。 */
-    const rewardItemIds = Array.isArray(rawQuest.reward)
-      ? rawQuest.reward
-          .map((entry) => entry?.itemId)
-          .filter((itemId): itemId is string => typeof itemId === 'string')
-      : (typeof rawQuest.rewardItemId === 'string' ? [rawQuest.rewardItemId] : []);
-/** rewardText：定义该变量以承载业务值。 */
-    const rewardText = typeof rawQuest.rewardText === 'string'
-      ? rawQuest.rewardText
-      : Array.isArray(rawQuest.reward) && rawQuest.reward.length > 0
-        ? rawQuest.reward
-            .map((entry) => `${entry.name ?? entry.itemId ?? '未知奖励'} x${entry.count ?? 1}`)
-            .join('、')
-        : '无';
-/** rewards：定义该变量以承载业务值。 */
-    const rewards: DropConfig[] = Array.isArray(rawQuest.reward)
+/** parsedRewardEntries：定义该变量以承载业务值。 */
+    const parsedRewardEntries = Array.isArray(rawQuest.reward)
       ? rawQuest.reward
           .filter((entry): entry is { itemId: string; name: string; type: ItemType; count?: number } =>
             typeof entry?.itemId === 'string'
             && typeof entry?.name === 'string'
             && typeof entry?.type === 'string',
           )
-          .map((entry) => ({
-            itemId: entry.itemId,
-            name: entry.name,
-            type: entry.type,
-            count: Number.isInteger(entry.count) ? Number(entry.count) : 1,
-            chance: 1,
-          }))
       : [];
+/** validRewardEntries：定义该变量以承载业务值。 */
+    const validRewardEntries = parsedRewardEntries.filter((entry) => {
+      if (this.contentService.getItem(entry.itemId)) {
+        return true;
+      }
+      this.logger.warn(`${sourceLabel} 的任务 ${rawQuest.id ?? rawQuest.title ?? '未命名任务'} 引用了不存在的奖励物品，已忽略: ${entry.itemId}`);
+      return false;
+    });
+/** rewardItemIds：定义该变量以承载业务值。 */
+    const rewardItemIds = parsedRewardEntries.length > 0
+      ? validRewardEntries.map((entry) => entry.itemId)
+      : (typeof rawQuest.rewardItemId === 'string' && rawQuest.rewardItemId.trim().length > 0
+          ? (this.contentService.getItem(rawQuest.rewardItemId.trim())
+              ? [rawQuest.rewardItemId.trim()]
+              : [])
+          : []);
+    if (parsedRewardEntries.length <= 0 && typeof rawQuest.rewardItemId === 'string' && rawQuest.rewardItemId.trim().length > 0) {
+/** legacyRewardItemId：定义该变量以承载业务值。 */
+      const legacyRewardItemId = rawQuest.rewardItemId.trim();
+      if (!this.contentService.getItem(legacyRewardItemId)) {
+        this.logger.warn(`${sourceLabel} 的任务 ${rawQuest.id ?? rawQuest.title ?? '未命名任务'} 引用了不存在的奖励物品，已忽略: ${legacyRewardItemId}`);
+      }
+    }
+/** rewardText：定义该变量以承载业务值。 */
+    const rewardText = typeof rawQuest.rewardText === 'string'
+      ? rawQuest.rewardText
+      : validRewardEntries.length > 0
+        ? validRewardEntries
+            .map((entry) => `${entry.name} x${entry.count ?? 1}`)
+            .join('、')
+        : rewardItemIds.length > 0
+          ? rewardItemIds
+              .map((itemId) => {
+/** itemName：定义该变量以承载业务值。 */
+                const itemName = this.contentService.getItem(itemId)?.name ?? itemId;
+                return `${itemName} x1`;
+              })
+              .join('、')
+          : '无';
+/** rewards：定义该变量以承载业务值。 */
+    const rewards: DropConfig[] = validRewardEntries.map((entry) => ({
+      itemId: entry.itemId,
+      name: entry.name,
+      type: entry.type,
+      count: Number.isInteger(entry.count) ? Number(entry.count) : 1,
+      chance: 1,
+    }));
 /** parsedRealmStage：定义该变量以承载业务值。 */
     const parsedRealmStage = typeof rawQuest.targetRealmStage === 'number'
       ? rawQuest.targetRealmStage
@@ -438,4 +464,3 @@ export class MapQuestDomain {
     return this.maps.get(mapId)?.meta;
   }
 }
-

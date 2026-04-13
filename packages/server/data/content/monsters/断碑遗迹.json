@@ -26,9 +26,9 @@
     "tier": "mortal_blood",
     "count": 7,
     "equipment": {
-      "head": "equip.remnant_array_crown",
-      "body": "equip.stele_shell_armor",
-      "accessory": "equip.soul_ink_pendant"
+      "head": "equip.soot_lamp_hood",
+      "body": "equip.rift_guard_armor",
+      "accessory": "equip.soul_devour_token"
     },
     "attrs": {
       "constitution": 113,
@@ -93,9 +93,9 @@
     "tier": "mortal_blood",
     "count": 5,
     "equipment": {
-      "head": "equip.remnant_array_crown",
-      "legs": "equip.trace_pattern_boots",
-      "accessory": "equip.pattern_picker_ring"
+      "head": "equip.soot_lamp_hood",
+      "legs": "equip.trench_runner_boots",
+      "accessory": "equip.gather_qi_pendant"
     },
     "attrs": {
       "constitution": 59,
@@ -174,10 +174,10 @@
     "count": 3,
     "equipment": {
       "weapon": "equip.broken_rune_blade",
-      "head": "equip.remnant_array_crown",
-      "body": "equip.rune_robe",
-      "legs": "equip.trace_pattern_boots",
-      "accessory": "equip.pattern_picker_ring"
+      "head": "equip.soot_lamp_hood",
+      "body": "equip.rift_guard_armor",
+      "legs": "equip.trench_runner_boots",
+      "accessory": "equip.gather_qi_pendant"
     },
     "attrs": {
       "constitution": 106,
@@ -255,10 +255,10 @@
     "count": 1,
     "equipment": {
       "weapon": "equip.broken_rune_blade",
-      "head": "equip.remnant_array_crown",
-      "body": "equip.stele_shell_armor",
-      "legs": "equip.trace_pattern_boots",
-      "accessory": "equip.soul_ink_pendant"
+      "head": "equip.soot_lamp_hood",
+      "body": "equip.rift_guard_armor",
+      "legs": "equip.trench_runner_boots",
+      "accessory": "equip.soul_devour_token"
     },
     "attrs": {
       "constitution": 156,
@@ -322,10 +322,10 @@
     "tier": "mortal_blood",
     "count": 4,
     "equipment": {
-      "head": "equip.remnant_array_crown",
-      "body": "equip.rune_robe",
-      "legs": "equip.trace_pattern_boots",
-      "accessory": "equip.soul_ink_pendant"
+      "head": "equip.soot_lamp_hood",
+      "body": "equip.rift_guard_armor",
+      "legs": "equip.trench_runner_boots",
+      "accessory": "equip.soul_devour_token"
     },
     "attrs": {
       "constitution": 64,

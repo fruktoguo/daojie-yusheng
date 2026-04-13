@@ -113,14 +113,14 @@ async function main() {
     });
     await Promise.all([onceConnected(attacker), onceConnected(defender)]);
     attacker.emit(shared_1.NEXT_C2S.Hello, {
-        mapId: 'yunlai_town',
-        preferredX: 24,
-        preferredY: 5,
+        mapId: 'wildlands',
+        preferredX: 18,
+        preferredY: 18,
     });
     defender.emit(shared_1.NEXT_C2S.Hello, {
-        mapId: 'yunlai_town',
-        preferredX: 25,
-        preferredY: 5,
+        mapId: 'wildlands',
+        preferredX: 19,
+        preferredY: 18,
     });
     await waitFor(async () => {
         if (!attackerId || !defenderId) {

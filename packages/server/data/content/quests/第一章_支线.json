@@ -14,12 +14,6 @@
       "requiredItemCount": 3,
       "reward": [
         {
-          "itemId": "equip.bone_dagger",
-          "name": "猎户骨匕",
-          "type": "equipment",
-          "count": 1
-        },
-        {
           "itemId": "minor_qi_pill",
           "name": "小还灵丹",
           "type": "consumable",

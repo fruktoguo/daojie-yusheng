@@ -66,7 +66,7 @@ async function main() {
         return Array.isArray(state.player?.inventory.items) && state.player.inventory.items.length >= 2 && panelEvents.length > 0;
     }, 5000);
     await postJson(`/runtime/players/${playerId}/grant-item`, {
-        itemId: 'equip.road_cleaver',
+        itemId: 'equip.geng_gate_blade',
         count: 1,
     });
     await waitFor(() => panelEvents.some(hasGrantedEquipmentPatch), 5000);
@@ -95,7 +95,7 @@ async function main() {
 /**
  * 记录equipmentslot。
  */
-    const equipmentSlot = currentState.player.inventory.items.findIndex((entry) => entry.itemId === 'equip.road_cleaver');
+    const equipmentSlot = currentState.player.inventory.items.findIndex((entry) => entry.itemId === 'equip.geng_gate_blade');
     if (equipmentSlot < 0) {
         throw new Error('equipment item missing after learning');
     }
@@ -105,7 +105,7 @@ async function main() {
  * 记录状态。
  */
         const state = await fetchState();
-        return state.player?.equipment?.slots?.some((entry) => entry.slot === 'weapon' && entry.item?.itemId === 'equip.road_cleaver')
+        return state.player?.equipment?.slots?.some((entry) => entry.slot === 'weapon' && entry.item?.itemId === 'equip.geng_gate_blade')
             && panelEvents.some(hasEquipPatch)
             && panelEvents.some(hasEquipmentAttrPatch);
     }, 5000);
@@ -258,7 +258,7 @@ async function main() {
  * 判断是否已grantedequipmentpatch。
  */
 function hasGrantedEquipmentPatch(payload) {
-    return payload.inv?.slots?.some((entry) => entry.item?.itemId === 'equip.road_cleaver') ?? false;
+    return payload.inv?.slots?.some((entry) => entry.item?.itemId === 'equip.geng_gate_blade') ?? false;
 }
 /**
  * 判断是否已learn功法patch。
@@ -278,7 +278,7 @@ function hasTechniqueAttrPatch(payload) {
  * 判断是否已equippatch。
  */
 function hasEquipPatch(payload) {
-    return payload.eq?.slots?.some((entry) => entry.slot === 'weapon' && entry.item?.itemId === 'equip.road_cleaver') ?? false;
+    return payload.eq?.slots?.some((entry) => entry.slot === 'weapon' && entry.item?.itemId === 'equip.geng_gate_blade') ?? false;
 }
 /**
  * 判断是否已equipmentattrpatch。

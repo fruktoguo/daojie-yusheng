@@ -158,7 +158,7 @@
             "chance": 0.65
           },
           {
-            "itemId": "equip.void_talisman",
+            "itemId": "equip.deepvein_core",
             "name": "空劫符坠",
             "type": "equipment",
             "count": 1,

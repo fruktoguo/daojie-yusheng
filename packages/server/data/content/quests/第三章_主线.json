@@ -128,8 +128,8 @@
       "acceptRealmLv": 10,
       "reward": [
         {
-          "itemId": "equip.rune_robe",
-          "name": "断纹法袍",
+          "itemId": "equip.rift_guard_armor",
+          "name": "镇煞护心甲",
           "type": "equipment",
           "count": 1
         }

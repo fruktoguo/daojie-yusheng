@@ -170,7 +170,7 @@
             "chance": 0.45
           },
           {
-            "itemId": "equip.step_boots",
+            "itemId": "equip.trench_runner_boots",
             "name": "游侠靴",
             "type": "equipment",
             "count": 1,

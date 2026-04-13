@@ -14,12 +14,6 @@
       "requiredItemCount": 3,
       "reward": [
         {
-          "itemId": "equip.rust_saber",
-          "name": "旧铁长刀",
-          "type": "equipment",
-          "count": 1
-        },
-        {
           "itemId": "pill.break_array_elixir",
           "name": "破阵丹",
           "type": "consumable",
@@ -87,12 +81,6 @@
           "itemId": "minor_qi_pill",
           "name": "小还灵丹",
           "type": "consumable",
-          "count": 1
-        },
-        {
-          "itemId": "equip.nanshi_token",
-          "name": "南市木牌",
-          "type": "equipment",
           "count": 1
         },
         {

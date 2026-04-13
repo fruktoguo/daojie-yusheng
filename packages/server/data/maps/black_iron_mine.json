@@ -155,7 +155,7 @@
             "chance": 0.6
           },
           {
-            "itemId": "equip.miner_helmet",
+            "itemId": "equip.soot_lamp_hood",
             "name": "矿卫盔",
             "type": "equipment",
             "count": 1,

@@ -13,12 +13,6 @@
       "required": 6,
       "reward": [
         {
-          "itemId": "equip.celestial_crown",
-          "name": "观脉骨冠",
-          "type": "equipment",
-          "count": 1
-        },
-        {
           "itemId": "pill.clear_eye_elixir",
           "name": "明目丹",
           "type": "consumable",
@@ -45,12 +39,6 @@
       "requiredItemId": "star_metal",
       "requiredItemCount": 6,
       "reward": [
-        {
-          "itemId": "equip.starfall_spear",
-          "name": "残星乌铁枪",
-          "type": "equipment",
-          "count": 1
-        },
         {
           "itemId": "pill.crimson_bud_elixir",
           "name": "赤芽丹",

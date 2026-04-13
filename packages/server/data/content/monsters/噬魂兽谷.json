@@ -32,9 +32,9 @@
     "tier": "mortal_blood",
     "count": 9,
     "equipment": {
-      "weapon": "equip.valley_fang_blade",
-      "head": "equip.windhear_crown",
-      "legs": "equip.predator_tendon_boots"
+      "weapon": "equip.ridgecleft_halberd",
+      "head": "equip.mount_guard_helm",
+      "legs": "equip.returnarray_boots"
     },
     "attrs": {
       "constitution": 86,
@@ -92,9 +92,9 @@
     "tier": "mortal_blood",
     "count": 7,
     "equipment": {
-      "head": "equip.windhear_crown",
-      "legs": "equip.predator_tendon_boots",
-      "accessory": "equip.bloodcore_talisman"
+      "head": "equip.mount_guard_helm",
+      "legs": "equip.returnarray_boots",
+      "accessory": "equip.deepvein_core"
     },
     "attrs": {
       "constitution": 53,
@@ -166,11 +166,11 @@
     "tier": "demon_king",
     "count": 1,
     "equipment": {
-      "weapon": "equip.valley_fang_blade",
-      "head": "equip.windhear_crown",
-      "body": "equip.beastbone_mail",
-      "legs": "equip.predator_tendon_boots",
-      "accessory": "equip.bloodcore_talisman"
+      "weapon": "equip.ridgecleft_halberd",
+      "head": "equip.mount_guard_helm",
+      "body": "equip.mountainseal_plate",
+      "legs": "equip.returnarray_boots",
+      "accessory": "equip.deepvein_core"
     },
     "attrs": {
       "constitution": 138,
@@ -222,9 +222,9 @@
     "tier": "mortal_blood",
     "count": 5,
     "equipment": {
-      "body": "equip.beastbone_mail",
-      "legs": "equip.predator_tendon_boots",
-      "accessory": "equip.bloodcore_talisman"
+      "body": "equip.mountainseal_plate",
+      "legs": "equip.returnarray_boots",
+      "accessory": "equip.deepvein_core"
     },
     "attrs": {
       "constitution": 77,
@@ -303,11 +303,11 @@
     "tier": "variant",
     "count": 2,
     "equipment": {
-      "weapon": "equip.valley_fang_blade",
-      "head": "equip.celestial_crown",
-      "body": "equip.beastbone_mail",
-      "legs": "equip.predator_tendon_boots",
-      "accessory": "equip.void_talisman"
+      "weapon": "equip.ridgecleft_halberd",
+      "head": "equip.mount_guard_helm",
+      "body": "equip.mountainseal_plate",
+      "legs": "equip.returnarray_boots",
+      "accessory": "equip.deepvein_core"
     },
     "attrs": {
       "constitution": 134,
@@ -379,11 +379,11 @@
     "tier": "demon_king",
     "count": 1,
     "equipment": {
-      "weapon": "equip.valley_fang_blade",
-      "head": "equip.celestial_crown",
-      "body": "equip.beastbone_mail",
-      "legs": "equip.predator_tendon_boots",
-      "accessory": "equip.void_talisman"
+      "weapon": "equip.ridgecleft_halberd",
+      "head": "equip.mount_guard_helm",
+      "body": "equip.mountainseal_plate",
+      "legs": "equip.returnarray_boots",
+      "accessory": "equip.deepvein_core"
     },
     "attrs": {
       "constitution": 160,

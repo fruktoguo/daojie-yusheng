@@ -15,15 +15,15 @@
     "respawnSec": 15,
     "equipment": {
       "head": {
-        "itemId": "equip.yellow_stone_browguard",
+        "itemId": "equip.mount_guard_helm",
         "count": 1
       },
       "body": {
-        "itemId": "equip.ridgehide_vest",
+        "itemId": "equip.mountainseal_plate",
         "count": 1
       },
       "legs": {
-        "itemId": "equip.heavy_claw_boots",
+        "itemId": "equip.returnarray_boots",
         "count": 1
       }
     },
@@ -97,15 +97,15 @@
     "respawnSec": 16,
     "equipment": {
       "weapon": {
-        "itemId": "equip.sinking_vein_hammer",
+        "itemId": "equip.ridgecleft_halberd",
         "count": 1
       },
       "body": {
-        "itemId": "equip.deepvein_plate",
+        "itemId": "equip.mountainseal_plate",
         "count": 1
       },
       "legs": {
-        "itemId": "equip.burden_greaves",
+        "itemId": "equip.returnarray_boots",
         "count": 1
       }
     },
@@ -183,7 +183,7 @@
         "count": 1
       },
       "head": {
-        "itemId": "equip.stone_ridge_helm",
+        "itemId": "equip.mount_guard_helm",
         "count": 1
       },
       "body": {
@@ -296,7 +296,7 @@
     "respawnSec": 20,
     "equipment": {
       "weapon": {
-        "itemId": "equip.yuepattern_pole",
+        "itemId": "equip.ridgecleft_halberd",
         "count": 1
       },
       "head": {
@@ -304,11 +304,11 @@
         "count": 1
       },
       "body": {
-        "itemId": "equip.terrace_guard_armor",
+        "itemId": "equip.mountainseal_plate",
         "count": 1
       },
       "accessory": {
-        "itemId": "equip.mountainheart_token",
+        "itemId": "equip.deepvein_core",
         "count": 1
       }
     },
@@ -382,10 +382,10 @@
     "viewRange": 12,
     "respawnSec": 24,
     "equipment": {
-      "weapon": "equip.burden_stele_staff",
-      "head": "equip.heavystele_helm",
-      "body": "equip.loadstone_plate",
-      "accessory": "equip.quakeheart_stone"
+      "weapon": "equip.ridgecleft_halberd",
+      "head": "equip.mount_guard_helm",
+      "body": "equip.mountainseal_plate",
+      "accessory": "equip.deepvein_core"
     },
     "attrs": {
       "constitution": 620,
@@ -467,11 +467,11 @@
         "count": 1
       },
       "body": {
-        "itemId": "equip.rampart_plate",
+        "itemId": "equip.mountainseal_plate",
         "count": 1
       },
       "accessory": {
-        "itemId": "equip.sealridge_iron_ring",
+        "itemId": "equip.deepvein_core",
         "count": 1
       }
     },
@@ -570,11 +570,11 @@
     "respawnSec": 40,
     "equipment": {
       "weapon": {
-        "itemId": "equip.darkpeak_fist_seal",
+        "itemId": "equip.ridgecleft_halberd",
         "count": 1
       },
       "head": {
-        "itemId": "equip.earthlord_helm",
+        "itemId": "equip.mount_guard_helm",
         "count": 1
       },
       "body": {

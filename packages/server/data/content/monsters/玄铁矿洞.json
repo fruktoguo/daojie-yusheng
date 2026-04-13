@@ -33,9 +33,9 @@
     "tier": "mortal_blood",
     "count": 7,
     "equipment": {
-      "weapon": "equip.crystal_maw_spike",
-      "body": "equip.oreplate_carapace",
-      "accessory": "equip.mineral_pulse_core"
+      "weapon": "equip.orebreak_hammer",
+      "body": "equip.rift_guard_armor",
+      "accessory": "equip.soul_devour_token"
     },
     "attrs": {
       "constitution": 69,
@@ -92,9 +92,9 @@
     "tier": "mortal_blood",
     "count": 5,
     "equipment": {
-      "head": "equip.echo_crystal_crest",
-      "legs": "equip.cave_skitter_spurs",
-      "accessory": "equip.mineral_pulse_core"
+      "head": "equip.soul_devour_token",
+      "legs": "equip.trench_runner_boots",
+      "accessory": "equip.soul_devour_token"
     },
     "attrs": {
       "constitution": 33,
@@ -151,10 +151,10 @@
     "tier": "mortal_blood",
     "count": 4,
     "equipment": {
-      "weapon": "equip.black_iron_sword",
+      "weapon": "equip.orebreak_hammer",
       "head": "equip.soot_lamp_hood",
-      "legs": "equip.ash_tread",
-      "accessory": "equip.orevein_ring"
+      "legs": "equip.trench_runner_boots",
+      "accessory": "equip.gather_qi_pendant"
     },
     "attrs": {
       "constitution": 60,
@@ -245,9 +245,9 @@
     "count": 2,
     "equipment": {
       "weapon": "equip.orebreak_hammer",
-      "head": "equip.miner_helmet",
-      "body": "equip.oreplate_carapace",
-      "accessory": "equip.mineral_pulse_core"
+      "head": "equip.soot_lamp_hood",
+      "body": "equip.rift_guard_armor",
+      "accessory": "equip.soul_devour_token"
     },
     "attrs": {
       "constitution": 175,
@@ -331,11 +331,11 @@
     "tier": "demon_king",
     "count": 1,
     "equipment": {
-      "weapon": "equip.black_iron_sword",
-      "head": "equip.miner_helmet",
-      "body": "equip.blackiron_brigandine",
-      "legs": "equip.ash_tread",
-      "accessory": "equip.mineral_pulse_core"
+      "weapon": "equip.orebreak_hammer",
+      "head": "equip.soot_lamp_hood",
+      "body": "equip.rift_guard_armor",
+      "legs": "equip.trench_runner_boots",
+      "accessory": "equip.soul_devour_token"
     },
     "attrs": {
       "constitution": 222,

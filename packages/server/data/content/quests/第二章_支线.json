@@ -20,12 +20,6 @@
           "count": 1
         },
         {
-          "itemId": "equip.black_iron_sword",
-          "name": "玄铁长剑",
-          "type": "equipment",
-          "count": 1
-        },
-        {
           "itemId": "pill.break_array_elixir",
           "name": "破阵丹",
           "type": "consumable",
@@ -53,12 +47,6 @@
       "requiredItemCount": 1,
       "reward": [
         {
-          "itemId": "equip.miner_helmet",
-          "name": "矿卫盔",
-          "type": "equipment",
-          "count": 1
-        },
-        {
           "itemId": "major_qi_pill",
           "name": "大还灵丹",
           "type": "consumable",
@@ -84,12 +72,6 @@
       "requiredItemId": "rune_shard",
       "requiredItemCount": 6,
       "reward": [
-        {
-          "itemId": "equip.rune_robe",
-          "name": "断纹法袍",
-          "type": "equipment",
-          "count": 1
-        },
         {
           "itemId": "pill.clear_eye_elixir",
           "name": "明目丹",

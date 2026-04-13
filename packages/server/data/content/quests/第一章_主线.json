@@ -49,12 +49,6 @@
           "name": "大还灵丹",
           "type": "consumable",
           "count": 1
-        },
-        {
-          "itemId": "equip.hunter_cap",
-          "name": "猎风帽",
-          "type": "equipment",
-          "count": 1
         }
       ],
       "nextQuestId": "q_wildlands_bandit_toll",
@@ -83,12 +77,6 @@
           "itemId": "pill.break_array_elixir",
           "name": "破阵丹",
           "type": "consumable",
-          "count": 1
-        },
-        {
-          "itemId": "equip.nanshi_token",
-          "name": "南市木牌",
-          "type": "equipment",
           "count": 1
         }
       ],

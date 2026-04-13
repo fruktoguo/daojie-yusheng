@@ -1932,6 +1932,26 @@
       "monsterId": "m_deepvein_earth_effigy",
       "monsterName": "玄岳地傀",
       "count": 1
+    },
+    {
+      "kind": "search",
+      "mapId": "sky_ruins",
+      "mapName": "天穹残宫",
+      "landmarkId": "lm_sky_altar",
+      "landmarkName": "残宫观星台",
+      "mode": "direct",
+      "chance": 0.08,
+      "count": 1
+    },
+    {
+      "kind": "search",
+      "mapId": "spirit_ridge",
+      "mapName": "灵脊岭",
+      "landmarkId": "lm_ridge_gate",
+      "landmarkName": "岭顶关门",
+      "mode": "direct",
+      "chance": 0.1,
+      "count": 1
     }
   ],
   "equip.ember_scorch_spear": [
@@ -2052,6 +2072,15 @@
       "monsterId": "m_ember_moth",
       "monsterName": "焦土火蛾",
       "count": 1
+    },
+    {
+      "kind": "quest",
+      "mapId": "spirit_ridge",
+      "mapName": "灵脊岭",
+      "questId": "q_ridge_sage_talk",
+      "questTitle": "守岭的人没睡",
+      "line": "main",
+      "chapter": "第四章·兽谷问门"
     }
   ],
   "equip.gate_headcloth": [
@@ -2072,6 +2101,15 @@
       "monsterId": "m_bamboo_sprite",
       "monsterName": "竹心灵",
       "count": 1
+    },
+    {
+      "kind": "quest",
+      "mapId": "yunlai_town",
+      "mapName": "云来镇",
+      "questId": "q_intro_old_road_witness",
+      "questTitle": "断道见闻",
+      "line": "main",
+      "chapter": "序章·断道入镇"
     }
   ],
   "equip.geng_gate_blade": [
@@ -2176,6 +2214,15 @@
       "monsterId": "m_bamboo_sprite",
       "monsterName": "竹心灵",
       "count": 1
+    },
+    {
+      "kind": "quest",
+      "mapId": "yunlai_town",
+      "mapName": "云来镇",
+      "questId": "q_intro_old_road_witness",
+      "questTitle": "断道见闻",
+      "line": "main",
+      "chapter": "序章·断道入镇"
     }
   ],
   "equip.mount_guard_helm": [
@@ -2309,6 +2356,15 @@
       "monsterName": "裂渊谷皇精英",
       "chance": 0.1,
       "count": 1
+    },
+    {
+      "kind": "quest",
+      "mapId": "ancient_ruins",
+      "mapName": "断碑遗迹",
+      "questId": "q_ruin_keystone_main",
+      "questTitle": "把门钥从死人手里拿走",
+      "line": "main",
+      "chapter": "第三章·矿洞遗火"
     }
   ],
   "equip.sand_ghost_mask": [
@@ -2358,6 +2414,16 @@
       "mapName": "玄铁矿洞",
       "monsterId": "m_tunnel_stalker",
       "monsterName": "隧影潜猎者",
+      "count": 1
+    },
+    {
+      "kind": "search",
+      "mapId": "black_iron_mine",
+      "mapName": "玄铁矿洞",
+      "landmarkId": "lm_old_forge",
+      "landmarkName": "旧锻炉台",
+      "mode": "direct",
+      "chance": 0.14,
       "count": 1
     }
   ],
@@ -2433,6 +2499,25 @@
       "monsterId": "m_night_blade",
       "monsterName": "夜行刀客",
       "count": 1
+    },
+    {
+      "kind": "search",
+      "mapId": "wildlands",
+      "mapName": "荒野",
+      "landmarkId": "lm_bandit_firepit",
+      "landmarkName": "匪营篝火",
+      "mode": "direct",
+      "chance": 0.12,
+      "count": 1
+    },
+    {
+      "kind": "quest",
+      "mapId": "yunlai_town",
+      "mapName": "云来镇",
+      "questId": "q_intro_old_road_witness",
+      "questTitle": "断道见闻",
+      "line": "main",
+      "chapter": "序章·断道入镇"
     }
   ],
   "equip.verdant_crown": [
@@ -2507,6 +2592,15 @@
       "monsterId": "m_verdant_vein_mother",
       "monsterName": "噬脉藤母",
       "count": 1
+    },
+    {
+      "kind": "quest",
+      "mapId": "spirit_ridge",
+      "mapName": "灵脊岭",
+      "questId": "q_ridge_sigil_main",
+      "questTitle": "拿到那块行令",
+      "line": "main",
+      "chapter": "第四章·兽谷问门"
     }
   ],
   "equip.vineguide_staff": [
