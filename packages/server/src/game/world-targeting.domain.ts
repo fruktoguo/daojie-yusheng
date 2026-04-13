@@ -59,6 +59,11 @@ interface DomainDeps {
   getMonstersByMap: (mapId: string) => RuntimeMonsterTargetLike[];
   canPlayerCastSkill: (player: PlayerState, skill: SkillDef) => boolean;
   buildEffectiveSkillRange: (skill: SkillDef, player: PlayerState) => number;
+  canPlayerAutoBattleUseSkillOnTarget: (
+    player: PlayerState,
+    skill: SkillDef,
+    target: ResolvedTargetLike,
+  ) => boolean;
   canPlayerUseHostileEffectOnTarget: (player: PlayerState, target: ResolvedTargetLike) => boolean;
   canReachAttackPosition: (
     mapId: string,
@@ -163,10 +168,7 @@ export class WorldTargetingDomain {
     target: ResolvedTargetLike,
     skills: AutoBattleSkillCandidateLike[],
   ): AutoBattleSkillCandidateLike | undefined {
-    return skills.find((entry) => (
-      entry.skill.requiresTarget === false
-      || isPointInRange(player, target, this.deps.buildEffectiveSkillRange(entry.skill, player))
-    ));
+    return skills.find((entry) => this.deps.canPlayerAutoBattleUseSkillOnTarget(player, entry.skill, target));
   }
 
   canPlayerCastAutoBattleSkillFromCurrentPosition(
@@ -182,10 +184,7 @@ export class WorldTargetingDomain {
       return false;
     }
     return isPointInRange(player, target, 1)
-      || skills.some((entry) => (
-        entry.skill.requiresTarget === false
-        || isPointInRange(player, target, this.deps.buildEffectiveSkillRange(entry.skill, player))
-      ));
+      || skills.some((entry) => this.deps.canPlayerAutoBattleUseSkillOnTarget(player, entry.skill, target));
   }
 
 /** refreshPlayerThreats：执行对应的业务逻辑。 */
@@ -434,4 +433,3 @@ export class WorldTargetingDomain {
     return null;
   }
 }
-

@@ -442,6 +442,11 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
         getMonstersByMap: (mapId) => this.monstersByMap.get(mapId) ?? [],
         canPlayerCastSkill: (player, skill) => this.canPlayerCastSkill(player, skill),
         buildEffectiveSkillRange: (skill, player) => this.buildEffectiveSkillGeometry(skill, this.attrService.getPlayerNumericStats(player)).range,
+        canPlayerAutoBattleUseSkillOnTarget: (player, skill, target) => this.canPlayerAutoBattleUseSkillOnTarget(
+          player,
+          skill,
+          target as ResolvedTarget,
+        ),
         canPlayerUseHostileEffectOnTarget: (player, target) => this.canPlayerUseHostileEffectOnTarget(player, target as ResolvedTarget),
         canReachAttackPosition: (mapId, actor, target, range, selfOccupancyId, actorType) => this.canReachAttackPosition(
           mapId,
@@ -2196,6 +2201,29 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       }
     }
     return targets;
+  }
+
+  private canPlayerAutoBattleUseSkillOnTarget(
+    player: PlayerState,
+    skill: SkillDef,
+    target: ResolvedTarget,
+  ): boolean {
+/** playerStats：定义该变量以承载业务值。 */
+    const playerStats = this.attrService.getPlayerNumericStats(player);
+    if (skill.requiresTarget !== false) {
+      return isPointInRange(player, target, this.buildEffectiveSkillGeometry(skill, playerStats).range);
+    }
+
+/** selectedTargets：定义该变量以承载业务值。 */
+    const selectedTargets = this.selectSkillTargetsFromAnchor(
+      player,
+      skill,
+      { x: player.x, y: player.y },
+      playerStats,
+    );
+/** targetRef：定义该变量以承载业务值。 */
+    const targetRef = this.getTargetRef(target);
+    return selectedTargets.some((entry) => this.getTargetRef(entry) === targetRef);
   }
 
   private collectTargetsFromCells(
@@ -8282,4 +8310,3 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     }));
   }
 }
-
