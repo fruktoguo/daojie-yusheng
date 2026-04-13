@@ -79,7 +79,7 @@ export function getBuffRealmEffectivenessMultiplier(buffRealmLv: number, targetR
   return Math.pow(0.9, normalizedTargetRealmLv - normalizedBuffRealmLv);
 }
 
-/** 普通攻击按双方战斗经验差距计算独立伤害乘区，最终倍率限制在 20% 到 500%。 */
+/** 普通攻击按双方战斗经验差距计算独立伤害乘区，最终倍率限制在 50% 到 200%。 */
 export function getBasicAttackCombatExperienceDamageMultiplier(attackerExp: number, defenderExp: number): number {
 /** normalizedAttackerExp：定义该变量以承载业务值。 */
   const normalizedAttackerExp = Math.max(1, Math.floor(attackerExp));
