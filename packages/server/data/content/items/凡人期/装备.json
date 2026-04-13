@@ -294,6 +294,7 @@
       "physAtk": 4,
       "hit": 1
     },
+    "enhancementSuccessRate": 0.01,
     "enhancementSpeedRate": 0.2
   }
 ]

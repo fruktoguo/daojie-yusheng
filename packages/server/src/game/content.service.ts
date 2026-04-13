@@ -149,6 +149,7 @@ export interface EditorItemCatalogEntry {
   enhanceLevel?: number;
   alchemySuccessRate?: number;
   alchemySpeedRate?: number;
+  enhancementSuccessRate?: number;
   enhancementSpeedRate?: number;
   respawnBindMapId?: string;
   mapUnlockId?: string;
@@ -1049,6 +1050,7 @@ export class ContentService implements OnModuleInit {
       enhanceLevel: normalizeEnhanceLevel(item.enhanceLevel),
       alchemySuccessRate: item.alchemySuccessRate,
       alchemySpeedRate: item.alchemySpeedRate,
+      enhancementSuccessRate: item.enhancementSuccessRate,
       enhancementSpeedRate: item.enhancementSpeedRate,
       mapUnlockId: item.mapUnlockId,
       tileAuraGainAmount: item.tileAuraGainAmount,
@@ -1680,10 +1682,13 @@ export class ContentService implements OnModuleInit {
           ? Math.max(-0.95, Number(raw.alchemySuccessRate))
           : undefined,
         alchemySpeedRate: Number.isFinite(raw.alchemySpeedRate)
-          ? Math.max(-0.95, Number(raw.alchemySpeedRate))
+          ? Number(raw.alchemySpeedRate)
+          : undefined,
+        enhancementSuccessRate: Number.isFinite(raw.enhancementSuccessRate)
+          ? Number(raw.enhancementSuccessRate)
           : undefined,
         enhancementSpeedRate: Number.isFinite(raw.enhancementSpeedRate)
-          ? Math.max(-0.95, Number(raw.enhancementSpeedRate))
+          ? Number(raw.enhancementSpeedRate)
           : undefined,
 /** respawnBindMapId：定义该变量以承载业务值。 */
         respawnBindMapId: typeof raw.respawnBindMapId === 'string' && raw.respawnBindMapId.trim().length > 0
@@ -1895,6 +1900,7 @@ export class ContentService implements OnModuleInit {
         enhanceLevel: item.enhanceLevel,
         alchemySuccessRate: item.alchemySuccessRate,
         alchemySpeedRate: item.alchemySpeedRate,
+        enhancementSuccessRate: item.enhancementSuccessRate,
         enhancementSpeedRate: item.enhancementSpeedRate,
         mapUnlockId: item.mapUnlockId,
         tileAuraGainAmount: item.tileAuraGainAmount,
@@ -2655,6 +2661,7 @@ export class ContentService implements OnModuleInit {
         enhanceLevel: item.enhanceLevel,
         alchemySuccessRate: item.alchemySuccessRate,
         alchemySpeedRate: item.alchemySpeedRate,
+        enhancementSuccessRate: item.enhancementSuccessRate,
         enhancementSpeedRate: item.enhancementSpeedRate,
       }))
       .sort((left, right) => left.name.localeCompare(right.name, 'zh-CN'));
