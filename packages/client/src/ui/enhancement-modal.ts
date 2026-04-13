@@ -215,6 +215,8 @@ export class EnhancementModal {
   private lastServerSessionRecord: PlayerEnhancementRecord | null = null;
   private activeHistoryItemId: string | null = null;
   private activeHistorySessionKey: string | null = null;
+  private historyExpanded = false;
+  private protectionExpanded = false;
 
 /** setCallbacks：执行对应的业务逻辑。 */
   setCallbacks(callbacks: EnhancementModalCallbacks): void {
@@ -244,6 +246,8 @@ export class EnhancementModal {
     this.ensureLocalHistoryLoaded();
     this.loading = true;
     this.responseError = null;
+    this.historyExpanded = false;
+    this.protectionExpanded = false;
     this.render();
     this.callbacks?.onRequestPanel();
   }
@@ -261,12 +265,18 @@ export class EnhancementModal {
     this.lastJobSnapshotKey = null;
     this.activeHistoryItemId = null;
     this.activeHistorySessionKey = null;
+    this.historyExpanded = false;
+    this.protectionExpanded = false;
     this.stopCountdown();
     confirmModalHost.close(EnhancementModal.PICKER_OWNER);
     confirmModalHost.close(EnhancementModal.HISTORY_LIST_OWNER);
     confirmModalHost.close(EnhancementModal.HISTORY_SESSION_OWNER);
     confirmModalHost.close(EnhancementModal.HISTORY_DETAIL_OWNER);
     detailModalHost.close(EnhancementModal.MODAL_OWNER);
+  }
+
+  private isCompactMobileLayout(): boolean {
+    return typeof window !== 'undefined' && window.matchMedia('(max-width: 720px)').matches;
   }
 
 /** updatePanel：执行对应的业务逻辑。 */
@@ -506,7 +516,11 @@ export class EnhancementModal {
   }
 
 /** renderTargetSlot：执行对应的业务逻辑。 */
-  private renderTargetSlot(activeJob: PlayerEnhancementJob | null, selected: SyncedEnhancementCandidateView | null): string {
+  private renderTargetSlot(
+    activeJob: PlayerEnhancementJob | null,
+    selected: SyncedEnhancementCandidateView | null,
+    extraContent = '',
+  ): string {
 /** selectedItem：定义该变量以承载业务值。 */
     const selectedItem = activeJob?.item ?? selected?.item ?? null;
 /** sourceLabel：定义该变量以承载业务值。 */
@@ -519,28 +533,102 @@ export class EnhancementModal {
           ? `已装备 · ${getEquipSlotLabel(selected.ref.slot ?? 'weapon')}`
           : `背包槽位 ${formatDisplayInteger((selected.ref.slotIndex ?? 0) + 1)}`)
         : '尚未选择';
+/** selectedLevel：定义该变量以承载业务值。 */
+    const selectedLevel = selectedItem ? normalizeEnhanceLevel(selectedItem.enhanceLevel) : null;
+/** targetHeadMeta：定义该变量以承载业务值。 */
+    const targetHeadMeta = selectedItem
+      ? `等级 ${formatDisplayInteger(Number(selectedItem.level) || 1)} · 当前 +${formatDisplayInteger(selectedLevel ?? 0)} · ${sourceLabel}`
+      : '点击选择要强化的装备';
     return `
       <div class="enhancement-target-slot-card">
-        <div class="enhancement-target-slot-head">
-          <div>
-            <div class="enhancement-section-title">强化目标</div>
-            <div class="enhancement-protection-note">${escapeHtml(sourceLabel)}</div>
+        <div class="enhancement-target-slot-layout${extraContent ? ' enhancement-target-slot-layout--merged' : ''}">
+          <div class="enhancement-target-slot-main">
+            <div class="enhancement-target-slot-head">
+              <div class="enhancement-card-head">
+                <div class="enhancement-card-head-main">
+                  <div class="enhancement-section-title">强化目标</div>
+                  <div class="enhancement-card-head-value">${escapeHtml(selectedItem?.name ?? '未选择装备')}</div>
+                </div>
+                <div class="enhancement-protection-note">${escapeHtml(targetHeadMeta)}</div>
+              </div>
+              <button class="small-btn ghost" type="button" data-enhancement-open-picker="1" ${activeJob ? 'disabled' : ''}>
+                ${selectedItem ? '更换装备' : '选择装备'}
+              </button>
+            </div>
+            <button class="enhancement-target-slot" type="button" data-enhancement-open-picker="1" ${activeJob ? 'disabled' : ''}>
+              ${selectedItem
+                ? `
+                  <span class="enhancement-target-slot-action">点击更换这件装备</span>
+                  <span class="enhancement-target-slot-meta">候选装备会在独立弹窗中选择；强化开始后本次目标会锁定。</span>
+                `
+                : `
+                  <span class="enhancement-target-slot-action">点击选择要强化的装备</span>
+                  <span class="enhancement-target-slot-meta">主面板只保留一个目标槽，候选装备会在独立弹窗中选择</span>
+                `}
+            </button>
           </div>
-          <button class="small-btn ghost" type="button" data-enhancement-open-picker="1" ${activeJob ? 'disabled' : ''}>
-            ${selectedItem ? '更换装备' : '选择装备'}
-          </button>
+          ${extraContent ? `<div class="enhancement-target-slot-extra">${extraContent}</div>` : ''}
         </div>
-        <button class="enhancement-target-slot" type="button" data-enhancement-open-picker="1" ${activeJob ? 'disabled' : ''}>
-          ${selectedItem
-            ? `
-              <span class="enhancement-target-slot-name">${escapeHtml(selectedItem.name)}</span>
-              <span class="enhancement-target-slot-meta">等级 ${formatDisplayInteger(Number(selectedItem.level) || 1)} · 当前 +${formatDisplayInteger(normalizeEnhanceLevel(selectedItem.enhanceLevel))}</span>
-            `
-            : `
-              <span class="enhancement-target-slot-name">点击选择要强化的装备</span>
-              <span class="enhancement-target-slot-meta">主面板只保留一个目标槽，候选装备会在独立弹窗中选择</span>
-            `}
-        </button>
+      </div>
+    `;
+  }
+
+  private renderActiveActionSection(job: PlayerEnhancementJob, finalTargetLevel: number): string {
+    return `
+      <div class="enhancement-merged-section enhancement-merged-section--action">
+        <div class="enhancement-merged-section-head">
+          <div class="enhancement-card-head-main">
+            <div class="enhancement-section-title">当前行动</div>
+            <div class="enhancement-card-head-value">+${formatDisplayInteger(job.currentLevel)} → +${formatDisplayInteger(job.targetLevel)}</div>
+          </div>
+        </div>
+        <div class="enhancement-target-level-note">强化队列已启动，目标装备和强化锤在任务结束前会保持锁定。</div>
+        <div class="enhancement-summary-metrics enhancement-summary-metrics--compact">
+          <div class="enhancement-summary-metric">
+            <span>当前冲击</span>
+            <strong>+${formatDisplayInteger(job.targetLevel)}</strong>
+          </div>
+          <div class="enhancement-summary-metric">
+            <span>最终目标</span>
+            <strong>+${formatDisplayInteger(finalTargetLevel)}</strong>
+          </div>
+          <div class="enhancement-summary-metric">
+            <span>保护</span>
+            <strong>${job.protectionUsed ? `+${formatDisplayInteger(job.protectionStartLevel ?? job.targetLevel)} 起` : '未启用'}</strong>
+          </div>
+        </div>
+        <div class="enhancement-action-row enhancement-action-row--stacked">
+          <button class="small-btn ghost" type="button" data-enhancement-cancel="1">取消强化</button>
+          <span class="enhancement-action-note">取消后会返还当前装备，已投入的材料不会退回；保护物仅在失败且保护生效时扣除，灵石仅在本阶成功时扣除。</span>
+        </div>
+      </div>
+    `;
+  }
+
+  private renderTargetLevelSection(selected: SyncedEnhancementCandidateView, selectedTargetLevel: number): string {
+    return `
+      <div class="enhancement-merged-section enhancement-merged-section--target-level">
+        <div class="enhancement-merged-section-head">
+          <div class="enhancement-card-head-main">
+            <div class="enhancement-section-title">目标强化等级</div>
+            <div class="enhancement-card-head-value">当前 +${formatDisplayInteger(selected.currentLevel)} → 目标 +${formatDisplayInteger(selectedTargetLevel)}</div>
+          </div>
+        </div>
+        <div class="enhancement-target-level-row">
+          <button class="small-btn ghost" type="button" data-enhancement-target-adjust="-1" ${selectedTargetLevel <= (selected.currentLevel + 1) ? 'disabled' : ''}>-1</button>
+          <input
+            class="enhancement-target-level-input"
+            type="number"
+            inputmode="numeric"
+            min="${selected.currentLevel + 1}"
+            max="${MAX_ENHANCE_LEVEL}"
+            step="1"
+            value="${selectedTargetLevel}"
+            data-enhancement-target-level-input="1"
+          >
+          <button class="small-btn ghost" type="button" data-enhancement-target-adjust="1" ${selectedTargetLevel >= MAX_ENHANCE_LEVEL ? 'disabled' : ''}>+1</button>
+        </div>
+        <div class="enhancement-target-level-note">强化队列会从当前等级逐阶结算，直到达到目标等级，或后续灵石、材料、保护物不足，或到达上限 +${MAX_ENHANCE_LEVEL}。</div>
       </div>
     `;
   }
@@ -566,29 +654,7 @@ export class EnhancementModal {
     return `
       <div class="enhancement-workbench-grid">
         <div class="enhancement-workbench-side">
-          ${this.renderTargetSlot(job, selected)}
-          <div class="enhancement-target-level-card">
-            <div class="enhancement-section-title">当前行动</div>
-            <div class="enhancement-target-level-note">强化队列已启动，目标装备和强化锤在任务结束前会保持锁定。</div>
-            <div class="enhancement-summary-metrics enhancement-summary-metrics--compact">
-              <div class="enhancement-summary-metric">
-                <span>当前冲击</span>
-                <strong>+${formatDisplayInteger(job.targetLevel)}</strong>
-              </div>
-              <div class="enhancement-summary-metric">
-                <span>最终目标</span>
-                <strong>+${formatDisplayInteger(finalTargetLevel)}</strong>
-              </div>
-              <div class="enhancement-summary-metric">
-                <span>保护</span>
-                <strong>${job.protectionUsed ? `+${formatDisplayInteger(job.protectionStartLevel ?? job.targetLevel)} 起` : '未启用'}</strong>
-              </div>
-            </div>
-            <div class="enhancement-action-row enhancement-action-row--stacked">
-              <button class="small-btn ghost" type="button" data-enhancement-cancel="1">取消强化</button>
-              <span class="enhancement-action-note">取消后会返还当前装备，已投入的材料不会退回；保护物仅在失败且保护生效时扣除，灵石仅在本阶成功时扣除。</span>
-            </div>
-          </div>
+          ${this.renderTargetSlot(job, selected, this.renderActiveActionSection(job, finalTargetLevel))}
         </div>
         <div class="enhancement-workbench-main">
           <div class="enhancement-summary-card enhancement-summary-card--running">
@@ -679,73 +745,67 @@ export class EnhancementModal {
     const minProtectionStartLevel = 2;
 /** protectionStartLevel：定义该变量以承载业务值。 */
     const protectionStartLevel = this.getSelectedProtectionStartLevel(selected);
+/** compactMobileLayout：定义该变量以承载业务值。 */
+    const compactMobileLayout = this.isCompactMobileLayout();
+/** inlineProtectionExpanded：定义该变量以承载业务值。 */
+    const inlineProtectionExpanded = !compactMobileLayout || this.protectionExpanded;
+/** protectionButtonLabel：定义该变量以承载业务值。 */
+    const protectionButtonLabel = selectedProtection
+      ? `保护设置 · 已启用`
+      : '保护设置 · 未启用';
     return `
       <div class="enhancement-workbench-grid">
         <div class="enhancement-workbench-side">
-          ${this.renderTargetSlot(null, selected)}
-          <div class="enhancement-target-level-card">
-            <div class="enhancement-section-title">目标强化等级</div>
-            <div class="enhancement-target-level-row">
-              <button class="small-btn ghost" type="button" data-enhancement-target-adjust="-1" ${selectedTargetLevel <= (selected.currentLevel + 1) ? 'disabled' : ''}>-1</button>
-              <input
-                class="enhancement-target-level-input"
-                type="number"
-                inputmode="numeric"
-                min="${selected.currentLevel + 1}"
-                max="${MAX_ENHANCE_LEVEL}"
-                step="1"
-                value="${selectedTargetLevel}"
-                data-enhancement-target-level-input="1"
-              >
-              <button class="small-btn ghost" type="button" data-enhancement-target-adjust="1" ${selectedTargetLevel >= MAX_ENHANCE_LEVEL ? 'disabled' : ''}>+1</button>
-            </div>
-            <div class="enhancement-target-level-note">强化队列会从当前等级逐阶结算，直到达到目标等级，或后续灵石、材料、保护物不足，或到达上限 +${MAX_ENHANCE_LEVEL}。</div>
-          </div>
+          ${this.renderTargetSlot(null, selected, this.renderTargetLevelSection(selected, selectedTargetLevel))}
           <div class="enhancement-requirement-card">
-            <div class="enhancement-section-title">保护</div>
-            <div class="enhancement-protection-note">${escapeHtml(protectionNote)}</div>
-            <label class="enhancement-protection-option">
-              <input type="radio" name="enhancement-protection" value="" ${this.selectedProtectionKey ? '' : 'checked'}>
-              <span>不使用保护</span>
-            </label>
-            ${selected.protectionCandidates.length > 0
-              ? selected.protectionCandidates.map((entry) => {
+            ${compactMobileLayout
+              ? `<button class="small-btn ghost enhancement-inline-toggle" type="button" data-enhancement-toggle-protection-inline="1">${inlineProtectionExpanded ? '收起保护设置' : escapeHtml(protectionButtonLabel)}</button>`
+              : `<div class="enhancement-section-title">保护</div>`}
+            ${inlineProtectionExpanded ? `
+              <div class="enhancement-protection-note">${escapeHtml(protectionNote)}</div>
+              <label class="enhancement-protection-option">
+                <input type="radio" name="enhancement-protection" value="" ${this.selectedProtectionKey ? '' : 'checked'}>
+                <span>不使用保护</span>
+              </label>
+              ${selected.protectionCandidates.length > 0
+                ? selected.protectionCandidates.map((entry) => {
 /** key：定义该变量以承载业务值。 */
-                const key = formatRefKey(entry.ref);
+                  const key = formatRefKey(entry.ref);
 /** sourceLabel：定义该变量以承载业务值。 */
-                const sourceLabel = `背包槽位 ${(entry.ref.slotIndex ?? 0) + 1} · 数量 ${entry.item.count}`;
-                return `
-                  <label class="enhancement-protection-option">
-                    <input type="radio" name="enhancement-protection" value="${escapeHtml(key)}" ${this.selectedProtectionKey === key ? 'checked' : ''}>
-                    <span>${escapeHtml(entry.item.name)}</span>
-                    <em>${escapeHtml(sourceLabel)}</em>
-                  </label>
-                `;
-              }).join('')
-              : '<div class="enhancement-material-empty">当前背包没有可用保护物。</div>'}
-            ${this.selectedProtectionKey && selectedTargetLevel >= minProtectionStartLevel ? `
-              <div class="enhancement-protection-start">
-                <div class="enhancement-protection-note">开始保护等级</div>
-                <div class="enhancement-target-level-row">
-                  <button class="small-btn ghost" type="button" data-enhancement-protection-adjust="-1" ${!protectionStartLevel || protectionStartLevel <= minProtectionStartLevel ? 'disabled' : ''}>-1</button>
-                  <input
-                    class="enhancement-target-level-input"
-                    type="number"
-                    inputmode="numeric"
-                    min="${minProtectionStartLevel}"
-                    max="${selectedTargetLevel}"
-                    step="1"
-                    value="${protectionStartLevel ?? minProtectionStartLevel}"
-                    data-enhancement-protection-start-input="1"
-                  >
-                  <button class="small-btn ghost" type="button" data-enhancement-protection-adjust="1" ${!protectionStartLevel || protectionStartLevel >= selectedTargetLevel ? 'disabled' : ''}>+1</button>
+                  const sourceLabel = `背包槽位 ${(entry.ref.slotIndex ?? 0) + 1} · 数量 ${entry.item.count}`;
+                  return `
+                    <label class="enhancement-protection-option">
+                      <input type="radio" name="enhancement-protection" value="${escapeHtml(key)}" ${this.selectedProtectionKey === key ? 'checked' : ''}>
+                      <span>${escapeHtml(entry.item.name)}</span>
+                      <em>${escapeHtml(sourceLabel)}</em>
+                    </label>
+                  `;
+                }).join('')
+                : '<div class="enhancement-material-empty">当前背包没有可用保护物。</div>'}
+              ${this.selectedProtectionKey && selectedTargetLevel >= minProtectionStartLevel ? `
+                <div class="enhancement-protection-start">
+                  <div class="enhancement-protection-note">开始保护等级</div>
+                  <div class="enhancement-target-level-row">
+                    <button class="small-btn ghost" type="button" data-enhancement-protection-adjust="-1" ${!protectionStartLevel || protectionStartLevel <= minProtectionStartLevel ? 'disabled' : ''}>-1</button>
+                    <input
+                      class="enhancement-target-level-input"
+                      type="number"
+                      inputmode="numeric"
+                      min="${minProtectionStartLevel}"
+                      max="${selectedTargetLevel}"
+                      step="1"
+                      value="${protectionStartLevel ?? minProtectionStartLevel}"
+                      data-enhancement-protection-start-input="1"
+                    >
+                    <button class="small-btn ghost" type="button" data-enhancement-protection-adjust="1" ${!protectionStartLevel || protectionStartLevel >= selectedTargetLevel ? 'disabled' : ''}>+1</button>
+                  </div>
+                  <div class="enhancement-target-level-note">保护最低从 +2 开始生效。达到这个目标等级后，失败才会消耗保护并只降低一级。</div>
                 </div>
-                <div class="enhancement-target-level-note">保护最低从 +2 开始生效。达到这个目标等级后，失败才会消耗保护并只降低一级。</div>
-              </div>
-            ` : this.selectedProtectionKey ? `
-              <div class="enhancement-protection-start">
-                <div class="enhancement-target-level-note">保护最低从 +2 开始生效。当前目标还没到 +2，这次强化不会消耗保护物。</div>
-              </div>
+              ` : this.selectedProtectionKey ? `
+                <div class="enhancement-protection-start">
+                  <div class="enhancement-target-level-note">保护最低从 +2 开始生效。当前目标还没到 +2，这次强化不会消耗保护物。</div>
+                </div>
+              ` : ''}
             ` : ''}
           </div>
           <div class="enhancement-action-row enhancement-action-row--stacked">
@@ -820,6 +880,10 @@ export class EnhancementModal {
   ): string {
 /** referenceItem：定义该变量以承载业务值。 */
     const referenceItem = activeJob?.item ?? selected?.item ?? null;
+/** compactMobileLayout：定义该变量以承载业务值。 */
+    const compactMobileLayout = this.isCompactMobileLayout();
+/** inlineHistoryExpanded：定义该变量以承载业务值。 */
+    const inlineHistoryExpanded = !compactMobileLayout || this.historyExpanded;
     if (!referenceItem) {
 /** records：定义该变量以承载业务值。 */
       const records = this.getSortedLocalHistoryRecords();
@@ -830,17 +894,21 @@ export class EnhancementModal {
       return `
         <div class="enhancement-requirement-card enhancement-requirement-card--history">
           <div class="enhancement-history-head">
-            <div>
-              <div class="enhancement-section-title">强化记录</div>
-              <div class="enhancement-protection-note">本地累计 ${formatDisplayInteger(records.length)} 件 · 历史最高 +${formatDisplayInteger(highestLevel)}</div>
-            </div>
+            ${compactMobileLayout
+              ? `<button class="small-btn ghost" type="button" data-enhancement-toggle-history-inline="1">${inlineHistoryExpanded ? '收起强化记录' : '展开强化记录'}</button>`
+              : `<div>
+                  <div class="enhancement-section-title">强化记录</div>
+                  <div class="enhancement-protection-note">本地累计 ${formatDisplayInteger(records.length)} 件 · 历史最高 +${formatDisplayInteger(highestLevel)}</div>
+                </div>`}
             <button class="small-btn ghost" type="button" data-enhancement-open-history="1">历史记录</button>
           </div>
-          <div class="enhancement-empty-state enhancement-empty-state--history">
-            ${records.length > 0
-              ? `当前未选中强化目标。你仍然可以查看本地历史记录，累计强化 ${formatDisplayInteger(totalAttempts)} 次。`
-              : '当前还没有本地强化记录。'}
-          </div>
+          ${inlineHistoryExpanded ? `
+            <div class="enhancement-empty-state enhancement-empty-state--history">
+              ${records.length > 0
+                ? `当前未选中强化目标。你仍然可以查看本地历史记录，累计强化 ${formatDisplayInteger(totalAttempts)} 次。`
+                : '当前还没有本地强化记录。'}
+            </div>
+          ` : ''}
         </div>
       `;
     }
@@ -872,21 +940,25 @@ export class EnhancementModal {
     return `
       <div class="enhancement-requirement-card enhancement-requirement-card--history">
         <div class="enhancement-history-head">
-          <div>
-            <div class="enhancement-section-title">强化记录</div>
-            <div class="enhancement-protection-note">历史最高：+${formatDisplayInteger(displayRecord?.highestLevel ?? 0)}</div>
-          </div>
+          ${compactMobileLayout
+            ? `<button class="small-btn ghost" type="button" data-enhancement-toggle-history-inline="1">${inlineHistoryExpanded ? '收起强化记录' : '展开强化记录'}</button>`
+            : `<div>
+                <div class="enhancement-section-title">强化记录</div>
+                <div class="enhancement-protection-note">历史最高：+${formatDisplayInteger(displayRecord?.highestLevel ?? 0)}</div>
+              </div>`}
           <button class="small-btn ghost" type="button" data-enhancement-open-history="1">历史记录</button>
         </div>
-        <div class="enhancement-history-table">
-          <div class="enhancement-history-row enhancement-history-row--head">
-            <span>目标</span>
-            <span>成功率</span>
-            <span>成功</span>
-            <span>失败</span>
+        ${inlineHistoryExpanded ? `
+          <div class="enhancement-history-table">
+            <div class="enhancement-history-row enhancement-history-row--head">
+              <span>目标</span>
+              <span>成功率</span>
+              <span>成功</span>
+              <span>失败</span>
+            </div>
+            ${rows.join('')}
           </div>
-          ${rows.join('')}
-        </div>
+        ` : ''}
       </div>
     `;
   }
@@ -915,6 +987,14 @@ export class EnhancementModal {
 
     body.querySelector('[data-enhancement-open-history="1"]')?.addEventListener('click', () => {
       this.openHistoryListModal();
+    });
+    body.querySelector('[data-enhancement-toggle-history-inline="1"]')?.addEventListener('click', () => {
+      this.historyExpanded = !this.historyExpanded;
+      this.render();
+    });
+    body.querySelector('[data-enhancement-toggle-protection-inline="1"]')?.addEventListener('click', () => {
+      this.protectionExpanded = !this.protectionExpanded;
+      this.render();
     });
 
     body.querySelectorAll<HTMLInputElement>('input[name="enhancement-protection"]').forEach((input) => {
