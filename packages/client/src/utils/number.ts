@@ -64,6 +64,18 @@ export function formatDisplayPercent(value: number, options: DisplayNumberOption
   return `${formatDisplayNumber(value, options)}%`;
 }
 
+/** formatAdaptiveRatePercent：按数值区间动态切换百分比显示精度。 */
+export function formatAdaptiveRatePercent(value: number): string {
+  if (!Number.isFinite(value)) {
+    return '0%';
+  }
+/** absValue：定义该变量以承载业务值。 */
+  const absValue = Math.abs(value);
+/** maximumFractionDigits：定义该变量以承载业务值。 */
+  const maximumFractionDigits = absValue < 10 ? 2 : absValue < 100 ? 1 : 0;
+  return formatDisplayPercent(value, { maximumFractionDigits });
+}
+
 /** formatDisplayCurrentMax：执行对应的业务逻辑。 */
 export function formatDisplayCurrentMax(current: number, max: number): string {
   return `${formatDisplayInteger(current)} / ${formatDisplayInteger(max)}`;
@@ -73,4 +85,3 @@ export function formatDisplayCurrentMax(current: number, max: number): string {
 export function formatDisplayCountBadge(count: number): string {
   return `x${formatDisplayInteger(count)}`;
 }
-

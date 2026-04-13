@@ -28,7 +28,7 @@ import {
 } from '../content/local-templates';
 import { SkillTooltipAsideCard, SkillTooltipContent } from './skill-tooltip';
 import { describePreviewBonuses } from './stat-preview';
-import { formatDisplayInteger, formatDisplayNumber, formatDisplayPercent } from '../utils/number';
+import { formatAdaptiveRatePercent, formatDisplayInteger, formatDisplayNumber, formatDisplayPercent } from '../utils/number';
 
 /** escapeHtml：执行对应的业务逻辑。 */
 function escapeHtml(value: string): string {
@@ -442,13 +442,16 @@ export function describeEquipmentUtilityBonuses(item: ItemStack): string[] {
 /** lines：定义该变量以承载业务值。 */
   const lines: string[] = [];
   if (typeof item.alchemySpeedRate === 'number' && item.alchemySpeedRate !== 0) {
-    lines.push(`炼丹速度 ${item.alchemySpeedRate > 0 ? '+' : ''}${formatDisplayPercent(item.alchemySpeedRate * 100)}`);
+    lines.push(`炼丹速度 ${item.alchemySpeedRate > 0 ? '+' : ''}${formatAdaptiveRatePercent(item.alchemySpeedRate * 100)}`);
   }
   if (typeof item.alchemySuccessRate === 'number' && item.alchemySuccessRate !== 0) {
-    lines.push(`炼丹成功 ${item.alchemySuccessRate > 0 ? '+' : ''}${formatDisplayPercent(item.alchemySuccessRate * 100)}`);
+    lines.push(`炼丹成功 ${item.alchemySuccessRate > 0 ? '+' : ''}${formatAdaptiveRatePercent(item.alchemySuccessRate * 100)}`);
   }
   if (typeof item.enhancementSpeedRate === 'number' && item.enhancementSpeedRate !== 0) {
-    lines.push(`强化速度 ${item.enhancementSpeedRate > 0 ? '+' : ''}${formatDisplayPercent(item.enhancementSpeedRate * 100)}`);
+    lines.push(`强化速度 ${item.enhancementSpeedRate > 0 ? '+' : ''}${formatAdaptiveRatePercent(item.enhancementSpeedRate * 100)}`);
+  }
+  if (typeof item.enhancementSuccessRate === 'number' && item.enhancementSuccessRate !== 0) {
+    lines.push(`强化成功 ${item.enhancementSuccessRate > 0 ? '+' : ''}${formatAdaptiveRatePercent(item.enhancementSuccessRate * 100)}`);
   }
   return lines;
 }
@@ -618,4 +621,3 @@ export function buildEquipmentTooltipContent(item: ItemStack, context?: ItemTool
     asideCards: payload.asideCards,
   };
 }
-

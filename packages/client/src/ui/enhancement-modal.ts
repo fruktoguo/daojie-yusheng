@@ -16,7 +16,7 @@ import {
 import { getLocalItemTemplate } from '../content/local-templates';
 import { getEquipSlotLabel, getItemTypeLabel } from '../domain-labels';
 import { getItemAffixTypeLabel, getItemDecorClassName, getItemDisplayMeta } from './item-display';
-import { formatDisplayInteger } from '../utils/number';
+import { formatAdaptiveRatePercent, formatDisplayInteger } from '../utils/number';
 import { confirmModalHost } from './confirm-modal-host';
 import { detailModalHost } from './detail-modal-host';
 import { describeEquipmentBonuses } from './equipment-tooltip';
@@ -41,8 +41,8 @@ function escapeHtml(value: string): string {
 /** formatPercent：执行对应的业务逻辑。 */
 function formatPercent(rate: number | undefined): string {
 /** normalized：定义该变量以承载业务值。 */
-  const normalized = typeof rate === 'number' ? Math.max(0, Math.min(1, rate)) : 0;
-  return `${Math.round(normalized * 100)}%`;
+  const normalized = typeof rate === 'number' && Number.isFinite(rate) ? rate : 0;
+  return formatAdaptiveRatePercent(normalized * 100);
 }
 
 /** formatRefKey：执行对应的业务逻辑。 */
@@ -70,6 +70,7 @@ function buildBasePreviewItem(item: ItemStack): ItemStack {
     effects: template?.effects ?? item.effects,
     alchemySuccessRate: template?.alchemySuccessRate ?? item.alchemySuccessRate,
     alchemySpeedRate: template?.alchemySpeedRate ?? item.alchemySpeedRate,
+    enhancementSuccessRate: template?.enhancementSuccessRate ?? item.enhancementSuccessRate,
     enhancementSpeedRate: template?.enhancementSpeedRate ?? item.enhancementSpeedRate,
     enhanceLevel: 0,
   };
@@ -1163,6 +1164,8 @@ export class EnhancementModal {
     const displayRecord = this.getDisplayRecord(referenceItem.itemId, record);
 /** roleEnhancementLevel：定义该变量以承载业务值。 */
     const roleEnhancementLevel = activeJob?.roleEnhancementLevel ?? Math.max(1, this.panelState?.enhancementSkillLevel ?? 1);
+/** hammerSuccessRate：定义该变量以承载业务值。 */
+    const hammerSuccessRate = this.equipment.weapon?.enhancementSuccessRate ?? 0;
 /** levelRecords：定义该变量以承载业务值。 */
     const levelRecords = new Map((displayRecord?.levels ?? []).map((entry) => [entry.targetLevel, entry] as const));
 /** highestSeenLevel：定义该变量以承载业务值。 */
@@ -1178,7 +1181,7 @@ export class EnhancementModal {
       rows.push(`
         <div class="enhancement-history-row">
           <span>+${formatDisplayInteger(level)}</span>
-          <span>${formatPercent(computeEnhancementAdjustedSuccessRate(level, roleEnhancementLevel, referenceItem.level))}</span>
+          <span>${formatPercent(computeEnhancementAdjustedSuccessRate(level, roleEnhancementLevel, referenceItem.level, hammerSuccessRate))}</span>
           <span>成 ${formatDisplayInteger(current?.successCount ?? 0)}</span>
           <span>败 ${formatDisplayInteger(current?.failureCount ?? 0)}</span>
         </div>
@@ -1850,6 +1853,8 @@ export class EnhancementModal {
     );
 /** roleEnhancementLevel：定义该变量以承载业务值。 */
     const roleEnhancementLevel = Math.max(1, this.panelState?.enhancementSkillLevel ?? 1);
+/** hammerSuccessRate：定义该变量以承载业务值。 */
+    const hammerSuccessRate = this.equipment.weapon?.enhancementSuccessRate ?? 0;
 /** rows：定义该变量以承载业务值。 */
     const rows: string[] = [];
     for (let level = 1; level <= highestSeenLevel; level += 1) {
@@ -1857,7 +1862,7 @@ export class EnhancementModal {
       rows.push(`
         <div class="enhancement-history-row">
           <span>+${formatDisplayInteger(level)}</span>
-          <span>${formatPercent(computeEnhancementAdjustedSuccessRate(level, roleEnhancementLevel, itemLevel))}</span>
+          <span>${formatPercent(computeEnhancementAdjustedSuccessRate(level, roleEnhancementLevel, itemLevel, hammerSuccessRate))}</span>
           <span>成 ${formatDisplayInteger(current?.successCount ?? 0)}</span>
           <span>败 ${formatDisplayInteger(current?.failureCount ?? 0)}</span>
         </div>
@@ -1883,7 +1888,7 @@ export class EnhancementModal {
       bodyHtml: `
         <div class="enhancement-history-detail">
           <div class="enhancement-history-detail-note">${escapeHtml(this.getHistorySessionTargetSummary(detailRecord))} · 历史最高 +${formatDisplayInteger(detailRecord.highestLevel)} · ${escapeHtml(this.getHistorySessionStatusLabel(detailRecord))} · ${escapeHtml(endedAtText)} · ${escapeHtml(protectionText)}</div>
-          <div class="enhancement-history-detail-note">以下成功率按当前角色强化等级 Lv.${formatDisplayInteger(roleEnhancementLevel)} 计算，仅用于展示该次行动内各目标等级的参考概率。</div>
+          <div class="enhancement-history-detail-note">以下成功率按当前角色强化等级 Lv.${formatDisplayInteger(roleEnhancementLevel)} 与当前强化锤修正计算，仅用于展示该次行动内各目标等级的参考概率。</div>
           <div class="enhancement-history-table enhancement-history-table--modal">
             <div class="enhancement-history-row enhancement-history-row--head">
               <span>目标</span>
