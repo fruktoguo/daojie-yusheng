@@ -5,6 +5,7 @@ import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/commo
 import {
   computeCraftSkillExpGain,
   createItemStackSignature,
+  computeAdjustedCraftTicks,
   GroundItemEntryView,
   GroundItemPileView,
   GROUND_ITEM_EXPIRE_TICKS,
@@ -1119,6 +1120,7 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
         enhanceLevel: item.enhanceLevel,
         alchemySuccessRate: item.alchemySuccessRate,
         alchemySpeedRate: item.alchemySpeedRate,
+        enhancementSuccessRate: item.enhancementSuccessRate,
         enhancementSpeedRate: item.enhancementSpeedRate,
         mapUnlockId: item.mapUnlockId,
         tileAuraGainAmount: item.tileAuraGainAmount,
@@ -1143,6 +1145,7 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
       enhanceLevel: item.enhanceLevel,
       alchemySuccessRate: item.alchemySuccessRate,
       alchemySpeedRate: item.alchemySpeedRate,
+      enhancementSuccessRate: item.enhancementSuccessRate,
       enhancementSpeedRate: item.enhancementSpeedRate,
       mapUnlockId: item.mapUnlockId,
       tileAuraGainAmount: item.tileAuraGainAmount,
@@ -1509,9 +1512,9 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
     const nativeGatherTicks = Math.max(1, Math.floor(Number(herb.nativeGatherTicks ?? herb.gatherTicks) || 1));
 /** gatherLevel：定义该变量以承载业务值。 */
     const gatherLevel = Math.max(1, Math.floor(Number(this.ensureGatherSkill(player).level) || 1));
-/** speedMultiplier：定义该变量以承载业务值。 */
-    const speedMultiplier = 1 + (gatherLevel * GATHER_SPEED_PER_LEVEL);
-    return Math.max(1, Math.ceil(nativeGatherTicks / speedMultiplier));
+/** speedRate：定义该变量以承载业务值。 */
+    const speedRate = gatherLevel * GATHER_SPEED_PER_LEVEL;
+    return computeAdjustedCraftTicks(nativeGatherTicks, speedRate);
   }
 
 /** computeHerbDurability：执行对应的业务逻辑。 */
