@@ -803,6 +803,9 @@ export interface PlayerEnhancementLevelRecord {
   failureCount: number;
 }
 
+/** PlayerEnhancementSessionStatus：定义强化行动会话的归档状态。 */
+export type PlayerEnhancementSessionStatus = 'in_progress' | 'completed' | 'cancelled' | 'stopped';
+
 /** PlayerEnhancementRecord：定义该接口的能力与字段约束。 */
 export interface PlayerEnhancementRecord {
 /** itemId：定义该变量以承载业务值。 */
@@ -811,6 +814,20 @@ export interface PlayerEnhancementRecord {
   highestLevel: number;
 /** levels：定义该变量以承载业务值。 */
   levels: PlayerEnhancementLevelRecord[];
+/** actionStartedAt：定义该变量以承载业务值。 */
+  actionStartedAt?: number;
+/** actionEndedAt：定义该变量以承载业务值。 */
+  actionEndedAt?: number;
+/** startLevel：定义该变量以承载业务值。 */
+  startLevel?: number;
+/** initialTargetLevel：定义该变量以承载业务值。 */
+  initialTargetLevel?: number;
+/** desiredTargetLevel：定义该变量以承载业务值。 */
+  desiredTargetLevel?: number;
+/** protectionStartLevel：定义该变量以承载业务值。 */
+  protectionStartLevel?: number;
+/** status：定义该变量以承载业务值。 */
+  status?: PlayerEnhancementSessionStatus;
 }
 
 /** SyncedEnhancementProtectionCandidate：定义该接口的能力与字段约束。 */

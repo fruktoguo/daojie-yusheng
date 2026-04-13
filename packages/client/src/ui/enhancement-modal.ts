@@ -88,8 +88,8 @@ function getItemNameClass(name: string): string {
   return '';
 }
 
-/** StoredEnhancementHistoryState：定义该接口的能力与字段约束。 */
-interface StoredEnhancementHistoryState {
+/** StoredEnhancementHistoryStateV1：定义旧版历史结构。 */
+interface StoredEnhancementHistoryStateV1 {
 /** version：定义该变量以承载业务值。 */
   version: 1;
 /** totals：定义该变量以承载业务值。 */
@@ -98,8 +98,20 @@ interface StoredEnhancementHistoryState {
   sessionRecord: PlayerEnhancementRecord | null;
 }
 
+/** StoredEnhancementHistoryState：定义该接口的能力与字段约束。 */
+interface StoredEnhancementHistoryState {
+/** version：定义该变量以承载业务值。 */
+  version: 2;
+/** totals：定义该变量以承载业务值。 */
+  totals: PlayerEnhancementRecord[];
+/** sessions：定义该变量以承载业务值。 */
+  sessions: PlayerEnhancementRecord[];
+/** sessionRecord：定义该变量以承载业务值。 */
+  sessionRecord: PlayerEnhancementRecord | null;
+}
+
 /** ENHANCEMENT_HISTORY_STORAGE_KEY：定义该变量以承载业务值。 */
-const ENHANCEMENT_HISTORY_STORAGE_KEY = 'mud:enhancement-history:v1';
+const ENHANCEMENT_HISTORY_STORAGE_KEY = 'mud:enhancement-history:v2';
 
 /** cloneEnhancementRecord：执行对应的业务逻辑。 */
 function cloneEnhancementRecord(record: PlayerEnhancementRecord): PlayerEnhancementRecord {
@@ -113,6 +125,27 @@ function cloneEnhancementRecord(record: PlayerEnhancementRecord): PlayerEnhancem
         failureCount: Math.max(0, Math.floor(Number(entry.failureCount) || 0)),
       }))
       .sort((left, right) => left.targetLevel - right.targetLevel),
+    actionStartedAt: Number.isFinite(record.actionStartedAt) && Number(record.actionStartedAt) > 0
+      ? Math.floor(Number(record.actionStartedAt))
+      : undefined,
+    actionEndedAt: Number.isFinite(record.actionEndedAt) && Number(record.actionEndedAt) > 0
+      ? Math.floor(Number(record.actionEndedAt))
+      : undefined,
+    startLevel: Number.isFinite(record.startLevel)
+      ? normalizeEnhanceLevel(record.startLevel)
+      : undefined,
+    initialTargetLevel: Number.isFinite(record.initialTargetLevel)
+      ? Math.max(1, Math.floor(Number(record.initialTargetLevel)))
+      : undefined,
+    desiredTargetLevel: Number.isFinite(record.desiredTargetLevel)
+      ? Math.max(1, Math.floor(Number(record.desiredTargetLevel)))
+      : undefined,
+    protectionStartLevel: Number.isFinite(record.protectionStartLevel)
+      ? Math.max(2, Math.floor(Number(record.protectionStartLevel)))
+      : undefined,
+    status: record.status === 'completed' || record.status === 'cancelled' || record.status === 'stopped' || record.status === 'in_progress'
+      ? record.status
+      : undefined,
   };
 }
 
@@ -126,11 +159,30 @@ function normalizeEnhancementRecordList(records: PlayerEnhancementRecord[] | nul
     .map((entry) => cloneEnhancementRecord(entry));
 }
 
+/** getEnhancementHistorySessionKey：执行对应的业务逻辑。 */
+function getEnhancementHistorySessionKey(record: Pick<PlayerEnhancementRecord, 'itemId' | 'actionStartedAt'>): string {
+  return `${record.itemId}:${Math.max(0, Math.floor(Number(record.actionStartedAt) || 0))}`;
+}
+
+/** isEnhancementHistorySessionRecord：执行对应的业务逻辑。 */
+function isEnhancementHistorySessionRecord(record: PlayerEnhancementRecord | null | undefined): boolean {
+  return Boolean(record && Number.isFinite(record.actionStartedAt) && Number(record.actionStartedAt) > 0);
+}
+
+/** formatHistoryDateTime：执行对应的业务逻辑。 */
+function formatHistoryDateTime(timestamp: number | undefined): string {
+  if (!Number.isFinite(timestamp) || Number(timestamp) <= 0) {
+    return '未知时间';
+  }
+  return new Date(Number(timestamp)).toLocaleString('zh-CN');
+}
+
 /** EnhancementModal：封装相关状态与行为。 */
 export class EnhancementModal {
   private static readonly MODAL_OWNER = 'enhancement-modal';
   private static readonly PICKER_OWNER = 'enhancement-modal:picker';
   private static readonly HISTORY_LIST_OWNER = 'enhancement-modal:history-list';
+  private static readonly HISTORY_SESSION_OWNER = 'enhancement-modal:history-session';
   private static readonly HISTORY_DETAIL_OWNER = 'enhancement-modal:history-detail';
 
 /** callbacks：定义该变量以承载业务值。 */
@@ -158,8 +210,11 @@ export class EnhancementModal {
   private lastJobSnapshotKey: string | null = null;
   private localHistoryLoaded = false;
   private localHistoryRecords = new Map<string, PlayerEnhancementRecord>();
+  private localHistorySessions: PlayerEnhancementRecord[] = [];
 /** lastServerSessionRecord：定义该变量以承载业务值。 */
   private lastServerSessionRecord: PlayerEnhancementRecord | null = null;
+  private activeHistoryItemId: string | null = null;
+  private activeHistorySessionKey: string | null = null;
 
 /** setCallbacks：执行对应的业务逻辑。 */
   setCallbacks(callbacks: EnhancementModalCallbacks): void {
@@ -204,9 +259,12 @@ export class EnhancementModal {
     this.selectedProtectionStartLevel = null;
     this.localJobRemainingTicks = null;
     this.lastJobSnapshotKey = null;
+    this.activeHistoryItemId = null;
+    this.activeHistorySessionKey = null;
     this.stopCountdown();
     confirmModalHost.close(EnhancementModal.PICKER_OWNER);
     confirmModalHost.close(EnhancementModal.HISTORY_LIST_OWNER);
+    confirmModalHost.close(EnhancementModal.HISTORY_SESSION_OWNER);
     confirmModalHost.close(EnhancementModal.HISTORY_DETAIL_OWNER);
     detailModalHost.close(EnhancementModal.MODAL_OWNER);
   }
@@ -220,6 +278,7 @@ export class EnhancementModal {
     this.panelState = data.state ? structuredClone(data.state) : null;
     this.ensureSelection();
     this.syncCountdown();
+    this.refreshOpenHistoryModal();
     if (detailModalHost.isOpenFor(EnhancementModal.MODAL_OWNER)) {
       this.render();
     }
@@ -986,6 +1045,19 @@ export class EnhancementModal {
 /** raw：定义该变量以承载业务值。 */
       const raw = window.localStorage.getItem(ENHANCEMENT_HISTORY_STORAGE_KEY);
       if (!raw) {
+/** legacyRaw：定义该变量以承载业务值。 */
+        const legacyRaw = window.localStorage.getItem('mud:enhancement-history:v1');
+        if (!legacyRaw) {
+          return;
+        }
+/** parsedLegacy：定义该变量以承载业务值。 */
+        const parsedLegacy = JSON.parse(legacyRaw) as Partial<StoredEnhancementHistoryStateV1>;
+        this.localHistoryRecords = new Map(
+          normalizeEnhancementRecordList(parsedLegacy.totals).map((entry) => [entry.itemId, entry] as const),
+        );
+        this.localHistorySessions = [];
+        this.lastServerSessionRecord = parsedLegacy.sessionRecord ? cloneEnhancementRecord(parsedLegacy.sessionRecord) : null;
+        this.persistLocalHistory();
         return;
       }
 /** parsed：定义该变量以承载业务值。 */
@@ -993,9 +1065,13 @@ export class EnhancementModal {
       this.localHistoryRecords = new Map(
         normalizeEnhancementRecordList(parsed.totals).map((entry) => [entry.itemId, entry] as const),
       );
+      this.localHistorySessions = normalizeEnhancementRecordList(parsed.sessions)
+        .filter((entry) => isEnhancementHistorySessionRecord(entry))
+        .sort((left, right) => (right.actionStartedAt ?? 0) - (left.actionStartedAt ?? 0));
       this.lastServerSessionRecord = parsed.sessionRecord ? cloneEnhancementRecord(parsed.sessionRecord) : null;
     } catch {
       this.localHistoryRecords = new Map();
+      this.localHistorySessions = [];
       this.lastServerSessionRecord = null;
     }
   }
@@ -1007,10 +1083,16 @@ export class EnhancementModal {
     }
 /** payload：定义该变量以承载业务值。 */
     const payload: StoredEnhancementHistoryState = {
-      version: 1,
+      version: 2,
       totals: [...this.localHistoryRecords.values()]
         .map((entry) => cloneEnhancementRecord(entry))
         .sort((left, right) => left.itemId.localeCompare(right.itemId, 'zh-Hans-CN')),
+      sessions: this.localHistorySessions
+        .map((entry) => cloneEnhancementRecord(entry))
+        .sort((left, right) => (
+          (right.actionStartedAt ?? 0) - (left.actionStartedAt ?? 0)
+          || right.itemId.localeCompare(left.itemId, 'zh-Hans-CN')
+        )),
       sessionRecord: this.lastServerSessionRecord ? cloneEnhancementRecord(this.lastServerSessionRecord) : null,
     };
     try {
@@ -1032,13 +1114,14 @@ export class EnhancementModal {
 /** continuousSession：定义该变量以承载业务值。 */
     const continuousSession = Boolean(
       previousSession
-      && previousSession.itemId === serverRecord.itemId
+      && getEnhancementHistorySessionKey(previousSession) === getEnhancementHistorySessionKey(serverRecord)
       && this.isNonDecreasingSessionSnapshot(previousSession, serverRecord),
     );
 /** deltaRecord：定义该变量以承载业务值。 */
     const deltaRecord = continuousSession && previousSession
       ? this.computeSessionDelta(previousSession, serverRecord)
       : serverRecord;
+    this.upsertLocalHistorySession(serverRecord);
     if (deltaRecord.highestLevel > 0 || deltaRecord.levels.length > 0) {
 /** persisted：定义该变量以承载业务值。 */
       const persisted = this.localHistoryRecords.get(serverRecord.itemId) ?? {
@@ -1097,6 +1180,13 @@ export class EnhancementModal {
           };
         })
         .filter((entry) => entry.successCount > 0 || entry.failureCount > 0),
+      actionStartedAt: current.actionStartedAt,
+      actionEndedAt: current.actionEndedAt,
+      startLevel: current.startLevel,
+      initialTargetLevel: current.initialTargetLevel,
+      desiredTargetLevel: current.desiredTargetLevel,
+      protectionStartLevel: current.protectionStartLevel,
+      status: current.status,
     };
   }
 
@@ -1124,6 +1214,24 @@ export class EnhancementModal {
       levelMap.set(entry.targetLevel, current);
     }
     target.levels = [...levelMap.values()].sort((left, right) => left.targetLevel - right.targetLevel);
+  }
+
+  private upsertLocalHistorySession(record: PlayerEnhancementRecord): void {
+    if (!isEnhancementHistorySessionRecord(record)) {
+      return;
+    }
+/** next：定义该变量以承载业务值。 */
+    const next = cloneEnhancementRecord(record);
+/** sessionKey：定义该变量以承载业务值。 */
+    const sessionKey = getEnhancementHistorySessionKey(next);
+/** currentIndex：定义该变量以承载业务值。 */
+    const currentIndex = this.localHistorySessions.findIndex((entry) => getEnhancementHistorySessionKey(entry) === sessionKey);
+    if (currentIndex >= 0) {
+      this.localHistorySessions[currentIndex] = next;
+    } else {
+      this.localHistorySessions.push(next);
+    }
+    this.localHistorySessions.sort((left, right) => (right.actionStartedAt ?? 0) - (left.actionStartedAt ?? 0));
   }
 
 /** getDisplayRecord：执行对应的业务逻辑。 */
@@ -1162,8 +1270,28 @@ export class EnhancementModal {
 
 /** getSortedLocalHistoryRecords：执行对应的业务逻辑。 */
   private getSortedLocalHistoryRecords(): PlayerEnhancementRecord[] {
-    return [...this.localHistoryRecords.values()]
-      .map((entry) => cloneEnhancementRecord(entry))
+/** recordsByItem：定义该变量以承载业务值。 */
+    const recordsByItem = new Map<string, PlayerEnhancementRecord>(
+      [...this.localHistoryRecords.values()].map((entry) => [entry.itemId, cloneEnhancementRecord(entry)] as const),
+    );
+    for (const session of this.localHistorySessions) {
+/** current：定义该变量以承载业务值。 */
+      const current = recordsByItem.get(session.itemId) ?? {
+        itemId: session.itemId,
+        highestLevel: 0,
+        levels: [],
+      };
+      current.highestLevel = Math.max(
+        normalizeEnhanceLevel(current.highestLevel),
+        normalizeEnhanceLevel(session.highestLevel),
+        normalizeEnhanceLevel(session.startLevel),
+      );
+      if (!this.localHistoryRecords.has(session.itemId) && session.levels.length > 0) {
+        this.applyDeltaRecord(current, session, session.highestLevel);
+      }
+      recordsByItem.set(session.itemId, current);
+    }
+    return [...recordsByItem.values()]
       .sort((left, right) => {
 /** highestDelta：定义该变量以承载业务值。 */
         const highestDelta = normalizeEnhanceLevel(right.highestLevel) - normalizeEnhanceLevel(left.highestLevel);
@@ -1197,15 +1325,70 @@ export class EnhancementModal {
     );
   }
 
+  private getHistorySessionsByItem(itemId: string): PlayerEnhancementRecord[] {
+    return this.localHistorySessions
+      .filter((entry) => entry.itemId === itemId)
+      .map((entry) => cloneEnhancementRecord(entry))
+      .sort((left, right) => (
+        (right.actionStartedAt ?? 0) - (left.actionStartedAt ?? 0)
+        || (right.actionEndedAt ?? 0) - (left.actionEndedAt ?? 0)
+      ));
+  }
+
+  private getHistorySessionStatusLabel(record: PlayerEnhancementRecord): string {
+    switch (record.status) {
+      case 'completed':
+        return '已完成';
+      case 'cancelled':
+        return '已取消';
+      case 'stopped':
+        return '已停止';
+      case 'in_progress':
+        return '进行中';
+      default:
+        return '状态未知';
+    }
+  }
+
+  private getHistorySessionTargetSummary(record: PlayerEnhancementRecord): string {
+/** startLevel：定义该变量以承载业务值。 */
+    const startLevel = normalizeEnhanceLevel(record.startLevel);
+/** initialTargetLevel：定义该变量以承载业务值。 */
+    const initialTargetLevel = Math.max(startLevel + 1, Math.floor(Number(record.initialTargetLevel) || (startLevel + 1)));
+/** desiredTargetLevel：定义该变量以承载业务值。 */
+    const desiredTargetLevel = Math.max(initialTargetLevel, Math.floor(Number(record.desiredTargetLevel) || initialTargetLevel));
+    return `开始 +${formatDisplayInteger(startLevel)} · 首冲 +${formatDisplayInteger(initialTargetLevel)} · 目标 +${formatDisplayInteger(desiredTargetLevel)}`;
+  }
+
+  private refreshOpenHistoryModal(): void {
+    if (confirmModalHost.isOpenFor(EnhancementModal.HISTORY_DETAIL_OWNER)) {
+      if (this.activeHistoryItemId && this.activeHistorySessionKey) {
+        this.openHistoryDetailModal(this.activeHistoryItemId, this.activeHistorySessionKey);
+      }
+      return;
+    }
+    if (confirmModalHost.isOpenFor(EnhancementModal.HISTORY_SESSION_OWNER)) {
+      if (this.activeHistoryItemId) {
+        this.openHistorySessionModal(this.activeHistoryItemId);
+      }
+      return;
+    }
+    if (confirmModalHost.isOpenFor(EnhancementModal.HISTORY_LIST_OWNER)) {
+      this.openHistoryListModal();
+    }
+  }
+
 /** openHistoryListModal：执行对应的业务逻辑。 */
   private openHistoryListModal(): void {
     this.ensureLocalHistoryLoaded();
+    this.activeHistoryItemId = null;
+    this.activeHistorySessionKey = null;
 /** records：定义该变量以承载业务值。 */
     const records = this.getSortedLocalHistoryRecords();
     confirmModalHost.open({
       ownerId: EnhancementModal.HISTORY_LIST_OWNER,
       title: '强化历史记录',
-      subtitle: '以下为当前设备上的本地累计记录',
+      subtitle: '以下为当前设备上的本地累计记录，点击物品后可查看每次开始强化的行动列表',
       confirmLabel: '关闭',
       cancelLabel: '返回',
       bodyHtml: records.length > 0
@@ -1246,16 +1429,81 @@ export class EnhancementModal {
         if (!itemId) {
           return;
         }
-        this.openHistoryDetailModal(itemId);
+        this.openHistorySessionModal(itemId);
+      });
+    });
+  }
+
+  private openHistorySessionModal(itemId: string): void {
+    this.ensureLocalHistoryLoaded();
+    this.activeHistoryItemId = itemId;
+    this.activeHistorySessionKey = null;
+/** itemName：定义该变量以承载业务值。 */
+    const itemName = this.getHistoryItemName(itemId);
+/** sessions：定义该变量以承载业务值。 */
+    const sessions = this.getHistorySessionsByItem(itemId);
+    confirmModalHost.open({
+      ownerId: EnhancementModal.HISTORY_SESSION_OWNER,
+      title: '强化行动记录',
+      subtitle: `${itemName} · 按每次开始强化分组`,
+      confirmLabel: '关闭',
+      cancelLabel: '返回',
+      onClose: () => {
+        this.openHistoryListModal();
+      },
+      bodyHtml: sessions.length > 0
+        ? `
+          <div class="enhancement-history-list-modal enhancement-history-list-modal--sessions">
+            ${sessions.map((record) => {
+/** startedAtLabel：定义该变量以承载业务值。 */
+              const startedAtLabel = formatHistoryDateTime(record.actionStartedAt);
+/** endedAtLabel：定义该变量以承载业务值。 */
+              const endedAtLabel = record.actionEndedAt ? `结束于 ${formatHistoryDateTime(record.actionEndedAt)}` : '尚未结束';
+/** attemptCount：定义该变量以承载业务值。 */
+              const attemptCount = this.getHistoryAttemptCount(record);
+/** sessionKey：定义该变量以承载业务值。 */
+              const sessionKey = getEnhancementHistorySessionKey(record);
+              return `
+                <button
+                  class="enhancement-history-entry"
+                  type="button"
+                  data-enhancement-history-session="${escapeHtml(sessionKey)}"
+                >
+                  <span class="enhancement-history-entry-title">开始于 ${escapeHtml(startedAtLabel)}</span>
+                  <span class="enhancement-history-entry-meta">${escapeHtml(this.getHistorySessionTargetSummary(record))}</span>
+                  <span class="enhancement-history-entry-meta enhancement-history-entry-meta--secondary">历史最高 +${formatDisplayInteger(record.highestLevel)} · 累计 ${formatDisplayInteger(attemptCount)} 次 · ${escapeHtml(this.getHistorySessionStatusLabel(record))} · ${escapeHtml(endedAtLabel)}</span>
+                </button>
+              `;
+            }).join('')}
+          </div>
+        `
+        : '<div class="enhancement-empty-state enhancement-empty-state--picker">该物品的旧版历史只有累计汇总，无法拆回过去每次开始强化；后续新记录会按行动分别列出。</div>',
+    });
+
+/** modalBody：定义该变量以承载业务值。 */
+    const modalBody = document.querySelector<HTMLElement>('.confirm-modal-body');
+    if (!modalBody) {
+      return;
+    }
+    modalBody.querySelectorAll<HTMLElement>('[data-enhancement-history-session]').forEach((button) => {
+      button.addEventListener('click', () => {
+/** sessionKey：定义该变量以承载业务值。 */
+        const sessionKey = button.dataset.enhancementHistorySession ?? '';
+        if (!sessionKey) {
+          return;
+        }
+        this.openHistoryDetailModal(itemId, sessionKey);
       });
     });
   }
 
 /** openHistoryDetailModal：执行对应的业务逻辑。 */
-  private openHistoryDetailModal(itemId: string): void {
+  private openHistoryDetailModal(itemId: string, sessionKey: string): void {
     this.ensureLocalHistoryLoaded();
+    this.activeHistoryItemId = itemId;
+    this.activeHistorySessionKey = sessionKey;
 /** record：定义该变量以承载业务值。 */
-    const record = this.localHistoryRecords.get(itemId);
+    const record = this.getHistorySessionsByItem(itemId).find((entry) => getEnhancementHistorySessionKey(entry) === sessionKey);
     if (!record) {
       return;
     }
@@ -1268,7 +1516,11 @@ export class EnhancementModal {
 /** levelMap：定义该变量以承载业务值。 */
     const levelMap = new Map(detailRecord.levels.map((entry) => [entry.targetLevel, entry] as const));
 /** highestSeenLevel：定义该变量以承载业务值。 */
-    const highestSeenLevel = Math.max(normalizeEnhanceLevel(detailRecord.highestLevel), 8);
+    const highestSeenLevel = Math.max(
+      normalizeEnhanceLevel(detailRecord.highestLevel),
+      normalizeEnhanceLevel(detailRecord.desiredTargetLevel),
+      8,
+    );
 /** roleEnhancementLevel：定义该变量以承载业务值。 */
     const roleEnhancementLevel = Math.max(1, this.panelState?.enhancementSkillLevel ?? 1);
 /** rows：定义该变量以承载业务值。 */
@@ -1284,18 +1536,27 @@ export class EnhancementModal {
         </div>
       `);
     }
+/** endedAtText：定义该变量以承载业务值。 */
+    const endedAtText = detailRecord.actionEndedAt
+      ? `结束于 ${formatHistoryDateTime(detailRecord.actionEndedAt)}`
+      : '尚未结束';
+/** protectionText：定义该变量以承载业务值。 */
+    const protectionText = typeof detailRecord.protectionStartLevel === 'number'
+      ? `保护从 +${formatDisplayInteger(detailRecord.protectionStartLevel)} 生效`
+      : '未启用保护';
     confirmModalHost.open({
       ownerId: EnhancementModal.HISTORY_DETAIL_OWNER,
       title: '强化记录详情',
-      subtitle: `${itemName} · 历史最高 +${formatDisplayInteger(detailRecord.highestLevel)}`,
+      subtitle: `${itemName} · 开始于 ${formatHistoryDateTime(detailRecord.actionStartedAt)}`,
       confirmLabel: '关闭',
       cancelLabel: '返回',
       onClose: () => {
-        this.openHistoryListModal();
+        this.openHistorySessionModal(itemId);
       },
       bodyHtml: `
         <div class="enhancement-history-detail">
-          <div class="enhancement-history-detail-note">以下成功率按当前角色强化等级 Lv.${formatDisplayInteger(roleEnhancementLevel)} 计算，仅用于展示每一级的参考概率。</div>
+          <div class="enhancement-history-detail-note">${escapeHtml(this.getHistorySessionTargetSummary(detailRecord))} · 历史最高 +${formatDisplayInteger(detailRecord.highestLevel)} · ${escapeHtml(this.getHistorySessionStatusLabel(detailRecord))} · ${escapeHtml(endedAtText)} · ${escapeHtml(protectionText)}</div>
+          <div class="enhancement-history-detail-note">以下成功率按当前角色强化等级 Lv.${formatDisplayInteger(roleEnhancementLevel)} 计算，仅用于展示该次行动内各目标等级的参考概率。</div>
           <div class="enhancement-history-table enhancement-history-table--modal">
             <div class="enhancement-history-row enhancement-history-row--head">
               <span>目标</span>

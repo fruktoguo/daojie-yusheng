@@ -18,6 +18,7 @@ import {
   PlayerEnhancementJob,
   PlayerEnhancementLevelRecord,
   PlayerEnhancementRecord,
+  PlayerEnhancementSessionStatus,
   PlayerState,
   S2C_EnhancementPanel,
   SyncedEnhancementCandidateView,
@@ -245,9 +246,17 @@ export class EnhancementService implements OnModuleInit {
     const equipmentSnapshot = structuredClone(player.equipment);
 /** recordSnapshot：定义该变量以承载业务值。 */
     const recordSnapshot = this.getSessionRecordArray(player);
-    this.prepareSessionRecord(player, target.item.itemId, currentLevel);
-
     try {
+/** actionStartedAt：定义该变量以承载业务值。 */
+      const actionStartedAt = Date.now();
+      this.startSessionRecord(player, {
+        itemId: target.item.itemId,
+        actionStartedAt,
+        startLevel: currentLevel,
+        initialTargetLevel: targetLevel,
+        desiredTargetLevel,
+        protectionStartLevel,
+      });
 /** workingItem：定义该变量以承载业务值。 */
       const workingItem = target.source === 'inventory'
         ? this.extractInventoryTarget(player, target.slotIndex)
@@ -313,7 +322,7 @@ export class EnhancementService implements OnModuleInit {
         successRate,
         totalTicks,
         remainingTicks: totalTicks,
-        startedAt: Date.now(),
+        startedAt: actionStartedAt,
         roleEnhancementLevel,
         totalSpeedRate,
       };
@@ -354,6 +363,7 @@ export class EnhancementService implements OnModuleInit {
       job.currentLevel,
       `你停止了 ${job.item.name} 的强化，当前这一阶已投入的材料不会退回；保护物仅在失败且保护生效时扣除，灵石将在本阶成功后结算。`,
       'system',
+      'cancelled',
     );
   }
 
@@ -421,6 +431,7 @@ export class EnhancementService implements OnModuleInit {
           job.currentLevel,
           `${job.item.name} 强化失败，灵石不足，本阶已终止。`,
           'system',
+          'stopped',
         ),
         panelChanged: true,
         messages: [{
@@ -445,6 +456,7 @@ export class EnhancementService implements OnModuleInit {
           job.currentLevel,
           `${job.item.name} 强化失败，保护物不足，本阶已终止。`,
           'system',
+          'stopped',
         ),
         panelChanged: true,
         messages: [{
@@ -502,7 +514,7 @@ export class EnhancementService implements OnModuleInit {
     }
 
 /** finishResult：定义该变量以承载业务值。 */
-    const finishResult = this.finishEnhancementJob(player, job, resultingLevel, stepSummaryText, stepSummaryKind);
+    const finishResult = this.finishEnhancementJob(player, job, resultingLevel, stepSummaryText, stepSummaryKind, 'completed');
     return {
       ...finishResult,
       messages: [...skillGain.messages, ...finishResult.messages],
@@ -572,6 +584,7 @@ export class EnhancementService implements OnModuleInit {
         resultingLevel,
         `${stepSummaryText} ${stopReason}`,
         stepSummaryKind,
+        'stopped',
       );
       return {
         continued: false,
@@ -629,6 +642,7 @@ export class EnhancementService implements OnModuleInit {
     resultingLevel: number,
     text: string,
     kind: EnhancementResultMessage['kind'],
+    status: PlayerEnhancementSessionStatus,
   ): EnhancementMutationResult {
 /** resolvedItem：定义该变量以承载业务值。 */
     const resolvedItem = this.contentService.normalizeItemStack({
@@ -636,6 +650,7 @@ export class EnhancementService implements OnModuleInit {
       count: 1,
       enhanceLevel: resultingLevel,
     });
+    this.completeSessionRecord(player, resultingLevel, status);
 
     if (job.target.source === 'equipment' && job.target.slot) {
       player.equipment[job.target.slot] = resolvedItem;
@@ -782,11 +797,6 @@ export class EnhancementService implements OnModuleInit {
     }
 /** candidates：定义该变量以承载业务值。 */
     const candidates = this.collectCandidates(player);
-/** visibleItemIds：定义该变量以承载业务值。 */
-    const visibleItemIds = new Set(candidates.map((entry) => entry.item.itemId));
-    if (player.enhancementJob?.targetItemId) {
-      visibleItemIds.add(player.enhancementJob.targetItemId);
-    }
 /** sessionRecord：定义该变量以承载业务值。 */
     const sessionRecord = this.getSessionRecord(player);
     return {
@@ -795,7 +805,7 @@ export class EnhancementService implements OnModuleInit {
         : undefined,
       enhancementSkillLevel: this.getEnhancementSkillLevel(player),
       candidates,
-      records: sessionRecord && visibleItemIds.has(sessionRecord.itemId)
+      records: sessionRecord
         ? [this.cloneEnhancementRecord(sessionRecord)]
         : [],
       job: player.enhancementJob ? {
@@ -1128,7 +1138,13 @@ export class EnhancementService implements OnModuleInit {
     resultingLevel: number,
   ): void {
 /** record：定义该变量以承载业务值。 */
-    const record = this.prepareSessionRecord(player, itemId, resultingLevel);
+    const record = this.getSessionRecord(player) ?? this.startSessionRecord(player, {
+      itemId,
+      actionStartedAt: Date.now(),
+      startLevel: 0,
+      initialTargetLevel: targetLevel,
+      desiredTargetLevel: targetLevel,
+    });
     record.highestLevel = Math.max(normalizeEnhanceLevel(record.highestLevel), normalizeEnhanceLevel(resultingLevel));
 /** levelRecord：定义该变量以承载业务值。 */
     let levelRecord = record.levels.find((entry) => entry.targetLevel === targetLevel);
@@ -1146,6 +1162,7 @@ export class EnhancementService implements OnModuleInit {
       levelRecord.failureCount += 1;
     }
     record.levels.sort((left, right) => left.targetLevel - right.targetLevel);
+    record.status = 'in_progress';
     player.enhancementRecords = [this.cloneEnhancementRecord(record)];
   }
 
@@ -1259,6 +1276,27 @@ export class EnhancementService implements OnModuleInit {
           failureCount: Math.max(0, Math.floor(Number(level.failureCount) || 0)),
         }))
         .sort((left, right) => left.targetLevel - right.targetLevel),
+      actionStartedAt: Number.isFinite(raw.actionStartedAt) && Number(raw.actionStartedAt) > 0
+        ? Math.floor(Number(raw.actionStartedAt))
+        : undefined,
+      actionEndedAt: Number.isFinite(raw.actionEndedAt) && Number(raw.actionEndedAt) > 0
+        ? Math.floor(Number(raw.actionEndedAt))
+        : undefined,
+      startLevel: Number.isFinite(raw.startLevel)
+        ? normalizeEnhanceLevel(raw.startLevel)
+        : undefined,
+      initialTargetLevel: Number.isFinite(raw.initialTargetLevel)
+        ? Math.max(1, Math.floor(Number(raw.initialTargetLevel)))
+        : undefined,
+      desiredTargetLevel: Number.isFinite(raw.desiredTargetLevel)
+        ? Math.max(1, Math.floor(Number(raw.desiredTargetLevel)))
+        : undefined,
+      protectionStartLevel: Number.isFinite(raw.protectionStartLevel)
+        ? Math.max(2, Math.floor(Number(raw.protectionStartLevel)))
+        : undefined,
+      status: raw.status === 'completed' || raw.status === 'cancelled' || raw.status === 'stopped' || raw.status === 'in_progress'
+        ? raw.status
+        : undefined,
     };
   }
 
@@ -1281,29 +1319,74 @@ export class EnhancementService implements OnModuleInit {
           failureCount: Math.max(0, Math.floor(Number(level.failureCount) || 0)),
         }))
         .sort((left, right) => left.targetLevel - right.targetLevel),
+      actionStartedAt: Number.isFinite(record.actionStartedAt) && Number(record.actionStartedAt) > 0
+        ? Math.floor(Number(record.actionStartedAt))
+        : undefined,
+      actionEndedAt: Number.isFinite(record.actionEndedAt) && Number(record.actionEndedAt) > 0
+        ? Math.floor(Number(record.actionEndedAt))
+        : undefined,
+      startLevel: Number.isFinite(record.startLevel)
+        ? normalizeEnhanceLevel(record.startLevel)
+        : undefined,
+      initialTargetLevel: Number.isFinite(record.initialTargetLevel)
+        ? Math.max(1, Math.floor(Number(record.initialTargetLevel)))
+        : undefined,
+      desiredTargetLevel: Number.isFinite(record.desiredTargetLevel)
+        ? Math.max(1, Math.floor(Number(record.desiredTargetLevel)))
+        : undefined,
+      protectionStartLevel: Number.isFinite(record.protectionStartLevel)
+        ? Math.max(2, Math.floor(Number(record.protectionStartLevel)))
+        : undefined,
+      status: record.status,
     };
   }
 
-  private prepareSessionRecord(
+  private startSessionRecord(
     player: PlayerState,
-    itemId: string,
-    initialHighestLevel: number,
+    session: {
+      itemId: string;
+      actionStartedAt: number;
+      startLevel: number;
+      initialTargetLevel: number;
+      desiredTargetLevel: number;
+      protectionStartLevel?: number;
+    },
   ): PlayerEnhancementRecord {
-/** current：定义该变量以承载业务值。 */
-    const current = this.getSessionRecord(player);
-    if (current?.itemId === itemId) {
-      current.highestLevel = Math.max(current.highestLevel, normalizeEnhanceLevel(initialHighestLevel));
-      player.enhancementRecords = [this.cloneEnhancementRecord(current)];
-      return current;
-    }
 /** next：定义该变量以承载业务值。 */
     const next: PlayerEnhancementRecord = {
-      itemId,
-      highestLevel: normalizeEnhanceLevel(initialHighestLevel),
+      itemId: session.itemId,
+      highestLevel: normalizeEnhanceLevel(session.startLevel),
       levels: [],
+      actionStartedAt: Math.max(1, Math.floor(session.actionStartedAt)),
+      startLevel: normalizeEnhanceLevel(session.startLevel),
+      initialTargetLevel: Math.max(1, Math.floor(session.initialTargetLevel)),
+      desiredTargetLevel: Math.max(
+        Math.max(1, Math.floor(session.initialTargetLevel)),
+        Math.floor(session.desiredTargetLevel),
+      ),
+      protectionStartLevel: typeof session.protectionStartLevel === 'number'
+        ? Math.max(2, Math.floor(session.protectionStartLevel))
+        : undefined,
+      status: 'in_progress',
     };
     player.enhancementRecords = [this.cloneEnhancementRecord(next)];
     return next;
+  }
+
+  private completeSessionRecord(
+    player: PlayerState,
+    resultingLevel: number,
+    status: PlayerEnhancementSessionStatus,
+  ): void {
+/** record：定义该变量以承载业务值。 */
+    const record = this.getSessionRecord(player);
+    if (!record) {
+      return;
+    }
+    record.highestLevel = Math.max(normalizeEnhanceLevel(record.highestLevel), normalizeEnhanceLevel(resultingLevel));
+    record.actionEndedAt = Date.now();
+    record.status = status;
+    player.enhancementRecords = [this.cloneEnhancementRecord(record)];
   }
 
 /** getInventoryCount：执行对应的业务逻辑。 */

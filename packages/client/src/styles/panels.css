@@ -6174,6 +6174,9 @@
       font-size: var(--font-size-12);
       line-height: 1.6;
     }
+    .enhancement-history-entry-meta--secondary {
+      opacity: 0.9;
+    }
     .enhancement-history-table {
       display: flex;
       flex-direction: column;
