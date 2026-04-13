@@ -477,6 +477,22 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
     return { messages: [], dirtyPlayers: [player.id] };
   }
 
+  /** 关闭玩家当前的拾取窗口，并中断对应的连续采摘 */
+  closeLootWindow(playerId: string): string[] {
+/** dirtyPlayers：定义该变量以承载业务值。 */
+    const dirtyPlayers = new Set<string>([playerId]);
+/** session：定义该变量以承载业务值。 */
+    const session = this.sessions.get(playerId);
+    if (session) {
+      for (const viewerId of this.getTileViewerIds(session.mapId, session.tileX, session.tileY)) {
+        dirtyPlayers.add(viewerId);
+      }
+      this.sessions.delete(playerId);
+    }
+    this.cancelActiveHarvestByPlayer(playerId);
+    return [...dirtyPlayers];
+  }
+
   /** 从指定来源拾取物品 */
   takeFromSource(player: PlayerState, sourceId: string, itemKey: string): LootActionResult {
 /** session：定义该变量以承载业务值。 */
@@ -688,8 +704,12 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
   } {
 /** state：定义该变量以承载业务值。 */
     const state = this.ensureContainerState(mapId, container);
+/** respawning：定义该变量以承载业务值。 */
+    const respawning = this.isHerbRespawningState(state);
 /** respawnRemainingTicks：定义该变量以承载业务值。 */
-    const respawnRemainingTicks = this.getRespawnRemainingTicks(mapId, state);
+    const respawnRemainingTicks = state.destroyed || respawning
+      ? this.getRespawnRemainingTicks(mapId, state)
+      : undefined;
     return {
       variant: state.variant,
       herb: state.herb ? { ...state.herb } : undefined,
@@ -698,7 +718,7 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
       maxHp: state.maxHp,
 /** destroyed：定义该变量以承载业务值。 */
       destroyed: state.destroyed === true,
-      respawning: this.isHerbRespawningState(state),
+      respawning,
       respawnRemainingTicks,
 /** respawnTotalTicks：定义该变量以承载业务值。 */
       respawnTotalTicks: respawnRemainingTicks !== undefined ? state.respawnTotalTicks : undefined,
@@ -1596,7 +1616,6 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
     state.generatedAtTick = currentTick;
     state.refreshAtTick = growthTicks !== undefined ? currentTick + growthTicks : undefined;
     state.respawnTotalTicks = growthTicks;
-    state.activeSearch = undefined;
     state.destroyed = false;
     this.syncContainerVariantState(container, state, state.hp === undefined || state.hp <= 0);
     this.markRuntimeStateDirty();
@@ -1695,12 +1714,17 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
     herbEntry.item.count -= 1;
     if (herbEntry.item.count <= 0) {
       params.state.entries = params.state.entries.filter((entry) => entry !== herbEntry);
+    }
+/** nextRow：定义该变量以承载业务值。 */
+    const nextRow = this.groupLootEntries(params.state.entries).find((entry) => entry.item.count > 0);
+    if (!nextRow) {
       this.scheduleHerbRespawn(params.mapId, params.container, params.state);
     } else {
+      params.state.herb = this.buildHerbMeta(nextRow.item);
 /** nextTotalTicks：定义该变量以承载业务值。 */
       const nextTotalTicks = this.computeEffectiveHerbGatherTicks(player, params.state.herb);
       params.state.activeSearch = {
-        itemKey: search.itemKey,
+        itemKey: nextRow.itemKey,
         mode: 'harvest',
         playerId: player.id,
         totalTicks: nextTotalTicks,

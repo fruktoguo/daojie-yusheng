@@ -910,6 +910,15 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
           });
           break;
         }
+        case 'closeLootWindow': {
+          this.measureCpuSection('loot', '掉落与容器', () => {
+            const dirtyPlayers = this.lootService.closeLootWindow(player.id);
+            for (const dirtyPlayerId of dirtyPlayers) {
+              this.playerService.markDirty(dirtyPlayerId, 'loot');
+            }
+          });
+          break;
+        }
         case 'debugResetSpawn': {
           this.measureCpuSection('player_actions', '玩家交互与杂项', () => {
             this.logger.log(`执行调试回城: ${player.id}`);

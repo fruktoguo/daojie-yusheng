@@ -26,6 +26,7 @@ import {
   C2S_DropItem,
   C2S_DestroyItem,
   C2S_TakeLoot,
+  C2S_CloseLootWindow,
   C2S_SortInventory,
   C2S_Equip,
   C2S_Unequip,
@@ -837,6 +838,23 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     this.playerService.enqueueCommand(player.mapId, {
       playerId,
       type: 'takeLoot',
+      data,
+      timestamp: Date.now(),
+    });
+  }
+
+  @SubscribeMessage(C2S.CloseLootWindow)
+/** handleCloseLootWindow：处理当前场景中的对应操作。 */
+  handleCloseLootWindow(client: Socket, data: C2S_CloseLootWindow) {
+/** playerId：定义该变量以承载业务值。 */
+    const playerId = client.data?.playerId as string;
+/** player：定义该变量以承载业务值。 */
+    const player = this.playerService.getPlayer(playerId);
+    if (!player) return;
+
+    this.playerService.enqueueCommand(player.mapId, {
+      playerId,
+      type: 'closeLootWindow',
       data,
       timestamp: Date.now(),
     });

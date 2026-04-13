@@ -2552,6 +2552,9 @@ lootPanel.setCallbacks(
   (sourceId) => {
     socket.sendTakeLoot(sourceId, undefined, true);
   },
+  () => {
+    socket.sendCloseLootWindow();
+  },
 );
 equipmentPanel.setCallbacks(
   (slot) => socket.sendUnequip(slot),

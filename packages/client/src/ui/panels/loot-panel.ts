@@ -25,18 +25,23 @@ export class LootPanel {
   private windowState: LootWindowState | null = null;
   private onTake: ((sourceId: string, itemKey: string) => void) | null = null;
   private onTakeAll: ((sourceId: string) => void) | null = null;
+  private onManualClose: (() => void) | null = null;
+  private suppressAutoOpen = false;
 
   setCallbacks(
     onTake: (sourceId: string, itemKey: string) => void,
     onTakeAll: (sourceId: string) => void,
+    onManualClose?: () => void,
   ): void {
     this.onTake = onTake;
     this.onTakeAll = onTakeAll;
+    this.onManualClose = onManualClose ?? null;
   }
 
 /** clear：执行对应的业务逻辑。 */
   clear(): void {
     this.windowState = null;
+    this.suppressAutoOpen = false;
     detailModalHost.close(LootPanel.MODAL_OWNER);
   }
 
@@ -44,7 +49,11 @@ export class LootPanel {
   update(windowState: LootWindowState | null): void {
     this.windowState = windowState;
     if (!windowState) {
+      this.suppressAutoOpen = false;
       detailModalHost.close(LootPanel.MODAL_OWNER);
+      return;
+    }
+    if (this.suppressAutoOpen) {
       return;
     }
     this.render();
@@ -69,6 +78,10 @@ export class LootPanel {
       title,
       subtitle: `坐标 (${tileX}, ${tileY})`,
       bodyHtml: this.renderBody(),
+      onClose: () => {
+        this.suppressAutoOpen = true;
+        this.onManualClose?.();
+      },
       onAfterRender: (body) => {
         this.bindEvents(body);
       },
