@@ -148,7 +148,6 @@ export function getMonsterDisplayName(name: string, tier: 'mortal_blood' | 'vari
 }
 
 /** DEFENSE_REDUCTION_ATTACK_RATIO：定义该变量以承载业务值。 */
-export const DEFENSE_REDUCTION_ATTACK_RATIO = 0.25;
+export const DEFENSE_REDUCTION_ATTACK_RATIO = 0.1;
 /** DEFENSE_REDUCTION_BASELINE：定义该变量以承载业务值。 */
 export const DEFENSE_REDUCTION_BASELINE = 100;
-
