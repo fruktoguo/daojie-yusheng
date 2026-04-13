@@ -539,6 +539,32 @@ export class EnhancementModal {
     const targetHeadMeta = selectedItem
       ? `等级 ${formatDisplayInteger(Number(selectedItem.level) || 1)} · 当前 +${formatDisplayInteger(selectedLevel ?? 0)} · ${sourceLabel}`
       : '点击选择要强化的装备';
+    if (!this.isCompactMobileLayout()) {
+      return `
+        <div class="enhancement-target-slot-card">
+          <div class="enhancement-target-slot-head">
+            <div>
+              <div class="enhancement-section-title">强化目标</div>
+              <div class="enhancement-protection-note">${escapeHtml(sourceLabel)}</div>
+            </div>
+            <button class="small-btn ghost" type="button" data-enhancement-open-picker="1" ${activeJob ? 'disabled' : ''}>
+              ${selectedItem ? '更换装备' : '选择装备'}
+            </button>
+          </div>
+          <button class="enhancement-target-slot" type="button" data-enhancement-open-picker="1" ${activeJob ? 'disabled' : ''}>
+            ${selectedItem
+              ? `
+                <span class="enhancement-target-slot-name">${escapeHtml(selectedItem.name)}</span>
+                <span class="enhancement-target-slot-meta">等级 ${formatDisplayInteger(Number(selectedItem.level) || 1)} · 当前 +${formatDisplayInteger(normalizeEnhanceLevel(selectedItem.enhanceLevel))}</span>
+              `
+              : `
+                <span class="enhancement-target-slot-name">点击选择要强化的装备</span>
+                <span class="enhancement-target-slot-meta">主面板只保留一个目标槽，候选装备会在独立弹窗中选择</span>
+              `}
+          </button>
+        </div>
+      `;
+    }
     return `
       <div class="enhancement-target-slot-card">
         <div class="enhancement-target-slot-layout${extraContent ? ' enhancement-target-slot-layout--merged' : ''}">
@@ -651,6 +677,93 @@ export class EnhancementModal {
     const resultLines = describeEquipmentBonuses(resultPreview);
 /** finalTargetLevel：定义该变量以承载业务值。 */
     const finalTargetLevel = Math.max(job.targetLevel, job.desiredTargetLevel ?? job.targetLevel);
+    if (!this.isCompactMobileLayout()) {
+      return `
+        <div class="enhancement-workbench-grid">
+          <div class="enhancement-workbench-side">
+            ${this.renderTargetSlot(job, selected)}
+            <div class="enhancement-target-level-card">
+              <div class="enhancement-section-title">当前行动</div>
+              <div class="enhancement-target-level-note">强化队列已启动，目标装备和强化锤在任务结束前会保持锁定。</div>
+              <div class="enhancement-summary-metrics enhancement-summary-metrics--compact">
+                <div class="enhancement-summary-metric">
+                  <span>当前冲击</span>
+                  <strong>+${formatDisplayInteger(job.targetLevel)}</strong>
+                </div>
+                <div class="enhancement-summary-metric">
+                  <span>最终目标</span>
+                  <strong>+${formatDisplayInteger(finalTargetLevel)}</strong>
+                </div>
+                <div class="enhancement-summary-metric">
+                  <span>保护</span>
+                  <strong>${job.protectionUsed ? `+${formatDisplayInteger(job.protectionStartLevel ?? job.targetLevel)} 起` : '未启用'}</strong>
+                </div>
+              </div>
+              <div class="enhancement-action-row enhancement-action-row--stacked">
+                <button class="small-btn ghost" type="button" data-enhancement-cancel="1">取消强化</button>
+                <span class="enhancement-action-note">取消后会返还当前装备，已投入的材料不会退回；保护物仅在失败且保护生效时扣除，灵石仅在本阶成功时扣除。</span>
+              </div>
+            </div>
+          </div>
+          <div class="enhancement-workbench-main">
+            <div class="enhancement-summary-card enhancement-summary-card--running">
+              <div class="enhancement-summary-head">
+                <div>
+                  <div class="enhancement-summary-title">${escapeHtml(job.targetItemName)}</div>
+                  <div class="enhancement-summary-subtitle">进行中：+${formatDisplayInteger(job.currentLevel)} → +${formatDisplayInteger(job.targetLevel)}${finalTargetLevel > job.targetLevel ? ` · 最终目标 +${formatDisplayInteger(finalTargetLevel)}` : ''}</div>
+                </div>
+                <div class="enhancement-summary-rate">${formatPercent(job.successRate)}</div>
+              </div>
+              <div class="enhancement-summary-metrics">
+                <div class="enhancement-summary-metric">
+                  <span>剩余</span>
+                  <strong>${formatDisplayInteger(this.getDisplayedRemainingTicks())}</strong>
+                </div>
+                <div class="enhancement-summary-metric">
+                  <span>总时长</span>
+                  <strong>${formatDisplayInteger(job.totalTicks)} 息</strong>
+                </div>
+                <div class="enhancement-summary-metric">
+                  <span>本阶成功率</span>
+                  <strong>${formatPercent(job.successRate)}</strong>
+                </div>
+              </div>
+            </div>
+            <div class="enhancement-requirement-card">
+              <div class="enhancement-section-title">本次已投入</div>
+              <div class="enhancement-material-row">
+                <span>灵石</span>
+                <strong>${formatDisplayInteger(job.spiritStoneCost)}</strong>
+                <span class="enhancement-material-owned">角色强化等级 Lv.${formatDisplayInteger(job.roleEnhancementLevel)} · 总加速 ${formatPercent(job.totalSpeedRate)}</span>
+              </div>
+              ${job.materials.length > 0
+                ? job.materials.map((entry) => `
+                  <div class="enhancement-material-row">
+                    <span>${escapeHtml(getLocalItemTemplate(entry.itemId)?.name ?? entry.itemId)}</span>
+                    <strong>${formatDisplayInteger(entry.count)}</strong>
+                    <span class="enhancement-material-owned">已投入</span>
+                  </div>
+                `).join('')
+                : '<div class="enhancement-material-empty">本次没有额外材料，仅消耗灵石。</div>'}
+            </div>
+            <div class="enhancement-preview-grid">
+              <div class="enhancement-preview-card">
+                <div class="enhancement-preview-title">当前属性</div>
+                ${currentLines.length > 0
+                  ? `<div class="enhancement-preview-lines">${currentLines.map((line) => `<div>${escapeHtml(line)}</div>`).join('')}</div>`
+                  : '<div class="enhancement-preview-empty">当前装备没有可显示的强化属性。</div>'}
+              </div>
+              <div class="enhancement-preview-card">
+                <div class="enhancement-preview-title">成功后预览</div>
+                ${resultLines.length > 0
+                  ? `<div class="enhancement-preview-lines">${resultLines.map((line) => `<div>${escapeHtml(line)}</div>`).join('')}</div>`
+                  : '<div class="enhancement-preview-empty">强化后暂无可显示属性。</div>'}
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
     return `
       <div class="enhancement-workbench-grid">
         <div class="enhancement-workbench-side">
@@ -753,6 +866,140 @@ export class EnhancementModal {
     const protectionButtonLabel = selectedProtection
       ? `保护设置 · 已启用`
       : '保护设置 · 未启用';
+    if (!compactMobileLayout) {
+      return `
+        <div class="enhancement-workbench-grid">
+          <div class="enhancement-workbench-side">
+            ${this.renderTargetSlot(null, selected)}
+            <div class="enhancement-target-level-card">
+              <div class="enhancement-section-title">目标强化等级</div>
+              <div class="enhancement-target-level-row">
+                <button class="small-btn ghost" type="button" data-enhancement-target-adjust="-1" ${selectedTargetLevel <= (selected.currentLevel + 1) ? 'disabled' : ''}>-1</button>
+                <input
+                  class="enhancement-target-level-input"
+                  type="number"
+                  inputmode="numeric"
+                  min="${selected.currentLevel + 1}"
+                  max="${MAX_ENHANCE_LEVEL}"
+                  step="1"
+                  value="${selectedTargetLevel}"
+                  data-enhancement-target-level-input="1"
+                >
+                <button class="small-btn ghost" type="button" data-enhancement-target-adjust="1" ${selectedTargetLevel >= MAX_ENHANCE_LEVEL ? 'disabled' : ''}>+1</button>
+              </div>
+              <div class="enhancement-target-level-note">强化队列会从当前等级逐阶结算，直到达到目标等级，或后续灵石、材料、保护物不足，或到达上限 +${MAX_ENHANCE_LEVEL}。</div>
+            </div>
+            <div class="enhancement-requirement-card">
+              <div class="enhancement-section-title">保护</div>
+              <div class="enhancement-protection-note">${escapeHtml(protectionNote)}</div>
+              <label class="enhancement-protection-option">
+                <input type="radio" name="enhancement-protection" value="" ${this.selectedProtectionKey ? '' : 'checked'}>
+                <span>不使用保护</span>
+              </label>
+              ${selected.protectionCandidates.length > 0
+                ? selected.protectionCandidates.map((entry) => {
+/** key：定义该变量以承载业务值。 */
+                  const key = formatRefKey(entry.ref);
+/** sourceLabel：定义该变量以承载业务值。 */
+                  const sourceLabel = `背包槽位 ${(entry.ref.slotIndex ?? 0) + 1} · 数量 ${entry.item.count}`;
+                  return `
+                    <label class="enhancement-protection-option">
+                      <input type="radio" name="enhancement-protection" value="${escapeHtml(key)}" ${this.selectedProtectionKey === key ? 'checked' : ''}>
+                      <span>${escapeHtml(entry.item.name)}</span>
+                      <em>${escapeHtml(sourceLabel)}</em>
+                    </label>
+                  `;
+                }).join('')
+                : '<div class="enhancement-material-empty">当前背包没有可用保护物。</div>'}
+              ${this.selectedProtectionKey && selectedTargetLevel >= minProtectionStartLevel ? `
+                <div class="enhancement-protection-start">
+                  <div class="enhancement-protection-note">开始保护等级</div>
+                  <div class="enhancement-target-level-row">
+                    <button class="small-btn ghost" type="button" data-enhancement-protection-adjust="-1" ${!protectionStartLevel || protectionStartLevel <= minProtectionStartLevel ? 'disabled' : ''}>-1</button>
+                    <input
+                      class="enhancement-target-level-input"
+                      type="number"
+                      inputmode="numeric"
+                      min="${minProtectionStartLevel}"
+                      max="${selectedTargetLevel}"
+                      step="1"
+                      value="${protectionStartLevel ?? minProtectionStartLevel}"
+                      data-enhancement-protection-start-input="1"
+                    >
+                    <button class="small-btn ghost" type="button" data-enhancement-protection-adjust="1" ${!protectionStartLevel || protectionStartLevel >= selectedTargetLevel ? 'disabled' : ''}>+1</button>
+                  </div>
+                  <div class="enhancement-target-level-note">保护最低从 +2 开始生效。达到这个目标等级后，失败才会消耗保护并只降低一级。</div>
+                </div>
+              ` : this.selectedProtectionKey ? `
+                <div class="enhancement-protection-start">
+                  <div class="enhancement-target-level-note">保护最低从 +2 开始生效。当前目标还没到 +2，这次强化不会消耗保护物。</div>
+                </div>
+              ` : ''}
+            </div>
+            <div class="enhancement-action-row enhancement-action-row--stacked">
+              <button class="small-btn" type="button" data-enhancement-start="1">开始强化</button>
+              <span class="enhancement-action-note">每一阶都会单独判定成功率、耗时和消耗。当前面板显示的是首阶数据，只要后续资源足够，就会持续冲击直到达到目标等级。</span>
+            </div>
+          </div>
+          <div class="enhancement-workbench-main">
+            <div class="enhancement-summary-card">
+              <div class="enhancement-summary-head">
+                <div>
+                  <div class="enhancement-summary-title">${escapeHtml(selected.item.name)}</div>
+                  <div class="enhancement-summary-subtitle">当前 +${formatDisplayInteger(selected.currentLevel)} · 最终目标 +${formatDisplayInteger(selectedTargetLevel)}</div>
+                </div>
+                <div class="enhancement-summary-rate">首阶 ${formatPercent(selected.successRate)}</div>
+              </div>
+              <div class="enhancement-summary-metrics">
+                <div class="enhancement-summary-metric">
+                  <span>首阶灵石</span>
+                  <strong>${formatDisplayInteger(selected.spiritStoneCost)}</strong>
+                </div>
+                <div class="enhancement-summary-metric">
+                  <span>首阶耗时</span>
+                  <strong>${formatDisplayInteger(selected.durationTicks)} 息</strong>
+                </div>
+                <div class="enhancement-summary-metric">
+                  <span>保护模式</span>
+                  <strong>${selectedProtection ? '已启用' : '未启用'}</strong>
+                </div>
+              </div>
+            </div>
+            <div class="enhancement-requirement-card">
+              <div class="enhancement-section-title">强化材料</div>
+              <div class="enhancement-material-row">
+                <span>灵石</span>
+                <strong>${formatDisplayInteger(selected.spiritStoneCost)}</strong>
+                <span class="enhancement-material-owned">持有 ${formatDisplayInteger(this.countInventoryItem('spirit_stone'))}</span>
+              </div>
+              ${selected.materials.length > 0
+                ? selected.materials.map((entry) => `
+                  <div class="enhancement-material-row">
+                    <span>${escapeHtml(entry.name)}</span>
+                    <strong>${formatDisplayInteger(entry.count)}</strong>
+                    <span class="enhancement-material-owned">持有 ${formatDisplayInteger(entry.ownedCount)}</span>
+                  </div>
+                `).join('')
+                : '<div class="enhancement-material-empty">没有额外材料需求，默认只消耗灵石。</div>'}
+            </div>
+            <div class="enhancement-preview-grid">
+              <div class="enhancement-preview-card">
+                <div class="enhancement-preview-title">当前属性</div>
+                ${currentLines.length > 0
+                  ? `<div class="enhancement-preview-lines">${currentLines.map((line) => `<div>${escapeHtml(line)}</div>`).join('')}</div>`
+                  : '<div class="enhancement-preview-empty">当前装备没有可显示的强化属性。</div>'}
+              </div>
+              <div class="enhancement-preview-card">
+                <div class="enhancement-preview-title">目标等级预览</div>
+                ${nextLines.length > 0
+                  ? `<div class="enhancement-preview-lines">${nextLines.map((line) => `<div>${escapeHtml(line)}</div>`).join('')}</div>`
+                  : '<div class="enhancement-preview-empty">下一阶暂无可显示属性。</div>'}
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
     return `
       <div class="enhancement-workbench-grid">
         <div class="enhancement-workbench-side">
