@@ -288,6 +288,7 @@ export class EnhancementService implements OnModuleInit {
         targetLevel,
         roleEnhancementLevel,
         targetItemLevel,
+        hammer?.enhancementSuccessRate,
       );
 /** totalTicks：定义该变量以承载业务值。 */
       const totalTicks = computeEnhancementJobTicks(targetItemLevel, totalSpeedRate);
@@ -620,7 +621,12 @@ export class EnhancementService implements OnModuleInit {
     job.materials = nextRequirements.map((entry) => ({ ...entry }));
     job.phase = 'enhancing';
     job.pausedTicks = 0;
-    job.successRate = computeEnhancementAdjustedSuccessRate(nextTargetLevel, roleEnhancementLevel, job.targetItemLevel);
+      job.successRate = computeEnhancementAdjustedSuccessRate(
+        nextTargetLevel,
+        roleEnhancementLevel,
+        job.targetItemLevel,
+        player.equipment.weapon?.enhancementSuccessRate,
+      );
     job.totalTicks = totalTicks;
     job.remainingTicks = totalTicks;
     job.startedAt = Date.now();
@@ -779,7 +785,7 @@ export class EnhancementService implements OnModuleInit {
     job.remainingTicks = Math.max(0, Math.min(job.totalTicks, Math.floor(Number(job.remainingTicks) || 0)));
     job.successRate = Math.max(0, Math.min(1, Number(job.successRate) || 0));
     job.roleEnhancementLevel = Math.max(1, Math.floor(Number(job.roleEnhancementLevel) || 1));
-    job.totalSpeedRate = Math.max(0, Number(job.totalSpeedRate) || 0);
+    job.totalSpeedRate = Number.isFinite(job.totalSpeedRate) ? Number(job.totalSpeedRate) : 0;
     job.item = this.contentService.normalizeItemStack({
       ...job.item,
       count: 1,
@@ -886,7 +892,12 @@ export class EnhancementService implements OnModuleInit {
       currentLevel,
       nextLevel,
       spiritStoneCost: getEnhancementSpiritStoneCost(item.level, this.getStepMaterials(config, nextLevel).length > 0),
-      successRate: computeEnhancementAdjustedSuccessRate(nextLevel, roleEnhancementLevel, item.level),
+      successRate: computeEnhancementAdjustedSuccessRate(
+        nextLevel,
+        roleEnhancementLevel,
+        item.level,
+        hammer?.enhancementSuccessRate,
+      ),
       durationTicks: computeEnhancementJobTicks(item.level, totalSpeedRate),
       materials: this.getStepMaterials(config, nextLevel).map((entry) => this.buildRequirementView(player, entry)),
       protectionItemId: config?.protectionItemId,

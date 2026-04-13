@@ -8,6 +8,8 @@ import type {
 import type { PartialNumericStats } from './numeric';
 import { ELEMENT_KEYS, NUMERIC_SCALAR_STAT_KEYS } from './numeric';
 import { ATTR_KEYS } from './constants/gameplay/attributes';
+import { computeAdjustedCraftTicks } from './craft-duration';
+import { applyAsymptoticSuccessModifier } from './craft-success';
 
 /** DEFAULT_ENHANCE_LEVEL：定义该变量以承载业务值。 */
 export const DEFAULT_ENHANCE_LEVEL = 0;
@@ -45,6 +47,8 @@ export const ENHANCEMENT_BASE_JOB_TICKS = 5;
 export const ENHANCEMENT_JOB_TICKS_PER_ITEM_LEVEL = 1;
 /** ENHANCEMENT_EXTRA_SPEED_RATE_PER_LEVEL：定义该变量以承载业务值。 */
 export const ENHANCEMENT_EXTRA_SPEED_RATE_PER_LEVEL = 0.02;
+/** ENHANCEMENT_EXTRA_SUCCESS_RATE_PER_LEVEL：定义该变量以承载业务值。 */
+export const ENHANCEMENT_EXTRA_SUCCESS_RATE_PER_LEVEL = 0.002;
 /** ENHANCEMENT_LOWER_LEVEL_SUCCESS_PENALTY：定义该变量以承载业务值。 */
 export const ENHANCEMENT_LOWER_LEVEL_SUCCESS_PENALTY = 0.1;
 /** ENHANCEMENT_ACTION_ID：定义该变量以承载业务值。 */
@@ -116,7 +120,7 @@ export function computeEnhancementToolSpeedRate(
   const targetLevel = Math.max(1, Math.floor(Number(targetItemLevel) || 1));
 /** levelBonus：定义该变量以承载业务值。 */
   const levelBonus = Math.max(0, normalizeEnhanceLevel(roleEnhancementLevel) - targetLevel) * ENHANCEMENT_EXTRA_SPEED_RATE_PER_LEVEL;
-  return Math.max(0, baseSpeedRate + levelBonus);
+  return baseSpeedRate + levelBonus;
 }
 
 /** computeEnhancementJobTicks：执行对应的业务逻辑。 */
@@ -124,9 +128,7 @@ export function computeEnhancementJobTicks(
   itemLevel: number | undefined,
   speedRate: number | undefined,
 ): number {
-/** normalizedSpeedRate：定义该变量以承载业务值。 */
-  const normalizedSpeedRate = Number.isFinite(speedRate) ? Number(speedRate) : 0;
-  return Math.max(1, Math.ceil(computeEnhancementJobBaseTicks(itemLevel) * Math.max(0.05, 1 - normalizedSpeedRate)));
+  return computeAdjustedCraftTicks(computeEnhancementJobBaseTicks(itemLevel), speedRate);
 }
 
 /** computeEnhancementAdjustedSuccessRate：执行对应的业务逻辑。 */
@@ -134,6 +136,7 @@ export function computeEnhancementAdjustedSuccessRate(
   targetEnhanceLevel: number,
   roleEnhancementLevel: number | undefined,
   targetItemLevel: number | undefined,
+  toolSuccessRateModifier = 0,
 ): number {
 /** baseRate：定义该变量以承载业务值。 */
   const baseRate = getEnhancementTargetSuccessRate(targetEnhanceLevel);
@@ -141,7 +144,13 @@ export function computeEnhancementAdjustedSuccessRate(
   const targetLevel = Math.max(1, Math.floor(Number(targetItemLevel) || 1));
 /** lowerLevelGap：定义该变量以承载业务值。 */
   const lowerLevelGap = Math.max(0, targetLevel - normalizeEnhanceLevel(roleEnhancementLevel));
-  return Math.max(0, Math.min(1, baseRate * ((1 - ENHANCEMENT_LOWER_LEVEL_SUCCESS_PENALTY) ** lowerLevelGap)));
+/** upperLevelGap：定义该变量以承载业务值。 */
+  const upperLevelGap = Math.max(0, normalizeEnhanceLevel(roleEnhancementLevel) - targetLevel);
+/** adjustedBaseRate：定义该变量以承载业务值。 */
+  const adjustedBaseRate = baseRate * ((1 - ENHANCEMENT_LOWER_LEVEL_SUCCESS_PENALTY) ** lowerLevelGap);
+/** totalSuccessModifier：定义该变量以承载业务值。 */
+  const totalSuccessModifier = toolSuccessRateModifier + (upperLevelGap * ENHANCEMENT_EXTRA_SUCCESS_RATE_PER_LEVEL);
+  return applyAsymptoticSuccessModifier(adjustedBaseRate, totalSuccessModifier);
 }
 
 /** normalizeEnhancementRequirement：执行对应的业务逻辑。 */
@@ -255,7 +264,7 @@ export function normalizePlayerEnhancementJob(value: unknown): PlayerEnhancement
     remainingTicks,
     startedAt: Math.max(0, Math.floor(Number(candidate.startedAt) || 0)),
     roleEnhancementLevel: normalizeEnhanceLevel(candidate.roleEnhancementLevel),
-    totalSpeedRate: Math.max(0, Number(candidate.totalSpeedRate) || 0),
+    totalSpeedRate: Number.isFinite(candidate.totalSpeedRate) ? Number(candidate.totalSpeedRate) : 0,
   };
 }
 
@@ -266,12 +275,19 @@ function scaleEnhancedNumber(value: number, level: number | undefined): number {
   return Math.ceil((scaled - Number.EPSILON) * 100) / 100;
 }
 
+/** scaleEnhancedUtilityRate：执行对应的业务逻辑。 */
+function scaleEnhancedUtilityRate(value: number, level: number | undefined): number {
+/** scaled：定义该变量以承载业务值。 */
+  const scaled = value * getEnhancementPercent(level) / 100;
+  return Math.ceil((scaled - Number.EPSILON) * 10_000) / 10_000;
+}
+
 /** cloneScaledUtilityRate：执行对应的业务逻辑。 */
 function cloneScaledUtilityRate(value: number | undefined, level: number | undefined): number | undefined {
   if (typeof value !== 'number') {
     return value;
   }
-  return scaleEnhancedNumber(value, level);
+  return scaleEnhancedUtilityRate(value, level);
 }
 
 /** scaleEnhancedAttributes：执行对应的业务逻辑。 */
@@ -366,6 +382,7 @@ export function applyEnhancementToItemStack(item: ItemStack): ItemStack {
     equipValueStats: scaleEnhancedNumericStats(item.equipValueStats, enhanceLevel),
     alchemySuccessRate: cloneScaledUtilityRate(item.alchemySuccessRate, enhanceLevel),
     alchemySpeedRate: cloneScaledUtilityRate(item.alchemySpeedRate, enhanceLevel),
+    enhancementSuccessRate: cloneScaledUtilityRate(item.enhancementSuccessRate, enhanceLevel),
     enhancementSpeedRate: cloneScaledUtilityRate(item.enhancementSpeedRate, enhanceLevel),
   };
 }
