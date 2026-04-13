@@ -59,6 +59,7 @@ export const C2S = {
   RequestMarketTradeHistory: 'c:requestMarketTradeHistory',
   RequestAttrDetail: 'c:requestAttrDetail',
   RequestLeaderboard: 'c:requestLeaderboard',
+  RequestWorldSummary: 'c:requestWorldSummary',
   CreateMarketSellOrder: 'c:createMarketSellOrder',
   CreateMarketBuyOrder: 'c:createMarketBuyOrder',
   BuyMarketItem: 'c:buyMarketItem',
@@ -118,6 +119,7 @@ export const S2C = {
   MarketTradeHistory: 's:marketTradeHistory',
   AttrDetail: 's:attrDetail',
   Leaderboard: 's:leaderboard',
+  WorldSummary: 's:worldSummary',
   NpcShop: 's:npcShop',
   AlchemyPanel: 's:alchemyPanel',
   EnhancementPanel: 's:enhancementPanel',
@@ -512,6 +514,9 @@ export interface C2S_RequestAttrDetail {}
 export interface C2S_RequestLeaderboard {
   limit?: number;
 }
+
+/** C2S_RequestWorldSummary：定义该接口的能力与字段约束。 */
+export interface C2S_RequestWorldSummary {}
 
 /** C2S_CreateMarketSellOrder：定义该接口的能力与字段约束。 */
 export interface C2S_CreateMarketSellOrder {
@@ -1633,6 +1638,54 @@ export interface LeaderboardSupremeAttrEntry {
   value: number;
 }
 
+/** LeaderboardWorldActionCounts：定义该接口的能力与字段约束。 */
+export interface LeaderboardWorldActionCounts {
+/** cultivation：定义该变量以承载业务值。 */
+  cultivation: number;
+/** combat：定义该变量以承载业务值。 */
+  combat: number;
+/** alchemy：定义该变量以承载业务值。 */
+  alchemy: number;
+/** enhancement：定义该变量以承载业务值。 */
+  enhancement: number;
+}
+
+/** LeaderboardWorldRealmCounts：定义该接口的能力与字段约束。 */
+export interface LeaderboardWorldRealmCounts {
+/** initial：定义该变量以承载业务值。 */
+  initial: number;
+/** mortal：定义该变量以承载业务值。 */
+  mortal: number;
+/** qiRefiningOrAbove：定义该变量以承载业务值。 */
+  qiRefiningOrAbove: number;
+}
+
+/** LeaderboardWorldKillCounts：定义该接口的能力与字段约束。 */
+export interface LeaderboardWorldKillCounts {
+/** normalMonsters：定义该变量以承载业务值。 */
+  normalMonsters: number;
+/** eliteMonsters：定义该变量以承载业务值。 */
+  eliteMonsters: number;
+/** bossMonsters：定义该变量以承载业务值。 */
+  bossMonsters: number;
+/** playerKills：定义该变量以承载业务值。 */
+  playerKills: number;
+/** playerDeaths：定义该变量以承载业务值。 */
+  playerDeaths: number;
+}
+
+/** LeaderboardWorldSummary：定义该接口的能力与字段约束。 */
+export interface LeaderboardWorldSummary {
+/** totalSpiritStones：定义该变量以承载业务值。 */
+  totalSpiritStones: number;
+/** actionCounts：定义该变量以承载业务值。 */
+  actionCounts: LeaderboardWorldActionCounts;
+/** realmCounts：定义该变量以承载业务值。 */
+  realmCounts: LeaderboardWorldRealmCounts;
+/** killCounts：定义该变量以承载业务值。 */
+  killCounts: LeaderboardWorldKillCounts;
+}
+
 /** S2C_Leaderboard：定义该接口的能力与字段约束。 */
 export interface S2C_Leaderboard {
 /** generatedAt：定义该变量以承载业务值。 */
@@ -1655,6 +1708,14 @@ export interface S2C_Leaderboard {
 /** supremeAttrs：定义该变量以承载业务值。 */
     supremeAttrs: LeaderboardSupremeAttrEntry[];
   };
+}
+
+/** S2C_WorldSummary：定义该接口的能力与字段约束。 */
+export interface S2C_WorldSummary {
+/** generatedAt：定义该变量以承载业务值。 */
+  generatedAt: number;
+/** summary：定义该变量以承载业务值。 */
+  summary: LeaderboardWorldSummary;
 }
 
 /** 任务自动导航回执 */

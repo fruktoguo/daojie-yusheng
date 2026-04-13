@@ -295,4 +295,3 @@ export class LeaderboardModal {
     `;
   }
 }
-

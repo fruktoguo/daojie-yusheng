@@ -34,6 +34,7 @@ import { SuggestionPanel } from './ui/suggestion-panel';
 import { ChangelogPanel } from './ui/changelog-panel';
 import { TutorialPanel } from './ui/tutorial-panel';
 import { LeaderboardModal } from './ui/leaderboard-modal';
+import { WorldSummaryModal } from './ui/world-summary-modal';
 import { getMonsterPresentation } from './monster-presentation';
 import { NpcShopModal } from './ui/npc-shop-modal';
 import { AlchemyModal } from './ui/alchemy-modal';
@@ -758,6 +759,7 @@ const lootPanel = new LootPanel();
 const worldPanel = new WorldPanel();
 /** leaderboardModal：定义该变量以承载业务值。 */
 const leaderboardModal = new LeaderboardModal();
+const worldSummaryModal = new WorldSummaryModal();
 /** settingsPanel：定义该变量以承载业务值。 */
 const settingsPanel = new SettingsPanel();
 /** mailPanel：定义该变量以承载业务值。 */
@@ -2558,7 +2560,11 @@ attrPanel.setCallbacks({
   onRequestDetail: () => socket.sendRequestAttrDetail(),
 });
 worldPanel.setCallbacks({
+  onOpenWorldSummary: () => worldSummaryModal.open(),
   onOpenLeaderboard: () => leaderboardModal.open(),
+});
+worldSummaryModal.setCallbacks({
+  onRequestData: () => socket.sendRequestWorldSummary(),
 });
 leaderboardModal.setCallbacks({
   onRequestData: (limit) => socket.sendRequestLeaderboard(limit),
@@ -2812,6 +2818,9 @@ socket.onAttrDetail((data) => {
 });
 socket.onLeaderboard((data) => {
   leaderboardModal.applyData(data);
+});
+socket.onWorldSummary((data) => {
+  worldSummaryModal.applyData(data);
 });
 socket.onInventoryUpdate((data) => {
 /** mergedInventory：定义该变量以承载业务值。 */
@@ -4273,5 +4282,4 @@ socket.onTick((data: S2C_Tick) => {
 
 restartPingLoop();
 void loginUI.restoreSession();
-
 

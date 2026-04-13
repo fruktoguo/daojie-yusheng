@@ -7604,6 +7604,69 @@
       font-size: var(--font-size-role-title-22);
       color: var(--stamp-red);
     }
+    .leaderboard-world-grid {
+      min-height: 0;
+      height: 100%;
+      overflow-y: auto;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      padding-right: 4px;
+      align-content: start;
+    }
+    .leaderboard-world-card {
+      border: 1px solid var(--wash-ink);
+      background:
+        linear-gradient(180deg, rgba(214, 188, 142, 0.08), transparent),
+        var(--surface-muted-strong);
+      padding: 14px;
+      display: grid;
+      gap: 12px;
+    }
+    .leaderboard-world-title {
+      font-size: var(--font-size-role-body-15);
+      color: var(--color-role-body-strong);
+      font-weight: var(--font-weight-strong);
+    }
+    .leaderboard-world-list {
+      display: grid;
+      gap: 10px;
+    }
+    .leaderboard-world-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      padding-top: 10px;
+      border-top: 1px solid rgba(0, 0, 0, 0.08);
+    }
+    .leaderboard-world-row:first-child {
+      padding-top: 0;
+      border-top: none;
+    }
+    .leaderboard-world-copy {
+      min-width: 0;
+      display: grid;
+      gap: 4px;
+    }
+    .leaderboard-world-label {
+      font-size: var(--font-size-12);
+      color: var(--color-role-body);
+      line-height: 1.5;
+    }
+    .leaderboard-world-hint {
+      font-size: var(--font-size-12);
+      color: var(--color-role-body-muted);
+      line-height: 1.45;
+    }
+    .leaderboard-world-value {
+      flex: 0 0 auto;
+      font-family: var(--font-role-title);
+      font-size: var(--font-size-role-title-18);
+      color: var(--stamp-red);
+      text-align: right;
+      white-space: nowrap;
+    }
 .info-line {
   display: flex;
   flex-direction: column;

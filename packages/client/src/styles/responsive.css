@@ -1036,6 +1036,17 @@
     grid-template-columns: 1fr;
     gap: 8px;
   }
+  .leaderboard-world-grid {
+    grid-template-columns: 1fr;
+  }
+  .leaderboard-world-row {
+    flex-direction: column;
+    gap: 6px;
+  }
+  .leaderboard-world-value {
+    text-align: left;
+    white-space: normal;
+  }
   .leaderboard-rank {
     font-size: var(--font-size-role-title-16);
   }

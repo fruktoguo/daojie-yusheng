@@ -23,6 +23,7 @@ import {
   C2S_RequestMarketTradeHistory,
   C2S_RequestAttrDetail,
   C2S_RequestLeaderboard,
+  C2S_RequestWorldSummary,
   C2S_CreateMarketSellOrder,
   C2S_CreateMarketBuyOrder,
   C2S_BuyMarketItem,
@@ -56,6 +57,7 @@ import {
   S2C_MarketTradeHistory,
   S2C_AttrDetail,
   S2C_Leaderboard,
+  S2C_WorldSummary,
   S2C_NpcShop,
   S2C_AlchemyPanel,
   S2C_EnhancementPanel,
@@ -106,6 +108,7 @@ export class SocketManager {
   private onMarketTradeHistoryCallbacks: Array<(data: S2C_MarketTradeHistory) => void> = [];
   private onAttrDetailCallbacks: Array<(data: S2C_AttrDetail) => void> = [];
   private onLeaderboardCallbacks: Array<(data: S2C_Leaderboard) => void> = [];
+  private onWorldSummaryCallbacks: Array<(data: S2C_WorldSummary) => void> = [];
   private onNpcShopCallbacks: Array<(data: S2C_NpcShop) => void> = [];
   private onAlchemyPanelCallbacks: Array<(data: S2C_AlchemyPanel) => void> = [];
   private onEnhancementPanelCallbacks: Array<(data: S2C_EnhancementPanel) => void> = [];
@@ -162,6 +165,7 @@ export class SocketManager {
     this.bindServerEvent(S2C.MarketTradeHistory, this.onMarketTradeHistoryCallbacks);
     this.bindServerEvent(S2C.AttrDetail, this.onAttrDetailCallbacks);
     this.bindServerEvent(S2C.Leaderboard, this.onLeaderboardCallbacks);
+    this.bindServerEvent(S2C.WorldSummary, this.onWorldSummaryCallbacks);
     this.bindServerEvent(S2C.NpcShop, this.onNpcShopCallbacks);
     this.bindServerEvent(S2C.AlchemyPanel, this.onAlchemyPanelCallbacks);
     this.bindServerEvent(S2C.EnhancementPanel, this.onEnhancementPanelCallbacks);
@@ -435,6 +439,11 @@ export class SocketManager {
     this.emitServer(C2S.RequestLeaderboard, { limit } satisfies C2S_RequestLeaderboard);
   }
 
+/** sendRequestWorldSummary：处理当前场景中的对应操作。 */
+  sendRequestWorldSummary() {
+    this.emitServer(C2S.RequestWorldSummary, {} satisfies C2S_RequestWorldSummary);
+  }
+
 /** sendCreateMarketSellOrder：处理当前场景中的对应操作。 */
   sendCreateMarketSellOrder(slotIndex: number, quantity: number, unitPrice: number) {
     this.emitServer(C2S.CreateMarketSellOrder, { slotIndex, quantity, unitPrice } satisfies C2S_CreateMarketSellOrder);
@@ -598,6 +607,7 @@ export class SocketManager {
   onMarketTradeHistory(cb: (data: S2C_MarketTradeHistory) => void) { this.onMarketTradeHistoryCallbacks.push(cb); }
   onAttrDetail(cb: (data: S2C_AttrDetail) => void) { this.onAttrDetailCallbacks.push(cb); }
   onLeaderboard(cb: (data: S2C_Leaderboard) => void) { this.onLeaderboardCallbacks.push(cb); }
+  onWorldSummary(cb: (data: S2C_WorldSummary) => void) { this.onWorldSummaryCallbacks.push(cb); }
   onNpcShop(cb: (data: S2C_NpcShop) => void) { this.onNpcShopCallbacks.push(cb); }
   onAlchemyPanel(cb: (data: S2C_AlchemyPanel) => void) { this.onAlchemyPanelCallbacks.push(cb); }
   onEnhancementPanel(cb: (data: S2C_EnhancementPanel) => void) { this.onEnhancementPanelCallbacks.push(cb); }

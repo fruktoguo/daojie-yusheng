@@ -181,11 +181,14 @@ export class WorldPanel {
   private nearbyMonsterRefs = new Map<string, NearbyMonsterRefs>();
   private nearbyNpcNameRefs = new Map<string, HTMLElement>();
   private suggestionActionRefs = new Map<string, SuggestionActionRefs>();
+  private onOpenWorldSummary: (() => void) | null = null;
   private onOpenLeaderboard: (() => void) | null = null;
 
   setCallbacks(callbacks: {
+    onOpenWorldSummary?: () => void;
     onOpenLeaderboard?: () => void;
   }): void {
+    this.onOpenWorldSummary = callbacks.onOpenWorldSummary ?? null;
     this.onOpenLeaderboard = callbacks.onOpenLeaderboard ?? null;
   }
 
@@ -462,6 +465,13 @@ export class WorldPanel {
         <div class="panel-subtext">阁藏天下卷宗，专收低频榜册与汇总情报。</div>
       </div>
       <div class="tianji-action-list">
+        <button class="tianji-action-card" data-world-tianji-action="world" type="button">
+          <div>
+            <div class="tianji-action-title">世界</div>
+            <div class="tianji-action-desc">查看全服灵石总和、行动人数、境界人数，以及击杀与死亡总计。</div>
+          </div>
+          <div class="tianji-action-arrow">查看</div>
+        </button>
         <button class="tianji-action-card" data-world-tianji-action="leaderboard" type="button">
           <div>
             <div class="tianji-action-title">排行榜</div>
@@ -476,7 +486,9 @@ export class WorldPanel {
     });
     this.tianjiPane.querySelectorAll<HTMLButtonElement>('[data-world-tianji-action]').forEach((button) => {
       button.addEventListener('click', () => {
-        if (button.dataset.worldTianjiAction === 'leaderboard') {
+        if (button.dataset.worldTianjiAction === 'world') {
+          this.onOpenWorldSummary?.();
+        } else if (button.dataset.worldTianjiAction === 'leaderboard') {
           this.onOpenLeaderboard?.();
         }
       });
@@ -601,7 +613,8 @@ export class WorldPanel {
 
 /** patchTianjiPane：执行对应的业务逻辑。 */
   private patchTianjiPane(): boolean {
-    return this.tianjiPane.querySelector('[data-world-tianji-action="leaderboard"]') !== null;
+    return this.tianjiPane.querySelector('[data-world-tianji-action="world"]') !== null
+      && this.tianjiPane.querySelector('[data-world-tianji-action="leaderboard"]') !== null;
   }
 
 /** captureNearbyRefs：执行对应的业务逻辑。 */
@@ -656,4 +669,3 @@ export class WorldPanel {
     return `${badge}${escapeHtml(presentation.label)}`;
   }
 }
-

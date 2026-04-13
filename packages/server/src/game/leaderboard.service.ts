@@ -9,14 +9,21 @@ import {
   LeaderboardRealmEntry,
   LeaderboardSpiritStoneEntry,
   LeaderboardSupremeAttrEntry,
+  LeaderboardWorldSummary,
   PlayerState,
   S2C_Leaderboard,
+  S2C_WorldSummary,
+  calculateMarketTradeTotalCost,
 } from '@mud/shared';
 import { Repository } from 'typeorm';
+import { MarketOrderEntity } from '../database/entities/market-order.entity';
 import { PlayerEntity } from '../database/entities/player.entity';
 import { MARKET_CURRENCY_ITEM_ID } from '../constants/gameplay/market';
+import { AlchemyService } from './alchemy.service';
 import { AttrService } from './attr.service';
+import { EnhancementService } from './enhancement.service';
 import { PlayerService } from './player.service';
+import { TechniqueService } from './technique.service';
 
 /** DEFAULT_LEADERBOARD_LIMIT：定义该变量以承载业务值。 */
 const DEFAULT_LEADERBOARD_LIMIT = 10;
@@ -51,6 +58,8 @@ interface LeaderboardSnapshot {
   bossMonsterKillCount: number;
 /** spiritStoneCount：定义该变量以承载业务值。 */
   spiritStoneCount: number;
+/** marketStorageSpiritStoneCount：定义该变量以承载业务值。 */
+  marketStorageSpiritStoneCount: number;
 /** playerKillCount：定义该变量以承载业务值。 */
   playerKillCount: number;
 /** deathCount：定义该变量以承载业务值。 */
@@ -91,12 +100,18 @@ function compareName(left: LeaderboardSnapshot, right: LeaderboardSnapshot): num
 export class LeaderboardService {
 /** cachedLeaderboard：定义该变量以承载业务值。 */
   private cachedLeaderboard: S2C_Leaderboard | null = null;
+  private cachedWorldSummary: S2C_WorldSummary | null = null;
 
   constructor(
     @InjectRepository(PlayerEntity)
     private readonly playerRepo: Repository<PlayerEntity>,
+    @InjectRepository(MarketOrderEntity)
+    private readonly marketOrderRepo: Repository<MarketOrderEntity>,
     private readonly playerService: PlayerService,
     private readonly attrService: AttrService,
+    private readonly techniqueService: TechniqueService,
+    private readonly alchemyService: AlchemyService,
+    private readonly enhancementService: EnhancementService,
   ) {}
 
 /** buildLeaderboard：执行对应的业务逻辑。 */
@@ -150,6 +165,27 @@ export class LeaderboardService {
     };
   }
 
+/** buildWorldSummary：执行对应的业务逻辑。 */
+  async buildWorldSummary(): Promise<S2C_WorldSummary> {
+/** cached：定义该变量以承载业务值。 */
+    const cached = this.cachedWorldSummary;
+    if (cached && Date.now() - cached.generatedAt < LEADERBOARD_REFRESH_INTERVAL_MS) {
+      return cached;
+    }
+
+/** snapshots：定义该变量以承载业务值。 */
+    const snapshots = await this.collectSnapshots();
+/** reservedSpiritStoneTotal：定义该变量以承载业务值。 */
+    const reservedSpiritStoneTotal = await this.collectReservedSpiritStoneTotal();
+/** payload：定义该变量以承载业务值。 */
+    const payload: S2C_WorldSummary = {
+      generatedAt: Date.now(),
+      summary: this.buildWorldBoard(snapshots, reservedSpiritStoneTotal),
+    };
+    this.cachedWorldSummary = payload;
+    return payload;
+  }
+
 /** collectSnapshots：执行对应的业务逻辑。 */
   private async collectSnapshots(): Promise<LeaderboardSnapshot[]> {
 /** livePlayers：定义该变量以承载业务值。 */
@@ -187,6 +223,7 @@ export class LeaderboardService {
       eliteMonsterKillCount: Math.max(0, Math.floor(player.eliteMonsterKillCount ?? 0)),
       bossMonsterKillCount: Math.max(0, Math.floor(player.bossMonsterKillCount ?? 0)),
       spiritStoneCount: this.getInventoryItemCount(player, MARKET_CURRENCY_ITEM_ID),
+      marketStorageSpiritStoneCount: this.getMarketStorageItemCount(player, MARKET_CURRENCY_ITEM_ID),
       playerKillCount: Math.max(0, Math.floor(player.playerKillCount ?? 0)),
       deathCount: Math.max(0, Math.floor(player.deathCount ?? 0)),
       bodyTrainingLevel: Math.max(0, Math.floor(player.bodyTraining?.level ?? 0)),
@@ -323,11 +360,77 @@ export class LeaderboardService {
       });
   }
 
+/** buildWorldBoard：执行对应的业务逻辑。 */
+  private buildWorldBoard(
+    snapshots: LeaderboardSnapshot[],
+    reservedSpiritStoneTotal: number,
+  ): LeaderboardWorldSummary {
+/** livePlayers：定义该变量以承载业务值。 */
+    const livePlayers = this.playerService.getAllPlayers().filter((player) => !player.isBot && player.inWorld !== false && !player.dead);
+/** totalSpiritStones：定义该变量以承载业务值。 */
+    const totalSpiritStones = snapshots.reduce((total, snapshot) => (
+      total + snapshot.spiritStoneCount + snapshot.marketStorageSpiritStoneCount
+    ), 0) + reservedSpiritStoneTotal;
+/** eliteMonsterKills：定义该变量以承载业务值。 */
+    const eliteMonsterKills = snapshots.reduce((total, snapshot) => total + snapshot.eliteMonsterKillCount, 0);
+/** bossMonsterKills：定义该变量以承载业务值。 */
+    const bossMonsterKills = snapshots.reduce((total, snapshot) => total + snapshot.bossMonsterKillCount, 0);
+/** totalMonsterKills：定义该变量以承载业务值。 */
+    const totalMonsterKills = snapshots.reduce((total, snapshot) => total + snapshot.monsterKillCount, 0);
+
+    return {
+      totalSpiritStones,
+      actionCounts: {
+        cultivation: livePlayers.filter((player) => this.techniqueService.hasCultivationBuff(player)).length,
+        combat: livePlayers.filter((player) => (
+          player.autoBattle === true
+          || Boolean(player.pendingSkillCast)
+          || typeof player.combatTargetId === 'string'
+        )).length,
+        alchemy: livePlayers.filter((player) => this.alchemyService.hasActiveAlchemyJob(player)).length,
+        enhancement: livePlayers.filter((player) => this.enhancementService.hasActiveEnhancementJob(player)).length,
+      },
+      realmCounts: {
+        initial: snapshots.filter((snapshot) => snapshot.realmLv <= 1).length,
+        mortal: snapshots.filter((snapshot) => snapshot.realmLv >= 2 && snapshot.realmLv <= 18).length,
+        qiRefiningOrAbove: snapshots.filter((snapshot) => snapshot.realmLv >= 19).length,
+      },
+      killCounts: {
+        normalMonsters: Math.max(0, totalMonsterKills - eliteMonsterKills - bossMonsterKills),
+        eliteMonsters: eliteMonsterKills,
+        bossMonsters: bossMonsterKills,
+        playerKills: snapshots.reduce((total, snapshot) => total + snapshot.playerKillCount, 0),
+        playerDeaths: snapshots.reduce((total, snapshot) => total + snapshot.deathCount, 0),
+      },
+    };
+  }
+
+/** collectReservedSpiritStoneTotal：执行对应的业务逻辑。 */
+  private async collectReservedSpiritStoneTotal(): Promise<number> {
+/** orders：定义该变量以承载业务值。 */
+    const orders = await this.marketOrderRepo.find({
+      where: {
+        status: 'open',
+        side: 'buy',
+      },
+    });
+
+    return orders.reduce((total, order) => (
+      total + (calculateMarketTradeTotalCost(order.remainingQuantity, order.unitPrice) ?? 0)
+    ), 0);
+  }
+
 /** getInventoryItemCount：执行对应的业务逻辑。 */
   private getInventoryItemCount(player: PlayerState, itemId: string): number {
     return player.inventory.items.reduce((total, item) => (
       item.itemId === itemId ? total + Math.max(0, Math.floor(item.count)) : total
     ), 0);
   }
-}
 
+/** getMarketStorageItemCount：执行对应的业务逻辑。 */
+  private getMarketStorageItemCount(player: PlayerState, itemId: string): number {
+    return (player.marketStorage?.items ?? []).reduce((total, item) => (
+      item.itemId === itemId ? total + Math.max(0, Math.floor(item.count)) : total
+    ), 0);
+  }
+}
