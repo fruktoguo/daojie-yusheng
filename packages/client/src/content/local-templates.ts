@@ -205,6 +205,7 @@ export function resolvePreviewItem(item: ItemStack): ItemStack {
     enhanceLevel: item.enhanceLevel ?? template.enhanceLevel,
     alchemySuccessRate: item.alchemySuccessRate ?? template.alchemySuccessRate,
     alchemySpeedRate: item.alchemySpeedRate ?? template.alchemySpeedRate,
+    enhancementSuccessRate: item.enhancementSuccessRate ?? template.enhancementSuccessRate,
     enhancementSpeedRate: item.enhancementSpeedRate ?? template.enhancementSpeedRate,
     mapUnlockId: item.mapUnlockId ?? template.mapUnlockId,
     tileAuraGainAmount: item.tileAuraGainAmount ?? template.tileAuraGainAmount,
@@ -322,4 +323,3 @@ export function resolvePreviewTechnique(technique: TechniqueState): TechniqueSta
 export function resolvePreviewTechniques(techniques: TechniqueState[] | undefined): TechniqueState[] {
   return (techniques ?? []).map((technique) => resolvePreviewTechnique(technique));
 }
-
