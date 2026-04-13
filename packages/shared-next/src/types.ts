@@ -560,6 +560,7 @@ export interface ItemStack {
   cooldown?: number;
   consumeBuffs?: ConsumableBuffDef[];
   tags?: string[];
+  enhanceLevel?: number;
   alchemySuccessRate?: number;
   alchemySpeedRate?: number;
   mapUnlockId?: string;
@@ -1570,4 +1571,3 @@ export interface MailDetailView {
 /** deletable：定义该变量以承载业务值。 */
   deletable: boolean;
 }
-

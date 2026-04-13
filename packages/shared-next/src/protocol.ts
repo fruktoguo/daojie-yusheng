@@ -1280,6 +1280,7 @@ export interface SyncedItemStack {
   cooldown?: number;
   consumeBuffs?: ConsumableBuffDef[];
   tags?: string[];
+  enhanceLevel?: number;
   alchemySuccessRate?: number;
   alchemySpeedRate?: number;
   mapUnlockId?: string;
@@ -2383,6 +2384,7 @@ export interface GmEditorItemOption {
   qiPercent?: number;
   cooldown?: number;
   consumeBuffs?: ConsumableBuffDef[];
+  enhanceLevel?: number;
   alchemySuccessRate?: number;
   alchemySpeedRate?: number;
   mapUnlockId?: string;
@@ -2843,4 +2845,3 @@ export interface GmUpdateMapTimeReq {
   scale?: number;
   offsetTicks?: number;
 }
-

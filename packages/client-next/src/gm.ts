@@ -1331,6 +1331,7 @@ function getItemEditorControls(basePath: string, item: ItemStack, mode: 'invento
           mode === 'equipment' ? item.equipSlot : undefined,
         )}
         ${mode === 'inventory' ? numberField('数量', `${basePath}.count`, item.count) : ''}
+        ${numberField('强化等级', `${basePath}.enhanceLevel`, item.enhanceLevel)}
         <div class="editor-field">
           <span>模板等级</span>
           <div class="editor-code">${escapeHtml(String(item.level ?? '-'))}</div>
@@ -1361,6 +1362,7 @@ function getItemEditorControls(basePath: string, item: ItemStack, mode: 'invento
         mode === 'equipment' ? item.equipSlot : undefined,
       )}
       ${mode === 'inventory' ? numberField('数量', `${basePath}.count`, item.count) : ''}
+      ${numberField('强化等级', `${basePath}.enhanceLevel`, item.enhanceLevel)}
       ${numberField('等级', `${basePath}.level`, item.level)}
       ${nullableTextField('品阶', `${basePath}.grade`, item.grade, 'undefined')}
       ${jsonField('装备属性', `${basePath}.equipAttrs`, item.equipAttrs ?? {}, 'object')}
@@ -4802,6 +4804,7 @@ function buildInventoryItemSaveSnapshot(item: ItemStack): ItemStack {
     type: item.type,
     count: item.count,
     desc: item.desc,
+    enhanceLevel: item.enhanceLevel,
   };
 }
 
@@ -4820,6 +4823,7 @@ function buildEquipmentItemSaveSnapshot(item: ItemStack | null): ItemStack | nul
     count: 1,
     desc: item.desc,
     equipSlot: item.equipSlot,
+    enhanceLevel: item.enhanceLevel,
   };
 }
 
@@ -6544,7 +6548,6 @@ if (token) {
 } else {
   showLogin();
 }
-
 
 
 
