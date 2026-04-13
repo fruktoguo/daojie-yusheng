@@ -166,6 +166,27 @@ shadow-destructive 额外需要：
 - `acceptance` 里的本地与 shadow 自动部分
 - `full`
 
+### 模型辅助验证
+
+像 `gpt-5.3-codex-spark` 这类快速模型，当前适合承担：
+
+- 文档、README、workflow、runbook 的口径对账
+- 代码面扫描，确认某条链路是否还存在 legacy 命名、compat facade 或明显遗漏
+- 协议事件表、shared 类型表、面板 patch 路径这类“覆盖面核对”
+
+它当前不应被当成下面这些问题的最终证明：
+
+- `auth/token/bootstrap/session` 真源是否已经完成替换
+- `acceptance/full/shadow-destructive` 是否已在真实环境闭环
+- GM/admin/restore 运营链路是否已经可接班
+- 某条高风险 runtime 语义是否真的“可删 compat”
+
+这里的使用原则应当固定为：
+
+- 模型可用于第一轮并行盘点、找口径漂移、找覆盖缺口
+- 最终结论仍以 `build / smoke / audit / verify:replace-ready*` 和真实环境证据为准
+- 任何“可以删 legacy / 可以宣布接班”的结论，都不能只来自模型阅读文档或代码
+
 ### 仍需人工确认
 
 这些项不能被“命令存在”替代：

@@ -55,6 +55,25 @@
 - 人工回归负责回答“真实环境、维护窗口、业务上下文、回滚预案是否真的可执行”。
 - 自动 proof 不能替代人工回归，人工回归也不能反过来当成自动门禁。
 
+### 模型辅助验证的边界
+
+像 `gpt-5.3-codex-spark` 这类快速模型，适合做：
+
+- 文档、README、workflow、runbook 的口径核对
+- 代码和协议表面的覆盖面盘点
+- `legacy/compat` 是否仍出现在某条链路里的第一轮扫描
+
+它不适合单独承担：
+
+- `auth/bootstrap/session` 真源是否已经完成替换的最终判断
+- `acceptance/full/shadow-destructive` 是否已经真实闭环
+- GM/admin/restore 是否已经完成真实环境补证
+
+固定原则：
+
+- 模型只作为并行盘点和发现缺口的辅助手段
+- 最终结论仍以 `verify:replace-ready*`、smoke、audit、build 和真实环境记录为准
+
 ### 仍属于自动 proof 的内容
 
 - `pnpm verify:replace-ready:doctor`

@@ -1,6 +1,6 @@
 # next 现状缺口分析
 
-更新时间：2026-04-11（当前轮次）
+更新时间：2026-04-13（当前轮次）
 
 ## 一句话结论
 
@@ -18,6 +18,7 @@
 
 - `client-next` 的玩家主链已经基本切到 next-native
 - `client-next` 的 socket 已不再监听任何 legacy 事件名
+- `client-next` 的增量 UI/store 骨架已经形成，但 `T21` 的 alias 清理与部分面板的 patch-first 收口仍未完成
 - `server-next` 的 `auth/token/bootstrap` 真源替换已经进入“主链部分收口”阶段，不再只是第一刀开工
 - `server-next` 的 `snapshot/player-source` 顺序型证明已落地：带库 `next-auth-bootstrap` 已实跑通过“第一次 `legacy_seeded`、第二次 `next(native)`”
 - `server-next` 的 `token/identity` 与 `snapshot/player-source` 异常数据护栏也继续收紧：带库场景下如果 next 持久化里已经存在非法 identity/snapshot 记录、compat `users/players` schema 缺失导致 snapshot fallback 不可判真伪，或 compat snapshot 行里的 `mapId` 本身为空，主链现在都会直接报错并记录 trace，不再把坏真源/坏 fallback/坏 placement 静默当成 miss 后继续跑
@@ -27,6 +28,8 @@
 - `/runtime/auth-trace` 的 `summary` 也已固定出一层稳定观测 schema：除 `typeCounts / sourceCounts` 外，现在还会给出 identity 持久化动作计数、bootstrap 的 `requestedSessionCount`，以及 `bootstrap.linkedSourceCounts / linkedPersistedSourceCounts`
 - `protocol=next` 时，compat identity runtime 回退、`legacy_runtime -> compat snapshot` 运行态回退、以及带 token 的 `hello` 兜底 bootstrap 都已继续收紧
 - legacy HTTP auth 与 next socket auth 当前已经共用同一套 next token codec；compat online backfill 入口也已继续收成 `migration-only`
+- `shared-next` 的协议定义、protocol audit 与数值模板守卫已经形成基础护栏，但 `T22/T23` 仍未达到“新增字段自动全链路硬门禁”
+- `local / acceptance / full / shadow-destructive` 四层门禁定义已统一，但 `acceptance/full` 仍未全部落成 workflow/job 级闭环
 - 但 `server-next` 的登录、bootstrap、同步投影、HTTP/GM 与运行时真源仍大量依赖 legacy
 - 当前统一工程口径已收成：剩余任务 `25` 项，距离“完整替换游戏整体”仍约差 `35% - 40%`
 
@@ -37,16 +40,16 @@
 
 ## 当前可安全并行推进项
 
-截至 `2026-04-11`，当前最适合继续并行推进、且不容易撞上高风险真源替换的，是下面四类：
+截至 `2026-04-13`，当前最适合继续并行推进、且不容易撞上高风险真源替换的，是下面四类：
 
 1. 文档 / 验证链补强。
-   包括把 `P0/P1/暂缓` 重新写清、同步最新 replace-ready 实测结果，以及把 `docs/next-legacy-boundary-audit.md` 的 inventory 口径固定成统一对外结论。
+   包括把 `T11/T12/T25` 的门禁口径写死、同步最新 replace-ready 实测结果，以及把 `docs/next-legacy-boundary-audit.md` 的 inventory 口径固定成统一对外结论。
 2. 后端低风险边界收口。
    包括 `replace-ready` 周边脚本、环境变量 alias、一层 compat facade 外提，以及不碰 auth/bootstrap 真源语义的协议 helper 整理。它们能继续压薄耦合，但不能夸大成完整替换已完成。
 3. replace-ready 与 shadow / with-db / GM-admin 证明链补强。
-   现在更大的缺口已经不再是 direct boundary inventory，而是把已跑绿的 `replace-ready`、`with-db`、`shadow` 与 GM/admin/restore 自动化证明固定成稳定门禁。
-4. `snapshot/player-source` 真源收紧的准备层收口。
-   顺序型 smoke 已经补齐并实跑通过，当前更值当的是在既有护栏下继续缩小 legacy fallback 的默认触发面，而不是继续把“能不能证明第一次 `legacy_seeded`、第二次 `next`”当成待做项。
+   现在更大的缺口已经不再是 direct boundary inventory，而是把已跑绿的 `replace-ready`、`with-db`、`shadow` 与 GM/admin/restore 自动化证明固定成稳定门禁，并继续补 workflow/job 级闭环。
+4. `client-next / shared-next` 的收口尾项。
+   包括 `T21` 的 next-native 命名清理、面板 patch-first 收口，以及 `T22/T23` 的 shared 字段一致性检查继续硬化。它们不会直接替代真源主线，但能显著减少后续回退空间。
 
 当前不建议拉进这轮“安全并行继续”的内容：
 
@@ -130,10 +133,10 @@
 
 1. 先做 `T11 / T12 / T25`。
    先把四层门禁、自动 proof / 人工回归边界、以及“完整替换完成”的 gate 映射写死，避免后面每推进一步都重新争口径。
-2. 再主线程单线推进 `T01 / T03 / T05 / T07`。
+2. 再主线程单线推进 `T01 / T03 / T05 / T06 / T07`。
    这是当前真正决定“为什么还不能叫完整替换”的主阻塞。
-3. 然后推进 `T15 / T16 / T19 / T22`。
-   这是当前最能把“最小包体 / 最高性能 / 稳定性”从目标口号变成硬约束的一批。
+3. 然后并行推进 `T09 / T10 / T15 / T16 / T19 / T22 / T23`。
+   这是当前最能把“最小包体 / 最高性能 / 稳定性 / shared 基线”从目标口号变成硬约束的一批。
 
 ### direct inventory 清零后，当前真正剩下的是什么
 

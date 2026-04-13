@@ -51,11 +51,17 @@ async function main() {
  * 记录rejection。
  */
         const rejection = await expectNextSocketRejected();
+        const hasDatabase = (typeof process.env.SERVER_NEXT_DATABASE_URL === 'string' && process.env.SERVER_NEXT_DATABASE_URL.trim().length > 0)
+            || (typeof process.env.DATABASE_URL === 'string' && process.env.DATABASE_URL.trim().length > 0);
+
         if (health?.readiness?.maintenance?.active === true) {
             throw new Error(`expected maintenance inactive for not-ready gate, got ${JSON.stringify(health.readiness.maintenance)}`);
         }
-        if (health?.readiness?.database?.configured !== false) {
-            throw new Error(`expected database.configured=false, got ${JSON.stringify(health?.readiness?.database ?? null)}`);
+        if (hasDatabase && health?.readiness?.database?.configured !== true) {
+            throw new Error(`expected database.configured=true when db env exists, got ${JSON.stringify(health?.readiness?.database ?? null)}`);
+        }
+        if (!hasDatabase && health?.readiness?.database?.configured !== false) {
+            throw new Error(`expected database.configured=false when no db env, got ${JSON.stringify(health?.readiness?.database ?? null)}`);
         }
         if (rejection.code !== 'SERVER_NOT_READY') {
             throw new Error(`expected SERVER_NOT_READY, got ${JSON.stringify(rejection)}`);
@@ -114,8 +120,6 @@ async function startServer(options) {
             ...process.env,
             SERVER_NEXT_PORT: String(currentPort),
             SERVER_NEXT_RUNTIME_HTTP: '1',
-            SERVER_NEXT_DATABASE_URL: '',
-            DATABASE_URL: '',
             ...(options.allowUnreadyTraffic
                 ? {
                     SERVER_NEXT_ALLOW_UNREADY_TRAFFIC: '1',

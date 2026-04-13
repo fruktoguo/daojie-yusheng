@@ -1,6 +1,6 @@
 # next 剩余完整执行方案
 
-更新时间：2026-04-11（当前轮次）
+更新时间：2026-04-13（当前轮次）
 
 ## 1. 目标定义
 
@@ -27,6 +27,9 @@
 - 带库 `compat backfill` 在缺失 compat snapshot 时，当前也已经能直接 seed next-native starter snapshot，不再因为“没有 legacy players 行”而卡死在 `legacy_preseed_blocked`
 - 这不等于 `snapshot/player-source` 与 `bootstrap/session` 主链已经 next-native
 - 这不等于 GM/admin/restore 运营面已经 next 化
+- `client-next` 的 socket 主链已经 next-native，但 API 表面 alias 与部分 legacy HTTP 账号入口仍未完全清零
+- `shared-next` 的协议定义、protocol audit 与数值模板守卫已形成基础护栏，但 `T22/T23` 还没有达到“新增字段自动全链路硬门禁”的程度
+- `local / acceptance / full / shadow-destructive` 四层门禁定义已统一，但 `acceptance/full` 仍未全部落成 workflow/job 级闭环
 - 这不等于“最小包体、最高性能、极高扩展度、系统稳定性”已经全部满足
 - 本轮本机已复跑 `pnpm --filter @mud/server-next compile` 与无库 `node packages/server-next/dist/tools/smoke-suite.js --case session --case next-auth-bootstrap`；with-db proof 仍待 `DATABASE_URL/SERVER_NEXT_DATABASE_URL`
 - 保守估计，`next` 距离“完整替换游戏整体”仍约差 `35% - 40%`
@@ -71,15 +74,15 @@
    - 总耗时约 `56087ms`
    - 配套 `next-legacy-boundary-audit` 最新结果也已回到 `0 / 22`、`0`
 
-## 1.2 2026-04-11 当前轮次
+## 1.2 2026-04-13 当前轮次
 
-这一轮继续把可执行口径收紧成 25 项任务，而不是只停留在“3 块大方向”：
+这一轮继续把仓库口径收紧成“25 项明确任务 + 三态判断（已完成 / 已完成待验证 / 未完成）”，而不是只停留在“3 块大方向”：
 
-1. `T01-T08` 真源主线仍是第一阻塞，但 `protocol=next` 的 runtime compat 回退、`legacy_runtime -> compat snapshot`、`hello` 兜底入口都已经继续收口。
-2. `T09-T14` 的证明链与运营面补齐已经进入“真实环境补证 + 门禁制度化”阶段，而不是继续停留在仓库内命令层。
-3. `T15-T20` 的性能尾项现在主要集中在首包重复、projector 全量 capture/diff、tick 热路径和扩展切片。
-4. `T21-T23` 的 client/shared 稳定性已比前几轮稳，但仍需要继续压 alias、类型基线和一致性检查。
-5. `T24-T25` 现在明确只剩 compat 策略定稿与完成门禁化，不再是“顺手收尾”的尾巴。
+1. `T01-T08` 真源主线仍是第一阻塞，但当前更准确的状态是：`T01/T03/T05/T07/T08` 已进入“已完成待验证”，`T02/T06` 仍未完成。
+2. `T09-T14` 的证明链与运营面补齐已经进入“真实环境补证 + 门禁制度化”阶段，其中 `T11/T12/T14` 已完成待验证，`T09/T10` 仍缺真实环境证据。
+3. `T15-T20` 的性能尾项仍主要集中在首包重复、projector 全量 capture/diff、tick 热路径和扩展切片，目前仍属于未完成主块。
+4. `T21-T23` 的 client/shared 稳定性已经从“主链未切完”推进到“主链已基本切完，但 alias、局部更新一致性与 shared 全链路检查仍待继续压实”。
+5. `T24-T25` 当前明确收束为 compat 策略定稿与完成门禁化，其中 `T25` 已进入已完成待验证，`T24` 仍待真源更稳后定稿。
 
 当前轮次新增/继续收口的关键事实：
 
@@ -87,13 +90,16 @@
 - `token_seed` 与 `compat backfill` 在缺失 compat snapshot 时都已经可以直接 seed next-native starter snapshot
 - `legacy protocol -> next` 的混流入口继续被拒绝，`hello` 不再承担 authenticated bootstrap 的兜底角色
 - `next-auth-bootstrap` 的 proof 已经从“只证明边界存在”推进到“同时证明正向、负向与失败阶段”
+- `client-next` 主链通信已 next-native，`socket`/`main` 不再消费 legacy 事件主链，但 `T21` 的 alias 清理和部分面板的 patch-first 仍未彻底完成
+- `shared-next` 已有 protocol audit、`check-numeric-stats` 与 realm 数值模板守卫，但 `T22/T23` 仍未进入“新增字段自动全覆盖”的硬门禁状态
+- 四层门禁定义已在 README / TESTING / ops 文档里统一，但 workflow 侧仍缺直接覆盖 `acceptance/full` 的命令级闭环
 - 本轮本机仍只跑到无库 `session` / `next-auth-bootstrap`，with-db proof 仍待数据库环境恢复后补跑
 
 因此当前这一页和 task-breakdown 保持同一口径：
 
 - 当前剩余任务：`25`
 - 当前保守剩余：`35% - 40%`
-- 当前最该先做的批次：`T09/T10/T11 -> T01/T03/T05/T07 -> T15/T16/T19/T22 -> T13/T24/T25`
+- 当前最该先做的批次：`T11/T12/T25 -> T01/T03/T05/T06/T07 -> T09/T10/T15/T16/T19/T22/T23 -> T13/T24`
 
 ## 2. 当前基线
 
@@ -101,21 +107,25 @@
 
 - `client-next` 玩家主链已经基本切到 next-native
 - `client-next` socket 已不再监听 legacy 事件名
+- `client-next` 的增量 UI/store 框架已形成，核心面板与地图 store 已能以 patch/增量更新为主
 - `server-next` 主服务里的 direct legacy/perf inventory 已清零
 - `pnpm --filter @mud/server-next verify:replace-ready` 当前已重新确认可跑并通过
 - `verify:replace-ready:proof:with-db`
 - `verify:replace-ready:with-db`
 - `verify:replace-ready:shadow`
 - `verify:replace-ready:acceptance`
-  这四条链都已有通过证据
+  这四条链都已有通过证据，但这不等于 `acceptance/full` 已在 workflow 层完全闭环
+- `shared-next` 的协议定义、protocol audit 与数值模板守卫已形成基础可验证链路
 
 ### 2.2 仍然未完成的核心问题
 
 1. `auth/token/bootstrap` 真源只完成了第一刀，仍未整体脱 legacy。
-2. 默认/`acceptance`/`full` 三层门禁已经收敛，但 README / workflow / gap-analysis 仍需持续对齐，避免误读成“默认门禁通过 = 完整替换就绪”。
-3. GM/admin/restore 的统一自动化证明仍不足，且自动化边界与人工回归边界仍需继续写死。
-4. `shared-next` 仍需继续稳定，避免再次变成 workspace 级验证风险源。
-5. “最小包体、最高性能、极高扩展度、系统稳定性”都还只到部分满足或未满足。
+2. `T02` 与 `T06` 还没有完成，player source 真源和三类握手 contract 仍不是最终形态。
+3. 默认/`acceptance`/`full` 三层门禁已经收敛，但 workflow/job 级闭环仍未全部补齐，仍要避免误读成“默认门禁通过 = 完整替换就绪”。
+4. GM/admin/restore 的统一自动化证明仍不足，且自动化边界与人工回归边界仍需继续写死。
+5. `client-next` 虽主链已 next-native，但 `T21` alias 清理与部分 patch-first 收口仍未完成。
+6. `shared-next` 仍需继续稳定，避免再次变成 workspace 级验证风险源。
+7. “最小包体、最高性能、极高扩展度、系统稳定性”都还只到部分满足或未满足。
 
 ## 3. 总体策略
 

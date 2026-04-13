@@ -185,8 +185,9 @@ async function runIsolatedSmoke(entry) {
  */
     const server = await startServer(port, extraEnv);
     try {
+        const requireReady = hasDatabaseUrl() && entry.name !== 'readiness-gate';
         await waitForHealth(baseUrl, 12_000, {
-            requireReady: hasDatabaseUrl(),
+            requireReady,
         });
         await runNodeScript(path.join(distRoot, 'tools', entry.scriptFile), {
             SERVER_NEXT_URL: baseUrl,

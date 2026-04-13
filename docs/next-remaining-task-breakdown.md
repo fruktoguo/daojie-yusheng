@@ -162,31 +162,31 @@
 
 | 任务 | 当前状态 | 下一步收口点 |
 | --- | --- | --- |
-| `T01` | `部分收口` | 把 authenticated next 入场彻底收成仅认 next identity，compat 只留迁移窗口 |
+| `T01` | `已完成待验证` | 把 authenticated next 入场彻底收成仅认 next identity，继续把 compat 收到显式 migration 窗口 |
 | `T02` | `准备层已拆名，真源未替换` | 让 `WorldPlayerSourceService` 不再只是 legacy facade |
-| `T03` | `部分收口` | 彻底移除 authenticated runtime compat snapshot fallback |
+| `T03` | `已完成待验证` | 继续把 authenticated runtime compat snapshot fallback 压到 migration/no-persistence 专用边界 |
 | `T04` | `proof 很强，主链未 next-native` | 把 snapshot 真源完成定义从“能证明”推进到“只读 next native” |
-| `T05` | `主入口基本单线，contract 未彻底写死` | 收完 `connect_token / hello / guest / GM` 四类边界 |
-| `T06` | `入口在收口，三类握手未完全拆开` | 把 guest / authenticated / GM 的错误码与恢复 contract 固化 |
-| `T07` | `proof 已增强，设计未定稿` | 明确单进程 session 是否就是最终真源 |
-| `T08` | `可并行整理` | 让 trace 退回调试/验收角色，不再承担完成定义 |
+| `T05` | `已完成待验证` | 收完 `connect_token / hello / guest / GM` 四类边界，并把 contract 写成单线行为 |
+| `T06` | `未完成` | 把 guest / authenticated / GM 的错误码与恢复 contract 固化 |
+| `T07` | `已完成待验证` | 明确单进程 session 是否就是最终真源，并把当前边界从 proof 写成正式设计 |
+| `T08` | `已完成待验证` | 让 trace 退回调试/验收角色，不再承担完成定义 |
 | `T09` | `仓库命令已齐，缺真实 DB 取证` | 在真实库环境补跑 `backup-persistence` |
 | `T10` | `仓库命令已齐，缺维护窗口取证` | 在 shadow 维护窗口补跑 destructive proof |
-| `T11` | `主文档基本统一，零星入口待对齐` | 继续核齐 README / TESTING / RUNBOOK / workflow / wrapper |
-| `T12` | `自动链已成型，制度化不足` | 把自动化边界和人工维护边界正式写死 |
+| `T11` | `已完成待验证` | 继续核齐 README / TESTING / RUNBOOK / workflow / wrapper |
+| `T12` | `已完成待验证` | 把自动化边界和人工维护边界正式写死 |
 | `T13` | `待定稿` | 决定 GM/admin/restore 是长期 compat 壳还是继续 next 化 |
-| `T14` | `workflow 已支持受控开关` | 补齐真实维护窗口 secrets、手册和执行记录 |
+| `T14` | `已完成待验证` | 补齐真实维护窗口 secrets、手册和执行记录 |
 | `T15` | `已落首包 bench 骨架` | 继续拆 `Bootstrap / MapStatic / PanelDelta` 重复字段 |
 | `T16` | `热点已定位，结构未下拆` | 把 projector 从整量 capture/diff 切向 slice / revision 驱动 |
 | `T17` | `热点已知，invalidiation 机制未建` | 给 attr bonus / panel diff 建 revision 与失效边界 |
 | `T18` | `热点已知，缓存方案未定` | 给 minimap marker 建地图级预处理或事件驱动刷新 |
 | `T19` | `首包基准已起步，门禁矩阵未成型` | 把 tick / AOI / projector / sync 一起纳入基准 |
 | `T20` | `风险已定位，架构约束未落地` | 把新系统扩展路径从巨型 `PlayerState / projector` 切出 slice |
-| `T21` | `next-native 命名已开始，alias 仍在` | 清掉 client-next 事件表面的旧命名兼容层 |
-| `T22` | `数值模板守卫已补，shared 基线未完全门禁化` | 把 bootstrap / panel / delta 的 shared 补全规则写硬 |
-| `T23` | `NumericStats 检查已落一条` | 继续补 reset / projection / protobuf 等一致性检查 |
+| `T21` | `已完成待验证` | 清掉 client-next 事件表面的旧命名兼容层 |
+| `T22` | `已完成待验证` | 把 bootstrap / panel / delta 的 shared 补全规则写硬 |
+| `T23` | `已完成待验证` | 继续补 reset / projection / protobuf 等一致性检查，并从单点脚本扩成统一一致性检查 |
 | `T24` | `待真源更稳后定稿` | 明确 legacy HTTP / GM / socket 的最终保留范围 |
-| `T25` | `口径已写文档，门禁化不足` | 把“完整替换完成”的关键项逐条对应到 smoke / runbook / workflow |
+| `T25` | `已完成待验证` | 把“完整替换完成”的关键项逐条对应到 smoke / runbook / workflow |
 
 ## 零点三、本周直接开工顺序
 
@@ -205,31 +205,39 @@
 - 为什么先做：
   - 这是最低风险、最高协同收益的收口；先写死口径，后面的真源替换才不会每推进一步就重新争“算不算完成”
 
-### 批次 2：主线程只推一条 auth/bootstrap 真源链
+### 批次 2：主线程把 auth/bootstrap 真源链和握手 contract 一次收口
 
 - 包含：
   - `T01`
   - `T03`
   - `T05`
+  - `T06`
+  - `T07`
 - 直接产物：
   - next identity 不再默认走 compat runtime backfill
   - authenticated runtime 不再回读 compat snapshot
   - token/gmToken 连接只剩 `connect_token` 单线 bootstrap
+  - guest / authenticated / GM 三类握手错误码与恢复 contract 固化
 - 为什么第二个做：
   - 这是当前最能真实减少“还差多少”的代码改动，但必须单线做，不能和别的主链重构混在一起
 
-### 批次 3：在主链稳定前先把收益最高的性能尾项钉住
+### 批次 3：在主链稳定后并行钉住性能和 shared 尾项
 
 - 包含：
+  - `T09`
+  - `T10`
   - `T15`
+  - `T16`
   - `T19`
   - `T22`
+  - `T23`
 - 直接产物：
+  - 真实环境 proof 清单与执行记录
   - 首包重复字段清单
   - 首包 + tick/projector/AOI 的门禁骨架
   - shared-next 新字段补全检查规则继续硬化
 - 为什么第三个做：
-  - 这批既不会阻塞 `T01/T03/T05` 单线推进，又能把“最小包体 / 稳定性 / 性能”从口号变成实际护栏
+  - 这批能在不继续搅动 auth/bootstrap 主线的前提下，把“最小包体 / 稳定性 / 性能 / shared 基线”从口号变成实际护栏
 
 ## 一、P0 真源硬阻塞
 

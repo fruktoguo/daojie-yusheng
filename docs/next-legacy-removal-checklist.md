@@ -1,6 +1,6 @@
 # next legacy 清理门槛清单
 
-更新时间：2026-04-11（当前轮次）
+更新时间：2026-04-13（当前轮次）
 
 这份文档只回答两件事：
 
@@ -22,12 +22,15 @@
 
 所以不能按“文件名里还有 `legacy`”来判断替换是否完成，也不能按“主链某一段已收口”就直接整批删除。
 
-## 2026-04-11 本轮状态
+## 2026-04-13 本轮状态
 
 - `pnpm --filter @mud/server-next verify:replace-ready` 与无库 `session / next-auth-bootstrap` 当前轮次仍保持可复跑；但 with-db 与真实 shadow destructive 仍缺真实环境补证
 - `legacy-auth` smoke 现在已按真实主链前置对齐：无数据库环境先走 compat HTTP `/auth/register`/`/auth/login` 取真实 token，再验证 socket bootstrap；带数据库环境仍保留 seeded legacy token proof
 - `protocol=next` 时，compat identity online backfill 已继续收成 `migration-only`；`legacy protocol` 也已不再能通过 `hello(next)` 或 `token/gmToken` 混入主链
 - `legacy_runtime -> compat snapshot` 的运行态 fallback 已继续收紧；`hello` 对 token/gmToken 连接也不再承担 bootstrap 兜底入口
+- `client-next` 主链通信已 next-native，但 `T21` 的 alias 清理与部分面板 patch-first 收口仍未完成；这说明前台主链已可替换，不说明旧入口可立即整体删除
+- `shared-next` 的协议定义、protocol audit 与数值模板守卫已形成基础护栏，但 `T22/T23` 还没有达到“新增字段自动全链路硬门禁”；这说明 shared 稳定性在收口，不说明 compat 删除前置条件已满足
+- `local / acceptance / full / shadow-destructive` 四层门禁定义已统一，但 `acceptance/full` 仍未全部落成 workflow/job 级闭环
 - `docs/next-legacy-boundary-audit.md` 最新 audit 已回到 `0 / 22`、`0`
 - 当前统一工程口径已收成：剩余任务 `25` 项，距离“完整替换游戏整体”仍约差 `35% - 40%`
 - 因此当前最安全还能继续清理的，仍是 `D/E` 两类；`A/B/C` 还不能因为名字里带 `legacy` 就直接删
@@ -37,7 +40,7 @@
 这一节只回答“现在最容易删错的是什么”。
 
 1. `auth/token/bootstrap/snapshot/session` 真源主链相关 legacy。
-   对应 `T01-T07`。这组还在迁移窗口里，不能因为 boundary audit 清零就先删文件。
+   对应 `T01-T07`。虽然 `T01/T03/T05/T07` 已进入“已完成待验证”，但 `T02/T06` 仍未完成，这组整体还在迁移窗口里，不能因为 boundary audit 清零就先删文件。
 2. 对外 compat HTTP / GM / socket 入口。
    对应 `T13/T24`。这组还没完成长期策略定稿，删早了会把运维和回滚链路一起打断。
 3. `legacy-auth / legacy-player-compat / gm-compat` 这类 smoke 与审计脚本。
@@ -119,9 +122,9 @@
 
 | 删除门槛 | 当前对应任务 | 当前状态 |
 | --- | --- | --- |
-| `L1` 真源替换完成 | `T01-T08` | 未完成，仍是第一阻塞 |
+| `L1` 真源替换完成 | `T01-T08` | `T01/T03/T05/T07/T08` 已完成待验证，但 `T02/T06` 未完成，整体仍未过线 |
 | `L2` 外部旧入口退役 | `T13/T24` | 未定稿，不能先删入口 |
-| `L3` 自动 proof 全绿 | `T09/T10/T11/T12/T14/T25` | 仓库内命令已基本齐，真实环境补证未完成 |
+| `L3` 自动 proof 全绿 | `T09/T10/T11/T12/T14/T25` | 文档与命令口径已基本齐，但真实环境补证与 workflow 闭环未完成 |
 | `L4` 真实环境确认无人使用旧入口 | `T12/T13/T24/T25` | 未完成，仍缺运营与维护窗口取证 |
 | `L5` 观察窗口结束 | `T25` | 未进入该阶段 |
 
@@ -204,6 +207,7 @@
 - 给 `legacy/compat` 文件逐个打标签
 - 把“验证脚本”和“运行时兼容壳”分开目录治理
 - 优先复核并清理无引用孤儿文件
+- 继续做 `client-next / shared-next` 的 next-native 收口，但把它们明确视为“降低未来回退空间”，不要误读成“已满足删 compat 前置条件”
 - 持续减少 `A` 类文件数量
 - 把每个删除动作绑定到 `L1-L5` 或 `T01-T25` 某个明确前置条件
 
@@ -212,6 +216,7 @@
 - 看到 `legacy` 名字就整批删
 - 在 `L1` 没过前搬走所有运行主链 compat 文件
 - 在 `L2` 没过前删 compat HTTP registry 和旧 controller
+- 因为 `client-next` 主链已 next-native，就误判 legacy HTTP / GM / socket 可以顺手退役
 - 在 `T09/T10` 没完成真实环境补证前，把 smoke / audit / destructive proof 当成“可删脚手架”
 
 ## 四、推荐的清理顺序
