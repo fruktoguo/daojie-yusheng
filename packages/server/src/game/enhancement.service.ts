@@ -31,6 +31,7 @@ import {
   computeEnhancementJobBaseTicks,
   computeEnhancementJobTicks,
   computeEnhancementToolSpeedRate,
+  createItemStackSignature,
   getEnhancementSpiritStoneCost,
   normalizeAlchemySkillState,
   normalizeEnhanceLevel,
@@ -306,6 +307,7 @@ export class EnhancementService implements OnModuleInit {
         protectionStartLevel,
         protectionItemId: protection ? protectionItemId : undefined,
         protectionItemName: protection ? protectionItemName : undefined,
+        protectionItemSignature: protection ? createItemStackSignature(protection.item) : undefined,
         phase: 'enhancing',
         pausedTicks: 0,
         successRate,
@@ -558,7 +560,7 @@ export class EnhancementService implements OnModuleInit {
     const protectionItemId = this.shouldUseProtectionForStep(nextTargetLevel, job.protectionStartLevel)
       ? this.getProtectionItemId(config, job.targetItemId)
       : undefined;
-    if (!this.hasEnoughQueuedStepResources(player, protectionItemId, nextSpiritStoneCost, nextRequirements)) {
+    if (!this.hasEnoughQueuedStepResources(player, protectionItemId, job.targetItemId, nextSpiritStoneCost, nextRequirements)) {
 /** stopReason：定义该变量以承载业务值。 */
       const stopReason = job.protectionUsed
         ? '后续强化所需灵石、材料或保护物不足，队列已停止。'
@@ -579,7 +581,7 @@ export class EnhancementService implements OnModuleInit {
         attrChanged: finish.attrChanged,
       };
     }
-    if (!this.consumeQueuedStepResources(player, protectionItemId, nextRequirements)) {
+    if (!this.consumeQueuedStepResources(player, protectionItemId, job.targetItemId, nextRequirements)) {
       return null;
     }
 
@@ -666,6 +668,7 @@ export class EnhancementService implements OnModuleInit {
   private hasEnoughQueuedStepResources(
     player: PlayerState,
     protectionItemId: string | undefined,
+    targetItemId: string,
     spiritStoneCost: number,
     requirements: EnhancementMaterialRequirement[],
   ): boolean {
@@ -677,7 +680,10 @@ export class EnhancementService implements OnModuleInit {
     if ((counts.get(ENHANCEMENT_SPIRIT_STONE_ITEM_ID) ?? 0) < spiritStoneCost) {
       return false;
     }
-    if (protectionItemId && (counts.get(protectionItemId) ?? 0) < 1) {
+    if (
+      protectionItemId
+      && this.getEligibleProtectionCount(player, protectionItemId, targetItemId) < 1
+    ) {
       return false;
     }
     return requirements.every((entry) => (counts.get(entry.itemId) ?? 0) >= entry.count);
@@ -686,11 +692,12 @@ export class EnhancementService implements OnModuleInit {
   private consumeQueuedStepResources(
     player: PlayerState,
     protectionItemId: string | undefined,
+    targetItemId: string,
     requirements: EnhancementMaterialRequirement[],
   ): boolean {
     if (
       protectionItemId
-      && !player.inventory.items.some((item) => item?.itemId === protectionItemId && Math.max(0, Math.floor(item.count)) >= 1)
+      && this.getEligibleProtectionCount(player, protectionItemId, targetItemId) < 1
     ) {
       return false;
     }
@@ -914,7 +921,7 @@ export class EnhancementService implements OnModuleInit {
 /** candidates：定义该变量以承载业务值。 */
     const candidates: SyncedEnhancementProtectionCandidate[] = [];
     player.inventory.items.forEach((item, slotIndex) => {
-      if (item.itemId !== protectionItemId) {
+      if (!this.isEligibleProtectionItem(item, protectionItemId, targetItem.itemId)) {
         return;
       }
       if (
@@ -979,7 +986,7 @@ export class EnhancementService implements OnModuleInit {
     }
 /** expectedItemId：定义该变量以承载业务值。 */
     const expectedItemId = this.getProtectionItemId(config, target.item.itemId);
-    if (protection.item.itemId !== expectedItemId) {
+    if (!this.isEligibleProtectionItem(protection.item, expectedItemId, target.item.itemId)) {
       return null;
     }
     if (
@@ -1042,11 +1049,32 @@ export class EnhancementService implements OnModuleInit {
   private consumeProtectionItemForFailure(player: PlayerState, job: PlayerEnhancementJob): boolean {
 /** protectionItemId：定义该变量以承载业务值。 */
     const protectionItemId = job.protectionItemId ?? job.targetItemId;
-    return this.consumeInventoryItemById(player, protectionItemId, 1);
+/** protectionSignature：定义该变量以承载业务值。 */
+    const protectionSignature = job.protectionItemSignature;
+    if (protectionSignature && this.consumeInventoryItemBySignature(player, protectionSignature, 1)) {
+      return true;
+    }
+    return this.consumeInventoryItemWhere(
+      player,
+      (item) => this.isEligibleProtectionItem(item, protectionItemId, job.targetItemId),
+      1,
+    );
   }
 
 /** consumeInventoryItemById：执行对应的业务逻辑。 */
   private consumeInventoryItemById(player: PlayerState, itemId: string, count: number): boolean {
+    return this.consumeInventoryItemWhere(player, (item) => item?.itemId === itemId, count);
+  }
+
+  private consumeInventoryItemBySignature(player: PlayerState, signature: string, count: number): boolean {
+    return this.consumeInventoryItemWhere(player, (item) => createItemStackSignature(item) === signature, count);
+  }
+
+  private consumeInventoryItemWhere(
+    player: PlayerState,
+    predicate: (item: ItemStack) => boolean,
+    count: number,
+  ): boolean {
 /** remaining：定义该变量以承载业务值。 */
     let remaining = Math.max(0, Math.floor(count));
     if (remaining <= 0) {
@@ -1054,7 +1082,7 @@ export class EnhancementService implements OnModuleInit {
     }
     for (let index = player.inventory.items.length - 1; index >= 0 && remaining > 0; index -= 1) {
       const item = player.inventory.items[index];
-      if (item?.itemId !== itemId) {
+      if (!item || !predicate(item)) {
         continue;
       }
 /** consume：定义该变量以承载业务值。 */
@@ -1065,6 +1093,31 @@ export class EnhancementService implements OnModuleInit {
       remaining -= consume;
     }
     return remaining <= 0;
+  }
+
+  private isSelfProtectionItem(protectionItemId: string, targetItemId: string): boolean {
+    return protectionItemId === targetItemId;
+  }
+
+  private isEligibleProtectionItem(item: ItemStack, protectionItemId: string, targetItemId: string): boolean {
+    if (item.itemId !== protectionItemId) {
+      return false;
+    }
+    if (!this.isSelfProtectionItem(protectionItemId, targetItemId)) {
+      return true;
+    }
+    return item.type === 'equipment' && normalizeEnhanceLevel(item.enhanceLevel) === 0;
+  }
+
+  private getEligibleProtectionCount(player: PlayerState, protectionItemId: string, targetItemId: string): number {
+    let total = 0;
+    for (const item of player.inventory.items) {
+      if (!this.isEligibleProtectionItem(item, protectionItemId, targetItemId)) {
+        continue;
+      }
+      total += Math.max(0, Math.floor(item.count));
+    }
+    return total;
   }
 
   private recordEnhancementOutcome(

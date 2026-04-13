@@ -244,6 +244,10 @@ export function normalizePlayerEnhancementJob(value: unknown): PlayerEnhancement
     protectionItemName: typeof candidate.protectionItemName === 'string' && candidate.protectionItemName.trim().length > 0
       ? candidate.protectionItemName.trim()
       : undefined,
+/** protectionItemSignature：定义该变量以承载业务值。 */
+    protectionItemSignature: typeof candidate.protectionItemSignature === 'string' && candidate.protectionItemSignature.length > 0
+      ? candidate.protectionItemSignature
+      : undefined,
     phase,
     pausedTicks,
     successRate: Math.max(0, Math.min(1, Number(candidate.successRate) || 0)),

@@ -742,6 +742,7 @@ export interface PlayerEnhancementJob {
   protectionStartLevel?: number;
   protectionItemId?: string;
   protectionItemName?: string;
+  protectionItemSignature?: string;
 /** phase：定义该变量以承载业务值。 */
   phase: 'enhancing' | 'paused';
 /** pausedTicks：定义该变量以承载业务值。 */
