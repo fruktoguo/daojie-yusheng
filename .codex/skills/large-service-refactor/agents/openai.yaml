@@ -1,0 +1,4 @@
+interface:
+  display_name: "Large Service Refactor"
+  short_description: "重构超大服务与脚本，按职责拆分并持续降低系统复杂度。"
+  default_prompt: "Use this skill to refactor oversized services or scripts in this repo by separating orchestration, domain logic, queries, persistence, protocol assembly, and hot/cold paths."

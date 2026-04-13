@@ -1,0 +1,4 @@
+interface:
+  display_name: "Runtime Performance Author"
+  short_description: "处理热路径性能、序列化压力与启动期配置加载的工程约束。"
+  default_prompt: "Use this skill to optimize or review hot runtime paths in this repo, including tick, AOI, pathfinding, combat, broadcast assembly, serialization pressure, and startup-time config parsing."
