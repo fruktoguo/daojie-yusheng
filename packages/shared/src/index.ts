@@ -22,6 +22,7 @@ export * from './craft-duration';
 export * from './craft-success';
 export * from './craft-skill';
 export * from './enhancement';
+export * from './enhancement-cost';
 export * from './value';
 export * from './monster';
 export * from './combat';

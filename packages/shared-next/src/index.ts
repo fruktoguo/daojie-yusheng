@@ -17,6 +17,7 @@ export * from './path-codec';
 export * from './targeting';
 export * from './target-ref';
 export * from './terrain';
+export * from './enhancement-cost';
 export * from './value';
 export * from './monster';
 export * from './combat';

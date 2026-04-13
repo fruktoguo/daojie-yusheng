@@ -14,6 +14,7 @@
     "report:values:buff": "pnpm build && node dist/tools/report-buff-values.js",
     "report:values:all": "pnpm build && node dist/tools/report-all-values.js",
     "report:values:docs": "pnpm build && node dist/tools/export-value-reports.js",
+    "report:enhancement:cost": "pnpm build && node dist/tools/report-enhancement-cost.js",
     "report:technique:attrs": "pnpm build && node dist/tools/report-technique-attrs.js",
     "bench:pathfinding": "pnpm build && node dist/tools/pathfinding-benchmark.js",
     "map:grassify": "pnpm build && node dist/tools/replace-map-floor-wall-with-grass.js"
