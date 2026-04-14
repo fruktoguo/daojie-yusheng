@@ -14,9 +14,9 @@ SERVER_NEXT_COMPOSE_PROJECT="${SERVER_NEXT_COMPOSE_PROJECT:-mud-next-local}"
 
 # 在脚本结束时回收 server-next、client-next 和 shared-next 监听进程。
 cleanup() {
-  if [[ -n "${SERVER_PID:-}" ]]; then kill "$SERVER_PID" 2>/dev/null || true; fi
-  if [[ -n "${CLIENT_PID:-}" ]]; then kill "$CLIENT_PID" 2>/dev/null || true; fi
-  if [[ -n "${SHARED_WATCH_PID:-}" ]]; then kill "$SHARED_WATCH_PID" 2>/dev/null || true; fi
+  kill_process_tree_if_running "${SERVER_PID:-}"
+  kill_process_tree_if_running "${CLIENT_PID:-}"
+  kill_process_tree_if_running "${SHARED_WATCH_PID:-}"
 }
 
 # 终止pidifrunning。
@@ -28,15 +28,78 @@ kill_pid_if_running() {
   fi
 }
 
+# 收集指定 PID 的所有后代进程，供批量清理使用。
+collect_descendant_pids() {
+# 记录根pid。
+  local root_pid="$1"
+  if [[ -z "$root_pid" ]]; then
+    return 0
+  fi
+
+  ps -eo pid=,ppid= | awk -v root_pid="$root_pid" '
+    {
+      children[$2] = children[$2] " " $1
+    }
+
+    function walk(pid, child_count, child_ids, child_idx) {
+      child_count = split(children[pid], child_ids, " ")
+      for (child_idx = 1; child_idx <= child_count; child_idx += 1) {
+        if (child_ids[child_idx] == "") {
+          continue
+        }
+        print child_ids[child_idx]
+        walk(child_ids[child_idx])
+      }
+    }
+
+    END {
+      walk(root_pid)
+    }
+  '
+}
+
+# 递归终止某个进程及其子进程，避免热更新父进程残留。
+kill_process_tree_if_running() {
+# 记录根pid。
+  local root_pid="$1"
+  if [[ -z "$root_pid" ]] || ! kill -0 "$root_pid" 2>/dev/null; then
+    return 0
+  fi
+
+# 记录后代pid列表。
+  local descendants=()
+  mapfile -t descendants < <(collect_descendant_pids "$root_pid")
+
+# 先结束叶子，再结束根进程，降低子进程游离概率。
+  local index=0
+  for (( index=${#descendants[@]}-1; index>=0; index-=1 )); do
+    kill_pid_if_running "${descendants[$index]}"
+  done
+  kill_pid_if_running "$root_pid"
+
+  sleep 1
+
+  for (( index=${#descendants[@]}-1; index>=0; index-=1 )); do
+    if kill -0 "${descendants[$index]}" 2>/dev/null; then
+      kill -9 "${descendants[$index]}" 2>/dev/null || true
+    fi
+  done
+  if kill -0 "$root_pid" 2>/dev/null; then
+    kill -9 "$root_pid" 2>/dev/null || true
+  fi
+}
+
 # 收集当前仓库残留的 server-next 开发相关进程 PID。
 collect_repo_dev_pids() {
   ps -eo pid=,args= | awk -v repo_root="$PWD" '
+    /pnpm\/bin\/pnpm\.cjs --filter @mud\/server-next start:dev/ { print $1; next }
+    /pnpm\/bin\/pnpm\.cjs --filter @mud\/shared-next build --watch/ { print $1; next }
+    /node scripts\/dev-hot\.js/ { print $1; next }
     index($0, repo_root) == 0 { next }
     /packages\/server-next\/dist\/main/ { print $1; next }
-    /pnpm\/bin\/pnpm\.cjs --filter @mud\/server-next start:dev/ { print $1; next }
+    /node_modules\/\.pnpm\/node_modules\/typescript\/bin\/tsc -w -p tsconfig\.json --preserveWatchOutput/ { print $1; next }
     /packages\/client-next\/node_modules\/\.bin\/\.\.\/vite\/bin\/vite\.js --host/ { print $1; next }
     /packages\/shared-next\/node_modules\/\.bin\/\.\.\/typescript\/bin\/tsc --watch/ { print $1; next }
-    /pnpm\/bin\/pnpm\.cjs --filter @mud\/shared-next build --watch/ { print $1; next }
   '
 }
 
@@ -71,18 +134,10 @@ cleanup_existing_local_dev_processes() {
 
   mapfile -t repo_pids < <(collect_repo_dev_pids | sort -u)
   for pid in "${repo_pids[@]:-}"; do
-    kill_pid_if_running "$pid"
+    kill_process_tree_if_running "$pid"
   done
 
-  sleep 1
-
-  for pid in "${repo_pids[@]:-}"; do
-    if kill -0 "$pid" 2>/dev/null; then
-      kill -9 "$pid" 2>/dev/null || true
-    fi
-  done
-
-  kill_port_listener_if_needed "${SERVER_NEXT_PORT:-13001}"
+  kill_port_listener_if_needed "${SERVER_NEXT_PORT:-13020}"
   kill_port_listener_if_needed "${CLIENT_NEXT_PORT:-15173}"
 }
 
@@ -293,7 +348,7 @@ case "$MODE" in
     fi
 
     export SERVER_NEXT_HOST="${SERVER_NEXT_HOST:-0.0.0.0}"
-    export SERVER_NEXT_PORT="${SERVER_NEXT_PORT:-13001}"
+    export SERVER_NEXT_PORT="${SERVER_NEXT_PORT:-13020}"
     export CLIENT_NEXT_PORT="${CLIENT_NEXT_PORT:-15173}"
     export JWT_SECRET="${JWT_SECRET:-daojie-yusheng-dev-secret}"
     export SERVER_NEXT_GM_PASSWORD="${SERVER_NEXT_GM_PASSWORD:-admin123}"
@@ -365,7 +420,7 @@ case "$MODE" in
     echo ""
     echo "可选环境变量:"
     echo "  SKIP_LOCAL_INFRA=1         跳过本地 PostgreSQL / Redis 自动拉起"
-    echo "  SERVER_NEXT_PORT=13001     指定 server-next 端口"
+    echo "  SERVER_NEXT_PORT=13020     指定 server-next 端口"
     echo "  CLIENT_NEXT_PORT=15173     指定 client-next 端口"
     echo "  SERVER_NEXT_DB_PORT=15432  指定 next PostgreSQL 端口"
     echo "  SERVER_NEXT_DB_DATABASE=mud_mmo_next 指定 next PostgreSQL 数据库名"
