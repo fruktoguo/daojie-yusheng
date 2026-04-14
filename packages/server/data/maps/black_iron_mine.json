@@ -5,6 +5,7 @@
   "height": 48,
   "routeDomain": "system",
   "terrainProfileId": "mystic_black_iron",
+  "terrainRealmLv": 6,
   "spaceVisionMode": "isolated",
   "description": "扩展为 48x48 的断矿旧道：西侧残轨仍接青竹林，中段旧锻炉台成了唯一能喘口气的避风点，怪物堵在通往各矿带的岔口上，矿区内部只留下零星灵石矿点与多段裸露玄铁矿层，方便沿矿带持续开采。",
   "dangerLevel": 3,
@@ -190,6 +191,55 @@
       "resourceNodeId": "landmark.black_iron_vein"
     }
   ],
+  "resourceNodeGroups": [
+    {
+      "resourceNodeId": "landmark.herb.breakarray_shard",
+      "idPrefix": "lm_mine_breakarray",
+      "name": "破纹砂",
+      "placements": [
+        {
+          "x": 9,
+          "y": 6
+        },
+        {
+          "x": 40,
+          "y": 7
+        },
+        {
+          "x": 20,
+          "y": 9
+        },
+        {
+          "x": 34,
+          "y": 10
+        },
+        {
+          "x": 9,
+          "y": 10
+        },
+        {
+          "x": 40,
+          "y": 23
+        },
+        {
+          "x": 19,
+          "y": 20
+        },
+        {
+          "x": 45,
+          "y": 33
+        },
+        {
+          "x": 13,
+          "y": 37
+        },
+        {
+          "x": 21,
+          "y": 41
+        }
+      ]
+    }
+  ],
   "npcs": [
     {
       "id": "npc_mine_overseer_ghost",
@@ -251,56 +301,6 @@
       "id": "m_ore_colossus",
       "x": 30,
       "y": 24
-    }
-  ],
-  "terrainRealmLv": 6,
-  "resourceNodeGroups": [
-    {
-      "resourceNodeId": "landmark.herb.breakarray_shard",
-      "idPrefix": "lm_mine_breakarray",
-      "name": "破纹砂",
-      "placements": [
-        {
-          "x": 6,
-          "y": 1
-        },
-        {
-          "x": 38,
-          "y": 1
-        },
-        {
-          "x": 22,
-          "y": 2
-        },
-        {
-          "x": 29,
-          "y": 12
-        },
-        {
-          "x": 8,
-          "y": 18
-        },
-        {
-          "x": 38,
-          "y": 20
-        },
-        {
-          "x": 21,
-          "y": 21
-        },
-        {
-          "x": 41,
-          "y": 36
-        },
-        {
-          "x": 2,
-          "y": 38
-        },
-        {
-          "x": 21,
-          "y": 41
-        }
-      ]
     }
   ]
 }

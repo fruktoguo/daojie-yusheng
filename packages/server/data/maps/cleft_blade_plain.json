@@ -401,6 +401,86 @@
       "desc": "主路一离开残阵就斜着压进坡口，地上全是断枪、裂盾和被砂风磨白的兵骨。"
     }
   ],
+  "resourceNodeGroups": [
+    {
+      "resourceNodeId": "landmark.herb.goldthread_briar",
+      "idPrefix": "lm_cleft_goldthread",
+      "name": "金芒棘",
+      "placements": [
+        {
+          "x": 166,
+          "y": 9
+        },
+        {
+          "x": 150,
+          "y": 9
+        },
+        {
+          "x": 132,
+          "y": 9
+        },
+        {
+          "x": 114,
+          "y": 9
+        },
+        {
+          "x": 89,
+          "y": 3
+        },
+        {
+          "x": 61,
+          "y": 4
+        },
+        {
+          "x": 49,
+          "y": 4
+        },
+        {
+          "x": 19,
+          "y": 2
+        }
+      ]
+    },
+    {
+      "resourceNodeId": "landmark.herb.ironvein_caltrop",
+      "idPrefix": "lm_cleft_ironvein",
+      "name": "铁脉蒺",
+      "placements": [
+        {
+          "x": 160,
+          "y": 11
+        },
+        {
+          "x": 140,
+          "y": 12
+        },
+        {
+          "x": 108,
+          "y": 12
+        },
+        {
+          "x": 80,
+          "y": 2
+        },
+        {
+          "x": 52,
+          "y": 14
+        },
+        {
+          "x": 33,
+          "y": 3
+        },
+        {
+          "x": 19,
+          "y": 17
+        },
+        {
+          "x": 7,
+          "y": 5
+        }
+      ]
+    }
+  ],
   "npcs": [
     {
       "id": "npc_cleft_array_mender",
@@ -450,146 +530,60 @@
     },
     {
       "id": "m_cleft_stele_puppet",
-      "x": 80,
+      "x": 81,
       "y": 10,
       "count": 1,
-      "maxAlive": 1,
       "radius": 3,
-      "wanderRadius": 3
+      "maxAlive": 1
     },
     {
       "id": "spawn_cleft_stele_puppet_b",
-      "templateId": "m_cleft_stele_puppet",
       "x": 66,
       "y": 10,
+      "templateId": "m_cleft_stele_puppet",
       "count": 1,
-      "maxAlive": 1,
       "radius": 3,
-      "wanderRadius": 3
+      "maxAlive": 1
     },
     {
       "id": "spawn_cleft_stele_puppet_c",
-      "templateId": "m_cleft_stele_puppet",
       "x": 51,
       "y": 8,
+      "templateId": "m_cleft_stele_puppet",
       "count": 1,
-      "maxAlive": 1,
       "radius": 3,
-      "wanderRadius": 3
+      "maxAlive": 1
     },
     {
       "id": "m_cleft_iron_guard",
       "x": 14,
       "y": 9,
       "count": 1,
-      "maxAlive": 1,
       "radius": 3,
-      "wanderRadius": 3
+      "maxAlive": 1
     },
     {
       "id": "spawn_cleft_iron_guard_b",
-      "templateId": "m_cleft_iron_guard",
       "x": 36,
       "y": 9,
+      "templateId": "m_cleft_iron_guard",
       "count": 1,
-      "maxAlive": 1,
       "radius": 3,
-      "wanderRadius": 3
+      "maxAlive": 1
     },
     {
       "id": "spawn_cleft_iron_guard_c",
-      "templateId": "m_cleft_iron_guard",
       "x": 44,
       "y": 14,
+      "templateId": "m_cleft_iron_guard",
       "count": 1,
-      "maxAlive": 1,
       "radius": 3,
-      "wanderRadius": 3
+      "maxAlive": 1
     },
     {
       "id": "m_cleft_gate_lord",
       "x": 9,
       "y": 9
-    }
-  ],
-  "resourceNodeGroups": [
-    {
-      "resourceNodeId": "landmark.herb.goldthread_briar",
-      "idPrefix": "lm_cleft_goldthread",
-      "name": "金芒棘",
-      "placements": [
-        {
-          "x": 166,
-          "y": 9
-        },
-        {
-          "x": 150,
-          "y": 9
-        },
-        {
-          "x": 132,
-          "y": 9
-        },
-        {
-          "x": 114,
-          "y": 9
-        },
-        {
-          "x": 86,
-          "y": 8
-        },
-        {
-          "x": 64,
-          "y": 10
-        },
-        {
-          "x": 48,
-          "y": 9
-        },
-        {
-          "x": 16,
-          "y": 10
-        }
-      ]
-    },
-    {
-      "resourceNodeId": "landmark.herb.ironvein_caltrop",
-      "idPrefix": "lm_cleft_ironvein",
-      "name": "铁脉蒺",
-      "placements": [
-        {
-          "x": 160,
-          "y": 11
-        },
-        {
-          "x": 140,
-          "y": 12
-        },
-        {
-          "x": 108,
-          "y": 12
-        },
-        {
-          "x": 80,
-          "y": 10
-        },
-        {
-          "x": 52,
-          "y": 14
-        },
-        {
-          "x": 38,
-          "y": 9
-        },
-        {
-          "x": 18,
-          "y": 14
-        },
-        {
-          "x": 10,
-          "y": 8
-        }
-      ]
     }
   ]
 }

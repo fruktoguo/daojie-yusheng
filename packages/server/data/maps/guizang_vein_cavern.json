@@ -78,8 +78,8 @@
   ],
   "portals": [
     {
-      "x": 30,
-      "y": 32,
+      "x": 21,
+      "y": 21,
       "targetMapId": "ruined_cavern_manor",
       "targetX": 3,
       "targetY": 9,
@@ -273,6 +273,7 @@
       "desc": "阵核没有大殿，只有一块还在硬压五炁的歪阵面。能走到这里，碰上的就不是哪一行的尽头，而是练气期对混行承压的最终考题。"
     }
   ],
+  "resourceNodeGroups": [],
   "npcs": [
     {
       "id": "npc_guizang_gate_watcher",
@@ -325,58 +326,49 @@
       "x": 21,
       "y": 40,
       "count": 1,
-      "maxAlive": 1,
       "radius": 3,
-      "wanderRadius": 3
+      "maxAlive": 1
     },
     {
       "id": "spawn_guizang_dualphase_beast_b",
-      "templateId": "m_guizang_dualphase_beast",
       "x": 25,
       "y": 30,
+      "templateId": "m_guizang_dualphase_beast",
       "count": 1,
-      "maxAlive": 1,
       "radius": 3,
-      "wanderRadius": 3
+      "maxAlive": 1
     },
     {
       "id": "spawn_guizang_dualphase_beast_c",
-      "templateId": "m_guizang_dualphase_beast",
       "x": 31,
       "y": 22,
+      "templateId": "m_guizang_dualphase_beast",
       "count": 1,
-      "maxAlive": 1,
       "radius": 3,
-      "wanderRadius": 3
+      "maxAlive": 1
     },
     {
       "id": "m_guizang_ruined_relic",
       "x": 15,
       "y": 48,
       "count": 1,
-      "maxAlive": 1,
-      "radius": 3,
-      "wanderRadius": 3
+      "maxAlive": 1
     },
     {
       "id": "spawn_guizang_ruined_relic_b",
-      "templateId": "m_guizang_ruined_relic",
       "x": 12,
       "y": 45,
+      "templateId": "m_guizang_ruined_relic",
       "count": 1,
-      "maxAlive": 1,
-      "radius": 3,
-      "wanderRadius": 3
+      "maxAlive": 1
     },
     {
       "id": "spawn_guizang_ruined_relic_c",
-      "templateId": "m_guizang_ruined_relic",
       "x": 34,
       "y": 24,
+      "templateId": "m_guizang_ruined_relic",
       "count": 1,
-      "maxAlive": 1,
-      "radius": 3,
-      "wanderRadius": 3
+      "maxAlive": 1
     },
     {
       "id": "m_guizang_failed_foundation",
