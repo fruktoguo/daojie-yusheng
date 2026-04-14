@@ -85,13 +85,13 @@
 ## 文档分工
 
 - 当前状态与缺口：
-  [docs/next-gap-analysis.md](/home/yuohira/mud-mmo/docs/next-gap-analysis.md)
-- 长版执行方案：
-  [docs/next-remaining-execution-plan.md](/home/yuohira/mud-mmo/docs/next-remaining-execution-plan.md)
+  [next-gap-analysis.md](next-gap-analysis.md)
+- - 长版执行方案：
+  [next-remaining-execution-plan.md](next-remaining-execution-plan.md)
 - 详细任务详单与最近轮次进展：
-  [docs/next-remaining-task-breakdown.md](/home/yuohira/mud-mmo/docs/next-remaining-task-breakdown.md)
+  [next-remaining-task-breakdown.md](next-remaining-task-breakdown.md)
 - legacy 清理门槛：
-  [docs/next-legacy-removal-checklist.md](/home/yuohira/mud-mmo/docs/next-legacy-removal-checklist.md)
+  [next-legacy-removal-checklist.md](next-legacy-removal-checklist.md)
 
 这样收口后：
 

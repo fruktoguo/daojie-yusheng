@@ -8,11 +8,11 @@
 
 `next` 距离“完整替换游戏整体”还剩什么，接下来应该按什么顺序做，做到什么程度才能改口说“可以安全接班”。
 
-如果你当前更关心“什么时候才能把仓库里的 `legacy/compat` 全删掉”，直接看 [docs/next-legacy-removal-checklist.md](/home/yuohira/mud-mmo/docs/next-legacy-removal-checklist.md)。
+如果你当前更关心“什么时候才能把仓库里的 `legacy/compat` 全删掉”，直接看 [next-legacy-removal-checklist.md](next-legacy-removal-checklist.md)。
 
-如果你当前只想看一页摘要版工程账本，直接看 [docs/next-remaining-engineering-ledger.md](/home/yuohira/mud-mmo/docs/next-remaining-engineering-ledger.md)。
+如果你当前只想看一页摘要版工程账本，直接看 [next-remaining-engineering-ledger.md](next-remaining-engineering-ledger.md)。
 
-如果你当前更关心“每块具体剩什么、哪些能并行、哪些必须串行、最近轮次做到了哪”，直接看 [docs/next-remaining-task-breakdown.md](/home/yuohira/mud-mmo/docs/next-remaining-task-breakdown.md)。
+如果你当前更关心“每块具体剩什么、哪些能并行、哪些必须串行、最近轮次做到了哪”，直接看 [next-remaining-task-breakdown.md](next-remaining-task-breakdown.md)。
 
 当前统一口径：
 
@@ -630,10 +630,10 @@
 
 仍卡住的模块：
 
-- [world-player-snapshot.service.js](/home/yuohira/mud-mmo/packages/server-next/src/network/world-player-snapshot.service.js)
-- [world-legacy-player-source.service.js](/home/yuohira/mud-mmo/packages/server-next/src/network/world-legacy-player-source.service.js)
-- [world-player-source.service.js](/home/yuohira/mud-mmo/packages/server-next/src/network/world-player-source.service.js)
-- [player-snapshot-compat.js](/home/yuohira/mud-mmo/packages/server-next/src/persistence/player-snapshot-compat.js)
+- [world-player-snapshot.service.js](../packages/server-next/src/network/world-player-snapshot.service.js)
+- world-legacy-player-source.service.js](../packages/server-next/src/network/world-legacy-player-source.service.js)
+- world-player-source.service.js](../packages/server-next/src/network/world-player-source.service.js)
+- player-snapshot-compat.js](../packages/server-next/src/persistence/player-snapshot-compat.js)
 
 为什么它还是 P0：
 
@@ -663,11 +663,11 @@
 
 仍卡住的模块：
 
-- [world-session-bootstrap.service.js](/home/yuohira/mud-mmo/packages/server-next/src/network/world-session-bootstrap.service.js)
-- [world-player-auth.service.js](/home/yuohira/mud-mmo/packages/server-next/src/network/world-player-auth.service.js)
-- [world-player-token.service.js](/home/yuohira/mud-mmo/packages/server-next/src/network/world-player-token.service.js)
-- [world-player-token-compat.js](/home/yuohira/mud-mmo/packages/server-next/src/network/world-player-token-compat.js)
-- [world-legacy-jwt.service.js](/home/yuohira/mud-mmo/packages/server-next/src/network/world-legacy-jwt.service.js)
+- world-session-bootstrap.service.js](../packages/server-next/src/network/world-session-bootstrap.service.js)
+- world-player-auth.service.js](../packages/server-next/src/network/world-player-auth.service.js)
+- world-player-token.service.js](../packages/server-next/src/network/world-player-token.service.js)
+- world-player-token-compat.js](../packages/server-next/src/network/world-player-token-compat.js)
+- world-legacy-jwt.service.js](../packages/server-next/src/network/world-legacy-jwt.service.js)
 
 为什么它还是 P0：
 
@@ -697,12 +697,12 @@
 
 仍卡住的模块与入口：
 
-- [TESTING.md](/home/yuohira/mud-mmo/packages/server-next/TESTING.md)
-- [next-legacy-removal-checklist.md](/home/yuohira/mud-mmo/docs/next-legacy-removal-checklist.md)
-- [compat-http.registry.js](/home/yuohira/mud-mmo/packages/server-next/src/compat/compat-http.registry.js)
-- [legacy-gm-admin-compat.service.js](/home/yuohira/mud-mmo/packages/server-next/src/compat/legacy/http/legacy-gm-admin-compat.service.js)
-- [legacy-session-bootstrap.service.js](/home/yuohira/mud-mmo/packages/server-next/src/compat/legacy/legacy-session-bootstrap.service.js)
-- [legacy-auth-readiness-warmup.service.js](/home/yuohira/mud-mmo/packages/server-next/src/health/legacy-auth-readiness-warmup.service.js)
+- [TESTING.md](../packages/server-next/TESTING.md)
+- [next-legacy-removal-checklist.md](next-legacy-removal-checklist.md)
+- [compat-http.registry.js](../packages/server-next/src/compat/compat-http.registry.js)
+- [legacy-gm-admin-compat.service.js](../packages/server-next/src/compat/legacy/http/legacy-gm-admin-compat.service.js)
+- [legacy-session-bootstrap.service.js](../packages/server-next/src/compat/legacy/legacy-session-bootstrap.service.js)
+- [legacy-auth-readiness-warmup.service.js](../packages/server-next/src/health/legacy-auth-readiness-warmup.service.js)
 
 为什么它还是 P0：
 
@@ -849,7 +849,7 @@
 当前阻塞模块：
 
 - `packages/server-next/src/network/world-player-auth.service.js`
-- `packages/server-next/src/network/world-player-snapshot.service.js`
+  - `../packages/server-next/src/network/world-player-snapshot.service.js`
 - `packages/server-next/src/network/world-player-source.service.js`
 - `packages/server-next/src/network/world-legacy-player-source.service.js`
 - `packages/server-next/src/network/world-legacy-player-repository.js`

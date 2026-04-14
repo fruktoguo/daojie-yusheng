@@ -6,11 +6,11 @@
 
 更完整的运维、shadow、`gm/database/*`、破坏性维护窗口说明，统一看：
 
-- [docs/server-next-operations.md](/home/yuohira/mud-mmo/docs/server-next-operations.md)
+- [docs/server-next-operations.md](../../docs/server-next-operations.md)
 
 更完整的任务拆解与当前轮次进展，统一看：
 
-- [docs/next-remaining-task-breakdown.md](/home/yuohira/mud-mmo/docs/next-remaining-task-breakdown.md)
+- [docs/next-remaining-task-breakdown.md](../../docs/next-remaining-task-breakdown.md)
 
 ## 当前口径
 
@@ -184,9 +184,9 @@
 
 这些问题统一看：
 
-- [docs/next-legacy-removal-checklist.md](/home/yuohira/mud-mmo/docs/next-legacy-removal-checklist.md)
-- [docs/next-remaining-task-breakdown.md](/home/yuohira/mud-mmo/docs/next-remaining-task-breakdown.md)
-- [docs/server-next-operations.md](/home/yuohira/mud-mmo/docs/server-next-operations.md)
+- [docs/next-legacy-removal-checklist.md](../../docs/next-legacy-removal-checklist.md)
+- [docs/next-remaining-task-breakdown.md](../../docs/next-remaining-task-breakdown.md)
+- [docs/server-next-operations.md](../../docs/server-next-operations.md)
 
 ## 环境变量矩阵
 
@@ -211,7 +211,7 @@ shadow-destructive 额外需要：
 
 ## 目录关系
 
-- [docs/server-next-operations.md](/home/yuohira/mud-mmo/docs/server-next-operations.md) 负责运维与维护窗口细则
-- [docs/next-remaining-task-breakdown.md](/home/yuohira/mud-mmo/docs/next-remaining-task-breakdown.md) 负责任务粒度、依赖关系、当前轮次进展
-- [docs/next-remaining-execution-plan.md](/home/yuohira/mud-mmo/docs/next-remaining-execution-plan.md) 负责阶段拆分和完成定义
-- [docs/next-gap-analysis.md](/home/yuohira/mud-mmo/docs/next-gap-analysis.md) 负责现状缺口和当前判断
+- [docs/server-next-operations.md](../../docs/server-next-operations.md) 负责运维与维护窗口细则
+- [docs/next-remaining-task-breakdown.md](../../docs/next-remaining-task-breakdown.md) 负责任务粒度、依赖关系、当前轮次进展
+- [docs/next-remaining-execution-plan.md](../../docs/next-remaining-execution-plan.md) 负责阶段拆分和完成定义
+- [docs/next-gap-analysis.md](../../docs/next-gap-analysis.md) 负责现状缺口和当前判断

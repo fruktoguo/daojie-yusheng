@@ -4,7 +4,7 @@
 
 当前 `server-next` 的 shadow 演练、环境变量矩阵、replace-ready 四层门禁、`gm/database/*` 演练步骤，统一看：
 
-- [docs/server-next-operations.md](/home/yuohira/mud-mmo/docs/server-next-operations.md)
+- [docs/server-next-operations.md](../../docs/server-next-operations.md)
 
 快速入口：
 

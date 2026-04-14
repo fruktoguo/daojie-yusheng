@@ -3,6 +3,8 @@
  * 用途：执行 monster-reset 链路的冒烟验证。
  */
 
+const smoke_timeout_1 = require("./smoke-timeout");
+(0, smoke_timeout_1.installSmokeTimeout)(__filename);
 const env_alias_1 = require("../config/env-alias");
 const SERVER_NEXT_URL = (0, env_alias_1.resolveServerNextUrl)() || 'http://127.0.0.1:3111';
 /** instanceId：定义该变量以承载业务值。 */

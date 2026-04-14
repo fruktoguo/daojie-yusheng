@@ -43,9 +43,9 @@
 - 报告由 `packages/server-next/src/tools/audit/next-legacy-boundary-audit.js` 自动生成。
 - 这份审计的定位是 inventory，不是 replace-ready 验收，也不会替代 `pnpm verify:replace-ready`、`with-db`、`shadow` 或协议审计。
 - 当前最适合把它和下面几份文档一起看：
-  - [docs/next-remaining-task-breakdown.md](/home/yuohira/mud-mmo/docs/next-remaining-task-breakdown.md)
-  - [docs/next-remaining-execution-plan.md](/home/yuohira/mud-mmo/docs/next-remaining-execution-plan.md)
-  - [docs/next-gap-analysis.md](/home/yuohira/mud-mmo/docs/next-gap-analysis.md)
+- [next-remaining-task-breakdown.md](next-remaining-task-breakdown.md)
+- [next-remaining-execution-plan.md](next-remaining-execution-plan.md)
+- [next-gap-analysis.md](./next-gap-analysis.md)
 
 ## 当前正确用法
 
@@ -65,5 +65,5 @@
 
 1. 保持这份 audit 继续只做 inventory，不要让它承担 replace-ready 完成定义。
 2. 每次 `world.gateway / world-session-bootstrap / world-projector / world-sync` 大改后都复跑一次，防止 direct boundary 回流。
-3. 把 audit 的结论继续同步回 [docs/next-remaining-task-breakdown.md](/home/yuohira/mud-mmo/docs/next-remaining-task-breakdown.md)，避免出现“audit 为绿，但任务口径仍漂移”。
+3. 把 audit 的结论继续同步回 [docs/next-remaining-task-breakdown.md](./next-remaining-task-breakdown.md)，避免出现“audit 为绿，但任务口径仍漂移”。
 4. 当 `T24/T25` 进入定稿阶段时，再决定这份 audit 是否降级成历史文档，而不是现在就删除。

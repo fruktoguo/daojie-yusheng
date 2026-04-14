@@ -285,9 +285,9 @@ node node_modules/.pnpm/node_modules/typescript/bin/tsc -p packages/server-next/
 
 ## 相关文档
 
-- 当前状态与缺口：[next-gap-analysis.md](/home/yuohira/mud-mmo/docs/next-gap-analysis.md)
-- 剩余执行方案：[next-remaining-execution-plan.md](/home/yuohira/mud-mmo/docs/next-remaining-execution-plan.md)
-- 详细任务拆分：[next-remaining-task-breakdown.md](/home/yuohira/mud-mmo/docs/next-remaining-task-breakdown.md)
-- legacy 清理门槛：[next-legacy-removal-checklist.md](/home/yuohira/mud-mmo/docs/next-legacy-removal-checklist.md)
-- legacy 边界审计：[next-legacy-boundary-audit.md](/home/yuohira/mud-mmo/docs/next-legacy-boundary-audit.md)
-- 协议审计：[next-protocol-audit.md](/home/yuohira/mud-mmo/docs/next-protocol-audit.md)
+- 当前状态与缺口：[next-gap-analysis.md](next-gap-analysis.md)
+- 剩余执行方案：[next-remaining-execution-plan.md](next-remaining-execution-plan.md)
+- 详细任务拆分：[next-remaining-task-breakdown.md](next-remaining-task-breakdown.md)
+- legacy 清理门槛：[next-legacy-removal-checklist.md](next-legacy-removal-checklist.md)
+- legacy 边界审计：[next-legacy-boundary-audit.md](next-legacy-boundary-audit.md)
+- 协议审计：[next-protocol-audit.md](next-protocol-audit.md)

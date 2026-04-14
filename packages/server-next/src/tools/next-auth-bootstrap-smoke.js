@@ -4,6 +4,9 @@
  */
 
 Object.defineProperty(exports, "__esModule", { value: true });
+/** smoke_timeout_1：定义该变量以承载业务值。 */
+const smoke_timeout_1 = require("./smoke-timeout");
+(0, smoke_timeout_1.installSmokeTimeout)(__filename);
 /** pg_1：定义该变量以承载业务值。 */
 const pg_1 = require("pg");
 /** socket_io_client_1：定义该变量以承载业务值。 */

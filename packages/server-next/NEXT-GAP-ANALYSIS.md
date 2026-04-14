@@ -14,11 +14,11 @@
 
 ## 文档分工
 
-- 仓库级总入口与权威缺口分析看 [docs/next-gap-analysis.md](/home/yuohira/mud-mmo/docs/next-gap-analysis.md)
-- 任务粒度、依赖关系、当前轮次进展看 [docs/next-remaining-task-breakdown.md](/home/yuohira/mud-mmo/docs/next-remaining-task-breakdown.md)
-- 执行顺序、完成定义、批次拆分看 [docs/next-remaining-execution-plan.md](/home/yuohira/mud-mmo/docs/next-remaining-execution-plan.md)
-- 一页摘要版工程账本看 [docs/next-remaining-engineering-ledger.md](/home/yuohira/mud-mmo/docs/next-remaining-engineering-ledger.md)
-- legacy 清理门槛看 [docs/next-legacy-removal-checklist.md](/home/yuohira/mud-mmo/docs/next-legacy-removal-checklist.md)
+- 仓库级总入口与权威缺口分析看 [../../docs/next-gap-analysis.md](../../docs/next-gap-analysis.md)
+- 任务粒度、依赖关系、当前轮次进展看 [../../docs/next-remaining-task-breakdown.md](../../docs/next-remaining-task-breakdown.md)
+- 执行顺序、完成定义、批次拆分看 [../../docs/next-remaining-execution-plan.md](../../docs/next-remaining-execution-plan.md)
+- 一页摘要版工程账本看 [../../docs/next-remaining-engineering-ledger.md](../../docs/next-remaining-engineering-ledger.md)
+- legacy 清理门槛看 [../../docs/next-legacy-removal-checklist.md](../../docs/next-legacy-removal-checklist.md)
 
 ## 这份包内文件的职责
 

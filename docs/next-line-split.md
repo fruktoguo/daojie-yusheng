@@ -117,7 +117,7 @@
 
 ## 下一步最值得切的边界
 
-这一轮优先级要和 [docs/next-remaining-task-breakdown.md](/home/yuohira/mud-mmo/docs/next-remaining-task-breakdown.md) 里的 `T15 / T16 / T20` 对齐，先切下面 5 个边界：
+这一轮优先级要和 [docs/next-remaining-task-breakdown.md](./next-remaining-task-breakdown.md) 里的 `T15 / T16 / T20` 对齐，先切下面 5 个边界：
 
 1. `Bootstrap + MapStatic + PanelDelta` 的首包边界。
    对应 `T15`，目标是先把重复字段和重复分层压薄，不要再把静态、低频和面板初始化混在一起。

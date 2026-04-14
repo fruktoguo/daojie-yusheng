@@ -45,25 +45,25 @@
 
 ### 当前状态与缺口
 
-- 仓库权威说明：[docs/next-gap-analysis.md](/home/yuohira/mud-mmo/docs/next-gap-analysis.md)
-- 包内兼容入口：[NEXT-GAP-ANALYSIS.md](/home/yuohira/mud-mmo/packages/server-next/NEXT-GAP-ANALYSIS.md)
+- 仓库权威说明：[../../docs/next-gap-analysis.md](../../docs/next-gap-analysis.md)
+- 包内兼容入口：[./NEXT-GAP-ANALYSIS.md](./NEXT-GAP-ANALYSIS.md)
 
 ### 运维、验证、shadow 演练
 
-- 权威运维文档：[docs/server-next-operations.md](/home/yuohira/mud-mmo/docs/server-next-operations.md)
-- 包内兼容入口：[TESTING.md](/home/yuohira/mud-mmo/packages/server-next/TESTING.md)
-- 包内兼容入口：[REPLACE-RUNBOOK.md](/home/yuohira/mud-mmo/packages/server-next/REPLACE-RUNBOOK.md)
+- 权威运维文档：[../../docs/server-next-operations.md](../../docs/server-next-operations.md)
+- 包内兼容入口：[./TESTING.md](./TESTING.md)
+- 包内兼容入口：[./REPLACE-RUNBOOK.md](./REPLACE-RUNBOOK.md)
 
 ### 计划、任务与收尾标准
 
-- 执行方案：[docs/next-remaining-execution-plan.md](/home/yuohira/mud-mmo/docs/next-remaining-execution-plan.md)
-- 任务详单：[docs/next-remaining-task-breakdown.md](/home/yuohira/mud-mmo/docs/next-remaining-task-breakdown.md)
-- legacy 清理门槛：[docs/next-legacy-removal-checklist.md](/home/yuohira/mud-mmo/docs/next-legacy-removal-checklist.md)
+- 执行方案：[../../docs/next-remaining-execution-plan.md](../../docs/next-remaining-execution-plan.md)
+- 任务详单：[../../docs/next-remaining-task-breakdown.md](../../docs/next-remaining-task-breakdown.md)
+- legacy 清理门槛：[../../docs/next-legacy-removal-checklist.md](../../docs/next-legacy-removal-checklist.md)
 
 ### 自动生成或低重复报告
 
-- legacy 边界审计：[docs/next-legacy-boundary-audit.md](/home/yuohira/mud-mmo/docs/next-legacy-boundary-audit.md)
-- next 协议审计：[docs/next-protocol-audit.md](/home/yuohira/mud-mmo/docs/next-protocol-audit.md)
+- legacy 边界审计：[../../docs/next-legacy-boundary-audit.md](../../docs/next-legacy-boundary-audit.md)
+- next 协议审计：[../../docs/next-protocol-audit.md](../../docs/next-protocol-audit.md)
 
 ## 四层门禁
 

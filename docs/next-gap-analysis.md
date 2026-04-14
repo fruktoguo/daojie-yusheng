@@ -8,11 +8,11 @@
 
 但这次把 `next` 推上仓库，当前更准确的定位仍然只是阶段性备份和继续协作，不是“已经可以投入生产”的信号。
 
-如需看后续阶段、工作流拆分、完成定义与执行顺序，直接看 [docs/next-remaining-execution-plan.md](/home/yuohira/mud-mmo/docs/next-remaining-execution-plan.md)。
+如需看后续阶段、工作流拆分、完成定义与执行顺序，直接看 [docs/next-remaining-execution-plan.md](./next-remaining-execution-plan.md)。
 
-如需看一页摘要版工程账本，直接看 [docs/next-remaining-engineering-ledger.md](/home/yuohira/mud-mmo/docs/next-remaining-engineering-ledger.md)。
+如需看一页摘要版工程账本，直接看 [docs/next-remaining-engineering-ledger.md](./next-remaining-engineering-ledger.md)。
 
-如需直接看详细任务、依赖关系与最近轮次进展，直接看 [docs/next-remaining-task-breakdown.md](/home/yuohira/mud-mmo/docs/next-remaining-task-breakdown.md)。
+如需直接看详细任务、依赖关系与最近轮次进展，直接看 [docs/next-remaining-task-breakdown.md](./next-remaining-task-breakdown.md)。
 
 截至目前：
 
@@ -84,19 +84,19 @@
 
 如果现在要继续“实打实往前改”，最值得先盯的是下面这些文件：
 
-- [packages/server-next/src/network/world-player-auth.service.js](/home/yuohira/mud-mmo/packages/server-next/src/network/world-player-auth.service.js)
+- [packages/server-next/src/network/world-player-auth.service.js](../packages/server-next/src/network/world-player-auth.service.js)
   这里决定 `T01` 是否能把 next 协议 authenticated 入场彻底收成仅认 next identity
-- [packages/server-next/src/network/world-session-bootstrap.service.js](/home/yuohira/mud-mmo/packages/server-next/src/network/world-session-bootstrap.service.js)
+- [packages/server-next/src/network/world-session-bootstrap.service.js](../packages/server-next/src/network/world-session-bootstrap.service.js)
   这里决定 `T03/T05` 是否能把 snapshot runtime fallback 和 bootstrap 入口彻底收成单线
-- [packages/server-next/src/network/world.gateway.js](/home/yuohira/mud-mmo/packages/server-next/src/network/world.gateway.js)
+- [packages/server-next/src/network/world.gateway.js](../packages/server-next/src/network/world.gateway.js)
   这里决定 `T05/T06` 的 guest / authenticated / GM 三类握手 contract 能不能真正拆开
-- [packages/server-next/src/network/world-session.service.js](/home/yuohira/mud-mmo/packages/server-next/src/network/world-session.service.js)
+- [packages/server-next/src/network/world-session.service.js](../packages/server-next/src/network/world-session.service.js)
   这里决定 `T07` 的 session 真源边界最后如何定稿
-- [packages/server-next/src/network/world-projector.service.js](/home/yuohira/mud-mmo/packages/server-next/src/network/world-projector.service.js)
+- [packages/server-next/src/network/world-projector.service.js](../packages/server-next/src/network/world-projector.service.js)
   这里是 `T16/T17/T20` 的核心热点，也是“最高性能 / 极高扩展度”最容易继续失血的地方
-- [packages/server-next/src/network/world-sync.service.js](/home/yuohira/mud-mmo/packages/server-next/src/network/world-sync.service.js)
+- [packages/server-next/src/network/world-sync.service.js](../packages/server-next/src/network/world-sync.service.js)
   这里是 `T15/T18/T19/T20` 的首包、minimap、AOI、同步门禁集中区
-- [packages/shared-next/src/protocol.ts](/home/yuohira/mud-mmo/packages/shared-next/src/protocol.ts)
+- [packages/shared-next/src/protocol.ts](../packages/shared-next/src/protocol.ts)
   这里是 `T15/T22/T23` 的 shared 类型和协议稳定性核心锚点
 
 ## 如果目标是“完整替换游戏整体”
