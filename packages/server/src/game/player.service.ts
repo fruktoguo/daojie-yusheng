@@ -78,7 +78,7 @@ export interface PlayerCommand {
 /** playerId：定义该变量以承载业务值。 */
   playerId: string;
 /** type：定义该变量以承载业务值。 */
-  type: 'move' | 'moveTo' | 'navigateQuest' | 'navigateMapPoint' | 'action' | 'takeLoot' | 'closeLootWindow' | 'debugResetSpawn' | 'buyNpcShopItem' | 'saveAlchemyPreset' | 'deleteAlchemyPreset' | 'startAlchemy' | 'cancelAlchemy' | 'startEnhancement' | 'cancelEnhancement' | 'mailRead' | 'mailClaim' | 'mailDelete' | 'redeemCodes';
+  type: 'move' | 'moveTo' | 'navigateQuest' | 'navigateMapPoint' | 'action' | 'takeLoot' | 'closeLootWindow' | 'stopLootHarvest' | 'debugResetSpawn' | 'buyNpcShopItem' | 'saveAlchemyPreset' | 'deleteAlchemyPreset' | 'startAlchemy' | 'cancelAlchemy' | 'startEnhancement' | 'cancelEnhancement' | 'mailRead' | 'mailClaim' | 'mailDelete' | 'redeemCodes';
 /** data：定义该变量以承载业务值。 */
   data: unknown;
 /** timestamp：定义该变量以承载业务值。 */

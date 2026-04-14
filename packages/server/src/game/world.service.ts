@@ -102,6 +102,7 @@ import { ThreatService } from './threat.service';
 import { TimeService } from './time.service';
 import { AlchemyService } from './alchemy.service';
 import { EnhancementService } from './enhancement.service';
+import { TechniqueActivityService } from './technique-activity.service';
 import { buildMonsterInitialBuffSourceId } from './temporary-buff-storage';
 import {
   DEFAULT_MONSTER_RATIO_DIVISORS,
@@ -392,6 +393,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     private readonly persistentDocumentService: PersistentDocumentService,
     private readonly alchemyService: AlchemyService,
     private readonly enhancementService: EnhancementService,
+    private readonly techniqueActivityService: TechniqueActivityService,
   ) {
     this.questDomain = new WorldQuestDomain(
       this.mapService,
@@ -1264,6 +1266,17 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     }
 
     if (actionId === 'cultivation:toggle') {
+/** blockedMessage：定义该变量以承载业务值。 */
+      const blockedMessage = !this.techniqueService.hasCultivationBuff(player)
+        ? this.techniqueActivityService.buildCultivationBlockedMessage(player)
+        : null;
+      if (blockedMessage) {
+        return {
+          error: blockedMessage,
+          messages: [],
+          dirty: [],
+        };
+      }
 /** result：定义该变量以承载业务值。 */
       const result = this.techniqueService.hasCultivationBuff(player)
         ? this.techniqueService.stopCultivation(player)
@@ -2631,16 +2644,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
   private getPlayerRenderableBuffs(player: PlayerState): VisibleBuffState[] | undefined {
 /** visible：定义该变量以承载业务值。 */
     const visible = this.getRenderableBuffs(player.temporaryBuffs) ?? [];
-/** alchemyBuff：定义该变量以承载业务值。 */
-    const alchemyBuff = this.alchemyService.buildVisibleAlchemyBuff(player);
-    if (alchemyBuff) {
-      visible.push(alchemyBuff);
-    }
-/** enhancementBuff：定义该变量以承载业务值。 */
-    const enhancementBuff = this.enhancementService.buildVisibleEnhancementBuff(player);
-    if (enhancementBuff) {
-      visible.push(enhancementBuff);
-    }
+    visible.push(...this.techniqueActivityService.buildVisibleBuffs(player));
     return visible.length > 0 ? visible : undefined;
   }
 
@@ -2648,22 +2652,9 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
   private getPlayerMapRenderableBuffs(player: PlayerState): VisibleBuffState[] | undefined {
 /** visible：定义该变量以承载业务值。 */
     const visible = this.getMapRenderableBuffs(player.temporaryBuffs) ?? [];
-/** alchemyBuff：定义该变量以承载业务值。 */
-    const alchemyBuff = this.alchemyService.buildVisibleAlchemyBuff(player);
-    if (alchemyBuff) {
+    for (const activityBuff of this.techniqueActivityService.buildVisibleBuffs(player)) {
       visible.push({
-        ...alchemyBuff,
-        remainingTicks: 0,
-        duration: 0,
-        stacks: 1,
-        maxStacks: 1,
-      });
-    }
-/** enhancementBuff：定义该变量以承载业务值。 */
-    const enhancementBuff = this.enhancementService.buildVisibleEnhancementBuff(player);
-    if (enhancementBuff) {
-      visible.push({
-        ...enhancementBuff,
+        ...activityBuff,
         remainingTicks: 0,
         duration: 0,
         stacks: 1,

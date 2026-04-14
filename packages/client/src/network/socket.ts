@@ -5,7 +5,7 @@
 import { io, Socket } from 'socket.io-client';
 import {
   C2S, S2C, C2S_Move, C2S_MoveTo, C2S_NavigateQuest, C2S_NavigateMapPoint, C2S_GmGetState, C2S_GmSpawnBots, C2S_GmRemoveBots, C2S_GmUpdatePlayer, C2S_GmResetPlayer, C2S_Action, C2S_UpdateAutoBattleSkills, C2S_UpdateAutoUsePills, C2S_UpdateCombatTargetingRules, C2S_UpdateAutoBattleTargetingMode, C2S_UpdateTechniqueSkillAvailability, C2S_DebugResetSpawn, C2S_UseItem, C2S_DropItem, C2S_DestroyItem,
-  C2S_TakeLoot, C2S_CloseLootWindow, C2S_SortInventory, C2S_Equip, C2S_Unequip, C2S_Cultivate, C2S_Chat, C2S_AckSystemMessages,
+  C2S_TakeLoot, C2S_CloseLootWindow, C2S_StopLootHarvest, C2S_SortInventory, C2S_Equip, C2S_Unequip, C2S_Cultivate, C2S_Chat, C2S_AckSystemMessages,
   C2S_Heartbeat,
   C2S_InspectTileRuntime,
   C2S_Ping,
@@ -347,6 +347,11 @@ export class SocketManager {
 /** sendCloseLootWindow：处理当前场景中的对应操作。 */
   sendCloseLootWindow() {
     this.emitServer(C2S.CloseLootWindow, {} satisfies C2S_CloseLootWindow);
+  }
+
+/** sendStopLootHarvest：处理当前场景中的对应操作。 */
+  sendStopLootHarvest() {
+    this.emitServer(C2S.StopLootHarvest, {} satisfies C2S_StopLootHarvest);
   }
 
 /** sendSortInventory：处理当前场景中的对应操作。 */

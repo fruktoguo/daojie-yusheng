@@ -3,7 +3,7 @@
  * 以弹层形式展示地面物品和容器搜索结果，支持逐件或批量拿取
  */
 
-import { LootWindowState } from '@mud/shared';
+import { LootWindowState, TECHNIQUE_GRADE_LABELS, TechniqueGrade } from '@mud/shared';
 import { detailModalHost } from '../detail-modal-host';
 import { formatDisplayCountBadge, formatDisplayInteger } from '../../utils/number';
 
@@ -17,6 +17,13 @@ function escapeHtml(value: string): string {
     .replaceAll("'", '&#39;');
 }
 
+function getTechniqueGradeLabel(grade?: TechniqueGrade): string {
+  if (!grade) {
+    return '';
+  }
+  return TECHNIQUE_GRADE_LABELS[grade] ?? grade;
+}
+
 /** LootPanel：封装相关状态与行为。 */
 export class LootPanel {
   private static readonly MODAL_OWNER = 'loot-panel';
@@ -25,16 +32,19 @@ export class LootPanel {
   private windowState: LootWindowState | null = null;
   private onTake: ((sourceId: string, itemKey: string) => void) | null = null;
   private onTakeAll: ((sourceId: string) => void) | null = null;
+  private onStopHarvest: (() => void) | null = null;
   private onManualClose: (() => void) | null = null;
   private suppressAutoOpen = false;
 
   setCallbacks(
     onTake: (sourceId: string, itemKey: string) => void,
     onTakeAll: (sourceId: string) => void,
+    onStopHarvest?: () => void,
     onManualClose?: () => void,
   ): void {
     this.onTake = onTake;
     this.onTakeAll = onTakeAll;
+    this.onStopHarvest = onStopHarvest ?? null;
     this.onManualClose = onManualClose ?? null;
   }
 
@@ -211,6 +221,13 @@ export class LootPanel {
           return;
         }
         this.onTakeAll?.(sourceId);
+        return;
+      }
+/** stopHarvestButton：定义该变量以承载业务值。 */
+      const stopHarvestButton = target.closest<HTMLElement>('[data-loot-stop-harvest="true"]');
+      if (stopHarvestButton) {
+        event.stopPropagation();
+        this.onStopHarvest?.();
       }
     });
   }
@@ -233,12 +250,14 @@ export class LootPanel {
   private renderSourceSection(source: LootWindowState['sources'][number]): string {
 /** isHerb：定义该变量以承载业务值。 */
     const isHerb = source.variant === 'herb';
+/** gradeLabel：定义该变量以承载业务值。 */
+    const gradeLabel = getTechniqueGradeLabel((isHerb ? source.herb?.grade : source.grade) as TechniqueGrade | undefined);
     return `
       <section class="loot-source-section ${isHerb ? 'loot-source-section--herb' : ''}" data-loot-source-id="${escapeHtml(source.sourceId)}">
         <div class="loot-source-head">
           <div>
             <div class="loot-source-title">${escapeHtml(source.title)}</div>
-            <div class="loot-source-subtitle">${escapeHtml(source.kind === 'ground' ? '直接拾取' : (isHerb ? `草药采集${source.herb?.grade ? ` · ${source.herb.grade}` : ''}` : `容器搜索${source.grade ? ` · ${source.grade}` : ''}`))}</div>
+            <div class="loot-source-subtitle">${escapeHtml(source.kind === 'ground' ? '直接拾取' : (isHerb ? `草药采集${gradeLabel ? ` · ${gradeLabel}` : ''}` : `容器搜索${gradeLabel ? ` · ${gradeLabel}` : ''}`))}</div>
           </div>
           <div class="loot-source-actions">
             ${!isHerb && source.items.length > 0 ? `<button class="small-btn" data-loot-take-all="true" data-source-id="${escapeHtml(source.sourceId)}" type="button">全部拿取</button>` : ''}
@@ -259,16 +278,24 @@ export class LootPanel {
     }
 /** totalCount：定义该变量以承载业务值。 */
     const totalCount = source.items.reduce((sum, entry) => sum + Math.max(0, Math.floor(entry.item.count || 0)), 0);
+/** gradeLabel：定义该变量以承载业务值。 */
+    const gradeLabel = getTechniqueGradeLabel(source.herb.grade);
+/** harvesting：定义该变量以承载业务值。 */
+    const harvesting = Boolean(source.search && source.search.remainingTicks > 0);
     return `
       <div class="herb-gather-summary">
-        <div class="herb-gather-summary-name">${escapeHtml(source.herb.name)}</div>
         <div class="herb-gather-summary-meta">
-          <span>${escapeHtml(source.herb.grade ?? 'mortal')}</span>
+          ${gradeLabel ? `<span>${escapeHtml(gradeLabel)}</span>` : ''}
           <span>LV ${formatDisplayInteger(source.herb.level ?? 1)}</span>
           <span>采集 ${formatDisplayInteger(source.herb.gatherTicks)} 息</span>
           <span>存量 ${formatDisplayInteger(totalCount)} 朵</span>
           <span>${source.destroyed ? '已摧毁' : '可采集'}</span>
         </div>
+        ${harvesting ? `
+          <div class="herb-gather-summary-actions">
+            <button class="small-btn danger" data-loot-stop-harvest="true" type="button">停止采集</button>
+          </div>
+        ` : ''}
       </div>
     `;
   }
@@ -305,17 +332,10 @@ export class LootPanel {
         ${source.items.map((entry) => `
           <div class="${isHerb ? 'herb-gather-card' : 'inventory-cell'}">
             <div class="inventory-cell-head">
-              <span class="inventory-cell-type">${source.kind === 'ground' ? '地面' : (isHerb ? '草药' : '容器')}</span>
+              <span class="inventory-cell-type">${source.kind === 'ground' ? '地面' : (isHerb ? '当前库存' : '容器')}</span>
               <span class="inventory-cell-count">${formatDisplayCountBadge(entry.item.count)}</span>
             </div>
-            <div class="inventory-cell-name" title="${escapeHtml(entry.item.name)}">${escapeHtml(entry.item.name)}</div>
-            ${isHerb && source.herb
-              ? `<div class="herb-gather-meta">
-                  <span>${escapeHtml(source.herb.grade ?? 'mortal')}</span>
-                  <span>LV ${formatDisplayInteger(source.herb.level ?? 1)}</span>
-                  <span>${formatDisplayInteger(source.herb.gatherTicks)} 息</span>
-                </div>`
-              : ''}
+            <div class="inventory-cell-name" title="${escapeHtml(isHerb ? '点击开始连续采摘当前草药' : entry.item.name)}">${escapeHtml(isHerb ? '点击开始连续采摘' : entry.item.name)}</div>
             <div class="inventory-cell-actions">
               <button class="small-btn" data-loot-take="true" data-source-id="${escapeHtml(source.sourceId)}" data-item-key="${escapeHtml(entry.itemKey)}" type="button"${herbBusy ? ' disabled' : ''}>${isHerb ? (herbBusy ? '连续采摘中' : '开始采摘') : '拿取'}</button>
             </div>

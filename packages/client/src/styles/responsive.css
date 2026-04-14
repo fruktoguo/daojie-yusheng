@@ -1393,6 +1393,9 @@
   .herb-gather-meta {
     gap: 6px;
   }
+  .herb-gather-summary-actions {
+    gap: 6px;
+  }
   .market-board-list-wrap,
   .market-book-panel,
   .market-book-column,

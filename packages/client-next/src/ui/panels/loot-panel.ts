@@ -3,7 +3,7 @@
  * 以弹层形式展示地面物品和容器搜索结果，支持逐件或批量拿取
  */
 
-import { LootWindowState } from '@mud/shared-next';
+import { LootWindowState, TECHNIQUE_GRADE_LABELS, TechniqueGrade } from '@mud/shared-next';
 import { detailModalHost } from '../detail-modal-host';
 import { formatDisplayCountBadge, formatDisplayInteger } from '../../utils/number';
 
@@ -15,6 +15,13 @@ function escapeHtml(value: string): string {
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#39;');
+}
+
+function getTechniqueGradeLabel(grade?: TechniqueGrade): string {
+  if (!grade) {
+    return '';
+  }
+  return TECHNIQUE_GRADE_LABELS[grade] ?? grade;
 }
 
 /** LootPanel：封装相关状态与行为。 */
@@ -89,12 +96,14 @@ export class LootPanel {
               `).join('')}
             </div>`
           : `<div class="loot-source-empty">${escapeHtml(source.emptyText ?? '这里什么都没有。')}</div>`;
+/** gradeLabel：定义该变量以承载业务值。 */
+        const gradeLabel = getTechniqueGradeLabel(source.grade as TechniqueGrade | undefined);
         return `
           <section class="loot-source-section">
             <div class="loot-source-head">
               <div>
                 <div class="loot-source-title">${escapeHtml(source.title)}</div>
-                <div class="loot-source-subtitle">${escapeHtml(source.kind === 'ground' ? '直接拾取' : `容器搜索${source.grade ? ` · ${source.grade}` : ''}`)}</div>
+                <div class="loot-source-subtitle">${escapeHtml(source.kind === 'ground' ? '直接拾取' : `容器搜索${gradeLabel ? ` · ${gradeLabel}` : ''}`)}</div>
               </div>
               <div class="loot-source-actions">
                 ${source.items.length > 0 ? `<button class="small-btn" data-loot-take-all="true" data-source-id="${escapeHtml(source.sourceId)}" type="button">全部拿取</button>` : ''}
@@ -135,4 +144,3 @@ export class LootPanel {
     });
   }
 }
-

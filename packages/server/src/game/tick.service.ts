@@ -122,6 +122,7 @@ import {
 } from '../constants/gameplay/terrain-effects';
 import { AlchemyService } from './alchemy.service';
 import { EnhancementService } from './enhancement.service';
+import { TechniqueActivityInterruptReason, TechniqueActivityService } from './technique-activity.service';
 import {
   ActionPanelSyncState,
   ActionSyncStateEntry,
@@ -225,6 +226,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     private readonly worldService: WorldService,
     private readonly alchemyService: AlchemyService,
     private readonly enhancementService: EnhancementService,
+    private readonly techniqueActivityService: TechniqueActivityService,
     private readonly timeService: TimeService,
     private readonly qiProjectionService: QiProjectionService,
     private readonly mailService: MailService,
@@ -768,8 +770,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
               this.worldService.interruptPendingPlayerSkillCast(player, '你移动了身形。'),
               messages,
             );
-            this.applyAlchemyResult(player.id, this.alchemyService.interruptAlchemy(player, 'move'), messages);
-            this.applyEnhancementResult(player.id, this.enhancementService.interruptEnhancement(player, 'move'), messages);
+            this.interruptTechniqueActivities(player, 'move', messages);
             this.applyCultivationResult(player.id, this.techniqueService.interruptCultivation(player, 'move'), messages);
             const { d } = cmd.data as { d: Direction };
 /** moved：定义该变量以承载业务值。 */
@@ -797,8 +798,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
               this.worldService.interruptPendingPlayerSkillCast(player, '你移动了身形。'),
               messages,
             );
-            this.applyAlchemyResult(player.id, this.alchemyService.interruptAlchemy(player, 'move'), messages);
-            this.applyEnhancementResult(player.id, this.enhancementService.interruptEnhancement(player, 'move'), messages);
+            this.interruptTechniqueActivities(player, 'move', messages);
             this.applyCultivationResult(player.id, this.techniqueService.interruptCultivation(player, 'move'), messages);
             const {
               x,
@@ -901,6 +901,13 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
             if (result.inventoryChanged) {
               this.playerService.markDirty(player.id, 'inv');
             }
+            if (result.startedHarvest) {
+              this.applyCultivationResult(
+                player.id,
+                this.techniqueService.stopCultivation(player, '你收束气机，开始专心采集。', 'quest'),
+                messages,
+              );
+            }
             for (const dirtyPlayerId of result.dirtyPlayers) {
               this.playerService.markDirty(dirtyPlayerId, 'loot');
             }
@@ -913,9 +920,14 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         case 'closeLootWindow': {
           this.measureCpuSection('loot', '掉落与容器', () => {
             const dirtyPlayers = this.lootService.closeLootWindow(player.id);
-            for (const dirtyPlayerId of dirtyPlayers) {
-              this.playerService.markDirty(dirtyPlayerId, 'loot');
-            }
+            this.applyLootDirtyPlayers(dirtyPlayers);
+          });
+          break;
+        }
+        case 'stopLootHarvest': {
+          this.measureCpuSection('loot', '掉落与容器', () => {
+            const dirtyPlayers = this.lootService.stopActiveHarvest(player.id);
+            this.applyLootDirtyPlayers(dirtyPlayers);
           });
           break;
         }
@@ -965,8 +977,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
           }
           if (actionId === 'battle:engage') {
             this.measureCpuSection('combat', '战斗与技能计算', () => {
-              this.applyAlchemyResult(player.id, this.alchemyService.interruptAlchemy(player, 'attack'), messages);
-              this.applyEnhancementResult(player.id, this.enhancementService.interruptEnhancement(player, 'attack'), messages);
+              this.interruptTechniqueActivities(player, 'attack', messages);
 /** result：定义该变量以承载业务值。 */
               const result = this.worldService.engageTarget(player, target);
               this.applyWorldUpdate(player.id, result, messages);
@@ -1035,8 +1046,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
 /** result：定义该变量以承载业务值。 */
           let result: WorldUpdate;
           if (action.type === 'skill' || action.type === 'battle') {
-            this.applyAlchemyResult(player.id, this.alchemyService.interruptAlchemy(player, 'attack'), messages);
-            this.applyEnhancementResult(player.id, this.enhancementService.interruptEnhancement(player, 'attack'), messages);
+            this.interruptTechniqueActivities(player, 'attack', messages);
             result = this.measureCpuSection('combat', '战斗与技能计算', () => {
 /** skillResult：定义该变量以承载业务值。 */
               const skillResult = action.requiresTarget === false
@@ -1378,8 +1388,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
 /** autoBattleStartY：定义该变量以承载业务值。 */
       const autoBattleStartY = player.y;
       if (player.autoBattle) {
-        this.applyAlchemyResult(player.id, this.alchemyService.interruptAlchemy(player, 'attack'), messages);
-        this.applyEnhancementResult(player.id, this.enhancementService.interruptEnhancement(player, 'attack'), messages);
+        this.interruptTechniqueActivities(player, 'attack', messages);
       }
 /** autoBattle：定义该变量以承载业务值。 */
       const autoBattle = this.measureCpuSection('combat', '战斗与技能计算', () => (
@@ -2800,6 +2809,26 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     }
   }
 
+  private interruptTechniqueActivities(player: PlayerState, reason: TechniqueActivityInterruptReason, messages: WorldMessage[]): void {
+    for (const effect of this.techniqueActivityService.interruptActivities(player, reason)) {
+      if (effect.kind === 'alchemy') {
+        this.applyAlchemyResult(player.id, effect.result, messages);
+        continue;
+      }
+      if (effect.kind === 'enhancement') {
+        this.applyEnhancementResult(player.id, effect.result, messages);
+        continue;
+      }
+      this.applyLootDirtyPlayers(effect.dirtyPlayers);
+    }
+  }
+
+  private applyLootDirtyPlayers(dirtyPlayers: string[]): void {
+    for (const dirtyPlayerId of dirtyPlayers) {
+      this.playerService.markDirty(dirtyPlayerId, 'loot');
+    }
+  }
+
   /** 标记玩家为活跃状态，重置闲置计时 */
   private markPlayerActive(player: PlayerState, activePlayerIds: Set<string>) {
     player.idleTicks = 0;
@@ -2814,8 +2843,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       || this.navigationService.hasMoveTarget(player.id)
       || Boolean(player.questNavigation?.questId)
       || Boolean(player.mapNavigation)
-      || this.alchemyService.hasActiveAlchemyJob(player)
-      || this.enhancementService.hasActiveEnhancementJob(player)
+      || this.techniqueActivityService.hasActiveActivity(player)
       || this.techniqueService.hasCultivationBuff(player)
     ) {
       player.idleTicks = 0;
@@ -3091,14 +3119,6 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       }
       case 'cultivate': {
         const { techId } = data as { techId: string | null };
-        if (this.alchemyService.hasActiveAlchemyJob(player)) {
-          messages.push({ playerId: player.id, text: '炼丹进行中，无法进入修炼。', kind: 'system' });
-          break;
-        }
-        if (this.enhancementService.hasActiveEnhancementJob(player)) {
-          messages.push({ playerId: player.id, text: '强化进行中，无法进入修炼。', kind: 'system' });
-          break;
-        }
         if (!techId) {
           player.cultivatingTechId = undefined;
           messages.push({

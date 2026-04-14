@@ -2555,6 +2555,9 @@ lootPanel.setCallbacks(
     socket.sendTakeLoot(sourceId, undefined, true);
   },
   () => {
+    socket.sendStopLootHarvest();
+  },
+  () => {
     socket.sendCloseLootWindow();
   },
 );

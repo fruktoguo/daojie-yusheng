@@ -42,6 +42,7 @@ import { ContentService } from './content.service';
 import { InventoryService } from './inventory.service';
 import { LootService } from './loot.service';
 import { TechniqueService } from './technique.service';
+import { buildTechniqueActivityBuff, extendTechniquePauseWindow } from './technique-activity.shared';
 
 /** RawEnhancementMaterialRequirement：定义该接口的能力与字段约束。 */
 interface RawEnhancementMaterialRequirement {
@@ -156,22 +157,16 @@ export class EnhancementService implements OnModuleInit {
     const desc = job.phase === 'paused'
       ? `强化暂歇，${job.pausedTicks} 息后继续 ${job.targetItemName} 的${targetLabel}。移动或出手会重新暂停强化。`
       : `正在强化 ${job.targetItemName}，${targetLabel}，剩余 ${job.remainingTicks} 息。移动或出手会让强化暂歇 ${ENHANCEMENT_INTERRUPT_PAUSE_TICKS} 息。`;
-    return {
+    return buildTechniqueActivityBuff(player, {
       buffId: ENHANCEMENT_BUFF_ID,
       name: '强化',
       desc,
       shortMark: '强',
-      category: 'buff',
-      visibility: 'public',
       remainingTicks: job.remainingTicks,
-      duration: job.totalTicks,
-      stacks: 1,
-      maxStacks: 1,
+      totalTicks: job.totalTicks,
       sourceSkillId: ENHANCEMENT_ACTION_ID,
       sourceSkillName: '强化',
-      realmLv: Math.max(1, player.realm?.realmLv ?? player.realmLv ?? 1),
-      infiniteDuration: true,
-    };
+    });
   }
 
 /** buildPanelPayload：执行对应的业务逻辑。 */
@@ -378,14 +373,17 @@ export class EnhancementService implements OnModuleInit {
     }
 /** currentPausedTicks：定义该变量以承载业务值。 */
     const currentPausedTicks = job.phase === 'paused' ? job.pausedTicks : 0;
-/** addedPauseTicks：定义该变量以承载业务值。 */
-    const addedPauseTicks = Math.max(0, ENHANCEMENT_INTERRUPT_PAUSE_TICKS - currentPausedTicks);
+/** pauseWindow：定义该变量以承载业务值。 */
+    const pauseWindow = extendTechniquePauseWindow({
+      currentPausedTicks,
+      pauseTicks: ENHANCEMENT_INTERRUPT_PAUSE_TICKS,
+      remainingTicks: job.remainingTicks,
+      totalTicks: job.totalTicks,
+    });
     job.phase = 'paused';
-    job.pausedTicks = ENHANCEMENT_INTERRUPT_PAUSE_TICKS;
-    if (addedPauseTicks > 0) {
-      job.remainingTicks += addedPauseTicks;
-      job.totalTicks += addedPauseTicks;
-    }
+    job.pausedTicks = pauseWindow.pausedTicks;
+    job.remainingTicks = pauseWindow.remainingTicks;
+    job.totalTicks = pauseWindow.totalTicks;
     return {
       messages: [{
 /** text：定义该变量以承载业务值。 */

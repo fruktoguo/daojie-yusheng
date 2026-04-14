@@ -35,6 +35,7 @@ export const C2S = {
   DestroyItem: 'c:destroyItem',
   TakeLoot: 'c:takeLoot',
   CloseLootWindow: 'c:closeLootWindow',
+  StopLootHarvest: 'c:stopLootHarvest',
   SortInventory: 'c:sortInventory',
   InspectTileRuntime: 'c:inspectTileRuntime',
   Equip: 'c:equip',
@@ -1039,6 +1040,9 @@ export interface C2S_TakeLoot {
 
 /** 关闭拿取窗口 */
 export interface C2S_CloseLootWindow {}
+
+/** 停止当前连续采摘 */
+export interface C2S_StopLootHarvest {}
 
 /** 整理背包 */
 export interface C2S_SortInventory {}

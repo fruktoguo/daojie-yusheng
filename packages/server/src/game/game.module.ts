@@ -51,6 +51,7 @@ import { RedeemCodeService } from './redeem-code.service';
 import { LeaderboardService } from './leaderboard.service';
 import { AlchemyService } from './alchemy.service';
 import { EnhancementService } from './enhancement.service';
+import { TechniqueActivityService } from './technique-activity.service';
 
 @Module({
   imports: [
@@ -101,6 +102,7 @@ import { EnhancementService } from './enhancement.service';
     LeaderboardService,
     AlchemyService,
     EnhancementService,
+    TechniqueActivityService,
     PathRequestSchedulerService,
     PathWorkerPoolService,
     DatabaseBackupService,
@@ -110,4 +112,3 @@ import { EnhancementService } from './enhancement.service';
 
 /** GameModule：封装相关状态与行为。 */
 export class GameModule {}
-

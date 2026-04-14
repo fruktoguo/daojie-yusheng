@@ -19,6 +19,7 @@ import {
   SyncedLootWindowItemView,
   SyncedLootWindowState,
   TechniqueGrade,
+  VisibleBuffState,
   isPointInRange,
 } from '@mud/shared';
 import * as fs from 'fs';
@@ -29,6 +30,7 @@ import { InventoryService } from './inventory.service';
 import { ContainerConfig, DropConfig, MapService } from './map.service';
 import { CONTAINER_SEARCH_TICKS } from '../constants/gameplay/loot';
 import { TechniqueService } from './technique.service';
+import { buildTechniqueActivityBuff } from './technique-activity.shared';
 
 /** LootMessageKind：定义该类型的结构与数据语义。 */
 type LootMessageKind = 'system' | 'loot' | 'quest';
@@ -141,6 +143,7 @@ interface LootActionResult {
 /** dirtyPlayers：定义该变量以承载业务值。 */
   dirtyPlayers: string[];
   inventoryChanged?: boolean;
+  startedHarvest?: boolean;
 }
 
 /** PersistedLootEntryRecord：定义该接口的能力与字段约束。 */
@@ -217,6 +220,8 @@ const MAP_LOOT_RUNTIME_DOCUMENT_KEY = 'map_loot';
 const HERB_GATHER_TIME_RATE = 0.5;
 const HERB_RESPAWN_TIME_RATE = 0.5;
 const GATHER_SPEED_PER_LEVEL = 0.02;
+const GATHER_BUFF_ID = 'system.gather';
+const GATHER_BUFF_SOURCE_ID = 'system.gather';
 
 @Injectable()
 /** LootService：封装相关状态与行为。 */
@@ -225,6 +230,7 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
   private readonly groundPiles = new Map<string, GroundPileState>();
   private readonly containers = new Map<string, ContainerState>();
   private readonly sessions = new Map<string, LootSession>();
+  private readonly activeHarvestSourcesByPlayer = new Map<string, string>();
   private readonly logger = new Logger(LootService.name);
   private readonly runtimeStatePath = resolveServerDataPath('runtime', 'map-loot-runtime-state.json');
   private runtimeStateDirty = false;
@@ -253,6 +259,7 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
     this.groundPiles.clear();
     this.containers.clear();
     this.sessions.clear();
+    this.activeHarvestSourcesByPlayer.clear();
     this.runtimeStateDirty = false;
     await this.loadPersistedRuntimeState();
   }
@@ -311,7 +318,7 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
       state.generatedAtTick = undefined;
       state.refreshAtTick = undefined;
       state.respawnTotalTicks = undefined;
-      state.activeSearch = undefined;
+      this.clearContainerActiveSearch(state);
       if (state.variant === 'herb') {
         state.hp = undefined;
         state.maxHp = undefined;
@@ -364,7 +371,7 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
 /** container：定义该变量以承载业务值。 */
       const container = this.resolveContainerBySourceId(state.sourceId);
       if (!container) {
-        state.activeSearch = undefined;
+        this.clearContainerActiveSearch(state);
         continue;
       }
       if (state.activeSearch.mode === 'harvest') {
@@ -392,7 +399,7 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
       if (target) {
         target.visible = true;
       }
-      state.activeSearch = undefined;
+      this.clearContainerActiveSearch(state);
       this.markRuntimeStateDirty();
 
       if (!state.destroyed && this.hasHiddenContainerEntries(state.entries) && this.hasActiveViewerForTile(mapId, container.x, container.y)) {
@@ -478,10 +485,12 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
     return { messages: [], dirtyPlayers: [player.id] };
   }
 
-  /** 关闭玩家当前的拾取窗口，并中断对应的连续采摘 */
+  /** 关闭玩家当前的拾取窗口；若草药仍在连续采摘，则仅关闭界面不停止后台采摘 */
   closeLootWindow(playerId: string): string[] {
 /** dirtyPlayers：定义该变量以承载业务值。 */
     const dirtyPlayers = new Set<string>([playerId]);
+/** preserveActiveHarvest：定义该变量以承载业务值。 */
+    const preserveActiveHarvest = this.activeHarvestSourcesByPlayer.has(playerId);
 /** session：定义该变量以承载业务值。 */
     const session = this.sessions.get(playerId);
     if (session) {
@@ -490,8 +499,66 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
       }
       this.sessions.delete(playerId);
     }
-    this.cancelActiveHarvestByPlayer(playerId);
+    if (!preserveActiveHarvest) {
+      this.cancelActiveHarvestByPlayer(playerId);
+    }
     return [...dirtyPlayers];
+  }
+
+  stopActiveHarvest(playerId: string): string[] {
+/** dirtyPlayers：定义该变量以承载业务值。 */
+    const dirtyPlayers = new Set<string>([playerId]);
+/** sourceId：定义该变量以承载业务值。 */
+    const sourceId = this.activeHarvestSourcesByPlayer.get(playerId);
+    if (!sourceId) {
+      return [...dirtyPlayers];
+    }
+/** state：定义该变量以承载业务值。 */
+    const state = this.containers.get(sourceId);
+    if (!state || state.activeSearch?.mode !== 'harvest' || state.activeSearch.playerId !== playerId) {
+      this.activeHarvestSourcesByPlayer.delete(playerId);
+      return [...dirtyPlayers];
+    }
+/** container：定义该变量以承载业务值。 */
+    const container = this.resolveContainerBySourceId(sourceId);
+    this.clearContainerActiveSearch(state);
+    this.markRuntimeStateDirty();
+    if (container) {
+      this.markTileViewersDirty(state.mapId, container.x, container.y, dirtyPlayers);
+    }
+    return [...dirtyPlayers];
+  }
+
+  hasActiveHarvest(playerId: string): boolean {
+    return this.activeHarvestSourcesByPlayer.has(playerId);
+  }
+
+  buildVisibleGatherBuff(player: PlayerState): VisibleBuffState | null {
+/** sourceId：定义该变量以承载业务值。 */
+    const sourceId = this.activeHarvestSourcesByPlayer.get(player.id);
+    if (!sourceId) {
+      return null;
+    }
+/** state：定义该变量以承载业务值。 */
+    const state = this.containers.get(sourceId);
+/** search：定义该变量以承载业务值。 */
+    const search = state?.activeSearch;
+    if (!state || !search || search.mode !== 'harvest' || search.playerId !== player.id || search.remainingTicks <= 0 || !state.herb) {
+      this.activeHarvestSourcesByPlayer.delete(player.id);
+      return null;
+    }
+/** stockCount：定义该变量以承载业务值。 */
+    const stockCount = state.entries.reduce((sum, entry) => sum + Math.max(0, Math.floor(entry.item.count || 0)), 0);
+    return buildTechniqueActivityBuff(player, {
+      buffId: GATHER_BUFF_ID,
+      name: '采集',
+      desc: `正在采摘 ${state.herb.name}，当前朵剩余 ${search.remainingTicks} 息，存量 ${stockCount} 朵。移动、出手、离开范围或手动停止都会中断采集。`,
+      shortMark: '采',
+      remainingTicks: search.remainingTicks,
+      totalTicks: search.totalTicks,
+      sourceSkillId: GATHER_BUFF_SOURCE_ID,
+      sourceSkillName: '草药采集',
+    });
   }
 
   /** 从指定来源拾取物品 */
@@ -773,7 +840,7 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
     if (nextHp <= 0) {
       state.destroyed = true;
       state.entries = [];
-      state.activeSearch = undefined;
+      this.clearContainerActiveSearch(state);
 /** respawnTicks：定义该变量以承载业务值。 */
       const respawnTicks = this.resolveContainerRefreshTicks(container);
       state.refreshAtTick = respawnTicks !== undefined ? this.getCurrentTick(mapId) + respawnTicks : undefined;
@@ -916,17 +983,18 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
     }
 /** totalTicks：定义该变量以承载业务值。 */
     const totalTicks = this.computeEffectiveHerbGatherTicks(player, state.herb);
-    state.activeSearch = {
+    this.setContainerActiveSearch(state, {
       itemKey,
       mode: 'harvest',
       playerId: player.id,
       totalTicks,
       remainingTicks: totalTicks,
-    };
+    });
     this.markRuntimeStateDirty();
     return {
       messages: [],
       dirtyPlayers: this.getTileViewerIds(session.mapId, session.tileX, session.tileY),
+      startedHarvest: true,
     };
   }
 
@@ -1354,12 +1422,12 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
 
 /** totalTicks：定义该变量以承载业务值。 */
     const totalTicks = state.herb?.gatherTicks ?? (CONTAINER_SEARCH_TICKS[container.grade] ?? 1);
-    state.activeSearch = {
+    this.setContainerActiveSearch(state, {
       itemKey: nextHidden.itemKey,
       mode: 'reveal',
       totalTicks,
       remainingTicks: totalTicks,
-    };
+    });
     this.markRuntimeStateDirty();
   }
 
@@ -1378,7 +1446,7 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
       entry.visible = true;
     }
     if (state.activeSearch?.mode === 'reveal') {
-      state.activeSearch = undefined;
+      this.clearContainerActiveSearch(state);
     }
 
 /** herbItem：定义该变量以承载业务值。 */
@@ -1470,7 +1538,7 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
   private scheduleHerbRespawn(mapId: string, container: ContainerConfig, state: ContainerState): void {
 /** respawnTicks：定义该变量以承载业务值。 */
     const respawnTicks = this.resolveContainerRefreshTicks(container);
-    state.activeSearch = undefined;
+    this.clearContainerActiveSearch(state);
     state.hp = 0;
     state.destroyed = false;
     if (respawnTicks === undefined) {
@@ -1647,7 +1715,7 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
   private cancelActiveHarvestByPlayer(playerId: string): void {
     for (const state of this.containers.values()) {
       if (state.activeSearch?.mode === 'harvest' && state.activeSearch.playerId === playerId) {
-        state.activeSearch = undefined;
+        this.clearContainerActiveSearch(state);
         this.markRuntimeStateDirty();
       }
     }
@@ -1665,24 +1733,31 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
 /** search：定义该变量以承载业务值。 */
     const search = params.state.activeSearch;
     if (!search || search.mode !== 'harvest' || !search.playerId) {
-      params.state.activeSearch = undefined;
+      this.clearContainerActiveSearch(params.state);
       return;
     }
 /** session：定义该变量以承载业务值。 */
     const session = this.sessions.get(search.playerId);
 /** player：定义该变量以承载业务值。 */
     const player = params.playerById.get(search.playerId);
+/** hasConflictingSession：定义该变量以承载业务值。 */
+    const hasConflictingSession = Boolean(
+      session
+      && (
+        session.mapId !== params.mapId
+        || session.tileX !== params.container.x
+        || session.tileY !== params.container.y
+      ),
+    );
     if (
       !player
-      || !session
-      || session.mapId !== params.mapId
-      || session.tileX !== params.container.x
-      || session.tileY !== params.container.y
-      || !this.isPlayerWithinLootRange(player, session.tileX, session.tileY)
+      || player.mapId !== params.mapId
+      || hasConflictingSession
+      || !this.isPlayerWithinLootRange(player, params.container.x, params.container.y)
       || params.state.destroyed
       || this.isHerbRespawningState(params.state)
     ) {
-      params.state.activeSearch = undefined;
+      this.clearContainerActiveSearch(params.state);
       this.markRuntimeStateDirty();
       this.markTileViewersDirty(params.mapId, params.container.x, params.container.y, params.dirtyPlayers);
       return;
@@ -1698,14 +1773,14 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
 /** herbEntry：定义该变量以承载业务值。 */
     const herbEntry = params.state.entries.find((entry) => createItemStackSignature(entry.item) === search.itemKey && entry.item.count > 0);
     if (!herbEntry || !params.state.herb) {
-      params.state.activeSearch = undefined;
+      this.clearContainerActiveSearch(params.state);
       this.markRuntimeStateDirty();
       return;
     }
 /** harvestedItem：定义该变量以承载业务值。 */
     const harvestedItem: ItemStack = { ...herbEntry.item, count: 1 };
     if (!this.canAddItems(player, [harvestedItem])) {
-      params.state.activeSearch = undefined;
+      this.clearContainerActiveSearch(params.state);
       params.messages.push({
         playerId: player.id,
         text: '背包空间不足，采摘被中断。',
@@ -1728,13 +1803,13 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
       params.state.herb = this.buildHerbMeta(nextRow.item);
 /** nextTotalTicks：定义该变量以承载业务值。 */
       const nextTotalTicks = this.computeEffectiveHerbGatherTicks(player, params.state.herb);
-      params.state.activeSearch = {
+      this.setContainerActiveSearch(params.state, {
         itemKey: nextRow.itemKey,
         mode: 'harvest',
         playerId: player.id,
         totalTicks: nextTotalTicks,
         remainingTicks: nextTotalTicks,
-      };
+      });
     }
     this.markRuntimeStateDirty();
     params.messages.push({
@@ -1968,6 +2043,9 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
               continue;
             }
             this.containers.set(container.sourceId, container);
+            if (container.activeSearch?.mode === 'harvest' && container.activeSearch.playerId) {
+              this.activeHarvestSourcesByPlayer.set(container.activeSearch.playerId, container.sourceId);
+            }
             restoredContainerCount += 1;
           }
         }
@@ -2211,6 +2289,26 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
       ...candidate,
       count: Math.max(1, Number(candidate.count)),
     })) as ItemStack;
+  }
+
+  private setContainerActiveSearch(state: ContainerState, nextSearch: ContainerState['activeSearch']): void {
+/** previousSearch：定义该变量以承载业务值。 */
+    const previousSearch = state.activeSearch;
+    if (
+      previousSearch?.mode === 'harvest'
+      && previousSearch.playerId
+      && this.activeHarvestSourcesByPlayer.get(previousSearch.playerId) === state.sourceId
+    ) {
+      this.activeHarvestSourcesByPlayer.delete(previousSearch.playerId);
+    }
+    state.activeSearch = nextSearch;
+    if (nextSearch?.mode === 'harvest' && nextSearch.playerId) {
+      this.activeHarvestSourcesByPlayer.set(nextSearch.playerId, state.sourceId);
+    }
+  }
+
+  private clearContainerActiveSearch(state: ContainerState): void {
+    this.setContainerActiveSearch(state, undefined);
   }
 
 /** markRuntimeStateDirty：执行对应的业务逻辑。 */
