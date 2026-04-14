@@ -2215,6 +2215,9 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     if (skill.requiresTarget !== false) {
       return isPointInRange(player, target, this.buildEffectiveSkillGeometry(skill, playerStats).range);
     }
+    if (!this.isAutoBattleHostileNoTargetSkill(skill)) {
+      return true;
+    }
 
 /** selectedTargets：定义该变量以承载业务值。 */
     const selectedTargets = this.selectSkillTargetsFromAnchor(
@@ -2226,6 +2229,21 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
 /** targetRef：定义该变量以承载业务值。 */
     const targetRef = this.getTargetRef(target);
     return selectedTargets.some((entry) => this.getTargetRef(entry) === targetRef);
+  }
+
+  private isAutoBattleHostileNoTargetSkill(skill: SkillDef): boolean {
+    return skill.effects.some((effect) => {
+      if (effect.type === 'damage' || effect.type === 'terrain') {
+        return true;
+      }
+      if (effect.type === 'buff') {
+        return effect.target === 'target';
+      }
+      if (effect.type === 'cleanse') {
+        return effect.target === 'target';
+      }
+      return false;
+    });
   }
 
   private collectTargetsFromCells(
