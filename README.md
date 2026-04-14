@@ -44,9 +44,6 @@ packages/
   server/   服务端逻辑、认证、地图、战斗、数据库
   client/   Canvas 渲染、输入、面板、网络通信
   config-editor/ 配置编辑器与本地辅助 API
-  shared-next/ next 协议与 next 共享类型
-  server-next/ next 替换线服务端与 replace-ready 验证
-  client-next/ next 替换线前端
 docs/       设计与架构文档
 ```
 
@@ -106,38 +103,6 @@ SKIP_LOCAL_INFRA=1 ./start.sh
 - 客户端：`http://localhost:5173`
 - 服务端：`http://localhost:3000`
 
-### 启动 next 替换线
-
-本地开发入口：
-
-```bash
-./start-next.sh
-```
-
-`local` 模式会优先检查并按需拉起 next 专用本地基础设施，默认使用：
-
-- PostgreSQL：`localhost:15432`，数据库 `mud_mmo_next`
-- Redis：`localhost:16379`
-- `server-next`：`http://localhost:13020`
-- `client-next`：`http://localhost:15173`
-
-说明：
-
-- 在 WSL / Windows 环境下，`13001` 可能落在系统 `excludedportrange` 保留区间内，导致显式绑定时报 `EADDRINUSE`。
-- `./start-next.sh` 的本地默认端口已改为 `13020`；如果你手动启动 `server-next`，也建议显式设置 `SERVER_NEXT_PORT=13020`。
-
-如果你使用外部数据库 / Redis，也可以跳过自动拉起：
-
-```bash
-SKIP_LOCAL_INFRA=1 ./start-next.sh
-```
-
-整套容器模式：
-
-```bash
-./start-next.sh docker
-```
-
 ### 启动配置编辑器
 
 配置编辑器单独运行在 `packages/config-editor`，适合做内容配置与本地编辑辅助：
@@ -168,36 +133,6 @@ pnpm dev:server
 pnpm start:server
 pnpm start:backup-worker
 ```
-
-next 常用开发命令：
-
-```bash
-pnpm dev:client-next
-pnpm dev:server-next
-pnpm start:server-next
-```
-
-replace-ready / 审计命令：
-
-```bash
-pnpm verify:replace-ready:doctor
-pnpm verify:replace-ready
-pnpm verify:replace-ready:proof:with-db
-pnpm verify:replace-ready:with-db
-pnpm verify:replace-ready:shadow
-pnpm verify:replace-ready:acceptance
-pnpm verify:replace-ready:full
-pnpm audit:server-next-protocol
-pnpm audit:server-next-boundaries
-```
-
-## server-next 状态
-
-- `server-next` 当前仍是 next 前后台迁移主后端，同时也是 shadow / replace-ready 验收线
-- 它不是默认正式生产入口，也不代表已经完整替换 legacy 主游戏
-- 推荐先跑 `pnpm verify:replace-ready:doctor` 检查环境，再跑 `pnpm verify:replace-ready`
-- 根级 `pnpm verify:server-next*` 目前只是兼容别名，统一以 `verify:replace-ready*` 为准
-- 详细状态、运维和执行计划见 [packages/server-next/README.md](./packages/server-next/README.md)、[docs/server-next-operations.md](./docs/server-next-operations.md)、[docs/next-gap-analysis.md](./docs/next-gap-analysis.md) 和 [docs/next-remaining-execution-plan.md](./docs/next-remaining-execution-plan.md)
 
 ## 自动部署
 

@@ -20,7 +20,6 @@ const sourcePath = path.join(repoRoot, 'docs', 'tutorial-mechanics.md');
  */
 const targets = [
   path.join(repoRoot, 'packages', 'shared', 'src', 'tutorial-mechanics.generated.ts'),
-  path.join(repoRoot, 'packages', 'shared-next', 'src', 'tutorial-mechanics.generated.ts'),
 ];
 
 /**

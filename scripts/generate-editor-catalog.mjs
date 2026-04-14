@@ -118,20 +118,20 @@ function parseArgs(argv) {
  * 校验并规范化客户端包名参数。
  */
 function normalizeClientName(value) {
-  if (value === 'client' || value === 'client-next') {
+  if (value === 'client') {
     return value;
   }
-  throw new Error('缺少有效的 --client=client 或 --client=client-next');
+  throw new Error('缺少有效的 --client=client');
 }
 
 /**
  * 校验并规范化 shared 包名参数。
  */
 function normalizeSharedName(value) {
-  if (value === 'shared' || value === 'shared-next') {
+  if (value === 'shared') {
     return value;
   }
-  throw new Error('缺少有效的 --shared=shared 或 --shared=shared-next');
+  throw new Error('缺少有效的 --shared=shared');
 }
 
 /**
