@@ -178,6 +178,11 @@ function formatHistoryDateTime(timestamp: number | undefined): string {
   return new Date(Number(timestamp)).toLocaleString('zh-CN');
 }
 
+/** getEnhancementFormulaNote：执行对应的业务逻辑。 */
+function getEnhancementFormulaNote(): string {
+  return '每一阶都会单独结算成功率、耗时和消耗，面板当前显示的是首阶结果，后续只要资源足够就会继续冲到目标等级。基础成功率按目标强化等级取表：+1=50%，+2~+3=45%，+4~+6=40%，+7~+10=35%，+11~+20=30%。若角色强化等级低于装备等级，则基础成功率=基础成功率×0.9^(装备等级-强化等级)；若角色强化等级高于装备等级，则额外成功修正=强化锤成功修正+(强化等级-装备等级)×0.2%。最终成功率计算为：修正<0时，最终成功率=修正后基础成功率÷(1+|修正|)；修正>=0且修正后基础成功率<=50%时，先算S=修正后基础成功率×(1+修正)，若S<=50%则最终=S，否则最终=1-0.25÷S；修正后基础成功率>50%时，最终成功率=1-(1-修正后基础成功率)÷(1+修正)。首阶耗时=ceil((5+装备等级-1)×耗时倍率)，其中总速度修正=强化锤速度修正+max(0,强化等级-装备等级)×2%，正修正的耗时倍率=1/(1+总速度修正)，负修正的耗时倍率=1+|总速度修正|。首阶灵石=ceil(装备等级÷10)；若该阶需要额外材料，则灵石改为 floor(装备等级÷10)，且最低为 1。';
+}
+
 /** EnhancementModal：封装相关状态与行为。 */
 export class EnhancementModal {
   private static readonly MODAL_OWNER = 'enhancement-modal';
@@ -939,7 +944,7 @@ export class EnhancementModal {
             </div>
             <div class="enhancement-action-row enhancement-action-row--stacked">
               <button class="small-btn" type="button" data-enhancement-start="1">开始强化</button>
-              <span class="enhancement-action-note">每一阶都会单独判定成功率、耗时和消耗。当前面板显示的是首阶数据，只要后续资源足够，就会持续冲击直到达到目标等级。强化成功修正在 50% 以下会优先放大成功率，超过 50% 后改为压低失败率；减益则直接按成功率折减。</span>
+              <span class="enhancement-action-note">${escapeHtml(getEnhancementFormulaNote())}</span>
             </div>
           </div>
           <div class="enhancement-workbench-main">
@@ -1058,7 +1063,7 @@ export class EnhancementModal {
           </div>
           <div class="enhancement-action-row enhancement-action-row--stacked">
             <button class="small-btn" type="button" data-enhancement-start="1">开始强化</button>
-            <span class="enhancement-action-note">每一阶都会单独判定成功率、耗时和消耗。当前面板显示的是首阶数据，只要后续资源足够，就会持续冲击直到达到目标等级。强化成功修正在 50% 以下会优先放大成功率，超过 50% 后改为压低失败率；减益则直接按成功率折减。</span>
+            <span class="enhancement-action-note">${escapeHtml(getEnhancementFormulaNote())}</span>
           </div>
         </div>
         <div class="enhancement-workbench-main">
@@ -1132,6 +1137,8 @@ export class EnhancementModal {
     const compactMobileLayout = this.isCompactMobileLayout();
 /** inlineHistoryExpanded：定义该变量以承载业务值。 */
     const inlineHistoryExpanded = !compactMobileLayout || this.historyExpanded;
+/** currentSessionRecord：定义该变量以承载业务值。 */
+    const currentSessionRecord = this.getCurrentSessionHistoryRecord(activeJob, referenceItem, record);
     if (!referenceItem) {
 /** records：定义该变量以承载业务值。 */
       const records = this.getSortedLocalHistoryRecords();
@@ -1161,22 +1168,30 @@ export class EnhancementModal {
       `;
     }
 /** displayRecord：定义该变量以承载业务值。 */
-    const displayRecord = this.getDisplayRecord(referenceItem.itemId, record);
+    const displayRecord = currentSessionRecord ?? this.getDisplayRecord(referenceItem.itemId, record);
 /** roleEnhancementLevel：定义该变量以承载业务值。 */
     const roleEnhancementLevel = activeJob?.roleEnhancementLevel ?? Math.max(1, this.panelState?.enhancementSkillLevel ?? 1);
 /** hammerSuccessRate：定义该变量以承载业务值。 */
     const hammerSuccessRate = this.equipment.weapon?.enhancementSuccessRate ?? 0;
 /** levelRecords：定义该变量以承载业务值。 */
     const levelRecords = new Map((displayRecord?.levels ?? []).map((entry) => [entry.targetLevel, entry] as const));
+/** currentSessionRange：定义该变量以承载业务值。 */
+    const currentSessionRange = currentSessionRecord
+      ? this.getSessionHistoryDisplayRange(currentSessionRecord, activeJob?.targetLevel)
+      : null;
+/** minLevel：定义该变量以承载业务值。 */
+    const minLevel = currentSessionRange?.minLevel ?? 1;
 /** highestSeenLevel：定义该变量以承载业务值。 */
-    const highestSeenLevel = Math.max(
-      normalizeEnhanceLevel(displayRecord?.highestLevel),
-      normalizeEnhanceLevel(referenceItem.enhanceLevel) + 2,
-      8,
-    );
+    const highestSeenLevel = currentSessionRange
+      ? currentSessionRange.maxLevel
+      : Math.max(
+        normalizeEnhanceLevel(displayRecord?.highestLevel),
+        normalizeEnhanceLevel(referenceItem.enhanceLevel) + 2,
+        8,
+      );
 /** rows：定义该变量以承载业务值。 */
     const rows: string[] = [];
-    for (let level = 1; level <= highestSeenLevel; level += 1) {
+    for (let level = minLevel; level <= highestSeenLevel; level += 1) {
       const current = levelRecords.get(level);
       rows.push(`
         <div class="enhancement-history-row">
@@ -1194,9 +1209,13 @@ export class EnhancementModal {
             ? `<button class="small-btn ghost" type="button" data-enhancement-toggle-history-inline="1">${inlineHistoryExpanded ? '收起强化记录' : '展开强化记录'}</button>`
             : `<div>
                 <div class="enhancement-section-title">强化记录</div>
-                <div class="enhancement-protection-note">历史最高：+${formatDisplayInteger(displayRecord?.highestLevel ?? 0)}</div>
+                <div class="enhancement-protection-note">${currentSessionRecord
+                  ? `本次行动最高：+${formatDisplayInteger(displayRecord?.highestLevel ?? 0)}`
+                  : `历史最高：+${formatDisplayInteger(displayRecord?.highestLevel ?? 0)}`}</div>
               </div>`}
-          <button class="small-btn ghost" type="button" data-enhancement-open-history="1">历史记录</button>
+          <button class="small-btn ghost" type="button" ${currentSessionRecord
+            ? 'data-enhancement-open-current-history="1">本次记录'
+            : 'data-enhancement-open-history="1">历史记录'}</button>
         </div>
         ${inlineHistoryExpanded ? `
           <div class="enhancement-history-table">
@@ -1237,6 +1256,32 @@ export class EnhancementModal {
 
     body.querySelector('[data-enhancement-open-history="1"]')?.addEventListener('click', () => {
       this.openHistoryListModal();
+    });
+    body.querySelector('[data-enhancement-open-current-history="1"]')?.addEventListener('click', () => {
+/** activeJob：定义该变量以承载业务值。 */
+      const activeJob = this.getActiveJob();
+/** selected：定义该变量以承载业务值。 */
+      const selected = this.getSelectedCandidate();
+/** referenceItem：定义该变量以承载业务值。 */
+      const referenceItem = activeJob?.item ?? selected?.item ?? null;
+/** currentSessionRecord：定义该变量以承载业务值。 */
+      const currentSessionRecord = this.getCurrentSessionHistoryRecord(
+        activeJob,
+        referenceItem,
+        activeJob
+          ? this.panelState?.records.find((entry) => entry.itemId === activeJob.targetItemId) ?? null
+          : selected
+            ? this.panelState?.records.find((entry) => entry.itemId === selected.item.itemId) ?? null
+            : null,
+      );
+      if (!currentSessionRecord) {
+        this.openHistoryListModal();
+        return;
+      }
+      this.openHistoryDetailModal(
+        currentSessionRecord.itemId,
+        getEnhancementHistorySessionKey(currentSessionRecord),
+      );
     });
     body.querySelector('[data-enhancement-toggle-history-inline="1"]')?.addEventListener('click', () => {
       this.historyExpanded = !this.historyExpanded;
@@ -1598,6 +1643,57 @@ export class EnhancementModal {
     return merged;
   }
 
+  private getCurrentSessionHistoryRecord(
+    activeJob: PlayerEnhancementJob | null,
+    referenceItem: ItemStack | null,
+    record: PlayerEnhancementRecord | null,
+  ): PlayerEnhancementRecord | null {
+    if (!referenceItem || !record || !isEnhancementHistorySessionRecord(record)) {
+      return null;
+    }
+    if (record.itemId !== referenceItem.itemId) {
+      return null;
+    }
+    if (activeJob && record.itemId === activeJob.targetItemId) {
+      return cloneEnhancementRecord(record);
+    }
+    if (record.status === 'in_progress') {
+      return cloneEnhancementRecord(record);
+    }
+    return null;
+  }
+
+  private getSessionHistoryDisplayRange(
+    record: PlayerEnhancementRecord,
+    currentTargetLevel?: number,
+  ): { minLevel: number; maxLevel: number } {
+/** startLevel：定义该变量以承载业务值。 */
+    const startLevel = normalizeEnhanceLevel(record.startLevel);
+/** initialTargetLevel：定义该变量以承载业务值。 */
+    const initialTargetLevel = Math.max(startLevel + 1, Math.floor(Number(record.initialTargetLevel) || (startLevel + 1)));
+/** desiredTargetLevel：定义该变量以承载业务值。 */
+    const desiredTargetLevel = Math.max(
+      initialTargetLevel,
+      Math.floor(Number(record.desiredTargetLevel) || initialTargetLevel),
+    );
+/** attemptedLevels：定义该变量以承载业务值。 */
+    const attemptedLevels = (record.levels ?? [])
+      .map((entry) => Math.max(1, Math.floor(Number(entry.targetLevel) || 1)))
+      .filter((entry) => Number.isFinite(entry) && entry > 0);
+/** minLevel：定义该变量以承载业务值。 */
+    const minLevel = attemptedLevels.length > 0
+      ? Math.min(initialTargetLevel, ...attemptedLevels)
+      : initialTargetLevel;
+/** maxLevel：定义该变量以承载业务值。 */
+    const maxLevel = Math.max(
+      minLevel,
+      desiredTargetLevel,
+      Math.max(0, Math.floor(Number(currentTargetLevel) || 0)),
+      ...attemptedLevels,
+    );
+    return { minLevel, maxLevel };
+  }
+
 /** getSortedLocalHistoryRecords：执行对应的业务逻辑。 */
   private getSortedLocalHistoryRecords(): PlayerEnhancementRecord[] {
 /** recordsByItem：定义该变量以承载业务值。 */
@@ -1845,19 +1941,17 @@ export class EnhancementModal {
     const itemLevel = this.getHistoryItemLevel(itemId);
 /** levelMap：定义该变量以承载业务值。 */
     const levelMap = new Map(detailRecord.levels.map((entry) => [entry.targetLevel, entry] as const));
+/** sessionRange：定义该变量以承载业务值。 */
+    const sessionRange = this.getSessionHistoryDisplayRange(detailRecord);
 /** highestSeenLevel：定义该变量以承载业务值。 */
-    const highestSeenLevel = Math.max(
-      normalizeEnhanceLevel(detailRecord.highestLevel),
-      normalizeEnhanceLevel(detailRecord.desiredTargetLevel),
-      8,
-    );
+    const highestSeenLevel = sessionRange.maxLevel;
 /** roleEnhancementLevel：定义该变量以承载业务值。 */
     const roleEnhancementLevel = Math.max(1, this.panelState?.enhancementSkillLevel ?? 1);
 /** hammerSuccessRate：定义该变量以承载业务值。 */
     const hammerSuccessRate = this.equipment.weapon?.enhancementSuccessRate ?? 0;
 /** rows：定义该变量以承载业务值。 */
     const rows: string[] = [];
-    for (let level = 1; level <= highestSeenLevel; level += 1) {
+    for (let level = sessionRange.minLevel; level <= highestSeenLevel; level += 1) {
       const current = levelMap.get(level);
       rows.push(`
         <div class="enhancement-history-row">
