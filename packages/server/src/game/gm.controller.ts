@@ -21,6 +21,7 @@ import {
   GmListSuggestionsQuery,
   GmAddPlayerCombatExpReq,
   GmAddPlayerFoundationReq,
+  GmBanManagedPlayerReq,
   GmReplySuggestionReq,
   GmSuggestionListRes,
   GmRestoreDatabaseReq,
@@ -229,6 +230,31 @@ export class GmController {
   ): Promise<{ ok: true }> {
 /** error：定义该变量以承载业务值。 */
     const error = await this.gmService.updateManagedPlayerAccount(playerId, body?.username ?? '');
+    if (error) {
+      throw new BadRequestException(error);
+    }
+    return { ok: true };
+  }
+
+  /** GM 快捷封禁账号 */
+  @Post('players/:playerId/ban')
+  async banPlayerAccount(
+    @Param('playerId') playerId: string,
+    @Body() body: GmBanManagedPlayerReq,
+  ): Promise<{ ok: true }> {
+/** error：定义该变量以承载业务值。 */
+    const error = await this.gmService.banManagedPlayerAccount(playerId, body?.reason ?? '');
+    if (error) {
+      throw new BadRequestException(error);
+    }
+    return { ok: true };
+  }
+
+  /** GM 快捷解封账号 */
+  @Post('players/:playerId/unban')
+  async unbanPlayerAccount(@Param('playerId') playerId: string): Promise<{ ok: true }> {
+/** error：定义该变量以承载业务值。 */
+    const error = await this.gmService.unbanManagedPlayerAccount(playerId);
     if (error) {
       throw new BadRequestException(error);
     }

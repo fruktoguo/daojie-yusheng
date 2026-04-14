@@ -1,4 +1,5 @@
 import {
+  type GmManagedPlayerBehavior,
   type GmManagedPlayerRecord,
   type GmManagedPlayerSummary,
   type PlayerState,
@@ -44,7 +45,28 @@ export function getPlayerIdentityLine(player: GmManagedPlayerSummary): string {
 
 /** getPlayerStatsLine：执行对应的业务逻辑。 */
 export function getPlayerStatsLine(player: GmManagedPlayerSummary): string {
-  return `${player.meta.isBot ? '机器人' : '玩家'} · ${player.realmLabel}`;
+/** behaviorLabel：定义该变量以承载业务值。 */
+  const behaviorLabel = player.behaviors.length > 0
+    ? player.behaviors.map(getBehaviorLabel).join(' / ')
+    : '空闲';
+  return `${player.meta.isBot ? '机器人' : '玩家'} · ${player.realmLabel} · ${behaviorLabel}`;
+}
+
+function getBehaviorLabel(behavior: GmManagedPlayerBehavior): string {
+  switch (behavior) {
+    case 'combat':
+      return '战斗';
+    case 'cultivation':
+      return '修炼';
+    case 'alchemy':
+      return '炼丹';
+    case 'enhancement':
+      return '强化';
+    case 'gather':
+      return '采集';
+    default:
+      return behavior;
+  }
 }
 
 /** getEditorMetaMarkup：执行对应的业务逻辑。 */
@@ -319,4 +341,3 @@ export function getCompactInventoryItemMarkup(
     </div>
   `;
 }
-

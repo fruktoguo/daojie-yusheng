@@ -79,6 +79,36 @@ export class AccountService {
     return { ok: true };
   }
 
+  /** GM 直接封禁账号；封禁真源落在 users 表 */
+  async banUserByGm(userId: string, reason: string, bannedBy = 'gm'): Promise<BasicOkRes> {
+/** user：定义该变量以承载业务值。 */
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new UnauthorizedException('用户不存在');
+    }
+/** normalizedReason：定义该变量以承载业务值。 */
+    const normalizedReason = this.normalizeModerationReason(reason);
+    user.bannedAt = new Date();
+    user.banReason = normalizedReason;
+    user.bannedBy = bannedBy.trim().slice(0, 64) || 'gm';
+    await this.userRepo.save(user);
+    return { ok: true };
+  }
+
+  /** GM 直接解封账号 */
+  async unbanUserByGm(userId: string): Promise<BasicOkRes> {
+/** user：定义该变量以承载业务值。 */
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new UnauthorizedException('用户不存在');
+    }
+    user.bannedAt = null;
+    user.banReason = null;
+    user.bannedBy = null;
+    await this.userRepo.save(user);
+    return { ok: true };
+  }
+
   /** GM 直接修改账号名，必要时同步在线玩家的生效显示名 */
   async updateUsernameByGm(userId: string, username: string): Promise<{ username: string }> {
 /** user：定义该变量以承载业务值。 */
@@ -207,5 +237,10 @@ export class AccountService {
     await this.playerService.updatePlayerRoleName(userId, normalizedRoleName);
     return { roleName: normalizedRoleName };
   }
-}
 
+  private normalizeModerationReason(reason: string): string | null {
+/** normalized：定义该变量以承载业务值。 */
+    const normalized = reason.trim().slice(0, 255);
+    return normalized.length > 0 ? normalized : null;
+  }
+}

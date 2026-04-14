@@ -1836,6 +1836,15 @@ export interface GmUpdateManagedPlayerAccountReq {
   username: string;
 }
 
+/** GM 直接封禁玩家账号请求 */
+export interface GmBanManagedPlayerReq {
+/** reason：定义该变量以承载业务值。 */
+  reason?: string;
+}
+
+/** GM 可查看的账号状态 */
+export type GmManagedAccountStatus = 'active' | 'banned';
+
 /** GM 管理的玩家元信息 */
 export interface GmManagedPlayerMeta {
   userId?: string;
@@ -1888,6 +1897,8 @@ export interface GmManagedPlayerSummary {
   autoBattleStationary?: boolean;
 /** autoRetaliate：定义该变量以承载业务值。 */
   autoRetaliate: boolean;
+/** behaviors：定义该变量以承载业务值。 */
+  behaviors: GmManagedPlayerBehavior[];
 /** meta：定义该变量以承载业务值。 */
   meta: GmManagedPlayerMeta;
 }
@@ -1898,10 +1909,15 @@ export interface GmManagedAccountRecord {
   userId: string;
 /** username：定义该变量以承载业务值。 */
   username: string;
+/** status：定义该变量以承载业务值。 */
+  status: GmManagedAccountStatus;
 /** createdAt：定义该变量以承载业务值。 */
   createdAt: string;
 /** totalOnlineSeconds：定义该变量以承载业务值。 */
   totalOnlineSeconds: number;
+  bannedAt?: string;
+  banReason?: string;
+  bannedBy?: string;
 }
 
 /** GM 管理的玩家完整记录（含快照） */
@@ -1916,12 +1932,23 @@ export interface GmManagedPlayerRecord extends GmManagedPlayerSummary {
 /** GmPlayerSortMode：定义该类型的结构与数据语义。 */
 export type GmPlayerSortMode = 'realm-desc' | 'realm-asc' | 'online' | 'map' | 'name';
 
+/** GmPlayerPresenceFilter：定义该类型的结构与数据语义。 */
+export type GmPlayerPresenceFilter = 'all' | 'online' | 'offline-hanging' | 'offline';
+
+/** GmManagedPlayerBehavior：定义该类型的结构与数据语义。 */
+export type GmManagedPlayerBehavior = 'combat' | 'cultivation' | 'alchemy' | 'enhancement' | 'gather';
+
+/** GmPlayerBehaviorFilter：定义该类型的结构与数据语义。 */
+export type GmPlayerBehaviorFilter = 'all' | GmManagedPlayerBehavior;
+
 /** GmListPlayersQuery：定义该接口的能力与字段约束。 */
 export interface GmListPlayersQuery {
   page?: number;
   pageSize?: number;
   keyword?: string;
   sort?: GmPlayerSortMode;
+  presence?: GmPlayerPresenceFilter;
+  behavior?: GmPlayerBehaviorFilter;
 }
 
 /** GmPlayerListPage：定义该接口的能力与字段约束。 */
@@ -1938,6 +1965,10 @@ export interface GmPlayerListPage {
   keyword: string;
 /** sort：定义该变量以承载业务值。 */
   sort: GmPlayerSortMode;
+/** presence：定义该变量以承载业务值。 */
+  presence: GmPlayerPresenceFilter;
+/** behavior：定义该变量以承载业务值。 */
+  behavior: GmPlayerBehaviorFilter;
 }
 
 /** GmPlayerSummaryStats：定义该接口的能力与字段约束。 */

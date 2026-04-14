@@ -14,6 +14,7 @@ import {
   type GmAppendRedeemCodesRes,
   type GmAddPlayerCombatExpReq,
   type GmAddPlayerFoundationReq,
+  type GmBanManagedPlayerReq,
   type GmCreateRedeemCodeGroupReq,
   type GmCreateRedeemCodeGroupRes,
   type GmDatabaseBackupRecord,
@@ -43,6 +44,9 @@ import {
   type GmLoginReq,
   type GmLoginRes,
   type GmManagedPlayerRecord,
+  type GmManagedPlayerBehavior,
+  type GmPlayerBehaviorFilter,
+  type GmPlayerPresenceFilter,
   type GmPlayerSortMode,
   type GmRemoveBotsReq,
   type GmRestoreDatabaseReq,
@@ -110,6 +114,10 @@ const statusToastEl = document.getElementById('status-toast') as HTMLDivElement;
 const playerSearchInput = document.getElementById('player-search') as HTMLInputElement;
 /** playerSortSelect：定义该变量以承载业务值。 */
 const playerSortSelect = document.getElementById('player-sort') as HTMLSelectElement;
+/** playerPresenceFilterSelect：定义该变量以承载业务值。 */
+const playerPresenceFilterSelect = document.getElementById('player-presence-filter') as HTMLSelectElement;
+/** playerBehaviorFilterSelect：定义该变量以承载业务值。 */
+const playerBehaviorFilterSelect = document.getElementById('player-behavior-filter') as HTMLSelectElement;
 /** playerListEl：定义该变量以承载业务值。 */
 const playerListEl = document.getElementById('player-list') as HTMLDivElement;
 /** playerPrevPageBtn：定义该变量以承载业务值。 */
@@ -447,6 +455,10 @@ let currentEditorTab: GmEditorTab = 'basic';
 let currentInventoryAddType: (typeof ITEM_TYPES)[number] = 'material';
 /** currentPlayerSort：定义该变量以承载业务值。 */
 let currentPlayerSort: GmPlayerSortMode = (playerSortSelect.value as GmPlayerSortMode) || 'realm-desc';
+/** currentPlayerPresenceFilter：定义该变量以承载业务值。 */
+let currentPlayerPresenceFilter: GmPlayerPresenceFilter = (playerPresenceFilterSelect.value as GmPlayerPresenceFilter) || 'all';
+/** currentPlayerBehaviorFilter：定义该变量以承载业务值。 */
+let currentPlayerBehaviorFilter: GmPlayerBehaviorFilter = (playerBehaviorFilterSelect.value as GmPlayerBehaviorFilter) || 'all';
 /** currentPlayerPage：定义该变量以承载业务值。 */
 let currentPlayerPage = 1;
 /** currentPlayerTotalPages：定义该变量以承载业务值。 */
@@ -636,6 +648,23 @@ function getFilteredPlayers(data: GmStateRes): GmManagedPlayerSummary[] {
   return data.players;
 }
 
+function getManagedPlayerBehaviorLabel(behavior: GmManagedPlayerBehavior): string {
+  switch (behavior) {
+    case 'combat':
+      return '战斗';
+    case 'cultivation':
+      return '修炼';
+    case 'alchemy':
+      return '炼丹';
+    case 'enhancement':
+      return '强化';
+    case 'gather':
+      return '采集';
+    default:
+      return behavior;
+  }
+}
+
 /** getPlayerIdentityLine：执行对应的业务逻辑。 */
 function getPlayerIdentityLine(player: GmManagedPlayerSummary): string {
   return gmMarkupHelpers.getPlayerIdentityLine(player);
@@ -671,6 +700,8 @@ function patchPlayerRow(button: HTMLButtonElement, player: GmManagedPlayerSummar
 function getEditorSubtitle(detail: GmManagedPlayerRecord): string {
   return [
     `账号: ${detail.accountName ?? '无'}`,
+    detail.account?.status === 'banned' ? '账号状态: 已封禁' : '账号状态: 正常',
+    `行为: ${detail.behaviors.length > 0 ? detail.behaviors.map(getManagedPlayerBehaviorLabel).join(' / ') : '空闲'}`,
     `显示名: ${detail.displayName}`,
     `地图: ${detail.mapName} (${detail.x}, ${detail.y})`,
     detail.meta.updatedAt ? `最近落盘: ${new Date(detail.meta.updatedAt).toLocaleString('zh-CN')}` : '最近落盘: 运行时角色',
@@ -687,6 +718,10 @@ function getEditorMetaMarkup(detail: GmManagedPlayerRecord): string {
 /** getEditorBodyChipMarkup：执行对应的业务逻辑。 */
 function getEditorBodyChipMarkup(player: GmManagedPlayerRecord, draft: PlayerState): string {
   return gmMarkupHelpers.getEditorBodyChipMarkup(player, draft, editorDirty);
+}
+
+function getManagedAccountRestrictionLabel(account: NonNullable<GmManagedPlayerRecord['account']>): string {
+  return account.status === 'banned' ? '已封禁' : '正常';
 }
 
 /** getEquipmentCardTitle：执行对应的业务逻辑。 */
@@ -1305,6 +1340,9 @@ function buildEditorStructureKey(detail: GmManagedPlayerRecord, draft: PlayerSta
     detail.id,
     mapIds,
     equipmentPresence,
+    detail.account?.status ?? 'no-account',
+    detail.account?.bannedAt ?? '',
+    detail.account?.banReason ?? '',
     ensureArray(draft.bonuses).length,
     ensureArray(draft.temporaryBuffs).length,
     ensureArray(draft.inventory.items).length,
@@ -3604,8 +3642,12 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
           <div class="editor-code">${escapeHtml(formatDateTime(account.createdAt))}</div>
         </div>
         <div class="editor-field">
-          <span>是否在线</span>
+          <span>在线状态</span>
           <div class="editor-code">${escapeHtml(getManagedAccountStatusLabel(player))}</div>
+        </div>
+        <div class="editor-field">
+          <span>账号状态</span>
+          <div class="editor-code">${escapeHtml(getManagedAccountRestrictionLabel(account))}</div>
         </div>
         <div class="editor-field">
           <span>上次在线时间</span>
@@ -3615,18 +3657,43 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
           <span>累计在线时间</span>
           <div class="editor-code">${escapeHtml(formatDurationSeconds(account.totalOnlineSeconds))}</div>
         </div>
+        <div class="editor-field wide">
+          <span>封禁时间</span>
+          <div class="editor-code">${escapeHtml(formatDateTime(account.bannedAt))}</div>
+        </div>
+        <div class="editor-field wide">
+          <span>当前封禁原因</span>
+          <div class="editor-code">${escapeHtml(account.banReason?.trim() || '无')}</div>
+        </div>
       </div>
       <div class="editor-grid compact" style="margin-top: 10px;">
         <label class="editor-field">
           <span>新密码</span>
           <input id="player-password-next" type="text" autocomplete="off" spellcheck="false" placeholder="输入新的账号密码" />
         </label>
+        <label class="editor-field wide">
+          <span>封禁原因</span>
+          <div class="button-row" style="margin-bottom: 8px;">
+            ${[
+              '同设备批量起号',
+              '工作室批量养号',
+              '资源转移/小号输血',
+              '自动化脚本',
+              '规避处罚复开号',
+            ].map((reason) => (
+              `<button class="small-btn" type="button" data-ban-reason-preset="${escapeHtml(reason)}">${escapeHtml(reason)}</button>`
+            )).join('')}
+          </div>
+          <input id="player-account-ban-reason" type="text" autocomplete="off" spellcheck="false" placeholder="可直接点上面的快速原因，也可以自定义输入" />
+        </label>
       </div>
       <div class="button-row" style="margin-top: 10px;">
         <button class="small-btn" type="button" data-action="save-player-account">修改账号</button>
         <button class="small-btn" type="button" data-action="save-player-password">修改账号密码</button>
+        <button class="small-btn danger" type="button" data-action="ban-player-account" ${account.status === 'banned' ? 'disabled' : ''}>快捷封号</button>
+        <button class="small-btn" type="button" data-action="unban-player-account" ${account.status !== 'banned' ? 'disabled' : ''}>快捷解封</button>
       </div>
-      <div class="editor-note">密码只会提交到服务端，并由服务端写入 bcrypt 哈希，不会以明文落库。</div>
+      <div class="editor-note">密码只会提交到服务端，并由服务端写入 bcrypt 哈希，不会以明文落库。封号会立即阻止登录、刷新与重连；如果目标当前在世界中，会被立刻踢下线并移出世界。建议填写封禁原因，便于后续排查小号链路。</div>
       ` : '<div class="editor-note">当前目标没有可编辑的账号信息，通常是机器人或异常存档。</div>'}
     </section>
 
@@ -4346,6 +4413,8 @@ async function loadState(silent = false, refreshDetail = false): Promise<void> {
     page: String(currentPlayerPage),
     pageSize: '50',
     sort: currentPlayerSort,
+    presence: currentPlayerPresenceFilter,
+    behavior: currentPlayerBehaviorFilter,
   });
 /** keyword：定义该变量以承载业务值。 */
   const keyword = playerSearchInput.value.trim();
@@ -5196,6 +5265,116 @@ async function saveSelectedPlayerAccount(): Promise<void> {
   }
 }
 
+async function banSelectedPlayerAccount(): Promise<void> {
+/** detail：定义该变量以承载业务值。 */
+  const detail = getSelectedPlayerDetail();
+  if (!detail?.account) {
+    setStatus('当前目标没有可封禁的账号', true);
+    return;
+  }
+  if (detail.account.status === 'banned') {
+    setStatus('当前账号已封禁');
+    return;
+  }
+/** reasonInput：定义该变量以承载业务值。 */
+  const reasonInput = editorContentEl.querySelector<HTMLInputElement>('#player-account-ban-reason');
+/** button：定义该变量以承载业务值。 */
+  const button = editorContentEl.querySelector<HTMLButtonElement>('[data-action="ban-player-account"]');
+/** reason：定义该变量以承载业务值。 */
+  const reason = reasonInput?.value.trim() ?? '';
+  if (button) {
+    button.disabled = true;
+  }
+  try {
+    setPendingStatus(`正在封禁账号 ${detail.account.username}...`);
+    await request<{ ok: true }>(`/gm/players/${encodeURIComponent(detail.id)}/ban`, {
+      method: 'POST',
+      body: JSON.stringify({ reason } satisfies GmBanManagedPlayerReq),
+    });
+    if (reasonInput) {
+      reasonInput.value = '';
+      syncBanReasonPresetButtons();
+    }
+    await loadSelectedPlayerDetail(detail.id, true);
+    setStatus(`已封禁账号 ${detail.account.username}`);
+  } catch (error) {
+/** setStatus：处理当前场景中的对应操作。 */
+    setStatus(error instanceof Error ? error.message : '封号失败', true);
+  } finally {
+    if (button) {
+      button.disabled = false;
+    }
+  }
+}
+
+function syncBanReasonPresetButtons(scope: ParentNode = editorContentEl): void {
+/** input：定义该变量以承载业务值。 */
+  const input = scope.querySelector<HTMLInputElement>('#player-account-ban-reason');
+  if (!input) {
+    return;
+  }
+/** currentValue：定义该变量以承载业务值。 */
+  const currentValue = input.value.trim();
+  scope.querySelectorAll<HTMLButtonElement>('[data-ban-reason-preset]').forEach((button) => {
+/** preset：定义该变量以承载业务值。 */
+    const preset = button.dataset.banReasonPreset ?? '';
+    button.classList.toggle('primary', preset.length > 0 && preset === currentValue);
+  });
+}
+
+function toggleBanReasonPreset(button: HTMLButtonElement): void {
+/** input：定义该变量以承载业务值。 */
+  const input = editorContentEl.querySelector<HTMLInputElement>('#player-account-ban-reason');
+  if (!input) {
+    return;
+  }
+/** preset：定义该变量以承载业务值。 */
+  const preset = button.dataset.banReasonPreset?.trim() ?? '';
+  if (!preset) {
+    return;
+  }
+  input.value = input.value.trim() === preset ? '' : preset;
+  syncBanReasonPresetButtons();
+  input.focus();
+  input.setSelectionRange(input.value.length, input.value.length);
+}
+
+async function unbanSelectedPlayerAccount(): Promise<void> {
+/** detail：定义该变量以承载业务值。 */
+  const detail = getSelectedPlayerDetail();
+  if (!detail?.account) {
+    setStatus('当前目标没有可解封的账号', true);
+    return;
+  }
+  if (detail.account.status !== 'banned') {
+    setStatus('当前账号未封禁');
+    return;
+  }
+  if (!window.confirm(`确定解封账号 ${detail.account.username} 吗？`)) {
+    return;
+  }
+/** button：定义该变量以承载业务值。 */
+  const button = editorContentEl.querySelector<HTMLButtonElement>('[data-action="unban-player-account"]');
+  if (button) {
+    button.disabled = true;
+  }
+  try {
+    setPendingStatus(`正在解封账号 ${detail.account.username}...`);
+    await request<{ ok: true }>(`/gm/players/${encodeURIComponent(detail.id)}/unban`, {
+      method: 'POST',
+    });
+    await loadSelectedPlayerDetail(detail.id, true);
+    setStatus(`已解封账号 ${detail.account.username}`);
+  } catch (error) {
+/** setStatus：处理当前场景中的对应操作。 */
+    setStatus(error instanceof Error ? error.message : '解封失败', true);
+  } finally {
+    if (button) {
+      button.disabled = false;
+    }
+  }
+}
+
 /** resetSelectedPlayer：执行对应的业务逻辑。 */
 async function resetSelectedPlayer(): Promise<void> {
 /** selected：定义该变量以承载业务值。 */
@@ -5651,6 +5830,12 @@ playerListEl.addEventListener('click', (event) => {
 });
 
 editorContentEl.addEventListener('click', (event) => {
+/** presetButton：定义该变量以承载业务值。 */
+  const presetButton = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-ban-reason-preset]');
+  if (presetButton) {
+    toggleBanReasonPreset(presetButton);
+    return;
+  }
 /** trigger：定义该变量以承载业务值。 */
   const trigger = (event.target as HTMLElement).closest<HTMLElement>('[data-action]');
 /** action：定义该变量以承载业务值。 */
@@ -5677,6 +5862,14 @@ editorContentEl.addEventListener('click', (event) => {
   }
   if (action === 'save-player-password') {
     saveSelectedPlayerPassword().catch(() => {});
+    return;
+  }
+  if (action === 'ban-player-account') {
+    banSelectedPlayerAccount().catch(() => {});
+    return;
+  }
+  if (action === 'unban-player-account') {
+    unbanSelectedPlayerAccount().catch(() => {});
     return;
   }
   if (action === 'set-body-training-level') {
@@ -5713,6 +5906,11 @@ editorContentEl.addEventListener('click', (event) => {
     return;
   }
   handleEditorAction(action, trigger);
+});
+editorContentEl.addEventListener('input', (event) => {
+  if ((event.target as HTMLElement)?.id === 'player-account-ban-reason') {
+    syncBanReasonPresetButtons();
+  }
 });
 
 editorContentEl.addEventListener('input', (event) => {
@@ -6023,6 +6221,24 @@ playerSearchInput.addEventListener('input', () => {
 });
 playerSortSelect.addEventListener('change', () => {
   currentPlayerSort = (playerSortSelect.value as GmPlayerSortMode) || 'realm-desc';
+  currentPlayerPage = 1;
+  lastPlayerListStructureKey = null;
+  loadState(true).catch((error: unknown) => {
+/** setStatus：处理当前场景中的对应操作。 */
+    setStatus(error instanceof Error ? error.message : '加载角色列表失败', true);
+  });
+});
+playerPresenceFilterSelect.addEventListener('change', () => {
+  currentPlayerPresenceFilter = (playerPresenceFilterSelect.value as GmPlayerPresenceFilter) || 'all';
+  currentPlayerPage = 1;
+  lastPlayerListStructureKey = null;
+  loadState(true).catch((error: unknown) => {
+/** setStatus：处理当前场景中的对应操作。 */
+    setStatus(error instanceof Error ? error.message : '加载角色列表失败', true);
+  });
+});
+playerBehaviorFilterSelect.addEventListener('change', () => {
+  currentPlayerBehaviorFilter = (playerBehaviorFilterSelect.value as GmPlayerBehaviorFilter) || 'all';
   currentPlayerPage = 1;
   lastPlayerListStructureKey = null;
   loadState(true).catch((error: unknown) => {
@@ -6404,4 +6620,3 @@ if (token) {
 } else {
   showLogin();
 }
-

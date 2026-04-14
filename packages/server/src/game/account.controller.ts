@@ -27,7 +27,7 @@ export class AccountController {
     @Headers('authorization') authorization: string | undefined,
     @Body() body: AccountUpdatePasswordReq,
   ): Promise<BasicOkRes> {
-    return this.accountService.updatePassword(this.requireUserId(authorization), body.currentPassword, body.newPassword);
+    return this.accountService.updatePassword(await this.requireUserId(authorization), body.currentPassword, body.newPassword);
   }
 
   /** 修改显示名称 */
@@ -36,7 +36,7 @@ export class AccountController {
     @Headers('authorization') authorization: string | undefined,
     @Body() body: AccountUpdateDisplayNameReq,
   ): Promise<AccountUpdateDisplayNameRes> {
-    return this.accountService.updateDisplayName(this.requireUserId(authorization), body.displayName);
+    return this.accountService.updateDisplayName(await this.requireUserId(authorization), body.displayName);
   }
 
   /** 修改角色名 */
@@ -45,22 +45,22 @@ export class AccountController {
     @Headers('authorization') authorization: string | undefined,
     @Body() body: AccountUpdateRoleNameReq,
   ): Promise<AccountUpdateRoleNameRes> {
-    return this.accountService.updateRoleName(this.requireUserId(authorization), body.roleName);
+    return this.accountService.updateRoleName(await this.requireUserId(authorization), body.roleName);
   }
 
   /** 从 Authorization header 提取并校验用户 ID */
-  private requireUserId(authorization: string | undefined): string {
+  private async requireUserId(authorization: string | undefined): Promise<string> {
 /** token：定义该变量以承载业务值。 */
     const token = authorization?.startsWith('Bearer ') ? authorization.slice('Bearer '.length).trim() : '';
     if (!token) {
       throw new UnauthorizedException('未登录');
     }
+    try {
 /** payload：定义该变量以承载业务值。 */
-    const payload = this.authService.validateToken(token);
-    if (!payload) {
-      throw new UnauthorizedException('登录已失效');
+      const payload = await this.authService.requirePlayerToken(token, '登录已失效');
+      return payload.userId;
+    } catch (error) {
+      throw new UnauthorizedException(error instanceof Error ? error.message : '登录已失效');
     }
-    return payload.userId;
   }
 }
-

@@ -169,10 +169,16 @@ export class AuthService implements OnModuleInit {
       throw new UnauthorizedException('密码错误');
     }
     if (directUser && matchedUsers.some((user) => user.id === directUser.id)) {
+      this.ensureUserAccessAllowed(directUser);
       return this.issueTokens(directUser);
     }
-    if (matchedUsers.length === 1) {
-      return this.issueTokens(matchedUsers[0]);
+/** allowedUsers：定义该变量以承载业务值。 */
+    const allowedUsers = matchedUsers.filter((user) => !this.isUserBanned(user));
+    if (allowedUsers.length === 1) {
+      return this.issueTokens(allowedUsers[0]);
+    }
+    if (allowedUsers.length === 0) {
+      throw new UnauthorizedException(this.getBannedAccountMessage(matchedUsers[0]));
     }
     throw new BadRequestException('该角色名对应多个账号，请改用账号登录');
   }
@@ -190,8 +196,12 @@ export class AuthService implements OnModuleInit {
       if (!user) {
         throw new UnauthorizedException('用户不存在');
       }
+      this.ensureUserAccessAllowed(user);
       return this.issueTokens(user);
-    } catch {
+    } catch (error) {
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
       throw new UnauthorizedException('刷新令牌无效或已过期');
     }
   }
@@ -233,6 +243,29 @@ export class AuthService implements OnModuleInit {
     } catch {
       return null;
     }
+  }
+
+  /** 校验玩家 access token，并回查数据库中的账号状态 */
+  async requirePlayerToken(
+    token: string,
+    invalidMessage = '认证失败',
+  ): Promise<{ userId: string; username: string; displayName: string }> {
+/** payload：定义该变量以承载业务值。 */
+    const payload = this.validateToken(token);
+    if (!payload) {
+      throw new UnauthorizedException(invalidMessage);
+    }
+/** user：定义该变量以承载业务值。 */
+    const user = await this.userRepo.findOne({ where: { id: payload.userId } });
+    if (!user) {
+      throw new UnauthorizedException(invalidMessage);
+    }
+    this.ensureUserAccessAllowed(user);
+    return {
+      userId: user.id,
+      username: user.username,
+      displayName: resolveDisplayName(user.displayName, user.username),
+    };
   }
 
   /** GM 登录：验证密码并签发 GM 专用令牌 */
@@ -291,6 +324,7 @@ export class AuthService implements OnModuleInit {
 
   /** 为用户签发 accessToken 和 refreshToken */
   private issueTokens(user: UserEntity): AuthTokenRes {
+    this.ensureUserAccessAllowed(user);
 /** payload：定义该变量以承载业务值。 */
     const payload = {
       sub: user.id,
@@ -540,6 +574,22 @@ export class AuthService implements OnModuleInit {
     return this.truncateToLength(`__migrating__${userId.replace(/-/g, '')}`, ACCOUNT_MAX_LENGTH);
   }
 
+  private isUserBanned(user: UserEntity): boolean {
+    return user.bannedAt instanceof Date;
+  }
+
+  private ensureUserAccessAllowed(user: UserEntity): void {
+    if (this.isUserBanned(user)) {
+      throw new UnauthorizedException(this.getBannedAccountMessage(user));
+    }
+  }
+
+  private getBannedAccountMessage(user: UserEntity): string {
+/** reason：定义该变量以承载业务值。 */
+    const reason = user.banReason?.trim();
+    return reason ? `账号已封禁：${reason}` : '账号已封禁，请联系 GM 处理';
+  }
+
 /** markLegacyAccountMigrationCompleted：执行对应的业务逻辑。 */
   private async markLegacyAccountMigrationCompleted(updatedUsers: number): Promise<void> {
     await this.persistentDocumentService.save<MigrationMarkerDocument>(
@@ -552,4 +602,3 @@ export class AuthService implements OnModuleInit {
     );
   }
 }
-

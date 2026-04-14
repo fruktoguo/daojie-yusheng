@@ -12,17 +12,19 @@ export class AuthGuard implements CanActivate {
   constructor(private readonly authService: AuthService) {}
 
 /** canActivate：执行对应的业务逻辑。 */
-  canActivate(context: ExecutionContext): boolean {
+  async canActivate(context: ExecutionContext): Promise<boolean> {
 /** client：定义该变量以承载业务值。 */
     const client = context.switchToWs().getClient();
 /** token：定义该变量以承载业务值。 */
     const token = client.handshake?.auth?.token;
     if (!token) return false;
+    try {
 /** payload：定义该变量以承载业务值。 */
-    const payload = this.authService.validateToken(token);
-    if (!payload) return false;
-    client.data = payload;
-    return true;
+      const payload = await this.authService.requirePlayerToken(token);
+      client.data = payload;
+      return true;
+    } catch {
+      return false;
+    }
   }
 }
-

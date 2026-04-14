@@ -50,7 +50,18 @@ export class UserEntity {
   @Column({ type: 'timestamptz', nullable: true })
   currentOnlineStartedAt!: Date | null;
 
+  /** 账号封禁时间；为空表示当前可正常登录 */
+  @Column({ type: 'timestamptz', nullable: true })
+  bannedAt!: Date | null;
+
+  /** GM 封禁时填写的原因，便于后续排查小号链路 */
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  banReason!: string | null;
+
+  /** 最近一次执行封禁的操作者标识 */
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  bannedBy!: string | null;
+
   @CreateDateColumn()
   createdAt!: Date;
 }
-

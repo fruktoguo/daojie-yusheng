@@ -1751,6 +1751,20 @@
             <option value="map">按地图</option>
             <option value="name">按角色名</option>
           </select>
+          <select id="player-presence-filter" class="search-input" style="flex:0 0 180px;">
+            <option value="all">在线状态: 全部</option>
+            <option value="online">在线</option>
+            <option value="offline-hanging">离线挂机</option>
+            <option value="offline">离线</option>
+          </select>
+          <select id="player-behavior-filter" class="search-input" style="flex:0 0 180px;">
+            <option value="all">行为: 全部</option>
+            <option value="combat">战斗</option>
+            <option value="cultivation">修炼</option>
+            <option value="alchemy">炼丹</option>
+            <option value="enhancement">强化</option>
+            <option value="gather">采集</option>
+          </select>
         </div>
         <div id="player-list" class="player-list"></div>
         <div class="button-row" style="justify-content: space-between; margin-top: 12px;">

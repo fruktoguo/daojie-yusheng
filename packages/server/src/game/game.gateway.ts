@@ -188,9 +188,13 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     }
 
 /** payload：定义该变量以承载业务值。 */
-    const payload = this.authService.validateToken(token);
-    if (!payload) {
-      client.emit(S2C.Error, { code: 'AUTH_FAIL', message: '认证失败' });
+    let payload: { userId: string; username: string; displayName: string };
+    try {
+      payload = await this.authService.requirePlayerToken(token, '认证失败');
+    } catch (error) {
+/** message：定义该变量以承载业务值。 */
+      const message = error instanceof Error ? error.message : '认证失败';
+      client.emit(S2C.Error, { code: 'AUTH_FAIL', message });
       client.disconnect();
       return;
     }

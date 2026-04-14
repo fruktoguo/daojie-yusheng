@@ -23,11 +23,14 @@ import {
   GmEditorCatalogRes,
   GmListPlayersQuery,
   GmManagedAccountRecord,
+  GmManagedPlayerBehavior,
   GmMapDocument,
   GmMapListRes,
   GmMapRuntimeRes,
   GmManagedPlayerRecord,
   GmManagedPlayerSummary,
+  GmPlayerBehaviorFilter,
+  GmPlayerPresenceFilter,
   GmPlayerSortMode,
   GmPlayerUpdateSection,
   GmRuntimeEntity,
@@ -43,6 +46,7 @@ import {
   getBodyTrainingExpToNext,
   PlayerState,
   QuestState,
+  S2C,
   TechniqueState,
   TemporaryBuffState,
   VIEW_RADIUS,
@@ -108,6 +112,8 @@ const GM_PLAYER_PAGE_SIZE_DEFAULT = 50;
 const GM_PLAYER_PAGE_SIZE_MAX = 100;
 /** GM_PLAYER_KEYWORD_MAX_LENGTH：定义该变量以承载业务值。 */
 const GM_PLAYER_KEYWORD_MAX_LENGTH = 60;
+/** GM_PLAYER_GATHER_BUFF_ID：定义该变量以承载业务值。 */
+const GM_PLAYER_GATHER_BUFF_ID = 'system.gather';
 
 /** GmCommand：定义该类型的结构与数据语义。 */
 type GmCommand =
@@ -288,6 +294,8 @@ export class GmService {
         totalPages: playerPage.totalPages,
         keyword: normalizedQuery.keyword,
         sort: normalizedQuery.sort,
+        presence: normalizedQuery.presence,
+        behavior: normalizedQuery.behavior,
       },
       playerStats,
       mapIds: this.mapService.getAllMapIds().sort(),
@@ -306,6 +314,10 @@ export class GmService {
     keyword: string;
 /** sort：定义该变量以承载业务值。 */
     sort: GmPlayerSortMode;
+/** presence：定义该变量以承载业务值。 */
+    presence: GmPlayerPresenceFilter;
+/** behavior：定义该变量以承载业务值。 */
+    behavior: GmPlayerBehaviorFilter;
   } {
 /** rawPage：定义该变量以承载业务值。 */
     const rawPage = Number(query?.page);
@@ -327,7 +339,11 @@ export class GmService {
       : '';
 /** sort：定义该变量以承载业务值。 */
     const sort = this.normalizePlayerSortMode(query?.sort);
-    return { page, pageSize, keyword, sort };
+/** presence：定义该变量以承载业务值。 */
+    const presence = this.normalizePlayerPresenceFilter(query?.presence);
+/** behavior：定义该变量以承载业务值。 */
+    const behavior = this.normalizePlayerBehaviorFilter(query?.behavior);
+    return { page, pageSize, keyword, sort, presence, behavior };
   }
 
 /** normalizePlayerSortMode：执行对应的业务逻辑。 */
@@ -341,6 +357,32 @@ export class GmService {
       case 'realm-desc':
       default:
         return 'realm-desc';
+    }
+  }
+
+  private normalizePlayerPresenceFilter(filter: string | undefined): GmPlayerPresenceFilter {
+    switch (filter) {
+      case 'online':
+      case 'offline-hanging':
+      case 'offline':
+        return filter;
+      case 'all':
+      default:
+        return 'all';
+    }
+  }
+
+  private normalizePlayerBehaviorFilter(filter: string | undefined): GmPlayerBehaviorFilter {
+    switch (filter) {
+      case 'combat':
+      case 'cultivation':
+      case 'alchemy':
+      case 'enhancement':
+      case 'gather':
+        return filter;
+      case 'all':
+      default:
+        return 'all';
     }
   }
 
@@ -377,6 +419,10 @@ export class GmService {
     keyword: string;
 /** sort：定义该变量以承载业务值。 */
     sort: GmPlayerSortMode;
+/** presence：定义该变量以承载业务值。 */
+    presence: GmPlayerPresenceFilter;
+/** behavior：定义该变量以承载业务值。 */
+    behavior: GmPlayerBehaviorFilter;
   }): Promise<{
 /** players：定义该变量以承载业务值。 */
     players: GmManagedPlayerSummary[];
@@ -393,6 +439,8 @@ export class GmService {
     const baseQuery = this.playerRepo.createQueryBuilder('player')
       .leftJoin(UserEntity, 'player_user', 'player_user.id = player."userId"');
     this.applyPlayerListKeyword(baseQuery, query.keyword);
+    this.applyPlayerListPresenceFilter(baseQuery, query.presence);
+    this.applyPlayerListBehaviorFilter(baseQuery, query.behavior);
 
 /** total：定义该变量以承载业务值。 */
     const total = await baseQuery.clone().getCount();
@@ -427,6 +475,61 @@ export class GmService {
       total,
       totalPages,
     };
+  }
+
+  private applyPlayerListPresenceFilter(
+    query: SelectQueryBuilder<PlayerEntity>,
+    presence: GmPlayerPresenceFilter,
+  ): void {
+    switch (presence) {
+      case 'online':
+        query.andWhere('player.online = true');
+        return;
+      case 'offline-hanging':
+        query.andWhere('player.online = false').andWhere('player."inWorld" = true');
+        return;
+      case 'offline':
+        query.andWhere('player.online = false').andWhere('player."inWorld" = false');
+        return;
+      case 'all':
+      default:
+        return;
+    }
+  }
+
+  private applyPlayerListBehaviorFilter(
+    query: SelectQueryBuilder<PlayerEntity>,
+    behavior: GmPlayerBehaviorFilter,
+  ): void {
+    switch (behavior) {
+      case 'combat':
+        query.andWhere(new Brackets((builder) => {
+          builder
+            .where('player."autoBattle" = true')
+            .orWhere('player."combatTargetLocked" = true')
+            .orWhere('player."combatTargetId" IS NOT NULL');
+        }));
+        return;
+      case 'cultivation':
+        query.andWhere('player."temporaryBuffs" @> CAST(:cultivationBuffFilter AS jsonb)', {
+          cultivationBuffFilter: JSON.stringify([{ buffId: CULTIVATION_BUFF_ID }]),
+        });
+        return;
+      case 'alchemy':
+        query.andWhere('player."alchemyJob" IS NOT NULL').andWhere(`player."alchemyJob" <> 'null'::jsonb`);
+        return;
+      case 'enhancement':
+        query.andWhere('player."enhancementJob" IS NOT NULL').andWhere(`player."enhancementJob" <> 'null'::jsonb`);
+        return;
+      case 'gather':
+        query.andWhere('player."temporaryBuffs" @> CAST(:gatherBuffFilter AS jsonb)', {
+          gatherBuffFilter: JSON.stringify([{ buffId: GM_PLAYER_GATHER_BUFF_ID }]),
+        });
+        return;
+      case 'all':
+      default:
+        return;
+    }
   }
 
 /** applyPlayerListKeyword：执行对应的业务逻辑。 */
@@ -568,14 +671,8 @@ export class GmService {
 
   /** GM 直接重设玩家账号密码 */
   async updateManagedPlayerPassword(playerId: string, newPassword: string): Promise<string | null> {
-/** runtimeUserId：定义该变量以承载业务值。 */
-    const runtimeUserId = this.playerService.getUserIdByPlayerId(playerId);
 /** userId：定义该变量以承载业务值。 */
-    const userId = runtimeUserId
-      ?? (await this.playerRepo.findOne({
-        where: { id: playerId },
-        select: { userId: true },
-      }))?.userId;
+    const userId = await this.resolveManagedPlayerUserId(playerId);
 
     if (!userId) {
       return '目标玩家没有可修改的账号';
@@ -587,20 +684,37 @@ export class GmService {
 
   /** GM 直接修改玩家账号名 */
   async updateManagedPlayerAccount(playerId: string, username: string): Promise<string | null> {
-/** runtimeUserId：定义该变量以承载业务值。 */
-    const runtimeUserId = this.playerService.getUserIdByPlayerId(playerId);
 /** userId：定义该变量以承载业务值。 */
-    const userId = runtimeUserId
-      ?? (await this.playerRepo.findOne({
-        where: { id: playerId },
-        select: { userId: true },
-      }))?.userId;
+    const userId = await this.resolveManagedPlayerUserId(playerId);
 
     if (!userId) {
       return '目标玩家没有可修改的账号';
     }
 
     await this.accountService.updateUsernameByGm(userId, username);
+    return null;
+  }
+
+  /** GM 快捷封禁账号，并立即阻断在线角色 */
+  async banManagedPlayerAccount(playerId: string, reason: string): Promise<string | null> {
+/** userId：定义该变量以承载业务值。 */
+    const userId = await this.resolveManagedPlayerUserId(playerId);
+    if (!userId) {
+      return '目标玩家没有可封禁的账号';
+    }
+    await this.accountService.banUserByGm(userId, reason);
+    this.evictManagedPlayerFromWorld(userId);
+    return null;
+  }
+
+  /** GM 快捷解封账号 */
+  async unbanManagedPlayerAccount(playerId: string): Promise<string | null> {
+/** userId：定义该变量以承载业务值。 */
+    const userId = await this.resolveManagedPlayerUserId(playerId);
+    if (!userId) {
+      return '目标玩家没有可解封的账号';
+    }
+    await this.accountService.unbanUserByGm(userId);
     return null;
   }
 
@@ -1494,6 +1608,7 @@ export class GmService {
       autoRetaliate: player.autoRetaliate !== false,
 /** autoBattleStationary：定义该变量以承载业务值。 */
       autoBattleStationary: player.autoBattleStationary === true,
+      behaviors: this.getManagedPlayerBehaviors(player),
       meta: {
         userId: user.userId,
         isBot: Boolean(player.isBot),
@@ -2397,7 +2512,7 @@ export class GmService {
     return normalizedFallback.length > 0 ? normalizedFallback.slice(0, 1) : '';
   }
 
-/** buildAccountRecord：执行对应的业务逻辑。 */
+  /** buildAccountRecord：执行对应的业务逻辑。 */
   private buildAccountRecord(user: UserEntity | null | undefined, online: boolean): GmManagedAccountRecord | undefined {
     if (!user) {
       return undefined;
@@ -2412,9 +2527,68 @@ export class GmService {
     return {
       userId: user.id,
       username: user.username,
+      status: user.bannedAt ? 'banned' : 'active',
       createdAt: user.createdAt.toISOString(),
       totalOnlineSeconds: Math.max(0, Math.floor(user.totalOnlineSeconds ?? 0)) + currentSessionSeconds,
+      bannedAt: user.bannedAt?.toISOString(),
+      banReason: user.banReason ?? undefined,
+      bannedBy: user.bannedBy ?? undefined,
     };
+  }
+
+  private getManagedPlayerBehaviors(player: PlayerState): GmManagedPlayerBehavior[] {
+/** behaviors：定义该变量以承载业务值。 */
+    const behaviors: GmManagedPlayerBehavior[] = [];
+    if (player.autoBattle || player.pendingSkillCast || player.combatTargetLocked || typeof player.combatTargetId === 'string') {
+      behaviors.push('combat');
+    }
+    if (this.techniqueService.hasCultivationBuff(player)) {
+      behaviors.push('cultivation');
+    }
+    if (player.alchemyJob) {
+      behaviors.push('alchemy');
+    }
+    if (player.enhancementJob) {
+      behaviors.push('enhancement');
+    }
+    if (
+      this.lootService.hasActiveHarvest(player.id)
+      || (player.temporaryBuffs ?? []).some((buff) => buff.buffId === GM_PLAYER_GATHER_BUFF_ID)
+    ) {
+      behaviors.push('gather');
+    }
+    return behaviors;
+  }
+
+  private async resolveManagedPlayerUserId(playerId: string): Promise<string | null> {
+/** runtimeUserId：定义该变量以承载业务值。 */
+    const runtimeUserId = this.playerService.getUserIdByPlayerId(playerId);
+    if (runtimeUserId) {
+      return runtimeUserId;
+    }
+    return (await this.playerRepo.findOne({
+      where: { id: playerId },
+      select: { userId: true },
+    }))?.userId ?? null;
+  }
+
+  private evictManagedPlayerFromWorld(userId: string): void {
+/** playerId：定义该变量以承载业务值。 */
+    const playerId = this.playerService.getPlayerByUserId(userId);
+    if (!playerId) {
+      return;
+    }
+/** socket：定义该变量以承载业务值。 */
+    const socket = this.playerService.getSocket(playerId);
+/** player：定义该变量以承载业务值。 */
+    const player = this.playerService.getPlayer(playerId);
+    if (player) {
+      this.worldService.removePlayerFromWorld(player, 'timeout');
+    }
+    if (socket) {
+      socket.emit(S2C.Kick);
+      socket.disconnect(true);
+    }
   }
 
   /** 获取指定区域的运行时地图快照（GM 世界管理用） */
