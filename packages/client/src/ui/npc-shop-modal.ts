@@ -355,7 +355,12 @@ export class NpcShopModal {
         return { label: '已学', kind: 'learned' };
       }
     }
-    if (item.mapUnlockId && this.unlockedMinimapIds.has(item.mapUnlockId)) {
+    const mapIds = item.mapUnlockIds && item.mapUnlockIds.length > 0
+      ? item.mapUnlockIds
+      : item.mapUnlockId
+        ? [item.mapUnlockId]
+        : [];
+    if (mapIds.length > 0 && mapIds.every((mapId) => this.unlockedMinimapIds.has(mapId))) {
       return { label: '已阅', kind: 'unlocked' };
     }
     return null;
@@ -901,4 +906,3 @@ export class NpcShopModal {
       .reduce((total, item) => total + item.count, 0);
   }
 }
-

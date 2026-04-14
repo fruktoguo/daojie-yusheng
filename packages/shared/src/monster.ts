@@ -198,6 +198,7 @@ export interface MonsterTemplateEditorItem {
   effects?: ItemStack['effects'];
   tags?: string[];
   mapUnlockId?: string;
+  mapUnlockIds?: string[];
   tileAuraGainAmount?: number;
   allowBatchUse?: boolean;
 }
@@ -952,6 +953,7 @@ function createMonsterTemplateEquipmentItem(item: MonsterTemplateEditorItem): It
     effects: item.effects,
     tags: item.tags,
     mapUnlockId: item.mapUnlockId,
+    mapUnlockIds: item.mapUnlockIds ? [...item.mapUnlockIds] : undefined,
     tileAuraGainAmount: item.tileAuraGainAmount,
     allowBatchUse: item.allowBatchUse,
   };
@@ -1116,4 +1118,3 @@ export function resolveMonsterTemplateRecord(
     drops: normalizeMonsterTemplateDrops(monster.drops),
   };
 }
-

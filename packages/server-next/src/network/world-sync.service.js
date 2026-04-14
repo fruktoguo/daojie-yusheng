@@ -1951,6 +1951,7 @@ function toItemStackState(entry) {
         consumeBuffs: entry.consumeBuffs?.map((buff) => ({ ...buff })),
         tags: entry.tags?.slice(),
         mapUnlockId: entry.mapUnlockId,
+        mapUnlockIds: entry.mapUnlockIds?.slice(),
         tileAuraGainAmount: entry.tileAuraGainAmount,
         allowBatchUse: entry.allowBatchUse,
     };
@@ -2779,6 +2780,7 @@ function isSameSyncedItem(left, right) {
         && shallowEqualArray(left.consumeBuffs, right.consumeBuffs)
         && shallowEqualArray(left.tags, right.tags)
         && left.mapUnlockId === right.mapUnlockId
+        && shallowEqualArray(left.mapUnlockIds, right.mapUnlockIds)
         && left.tileAuraGainAmount === right.tileAuraGainAmount
         && left.allowBatchUse === right.allowBatchUse;
 }

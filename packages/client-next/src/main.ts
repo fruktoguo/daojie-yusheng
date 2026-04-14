@@ -1668,6 +1668,7 @@ function hydrateSyncedItemStack(item: SyncedItemStack, previous?: Inventory['ite
     alchemySuccessRate: item.alchemySuccessRate ?? previousSameItem?.alchemySuccessRate ?? template?.alchemySuccessRate,
     alchemySpeedRate: item.alchemySpeedRate ?? previousSameItem?.alchemySpeedRate ?? template?.alchemySpeedRate,
     mapUnlockId: item.mapUnlockId ?? previousSameItem?.mapUnlockId,
+    mapUnlockIds: item.mapUnlockIds ?? previousSameItem?.mapUnlockIds ?? template?.mapUnlockIds,
     tileAuraGainAmount: item.tileAuraGainAmount ?? previousSameItem?.tileAuraGainAmount,
     allowBatchUse: item.allowBatchUse ?? previousSameItem?.allowBatchUse,
   };
@@ -4658,7 +4659,6 @@ socket.onNpcShop((data) => {
 
 restartPingLoop();
 void loginUI.restoreSession();
-
 
 
 

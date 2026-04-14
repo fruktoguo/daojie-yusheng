@@ -443,6 +443,7 @@ let MailRuntimeService = class MailRuntimeService {
                     consumeBuffs: item.consumeBuffs,
                     tags: item.tags,
                     mapUnlockId: item.mapUnlockId,
+                    mapUnlockIds: Array.isArray(item.mapUnlockIds) ? item.mapUnlockIds.slice() : undefined,
                     tileAuraGainAmount: item.tileAuraGainAmount,
                     allowBatchUse: item.allowBatchUse,
                 });

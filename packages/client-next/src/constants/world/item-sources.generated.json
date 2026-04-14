@@ -1599,7 +1599,7 @@
       "mapName": "寒汐泽",
       "monsterId": "m_cold_moonscale",
       "monsterName": "月沼鲛影",
-      "count": 2
+      "count": 1
     },
     {
       "kind": "monster_drop",
@@ -1747,7 +1747,7 @@
       "mapName": "厚脉岭",
       "monsterId": "m_deepvein_stele_bearer",
       "monsterName": "厚土负碑者",
-      "count": 2
+      "count": 1
     },
     {
       "kind": "monster_drop",
@@ -1773,7 +1773,7 @@
       "mapName": "赤陨庭",
       "monsterId": "m_ember_bone_patrol",
       "monsterName": "炽骨巡卒",
-      "count": 2
+      "count": 1
     },
     {
       "kind": "monster_drop",
@@ -2711,7 +2711,7 @@
       "mapName": "归藏脉窟",
       "monsterId": "m_guizang_dualphase_beast",
       "monsterName": "双相脉兽",
-      "count": 2
+      "count": 1
     },
     {
       "kind": "monster_drop",
@@ -4544,7 +4544,7 @@
       "mapName": "裂锋原",
       "monsterId": "m_cleft_stele_puppet",
       "monsterName": "断碑锋傀",
-      "count": 2
+      "count": 1
     },
     {
       "kind": "mining",

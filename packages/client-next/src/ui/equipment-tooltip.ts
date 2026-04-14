@@ -250,6 +250,18 @@ export interface ItemTooltipContext {
   itemCooldown?: ItemTooltipCooldownState | null;
 }
 
+function isMapUnlockItemRead(item: Pick<ItemStack, 'mapUnlockId' | 'mapUnlockIds'>, unlockedMinimapIds?: ReadonlySet<string>): boolean {
+  if (!unlockedMinimapIds) {
+    return false;
+  }
+  const mapIds = item.mapUnlockIds && item.mapUnlockIds.length > 0
+    ? item.mapUnlockIds
+    : item.mapUnlockId
+      ? [item.mapUnlockId]
+      : [];
+  return mapIds.length > 0 && mapIds.every((mapId) => unlockedMinimapIds.has(mapId));
+}
+
 /** resolveItemStatusLabel：执行对应的业务逻辑。 */
 function resolveItemStatusLabel(item: ItemStack, context?: ItemTooltipContext): string | null {
 /** itemCooldown：定义该变量以承载业务值。 */
@@ -268,7 +280,7 @@ function resolveItemStatusLabel(item: ItemStack, context?: ItemTooltipContext): 
       return '已学';
     }
   }
-  if (item.mapUnlockId && context?.unlockedMinimapIds?.has(item.mapUnlockId)) {
+  if (isMapUnlockItemRead(item, context?.unlockedMinimapIds)) {
     return '已阅';
   }
   return null;
@@ -380,7 +392,7 @@ function buildConsumableEffectDetails(item: ItemStack, itemCooldown?: ItemToolti
   if (typeof previewItem.tileAuraGainAmount === 'number' && previewItem.tileAuraGainAmount > 0) {
     lines.push(`立即效果：当前地块灵力 +${formatDisplayInteger(previewItem.tileAuraGainAmount)}`);
   }
-  if (previewItem.mapUnlockId) {
+  if (previewItem.mapUnlockId || (previewItem.mapUnlockIds?.length ?? 0) > 0) {
     lines.push('使用效果：永久解锁对应地图');
   }
 
@@ -491,4 +503,3 @@ export function buildEquipmentTooltipContent(item: ItemStack, context?: ItemTool
     asideCards: payload.asideCards,
   };
 }
-

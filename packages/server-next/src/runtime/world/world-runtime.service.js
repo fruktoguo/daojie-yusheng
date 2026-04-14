@@ -3251,19 +3251,31 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         }
 /** learnedTechniqueId：定义该变量以承载业务值。 */
         const learnedTechniqueId = this.contentTemplateRepository.getLearnTechniqueId(item.itemId);
-        if (item.mapUnlockId) {
-            if (!this.templateRepository.has(item.mapUnlockId)) {
-                throw new common_1.BadRequestException(`Unknown map unlock target: ${item.mapUnlockId}`);
+        const mapUnlockIds = Array.isArray(item.mapUnlockIds) && item.mapUnlockIds.length > 0
+            ? item.mapUnlockIds
+            : item.mapUnlockId
+                ? [item.mapUnlockId]
+                : [];
+        if (mapUnlockIds.length > 0) {
+            for (const mapId of mapUnlockIds) {
+                if (!this.templateRepository.has(mapId)) {
+                    throw new common_1.BadRequestException(`Unknown map unlock target: ${mapId}`);
+                }
             }
-            if (this.playerRuntimeService.hasUnlockedMap(playerId, item.mapUnlockId)) {
-                throw new common_1.BadRequestException(`Map ${item.mapUnlockId} already unlocked`);
+            if (mapUnlockIds.every((mapId) => this.playerRuntimeService.hasUnlockedMap(playerId, mapId))) {
+                throw new common_1.BadRequestException('Map already unlocked');
             }
-            this.playerRuntimeService.unlockMap(playerId, item.mapUnlockId);
+            for (const mapId of mapUnlockIds) {
+                if (!this.playerRuntimeService.hasUnlockedMap(playerId, mapId)) {
+                    this.playerRuntimeService.unlockMap(playerId, mapId);
+                }
+            }
             this.playerRuntimeService.consumeInventoryItem(playerId, slotIndex, 1);
             this.refreshQuestStates(playerId);
-/** targetName：定义该变量以承载业务值。 */
-            const targetName = this.templateRepository.getOrThrow(item.mapUnlockId).name;
-            this.queuePlayerNotice(playerId, `已解锁地图：${targetName}`, 'success');
+            const targetLabel = mapUnlockIds.length === 1
+                ? this.templateRepository.getOrThrow(mapUnlockIds[0]).name
+                : `${item.name ?? '地图'}记载的区域`;
+            this.queuePlayerNotice(playerId, `已解锁地图：${targetLabel}`, 'success');
             return;
         }
         if (item.tileAuraGainAmount) {

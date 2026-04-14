@@ -208,6 +208,7 @@ export function resolvePreviewItem(item: ItemStack): ItemStack {
     enhancementSuccessRate: item.enhancementSuccessRate ?? template.enhancementSuccessRate,
     enhancementSpeedRate: item.enhancementSpeedRate ?? template.enhancementSpeedRate,
     mapUnlockId: item.mapUnlockId ?? template.mapUnlockId,
+    mapUnlockIds: item.mapUnlockIds ?? template.mapUnlockIds,
     tileAuraGainAmount: item.tileAuraGainAmount ?? template.tileAuraGainAmount,
     allowBatchUse: item.allowBatchUse ?? template.allowBatchUse,
   };

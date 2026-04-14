@@ -1389,7 +1389,12 @@ export class InventoryPanel {
         return '已学';
       }
     }
-    if (item.mapUnlockId && this.unlockedMinimapIds.has(item.mapUnlockId)) {
+    const mapIds = item.mapUnlockIds && item.mapUnlockIds.length > 0
+      ? item.mapUnlockIds
+      : item.mapUnlockId
+        ? [item.mapUnlockId]
+        : [];
+    if (mapIds.length > 0 && mapIds.every((mapId) => this.unlockedMinimapIds.has(mapId))) {
       return '已阅';
     }
     return null;
@@ -1732,4 +1737,3 @@ export class InventoryPanel {
       .replaceAll("'", '&#39;');
   }
 }
-

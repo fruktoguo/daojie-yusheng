@@ -11629,8 +11629,15 @@
       "name": "青萝谷藤径图",
       "type": "consumable",
       "level": 8,
-      "desc": "把藤门、桥径和谷中灵植带都标了出来。使用后可永久解锁青萝谷地图。",
-      "mapUnlockId": "verdant_vine_vale"
+      "desc": "把藤门、桥径和谷中灵植带都标了出来。使用后可永久解锁青萝谷六段藤径图。",
+      "mapUnlockIds": [
+        "verdant_vine_vale_01_entry",
+        "verdant_vine_vale_02_slope",
+        "verdant_vine_vale_03_bridge",
+        "verdant_vine_vale_04_garden",
+        "verdant_vine_vale_05_inner_hollow",
+        "verdant_vine_vale_06_heart_gate"
+      ]
     },
     {
       "itemId": "equip.verdant_crown",

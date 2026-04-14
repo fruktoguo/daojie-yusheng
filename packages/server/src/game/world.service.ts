@@ -944,6 +944,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
         enhancementSuccessRate: item.enhancementSuccessRate,
         enhancementSpeedRate: item.enhancementSpeedRate,
         mapUnlockId: item.mapUnlockId,
+        mapUnlockIds: item.mapUnlockIds ? [...item.mapUnlockIds] : undefined,
         tileAuraGainAmount: item.tileAuraGainAmount,
         allowBatchUse: item.allowBatchUse,
       };
@@ -969,6 +970,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       enhancementSuccessRate: item.enhancementSuccessRate,
       enhancementSpeedRate: item.enhancementSpeedRate,
       mapUnlockId: item.mapUnlockId,
+      mapUnlockIds: item.mapUnlockIds ? [...item.mapUnlockIds] : undefined,
       tileAuraGainAmount: item.tileAuraGainAmount,
       allowBatchUse: item.allowBatchUse,
     };

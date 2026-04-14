@@ -1127,6 +1127,7 @@ function isSameItem(left, right) {
         && shallowEqualArray(left.consumeBuffs, right.consumeBuffs)
         && shallowEqualArray(left.tags, right.tags)
         && left.mapUnlockId === right.mapUnlockId
+        && shallowEqualArray(left.mapUnlockIds, right.mapUnlockIds)
         && left.tileAuraGainAmount === right.tileAuraGainAmount
         && left.allowBatchUse === right.allowBatchUse;
 }

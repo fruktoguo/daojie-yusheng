@@ -1123,6 +1123,7 @@ export interface SyncedItemStack {
   enhancementSuccessRate?: number;
   enhancementSpeedRate?: number;
   mapUnlockId?: string;
+  mapUnlockIds?: string[];
   tileAuraGainAmount?: number;
   allowBatchUse?: boolean;
 }
@@ -2392,6 +2393,7 @@ export interface GmEditorItemOption {
   enhancementSuccessRate?: number;
   enhancementSpeedRate?: number;
   mapUnlockId?: string;
+  mapUnlockIds?: string[];
   tileAuraGainAmount?: number;
   allowBatchUse?: boolean;
 }

@@ -587,6 +587,7 @@ export interface ItemStack {
   enhancementSuccessRate?: number;
   enhancementSpeedRate?: number;
   mapUnlockId?: string;
+  mapUnlockIds?: string[];
   tileAuraGainAmount?: number;
   allowBatchUse?: boolean;
 }

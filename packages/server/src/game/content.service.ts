@@ -153,6 +153,7 @@ export interface EditorItemCatalogEntry {
   enhancementSpeedRate?: number;
   respawnBindMapId?: string;
   mapUnlockId?: string;
+  mapUnlockIds?: string[];
   tileAuraGainAmount?: number;
   allowBatchUse?: boolean;
 }
@@ -767,8 +768,8 @@ const ITEM_NAME_TAG_RULES: Array<{ tag: string; test: (item: ItemTemplate) => bo
   { tag: '药膏', test: (item) => /膏/.test(item.name) },
   { tag: '修为丹药', test: (item) => isCultivationPill(item) },
   { tag: '战斗丹药', test: (item) => isHealthRestoreMedicine(item) || isQiRestoreMedicine(item) },
-  { tag: '地图', test: (item) => typeof item.mapUnlockId === 'string' || item.itemId.startsWith('map.') },
-  { tag: '功能物品', test: (item) => typeof item.mapUnlockId === 'string' },
+  { tag: '地图', test: (item) => typeof item.mapUnlockId === 'string' || (item.mapUnlockIds?.length ?? 0) > 0 || item.itemId.startsWith('map.') },
+  { tag: '功能物品', test: (item) => typeof item.mapUnlockId === 'string' || (item.mapUnlockIds?.length ?? 0) > 0 },
   { tag: '灵石', test: (item) => item.itemId === 'spirit_stone' || item.name.includes('灵石') },
   { tag: '凭证', test: (item) => /牌|令|钥石/.test(item.name) },
   { tag: '矿材', test: (item) => item.type === 'material' && /(矿|铁|晶|金)/.test(item.name) },
@@ -1053,6 +1054,7 @@ export class ContentService implements OnModuleInit {
       enhancementSuccessRate: item.enhancementSuccessRate,
       enhancementSpeedRate: item.enhancementSpeedRate,
       mapUnlockId: item.mapUnlockId,
+      mapUnlockIds: item.mapUnlockIds ? [...item.mapUnlockIds] : undefined,
       tileAuraGainAmount: item.tileAuraGainAmount,
       allowBatchUse: item.allowBatchUse,
     });
@@ -1705,6 +1707,10 @@ export class ContentService implements OnModuleInit {
         enhancementSpeedRate: Number.isFinite(raw.enhancementSpeedRate)
           ? Number(raw.enhancementSpeedRate)
           : undefined,
+        mapUnlockId: typeof raw.mapUnlockId === 'string' && raw.mapUnlockId.trim().length > 0
+          ? raw.mapUnlockId.trim()
+          : undefined,
+        mapUnlockIds: normalizeStringArray(raw.mapUnlockIds),
 /** respawnBindMapId：定义该变量以承载业务值。 */
         respawnBindMapId: typeof raw.respawnBindMapId === 'string' && raw.respawnBindMapId.trim().length > 0
           ? raw.respawnBindMapId.trim()
@@ -1918,6 +1924,7 @@ export class ContentService implements OnModuleInit {
         enhancementSuccessRate: item.enhancementSuccessRate,
         enhancementSpeedRate: item.enhancementSpeedRate,
         mapUnlockId: item.mapUnlockId,
+        mapUnlockIds: item.mapUnlockIds ? [...item.mapUnlockIds] : undefined,
         tileAuraGainAmount: item.tileAuraGainAmount,
         allowBatchUse: item.allowBatchUse,
       }))

@@ -203,6 +203,7 @@ export function resolvePreviewItem(item: ItemStack): ItemStack {
     consumeBuffs: item.consumeBuffs ?? template.consumeBuffs,
     tags: item.tags ?? template.tags,
     mapUnlockId: item.mapUnlockId ?? template.mapUnlockId,
+    mapUnlockIds: item.mapUnlockIds ?? template.mapUnlockIds,
     tileAuraGainAmount: item.tileAuraGainAmount ?? template.tileAuraGainAmount,
     allowBatchUse: item.allowBatchUse ?? template.allowBatchUse,
   };
@@ -312,4 +313,3 @@ export function resolvePreviewTechnique(technique: TechniqueState): TechniqueSta
 export function resolvePreviewTechniques(techniques: TechniqueState[] | undefined): TechniqueState[] {
   return (techniques ?? []).map((technique) => resolvePreviewTechnique(technique));
 }
-

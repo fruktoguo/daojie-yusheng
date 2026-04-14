@@ -1862,20 +1862,21 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       });
     }
 
-    if (item.mapUnlockId) {
-/** mapMeta：定义该变量以承载业务值。 */
-      const mapMeta = this.mapService.getMapMeta(item.mapUnlockId);
-      if (!mapMeta) {
+    const mapUnlockIds = this.resolveMapUnlockIds(item);
+    if (mapUnlockIds.length > 0) {
+      if (mapUnlockIds.some((mapId) => !this.mapService.getMapMeta(mapId))) {
         messages.push({ playerId: player.id, text: '这份地图残缺不全，无法辨认对应区域。', kind: 'system' });
         return;
       }
 /** unlocked：定义该变量以承载业务值。 */
       const unlocked = new Set(player.unlockedMinimapIds ?? []);
-      unlocked.add(item.mapUnlockId);
+      for (const mapId of mapUnlockIds) {
+        unlocked.add(mapId);
+      }
       player.unlockedMinimapIds = [...unlocked].sort();
       messages.push({
         playerId: player.id,
-        text: `你展开 ${item.name}，彻底记下了 ${mapMeta.name} 的地势。`,
+        text: `你展开 ${item.name}，彻底记下了其中记载的地势。`,
         kind: 'quest',
       });
     }
@@ -2029,11 +2030,9 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       pushError('你已经学会这门功法了。');
       return false;
     }
-    if (itemDef?.mapUnlockId && (player.unlockedMinimapIds ?? []).includes(itemDef.mapUnlockId)) {
-/** mapMeta：定义该变量以承载业务值。 */
-      const mapMeta = this.mapService.getMapMeta(itemDef.mapUnlockId);
-/** pushError：处理当前场景中的对应操作。 */
-      pushError(mapMeta ? `${mapMeta.name} 的地图你早已记下。` : '这份地图你早已记下。');
+    const mapUnlockIds = itemDef ? this.resolveMapUnlockIds(itemDef) : [];
+    if (mapUnlockIds.length > 0 && mapUnlockIds.every((mapId) => (player.unlockedMinimapIds ?? []).includes(mapId))) {
+      pushError('这份地图你早已记下。');
       return false;
     }
     if (itemDef?.respawnBindMapId && this.mapService.resolvePlayerRespawnMapId(player.respawnMapId) === itemDef.respawnBindMapId) {
@@ -2337,6 +2336,18 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     return unlockedMinimapIds
       .map((mapId) => `${mapId}:${this.mapService.getMinimapSignature(mapId)}`)
       .join('|');
+  }
+
+  private resolveMapUnlockIds(item: Pick<ItemStack, 'mapUnlockId' | 'mapUnlockIds'>): string[] {
+    const multiUnlockIds = Array.isArray(item.mapUnlockIds)
+      ? [...new Set(item.mapUnlockIds.filter((entry): entry is string => typeof entry === 'string' && entry.length > 0))]
+      : [];
+    if (multiUnlockIds.length > 0) {
+      return multiUnlockIds;
+    }
+    return typeof item.mapUnlockId === 'string' && item.mapUnlockId.length > 0
+      ? [item.mapUnlockId]
+      : [];
   }
 
   /** 将 WorldUpdate 的结果（错误、消息、脏标记）合并到当前 tick 上下文 */
@@ -4350,6 +4361,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         enhancementSuccessRate: item.enhancementSuccessRate,
         enhancementSpeedRate: item.enhancementSpeedRate,
         mapUnlockId: item.mapUnlockId,
+        mapUnlockIds: item.mapUnlockIds ? [...item.mapUnlockIds] : undefined,
         tileAuraGainAmount: item.tileAuraGainAmount,
         allowBatchUse: item.allowBatchUse,
       };
@@ -4376,6 +4388,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       enhancementSuccessRate: item.enhancementSuccessRate,
       enhancementSpeedRate: item.enhancementSpeedRate,
       mapUnlockId: item.mapUnlockId,
+      mapUnlockIds: item.mapUnlockIds ? [...item.mapUnlockIds] : undefined,
       tileAuraGainAmount: item.tileAuraGainAmount,
       allowBatchUse: item.allowBatchUse,
     };

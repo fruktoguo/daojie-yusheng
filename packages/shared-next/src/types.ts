@@ -564,6 +564,7 @@ export interface ItemStack {
   alchemySuccessRate?: number;
   alchemySpeedRate?: number;
   mapUnlockId?: string;
+  mapUnlockIds?: string[];
   tileAuraGainAmount?: number;
   allowBatchUse?: boolean;
 }

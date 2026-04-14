@@ -139,5 +139,44 @@
       "wanderRadius": 3
     }
   ],
+  "resourceNodeGroups": [
+    {
+      "resourceNodeId": "landmark.herb.bitterheart_vine",
+      "idPrefix": "lm_verdant_05_bitterheart",
+      "name": "苦心藤",
+      "placements": [
+        {
+          "x": 6,
+          "y": 4
+        }
+      ]
+    },
+    {
+      "resourceNodeId": "landmark.herb.longvein_vine",
+      "idPrefix": "lm_verdant_05_longvein",
+      "name": "长脉藤",
+      "placements": [
+        {
+          "x": 25,
+          "y": 4
+        },
+        {
+          "x": 6,
+          "y": 15
+        }
+      ]
+    },
+    {
+      "resourceNodeId": "landmark.herb.returnspring_leaf",
+      "idPrefix": "lm_verdant_05_returnspring",
+      "name": "回春叶",
+      "placements": [
+        {
+          "x": 25,
+          "y": 15
+        }
+      ]
+    }
+  ],
   "terrainRealmLv": 27
 }

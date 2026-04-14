@@ -1842,6 +1842,7 @@ function hydrateSyncedItemStack(item: SyncedItemStack, previous?: Inventory['ite
     enhancementSuccessRate: item.enhancementSuccessRate ?? previousSameItem?.enhancementSuccessRate ?? template?.enhancementSuccessRate,
     enhancementSpeedRate: item.enhancementSpeedRate ?? previousSameItem?.enhancementSpeedRate ?? template?.enhancementSpeedRate,
     mapUnlockId: item.mapUnlockId ?? previousSameItem?.mapUnlockId,
+    mapUnlockIds: item.mapUnlockIds ?? previousSameItem?.mapUnlockIds ?? template?.mapUnlockIds,
     tileAuraGainAmount: item.tileAuraGainAmount ?? previousSameItem?.tileAuraGainAmount,
     allowBatchUse: item.allowBatchUse ?? previousSameItem?.allowBatchUse,
   };

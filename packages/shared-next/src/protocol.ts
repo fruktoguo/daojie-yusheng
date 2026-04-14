@@ -1284,6 +1284,7 @@ export interface SyncedItemStack {
   alchemySuccessRate?: number;
   alchemySpeedRate?: number;
   mapUnlockId?: string;
+  mapUnlockIds?: string[];
   tileAuraGainAmount?: number;
   allowBatchUse?: boolean;
 }
@@ -2388,6 +2389,7 @@ export interface GmEditorItemOption {
   alchemySuccessRate?: number;
   alchemySpeedRate?: number;
   mapUnlockId?: string;
+  mapUnlockIds?: string[];
   tileAuraGainAmount?: number;
   allowBatchUse?: boolean;
 }

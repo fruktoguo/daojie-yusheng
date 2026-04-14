@@ -137,6 +137,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
                 qiProjection: Array.isArray(entry.qiProjection) ? entry.qiProjection.map((projection) => ({ ...projection })) : undefined,
             })) : undefined,
             mapUnlockId: template.mapUnlockId,
+            mapUnlockIds: Array.isArray(template.mapUnlockIds) ? template.mapUnlockIds.slice() : undefined,
             tileAuraGainAmount: template.tileAuraGainAmount,
             allowBatchUse: template.allowBatchUse,
         })).sort((left, right) => left.itemId.localeCompare(right.itemId, 'zh-Hans-CN'));
@@ -1331,6 +1332,9 @@ function normalizeItemTemplate(raw) {
         tags: Array.isArray(candidate.tags) ? candidate.tags.slice() : undefined,
 /** mapUnlockId：定义该变量以承载业务值。 */
         mapUnlockId: typeof candidate.mapUnlockId === 'string' ? candidate.mapUnlockId : undefined,
+        mapUnlockIds: Array.isArray(candidate.mapUnlockIds)
+            ? candidate.mapUnlockIds.filter((entry) => typeof entry === 'string' && entry.length > 0)
+            : undefined,
         tileAuraGainAmount: Number.isFinite(candidate.tileAuraGainAmount)
             ? Number(candidate.tileAuraGainAmount)
             : undefined,

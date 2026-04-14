@@ -15,6 +15,8 @@ import {
   GmMapPortalRecord,
   GmMapQuestRecord,
   GmMapResourceRecord,
+  GmMapResourceNodeGroupRecord,
+  GmMapResourceNodePlacementRecord,
   GmMapSafeZoneRecord,
   MapRouteDomain,
   PortalRouteDomain,
@@ -137,13 +139,14 @@ type MapEntitySelection =
   | { kind: 'monster'; index: number }
   | { kind: 'aura'; index: number }
   | { kind: 'resource'; index: number }
+  | { kind: 'resourceNodePlacement'; index: number }
   | { kind: 'safeZone'; index: number }
   | { kind: 'landmark'; index: number }
   | { kind: 'container'; index: number }
   | null;
 
 /** MapEntityKind：定义该类型的结构与数据语义。 */
-type MapEntityKind = 'portal' | 'npc' | 'monster' | 'aura' | 'resource' | 'safeZone' | 'landmark' | 'container';
+type MapEntityKind = 'portal' | 'npc' | 'monster' | 'aura' | 'resource' | 'resourceNodePlacement' | 'safeZone' | 'landmark' | 'container';
 
 /** MapTool：定义该类型的结构与数据语义。 */
 type MapTool = 'select' | 'paint' | 'pan';
@@ -160,6 +163,13 @@ type ComposeRotation = 0 | 90 | 180 | 270;
 
 /** TileResourcePoint：定义该类型的结构与数据语义。 */
 type TileResourcePoint = GmMapResourceRecord;
+/** FlattenedResourceNodePlacement：定义该类型的结构与数据语义。 */
+type FlattenedResourceNodePlacement = {
+  group: GmMapResourceNodeGroupRecord,
+  groupIndex: number,
+  placement: GmMapResourceNodePlacementRecord,
+  placementIndex: number,
+};
 /** MapComposePiece：定义该类型的结构与数据语义。 */
 type MapComposePiece = {
   id: string,
@@ -546,7 +556,7 @@ export class GmMapEditor {
       if (Number.isInteger(index) && kind) {
         this.selectedComposePieceId = null;
         this.selectedEntity = { kind, index } as Exclude<MapEntitySelection, null>;
-        this.currentInspectorTab = kind;
+        this.currentInspectorTab = kind === 'resourceNodePlacement' ? 'resource' : kind;
 /** point：定义该变量以承载业务值。 */
         const point = this.getSelectedEntityPoint();
         if (point) this.selectedCell = point;
@@ -844,6 +854,7 @@ export class GmMapEditor {
       `怪物刷新点 ${this.draft.monsterSpawns.length}`,
       `无属性灵气点 ${this.draft.auras?.length ?? 0}`,
       `五行灵气点 ${this.draft.resources?.length ?? 0}`,
+      `资源节点布点 ${this.getFlattenedResourceNodePlacements().length}`,
       `安全区 ${(this.draft.safeZones ?? []).length}`,
       `地标 ${this.draft.landmarks?.length ?? 0}`,
       `容器 ${this.getContainerLandmarks().length}`,
@@ -1147,6 +1158,28 @@ export class GmMapEditor {
     `;
   }
 
+/** getFlattenedResourceNodePlacements：执行对应的业务逻辑。 */
+  private getFlattenedResourceNodePlacements(): FlattenedResourceNodePlacement[] {
+    if (!this.draft) {
+      return [];
+    }
+    return (this.draft.resourceNodeGroups ?? []).flatMap((group, groupIndex) => (
+      (group.placements ?? []).map((placement, placementIndex) => ({
+        group,
+        groupIndex,
+        placement,
+        placementIndex,
+      }))
+    ));
+  }
+
+  private getSelectedResourceNodePlacement(): FlattenedResourceNodePlacement | null {
+    if (!this.draft || this.selectedEntity?.kind !== 'resourceNodePlacement') {
+      return null;
+    }
+    return this.getFlattenedResourceNodePlacements()[this.selectedEntity.index] ?? null;
+  }
+
 /** renderResourceTab：执行对应的业务逻辑。 */
   private renderResourceTab(selectedPoint: { x: number; y: number } | null): string {
     if (!this.draft) return '';
@@ -1176,6 +1209,8 @@ export class GmMapEditor {
     const selectedResource = this.selectedEntity?.kind === 'resource'
       ? this.draft.resources?.[this.selectedEntity.index]
       : null;
+/** resourceNodePlacements：定义该变量以承载业务值。 */
+    const resourceNodePlacements = this.getFlattenedResourceNodePlacements();
 /** selectedResourceKey：定义该变量以承载业务值。 */
     const selectedResourceKey = selectedResource ? getResourceRecordKey(selectedResource) : this.resourcePaintKey;
 /** currentBrushLabel：定义该变量以承载业务值。 */
@@ -1184,8 +1219,8 @@ export class GmMapEditor {
       <section class="editor-section">
         <div class="editor-section-head">
           <div>
-            <div class="editor-section-title">五行灵气点</div>
-            <div class="editor-section-note">同格允许并存多个不同属性灵气。常用的金木水火土灵气可直接从下拉里选。</div>
+            <div class="editor-section-title">资源点</div>
+            <div class="editor-section-note">这里同时展示五行灵气点和 <code>resourceNodeGroups</code> 里的草药/采集布点。灵气画笔仍只作用于五行灵气。</div>
           </div>
           <button class="small-btn" type="button" data-map-action="add-resource">新建灵气点</button>
         </div>
@@ -1206,6 +1241,7 @@ export class GmMapEditor {
           </label>
         </div>
         <div class="editor-note" style="margin-bottom: 10px;">图上已有灵气种类：${escapeHtml(brushPresetKeys.length > 0 ? brushPresetKeys.map((resourceKey) => formatResourceTypeLabel(resourceKey)).join('、') : '无')}</div>
+        <div class="editor-note" style="margin: 10px 0 6px;">五行灵气点</div>
         ${resourceGroups.length > 0
           ? resourceGroups.map((group) => `
             <div class="editor-note" style="margin: 10px 0 6px;">${escapeHtml(group.label)}</div>
@@ -1218,10 +1254,22 @@ export class GmMapEditor {
             </div>
           `).join('')
           : '<div class="editor-note">暂无五行灵气点。</div>'}
+        <div class="editor-note" style="margin: 14px 0 6px;">草药/资源节点布点</div>
+        ${resourceNodePlacements.length > 0
+          ? `
+            <div class="map-entity-list">
+              ${resourceNodePlacements.map(({ group, placement }, index) => `
+                <button class="map-entity-btn ${this.selectedEntity?.kind === 'resourceNodePlacement' && this.selectedEntity.index === index ? 'active' : ''}" data-entity-kind="resourceNodePlacement" data-entity-index="${index}" type="button">
+                  ${escapeHtml(`${group.name || group.resourceNodeId} · (${placement.x},${placement.y})${placement.name ? ` · ${placement.name}` : ''}${placement.id ? ` · ${placement.id}` : ''}`)}
+                </button>
+              `).join('')}
+            </div>
+          `
+          : '<div class="editor-note">暂无资源节点布点。</div>'}
       </section>
-      ${this.selectedEntity?.kind === 'resource'
+      ${this.selectedEntity?.kind === 'resource' || this.selectedEntity?.kind === 'resourceNodePlacement'
         ? this.renderSelectedEntitySection(selectedPoint)
-        : '<div class="editor-note">选中一个五行灵气点后可在下方编辑属性。</div>'}
+        : '<div class="editor-note">选中一个五行灵气点或草药布点后，可在下方编辑属性。</div>'}
       <div class="editor-note" style="margin-top: 8px;">当前画笔：${escapeHtml(currentBrushLabel)}</div>
     `;
   }
@@ -1319,7 +1367,7 @@ export class GmMapEditor {
               <div class="editor-section-note">先从上面的对象列表里选中一个。</div>
             </div>
           </div>
-          <div class="editor-note">当前没有选中的传送点、NPC、怪物刷新点、无属性灵气点、五行灵气点、安全区、地标或容器。</div>
+          <div class="editor-note">当前没有选中的传送点、NPC、怪物刷新点、无属性灵气点、五行灵气点、资源节点布点、安全区、地标或容器。</div>
         </section>
       `;
     }
@@ -1579,6 +1627,37 @@ export class GmMapEditor {
       `;
     }
 
+    if (this.selectedEntity.kind === 'resourceNodePlacement') {
+/** selectedPlacement：定义该变量以承载业务值。 */
+      const selectedPlacement = this.getSelectedResourceNodePlacement();
+      if (!selectedPlacement) return '';
+/** groupPath：定义该变量以承载业务值。 */
+      const groupPath = `resourceNodeGroups.${selectedPlacement.groupIndex}`;
+/** placementPath：定义该变量以承载业务值。 */
+      const placementPath = `${groupPath}.placements.${selectedPlacement.placementIndex}`;
+      return `
+        <section class="editor-section">
+          <div class="editor-section-head">
+            <div>
+              <div class="editor-section-title">资源节点布点属性</div>
+              <div class="editor-section-note">格子 ${selectedPoint ? `(${selectedPoint.x}, ${selectedPoint.y})` : '-'} · 该点位来自地图真源里的 resourceNodeGroups。</div>
+            </div>
+            <button class="small-btn danger" type="button" data-map-action="remove-selected">删除</button>
+          </div>
+          <div class="map-form-grid">
+            ${numberField('X', `${placementPath}.x`, selectedPlacement.placement.x)}
+            ${numberField('Y', `${placementPath}.y`, selectedPlacement.placement.y)}
+            ${readonlyField('资源节点 ID', selectedPlacement.group.resourceNodeId || '-')}
+            ${readonlyField('分组名称', selectedPlacement.group.name || '-')}
+            ${readonlyField('ID 前缀', selectedPlacement.group.idPrefix || '-')}
+            ${textField('布点 ID', `${placementPath}.id`, selectedPlacement.placement.id)}
+            ${textField('布点名称', `${placementPath}.name`, selectedPlacement.placement.name)}
+            ${textareaField('布点说明', `${placementPath}.desc`, selectedPlacement.placement.desc, 'wide')}
+          </div>
+        </section>
+      `;
+    }
+
 /** landmark：定义该变量以承载业务值。 */
     const landmark = this.draft.landmarks?.[this.selectedEntity.index];
     if (!landmark) return '';
@@ -1637,6 +1716,13 @@ export class GmMapEditor {
 /** resource：定义该变量以承载业务值。 */
       const resource = this.draft.resources?.[this.selectedEntity.index];
       return resource ? formatResourcePointLabel(resource) : '无';
+    }
+    if (this.selectedEntity.kind === 'resourceNodePlacement') {
+/** selectedPlacement：定义该变量以承载业务值。 */
+      const selectedPlacement = this.getSelectedResourceNodePlacement();
+      return selectedPlacement
+        ? `资源节点 ${selectedPlacement.group.name || selectedPlacement.group.resourceNodeId} (${selectedPlacement.placement.x}, ${selectedPlacement.placement.y})`
+        : '无';
     }
     if (this.selectedEntity.kind === 'safeZone') {
 /** zone：定义该变量以承载业务值。 */
@@ -2553,6 +2639,22 @@ export class GmMapEditor {
       return true;
     }
 
+    if (selection.kind === 'resourceNodePlacement') {
+/** selectedPlacement：定义该变量以承载业务值。 */
+      const selectedPlacement = this.getSelectedResourceNodePlacement();
+      if (!selectedPlacement) return false;
+      if (this.hasResourceNodePlacementAt(x, y, selectedPlacement.groupIndex, selectedPlacement.placementIndex)) {
+        if (!silent) this.setStatus('目标格已有同组资源节点布点', true);
+        return false;
+      }
+      if (recordUndo) this.captureUndoState();
+      selectedPlacement.placement.x = x;
+      selectedPlacement.placement.y = y;
+      this.selectedCell = { x, y };
+      this.markDirty(false);
+      return true;
+    }
+
     if (selection.kind === 'safeZone') {
 /** zone：定义该变量以承载业务值。 */
       const zone = this.draft.safeZones?.[selection.index];
@@ -2649,6 +2751,18 @@ export class GmMapEditor {
       removeArrayIndex(this.draft, 'auras', this.selectedEntity.index);
     } else if (this.selectedEntity.kind === 'resource') {
       removeArrayIndex(this.draft, 'resources', this.selectedEntity.index);
+    } else if (this.selectedEntity.kind === 'resourceNodePlacement') {
+/** selectedPlacement：定义该变量以承载业务值。 */
+      const selectedPlacement = this.getSelectedResourceNodePlacement();
+      if (!selectedPlacement) {
+        return;
+      }
+/** placements：定义该变量以承载业务值。 */
+      const placements = this.draft.resourceNodeGroups?.[selectedPlacement.groupIndex]?.placements;
+      placements?.splice(selectedPlacement.placementIndex, 1);
+      if (placements && placements.length <= 0) {
+        this.draft.resourceNodeGroups?.splice(selectedPlacement.groupIndex, 1);
+      }
     } else if (this.selectedEntity.kind === 'safeZone') {
       removeArrayIndex(this.draft, 'safeZones', this.selectedEntity.index);
     } else if (this.selectedEntity.kind === 'container') {
@@ -3045,7 +3159,7 @@ export class GmMapEditor {
       char: string,
       color: string,
       name: string,
-      kind: 'npc' | 'monster' | 'spawn' | 'container' | 'safeZone',
+      kind: 'npc' | 'monster' | 'spawn' | 'container' | 'safeZone' | 'resourceNode',
       labelColor?: string,
     ): void => {
 /** sx：定义该变量以承载业务值。 */
@@ -3078,7 +3192,9 @@ export class GmMapEditor {
             ? '#d7fff2'
             : kind === 'container'
               ? '#f5ddb0'
-            : (labelColor ?? '#cce7ff');
+              : kind === 'resourceNode'
+                ? '#d8ffd4'
+              : (labelColor ?? '#cce7ff');
       ctx.textBaseline = 'alphabetic';
       ctx.strokeText(name, sx + cellSize / 2, sy - Math.max(6, cellSize * 0.18));
       ctx.fillText(name, sx + cellSize / 2, sy - Math.max(6, cellSize * 0.18));
@@ -3145,6 +3261,15 @@ export class GmMapEditor {
       formatResourcePointLabel(point),
       'npc',
       getResourcePointLabelColor(point),
+    ));
+    this.getFlattenedResourceNodePlacements().forEach(({ group, placement }) => drawEntity(
+      placement.x,
+      placement.y,
+      '药',
+      '#8fd87d',
+      placement.name || group.name || group.resourceNodeId,
+      'resourceNode',
+      '#dbffd2',
     ));
     (this.draft.safeZones ?? []).forEach((zone) => drawEntity(zone.x, zone.y, '安', '#7ce5c6', `安全区:${zone.radius}`, 'safeZone'));
     (this.draft.landmarks ?? [])
@@ -3453,6 +3578,9 @@ export class GmMapEditor {
     const hitEntity = this.findEntityAt(point.x, point.y);
     this.selectedComposePieceId = hitComposePiece?.id ?? null;
     this.selectedEntity = hitComposePiece ? null : hitEntity;
+    if (currentTool === 'select' && !hitComposePiece && hitEntity) {
+      this.currentInspectorTab = hitEntity.kind === 'resourceNodePlacement' ? 'resource' : hitEntity.kind;
+    }
     if (currentTool === 'paint') {
       if (event.altKey && this.paintLayer === 'tile') {
         this.sampleTileAt(point.x, point.y);
@@ -3933,6 +4061,15 @@ export class GmMapEditor {
     ));
   }
 
+  private hasResourceNodePlacementAt(x: number, y: number, groupIndex: number, ignoredPlacementIndex?: number): boolean {
+    if (!this.draft) return false;
+    return (this.draft.resourceNodeGroups?.[groupIndex]?.placements ?? []).some((placement, placementIndex) => (
+      placementIndex !== ignoredPlacementIndex
+      && placement.x === x
+      && placement.y === y
+    ));
+  }
+
 /** hasLandmarkAt：执行对应的业务逻辑。 */
   private hasLandmarkAt(x: number, y: number, ignoredIndex?: number): boolean {
     if (!this.draft) return false;
@@ -3982,6 +4119,9 @@ export class GmMapEditor {
 /** resourceIndex：定义该变量以承载业务值。 */
     const resourceIndex = (this.draft.resources ?? []).findIndex((point) => point.x === x && point.y === y);
     if (resourceIndex >= 0) return { kind: 'resource', index: resourceIndex };
+/** resourceNodePlacementIndex：定义该变量以承载业务值。 */
+    const resourceNodePlacementIndex = this.getFlattenedResourceNodePlacements().findIndex(({ placement }) => placement.x === x && placement.y === y);
+    if (resourceNodePlacementIndex >= 0) return { kind: 'resourceNodePlacement', index: resourceNodePlacementIndex };
 /** safeZoneIndex：定义该变量以承载业务值。 */
     const safeZoneIndex = (this.draft.safeZones ?? []).findIndex((zone) => zone.x === x && zone.y === y);
     if (safeZoneIndex >= 0) return { kind: 'safeZone', index: safeZoneIndex };
@@ -4020,6 +4160,11 @@ export class GmMapEditor {
 /** resource：定义该变量以承载业务值。 */
       const resource = this.draft.resources?.[this.selectedEntity.index];
       return resource ? { x: resource.x, y: resource.y } : null;
+    }
+    if (this.selectedEntity.kind === 'resourceNodePlacement') {
+/** selectedPlacement：定义该变量以承载业务值。 */
+      const selectedPlacement = this.getSelectedResourceNodePlacement();
+      return selectedPlacement ? { x: selectedPlacement.placement.x, y: selectedPlacement.placement.y } : null;
     }
     if (this.selectedEntity.kind === 'safeZone') {
 /** zone：定义该变量以承载业务值。 */
@@ -4125,4 +4270,3 @@ export class GmMapEditor {
     else this.jsonEl.value = formatJson(this.draft);
   }
 }
-
