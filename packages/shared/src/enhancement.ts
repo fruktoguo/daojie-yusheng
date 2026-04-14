@@ -9,7 +9,6 @@ import type { PartialNumericStats } from './numeric';
 import { ELEMENT_KEYS, NUMERIC_SCALAR_STAT_KEYS } from './numeric';
 import { ATTR_KEYS } from './constants/gameplay/attributes';
 import { computeAdjustedCraftTicks } from './craft-duration';
-import { applyAsymptoticSuccessModifier } from './craft-success';
 
 /** DEFAULT_ENHANCE_LEVEL：定义该变量以承载业务值。 */
 export const DEFAULT_ENHANCE_LEVEL = 0;
@@ -131,6 +130,38 @@ export function computeEnhancementJobTicks(
   return computeAdjustedCraftTicks(computeEnhancementJobBaseTicks(itemLevel), speedRate);
 }
 
+/** applyEnhancementSuccessModifier：按 50% 枢轴应用强化成功率修正。 */
+export function applyEnhancementSuccessModifier(
+  baseRate: number | undefined,
+  modifier: number | undefined,
+): number {
+/** normalizedBaseRate：定义该变量以承载业务值。 */
+  const normalizedBaseRate = Math.max(0, Math.min(1, Number.isFinite(baseRate) ? Number(baseRate) : 0));
+  if (normalizedBaseRate <= 0 || normalizedBaseRate >= 1) {
+    return normalizedBaseRate;
+  }
+/** normalizedModifier：定义该变量以承载业务值。 */
+  const normalizedModifier = Number.isFinite(modifier) ? Number(modifier) : 0;
+  if (normalizedModifier === 0) {
+    return normalizedBaseRate;
+  }
+  if (normalizedModifier < 0) {
+    return normalizedBaseRate / (1 + Math.abs(normalizedModifier));
+  }
+
+/** factor：定义该变量以承载业务值。 */
+  const factor = 1 + normalizedModifier;
+  if (normalizedBaseRate <= 0.5) {
+/** scaledSuccess：定义该变量以承载业务值。 */
+    const scaledSuccess = normalizedBaseRate * factor;
+    if (scaledSuccess <= 0.5) {
+      return scaledSuccess;
+    }
+    return 1 - (0.25 / scaledSuccess);
+  }
+  return 1 - ((1 - normalizedBaseRate) / factor);
+}
+
 /** computeEnhancementAdjustedSuccessRate：执行对应的业务逻辑。 */
 export function computeEnhancementAdjustedSuccessRate(
   targetEnhanceLevel: number,
@@ -150,7 +181,7 @@ export function computeEnhancementAdjustedSuccessRate(
   const adjustedBaseRate = baseRate * ((1 - ENHANCEMENT_LOWER_LEVEL_SUCCESS_PENALTY) ** lowerLevelGap);
 /** totalSuccessModifier：定义该变量以承载业务值。 */
   const totalSuccessModifier = toolSuccessRateModifier + (upperLevelGap * ENHANCEMENT_EXTRA_SUCCESS_RATE_PER_LEVEL);
-  return applyAsymptoticSuccessModifier(adjustedBaseRate, totalSuccessModifier);
+  return applyEnhancementSuccessModifier(adjustedBaseRate, totalSuccessModifier);
 }
 
 /** normalizeEnhancementRequirement：执行对应的业务逻辑。 */

@@ -939,7 +939,7 @@ export class EnhancementModal {
             </div>
             <div class="enhancement-action-row enhancement-action-row--stacked">
               <button class="small-btn" type="button" data-enhancement-start="1">开始强化</button>
-              <span class="enhancement-action-note">每一阶都会单独判定成功率、耗时和消耗。当前面板显示的是首阶数据，只要后续资源足够，就会持续冲击直到达到目标等级。</span>
+              <span class="enhancement-action-note">每一阶都会单独判定成功率、耗时和消耗。当前面板显示的是首阶数据，只要后续资源足够，就会持续冲击直到达到目标等级。强化成功修正在 50% 以下会优先放大成功率，超过 50% 后改为压低失败率；减益则直接按成功率折减。</span>
             </div>
           </div>
           <div class="enhancement-workbench-main">
@@ -1058,7 +1058,7 @@ export class EnhancementModal {
           </div>
           <div class="enhancement-action-row enhancement-action-row--stacked">
             <button class="small-btn" type="button" data-enhancement-start="1">开始强化</button>
-            <span class="enhancement-action-note">每一阶都会单独判定成功率、耗时和消耗。当前面板显示的是首阶数据，只要后续资源足够，就会持续冲击直到达到目标等级。</span>
+            <span class="enhancement-action-note">每一阶都会单独判定成功率、耗时和消耗。当前面板显示的是首阶数据，只要后续资源足够，就会持续冲击直到达到目标等级。强化成功修正在 50% 以下会优先放大成功率，超过 50% 后改为压低失败率；减益则直接按成功率折减。</span>
           </div>
         </div>
         <div class="enhancement-workbench-main">

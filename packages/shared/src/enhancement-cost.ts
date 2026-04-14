@@ -48,8 +48,8 @@ function clampUnitRate(value: number | undefined): number {
   return Math.max(0, Math.min(1, Number.isFinite(value) ? Number(value) : 0));
 }
 
-/** applyAsymptoticSuccessModifier：在赔率空间应用成功率修正。 */
-function applyAsymptoticSuccessModifier(rate: number | undefined, modifier: number | undefined): number {
+/** applyEnhancementSuccessModifier：按 50% 枢轴应用强化成功率修正。 */
+function applyEnhancementSuccessModifier(rate: number | undefined, modifier: number | undefined): number {
   const normalizedRate = clampUnitRate(rate);
   if (normalizedRate <= 0 || normalizedRate >= 1) {
     return normalizedRate;
@@ -58,12 +58,18 @@ function applyAsymptoticSuccessModifier(rate: number | undefined, modifier: numb
   if (normalizedModifier === 0) {
     return normalizedRate;
   }
-  if (normalizedModifier > 0) {
-    const inverseGrowth = Math.exp(-normalizedModifier);
-    return normalizedRate / (normalizedRate + ((1 - normalizedRate) * inverseGrowth));
+  if (normalizedModifier < 0) {
+    return normalizedRate / (1 + Math.abs(normalizedModifier));
   }
-  const growth = Math.exp(normalizedModifier);
-  return (normalizedRate * growth) / ((1 - normalizedRate) + (normalizedRate * growth));
+  const factor = 1 + normalizedModifier;
+  if (normalizedRate <= 0.5) {
+    const scaledSuccess = normalizedRate * factor;
+    if (scaledSuccess <= 0.5) {
+      return scaledSuccess;
+    }
+    return 1 - (0.25 / scaledSuccess);
+  }
+  return 1 - ((1 - normalizedRate) / factor);
 }
 
 /** getEnhancementTargetSuccessRate：读取目标强化等级的基础成功率。 */
@@ -111,7 +117,7 @@ export function computeEnhancementExpectedCostStrategy(input: {
   const successRates = Array.from({ length: targetLevel + 1 }, (_, index) => (
     index <= 0
       ? 0
-      : applyAsymptoticSuccessModifier(getEnhancementTargetSuccessRate(index), input.extraSuccessRate ?? 0)
+      : applyEnhancementSuccessModifier(getEnhancementTargetSuccessRate(index), input.extraSuccessRate ?? 0)
   ));
   const matrix = buildCoefficientMatrix(targetLevel, input.protectionStartLevel, successRates);
   const expectedAttempts = solveLinearSystem(matrix, buildRewardVector(targetLevel, input.protectionStartLevel, successRates, () => 1))[0] ?? 0;

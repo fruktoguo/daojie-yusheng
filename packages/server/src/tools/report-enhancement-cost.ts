@@ -15,7 +15,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import {
   MAX_ENHANCE_LEVEL,
-  applyAsymptoticSuccessModifier,
+  applyEnhancementSuccessModifier,
   getEnhancementSpiritStoneCost,
   getEnhancementTargetSuccessRate,
 } from '@mud/shared';
@@ -248,7 +248,7 @@ function parseRateInput(raw: string): number {
 function buildSuccessRateMap(targetLevel: number, extraSuccessRate: number): number[] {
   const rates = Array(targetLevel + 1).fill(0);
   for (let level = 1; level <= targetLevel; level += 1) {
-    rates[level] = applyAsymptoticSuccessModifier(getEnhancementTargetSuccessRate(level), extraSuccessRate);
+    rates[level] = applyEnhancementSuccessModifier(getEnhancementTargetSuccessRate(level), extraSuccessRate);
   }
   return rates;
 }
