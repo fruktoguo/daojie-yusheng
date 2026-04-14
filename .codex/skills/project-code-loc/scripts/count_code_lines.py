@@ -15,18 +15,21 @@ CODE_EXTENSIONS = {
     ".c",
     ".cc",
     ".cjs",
+    ".css",
     ".cpp",
     ".cs",
     ".cts",
     ".cxx",
     ".go",
     ".h",
+    ".html",
     ".hpp",
     ".java",
     ".js",
     ".jsx",
     ".kt",
     ".kts",
+    ".less",
     ".lua",
     ".mjs",
     ".mts",
@@ -35,7 +38,9 @@ CODE_EXTENSIONS = {
     ".py",
     ".rb",
     ".rs",
+    ".sass",
     ".scala",
+    ".scss",
     ".sh",
     ".sql",
     ".swift",
@@ -82,6 +87,8 @@ RC_FILE_GLOBS = {
     ".stylelintrc",
     ".stylelintrc.*",
 }
+
+AREA_NAMES = ("frontend", "backend", "shared", "other")
 
 
 @dataclass
@@ -211,6 +218,28 @@ def format_row(extension: str, counters: Counters) -> str:
     )
 
 
+def format_area_row(area: str, counters: Counters) -> str:
+    return (
+        f"{area:<10}"
+        f"{counters.files:>6} files"
+        f"{counters.lines:>10} lines"
+        f"{counters.non_empty_lines:>10} non-empty"
+    )
+
+
+def detect_area(relative_path: PurePosixPath) -> str:
+    parts = relative_path.parts
+    if len(parts) >= 2 and parts[0] == "packages":
+        package_name = parts[1]
+        if package_name in {"client", "client-next", "config-editor"}:
+            return "frontend"
+        if package_name in {"server", "server-next"}:
+            return "backend"
+        if package_name in {"shared", "shared-next"}:
+            return "shared"
+    return "other"
+
+
 def main() -> int:
     args = parse_args()
     root = Path(args.root).resolve()
@@ -230,6 +259,10 @@ def main() -> int:
 
     total = Counters()
     by_extension: dict[str, Counters] = defaultdict(Counters)
+    by_area: dict[str, Counters] = {area: Counters() for area in AREA_NAMES}
+    by_area_extension: dict[str, dict[str, Counters]] = {
+        area: defaultdict(Counters) for area in AREA_NAMES
+    }
     excluded_config_files = 0
 
     for path in files:
@@ -255,8 +288,11 @@ def main() -> int:
             continue
 
         extension = Path(relative_path.name).suffix.lower()
+        area = detect_area(relative_path)
         total.add(line_count, non_empty_count)
         by_extension[extension].add(line_count, non_empty_count)
+        by_area[area].add(line_count, non_empty_count)
+        by_area_extension[area][extension].add(line_count, non_empty_count)
 
     print(f"统计目录: {root}")
     print(f"扫描模式: {mode}")
@@ -268,12 +304,30 @@ def main() -> int:
     if not by_extension:
         return 0
 
+    print("\n按区域汇总:")
+    for area in AREA_NAMES:
+        counters = by_area[area]
+        if counters.files == 0:
+            continue
+        print(format_area_row(area, counters))
+
     print("\n按扩展名汇总:")
     for extension, counters in sorted(
         by_extension.items(),
         key=lambda item: (-item[1].lines, item[0]),
     ):
         print(format_row(extension, counters))
+
+    for area in AREA_NAMES:
+        area_extensions = by_area_extension[area]
+        if not area_extensions:
+            continue
+        print(f"\n{area} 按扩展名汇总:")
+        for extension, counters in sorted(
+            area_extensions.items(),
+            key=lambda item: (-item[1].lines, item[0]),
+        ):
+            print(format_row(extension, counters))
 
     return 0
 
