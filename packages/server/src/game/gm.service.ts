@@ -93,6 +93,7 @@ import { DirtyFlag, PlayerService } from './player.service';
 import { TechniqueService } from './technique.service';
 import { TimeService } from './time.service';
 import { WorldService } from './world.service';
+import { LootService } from './loot.service';
 import { syncDynamicBuffPresentation } from './buff-presentation';
 import {
   CULTIVATION_ACTION_ID,
@@ -193,6 +194,14 @@ type GmCommand =
     }
   | {
 /** type：定义该变量以承载业务值。 */
+      type: 'addHerbStockToMap';
+/** mapId：定义该变量以承载业务值。 */
+      mapId: string;
+/** amount：定义该变量以承载业务值。 */
+      amount: number;
+    }
+  | {
+/** type：定义该变量以承载业务值。 */
       type: 'removeBots';
       playerIds?: string[];
       all?: boolean;
@@ -258,6 +267,7 @@ export class GmService {
     private readonly equipmentService: EquipmentService,
     private readonly techniqueService: TechniqueService,
     private readonly timeService: TimeService,
+    private readonly lootService: LootService,
   ) {}
 
   /** 获取分页后的 GM 全局状态：玩家列表当前页、聚合统计、地图列表、性能快照 */
@@ -1118,6 +1128,57 @@ export class GmService {
     };
   }
 
+  /** 给全部已加载地图的草药库存统一补量 */
+  async addHerbStockToAllMaps(amount: number): Promise<GmShortcutRunRes> {
+/** normalizedAmount：定义该变量以承载业务值。 */
+    const normalizedAmount = Math.max(0, Math.floor(Number(amount) || 0));
+    if (normalizedAmount <= 0) {
+      return {
+        ok: true,
+        totalPlayers: 0,
+        queuedRuntimePlayers: 0,
+        updatedOfflinePlayers: 0,
+        totalMaps: 0,
+        queuedRuntimeMaps: 0,
+        totalHerbContainers: 0,
+        totalHerbStockAdded: 0,
+      };
+    }
+
+/** mapIds：定义该变量以承载业务值。 */
+    const mapIds = this.mapService.getLoadedMapIds();
+/** queuedRuntimeMaps：定义该变量以承载业务值。 */
+    let queuedRuntimeMaps = 0;
+/** totalHerbContainers：定义该变量以承载业务值。 */
+    let totalHerbContainers = 0;
+
+    for (const mapId of mapIds) {
+/** herbContainers：定义该变量以承载业务值。 */
+      const herbContainers = this.mapService.getContainers(mapId).filter((container) => container.variant === 'herb');
+      if (herbContainers.length <= 0) {
+        continue;
+      }
+      this.enqueue(mapId, {
+        type: 'addHerbStockToMap',
+        mapId,
+        amount: normalizedAmount,
+      });
+      queuedRuntimeMaps += 1;
+      totalHerbContainers += herbContainers.length;
+    }
+
+    return {
+      ok: true,
+      totalPlayers: 0,
+      queuedRuntimePlayers: 0,
+      updatedOfflinePlayers: 0,
+      totalMaps: queuedRuntimeMaps,
+      queuedRuntimeMaps,
+      totalHerbContainers,
+      totalHerbStockAdded: totalHerbContainers * normalizedAmount,
+    };
+  }
+
 /** enqueueResetHeavenGate：执行对应的业务逻辑。 */
   async enqueueResetHeavenGate(playerId: string): Promise<string | null> {
 /** runtime：定义该变量以承载业务值。 */
@@ -1231,6 +1292,8 @@ export class GmService {
         return this.applyQueuedGrantFoundationCompensation(command.playerId, command.amount);
       case 'cleanupInvalidItems':
         return this.applyQueuedCleanupInvalidItems(command.playerId);
+      case 'addHerbStockToMap':
+        return this.applyQueuedAddHerbStockToMap(command.mapId, command.amount);
       case 'removeBots':
         return this.applyQueuedRemoveBots(command.playerIds, command.all);
     }
@@ -1374,6 +1437,12 @@ export class GmService {
     void this.playerService.savePlayer(player.id).catch((error: Error) => {
       this.logger.error(`GM 清理无效物品落盘失败: ${player.id} ${error.message}`);
     });
+    return null;
+  }
+
+/** applyQueuedAddHerbStockToMap：执行对应的业务逻辑。 */
+  private applyQueuedAddHerbStockToMap(mapId: string, amount: number): string | null {
+    this.lootService.addHerbStockToMap(mapId, amount);
     return null;
   }
 
@@ -2653,4 +2722,3 @@ export class GmService {
     };
   }
 }
-

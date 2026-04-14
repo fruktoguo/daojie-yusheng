@@ -2194,6 +2194,11 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
     return this.maps.get(mapId)?.meta;
   }
 
+  /** 获取当前已加载的全部地图 id */
+  getLoadedMapIds(): string[] {
+    return [...this.maps.keys()].sort((left, right) => left.localeCompare(right, 'zh-CN'));
+  }
+
 /** getMinimapSnapshot：执行对应的业务逻辑。 */
   getMinimapSnapshot(mapId: string): MapMinimapSnapshot | undefined {
 /** snapshot：定义该变量以承载业务值。 */
@@ -3241,4 +3246,3 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
   }
 
 }
-

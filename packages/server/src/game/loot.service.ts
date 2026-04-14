@@ -859,6 +859,60 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
     };
   }
 
+  addHerbStockToMap(
+    mapId: string,
+    amount: number,
+  ): {
+    updatedContainers: number;
+    stockAdded: number;
+  } {
+/** normalizedAmount：定义该变量以承载业务值。 */
+    const normalizedAmount = Math.max(0, Math.floor(Number(amount) || 0));
+    if (normalizedAmount <= 0) {
+      return { updatedContainers: 0, stockAdded: 0 };
+    }
+
+/** currentTick：定义该变量以承载业务值。 */
+    const currentTick = this.getCurrentTick(mapId);
+/** updatedContainers：定义该变量以承载业务值。 */
+    let updatedContainers = 0;
+/** stockAdded：定义该变量以承载业务值。 */
+    let stockAdded = 0;
+
+    for (const container of this.mapService.getContainers(mapId)) {
+      if (container.variant !== 'herb') {
+        continue;
+      }
+/** state：定义该变量以承载业务值。 */
+      const state = this.ensureContainerState(mapId, container);
+/** herbItem：定义该变量以承载业务值。 */
+      const herbItem = this.resolveHerbRestockItem(state, normalizedAmount);
+      if (!herbItem) {
+        continue;
+      }
+
+      this.clearContainerActiveSearch(state);
+      state.generatedAtTick = currentTick;
+      state.refreshAtTick = undefined;
+      state.respawnTotalTicks = undefined;
+      state.destroyed = false;
+      this.mergeContainerEntry(state.entries, {
+        item: herbItem,
+        createdTick: currentTick,
+        visible: true,
+      });
+      this.syncContainerVariantState(container, state, true);
+      updatedContainers += 1;
+      stockAdded += normalizedAmount;
+    }
+
+    if (updatedContainers > 0) {
+      this.markRuntimeStateDirty();
+    }
+
+    return { updatedContainers, stockAdded };
+  }
+
 /** takeFromGround：执行对应的业务逻辑。 */
   private takeFromGround(player: PlayerState, session: LootSession, sourceId: string, itemKey: string): LootActionResult {
 /** expectedSourceId：定义该变量以承载业务值。 */
@@ -1710,6 +1764,38 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
       expiresAtTick: nextEntry.expiresAtTick,
       visible: nextEntry.visible,
     });
+  }
+
+  private resolveHerbRestockItem(state: ContainerState, count: number): ItemStack | null {
+/** existingItem：定义该变量以承载业务值。 */
+    const existingItem = state.entries.find((entry) => entry.item.count > 0)?.item;
+    if (existingItem) {
+      return {
+        ...existingItem,
+        count,
+      };
+    }
+
+/** itemId：定义该变量以承载业务值。 */
+    const itemId = state.herb?.itemId;
+    if (!itemId) {
+      return null;
+    }
+/** created：定义该变量以承载业务值。 */
+    const created = this.contentService.createItem(itemId, count);
+    if (!created) {
+      return null;
+    }
+    if (state.herb?.grade) {
+      created.grade = state.herb.grade;
+    }
+    if (typeof state.herb?.level === 'number') {
+      created.level = state.herb.level;
+    }
+    if (state.herb?.name) {
+      created.name = state.herb.name;
+    }
+    return created;
   }
 
   private cancelActiveHarvestByPlayer(playerId: string): void {

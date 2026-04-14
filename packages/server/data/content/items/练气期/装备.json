@@ -721,8 +721,8 @@
     "desc": "刀脊里压着多股细气，挥起来像把几路劲同时并成一股。",
     "equipSlot": "weapon",
     "equipValueStats": {
-      "physAtk": 13,
-      "spellAtk": 13,
+      "physAtk": 24,
+      "spellAtk": 24,
       "hit": 5,
       "maxQiOutputPerTick": 5
     }

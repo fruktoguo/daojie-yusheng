@@ -5439,6 +5439,32 @@ async function compensateAllPlayersFoundation(): Promise<void> {
   }
 }
 
+/** addHerbStockToAllMaps：执行对应的业务逻辑。 */
+async function addHerbStockToAllMaps(): Promise<void> {
+/** button：定义该变量以承载业务值。 */
+  const button = document.getElementById('shortcut-add-herb-stock-1000') as HTMLButtonElement | null;
+  if (button) {
+    button.disabled = true;
+  }
+  try {
+/** result：定义该变量以承载业务值。 */
+    const result = await request<GmShortcutRunRes>('/gm/shortcuts/world/add-herb-stock-1000', {
+      method: 'POST',
+    });
+    editorDirty = false;
+    await delayRefresh(
+      `已提交全图草药库存补充，共 ${Math.floor(result.totalMaps ?? result.queuedRuntimeMaps ?? 0)} 张地图、${Math.floor(result.totalHerbContainers ?? 0)} 处草药点，累计增加 ${Math.floor(result.totalHerbStockAdded ?? 0)} 份库存`,
+    );
+  } catch (error) {
+/** setStatus：处理当前场景中的对应操作。 */
+    setStatus(error instanceof Error ? error.message : '执行草药库存补充失败', true);
+  } finally {
+    if (button) {
+      button.disabled = false;
+    }
+  }
+}
+
 /** resetNetworkStats：执行对应的业务逻辑。 */
 async function resetNetworkStats(): Promise<void> {
   resetNetworkStatsBtn.disabled = true;
@@ -6081,6 +6107,9 @@ document.getElementById('shortcut-compensate-combat-exp-2026-04-09')?.addEventLi
 document.getElementById('shortcut-compensate-foundation-2026-04-09')?.addEventListener('click', () => {
   compensateAllPlayersFoundation().catch(() => {});
 });
+document.getElementById('shortcut-add-herb-stock-1000')?.addEventListener('click', () => {
+  addHerbStockToAllMaps().catch(() => {});
+});
 shortcutWorkspaceEl.addEventListener('click', (event) => {
 /** trigger：定义该变量以承载业务值。 */
   const trigger = (event.target as HTMLElement).closest<HTMLElement>('[data-action]');
@@ -6375,6 +6404,4 @@ if (token) {
 } else {
   showLogin();
 }
-
-
 

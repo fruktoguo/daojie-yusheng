@@ -2494,6 +2494,10 @@ export interface GmShortcutRunRes {
   totalInvalidEquipmentRemoved?: number;
   totalCombatExpGranted?: number;
   totalFoundationGranted?: number;
+  totalMaps?: number;
+  queuedRuntimeMaps?: number;
+  totalHerbContainers?: number;
+  totalHerbStockAdded?: number;
   targetMapId?: string;
   targetX?: number;
   targetY?: number;

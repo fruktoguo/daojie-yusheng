@@ -465,6 +465,12 @@ export class GmController {
     return this.gmService.compensateAllPlayersFoundation();
   }
 
+  @Post('shortcuts/world/add-herb-stock-1000')
+/** addHerbStockToAllMaps：执行对应的业务逻辑。 */
+  async addHerbStockToAllMaps(): Promise<GmShortcutRunRes> {
+    return this.gmService.addHerbStockToAllMaps(1000);
+  }
+
   /** 生成 Bot */
   @Post('bots/spawn')
   async spawnBots(@Body() body: GmSpawnBotsReq): Promise<{ ok: true }> {
@@ -487,4 +493,3 @@ export class GmController {
     return { ok: true };
   }
 }
-
