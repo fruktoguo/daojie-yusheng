@@ -92,7 +92,6 @@
 - `ui-performance-author`：客户端 UI、面板、HUD、弹层的增量更新与交互连续性改动，避免整块全量刷新
 - `network-protocol-author`：网络协议、发包分层、delta/patch、最小包体与高频不发静态信息
 - `quest-content-author`：章节任务链、目标引用与奖励配置编写
-- `server-next-verify`：`server-next` 的 smoke、with-db、shadow、replace-ready 与协议审计
 - `git-release-ops`：提交拆分、Conventional Commit、推送与面向玩家的更新文案
 - `tick-runtime-author`：服务端 tick 运行时、AOI、占位、移动、战斗、交互等服务端权威玩法链路
 - `persistence-state-author`：需要“下次还在”的状态设计、真源归属、缓存分层与持久化检查
