@@ -693,6 +693,9 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
         if (drop.type === 'quest_item') {
             return 1;
         }
+        if (drop.type === 'material') {
+            return this.getMaterialBaseDropChance(context.tier);
+        }
 /** categoryBase：定义该变量以承载业务值。 */
         const categoryBase = this.getMonsterDropCategoryBase(drop);
 /** itemGrade：定义该变量以承载业务值。 */
@@ -706,6 +709,17 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
 /** chance：定义该变量以承载业务值。 */
         const chance = 0.01 * categoryBase * (3 ** gradeDelta) * this.getMonsterTierDropFactor(context.tier);
         return Math.max(Number.MIN_VALUE, Math.min(1, chance));
+    }
+/** getMaterialBaseDropChance：执行对应的业务逻辑。 */
+    getMaterialBaseDropChance(tier) {
+        switch (tier) {
+            case 'variant':
+                return 0.2;
+            case 'demon_king':
+                return 0.5;
+            default:
+                return 0.05;
+        }
     }
 /** getMonsterDropCategoryBase：执行对应的业务逻辑。 */
     getMonsterDropCategoryBase(drop) {

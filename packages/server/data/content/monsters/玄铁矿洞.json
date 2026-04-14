@@ -291,19 +291,19 @@
         "itemId": "black_iron_chunk",
         "name": "玄铁矿块",
         "type": "material",
-        "count": 2
+        "count": 1
       },
       {
         "itemId": "crystal_dust",
         "name": "晶尘",
         "type": "material",
-        "count": 2
+        "count": 1
       },
       {
         "itemId": "spirit_iron_fragment",
         "name": "灵铁碎片",
         "type": "material",
-        "count": 2
+        "count": 1
       },
       {
         "itemId": "colossus_heart",

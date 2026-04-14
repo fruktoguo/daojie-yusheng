@@ -232,7 +232,7 @@
         "itemId": "coldspirit_dew",
         "name": "寒魄露",
         "type": "material",
-        "count": 2
+        "count": 1
       },
       {
         "itemId": "moonwell_frost_sand",
@@ -336,7 +336,7 @@
         "itemId": "coldspirit_dew",
         "name": "寒魄露",
         "type": "material",
-        "count": 2
+        "count": 1
       },
       {
         "itemId": "cleantide_essence",
@@ -406,7 +406,7 @@
         "itemId": "coldspirit_dew",
         "name": "寒魄露",
         "type": "material",
-        "count": 2
+        "count": 1
       },
       {
         "itemId": "cleantide_essence",
@@ -503,7 +503,7 @@
         "itemId": "coldspirit_dew",
         "name": "寒魄露",
         "type": "material",
-        "count": 3
+        "count": 1
       },
       {
         "itemId": "cleantide_essence",
@@ -603,13 +603,13 @@
         "itemId": "cleantide_essence",
         "name": "净潮水精",
         "type": "material",
-        "count": 2
+        "count": 1
       },
       {
         "itemId": "coldspirit_dew",
         "name": "寒魄露",
         "type": "material",
-        "count": 4
+        "count": 1
       },
       {
         "itemId": "equip.hanxi_flow_ruler",

@@ -145,7 +145,7 @@
         "itemId": "demon_wolf_bone",
         "name": "妖狼骨",
         "type": "material",
-        "count": 2
+        "count": 1
       },
       {
         "itemId": "valley_core",
@@ -352,13 +352,13 @@
         "itemId": "demon_wolf_bone",
         "name": "妖狼骨",
         "type": "material",
-        "count": 2
+        "count": 1
       },
       {
         "itemId": "blood_feather",
         "name": "血羽",
         "type": "material",
-        "count": 2
+        "count": 1
       },
       {
         "itemId": "book_stillheart",

@@ -226,7 +226,7 @@
         "itemId": "verdant_vine",
         "name": "青髓藤",
         "type": "material",
-        "count": 2
+        "count": 1
       },
       {
         "itemId": "nurturing_leaf",
@@ -320,7 +320,7 @@
         "itemId": "verdant_vine",
         "name": "青髓藤",
         "type": "material",
-        "count": 2
+        "count": 1
       },
       {
         "itemId": "spiritwood_heart",
@@ -417,7 +417,7 @@
         "itemId": "verdant_vine",
         "name": "青髓藤",
         "type": "material",
-        "count": 3
+        "count": 1
       },
       {
         "itemId": "spiritwood_heart",
@@ -518,13 +518,13 @@
         "itemId": "spiritwood_heart",
         "name": "生灵木心",
         "type": "material",
-        "count": 2
+        "count": 1
       },
       {
         "itemId": "verdant_vine",
         "name": "青髓藤",
         "type": "material",
-        "count": 4
+        "count": 1
       },
       {
         "itemId": "equip.vineguide_staff",

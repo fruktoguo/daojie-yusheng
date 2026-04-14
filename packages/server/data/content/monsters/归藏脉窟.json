@@ -208,7 +208,7 @@
         "itemId": "fivephase_dust",
         "name": "五炁尘",
         "type": "material",
-        "count": 2
+        "count": 1
       },
       {
         "itemId": "guizang_vein_core",
@@ -287,7 +287,7 @@
         "itemId": "fivephase_dust",
         "name": "五炁尘",
         "type": "material",
-        "count": 2
+        "count": 1
       },
       {
         "itemId": "guizang_vein_core",
@@ -364,7 +364,7 @@
         "itemId": "fivephase_dust",
         "name": "五炁尘",
         "type": "material",
-        "count": 2
+        "count": 1
       },
       {
         "itemId": "guizang_vein_core",
@@ -450,7 +450,7 @@
         "itemId": "fivephase_dust",
         "name": "五炁尘",
         "type": "material",
-        "count": 3
+        "count": 1
       },
       {
         "itemId": "guizang_vein_core",
@@ -530,7 +530,7 @@
         "itemId": "guizang_vein_core",
         "name": "归藏脉核",
         "type": "material",
-        "count": 4
+        "count": 1
       },
       {
         "itemId": "equip.guizang_conflux_blade",

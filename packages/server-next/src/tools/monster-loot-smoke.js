@@ -25,7 +25,7 @@ const MONSTER_ID = process.env.SERVER_NEXT_SMOKE_MONSTER_ID ?? 'm_town_rat_south
 /**
  * 记录rolls。
  */
-const ROLLS = Number(process.env.SERVER_NEXT_SMOKE_MONSTER_ROLLS ?? 20);
+const ROLLS = Number(process.env.SERVER_NEXT_SMOKE_MONSTER_ROLLS ?? 500);
 /**
  * 记录目标物品ID。
  */

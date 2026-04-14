@@ -227,7 +227,7 @@
         "itemId": "earthbearing_stone",
         "name": "承脉石",
         "type": "material",
-        "count": 2
+        "count": 1
       },
       {
         "itemId": "thickrock_core",
@@ -344,7 +344,7 @@
         "itemId": "earthbearing_stone",
         "name": "承脉石",
         "type": "material",
-        "count": 2
+        "count": 1
       },
       {
         "itemId": "stonegall_core",
@@ -419,7 +419,7 @@
         "itemId": "earthbearing_stone",
         "name": "承脉石",
         "type": "material",
-        "count": 2
+        "count": 1
       },
       {
         "itemId": "stonegall_core",
@@ -508,7 +508,7 @@
         "itemId": "earthbearing_stone",
         "name": "承脉石",
         "type": "material",
-        "count": 3
+        "count": 1
       },
       {
         "itemId": "stonegall_core",
@@ -619,13 +619,13 @@
         "itemId": "stonegall_core",
         "name": "镇岳石胆",
         "type": "material",
-        "count": 2
+        "count": 1
       },
       {
         "itemId": "earthbearing_stone",
         "name": "承脉石",
         "type": "material",
-        "count": 4
+        "count": 1
       },
       {
         "itemId": "equip.mountainseal_plate",

@@ -226,7 +226,7 @@
         "itemId": "ember_sand",
         "name": "陨火砂",
         "type": "material",
-        "count": 2
+        "count": 1
       },
       {
         "itemId": "embershard_char",
@@ -330,7 +330,7 @@
         "itemId": "ember_sand",
         "name": "陨火砂",
         "type": "material",
-        "count": 2
+        "count": 1
       },
       {
         "itemId": "furnace_red_crystal",
@@ -411,7 +411,7 @@
         "itemId": "ember_sand",
         "name": "陨火砂",
         "type": "material",
-        "count": 2
+        "count": 1
       },
       {
         "itemId": "furnace_red_crystal",
@@ -507,7 +507,7 @@
         "itemId": "ember_sand",
         "name": "陨火砂",
         "type": "material",
-        "count": 3
+        "count": 1
       },
       {
         "itemId": "furnace_red_crystal",
@@ -607,13 +607,13 @@
         "itemId": "furnace_red_crystal",
         "name": "炉心赤晶",
         "type": "material",
-        "count": 2
+        "count": 1
       },
       {
         "itemId": "ember_sand",
         "name": "陨火砂",
         "type": "material",
-        "count": 4
+        "count": 1
       },
       {
         "itemId": "equip.ember_scorch_spear",

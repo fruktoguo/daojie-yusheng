@@ -92,7 +92,7 @@
       "mapName": "玄铁矿洞·玄脉熔心",
       "monsterId": "m_iron_devour_lord",
       "monsterName": "噬铁矿君",
-      "count": 2
+      "count": 1
     },
     {
       "kind": "mining",
@@ -156,7 +156,7 @@
       "mapName": "裂锋原",
       "monsterId": "m_cleft_gate_lord",
       "monsterName": "庚金镇门将",
-      "count": 2
+      "count": 1
     },
     {
       "kind": "monster_drop",
@@ -190,7 +190,7 @@
       "mapName": "噬魂兽谷·血祭坛",
       "monsterId": "m_soul_wolf_ancestor",
       "monsterName": "噬魂狼祖",
-      "count": 2
+      "count": 1
     },
     {
       "kind": "monster_drop",
@@ -1496,7 +1496,7 @@
       "mapName": "寒汐泽",
       "monsterId": "m_cold_abyss_drake",
       "monsterName": "玄溟螭影",
-      "count": 2
+      "count": 1
     },
     {
       "kind": "monster_drop",
@@ -1567,7 +1567,7 @@
       "mapName": "寒汐泽",
       "monsterId": "m_cold_abyss_drake",
       "monsterName": "玄溟螭影",
-      "count": 4
+      "count": 1
     },
     {
       "kind": "monster_drop",
@@ -1575,7 +1575,7 @@
       "mapName": "寒汐泽",
       "monsterId": "m_cold_bridge_patrol",
       "monsterName": "雾桥巡灵",
-      "count": 3
+      "count": 1
     },
     {
       "kind": "monster_drop",
@@ -1591,7 +1591,7 @@
       "mapName": "寒汐泽",
       "monsterId": "m_cold_mirror_shade",
       "monsterName": "寒宫镜妖",
-      "count": 2
+      "count": 1
     },
     {
       "kind": "monster_drop",
@@ -1607,7 +1607,7 @@
       "mapName": "寒汐泽",
       "monsterId": "m_cold_pattern_guard",
       "monsterName": "冰纹水卒",
-      "count": 2
+      "count": 1
     },
     {
       "kind": "monster_drop",
@@ -1653,7 +1653,7 @@
       "mapName": "玄铁矿洞·玄脉熔心",
       "monsterId": "m_iron_devour_lord",
       "monsterName": "噬铁矿君",
-      "count": 2
+      "count": 1
     },
     {
       "kind": "search",
@@ -1673,7 +1673,7 @@
       "mapName": "噬魂兽谷",
       "monsterId": "m_valley_alpha",
       "monsterName": "裂渊狼主",
-      "count": 2
+      "count": 1
     },
     {
       "kind": "monster_drop",
@@ -1697,7 +1697,7 @@
       "mapName": "噬魂兽谷·血祭坛",
       "monsterId": "m_soul_wolf_ancestor",
       "monsterName": "噬魂狼祖",
-      "count": 2
+      "count": 1
     }
   ],
   "earthbearing_stone": [
@@ -1707,7 +1707,7 @@
       "mapName": "厚脉岭",
       "monsterId": "m_deepvein_armor_spirit",
       "monsterName": "坠岩甲灵",
-      "count": 2
+      "count": 1
     },
     {
       "kind": "monster_drop",
@@ -1723,7 +1723,7 @@
       "mapName": "厚脉岭",
       "monsterId": "m_deepvein_earth_effigy",
       "monsterName": "玄岳地傀",
-      "count": 4
+      "count": 1
     },
     {
       "kind": "monster_drop",
@@ -1731,7 +1731,7 @@
       "mapName": "厚脉岭",
       "monsterId": "m_deepvein_heavy_guard",
       "monsterName": "裂岭重卫",
-      "count": 3
+      "count": 1
     },
     {
       "kind": "monster_drop",
@@ -1739,7 +1739,7 @@
       "mapName": "厚脉岭",
       "monsterId": "m_deepvein_ridge_warden",
       "monsterName": "岳纹镇灵",
-      "count": 2
+      "count": 1
     },
     {
       "kind": "monster_drop",
@@ -1765,7 +1765,7 @@
       "mapName": "赤陨庭",
       "monsterId": "m_ember_attendant",
       "monsterName": "炉心灼侍",
-      "count": 2
+      "count": 1
     },
     {
       "kind": "monster_drop",
@@ -1781,7 +1781,7 @@
       "mapName": "赤陨庭",
       "monsterId": "m_ember_flame_guard",
       "monsterName": "流火戍灵",
-      "count": 3
+      "count": 1
     },
     {
       "kind": "monster_drop",
@@ -1789,7 +1789,7 @@
       "mapName": "赤陨庭",
       "monsterId": "m_ember_furnace_lord",
       "monsterName": "离火炉君",
-      "count": 4
+      "count": 1
     },
     {
       "kind": "monster_drop",
@@ -1797,7 +1797,7 @@
       "mapName": "赤陨庭",
       "monsterId": "m_ember_lizard",
       "monsterName": "熔纹火蜥",
-      "count": 2
+      "count": 1
     },
     {
       "kind": "monster_drop",
@@ -2703,7 +2703,7 @@
       "mapName": "归藏脉窟",
       "monsterId": "m_guizang_chaos_sentry",
       "monsterName": "乱炁守侍",
-      "count": 2
+      "count": 1
     },
     {
       "kind": "monster_drop",
@@ -2719,7 +2719,7 @@
       "mapName": "归藏脉窟",
       "monsterId": "m_guizang_fivephase_effigy",
       "monsterName": "五炁砂偶",
-      "count": 2
+      "count": 1
     },
     {
       "kind": "monster_drop",
@@ -2735,7 +2735,7 @@
       "mapName": "归藏脉窟",
       "monsterId": "m_guizang_ruined_relic",
       "monsterName": "乱基守遗",
-      "count": 3
+      "count": 1
     },
     {
       "kind": "monster_drop",
@@ -2761,7 +2761,7 @@
       "mapName": "灵脊岭·悬门旧关",
       "monsterId": "m_spine_gate_lord",
       "monsterName": "镇脊关主",
-      "count": 2
+      "count": 1
     },
     {
       "kind": "search",
@@ -2857,7 +2857,7 @@
       "mapName": "赤陨庭",
       "monsterId": "m_ember_furnace_lord",
       "monsterName": "离火炉君",
-      "count": 2
+      "count": 1
     }
   ],
   "guizang_vein_core": [
@@ -2883,7 +2883,7 @@
       "mapName": "归藏脉窟",
       "monsterId": "m_guizang_failed_foundation",
       "monsterName": "未成道基",
-      "count": 4
+      "count": 1
     },
     {
       "kind": "monster_drop",
@@ -3064,7 +3064,7 @@
       "mapName": "青竹林·青螂巢庭",
       "monsterId": "m_green_emperor_mantis",
       "monsterName": "青皇竹螂",
-      "count": 2
+      "count": 1
     }
   ],
   "map.ancient_ruins": [
@@ -4173,7 +4173,7 @@
       "mapName": "灵脊岭·悬门旧关",
       "monsterId": "m_spine_gate_lord",
       "monsterName": "镇脊关主",
-      "count": 2
+      "count": 1
     },
     {
       "kind": "search",
@@ -4230,7 +4230,7 @@
       "mapName": "断碑遗迹·断碑主殿",
       "monsterId": "m_stele_arbiter",
       "monsterName": "裂碑司命",
-      "count": 2
+      "count": 1
     }
   ],
   "serpent_gall": [
@@ -4297,7 +4297,7 @@
       "mapName": "断碑遗迹·断碑主殿",
       "monsterId": "m_stele_arbiter",
       "monsterName": "裂碑司命",
-      "count": 2
+      "count": 1
     }
   ],
   "spider_silk": [
@@ -4315,7 +4315,7 @@
       "mapName": "荒野·荒骨风穴",
       "monsterId": "m_gale_bone_king",
       "monsterName": "裂风荒王",
-      "count": 2
+      "count": 1
     }
   ],
   "spirit_iron_fragment": [
@@ -4333,7 +4333,7 @@
       "mapName": "玄铁矿洞·玄脉熔心",
       "monsterId": "m_iron_devour_lord",
       "monsterName": "噬铁矿君",
-      "count": 2
+      "count": 1
     },
     {
       "kind": "quest",
@@ -4415,7 +4415,7 @@
       "mapName": "青萝谷·06心藤坳口",
       "monsterId": "m_verdant_vein_mother",
       "monsterName": "噬脉藤母",
-      "count": 2
+      "count": 1
     }
   ],
   "stabilizing_pellet": [],
@@ -4442,7 +4442,7 @@
       "mapName": "天穹残宫·封天核心井",
       "monsterId": "m_fallen_palace_lord",
       "monsterName": "坠星宫主",
-      "count": 2
+      "count": 1
     },
     {
       "kind": "search",
@@ -4462,7 +4462,7 @@
       "mapName": "厚脉岭",
       "monsterId": "m_deepvein_earth_effigy",
       "monsterName": "玄岳地傀",
-      "count": 2
+      "count": 1
     },
     {
       "kind": "monster_drop",
@@ -4496,7 +4496,7 @@
       "mapName": "裂锋原",
       "monsterId": "m_cleft_banner_general",
       "monsterName": "残兵鸣将",
-      "count": 2
+      "count": 1
     },
     {
       "kind": "monster_drop",
@@ -4504,7 +4504,7 @@
       "mapName": "裂锋原",
       "monsterId": "m_cleft_blade_sprite",
       "monsterName": "金砂锋魈",
-      "count": 2
+      "count": 1
     },
     {
       "kind": "monster_drop",
@@ -4520,7 +4520,7 @@
       "mapName": "裂锋原",
       "monsterId": "m_cleft_gate_lord",
       "monsterName": "庚金镇门将",
-      "count": 4
+      "count": 1
     },
     {
       "kind": "monster_drop",
@@ -4528,7 +4528,7 @@
       "mapName": "裂锋原",
       "monsterId": "m_cleft_iron_guard",
       "monsterName": "残旌铁卫",
-      "count": 3
+      "count": 1
     },
     {
       "kind": "monster_drop",
@@ -4643,7 +4643,7 @@
       "mapName": "青萝谷·03双桥岔谷",
       "monsterId": "m_verdant_siphon_flower",
       "monsterName": "吸灵花妖",
-      "count": 2
+      "count": 1
     },
     {
       "kind": "monster_drop",
@@ -4651,7 +4651,7 @@
       "mapName": "青萝谷·04噬灵妖圃",
       "monsterId": "m_verdant_siphon_flower",
       "monsterName": "吸灵花妖",
-      "count": 2
+      "count": 1
     },
     {
       "kind": "monster_drop",
@@ -4659,7 +4659,7 @@
       "mapName": "青萝谷·04噬灵妖圃",
       "monsterId": "m_verdant_wither_guard",
       "monsterName": "枯荣藤卫",
-      "count": 2
+      "count": 1
     },
     {
       "kind": "monster_drop",
@@ -4667,7 +4667,7 @@
       "mapName": "青萝谷·05盘根内坳",
       "monsterId": "m_verdant_marrow_sprite",
       "monsterName": "碧髓树魈",
-      "count": 3
+      "count": 1
     },
     {
       "kind": "monster_drop",
@@ -4675,7 +4675,7 @@
       "mapName": "青萝谷·05盘根内坳",
       "monsterId": "m_verdant_wither_guard",
       "monsterName": "枯荣藤卫",
-      "count": 2
+      "count": 1
     },
     {
       "kind": "monster_drop",
@@ -4683,7 +4683,7 @@
       "mapName": "青萝谷·06心藤坳口",
       "monsterId": "m_verdant_marrow_sprite",
       "monsterName": "碧髓树魈",
-      "count": 3
+      "count": 1
     },
     {
       "kind": "monster_drop",
@@ -4691,7 +4691,7 @@
       "mapName": "青萝谷·06心藤坳口",
       "monsterId": "m_verdant_vein_mother",
       "monsterName": "噬脉藤母",
-      "count": 4
+      "count": 1
     }
   ],
   "void_shard": [
@@ -4709,7 +4709,7 @@
       "mapName": "天穹残宫·封天核心井",
       "monsterId": "m_fallen_palace_lord",
       "monsterName": "坠星宫主",
-      "count": 2
+      "count": 1
     },
     {
       "kind": "monster_drop",

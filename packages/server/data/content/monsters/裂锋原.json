@@ -233,7 +233,7 @@
         "itemId": "sword_pellet",
         "name": "剑丸",
         "type": "material",
-        "count": 2
+        "count": 1
       },
       {
         "itemId": "cleft_iron_fragment",
@@ -350,7 +350,7 @@
         "itemId": "sword_pellet",
         "name": "剑丸",
         "type": "material",
-        "count": 2
+        "count": 1
       },
       {
         "itemId": "blade_pattern_crystal",
@@ -425,7 +425,7 @@
         "itemId": "sword_pellet",
         "name": "剑丸",
         "type": "material",
-        "count": 2
+        "count": 1
       },
       {
         "itemId": "blade_pattern_crystal",
@@ -514,7 +514,7 @@
         "itemId": "sword_pellet",
         "name": "剑丸",
         "type": "material",
-        "count": 3
+        "count": 1
       },
       {
         "itemId": "blade_pattern_crystal",
@@ -613,13 +613,13 @@
         "itemId": "blade_pattern_crystal",
         "name": "锋纹残晶",
         "type": "material",
-        "count": 2
+        "count": 1
       },
       {
         "itemId": "sword_pellet",
         "name": "剑丸",
         "type": "material",
-        "count": 4
+        "count": 1
       },
       {
         "itemId": "equip.geng_gate_blade",

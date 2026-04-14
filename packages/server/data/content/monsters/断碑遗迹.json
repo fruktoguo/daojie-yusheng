@@ -221,13 +221,13 @@
         "itemId": "rune_shard",
         "name": "断纹石片",
         "type": "material",
-        "count": 2
+        "count": 1
       },
       {
         "itemId": "soul_ink",
         "name": "魂墨",
         "type": "material",
-        "count": 2
+        "count": 1
       },
       {
         "itemId": "book.spirit_anchor",

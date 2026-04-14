@@ -202,13 +202,13 @@
         "itemId": "star_metal",
         "name": "星陨金",
         "type": "material",
-        "count": 2
+        "count": 1
       },
       {
         "itemId": "void_shard",
         "name": "虚蚀碎片",
         "type": "material",
-        "count": 2
+        "count": 1
       },
       {
         "itemId": "book.starfall_spear",
