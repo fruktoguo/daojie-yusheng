@@ -49,7 +49,7 @@ export function getPlayerStatsLine(player: GmManagedPlayerSummary): string {
   const behaviorLabel = player.behaviors.length > 0
     ? player.behaviors.map(getBehaviorLabel).join(' / ')
     : '空闲';
-  return `${player.meta.isBot ? '机器人' : '玩家'} · ${player.realmLabel} · ${behaviorLabel}`;
+  return `${player.meta.isBot ? '机器人' : '玩家'} · ${player.realmLabel} · ${getAccountStatusLabel(player.accountStatus)} · ${behaviorLabel}`;
 }
 
 function getBehaviorLabel(behavior: GmManagedPlayerBehavior): string {
@@ -66,6 +66,18 @@ function getBehaviorLabel(behavior: GmManagedPlayerBehavior): string {
       return '采集';
     default:
       return behavior;
+  }
+}
+
+function getAccountStatusLabel(status: GmManagedPlayerSummary['accountStatus']): string {
+  switch (status) {
+    case 'banned':
+      return '封禁';
+    case 'abnormal':
+      return '异常';
+    case 'normal':
+    default:
+      return '正常';
   }
 }
 

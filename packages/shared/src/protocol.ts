@@ -1899,6 +1899,7 @@ export interface GmManagedPlayerSummary {
   autoRetaliate: boolean;
 /** behaviors：定义该变量以承载业务值。 */
   behaviors: GmManagedPlayerBehavior[];
+  accountStatus: GmManagedPlayerAccountStatus;
 /** meta：定义该变量以承载业务值。 */
   meta: GmManagedPlayerMeta;
 }
@@ -1941,6 +1942,12 @@ export type GmManagedPlayerBehavior = 'combat' | 'cultivation' | 'alchemy' | 'en
 /** GmPlayerBehaviorFilter：定义该类型的结构与数据语义。 */
 export type GmPlayerBehaviorFilter = 'all' | GmManagedPlayerBehavior;
 
+/** GmManagedPlayerAccountStatus：定义该类型的结构与数据语义。 */
+export type GmManagedPlayerAccountStatus = 'normal' | 'banned' | 'abnormal';
+
+/** GmPlayerAccountStatusFilter：定义该类型的结构与数据语义。 */
+export type GmPlayerAccountStatusFilter = 'all' | GmManagedPlayerAccountStatus;
+
 /** GmListPlayersQuery：定义该接口的能力与字段约束。 */
 export interface GmListPlayersQuery {
   page?: number;
@@ -1949,6 +1956,7 @@ export interface GmListPlayersQuery {
   sort?: GmPlayerSortMode;
   presence?: GmPlayerPresenceFilter;
   behavior?: GmPlayerBehaviorFilter;
+  accountStatus?: GmPlayerAccountStatusFilter;
 }
 
 /** GmPlayerListPage：定义该接口的能力与字段约束。 */
@@ -1969,6 +1977,7 @@ export interface GmPlayerListPage {
   presence: GmPlayerPresenceFilter;
 /** behavior：定义该变量以承载业务值。 */
   behavior: GmPlayerBehaviorFilter;
+  accountStatus: GmPlayerAccountStatusFilter;
 }
 
 /** GmPlayerSummaryStats：定义该接口的能力与字段约束。 */

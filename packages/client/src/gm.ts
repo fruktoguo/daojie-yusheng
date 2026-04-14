@@ -45,6 +45,7 @@ import {
   type GmLoginRes,
   type GmManagedPlayerRecord,
   type GmManagedPlayerBehavior,
+  type GmPlayerAccountStatusFilter,
   type GmPlayerBehaviorFilter,
   type GmPlayerPresenceFilter,
   type GmPlayerSortMode,
@@ -118,6 +119,7 @@ const playerSortSelect = document.getElementById('player-sort') as HTMLSelectEle
 const playerPresenceFilterSelect = document.getElementById('player-presence-filter') as HTMLSelectElement;
 /** playerBehaviorFilterSelect：定义该变量以承载业务值。 */
 const playerBehaviorFilterSelect = document.getElementById('player-behavior-filter') as HTMLSelectElement;
+const playerAccountStatusFilterSelect = document.getElementById('player-account-status-filter') as HTMLSelectElement;
 /** playerListEl：定义该变量以承载业务值。 */
 const playerListEl = document.getElementById('player-list') as HTMLDivElement;
 /** playerPrevPageBtn：定义该变量以承载业务值。 */
@@ -459,6 +461,7 @@ let currentPlayerSort: GmPlayerSortMode = (playerSortSelect.value as GmPlayerSor
 let currentPlayerPresenceFilter: GmPlayerPresenceFilter = (playerPresenceFilterSelect.value as GmPlayerPresenceFilter) || 'all';
 /** currentPlayerBehaviorFilter：定义该变量以承载业务值。 */
 let currentPlayerBehaviorFilter: GmPlayerBehaviorFilter = (playerBehaviorFilterSelect.value as GmPlayerBehaviorFilter) || 'all';
+let currentPlayerAccountStatusFilter: GmPlayerAccountStatusFilter = (playerAccountStatusFilterSelect.value as GmPlayerAccountStatusFilter) || 'all';
 /** currentPlayerPage：定义该变量以承载业务值。 */
 let currentPlayerPage = 1;
 /** currentPlayerTotalPages：定义该变量以承载业务值。 */
@@ -665,6 +668,18 @@ function getManagedPlayerBehaviorLabel(behavior: GmManagedPlayerBehavior): strin
   }
 }
 
+function getManagedPlayerAccountStatusLabel(status: GmManagedPlayerSummary['accountStatus']): string {
+  switch (status) {
+    case 'banned':
+      return '封禁';
+    case 'abnormal':
+      return '异常';
+    case 'normal':
+    default:
+      return '正常';
+  }
+}
+
 /** getPlayerIdentityLine：执行对应的业务逻辑。 */
 function getPlayerIdentityLine(player: GmManagedPlayerSummary): string {
   return gmMarkupHelpers.getPlayerIdentityLine(player);
@@ -691,7 +706,7 @@ function patchPlayerRow(button: HTMLButtonElement, player: GmManagedPlayerSummar
   presenceEl.classList.toggle('online', presence.className === 'online');
   presenceEl.classList.toggle('offline', presence.className === 'offline');
   presenceEl.textContent = presence.label;
-  button.querySelector<HTMLElement>('[data-role="meta"]')!.textContent = `账号: ${player.accountName ?? '无'} · 显示名: ${player.displayName}`;
+  button.querySelector<HTMLElement>('[data-role="meta"]')!.textContent = `账号: ${player.accountName ?? '无'} · 状态: ${getManagedPlayerAccountStatusLabel(player.accountStatus)} · 显示名: ${player.displayName}`;
   button.querySelector<HTMLElement>('[data-role="identity"]')!.textContent = getPlayerIdentityLine(player);
   button.querySelector<HTMLElement>('[data-role="stats"]')!.textContent = getPlayerStatsLine(player);
 }
@@ -4415,6 +4430,7 @@ async function loadState(silent = false, refreshDetail = false): Promise<void> {
     sort: currentPlayerSort,
     presence: currentPlayerPresenceFilter,
     behavior: currentPlayerBehaviorFilter,
+    accountStatus: currentPlayerAccountStatusFilter,
   });
 /** keyword：定义该变量以承载业务值。 */
   const keyword = playerSearchInput.value.trim();
@@ -6243,6 +6259,14 @@ playerBehaviorFilterSelect.addEventListener('change', () => {
   lastPlayerListStructureKey = null;
   loadState(true).catch((error: unknown) => {
 /** setStatus：处理当前场景中的对应操作。 */
+    setStatus(error instanceof Error ? error.message : '加载角色列表失败', true);
+  });
+});
+playerAccountStatusFilterSelect.addEventListener('change', () => {
+  currentPlayerAccountStatusFilter = (playerAccountStatusFilterSelect.value as GmPlayerAccountStatusFilter) || 'all';
+  currentPlayerPage = 1;
+  lastPlayerListStructureKey = null;
+  loadState(true).catch((error: unknown) => {
     setStatus(error instanceof Error ? error.message : '加载角色列表失败', true);
   });
 });

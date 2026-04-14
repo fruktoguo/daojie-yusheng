@@ -21,12 +21,14 @@ import {
   EQUIP_SLOTS,
   GmEditorBuffOption,
   GmEditorCatalogRes,
+  GmManagedPlayerAccountStatus,
   GmListPlayersQuery,
   GmManagedAccountRecord,
   GmManagedPlayerBehavior,
   GmMapDocument,
   GmMapListRes,
   GmMapRuntimeRes,
+  GmPlayerAccountStatusFilter,
   GmManagedPlayerRecord,
   GmManagedPlayerSummary,
   GmPlayerBehaviorFilter,
@@ -217,6 +219,7 @@ type GmCommand =
 interface GmPlayerUserIdentity {
   userId?: string;
   accountName?: string;
+  accountStatus: GmManagedPlayerAccountStatus;
 }
 
 /** GmWorldObservationSession：定义该接口的能力与字段约束。 */
@@ -296,6 +299,7 @@ export class GmService {
         sort: normalizedQuery.sort,
         presence: normalizedQuery.presence,
         behavior: normalizedQuery.behavior,
+        accountStatus: normalizedQuery.accountStatus,
       },
       playerStats,
       mapIds: this.mapService.getAllMapIds().sort(),
@@ -318,6 +322,7 @@ export class GmService {
     presence: GmPlayerPresenceFilter;
 /** behavior：定义该变量以承载业务值。 */
     behavior: GmPlayerBehaviorFilter;
+    accountStatus: GmPlayerAccountStatusFilter;
   } {
 /** rawPage：定义该变量以承载业务值。 */
     const rawPage = Number(query?.page);
@@ -343,7 +348,8 @@ export class GmService {
     const presence = this.normalizePlayerPresenceFilter(query?.presence);
 /** behavior：定义该变量以承载业务值。 */
     const behavior = this.normalizePlayerBehaviorFilter(query?.behavior);
-    return { page, pageSize, keyword, sort, presence, behavior };
+    const accountStatus = this.normalizePlayerAccountStatusFilter(query?.accountStatus);
+    return { page, pageSize, keyword, sort, presence, behavior, accountStatus };
   }
 
 /** normalizePlayerSortMode：执行对应的业务逻辑。 */
@@ -379,6 +385,18 @@ export class GmService {
       case 'alchemy':
       case 'enhancement':
       case 'gather':
+        return filter;
+      case 'all':
+      default:
+        return 'all';
+    }
+  }
+
+  private normalizePlayerAccountStatusFilter(filter: string | undefined): GmPlayerAccountStatusFilter {
+    switch (filter) {
+      case 'normal':
+      case 'banned':
+      case 'abnormal':
         return filter;
       case 'all':
       default:
@@ -423,6 +441,7 @@ export class GmService {
     presence: GmPlayerPresenceFilter;
 /** behavior：定义该变量以承载业务值。 */
     behavior: GmPlayerBehaviorFilter;
+    accountStatus: GmPlayerAccountStatusFilter;
   }): Promise<{
 /** players：定义该变量以承载业务值。 */
     players: GmManagedPlayerSummary[];
@@ -441,6 +460,7 @@ export class GmService {
     this.applyPlayerListKeyword(baseQuery, query.keyword);
     this.applyPlayerListPresenceFilter(baseQuery, query.presence);
     this.applyPlayerListBehaviorFilter(baseQuery, query.behavior);
+    this.applyPlayerListAccountStatusFilter(baseQuery, query.accountStatus);
 
 /** total：定义该变量以承载业务值。 */
     const total = await baseQuery.clone().getCount();
@@ -462,7 +482,11 @@ export class GmService {
       const user = userById.get(entity.userId);
       return this.buildSummary(
         this.hydrateStoredPlayer(entity, this.resolveStoredDisplayName(user)),
-        { userId: entity.userId, accountName: user?.username },
+        {
+          userId: entity.userId,
+          accountName: user?.username,
+          accountStatus: this.getManagedPlayerAccountStatus(user, entity.userId, user?.username),
+        },
         entity.online === true,
         entity.updatedAt,
       );
@@ -475,6 +499,26 @@ export class GmService {
       total,
       totalPages,
     };
+  }
+
+  private applyPlayerListAccountStatusFilter(
+    query: SelectQueryBuilder<PlayerEntity>,
+    accountStatus: GmPlayerAccountStatusFilter,
+  ): void {
+    switch (accountStatus) {
+      case 'normal':
+        query.andWhere('player_user.id IS NOT NULL').andWhere('player_user."bannedAt" IS NULL');
+        return;
+      case 'banned':
+        query.andWhere('player_user."bannedAt" IS NOT NULL');
+        return;
+      case 'abnormal':
+        query.andWhere('player_user.id IS NULL');
+        return;
+      case 'all':
+      default:
+        return;
+    }
   }
 
   private applyPlayerListPresenceFilter(
@@ -646,7 +690,11 @@ export class GmService {
       return this.buildRecord(
         runtime,
         user,
-        { userId, accountName: user?.username },
+        {
+          userId,
+          accountName: user?.username,
+          accountStatus: this.getManagedPlayerAccountStatus(user, userId, user?.username),
+        },
         runtime.online === true,
         undefined,
       );
@@ -663,7 +711,11 @@ export class GmService {
     return this.buildRecord(
       this.hydrateStoredPlayer(entity, this.resolveStoredDisplayName(user)),
       user,
-      { userId: entity.userId, accountName: user?.username },
+      {
+        userId: entity.userId,
+        accountName: user?.username,
+        accountStatus: this.getManagedPlayerAccountStatus(user, entity.userId, user?.username),
+      },
       false,
       entity.updatedAt,
     );
@@ -1609,6 +1661,7 @@ export class GmService {
 /** autoBattleStationary：定义该变量以承载业务值。 */
       autoBattleStationary: player.autoBattleStationary === true,
       behaviors: this.getManagedPlayerBehaviors(player),
+      accountStatus: user.accountStatus,
       meta: {
         userId: user.userId,
         isBot: Boolean(player.isBot),
@@ -2558,6 +2611,20 @@ export class GmService {
       behaviors.push('gather');
     }
     return behaviors;
+  }
+
+  private getManagedPlayerAccountStatus(
+    user: UserEntity | null | undefined,
+    userId?: string,
+    accountName?: string,
+  ): GmManagedPlayerAccountStatus {
+    if (!user && (!userId || !accountName)) {
+      return 'abnormal';
+    }
+    if (user?.bannedAt) {
+      return 'banned';
+    }
+    return 'normal';
   }
 
   private async resolveManagedPlayerUserId(playerId: string): Promise<string | null> {
