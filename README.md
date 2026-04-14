@@ -18,19 +18,6 @@
 - 多图推进：通过传送点与路线分支，在不同地图中选择稳健发育或高风险收益路线
 - 在线共存：所有玩家共享同一世界，位置占用、视野与状态变化统一由服务端处理
 
-## 世界与路线
-
-当前地图内容围绕“由低风险到高风险”的推进逻辑组织：
-
-- 主线：云来镇 → 青竹林 → 玄铁矿洞 / 断碑遗迹 → 噬魂兽谷
-- 侧线：云来镇 ↔ 荒野，并可由荒野转入青竹林
-
-大致风险分层：
-
-- `dangerLevel 1-2`：新手试炼与熟悉系统区域
-- `dangerLevel 3`：资源与任务压力区
-- `dangerLevel 5`：高危战斗区与王级怪区域
-
 ## 系统设计摘要
 
 - Tick 驱动：服务端以 1Hz tick 处理玩家指令、状态变化与广播
@@ -47,6 +34,7 @@
 - 前端：Vite + Canvas 2D + TypeScript
 - 数据层：PostgreSQL + Redis
 - Monorepo：pnpm workspace
+- 当前仓库同时保留 `legacy` 主线与 `next` 替换线
 
 ## 项目结构
 
@@ -55,6 +43,7 @@ packages/
   shared/   前后端共享类型、常量、协议
   server/   服务端逻辑、认证、地图、战斗、数据库
   client/   Canvas 渲染、输入、面板、网络通信
+  config-editor/ 配置编辑器与本地辅助 API
   shared-next/ next 协议与 next 共享类型
   server-next/ next 替换线服务端与 replace-ready 验证
   client-next/ next 替换线前端
@@ -80,7 +69,7 @@ docs/       设计与架构文档
 - Node.js 18+
 - pnpm 10+
 - 本地开发建议准备 PostgreSQL 和 Redis
-- 或直接使用 Docker Compose
+- Docker Compose 用于本地基础设施或整套容器模式启动
 
 ## 快速开始
 
@@ -90,7 +79,9 @@ docs/       设计与架构文档
 pnpm install
 ```
 
-本地启动：
+### 启动 legacy 主线
+
+本地开发入口：
 
 ```bash
 ./start.sh
@@ -104,16 +95,62 @@ pnpm install
 SKIP_LOCAL_INFRA=1 ./start.sh
 ```
 
-Docker 启动：
+整套容器模式：
 
 ```bash
 ./start.sh docker
 ```
 
-启动后默认地址：
+默认地址：
 
 - 客户端：`http://localhost:5173`
 - 服务端：`http://localhost:3000`
+
+### 启动 next 替换线
+
+本地开发入口：
+
+```bash
+./start-next.sh
+```
+
+`local` 模式会优先检查并按需拉起 next 专用本地基础设施，默认使用：
+
+- PostgreSQL：`localhost:15432`，数据库 `mud_mmo_next`
+- Redis：`localhost:16379`
+- `server-next`：`http://localhost:13020`
+- `client-next`：`http://localhost:15173`
+
+说明：
+
+- 在 WSL / Windows 环境下，`13001` 可能落在系统 `excludedportrange` 保留区间内，导致显式绑定时报 `EADDRINUSE`。
+- `./start-next.sh` 的本地默认端口已改为 `13020`；如果你手动启动 `server-next`，也建议显式设置 `SERVER_NEXT_PORT=13020`。
+
+如果你使用外部数据库 / Redis，也可以跳过自动拉起：
+
+```bash
+SKIP_LOCAL_INFRA=1 ./start-next.sh
+```
+
+整套容器模式：
+
+```bash
+./start-next.sh docker
+```
+
+### 启动配置编辑器
+
+配置编辑器单独运行在 `packages/config-editor`，适合做内容配置与本地编辑辅助：
+
+```bash
+./packages/config-editor/start.sh
+```
+
+默认地址为 `http://127.0.0.1:5174`。如需由编辑器托管主游戏服，可使用：
+
+```bash
+CONFIG_EDITOR_MANAGE_GAME_SERVER=1 ./packages/config-editor/start.sh
+```
 
 ## 常用命令
 
@@ -123,32 +160,44 @@ Docker 启动：
 pnpm build
 ```
 
-仅启动前端开发环境：
+legacy 常用开发命令：
 
 ```bash
 pnpm dev:client
+pnpm dev:server
+pnpm start:server
+pnpm start:backup-worker
 ```
 
-仅启动服务端开发环境：
+next 常用开发命令：
 
 ```bash
-pnpm dev:server
+pnpm dev:client-next
+pnpm dev:server-next
+pnpm start:server-next
+```
+
+replace-ready / 审计命令：
+
+```bash
+pnpm verify:replace-ready:doctor
+pnpm verify:replace-ready
+pnpm verify:replace-ready:proof:with-db
+pnpm verify:replace-ready:with-db
+pnpm verify:replace-ready:shadow
+pnpm verify:replace-ready:acceptance
+pnpm verify:replace-ready:full
+pnpm audit:server-next-protocol
+pnpm audit:server-next-boundaries
 ```
 
 ## server-next 状态
 
-- 这次仓库里的 `next` 相关提交先按“阶段性备份与继续协作”理解，不是“已经可以投入生产”的宣告
-- `server-next` 当前仍处于独立 shadow / replace-ready 验收阶段，不是默认正式替换入口
-- 先用 `pnpm verify:replace-ready:doctor` 检查本地 / with-db / shadow 三条链当前缺哪些环境变量
-- 当前推荐的本地主证明链入口是 `pnpm verify:replace-ready`
-- 如需带数据库闭环，使用 `pnpm verify:replace-ready:with-db`
-- 如需只复跑最小带库 `auth/token/bootstrap` 真源证明链，使用 `pnpm verify:replace-ready:proof:with-db`
-- 如需验证已部署 shadow 实例，使用 `pnpm verify:replace-ready:shadow`
-- 如需串行跑“本地主证明链 + shadow 实物验收 + shadow GM 关键写路径验证”，使用 `pnpm verify:replace-ready:acceptance`
-- `pnpm verify:server-next*` 当前只是兼容别名；需要独立 CI 带库补证时，可触发 [verify-server-next-with-db.yml](/home/yuohira/mud-mmo/.github/workflows/verify-server-next-with-db.yml)
-- 这些验证只说明 replace-ready 主证明链已覆盖到当前范围，不等于 `next` 已完整替换整体游戏
-- 手工 workflow 现在也应只视为 shadow / 备份线工具，不代表已经建立了 next 的正式生产发布流
-- 详细口径见 [docs/server-next-operations.md](/home/yuohira/mud-mmo/docs/server-next-operations.md)、[docs/next-gap-analysis.md](/home/yuohira/mud-mmo/docs/next-gap-analysis.md) 和 [docs/next-remaining-execution-plan.md](/home/yuohira/mud-mmo/docs/next-remaining-execution-plan.md)
+- `server-next` 当前仍是 next 前后台迁移主后端，同时也是 shadow / replace-ready 验收线
+- 它不是默认正式生产入口，也不代表已经完整替换 legacy 主游戏
+- 推荐先跑 `pnpm verify:replace-ready:doctor` 检查环境，再跑 `pnpm verify:replace-ready`
+- 根级 `pnpm verify:server-next*` 目前只是兼容别名，统一以 `verify:replace-ready*` 为准
+- 详细状态、运维和执行计划见 [packages/server-next/README.md](./packages/server-next/README.md)、[docs/server-next-operations.md](./docs/server-next-operations.md)、[docs/next-gap-analysis.md](./docs/next-gap-analysis.md) 和 [docs/next-remaining-execution-plan.md](./docs/next-remaining-execution-plan.md)
 
 ## 自动部署
 
