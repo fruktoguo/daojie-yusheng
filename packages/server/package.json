@@ -6,7 +6,7 @@
     "prebuild": "pnpm --filter @mud/shared build",
     "build": "nest build",
     "start": "node dist/main.js",
-    "start:dev": "nest start --watch",
+    "start:dev": "node ./scripts/start-dev-runner.mjs",
     "start:backup-worker": "node dist/tools/database-backup-worker.js",
     "report:values:equipment": "pnpm build && node dist/tools/report-equipment-values.js",
     "report:values:technique": "pnpm build && node dist/tools/report-technique-values.js",

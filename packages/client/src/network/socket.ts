@@ -69,6 +69,20 @@ import {
   SOCKET_RECONNECTION_DELAY_MAX_MS, SOCKET_TRANSPORTS,
 } from '@mud/shared';
 
+const DEVICE_ID_STORAGE_KEY = 'mud:device-id:v1';
+
+function getClientDeviceId(): string {
+  const existing = localStorage.getItem(DEVICE_ID_STORAGE_KEY)?.trim();
+  if (existing) {
+    return existing;
+  }
+  const next = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : `dev_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+  localStorage.setItem(DEVICE_ID_STORAGE_KEY, next);
+  return next;
+}
+
 /** 客户端 Socket.IO 连接管理，负责协议编解码与事件分发 */
 export class SocketManager {
 /** socket：定义该变量以承载业务值。 */
@@ -121,7 +135,7 @@ export class SocketManager {
     this.accessToken = token;
     this.disposeSocket({ clearToken: false });
     this.socket = io({
-      auth: { token },
+      auth: { token, deviceId: getClientDeviceId() },
       // Swarm rolling updates and reverse proxies can route polling requests
       // to a different task, while a single WebSocket connection avoids SID drift.
       transports: [...SOCKET_TRANSPORTS],

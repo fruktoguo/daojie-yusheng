@@ -1704,6 +1704,8 @@ export interface AuthRegisterReq {
   displayName: string;
 /** roleName：定义该变量以承载业务值。 */
   roleName: string;
+/** deviceId：定义该变量以承载业务值。 */
+  deviceId?: string;
 }
 
 /** 登录请求 */
@@ -1712,12 +1714,16 @@ export interface AuthLoginReq {
   loginName: string;
 /** password：定义该变量以承载业务值。 */
   password: string;
+/** deviceId：定义该变量以承载业务值。 */
+  deviceId?: string;
 }
 
 /** 刷新令牌请求 */
 export interface AuthRefreshReq {
 /** refreshToken：定义该变量以承载业务值。 */
   refreshToken: string;
+/** deviceId：定义该变量以承载业务值。 */
+  deviceId?: string;
 }
 
 /** 令牌响应 */
@@ -1842,6 +1848,49 @@ export interface GmBanManagedPlayerReq {
   reason?: string;
 }
 
+/** GM 按风险阈值批量封禁请求 */
+export interface GmBanPlayersByRiskReq {
+/** minRiskScore：定义该变量以承载业务值。 */
+  minRiskScore: number;
+/** reason：定义该变量以承载业务值。 */
+  reason?: string;
+/** expectedMatchedPlayers：定义该变量以承载业务值。 */
+  expectedMatchedPlayers?: number;
+/** expectedTargetSnapshotHash：定义该变量以承载业务值。 */
+  expectedTargetSnapshotHash?: string;
+/** previewToken：定义该变量以承载业务值。 */
+  previewToken?: string;
+  keyword?: string;
+  sort?: GmPlayerSortMode;
+  presence?: GmPlayerPresenceFilter;
+  behavior?: GmPlayerBehaviorFilter;
+  accountStatus?: GmPlayerAccountStatusFilter;
+}
+
+/** GM 按风险阈值批量封禁预览响应 */
+export interface GmBanPlayersByRiskPreviewRes {
+  ok: true;
+  matchedPlayers: number;
+  minRiskScore: number;
+  targetSnapshotHash: string;
+  previewToken: string;
+  samples: GmManagedPlayerSummary[];
+}
+
+/** GM 按风险阈值批量封禁响应 */
+export interface GmBanPlayersByRiskRes {
+/** ok：定义该变量以承载业务值。 */
+  ok: true;
+/** matchedPlayers：定义该变量以承载业务值。 */
+  matchedPlayers: number;
+/** bannedPlayers：定义该变量以承载业务值。 */
+  bannedPlayers: number;
+/** skippedPlayers：定义该变量以承载业务值。 */
+  skippedPlayers: number;
+/** minRiskScore：定义该变量以承载业务值。 */
+  minRiskScore: number;
+}
+
 /** GM 可查看的账号状态 */
 export type GmManagedAccountStatus = 'active' | 'banned';
 
@@ -1900,7 +1949,15 @@ export interface GmManagedPlayerSummary {
 /** behaviors：定义该变量以承载业务值。 */
   behaviors: GmManagedPlayerBehavior[];
   accountStatus: GmManagedPlayerAccountStatus;
-/** meta：定义该变量以承载业务值。 */
+/** riskScore：定义该变量以承载业务值。 */
+  riskScore: number;
+/** riskLevel：定义该变量以承载业务值。 */
+  riskLevel: GmPlayerRiskLevel;
+/** riskTags：定义该变量以承载业务值。 */
+  riskTags: string[];
+/** isRiskAdmin：定义该变量以承载业务值。 */
+  isRiskAdmin: boolean;
+  /** meta：定义该变量以承载业务值。 */
   meta: GmManagedPlayerMeta;
 }
 
@@ -1910,6 +1967,8 @@ export interface GmManagedAccountRecord {
   userId: string;
 /** username：定义该变量以承载业务值。 */
   username: string;
+/** isRiskAdmin：定义该变量以承载业务值。 */
+  isRiskAdmin: boolean;
 /** status：定义该变量以承载业务值。 */
   status: GmManagedAccountStatus;
 /** createdAt：定义该变量以承载业务值。 */
@@ -1919,11 +1978,80 @@ export interface GmManagedAccountRecord {
   bannedAt?: string;
   banReason?: string;
   bannedBy?: string;
+  lastLoginAt?: string;
+  lastLoginIp?: string;
+  lastLoginDeviceId?: string;
+}
+
+/** GM 风险操作审计记录 */
+export interface GmRiskOperationAuditRecord {
+  id: string;
+  action: 'batch-ban-by-risk';
+  operator: string;
+  reason?: string;
+  minRiskScore: number;
+  matchedPlayers: number;
+  bannedPlayers: number;
+  skippedPlayers: number;
+  keyword?: string;
+  sort?: GmPlayerSortMode;
+  presence?: GmPlayerPresenceFilter;
+  behavior?: GmPlayerBehaviorFilter;
+  accountStatus?: GmPlayerAccountStatusFilter;
+  createdAt: string;
+}
+
+/** GmPlayerRiskLevel：定义该类型的结构与数据语义。 */
+export type GmPlayerRiskLevel = 'low' | 'medium' | 'high' | 'critical';
+
+/** GmPlayerRiskFactorKey：定义该类型的结构与数据语义。 */
+export type GmPlayerRiskFactorKey =
+  | 'account-integrity'
+  | 'account-name-pattern'
+  | 'similar-account-cluster'
+  | 'account-age'
+  | 'shared-ip-cluster'
+  | 'shared-device-cluster'
+  | 'market-transfer';
+
+/** GmPlayerRiskFactor：定义该接口的能力与字段约束。 */
+export interface GmPlayerRiskFactor {
+/** key：定义该变量以承载业务值。 */
+  key: GmPlayerRiskFactorKey;
+/** label：定义该变量以承载业务值。 */
+  label: string;
+/** score：定义该变量以承载业务值。 */
+  score: number;
+/** maxScore：定义该变量以承载业务值。 */
+  maxScore: number;
+/** summary：定义该变量以承载业务值。 */
+  summary: string;
+/** evidence：定义该变量以承载业务值。 */
+  evidence: string[];
+}
+
+/** GmPlayerRiskReport：定义该接口的能力与字段约束。 */
+export interface GmPlayerRiskReport {
+/** score：定义该变量以承载业务值。 */
+  score: number;
+/** maxScore：定义该变量以承载业务值。 */
+  maxScore: number;
+/** level：定义该变量以承载业务值。 */
+  level: GmPlayerRiskLevel;
+/** overview：定义该变量以承载业务值。 */
+  overview: string;
+/** generatedAt：定义该变量以承载业务值。 */
+  generatedAt: string;
+/** factors：定义该变量以承载业务值。 */
+  factors: GmPlayerRiskFactor[];
+/** recommendations：定义该变量以承载业务值。 */
+  recommendations: string[];
 }
 
 /** GM 管理的玩家完整记录（含快照） */
 export interface GmManagedPlayerRecord extends GmManagedPlayerSummary {
   account?: GmManagedAccountRecord;
+  riskReport: GmPlayerRiskReport;
 /** snapshot：定义该变量以承载业务值。 */
   snapshot: PlayerState;
 /** persistedSnapshot：定义该变量以承载业务值。 */
@@ -1931,7 +2059,7 @@ export interface GmManagedPlayerRecord extends GmManagedPlayerSummary {
 }
 
 /** GmPlayerSortMode：定义该类型的结构与数据语义。 */
-export type GmPlayerSortMode = 'realm-desc' | 'realm-asc' | 'online' | 'map' | 'name';
+export type GmPlayerSortMode = 'realm-desc' | 'realm-asc' | 'online' | 'map' | 'name' | 'risk-desc' | 'risk-asc';
 
 /** GmPlayerPresenceFilter：定义该类型的结构与数据语义。 */
 export type GmPlayerPresenceFilter = 'all' | 'online' | 'offline-hanging' | 'offline';
@@ -2004,6 +2132,8 @@ export interface GmStateRes {
   mapIds: string[];
 /** botCount：定义该变量以承载业务值。 */
   botCount: number;
+/** riskAuditLogs：定义该变量以承载业务值。 */
+  riskAuditLogs: GmRiskOperationAuditRecord[];
 /** perf：定义该变量以承载业务值。 */
   perf: GmPerformanceSnapshot;
 }
@@ -2139,7 +2269,7 @@ export interface AccountRedeemCodesRes {
 }
 
 /** GmDatabaseBackupKind：定义该类型的结构与数据语义。 */
-export type GmDatabaseBackupKind = 'hourly' | 'daily' | 'manual' | 'pre_import';
+export type GmDatabaseBackupKind = 'hourly' | 'daily' | 'manual' | 'uploaded' | 'pre_import';
 
 /** GmDatabaseJobType：定义该类型的结构与数据语义。 */
 export type GmDatabaseJobType = 'backup' | 'restore';
@@ -2218,6 +2348,12 @@ export interface GmTriggerDatabaseBackupRes {
   job: GmDatabaseJobSnapshot;
   compatScope?: 'persistent_documents_only';
   documentsCount?: number;
+}
+
+/** GmUploadDatabaseBackupRes：定义该接口的能力与字段约束。 */
+export interface GmUploadDatabaseBackupRes {
+/** backup：定义该变量以承载业务值。 */
+  backup: GmDatabaseBackupRecord;
 }
 
 /** GmRestoreDatabaseReq：定义该接口的能力与字段约束。 */

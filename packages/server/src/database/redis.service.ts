@@ -122,4 +122,33 @@ export class RedisService implements OnModuleDestroy {
       }
     } while (cursor !== '0');
   }
+
+  /** 以 JSON 形式写入 Redis，并设置毫秒级 TTL */
+  async setJsonWithTtl(key: string, payload: unknown, ttlMs: number): Promise<void> {
+    await this.client.set(key, JSON.stringify(payload), 'PX', Math.max(1, Math.floor(ttlMs)));
+  }
+
+  /** 读取 JSON 值；不存在或解析失败时返回 null */
+  async getJson<T>(key: string): Promise<T | null> {
+/** raw：定义该变量以承载业务值。 */
+    const raw = await this.client.get(key);
+    if (!raw) {
+      return null;
+    }
+    try {
+      return JSON.parse(raw) as T;
+    } catch {
+      return null;
+    }
+  }
+
+  /** 删除指定 key */
+  async deleteKey(key: string): Promise<void> {
+    await this.client.del(key);
+  }
+
+  /** 执行 Lua 脚本，适用于需要原子性的 Redis 操作 */
+  async evalLua(script: string, keys: string[], args: Array<string | number>): Promise<unknown> {
+    return this.client.eval(script, keys.length, ...keys, ...args.map((entry) => String(entry)));
+  }
 }

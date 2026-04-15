@@ -1,4 +1,5 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import * as fs from 'node:fs';
 import {
   GmDatabaseBackupKind,
   GmDatabaseBackupRecord,
@@ -6,10 +7,14 @@ import {
   GmDatabaseStateRes,
   GmTriggerDatabaseBackupRes,
 } from '@mud/shared';
+import { ConfigService } from '@nestjs/config';
+import { DataSource } from 'typeorm';
+import { applyPreSynchronizeCompatibilityFixes, buildBasePostgresOptions } from '../database/database.module';
 import { RedisService } from '../database/redis.service';
 import { BotService } from './bot.service';
 import {
   BACKUP_WORKER_HEARTBEAT_TTL_MS,
+  BACKUP_DIRECTORIES,
   createBackupRecord,
   DAILY_BACKUP_HOUR,
   DAILY_BACKUP_MINUTE,
@@ -23,13 +28,14 @@ import {
   listBackups,
   readBackupWorkerState,
   readBackupWorkerHeartbeat,
+  requestDevWatchPause,
   writeBackupWorkerState,
   type ResolvedBackupRecord,
   writeBackupManualRequest,
   writeBackupRestoreRequest,
   planBackup,
 } from './database-backup-shared';
-import { createBackupFile } from './database-backup-process';
+import { createBackupFile, getDatabaseProcessCapabilities, restoreBackupFile } from './database-backup-process';
 import { GmService } from './gm.service';
 import { LootService } from './loot.service';
 import { MapService } from './map.service';
@@ -63,6 +69,8 @@ export class DatabaseBackupService implements OnModuleInit, OnModuleDestroy {
   private readonly restoreMonitorIntervalMs = 1_000;
   private readonly fallbackAutomationIntervalMs = 10_000;
   private readonly serverFallbackEnabled = this.resolveServerFallbackEnabled();
+  private readonly devWatchPauseMs = this.resolveDevWatchPauseMs();
+  private readonly uploadDumpMagic = Buffer.from('PGDMP');
 /** currentJob：定义该变量以承载业务值。 */
   private currentJob: InternalJobState | null = null;
 /** lastJob：定义该变量以承载业务值。 */
@@ -78,6 +86,8 @@ export class DatabaseBackupService implements OnModuleInit, OnModuleDestroy {
   private fallbackAutomationPolling = false;
 
   constructor(
+    private readonly configService: ConfigService,
+    private readonly dataSource: DataSource,
     private readonly tickService: TickService,
     private readonly playerService: PlayerService,
     private readonly mapService: MapService,
@@ -143,6 +153,7 @@ export class DatabaseBackupService implements OnModuleInit, OnModuleDestroy {
     }
 /** now：定义该变量以承载业务值。 */
     const now = Date.now();
+    this.requestDevWatchPauseWindow('manual-backup');
 /** backupId：定义该变量以承载业务值。 */
     const backupId = createTimestampId(now, 'manual');
 /** job：定义该变量以承载业务值。 */
@@ -185,15 +196,28 @@ export class DatabaseBackupService implements OnModuleInit, OnModuleDestroy {
     if (this.hasActiveSharedJob(workerState.runningJob)) {
       throw new Error('当前已有数据库任务执行中，请稍后再试');
     }
-    this.assertBackupWorkerAvailable();
 /** job：定义该变量以承载业务值。 */
     const job = this.startJob({
       type: 'restore',
       sourceBackupId: source.id,
     });
+    this.requestDevWatchPauseWindow(`restore:${source.id}`);
     this.runtimeMaintenance = true;
     try {
       await this.prepareRuntimeForRestore();
+      if (this.shouldUseServerFallback()) {
+        this.assertLocalRestoreFallbackAvailable();
+/** snapshot：定义该变量以承载业务值。 */
+        const snapshot = this.toJobSnapshot(job)!;
+        this.persistSharedRunningJob(snapshot);
+/** requestedAt：定义该变量以承载业务值。 */
+        const requestedAt = new Date(snapshot.startedAt).getTime() || Date.now();
+/** preImportBackup：定义该变量以承载业务值。 */
+        const preImportBackup = planBackup('pre_import', requestedAt);
+        void this.runLocalRestoreJob(job, source, preImportBackup, '游戏服内置数据库导入');
+        return { job: snapshot };
+      }
+      this.assertBackupWorkerAvailable();
       writeBackupRestoreRequest({
         job: this.toJobSnapshot(job)!,
         sourceBackupId: source.id,
@@ -217,6 +241,29 @@ export class DatabaseBackupService implements OnModuleInit, OnModuleDestroy {
 
   getBackupDownloadRecord(backupId: string): GmDatabaseBackupRecord & { filePath: string } {
     return this.getBackupByIdOrThrow(backupId);
+  }
+
+  async registerUploadedBackup(tempFilePath: string, originalName: string): Promise<GmDatabaseBackupRecord> {
+    ensureBackupWorkspace();
+/** record：定义该变量以承载业务值。 */
+    const record = createBackupRecord('uploaded', createTimestampId(Date.now(), this.buildUploadedBackupSuffix(originalName)));
+/** moved：定义该变量以承载业务值。 */
+    let moved = false;
+    try {
+      await this.assertUploadedBackupFile(tempFilePath);
+      await fs.promises.mkdir(BACKUP_DIRECTORIES.uploaded, { recursive: true });
+      await fs.promises.rename(tempFilePath, record.filePath);
+      moved = true;
+/** stats：定义该变量以承载业务值。 */
+      const stats = await fs.promises.stat(record.filePath);
+      return {
+        ...record,
+        sizeBytes: stats.size,
+      };
+    } catch (error) {
+      await fs.promises.rm(moved ? record.filePath : tempFilePath, { force: true }).catch(() => {});
+      throw error;
+    }
   }
 
 /** finishJob：执行对应的业务逻辑。 */
@@ -291,6 +338,11 @@ export class DatabaseBackupService implements OnModuleInit, OnModuleDestroy {
     await this.tickService.flushPersistenceNow('maintenance');
   }
 
+  private async synchronizeSchemaAfterRestore(): Promise<void> {
+    await applyPreSynchronizeCompatibilityFixes(buildBasePostgresOptions(this.configService));
+    await this.dataSource.synchronize();
+  }
+
 /** getBackupByIdOrThrow：执行对应的业务逻辑。 */
   private getBackupByIdOrThrow(backupId: string): ResolvedBackupRecord {
 /** backup：定义该变量以承载业务值。 */
@@ -333,9 +385,62 @@ export class DatabaseBackupService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  private assertLocalRestoreFallbackAvailable(): void {
+/** capabilities：定义该变量以承载业务值。 */
+    const capabilities = getDatabaseProcessCapabilities();
+    if (!capabilities.pgRestore && !capabilities.pgDump) {
+      throw new Error('当前未检测到独立数据库 worker，且本机缺少 pg_dump 与 pg_restore；请安装 postgresql-client 或启动 backup worker');
+    }
+    if (!capabilities.pgRestore) {
+      throw new Error('当前未检测到独立数据库 worker，且本机缺少 pg_restore；请安装 postgresql-client 或启动 backup worker');
+    }
+    if (!capabilities.pgDump) {
+      throw new Error('当前未检测到独立数据库 worker，且本机缺少 pg_dump，无法生成导入前备份；请安装 postgresql-client 或启动 backup worker');
+    }
+  }
+
 /** shouldUseServerFallback：执行对应的业务逻辑。 */
   private shouldUseServerFallback(): boolean {
     return this.serverFallbackEnabled && !this.hasFreshBackupWorkerHeartbeat();
+  }
+
+  private buildUploadedBackupSuffix(originalName: string): string {
+/** trimmed：定义该变量以承载业务值。 */
+    const trimmed = originalName.trim();
+/** baseName：定义该变量以承载业务值。 */
+    const baseName = trimmed.replace(/\.[^.]+$/u, '');
+/** normalized：定义该变量以承载业务值。 */
+    const normalized = baseName
+      .toLowerCase()
+      .replace(/[^a-z0-9._-]+/gu, '_')
+      .replace(/_+/gu, '_')
+      .replace(/^_+|_+$/gu, '')
+      .slice(0, 48);
+    return normalized ? `uploaded__${normalized}` : 'uploaded';
+  }
+
+  private async assertUploadedBackupFile(filePath: string): Promise<void> {
+/** stats：定义该变量以承载业务值。 */
+    const stats = await fs.promises.stat(filePath).catch(() => null);
+    if (!stats?.isFile()) {
+      throw new Error('上传文件不存在');
+    }
+    if (stats.size <= 0) {
+      throw new Error('上传文件为空');
+    }
+/** handle：定义该变量以承载业务值。 */
+    const handle = await fs.promises.open(filePath, 'r');
+    try {
+/** header：定义该变量以承载业务值。 */
+      const header = Buffer.alloc(this.uploadDumpMagic.length);
+/** bytesRead：定义该变量以承载业务值。 */
+      const { bytesRead } = await handle.read(header, 0, header.length, 0);
+      if (bytesRead < this.uploadDumpMagic.length || !header.equals(this.uploadDumpMagic)) {
+        throw new Error('上传文件不是 PostgreSQL custom dump；请上传由 pg_dump --format=custom 导出的备份');
+      }
+    } finally {
+      await handle.close();
+    }
   }
 
 /** hasFreshBackupWorkerHeartbeat：执行对应的业务逻辑。 */
@@ -467,6 +572,36 @@ export class DatabaseBackupService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  private async runLocalRestoreJob(
+    job: InternalJobState,
+    source: ResolvedBackupRecord,
+    preImportBackup: ResolvedBackupRecord,
+    label: string,
+  ): Promise<void> {
+    job.backupId = preImportBackup.id;
+    try {
+      await createBackupFile(preImportBackup);
+      await restoreBackupFile(source.filePath);
+      job.status = 'completed';
+      await this.finalizeRestoreJob(this.toJobSnapshot(job)!);
+      if (this.lastJob?.status === 'completed') {
+        this.logger.log(`${label}完成：${source.id} -> ${preImportBackup.id}`);
+      }
+    } catch (error) {
+      this.logger.error(`${label}失败: ${error instanceof Error ? error.message : String(error)}`);
+      this.stopRestoreMonitor();
+      this.runtimeMaintenance = false;
+      this.tickService.resumeRuntimeAfterMaintenance();
+      this.failJob(job, error);
+    } finally {
+/** snapshot：定义该变量以承载业务值。 */
+      const snapshot = this.toJobSnapshot(this.lastJob ?? job);
+      if (snapshot) {
+        this.persistSharedFinishedJob(snapshot);
+      }
+    }
+  }
+
 /** persistScheduledSlot：执行对应的业务逻辑。 */
   private persistScheduledSlot(kind: 'hourly' | 'daily', now: number): void {
 /** state：定义该变量以承载业务值。 */
@@ -504,14 +639,16 @@ export class DatabaseBackupService implements OnModuleInit, OnModuleDestroy {
     }
 /** state：定义该变量以承载业务值。 */
     const state = readBackupWorkerState();
-    if (state.runningJob?.status !== 'running' || state.runningJob.type !== 'backup') {
+    if (state.runningJob?.status !== 'running') {
       return;
     }
     state.lastJob = {
       ...state.runningJob,
       status: 'failed',
       finishedAt: new Date().toISOString(),
-      error: '未检测到可用 backup worker，历史备份任务已中断；后续将由游戏服内置兜底恢复自动备份',
+      error: state.runningJob.type === 'restore'
+        ? '未检测到可用 backup worker，或游戏服本地数据库导入已中断；请重新发起一次导入'
+        : '未检测到可用 backup worker，历史备份任务已中断；后续将由游戏服内置兜底恢复自动备份',
     };
     delete state.runningJob;
     writeBackupWorkerState(state);
@@ -525,6 +662,23 @@ export class DatabaseBackupService implements OnModuleInit, OnModuleDestroy {
       return true;
     }
     return !['0', 'false', 'no', 'off'].includes(raw.trim().toLowerCase());
+  }
+
+  private resolveDevWatchPauseMs(): number {
+/** raw：定义该变量以承载业务值。 */
+    const raw = Number(process.env.DB_DEV_WATCH_PAUSE_MS ?? 30_000);
+    if (!Number.isFinite(raw) || raw <= 0) {
+      return 30_000;
+    }
+    return Math.max(1_000, Math.floor(raw));
+  }
+
+  private requestDevWatchPauseWindow(reason: string): void {
+    try {
+      requestDevWatchPause(this.devWatchPauseMs, reason);
+    } catch (error) {
+      this.logger.warn(`写入开发态 watch 暂停窗口失败: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 
 /** buildScheduleDescription：执行对应的业务逻辑。 */
@@ -626,6 +780,7 @@ export class DatabaseBackupService implements OnModuleInit, OnModuleDestroy {
     this.syncCurrentJob(snapshot, job);
     this.stopRestoreMonitor();
     try {
+      await this.synchronizeSchemaAfterRestore();
       await this.reloadRuntimeFromDatabase();
     } catch (reloadError) {
 /** message：定义该变量以承载业务值。 */
@@ -693,8 +848,14 @@ export class DatabaseBackupService implements OnModuleInit, OnModuleDestroy {
       this.logger.log(`检测到 backup worker 在线：${heartbeat.hostname}#${heartbeat.workerPid}，最近心跳 ${heartbeat.updatedAt}`);
       return;
     }
+/** capabilities：定义该变量以承载业务值。 */
+    const capabilities = getDatabaseProcessCapabilities();
     if (this.serverFallbackEnabled) {
-      this.logger.warn('启动时未检测到可用 backup worker；自动整点/每日备份与手动导出将切换为游戏服内置兜底执行，数据库导入仍需独立 worker');
+      if (capabilities.pgDump && capabilities.pgRestore) {
+        this.logger.warn('启动时未检测到可用 backup worker；自动整点/每日备份、手动导出与数据库导入将切换为游戏服内置兜底执行');
+      } else {
+        this.logger.warn('启动时未检测到可用 backup worker；自动整点/每日备份与手动导出将切换为游戏服内置兜底执行。数据库导入仅可在本机同时具备 pg_dump 与 pg_restore 时继续执行');
+      }
       return;
     }
 /** heartbeat：定义该变量以承载业务值。 */
@@ -728,18 +889,29 @@ export class DatabaseBackupService implements OnModuleInit, OnModuleDestroy {
 
 /** heartbeat：定义该变量以承载业务值。 */
     const heartbeat = readBackupWorkerHeartbeat();
+/** capabilities：定义该变量以承载业务值。 */
+    const capabilities = getDatabaseProcessCapabilities();
     if (this.serverFallbackEnabled) {
       if (!heartbeat) {
-        return '当前未检测到 backup worker 心跳；自动整点/每日备份和手动导出已切换为游戏服内置兜底执行，但数据库导入仍需独立 backup worker。';
+        if (capabilities.pgDump && capabilities.pgRestore) {
+          return '当前未检测到 backup worker 心跳；自动整点/每日备份、手动导出与数据库导入已切换为游戏服内置兜底执行。';
+        }
+        return '当前未检测到 backup worker 心跳；自动整点/每日备份和手动导出已切换为游戏服内置兜底执行。数据库导入仅可在本机同时具备 pg_dump 与 pg_restore 时继续执行。';
       }
 /** heartbeatTime：定义该变量以承载业务值。 */
       const heartbeatTime = new Date(heartbeat.updatedAt).getTime();
       if (!Number.isFinite(heartbeatTime)) {
-        return '当前检测到损坏的 backup worker 心跳文件；自动备份已切换为游戏服内置兜底执行，但数据库导入仍需独立 backup worker。';
+        if (capabilities.pgDump && capabilities.pgRestore) {
+          return '当前检测到损坏的 backup worker 心跳文件；自动备份与数据库导入已切换为游戏服内置兜底执行。';
+        }
+        return '当前检测到损坏的 backup worker 心跳文件；自动备份已切换为游戏服内置兜底执行。数据库导入仅可在本机同时具备 pg_dump 与 pg_restore 时继续执行。';
       }
 /** ageMs：定义该变量以承载业务值。 */
       const ageMs = Date.now() - heartbeatTime;
-      return `backup worker 心跳已过期，最后一次心跳在 ${heartbeat.updatedAt}（约 ${this.formatDurationLabel(ageMs)} 前）；自动整点/每日备份和手动导出已切换为游戏服内置兜底执行，但数据库导入仍需独立 backup worker。`;
+      if (capabilities.pgDump && capabilities.pgRestore) {
+        return `backup worker 心跳已过期，最后一次心跳在 ${heartbeat.updatedAt}（约 ${this.formatDurationLabel(ageMs)} 前）；自动备份与数据库导入已切换为游戏服内置兜底执行。`;
+      }
+      return `backup worker 心跳已过期，最后一次心跳在 ${heartbeat.updatedAt}（约 ${this.formatDurationLabel(ageMs)} 前）；自动备份已切换为游戏服内置兜底执行。数据库导入仅可在本机同时具备 pg_dump 与 pg_restore 时继续执行。`;
     }
 
     if (!heartbeat) {
@@ -785,4 +957,3 @@ export class DatabaseBackupService implements OnModuleInit, OnModuleDestroy {
     return hours > 0 ? `${days} 天 ${hours} 小时` : `${days} 天`;
   }
 }
-

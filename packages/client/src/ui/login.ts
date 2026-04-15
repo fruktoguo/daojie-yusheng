@@ -8,6 +8,7 @@ import { SocketManager } from '../network/socket';
 import {
   checkDisplayNameAvailability,
   clearStoredTokens,
+  getClientDeviceId,
   getRefreshToken,
   requestJson,
   RequestError,
@@ -140,6 +141,7 @@ export class LoginUI {
     const body: AuthLoginReq = {
       loginName: this.loginNameInput.value.normalize('NFC'),
       password: this.passwordInput.value,
+      deviceId: getClientDeviceId(),
     };
     try {
 /** data：定义该变量以承载业务值。 */
@@ -201,6 +203,7 @@ export class LoginUI {
       password,
       displayName,
       roleName,
+      deviceId: getClientDeviceId(),
     };
 
     try {
@@ -342,4 +345,3 @@ export class LoginUI {
     this.setDisplayNameStatus('注册时必填', '');
   }
 }
-

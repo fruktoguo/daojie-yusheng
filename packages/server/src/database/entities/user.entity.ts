@@ -50,6 +50,30 @@ export class UserEntity {
   @Column({ type: 'timestamptz', nullable: true })
   currentOnlineStartedAt!: Date | null;
 
+  /** 注册时记录的来源 IP */
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  registerIp!: string | null;
+
+  /** 最近一次登录或建连时记录的来源 IP */
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  lastLoginIp!: string | null;
+
+  /** 最近一次登录或建连时间 */
+  @Column({ type: 'timestamptz', nullable: true })
+  lastLoginAt!: Date | null;
+
+  /** 注册时记录的设备 ID */
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  registerDeviceId!: string | null;
+
+  /** 最近一次登录或建连时记录的设备 ID */
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  lastLoginDeviceId!: string | null;
+
+  /** 最近一次登录或建连时记录的 UA 摘要 */
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  lastUserAgent!: string | null;
+
   /** 账号封禁时间；为空表示当前可正常登录 */
   @Column({ type: 'timestamptz', nullable: true })
   bannedAt!: Date | null;

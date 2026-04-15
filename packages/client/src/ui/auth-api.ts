@@ -37,6 +37,8 @@ type RequestOptions = {
   signal?: AbortSignal;
 };
 
+const DEVICE_ID_STORAGE_KEY = 'mud:device-id:v1';
+
 /** 从 localStorage 读取 accessToken */
 export function getAccessToken(): string | null {
   return localStorage.getItem(ACCESS_TOKEN_STORAGE_KEY);
@@ -69,6 +71,19 @@ export function clearStoredTokens(): void {
   localStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY);
 }
 
+/** 获取客户端长期 deviceId，不存在则生成 */
+export function getClientDeviceId(): string {
+  const existing = localStorage.getItem(DEVICE_ID_STORAGE_KEY)?.trim();
+  if (existing) {
+    return existing;
+  }
+  const next = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : `dev_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+  localStorage.setItem(DEVICE_ID_STORAGE_KEY, next);
+  return next;
+}
+
 /** 通用 JSON 请求，自动处理 body 序列化与 Bearer 鉴权 */
 export async function requestJson<TResponse>(url: string, options: RequestOptions = {}): Promise<TResponse> {
 /** headers：定义该变量以承载业务值。 */
@@ -79,6 +94,7 @@ export async function requestJson<TResponse>(url: string, options: RequestOption
   if (options.accessToken) {
     headers.Authorization = `Bearer ${options.accessToken}`;
   }
+  headers['X-Device-Id'] = getClientDeviceId();
 
 /** res：定义该变量以承载业务值。 */
   const res = await fetch(url, {
@@ -103,7 +119,7 @@ export async function requestJson<TResponse>(url: string, options: RequestOption
 export function restoreTokens(refreshToken: string): Promise<AuthTokenRes> {
   return requestJson<AuthTokenRes>('/auth/refresh', {
     method: 'POST',
-    body: { refreshToken } satisfies AuthRefreshReq,
+    body: { refreshToken, deviceId: getClientDeviceId() } satisfies AuthRefreshReq,
   });
 }
 
@@ -193,4 +209,3 @@ function parseJwtPayload(token: string): { username?: string } | null {
     return null;
   }
 }
-

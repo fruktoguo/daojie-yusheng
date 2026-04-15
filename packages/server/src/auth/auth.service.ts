@@ -52,6 +52,12 @@ interface MigrationMarkerDocument {
   updatedUsers: number;
 }
 
+interface AuthRequestContext {
+  ip?: string;
+  userAgent?: string;
+  deviceId?: string;
+}
+
 @Injectable()
 /** AuthService：封装相关状态与行为。 */
 export class AuthService implements OnModuleInit {
@@ -74,7 +80,13 @@ export class AuthService implements OnModuleInit {
   }
 
   /** 用户注册：校验输入、查重、创建账号并签发令牌 */
-  async register(accountName: string, password: string, displayName: string, roleName: string): Promise<AuthTokenRes> {
+  async register(
+    accountName: string,
+    password: string,
+    displayName: string,
+    roleName: string,
+    context?: AuthRequestContext,
+  ): Promise<AuthTokenRes> {
 /** normalizedUsername：定义该变量以承载业务值。 */
     const normalizedUsername = normalizeUsername(accountName);
 /** normalizedDisplayName：定义该变量以承载业务值。 */
@@ -131,13 +143,19 @@ export class AuthService implements OnModuleInit {
       displayName: normalizedDisplayName,
       pendingRoleName: normalizedRoleName,
       passwordHash,
+      registerIp: this.normalizeIp(context?.ip),
+      lastLoginIp: this.normalizeIp(context?.ip),
+      lastLoginAt: new Date(),
+      registerDeviceId: this.normalizeDeviceId(context?.deviceId),
+      lastLoginDeviceId: this.normalizeDeviceId(context?.deviceId),
+      lastUserAgent: this.normalizeUserAgent(context?.userAgent),
     });
     await this.userRepo.save(user);
     return this.issueTokens(user);
   }
 
   /** 用户登录：验证密码并签发令牌 */
-  async login(loginName: string, password: string): Promise<AuthTokenRes> {
+  async login(loginName: string, password: string, context?: AuthRequestContext): Promise<AuthTokenRes> {
 /** normalizedLoginName：定义该变量以承载业务值。 */
     const normalizedLoginName = normalizeUsername(loginName).trim();
 /** directUser：定义该变量以承载业务值。 */
@@ -170,11 +188,13 @@ export class AuthService implements OnModuleInit {
     }
     if (directUser && matchedUsers.some((user) => user.id === directUser.id)) {
       this.ensureUserAccessAllowed(directUser);
+      await this.touchUserLoginContext(directUser, context);
       return this.issueTokens(directUser);
     }
 /** allowedUsers：定义该变量以承载业务值。 */
     const allowedUsers = matchedUsers.filter((user) => !this.isUserBanned(user));
     if (allowedUsers.length === 1) {
+      await this.touchUserLoginContext(allowedUsers[0], context);
       return this.issueTokens(allowedUsers[0]);
     }
     if (allowedUsers.length === 0) {
@@ -184,7 +204,7 @@ export class AuthService implements OnModuleInit {
   }
 
   /** 使用 refreshToken 刷新访问令牌 */
-  async refresh(refreshToken: string): Promise<AuthTokenRes> {
+  async refresh(refreshToken: string, context?: AuthRequestContext): Promise<AuthTokenRes> {
     try {
 /** payload：定义该变量以承载业务值。 */
       const payload = this.jwtService.verify(refreshToken);
@@ -197,6 +217,7 @@ export class AuthService implements OnModuleInit {
         throw new UnauthorizedException('用户不存在');
       }
       this.ensureUserAccessAllowed(user);
+      await this.touchUserLoginContext(user, context);
       return this.issueTokens(user);
     } catch (error) {
       if (error instanceof UnauthorizedException) {
@@ -268,6 +289,17 @@ export class AuthService implements OnModuleInit {
     };
   }
 
+  async recordUserLoginContext(userId: string, context?: AuthRequestContext): Promise<void> {
+    if (!userId) {
+      return;
+    }
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    if (!user) {
+      return;
+    }
+    await this.touchUserLoginContext(user, context);
+  }
+
   /** GM 登录：验证密码并签发 GM 专用令牌 */
   async loginGm(password: string): Promise<GmLoginRes> {
 /** passwordHash：定义该变量以承载业务值。 */
@@ -320,6 +352,45 @@ export class AuthService implements OnModuleInit {
     } catch {
       return false;
     }
+  }
+
+  private async touchUserLoginContext(user: UserEntity, context?: AuthRequestContext): Promise<void> {
+    const nextIp = this.normalizeIp(context?.ip);
+    const nextDeviceId = this.normalizeDeviceId(context?.deviceId);
+    const nextUserAgent = this.normalizeUserAgent(context?.userAgent);
+    let changed = false;
+    if (nextIp && user.lastLoginIp !== nextIp) {
+      user.lastLoginIp = nextIp;
+      changed = true;
+    }
+    if (nextDeviceId && user.lastLoginDeviceId !== nextDeviceId) {
+      user.lastLoginDeviceId = nextDeviceId;
+      changed = true;
+    }
+    if (nextUserAgent && user.lastUserAgent !== nextUserAgent) {
+      user.lastUserAgent = nextUserAgent;
+      changed = true;
+    }
+    user.lastLoginAt = new Date();
+    changed = true;
+    if (changed) {
+      await this.userRepo.save(user);
+    }
+  }
+
+  private normalizeIp(ip: string | undefined): string | null {
+    const normalized = ip?.trim().slice(0, 64) ?? '';
+    return normalized.length > 0 ? normalized : null;
+  }
+
+  private normalizeDeviceId(deviceId: string | undefined): string | null {
+    const normalized = deviceId?.trim().slice(0, 64) ?? '';
+    return normalized.length > 0 ? normalized : null;
+  }
+
+  private normalizeUserAgent(userAgent: string | undefined): string | null {
+    const normalized = userAgent?.trim().slice(0, 255) ?? '';
+    return normalized.length > 0 ? normalized : null;
   }
 
   /** 为用户签发 accessToken 和 refreshToken */

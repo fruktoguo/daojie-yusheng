@@ -87,6 +87,7 @@ import {
   S2C_MailOpResult,
   S2C_MailPage,
   S2C_NpcShop,
+  S2C_RedeemCodesResult,
   S2C_SystemMsg,
   S2C_Pong,
   S2C_TileRuntimeDetail,
@@ -129,6 +130,7 @@ import { LeaderboardService } from './leaderboard.service';
 import { REALM_STATE_SOURCE } from '../constants/gameplay/technique';
 import { AlchemyService } from './alchemy.service';
 import { EnhancementService } from './enhancement.service';
+import { GmService } from './gm.service';
 
 @WebSocketGateway({ cors: true })
 /** GameGateway：封装相关状态与行为。 */
@@ -165,6 +167,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     private readonly databaseBackupService: DatabaseBackupService,
     private readonly alchemyService: AlchemyService,
     private readonly enhancementService: EnhancementService,
+    private readonly gmService: GmService,
   ) {}
 
 /** afterInit：执行对应的业务逻辑。 */
@@ -200,6 +203,21 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     }
 
     const { userId, username, displayName } = payload;
+/** forwardedFor：定义该变量以承载业务值。 */
+    const forwardedFor = typeof client.handshake?.headers?.['x-forwarded-for'] === 'string'
+      ? client.handshake.headers['x-forwarded-for']
+      : '';
+/** deviceId：定义该变量以承载业务值。 */
+    const deviceId = typeof client.handshake?.auth?.deviceId === 'string'
+      ? client.handshake.auth.deviceId.trim().slice(0, 64)
+      : '';
+    await this.authService.recordUserLoginContext(userId, {
+      ip: forwardedFor.split(',')[0]?.trim() || client.handshake.address || '',
+      userAgent: typeof client.handshake?.headers?.['user-agent'] === 'string'
+        ? client.handshake.headers['user-agent']
+        : '',
+      deviceId,
+    });
     // 顶号检测
     const existingPlayerId = this.playerService.getPlayerByUserId(userId);
     if (existingPlayerId) {
@@ -1075,7 +1093,43 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     this.playerService.ackPendingLogbookMessages(playerId, ids);
   }
 
-/** sendInit：处理当前场景中的对应操作。 */
+  private async ensureBenefitActionAllowed(
+    client: Socket,
+    playerId: string,
+    action: 'market' | 'mail' | 'redeem',
+  ): Promise<boolean> {
+/** restriction：定义该变量以承载业务值。 */
+    const restriction = await this.gmService.getBenefitRestrictionForPlayer(playerId);
+    if (!restriction.blocked) {
+      return true;
+    }
+/** message：定义该变量以承载业务值。 */
+    const message = restriction.message ?? '当前账号已进入收益限制，请联系 GM 处理。';
+    if (action === 'mail') {
+      client.emit(S2C.MailOpResult, {
+        operation: 'claim',
+        ok: false,
+        mailIds: [],
+        message,
+      } satisfies S2C_MailOpResult);
+      return false;
+    }
+    if (action === 'redeem') {
+      client.emit(S2C.RedeemCodesResult, {
+        result: {
+          results: [{ code: 'RISK_BLOCKED', ok: false, message }],
+        },
+      } satisfies S2C_RedeemCodesResult);
+      return false;
+    }
+    client.emit(S2C.SystemMsg, {
+      kind: 'system',
+      text: message,
+    } satisfies S2C_SystemMsg);
+    return false;
+  }
+
+  /** sendInit：处理当前场景中的对应操作。 */
   private sendInit(client: Socket, player: PlayerState) {
 /** mapMeta：定义该变量以承载业务值。 */
     const mapMeta = this.mapService.getMapMeta(player.mapId);
@@ -1227,6 +1281,9 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     if (!player) {
       return;
     }
+    if (!(await this.ensureBenefitActionAllowed(client, playerId, 'redeem'))) {
+      return;
+    }
 
 /** prepared：定义该变量以承载业务值。 */
     const prepared = await this.redeemCodeService.prepareRedeemCodes(data.codes);
@@ -1275,6 +1332,9 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
 /** player：定义该变量以承载业务值。 */
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
+    if (!(await this.ensureBenefitActionAllowed(client, playerId, 'mail'))) {
+      return;
+    }
 
 /** prepared：定义该变量以承载业务值。 */
     const prepared = await this.mailService.prepareClaim(playerId, data.mailIds);
@@ -1521,6 +1581,9 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
 /** player：定义该变量以承载业务值。 */
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
+    if (!(await this.ensureBenefitActionAllowed(client, playerId, 'market'))) {
+      return;
+    }
 /** result：定义该变量以承载业务值。 */
     const result = await this.marketService.createSellOrder(player, data);
     await this.flushMarketResult(result);
@@ -1534,6 +1597,9 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
 /** player：定义该变量以承载业务值。 */
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
+    if (!(await this.ensureBenefitActionAllowed(client, playerId, 'market'))) {
+      return;
+    }
 /** result：定义该变量以承载业务值。 */
     const result = await this.marketService.createBuyOrder(player, data);
     await this.flushMarketResult(result);
@@ -1547,6 +1613,9 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
 /** player：定义该变量以承载业务值。 */
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
+    if (!(await this.ensureBenefitActionAllowed(client, playerId, 'market'))) {
+      return;
+    }
 /** result：定义该变量以承载业务值。 */
     const result = await this.marketService.buyNow(player, data);
     await this.flushMarketResult(result);
@@ -1560,6 +1629,9 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
 /** player：定义该变量以承载业务值。 */
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
+    if (!(await this.ensureBenefitActionAllowed(client, playerId, 'market'))) {
+      return;
+    }
 /** result：定义该变量以承载业务值。 */
     const result = await this.marketService.sellNow(player, data);
     await this.flushMarketResult(result);
@@ -1586,6 +1658,9 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
 /** player：定义该变量以承载业务值。 */
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
+    if (!(await this.ensureBenefitActionAllowed(client, playerId, 'market'))) {
+      return;
+    }
 /** result：定义该变量以承载业务值。 */
     const result = await this.marketService.claimStorage(player);
     await this.flushMarketResult(result);

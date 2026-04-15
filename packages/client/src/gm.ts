@@ -15,6 +15,9 @@ import {
   type GmAddPlayerCombatExpReq,
   type GmAddPlayerFoundationReq,
   type GmBanManagedPlayerReq,
+  type GmBanPlayersByRiskPreviewRes,
+  type GmBanPlayersByRiskReq,
+  type GmBanPlayersByRiskRes,
   type GmCreateRedeemCodeGroupReq,
   type GmCreateRedeemCodeGroupRes,
   type GmDatabaseBackupRecord,
@@ -45,6 +48,9 @@ import {
   type GmLoginRes,
   type GmManagedPlayerRecord,
   type GmManagedPlayerBehavior,
+  type GmPlayerRiskFactor,
+  type GmPlayerRiskLevel,
+  type GmRiskOperationAuditRecord,
   type GmPlayerAccountStatusFilter,
   type GmPlayerBehaviorFilter,
   type GmPlayerPresenceFilter,
@@ -55,6 +61,7 @@ import {
   type GmSpawnBotsReq,
   type GmStateRes,
   type GmTriggerDatabaseBackupRes,
+  type GmUploadDatabaseBackupRes,
   type GmUpdateManagedPlayerAccountReq,
   type GmUpdateManagedPlayerPasswordReq,
   type GmUpdateRedeemCodeGroupReq,
@@ -120,6 +127,11 @@ const playerPresenceFilterSelect = document.getElementById('player-presence-filt
 /** playerBehaviorFilterSelect：定义该变量以承载业务值。 */
 const playerBehaviorFilterSelect = document.getElementById('player-behavior-filter') as HTMLSelectElement;
 const playerAccountStatusFilterSelect = document.getElementById('player-account-status-filter') as HTMLSelectElement;
+const playerBulkBanRiskThresholdInput = document.getElementById('player-bulk-ban-risk-threshold') as HTMLInputElement;
+const playerBulkBanReasonInput = document.getElementById('player-bulk-ban-reason') as HTMLInputElement;
+const playerBulkBanByRiskBtn = document.getElementById('player-bulk-ban-by-risk') as HTMLButtonElement;
+const playerBulkBanPreviewEl = document.getElementById('player-bulk-ban-preview') as HTMLDivElement;
+const playerRiskAuditListEl = document.getElementById('player-risk-audit-list') as HTMLDivElement;
 /** playerListEl：定义该变量以承载业务值。 */
 const playerListEl = document.getElementById('player-list') as HTMLDivElement;
 /** playerPrevPageBtn：定义该变量以承载业务值。 */
@@ -164,6 +176,8 @@ const editorTabItemsBtn = document.getElementById('editor-tab-items') as HTMLBut
 const editorTabQuestsBtn = document.getElementById('editor-tab-quests') as HTMLButtonElement;
 /** editorTabMailBtn：定义该变量以承载业务值。 */
 const editorTabMailBtn = document.getElementById('editor-tab-mail') as HTMLButtonElement;
+/** editorTabRiskBtn：定义该变量以承载业务值。 */
+const editorTabRiskBtn = document.getElementById('editor-tab-risk') as HTMLButtonElement;
 /** editorTabPersistedBtn：定义该变量以承载业务值。 */
 const editorTabPersistedBtn = document.getElementById('editor-tab-persisted') as HTMLButtonElement;
 /** playerJsonEl：定义该变量以承载业务值。 */
@@ -365,7 +379,7 @@ const redeemGroupEditorEl = document.getElementById('redeem-group-editor') as HT
 const redeemCodeListEl = document.getElementById('redeem-code-list') as HTMLDivElement | null;
 
 /** GmEditorTab：定义该类型的结构与数据语义。 */
-type GmEditorTab = GmPlayerUpdateSection | 'shortcuts' | 'mail' | 'persisted';
+type GmEditorTab = GmPlayerUpdateSection | 'shortcuts' | 'mail' | 'risk' | 'persisted';
 
 /** GmMailAttachmentDraft：定义该接口的能力与字段约束。 */
 interface GmMailAttachmentDraft {
@@ -498,6 +512,15 @@ let lastPathfindingFailureStructureKey: string | null = null;
 let lastShortcutMailComposerStructureKey: string | null = null;
 /** databaseStateLoading：定义该变量以承载业务值。 */
 let databaseStateLoading = false;
+/** selectedDatabaseImportFile：定义该变量以承载业务值。 */
+let selectedDatabaseImportFile: File | null = null;
+/** databaseImportUploading：定义该变量以承载业务值。 */
+let databaseImportUploading = false;
+/** databasePanelNotice：定义该变量以承载业务值。 */
+let databasePanelNotice: { kind: StatusKind; message: string } = {
+  kind: 'idle',
+  message: '',
+};
 /** redeemGroupsState：定义该变量以承载业务值。 */
 let redeemGroupsState: RedeemCodeGroupView[] = [];
 /** selectedRedeemGroupId：定义该变量以承载业务值。 */
@@ -680,6 +703,135 @@ function getManagedPlayerAccountStatusLabel(status: GmManagedPlayerSummary['acco
   }
 }
 
+function getPlayerRiskLevelLabel(level: GmPlayerRiskLevel): string {
+  switch (level) {
+    case 'critical':
+      return '极高风险';
+    case 'high':
+      return '高风险';
+    case 'medium':
+      return '中风险';
+    case 'low':
+    default:
+      return '低风险';
+  }
+}
+
+function getPlayerRiskLevelPillClass(level: GmPlayerRiskLevel): string {
+  switch (level) {
+    case 'critical':
+      return 'bot';
+    case 'high':
+      return 'offline';
+    case 'medium':
+      return '';
+    case 'low':
+    default:
+      return 'online';
+  }
+}
+
+function renderPlayerRiskFactorCard(factor: GmPlayerRiskFactor): string {
+  const evidenceMarkup = factor.evidence.length > 0
+    ? `<div class="editor-note" style="margin-top: 8px;">${factor.evidence.map((entry) => `- ${escapeHtml(entry)}`).join('<br />')}</div>`
+    : '<div class="editor-note" style="margin-top: 8px;">当前维度暂无额外证据。</div>';
+  return `
+    <div class="editor-card">
+      <div class="editor-card-head">
+        <div>
+          <div class="editor-card-title">${escapeHtml(factor.label)}</div>
+          <div class="editor-card-meta">${escapeHtml(factor.summary)}</div>
+        </div>
+        <span class="pill ${factor.score > 0 ? 'offline' : 'online'}">${factor.score} / ${factor.maxScore}</span>
+      </div>
+      ${evidenceMarkup}
+    </div>
+  `;
+}
+
+function renderPlayerRiskSection(player: GmManagedPlayerRecord): string {
+  const report = player.riskReport;
+  const riskAdminStatusMarkup = player.account
+    ? `
+      <div class="editor-card">
+        <div class="editor-card-head">
+          <div class="editor-card-title">管理员名单</div>
+        </div>
+        <div class="editor-note" style="margin-top: 0;">
+          ${player.account.isRiskAdmin
+            ? '当前账号已加入管理员名单。与该账号相关的坊市利益输送判断会被忽略，收益限制和按风险批量封号也会跳过该账号。'
+            : '当前账号未加入管理员名单。若这是你的管理账号，可加入名单，避免“都卖给我/都买我的”这类正常管理行为被当成利益输送。'}
+        </div>
+        <div class="button-row" style="margin-top: 10px;">
+          <button class="small-btn${player.account.isRiskAdmin ? '' : ' primary'}" type="button" data-action="${player.account.isRiskAdmin ? 'remove-risk-admin-account' : 'add-risk-admin-account'}">${player.account.isRiskAdmin ? '移出管理员名单' : '加入管理员名单'}</button>
+        </div>
+      </div>
+    `
+    : '';
+  const accountEnvMarkup = player.account
+    ? `
+      <div class="editor-note" style="margin-top: 8px;">
+        最近登录时间：${escapeHtml(player.account.lastLoginAt ? formatDateTime(player.account.lastLoginAt) : '未知')}<br />
+        最近登录 IP：${escapeHtml(player.account.lastLoginIp ?? '未采集')}<br />
+        最近设备 ID：${escapeHtml(player.account.lastLoginDeviceId ?? '未采集')}<br />
+        管理员名单：${player.account.isRiskAdmin ? '已加入' : '未加入'}
+      </div>
+    `
+    : '';
+  return `
+    <section class="editor-section">
+      <div class="editor-section-head">
+        <div>
+          <div class="editor-section-title">风险总览</div>
+          <div class="editor-section-note">这套系统只做多维度风险检测和证据展示，不会自动封号。</div>
+        </div>
+        <div class="editor-chip-list">
+          <span class="pill ${getPlayerRiskLevelPillClass(report.level)}">${escapeHtml(getPlayerRiskLevelLabel(report.level))}</span>
+          <span class="pill">总分 ${report.score} / ${report.maxScore}</span>
+          <span class="pill">${escapeHtml(formatDateTime(report.generatedAt))}</span>
+        </div>
+      </div>
+      <div class="note-card">${escapeHtml(report.overview)}</div>
+      ${accountEnvMarkup}
+      <div class="editor-note" style="margin-top: 8px;">
+        当前版本重点看账号名模式、相似账号簇、账号年龄、重复 IP / 设备，以及坊市关系集中度。
+      </div>
+    </section>
+
+    <section class="editor-section">
+      <div class="editor-section-head">
+        <div>
+          <div class="editor-section-title">处置建议</div>
+          <div class="editor-section-note">这里给 GM 一个排查顺序，不会自动执行任何限制动作。</div>
+        </div>
+      </div>
+      ${riskAdminStatusMarkup}
+      <div class="editor-card-list">
+        ${report.recommendations.map((entry, index) => `
+          <div class="editor-card">
+            <div class="editor-card-head">
+              <div class="editor-card-title">建议 ${index + 1}</div>
+            </div>
+            <div class="editor-note" style="margin-top: 0;">${escapeHtml(entry)}</div>
+          </div>
+        `).join('')}
+      </div>
+    </section>
+
+    <section class="editor-section">
+      <div class="editor-section-head">
+        <div>
+          <div class="editor-section-title">维度明细</div>
+          <div class="editor-section-note">每个维度都会给出分数、摘要和命中的证据。</div>
+        </div>
+      </div>
+      <div class="editor-card-list">
+        ${report.factors.map(renderPlayerRiskFactorCard).join('')}
+      </div>
+    </section>
+  `;
+}
+
 /** getPlayerIdentityLine：执行对应的业务逻辑。 */
 function getPlayerIdentityLine(player: GmManagedPlayerSummary): string {
   return gmMarkupHelpers.getPlayerIdentityLine(player);
@@ -706,8 +858,8 @@ function patchPlayerRow(button: HTMLButtonElement, player: GmManagedPlayerSummar
   presenceEl.classList.toggle('online', presence.className === 'online');
   presenceEl.classList.toggle('offline', presence.className === 'offline');
   presenceEl.textContent = presence.label;
-  button.querySelector<HTMLElement>('[data-role="meta"]')!.textContent = `账号: ${player.accountName ?? '无'} · 状态: ${getManagedPlayerAccountStatusLabel(player.accountStatus)} · 显示名: ${player.displayName}`;
-  button.querySelector<HTMLElement>('[data-role="identity"]')!.textContent = getPlayerIdentityLine(player);
+  button.querySelector<HTMLElement>('[data-role="meta"]')!.textContent = `账号: ${player.accountName ?? '无'} · 状态: ${getManagedPlayerAccountStatusLabel(player.accountStatus)}${player.isRiskAdmin ? ' · 管理员名单' : ''} · 风险: ${player.riskScore} (${getPlayerRiskLevelLabel(player.riskLevel)})`;
+  button.querySelector<HTMLElement>('[data-role="identity"]')!.textContent = `${getPlayerIdentityLine(player)}${player.riskTags.length > 0 ? ` · 命中: ${player.riskTags.join(' / ')}` : ''}`;
   button.querySelector<HTMLElement>('[data-role="stats"]')!.textContent = getPlayerStatsLine(player);
 }
 
@@ -736,7 +888,7 @@ function getEditorBodyChipMarkup(player: GmManagedPlayerRecord, draft: PlayerSta
 }
 
 function getManagedAccountRestrictionLabel(account: NonNullable<GmManagedPlayerRecord['account']>): string {
-  return account.status === 'banned' ? '已封禁' : '正常';
+  return `${account.status === 'banned' ? '已封禁' : '正常'}${account.isRiskAdmin ? ' · 管理员名单' : ''}`;
 }
 
 /** getEquipmentCardTitle：执行对应的业务逻辑。 */
@@ -1358,6 +1510,9 @@ function buildEditorStructureKey(detail: GmManagedPlayerRecord, draft: PlayerSta
     detail.account?.status ?? 'no-account',
     detail.account?.bannedAt ?? '',
     detail.account?.banReason ?? '',
+    String(detail.riskReport.score),
+    detail.riskReport.level,
+    detail.riskReport.factors.map((factor) => `${factor.key}:${factor.score}`).join(','),
     ensureArray(draft.bonuses).length,
     ensureArray(draft.temporaryBuffs).length,
     ensureArray(draft.inventory.items).length,
@@ -1708,6 +1863,8 @@ function getEditorTabLabel(tab: GmEditorTab): string {
       return '任务';
     case 'mail':
       return '邮件';
+    case 'risk':
+      return '风险检测';
     case 'persisted':
       return '持久化 JSON';
   }
@@ -1725,6 +1882,7 @@ function switchEditorTab(tab: GmEditorTab): void {
   editorTabItemsBtn.classList.toggle('active', tab === 'items');
   editorTabQuestsBtn.classList.toggle('active', tab === 'quests');
   editorTabMailBtn.classList.toggle('active', tab === 'mail');
+  editorTabRiskBtn.classList.toggle('active', tab === 'risk');
   editorTabPersistedBtn.classList.toggle('active', tab === 'persisted');
   editorVisualPanelEl.classList.toggle('hidden', tab === 'persisted');
   editorPersistedPanelEl.classList.toggle('hidden', tab !== 'persisted');
@@ -1735,12 +1893,14 @@ function switchEditorTab(tab: GmEditorTab): void {
     savePlayerBtn.textContent = '高级区不直接保存';
   } else if (tab === 'mail') {
     savePlayerBtn.textContent = '邮件标签不直接保存';
+  } else if (tab === 'risk') {
+    savePlayerBtn.textContent = '风险标签不直接保存';
   } else if (tab === 'shortcuts') {
     savePlayerBtn.textContent = '快捷标签按钮会直接提交';
   } else {
     savePlayerBtn.textContent = `保存${getEditorTabLabel(tab)}`;
   }
-  savePlayerBtn.disabled = tab === 'persisted' || tab === 'mail' || tab === 'shortcuts' || !selectedPlayerId;
+  savePlayerBtn.disabled = tab === 'persisted' || tab === 'mail' || tab === 'risk' || tab === 'shortcuts' || !selectedPlayerId;
 }
 
 /** StatusKind：定义该类型的结构与数据语义。 */
@@ -1803,6 +1963,13 @@ function setStatus(message: string, isError = false): void {
   showStatusToast(message, kind);
 }
 
+function setDatabasePanelNotice(message: string, kind: StatusKind): void {
+  databasePanelNotice = { message, kind };
+  if (currentTab === 'server' && currentServerTab === 'database') {
+    renderDatabasePanel();
+  }
+}
+
 /** worldViewer：定义该变量以承载业务值。 */
 const worldViewer = new GmWorldViewer(request, setStatus);
 
@@ -1834,6 +2001,8 @@ function formatDatabaseBackupKind(kind: GmDatabaseBackupRecord['kind']): string 
       return '每日备份';
     case 'manual':
       return '手动导出';
+    case 'uploaded':
+      return '本地上传';
     case 'pre_import':
       return '导入前备份';
     default:
@@ -1869,6 +2038,14 @@ function formatDatabaseJobLabel(data: GmDatabaseStateRes | null): string {
 function renderDatabasePanel(): void {
 /** busy：定义该变量以承载业务值。 */
   const busy = databaseState?.runningJob?.status === 'running';
+/** importFileLabel：定义该变量以承载业务值。 */
+  const importFileLabel = selectedDatabaseImportFile
+    ? `${selectedDatabaseImportFile.name} · ${formatBytes(selectedDatabaseImportFile.size)}`
+    : '尚未选择本地备份文件';
+/** noticeMarkup：定义该变量以承载业务值。 */
+  const noticeMarkup = databasePanelNotice.message
+    ? `<div class="note-card" data-kind="${escapeHtml(databasePanelNotice.kind)}">${escapeHtml(databasePanelNotice.message)}</div>`
+    : '';
 /** backups：定义该变量以承载业务值。 */
   const backups = databaseState?.backups ?? [];
 /** summary：定义该变量以承载业务值。 */
@@ -1896,17 +2073,36 @@ function renderDatabasePanel(): void {
       <button id="database-refresh" class="small-btn" type="button">刷新数据库状态</button>
       <button id="database-export-current" class="small-btn primary" type="button" ${busy ? 'disabled' : ''}>导出当前数据库</button>
     </div>
+    ${noticeMarkup}
+    <div class="editor-section" style="margin-top: 12px;">
+      <div class="editor-section-head">
+        <div>
+          <div class="editor-section-title">本地数据库导入</div>
+          <div class="editor-section-note">选择本地 PostgreSQL custom dump 后，上传到服务器并立即走现有覆盖导入流程。</div>
+        </div>
+      </div>
+      <div class="editor-grid compact">
+        <label class="editor-field">
+          <span>本地备份文件</span>
+          <input id="database-import-file" type="file" accept=".dump,.backup,application/octet-stream" ${databaseImportUploading ? 'disabled' : ''} />
+        </label>
+      </div>
+      <div class="editor-note" style="margin-top: 8px;">当前选择：${escapeHtml(importFileLabel)}。仅支持由 <code>pg_dump --format=custom</code> 生成的备份。</div>
+      <div class="button-row" style="margin-top: 10px;">
+        <button id="database-import-upload" class="small-btn danger" type="button" ${(busy || databaseImportUploading || !selectedDatabaseImportFile) ? 'disabled' : ''}>上传并导入覆盖当前库</button>
+      </div>
+    </div>
     <div class="note-card">${escapeHtml(summary)}</div>
     <div class="note-card">
       自动策略：${escapeHtml(databaseState?.schedules.hourly ?? '每小时整点低优先级备份')}；${escapeHtml(databaseState?.schedules.daily ?? '每天 04:05 低优先级备份')}。<br />
-      保留策略：整点备份最多 ${databaseState?.retention.hourly ?? 72} 份，每日备份最多 ${databaseState?.retention.daily ?? 14} 份。手动导出和导入前备份当前不自动删。<br />
+      保留策略：整点备份最多 ${databaseState?.retention.hourly ?? 72} 份，每日备份最多 ${databaseState?.retention.daily ?? 14} 份。手动导出、本地上传和导入前备份当前不自动删。<br />
       导入历史备份前，服务端会先生成一份“导入前备份”，随后暂停 tick、断开玩家连接、覆盖数据库并重建运行时。<br />
       ${escapeHtml(databaseState?.note ?? '正式数据库备份与恢复由独立 backup worker 执行，游戏服只负责发起请求、维护窗口与展示状态。')}
     </div>
     <div class="network-breakdown">
       <div class="network-breakdown-head">
         <div class="panel-title">历史数据库备份</div>
-        <div class="network-breakdown-subtitle">支持下载任意历史备份，也支持直接把某份备份重新导入为当前数据库</div>
+        <div class="network-breakdown-subtitle">支持下载任意历史备份，也支持把本地上传备份或历史备份直接重新导入为当前数据库</div>
       </div>
       <div class="network-breakdown-list">${rows}</div>
     </div>
@@ -2267,6 +2463,7 @@ async function loadDatabaseState(silent = false): Promise<void> {
     const data = await request<GmDatabaseStateRes>('/gm/database/state');
     databaseState = data;
     if (!silent) {
+      setDatabasePanelNotice(`已同步 ${data.backups.length} 份数据库备份`, 'success');
       setStatus(`已同步 ${data.backups.length} 份数据库备份`);
     }
   } finally {
@@ -2277,10 +2474,12 @@ async function loadDatabaseState(silent = false): Promise<void> {
 
 /** exportCurrentDatabase：执行对应的业务逻辑。 */
 async function exportCurrentDatabase(): Promise<void> {
+  setDatabasePanelNotice('正在发起当前数据库导出…', 'pending');
 /** result：定义该变量以承载业务值。 */
   const result = await request<GmTriggerDatabaseBackupRes>('/gm/database/backup', {
     method: 'POST',
   });
+  setDatabasePanelNotice(`已开始导出当前数据库：${result.job.backupId ?? result.job.id}`, 'success');
   setStatus(`已开始导出当前数据库：${result.job.backupId ?? result.job.id}`);
   await loadDatabaseState(true);
 }
@@ -2317,6 +2516,7 @@ async function downloadDatabaseBackup(backupId: string): Promise<void> {
   anchor.click();
   anchor.remove();
   window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1_000);
+  setDatabasePanelNotice(`已下载数据库备份 ${fileName}`, 'success');
   setStatus(`已下载数据库备份 ${fileName}`);
 }
 
@@ -2335,13 +2535,73 @@ async function restoreDatabaseBackup(backupId: string): Promise<void> {
   }
 /** body：定义该变量以承载业务值。 */
   const body: GmRestoreDatabaseReq = { backupId };
+  setDatabasePanelNotice(`正在发起导入 ${backup.fileName}…`, 'pending');
 /** result：定义该变量以承载业务值。 */
   const result = await request<GmTriggerDatabaseBackupRes>('/gm/database/restore', {
     method: 'POST',
     body: JSON.stringify(body),
   });
+  setDatabasePanelNotice(`已开始导入数据库备份：${result.job.sourceBackupId ?? backup.fileName}`, 'success');
   setStatus(`已开始导入数据库备份：${result.job.sourceBackupId ?? backup.fileName}`);
   await loadDatabaseState(true);
+}
+
+/** importLocalDatabaseBackup：执行对应的业务逻辑。 */
+async function importLocalDatabaseBackup(): Promise<void> {
+/** file：定义该变量以承载业务值。 */
+  const file = selectedDatabaseImportFile;
+  if (!file) {
+    setStatus('请先选择本地数据库备份文件', true);
+    return;
+  }
+/** confirmed：定义该变量以承载业务值。 */
+  const confirmed = window.confirm(`将上传本地备份 ${file.name} 并覆盖当前数据库。\n服务端会先自动备份当前库，并断开在线玩家连接。是否继续？`);
+  if (!confirmed) {
+    return;
+  }
+  databaseImportUploading = true;
+  setDatabasePanelNotice(`正在上传本地数据库备份 ${file.name}…`, 'pending');
+  renderDatabasePanel();
+/** uploadedBackup：定义该变量以承载业务值。 */
+  let uploadedBackup: GmDatabaseBackupRecord | null = null;
+  try {
+/** formData：定义该变量以承载业务值。 */
+    const formData = new FormData();
+    formData.append('file', file, file.name);
+/** uploadResult：定义该变量以承载业务值。 */
+    const uploadResult = await request<GmUploadDatabaseBackupRes>('/gm/database/backups/upload', {
+      method: 'POST',
+      body: formData,
+    });
+    uploadedBackup = uploadResult.backup;
+    selectedDatabaseImportFile = null;
+    setDatabasePanelNotice(`本地备份已上传：${uploadResult.backup.fileName}，正在发起覆盖导入…`, 'pending');
+    renderDatabasePanel();
+/** body：定义该变量以承载业务值。 */
+    const body: GmRestoreDatabaseReq = { backupId: uploadResult.backup.id };
+/** restoreResult：定义该变量以承载业务值。 */
+    const restoreResult = await request<GmTriggerDatabaseBackupRes>('/gm/database/restore', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+    setDatabasePanelNotice(`已上传并开始导入本地数据库备份：${restoreResult.job.sourceBackupId ?? uploadResult.backup.fileName}`, 'success');
+    setStatus(`已上传并开始导入本地数据库备份：${restoreResult.job.sourceBackupId ?? uploadResult.backup.fileName}`);
+    await loadDatabaseState(true);
+  } catch (error) {
+/** message：定义该变量以承载业务值。 */
+    const message = error instanceof Error ? error.message : '上传本地数据库失败';
+    if (uploadedBackup) {
+      setDatabasePanelNotice(`本地备份已上传为 ${uploadedBackup.fileName}，但导入失败：${message}`, 'error');
+      setStatus(`本地备份已上传为 ${uploadedBackup.fileName}，但导入失败：${message}`, true);
+      await loadDatabaseState(true);
+      return;
+    }
+    setDatabasePanelNotice(message, 'error');
+    throw error;
+  } finally {
+    databaseImportUploading = false;
+    renderDatabasePanel();
+  }
 }
 
 /** setCpuBreakdownSort：执行对应的业务逻辑。 */
@@ -2584,7 +2844,9 @@ async function removeSuggestion(id: string): Promise<void> {
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 /** headers：定义该变量以承载业务值。 */
   const headers = new Headers(init.headers ?? {});
-  if (!headers.has('Content-Type') && init.body) {
+/** isFormDataBody：定义该变量以承载业务值。 */
+  const isFormDataBody = typeof FormData !== 'undefined' && init.body instanceof FormData;
+  if (!headers.has('Content-Type') && init.body && !isFormDataBody) {
     headers.set('Content-Type', 'application/json');
   }
   if (token) {
@@ -4048,6 +4310,8 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
       })}
     </section>
     `)}
+
+    ${renderEditorTabSection('risk', renderPlayerRiskSection(player))}
   `;
 }
 
@@ -4129,6 +4393,34 @@ function renderPlayerPageMeta(data: GmStateRes): void {
   playerPageMetaEl.textContent = `第 ${data.playerPage.page} / ${data.playerPage.totalPages} 页 · 共 ${data.playerPage.total} 条`;
   playerPrevPageBtn.disabled = data.playerPage.page <= 1;
   playerNextPageBtn.disabled = data.playerPage.page >= data.playerPage.totalPages;
+}
+
+function renderRiskAuditList(data: GmStateRes): void {
+  if (data.riskAuditLogs.length <= 0) {
+    playerRiskAuditListEl.innerHTML = '<div class="empty-hint">暂无风险批量处置记录。</div>';
+    return;
+  }
+  playerRiskAuditListEl.innerHTML = [
+    '<div class="section-subtitle" style="margin-bottom: 8px;">最近风险批量处置</div>',
+    ...data.riskAuditLogs.map((entry) => getRiskAuditRowMarkup(entry)),
+  ].join('');
+}
+
+function getRiskAuditRowMarkup(entry: GmRiskOperationAuditRecord): string {
+  const filters = [
+    entry.keyword ? `关键词: ${escapeHtml(entry.keyword)}` : '',
+    entry.presence ? `在线过滤: ${escapeHtml(entry.presence)}` : '',
+    entry.behavior ? `行为过滤: ${escapeHtml(entry.behavior)}` : '',
+    entry.accountStatus ? `账号过滤: ${escapeHtml(entry.accountStatus)}` : '',
+  ].filter(Boolean).join(' · ');
+  return `
+    <div class="network-row">
+      <div class="network-row-main">
+        <div class="network-row-label">${escapeHtml(formatDateTime(entry.createdAt))} · 阈值 ${entry.minRiskScore} · 成功 ${entry.bannedPlayers}/${entry.matchedPlayers}</div>
+        <div class="network-row-meta">${escapeHtml(entry.reason ?? '未填写原因')}${filters ? ` · ${filters}` : ''}</div>
+      </div>
+    </div>
+  `;
 }
 
 /** renderPlayerList：执行对应的业务逻辑。 */
@@ -4264,6 +4556,7 @@ function render(): void {
   switchServerTab(currentServerTab);
   renderSummary(state);
   renderDatabasePanel();
+  renderRiskAuditList(state);
   renderPlayerList(state);
   renderEditor(state);
   if (currentTab === 'shortcuts') {
@@ -4532,6 +4825,9 @@ function logout(message?: string): void {
   state = null;
   databaseState = null;
   databaseStateLoading = false;
+  selectedDatabaseImportFile = null;
+  databaseImportUploading = false;
+  databasePanelNotice = { kind: 'idle', message: '' };
   redeemGroupsState = [];
   selectedRedeemGroupId = null;
   redeemGroupDetailState = null;
@@ -4698,7 +4994,9 @@ async function applyRawJson(): Promise<void> {
 
 /** getCurrentEditorSaveSection：执行对应的业务逻辑。 */
 function getCurrentEditorSaveSection(): GmPlayerUpdateSection | null {
-  return currentEditorTab === 'persisted' || currentEditorTab === 'mail' || currentEditorTab === 'shortcuts' ? null : currentEditorTab;
+  return currentEditorTab === 'persisted' || currentEditorTab === 'mail' || currentEditorTab === 'risk' || currentEditorTab === 'shortcuts'
+    ? null
+    : currentEditorTab;
 }
 
 /** buildTechniqueSaveSnapshot：执行对应的业务逻辑。 */
@@ -5323,6 +5621,64 @@ async function banSelectedPlayerAccount(): Promise<void> {
   }
 }
 
+async function banPlayersByRiskThreshold(): Promise<void> {
+/** threshold：定义该变量以承载业务值。 */
+  const threshold = Math.max(0, Math.floor(Number(playerBulkBanRiskThresholdInput.value || '0')));
+  if (!Number.isFinite(threshold)) {
+    setStatus('风险阈值不是合法数字', true);
+    return;
+  }
+/** reason：定义该变量以承载业务值。 */
+  const reason = playerBulkBanReasonInput.value.trim();
+  playerBulkBanByRiskBtn.disabled = true;
+  try {
+    setPendingStatus(`正在预览风险值 >= ${threshold} 的封禁范围...`);
+/** body：定义该变量以承载业务值。 */
+    const body: GmBanPlayersByRiskReq = {
+      minRiskScore: threshold,
+      reason,
+      keyword: playerSearchInput.value.trim(),
+      sort: currentPlayerSort,
+      presence: currentPlayerPresenceFilter,
+      behavior: currentPlayerBehaviorFilter,
+      accountStatus: currentPlayerAccountStatusFilter,
+    };
+/** preview：定义该变量以承载业务值。 */
+    const preview = await request<GmBanPlayersByRiskPreviewRes>('/gm/players/batch-ban-by-risk/preview', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+    playerBulkBanPreviewEl.innerHTML = preview.matchedPlayers > 0
+      ? `本次预览命中 <strong>${preview.matchedPlayers}</strong> 个账号。快照：<code>${escapeHtml(preview.targetSnapshotHash)}</code>。样本：${escapeHtml(preview.samples.map((entry) => `${entry.roleName}(${entry.riskScore})`).join('、') || '无')}`
+      : '当前筛选范围内没有命中该风险阈值的账号。';
+    if (preview.matchedPlayers <= 0) {
+      setStatus('当前没有符合阈值的账号');
+      return;
+    }
+    if (!window.confirm(`预览命中 ${preview.matchedPlayers} 个账号，是否继续批量封禁？此操作会写入审计日志。`)) {
+      setStatus('已取消批量封号');
+      return;
+    }
+    setPendingStatus(`正在批量封禁风险值 >= ${threshold} 的账号...`);
+/** result：定义该变量以承载业务值。 */
+    const result = await request<GmBanPlayersByRiskRes>('/gm/players/batch-ban-by-risk', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...body,
+        expectedMatchedPlayers: preview.matchedPlayers,
+        expectedTargetSnapshotHash: preview.targetSnapshotHash,
+        previewToken: preview.previewToken,
+      } satisfies GmBanPlayersByRiskReq),
+    });
+    await loadState(true, true);
+    setStatus(`批量封号完成：命中 ${result.matchedPlayers} 个，成功封禁 ${result.bannedPlayers} 个，跳过 ${result.skippedPlayers} 个`);
+  } catch (error) {
+    setStatus(error instanceof Error ? error.message : '批量封号失败', true);
+  } finally {
+    playerBulkBanByRiskBtn.disabled = false;
+  }
+}
+
 function syncBanReasonPresetButtons(scope: ParentNode = editorContentEl): void {
 /** input：定义该变量以承载业务值。 */
   const input = scope.querySelector<HTMLInputElement>('#player-account-ban-reason');
@@ -5384,6 +5740,42 @@ async function unbanSelectedPlayerAccount(): Promise<void> {
   } catch (error) {
 /** setStatus：处理当前场景中的对应操作。 */
     setStatus(error instanceof Error ? error.message : '解封失败', true);
+  } finally {
+    if (button) {
+      button.disabled = false;
+    }
+  }
+}
+
+async function toggleSelectedPlayerRiskAdmin(nextEnabled: boolean): Promise<void> {
+/** detail：定义该变量以承载业务值。 */
+  const detail = getSelectedPlayerDetail();
+  if (!detail?.account) {
+    setStatus('当前目标没有可维护的账号', true);
+    return;
+  }
+  if (detail.account.isRiskAdmin === nextEnabled) {
+    setStatus(nextEnabled ? '当前账号已在管理员名单中' : '当前账号不在管理员名单中');
+    return;
+  }
+/** actionLabel：定义该变量以承载业务值。 */
+  const actionLabel = nextEnabled ? '加入' : '移出';
+/** button：定义该变量以承载业务值。 */
+  const button = editorContentEl.querySelector<HTMLButtonElement>(
+    `[data-action="${nextEnabled ? 'add-risk-admin-account' : 'remove-risk-admin-account'}"]`,
+  );
+  if (button) {
+    button.disabled = true;
+  }
+  try {
+    setPendingStatus(`正在将账号 ${detail.account.username}${actionLabel}管理员名单...`);
+    await request<{ ok: true }>(`/gm/players/${encodeURIComponent(detail.id)}/risk-admin`, {
+      method: nextEnabled ? 'POST' : 'DELETE',
+    });
+    await loadState(true, true);
+    setStatus(`已将账号 ${detail.account.username}${actionLabel}管理员名单`);
+  } catch (error) {
+    setStatus(error instanceof Error ? error.message : `${actionLabel}管理员名单失败`, true);
   } finally {
     if (button) {
       button.disabled = false;
@@ -5888,6 +6280,14 @@ editorContentEl.addEventListener('click', (event) => {
     unbanSelectedPlayerAccount().catch(() => {});
     return;
   }
+  if (action === 'add-risk-admin-account') {
+    toggleSelectedPlayerRiskAdmin(true).catch(() => {});
+    return;
+  }
+  if (action === 'remove-risk-admin-account') {
+    toggleSelectedPlayerRiskAdmin(false).catch(() => {});
+    return;
+  }
   if (action === 'set-body-training-level') {
     setSelectedPlayerBodyTrainingLevel().catch((error: unknown) => {
 /** setStatus：处理当前场景中的对应操作。 */
@@ -6270,6 +6670,9 @@ playerAccountStatusFilterSelect.addEventListener('change', () => {
     setStatus(error instanceof Error ? error.message : '加载角色列表失败', true);
   });
 });
+playerBulkBanByRiskBtn.addEventListener('click', () => {
+  banPlayersByRiskThreshold().catch(() => {});
+});
 playerPrevPageBtn.addEventListener('click', () => {
   if (currentPlayerPage <= 1) {
     return;
@@ -6320,6 +6723,7 @@ editorTabShortcutsBtn.addEventListener('click', () => switchEditorTab('shortcuts
 editorTabItemsBtn.addEventListener('click', () => switchEditorTab('items'));
 editorTabQuestsBtn.addEventListener('click', () => switchEditorTab('quests'));
 editorTabMailBtn.addEventListener('click', () => switchEditorTab('mail'));
+editorTabRiskBtn.addEventListener('click', () => switchEditorTab('risk'));
 editorTabPersistedBtn.addEventListener('click', () => switchEditorTab('persisted'));
 
 document.getElementById('refresh-state')?.addEventListener('click', () => {
@@ -6564,6 +6968,17 @@ resetCpuStatsBtn.addEventListener('click', () => {
 resetPathfindingStatsBtn.addEventListener('click', () => {
   resetPathfindingStats().catch(() => {});
 });
+serverPanelDatabaseEl.addEventListener('change', (event) => {
+/** target：定义该变量以承载业务值。 */
+  const target = event.target as HTMLElement | null;
+/** fileInput：定义该变量以承载业务值。 */
+  const fileInput = target?.closest<HTMLInputElement>('#database-import-file');
+  if (!fileInput) {
+    return;
+  }
+  selectedDatabaseImportFile = fileInput.files?.[0] ?? null;
+  renderDatabasePanel();
+});
 serverPanelDatabaseEl.addEventListener('click', (event) => {
 /** target：定义该变量以承载业务值。 */
   const target = event.target as HTMLElement | null;
@@ -6583,6 +6998,19 @@ serverPanelDatabaseEl.addEventListener('click', (event) => {
     exportCurrentDatabase().catch((error: unknown) => {
 /** setStatus：处理当前场景中的对应操作。 */
       setStatus(error instanceof Error ? error.message : '导出数据库失败', true);
+    });
+    return;
+  }
+
+/** importButton：定义该变量以承载业务值。 */
+  const importButton = target?.closest<HTMLButtonElement>('#database-import-upload');
+  if (importButton) {
+    importLocalDatabaseBackup().catch((error: unknown) => {
+/** setStatus：处理当前场景中的对应操作。 */
+      setDatabasePanelNotice(error instanceof Error ? error.message : '上传本地数据库失败', 'error');
+      setStatus(error instanceof Error ? error.message : '上传本地数据库失败', true);
+      databaseImportUploading = false;
+      renderDatabasePanel();
     });
     return;
   }

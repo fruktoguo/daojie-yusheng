@@ -29,6 +29,7 @@ collect_repo_dev_pids() {
   ps -eo pid=,args= | awk -v repo_root="$PWD" '
     index($0, repo_root) == 0 { next }
     /packages\/server\/node_modules\/\.bin\/\.\.\/@nestjs\/cli\/bin\/nest\.js start --watch/ { print $1; next }
+    /packages\/server\/scripts\/start-dev-runner\.mjs/ { print $1; next }
     /packages\/server\/dist\/main/ { print $1; next }
     /packages\/client\/node_modules\/\.bin\/\.\.\/vite\/bin\/vite\.js --host/ { print $1; next }
     /packages\/shared\/node_modules\/\.bin\/\.\.\/typescript\/bin\/tsc --watch/ { print $1; next }
@@ -308,7 +309,7 @@ case "$MODE" in
 # 记录共享包watchpid。
     SHARED_WATCH_PID=$!
 
-    echo "==> 启动服务端 (port 3000, watch 模式)..."
+    echo "==> 启动服务端 (port 3000, 受控 watch 模式)..."
     (cd packages/server && pnpm start:dev) &
 # 记录服务端pid。
     SERVER_PID=$!

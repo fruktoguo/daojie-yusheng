@@ -40,7 +40,7 @@ export function getPlayerRowMarkup(player: GmManagedPlayerSummary): string {
 
 /** getPlayerIdentityLine：执行对应的业务逻辑。 */
 export function getPlayerIdentityLine(player: GmManagedPlayerSummary): string {
-  return `地图: ${player.mapName}`;
+  return `地图: ${player.mapName}${player.isRiskAdmin ? ' · 管理员名单' : ''}`;
 }
 
 /** getPlayerStatsLine：执行对应的业务逻辑。 */
@@ -49,7 +49,21 @@ export function getPlayerStatsLine(player: GmManagedPlayerSummary): string {
   const behaviorLabel = player.behaviors.length > 0
     ? player.behaviors.map(getBehaviorLabel).join(' / ')
     : '空闲';
-  return `${player.meta.isBot ? '机器人' : '玩家'} · ${player.realmLabel} · ${getAccountStatusLabel(player.accountStatus)} · ${behaviorLabel}`;
+  return `${player.meta.isBot ? '机器人' : '玩家'} · 风险 ${player.riskScore} (${getRiskLevelLabel(player.riskLevel)}) · ${player.realmLabel} · ${getAccountStatusLabel(player.accountStatus)}${player.isRiskAdmin ? ' · 管理员名单' : ''} · ${behaviorLabel}`;
+}
+
+function getRiskLevelLabel(level: GmManagedPlayerSummary['riskLevel']): string {
+  switch (level) {
+    case 'critical':
+      return '极高';
+    case 'high':
+      return '高';
+    case 'medium':
+      return '中';
+    case 'low':
+    default:
+      return '低';
+  }
 }
 
 function getBehaviorLabel(behavior: GmManagedPlayerBehavior): string {

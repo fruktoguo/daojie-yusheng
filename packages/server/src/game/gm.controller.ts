@@ -7,12 +7,15 @@ import {
   Controller,
   Delete,
   Get,
+  Headers,
   Param,
   Post,
   Put,
   Query,
   Res,
   UseGuards,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
 import {
   GmEditorCatalogRes,
@@ -22,10 +25,14 @@ import {
   GmAddPlayerCombatExpReq,
   GmAddPlayerFoundationReq,
   GmBanManagedPlayerReq,
+  GmBanPlayersByRiskReq,
+  GmBanPlayersByRiskPreviewRes,
+  GmBanPlayersByRiskRes,
   GmReplySuggestionReq,
   GmSuggestionListRes,
   GmRestoreDatabaseReq,
   GmTriggerDatabaseBackupRes,
+  GmUploadDatabaseBackupRes,
   GmMapListRes,
   GmMapRuntimeRes,
   GmPlayerDetailRes,
@@ -48,14 +55,22 @@ import {
   GmUpdateRedeemCodeGroupReq,
   GmUpdatePlayerReq,
 } from '@mud/shared';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { GmAuthGuard } from './gm-auth.guard';
 import { DatabaseBackupService } from './database-backup.service';
+import { BACKUP_UPLOAD_STAGING_DIR } from './database-backup-shared';
 import { GmService } from './gm.service';
 import { SuggestionRealtimeService } from './suggestion-realtime.service';
 import { SuggestionService } from './suggestion.service';
 import { TickService } from './tick.service';
 import { MailService } from './mail.service';
 import { RedeemCodeService } from './redeem-code.service';
+
+const GM_DATABASE_UPLOAD_MAX_BYTES = (() => {
+/** parsed：定义该变量以承载业务值。 */
+  const parsed = Number(process.env.GM_DATABASE_UPLOAD_MAX_BYTES ?? '');
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 2 * 1024 * 1024 * 1024;
+})();
 
 @Controller('gm')
 @UseGuards(GmAuthGuard)
@@ -70,6 +85,10 @@ export class GmController {
     private readonly redeemCodeService: RedeemCodeService,
     private readonly tickService: TickService,
   ) {}
+
+  private extractBearerToken(authorization: string | undefined): string {
+    return authorization?.startsWith('Bearer ') ? authorization.slice(7).trim() : '';
+  }
 
   /** 获取全局 GM 状态 */
   @Get('state')
@@ -185,6 +204,29 @@ export class GmController {
     }
   }
 
+  @Post('database/backups/upload')
+  @UseInterceptors(FileInterceptor('file', {
+    dest: BACKUP_UPLOAD_STAGING_DIR,
+    limits: {
+      fileSize: GM_DATABASE_UPLOAD_MAX_BYTES,
+      files: 1,
+    },
+  }))
+  async uploadDatabaseBackup(
+    @UploadedFile() file?: { path?: string; originalname?: string },
+  ): Promise<GmUploadDatabaseBackupRes> {
+    if (!file?.path) {
+      throw new BadRequestException('缺少上传文件');
+    }
+    try {
+/** backup：定义该变量以承载业务值。 */
+      const backup = await this.databaseBackupService.registerUploadedBackup(file.path, file.originalname ?? 'uploaded.dump');
+      return { backup };
+    } catch (error) {
+      throw new BadRequestException(error instanceof Error ? error.message : String(error));
+    }
+  }
+
   @Post('database/restore')
   async restoreDatabase(@Body() body: GmRestoreDatabaseReq): Promise<GmTriggerDatabaseBackupRes> {
     if (!body?.backupId) {
@@ -250,11 +292,51 @@ export class GmController {
     return { ok: true };
   }
 
+  /** GM 按风险阈值批量封禁账号 */
+  @Post('players/batch-ban-by-risk/preview')
+  async previewBanPlayersByRisk(
+    @Headers('authorization') authorization: string | undefined,
+    @Body() body: GmBanPlayersByRiskReq,
+  ): Promise<GmBanPlayersByRiskPreviewRes> {
+    return this.gmService.previewBanPlayersByRisk(body, this.extractBearerToken(authorization));
+  }
+
+  /** GM 按风险阈值批量封禁账号 */
+  @Post('players/batch-ban-by-risk')
+  async banPlayersByRisk(
+    @Headers('authorization') authorization: string | undefined,
+    @Body() body: GmBanPlayersByRiskReq,
+  ): Promise<GmBanPlayersByRiskRes> {
+    return this.gmService.banPlayersByRisk(body, this.extractBearerToken(authorization));
+  }
+
   /** GM 快捷解封账号 */
   @Post('players/:playerId/unban')
   async unbanPlayerAccount(@Param('playerId') playerId: string): Promise<{ ok: true }> {
 /** error：定义该变量以承载业务值。 */
     const error = await this.gmService.unbanManagedPlayerAccount(playerId);
+    if (error) {
+      throw new BadRequestException(error);
+    }
+    return { ok: true };
+  }
+
+  /** GM 将账号加入管理员名单 */
+  @Post('players/:playerId/risk-admin')
+  async addRiskAdminPlayerAccount(@Param('playerId') playerId: string): Promise<{ ok: true }> {
+/** error：定义该变量以承载业务值。 */
+    const error = await this.gmService.addRiskAdminAccount(playerId);
+    if (error) {
+      throw new BadRequestException(error);
+    }
+    return { ok: true };
+  }
+
+  /** GM 将账号移出管理员名单 */
+  @Delete('players/:playerId/risk-admin')
+  async removeRiskAdminPlayerAccount(@Param('playerId') playerId: string): Promise<{ ok: true }> {
+/** error：定义该变量以承载业务值。 */
+    const error = await this.gmService.removeRiskAdminAccount(playerId);
     if (error) {
       throw new BadRequestException(error);
     }

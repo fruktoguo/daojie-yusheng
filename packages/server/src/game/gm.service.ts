@@ -2,8 +2,9 @@
  * GM 业务逻辑：玩家状态查看/修改、Bot 生成/移除、地图编辑保存
  * 命令通过队列延迟到 tick 内执行，保证线程安全
  */
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { createHash, randomUUID } from 'crypto';
 import { Brackets, In, Repository, SelectQueryBuilder } from 'typeorm';
 import {
   AttrBonus,
@@ -21,6 +22,9 @@ import {
   EQUIP_SLOTS,
   GmEditorBuffOption,
   GmEditorCatalogRes,
+  GmBanPlayersByRiskPreviewRes,
+  GmBanPlayersByRiskReq,
+  GmBanPlayersByRiskRes,
   GmManagedPlayerAccountStatus,
   GmListPlayersQuery,
   GmManagedAccountRecord,
@@ -29,12 +33,16 @@ import {
   GmMapListRes,
   GmMapRuntimeRes,
   GmPlayerAccountStatusFilter,
+  GmPlayerRiskFactor,
+  GmPlayerRiskLevel,
+  GmPlayerRiskReport,
   GmManagedPlayerRecord,
   GmManagedPlayerSummary,
   GmPlayerBehaviorFilter,
   GmPlayerPresenceFilter,
   GmPlayerSortMode,
   GmPlayerUpdateSection,
+  GmRiskOperationAuditRecord,
   GmRuntimeEntity,
   GmShortcutRunRes,
   GmStateRes,
@@ -62,8 +70,12 @@ import {
   normalizeLifeElapsedTicks,
   normalizeLifespanYears,
 } from '@mud/shared';
+import { MarketTradeHistoryEntity } from '../database/entities/market-trade-history.entity';
 import { PlayerEntity } from '../database/entities/player.entity';
 import { UserEntity } from '../database/entities/user.entity';
+import { GmRiskOperationAuditEntity } from '../database/entities/gm-risk-operation-audit.entity';
+import { PersistentDocumentService } from '../database/persistent-document.service';
+import { RedisService } from '../database/redis.service';
 import { NameUniquenessService } from '../auth/name-uniqueness.service';
 import { normalizeRoleName, validateRoleName } from '../auth/account-validation';
 import { RoleNameModerationService } from '../auth/role-name-moderation.service';
@@ -116,6 +128,24 @@ const GM_PLAYER_PAGE_SIZE_MAX = 100;
 const GM_PLAYER_KEYWORD_MAX_LENGTH = 60;
 /** GM_PLAYER_GATHER_BUFF_ID：定义该变量以承载业务值。 */
 const GM_PLAYER_GATHER_BUFF_ID = 'system.gather';
+/** GM_PLAYER_RISK_REVIEW_WINDOW_TRADE_LIMIT：定义该变量以承载业务值。 */
+const GM_PLAYER_RISK_REVIEW_WINDOW_TRADE_LIMIT = 120;
+/** GM_GENERIC_SERIAL_ACCOUNT_PREFIXES：定义该变量以承载业务值。 */
+const GM_GENERIC_SERIAL_ACCOUNT_PREFIXES = new Set([
+  'user',
+  'player',
+  'account',
+  'role',
+  'guest',
+  'test',
+  'temp',
+  'demo',
+  'sample',
+]);
+/** GM_CONTACT_STYLE_ACCOUNT_PREFIXES：定义该变量以承载业务值。 */
+const GM_CONTACT_STYLE_ACCOUNT_PREFIXES = new Set([
+  'qq',
+]);
 
 /** GmCommand：定义该类型的结构与数据语义。 */
 type GmCommand =
@@ -250,6 +280,69 @@ interface InvalidItemCleanupSummary {
   equipmentRemoved: number;
 }
 
+interface SimilarSerialAccountAggregateRow {
+  totalCount: string | number | null;
+  bannedCount: string | number | null;
+}
+
+interface SimilarSerialAccountPreviewRow {
+  username: string;
+  createdAt: Date | string;
+  bannedAt: Date | string | null;
+}
+
+interface CounterpartyTradeAggregate {
+  playerId: string;
+  tradeCount: number;
+  buyCount: number;
+  sellCount: number;
+  lastCreatedAt: number;
+}
+
+interface GmRiskBatchPreviewSession {
+  token: string;
+  gmTokenHash: string;
+  matchedPlayers: number;
+  targetSnapshotHash: string;
+  expiresAt: number;
+}
+
+interface GmRiskAdminAccountDocument {
+  userId: string;
+  username: string;
+  addedAt: string;
+}
+
+const GM_RISK_BATCH_PREVIEW_TTL_MS = 2 * 60 * 1000;
+const GM_RISK_BATCH_PREVIEW_KEY_PREFIX = 'gm:risk-batch-preview:';
+const GM_RISK_ADMIN_ACCOUNT_SCOPE = 'gm_risk_admin_accounts';
+const CONSUME_RISK_BATCH_PREVIEW_LUA = `
+local raw = redis.call('GET', KEYS[1])
+if not raw then
+  return 'missing'
+end
+local payload = cjson.decode(raw)
+if not payload then
+  redis.call('DEL', KEYS[1])
+  return 'invalid'
+end
+if tonumber(payload.expiresAt or '0') < tonumber(ARGV[1]) then
+  redis.call('DEL', KEYS[1])
+  return 'expired'
+end
+if tostring(payload.gmTokenHash or '') ~= tostring(ARGV[2]) then
+  return 'gm_mismatch'
+end
+if tostring(payload.matchedPlayers or '') ~= tostring(ARGV[3]) then
+  return 'count_mismatch'
+end
+if tostring(payload.targetSnapshotHash or '') ~= tostring(ARGV[4]) then
+  return 'snapshot_mismatch'
+end
+redis.call('DEL', KEYS[1])
+return 'ok'
+`;
+
 @Injectable()
 /** GmService：封装相关状态与行为。 */
 export class GmService {
@@ -262,6 +355,12 @@ export class GmService {
     private readonly playerRepo: Repository<PlayerEntity>,
     @InjectRepository(UserEntity)
     private readonly userRepo: Repository<UserEntity>,
+    @InjectRepository(MarketTradeHistoryEntity)
+    private readonly marketTradeHistoryRepo: Repository<MarketTradeHistoryEntity>,
+    @InjectRepository(GmRiskOperationAuditEntity)
+    private readonly gmRiskOperationAuditRepo: Repository<GmRiskOperationAuditEntity>,
+    private readonly persistentDocumentService: PersistentDocumentService,
+    private readonly redisService: RedisService,
     private readonly botService: BotService,
     private readonly playerService: PlayerService,
     private readonly mapService: MapService,
@@ -283,9 +382,12 @@ export class GmService {
   async getState(query?: GmListPlayersQuery): Promise<GmStateRes> {
 /** normalizedQuery：定义该变量以承载业务值。 */
     const normalizedQuery = this.normalizePlayerListQuery(query);
-    const [playerPage, playerStats] = await Promise.all([
-      this.loadPlayerPage(normalizedQuery),
+/** riskAdminUserIds：定义该变量以承载业务值。 */
+    const riskAdminUserIds = await this.loadRiskAdminUserIds();
+    const [playerPage, playerStats, riskAuditLogs] = await Promise.all([
+      this.loadPlayerPage(normalizedQuery, riskAdminUserIds),
       this.loadPlayerSummaryStats(),
+      this.loadRecentRiskAuditLogs(),
     ]);
 
     return {
@@ -304,6 +406,7 @@ export class GmService {
       playerStats,
       mapIds: this.mapService.getAllMapIds().sort(),
       botCount: this.botService.getBotCount(),
+      riskAuditLogs,
       perf: this.performanceService.getSnapshot(),
     };
   }
@@ -359,6 +462,8 @@ export class GmService {
       case 'online':
       case 'map':
       case 'name':
+      case 'risk-desc':
+      case 'risk-asc':
         return sort;
       case 'realm-desc':
       default:
@@ -442,7 +547,7 @@ export class GmService {
 /** behavior：定义该变量以承载业务值。 */
     behavior: GmPlayerBehaviorFilter;
     accountStatus: GmPlayerAccountStatusFilter;
-  }): Promise<{
+  }, riskAdminUserIds: ReadonlySet<string>): Promise<{
 /** players：定义该变量以承载业务值。 */
     players: GmManagedPlayerSummary[];
 /** page：定义该变量以承载业务值。 */
@@ -468,29 +573,10 @@ export class GmService {
     const totalPages = Math.max(1, Math.ceil(total / query.pageSize));
 /** page：定义该变量以承载业务值。 */
     const page = Math.min(totalPages, query.page);
-/** entities：定义该变量以承载业务值。 */
-    const entities = await this.applyPlayerListSort(baseQuery.clone(), query.sort)
-      .offset((page - 1) * query.pageSize)
-      .limit(query.pageSize)
-      .getMany();
-
-/** userById：定义该变量以承载业务值。 */
-    const userById = await this.loadUsersByIds(entities.map((entity) => entity.userId));
 /** players：定义该变量以承载业务值。 */
-    const players = entities.map((entity) => {
-/** user：定义该变量以承载业务值。 */
-      const user = userById.get(entity.userId);
-      return this.buildSummary(
-        this.hydrateStoredPlayer(entity, this.resolveStoredDisplayName(user)),
-        {
-          userId: entity.userId,
-          accountName: user?.username,
-          accountStatus: this.getManagedPlayerAccountStatus(user, entity.userId, user?.username),
-        },
-        entity.online === true,
-        entity.updatedAt,
-      );
-    });
+    const players = query.sort === 'risk-desc' || query.sort === 'risk-asc'
+      ? await this.loadRiskSortedPlayerSummaries(baseQuery.clone(), query.sort, page, query.pageSize, riskAdminUserIds)
+      : await this.loadPagedPlayerSummaries(baseQuery.clone(), query.sort, page, query.pageSize, riskAdminUserIds);
 
     return {
       players,
@@ -499,6 +585,252 @@ export class GmService {
       total,
       totalPages,
     };
+  }
+
+  private async loadPagedPlayerSummaries(
+    query: SelectQueryBuilder<PlayerEntity>,
+    sort: GmPlayerSortMode,
+    page: number,
+    pageSize: number,
+    riskAdminUserIds: ReadonlySet<string>,
+  ): Promise<GmManagedPlayerSummary[]> {
+/** entities：定义该变量以承载业务值。 */
+    const entities = await this.applyPlayerListSort(query, sort)
+      .offset((page - 1) * pageSize)
+      .limit(pageSize)
+      .getMany();
+    return this.buildPlayerSummariesFromEntities(entities, riskAdminUserIds);
+  }
+
+  private async loadRiskSortedPlayerSummaries(
+    query: SelectQueryBuilder<PlayerEntity>,
+    sort: Extract<GmPlayerSortMode, 'risk-desc' | 'risk-asc'>,
+    page: number,
+    pageSize: number,
+    riskAdminUserIds: ReadonlySet<string>,
+  ): Promise<GmManagedPlayerSummary[]> {
+/** entities：定义该变量以承载业务值。 */
+    const entities = await query.getMany();
+/** summaries：定义该变量以承载业务值。 */
+    const summaries = await this.buildPlayerSummariesFromEntities(entities, riskAdminUserIds);
+    summaries.sort((left, right) => {
+      if (sort === 'risk-asc') {
+        return left.riskScore - right.riskScore || left.realmLv - right.realmLv || left.name.localeCompare(right.name);
+      }
+      return right.riskScore - left.riskScore || right.realmLv - left.realmLv || left.name.localeCompare(right.name);
+    });
+    return summaries.slice((page - 1) * pageSize, page * pageSize);
+  }
+
+  private async loadRecentRiskAuditLogs(limit = 10): Promise<GmRiskOperationAuditRecord[]> {
+/** records：定义该变量以承载业务值。 */
+    const records = await this.gmRiskOperationAuditRepo.find({
+      order: { createdAt: 'DESC', id: 'DESC' },
+      take: Math.max(1, Math.min(20, Math.floor(limit))),
+    });
+    return records.map((entry) => ({
+      id: entry.id,
+      action: entry.action,
+      operator: entry.operator,
+      reason: entry.reason ?? undefined,
+      minRiskScore: entry.minRiskScore,
+      matchedPlayers: entry.matchedPlayers,
+      bannedPlayers: entry.bannedPlayers,
+      skippedPlayers: entry.skippedPlayers,
+      keyword: this.pickAuditFilterString(entry.filters, 'keyword'),
+      sort: this.pickAuditFilterString(entry.filters, 'sort') as GmPlayerSortMode | undefined,
+      presence: this.pickAuditFilterString(entry.filters, 'presence') as GmPlayerPresenceFilter | undefined,
+      behavior: this.pickAuditFilterString(entry.filters, 'behavior') as GmPlayerBehaviorFilter | undefined,
+      accountStatus: this.pickAuditFilterString(entry.filters, 'accountStatus') as GmPlayerAccountStatusFilter | undefined,
+      createdAt: entry.createdAt.toISOString(),
+    }));
+  }
+
+  private async recordRiskAuditLog(input: {
+    action: 'batch-ban-by-risk';
+    operator: string;
+    reason: string | null;
+    minRiskScore: number;
+    matchedPlayers: number;
+    bannedPlayers: number;
+    skippedPlayers: number;
+    filters: Record<string, unknown>;
+    samplePlayerIds: string[];
+  }): Promise<void> {
+    await this.gmRiskOperationAuditRepo.save(this.gmRiskOperationAuditRepo.create({
+      id: randomUUID(),
+      action: input.action,
+      operator: input.operator,
+      reason: input.reason,
+      minRiskScore: input.minRiskScore,
+      matchedPlayers: input.matchedPlayers,
+      bannedPlayers: input.bannedPlayers,
+      skippedPlayers: input.skippedPlayers,
+      filters: input.filters,
+      samplePlayerIds: input.samplePlayerIds,
+    }));
+  }
+
+  private pickAuditFilterString(filters: Record<string, unknown> | null | undefined, key: string): string | undefined {
+/** value：定义该变量以承载业务值。 */
+    const value = filters?.[key];
+    return typeof value === 'string' && value.length > 0 ? value : undefined;
+  }
+
+  private async resolveBanPlayersByRiskTargets(body: GmBanPlayersByRiskReq): Promise<{
+    minRiskScore: number;
+    targetSnapshotHash: string;
+    query: {
+      page: number;
+      pageSize: number;
+      keyword: string;
+      sort: GmPlayerSortMode;
+      presence: GmPlayerPresenceFilter;
+      behavior: GmPlayerBehaviorFilter;
+      accountStatus: GmPlayerAccountStatusFilter;
+    };
+    targets: GmManagedPlayerSummary[];
+  }> {
+/** minRiskScore：定义该变量以承载业务值。 */
+    const minRiskScore = Number.isFinite(Number(body?.minRiskScore))
+      ? Math.max(0, Math.floor(Number(body.minRiskScore)))
+      : 60;
+/** query：定义该变量以承载业务值。 */
+    const query = this.normalizePlayerListQuery({
+      keyword: body?.keyword,
+      sort: body?.sort,
+      presence: body?.presence,
+      behavior: body?.behavior,
+      accountStatus: body?.accountStatus,
+      page: 1,
+      pageSize: GM_PLAYER_PAGE_SIZE_MAX,
+    });
+/** baseQuery：定义该变量以承载业务值。 */
+    const baseQuery = this.playerRepo.createQueryBuilder('player')
+      .leftJoin(UserEntity, 'player_user', 'player_user.id = player."userId"');
+    this.applyPlayerListKeyword(baseQuery, query.keyword);
+    this.applyPlayerListPresenceFilter(baseQuery, query.presence);
+    this.applyPlayerListBehaviorFilter(baseQuery, query.behavior);
+    this.applyPlayerListAccountStatusFilter(baseQuery, query.accountStatus);
+/** riskAdminUserIds：定义该变量以承载业务值。 */
+    const riskAdminUserIds = await this.loadRiskAdminUserIds();
+/** entities：定义该变量以承载业务值。 */
+    const entities = await baseQuery.getMany();
+/** summaries：定义该变量以承载业务值。 */
+    const summaries = await this.buildPlayerSummariesFromEntities(entities, riskAdminUserIds);
+/** targets：定义该变量以承载业务值。 */
+    const targets = summaries.filter((entry) => (
+      !entry.meta.isBot
+      && !entry.isRiskAdmin
+      && entry.accountStatus !== 'banned'
+      && entry.riskScore >= minRiskScore
+    )).sort((left, right) => right.riskScore - left.riskScore || left.roleName.localeCompare(right.roleName));
+    return {
+      minRiskScore,
+      targetSnapshotHash: this.buildRiskTargetSnapshotHash(targets),
+      query,
+      targets,
+    };
+  }
+
+  private buildRiskTargetSnapshotHash(targets: GmManagedPlayerSummary[]): string {
+/** payload：定义该变量以承载业务值。 */
+    const payload = targets
+      .map((entry) => `${entry.id}:${entry.riskScore}:${entry.accountStatus}`)
+      .sort()
+      .join('|');
+    return createHash('sha256').update(payload).digest('hex').slice(0, 24);
+  }
+
+  private issueRiskBatchPreviewToken(gmToken: string, matchedPlayers: number, targetSnapshotHash: string): string {
+    return randomUUID();
+  }
+
+  private async assertRiskBatchPreviewToken(
+    gmToken: string,
+    previewToken: string | undefined,
+    matchedPlayers: number,
+    targetSnapshotHash: string,
+  ): Promise<void> {
+    if (!previewToken || previewToken.trim().length <= 0) {
+      throw new BadRequestException('缺少批量封号预览令牌，请先重新预览。');
+    }
+/** status：定义该变量以承载业务值。 */
+    const status = await this.redisService.evalLua(
+      CONSUME_RISK_BATCH_PREVIEW_LUA,
+      [this.getRiskBatchPreviewRedisKey(previewToken.trim())],
+      [Date.now(), this.hashGmToken(gmToken), matchedPlayers, targetSnapshotHash],
+    );
+    switch (status) {
+      case 'ok':
+        return;
+      case 'expired':
+      case 'missing':
+        throw new BadRequestException('批量封号预览令牌已失效，请先重新预览。');
+      case 'gm_mismatch':
+        throw new BadRequestException('当前 GM 会话与预览令牌不匹配，请先重新预览。');
+      case 'count_mismatch':
+      case 'snapshot_mismatch':
+        throw new BadRequestException('批量封号预览令牌与当前目标快照不匹配，请先重新预览。');
+      case 'invalid':
+      default:
+        throw new BadRequestException('批量封号预览令牌校验失败，请先重新预览。');
+    }
+  }
+
+  private hashGmToken(token: string): string {
+    return createHash('sha256').update(token.trim()).digest('hex');
+  }
+
+  private getRiskBatchPreviewRedisKey(token: string): string {
+    return `${GM_RISK_BATCH_PREVIEW_KEY_PREFIX}${token}`;
+  }
+
+  private async loadPlayerSnapshot(playerId: string): Promise<PlayerState | null> {
+/** entity：定义该变量以承载业务值。 */
+    const entity = await this.playerRepo.findOne({ where: { id: playerId } });
+    if (!entity) {
+      return null;
+    }
+/** user：定义该变量以承载业务值。 */
+    const user = await this.userRepo.findOne({ where: { id: entity.userId } });
+    return this.hydrateStoredPlayer(entity, this.resolveStoredDisplayName(user));
+  }
+
+  private deriveRiskTags(report: GmPlayerRiskReport): string[] {
+    return report.factors
+      .filter((factor) => factor.score > 0)
+      .sort((left, right) => right.score - left.score)
+      .slice(0, 3)
+      .map((factor) => factor.label);
+  }
+
+  private async buildPlayerSummariesFromEntities(
+    entities: PlayerEntity[],
+    riskAdminUserIds: ReadonlySet<string>,
+  ): Promise<GmManagedPlayerSummary[]> {
+/** userById：定义该变量以承载业务值。 */
+    const userById = await this.loadUsersByIds(entities.map((entity) => entity.userId));
+    return Promise.all(entities.map(async (entity) => {
+/** user：定义该变量以承载业务值。 */
+      const user = userById.get(entity.userId);
+/** player：定义该变量以承载业务值。 */
+      const player = this.hydrateStoredPlayer(entity, this.resolveStoredDisplayName(user));
+/** riskReport：定义该变量以承载业务值。 */
+      const riskReport = await this.buildPlayerRiskReport(player, user, entity.online === true, riskAdminUserIds);
+      return this.buildSummary(
+        player,
+        {
+          userId: entity.userId,
+          accountName: user?.username,
+          accountStatus: this.getManagedPlayerAccountStatus(user, entity.userId, user?.username),
+        },
+        entity.online === true,
+        entity.updatedAt,
+        riskReport,
+        user ? riskAdminUserIds.has(user.id) : false,
+      );
+    }));
   }
 
   private applyPlayerListAccountStatusFilter(
@@ -624,6 +956,11 @@ export class GmService {
       case 'name':
         return query
           .orderBy('player.name', 'ASC');
+      case 'risk-desc':
+      case 'risk-asc':
+        return query
+          .orderBy(realmLvExpression, 'DESC')
+          .addOrderBy('player.name', 'ASC');
       case 'realm-desc':
       default:
         return query
@@ -680,6 +1017,8 @@ export class GmService {
 
   /** 获取单个玩家的完整详情（在线取运行时，离线取数据库） */
   async getPlayerDetail(playerId: string): Promise<GmManagedPlayerRecord | null> {
+/** riskAdminUserIds：定义该变量以承载业务值。 */
+    const riskAdminUserIds = await this.loadRiskAdminUserIds();
 /** runtime：定义该变量以承载业务值。 */
     const runtime = this.playerService.getPlayer(playerId);
     if (runtime) {
@@ -687,6 +1026,8 @@ export class GmService {
       const userId = this.playerService.getUserIdByPlayerId(playerId);
 /** user：定义该变量以承载业务值。 */
       const user = userId ? await this.userRepo.findOne({ where: { id: userId } }) : null;
+/** riskReport：定义该变量以承载业务值。 */
+      const riskReport = await this.buildPlayerRiskReport(runtime, user, runtime.online === true, riskAdminUserIds);
       return this.buildRecord(
         runtime,
         user,
@@ -695,8 +1036,10 @@ export class GmService {
           accountName: user?.username,
           accountStatus: this.getManagedPlayerAccountStatus(user, userId, user?.username),
         },
+        riskReport,
         runtime.online === true,
         undefined,
+        user ? riskAdminUserIds.has(user.id) : false,
       );
     }
 
@@ -708,16 +1051,22 @@ export class GmService {
 
 /** user：定义该变量以承载业务值。 */
     const user = await this.userRepo.findOne({ where: { id: entity.userId } });
+/** hydrated：定义该变量以承载业务值。 */
+    const hydrated = this.hydrateStoredPlayer(entity, this.resolveStoredDisplayName(user));
+/** riskReport：定义该变量以承载业务值。 */
+    const riskReport = await this.buildPlayerRiskReport(hydrated, user, false, riskAdminUserIds);
     return this.buildRecord(
-      this.hydrateStoredPlayer(entity, this.resolveStoredDisplayName(user)),
+      hydrated,
       user,
       {
         userId: entity.userId,
         accountName: user?.username,
         accountStatus: this.getManagedPlayerAccountStatus(user, entity.userId, user?.username),
       },
+      riskReport,
       false,
       entity.updatedAt,
+      user ? riskAdminUserIds.has(user.id) : false,
     );
   }
 
@@ -767,6 +1116,157 @@ export class GmService {
       return '目标玩家没有可解封的账号';
     }
     await this.accountService.unbanUserByGm(userId);
+    return null;
+  }
+
+  async previewBanPlayersByRisk(body: GmBanPlayersByRiskReq, gmToken: string): Promise<GmBanPlayersByRiskPreviewRes> {
+/** resolved：定义该变量以承载业务值。 */
+    const resolved = await this.resolveBanPlayersByRiskTargets(body);
+/** previewToken：定义该变量以承载业务值。 */
+    const previewToken = this.issueRiskBatchPreviewToken(gmToken, resolved.targets.length, resolved.targetSnapshotHash);
+    await this.redisService.setJsonWithTtl(this.getRiskBatchPreviewRedisKey(previewToken), {
+      token: previewToken,
+      gmTokenHash: this.hashGmToken(gmToken),
+      matchedPlayers: resolved.targets.length,
+      targetSnapshotHash: resolved.targetSnapshotHash,
+      expiresAt: Date.now() + GM_RISK_BATCH_PREVIEW_TTL_MS,
+    } satisfies GmRiskBatchPreviewSession, GM_RISK_BATCH_PREVIEW_TTL_MS);
+    return {
+      ok: true,
+      matchedPlayers: resolved.targets.length,
+      minRiskScore: resolved.minRiskScore,
+      targetSnapshotHash: resolved.targetSnapshotHash,
+      previewToken,
+      samples: resolved.targets.slice(0, 20),
+    };
+  }
+
+  async banPlayersByRisk(body: GmBanPlayersByRiskReq, gmToken: string): Promise<GmBanPlayersByRiskRes> {
+/** resolved：定义该变量以承载业务值。 */
+    const resolved = await this.resolveBanPlayersByRiskTargets(body);
+    if (
+      Number.isFinite(Number(body?.expectedMatchedPlayers))
+      && Math.floor(Number(body.expectedMatchedPlayers)) !== resolved.targets.length
+    ) {
+      throw new BadRequestException(`批量封号预览已过期，当前命中数量为 ${resolved.targets.length}，请先重新预览再执行。`);
+    }
+    if (
+      typeof body?.expectedTargetSnapshotHash === 'string'
+      && body.expectedTargetSnapshotHash.trim().length > 0
+      && body.expectedTargetSnapshotHash.trim() !== resolved.targetSnapshotHash
+    ) {
+      throw new BadRequestException('批量封号目标快照已变化，请先重新预览再执行。');
+    }
+    await this.assertRiskBatchPreviewToken(
+      gmToken,
+      body?.previewToken,
+      resolved.targets.length,
+      resolved.targetSnapshotHash,
+    );
+    let bannedPlayers = 0;
+    for (const target of resolved.targets) {
+      const error = await this.banManagedPlayerAccount(target.id, body?.reason ?? '风险值过高，批量处置');
+      if (!error) {
+        bannedPlayers += 1;
+      }
+    }
+    await this.recordRiskAuditLog({
+      action: 'batch-ban-by-risk',
+      operator: 'gm',
+      reason: body?.reason?.trim() || null,
+      minRiskScore: resolved.minRiskScore,
+      matchedPlayers: resolved.targets.length,
+      bannedPlayers,
+      skippedPlayers: Math.max(0, resolved.targets.length - bannedPlayers),
+      filters: {
+        keyword: resolved.query.keyword,
+        sort: resolved.query.sort,
+        presence: resolved.query.presence,
+        behavior: resolved.query.behavior,
+        accountStatus: resolved.query.accountStatus,
+      },
+      samplePlayerIds: resolved.targets.slice(0, 20).map((entry) => entry.id),
+    });
+    return {
+      ok: true,
+      matchedPlayers: resolved.targets.length,
+      bannedPlayers,
+      skippedPlayers: Math.max(0, resolved.targets.length - bannedPlayers),
+      minRiskScore: resolved.minRiskScore,
+    };
+  }
+
+  async getBenefitRestrictionForPlayer(playerId: string): Promise<{
+    blocked: boolean;
+    riskScore: number;
+    riskLevel: GmPlayerRiskLevel;
+    message?: string;
+  }> {
+/** player：定义该变量以承载业务值。 */
+    const player = this.playerService.getPlayer(playerId) ?? await this.loadPlayerSnapshot(playerId);
+    if (!player) {
+      return { blocked: false, riskScore: 0, riskLevel: 'low' };
+    }
+/** userId：定义该变量以承载业务值。 */
+    const userId = await this.resolveManagedPlayerUserId(playerId);
+    if (!userId) {
+      return { blocked: false, riskScore: 0, riskLevel: 'low' };
+    }
+/** user：定义该变量以承载业务值。 */
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+/** riskAdminUserIds：定义该变量以承载业务值。 */
+    const riskAdminUserIds = await this.loadRiskAdminUserIds();
+    if (user && riskAdminUserIds.has(user.id)) {
+      return { blocked: false, riskScore: 0, riskLevel: 'low' };
+    }
+/** riskReport：定义该变量以承载业务值。 */
+    const riskReport = await this.buildPlayerRiskReport(
+      player,
+      user,
+      this.playerService.getPlayer(playerId) !== undefined,
+      riskAdminUserIds,
+    );
+    const blocked = riskReport.score >= 70;
+    return {
+      blocked,
+      riskScore: riskReport.score,
+      riskLevel: riskReport.level,
+      message: blocked
+        ? `账号风险值 ${riskReport.score}，已进入收益限制，请联系 GM 复核后再尝试。`
+        : undefined,
+    };
+  }
+
+  async addRiskAdminAccount(playerId: string): Promise<string | null> {
+/** userId：定义该变量以承载业务值。 */
+    const userId = await this.resolveManagedPlayerUserId(playerId);
+    if (!userId) {
+      return '目标玩家没有可加入管理员名单的账号';
+    }
+/** user：定义该变量以承载业务值。 */
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    if (!user) {
+      return '目标账号不存在';
+    }
+    await this.persistentDocumentService.save<GmRiskAdminAccountDocument>(
+      GM_RISK_ADMIN_ACCOUNT_SCOPE,
+      user.id,
+      {
+        userId: user.id,
+        username: user.username,
+        addedAt: new Date().toISOString(),
+      },
+    );
+    return null;
+  }
+
+  async removeRiskAdminAccount(playerId: string): Promise<string | null> {
+/** userId：定义该变量以承载业务值。 */
+    const userId = await this.resolveManagedPlayerUserId(playerId);
+    if (!userId) {
+      return '目标玩家没有可移出管理员名单的账号';
+    }
+    await this.persistentDocumentService.delete(GM_RISK_ADMIN_ACCOUNT_SCOPE, userId);
     return null;
   }
 
@@ -1625,6 +2125,8 @@ export class GmService {
     user: GmPlayerUserIdentity,
     online: boolean,
     updatedAt: Date | undefined,
+    riskReport?: GmPlayerRiskReport,
+    isRiskAdmin = false,
   ): GmManagedPlayerSummary {
 /** realmLv：定义该变量以承载业务值。 */
     const realmLv = Math.max(1, Math.floor(player.realm?.realmLv ?? player.realmLv ?? 1));
@@ -1662,6 +2164,10 @@ export class GmService {
       autoBattleStationary: player.autoBattleStationary === true,
       behaviors: this.getManagedPlayerBehaviors(player),
       accountStatus: user.accountStatus,
+      riskScore: riskReport?.score ?? 0,
+      riskLevel: riskReport?.level ?? 'low',
+      riskTags: riskReport ? this.deriveRiskTags(riskReport) : [],
+      isRiskAdmin,
       meta: {
         userId: user.userId,
         isBot: Boolean(player.isBot),
@@ -1680,18 +2186,21 @@ export class GmService {
     player: PlayerState,
     userEntity: UserEntity | null | undefined,
     user: GmPlayerUserIdentity,
+    riskReport: GmPlayerRiskReport,
     online: boolean,
     updatedAt: Date | undefined,
+    isRiskAdmin: boolean,
   ): GmManagedPlayerRecord {
 /** summary：定义该变量以承载业务值。 */
-    const summary = this.buildSummary(player, user, online, updatedAt);
+    const summary = this.buildSummary(player, user, online, updatedAt, riskReport, isRiskAdmin);
 /** snapshot：定义该变量以承载业务值。 */
     const snapshot = this.clonePlayer(player);
 /** persistedCollections：定义该变量以承载业务值。 */
     const persistedCollections = buildPersistedPlayerCollections(player, this.contentService, this.mapService);
     return {
       ...summary,
-      account: this.buildAccountRecord(userEntity, online),
+      account: this.buildAccountRecord(userEntity, online, isRiskAdmin),
+      riskReport,
       snapshot,
       persistedSnapshot: {
         id: player.id,
@@ -1734,6 +2243,779 @@ export class GmService {
         offlineSinceAt: player.offlineSinceAt,
       },
     };
+  }
+
+  private async buildPlayerRiskReport(
+    player: PlayerState,
+    user: UserEntity | null | undefined,
+    online: boolean,
+    riskAdminUserIds: ReadonlySet<string>,
+  ): Promise<GmPlayerRiskReport> {
+    const maxScore = 133;
+    if (player.isBot) {
+      const factors = this.buildZeroRiskFactors('机器人目标，不参与账号风险检测。');
+      return {
+        score: 0,
+        maxScore,
+        level: 'low',
+        overview: '当前目标是机器人，未参与账号风控评分。',
+        generatedAt: new Date().toISOString(),
+        factors,
+        recommendations: ['机器人不纳入小号风险判定，若异常请按机器人管理链路处理。'],
+      };
+    }
+    const [
+      similarAccountCluster,
+      sharedIpCluster,
+      sharedDeviceCluster,
+      marketTransfer,
+    ] = await Promise.all([
+      this.buildSimilarAccountClusterRiskFactor(user),
+      this.buildSharedIpClusterRiskFactor(user),
+      this.buildSharedDeviceClusterRiskFactor(user),
+      this.buildMarketTransferRiskFactor(player, user, riskAdminUserIds),
+    ]);
+    const factors = [
+      this.buildAccountIntegrityRiskFactor(user),
+      this.buildAccountNamePatternRiskFactor(user),
+      similarAccountCluster,
+      this.buildAccountAgeRiskFactor(user),
+      sharedIpCluster,
+      sharedDeviceCluster,
+      marketTransfer,
+    ];
+    const score = factors.reduce((sum, factor) => sum + factor.score, 0);
+    const level = this.resolvePlayerRiskLevel(score);
+    return {
+      score,
+      maxScore,
+      level,
+      overview: this.buildPlayerRiskOverview(level, score, factors),
+      generatedAt: new Date().toISOString(),
+      factors,
+      recommendations: this.buildPlayerRiskRecommendations(factors, level),
+    };
+  }
+
+  private buildAccountIntegrityRiskFactor(user: UserEntity | null | undefined): GmPlayerRiskFactor {
+    if (user) {
+      return this.createPlayerRiskFactor(
+        'account-integrity',
+        '账号完整性',
+        20,
+        0,
+        '账号与角色关联完整。',
+      );
+    }
+    return this.createPlayerRiskFactor(
+      'account-integrity',
+      '账号完整性',
+      20,
+      20,
+      '角色缺少有效账号关联。',
+      ['当前角色没有对应账号记录，已属于异常状态样本。'],
+    );
+  }
+
+  private buildAccountNamePatternRiskFactor(user: UserEntity | null | undefined): GmPlayerRiskFactor {
+    if (!user) {
+      return this.createPlayerRiskFactor(
+        'account-name-pattern',
+        '账号命名模式',
+        10,
+        0,
+        '无账号信息，暂不参与命名规则判断。',
+      );
+    }
+    const username = user.username.trim();
+    if (!username) {
+      return this.createPlayerRiskFactor(
+        'account-name-pattern',
+        '账号命名模式',
+        10,
+        10,
+        '账号名为空字符串，属于异常数据。',
+      );
+    }
+    if (/^\d{5,}$/u.test(username)) {
+      return this.createPlayerRiskFactor(
+        'account-name-pattern',
+        '账号命名模式',
+        10,
+        10,
+        '账号名是长纯数字串。',
+        [`账号名“${username}”符合纯序号模式。`],
+      );
+    }
+    const serialPattern = this.parseSerialAccountPattern(username);
+    if (serialPattern) {
+      if (this.isContactStyleSerialAccountPattern(serialPattern)) {
+        return this.createPlayerRiskFactor(
+          'account-name-pattern',
+          '账号命名模式',
+          10,
+          0,
+          '账号名更像常见联系方式或个人标识，不按批量序号命名处理。',
+        );
+      }
+      const genericPrefix = GM_GENERIC_SERIAL_ACCOUNT_PREFIXES.has(serialPattern.prefix);
+      const score = genericPrefix ? 8 : 6;
+      return this.createPlayerRiskFactor(
+        'account-name-pattern',
+        '账号命名模式',
+        10,
+        score,
+        genericPrefix ? '账号名是通用前缀加纯数字尾号。' : '账号名带明显纯数字尾号。',
+        [
+          `账号名“${username}”可拆为前缀“${serialPattern.prefix}”和尾号“${serialPattern.digits}”。`,
+          genericPrefix ? `前缀“${serialPattern.prefix}”属于常见批量起号命名。`
+            : `尾号长度为 ${serialPattern.digits.length}，符合批量序号命名特征。`,
+        ],
+      );
+    }
+/** randomNoiseScore：定义该变量以承载业务值。 */
+    const randomNoiseScore = this.buildRandomNoiseAccountNameScore(username);
+    if (randomNoiseScore) {
+      return this.createPlayerRiskFactor(
+        'account-name-pattern',
+        '账号命名模式',
+        10,
+        randomNoiseScore.score,
+        randomNoiseScore.summary,
+        randomNoiseScore.evidence,
+      );
+    }
+    const digitCount = [...username].filter((char) => char >= '0' && char <= '9').length;
+    if (digitCount >= 4 && digitCount * 2 >= username.length) {
+      return this.createPlayerRiskFactor(
+        'account-name-pattern',
+        '账号命名模式',
+        10,
+        4,
+        '账号名数字占比偏高。',
+        [`账号名“${username}”中数字占比达到 ${digitCount}/${username.length}。`],
+      );
+    }
+    return this.createPlayerRiskFactor(
+      'account-name-pattern',
+      '账号命名模式',
+      10,
+      0,
+      '账号名未命中明显的批量命名特征。',
+    );
+  }
+
+  private async buildSimilarAccountClusterRiskFactor(user: UserEntity | null | undefined): Promise<GmPlayerRiskFactor> {
+    if (!user) {
+      return this.createPlayerRiskFactor(
+        'similar-account-cluster',
+        '相似账号簇',
+        20,
+        0,
+        '无账号信息，暂不参与相似账号簇检测。',
+      );
+    }
+    const serialPattern = this.parseSerialAccountPattern(user.username);
+    if (!serialPattern) {
+      return this.createPlayerRiskFactor(
+        'similar-account-cluster',
+        '相似账号簇',
+        20,
+        0,
+        '当前账号不属于可聚类的纯序号前缀模式。',
+      );
+    }
+    if (this.isContactStyleSerialAccountPattern(serialPattern)) {
+      return this.createPlayerRiskFactor(
+        'similar-account-cluster',
+        '相似账号簇',
+        20,
+        0,
+        '当前账号更像常见联系方式或个人标识，不按同前缀账号簇处理。',
+      );
+    }
+    const pattern = `^${this.escapeSqlRegex(serialPattern.prefix)}[0-9]{3,}$`;
+    const aggregate = await this.userRepo.createQueryBuilder('account')
+      .select('COUNT(*)', 'totalCount')
+      .addSelect('COALESCE(SUM(CASE WHEN account."bannedAt" IS NOT NULL THEN 1 ELSE 0 END), 0)', 'bannedCount')
+      .where('account.id <> :userId', { userId: user.id })
+      .andWhere('account.username ~* :pattern', { pattern })
+      .getRawOne<SimilarSerialAccountAggregateRow>();
+    const totalCount = Number(aggregate?.totalCount ?? 0);
+    if (totalCount <= 0) {
+      return this.createPlayerRiskFactor(
+        'similar-account-cluster',
+        '相似账号簇',
+        20,
+        0,
+        '未发现同前缀纯数字尾号账号簇。',
+      );
+    }
+    const previewRows = await this.userRepo.createQueryBuilder('account')
+      .select('account.username', 'username')
+      .addSelect('account."createdAt"', 'createdAt')
+      .addSelect('account."bannedAt"', 'bannedAt')
+      .where('account.id <> :userId', { userId: user.id })
+      .andWhere('account.username ~* :pattern', { pattern })
+      .orderBy('account."createdAt"', 'DESC')
+      .limit(5)
+      .getRawMany<SimilarSerialAccountPreviewRow>();
+    let score = totalCount >= 10 ? 18 : totalCount >= 5 ? 12 : 8;
+    const bannedCount = Number(aggregate?.bannedCount ?? 0);
+    if (bannedCount > 0) {
+      score = Math.min(20, score + 4);
+    }
+    const evidence: string[] = [
+      `检测到 ${totalCount} 个同前缀“${serialPattern.prefix}”的纯序号账号。`,
+    ];
+    if (previewRows.length > 0) {
+      evidence.push(`最近样本：${previewRows.map((entry) => entry.username).join('、')}`);
+    }
+    if (bannedCount > 0) {
+      evidence.push(`其中已有 ${bannedCount} 个同簇账号处于封禁状态。`);
+    }
+    return this.createPlayerRiskFactor(
+      'similar-account-cluster',
+      '相似账号簇',
+      20,
+      score,
+      '存在明显同前缀纯序号账号簇。',
+      evidence,
+    );
+  }
+
+  private buildAccountAgeRiskFactor(user: UserEntity | null | undefined): GmPlayerRiskFactor {
+    if (!user) {
+      return this.createPlayerRiskFactor(
+        'account-age',
+        '账号年龄',
+        10,
+        0,
+        '无账号信息，暂不参与账号年龄判断。',
+      );
+    }
+    const ageHours = this.getAccountAgeHours(user);
+    if (ageHours < 24) {
+      return this.createPlayerRiskFactor(
+        'account-age',
+        '账号年龄',
+        10,
+        10,
+        '账号注册时间不足 24 小时。',
+        [`账号创建于 ${user.createdAt.toISOString()}。`],
+      );
+    }
+    if (ageHours < 72) {
+      return this.createPlayerRiskFactor(
+        'account-age',
+        '账号年龄',
+        10,
+        7,
+        '账号注册时间不足 3 天。',
+        [`账号创建于 ${user.createdAt.toISOString()}。`],
+      );
+    }
+    if (ageHours < 168) {
+      return this.createPlayerRiskFactor(
+        'account-age',
+        '账号年龄',
+        10,
+        4,
+        '账号注册时间不足 7 天。',
+        [`账号创建于 ${user.createdAt.toISOString()}。`],
+      );
+    }
+    return this.createPlayerRiskFactor(
+      'account-age',
+      '账号年龄',
+      10,
+      0,
+      '账号年龄已超过 7 天。',
+    );
+  }
+
+  private async buildSharedIpClusterRiskFactor(user: UserEntity | null | undefined): Promise<GmPlayerRiskFactor> {
+    if (!user) {
+      return this.createPlayerRiskFactor('shared-ip-cluster', '重复 IP', 18, 0, '无账号信息，暂不参与重复 IP 判断。');
+    }
+    const ip = user.lastLoginIp?.trim() || user.registerIp?.trim() || '';
+    if (!ip) {
+      return this.createPlayerRiskFactor('shared-ip-cluster', '重复 IP', 18, 0, '当前账号尚无可用登录 IP 记录。');
+    }
+    const sameIpUsers = await this.userRepo.createQueryBuilder('account')
+      .select('account.id', 'id')
+      .addSelect('account.username', 'username')
+      .addSelect('account."bannedAt"', 'bannedAt')
+      .where('account.id <> :userId', { userId: user.id })
+      .andWhere(new Brackets((builder) => {
+        builder.where('account."lastLoginIp" = :ip', { ip }).orWhere('account."registerIp" = :ip', { ip });
+      }))
+      .limit(8)
+      .getRawMany<{ id: string; username: string; bannedAt: Date | null }>();
+    if (sameIpUsers.length <= 0) {
+      return this.createPlayerRiskFactor('shared-ip-cluster', '重复 IP', 18, 0, '当前登录 IP 未与其他账号形成明显重叠。');
+    }
+    const bannedCount = sameIpUsers.filter((entry) => entry.bannedAt).length;
+    let score = sameIpUsers.length >= 6 ? 14 : sameIpUsers.length >= 3 ? 9 : 5;
+    if (bannedCount > 0) {
+      score += 4;
+    }
+    return this.createPlayerRiskFactor(
+      'shared-ip-cluster',
+      '重复 IP',
+      18,
+      score,
+      '当前账号与其他账号存在重复登录 IP。',
+      [
+        `最近登录或注册 IP：${ip}`,
+        `检测到 ${sameIpUsers.length} 个账号与该 IP 重叠。`,
+        `样本账号：${sameIpUsers.slice(0, 5).map((entry) => entry.username).join('、')}`,
+        ...(bannedCount > 0 ? [`其中 ${bannedCount} 个重叠账号已有封禁记录。`] : []),
+      ],
+    );
+  }
+
+  private async buildSharedDeviceClusterRiskFactor(user: UserEntity | null | undefined): Promise<GmPlayerRiskFactor> {
+    if (!user) {
+      return this.createPlayerRiskFactor('shared-device-cluster', '重复设备', 25, 0, '无账号信息，暂不参与重复设备判断。');
+    }
+    const deviceId = user.lastLoginDeviceId?.trim() || user.registerDeviceId?.trim() || '';
+    if (!deviceId) {
+      return this.createPlayerRiskFactor('shared-device-cluster', '重复设备', 25, 0, '当前账号尚无可用 deviceId 记录。');
+    }
+    const sameDeviceUsers = await this.userRepo.createQueryBuilder('account')
+      .select('account.id', 'id')
+      .addSelect('account.username', 'username')
+      .addSelect('account."bannedAt"', 'bannedAt')
+      .where('account.id <> :userId', { userId: user.id })
+      .andWhere(new Brackets((builder) => {
+        builder.where('account."lastLoginDeviceId" = :deviceId', { deviceId }).orWhere('account."registerDeviceId" = :deviceId', { deviceId });
+      }))
+      .limit(8)
+      .getRawMany<{ id: string; username: string; bannedAt: Date | null }>();
+    if (sameDeviceUsers.length <= 0) {
+      return this.createPlayerRiskFactor('shared-device-cluster', '重复设备', 25, 0, '当前设备未与其他账号形成明显重叠。');
+    }
+    const bannedCount = sameDeviceUsers.filter((entry) => entry.bannedAt).length;
+    let score = sameDeviceUsers.length >= 5 ? 18 : sameDeviceUsers.length >= 2 ? 12 : 8;
+    if (bannedCount > 0) {
+      score += 5;
+    }
+    return this.createPlayerRiskFactor(
+      'shared-device-cluster',
+      '重复设备',
+      25,
+      score,
+      '当前账号与其他账号存在重复 deviceId。',
+      [
+        `当前 deviceId：${deviceId}`,
+        `检测到 ${sameDeviceUsers.length} 个账号与该设备重叠。`,
+        `样本账号：${sameDeviceUsers.slice(0, 5).map((entry) => entry.username).join('、')}`,
+        ...(bannedCount > 0 ? [`其中 ${bannedCount} 个重叠账号已有封禁记录。`] : []),
+      ],
+    );
+  }
+
+  private async buildMarketTransferRiskFactor(
+    player: PlayerState,
+    user: UserEntity | null | undefined,
+    riskAdminUserIds: ReadonlySet<string>,
+  ): Promise<GmPlayerRiskFactor> {
+    if (!user) {
+      return this.createPlayerRiskFactor(
+        'market-transfer',
+        '坊市关系',
+        30,
+        0,
+        '无账号信息，暂不参与坊市关系检测。',
+      );
+    }
+    if (riskAdminUserIds.has(user.id)) {
+      return this.createPlayerRiskFactor(
+        'market-transfer',
+        '坊市关系',
+        30,
+        0,
+        '当前账号在管理员名单中，坊市关系不参与利益输送检测。',
+      );
+    }
+    const recentTrades = await this.marketTradeHistoryRepo.createQueryBuilder('trade')
+      .where('trade.buyerId = :playerId OR trade.sellerId = :playerId', { playerId: player.id })
+      .orderBy('trade.createdAt', 'DESC')
+      .limit(GM_PLAYER_RISK_REVIEW_WINDOW_TRADE_LIMIT)
+      .getMany();
+    if (recentTrades.length < 3) {
+      return this.createPlayerRiskFactor(
+        'market-transfer',
+        '坊市关系',
+        30,
+        0,
+        '近期待成交不足，未形成可判断的坊市关系。',
+      );
+    }
+    const counterpartyMap = new Map<string, CounterpartyTradeAggregate>();
+    for (const trade of recentTrades) {
+      const counterpartyId = trade.buyerId === player.id ? trade.sellerId : trade.buyerId;
+      const entry = counterpartyMap.get(counterpartyId) ?? {
+        playerId: counterpartyId,
+        tradeCount: 0,
+        buyCount: 0,
+        sellCount: 0,
+        lastCreatedAt: 0,
+      };
+      entry.tradeCount += 1;
+      if (trade.buyerId === player.id) {
+        entry.buyCount += 1;
+      } else {
+        entry.sellCount += 1;
+      }
+      entry.lastCreatedAt = Math.max(entry.lastCreatedAt, Number(trade.createdAt ?? 0));
+      counterpartyMap.set(counterpartyId, entry);
+    }
+    const counterpartPlayers = await this.playerRepo.findBy({ id: In([...counterpartyMap.keys()]) });
+    const counterpartPlayerById = new Map(counterpartPlayers.map((entry) => [entry.id, entry]));
+    const counterpartUserIds = [...new Set(counterpartPlayers.map((entry) => entry.userId).filter((entry): entry is string => typeof entry === 'string' && entry.length > 0))];
+    const counterpartUsers = counterpartUserIds.length > 0
+      ? await this.userRepo.findBy({ id: In(counterpartUserIds) })
+      : [];
+    const counterpartUserById = new Map(counterpartUsers.map((entry) => [entry.id, entry]));
+/** ignoredAdminCounterparties：定义该变量以承载业务值。 */
+    const ignoredAdminCounterparties = [...counterpartyMap.values()].filter((entry) => {
+      const counterpartPlayer = counterpartPlayerById.get(entry.playerId);
+      return counterpartPlayer ? riskAdminUserIds.has(counterpartPlayer.userId) : false;
+    });
+/** ignoredAdminCounterpartyIdSet：定义该变量以承载业务值。 */
+    const ignoredAdminCounterpartyIdSet = new Set(ignoredAdminCounterparties.map((entry) => entry.playerId));
+/** ignoredAdminTradeCount：定义该变量以承载业务值。 */
+    const ignoredAdminTradeCount = ignoredAdminCounterparties.reduce((sum, entry) => sum + entry.tradeCount, 0);
+/** effectiveCounterparties：定义该变量以承载业务值。 */
+    const effectiveCounterparties = [...counterpartyMap.values()].filter((entry) => !ignoredAdminCounterpartyIdSet.has(entry.playerId));
+    if (effectiveCounterparties.length <= 0 || ignoredAdminTradeCount >= recentTrades.length) {
+      return this.createPlayerRiskFactor(
+        'market-transfer',
+        '坊市关系',
+        30,
+        0,
+        '近期待成交主要发生在管理员名单账号之间，已按正常管理行为忽略。',
+        ignoredAdminTradeCount > 0 ? [`已忽略与管理员名单账号的 ${ignoredAdminTradeCount} 笔成交。`] : [],
+      );
+    }
+/** topCounterparty：定义该变量以承载业务值。 */
+    const topCounterparty = effectiveCounterparties.sort((left, right) => (
+      right.tradeCount - left.tradeCount
+      || right.lastCreatedAt - left.lastCreatedAt
+      || left.playerId.localeCompare(right.playerId)
+    ))[0];
+    if (!topCounterparty) {
+      return this.createPlayerRiskFactor(
+        'market-transfer',
+        '坊市关系',
+        30,
+        0,
+        '未发现明显坊市关系对象。',
+      );
+    }
+/** effectiveTradeCount：定义该变量以承载业务值。 */
+    const effectiveTradeCount = Math.max(0, recentTrades.length - ignoredAdminTradeCount);
+    if (effectiveTradeCount < 3) {
+      return this.createPlayerRiskFactor(
+        'market-transfer',
+        '坊市关系',
+        30,
+        0,
+        '剔除管理员名单账号后，近期待成交不足，未形成可判断的坊市关系。',
+        ignoredAdminTradeCount > 0 ? [`已忽略与管理员名单账号的 ${ignoredAdminTradeCount} 笔成交。`] : [],
+      );
+    }
+    const concentration = topCounterparty.tradeCount / effectiveTradeCount;
+    const dominantSideShare = Math.max(topCounterparty.buyCount, topCounterparty.sellCount) / topCounterparty.tradeCount;
+    const topCounterpartyPlayer = counterpartPlayerById.get(topCounterparty.playerId);
+    const topCounterpartyUser = topCounterpartyPlayer ? counterpartUserById.get(topCounterpartyPlayer.userId) : undefined;
+    let score = 0;
+    if (concentration >= 0.8 && topCounterparty.tradeCount >= 5) {
+      score += 14;
+    } else if (concentration >= 0.6 && topCounterparty.tradeCount >= 3) {
+      score += 10;
+    }
+    if (dominantSideShare >= 0.8 && topCounterparty.tradeCount >= 4) {
+      score += 8;
+    }
+    if (effectiveCounterparties.length === 1 && effectiveTradeCount >= 8) {
+      score += 4;
+    }
+    const selfAgeDays = this.getAccountAgeDays(user);
+    const counterpartAgeDays = topCounterpartyUser ? this.getAccountAgeDays(topCounterpartyUser) : 0;
+    if (selfAgeDays <= 7 && counterpartAgeDays >= 14) {
+      score += 4;
+    }
+    if (topCounterpartyUser?.bannedAt) {
+      score += 6;
+    }
+    score = Math.min(30, score);
+    const counterpartyLabel = topCounterpartyPlayer
+      ? `${topCounterpartyPlayer.name}${topCounterpartyUser ? ` / ${topCounterpartyUser.username}` : ''}`
+      : topCounterparty.playerId;
+    const evidence = score > 0
+      ? [
+        `剔除管理员名单账号后，近 ${effectiveTradeCount} 笔坊市成交中，${Math.round(concentration * 100)}% 集中在 ${counterpartyLabel}。`,
+        `与该对象共成交 ${topCounterparty.tradeCount} 笔，其中买入 ${topCounterparty.buyCount} 笔，卖出 ${topCounterparty.sellCount} 笔。`,
+        `近窗口内有效成交对象数为 ${effectiveCounterparties.length}。`,
+        ...(ignoredAdminTradeCount > 0 ? [`已忽略与管理员名单账号的 ${ignoredAdminTradeCount} 笔成交。`] : []),
+        ...(selfAgeDays <= 7 && counterpartAgeDays >= 14
+          ? [`当前账号年龄 ${selfAgeDays} 天，对手账号年龄 ${counterpartAgeDays} 天。`]
+          : []),
+        ...(topCounterpartyUser?.bannedAt ? ['主成交对象当前或历史上存在封禁记录。'] : []),
+      ]
+      : [];
+    return this.createPlayerRiskFactor(
+      'market-transfer',
+      '坊市关系',
+      30,
+      score,
+      score > 0 ? '坊市成交对象集中度偏高，存在固定输血链风险。' : '坊市成交关系较分散，未见明显固定输血对象。',
+      evidence,
+    );
+  }
+
+  private async loadRiskAdminUserIds(): Promise<Set<string>> {
+/** entries：定义该变量以承载业务值。 */
+    const entries = await this.persistentDocumentService.getScope<GmRiskAdminAccountDocument>(GM_RISK_ADMIN_ACCOUNT_SCOPE);
+    return new Set(
+      entries
+        .map((entry) => entry.key?.trim() || entry.payload?.userId?.trim() || '')
+        .filter((entry) => entry.length > 0),
+    );
+  }
+
+  private buildPlayerRiskOverview(
+    level: GmPlayerRiskLevel,
+    score: number,
+    factors: GmPlayerRiskFactor[],
+  ): string {
+    const hitCount = factors.filter((factor) => factor.score > 0).length;
+    switch (level) {
+      case 'critical':
+        return `当前风险分 ${score}，已命中 ${hitCount} 个风险维度，形态接近批量小号或固定输血号。`;
+      case 'high':
+        return `当前风险分 ${score}，命中多项风险信号，建议 GM 重点复核账号簇和坊市关系。`;
+      case 'medium':
+        return `当前风险分 ${score}，存在可疑信号，建议持续观察并结合相似账号链路复核。`;
+      case 'low':
+      default:
+        return score > 0
+          ? `当前风险分 ${score}，仅命中少量弱信号，暂不构成强风险样本。`
+          : '当前未命中明显小号风险信号。';
+    }
+  }
+
+  private buildPlayerRiskRecommendations(
+    factors: GmPlayerRiskFactor[],
+    level: GmPlayerRiskLevel,
+  ): string[] {
+    const recommendations: string[] = [];
+    const integrityFactor = factors.find((factor) => factor.key === 'account-integrity');
+    const namingFactor = factors.find((factor) => factor.key === 'account-name-pattern');
+    const clusterFactor = factors.find((factor) => factor.key === 'similar-account-cluster');
+    const sharedIpFactor = factors.find((factor) => factor.key === 'shared-ip-cluster');
+    const sharedDeviceFactor = factors.find((factor) => factor.key === 'shared-device-cluster');
+    const marketFactor = factors.find((factor) => factor.key === 'market-transfer');
+    if ((integrityFactor?.score ?? 0) > 0) {
+      recommendations.push('先核对该角色是否存在异常账号绑定或脏数据，再继续做小号判定。');
+    }
+    if ((marketFactor?.score ?? 0) >= 14) {
+      recommendations.push('优先查看近 120 笔坊市成交对象、成交方向和是否存在单向输血链。');
+    }
+    if ((namingFactor?.score ?? 0) >= 6 || (clusterFactor?.score ?? 0) >= 8) {
+      recommendations.push('建议联查同前缀纯序号账号簇，确认是否存在批量起号。');
+    }
+    if ((sharedIpFactor?.score ?? 0) >= 9 || (sharedDeviceFactor?.score ?? 0) >= 12) {
+      recommendations.push('建议联查重复 IP / 设备重叠账号，确认是否存在同主体多号或共享环境误报。');
+    }
+    if (level === 'critical' || level === 'high') {
+      recommendations.push('建议纳入 GM 高优先级复核队列，但当前系统不自动封号。');
+    }
+    if (recommendations.length <= 0) {
+      recommendations.push('当前无需立即处置，继续观察后续行为变化即可。');
+    }
+    return recommendations;
+  }
+
+  private buildZeroRiskFactors(summary: string): GmPlayerRiskFactor[] {
+    return [
+      this.createPlayerRiskFactor('account-integrity', '账号完整性', 20, 0, summary),
+      this.createPlayerRiskFactor('account-name-pattern', '账号命名模式', 10, 0, summary),
+      this.createPlayerRiskFactor('similar-account-cluster', '相似账号簇', 20, 0, summary),
+      this.createPlayerRiskFactor('account-age', '账号年龄', 10, 0, summary),
+      this.createPlayerRiskFactor('shared-ip-cluster', '重复 IP', 18, 0, summary),
+      this.createPlayerRiskFactor('shared-device-cluster', '重复设备', 25, 0, summary),
+      this.createPlayerRiskFactor('market-transfer', '坊市关系', 30, 0, summary),
+    ];
+  }
+
+  private createPlayerRiskFactor(
+    key: GmPlayerRiskFactor['key'],
+    label: string,
+    maxScore: number,
+    score: number,
+    summary: string,
+    evidence: string[] = [],
+  ): GmPlayerRiskFactor {
+    return {
+      key,
+      label,
+      maxScore,
+      score: Math.max(0, Math.min(maxScore, Math.floor(score))),
+      summary,
+      evidence,
+    };
+  }
+
+  private resolvePlayerRiskLevel(score: number): GmPlayerRiskLevel {
+    if (score >= 80) {
+      return 'critical';
+    }
+    if (score >= 55) {
+      return 'high';
+    }
+    if (score >= 30) {
+      return 'medium';
+    }
+    return 'low';
+  }
+
+  private parseSerialAccountPattern(username: string): { prefix: string; digits: string } | null {
+    const match = username.trim().match(/^([a-z_][a-z0-9_]{1,15}?)(\d{3,})$/iu);
+    if (!match) {
+      return null;
+    }
+    return {
+      prefix: match[1].toLowerCase(),
+      digits: match[2],
+    };
+  }
+
+  private buildRandomNoiseAccountNameScore(username: string): {
+    score: number;
+    summary: string;
+    evidence: string[];
+  } | null {
+/** normalized：定义该变量以承载业务值。 */
+    const normalized = username.trim().toLowerCase();
+    if (!/^[a-z0-9_]{8,}$/u.test(normalized)) {
+      return null;
+    }
+    if (this.parseSerialAccountPattern(normalized)) {
+      return null;
+    }
+/** letters：定义该变量以承载业务值。 */
+    const letters = [...normalized].filter((char) => char >= 'a' && char <= 'z');
+/** digits：定义该变量以承载业务值。 */
+    const digits = [...normalized].filter((char) => char >= '0' && char <= '9');
+    if (letters.length < 6) {
+      return null;
+    }
+/** vowelCount：定义该变量以承载业务值。 */
+    const vowelCount = letters.filter((char) => 'aeiou'.includes(char)).length;
+/** uniqueRatio：定义该变量以承载业务值。 */
+    const uniqueRatio = new Set([...normalized]).size / normalized.length;
+/** maxConsonantRun：定义该变量以承载业务值。 */
+    let maxConsonantRun = 0;
+/** currentConsonantRun：定义该变量以承载业务值。 */
+    let currentConsonantRun = 0;
+    for (const char of normalized) {
+      if (char >= 'a' && char <= 'z' && !'aeiou'.includes(char)) {
+        currentConsonantRun += 1;
+        if (currentConsonantRun > maxConsonantRun) {
+          maxConsonantRun = currentConsonantRun;
+        }
+        continue;
+      }
+      currentConsonantRun = 0;
+    }
+/** score：定义该变量以承载业务值。 */
+    let score = 0;
+/** evidence：定义该变量以承载业务值。 */
+    const evidence: string[] = [];
+    if (normalized.length >= 10 && uniqueRatio >= 0.8) {
+      score += 2;
+      evidence.push(`账号名长度 ${normalized.length}，且字符离散度较高。`);
+    }
+    if (vowelCount <= 1 || vowelCount * 4 <= letters.length) {
+      score += 2;
+      evidence.push(`字母部分元音占比偏低（${vowelCount}/${letters.length}）。`);
+    }
+    if (maxConsonantRun >= 5) {
+      score += 3;
+      evidence.push(`存在连续 ${maxConsonantRun} 位辅音串，缺少常见可读性。`);
+    }
+    if (digits.length >= 2 && letters.length >= 6 && uniqueRatio >= 0.75) {
+      score += 1;
+      evidence.push('字母与数字混合后仍缺少明显语义结构。');
+    }
+    if (score < 5) {
+      return null;
+    }
+    return {
+      score: Math.min(6, score),
+      summary: '账号名更像随机拼接的无语义串。',
+      evidence,
+    };
+  }
+
+  private isContactStyleSerialAccountPattern(serialPattern: { prefix: string; digits: string }): boolean {
+    return GM_CONTACT_STYLE_ACCOUNT_PREFIXES.has(serialPattern.prefix) && serialPattern.digits.length >= 5;
+  }
+
+  private escapeSqlRegex(input: string): string {
+    return input.replace(/[\\^$.*+?()[\]{}|]/gu, '\\$&');
+  }
+
+  private getManagedAccountTotalOnlineSeconds(user: UserEntity | null | undefined, online: boolean): number {
+    if (!user) {
+      return 0;
+    }
+    const sessionStartedAt = this.playerService.getOnlineSessionStartedAt(user.id)
+      ?? user.currentOnlineStartedAt?.getTime();
+    const currentSessionSeconds = online && sessionStartedAt
+      ? Math.max(0, Math.floor((Date.now() - sessionStartedAt) / 1000))
+      : 0;
+    return Math.max(0, Math.floor(user.totalOnlineSeconds ?? 0)) + currentSessionSeconds;
+  }
+
+  private getAccountAgeHours(user: UserEntity): number {
+    return Math.max(0, Math.floor((Date.now() - user.createdAt.getTime()) / (60 * 60 * 1000)));
+  }
+
+  private getAccountAgeDays(user: UserEntity): number {
+    return Math.max(0, Math.floor((Date.now() - user.createdAt.getTime()) / (24 * 60 * 60 * 1000)));
+  }
+
+  private countStoredItemStacks(storage: unknown): number {
+    if (!storage || typeof storage !== 'object' || !Array.isArray((storage as { items?: unknown[] }).items)) {
+      return 0;
+    }
+    return (storage as { items: unknown[] }).items.length;
+  }
+
+  private formatRiskDurationHours(totalOnlineSeconds: number): string {
+    return `${Math.max(0, Math.floor(totalOnlineSeconds / 3600))} 小时`;
+  }
+
+  private getManagedPlayerBehaviorLabel(behavior: GmManagedPlayerBehavior): string {
+    switch (behavior) {
+      case 'combat':
+        return '战斗';
+      case 'cultivation':
+        return '修炼';
+      case 'alchemy':
+        return '炼丹';
+      case 'enhancement':
+        return '强化';
+      case 'gather':
+        return '采集';
+      default:
+        return behavior;
+    }
   }
 
   /** 从数据库实体还原为运行时 PlayerState */
@@ -2566,7 +3848,11 @@ export class GmService {
   }
 
   /** buildAccountRecord：执行对应的业务逻辑。 */
-  private buildAccountRecord(user: UserEntity | null | undefined, online: boolean): GmManagedAccountRecord | undefined {
+  private buildAccountRecord(
+    user: UserEntity | null | undefined,
+    online: boolean,
+    isRiskAdmin: boolean,
+  ): GmManagedAccountRecord | undefined {
     if (!user) {
       return undefined;
     }
@@ -2580,12 +3866,16 @@ export class GmService {
     return {
       userId: user.id,
       username: user.username,
+      isRiskAdmin,
       status: user.bannedAt ? 'banned' : 'active',
       createdAt: user.createdAt.toISOString(),
       totalOnlineSeconds: Math.max(0, Math.floor(user.totalOnlineSeconds ?? 0)) + currentSessionSeconds,
       bannedAt: user.bannedAt?.toISOString(),
       banReason: user.banReason ?? undefined,
       bannedBy: user.bannedBy ?? undefined,
+      lastLoginAt: user.lastLoginAt?.toISOString(),
+      lastLoginIp: user.lastLoginIp ?? undefined,
+      lastLoginDeviceId: user.lastLoginDeviceId ?? undefined,
     };
   }
 

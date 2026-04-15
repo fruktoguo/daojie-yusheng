@@ -147,6 +147,12 @@ import {
   TickConfigDocument,
 } from './tick.service.shared';
 
+interface PersistencePhaseMetric {
+  key: string;
+  label: string;
+  elapsedMs: number;
+}
+
 @Injectable()
 /** TickService：封装相关状态与行为。 */
 export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
@@ -650,20 +656,92 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
   private async executePersistenceCycle(trigger: PersistTrigger): Promise<void> {
 /** startedAt：定义该变量以承载业务值。 */
     const startedAt = process.hrtime.bigint();
-    await Promise.all([
-      this.playerService.persistAll(),
-      this.mapService.persistTileRuntimeStates(),
-      this.lootService.persistRuntimeState(),
-      this.worldService.persistMonsterRuntimeState(),
-    ]);
+/** phaseMetrics：定义该变量以承载业务值。 */
+    const phaseMetrics: PersistencePhaseMetric[] = [];
+/** phases：定义该变量以承载业务值。 */
+    const phases = [
+      {
+        key: 'io_persist_players',
+        label: '玩家存档',
+        work: () => this.playerService.persistAll(),
+      },
+      {
+        key: 'io_persist_tiles',
+        label: '地块运行时',
+        work: () => this.mapService.persistTileRuntimeStates(),
+      },
+      {
+        key: 'io_persist_loot',
+        label: '掉落运行时',
+        work: () => this.lootService.persistRuntimeState(),
+      },
+      {
+        key: 'io_persist_monsters',
+        label: '怪物运行时',
+        work: () => this.worldService.persistMonsterRuntimeState(),
+      },
+    ] as const;
+
+/** results：定义该变量以承载业务值。 */
+    const results = await Promise.allSettled(phases.map((phase) => this.measurePersistencePhase(phase, phaseMetrics)));
 /** elapsedMs：定义该变量以承载业务值。 */
     const elapsedMs = Number(process.hrtime.bigint() - startedAt) / 1_000_000;
     this.performanceService.recordCpuSection(elapsedMs, 'io_persist', '落盘与外部 I/O');
+/** breakdown：定义该变量以承载业务值。 */
+    const breakdown = this.formatPersistencePhaseBreakdown(phaseMetrics);
+/** failures：定义该变量以承载业务值。 */
+    const failures = results
+      .map((result, index) => ({ result, phase: phases[index] }))
+      .filter((entry): entry is {
+        result: PromiseRejectedResult;
+        phase: typeof phases[number];
+      } => entry.result.status === 'rejected');
+    if (failures.length > 0) {
+/** summary：定义该变量以承载业务值。 */
+      const summary = failures
+        .map(({ result, phase }) => {
+/** message：定义该变量以承载业务值。 */
+          const message = result.reason instanceof Error ? result.reason.message : String(result.reason);
+          return `${phase.label}: ${message}`;
+        })
+        .join('; ');
+      throw new Error(`落盘失败；并行分段耗时=${breakdown}；失败分段=${summary}`);
+    }
     if (elapsedMs > PERSIST_INTERVAL * 1000) {
       this.logger.warn(
-        `落盘耗时 ${elapsedMs.toFixed(0)}ms，已超过定时间隔 ${PERSIST_INTERVAL * 1000}ms；本轮触发来源=${trigger}，后续会自动串行补跑，避免重叠压垮服务。`,
+        `落盘耗时 ${elapsedMs.toFixed(0)}ms，已超过定时间隔 ${PERSIST_INTERVAL * 1000}ms；本轮触发来源=${trigger}；并行分段耗时=${breakdown}；后续会自动串行补跑，避免重叠压垮服务。`,
       );
     }
+  }
+
+  private async measurePersistencePhase<T>(
+    phase: Pick<PersistencePhaseMetric, 'key' | 'label'> & { work: () => Promise<T> },
+    metrics: PersistencePhaseMetric[],
+  ): Promise<T> {
+/** startedAt：定义该变量以承载业务值。 */
+    const startedAt = process.hrtime.bigint();
+    try {
+      return await phase.work();
+    } finally {
+/** elapsedMs：定义该变量以承载业务值。 */
+      const elapsedMs = Number(process.hrtime.bigint() - startedAt) / 1_000_000;
+      metrics.push({
+        key: phase.key,
+        label: phase.label,
+        elapsedMs,
+      });
+      this.performanceService.recordCpuSection(elapsedMs, phase.key, `落盘: ${phase.label}`);
+    }
+  }
+
+  private formatPersistencePhaseBreakdown(metrics: PersistencePhaseMetric[]): string {
+    if (metrics.length === 0) {
+      return '无';
+    }
+    return [...metrics]
+      .sort((left, right) => right.elapsedMs - left.elapsedMs)
+      .map((metric) => `${metric.label}=${metric.elapsedMs.toFixed(0)}ms`)
+      .join(', ');
   }
 
 /** resetAllSyncState：执行对应的业务逻辑。 */

@@ -47,6 +47,7 @@ import { QiProjectionService } from './qi-projection.service';
 import { DatabaseBackupService } from './database-backup.service';
 import { RedeemCodeGroupEntity } from '../database/entities/redeem-code-group.entity';
 import { RedeemCodeEntity } from '../database/entities/redeem-code.entity';
+import { GmRiskOperationAuditEntity } from '../database/entities/gm-risk-operation-audit.entity';
 import { RedeemCodeService } from './redeem-code.service';
 import { LeaderboardService } from './leaderboard.service';
 import { AlchemyService } from './alchemy.service';
@@ -67,6 +68,7 @@ import { TechniqueActivityService } from './technique-activity.service';
       PlayerMailReceiptEntity,
       RedeemCodeGroupEntity,
       RedeemCodeEntity,
+      GmRiskOperationAuditEntity,
     ]),
   ],
   controllers: [GmController, AccountController],

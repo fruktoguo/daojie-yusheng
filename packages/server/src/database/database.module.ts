@@ -18,6 +18,7 @@ import { RedeemCodeEntity } from './entities/redeem-code.entity';
 import { PlayerCollectionsEntity } from './entities/player-collections.entity';
 import { PlayerSettingsEntity } from './entities/player-settings.entity';
 import { PlayerPresenceEntity } from './entities/player-presence.entity';
+import { GmRiskOperationAuditEntity } from './entities/gm-risk-operation-audit.entity';
 import { PersistentDocumentService } from './persistent-document.service';
 import { RedisService } from './redis.service';
 
@@ -37,6 +38,7 @@ const DATABASE_ENTITIES = [
   PlayerCollectionsEntity,
   PlayerSettingsEntity,
   PlayerPresenceEntity,
+  GmRiskOperationAuditEntity,
 ];
 
 /** PRESYNC_BIGINT_COLUMNS：定义该变量以承载业务值。 */
@@ -136,6 +138,7 @@ const { Client: PgClient } = require('pg') as {
       PlayerCollectionsEntity,
       PlayerSettingsEntity,
       PlayerPresenceEntity,
+      GmRiskOperationAuditEntity,
     ]),
   ],
   providers: [RedisService, PersistentDocumentService],

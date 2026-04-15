@@ -1,7 +1,7 @@
 /**
  * 认证 HTTP 控制器 —— 处理注册、登录、令牌刷新、GM 登录等请求
  */
-import { Controller, Post, Body, Get, Query, Headers, UnauthorizedException } from '@nestjs/common';
+import { Controller, Post, Body, Get, Query, Headers, UnauthorizedException, Req } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import {
   BasicOkRes,
@@ -26,9 +26,41 @@ type LegacyAuthRegisterReq = {
   username?: string;
 };
 
+type RequestLike = {
+  ip?: string;
+  headers?: Record<string, string | string[] | undefined>;
+  socket?: {
+    remoteAddress?: string;
+  };
+};
+
 /** pickString：执行对应的业务逻辑。 */
 function pickString(value: unknown): string {
   return typeof value === 'string' ? value : '';
+}
+
+function pickHeader(headers: RequestLike['headers'], key: string): string {
+  const value = headers?.[key];
+  if (Array.isArray(value)) {
+    return typeof value[0] === 'string' ? value[0] : '';
+  }
+  return typeof value === 'string' ? value : '';
+}
+
+function resolveRequestIp(request: RequestLike): string {
+  const forwarded = pickHeader(request.headers, 'x-forwarded-for');
+  if (forwarded) {
+    return forwarded.split(',')[0]?.trim() ?? '';
+  }
+  return request.ip?.trim() || request.socket?.remoteAddress?.trim() || '';
+}
+
+function buildAuthRequestContext(request: RequestLike, deviceId: string) {
+  return {
+    ip: resolveRequestIp(request),
+    userAgent: pickHeader(request.headers, 'user-agent'),
+    deviceId: deviceId || pickHeader(request.headers, 'x-device-id'),
+  };
 }
 
 @Controller('auth')
@@ -39,7 +71,7 @@ export class AuthController {
 
   /** 用户注册 */
   @Post('register')
-  async register(@Body() body: AuthRegisterReq & LegacyAuthRegisterReq): Promise<AuthTokenRes> {
+  async register(@Req() request: RequestLike, @Body() body: AuthRegisterReq & LegacyAuthRegisterReq): Promise<AuthTokenRes> {
 /** legacyUsername：定义该变量以承载业务值。 */
     const legacyUsername = pickString(body.username);
 /** accountName：定义该变量以承载业务值。 */
@@ -51,22 +83,24 @@ export class AuthController {
       pickString(body.password),
       pickString(body.displayName),
       roleName,
+      buildAuthRequestContext(request, pickString(body.deviceId)),
     );
   }
 
   /** 用户登录 */
   @Post('login')
-  async login(@Body() body: AuthLoginReq & LegacyAuthLoginReq): Promise<AuthTokenRes> {
+  async login(@Req() request: RequestLike, @Body() body: AuthLoginReq & LegacyAuthLoginReq): Promise<AuthTokenRes> {
     return this.authService.login(
       pickString(body.loginName) || pickString(body.username),
       pickString(body.password),
+      buildAuthRequestContext(request, pickString(body.deviceId)),
     );
   }
 
   /** 刷新访问令牌 */
   @Post('refresh')
-  async refresh(@Body() body: AuthRefreshReq): Promise<AuthTokenRes> {
-    return this.authService.refresh(body.refreshToken);
+  async refresh(@Req() request: RequestLike, @Body() body: AuthRefreshReq): Promise<AuthTokenRes> {
+    return this.authService.refresh(body.refreshToken, buildAuthRequestContext(request, pickString(body.deviceId)));
   }
 
   /** 检查显示名称是否可用 */
@@ -96,4 +130,3 @@ export class AuthController {
     return { ok: true };
   }
 }
-

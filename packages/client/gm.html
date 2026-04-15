@@ -1747,6 +1747,8 @@
           <select id="player-sort" class="search-input" style="flex:0 0 210px;">
             <option value="realm-desc">境界从高到低</option>
             <option value="realm-asc">境界从低到高</option>
+            <option value="risk-desc">风险从高到低</option>
+            <option value="risk-asc">风险从低到高</option>
             <option value="online">在线优先</option>
             <option value="map">按地图</option>
             <option value="name">按角色名</option>
@@ -1772,6 +1774,13 @@
             <option value="abnormal">异常</option>
           </select>
         </div>
+        <div class="filter-row" style="margin-top: 10px; align-items: center;">
+          <input id="player-bulk-ban-risk-threshold" class="number-input" type="number" min="0" max="200" value="70" style="flex:0 0 180px;" />
+          <input id="player-bulk-ban-reason" class="search-input" type="text" placeholder="批量封号原因（可选）" style="flex:1 1 280px;" />
+          <button id="player-bulk-ban-by-risk" class="small-btn danger" type="button">预览并批量封号</button>
+        </div>
+        <div id="player-bulk-ban-preview" class="editor-note" style="margin-top: 8px; min-height: 22px;">尚未生成批量封号预览。</div>
+        <div id="player-risk-audit-list" class="network-list" style="margin-top: 12px;"></div>
         <div id="player-list" class="player-list"></div>
         <div class="button-row" style="justify-content: space-between; margin-top: 12px;">
           <button id="player-page-prev" class="small-btn" type="button">上一页</button>
@@ -1815,6 +1824,7 @@
             <button id="editor-tab-items" class="workspace-tab" type="button">物品</button>
             <button id="editor-tab-quests" class="workspace-tab" type="button">任务</button>
             <button id="editor-tab-mail" class="workspace-tab" type="button">邮件</button>
+            <button id="editor-tab-risk" class="workspace-tab" type="button">风险检测</button>
             <button id="editor-tab-persisted" class="workspace-tab" type="button">持久化 JSON</button>
           </div>
           <div id="editor-visual-panel" class="editor-tab-panel">

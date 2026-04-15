@@ -68,10 +68,13 @@ export const BACKUP_DIRECTORIES: Record<GmDatabaseBackupKind, string> = {
   hourly: path.join(BACKUP_ROOT_DIR, 'hourly'),
   daily: path.join(BACKUP_ROOT_DIR, 'daily'),
   manual: path.join(BACKUP_ROOT_DIR, 'manual'),
+  uploaded: path.join(BACKUP_ROOT_DIR, 'uploaded'),
   pre_import: path.join(BACKUP_ROOT_DIR, 'pre_import'),
 };
 /** BACKUP_META_DIR：定义该变量以承载业务值。 */
 export const BACKUP_META_DIR = path.join(BACKUP_ROOT_DIR, '_meta');
+/** BACKUP_UPLOAD_STAGING_DIR：定义该变量以承载业务值。 */
+export const BACKUP_UPLOAD_STAGING_DIR = path.join(BACKUP_META_DIR, 'incoming');
 /** BACKUP_REQUESTS_DIR：定义该变量以承载业务值。 */
 export const BACKUP_REQUESTS_DIR = path.join(BACKUP_ROOT_DIR, '_requests');
 /** BACKUP_MANUAL_REQUESTS_DIR：定义该变量以承载业务值。 */
@@ -82,6 +85,8 @@ export const BACKUP_RESTORE_REQUESTS_DIR = path.join(BACKUP_REQUESTS_DIR, 'resto
 export const BACKUP_WORKER_STATE_PATH = path.join(BACKUP_META_DIR, 'worker-state.json');
 /** BACKUP_WORKER_HEARTBEAT_PATH：定义该变量以承载业务值。 */
 export const BACKUP_WORKER_HEARTBEAT_PATH = path.join(BACKUP_META_DIR, 'worker-heartbeat.json');
+/** DEV_WATCH_PAUSE_REQUEST_PATH：定义该变量以承载业务值。 */
+export const DEV_WATCH_PAUSE_REQUEST_PATH = path.join(BACKUP_META_DIR, 'dev-watch-pause.json');
 
 /** ensureBackupWorkspace：执行对应的业务逻辑。 */
 export function ensureBackupWorkspace(): void {
@@ -90,6 +95,7 @@ export function ensureBackupWorkspace(): void {
     fs.mkdirSync(directory, { recursive: true });
   }
   fs.mkdirSync(BACKUP_META_DIR, { recursive: true });
+  fs.mkdirSync(BACKUP_UPLOAD_STAGING_DIR, { recursive: true });
   fs.mkdirSync(BACKUP_MANUAL_REQUESTS_DIR, { recursive: true });
   fs.mkdirSync(BACKUP_RESTORE_REQUESTS_DIR, { recursive: true });
 }
@@ -184,6 +190,18 @@ export function readBackupWorkerHeartbeat(): BackupWorkerHeartbeatFile | null {
 export function writeBackupWorkerHeartbeat(heartbeat: BackupWorkerHeartbeatFile): void {
   ensureBackupWorkspace();
   writeJsonFileAtomic(BACKUP_WORKER_HEARTBEAT_PATH, heartbeat);
+}
+
+/** requestDevWatchPause：执行对应的业务逻辑。 */
+export function requestDevWatchPause(durationMs: number, reason: string): void {
+  ensureBackupWorkspace();
+/** now：定义该变量以承载业务值。 */
+  const now = Date.now();
+  writeJsonFileAtomic(DEV_WATCH_PAUSE_REQUEST_PATH, {
+    requestedAt: new Date(now).toISOString(),
+    pauseUntil: new Date(now + Math.max(1_000, Math.floor(durationMs))).toISOString(),
+    reason,
+  });
 }
 
 /** writeBackupManualRequest：执行对应的业务逻辑。 */
@@ -322,4 +340,3 @@ function listJsonRequests<T>(directory: string): Array<{ filePath: string; reque
     })
     .filter((entry): entry is { filePath: string; request: T } => entry.request !== null);
 }
-
