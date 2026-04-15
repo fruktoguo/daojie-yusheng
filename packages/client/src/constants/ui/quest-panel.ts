@@ -2,7 +2,7 @@
  * 任务面板结构常量。
  * 包括状态样式类、默认任务线顺序与状态排序权重，供面板配置与渲染复用。
  */
-import { QuestState, QUEST_LINE_KEYS } from '@mud/shared';
+import { QuestState, QUEST_LINE_KEYS } from '@mud/shared-next';
 
 /** STATUS_CLASS：定义该变量以承载业务值。 */
 export const STATUS_CLASS: Record<QuestState['status'], string> = {

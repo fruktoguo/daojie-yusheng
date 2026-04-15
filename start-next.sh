@@ -96,10 +96,10 @@ collect_repo_dev_pids() {
     /pnpm\/bin\/pnpm\.cjs --filter @mud\/shared-next build --watch/ { print $1; next }
     /node scripts\/dev-hot\.js/ { print $1; next }
     index($0, repo_root) == 0 { next }
-    /packages\/server-next\/dist\/main/ { print $1; next }
+    /packages\/server\/dist\/main/ { print $1; next }
     /node_modules\/\.pnpm\/node_modules\/typescript\/bin\/tsc -w -p tsconfig\.json --preserveWatchOutput/ { print $1; next }
-    /packages\/client-next\/node_modules\/\.bin\/\.\.\/vite\/bin\/vite\.js --host/ { print $1; next }
-    /packages\/shared-next\/node_modules\/\.bin\/\.\.\/typescript\/bin\/tsc --watch/ { print $1; next }
+    /packages\/client\/node_modules\/\.bin\/\.\.\/vite\/bin\/vite\.js --host/ { print $1; next }
+    /packages\/shared\/node_modules\/\.bin\/\.\.\/typescript\/bin\/tsc --watch/ { print $1; next }
   '
 }
 
@@ -171,8 +171,8 @@ load_server_next_local_env() {
   source_env_file_if_present ".runtime/server-next.local.env"
   source_env_file_if_present ".env"
   source_env_file_if_present ".env.local"
-  source_env_file_if_present "packages/server-next/.env"
-  source_env_file_if_present "packages/server-next/.env.local"
+  source_env_file_if_present "packages/server/.env"
+  source_env_file_if_present "packages/server/.env.local"
 }
 
 # 校验线上部署也要求提供的关键环境变量，避免脚本走私有开发默认值。
@@ -258,8 +258,8 @@ prepare_server_next_base_env() {
   export SERVER_NEXT_GM_PASSWORD="${SERVER_NEXT_GM_PASSWORD:-$GM_PASSWORD}"
   export SERVER_NEXT_GM_DATABASE_BACKUP_DIR="${SERVER_NEXT_GM_DATABASE_BACKUP_DIR:-${GM_DATABASE_BACKUP_DIR:-}}"
 
-  require_env_value "JWT_SECRET" "请按线上部署同名变量提供 JWT_SECRET，可放在 .env/.env.local 或 packages/server-next/.env(.local)。"
-  require_env_value "SERVER_NEXT_RUNTIME_TOKEN" "请按线上部署同名变量提供 SERVER_NEXT_RUNTIME_TOKEN，可放在 .env/.env.local 或 packages/server-next/.env(.local)。"
+  require_env_value "JWT_SECRET" "请按线上部署同名变量提供 JWT_SECRET，可放在 .env/.env.local 或 packages/server/.env(.local)。"
+  require_env_value "SERVER_NEXT_RUNTIME_TOKEN" "请按线上部署同名变量提供 SERVER_NEXT_RUNTIME_TOKEN，可放在 .env/.env.local 或 packages/server/.env(.local)。"
 }
 
 # 判断是否本地主机。
@@ -517,7 +517,7 @@ case "$MODE" in
     SERVER_PID=$!
 
     echo "==> 启动 client-next (port ${CLIENT_NEXT_PORT}, proxy -> ${VITE_DEV_PROXY_TARGET})..."
-    (cd packages/client-next && npx vite --host --strictPort --port "${CLIENT_NEXT_PORT}") &
+    (cd packages/client && npx vite --host --strictPort --port "${CLIENT_NEXT_PORT}") &
 # 记录客户端pid。
     CLIENT_PID=$!
 

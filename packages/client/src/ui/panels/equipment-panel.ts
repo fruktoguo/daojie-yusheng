@@ -3,22 +3,43 @@
  * 展示 5 个装备槽位的当前装备与词条，支持卸下操作
  */
 
-import { EquipmentEffectDef, EquipmentSlots, EQUIP_SLOTS, EquipSlot, PlayerState } from '@mud/shared';
+import { EquipmentEffectDef, EquipmentSlots, EQUIP_SLOTS, EquipSlot, PlayerState } from '@mud/shared-next';
 import { getEquipSlotLabel } from '../../domain-labels';
 import { resolvePreviewItem } from '../../content/local-templates';
 import { preserveSelection } from '../selection-preserver';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from '../floating-tooltip';
-import { buildItemTooltipPayload, describeEquipmentBonuses, formatEquipmentConditionText } from '../equipment-tooltip';
+import { buildItemTooltipPayload } from '../equipment-tooltip';
 import { describePreviewBonuses } from '../stat-preview';
 import { formatDisplayInteger, formatDisplayPercent } from '../../utils/number';
 
 /** formatEffectCondition：执行对应的业务逻辑。 */
 function formatEffectCondition(effect: EquipmentEffectDef): string {
-/** parts：定义该变量以承载业务值。 */
-  const parts = formatEquipmentConditionText(effect);
-  if (parts.length === 0) {
+/** conditions：定义该变量以承载业务值。 */
+  const conditions = effect?.conditions?.items ?? [];
+  if (conditions.length === 0) {
     return '';
   }
+/** parts：定义该变量以承载业务值。 */
+  const parts = conditions.map((condition) => {
+    switch (condition.type) {
+      case 'time_segment':
+        return `时段:${condition.in.join('/')}`;
+      case 'map':
+        return `地图:${condition.mapIds.join('/')}`;
+      case 'hp_ratio':
+        return `生命${condition.op}${formatDisplayPercent(condition.value * 100)}`;
+      case 'qi_ratio':
+        return `灵力${condition.op}${formatDisplayPercent(condition.value * 100)}`;
+      case 'is_cultivating':
+        return condition.value ? '修炼中' : '未修炼';
+      case 'has_buff':
+        return `需带有 ${condition.buffId}`;
+      case 'target_kind':
+        return `目标:${condition.in.join('/')}`;
+      default:
+        return '';
+    }
+  }).filter((part) => part.length > 0);
   return parts.length > 0 ? ` [${parts.join('，')}]` : '';
 }
 
@@ -36,7 +57,7 @@ function formatItemEffects(item: EquipmentSlots[EquipSlot]): string[] {
       case 'stat_aura':
       case 'progress_boost': {
 /** effectParts：定义该变量以承载业务值。 */
-        const effectParts = describePreviewBonuses(effect.attrs, effect.stats, effect.valueStats, effect.attrMode, effect.statMode);
+        const effectParts = describePreviewBonuses(effect.attrs, effect.stats, effect.valueStats);
         return `特效:${effectParts.join(' / ') || '无数值变化'}${conditionText}`;
       }
       case 'periodic_cost': {
@@ -66,13 +87,7 @@ function formatItemEffects(item: EquipmentSlots[EquipSlot]): string[] {
           on_enter_map: '入图时',
         };
 /** buffParts：定义该变量以承载业务值。 */
-        const buffParts = describePreviewBonuses(
-          effect.buff.attrs,
-          effect.buff.stats,
-          effect.buff.valueStats,
-          effect.buff.attrMode ?? 'percent',
-          effect.buff.statMode ?? 'percent',
-        );
+        const buffParts = describePreviewBonuses(effect.buff.attrs, effect.buff.stats, effect.buff.valueStats);
         return `触发:${triggerMap[effect.trigger] ?? effect.trigger}获得 ${effect.buff.name} ${effect.buff.duration}息${conditionText}${buffParts.length > 0 ? `，效果:${buffParts.join(' / ')}` : ''}`;
       }
       default:
@@ -87,14 +102,11 @@ function formatItemBonuses(item: EquipmentSlots[EquipSlot]): string {
 /** previewItem：定义该变量以承载业务值。 */
   const previewItem = resolvePreviewItem(item);
 /** bonusParts：定义该变量以承载业务值。 */
-  const bonusParts = describeEquipmentBonuses(previewItem);
+  const bonusParts = describePreviewBonuses(previewItem.equipAttrs, previewItem.equipStats, previewItem.equipValueStats);
 /** effectParts：定义该变量以承载业务值。 */
   const effectParts = formatItemEffects(item);
 /** parts：定义该变量以承载业务值。 */
-  const parts = [
-    ...bonusParts,
-    ...effectParts,
-  ];
+  const parts = [...bonusParts, ...effectParts];
   return parts.length > 0 ? parts.join(' / ') : '暂无词条';
 }
 
@@ -144,7 +156,7 @@ export class EquipmentPanel {
     this.slotViews.clear();
     this.sectionEl = null;
     this.emptyStateEl = null;
-    this.pane.innerHTML = '<div class="empty-hint">尚未装备任何物品</div>';
+    this.pane.innerHTML = '<div class="empty-hint ui-empty-hint">尚未装备任何物品</div>';
   }
 
   setCallbacks(onUnequip: (slot: EquipSlot) => void): void {
@@ -213,7 +225,7 @@ export class EquipmentPanel {
 
 /** sectionEl：定义该变量以承载业务值。 */
       const sectionEl = document.createElement('div');
-      sectionEl.className = 'panel-section';
+      sectionEl.className = 'panel-section ui-surface-pane ui-surface-pane--stack';
 
 /** titleEl：定义该变量以承载业务值。 */
       const titleEl = document.createElement('div');
@@ -223,7 +235,7 @@ export class EquipmentPanel {
 
 /** emptyStateEl：定义该变量以承载业务值。 */
       const emptyStateEl = document.createElement('div');
-      emptyStateEl.className = 'empty-hint';
+      emptyStateEl.className = 'empty-hint ui-empty-hint';
       emptyStateEl.textContent = '尚未装备任何物品';
       emptyStateEl.hidden = true;
       sectionEl.append(emptyStateEl);
@@ -244,7 +256,7 @@ export class EquipmentPanel {
   private createSlotView(slot: EquipSlot): EquipmentSlotView {
 /** root：定义该变量以承载业务值。 */
     const root = document.createElement('div');
-    root.className = 'equip-slot';
+    root.className = 'equip-slot ui-surface-card ui-surface-card--compact';
 
 /** copy：定义该变量以承载业务值。 */
     const copy = document.createElement('div');
@@ -463,4 +475,3 @@ export class EquipmentPanel {
     document.head.appendChild(style);
   }
 }
-

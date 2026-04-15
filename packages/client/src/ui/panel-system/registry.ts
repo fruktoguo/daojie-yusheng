@@ -142,15 +142,6 @@ export function buildDefaultPanelRegistry(): PanelRegistry {
       preservesInteractionState: true,
     },
     {
-      id: 'world-tianji',
-      title: '天机阁',
-      templateKind: 'embedded',
-      rootSelector: '#pane-tianji',
-      defaultPlacement: { desktop: 'center-intel', mobile: 'external' },
-      supports: ['desktop', 'mobile'],
-      preservesInteractionState: true,
-    },
-    {
       id: 'loot',
       title: '拾取',
       templateKind: 'modal',

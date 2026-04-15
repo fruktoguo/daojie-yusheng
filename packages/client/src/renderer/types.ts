@@ -2,7 +2,7 @@
  * 渲染器接口定义 —— 约束所有渲染器实现必须提供的能力
  */
 
-import { GameTimeState, GridPoint, NpcQuestMarker, TargetingShape, Tile } from '@mud/shared';
+import { GameTimeState, GridPoint, NpcQuestMarker, TargetingShape, Tile } from '@mud/shared-next';
 import { Camera } from './camera';
 
 /** FloatingActionTextStyle：定义该类型的结构与数据语义。 */
@@ -67,8 +67,6 @@ export interface IRenderer {
       kind?: string;
       hp?: number;
       maxHp?: number;
-      respawnRemainingTicks?: number;
-      respawnTotalTicks?: number;
       npcQuestMarker?: NpcQuestMarker;
     }[],
     movedId?: string,
@@ -78,7 +76,7 @@ export interface IRenderer {
     settleEntityId?: string,
     motionSyncToken?: number,
   ): void;
-  renderEntities(camera: Camera, progress?: number, localPlayerId?: string): void;
+  renderEntities(camera: Camera, progress?: number, localPlayerId?: string, localPlayerX?: number, localPlayerY?: number): void;
   addFloatingText(
     x: number,
     y: number,

@@ -1,19 +1,18 @@
 {
-  "name": "@mud/client",
+  "name": "@mud/client-next",
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "generate:editor-catalog": "node ../../scripts/generate-editor-catalog.mjs --client=client --shared=shared",
+    "generate:editor-catalog": "node ../../scripts/generate-editor-catalog.mjs --client=client-next --shared=shared-next",
     "generate:item-sources": "node ./scripts/generate-item-sources.mjs",
-    "generate:quest-catalog": "node ./scripts/generate-quest-catalog.mjs",
-    "prebuild": "pnpm --filter @mud/shared build && pnpm run generate:editor-catalog && pnpm run generate:item-sources && pnpm run generate:quest-catalog",
+    "prebuild": "pnpm --filter @mud/shared-next build && pnpm run generate:editor-catalog && pnpm run generate:item-sources",
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "tsc --noEmit && vite build",
     "preview": "vite preview"
   },
   "dependencies": {
     "socket.io-client": "^4.7.0",
-    "@mud/shared": "workspace:*"
+    "@mud/shared-next": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.3.0",

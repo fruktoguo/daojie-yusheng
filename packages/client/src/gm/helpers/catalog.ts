@@ -14,7 +14,7 @@ import {
   EQUIP_SLOT_LABELS,
   GM_MAIL_TEMPLATE_OPTIONS,
   ITEM_TYPE_LABELS,
-} from '@mud/shared';
+} from '@mud/shared-next';
 
 /** EditorCatalog：定义该类型的结构与数据语义。 */
 export type EditorCatalog = GmEditorCatalogRes | null;

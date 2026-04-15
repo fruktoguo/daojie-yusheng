@@ -1,7 +1,7 @@
 /**
  * 全局类型定义：地形、方向、地图、实体、修仙系统（属性/物品/功法/境界/技能/任务）等核心数据结构。
  */
-import type { ElementKey, NumericRatioDivisors, NumericScalarStatKey, NumericStatBreakdownMap, NumericStats, PartialNumericStats } from './numeric';
+import type { ElementKey, NumericRatioDivisors, NumericScalarStatKey, NumericStats, PartialNumericStats } from './numeric';
 import type { QiProjectionModifier } from './qi';
 import type { GridPoint, TargetingShape } from './targeting';
 
@@ -25,8 +25,6 @@ export enum TileType {
   Cliff = 'cliff',
   Mud = 'mud',
   Swamp = 'swamp',
-  ColdBog = 'cold_bog',
-  MoltenPool = 'molten_pool',
   Water = 'water',
   Cloud = 'cloud',
   CloudFloor = 'cloud_floor',
@@ -202,8 +200,6 @@ export interface RenderEntity {
   monsterScale?: number;
   hp?: number;
   maxHp?: number;
-  respawnRemainingTicks?: number;
-  respawnTotalTicks?: number;
   qi?: number;
   maxQi?: number;
   npcQuestMarker?: NpcQuestMarker;
@@ -249,9 +245,6 @@ export type BuffCategory = 'buff' | 'debuff';
 /** Buff 可见性 */
 export type BuffVisibility = 'public' | 'observe_only' | 'hidden';
 
-/** Buff 数值修改模式 */
-export type BuffModifierMode = 'flat' | 'percent';
-
 /** 可见 Buff 状态 */
 export interface VisibleBuffState {
 /** buffId：定义该变量以承载业务值。 */
@@ -276,13 +269,9 @@ export interface VisibleBuffState {
 /** sourceSkillId：定义该变量以承载业务值。 */
   sourceSkillId: string;
   sourceSkillName?: string;
-/** realmLv：定义该变量以承载业务值。 */
-  realmLv: number;
   color?: string;
   attrs?: Partial<Attributes>;
-  attrMode?: BuffModifierMode;
   stats?: PartialNumericStats;
-  statMode?: BuffModifierMode;
   qiProjection?: QiProjectionModifier[];
   infiniteDuration?: boolean;
 }
@@ -382,9 +371,7 @@ export interface AttrBonus {
   source: string;
 /** attrs：定义该变量以承载业务值。 */
   attrs: Partial<Attributes>;
-  attrMode?: BuffModifierMode;
   stats?: PartialNumericStats;
-  statMode?: BuffModifierMode;
   qiProjection?: QiProjectionModifier[];
   label?: string;
   meta?: Record<string, unknown>;
@@ -443,9 +430,7 @@ export interface EquipmentBuffDef {
   stacks?: number;
   maxStacks?: number;
   attrs?: Partial<Attributes>;
-  attrMode?: BuffModifierMode;
   stats?: PartialNumericStats;
-  statMode?: BuffModifierMode;
   qiProjection?: QiProjectionModifier[];
   valueStats?: PartialNumericStats;
   presentationScale?: number;
@@ -475,9 +460,7 @@ export interface ConsumableBuffDef {
   duration: number;
   maxStacks?: number;
   attrs?: Partial<Attributes>;
-  attrMode?: BuffModifierMode;
   stats?: PartialNumericStats;
-  statMode?: BuffModifierMode;
   qiProjection?: QiProjectionModifier[];
   valueStats?: PartialNumericStats;
   presentationScale?: number;
@@ -494,9 +477,7 @@ export interface EquipmentStatAuraEffectDef {
   type: 'stat_aura';
   conditions?: EquipmentConditionGroup;
   attrs?: Partial<Attributes>;
-  attrMode?: BuffModifierMode;
   stats?: PartialNumericStats;
-  statMode?: BuffModifierMode;
   qiProjection?: QiProjectionModifier[];
   valueStats?: PartialNumericStats;
   presentationScale?: number;
@@ -509,9 +490,7 @@ export interface EquipmentProgressEffectDef {
   type: 'progress_boost';
   conditions?: EquipmentConditionGroup;
   attrs?: Partial<Attributes>;
-  attrMode?: BuffModifierMode;
   stats?: PartialNumericStats;
-  statMode?: BuffModifierMode;
   qiProjection?: QiProjectionModifier[];
   valueStats?: PartialNumericStats;
 }
@@ -584,12 +563,20 @@ export interface ItemStack {
   enhanceLevel?: number;
   alchemySuccessRate?: number;
   alchemySpeedRate?: number;
-  enhancementSuccessRate?: number;
-  enhancementSpeedRate?: number;
   mapUnlockId?: string;
   mapUnlockIds?: string[];
   tileAuraGainAmount?: number;
   allowBatchUse?: boolean;
+}
+
+/** AlchemySkillState：定义该接口的能力与字段约束。 */
+export interface AlchemySkillState {
+/** level：定义该变量以承载业务值。 */
+  level: number;
+/** exp：定义该变量以承载业务值。 */
+  exp: number;
+/** expToNext：定义该变量以承载业务值。 */
+  expToNext: number;
 }
 
 /** AlchemyIngredientRole：定义该类型的结构与数据语义。 */
@@ -656,16 +643,6 @@ export interface PlayerAlchemyPreset {
   updatedAt: number;
 }
 
-/** AlchemySkillState：定义该接口的能力与字段约束。 */
-export interface AlchemySkillState {
-/** level：定义该变量以承载业务值。 */
-  level: number;
-/** exp：定义该变量以承载业务值。 */
-  exp: number;
-/** expToNext：定义该变量以承载业务值。 */
-  expToNext: number;
-}
-
 /** PlayerAlchemyJob：定义该接口的能力与字段约束。 */
 export interface PlayerAlchemyJob {
 /** recipeId：定义该变量以承载业务值。 */
@@ -717,6 +694,22 @@ export interface SyncedAlchemyPanelState {
   job: PlayerAlchemyJob | null;
 }
 
+/** EnhancementTargetRef：定义该接口的能力与字段约束。 */
+export interface EnhancementTargetRef {
+/** source：定义该变量以承载业务值。 */
+  source: 'inventory' | 'equipment';
+  slotIndex?: number;
+  slot?: EquipSlot;
+}
+
+/** EnhancementMaterialRequirement：定义该接口的能力与字段约束。 */
+export interface EnhancementMaterialRequirement {
+/** itemId：定义该变量以承载业务值。 */
+  itemId: string;
+/** count：定义该变量以承载业务值。 */
+  count: number;
+}
+
 /** PlayerEnhancementJob：定义该接口的能力与字段约束。 */
 export interface PlayerEnhancementJob {
 /** target：定义该变量以承载业务值。 */
@@ -761,38 +754,6 @@ export interface PlayerEnhancementJob {
   roleEnhancementLevel: number;
 /** totalSpeedRate：定义该变量以承载业务值。 */
   totalSpeedRate: number;
-}
-
-/** EnhancementMaterialRequirement：定义该接口的能力与字段约束。 */
-export interface EnhancementMaterialRequirement {
-/** itemId：定义该变量以承载业务值。 */
-  itemId: string;
-/** count：定义该变量以承载业务值。 */
-  count: number;
-}
-
-/** EquipmentEnhancementStepConfig：定义该接口的能力与字段约束。 */
-export interface EquipmentEnhancementStepConfig {
-/** targetEnhanceLevel：定义该变量以承载业务值。 */
-  targetEnhanceLevel: number;
-  materials?: EnhancementMaterialRequirement[];
-}
-
-/** EquipmentEnhancementConfig：定义该接口的能力与字段约束。 */
-export interface EquipmentEnhancementConfig {
-/** targetItemId：定义该变量以承载业务值。 */
-  targetItemId: string;
-  protectionItemId?: string;
-/** steps：定义该变量以承载业务值。 */
-  steps: EquipmentEnhancementStepConfig[];
-}
-
-/** EnhancementTargetRef：定义该接口的能力与字段约束。 */
-export interface EnhancementTargetRef {
-/** source：定义该变量以承载业务值。 */
-  source: 'inventory' | 'equipment';
-  slotIndex?: number;
-  slot?: EquipSlot;
 }
 
 /** PlayerEnhancementLevelRecord：定义该接口的能力与字段约束。 */
@@ -1036,23 +997,6 @@ export interface MarketOwnOrderView {
 /** 拾取来源类型 */
 export type LootSourceKind = 'ground' | 'container';
 
-/** 拾取来源变种 */
-export type LootSourceVariant = 'default' | 'herb';
-
-/** 草药采集元信息 */
-export interface LootWindowHerbMeta {
-/** itemId：定义该变量以承载业务值。 */
-  itemId: string;
-/** name：定义该变量以承载业务值。 */
-  name: string;
-  grade?: TechniqueGrade;
-  level?: number;
-/** gatherTicks：定义该变量以承载业务值。 */
-  gatherTicks: number;
-/** nativeGatherTicks：定义该变量以承载业务值。 */
-  nativeGatherTicks?: number;
-}
-
 /** 地面物品条目视图 */
 export interface GroundItemEntryView {
 /** itemKey：定义该变量以承载业务值。 */
@@ -1105,7 +1049,6 @@ export interface LootWindowSourceView {
   sourceId: string;
 /** kind：定义该变量以承载业务值。 */
   kind: LootSourceKind;
-  variant?: LootSourceVariant;
 /** title：定义该变量以承载业务值。 */
   title: string;
   desc?: string;
@@ -1113,8 +1056,6 @@ export interface LootWindowSourceView {
 /** searchable：定义该变量以承载业务值。 */
   searchable: boolean;
   search?: LootSearchProgressView;
-  herb?: LootWindowHerbMeta;
-  destroyed?: boolean;
 /** items：定义该变量以承载业务值。 */
   items: LootWindowItemView[];
   emptyText?: string;
@@ -1394,56 +1335,13 @@ export interface SkillBuffEffectDef {
   stacks?: number;
   maxStacks?: number;
   attrs?: Partial<Attributes>;
-  attrMode?: BuffModifierMode;
   stats?: PartialNumericStats;
-  statMode?: BuffModifierMode;
   qiProjection?: QiProjectionModifier[];
   valueStats?: PartialNumericStats;
   presentationScale?: number;
   infiniteDuration?: boolean;
   sustainCost?: BuffSustainCostDef;
   expireWithBuffId?: string;
-}
-
-/** 怪物出生自带 Buff 配置 */
-export interface MonsterInitialBuffDef {
-  type?: 'buff';
-  target?: 'self';
-  buffRef?: string;
-/** buffId：定义该变量以承载业务值。 */
-  buffId: string;
-/** name：定义该变量以承载业务值。 */
-  name: string;
-  desc?: string;
-  shortMark?: string;
-  category?: BuffCategory;
-  visibility?: BuffVisibility;
-  color?: string;
-/** duration：定义该变量以承载业务值。 */
-  duration: number;
-  maxStacks?: number;
-  stacks?: number;
-  attrs?: Partial<Attributes>;
-  attrMode?: BuffModifierMode;
-  stats?: PartialNumericStats;
-  statMode?: BuffModifierMode;
-  qiProjection?: QiProjectionModifier[];
-  valueStats?: PartialNumericStats;
-  presentationScale?: number;
-  infiniteDuration?: boolean;
-  sustainCost?: BuffSustainCostDef;
-  expireWithBuffId?: string;
-}
-
-/** 技能地形效果定义 */
-export interface SkillTerrainEffectDef {
-/** type：定义该变量以承载业务值。 */
-  type: 'terrain';
-/** terrainType：定义该变量以承载业务值。 */
-  terrainType: TileType;
-/** duration：定义该变量以承载业务值。 */
-  duration: number;
-  allowedOriginalTypes?: TileType[];
 }
 
 /** 技能净化效果定义 */
@@ -1457,19 +1355,13 @@ export interface SkillCleanseEffectDef {
 }
 
 /** 技能效果联合类型 */
-export type SkillEffectDef = SkillDamageEffectDef | SkillHealEffectDef | SkillBuffEffectDef | SkillTerrainEffectDef | SkillCleanseEffectDef;
+export type SkillEffectDef = SkillDamageEffectDef | SkillHealEffectDef | SkillBuffEffectDef | SkillCleanseEffectDef;
 
 /** 怪物技能前摇定义 */
 export interface SkillMonsterCastDef {
   windupTicks?: number;
   warningColor?: string;
   conditions?: EquipmentConditionGroup;
-}
-
-/** 玩家技能吟唱定义 */
-export interface SkillPlayerCastDef {
-  windupTicks?: number;
-  warningColor?: string;
 }
 
 /** 技能完整定义 */
@@ -1495,30 +1387,11 @@ export interface SkillDef {
   unlockPlayerRealm?: PlayerRealmStage;
   requiresTarget?: boolean;
   targetMode?: 'any' | 'entity' | 'tile';
-  playerCast?: SkillPlayerCastDef;
   monsterCast?: SkillMonsterCastDef;
-}
-
-/** PendingPlayerSkillCast：定义该接口的能力与字段约束。 */
-export interface PendingPlayerSkillCast {
-/** skillId：定义该变量以承载业务值。 */
-  skillId: string;
-/** targetX：定义该变量以承载业务值。 */
-  targetX: number;
-/** targetY：定义该变量以承载业务值。 */
-  targetY: number;
-  targetRef?: string;
-/** remainingTicks：定义该变量以承载业务值。 */
-  remainingTicks: number;
-/** qiCost：定义该变量以承载业务值。 */
-  qiCost: number;
-  warningColor?: string;
-  skipProgressThisTick?: boolean;
 }
 
 /** 临时 Buff 状态（含属性和数值加成） */
 export interface TemporaryBuffState extends VisibleBuffState {
-  sourceCasterId?: string;
   baseDesc?: string;
   attrs?: Partial<Attributes>;
   stats?: PartialNumericStats;
@@ -1544,9 +1417,9 @@ export interface TechniqueState {
   realmLv: number;
 /** realm：定义该变量以承载业务值。 */
   realm: TechniqueRealm;
+  skillsEnabled?: boolean;
 /** skills：定义该变量以承载业务值。 */
   skills: SkillDef[];
-  skillsEnabled?: boolean;
   grade?: TechniqueGrade;
   category?: TechniqueCategory;
   layers?: TechniqueLayerDef[];
@@ -1573,308 +1446,6 @@ export interface AutoBattleSkillConfig {
 /** enabled：定义该变量以承载业务值。 */
   enabled: boolean;
   skillEnabled?: boolean;
-}
-
-/** 自动丹药阈值条件支持的资源 */
-export type AutoUsePillResource = 'hp' | 'qi';
-
-/** 自动丹药阈值条件比较方式 */
-export type AutoUsePillConditionOperator = 'lt' | 'gt';
-
-/** 自动丹药条件：按当前资源百分比触发 */
-export interface AutoUsePillResourceCondition {
-/** type：定义该变量以承载业务值。 */
-  type: 'resource_ratio';
-/** resource：定义该变量以承载业务值。 */
-  resource: AutoUsePillResource;
-/** op：定义该变量以承载业务值。 */
-  op: AutoUsePillConditionOperator;
-/** thresholdPct：定义该变量以承载业务值。 */
-  thresholdPct: number;
-}
-
-/** 自动丹药条件：当前药品附带的持续效果未生效时触发 */
-export interface AutoUsePillBuffMissingCondition {
-/** type：定义该变量以承载业务值。 */
-  type: 'buff_missing';
-}
-
-/** 自动丹药触发条件 */
-export type AutoUsePillCondition = AutoUsePillResourceCondition | AutoUsePillBuffMissingCondition;
-
-/** 自动使用丹药配置 */
-export interface AutoUsePillConfig {
-/** itemId：定义该变量以承载业务值。 */
-  itemId: string;
-/** conditions：定义该变量以承载业务值。 */
-  conditions: AutoUsePillCondition[];
-}
-
-/** AUTO_USE_PILL_RESOURCES：定义该变量以承载业务值。 */
-export const AUTO_USE_PILL_RESOURCES = ['hp', 'qi'] as const satisfies readonly AutoUsePillResource[];
-/** AUTO_USE_PILL_CONDITION_OPERATORS：定义该变量以承载业务值。 */
-export const AUTO_USE_PILL_CONDITION_OPERATORS = ['lt', 'gt'] as const satisfies readonly AutoUsePillConditionOperator[];
-
-/** isAutoUsePillResource：执行对应的业务逻辑。 */
-export function isAutoUsePillResource(value: unknown): value is AutoUsePillResource {
-  return typeof value === 'string' && (AUTO_USE_PILL_RESOURCES as readonly string[]).includes(value);
-}
-
-/** isAutoUsePillConditionOperator：执行对应的业务逻辑。 */
-export function isAutoUsePillConditionOperator(value: unknown): value is AutoUsePillConditionOperator {
-  return typeof value === 'string' && (AUTO_USE_PILL_CONDITION_OPERATORS as readonly string[]).includes(value);
-}
-
-/** isAutoUsePillConditionRecord：执行对应的业务逻辑。 */
-function isAutoUsePillConditionRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
-
-/** normalizeAutoUsePillConditions：执行对应的业务逻辑。 */
-export function normalizeAutoUsePillConditions(
-  value: unknown,
-  options?: {
-    allowBuffMissing?: boolean;
-    maxConditions?: number;
-  },
-): AutoUsePillCondition[] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-/** maxConditions：定义该变量以承载业务值。 */
-  const maxConditions = Math.max(1, Math.floor(options?.maxConditions ?? 4));
-/** normalized：定义该变量以承载业务值。 */
-  const normalized: AutoUsePillCondition[] = [];
-/** seen：定义该变量以承载业务值。 */
-  const seen = new Set<string>();
-
-  for (const entry of value) {
-    if (!isAutoUsePillConditionRecord(entry)) {
-      continue;
-    }
-    if (entry.type === 'resource_ratio') {
-/** resource：定义该变量以承载业务值。 */
-      const resource = isAutoUsePillResource(entry.resource) ? entry.resource : 'hp';
-/** op：定义该变量以承载业务值。 */
-      const op = isAutoUsePillConditionOperator(entry.op) ? entry.op : 'lt';
-/** rawThreshold：定义该变量以承载业务值。 */
-      const rawThreshold = Number(entry.thresholdPct);
-/** thresholdPct：定义该变量以承载业务值。 */
-      const thresholdPct = Number.isFinite(rawThreshold)
-        ? Math.max(0, Math.min(100, Math.round(rawThreshold)))
-        : 50;
-/** key：定义该变量以承载业务值。 */
-      const key = `resource_ratio:${resource}:${op}:${thresholdPct}`;
-      if (seen.has(key)) {
-        continue;
-      }
-      normalized.push({
-        type: 'resource_ratio',
-        resource,
-        op,
-        thresholdPct,
-      });
-      seen.add(key);
-    } else if (entry.type === 'buff_missing' && options?.allowBuffMissing !== false) {
-/** key：定义该变量以承载业务值。 */
-      const key = 'buff_missing';
-      if (seen.has(key)) {
-        continue;
-      }
-      normalized.push({ type: 'buff_missing' });
-      seen.add(key);
-    }
-    if (normalized.length >= maxConditions) {
-      break;
-    }
-  }
-
-  return normalized;
-}
-
-/** normalizeAutoUsePillConfigs：执行对应的业务逻辑。 */
-export function normalizeAutoUsePillConfigs(
-  value: unknown,
-  options?: {
-    allowItemId?: (itemId: string) => boolean;
-    allowBuffMissing?: (itemId: string) => boolean;
-    maxItems?: number;
-    maxConditionsPerItem?: number;
-  },
-): AutoUsePillConfig[] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-/** maxItems：定义该变量以承载业务值。 */
-  const maxItems = Math.max(1, Math.floor(options?.maxItems ?? 12));
-/** normalized：定义该变量以承载业务值。 */
-  const normalized: AutoUsePillConfig[] = [];
-/** seen：定义该变量以承载业务值。 */
-  const seen = new Set<string>();
-
-  for (const entry of value) {
-    if (!isAutoUsePillConditionRecord(entry) || typeof entry.itemId !== 'string') {
-      continue;
-    }
-/** itemId：定义该变量以承载业务值。 */
-    const itemId = entry.itemId.trim();
-    if (!itemId || seen.has(itemId) || (options?.allowItemId && !options.allowItemId(itemId))) {
-      continue;
-    }
-    normalized.push({
-      itemId,
-      conditions: normalizeAutoUsePillConditions(entry.conditions, {
-        allowBuffMissing: options?.allowBuffMissing ? options.allowBuffMissing(itemId) : true,
-        maxConditions: options?.maxConditionsPerItem,
-      }),
-    });
-    seen.add(itemId);
-    if (normalized.length >= maxItems) {
-      break;
-    }
-  }
-
-  return normalized;
-}
-
-/** CombatTargetingRuleScope：定义该类型的结构与数据语义。 */
-export type CombatTargetingRuleScope = 'hostile' | 'friendly';
-/** CombatTargetingRuleKey：定义该类型的结构与数据语义。 */
-export type CombatTargetingRuleKey =
-  | 'monster'
-  | 'all_players'
-  | 'retaliators'
-  | 'non_hostile_players'
-  | 'terrain'
-  | 'party'
-  | 'sect';
-
-/** CombatTargetingRules：定义该接口的能力与字段约束。 */
-export interface CombatTargetingRules {
-/** hostile：定义该变量以承载业务值。 */
-  hostile: CombatTargetingRuleKey[];
-/** friendly：定义该变量以承载业务值。 */
-  friendly: CombatTargetingRuleKey[];
-}
-
-/** HOSTILE_COMBAT_TARGETING_RULE_KEYS：定义该变量以承载业务值。 */
-export const HOSTILE_COMBAT_TARGETING_RULE_KEYS = [
-  'monster',
-  'all_players',
-  'retaliators',
-  'terrain',
-  'party',
-  'sect',
-] as const satisfies readonly CombatTargetingRuleKey[];
-
-/** FRIENDLY_COMBAT_TARGETING_RULE_KEYS：定义该变量以承载业务值。 */
-export const FRIENDLY_COMBAT_TARGETING_RULE_KEYS = [
-  'monster',
-  'all_players',
-  'retaliators',
-  'non_hostile_players',
-  'terrain',
-  'party',
-  'sect',
-] as const satisfies readonly CombatTargetingRuleKey[];
-
-/** DEFAULT_HOSTILE_COMBAT_TARGETING_RULES：定义该变量以承载业务值。 */
-export const DEFAULT_HOSTILE_COMBAT_TARGETING_RULES = [
-  'monster',
-  'retaliators',
-  'terrain',
-] as const satisfies readonly CombatTargetingRuleKey[];
-
-/** DEFAULT_FRIENDLY_COMBAT_TARGETING_RULES：定义该变量以承载业务值。 */
-export const DEFAULT_FRIENDLY_COMBAT_TARGETING_RULES = [
-  'non_hostile_players',
-] as const satisfies readonly CombatTargetingRuleKey[];
-
-/** normalizeCombatTargetingRuleList：执行对应的业务逻辑。 */
-function normalizeCombatTargetingRuleList(
-  value: unknown,
-  allowedKeys: readonly CombatTargetingRuleKey[],
-  fallback: readonly CombatTargetingRuleKey[],
-): CombatTargetingRuleKey[] {
-/** source：定义该变量以承载业务值。 */
-  const source = Array.isArray(value) ? value : fallback;
-/** normalized：定义该变量以承载业务值。 */
-  const normalized: CombatTargetingRuleKey[] = [];
-/** seen：定义该变量以承载业务值。 */
-  const seen = new Set<CombatTargetingRuleKey>();
-  for (const entry of source) {
-    if (typeof entry !== 'string') {
-      continue;
-    }
-/** rule：定义该变量以承载业务值。 */
-    const rule = entry as CombatTargetingRuleKey;
-    if (!allowedKeys.includes(rule) || seen.has(rule)) {
-      continue;
-    }
-    normalized.push(rule);
-    seen.add(rule);
-  }
-  return normalized;
-}
-
-/** buildDefaultCombatTargetingRules：执行对应的业务逻辑。 */
-export function buildDefaultCombatTargetingRules(options?: {
-  includeAllPlayersHostile?: boolean;
-}): CombatTargetingRules {
-/** hostile：定义该变量以承载业务值。 */
-  const hostile: CombatTargetingRuleKey[] = [...DEFAULT_HOSTILE_COMBAT_TARGETING_RULES];
-  if (options?.includeAllPlayersHostile === true && !hostile.includes('all_players')) {
-    hostile.push('all_players');
-  }
-  return {
-    hostile,
-    friendly: [...DEFAULT_FRIENDLY_COMBAT_TARGETING_RULES],
-  };
-}
-
-/** normalizeCombatTargetingRules：执行对应的业务逻辑。 */
-export function normalizeCombatTargetingRules(
-  value: unknown,
-/** fallback：定义该变量以承载业务值。 */
-  fallback: CombatTargetingRules = buildDefaultCombatTargetingRules(),
-): CombatTargetingRules {
-/** record：定义该变量以承载业务值。 */
-  const record = typeof value === 'object' && value !== null
-    ? value as Partial<Record<CombatTargetingRuleScope, unknown>>
-    : {};
-  return {
-    hostile: normalizeCombatTargetingRuleList(record.hostile, HOSTILE_COMBAT_TARGETING_RULE_KEYS, fallback.hostile),
-    friendly: normalizeCombatTargetingRuleList(record.friendly, FRIENDLY_COMBAT_TARGETING_RULE_KEYS, fallback.friendly),
-  };
-}
-
-/** hasCombatTargetingRule：执行对应的业务逻辑。 */
-export function hasCombatTargetingRule(
-  rules: CombatTargetingRules | null | undefined,
-  scope: CombatTargetingRuleScope,
-  rule: CombatTargetingRuleKey,
-): boolean {
-  return (rules?.[scope] ?? []).includes(rule);
-}
-
-/** 自动战斗索敌方案 */
-export type AutoBattleTargetingMode = 'auto' | 'nearest' | 'low_hp' | 'full_hp' | 'boss' | 'player';
-
-/** AUTO_BATTLE_TARGETING_MODES：定义该变量以承载业务值。 */
-export const AUTO_BATTLE_TARGETING_MODES = ['auto', 'nearest', 'low_hp', 'full_hp', 'boss', 'player'] as const satisfies readonly AutoBattleTargetingMode[];
-
-/** isAutoBattleTargetingMode：执行对应的业务逻辑。 */
-export function isAutoBattleTargetingMode(value: unknown): value is AutoBattleTargetingMode {
-  return typeof value === 'string' && (AUTO_BATTLE_TARGETING_MODES as readonly string[]).includes(value);
-}
-
-/** normalizeAutoBattleTargetingMode：执行对应的业务逻辑。 */
-export function normalizeAutoBattleTargetingMode(
-  value: unknown,
-/** fallback：定义该变量以承载业务值。 */
-  fallback: AutoBattleTargetingMode = 'auto',
-): AutoBattleTargetingMode {
-  return isAutoBattleTargetingMode(value) ? value : fallback;
 }
 
 /** 行动定义 */
@@ -2026,20 +1597,6 @@ export interface QuestNavigationState {
   lastBlockedRemainingTicks?: number;
 }
 
-/** MapNavigationState：定义该接口的能力与字段约束。 */
-export interface MapNavigationState {
-/** targetMapId：定义该变量以承载业务值。 */
-  targetMapId: string;
-  targetMapName?: string;
-/** targetX：定义该变量以承载业务值。 */
-  targetX: number;
-/** targetY：定义该变量以承载业务值。 */
-  targetY: number;
-  pendingConfirmation?: boolean;
-  pausedForCrossMapCooldown?: boolean;
-  lastBlockedRemainingTicks?: number;
-}
-
 /** PendingLogbookMessage：定义该接口的能力与字段约束。 */
 export interface PendingLogbookMessage {
 /** id：定义该变量以承载业务值。 */
@@ -2102,11 +1659,6 @@ export interface PlayerState {
   dead: boolean;
   foundation?: number;
   combatExp?: number;
-  playerKillCount?: number;
-  monsterKillCount?: number;
-  eliteMonsterKillCount?: number;
-  bossMonsterKillCount?: number;
-  deathCount?: number;
 /** baseAttrs：定义该变量以承载业务值。 */
   baseAttrs: Attributes;
 /** bonuses：定义该变量以承载业务值。 */
@@ -2115,7 +1667,6 @@ export interface PlayerState {
   finalAttrs?: Attributes;
   numericStats?: NumericStats;
   ratioDivisors?: NumericRatioDivisors;
-  numericStatBreakdowns?: NumericStatBreakdownMap;
 /** inventory：定义该变量以承载业务值。 */
   inventory: Inventory;
   marketStorage?: MarketStorage;
@@ -2139,18 +1690,14 @@ export interface PlayerState {
   autoBattleTargetingMode: AutoBattleTargetingMode;
   combatTargetId?: string;
   combatTargetLocked?: boolean;
-  retaliatePlayerTargetId?: string;
   cultivatingTechId?: string;
   pendingLogbookMessages?: PendingLogbookMessage[];
   idleTicks?: number;
   revealedBreakthroughRequirementIds?: string[];
   unlockedMinimapIds?: string[];
-  respawnMapId?: string;
   realm?: PlayerRealmState;
   questNavigation?: QuestNavigationState;
-  mapNavigation?: MapNavigationState;
   questCrossMapNavCooldownUntilLifeTicks?: number;
-  pendingSkillCast?: PendingPlayerSkillCast;
   alchemySkill?: AlchemySkillState;
   gatherSkill?: AlchemySkillState;
   alchemyPresets?: PlayerAlchemyPreset[];
@@ -2310,3 +1857,44 @@ export interface MailDetailView {
 /** deletable：定义该变量以承载业务值。 */
   deletable: boolean;
 }
+
+/** 自动丹药触发资源类型。 */
+export type AutoUsePillResource = 'hp' | 'qi';
+
+/** 自动丹药条件操作符。 */
+export type AutoUsePillConditionOperator = 'lt' | 'gt';
+
+/** 自动丹药资源阈值条件。 */
+export interface AutoUsePillResourceCondition {
+  type: 'resource_ratio';
+  resource: AutoUsePillResource;
+  op: AutoUsePillConditionOperator;
+  thresholdPct: number;
+}
+
+/** 自动丹药缺 Buff 条件。 */
+export interface AutoUsePillBuffMissingCondition {
+  type: 'buff_missing';
+}
+
+/** 自动丹药触发条件。 */
+export type AutoUsePillCondition = AutoUsePillResourceCondition | AutoUsePillBuffMissingCondition;
+
+/** 自动使用丹药配置。 */
+export interface AutoUsePillConfig {
+/** itemId：定义该变量以承载业务值。 */
+  itemId: string;
+/** conditions：定义该变量以承载业务值。 */
+  conditions: AutoUsePillCondition[];
+}
+
+/** 战斗目标筛选规则。 */
+export interface CombatTargetingRules {
+  includeNormalMonsters?: boolean;
+  includeEliteMonsters?: boolean;
+  includeBosses?: boolean;
+  includePlayers?: boolean;
+}
+
+/** 自动战斗目标选择模式。 */
+export type AutoBattleTargetingMode = 'auto' | 'nearest' | 'low_hp' | 'full_hp' | 'boss' | 'player';

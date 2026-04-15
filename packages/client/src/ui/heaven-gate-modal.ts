@@ -5,7 +5,7 @@ import {
   type HeavenGateRootValues,
   type HeavenGateState,
   type PlayerState,
-} from '@mud/shared';
+} from '@mud/shared-next';
 import { detailModalHost } from './detail-modal-host';
 import { getElementKeyLabel } from '../domain-labels';
 import { formatDisplayInteger } from '../utils/number';
@@ -436,6 +436,7 @@ function renderHeavenGateModal(player: PlayerState, session: HeavenGateSession, 
 
   detailModalHost.open({
     ownerId: HEAVEN_GATE_OWNER,
+    size: 'md',
     variantClass: 'detail-modal--heaven-gate',
     title: '开天门',
     subtitle: `${player.realm?.displayName ?? '开天门'}`,
@@ -577,4 +578,3 @@ export function openHeavenGateModal(player: PlayerState | null | undefined, opti
   renderHeavenGateModal(player, session, options);
   return true;
 }
-

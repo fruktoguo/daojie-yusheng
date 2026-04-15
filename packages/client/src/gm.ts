@@ -74,7 +74,7 @@ import {
   type RedeemCodeCodeView,
   type RedeemCodeGroupRewardItem,
   type RedeemCodeGroupView,
-} from '@mud/shared';
+} from '@mud/shared-next';
 import {
   GM_FACING_OPTIONS,
   GM_QUEST_LINE_OPTIONS,
@@ -88,6 +88,10 @@ import { GmWorldViewer } from './gm-world-viewer';
 import * as gmCatalogHelpers from './gm/helpers/catalog';
 import * as gmMarkupHelpers from './gm/helpers/markup';
 import * as gmPureHelpers from './gm/helpers/pure';
+import {
+  GM_API_BASE_PATH,
+  GM_AUTH_API_BASE_PATH,
+} from './constants/api';
 import { startClientVersionReload } from './version-reload';
 
 /** loginOverlay：定义该变量以承载业务值。 */
@@ -417,12 +421,18 @@ let state: GmStateRes | null = null;
 let databaseState: GmDatabaseStateRes | null = null;
 /** suggestions：定义该变量以承载业务值。 */
 let suggestions: Suggestion[] = [];
+/** EditorCatalogSource：定义该类型的结构与数据语义。 */
+type EditorCatalogSource = 'server' | 'local-fallback' | 'unavailable';
 /** editorCatalog：定义该变量以承载业务值。 */
 let editorCatalog: GmEditorCatalogRes | null = null;
+/** editorCatalogSource：定义该变量以承载业务值。 */
+let editorCatalogSource: EditorCatalogSource = 'unavailable';
 /** selectedPlayerId：定义该变量以承载业务值。 */
 let selectedPlayerId: string | null = null;
 /** selectedPlayerDetail：定义该变量以承载业务值。 */
 let selectedPlayerDetail: GmManagedPlayerRecord | null = null;
+/** selectedPlayerDetailError：定义该变量以承载业务值。 */
+let selectedPlayerDetailError: string | null = null;
 /** loadingPlayerDetailId：定义该变量以承载业务值。 */
 let loadingPlayerDetailId: string | null = null;
 /** detailRequestNonce：定义该变量以承载业务值。 */
@@ -631,6 +641,58 @@ function getManagedAccountStatusLabel(player: Pick<GmManagedPlayerRecord, 'meta'
   return gmPureHelpers.getManagedAccountStatusLabel(player);
 }
 
+/** getManagedAccountActivityMeta：执行对应的业务逻辑。 */
+function getManagedAccountActivityMeta(player: Pick<GmManagedPlayerRecord, 'meta'>): { label: string; value: string; note?: string } {
+  if (player.meta.online) {
+    return {
+      label: '在线时间戳',
+      value: player.meta.lastHeartbeatAt ? formatDateTime(player.meta.lastHeartbeatAt) : '当前在线，暂无可靠记录',
+      note: player.meta.lastHeartbeatAt ? undefined : 'server-next 当前未返回可靠的本次上线时间。',
+    };
+  }
+  if (player.meta.updatedAt) {
+    return {
+      label: '最近存档时间',
+      value: formatDateTime(player.meta.updatedAt),
+    };
+  }
+  if (player.meta.lastHeartbeatAt) {
+    return {
+      label: '最近心跳时间',
+      value: formatDateTime(player.meta.lastHeartbeatAt),
+      note: '该时间来自旧心跳语义，不等同于可靠离线时间。',
+    };
+  }
+  return {
+    label: '最近活动记录',
+    value: '暂无可靠记录',
+  };
+}
+
+/** hasServerEditorCatalog：执行对应的业务逻辑。 */
+function hasServerEditorCatalog(): boolean {
+  return editorCatalogSource === 'server' && editorCatalog !== null;
+}
+
+/** getEditorCatalogFallbackNote：执行对应的业务逻辑。 */
+function getEditorCatalogFallbackNote(): string {
+  if (editorCatalogSource === 'local-fallback') {
+    return '服务端编辑目录加载失败，当前仅保留本地参考标签；模板快捷写入已停用，避免把本地目录直接写回 server-next。';
+  }
+  if (editorCatalogSource === 'unavailable') {
+    return '编辑目录尚未加载完成，模板快捷写入暂不可用。';
+  }
+  return '';
+}
+
+/** assertTrustedEditorCatalog：执行对应的业务逻辑。 */
+function assertTrustedEditorCatalog(actionLabel: string): void {
+  if (hasServerEditorCatalog()) {
+    return;
+  }
+  throw new Error(`${actionLabel}已暂停：GM 编辑目录未从服务端加载成功，当前仅允许查看本地参考标签，避免提交过期目录数据`);
+}
+
 /** getFilteredPlayers：执行对应的业务逻辑。 */
 function getFilteredPlayers(data: GmStateRes): GmManagedPlayerSummary[] {
   return data.players;
@@ -681,7 +743,12 @@ function getEditorSubtitle(detail: GmManagedPlayerRecord): string {
 function getEditorMetaMarkup(detail: GmManagedPlayerRecord): string {
 /** presence：定义该变量以承载业务值。 */
   const presence = getPlayerPresenceMeta(detail);
-  return gmMarkupHelpers.getEditorMetaMarkup(detail, presence, editorDirty);
+/** base：定义该变量以承载业务值。 */
+  const base = gmMarkupHelpers.getEditorMetaMarkup(detail, presence, editorDirty);
+  if (hasServerEditorCatalog()) {
+    return base;
+  }
+  return `${base}<span class="pill">${editorCatalogSource === 'local-fallback' ? '目录: 本地回退' : '目录: 未加载'}</span>`;
 }
 
 /** getEditorBodyChipMarkup：执行对应的业务逻辑。 */
@@ -774,12 +841,20 @@ function getItemOptionLabel(option: GmEditorItemOption): string {
 
 /** getTechniqueCatalogOptions：执行对应的业务逻辑。 */
 function getTechniqueCatalogOptions(includeEmpty = false): Array<{ value: string; label: string }> {
+  if (!hasServerEditorCatalog()) {
+    return includeEmpty ? [{ value: '', label: '未选择' }] : [];
+  }
   return gmCatalogHelpers.getTechniqueCatalogOptions(editorCatalog, includeEmpty);
 }
 
 /** getLearnedTechniqueOptions：执行对应的业务逻辑。 */
 function getLearnedTechniqueOptions(techniques: TechniqueState[], includeEmpty = false): Array<{ value: string; label: string }> {
-  return gmCatalogHelpers.getLearnedTechniqueOptions(techniques, includeEmpty);
+/** options：定义该变量以承载业务值。 */
+  const options = techniques.map((technique) => ({
+    value: technique.techId,
+    label: technique.name || technique.techId,
+  }));
+  return includeEmpty ? [{ value: '', label: '未选择' }, ...options] : options;
 }
 
 /** getRealmCatalogOptions：执行对应的业务逻辑。 */
@@ -789,6 +864,9 @@ function getRealmCatalogOptions(): Array<{ value: number; label: string }> {
 
 /** getItemCatalogOptions：执行对应的业务逻辑。 */
 function getItemCatalogOptions(filter?: (option: GmEditorItemOption) => boolean): Array<{ value: string; label: string }> {
+  if (!hasServerEditorCatalog()) {
+    return [];
+  }
   return gmCatalogHelpers.getItemCatalogOptions(editorCatalog, filter);
 }
 
@@ -799,6 +877,14 @@ function getBuffOptionLabel(option: GmEditorBuffOption): string {
 
 /** getBuffCatalogOptions：执行对应的业务逻辑。 */
 function getBuffCatalogOptions(selectedBuffId?: string): Array<{ value: string; label: string }> {
+  if (!hasServerEditorCatalog()) {
+    return selectedBuffId
+      ? [
+          { value: '', label: '请选择 Buff' },
+          { value: selectedBuffId, label: selectedBuffId },
+        ]
+      : [{ value: '', label: '请选择 Buff' }];
+  }
   return gmCatalogHelpers.getBuffCatalogOptions(editorCatalog, selectedBuffId);
 }
 
@@ -975,6 +1061,10 @@ function getMailComposerMarkup(
   const usesServerManagedTemplate = isServerManagedMailTemplate(draft.templateId);
 /** templateMeta：定义该变量以承载业务值。 */
   const templateMeta = getMailTemplateOptionMeta(draft.templateId);
+/** catalogActionDisabled：定义该变量以承载业务值。 */
+  const catalogActionDisabled = hasServerEditorCatalog() ? '' : ' disabled';
+/** catalogFallbackNote：定义该变量以承载业务值。 */
+  const catalogFallbackNote = getEditorCatalogFallbackNote();
 /** attachmentRows：定义该变量以承载业务值。 */
   const attachmentRows = usesServerManagedTemplate
     ? `<div class="editor-note">${escapeHtml(templateMeta?.description || '该模板的附件由服务端固定生成。')}</div>`
@@ -999,7 +1089,7 @@ function getMailComposerMarkup(
             )}
             <label class="editor-field">
               <span>数量</span>
-              <input type="number" min="1" data-mail-bind="${options.scope}.attachments.${index}.count" value="${Math.max(1, Math.floor(entry.count || 1))}" />
+              <input type="number" min="1" data-mail-bind="${options.scope}.attachments.${index}.count" value="${Math.max(1, Math.floor(entry.count || 1))}"${catalogActionDisabled} />
             </label>
           </div>
         </div>
@@ -1066,7 +1156,7 @@ function getMailComposerMarkup(
             <div class="editor-section-title">邮件附件</div>
             <div class="editor-section-note">附件由服务端在领取时校验并发放到背包。</div>
           </div>
-          <button class="small-btn" type="button" data-action="${options.scope === 'direct' ? 'add-direct-mail-attachment' : 'add-shortcut-mail-attachment'}">新增附件</button>
+          <button class="small-btn" type="button" data-action="${options.scope === 'direct' ? 'add-direct-mail-attachment' : 'add-shortcut-mail-attachment'}"${catalogActionDisabled}>新增附件</button>
         </div>
         <div class="editor-card-list">${attachmentRows}</div>
       </div>
@@ -1091,6 +1181,7 @@ function getMailComposerMarkup(
       <button class="small-btn primary" type="button" data-action="${options.scope === 'direct' ? 'send-direct-mail' : 'send-shortcut-mail'}">${escapeHtml(options.submitLabel)}</button>
     </div>
     <div class="editor-note" style="margin-top: 8px;">${escapeHtml(options.note)}</div>
+    ${catalogFallbackNote ? `<div class="editor-note" style="margin-top: 8px; color: var(--stamp-red);">${escapeHtml(catalogFallbackNote)}</div>` : ''}
   `;
 }
 
@@ -1687,7 +1778,11 @@ function switchEditorTab(tab: GmEditorTab): void {
   } else {
     savePlayerBtn.textContent = `保存${getEditorTabLabel(tab)}`;
   }
-  savePlayerBtn.disabled = tab === 'persisted' || tab === 'mail' || tab === 'shortcuts' || !selectedPlayerId;
+  savePlayerBtn.disabled = tab === 'persisted'
+    || tab === 'mail'
+    || tab === 'shortcuts'
+    || !selectedPlayerId
+    || ((tab === 'buffs' || tab === 'techniques' || tab === 'items' || tab === 'quests') && !hasServerEditorCatalog());
 }
 
 /** StatusKind：定义该类型的结构与数据语义。 */
@@ -1820,8 +1915,30 @@ function renderDatabasePanel(): void {
   const backups = databaseState?.backups ?? [];
 /** summary：定义该变量以承载业务值。 */
   const summary = databaseStateLoading && !databaseState
-    ? '正在读取数据库备份状态…'
+    ? '正在读取兼容持久化备份状态…'
     : formatDatabaseJobLabel(databaseState);
+/** schedulesLine：定义该变量以承载业务值。 */
+  const schedulesLine = databaseState?.automation?.schedulesActive === false
+    ? '当前未启用自动定时备份，现阶段仅支持手工触发导出。'
+    : `自动策略：${escapeHtml(databaseState?.schedules.hourly ?? '每小时整点低优先级备份')}；${escapeHtml(databaseState?.schedules.daily ?? '每天 04:05 低优先级备份')}。`;
+/** retentionLine：定义该变量以承载业务值。 */
+  const retentionLine = databaseState?.automation?.retentionEnforced === false
+    ? '当前未启用自动保留清理，历史备份需要手工管理。'
+    : `保留策略：整点备份最多 ${databaseState?.retention.hourly ?? 72} 份，每日备份最多 ${databaseState?.retention.daily ?? 14} 份。手动导出和导入前备份当前不自动删。`;
+/** restoreLine：定义该变量以承载业务值。 */
+  const restoreLine = `${databaseState?.automation?.restoreRequiresMaintenance === true ? '导入历史备份前必须先开启维护态；' : ''}${databaseState?.automation?.preImportBackupEnabled === false ? '' : '服务端会先生成一份“导入前备份”，随后暂停 tick、断开玩家连接、覆盖兼容持久化并重建运行时。'}${databaseState?.automation?.preImportBackupEnabled === false ? '导入会直接覆盖当前兼容持久化。' : ''}`;
+/** scopeLine：定义该变量以承载业务值。 */
+  const scopeLine = databaseState?.compatScope === 'persistent_documents_only'
+    ? '作用范围：仅兼容持久化 persistent_documents。'
+    : '作用范围：以服务端返回说明为准。';
+/** restoreModeLine：定义该变量以承载业务值。 */
+  const restoreModeLine = databaseState?.restoreMode === 'replace_persistent_documents'
+    ? '恢复方式：覆盖兼容持久化中的 persistent_documents。'
+    : '恢复方式：以服务端返回说明为准。';
+/** persistenceLine：定义该变量以承载业务值。 */
+  const persistenceLine = databaseState?.persistenceEnabled === false
+    ? '当前未启用数据库持久化，此面板仅供查看兼容说明。'
+    : '当前兼容持久化已启用，可手工导出或恢复其快照。';
 /** rows：定义该变量以承载业务值。 */
   const rows = backups.length > 0
     ? backups.map((backup) => `
@@ -1832,28 +1949,31 @@ function renderDatabasePanel(): void {
           </div>
           <div class="button-row" style="margin-top:8px;">
             <button class="small-btn" data-db-download="${escapeHtml(backup.id)}" type="button">下载备份</button>
-            <button class="small-btn danger" data-db-restore="${escapeHtml(backup.id)}" type="button" ${busy ? 'disabled' : ''}>导入覆盖当前库</button>
+            <button class="small-btn danger" data-db-restore="${escapeHtml(backup.id)}" type="button" ${busy ? 'disabled' : ''}>恢复兼容持久化</button>
           </div>
         </div>
       `).join('')
-    : '<div class="empty-hint">当前还没有数据库备份。</div>';
+    : '<div class="empty-hint">当前还没有兼容持久化备份。</div>';
 
   serverPanelDatabaseEl.innerHTML = `
     <div class="button-row">
-      <button id="database-refresh" class="small-btn" type="button">刷新数据库状态</button>
-      <button id="database-export-current" class="small-btn primary" type="button" ${busy ? 'disabled' : ''}>导出当前数据库</button>
+      <button id="database-refresh" class="small-btn" type="button">刷新兼容持久化状态</button>
+      <button id="database-export-current" class="small-btn primary" type="button" ${busy ? 'disabled' : ''}>导出兼容持久化</button>
     </div>
     <div class="note-card">${escapeHtml(summary)}</div>
     <div class="note-card">
-      自动策略：${escapeHtml(databaseState?.schedules.hourly ?? '每小时整点低优先级备份')}；${escapeHtml(databaseState?.schedules.daily ?? '每天 04:05 低优先级备份')}。<br />
-      保留策略：整点备份最多 ${databaseState?.retention.hourly ?? 72} 份，每日备份最多 ${databaseState?.retention.daily ?? 14} 份。手动导出和导入前备份当前不自动删。<br />
-      导入历史备份前，服务端会先生成一份“导入前备份”，随后暂停 tick、断开玩家连接、覆盖数据库并重建运行时。<br />
-      ${escapeHtml(databaseState?.note ?? '正式数据库备份与恢复由独立 backup worker 执行，游戏服只负责发起请求、维护窗口与展示状态。')}
+      ${escapeHtml(scopeLine)}<br />
+      ${escapeHtml(restoreModeLine)}<br />
+      ${escapeHtml(persistenceLine)}<br />
+      ${schedulesLine}<br />
+      ${retentionLine}<br />
+      ${escapeHtml(restoreLine)}<br />
+      ${escapeHtml(databaseState?.note ?? '当前为兼容备份面板，具体覆盖范围与限制以服务端返回说明为准。')}
     </div>
     <div class="network-breakdown">
       <div class="network-breakdown-head">
-        <div class="panel-title">历史数据库备份</div>
-        <div class="network-breakdown-subtitle">支持下载任意历史备份，也支持直接把某份备份重新导入为当前数据库</div>
+        <div class="panel-title">历史兼容持久化备份</div>
+        <div class="network-breakdown-subtitle">支持下载任意历史备份，也支持把某份备份重新恢复为当前兼容持久化</div>
       </div>
       <div class="network-breakdown-list">${rows}</div>
     </div>
@@ -2088,7 +2208,7 @@ async function loadRedeemGroups(silent = false): Promise<void> {
   renderRedeemPanel();
   try {
 /** data：定义该变量以承载业务值。 */
-    const data = await request<GmRedeemCodeGroupListRes>('/gm/redeem-code-groups');
+    const data = await request<GmRedeemCodeGroupListRes>(`${GM_API_BASE_PATH}/redeem-code-groups`);
     redeemGroupsState = data.groups;
     if (selectedRedeemGroupId && !redeemGroupsState.some((group) => group.id === selectedRedeemGroupId)) {
       selectedRedeemGroupId = null;
@@ -2118,7 +2238,7 @@ async function loadRedeemGroupDetail(groupId: string, silent = false): Promise<v
   renderRedeemPanel();
   try {
 /** detail：定义该变量以承载业务值。 */
-    const detail = await request<GmRedeemCodeGroupDetailRes>(`/gm/redeem-code-groups/${encodeURIComponent(groupId)}`);
+    const detail = await request<GmRedeemCodeGroupDetailRes>(`${GM_API_BASE_PATH}/redeem-code-groups/${encodeURIComponent(groupId)}`);
     if (selectedRedeemGroupId !== groupId) {
       return;
     }
@@ -2148,7 +2268,7 @@ async function createRedeemGroup(): Promise<void> {
     count: Math.max(1, Math.min(500, Math.floor(Number(redeemDraft.createCount || '0')) || 0)),
   };
 /** result：定义该变量以承载业务值。 */
-  const result = await request<GmCreateRedeemCodeGroupRes>('/gm/redeem-code-groups', {
+  const result = await request<GmCreateRedeemCodeGroupRes>(`${GM_API_BASE_PATH}/redeem-code-groups`, {
     method: 'POST',
     body: JSON.stringify(payload),
   });
@@ -2165,7 +2285,7 @@ async function saveRedeemGroup(): Promise<void> {
   }
 /** payload：定义该变量以承载业务值。 */
   const payload: GmUpdateRedeemCodeGroupReq = buildRedeemGroupPayload();
-  await request<GmRedeemCodeGroupDetailRes>(`/gm/redeem-code-groups/${encodeURIComponent(selectedRedeemGroupId)}`, {
+  await request<GmRedeemCodeGroupDetailRes>(`${GM_API_BASE_PATH}/redeem-code-groups/${encodeURIComponent(selectedRedeemGroupId)}`, {
     method: 'PUT',
     body: JSON.stringify(payload),
   });
@@ -2184,7 +2304,7 @@ async function appendRedeemCodes(): Promise<void> {
     count: Math.max(1, Math.min(500, Math.floor(Number(redeemDraft.appendCount || '0')) || 0)),
   };
 /** result：定义该变量以承载业务值。 */
-  const result = await request<GmAppendRedeemCodesRes>(`/gm/redeem-code-groups/${encodeURIComponent(selectedRedeemGroupId)}/codes`, {
+  const result = await request<GmAppendRedeemCodesRes>(`${GM_API_BASE_PATH}/redeem-code-groups/${encodeURIComponent(selectedRedeemGroupId)}/codes`, {
     method: 'POST',
     body: JSON.stringify(payload),
   });
@@ -2195,7 +2315,7 @@ async function appendRedeemCodes(): Promise<void> {
 
 /** destroyRedeemCode：执行对应的业务逻辑。 */
 async function destroyRedeemCode(codeId: string): Promise<void> {
-  await request<{ ok: true }>(`/gm/redeem-codes/${encodeURIComponent(codeId)}`, {
+  await request<{ ok: true }>(`${GM_API_BASE_PATH}/redeem-codes/${encodeURIComponent(codeId)}`, {
     method: 'DELETE',
   });
   await loadRedeemGroups(true);
@@ -2211,7 +2331,7 @@ async function loadDatabaseState(silent = false): Promise<void> {
   renderDatabasePanel();
   try {
 /** data：定义该变量以承载业务值。 */
-    const data = await request<GmDatabaseStateRes>('/gm/database/state');
+    const data = await request<GmDatabaseStateRes>(`${GM_API_BASE_PATH}/database/state`);
     databaseState = data;
     if (!silent) {
       setStatus(`已同步 ${data.backups.length} 份数据库备份`);
@@ -2225,7 +2345,7 @@ async function loadDatabaseState(silent = false): Promise<void> {
 /** exportCurrentDatabase：执行对应的业务逻辑。 */
 async function exportCurrentDatabase(): Promise<void> {
 /** result：定义该变量以承载业务值。 */
-  const result = await request<GmTriggerDatabaseBackupRes>('/gm/database/backup', {
+  const result = await request<GmTriggerDatabaseBackupRes>(`${GM_API_BASE_PATH}/database/backup`, {
     method: 'POST',
   });
   setStatus(`已开始导出当前数据库：${result.job.backupId ?? result.job.id}`);
@@ -2264,7 +2384,7 @@ async function downloadDatabaseBackup(backupId: string): Promise<void> {
   anchor.click();
   anchor.remove();
   window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1_000);
-  setStatus(`已下载数据库备份 ${fileName}`);
+  setStatus(`已下载兼容持久化备份 ${fileName}`);
 }
 
 /** restoreDatabaseBackup：执行对应的业务逻辑。 */
@@ -2276,18 +2396,18 @@ async function restoreDatabaseBackup(backupId: string): Promise<void> {
     return;
   }
 /** confirmed：定义该变量以承载业务值。 */
-  const confirmed = window.confirm(`将使用备份 ${backup.fileName} 覆盖当前数据库。\n服务端会先自动备份当前库，并断开在线玩家连接。是否继续？`);
+  const confirmed = window.confirm(`将使用备份 ${backup.fileName} 覆盖当前兼容持久化。\n服务端会先自动生成一份导入前备份，并断开在线玩家连接。是否继续？`);
   if (!confirmed) {
     return;
   }
 /** body：定义该变量以承载业务值。 */
   const body: GmRestoreDatabaseReq = { backupId };
 /** result：定义该变量以承载业务值。 */
-  const result = await request<GmTriggerDatabaseBackupRes>('/gm/database/restore', {
+  const result = await request<GmTriggerDatabaseBackupRes>(`${GM_API_BASE_PATH}/database/restore`, {
     method: 'POST',
     body: JSON.stringify(body),
   });
-  setStatus(`已开始导入数据库备份：${result.job.sourceBackupId ?? backup.fileName}`);
+  setStatus(`已开始恢复兼容持久化备份：${result.job.sourceBackupId ?? backup.fileName}`);
   await loadDatabaseState(true);
 }
 
@@ -2352,7 +2472,7 @@ async function loadSuggestions(): Promise<void> {
       params.set('keyword', currentSuggestionKeyword.trim());
     }
 /** result：定义该变量以承载业务值。 */
-    const result = await request<GmSuggestionListRes>(`/gm/suggestions?${params.toString()}`);
+    const result = await request<GmSuggestionListRes>(`${GM_API_BASE_PATH}/suggestions?${params.toString()}`);
     suggestions = result.items;
     currentSuggestionPage = result.page;
     currentSuggestionTotalPages = result.totalPages;
@@ -2367,7 +2487,8 @@ async function loadSuggestions(): Promise<void> {
 /** loadEditorCatalog：执行对应的业务逻辑。 */
 async function loadEditorCatalog(): Promise<void> {
   try {
-    editorCatalog = await request<GmEditorCatalogRes>('/gm/editor-catalog');
+    editorCatalog = await request<GmEditorCatalogRes>(`${GM_API_BASE_PATH}/editor-catalog`);
+    editorCatalogSource = 'server';
   } catch {
 /** localCatalog：定义该变量以承载业务值。 */
     const localCatalog = getLocalEditorCatalog();
@@ -2375,6 +2496,8 @@ async function loadEditorCatalog(): Promise<void> {
       ...localCatalog,
       buffs: localCatalog.buffs ?? [],
     };
+    editorCatalogSource = 'local-fallback';
+    setStatus('GM 编辑目录加载失败，当前仅保留本地参考标签；目录型编辑与带附件邮件已暂停，避免提交过期模板数据。', true);
   }
   renderShortcutMailComposer();
 }
@@ -2487,7 +2610,7 @@ function renderSuggestions(): void {
 /** completeSuggestion：执行对应的业务逻辑。 */
 async function completeSuggestion(id: string): Promise<void> {
   try {
-    await request(`/gm/suggestions/${id}/complete`, { method: 'POST' });
+    await request(`${GM_API_BASE_PATH}/suggestions/${id}/complete`, { method: 'POST' });
     setStatus('建议已标记为完成');
     await loadSuggestions();
   } catch (error) {
@@ -2499,7 +2622,7 @@ async function completeSuggestion(id: string): Promise<void> {
 /** replySuggestion：执行对应的业务逻辑。 */
 async function replySuggestion(id: string, content: string): Promise<void> {
   try {
-    await request(`/gm/suggestions/${id}/replies`, {
+    await request(`${GM_API_BASE_PATH}/suggestions/${id}/replies`, {
       method: 'POST',
       body: JSON.stringify({ content } satisfies GmReplySuggestionReq),
     });
@@ -2515,7 +2638,7 @@ async function replySuggestion(id: string, content: string): Promise<void> {
 async function removeSuggestion(id: string): Promise<void> {
   if (!confirm('确定要移除这条建议吗？此操作不可撤销。')) return;
   try {
-    await request(`/gm/suggestions/${id}`, { method: 'DELETE' });
+    await request(`${GM_API_BASE_PATH}/suggestions/${id}`, { method: 'DELETE' });
     setStatus('建议已成功移除');
     if (suggestions.length === 1 && currentSuggestionPage > 1) {
       currentSuggestionPage -= 1;
@@ -2552,7 +2675,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     }
   }
 
-  if (response.status === 401 && path !== '/auth/gm/login') {
+  if (response.status === 401 && path !== `${GM_AUTH_API_BASE_PATH}/login`) {
     logout('GM 登录已失效，请重新输入密码');
     throw new Error('GM 登录已失效');
   }
@@ -2686,6 +2809,10 @@ function rerenderDirectMailComposer(): void {
 
 /** addMailAttachment：执行对应的业务逻辑。 */
 function addMailAttachment(scope: 'direct' | 'shortcut'): void {
+  if (!hasServerEditorCatalog()) {
+    setStatus('服务端编辑目录不可用，当前不能用模板方式新增邮件附件。', true);
+    return;
+  }
 /** draft：定义该变量以承载业务值。 */
   const draft = scope === 'direct' ? directMailDraft : broadcastMailDraft;
   draft.attachments.push(createDefaultMailAttachmentDraft());
@@ -2720,6 +2847,9 @@ async function sendDirectMail(): Promise<void> {
   if (!detail) {
     throw new Error('当前没有可发送邮件的角色');
   }
+  if (directMailDraft.attachments.some((entry) => entry.itemId.trim().length > 0)) {
+    assertTrustedEditorCatalog('带附件邮件发送');
+  }
 /** payload：定义该变量以承载业务值。 */
   const payload = getMailComposerPayload(directMailDraft);
 /** result：定义该变量以承载业务值。 */
@@ -2736,14 +2866,17 @@ async function sendDirectMail(): Promise<void> {
 
 /** sendShortcutMail：执行对应的业务逻辑。 */
 async function sendShortcutMail(): Promise<void> {
+  if (broadcastMailDraft.attachments.some((entry) => entry.itemId.trim().length > 0)) {
+    assertTrustedEditorCatalog('带附件邮件发送');
+  }
 /** payload：定义该变量以承载业务值。 */
   const payload = getMailComposerPayload(broadcastMailDraft);
 /** targetPlayerId：定义该变量以承载业务值。 */
   const targetPlayerId = broadcastMailDraft.targetPlayerId.trim();
 /** path：定义该变量以承载业务值。 */
   const path = targetPlayerId
-    ? `/gm/players/${encodeURIComponent(targetPlayerId)}/mail`
-    : '/gm/mail/broadcast';
+    ? `${GM_API_BASE_PATH}/players/${encodeURIComponent(targetPlayerId)}/mail`
+    : `${GM_API_BASE_PATH}/mail/broadcast`;
 /** result：定义该变量以承载业务值。 */
   const result = await request<{ ok: true; mailId: string; batchId?: string; recipientCount?: number }>(path, {
     method: 'POST',
@@ -2849,7 +2982,6 @@ function createDefaultBuff(): TemporaryBuffState {
     stacks: 1,
     maxStacks: 1,
     sourceSkillId: '',
-    realmLv: 1,
     attrs: {},
     stats: {},
   };
@@ -2979,7 +3111,7 @@ function getSearchableItemDisplayValue(itemId: string): string {
     return '';
   }
 /** entry：定义该变量以承载业务值。 */
-  const entry = findItemCatalogEntry(itemId);
+  const entry = gmCatalogHelpers.findItemCatalogEntry(editorCatalog, itemId);
   return entry ? `${entry.name} · ${itemId}` : itemId;
 }
 
@@ -3394,6 +3526,12 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
   const inventoryItems = ensureArray(draft.inventory.items);
 /** account：定义该变量以承载业务值。 */
   const account = player.account;
+/** activity：定义该变量以承载业务值。 */
+  const activity = getManagedAccountActivityMeta(player);
+/** catalogFallbackNote：定义该变量以承载业务值。 */
+  const catalogFallbackNote = getEditorCatalogFallbackNote();
+/** catalogActionDisabled：定义该变量以承载业务值。 */
+  const catalogActionDisabled = hasServerEditorCatalog() ? '' : ' disabled';
 
 /** equipmentMarkup：定义该变量以承载业务值。 */
   const equipmentMarkup = EQUIP_SLOTS.map((slot) => {
@@ -3410,7 +3548,7 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
           <div class="button-row">
             ${item
               ? `<button class="small-btn danger" type="button" data-action="clear-equip" data-slot="${slot}">清空槽位</button>`
-              : `<button class="small-btn" type="button" data-action="create-equip-from-catalog" data-slot="${slot}">加入槽位</button>`}
+              : `<button class="small-btn" type="button" data-action="create-equip-from-catalog" data-slot="${slot}"${catalogActionDisabled}>加入槽位</button>`}
           </div>
         </div>
         ${item ? getItemEditorControls(`equipment.${slot}`, item, 'equipment') : `
@@ -3579,7 +3717,7 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
       <div class="editor-section-head">
         <div>
           <div class="editor-section-title">账号信息</div>
-          <div class="editor-section-note">这里展示账号主键、注册时间、在线状态和累计在线时长，密码修改也统一在这里做。</div>
+          <div class="editor-section-note">这里展示账号主键、注册时间、在线状态、最近活动和累计在线时长，密码修改也统一在这里做。</div>
         </div>
       </div>
       ${account ? `
@@ -3608,8 +3746,8 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
           <div class="editor-code">${escapeHtml(getManagedAccountStatusLabel(player))}</div>
         </div>
         <div class="editor-field">
-          <span>上次在线时间</span>
-          <div class="editor-code">${escapeHtml(formatDateTime(player.meta.lastHeartbeatAt))}</div>
+          <span>${escapeHtml(activity.label)}</span>
+          <div class="editor-code">${escapeHtml(activity.value)}</div>
         </div>
         <div class="editor-field">
           <span>累计在线时间</span>
@@ -3627,6 +3765,8 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
         <button class="small-btn" type="button" data-action="save-player-password">修改账号密码</button>
       </div>
       <div class="editor-note">密码只会提交到服务端，并由服务端写入 bcrypt 哈希，不会以明文落库。</div>
+      ${activity.note ? `<div class="editor-note">${escapeHtml(activity.note)}</div>` : ''}
+      ${catalogFallbackNote ? `<div class="editor-note">${escapeHtml(catalogFallbackNote)}</div>` : ''}
       ` : '<div class="editor-note">当前目标没有可编辑的账号信息，通常是机器人或异常存档。</div>'}
     </section>
 
@@ -3736,7 +3876,7 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
           <div class="editor-section-note">这里只保留 Buff 选择、层数和剩余时间，其他静态字段按模板自动带出。</div>
         </div>
         <div class="button-row">
-          <button class="small-btn" type="button" data-action="add-buff">新增 Buff</button>
+          <button class="small-btn" type="button" data-action="add-buff"${catalogActionDisabled}>新增 Buff</button>
         </div>
       </div>
       <div class="editor-card-list">${buffMarkup}</div>
@@ -3767,12 +3907,12 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
         <div class="button-row">
           <label class="editor-field" style="min-width: 220px;">
             <span>新增功法</span>
-            <select data-catalog-select="technique">
+            <select data-catalog-select="technique"${catalogActionDisabled}>
               <option value="">选择功法模板</option>
               ${optionsMarkup(getTechniqueCatalogOptions(), '')}
             </select>
           </label>
-          <button class="small-btn" type="button" data-action="add-technique-from-catalog">加入角色</button>
+          <button class="small-btn" type="button" data-action="add-technique-from-catalog"${catalogActionDisabled}>加入角色</button>
         </div>
       </div>
       <div class="editor-card-list">${techniqueMarkup}</div>
@@ -3806,7 +3946,7 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
               <div class="editor-card-title">获取全部未学习功法书</div>
               <div class="editor-card-meta">把尚未学习且背包里也没有的功法书补进背包。</div>
             </div>
-            <button class="small-btn" type="button" data-action="grant-all-unlearned-technique-books">加入背包</button>
+            <button class="small-btn" type="button" data-action="grant-all-unlearned-technique-books"${catalogActionDisabled}>加入背包</button>
           </div>
         </div>
         <div class="editor-card">
@@ -3815,7 +3955,7 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
               <div class="editor-card-title">当前全部功法满级</div>
               <div class="editor-card-meta">按编辑目录模板把当前已学功法统一拉到最高层级。</div>
             </div>
-            <button class="small-btn" type="button" data-action="max-all-techniques">立即满级</button>
+            <button class="small-btn" type="button" data-action="max-all-techniques"${catalogActionDisabled}>立即满级</button>
           </div>
         </div>
         <div class="editor-card">
@@ -3824,7 +3964,7 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
               <div class="editor-card-title">学习全部功法</div>
               <div class="editor-card-meta">把当前目录里尚未学会的功法全部写入角色。</div>
             </div>
-            <button class="small-btn primary" type="button" data-action="learn-all-techniques">全部学习</button>
+            <button class="small-btn primary" type="button" data-action="learn-all-techniques"${catalogActionDisabled}>全部学习</button>
           </div>
         </div>
         <div class="editor-card">
@@ -3833,7 +3973,7 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
               <div class="editor-card-title">移除所有功法</div>
               <div class="editor-card-meta">清空当前角色已学功法，并移除主修功法与自动战斗技能引用。</div>
             </div>
-            <button class="small-btn danger" type="button" data-action="remove-all-techniques">全部移除</button>
+            <button class="small-btn danger" type="button" data-action="remove-all-techniques"${catalogActionDisabled}>全部移除</button>
           </div>
         </div>
       </div>
@@ -3893,6 +4033,7 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
           </div>
         </div>
       </div>
+      ${catalogFallbackNote ? `<div class="editor-note" style="margin-top: 12px; color: var(--stamp-red);">${escapeHtml(catalogFallbackNote)}</div>` : ''}
     </section>
     `)}
 
@@ -3907,7 +4048,7 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
           ${numberField('容量', 'inventory.capacity', draft.inventory.capacity)}
           <label class="editor-field" style="min-width: 220px;">
             <span>物品类别</span>
-            <select data-catalog-select="inventory-type">
+            <select data-catalog-select="inventory-type"${catalogActionDisabled}>
               ${optionsMarkup(getInventoryAddTypeOptions(), currentInventoryAddType)}
             </select>
           </label>
@@ -3921,7 +4062,7 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
             `点击后输入名称或 ID 搜索${ITEM_TYPE_LABELS[currentInventoryAddType]}模板`,
             { style: 'min-width: 260px;' },
           )}
-          <button class="small-btn" type="button" data-action="add-inventory-item-from-catalog">加入背包</button>
+          <button class="small-btn" type="button" data-action="add-inventory-item-from-catalog"${catalogActionDisabled}>加入背包</button>
         </div>
       </div>
       <div class="inventory-compact-list">${inventoryMarkup}</div>
@@ -4095,6 +4236,7 @@ function renderEditor(data: GmStateRes): void {
     draftSnapshot = null;
     draftSourcePlayerId = null;
     selectedPlayerDetail = null;
+    selectedPlayerDetailError = null;
     loadingPlayerDetailId = null;
     playerJsonEl.value = '';
     playerPersistedJsonEl.value = '';
@@ -4111,7 +4253,9 @@ function renderEditor(data: GmStateRes): void {
   const detail = getSelectedPlayerDetail();
   if (!detail) {
     editorEmptyEl.classList.remove('hidden');
-    editorEmptyEl.textContent = loadingPlayerDetailId === selected.id ? '正在加载角色详情…' : '当前角色详情暂不可用。';
+    editorEmptyEl.textContent = loadingPlayerDetailId === selected.id
+      ? '正在加载角色详情…'
+      : (selectedPlayerDetailError?.trim() || '当前角色详情暂不可用。');
     editorPanelEl.classList.add('hidden');
     playerJsonEl.value = '';
     playerPersistedJsonEl.value = '';
@@ -4276,10 +4420,25 @@ function mutateDraft(mutator: (draft: PlayerState) => void): boolean {
 function applyCatalogBindingChange(path: string, value: string): boolean {
   if (!draftSnapshot) return false;
 
-/** changed：定义该变量以承载业务值。 */
-  let changed = false;
 /** inventoryMatch：定义该变量以承载业务值。 */
   const inventoryMatch = path.match(/^inventory\.items\.(\d+)\.itemId$/);
+/** equipmentMatch：定义该变量以承载业务值。 */
+  const equipmentMatch = path.match(/^equipment\.(weapon|head|body|legs|accessory)\.itemId$/);
+/** techniqueMatch：定义该变量以承载业务值。 */
+  const techniqueMatch = path.match(/^techniques\.(\d+)\.techId$/);
+/** buffMatch：定义该变量以承载业务值。 */
+  const buffMatch = path.match(/^temporaryBuffs\.(\d+)\.buffId$/);
+  if ((inventoryMatch || equipmentMatch || techniqueMatch || buffMatch) && !hasServerEditorCatalog()) {
+    setStatus('服务端编辑目录不可用，当前不能通过模板下拉直接改写角色数据。', true);
+    lastEditorStructureKey = null;
+    if (state) {
+      renderEditor(state);
+    }
+    return true;
+  }
+
+/** changed：定义该变量以承载业务值。 */
+  let changed = false;
   if (inventoryMatch) {
 /** index：定义该变量以承载业务值。 */
     const index = Number(inventoryMatch[1]);
@@ -4289,8 +4448,6 @@ function applyCatalogBindingChange(path: string, value: string): boolean {
     changed = true;
   }
 
-/** equipmentMatch：定义该变量以承载业务值。 */
-  const equipmentMatch = path.match(/^equipment\.(weapon|head|body|legs|accessory)\.itemId$/);
   if (equipmentMatch) {
 /** slot：定义该变量以承载业务值。 */
     const slot = equipmentMatch[1] as EquipSlot;
@@ -4298,8 +4455,6 @@ function applyCatalogBindingChange(path: string, value: string): boolean {
     changed = true;
   }
 
-/** techniqueMatch：定义该变量以承载业务值。 */
-  const techniqueMatch = path.match(/^techniques\.(\d+)\.techId$/);
   if (techniqueMatch) {
 /** index：定义该变量以承载业务值。 */
     const index = Number(techniqueMatch[1]);
@@ -4307,8 +4462,6 @@ function applyCatalogBindingChange(path: string, value: string): boolean {
     changed = true;
   }
 
-/** buffMatch：定义该变量以承载业务值。 */
-  const buffMatch = path.match(/^temporaryBuffs\.(\d+)\.buffId$/);
   if (buffMatch) {
 /** index：定义该变量以承载业务值。 */
     const index = Number(buffMatch[1]);
@@ -4376,6 +4529,7 @@ async function loadState(silent = false, refreshDetail = false): Promise<void> {
     await loadSelectedPlayerDetail(selectedPlayerId, true);
   } else if (!selectedPlayerId) {
     selectedPlayerDetail = null;
+    selectedPlayerDetailError = null;
     loadingPlayerDetailId = null;
   }
   if (!silent) {
@@ -4395,6 +4549,7 @@ async function loadSelectedPlayerDetail(playerId: string, silent = false): Promi
 /** nonce：定义该变量以承载业务值。 */
   const nonce = ++detailRequestNonce;
   loadingPlayerDetailId = playerId;
+  selectedPlayerDetailError = null;
   clearEditorRenderCache();
   render();
   try {
@@ -4404,9 +4559,16 @@ async function loadSelectedPlayerDetail(playerId: string, silent = false): Promi
       return;
     }
     selectedPlayerDetail = data.player;
+    selectedPlayerDetailError = null;
     if (!silent) {
       setStatus(`已加载 ${data.player.name} 的角色详情`);
     }
+  } catch (error) {
+    if (nonce === detailRequestNonce && selectedPlayerId === playerId) {
+      selectedPlayerDetail = null;
+      selectedPlayerDetailError = error instanceof Error ? error.message : '加载角色详情失败';
+    }
+    throw error;
   } finally {
     if (nonce === detailRequestNonce && loadingPlayerDetailId === playerId) {
       loadingPlayerDetailId = null;
@@ -4533,7 +4695,7 @@ async function login(): Promise<void> {
 
   try {
 /** result：定义该变量以承载业务值。 */
-    const result = await request<GmLoginRes>('/auth/gm/login', {
+    const result = await request<GmLoginRes>(`${GM_AUTH_API_BASE_PATH}/login`, {
       method: 'POST',
       body: JSON.stringify({ password } satisfies GmLoginReq),
     });
@@ -4567,7 +4729,7 @@ async function changeGmPassword(): Promise<void> {
 
   gmPasswordSaveBtn.disabled = true;
   try {
-    await request<BasicOkRes>('/auth/gm/password', {
+    await request<BasicOkRes>(`${GM_AUTH_API_BASE_PATH}/password`, {
       method: 'POST',
       body: JSON.stringify({
         currentPassword,
@@ -4760,7 +4922,7 @@ async function saveSelectedPlayerSections(sections: GmPlayerUpdateSection[], mes
   setPendingStatus(`正在提交 ${selected.name} 的快捷修改...`);
   for (const section of uniqueSections) {
     const snapshot = buildSectionSnapshot(section, draftSnapshot);
-    await request<{ ok: true }>(`/gm/players/${encodeURIComponent(selected.id)}`, {
+    await request<{ ok: true }>(`${GM_API_BASE_PATH}/players/${encodeURIComponent(selected.id)}`, {
       method: 'PUT',
       body: JSON.stringify({ snapshot, section } satisfies GmUpdatePlayerReq),
     });
@@ -4797,7 +4959,7 @@ async function setSelectedPlayerBodyTrainingLevel(): Promise<void> {
   }
   try {
     setPendingStatus(`正在设置 ${detail.name} 的炼体等级...`);
-    await request<BasicOkRes>(`/gm/players/${encodeURIComponent(detail.id)}/body-training/level`, {
+    await request<BasicOkRes>(`${GM_API_BASE_PATH}/players/${encodeURIComponent(detail.id)}/body-training/level`, {
       method: 'POST',
       body: JSON.stringify({ level } satisfies GmSetPlayerBodyTrainingLevelReq),
     });
@@ -4843,7 +5005,7 @@ async function addSelectedPlayerFoundation(): Promise<void> {
   }
   try {
     setPendingStatus(`正在调整 ${detail.name} 的底蕴...`);
-    await request<BasicOkRes>(`/gm/players/${encodeURIComponent(detail.id)}/foundation/add`, {
+    await request<BasicOkRes>(`${GM_API_BASE_PATH}/players/${encodeURIComponent(detail.id)}/foundation/add`, {
       method: 'POST',
       body: JSON.stringify({ amount } satisfies GmAddPlayerFoundationReq),
     });
@@ -4889,7 +5051,7 @@ async function addSelectedPlayerCombatExp(): Promise<void> {
   }
   try {
     setPendingStatus(`正在调整 ${detail.name} 的战斗经验...`);
-    await request<BasicOkRes>(`/gm/players/${encodeURIComponent(detail.id)}/combat-exp/add`, {
+    await request<BasicOkRes>(`${GM_API_BASE_PATH}/players/${encodeURIComponent(detail.id)}/combat-exp/add`, {
       method: 'POST',
       body: JSON.stringify({ amount } satisfies GmAddPlayerCombatExpReq),
     });
@@ -4914,10 +5076,7 @@ async function runPlayerTechniqueShortcut(
     return;
   }
 
-  if (!editorCatalog) {
-    setStatus('编辑目录尚未加载完成，暂时无法执行快捷操作', true);
-    return;
-  }
+  assertTrustedEditorCatalog('快捷操作：');
 
   if (action === 'grant-all-unlearned-technique-books') {
 /** learnedTechniqueIds：定义该变量以承载业务值。 */
@@ -4925,7 +5084,7 @@ async function runPlayerTechniqueShortcut(
 /** existingInventoryItemIds：定义该变量以承载业务值。 */
     const existingInventoryItemIds = new Set(ensureArray(draftSnapshot.inventory.items).map((item) => item.itemId));
 /** bookItemIds：定义该变量以承载业务值。 */
-    const bookItemIds = editorCatalog.items
+    const bookItemIds = editorCatalog!.items
       .filter((item) => item.type === 'skill_book')
       .map((item) => item.itemId)
       .filter((itemId) => {
@@ -4995,7 +5154,7 @@ async function runPlayerTechniqueShortcut(
 /** learnedTechniqueIds：定义该变量以承载业务值。 */
   const learnedTechniqueIds = new Set(ensureArray(draftSnapshot.techniques).map((technique) => technique.techId).filter(Boolean));
 /** missingTechniqueIds：定义该变量以承载业务值。 */
-  const missingTechniqueIds = editorCatalog.techniques
+  const missingTechniqueIds = editorCatalog!.techniques
     .map((technique) => technique.id)
     .filter((techId) => !learnedTechniqueIds.has(techId));
   if (missingTechniqueIds.length === 0) {
@@ -5079,6 +5238,10 @@ async function saveSelectedPlayer(): Promise<void> {
     );
     return;
   }
+  if ((section === 'buffs' || section === 'techniques' || section === 'items' || section === 'quests') && !hasServerEditorCatalog()) {
+    setStatus(`${getEditorTabLabel(section)}保存已暂停：GM 编辑目录未从服务端加载成功，避免提交过期目录数据`, true);
+    return;
+  }
 
 /** synced：定义该变量以承载业务值。 */
   const synced = syncVisualEditorToDraft(getEditorTabSection(section) ?? undefined);
@@ -5093,7 +5256,7 @@ async function saveSelectedPlayer(): Promise<void> {
     setPendingStatus(`正在提交 ${selected.name} 的${getEditorTabLabel(section)}修改...`);
 /** snapshot：定义该变量以承载业务值。 */
     const snapshot = buildSectionSnapshot(section, draftSnapshot);
-    await request<{ ok: true }>(`/gm/players/${encodeURIComponent(selected.id)}`, {
+    await request<{ ok: true }>(`${GM_API_BASE_PATH}/players/${encodeURIComponent(selected.id)}`, {
       method: 'PUT',
       body: JSON.stringify({ snapshot, section } satisfies GmUpdatePlayerReq),
     });
@@ -5133,7 +5296,7 @@ async function saveSelectedPlayerPassword(): Promise<void> {
   }
   try {
     setPendingStatus(`正在修改账号 ${detail.account.username} 的密码...`);
-    await request<{ ok: true }>(`/gm/players/${encodeURIComponent(detail.id)}/password`, {
+    await request<{ ok: true }>(`${GM_API_BASE_PATH}/players/${encodeURIComponent(detail.id)}/password`, {
       method: 'POST',
       body: JSON.stringify({ newPassword } satisfies GmUpdateManagedPlayerPasswordReq),
     });
@@ -5181,7 +5344,7 @@ async function saveSelectedPlayerAccount(): Promise<void> {
   }
   try {
     setPendingStatus(`正在修改账号 ${detail.account.username}...`);
-    await request<{ ok: true }>(`/gm/players/${encodeURIComponent(detail.id)}/account`, {
+    await request<{ ok: true }>(`${GM_API_BASE_PATH}/players/${encodeURIComponent(detail.id)}/account`, {
       method: 'PUT',
       body: JSON.stringify({ username } satisfies GmUpdateManagedPlayerAccountReq),
     });
@@ -5208,7 +5371,7 @@ async function resetSelectedPlayer(): Promise<void> {
   resetPlayerBtn.disabled = true;
   try {
     setPendingStatus(`正在让 ${selected.name} 返回出生点...`);
-    await request<{ ok: true }>(`/gm/players/${encodeURIComponent(selected.id)}/reset`, {
+    await request<{ ok: true }>(`${GM_API_BASE_PATH}/players/${encodeURIComponent(selected.id)}/reset`, {
       method: 'POST',
     });
     editorDirty = false;
@@ -5233,7 +5396,7 @@ async function resetSelectedPlayerHeavenGate(): Promise<void> {
   resetHeavenGateBtn.disabled = true;
   try {
     setPendingStatus(`正在重置 ${selected.name} 的天门测试状态...`);
-    await request<{ ok: true }>(`/gm/players/${encodeURIComponent(selected.id)}/heaven-gate/reset`, {
+    await request<{ ok: true }>(`${GM_API_BASE_PATH}/players/${encodeURIComponent(selected.id)}/heaven-gate/reset`, {
       method: 'POST',
     });
     editorDirty = false;
@@ -5258,7 +5421,7 @@ async function removeSelectedBot(): Promise<void> {
   removeBotBtn.disabled = true;
   try {
     setPendingStatus(`正在移除机器人 ${selected.name}...`);
-    await request<{ ok: true }>('/gm/bots/remove', {
+    await request<{ ok: true }>(`${GM_API_BASE_PATH}/bots/remove`, {
       method: 'POST',
       body: JSON.stringify({ playerIds: [selected.id] } satisfies GmRemoveBotsReq),
     });
@@ -5289,7 +5452,7 @@ async function spawnBots(): Promise<void> {
   }
 
   try {
-    await request<{ ok: true }>('/gm/bots/spawn', {
+    await request<{ ok: true }>(`${GM_API_BASE_PATH}/bots/spawn`, {
       method: 'POST',
       body: JSON.stringify({
         anchorPlayerId: selected.id,
@@ -5307,7 +5470,7 @@ async function spawnBots(): Promise<void> {
 async function removeAllBots(): Promise<void> {
   try {
     setPendingStatus('正在移除全部机器人...');
-    await request<{ ok: true }>('/gm/bots/remove', {
+    await request<{ ok: true }>(`${GM_API_BASE_PATH}/bots/remove`, {
       method: 'POST',
       body: JSON.stringify({ all: true } satisfies GmRemoveBotsReq),
     });
@@ -5332,7 +5495,7 @@ async function returnAllPlayersToDefaultSpawn(): Promise<void> {
   }
   try {
 /** result：定义该变量以承载业务值。 */
-    const result = await request<GmShortcutRunRes>('/gm/shortcuts/players/return-all-to-default-spawn', {
+    const result = await request<GmShortcutRunRes>(`${GM_API_BASE_PATH}/shortcuts/players/return-all-to-default-spawn`, {
       method: 'POST',
     });
     editorDirty = false;
@@ -5362,7 +5525,7 @@ async function cleanupAllPlayersInvalidItems(): Promise<void> {
   }
   try {
 /** result：定义该变量以承载业务值。 */
-    const result = await request<GmShortcutRunRes>('/gm/shortcuts/players/cleanup-invalid-items', {
+    const result = await request<GmShortcutRunRes>(`${GM_API_BASE_PATH}/shortcuts/players/cleanup-invalid-items`, {
       method: 'POST',
     });
     editorDirty = false;
@@ -5392,7 +5555,7 @@ async function compensateAllPlayersCombatExp(): Promise<void> {
   }
   try {
 /** result：定义该变量以承载业务值。 */
-    const result = await request<GmShortcutRunRes>('/gm/shortcuts/compensation/combat-exp-2026-04-09', {
+    const result = await request<GmShortcutRunRes>(`${GM_API_BASE_PATH}/shortcuts/compensation/combat-exp-2026-04-09`, {
       method: 'POST',
     });
     editorDirty = false;
@@ -5422,7 +5585,7 @@ async function compensateAllPlayersFoundation(): Promise<void> {
   }
   try {
 /** result：定义该变量以承载业务值。 */
-    const result = await request<GmShortcutRunRes>('/gm/shortcuts/compensation/foundation-2026-04-09', {
+    const result = await request<GmShortcutRunRes>(`${GM_API_BASE_PATH}/shortcuts/compensation/foundation-2026-04-09`, {
       method: 'POST',
     });
     editorDirty = false;
@@ -5443,7 +5606,7 @@ async function compensateAllPlayersFoundation(): Promise<void> {
 async function resetNetworkStats(): Promise<void> {
   resetNetworkStatsBtn.disabled = true;
   try {
-    await request<{ ok: true }>('/gm/perf/network/reset', {
+    await request<{ ok: true }>(`${GM_API_BASE_PATH}/perf/network/reset`, {
       method: 'POST',
     });
     await loadState(true);
@@ -5460,7 +5623,7 @@ async function resetNetworkStats(): Promise<void> {
 async function resetCpuStats(): Promise<void> {
   resetCpuStatsBtn.disabled = true;
   try {
-    await request<{ ok: true }>('/gm/perf/cpu/reset', {
+    await request<{ ok: true }>(`${GM_API_BASE_PATH}/perf/cpu/reset`, {
       method: 'POST',
     });
     await loadState(true);
@@ -5477,7 +5640,7 @@ async function resetCpuStats(): Promise<void> {
 async function resetPathfindingStats(): Promise<void> {
   resetPathfindingStatsBtn.disabled = true;
   try {
-    await request<{ ok: true }>('/gm/perf/pathfinding/reset', {
+    await request<{ ok: true }>(`${GM_API_BASE_PATH}/perf/pathfinding/reset`, {
       method: 'POST',
     });
     await loadState(true);
@@ -5509,6 +5672,10 @@ function handleEditorAction(action: string, trigger: HTMLElement): void {
       mutateDraft((draft) => removeArrayIndex(draft, 'bonuses', index));
       break;
     case 'add-buff':
+      if (!hasServerEditorCatalog()) {
+        setStatus('服务端编辑目录不可用，当前不能用模板方式新增 Buff。', true);
+        return;
+      }
       mutateDraft((draft) => {
         draft.temporaryBuffs = ensureArray(draft.temporaryBuffs);
         draft.temporaryBuffs.push(createDefaultBuff());
@@ -5524,6 +5691,10 @@ function handleEditorAction(action: string, trigger: HTMLElement): void {
       mutateDraft((draft) => draft.inventory.items.push(createDefaultItem()));
       break;
     case 'add-inventory-item-from-catalog': {
+      if (!hasServerEditorCatalog()) {
+        setStatus('服务端编辑目录不可用，当前不能用模板方式加入物品。', true);
+        return;
+      }
 /** itemId：定义该变量以承载业务值。 */
       const itemId = readCatalogSelectValue('inventory-item');
       if (!itemId) {
@@ -5547,6 +5718,10 @@ function handleEditorAction(action: string, trigger: HTMLElement): void {
     case 'create-equip-from-catalog':
       if (!slot) return;
       {
+        if (!hasServerEditorCatalog()) {
+          setStatus('服务端编辑目录不可用，当前不能用模板方式创建装备。', true);
+          return;
+        }
 /** itemId：定义该变量以承载业务值。 */
         const itemId = readCatalogSelectValue('equipment', slot);
         if (!itemId) {
@@ -5576,6 +5751,10 @@ function handleEditorAction(action: string, trigger: HTMLElement): void {
       mutateDraft((draft) => draft.techniques.push(createDefaultTechnique()));
       break;
     case 'add-technique-from-catalog': {
+      if (!hasServerEditorCatalog()) {
+        setStatus('服务端编辑目录不可用，当前不能用模板方式加入功法。', true);
+        return;
+      }
 /** techId：定义该变量以承载业务值。 */
       const techId = readCatalogSelectValue('technique');
       if (!techId) {
@@ -6375,6 +6554,3 @@ if (token) {
 } else {
   showLogin();
 }
-
-
-

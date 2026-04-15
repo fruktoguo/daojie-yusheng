@@ -16,11 +16,12 @@ import {
   type TileType,
   ENTITY_KIND_LABELS,
   TILE_TYPE_LABELS,
-} from '@mud/shared';
+} from '@mud/shared-next';
 import { TextRenderer } from './renderer/text';
 import { Camera } from './renderer/camera';
 import { getCellSize, setZoom, updateDisplayMetrics } from './display';
 import { GM_WORLD_VIEW_MAX } from './constants/world/gm-world-viewer';
+import { GM_API_BASE_PATH } from './constants/api';
 
 /** RequestFn：定义该类型的结构与数据语义。 */
 type RequestFn = <T>(path: string, init?: RequestInit) => Promise<T>;
@@ -147,7 +148,7 @@ export class GmWorldViewer {
   async updateMapIds(_mapIds: string[]): Promise<void> {
     try {
 /** res：定义该变量以承载业务值。 */
-      const res = await this.request<GmMapListRes>('/gm/maps');
+      const res = await this.request<GmMapListRes>(`${GM_API_BASE_PATH}/maps`);
       this.maps = res.maps;
     } catch {
       this.maps = _mapIds.map((id) => ({ id, name: id, width: 0, height: 0, portalCount: 0, npcCount: 0, monsterSpawnCount: 0 }));
@@ -234,7 +235,7 @@ export class GmWorldViewer {
         viewerId: this.viewerId,
       });
       this.runtimeData = await this.request<GmMapRuntimeRes>(
-        `/gm/maps/${this.currentMapId}/runtime?${params.toString()}`,
+        `${GM_API_BASE_PATH}/maps/${this.currentMapId}/runtime?${params.toString()}`,
       );
       this.observationRegistered = true;
       this.syncToRenderer();
@@ -328,7 +329,7 @@ export class GmWorldViewer {
       hp: 1, maxHp: 1, qi: 0, dead: false, baseAttrs: {} as any,
       bonuses: [], temporaryBuffs: [], inventory: {} as any,
       equipment: {} as any, techniques: [], quests: [], actions: [],
-      autoBattle: false, autoBattleSkills: [], autoUsePills: [], autoRetaliate: true,
+      autoBattle: false, autoBattleSkills: [], autoRetaliate: true,
       autoIdleCultivation: true, idleTicks: 0,
     } as any;
     this.camera.snap(fakePlayer);
@@ -713,7 +714,7 @@ export class GmWorldViewer {
 /** clamped：定义该变量以承载业务值。 */
     const clamped = Math.max(0, Math.min(100, speed));
     try {
-      await this.request<{ ok: true }>(`/gm/maps/${this.currentMapId}/tick`, {
+      await this.request<{ ok: true }>(`${GM_API_BASE_PATH}/maps/${this.currentMapId}/tick`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ speed: clamped } satisfies GmUpdateMapTickReq),
@@ -731,7 +732,7 @@ export class GmWorldViewer {
   private async updateTime(req: GmUpdateMapTimeReq): Promise<void> {
     if (!this.currentMapId) return;
     try {
-      await this.request<{ ok: true }>(`/gm/maps/${this.currentMapId}/time`, {
+      await this.request<{ ok: true }>(`${GM_API_BASE_PATH}/maps/${this.currentMapId}/time`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(req),
@@ -750,7 +751,7 @@ export class GmWorldViewer {
 /** reloadTickConfig：执行对应的业务逻辑。 */
   private async reloadTickConfig(): Promise<void> {
     try {
-      await this.request<{ ok: true }>('/gm/tick-config/reload', {
+      await this.request<{ ok: true }>(`${GM_API_BASE_PATH}/tick-config/reload`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
@@ -769,7 +770,7 @@ export class GmWorldViewer {
       return;
     }
     this.observationRegistered = false;
-    void this.request<{ ok: true }>(`/gm/world-observers/${encodeURIComponent(this.viewerId)}`, {
+    void this.request<{ ok: true }>(`${GM_API_BASE_PATH}/world-observers/${encodeURIComponent(this.viewerId)}`, {
       method: 'DELETE',
     }).catch(() => {});
   }
@@ -860,4 +861,3 @@ export class GmWorldViewer {
     this.infoEl.innerHTML = html;
   }
 }
-

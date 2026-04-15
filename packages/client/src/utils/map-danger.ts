@@ -1,4 +1,4 @@
-import type { PlayerState } from '@mud/shared';
+import type { PlayerState } from '@mud/shared-next';
 import { LOCAL_EDITOR_CATALOG } from '../constants/world/editor-catalog';
 
 /** RealmLevelRange：定义该类型的结构与数据语义。 */

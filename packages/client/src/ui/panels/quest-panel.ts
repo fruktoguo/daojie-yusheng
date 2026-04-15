@@ -1,6 +1,6 @@
 /** 任务面板：按任务线分类展示，并支持全局单实例详情弹层 */
 
-import { Inventory, PlayerState, QuestState } from '@mud/shared';
+import { Inventory, PlayerState, QuestState } from '@mud/shared-next';
 import { getLocalItemTemplate } from '../../content/local-templates';
 import { detailModalHost } from '../detail-modal-host';
 import {
@@ -10,6 +10,7 @@ import {
   renderTextWithInlineItemHighlights,
 } from '../item-inline-tooltip';
 import { preserveSelection } from '../selection-preserver';
+import { createEmptyHint, createPanelSectionWithTitle } from '../ui-primitives';
 import { getQuestLineLabel, getQuestStatusLabel } from '../../domain-labels';
 import {
   LINE_ORDER,
@@ -58,6 +59,11 @@ export class QuestPanel {
 /** inventory：定义该变量以承载业务值。 */
   private inventory: Inventory | null = null;
   private onNavigateQuest: ((questId: string) => void) | null = null;
+  private shellRefs: {
+    section: HTMLDivElement;
+    title: HTMLDivElement;
+    subtabs: HTMLDivElement;
+  } | null = null;
 
 /** constructor：处理当前场景中的对应操作。 */
   constructor() {
@@ -118,7 +124,10 @@ export class QuestPanel {
     this.selectedQuestId = undefined;
     this.hasUserSelectedLine = false;
     this.inventory = null;
-    this.pane.innerHTML = '<div class="empty-hint">暂无任务，和 NPC 交互可接取</div>';
+    this.shellRefs = null;
+    const emptyNode = this.createEmptyState();
+    emptyNode.textContent = '暂无任务，和 NPC 交互可接取';
+    this.pane.replaceChildren(emptyNode);
     detailModalHost.close(QuestPanel.MODAL_OWNER);
   }
 
@@ -136,60 +145,46 @@ export class QuestPanel {
       this.selectedQuestId = undefined;
       this.lastVisibleQuestIds = [];
       this.lastStructureLine = this.activeLine;
-      this.pane.innerHTML = '<div class="empty-hint">暂无任务，和 NPC 交互可接取</div>';
+      this.shellRefs = null;
+      const emptyNode = this.createEmptyState();
+      emptyNode.textContent = '暂无任务，和 NPC 交互可接取';
+      this.pane.replaceChildren(emptyNode);
       return;
     }
+    this.ensureShell();
+    this.patchList();
+  }
 
-/** counts：定义该变量以承载业务值。 */
-    const counts = this.buildCounts(quests);
-/** visibleQuests：定义该变量以承载业务值。 */
-    const visibleQuests = this.getVisibleQuests(quests);
-    this.lastVisibleQuestIds = visibleQuests.map((quest) => quest.id);
-    this.lastStructureLine = this.activeLine;
-
-/** tabs：定义该变量以承载业务值。 */
-    const tabs = LINE_ORDER.map((line) => {
-/** active：定义该变量以承载业务值。 */
-      const active = this.activeLine === line ? 'active' : '';
-      return `<button class="quest-subtab-btn ${active}" data-quest-line="${line}" type="button">${getQuestLineLabel(line)}<span class="quest-subtab-count" data-quest-line-count="${line}">${counts[line]}</span></button>`;
-    }).join('');
-
-/** html：定义该变量以承载业务值。 */
-    let html = `<div class="panel-section">
-      <div class="panel-section-title">任务簿</div>
-      <div class="quest-subtabs">${tabs}</div>`;
-
-    if (visibleQuests.length === 0) {
-      html += `<div class="empty-hint" data-quest-empty="true">当前没有${getQuestLineLabel(this.activeLine)}任务</div></div>`;
-      preserveSelection(this.pane, () => {
-        this.pane.innerHTML = html;
-      });
-      return;
+  private ensureShell(): { section: HTMLDivElement; title: HTMLDivElement; subtabs: HTMLDivElement } {
+    if (this.shellRefs?.section.isConnected) {
+      return this.shellRefs;
     }
 
-    for (const quest of visibleQuests) {
-      const percent = quest.required > 0 ? Math.min(100, Math.floor((quest.progress / quest.required) * 100)) : 0;
-      const progressText = this.resolveProgressText(quest);
-/** nextStep：定义该变量以承载业务值。 */
-      const nextStep = this.resolveNextStep(quest);
-      html += `<button class="quest-card quest-card-toggle" data-quest-id="${escapeHtml(quest.id)}" type="button">
-        <div class="quest-title-row">
-          <span class="quest-title" data-quest-title="true">${escapeHtml(quest.title)}</span>
-      <span class="quest-status ${STATUS_CLASS[quest.status]}" data-quest-status="true">${getQuestStatusLabel(quest.status)}</span>
-        </div>
-        <div class="quest-meta ${quest.chapter ? '' : 'hidden'}" data-quest-chapter="true">章节：${escapeHtml(quest.chapter ?? '')}</div>
-        <div class="quest-desc" data-quest-desc="true">${this.renderQuestText(quest.desc, quest)}</div>
-        <div class="quest-progress-label" data-quest-progress-label="true">目标：${this.renderQuestText(progressText, quest)}</div>
-        <div class="quest-progress-bar"><div class="quest-progress-fill" data-quest-progress-fill="true" style="width:${percent}%"></div></div>
-        <div class="quest-meta" data-quest-next-step="true">下一步：${this.renderQuestText(nextStep, quest)}</div>
-        <div class="quest-expand-hint">点击查看详情</div>
-      </button>`;
+    const { sectionEl, titleEl } = createPanelSectionWithTitle('任务簿');
+    sectionEl.classList.add('ui-panel-section');
+    titleEl.classList.add('ui-panel-section-title');
+
+    const subtabs = document.createElement('div');
+    subtabs.className = 'quest-subtabs ui-subtabs';
+    for (const line of LINE_ORDER) {
+      const button = document.createElement('button');
+      button.className = 'quest-subtab-btn ui-subtab-btn';
+      button.dataset.questLine = line;
+      button.type = 'button';
+      button.append(document.createTextNode(getQuestLineLabel(line)));
+      const count = document.createElement('span');
+      count.className = 'quest-subtab-count';
+      count.dataset.questLineCount = line;
+      button.append(count);
+      subtabs.append(button);
     }
 
-    html += '</div>';
+    sectionEl.append(subtabs);
     preserveSelection(this.pane, () => {
-      this.pane.innerHTML = html;
+      this.pane.replaceChildren(sectionEl);
     });
+    this.shellRefs = { section: sectionEl, title: titleEl, subtabs };
+    return this.shellRefs;
   }
 
 /** bindPaneEvents：执行对应的业务逻辑。 */
@@ -308,31 +303,61 @@ export class QuestPanel {
 /** createEmptyState：执行对应的业务逻辑。 */
   private createEmptyState(): HTMLElement {
 /** empty：定义该变量以承载业务值。 */
-    const empty = document.createElement('div');
-    empty.className = 'empty-hint';
+    const empty = createEmptyHint('');
     empty.dataset.questEmpty = 'true';
     return empty;
   }
 
 /** createQuestCard：执行对应的业务逻辑。 */
   private createQuestCard(quest: QuestState): HTMLButtonElement {
-/** card：定义该变量以承载业务值。 */
     const card = document.createElement('button');
     card.className = 'quest-card quest-card-toggle';
     card.dataset.questId = quest.id;
     card.type = 'button';
-    card.innerHTML = `
-      <div class="quest-title-row">
-        <span class="quest-title" data-quest-title="true"></span>
-        <span data-quest-status="true"></span>
-      </div>
-      <div data-quest-chapter="true"></div>
-      <div class="quest-desc" data-quest-desc="true"></div>
-      <div class="quest-progress-label" data-quest-progress-label="true"></div>
-      <div class="quest-progress-bar"><div class="quest-progress-fill" data-quest-progress-fill="true"></div></div>
-      <div class="quest-meta" data-quest-next-step="true"></div>
-      <div class="quest-expand-hint">点击查看详情</div>
-    `;
+
+    const titleRow = document.createElement('div');
+    titleRow.className = 'quest-title-row';
+    const titleEl = document.createElement('span');
+    titleEl.className = 'quest-title';
+    titleEl.setAttribute('data-quest-title', 'true');
+    const statusEl = document.createElement('span');
+    statusEl.setAttribute('data-quest-status', 'true');
+    titleRow.appendChild(titleEl);
+    titleRow.appendChild(statusEl);
+    card.appendChild(titleRow);
+
+    const chapterEl = document.createElement('div');
+    chapterEl.setAttribute('data-quest-chapter', 'true');
+    card.appendChild(chapterEl);
+
+    const descEl = document.createElement('div');
+    descEl.className = 'quest-desc';
+    descEl.setAttribute('data-quest-desc', 'true');
+    card.appendChild(descEl);
+
+    const progressLabelEl = document.createElement('div');
+    progressLabelEl.className = 'quest-progress-label';
+    progressLabelEl.setAttribute('data-quest-progress-label', 'true');
+    card.appendChild(progressLabelEl);
+
+    const progressBarOuter = document.createElement('div');
+    progressBarOuter.className = 'quest-progress-bar';
+    const progressFill = document.createElement('div');
+    progressFill.className = 'quest-progress-fill';
+    progressFill.setAttribute('data-quest-progress-fill', 'true');
+    progressBarOuter.appendChild(progressFill);
+    card.appendChild(progressBarOuter);
+
+    const nextStepEl = document.createElement('div');
+    nextStepEl.className = 'quest-meta';
+    nextStepEl.setAttribute('data-quest-next-step', 'true');
+    card.appendChild(nextStepEl);
+
+    const expandHint = document.createElement('div');
+    expandHint.className = 'quest-expand-hint';
+    expandHint.textContent = '点击查看详情';
+    card.appendChild(expandHint);
+
     this.patchQuestCard(card, quest);
     return card;
   }
@@ -433,16 +458,17 @@ export class QuestPanel {
 
     detailModalHost.open({
       ownerId: QuestPanel.MODAL_OWNER,
+      size: 'md',
       variantClass: 'detail-modal--quest',
       title: quest.title,
       subtitle: `${getQuestLineLabel(quest.line)} · ${getQuestStatusLabel(quest.status)}`,
       bodyHtml: `
-        <div class="quest-detail-section ${quest.chapter ? '' : 'hidden'}" data-quest-modal-chapter-section="true"><strong>章节</strong><span data-quest-modal-chapter="true">${escapeHtml(quest.chapter ?? '')}</span></div>
-        <div class="quest-detail-section"><strong>任务描述</strong><div data-quest-modal-desc="true">${this.renderQuestText(quest.desc, quest)}</div></div>
-        <div class="quest-detail-section ${quest.story ? '' : 'hidden'}" data-quest-modal-story-section="true"><strong>剧情</strong><span data-quest-modal-story="true">${escapeHtml(quest.story ?? '')}</span></div>
-        <div class="quest-detail-grid">
-          <div class="quest-detail-section"><strong>发布者</strong><span data-quest-modal-giver="true">${escapeHtml(quest.giverName)}</span></div>
-          <div class="quest-detail-section">
+        <div class="ui-detail-field ui-detail-field--section ${quest.chapter ? '' : 'hidden'}" data-quest-modal-chapter-section="true"><strong>章节</strong><span data-quest-modal-chapter="true">${escapeHtml(quest.chapter ?? '')}</span></div>
+        <div class="ui-detail-field ui-detail-field--section"><strong>任务描述</strong><div data-quest-modal-desc="true">${this.renderQuestText(quest.desc, quest)}</div></div>
+        <div class="ui-detail-field ui-detail-field--section ${quest.story ? '' : 'hidden'}" data-quest-modal-story-section="true"><strong>剧情</strong><span data-quest-modal-story="true">${escapeHtml(quest.story ?? '')}</span></div>
+        <div class="ui-detail-grid ui-detail-grid--section">
+          <div class="ui-detail-field ui-detail-field--section"><strong>发布者</strong><span data-quest-modal-giver="true">${escapeHtml(quest.giverName)}</span></div>
+          <div class="ui-detail-field ui-detail-field--section">
             <strong>接取地点</strong>
             <div class="quest-detail-location-row">
               <span data-quest-modal-location="true">${escapeHtml(giverLocation)}</span>
@@ -456,15 +482,15 @@ export class QuestPanel {
               >${navigateLabel}</button>
             </div>
           </div>
-          <div class="quest-detail-section"><strong>任务目标</strong><span data-quest-modal-target-location="true">${escapeHtml(targetLocation)}</span></div>
-          <div class="quest-detail-section"><strong>提交地点</strong><span data-quest-modal-submit-location="true">${escapeHtml(submitLocation)}</span></div>
-          <div class="quest-detail-section"><strong>奖励</strong><div data-quest-modal-reward="true">${this.renderRewardContent(quest)}</div></div>
-          <div class="quest-detail-section ${quest.requiredItemId ? '' : 'hidden'}" data-quest-modal-required-item-section="true"><strong>任务需求</strong><div data-quest-modal-required-item="true">${this.renderRequiredItemContent(quest)}</div></div>
-          <div class="quest-detail-section"><strong>当前进度</strong><div data-quest-modal-progress="true">${this.renderQuestText(this.resolveProgressText(quest), quest)}</div></div>
-          <div class="quest-detail-section"><strong>下一步</strong><div data-quest-modal-next-step="true">${this.renderQuestText(this.resolveNextStep(quest), quest)}</div></div>
+          <div class="ui-detail-field ui-detail-field--section"><strong>任务目标</strong><span data-quest-modal-target-location="true">${escapeHtml(targetLocation)}</span></div>
+          <div class="ui-detail-field ui-detail-field--section"><strong>提交地点</strong><span data-quest-modal-submit-location="true">${escapeHtml(submitLocation)}</span></div>
+          <div class="ui-detail-field ui-detail-field--section"><strong>奖励</strong><div data-quest-modal-reward="true">${this.renderRewardContent(quest)}</div></div>
+          <div class="ui-detail-field ui-detail-field--section ${quest.requiredItemId ? '' : 'hidden'}" data-quest-modal-required-item-section="true"><strong>任务需求</strong><div data-quest-modal-required-item="true">${this.renderRequiredItemContent(quest)}</div></div>
+          <div class="ui-detail-field ui-detail-field--section"><strong>当前进度</strong><div data-quest-modal-progress="true">${this.renderQuestText(this.resolveProgressText(quest), quest)}</div></div>
+          <div class="ui-detail-field ui-detail-field--section"><strong>下一步</strong><div data-quest-modal-next-step="true">${this.renderQuestText(this.resolveNextStep(quest), quest)}</div></div>
         </div>
-        <div class="quest-detail-section ${quest.objectiveText ? '' : 'hidden'}" data-quest-modal-objective-section="true"><strong>任务说明</strong><div data-quest-modal-objective="true">${this.renderQuestText(quest.objectiveText ?? '', quest)}</div></div>
-        <div class="quest-detail-section ${quest.relayMessage ? '' : 'hidden'}" data-quest-modal-relay-section="true"><strong>传话内容</strong><div data-quest-modal-relay="true">${this.renderQuestText(quest.relayMessage ?? '', quest)}</div></div>
+        <div class="ui-detail-field ui-detail-field--section ${quest.objectiveText ? '' : 'hidden'}" data-quest-modal-objective-section="true"><strong>任务说明</strong><div data-quest-modal-objective="true">${this.renderQuestText(quest.objectiveText ?? '', quest)}</div></div>
+        <div class="ui-detail-field ui-detail-field--section ${quest.relayMessage ? '' : 'hidden'}" data-quest-modal-relay-section="true"><strong>传话内容</strong><div data-quest-modal-relay="true">${this.renderQuestText(quest.relayMessage ?? '', quest)}</div></div>
       `,
       onClose: () => {
         this.selectedQuestId = undefined;
@@ -821,7 +847,7 @@ export class QuestPanel {
 /** sections：定义该变量以承载业务值。 */
     const sections: string[] = [];
     if (rewardChips) {
-      sections.push(`<div class="inline-item-flow">${rewardChips}</div>`);
+      sections.push(`<div class="ui-requirement-entry ui-surface-card ui-surface-card--compact"><div class="inline-item-flow">${rewardChips}</div></div>`);
     }
     if (shouldShowRewardText) {
       sections.push(`<div class="inline-rich-text">${this.renderRichText(quest.rewardText)}</div>`);
@@ -840,15 +866,18 @@ export class QuestPanel {
       return '<div class="inline-rich-text">当前任务无额外提交材料。</div>';
     }
     return `
-      <div class="inline-item-flow">
-        ${renderInlineItemChip(quest.requiredItemId, {
-          count: requiredItemProgress.required,
-          label: requiredItemProgress.itemName,
-          tone: 'required',
-        })}
+      <div class="ui-requirement-entry ui-surface-card ui-surface-card--compact">
+        <div class="ui-requirement-entry-head">
+          <span class="ui-requirement-status ${requiredItemProgress.current >= requiredItemProgress.required ? 'is-completed' : 'is-unmet'}">当前持有 ${requiredItemProgress.current}/${requiredItemProgress.required}</span>
+        </div>
+        <div class="inline-item-flow">
+          ${renderInlineItemChip(quest.requiredItemId, {
+            count: requiredItemProgress.required,
+            label: requiredItemProgress.itemName,
+            tone: 'required',
+          })}
+        </div>
       </div>
-      <div class="inline-rich-text">当前持有 ${requiredItemProgress.current}/${requiredItemProgress.required}</div>
     `;
   }
 }
-

@@ -54,7 +54,7 @@ services:
         protocol: tcp
         mode: ingress
     volumes:
-      - server_backup_data:/app/packages/server/data/backups/database
+      - server_backup_data:/app/legacy/server/data/backups/database
     networks:
       - daojie_net
     stop_grace_period: 30s
@@ -91,7 +91,7 @@ services:
       DB_DATABASE: ${DB_DATABASE:-daojie_yusheng}
       DATABASE_URL: postgres://${DB_USERNAME:-mud}:${DB_PASSWORD}@postgres:5432/${DB_DATABASE:-daojie_yusheng}
     volumes:
-      - server_backup_data:/app/packages/server/data/backups/database
+      - server_backup_data:/app/legacy/server/data/backups/database
     networks:
       - daojie_net
     stop_grace_period: 30s

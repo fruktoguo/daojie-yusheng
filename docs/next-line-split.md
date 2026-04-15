@@ -12,12 +12,14 @@
 - `server-next` 仍然处在过渡期，协议、会话、投影和 GM/运维面还有大量 compat 负担
 - 所以现在不是继续扩张新线 compat，而是继续把新线边界往前推，优先切掉重复字段、整量投影和巨型共享状态
 
+如需看 `client-next` 自身的前端结构、样式层、面板状态与重构待办，统一看 [docs/frontend-refactor/README.md](./frontend-refactor/README.md)。
+
 ## 背景
 
 当前仓库已经同时存在旧线与 `server-next`：
 
-- 旧线：`packages/client` + `packages/server` + `packages/shared`
-- 新后端线：`packages/server-next`
+- 旧线：`legacy/client` + `legacy/server` + `legacy/shared`
+- 新后端线：`packages/server`
 
 实际对比后可以确认，`server-next` 已经不只是“旧服的内部重写版”，而是在运行时、会话、持久化、GM/账号、协议边界上都逐步形成了独立实现。继续让它一边重写、一边维持对旧前端与旧接口的大量兼容层，收益越来越低，后续维护成本会越来越高。
 
@@ -40,13 +42,13 @@
 当前采用的目录方案：
 
 - 旧线保留：
-  - `packages/client`
-  - `packages/server`
-  - `packages/shared`
+  - `legacy/client`
+  - `legacy/server`
+  - `legacy/shared`
 - 新线新增：
-  - `packages/client-next`
-  - `packages/shared-next`
-  - `packages/server-next`
+  - `packages/client`
+  - `packages/shared`
+  - `packages/server`
 
 ## 边界原则
 

@@ -12,7 +12,7 @@ const repoRoot = path.resolve(__dirname, '..');
 const {
   resolveServerNextDatabaseEnvSource,
   resolveServerNextDatabaseUrl,
-} = require('../packages/server-next/src/config/env-alias');
+} = require('../packages/server/src/config/env-alias');
 
 /**
  * 记录数据库地址。

@@ -1,7 +1,7 @@
 /**
  * 世界面板文本与指引常量，供 UI 组件使用。
  */
-import { TechniqueRealm } from '@mud/shared';
+import { TechniqueRealm } from '@mud/shared-next';
 
 /** WorldGuide：定义该接口的能力与字段约束。 */
 export interface WorldGuide {

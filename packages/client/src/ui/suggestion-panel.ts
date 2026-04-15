@@ -1,12 +1,4 @@
-import {
-  C2S,
-  type C2S_CreateSuggestion,
-  type C2S_MarkSuggestionRepliesRead,
-  type C2S_ReplySuggestion,
-  type C2S_VoteSuggestion,
-  type Suggestion,
-  type SuggestionReply,
-} from '@mud/shared';
+import { type Suggestion, type SuggestionReply } from '@mud/shared-next';
 import type { SocketManager } from '../network/socket';
 import { detailModalHost } from './detail-modal-host';
 import { SUGGESTION_PANEL_REFRESH_INTERVAL_MS } from '../constants/ui/suggestion';
@@ -40,6 +32,18 @@ type SuggestionRenderState = {
   listScrollTop: number;
 /** threadScrollTop：定义该变量以承载业务值。 */
   threadScrollTop: number;
+};
+
+/** SuggestionPageData：定义该类型的结构与数据语义。 */
+type SuggestionPageData = {
+/** items：定义该变量以承载业务值。 */
+  items: Suggestion[];
+/** total：定义该变量以承载业务值。 */
+  total: number;
+/** page：定义该变量以承载业务值。 */
+  page: number;
+/** totalPages：定义该变量以承载业务值。 */
+  totalPages: number;
 };
 
 /** SuggestionModalMeta：定义该类型的结构与数据语义。 */
@@ -108,6 +112,7 @@ export class SuggestionPanel {
     const meta = this.buildModalMeta();
     detailModalHost.open({
       ownerId: SuggestionPanel.MODAL_OWNER,
+      size: 'full',
       title: '意见收集',
       subtitle: meta.subtitle,
       variantClass: 'detail-modal--suggestion',
@@ -152,66 +157,66 @@ export class SuggestionPanel {
 
     return `
       <div class="suggestion-shell">
-        <div class="suggestion-summary-grid">
-          <div class="suggestion-stat">
-            <div class="suggestion-stat-label">待处理</div>
-            <div class="suggestion-stat-value" data-suggestion-summary-pending="true">${pendingCount}</div>
-            <div class="suggestion-stat-note">尚未归档的意见会优先排在列表前方。</div>
+        <div class="suggestion-summary-grid ui-stats-grid">
+          <div class="suggestion-stat ui-stat-card">
+            <div class="suggestion-stat-label ui-stat-card-label">待处理</div>
+            <div class="suggestion-stat-value ui-stat-card-value" data-suggestion-summary-pending="true">${pendingCount}</div>
+            <div class="suggestion-stat-note ui-stat-card-note">尚未归档的意见会优先排在列表前方。</div>
           </div>
-          <div class="suggestion-stat">
-            <div class="suggestion-stat-label">我的意见</div>
-            <div class="suggestion-stat-value" data-suggestion-summary-mine="true">${mySuggestions.length}</div>
-            <div class="suggestion-stat-note">只展示你自己发起的意见与后续往来记录。</div>
+          <div class="suggestion-stat ui-stat-card">
+            <div class="suggestion-stat-label ui-stat-card-label">我的意见</div>
+            <div class="suggestion-stat-value ui-stat-card-value" data-suggestion-summary-mine="true">${mySuggestions.length}</div>
+            <div class="suggestion-stat-note ui-stat-card-note">只展示你自己发起的意见与后续往来记录。</div>
           </div>
-          <div class="suggestion-stat">
-            <div class="suggestion-stat-label">开发者未读回复</div>
-            <div class="suggestion-stat-value" data-suggestion-summary-unread="true">${unreadCount}</div>
-            <div class="suggestion-stat-note">进入对应意见详情后，红点会随已读状态一并消失。</div>
+          <div class="suggestion-stat ui-stat-card">
+            <div class="suggestion-stat-label ui-stat-card-label">开发者未读回复</div>
+            <div class="suggestion-stat-value ui-stat-card-value" data-suggestion-summary-unread="true">${unreadCount}</div>
+            <div class="suggestion-stat-note ui-stat-card-note">进入对应意见详情后，红点会随已读状态一并消失。</div>
           </div>
         </div>
 
-        <div class="suggestion-layout">
-          <section class="panel-section suggestion-pane suggestion-compose">
+        <div class="suggestion-layout ui-three-pane-layout">
+          <section class="panel-section suggestion-pane suggestion-compose ui-surface-pane ui-surface-pane--stack">
             <div class="panel-section-title">提交意见</div>
-            <div class="suggestion-compose-copy">写清目标、场景和预期结果，便于后续排期与实现。标题建议简短，描述里补充问题背景。</div>
-            <div class="suggestion-form-grid">
-              <div class="suggestion-field">
-                <label for="suggest-title">标题</label>
-                <input id="suggest-title" type="text" maxlength="50" placeholder="例如：背包支持按类型筛选" value="${escapeHtmlAttr(this.draftTitle)}" />
+            <div class="suggestion-compose-copy ui-form-copy">写清目标、场景和预期结果，便于后续排期与实现。标题建议简短，描述里补充问题背景。</div>
+            <div class="suggestion-form-grid ui-form-grid">
+              <div class="suggestion-field ui-form-field">
+                <label class="ui-form-label" for="suggest-title">标题</label>
+                <input id="suggest-title" class="ui-input" type="text" maxlength="50" placeholder="例如：背包支持按类型筛选" value="${escapeHtmlAttr(this.draftTitle)}" />
               </div>
-              <div class="suggestion-field">
-                <label for="suggest-desc">详细描述</label>
-                <textarea id="suggest-desc" maxlength="500" placeholder="描述遇到的问题、希望的改动方式，以及它会改善什么体验。">${escapeHtml(this.draftDescription)}</textarea>
+              <div class="suggestion-field ui-form-field">
+                <label class="ui-form-label" for="suggest-desc">详细描述</label>
+                <textarea id="suggest-desc" class="ui-textarea" maxlength="500" placeholder="描述遇到的问题、希望的改动方式，以及它会改善什么体验。">${escapeHtml(this.draftDescription)}</textarea>
               </div>
             </div>
-            <div class="suggestion-compose-actions">
+            <div class="suggestion-compose-actions ui-form-actions ui-action-row">
               <div class="panel-subtext">提交后会实时同步给在线玩家与开发者管理侧。</div>
               <button id="btn-submit-suggest" class="small-btn" type="button">提交意见</button>
             </div>
           </section>
 
-          <section class="panel-section suggestion-pane">
-            <div class="suggestion-pane-head">
-              <div class="suggestion-tab-row">
-                <button class="suggestion-tab-btn ${this.activeTab === 'all' ? 'active' : ''}" data-suggestion-tab="all" type="button">全部意见</button>
-                <button class="suggestion-tab-btn ${this.activeTab === 'mine' ? 'active' : ''}" data-suggestion-tab="mine" type="button">${this.renderMineTabLabel(unreadCount)}</button>
+          <section class="panel-section suggestion-pane ui-surface-pane ui-surface-pane--stack">
+            <div class="suggestion-pane-head ui-pane-head">
+              <div class="suggestion-tab-row ui-tab-row">
+                <button class="suggestion-tab-btn ui-tab-row-btn ${this.activeTab === 'all' ? 'active' : ''}" data-suggestion-tab="all" type="button">全部意见</button>
+                <button class="suggestion-tab-btn ui-tab-row-btn ${this.activeTab === 'mine' ? 'active' : ''}" data-suggestion-tab="mine" type="button">${this.renderMineTabLabel(unreadCount)}</button>
               </div>
-              <div class="suggestion-pane-note">搜索与分页</div>
+              <div class="suggestion-pane-note ui-pane-note">搜索与分页</div>
             </div>
-            <div class="suggestion-toolbar">
+            <div class="suggestion-toolbar ui-list-toolbar">
               <input
                 id="suggest-search"
-                class="suggestion-search-input"
+                class="suggestion-search-input ui-search-input"
                 type="search"
                 maxlength="50"
                 placeholder="搜索标题、描述或回复内容"
                 value="${escapeHtmlAttr(this.searchKeyword)}"
               />
-              <div class="suggestion-toolbar-note" data-suggestion-toolbar-note="true">
+              <div class="suggestion-toolbar-note ui-list-toolbar-note" data-suggestion-toolbar-note="true">
                 共 ${pageData.total} 条，第 ${pageData.page} / ${pageData.totalPages} 页
               </div>
             </div>
-            <div class="suggestion-list" data-suggestion-list="true" data-list-kind="${escapeHtmlAttr(this.activeTab)}">
+            <div class="suggestion-list ui-card-list ui-scroll-panel" data-suggestion-list="true" data-list-kind="${escapeHtmlAttr(this.activeTab)}">
               ${pageData.items.length > 0
                 ? pageData.items.map((suggestion) => this.renderSuggestionListEntry(suggestion)).join('')
                 : `<div class="empty-hint">${this.activeTab === 'mine' ? '暂无符合条件的我的意见' : '暂无符合条件的意见'}</div>`}
@@ -222,12 +227,12 @@ export class SuggestionPanel {
             </div>
           </section>
 
-          <section class="panel-section suggestion-pane">
-            <div class="suggestion-pane-head">
+          <section class="panel-section suggestion-pane ui-surface-pane ui-surface-pane--stack">
+            <div class="suggestion-pane-head ui-pane-head">
               <div class="panel-section-title">意见详情</div>
-              <div class="suggestion-pane-note">单实例会话视图</div>
+              <div class="suggestion-pane-note ui-pane-note">单实例会话视图</div>
             </div>
-            <div class="suggestion-thread" data-suggestion-thread="true" data-thread-kind="detail">
+            <div class="suggestion-thread ui-scroll-panel" data-suggestion-thread="true" data-thread-kind="detail">
               ${selectedSuggestion ? this.renderSuggestionDetail(selectedSuggestion) : '<div class="empty-hint">请选择一条意见查看详情与回复记录</div>'}
             </div>
           </section>
@@ -248,7 +253,7 @@ export class SuggestionPanel {
     const unread = this.hasUnreadGmReply(suggestion);
     return `
       <article
-        class="suggestion-entry ${suggestion.status === 'completed' ? 'completed' : ''} ${isSelected ? 'selected' : ''}"
+        class="suggestion-entry ui-surface-card ui-surface-card--compact ${suggestion.status === 'completed' ? 'completed' : ''} ${isSelected ? 'selected' : ''}"
         data-suggestion-select="${escapeHtmlAttr(suggestion.id)}"
         role="button"
         tabindex="0"
@@ -315,7 +320,7 @@ export class SuggestionPanel {
           分值: ${score > 0 ? '+' : ''}${score}
         </div>
       </div>
-      <div class="suggestion-thread-desc">${escapeHtml(suggestion.description)}</div>
+      <div class="suggestion-thread-desc ui-surface-card ui-surface-card--compact">${escapeHtml(suggestion.description)}</div>
       <div class="suggestion-entry-foot suggestion-thread-votes">
         <button class="small-btn ghost suggestion-vote-btn ${isUpvoted ? 'active up' : ''}" data-id="${escapeHtmlAttr(suggestion.id)}" data-vote="up" type="button">
           赞同 ${suggestion.upvotes.length}
@@ -333,7 +338,7 @@ export class SuggestionPanel {
       ${isAuthor ? `
         <div class="suggestion-thread-reply-box">
           <div class="suggestion-thread-section-title">继续补充</div>
-          <div class="suggestion-pane-note">${escapeHtml(replyHint)}</div>
+          <div class="suggestion-pane-note ui-pane-note">${escapeHtml(replyHint)}</div>
           <textarea
             id="suggest-reply-content"
             class="suggestion-reply-textarea"
@@ -341,7 +346,7 @@ export class SuggestionPanel {
             placeholder="${escapeHtmlAttr(canReply ? '补充你的问题场景、截图描述或验收预期' : '当前不可补充')}"
             ${canReply ? '' : 'disabled'}
           >${escapeHtml(this.replyDraft)}</textarea>
-          <div class="suggestion-compose-actions">
+          <div class="suggestion-compose-actions ui-form-actions">
             <div class="panel-subtext">补充内容会追加到当前意见会话，不会单独生成新意见。</div>
             <button id="btn-submit-suggest-reply" class="small-btn" type="button" ${canReply ? '' : 'disabled'}>发送补充</button>
           </div>
@@ -355,7 +360,7 @@ export class SuggestionPanel {
 /** roleLabel：定义该变量以承载业务值。 */
     const roleLabel = reply.authorType === 'gm' ? '开发者' : '发起人';
     return `
-      <article class="suggestion-reply-entry ${reply.authorType === 'gm' ? 'gm' : 'author'}">
+      <article class="suggestion-reply-entry ui-surface-card ui-surface-card--compact ${reply.authorType === 'gm' ? 'gm' : 'author'}">
         <div class="suggestion-reply-head">
           <div class="suggestion-reply-author">${escapeHtml(roleLabel)}</div>
           <div class="suggestion-reply-time">${new Date(reply.createdAt).toLocaleString()}</div>
@@ -397,6 +402,7 @@ export class SuggestionPanel {
       const meta = this.buildModalMeta();
       detailModalHost.open({
         ownerId: SuggestionPanel.MODAL_OWNER,
+        size: 'full',
         title: '意见收集',
         subtitle: meta.subtitle,
         variantClass: 'detail-modal--suggestion',
@@ -628,8 +634,7 @@ export class SuggestionPanel {
         alert('请输入建议描述');
         return;
       }
-
-      this.socket.emit(C2S.CreateSuggestion, { title, description } as C2S_CreateSuggestion);
+      this.socket.sendCreateSuggestion(title, description);
       this.draftTitle = '';
       this.draftDescription = '';
 /** body：定义该变量以承载业务值。 */
@@ -665,11 +670,7 @@ export class SuggestionPanel {
         alert('当前还不能回复，请等待开发者回复后再补充。');
         return;
       }
-
-      this.socket.emit(C2S.ReplySuggestion, {
-        suggestionId: selectedSuggestion.id,
-        content,
-      } as C2S_ReplySuggestion);
+      this.socket.sendReplySuggestion(selectedSuggestion.id, content);
       this.replyDraft = '';
 /** body：定义该变量以承载业务值。 */
       const body = document.getElementById('detail-modal-body');
@@ -692,7 +693,7 @@ export class SuggestionPanel {
       if (!id || (vote !== 'up' && vote !== 'down')) {
         return;
       }
-      this.socket.emit(C2S.VoteSuggestion, { suggestionId: id, vote } as C2S_VoteSuggestion);
+      this.socket.sendVoteSuggestion(id, vote);
       return;
     }
 
@@ -941,7 +942,7 @@ export class SuggestionPanel {
     }
     suggestion.authorLastReadGmReplyAt = this.getLastGmReplyAt(suggestion);
     this.updateHudUnreadState();
-    this.socket.emit(C2S.MarkSuggestionRepliesRead, { suggestionId } as C2S_MarkSuggestionRepliesRead);
+    this.socket.sendMarkSuggestionRepliesRead(suggestionId);
   }
 
 /** updateHudUnreadState：执行对应的业务逻辑。 */
@@ -971,4 +972,3 @@ function escapeHtml(input: string): string {
 function escapeHtmlAttr(input: string): string {
   return escapeHtml(input);
 }
-

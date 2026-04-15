@@ -40,7 +40,7 @@
 ## 备注
 
 - 运行命令：`pnpm audit:server-next-boundaries` 或 `pnpm --filter @mud/server-next audit:legacy-boundaries`。
-- 报告由 `packages/server-next/src/tools/audit/next-legacy-boundary-audit.js` 自动生成。
+- 报告由 `packages/server/src/tools/audit/next-legacy-boundary-audit.js` 自动生成。
 - 这份审计的定位是 inventory，不是 replace-ready 验收，也不会替代 `pnpm verify:replace-ready`、`with-db`、`shadow` 或协议审计。
 - 当前最适合把它和下面几份文档一起看：
 - [next-remaining-task-breakdown.md](next-remaining-task-breakdown.md)

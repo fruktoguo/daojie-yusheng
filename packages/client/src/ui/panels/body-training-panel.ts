@@ -5,10 +5,11 @@ import {
   calcBodyTrainingAttrBonus,
   getBodyTrainingExpToNext,
   normalizeBodyTrainingState,
-} from '@mud/shared';
-import type { PlayerState } from '@mud/shared';
+} from '@mud/shared-next';
+import type { PlayerState } from '@mud/shared-next';
 import { detailModalHost } from '../detail-modal-host';
 import { preserveSelection } from '../selection-preserver';
+import { createSmallBtn } from '../ui-primitives';
 import { formatDisplayInteger } from '../../utils/number';
 
 /** BodyTrainingPlayerSnapshot：定义该类型的结构与数据语义。 */
@@ -165,6 +166,7 @@ function buildAllInfusionPlan(state: BodyTrainingState, foundation: number): Bod
 
 /** BodyTrainingPanel：封装相关状态与行为。 */
 export class BodyTrainingPanel {
+  private eventsBound = false;
   private static readonly MODAL_OWNER = 'body-training-infuse-modal';
 
   private pane = document.getElementById('pane-body-training')!;
@@ -179,6 +181,16 @@ export class BodyTrainingPanel {
   private selectedInfusionMode: BodyTrainingInfusionMode = 'level';
   private selectedLevelGain = 1;
   private onInfuse: ((foundationSpent: number) => void) | null = null;
+  private levelNode: HTMLElement | null = null;
+  private progressNode: HTMLElement | null = null;
+  private fillNode: HTMLElement | null = null;
+  private remainNode: HTMLElement | null = null;
+  private bonusNode: HTMLElement | null = null;
+  private foundationNode: HTMLElement | null = null;
+  private foundationNoteNode: HTMLElement | null = null;
+  private previewNode: HTMLElement | null = null;
+  private detailNode: HTMLElement | null = null;
+  private buttonNode: HTMLButtonElement | null = null;
 
   setInfusionHandler(handler: ((foundationSpent: number) => void) | null): void {
     this.onInfuse = handler;
@@ -240,74 +252,150 @@ export class BodyTrainingPanel {
 
 /** render：执行对应的业务逻辑。 */
   private render(state: BodyTrainingState, foundation: number): void {
-/** progressRatio：定义该变量以承载业务值。 */
-    const progressRatio = getProgressRatio(state);
-    preserveSelection(this.pane, () => {
-      this.pane.innerHTML = `
-        <div class="body-training-panel">
-          <section class="body-training-hero">
-            <div class="body-training-hero-main">
-              <span class="body-training-kicker">炼体层数</span>
-              <strong class="body-training-level" data-body-level="true">第 ${formatDisplayInteger(state.level)} 层</strong>
-              <span class="body-training-progress-text" data-body-progress="true">${formatDisplayInteger(state.exp)}/${formatDisplayInteger(state.expToNext)}</span>
-            </div>
-            <div class="body-training-progress-bar">
-              <span class="body-training-progress-fill" data-body-progress-fill="true" style="width:${(progressRatio * 100).toFixed(2)}%"></span>
-            </div>
-            <div class="body-training-hero-note" data-body-remain="true">距下一层还需 ${formatDisplayInteger(Math.max(0, state.expToNext - state.exp))} 炼体经验</div>
-          </section>
-          <section class="body-training-grid">
-            <article class="body-training-card">
-              <span class="body-training-card-label">当前总加成</span>
-              <strong class="body-training-card-value" data-body-bonus-summary="true">${escapeHtml(formatBonusSummary(state))}</strong>
-            </article>
-            <article class="body-training-card">
-              <span class="body-training-card-label">当前底蕴</span>
-              <strong class="body-training-card-value" data-body-foundation="true">${formatDisplayInteger(foundation)}</strong>
-              <span class="body-training-card-note" data-body-foundation-note="true">${escapeHtml(this.getFoundationNote())}</span>
-            </article>
-            <article class="body-training-card body-training-card--wide body-training-card--accent">
-              <span class="body-training-card-label">灌注炼体</span>
-              <strong class="body-training-card-value" data-body-infuse-preview="true">${escapeHtml(this.getInfusionPreviewHeadline())}</strong>
-              <span class="body-training-card-note" data-body-infuse-detail="true">${escapeHtml(this.getInfusionPreviewDetail())}</span>
-              <button class="small-btn body-training-infuse-btn" type="button" data-body-infuse="true"${this.isInfusionButtonDisabled() ? ' disabled' : ''}>${escapeHtml(this.getInfusionButtonLabel())}</button>
-            </article>
-          </section>
-        </div>
-      `;
-    });
-    this.bindEvents();
+    this.ensureStructure();
+    this.patch(state, foundation);
   }
 
 /** bindEvents：执行对应的业务逻辑。 */
   private bindEvents(): void {
-    this.pane.querySelector<HTMLButtonElement>('[data-body-infuse="true"]')?.addEventListener('click', () => {
-      this.openInfusionModal();
+    if (this.eventsBound) {
+      return;
+    }
+    this.eventsBound = true;
+    this.pane.addEventListener('click', (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) {
+        return;
+      }
+      if (target.closest('[data-body-infuse="true"]')) {
+        this.openInfusionModal();
+      }
     });
+  }
+
+  private ensureStructure(): void {
+    if (this.levelNode
+      && this.progressNode
+      && this.fillNode
+      && this.remainNode
+      && this.bonusNode
+      && this.foundationNode
+      && this.foundationNoteNode
+      && this.previewNode
+      && this.detailNode
+      && this.buttonNode) {
+      return;
+    }
+
+    const panel = document.createElement('div');
+    panel.className = 'body-training-panel';
+
+    const heroSection = document.createElement('section');
+    heroSection.className = 'body-training-hero';
+
+    const heroMain = document.createElement('div');
+    heroMain.className = 'body-training-hero-main';
+
+    const kickerNode = document.createElement('span');
+    kickerNode.className = 'body-training-kicker';
+    kickerNode.textContent = '炼体层数';
+
+    const levelNode = document.createElement('strong');
+    levelNode.className = 'body-training-level';
+    levelNode.dataset.bodyLevel = 'true';
+
+    const progressNode = document.createElement('span');
+    progressNode.className = 'body-training-progress-text';
+    progressNode.dataset.bodyProgress = 'true';
+
+    heroMain.append(kickerNode, levelNode, progressNode);
+
+    const progressBar = document.createElement('div');
+    progressBar.className = 'body-training-progress-bar';
+
+    const fillNode = document.createElement('span');
+    fillNode.className = 'body-training-progress-fill';
+    fillNode.dataset.bodyProgressFill = 'true';
+    progressBar.append(fillNode);
+
+    const remainNode = document.createElement('div');
+    remainNode.className = 'body-training-hero-note';
+    remainNode.dataset.bodyRemain = 'true';
+
+    heroSection.append(heroMain, progressBar, remainNode);
+
+    const gridSection = document.createElement('section');
+    gridSection.className = 'body-training-grid';
+
+    const bonusCard = document.createElement('article');
+    bonusCard.className = 'body-training-card';
+    const bonusLabel = document.createElement('span');
+    bonusLabel.className = 'body-training-card-label';
+    bonusLabel.textContent = '当前总加成';
+    const bonusNode = document.createElement('strong');
+    bonusNode.className = 'body-training-card-value';
+    bonusNode.dataset.bodyBonusSummary = 'true';
+    bonusCard.append(bonusLabel, bonusNode);
+
+    const foundationCard = document.createElement('article');
+    foundationCard.className = 'body-training-card';
+    const foundationLabel = document.createElement('span');
+    foundationLabel.className = 'body-training-card-label';
+    foundationLabel.textContent = '当前底蕴';
+    const foundationNode = document.createElement('strong');
+    foundationNode.className = 'body-training-card-value';
+    foundationNode.dataset.bodyFoundation = 'true';
+    const foundationNoteNode = document.createElement('span');
+    foundationNoteNode.className = 'body-training-card-note';
+    foundationNoteNode.dataset.bodyFoundationNote = 'true';
+    foundationCard.append(foundationLabel, foundationNode, foundationNoteNode);
+
+    const infuseCard = document.createElement('article');
+    infuseCard.className = 'body-training-card body-training-card--wide body-training-card--accent';
+    const infuseLabel = document.createElement('span');
+    infuseLabel.className = 'body-training-card-label';
+    infuseLabel.textContent = '灌注炼体';
+    const previewNode = document.createElement('strong');
+    previewNode.className = 'body-training-card-value';
+    previewNode.dataset.bodyInfusePreview = 'true';
+    const detailNode = document.createElement('span');
+    detailNode.className = 'body-training-card-note';
+    detailNode.dataset.bodyInfuseDetail = 'true';
+    const buttonNode = createSmallBtn('灌注炼体', {
+      className: 'body-training-infuse-btn',
+      dataset: { bodyInfuse: 'true' },
+    });
+    infuseCard.append(infuseLabel, previewNode, detailNode, buttonNode);
+
+    gridSection.append(bonusCard, foundationCard, infuseCard);
+    panel.append(heroSection, gridSection);
+
+    this.pane.replaceChildren(panel);
+    this.levelNode = levelNode;
+    this.progressNode = progressNode;
+    this.fillNode = fillNode;
+    this.remainNode = remainNode;
+    this.bonusNode = bonusNode;
+    this.foundationNode = foundationNode;
+    this.foundationNoteNode = foundationNoteNode;
+    this.previewNode = previewNode;
+    this.detailNode = detailNode;
+    this.buttonNode = buttonNode;
+    this.bindEvents();
   }
 
 /** patch：执行对应的业务逻辑。 */
   private patch(state: BodyTrainingState, foundation: number): boolean {
-/** levelNode：定义该变量以承载业务值。 */
-    const levelNode = this.pane.querySelector<HTMLElement>('[data-body-level="true"]');
-/** progressNode：定义该变量以承载业务值。 */
-    const progressNode = this.pane.querySelector<HTMLElement>('[data-body-progress="true"]');
-/** fillNode：定义该变量以承载业务值。 */
-    const fillNode = this.pane.querySelector<HTMLElement>('[data-body-progress-fill="true"]');
-/** remainNode：定义该变量以承载业务值。 */
-    const remainNode = this.pane.querySelector<HTMLElement>('[data-body-remain="true"]');
-/** bonusNode：定义该变量以承载业务值。 */
-    const bonusNode = this.pane.querySelector<HTMLElement>('[data-body-bonus-summary="true"]');
-/** foundationNode：定义该变量以承载业务值。 */
-    const foundationNode = this.pane.querySelector<HTMLElement>('[data-body-foundation="true"]');
-/** foundationNoteNode：定义该变量以承载业务值。 */
-    const foundationNoteNode = this.pane.querySelector<HTMLElement>('[data-body-foundation-note="true"]');
-/** previewNode：定义该变量以承载业务值。 */
-    const previewNode = this.pane.querySelector<HTMLElement>('[data-body-infuse-preview="true"]');
-/** detailNode：定义该变量以承载业务值。 */
-    const detailNode = this.pane.querySelector<HTMLElement>('[data-body-infuse-detail="true"]');
-/** buttonNode：定义该变量以承载业务值。 */
-    const buttonNode = this.pane.querySelector<HTMLButtonElement>('[data-body-infuse="true"]');
+    const levelNode = this.levelNode;
+    const progressNode = this.progressNode;
+    const fillNode = this.fillNode;
+    const remainNode = this.remainNode;
+    const bonusNode = this.bonusNode;
+    const foundationNode = this.foundationNode;
+    const foundationNoteNode = this.foundationNoteNode;
+    const previewNode = this.previewNode;
+    const detailNode = this.detailNode;
+    const buttonNode = this.buttonNode;
     if (!levelNode
       || !progressNode
       || !fillNode
@@ -391,6 +479,7 @@ export class BodyTrainingPanel {
     const plan = this.getSelectedPlan();
     detailModalHost.open({
       ownerId: BodyTrainingPanel.MODAL_OWNER,
+      size: 'sm',
       variantClass: 'detail-modal--body-training-infuse',
       title: '灌注炼体',
       subtitle: `当前第 ${formatDisplayInteger(this.baseState.level)} 层`,
@@ -575,4 +664,3 @@ export class BodyTrainingPanel {
     return buildInfusionPlan(this.baseState, this.clampLevelGain(this.selectedLevelGain));
   }
 }
-

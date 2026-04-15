@@ -8,12 +8,12 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const ROOT = process.cwd();
-const ITEMS_ROOT = path.join(ROOT, 'packages/server/data/content/items');
-const TECHNIQUES_ROOT = path.join(ROOT, 'packages/server/data/content/techniques/练气期');
+const ITEMS_ROOT = path.join(ROOT, 'legacy/server/data/content/items');
+const TECHNIQUES_ROOT = path.join(ROOT, 'legacy/server/data/content/techniques/练气期');
 /**
  * 记录monsters根目录。
  */
-const MONSTERS_ROOT = path.join(ROOT, 'packages/server/data/content/monsters');
+const MONSTERS_ROOT = path.join(ROOT, 'legacy/server/data/content/monsters');
 
 /**
  * 记录品阶order。

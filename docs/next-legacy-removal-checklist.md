@@ -80,7 +80,7 @@
 对应口径：
 
 - 不再有旧客户端、旧 GM 工具、旧运营脚本依赖这些入口
-- `AppModule` 不再需要通过 [compat-http.registry.js](../packages/server-next/src/compat/compat-http.registry.js) 批量挂载 compat controller/provider
+- `AppModule` 不再需要通过 [compat-http.registry.js](../packages/server/src/compat/compat-http.registry.js) 批量挂载 compat controller/provider
 
 ### L3 自动 proof 全绿
 
@@ -138,13 +138,13 @@
 
 | 文件 | 当前角色 | 为什么不能删 | 删除门槛 |
 | --- | --- | --- | --- |
-| `packages/server-next/src/network/world-legacy-player-source.service.js` | 玩家 identity/snapshot compat 真源 | authenticated 主链仍可回读 legacy 玩家源 | `L1` |
-| [world-legacy-player-repository.js](../packages/server-next/src/network/world-legacy-player-repository.js) | legacy 玩家行查询 helper | 被 legacy player source 与 legacy auth HTTP 复用 | `L1` |
-| [world-legacy-jwt.service.js](../packages/server-next/src/network/world-legacy-jwt.service.js) | legacy JWT 兼容层 | token 真源未完全 next-native | `L1` |
-| [world-player-token-compat.js](../packages/server-next/src/network/world-player-token-compat.js) | token payload compat 归一 | 仍被 next token codec 使用 | `L1` |
-| `packages/server-next/src/network/world-legacy-sync.service.js` | legacy 同步分支 | `WorldSyncService` 仍注入并在 legacy 协议面工作 | `L1` |
-| [player-snapshot-compat.js](../packages/server-next/src/persistence/player-snapshot-compat.js) | next snapshot 读兼容归一 | `PlayerPersistenceService` 仍在运行态使用 | `L1` |
-| [world-player-source.service.js](../packages/server-next/src/network/world-player-source.service.js) | 当前还是 legacy facade | 壳本身不该先删，得先把 provider 换掉 | `L1` |
+| `packages/server/src/network/world-legacy-player-source.service.js` | 玩家 identity/snapshot compat 真源 | authenticated 主链仍可回读 legacy 玩家源 | `L1` |
+| [world-legacy-player-repository.js](../packages/server/src/network/world-legacy-player-repository.js) | legacy 玩家行查询 helper | 被 legacy player source 与 legacy auth HTTP 复用 | `L1` |
+| [world-legacy-jwt.service.js](../packages/server/src/network/world-legacy-jwt.service.js) | legacy JWT 兼容层 | token 真源未完全 next-native | `L1` |
+| [world-player-token-compat.js](../packages/server/src/network/world-player-token-compat.js) | token payload compat 归一 | 仍被 next token codec 使用 | `L1` |
+| `packages/server/src/network/world-legacy-sync.service.js` | legacy 同步分支 | `WorldSyncService` 仍注入并在 legacy 协议面工作 | `L1` |
+| [player-snapshot-compat.js](../packages/server/src/persistence/player-snapshot-compat.js) | next snapshot 读兼容归一 | `PlayerPersistenceService` 仍在运行态使用 | `L1` |
+| [world-player-source.service.js](../packages/server/src/network/world-player-source.service.js) | 当前还是 legacy facade | 壳本身不该先删，得先把 provider 换掉 | `L1` |
 
 ### B. 仍提供外部兼容入口，当前不能删
 
@@ -152,24 +152,24 @@
 
 | 文件 | 当前角色 | 为什么不能删 | 删除门槛 |
 | --- | --- | --- | --- |
-| [compat-http.registry.js](../packages/server-next/src/compat/compat-http.registry.js) | compat HTTP 聚合注册 | `AppModule` 还靠它挂旧 controller/provider | `L2` |
-| [legacy-auth.service.js](../packages/server-next/src/compat/legacy/legacy-auth.service.js) | legacy HTTP auth 主服务 | `/auth/*` 与兼容登录仍依赖它 | `L2` |
-| `packages/server-next/src/compat/legacy/http/legacy-auth-http.service.js` | legacy `/auth/*` HTTP 兼容 | 旧登录入口仍在 | `L2` |
-| [legacy-account-http.service.js](../packages/server-next/src/compat/legacy/http/legacy-account-http.service.js) | legacy `/account/*` HTTP 兼容 | 旧账号修改入口仍在 | `L2` |
-| `packages/server-next/src/compat/legacy/http/legacy-gm-http-auth.service.js` | legacy GM HTTP 鉴权 | 旧 GM HTTP 入口仍依赖 | `L2` |
-| [legacy-gm-http-auth.guard.js](../packages/server-next/src/compat/legacy/http/legacy-gm-http-auth.guard.js) | legacy GM HTTP guard | 旧 GM controller 仍依赖 | `L2` |
-| `packages/server-next/src/compat/legacy/http/legacy-gm-http-compat.service.js` | legacy GM HTTP 行为壳 | `/gm/*` 兼容接口仍依赖 | `L2` |
-| [legacy-gm.controller.js](../packages/server-next/src/compat/legacy/http/legacy-gm.controller.js) | legacy GM HTTP controller | 旧 GM 入口仍挂载 | `L2` |
-| [legacy-gm-admin-compat.service.js](../packages/server-next/src/compat/legacy/http/legacy-gm-admin-compat.service.js) | legacy GM admin 兼容服务 | database/state/backup/restore 兼容入口仍在 | `L2` |
-| [legacy-gm-admin.controller.js](../packages/server-next/src/compat/legacy/http/legacy-gm-admin.controller.js) | legacy GM admin controller | 旧 GM admin 入口仍挂载 | `L2` |
-| [legacy-gm-auth.controller.js](../packages/server-next/src/compat/legacy/http/legacy-gm-auth.controller.js) | legacy GM 登录入口 | 旧 GM 登录仍兼容 | `L2` |
-| [legacy-gm-redeem-code.controller.js](../packages/server-next/src/compat/legacy/http/legacy-gm-redeem-code.controller.js) | legacy GM redeem controller | 旧 GM redeem 入口仍挂载 | `L2` |
-| [legacy-auth.controller.js](../packages/server-next/src/compat/legacy/http/legacy-auth.controller.js) | legacy auth controller | 旧 `/auth/*` controller 层 | `L2` |
-| [legacy-account.controller.js](../packages/server-next/src/compat/legacy/http/legacy-account.controller.js) | 旧账号入口 controller | 旧 `/account/*` controller 层 | `L2` |
-| [legacy-database-restore-coordinator.service.js](../packages/server-next/src/compat/legacy/http/legacy-database-restore-coordinator.service.js) | legacy restore 协调 | restore 兼容流程仍依赖 | `L2` |
-| `packages/server-next/src/compat/legacy/legacy-gm-compat.service.js` | legacy GM socket / runtime compat 壳 | `world-gm-socket`、projection、tick 仍引用 | `L2` |
-| [legacy-session-bootstrap.service.js](../packages/server-next/src/compat/legacy/legacy-session-bootstrap.service.js) | legacy socket bootstrap compat | 仍通过 compat registry 注入 | `L2` |
-| [legacy-auth-readiness-warmup.service.js](../packages/server-next/src/health/legacy-auth-readiness-warmup.service.js) | legacy auth readiness 预热 | compat HTTP providers 仍挂载 | `L2` |
+| [compat-http.registry.js](../packages/server/src/compat/compat-http.registry.js) | compat HTTP 聚合注册 | `AppModule` 还靠它挂旧 controller/provider | `L2` |
+| [legacy-auth.service.js](../packages/server/src/compat/legacy/legacy-auth.service.js) | legacy HTTP auth 主服务 | `/auth/*` 与兼容登录仍依赖它 | `L2` |
+| `packages/server/src/compat/legacy/http/legacy-auth-http.service.js` | legacy `/auth/*` HTTP 兼容 | 旧登录入口仍在 | `L2` |
+| [legacy-account-http.service.js](../packages/server/src/compat/legacy/http/legacy-account-http.service.js) | legacy `/account/*` HTTP 兼容 | 旧账号修改入口仍在 | `L2` |
+| `packages/server/src/compat/legacy/http/legacy-gm-http-auth.service.js` | legacy GM HTTP 鉴权 | 旧 GM HTTP 入口仍依赖 | `L2` |
+| [legacy-gm-http-auth.guard.js](../packages/server/src/compat/legacy/http/legacy-gm-http-auth.guard.js) | legacy GM HTTP guard | 旧 GM controller 仍依赖 | `L2` |
+| `packages/server/src/compat/legacy/http/legacy-gm-http-compat.service.js` | legacy GM HTTP 行为壳 | `/gm/*` 兼容接口仍依赖 | `L2` |
+| [legacy-gm.controller.js](../packages/server/src/compat/legacy/http/legacy-gm.controller.js) | legacy GM HTTP controller | 旧 GM 入口仍挂载 | `L2` |
+| [legacy-gm-admin-compat.service.js](../packages/server/src/compat/legacy/http/legacy-gm-admin-compat.service.js) | legacy GM admin 兼容服务 | database/state/backup/restore 兼容入口仍在 | `L2` |
+| [legacy-gm-admin.controller.js](../packages/server/src/compat/legacy/http/legacy-gm-admin.controller.js) | legacy GM admin controller | 旧 GM admin 入口仍挂载 | `L2` |
+| [legacy-gm-auth.controller.js](../packages/server/src/compat/legacy/http/legacy-gm-auth.controller.js) | legacy GM 登录入口 | 旧 GM 登录仍兼容 | `L2` |
+| [legacy-gm-redeem-code.controller.js](../packages/server/src/compat/legacy/http/legacy-gm-redeem-code.controller.js) | legacy GM redeem controller | 旧 GM redeem 入口仍挂载 | `L2` |
+| [legacy-auth.controller.js](../packages/server/src/compat/legacy/http/legacy-auth.controller.js) | legacy auth controller | 旧 `/auth/*` controller 层 | `L2` |
+| [legacy-account.controller.js](../packages/server/src/compat/legacy/http/legacy-account.controller.js) | 旧账号入口 controller | 旧 `/account/*` controller 层 | `L2` |
+| [legacy-database-restore-coordinator.service.js](../packages/server/src/compat/legacy/http/legacy-database-restore-coordinator.service.js) | legacy restore 协调 | restore 兼容流程仍依赖 | `L2` |
+| `packages/server/src/compat/legacy/legacy-gm-compat.service.js` | legacy GM socket / runtime compat 壳 | `world-gm-socket`、projection、tick 仍引用 | `L2` |
+| [legacy-session-bootstrap.service.js](../packages/server/src/compat/legacy/legacy-session-bootstrap.service.js) | legacy socket bootstrap compat | 仍通过 compat registry 注入 | `L2` |
+| [legacy-auth-readiness-warmup.service.js](../packages/server/src/health/legacy-auth-readiness-warmup.service.js) | legacy auth readiness 预热 | compat HTTP providers 仍挂载 | `L2` |
 
 ### C. 主要是 compat 基础工具，最后随入口一起删
 
@@ -177,9 +177,9 @@
 
 | 文件 | 当前角色 | 建议 |
 | --- | --- | --- |
-| [legacy-password-hash.js](../packages/server-next/src/compat/legacy/legacy-password-hash.js) | 旧密码 hash helper | 跟 legacy auth HTTP 一起删 |
-| [legacy-account-validation.js](../packages/server-next/src/compat/legacy/legacy-account-validation.js) | 旧账号字段校验 | 跟 legacy `/auth/*`、`/account/*` 一起删 |
-| [legacy-gm-compat.constants.js](../packages/server-next/src/compat/legacy/legacy-gm-compat.constants.js) | GM compat 常量 | 跟 GM compat 服务一起删 |
+| [legacy-password-hash.js](../packages/server/src/compat/legacy/legacy-password-hash.js) | 旧密码 hash helper | 跟 legacy auth HTTP 一起删 |
+| [legacy-account-validation.js](../packages/server/src/compat/legacy/legacy-account-validation.js) | 旧账号字段校验 | 跟 legacy `/auth/*`、`/account/*` 一起删 |
+| [legacy-gm-compat.constants.js](../packages/server/src/compat/legacy/legacy-gm-compat.constants.js) | GM compat 常量 | 跟 GM compat 服务一起删 |
 
 ### D. 只是验证 / 审计脚本，不是运行主链阻塞
 
@@ -187,10 +187,10 @@
 
 | 文件 | 当前角色 | 什么时候删 |
 | --- | --- | --- |
-| [legacy-auth-smoke.js](../packages/server-next/src/tools/compat/legacy-auth-smoke.js) | 验证 legacy HTTP auth 兼容 | `L2-L4` 之后 |
-| [legacy-player-compat-smoke.js](../packages/server-next/src/tools/compat/legacy-player-compat-smoke.js) | 验证 legacy 玩家 socket 兼容 | `L2-L4` 之后 |
-| [gm-compat-smoke.js](../packages/server-next/src/tools/compat/gm-compat-smoke.js) | 验证 GM compat 关键链路 | `L2-L4` 之后 |
-| [next-legacy-boundary-audit.js](../packages/server-next/src/tools/audit/next-legacy-boundary-audit.js) | 审计 legacy 边界是否继续扩散 | 最后删除，直到完全不需要监控 legacy 边界 |
+| [legacy-auth-smoke.js](../packages/server/src/tools/compat/legacy-auth-smoke.js) | 验证 legacy HTTP auth 兼容 | `L2-L4` 之后 |
+| [legacy-player-compat-smoke.js](../packages/server/src/tools/compat/legacy-player-compat-smoke.js) | 验证 legacy 玩家 socket 兼容 | `L2-L4` 之后 |
+| [gm-compat-smoke.js](../packages/server/src/tools/compat/gm-compat-smoke.js) | 验证 GM compat 关键链路 | `L2-L4` 之后 |
+| [next-legacy-boundary-audit.js](../packages/server/src/tools/audit/next-legacy-boundary-audit.js) | 审计 legacy 边界是否继续扩散 | 最后删除，直到完全不需要监控 legacy 边界 |
 
 ### E. 已接近可清理候选
 
@@ -198,7 +198,7 @@
 
 | 文件 | 当前判断 | 建议动作 |
 | --- | --- | --- |
-| [packages/server-next/src/auth/legacy-auth.service.js](../packages/server-next/src/auth/legacy-auth.service.js) | 当前未发现仓库内引用，更像旧位置残留副本；但该文件在当前工作区已存在未提交改动 | 先人工复核，再决定直接删或迁归档 |
+| [packages/server/src/auth/legacy-auth.service.js](../packages/server/src/auth/legacy-auth.service.js) | 当前未发现仓库内引用，更像旧位置残留副本；但该文件在当前工作区已存在未提交改动 | 先人工复核，再决定直接删或迁归档 |
 
 ## 三、现在可以做什么
 

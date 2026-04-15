@@ -1,4 +1,4 @@
-import type { AttrBonus, ElementKey, HeavenGateRootValues } from '@mud/shared';
+import type { AttrBonus, ElementKey, HeavenGateRootValues } from '@mud/shared-next';
 import { ELEMENT_KEY_LABELS } from '../domain-labels';
 
 /** ELEMENTS：定义该变量以承载业务值。 */

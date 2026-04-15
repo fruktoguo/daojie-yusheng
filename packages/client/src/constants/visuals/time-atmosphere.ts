@@ -2,7 +2,7 @@
  * 时间阶段对应的环境光与渐变叠加参数
  */
 
-import type { TimePhaseId } from '@mud/shared';
+import type { TimePhaseId } from '@mud/shared-next';
 
 /** 隐藏状态格子渐入时长（毫秒） */
 export const TILE_HIDDEN_FADE_MS = 220;

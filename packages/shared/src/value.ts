@@ -555,7 +555,7 @@ function formatEquipmentStatValue(key: string, value: number): string {
 }
 
 /** describeAttrBonus：执行对应的业务逻辑。 */
-function describeAttrBonus(attrs?: Partial<Attributes>, mode: 'flat' | 'percent' = 'flat'): string[] {
+function describeAttrBonus(attrs?: Partial<Attributes>): string[] {
   if (!attrs) {
     return [];
   }
@@ -566,13 +566,13 @@ function describeAttrBonus(attrs?: Partial<Attributes>, mode: 'flat' | 'percent'
     if (!amount) {
       continue;
     }
-    parts.push(`${getAttrLabel(key)}+${mode === 'percent' ? `${formatNumber(amount)}%` : formatNumber(amount)}`);
+    parts.push(`${getAttrLabel(key)}+${formatNumber(amount)}`);
   }
   return parts;
 }
 
 /** describeStatBonus：执行对应的业务逻辑。 */
-function describeStatBonus(stats?: PartialNumericStats, mode: 'flat' | 'percent' = 'flat'): string[] {
+function describeStatBonus(stats?: PartialNumericStats): string[] {
   if (!stats) {
     return [];
   }
@@ -583,17 +583,17 @@ function describeStatBonus(stats?: PartialNumericStats, mode: 'flat' | 'percent'
     if (!amount) {
       continue;
     }
-    parts.push(`${getNumericStatLabel(key)}+${mode === 'percent' ? `${formatNumber(amount)}%` : formatEquipmentStatValue(key, amount)}`);
+    parts.push(`${getNumericStatLabel(key)}+${formatEquipmentStatValue(key, amount)}`);
   }
   for (const element of ELEMENT_KEYS) {
     const bonus = stats.elementDamageBonus?.[element];
     if (bonus) {
-      parts.push(`${element}行增伤+${mode === 'percent' ? `${formatNumber(bonus)}%` : formatNumber(bonus)}`);
+      parts.push(`${element}行增伤+${formatNumber(bonus)}`);
     }
 /** reduce：定义该变量以承载业务值。 */
     const reduce = stats.elementDamageReduce?.[element];
     if (reduce) {
-      parts.push(`${element}行减伤+${mode === 'percent' ? `${formatNumber(reduce)}%` : formatNumber(reduce)}`);
+      parts.push(`${element}行减伤+${formatNumber(reduce)}`);
     }
   }
   return parts;
@@ -655,9 +655,9 @@ function describeEquipmentEffect(effect: EquipmentEffectDef): string {
   const conditionText = describeEquipmentConditions(effect);
   switch (effect.type) {
     case 'stat_aura':
-      return `常驻特效:${[...describeAttrBonus(effect.attrs, effect.attrMode), ...describeStatBonus(effect.stats, effect.statMode)].join(' / ') || '无数值变化'}${conditionText}`;
+      return `常驻特效:${[...describeAttrBonus(effect.attrs), ...describeStatBonus(effect.stats)].join(' / ') || '无数值变化'}${conditionText}`;
     case 'progress_boost':
-      return `推进特效:${[...describeAttrBonus(effect.attrs, effect.attrMode), ...describeStatBonus(effect.stats, effect.statMode)].join(' / ') || '无数值变化'}${conditionText}`;
+      return `推进特效:${[...describeAttrBonus(effect.attrs), ...describeStatBonus(effect.stats)].join(' / ') || '无数值变化'}${conditionText}`;
     case 'periodic_cost': {
 /** amount：定义该变量以承载业务值。 */
       const amount = effect.mode === 'flat'
@@ -686,7 +686,7 @@ function describeEquipmentEffect(effect: EquipmentEffectDef): string {
         metaParts.push(`概率${formatNumber(effect.chance * 100)}%`);
       }
 /** effectParts：定义该变量以承载业务值。 */
-      const effectParts = [...describeAttrBonus(effect.buff.attrs, effect.buff.attrMode), ...describeStatBonus(effect.buff.stats, effect.buff.statMode)];
+      const effectParts = [...describeAttrBonus(effect.buff.attrs), ...describeStatBonus(effect.buff.stats)];
 /** descPart：定义该变量以承载业务值。 */
       const descPart = effect.buff.desc ? `；${effect.buff.desc}` : '';
       return `触发特效:${metaParts.join(' · ')}，获得${effect.buff.name}${conditionText}${effectParts.length > 0 ? `，效果:${effectParts.join(' / ')}` : ''}${descPart}`;

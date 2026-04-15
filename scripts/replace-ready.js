@@ -12,7 +12,7 @@ const repoRoot = path.resolve(__dirname, '..');
 const {
   resolveServerNextDatabaseEnvSource,
   resolveServerNextDatabaseUrl,
-} = require('../packages/server-next/src/config/env-alias');
+} = require('../packages/server/src/config/env-alias');
 
 /**
  * 记录数据库地址。
@@ -25,9 +25,12 @@ const databaseEnvSource = resolveServerNextDatabaseEnvSource();
 /**
  * 记录校验script名称。
  */
-const verifyScriptName = databaseUrl
+const verifyPackageScriptName = databaseUrl
   ? 'verify:replace-ready:with-db'
   : 'verify:replace-ready';
+const verifyDisplayScriptName = databaseUrl
+  ? 'verify:server-next:with-db'
+  : 'verify:server-next';
 /**
  * 记录replace就绪状态mode。
  */
@@ -47,7 +50,7 @@ const childEnv = {
  */
 const steps = [
   { label: 'build:client-next', args: ['build:client-next'] },
-  { label: verifyScriptName, args: ['--filter', '@mud/server-next', verifyScriptName] },
+  { label: verifyDisplayScriptName, args: ['--filter', '@mud/server-next', verifyPackageScriptName] },
   { label: 'audit:server-next-protocol', args: ['audit:server-next-protocol'] },
 ];
 
@@ -78,5 +81,5 @@ for (const step of steps) {
 
 process.stdout.write(`[replace-ready] completed mode=${replaceReadyMode}\n`);
 process.stdout.write('[replace-ready] boundary=local proof only; this does not include shadow acceptance or complete GM/admin regression\n');
-process.stdout.write('[replace-ready] next=run pnpm verify:replace-ready:acceptance for shadow + gm-compat, or pnpm verify:replace-ready:full for the strictest automated gate\n');
+process.stdout.write('[replace-ready] next=run pnpm verify:server-next:acceptance for shadow + gm-compat, or pnpm verify:server-next:full for the strictest automated gate\n');
 process.exit(0);

@@ -27,11 +27,29 @@ const sharedName = normalizeSharedName(args.shared);
 /**
  * 记录内容目录。
  */
-const contentDir = path.join(repoRoot, 'packages/server/data/content');
+const contentDir = path.join(repoRoot, 'legacy/server/data/content');
+function resolvePackagesDirName(name) {
+  if (name === 'client-next') {
+    return 'client';
+  }
+  if (name === 'server-next') {
+    return 'server';
+  }
+  if (name === 'shared-next') {
+    return 'shared';
+  }
+  return name;
+}
+function resolveWorkspacePackageDir(name) {
+  const nextDir = path.join(repoRoot, 'packages', resolvePackagesDirName(name));
+  return name.endsWith('-next') || name === 'config-editor'
+    ? nextDir
+    : path.join(repoRoot, 'legacy', name);
+}
 /**
  * 记录客户端包目录。
  */
-const clientDir = path.join(repoRoot, 'packages', clientName);
+const clientDir = resolveWorkspacePackageDir(clientName);
 /**
  * 指定编辑器目录生成文件的输出路径。
  */
@@ -44,7 +62,7 @@ const realmLevelsPath = path.join(contentDir, 'realm-levels.json');
 /**
  * 动态加载目标 shared 包构建产物，复用功法计算逻辑。
  */
-const sharedModule = await import(pathToFileURL(path.join(repoRoot, 'packages', sharedName, 'dist/index.js')).href);
+const sharedModule = await import(pathToFileURL(path.join(resolveWorkspacePackageDir(sharedName), 'dist/index.js')).href);
 const {
   calculateTechniqueSkillQiCost,
   scaleTechniqueExp,

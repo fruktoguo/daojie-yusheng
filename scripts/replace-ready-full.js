@@ -17,7 +17,7 @@ const {
   resolveServerNextGmPasswordEnvSource,
   resolveServerNextShadowUrl,
   resolveServerNextShadowUrlEnvSource,
-} = require('../packages/server-next/src/config/env-alias');
+} = require('../packages/server/src/config/env-alias');
 
 /**
  * 记录数据库地址。
@@ -54,7 +54,7 @@ if (!databaseUrl || !shadowUrl || !gmPassword) {
     gmPassword ? null : 'SERVER_NEXT_GM_PASSWORD/GM_PASSWORD',
   ].filter(Boolean);
   process.stderr.write(`replace-ready full requires: ${missing.join(' + ')}\n`);
-  process.stderr.write('run pnpm verify:replace-ready:doctor first, then set the missing env and rerun pnpm verify:replace-ready:full\n');
+  process.stderr.write('run pnpm verify:server-next:doctor first, then set the missing env and rerun pnpm verify:server-next:full\n');
   process.exit(1);
 }
 

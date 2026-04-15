@@ -16,7 +16,7 @@ import type {
   QuestObjectiveType,
   QuestStatus,
   TechniqueCategory,
-} from '@mud/shared';
+} from '@mud/shared-next';
 import {
   ACTION_TYPE_LABELS,
   ATTR_KEY_LABELS,
@@ -35,7 +35,7 @@ import {
   TECHNIQUE_GRADE_LABELS,
   TECHNIQUE_REALM_LABELS,
   TILE_TYPE_LABELS,
-} from '@mud/shared';
+} from '@mud/shared-next';
 
 export {
   ATTR_KEY_LABELS,

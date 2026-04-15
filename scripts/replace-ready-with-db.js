@@ -12,7 +12,7 @@ const repoRoot = path.resolve(__dirname, '..');
 const {
   resolveServerNextDatabaseEnvSource,
   resolveServerNextDatabaseUrl,
-} = require('../packages/server-next/src/config/env-alias');
+} = require('../packages/server/src/config/env-alias');
 
 /**
  * 记录数据库地址。
@@ -25,7 +25,7 @@ const databaseEnvSource = resolveServerNextDatabaseEnvSource();
 
 if (!databaseUrl) {
   process.stderr.write('replace-ready with-db requires DATABASE_URL or SERVER_NEXT_DATABASE_URL\n');
-  process.stderr.write('set DATABASE_URL or SERVER_NEXT_DATABASE_URL first, then run pnpm verify:replace-ready:with-db\n');
+  process.stderr.write('set DATABASE_URL or SERVER_NEXT_DATABASE_URL first, then run pnpm verify:server-next:with-db\n');
   process.exit(1);
 }
 
@@ -41,11 +41,11 @@ const childEnv = {
  */
 const steps = [
   { label: 'build:client-next', args: ['build:client-next'] },
-  { label: 'verify:replace-ready:with-db', args: ['--filter', '@mud/server-next', 'verify:replace-ready:with-db'] },
+  { label: 'verify:server-next:with-db', args: ['--filter', '@mud/server-next', 'verify:replace-ready:with-db'] },
   { label: 'audit:server-next-protocol', args: ['audit:server-next-protocol'] },
 ];
 
-process.stdout.write('[replace-ready:with-db] steps=build:client-next -> verify:replace-ready:with-db -> audit:server-next-protocol\n');
+process.stdout.write('[replace-ready:with-db] steps=build:client-next -> verify:server-next:with-db -> audit:server-next-protocol\n');
 
 for (const step of steps) {
   process.stdout.write(`[replace-ready:with-db] start step=${step.label}\n`);

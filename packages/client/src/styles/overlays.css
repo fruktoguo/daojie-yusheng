@@ -722,6 +722,15 @@
       border: 1px solid var(--wash-ink);
       background: var(--surface-gradient-entry);
     }
+    .observe-entity-card--interactive {
+      width: 100%;
+      text-align: left;
+      cursor: pointer;
+    }
+    .observe-entity-card--interactive:hover {
+      border-color: rgba(125, 27, 27, 0.38);
+      background: var(--surface-hover);
+    }
     .observe-entity-head {
       display: flex;
       align-items: baseline;

@@ -14,7 +14,7 @@ const {
   resolveServerNextGmPasswordEnvSource,
   resolveServerNextShadowUrl,
   resolveServerNextShadowUrlEnvSource,
-} = require('../packages/server-next/src/config/env-alias');
+} = require('../packages/server/src/config/env-alias');
 
 /**
  * 记录shadow 环境地址。
@@ -42,7 +42,7 @@ if (!shadowUrl || !gmPassword) {
     gmPassword ? null : 'SERVER_NEXT_GM_PASSWORD/GM_PASSWORD',
   ].filter(Boolean);
   process.stderr.write(`replace-ready acceptance requires shadow env: ${missing.join(' + ')}\n`);
-  process.stderr.write('run pnpm verify:replace-ready:doctor first, then set the missing env and rerun pnpm verify:replace-ready:acceptance\n');
+  process.stderr.write('run pnpm verify:server-next:doctor first, then set the missing env and rerun pnpm verify:server-next:acceptance\n');
   process.exit(1);
 }
 
@@ -111,5 +111,5 @@ for (const step of steps) {
 
 process.stdout.write('[replace-ready:acceptance] completed\n');
 process.stdout.write('[replace-ready:acceptance] boundary=enhanced gate only; this still does not equal complete GM/admin manual regression\n');
-process.stdout.write('[replace-ready:acceptance] next=run pnpm verify:replace-ready:full when database, shadow and GM env are all ready and you want the strictest automated gate\n');
+process.stdout.write('[replace-ready:acceptance] next=run pnpm verify:server-next:full when database, shadow and GM env are all ready and you want the strictest automated gate\n');
 process.exit(0);

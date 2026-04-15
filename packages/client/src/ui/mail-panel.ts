@@ -6,10 +6,11 @@ import {
   MailSummaryView,
   renderMailBodyPlain,
   renderMailTitlePlain,
-} from '@mud/shared';
+} from '@mud/shared-next';
 import type { SocketManager } from '../network/socket';
 import { getLocalItemTemplate } from '../content/local-templates';
 import { detailModalHost } from './detail-modal-host';
+import { createEmptyHint } from './ui-primitives';
 
 /** escapeHtml：执行对应的业务逻辑。 */
 function escapeHtml(value: string): string {
@@ -71,6 +72,23 @@ type MailModalMeta = {
   hint: string;
 };
 
+type MailDetailRefs = {
+  titleNode: HTMLElement;
+  senderNode: HTMLElement;
+  createdAtNode: HTMLElement;
+  expireNode: HTMLElement;
+  markReadButton: HTMLButtonElement;
+  claimButton: HTMLButtonElement;
+  deleteButton: HTMLButtonElement;
+  bodyNode: HTMLElement;
+  attachmentPagination: HTMLElement;
+  attachmentPageMeta: HTMLElement;
+  attachmentPrevButton: HTMLButtonElement;
+  attachmentNextButton: HTMLButtonElement;
+  attachmentList: HTMLElement;
+  attachmentEmpty: HTMLElement;
+};
+
 /** MailPanel：封装相关状态与行为。 */
 export class MailPanel {
   private static readonly MODAL_OWNER = 'mail-panel';
@@ -89,6 +107,7 @@ export class MailPanel {
   private attachmentPage = 1;
   private statusMessage = '';
   private delegatedEventsBound = false;
+  private detailRefs: MailDetailRefs | null = null;
 
 /** constructor：处理当前场景中的对应操作。 */
   constructor(private readonly socket: SocketManager) {
@@ -188,6 +207,7 @@ export class MailPanel {
     this.requestCurrentPage();
     detailModalHost.open({
       ownerId: MailPanel.MODAL_OWNER,
+      size: 'lg',
       variantClass: 'detail-modal--mail',
       title: '飞书台',
       subtitle: `未读 ${this.summary.unreadCount} · 可领取 ${this.summary.claimableCount}`,
@@ -236,6 +256,7 @@ export class MailPanel {
     }
     detailModalHost.open({
       ownerId: MailPanel.MODAL_OWNER,
+      size: 'lg',
       variantClass: 'detail-modal--mail',
       title: '飞书台',
       subtitle: meta.subtitle,
@@ -320,6 +341,259 @@ export class MailPanel {
         </div>
       </div>
     `;
+  }
+
+  private createMailEntryNode(item: MailPageView['items'][number]): HTMLElement {
+    const article = document.createElement('article');
+    article.className = 'mail-entry';
+    article.tabIndex = 0;
+    article.setAttribute('role', 'button');
+    article.dataset.mailSelect = item.mailId;
+
+    const label = document.createElement('label');
+    label.className = 'mail-entry-check';
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.dataset.mailCheck = item.mailId;
+    label.append(checkbox);
+
+    const main = document.createElement('div');
+    main.className = 'mail-entry-main';
+
+    const head = document.createElement('div');
+    head.className = 'mail-entry-head';
+    const titleRow = document.createElement('div');
+    titleRow.className = 'mail-entry-title-row';
+    const title = document.createElement('div');
+    title.className = 'mail-entry-title';
+    title.dataset.mailEntryTitle = 'true';
+    const unreadDot = document.createElement('span');
+    unreadDot.className = 'suggestion-inline-dot';
+    unreadDot.setAttribute('aria-hidden', 'true');
+    unreadDot.dataset.mailEntryUnreadDot = 'true';
+    const time = document.createElement('div');
+    time.className = 'mail-entry-time';
+    time.dataset.mailEntryTime = 'true';
+    titleRow.append(title, unreadDot);
+    head.append(titleRow, time);
+
+    const meta = document.createElement('div');
+    meta.className = 'mail-entry-meta';
+    meta.dataset.mailEntryMeta = 'true';
+
+    const summary = document.createElement('div');
+    summary.className = 'mail-entry-summary';
+    summary.dataset.mailEntrySummary = 'true';
+
+    main.append(head, meta, summary);
+    article.append(label, main);
+    this.patchMailEntryNode(article, item);
+    return article;
+  }
+
+  private patchMailEntryNode(node: HTMLElement, item: MailPageView['items'][number]): boolean {
+    const checkbox = node.querySelector<HTMLInputElement>('[data-mail-check]');
+    const title = node.querySelector<HTMLElement>('[data-mail-entry-title="true"]');
+    const unreadDot = node.querySelector<HTMLElement>('[data-mail-entry-unread-dot="true"]');
+    const time = node.querySelector<HTMLElement>('[data-mail-entry-time="true"]');
+    const meta = node.querySelector<HTMLElement>('[data-mail-entry-meta="true"]');
+    const summary = node.querySelector<HTMLElement>('[data-mail-entry-summary="true"]');
+    if (!checkbox || !title || !unreadDot || !time || !meta || !summary) {
+      return false;
+    }
+    const selected = item.mailId === this.selectedMailId;
+    const checked = this.selectedMailIds.has(item.mailId);
+    const stateChips = [
+      item.read ? '已读' : '未读',
+      item.hasAttachments ? (item.claimed ? '附件已领' : '可领附件') : '无附件',
+    ];
+    node.dataset.mailSelect = item.mailId;
+    node.classList.toggle('selected', selected);
+    checkbox.dataset.mailCheck = item.mailId;
+    checkbox.checked = checked;
+    title.textContent = item.title;
+    unreadDot.hidden = item.read;
+    time.textContent = new Date(item.createdAt).toLocaleString();
+    meta.replaceChildren(
+      ...[
+        item.senderLabel,
+        ...stateChips,
+        ...(item.expireAt ? [`至 ${new Date(item.expireAt).toLocaleString()}`] : []),
+      ].map((text) => {
+        const span = document.createElement('span');
+        span.textContent = text;
+        return span;
+      }),
+    );
+    summary.textContent = item.summary || '这封邮件没有额外说明。';
+    return true;
+  }
+
+  private ensureDetailStructure(detailRoot: HTMLElement): MailDetailRefs {
+    if (this.detailRefs && detailRoot.contains(this.detailRefs.titleNode)) {
+      return this.detailRefs;
+    }
+
+    const head = document.createElement('div');
+    head.className = 'mail-detail-head';
+    const headMain = document.createElement('div');
+    const titleNode = document.createElement('div');
+    titleNode.className = 'mail-detail-title';
+    const meta = document.createElement('div');
+    meta.className = 'mail-detail-meta';
+    const senderNode = document.createElement('span');
+    const createdAtNode = document.createElement('span');
+    const expireNode = document.createElement('span');
+    meta.append(senderNode, createdAtNode, expireNode);
+    headMain.append(titleNode, meta);
+
+    const actions = document.createElement('div');
+    actions.className = 'mail-detail-actions';
+    const markReadButton = document.createElement('button');
+    markReadButton.className = 'small-btn ghost';
+    markReadButton.type = 'button';
+    const claimButton = document.createElement('button');
+    claimButton.className = 'small-btn';
+    claimButton.type = 'button';
+    const deleteButton = document.createElement('button');
+    deleteButton.className = 'small-btn danger';
+    deleteButton.type = 'button';
+    actions.append(markReadButton, claimButton, deleteButton);
+    head.append(headMain, actions);
+
+    const bodyNode = document.createElement('div');
+    bodyNode.className = 'mail-detail-body';
+
+    const attachmentBlock = document.createElement('div');
+    attachmentBlock.className = 'mail-attachment-block';
+    const attachmentHead = document.createElement('div');
+    attachmentHead.className = 'mail-attachment-head';
+    const attachmentTitle = document.createElement('div');
+    attachmentTitle.className = 'mail-attachment-title';
+    attachmentTitle.textContent = '附件';
+    const attachmentPagination = document.createElement('div');
+    attachmentPagination.className = 'mail-attachment-pagination';
+    const attachmentPrevButton = document.createElement('button');
+    attachmentPrevButton.className = 'small-btn ghost';
+    attachmentPrevButton.type = 'button';
+    attachmentPrevButton.dataset.mailAttachmentPage = 'prev';
+    attachmentPrevButton.textContent = '上一页';
+    const attachmentPageMeta = document.createElement('span');
+    attachmentPageMeta.className = 'mail-attachment-page-meta';
+    const attachmentNextButton = document.createElement('button');
+    attachmentNextButton.className = 'small-btn ghost';
+    attachmentNextButton.type = 'button';
+    attachmentNextButton.dataset.mailAttachmentPage = 'next';
+    attachmentNextButton.textContent = '下一页';
+    attachmentPagination.append(attachmentPrevButton, attachmentPageMeta, attachmentNextButton);
+    attachmentHead.append(attachmentTitle, attachmentPagination);
+
+    const attachmentList = document.createElement('div');
+    attachmentList.className = 'mail-attachment-list';
+    const attachmentEmpty = createEmptyHint('这封邮件没有附件');
+
+    attachmentBlock.append(attachmentHead, attachmentList, attachmentEmpty);
+    detailRoot.replaceChildren(head, bodyNode, attachmentBlock);
+
+    this.detailRefs = {
+      titleNode,
+      senderNode,
+      createdAtNode,
+      expireNode,
+      markReadButton,
+      claimButton,
+      deleteButton,
+      bodyNode,
+      attachmentPagination,
+      attachmentPageMeta,
+      attachmentPrevButton,
+      attachmentNextButton,
+      attachmentList,
+      attachmentEmpty,
+    };
+    return this.detailRefs;
+  }
+
+  private patchDetailRoot(detailRoot: HTMLElement, detail: MailDetailView | null): boolean {
+    if (!detail) {
+      this.detailRefs = null;
+      detailRoot.replaceChildren(createEmptyHint('请选择一封邮件查看详情'));
+      return true;
+    }
+
+    const refs = this.ensureDetailStructure(detailRoot);
+    const title = renderMailTitlePlain(detail.templateId, detail.args, detail.fallbackTitle);
+    const body = renderMailBodyPlain(detail.templateId, detail.args, detail.fallbackBody);
+    const totalAttachmentPages = Math.max(1, Math.ceil(detail.attachments.length / MAIL_ATTACHMENT_PAGE_SIZE));
+    const attachmentPage = Math.min(totalAttachmentPages, Math.max(1, this.attachmentPage));
+    this.attachmentPage = attachmentPage;
+    const attachmentStart = (attachmentPage - 1) * MAIL_ATTACHMENT_PAGE_SIZE;
+    const visibleAttachments = detail.attachments.slice(attachmentStart, attachmentStart + MAIL_ATTACHMENT_PAGE_SIZE);
+
+    refs.titleNode.textContent = title;
+    refs.senderNode.textContent = detail.senderLabel;
+    refs.createdAtNode.textContent = new Date(detail.createdAt).toLocaleString();
+    refs.expireNode.textContent = detail.expireAt ? `到期 ${new Date(detail.expireAt).toLocaleString()}` : '长期保留';
+    refs.markReadButton.dataset.mailMarkRead = detail.mailId;
+    refs.claimButton.dataset.mailClaim = detail.mailId;
+    refs.deleteButton.dataset.mailDelete = detail.mailId;
+    refs.markReadButton.textContent = '标已读';
+    refs.claimButton.textContent = '领取附件';
+    refs.deleteButton.textContent = '删除';
+    refs.markReadButton.disabled = detail.read;
+    refs.claimButton.disabled = !detail.attachments.length || detail.claimed;
+    refs.deleteButton.disabled = !detail.deletable;
+    refs.bodyNode.replaceChildren(...(body || '这封邮件没有正文内容。').split('\n').flatMap((line, index, arr) => {
+      const nodes: Node[] = [document.createTextNode(line)];
+      if (index < arr.length - 1) {
+        nodes.push(document.createElement('br'));
+      }
+      return nodes;
+    }));
+
+    refs.attachmentPagination.hidden = detail.attachments.length <= MAIL_ATTACHMENT_PAGE_SIZE;
+    refs.attachmentPageMeta.textContent = `第 ${attachmentPage} / ${totalAttachmentPages} 页`;
+    refs.attachmentPrevButton.disabled = attachmentPage <= 1;
+    refs.attachmentNextButton.disabled = attachmentPage >= totalAttachmentPages;
+    refs.attachmentEmpty.hidden = detail.attachments.length > 0;
+    refs.attachmentList.hidden = detail.attachments.length === 0;
+    refs.attachmentList.replaceChildren(...visibleAttachments.map((attachment) => {
+      const item = document.createElement('div');
+      item.className = 'mail-attachment-item';
+      const name = document.createElement('span');
+      name.className = 'mail-attachment-item-name';
+      name.textContent = getLocalItemTemplate(attachment.itemId)?.name ?? attachment.itemId;
+      const count = document.createElement('strong');
+      count.textContent = `x${attachment.count}`;
+      item.append(name, count);
+      return item;
+    }));
+    return true;
+  }
+
+  private patchListRoot(listRoot: HTMLElement): boolean {
+    const existing = new Map<string, HTMLElement>();
+    listRoot.querySelectorAll<HTMLElement>('[data-mail-select]').forEach((node) => {
+      const mailId = node.dataset.mailSelect;
+      if (mailId) {
+        existing.set(mailId, node);
+      }
+    });
+    if (this.pageData.items.length === 0) {
+      const emptyNode = listRoot.querySelector<HTMLElement>('.empty-hint') ?? createEmptyHint('当前筛选下暂无邮件');
+      emptyNode.textContent = '当前筛选下暂无邮件';
+      listRoot.replaceChildren(emptyNode);
+      return true;
+    }
+    const orderedNodes = this.pageData.items.map((item) => {
+      const node = existing.get(item.mailId) ?? this.createMailEntryNode(item);
+      this.patchMailEntryNode(node, item);
+      existing.delete(item.mailId);
+      return node;
+    });
+    existing.forEach((node) => node.remove());
+    listRoot.replaceChildren(...orderedNodes);
+    return true;
   }
 
 /** renderListEntry：执行对应的业务逻辑。 */
@@ -639,14 +913,13 @@ export class MailPanel {
     prevPageButton.disabled = this.pageData.page <= 1;
     nextPageButton.disabled = this.pageData.page >= this.pageData.totalPages;
 
-    listRoot.innerHTML = this.pageData.items.length > 0
-      ? this.pageData.items.map((item) => this.renderListEntry(item)).join('')
-      : '<div class="empty-hint">当前筛选下暂无邮件</div>';
+    if (!this.patchListRoot(listRoot)) {
+      return false;
+    }
 
 /** detail：定义该变量以承载业务值。 */
     const detail = this.detail && this.selectedMailId === this.detail.mailId ? this.detail : null;
-    detailRoot.innerHTML = detail ? this.renderDetail(detail) : '<div class="empty-hint">请选择一封邮件查看详情</div>';
-    return true;
+    return this.patchDetailRoot(detailRoot, detail);
   }
 
 /** buildModalMeta：执行对应的业务逻辑。 */
@@ -750,4 +1023,3 @@ export class MailPanel {
     button.dataset.hasUnread = hasUnread ? 'true' : 'false';
   }
 }
-

@@ -1,6 +1,6 @@
 import type {
   GmEditorCatalogRes,
-} from '@mud/shared';
+} from '@mud/shared-next';
 import { LOCAL_EDITOR_CATALOG } from '../constants/world/editor-catalog';
 
 /** clone：执行对应的业务逻辑。 */

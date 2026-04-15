@@ -10,7 +10,8 @@ COPY scripts scripts
 COPY docs/tutorial-mechanics.md docs/tutorial-mechanics.md
 COPY packages/shared packages/shared
 COPY packages/server packages/server
-RUN pnpm --filter @mud/shared build && pnpm --filter @mud/server build
+COPY legacy/server/data legacy/server/data
+RUN pnpm --filter @mud/shared-next build && pnpm --filter @mud/server-next compile
 
 FROM node:20-alpine
 RUN apk add --no-cache postgresql-client
@@ -25,7 +26,7 @@ COPY --from=builder /app/packages/shared/node_modules packages/shared/node_modul
 COPY --from=builder /app/packages/server/package.json packages/server/
 COPY --from=builder /app/packages/server/dist packages/server/dist
 COPY --from=builder /app/packages/server/node_modules packages/server/node_modules
-COPY packages/server/data packages/server/data
+COPY --from=builder /app/legacy/server/data legacy/server/data
 WORKDIR /app/packages/server
-EXPOSE 3000
+EXPOSE 13001
 CMD ["node", "dist/main.js"]

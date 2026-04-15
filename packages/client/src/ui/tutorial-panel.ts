@@ -161,6 +161,7 @@ export class TutorialPanel {
   open(): void {
     detailModalHost.open({
       ownerId: TutorialPanel.MODAL_OWNER,
+      size: 'wide',
       variantClass: 'detail-modal--tutorial',
       title: '简易教程',
       subtitle: '把常用玩法讲明白，迷路时回来翻一眼就够用。',
@@ -179,7 +180,7 @@ export class TutorialPanel {
   private renderBody(): string {
     return `
       <div class="tutorial-modal-body">
-        <div class="tutorial-modal-main-tabs" role="tablist" aria-label="简易教程分类">
+        <div class="tutorial-modal-main-tabs ui-modal-main-tabs" role="tablist" aria-label="简易教程分类">
           ${TUTORIAL_MAIN_TABS.map((tab) => this.renderMainTab(tab.id, tab.label)).join('')}
         </div>
         <div class="tutorial-modal-main-panes">
@@ -189,11 +190,11 @@ export class TutorialPanel {
             role="tabpanel"
             aria-hidden="${this.activeMainTabId === 'operations' ? 'false' : 'true'}"
           >
-            <div class="tutorial-modal-shell">
-              <div class="tutorial-modal-tabs" role="tablist" aria-orientation="vertical" aria-label="基础操作目录">
+            <div class="tutorial-modal-shell ui-split-panel-shell">
+              <div class="tutorial-modal-tabs ui-split-panel-tabs" role="tablist" aria-orientation="vertical" aria-label="基础操作目录">
                 ${TUTORIAL_TOPICS.map((topic) => this.renderTab(topic)).join('')}
               </div>
-              <div class="tutorial-modal-content">
+              <div class="tutorial-modal-content ui-split-panel-content">
                 ${TUTORIAL_TOPICS.map((topic) => this.renderPane(topic)).join('')}
               </div>
             </div>
@@ -204,11 +205,11 @@ export class TutorialPanel {
             role="tabpanel"
             aria-hidden="${this.activeMainTabId === 'mechanics' ? 'false' : 'true'}"
           >
-            <div class="tutorial-modal-shell">
-              <div class="tutorial-modal-tabs" role="tablist" aria-orientation="vertical" aria-label="机制目录">
+            <div class="tutorial-modal-shell ui-split-panel-shell">
+              <div class="tutorial-modal-tabs ui-split-panel-tabs" role="tablist" aria-orientation="vertical" aria-label="机制目录">
                 ${TUTORIAL_MECHANIC_TOPICS.map((topic) => this.renderMechanicTab(topic)).join('')}
               </div>
-              <div class="tutorial-modal-content">
+              <div class="tutorial-modal-content ui-split-panel-content">
                 ${TUTORIAL_MECHANIC_TOPICS.map((topic) => this.renderMechanicPane(topic)).join('')}
               </div>
             </div>
@@ -232,7 +233,7 @@ export class TutorialPanel {
     const active = id === this.activeMainTabId;
     return `
       <button
-        class="tutorial-modal-main-tab${active ? ' active' : ''}"
+        class="tutorial-modal-main-tab ui-modal-main-tab${active ? ' active' : ''}"
         type="button"
         role="tab"
         data-tutorial-main-tab="${id}"
@@ -249,13 +250,13 @@ export class TutorialPanel {
     const active = topic.id === this.activeTopicId;
     return `
       <button
-        class="tutorial-modal-tab${active ? ' active' : ''}"
+        class="tutorial-modal-tab ui-split-panel-tab${active ? ' active' : ''}"
         type="button"
         role="tab"
         data-tutorial-tab="${escapeHtml(topic.id)}"
         aria-selected="${active ? 'true' : 'false'}"
       >
-        <span class="tutorial-modal-tab-label">${escapeHtml(topic.label)}</span>
+        <span class="tutorial-modal-tab-label ui-split-panel-tab-label">${escapeHtml(topic.label)}</span>
       </button>
     `;
   }
@@ -303,13 +304,13 @@ export class TutorialPanel {
     const active = topic.id === this.activeMechanicTopicId;
     return `
       <button
-        class="tutorial-modal-tab${active ? ' active' : ''}"
+        class="tutorial-modal-tab ui-split-panel-tab${active ? ' active' : ''}"
         type="button"
         role="tab"
         data-tutorial-mechanic-tab="${escapeHtml(topic.id)}"
         aria-selected="${active ? 'true' : 'false'}"
       >
-        <span class="tutorial-modal-tab-label">${escapeHtml(topic.label)}</span>
+        <span class="tutorial-modal-tab-label ui-split-panel-tab-label">${escapeHtml(topic.label)}</span>
       </button>
     `;
   }
@@ -360,11 +361,11 @@ export class TutorialPanel {
           把常见问题按场景拆开了。你现在卡在哪一步，就直接切到对应 tab 看结论，不用从头翻完整攻略。
         </div>
       </div>
-      <div class="tutorial-flow-shell">
-        <div class="tutorial-flow-tabs" role="tablist" aria-label="流程指导目录">
+      <div class="tutorial-flow-shell ui-split-panel-shell">
+        <div class="tutorial-flow-tabs ui-split-panel-tabs" role="tablist" aria-label="流程指导目录">
           ${TUTORIAL_FLOW_TOPICS.map((topic) => this.renderFlowTab(topic)).join('')}
         </div>
-        <div class="tutorial-flow-content">
+        <div class="tutorial-flow-content ui-split-panel-content">
           ${TUTORIAL_FLOW_TOPICS.map((topic) => this.renderFlowPane(topic)).join('')}
         </div>
       </div>
@@ -377,13 +378,13 @@ export class TutorialPanel {
     const active = topic.id === this.activeFlowTopicId;
     return `
       <button
-        class="tutorial-flow-tab${active ? ' active' : ''}"
+        class="tutorial-flow-tab ui-split-panel-tab${active ? ' active' : ''}"
         type="button"
         role="tab"
         data-tutorial-flow-tab="${escapeHtml(topic.id)}"
         aria-selected="${active ? 'true' : 'false'}"
       >
-        <span class="tutorial-flow-tab-label">${escapeHtml(topic.label)}</span>
+        <span class="tutorial-flow-tab-label ui-split-panel-tab-label">${escapeHtml(topic.label)}</span>
       </button>
     `;
   }
@@ -572,4 +573,3 @@ export class TutorialPanel {
     });
   }
 }
-

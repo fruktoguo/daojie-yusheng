@@ -31,7 +31,7 @@
 - `shared-next` 的协议定义、protocol audit 与数值模板守卫已形成基础护栏，但 `T22/T23` 还没有达到“新增字段自动全链路硬门禁”的程度
 - `local / acceptance / full / shadow-destructive` 四层门禁定义已统一，但 `acceptance/full` 仍未全部落成 workflow/job 级闭环
 - 这不等于“最小包体、最高性能、极高扩展度、系统稳定性”已经全部满足
-- 本轮本机已复跑 `pnpm --filter @mud/server-next compile` 与无库 `node packages/server-next/dist/tools/smoke-suite.js --case session --case next-auth-bootstrap`；with-db proof 仍待 `DATABASE_URL/SERVER_NEXT_DATABASE_URL`
+- 本轮本机已复跑 `pnpm --filter @mud/server-next compile` 与无库 `node packages/server/dist/tools/smoke-suite.js --case session --case next-auth-bootstrap`；with-db proof 仍待 `DATABASE_URL/SERVER_NEXT_DATABASE_URL`
 - 保守估计，`next` 距离“完整替换游戏整体”仍约差 `35% - 40%`
 - 当前剩余工作已经可以压缩成 5 个主块：
   - `snapshot/player-source -> bootstrap/session` 真源替换本体
@@ -630,10 +630,10 @@
 
 仍卡住的模块：
 
-- [world-player-snapshot.service.js](../packages/server-next/src/network/world-player-snapshot.service.js)
-- world-legacy-player-source.service.js](../packages/server-next/src/network/world-legacy-player-source.service.js)
-- world-player-source.service.js](../packages/server-next/src/network/world-player-source.service.js)
-- player-snapshot-compat.js](../packages/server-next/src/persistence/player-snapshot-compat.js)
+- [world-player-snapshot.service.js](../packages/server/src/network/world-player-snapshot.service.js)
+- world-legacy-player-source.service.js](../packages/server/src/network/world-legacy-player-source.service.js)
+- world-player-source.service.js](../packages/server/src/network/world-player-source.service.js)
+- player-snapshot-compat.js](../packages/server/src/persistence/player-snapshot-compat.js)
 
 为什么它还是 P0：
 
@@ -663,11 +663,11 @@
 
 仍卡住的模块：
 
-- world-session-bootstrap.service.js](../packages/server-next/src/network/world-session-bootstrap.service.js)
-- world-player-auth.service.js](../packages/server-next/src/network/world-player-auth.service.js)
-- world-player-token.service.js](../packages/server-next/src/network/world-player-token.service.js)
-- world-player-token-compat.js](../packages/server-next/src/network/world-player-token-compat.js)
-- world-legacy-jwt.service.js](../packages/server-next/src/network/world-legacy-jwt.service.js)
+- world-session-bootstrap.service.js](../packages/server/src/network/world-session-bootstrap.service.js)
+- world-player-auth.service.js](../packages/server/src/network/world-player-auth.service.js)
+- world-player-token.service.js](../packages/server/src/network/world-player-token.service.js)
+- world-player-token-compat.js](../packages/server/src/network/world-player-token-compat.js)
+- world-legacy-jwt.service.js](../packages/server/src/network/world-legacy-jwt.service.js)
 
 为什么它还是 P0：
 
@@ -697,12 +697,12 @@
 
 仍卡住的模块与入口：
 
-- [TESTING.md](../packages/server-next/TESTING.md)
+- [TESTING.md](../packages/server/TESTING.md)
 - [next-legacy-removal-checklist.md](next-legacy-removal-checklist.md)
-- [compat-http.registry.js](../packages/server-next/src/compat/compat-http.registry.js)
-- [legacy-gm-admin-compat.service.js](../packages/server-next/src/compat/legacy/http/legacy-gm-admin-compat.service.js)
-- [legacy-session-bootstrap.service.js](../packages/server-next/src/compat/legacy/legacy-session-bootstrap.service.js)
-- [legacy-auth-readiness-warmup.service.js](../packages/server-next/src/health/legacy-auth-readiness-warmup.service.js)
+- [compat-http.registry.js](../packages/server/src/compat/compat-http.registry.js)
+- [legacy-gm-admin-compat.service.js](../packages/server/src/compat/legacy/http/legacy-gm-admin-compat.service.js)
+- [legacy-session-bootstrap.service.js](../packages/server/src/compat/legacy/legacy-session-bootstrap.service.js)
+- [legacy-auth-readiness-warmup.service.js](../packages/server/src/health/legacy-auth-readiness-warmup.service.js)
 
 为什么它还是 P0：
 
@@ -848,12 +848,12 @@
 
 当前阻塞模块：
 
-- `packages/server-next/src/network/world-player-auth.service.js`
-  - `../packages/server-next/src/network/world-player-snapshot.service.js`
-- `packages/server-next/src/network/world-player-source.service.js`
-- `packages/server-next/src/network/world-legacy-player-source.service.js`
-- `packages/server-next/src/network/world-legacy-player-repository.js`
-- `packages/server-next/src/compat/legacy/http/legacy-auth-http.service.js`
+- `packages/server/src/network/world-player-auth.service.js`
+  - `../packages/server/src/network/world-player-snapshot.service.js`
+- `packages/server/src/network/world-player-source.service.js`
+- `packages/server/src/network/world-legacy-player-source.service.js`
+- `packages/server/src/network/world-legacy-player-repository.js`
+- `packages/server/src/compat/legacy/http/legacy-auth-http.service.js`
 
 还剩的具体工程块：
 
@@ -889,11 +889,11 @@
 
 当前阻塞模块：
 
-- `packages/server-next/src/network/world-session-bootstrap.service.js`
-- `packages/server-next/src/network/world-session.service.js`
-- `packages/server-next/src/network/world.gateway.js`
-- `packages/server-next/src/runtime/player/player-runtime.service.js`
-- `packages/server-next/src/network/world-gm-auth.service.js`
+- `packages/server/src/network/world-session-bootstrap.service.js`
+- `packages/server/src/network/world-session.service.js`
+- `packages/server/src/network/world.gateway.js`
+- `packages/server/src/runtime/player/player-runtime.service.js`
+- `packages/server/src/network/world-gm-auth.service.js`
 
 还剩的具体工程块：
 
@@ -924,12 +924,12 @@
 
 当前阻塞模块：
 
-- `packages/server-next/src/app.module.js`
-- `packages/server-next/src/network/world-sync.service.js`
-- `packages/server-next/src/network/world-legacy-sync.service.js`
-- `packages/server-next/src/network/world-protocol-projection.service.js`
-- `packages/server-next/src/network/world-gm-socket.service.js`
-- `packages/server-next/src/runtime/tick/world-tick.service.js`
+- `packages/server/src/app.module.js`
+- `packages/server/src/network/world-sync.service.js`
+- `packages/server/src/network/world-legacy-sync.service.js`
+- `packages/server/src/network/world-protocol-projection.service.js`
+- `packages/server/src/network/world-gm-socket.service.js`
+- `packages/server/src/runtime/tick/world-tick.service.js`
 
 还剩的具体工程块：
 
@@ -952,13 +952,13 @@
 
 当前文件族：
 
-- `packages/server-next/src/network/world-legacy-player-source.service.js`
-- `packages/server-next/src/network/world-legacy-player-repository.js`
-- `packages/server-next/src/network/world-legacy-jwt.service.js`
-- `packages/server-next/src/network/world-player-token-compat.js`
-- `packages/server-next/src/network/world-legacy-sync.service.js`
-- `packages/server-next/src/persistence/player-snapshot-compat.js`
-- `packages/server-next/src/network/world-player-source.service.js`
+- `packages/server/src/network/world-legacy-player-source.service.js`
+- `packages/server/src/network/world-legacy-player-repository.js`
+- `packages/server/src/network/world-legacy-jwt.service.js`
+- `packages/server/src/network/world-player-token-compat.js`
+- `packages/server/src/network/world-legacy-sync.service.js`
+- `packages/server/src/persistence/player-snapshot-compat.js`
+- `packages/server/src/network/world-player-source.service.js`
 
 当前判断：
 
@@ -969,14 +969,14 @@
 
 当前文件族：
 
-- `packages/server-next/src/compat/compat-http.registry.js`
-- `packages/server-next/src/compat/legacy/http/legacy-auth.controller.js`
-- `packages/server-next/src/compat/legacy/http/legacy-account.controller.js`
-- `packages/server-next/src/compat/legacy/http/legacy-gm.controller.js`
-- `packages/server-next/src/compat/legacy/http/legacy-gm-admin.controller.js`
-- `packages/server-next/src/compat/legacy/http/legacy-gm-auth.controller.js`
-- `packages/server-next/src/compat/legacy/legacy-session-bootstrap.service.js`
-- `packages/server-next/src/health/legacy-auth-readiness-warmup.service.js`
+- `packages/server/src/compat/compat-http.registry.js`
+- `packages/server/src/compat/legacy/http/legacy-auth.controller.js`
+- `packages/server/src/compat/legacy/http/legacy-account.controller.js`
+- `packages/server/src/compat/legacy/http/legacy-gm.controller.js`
+- `packages/server/src/compat/legacy/http/legacy-gm-admin.controller.js`
+- `packages/server/src/compat/legacy/http/legacy-gm-auth.controller.js`
+- `packages/server/src/compat/legacy/legacy-session-bootstrap.service.js`
+- `packages/server/src/health/legacy-auth-readiness-warmup.service.js`
 
 当前判断：
 
@@ -1014,8 +1014,8 @@
 
 当前阻塞模块：
 
-- `packages/server-next/src/network/world-sync.service.js`
-- `packages/server-next/src/network/world-projector.service.js`
+- `packages/server/src/network/world-sync.service.js`
+- `packages/server/src/network/world-projector.service.js`
 
 主要剩余项：
 
@@ -1033,9 +1033,9 @@
 
 当前阻塞模块：
 
-- `packages/server-next/src/network/world-projector.service.js`
-- `packages/server-next/src/network/world-sync.service.js`
-- `packages/server-next/src/runtime/player/player-attributes.service.js`
+- `packages/server/src/network/world-projector.service.js`
+- `packages/server/src/network/world-sync.service.js`
+- `packages/server/src/runtime/player/player-attributes.service.js`
 
 主要剩余项：
 
@@ -1052,9 +1052,9 @@
 
 当前阻塞模块：
 
-- `packages/server-next/src/network/world-projector.service.js`
-- `packages/server-next/src/network/world-sync.service.js`
-- `packages/server-next/src/network/world-sync-protocol.service.js`
+- `packages/server/src/network/world-projector.service.js`
+- `packages/server/src/network/world-sync.service.js`
+- `packages/server/src/network/world-sync-protocol.service.js`
 
 主要剩余项：
 
@@ -1070,11 +1070,11 @@
 
 当前阻塞模块：
 
-- `packages/server-next/TESTING.md`
-- `packages/server-next/src/tools/smoke-suite.js`
-- `packages/server-next/src/tools/next-auth-bootstrap-smoke.js`
-- `packages/server-next/src/tools/gm-database-smoke.js`
-- `packages/server-next/src/tools/shadow-gm-database-proof.js`
+- `packages/server/TESTING.md`
+- `packages/server/src/tools/smoke-suite.js`
+- `packages/server/src/tools/next-auth-bootstrap-smoke.js`
+- `packages/server/src/tools/gm-database-smoke.js`
+- `packages/server/src/tools/shadow-gm-database-proof.js`
 
 主要剩余项：
 

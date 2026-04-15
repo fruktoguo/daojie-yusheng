@@ -11,7 +11,7 @@ import {
   TileType,
   VisibleTile,
   VisibleTilePatch,
-} from '@mud/shared';
+} from '@mud/shared-next';
 
 /** RememberedTile：定义该类型的结构与数据语义。 */
 type RememberedTile = Pick<Tile, 'type' | 'walkable' | 'blocksSight' | 'aura'>;
@@ -26,8 +26,8 @@ type SerializedMapMemoryEntry = {
   tiles?: SerializedMapTileMemory;
   markers?: SerializedMapMarkerMemory;
 };
-/** SerializedLegacyMapMemory：定义该类型的结构与数据语义。 */
-type SerializedLegacyMapMemory = Record<string, SerializedMapTileMemory>;
+/** SerializedMapMemoryTilesOnlyShape：定义该类型的结构与数据语义。 */
+type SerializedMapMemoryTilesOnlyShape = Record<string, SerializedMapTileMemory>;
 /** SerializedMapMemory：定义该类型的结构与数据语义。 */
 type SerializedMapMemory = Record<string, SerializedMapMemoryEntry>;
 /** SerializedMapMemoryEnvelope：定义该类型的结构与数据语义。 */
@@ -150,13 +150,13 @@ function getStoredEnvelope(parsed: unknown): SerializedMapMemoryEnvelope | null 
 /** candidateVersion：定义该变量以承载业务值。 */
   const candidateVersion = Number(candidate.version);
   if (candidateVersion === 2 || candidate.version === undefined) {
-/** legacyMaps：定义该变量以承载业务值。 */
-    const legacyMaps = (candidateVersion === 2 && candidate.maps && typeof candidate.maps === 'object'
+/** tileOnlyMaps：定义该变量以承载业务值。 */
+    const tileOnlyMaps = (candidateVersion === 2 && candidate.maps && typeof candidate.maps === 'object'
       ? candidate.maps
-      : candidate) as SerializedLegacyMapMemory;
+      : candidate) as SerializedMapMemoryTilesOnlyShape;
 /** maps：定义该变量以承载业务值。 */
     const maps: SerializedMapMemory = {};
-    for (const [mapId, tiles] of Object.entries(legacyMaps)) {
+    for (const [mapId, tiles] of Object.entries(tileOnlyMaps)) {
       maps[mapId] = { tiles };
     }
     return {

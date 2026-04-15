@@ -14,6 +14,8 @@
 
 如需直接看详细任务、依赖关系与最近轮次进展，直接看 [docs/next-remaining-task-breakdown.md](./next-remaining-task-breakdown.md)。
 
+如需看前端重构、样式分层、面板 patch-first 状态、验证口径与同步陷阱，统一看 [docs/frontend-refactor/README.md](./frontend-refactor/README.md)。
+
 截至目前：
 
 - `client-next` 的玩家主链已经基本切到 next-native
@@ -84,19 +86,19 @@
 
 如果现在要继续“实打实往前改”，最值得先盯的是下面这些文件：
 
-- [packages/server-next/src/network/world-player-auth.service.js](../packages/server-next/src/network/world-player-auth.service.js)
+- [packages/server/src/network/world-player-auth.service.js](../packages/server/src/network/world-player-auth.service.js)
   这里决定 `T01` 是否能把 next 协议 authenticated 入场彻底收成仅认 next identity
-- [packages/server-next/src/network/world-session-bootstrap.service.js](../packages/server-next/src/network/world-session-bootstrap.service.js)
+- [packages/server/src/network/world-session-bootstrap.service.js](../packages/server/src/network/world-session-bootstrap.service.js)
   这里决定 `T03/T05` 是否能把 snapshot runtime fallback 和 bootstrap 入口彻底收成单线
-- [packages/server-next/src/network/world.gateway.js](../packages/server-next/src/network/world.gateway.js)
+- [packages/server/src/network/world.gateway.js](../packages/server/src/network/world.gateway.js)
   这里决定 `T05/T06` 的 guest / authenticated / GM 三类握手 contract 能不能真正拆开
-- [packages/server-next/src/network/world-session.service.js](../packages/server-next/src/network/world-session.service.js)
+- [packages/server/src/network/world-session.service.js](../packages/server/src/network/world-session.service.js)
   这里决定 `T07` 的 session 真源边界最后如何定稿
-- [packages/server-next/src/network/world-projector.service.js](../packages/server-next/src/network/world-projector.service.js)
+- [packages/server/src/network/world-projector.service.js](../packages/server/src/network/world-projector.service.js)
   这里是 `T16/T17/T20` 的核心热点，也是“最高性能 / 极高扩展度”最容易继续失血的地方
-- [packages/server-next/src/network/world-sync.service.js](../packages/server-next/src/network/world-sync.service.js)
+- [packages/server/src/network/world-sync.service.js](../packages/server/src/network/world-sync.service.js)
   这里是 `T15/T18/T19/T20` 的首包、minimap、AOI、同步门禁集中区
-- [packages/shared-next/src/protocol.ts](../packages/shared-next/src/protocol.ts)
+- [packages/shared/src/protocol.ts](../packages/shared/src/protocol.ts)
   这里是 `T15/T22/T23` 的 shared 类型和协议稳定性核心锚点
 
 ## 如果目标是“完整替换游戏整体”
@@ -153,7 +155,7 @@
 4. GM/admin/restore 的完整自动化证明仍不足。
    现在已有最小 compat smoke 和带库 `backup/restore` 回归，但还不是完整运营链路的统一日常门禁。
 5. `shared-next` 自身稳定性仍然要继续盯。
-   上一轮这里曾因为 `packages/shared-next/src/constants/gameplay/realm.ts` 与 `packages/shared-next/src/numeric.ts` 的 `NumericStats.extraRange / extraArea` 类型不一致，出现过标准链可能被共享层先拦住的风险；但本轮实际强跑 `pnpm --filter @mud/server-next verify:replace-ready` 已恢复可跑并通过，所以它现在更像“需要继续观察的共享层风险源”，而不是当前事实阻塞。
+   上一轮这里曾因为 `packages/shared/src/constants/gameplay/realm.ts` 与 `packages/shared/src/numeric.ts` 的 `NumericStats.extraRange / extraArea` 类型不一致，出现过标准链可能被共享层先拦住的风险；但本轮实际强跑 `pnpm --filter @mud/server-next verify:replace-ready` 已恢复可跑并通过，所以它现在更像“需要继续观察的共享层风险源”，而不是当前事实阻塞。
    保守看，这部分更像“证明链稳定性风险”，大约只占整体剩余缺口里的 `5% - 10%`，不是当前最大的结构性缺口。
 
 ### 本轮 replace-ready 实测
@@ -162,9 +164,9 @@
 
 - 这轮除了最小验证外，也实际强跑了标准入口 `pnpm --filter @mud/server-next verify:replace-ready`，并已通过；这说明当前工作树里的 `server-next` 标准 replace-ready 主链是通的。
 - 为了把 `server-next` 本体与 boundary inventory 单独压实，这轮也补跑了不依赖整条 workspace 门禁的最小验证：
-  - `node node_modules/.pnpm/node_modules/typescript/bin/tsc -p packages/server-next/tsconfig.json`
-  - `node packages/server-next/dist/tools/audit/next-legacy-boundary-audit.js`
-  - `node packages/server-next/dist/tools/smoke-suite.js --case session --case runtime --case next-auth-bootstrap --case legacy-player-compat --case monster-runtime --require-legacy-auth`
+  - `node node_modules/.pnpm/node_modules/typescript/bin/tsc -p packages/server/tsconfig.json`
+  - `node packages/server/dist/tools/audit/next-legacy-boundary-audit.js`
+  - `node packages/server/dist/tools/smoke-suite.js --case session --case runtime --case next-auth-bootstrap --case legacy-player-compat --case monster-runtime --require-legacy-auth`
 - 其中 boundary audit 最新结果已降到 `0 / 22` 个检查项、`0` 处代码证据；`P0 auth/bootstrap 真源`、`P0 legacy HTTP/GM/admin`、`P1 world sync compat`、`P1 runtime/persistence compat` 与“目标差距: 性能/扩展” inventory 已全部清零
 - `pnpm --filter @mud/server-next smoke:next-auth-bootstrap` 这轮也已接入 replace-ready 主链，已覆盖 `protocol: next + legacy HTTP 登录 token` 的当前 compat 入场链，并显式断言 next socket 不混入 legacy `s:*` 事件；该 smoke 也锁定了当前真实语义：带 token 的 next 连接会在连接阶段直接 bootstrap，后续补发 `n:c:hello` 不会重复入场
 - 显式开启 `NEXT_AUTH_TRACE_ENABLED=1` 后，`next-auth-bootstrap` smoke 当前还会输出 `snapshotPersistedSource`；无库时会明确返回 `snapshotSequence.supported=false`，而带库时则会把“第一次 `legacy_seeded`、第二次 `next` 且 persistedSource=native`”作为硬门禁，不再把“只打印顺序结果”误写成真源已替换完成
@@ -247,9 +249,9 @@
 
 截至 `2026-04-11`，当前仍可直接引用、且最近轮次没有被推翻的关键验证是：
 
-- `node node_modules/.pnpm/node_modules/typescript/bin/tsc -p packages/server-next/tsconfig.json`
-- `node packages/server-next/dist/tools/audit/next-legacy-boundary-audit.js`
-- `node packages/server-next/dist/tools/smoke-suite.js --case session --case runtime --case next-auth-bootstrap --case legacy-player-compat --case monster-runtime --require-legacy-auth`
+- `node node_modules/.pnpm/node_modules/typescript/bin/tsc -p packages/server/tsconfig.json`
+- `node packages/server/dist/tools/audit/next-legacy-boundary-audit.js`
+- `node packages/server/dist/tools/smoke-suite.js --case session --case runtime --case next-auth-bootstrap --case legacy-player-compat --case monster-runtime --require-legacy-auth`
 
 当前可直接据此固定的口径是：
 
@@ -299,11 +301,19 @@
 4. 传输层仍以 Socket.IO JSON 对象为主，`Bootstrap.self` 与首屏同步体积也还没有拆到最薄。
 5. 前后台都还没有看到针对高负载地图、大量实体、长时在线会话的极限性能门禁证据。
 
-前台侧的主要短板：
+前台侧的主要短板已单独抽到前端文档集，避免这里和前端重构文档双份维护。
 
-1. `MapStore` 仍大量使用 `${x},${y}` 作为 tile / pile key，这属于“可维护但不够极致”的实现。
-2. `client-next` 的核心面板虽然已做 patch，但观察弹层主体、若干 modal 与部分列表更新仍在用 `innerHTML` 整块重建。
-3. 前台还没有证据证明已经做过针对高负载地图、大量实体、长时在线会话的极限性能门禁。
+当前口径保持不变，摘要如下：
+
+1. `MapStore` 与若干前台 store 仍有可继续压缩的数据布局问题。
+2. 仍有部分 modal / 列表 / 面板区块没有完全收口到 patch-first。
+3. 仍缺少针对高负载地图、大量实体、长时在线会话的前端极限性能门禁证据。
+
+详细展开看：
+
+- [docs/frontend-refactor/current-state.md](./frontend-refactor/current-state.md)
+- [docs/frontend-refactor/panel-status.md](./frontend-refactor/panel-status.md)
+- [docs/frontend-refactor/verification.md](./frontend-refactor/verification.md)
 
 ### 3. 极高扩展度：部分满足
 
@@ -347,21 +357,18 @@
 
 ## 前台侧补充判断
 
-`client-next` 当前更适合被描述为“主链已经基本 ready，但还没达到极致目标”。
+前台判断已迁到独立文档集，这里只保留结论，不再重复展开：
 
-- 协议主链上，`socket.ts` 已明确只绑定 `NEXT_S2C.*` 事件，并在连接时声明 `protocol: 'next'`
-- `main.ts` 已经围绕 `WorldDelta / SelfDelta / PanelDelta` 做状态合并和局部同步
-- 主要面板已经明显往 patch / preserve-interaction 方向收口
-- 桌面 / 手机 / 深浅色三条 UI 线也已经有明确结构，不是事后硬补
+- `client-next` 当前仍可被描述为“主链已经基本 ready，但还没达到极致目标”
+- 玩家主链前台不是正式替换的主要阻塞，但仍有 UI patch-first、样式 recipe、手工回归和高负载证据几类尾项
 
-但前台仍有这些尾项：
+详细展开看：
 
-1. 观察弹层主体、部分 modal、部分面板更新仍用 `innerHTML` 整块重建。
-   但 `mail-panel`、`npc-shop-modal`、`suggestion-panel` 与 `npc-quest-modal` 这几类低频 detail modal 已经收口为“根事件委托 + 局部 patch 列表/详情区”；`observe modal` 这轮也已经把 buff tooltip / 实体详情点击改成一次性委托，所以这里当前更主要的 UI 尾项，是 observe body 本体和若干仍整刷的 detail/list 区，而不是重复绑事件本身。
-2. `MapStore` 与若干前台 store 仍保留字符串键 map/set 结构，不是最极致的数据布局。
-3. 面板系统虽已成型，但并不是所有面板都声明或兑现了 `preservesInteractionState`。
-4. 这轮分析只做了代码审查，没有实际完成一轮浅色 / 深色 / 手机的手工回归验证，所以这里只能说“代码上已有覆盖基础”，还不能说“体验上全部验完”。
-5. `side-panel` 这类纯前台交互状态现在已经补做本地恢复，但它仍属于缓存层收口，不是正式持久化真源，也不改变整体替换完成度判断。
+- [docs/frontend-refactor/current-state.md](./frontend-refactor/current-state.md)
+- [docs/frontend-refactor/panel-status.md](./frontend-refactor/panel-status.md)
+- [docs/frontend-refactor/style-system.md](./frontend-refactor/style-system.md)
+- [docs/frontend-refactor/verification.md](./frontend-refactor/verification.md)
+- [docs/frontend-refactor/sync-pitfalls.md](./frontend-refactor/sync-pitfalls.md)
 
 ## 如果目标是“正式替换旧前台”
 
@@ -488,6 +495,11 @@
 - notice 消息 ID 的兼容字段命名
 
 这意味着客户端这边剩下的重点已经不再是内部命名清洗，而是继续维持 next 主链独立，并避免新的 compat 反向渗回主路径。
+
+如需看前端代码结构、模块清单和重构边界，统一看：
+
+- [docs/frontend-refactor/architecture.md](./frontend-refactor/architecture.md)
+- [docs/frontend-refactor/module-inventory.md](./frontend-refactor/module-inventory.md)
 
 ### 2. server-next 的登录 / 会话 / bootstrap 仍压在 legacy 服务上
 

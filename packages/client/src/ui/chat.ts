@@ -3,7 +3,7 @@
  * 管理多频道消息展示、角色级本地缓存与向上翻页加载历史
  */
 
-import { getDamageTrailColor, type ElementKey, type SkillDamageKind } from '@mud/shared';
+import { getDamageTrailColor, type ElementKey, type SkillDamageKind } from '@mud/shared-next';
 import {
   CHAT_CHANNELS,
   CHAT_LOG_LOAD_BATCH_SIZE,
@@ -21,7 +21,7 @@ import {
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from './floating-tooltip';
 import {
   appendChannelMessages,
-  clearLegacyChatStorage,
+  clearPreviousChatStorage,
   loadOlderChannelMessages,
   loadRecentChannelMessages,
 } from './chat-storage';
@@ -362,7 +362,7 @@ export class ChatUI {
 
 /** constructor：处理当前场景中的对应操作。 */
   constructor() {
-    clearLegacyChatStorage();
+    clearPreviousChatStorage();
     this.sendBtn.addEventListener('click', () => this.submit());
     this.input.addEventListener('keydown', (event) => {
       if (event.key === 'Enter') {

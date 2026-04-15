@@ -3,7 +3,7 @@
  * 提供服务端性能监控、在线玩家列表、玩家编辑、机器人控制与意见管理
  */
 
-import { C2S_GmUpdatePlayer, GmPlayerSummary, S2C_GmState, Suggestion } from '@mud/shared';
+import { NEXT_C2S_GmUpdatePlayer, GmPlayerSummary, NEXT_S2C_GmState, Suggestion } from '@mud/shared-next';
 
 /** GmCallbacks：定义该接口的能力与字段约束。 */
 interface GmCallbacks {
@@ -12,7 +12,7 @@ interface GmCallbacks {
   onCycleZoom: () => void;
   onSpawnBots: (count: number) => void;
   onRemoveBots: (playerIds?: string[], all?: boolean) => void;
-  onUpdatePlayer: (payload: C2S_GmUpdatePlayer) => void;
+  onUpdatePlayer: (payload: NEXT_C2S_GmUpdatePlayer) => void;
   onResetPlayer: (playerId: string) => void;
   onResetHeavenGate: (playerId: string) => void;
   onMarkSuggestionCompleted: (id: string) => void;
@@ -30,7 +30,7 @@ function getPlayerMapLabel(player: GmPlayerSummary): string {
 }
 
 /** createEmptyGmState：执行对应的业务逻辑。 */
-function createEmptyGmState(): S2C_GmState {
+function createEmptyGmState(): NEXT_S2C_GmState {
   return {
     players: [],
     mapIds: [],
@@ -104,7 +104,7 @@ function createEmptyGmState(): S2C_GmState {
 export class GmPanel {
   private pane = document.getElementById('pane-gm')!;
 /** state：定义该变量以承载业务值。 */
-  private state: S2C_GmState = createEmptyGmState();
+  private state: NEXT_S2C_GmState = createEmptyGmState();
 /** suggestions：定义该变量以承载业务值。 */
   private suggestions: Suggestion[] = [];
 /** selectedPlayerId：定义该变量以承载业务值。 */
@@ -161,7 +161,7 @@ export class GmPanel {
   }
 
   /** 接收服务端 GM 状态并刷新所有子区域 */
-  update(state: S2C_GmState): void {
+  update(state: NEXT_S2C_GmState): void {
     this.state = state;
     this.ensureLayout();
     if (!this.selectedPlayerId || !state.players.some((player) => player.id === this.selectedPlayerId)) {
@@ -252,7 +252,7 @@ export class GmPanel {
     this.resetHeavenGateBtn = null;
     this.removeBtn = null;
     this.botCountInput = null;
-    this.pane.innerHTML = '<div class="empty-hint">暂无 GM 数据</div>';
+    this.pane.innerHTML = '<div class="empty-hint ui-empty-hint">暂无 GM 数据</div>';
   }
 
 /** ensureLayout：执行对应的业务逻辑。 */
@@ -260,64 +260,64 @@ export class GmPanel {
     if (this.initialized) return;
     this.initialized = true;
     this.pane.innerHTML = `
-      <div class="panel-section">
+      <div class="panel-section ui-surface-pane ui-surface-pane--stack">
         <div class="panel-section-title">服务端性能</div>
         <div class="panel-row"><span class="panel-label">CPU 压力</span><span class="panel-value" data-gm-perf-cpu>0%</span></div>
         <div class="panel-row"><span class="panel-label">内存占用</span><span class="panel-value" data-gm-perf-memory>0 MB</span></div>
         <div class="panel-row"><span class="panel-label">最近单图 tick</span><span class="panel-value" data-gm-perf-tick>0 ms</span></div>
       </div>
-      <div class="panel-section">
+      <div class="panel-section ui-surface-pane ui-surface-pane--stack">
         <div class="panel-section-title">GM 概览</div>
         <div class="panel-row"><span class="panel-label">在线玩家</span><span class="panel-value" data-gm-player-count>0</span></div>
         <div class="panel-row"><span class="panel-label">机器人</span><span class="panel-value" data-gm-bot-count>0</span></div>
       </div>
-      <div class="panel-section">
+      <div class="panel-section ui-surface-pane ui-surface-pane--stack">
         <div class="panel-section-title">调试</div>
-        <div class="gm-btn-row">
+        <div class="gm-btn-row ui-action-row ui-action-row--start">
           <button class="small-btn" id="gm-reset-self">自己回出生点</button>
           <button class="small-btn" id="gm-refresh">刷新</button>
           <button class="small-btn" id="gm-cycle-zoom">缩放</button>
         </div>
       </div>
-      <div class="panel-section">
+      <div class="panel-section ui-surface-pane ui-surface-pane--stack">
         <div class="panel-section-title">机器人控制</div>
-        <div class="gm-btn-row">
-          <input id="gm-bot-count" class="gm-inline-input" type="number" min="1" max="50" value="5" />
+        <div class="gm-btn-row ui-action-row ui-action-row--start">
+          <input id="gm-bot-count" class="gm-inline-input ui-input" type="number" min="1" max="50" value="5" />
           <button class="small-btn" id="gm-spawn-bots">生成</button>
           <button class="small-btn danger" id="gm-remove-all-bots">移除全部</button>
         </div>
       </div>
-      <div class="panel-section">
+      <div class="panel-section ui-surface-pane ui-surface-pane--stack">
         <div class="panel-section-title">在线列表</div>
-        <div class="gm-player-list" data-gm-player-list></div>
+        <div class="gm-player-list ui-card-list ui-scroll-panel" data-gm-player-list></div>
       </div>
-      <div class="panel-section">
+      <div class="panel-section ui-surface-pane ui-surface-pane--stack">
         <div class="panel-section-title">玩家编辑</div>
-        <div data-gm-detail-empty class="empty-hint">请选择一名玩家</div>
+        <div data-gm-detail-empty class="empty-hint ui-empty-hint">请选择一名玩家</div>
         <div data-gm-detail-form>
-          <div class="gm-form-grid">
-            <label class="gm-field">
+          <div class="gm-form-grid ui-form-grid ui-form-grid--three-column">
+            <label class="gm-field ui-form-field">
               <span>地图</span>
-              <select id="gm-map"></select>
+              <select id="gm-map" class="ui-input"></select>
             </label>
-            <label class="gm-field">
+            <label class="gm-field ui-form-field">
               <span>X</span>
-              <input id="gm-x" type="number" />
+              <input id="gm-x" class="ui-input" type="number" />
             </label>
-            <label class="gm-field">
+            <label class="gm-field ui-form-field">
               <span>Y</span>
-              <input id="gm-y" type="number" />
+              <input id="gm-y" class="ui-input" type="number" />
             </label>
-            <label class="gm-field">
+            <label class="gm-field ui-form-field">
               <span>HP</span>
-              <input id="gm-hp" type="number" min="0" />
+              <input id="gm-hp" class="ui-input" type="number" min="0" />
             </label>
           </div>
           <label class="gm-checkbox">
             <input id="gm-auto-battle" type="checkbox" />
             <span>自动战斗</span>
           </label>
-          <div class="gm-btn-row">
+          <div class="gm-btn-row ui-action-row ui-action-row--start">
             <button class="small-btn" id="gm-save-player">保存</button>
             <button class="small-btn" id="gm-heal-player">满血</button>
             <button class="small-btn" id="gm-reset-player">回出生点</button>
@@ -326,9 +326,9 @@ export class GmPanel {
           </div>
         </div>
       </div>
-      <div class="panel-section">
+      <div class="panel-section ui-surface-pane ui-surface-pane--stack">
         <div class="panel-section-title">意见管理</div>
-        <div id="gm-suggestion-list" style="max-height: 200px; overflow-y: auto; font-size: 11px; border: 1px solid #444; padding: 5px; background: rgba(0,0,0,0.2);">
+        <div id="gm-suggestion-list" class="gm-suggestion-list ui-surface-pane ui-surface-pane--stack ui-scroll-panel">
         </div>
       </div>
     `;
@@ -449,7 +449,7 @@ export class GmPanel {
     if (this.state.players.length === 0) {
 /** empty：定义该变量以承载业务值。 */
       const empty = document.createElement('div');
-      empty.className = 'empty-hint';
+      empty.className = 'empty-hint ui-empty-hint';
       empty.dataset.gmEmptyState = 'players';
       empty.textContent = '当前没有在线玩家';
       this.playerListEl.replaceChildren(empty);
@@ -626,7 +626,7 @@ export class GmPanel {
   private createPlayerRow(): HTMLButtonElement {
 /** button：定义该变量以承载业务值。 */
     const button = document.createElement('button');
-    button.className = 'gm-player-row';
+    button.className = 'gm-player-row ui-surface-card ui-surface-card--compact ui-selectable-card';
     button.type = 'button';
 /** content：定义该变量以承载业务值。 */
     const content = document.createElement('div');
@@ -650,7 +650,7 @@ export class GmPanel {
 /** patchPlayerRow：执行对应的业务逻辑。 */
   private patchPlayerRow(row: HTMLButtonElement, player: GmPlayerSummary): void {
     row.dataset.gmPlayerId = player.id;
-    row.classList.toggle('active', player.id === this.selectedPlayerId);
+    row.classList.toggle('is-active', player.id === this.selectedPlayerId);
 /** name：定义该变量以承载业务值。 */
     const name = row.querySelector<HTMLElement>('[data-gm-role="name"]');
 /** accountMeta：定义该变量以承载业务值。 */
@@ -672,45 +672,36 @@ export class GmPanel {
   private createSuggestionItem(): HTMLElement {
 /** item：定义该变量以承载业务值。 */
     const item = document.createElement('div');
-    item.style.borderBottom = '1px solid #333';
-    item.style.padding = '5px';
-    item.style.marginBottom = '5px';
+    item.className = 'gm-suggestion-card ui-surface-card ui-surface-card--compact';
 
 /** header：定义该变量以承载业务值。 */
     const header = document.createElement('div');
-    header.style.display = 'flex';
-    header.style.justifyContent = 'space-between';
+    header.className = 'gm-suggestion-head';
 
 /** title：定义该变量以承载业务值。 */
     const title = document.createElement('span');
+    title.className = 'gm-suggestion-title';
     title.dataset.gmSuggestionRole = 'title';
-    title.style.fontWeight = 'var(--font-weight-strong)';
 /** author：定义该变量以承载业务值。 */
     const author = document.createElement('span');
+    author.className = 'gm-suggestion-author';
     author.dataset.gmSuggestionRole = 'author';
-    author.style.color = '#888';
-    author.style.fontSize = '10px';
     header.append(title, author);
 
 /** description：定义该变量以承载业务值。 */
     const description = document.createElement('div');
+    description.className = 'gm-suggestion-desc';
     description.dataset.gmSuggestionRole = 'description';
-    description.style.color = '#aaa';
-    description.style.margin = '3px 0';
-    description.style.wordBreak = 'break-all';
 
 /** actions：定义该变量以承载业务值。 */
     const actions = document.createElement('div');
+    actions.className = 'gm-suggestion-actions';
     actions.dataset.gmSuggestionRole = 'actions';
-    actions.style.display = 'flex';
-    actions.style.gap = '10px';
-    actions.style.alignItems = 'center';
-    actions.style.marginTop = '5px';
 
 /** votes：定义该变量以承载业务值。 */
     const votes = document.createElement('span');
+    votes.className = 'gm-suggestion-votes';
     votes.dataset.gmSuggestionRole = 'votes';
-    votes.style.color = '#888';
     actions.appendChild(votes);
 
     item.append(header, description, actions);
@@ -733,7 +724,8 @@ export class GmPanel {
 
     if (title) {
       title.textContent = suggestion.title;
-      title.style.color = suggestion.status === 'completed' ? '#0f0' : '#ffcc00';
+      title.classList.toggle('completed', suggestion.status === 'completed');
+      title.classList.toggle('pending', suggestion.status !== 'completed');
     }
     if (author) {
       author.textContent = suggestion.authorName;
@@ -752,7 +744,7 @@ export class GmPanel {
 /** removeButton：定义该变量以承载业务值。 */
     let removeButton = actions.querySelector<HTMLButtonElement>('[data-gm-suggest-action="remove"]');
     if (!removeButton) {
-      removeButton = this.createSuggestionActionButton('移除', 'remove', '#ff4444');
+      removeButton = this.createSuggestionActionButton('移除', 'remove', 'danger');
       actions.appendChild(removeButton);
     }
     removeButton.dataset.id = suggestion.id;
@@ -777,17 +769,12 @@ export class GmPanel {
   }
 
 /** createSuggestionActionButton：执行对应的业务逻辑。 */
-  private createSuggestionActionButton(label: string, action: 'complete' | 'remove', color?: string): HTMLButtonElement {
+  private createSuggestionActionButton(label: string, action: 'complete' | 'remove', tone?: 'danger'): HTMLButtonElement {
 /** button：定义该变量以承载业务值。 */
     const button = document.createElement('button');
     button.type = 'button';
     button.dataset.gmSuggestAction = action;
-    button.style.fontSize = '10px';
-    button.style.padding = '1px 4px';
-    button.style.cursor = 'pointer';
-    if (color) {
-      button.style.color = color;
-    }
+    button.className = `gm-suggestion-action${tone === 'danger' ? ' gm-suggestion-action--danger' : ''}`;
     button.textContent = label;
     return button;
   }
@@ -871,4 +858,3 @@ export class GmPanel {
     return Boolean(element && document.activeElement === element);
   }
 }
-

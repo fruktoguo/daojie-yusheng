@@ -1,4 +1,4 @@
-import { type ElementKey, ItemStack, PlayerState, SkillDef, type SkillDamageKind } from '@mud/shared';
+import { ActionDef, AutoBattleSkillConfig, PlayerState, SkillDef, type ElementKey, type SkillDamageKind } from '@mud/shared-next';
 import { getElementKeyLabel } from '../../domain-labels';
 
 /** normalizeShortcutKey：执行对应的业务逻辑。 */
@@ -42,16 +42,6 @@ export function readBoolean(...values: unknown[]): boolean {
     }
   }
   return true;
-}
-
-/** isAutoUseConsumableCandidate：执行对应的业务逻辑。 */
-export function isAutoUseConsumableCandidate(
-  item: Pick<ItemStack, 'healAmount' | 'healPercent' | 'qiPercent' | 'consumeBuffs'>,
-): boolean {
-  return (item.healAmount ?? 0) > 0
-    || (item.healPercent ?? 0) > 0
-    || (item.qiPercent ?? 0) > 0
-    || (item.consumeBuffs?.length ?? 0) > 0;
 }
 
 /** decodePresetTextValue：执行对应的业务逻辑。 */
@@ -162,6 +152,12 @@ export function getSkillAffinityBadge(skill: SkillDef): {
 export function getSkillEnabledTechniques(player: PlayerState): PlayerState['techniques'] {
   return player.techniques.filter((technique) => technique.skillsEnabled !== false);
 }
+
+/** ActionPanelAction：定义该类型的结构与数据语义。 */
+export type ActionPanelAction = ActionDef;
+/** ActionPanelSkillDraft：定义该类型的结构与数据语义。 */
+export type ActionPanelSkillDraft = AutoBattleSkillConfig;
+
 
 
 

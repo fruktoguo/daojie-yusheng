@@ -3,7 +3,7 @@ import {
   TILE_VISUAL_GLYPHS,
   TILE_VISUAL_GLYPH_COLORS,
   type TileType,
-} from '@mud/shared';
+} from '@mud/shared-next';
 import { buildCanvasFont } from '../constants/ui/text';
 
 /** TileSprite：定义该接口的能力与字段约束。 */

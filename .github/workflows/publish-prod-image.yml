@@ -15,9 +15,9 @@ jobs:
       matrix:
         include:
           - image_name: daojie-yusheng-server
-            dockerfile: packages/server/Dockerfile
+            dockerfile: legacy/server/Dockerfile
           - image_name: daojie-yusheng-client
-            dockerfile: packages/client/Dockerfile
+            dockerfile: legacy/client/Dockerfile
 
     steps:
       - name: Checkout

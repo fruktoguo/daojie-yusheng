@@ -3,7 +3,7 @@
  * 统一管理颜色模式与字体等级，并持久化到本地存储
  */
 
-import { UI_STYLE_STORAGE_KEY } from '@mud/shared';
+import { UI_STYLE_STORAGE_KEY } from '@mud/shared-next';
 import {
   DEFAULT_UI_STYLE_CONFIG,
   UI_GLOBAL_FONT_OFFSET_RANGE,
@@ -129,8 +129,8 @@ function normalizeConfig(
 /** fallbackConfig：定义该变量以承载业务值。 */
   fallbackConfig: UiStyleConfig = DEFAULT_UI_STYLE_CONFIG,
 ): UiStyleConfig {
-/** legacyFontSizes：通过常量导出可复用函数行为。 */
-  const legacyFontSizes = (() => {
+/** previousFontSizeOffset：通过常量导出可复用函数行为。 */
+  const previousFontSizeOffset = (() => {
 /** bodyDefinition：定义该变量以承载业务值。 */
     const bodyDefinition = UI_FONT_LEVEL_DEFINITIONS.find((entry) => entry.key === 'body');
     if (!bodyDefinition) {
@@ -147,7 +147,7 @@ function normalizeConfig(
   return {
 /** colorMode：定义该变量以承载业务值。 */
     colorMode: raw?.colorMode === 'dark' ? 'dark' : fallbackConfig.colorMode,
-    globalFontOffset: clampGlobalFontOffset(raw?.globalFontOffset, legacyFontSizes ?? fallbackConfig.globalFontOffset),
+    globalFontOffset: clampGlobalFontOffset(raw?.globalFontOffset, previousFontSizeOffset ?? fallbackConfig.globalFontOffset),
     uiScale: clampUiScale(raw?.uiScale, fallbackConfig.uiScale),
   };
 }

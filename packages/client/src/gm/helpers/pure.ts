@@ -3,7 +3,7 @@ import {
   type GmManagedPlayerRecord,
   type GmManagedPlayerSummary,
   type RedeemCodeGroupRewardItem,
-} from '@mud/shared';
+} from '@mud/shared-next';
 
 /** GmMailAttachmentDraft：定义该接口的能力与字段约束。 */
 interface GmMailAttachmentDraft {

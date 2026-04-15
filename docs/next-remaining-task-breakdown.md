@@ -260,8 +260,8 @@
 - 风险：会直接打到所有还没完成 next identity 落库的旧账号。
 - 并行性：`不可与其他 auth/bootstrap 真源改动并行混改`
 - 相关文件：
-   - `../packages/server-next/src/network/world-player-auth.service.js`
-   - `../packages/server-next/src/persistence/player-identity-persistence.service.js`
+   - `../packages/server/src/network/world-player-auth.service.js`
+   - `../packages/server/src/persistence/player-identity-persistence.service.js`
 
 ### T02 把 `WorldPlayerSourceService` 从 legacy facade 变成 next-native source
 
@@ -281,9 +281,9 @@
 - 风险：这是 identity 和 snapshot 的共同上游，切错会同时影响登录与 bootstrap。
 - 并行性：`不建议与 T01/T03/T05 并行混改`
 - 相关文件：
-   - `../packages/server-next/src/compat/legacy/http/legacy-auth-http.service.js`
-   - `../packages/server-next/src/network/world-player-source.service.js`
-   - `../packages/server-next/src/network/world-legacy-player-source.service.js`
+   - `../packages/server/src/compat/legacy/http/legacy-auth-http.service.js`
+   - `../packages/server/src/network/world-player-source.service.js`
+   - `../packages/server/src/network/world-legacy-player-source.service.js`
 
 ### T03 移除 authenticated snapshot 的 legacy fallback
 
@@ -304,8 +304,8 @@
 - 风险：会影响所有仍停留在 `legacy_runtime` 或仍依赖 compat preseed 迁移路径的玩家。
 - 并行性：`不建议与 T01/T02/T05 并行混改`
 - 相关文件：
-  - `../packages/server-next/src/network/world-session-bootstrap.service.js`
-  - `../packages/server-next/src/network/world-player-snapshot.service.js`
+  - `../packages/server/src/network/world-session-bootstrap.service.js`
+  - `../packages/server/src/network/world-player-snapshot.service.js`
 
 ### T04 把 snapshot 真源从“proof 完整”推进到“主链 next-native”
 
@@ -325,8 +325,8 @@
 - 风险：需要先处理旧玩家 snapshot 迁移，否则大面积登录失败。
 - 并行性：`可与 proof/观测增强并行，不可与主链重写并行混改`
 - 相关文件：
-  - `../packages/server-next/src/tools/next-auth-bootstrap-smoke.js`
-  - `../packages/server-next/src/network/world-player-snapshot.service.js`
+  - `../packages/server/src/tools/next-auth-bootstrap-smoke.js`
+  - `../packages/server/src/network/world-player-snapshot.service.js`
 
 ### T05 把 connect-time token bootstrap compat 语义收成单线
 
@@ -347,8 +347,8 @@
 - 风险：会打到现有客户端和 smoke 的握手时序。
 - 并行性：`不建议与 T01/T03/T06 并行混改`
 - 相关文件：
-  - `../packages/server-next/src/network/world.gateway.js`
-  - `../packages/server-next/src/tools/next-auth-bootstrap-smoke.js`
+  - `../packages/server/src/network/world.gateway.js`
+  - `../packages/server/src/tools/next-auth-bootstrap-smoke.js`
 
 ### T06 把 guest / authenticated / GM bootstrap 规则完全拆开
 
@@ -368,8 +368,8 @@
 - 风险：重构时容易把已经收口的 guest canonical 语义写回退。
 - 并行性：`可先做只读 contract 文档；代码改动不建议并行`
 - 相关文件：
-  - `../packages/server-next/src/network/world.gateway.js`
-  - `../packages/server-next/src/network/world-session.service.js`
+  - `../packages/server/src/network/world.gateway.js`
+  - `../packages/server/src/network/world-session.service.js`
 
 ### T07 明确 session 真源与稳定性边界
 
@@ -392,8 +392,8 @@
 - 风险：会影响 kick、重连、断线恢复、GM restore 清会话。
 - 并行性：`可先做设计与证明，不建议直接并行重写`
 - 相关文件：
-  - `../packages/server-next/src/network/world-session.service.js`
-  - `../packages/server-next/src/network/world-session-bootstrap.service.js`
+  - `../packages/server/src/network/world-session.service.js`
+  - `../packages/server/src/network/world-session-bootstrap.service.js`
 
 ### T08 把 auth trace 从“完成定义依赖项”降为“可选观测”
 
@@ -403,8 +403,8 @@
 - 风险：过早削弱 trace 会丢失真源替换期的排障抓手。
 - 并行性：`可安全并行做观测整理，不能拿它替代真源替换`
 - 相关文件：
-  - `../packages/server-next/src/network/world-player-token.service.js`
-  - `../packages/server-next/src/tools/next-auth-bootstrap-smoke.js`
+  - `../packages/server/src/network/world-player-token.service.js`
+  - `../packages/server/src/tools/next-auth-bootstrap-smoke.js`
 
 ## 二、P1 证明链与运营面闭环
 
@@ -425,8 +425,8 @@
 - 风险：可能暴露 backup dir、恢复后状态读取、持久化元数据的新问题。
 - 并行性：`可与 shadow destructive proof 分开并行准备`
 - 相关文件：
-  - `../packages/server-next/src/tools/gm-database-backup-persistence-smoke.js`
-  - `../packages/server-next/TESTING.md`
+  - `../packages/server/src/tools/gm-database-backup-persistence-smoke.js`
+  - `../packages/server/TESTING.md`
 
 ### T10 在 shadow 维护窗口实跑 destructive 数据库 proof
 
@@ -445,8 +445,8 @@
 - 风险：是 destructive 操作，必须串行执行，且会碰到真实 shadow runtime。
 - 并行性：`不可与其他 destructive 操作并行`
 - 相关文件：
-  - `../packages/server-next/src/tools/shadow-gm-database-proof.js`
-  - `../packages/server-next/REPLACE-RUNBOOK.md`
+  - `../packages/server/src/tools/shadow-gm-database-proof.js`
+  - `../packages/server/REPLACE-RUNBOOK.md`
 
 ### T11 把 `local / acceptance / full / shadow-destructive` 四层门禁口径彻底写死
 
@@ -458,16 +458,16 @@
   - 统一 wrapper 输出文案，避免命令行提示和文档口径不一致
   - 把 `verify:server-next*` alias 在文档中统一降格成兼容别名说明，避免继续被当主入口
 - 最小验证：
-  - `rg -n "local|acceptance|full|shadow-destructive" packages/server-next/README.md packages/server-next/TESTING.md packages/server-next/REPLACE-RUNBOOK.md .github/workflows/deploy-server-next.yml`
+  - `rg -n "local|acceptance|full|shadow-destructive" packages/server/README.md packages/server/TESTING.md packages/server/REPLACE-RUNBOOK.md .github/workflows/deploy-server-next.yml`
 - 退出条件：
   - 任何一个入口文件都能用同一套词解释四层门禁
   - 不再出现“默认门禁 = 完整替换完成”的文案漂移
 - 风险：如果口径不稳，后面真源替换每做一步都会被误判完成度。
 - 并行性：`可安全并行`
 - 相关文件：
-  - `../packages/server-next/README.md`
-  - `../packages/server-next/TESTING.md`
-  - `../packages/server-next/REPLACE-RUNBOOK.md`
+  - `../packages/server/README.md`
+  - `../packages/server/TESTING.md`
+  - `../packages/server/REPLACE-RUNBOOK.md`
   - `../.github/workflows/deploy-server-next.yml`
 
 ### T12 把 GM/admin/restore 自动化边界与人工回归边界正式分层
@@ -480,16 +480,16 @@
   - 把 GM/admin/restore 中仍必须人工观察的项逐条列出来，而不是只说“仍需人工”
   - 给 acceptance/full/shadow-destructive 补一段“未覆盖什么”的固定说明
 - 最小验证：
-  - 文档核对：`packages/server-next/TESTING.md`
-  - 文档核对：`packages/server-next/REPLACE-RUNBOOK.md`
+  - 文档核对：`packages/server/TESTING.md`
+  - 文档核对：`packages/server/REPLACE-RUNBOOK.md`
 - 退出条件：
   - 运营可以仅凭 RUNBOOK/TESTING 分辨“命令能证明什么、不能证明什么”
   - acceptance/full/shadow-destructive 不再被误解成完整人工运营回归
 - 风险：运营仍仰赖 legacy 能力，若边界文档和实际执行脱节，会让替换看起来“已完成”却没真正落地。
 - 并行性：`可安全并行`
 - 相关文件：
-  - `../packages/server-next/TESTING.md`
-  - `../packages/server-next/REPLACE-RUNBOOK.md`
+  - `../packages/server/TESTING.md`
+  - `../packages/server/REPLACE-RUNBOOK.md`
 
 ### T13 决定 GM/admin/restore 真源是否 next 化，还是长期保留 compat 壳
 
@@ -502,14 +502,14 @@
   - 把最终决策写回执行方案，避免后续每次又从头讨论
 - 最小验证：
   - 文档核对：`docs/next-remaining-execution-plan.md`
-  - 文档核对：`packages/server-next/REPLACE-RUNBOOK.md`
+  - 文档核对：`packages/server/REPLACE-RUNBOOK.md`
 - 退出条件：
   - GM/admin/restore 每类能力都有明确长期归宿
   - 之后的代码改动可以按该策略判断是“收口”还是“过度投入”
 - 风险：这是产品与运维策略问题，不是纯工程清理。
 - 并行性：`可先文档化决策，不必立刻改代码`
 - 相关文件：
-  - `../packages/server-next/src/compat/legacy/http`
+  - `../packages/server/src/compat/legacy/http`
   - `./next-remaining-execution-plan.md`
 
 ### T14 把 deploy workflow 升级到“可选 shadow destructive 补证”
@@ -553,9 +553,9 @@
 - 风险：改动会同时触达 server 投影、shared 类型和 client 初始化逻辑。
 - 并行性：`可与纯后端性能分析并行，不能与大规模 protocol 改写混改`
 - 相关文件：
-  - `../packages/server-next/src/network/world-projector.service.js`
-  - `../packages/server-next/src/network/world-sync.service.js`
-  - `../packages/shared-next/src/protocol.ts`
+  - `../packages/server/src/network/world-projector.service.js`
+  - `../packages/server/src/network/world-sync.service.js`
+  - `../packages/shared/src/protocol.ts`
 
 ### T16 把 `WorldProjector` 从整量 capture/clone + diff 再往下拆
 
@@ -575,7 +575,7 @@
 - 风险：这里是高频核心，容易引入同步错误。
 - 并行性：`只适合做低风险切缝或基准分析，不适合并行大改`
 - 相关文件：
-  - `../packages/server-next/src/network/world-projector.service.js`
+  - `../packages/server/src/network/world-projector.service.js`
 
 ### T17 降低 `panel/attr bonus` 的每 tick CPU 成本
 
@@ -595,8 +595,8 @@
 - 风险：容易影响属性、装备、buff、功法、动作面板的一致性。
 - 并行性：`可和首包瘦身分析并行；代码改动建议单线`
 - 相关文件：
-  - `../packages/server-next/src/network/world-projector.service.js`
-  - `../packages/server-next/src/network/world-sync.service.js`
+  - `../packages/server/src/network/world-projector.service.js`
+  - `../packages/server/src/network/world-sync.service.js`
 
 ### T18 降低 minimap marker 的构建、过滤、排序成本
 
@@ -616,7 +616,7 @@
 - 风险：会影响地图 UI、一致性与视野逻辑。
 - 并行性：`可安全并行分析，代码改动建议单线`
 - 相关文件：
-  - `../packages/server-next/src/network/world-sync.service.js`
+  - `../packages/server/src/network/world-sync.service.js`
 
 ### T19 建立高负载性能门禁与基准
 
@@ -636,8 +636,8 @@
 - 风险：没有基准就容易在后续扩展中无感回退。
 - 并行性：`可安全并行`
 - 相关文件：
-  - `../packages/server-next/package.json`
-  - `../packages/server-next/src/tools`
+  - `../packages/server/package.json`
+  - `../packages/server/src/tools`
 
 ### T20 把扩展新系统时默认往巨型 `PlayerState / sync/projector` 堆字段的趋势压住
 
@@ -657,9 +657,9 @@
 - 风险：这是“极高扩展度”目标的关键，否则替换后仍会继续膨胀。
 - 并行性：`可先做架构约束与切缝，代码主改动不宜并行`
 - 相关文件：
-  - `../packages/server-next/src/network/world-projector.service.js`
-  - `../packages/server-next/src/network/world-sync.service.js`
-  - `../packages/shared-next/src/protocol.ts`
+  - `../packages/server/src/network/world-projector.service.js`
+  - `../packages/server/src/network/world-sync.service.js`
+  - `../packages/shared/src/protocol.ts`
 
 ## 四、P1 client-next / shared-next / 稳定性
 
@@ -681,7 +681,7 @@
 - 风险：会影响多个 UI 模块的订阅和初始化调用。
 - 并行性：`可安全并行`
 - 相关文件：
-  - `../packages/client-next/src/network/socket.ts`
+  - `../packages/client/src/network/socket.ts`
 
 ### T22 稳定 `shared-next` 的数值、realm、bootstrap/panel/delta 类型基线
 
@@ -701,14 +701,14 @@
 - 风险：shared 出问题会先把整个 workspace 验证链打爆。
 - 并行性：`可安全并行`
 - 相关文件：
-  - `../packages/shared-next/src/numeric.ts`
-  - `../packages/shared-next/src/constants/gameplay/realm.ts`
-  - `../packages/shared-next/src/protocol.ts`
-  - `../packages/shared-next/src/value.ts`
+  - `../packages/shared/src/numeric.ts`
+  - `../packages/shared/src/constants/gameplay/realm.ts`
+  - `../packages/shared/src/protocol.ts`
+  - `../packages/shared/src/value.ts`
 
 ### T23 为 shared 字段新增补全“初始化 / 克隆 / 重置 / 序列化 / 投影”一致性检查
 
-- 当前状态：本轮已新增 `packages/shared-next/scripts/check-numeric-stats.cjs` 和 `pnpm --filter @mud/shared-next check:numeric-stats`，会校验 `NUMERIC_STATS_KEYS`、`createNumericStats`、`cloneNumericStats` 以及 value 映射键的覆盖关系，并已实跑通过。
+- 当前状态：本轮已新增 `packages/shared/scripts/check-numeric-stats.cjs` 和 `pnpm --filter @mud/shared-next check:numeric-stats`，会校验 `NUMERIC_STATS_KEYS`、`createNumericStats`、`cloneNumericStats` 以及 value 映射键的覆盖关系，并已实跑通过。
 - 为什么还没完成：现在只对 `NumericStats` 这条共享高风险结构建立了自动检查，`reset / addPartial / protobuf / protocol projection` 等更广的一致性面还没全部纳入。
 - 完成定义：新增 shared 字段时，如果漏补配套 helper，会在脚本或测试层尽早失败。
 - 下一步最小实改：
@@ -724,9 +724,9 @@
 - 风险：没有这个门禁，shared 层会反复成为 replace-ready 的非业务型阻塞。
 - 并行性：`可安全并行`
 - 相关文件：
-  - `../packages/shared-next/scripts/check-numeric-stats.cjs`
-  - `../packages/shared-next/src`
+  - `../packages/shared/scripts/check-numeric-stats.cjs`
   - `../packages/shared/src`
+  - `../legacy/shared/src`
 
 ## 五、P2 替换后 compat 策略
 
@@ -748,7 +748,7 @@
 - 风险：会影响维护成本、替换心理预期和后续架构边界。
 - 并行性：`可先做文档决策，不必立刻删代码`
 - 相关文件：
-  - `../packages/server-next/src/compat/legacy`
+  - `../packages/server/src/compat/legacy`
   - `./next-remaining-execution-plan.md`
 
 ### T25 把“完整替换完成”的判定标准从文档口径变成实际门禁
@@ -762,8 +762,8 @@
   - 对没有 gate 的完成标准项明确标红，作为下轮优先补项
 - 最小验证：
   - 文档核对：`docs/next-remaining-execution-plan.md`
-  - 文档核对：`packages/server-next/TESTING.md`
-  - 文档核对：`packages/server-next/REPLACE-RUNBOOK.md`
+  - 文档核对：`packages/server/TESTING.md`
+  - 文档核对：`packages/server/REPLACE-RUNBOOK.md`
 - 退出条件：
   - 每一条“完整替换完成”标准都能指向一个具体 gate
   - 文档里不再出现“看起来差不多完成”的主观口径
@@ -771,8 +771,8 @@
 - 并行性：`可安全并行`
 - 相关文件：
   - `./next-remaining-execution-plan.md`
-  - `../packages/server-next/TESTING.md`
-  - `../packages/server-next/REPLACE-RUNBOOK.md`
+  - `../packages/server/TESTING.md`
+  - `../packages/server/REPLACE-RUNBOOK.md`
 
 ## 六、当前最关键的“还剩多少”
 
@@ -887,23 +887,23 @@
 
 | 任务 | 收益 | 风险 | subagent | 首改文件 |
 | --- | --- | --- | --- | --- |
-| `T01` identity fallback 收口 | 高 | 高 | 不适合 | `../packages/server-next/src/network/world-player-auth.service.js` |
-| `T02` player source next-native 化 | 高 | 高 | 不适合 | `../packages/server-next/src/network/world-player-source.service.js` |
-| `T03` snapshot fallback 收口 | 高 | 高 | 不适合 | `../packages/server-next/src/network/world-session-bootstrap.service.js` |
-| `T04` snapshot 真源主链 next-native 化 | 高 | 高 | 不适合 | `../packages/server-next/src/network/world-player-snapshot.service.js` |
-| `T05` bootstrap 单线入口 | 高 | 高 | 不适合 | `../packages/server-next/src/network/world.gateway.js` |
-| `T06` guest/authenticated/GM bootstrap 拆分 | 中 | 高 | 不适合 | `../packages/server-next/src/network/world.gateway.js` |
-| `T07` session 真源边界定稿 | 高 | 高 | 不适合 | `../packages/server-next/src/network/world-session.service.js` |
-| `T08` trace 降级为可选观测 | 中 | 中 | 适合 | `../packages/server-next/src/network/world-player-token.service.js` |
+| `T01` identity fallback 收口 | 高 | 高 | 不适合 | `../packages/server/src/network/world-player-auth.service.js` |
+| `T02` player source next-native 化 | 高 | 高 | 不适合 | `../packages/server/src/network/world-player-source.service.js` |
+| `T03` snapshot fallback 收口 | 高 | 高 | 不适合 | `../packages/server/src/network/world-session-bootstrap.service.js` |
+| `T04` snapshot 真源主链 next-native 化 | 高 | 高 | 不适合 | `../packages/server/src/network/world-player-snapshot.service.js` |
+| `T05` bootstrap 单线入口 | 高 | 高 | 不适合 | `../packages/server/src/network/world.gateway.js` |
+| `T06` guest/authenticated/GM bootstrap 拆分 | 中 | 高 | 不适合 | `../packages/server/src/network/world.gateway.js` |
+| `T07` session 真源边界定稿 | 高 | 高 | 不适合 | `../packages/server/src/network/world-session.service.js` |
+| `T08` trace 降级为可选观测 | 中 | 中 | 适合 | `../packages/server/src/network/world-player-token.service.js` |
 
 ### 证明链 / 运营面看板
 
 | 任务 | 收益 | 风险 | subagent | 首改文件 |
 | --- | --- | --- | --- | --- |
-| `T09` 真实 DB 跑 backup persistence proof | 高 | 中 | 不适合 | `../packages/server-next/src/tools/gm-database-backup-persistence-smoke.js` |
-| `T10` shadow destructive proof 实跑 | 高 | 高 | 不适合 | `../packages/server-next/src/tools/shadow-gm-database-proof.js` |
-| `T11` 四层门禁口径写死 | 中 | 低 | 适合 | `../packages/server-next/TESTING.md` |
-| `T12` 自动化与人工边界分层 | 中 | 低 | 适合 | `../packages/server-next/REPLACE-RUNBOOK.md` |
+| `T09` 真实 DB 跑 backup persistence proof | 高 | 中 | 不适合 | `../packages/server/src/tools/gm-database-backup-persistence-smoke.js` |
+| `T10` shadow destructive proof 实跑 | 高 | 高 | 不适合 | `../packages/server/src/tools/shadow-gm-database-proof.js` |
+| `T11` 四层门禁口径写死 | 中 | 低 | 适合 | `../packages/server/TESTING.md` |
+| `T12` 自动化与人工边界分层 | 中 | 低 | 适合 | `../packages/server/REPLACE-RUNBOOK.md` |
 | `T13` GM/admin/restore 真源策略定稿 | 中 | 中 | 适合 | `./next-remaining-execution-plan.md` |
 | `T14` deploy workflow 可选 destructive 补证 | 中 | 中 | 适合 | `../.github/workflows/deploy-server-next.yml` |
 
@@ -911,27 +911,27 @@
 
 | 任务 | 收益 | 风险 | subagent | 首改文件 |
 | --- | --- | --- | --- | --- |
-| `T15` 首包重复瘦身 | 高 | 中 | 不适合 | `../packages/server-next/src/network/world-sync.service.js` |
-| `T16` projector 从整量 capture/diff 再下拆 | 高 | 高 | 不适合 | `../packages/server-next/src/network/world-projector.service.js` |
-| `T17` panel/attr bonus 热路径降载 | 中 | 高 | 不适合 | `../packages/server-next/src/network/world-projector.service.js` |
-| `T18` minimap marker 热路径优化 | 中 | 中 | 适合 | `../packages/server-next/src/network/world-sync.service.js` |
-| `T19` 建立高负载基准与门禁 | 高 | 中 | 适合 | `../packages/server-next/src/tools` |
-| `T20` 压住巨型 PlayerState / sync/projector 继续膨胀 | 高 | 高 | 不适合 | `../packages/server-next/src/network/world-projector.service.js` |
+| `T15` 首包重复瘦身 | 高 | 中 | 不适合 | `../packages/server/src/network/world-sync.service.js` |
+| `T16` projector 从整量 capture/diff 再下拆 | 高 | 高 | 不适合 | `../packages/server/src/network/world-projector.service.js` |
+| `T17` panel/attr bonus 热路径降载 | 中 | 高 | 不适合 | `../packages/server/src/network/world-projector.service.js` |
+| `T18` minimap marker 热路径优化 | 中 | 中 | 适合 | `../packages/server/src/network/world-sync.service.js` |
+| `T19` 建立高负载基准与门禁 | 高 | 中 | 适合 | `../packages/server/src/tools` |
+| `T20` 压住巨型 PlayerState / sync/projector 继续膨胀 | 高 | 高 | 不适合 | `../packages/server/src/network/world-projector.service.js` |
 
 ### client / shared 看板
 
 | 任务 | 收益 | 风险 | subagent | 首改文件 |
 | --- | --- | --- | --- | --- |
-| `T21` client-next API 表面 next-native 命名化 | 中 | 低 | 适合 | `../packages/client-next/src/network/socket.ts` |
-| `T22` shared-next 数值 / realm / bootstrap 类型基线稳定 | 高 | 中 | 适合 | `../packages/shared-next/src/numeric.ts` |
-| `T23` shared 一致性自动检查 | 高 | 中 | 适合 | `../packages/shared-next/src` |
+| `T21` client-next API 表面 next-native 命名化 | 中 | 低 | 适合 | `../packages/client/src/network/socket.ts` |
+| `T22` shared-next 数值 / realm / bootstrap 类型基线稳定 | 高 | 中 | 适合 | `../packages/shared/src/numeric.ts` |
+| `T23` shared 一致性自动检查 | 高 | 中 | 适合 | `../packages/shared/src` |
 
 ### compat 策略看板
 
 | 任务 | 收益 | 风险 | subagent | 首改文件 |
 | --- | --- | --- | --- | --- |
 | `T24` legacy compat 最终保留策略 | 中 | 中 | 适合 | `./next-remaining-execution-plan.md` |
-| `T25` 把完成标准从文档变成真实门禁 | 高 | 中 | 适合 | `../packages/server-next/TESTING.md` |
+| `T25` 把完成标准从文档变成真实门禁 | 高 | 中 | 适合 | `../packages/server/TESTING.md` |
 
 ## 九、最值得立刻做的 10 项
 
@@ -1126,7 +1126,7 @@
 
 ### 15.1 实际代码改动
 
-- 文件：`packages/server-next/src/tools/next-auth-bootstrap-smoke.js`
+- 文件：`packages/server/src/tools/next-auth-bootstrap-smoke.js`
 - 改动：扩展 `verifyNextSocketRejectsLegacyEventContract`，由“2 个 legacy 事件拒绝证明”升级为“5 个事件批量拒绝证明”：
   - `c:ping`
   - `c:requestSuggestions`
@@ -1155,7 +1155,7 @@
 
 ### 16.1 实际代码改动
 
-- 文件：`packages/server-next/src/tools/next-auth-bootstrap-smoke.js`
+- 文件：`packages/server/src/tools/next-auth-bootstrap-smoke.js`
 - 改动：继续扩展 `verifyNextSocketRejectsLegacyEventContract`，把拒绝证明从“少量读请求”升级为“读 + 写 + 交易 + 邮件 + 建议 + 商店”的批量覆盖。
 - 本轮新增覆盖事件包括：
   - 邮件链：`c:requestMailPage`、`c:requestMailDetail`、`c:markMailRead`、`c:claimMailAttachments`、`c:deleteMail`
@@ -1185,15 +1185,15 @@
 
 ### 17.1 实际代码改动
 
-- 文件：`packages/server-next/src/network/world-player-auth.service.js`
+- 文件：`packages/server/src/network/world-player-auth.service.js`
 - 改动：新增 next-token-runtime 严格开关
   - 新增环境开关读取：`SERVER_NEXT_AUTH_BLOCK_TOKEN_RUNTIME_ON_NEXT_PROTOCOL` / `NEXT_AUTH_BLOCK_TOKEN_RUNTIME_ON_NEXT_PROTOCOL`
   - `allowTokenRuntimeIdentity` 调整为“默认兼容、开关开启后 next 协议禁用 token_runtime”
-- 文件：`packages/server-next/src/network/world.gateway.js`
+- 文件：`packages/server/src/network/world.gateway.js`
 - 改动：next 身份白名单与上面开关联动
   - 默认保持现网兼容（next 可继续接纳 `token_runtime`）
   - 开关开启后，next 仅允许 `next/token`，并拒绝 `token_runtime`
-- 文件：`packages/server-next/src/tools/next-auth-bootstrap-smoke.js`
+- 文件：`packages/server/src/tools/next-auth-bootstrap-smoke.js`
 - 改动：补充“开关前后行为”防回退证明（写入 `legacyBackfillFallbackContract`）
   - 默认：`next + token_runtime` 仍可通过（兼容口径）
   - 开关开启：`next + token_runtime` 必须被拒绝（真源收口口径）
@@ -1263,52 +1263,52 @@
 
 #### A. auth / bootstrap / snapshot / session
 
-- [packages/server-next/src/network/world-player-auth.service.js](../packages/server-next/src/network/world-player-auth.service.js)
+- [packages/server/src/network/world-player-auth.service.js](../packages/server/src/network/world-player-auth.service.js)
   仍保留 `resolveMigrationIdentity`、`loadMigrationSnapshot`、`shouldPreferCompatBackfill`、`authenticateViaCompatMigration`，说明 identity 主链仍有 migration/backfill 语义
-- [packages/server-next/src/network/world-player-snapshot.service.js](../packages/server-next/src/network/world-player-snapshot.service.js)
+- [packages/server/src/network/world-player-snapshot.service.js](../packages/server/src/network/world-player-snapshot.service.js)
   仍保留 `ensureCompatBackfillSnapshot` 与 migration snapshot 装载，说明 snapshot 还处于“next 持久化 + compat 迁移工具”过渡态
-- [packages/server-next/src/network/world-player-source.service.js](../packages/server-next/src/network/world-player-source.service.js)
+- [packages/server/src/network/world-player-source.service.js](../packages/server/src/network/world-player-source.service.js)
   现在只是把 compat source 改名为 migration source，不是已经 next-native
-- `packages/server-next/src/network/world-legacy-player-source.service.js`
+- `packages/server/src/network/world-legacy-player-source.service.js`
   仍真实读取 legacy `users/players` 与 legacy HTTP fallback
-- [packages/server-next/src/network/world.gateway.js](../packages/server-next/src/network/world.gateway.js)
+- [packages/server/src/network/world.gateway.js](../packages/server/src/network/world.gateway.js)
   `connect_token` 已基本单线化，但 guest / authenticated / GM 仍没完全拆成最终独立 contract
-- [packages/server-next/src/network/world-session.service.js](../packages/server-next/src/network/world-session.service.js)
+- [packages/server/src/network/world-session.service.js](../packages/server/src/network/world-session.service.js)
   仍是单进程内存 binding；`sessionId` 仍是进程内生成，不具备跨重启/跨进程真源语义
 
 #### B. GM / admin / restore / proof
 
-- [packages/server-next/src/network/world-gm-auth.service.js](../packages/server-next/src/network/world-gm-auth.service.js)
+- [packages/server/src/network/world-gm-auth.service.js](../packages/server/src/network/world-gm-auth.service.js)
   GM token 校验外提了，但底层仍复用 legacy GM HTTP auth 真源
-- [packages/server-next/src/tools/gm-database-backup-persistence-smoke.js](../packages/server-next/src/tools/gm-database-backup-persistence-smoke.js)
+- [packages/server/src/tools/gm-database-backup-persistence-smoke.js](../packages/server/src/tools/gm-database-backup-persistence-smoke.js)
   仓库内 proof 已具备，但真实 DB 环境还没正式取证
-- [packages/server-next/src/tools/shadow-gm-database-proof.js](../packages/server-next/src/tools/shadow-gm-database-proof.js)
+- [packages/server/src/tools/shadow-gm-database-proof.js](../packages/server/src/tools/shadow-gm-database-proof.js)
   destructive shadow proof 入口已具备，但维护窗口实跑记录仍缺
 - [docs/server-next-operations.md](./server-next-operations.md)
   `local / acceptance / full / shadow-destructive` 已写成四层，但自动化门禁与人工回归边界还没彻底制度化
 
 #### C. sync / projector / first-package / perf
 
-- [packages/server-next/src/network/world-sync.service.js](../packages/server-next/src/network/world-sync.service.js)
+- [packages/server/src/network/world-sync.service.js](../packages/server/src/network/world-sync.service.js)
   仍同时承载 next 初始化、next delta、legacy sync 分流、minimap marker、realm、loot window 等多种职责
-- [packages/server-next/src/network/world-projector.service.js](../packages/server-next/src/network/world-projector.service.js)
+- [packages/server/src/network/world-projector.service.js](../packages/server/src/network/world-projector.service.js)
   仍是 `capture* + combine + diff*` 的整量建模思路，不是稳定 slices 驱动
-- [packages/server-next/src/tools/bench-first-package.js](../packages/server-next/src/tools/bench-first-package.js)
+- [packages/server/src/tools/bench-first-package.js](../packages/server/src/tools/bench-first-package.js)
   目前只能测 `InitSession / Bootstrap / MapStatic` 首包，不足以构成 replace-ready 级性能门禁
-- [packages/server-next/src/tools/bench-sync.js](../packages/server-next/src/tools/bench-sync.js)
+- [packages/server/src/tools/bench-sync.js](../packages/server/src/tools/bench-sync.js)
   已有投影基准骨架，但仍偏局部 micro-bench，不是完整高负载门禁
 
 #### D. client-next / shared-next
 
-- [packages/client-next/src/network/socket.ts](../packages/client-next/src/network/socket.ts)
+- [packages/client/src/network/socket.ts](../packages/client/src/network/socket.ts)
   线上事件面基本 next-native，但仍保留 `onMapStaticSync`、`onRealmUpdate` 这类 alias 表面
-- [packages/client-next/src/ui/auth-api.ts](../packages/client-next/src/ui/auth-api.ts)
+- [packages/client/src/ui/auth-api.ts](../packages/client/src/ui/auth-api.ts)
   登录、注册、刷新、改密码、改显示名、改角色名仍依赖 legacy `/auth/*` 与 `/account/*`
-- [packages/client-next/src/main.ts](../packages/client-next/src/main.ts)
+- [packages/client/src/main.ts](../packages/client/src/main.ts)
   仍大量把 next panel 数据适配回旧命名 `S2C_*` 结构再喂 UI
-- [packages/client-next/src/ui/panels/attr-panel.ts](../packages/client-next/src/ui/panels/attr-panel.ts)
+- [packages/client/src/ui/panels/attr-panel.ts](../packages/client/src/ui/panels/attr-panel.ts)
   仍有“灵根信息尚未同步”“灵脉信息尚未同步”“特殊属性尚未同步”等明确占位
-- [packages/shared-next/src/protocol.ts](../packages/shared-next/src/protocol.ts)
+- [packages/shared/src/protocol.ts](../packages/shared/src/protocol.ts)
   类型基础已经成型，但新增字段时仍主要靠人工补齐 clone/reset/projection 一致性
 
 ### 18.4 这轮扫描对各任务组的结论

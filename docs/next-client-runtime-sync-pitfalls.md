@@ -1,5 +1,10 @@
 # next 客户端运行时同步问题总结
 
+补充说明：
+
+- 这份文档保留为“整条 `server-next -> shared-next -> client-next` 高频动态链”的问题总结。
+- 如果只看前端长期边界、只想看 `client-next` 应遵守的同步规则，统一看 [docs/frontend-refactor/sync-pitfalls.md](./frontend-refactor/sync-pitfalls.md)。
+
 ## 背景
 
 这轮排查表面上是在修：
@@ -121,8 +126,8 @@
 
 优先看：
 
-- `packages/server-next/src/runtime/world/world-runtime.service.js`
-- `packages/server-next/src/runtime/instance/map-instance.runtime.js`
+- `packages/server/src/runtime/world/world-runtime.service.js`
+- `packages/server/src/runtime/instance/map-instance.runtime.js`
 
 要先确认：
 
@@ -134,9 +139,9 @@
 
 优先看：
 
-- `packages/server-next/src/network/world-projector.service.js`
-- `packages/server-next/src/network/world-sync.service.js`
-- `packages/shared-next/src/protocol.ts`
+- `packages/server/src/network/world-projector.service.js`
+- `packages/server/src/network/world-sync.service.js`
+- `packages/shared/src/protocol.ts`
 
 要确认：
 
@@ -148,8 +153,8 @@
 
 优先看：
 
-- `packages/client-next/src/main.ts`
-- `packages/client-next/src/game-map/store/map-store.ts`
+- `packages/client/src/main.ts`
+- `packages/client/src/game-map/store/map-store.ts`
 
 重点确认：
 
@@ -161,8 +166,8 @@
 
 优先看：
 
-- `packages/client-next/src/renderer/text.ts`
-- `packages/client-next/src/game-map/renderer/canvas-text-renderer-adapter.ts`
+- `packages/client/src/renderer/text.ts`
+- `packages/client/src/game-map/renderer/canvas-text-renderer-adapter.ts`
 
 重点确认：
 

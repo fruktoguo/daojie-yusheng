@@ -1,12 +1,13 @@
 {
-  "name": "@mud/shared",
+  "name": "@mud/shared-next",
   "version": "0.0.1",
   "private": true,
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "node ../../scripts/sync-tutorial-mechanics.mjs && tsc",
-    "build:watch": "tsc --watch"
+    "build:watch": "tsc --watch",
+    "check:numeric-stats": "node scripts/check-numeric-stats.cjs"
   },
   "dependencies": {
     "protobufjs": "^7.5.4"

@@ -2,7 +2,7 @@
  * 客户端寻路包装层，复用 shared 中的纯函数寻路核心。
  */
 
-import { deltaToDirection, Direction, findBoundedPath, getTileTraversalCost, Tile } from '@mud/shared';
+import { deltaToDirection, Direction, findBoundedPath, getTileTraversalCost, Tile } from '@mud/shared-next';
 
 /** A* 寻路，返回 Direction[] 路径；不可达返回 null */
 export function findPath(

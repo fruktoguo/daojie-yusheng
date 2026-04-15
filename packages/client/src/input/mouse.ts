@@ -2,7 +2,7 @@
  * 鼠标输入处理 —— 将画布点击/悬停转换为世界格子坐标与实体目标
  */
 
-import { MapMeta, Tile } from '@mud/shared';
+import { MapMeta, Tile } from '@mud/shared-next';
 import { Camera } from '../renderer/camera';
 import { getCellSize } from '../display';
 

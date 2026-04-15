@@ -3,8 +3,8 @@
  * 根据 SkillDef 和玩家上下文生成带公式预览的富文本提示内容
  */
 
-import { AttrKey, NumericScalarStatKey, SkillDef, SkillFormula, SkillFormulaVar, TemporaryBuffState, calcQiCostWithOutputLimit, formatBuffMaxStacks } from '@mud/shared';
-import type { PlayerState } from '@mud/shared';
+import { AttrKey, NumericScalarStatKey, SkillDef, SkillFormula, SkillFormulaVar, TemporaryBuffState, calcQiCostWithOutputLimit, formatBuffMaxStacks } from '@mud/shared-next';
+import type { PlayerState } from '@mud/shared-next';
 import { FORMULA_VAR_LABELS, FORMULA_VAR_META, type SkillScalingMeta } from '../constants/ui/skill-tooltip';
 import { getElementKeyLabel } from '../domain-labels';
 import { getLocalBuffTemplate, resolvePreviewSkill, resolvePreviewSkills } from '../content/local-templates';
@@ -40,11 +40,11 @@ type FormulaPreview = {
 /** StructuredDamagePreview：定义该类型的结构与数据语义。 */
 type StructuredDamagePreview = {
 /** total：定义该变量以承载业务值。 */
-  total: number | null;
+  total: number;
 /** fixedTotal：定义该变量以承载业务值。 */
-  fixedTotal: number | null;
+  fixedTotal: number;
 /** percentTotal：定义该变量以承载业务值。 */
-  percentTotal: number | null;
+  percentTotal: number;
 /** percentFactorCount：定义该变量以承载业务值。 */
   percentFactorCount: number;
 /** fixedHtml：定义该变量以承载业务值。 */
@@ -56,7 +56,7 @@ type StructuredDamagePreview = {
 /** PercentFactorPreview：定义该类型的结构与数据语义。 */
 type PercentFactorPreview = {
 /** multiplier：定义该变量以承载业务值。 */
-  multiplier: number | null;
+  multiplier: number;
 /** html：定义该变量以承载业务值。 */
   html: string;
 };
@@ -85,14 +85,6 @@ type ResolvedBuffMeta = {
   mark: string;
 /** tone：定义该变量以承载业务值。 */
   tone: 'buff' | 'debuff';
-};
-
-/** AggregatedBuffEffect：定义该类型的结构与数据语义。 */
-type AggregatedBuffEffect = {
-/** effect：定义该变量以承载业务值。 */
-  effect: Extract<SkillDef['effects'][number], { type: 'buff' }>;
-/** applications：定义该变量以承载业务值。 */
-  applications: number;
 };
 
 /** SkillTooltipAsideCard：定义该接口的能力与字段约束。 */
@@ -137,49 +129,6 @@ export interface SkillPreviewMetrics {
   isMelee: boolean;
 /** isRanged：定义该变量以承载业务值。 */
   isRanged: boolean;
-}
-
-/** buildBuffEffectAggregationKey：执行对应的业务逻辑。 */
-function buildBuffEffectAggregationKey(effect: Extract<SkillDef['effects'][number], { type: 'buff' }>): string {
-  return [
-    effect.target,
-    effect.buffId,
-    effect.name,
-    effect.desc ?? '',
-    effect.shortMark ?? '',
-    effect.category ?? '',
-    effect.visibility ?? '',
-    effect.color ?? '',
-    String(effect.duration),
-    String(effect.maxStacks ?? ''),
-    effect.attrMode ?? '',
-    effect.statMode ?? '',
-    JSON.stringify(effect.attrs ?? null),
-    JSON.stringify(effect.stats ?? null),
-    JSON.stringify(effect.valueStats ?? null),
-    JSON.stringify(effect.qiProjection ?? null),
-  ].join('\u0001');
-}
-
-/** aggregateBuffEffects：执行对应的业务逻辑。 */
-function aggregateBuffEffects(effects: SkillDef['effects']): AggregatedBuffEffect[] {
-/** aggregated：定义该变量以承载业务值。 */
-  const aggregated: AggregatedBuffEffect[] = [];
-  for (const effect of effects) {
-    if (effect.type !== 'buff') {
-      continue;
-    }
-/** key：定义该变量以承载业务值。 */
-    const key = buildBuffEffectAggregationKey(effect);
-/** existing：定义该变量以承载业务值。 */
-    const existing = aggregated.find((entry) => buildBuffEffectAggregationKey(entry.effect) === key);
-    if (existing) {
-      existing.applications += 1;
-      continue;
-    }
-    aggregated.push({ effect, applications: 1 });
-  }
-  return aggregated;
 }
 
 /** escapeHtml：执行对应的业务逻辑。 */
@@ -240,7 +189,7 @@ function buildQiCostValue(cost: number, context: SkillTooltipPreviewContext): st
 
 /** describeBuffEffect：执行对应的业务逻辑。 */
 function describeBuffEffect(effect: Extract<SkillDef['effects'][number], { type: 'buff' }>): string[] {
-  return describePreviewBonuses(effect.attrs, effect.stats, effect.valueStats, effect.attrMode ?? 'percent', effect.statMode ?? 'percent');
+  return describePreviewBonuses(effect.attrs, effect.stats, effect.valueStats);
 }
 
 /** buildBuffInlineBadge：执行对应的业务逻辑。 */
@@ -442,11 +391,6 @@ function resolvePreviewVar(varName: SkillFormulaVar, context: SkillTooltipPrevie
   return resolved.known ? resolved.value : null;
 }
 
-/** resolvePreviewVarForMetrics：执行对应的业务逻辑。 */
-function resolvePreviewVarForMetrics(varName: SkillFormulaVar, context: SkillTooltipPreviewContext): number {
-  return resolvePreviewValue(varName, context).value;
-}
-
 /** renderVariableFormula：执行对应的业务逻辑。 */
 function renderVariableFormula(varName: SkillFormulaVar, scale: number, context: SkillTooltipPreviewContext): FormulaPreview {
   if (varName === 'techLevel') {
@@ -538,14 +482,6 @@ function isPercentFactorFormula(formula: SkillFormula): formula is { op: 'add'; 
     && Math.abs((formula.args[0] as number) - 1) <= 1e-6;
 }
 
-/** roundPreviewDamage：执行对应的业务逻辑。 */
-function roundPreviewDamage(value: number | null): number | null {
-  if (value === null || !Number.isFinite(value)) {
-    return null;
-  }
-  return Math.max(1, Math.round(value));
-}
-
 /** previewPercentFactor：执行对应的业务逻辑。 */
 function previewPercentFactor(formula: SkillFormula, context: SkillTooltipPreviewContext): PercentFactorPreview | null {
   if (!isPercentFactorFormula(formula)) {
@@ -553,25 +489,14 @@ function previewPercentFactor(formula: SkillFormula, context: SkillTooltipPrevie
   }
 /** percentParts：定义该变量以承载业务值。 */
   const percentParts = formula.args.slice(1).map((entry) => previewPercentPart(entry, context));
-/** allKnown：定义该变量以承载业务值。 */
-  const allKnown = percentParts.every((entry) => entry.resolved !== null);
 /** percentBonus：定义该变量以承载业务值。 */
-  const percentBonus = allKnown
-    ? percentParts.reduce((sum, entry) => sum + (entry.resolved ?? 0), 0)
-    : null;
-/** detailHtml：定义该变量以承载业务值。 */
-  const detailHtml = percentParts.map((entry) => entry.html).join('<span class="skill-formula-operator"> + </span>');
+  const percentBonus = percentParts.reduce((sum, entry) => sum + (entry.resolved ?? 0), 0);
 /** html：定义该变量以承载业务值。 */
   const html = percentParts.length > 0
-    ? (
-      percentBonus === null
-        ? `1<span class="skill-formula-breakdown">（${detailHtml}）</span>`
-        : `${formatPercent(1 + percentBonus)}<span class="skill-formula-breakdown">（${detailHtml}）</span>`
-    )
+    ? `${formatPercent(1 + percentBonus)}<span class="skill-formula-breakdown">（${percentParts.map((entry) => entry.html).join('<span class="skill-formula-operator"> + </span>')}）</span>`
     : formatPercent(1);
   return {
-/** multiplier：定义该变量以承载业务值。 */
-    multiplier: percentBonus === null ? null : 1 + percentBonus,
+    multiplier: 1 + percentBonus,
     html,
   };
 }
@@ -581,54 +506,38 @@ function extractStructuredDamagePreview(formula: SkillFormula, context: SkillToo
   if (!isMulFormula(formula) || formula.args.length < 2) {
     return null;
   }
-/** fixedFormulas：定义该变量以承载业务值。 */
-  const fixedFormulas: SkillFormula[] = [];
-/** percentFormulas：定义该变量以承载业务值。 */
-  const percentFormulas: SkillFormula[] = [];
-/** percentFactors：定义该变量以承载业务值。 */
-  const percentFactors: PercentFactorPreview[] = [];
-  for (const entry of formula.args) {
-    const percentFactor = previewPercentFactor(entry, context);
-    if (percentFactor) {
-      percentFormulas.push(entry);
-      percentFactors.push(percentFactor);
-      continue;
-    }
-    fixedFormulas.push(entry);
+  const [fixedFormula, ...percentFactorFormulas] = formula.args;
+  if (!isAddFormula(fixedFormula)) {
+    return null;
   }
-
-  if (fixedFormulas.length === 0 || percentFactors.length === 0) {
+/** percentFactors：定义该变量以承载业务值。 */
+  const percentFactors = percentFactorFormulas.map((entry) => previewPercentFactor(entry, context));
+  if (percentFactors.some((entry) => entry === null)) {
     return null;
   }
 
 /** fixedParts：定义该变量以承载业务值。 */
-  const fixedParts = fixedFormulas.map((entry) => previewFormula(entry, context));
+  const fixedParts = fixedFormula.args.map((entry) => previewFormula(entry, context));
 /** fixedTotal：定义该变量以承载业务值。 */
-  const fixedTotal = fixedFormulas.reduce<number>(
-    (product, entry) => product * evaluateFormulaForMetrics(entry, context),
-    1,
-  );
+  const fixedTotal = fixedParts.reduce((sum, entry) => sum + (entry.resolved ?? 0), 0);
 /** percentTotal：定义该变量以承载业务值。 */
-  const percentTotal = percentFormulas.reduce<number>(
-    (product, entry) => product * evaluateFormulaForMetrics(entry, context),
-    1,
-  );
+  const percentTotal = percentFactors.reduce((product, entry) => product * (entry?.multiplier ?? 1), 1);
 /** total：定义该变量以承载业务值。 */
-  const total = roundPreviewDamage(fixedTotal * percentTotal);
+  const total = fixedTotal * percentTotal;
 
 /** fixedHtml：定义该变量以承载业务值。 */
   const fixedHtml = fixedParts
-    .map((entry) => fixedParts.length > 1 ? `(${entry.html})` : entry.html)
-    .join('<span class="skill-formula-operator"> × </span>');
+    .map((entry) => entry.html)
+    .join('<span class="skill-formula-operator"> + </span>');
 /** percentHtml：定义该变量以承载业务值。 */
   const percentHtml = percentFactors.length > 0
     ? percentFactors
-      .map((entry) => entry.html)
+      .map((entry) => entry?.html ?? '')
       .join('<span class="skill-formula-operator"> × </span>')
     : '<span class="skill-formula-empty">0%</span>';
 
   return {
-    total,
+    total: Math.max(0, total),
     fixedTotal,
     percentTotal,
     percentFactorCount: percentFactors.length,
@@ -649,13 +558,13 @@ function previewPercentPart(formula: SkillFormula, context: SkillTooltipPreviewC
 /** resolved：定义该变量以承载业务值。 */
     const resolved = resolvePreviewValue(formula.var, context);
 /** resolvedPercent：定义该变量以承载业务值。 */
-    const resolvedPercent = resolved.known ? resolved.value * (formula.scale ?? 1) : null;
+    const resolvedPercent = resolved.value * (formula.scale ?? 1);
 /** buffReference：定义该变量以承载业务值。 */
     const buffReference = buildBuffStackReference(formula.var, context, resolved.known ? resolved.value : null);
     if (buffReference) {
       return {
         html: renderFormulaTerm(
-          resolvedPercent !== null ? `${formatPercent(resolvedPercent)}（${buffReference}×${formatPercent(formula.scale ?? 1)}）` : `${buffReference}×${formatPercent(formula.scale ?? 1)}`,
+          resolved.known ? `${formatPercent(resolvedPercent)}（${buffReference}×${formatPercent(formula.scale ?? 1)}）` : `${buffReference}×${formatPercent(formula.scale ?? 1)}`,
           'skill-formula-term-percent',
         ),
         resolved: resolvedPercent,
@@ -666,7 +575,7 @@ function previewPercentPart(formula: SkillFormula, context: SkillTooltipPreviewC
       const badge = `<span class="skill-scaling skill-scaling-tech"><span class="skill-scaling-icon">◎</span><span>${escapeHtml(`${formatDisplayNumber(resolved.value)}层`)}</span></span>`;
       return {
         html: renderFormulaTerm(
-          resolvedPercent !== null ? `${formatPercent(resolvedPercent)}（${badge}×${formatPercent(formula.scale ?? 1)}）` : `${escapeHtml(FORMULA_VAR_LABELS[formula.var] ?? formula.var)}×${formatPercent(formula.scale ?? 1)}`,
+          resolved.known ? `${formatPercent(resolvedPercent)}（${badge}×${formatPercent(formula.scale ?? 1)}）` : `${escapeHtml(FORMULA_VAR_LABELS[formula.var] ?? formula.var)}×${formatPercent(formula.scale ?? 1)}`,
           'skill-formula-term-percent',
         ),
         resolved: resolvedPercent,
@@ -677,7 +586,7 @@ function previewPercentPart(formula: SkillFormula, context: SkillTooltipPreviewC
     if (meta) {
       return {
         html: renderFormulaTerm(
-          resolvedPercent !== null ? `${formatPercent(resolvedPercent)}（${renderScalingBadge(meta)}×${formatPercent(formula.scale ?? 1)}）` : `${renderScalingBadge(meta)}×${formatPercent(formula.scale ?? 1)}`,
+          resolved.known ? `${formatPercent(resolvedPercent)}（${renderScalingBadge(meta)}×${formatPercent(formula.scale ?? 1)}）` : `${renderScalingBadge(meta)}×${formatPercent(formula.scale ?? 1)}`,
           'skill-formula-term-percent',
         ),
         resolved: resolvedPercent,
@@ -687,7 +596,7 @@ function previewPercentPart(formula: SkillFormula, context: SkillTooltipPreviewC
     const label = FORMULA_VAR_LABELS[formula.var] ?? formula.var;
     return {
       html: renderFormulaTerm(
-        resolvedPercent !== null ? `${formatPercent(resolvedPercent)}（${escapeHtml(label)}×${formatPercent(formula.scale ?? 1)}）` : `${escapeHtml(label)}×${formatPercent(formula.scale ?? 1)}`,
+        resolved.known ? `${formatPercent(resolvedPercent)}（${escapeHtml(label)}×${formatPercent(formula.scale ?? 1)}）` : `${escapeHtml(label)}×${formatPercent(formula.scale ?? 1)}`,
         'skill-formula-term-percent',
       ),
       resolved: resolvedPercent,
@@ -798,78 +707,30 @@ function previewFormula(formula: SkillFormula, context: SkillTooltipPreviewConte
   }
 }
 
-/** evaluateFormulaForMetrics：执行对应的业务逻辑。 */
-function evaluateFormulaForMetrics(formula: SkillFormula, context: SkillTooltipPreviewContext): number {
-  if (typeof formula === 'number') {
-    return formula;
-  }
-  if ('var' in formula) {
-    return resolvePreviewVarForMetrics(formula.var, context) * (formula.scale ?? 1);
-  }
-  if (formula.op === 'clamp') {
-/** value：定义该变量以承载业务值。 */
-    let value = evaluateFormulaForMetrics(formula.value, context);
-    if (formula.min !== undefined) {
-      value = Math.max(value, evaluateFormulaForMetrics(formula.min, context));
-    }
-    if (formula.max !== undefined) {
-      value = Math.min(value, evaluateFormulaForMetrics(formula.max, context));
-    }
-    return value;
-  }
-
-/** args：定义该变量以承载业务值。 */
-  const args = formula.args.map((entry) => evaluateFormulaForMetrics(entry, context));
-  switch (formula.op) {
-    case 'add':
-      return args.reduce((sum, entry) => sum + entry, 0);
-    case 'sub':
-      return args.slice(1).reduce((sum, entry) => sum - entry, args[0] ?? 0);
-    case 'mul':
-      return args.reduce((product, entry) => product * entry, 1);
-    case 'div':
-      return args.slice(1).reduce((quotient, entry) => (
-        quotient === 0 || entry === 0 ? 0 : quotient / entry
-      ), args[0] ?? 0);
-    case 'min':
-      return args.length > 0 ? Math.min(...args) : 0;
-    case 'max':
-      return args.length > 0 ? Math.max(...args) : 0;
-    default:
-      return 0;
-  }
-}
-
 /** formatDamageFormula：执行对应的业务逻辑。 */
 function formatDamageFormula(formula: SkillFormula, context: SkillTooltipPreviewContext, damageKind: 'physical' | 'spell'): string {
 /** structured：定义该变量以承载业务值。 */
   const structured = extractStructuredDamagePreview(formula, context);
   if (structured) {
 /** fixedPart：定义该变量以承载业务值。 */
-    const fixedPart = structured.fixedTotal === null
-      ? `<span class="skill-formula-group">${structured.fixedHtml}</span>`
-      : `<span class="skill-formula-group">${formatDisplayNumber(structured.fixedTotal)}<span class="skill-formula-breakdown">（${structured.fixedHtml}）</span></span>`;
+    const fixedPart = `<span class="skill-formula-group">${formatDisplayNumber(structured.fixedTotal)}<span class="skill-formula-breakdown">（${structured.fixedHtml}）</span></span>`;
 /** percentPart：定义该变量以承载业务值。 */
     const percentPart = structured.percentFactorCount === 1
       ? `<span class="skill-formula-group">${structured.percentHtml}</span>`
-      : structured.percentTotal === null
-      ? `<span class="skill-formula-group">${structured.percentHtml}</span>`
       : structured.percentHtml.startsWith('<span class="skill-formula-empty">')
-        ? `<span class="skill-formula-group">${formatPercent(structured.percentTotal)}</span>`
-        : `<span class="skill-formula-group">${formatPercent(structured.percentTotal)}<span class="skill-formula-breakdown">（${structured.percentHtml}）</span></span>`;
-    return `<span class="skill-damage-total skill-damage-total-${damageKind}">${formatDisplayNumber(structured.total ?? 0)}</span><span class="skill-formula-equals"> = </span>${fixedPart}<span class="skill-formula-operator"> × </span>${percentPart}`;
+      ? `<span class="skill-formula-group">${formatPercent(structured.percentTotal)}</span>`
+      : `<span class="skill-formula-group">${formatPercent(structured.percentTotal)}<span class="skill-formula-breakdown">（${structured.percentHtml}）</span></span>`;
+    return `<span class="skill-damage-total skill-damage-total-${damageKind}">${formatDisplayNumber(structured.total)}</span><span class="skill-formula-equals"> = </span>${fixedPart}<span class="skill-formula-operator"> × </span>${percentPart}`;
   }
 /** preview：定义该变量以承载业务值。 */
   const preview = previewFormula(formula, context);
   if (typeof formula === 'number' || 'var' in formula) {
     return preview.html;
   }
-/** displayDamage：定义该变量以承载业务值。 */
-  const displayDamage = roundPreviewDamage(preview.resolved ?? evaluateFormulaForMetrics(formula, context));
-  if (displayDamage === null) {
+  if (preview.resolved === null) {
     return preview.html;
   }
-  return `<span class="skill-damage-total skill-damage-total-${damageKind}">${formatDisplayNumber(displayDamage)}</span><span class="skill-formula-breakdown">（${preview.html}）</span>`;
+  return `<span class="skill-damage-total skill-damage-total-${damageKind}">${formatDisplayNumber(preview.resolved)}</span><span class="skill-formula-breakdown">（${preview.html}）</span>`;
 }
 
 /** summarizeSkillPreviewMetrics：执行对应的业务逻辑。 */
@@ -880,6 +741,8 @@ export function summarizeSkillPreviewMetrics(skill: SkillDef, context: SkillTool
   let totalDamage = 0;
 /** hasDamageEffect：定义该变量以承载业务值。 */
   let hasDamageEffect = false;
+/** hasUnknownDamage：定义该变量以承载业务值。 */
+  let hasUnknownDamage = false;
 /** hasPhysicalDamage：定义该变量以承载业务值。 */
   let hasPhysicalDamage = false;
 /** hasSpellDamage：定义该变量以承载业务值。 */
@@ -895,9 +758,12 @@ export function summarizeSkillPreviewMetrics(skill: SkillDef, context: SkillTool
     } else {
       hasSpellDamage = true;
     }
+/** structured：定义该变量以承载业务值。 */
+    const structured = extractStructuredDamagePreview(effect.formula, context);
 /** resolvedDamage：定义该变量以承载业务值。 */
-    const resolvedDamage = roundPreviewDamage(evaluateFormulaForMetrics(effect.formula, context));
+    const resolvedDamage = structured?.total ?? previewFormula(effect.formula, context).resolved;
     if (resolvedDamage === null) {
+      hasUnknownDamage = true;
       continue;
     }
     totalDamage += resolvedDamage;
@@ -915,7 +781,7 @@ export function summarizeSkillPreviewMetrics(skill: SkillDef, context: SkillTool
   const maxQiOutputPerTick = context.player?.numericStats?.maxQiOutputPerTick;
 
   return {
-    actualDamage: hasDamageEffect ? totalDamage : 0,
+    actualDamage: hasDamageEffect && hasUnknownDamage ? null : totalDamage,
 /** actualQiCost：定义该变量以承载业务值。 */
     actualQiCost: maxQiOutputPerTick === undefined
       ? previewSkill.cost
@@ -995,40 +861,37 @@ export function buildSkillTooltipContent(skill: SkillDef, context: SkillTooltipP
       lines.push(renderLabelLine(damageLabel, formatDamageFormula(effect.formula, context, damageKind)));
       continue;
     }
+    if (effect.type === 'buff') {
+/** stackLimit：定义该变量以承载业务值。 */
+      const stackLimit = formatBuffMaxStacks(effect.maxStacks);
+/** stackText：定义该变量以承载业务值。 */
+      const stackText = stackLimit ? `，最多 ${stackLimit} 层` : '';
+/** categoryLabel：定义该变量以承载业务值。 */
+      const categoryLabel = effect.category === 'debuff' ? '减益' : '增益';
+/** targetLabel：定义该变量以承载业务值。 */
+      const targetLabel = effect.target === 'target' ? '目标' : effect.target === 'allies' ? '友方' : '自身';
+/** badge：定义该变量以承载业务值。 */
+      const badge = buildBuffInlineBadge(effect);
+      lines.push(renderLabelLine(categoryLabel, `${badge}<span class="skill-tooltip-buff-meta">${escapeHtml(` ${targetLabel} · ${formatDisplayInteger(effect.duration)} 息${stackText}`)}</span>`));
+/** effectLines：定义该变量以承载业务值。 */
+      const effectLines = describeBuffEffect(effect);
+      if (effectLines.length > 0) {
+        lines.push(renderPlainLine('效果', effectLines.join('，')));
+      }
+      asideCards.push(buildBuffAsideCard(effect));
+      continue;
+    }
     if (effect.type === 'heal') {
 /** targetLabel：定义该变量以承载业务值。 */
       const targetLabel = effect.target === 'allies' ? '友方治疗' : effect.target === 'target' ? '目标治疗' : '自身治疗';
       lines.push(renderLabelLine(targetLabel, formatDamageFormula(effect.formula, context, 'spell')));
       continue;
     }
-    if (effect.type === 'cleanse') {
 /** targetLabel：定义该变量以承载业务值。 */
-      const targetLabel = effect.target === 'target' ? '目标' : '自身';
+    const targetLabel = effect.target === 'target' ? '目标' : '自身';
 /** categoryLabel：定义该变量以承载业务值。 */
-      const categoryLabel = effect.category === 'buff' ? '增益' : '减益';
-      lines.push(renderPlainLine('净化', `${targetLabel}，移除 ${formatDisplayInteger(effect.removeCount ?? 1)} 个${categoryLabel}`));
-    }
-  }
-  for (const aggregated of aggregateBuffEffects(previewSkill.effects)) {
-    const effect = aggregated.effect;
-    const stackLimit = formatBuffMaxStacks(effect.maxStacks);
-/** stackText：定义该变量以承载业务值。 */
-    const stackText = stackLimit ? `，最多 ${stackLimit} 层` : '';
-/** applyText：定义该变量以承载业务值。 */
-    const applyText = aggregated.applications > 1 ? `，施加 ${formatDisplayInteger(aggregated.applications)} 层` : '';
-/** categoryLabel：定义该变量以承载业务值。 */
-    const categoryLabel = effect.category === 'debuff' ? '减益' : '增益';
-/** targetLabel：定义该变量以承载业务值。 */
-    const targetLabel = effect.target === 'target' ? '目标' : effect.target === 'allies' ? '友方' : '自身';
-/** badge：定义该变量以承载业务值。 */
-    const badge = buildBuffInlineBadge(effect);
-    lines.push(renderLabelLine(categoryLabel, `${badge}<span class="skill-tooltip-buff-meta">${escapeHtml(` ${targetLabel} · ${formatDisplayInteger(effect.duration)} 息${stackText}${applyText}`)}</span>`));
-/** effectLines：定义该变量以承载业务值。 */
-    const effectLines = describeBuffEffect(effect);
-    if (effectLines.length > 0) {
-      lines.push(renderPlainLine('效果', effectLines.join('，')));
-    }
-    asideCards.push(buildBuffAsideCard(effect));
+    const categoryLabel = effect.category === 'buff' ? '增益' : '减益';
+    lines.push(renderPlainLine('净化', `${targetLabel}，移除 ${formatDisplayInteger(effect.removeCount ?? 1)} 个${categoryLabel}`));
   }
   lines.push(renderLabelLine('灵力消耗', buildQiCostValue(previewSkill.cost, context)));
   lines.push(renderPlainLine('冷却', `${formatDisplayInteger(previewSkill.cooldown)} 息`));

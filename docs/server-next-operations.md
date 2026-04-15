@@ -2,13 +2,15 @@
 
 更新时间：2026-04-11
 
-这份文档收口原先分散在 `packages/server-next/TESTING.md`、`packages/server-next/REPLACE-RUNBOOK.md`
+这份文档收口原先分散在 `packages/server/TESTING.md`、`packages/server/REPLACE-RUNBOOK.md`
 与 workflow / wrapper 里的重复内容，统一回答四件事：
 
 1. `server-next` 现在的验证口径是什么
 2. `local / acceptance / full / shadow-destructive` 四层门禁分别怎么跑
 3. 自动 proof 和人工回归边界怎么切
 4. shadow / `gm/database/*` 演练时要注意什么
+
+如需看前端重构本身、`client-next` UI 状态与前端专属验证口径，统一看 [docs/frontend-refactor/verification.md](./frontend-refactor/verification.md) 与 [docs/frontend-refactor/README.md](./frontend-refactor/README.md)。
 
 ## 当前定位
 
@@ -225,7 +227,7 @@ shadow-destructive 额外需要：
 如果工作区里其他包有未完成改动，导致 shared 编译阻塞，也可以只验证 `server-next` 自身：
 
 ```bash
-node node_modules/.pnpm/node_modules/typescript/bin/tsc -p packages/server-next/tsconfig.json
+node node_modules/.pnpm/node_modules/typescript/bin/tsc -p packages/server/tsconfig.json
 ```
 
 ## shadow / 数据库演练要点

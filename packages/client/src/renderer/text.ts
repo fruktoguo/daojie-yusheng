@@ -21,7 +21,7 @@ import {
   TechniqueGrade,
   TimePhaseId,
   VisibleBuffState,
-} from '@mud/shared';
+} from '@mud/shared-next';
 import { Camera } from './camera';
 import { getCellSize } from '../display';
 import { formatDisplayInteger } from '../utils/number';
@@ -273,8 +273,6 @@ interface AnimEntity {
   monsterScale?: number;
   hp?: number;
   maxHp?: number;
-  respawnRemainingTicks?: number;
-  respawnTotalTicks?: number;
   npcQuestMarker?: NpcQuestMarker;
   buffs?: VisibleBuffState[];
 }
@@ -402,25 +400,6 @@ const MAX_ATTACK_TRAILS = 192;
 const MAX_WARNING_ZONES = 64;
 /** DEFAULT_WARNING_ZONE_DURATION_MS：定义该变量以承载业务值。 */
 const DEFAULT_WARNING_ZONE_DURATION_MS = 1240;
-
-/** buildFloatingTextGroupKey：执行对应的业务逻辑。 */
-function buildFloatingTextGroupKey(entry: Pick<FloatingText, 'x' | 'y' | 'variant'>): string {
-  return `${entry.x},${entry.y},${entry.variant}`;
-}
-
-/** pruneExpiredTimedEntriesInPlace：执行对应的业务逻辑。 */
-function pruneExpiredTimedEntriesInPlace<T extends { createdAt: number; duration: number }>(entries: T[], now: number): void {
-/** writeIndex：定义该变量以承载业务值。 */
-  let writeIndex = 0;
-  for (let readIndex = 0; readIndex < entries.length; readIndex += 1) {
-    const entry = entries[readIndex];
-    if (now - entry.createdAt < entry.duration) {
-      entries[writeIndex] = entry;
-      writeIndex += 1;
-    }
-  }
-  entries.length = writeIndex;
-}
 
 /** 文字渲染器，用汉字字符绘制地图地块、实体角色和战斗特效 */
 export class TextRenderer implements IRenderer {
@@ -771,7 +750,7 @@ export class TextRenderer implements IRenderer {
   /** 更新实体列表，记录旧位置用于插值动画 */
   updateEntities(
 /** list：定义该变量以承载业务值。 */
-    list: readonly { id: string; wx: number; wy: number; char: string; color: string; name?: string; kind?: string; monsterTier?: MonsterTier; monsterScale?: number; hp?: number; maxHp?: number; respawnRemainingTicks?: number; respawnTotalTicks?: number; npcQuestMarker?: NpcQuestMarker | null; buffs?: VisibleBuffState[] }[],
+    list: readonly { id: string; wx: number; wy: number; char: string; color: string; name?: string; kind?: string; monsterTier?: MonsterTier; monsterScale?: number; hp?: number; maxHp?: number; npcQuestMarker?: NpcQuestMarker | null; buffs?: VisibleBuffState[] }[],
     movedId?: string,
     shiftX = 0,
     shiftY = 0,
@@ -840,8 +819,6 @@ export class TextRenderer implements IRenderer {
         anim.monsterScale = e.monsterScale;
         anim.hp = e.hp;
         anim.maxHp = e.maxHp;
-        anim.respawnRemainingTicks = e.respawnRemainingTicks;
-        anim.respawnTotalTicks = e.respawnTotalTicks;
         anim.npcQuestMarker = e.npcQuestMarker ?? undefined;
         anim.buffs = e.buffs;
       } else {
@@ -861,8 +838,6 @@ export class TextRenderer implements IRenderer {
           monsterScale: e.monsterScale,
           hp: e.hp,
           maxHp: e.maxHp,
-          respawnRemainingTicks: e.respawnRemainingTicks,
-          respawnTotalTicks: e.respawnTotalTicks,
           npcQuestMarker: e.npcQuestMarker ?? undefined,
           buffs: e.buffs,
         });
@@ -877,7 +852,7 @@ export class TextRenderer implements IRenderer {
   }
 
   /** 绘制所有实体（角色/怪物/NPC），含位置插值动画 */
-  renderEntities(camera: Camera, progress = 1, localPlayerId?: string) {
+  renderEntities(camera: Camera, progress = 1, localPlayerId?: string, localPlayerX?: number, localPlayerY?: number) {
     if (!this.ctx) return;
 /** ctx：定义该变量以承载业务值。 */
     const ctx = this.ctx;
@@ -933,7 +908,39 @@ export class TextRenderer implements IRenderer {
         .map((entry) => `${entry.anim.gridX},${entry.anim.gridY}`),
     );
 
-    this.renderThreatTargetArrows(renderedEntities, localPlayerId);
+/** localPlayerRendered：定义该变量以承载业务值。 */
+    let localPlayerRendered: RenderedAnimEntity | undefined;
+    if (localPlayerId !== undefined
+      && Number.isFinite(localPlayerX)
+      && Number.isFinite(localPlayerY)
+      && !renderedEntities.some((entry) => entry.anim.id === localPlayerId)) {
+      const { sx, sy } = camera.worldToScreen(localPlayerX as number, localPlayerY as number, sw, sh);
+      localPlayerRendered = {
+        anim: {
+          id: localPlayerId,
+          gridX: localPlayerX as number,
+          gridY: localPlayerY as number,
+          oldWX: localPlayerX as number,
+          oldWY: localPlayerY as number,
+          targetWX: localPlayerX as number,
+          targetWY: localPlayerY as number,
+          char: '@',
+          color: '#fff4dc',
+          kind: 'player',
+        },
+        presentation: null,
+        sx,
+        sy,
+        centerX: sx + cellSize / 2,
+        centerY: sy + cellSize / 2,
+        cellSize,
+        visualSx: sx,
+        visualSy: sy,
+        visualCellSize: cellSize,
+      };
+    }
+
+    this.renderThreatTargetArrows(renderedEntities, localPlayerId, localPlayerRendered);
 
     for (const rendered of renderedEntities) {
       const { anim, presentation: monsterPresentation, sx, sy, cellSize: renderedCellSize, visualSx, visualSy, visualCellSize } = rendered;
@@ -1008,17 +1015,6 @@ export class TextRenderer implements IRenderer {
           ctx.fillRect(barX, barY, barW, 3);
           ctx.fillStyle = isMonster ? '#d15252' : isNpc ? '#58a8ff' : isContainer ? '#c18b46' : '#63c46b';
           ctx.fillRect(barX, barY, barW * ratio, 3);
-          if (isContainer && (anim.respawnRemainingTicks ?? 0) > 0) {
-            ctx.textBaseline = 'top';
-            ctx.font = buildCanvasFont('label', renderedCellSize * 0.22);
-            this.drawOutlinedText(
-              `再生 ${this.formatRespawnCountdown(anim.respawnRemainingTicks)}`,
-              sx + renderedCellSize / 2,
-              barY + 6,
-              '#e7d5a7',
-              'rgba(15,12,10,0.92)',
-            );
-          }
         }
 
         if (isNpc && anim.npcQuestMarker) {
@@ -1029,7 +1025,7 @@ export class TextRenderer implements IRenderer {
   }
 
 /** renderThreatTargetArrows：执行对应的业务逻辑。 */
-  private renderThreatTargetArrows(renderedEntities: RenderedAnimEntity[], localPlayerId?: string): void {
+  private renderThreatTargetArrows(renderedEntities: RenderedAnimEntity[], localPlayerId?: string, localPlayerRendered?: RenderedAnimEntity): void {
     if (!this.ctx || renderedEntities.length === 0) {
       return;
     }
@@ -1037,6 +1033,9 @@ export class TextRenderer implements IRenderer {
     const ctx = this.ctx;
 /** renderedById：定义该变量以承载业务值。 */
     const renderedById = new Map(renderedEntities.map((entry) => [entry.anim.id, entry]));
+    if (localPlayerId !== undefined && localPlayerRendered && !renderedById.has(localPlayerId)) {
+      renderedById.set(localPlayerId, localPlayerRendered);
+    }
 
     ctx.save();
     ctx.lineCap = 'round';
@@ -1144,20 +1143,6 @@ export class TextRenderer implements IRenderer {
     ctx.lineTo(baseX - (-arrowUy) * headWidth, baseY - arrowUx * headWidth);
     ctx.closePath();
     ctx.fill();
-  }
-
-/** formatRespawnCountdown：执行对应的业务逻辑。 */
-  private formatRespawnCountdown(ticks: number | undefined): string {
-/** totalSeconds：定义该变量以承载业务值。 */
-    const totalSeconds = Math.max(0, Math.round(Number(ticks) || 0));
-/** minutes：定义该变量以承载业务值。 */
-    const minutes = Math.floor(totalSeconds / 60);
-/** seconds：定义该变量以承载业务值。 */
-    const seconds = totalSeconds % 60;
-    if (minutes <= 0) {
-      return `${Math.max(1, seconds)}息`;
-    }
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   }
 
 /** getQuadraticPoint：执行对应的业务逻辑。 */
@@ -1286,8 +1271,6 @@ export class TextRenderer implements IRenderer {
           stacks: 1,
           maxStacks: 1,
           sourceSkillId: '',
-          realmLv: 1,
-          color: undefined,
         }]
       : displayed;
 /** totalWidth：定义该变量以承载业务值。 */
@@ -1550,24 +1533,23 @@ export class TextRenderer implements IRenderer {
     const cellSize = getCellSize();
 
     this.pruneExpiredFloatingTexts(now);
-/** groupTotals：定义该变量以承载业务值。 */
-    const groupTotals = new Map<string, number>();
+/** groups：定义该变量以承载业务值。 */
+    const groups = new Map<string, FloatingText[]>();
     for (const entry of this.floatingTexts) {
-      const key = buildFloatingTextGroupKey(entry);
-      groupTotals.set(key, (groupTotals.get(key) ?? 0) + 1);
+      const key = `${entry.x},${entry.y},${entry.variant}`;
+      const group = groups.get(key);
+      if (group) {
+        group.push(entry);
+      } else {
+        groups.set(key, [entry]);
+      }
     }
-/** groupSeen：定义该变量以承载业务值。 */
-    const groupSeen = new Map<string, number>();
+    for (const group of groups.values()) {
+      group.sort((left, right) => left.createdAt - right.createdAt || left.id - right.id);
+    }
 
     for (const entry of this.floatingTexts) {
-      const groupKey = buildFloatingTextGroupKey(entry);
-      const count = groupTotals.get(groupKey) ?? 1;
-/** index：定义该变量以承载业务值。 */
-      const index = groupSeen.get(groupKey) ?? 0;
-      groupSeen.set(groupKey, index + 1);
-/** progress：定义该变量以承载业务值。 */
       const progress = Math.min(1, (now - entry.createdAt) / entry.duration);
-/** actionStyle：定义该变量以承载业务值。 */
       const actionStyle = entry.variant === 'action' ? (entry.actionStyle ?? 'default') : undefined;
 /** motionProgress：定义该变量以承载业务值。 */
       const motionProgress = entry.variant === 'action' && actionStyle === 'default' ? progress * progress : progress;
@@ -1587,8 +1569,12 @@ export class TextRenderer implements IRenderer {
       const worldY = entry.y * cellSize;
       const { sx, sy } = camera.worldToScreen(worldX, worldY, sw, sh);
       if (sx + cellSize < 0 || sx > sw || sy + cellSize < 0 || sy > sh) continue;
+/** group：定义该变量以承载业务值。 */
+      const group = groups.get(`${entry.x},${entry.y},${entry.variant}`) ?? [entry];
+/** index：定义该变量以承载业务值。 */
+      const index = group.findIndex((item) => item.id === entry.id);
 /** burst：定义该变量以承载业务值。 */
-      const burst = this.getFloatingTextBurstOffset(index, count, cellSize);
+      const burst = this.getFloatingTextBurstOffset(index, group.length, cellSize);
 
       ctx.save();
       ctx.globalAlpha = alpha;
@@ -1959,17 +1945,17 @@ export class TextRenderer implements IRenderer {
 
 /** pruneExpiredFloatingTexts：执行对应的业务逻辑。 */
   private pruneExpiredFloatingTexts(now: number): void {
-    pruneExpiredTimedEntriesInPlace(this.floatingTexts, now);
+    this.floatingTexts = this.floatingTexts.filter((entry) => now - entry.createdAt < entry.duration);
   }
 
 /** pruneExpiredAttackTrails：执行对应的业务逻辑。 */
   private pruneExpiredAttackTrails(now: number): void {
-    pruneExpiredTimedEntriesInPlace(this.attackTrails, now);
+    this.attackTrails = this.attackTrails.filter((entry) => now - entry.createdAt < entry.duration);
   }
 
 /** pruneExpiredWarningZones：执行对应的业务逻辑。 */
   private pruneExpiredWarningZones(now: number): void {
-    pruneExpiredTimedEntriesInPlace(this.warningZones, now);
+    this.warningZones = this.warningZones.filter((entry) => now - entry.createdAt < entry.duration);
   }
 
 /** trimFloatingTexts：执行对应的业务逻辑。 */

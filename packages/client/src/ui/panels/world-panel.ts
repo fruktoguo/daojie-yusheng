@@ -3,7 +3,7 @@
  * 展示当前地图情报、附近实体、任务建议与可执行行动
  */
 
-import { ActionDef, gridDistance, MapMeta, MonsterTier, PlayerState, QuestState } from '@mud/shared';
+import { ActionDef, gridDistance, MapMeta, MonsterTier, PlayerState, QuestState } from '@mud/shared-next';
 import { preserveSelection } from '../selection-preserver';
 import { TECH_REALM_LABELS, TECH_REALM_NAME_BY_KEY, WORLD_GUIDE } from '../../constants/world/world-panel';
 import { formatDisplayCurrentMax, formatDisplayInteger } from '../../utils/number';
@@ -94,6 +94,11 @@ interface WorldPanelSnapshot {
   quickActions: QuickActionView[];
 }
 
+interface WorldPanelCallbacks {
+  onOpenLeaderboard?: () => void;
+  onOpenWorldSummary?: () => void;
+}
+
 /** NearbyMonsterRefs：定义该接口的能力与字段约束。 */
 interface NearbyMonsterRefs {
 /** nameNode：定义该变量以承载业务值。 */
@@ -171,7 +176,6 @@ export class WorldPanel {
   private mapPane = document.getElementById('pane-map-intel')!;
   private nearbyPane = document.getElementById('pane-nearby')!;
   private suggestionPane = document.getElementById('pane-suggestions')!;
-  private tianjiPane = document.getElementById('pane-tianji')!;
 /** lastNearbyMonsterIds：定义该变量以承载业务值。 */
   private lastNearbyMonsterIds: string[] | null = null;
 /** lastNearbyNpcIds：定义该变量以承载业务值。 */
@@ -181,15 +185,14 @@ export class WorldPanel {
   private nearbyMonsterRefs = new Map<string, NearbyMonsterRefs>();
   private nearbyNpcNameRefs = new Map<string, HTMLElement>();
   private suggestionActionRefs = new Map<string, SuggestionActionRefs>();
-  private onOpenWorldSummary: (() => void) | null = null;
-  private onOpenLeaderboard: (() => void) | null = null;
+  private callbacks: WorldPanelCallbacks = {};
 
-  setCallbacks(callbacks: {
-    onOpenWorldSummary?: () => void;
-    onOpenLeaderboard?: () => void;
-  }): void {
-    this.onOpenWorldSummary = callbacks.onOpenWorldSummary ?? null;
-    this.onOpenLeaderboard = callbacks.onOpenLeaderboard ?? null;
+  constructor() {
+    this.bindSuggestionPaneEvents();
+  }
+
+  setCallbacks(callbacks: WorldPanelCallbacks): void {
+    this.callbacks = callbacks;
   }
 
   /** 根据玩家、地图、实体、行动、任务数据刷新三个子面板 */
@@ -210,15 +213,13 @@ export class WorldPanel {
     this.syncMapPane(snapshot);
     this.syncNearbyPane(snapshot);
     this.syncSuggestionPane(snapshot);
-    this.syncTianjiPane();
   }
 
 /** clear：执行对应的业务逻辑。 */
   clear(): void {
-    this.mapPane.innerHTML = '<div class="empty-hint">尚未进入世界</div>';
-    this.nearbyPane.innerHTML = '<div class="empty-hint">尚未进入世界</div>';
-    this.suggestionPane.innerHTML = '<div class="empty-hint">尚未进入世界</div>';
-    this.tianjiPane.innerHTML = '<div class="empty-hint">尚未进入世界</div>';
+    this.mapPane.innerHTML = '<div class="empty-hint ui-empty-hint">尚未进入世界</div>';
+    this.nearbyPane.innerHTML = '<div class="empty-hint ui-empty-hint">尚未进入世界</div>';
+    this.suggestionPane.innerHTML = '<div class="empty-hint ui-empty-hint">尚未进入世界</div>';
     this.lastNearbyMonsterIds = null;
     this.lastNearbyNpcIds = null;
     this.lastSuggestionActionIds = null;
@@ -348,14 +349,6 @@ export class WorldPanel {
     }
   }
 
-/** syncTianjiPane：执行对应的业务逻辑。 */
-  private syncTianjiPane(): void {
-    if (!this.patchTianjiPane()) {
-      this.renderTianjiPane();
-      this.patchTianjiPane();
-    }
-  }
-
 /** renderMapPane：执行对应的业务逻辑。 */
   private renderMapPane(snapshot: WorldPanelSnapshot): void {
 /** html：定义该变量以承载业务值。 */
@@ -372,12 +365,12 @@ export class WorldPanel {
           <div class="world-danger-sub" data-world-map-recommend="true">推荐境界：${escapeHtml(snapshot.recommend)}</div>
         </div>
       </div>
-      <div class="info-list">
-        <div class="info-line"><span>当前阶段</span><strong data-world-map-realm="true">${escapeHtml(snapshot.realmLabel)}</strong></div>
-        <div class="info-line"><span>推进路线</span><strong data-world-map-route="true">${escapeHtml(snapshot.route)}</strong></div>
-        <div class="info-line"><span>主要资源</span><strong data-world-map-resources="true">${escapeHtml(snapshot.resourcesLabel)}</strong></div>
-        <div class="info-line"><span>主要威胁</span><strong data-world-map-threats="true">${escapeHtml(snapshot.threatsLabel)}</strong></div>
-        <div class="info-line"><span>当前主修</span><strong data-world-map-cultivating="true">${escapeHtml(snapshot.cultivatingName)}</strong></div>
+      <div class="info-list ui-key-value-list">
+        <div class="info-line ui-key-value-item ui-surface-card ui-surface-card--compact"><span class="ui-key-value-label">当前阶段</span><strong class="ui-key-value-value" data-world-map-realm="true">${escapeHtml(snapshot.realmLabel)}</strong></div>
+        <div class="info-line ui-key-value-item ui-surface-card ui-surface-card--compact"><span class="ui-key-value-label">推进路线</span><strong class="ui-key-value-value" data-world-map-route="true">${escapeHtml(snapshot.route)}</strong></div>
+        <div class="info-line ui-key-value-item ui-surface-card ui-surface-card--compact"><span class="ui-key-value-label">主要资源</span><strong class="ui-key-value-value" data-world-map-resources="true">${escapeHtml(snapshot.resourcesLabel)}</strong></div>
+        <div class="info-line ui-key-value-item ui-surface-card ui-surface-card--compact"><span class="ui-key-value-label">主要威胁</span><strong class="ui-key-value-value" data-world-map-threats="true">${escapeHtml(snapshot.threatsLabel)}</strong></div>
+        <div class="info-line ui-key-value-item ui-surface-card ui-surface-card--compact"><span class="ui-key-value-label">当前主修</span><strong class="ui-key-value-value" data-world-map-cultivating="true">${escapeHtml(snapshot.cultivatingName)}</strong></div>
       </div>
     `;
     preserveSelection(this.mapPane, () => {
@@ -389,13 +382,13 @@ export class WorldPanel {
   private renderNearbyPane(snapshot: WorldPanelSnapshot): void {
 /** html：定义该变量以承载业务值。 */
     const html = `
-      ${snapshot.nearbyMonsters.length === 0 && snapshot.nearbyNpcs.length === 0 ? '<div class="empty-hint">附近暂时平静</div>' : ''}
+      ${snapshot.nearbyMonsters.length === 0 && snapshot.nearbyNpcs.length === 0 ? '<div class="empty-hint ui-empty-hint">附近暂时平静</div>' : ''}
       ${snapshot.nearbyMonsters.length > 0 ? `
-        <div class="panel-section">
+        <div class="panel-section ui-surface-pane ui-surface-pane--stack">
           <div class="panel-section-title">附近威胁</div>
-          <div class="entity-list">
+          <div class="entity-list ui-card-list">
             ${snapshot.nearbyMonsters.map((monster) => `
-              <div class="entity-card threat" data-world-monster-card="${escapeHtml(monster.id)}">
+              <div class="entity-card threat ui-surface-card ui-surface-card--compact" data-world-monster-card="${escapeHtml(monster.id)}">
                 <div>
                   <div class="entity-name" data-world-monster-name="${escapeHtml(monster.id)}">${this.renderMonsterName(monster)}</div>
                   <div class="entity-meta" data-world-monster-meta="${escapeHtml(monster.id)}">距离 ${formatDisplayInteger(monster.distance)} 格 · HP ${formatDisplayCurrentMax(monster.hp, monster.maxHp)}</div>
@@ -407,11 +400,11 @@ export class WorldPanel {
         </div>
       ` : ''}
       ${snapshot.nearbyNpcs.length > 0 ? `
-        <div class="panel-section">
+        <div class="panel-section ui-surface-pane ui-surface-pane--stack">
           <div class="panel-section-title">可交互人物</div>
-          <div class="entity-list">
+          <div class="entity-list ui-card-list">
             ${snapshot.nearbyNpcs.map((npc) => `
-              <div class="entity-card ally" data-world-npc-card="${escapeHtml(npc.id)}">
+              <div class="entity-card ally ui-surface-card ui-surface-card--compact" data-world-npc-card="${escapeHtml(npc.id)}">
                 <div>
                   <div class="entity-name" data-world-npc-name="${escapeHtml(npc.id)}">${escapeHtml(npc.name)}</div>
                   <div class="entity-meta">就在视野附近，可尝试接话或交任务</div>
@@ -432,67 +425,35 @@ export class WorldPanel {
   private renderSuggestionPane(snapshot: WorldPanelSnapshot): void {
 /** html：定义该变量以承载业务值。 */
     const html = `
-      <div class="panel-section">
+      <div class="panel-section ui-surface-pane ui-surface-pane--stack">
         <div class="panel-section-title">当前建议</div>
-        <div class="info-list">
-          <div class="info-line"><span>优先事项</span><strong data-world-suggestion-priority="true">${escapeHtml(snapshot.currentQuestTitle)}</strong></div>
-          <div class="info-line"><span>任务节点</span><strong data-world-suggestion-progress="true">${escapeHtml(snapshot.currentQuestProgress)}</strong></div>
+        <div class="info-list ui-key-value-list">
+          <div class="info-line ui-key-value-item ui-surface-card ui-surface-card--compact"><span class="ui-key-value-label">优先事项</span><strong class="ui-key-value-value" data-world-suggestion-priority="true">${escapeHtml(snapshot.currentQuestTitle)}</strong></div>
+          <div class="info-line ui-key-value-item ui-surface-card ui-surface-card--compact"><span class="ui-key-value-label">任务节点</span><strong class="ui-key-value-value" data-world-suggestion-progress="true">${escapeHtml(snapshot.currentQuestProgress)}</strong></div>
         </div>
       </div>
-      ${snapshot.quickActions.length === 0 ? '<div class="empty-hint">当前没有可立即执行的行动</div>' : `
-        <div class="action-suggestion-list">
+      ${snapshot.quickActions.length === 0 ? '<div class="empty-hint ui-empty-hint">当前没有可立即执行的行动</div>' : `
+        <div class="action-suggestion-list ui-card-list">
           ${snapshot.quickActions.map((action) => `
-            <div class="suggestion-card" data-world-quick-action="${escapeHtml(action.id)}">
+            <div class="suggestion-card ui-surface-card ui-surface-card--compact" data-world-quick-action="${escapeHtml(action.id)}">
               <div class="suggestion-title" data-world-quick-action-title="${escapeHtml(action.id)}">${escapeHtml(action.name)}</div>
               <div class="suggestion-desc" data-world-quick-action-desc="${escapeHtml(action.id)}">${escapeHtml(action.desc)}</div>
             </div>
           `).join('')}
         </div>
       `}
+      <div class="panel-section ui-surface-pane ui-surface-pane--stack">
+        <div class="panel-section-title">世界情报</div>
+        <div class="ui-action-row ui-action-row--start">
+          <button class="small-btn ghost" type="button" data-world-open-leaderboard="true">天下榜</button>
+          <button class="small-btn ghost" type="button" data-world-open-summary="true">世界总览</button>
+        </div>
+      </div>
     `;
     preserveSelection(this.suggestionPane, () => {
       this.suggestionPane.innerHTML = html;
     });
     this.captureSuggestionRefs(snapshot);
-  }
-
-/** renderTianjiPane：执行对应的业务逻辑。 */
-  private renderTianjiPane(): void {
-/** html：定义该变量以承载业务值。 */
-    const html = `
-      <div class="panel-section">
-        <div class="panel-section-title">天机阁</div>
-        <div class="panel-subtext">阁藏天下卷宗，专收低频榜册与汇总情报。</div>
-      </div>
-      <div class="tianji-action-list">
-        <button class="tianji-action-card" data-world-tianji-action="world" type="button">
-          <div>
-            <div class="tianji-action-title">世界</div>
-            <div class="tianji-action-desc">查看全服灵石总和、行动人数、境界人数，以及击杀与死亡总计。</div>
-          </div>
-          <div class="tianji-action-arrow">查看</div>
-        </button>
-        <button class="tianji-action-card" data-world-tianji-action="leaderboard" type="button">
-          <div>
-            <div class="tianji-action-title">排行榜</div>
-            <div class="tianji-action-desc">查看境界、击杀、灵石、死亡、炼体与四维最强榜单。</div>
-          </div>
-          <div class="tianji-action-arrow">查看</div>
-        </button>
-      </div>
-    `;
-    preserveSelection(this.tianjiPane, () => {
-      this.tianjiPane.innerHTML = html;
-    });
-    this.tianjiPane.querySelectorAll<HTMLButtonElement>('[data-world-tianji-action]').forEach((button) => {
-      button.addEventListener('click', () => {
-        if (button.dataset.worldTianjiAction === 'world') {
-          this.onOpenWorldSummary?.();
-        } else if (button.dataset.worldTianjiAction === 'leaderboard') {
-          this.onOpenLeaderboard?.();
-        }
-      });
-    });
   }
 
 /** patchMapPane：执行对应的业务逻辑。 */
@@ -611,12 +572,6 @@ export class WorldPanel {
     return true;
   }
 
-/** patchTianjiPane：执行对应的业务逻辑。 */
-  private patchTianjiPane(): boolean {
-    return this.tianjiPane.querySelector('[data-world-tianji-action="world"]') !== null
-      && this.tianjiPane.querySelector('[data-world-tianji-action="leaderboard"]') !== null;
-  }
-
 /** captureNearbyRefs：执行对应的业务逻辑。 */
   private captureNearbyRefs(snapshot: WorldPanelSnapshot): void {
     this.nearbyMonsterRefs.clear();
@@ -667,5 +622,23 @@ export class WorldPanel {
       ? `<span class="${presentation.badgeClassName}">${escapeHtml(presentation.badgeText)}</span>`
       : '';
     return `${badge}${escapeHtml(presentation.label)}`;
+  }
+
+  private bindSuggestionPaneEvents(): void {
+    this.suggestionPane.addEventListener('click', (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) {
+        return;
+      }
+      if (target.closest('[data-world-open-leaderboard]')) {
+        this.callbacks.onOpenLeaderboard?.();
+        event.preventDefault();
+        return;
+      }
+      if (target.closest('[data-world-open-summary]')) {
+        this.callbacks.onOpenWorldSummary?.();
+        event.preventDefault();
+      }
+    });
   }
 }

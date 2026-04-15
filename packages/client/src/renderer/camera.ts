@@ -2,7 +2,7 @@
  * 摄像机 —— 跟随玩家平滑移动，提供世界坐标到屏幕坐标的转换
  */
 
-import { CAMERA_DELAY_SECONDS, CAMERA_SMOOTH_SPEED, PlayerState } from '@mud/shared';
+import { CAMERA_DELAY_SECONDS, CAMERA_SMOOTH_SPEED, PlayerState } from '@mud/shared-next';
 import { getCellSize } from '../display';
 
 /** 游戏摄像机，带延迟启动的平滑追踪 */

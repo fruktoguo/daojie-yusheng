@@ -9,7 +9,7 @@ import {
   type TechniqueCategory,
   type TechniqueGrade,
   type TechniqueState,
-} from '@mud/shared';
+} from '@mud/shared-next';
 import { LOCAL_EDITOR_CATALOG } from '../constants/world/editor-catalog';
 
 /** itemTemplateMap：定义该变量以承载业务值。 */
@@ -202,11 +202,6 @@ export function resolvePreviewItem(item: ItemStack): ItemStack {
     cooldown: item.cooldown ?? template.cooldown,
     consumeBuffs: item.consumeBuffs ?? template.consumeBuffs,
     tags: item.tags ?? template.tags,
-    enhanceLevel: item.enhanceLevel ?? template.enhanceLevel,
-    alchemySuccessRate: item.alchemySuccessRate ?? template.alchemySuccessRate,
-    alchemySpeedRate: item.alchemySpeedRate ?? template.alchemySpeedRate,
-    enhancementSuccessRate: item.enhancementSuccessRate ?? template.enhancementSuccessRate,
-    enhancementSpeedRate: item.enhancementSpeedRate ?? template.enhancementSpeedRate,
     mapUnlockId: item.mapUnlockId ?? template.mapUnlockId,
     mapUnlockIds: item.mapUnlockIds ?? template.mapUnlockIds,
     tileAuraGainAmount: item.tileAuraGainAmount ?? template.tileAuraGainAmount,
@@ -291,14 +286,8 @@ export function resolvePreviewTechnique(technique: TechniqueState): TechniqueSta
     : clone(template.layers ?? []);
 /** templateSkills：定义该变量以承载业务值。 */
   const templateSkills = clone(template.skills ?? []);
-/** knownTemplateSkillIds：定义该变量以承载业务值。 */
-  const knownTemplateSkillIds = new Set(templateSkills.map((skill) => skill.id));
-/** persistedKnownSkills：定义该变量以承载业务值。 */
-  const persistedKnownSkills = technique.skills.length > 0
-    ? technique.skills.filter((skill) => knownTemplateSkillIds.has(skill.id))
-    : [];
 /** sourceSkills：定义该变量以承载业务值。 */
-  const sourceSkills = persistedKnownSkills.length > 0 ? persistedKnownSkills : templateSkills;
+  const sourceSkills = technique.skills.length > 0 ? technique.skills : templateSkills;
 /** realmLv：定义该变量以承载业务值。 */
   const realmLv = resolveTechniqueRealmLevel(technique.realmLv, technique.grade ?? template.grade);
   return {

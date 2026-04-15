@@ -67,18 +67,6 @@ export function getRealmGapDamageMultiplier(attackerRealmLv: number, defenderRea
   return 1;
 }
 
-/** 低境界 Buff 作用于高境界目标时的逐级衰减倍率。 */
-export function getBuffRealmEffectivenessMultiplier(buffRealmLv: number, targetRealmLv: number): number {
-/** normalizedBuffRealmLv：定义该变量以承载业务值。 */
-  const normalizedBuffRealmLv = Math.max(1, Math.floor(buffRealmLv));
-/** normalizedTargetRealmLv：定义该变量以承载业务值。 */
-  const normalizedTargetRealmLv = Math.max(1, Math.floor(targetRealmLv));
-  if (normalizedBuffRealmLv >= normalizedTargetRealmLv) {
-    return 1;
-  }
-  return Math.pow(0.9, normalizedTargetRealmLv - normalizedBuffRealmLv);
-}
-
 /** 普通攻击按双方战斗经验差距计算独立伤害乘区，最终倍率限制在 50% 到 200%。 */
 export function getBasicAttackCombatExperienceDamageMultiplier(attackerExp: number, defenderExp: number): number {
 /** normalizedAttackerExp：定义该变量以承载业务值。 */

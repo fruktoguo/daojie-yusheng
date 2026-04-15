@@ -1,9 +1,7 @@
 import {
   addPartialNumericStats,
-  applyNumericStatsPercentMultiplier,
   cloneNumericStats,
   createNumericStats,
-  percentModifierToMultiplier,
   type NumericStats,
   type PartialNumericStats,
 } from './numeric';
@@ -11,53 +9,29 @@ import {
   ATTR_KEYS,
   ATTR_TO_NUMERIC_WEIGHTS,
   ATTR_TO_PERCENT_NUMERIC_WEIGHTS,
-  ELEMENT_KEYS,
-  NUMERIC_SCALAR_STAT_KEYS,
-} from './constants/gameplay/attributes';
-import { EQUIP_SLOTS } from './constants/gameplay/equipment';
-import * as monsterGameplayConstants from './constants/gameplay/monster';
-import {
   DEFAULT_PLAYER_REALM_STAGE,
+  EQUIP_SLOTS,
+  MONSTER_GLOBAL_STAT_PERCENTS,
+  MONSTER_GRADE_STAT_PERCENTS,
+  MONSTER_KILL_EXP_LEVEL_DELTA_CAP,
+  MONSTER_TIER_EXP_MULTIPLIERS,
+  MONSTER_TIER_OVERLEVEL_EXP_REDUCTION_RATES,
+  MONSTER_TIER_STAT_PERCENTS,
+  NUMERIC_SCALAR_STAT_KEYS,
   PLAYER_REALM_ORDER,
   PLAYER_REALM_NUMERIC_TEMPLATES,
   PLAYER_REALM_STAGE_LEVEL_RANGES,
-} from './constants/gameplay/realm';
+} from './constants';
 import { getRealmAttributeMultiplier, getRealmLinearGrowthMultiplier } from './combat';
 import {
   compileValueStatsToActualStats,
   NUMERIC_STAT_ACTUAL_POINTS_PER_CONFIG_VALUE,
 } from './value';
-import type {
-  Attributes,
-  EquipSlot,
-  EquipmentSlots,
-  ItemStack,
-  ItemType,
-  MonsterAggroMode,
-  MonsterInitialBuffDef,
-  MonsterTier,
-  NumericStatPercentages,
-  PlayerRealmStage,
-  TechniqueGrade,
-} from './types';
+import type { Attributes, EquipmentSlots, MonsterTier, NumericStatPercentages, PlayerRealmStage, TechniqueGrade } from './types';
 import type { NumericScalarStatKey } from './numeric';
 
 /** MonsterCombatModel：定义该类型的结构与数据语义。 */
 export type MonsterCombatModel = 'legacy' | 'value_stats';
-
-const {
-  MONSTER_GLOBAL_STAT_PERCENTS,
-  MONSTER_GRADE_STAT_PERCENTS,
-  MONSTER_LEVEL_EXP_DECAY_MULTIPLIER_EARLY,
-  MONSTER_LEVEL_EXP_DECAY_MULTIPLIER_LATE,
-  MONSTER_LEVEL_EXP_DECAY_MULTIPLIER_MID,
-  MONSTER_LEVEL_FLAT_GROWTH_STATS,
-  MONSTER_KILL_EXP_LEVEL_DELTA_CAP,
-  MONSTER_OVERLEVEL_EXP_MULTIPLIER,
-  MONSTER_TIER_EXP_MULTIPLIERS,
-  MONSTER_TIER_STAT_PERCENTS,
-  MONSTER_TIER_UNDERLEVEL_EXP_BONUS_RATES,
-} = monsterGameplayConstants;
 
 /** MONSTER_EXPONENTIAL_NUMERIC_KEYS：定义该变量以承载业务值。 */
 const MONSTER_EXPONENTIAL_NUMERIC_KEYS = [
@@ -127,138 +101,8 @@ export interface MonsterFormulaInput {
   tier?: MonsterTier;
 }
 
-/** MonsterTemplateDropRecord：定义该接口的能力与字段约束。 */
-export interface MonsterTemplateDropRecord {
-/** itemId：定义该变量以承载业务值。 */
-  itemId: string;
-/** name：定义该变量以承载业务值。 */
-  name: string;
-/** type：定义该变量以承载业务值。 */
-  type: ItemType;
-/** count：定义该变量以承载业务值。 */
-  count: number;
-  chance?: number;
-}
-
-/** MonsterTemplateEquipmentRefs：定义该类型的结构与数据语义。 */
-export type MonsterTemplateEquipmentRefs = Partial<Record<EquipSlot, string>>;
-
-/** MonsterTemplateConfiguredRecord：定义该接口的能力与字段约束。 */
-export interface MonsterTemplateConfiguredRecord {
-/** id：定义该变量以承载业务值。 */
-  id: string;
-/** name：定义该变量以承载业务值。 */
-  name: string;
-/** char：定义该变量以承载业务值。 */
-  char: string;
-/** color：定义该变量以承载业务值。 */
-  color: string;
-  grade?: TechniqueGrade;
-  tier?: MonsterTier;
-  valueStats?: PartialNumericStats;
-  attrs?: Partial<Attributes>;
-  statPercents?: NumericStatPercentages;
-  initialBuffs?: MonsterInitialBuffDef[];
-  equipment?: MonsterTemplateEquipmentRefs;
-  skills?: string[];
-  hp?: number;
-  maxHp?: number;
-  attack?: number;
-  count?: number;
-  radius?: number;
-  maxAlive?: number;
-  aggroRange?: number;
-  viewRange?: number;
-  aggroMode?: MonsterAggroMode;
-  respawnSec?: number;
-  respawnTicks?: number;
-  level?: number;
-  expMultiplier?: number;
-  drops?: MonsterTemplateDropRecord[];
-}
-
-/** MonsterTemplateEditorItem：定义该接口的能力与字段约束。 */
-export interface MonsterTemplateEditorItem {
-/** itemId：定义该变量以承载业务值。 */
-  itemId: string;
-/** name：定义该变量以承载业务值。 */
-  name: string;
-/** type：定义该变量以承载业务值。 */
-  type: ItemType;
-/** desc：定义该变量以承载业务值。 */
-  desc: string;
-  count?: number;
-  groundLabel?: string;
-  grade?: TechniqueGrade;
-  level?: number;
-  equipSlot?: EquipSlot;
-  equipAttrs?: Partial<Attributes>;
-  equipStats?: PartialNumericStats;
-  equipValueStats?: PartialNumericStats;
-  effects?: ItemStack['effects'];
-  tags?: string[];
-  mapUnlockId?: string;
-  mapUnlockIds?: string[];
-  tileAuraGainAmount?: number;
-  allowBatchUse?: boolean;
-}
-
-/** MonsterTemplateSourceMode：定义该类型的结构与数据语义。 */
-export type MonsterTemplateSourceMode = 'legacy' | 'value_stats' | 'attributes';
-
-/** MonsterTemplateResolvedRecord：定义该接口的能力与字段约束。 */
-export interface MonsterTemplateResolvedRecord extends MonsterTemplateConfiguredRecord {
-/** grade：定义该变量以承载业务值。 */
-  grade: TechniqueGrade;
-/** tier：定义该变量以承载业务值。 */
-  tier: MonsterTier;
-  valueStats?: PartialNumericStats;
-  attrs?: Attributes;
-  statPercents?: NumericStatPercentages;
-  initialBuffs?: MonsterInitialBuffDef[];
-/** equipment：定义该变量以承载业务值。 */
-  equipment: MonsterTemplateEquipmentRefs;
-/** skills：定义该变量以承载业务值。 */
-  skills: string[];
-/** computedStats：定义该变量以承载业务值。 */
-  computedStats: NumericStats;
-/** resolvedAttrs：定义该变量以承载业务值。 */
-  resolvedAttrs: Attributes;
-  resolvedStatPercents?: NumericStatPercentages;
-/** combatModel：定义该变量以承载业务值。 */
-  combatModel: MonsterCombatModel;
-/** sourceMode：定义该变量以承载业务值。 */
-  sourceMode: MonsterTemplateSourceMode;
-/** hp：定义该变量以承载业务值。 */
-  hp: number;
-/** maxHp：定义该变量以承载业务值。 */
-  maxHp: number;
-/** attack：定义该变量以承载业务值。 */
-  attack: number;
-/** count：定义该变量以承载业务值。 */
-  count: number;
-/** radius：定义该变量以承载业务值。 */
-  radius: number;
-/** maxAlive：定义该变量以承载业务值。 */
-  maxAlive: number;
-/** aggroRange：定义该变量以承载业务值。 */
-  aggroRange: number;
-/** viewRange：定义该变量以承载业务值。 */
-  viewRange: number;
-/** aggroMode：定义该变量以承载业务值。 */
-  aggroMode: MonsterAggroMode;
-/** respawnSec：定义该变量以承载业务值。 */
-  respawnSec: number;
-  respawnTicks?: number;
-  level?: number;
-/** expMultiplier：定义该变量以承载业务值。 */
-  expMultiplier: number;
-/** drops：定义该变量以承载业务值。 */
-  drops: MonsterTemplateDropRecord[];
-}
-
 /** PercentBonusAccumulator：定义该类型的结构与数据语义。 */
-type PercentBonusAccumulator = NumericStats;
+type PercentBonusAccumulator = Pick<NumericStats, 'maxHp' | 'maxQi' | 'physAtk' | 'spellAtk'>;
 /** MONSTER_SECONDARY_ATTR_RATIO：定义该变量以承载业务值。 */
 const MONSTER_SECONDARY_ATTR_RATIO = 0.2;
 /** MONSTER_BASE_HP_REGEN_RATE：定义该变量以承载业务值。 */
@@ -285,62 +129,6 @@ function resolveMonsterBaseRealmStage(level?: number): PlayerRealmStage {
     }
   }
   return DEFAULT_PLAYER_REALM_STAGE;
-}
-
-/** isTechniqueGrade：执行对应的业务逻辑。 */
-function isTechniqueGrade(value: unknown): value is TechniqueGrade {
-  return value === 'mortal'
-    || value === 'yellow'
-    || value === 'mystic'
-    || value === 'earth'
-    || value === 'heaven'
-    || value === 'spirit'
-    || value === 'saint'
-    || value === 'emperor';
-}
-
-/** isMonsterAggroMode：执行对应的业务逻辑。 */
-function isMonsterAggroMode(value: unknown): value is MonsterAggroMode {
-  return value === 'always' || value === 'retaliate' || value === 'day_only' || value === 'night_only';
-}
-
-/** normalizeMonsterConfigStats：执行对应的业务逻辑。 */
-function normalizeMonsterConfigStats(stats: unknown): PartialNumericStats | undefined {
-  if (!stats || typeof stats !== 'object' || Array.isArray(stats)) {
-    return undefined;
-  }
-/** source：定义该变量以承载业务值。 */
-  const source = stats as Record<string, unknown>;
-/** normalized：定义该变量以承载业务值。 */
-  const normalized: PartialNumericStats = {};
-  for (const key of NUMERIC_SCALAR_STAT_KEYS) {
-    const value = source[key];
-    if (!Number.isFinite(value)) {
-      continue;
-    }
-    normalized[key] = Number(value);
-  }
-  for (const groupKey of ['elementDamageBonus', 'elementDamageReduce'] as const) {
-    const group = source[groupKey];
-    if (!group || typeof group !== 'object' || Array.isArray(group)) {
-      continue;
-    }
-/** groupSource：定义该变量以承载业务值。 */
-    const groupSource = group as Record<string, unknown>;
-/** normalizedGroup：定义该变量以承载业务值。 */
-    const normalizedGroup: Partial<Record<typeof ELEMENT_KEYS[number], number>> = {};
-    for (const element of ELEMENT_KEYS) {
-      const value = groupSource[element];
-      if (!Number.isFinite(value)) {
-        continue;
-      }
-      normalizedGroup[element] = Number(value);
-    }
-    if (Object.keys(normalizedGroup).length > 0) {
-      normalized[groupKey] = normalizedGroup;
-    }
-  }
-  return Object.keys(normalized).length > 0 ? normalized : undefined;
 }
 
 /** createMonsterAttributes：执行对应的业务逻辑。 */
@@ -412,29 +200,14 @@ export function getMonsterKillExpLevelAdjustment(
     Math.abs(normalizedMonsterLevel - normalizedPlayerLevel),
   );
   if (normalizedPlayerLevel < normalizedMonsterLevel) {
-/** bonusRate：定义该变量以承载业务值。 */
-    const bonusRate = MONSTER_TIER_UNDERLEVEL_EXP_BONUS_RATES[normalizeMonsterTier(tier)] ?? 0.1;
-    return (1 + Math.max(0, bonusRate)) ** levelDelta;
+    return 1.5 ** levelDelta;
   }
   if (normalizedPlayerLevel > normalizedMonsterLevel) {
-    return Math.max(0, MONSTER_OVERLEVEL_EXP_MULTIPLIER) ** levelDelta;
+/** reductionRate：定义该变量以承载业务值。 */
+    const reductionRate = MONSTER_TIER_OVERLEVEL_EXP_REDUCTION_RATES[normalizeMonsterTier(tier)] ?? 0.5;
+    return Math.max(0, 1 - reductionRate) ** levelDelta;
   }
   return 1;
-}
-
-/** getMonsterLevelExpDecayMultiplier：执行对应的业务逻辑。 */
-export function getMonsterLevelExpDecayMultiplier(monsterLevel: number): number {
-/** normalizedMonsterLevel：定义该变量以承载业务值。 */
-  const normalizedMonsterLevel = Math.max(1, Math.floor(monsterLevel));
-/** earlyLevelSteps：定义该变量以承载业务值。 */
-  const earlyLevelSteps = Math.max(0, Math.min(normalizedMonsterLevel, 18) - 1);
-/** midLevelSteps：定义该变量以承载业务值。 */
-  const midLevelSteps = Math.max(0, Math.min(normalizedMonsterLevel, 30) - 18);
-/** lateLevelSteps：定义该变量以承载业务值。 */
-  const lateLevelSteps = Math.max(0, normalizedMonsterLevel - 30);
-  return (MONSTER_LEVEL_EXP_DECAY_MULTIPLIER_EARLY ** earlyLevelSteps)
-    * (MONSTER_LEVEL_EXP_DECAY_MULTIPLIER_MID ** midLevelSteps)
-    * (MONSTER_LEVEL_EXP_DECAY_MULTIPLIER_LATE ** lateLevelSteps);
 }
 
 /** normalizeMonsterAttrs：执行对应的业务逻辑。 */
@@ -480,13 +253,10 @@ function accumulateAttrPercentBonus(target: PercentBonusAccumulator, attrs: Attr
     if (!weight) {
       continue;
     }
-    for (const statKey of NUMERIC_SCALAR_STAT_KEYS) {
-      const weightValue = weight[statKey];
-      if (weightValue === undefined) {
-        continue;
-      }
-      target[statKey] += weightValue * value;
-    }
+    if (weight.maxHp !== undefined) target.maxHp += weight.maxHp * value;
+    if (weight.maxQi !== undefined) target.maxQi += weight.maxQi * value;
+    if (weight.physAtk !== undefined) target.physAtk += weight.physAtk * value;
+    if (weight.spellAtk !== undefined) target.spellAtk += weight.spellAtk * value;
   }
 }
 
@@ -511,6 +281,7 @@ function applyAttrWeight(target: NumericStats, attrs: Attributes): void {
     if (weight.hit !== undefined) target.hit += weight.hit * value;
     if (weight.dodge !== undefined) target.dodge += weight.dodge * value;
     if (weight.crit !== undefined) target.crit += weight.crit * value;
+    if (weight.antiCrit !== undefined) target.antiCrit += weight.antiCrit * value;
     if (weight.critDamage !== undefined) target.critDamage += weight.critDamage * value;
     if (weight.breakPower !== undefined) target.breakPower += weight.breakPower * value;
     if (weight.resolvePower !== undefined) target.resolvePower += weight.resolvePower * value;
@@ -528,7 +299,10 @@ function applyAttrWeight(target: NumericStats, attrs: Attributes): void {
 
 /** applyPercentBonuses：执行对应的业务逻辑。 */
 function applyPercentBonuses(target: NumericStats, bonuses: PercentBonusAccumulator): void {
-  applyNumericStatsPercentMultiplier(target, bonuses);
+  if (bonuses.maxHp !== 0) target.maxHp *= 1 + bonuses.maxHp / 100;
+  if (bonuses.maxQi !== 0) target.maxQi *= 1 + bonuses.maxQi / 100;
+  if (bonuses.physAtk !== 0) target.physAtk *= 1 + bonuses.physAtk / 100;
+  if (bonuses.spellAtk !== 0) target.spellAtk *= 1 + bonuses.spellAtk / 100;
 }
 
 /** mergeMonsterEquipmentAttrs：执行对应的业务逻辑。 */
@@ -566,29 +340,6 @@ function applyMonsterEquipmentStats(
   }
 }
 
-/** applyMonsterLevelFlatGrowth：执行对应的业务逻辑。 */
-function applyMonsterLevelFlatGrowth(target: NumericStats, level: number): NumericStats {
-/** levelDelta：定义该变量以承载业务值。 */
-  const levelDelta = Math.max(0, level - 1);
-  if (levelDelta === 0) {
-    return target;
-  }
-  target.maxHp += (MONSTER_LEVEL_FLAT_GROWTH_STATS.maxHp ?? 0) * levelDelta;
-  target.maxQi += (MONSTER_LEVEL_FLAT_GROWTH_STATS.maxQi ?? 0) * levelDelta;
-  target.physAtk += (MONSTER_LEVEL_FLAT_GROWTH_STATS.physAtk ?? 0) * levelDelta;
-  target.spellAtk += (MONSTER_LEVEL_FLAT_GROWTH_STATS.spellAtk ?? 0) * levelDelta;
-  target.physDef += (MONSTER_LEVEL_FLAT_GROWTH_STATS.physDef ?? 0) * levelDelta;
-  target.spellDef += (MONSTER_LEVEL_FLAT_GROWTH_STATS.spellDef ?? 0) * levelDelta;
-  target.hit += (MONSTER_LEVEL_FLAT_GROWTH_STATS.hit ?? 0) * levelDelta;
-  target.dodge += (MONSTER_LEVEL_FLAT_GROWTH_STATS.dodge ?? 0) * levelDelta;
-  target.crit += (MONSTER_LEVEL_FLAT_GROWTH_STATS.crit ?? 0) * levelDelta;
-  target.antiCrit += (MONSTER_LEVEL_FLAT_GROWTH_STATS.antiCrit ?? 0) * levelDelta;
-  target.breakPower += (MONSTER_LEVEL_FLAT_GROWTH_STATS.breakPower ?? 0) * levelDelta;
-  target.resolvePower += (MONSTER_LEVEL_FLAT_GROWTH_STATS.resolvePower ?? 0) * levelDelta;
-  target.cooldownSpeed += (MONSTER_LEVEL_FLAT_GROWTH_STATS.cooldownSpeed ?? 0) * levelDelta;
-  return target;
-}
-
 /** computeMonsterBaseNumericStatsFromAttrs：执行对应的业务逻辑。 */
 export function computeMonsterBaseNumericStatsFromAttrs(
   attrs?: Partial<Attributes>,
@@ -600,7 +351,12 @@ export function computeMonsterBaseNumericStatsFromAttrs(
 /** template：定义该变量以承载业务值。 */
   const template = PLAYER_REALM_NUMERIC_TEMPLATES[resolveMonsterBaseRealmStage(level)];
 /** percentBonuses：定义该变量以承载业务值。 */
-  const percentBonuses = createNumericStats();
+  const percentBonuses: PercentBonusAccumulator = {
+    maxHp: 0,
+    maxQi: 0,
+    physAtk: 0,
+    spellAtk: 0,
+  };
 /** stats：定义该变量以承载业务值。 */
   const stats = createNumericStats();
   addPartialNumericStats(stats, template.stats);
@@ -634,7 +390,7 @@ export function applyMonsterLevelScaling(stats: NumericStats, level?: number): N
       scaled[key] = Math.max(0, Math.round(scaled[key] * linearMultiplier));
     }
   }
-  return applyMonsterLevelFlatGrowth(scaled, normalizedLevel);
+  return scaled;
 }
 
 /** applyNumericStatPercentages：执行对应的业务逻辑。 */
@@ -647,9 +403,7 @@ export function applyNumericStatPercentages(stats: NumericStats, percents?: Nume
     if (!Number.isFinite(percent)) {
       continue;
     }
-/** deltaPercent：定义该变量以承载业务值。 */
-    const deltaPercent = Number(percent) - 100;
-    stats[key] = Math.max(0, Math.round(stats[key] * percentModifierToMultiplier(deltaPercent)));
+    stats[key] = Math.max(0, Math.round(stats[key] * Number(percent) / 100));
   }
   return stats;
 }
@@ -837,284 +591,3 @@ export function inferMonsterValueStatsFromLegacy(profile: LegacyMonsterNumericPr
   return valueStats;
 }
 
-/** normalizeMonsterTemplateEquipmentRefs：执行对应的业务逻辑。 */
-export function normalizeMonsterTemplateEquipmentRefs(rawEquipment: unknown): MonsterTemplateEquipmentRefs {
-/** normalized：定义该变量以承载业务值。 */
-  const normalized: MonsterTemplateEquipmentRefs = {};
-  if (!rawEquipment || typeof rawEquipment !== 'object' || Array.isArray(rawEquipment)) {
-    return normalized;
-  }
-/** source：定义该变量以承载业务值。 */
-  const source = rawEquipment as Record<string, unknown>;
-  for (const slot of EQUIP_SLOTS) {
-    const entry = source[slot];
-    const entryRecord = entry && typeof entry === 'object' && !Array.isArray(entry)
-      ? entry as Record<string, unknown>
-      : undefined;
-/** itemId：定义该变量以承载业务值。 */
-    const itemId = typeof entry === 'string'
-      ? entry.trim()
-      : (entryRecord && typeof entryRecord.itemId === 'string' ? entryRecord.itemId.trim() : '');
-    if (itemId) {
-      normalized[slot] = itemId;
-    }
-  }
-  return normalized;
-}
-
-/** normalizeMonsterTemplateSkillIds：执行对应的业务逻辑。 */
-export function normalizeMonsterTemplateSkillIds(rawSkills: unknown): string[] {
-  if (!Array.isArray(rawSkills)) {
-    return [];
-  }
-/** result：定义该变量以承载业务值。 */
-  const result: string[] = [];
-/** seen：定义该变量以承载业务值。 */
-  const seen = new Set<string>();
-  for (const entry of rawSkills) {
-    if (typeof entry !== 'string') {
-      continue;
-    }
-/** skillId：定义该变量以承载业务值。 */
-    const skillId = entry.trim();
-    if (!skillId || seen.has(skillId)) {
-      continue;
-    }
-    seen.add(skillId);
-    result.push(skillId);
-  }
-  return result;
-}
-
-/** normalizeMonsterTemplateDrops：执行对应的业务逻辑。 */
-export function normalizeMonsterTemplateDrops(rawDrops: unknown): MonsterTemplateDropRecord[] {
-  if (!Array.isArray(rawDrops)) {
-    return [];
-  }
-/** result：定义该变量以承载业务值。 */
-  const result: MonsterTemplateDropRecord[] = [];
-  for (const entry of rawDrops) {
-    if (!entry || typeof entry !== 'object') {
-      continue;
-    }
-/** source：定义该变量以承载业务值。 */
-    const source = entry as Record<string, unknown>;
-/** itemId：定义该变量以承载业务值。 */
-    const itemId = typeof source.itemId === 'string' ? source.itemId.trim() : '';
-/** name：定义该变量以承载业务值。 */
-    const name = typeof source.name === 'string' ? source.name.trim() : '';
-/** type：定义该变量以承载业务值。 */
-    const type = source.type;
-    if (!itemId || !name || typeof type !== 'string') {
-      continue;
-    }
-    result.push({
-      itemId,
-      name,
-      type: type as ItemType,
-      count: Number.isFinite(source.count) ? Math.max(1, Math.floor(Number(source.count))) : 1,
-      chance: Number.isFinite(source.chance) ? Number(source.chance) : undefined,
-    });
-  }
-  return result;
-}
-
-/** resolveMonsterTemplateItem：执行对应的业务逻辑。 */
-function resolveMonsterTemplateItem(
-  itemId: string,
-  itemLookup?: ReadonlyMap<string, MonsterTemplateEditorItem> | Record<string, MonsterTemplateEditorItem>,
-): MonsterTemplateEditorItem | undefined {
-  if (!itemLookup) {
-    return undefined;
-  }
-/** mapLookup：定义该变量以承载业务值。 */
-  const mapLookup = itemLookup as ReadonlyMap<string, MonsterTemplateEditorItem>;
-  if (typeof mapLookup.get === 'function') {
-    return mapLookup.get(itemId);
-  }
-  return (itemLookup as Record<string, MonsterTemplateEditorItem>)[itemId];
-}
-
-/** createMonsterTemplateEquipmentItem：执行对应的业务逻辑。 */
-function createMonsterTemplateEquipmentItem(item: MonsterTemplateEditorItem): ItemStack {
-  return {
-    itemId: item.itemId,
-    name: item.name,
-    type: item.type,
-    count: 1,
-    desc: item.desc,
-    groundLabel: item.groundLabel,
-    grade: item.grade,
-    level: item.level,
-    equipSlot: item.equipSlot,
-    equipAttrs: item.equipAttrs,
-    equipStats: item.equipStats ?? compileValueStatsToActualStats(item.equipValueStats),
-    equipValueStats: item.equipValueStats,
-    effects: item.effects,
-    tags: item.tags,
-    mapUnlockId: item.mapUnlockId,
-    mapUnlockIds: item.mapUnlockIds ? [...item.mapUnlockIds] : undefined,
-    tileAuraGainAmount: item.tileAuraGainAmount,
-    allowBatchUse: item.allowBatchUse,
-  };
-}
-
-/** resolveMonsterTemplateEquipmentSlots：执行对应的业务逻辑。 */
-function resolveMonsterTemplateEquipmentSlots(
-  equipmentRefs: MonsterTemplateEquipmentRefs,
-  itemLookup?: ReadonlyMap<string, MonsterTemplateEditorItem> | Record<string, MonsterTemplateEditorItem>,
-): EquipmentSlots {
-/** equipment：定义该变量以承载业务值。 */
-  const equipment = {
-    weapon: null,
-    head: null,
-    body: null,
-    legs: null,
-    accessory: null,
-  } as EquipmentSlots;
-  for (const slot of EQUIP_SLOTS) {
-    const itemId = equipmentRefs[slot];
-    if (!itemId) {
-      continue;
-    }
-/** item：定义该变量以承载业务值。 */
-    const item = resolveMonsterTemplateItem(itemId, itemLookup);
-    if (!item || item.type !== 'equipment' || item.equipSlot !== slot) {
-      continue;
-    }
-    equipment[slot] = createMonsterTemplateEquipmentItem(item);
-  }
-  return equipment;
-}
-
-/** resolveMonsterTemplateRecord：执行对应的业务逻辑。 */
-export function resolveMonsterTemplateRecord(
-  rawMonster: MonsterTemplateConfiguredRecord | Record<string, unknown>,
-  itemLookup?: ReadonlyMap<string, MonsterTemplateEditorItem> | Record<string, MonsterTemplateEditorItem>,
-): MonsterTemplateResolvedRecord {
-/** monster：定义该变量以承载业务值。 */
-  const monster = rawMonster as MonsterTemplateConfiguredRecord & Record<string, unknown>;
-/** attrsInput：定义该变量以承载业务值。 */
-  const attrsInput = monster.attrs as Partial<Attributes> | undefined;
-/** statPercentsInput：定义该变量以承载业务值。 */
-  const statPercentsInput = monster.statPercents as NumericStatPercentages | undefined;
-/** level：定义该变量以承载业务值。 */
-  const level = Number.isFinite(monster.level) ? Math.max(1, Math.floor(Number(monster.level))) : undefined;
-/** grade：定义该变量以承载业务值。 */
-  const grade = isTechniqueGrade(monster.grade) ? monster.grade : 'mortal';
-/** tier：定义该变量以承载业务值。 */
-  const tier = normalizeMonsterTier(monster.tier ?? inferMonsterTierFromName(typeof monster.name === 'string' ? monster.name : undefined));
-/** valueStats：定义该变量以承载业务值。 */
-  const valueStats = normalizeMonsterConfigStats(monster.valueStats);
-/** attrs：定义该变量以承载业务值。 */
-  const attrs = attrsInput ? normalizeMonsterAttrs(attrsInput) : undefined;
-/** equipmentRefs：定义该变量以承载业务值。 */
-  const equipmentRefs = normalizeMonsterTemplateEquipmentRefs(monster.equipment);
-/** equipment：定义该变量以承载业务值。 */
-  const equipment = resolveMonsterTemplateEquipmentSlots(equipmentRefs, itemLookup);
-/** legacyMaxHp：定义该变量以承载业务值。 */
-  const legacyMaxHp = Math.max(
-    1,
-    Math.round(
-      Number.isFinite(monster.maxHp)
-        ? Number(monster.maxHp)
-        : (Number.isFinite(monster.hp) ? Number(monster.hp) : 1),
-    ),
-  );
-/** legacyAttack：定义该变量以承载业务值。 */
-  const legacyAttack = Math.max(1, Math.round(Number.isFinite(monster.attack) ? Number(monster.attack) : 1));
-/** fallbackValueStats：定义该变量以承载业务值。 */
-  const fallbackValueStats = !valueStats && !attrs
-    ? inferMonsterValueStatsFromLegacy({
-        maxHp: legacyMaxHp,
-        attack: legacyAttack,
-        level,
-        viewRange: Number.isFinite(monster.viewRange)
-          ? Math.max(0, Math.floor(Number(monster.viewRange)))
-          : (Number.isFinite(monster.aggroRange) ? Math.max(0, Math.floor(Number(monster.aggroRange))) : 6),
-      })
-    : undefined;
-/** effectiveValueStats：定义该变量以承载业务值。 */
-  const effectiveValueStats = valueStats ?? fallbackValueStats;
-/** legacyNumericStats：定义该变量以承载业务值。 */
-  const legacyNumericStats = effectiveValueStats
-    ? resolveMonsterNumericStatsFromValueStats(effectiveValueStats, level)
-    : resolveMonsterNumericStatsFromAttributes({
-        attrs,
-        equipment,
-        level,
-      });
-/** resolvedAttrs：定义该变量以承载业务值。 */
-  const resolvedAttrs = normalizeMonsterAttrs(
-    attrsInput,
-    attrs ? undefined : inferMonsterAttrsFromNumericStats(legacyNumericStats),
-  );
-/** resolvedStatPercents：定义该变量以承载业务值。 */
-  const resolvedStatPercents = normalizeMonsterStatPercents(statPercentsInput)
-    ?? (attrsInput
-      ? undefined
-      : createMonsterAutoStatPercents(legacyNumericStats, resolvedAttrs, level, equipment));
-/** computedStats：定义该变量以承载业务值。 */
-  const computedStats = resolveMonsterNumericStatsFromAttributes({
-    attrs: resolvedAttrs,
-    equipment,
-    level,
-    statPercents: resolvedStatPercents,
-    grade,
-    tier,
-  });
-/** count：定义该变量以承载业务值。 */
-  const count = Number.isFinite(monster.count)
-    ? Math.max(1, Math.floor(Number(monster.count)))
-    : (Number.isFinite(monster.maxAlive) ? Math.max(1, Math.floor(Number(monster.maxAlive))) : 1);
-/** aggroRange：定义该变量以承载业务值。 */
-  const aggroRange = Number.isFinite(monster.aggroRange) ? Math.max(0, Math.floor(Number(monster.aggroRange))) : 6;
-/** sourceMode：定义该变量以承载业务值。 */
-  const sourceMode: MonsterTemplateSourceMode = attrsInput
-    ? 'attributes'
-    : (valueStats || fallbackValueStats ? 'value_stats' : 'legacy');
-
-  return {
-/** id：定义该变量以承载业务值。 */
-    id: typeof monster.id === 'string' ? monster.id.trim() : '',
-/** name：定义该变量以承载业务值。 */
-    name: typeof monster.name === 'string' ? monster.name.trim() : '',
-/** char：定义该变量以承载业务值。 */
-    char: typeof monster.char === 'string' ? monster.char.trim() : '',
-/** color：定义该变量以承载业务值。 */
-    color: typeof monster.color === 'string' ? monster.color.trim() : '',
-    grade,
-    tier,
-    valueStats,
-    attrs,
-    statPercents: normalizeMonsterStatPercents(statPercentsInput),
-    equipment: equipmentRefs,
-    skills: normalizeMonsterTemplateSkillIds(monster.skills),
-    computedStats,
-    resolvedAttrs,
-    resolvedStatPercents,
-    combatModel: 'value_stats',
-    sourceMode,
-    hp: Math.max(1, Math.round(computedStats.maxHp || Number(monster.hp) || 1)),
-    maxHp: Math.max(
-      1,
-      Math.round(computedStats.maxHp || (Number.isFinite(monster.maxHp) ? Number(monster.maxHp) : Number(monster.hp) || 1)),
-    ),
-    attack: Math.max(1, Math.round(computedStats.physAtk || computedStats.spellAtk || Number(monster.attack) || 1)),
-    level,
-    count,
-    radius: Number.isFinite(monster.radius) ? Math.max(0, Math.floor(Number(monster.radius))) : 3,
-    maxAlive: Number.isFinite(monster.maxAlive)
-      ? Math.max(1, Math.floor(Number(monster.maxAlive)))
-      : count,
-    aggroRange,
-    viewRange: Number.isFinite(monster.viewRange)
-      ? Math.max(0, Math.floor(Number(monster.viewRange)))
-      : aggroRange,
-    aggroMode: isMonsterAggroMode(monster.aggroMode) ? monster.aggroMode : 'always',
-    respawnSec: Number.isFinite(monster.respawnSec) ? Math.max(1, Math.floor(Number(monster.respawnSec))) : 15,
-    respawnTicks: Number.isFinite(monster.respawnTicks) ? Math.max(1, Math.floor(Number(monster.respawnTicks))) : undefined,
-    expMultiplier: resolveMonsterExpMultiplier(monster.expMultiplier, tier),
-    drops: normalizeMonsterTemplateDrops(monster.drops),
-  };
-}

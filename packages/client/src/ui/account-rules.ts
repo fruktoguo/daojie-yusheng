@@ -7,7 +7,7 @@ import {
   hasVisibleNameGrapheme,
   isRoleNameWithinLimit,
   PASSWORD_MIN_LENGTH,
-} from '@mud/shared';
+} from '@mud/shared-next';
 
 /**
  * 账号与角色信息的前端校验规则

@@ -5,7 +5,7 @@ import type {
   SkillDamageKind,
   TechniqueCategory,
   TechniqueGrade,
-} from '@mud/shared';
+} from '@mud/shared-next';
 import {
   getLocalRealmLevelEntry,
   getLocalTechniqueTemplate,

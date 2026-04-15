@@ -1,9 +1,9 @@
 /**
- * Protobuf 网络编解码层：将高频 S2C 事件（Tick、属性、功法、行动更新）
+ * Protobuf 网络编解码层：将高频 NEXT_S2C 事件（Tick、属性、功法、行动更新）
  * 序列化为二进制以压缩带宽，客户端收到后反序列化还原为业务对象。
  */
 import protobuf from 'protobufjs';
-import { C2S, S2C, type ActionUpdateEntry, type GroundItemPilePatch, type S2C_ActionsUpdate, type S2C_AttrUpdate, type S2C_TechniqueUpdate, type S2C_Tick, type TechniqueUpdateEntry, type TickRenderEntity, type VisibleTilePatch } from './protocol';
+import { type ActionUpdateEntry, type GroundItemPilePatch, type NEXT_S2C_ActionsUpdate, type NEXT_S2C_AttrUpdate, type NEXT_S2C_TechniqueUpdate, type NEXT_S2C_Tick, type TechniqueUpdateEntry, type TickRenderEntity, type VisibleTilePatch } from './protocol';
 import type { NumericRatioDivisors, NumericStats } from './numeric';
 import type { ActionDef, Attributes, AttrBonus, BodyTrainingState, GameTimeState, ItemType, NpcQuestMarker, ObservationInsight, PlayerSpecialStats, QuestLine, TechniqueAttrCurves, TechniqueCategory, TechniqueGrade, TechniqueLayerDef, TechniqueState, VisibleBuffState, VisibleTile } from './types';
 import { clonePlainValue } from './structured';
@@ -51,20 +51,16 @@ message TickRenderEntityPayload {
   optional bool clearHp = 15;
   optional sint32 maxHp = 16;
   optional bool clearMaxHp = 17;
-  optional sint32 respawnRemainingTicks = 18;
-  optional bool clearRespawnRemainingTicks = 19;
-  optional sint32 respawnTotalTicks = 20;
-  optional bool clearRespawnTotalTicks = 21;
-  optional sint32 qi = 22;
-  optional bool clearQi = 23;
-  optional sint32 maxQi = 24;
-  optional bool clearMaxQi = 25;
-  optional NpcQuestMarkerPayload npcQuestMarker = 26;
-  optional bool clearNpcQuestMarker = 27;
-  optional string observationJson = 28;
-  optional bool clearObservation = 29;
-  optional string buffsJson = 30;
-  optional bool clearBuffs = 31;
+  optional sint32 qi = 18;
+  optional bool clearQi = 19;
+  optional sint32 maxQi = 20;
+  optional bool clearMaxQi = 21;
+  optional NpcQuestMarkerPayload npcQuestMarker = 22;
+  optional bool clearNpcQuestMarker = 23;
+  optional string observationJson = 24;
+  optional bool clearObservation = 25;
+  optional string buffsJson = 26;
+  optional bool clearBuffs = 27;
 }
 
 message NpcQuestMarkerPayload {
@@ -175,8 +171,6 @@ message TechniqueUpdateEntryPayload {
   optional uint32 expToNext = 4;
   optional uint32 realm = 5;
   optional uint32 realmLv = 16;
-  optional bool skillsEnabled = 19;
-  optional bool clearSkillsEnabled = 20;
   optional string name = 6;
   optional bool clearName = 7;
   optional string grade = 8;
@@ -203,11 +197,6 @@ message ActionsUpdatePayload {
   repeated string removeActionIds = 9;
   repeated string actionOrder = 10;
   optional bool cultivationActive = 11;
-  optional string autoBattleTargetingMode = 12;
-  optional string autoUsePillsJson = 13;
-  optional bool clearAutoUsePills = 14;
-  optional string combatTargetingRulesJson = 15;
-  optional bool clearCombatTargetingRules = 16;
 }
 
 message ActionUpdateEntryPayload {
@@ -239,10 +228,6 @@ message AttrUpdatePayload {
   optional AttributesPayload finalAttrs = 3;
   optional NumericStatsPayload numericStats = 4;
   optional NumericRatioDivisorsPayload ratioDivisors = 5;
-  optional string numericStatBreakdownsJson = 18;
-  optional string alchemySkillJson = 19;
-  optional string enhancementSkillJson = 20;
-  optional string gatherSkillJson = 21;
   optional uint32 maxHp = 6;
   optional uint32 qi = 7;
   optional string realmJson = 8;
@@ -258,8 +243,8 @@ message AttrUpdatePayload {
 }
 
 message PlayerSpecialStatsPayload {
-  optional uint64 foundation = 1;
-  optional uint64 combatExp = 2;
+  optional uint32 foundation = 1;
+  optional uint32 combatExp = 2;
 }
 
 message AttributesPayload {
@@ -336,18 +321,13 @@ const actionsPayloadType = root.lookupType('ActionsUpdatePayload');
 /** attrPayloadType：定义该变量以承载业务值。 */
 const attrPayloadType = root.lookupType('AttrUpdatePayload');
 
-/** 需要 Protobuf 编码的 S2C 事件集合 */
-const PROTOBUF_S2C_EVENTS = new Set<string>([
-  S2C.Tick,
-  S2C.AttrUpdate,
-  S2C.TechniqueUpdate,
-  S2C.ActionsUpdate,
-]);
+/** 需要 Protobuf 编码的 NEXT_S2C 事件集合 */
+const PROTOBUF_NEXT_S2C_EVENTS = new Set<string>();
 
-/** 需要 Protobuf 编码的 C2S 事件集合（当前为空） */
-const PROTOBUF_C2S_EVENTS = new Set<string>();
+/** 需要 Protobuf 编码的 NEXT_C2S 事件集合（当前为空） */
+const PROTOBUF_NEXT_C2S_EVENTS = new Set<string>();
 
-export { PROTOBUF_S2C_EVENTS, PROTOBUF_C2S_EVENTS };
+export { PROTOBUF_NEXT_S2C_EVENTS, PROTOBUF_NEXT_C2S_EVENTS };
 
 /** BinaryPayload：定义该类型的结构与数据语义。 */
 type BinaryPayload = ArrayBuffer | Uint8Array | { buffer: ArrayBufferLike; byteLength: number; byteOffset?: number };
@@ -505,8 +485,6 @@ function toWireTickEntity(entity: TickRenderEntity): Record<string, unknown> {
   setNullableWireValue(wire, 'monsterScale', 'clearMonsterScale', entity.monsterScale);
   setNullableWireValue(wire, 'hp', 'clearHp', entity.hp);
   setNullableWireValue(wire, 'maxHp', 'clearMaxHp', entity.maxHp);
-  setNullableWireValue(wire, 'respawnRemainingTicks', 'clearRespawnRemainingTicks', entity.respawnRemainingTicks);
-  setNullableWireValue(wire, 'respawnTotalTicks', 'clearRespawnTotalTicks', entity.respawnTotalTicks);
   setNullableWireValue(wire, 'qi', 'clearQi', entity.qi);
   setNullableWireValue(wire, 'maxQi', 'clearMaxQi', entity.maxQi);
   if (entity.npcQuestMarker === null) {
@@ -555,12 +533,6 @@ function fromWireTickEntity(wire: Record<string, unknown>): TickRenderEntity {
 /** maxHp：定义该变量以承载业务值。 */
   const maxHp = readNullableWireValue<number>(wire, 'maxHp', 'clearMaxHp');
   if (maxHp !== undefined) patch.maxHp = maxHp === null ? null : Number(maxHp);
-/** respawnRemainingTicks：定义该变量以承载业务值。 */
-  const respawnRemainingTicks = readNullableWireValue<number>(wire, 'respawnRemainingTicks', 'clearRespawnRemainingTicks');
-  if (respawnRemainingTicks !== undefined) patch.respawnRemainingTicks = respawnRemainingTicks === null ? null : Number(respawnRemainingTicks);
-/** respawnTotalTicks：定义该变量以承载业务值。 */
-  const respawnTotalTicks = readNullableWireValue<number>(wire, 'respawnTotalTicks', 'clearRespawnTotalTicks');
-  if (respawnTotalTicks !== undefined) patch.respawnTotalTicks = respawnTotalTicks === null ? null : Number(respawnTotalTicks);
 /** qi：定义该变量以承载业务值。 */
   const qi = readNullableWireValue<number>(wire, 'qi', 'clearQi');
   if (qi !== undefined) patch.qi = qi === null ? null : Number(qi);
@@ -661,7 +633,6 @@ function toWireTechniqueEntry(entry: TechniqueUpdateEntry): Record<string, unkno
   if (entry.expToNext !== undefined) wire.expToNext = entry.expToNext;
   if (entry.realmLv !== undefined) wire.realmLv = entry.realmLv;
   if (entry.realm !== undefined) wire.realm = entry.realm;
-  setNullableWireValue(wire, 'skillsEnabled', 'clearSkillsEnabled', entry.skillsEnabled);
   setNullableWireValue(wire, 'name', 'clearName', entry.name);
   setNullableWireValue(wire, 'grade', 'clearGrade', entry.grade);
   setNullableWireValue(wire, 'category', 'clearCategory', entry.category);
@@ -694,9 +665,6 @@ function fromWireTechniqueEntry(wire: Record<string, unknown>): TechniqueUpdateE
   if (hasOwn(wire, 'expToNext')) patch.expToNext = Number(wire.expToNext ?? 0);
   if (hasOwn(wire, 'realmLv')) patch.realmLv = Number(wire.realmLv ?? 1);
   if (hasOwn(wire, 'realm')) patch.realm = Number(wire.realm ?? 0) as TechniqueState['realm'];
-/** skillsEnabled：定义该变量以承载业务值。 */
-  const skillsEnabled = readNullableWireValue<boolean>(wire, 'skillsEnabled', 'clearSkillsEnabled');
-  if (skillsEnabled !== undefined) patch.skillsEnabled = skillsEnabled;
 /** name：定义该变量以承载业务值。 */
   const name = readNullableWireValue<string>(wire, 'name', 'clearName');
   if (name !== undefined) patch.name = name;
@@ -799,7 +767,7 @@ function fromWirePlayerSpecialStats(wire: Record<string, unknown>): PlayerSpecia
 }
 
 /** toWireTick：执行对应的业务逻辑。 */
-function toWireTick(payload: S2C_Tick): Record<string, unknown> {
+function toWireTick(payload: NEXT_S2C_Tick): Record<string, unknown> {
 /** wire：定义该变量以承载业务值。 */
   const wire: Record<string, unknown> = {
     p: payload.p.map(toWireTickEntity),
@@ -866,9 +834,9 @@ function toWireTick(payload: S2C_Tick): Record<string, unknown> {
 }
 
 /** fromWireTick：执行对应的业务逻辑。 */
-function fromWireTick(wire: Record<string, unknown>): S2C_Tick {
+function fromWireTick(wire: Record<string, unknown>): NEXT_S2C_Tick {
 /** payload：定义该变量以承载业务值。 */
-  const payload: S2C_Tick = {
+  const payload: NEXT_S2C_Tick = {
     p: Array.isArray(wire.p) ? wire.p.map((entry) => fromWireTickEntity(entry as Record<string, unknown>)) : [],
     e: Array.isArray(wire.e) ? wire.e.map((entry) => fromWireTickEntity(entry as Record<string, unknown>)) : [],
   };
@@ -938,7 +906,7 @@ function fromWireTick(wire: Record<string, unknown>): S2C_Tick {
       } as GroundItemPilePatch;
     });
   }
-  if (Array.isArray(wire.fx)) payload.fx = cloneJson(wire.fx) as S2C_Tick['fx'];
+  if (Array.isArray(wire.fx)) payload.fx = cloneJson(wire.fx) as NEXT_S2C_Tick['fx'];
   if (Array.isArray(wire.v)) {
     payload.v = wire.v.map((row) => {
 /** rowWire：定义该变量以承载业务值。 */
@@ -959,7 +927,7 @@ function fromWireTick(wire: Record<string, unknown>): S2C_Tick {
   }
   if (hasOwn(wire, 'hp')) payload.hp = Number(wire.hp ?? 0);
   if (hasOwn(wire, 'qi')) payload.qi = Number(wire.qi ?? 0);
-  if (hasOwn(wire, 'f')) payload.f = Number(wire.f ?? 0) as S2C_Tick['f'];
+  if (hasOwn(wire, 'f')) payload.f = Number(wire.f ?? 0) as NEXT_S2C_Tick['f'];
   if (hasOwn(wire, 'time')) payload.time = fromWireGameTimeState(wire.time as Record<string, unknown>);
   if (hasOwn(wire, 'auraLevelBaseValue')) {
     payload.auraLevelBaseValue = Number(wire.auraLevelBaseValue ?? 0);
@@ -968,7 +936,7 @@ function fromWireTick(wire: Record<string, unknown>): S2C_Tick {
 }
 
 /** toWireTechniqueUpdate：执行对应的业务逻辑。 */
-function toWireTechniqueUpdate(payload: S2C_TechniqueUpdate): Record<string, unknown> {
+function toWireTechniqueUpdate(payload: NEXT_S2C_TechniqueUpdate): Record<string, unknown> {
 /** wire：定义该变量以承载业务值。 */
   const wire: Record<string, unknown> = {
     techniques: payload.techniques.map(toWireTechniqueEntry),
@@ -990,9 +958,9 @@ function toWireTechniqueUpdate(payload: S2C_TechniqueUpdate): Record<string, unk
 }
 
 /** fromWireTechniqueUpdate：执行对应的业务逻辑。 */
-function fromWireTechniqueUpdate(wire: Record<string, unknown>): S2C_TechniqueUpdate {
+function fromWireTechniqueUpdate(wire: Record<string, unknown>): NEXT_S2C_TechniqueUpdate {
 /** payload：定义该变量以承载业务值。 */
-  const payload: S2C_TechniqueUpdate = {
+  const payload: NEXT_S2C_TechniqueUpdate = {
     techniques: Array.isArray(wire.techniques)
       ? wire.techniques.map((entry) => fromWireTechniqueEntry(entry as Record<string, unknown>))
       : [],
@@ -1016,7 +984,7 @@ function fromWireTechniqueUpdate(wire: Record<string, unknown>): S2C_TechniqueUp
 }
 
 /** toWireActionsUpdate：执行对应的业务逻辑。 */
-function toWireActionsUpdate(payload: S2C_ActionsUpdate): Record<string, unknown> {
+function toWireActionsUpdate(payload: NEXT_S2C_ActionsUpdate): Record<string, unknown> {
 /** wire：定义该变量以承载业务值。 */
   const wire: Record<string, unknown> = {
     actions: payload.actions.map(toWireActionEntry),
@@ -1024,13 +992,6 @@ function toWireActionsUpdate(payload: S2C_ActionsUpdate): Record<string, unknown
   if (payload.removeActionIds) wire.removeActionIds = [...payload.removeActionIds];
   if (payload.actionOrder) wire.actionOrder = [...payload.actionOrder];
   if (payload.autoBattle !== undefined) wire.autoBattle = payload.autoBattle;
-  if (payload.autoUsePills !== undefined) {
-    wire.autoUsePillsJson = JSON.stringify(payload.autoUsePills);
-  }
-  if (payload.combatTargetingRules !== undefined) {
-    wire.combatTargetingRulesJson = JSON.stringify(payload.combatTargetingRules);
-  }
-  if (payload.autoBattleTargetingMode !== undefined) wire.autoBattleTargetingMode = payload.autoBattleTargetingMode;
   if (payload.autoRetaliate !== undefined) wire.autoRetaliate = payload.autoRetaliate;
   if (payload.autoBattleStationary !== undefined) wire.autoBattleStationary = payload.autoBattleStationary;
   if (payload.allowAoePlayerHit !== undefined) wire.allowAoePlayerHit = payload.allowAoePlayerHit;
@@ -1042,9 +1003,9 @@ function toWireActionsUpdate(payload: S2C_ActionsUpdate): Record<string, unknown
 }
 
 /** fromWireActionsUpdate：执行对应的业务逻辑。 */
-function fromWireActionsUpdate(wire: Record<string, unknown>): S2C_ActionsUpdate {
+function fromWireActionsUpdate(wire: Record<string, unknown>): NEXT_S2C_ActionsUpdate {
 /** payload：定义该变量以承载业务值。 */
-  const payload: S2C_ActionsUpdate = {
+  const payload: NEXT_S2C_ActionsUpdate = {
     actions: Array.isArray(wire.actions)
       ? wire.actions.map((entry) => fromWireActionEntry(entry as Record<string, unknown>))
       : [],
@@ -1060,17 +1021,6 @@ function fromWireActionsUpdate(wire: Record<string, unknown>): S2C_ActionsUpdate
       .filter((entry) => entry.length > 0);
   }
   if (hasOwn(wire, 'autoBattle')) payload.autoBattle = Boolean(wire.autoBattle);
-  if (wire.clearAutoUsePills === true) {
-    payload.autoUsePills = [];
-  } else if (typeof wire.autoUsePillsJson === 'string') {
-    payload.autoUsePills = parseJson<S2C_ActionsUpdate['autoUsePills']>(wire.autoUsePillsJson) ?? [];
-  }
-  if (wire.clearCombatTargetingRules === true) {
-    payload.combatTargetingRules = undefined;
-  } else if (typeof wire.combatTargetingRulesJson === 'string') {
-    payload.combatTargetingRules = parseJson<S2C_ActionsUpdate['combatTargetingRules']>(wire.combatTargetingRulesJson);
-  }
-  if (typeof wire.autoBattleTargetingMode === 'string') payload.autoBattleTargetingMode = wire.autoBattleTargetingMode as S2C_ActionsUpdate['autoBattleTargetingMode'];
   if (hasOwn(wire, 'autoRetaliate')) payload.autoRetaliate = Boolean(wire.autoRetaliate);
   if (hasOwn(wire, 'autoBattleStationary')) payload.autoBattleStationary = Boolean(wire.autoBattleStationary);
   if (hasOwn(wire, 'allowAoePlayerHit')) payload.allowAoePlayerHit = Boolean(wire.allowAoePlayerHit);
@@ -1082,7 +1032,7 @@ function fromWireActionsUpdate(wire: Record<string, unknown>): S2C_ActionsUpdate
 }
 
 /** toWireAttrUpdate：执行对应的业务逻辑。 */
-function toWireAttrUpdate(payload: S2C_AttrUpdate): Record<string, unknown> {
+function toWireAttrUpdate(payload: NEXT_S2C_AttrUpdate): Record<string, unknown> {
 /** wire：定义该变量以承载业务值。 */
   const wire: Record<string, unknown> = {};
   if (payload.baseAttrs) wire.baseAttrs = toWireAttributes(payload.baseAttrs);
@@ -1090,10 +1040,6 @@ function toWireAttrUpdate(payload: S2C_AttrUpdate): Record<string, unknown> {
   if (payload.finalAttrs) wire.finalAttrs = toWireAttributes(payload.finalAttrs);
   if (payload.numericStats) wire.numericStats = toWireNumericStats(payload.numericStats);
   if (payload.ratioDivisors) wire.ratioDivisors = toWireRatioDivisors(payload.ratioDivisors);
-  if (payload.numericStatBreakdowns !== undefined) wire.numericStatBreakdownsJson = JSON.stringify(payload.numericStatBreakdowns);
-  if (payload.alchemySkill !== undefined) wire.alchemySkillJson = JSON.stringify(payload.alchemySkill);
-  if (payload.enhancementSkill !== undefined) wire.enhancementSkillJson = JSON.stringify(payload.enhancementSkill);
-  if (payload.gatherSkill !== undefined) wire.gatherSkillJson = JSON.stringify(payload.gatherSkill);
   if (payload.maxHp !== undefined) wire.maxHp = payload.maxHp;
   if (payload.qi !== undefined) wire.qi = payload.qi;
   if (payload.specialStats) wire.specialStats = toWirePlayerSpecialStats(payload.specialStats);
@@ -1111,18 +1057,14 @@ function toWireAttrUpdate(payload: S2C_AttrUpdate): Record<string, unknown> {
 }
 
 /** fromWireAttrUpdate：执行对应的业务逻辑。 */
-function fromWireAttrUpdate(wire: Record<string, unknown>): S2C_AttrUpdate {
+function fromWireAttrUpdate(wire: Record<string, unknown>): NEXT_S2C_AttrUpdate {
 /** payload：定义该变量以承载业务值。 */
-  const payload: S2C_AttrUpdate = {};
+  const payload: NEXT_S2C_AttrUpdate = {};
   if (hasOwn(wire, 'baseAttrs')) payload.baseAttrs = fromWireAttributes(wire.baseAttrs as Record<string, unknown>);
   if (typeof wire.bonusesJson === 'string') payload.bonuses = parseJson<AttrBonus[]>(wire.bonusesJson);
   if (hasOwn(wire, 'finalAttrs')) payload.finalAttrs = fromWireAttributes(wire.finalAttrs as Record<string, unknown>);
   if (hasOwn(wire, 'numericStats')) payload.numericStats = fromWireNumericStats(wire.numericStats as Record<string, unknown>);
   if (hasOwn(wire, 'ratioDivisors')) payload.ratioDivisors = fromWireRatioDivisors(wire.ratioDivisors as Record<string, unknown>);
-  if (typeof wire.numericStatBreakdownsJson === 'string') payload.numericStatBreakdowns = parseJson(wire.numericStatBreakdownsJson);
-  if (typeof wire.alchemySkillJson === 'string') payload.alchemySkill = parseJson(wire.alchemySkillJson);
-  if (typeof wire.enhancementSkillJson === 'string') payload.enhancementSkill = parseJson(wire.enhancementSkillJson);
-  if (typeof wire.gatherSkillJson === 'string') payload.gatherSkill = parseJson(wire.gatherSkillJson);
   if (hasOwn(wire, 'maxHp')) payload.maxHp = Number(wire.maxHp ?? 0);
   if (hasOwn(wire, 'qi')) payload.qi = Number(wire.qi ?? 0);
   if (hasOwn(wire, 'specialStats')) payload.specialStats = fromWirePlayerSpecialStats(wire.specialStats as Record<string, unknown>);
@@ -1156,18 +1098,7 @@ function decodeMessage(type: protobuf.Type, payload: Uint8Array): Record<string,
 
 /** 服务端发送前将 payload 编码为 Protobuf 二进制（非 Protobuf 事件原样返回） */
 export function encodeServerEventPayload<T>(event: string, payload: T): T | Uint8Array {
-  switch (event) {
-    case S2C.Tick:
-      return encodeMessage(tickPayloadType, toWireTick(payload as S2C_Tick));
-    case S2C.AttrUpdate:
-      return encodeMessage(attrPayloadType, toWireAttrUpdate(payload as S2C_AttrUpdate));
-    case S2C.TechniqueUpdate:
-      return encodeMessage(techniquePayloadType, toWireTechniqueUpdate(payload as S2C_TechniqueUpdate));
-    case S2C.ActionsUpdate:
-      return encodeMessage(actionsPayloadType, toWireActionsUpdate(payload as S2C_ActionsUpdate));
-    default:
-      return payload;
-  }
+  return payload;
 }
 
 /** 客户端收到后将 Protobuf 二进制解码为业务对象（非二进制原样返回） */
@@ -1177,23 +1108,12 @@ export function decodeServerEventPayload<T>(event: string, payload: unknown): T 
   if (!binary) {
     return payload as T;
   }
-  switch (event) {
-    case S2C.Tick:
-      return fromWireTick(decodeMessage(tickPayloadType, binary)) as T;
-    case S2C.AttrUpdate:
-      return fromWireAttrUpdate(decodeMessage(attrPayloadType, binary)) as T;
-    case S2C.TechniqueUpdate:
-      return fromWireTechniqueUpdate(decodeMessage(techniquePayloadType, binary)) as T;
-    case S2C.ActionsUpdate:
-      return fromWireActionsUpdate(decodeMessage(actionsPayloadType, binary)) as T;
-    default:
-      return payload as T;
-  }
+  return payload as T;
 }
 
 /** 客户端发送前编码（当前直接透传） */
 export function encodeClientEventPayload<T>(event: string, payload: T): T {
-  if (PROTOBUF_C2S_EVENTS.has(event)) {
+  if (PROTOBUF_NEXT_C2S_EVENTS.has(event)) {
     return payload;
   }
   return payload;

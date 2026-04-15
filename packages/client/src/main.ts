@@ -7,11 +7,17 @@ import './styles/base.css';
 import './styles/layout.css';
 import './styles/hud.css';
 import './styles/overlays.css';
+import './styles/ui-primitives.css';
+import './styles/ui-modal.css';
+import './styles/ui-shells.css';
+import './styles/ui-recipes.css';
 import './styles/panels.css';
+import './styles/ui-responsive.css';
 import './styles/responsive.css';
 
 import { startClientVersionReload } from './version-reload';
 import { SocketManager } from './network/socket';
+import { logNextMovement } from './debug/movement-debug';
 import { KeyboardInput } from './input/keyboard';
 import { LoginUI } from './ui/login';
 import { HUD } from './ui/hud';
@@ -33,12 +39,11 @@ import { MailPanel } from './ui/mail-panel';
 import { SuggestionPanel } from './ui/suggestion-panel';
 import { ChangelogPanel } from './ui/changelog-panel';
 import { TutorialPanel } from './ui/tutorial-panel';
-import { LeaderboardModal } from './ui/leaderboard-modal';
-import { WorldSummaryModal } from './ui/world-summary-modal';
 import { getMonsterPresentation } from './monster-presentation';
 import { NpcShopModal } from './ui/npc-shop-modal';
-import { AlchemyModal } from './ui/alchemy-modal';
-import { EnhancementModal } from './ui/enhancement-modal';
+import { NpcQuestModal } from './ui/npc-quest-modal';
+import { EntityDetailModal } from './ui/entity-detail-modal';
+import { CraftWorkbenchModal } from './ui/craft-workbench-modal';
 import { getHeavenGateHudAction, openHeavenGateModal, refreshHeavenGateModal } from './ui/heaven-gate-modal';
 import { initializeUiStyleConfig } from './ui/ui-style-config';
 import { createClientPanelSystem } from './ui/panel-system/bootstrap';
@@ -56,13 +61,12 @@ import {
   resolvePreviewTechniques,
 } from './content/local-templates';
 import { scheduleDeferredLocalContentPreload } from './content/deferred-local-content';
-import { hydrateQuestStates } from './content/local-quests';
 import { assessMapDanger } from './utils/map-danger';
 import { syncEstimatedServerTick, syncEstimatedServerTickInterval } from './runtime/server-tick';
 
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from './ui/floating-tooltip';
 import { detailModalHost } from './ui/detail-modal-host';
-import { bindInlineItemTooltips, renderInlineItemChip, renderTextWithInlineItemHighlights } from './ui/item-inline-tooltip';
+import { bindInlineItemTooltips, renderTextWithInlineItemHighlights } from './ui/item-inline-tooltip';
 import { describePreviewBonuses } from './ui/stat-preview';
 import {
   initializeMapPerformanceConfig,
@@ -75,7 +79,6 @@ import { formatDisplayCountBadge, formatDisplayCurrentMax, formatDisplayInteger 
 import { findPath } from './pathfinding';
 import {
   computeAffectedCellsForAction as computeAffectedCellsForActionHelper,
-  getEffectiveTargetingGeometry as getEffectiveTargetingGeometryHelper,
   getSkillDefByActionId as getSkillDefByActionIdHelper,
   hasAffectableTargetInArea as hasAffectableTargetInAreaHelper,
   resolveCurrentTargetingRange as resolveCurrentTargetingRangeHelper,
@@ -84,8 +87,6 @@ import {
 import {
   ActionDef,
   AccountRedeemCodesRes,
-  buildEffectiveTargetingGeometry,
-  resolveTargetingGeometry,
   computeAffectedCellsFromAnchor,
   CONNECTION_RECOVERY_RETRY_MS,
   CURRENT_TIME_REFRESH_MS,
@@ -98,22 +99,28 @@ import {
   GameTimeState,
   gridDistance,
   GroundItemPileView,
+  GroundItemPilePatch,
   GridPoint,
   Inventory,
   isPointInRange,
   LootWindowState,
   MapMeta,
   MonsterTier,
-  PartialNumericStats,
   PlayerState,
   packDirections,
   RenderEntity,
-  S2C_AttrUpdate,
-  S2C_EquipmentUpdate,
-  S2C_InventoryUpdate,
-  S2C_LootWindowUpdate,
-  S2C_RealmUpdate,
-  S2C_RedeemCodesResult,
+  NEXT_S2C_AttrUpdate,
+  NEXT_S2C_AttrDetail,
+  NEXT_S2C_EquipmentUpdate,
+  NEXT_S2C_InventoryUpdate,
+  NEXT_S2C_Leaderboard,
+  NEXT_S2C_LootWindowUpdate,
+  NEXT_S2C_RedeemCodesResult,
+  NEXT_S2C_TechniqueUpdate,
+  NEXT_S2C_ActionsUpdate,
+  NEXT_S2C_WorldSummary,
+  NEXT_S2C_NoticeItem,
+  NEXT_S2C_SystemMsg,
   TechniqueUpdateEntry,
   ActionUpdateEntry,
   BreakthroughRequirementView,
@@ -121,11 +128,9 @@ import {
   Tile,
   TileType,
   TechniqueState,
-  S2C_Init,
-  S2C_MapStaticSync,
-  S2C_NpcShop,
-  S2C_TileRuntimeDetail,
-  S2C_Tick,
+  NEXT_S2C_NpcShop,
+  NEXT_S2C_Detail,
+  NEXT_S2C_TileDetail,
   SERVER_PING_INTERVAL_MS,
   SOCKET_PING_TIMEOUT_MS,
   TargetingGeometrySpec,
@@ -134,12 +139,21 @@ import {
   VIEW_RADIUS,
   SyncedItemStack,
   TechniqueRealm,
+  TemporaryBuffState,
+  TickRenderEntity,
+  NEXT_S2C_Bootstrap,
+  NEXT_S2C_InitSession,
+  NEXT_S2C_MapEnter,
+  NEXT_S2C_WorldDelta,
+  NEXT_S2C_SelfDelta,
+  NEXT_S2C_PanelDelta,
+  NEXT_S2C_MapStatic,
+  NEXT_S2C_Realm,
   directionToDelta,
   getTileTraversalCost,
   clonePlainValue,
-  getFirstGrapheme,
   isPlainEqual,
-} from '@mud/shared';
+} from '@mud/shared-next';
 
 /** canvasHost：定义该变量以承载业务值。 */
 const canvasHost = document.getElementById('game-stage') as HTMLElement;
@@ -232,7 +246,19 @@ let activeObservedTile:
     }
   | null = null;
 /** activeObservedTileDetail：定义该变量以承载业务值。 */
-let activeObservedTileDetail: S2C_TileRuntimeDetail | null = null;
+let activeObservedTileDetail: NEXT_S2C_TileDetail | null = null;
+/** activeObservedTileError：定义该变量以承载业务值。 */
+let activeObservedTileError: string | null = null;
+/** latestNextInitSession：定义该变量以承载业务值。 */
+let latestNextInitSession: NEXT_S2C_InitSession | null = null;
+/** latestNextMapEnter：定义该变量以承载业务值。 */
+let latestNextMapEnter: NEXT_S2C_MapEnter | null = null;
+/** pendingNextWorldDelta：定义该变量以承载业务值。 */
+let pendingNextWorldDelta: NEXT_S2C_WorldDelta | null = null;
+/** pendingNextSelfDelta：定义该变量以承载业务值。 */
+let pendingNextSelfDelta: NEXT_S2C_SelfDelta | null = null;
+/** pendingNextPanelDelta：定义该变量以承载业务值。 */
+let pendingNextPanelDelta: NEXT_S2C_PanelDelta | null = null;
 
 /** connectionRecoveryTimer：定义该变量以承载业务值。 */
 let connectionRecoveryTimer: ReturnType<typeof setTimeout> | null = null;
@@ -257,8 +283,6 @@ let pendingSocketPing:
 let currentTimeStateSyncedAt = performance.now();
 /** currentTimeTickIntervalMs：定义该变量以承载业务值。 */
 let currentTimeTickIntervalMs = 1000;
-/** currentTimeTickIntervalUpdatedAt：定义该变量以承载业务值。 */
-let currentTimeTickIntervalUpdatedAt = performance.now();
 /** fpsMonitorFrameRequestId：定义该变量以承载业务值。 */
 let fpsMonitorFrameRequestId: number | null = null;
 /** fpsMonitorEnabled：定义该变量以承载业务值。 */
@@ -273,11 +297,6 @@ let fpsLastFrameAt = 0;
 let fpsFrameDurations: number[] = [];
 /** fpsFrameDurationWriteIndex：定义该变量以承载业务值。 */
 let fpsFrameDurationWriteIndex = 0;
-
-/** PING_BLOCKED_TICK_INTERVAL_MS：定义该变量以承载业务值。 */
-const PING_BLOCKED_TICK_INTERVAL_MS = 1_500;
-/** PING_BLOCKED_TICK_GRACE_MS：定义该变量以承载业务值。 */
-const PING_BLOCKED_TICK_GRACE_MS = 8_000;
 
 /** FpsSampleStats：定义该类型的结构与数据语义。 */
 type FpsSampleStats = {
@@ -519,8 +538,8 @@ function syncCurrentTimeTickInterval(dtMs: number | null | undefined): void {
     return;
   }
   currentTimeTickIntervalMs = dtMs;
-  currentTimeTickIntervalUpdatedAt = performance.now();
   syncEstimatedServerTickInterval(dtMs);
+  mapRuntime.setTickDurationMs(Math.max(1, Math.round(dtMs * 0.5)));
 }
 
 /** renderPingLatency：执行对应的业务逻辑。 */
@@ -547,18 +566,10 @@ function renderPingLatency(latencyMs: number | null, status = '毫秒') {
   if (pingLatencyEl) {
 /** title：定义该变量以承载业务值。 */
     const title = latencyMs === null
-      ? status === '阻塞'
-        ? `当前域名 ${window.location.host} 的游戏连接仍可达，但最近 tick/主循环出现明显阻塞，当前“灵网延迟”已不再代表纯网络延迟`
-        : `当前域名 ${window.location.host} 的游戏连接响应${status === '离线' ? '不可用' : `状态：${status}`}`
-      : `当前域名 ${window.location.host} 上游戏连接往返约 ${Math.round(latencyMs)}ms；该值同时会受到服务端主循环阻塞影响`;
+      ? `当前域名 ${window.location.host} 的服务器延迟${status === '离线' ? '不可用' : `状态：${status}`}`
+      : `当前域名 ${window.location.host} 上游戏连接往返约 ${Math.round(latencyMs)}ms`;
     pingLatencyEl.setAttribute('title', title);
   }
-}
-
-/** hasRecentTickStall：执行对应的业务逻辑。 */
-function hasRecentTickStall(now = performance.now()): boolean {
-  return currentTimeTickIntervalMs >= PING_BLOCKED_TICK_INTERVAL_MS
-    && now - currentTimeTickIntervalUpdatedAt <= PING_BLOCKED_TICK_GRACE_MS;
 }
 
 /** waitFor：执行对应的业务逻辑。 */
@@ -625,7 +636,8 @@ function markSocketPingTimeout(serial: number): void {
     return;
   }
   pendingSocketPing = null;
-  renderPingLatency(null, socket.connected ? (hasRecentTickStall() ? '阻塞' : '超时') : '离线');
+/** renderPingLatency：处理当前场景中的对应操作。 */
+  renderPingLatency(null, socket.connected ? '超时' : '离线');
 }
 
 /** sampleServerPing：执行对应的业务逻辑。 */
@@ -749,17 +761,16 @@ const marketPanel = new MarketPanel();
 const actionPanel = new ActionPanel();
 /** npcShopModal：定义该变量以承载业务值。 */
 const npcShopModal = new NpcShopModal();
-/** alchemyModal：定义该变量以承载业务值。 */
-const alchemyModal = new AlchemyModal();
-/** enhancementModal：定义该变量以承载业务值。 */
-const enhancementModal = new EnhancementModal();
+/** npcQuestModal：定义该变量以承载业务值。 */
+const npcQuestModal = new NpcQuestModal();
+/** entityDetailModal：定义该变量以承载业务值。 */
+const entityDetailModal = new EntityDetailModal();
+/** craftWorkbenchModal：定义该变量以承载业务值。 */
+const craftWorkbenchModal = new CraftWorkbenchModal();
 /** lootPanel：定义该变量以承载业务值。 */
 const lootPanel = new LootPanel();
 /** worldPanel：定义该变量以承载业务值。 */
 const worldPanel = new WorldPanel();
-/** leaderboardModal：定义该变量以承载业务值。 */
-const leaderboardModal = new LeaderboardModal();
-const worldSummaryModal = new WorldSummaryModal();
 /** settingsPanel：定义该变量以承载业务值。 */
 const settingsPanel = new SettingsPanel();
 /** mailPanel：定义该变量以承载业务值。 */
@@ -771,14 +782,8 @@ new TutorialPanel();
 /** panelSystem：定义该变量以承载业务值。 */
 const panelSystem = createClientPanelSystem(window);
 mapRuntime.attach(canvasHost);
-mapRuntime.setMoveHandler((target) => {
-  if (target.isCurrentMap || myPlayer?.mapId === target.mapId) {
-/** planPathTo：处理当前场景中的对应操作。 */
-    planPathTo({ x: target.x, y: target.y });
-    return;
-  }
-  clearCurrentPath();
-  socket.sendNavigateMapPoint(target.mapId, target.x, target.y);
+mapRuntime.setMoveHandler((x, y) => {
+  planPathTo({ x, y });
 });
 /** targetingBadgeEl：定义该变量以承载业务值。 */
 const targetingBadgeEl = document.getElementById('map-targeting-indicator');
@@ -794,12 +799,6 @@ const observeModalShellEl = observeModalEl?.querySelector('.observe-modal-shell'
 const observeModalAsideEl = document.getElementById('observe-modal-aside');
 /** observeBuffTooltip：定义该变量以承载业务值。 */
 const observeBuffTooltip = new FloatingTooltip();
-/** observeBuffTooltipHoverNode：定义该变量以承载业务值。 */
-let observeBuffTooltipHoverNode: HTMLElement | null = null;
-/** observeBuffTooltipDelegatedBound：定义该变量以承载业务值。 */
-let observeBuffTooltipDelegatedBound = false;
-/** observeLootPreviewDelegatedBound：定义该变量以承载业务值。 */
-let observeLootPreviewDelegatedBound = false;
 /** senseQiTooltip：定义该变量以承载业务值。 */
 const senseQiTooltip = new FloatingTooltip();
 /** pendingTargetedAction：定义该变量以承载业务值。 */
@@ -813,7 +812,6 @@ let pendingTargetedAction: {
   range: number;
   shape?: TargetingShape;
   radius?: number;
-  innerRadius?: number;
   width?: number;
   height?: number;
   maxTargets?: number;
@@ -852,14 +850,12 @@ type ObservedEntity = {
   name?: string;
   kind?: string;
   monsterTier?: MonsterTier;
-  monsterScale?: number;
   hp?: number;
   maxHp?: number;
   qi?: number;
   maxQi?: number;
   npcQuestMarker?: RenderEntity['npcQuestMarker'];
   observation?: RenderEntity['observation'];
-  lootPreview?: NonNullable<S2C_TileRuntimeDetail['entities']>[number]['lootPreview'];
   buffs?: VisibleBuffState[];
 };
 
@@ -876,7 +872,7 @@ function isPlayerLikeEntityKind(kind: string | null | undefined): boolean {
 /** ObserveEntityCardData：定义该类型的结构与数据语义。 */
 type ObserveEntityCardData = Pick<
   ObservedEntity,
-  'id' | 'name' | 'kind' | 'monsterTier' | 'hp' | 'maxHp' | 'qi' | 'maxQi' | 'npcQuestMarker' | 'observation' | 'lootPreview' | 'buffs'
+  'id' | 'name' | 'kind' | 'monsterTier' | 'hp' | 'maxHp' | 'qi' | 'maxQi' | 'npcQuestMarker' | 'observation' | 'buffs'
 >;
 
 /** PendingAutoInteraction：定义该类型的结构与数据语义。 */
@@ -890,8 +886,8 @@ type PendingAutoInteraction =
       x: number;
 /** y：定义该变量以承载业务值。 */
       y: number;
-/** actionId：定义该变量以承载业务值。 */
-      actionId: string;
+/** npcId：定义该变量以承载业务值。 */
+      npcId: string;
     }
   | {
 /** kind：定义该变量以承载业务值。 */
@@ -970,25 +966,26 @@ function openBreakthroughModal() {
 /** requirementRows：定义该变量以承载业务值。 */
   const requirementRows = preview.requirements.length > 0
     ? preview.requirements.map((requirement) => `
-      <div class="action-item breakthrough-requirement-item">
+      <div class="action-item breakthrough-requirement-item ui-requirement-entry ui-surface-card ui-surface-card--compact">
         <div class="action-copy">
-          <div class="breakthrough-requirement-head">
+          <div class="breakthrough-requirement-head ui-requirement-entry-head">
             <span class="action-name">${renderTextWithInlineItemHighlights(requirement.label)}</span>
-            <span class="action-type breakthrough-requirement-status ${requirement.completed ? 'is-completed' : 'is-unmet'}">
+            <span class="action-type breakthrough-requirement-status ui-requirement-status ${requirement.completed ? 'is-completed' : 'is-unmet'}">
               [${getBreakthroughRequirementStatusLabel(requirement)}]
             </span>
             ${!requirement.completed && (requirement.increasePct ?? 0) > 0
-              ? `<span class="breakthrough-requirement-bonus">+${requirement.increasePct}%</span>`
+              ? `<span class="breakthrough-requirement-bonus ui-requirement-bonus">+${requirement.increasePct}%</span>`
               : ''}
           </div>
           <div class="action-desc">${renderTextWithInlineItemHighlights(getBreakthroughRequirementStatusDetail(requirement))}</div>
         </div>
       </div>
     `).join('')
-    : '<div class="empty-hint">当前无额外突破要求。</div>';
+    : '<div class="empty-hint ui-empty-hint">当前无额外突破要求。</div>';
 
   detailModalHost.open({
     ownerId: 'realm:breakthrough',
+    size: 'md',
     variantClass: 'detail-modal--breakthrough',
     title: `突破至 ${preview.targetDisplayName}`,
     subtitle: `${currentRealm.displayName} · 核心要求 ${preview.completedBlockingRequirements}/${preview.blockingRequirements}`,
@@ -1004,7 +1001,7 @@ function openBreakthroughModal() {
       </div>
       ${hasIncreaseRequirements ? `
         <div class="panel-section">
-          <div class="empty-hint">提示：红色且带 +% 的条件当前未生效，会按配置抬高全部属性要求；绿色表示当前已满足或已生效。</div>
+          <div class="empty-hint ui-empty-hint">提示：红色且带 +% 的条件当前未生效，会按配置抬高全部属性要求；绿色表示当前已满足或已生效。</div>
         </div>
       ` : ''}
       <div class="tech-modal-actions">
@@ -1035,37 +1032,30 @@ function syncTargetingOverlay() {
     syncSenseQiOverlay();
     return;
   }
-/** geometry：定义该变量以承载业务值。 */
-  const geometry = getEffectiveTargetingGeometry(pendingTargetedAction);
+  pendingTargetedAction.range = resolveCurrentTargetingRange(pendingTargetedAction);
 /** affectedCells：定义该变量以承载业务值。 */
   const affectedCells = computeAffectedCells(pendingTargetedAction);
   mapRuntime.setTargetingOverlay({
     originX: myPlayer.x,
     originY: myPlayer.y,
-    range: geometry.range,
+    range: pendingTargetedAction.range,
     visibleOnly: doesTargetingRequireVision(pendingTargetedAction.actionId),
-    shape: geometry.shape,
-    radius: geometry.radius,
+    shape: pendingTargetedAction.shape,
+    radius: pendingTargetedAction.radius,
     affectedCells,
     hoverX: pendingTargetedAction.hoverX,
     hoverY: pendingTargetedAction.hoverY,
   });
   if (targetingBadgeEl) {
 /** rangeLabel：定义该变量以承载业务值。 */
-    const rangeLabel = pendingTargetedAction.actionId === 'client:observe' ? `视野 ${geometry.range}` : `射程 ${geometry.range}`;
+    const rangeLabel = pendingTargetedAction.actionId === 'client:observe' ? `视野 ${pendingTargetedAction.range}` : `射程 ${pendingTargetedAction.range}`;
 /** shapeLabel：定义该变量以承载业务值。 */
-    const shapeLabel = geometry.shape === 'line'
+    const shapeLabel = pendingTargetedAction.shape === 'line'
       ? ` · 直线${pendingTargetedAction.maxTargets ? ` ${pendingTargetedAction.maxTargets}目标` : ''}`
-      : geometry.shape === 'ring'
-        ? ` · 环带 ${Math.max(0, geometry.innerRadius ?? Math.max((geometry.radius ?? 1) - 1, 0))}-${Math.max(0, geometry.radius ?? 1)}${pendingTargetedAction.maxTargets ? ` · 最多 ${pendingTargetedAction.maxTargets} 目标` : ''}`
-      : geometry.shape === 'checkerboard'
-        ? ` · 棋盘 ${Math.max(1, geometry.width ?? 1)}x${Math.max(1, geometry.height ?? geometry.width ?? 1)}${pendingTargetedAction.maxTargets ? ` · 最多 ${pendingTargetedAction.maxTargets} 目标` : ''}`
-      : geometry.shape === 'box'
-        ? ` · 矩形 ${Math.max(1, geometry.width ?? 1)}x${Math.max(1, geometry.height ?? geometry.width ?? 1)}${pendingTargetedAction.maxTargets ? ` · 最多 ${pendingTargetedAction.maxTargets} 目标` : ''}`
-      : geometry.shape === 'orientedBox'
-        ? ` · 定向矩形 ${Math.max(1, geometry.width ?? 1)}x${Math.max(1, geometry.height ?? geometry.width ?? 1)}${pendingTargetedAction.maxTargets ? ` · 最多 ${pendingTargetedAction.maxTargets} 目标` : ''}`
-      : geometry.shape === 'area'
-        ? ` · 范围半径 ${Math.max(0, geometry.radius ?? 1)}${pendingTargetedAction.maxTargets ? ` · 最多 ${pendingTargetedAction.maxTargets} 目标` : ''}`
+      : pendingTargetedAction.shape === 'box'
+        ? ` · 矩形 ${Math.max(1, pendingTargetedAction.width ?? 1)}x${Math.max(1, pendingTargetedAction.height ?? pendingTargetedAction.width ?? 1)}${pendingTargetedAction.maxTargets ? ` · 最多 ${pendingTargetedAction.maxTargets} 目标` : ''}`
+      : pendingTargetedAction.shape === 'area'
+        ? ` · 范围半径 ${Math.max(0, pendingTargetedAction.radius ?? 1)}${pendingTargetedAction.maxTargets ? ` · 最多 ${pendingTargetedAction.maxTargets} 目标` : ''}`
         : '';
     targetingBadgeEl.textContent = `选定 ${pendingTargetedAction.actionName} 目标 · ${rangeLabel}${shapeLabel}`;
     targetingBadgeEl.classList.remove('hidden');
@@ -1083,23 +1073,21 @@ function cancelTargeting(showMessage = false) {
   }
 }
 
+/** getCurrentActionDef：执行对应的业务逻辑。 */
+function getCurrentActionDef(actionId: string): ActionDef | null {
+  return myPlayer?.actions.find((entry) => entry.id === actionId) ?? null;
+}
+
 /** getSkillDefByActionId：执行对应的业务逻辑。 */
 function getSkillDefByActionId(actionId: string): SkillDef | null {
   return getSkillDefByActionIdHelper(myPlayer, actionId);
 }
 
-/** getEffectiveTargetingGeometry：执行对应的业务逻辑。 */
-function getEffectiveTargetingGeometry(
-  action: Pick<NonNullable<typeof pendingTargetedAction>, 'actionId' | 'range' | 'shape' | 'radius' | 'innerRadius' | 'width' | 'height'>,
-): TargetingGeometrySpec {
-  return getEffectiveTargetingGeometryHelper(action, myPlayer);
-}
-
 /** resolveCurrentTargetingRange：执行对应的业务逻辑。 */
 function resolveCurrentTargetingRange(
-  action: Pick<NonNullable<typeof pendingTargetedAction>, 'actionId' | 'range' | 'shape' | 'radius' | 'innerRadius' | 'width' | 'height'>,
+  action: Pick<NonNullable<typeof pendingTargetedAction>, 'actionId' | 'range'>,
 ): number {
-  return resolveCurrentTargetingRangeHelper(action, myPlayer, getInfoRadius());
+  return resolveCurrentTargetingRangeHelper(action, getInfoRadius());
 }
 
 /** doesTargetingRequireVision：执行对应的业务逻辑。 */
@@ -1122,17 +1110,17 @@ function beginTargeting(actionId: string, actionName: string, targetMode?: strin
     range: Math.max(1, range),
     shape: skill?.targeting?.shape ?? 'single',
     radius: skill?.targeting?.radius,
-    innerRadius: skill?.targeting?.innerRadius,
     width: skill?.targeting?.width,
     height: skill?.targeting?.height,
     maxTargets: skill?.targeting?.maxTargets,
   };
+  pendingTargetedAction.range = resolveCurrentTargetingRange(pendingTargetedAction);
   syncTargetingOverlay();
   if (actionId === 'client:observe') {
     showToast('请选择当前视野内的目标格，Esc 或右键取消');
     return;
   }
-  showToast(`请选择 ${resolveCurrentTargetingRange(pendingTargetedAction)} 格内目标，Esc 或右键取消`);
+  showToast(`请选择 ${pendingTargetedAction.range} 格内目标，Esc 或右键取消`);
 }
 
 /** computeAffectedCells：执行对应的业务逻辑。 */
@@ -1145,7 +1133,7 @@ function computeAffectedCells(action: NonNullable<typeof pendingTargetedAction>)
 
 /** computeAffectedCellsForAction：执行对应的业务逻辑。 */
 function computeAffectedCellsForAction(
-  action: Pick<NonNullable<typeof pendingTargetedAction>, 'actionId' | 'range' | 'shape' | 'radius' | 'innerRadius' | 'width' | 'height'>,
+  action: Pick<NonNullable<typeof pendingTargetedAction>, 'actionId' | 'range' | 'shape' | 'radius' | 'width' | 'height'>,
   anchor: GridPoint,
 ): GridPoint[] {
   return computeAffectedCellsForActionHelper(action, anchor, myPlayer);
@@ -1153,7 +1141,7 @@ function computeAffectedCellsForAction(
 
 /** resolveTargetRefForAction：执行对应的业务逻辑。 */
 function resolveTargetRefForAction(
-  action: Pick<NonNullable<typeof pendingTargetedAction>, 'actionId' | 'shape' | 'range' | 'radius' | 'innerRadius' | 'width' | 'height' | 'targetMode'>,
+  action: Pick<NonNullable<typeof pendingTargetedAction>, 'actionId' | 'range' | 'shape' | 'radius' | 'width' | 'height' | 'targetMode'>,
 /** target：定义该变量以承载业务值。 */
   target: { x: number; y: number; entityId?: string; entityKind?: string },
 ): string | null {
@@ -1162,7 +1150,7 @@ function resolveTargetRefForAction(
 
 /** hasAffectableTargetInArea：执行对应的业务逻辑。 */
 function hasAffectableTargetInArea(
-  action: Pick<NonNullable<typeof pendingTargetedAction>, 'actionId' | 'shape' | 'range' | 'radius' | 'innerRadius' | 'width' | 'height'>,
+  action: Pick<NonNullable<typeof pendingTargetedAction>, 'actionId' | 'shape' | 'range' | 'radius' | 'width' | 'height'>,
   anchorX: number,
   anchorY: number,
 ): boolean {
@@ -1250,6 +1238,7 @@ function hideObserveModal(): void {
   observeModalAsideEl?.setAttribute('aria-hidden', 'true');
   activeObservedTile = null;
   activeObservedTileDetail = null;
+  activeObservedTileError = null;
 }
 
 /** buildObservationRows：执行对应的业务逻辑。 */
@@ -1286,7 +1275,17 @@ function formatAuraValueText(auraValue: number): string {
 }
 
 /** TileRuntimeResourceDetail：定义该类型的结构与数据语义。 */
-type TileRuntimeResourceDetail = S2C_TileRuntimeDetail['resources'][number];
+type TileRuntimeResourceDetail = {
+/** key：定义该变量以承载业务值。 */
+  key: string;
+/** label：定义该变量以承载业务值。 */
+  label: string;
+/** value：定义该变量以承载业务值。 */
+  value: number;
+  effectiveValue?: number;
+  level?: number;
+  sourceValue?: number;
+};
 /** ObserveAsideCard：定义该类型的结构与数据语义。 */
 type ObserveAsideCard = {
   mark?: string;
@@ -1296,90 +1295,6 @@ type ObserveAsideCard = {
   lines: string[];
   tone?: 'buff' | 'debuff';
 };
-
-/** createObserveAsideLineElement：执行对应的业务逻辑。 */
-function createObserveAsideLineElement(line: string): HTMLSpanElement {
-/** element：定义该变量以承载业务值。 */
-  const element = document.createElement('span');
-  element.className = 'floating-tooltip-aside-line';
-  element.textContent = line;
-  return element;
-}
-
-/** patchObserveAsideLineElements：执行对应的业务逻辑。 */
-function patchObserveAsideLineElements(container: HTMLElement, lines: string[]): void {
-  while (container.children.length > lines.length) {
-    container.lastElementChild?.remove();
-  }
-  lines.forEach((line, index) => {
-/** existing：定义该变量以承载业务值。 */
-    const existing = container.children.item(index);
-/** lineEl：定义该变量以承载业务值。 */
-    const lineEl = existing instanceof HTMLSpanElement ? existing : createObserveAsideLineElement(line);
-    if (existing !== lineEl) {
-      container.insertBefore(lineEl, existing ?? null);
-    }
-    lineEl.className = 'floating-tooltip-aside-line';
-    if (lineEl.textContent !== line) {
-      lineEl.textContent = line;
-    }
-  });
-}
-
-/** patchObserveAsideCardElement：执行对应的业务逻辑。 */
-function patchObserveAsideCardElement(cardEl: HTMLElement, card: ObserveAsideCard): void {
-  cardEl.className = `floating-tooltip-aside-card ${card.tone === 'debuff' ? 'debuff' : 'buff'}`;
-
-/** headEl：定义该变量以承载业务值。 */
-  let headEl = cardEl.firstElementChild;
-  if (!(headEl instanceof HTMLDivElement) || !headEl.classList.contains('floating-tooltip-aside-head')) {
-    headEl = document.createElement('div');
-    headEl.className = 'floating-tooltip-aside-head';
-    cardEl.prepend(headEl);
-  }
-
-/** markEl：定义该变量以承载业务值。 */
-  let markEl = headEl.querySelector(':scope > .floating-tooltip-aside-mark');
-  if (card.mark) {
-    if (!(markEl instanceof HTMLSpanElement)) {
-      markEl = document.createElement('span');
-      markEl.className = 'floating-tooltip-aside-mark';
-      headEl.prepend(markEl);
-    }
-    if (markEl.textContent !== card.mark) {
-      markEl.textContent = card.mark;
-    }
-  } else if (markEl instanceof HTMLElement) {
-    markEl.remove();
-  }
-
-/** titleEl：定义该变量以承载业务值。 */
-  let titleEl = headEl.querySelector(':scope > strong');
-  if (!(titleEl instanceof HTMLElement)) {
-    titleEl = document.createElement('strong');
-    headEl.append(titleEl);
-  }
-  if (titleEl.textContent !== card.title) {
-    titleEl.textContent = card.title;
-  }
-
-/** detailEl：定义该变量以承载业务值。 */
-  const detailEl = cardEl.querySelector(':scope > .floating-tooltip-aside-detail');
-  if (card.lines.length === 0) {
-    detailEl?.remove();
-    return;
-  }
-
-/** nextDetailEl：定义该变量以承载业务值。 */
-  const nextDetailEl = detailEl instanceof HTMLDivElement
-    ? detailEl
-    : document.createElement('div');
-  nextDetailEl.className = 'floating-tooltip-aside-detail';
-  if (nextDetailEl.parentElement !== cardEl) {
-    cardEl.append(nextDetailEl);
-  }
-  patchObserveAsideLineElements(nextDetailEl, card.lines);
-}
 
 /** getObservedTileRuntimeResources：执行对应的业务逻辑。 */
 function getObservedTileRuntimeResources(targetX: number, targetY: number): TileRuntimeResourceDetail[] {
@@ -1393,7 +1308,15 @@ function getObservedTileRuntimeResources(targetX: number, targetY: number): Tile
   ) {
     return [];
   }
-  return activeObservedTileDetail.resources;
+  if (typeof activeObservedTileDetail.aura === 'number') {
+    return [{
+      key: 'aura',
+      label: '灵气',
+      value: activeObservedTileDetail.aura,
+      level: activeObservedTileDetail.aura,
+    }];
+  }
+  return [];
 }
 
 /** formatObservedResourceOverview：执行对应的业务逻辑。 */
@@ -1486,101 +1409,36 @@ function renderObserveAsideCards(cards: ObserveAsideCard[]): void {
     return;
   }
   if (cards.length === 0) {
-    observeModalAsideEl.replaceChildren();
+    observeModalAsideEl.innerHTML = '';
     observeModalAsideEl.classList.add('hidden');
     observeModalAsideEl.setAttribute('aria-hidden', 'true');
     return;
   }
-  while (observeModalAsideEl.children.length > cards.length) {
-    observeModalAsideEl.lastElementChild?.remove();
-  }
-  cards.forEach((card, index) => {
-/** existing：定义该变量以承载业务值。 */
-    const existing = observeModalAsideEl.children.item(index);
-/** cardEl：定义该变量以承载业务值。 */
-    const cardEl = existing instanceof HTMLDivElement
-      ? existing
-      : document.createElement('div');
-    if (existing !== cardEl) {
-      observeModalAsideEl.insertBefore(cardEl, existing ?? null);
-    }
-    patchObserveAsideCardElement(cardEl, card);
-  });
+  observeModalAsideEl.innerHTML = cards.map((card) => {
+/** detail：定义该变量以承载业务值。 */
+    const detail = card.lines
+      .map((line) => `<span class="floating-tooltip-aside-line">${escapeHtml(line)}</span>`)
+      .join('');
+    return `<div class="floating-tooltip-aside-card ${card.tone === 'debuff' ? 'debuff' : 'buff'}">
+      <div class="floating-tooltip-aside-head">
+        ${card.mark ? `<span class="floating-tooltip-aside-mark">${escapeHtml(card.mark)}</span>` : ''}
+        <strong>${escapeHtml(card.title)}</strong>
+      </div>
+      ${detail ? `<div class="floating-tooltip-aside-detail">${detail}</div>` : ''}
+    </div>`;
+  }).join('');
   observeModalAsideEl.classList.remove('hidden');
   observeModalAsideEl.setAttribute('aria-hidden', 'false');
 }
 
 /** formatBuffDuration：执行对应的业务逻辑。 */
 function formatBuffDuration(buff: VisibleBuffState): string {
-  if (buff.infiniteDuration) {
-    return '∞';
-  }
   return `${formatDisplayInteger(Math.max(0, Math.round(buff.remainingTicks)))} / ${formatDisplayInteger(Math.max(1, Math.round(buff.duration)))} 息`;
-}
-
-/** scaleBuffAttrs：执行对应的业务逻辑。 */
-function scaleBuffAttrs(
-  attrs: VisibleBuffState['attrs'],
-  stacks: number,
-): VisibleBuffState['attrs'] | undefined {
-  if (!attrs || stacks === 1) {
-    return attrs;
-  }
-/** scaled：定义该变量以承载业务值。 */
-  const scaled: NonNullable<VisibleBuffState['attrs']> = {};
-  for (const [key, value] of Object.entries(attrs)) {
-    if (typeof value !== 'number') {
-      continue;
-    }
-    scaled[key as keyof NonNullable<VisibleBuffState['attrs']>] = value * stacks;
-  }
-  return Object.keys(scaled).length > 0 ? scaled : undefined;
-}
-
-/** scaleBuffStats：执行对应的业务逻辑。 */
-function scaleBuffStats(
-  stats: VisibleBuffState['stats'],
-  stacks: number,
-): VisibleBuffState['stats'] | undefined {
-  if (!stats || stacks === 1) {
-    return stats;
-  }
-/** scaled：定义该变量以承载业务值。 */
-  const scaled: PartialNumericStats = {};
-  for (const [key, value] of Object.entries(stats)) {
-    if (typeof value === 'number') {
-      (scaled as Record<string, unknown>)[key] = value * stacks;
-      continue;
-    }
-    if (!value || typeof value !== 'object') {
-      continue;
-    }
-/** nested：定义该变量以承载业务值。 */
-    const nested: Record<string, number> = {};
-    for (const [nestedKey, nestedValue] of Object.entries(value)) {
-      if (typeof nestedValue !== 'number') {
-        continue;
-      }
-      nested[nestedKey] = nestedValue * stacks;
-    }
-    if (Object.keys(nested).length > 0) {
-      (scaled as Record<string, unknown>)[key] = nested;
-    }
-  }
-  return Object.keys(scaled).length > 0 ? scaled : undefined;
 }
 
 /** buildBuffEffectLines：执行对应的业务逻辑。 */
 function buildBuffEffectLines(buff: VisibleBuffState): string[] {
-/** stackFactor：定义该变量以承载业务值。 */
-  const stackFactor = Math.max(1, Math.floor(buff.stacks || 1));
-  return describePreviewBonuses(
-    scaleBuffAttrs(buff.attrs, stackFactor),
-    scaleBuffStats(buff.stats, stackFactor),
-    undefined,
-    buff.attrMode ?? 'percent',
-    buff.statMode ?? 'percent',
-  );
+  return describePreviewBonuses(buff.attrs, buff.stats);
 }
 
 /** buildBuffTooltipLines：执行对应的业务逻辑。 */
@@ -1657,14 +1515,13 @@ function cloneJson<T>(value: T): T {
 }
 
 /** buildAttrStateFromPlayer：执行对应的业务逻辑。 */
-function buildAttrStateFromPlayer(player: PlayerState): S2C_AttrUpdate {
+function buildAttrStateFromPlayer(player: PlayerState): NEXT_S2C_AttrUpdate {
   return {
     baseAttrs: cloneJson(player.baseAttrs),
     bonuses: cloneJson(player.bonuses),
     finalAttrs: cloneJson(player.finalAttrs ?? player.baseAttrs),
     numericStats: player.numericStats ? cloneJson(player.numericStats) : undefined,
     ratioDivisors: player.ratioDivisors ? cloneJson(player.ratioDivisors) : undefined,
-    numericStatBreakdowns: player.numericStatBreakdowns ? cloneJson(player.numericStatBreakdowns) : undefined,
     maxHp: player.maxHp,
     qi: player.qi,
     specialStats: {
@@ -1684,7 +1541,7 @@ function buildAttrStateFromPlayer(player: PlayerState): S2C_AttrUpdate {
 }
 
 /** mergeAttrUpdatePatch：执行对应的业务逻辑。 */
-function mergeAttrUpdatePatch(previous: S2C_AttrUpdate | null, patch: S2C_AttrUpdate): S2C_AttrUpdate {
+function mergeAttrUpdatePatch(previous: NEXT_S2C_AttrUpdate | null, patch: NEXT_S2C_AttrUpdate): NEXT_S2C_AttrUpdate {
   return {
     baseAttrs: patch.baseAttrs ? cloneJson(patch.baseAttrs) : cloneJson(previous?.baseAttrs ?? myPlayer?.baseAttrs ?? {
       constitution: 0,
@@ -1704,12 +1561,7 @@ function mergeAttrUpdatePatch(previous: S2C_AttrUpdate | null, patch: S2C_AttrUp
       luck: 0,
     }),
     numericStats: patch.numericStats ? cloneJson(patch.numericStats) : (previous?.numericStats ? cloneJson(previous.numericStats) : undefined),
-    ratioDivisors: patch.ratioDivisors
-      ? cloneJson(patch.ratioDivisors)
-      : (previous?.ratioDivisors ? cloneJson(previous.ratioDivisors) : (myPlayer?.ratioDivisors ? cloneJson(myPlayer.ratioDivisors) : undefined)),
-    numericStatBreakdowns: patch.numericStatBreakdowns
-      ? cloneJson(patch.numericStatBreakdowns)
-      : (previous?.numericStatBreakdowns ? cloneJson(previous.numericStatBreakdowns) : (myPlayer?.numericStatBreakdowns ? cloneJson(myPlayer.numericStatBreakdowns) : undefined)),
+    ratioDivisors: patch.ratioDivisors ? cloneJson(patch.ratioDivisors) : (previous?.ratioDivisors ? cloneJson(previous.ratioDivisors) : undefined),
     maxHp: patch.maxHp ?? previous?.maxHp ?? myPlayer?.maxHp ?? 0,
     qi: patch.qi ?? previous?.qi ?? myPlayer?.qi ?? 0,
     specialStats: patch.specialStats
@@ -1762,7 +1614,6 @@ function mergeTechniquePatch(patch: TechniqueUpdateEntry, previous?: TechniqueSt
     expToNext: patch.expToNext ?? previousSameTechnique?.expToNext ?? 0,
     realmLv: patch.realmLv ?? previousSameTechnique?.realmLv ?? template?.realmLv ?? 1,
     realm: patch.realm ?? previousSameTechnique?.realm ?? TechniqueRealm.Entry,
-    skillsEnabled: applyNullablePatch(patch.skillsEnabled, previousSameTechnique?.skillsEnabled) ?? true,
     name: applyNullablePatch(patch.name, previousSameTechnique?.name) ?? template?.name ?? patch.techId,
     skills: mergedSkills
       ? cloneJson(mergedSkills)
@@ -1782,12 +1633,8 @@ function mergeTechniquePatch(patch: TechniqueUpdateEntry, previous?: TechniqueSt
 
 /** hydrateSyncedItemStack：执行对应的业务逻辑。 */
 function hydrateSyncedItemStack(item: SyncedItemStack, previous?: Inventory['items'][number]): Inventory['items'][number] {
-/** nextEnhanceLevel：定义该变量以承载业务值。 */
-  const nextEnhanceLevel = item.enhanceLevel ?? 0;
 /** previousSameItem：定义该变量以承载业务值。 */
-  const previousSameItem = previous?.itemId === item.itemId && (previous.enhanceLevel ?? 0) === nextEnhanceLevel
-    ? previous
-    : undefined;
+  const previousSameItem = previous?.itemId === item.itemId ? previous : undefined;
 /** template：定义该变量以承载业务值。 */
   const template = getLocalItemTemplate(item.itemId);
   return {
@@ -1836,11 +1683,8 @@ function hydrateSyncedItemStack(item: SyncedItemStack, previous?: Inventory['ite
           ? [...template.tags]
           : undefined,
     cooldown: item.cooldown ?? previousSameItem?.cooldown ?? template?.cooldown,
-    enhanceLevel: item.enhanceLevel ?? previousSameItem?.enhanceLevel ?? 0,
     alchemySuccessRate: item.alchemySuccessRate ?? previousSameItem?.alchemySuccessRate ?? template?.alchemySuccessRate,
     alchemySpeedRate: item.alchemySpeedRate ?? previousSameItem?.alchemySpeedRate ?? template?.alchemySpeedRate,
-    enhancementSuccessRate: item.enhancementSuccessRate ?? previousSameItem?.enhancementSuccessRate ?? template?.enhancementSuccessRate,
-    enhancementSpeedRate: item.enhancementSpeedRate ?? previousSameItem?.enhancementSpeedRate ?? template?.enhancementSpeedRate,
     mapUnlockId: item.mapUnlockId ?? previousSameItem?.mapUnlockId,
     mapUnlockIds: item.mapUnlockIds ?? previousSameItem?.mapUnlockIds ?? template?.mapUnlockIds,
     tileAuraGainAmount: item.tileAuraGainAmount ?? previousSameItem?.tileAuraGainAmount,
@@ -1849,7 +1693,7 @@ function hydrateSyncedItemStack(item: SyncedItemStack, previous?: Inventory['ite
 }
 
 /** mergeInventoryUpdate：执行对应的业务逻辑。 */
-function mergeInventoryUpdate(previous: Inventory | undefined, patch: S2C_InventoryUpdate): Inventory {
+function mergeInventoryUpdate(previous: Inventory | undefined, patch: NEXT_S2C_InventoryUpdate): Inventory {
   if (patch.inventory) {
     return {
       capacity: patch.inventory.capacity,
@@ -1888,7 +1732,7 @@ function mergeInventoryUpdate(previous: Inventory | undefined, patch: S2C_Invent
 }
 
 /** mergeEquipmentUpdate：执行对应的业务逻辑。 */
-function mergeEquipmentUpdate(previous: PlayerState['equipment'] | undefined, patch: S2C_EquipmentUpdate): PlayerState['equipment'] {
+function mergeEquipmentUpdate(previous: PlayerState['equipment'] | undefined, patch: NEXT_S2C_EquipmentUpdate): PlayerState['equipment'] {
 /** next：定义该变量以承载业务值。 */
   const next = previous
     ? cloneJson(previous)
@@ -1916,7 +1760,7 @@ function mergeEquipmentUpdate(previous: PlayerState['equipment'] | undefined, pa
 }
 
 /** hydrateLootWindowState：执行对应的业务逻辑。 */
-function hydrateLootWindowState(window: S2C_LootWindowUpdate['window']): LootWindowState | null {
+function hydrateLootWindowState(window: NEXT_S2C_LootWindowUpdate['window']): LootWindowState | null {
   if (!window) {
     return null;
   }
@@ -1927,15 +1771,11 @@ function hydrateLootWindowState(window: S2C_LootWindowUpdate['window']): LootWin
     sources: window.sources.map((source) => ({
       sourceId: source.sourceId,
       kind: source.kind,
-      variant: source.variant,
       title: source.title,
       desc: source.desc,
       grade: source.grade,
       searchable: source.searchable,
       search: source.search ? cloneJson(source.search) : undefined,
-      herb: source.herb ? cloneJson(source.herb) : undefined,
-/** destroyed：定义该变量以承载业务值。 */
-      destroyed: source.destroyed === true,
       emptyText: source.emptyText,
       items: source.items.map((entry) => ({
         itemKey: entry.itemKey,
@@ -1946,7 +1786,7 @@ function hydrateLootWindowState(window: S2C_LootWindowUpdate['window']): LootWin
 }
 
 /** hydrateNpcShopResponse：执行对应的业务逻辑。 */
-function hydrateNpcShopResponse(data: S2C_NpcShop) {
+function hydrateNpcShopResponse(data: NEXT_S2C_NpcShop) {
   return {
     npcId: data.npcId,
     error: data.error,
@@ -2073,6 +1913,504 @@ function mergeActionStates(
   return merged;
 }
 
+/** NEXT_PLAYER_ENTITY_COLOR：定义该变量以承载业务值。 */
+const NEXT_PLAYER_ENTITY_COLOR = '#8ec5ff';
+/** NEXT_MONSTER_ENTITY_COLOR：定义该变量以承载业务值。 */
+const NEXT_MONSTER_ENTITY_COLOR = '#ff9b73';
+/** NEXT_NPC_ENTITY_COLOR：定义该变量以承载业务值。 */
+const NEXT_NPC_ENTITY_COLOR = '#f3d27a';
+/** NEXT_PORTAL_ENTITY_COLOR：定义该变量以承载业务值。 */
+const NEXT_PORTAL_ENTITY_COLOR = '#b9a7ff';
+/** NEXT_CONTAINER_ENTITY_COLOR：定义该变量以承载业务值。 */
+const NEXT_CONTAINER_ENTITY_COLOR = '#c18b46';
+
+/** getFirstGrapheme：执行对应的业务逻辑。 */
+function getFirstGrapheme(input: string | undefined, fallback: string): string {
+/** normalized：定义该变量以承载业务值。 */
+  const normalized = input?.trim();
+  if (!normalized) {
+    return fallback;
+  }
+  return [...normalized][0] ?? fallback;
+}
+
+/** buildNextPlayerTickEntity：执行对应的业务逻辑。 */
+function buildNextPlayerTickEntity(patch: NonNullable<NEXT_S2C_WorldDelta['p']>[number]): TickRenderEntity {
+/** previous：定义该变量以承载业务值。 */
+  const previous = latestEntityMap.get(patch.id);
+/** isSelf：定义该变量以承载业务值。 */
+  const isSelf = patch.id === myPlayer?.id;
+/** fallbackName：定义该变量以承载业务值。 */
+  const fallbackName = isSelf ? (myPlayer?.name ?? previous?.name) : previous?.name;
+  return {
+    id: patch.id,
+    x: patch.x ?? previous?.wx ?? (isSelf ? myPlayer?.x : undefined) ?? 0,
+    y: patch.y ?? previous?.wy ?? (isSelf ? myPlayer?.y : undefined) ?? 0,
+    char: previous?.char ?? getFirstGrapheme(isSelf ? (myPlayer?.displayName ?? myPlayer?.name) : previous?.name, isSelf ? '我' : '人'),
+    color: previous?.color ?? NEXT_PLAYER_ENTITY_COLOR,
+    name: previous?.name ?? fallbackName,
+/** kind：定义该变量以承载业务值。 */
+    kind: previous?.kind === 'crowd' ? 'crowd' : 'player',
+    hp: isSelf ? (myPlayer?.hp ?? previous?.hp) : previous?.hp,
+    maxHp: isSelf ? (myPlayer?.maxHp ?? previous?.maxHp) : previous?.maxHp,
+    qi: isSelf ? (myPlayer?.qi ?? previous?.qi) : previous?.qi,
+    maxQi: isSelf ? (myPlayer?.numericStats?.maxQi ?? previous?.maxQi) : previous?.maxQi,
+    npcQuestMarker: previous?.npcQuestMarker,
+    observation: previous?.observation,
+    buffs: previous?.buffs,
+  };
+}
+
+/** buildNextMonsterTickEntity：执行对应的业务逻辑。 */
+function buildNextMonsterTickEntity(patch: NonNullable<NEXT_S2C_WorldDelta['m']>[number]): TickRenderEntity {
+/** previous：定义该变量以承载业务值。 */
+  const previous = latestEntityMap.get(patch.id);
+/** name：定义该变量以承载业务值。 */
+  const name = patch.n ?? previous?.name;
+  return {
+    id: patch.id,
+    x: patch.x ?? previous?.wx ?? 0,
+    y: patch.y ?? previous?.wy ?? 0,
+    char: previous?.char ?? getFirstGrapheme(getMonsterPresentation(name, patch.tr ?? previous?.monsterTier).label, '妖'),
+    color: patch.c ?? previous?.color ?? NEXT_MONSTER_ENTITY_COLOR,
+    name,
+    kind: 'monster',
+    monsterTier: patch.tr ?? previous?.monsterTier,
+    hp: patch.hp ?? previous?.hp,
+    maxHp: patch.maxHp ?? previous?.maxHp,
+    qi: previous?.qi,
+    maxQi: previous?.maxQi,
+    npcQuestMarker: previous?.npcQuestMarker,
+    observation: previous?.observation,
+    buffs: previous?.buffs,
+  };
+}
+
+/** buildNextNpcTickEntity：执行对应的业务逻辑。 */
+function buildNextNpcTickEntity(patch: NonNullable<NEXT_S2C_WorldDelta['n']>[number]): TickRenderEntity {
+/** previous：定义该变量以承载业务值。 */
+  const previous = latestEntityMap.get(patch.id);
+  return {
+    id: patch.id,
+    x: patch.x ?? previous?.wx ?? 0,
+    y: patch.y ?? previous?.wy ?? 0,
+    char: patch.ch ?? previous?.char ?? getFirstGrapheme(patch.n ?? previous?.name, '商'),
+    color: patch.c ?? previous?.color ?? NEXT_NPC_ENTITY_COLOR,
+    name: patch.n ?? previous?.name,
+    kind: 'npc',
+    hp: previous?.hp,
+    maxHp: previous?.maxHp,
+    qi: previous?.qi,
+    maxQi: previous?.maxQi,
+/** npcQuestMarker：定义该变量以承载业务值。 */
+    npcQuestMarker: patch.qm === null ? null : patch.qm ?? previous?.npcQuestMarker,
+    observation: previous?.observation,
+    buffs: previous?.buffs,
+  };
+}
+
+/** buildNextPortalTickEntity：执行对应的业务逻辑。 */
+function buildNextPortalTickEntity(patch: NonNullable<NEXT_S2C_WorldDelta['o']>[number]): TickRenderEntity {
+/** previous：定义该变量以承载业务值。 */
+  const previous = latestEntityMap.get(patch.id);
+  return {
+    id: patch.id,
+    x: patch.x ?? previous?.wx ?? 0,
+    y: patch.y ?? previous?.wy ?? 0,
+    char: previous?.char ?? '门',
+    color: previous?.color ?? NEXT_PORTAL_ENTITY_COLOR,
+    name: patch.tm ?? previous?.name ?? '传送门',
+    kind: (previous?.kind ?? 'portal') as TickRenderEntity['kind'],
+    hp: previous?.hp,
+    maxHp: previous?.maxHp,
+    qi: previous?.qi,
+    maxQi: previous?.maxQi,
+    npcQuestMarker: previous?.npcQuestMarker,
+    observation: previous?.observation,
+    buffs: previous?.buffs,
+  };
+}
+
+/** buildNextContainerTickEntity：执行对应的业务逻辑。 */
+function buildNextContainerTickEntity(patch: NonNullable<NEXT_S2C_WorldDelta['c']>[number]): TickRenderEntity {
+/** previous：定义该变量以承载业务值。 */
+  const previous = latestEntityMap.get(patch.id);
+  return {
+    id: patch.id,
+    x: patch.x ?? previous?.wx ?? 0,
+    y: patch.y ?? previous?.wy ?? 0,
+    char: patch.ch ?? previous?.char ?? '箱',
+    color: patch.c ?? previous?.color ?? NEXT_CONTAINER_ENTITY_COLOR,
+    name: patch.n ?? previous?.name ?? '可搜索陈设',
+    kind: 'container',
+    hp: previous?.hp,
+    maxHp: previous?.maxHp,
+    qi: previous?.qi,
+    maxQi: previous?.maxQi,
+    npcQuestMarker: previous?.npcQuestMarker,
+    observation: previous?.observation,
+    buffs: previous?.buffs,
+  };
+}
+
+/** buildNextWorldDeltaRuntimeInput：执行对应的业务逻辑。 */
+function buildNextWorldDeltaRuntimeInput(data: NEXT_S2C_WorldDelta) {
+/** playerPatches：定义该变量以承载业务值。 */
+  const playerPatches: TickRenderEntity[] = [];
+/** entityPatches：定义该变量以承载业务值。 */
+  const entityPatches: TickRenderEntity[] = [];
+/** removedEntityIds：定义该变量以承载业务值。 */
+  const removedEntityIds: string[] = [];
+/** groundPatches：定义该变量以承载业务值。 */
+  const groundPatches: GroundItemPilePatch[] = [];
+
+  for (const patch of data.p ?? []) {
+    if (patch.rm) {
+      removedEntityIds.push(patch.id);
+      continue;
+    }
+    playerPatches.push(buildNextPlayerTickEntity(patch));
+  }
+
+  for (const patch of data.m ?? []) {
+    if (patch.rm) {
+      removedEntityIds.push(patch.id);
+      continue;
+    }
+    entityPatches.push(buildNextMonsterTickEntity(patch));
+  }
+
+  for (const patch of data.n ?? []) {
+    if (patch.rm) {
+      removedEntityIds.push(patch.id);
+      continue;
+    }
+    entityPatches.push(buildNextNpcTickEntity(patch));
+  }
+
+  for (const patch of data.o ?? []) {
+    if (patch.rm) {
+      removedEntityIds.push(patch.id);
+      continue;
+    }
+    entityPatches.push(buildNextPortalTickEntity(patch));
+  }
+
+  for (const patch of data.g ?? []) {
+    groundPatches.push({
+      sourceId: patch.sourceId,
+      x: patch.x,
+      y: patch.y,
+/** items：定义该变量以承载业务值。 */
+      items: patch.items === undefined ? undefined : (patch.items ? cloneJson(patch.items) : null),
+    });
+  }
+
+  for (const patch of data.c ?? []) {
+    if (patch.rm) {
+      removedEntityIds.push(patch.id);
+      continue;
+    }
+    entityPatches.push(buildNextContainerTickEntity(patch));
+  }
+
+  return {
+    playerPatches,
+    entityPatches,
+    removedEntityIds,
+    groundPatches,
+    effects: data.fx ? cloneJson(data.fx) : undefined,
+    threatArrows: Array.isArray(data.threatArrows)
+      ? data.threatArrows
+        .map(([ownerId, targetId]) => ({ ownerId, targetId }))
+        .filter((entry) => entry.ownerId && entry.targetId)
+      : undefined,
+    threatArrowAdds: data.threatArrowAdds ? data.threatArrowAdds.map((entry) => [entry[0], entry[1]] as [string, string]) : undefined,
+    threatArrowRemoves: data.threatArrowRemoves ? data.threatArrowRemoves.map((entry) => [entry[0], entry[1]] as [string, string]) : undefined,
+    pathCells: data.path ? data.path.map(([x, y]) => ({ x, y })) : undefined,
+/** tickDurationMs：定义该变量以承载业务值。 */
+    tickDurationMs: typeof data.dt === 'number' ? data.dt : undefined,
+    time: data.time ?? undefined,
+    visibleTiles: data.v,
+    visibleTilePatches: data.tp,
+    mapId: data.mid,
+  };
+}
+
+/** buildNextSelfRuntimePlayerPatch：执行对应的业务逻辑。 */
+function buildNextSelfRuntimePlayerPatch(data: NEXT_S2C_SelfDelta): TickRenderEntity | null {
+  if (!myPlayer) {
+    return null;
+  }
+  if (typeof data.x !== 'number' && typeof data.y !== 'number') {
+    return null;
+  }
+  return {
+    id: myPlayer.id,
+    x: data.x ?? myPlayer.x,
+    y: data.y ?? myPlayer.y,
+    char: latestEntityMap.get(myPlayer.id)?.char ?? getFirstGrapheme(myPlayer.displayName ?? myPlayer.name, '我'),
+    color: latestEntityMap.get(myPlayer.id)?.color ?? NEXT_PLAYER_ENTITY_COLOR,
+    name: latestEntityMap.get(myPlayer.id)?.name ?? myPlayer.name,
+/** kind：定义该变量以承载业务值。 */
+    kind: latestEntityMap.get(myPlayer.id)?.kind === 'crowd' ? 'crowd' : 'player',
+    hp: data.hp ?? myPlayer.hp,
+    maxHp: data.maxHp ?? myPlayer.maxHp,
+    qi: data.qi ?? myPlayer.qi,
+    maxQi: data.maxQi ?? myPlayer.numericStats?.maxQi,
+    npcQuestMarker: latestEntityMap.get(myPlayer.id)?.npcQuestMarker,
+    observation: latestEntityMap.get(myPlayer.id)?.observation,
+    buffs: latestEntityMap.get(myPlayer.id)?.buffs,
+  };
+}
+
+/** syncLatestObservedEntitiesFromRuntime：执行对应的业务逻辑。 */
+function syncLatestObservedEntitiesFromRuntime(): void {
+/** entities：定义该变量以承载业务值。 */
+  const entities = getLatestObservedEntitiesSnapshot() as ObservedEntity[];
+  latestEntities = entities;
+  latestEntityMap = new Map(entities.map((entity) => [entity.id, entity]));
+}
+
+/** finalizeNextMovementFrame：执行对应的业务逻辑。 */
+function finalizeNextMovementFrame(): void {
+  syncLatestObservedEntitiesFromRuntime();
+  syncSenseQiOverlay();
+  syncTargetingOverlay();
+  refreshHudChrome();
+
+  trimCurrentPathProgress();
+/** autoInteractionTriggered：定义该变量以承载业务值。 */
+  const autoInteractionTriggered = triggerAutoInteractionIfReady();
+  if (!autoInteractionTriggered && pathTarget && myPlayer && myPlayer.x === pathTarget.x && myPlayer.y === pathTarget.y) {
+    clearCurrentPath();
+  }
+  if (autoInteractionTriggered) {
+    pathCells = [];
+  }
+  mapRuntime.setPathCells(pathCells);
+}
+
+/** handleNextWorldDeltaMessage：执行对应的业务逻辑。 */
+function handleNextWorldDeltaMessage(data: NEXT_S2C_WorldDelta): void {
+  if (!myPlayer) {
+    pendingNextWorldDelta = data;
+    return;
+  }
+/** previousState：定义该变量以承载业务值。 */
+  const previousState = {
+    mapId: myPlayer.mapId,
+    x: myPlayer.x,
+    y: myPlayer.y,
+    facing: myPlayer.facing,
+  };
+/** runtimeInput：定义该变量以承载业务值。 */
+  const runtimeInput = buildNextWorldDeltaRuntimeInput(data);
+/** selfPatch：定义该变量以承载业务值。 */
+  const selfPatch = runtimeInput.playerPatches.find((patch) => patch.id === myPlayer!.id);
+  syncAuraLevelBaseValue(data.auraLevelBaseValue);
+  syncCurrentTimeState(data.time ?? null);
+  mapRuntime.applyNextWorldDelta(runtimeInput);
+  if (selfPatch?.name) {
+    myPlayer.name = selfPatch.name;
+  }
+  if (typeof selfPatch?.x === 'number') {
+    myPlayer.x = selfPatch.x;
+  }
+  if (typeof selfPatch?.y === 'number') {
+    myPlayer.y = selfPatch.y;
+  }
+  if (selfPatch && (typeof selfPatch.x === 'number' || typeof selfPatch.y === 'number')) {
+    logNextMovement('client.recv.worldDelta.selfPatch', {
+      playerId: myPlayer.id,
+      before: previousState,
+      patch: {
+/** x：定义该变量以承载业务值。 */
+        x: typeof selfPatch.x === 'number' ? selfPatch.x : null,
+/** y：定义该变量以承载业务值。 */
+        y: typeof selfPatch.y === 'number' ? selfPatch.y : null,
+      },
+      after: {
+        mapId: myPlayer.mapId,
+        x: myPlayer.x,
+        y: myPlayer.y,
+        facing: myPlayer.facing,
+      },
+      pathTarget,
+      pathCells,
+    });
+  }
+  finalizeNextMovementFrame();
+}
+
+/** handleNextSelfDeltaMessage：执行对应的业务逻辑。 */
+function handleNextSelfDeltaMessage(data: NEXT_S2C_SelfDelta): void {
+  if (!myPlayer) {
+    pendingNextSelfDelta = data;
+    return;
+  }
+/** previousState：定义该变量以承载业务值。 */
+  const previousState = {
+    mapId: myPlayer.mapId,
+    x: myPlayer.x,
+    y: myPlayer.y,
+    facing: myPlayer.facing,
+  };
+  applyNextSelfVitalsMetadata(data);
+/** previousMapId：定义该变量以承载业务值。 */
+  const previousMapId = myPlayer.mapId;
+/** playerPatch：定义该变量以承载业务值。 */
+  const playerPatch = buildNextSelfRuntimePlayerPatch(data);
+  mapRuntime.applyNextSelfDelta({
+    mapId: data.mid,
+    x: data.x,
+    y: data.y,
+    facing: data.f,
+    hp: data.hp,
+    qi: data.qi,
+    playerPatch,
+  });
+/** mapChanged：定义该变量以承载业务值。 */
+  const mapChanged = typeof data.mid === 'string' && previousMapId !== data.mid;
+  if (mapChanged) {
+    clearCurrentPath();
+    latestEntities = [];
+    latestEntityMap.clear();
+    hoveredMapTile = null;
+    hideObserveModal();
+    lootPanel.clear();
+    cancelTargeting();
+    myPlayer.mapId = data.mid!;
+    panelSystem.store.setRuntime({ mapId: myPlayer.mapId });
+    questPanel.setCurrentMapId(myPlayer.mapId);
+    npcQuestModal.setCurrentMapId(myPlayer.mapId);
+  }
+  if (typeof data.hp === 'number') {
+    myPlayer.hp = data.hp;
+  }
+  if (typeof data.qi === 'number') {
+    myPlayer.qi = data.qi;
+  }
+  if (data.f !== undefined) {
+    myPlayer.facing = data.f;
+  }
+  if (typeof data.x === 'number') {
+    myPlayer.x = data.x;
+  }
+  if (typeof data.y === 'number') {
+    myPlayer.y = data.y;
+  }
+  if (typeof data.mid === 'string' || typeof data.x === 'number' || typeof data.y === 'number' || data.f !== undefined) {
+    logNextMovement('client.recv.selfDelta', {
+      playerId: myPlayer.id,
+      before: previousState,
+      delta: {
+        mapId: data.mid ?? null,
+/** x：定义该变量以承载业务值。 */
+        x: typeof data.x === 'number' ? data.x : null,
+/** y：定义该变量以承载业务值。 */
+        y: typeof data.y === 'number' ? data.y : null,
+        facing: data.f ?? null,
+      },
+      after: {
+        mapId: myPlayer.mapId,
+        x: myPlayer.x,
+        y: myPlayer.y,
+        facing: myPlayer.facing,
+      },
+      pathTarget,
+      pathCells,
+    });
+  }
+  finalizeNextMovementFrame();
+}
+
+/** handleNextAttrDelta：执行对应的业务逻辑。 */
+function handleNextAttrDelta(data: NonNullable<NEXT_S2C_PanelDelta['attr']>): void {
+  handleAttrUpdate(data);
+}
+
+/** handleNextInventoryDelta：执行对应的业务逻辑。 */
+function handleNextInventoryDelta(data: NonNullable<NEXT_S2C_PanelDelta['inv']>): void {
+  handleInventoryUpdate(data);
+}
+
+/** handleNextEquipmentDelta：执行对应的业务逻辑。 */
+function handleNextEquipmentDelta(data: NonNullable<NEXT_S2C_PanelDelta['eq']>): void {
+  handleEquipmentUpdate(data);
+}
+
+/** handleNextTechniqueDelta：执行对应的业务逻辑。 */
+function handleNextTechniqueDelta(data: NonNullable<NEXT_S2C_PanelDelta['tech']>): void {
+  handleTechniqueUpdate({
+    techniques: data.techniques ? cloneJson(data.techniques) : [],
+    removeTechniqueIds: data.removeTechniqueIds ? [...data.removeTechniqueIds] : undefined,
+    cultivatingTechId: data.cultivatingTechId,
+    bodyTraining: data.bodyTraining ? clonePlainValue(data.bodyTraining) : data.bodyTraining,
+  });
+}
+
+/** handleNextActionsDelta：执行对应的业务逻辑。 */
+function handleNextActionsDelta(data: NonNullable<NEXT_S2C_PanelDelta['act']>): void {
+  handleActionsUpdate({
+    actions: data.actions ? cloneJson(data.actions) : [],
+    removeActionIds: data.removeActionIds ? [...data.removeActionIds] : undefined,
+    actionOrder: data.actionOrder ? [...data.actionOrder] : undefined,
+    autoBattle: data.autoBattle,
+    combatTargetId: data.combatTargetId,
+    combatTargetLocked: data.combatTargetLocked,
+    autoRetaliate: data.autoRetaliate,
+    autoBattleStationary: data.autoBattleStationary,
+    allowAoePlayerHit: data.allowAoePlayerHit,
+    autoIdleCultivation: data.autoIdleCultivation,
+    autoSwitchCultivation: data.autoSwitchCultivation,
+    cultivationActive: data.cultivationActive,
+    senseQiActive: data.senseQiActive,
+  });
+}
+
+/** applyNextSelfVitalsMetadata：执行对应的业务逻辑。 */
+function applyNextSelfVitalsMetadata(data: NEXT_S2C_SelfDelta): void {
+  if (!myPlayer) {
+    return;
+  }
+/** attrTouched：定义该变量以承载业务值。 */
+  let attrTouched = false;
+  if (typeof data.maxHp === 'number') {
+    myPlayer.maxHp = data.maxHp;
+    attrTouched = true;
+  }
+  if (typeof data.maxQi === 'number') {
+    attrTouched = true;
+  }
+  if (!attrTouched) {
+    return;
+  }
+
+/** nextNumericStats：定义该变量以承载业务值。 */
+  const nextNumericStats = myPlayer.numericStats
+    ? cloneJson(myPlayer.numericStats)
+    : latestAttrUpdate?.numericStats
+      ? cloneJson(latestAttrUpdate.numericStats)
+      : undefined;
+  if (nextNumericStats) {
+    if (typeof data.maxHp === 'number') {
+      nextNumericStats.maxHp = data.maxHp;
+    }
+    if (typeof data.maxQi === 'number') {
+      nextNumericStats.maxQi = data.maxQi;
+    }
+    myPlayer.numericStats = nextNumericStats;
+  }
+
+  latestAttrUpdate = mergeAttrUpdatePatch(latestAttrUpdate, {
+    maxHp: data.maxHp,
+    numericStats: nextNumericStats,
+  });
+  attrPanel.update(latestAttrUpdate);
+  refreshUiChrome();
+}
+
 /** formatTraversalCost：执行对应的业务逻辑。 */
 function formatTraversalCost(tile: Tile): string {
   if (!tile.walkable) {
@@ -2109,7 +2447,7 @@ function toObserveEntityCardData(entity: ObservedEntity): ObserveEntityCardData 
 }
 
 /** normalizeObserveEntityCardData：执行对应的业务逻辑。 */
-function normalizeObserveEntityCardData(entity: NonNullable<S2C_TileRuntimeDetail['entities']>[number]): ObserveEntityCardData {
+function normalizeObserveEntityCardData(entity: NonNullable<NEXT_S2C_TileDetail['entities']>[number]): ObserveEntityCardData {
   if (isCrowdEntityKind(entity.kind)) {
     return {
       id: entity.id,
@@ -2129,9 +2467,16 @@ function normalizeObserveEntityCardData(entity: NonNullable<S2C_TileRuntimeDetai
     maxQi: entity.maxQi,
     npcQuestMarker: entity.npcQuestMarker ?? undefined,
     observation: entity.observation ?? undefined,
-    lootPreview: entity.lootPreview ?? undefined,
     buffs: entity.buffs ?? undefined,
   };
+}
+
+/** resolveObserveDetailKind：执行对应的业务逻辑。 */
+function resolveObserveDetailKind(kind: ObserveEntityCardData['kind']): NEXT_S2C_Detail['kind'] | null {
+  if (kind === 'npc' || kind === 'monster' || kind === 'player' || kind === 'portal' || kind === 'ground' || kind === 'container') {
+    return kind;
+  }
+  return null;
 }
 
 /** buildObservedEntityCardHtml：执行对应的业务逻辑。 */
@@ -2147,7 +2492,7 @@ function buildObservedEntityCardHtml(entity: ObserveEntityCardData): string {
     </div>`;
   }
 /** detailRows：定义该变量以承载业务值。 */
-  const detailRows = (entity.observation?.lines ?? []).filter((row) => row.label !== '生命' && row.label !== '气血' && row.label !== '灵力');
+  const detailRows = entity.observation?.lines ?? [];
 /** monsterPresentation：定义该变量以承载业务值。 */
   const monsterPresentation = entity.kind === 'monster'
     ? getMonsterPresentation(entity.name, entity.monsterTier)
@@ -2184,19 +2529,17 @@ function buildObservedEntityCardHtml(entity: ObserveEntityCardData): string {
     ${buildBuffSectionHtml('增益状态', [...publicBuffs, ...observeOnlyBuffs], '当前未见明显增益状态')}
     ${buildBuffSectionHtml('减益状态', [...publicDebuffs, ...observeOnlyDebuffs], '当前未见明显减益状态')}
   </div>`;
-/** lootAction：定义该变量以承载业务值。 */
-  const lootAction = entity.kind === 'monster'
-    ? `<div class="observe-entity-actions">
-        <button
-          class="small-btn ghost observe-entity-action-btn${entity.observation?.clarity === 'complete' ? '' : ' is-disabled'}"
-          type="button"
-          data-observe-loot-id="${escapeHtml(entity.id)}"
-          aria-disabled="${entity.observation?.clarity === 'complete' ? 'false' : 'true'}"
-          title="${escapeHtml(entity.observation?.clarity === 'complete' ? '查看掉落物与概率' : '神识完全探查后可查看掉落物与概率')}"
-        >掉落物</button>
-      </div>`
+/** detailKind：定义该变量以承载业务值。 */
+  const detailKind = resolveObserveDetailKind(entity.kind);
+/** detailAttrs：定义该变量以承载业务值。 */
+  const detailAttrs = detailKind
+    ? ` data-observe-detail-kind="${escapeHtml(detailKind)}" data-observe-detail-id="${escapeHtml(entity.id)}" data-observe-detail-title="${escapeHtml(title)}"`
     : '';
-  return `<div class="observe-entity-card">
+/** tag：定义该变量以承载业务值。 */
+  const tag = detailKind ? 'button' : 'div';
+/** typeAttr：定义该变量以承载业务值。 */
+  const typeAttr = detailKind ? ' type="button"' : '';
+  return `<${tag} class="observe-entity-card${detailKind ? ' observe-entity-card--interactive' : ''}"${typeAttr}${detailAttrs}>
     <div class="observe-entity-head">
       <span class="observe-entity-name">${badge}${escapeHtml(title)}</span>
       <span class="observe-entity-kind">${escapeHtml(getEntityKindLabel(entity.kind, '未知'))}</span>
@@ -2206,102 +2549,7 @@ function buildObservedEntityCardHtml(entity: ObserveEntityCardData): string {
       ? `<div class="observe-entity-grid">${buildObservationRows(detailGrid)}</div>`
       : '<div class="observe-entity-empty">此身气机尽藏，暂未看出更多端倪。</div>'}
     ${buffSection}
-    ${lootAction}
-  </div>`;
-}
-
-/** findObservedEntityById：执行对应的业务逻辑。 */
-function findObservedEntityById(entityId: string): ObserveEntityCardData | null {
-/** entities：定义该变量以承载业务值。 */
-  const entities = activeObservedTileDetail?.entities;
-  if (!entities) {
-    return null;
-  }
-/** matched：定义该变量以承载业务值。 */
-  const matched = entities.find((entity) => entity.id === entityId);
-  return matched ? normalizeObserveEntityCardData(matched) : null;
-}
-
-/** formatObserveLootChance：执行对应的业务逻辑。 */
-function formatObserveLootChance(chance: number): string {
-/** normalized：定义该变量以承载业务值。 */
-  const normalized = Math.max(0, Math.min(1, Number.isFinite(chance) ? chance : 0));
-/** percent：定义该变量以承载业务值。 */
-  const percent = normalized * 100;
-  if (percent >= 10) {
-    return `${percent.toFixed(1)}%`;
-  }
-  if (percent >= 1) {
-    return `${percent.toFixed(2)}%`;
-  }
-  return `${percent.toFixed(3)}%`;
-}
-
-/** openObserveLootPreview：执行对应的业务逻辑。 */
-function openObserveLootPreview(entity: ObserveEntityCardData): void {
-  if (entity.kind !== 'monster' || entity.observation?.clarity !== 'complete' || !entity.lootPreview) {
-    return;
-  }
-/** rowsHtml：定义该变量以承载业务值。 */
-  const rowsHtml = entity.lootPreview.entries.length > 0
-    ? entity.lootPreview.entries.map((entry) => `
-        <div class="observe-loot-preview-row">
-          <div class="observe-loot-preview-item">${renderInlineItemChip(entry.itemId, { count: entry.count, label: entry.name, tone: 'reward' })}</div>
-          <span class="observe-loot-preview-chance">${escapeHtml(formatObserveLootChance(entry.chance))}</span>
-        </div>
-      `).join('')
-    : `<div class="observe-entity-empty">${escapeHtml(entity.lootPreview.emptyText ?? '未探到稳定掉落。')}</div>`;
-  detailModalHost.open({
-    ownerId: 'observe-loot-preview',
-    variantClass: 'detail-modal--loot',
-    title: `${entity.name ?? '目标'}掉落物`,
-    subtitle: '当前神识推演下的实际掉落概率',
-    bodyHtml: `
-      <section class="quest-detail-section">
-        <strong>掉落预览</strong>
-        <div class="observe-loot-preview-list">${rowsHtml}</div>
-      </section>
-    `,
-    onAfterRender: (body) => {
-      bindInlineItemTooltips(body);
-    },
-  });
-}
-
-/** bindObserveLootPreviewActions：执行对应的业务逻辑。 */
-function bindObserveLootPreviewActions(root: HTMLElement): void {
-  if (observeLootPreviewDelegatedBound) {
-    return;
-  }
-  observeLootPreviewDelegatedBound = true;
-  root.addEventListener('click', (event) => {
-/** target：定义该变量以承载业务值。 */
-    const target = event.target;
-    if (!(target instanceof HTMLElement)) {
-      return;
-    }
-/** button：定义该变量以承载业务值。 */
-    const button = target.closest<HTMLElement>('[data-observe-loot-id]');
-    if (!button) {
-      return;
-    }
-/** entityId：定义该变量以承载业务值。 */
-    const entityId = button.dataset.observeLootId?.trim();
-    if (!entityId) {
-      return;
-    }
-/** entity：定义该变量以承载业务值。 */
-    const entity = findObservedEntityById(entityId);
-    if (!entity || entity.kind !== 'monster' || entity.observation?.clarity !== 'complete' || !entity.lootPreview) {
-      showToast('神识尚未完全探明其掉落。');
-      event.preventDefault();
-      event.stopPropagation();
-      return;
-    }
-    openObserveLootPreview(entity);
-    event.preventDefault();
-    event.stopPropagation();
-  });
+  </${tag}>`;
 }
 
 /** resolveObserveEntities：执行对应的业务逻辑。 */
@@ -2330,112 +2578,66 @@ function resolveObserveEntities(targetX: number, targetY: number): ObserveEntity
 /** buildObservedEntitySectionHtml：执行对应的业务逻辑。 */
 function buildObservedEntitySectionHtml(entities: ObserveEntityCardData[]): string {
   return `<section class="observe-modal-section">
-    <div class="observe-modal-section-title">角色信息</div>
+    <div class="observe-modal-section-title">地块实体</div>
     ${entities.length > 0
       ? `<div class="observe-entity-list">${entities.map((entity) => buildObservedEntityCardHtml(entity)).join('')}</div>`
-      : '<div class="observe-entity-empty">该地块当前没有角色、怪物或 NPC。</div>'}
+      : '<div class="observe-entity-empty">该地块当前没有可观察的角色、怪物、NPC、传送点或地面物。</div>'}
   </section>`;
 }
 
-/** resolveObserveBuffTooltipNode：执行对应的业务逻辑。 */
-function resolveObserveBuffTooltipNode(target: EventTarget | null): HTMLElement | null {
-  if (!(target instanceof HTMLElement)) {
-    return null;
-  }
-  return target.closest<HTMLElement>('[data-buff-tooltip-title]');
-}
-
-/** readObserveBuffTooltipPayload：执行对应的业务逻辑。 */
-function readObserveBuffTooltipPayload(node: HTMLElement): { title: string; lines: string[] } {
-  return {
-    title: node.dataset.buffTooltipTitle ?? '',
-    lines: (node.dataset.buffTooltipDetail ?? '').split('\n').filter(Boolean),
-  };
+/** bindObserveEntityDetailActions：执行对应的业务逻辑。 */
+function bindObserveEntityDetailActions(root: ParentNode): void {
+  root.querySelectorAll<HTMLElement>('[data-observe-detail-id][data-observe-detail-kind]').forEach((node) => {
+    node.addEventListener('click', (event) => {
+/** kind：定义该变量以承载业务值。 */
+      const kind = node.dataset.observeDetailKind as NEXT_S2C_Detail['kind'] | undefined;
+/** id：定义该变量以承载业务值。 */
+      const id = node.dataset.observeDetailId?.trim();
+      if (!kind || !id) {
+        return;
+      }
+/** title：定义该变量以承载业务值。 */
+      const title = node.dataset.observeDetailTitle?.trim() || node.textContent?.trim() || id;
+      entityDetailModal.openPending(kind, id, title);
+      socket.sendRequestDetail(kind, id);
+      event.preventDefault();
+      event.stopPropagation();
+    }, true);
+  });
 }
 
 /** bindObserveBuffTooltips：执行对应的业务逻辑。 */
-function bindObserveBuffTooltips(root: HTMLElement): void {
-  if (observeBuffTooltipDelegatedBound) {
-    return;
-  }
-  observeBuffTooltipDelegatedBound = true;
-
-  root.addEventListener('click', (event) => {
-/** node：定义该变量以承载业务值。 */
-    const node = resolveObserveBuffTooltipNode(event.target);
-    if (!node || !prefersPinnedTooltipInteraction() || !(event instanceof MouseEvent)) {
-      return;
-    }
-    const { title, lines } = readObserveBuffTooltipPayload(node);
-    if (observeBuffTooltip.isPinnedTo(node)) {
-      observeBuffTooltip.hide(true);
-      observeBuffTooltipHoverNode = null;
-    } else {
+function bindObserveBuffTooltips(root: ParentNode): void {
+  root.querySelectorAll<HTMLElement>('[data-buff-tooltip-title]').forEach((node) => {
+/** title：定义该变量以承载业务值。 */
+    const title = node.dataset.buffTooltipTitle ?? '';
+/** detail：定义该变量以承载业务值。 */
+    const detail = node.dataset.buffTooltipDetail ?? '';
+/** lines：定义该变量以承载业务值。 */
+    const lines = detail.split('\n').filter(Boolean);
+/** tapMode：定义该变量以承载业务值。 */
+    const tapMode = prefersPinnedTooltipInteraction();
+    node.addEventListener('click', (event) => {
+      if (!tapMode) {
+        return;
+      }
+      if (observeBuffTooltip.isPinnedTo(node)) {
+        observeBuffTooltip.hide(true);
+        return;
+      }
       observeBuffTooltip.showPinned(node, title, lines, event.clientX, event.clientY);
-      observeBuffTooltipHoverNode = node;
-    }
-    event.preventDefault();
-    event.stopPropagation();
-  }, true);
-
-  root.addEventListener('pointerover', (event) => {
-    if (!(event instanceof PointerEvent)) {
-      return;
-    }
-/** node：定义该变量以承载业务值。 */
-    const node = resolveObserveBuffTooltipNode(event.target);
-    if (!node) {
-      return;
-    }
-/** relatedTarget：定义该变量以承载业务值。 */
-    const relatedTarget = event.relatedTarget;
-    if (relatedTarget instanceof Node && node.contains(relatedTarget)) {
-      return;
-    }
-    if (prefersPinnedTooltipInteraction() && observeBuffTooltip.isPinned()) {
-      return;
-    }
-    const { title, lines } = readObserveBuffTooltipPayload(node);
-    observeBuffTooltip.show(title, lines, event.clientX, event.clientY);
-    observeBuffTooltipHoverNode = node;
-  });
-
-  root.addEventListener('pointermove', (event) => {
-    if (!(event instanceof PointerEvent)) {
-      return;
-    }
-/** node：定义该变量以承载业务值。 */
-    const node = resolveObserveBuffTooltipNode(event.target);
-    if (!node || (prefersPinnedTooltipInteraction() && observeBuffTooltip.isPinned())) {
-      return;
-    }
-    if (observeBuffTooltipHoverNode !== node) {
-      const { title, lines } = readObserveBuffTooltipPayload(node);
+      event.preventDefault();
+      event.stopPropagation();
+    }, true);
+    node.addEventListener('mouseenter', (event) => {
       observeBuffTooltip.show(title, lines, event.clientX, event.clientY);
-      observeBuffTooltipHoverNode = node;
-      return;
-    }
-    observeBuffTooltip.move(event.clientX, event.clientY);
-  });
-
-  root.addEventListener('pointerout', (event) => {
-/** node：定义该变量以承载业务值。 */
-    const node = resolveObserveBuffTooltipNode(event.target);
-    if (!node) {
-      return;
-    }
-/** relatedTarget：定义该变量以承载业务值。 */
-    const relatedTarget = event.relatedTarget;
-    if (relatedTarget instanceof Node && node.contains(relatedTarget)) {
-      return;
-    }
-    if (observeBuffTooltip.isPinnedTo(node)) {
-      return;
-    }
-    if (observeBuffTooltipHoverNode === node) {
-      observeBuffTooltipHoverNode = null;
+    });
+    node.addEventListener('mousemove', (event) => {
+      observeBuffTooltip.move(event.clientX, event.clientY);
+    });
+    node.addEventListener('mouseleave', () => {
       observeBuffTooltip.hide();
-    }
+    });
   });
 }
 
@@ -2448,8 +2650,20 @@ function renderObserveModal(targetX: number, targetY: number): void {
     return;
   }
 
+/** observedTileDetail：定义该变量以承载业务值。 */
+  const observedTileDetail = isMatchingObservedTile(targetX, targetY) ? activeObservedTileDetail : null;
+/** observeError：定义该变量以承载业务值。 */
+  const observeError = isMatchingObservedTile(targetX, targetY) ? activeObservedTileError : null;
 /** groundPile：定义该变量以承载业务值。 */
   const groundPile = getVisibleGroundPileAt(targetX, targetY);
+/** groundItems：定义该变量以承载业务值。 */
+  const groundItems = observedTileDetail?.ground?.items ?? groundPile?.items ?? [];
+/** groundSourceId：定义该变量以承载业务值。 */
+  const groundSourceId = observedTileDetail?.ground?.sourceId ?? null;
+/** portalDetail：定义该变量以承载业务值。 */
+  const portalDetail = observedTileDetail?.portal ?? null;
+/** safeZone：定义该变量以承载业务值。 */
+  const safeZone = observedTileDetail?.safeZone ?? null;
 /** sortedEntities：定义该变量以承载业务值。 */
   const sortedEntities = [...resolveObserveEntities(targetX, targetY)].sort((left, right) => {
 /** order：定义该变量以承载业务值。 */
@@ -2481,26 +2695,112 @@ function renderObserveModal(targetX: number, targetY: number): void {
   if (tile.hiddenEntrance) {
     terrainRows.push({ label: '异状', value: tile.hiddenEntrance.title });
   }
+  if (safeZone) {
+    terrainRows.push({
+      label: '安全区',
+/** value：定义该变量以承载业务值。 */
+      value: safeZone.x === targetX && safeZone.y === targetY
+        ? `安全区中心 · 半径 ${safeZone.radius}`
+        : `已处于安全区内 · 中心 (${safeZone.x}, ${safeZone.y}) · 半径 ${safeZone.radius}`,
+    });
+  }
+  if (typeof observedTileDetail?.aura === 'number') {
+    terrainRows.push({
+      label: '灵气',
+      value: formatDisplayInteger(Math.max(0, Math.round(observedTileDetail.aura))),
+    });
+  }
+  if (groundSourceId) {
+    terrainRows.push({ label: '掉落来源', value: groundSourceId });
+  }
+  if (portalDetail) {
+    terrainRows.push({ label: '界门去向', value: portalDetail.targetMapName ?? portalDetail.targetMapId });
+  }
 
   if (observeModalSubtitleEl) {
     observeModalSubtitleEl.textContent = `坐标 (${targetX}, ${targetY})`;
   }
   if (observeModalBodyEl) {
 /** groundHtml：定义该变量以承载业务值。 */
-    const groundHtml = groundPile && groundPile.items.length > 0
-      ? `<div class="observe-entity-list">${groundPile.items.map((entry) => `
+    const groundHtml = groundItems.length > 0
+      ? `<div class="observe-entity-list">${groundItems.map((entry) => `
           <div class="observe-modal-row">
             <span class="observe-modal-label">${escapeHtml(entry.name)}</span>
             <span class="observe-modal-value">${formatDisplayCountBadge(entry.count)}</span>
           </div>
         `).join('')}</div>`
-      : '<div class="observe-entity-empty">该地块当前没有可见地面物品。</div>';
+      : observedTileDetail?.ground
+        ? '<div class="observe-entity-empty">这里暂时没有可拾取物品。</div>'
+        : '<div class="observe-entity-empty">该地块当前没有可见地面物品。</div>';
+/** safeZoneHtml：定义该变量以承载业务值。 */
+    const safeZoneHtml = safeZone
+      ? `
+        <section class="observe-modal-section">
+          <div class="observe-modal-section-title">安全区</div>
+          <div class="observe-entity-list">
+            <div class="observe-modal-row">
+              <span class="observe-modal-label">中心</span>
+              <span class="observe-modal-value">(${safeZone.x}, ${safeZone.y})</span>
+            </div>
+            <div class="observe-modal-row">
+              <span class="observe-modal-label">半径</span>
+              <span class="observe-modal-value">${safeZone.radius} 格</span>
+            </div>
+          </div>
+        </section>
+      `
+      : '';
+/** portalHtml：定义该变量以承载业务值。 */
+    const portalHtml = portalDetail
+      ? `
+        <section class="observe-modal-section">
+          <div class="observe-modal-section-title">传送点</div>
+          <div class="observe-entity-list">
+            <div class="observe-modal-row">
+              <span class="observe-modal-label">类型</span>
+              <span class="observe-modal-value">${escapeHtml(portalDetail.kind === 'stairs' ? '楼梯' : portalDetail.kind === 'gate' ? '关隘' : '传送点')}</span>
+            </div>
+            <div class="observe-modal-row">
+              <span class="observe-modal-label">目标地图</span>
+              <span class="observe-modal-value">${escapeHtml(portalDetail.targetMapName ?? portalDetail.targetMapId)}</span>
+            </div>
+            <div class="observe-modal-row">
+              <span class="observe-modal-label">目标坐标</span>
+              <span class="observe-modal-value">${typeof portalDetail.targetX === 'number' && typeof portalDetail.targetY === 'number' ? `(${portalDetail.targetX}, ${portalDetail.targetY})` : '未知'}</span>
+            </div>
+            <div class="observe-modal-row">
+              <span class="observe-modal-label">触发方式</span>
+              <span class="observe-modal-value">${escapeHtml(portalDetail.trigger === 'auto' ? '自动触发' : '手动触发')}</span>
+            </div>
+          </div>
+        </section>
+      `
+      : '';
+/** groundMetaHtml：定义该变量以承载业务值。 */
+    const groundMetaHtml = groundSourceId
+      ? `
+        <div class="observe-entity-empty">
+          来源：${escapeHtml(groundSourceId)} · 共 ${formatDisplayInteger(groundItems.length)} 种堆叠
+        </div>
+      `
+      : '';
+/** errorHtml：定义该变量以承载业务值。 */
+    const errorHtml = observeError
+      ? `
+        <section class="observe-modal-section">
+          <div class="observe-modal-section-title">观察回响</div>
+          <div class="observe-entity-empty">${escapeHtml(observeError)}</div>
+        </section>
+      `
+      : '';
     observeModalBodyEl.innerHTML = `
       <div class="observe-modal-top">
+        ${errorHtml}
         <section class="observe-modal-section">
           <div class="observe-modal-section-title">地块信息</div>
           <div class="observe-modal-grid">${buildObservationRows(terrainRows)}</div>
         </section>
+        ${safeZoneHtml}
         ${tile.hiddenEntrance ? `
           <section class="observe-modal-section">
             <div class="observe-modal-section-title">隐藏入口</div>
@@ -2513,14 +2813,16 @@ function renderObserveModal(targetX: number, targetY: number): void {
             </div>
           </section>
         ` : ''}
+        ${portalHtml}
         <section class="observe-modal-section">
           <div class="observe-modal-section-title">地面物品</div>
+          ${groundMetaHtml}
           ${groundHtml}
         </section>
       </div>
       ${buildObservedEntitySectionHtml(sortedEntities)}
     `;
-    bindObserveLootPreviewActions(observeModalBodyEl);
+    bindObserveEntityDetailActions(observeModalBodyEl);
     bindObserveBuffTooltips(observeModalBodyEl);
   }
   renderObserveAsideCards(buildObservedResourceAsideCards(targetX, targetY, tile));
@@ -2535,6 +2837,7 @@ function showObserveModal(targetX: number, targetY: number): void {
   }
   activeObservedTile = { mapId: myPlayer.mapId, x: targetX, y: targetY };
   activeObservedTileDetail = null;
+  activeObservedTileError = null;
   renderObserveModal(targetX, targetY);
   socket.sendInspectTileRuntime(targetX, targetY);
 }
@@ -2554,30 +2857,13 @@ lootPanel.setCallbacks(
   (sourceId) => {
     socket.sendTakeLoot(sourceId, undefined, true);
   },
-  () => {
-    socket.sendCloseLootWindow();
-  },
 );
 equipmentPanel.setCallbacks(
   (slot) => socket.sendUnequip(slot),
 );
 techniquePanel.setCallbacks(
   (techId) => socket.sendCultivate(techId),
-  (techId, enabled) => socket.sendUpdateTechniqueSkillAvailability(techId, enabled),
 );
-attrPanel.setCallbacks({
-  onRequestDetail: () => socket.sendRequestAttrDetail(),
-});
-worldPanel.setCallbacks({
-  onOpenWorldSummary: () => worldSummaryModal.open(),
-  onOpenLeaderboard: () => leaderboardModal.open(),
-});
-worldSummaryModal.setCallbacks({
-  onRequestData: () => socket.sendRequestWorldSummary(),
-});
-leaderboardModal.setCallbacks({
-  onRequestData: (limit) => socket.sendRequestLeaderboard(limit),
-});
 questPanel.setCallbacks((questId) => {
   clearCurrentPath();
   pendingQuestNavigateId = questId;
@@ -2585,7 +2871,7 @@ questPanel.setCallbacks((questId) => {
 });
 marketPanel.setCallbacks({
   onRequestMarket: () => socket.sendRequestMarket(),
-  onRequestMarketListings: (payload) => socket.sendRequestMarketListings(payload),
+  onRequestListings: (payload) => socket.sendRequestMarketListings(payload),
   onRequestItemBook: (itemKey) => socket.sendRequestMarketItemBook(itemKey),
   onRequestTradeHistory: (page) => socket.sendRequestMarketTradeHistory(page),
   onCreateSellOrder: (slotIndex, quantity, unitPrice) => socket.sendCreateMarketSellOrder(slotIndex, quantity, unitPrice),
@@ -2593,19 +2879,35 @@ marketPanel.setCallbacks({
   onCancelOrder: (orderId) => socket.sendCancelMarketOrder(orderId),
   onClaimStorage: () => socket.sendClaimMarketStorage(),
 });
+worldPanel.setCallbacks({
+  onOpenLeaderboard: () => {
+    renderLeaderboardModal();
+    socket.sendRequestLeaderboard();
+  },
+  onOpenWorldSummary: () => {
+    renderWorldSummaryModal();
+    socket.sendRequestWorldSummary();
+  },
+});
 npcShopModal.setCallbacks({
   onRequestShop: (npcId) => socket.sendRequestNpcShop(npcId),
   onBuyItem: (npcId, itemId, quantity) => socket.sendBuyNpcShopItem(npcId, itemId, quantity),
 });
-alchemyModal.setCallbacks({
-  onRequestPanel: (knownCatalogVersion) => socket.sendRequestAlchemyPanel(knownCatalogVersion),
-  onSavePreset: (payload) => socket.sendSaveAlchemyPreset(payload),
-  onDeletePreset: (presetId) => socket.sendDeleteAlchemyPreset(presetId),
-  onStartAlchemy: (payload) => socket.sendStartAlchemy(payload),
-  onCancelAlchemy: () => socket.sendCancelAlchemy(),
+npcQuestModal.setCallbacks({
+  onRequestQuests: (npcId) => socket.sendRequestNpcQuests(npcId),
+  onAcceptQuest: (npcId, questId) => socket.sendAcceptNpcQuest(npcId, questId),
+  onSubmitQuest: (npcId, questId) => socket.sendSubmitNpcQuest(npcId, questId),
+  onNavigateQuest: (questId) => {
+    clearCurrentPath();
+    pendingQuestNavigateId = questId;
+    socket.sendNavigateQuest(questId);
+  },
 });
-enhancementModal.setCallbacks({
-  onRequestPanel: () => socket.sendRequestEnhancementPanel(),
+craftWorkbenchModal.setCallbacks({
+  onRequestAlchemy: (knownCatalogVersion) => socket.sendRequestAlchemyPanel(knownCatalogVersion),
+  onRequestEnhancement: () => socket.sendRequestEnhancementPanel(),
+  onStartAlchemy: (recipeId, ingredients, quantity) => socket.sendStartAlchemy({ recipeId, ingredients, quantity }),
+  onCancelAlchemy: () => socket.sendCancelAlchemy(),
   onStartEnhancement: (payload) => socket.sendStartEnhancement(payload),
   onCancelEnhancement: () => socket.sendCancelEnhancement(),
 });
@@ -2627,16 +2929,25 @@ actionPanel.setCallbacks(
       npcShopModal.open(actionId.slice('npc_shop:'.length));
       return;
     }
+    if (actionId.startsWith('npc_quests:')) {
+      cancelTargeting();
+      hideObserveModal();
+/** npcId：定义该变量以承载业务值。 */
+      const npcId = actionId.slice('npc_quests:'.length);
+      npcQuestModal.openPending(npcId);
+      socket.sendAction(actionId);
+      return;
+    }
     if (actionId === 'alchemy:open') {
       cancelTargeting();
       hideObserveModal();
-      alchemyModal.open();
+      craftWorkbenchModal.openAlchemy();
       return;
     }
     if (actionId === 'enhancement:open') {
       cancelTargeting();
       hideObserveModal();
-      enhancementModal.open();
+      craftWorkbenchModal.openEnhancement();
       return;
     }
     if (requiresTarget) {
@@ -2645,19 +2956,16 @@ actionPanel.setCallbacks(
     }
     cancelTargeting();
     hideObserveModal();
+/** action：定义该变量以承载业务值。 */
+    const action = getCurrentActionDef(actionId);
+    if (action?.type === 'skill') {
+      socket.sendCastSkill(actionId);
+      return;
+    }
     socket.sendAction(actionId);
   },
   (skills) => {
     socket.sendUpdateAutoBattleSkills(skills);
-  },
-  (pills) => {
-    socket.sendUpdateAutoUsePills(pills);
-  },
-  (combatTargetingRules) => {
-    socket.sendUpdateCombatTargetingRules(combatTargetingRules);
-  },
-  (mode) => {
-    socket.sendUpdateAutoBattleTargetingMode(mode);
   },
 );
 debugPanel.setCallbacks(() => {
@@ -2750,7 +3058,7 @@ document.getElementById('hud-toggle-auto-retaliate')?.addEventListener('click', 
   socket.sendAction('toggle:auto_retaliate');
 });
 // S2C 更新回调
-socket.onRealmUpdate((data: S2C_RealmUpdate) => {
+function handleRealmUpdate(data: NEXT_S2C_Realm): void {
   if (!myPlayer) {
     return;
   }
@@ -2777,9 +3085,10 @@ socket.onRealmUpdate((data: S2C_RealmUpdate) => {
   });
   inventoryPanel.syncPlayerContext(myPlayer ?? undefined);
   refreshUiChrome();
-});
-socket.onAttrUpdate((data) => {
-  attrPanel.invalidateDetail();
+}
+
+/** handleAttrUpdate：执行对应的业务逻辑。 */
+function handleAttrUpdate(data: NEXT_S2C_AttrUpdate): void {
   latestAttrUpdate = mergeAttrUpdatePatch(latestAttrUpdate, data);
   if (myPlayer) {
     myPlayer.baseAttrs = latestAttrUpdate.baseAttrs ?? myPlayer.baseAttrs;
@@ -2787,7 +3096,6 @@ socket.onAttrUpdate((data) => {
     myPlayer.finalAttrs = latestAttrUpdate.finalAttrs ?? myPlayer.finalAttrs;
     myPlayer.numericStats = latestAttrUpdate.numericStats ?? myPlayer.numericStats;
     myPlayer.ratioDivisors = latestAttrUpdate.ratioDivisors ?? myPlayer.ratioDivisors;
-    myPlayer.numericStatBreakdowns = latestAttrUpdate.numericStatBreakdowns ?? myPlayer.numericStatBreakdowns;
     myPlayer.maxHp = latestAttrUpdate.maxHp ?? myPlayer.maxHp;
     myPlayer.qi = latestAttrUpdate.qi ?? myPlayer.qi;
     myPlayer.foundation = latestAttrUpdate.specialStats?.foundation ?? myPlayer.foundation;
@@ -2802,37 +3110,26 @@ socket.onAttrUpdate((data) => {
     }
     myPlayer.breakthroughReady = latestAttrUpdate.realmBreakthroughReady ?? myPlayer.breakthroughReady;
     myPlayer.alchemySkill = latestAttrUpdate.alchemySkill ?? myPlayer.alchemySkill;
-    myPlayer.gatherSkill = latestAttrUpdate.gatherSkill ?? myPlayer.gatherSkill;
-    myPlayer.enhancementSkill = latestAttrUpdate.enhancementSkill ?? myPlayer.enhancementSkill;
     if (myPlayer.realm) {
       myPlayer.realm.progress = latestAttrUpdate.realmProgress ?? myPlayer.realm.progress;
       myPlayer.realm.progressToNext = latestAttrUpdate.realmProgressToNext ?? myPlayer.realm.progressToNext;
       myPlayer.realm.breakthroughReady = latestAttrUpdate.realmBreakthroughReady ?? myPlayer.realm.breakthroughReady;
       myPlayer.breakthroughReady = myPlayer.realm.breakthroughReady;
     }
-    techniquePanel.syncDynamic(myPlayer.techniques, myPlayer.cultivatingTechId, myPlayer);
-    actionPanel.syncDynamic(myPlayer.actions, myPlayer.autoBattle, myPlayer.autoRetaliate, myPlayer);
     bodyTrainingPanel.syncFoundation(myPlayer.foundation);
-    alchemyModal.syncAlchemySkill(myPlayer.alchemySkill);
   }
   attrPanel.update(latestAttrUpdate);
+  craftWorkbenchModal.syncAttrUpdate(latestAttrUpdate);
   refreshHeavenGateModal(myPlayer, {
     showToast,
     sendAction: (action, element) => socket.sendHeavenGateAction(action, element),
   });
   inventoryPanel.syncPlayerContext(myPlayer ?? undefined);
   refreshUiChrome();
-});
-socket.onAttrDetail((data) => {
-  attrPanel.applyDetail(data);
-});
-socket.onLeaderboard((data) => {
-  leaderboardModal.applyData(data);
-});
-socket.onWorldSummary((data) => {
-  worldSummaryModal.applyData(data);
-});
-socket.onInventoryUpdate((data) => {
+}
+
+/** handleInventoryUpdate：执行对应的业务逻辑。 */
+function handleInventoryUpdate(data: NEXT_S2C_InventoryUpdate): void {
 /** mergedInventory：定义该变量以承载业务值。 */
   const mergedInventory = mergeInventoryUpdate(myPlayer?.inventory, data);
   if (mergedInventory.serverTick !== undefined) {
@@ -2840,16 +3137,16 @@ socket.onInventoryUpdate((data) => {
   }
   if (myPlayer) {
     myPlayer.inventory = mergedInventory;
-    actionPanel.syncDynamic(myPlayer.actions, myPlayer.autoBattle, myPlayer.autoRetaliate, myPlayer);
   }
   inventoryPanel.update(mergedInventory);
   questPanel.syncInventory(mergedInventory);
   marketPanel.syncInventory(mergedInventory);
   npcShopModal.syncInventory(mergedInventory);
-  alchemyModal.syncInventory(mergedInventory);
-  enhancementModal.syncInventory(mergedInventory);
-});
-socket.onEquipmentUpdate((data) => {
+  craftWorkbenchModal.syncInventory();
+}
+
+/** handleEquipmentUpdate：执行对应的业务逻辑。 */
+function handleEquipmentUpdate(data: NEXT_S2C_EquipmentUpdate): void {
 /** mergedEquipment：定义该变量以承载业务值。 */
   const mergedEquipment = mergeEquipmentUpdate(myPlayer?.equipment, data);
   if (myPlayer) {
@@ -2857,14 +3154,13 @@ socket.onEquipmentUpdate((data) => {
     inventoryPanel.syncPlayerContext(myPlayer);
   }
   equipmentPanel.update(mergedEquipment);
-  alchemyModal.syncEquipment(mergedEquipment);
-  enhancementModal.syncEquipment(mergedEquipment);
-});
-socket.onTechniqueUpdate((data) => {
+  craftWorkbenchModal.syncEquipment();
+}
+
+/** handleTechniqueUpdate：执行对应的业务逻辑。 */
+function handleTechniqueUpdate(data: NEXT_S2C_TechniqueUpdate): void {
 /** mergedTechniques：定义该变量以承载业务值。 */
-  const mergedTechniques = resolvePreviewTechniques(
-    mergeTechniqueStates(data.techniques, data.removeTechniqueIds ?? []),
-  );
+  const mergedTechniques = mergeTechniqueStates(data.techniques, data.removeTechniqueIds ?? []);
 /** nextCultivatingTechId：定义该变量以承载业务值。 */
   const nextCultivatingTechId = data.cultivatingTechId === undefined
     ? myPlayer?.cultivatingTechId
@@ -2881,8 +3177,6 @@ socket.onTechniqueUpdate((data) => {
     myPlayer.cultivatingTechId = nextCultivatingTechId;
     myPlayer.bodyTraining = nextBodyTraining;
     inventoryPanel.syncPlayerContext(myPlayer);
-    marketPanel.syncPlayerContext(myPlayer);
-    npcShopModal.syncPlayerContext(myPlayer);
   }
   if (shouldRefreshTechniquePanel) {
     techniquePanel.update(mergedTechniques, nextCultivatingTechId, myPlayer ?? undefined);
@@ -2894,24 +3188,22 @@ socket.onTechniqueUpdate((data) => {
   if (myPlayer) {
     actionPanel.syncDynamic(myPlayer.actions, myPlayer.autoBattle, myPlayer.autoRetaliate, myPlayer);
   }
-});
-socket.onActionsUpdate((data) => {
+}
+
+/** handleActionsUpdate：执行对应的业务逻辑。 */
+function handleActionsUpdate(data: NEXT_S2C_ActionsUpdate): void {
 /** mergedActions：定义该变量以承载业务值。 */
   const mergedActions = mergeActionStates(data.actions, data.removeActionIds ?? [], data.actionOrder);
 /** previousActions：定义该变量以承载业务值。 */
   const previousActions = myPlayer?.actions ?? [];
 /** previousAutoBattle：定义该变量以承载业务值。 */
   const previousAutoBattle = myPlayer?.autoBattle ?? false;
-/** previousAutoBattleTargetingMode：定义该变量以承载业务值。 */
-  const previousAutoBattleTargetingMode = myPlayer?.autoBattleTargetingMode ?? 'auto';
 /** previousAutoRetaliate：定义该变量以承载业务值。 */
   const previousAutoRetaliate = myPlayer?.autoRetaliate ?? true;
 /** previousAutoBattleStationary：定义该变量以承载业务值。 */
   const previousAutoBattleStationary = myPlayer?.autoBattleStationary ?? false;
 /** previousAllowAoePlayerHit：定义该变量以承载业务值。 */
   const previousAllowAoePlayerHit = myPlayer?.allowAoePlayerHit ?? false;
-/** previousCombatTargetingRules：定义该变量以承载业务值。 */
-  const previousCombatTargetingRules = myPlayer?.combatTargetingRules;
 /** previousAutoIdleCultivation：定义该变量以承载业务值。 */
   const previousAutoIdleCultivation = myPlayer?.autoIdleCultivation ?? true;
 /** previousAutoSwitchCultivation：定义该变量以承载业务值。 */
@@ -2920,12 +3212,6 @@ socket.onActionsUpdate((data) => {
   const previousCultivationActive = myPlayer?.cultivationActive ?? false;
 /** nextAutoBattle：定义该变量以承载业务值。 */
   const nextAutoBattle = data.autoBattle ?? myPlayer?.autoBattle ?? false;
-/** nextAutoUsePills：定义该变量以承载业务值。 */
-  const nextAutoUsePills = data.autoUsePills ?? myPlayer?.autoUsePills ?? [];
-/** nextCombatTargetingRules：定义该变量以承载业务值。 */
-  const nextCombatTargetingRules = data.combatTargetingRules ?? myPlayer?.combatTargetingRules;
-/** nextAutoBattleTargetingMode：定义该变量以承载业务值。 */
-  const nextAutoBattleTargetingMode = data.autoBattleTargetingMode ?? myPlayer?.autoBattleTargetingMode ?? 'auto';
 /** nextAutoRetaliate：定义该变量以承载业务值。 */
   const nextAutoRetaliate = data.autoRetaliate ?? myPlayer?.autoRetaliate ?? true;
 /** nextAutoBattleStationary：定义该变量以承载业务值。 */
@@ -2943,11 +3229,9 @@ socket.onActionsUpdate((data) => {
 /** shouldRefreshActionPanel：定义该变量以承载业务值。 */
   const shouldRefreshActionPanel = !myPlayer
     || previousAutoBattle !== nextAutoBattle
-    || previousAutoBattleTargetingMode !== nextAutoBattleTargetingMode
     || previousAutoRetaliate !== nextAutoRetaliate
     || previousAutoBattleStationary !== nextAutoBattleStationary
     || previousAllowAoePlayerHit !== nextAllowAoePlayerHit
-    || !isPlainEqual(previousCombatTargetingRules ?? null, nextCombatTargetingRules ?? null)
     || previousAutoIdleCultivation !== nextAutoIdleCultivation
     || previousAutoSwitchCultivation !== nextAutoSwitchCultivation
     || previousCultivationActive !== nextCultivationActive
@@ -2964,9 +3248,6 @@ socket.onActionsUpdate((data) => {
         skillEnabled: action.skillEnabled !== false,
       }));
     myPlayer.autoBattle = data.autoBattle ?? myPlayer.autoBattle;
-    myPlayer.autoUsePills = nextAutoUsePills;
-    myPlayer.combatTargetingRules = nextCombatTargetingRules;
-    myPlayer.autoBattleTargetingMode = nextAutoBattleTargetingMode;
     myPlayer.autoRetaliate = data.autoRetaliate ?? (myPlayer.autoRetaliate !== false);
     myPlayer.autoBattleStationary = nextAutoBattleStationary;
     myPlayer.allowAoePlayerHit = nextAllowAoePlayerHit;
@@ -2984,13 +3265,71 @@ socket.onActionsUpdate((data) => {
   } else {
     actionPanel.syncDynamic(mergedActions, nextAutoBattle, nextAutoRetaliate, myPlayer ?? undefined);
   }
-  enhancementModal.syncActions(mergedActions);
   syncSenseQiOverlay();
+}
+
+/** mergeVisibleBuffStates：执行对应的业务逻辑。 */
+function mergeVisibleBuffStates(
+  previous: TemporaryBuffState[] | undefined,
+  data: NonNullable<NEXT_S2C_PanelDelta['buff']>,
+): TemporaryBuffState[] {
+/** next：定义该变量以承载业务值。 */
+  const next = new Map((previous ?? []).map((entry) => [entry.buffId, cloneJson(entry)] as const));
+  if (data.full) {
+    next.clear();
+  }
+  for (const buff of data.buffs ?? []) {
+    next.set(buff.buffId, cloneJson(buff));
+  }
+  for (const buffId of data.removeBuffIds ?? []) {
+    next.delete(buffId);
+  }
+  return Array.from(next.values()).sort((left, right) => left.buffId.localeCompare(right.buffId, 'zh-Hans-CN'));
+}
+
+/** handleNextPanelDelta：执行对应的业务逻辑。 */
+function handleNextPanelDelta(data: NEXT_S2C_PanelDelta): void {
+  if (data.attr) {
+    handleNextAttrDelta(data.attr);
+  }
+  if (data.inv) {
+    handleNextInventoryDelta(data.inv);
+  }
+  if (data.eq) {
+    handleNextEquipmentDelta(data.eq);
+  }
+  if (data.tech) {
+    handleNextTechniqueDelta(data.tech);
+  }
+  if (data.act) {
+    handleNextActionsDelta(data.act);
+  }
+  if (data.buff && myPlayer) {
+    myPlayer.temporaryBuffs = mergeVisibleBuffStates(myPlayer.temporaryBuffs, data.buff);
+  }
+}
+
+socket.onRealm(handleRealmUpdate);
+socket.onNextInitSession((data) => {
+  latestNextInitSession = data;
 });
+socket.onNextMapEnter((data) => {
+  latestNextMapEnter = data;
+});
+socket.onNextWorldDelta(handleNextWorldDeltaMessage);
+socket.onNextSelfDelta(handleNextSelfDeltaMessage);
+socket.onNextPanelDelta((data) => {
+  if (!myPlayer) {
+    pendingNextPanelDelta = data;
+    return;
+  }
+  handleNextPanelDelta(data);
+});
+
 socket.onLootWindowUpdate((data) => {
   lootPanel.update(hydrateLootWindowState(data.window));
 });
-socket.onTileRuntimeDetail((data) => {
+socket.onNextTileDetail((data) => {
   if (
     !myPlayer
     || !activeObservedTile
@@ -3001,14 +3340,47 @@ socket.onTileRuntimeDetail((data) => {
     return;
   }
   activeObservedTileDetail = data;
+  activeObservedTileError = data.error?.trim() || null;
+  if (data.error) {
+    showToast(data.error);
+  }
   renderObserveModal(data.x, data.y);
 });
+socket.onNextDetail((data) => {
+  entityDetailModal.updateDetail(data);
+});
+socket.onAttrDetail((data) => {
+  applyAttrDetail(data);
+});
+socket.onAlchemyPanel((data) => {
+  craftWorkbenchModal.updateAlchemy(data);
+});
+socket.onEnhancementPanel((data) => {
+  craftWorkbenchModal.updateEnhancement(data);
+});
+socket.onLeaderboard((data) => {
+  latestLeaderboard = cloneJson(data);
+  if (detailModalHost.isOpenFor(LEADERBOARD_MODAL_OWNER)) {
+    renderLeaderboardModal();
+  }
+});
+socket.onWorldSummary((data) => {
+  latestWorldSummary = cloneJson(data);
+  if (detailModalHost.isOpenFor(WORLD_SUMMARY_MODAL_OWNER)) {
+    renderWorldSummaryModal();
+  }
+});
+socket.onNextNpcQuests((data) => {
+  npcQuestModal.updateQuests(data);
+});
 socket.onQuestUpdate((data) => {
-/** hydratedQuests：定义该变量以承载业务值。 */
-  const hydratedQuests = hydrateQuestStates(data.quests);
-  if (myPlayer) myPlayer.quests = hydratedQuests;
+  if (myPlayer) myPlayer.quests = data.quests;
   questPanel.setCurrentMapId(myPlayer?.mapId);
-  questPanel.update(hydratedQuests);
+  npcQuestModal.setCurrentMapId(myPlayer?.mapId);
+  questPanel.update(data.quests);
+  if (npcQuestModal.getActiveNpcId()) {
+    npcQuestModal.refreshActive();
+  }
   refreshUiChrome();
 });
 socket.onQuestNavigateResult((data) => {
@@ -3021,19 +3393,32 @@ socket.onQuestNavigateResult((data) => {
   }
   questPanel.closeDetail();
 });
-socket.onMapStaticSync((data: S2C_MapStaticSync) => {
-  mapRuntime.applyMapStaticSync(data);
+/** handleNextMapStatic：执行对应的业务逻辑。 */
+function handleNextMapStatic(data: NEXT_S2C_MapStatic): void {
+  mapRuntime.applyMapStatic({
+    mapId: data.mapId,
+    mapMeta: data.mapMeta,
+    minimap: data.minimap,
+    tiles: data.tiles,
+    tilesOriginX: data.tilesOriginX,
+    tilesOriginY: data.tilesOriginY,
+    tilePatches: data.tilePatches,
+    minimapLibrary: data.minimapLibrary,
+    visibleMinimapMarkers: data.visibleMinimapMarkers,
+    visibleMinimapMarkerAdds: data.visibleMinimapMarkerAdds,
+    visibleMinimapMarkerRemoves: data.visibleMinimapMarkerRemoves,
+  });
   if (myPlayer && data.minimapLibrary) {
     myPlayer.unlockedMinimapIds = data.minimapLibrary.map((entry) => entry.mapId).sort();
     inventoryPanel.syncPlayerContext(myPlayer);
-    marketPanel.syncPlayerContext(myPlayer);
-    npcShopModal.syncPlayerContext(myPlayer);
   }
   if (myPlayer && data.mapId === myPlayer.mapId) {
     refreshUiChrome();
   }
-});
-socket.onSystemMsg((data) => {
+}
+socket.onMapStatic(handleNextMapStatic);
+/** handleSystemMsg：执行对应的业务逻辑。 */
+function handleSystemMsg(data: NEXT_S2C_SystemMsg): void {
   if (data.kind === 'chat') {
     void chatUI.addMessage(data.text, data.from, data.kind);
     return;
@@ -3059,11 +3444,62 @@ socket.onSystemMsg((data) => {
     }
     return;
   }
+  if (data.kind === 'success' || data.kind === 'warn' || data.kind === 'travel') {
+/** label：定义该变量以承载业务值。 */
+    const label = data.from ?? (data.kind === 'success' ? '提示' : data.kind === 'warn' ? '警告' : '行旅');
+    void chatUI.addMessage(data.text, label, data.kind);
+    showToast(data.text, data.kind);
+    return;
+  }
   void chatUI.addMessage(data.text, data.from ?? '系统', data.kind ?? 'system');
   if (data.text === '无法到达该位置' || data.text === '目标过远，无法规划路径') {
     clearCurrentPath();
   }
   showToast(data.text, data.kind ?? 'system');
+}
+
+socket.onSystemMsg(handleSystemMsg);
+/** resolveSystemMsgIdFromNextNotice：执行对应的业务逻辑。 */
+function resolveSystemMsgIdFromNextNotice(item: NEXT_S2C_NoticeItem): string | undefined {
+  if (typeof item.messageId === 'string' && item.messageId.length > 0) {
+    return item.messageId;
+  }
+  return typeof item.id === 'number' ? String(item.id) : undefined;
+}
+
+/** toSystemMsgFromNextNotice：执行对应的业务逻辑。 */
+function toSystemMsgFromNextNotice(item: NEXT_S2C_NoticeItem): NEXT_S2C_SystemMsg {
+/** kind：定义该变量以承载业务值。 */
+  const kind = item.kind === 'chat'
+    ? 'chat'
+    : item.kind === 'grudge'
+      ? 'grudge'
+      : item.kind === 'quest'
+        ? 'quest'
+        : item.kind === 'loot'
+          ? 'loot'
+          : item.kind === 'combat'
+            ? 'combat'
+            : item.kind === 'success'
+              ? 'success'
+              : item.kind === 'warn'
+                ? 'warn'
+                : item.kind === 'travel'
+      ? 'travel'
+      : 'system';
+  return {
+    id: resolveSystemMsgIdFromNextNotice(item),
+    text: item.text,
+    kind,
+    from: item.from,
+    occurredAt: item.occurredAt,
+    persistUntilAck: item.persistUntilAck,
+  };
+}
+socket.onNextNotice((payload) => {
+  for (const item of payload.items) {
+    handleSystemMsg(toSystemMsgFromNextNotice(item));
+  }
 });
 socket.onError(async (data) => {
   if (data.code === 'AUTH_FAIL') {
@@ -3115,13 +3551,7 @@ socket.onPong((data) => {
   }
   window.clearTimeout(pendingSocketPing.timeoutId);
   pendingSocketPing = null;
-/** latencyMs：定义该变量以承载业务值。 */
-  const latencyMs = performance.now() - data.clientAt;
-  if (latencyMs > 999 && hasRecentTickStall()) {
-    renderPingLatency(null, '阻塞');
-    return;
-  }
-  renderPingLatency(latencyMs);
+  renderPingLatency(performance.now() - data.clientAt);
 });
 
 /** pathCells：定义该变量以承载业务值。 */
@@ -3134,7 +3564,11 @@ let myPlayer: PlayerState | null = null;
 /** currentTimeState：定义该变量以承载业务值。 */
 let currentTimeState: GameTimeState | null = null;
 /** latestAttrUpdate：定义该变量以承载业务值。 */
-let latestAttrUpdate: S2C_AttrUpdate | null = null;
+let latestAttrUpdate: NEXT_S2C_AttrUpdate | null = null;
+/** latestLeaderboard：定义该变量以承载业务值。 */
+let latestLeaderboard: NEXT_S2C_Leaderboard | null = null;
+/** latestWorldSummary：定义该变量以承载业务值。 */
+let latestWorldSummary: NEXT_S2C_WorldSummary | null = null;
 /** latestTechniqueMap：定义该变量以承载业务值。 */
 let latestTechniqueMap = new Map<string, TechniqueState>();
 /** latestActionMap：定义该变量以承载业务值。 */
@@ -3147,9 +3581,11 @@ let latestEntityMap = new Map<string, ObservedEntity>();
 let pendingLayoutViewportSync = false;
 /** pendingAutoInteraction：定义该变量以承载业务值。 */
 let pendingAutoInteraction: PendingAutoInteraction | null = null;
+const LEADERBOARD_MODAL_OWNER = 'world:leaderboard';
+const WORLD_SUMMARY_MODAL_OWNER = 'world:summary';
 
 /** showToast：执行对应的业务逻辑。 */
-function showToast(message: string, kind: 'system' | 'chat' | 'quest' | 'combat' | 'loot' | 'grudge' = 'system') {
+function showToast(message: string, kind: 'system' | 'chat' | 'quest' | 'combat' | 'loot' | 'grudge' | 'success' | 'warn' | 'travel' = 'system') {
 /** el：定义该变量以承载业务值。 */
   const el = document.getElementById('toast');
   if (!el) return;
@@ -3163,6 +3599,151 @@ function showToast(message: string, kind: 'system' | 'chat' | 'quest' | 'combat'
     el.classList.remove('show');
     el.classList.add('hidden');
   }, durationMs);
+}
+
+function formatLeaderboardGeneratedAt(timestamp: number): string {
+  if (!Number.isFinite(timestamp) || timestamp <= 0) {
+    return '刚刚更新';
+  }
+  return new Date(timestamp).toLocaleString('zh-CN', { hour12: false });
+}
+
+function renderLeaderboardRows(rows: string[]): string {
+  if (rows.length === 0) {
+    return '<div class="empty-hint ui-empty-hint">暂无数据</div>';
+  }
+  return `<div class="observe-entity-list">${rows.join('')}</div>`;
+}
+
+function renderLeaderboardModal(): void {
+  const data = latestLeaderboard;
+  const bodyHtml = !data
+    ? '<div class="empty-hint ui-empty-hint">正在读取天下榜……</div>'
+    : `
+      <div class="panel-section">
+        <div class="panel-section-title">境界榜</div>
+        ${renderLeaderboardRows(data.boards.realm.map((entry) => `
+          <div class="observe-modal-row">
+            <span class="observe-modal-label">#${entry.rank} ${escapeHtml(entry.playerName)}</span>
+            <span class="observe-modal-value">${escapeHtml(entry.realmName)} · 根基 ${formatDisplayInteger(entry.foundation)}</span>
+          </div>
+        `))}
+      </div>
+      <div class="panel-section">
+        <div class="panel-section-title">灵石榜</div>
+        ${renderLeaderboardRows(data.boards.spiritStones.map((entry) => `
+          <div class="observe-modal-row">
+            <span class="observe-modal-label">#${entry.rank} ${escapeHtml(entry.playerName)}</span>
+            <span class="observe-modal-value">${formatDisplayInteger(entry.spiritStoneCount)}</span>
+          </div>
+        `))}
+      </div>
+      <div class="panel-section">
+        <div class="panel-section-title">锻体榜</div>
+        ${renderLeaderboardRows(data.boards.bodyTraining.map((entry) => `
+          <div class="observe-modal-row">
+            <span class="observe-modal-label">#${entry.rank} ${escapeHtml(entry.playerName)}</span>
+            <span class="observe-modal-value">LV ${formatDisplayInteger(entry.level)} · ${formatDisplayInteger(entry.exp)}/${formatDisplayInteger(entry.expToNext)}</span>
+          </div>
+        `))}
+      </div>
+      <div class="panel-section">
+        <div class="panel-section-title">至尊属性</div>
+        ${renderLeaderboardRows(data.boards.supremeAttrs.map((entry) => `
+          <div class="observe-modal-row">
+            <span class="observe-modal-label">${escapeHtml(entry.label)} · ${escapeHtml(entry.playerName)}</span>
+            <span class="observe-modal-value">${formatDisplayInteger(entry.value)}</span>
+          </div>
+        `))}
+      </div>
+    `;
+  detailModalHost.open({
+    ownerId: LEADERBOARD_MODAL_OWNER,
+    variantClass: 'detail-modal--quest',
+    title: '天下榜',
+    subtitle: data ? `Top ${data.limit} · ${formatLeaderboardGeneratedAt(data.generatedAt)}` : '加载中',
+    bodyHtml,
+  });
+}
+
+function renderWorldSummaryModal(): void {
+  const data = latestWorldSummary;
+  const bodyHtml = !data
+    ? '<div class="empty-hint ui-empty-hint">正在读取世界总览……</div>'
+    : `
+      <div class="panel-section ui-surface-pane ui-surface-pane--stack">
+        <div class="panel-section-title">世界资源</div>
+        <div class="info-list ui-key-value-list">
+          <div class="info-line ui-key-value-item ui-surface-card ui-surface-card--compact"><span class="ui-key-value-label">全服灵石</span><strong class="ui-key-value-value">${formatDisplayInteger(data.summary.totalSpiritStones)}</strong></div>
+        </div>
+      </div>
+      <div class="panel-section ui-surface-pane ui-surface-pane--stack">
+        <div class="panel-section-title">行为统计</div>
+        <div class="info-list ui-key-value-list">
+          <div class="info-line ui-key-value-item ui-surface-card ui-surface-card--compact"><span class="ui-key-value-label">修炼</span><strong class="ui-key-value-value">${formatDisplayInteger(data.summary.actionCounts.cultivation)}</strong></div>
+          <div class="info-line ui-key-value-item ui-surface-card ui-surface-card--compact"><span class="ui-key-value-label">战斗</span><strong class="ui-key-value-value">${formatDisplayInteger(data.summary.actionCounts.combat)}</strong></div>
+          <div class="info-line ui-key-value-item ui-surface-card ui-surface-card--compact"><span class="ui-key-value-label">炼丹</span><strong class="ui-key-value-value">${formatDisplayInteger(data.summary.actionCounts.alchemy)}</strong></div>
+          <div class="info-line ui-key-value-item ui-surface-card ui-surface-card--compact"><span class="ui-key-value-label">强化</span><strong class="ui-key-value-value">${formatDisplayInteger(data.summary.actionCounts.enhancement)}</strong></div>
+        </div>
+      </div>
+      <div class="panel-section ui-surface-pane ui-surface-pane--stack">
+        <div class="panel-section-title">境界分布</div>
+        <div class="info-list ui-key-value-list">
+          <div class="info-line ui-key-value-item ui-surface-card ui-surface-card--compact"><span class="ui-key-value-label">凡俗</span><strong class="ui-key-value-value">${formatDisplayInteger(data.summary.realmCounts.initial)}</strong></div>
+          <div class="info-line ui-key-value-item ui-surface-card ui-surface-card--compact"><span class="ui-key-value-label">后天</span><strong class="ui-key-value-value">${formatDisplayInteger(data.summary.realmCounts.mortal)}</strong></div>
+          <div class="info-line ui-key-value-item ui-surface-card ui-surface-card--compact"><span class="ui-key-value-label">炼气及以上</span><strong class="ui-key-value-value">${formatDisplayInteger(data.summary.realmCounts.qiRefiningOrAbove)}</strong></div>
+        </div>
+      </div>
+      <div class="panel-section ui-surface-pane ui-surface-pane--stack">
+        <div class="panel-section-title">击杀统计</div>
+        <div class="info-list ui-key-value-list">
+          <div class="info-line ui-key-value-item ui-surface-card ui-surface-card--compact"><span class="ui-key-value-label">普通妖兽</span><strong class="ui-key-value-value">${formatDisplayInteger(data.summary.killCounts.normalMonsters)}</strong></div>
+          <div class="info-line ui-key-value-item ui-surface-card ui-surface-card--compact"><span class="ui-key-value-label">精英妖兽</span><strong class="ui-key-value-value">${formatDisplayInteger(data.summary.killCounts.eliteMonsters)}</strong></div>
+          <div class="info-line ui-key-value-item ui-surface-card ui-surface-card--compact"><span class="ui-key-value-label">首领妖兽</span><strong class="ui-key-value-value">${formatDisplayInteger(data.summary.killCounts.bossMonsters)}</strong></div>
+          <div class="info-line ui-key-value-item ui-surface-card ui-surface-card--compact"><span class="ui-key-value-label">玩家击杀</span><strong class="ui-key-value-value">${formatDisplayInteger(data.summary.killCounts.playerKills)}</strong></div>
+          <div class="info-line ui-key-value-item ui-surface-card ui-surface-card--compact"><span class="ui-key-value-label">玩家死亡</span><strong class="ui-key-value-value">${formatDisplayInteger(data.summary.killCounts.playerDeaths)}</strong></div>
+        </div>
+      </div>
+    `;
+  detailModalHost.open({
+    ownerId: WORLD_SUMMARY_MODAL_OWNER,
+    variantClass: 'detail-modal--quest',
+    title: '世界总览',
+    subtitle: data ? formatLeaderboardGeneratedAt(data.generatedAt) : '加载中',
+    bodyHtml,
+  });
+}
+
+function applyAttrDetail(data: NEXT_S2C_AttrDetail): void {
+  if (!myPlayer) {
+    return;
+  }
+  const nextSpecialStats = latestAttrUpdate?.specialStats
+    ? cloneJson(latestAttrUpdate.specialStats)
+    : {
+      foundation: Math.max(0, Math.floor(myPlayer.foundation ?? 0)),
+      combatExp: Math.max(0, Math.floor(myPlayer.combatExp ?? 0)),
+    };
+  latestAttrUpdate = mergeAttrUpdatePatch(latestAttrUpdate, {
+    baseAttrs: cloneJson(data.baseAttrs),
+    bonuses: cloneJson(data.bonuses),
+    finalAttrs: cloneJson(data.finalAttrs),
+    numericStats: cloneJson(data.numericStats),
+    ratioDivisors: cloneJson(data.ratioDivisors),
+    specialStats: nextSpecialStats,
+    alchemySkill: cloneJson(data.alchemySkill ?? myPlayer.alchemySkill),
+    gatherSkill: cloneJson(data.gatherSkill ?? myPlayer.gatherSkill),
+    enhancementSkill: cloneJson(data.enhancementSkill ?? myPlayer.enhancementSkill),
+  });
+  myPlayer.baseAttrs = cloneJson(data.baseAttrs);
+  myPlayer.bonuses = cloneJson(data.bonuses);
+  myPlayer.finalAttrs = cloneJson(data.finalAttrs);
+  myPlayer.numericStats = cloneJson(data.numericStats);
+  myPlayer.ratioDivisors = cloneJson(data.ratioDivisors);
+  myPlayer.alchemySkill = cloneJson(data.alchemySkill ?? myPlayer.alchemySkill);
+  myPlayer.gatherSkill = cloneJson(data.gatherSkill ?? myPlayer.gatherSkill);
+  myPlayer.enhancementSkill = cloneJson(data.enhancementSkill ?? myPlayer.enhancementSkill);
+  attrPanel.update(latestAttrUpdate);
 }
 
 /** handleQqGroupLinkClick：执行对应的业务逻辑。 */
@@ -3234,29 +3815,7 @@ function refreshZoomChrome(zoom = getZoom()) {
     zoomSlider.value = zoom.toFixed(2);
   }
   if (zoomLevelEl) {
-/** prefixEl：定义该变量以承载业务值。 */
-    let prefixEl = zoomLevelEl.children.item(0);
-    if (!(prefixEl instanceof HTMLSpanElement)) {
-      prefixEl = document.createElement('span');
-      zoomLevelEl.prepend(prefixEl);
-    }
-    if (prefixEl.textContent !== 'x') {
-      prefixEl.textContent = 'x';
-    }
-/** valueEl：定义该变量以承载业务值。 */
-    let valueEl = zoomLevelEl.children.item(1);
-    if (!(valueEl instanceof HTMLSpanElement)) {
-      valueEl = document.createElement('span');
-      zoomLevelEl.append(valueEl);
-    }
-/** zoomText：定义该变量以承载业务值。 */
-    const zoomText = formatZoom(zoom);
-    if (valueEl.textContent !== zoomText) {
-      valueEl.textContent = zoomText;
-    }
-    while (zoomLevelEl.children.length > 2) {
-      zoomLevelEl.lastElementChild?.remove();
-    }
+    zoomLevelEl.innerHTML = `<span>x</span><span>${formatZoom(zoom)}</span>`;
   }
 }
 
@@ -3457,9 +4016,41 @@ function clearCurrentPath() {
   mapRuntime.setPathCells(pathCells);
 }
 
+/** trimCurrentPathProgress：执行对应的业务逻辑。 */
+function trimCurrentPathProgress() {
+  if (!myPlayer || pathCells.length === 0) {
+    return;
+  }
+
+/** currentIndex：定义该变量以承载业务值。 */
+  const currentIndex = pathCells.findIndex((cell) => cell.x === myPlayer!.x && cell.y === myPlayer!.y);
+  if (currentIndex >= 0) {
+    pathCells = pathCells.slice(currentIndex + 1);
+    return;
+  }
+
+/** firstRemainingCell：定义该变量以承载业务值。 */
+  const firstRemainingCell = pathCells[0];
+  if (!firstRemainingCell) {
+    return;
+  }
+
+  // 服务端位置已经不在当前剩余路径上时，直接丢弃这条过期高亮，避免箭头继续指回旧起点。
+  if (gridDistance(myPlayer, firstRemainingCell) > 1) {
+    pathCells = [];
+    pathTarget = null;
+    pendingAutoInteraction = null;
+  }
+}
+
 /** sendMoveCommand：执行对应的业务逻辑。 */
 function sendMoveCommand(dir: Direction) {
   if (!myPlayer) return;
+  logNextMovement('client.intent.move', {
+    playerId: myPlayer.id,
+    from: { x: myPlayer.x, y: myPlayer.y, mapId: myPlayer.mapId },
+    direction: dir,
+  });
   clearCurrentPath();
   myPlayer.facing = dir;
   socket.sendMove(dir);
@@ -3480,6 +4071,18 @@ function planPathTo(
   const preview = buildClientPreviewPath(myPlayer.x, myPlayer.y, target.x, target.y);
   pathCells = preview?.cells ?? [{ x: target.x, y: target.y }];
   mapRuntime.setPathCells(pathCells);
+  logNextMovement('client.intent.moveTo', {
+    playerId: myPlayer.id,
+    from: { x: myPlayer.x, y: myPlayer.y, mapId: myPlayer.mapId },
+    target,
+/** allowNearestReachable：定义该变量以承载业务值。 */
+    allowNearestReachable: options?.allowNearestReachable === true,
+/** ignoreVisibilityLimit：定义该变量以承载业务值。 */
+    ignoreVisibilityLimit: options?.ignoreVisibilityLimit === true,
+    previewFound: Boolean(preview),
+    previewDirections: preview?.directions ?? [],
+    previewCells: pathCells,
+  });
   socket.sendMoveTo(target.x, target.y, {
     ...options,
     packedPath: preview ? packDirections(preview.directions) : undefined,
@@ -3524,7 +4127,7 @@ function findObservedEntityAt(x: number, y: number, kind?: string): ObservedEnti
 
 /** isPathPreviewBlockingEntity：执行对应的业务逻辑。 */
 function isPathPreviewBlockingEntity(entity: ObservedEntity): boolean {
-  return entity.kind === 'player' || entity.kind === 'monster' || entity.kind === 'npc';
+  return entity.kind === 'player' || entity.kind === 'monster' || entity.kind === 'npc' || entity.kind === 'crowd';
 }
 
 /** createPlayerOverlapPointKeySet：执行对应的业务逻辑。 */
@@ -3600,6 +4203,35 @@ function resolveNpcApproachTarget(npc: ObservedEntity): { x: number; y: number }
   return bestCandidate ? { x: bestCandidate.x, y: bestCandidate.y } : null;
 }
 
+/** resolveNpcInteractionActionId：执行对应的业务逻辑。 */
+function resolveNpcInteractionActionId(npc: Pick<ObservedEntity, 'id' | 'npcQuestMarker'>): string | null {
+  if (!myPlayer) {
+    return null;
+  }
+/** actionIds：定义该变量以承载业务值。 */
+  const actionIds = new Set((myPlayer.actions ?? []).map((action) => action.id));
+/** questActionId：定义该变量以承载业务值。 */
+  const questActionId = `npc_quests:${npc.id}`;
+/** shopActionId：定义该变量以承载业务值。 */
+  const shopActionId = `npc_shop:${npc.id}`;
+/** talkActionId：定义该变量以承载业务值。 */
+  const talkActionId = `npc:${npc.id}`;
+
+  if (npc.npcQuestMarker && actionIds.has(questActionId)) {
+    return questActionId;
+  }
+  if (actionIds.has(shopActionId)) {
+    return shopActionId;
+  }
+  if (actionIds.has(questActionId)) {
+    return questActionId;
+  }
+  if (actionIds.has(talkActionId)) {
+    return talkActionId;
+  }
+  return null;
+}
+
 /** triggerAutoInteractionIfReady：执行对应的业务逻辑。 */
 function triggerAutoInteractionIfReady(): boolean {
   if (!myPlayer || !pendingAutoInteraction || pendingAutoInteraction.mapId !== myPlayer.mapId) {
@@ -3619,7 +4251,7 @@ function triggerAutoInteractionIfReady(): boolean {
   }
 
 /** npc：定义该变量以承载业务值。 */
-  const npc = latestEntityMap.get(pendingAutoInteraction.actionId)
+  const npc = latestEntityMap.get(pendingAutoInteraction.npcId)
     ?? findObservedEntityAt(pendingAutoInteraction.x, pendingAutoInteraction.y, 'npc');
   if (!npc || npc.kind !== 'npc') {
     pendingAutoInteraction = null;
@@ -3628,8 +4260,22 @@ function triggerAutoInteractionIfReady(): boolean {
   if (!isPointInRange({ x: myPlayer.x, y: myPlayer.y }, { x: npc.wx, y: npc.wy }, 1)) {
     return false;
   }
+/** actionId：定义该变量以承载业务值。 */
+  const actionId = resolveNpcInteractionActionId(npc);
+  if (!actionId) {
+    return false;
+  }
   clearCurrentPath();
-  socket.sendAction(pendingAutoInteraction.actionId);
+  if (actionId.startsWith('npc_shop:')) {
+    npcShopModal.open(actionId.slice('npc_shop:'.length));
+    return true;
+  }
+  if (actionId.startsWith('npc_quests:')) {
+    npcQuestModal.openPending(actionId.slice('npc_quests:'.length));
+    socket.sendAction(actionId);
+    return true;
+  }
+  socket.sendAction(actionId);
   return true;
 }
 
@@ -3644,8 +4290,19 @@ function handleNpcClickTarget(npc: ObservedEntity): boolean {
 
   if (isPointInRange({ x: myPlayer.x, y: myPlayer.y }, { x: npc.wx, y: npc.wy }, 1)) {
     clearCurrentPath();
-    if ((myPlayer.actions ?? []).some((action) => action.id === npc.id)) {
-      socket.sendAction(npc.id);
+/** actionId：定义该变量以承载业务值。 */
+    const actionId = resolveNpcInteractionActionId(npc);
+    if (actionId) {
+      if (actionId.startsWith('npc_shop:')) {
+        npcShopModal.open(actionId.slice('npc_shop:'.length));
+        return true;
+      }
+      if (actionId.startsWith('npc_quests:')) {
+        npcQuestModal.openPending(actionId.slice('npc_quests:'.length));
+        socket.sendAction(actionId);
+        return true;
+      }
+      socket.sendAction(actionId);
       return true;
     }
     pendingAutoInteraction = {
@@ -3653,7 +4310,7 @@ function handleNpcClickTarget(npc: ObservedEntity): boolean {
       mapId: myPlayer.mapId,
       x: npc.wx,
       y: npc.wy,
-      actionId: npc.id,
+      npcId: npc.id,
     };
     return true;
   }
@@ -3670,7 +4327,7 @@ function handleNpcClickTarget(npc: ObservedEntity): boolean {
     mapId: myPlayer.mapId,
     x: npc.wx,
     y: npc.wy,
-    actionId: npc.id,
+    npcId: npc.id,
   };
 /** planPathTo：处理当前场景中的对应操作。 */
   planPathTo(approachTarget, { allowNearestReachable: true, preserveAutoInteraction: true });
@@ -3733,12 +4390,21 @@ function buildClientPreviewPath(
   const playerOverlapPointKeys = createPlayerOverlapPointKeySet(mapMeta);
 
 /** visibleBlockingPositions：定义该变量以承载业务值。 */
-  const visibleBlockingPositions = new Set(
-    latestEntities
-      .filter((entity) => isPathPreviewBlockingEntity(entity) && !(entity.kind === 'player' && entity.id === myPlayer?.id))
-      .filter((entity) => entity.kind !== 'player' || !playerOverlapPointKeys.has(`${entity.wx},${entity.wy}`))
-      .map((entity) => `${entity.wx},${entity.wy}`),
-  );
+  const visibleBlockingPositions = new Set<string>();
+  for (const entity of latestEntities) {
+    if (!isPathPreviewBlockingEntity(entity)) {
+      continue;
+    }
+/** coordKey：定义该变量以承载业务值。 */
+    const coordKey = `${entity.wx},${entity.wy}`;
+    if (entity.kind === 'player' && entity.id === myPlayer?.id) {
+      continue;
+    }
+    if (entity.kind === 'player' && playerOverlapPointKeys.has(coordKey)) {
+      continue;
+    }
+    visibleBlockingPositions.add(coordKey);
+  }
 
 /** tiles：定义该变量以承载业务值。 */
   const tiles: Tile[][] = [];
@@ -3790,10 +4456,17 @@ function buildClientPreviewPath(
 /** resetGameState：执行对应的业务逻辑。 */
 function resetGameState() {
   myPlayer = null;
+  latestNextInitSession = null;
+  latestNextMapEnter = null;
+  pendingNextWorldDelta = null;
+  pendingNextSelfDelta = null;
+  pendingNextPanelDelta = null;
   currentTimeTickIntervalMs = 1000;
   syncEstimatedServerTick(null);
   syncCurrentTimeState(null);
   latestAttrUpdate = null;
+  latestLeaderboard = null;
+  latestWorldSummary = null;
   clearCurrentPath();
   latestTechniqueMap.clear();
   latestActionMap.clear();
@@ -3815,8 +4488,11 @@ function resetGameState() {
   marketPanel.clear();
   actionPanel.clear();
   npcShopModal.clear();
-  alchemyModal.clear();
-  enhancementModal.clear();
+  npcQuestModal.clear();
+  entityDetailModal.clear();
+  craftWorkbenchModal.clear();
+  detailModalHost.close(LEADERBOARD_MODAL_OWNER);
+  detailModalHost.close(WORLD_SUMMARY_MODAL_OWNER);
   lootPanel.clear();
   worldPanel.clear();
   mailPanel.clear();
@@ -3843,7 +4519,7 @@ function applyLocalDisplayName(displayName: string) {
     }
     return {
       ...entity,
-      char: getFirstGrapheme(displayName) || entity.char,
+      char: [...displayName][0] ?? entity.char,
     };
   });
   mapRuntime.replaceVisibleEntities(latestEntities);
@@ -3879,6 +4555,7 @@ const keyboard = new KeyboardInput((dirs: Direction[]) => {
 
 sidePanel.setVisibilityChangeCallback((visible) => {
   panelSystem.store.setRuntime({ shellVisible: visible });
+  syncChatLogbookVisibility();
   if (visible) {
     scheduleLayoutViewportSync();
   }
@@ -3893,12 +4570,15 @@ sidePanel.setLayoutChangeCallback(() => {
 function syncChatLogbookVisibility(): void {
 /** logbookPane：定义该变量以承载业务值。 */
   const logbookPane = document.querySelector<HTMLElement>('.split-tab-pane[data-pane="logbook"]');
-  chatUI.setLogbookVisible(logbookPane?.classList.contains('active') === true);
+  chatUI.setLogbookVisible(sidePanel.isVisible() && logbookPane?.classList.contains('active') === true);
 }
 sidePanel.setTabChangeCallback((tabName) => {
   syncChatLogbookVisibility();
-  if (tabName === 'market') {
-    socket.sendRequestMarket();
+  if (tabName === 'attr') {
+    socket.sendRequestAttrDetail();
+  } else if (tabName === 'world') {
+    socket.sendRequestLeaderboard();
+    socket.sendRequestWorldSummary();
   }
 });
 syncChatLogbookVisibility();
@@ -4000,10 +4680,8 @@ mapRuntime.setInteractionCallbacks({
         cancelTargeting();
         return;
       }
-/** geometry：定义该变量以承载业务值。 */
-      const geometry = getEffectiveTargetingGeometry(pendingTargetedAction);
-      if (!myPlayer || !isPointInRange({ x: myPlayer.x, y: myPlayer.y }, { x: target.x, y: target.y }, geometry.range)) {
-        showToast(`超出施法范围，最多 ${geometry.range} 格`);
+      if (!myPlayer || !isPointInRange({ x: myPlayer.x, y: myPlayer.y }, { x: target.x, y: target.y }, pendingTargetedAction.range)) {
+        showToast(`超出施法范围，最多 ${pendingTargetedAction.range} 格`);
         return;
       }
       if (!hasAffectableTargetInArea(pendingTargetedAction, target.x, target.y)) {
@@ -4016,7 +4694,13 @@ mapRuntime.setInteractionCallbacks({
         showToast('该技能需要选中有效目标');
         return;
       }
-      socket.sendAction(pendingTargetedAction.actionId, targetRef);
+/** action：定义该变量以承载业务值。 */
+      const action = getCurrentActionDef(pendingTargetedAction.actionId);
+      if (action?.type === 'skill') {
+        socket.sendCastSkill(pendingTargetedAction.actionId, targetRef);
+      } else {
+        socket.sendAction(pendingTargetedAction.actionId, targetRef);
+      }
       cancelTargeting();
       return;
     }
@@ -4071,10 +4755,35 @@ mapRuntime.setInteractionCallbacks({
 });
 
 // 初始化
-socket.onInit((data: S2C_Init) => {
+function flushPendingNextBootstrapEnvelope(): void {
+  if (!myPlayer) {
+    return;
+  }
+  if (pendingNextWorldDelta) {
+/** pending：定义该变量以承载业务值。 */
+    const pending = pendingNextWorldDelta;
+    pendingNextWorldDelta = null;
+    handleNextWorldDeltaMessage(pending);
+  }
+  if (pendingNextSelfDelta) {
+/** pending：定义该变量以承载业务值。 */
+    const pending = pendingNextSelfDelta;
+    pendingNextSelfDelta = null;
+    handleNextSelfDeltaMessage(pending);
+  }
+  if (pendingNextPanelDelta) {
+    handleNextPanelDelta(pendingNextPanelDelta);
+    pendingNextPanelDelta = null;
+  }
+}
+
+/** handleBootstrap：执行对应的业务逻辑。 */
+function handleBootstrap(data: NEXT_S2C_Bootstrap): void {
   pendingTargetedAction = null;
   hoveredMapTile = null;
   hideObserveModal();
+  latestNextInitSession = latestNextInitSession?.pid === data.self.id ? latestNextInitSession : null;
+  latestNextMapEnter = latestNextMapEnter?.mid === data.self.mapId ? latestNextMapEnter : null;
   syncAuraLevelBaseValue(data.auraLevelBaseValue);
   myPlayer = data.self;
   myPlayer.techniques = resolvePreviewTechniques(myPlayer.techniques);
@@ -4082,14 +4791,12 @@ socket.onInit((data: S2C_Init) => {
   latestAttrUpdate = buildAttrStateFromPlayer(myPlayer);
   myPlayer.senseQiActive = myPlayer.senseQiActive === true;
   myPlayer.autoBattleStationary = myPlayer.autoBattleStationary === true;
-  myPlayer.combatTargetingRules = myPlayer.combatTargetingRules ?? { hostile: ['monster', 'retaliators', 'terrain'], friendly: ['non_hostile_players'] };
-  myPlayer.autoBattleTargetingMode = myPlayer.autoBattleTargetingMode ?? 'auto';
   myPlayer.allowAoePlayerHit = myPlayer.allowAoePlayerHit === true;
   myPlayer.autoIdleCultivation = myPlayer.autoIdleCultivation !== false;
   myPlayer.autoSwitchCultivation = myPlayer.autoSwitchCultivation === true;
   myPlayer.cultivationActive = myPlayer.cultivationActive === true;
   syncTargetingOverlay();
-  mapRuntime.applyInit(data);
+  mapRuntime.applyBootstrap(data);
   syncSenseQiOverlay();
 
 /** entities：定义该变量以承载业务值。 */
@@ -4111,25 +4818,32 @@ socket.onInit((data: S2C_Init) => {
   refreshZoomChrome();
   panelSystem.store.setRuntime({
     connected: true,
-    playerId: myPlayer.id,
+    playerId: latestNextInitSession?.pid ?? myPlayer.id,
     mapId: myPlayer.mapId,
     shellVisible: true,
   });
   attrPanel.initFromPlayer(myPlayer);
+  socket.sendRequestAttrDetail();
   inventoryPanel.initFromPlayer(myPlayer);
   marketPanel.initFromPlayer(myPlayer);
   equipmentPanel.initFromPlayer(myPlayer);
   techniquePanel.initFromPlayer(myPlayer);
   bodyTrainingPanel.initFromPlayer(myPlayer);
   questPanel.initFromPlayer(myPlayer);
+  socket.sendRequestQuests();
   npcShopModal.initFromPlayer(myPlayer);
-  alchemyModal.initFromPlayer(myPlayer);
-  enhancementModal.initFromPlayer(myPlayer);
+  npcQuestModal.initFromPlayer(myPlayer);
+  craftWorkbenchModal.initFromPlayer(myPlayer);
   actionPanel.initFromPlayer(myPlayer);
+  socket.sendRequestLeaderboard();
+  socket.sendRequestWorldSummary();
   refreshUiChrome();
   mailPanel.setPlayerId(myPlayer.id);
   suggestionPanel.setPlayerId(myPlayer.id);
-});
+  flushPendingNextBootstrapEnvelope();
+}
+
+socket.onBootstrap(handleBootstrap);
 
 // 建议更新
 socket.onSuggestionUpdate((data) => {
@@ -4148,7 +4862,7 @@ socket.onMailDetail((data) => {
   mailPanel.updateDetail(data.detail, data.error);
 });
 
-socket.onRedeemCodesResult((data: S2C_RedeemCodesResult) => {
+socket.onRedeemCodesResult((data: NEXT_S2C_RedeemCodesResult) => {
   if (!pendingRedeemCodesRequest) {
     return;
   }
@@ -4163,6 +4877,12 @@ socket.onMailOpResult((data) => {
   mailPanel.handleOpResult(data);
 });
 
+socket.onMarketUpdate((data) => {
+  if (myPlayer) {
+    myPlayer.marketStorage = data.storage;
+  }
+  marketPanel.updateMarket(data);
+});
 socket.onMarketListings((data) => {
   marketPanel.updateListings(data);
 });
@@ -4172,10 +4892,7 @@ socket.onMarketOrders((data) => {
 socket.onMarketStorage((data) => {
   if (myPlayer) {
     myPlayer.marketStorage = {
-      items: data.items.map((item) => ({
-        ...item.item,
-        count: item.count,
-      })),
+      items: data.items.map((entry: { item: SyncedItemStack }) => cloneJson(entry.item)),
     };
   }
   marketPanel.updateStorage(data);
@@ -4190,105 +4907,8 @@ socket.onMarketTradeHistory((data) => {
 socket.onNpcShop((data) => {
   npcShopModal.updateShop(hydrateNpcShopResponse(data));
 });
-socket.onAlchemyPanel((data) => {
-  alchemyModal.updatePanel(data);
-});
-socket.onEnhancementPanel((data) => {
-  enhancementModal.updatePanel(data);
-});
 
-// Tick 更新
-socket.onTick((data: S2C_Tick) => {
-  if (!myPlayer) return;
-/** mapChanged：定义该变量以承载业务值。 */
-  let mapChanged = false;
-/** previousMapId：定义该变量以承载业务值。 */
-  const previousMapId = myPlayer.mapId;
-  syncAuraLevelBaseValue(data.auraLevelBaseValue);
-  syncCurrentTimeTickInterval(data.dt);
-  if (data.time) {
-    syncCurrentTimeState(data.time);
-  }
 
-  if (data.dt) {
-    if (tickRateEl) {
-/** seconds：定义该变量以承载业务值。 */
-      const seconds = Math.max(data.dt, 0) / 1000;
-      renderTickRate(seconds);
-    }
-  }
-  mapRuntime.applyTick(data);
-
-  if (data.m) {
-    mapChanged = previousMapId !== data.m;
-    if (mapChanged) {
-      clearCurrentPath();
-      latestEntities = [];
-      latestEntityMap.clear();
-      hoveredMapTile = null;
-      hideObserveModal();
-      lootPanel.clear();
-      cancelTargeting();
-    }
-    myPlayer.mapId = data.m;
-    panelSystem.store.setRuntime({ mapId: myPlayer.mapId });
-    questPanel.setCurrentMapId(myPlayer.mapId);
-  }
-
-  if (typeof data.hp === 'number') {
-    myPlayer.hp = data.hp;
-  }
-  if (typeof data.qi === 'number') {
-    myPlayer.qi = data.qi;
-  }
-  if (data.f !== undefined) {
-    myPlayer.facing = data.f;
-  }
-
-/** oldX：定义该变量以承载业务值。 */
-  const oldX = myPlayer.x;
-/** oldY：定义该变量以承载业务值。 */
-  const oldY = myPlayer.y;
-
-  for (const entity of data.p) {
-    if (entity.id === myPlayer.id) {
-      if (entity.name) {
-        myPlayer.name = entity.name;
-      }
-      myPlayer.x = entity.x;
-      myPlayer.y = entity.y;
-      break;
-    }
-  }
-  if (data.v || data.t || data.auraLevelBaseValue !== undefined) {
-    syncSenseQiOverlay();
-  }
-
-/** moved：定义该变量以承载业务值。 */
-  const moved = !mapChanged && (myPlayer.x !== oldX || myPlayer.y !== oldY);
-
-/** entities：定义该变量以承载业务值。 */
-  const entities = getLatestObservedEntitiesSnapshot() as ObservedEntity[];
-  latestEntities = entities;
-  latestEntityMap = new Map(entities.map((entity) => [entity.id, entity]));
-  syncTargetingOverlay();
-  refreshHudChrome();
-
-/** autoInteractionTriggered：定义该变量以承载业务值。 */
-  const autoInteractionTriggered = triggerAutoInteractionIfReady();
-  if (!autoInteractionTriggered && pathTarget && myPlayer.x === pathTarget.x && myPlayer.y === pathTarget.y) {
-    clearCurrentPath();
-  }
-  if (autoInteractionTriggered) {
-    pathCells = [];
-  } else if (data.path) {
-    pathCells = data.path.map(([x, y]) => ({ x, y }));
-    if (pathCells.length === 0 && pathTarget) {
-      clearCurrentPath();
-    }
-  }
-  mapRuntime.setPathCells(pathCells);
-});
 
 restartPingLoop();
 void loginUI.restoreSession();

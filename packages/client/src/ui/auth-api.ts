@@ -14,7 +14,11 @@ import {
   AuthTokenRes,
   DisplayNameAvailabilityRes,
   REFRESH_TOKEN_STORAGE_KEY,
-} from '@mud/shared';
+} from '@mud/shared-next';
+import {
+  ACCOUNT_API_BASE_PATH,
+  AUTH_API_BASE_PATH,
+} from '../constants/api';
 
 export {
   ACCESS_TOKEN_STORAGE_KEY as ACCESS_TOKEN_KEY,
@@ -49,7 +53,7 @@ export function getCurrentAccountName(): string | null {
   if (!accessToken) {
     return null;
   }
-  return parseJwtPayload(accessToken)?.username ?? null;
+  return extractAccountName(parseJwtPayload(accessToken));
 }
 
 /** 从 localStorage 读取 refreshToken */
@@ -101,7 +105,7 @@ export async function requestJson<TResponse>(url: string, options: RequestOption
 
 /** 用 refreshToken 换取新 token 对 */
 export function restoreTokens(refreshToken: string): Promise<AuthTokenRes> {
-  return requestJson<AuthTokenRes>('/auth/refresh', {
+  return requestJson<AuthTokenRes>(`${AUTH_API_BASE_PATH}/refresh`, {
     method: 'POST',
     body: { refreshToken } satisfies AuthRefreshReq,
   });
@@ -114,7 +118,7 @@ export function checkDisplayNameAvailability(
 ): Promise<DisplayNameAvailabilityRes> {
 /** params：定义该变量以承载业务值。 */
   const params = new URLSearchParams({ displayName });
-  return requestJson<DisplayNameAvailabilityRes>(`/auth/display-name/check?${params.toString()}`, { signal });
+  return requestJson<DisplayNameAvailabilityRes>(`${AUTH_API_BASE_PATH}/display-name/check?${params.toString()}`, { signal });
 }
 
 /** 修改密码 */
@@ -122,7 +126,7 @@ export function updatePassword(
   accessToken: string,
   body: AccountUpdatePasswordReq,
 ): Promise<{ ok: true }> {
-  return requestJson<{ ok: true }>('/account/password', {
+  return requestJson<{ ok: true }>(`${ACCOUNT_API_BASE_PATH}/password`, {
     method: 'POST',
     body,
     accessToken,
@@ -134,7 +138,7 @@ export function updateDisplayName(
   accessToken: string,
   body: AccountUpdateDisplayNameReq,
 ): Promise<AccountUpdateDisplayNameRes> {
-  return requestJson<AccountUpdateDisplayNameRes>('/account/display-name', {
+  return requestJson<AccountUpdateDisplayNameRes>(`${ACCOUNT_API_BASE_PATH}/display-name`, {
     method: 'POST',
     body,
     accessToken,
@@ -146,7 +150,7 @@ export function updateRoleName(
   accessToken: string,
   body: AccountUpdateRoleNameReq,
 ): Promise<AccountUpdateRoleNameRes> {
-  return requestJson<AccountUpdateRoleNameRes>('/account/role-name', {
+  return requestJson<AccountUpdateRoleNameRes>(`${ACCOUNT_API_BASE_PATH}/role-name`, {
     method: 'POST',
     body,
     accessToken,
@@ -170,8 +174,30 @@ async function readError(res: Response): Promise<string> {
   return '请求失败';
 }
 
+/** AuthTokenPayload：定义该类型的结构与数据语义。 */
+type AuthTokenPayload = {
+  username?: string;
+  preferred_username?: string;
+  upn?: string;
+  name?: string;
+  sub?: string;
+};
+
+/** extractAccountName：执行对应的业务逻辑。 */
+function extractAccountName(payload: AuthTokenPayload | null): string | null {
+  if (!payload) {
+    return null;
+  }
+  return payload.username
+    ?? payload.preferred_username
+    ?? payload.upn
+    ?? payload.name
+    ?? payload.sub
+    ?? null;
+}
+
 /** parseJwtPayload：执行对应的业务逻辑。 */
-function parseJwtPayload(token: string): { username?: string } | null {
+function parseJwtPayload(token: string): AuthTokenPayload | null {
 /** parts：定义该变量以承载业务值。 */
   const parts = token.split('.');
   if (parts.length < 2) {
@@ -193,4 +219,3 @@ function parseJwtPayload(token: string): { username?: string } | null {
     return null;
   }
 }
-

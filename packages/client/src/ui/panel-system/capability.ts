@@ -7,6 +7,39 @@ function matchMediaSafe(win: Window, query: string): boolean {
   return typeof win.matchMedia === 'function' ? win.matchMedia(query).matches : false;
 }
 
+/** readSafeAreaInsets：执行对应的业务逻辑。 */
+function readSafeAreaInsets(win: Window): PanelCapabilities['safeAreaInsets'] {
+/** probe：定义该变量以承载业务值。 */
+  const probe = win.document.createElement('div');
+  probe.setAttribute('aria-hidden', 'true');
+  probe.style.position = 'fixed';
+  probe.style.inset = '0';
+  probe.style.visibility = 'hidden';
+  probe.style.pointerEvents = 'none';
+  probe.style.paddingTop = 'env(safe-area-inset-top, 0px)';
+  probe.style.paddingRight = 'env(safe-area-inset-right, 0px)';
+  probe.style.paddingBottom = 'env(safe-area-inset-bottom, 0px)';
+  probe.style.paddingLeft = 'env(safe-area-inset-left, 0px)';
+  win.document.body.appendChild(probe);
+/** computed：定义该变量以承载业务值。 */
+  const computed = win.getComputedStyle(probe);
+/** toPixels：定义该变量以承载业务值。 */
+  const toPixels = (value: string): number => {
+/** parsed：定义该变量以承载业务值。 */
+    const parsed = Number.parseFloat(value);
+    return Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
+  };
+/** insets：定义该变量以承载业务值。 */
+  const insets = {
+    top: toPixels(computed.paddingTop),
+    right: toPixels(computed.paddingRight),
+    bottom: toPixels(computed.paddingBottom),
+    left: toPixels(computed.paddingLeft),
+  };
+  probe.remove();
+  return insets;
+}
+
 /** detectPanelCapabilities：执行对应的业务逻辑。 */
 export function detectPanelCapabilities(win: Window): PanelCapabilities {
 /** viewportWidth：定义该变量以承载业务值。 */
@@ -34,12 +67,7 @@ export function detectPanelCapabilities(win: Window): PanelCapabilities {
     reducedMotion,
     breakpoint,
     viewport: pointerCoarse || viewportWidth < UI_RESPONSIVE_BREAKPOINTS.panelViewportMobile ? 'mobile' : 'desktop',
-    safeAreaInsets: {
-      top: 0,
-      right: 0,
-      bottom: 0,
-      left: 0,
-    },
+    safeAreaInsets: readSafeAreaInsets(win),
   };
 }
 

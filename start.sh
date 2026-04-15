@@ -1,5 +1,5 @@
 #!/bin/bash
-# 用途：启动 legacy 本地开发环境并按需拉起依赖服务。
+# 用途：启动 legacy 归档本地开发环境并按需拉起依赖服务。
 
 set -e
 
@@ -28,12 +28,12 @@ kill_pid_if_running() {
 collect_repo_dev_pids() {
   ps -eo pid=,args= | awk -v repo_root="$PWD" '
     index($0, repo_root) == 0 { next }
-    /packages\/server\/node_modules\/\.bin\/\.\.\/@nestjs\/cli\/bin\/nest\.js start --watch/ { print $1; next }
-    /packages\/server\/dist\/main/ { print $1; next }
-    /packages\/client\/node_modules\/\.bin\/\.\.\/vite\/bin\/vite\.js --host/ { print $1; next }
-    /packages\/shared\/node_modules\/\.bin\/\.\.\/typescript\/bin\/tsc --watch/ { print $1; next }
+    /legacy\/server\/node_modules\/\.bin\/\.\.\/@nestjs\/cli\/bin\/nest\.js start --watch/ { print $1; next }
+    /legacy\/server\/dist\/main/ { print $1; next }
+    /legacy\/client\/node_modules\/\.bin\/\.\.\/vite\/bin\/vite\.js --host/ { print $1; next }
+    /legacy\/shared\/node_modules\/\.bin\/\.\.\/typescript\/bin\/tsc --watch/ { print $1; next }
     /pnpm\/bin\/pnpm\.cjs --filter @mud\/shared build --watch/ { print $1; next }
-    /pnpm\/bin\/pnpm\.cjs start:dev/ && /packages\/server/ { print $1; next }
+    /pnpm\/bin\/pnpm\.cjs start:dev/ && /legacy\/server/ { print $1; next }
   '
 }
 
@@ -273,19 +273,21 @@ ensure_local_infra() {
 
 case "$MODE" in
   docker)
+    echo "!! 当前脚本只服务于 legacy 归档线；next 默认请使用 ./start-next.sh"
     echo "==> Docker 模式启动..."
     docker compose up --build
     ;;
   local)
+    echo "!! 当前脚本只服务于 legacy 归档线；next 默认请使用 ./start-next.sh"
     echo "==> 本地模式启动..."
     echo "==> 编译共享包..."
     pnpm --filter @mud/shared build
 
-    if [[ -f "packages/server/.env" ]]; then
-      echo "==> 加载服务端环境配置 packages/server/.env ..."
+    if [[ -f "legacy/server/.env" ]]; then
+      echo "==> 加载服务端环境配置 legacy/server/.env ..."
       set -a
       # shellcheck disable=SC1091
-      source "packages/server/.env"
+      source "legacy/server/.env"
       set +a
     fi
 
@@ -309,12 +311,12 @@ case "$MODE" in
     SHARED_WATCH_PID=$!
 
     echo "==> 启动服务端 (port 3000, watch 模式)..."
-    (cd packages/server && pnpm start:dev) &
+    (cd legacy/server && pnpm start:dev) &
 # 记录服务端pid。
     SERVER_PID=$!
 
     echo "==> 启动客户端 (port 5173)..."
-    (cd packages/client && npx vite --host --strictPort) &
+    (cd legacy/client && npx vite --host --strictPort) &
 # 记录客户端pid。
     CLIENT_PID=$!
 
@@ -324,7 +326,7 @@ case "$MODE" in
     echo "========================================="
     echo "  服务端: http://localhost:3000"
     echo "  客户端: http://localhost:5173"
-    echo "  共享包: 监听构建中 (packages/shared/dist)"
+    echo "  共享包: 监听构建中 (legacy/shared/dist)"
     echo "  Ctrl+C 停止所有服务"
     echo "========================================="
     echo ""
@@ -333,8 +335,10 @@ case "$MODE" in
     ;;
   *)
     echo "用法: ./start.sh [local|docker]"
-    echo "  local  - 本地直接启动 (默认)"
-    echo "  docker - Docker Compose 启动"
+    echo "  local  - 启动 legacy 归档本地环境 (默认)"
+    echo "  docker - 启动 legacy 归档 Docker 环境"
+    echo ""
+    echo "next 主线请改用: ./start-next.sh"
     echo ""
     echo "可选环境变量:"
     echo "  SKIP_LOCAL_INFRA=1  跳过本地 PostgreSQL / Redis 自动拉起"

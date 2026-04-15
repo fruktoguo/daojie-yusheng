@@ -3,7 +3,7 @@
  * 管理登录、注册表单切换，显示名称可用性检测，以及 token 会话恢复
  */
 
-import { AuthLoginReq, AuthRegisterReq, AuthTokenRes } from '@mud/shared';
+import { AuthLoginReq, AuthRegisterReq, AuthTokenRes } from '@mud/shared-next';
 import { SocketManager } from '../network/socket';
 import {
   checkDisplayNameAvailability,
@@ -14,6 +14,7 @@ import {
   restoreTokens,
   storeTokens,
 } from './auth-api';
+import { AUTH_API_BASE_PATH } from '../constants/api';
 import { validateAccountName, validateDisplayName, validatePassword, validateRoleName } from './account-rules';
 
 /** AuthMode：定义该类型的结构与数据语义。 */
@@ -143,7 +144,7 @@ export class LoginUI {
     };
     try {
 /** data：定义该变量以承载业务值。 */
-      const data = await requestJson<AuthTokenRes>('/auth/login', {
+      const data = await requestJson<AuthTokenRes>(`${AUTH_API_BASE_PATH}/login`, {
         method: 'POST',
         body,
       });
@@ -205,7 +206,7 @@ export class LoginUI {
 
     try {
 /** data：定义该变量以承载业务值。 */
-      const data = await requestJson<AuthTokenRes>('/auth/register', {
+      const data = await requestJson<AuthTokenRes>(`${AUTH_API_BASE_PATH}/register`, {
         method: 'POST',
         body,
       });
@@ -342,4 +343,3 @@ export class LoginUI {
     this.setDisplayNameStatus('注册时必填', '');
   }
 }
-

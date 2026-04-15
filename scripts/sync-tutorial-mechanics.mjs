@@ -15,12 +15,30 @@ const repoRoot = path.resolve(__dirname, '..');
  * 记录来源路径。
  */
 const sourcePath = path.join(repoRoot, 'docs', 'tutorial-mechanics.md');
+function resolvePackagesDirName(name) {
+  if (name === 'client-next') {
+    return 'client';
+  }
+  if (name === 'server-next') {
+    return 'server';
+  }
+  if (name === 'shared-next') {
+    return 'shared';
+  }
+  return name;
+}
+function resolveWorkspacePackageDir(name) {
+  const nextDir = path.join(repoRoot, 'packages', resolvePackagesDirName(name));
+  return name.endsWith('-next') || name === 'config-editor'
+    ? nextDir
+    : path.join(repoRoot, 'legacy', name);
+}
 /**
  * 汇总targets。
  */
 const targets = [
-  path.join(repoRoot, 'packages', 'shared', 'src', 'tutorial-mechanics.generated.ts'),
-  path.join(repoRoot, 'packages', 'shared-next', 'src', 'tutorial-mechanics.generated.ts'),
+  path.join(resolveWorkspacePackageDir('shared'), 'src', 'tutorial-mechanics.generated.ts'),
+  path.join(resolveWorkspacePackageDir('shared-next'), 'src', 'tutorial-mechanics.generated.ts'),
 ];
 
 /**

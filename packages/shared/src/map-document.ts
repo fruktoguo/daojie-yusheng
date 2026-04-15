@@ -13,8 +13,6 @@ import {
   GmMapNpcShopItemRecord,
   GmMapPortalRecord,
   GmMapQuestRecord,
-  GmMapResourceNodeGroupRecord,
-  GmMapResourceNodePlacementRecord,
   GmMapResourceRecord,
   GmMapSafeZoneRecord,
   GmMapSummary,
@@ -37,7 +35,7 @@ import {
 } from './types';
 
 /** SUPPORTED_MAP_TILE_CHARS：定义该变量以承载业务值。 */
-const SUPPORTED_MAP_TILE_CHARS = new Set(['#', '.', '=', ':', 'P', 'S', '+', 'W', 'B', ',', '^', '崖', ';', '%', '~', '寒', '熔', '云', '霞', '空', 'T', '竹', 'o', 'L', '铁', '刃', ...HOUSE_DECOR_TILE_MAP_CHARS]);
+const SUPPORTED_MAP_TILE_CHARS = new Set(['#', '.', '=', ':', 'P', 'S', '+', 'W', 'B', ',', '^', '崖', ';', '%', '~', '云', '霞', '空', 'T', '竹', 'o', 'L', '铁', '刃', ...HOUSE_DECOR_TILE_MAP_CHARS]);
 
 /** clone：执行对应的业务逻辑。 */
 function clone<T>(value: T): T {
@@ -214,12 +212,8 @@ function normalizeEditableContainerRecord(input: unknown): GmMapContainerRecord 
 /** container：定义该变量以承载业务值。 */
   const container = input as GmMapContainerRecord;
   return {
-/** variant：定义该变量以承载业务值。 */
-    variant: container.variant === 'herb' ? 'herb' : undefined,
     grade: normalizeContainerGrade(container.grade),
     refreshTicks: Number.isFinite(container.refreshTicks) ? Number(container.refreshTicks) : undefined,
-    refreshTicksMin: Number.isFinite(container.refreshTicksMin) ? Number(container.refreshTicksMin) : undefined,
-    refreshTicksMax: Number.isFinite(container.refreshTicksMax) ? Number(container.refreshTicksMax) : undefined,
     char: normalizeOptionalTrimmedString(container.char),
     color: normalizeOptionalTrimmedString(container.color),
     drops: Array.isArray(container.drops)
@@ -269,96 +263,6 @@ function normalizeEditableContainerLootPoolRecord(input: unknown): GmMapContaine
 /** allowDuplicates：定义该变量以承载业务值。 */
     allowDuplicates: pool.allowDuplicates === true,
   };
-}
-
-/** normalizeEditableResourceNodePlacementRecord：执行对应的业务逻辑。 */
-function normalizeEditableResourceNodePlacementRecord(input: unknown): GmMapResourceNodePlacementRecord | undefined {
-  if (!input || typeof input !== 'object') {
-    return undefined;
-  }
-/** placement：定义该变量以承载业务值。 */
-  const placement = input as GmMapResourceNodePlacementRecord;
-  return {
-    x: Number(placement.x ?? 0),
-    y: Number(placement.y ?? 0),
-    id: normalizeOptionalTrimmedString(placement.id),
-    name: normalizeOptionalTrimmedString(placement.name),
-    desc: normalizeOptionalTrimmedString(placement.desc),
-  };
-}
-
-/** normalizeEditableResourceNodeGroupRecord：执行对应的业务逻辑。 */
-function normalizeEditableResourceNodeGroupRecord(input: unknown): GmMapResourceNodeGroupRecord | undefined {
-  if (!input || typeof input !== 'object') {
-    return undefined;
-  }
-/** group：定义该变量以承载业务值。 */
-  const group = input as GmMapResourceNodeGroupRecord;
-  return {
-/** resourceNodeId：定义该变量以承载业务值。 */
-    resourceNodeId: typeof group.resourceNodeId === 'string' ? group.resourceNodeId.trim() : '',
-    idPrefix: normalizeOptionalTrimmedString(group.idPrefix),
-    name: normalizeOptionalTrimmedString(group.name),
-    desc: normalizeOptionalTrimmedString(group.desc),
-    placements: Array.isArray(group.placements)
-      ? group.placements
-        .map((placement) => normalizeEditableResourceNodePlacementRecord(placement))
-        .filter((placement): placement is GmMapResourceNodePlacementRecord => Boolean(placement))
-      : [],
-  };
-}
-
-/** normalizeResourceNodeLandmarkIdPrefix：执行对应的业务逻辑。 */
-function normalizeResourceNodeLandmarkIdPrefix(resourceNodeId: string, explicitPrefix?: string): string {
-/** normalizedPrefix：定义该变量以承载业务值。 */
-  const normalizedPrefix = explicitPrefix?.trim();
-  if (normalizedPrefix) {
-    return normalizedPrefix;
-  }
-/** fallback：定义该变量以承载业务值。 */
-  const fallback = resourceNodeId.trim().replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_+|_+$/g, '');
-  return fallback.length > 0 ? fallback : 'resource_node';
-}
-
-/** expandMapResourceNodeGroups：执行对应的业务逻辑。 */
-export function expandMapResourceNodeGroups(
-  document: Pick<GmMapDocument, 'landmarks' | 'resourceNodeGroups'>,
-): GmMapLandmarkRecord[] {
-/** baseLandmarks：定义该变量以承载业务值。 */
-  const baseLandmarks = Array.isArray(document.landmarks)
-    ? document.landmarks.map((landmark) => ({
-      ...landmark,
-      container: landmark.container ? clone(landmark.container) : undefined,
-    }))
-    : [];
-/** groups：定义该变量以承载业务值。 */
-  const groups = Array.isArray(document.resourceNodeGroups) ? document.resourceNodeGroups : [];
-
-  for (const group of groups) {
-    const resourceNodeId = group.resourceNodeId?.trim() ?? '';
-    if (!resourceNodeId) {
-      continue;
-    }
-/** idPrefix：定义该变量以承载业务值。 */
-    const idPrefix = normalizeResourceNodeLandmarkIdPrefix(resourceNodeId, group.idPrefix);
-/** groupName：定义该变量以承载业务值。 */
-    const groupName = group.name?.trim() || resourceNodeId;
-/** groupDesc：定义该变量以承载业务值。 */
-    const groupDesc = group.desc?.trim() || undefined;
-    for (const placement of group.placements ?? []) {
-      baseLandmarks.push({
-        id: placement.id?.trim() || `${idPrefix}_${Math.floor(placement.x)}_${Math.floor(placement.y)}`,
-        name: placement.name?.trim() || groupName,
-        x: Number(placement.x ?? 0),
-        y: Number(placement.y ?? 0),
-        desc: placement.desc?.trim() || groupDesc,
-        resourceNodeId,
-        container: undefined,
-      });
-    }
-  }
-
-  return baseLandmarks;
 }
 
 /** normalizeEditableDropRecord：执行对应的业务逻辑。 */
@@ -528,10 +432,6 @@ export function normalizeEditableMapDocument(raw: unknown): GmMapDocument {
   const landmarks = Array.isArray((source as { landmarks?: unknown[] }).landmarks)
     ? (source as { landmarks: unknown[] }).landmarks
     : [];
-/** resourceNodeGroups：定义该变量以承载业务值。 */
-  const resourceNodeGroups = Array.isArray((source as { resourceNodeGroups?: unknown[] }).resourceNodeGroups)
-    ? (source as { resourceNodeGroups: unknown[] }).resourceNodeGroups
-    : [];
 /** portals：定义该变量以承载业务值。 */
   const portals = Array.isArray(source.portals) ? source.portals : [];
 /** npcs：定义该变量以承载业务值。 */
@@ -626,9 +526,6 @@ export function normalizeEditableMapDocument(raw: unknown): GmMapDocument {
       resourceNodeId: normalizeOptionalTrimmedString((landmark as GmMapLandmarkRecord).resourceNodeId),
       container: normalizeEditableContainerRecord((landmark as GmMapLandmarkRecord).container),
     })),
-    resourceNodeGroups: resourceNodeGroups
-      .map((group) => normalizeEditableResourceNodeGroupRecord(group))
-      .filter((group): group is GmMapResourceNodeGroupRecord => Boolean(group)),
     npcs: npcs.map((npc) => ({
       id: String((npc as GmMapNpcRecord).id ?? ''),
       name: String((npc as GmMapNpcRecord).name ?? ''),
@@ -727,18 +624,6 @@ export function normalizeEditableMapDocument(raw: unknown): GmMapDocument {
           normalized[key as keyof NonNullable<GmMapMonsterSpawnRecord['statPercents']>] = Math.max(0, Number(value));
         }
         return Object.keys(normalized).length > 0 ? normalized : undefined;
-      })(),
-      initialBuffs: (() => {
-/** rawInitialBuffs：定义该变量以承载业务值。 */
-        const rawInitialBuffs = (spawn as GmMapMonsterSpawnRecord).initialBuffs;
-        if (!Array.isArray(rawInitialBuffs)) {
-          return undefined;
-        }
-/** normalized：定义该变量以承载业务值。 */
-        const normalized = rawInitialBuffs
-          .filter((entry): entry is NonNullable<GmMapMonsterSpawnRecord['initialBuffs']>[number] => !!entry && typeof entry === 'object')
-          .map((entry) => clone(entry));
-        return normalized.length > 0 ? normalized : undefined;
       })(),
       skills: (() => {
 /** rawSkills：定义该变量以承载业务值。 */
@@ -905,28 +790,8 @@ export function validateEditableMapDocument(document: GmMapDocument): string | n
     }
   }
 
-  for (let index = 0; index < (document.resourceNodeGroups?.length ?? 0); index += 1) {
-    const group = document.resourceNodeGroups![index]!;
-    const label = `资源点分组 ${group.resourceNodeId || index + 1}`;
-    if (!group.resourceNodeId.trim()) {
-      return `${label} 的资源节点 ID 不能为空`;
-    }
-    if ((group.placements?.length ?? 0) <= 0) {
-      return `${label} 至少需要一个布点`;
-    }
-    for (let placementIndex = 0; placementIndex < group.placements.length; placementIndex += 1) {
-      const placement = group.placements[placementIndex]!;
-      const placementLabel = `${label} 的布点 ${placement.id || placementIndex + 1}`;
-/** error：定义该变量以承载业务值。 */
-      const error = ensurePointInBounds(placement.x, placement.y, placementLabel);
-      if (error) return error;
-    }
-  }
-
-/** expandedLandmarks：定义该变量以承载业务值。 */
-  const expandedLandmarks = expandMapResourceNodeGroups(document);
-  for (let index = 0; index < expandedLandmarks.length; index += 1) {
-    const landmark = expandedLandmarks[index]!;
+  for (let index = 0; index < (document.landmarks?.length ?? 0); index += 1) {
+    const landmark = document.landmarks![index]!;
     const label = `地标 ${landmark.id || index + 1}`;
     if (!landmark.id.trim()) return `${label} 的 ID 不能为空`;
     if (!landmark.name.trim()) return `${label} 的名称不能为空`;
@@ -937,30 +802,10 @@ export function validateEditableMapDocument(document: GmMapDocument): string | n
       return `${label} 的资源节点 ID 不能为空字符串`;
     }
     if (landmark.container) {
-      if (landmark.container.variant !== undefined && landmark.container.variant !== 'herb') {
-        return `${label} 的容器变种非法`;
-      }
 /** refreshTicks：定义该变量以承载业务值。 */
       const refreshTicks = landmark.container.refreshTicks;
       if (refreshTicks !== undefined && (!Number.isInteger(refreshTicks) || refreshTicks <= 0)) {
         return `${label} 的容器刷新时间必须为正整数`;
-      }
-/** refreshTicksMin：定义该变量以承载业务值。 */
-      const refreshTicksMin = landmark.container.refreshTicksMin;
-      if (refreshTicksMin !== undefined && (!Number.isInteger(refreshTicksMin) || refreshTicksMin <= 0)) {
-        return `${label} 的容器最小刷新时间必须为正整数`;
-      }
-/** refreshTicksMax：定义该变量以承载业务值。 */
-      const refreshTicksMax = landmark.container.refreshTicksMax;
-      if (refreshTicksMax !== undefined && (!Number.isInteger(refreshTicksMax) || refreshTicksMax <= 0)) {
-        return `${label} 的容器最大刷新时间必须为正整数`;
-      }
-      if (
-        refreshTicksMin !== undefined
-        && refreshTicksMax !== undefined
-        && refreshTicksMax < refreshTicksMin
-      ) {
-        return `${label} 的容器最大刷新时间不能小于最小刷新时间`;
       }
       for (let poolIndex = 0; poolIndex < (landmark.container.lootPools?.length ?? 0); poolIndex += 1) {
         const pool = landmark.container.lootPools![poolIndex]!;
@@ -1143,32 +988,6 @@ export function validateEditableMapDocument(document: GmMapDocument): string | n
       for (const [key, value] of Object.entries(spawn.statPercents)) {
         if (!Number.isFinite(value) || value < 0) {
           return `${label} 的 ${key} 百分比必须为非负数`;
-        }
-      }
-    }
-    if (spawn.initialBuffs) {
-      for (let buffIndex = 0; buffIndex < spawn.initialBuffs.length; buffIndex += 1) {
-        const buff = spawn.initialBuffs[buffIndex];
-        if (!buff || typeof buff !== 'object') {
-          return `${label} 的初始 Buff #${buffIndex + 1} 非法`;
-        }
-        if (buff.target !== undefined && buff.target !== 'self') {
-          return `${label} 的初始 Buff #${buffIndex + 1} 只能作用于自身`;
-        }
-        if (typeof buff.buffId !== 'string' || buff.buffId.trim().length === 0) {
-          return `${label} 的初始 Buff #${buffIndex + 1} 缺少 buffId`;
-        }
-        if (typeof buff.name !== 'string' || buff.name.trim().length === 0) {
-          return `${label} 的初始 Buff #${buffIndex + 1} 缺少名称`;
-        }
-        if (!Number.isFinite(buff.duration) || Number(buff.duration) <= 0) {
-          return `${label} 的初始 Buff #${buffIndex + 1} 持续时间必须为正数`;
-        }
-        if (buff.stacks !== undefined && (!Number.isFinite(buff.stacks) || Number(buff.stacks) <= 0)) {
-          return `${label} 的初始 Buff #${buffIndex + 1} 层数必须为正数`;
-        }
-        if (buff.maxStacks !== undefined && (!Number.isFinite(buff.maxStacks) || Number(buff.maxStacks) <= 0)) {
-          return `${label} 的初始 Buff #${buffIndex + 1} 最大层数必须为正数`;
         }
       }
     }

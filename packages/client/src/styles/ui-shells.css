@@ -1,0 +1,260 @@
+/* 复用布局骨架：分栏、统计卡、标签页弹层、表单动作区。 */
+
+.ui-modal-main-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ui-modal-main-tab {
+  min-height: 40px;
+  padding: 9px 16px;
+  border: 1px solid rgba(133, 68, 45, 0.22);
+  background: linear-gradient(180deg, var(--surface-elevated), var(--surface-muted));
+  color: var(--ink-grey);
+  font-family: var(--font-role-body);
+  font-size: var(--font-size-role-body-14);
+  cursor: pointer;
+  transition: border-color 0.18s ease, background 0.18s ease, color 0.18s ease, transform 0.18s ease;
+}
+
+.ui-modal-main-tab:hover {
+  color: var(--ink-black);
+  border-color: rgba(133, 68, 45, 0.34);
+  transform: translateY(-1px);
+}
+
+.ui-modal-main-tab.active {
+  color: var(--ink-black);
+  border-color: rgba(133, 68, 45, 0.42);
+  background:
+    linear-gradient(180deg, rgba(214, 188, 142, 0.24), rgba(197, 60, 60, 0.08)),
+    var(--surface-elevated);
+  box-shadow: inset 0 -2px 0 rgba(197, 60, 60, 0.72);
+}
+
+.ui-split-panel-shell {
+  display: grid;
+  grid-template-columns: 188px minmax(0, 1fr);
+  gap: 16px;
+  height: 100%;
+  min-height: 0;
+}
+
+.ui-split-panel-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.ui-split-panel-tab {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  min-height: var(--ui-split-panel-tab-min-height, 46px);
+  padding: 10px 12px;
+  border: 1px solid var(--wash-ink);
+  background: linear-gradient(180deg, var(--surface-elevated), var(--surface-muted));
+  color: var(--ink-grey);
+  font-family: var(--font-role-body);
+  font-size: var(--font-size-role-body-14);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.18s ease, background 0.18s ease, color 0.18s ease, transform 0.18s ease;
+}
+
+.ui-split-panel-tab:hover {
+  color: var(--ink-black);
+  border-color: rgba(133, 68, 45, 0.34);
+  transform: translateX(2px);
+}
+
+.ui-split-panel-tab.active {
+  color: var(--ink-black);
+  border-color: rgba(133, 68, 45, 0.42);
+  background:
+    linear-gradient(180deg, rgba(214, 188, 142, 0.24), rgba(197, 60, 60, 0.08)),
+    var(--surface-elevated);
+  box-shadow: inset 3px 0 0 rgba(197, 60, 60, 0.72);
+}
+
+.ui-split-panel-tab-label {
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.35;
+}
+
+.ui-split-panel-content {
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.ui-inline-actions-end {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.ui-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.ui-stat-card {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 1px solid var(--wash-ink);
+  background: var(--surface-muted);
+}
+
+.ui-stat-card-label {
+  color: var(--ink-grey);
+  font-size: var(--font-size-11);
+  letter-spacing: 0.08em;
+}
+
+.ui-stat-card-value {
+  color: var(--ink-black);
+  font-family: var(--font-role-body);
+  font-size: var(--font-size-role-body-24);
+  line-height: 1;
+}
+
+.ui-stat-card-note {
+  color: var(--ink-grey);
+  font-size: var(--font-size-11);
+  line-height: 1.35;
+}
+
+.ui-three-pane-layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 340px) minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
+  min-height: 0;
+}
+
+.ui-pane-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--wash-ink);
+}
+
+.ui-tab-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ui-tab-row-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 6px 12px;
+  border: 1px solid var(--ink-light);
+  background: var(--surface-base);
+  color: var(--ink-grey);
+  font-family: var(--font-role-body);
+  font-size: var(--font-size-role-body-13);
+  cursor: pointer;
+  transition: border-color 0.18s ease, background 0.18s ease, color 0.18s ease;
+}
+
+.ui-tab-row-btn:hover {
+  border-color: var(--ink-dark);
+  color: var(--ink-black);
+}
+
+.ui-tab-row-btn.active {
+  border-color: var(--stamp-red);
+  background: rgba(197, 60, 60, 0.08);
+  color: var(--ink-black);
+}
+
+.ui-pane-note {
+  color: var(--ink-grey);
+  font-size: var(--font-size-11);
+}
+
+.ui-list-toolbar {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.ui-list-toolbar-note {
+  color: var(--ink-grey);
+  font-size: var(--font-size-11);
+}
+
+.ui-form-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.ui-form-actions .small-btn {
+  min-width: 112px;
+}
+
+.ui-tabbed-modal-shell {
+  display: grid;
+  gap: 14px;
+}
+
+.ui-tabbed-modal-tabs {
+  display: flex;
+  gap: 8px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--wash-ink);
+}
+
+.ui-tabbed-modal-tab {
+  min-width: 120px;
+  padding: 8px 14px;
+  border: 1px solid var(--ink-light);
+  background: var(--surface-elevated);
+  color: var(--ink-grey);
+  font-family: var(--font-role-body);
+  font-size: var(--font-size-role-body-14);
+  cursor: pointer;
+  transition: border-color 0.18s ease, background 0.18s ease, color 0.18s ease;
+}
+
+.ui-tabbed-modal-tab:hover {
+  border-color: var(--ink-dark);
+  color: var(--ink-black);
+}
+
+.ui-tabbed-modal-tab.active {
+  border-color: var(--stamp-red);
+  background: rgba(197, 60, 60, 0.08);
+  color: var(--ink-black);
+}
+
+.ui-tabbed-modal-pane {
+  display: none;
+  min-height: 0;
+}
+
+.ui-tabbed-modal-pane.active {
+  display: block;
+}
+
+.ui-inline-actions-end-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}

@@ -1,4 +1,4 @@
-import type { MonsterTier } from '@mud/shared';
+import type { MonsterTier } from '@mud/shared-next';
 
 /** MonsterPresentation：定义该接口的能力与字段约束。 */
 export interface MonsterPresentation {

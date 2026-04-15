@@ -13,7 +13,7 @@ import {
   QUEST_STATUS_LABELS,
   TechniqueRealm,
   TECHNIQUE_REALM_LABELS,
-} from '@mud/shared';
+} from '@mud/shared-next';
 
 /** GM 面板中的朝向选项。 */
 export const GM_FACING_OPTIONS = ([

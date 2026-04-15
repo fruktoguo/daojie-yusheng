@@ -8,7 +8,7 @@ type MinimapSceneInput = Parameters<Minimap['updateScene']>[0];
 export class MinimapRuntime {
   private readonly minimap = new Minimap();
 
-  setMoveHandler(handler: ((target: { mapId: string; x: number; y: number; isCurrentMap: boolean }) => void) | null): void {
+  setMoveHandler(handler: ((x: number, y: number) => void) | null): void {
     this.minimap.setMoveHandler(handler);
   }
 

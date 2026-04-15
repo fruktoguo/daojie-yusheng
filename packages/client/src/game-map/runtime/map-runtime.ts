@@ -1,13 +1,15 @@
-import { VIEW_RADIUS } from '@mud/shared';
+import { VIEW_RADIUS } from '@mud/shared-next';
 import { getCellSize } from '../../display';
 import { CameraController } from '../camera/camera-controller';
 import { InteractionController } from '../interaction/interaction-controller';
 import { MinimapRuntime } from '../minimap/minimap-runtime';
 import { TopdownProjection } from '../projection/topdown-projection';
-import { LegacyCanvasTextRendererAdapter } from '../renderer/legacy-canvas-text-renderer-adapter';
+import { CanvasTextRendererAdapter } from '../renderer/canvas-text-renderer-adapter';
 import { MapScene } from '../scene/map-scene';
 import { MapStore } from '../store/map-store';
 import type {
+  MapNextSelfDeltaInput,
+  MapNextWorldDeltaInput,
   MapRuntimeApi,
   MapRuntimeInteractionCallbacks,
   MapSafeAreaInsets,
@@ -23,7 +25,7 @@ export class MapRuntime implements MapRuntimeApi {
   private readonly viewport = new ViewportController();
   private readonly camera = new CameraController();
   private readonly projection = new TopdownProjection();
-  private readonly renderer = new LegacyCanvasTextRendererAdapter();
+  private readonly renderer = new CanvasTextRendererAdapter();
   private readonly minimap = new MinimapRuntime();
   private readonly interaction = new InteractionController(
     () => this.store.getSnapshot(),
@@ -38,6 +40,8 @@ export class MapRuntime implements MapRuntimeApi {
 /** frameHandle：定义该变量以承载业务值。 */
   private frameHandle: number | null = null;
   private lastFrameAt = performance.now();
+/** safeArea：定义该变量以承载业务值。 */
+  private safeArea: MapSafeAreaInsets = { ...DEFAULT_SAFE_AREA };
 
 /** attach：执行对应的业务逻辑。 */
   attach(host: HTMLElement): void {
@@ -79,8 +83,9 @@ export class MapRuntime implements MapRuntimeApi {
 
 /** setSafeArea：执行对应的业务逻辑。 */
   setSafeArea(insets: MapSafeAreaInsets): void {
-    this.viewport.setSafeArea(insets);
-    this.camera.setSafeArea(insets);
+    this.safeArea = { ...insets };
+    this.viewport.setSafeArea(this.safeArea);
+    this.camera.setSafeArea(this.safeArea);
     this.syncViewportDerivedState(true);
   }
 
@@ -91,28 +96,49 @@ export class MapRuntime implements MapRuntimeApi {
 
   setProjection(_mode: 'topdown'): void {}
 
-/** applyInit：执行对应的业务逻辑。 */
-  applyInit(data: Parameters<MapRuntimeApi['applyInit']>[0]): void {
-    this.store.applyInit(data);
-    this.camera.setSafeArea(DEFAULT_SAFE_AREA);
+/** setTickDurationMs：执行对应的业务逻辑。 */
+  setTickDurationMs(durationMs: number): void {
+    this.store.setTickDurationMs(durationMs);
+  }
+
+/** applyBootstrap：执行对应的业务逻辑。 */
+  applyBootstrap(data: Parameters<MapRuntimeApi['applyBootstrap']>[0]): void {
+    this.store.applyBootstrap(data);
+    this.viewport.setSafeArea(this.safeArea);
+    this.camera.setSafeArea(this.safeArea);
     this.camera.snap(data.self.x, data.self.y);
     this.syncViewportDerivedState(true);
   }
 
-/** applyMapStaticSync：执行对应的业务逻辑。 */
-  applyMapStaticSync(data: Parameters<MapRuntimeApi['applyMapStaticSync']>[0]): void {
-    this.store.applyMapStaticSync(data);
+/** applyMapStatic：执行对应的业务逻辑。 */
+  applyMapStatic(data: Parameters<MapRuntimeApi['applyMapStatic']>[0]): void {
+    this.store.applyMapStatic(data);
     this.syncSceneFromStore();
   }
 
-/** applyTick：执行对应的业务逻辑。 */
-  applyTick(data: Parameters<MapRuntimeApi['applyTick']>[0]): void {
-/** previousMapId：定义该变量以承载业务值。 */
-    const previousMapId = this.store.getSnapshot().player?.mapId ?? null;
-    for (const effect of data.fx ?? []) {
+/** applyNextWorldDelta：执行对应的业务逻辑。 */
+  applyNextWorldDelta(data: MapNextWorldDeltaInput): void {
+    for (const effect of data.effects ?? []) {
       this.renderer.enqueueEffect(effect);
     }
-    this.store.applyTick(data);
+    this.store.applyNextWorldDelta(data);
+/** snapshot：定义该变量以承载业务值。 */
+    const snapshot = this.store.getSnapshot();
+    if (snapshot.player) {
+      if (snapshot.entityTransition?.snapCamera) {
+        this.camera.snap(snapshot.player.x, snapshot.player.y);
+      } else {
+        this.camera.follow(snapshot.player.x, snapshot.player.y);
+      }
+    }
+    this.syncViewportDerivedState(false);
+  }
+
+/** applyNextSelfDelta：执行对应的业务逻辑。 */
+  applyNextSelfDelta(data: MapNextSelfDeltaInput): void {
+/** previousMapId：定义该变量以承载业务值。 */
+    const previousMapId = this.store.getSnapshot().player?.mapId ?? null;
+    this.store.applyNextSelfDelta(data);
 /** snapshot：定义该变量以承载业务值。 */
     const snapshot = this.store.getSnapshot();
     if (previousMapId && snapshot.player?.mapId !== previousMapId) {
@@ -132,6 +158,8 @@ export class MapRuntime implements MapRuntimeApi {
   reset(): void {
     this.store.reset();
     this.camera.reset();
+    this.viewport.setSafeArea(this.safeArea);
+    this.camera.setSafeArea(this.safeArea);
     this.renderer.resetScene();
     this.minimap.clear();
     this.currentScene = this.sceneBuilder.build(this.store.getSnapshot());
@@ -142,7 +170,7 @@ export class MapRuntime implements MapRuntimeApi {
     this.interaction.setCallbacks(callbacks);
   }
 
-  setMoveHandler(handler: ((target: { mapId: string; x: number; y: number; isCurrentMap: boolean }) => void) | null): void {
+  setMoveHandler(handler: ((x: number, y: number) => void) | null): void {
     this.minimap.setMoveHandler(handler);
   }
 
@@ -267,4 +295,3 @@ export class MapRuntime implements MapRuntimeApi {
 export function createMapRuntime(): MapRuntimeApi {
   return new MapRuntime();
 }
-

@@ -1,7 +1,7 @@
 /**
  * GM 地图编辑器常量 —— 控制画笔、选区与视图相关选项，便于与 UI 展示分离。
  */
-import { TileType } from '@mud/shared';
+import { TileType } from '@mud/shared-next';
 
 /** 可直接绘制的地块类型列表，保持与地图编辑器画笔一致。 */
 export const PAINT_TILE_TYPES: TileType[] = [
@@ -21,8 +21,6 @@ export const PAINT_TILE_TYPES: TileType[] = [
   TileType.Cliff,
   TileType.Mud,
   TileType.Swamp,
-  TileType.ColdBog,
-  TileType.MoltenPool,
   TileType.Water,
   TileType.Cloud,
   TileType.CloudFloor,
@@ -41,11 +39,11 @@ export const TOOL_OPTIONS: Array<{ value: 'select' | 'paint' | 'pan'; label: str
   { value: 'pan', label: '平移', note: '左键拖动画布' },
 ];
 
-/** 可绘制图层配置，支持地块、无属性灵气与五行灵气。 */
+/** 可绘制图层配置，支持地块、无属性灵气与通用气机。 */
 export const PAINT_LAYER_OPTIONS: Array<{ value: 'tile' | 'aura' | 'resource'; label: string }> = [
   { value: 'tile', label: '地块' },
   { value: 'aura', label: '无属性灵气' },
-  { value: 'resource', label: '五行灵气' },
+  { value: 'resource', label: '气机' },
 ];
 
 /** 灵气刷子等级，用于快速切换。 */
@@ -55,12 +53,12 @@ export const AURA_BRUSH_LEVELS = [0, 1, 2, 3, 4, 5, 6] as const;
 export const INSPECTOR_TABS: Array<{ value: 'selection' | 'meta' | 'compose' | 'portal' | 'npc' | 'monster' | 'aura' | 'resource' | 'safeZone' | 'landmark' | 'container'; label: string }> = [
   { value: 'selection', label: '选区' },
   { value: 'meta', label: '地图' },
-  { value: 'aura', label: '无属性灵气' },
-  { value: 'resource', label: '五行灵气' },
   { value: 'compose', label: '拼图' },
   { value: 'portal', label: '传送点' },
   { value: 'npc', label: 'NPC' },
   { value: 'monster', label: '怪物' },
+  { value: 'aura', label: '无属性灵气' },
+  { value: 'resource', label: '气机' },
   { value: 'safeZone', label: '安全区' },
   { value: 'landmark', label: '地标' },
   { value: 'container', label: '容器' },

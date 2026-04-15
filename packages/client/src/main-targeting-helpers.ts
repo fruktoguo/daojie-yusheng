@@ -3,11 +3,10 @@ import {
   encodeTileTargetRef,
   GridPoint,
   PlayerState,
-  resolveTargetingGeometry,
   SkillDef,
   TargetingGeometrySpec,
   TargetingShape,
-} from '@mud/shared';
+} from '@mud/shared-next';
 
 /** TargetingActionState：定义该类型的结构与数据语义。 */
 export type TargetingActionState = {
@@ -17,11 +16,9 @@ export type TargetingActionState = {
   range: number;
   shape?: TargetingShape;
   radius?: number;
-  innerRadius?: number;
   width?: number;
   height?: number;
   targetMode?: string;
-  maxTargets?: number;
 };
 
 /** TargetingTarget：定义该类型的结构与数据语义。 */
@@ -41,8 +38,6 @@ export type TargetingEntityLike = {
   wx: number;
 /** wy：定义该变量以承载业务值。 */
   wy: number;
-  hp?: number;
-  maxHp?: number;
 };
 
 /** TargetTileLike：定义该类型的结构与数据语义。 */
@@ -63,62 +58,40 @@ export function getSkillDefByActionId(myPlayer: PlayerState | null, actionId: st
   return null;
 }
 
-/** getPlayerTargetingModifiers：执行对应的业务逻辑。 */
-export function getPlayerTargetingModifiers(
-  numericStats?: PlayerState['numericStats'] | null,
-): { extraRange: number; extraArea: number } | undefined {
-  if (!numericStats) {
-    return undefined;
-  }
-  return {
-    extraRange: Math.max(0, Math.floor(numericStats.extraRange ?? 0)),
-    extraArea: Math.max(0, Math.floor(numericStats.extraArea ?? 0)),
-  };
-}
-
-/** getEffectiveTargetingGeometry：执行对应的业务逻辑。 */
-export function getEffectiveTargetingGeometry(
-  action: Pick<TargetingActionState, 'actionId' | 'range' | 'shape' | 'radius' | 'innerRadius' | 'width' | 'height'>,
+/** getCurrentSkillTargetingSpec：执行对应的业务逻辑。 */
+export function getCurrentSkillTargetingSpec(
+  action: Pick<TargetingActionState, 'actionId' | 'range' | 'shape' | 'radius' | 'width' | 'height'>,
   myPlayer: PlayerState | null,
 ): TargetingGeometrySpec {
 /** skill：定义该变量以承载业务值。 */
-  const skill = getSkillDefByActionId(myPlayer, action.actionId);
-/** baseSpec：定义该变量以承载业务值。 */
-  const baseSpec: TargetingGeometrySpec = {
+  const skill = myPlayer
+    ? myPlayer.techniques
+      .flatMap((technique) => technique.skills)
+      .find((skill) => skill.id === action.actionId)
+    : null;
+  return {
     range: Math.max(1, skill?.range ?? action.range),
     shape: skill?.targeting?.shape ?? action.shape ?? 'single',
     radius: skill?.targeting?.radius ?? action.radius,
-    innerRadius: skill?.targeting?.innerRadius ?? action.innerRadius,
     width: skill?.targeting?.width ?? action.width,
     height: skill?.targeting?.height ?? action.height,
   };
-  if (!skill) {
-    return baseSpec;
-  }
-
-/** modifiers：定义该变量以承载业务值。 */
-  const modifiers = getPlayerTargetingModifiers(myPlayer?.numericStats);
-  return resolveTargetingGeometry(baseSpec, {
-    finalRange: Math.max(0, Math.floor(baseSpec.range) + Math.max(0, Math.floor(modifiers?.extraRange ?? 0))),
-    extraArea: Math.max(0, Math.floor(modifiers?.extraArea ?? 0)),
-  });
 }
 
 /** resolveCurrentTargetingRange：执行对应的业务逻辑。 */
 export function resolveCurrentTargetingRange(
-  action: Pick<TargetingActionState, 'actionId' | 'range' | 'shape' | 'radius' | 'innerRadius' | 'width' | 'height'>,
-  myPlayer: PlayerState | null,
+  action: Pick<TargetingActionState, 'actionId' | 'range'>,
   infoRadius: number,
 ): number {
   if (action.actionId === 'client:observe' || action.actionId === 'battle:force_attack') {
     return Math.max(1, infoRadius);
   }
-  return Math.max(1, getEffectiveTargetingGeometry(action, myPlayer).range);
+  return Math.max(1, action.range);
 }
 
 /** computeAffectedCellsForAction：执行对应的业务逻辑。 */
 export function computeAffectedCellsForAction(
-  action: Pick<TargetingActionState, 'actionId' | 'range' | 'shape' | 'radius' | 'innerRadius' | 'width' | 'height'>,
+  action: Pick<TargetingActionState, 'actionId' | 'range' | 'shape' | 'radius' | 'width' | 'height'>,
   anchor: GridPoint,
   myPlayer: PlayerState | null,
 ): GridPoint[] {
@@ -126,13 +99,13 @@ export function computeAffectedCellsForAction(
     return [];
   }
 /** spec：定义该变量以承载业务值。 */
-  const spec = getEffectiveTargetingGeometry(action, myPlayer);
+  const spec = getCurrentSkillTargetingSpec(action, myPlayer);
   return computeAffectedCellsFromAnchor({ x: myPlayer.x, y: myPlayer.y }, anchor, spec);
 }
 
 /** resolveTargetRefForAction：执行对应的业务逻辑。 */
 export function resolveTargetRefForAction(
-  action: Pick<TargetingActionState, 'actionId' | 'shape' | 'range' | 'radius' | 'innerRadius' | 'width' | 'height' | 'targetMode'>,
+  action: Pick<TargetingActionState, 'actionId' | 'range' | 'shape' | 'radius' | 'width' | 'height' | 'targetMode'>,
   target: TargetingTarget,
   myPlayer: PlayerState | null,
 ): string | null {
@@ -142,18 +115,15 @@ export function resolveTargetRefForAction(
     : target.entityKind === 'monster' && target.entityId
       ? target.entityId
       : null;
-
 /** geometry：定义该变量以承载业务值。 */
-  const geometry = getEffectiveTargetingGeometry(action, myPlayer);
-  if ((geometry.shape ?? 'single') !== 'single') {
+  const geometry = myPlayer ? getCurrentSkillTargetingSpec(action, myPlayer).shape : action.shape;
+  if (geometry && geometry !== 'single') {
     return encodeTileTargetRef({ x: target.x, y: target.y });
   }
-/** targetMode：定义该变量以承载业务值。 */
-  const targetMode = action.targetMode;
-  if (targetMode === 'entity') {
+  if (action.targetMode === 'entity') {
     return entityTargetRef;
   }
-  if (targetMode === 'tile') {
+  if (action.targetMode === 'tile') {
     return encodeTileTargetRef({ x: target.x, y: target.y });
   }
   if (entityTargetRef) {
@@ -164,7 +134,7 @@ export function resolveTargetRefForAction(
 
 /** hasAffectableTargetInArea：执行对应的业务逻辑。 */
 export function hasAffectableTargetInArea(
-  action: Pick<TargetingActionState, 'actionId' | 'shape' | 'range' | 'radius' | 'innerRadius' | 'width' | 'height'>,
+  action: Pick<TargetingActionState, 'actionId' | 'shape' | 'range' | 'radius' | 'width' | 'height'>,
   anchorX: number,
   anchorY: number,
   myPlayer: PlayerState | null,
@@ -175,9 +145,9 @@ export function hasAffectableTargetInArea(
     isPlayerLikeEntityKind: (kind: string | null | undefined) => boolean;
   },
 ): boolean {
-/** geometry：定义该变量以承载业务值。 */
-  const geometry = getEffectiveTargetingGeometry(action, myPlayer);
-  if (!geometry.shape || geometry.shape === 'single') {
+/** spec：定义该变量以承载业务值。 */
+  const spec = getCurrentSkillTargetingSpec(action, myPlayer);
+  if (!spec.shape || spec.shape === 'single') {
     return true;
   }
 /** origin：定义该变量以承载业务值。 */
@@ -191,18 +161,8 @@ export function hasAffectableTargetInArea(
 /** hasMonster：定义该变量以承载业务值。 */
     const hasMonster = args.entities.some((entity) => entity.kind === 'monster' && entity.wx === cell.x && entity.wy === cell.y);
 /** hasPlayer：定义该变量以承载业务值。 */
-    const hasPlayer = args.entities.some(
-      (entity) => args.isPlayerLikeEntityKind(entity.kind) && entity.wx === cell.x && entity.wy === cell.y,
-    );
-/** hasAttackableContainer：定义该变量以承载业务值。 */
-    const hasAttackableContainer = args.entities.some((entity) => (
-      entity.kind === 'container'
-      && entity.wx === cell.x
-      && entity.wy === cell.y
-      && (entity.hp ?? 0) > 0
-      && (entity.maxHp ?? 0) > 0
-    ));
-    if (hasMonster || hasPlayer || hasAttackableContainer) {
+    const hasPlayer = args.entities.some((entity) => args.isPlayerLikeEntityKind(entity.kind) && entity.wx === cell.x && entity.wy === cell.y);
+    if (hasMonster || hasPlayer) {
       return true;
     }
 /** tile：定义该变量以承载业务值。 */

@@ -54,7 +54,7 @@ export default defineConfig(({ mode }) => {
     plugins: [createBuildVersionPlugin(buildId, builtAt)],
     resolve: {
       alias: {
-        '@mud/shared': path.resolve(__dirname, '../shared/src'),
+        '@mud/shared-next': path.resolve(__dirname, '../shared/src'),
       },
     },
     build: {
@@ -89,9 +89,9 @@ export default defineConfig(({ mode }) => {
     server: proxyTarget
       ? {
           proxy: {
-            '/auth': proxyTarget,
-            '/account': proxyTarget,
-            '/gm/': proxyTarget,
+            '/api/auth': proxyTarget,
+            '/api/account': proxyTarget,
+            '/api/gm': proxyTarget,
             '/integrations/': proxyTarget,
             '/socket.io': {
               target: proxyTarget,
@@ -102,4 +102,3 @@ export default defineConfig(({ mode }) => {
       : undefined,
   };
 });
-

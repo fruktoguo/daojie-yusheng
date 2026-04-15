@@ -1,130 +1,10 @@
 /**
  * 前后端通信协议：事件名定义与所有 Payload 类型。
- * C2S = 客户端→服务端，S2C = 服务端→客户端。
+ * NEXT_C2S = 客户端→服务端，NEXT_S2C = 服务端→客户端。
  */
 import type { ElementKey } from './numeric';
-import { Direction, PlayerState, Tile, VisibleTile, RenderEntity, MapMeta, Attributes, Inventory, EquipmentSlots, TechniqueState, ActionDef, AttrBonus, EquipSlot, EntityKind, NpcQuestMarker, ObservationInsight, PlayerRealmState, PlayerSpecialStats, QuestState, CombatEffect, AutoBattleSkillConfig, AutoBattleTargetingMode, AutoUsePillConfig, ItemType, QuestLine, QuestObjectiveType, GameTimeState, MapTimeConfig, MonsterAggroMode, MonsterInitialBuffDef, MonsterTier, NumericStatPercentages, TechniqueCategory, TechniqueGrade, GroundItemPileView, LootSearchProgressView, VisibleBuffState, TemporaryBuffState, ActionType, SkillDef, TechniqueAttrCurves, TechniqueLayerDef, TechniqueRealm, GroundItemEntryView, LootSourceKind, LootSourceVariant, LootWindowHerbMeta, MapMinimapArchiveEntry, MapMinimapMarker, MapMinimapSnapshot, Suggestion, ItemStack, EquipmentEffectDef, ConsumableBuffDef, MarketListedItemView, MarketOrderBookView, MarketOwnOrderView, MarketStorage, MarketTradeHistoryEntryView, MarketPriceLevelView, MarketOrderSide, MapRouteDomain, PortalRouteDomain, MailSummaryView, MailPageView, MailDetailView, MailFilter, MailTemplateArg, MailAttachment, BodyTrainingState, AlchemyIngredientSelection, AlchemyRecipeCatalogEntry, SyncedAlchemyPanelState, EnhancementTargetRef, SyncedEnhancementPanelState } from './types';
-import { NumericRatioDivisors, NumericStatBreakdownMap, NumericStats } from './numeric';
-
-// ===== 事件名 =====
-
-/** 客户端 → 服务端 */
-export const C2S = {
-  Move: 'c:move',
-  MoveTo: 'c:moveTo',
-  NavigateQuest: 'c:navigateQuest',
-  NavigateMapPoint: 'c:navigateMapPoint',
-  Heartbeat: 'c:heartbeat',
-  Ping: 'c:ping',
-  GmGetState: 'c:gmGetState',
-  GmSpawnBots: 'c:gmSpawnBots',
-  GmRemoveBots: 'c:gmRemoveBots',
-  GmUpdatePlayer: 'c:gmUpdatePlayer',
-  GmResetPlayer: 'c:gmResetPlayer',
-  Action: 'c:action',
-  UpdateAutoBattleSkills: 'c:updateAutoBattleSkills',
-  UpdateAutoUsePills: 'c:updateAutoUsePills',
-  UpdateCombatTargetingRules: 'c:updateCombatTargetingRules',
-  UpdateAutoBattleTargetingMode: 'c:updateAutoBattleTargetingMode',
-  UpdateTechniqueSkillAvailability: 'c:updateTechniqueSkillAvailability',
-  DebugResetSpawn: 'c:debugResetSpawn',
-  Chat: 'c:chat',
-  AckSystemMessages: 'c:ackSystemMessages',
-  UseItem: 'c:useItem',
-  DropItem: 'c:dropItem',
-  DestroyItem: 'c:destroyItem',
-  TakeLoot: 'c:takeLoot',
-  CloseLootWindow: 'c:closeLootWindow',
-  SortInventory: 'c:sortInventory',
-  InspectTileRuntime: 'c:inspectTileRuntime',
-  Equip: 'c:equip',
-  Unequip: 'c:unequip',
-  Cultivate: 'c:cultivate',
-  RequestSuggestions: 'c:requestSuggestions',
-  RequestMailSummary: 'c:requestMailSummary',
-  RequestMailPage: 'c:requestMailPage',
-  RequestMailDetail: 'c:requestMailDetail',
-  RedeemCodes: 'c:redeemCodes',
-  MarkMailRead: 'c:markMailRead',
-  ClaimMailAttachments: 'c:claimMailAttachments',
-  DeleteMail: 'c:deleteMail',
-  CreateSuggestion: 'c:createSuggestion',
-  VoteSuggestion: 'c:voteSuggestion',
-  ReplySuggestion: 'c:replySuggestion',
-  MarkSuggestionRepliesRead: 'c:markSuggestionRepliesRead',
-  GmMarkSuggestionCompleted: 'c:gmMarkSuggestionCompleted',
-  GmRemoveSuggestion: 'c:gmRemoveSuggestion',
-  RequestMarket: 'c:requestMarket',
-  RequestMarketListings: 'c:requestMarketListings',
-  RequestMarketItemBook: 'c:requestMarketItemBook',
-  RequestMarketTradeHistory: 'c:requestMarketTradeHistory',
-  RequestAttrDetail: 'c:requestAttrDetail',
-  RequestLeaderboard: 'c:requestLeaderboard',
-  RequestWorldSummary: 'c:requestWorldSummary',
-  CreateMarketSellOrder: 'c:createMarketSellOrder',
-  CreateMarketBuyOrder: 'c:createMarketBuyOrder',
-  BuyMarketItem: 'c:buyMarketItem',
-  SellMarketItem: 'c:sellMarketItem',
-  CancelMarketOrder: 'c:cancelMarketOrder',
-  ClaimMarketStorage: 'c:claimMarketStorage',
-  RequestNpcShop: 'c:requestNpcShop',
-  BuyNpcShopItem: 'c:buyNpcShopItem',
-  RequestAlchemyPanel: 'c:requestAlchemyPanel',
-  SaveAlchemyPreset: 'c:saveAlchemyPreset',
-  DeleteAlchemyPreset: 'c:deleteAlchemyPreset',
-  StartAlchemy: 'c:startAlchemy',
-  CancelAlchemy: 'c:cancelAlchemy',
-  RequestEnhancementPanel: 'c:requestEnhancementPanel',
-  StartEnhancement: 'c:startEnhancement',
-  CancelEnhancement: 'c:cancelEnhancement',
-  HeavenGateAction: 'c:heavenGateAction',
-} as const;
-
-/** 服务端 → 客户端 */
-export const S2C = {
-  Init: 's:init',
-  Tick: 's:tick',
-  MapStaticSync: 's:mapStaticSync',
-  RealmUpdate: 's:realmUpdate',
-  Pong: 's:pong',
-  GmState: 's:gmState',
-  // 预留事件：当前服务端尚未正式使用
-  Enter: 's:enter',
-  Leave: 's:leave',
-  Kick: 's:kick',
-  Error: 's:error',
-  // 预留事件：当前服务端尚未正式使用
-  Dead: 's:dead',
-  Respawn: 's:respawn',
-  AttrUpdate: 's:attrUpdate',
-  InventoryUpdate: 's:inventoryUpdate',
-  EquipmentUpdate: 's:equipmentUpdate',
-  TechniqueUpdate: 's:techniqueUpdate',
-  ActionsUpdate: 's:actionsUpdate',
-  LootWindowUpdate: 's:lootWindowUpdate',
-  TileRuntimeDetail: 's:tileRuntimeDetail',
-  QuestUpdate: 's:questUpdate',
-  QuestNavigateResult: 's:questNavigateResult',
-  SystemMsg: 's:systemMsg',
-  MailSummary: 's:mailSummary',
-  MailPage: 's:mailPage',
-  MailDetail: 's:mailDetail',
-  RedeemCodesResult: 's:redeemCodesResult',
-  MailOpResult: 's:mailOpResult',
-  SuggestionUpdate: 's:suggestionUpdate',
-  MarketUpdate: 's:marketUpdate',
-  MarketListings: 's:marketListings',
-  MarketOrders: 's:marketOrders',
-  MarketStorage: 's:marketStorage',
-  MarketItemBook: 's:marketItemBook',
-  MarketTradeHistory: 's:marketTradeHistory',
-  AttrDetail: 's:attrDetail',
-  Leaderboard: 's:leaderboard',
-  WorldSummary: 's:worldSummary',
-  NpcShop: 's:npcShop',
-  AlchemyPanel: 's:alchemyPanel',
-  EnhancementPanel: 's:enhancementPanel',
-} as const;
+import { Direction, PlayerState, Tile, VisibleTile, RenderEntity, MapMeta, Attributes, Inventory, EquipmentSlots, TechniqueState, ActionDef, AttrBonus, EquipSlot, EntityKind, NpcQuestMarker, ObservationInsight, PlayerRealmState, PlayerRealmStage, PlayerSpecialStats, QuestState, CombatEffect, AutoBattleSkillConfig, AutoUsePillConfig, AutoBattleTargetingMode, CombatTargetingRules, ItemType, QuestLine, QuestObjectiveType, GameTimeState, MapTimeConfig, MonsterAggroMode, MonsterTier, NumericStatPercentages, TechniqueCategory, TechniqueGrade, GroundItemPileView, LootSearchProgressView, VisibleBuffState, TemporaryBuffState, ActionType, SkillDef, TechniqueAttrCurves, TechniqueLayerDef, TechniqueRealm, GroundItemEntryView, LootSourceKind, MapMinimapArchiveEntry, MapMinimapMarker, MapMinimapSnapshot, Suggestion, ItemStack, EquipmentEffectDef, ConsumableBuffDef, MarketListedItemView, MarketOrderBookView, MarketOwnOrderView, MarketStorage, MarketTradeHistoryEntryView, MapRouteDomain, PortalRouteDomain, MailSummaryView, MailPageView, MailDetailView, MailFilter, MailTemplateArg, MailAttachment, BodyTrainingState, AlchemyIngredientSelection, AlchemyRecipeCatalogEntry, SyncedAlchemyPanelState, EnhancementTargetRef, SyncedEnhancementPanelState } from './types';
+import { NumericRatioDivisors, NumericStats, NumericStatBreakdownMap } from './numeric';
 
 /** server-next 客户端 → 服务端 */
 export const NEXT_C2S = {
@@ -132,8 +12,8 @@ export const NEXT_C2S = {
   Move: 'n:c:move',
   MoveTo: 'n:c:moveTo',
   NavigateQuest: 'n:c:navigateQuest',
+  Heartbeat: 'n:c:heartbeat',
   UseAction: 'n:c:useAction',
-  UpdateTechniqueSkillAvailability: 'n:c:updateTechniqueSkillAvailability',
   RequestDetail: 'n:c:requestDetail',
   RequestTileDetail: 'n:c:requestTileDetail',
   GmGetState: 'n:c:gmGetState',
@@ -160,8 +40,12 @@ export const NEXT_C2S = {
   AcceptNpcQuest: 'n:c:acceptNpcQuest',
   SubmitNpcQuest: 'n:c:submitNpcQuest',
   RequestMarket: 'n:c:requestMarket',
+  RequestMarketListings: 'n:c:requestMarketListings',
   RequestMarketItemBook: 'n:c:requestMarketItemBook',
   RequestMarketTradeHistory: 'n:c:requestMarketTradeHistory',
+  RequestAttrDetail: 'n:c:requestAttrDetail',
+  RequestLeaderboard: 'n:c:requestLeaderboard',
+  RequestWorldSummary: 'n:c:requestWorldSummary',
   CreateMarketSellOrder: 'n:c:createMarketSellOrder',
   CreateMarketBuyOrder: 'n:c:createMarketBuyOrder',
   BuyMarketItem: 'n:c:buyMarketItem',
@@ -180,10 +64,19 @@ export const NEXT_C2S = {
   CastSkill: 'n:c:castSkill',
   RequestNpcShop: 'n:c:requestNpcShop',
   BuyNpcShopItem: 'n:c:buyNpcShopItem',
+  RequestAlchemyPanel: 'n:c:requestAlchemyPanel',
+  SaveAlchemyPreset: 'n:c:saveAlchemyPreset',
+  DeleteAlchemyPreset: 'n:c:deleteAlchemyPreset',
+  StartAlchemy: 'n:c:startAlchemy',
+  CancelAlchemy: 'n:c:cancelAlchemy',
+  RequestEnhancementPanel: 'n:c:requestEnhancementPanel',
+  StartEnhancement: 'n:c:startEnhancement',
+  CancelEnhancement: 'n:c:cancelEnhancement',
   UpdateAutoBattleSkills: 'n:c:updateAutoBattleSkills',
   UpdateAutoUsePills: 'n:c:updateAutoUsePills',
   UpdateCombatTargetingRules: 'n:c:updateCombatTargetingRules',
   UpdateAutoBattleTargetingMode: 'n:c:updateAutoBattleTargetingMode',
+  UpdateTechniqueSkillAvailability: 'n:c:updateTechniqueSkillAvailability',
   DebugResetSpawn: 'n:c:debugResetSpawn',
   Chat: 'n:c:chat',
   AckSystemMessages: 'n:c:ackSystemMessages',
@@ -213,11 +106,19 @@ export const NEXT_S2C = {
   Quests: 'n:s:quests',
   NpcQuests: 'n:s:npcQuests',
   MarketUpdate: 'n:s:marketUpdate',
+  MarketListings: 'n:s:marketListings',
+  MarketOrders: 'n:s:marketOrders',
+  MarketStorage: 'n:s:marketStorage',
   MarketItemBook: 'n:s:marketItemBook',
   MarketTradeHistory: 'n:s:marketTradeHistory',
+  AttrDetail: 'n:s:attrDetail',
+  Leaderboard: 'n:s:leaderboard',
+  WorldSummary: 'n:s:worldSummary',
   Detail: 'n:s:detail',
   TileDetail: 'n:s:tileDetail',
   NpcShop: 'n:s:npcShop',
+  AlchemyPanel: 'n:s:alchemyPanel',
+  EnhancementPanel: 'n:s:enhancementPanel',
   GmState: 'n:s:gmState',
   Error: 'n:s:error',
   Kick: 'n:s:kick',
@@ -273,6 +174,38 @@ export interface NEXT_S2C_GmState {
 /** perf：定义该变量以承载业务值。 */
   perf: GmPerformanceSnapshot;
 }
+
+/** NEXT_S2C_InitSession：定义该接口的能力与字段约束。 */
+export interface NEXT_S2C_InitSession {
+/** sid：定义该变量以承载业务值。 */
+  sid: string;
+/** pid：定义该变量以承载业务值。 */
+  pid: string;
+/** t：定义该变量以承载业务值。 */
+  t: number;
+  resumed?: boolean;
+}
+
+/** NEXT_S2C_MapEnter：定义该接口的能力与字段约束。 */
+export interface NEXT_S2C_MapEnter {
+/** iid：定义该变量以承载业务值。 */
+  iid: string;
+/** mid：定义该变量以承载业务值。 */
+  mid: string;
+/** n：定义该变量以承载业务值。 */
+  n: string;
+/** k：定义该变量以承载业务值。 */
+  k: string;
+/** w：定义该变量以承载业务值。 */
+  w: number;
+/** h：定义该变量以承载业务值。 */
+  h: number;
+/** x：定义该变量以承载业务值。 */
+  x: number;
+/** y：定义该变量以承载业务值。 */
+  y: number;
+}
+
 /** NEXT_S2C_MapStatic：定义该接口的能力与字段约束。 */
 export interface NEXT_S2C_MapStatic {
 /** mapId：定义该变量以承载业务值。 */
@@ -280,26 +213,262 @@ export interface NEXT_S2C_MapStatic {
   mapMeta?: MapMeta;
   minimap?: MapMinimapSnapshot;
   minimapLibrary?: MapMinimapArchiveEntry[];
+  tiles?: VisibleTile[][];
+  tilesOriginX?: number;
+  tilesOriginY?: number;
+  tilePatches?: VisibleTilePatch[];
   visibleMinimapMarkers?: MapMinimapMarker[];
   visibleMinimapMarkerAdds?: MapMinimapMarker[];
   visibleMinimapMarkerRemoves?: string[];
 }
+
+/** NEXT_S2C_NoticeItem：定义该接口的能力与字段约束。 */
+export interface NEXT_S2C_NoticeItem {
+  id?: number;
+  messageId?: string;
+/** kind：定义该变量以承载业务值。 */
+  kind: 'info' | 'success' | 'warn' | 'travel' | 'combat' | 'loot' | 'system' | 'chat' | 'grudge' | 'quest';
+/** text：定义该变量以承载业务值。 */
+  text: string;
+  from?: string;
+  occurredAt?: number;
+  persistUntilAck?: boolean;
+}
+
+/** NEXT_S2C_Notice：定义该接口的能力与字段约束。 */
+export interface NEXT_S2C_Notice {
+/** items：定义该变量以承载业务值。 */
+  items: NEXT_S2C_NoticeItem[];
+}
+
 /** NEXT_S2C_Realm：定义该接口的能力与字段约束。 */
 export interface NEXT_S2C_Realm {
 /** realm：定义该变量以承载业务值。 */
   realm: PlayerRealmState | null;
 }
 
+/** NEXT_S2C_WorldPlayerPatch：定义该接口的能力与字段约束。 */
+export interface NEXT_S2C_WorldPlayerPatch {
+/** id：定义该变量以承载业务值。 */
+  id: string;
+  x?: number;
+  y?: number;
+  sc?: number | null;
+  rm?: 1;
+}
+
+/** NEXT_S2C_WorldMonsterPatch：定义该接口的能力与字段约束。 */
+export interface NEXT_S2C_WorldMonsterPatch {
+/** id：定义该变量以承载业务值。 */
+  id: string;
+  mid?: string;
+  x?: number;
+  y?: number;
+  hp?: number;
+  maxHp?: number;
+  n?: string;
+  c?: string;
+  tr?: MonsterTier;
+  sc?: number | null;
+  rm?: 1;
+}
+
+/** NEXT_S2C_WorldNpcPatch：定义该接口的能力与字段约束。 */
+export interface NEXT_S2C_WorldNpcPatch {
+/** id：定义该变量以承载业务值。 */
+  id: string;
+  x?: number;
+  y?: number;
+  n?: string;
+  ch?: string;
+  c?: string;
+  sh?: 1;
+  qm?: NpcQuestMarker | null;
+  rm?: 1;
+}
+
+/** NEXT_S2C_WorldPortalPatch：定义该接口的能力与字段约束。 */
+export interface NEXT_S2C_WorldPortalPatch {
+/** id：定义该变量以承载业务值。 */
+  id: string;
+  x?: number;
+  y?: number;
+  tm?: string;
+  tr?: 0 | 1;
+  rm?: 1;
+}
+
+/** NEXT_S2C_WorldGroundPatch：定义该接口的能力与字段约束。 */
+export interface NEXT_S2C_WorldGroundPatch {
+/** sourceId：定义该变量以承载业务值。 */
+  sourceId: string;
+/** x：定义该变量以承载业务值。 */
+  x: number;
+/** y：定义该变量以承载业务值。 */
+  y: number;
+  items?: GroundItemEntryView[] | null;
+}
+
+/** NEXT_S2C_WorldContainerPatch：定义该接口的能力与字段约束。 */
+export interface NEXT_S2C_WorldContainerPatch {
+/** id：定义该变量以承载业务值。 */
+  id: string;
+  x?: number;
+  y?: number;
+  n?: string;
+  ch?: string;
+  c?: string;
+  rm?: 1;
+}
+
+/** NEXT_S2C_WorldDelta：定义该接口的能力与字段约束。 */
+export interface NEXT_S2C_WorldDelta {
+/** t：定义该变量以承载业务值。 */
+  t: number;
+/** wr：定义该变量以承载业务值。 */
+  wr: number;
+/** sr：定义该变量以承载业务值。 */
+  sr: number;
+  p?: NEXT_S2C_WorldPlayerPatch[];
+  m?: NEXT_S2C_WorldMonsterPatch[];
+  n?: NEXT_S2C_WorldNpcPatch[];
+  o?: NEXT_S2C_WorldPortalPatch[];
+  g?: NEXT_S2C_WorldGroundPatch[];
+  c?: NEXT_S2C_WorldContainerPatch[];
+  threatArrows?: [string, string][];
+  threatArrowAdds?: [string, string][];
+  threatArrowRemoves?: [string, string][];
+  fx?: CombatEffect[];
+  path?: [number, number][];
+  dt?: number;
+  time?: GameTimeState;
+  auraLevelBaseValue?: number;
+  v?: VisibleTile[][];
+  tp?: VisibleTilePatch[];
+  mid?: string;
+}
+
+/** NEXT_S2C_SelfDelta：定义该接口的能力与字段约束。 */
+export interface NEXT_S2C_SelfDelta {
+/** sr：定义该变量以承载业务值。 */
+  sr: number;
+  iid?: string;
+  mid?: string;
+  x?: number;
+  y?: number;
+  f?: Direction;
+  hp?: number;
+  maxHp?: number;
+  qi?: number;
+  maxQi?: number;
+}
+
+/** NEXT_S2C_PanelInventoryDelta：定义该接口的能力与字段约束。 */
+export interface NEXT_S2C_PanelInventoryDelta {
+/** r：定义该变量以承载业务值。 */
+  r: number;
+  full?: 1;
+  capacity?: number;
+  size?: number;
+  slots?: InventorySlotUpdateEntry[];
+}
+
+/** NEXT_S2C_PanelEquipmentDelta：定义该接口的能力与字段约束。 */
+export interface NEXT_S2C_PanelEquipmentDelta {
+/** r：定义该变量以承载业务值。 */
+  r: number;
+  full?: 1;
+/** slots：定义该变量以承载业务值。 */
+  slots: EquipmentSlotUpdateEntry[];
+}
+
+/** NEXT_S2C_PanelTechniqueDelta：定义该接口的能力与字段约束。 */
+export interface NEXT_S2C_PanelTechniqueDelta {
+/** r：定义该变量以承载业务值。 */
+  r: number;
+  full?: 1;
+  techniques?: TechniqueUpdateEntry[];
+  removeTechniqueIds?: string[];
+  cultivatingTechId?: string | null;
+  bodyTraining?: BodyTrainingState | null;
+}
+
+/** NEXT_S2C_PanelAttrDelta：定义该接口的能力与字段约束。 */
+export interface NEXT_S2C_PanelAttrDelta {
+/** r：定义该变量以承载业务值。 */
+  r: number;
+  full?: 1;
+  stage?: PlayerRealmStage;
+  baseAttrs?: Attributes;
+  bonuses?: AttrBonus[];
+  finalAttrs?: Attributes;
+  numericStats?: NumericStats;
+  ratioDivisors?: NumericRatioDivisors;
+  numericStatBreakdowns?: NumericStatBreakdownMap;
+  specialStats?: PlayerSpecialStats;
+  boneAgeBaseYears?: number;
+  lifeElapsedTicks?: number;
+  lifespanYears?: number | null;
+  realmProgress?: number;
+  realmProgressToNext?: number;
+  realmBreakthroughReady?: boolean;
+  alchemySkill?: PlayerState['alchemySkill'];
+  gatherSkill?: PlayerState['gatherSkill'];
+  enhancementSkill?: PlayerState['enhancementSkill'];
+}
+
+/** NEXT_S2C_PanelActionDelta：定义该接口的能力与字段约束。 */
+export interface NEXT_S2C_PanelActionDelta {
+/** r：定义该变量以承载业务值。 */
+  r: number;
+  full?: 1;
+  actions?: ActionUpdateEntry[];
+  removeActionIds?: string[];
+  actionOrder?: string[];
+  autoBattle?: boolean;
+  autoUsePills?: AutoUsePillConfig[];
+  combatTargetingRules?: CombatTargetingRules;
+  autoBattleTargetingMode?: AutoBattleTargetingMode;
+  combatTargetId?: string | null;
+  combatTargetLocked?: boolean;
+  autoRetaliate?: boolean;
+  autoBattleStationary?: boolean;
+  allowAoePlayerHit?: boolean;
+  autoIdleCultivation?: boolean;
+  autoSwitchCultivation?: boolean;
+  cultivationActive?: boolean;
+  senseQiActive?: boolean;
+}
+
+/** NEXT_S2C_PanelBuffDelta：定义该接口的能力与字段约束。 */
+export interface NEXT_S2C_PanelBuffDelta {
+/** r：定义该变量以承载业务值。 */
+  r: number;
+  full?: 1;
+  buffs?: VisibleBuffState[];
+  removeBuffIds?: string[];
+}
+
+/** NEXT_S2C_PanelDelta：定义该接口的能力与字段约束。 */
+export interface NEXT_S2C_PanelDelta {
+  inv?: NEXT_S2C_PanelInventoryDelta;
+  eq?: NEXT_S2C_PanelEquipmentDelta;
+  tech?: NEXT_S2C_PanelTechniqueDelta;
+  attr?: NEXT_S2C_PanelAttrDelta;
+  act?: NEXT_S2C_PanelActionDelta;
+  buff?: NEXT_S2C_PanelBuffDelta;
+}
+
 // ===== Payload 类型 =====
 
 /** 移动指令 */
-export interface C2S_Move {
+export interface NEXT_C2S_Move {
 /** d：定义该变量以承载业务值。 */
   d: Direction;
 }
 
 /** 点击目标点移动 */
-export interface C2S_MoveTo {
+export interface NEXT_C2S_MoveTo {
 /** x：定义该变量以承载业务值。 */
   x: number;
 /** y：定义该变量以承载业务值。 */
@@ -313,34 +482,24 @@ export interface C2S_MoveTo {
 }
 
 /** 以任务为目标启动自动导航 */
-export interface C2S_NavigateQuest {
+export interface NEXT_C2S_NavigateQuest {
 /** questId：定义该变量以承载业务值。 */
   questId: string;
 }
 
-/** 以地图坐标为目标启动自动导航，可跨图前往 */
-export interface C2S_NavigateMapPoint {
-/** mapId：定义该变量以承载业务值。 */
-  mapId: string;
-/** x：定义该变量以承载业务值。 */
-  x: number;
-/** y：定义该变量以承载业务值。 */
-  y: number;
-}
-
 /** 在线心跳 */
-export interface C2S_Heartbeat {
+export interface NEXT_C2S_Heartbeat {
   clientAt?: number;
 }
 
 /** 客户端主动延迟探测 */
-export interface C2S_Ping {
+export interface NEXT_C2S_Ping {
 /** clientAt：定义该变量以承载业务值。 */
   clientAt: number;
 }
 
-/** C2S_InspectTileRuntime：定义该接口的能力与字段约束。 */
-export interface C2S_InspectTileRuntime {
+/** NEXT_C2S_InspectTileRuntime：定义该接口的能力与字段约束。 */
+export interface NEXT_C2S_InspectTileRuntime {
 /** x：定义该变量以承载业务值。 */
   x: number;
 /** y：定义该变量以承载业务值。 */
@@ -348,30 +507,30 @@ export interface C2S_InspectTileRuntime {
 }
 
 /** 服务端立即回显延迟探测 */
-export interface S2C_Pong {
+export interface NEXT_S2C_Pong {
 /** clientAt：定义该变量以承载业务值。 */
   clientAt: number;
 /** serverAt：定义该变量以承载业务值。 */
   serverAt: number;
 }
 
-/** C2S_GmGetState：定义该接口的能力与字段约束。 */
-export interface C2S_GmGetState {}
+/** NEXT_C2S_GmGetState：定义该接口的能力与字段约束。 */
+export interface NEXT_C2S_GmGetState {}
 
-/** C2S_GmSpawnBots：定义该接口的能力与字段约束。 */
-export interface C2S_GmSpawnBots {
+/** NEXT_C2S_GmSpawnBots：定义该接口的能力与字段约束。 */
+export interface NEXT_C2S_GmSpawnBots {
 /** count：定义该变量以承载业务值。 */
   count: number;
 }
 
-/** C2S_GmRemoveBots：定义该接口的能力与字段约束。 */
-export interface C2S_GmRemoveBots {
+/** NEXT_C2S_GmRemoveBots：定义该接口的能力与字段约束。 */
+export interface NEXT_C2S_GmRemoveBots {
   playerIds?: string[];
   all?: boolean;
 }
 
-/** C2S_GmUpdatePlayer：定义该接口的能力与字段约束。 */
-export interface C2S_GmUpdatePlayer {
+/** NEXT_C2S_GmUpdatePlayer：定义该接口的能力与字段约束。 */
+export interface NEXT_C2S_GmUpdatePlayer {
 /** playerId：定义该变量以承载业务值。 */
   playerId: string;
 /** mapId：定义该变量以承载业务值。 */
@@ -386,45 +545,45 @@ export interface C2S_GmUpdatePlayer {
   autoBattle: boolean;
 }
 
-/** C2S_GmResetPlayer：定义该接口的能力与字段约束。 */
-export interface C2S_GmResetPlayer {
+/** NEXT_C2S_GmResetPlayer：定义该接口的能力与字段约束。 */
+export interface NEXT_C2S_GmResetPlayer {
 /** playerId：定义该变量以承载业务值。 */
   playerId: string;
 }
 
 /** 动作指令 */
-export interface C2S_Action {
+export interface NEXT_C2S_Action {
   type?: string;
   actionId?: string;
   target?: string;
 }
 
-/** C2S_UpdateAutoBattleSkills：定义该接口的能力与字段约束。 */
-export interface C2S_UpdateAutoBattleSkills {
+/** NEXT_C2S_UpdateAutoBattleSkills：定义该接口的能力与字段约束。 */
+export interface NEXT_C2S_UpdateAutoBattleSkills {
 /** skills：定义该变量以承载业务值。 */
   skills: AutoBattleSkillConfig[];
 }
 
-/** C2S_UpdateAutoUsePills：定义该接口的能力与字段约束。 */
-export interface C2S_UpdateAutoUsePills {
+/** NEXT_C2S_UpdateAutoUsePills：定义该接口的能力与字段约束。 */
+export interface NEXT_C2S_UpdateAutoUsePills {
 /** pills：定义该变量以承载业务值。 */
   pills: AutoUsePillConfig[];
 }
 
-/** C2S_UpdateCombatTargetingRules：定义该接口的能力与字段约束。 */
-export interface C2S_UpdateCombatTargetingRules {
+/** NEXT_C2S_UpdateCombatTargetingRules：定义该接口的能力与字段约束。 */
+export interface NEXT_C2S_UpdateCombatTargetingRules {
 /** combatTargetingRules：定义该变量以承载业务值。 */
-  combatTargetingRules: NonNullable<PlayerState['combatTargetingRules']>;
+  combatTargetingRules: CombatTargetingRules;
 }
 
-/** C2S_UpdateAutoBattleTargetingMode：定义该接口的能力与字段约束。 */
-export interface C2S_UpdateAutoBattleTargetingMode {
+/** NEXT_C2S_UpdateAutoBattleTargetingMode：定义该接口的能力与字段约束。 */
+export interface NEXT_C2S_UpdateAutoBattleTargetingMode {
 /** mode：定义该变量以承载业务值。 */
   mode: AutoBattleTargetingMode;
 }
 
-/** C2S_UpdateTechniqueSkillAvailability：定义该接口的能力与字段约束。 */
-export interface C2S_UpdateTechniqueSkillAvailability {
+/** NEXT_C2S_UpdateTechniqueSkillAvailability：定义该接口的能力与字段约束。 */
+export interface NEXT_C2S_UpdateTechniqueSkillAvailability {
 /** techId：定义该变量以承载业务值。 */
   techId: string;
 /** enabled：定义该变量以承载业务值。 */
@@ -432,27 +591,27 @@ export interface C2S_UpdateTechniqueSkillAvailability {
 }
 
 /** 调试：回出生点 */
-export interface C2S_DebugResetSpawn {
+export interface NEXT_C2S_DebugResetSpawn {
   force?: boolean;
 }
 
 /** 聊天消息 */
-export interface C2S_Chat {
+export interface NEXT_C2S_Chat {
 /** message：定义该变量以承载业务值。 */
   message: string;
 }
 
-/** C2S_AckSystemMessages：定义该接口的能力与字段约束。 */
-export interface C2S_AckSystemMessages {
+/** NEXT_C2S_AckSystemMessages：定义该接口的能力与字段约束。 */
+export interface NEXT_C2S_AckSystemMessages {
 /** ids：定义该变量以承载业务值。 */
   ids: string[];
 }
 
-/** C2S_RequestMarket：定义该接口的能力与字段约束。 */
-export interface C2S_RequestMarket {}
+/** NEXT_C2S_RequestMarket：定义该接口的能力与字段约束。 */
+export interface NEXT_C2S_RequestMarket {}
 
-/** C2S_RequestMarketListings：定义该接口的能力与字段约束。 */
-export interface C2S_RequestMarketListings {
+/** NEXT_C2S_RequestMarketListings：定义该接口的能力与字段约束。 */
+export interface NEXT_C2S_RequestMarketListings {
 /** page：定义该变量以承载业务值。 */
   page: number;
   pageSize?: number;
@@ -461,117 +620,150 @@ export interface C2S_RequestMarketListings {
   techniqueCategory?: TechniqueCategory | 'all';
 }
 
-/** C2S_RequestMailSummary：定义该接口的能力与字段约束。 */
-export interface C2S_RequestMailSummary {}
+/** NEXT_C2S_RequestMailSummary：定义该接口的能力与字段约束。 */
+export interface NEXT_C2S_RequestMailSummary {}
 
-/** C2S_RequestMailPage：定义该接口的能力与字段约束。 */
-export interface C2S_RequestMailPage {
+/** NEXT_C2S_RequestMailPage：定义该接口的能力与字段约束。 */
+export interface NEXT_C2S_RequestMailPage {
 /** page：定义该变量以承载业务值。 */
   page: number;
   pageSize?: number;
   filter?: MailFilter;
 }
 
-/** C2S_RequestMailDetail：定义该接口的能力与字段约束。 */
-export interface C2S_RequestMailDetail {
+/** NEXT_C2S_RequestMailDetail：定义该接口的能力与字段约束。 */
+export interface NEXT_C2S_RequestMailDetail {
 /** mailId：定义该变量以承载业务值。 */
   mailId: string;
 }
 
-/** C2S_MarkMailRead：定义该接口的能力与字段约束。 */
-export interface C2S_MarkMailRead {
-/** mailIds：定义该变量以承载业务值。 */
-  mailIds: string[];
-}
+/** NEXT_C2S_RequestQuests：定义该接口的能力与字段约束。 */
+export interface NEXT_C2S_RequestQuests {}
 
-/** C2S_ClaimMailAttachments：定义该接口的能力与字段约束。 */
-export interface C2S_ClaimMailAttachments {
-/** mailIds：定义该变量以承载业务值。 */
-  mailIds: string[];
-}
-
-/** C2S_DeleteMail：定义该接口的能力与字段约束。 */
-export interface C2S_DeleteMail {
-/** mailIds：定义该变量以承载业务值。 */
-  mailIds: string[];
-}
-
-/** C2S_RequestMarketItemBook：定义该接口的能力与字段约束。 */
-export interface C2S_RequestMarketItemBook {
-/** itemKey：定义该变量以承载业务值。 */
-  itemKey: string;
-}
-
-/** C2S_RequestMarketTradeHistory：定义该接口的能力与字段约束。 */
-export interface C2S_RequestMarketTradeHistory {
-/** page：定义该变量以承载业务值。 */
-  page: number;
-}
-
-/** C2S_RequestAttrDetail：定义该接口的能力与字段约束。 */
-export interface C2S_RequestAttrDetail {}
-
-/** C2S_RequestLeaderboard：定义该接口的能力与字段约束。 */
-export interface C2S_RequestLeaderboard {
-  limit?: number;
-}
-
-/** C2S_RequestWorldSummary：定义该接口的能力与字段约束。 */
-export interface C2S_RequestWorldSummary {}
-
-/** C2S_CreateMarketSellOrder：定义该接口的能力与字段约束。 */
-export interface C2S_CreateMarketSellOrder {
-/** slotIndex：定义该变量以承载业务值。 */
-  slotIndex: number;
-/** quantity：定义该变量以承载业务值。 */
-  quantity: number;
-/** unitPrice：定义该变量以承载业务值。 */
-  unitPrice: number;
-}
-
-/** C2S_CreateMarketBuyOrder：定义该接口的能力与字段约束。 */
-export interface C2S_CreateMarketBuyOrder {
-/** itemKey：定义该变量以承载业务值。 */
-  itemKey: string;
-/** quantity：定义该变量以承载业务值。 */
-  quantity: number;
-/** unitPrice：定义该变量以承载业务值。 */
-  unitPrice: number;
-}
-
-/** C2S_BuyMarketItem：定义该接口的能力与字段约束。 */
-export interface C2S_BuyMarketItem {
-/** itemKey：定义该变量以承载业务值。 */
-  itemKey: string;
-/** quantity：定义该变量以承载业务值。 */
-  quantity: number;
-}
-
-/** C2S_SellMarketItem：定义该接口的能力与字段约束。 */
-export interface C2S_SellMarketItem {
-/** slotIndex：定义该变量以承载业务值。 */
-  slotIndex: number;
-/** quantity：定义该变量以承载业务值。 */
-  quantity: number;
-}
-
-/** C2S_CancelMarketOrder：定义该接口的能力与字段约束。 */
-export interface C2S_CancelMarketOrder {
-/** orderId：定义该变量以承载业务值。 */
-  orderId: string;
-}
-
-/** C2S_ClaimMarketStorage：定义该接口的能力与字段约束。 */
-export interface C2S_ClaimMarketStorage {}
-
-/** C2S_RequestNpcShop：定义该接口的能力与字段约束。 */
-export interface C2S_RequestNpcShop {
+/** NEXT_C2S_RequestNpcQuests：定义该接口的能力与字段约束。 */
+export interface NEXT_C2S_RequestNpcQuests {
 /** npcId：定义该变量以承载业务值。 */
   npcId: string;
 }
 
-/** C2S_BuyNpcShopItem：定义该接口的能力与字段约束。 */
-export interface C2S_BuyNpcShopItem {
+/** NEXT_C2S_AcceptNpcQuest：定义该接口的能力与字段约束。 */
+export interface NEXT_C2S_AcceptNpcQuest {
+/** npcId：定义该变量以承载业务值。 */
+  npcId: string;
+/** questId：定义该变量以承载业务值。 */
+  questId: string;
+}
+
+/** NEXT_C2S_SubmitNpcQuest：定义该接口的能力与字段约束。 */
+export interface NEXT_C2S_SubmitNpcQuest {
+/** npcId：定义该变量以承载业务值。 */
+  npcId: string;
+/** questId：定义该变量以承载业务值。 */
+  questId: string;
+}
+
+/** NEXT_C2S_RequestDetail：定义该接口的能力与字段约束。 */
+export interface NEXT_C2S_RequestDetail {
+/** kind：定义该变量以承载业务值。 */
+  kind: 'npc' | 'monster' | 'ground' | 'player' | 'portal' | 'container';
+/** id：定义该变量以承载业务值。 */
+  id: string;
+}
+
+/** NEXT_C2S_MarkMailRead：定义该接口的能力与字段约束。 */
+export interface NEXT_C2S_MarkMailRead {
+/** mailIds：定义该变量以承载业务值。 */
+  mailIds: string[];
+}
+
+/** NEXT_C2S_ClaimMailAttachments：定义该接口的能力与字段约束。 */
+export interface NEXT_C2S_ClaimMailAttachments {
+/** mailIds：定义该变量以承载业务值。 */
+  mailIds: string[];
+}
+
+/** NEXT_C2S_DeleteMail：定义该接口的能力与字段约束。 */
+export interface NEXT_C2S_DeleteMail {
+/** mailIds：定义该变量以承载业务值。 */
+  mailIds: string[];
+}
+
+/** NEXT_C2S_RequestMarketItemBook：定义该接口的能力与字段约束。 */
+export interface NEXT_C2S_RequestMarketItemBook {
+/** itemKey：定义该变量以承载业务值。 */
+  itemKey: string;
+}
+
+/** NEXT_C2S_RequestMarketTradeHistory：定义该接口的能力与字段约束。 */
+export interface NEXT_C2S_RequestMarketTradeHistory {
+/** page：定义该变量以承载业务值。 */
+  page: number;
+}
+
+/** NEXT_C2S_RequestAttrDetail：定义该接口的能力与字段约束。 */
+export interface NEXT_C2S_RequestAttrDetail {}
+
+/** NEXT_C2S_RequestLeaderboard：定义该接口的能力与字段约束。 */
+export interface NEXT_C2S_RequestLeaderboard {
+  limit?: number;
+}
+
+/** NEXT_C2S_RequestWorldSummary：定义该接口的能力与字段约束。 */
+export interface NEXT_C2S_RequestWorldSummary {}
+
+/** NEXT_C2S_CreateMarketSellOrder：定义该接口的能力与字段约束。 */
+export interface NEXT_C2S_CreateMarketSellOrder {
+/** slotIndex：定义该变量以承载业务值。 */
+  slotIndex: number;
+/** quantity：定义该变量以承载业务值。 */
+  quantity: number;
+/** unitPrice：定义该变量以承载业务值。 */
+  unitPrice: number;
+}
+
+/** NEXT_C2S_CreateMarketBuyOrder：定义该接口的能力与字段约束。 */
+export interface NEXT_C2S_CreateMarketBuyOrder {
+/** itemKey：定义该变量以承载业务值。 */
+  itemKey: string;
+/** quantity：定义该变量以承载业务值。 */
+  quantity: number;
+/** unitPrice：定义该变量以承载业务值。 */
+  unitPrice: number;
+}
+
+/** NEXT_C2S_BuyMarketItem：定义该接口的能力与字段约束。 */
+export interface NEXT_C2S_BuyMarketItem {
+/** itemKey：定义该变量以承载业务值。 */
+  itemKey: string;
+/** quantity：定义该变量以承载业务值。 */
+  quantity: number;
+}
+
+/** NEXT_C2S_SellMarketItem：定义该接口的能力与字段约束。 */
+export interface NEXT_C2S_SellMarketItem {
+/** slotIndex：定义该变量以承载业务值。 */
+  slotIndex: number;
+/** quantity：定义该变量以承载业务值。 */
+  quantity: number;
+}
+
+/** NEXT_C2S_CancelMarketOrder：定义该接口的能力与字段约束。 */
+export interface NEXT_C2S_CancelMarketOrder {
+/** orderId：定义该变量以承载业务值。 */
+  orderId: string;
+}
+
+/** NEXT_C2S_ClaimMarketStorage：定义该接口的能力与字段约束。 */
+export interface NEXT_C2S_ClaimMarketStorage {}
+
+/** NEXT_C2S_RequestNpcShop：定义该接口的能力与字段约束。 */
+export interface NEXT_C2S_RequestNpcShop {
+/** npcId：定义该变量以承载业务值。 */
+  npcId: string;
+}
+
+/** NEXT_C2S_BuyNpcShopItem：定义该接口的能力与字段约束。 */
+export interface NEXT_C2S_BuyNpcShopItem {
 /** npcId：定义该变量以承载业务值。 */
   npcId: string;
 /** itemId：定义该变量以承载业务值。 */
@@ -580,13 +772,13 @@ export interface C2S_BuyNpcShopItem {
   quantity: number;
 }
 
-/** C2S_RequestAlchemyPanel：定义该接口的能力与字段约束。 */
-export interface C2S_RequestAlchemyPanel {
+/** NEXT_C2S_RequestAlchemyPanel：定义该接口的能力与字段约束。 */
+export interface NEXT_C2S_RequestAlchemyPanel {
   knownCatalogVersion?: number;
 }
 
-/** C2S_SaveAlchemyPreset：定义该接口的能力与字段约束。 */
-export interface C2S_SaveAlchemyPreset {
+/** NEXT_C2S_SaveAlchemyPreset：定义该接口的能力与字段约束。 */
+export interface NEXT_C2S_SaveAlchemyPreset {
   presetId?: string;
 /** recipeId：定义该变量以承载业务值。 */
   recipeId: string;
@@ -596,14 +788,14 @@ export interface C2S_SaveAlchemyPreset {
   ingredients: AlchemyIngredientSelection[];
 }
 
-/** C2S_DeleteAlchemyPreset：定义该接口的能力与字段约束。 */
-export interface C2S_DeleteAlchemyPreset {
+/** NEXT_C2S_DeleteAlchemyPreset：定义该接口的能力与字段约束。 */
+export interface NEXT_C2S_DeleteAlchemyPreset {
 /** presetId：定义该变量以承载业务值。 */
   presetId: string;
 }
 
-/** C2S_StartAlchemy：定义该接口的能力与字段约束。 */
-export interface C2S_StartAlchemy {
+/** NEXT_C2S_StartAlchemy：定义该接口的能力与字段约束。 */
+export interface NEXT_C2S_StartAlchemy {
 /** recipeId：定义该变量以承载业务值。 */
   recipeId: string;
 /** ingredients：定义该变量以承载业务值。 */
@@ -612,14 +804,14 @@ export interface C2S_StartAlchemy {
   quantity: number;
 }
 
-/** C2S_CancelAlchemy：定义该接口的能力与字段约束。 */
-export interface C2S_CancelAlchemy {}
+/** NEXT_C2S_CancelAlchemy：定义该接口的能力与字段约束。 */
+export interface NEXT_C2S_CancelAlchemy {}
 
-/** C2S_RequestEnhancementPanel：定义该接口的能力与字段约束。 */
-export interface C2S_RequestEnhancementPanel {}
+/** NEXT_C2S_RequestEnhancementPanel：定义该接口的能力与字段约束。 */
+export interface NEXT_C2S_RequestEnhancementPanel {}
 
-/** C2S_StartEnhancement：定义该接口的能力与字段约束。 */
-export interface C2S_StartEnhancement {
+/** NEXT_C2S_StartEnhancement：定义该接口的能力与字段约束。 */
+export interface NEXT_C2S_StartEnhancement {
 /** target：定义该变量以承载业务值。 */
   target: EnhancementTargetRef;
   protection?: EnhancementTargetRef | null;
@@ -627,11 +819,11 @@ export interface C2S_StartEnhancement {
   protectionStartLevel?: number | null;
 }
 
-/** C2S_CancelEnhancement：定义该接口的能力与字段约束。 */
-export interface C2S_CancelEnhancement {}
+/** NEXT_C2S_CancelEnhancement：定义该接口的能力与字段约束。 */
+export interface NEXT_C2S_CancelEnhancement {}
 
-/** C2S_HeavenGateAction：定义该接口的能力与字段约束。 */
-export interface C2S_HeavenGateAction {
+/** NEXT_C2S_HeavenGateAction：定义该接口的能力与字段约束。 */
+export interface NEXT_C2S_HeavenGateAction {
 /** action：定义该变量以承载业务值。 */
   action: 'sever' | 'restore' | 'open' | 'reroll' | 'enter';
   element?: ElementKey;
@@ -653,8 +845,6 @@ export interface TickRenderEntity {
   monsterScale?: number | null;
   hp?: number | null;
   maxHp?: number | null;
-  respawnRemainingTicks?: number | null;
-  respawnTotalTicks?: number | null;
   qi?: number | null;
   maxQi?: number | null;
   npcQuestMarker?: NpcQuestMarker | null;
@@ -719,11 +909,11 @@ export interface VisibleTilePatch {
 /** y：定义该变量以承载业务值。 */
   y: number;
 /** tile：定义该变量以承载业务值。 */
-  tile: VisibleTile;
+  tile: VisibleTile | null;
 }
 
-/** S2C_Tick：定义该接口的能力与字段约束。 */
-export interface S2C_Tick {
+/** NEXT_S2C_Tick：定义该接口的能力与字段约束。 */
+export interface NEXT_S2C_Tick {
   p: TickRenderEntity[];                          // 玩家可见实体（含自身）
   t?: VisibleTilePatch[];                         // 视野内地块动态 patch
   e: TickRenderEntity[];                          // 怪物 / NPC 可见实体
@@ -745,31 +935,35 @@ export interface S2C_Tick {
 }
 
 /** 地图静态同步：低频重同步当前地图元数据、小地图与静态标记 */
-export interface S2C_MapStaticSync {
+export interface NEXT_S2C_MapStaticSync {
 /** mapId：定义该变量以承载业务值。 */
   mapId: string;
   mapMeta?: MapMeta;
   minimap?: MapMinimapSnapshot;
   minimapLibrary?: MapMinimapArchiveEntry[];
+  tiles?: VisibleTile[][];
+  tilesOriginX?: number;
+  tilesOriginY?: number;
+  tilePatches?: VisibleTilePatch[];
   visibleMinimapMarkers?: MapMinimapMarker[];
   visibleMinimapMarkerAdds?: MapMinimapMarker[];
   visibleMinimapMarkerRemoves?: string[];
 }
 
 /** 实体进入视野 */
-export interface S2C_Enter {
+export interface NEXT_S2C_Enter {
 /** entity：定义该变量以承载业务值。 */
   entity: RenderEntity;
 }
 
 /** 实体离开视野 */
-export interface S2C_Leave {
+export interface NEXT_S2C_Leave {
 /** entityId：定义该变量以承载业务值。 */
   entityId: string;
 }
 
 /** 初始化数据（连接成功后发送） */
-export interface S2C_Init {
+export interface NEXT_S2C_Init {
 /** self：定义该变量以承载业务值。 */
   self: PlayerState;
 /** mapMeta：定义该变量以承载业务值。 */
@@ -985,7 +1179,7 @@ export interface GmPerformanceSnapshot {
 }
 
 /** GM 状态推送 */
-export interface S2C_GmState {
+export interface NEXT_S2C_GmState {
 /** players：定义该变量以承载业务值。 */
   players: GmPlayerSummary[];
 /** mapIds：定义该变量以承载业务值。 */
@@ -997,7 +1191,7 @@ export interface S2C_GmState {
 }
 
 /** 错误信息 */
-export interface S2C_Error {
+export interface NEXT_S2C_Error {
 /** code：定义该变量以承载业务值。 */
   code: string;
 /** message：定义该变量以承载业务值。 */
@@ -1007,14 +1201,14 @@ export interface S2C_Error {
 // ===== 修仙系统 Payload =====
 
 /** 使用物品 */
-export interface C2S_UseItem {
+export interface NEXT_C2S_UseItem {
 /** slotIndex：定义该变量以承载业务值。 */
   slotIndex: number;
   count?: number;
 }
 
 /** 丢弃物品 */
-export interface C2S_DropItem {
+export interface NEXT_C2S_DropItem {
 /** slotIndex：定义该变量以承载业务值。 */
   slotIndex: number;
 /** count：定义该变量以承载业务值。 */
@@ -1022,7 +1216,7 @@ export interface C2S_DropItem {
 }
 
 /** 摧毁物品 */
-export interface C2S_DestroyItem {
+export interface NEXT_C2S_DestroyItem {
 /** slotIndex：定义该变量以承载业务值。 */
   slotIndex: number;
 /** count：定义该变量以承载业务值。 */
@@ -1030,50 +1224,46 @@ export interface C2S_DestroyItem {
 }
 
 /** 拿取战利品 */
-export interface C2S_TakeLoot {
+export interface NEXT_C2S_TakeLoot {
 /** sourceId：定义该变量以承载业务值。 */
   sourceId: string;
   itemKey?: string;
   takeAll?: boolean;
 }
 
-/** 关闭拿取窗口 */
-export interface C2S_CloseLootWindow {}
-
 /** 整理背包 */
-export interface C2S_SortInventory {}
+export interface NEXT_C2S_SortInventory {}
 
 /** 装备物品 */
-export interface C2S_Equip {
+export interface NEXT_C2S_Equip {
 /** slotIndex：定义该变量以承载业务值。 */
   slotIndex: number;
 }
 
 /** 卸下装备 */
-export interface C2S_Unequip {
+export interface NEXT_C2S_Unequip {
 /** slot：定义该变量以承载业务值。 */
   slot: EquipSlot;
 }
 
 /** 修炼功法 */
-export interface C2S_Cultivate {
+export interface NEXT_C2S_Cultivate {
   techId: string | null; // null 表示停止修炼
 }
 
-/** C2S_RedeemCodes：定义该接口的能力与字段约束。 */
-export interface C2S_RedeemCodes {
+/** NEXT_C2S_RedeemCodes：定义该接口的能力与字段约束。 */
+export interface NEXT_C2S_RedeemCodes {
 /** codes：定义该变量以承载业务值。 */
   codes: string[];
 }
 
 /** 属性更新 */
-export interface S2C_AttrUpdate {
+export interface NEXT_S2C_AttrUpdate {
   baseAttrs?: Attributes;
   bonuses?: AttrBonus[];
   finalAttrs?: Attributes;
   numericStats?: NumericStats;
   ratioDivisors?: NumericRatioDivisors;
-  numericStatBreakdowns?: NumericStatBreakdownMap;
   maxHp?: number;
   qi?: number;
   specialStats?: PlayerSpecialStats;
@@ -1089,7 +1279,7 @@ export interface S2C_AttrUpdate {
 }
 
 /** 境界低频同步：完整下发当前境界展示、突破与开天门详情 */
-export interface S2C_RealmUpdate {
+export interface NEXT_S2C_RealmUpdate {
 /** realm：定义该变量以承载业务值。 */
   realm: PlayerRealmState | null;
 }
@@ -1120,8 +1310,6 @@ export interface SyncedItemStack {
   enhanceLevel?: number;
   alchemySuccessRate?: number;
   alchemySpeedRate?: number;
-  enhancementSuccessRate?: number;
-  enhancementSpeedRate?: number;
   mapUnlockId?: string;
   mapUnlockIds?: string[];
   tileAuraGainAmount?: number;
@@ -1156,8 +1344,8 @@ export interface InventorySlotUpdateEntry {
   item: SyncedItemStack | null;
 }
 
-/** S2C_InventoryUpdate：定义该接口的能力与字段约束。 */
-export interface S2C_InventoryUpdate {
+/** NEXT_S2C_InventoryUpdate：定义该接口的能力与字段约束。 */
+export interface NEXT_S2C_InventoryUpdate {
   inventory?: SyncedInventorySnapshot;
   capacity?: number;
   size?: number;
@@ -1174,14 +1362,14 @@ export interface EquipmentSlotUpdateEntry {
   item: SyncedItemStack | null;
 }
 
-/** S2C_EquipmentUpdate：定义该接口的能力与字段约束。 */
-export interface S2C_EquipmentUpdate {
+/** NEXT_S2C_EquipmentUpdate：定义该接口的能力与字段约束。 */
+export interface NEXT_S2C_EquipmentUpdate {
 /** slots：定义该变量以承载业务值。 */
   slots: EquipmentSlotUpdateEntry[];
 }
 
-/** S2C_RedeemCodesResult：定义该接口的能力与字段约束。 */
-export interface S2C_RedeemCodesResult {
+/** NEXT_S2C_RedeemCodesResult：定义该接口的能力与字段约束。 */
+export interface NEXT_S2C_RedeemCodesResult {
 /** result：定义该变量以承载业务值。 */
   result: AccountRedeemCodesRes;
 }
@@ -1205,7 +1393,7 @@ export interface TechniqueUpdateEntry {
 }
 
 /** 功法更新 */
-export interface S2C_TechniqueUpdate {
+export interface NEXT_S2C_TechniqueUpdate {
 /** techniques：定义该变量以承载业务值。 */
   techniques: TechniqueUpdateEntry[];
   removeTechniqueIds?: string[];
@@ -1230,15 +1418,12 @@ export interface ActionUpdateEntry {
 }
 
 /** 行动列表更新 */
-export interface S2C_ActionsUpdate {
+export interface NEXT_S2C_ActionsUpdate {
 /** actions：定义该变量以承载业务值。 */
   actions: ActionUpdateEntry[];
   removeActionIds?: string[];
   actionOrder?: string[];
   autoBattle?: boolean;
-  autoUsePills?: AutoUsePillConfig[];
-  combatTargetingRules?: PlayerState['combatTargetingRules'];
-  autoBattleTargetingMode?: AutoBattleTargetingMode;
   combatTargetId?: string | null;
   combatTargetLocked?: boolean;
   autoRetaliate?: boolean;
@@ -1264,7 +1449,6 @@ export interface SyncedLootWindowSourceView {
   sourceId: string;
 /** kind：定义该变量以承载业务值。 */
   kind: LootSourceKind;
-  variant?: LootSourceVariant;
 /** title：定义该变量以承载业务值。 */
   title: string;
   desc?: string;
@@ -1272,8 +1456,6 @@ export interface SyncedLootWindowSourceView {
 /** searchable：定义该变量以承载业务值。 */
   searchable: boolean;
   search?: LootSearchProgressView;
-  herb?: LootWindowHerbMeta;
-  destroyed?: boolean;
 /** items：定义该变量以承载业务值。 */
   items: SyncedLootWindowItemView[];
   emptyText?: string;
@@ -1291,14 +1473,14 @@ export interface SyncedLootWindowState {
   sources: SyncedLootWindowSourceView[];
 }
 
-/** S2C_LootWindowUpdate：定义该接口的能力与字段约束。 */
-export interface S2C_LootWindowUpdate {
+/** NEXT_S2C_LootWindowUpdate：定义该接口的能力与字段约束。 */
+export interface NEXT_S2C_LootWindowUpdate {
 /** window：定义该变量以承载业务值。 */
   window: SyncedLootWindowState | null;
 }
 
-/** S2C_MarketUpdate：定义该接口的能力与字段约束。 */
-export interface S2C_MarketUpdate {
+/** NEXT_S2C_MarketUpdate：定义该接口的能力与字段约束。 */
+export interface NEXT_S2C_MarketUpdate {
 /** currencyItemId：定义该变量以承载业务值。 */
   currencyItemId: string;
 /** currencyItemName：定义该变量以承载业务值。 */
@@ -1311,7 +1493,7 @@ export interface S2C_MarketUpdate {
   storage: MarketStorage;
 }
 
-/** MarketListingPageEntry：定义该接口的能力与字段约束。 */
+/** MarketListingVariantEntry：定义该接口的能力与字段约束。 */
 export interface MarketListingVariantEntry {
 /** itemKey：定义该变量以承载业务值。 */
   itemKey: string;
@@ -1343,8 +1525,8 @@ export interface MarketListingPageEntry {
   variants: MarketListingVariantEntry[];
 }
 
-/** S2C_MarketListings：定义该接口的能力与字段约束。 */
-export interface S2C_MarketListings {
+/** NEXT_S2C_MarketListings：定义该接口的能力与字段约束。 */
+export interface NEXT_S2C_MarketListings {
 /** currencyItemId：定义该变量以承载业务值。 */
   currencyItemId: string;
 /** currencyItemName：定义该变量以承载业务值。 */
@@ -1370,7 +1552,7 @@ export interface MarketOwnOrderSyncEntry {
 /** id：定义该变量以承载业务值。 */
   id: string;
 /** side：定义该变量以承载业务值。 */
-  side: MarketOrderSide;
+  side: 'buy' | 'sell';
 /** status：定义该变量以承载业务值。 */
   status: 'open' | 'filled' | 'cancelled';
 /** itemKey：定义该变量以承载业务值。 */
@@ -1385,8 +1567,8 @@ export interface MarketOwnOrderSyncEntry {
   createdAt: number;
 }
 
-/** S2C_MarketOrders：定义该接口的能力与字段约束。 */
-export interface S2C_MarketOrders {
+/** NEXT_S2C_MarketOrders：定义该接口的能力与字段约束。 */
+export interface NEXT_S2C_MarketOrders {
 /** currencyItemId：定义该变量以承载业务值。 */
   currencyItemId: string;
 /** currencyItemName：定义该变量以承载业务值。 */
@@ -1405,26 +1587,14 @@ export interface MarketStorageSyncEntry {
   count: number;
 }
 
-/** S2C_MarketStorage：定义该接口的能力与字段约束。 */
-export interface S2C_MarketStorage {
+/** NEXT_S2C_MarketStorage：定义该接口的能力与字段约束。 */
+export interface NEXT_S2C_MarketStorage {
 /** items：定义该变量以承载业务值。 */
   items: MarketStorageSyncEntry[];
 }
 
-/** MarketItemBookSyncView：定义该接口的能力与字段约束。 */
-export interface MarketItemBookSyncView {
-/** itemKey：定义该变量以承载业务值。 */
-  itemKey: string;
-/** item：定义该变量以承载业务值。 */
-  item: ItemStack;
-/** sells：定义该变量以承载业务值。 */
-  sells: MarketPriceLevelView[];
-/** buys：定义该变量以承载业务值。 */
-  buys: MarketPriceLevelView[];
-}
-
-/** S2C_MarketItemBook：定义该接口的能力与字段约束。 */
-export interface S2C_MarketItemBook {
+/** NEXT_S2C_MarketItemBook：定义该接口的能力与字段约束。 */
+export interface NEXT_S2C_MarketItemBook {
 /** currencyItemId：定义该变量以承载业务值。 */
   currencyItemId: string;
 /** currencyItemName：定义该变量以承载业务值。 */
@@ -1432,31 +1602,19 @@ export interface S2C_MarketItemBook {
 /** itemKey：定义该变量以承载业务值。 */
   itemKey: string;
 /** book：定义该变量以承载业务值。 */
-  book: MarketItemBookSyncView | null;
+  book: MarketOrderBookView | null;
 }
 
-/** S2C_MarketTradeHistory：定义该接口的能力与字段约束。 */
-export interface S2C_MarketTradeHistory {
+/** NEXT_S2C_MarketTradeHistory：定义该接口的能力与字段约束。 */
+export interface NEXT_S2C_MarketTradeHistory {
 /** page：定义该变量以承载业务值。 */
   page: number;
 /** pageSize：定义该变量以承载业务值。 */
   pageSize: number;
 /** totalVisible：定义该变量以承载业务值。 */
   totalVisible: number;
-  records: Array<{
-/** id：定义该变量以承载业务值。 */
-    id: string;
-/** side：定义该变量以承载业务值。 */
-    side: 'buy' | 'sell';
-/** itemId：定义该变量以承载业务值。 */
-    itemId: string;
-/** quantity：定义该变量以承载业务值。 */
-    quantity: number;
-/** unitPrice：定义该变量以承载业务值。 */
-    unitPrice: number;
-/** createdAt：定义该变量以承载业务值。 */
-    createdAt: number;
-  }>;
+/** records：定义该变量以承载业务值。 */
+  records: MarketTradeHistoryEntryView[];
 }
 
 /** SyncedNpcShopItemView：定义该接口的能力与字段约束。 */
@@ -1488,8 +1646,8 @@ export interface SyncedNpcShopView {
   items: SyncedNpcShopItemView[];
 }
 
-/** S2C_NpcShop：定义该接口的能力与字段约束。 */
-export interface S2C_NpcShop {
+/** NEXT_S2C_NpcShop：定义该接口的能力与字段约束。 */
+export interface NEXT_S2C_NpcShop {
 /** npcId：定义该变量以承载业务值。 */
   npcId: string;
 /** shop：定义该变量以承载业务值。 */
@@ -1497,8 +1655,8 @@ export interface S2C_NpcShop {
   error?: string;
 }
 
-/** S2C_AlchemyPanel：定义该接口的能力与字段约束。 */
-export interface S2C_AlchemyPanel {
+/** NEXT_S2C_AlchemyPanel：定义该接口的能力与字段约束。 */
+export interface NEXT_S2C_AlchemyPanel {
 /** state：定义该变量以承载业务值。 */
   state: SyncedAlchemyPanelState | null;
 /** catalogVersion：定义该变量以承载业务值。 */
@@ -1507,15 +1665,179 @@ export interface S2C_AlchemyPanel {
   error?: string;
 }
 
-/** S2C_EnhancementPanel：定义该接口的能力与字段约束。 */
-export interface S2C_EnhancementPanel {
+/** NEXT_S2C_EnhancementPanel：定义该接口的能力与字段约束。 */
+export interface NEXT_S2C_EnhancementPanel {
 /** state：定义该变量以承载业务值。 */
   state: SyncedEnhancementPanelState | null;
   error?: string;
 }
 
-/** S2C_TileRuntimeDetail：定义该接口的能力与字段约束。 */
-export interface S2C_TileRuntimeDetail {
+/** NEXT_S2C_NpcQuests：定义该接口的能力与字段约束。 */
+export interface NEXT_S2C_NpcQuests {
+/** npcId：定义该变量以承载业务值。 */
+  npcId: string;
+/** npcName：定义该变量以承载业务值。 */
+  npcName: string;
+/** quests：定义该变量以承载业务值。 */
+  quests: QuestState[];
+}
+
+/** NEXT_S2C_PortalDetail：定义该接口的能力与字段约束。 */
+export interface NEXT_S2C_PortalDetail {
+/** id：定义该变量以承载业务值。 */
+  id: string;
+/** x：定义该变量以承载业务值。 */
+  x: number;
+/** y：定义该变量以承载业务值。 */
+  y: number;
+  kind?: string;
+/** targetMapId：定义该变量以承载业务值。 */
+  targetMapId: string;
+  targetMapName?: string;
+  targetX?: number;
+  targetY?: number;
+  trigger?: 'manual' | 'auto';
+}
+
+/** NEXT_S2C_GroundDetail：定义该接口的能力与字段约束。 */
+export interface NEXT_S2C_GroundDetail {
+/** sourceId：定义该变量以承载业务值。 */
+  sourceId: string;
+/** x：定义该变量以承载业务值。 */
+  x: number;
+/** y：定义该变量以承载业务值。 */
+  y: number;
+/** items：定义该变量以承载业务值。 */
+  items: ItemStack[];
+}
+
+/** NEXT_S2C_ContainerDetail：定义该接口的能力与字段约束。 */
+export interface NEXT_S2C_ContainerDetail {
+/** id：定义该变量以承载业务值。 */
+  id: string;
+/** name：定义该变量以承载业务值。 */
+  name: string;
+/** x：定义该变量以承载业务值。 */
+  x: number;
+/** y：定义该变量以承载业务值。 */
+  y: number;
+/** grade：定义该变量以承载业务值。 */
+  grade: number;
+  desc?: string;
+}
+
+/** NEXT_S2C_NpcDetail：定义该接口的能力与字段约束。 */
+export interface NEXT_S2C_NpcDetail {
+/** id：定义该变量以承载业务值。 */
+  id: string;
+/** name：定义该变量以承载业务值。 */
+  name: string;
+/** char：定义该变量以承载业务值。 */
+  char: string;
+/** color：定义该变量以承载业务值。 */
+  color: string;
+/** x：定义该变量以承载业务值。 */
+  x: number;
+/** y：定义该变量以承载业务值。 */
+  y: number;
+/** dialogue：定义该变量以承载业务值。 */
+  dialogue: string;
+  role?: string;
+  hasShop?: 1;
+  questCount?: number;
+  questMarker?: NpcQuestMarker | null;
+  observation?: ObservationInsight;
+}
+
+/** NEXT_S2C_MonsterDetail：定义该接口的能力与字段约束。 */
+export interface NEXT_S2C_MonsterDetail {
+/** id：定义该变量以承载业务值。 */
+  id: string;
+/** mid：定义该变量以承载业务值。 */
+  mid: string;
+/** name：定义该变量以承载业务值。 */
+  name: string;
+/** char：定义该变量以承载业务值。 */
+  char: string;
+/** color：定义该变量以承载业务值。 */
+  color: string;
+/** x：定义该变量以承载业务值。 */
+  x: number;
+/** y：定义该变量以承载业务值。 */
+  y: number;
+/** hp：定义该变量以承载业务值。 */
+  hp: number;
+/** maxHp：定义该变量以承载业务值。 */
+  maxHp: number;
+/** level：定义该变量以承载业务值。 */
+  level: number;
+/** tier：定义该变量以承载业务值。 */
+  tier: MonsterTier;
+/** alive：定义该变量以承载业务值。 */
+  alive: boolean;
+  respawnTicks?: number;
+  observation?: ObservationInsight;
+  buffs?: VisibleBuffState[];
+}
+
+/** NEXT_S2C_PlayerDetail：定义该接口的能力与字段约束。 */
+export interface NEXT_S2C_PlayerDetail {
+/** id：定义该变量以承载业务值。 */
+  id: string;
+/** x：定义该变量以承载业务值。 */
+  x: number;
+/** y：定义该变量以承载业务值。 */
+  y: number;
+/** hp：定义该变量以承载业务值。 */
+  hp: number;
+/** maxHp：定义该变量以承载业务值。 */
+  maxHp: number;
+/** qi：定义该变量以承载业务值。 */
+  qi: number;
+/** maxQi：定义该变量以承载业务值。 */
+  maxQi: number;
+  observation?: ObservationInsight;
+  buffs?: VisibleBuffState[];
+}
+
+/** NEXT_S2C_TileDetail：定义该接口的能力与字段约束。 */
+export interface NEXT_S2C_TileDetail {
+/** x：定义该变量以承载业务值。 */
+  x: number;
+/** y：定义该变量以承载业务值。 */
+  y: number;
+  aura?: number;
+  safeZone?: {
+/** x：定义该变量以承载业务值。 */
+    x: number;
+/** y：定义该变量以承载业务值。 */
+    y: number;
+/** radius：定义该变量以承载业务值。 */
+    radius: number;
+  };
+  portal?: NEXT_S2C_PortalDetail;
+  ground?: NEXT_S2C_GroundDetail;
+  entities?: ObservedTileEntityDetail[];
+  error?: string;
+}
+
+/** NEXT_S2C_Detail：定义该接口的能力与字段约束。 */
+export interface NEXT_S2C_Detail {
+/** kind：定义该变量以承载业务值。 */
+  kind: 'npc' | 'monster' | 'ground' | 'player' | 'portal' | 'container';
+/** id：定义该变量以承载业务值。 */
+  id: string;
+  error?: string;
+  npc?: NEXT_S2C_NpcDetail;
+  monster?: NEXT_S2C_MonsterDetail;
+  player?: NEXT_S2C_PlayerDetail;
+  portal?: NEXT_S2C_PortalDetail;
+  ground?: NEXT_S2C_GroundDetail;
+  container?: NEXT_S2C_ContainerDetail;
+}
+
+/** NEXT_S2C_TileRuntimeDetail：定义该接口的能力与字段约束。 */
+export interface NEXT_S2C_TileRuntimeDetail {
 /** mapId：定义该变量以承载业务值。 */
   mapId: string;
 /** x：定义该变量以承载业务值。 */
@@ -1541,19 +1863,13 @@ export interface S2C_TileRuntimeDetail {
 }
 
 /** 任务列表更新 */
-export interface S2C_QuestUpdate {
-  quests: Array<{
-/** id：定义该变量以承载业务值。 */
-    id: string;
-/** status：定义该变量以承载业务值。 */
-    status: QuestState['status'];
-/** progress：定义该变量以承载业务值。 */
-    progress: number;
-  }>;
+export interface NEXT_S2C_QuestUpdate {
+/** quests：定义该变量以承载业务值。 */
+  quests: QuestState[];
 }
 
-/** S2C_AttrDetail：定义该接口的能力与字段约束。 */
-export interface S2C_AttrDetail {
+/** NEXT_S2C_AttrDetail：定义该接口的能力与字段约束。 */
+export interface NEXT_S2C_AttrDetail {
 /** baseAttrs：定义该变量以承载业务值。 */
   baseAttrs: Attributes;
 /** bonuses：定义该变量以承载业务值。 */
@@ -1694,8 +2010,8 @@ export interface LeaderboardWorldSummary {
   killCounts: LeaderboardWorldKillCounts;
 }
 
-/** S2C_Leaderboard：定义该接口的能力与字段约束。 */
-export interface S2C_Leaderboard {
+/** NEXT_S2C_Leaderboard：定义该接口的能力与字段约束。 */
+export interface NEXT_S2C_Leaderboard {
 /** generatedAt：定义该变量以承载业务值。 */
   generatedAt: number;
 /** limit：定义该变量以承载业务值。 */
@@ -1718,8 +2034,8 @@ export interface S2C_Leaderboard {
   };
 }
 
-/** S2C_WorldSummary：定义该接口的能力与字段约束。 */
-export interface S2C_WorldSummary {
+/** NEXT_S2C_WorldSummary：定义该接口的能力与字段约束。 */
+export interface NEXT_S2C_WorldSummary {
 /** generatedAt：定义该变量以承载业务值。 */
   generatedAt: number;
 /** summary：定义该变量以承载业务值。 */
@@ -1727,7 +2043,7 @@ export interface S2C_WorldSummary {
 }
 
 /** 任务自动导航回执 */
-export interface S2C_QuestNavigateResult {
+export interface NEXT_S2C_QuestNavigateResult {
 /** questId：定义该变量以承载业务值。 */
   questId: string;
 /** ok：定义该变量以承载业务值。 */
@@ -1736,11 +2052,11 @@ export interface S2C_QuestNavigateResult {
 }
 
 /** 系统消息 */
-export interface S2C_SystemMsg {
+export interface NEXT_S2C_SystemMsg {
   id?: string;
 /** text：定义该变量以承载业务值。 */
   text: string;
-  kind?: 'system' | 'chat' | 'quest' | 'combat' | 'loot' | 'grudge';
+  kind?: 'system' | 'chat' | 'quest' | 'combat' | 'loot' | 'grudge' | 'success' | 'warn' | 'travel';
   from?: string;
   occurredAt?: number;
   persistUntilAck?: boolean;
@@ -1755,27 +2071,27 @@ export interface S2C_SystemMsg {
   };
 }
 
-/** S2C_MailSummary：定义该接口的能力与字段约束。 */
-export interface S2C_MailSummary {
+/** NEXT_S2C_MailSummary：定义该接口的能力与字段约束。 */
+export interface NEXT_S2C_MailSummary {
 /** summary：定义该变量以承载业务值。 */
   summary: MailSummaryView;
 }
 
-/** S2C_MailPage：定义该接口的能力与字段约束。 */
-export interface S2C_MailPage {
+/** NEXT_S2C_MailPage：定义该接口的能力与字段约束。 */
+export interface NEXT_S2C_MailPage {
 /** page：定义该变量以承载业务值。 */
   page: MailPageView;
 }
 
-/** S2C_MailDetail：定义该接口的能力与字段约束。 */
-export interface S2C_MailDetail {
+/** NEXT_S2C_MailDetail：定义该接口的能力与字段约束。 */
+export interface NEXT_S2C_MailDetail {
 /** detail：定义该变量以承载业务值。 */
   detail: MailDetailView | null;
   error?: string;
 }
 
-/** S2C_MailOpResult：定义该接口的能力与字段约束。 */
-export interface S2C_MailOpResult {
+/** NEXT_S2C_MailOpResult：定义该接口的能力与字段约束。 */
+export interface NEXT_S2C_MailOpResult {
 /** operation：定义该变量以承载业务值。 */
   operation: 'markRead' | 'claim' | 'delete';
 /** ok：定义该变量以承载业务值。 */
@@ -1790,10 +2106,10 @@ export interface S2C_MailOpResult {
 /** 建议系统 Payload */
 
 /** 主动请求最新建议列表 */
-export interface C2S_RequestSuggestions {}
+export interface NEXT_C2S_RequestSuggestions {}
 
 /** 创建建议 */
-export interface C2S_CreateSuggestion {
+export interface NEXT_C2S_CreateSuggestion {
 /** title：定义该变量以承载业务值。 */
   title: string;
 /** description：定义该变量以承载业务值。 */
@@ -1801,41 +2117,41 @@ export interface C2S_CreateSuggestion {
 }
 
 /** 建议投票 */
-export interface C2S_VoteSuggestion {
+export interface NEXT_C2S_VoteSuggestion {
 /** suggestionId：定义该变量以承载业务值。 */
   suggestionId: string;
 /** vote：定义该变量以承载业务值。 */
   vote: 'up' | 'down';
 }
 
-/** C2S_ReplySuggestion：定义该接口的能力与字段约束。 */
-export interface C2S_ReplySuggestion {
+/** NEXT_C2S_ReplySuggestion：定义该接口的能力与字段约束。 */
+export interface NEXT_C2S_ReplySuggestion {
 /** suggestionId：定义该变量以承载业务值。 */
   suggestionId: string;
 /** content：定义该变量以承载业务值。 */
   content: string;
 }
 
-/** C2S_MarkSuggestionRepliesRead：定义该接口的能力与字段约束。 */
-export interface C2S_MarkSuggestionRepliesRead {
+/** NEXT_C2S_MarkSuggestionRepliesRead：定义该接口的能力与字段约束。 */
+export interface NEXT_C2S_MarkSuggestionRepliesRead {
 /** suggestionId：定义该变量以承载业务值。 */
   suggestionId: string;
 }
 
-/** C2S_GmMarkSuggestionCompleted：定义该接口的能力与字段约束。 */
-export interface C2S_GmMarkSuggestionCompleted {
+/** NEXT_C2S_GmMarkSuggestionCompleted：定义该接口的能力与字段约束。 */
+export interface NEXT_C2S_GmMarkSuggestionCompleted {
 /** suggestionId：定义该变量以承载业务值。 */
   suggestionId: string;
 }
 
-/** C2S_GmRemoveSuggestion：定义该接口的能力与字段约束。 */
-export interface C2S_GmRemoveSuggestion {
+/** NEXT_C2S_GmRemoveSuggestion：定义该接口的能力与字段约束。 */
+export interface NEXT_C2S_GmRemoveSuggestion {
 /** suggestionId：定义该变量以承载业务值。 */
   suggestionId: string;
 }
 
 /** 建议列表更新 */
-export interface S2C_SuggestionUpdate {
+export interface NEXT_S2C_SuggestionUpdate {
 /** suggestions：定义该变量以承载业务值。 */
   suggestions: Suggestion[];
 }
@@ -2390,8 +2706,6 @@ export interface GmEditorItemOption {
   enhanceLevel?: number;
   alchemySuccessRate?: number;
   alchemySpeedRate?: number;
-  enhancementSuccessRate?: number;
-  enhancementSpeedRate?: number;
   mapUnlockId?: string;
   mapUnlockIds?: string[];
   tileAuraGainAmount?: number;
@@ -2563,28 +2877,6 @@ export interface GmMapLandmarkRecord {
   container?: GmMapContainerRecord;
 }
 
-/** GM 地图资源节点分组中的单个布点 */
-export interface GmMapResourceNodePlacementRecord {
-/** x：定义该变量以承载业务值。 */
-  x: number;
-/** y：定义该变量以承载业务值。 */
-  y: number;
-  id?: string;
-  name?: string;
-  desc?: string;
-}
-
-/** GM 地图资源节点分组记录 */
-export interface GmMapResourceNodeGroupRecord {
-/** resourceNodeId：定义该变量以承载业务值。 */
-  resourceNodeId: string;
-  idPrefix?: string;
-  name?: string;
-  desc?: string;
-/** placements：定义该变量以承载业务值。 */
-  placements: GmMapResourceNodePlacementRecord[];
-}
-
 /** GM 地图掉落物记录 */
 export interface GmMapDropRecord {
 /** itemId：定义该变量以承载业务值。 */
@@ -2614,11 +2906,8 @@ export interface GmMapContainerLootPoolRecord {
 
 /** GM 地图容器记录 */
 export interface GmMapContainerRecord {
-  variant?: LootSourceVariant;
   grade?: TechniqueGrade;
   refreshTicks?: number;
-  refreshTicksMin?: number;
-  refreshTicksMax?: number;
   char?: string;
   color?: string;
   drops?: GmMapDropRecord[];
@@ -2723,7 +3012,6 @@ export interface GmMapMonsterSpawnRecord {
   level?: number;
   attrs?: Partial<Attributes>;
   statPercents?: NumericStatPercentages;
-  initialBuffs?: MonsterInitialBuffDef[];
   skills?: string[];
   tier?: MonsterTier;
   expMultiplier?: number;
@@ -2767,7 +3055,6 @@ export interface GmMapDocument {
   resources?: GmMapResourceRecord[];
   safeZones?: GmMapSafeZoneRecord[];
   landmarks?: GmMapLandmarkRecord[];
-  resourceNodeGroups?: GmMapResourceNodeGroupRecord[];
 /** npcs：定义该变量以承载业务值。 */
   npcs: GmMapNpcRecord[];
 /** monsterSpawns：定义该变量以承载业务值。 */
@@ -2794,10 +3081,6 @@ export interface GmMapSummary {
   npcCount: number;
 /** monsterSpawnCount：定义该变量以承载业务值。 */
   monsterSpawnCount: number;
-  catalogMode?: 'main' | 'piece';
-  catalogGroupId?: string;
-  catalogGroupName?: string;
-  sourcePath?: string;
 }
 
 /** GmMapListRes：定义该接口的能力与字段约束。 */

@@ -15,8 +15,6 @@ import {
   GmMapPortalRecord,
   GmMapQuestRecord,
   GmMapResourceRecord,
-  GmMapResourceNodeGroupRecord,
-  GmMapResourceNodePlacementRecord,
   GmMapSafeZoneRecord,
   MapRouteDomain,
   PortalRouteDomain,
@@ -37,7 +35,7 @@ import {
   isTileTypeWalkable,
   normalizeConfiguredAuraValue,
   parseQiResourceKey,
-} from '@mud/shared';
+} from '@mud/shared-next';
 import {
   AURA_BRUSH_LEVELS,
   EDITOR_BASE_CELL_SIZE,
@@ -90,6 +88,7 @@ import {
   textField,
   booleanField,
 } from './gm-map-editor-helpers';
+import { GM_API_BASE_PATH } from './constants/api';
 
 /** RequestFn：定义该类型的结构与数据语义。 */
 type RequestFn = <T>(path: string, init?: RequestInit) => Promise<T>;
@@ -117,14 +116,6 @@ const MONSTER_GRADE_OVERRIDE_OPTIONS = [
   { value: '', label: '跟随模板' },
   ...MONSTER_GRADE_OPTIONS,
 ];
-/** FIVE_ELEMENT_AURA_OPTIONS：定义该变量以承载业务值。 */
-const FIVE_ELEMENT_AURA_OPTIONS = [
-  { value: 'aura.refined.metal', label: '金灵气' },
-  { value: 'aura.refined.wood', label: '木灵气' },
-  { value: 'aura.refined.water', label: '水灵气' },
-  { value: 'aura.refined.fire', label: '火灵气' },
-  { value: 'aura.refined.earth', label: '土灵气' },
-] as const;
 /** GmMapEditorOptions：定义该类型的结构与数据语义。 */
 type GmMapEditorOptions = {
   mapApiBasePath?: string;
@@ -139,14 +130,13 @@ type MapEntitySelection =
   | { kind: 'monster'; index: number }
   | { kind: 'aura'; index: number }
   | { kind: 'resource'; index: number }
-  | { kind: 'resourceNodePlacement'; index: number }
   | { kind: 'safeZone'; index: number }
   | { kind: 'landmark'; index: number }
   | { kind: 'container'; index: number }
   | null;
 
 /** MapEntityKind：定义该类型的结构与数据语义。 */
-type MapEntityKind = 'portal' | 'npc' | 'monster' | 'aura' | 'resource' | 'resourceNodePlacement' | 'safeZone' | 'landmark' | 'container';
+type MapEntityKind = 'portal' | 'npc' | 'monster' | 'aura' | 'resource' | 'safeZone' | 'landmark' | 'container';
 
 /** MapTool：定义该类型的结构与数据语义。 */
 type MapTool = 'select' | 'paint' | 'pan';
@@ -154,8 +144,6 @@ type MapTool = 'select' | 'paint' | 'pan';
 type PaintLayer = 'tile' | 'aura' | 'resource';
 /** InspectorTabId：定义该类型的结构与数据语义。 */
 type InspectorTabId = 'selection' | 'meta' | 'compose' | 'portal' | 'npc' | 'monster' | 'aura' | 'resource' | 'safeZone' | 'landmark' | 'container';
-/** MapCatalogMode：定义该类型的结构与数据语义。 */
-type MapCatalogMode = 'main' | 'piece';
 /** GridPoint：定义该类型的结构与数据语义。 */
 type GridPoint = { x: number; y: number };
 /** ComposeRotation：定义该类型的结构与数据语义。 */
@@ -163,13 +151,6 @@ type ComposeRotation = 0 | 90 | 180 | 270;
 
 /** TileResourcePoint：定义该类型的结构与数据语义。 */
 type TileResourcePoint = GmMapResourceRecord;
-/** FlattenedResourceNodePlacement：定义该类型的结构与数据语义。 */
-type FlattenedResourceNodePlacement = {
-  group: GmMapResourceNodeGroupRecord,
-  groupIndex: number,
-  placement: GmMapResourceNodePlacementRecord,
-  placementIndex: number,
-};
 /** MapComposePiece：定义该类型的结构与数据语义。 */
 type MapComposePiece = {
   id: string,
@@ -207,36 +188,10 @@ type EditorUndoEntry = {
   dirty: boolean;
 };
 
-/** buildResourceBrushPresetKeys：执行对应的业务逻辑。 */
-function buildResourceBrushPresetKeys(existingKeys: string[], currentKey: string): string[] {
-/** result：定义该变量以承载业务值。 */
-  const result: string[] = [];
-  for (const key of [...FIVE_ELEMENT_AURA_OPTIONS.map((option) => option.value), ...existingKeys, currentKey]) {
-    const normalized = key.trim();
-    if (!normalized || result.includes(normalized)) {
-      continue;
-    }
-    result.push(normalized);
-  }
-  return result;
-}
-
-/** normalizeFiveElementAuraResourceKey：执行对应的业务逻辑。 */
-function normalizeFiveElementAuraResourceKey(resourceKey: string): string {
-/** normalized：定义该变量以承载业务值。 */
-  const normalized = resourceKey.trim();
-  if (FIVE_ELEMENT_AURA_OPTIONS.some((option) => option.value === normalized)) {
-    return normalized;
-  }
-  return DEFAULT_RESOURCE_KEY;
-}
-
 /** GM 地图可视化编辑器，支持地块绘制、对象增删、撤销和 JSON 导入导出 */
 export class GmMapEditor {
   private readonly listEl = document.getElementById('map-list') as HTMLDivElement;
   private readonly searchInput = document.getElementById('map-search') as HTMLInputElement;
-  private readonly catalogModeMainBtn = document.getElementById('map-catalog-mode-main') as HTMLButtonElement | null;
-  private readonly catalogModePieceBtn = document.getElementById('map-catalog-mode-piece') as HTMLButtonElement | null;
   private readonly saveBtn = document.getElementById('map-save') as HTMLButtonElement;
   private readonly resetBtn = document.getElementById('map-reset') as HTMLButtonElement;
   private readonly reloadBtn = document.getElementById('map-reload') as HTMLButtonElement;
@@ -268,8 +223,6 @@ export class GmMapEditor {
 
 /** mapList：定义该变量以承载业务值。 */
   private mapList: GmMapSummary[] = [];
-/** catalogMode：定义该变量以承载业务值。 */
-  private catalogMode: MapCatalogMode = 'main';
 /** selectedMapId：定义该变量以承载业务值。 */
   private selectedMapId: string | null = null;
 /** draft：定义该变量以承载业务值。 */
@@ -339,7 +292,7 @@ export class GmMapEditor {
 /** options：定义该变量以承载业务值。 */
     options: GmMapEditorOptions = {},
   ) {
-    this.mapApiBasePath = options.mapApiBasePath ?? '/gm/maps';
+    this.mapApiBasePath = options.mapApiBasePath ?? `${GM_API_BASE_PATH}/maps`;
     this.syncedSummaryLabel = options.syncedSummaryLabel ?? '已与服务端同步';
     this.itemCatalog = options.itemCatalog ? clone(options.itemCatalog) : [];
     this.bindEvents();
@@ -423,8 +376,6 @@ export class GmMapEditor {
 /** bindEvents：执行对应的业务逻辑。 */
   private bindEvents(): void {
     this.searchInput.addEventListener('input', () => this.renderMapList());
-    this.catalogModeMainBtn?.addEventListener('click', () => this.setCatalogMode('main'));
-    this.catalogModePieceBtn?.addEventListener('click', () => this.setCatalogMode('piece'));
     this.refreshListBtn.addEventListener('click', () => {
       this.loadMapList(true).catch(() => {});
     });
@@ -482,14 +433,6 @@ export class GmMapEditor {
 /** button：定义该变量以承载业务值。 */
       const button = (event.target as HTMLElement).closest<HTMLButtonElement>('button');
       if (!button) return;
-/** resourceKey：定义该变量以承载业务值。 */
-      const resourceKey = button.dataset.resourceKey;
-      if (resourceKey) {
-        this.resourcePaintKey = normalizeFiveElementAuraResourceKey(resourceKey);
-        this.renderToolControls();
-        this.renderInspector();
-        return;
-      }
 /** tileType：定义该变量以承载业务值。 */
       const tileType = button.dataset.tileType as TileType | undefined;
       if (tileType) {
@@ -556,7 +499,7 @@ export class GmMapEditor {
       if (Number.isInteger(index) && kind) {
         this.selectedComposePieceId = null;
         this.selectedEntity = { kind, index } as Exclude<MapEntitySelection, null>;
-        this.currentInspectorTab = kind === 'resourceNodePlacement' ? 'resource' : kind;
+        this.currentInspectorTab = kind;
 /** point：定义该变量以承载业务值。 */
         const point = this.getSelectedEntityPoint();
         if (point) this.selectedCell = point;
@@ -617,7 +560,7 @@ export class GmMapEditor {
     const currentTool = this.getCurrentTool();
     this.toolButtonsEl.innerHTML = TOOL_OPTIONS.map((tool) => `
       <button class="map-tool-btn ${currentTool === tool.value ? 'active' : ''}" data-tool="${tool.value}" type="button">
-        ${escapeHtml(tool.label)} · ${escapeHtml(tool.value === 'paint' ? `左键拖拽刷${this.paintLayer === 'tile' ? '地块' : this.paintLayer === 'aura' ? '无属性灵气' : '五行灵气'}` : tool.note)}
+        ${escapeHtml(tool.label)} · ${escapeHtml(tool.value === 'paint' ? `左键拖拽刷${this.paintLayer === 'tile' ? '地块' : this.paintLayer === 'aura' ? '无属性灵气' : '气机'}` : tool.note)}
       </button>
     `).join('');
 
@@ -635,19 +578,11 @@ export class GmMapEditor {
           ${escapeHtml(TILE_TYPE_LABELS[tileType])}
         </button>
       `).join('')
-      : `${this.paintLayer === 'resource'
-        ? `<div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px;">
-          ${FIVE_ELEMENT_AURA_OPTIONS.map((option) => `
-            <button class="map-tile-btn ${normalizeFiveElementAuraResourceKey(this.resourcePaintKey) === option.value ? 'active' : ''}" data-resource-key="${escapeHtml(option.value)}" type="button">
-              ${escapeHtml(option.label)}
-            </button>
-          `).join('')}
-        </div>`
-        : ''}${AURA_BRUSH_LEVELS.map((value) => `
+      : AURA_BRUSH_LEVELS.map((value) => `
         <button class="map-tile-btn ${(this.paintLayer === 'aura' ? this.auraPaintValue : this.resourcePaintValue) === value ? 'active' : ''}" data-aura-value="${value}" type="button">
-          ${value === 0 ? '清除' : `${this.paintLayer === 'aura' ? '灵气' : '五行灵气'} ${value}`}
+          ${value === 0 ? '清除' : `${this.paintLayer === 'aura' ? '灵气' : '气机'} ${value}`}
         </button>
-      `).join('')}`;
+      `).join('');
   }
 
 /** loadMapList：执行对应的业务逻辑。 */
@@ -664,78 +599,11 @@ export class GmMapEditor {
         this.draft = null;
       }
     }
-/** visibleMaps：定义该变量以承载业务值。 */
-    const visibleMaps = this.getVisibleMapList();
-    if (!this.selectedMapId && visibleMaps.length > 0) {
-      this.selectedMapId = visibleMaps[0]!.id;
+    if (!this.selectedMapId && data.maps.length > 0) {
+      this.selectedMapId = data.maps[0]!.id;
       await this.loadMap(this.selectedMapId, false);
     }
     this.renderMapList();
-  }
-
-/** getMapCatalogMode：执行对应的业务逻辑。 */
-  private getMapCatalogMode(map: GmMapSummary): MapCatalogMode {
-    return map.catalogMode === 'piece' ? 'piece' : 'main';
-  }
-
-/** getVisibleMapList：执行对应的业务逻辑。 */
-  private getVisibleMapList(): GmMapSummary[] {
-/** mapsInMode：定义该变量以承载业务值。 */
-    const mapsInMode = this.mapList.filter((map) => this.getMapCatalogMode(map) === this.catalogMode);
-    if (mapsInMode.length > 0) {
-      return mapsInMode;
-    }
-    return this.mapList;
-  }
-
-/** inferComposeGroupId：执行对应的业务逻辑。 */
-  private inferComposeGroupId(mapId: string): string {
-/** marker：定义该变量以承载业务值。 */
-    const marker = mapId.lastIndexOf('_');
-    if (marker <= 0) {
-      return mapId;
-    }
-    return mapId.slice(0, marker);
-  }
-
-/** getComposeGroupIdForMap：执行对应的业务逻辑。 */
-  private getComposeGroupIdForMap(mapId: string): string {
-/** summary：定义该变量以承载业务值。 */
-    const summary = this.mapList.find((map) => map.id === mapId);
-    if (summary?.catalogMode === 'piece') {
-      return summary.catalogGroupId?.trim() || this.inferComposeGroupId(mapId);
-    }
-    return summary?.id || mapId;
-  }
-
-/** getComposeSourceOptionsForMap：执行对应的业务逻辑。 */
-  private getComposeSourceOptionsForMap(mapId: string): GmMapSummary[] {
-/** groupId：定义该变量以承载业务值。 */
-    const groupId = this.getComposeGroupIdForMap(mapId);
-    return this.mapList.filter((map) => {
-      if (map.id === mapId) {
-        return false;
-      }
-      if (this.getMapCatalogMode(map) !== 'piece') {
-        return false;
-      }
-      return (map.catalogGroupId?.trim() || '') === groupId || map.id.startsWith(`${groupId}_`);
-    });
-  }
-
-/** setCatalogMode：执行对应的业务逻辑。 */
-  private setCatalogMode(mode: MapCatalogMode): void {
-    if (this.catalogMode === mode) {
-      return;
-    }
-    this.catalogMode = mode;
-    this.renderMapList();
-  }
-
-/** renderCatalogModeButtons：执行对应的业务逻辑。 */
-  private renderCatalogModeButtons(): void {
-    this.catalogModeMainBtn?.classList.toggle('primary', this.catalogMode === 'main');
-    this.catalogModePieceBtn?.classList.toggle('primary', this.catalogMode === 'piece');
   }
 
 /** renderMapList：执行对应的业务逻辑。 */
@@ -743,34 +611,13 @@ export class GmMapEditor {
 /** keyword：定义该变量以承载业务值。 */
     const keyword = this.searchInput.value.trim().toLowerCase();
 /** filtered：定义该变量以承载业务值。 */
-    const filtered = this.getVisibleMapList().filter((map) => {
+    const filtered = this.mapList.filter((map) => {
       if (!keyword) return true;
-      return [map.id, map.name, map.recommendedRealm ?? '', map.description ?? '', map.catalogGroupName ?? '', map.sourcePath ?? '']
+      return [map.id, map.name, map.recommendedRealm ?? '', map.description ?? '']
         .some((value) => value.toLowerCase().includes(keyword));
     });
-    this.renderCatalogModeButtons();
     if (filtered.length === 0) {
       this.listEl.innerHTML = '<div class="empty-hint">没有符合条件的地图。</div>';
-      return;
-    }
-    if (this.catalogMode === 'piece') {
-/** previousGroup：定义该变量以承载业务值。 */
-      let previousGroup = '';
-      this.listEl.innerHTML = filtered.map((map) => {
-/** groupName：定义该变量以承载业务值。 */
-        const groupName = map.catalogGroupName?.trim() || '未分组散图';
-/** heading：定义该变量以承载业务值。 */
-        const heading = groupName !== previousGroup
-          ? `<div class="map-row-meta" style="margin:10px 0 6px; font-weight:700;">${escapeHtml(groupName)}</div>`
-          : '';
-        previousGroup = groupName;
-        return `${heading}
-      <button class="map-row ${map.id === this.selectedMapId ? 'active' : ''}" data-map-id="${escapeHtml(map.id)}" type="button">
-        <div class="map-row-title">${escapeHtml(map.name)}</div>
-        <div class="map-row-meta">${escapeHtml(map.id)} · ${map.width} x ${map.height} · 危险度 ${map.dangerLevel ?? '-'}</div>
-        <div class="map-row-meta">${escapeHtml(map.sourcePath ?? '散图')}</div>
-      </button>`;
-      }).join('');
       return;
     }
     this.listEl.innerHTML = filtered.map((map) => `
@@ -805,7 +652,7 @@ export class GmMapEditor {
     this.composePieces = [];
     this.selectedComposePieceId = null;
     this.composeDragActive = false;
-    this.composeSourceMapId = this.getComposeSourceOptionsForMap(mapId)[0]?.id ?? '';
+    this.composeSourceMapId = this.mapList.find((map) => map.id !== mapId)?.id ?? '';
     this.currentInspectorTab = 'selection';
     this.linePaintStart = null;
     this.undoStack = [];
@@ -853,8 +700,7 @@ export class GmMapEditor {
       `NPC ${this.draft.npcs.length}`,
       `怪物刷新点 ${this.draft.monsterSpawns.length}`,
       `无属性灵气点 ${this.draft.auras?.length ?? 0}`,
-      `五行灵气点 ${this.draft.resources?.length ?? 0}`,
-      `资源节点布点 ${this.getFlattenedResourceNodePlacements().length}`,
+      `气机点 ${this.draft.resources?.length ?? 0}`,
       `安全区 ${(this.draft.safeZones ?? []).length}`,
       `地标 ${this.draft.landmarks?.length ?? 0}`,
       `容器 ${this.getContainerLandmarks().length}`,
@@ -935,8 +781,8 @@ export class GmMapEditor {
           ${readonlyField('悬停格', this.hoveredCell ? `(${this.hoveredCell.x}, ${this.hoveredCell.y})` : '无')}
           ${readonlyField('地块', selectedTileType ? TILE_TYPE_LABELS[selectedTileType] : '无')}
           ${readonlyField('无属性灵气', selectedAura ? formatAuraPointLabel(selectedAura.value) : '无')}
-          ${readonlyField('五行灵气', resourceSummary)}
-          ${readonlyField('当前工具', this.getCurrentTool() === 'paint' ? `绘制 · ${this.paintLayer === 'tile' ? '地块' : this.paintLayer === 'aura' ? '无属性灵气' : '五行灵气'}` : this.getCurrentTool() === 'pan' ? '平移' : '选取')}
+          ${readonlyField('气机', resourceSummary)}
+          ${readonlyField('当前工具', this.getCurrentTool() === 'paint' ? `绘制 · ${this.paintLayer === 'tile' ? '地块' : this.paintLayer === 'aura' ? '无属性灵气' : '气机'}` : this.getCurrentTool() === 'pan' ? '平移' : '选取')}
           ${readonlyField('选中对象', this.describeSelectedEntity())}
         </div>
         <div class="button-row" style="margin-top: 10px;">
@@ -999,27 +845,27 @@ export class GmMapEditor {
   private renderComposeTab(): string {
     if (!this.draft) return '';
 /** sourceOptions：定义该变量以承载业务值。 */
-    const sourceOptions = this.getComposeSourceOptionsForMap(this.draft.id);
+    const sourceOptions = this.mapList.filter((map) => map.id !== this.draft?.id);
 /** selectedPiece：定义该变量以承载业务值。 */
     const selectedPiece = this.getSelectedComposePiece();
 /** selectedSource：定义该变量以承载业务值。 */
     const selectedSource = this.composeSourceMapId
-      ? sourceOptions.find((map) => map.id === this.composeSourceMapId) ?? null
+      ? this.mapList.find((map) => map.id === this.composeSourceMapId) ?? null
       : null;
     return `
       <section class="editor-section">
         <div class="editor-section-head">
           <div>
             <div class="editor-section-title">拼图块</div>
-            <div class="editor-section-note">这里只显示当前大图自己的散图。左键拖拽移动，旋转后再烘焙进当前地图。</div>
+            <div class="editor-section-note">把子地图作为临时拼图块放到画布上。左键拖拽移动，旋转后再烘焙进当前地图。</div>
           </div>
-          <button class="small-btn" type="button" data-map-action="compose-add-piece" ${sourceOptions.length > 0 ? '' : 'disabled'}>加入拼图块</button>
+          <button class="small-btn" type="button" data-map-action="compose-add-piece">加入拼图块</button>
         </div>
         <div class="map-form-grid compact">
           <label class="map-field wide">
             <span>来源地图</span>
             <select data-map-ui="composeSourceMapId">
-              <option value="">${sourceOptions.length > 0 ? '请选择子地图' : '当前没有同组散图'}</option>
+              <option value="">请选择子地图</option>
               ${sourceOptions.map((map) => `
                 <option value="${escapeHtml(map.id)}" ${map.id === this.composeSourceMapId ? 'selected' : ''}>
                   ${escapeHtml(`${map.name} (${map.id})`)}
@@ -1158,28 +1004,6 @@ export class GmMapEditor {
     `;
   }
 
-/** getFlattenedResourceNodePlacements：执行对应的业务逻辑。 */
-  private getFlattenedResourceNodePlacements(): FlattenedResourceNodePlacement[] {
-    if (!this.draft) {
-      return [];
-    }
-    return (this.draft.resourceNodeGroups ?? []).flatMap((group, groupIndex) => (
-      (group.placements ?? []).map((placement, placementIndex) => ({
-        group,
-        groupIndex,
-        placement,
-        placementIndex,
-      }))
-    ));
-  }
-
-  private getSelectedResourceNodePlacement(): FlattenedResourceNodePlacement | null {
-    if (!this.draft || this.selectedEntity?.kind !== 'resourceNodePlacement') {
-      return null;
-    }
-    return this.getFlattenedResourceNodePlacements()[this.selectedEntity.index] ?? null;
-  }
-
 /** renderResourceTab：执行对应的业务逻辑。 */
   private renderResourceTab(selectedPoint: { x: number; y: number } | null): string {
     if (!this.draft) return '';
@@ -1190,8 +1014,6 @@ export class GmMapEditor {
         const sortKeyCompare = getResourceTypeSortKey(left).localeCompare(getResourceTypeSortKey(right), 'zh-CN');
         return sortKeyCompare !== 0 ? sortKeyCompare : left.localeCompare(right, 'zh-CN');
       });
-/** brushPresetKeys：定义该变量以承载业务值。 */
-    const brushPresetKeys = buildResourceBrushPresetKeys(uniqueKeys, this.resourcePaintKey);
 /** resourceGroups：定义该变量以承载业务值。 */
     const resourceGroups = uniqueKeys.map((resourceKey) => ({
       resourceKey,
@@ -1209,8 +1031,6 @@ export class GmMapEditor {
     const selectedResource = this.selectedEntity?.kind === 'resource'
       ? this.draft.resources?.[this.selectedEntity.index]
       : null;
-/** resourceNodePlacements：定义该变量以承载业务值。 */
-    const resourceNodePlacements = this.getFlattenedResourceNodePlacements();
 /** selectedResourceKey：定义该变量以承载业务值。 */
     const selectedResourceKey = selectedResource ? getResourceRecordKey(selectedResource) : this.resourcePaintKey;
 /** currentBrushLabel：定义该变量以承载业务值。 */
@@ -1219,29 +1039,25 @@ export class GmMapEditor {
       <section class="editor-section">
         <div class="editor-section-head">
           <div>
-            <div class="editor-section-title">资源点</div>
-            <div class="editor-section-note">这里同时展示五行灵气点和 <code>resourceNodeGroups</code> 里的草药/采集布点。灵气画笔仍只作用于五行灵气。</div>
+            <div class="editor-section-title">气机点</div>
+            <div class="editor-section-note">可编辑任意资源键，同格允许并存多个气机条目。</div>
           </div>
-          <button class="small-btn" type="button" data-map-action="add-resource">新建灵气点</button>
+          <button class="small-btn" type="button" data-map-action="add-resource">新建气机点</button>
         </div>
         <div class="map-form-grid compact" style="margin-bottom: 10px;">
           <label class="map-field">
-            <span>属性</span>
-            <select data-map-ui="resourcePaintKey">
-              ${FIVE_ELEMENT_AURA_OPTIONS.map((option) => `
-                <option value="${escapeHtml(option.value)}" ${option.value === normalizeFiveElementAuraResourceKey(this.resourcePaintKey) ? 'selected' : ''}>
-                  ${escapeHtml(option.label)}
-                </option>
-              `).join('')}
-            </select>
+            <span>画笔资源键</span>
+            <input data-map-ui="resourcePaintKey" value="${escapeHtml(this.resourcePaintKey)}" />
           </label>
           <label class="map-field">
-            <span>灵气值</span>
+            <span>画笔值</span>
             <input data-map-ui="resourcePaintValue" type="number" min="0" value="${this.resourcePaintValue}" />
           </label>
         </div>
-        <div class="editor-note" style="margin-bottom: 10px;">图上已有灵气种类：${escapeHtml(brushPresetKeys.length > 0 ? brushPresetKeys.map((resourceKey) => formatResourceTypeLabel(resourceKey)).join('、') : '无')}</div>
-        <div class="editor-note" style="margin: 10px 0 6px;">五行灵气点</div>
+        <div class="button-row" style="margin-bottom: 10px;">
+          <button class="small-btn" type="button" data-map-action="apply-resource-brush-key">应用到画笔</button>
+        </div>
+        <div class="editor-note" style="margin-bottom: 10px;">已存在资源种类：${escapeHtml(uniqueKeys.length > 0 ? uniqueKeys.map((resourceKey) => formatResourceTypeLabel(resourceKey)).join('、') : '无')}</div>
         ${resourceGroups.length > 0
           ? resourceGroups.map((group) => `
             <div class="editor-note" style="margin: 10px 0 6px;">${escapeHtml(group.label)}</div>
@@ -1253,23 +1069,11 @@ export class GmMapEditor {
               `).join('')}
             </div>
           `).join('')
-          : '<div class="editor-note">暂无五行灵气点。</div>'}
-        <div class="editor-note" style="margin: 14px 0 6px;">草药/资源节点布点</div>
-        ${resourceNodePlacements.length > 0
-          ? `
-            <div class="map-entity-list">
-              ${resourceNodePlacements.map(({ group, placement }, index) => `
-                <button class="map-entity-btn ${this.selectedEntity?.kind === 'resourceNodePlacement' && this.selectedEntity.index === index ? 'active' : ''}" data-entity-kind="resourceNodePlacement" data-entity-index="${index}" type="button">
-                  ${escapeHtml(`${group.name || group.resourceNodeId} · (${placement.x},${placement.y})${placement.name ? ` · ${placement.name}` : ''}${placement.id ? ` · ${placement.id}` : ''}`)}
-                </button>
-              `).join('')}
-            </div>
-          `
-          : '<div class="editor-note">暂无资源节点布点。</div>'}
+          : '<div class="editor-note">暂无气机点。</div>'}
       </section>
-      ${this.selectedEntity?.kind === 'resource' || this.selectedEntity?.kind === 'resourceNodePlacement'
+      ${this.selectedEntity?.kind === 'resource'
         ? this.renderSelectedEntitySection(selectedPoint)
-        : '<div class="editor-note">选中一个五行灵气点或草药布点后，可在下方编辑属性。</div>'}
+        : '<div class="editor-note">选中一个气机点后可在下方编辑属性。</div>'}
       <div class="editor-note" style="margin-top: 8px;">当前画笔：${escapeHtml(currentBrushLabel)}</div>
     `;
   }
@@ -1367,7 +1171,7 @@ export class GmMapEditor {
               <div class="editor-section-note">先从上面的对象列表里选中一个。</div>
             </div>
           </div>
-          <div class="editor-note">当前没有选中的传送点、NPC、怪物刷新点、无属性灵气点、五行灵气点、资源节点布点、安全区、地标或容器。</div>
+          <div class="editor-note">当前没有选中的传送点、NPC、怪物刷新点、无属性灵气点、气机点、安全区、地标或容器。</div>
         </section>
       `;
     }
@@ -1438,7 +1242,7 @@ export class GmMapEditor {
             ${textField('角色类型', `npcs.${npcIndex}.role`, npc.role)}
             ${textField('对白', `npcs.${npcIndex}.dialogue`, npc.dialogue, 'wide')}
           </div>
-          <div class="editor-note" style="margin-top: 12px;">任务请改到 <code>packages/server/data/content/quests/</code> 下对应章节文件，例如 <code>第一章_主线.json</code>、<code>第一章_支线.json</code>。</div>
+          <div class="editor-note" style="margin-top: 12px;">任务请改到 <code>legacy/server/data/content/quests/</code> 下对应章节文件，例如 <code>第一章_主线.json</code>、<code>第一章_支线.json</code>。</div>
         </section>
       `;
     }
@@ -1554,10 +1358,6 @@ export class GmMapEditor {
             ${textField('资源节点 ID', `landmarks.${selectedIndex}.resourceNodeId`, containerLandmark.resourceNodeId)}
             ${textField('显示字', `landmarks.${selectedIndex}.container.char`, container.char)}
             ${textField('颜色', `landmarks.${selectedIndex}.container.color`, container.color)}
-            ${selectField('容器变种', `landmarks.${selectedIndex}.container.variant`, container.variant ?? 'default', [
-              { value: 'default', label: '普通容器' },
-              { value: 'herb', label: '草药采集' },
-            ])}
             ${selectField('搜索阶次', `landmarks.${selectedIndex}.container.grade`, container.grade ?? 'mortal', MONSTER_GRADE_OPTIONS)}
             ${nullableNumberField('刷新 ticks', `landmarks.${selectedIndex}.container.refreshTicks`, container.refreshTicks)}
             ${textareaField('说明', `landmarks.${selectedIndex}.desc`, containerLandmark.desc, 'wide')}
@@ -1599,60 +1399,22 @@ export class GmMapEditor {
       if (!resource) return '';
 /** resourceKey：定义该变量以承载业务值。 */
       const resourceKey = getResourceRecordKey(resource);
+/** resourceKeyName：定义该变量以承载业务值。 */
+      const resourceKeyName = getResourceRecordKeyName(resource);
       return `
         <section class="editor-section">
           <div class="editor-section-head">
             <div>
-              <div class="editor-section-title">五行灵气点属性</div>
-              <div class="editor-section-note">同格可并存多个不同属性灵气。</div>
+              <div class="editor-section-title">气机点属性</div>
+              <div class="editor-section-note">同格可并存多个不同资源键。</div>
             </div>
             <button class="small-btn danger" type="button" data-map-action="remove-selected">删除</button>
           </div>
           <div class="map-form-grid">
             ${numberField('X', `resources.${this.selectedEntity.index}.x`, resource.x)}
             ${numberField('Y', `resources.${this.selectedEntity.index}.y`, resource.y)}
-            <label class="map-field">
-              <span>属性</span>
-              <select data-map-ui="resourceSelectedKey">
-                ${FIVE_ELEMENT_AURA_OPTIONS.map((option) => `
-                  <option value="${escapeHtml(option.value)}" ${option.value === normalizeFiveElementAuraResourceKey(resourceKey) ? 'selected' : ''}>
-                    ${escapeHtml(option.label)}
-                  </option>
-                `).join('')}
-              </select>
-            </label>
-            ${numberField('灵气值', `resources.${this.selectedEntity.index}.value`, resource.value)}
-          </div>
-        </section>
-      `;
-    }
-
-    if (this.selectedEntity.kind === 'resourceNodePlacement') {
-/** selectedPlacement：定义该变量以承载业务值。 */
-      const selectedPlacement = this.getSelectedResourceNodePlacement();
-      if (!selectedPlacement) return '';
-/** groupPath：定义该变量以承载业务值。 */
-      const groupPath = `resourceNodeGroups.${selectedPlacement.groupIndex}`;
-/** placementPath：定义该变量以承载业务值。 */
-      const placementPath = `${groupPath}.placements.${selectedPlacement.placementIndex}`;
-      return `
-        <section class="editor-section">
-          <div class="editor-section-head">
-            <div>
-              <div class="editor-section-title">资源节点布点属性</div>
-              <div class="editor-section-note">格子 ${selectedPoint ? `(${selectedPoint.x}, ${selectedPoint.y})` : '-'} · 该点位来自地图真源里的 resourceNodeGroups。</div>
-            </div>
-            <button class="small-btn danger" type="button" data-map-action="remove-selected">删除</button>
-          </div>
-          <div class="map-form-grid">
-            ${numberField('X', `${placementPath}.x`, selectedPlacement.placement.x)}
-            ${numberField('Y', `${placementPath}.y`, selectedPlacement.placement.y)}
-            ${readonlyField('资源节点 ID', selectedPlacement.group.resourceNodeId || '-')}
-            ${readonlyField('分组名称', selectedPlacement.group.name || '-')}
-            ${readonlyField('ID 前缀', selectedPlacement.group.idPrefix || '-')}
-            ${textField('布点 ID', `${placementPath}.id`, selectedPlacement.placement.id)}
-            ${textField('布点名称', `${placementPath}.name`, selectedPlacement.placement.name)}
-            ${textareaField('布点说明', `${placementPath}.desc`, selectedPlacement.placement.desc, 'wide')}
+            ${textField('资源键', `resources.${this.selectedEntity.index}.${resourceKeyName}`, resourceKey, 'wide')}
+            ${numberField('数值', `resources.${this.selectedEntity.index}.value`, resource.value)}
           </div>
         </section>
       `;
@@ -1716,13 +1478,6 @@ export class GmMapEditor {
 /** resource：定义该变量以承载业务值。 */
       const resource = this.draft.resources?.[this.selectedEntity.index];
       return resource ? formatResourcePointLabel(resource) : '无';
-    }
-    if (this.selectedEntity.kind === 'resourceNodePlacement') {
-/** selectedPlacement：定义该变量以承载业务值。 */
-      const selectedPlacement = this.getSelectedResourceNodePlacement();
-      return selectedPlacement
-        ? `资源节点 ${selectedPlacement.group.name || selectedPlacement.group.resourceNodeId} (${selectedPlacement.placement.x}, ${selectedPlacement.placement.y})`
-        : '无';
     }
     if (this.selectedEntity.kind === 'safeZone') {
 /** zone：定义该变量以承载业务值。 */
@@ -1833,36 +1588,7 @@ export class GmMapEditor {
       return;
     }
     if (field === 'resourcePaintKey') {
-      this.resourcePaintKey = normalizeFiveElementAuraResourceKey(value);
-      this.renderInspector();
-      return;
-    }
-    if (field === 'resourceSelectedKey') {
-      if (!this.draft || this.selectedEntity?.kind !== 'resource') {
-        return;
-      }
-/** resource：定义该变量以承载业务值。 */
-      const resource = this.draft.resources?.[this.selectedEntity.index];
-      if (!resource) {
-        return;
-      }
-/** nextKey：定义该变量以承载业务值。 */
-      const nextKey = normalizeFiveElementAuraResourceKey(value);
-/** currentKey：定义该变量以承载业务值。 */
-      const currentKey = getResourceRecordKey(resource);
-      if (nextKey === currentKey) {
-        return;
-      }
-/** duplicateIndex：定义该变量以承载业务值。 */
-      const duplicateIndex = this.findResourceIndex(resource.x, resource.y, nextKey);
-      if (duplicateIndex >= 0 && duplicateIndex !== this.selectedEntity.index) {
-        this.setStatus('同一格不能重复放同属性灵气', true);
-        return;
-      }
-      this.captureUndoState();
-      setResourceRecordKey(resource, nextKey);
-      this.resourcePaintKey = nextKey;
-      this.markDirty(false);
+      this.resourcePaintKey = value.trim();
       this.renderInspector();
       return;
     }
@@ -2462,7 +2188,7 @@ export class GmMapEditor {
       return;
     }
     this.resourcePaintKey = normalized;
-    this.setStatus(`已设置五行灵气画笔类型：${formatResourceTypeLabel(normalized)}`);
+    this.setStatus(`已设置气机画笔资源键：${normalized}`);
     this.renderInspector();
   }
 
@@ -2473,7 +2199,7 @@ export class GmMapEditor {
 /** normalizedKey：定义该变量以承载业务值。 */
     const normalizedKey = this.resourcePaintKey.trim();
     if (!normalizedKey) {
-      this.setStatus('请先选择五行灵气类型', true);
+      this.setStatus('请先填写气机资源键', true);
       return;
     }
 /** changed：定义该变量以承载业务值。 */
@@ -2628,28 +2354,12 @@ export class GmMapEditor {
 /** resourceKey：定义该变量以承载业务值。 */
       const resourceKey = getResourceRecordKey(resource);
       if (this.hasResourceAt(x, y, resourceKey, selection.index)) {
-        if (!silent) this.setStatus('目标格已有同类五行灵气点', true);
+        if (!silent) this.setStatus('目标格已有同资源键气机点', true);
         return false;
       }
       if (recordUndo) this.captureUndoState();
       resource.x = x;
       resource.y = y;
-      this.selectedCell = { x, y };
-      this.markDirty(false);
-      return true;
-    }
-
-    if (selection.kind === 'resourceNodePlacement') {
-/** selectedPlacement：定义该变量以承载业务值。 */
-      const selectedPlacement = this.getSelectedResourceNodePlacement();
-      if (!selectedPlacement) return false;
-      if (this.hasResourceNodePlacementAt(x, y, selectedPlacement.groupIndex, selectedPlacement.placementIndex)) {
-        if (!silent) this.setStatus('目标格已有同组资源节点布点', true);
-        return false;
-      }
-      if (recordUndo) this.captureUndoState();
-      selectedPlacement.placement.x = x;
-      selectedPlacement.placement.y = y;
       this.selectedCell = { x, y };
       this.markDirty(false);
       return true;
@@ -2751,18 +2461,6 @@ export class GmMapEditor {
       removeArrayIndex(this.draft, 'auras', this.selectedEntity.index);
     } else if (this.selectedEntity.kind === 'resource') {
       removeArrayIndex(this.draft, 'resources', this.selectedEntity.index);
-    } else if (this.selectedEntity.kind === 'resourceNodePlacement') {
-/** selectedPlacement：定义该变量以承载业务值。 */
-      const selectedPlacement = this.getSelectedResourceNodePlacement();
-      if (!selectedPlacement) {
-        return;
-      }
-/** placements：定义该变量以承载业务值。 */
-      const placements = this.draft.resourceNodeGroups?.[selectedPlacement.groupIndex]?.placements;
-      placements?.splice(selectedPlacement.placementIndex, 1);
-      if (placements && placements.length <= 0) {
-        this.draft.resourceNodeGroups?.splice(selectedPlacement.groupIndex, 1);
-      }
     } else if (this.selectedEntity.kind === 'safeZone') {
       removeArrayIndex(this.draft, 'safeZones', this.selectedEntity.index);
     } else if (this.selectedEntity.kind === 'container') {
@@ -3078,17 +2776,12 @@ export class GmMapEditor {
         if (sx + cellSize < 0 || sx > screenW || sy + cellSize < 0 || sy > screenH) return;
 /** type：定义该变量以承载业务值。 */
         const type = getTileTypeFromMapChar(sourceChar);
-        ctx.fillStyle = TILE_VISUAL_BG_COLORS[type];
-        ctx.fillRect(sx, sy, cellSize, cellSize);
-        ctx.fillStyle = isSelected ? 'rgba(255, 220, 116, 0.16)' : 'rgba(124, 187, 255, 0.12)';
+        ctx.fillStyle = isSelected ? 'rgba(255, 214, 92, 0.2)' : 'rgba(124, 187, 255, 0.16)';
         ctx.fillRect(sx + 1, sy + 1, cellSize - 2, cellSize - 2);
-        ctx.strokeStyle = isSelected ? 'rgba(255, 219, 115, 0.42)' : 'rgba(135, 203, 255, 0.26)';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(sx + 0.5, sy + 0.5, cellSize - 1, cellSize - 1);
 /** glyph：定义该变量以承载业务值。 */
         const glyph = TILE_VISUAL_GLYPHS[type];
         if (glyph) {
-          ctx.fillStyle = isSelected ? '#fff0be' : TILE_VISUAL_GLYPH_COLORS[type];
+          ctx.fillStyle = isSelected ? '#ffe8a6' : TILE_VISUAL_GLYPH_COLORS[type];
           ctx.font = buildCanvasFont('tileGlyph', cellSize * 0.52);
           ctx.fillText(glyph, sx + cellSize / 2, sy + cellSize / 2 + 1);
         }
@@ -3102,17 +2795,9 @@ export class GmMapEditor {
       const boxW = bounds.width * cellSize;
 /** boxH：定义该变量以承载业务值。 */
       const boxH = bounds.height * cellSize;
-      ctx.save();
-      ctx.shadowBlur = isSelected ? 16 : 10;
-      ctx.shadowColor = isSelected ? 'rgba(255, 211, 84, 0.72)' : 'rgba(116, 187, 255, 0.48)';
-      ctx.strokeStyle = isSelected ? 'rgba(255, 211, 84, 0.98)' : 'rgba(116, 187, 255, 0.88)';
-      ctx.lineWidth = isSelected ? 3 : 2;
-      ctx.strokeRect(boxX + 1.5, boxY + 1.5, boxW - 3, boxH - 3);
-      ctx.restore();
-
-      ctx.strokeStyle = isSelected ? 'rgba(255, 243, 186, 0.95)' : 'rgba(222, 244, 255, 0.82)';
-      ctx.lineWidth = 1;
-      ctx.strokeRect(boxX + 4.5, boxY + 4.5, boxW - 9, boxH - 9);
+      ctx.strokeStyle = isSelected ? 'rgba(255, 211, 84, 0.95)' : 'rgba(116, 187, 255, 0.75)';
+      ctx.lineWidth = isSelected ? 2 : 1;
+      ctx.strokeRect(boxX + 1, boxY + 1, boxW - 2, boxH - 2);
 
       if (!showLabels) continue;
 /** label：定义该变量以承载业务值。 */
@@ -3159,7 +2844,7 @@ export class GmMapEditor {
       char: string,
       color: string,
       name: string,
-      kind: 'npc' | 'monster' | 'spawn' | 'container' | 'safeZone' | 'resourceNode',
+      kind: 'npc' | 'monster' | 'spawn' | 'container' | 'safeZone',
       labelColor?: string,
     ): void => {
 /** sx：定义该变量以承载业务值。 */
@@ -3192,9 +2877,7 @@ export class GmMapEditor {
             ? '#d7fff2'
             : kind === 'container'
               ? '#f5ddb0'
-              : kind === 'resourceNode'
-                ? '#d8ffd4'
-              : (labelColor ?? '#cce7ff');
+            : (labelColor ?? '#cce7ff');
       ctx.textBaseline = 'alphabetic';
       ctx.strokeText(name, sx + cellSize / 2, sy - Math.max(6, cellSize * 0.18));
       ctx.fillText(name, sx + cellSize / 2, sy - Math.max(6, cellSize * 0.18));
@@ -3261,15 +2944,6 @@ export class GmMapEditor {
       formatResourcePointLabel(point),
       'npc',
       getResourcePointLabelColor(point),
-    ));
-    this.getFlattenedResourceNodePlacements().forEach(({ group, placement }) => drawEntity(
-      placement.x,
-      placement.y,
-      '药',
-      '#8fd87d',
-      placement.name || group.name || group.resourceNodeId,
-      'resourceNode',
-      '#dbffd2',
     ));
     (this.draft.safeZones ?? []).forEach((zone) => drawEntity(zone.x, zone.y, '安', '#7ce5c6', `安全区:${zone.radius}`, 'safeZone'));
     (this.draft.landmarks ?? [])
@@ -3578,9 +3252,6 @@ export class GmMapEditor {
     const hitEntity = this.findEntityAt(point.x, point.y);
     this.selectedComposePieceId = hitComposePiece?.id ?? null;
     this.selectedEntity = hitComposePiece ? null : hitEntity;
-    if (currentTool === 'select' && !hitComposePiece && hitEntity) {
-      this.currentInspectorTab = hitEntity.kind === 'resourceNodePlacement' ? 'resource' : hitEntity.kind;
-    }
     if (currentTool === 'paint') {
       if (event.altKey && this.paintLayer === 'tile') {
         this.sampleTileAt(point.x, point.y);
@@ -3812,7 +3483,7 @@ export class GmMapEditor {
         ? this.applyAuraPaint(this.getLinePoints(start, end), true)
         : this.applyResourcePaint(this.getLinePoints(start, end), true);
     if (changed > 0) {
-      this.setStatus(`已沿直线填充 ${changed} 个${this.paintLayer === 'tile' ? '格子' : this.paintLayer === 'aura' ? '无属性灵气点' : '五行灵气点'}`);
+      this.setStatus(`已沿直线填充 ${changed} 个${this.paintLayer === 'tile' ? '格子' : this.paintLayer === 'aura' ? '无属性灵气点' : '气机点'}`);
     }
   }
 
@@ -4061,15 +3732,6 @@ export class GmMapEditor {
     ));
   }
 
-  private hasResourceNodePlacementAt(x: number, y: number, groupIndex: number, ignoredPlacementIndex?: number): boolean {
-    if (!this.draft) return false;
-    return (this.draft.resourceNodeGroups?.[groupIndex]?.placements ?? []).some((placement, placementIndex) => (
-      placementIndex !== ignoredPlacementIndex
-      && placement.x === x
-      && placement.y === y
-    ));
-  }
-
 /** hasLandmarkAt：执行对应的业务逻辑。 */
   private hasLandmarkAt(x: number, y: number, ignoredIndex?: number): boolean {
     if (!this.draft) return false;
@@ -4119,9 +3781,6 @@ export class GmMapEditor {
 /** resourceIndex：定义该变量以承载业务值。 */
     const resourceIndex = (this.draft.resources ?? []).findIndex((point) => point.x === x && point.y === y);
     if (resourceIndex >= 0) return { kind: 'resource', index: resourceIndex };
-/** resourceNodePlacementIndex：定义该变量以承载业务值。 */
-    const resourceNodePlacementIndex = this.getFlattenedResourceNodePlacements().findIndex(({ placement }) => placement.x === x && placement.y === y);
-    if (resourceNodePlacementIndex >= 0) return { kind: 'resourceNodePlacement', index: resourceNodePlacementIndex };
 /** safeZoneIndex：定义该变量以承载业务值。 */
     const safeZoneIndex = (this.draft.safeZones ?? []).findIndex((zone) => zone.x === x && zone.y === y);
     if (safeZoneIndex >= 0) return { kind: 'safeZone', index: safeZoneIndex };
@@ -4160,11 +3819,6 @@ export class GmMapEditor {
 /** resource：定义该变量以承载业务值。 */
       const resource = this.draft.resources?.[this.selectedEntity.index];
       return resource ? { x: resource.x, y: resource.y } : null;
-    }
-    if (this.selectedEntity.kind === 'resourceNodePlacement') {
-/** selectedPlacement：定义该变量以承载业务值。 */
-      const selectedPlacement = this.getSelectedResourceNodePlacement();
-      return selectedPlacement ? { x: selectedPlacement.placement.x, y: selectedPlacement.placement.y } : null;
     }
     if (this.selectedEntity.kind === 'safeZone') {
 /** zone：定义该变量以承载业务值。 */

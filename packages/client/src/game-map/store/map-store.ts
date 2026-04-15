@@ -1,5 +1,6 @@
 import {
   VIEW_RADIUS,
+  type Direction,
   type GroundItemPilePatch,
   type GroundItemPileView,
   type MapMeta,
@@ -7,15 +8,13 @@ import {
   type MapMinimapSnapshot,
   type PlayerState,
   type RenderEntity,
-  type S2C_Init,
-  type S2C_MapStaticSync,
-  type S2C_Tick,
+  type NEXT_S2C_MapStatic,
   type TickRenderEntity,
   type Tile,
   type VisibleTile,
   type VisibleTilePatch,
   clonePlainValue,
-} from '@mud/shared';
+} from '@mud/shared-next';
 import {
   deleteRememberedMap,
   getRememberedMarkers,
@@ -32,7 +31,10 @@ import {
   getCachedMapSnapshot,
 } from '../../map-static-cache';
 import type {
+  MapBootstrapInput,
   MapEntityTransition,
+  MapNextSelfDeltaInput,
+  MapNextWorldDeltaInput,
   MapSenseQiOverlayState,
   MapStoreSnapshot,
   MapTargetingOverlayState,
@@ -82,8 +84,6 @@ function toObservedEntity(entity: RenderEntity): ObservedMapEntity {
     monsterScale: entity.monsterScale,
     hp: entity.hp,
     maxHp: entity.maxHp,
-    respawnRemainingTicks: entity.respawnRemainingTicks,
-    respawnTotalTicks: entity.respawnTotalTicks,
     qi: entity.qi,
     maxQi: entity.maxQi,
     npcQuestMarker: entity.npcQuestMarker,
@@ -106,8 +106,6 @@ function mergeObservedEntityPatch(patch: TickRenderEntity, previous?: ObservedMa
     monsterScale: applyNullablePatch(patch.monsterScale, previous?.monsterScale),
     hp: applyNullablePatch(patch.hp, previous?.hp),
     maxHp: applyNullablePatch(patch.maxHp, previous?.maxHp),
-    respawnRemainingTicks: applyNullablePatch(patch.respawnRemainingTicks, previous?.respawnRemainingTicks),
-    respawnTotalTicks: applyNullablePatch(patch.respawnTotalTicks, previous?.respawnTotalTicks),
     qi: applyNullablePatch(patch.qi, previous?.qi),
     maxQi: applyNullablePatch(patch.maxQi, previous?.maxQi),
     npcQuestMarker: applyNullablePatch(patch.npcQuestMarker, previous?.npcQuestMarker),
@@ -116,9 +114,37 @@ function mergeObservedEntityPatch(patch: TickRenderEntity, previous?: ObservedMa
   };
 }
 
+/** buildLocalPlayerEntity：执行对应的业务逻辑。 */
+function buildLocalPlayerEntity(player: PlayerState, previous?: ObservedMapEntity): ObservedMapEntity {
+  return {
+    id: player.id,
+    wx: player.x,
+    wy: player.y,
+    char: previous?.char ?? '我',
+    color: previous?.color ?? '#7ee787',
+    name: player.name,
+    kind: 'player',
+    hp: player.hp,
+    maxHp: player.maxHp,
+    qi: player.qi,
+    maxQi: player.numericStats?.maxQi,
+    npcQuestMarker: previous?.npcQuestMarker,
+    observation: previous?.observation,
+    buffs: previous?.buffs,
+  };
+}
+
 /** buildThreatArrowKey：执行对应的业务逻辑。 */
 function buildThreatArrowKey(ownerId: string, targetId: string): string {
   return `${ownerId}->${targetId}`;
+}
+
+/** hasSpatialTickEntityDelta：执行对应的业务逻辑。 */
+function hasSpatialTickEntityDelta(patch: TickRenderEntity | undefined | null): boolean {
+  if (!patch) {
+    return false;
+  }
+  return typeof patch.x === 'number' || typeof patch.y === 'number';
 }
 
 /** isSameMinimapSnapshot：执行对应的业务逻辑。 */
@@ -205,41 +231,43 @@ export class MapStore {
   private awaitingFullVisibilityMapId: string | null = null;
   private tickTiming = {
     startedAt: performance.now(),
-    durationMs: 1000,
+    durationMs: 500,
   };
 /** entityTransition：定义该变量以承载业务值。 */
   private entityTransition: MapEntityTransition | null = null;
 
-/** applyInit：执行对应的业务逻辑。 */
-  applyInit(data: S2C_Init): void {
-    this.player = cloneJson(data.self);
+/** applyBootstrap：执行对应的业务逻辑。 */
+  applyBootstrap(data: MapBootstrapInput): void {
+/** player：定义该变量以承载业务值。 */
+    const player = cloneJson(data.self);
+    this.player = player;
     this.time = data.time ?? null;
-    if (shouldResetRememberedMap(this.player.mapId, data.mapMeta, data.minimap ?? null)) {
-      deleteRememberedMap(this.player.mapId);
+    if (shouldResetRememberedMap(player.mapId, data.mapMeta, data.minimap ?? null)) {
+      deleteRememberedMap(player.mapId);
     }
     this.mapMeta = data.mapMeta;
     cacheMapMeta(data.mapMeta);
     this.visibleMinimapMarkers = cloneJson(data.visibleMinimapMarkers ?? []);
-    rememberVisibleMarkers(this.player.mapId, this.visibleMinimapMarkers);
+    rememberVisibleMarkers(player.mapId, this.visibleMinimapMarkers);
     cacheUnlockedMinimapLibrary(data.minimapLibrary);
-    this.player.unlockedMinimapIds = data.minimapLibrary.map((entry) => entry.mapId).sort();
+    player.unlockedMinimapIds = data.minimapLibrary.map((entry) => entry.mapId).sort();
     this.minimapSnapshot = data.minimap ?? (
-      this.player.unlockedMinimapIds.includes(this.player.mapId)
-        ? getCachedMapSnapshot(this.player.mapId)
+      player.unlockedMinimapIds.includes(player.mapId)
+        ? getCachedMapSnapshot(player.mapId)
         : null
     );
     if (data.minimap) {
 /** cacheMapSnapshot：处理当前场景中的对应操作。 */
-      cacheMapSnapshot(this.player.mapId, data.minimap, { meta: data.mapMeta, unlocked: true });
+      cacheMapSnapshot(player.mapId, data.minimap, { meta: data.mapMeta, unlocked: true });
     }
 
     this.tileCache.clear();
     this.visibleTiles.clear();
-    hydrateTileCacheFromMemory(this.player.mapId, this.tileCache);
-    this.cacheVisibleTiles(this.player.mapId, data.tiles, this.player.x - this.getViewRadius(), this.player.y - this.getViewRadius());
+    hydrateTileCacheFromMemory(player.mapId, this.tileCache);
+    this.cacheVisibleTiles(player.mapId, data.tiles, player.x - this.getViewRadius(), player.y - this.getViewRadius());
     this.awaitingFullVisibilityMapId = null;
 
-    this.entities = data.players.map(toObservedEntity);
+    this.entities = [buildLocalPlayerEntity(player), ...data.players.map(toObservedEntity).filter((entry) => entry.id !== player.id)];
     this.entityMap = new Map(this.entities.map((entry) => [entry.id, entry]));
     publishLatestObservedEntitiesSnapshot(this.entities);
     this.groundPiles.clear();
@@ -249,10 +277,27 @@ export class MapStore {
     this.tickTiming.startedAt = performance.now();
   }
 
-/** applyMapStaticSync：执行对应的业务逻辑。 */
-  applyMapStaticSync(data: S2C_MapStaticSync): void {
+/** applyMapStatic：执行对应的业务逻辑。 */
+  applyMapStatic(data: NEXT_S2C_MapStatic): void {
     if (!this.player) {
       return;
+    }
+/** dataWithTiles：定义该变量以承载业务值。 */
+    const dataWithTiles = data as NEXT_S2C_MapStatic & {
+      tiles?: VisibleTile[][];
+      tilesOriginX?: number;
+      tilesOriginY?: number;
+      tilePatches?: VisibleTilePatch[];
+    };
+    if (Array.isArray(dataWithTiles.tiles)
+      && typeof dataWithTiles.tilesOriginX === 'number'
+      && typeof dataWithTiles.tilesOriginY === 'number'
+      && data.mapId === this.player.mapId) {
+      this.cacheVisibleTiles(data.mapId, dataWithTiles.tiles, dataWithTiles.tilesOriginX, dataWithTiles.tilesOriginY);
+    } else if (Array.isArray(dataWithTiles.tilePatches)
+      && dataWithTiles.tilePatches.length > 0
+      && data.mapId === this.player.mapId) {
+      this.applyVisibleTilePatches(data.mapId, dataWithTiles.tilePatches);
     }
 
     if (data.mapMeta && data.mapId === this.player.mapId) {
@@ -291,42 +336,114 @@ export class MapStore {
     }
   }
 
-/** applyTick：执行对应的业务逻辑。 */
-  applyTick(data: S2C_Tick): void {
+/** applyNextWorldDelta：执行对应的业务逻辑。 */
+  applyNextWorldDelta(data: MapNextWorldDeltaInput): void {
+    if (!this.player) {
+      return;
+    }
+    if (typeof data.mapId === 'string' && data.mapId && data.mapId !== this.player.mapId) {
+      this.player.mapId = data.mapId;
+    }
+
+/** oldX：定义该变量以承载业务值。 */
+    const oldX = this.player.x;
+/** oldY：定义该变量以承载业务值。 */
+    const oldY = this.player.y;
+/** selfPatch：定义该变量以承载业务值。 */
+    const selfPatch = data.playerPatches.find((patch) => patch.id === this.player?.id);
+    if (selfPatch) {
+      if (selfPatch.name) {
+        this.player.name = selfPatch.name;
+      }
+      this.player.x = selfPatch.x;
+      this.player.y = selfPatch.y;
+    }
+    if (data.groundPatches) {
+      this.groundPiles = this.mergeGroundItemPatches(data.groundPatches);
+    }
+    if (data.time) {
+      this.time = data.time;
+    }
+    if (Array.isArray(data.threatArrows)) {
+      this.threatArrows = data.threatArrows
+        .map((entry) => ({ ownerId: entry.ownerId, targetId: entry.targetId }))
+        .filter((entry) => entry.ownerId && entry.targetId);
+    } else if ((data.threatArrowAdds?.length ?? 0) > 0 || (data.threatArrowRemoves?.length ?? 0) > 0) {
+      this.threatArrows = this.mergeThreatArrowPatches(
+        data.threatArrowAdds ?? [],
+        data.threatArrowRemoves ?? [],
+      );
+    }
+    if (Array.isArray(data.pathCells)) {
+      this.pathCells = data.pathCells.map((cell) => ({ x: cell.x, y: cell.y }));
+    }
+    if (Array.isArray(data.visibleTiles)) {
+      this.cacheVisibleTiles(
+        this.player.mapId,
+        data.visibleTiles,
+        this.player.x - this.getViewRadius(),
+        this.player.y - this.getViewRadius(),
+      );
+    } else if (Array.isArray(data.visibleTilePatches) && data.visibleTilePatches.length > 0) {
+      this.applyVisibleTilePatches(this.player.mapId, data.visibleTilePatches);
+    }
+/** hasEntityPatch：定义该变量以承载业务值。 */
+    const hasEntityPatch = data.playerPatches.length > 0 || data.entityPatches.length > 0 || (data.removedEntityIds?.length ?? 0) > 0;
+    if (hasEntityPatch) {
+      this.entities = this.mergeTickEntities(data.playerPatches, data.entityPatches, data.removedEntityIds ?? []);
+      publishLatestObservedEntitiesSnapshot(this.entities);
+    }
+/** moved：定义该变量以承载业务值。 */
+    const moved = this.player.x !== oldX || this.player.y !== oldY;
+/** hasSpatialEntityDelta：定义该变量以承载业务值。 */
+    const hasSpatialEntityDelta = moved
+      || (data.removedEntityIds?.length ?? 0) > 0
+      || data.playerPatches.some((patch) => hasSpatialTickEntityDelta(patch))
+      || data.entityPatches.some((patch) => hasSpatialTickEntityDelta(patch));
+    if (hasSpatialEntityDelta) {
+      this.entityTransition = moved
+        ? {
+            movedId: this.player.id,
+            shiftX: this.player.x - oldX,
+            shiftY: this.player.y - oldY,
+          }
+        : { settleMotion: true };
+      if (typeof data.tickDurationMs === 'number' && Number.isFinite(data.tickDurationMs) && data.tickDurationMs > 0) {
+        this.tickTiming.durationMs = Math.max(1, Math.round(data.tickDurationMs * 0.5));
+      }
+      this.tickTiming.startedAt = performance.now();
+    }
+  }
+
+/** applyNextSelfDelta：执行对应的业务逻辑。 */
+  applyNextSelfDelta(data: MapNextSelfDeltaInput): void {
     if (!this.player) {
       return;
     }
 
+/** nextMapId：定义该变量以承载业务值。 */
+    const nextMapId = typeof data.mapId === 'string' && data.mapId ? data.mapId : undefined;
 /** mapChanged：定义该变量以承载业务值。 */
-    let mapChanged = false;
-    if (data.time) {
-      this.time = data.time;
-    }
-
-    if (data.m) {
-      mapChanged = this.player.mapId !== data.m;
-      if (mapChanged) {
-        this.mapMeta = null;
-        this.tileCache.clear();
-        this.visibleTiles.clear();
-        this.visibleTileRevision += 1;
-        this.minimapMemoryVersion = 0;
-        this.minimapSnapshot = null;
-        this.visibleMinimapMarkers = [];
-        this.groundPiles.clear();
-        this.entities = [];
-        this.entityMap.clear();
-        this.threatArrows = [];
-        this.pathCells = [];
-      }
-      this.player.mapId = data.m;
-      if (mapChanged) {
-        this.minimapSnapshot = (this.player.unlockedMinimapIds ?? []).includes(this.player.mapId)
-          ? getCachedMapSnapshot(this.player.mapId)
-          : null;
-        hydrateTileCacheFromMemory(this.player.mapId, this.tileCache);
-        this.awaitingFullVisibilityMapId = this.player.mapId;
-      }
+    const mapChanged = Boolean(nextMapId && nextMapId !== this.player.mapId);
+    if (mapChanged && nextMapId) {
+      this.mapMeta = null;
+      this.tileCache.clear();
+      this.visibleTiles.clear();
+      this.visibleTileRevision += 1;
+      this.minimapMemoryVersion = 0;
+      this.minimapSnapshot = null;
+      this.visibleMinimapMarkers = [];
+      this.groundPiles.clear();
+      this.entities = [];
+      this.entityMap.clear();
+      this.threatArrows = [];
+      this.pathCells = [];
+      this.player.mapId = nextMapId;
+      this.minimapSnapshot = (this.player.unlockedMinimapIds ?? []).includes(this.player.mapId)
+        ? getCachedMapSnapshot(this.player.mapId)
+        : null;
+      hydrateTileCacheFromMemory(this.player.mapId, this.tileCache);
+      this.awaitingFullVisibilityMapId = this.player.mapId;
     }
 
     if (typeof data.hp === 'number') {
@@ -335,67 +452,45 @@ export class MapStore {
     if (typeof data.qi === 'number') {
       this.player.qi = data.qi;
     }
-    if (data.f !== undefined) {
-      this.player.facing = data.f;
+    if (data.facing !== undefined) {
+      this.player.facing = data.facing as Direction;
     }
 
 /** oldX：定义该变量以承载业务值。 */
     const oldX = this.player.x;
 /** oldY：定义该变量以承载业务值。 */
     const oldY = this.player.y;
-    for (const patch of data.p) {
-      if (patch.id !== this.player.id) {
-        continue;
-      }
-      if (patch.name) {
-        this.player.name = patch.name;
-      }
-      this.player.x = patch.x;
-      this.player.y = patch.y;
-      break;
+    if (typeof data.x === 'number') {
+      this.player.x = data.x;
+    }
+    if (typeof data.y === 'number') {
+      this.player.y = data.y;
+    }
+    if (data.playerPatch?.name) {
+      this.player.name = data.playerPatch.name;
+    }
+    if (data.playerPatch) {
+      this.entities = this.mergeTickEntities([data.playerPatch], [], []);
+      publishLatestObservedEntitiesSnapshot(this.entities);
     }
 
-    if (data.v) {
-      this.cacheVisibleTiles(this.player.mapId, data.v, this.player.x - this.getViewRadius(), this.player.y - this.getViewRadius());
-    }
-    if (data.t && this.awaitingFullVisibilityMapId !== this.player.mapId) {
-      this.applyVisibleTilePatches(this.player.mapId, data.t);
-    }
-    if (data.g) {
-      this.groundPiles = this.mergeGroundItemPatches(data.g);
-    }
-
-    this.entities = this.mergeTickEntities(data.p, data.e, data.r);
-    publishLatestObservedEntitiesSnapshot(this.entities);
-    if (Array.isArray(data.threatArrows)) {
-      this.threatArrows = data.threatArrows
-        .map(([ownerId, targetId]) => ({ ownerId, targetId }))
-        .filter((entry) => entry.ownerId && entry.targetId);
-    } else if ((data.threatArrowAdds?.length ?? 0) > 0 || (data.threatArrowRemoves?.length ?? 0) > 0) {
-      this.threatArrows = this.mergeThreatArrowPatches(
-        data.threatArrowAdds ?? [],
-        data.threatArrowRemoves ?? [],
-      );
-    }
 /** moved：定义该变量以承载业务值。 */
     const moved = !mapChanged && (this.player.x !== oldX || this.player.y !== oldY);
-    this.entityTransition = mapChanged
-      ? { snapCamera: true }
-      : moved
-        ? {
-            movedId: this.player.id,
-            shiftX: this.player.x - oldX,
-            shiftY: this.player.y - oldY,
-          }
-        : { settleMotion: true };
-
-    if (data.path) {
-      this.pathCells = data.path.map(([x, y]) => ({ x, y }));
+    if (mapChanged) {
+      this.entityTransition = { snapCamera: true };
+      this.tickTiming.startedAt = performance.now();
+      return;
     }
-    if (data.dt) {
-      this.tickTiming.durationMs = Math.max(1, Math.round(data.dt * 0.5));
+    if (moved) {
+      this.entityTransition = {
+        movedId: this.player.id,
+        shiftX: this.player.x - oldX,
+        shiftY: this.player.y - oldY,
+      };
+      this.tickTiming.startedAt = performance.now();
+      return;
     }
-    this.tickTiming.startedAt = performance.now();
+    this.entityTransition = null;
   }
 
 /** replaceVisibleEntities：执行对应的业务逻辑。 */
@@ -442,8 +537,16 @@ export class MapStore {
     this.entityTransition = null;
     publishLatestObservedEntitiesSnapshot([]);
     this.tickTiming.startedAt = performance.now();
-    this.tickTiming.durationMs = 1000;
+    this.tickTiming.durationMs = 500;
     this.visibleTileRevision += 1;
+  }
+
+/** setTickDurationMs：执行对应的业务逻辑。 */
+  setTickDurationMs(durationMs: number): void {
+    if (!Number.isFinite(durationMs) || durationMs <= 0) {
+      return;
+    }
+    this.tickTiming.durationMs = Math.max(1, Math.round(durationMs));
   }
 
 /** getViewRadius：执行对应的业务逻辑。 */
@@ -539,6 +642,12 @@ export class MapStore {
       .map((entity) => cloneJson(entity));
 /** nextMap：定义该变量以承载业务值。 */
     const nextMap = new Map<string, ObservedMapEntity>(merged.map((entity) => [entity.id, entity]));
+    if (this.player && !removedIdSet.has(this.player.id) && !nextMap.has(this.player.id)) {
+/** localPlayerEntity：定义该变量以承载业务值。 */
+      const localPlayerEntity = buildLocalPlayerEntity(this.player, this.entityMap.get(this.player.id));
+      merged.unshift(localPlayerEntity);
+      nextMap.set(localPlayerEntity.id, localPlayerEntity);
+    }
 
     for (const patch of [...playerPatches, ...entityPatches]) {
       const previous = nextMap.get(patch.id);
@@ -655,7 +764,6 @@ export class MapStore {
     }
   }
 }
-
 
 
 

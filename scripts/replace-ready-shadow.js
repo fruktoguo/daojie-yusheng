@@ -14,7 +14,7 @@ const {
   resolveServerNextGmPasswordEnvSource,
   resolveServerNextShadowUrl,
   resolveServerNextShadowUrlEnvSource,
-} = require('../packages/server-next/src/config/env-alias');
+} = require('../packages/server/src/config/env-alias');
 
 /**
  * 记录shadow 环境地址。
@@ -35,13 +35,13 @@ const gmPasswordEnvSource = resolveServerNextGmPasswordEnvSource();
 
 if (!shadowUrl) {
   process.stderr.write('replace-ready shadow requires SERVER_NEXT_SHADOW_URL or SERVER_NEXT_URL\n');
-  process.stderr.write('set SERVER_NEXT_SHADOW_URL or SERVER_NEXT_URL first, then run pnpm verify:replace-ready:shadow\n');
+  process.stderr.write('set SERVER_NEXT_SHADOW_URL or SERVER_NEXT_URL first, then run pnpm verify:server-next:shadow\n');
   process.exit(1);
 }
 
 if (!gmPassword) {
   process.stderr.write('replace-ready shadow requires SERVER_NEXT_GM_PASSWORD or GM_PASSWORD\n');
-  process.stderr.write('set SERVER_NEXT_GM_PASSWORD or GM_PASSWORD first, then run pnpm verify:replace-ready:shadow\n');
+  process.stderr.write('set SERVER_NEXT_GM_PASSWORD or GM_PASSWORD first, then run pnpm verify:server-next:shadow\n');
   process.exit(1);
 }
 

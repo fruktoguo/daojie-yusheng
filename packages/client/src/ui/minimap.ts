@@ -3,7 +3,7 @@
  * 提供角落缩略图、全屏地图弹窗、地图目录切换、缩放平移、点击前往等功能
  */
 
-import { getTileTypeFromMapChar, GroundItemPileView, isTileTypeWalkable, MapMeta, MapMinimapMarker, MapMinimapSnapshot, MINIMAP_MARKER_COLORS, Tile, TILE_MINIMAP_COLORS, TileType } from '@mud/shared';
+import { getTileTypeFromMapChar, GroundItemPileView, isTileTypeWalkable, MapMeta, MapMinimapMarker, MapMinimapSnapshot, MINIMAP_MARKER_COLORS, Tile, TILE_MINIMAP_COLORS, TileType } from '@mud/shared-next';
 import { deleteRememberedMap, getRememberedMarkers, getRememberedTiles, listRememberedMapIds } from '../map-memory';
 import { getCachedMapMeta, getCachedMapSnapshot, listCachedUnlockedMapSummaries } from '../map-static-cache';
 import { getMinimapMarkerKindLabel, getTileTypeLabel } from '../domain-labels';
@@ -175,18 +175,6 @@ interface ModalPanState {
   startPanY: number;
 }
 
-/** MinimapMoveTarget：定义该接口的能力与字段约束。 */
-interface MinimapMoveTarget {
-/** mapId：定义该变量以承载业务值。 */
-  mapId: string;
-/** x：定义该变量以承载业务值。 */
-  x: number;
-/** y：定义该变量以承载业务值。 */
-  y: number;
-/** isCurrentMap：定义该变量以承载业务值。 */
-  isCurrentMap: boolean;
-}
-
 /** clamp：执行对应的业务逻辑。 */
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
@@ -224,16 +212,6 @@ function ensureCanvasSize(canvas: HTMLCanvasElement): boolean {
   canvas.width = width;
   canvas.height = height;
   return true;
-}
-
-/** escapeHtml：执行对应的业务逻辑。 */
-function escapeHtml(input: string): string {
-  return input
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;');
 }
 
 /** buildFallbackMapMeta：执行对应的业务逻辑。 */
@@ -316,9 +294,9 @@ export class Minimap {
   private modalDisplayMode: MinimapDisplayMode = 'unlock';
 /** catalogFilter：定义该变量以承载业务值。 */
   private catalogFilter: CatalogFilter = 'all';
-  private moveHandler: ((target: MinimapMoveTarget) => void) | null = null;
+  private moveHandler: ((x: number, y: number) => void) | null = null;
 /** pendingMovePoint：定义该变量以承载业务值。 */
-  private pendingMovePoint: { mapId: string; x: number; y: number } | null = null;
+  private pendingMovePoint: { x: number; y: number } | null = null;
   private modalZoom = 1;
   private modalPanX = 0;
   private modalPanY = 0;
@@ -592,13 +570,13 @@ export class Minimap {
 /** display：定义该变量以承载业务值。 */
       const display = this.getModalDisplayScene();
 /** moveTarget：定义该变量以承载业务值。 */
-      const moveTarget = this.resolveMoveTarget(display, this.modalCanvas, event.clientX, event.clientY, true);
+      const moveTarget = this.resolveCurrentMoveTarget(display, this.modalCanvas, event.clientX, event.clientY, true);
       if (!display || !moveTarget) {
         return;
       }
       event.preventDefault();
       event.stopPropagation();
-      this.openMoveConfirm(display.mapMeta, moveTarget);
+      this.openMoveConfirm(display.mapMeta, moveTarget.x, moveTarget.y);
     });
 
     window.addEventListener('pointerup', (event) => {
@@ -662,7 +640,7 @@ export class Minimap {
   }
 
   /** 注册点击地图前往目标坐标的回调 */
-  setMoveHandler(handler: ((target: MinimapMoveTarget) => void) | null): void {
+  setMoveHandler(handler: ((x: number, y: number) => void) | null): void {
     this.moveHandler = handler;
   }
 
@@ -716,8 +694,7 @@ export class Minimap {
     const modalCtx = this.modalCanvas?.getContext('2d');
     modalCtx?.clearRect(0, 0, this.modalCanvas?.width ?? 0, this.modalCanvas?.height ?? 0);
     if (this.modalList) {
-      this.removeAllCatalogNodes();
-      this.modalList.replaceChildren();
+      this.modalList.innerHTML = '';
     }
     this.modalDisplayMode = 'unlock';
   }
@@ -1385,20 +1362,15 @@ export class Minimap {
     if (this.modalTitle) {
       this.modalTitle.textContent = `${display.mapMeta.name}${display.displayMode === 'unlock' ? ' · 已解锁图鉴' : ' · 本地记忆'}`;
     }
-    if (this.pendingMovePoint && this.pendingMovePoint.mapId !== display.mapId) {
+    if (!display.isCurrent) {
       this.closeMoveConfirm();
     }
     this.drawScene(ctx, display, metrics, true);
   }
 
 /** openMoveConfirm：执行对应的业务逻辑。 */
-  private openMoveConfirm(mapMeta: MapMeta, target: MinimapMoveTarget): void {
-    const { mapId, x, y, isCurrentMap } = target;
-    this.pendingMovePoint = { mapId, x, y };
-/** hintText：定义该变量以承载业务值。 */
-    const hintText = isCurrentMap
-      ? '将角色移动至该坐标。实际是否可达仍以服务端寻路与通行判定为准。'
-      : '将自动前往该地图，并在抵达后继续寻路至该坐标。跨图过程仍受传送点、路网与冷却限制。';
+  private openMoveConfirm(mapMeta: MapMeta, x: number, y: number): void {
+    this.pendingMovePoint = { x, y };
     detailModalHost.open({
       ownerId: Minimap.MOVE_CONFIRM_OWNER,
       title: '确认前往',
@@ -1406,9 +1378,9 @@ export class Minimap {
       hint: '点击空白处取消',
       bodyHtml: `
         <div class="panel-section">
-          <div class="empty-hint">${escapeHtml(hintText)}</div>
+          <div class="empty-hint">将角色移动至该坐标。实际是否可达仍以服务端寻路与通行判定为准。</div>
         </div>
-        <div class="tech-modal-actions">
+        <div class="tech-modal-actions ui-modal-footer-actions">
           <button class="small-btn ghost" type="button" data-map-move-cancel>取消</button>
           <button class="small-btn" type="button" data-map-move-confirm>确认前往</button>
         </div>
@@ -1429,7 +1401,7 @@ export class Minimap {
             this.closeMoveConfirm();
             return;
           }
-          this.moveHandler(target);
+          this.moveHandler(x, y);
           this.closeMoveConfirm();
         });
       },
@@ -1465,7 +1437,7 @@ export class Minimap {
         <div class="panel-section">
           <div class="empty-hint">只会删除这张地图的本地记忆，不会影响已解锁整图。若你当前正站在该地图，视野内正在看到的部分会重新记入。</div>
         </div>
-        <div class="tech-modal-actions">
+        <div class="tech-modal-actions ui-modal-footer-actions">
           <button class="small-btn ghost" type="button" data-map-memory-cancel>取消</button>
           <button class="small-btn danger" type="button" data-map-memory-confirm>确认删除</button>
         </div>
@@ -1619,14 +1591,14 @@ export class Minimap {
     };
   }
 
-  private resolveMoveTarget(
+  private resolveCurrentMoveTarget(
     display: DisplayMapScene | null,
     canvas: HTMLCanvasElement | null,
     clientX: number,
     clientY: number,
     isModal: boolean,
-  ): MinimapMoveTarget | null {
-    if (!display || !canvas) {
+  ): { x: number; y: number } | null {
+    if (!display || !display.isCurrent || !display.player || !canvas) {
       return null;
     }
 /** point：定义该变量以承载业务值。 */
@@ -1637,16 +1609,11 @@ export class Minimap {
 /** tile：定义该变量以承载业务值。 */
     const tile = this.getTileAt(display, point.x, point.y);
 /** walkable：定义该变量以承载业务值。 */
-    const walkable = tile ? tile.walkable : display.isCurrent;
+    const walkable = tile ? tile.walkable : isTileTypeWalkable(this.getTileTypeAt(display, point.x, point.y));
     if (!walkable) {
       return null;
     }
-    return {
-      mapId: display.mapId,
-      x: point.x,
-      y: point.y,
-      isCurrentMap: display.isCurrent,
-    };
+    return point;
   }
 
 /** getTileAt：执行对应的业务逻辑。 */
@@ -2114,9 +2081,7 @@ export class Minimap {
 /** guide：定义该变量以承载业务值。 */
     const guide = display.isCurrent
       ? '滚轮缩放 · 右键拖拽 · 左键前往'
-      : this.moveHandler
-        ? '滚轮缩放 · 右键拖拽 · 左键导航'
-        : '滚轮缩放 · 右键拖拽';
+      : '滚轮缩放 · 右键拖拽';
     ctx.save();
     ctx.font = buildCanvasFont('label', 12);
     ctx.textBaseline = 'middle';
@@ -2208,4 +2173,3 @@ export class Minimap {
     return lines;
   }
 }
-

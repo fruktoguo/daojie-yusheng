@@ -7,7 +7,7 @@ import {
   AccountRedeemCodesRes,
   ROLE_NAME_MAX_ASCII_LENGTH,
   ROLE_NAME_MAX_LENGTH,
-} from '@mud/shared';
+} from '@mud/shared-next';
 import { detailModalHost } from '../detail-modal-host';
 import { validateDisplayName, validatePassword, validateRoleName } from '../account-rules';
 import {
@@ -85,48 +85,49 @@ export class SettingsPanel {
 
     detailModalHost.open({
       ownerId: 'settings-panel',
+      size: 'xl',
       variantClass: 'detail-modal--settings',
       title: '设置',
       subtitle: `账号：${this.currentAccountName || '未登录'} · 显示：${this.currentDisplayName || '未设置'} · 角色名：${this.currentRoleName || '未设置'}`,
       hint: '点击空白处关闭',
       bodyHtml: `
-        <div class="settings-modal-shell">
-          <div class="settings-modal-tabs" role="tablist" aria-label="设置分组">
+        <div class="settings-modal-shell ui-tabbed-modal-shell">
+          <div class="settings-modal-tabs ui-tabbed-modal-tabs" role="tablist" aria-label="设置分组">
             <button
-              class="settings-modal-tab${this.activeTab === 'account' ? ' active' : ''}"
+              class="settings-modal-tab ui-tabbed-modal-tab${this.activeTab === 'account' ? ' active' : ''}"
               type="button"
               data-settings-tab="account"
               aria-selected="${this.activeTab === 'account' ? 'true' : 'false'}"
             >账号管理</button>
             <button
-              class="settings-modal-tab${this.activeTab === 'redeem' ? ' active' : ''}"
+              class="settings-modal-tab ui-tabbed-modal-tab${this.activeTab === 'redeem' ? ' active' : ''}"
               type="button"
               data-settings-tab="redeem"
               aria-selected="${this.activeTab === 'redeem' ? 'true' : 'false'}"
             >兑换码</button>
             <button
-              class="settings-modal-tab${this.activeTab === 'ui' ? ' active' : ''}"
+              class="settings-modal-tab ui-tabbed-modal-tab${this.activeTab === 'ui' ? ' active' : ''}"
               type="button"
               data-settings-tab="ui"
               aria-selected="${this.activeTab === 'ui' ? 'true' : 'false'}"
             >UI</button>
             <button
-              class="settings-modal-tab${this.activeTab === 'performance' ? ' active' : ''}"
+              class="settings-modal-tab ui-tabbed-modal-tab${this.activeTab === 'performance' ? ' active' : ''}"
               type="button"
               data-settings-tab="performance"
               aria-selected="${this.activeTab === 'performance' ? 'true' : 'false'}"
             >性能</button>
           </div>
-          <div class="settings-modal-pane${this.activeTab === 'account' ? ' active' : ''}" data-settings-pane="account">
+          <div class="settings-modal-pane ui-tabbed-modal-pane${this.activeTab === 'account' ? ' active' : ''}" data-settings-pane="account">
             ${this.renderAccountTab()}
           </div>
-          <div class="settings-modal-pane${this.activeTab === 'redeem' ? ' active' : ''}" data-settings-pane="redeem">
+          <div class="settings-modal-pane ui-tabbed-modal-pane${this.activeTab === 'redeem' ? ' active' : ''}" data-settings-pane="redeem">
             ${this.renderRedeemTab()}
           </div>
-          <div class="settings-modal-pane${this.activeTab === 'ui' ? ' active' : ''}" data-settings-pane="ui">
+          <div class="settings-modal-pane ui-tabbed-modal-pane${this.activeTab === 'ui' ? ' active' : ''}" data-settings-pane="ui">
             ${this.renderUiTab()}
           </div>
-          <div class="settings-modal-pane${this.activeTab === 'performance' ? ' active' : ''}" data-settings-pane="performance">
+          <div class="settings-modal-pane ui-tabbed-modal-pane${this.activeTab === 'performance' ? ' active' : ''}" data-settings-pane="performance">
             ${this.renderPerformanceTab()}
           </div>
         </div>
@@ -421,48 +422,48 @@ export class SettingsPanel {
 /** renderAccountTab：执行对应的业务逻辑。 */
   private renderAccountTab(): string {
     return `
-      <div class="panel-section account-settings-section">
+      <div class="panel-section account-settings-section ui-surface-pane ui-surface-pane--stack">
         <div class="panel-section-title">账号信息</div>
-        <div class="account-settings-copy">账号用于登录，登录页输入当前账号或当前角色名都可以进入。设置页这里展示的是当前登录账号。</div>
-        <div class="account-settings-field">
-          <label for="settings-account-name">当前账号</label>
-          <input id="settings-account-name" type="text" value="${escapeHtml(this.currentAccountName)}" readonly />
+        <div class="account-settings-copy ui-form-copy">账号用于登录，登录页输入当前账号或当前角色名都可以进入。设置页这里展示的是当前登录账号。</div>
+        <div class="account-settings-field ui-form-field">
+          <label class="ui-form-label" for="settings-account-name">当前账号</label>
+          <input id="settings-account-name" class="ui-input" type="text" value="${escapeHtml(this.currentAccountName)}" readonly />
         </div>
       </div>
-      <div class="panel-section account-settings-section">
+      <div class="panel-section account-settings-section ui-surface-pane ui-surface-pane--stack">
         <div class="panel-section-title">名称设置</div>
-        <div class="account-settings-copy">显示名称是头顶的一字标识，必须是可见字符；除“人”外，显示名称仍只和其他显示名称比唯一性。角色名称完整显示在头顶，也必须包含可见字符；纯中文建议不超过 ${ROLE_NAME_MAX_LENGTH} 个字，纯英文最多 ${ROLE_NAME_MAX_ASCII_LENGTH} 个字符。</div>
-        <div class="account-settings-name-grid">
-          <div class="account-settings-field account-settings-field--display">
-            <label for="settings-display-name">显示名称</label>
-            <input id="settings-display-name" class="account-settings-display-input" type="text" value="${escapeHtml(this.currentDisplayName)}" placeholder="字" />
-            <div id="settings-display-name-status" class="account-settings-status">当前名称可继续使用</div>
-            <div class="account-settings-actions">
+        <div class="account-settings-copy ui-form-copy">显示名称是头顶的一字标识，必须是可见字符；除“人”外，显示名称仍只和其他显示名称比唯一性。角色名称完整显示在头顶，也必须包含可见字符；纯中文建议不超过 ${ROLE_NAME_MAX_LENGTH} 个字，纯英文最多 ${ROLE_NAME_MAX_ASCII_LENGTH} 个字符。</div>
+        <div class="account-settings-name-grid ui-form-grid ui-form-grid--two-column">
+          <div class="account-settings-field account-settings-field--display ui-form-field">
+            <label class="ui-form-label" for="settings-display-name">显示名称</label>
+            <input id="settings-display-name" class="account-settings-display-input ui-input" type="text" maxlength="1" value="${escapeHtml(this.currentDisplayName)}" placeholder="字" />
+            <div id="settings-display-name-status" class="account-settings-status ui-status-text">当前名称可继续使用</div>
+            <div class="account-settings-actions ui-inline-actions-end ui-action-row">
               <button id="settings-display-name-submit" class="small-btn" type="button">保存显示名称</button>
             </div>
           </div>
-          <div class="account-settings-field">
-            <label for="settings-role-name">角色名称</label>
-            <input id="settings-role-name" type="text" value="${escapeHtml(this.currentRoleName)}" placeholder="输入角色名称" />
-            <div id="settings-role-name-status" class="account-settings-status"></div>
-            <div class="account-settings-actions">
+          <div class="account-settings-field ui-form-field">
+            <label class="ui-form-label" for="settings-role-name">角色名称</label>
+            <input id="settings-role-name" class="ui-input" type="text" maxlength="${ROLE_NAME_MAX_ASCII_LENGTH}" value="${escapeHtml(this.currentRoleName)}" placeholder="输入角色名称" />
+            <div id="settings-role-name-status" class="account-settings-status ui-status-text"></div>
+            <div class="account-settings-actions ui-inline-actions-end ui-action-row">
               <button id="settings-role-name-submit" class="small-btn" type="button">保存角色名称</button>
             </div>
           </div>
         </div>
       </div>
-      <div class="panel-section account-settings-section">
+      <div class="panel-section account-settings-section ui-surface-pane ui-surface-pane--stack">
         <div class="panel-section-title">修改密码</div>
-        <div class="account-settings-field">
-          <label for="settings-current-password">当前密码</label>
-          <input id="settings-current-password" type="password" placeholder="输入当前密码" />
+        <div class="account-settings-field ui-form-field">
+          <label class="ui-form-label" for="settings-current-password">当前密码</label>
+          <input id="settings-current-password" class="ui-input" type="password" placeholder="输入当前密码" />
         </div>
-        <div class="account-settings-field">
-          <label for="settings-new-password">新密码</label>
-          <input id="settings-new-password" type="password" placeholder="至少 6 位且不含空格" />
+        <div class="account-settings-field ui-form-field">
+          <label class="ui-form-label" for="settings-new-password">新密码</label>
+          <input id="settings-new-password" class="ui-input" type="password" placeholder="至少 6 位且不含空格" />
         </div>
-        <div id="settings-password-status" class="account-settings-status"></div>
-        <div class="account-settings-actions">
+        <div id="settings-password-status" class="account-settings-status ui-status-text"></div>
+        <div class="account-settings-actions ui-inline-actions-end ui-action-row">
           <button id="settings-password-submit" class="small-btn" type="button">保存密码</button>
         </div>
       </div>
@@ -474,9 +475,9 @@ export class SettingsPanel {
 /** config：定义该变量以承载业务值。 */
     const config = getUiStyleConfig();
     return `
-      <div class="panel-section account-settings-section">
+      <div class="panel-section account-settings-section ui-surface-pane ui-surface-pane--stack">
         <div class="panel-section-title">颜色模式</div>
-        <div class="settings-ui-copy">切换后立即生效，并自动保存在当前设备。深色模式会同步替换主界面、弹层与常用控件的基础配色。</div>
+        <div class="settings-ui-copy ui-form-copy">切换后立即生效，并自动保存在当前设备。深色模式会同步替换主界面、弹层与常用控件的基础配色。</div>
         <div class="settings-ui-mode-row">
           ${UI_COLOR_MODE_OPTIONS.map((option) => `
             <button
@@ -489,19 +490,19 @@ export class SettingsPanel {
           `).join('')}
         </div>
       </div>
-      <div class="panel-section account-settings-section">
+      <div class="panel-section account-settings-section ui-surface-pane ui-surface-pane--stack">
         <div class="settings-ui-table-head">
           <div class="panel-section-title">界面显示</div>
           <button id="settings-ui-reset" class="small-btn ghost" type="button">恢复默认</button>
         </div>
-        <div class="settings-ui-copy">只保留一个全局字号和一个整体界面缩放。两项都会立即生效，并自动保存在当前设备。</div>
-        <div class="settings-ui-table">
-          <div class="settings-ui-table-row">
-            <div class="settings-ui-level-meta">
-              <div class="settings-ui-level-name">全局字号</div>
-              <div class="settings-ui-level-desc">统一增减全部文字大小，适合“现在字太小”这类情况。</div>
+        <div class="settings-ui-copy ui-form-copy">只保留一个全局字号和一个整体界面缩放。两项都会立即生效，并自动保存在当前设备。</div>
+        <div class="settings-ui-table ui-data-table">
+          <div class="settings-ui-table-row ui-data-table-row">
+            <div class="settings-ui-level-meta ui-data-table-meta">
+              <div class="settings-ui-level-name ui-data-table-name">全局字号</div>
+              <div class="settings-ui-level-desc ui-data-table-desc">统一增减全部文字大小，适合“现在字太小”这类情况。</div>
             </div>
-            <div class="settings-ui-level-slider">
+            <div class="settings-ui-level-slider ui-data-table-control">
               <input
                 type="range"
                 min="${UI_GLOBAL_FONT_OFFSET_RANGE.min}"
@@ -511,8 +512,9 @@ export class SettingsPanel {
                 data-ui-global-font-range
               />
             </div>
-            <div class="settings-ui-level-input">
+            <div class="settings-ui-level-input ui-data-table-input-group">
               <input
+                class="ui-input"
                 type="number"
                 min="${UI_GLOBAL_FONT_OFFSET_RANGE.min}"
                 max="${UI_GLOBAL_FONT_OFFSET_RANGE.max}"
@@ -522,14 +524,14 @@ export class SettingsPanel {
               />
               <span data-ui-global-font-value>${formatGlobalFontOffset(config.globalFontOffset)}</span>
             </div>
-            <div class="settings-ui-level-preview settings-ui-level-preview--body">山门告示</div>
+            <div class="settings-ui-level-preview settings-ui-level-preview--body ui-data-table-preview ui-data-table-preview--body">山门告示</div>
           </div>
-          <div class="settings-ui-table-row">
-            <div class="settings-ui-level-meta">
-              <div class="settings-ui-level-name">界面缩放</div>
-              <div class="settings-ui-level-desc">统一放大常用 UI 尺寸和字号，适合高分屏或 2K / 4K 屏幕。</div>
+          <div class="settings-ui-table-row ui-data-table-row">
+            <div class="settings-ui-level-meta ui-data-table-meta">
+              <div class="settings-ui-level-name ui-data-table-name">界面缩放</div>
+              <div class="settings-ui-level-desc ui-data-table-desc">统一放大常用 UI 尺寸和字号，适合高分屏或 2K / 4K 屏幕。</div>
             </div>
-            <div class="settings-ui-level-slider">
+            <div class="settings-ui-level-slider ui-data-table-control">
               <input
                 type="range"
                 min="${UI_SCALE_RANGE.min}"
@@ -539,8 +541,9 @@ export class SettingsPanel {
                 data-ui-scale-range
               />
             </div>
-            <div class="settings-ui-level-input">
+            <div class="settings-ui-level-input ui-data-table-input-group">
               <input
+                class="ui-input"
                 type="number"
                 min="${UI_SCALE_RANGE.min}"
                 max="${UI_SCALE_RANGE.max}"
@@ -550,10 +553,10 @@ export class SettingsPanel {
               />
               <span data-ui-scale-value>${Math.round(config.uiScale * 100)}%</span>
             </div>
-            <div class="settings-ui-level-preview settings-ui-level-preview--title">缩放预览</div>
+            <div class="settings-ui-level-preview settings-ui-level-preview--title ui-data-table-preview ui-data-table-preview--title">缩放预览</div>
           </div>
         </div>
-        <div id="settings-ui-style-status" class="account-settings-status">当前配置已自动保存到本机</div>
+        <div id="settings-ui-style-status" class="account-settings-status ui-status-text">当前配置已自动保存到本机</div>
       </div>
     `;
   }
@@ -561,23 +564,23 @@ export class SettingsPanel {
 /** renderRedeemTab：执行对应的业务逻辑。 */
   private renderRedeemTab(): string {
     return `
-      <div class="panel-section account-settings-section">
+      <div class="panel-section account-settings-section ui-surface-pane ui-surface-pane--stack">
         <div class="panel-section-title">批量兑换</div>
-        <div class="settings-ui-copy">支持一次输入多个兑换码。可用换行、空格、中文逗号、英文逗号或分号分隔。兑换在服务端下一息统一执行。</div>
-        <div class="account-settings-field">
-          <label for="settings-redeem-codes">兑换码列表</label>
+        <div class="settings-ui-copy ui-form-copy">支持一次输入多个兑换码。可用换行、空格、中文逗号、英文逗号或分号分隔。兑换在服务端下一息统一执行。</div>
+        <div class="account-settings-field ui-form-field">
+          <label class="ui-form-label" for="settings-redeem-codes">兑换码列表</label>
           <textarea
             id="settings-redeem-codes"
-            class="settings-redeem-textarea"
+            class="settings-redeem-textarea ui-textarea"
             spellcheck="false"
             placeholder="每行一个，或用空格 / 逗号分隔多个兑换码"
           ></textarea>
         </div>
-        <div class="account-settings-actions">
+        <div class="account-settings-actions ui-inline-actions-end ui-action-row">
           <button id="settings-redeem-submit" class="small-btn" type="button">立即兑换</button>
         </div>
-        <div id="settings-redeem-status" class="account-settings-status"></div>
-        <div id="settings-redeem-results" class="settings-redeem-results"></div>
+        <div id="settings-redeem-status" class="account-settings-status ui-status-text"></div>
+        <div id="settings-redeem-results" class="settings-redeem-results ui-card-list"></div>
       </div>
     `;
   }
@@ -587,19 +590,19 @@ export class SettingsPanel {
 /** config：定义该变量以承载业务值。 */
     const config = getMapPerformanceConfig();
     return `
-      <div class="panel-section account-settings-section">
+      <div class="panel-section account-settings-section ui-surface-pane ui-surface-pane--stack">
         <div class="settings-ui-table-head">
           <div class="panel-section-title">地图性能浮层</div>
           <button id="settings-performance-reset" class="small-btn ghost" type="button">恢复默认</button>
         </div>
-        <div class="settings-ui-copy">这里的配置只保存在当前设备。默认关闭；开启后会在地图顶部显示 FPS、LOW 与 1% LOW，方便排查全屏、缩放和特效变化带来的帧率波动。</div>
-        <div class="settings-performance-card">
-          <div class="settings-performance-row">
-            <div class="settings-performance-meta">
-              <div class="settings-performance-name">显示地图帧率浮层</div>
-              <div class="settings-performance-desc">关闭时不显示浮层，也不会启动额外的帧率采样循环。</div>
+        <div class="settings-ui-copy ui-form-copy">这里的配置只保存在当前设备。默认关闭；开启后会在地图顶部显示 FPS、LOW 与 1% LOW，方便排查全屏、缩放和特效变化带来的帧率波动。</div>
+        <div class="settings-performance-card ui-card-list">
+          <div class="settings-performance-row ui-data-table-row">
+            <div class="settings-performance-meta ui-data-table-meta">
+              <div class="settings-performance-name ui-data-table-name">显示地图帧率浮层</div>
+              <div class="settings-performance-desc ui-data-table-desc">关闭时不显示浮层，也不会启动额外的帧率采样循环。</div>
             </div>
-            <div class="settings-performance-actions">
+            <div class="settings-performance-actions ui-inline-actions-end-wrap">
               <button
                 class="small-btn ghost${config.showFpsMonitor ? '' : ' active'}"
                 type="button"
@@ -615,7 +618,7 @@ export class SettingsPanel {
             </div>
           </div>
         </div>
-        <div id="settings-performance-status" class="account-settings-status">当前配置已自动保存到本机</div>
+        <div id="settings-performance-status" class="account-settings-status ui-status-text">当前配置已自动保存到本机</div>
       </div>
     `;
   }
@@ -653,7 +656,7 @@ export class SettingsPanel {
         failedCount > 0 ? 'error' : 'success',
       );
       resultEl.innerHTML = result.results.map((entry) => `
-        <div class="settings-redeem-result${entry.ok ? ' success' : ' error'}">
+        <div class="settings-redeem-result ui-surface-card ui-surface-card--compact${entry.ok ? ' success' : ' error'}">
           <div class="settings-redeem-result-head">
             <span>${escapeHtml(entry.code)}</span>
             <span>${entry.ok ? '成功' : '失败'}</span>
@@ -903,7 +906,3 @@ function parseRedeemCodes(raw: string): string[] {
     .filter((entry) => entry.length > 0);
   return [...new Set(entries)].slice(0, 50);
 }
-
-
-
-

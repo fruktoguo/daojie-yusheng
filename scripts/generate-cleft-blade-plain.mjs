@@ -15,7 +15,7 @@ const repoRoot = path.resolve(__dirname, '..');
 /**
  * 记录地图目录。
  */
-const mapsDir = path.join(repoRoot, 'packages/server/data/maps');
+const mapsDir = path.join(repoRoot, 'legacy/server/data/maps');
 /**
  * 记录输出文件路径。
  */

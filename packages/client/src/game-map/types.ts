@@ -1,19 +1,25 @@
 import type {
+  Direction,
   GameTimeState,
+  CombatEffect,
+  GroundItemPilePatch,
   GroundItemPileView,
   GridPoint,
   MapMeta,
+  MapMinimapArchiveEntry,
   MapMinimapMarker,
   MapMinimapSnapshot,
   MonsterTier,
+  PlayerState,
+  RenderEntity,
   Tile,
   TargetingShape,
   VisibleBuffState,
-  S2C_Init,
-  S2C_MapStaticSync,
-  S2C_Tick,
+  VisibleTile,
+  VisibleTilePatch,
+  NEXT_S2C_MapStatic,
   TickRenderEntity,
-} from '@mud/shared';
+} from '@mud/shared-next';
 
 /** MapSafeAreaInsets：定义该接口的能力与字段约束。 */
 export interface MapSafeAreaInsets {
@@ -45,8 +51,6 @@ export interface ObservedMapEntity {
   monsterScale?: number;
   hp?: number;
   maxHp?: number;
-  respawnRemainingTicks?: number;
-  respawnTotalTicks?: number;
   qi?: number;
   maxQi?: number;
   npcQuestMarker?: TickRenderEntity['npcQuestMarker'];
@@ -218,6 +222,54 @@ export interface MapSceneSnapshot {
   overlays: MapOverlayState;
 }
 
+/** MapNextWorldDeltaInput：定义该接口的能力与字段约束。 */
+export interface MapNextWorldDeltaInput {
+/** playerPatches：定义该变量以承载业务值。 */
+  playerPatches: TickRenderEntity[];
+/** entityPatches：定义该变量以承载业务值。 */
+  entityPatches: TickRenderEntity[];
+  removedEntityIds?: string[];
+  groundPatches?: GroundItemPilePatch[];
+  effects?: CombatEffect[];
+  threatArrows?: Array<{ ownerId: string; targetId: string }>;
+  threatArrowAdds?: Array<[string, string]>;
+  threatArrowRemoves?: Array<[string, string]>;
+  pathCells?: GridPoint[];
+  tickDurationMs?: number;
+  time?: GameTimeState | null;
+  visibleTiles?: VisibleTile[][];
+  visibleTilePatches?: VisibleTilePatch[];
+  mapId?: string;
+}
+
+/** MapNextSelfDeltaInput：定义该接口的能力与字段约束。 */
+export interface MapNextSelfDeltaInput {
+  mapId?: string;
+  x?: number;
+  y?: number;
+  facing?: Direction;
+  hp?: number;
+  qi?: number;
+  playerPatch?: TickRenderEntity | null;
+}
+
+/** MapBootstrapInput：定义该接口的能力与字段约束。 */
+export interface MapBootstrapInput {
+/** self：定义该变量以承载业务值。 */
+  self: PlayerState;
+/** mapMeta：定义该变量以承载业务值。 */
+  mapMeta: MapMeta;
+  minimap?: MapMinimapSnapshot | null;
+  visibleMinimapMarkers?: MapMinimapMarker[];
+/** minimapLibrary：定义该变量以承载业务值。 */
+  minimapLibrary: MapMinimapArchiveEntry[];
+/** tiles：定义该变量以承载业务值。 */
+  tiles: VisibleTile[][];
+/** players：定义该变量以承载业务值。 */
+  players: RenderEntity[];
+  time?: GameTimeState | null;
+}
+
 /** MapRuntimeApi：定义该接口的能力与字段约束。 */
 export interface MapRuntimeApi {
   attach(host: HTMLElement): void;
@@ -227,12 +279,14 @@ export interface MapRuntimeApi {
   setSafeArea(insets: MapSafeAreaInsets): void;
   setZoom(level: number): void;
   setProjection(mode: 'topdown'): void;
-  applyInit(data: S2C_Init): void;
-  applyMapStaticSync(data: S2C_MapStaticSync): void;
-  applyTick(data: S2C_Tick): void;
+  setTickDurationMs(durationMs: number): void;
+  applyBootstrap(data: MapBootstrapInput): void;
+  applyMapStatic(data: NEXT_S2C_MapStatic): void;
+  applyNextWorldDelta(data: MapNextWorldDeltaInput): void;
+  applyNextSelfDelta(data: MapNextSelfDeltaInput): void;
   reset(): void;
   setInteractionCallbacks(callbacks: MapRuntimeInteractionCallbacks): void;
-  setMoveHandler(handler: ((target: { mapId: string; x: number; y: number; isCurrentMap: boolean }) => void) | null): void;
+  setMoveHandler(handler: ((x: number, y: number) => void) | null): void;
   setPathCells(cells: GridPoint[]): void;
   setTargetingOverlay(state: MapTargetingOverlayState | null): void;
   setSenseQiOverlay(state: MapSenseQiOverlayState | null): void;
@@ -245,4 +299,3 @@ export interface MapRuntimeApi {
   getVisibleTileAt(x: number, y: number): Tile | null;
   getGroundPileAt(x: number, y: number): GroundItemPileView | null;
 }
-

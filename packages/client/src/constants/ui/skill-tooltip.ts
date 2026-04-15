@@ -2,7 +2,7 @@
  * 技能提示框公式与缩放标签常量。
  */
 
-import { ATTR_KEYS, NUMERIC_SCALAR_STAT_KEYS, SkillFormulaVar, SKILL_FORMULA_BASE_VAR_LABELS } from '@mud/shared';
+import { ATTR_KEYS, NUMERIC_SCALAR_STAT_KEYS, SkillFormulaVar, SKILL_FORMULA_BASE_VAR_LABELS } from '@mud/shared-next';
 import { getAttrKeyLabel, getNumericScalarStatKeyLabel } from '../../domain-labels';
 
 /** 技能缩放徽章的展示元数据。 */

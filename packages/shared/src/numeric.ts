@@ -6,7 +6,6 @@ import { PlayerRealmStage } from './types';
 import {
   DEFAULT_RATIO_DIVISOR,
   ELEMENT_KEYS,
-  NUMERIC_STAT_MULTIPLIER_FLOORS,
   NUMERIC_SCALAR_STAT_KEYS,
   NUMERIC_SCALAR_STAT_VALUE_TYPES,
 } from './constants/gameplay/attributes';
@@ -14,7 +13,6 @@ import {
 export {
   DEFAULT_RATIO_DIVISOR,
   ELEMENT_KEYS,
-  NUMERIC_STAT_MULTIPLIER_FLOORS,
   NUMERIC_SCALAR_STAT_KEYS,
   NUMERIC_SCALAR_STAT_VALUE_TYPES,
 } from './constants/gameplay/attributes';
@@ -184,32 +182,6 @@ export interface RealmNumericTemplate {
   ratioDivisors: NumericRatioDivisors;
 }
 
-/**
- * 将“加减百分比”转换为最终乘区。
- * 正向保持线性增长，负向改为反比衰减，避免任意乘区被直接压到 0。
- * 例如:
- * - +50 => 1.5
- * - -50 => 1 / 1.5 = 0.666...
- * - -100 => 0.5
- */
-export function percentModifierToMultiplier(percent: number): number {
-  if (!Number.isFinite(percent) || percent === 0) {
-    return 1;
-  }
-  if (percent > 0) {
-    return 1 + percent / 100;
-  }
-  return 1 / (1 + Math.abs(percent) / 100);
-}
-
-/** 将万分比加减值转换为最终乘区。100 = 1%，-500 = -5%。 */
-export function basisPointModifierToMultiplier(rateBp: number): number {
-  if (!Number.isFinite(rateBp) || rateBp === 0) {
-    return 1;
-  }
-  return percentModifierToMultiplier(rateBp / 100);
-}
-
 /** 创建全零五行元素属性组 */
 export function createElementStatGroup(initialValue = 0): ElementStatGroup {
   return {
@@ -240,6 +212,57 @@ export function resetElementStatGroup(target: ElementStatGroup, value = 0): Elem
   target.fire = value;
   target.earth = value;
   return target;
+}
+
+/** 所有 `NumericStats` 字段列表，便于模板/守护工具重用 */
+export const NUMERIC_STATS_KEYS: (keyof NumericStats)[] = [
+  'maxHp',
+  'maxQi',
+  'physAtk',
+  'spellAtk',
+  'physDef',
+  'spellDef',
+  'hit',
+  'dodge',
+  'crit',
+  'antiCrit',
+  'critDamage',
+  'breakPower',
+  'resolvePower',
+  'maxQiOutputPerTick',
+  'qiRegenRate',
+  'hpRegenRate',
+  'cooldownSpeed',
+  'auraCostReduce',
+  'auraPowerRate',
+  'playerExpRate',
+  'techniqueExpRate',
+  'realmExpPerTick',
+  'techniqueExpPerTick',
+  'lootRate',
+  'rareLootRate',
+  'viewRange',
+  'moveSpeed',
+  'extraAggroRate',
+  'extraRange',
+  'extraArea',
+  'elementDamageBonus',
+  'elementDamageReduce',
+];
+
+/** 守护 Realm 模板 stats 结构的工具，确保字段完整 */
+export function ensureNumericStatsTemplateStats(stats: Partial<NumericStats>): NumericStats {
+/** missing：定义该变量以承载业务值。 */
+  const missing: Array<keyof NumericStats> = [];
+  for (const key of NUMERIC_STATS_KEYS) {
+    if (!(key in stats)) {
+      missing.push(key);
+    }
+  }
+  if (missing.length) {
+    throw new Error(`incomplete numeric stats template: missing ${missing.join(', ')}`);
+  }
+  return stats as NumericStats;
 }
 
 /** 将部分五行属性叠加到目标上 */
@@ -414,81 +437,6 @@ export function mergeNumericStats(base: NumericStats, patches: readonly PartialN
   return result;
 }
 
-/** 获取单个标量属性用于百分比乘区的参考底座 */
-export function getNumericStatMultiplierFloor(key: NumericScalarStatKey): number {
-  return NUMERIC_STAT_MULTIPLIER_FLOORS[key];
-}
-
-/** 获取元素属性用于百分比乘区的参考底座 */
-export function getElementStatMultiplierFloor(group: 'elementDamageBonus' | 'elementDamageReduce', key: ElementKey): number {
-  return NUMERIC_STAT_MULTIPLIER_FLOORS[group][key];
-}
-
-/** 对一组数值属性应用百分比乘区，允许以参考底座撬动零基值属性 */
-export function applyNumericStatsPercentMultiplier(target: NumericStats, patch?: PartialNumericStats): NumericStats {
-  if (!patch) {
-    return target;
-  }
-  for (const key of NUMERIC_SCALAR_STAT_KEYS) {
-    const percent = patch[key];
-    if (!percent) {
-      continue;
-    }
-/** floor：定义该变量以承载业务值。 */
-    const floor = getNumericStatMultiplierFloor(key);
-/** current：定义该变量以承载业务值。 */
-    const current = key === 'moveSpeed'
-      ? target[key] + floor
-      : target[key];
-/** multiplier：定义该变量以承载业务值。 */
-    const multiplier = percentModifierToMultiplier(percent);
-/** nextValue：定义该变量以承载业务值。 */
-    const nextValue = current > 0
-      ? Math.max(0, current * multiplier)
-      : floor * multiplier - floor;
-    if (key === 'moveSpeed') {
-      target[key] = nextValue - floor;
-      continue;
-    }
-    target[key] = nextValue;
-  }
-  if (patch.elementDamageBonus) {
-    for (const key of ELEMENT_KEYS) {
-      const percent = patch.elementDamageBonus[key];
-      if (!percent) {
-        continue;
-      }
-/** floor：定义该变量以承载业务值。 */
-      const floor = getElementStatMultiplierFloor('elementDamageBonus', key);
-/** current：定义该变量以承载业务值。 */
-      const current = target.elementDamageBonus[key];
-/** multiplier：定义该变量以承载业务值。 */
-      const multiplier = percentModifierToMultiplier(percent);
-      target.elementDamageBonus[key] = current > 0
-        ? Math.max(0, current * multiplier)
-        : floor * multiplier - floor;
-    }
-  }
-  if (patch.elementDamageReduce) {
-    for (const key of ELEMENT_KEYS) {
-      const percent = patch.elementDamageReduce[key];
-      if (!percent) {
-        continue;
-      }
-/** floor：定义该变量以承载业务值。 */
-      const floor = getElementStatMultiplierFloor('elementDamageReduce', key);
-/** current：定义该变量以承载业务值。 */
-      const current = target.elementDamageReduce[key];
-/** multiplier：定义该变量以承载业务值。 */
-      const multiplier = percentModifierToMultiplier(percent);
-      target.elementDamageReduce[key] = current > 0
-        ? Math.max(0, current * multiplier)
-        : Math.max(0, floor * multiplier - floor);
-    }
-  }
-  return target;
-}
-
 /** 创建 RatioValue 除数配置 */
 export function createNumericRatioDivisors(initialValue = DEFAULT_RATIO_DIVISOR): NumericRatioDivisors {
   return {
@@ -520,16 +468,6 @@ export function ratioValue(value: number, divisor: number): number {
   if (value === 0) return 0;
   if (divisor <= 0) return value > 0 ? 1 : -1;
   return value > 0 ? value / (value + divisor) : -value / divisor;
-}
-
-/** 带符号的 RatioValue，负值保留方向，用于冷却等允许正负变化的比例属性。 */
-export function signedRatioValue(value: number, divisor: number): number {
-  if (value === 0) {
-    return 0;
-  }
-/** magnitude：定义该变量以承载业务值。 */
-  const magnitude = ratioValue(Math.abs(value), divisor);
-  return value > 0 ? magnitude : -magnitude;
 }
 
 /** 获取指定标量属性的 RatioValue 百分比 */
@@ -564,4 +502,3 @@ export function calcQiCostWithOutputLimit(plannedCost: number, maxQiOutputPerTic
   const remainderCost = remainder * (fullSegments + 2);
   return maxQiOutputPerTick + fullSegmentCost + remainderCost;
 }
-

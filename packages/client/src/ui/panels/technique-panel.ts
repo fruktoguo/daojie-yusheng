@@ -9,8 +9,8 @@ import {
   calcTechniqueFinalAttrBonus,
   calcTechniqueNextLevelGains,
   deriveTechniqueRealm,
-  getTechniqueMaxLevel,
   getTechniqueExpLevelAdjustment,
+  getTechniqueMaxLevel,
   PlayerState,
   resolveSkillUnlockLevel,
   TECHNIQUE_ATTR_KEYS,
@@ -20,13 +20,14 @@ import {
   TechniqueLayerDef,
   TechniqueRealm,
   TechniqueState,
-} from '@mud/shared';
+} from '@mud/shared-next';
 import { ATTR_KEY_LABELS, getTechniqueCategoryLabel, getTechniqueGradeLabel, getTechniqueRealmLabel } from '../../domain-labels';
 import { getLocalRealmLevelEntry, resolvePreviewTechnique, resolvePreviewTechniques } from '../../content/local-templates';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from '../floating-tooltip';
 import { detailModalHost } from '../detail-modal-host';
 import { buildSkillTooltipContent } from '../skill-tooltip';
 import { preserveSelection } from '../selection-preserver';
+import { createEmptyHint } from '../ui-primitives';
 import { TechniqueConstellationCanvas, TechniqueConstellationCanvasData, TechniqueConstellationHoverPayload } from './technique-constellation-canvas';
 import { formatDisplayInteger, formatDisplayNumber } from '../../utils/number';
 
@@ -119,8 +120,32 @@ function resolveTechniqueCategory(tech: TechniqueState): TechniqueCategory {
 }
 
 /** areTechniqueSkillsEnabled：执行对应的业务逻辑。 */
-function areTechniqueSkillsEnabled(tech: TechniqueState): boolean {
-  return tech.skillsEnabled !== false;
+function areTechniqueSkillsEnabled(tech: TechniqueState, previewPlayer?: PlayerState): boolean {
+  if (typeof tech.skillsEnabled === 'boolean') {
+    return tech.skillsEnabled;
+  }
+/** unlockedSkillIds：定义该变量以承载业务值。 */
+  const unlockedSkillIds = tech.skills
+    .filter((skill) => (tech.level ?? 1) >= resolveSkillUnlockLevel(skill))
+    .map((skill) => skill.id);
+  if (unlockedSkillIds.length === 0 || !previewPlayer) {
+    return true;
+  }
+/** actions：定义该变量以承载业务值。 */
+  const actions = previewPlayer.actions ?? [];
+/** hasResolvedSkill：定义该变量以承载业务值。 */
+  let hasResolvedSkill = false;
+  for (const skillId of unlockedSkillIds) {
+    const action = actions.find((entry) => entry.id === skillId);
+    if (!action) {
+      continue;
+    }
+    hasResolvedSkill = true;
+    if (action.skillEnabled !== false) {
+      return true;
+    }
+  }
+  return !hasResolvedSkill ? true : false;
 }
 
 /** getTechniqueProgressRatio：执行对应的业务逻辑。 */
@@ -174,9 +199,13 @@ function getResolvedTechniqueRealm(tech: TechniqueState): TechniqueRealm {
   return deriveTechniqueRealm(tech.level, tech.layers, tech.attrCurves);
 }
 
-/** getTechniqueGradeSortIndex：执行对应的业务逻辑。 */
-function getTechniqueGradeSortIndex(tech: TechniqueState): number {
-  return TECHNIQUE_GRADE_SORT_INDEX.get(tech.grade ?? 'mortal') ?? -1;
+/** getTechniqueRealmLevelLabel：执行对应的业务逻辑。 */
+function getTechniqueRealmLevelLabel(tech: TechniqueState): string {
+/** entry：定义该变量以承载业务值。 */
+  const entry = getLocalRealmLevelEntry(tech.realmLv);
+  return entry
+    ? entry.displayName
+    : `Lv.${formatDisplayInteger(tech.realmLv)}`;
 }
 
 /** getPlayerRealmLv：执行对应的业务逻辑。 */
@@ -184,6 +213,11 @@ function getPlayerRealmLv(player?: PlayerState): number | null {
 /** realmLv：定义该变量以承载业务值。 */
   const realmLv = player?.realm?.realmLv ?? player?.realmLv;
   return Number.isFinite(realmLv) ? Math.max(1, Math.floor(Number(realmLv))) : null;
+}
+
+/** getTechniqueGradeSortIndex：执行对应的业务逻辑。 */
+function getTechniqueGradeSortIndex(tech: TechniqueState): number {
+  return TECHNIQUE_GRADE_SORT_INDEX.get(tech.grade ?? 'mortal') ?? -1;
 }
 
 /** getRealmLevelDisplayName：执行对应的业务逻辑。 */
@@ -252,24 +286,15 @@ function sortTechniquesForPanel(techniques: TechniqueState[]): TechniqueState[] 
   });
 }
 
-/** getTechniqueRealmLevelLabel：执行对应的业务逻辑。 */
-function getTechniqueRealmLevelLabel(tech: TechniqueState): string {
-/** entry：定义该变量以承载业务值。 */
-  const entry = getLocalRealmLevelEntry(tech.realmLv);
-  return entry
-    ? entry.displayName
-    : `Lv.${formatDisplayInteger(tech.realmLv)}`;
-}
-
 /** findTechniqueRealmStartLevel：执行对应的业务逻辑。 */
 function findTechniqueRealmStartLevel(
   realm: TechniqueRealm,
   maxLevel: number,
   layers?: TechniqueLayerDef[],
-  legacyCurves?: TechniqueState['attrCurves'],
+  compatCurves?: TechniqueState['attrCurves'],
 ): number | null {
   for (let level = 1; level <= maxLevel; level += 1) {
-    if (deriveTechniqueRealm(level, layers, legacyCurves) === realm) {
+    if (deriveTechniqueRealm(level, layers, compatCurves) === realm) {
       return level;
     }
   }
@@ -310,6 +335,12 @@ export class TechniquePanel {
   private lastState: TechniquePanelState = { techniques: [] };
 /** lastVisibleTechniqueIds：定义该变量以承载业务值。 */
   private lastVisibleTechniqueIds: string[] | null = null;
+  private shellRefs: {
+    shell: HTMLDivElement;
+    topTabs: HTMLDivElement;
+    sideTabs: HTMLDivElement;
+    list: HTMLDivElement;
+  } | null = null;
 
 /** constructor：处理当前场景中的对应操作。 */
   constructor() {
@@ -319,7 +350,10 @@ export class TechniquePanel {
 /** clear：执行对应的业务逻辑。 */
   clear(): void {
     this.lastVisibleTechniqueIds = null;
-    this.pane.innerHTML = '<div class="empty-hint" data-tech-empty="true">尚未习得功法</div>';
+    this.shellRefs = null;
+    const empty = createEmptyHint('尚未习得功法');
+    empty.dataset.techEmpty = 'true';
+    this.pane.replaceChildren(empty);
     this.tooltip.hide(true);
     this.closeModal();
   }
@@ -364,47 +398,63 @@ export class TechniquePanel {
       return;
     }
 
-/** filteredTechniques：定义该变量以承载业务值。 */
-    const filteredTechniques = this.getVisibleTechniques(techniques);
-/** topTabsHtml：定义该变量以承载业务值。 */
-    const topTabsHtml = TECHNIQUE_CATEGORY_FILTERS.map((filter) => {
-/** count：定义该变量以承载业务值。 */
-      const count = techniques.filter((tech) => (
-        this.matchesStatusFilter(tech) && (filter.value === 'all' || resolveTechniqueCategory(tech) === filter.value)
-      )).length;
-      return `<button
-        class="tech-filter-tab ${this.categoryFilter === filter.value ? 'active' : ''}"
-        data-tech-category-filter="${filter.value}"
-        type="button"
-      >${escapeHtml(filter.label)}<span class="tech-filter-count" data-tech-category-count="${filter.value}">${formatDisplayInteger(count)}</span></button>`;
-    }).join('');
-/** sideTabsHtml：定义该变量以承载业务值。 */
-    const sideTabsHtml = TECHNIQUE_STATUS_FILTERS.map((filter) => {
-/** count：定义该变量以承载业务值。 */
-      const count = techniques.filter((tech) => (
-        this.matchesCategoryFilter(tech) && this.matchesStatusFilter(tech, filter.value)
-      )).length;
-      return `<button
-        class="tech-side-tab ${this.statusFilter === filter.value ? 'active' : ''}"
-        data-tech-status-filter="${filter.value}"
-        type="button"
-      ><span>${escapeHtml(filter.label)}</span><span class="tech-filter-count" data-tech-status-count="${filter.value}">${formatDisplayInteger(count)}</span></button>`;
-    }).join('');
-/** listHtml：定义该变量以承载业务值。 */
-    const listHtml = filteredTechniques.length > 0
-      ? filteredTechniques.map((tech) => this.renderTechniqueCard(tech)).join('')
-      : `<div class="empty-hint" data-tech-empty="true">${escapeHtml(this.getFilteredEmptyHint())}</div>`;
+    this.ensureShell();
+    this.patchFilterTabs(techniques);
+    this.patchList();
+  }
+
+  private ensureShell(): { shell: HTMLDivElement; topTabs: HTMLDivElement; sideTabs: HTMLDivElement; list: HTMLDivElement } {
+    if (this.shellRefs?.shell.isConnected) {
+      return this.shellRefs;
+    }
+
+    const shell = document.createElement('div');
+    shell.className = 'tech-panel-shell';
+
+    const topTabs = document.createElement('div');
+    topTabs.className = 'tech-filter-tabs ui-filter-tabs';
+    for (const filter of TECHNIQUE_CATEGORY_FILTERS) {
+      const button = document.createElement('button');
+      button.className = 'tech-filter-tab ui-filter-tab';
+      button.dataset.techCategoryFilter = filter.value;
+      button.type = 'button';
+      button.append(document.createTextNode(filter.label));
+      const count = document.createElement('span');
+      count.className = 'tech-filter-count';
+      count.dataset.techCategoryCount = filter.value;
+      button.append(count);
+      topTabs.append(button);
+    }
+
+    const body = document.createElement('div');
+    body.className = 'tech-panel-body';
+    const sideTabs = document.createElement('div');
+    sideTabs.className = 'tech-side-tabs';
+    for (const filter of TECHNIQUE_STATUS_FILTERS) {
+      const button = document.createElement('button');
+      button.className = 'tech-side-tab ui-subtab-btn';
+      button.dataset.techStatusFilter = filter.value;
+      button.type = 'button';
+      const label = document.createElement('span');
+      label.textContent = filter.label;
+      const count = document.createElement('span');
+      count.className = 'tech-filter-count';
+      count.dataset.techStatusCount = filter.value;
+      button.append(label, count);
+      sideTabs.append(button);
+    }
+
+    const list = document.createElement('div');
+    list.className = 'tech-panel-list';
+    list.dataset.techList = 'true';
+    body.append(sideTabs, list);
+    shell.append(topTabs, body);
 
     preserveSelection(this.pane, () => {
-      this.pane.innerHTML = `<div class="tech-panel-shell">
-        <div class="tech-filter-tabs">${topTabsHtml}</div>
-        <div class="tech-panel-body">
-          <div class="tech-side-tabs">${sideTabsHtml}</div>
-          <div class="tech-panel-list" data-tech-list="true">${listHtml}</div>
-        </div>
-      </div>`;
+      this.pane.replaceChildren(shell);
     });
-    this.lastVisibleTechniqueIds = filteredTechniques.map((tech) => tech.techId);
+    this.shellRefs = { shell, topTabs, sideTabs, list };
+    return this.shellRefs;
   }
 
 /** renderTechniqueCard：执行对应的业务逻辑。 */
@@ -414,7 +464,7 @@ export class TechniquePanel {
 /** isCultivating：定义该变量以承载业务值。 */
     const isCultivating = this.lastState.cultivatingTechId === tech.techId;
 /** skillsEnabled：定义该变量以承载业务值。 */
-    const skillsEnabled = areTechniqueSkillsEnabled(tech);
+    const skillsEnabled = areTechniqueSkillsEnabled(tech, this.lastState.previewPlayer);
 /** progressRatio：定义该变量以承载业务值。 */
     const progressRatio = getTechniqueProgressRatio(tech);
 /** progressText：定义该变量以承载业务值。 */
@@ -459,6 +509,32 @@ export class TechniquePanel {
         >${isCultivating ? '取消主修' : '设为主修'}</button>
       </div>
     </div>`;
+  }
+
+  private createTechniqueCardElement(tech: TechniqueState): HTMLElement {
+    const template = document.createElement('template');
+    template.innerHTML = this.renderTechniqueCard(tech).trim();
+    const card = template.content.firstElementChild;
+    if (!(card instanceof HTMLElement)) {
+      throw new Error('Failed to create technique card element');
+    }
+    return card;
+  }
+
+  private syncTechniqueListContent(listRoot: HTMLElement, orderedNodes: HTMLElement[]): void {
+    const allowed = new Set(orderedNodes);
+    for (const child of Array.from(listRoot.children)) {
+      if (!(child instanceof HTMLElement) || !allowed.has(child)) {
+        child.remove();
+      }
+    }
+    let reference: ChildNode | null = listRoot.firstChild;
+    for (const node of orderedNodes) {
+      if (reference !== node) {
+        listRoot.insertBefore(node, reference);
+      }
+      reference = node.nextSibling;
+    }
   }
 
 /** matchesCategoryFilter：执行对应的业务逻辑。 */
@@ -578,7 +654,7 @@ export class TechniquePanel {
 /** layers：定义该变量以承载业务值。 */
     const layers = tech.layers && tech.layers.length > 0
       ? [...tech.layers].sort((left, right) => left.level - right.level)
-      : this.buildLegacyLayers(tech, maxLevel);
+      : this.buildFallbackLayers(tech, maxLevel);
 /** selectedLevel：定义该变量以承载业务值。 */
     const selectedLevel = this.resolveOpenLayerLevel(layers, tech.level);
 /** constellationHtml：定义该变量以承载业务值。 */
@@ -593,6 +669,7 @@ export class TechniquePanel {
     const totalExp = calcTechniqueTotalExp(tech);
     detailModalHost.open({
       ownerId: TechniquePanel.MODAL_OWNER,
+      size: 'wide',
       variantClass: 'detail-modal--technique',
       title: tech.name,
       subtitle: `${getTechniqueRealmLevelLabel(tech)} · ${getTechniqueGradeLabel(tech.grade)} · ${getTechniqueRealmLabel(getResolvedTechniqueRealm(tech))} · 第 ${formatDisplayInteger(tech.level)}/${formatDisplayInteger(maxLevel)} 层`,
@@ -636,8 +713,8 @@ export class TechniquePanel {
     });
   }
 
-/** buildLegacyLayers：执行对应的业务逻辑。 */
-  private buildLegacyLayers(tech: TechniqueState, maxLevel: number): TechniqueLayerDef[] {
+/** buildFallbackLayers：执行对应的业务逻辑。 */
+  private buildFallbackLayers(tech: TechniqueState, maxLevel: number): TechniqueLayerDef[] {
 /** rows：定义该变量以承载业务值。 */
     const rows: TechniqueLayerDef[] = [];
     for (let level = 1; level <= maxLevel; level += 1) {
@@ -883,11 +960,15 @@ export class TechniquePanel {
         if (targetTechnique) {
           targetTechnique.skillsEnabled = nextEnabled;
         }
-        if (this.lastState.previewPlayer) {
-/** previewTechnique：定义该变量以承载业务值。 */
-          const previewTechnique = this.lastState.previewPlayer.techniques.find((entry) => entry.techId === techId);
-          if (previewTechnique) {
-            previewTechnique.skillsEnabled = nextEnabled;
+        if (targetTechnique && this.lastState.previewPlayer) {
+/** unlockedSkillIds：定义该变量以承载业务值。 */
+          const unlockedSkillIds = targetTechnique.skills
+            .filter((skill) => (targetTechnique.level ?? 1) >= resolveSkillUnlockLevel(skill))
+            .map((skill) => skill.id);
+          for (const action of this.lastState.previewPlayer.actions ?? []) {
+            if (unlockedSkillIds.includes(action.id)) {
+              action.skillEnabled = nextEnabled;
+            }
           }
         }
         this.onToggleTechniqueSkills?.(techId, nextEnabled);
@@ -1112,38 +1193,50 @@ export class TechniquePanel {
     if (!listRoot) {
       return false;
     }
-/** emptyNode：定义该变量以承载业务值。 */
-    const emptyNode = listRoot.querySelector<HTMLElement>('[data-tech-empty="true"]');
     if (filteredTechniques.length === 0) {
-      if (!emptyNode) {
-        return false;
-      }
+/** emptyNode：定义该变量以承载业务值。 */
+      const emptyNode = listRoot.querySelector<HTMLElement>('[data-tech-empty="true"]') ?? createEmptyHint('');
+      emptyNode.dataset.techEmpty = 'true';
       emptyNode.textContent = this.getFilteredEmptyHint();
+      this.syncTechniqueListContent(listRoot, [emptyNode]);
       this.lastVisibleTechniqueIds = [];
       return true;
     }
-    if (emptyNode || !this.isSameTechniqueIdSequence(visibleTechniqueIds)) {
-      return false;
+
+    const existingCards = new Map<string, HTMLElement>();
+    listRoot.querySelectorAll<HTMLElement>('[data-tech-card]').forEach((card) => {
+      const techId = card.dataset.techCard;
+      if (techId) {
+        existingCards.set(techId, card);
+      }
+    });
+
+    const orderedCards: HTMLElement[] = [];
+    for (const tech of filteredTechniques) {
+      const card = existingCards.get(tech.techId) ?? this.createTechniqueCardElement(tech);
+      existingCards.delete(tech.techId);
+      orderedCards.push(card);
     }
+    this.syncTechniqueListContent(listRoot, orderedCards);
 
     const { cultivatingTechId } = this.lastState;
     for (const tech of filteredTechniques) {
-      const card = this.pane.querySelector<HTMLElement>(`[data-tech-card="${CSS.escape(tech.techId)}"]`);
-      const realmLevelNode = this.pane.querySelector<HTMLElement>(`[data-tech-realm-level="${CSS.escape(tech.techId)}"]`);
+      const card = listRoot.querySelector<HTMLElement>(`[data-tech-card="${CSS.escape(tech.techId)}"]`);
+      const realmLevelNode = listRoot.querySelector<HTMLElement>(`[data-tech-realm-level="${CSS.escape(tech.techId)}"]`);
 /** realmNode：定义该变量以承载业务值。 */
-      const realmNode = this.pane.querySelector<HTMLElement>(`[data-tech-realm="${CSS.escape(tech.techId)}"]`);
+      const realmNode = listRoot.querySelector<HTMLElement>(`[data-tech-realm="${CSS.escape(tech.techId)}"]`);
 /** layerNode：定义该变量以承载业务值。 */
-      const layerNode = this.pane.querySelector<HTMLElement>(`[data-tech-layer="${CSS.escape(tech.techId)}"]`);
+      const layerNode = listRoot.querySelector<HTMLElement>(`[data-tech-layer="${CSS.escape(tech.techId)}"]`);
 /** progressTextNode：定义该变量以承载业务值。 */
-      const progressTextNode = this.pane.querySelector<HTMLElement>(`[data-tech-progress-text="${CSS.escape(tech.techId)}"]`);
+      const progressTextNode = listRoot.querySelector<HTMLElement>(`[data-tech-progress-text="${CSS.escape(tech.techId)}"]`);
 /** progressFillNode：定义该变量以承载业务值。 */
-      const progressFillNode = this.pane.querySelector<HTMLElement>(`[data-tech-progress-fill="${CSS.escape(tech.techId)}"]`);
+      const progressFillNode = listRoot.querySelector<HTMLElement>(`[data-tech-progress-fill="${CSS.escape(tech.techId)}"]`);
 /** remainNode：定义该变量以承载业务值。 */
-      const remainNode = this.pane.querySelector<HTMLElement>(`[data-tech-progress-remain="${CSS.escape(tech.techId)}"]`);
+      const remainNode = listRoot.querySelector<HTMLElement>(`[data-tech-progress-remain="${CSS.escape(tech.techId)}"]`);
 /** cultivateButton：定义该变量以承载业务值。 */
-      const cultivateButton = this.pane.querySelector<HTMLButtonElement>(`[data-tech-cultivate-button="${CSS.escape(tech.techId)}"]`);
+      const cultivateButton = listRoot.querySelector<HTMLButtonElement>(`[data-tech-cultivate-button="${CSS.escape(tech.techId)}"]`);
 /** skillToggleButton：定义该变量以承载业务值。 */
-      const skillToggleButton = this.pane.querySelector<HTMLButtonElement>(`[data-tech-skills-toggle="${CSS.escape(tech.techId)}"]`);
+      const skillToggleButton = listRoot.querySelector<HTMLButtonElement>(`[data-tech-skills-toggle="${CSS.escape(tech.techId)}"]`);
       if (!card || !realmLevelNode || !realmNode || !layerNode || !progressTextNode || !progressFillNode || !remainNode || !cultivateButton || !skillToggleButton) {
         return false;
       }
@@ -1153,7 +1246,7 @@ export class TechniquePanel {
 /** isCultivating：定义该变量以承载业务值。 */
       const isCultivating = cultivatingTechId === tech.techId;
 /** skillsEnabled：定义该变量以承载业务值。 */
-      const skillsEnabled = areTechniqueSkillsEnabled(tech);
+      const skillsEnabled = areTechniqueSkillsEnabled(tech, this.lastState.previewPlayer);
 /** progressRatio：定义该变量以承载业务值。 */
       const progressRatio = getTechniqueProgressRatio(tech);
 /** progressText：定义该变量以承载业务值。 */
@@ -1235,7 +1328,7 @@ export class TechniquePanel {
 /** layers：定义该变量以承载业务值。 */
     const layers = tech.layers && tech.layers.length > 0
       ? [...tech.layers].sort((left, right) => left.level - right.level)
-      : this.buildLegacyLayers(tech, maxLevel);
+      : this.buildFallbackLayers(tech, maxLevel);
 /** milestones：定义该变量以承载业务值。 */
     const milestones = buildTechniqueMilestones(tech, maxLevel);
 /** selectedLevel：定义该变量以承载业务值。 */
@@ -1444,4 +1537,3 @@ export class TechniquePanel {
     return technique ? resolvePreviewTechnique(technique) : undefined;
   }
 }
-

@@ -1,4 +1,4 @@
-import { TUTORIAL_MECHANIC_TOPICS as SHARED_TUTORIAL_MECHANIC_TOPICS } from '@mud/shared';
+import { TUTORIAL_MECHANIC_TOPICS as SHARED_TUTORIAL_MECHANIC_TOPICS } from '@mud/shared-next';
 
 /** TutorialTopicSection：定义该接口的能力与字段约束。 */
 export interface TutorialTopicSection {

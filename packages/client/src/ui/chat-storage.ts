@@ -26,37 +26,13 @@ const CHAT_DB_VERSION = 1;
 const CHAT_DB_STORE_NAME = 'messages';
 /** CHAT_DB_INDEX_BY_CHANNEL_TIME：定义该变量以承载业务值。 */
 const CHAT_DB_INDEX_BY_CHANNEL_TIME = 'by-channel-time';
-/** CHAT_PERSIST_FLUSH_DELAY_MS：定义该变量以承载业务值。 */
-const CHAT_PERSIST_FLUSH_DELAY_MS = 200;
-/** CHAT_PERSIST_BATCH_SIZE：定义该变量以承载业务值。 */
-const CHAT_PERSIST_BATCH_SIZE = 200;
 
 /** databasePromise：定义该变量以承载业务值。 */
 let databasePromise: Promise<IDBDatabase | null> | null = null;
-/** legacyStorageCleared：定义该变量以承载业务值。 */
-let legacyStorageCleared = false;
+/** previousStorageCleared：定义该变量以承载业务值。 */
+let previousStorageCleared = false;
 /** indexedDbUnavailableWarned：定义该变量以承载业务值。 */
 let indexedDbUnavailableWarned = false;
-/** persistLifecycleBound：定义该变量以承载业务值。 */
-let persistLifecycleBound = false;
-/** persistFlushTimer：定义该变量以承载业务值。 */
-let persistFlushTimer: number | null = null;
-/** persistFlushRunning：定义该变量以承载业务值。 */
-let persistFlushRunning = false;
-
-/** PendingPersistEntry：定义该类型的结构与数据语义。 */
-type PendingPersistEntry = {
-/** scopeId：定义该变量以承载业务值。 */
-  scopeId: string;
-/** entry：定义该变量以承载业务值。 */
-  entry: ChatStoredMessage;
-/** channels：定义该变量以承载业务值。 */
-  channels: ChatChannel[];
-  resolve: (value: boolean) => void;
-};
-
-/** pendingPersistEntries：定义该变量以承载业务值。 */
-const pendingPersistEntries: PendingPersistEntry[] = [];
 
 /** warnIndexedDbUnavailable：执行对应的业务逻辑。 */
 function warnIndexedDbUnavailable(error: unknown): void {
@@ -84,8 +60,8 @@ function withTransactionComplete(transaction: IDBTransaction): Promise<void> {
   });
 }
 
-/** getLegacyStorage：执行对应的业务逻辑。 */
-function getLegacyStorage(): Storage | null {
+/** getPreviousStorage：执行对应的业务逻辑。 */
+function getPreviousStorage(): Storage | null {
   if (typeof window === 'undefined') {
     return null;
   }
@@ -96,14 +72,14 @@ function getLegacyStorage(): Storage | null {
   }
 }
 
-/** clearLegacyChatStorage：执行对应的业务逻辑。 */
-export function clearLegacyChatStorage(): void {
-  if (legacyStorageCleared) {
+/** clearPreviousChatStorage：执行对应的业务逻辑。 */
+export function clearPreviousChatStorage(): void {
+  if (previousStorageCleared) {
     return;
   }
-  legacyStorageCleared = true;
+  previousStorageCleared = true;
 /** storage：定义该变量以承载业务值。 */
-  const storage = getLegacyStorage();
+  const storage = getPreviousStorage();
   if (!storage) {
     return;
   }
@@ -112,22 +88,6 @@ export function clearLegacyChatStorage(): void {
   } catch (error) {
     console.warn('[chat] 清理旧版 localStorage 聊天缓存失败。', error);
   }
-}
-
-/** bindPersistLifecycle：执行对应的业务逻辑。 */
-function bindPersistLifecycle(): void {
-  if (persistLifecycleBound || typeof window === 'undefined') {
-    return;
-  }
-  persistLifecycleBound = true;
-  window.addEventListener('pagehide', () => {
-    void flushPendingPersistEntries();
-  });
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden') {
-      void flushPendingPersistEntries();
-    }
-  });
 }
 
 /** openDatabase：执行对应的业务逻辑。 */
@@ -314,93 +274,6 @@ async function pruneChannel(scopeId: string, channel: ChatChannel): Promise<void
   }
 }
 
-/** persistBatch：执行对应的业务逻辑。 */
-async function persistBatch(entries: PendingPersistEntry[]): Promise<boolean> {
-/** database：定义该变量以承载业务值。 */
-  const database = await openDatabase();
-  if (!database || entries.length === 0) {
-    return false;
-  }
-
-  try {
-/** dedupedRecords：定义该变量以承载业务值。 */
-    const dedupedRecords = new Map<string, ChatMessageRecord>();
-/** touchedChannels：定义该变量以承载业务值。 */
-    const touchedChannels = new Map<string, { scopeId: string; channel: ChatChannel }>();
-    for (const pending of entries) {
-      for (const channel of pending.channels) {
-        const dedupeKey = `${pending.scopeId}\n${channel}\n${pending.entry.id}`;
-        dedupedRecords.set(dedupeKey, {
-          scopeId: pending.scopeId,
-          channel,
-          id: pending.entry.id,
-          at: pending.entry.at,
-          text: pending.entry.text,
-          from: pending.entry.from,
-          kind: pending.entry.kind as ChatMessageKind,
-          scope: pending.entry.scope as ChatMessageScope | undefined,
-        });
-        touchedChannels.set(`${pending.scopeId}\n${channel}`, {
-          scopeId: pending.scopeId,
-          channel,
-        });
-      }
-    }
-
-/** transaction：定义该变量以承载业务值。 */
-    const transaction = database.transaction(CHAT_DB_STORE_NAME, 'readwrite');
-/** store：定义该变量以承载业务值。 */
-    const store = transaction.objectStore(CHAT_DB_STORE_NAME);
-    for (const record of dedupedRecords.values()) {
-      store.put(record);
-    }
-    await withTransactionComplete(transaction);
-
-    await Promise.all([...touchedChannels.values()].map(({ scopeId, channel }) => pruneChannel(scopeId, channel)));
-    return true;
-  } catch (error) {
-    console.warn('[chat] 写入聊天记录失败。', error);
-    return false;
-  }
-}
-
-/** flushPendingPersistEntries：执行对应的业务逻辑。 */
-async function flushPendingPersistEntries(): Promise<void> {
-  if (persistFlushTimer !== null && typeof window !== 'undefined') {
-    window.clearTimeout(persistFlushTimer);
-    persistFlushTimer = null;
-  }
-  if (persistFlushRunning) {
-    return;
-  }
-  persistFlushRunning = true;
-  try {
-    while (pendingPersistEntries.length > 0) {
-/** batch：定义该变量以承载业务值。 */
-      const batch = pendingPersistEntries.splice(0, CHAT_PERSIST_BATCH_SIZE);
-/** persisted：定义该变量以承载业务值。 */
-      const persisted = await persistBatch(batch);
-      batch.forEach(({ resolve }) => resolve(persisted));
-    }
-  } finally {
-    persistFlushRunning = false;
-    if (pendingPersistEntries.length > 0) {
-      schedulePersistFlush();
-    }
-  }
-}
-
-/** schedulePersistFlush：执行对应的业务逻辑。 */
-function schedulePersistFlush(): void {
-  bindPersistLifecycle();
-  if (persistFlushTimer !== null || typeof window === 'undefined') {
-    return;
-  }
-  persistFlushTimer = window.setTimeout(() => {
-    void flushPendingPersistEntries();
-  }, CHAT_PERSIST_FLUSH_DELAY_MS);
-}
-
 /** loadRecentChannelMessages：执行对应的业务逻辑。 */
 export async function loadRecentChannelMessages(
   scopeId: string,
@@ -426,17 +299,36 @@ export async function appendChannelMessages(
   entry: ChatStoredMessage,
   channels: ChatChannel[],
 ): Promise<boolean> {
-  if (channels.length === 0) {
+/** database：定义该变量以承载业务值。 */
+  const database = await openDatabase();
+  if (!database || channels.length === 0) {
     return false;
   }
-  return new Promise<boolean>((resolve) => {
-    pendingPersistEntries.push({
-      scopeId,
-      entry,
-      channels: [...channels],
-      resolve,
-    });
-    schedulePersistFlush();
-  });
+
+  try {
+/** transaction：定义该变量以承载业务值。 */
+    const transaction = database.transaction(CHAT_DB_STORE_NAME, 'readwrite');
+/** store：定义该变量以承载业务值。 */
+    const store = transaction.objectStore(CHAT_DB_STORE_NAME);
+    for (const channel of channels) {
+      const record: ChatMessageRecord = {
+        scopeId,
+        channel,
+        id: entry.id,
+        at: entry.at,
+        text: entry.text,
+        from: entry.from,
+        kind: entry.kind as ChatMessageKind,
+        scope: entry.scope as ChatMessageScope | undefined,
+      };
+      store.put(record);
+    }
+    await withTransactionComplete(transaction);
+    await Promise.all(channels.map((channel) => pruneChannel(scopeId, channel)));
+    return true;
+  } catch (error) {
+    console.warn('[chat] 写入聊天记录失败。', error);
+    return false;
+  }
 }
 

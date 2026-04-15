@@ -14,10 +14,9 @@ import {
   PlayerRealmState,
   SHATTER_SPIRIT_PILL_COST_RATIO,
   TECHNIQUE_LEARNING_HEAVY_DECAY_WARNING_DELTA,
-  TechniqueGrade,
   createItemStackSignature,
   shouldWarnTechniqueLearningDifficulty,
-} from '@mud/shared';
+} from '@mud/shared-next';
 import {
   getEquipSlotLabel,
   getItemTypeLabel,
@@ -32,9 +31,11 @@ import {
 import { getLocalTechniqueTemplate, resolvePreviewItem, resolveTechniqueIdFromBookItemId } from '../../content/local-templates';
 import { detailModalHost } from '../detail-modal-host';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from '../floating-tooltip';
-import { buildItemTooltipPayload, describeEquipmentBonuses, describeItemEffectDetails, ItemTooltipCooldownState } from '../equipment-tooltip';
+import { buildItemTooltipPayload, describeItemEffectDetails, ItemTooltipCooldownState } from '../equipment-tooltip';
 import { getItemAffixTypeLabel, getItemDecorClassName, getItemDisplayMeta } from '../item-display';
 import { preserveSelection } from '../selection-preserver';
+import { createEmptyHint, createPanelSectionWithTitle, createSmallBtn } from '../ui-primitives';
+import { describePreviewBonuses } from '../stat-preview';
 import { INVENTORY_FILTER_TABS, InventoryFilter } from '../../constants/ui/inventory';
 import { formatDisplayCountBadge, formatDisplayInteger } from '../../utils/number';
 import { resolveInventoryCooldownLeft } from '../../runtime/server-tick';
@@ -73,6 +74,15 @@ interface InventoryPrimaryAction {
 /** kind：定义该变量以承载业务值。 */
   kind: 'use' | 'equip' | 'status';
   disabled?: boolean;
+}
+
+interface InventoryShellRefs {
+  section: HTMLDivElement;
+  title: HTMLDivElement;
+  filters: HTMLDivElement;
+  grid: HTMLDivElement;
+  empty: HTMLDivElement;
+  loadHint: HTMLDivElement;
 }
 
 /** INVENTORY_SOURCE_COLLAPSED_COUNT：定义该变量以承载业务值。 */
@@ -140,6 +150,7 @@ export class InventoryPanel {
   private pendingLoadMoreFrame: number | null = null;
 /** cooldownRefreshTimer：定义该变量以承载业务值。 */
   private cooldownRefreshTimer: number | null = null;
+  private shellRefs: InventoryShellRefs | null = null;
 /** handleScrollCapture：将函数作为字段暴露，承接调用行为。 */
   private handleScrollCapture = (event: Event) => {
 /** target：定义该变量以承载业务值。 */
@@ -189,7 +200,8 @@ export class InventoryPanel {
       this.cooldownRefreshTimer = null;
     }
     this.tooltip.hide(true);
-    this.pane.innerHTML = '<div class="empty-hint">背包空空如也</div>';
+    this.shellRefs = null;
+    this.pane.replaceChildren(this.createInventoryEmptyState());
     detailModalHost.close(InventoryPanel.MODAL_OWNER);
   }
 
@@ -268,80 +280,8 @@ export class InventoryPanel {
 /** render：执行对应的业务逻辑。 */
   private render(inventory: Inventory): void {
     this.lastInventory = inventory;
-/** visibleItems：定义该变量以承载业务值。 */
-    const visibleItems = this.getVisibleItems(inventory);
-/** cooldownStateMap：定义该变量以承载业务值。 */
-    const cooldownStateMap = this.getCooldownStateMap(inventory);
-    this.syncRenderedVisibleCount(visibleItems.length);
-/** renderedItems：定义该变量以承载业务值。 */
-    const renderedItems = visibleItems.slice(0, this.renderedVisibleCount);
-    this.lastStructureState = this.buildStructureStateFromVisibleItems(renderedItems);
-
-/** html：定义该变量以承载业务值。 */
-    let html = `<div class="panel-section">
-      <div class="inventory-panel-head">
-        <div class="panel-section-title" data-inventory-title="true">背包 (${formatDisplayInteger(inventory.items.length)}/${formatDisplayInteger(inventory.capacity)})</div>
-        <button class="small-btn" data-sort-inventory type="button">一键整理</button>
-      </div>
-      <div class="inventory-filter-tabs">`;
-
-    for (const tab of INVENTORY_FILTER_TABS) {
-      html += `<button class="inventory-filter-tab ${this.activeFilter === tab.id ? 'active' : ''}" data-filter-button="${tab.id}" data-filter="${tab.id}" type="button">${tab.label}</button>`;
-    }
-
-    html += '</div>';
-
-    if (visibleItems.length === 0) {
-      html += `<div class="empty-hint" data-inventory-empty="true">${inventory.items.length === 0 ? '背包空空如也' : '当前分类暂无物品'}</div>`;
-      html += '</div>';
-      preserveSelection(this.pane, () => {
-        this.pane.innerHTML = html;
-      });
-      return;
-    }
-
-    html += '<div class="inventory-grid" data-inventory-grid="true">';
-
-    renderedItems.forEach(({ item, slotIndex }) => {
-/** nameClass：定义该变量以承载业务值。 */
-      const nameClass = this.getNameClass(item.name);
-/** primaryAction：定义该变量以承载业务值。 */
-      const primaryAction = this.getPrimaryAction(item);
-/** itemMeta：定义该变量以承载业务值。 */
-      const itemMeta = getItemDisplayMeta(item);
-/** cellClassName：定义该变量以承载业务值。 */
-      const cellClassName = this.getItemCellClassName(item);
-/** gradeAttr：定义该变量以承载业务值。 */
-      const gradeAttr = this.getItemDecorGrade(item);
-/** cooldownState：定义该变量以承载业务值。 */
-      const cooldownState = cooldownStateMap.get(item.itemId) ?? null;
-      html += `<div class="${cellClassName}${cooldownState ? ' inventory-cell--cooldown' : ''}" data-open-item="${slotIndex}" data-item-slot="${slotIndex}" data-item-key="${this.escapeHtml(this.getItemIdentity(item))}"${gradeAttr ? ` data-item-grade="${gradeAttr}"` : ''}>
-        <div class="inventory-cell-cooldown" data-item-cooldown="true"${cooldownState ? ` title="${this.escapeHtml(this.getItemCooldownTitle(cooldownState))}"` : ' hidden'}>
-          <span class="inventory-cell-cooldown-pie" data-item-cooldown-pie="true" style="--inventory-cooldown-progress:${this.getItemCooldownRatio(cooldownState).toFixed(4)};"></span>
-          <span class="inventory-cell-cooldown-label" data-item-cooldown-label="true">${cooldownState ? formatDisplayInteger(this.getItemCooldownRemainingTicks(cooldownState)) : ''}</span>
-        </div>
-        <div class="inventory-cell-head">
-          <span class="inventory-cell-type" data-item-type="true">${this.escapeHtml(getItemAffixTypeLabel(item, getItemTypeLabel(item.type)))}</span>
-          <span class="inventory-cell-count" data-item-count="true">${formatDisplayCountBadge(item.count)}</span>
-        </div>
-        <div class="inventory-cell-name ${nameClass}" data-item-name="true" title="${this.escapeHtml(item.name)}">${this.escapeHtml(item.name)}</div>
-        <div class="inventory-cell-actions">
-          ${primaryAction ? `<button class="small-btn" data-inline-primary="${slotIndex}" data-item-primary="true" type="button" ${primaryAction.disabled ? 'disabled' : ''}>${primaryAction.label}</button>` : ''}
-          <button class="small-btn danger" data-inline-drop="${slotIndex}" type="button">丢下</button>
-        </div>
-        ${itemMeta.affinityBadge ? `<span class="item-card-chip item-card-chip--affinity item-card-chip--${itemMeta.affinityBadge.tone} item-card-chip--element-${itemMeta.affinityBadge.element}" data-item-affinity="true" title="${this.escapeHtml(itemMeta.affinityBadge.title)}">${this.escapeHtml(itemMeta.affinityBadge.label)}</span>` : ''}
-        ${itemMeta.levelLabel ? `<span class="item-card-chip item-card-chip--level" data-item-level="true">${this.escapeHtml(itemMeta.levelLabel)}</span>` : ''}
-      </div>`;
-    });
-
-    html += '</div>';
-    if (renderedItems.length < visibleItems.length) {
-      html += `<div class="inventory-load-hint" data-inventory-load-hint="true">向下滚动继续加载（已显示 ${formatDisplayInteger(renderedItems.length)} / ${formatDisplayInteger(visibleItems.length)}）</div>`;
-    }
-    html += '</div>';
-    preserveSelection(this.pane, () => {
-      this.pane.innerHTML = html;
-    });
+    this.ensureShell();
+    this.patchList(inventory);
   }
 
 /** bindPaneEvents：执行对应的业务逻辑。 */
@@ -610,6 +550,225 @@ export class InventoryPanel {
     document.head.appendChild(style);
   }
 
+  private createInventoryEmptyState(): HTMLDivElement {
+    const empty = createEmptyHint('背包空空如也');
+    empty.dataset.inventoryEmpty = 'true';
+    return empty;
+  }
+
+  private ensureShell(): InventoryShellRefs {
+    if (this.shellRefs?.section.isConnected) {
+      return this.shellRefs;
+    }
+
+    const { sectionEl, titleEl } = createPanelSectionWithTitle('背包');
+    sectionEl.classList.add('ui-panel-section');
+    titleEl.classList.add('ui-panel-section-title');
+    titleEl.dataset.inventoryTitle = 'true';
+
+    const head = document.createElement('div');
+    head.className = 'inventory-panel-head ui-panel-section-head';
+    head.append(titleEl);
+    head.append(createSmallBtn('一键整理', { dataset: { sortInventory: 'true' } }));
+
+    const filters = document.createElement('div');
+    filters.className = 'inventory-filter-tabs ui-filter-tabs';
+    for (const tab of INVENTORY_FILTER_TABS) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'inventory-filter-tab ui-filter-tab';
+      button.dataset.filterButton = tab.id;
+      button.dataset.filter = tab.id;
+      button.textContent = tab.label;
+      filters.append(button);
+    }
+
+    const empty = this.createInventoryEmptyState();
+    const grid = document.createElement('div');
+    grid.className = 'inventory-grid';
+    grid.dataset.inventoryGrid = 'true';
+    grid.hidden = true;
+
+    const loadHint = document.createElement('div');
+    loadHint.className = 'inventory-load-hint';
+    loadHint.dataset.inventoryLoadHint = 'true';
+    loadHint.hidden = true;
+
+    sectionEl.replaceChildren(head, filters, empty, grid, loadHint);
+    preserveSelection(this.pane, () => {
+      this.pane.replaceChildren(sectionEl);
+    });
+
+    this.shellRefs = {
+      section: sectionEl,
+      title: titleEl,
+      filters,
+      grid,
+      empty,
+      loadHint,
+    };
+    return this.shellRefs;
+  }
+
+  private createInventoryCell(slotIndex: number): HTMLDivElement {
+    const cell = document.createElement('div');
+    cell.dataset.openItem = String(slotIndex);
+    cell.dataset.itemSlot = String(slotIndex);
+
+    const cooldown = document.createElement('div');
+    cooldown.className = 'inventory-cell-cooldown';
+    cooldown.dataset.itemCooldown = 'true';
+    cooldown.hidden = true;
+
+    const cooldownPie = document.createElement('span');
+    cooldownPie.className = 'inventory-cell-cooldown-pie';
+    cooldownPie.dataset.itemCooldownPie = 'true';
+    cooldown.append(cooldownPie);
+
+    const cooldownLabel = document.createElement('span');
+    cooldownLabel.className = 'inventory-cell-cooldown-label';
+    cooldownLabel.dataset.itemCooldownLabel = 'true';
+    cooldown.append(cooldownLabel);
+
+    const head = document.createElement('div');
+    head.className = 'inventory-cell-head';
+    const type = document.createElement('span');
+    type.className = 'inventory-cell-type';
+    type.dataset.itemType = 'true';
+    head.append(type);
+    const count = document.createElement('span');
+    count.className = 'inventory-cell-count';
+    count.dataset.itemCount = 'true';
+    head.append(count);
+
+    const name = document.createElement('div');
+    name.className = 'inventory-cell-name';
+    name.dataset.itemName = 'true';
+
+    const actions = document.createElement('div');
+    actions.className = 'inventory-cell-actions';
+    actions.dataset.itemActions = 'true';
+    const dropButton = createSmallBtn('丢下', {
+      variants: ['danger'],
+      dataset: { inlineDrop: String(slotIndex) },
+    });
+    actions.append(dropButton);
+
+    cell.append(cooldown, head, name, actions);
+    return cell;
+  }
+
+  private syncGridChildren(grid: HTMLElement, orderedCells: HTMLElement[]): void {
+    const allowed = new Set(orderedCells);
+    for (const child of Array.from(grid.children)) {
+      if (!(child instanceof HTMLElement) || !allowed.has(child)) {
+        child.remove();
+      }
+    }
+    let reference: ChildNode | null = grid.firstChild;
+    for (const cell of orderedCells) {
+      if (reference !== cell) {
+        grid.insertBefore(cell, reference);
+      }
+      reference = cell.nextSibling;
+    }
+  }
+
+  private patchInventoryCell(
+    cell: HTMLElement,
+    item: ItemStack,
+    slotIndex: number,
+    cooldownState: InventoryItemCooldownState | null,
+  ): boolean {
+    const typeNode = cell.querySelector<HTMLElement>('[data-item-type="true"]');
+    const countNode = cell.querySelector<HTMLElement>('[data-item-count="true"]');
+    const nameNode = cell.querySelector<HTMLElement>('[data-item-name="true"]');
+    const cooldownNode = cell.querySelector<HTMLElement>('[data-item-cooldown="true"]');
+    const cooldownPieNode = cell.querySelector<HTMLElement>('[data-item-cooldown-pie="true"]');
+    const cooldownLabelNode = cell.querySelector<HTMLElement>('[data-item-cooldown-label="true"]');
+    const actionsNode = cell.querySelector<HTMLElement>('[data-item-actions="true"]');
+    if (!typeNode || !countNode || !nameNode || !cooldownNode || !cooldownPieNode || !cooldownLabelNode || !actionsNode) {
+      return false;
+    }
+
+    const itemMeta = getItemDisplayMeta(item);
+    const primaryAction = this.getPrimaryAction(item);
+    let primaryButton = actionsNode.querySelector<HTMLButtonElement>('[data-item-primary="true"]');
+    const dropButton = actionsNode.querySelector<HTMLButtonElement>('[data-inline-drop]');
+    if (!dropButton) {
+      return false;
+    }
+
+    if (primaryAction) {
+      if (!primaryButton) {
+        primaryButton = createSmallBtn(primaryAction.label, { dataset: { itemPrimary: 'true' } });
+        actionsNode.insertBefore(primaryButton, dropButton);
+      }
+      primaryButton.textContent = primaryAction.label;
+      primaryButton.dataset.inlinePrimary = String(slotIndex);
+      primaryButton.disabled = primaryAction.disabled === true;
+    } else if (primaryButton) {
+      primaryButton.remove();
+    }
+
+    let affinityNode = cell.querySelector<HTMLElement>('[data-item-affinity="true"]');
+    if (itemMeta.affinityBadge) {
+      if (!affinityNode) {
+        affinityNode = document.createElement('span');
+        affinityNode.dataset.itemAffinity = 'true';
+        cell.append(affinityNode);
+      }
+      affinityNode.textContent = itemMeta.affinityBadge.label;
+      affinityNode.title = itemMeta.affinityBadge.title;
+      affinityNode.className = `item-card-chip item-card-chip--affinity item-card-chip--${itemMeta.affinityBadge.tone} item-card-chip--element-${itemMeta.affinityBadge.element}`;
+    } else {
+      affinityNode?.remove();
+    }
+
+    let levelNode = cell.querySelector<HTMLElement>('[data-item-level="true"]');
+    if (itemMeta.levelLabel) {
+      if (!levelNode) {
+        levelNode = document.createElement('span');
+        levelNode.className = 'item-card-chip item-card-chip--level';
+        levelNode.dataset.itemLevel = 'true';
+        cell.append(levelNode);
+      }
+      levelNode.textContent = itemMeta.levelLabel;
+    } else {
+      levelNode?.remove();
+    }
+
+    cell.dataset.itemKey = this.getItemIdentity(item);
+    cell.dataset.openItem = String(slotIndex);
+    cell.dataset.itemSlot = String(slotIndex);
+    if (itemMeta.grade) {
+      cell.dataset.itemGrade = itemMeta.grade;
+    } else {
+      delete cell.dataset.itemGrade;
+    }
+    cell.className = getItemDecorClassName('inventory-cell', item);
+    cell.classList.toggle('inventory-cell--cooldown', cooldownState !== null);
+
+    typeNode.textContent = getItemAffixTypeLabel(item, getItemTypeLabel(item.type));
+    countNode.textContent = formatDisplayCountBadge(item.count);
+    nameNode.textContent = item.name;
+    nameNode.title = item.name;
+    nameNode.className = `inventory-cell-name ${this.getNameClass(item.name)}`.trim();
+    dropButton.dataset.inlineDrop = String(slotIndex);
+
+    cooldownNode.hidden = cooldownState === null;
+    if (cooldownState) {
+      cooldownNode.title = this.getItemCooldownTitle(cooldownState);
+      cooldownPieNode.style.setProperty('--inventory-cooldown-progress', this.getItemCooldownRatio(cooldownState).toFixed(4));
+      cooldownLabelNode.textContent = formatDisplayInteger(this.getItemCooldownRemainingTicks(cooldownState));
+    } else {
+      cooldownNode.removeAttribute('title');
+      cooldownPieNode.style.setProperty('--inventory-cooldown-progress', '0');
+      cooldownLabelNode.textContent = '';
+    }
+    return true;
+  }
+
 /** renderModal：执行对应的业务逻辑。 */
   private renderModal(): void {
     if (!this.lastInventory || !this.selectedItemKey) {
@@ -650,7 +809,7 @@ export class InventoryPanel {
       this.sourceExpandedItemKey = this.selectedItemKey;
     }
 /** bonusLines：定义该变量以承载业务值。 */
-    const bonusLines = describeEquipmentBonuses(previewItem);
+    const bonusLines = describePreviewBonuses(previewItem.equipAttrs, previewItem.equipStats, previewItem.equipValueStats);
 /** effectLines：定义该变量以承载业务值。 */
     const effectLines = formatItemEffects(item);
 /** primaryAction：定义该变量以承载业务值。 */
@@ -677,37 +836,37 @@ export class InventoryPanel {
       title: item.name,
       subtitle: `${getItemTypeLabel(item.type)} · 数量 ${formatDisplayCountBadge(item.count)}`,
       bodyHtml: `
-        <div class="quest-detail-grid inventory-detail-grid">
-          <div class="quest-detail-section">
+        <div class="ui-detail-grid ui-detail-grid--section inventory-detail-grid">
+          <div class="ui-detail-field ui-detail-field--section">
             <strong>物品类型</strong>
             <span data-inventory-modal-type="true">${this.escapeHtml(getItemTypeLabel(item.type))}</span>
           </div>
-          <div class="quest-detail-section">
+          <div class="ui-detail-field ui-detail-field--section">
             <strong>当前数量</strong>
             <span data-inventory-modal-count="true">${formatDisplayCountBadge(item.count)}</span>
           </div>
-          ${item.equipSlot ? `<div class="quest-detail-section">
+          ${item.equipSlot ? `<div class="ui-detail-field ui-detail-field--section">
             <strong>装备部位</strong>
             <span data-inventory-modal-slot="true">${this.escapeHtml(getEquipSlotLabel(item.equipSlot))}</span>
           </div>` : ''}
         </div>
-        <div class="quest-detail-section">
+        <div class="ui-detail-field ui-detail-field--section">
           <strong>物品说明</strong>
           <span data-inventory-modal-desc="true">${this.escapeHtml(previewItem.desc)}</span>
         </div>
-        ${statusLabel ? `<div class="quest-detail-section">
+        ${statusLabel ? `<div class="ui-detail-field ui-detail-field--section">
           <strong>当前状态</strong>
           <span data-inventory-modal-status="true">${this.escapeHtml(statusLabel)}</span>
         </div>` : ''}
-        ${bonusLines.length > 0 ? `<div class="quest-detail-section">
-          <strong>装备属性</strong>
+        ${bonusLines.length > 0 ? `<div class="ui-detail-field ui-detail-field--section">
+          <strong>附加词条</strong>
           <span data-inventory-modal-bonuses="true">${this.escapeHtml(bonusLines.join(' / '))}</span>
         </div>` : ''}
-        ${effectLines.length > 0 ? `<div class="quest-detail-section">
+        ${effectLines.length > 0 ? `<div class="ui-detail-field ui-detail-field--section">
           <strong>特殊效果</strong>
           <span data-inventory-modal-effects="true">${this.escapeHtml(effectLines.join(' / '))}</span>
         </div>` : ''}
-        <div class="quest-detail-section inventory-source-section">
+        <div class="ui-detail-field ui-detail-field--section inventory-source-section">
           <strong>来源</strong>
           ${sourceListHtml}
           ${canToggleSourceList
@@ -829,7 +988,7 @@ export class InventoryPanel {
         subtitle: `${item.name} · 数量 ${formatDisplayCountBadge(1)}`,
         hint: '点击空白处取消',
         bodyHtml: `
-          <div class="quest-detail-section">
+          <div class="ui-detail-field ui-detail-field--section">
             <strong>使用说明</strong>
             ${specialUseSummary.lines.map((line) => `<div>${this.escapeHtml(line)}</div>`).join('')}
           </div>
@@ -866,7 +1025,7 @@ export class InventoryPanel {
       subtitle: `${item.name} · 当前最多 ${formatDisplayInteger(maxCount)} 个`,
       hint: '点击空白处取消',
       bodyHtml: `
-        <div class="quest-detail-section">
+        <div class="ui-detail-field ui-detail-field--section">
           <strong>选择数量</strong>
           <div class="inventory-batch-use-row inventory-batch-use-row--dialog">
             <button class="small-btn ghost" type="button" data-inventory-quick-count="1">1 个</button>
@@ -947,15 +1106,11 @@ export class InventoryPanel {
 
 /** patchList：执行对应的业务逻辑。 */
   private patchList(inventory: Inventory): boolean {
-/** titleNode：定义该变量以承载业务值。 */
-    const titleNode = this.pane.querySelector<HTMLElement>('[data-inventory-title="true"]');
-    if (!titleNode) {
-      return false;
-    }
-    titleNode.textContent = `背包 (${formatDisplayInteger(inventory.items.length)}/${formatDisplayInteger(inventory.capacity)})`;
+    const refs = this.ensureShell();
+    refs.title.textContent = `背包 (${formatDisplayInteger(inventory.items.length)}/${formatDisplayInteger(inventory.capacity)})`;
 
     for (const tab of INVENTORY_FILTER_TABS) {
-      const button = this.pane.querySelector<HTMLElement>(`[data-filter-button="${CSS.escape(tab.id)}"]`);
+      const button = refs.filters.querySelector<HTMLElement>(`[data-filter-button="${CSS.escape(tab.id)}"]`);
       if (!button) {
         return false;
       }
@@ -968,123 +1123,52 @@ export class InventoryPanel {
 /** renderedItems：定义该变量以承载业务值。 */
     const renderedItems = visibleItems.slice(0, this.renderedVisibleCount);
     if (visibleItems.length === 0) {
-/** emptyNode：定义该变量以承载业务值。 */
-      const emptyNode = this.pane.querySelector<HTMLElement>('[data-inventory-empty="true"]');
-      if (!emptyNode) {
-        return false;
-      }
-      emptyNode.textContent = inventory.items.length === 0 ? '背包空空如也' : '当前分类暂无物品';
+      refs.empty.hidden = false;
+      refs.empty.textContent = inventory.items.length === 0 ? '背包空空如也' : '当前分类暂无物品';
+      refs.grid.hidden = true;
+      refs.grid.replaceChildren();
+      refs.loadHint.hidden = true;
+      refs.loadHint.textContent = '';
       this.lastStructureState = this.buildStructureStateFromVisibleItems(renderedItems);
       return true;
     }
 
-/** grid：定义该变量以承载业务值。 */
-    const grid = this.pane.querySelector<HTMLElement>('[data-inventory-grid="true"]');
-    if (!grid) {
-      return false;
-    }
+    refs.empty.hidden = true;
+    refs.grid.hidden = false;
 /** cooldownStateMap：定义该变量以承载业务值。 */
     const cooldownStateMap = this.getCooldownStateMap(inventory);
-/** loadHint：定义该变量以承载业务值。 */
-    const loadHint = this.pane.querySelector<HTMLElement>('[data-inventory-load-hint="true"]');
     if (renderedItems.length < visibleItems.length) {
-      if (!loadHint) {
-        return false;
-      }
-      loadHint.textContent = `向下滚动继续加载（已显示 ${formatDisplayInteger(renderedItems.length)} / ${formatDisplayInteger(visibleItems.length)}）`;
-    } else if (loadHint) {
-      return false;
+      refs.loadHint.hidden = false;
+      refs.loadHint.textContent = `向下滚动继续加载（已显示 ${formatDisplayInteger(renderedItems.length)} / ${formatDisplayInteger(visibleItems.length)}）`;
+    } else {
+      refs.loadHint.hidden = true;
+      refs.loadHint.textContent = '';
     }
 
-    for (const { item, slotIndex } of renderedItems) {
-      const cell = grid.querySelector<HTMLElement>(`[data-item-slot="${CSS.escape(String(slotIndex))}"]`);
-      if (!cell) {
-        return false;
+    const existingCells = new Map<string, HTMLElement>();
+    refs.grid.querySelectorAll<HTMLElement>('[data-item-slot]').forEach((cell) => {
+      const slot = cell.dataset.itemSlot;
+      if (slot) {
+        existingCells.set(slot, cell);
       }
+    });
 
-/** typeNode：定义该变量以承载业务值。 */
-      const typeNode = cell.querySelector<HTMLElement>('[data-item-type="true"]');
-/** countNode：定义该变量以承载业务值。 */
-      const countNode = cell.querySelector<HTMLElement>('[data-item-count="true"]');
-/** nameNode：定义该变量以承载业务值。 */
-      const nameNode = cell.querySelector<HTMLElement>('[data-item-name="true"]');
-/** affinityNode：定义该变量以承载业务值。 */
-      const affinityNode = cell.querySelector<HTMLElement>('[data-item-affinity="true"]');
-/** cooldownNode：定义该变量以承载业务值。 */
-      const cooldownNode = cell.querySelector<HTMLElement>('[data-item-cooldown="true"]');
-/** cooldownPieNode：定义该变量以承载业务值。 */
-      const cooldownPieNode = cell.querySelector<HTMLElement>('[data-item-cooldown-pie="true"]');
-/** cooldownLabelNode：定义该变量以承载业务值。 */
-      const cooldownLabelNode = cell.querySelector<HTMLElement>('[data-item-cooldown-label="true"]');
-      if (!typeNode || !countNode || !nameNode || !cooldownNode || !cooldownPieNode || !cooldownLabelNode) {
-        return false;
-      }
-/** levelNode：定义该变量以承载业务值。 */
-      const levelNode = cell.querySelector<HTMLElement>('[data-item-level="true"]');
-/** itemMeta：定义该变量以承载业务值。 */
-      const itemMeta = getItemDisplayMeta(item);
-      if (itemMeta.levelLabel && !levelNode) {
-        return false;
-      }
-      if (!itemMeta.levelLabel && levelNode) {
-        return false;
-      }
-      if (itemMeta.affinityBadge && !affinityNode) {
-        return false;
-      }
-      if (!itemMeta.affinityBadge && affinityNode) {
-        return false;
-      }
-
-/** primaryAction：定义该变量以承载业务值。 */
-      const primaryAction = this.getPrimaryAction(item);
-/** primaryButton：定义该变量以承载业务值。 */
-      const primaryButton = cell.querySelector<HTMLButtonElement>('[data-item-primary="true"]');
-
-      cell.dataset.itemKey = this.getItemIdentity(item);
-      if (itemMeta.grade) {
-        cell.dataset.itemGrade = itemMeta.grade;
-      } else {
-        delete cell.dataset.itemGrade;
-      }
-      cell.className = this.getItemCellClassName(item);
-/** cooldownState：定义该变量以承载业务值。 */
+    const orderedCells = renderedItems.map(({ item, slotIndex }) => {
+      const key = String(slotIndex);
+      const cell = existingCells.get(key) ?? this.createInventoryCell(slotIndex);
+      existingCells.delete(key);
       const cooldownState = cooldownStateMap.get(item.itemId) ?? null;
-      cell.classList.toggle('inventory-cell--cooldown', cooldownState !== null);
-      typeNode.textContent = getItemAffixTypeLabel(item, getItemTypeLabel(item.type));
-      countNode.textContent = formatDisplayCountBadge(item.count);
-      nameNode.textContent = item.name;
-      nameNode.title = item.name;
-      nameNode.className = `inventory-cell-name ${this.getNameClass(item.name)}`.trim();
-      cooldownNode.hidden = cooldownState === null;
-      if (cooldownState) {
-        cooldownNode.title = this.getItemCooldownTitle(cooldownState);
-        cooldownPieNode.style.setProperty('--inventory-cooldown-progress', this.getItemCooldownRatio(cooldownState).toFixed(4));
-        cooldownLabelNode.textContent = formatDisplayInteger(this.getItemCooldownRemainingTicks(cooldownState));
-      } else {
-        cooldownNode.removeAttribute('title');
-        cooldownPieNode.style.setProperty('--inventory-cooldown-progress', '0');
-        cooldownLabelNode.textContent = '';
+      if (!this.patchInventoryCell(cell, item, slotIndex, cooldownState)) {
+        return null;
       }
-      if (levelNode) {
-        levelNode.textContent = itemMeta.levelLabel ?? '';
-      }
-      if (affinityNode && itemMeta.affinityBadge) {
-        affinityNode.textContent = itemMeta.affinityBadge.label;
-        affinityNode.title = itemMeta.affinityBadge.title;
-        affinityNode.className = `item-card-chip item-card-chip--affinity item-card-chip--${itemMeta.affinityBadge.tone} item-card-chip--element-${itemMeta.affinityBadge.element}`;
-      }
-
-      if (primaryAction) {
-        if (!primaryButton) {
-          return false;
-        }
-        primaryButton.textContent = primaryAction.label;
-        primaryButton.dataset.inlinePrimary = String(slotIndex);
-        primaryButton.disabled = primaryAction.disabled === true;
-      } else if (primaryButton) {
-        return false;
-      }
+      return cell;
+    });
+    if (orderedCells.some((cell) => cell === null)) {
+      return false;
+    }
+    this.syncGridChildren(refs.grid, orderedCells.filter((cell): cell is HTMLElement => cell !== null));
+    for (const cell of existingCells.values()) {
+      cell.remove();
     }
 
     this.lastStructureState = this.buildStructureStateFromVisibleItems(renderedItems);
@@ -1404,19 +1488,12 @@ export class InventoryPanel {
     return null;
   }
 
-/** getItemDecorGrade：执行对应的业务逻辑。 */
-  private getItemDecorGrade(item: ItemStack): TechniqueGrade | null {
-    return getItemDisplayMeta(item).grade;
-  }
-
-/** getItemCellClassName：执行对应的业务逻辑。 */
-  private getItemCellClassName(item: ItemStack): string {
-    return getItemDecorClassName('inventory-cell', item);
-  }
-
-/** getItemLevelLabel：执行对应的业务逻辑。 */
-  private getItemLevelLabel(item: ItemStack): string | null {
-    return getItemDisplayMeta(item).levelLabel;
+/** getEquippedItemForCompare：执行对应的业务逻辑。 */
+  private getEquippedItemForCompare(item: ItemStack): ItemStack | null {
+    if (item.type !== 'equipment' || !item.equipSlot) {
+      return null;
+    }
+    return this.equippedItemsBySlot[item.equipSlot] ?? null;
   }
 
 /** getCooldownStateMap：执行对应的业务逻辑。 */
@@ -1470,14 +1547,6 @@ export class InventoryPanel {
 /** getItemCooldownTitle：执行对应的业务逻辑。 */
   private getItemCooldownTitle(cooldownState: InventoryItemCooldownState): string {
     return `使用冷却 ${formatDisplayInteger(this.getItemCooldownRemainingTicks(cooldownState))} / ${formatDisplayInteger(cooldownState.cooldown)} 息`;
-  }
-
-/** getEquippedItemForCompare：执行对应的业务逻辑。 */
-  private getEquippedItemForCompare(item: ItemStack): ItemStack | null {
-    if (item.type !== 'equipment' || !item.equipSlot) {
-      return null;
-    }
-    return this.equippedItemsBySlot[item.equipSlot] ?? null;
   }
 
 /** getNameClass：执行对应的业务逻辑。 */

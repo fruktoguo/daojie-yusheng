@@ -1,0 +1,169 @@
+import { getDisplayRangeX, getDisplayRangeY } from '../../display';
+import { Camera } from '../../renderer/camera';
+import { TextRenderer } from '../../renderer/text';
+import { isLocalDivineSkillName } from '../../content/local-templates';
+import type { CombatEffect } from '@mud/shared-next';
+import type { CameraState } from '../camera/camera-controller';
+import type { TopdownProjection } from '../projection/topdown-projection';
+import type { MapEntityTransition, MapSceneSnapshot } from '../types';
+import type { FloatingActionTextStyle } from '../../renderer/types';
+
+/** CanvasTextRendererAdapter：封装相关状态与行为。 */
+export class CanvasTextRendererAdapter {
+  private readonly renderer = new TextRenderer();
+  private readonly cameraBridge = new Camera();
+/** canvas：定义该变量以承载业务值。 */
+  private canvas: HTMLCanvasElement | null = null;
+
+/** mount：执行对应的业务逻辑。 */
+  mount(host: HTMLElement): void {
+/** canvas：定义该变量以承载业务值。 */
+    const canvas = host.querySelector<HTMLCanvasElement>('#game-canvas') ?? host.querySelector<HTMLCanvasElement>('canvas');
+    if (!canvas) {
+      throw new Error('地图宿主节点缺少 canvas');
+    }
+    this.canvas = canvas;
+    this.renderer.init(canvas);
+  }
+
+/** unmount：执行对应的业务逻辑。 */
+  unmount(): void {
+    this.canvas = null;
+  }
+
+/** destroy：执行对应的业务逻辑。 */
+  destroy(): void {
+    this.renderer.destroy();
+    this.canvas = null;
+  }
+
+/** resize：执行对应的业务逻辑。 */
+  resize(width: number, height: number, backbufferWidth: number, backbufferHeight: number): void {
+    if (!this.canvas) {
+      return;
+    }
+    this.canvas.style.width = `${Math.max(1, width)}px`;
+    this.canvas.style.height = `${Math.max(1, height)}px`;
+    this.canvas.width = Math.max(1, Math.floor(backbufferWidth));
+    this.canvas.height = Math.max(1, Math.floor(backbufferHeight));
+  }
+
+  syncScene(
+    scene: MapSceneSnapshot,
+    transition: MapEntityTransition | null,
+    motionSyncToken?: number,
+    pathFadeDurationMs?: number,
+  ): void {
+    this.renderer.setPathHighlight(scene.overlays.pathCells, pathFadeDurationMs);
+    this.renderer.setThreatArrows(scene.overlays.threatArrows);
+    this.renderer.setTargetingOverlay(scene.overlays.targeting);
+    this.renderer.setSenseQiOverlay(scene.overlays.senseQi);
+    this.renderer.setGroundPiles(scene.groundPiles);
+/** settleEntityId：定义该变量以承载业务值。 */
+    const settleEntityId = transition?.settleMotion === true ? scene.player?.id : undefined;
+    this.renderer.updateEntities(
+      scene.entities,
+      transition?.movedId,
+      transition?.shiftX,
+      transition?.shiftY,
+      transition?.settleMotion === true,
+      settleEntityId,
+      motionSyncToken,
+    );
+  }
+
+/** enqueueEffect：执行对应的业务逻辑。 */
+  enqueueEffect(effect: CombatEffect): void {
+    if (effect.type === 'attack') {
+      this.renderer.addAttackTrail(effect.fromX, effect.fromY, effect.toX, effect.toY, effect.color);
+      return;
+    }
+    if (effect.type === 'warning_zone') {
+      this.renderer.addWarningZone(
+        effect.cells,
+        effect.color,
+        effect.durationMs,
+        effect.baseColor,
+        effect.originX,
+        effect.originY,
+      );
+      return;
+    }
+    this.renderer.addFloatingText(
+      effect.x,
+      effect.y,
+      effect.text,
+      effect.color,
+      effect.variant,
+      this.resolveActionTextStyle(effect),
+      effect.durationMs,
+    );
+  }
+
+/** resetScene：执行对应的业务逻辑。 */
+  resetScene(): void {
+    this.renderer.resetScene();
+    this.renderer.setPathHighlight([]);
+    this.renderer.setTargetingOverlay(null);
+    this.renderer.setSenseQiOverlay(null);
+  }
+
+  render(
+    scene: MapSceneSnapshot,
+    camera: CameraState,
+    projection: TopdownProjection,
+    progress: number,
+  ): void {
+    if (!this.canvas) {
+      return;
+    }
+
+    this.cameraBridge.x = camera.x;
+    this.cameraBridge.y = camera.y;
+    this.cameraBridge.worldToScreen = (wx, wy, screenW, screenH) => {
+/** point：定义该变量以承载业务值。 */
+        const point = projection.worldToScreen(wx, wy, camera, screenW, screenH);
+        return {
+          sx: point.x,
+          sy: point.y,
+        };
+      };
+
+    this.renderer.clear();
+    if (!scene.player) {
+      return;
+    }
+    this.renderer.renderWorld(
+      this.cameraBridge,
+      scene.terrain.tileCache,
+      scene.terrain.visibleTiles,
+      scene.terrain.visibleTileRevision,
+      scene.player.x,
+      scene.player.y,
+      getDisplayRangeX(),
+      getDisplayRangeY(),
+      scene.terrain.time,
+    );
+    this.renderer.renderWarningZones(this.cameraBridge);
+    this.renderer.renderAttackTrails(this.cameraBridge);
+    this.renderer.renderEntities(this.cameraBridge, progress, scene.player.id, scene.player.x, scene.player.y);
+    this.renderer.renderFloatingTexts(this.cameraBridge);
+  }
+
+/** getCanvas：执行对应的业务逻辑。 */
+  getCanvas(): HTMLCanvasElement | null {
+    return this.canvas;
+  }
+
+/** resolveActionTextStyle：执行对应的业务逻辑。 */
+  private resolveActionTextStyle(effect: Extract<CombatEffect, { type: 'float' }>): FloatingActionTextStyle | undefined {
+    if (effect.variant !== 'action') {
+      return undefined;
+    }
+    if (effect.actionStyle) {
+      return effect.actionStyle;
+    }
+    return isLocalDivineSkillName(effect.text) ? 'divine' : 'default';
+  }
+}
+
