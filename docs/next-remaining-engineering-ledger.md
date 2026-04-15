@@ -10,16 +10,14 @@
 
 ## 当前统一口径
 
-- 如果只看“正式替换旧前台玩家主链”，当前约还差 `20% - 30%`
-- 如果只看 `server-next` 自身独立化，当前约完成 `50% - 60%`
-- 如果看“完整替换游戏整体”，当前约完成 `60%`
-- 保守口径下，距离“完整替换游戏整体”仍约差 `35% - 40%`
-
-必须同时说明：
-
-- `docs/next-legacy-boundary-audit.md` 当前已回到 `0 / 22`、`0`
+- `docs/next-legacy-boundary-audit.md` 当前已回到 `0 / 22`、`0`；这只说明 direct boundary inventory 已清零，不说明真源替换或运营闭环已完成
+- `pnpm verify:replace-ready` 当前定义为默认本地 replace-ready 门禁：覆盖 `build:client-next`、server-next 本地主证明链，并在提供数据库环境时自动转入 `with-db`，最后补跑 protocol audit
+- `pnpm verify:replace-ready:with-db` 当前定义为默认门禁的带库增强版：回答“本地主证明链 + 持久化 proof”是否成立，不包含 shadow/GM/admin/维护窗口验证
+- `pnpm verify:replace-ready:acceptance` 当前定义为唯一增强验收门禁：覆盖默认门禁 + `shadow` 实物验收 + `gm-next` shadow 关键写路径验证，但仍不等于完整 GM/admin 人工回归
+- `pnpm verify:replace-ready:full` 当前定义为最严格自动化门禁：显式串行执行 `with-db -> gm-database -> gm-database-backup-persistence -> shadow -> gm-next`，用于数据库、shadow 与 GM 环境都齐备时的严格自动验收
+- `pnpm verify:replace-ready:shadow:destructive` 当前定义为维护窗口专用 destructive proof；仅在显式设置 `SERVER_NEXT_SHADOW_ALLOW_DESTRUCTIVE=1` 时运行，不属于日常默认门禁
 - 本地主证明链当前可复跑，不代表 auth/bootstrap 真源已 next-native
-- 本地与 `acceptance/full` 口径已收齐，`acceptance/full` 尚未全部落成 workflow/job 级闭环
+- `acceptance/full` 口径已收齐，但 `acceptance/full` 尚未全部落成 workflow/job 级闭环
 - 这也不代表 GM/admin/restore 运营面已经完整 next 化，真实环境带库与维护窗口证据仍待补齐
 - “最小包体、最高性能、极高扩展度、系统稳定性”仍未全部满足
 - 当前按 task-breakdown 统一口径，剩余任务是 `25` 项
@@ -66,7 +64,7 @@
 | --- | --- | --- | --- |
 | T01 | `P0` | `auth/token/bootstrap/snapshot/session` 真源收口 | 已完成待验证 |
 | T02 | `P0` | `WorldPlayerSourceService` next-native 化 | 未完成 |
-| T03 | `P0` | `replace-ready / acceptance / full` 口径写死 + workflow 对齐 | 已完成待验证 |
+| T03 | `P0` | `replace-ready / with-db / acceptance / full / shadow-destructive` 口径写死 + workflow 对齐 | 已完成待验证 |
 | T04 | `P0` | GM/admin/restore 统一自动 proof 与真实环境补证 | 已完成待验证 |
 | T05 | `P0` | `connect_token / hello / guest / GM` bootstrap 收口 | 已完成待验证 |
 | T06 | `P0` | guest / authenticated / GM 三类握手 contract 拆开 | 未完成 |

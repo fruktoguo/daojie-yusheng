@@ -9,66 +9,46 @@ import {
   OBSERVATION_FULL_RATIO,
 } from '../constants/world/overview';
 
-/** ObservationTargetSnapshot：定义该接口的能力与字段约束。 */
 export interface ObservationTargetSnapshot {
-/** hp：定义该变量以承载业务值。 */
   hp: number;
-/** maxHp：定义该变量以承载业务值。 */
   maxHp: number;
-/** qi：定义该变量以承载业务值。 */
   qi: number;
-/** maxQi：定义该变量以承载业务值。 */
   maxQi: number;
-/** spirit：定义该变量以承载业务值。 */
   spirit: number;
-/** stats：定义该变量以承载业务值。 */
   stats: NumericStats;
-/** ratios：定义该变量以承载业务值。 */
   ratios: NumericRatioDivisors;
   attrs?: Attributes;
   realmLabel?: string;
 }
 
-/** ObservationLineSpec：定义该接口的能力与字段约束。 */
 export interface ObservationLineSpec {
-/** threshold：定义该变量以承载业务值。 */
   threshold: number;
-/** label：定义该变量以承载业务值。 */
   label: string;
-/** value：定义该变量以承载业务值。 */
   value: string;
 }
 
-/** formatWhole：执行对应的业务逻辑。 */
 export function formatWhole(value: number): string {
   return `${Math.max(0, Math.round(value))}`;
 }
 
-/** formatCurrentMax：执行对应的业务逻辑。 */
 export function formatCurrentMax(current: number, max: number): string {
   return `${formatWhole(current)} / ${formatWhole(max)}`;
 }
 
-/** formatRate：执行对应的业务逻辑。 */
 export function formatRate(value: number): string {
-/** percent：定义该变量以承载业务值。 */
   const percent = value / 100;
   return `${percent.toFixed(percent % 1 === 0 ? 0 : percent % 0.1 === 0 ? 1 : 2)}%`;
 }
 
-/** formatCritDamage：执行对应的业务逻辑。 */
 export function formatCritDamage(value: number): string {
-/** total：定义该变量以承载业务值。 */
   const total = 200 + Math.max(0, value) / 10;
   return `${total.toFixed(total % 1 === 0 ? 0 : total % 0.1 === 0 ? 1 : 2)}%`;
 }
 
-/** buildObservationLineSpecs：执行对应的业务逻辑。 */
 export function buildObservationLineSpecs(
   snapshot: ObservationTargetSnapshot,
   includeResources: boolean,
 ): ObservationLineSpec[] {
-/** lines：定义该变量以承载业务值。 */
   const lines: ObservationLineSpec[] = [];
   if (includeResources) {
     lines.push(
@@ -112,17 +92,14 @@ export function buildObservationLineSpecs(
   return lines;
 }
 
-/** computeObservationProgress：执行对应的业务逻辑。 */
 export function computeObservationProgress(viewerSpirit: number, targetSpirit: number): number {
   if (targetSpirit <= 0) return 1;
-/** ratio：定义该变量以承载业务值。 */
   const ratio = viewerSpirit / targetSpirit;
   if (ratio <= OBSERVATION_BLIND_RATIO) return 0;
   if (ratio >= OBSERVATION_FULL_RATIO) return 1;
   return Math.max(0, Math.min(1, (ratio - OBSERVATION_BLIND_RATIO) / (OBSERVATION_FULL_RATIO - OBSERVATION_BLIND_RATIO)));
 }
 
-/** resolveObservationClarity：执行对应的业务逻辑。 */
 export function resolveObservationClarity(progress: number): ObservationInsight['clarity'] {
   if (progress <= 0) return 'veiled';
   if (progress < 0.34) return 'blurred';
@@ -131,7 +108,6 @@ export function resolveObservationClarity(progress: number): ObservationInsight[
   return 'complete';
 }
 
-/** buildObservationVerdict：执行对应的业务逻辑。 */
 export function buildObservationVerdict(progress: number, selfView: boolean): string {
   if (selfView) {
     return '神识内照，经络与底蕴尽现。';
@@ -151,21 +127,18 @@ export function buildObservationVerdict(progress: number, selfView: boolean): st
   return '神识压过其身，诸般底细尽入眼底。';
 }
 
-/** buildObservationInsight：执行对应的业务逻辑。 */
 export function buildObservationInsight(
   viewerSpirit: number,
   snapshot: ObservationTargetSnapshot,
   lineSpecs: ObservationLineSpec[],
   selfView = false,
 ): ObservationInsight {
-/** progress：定义该变量以承载业务值。 */
   const progress = selfView ? 1 : computeObservationProgress(viewerSpirit, snapshot.spirit);
   return {
     clarity: resolveObservationClarity(progress),
     verdict: buildObservationVerdict(progress, selfView),
     lines: lineSpecs.map((line) => ({
       label: line.label,
-/** value：定义该变量以承载业务值。 */
       value: progress >= line.threshold ? line.value : '???',
     })),
   };

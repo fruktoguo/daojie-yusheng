@@ -10,7 +10,7 @@ COPY scripts scripts
 COPY docs/tutorial-mechanics.md docs/tutorial-mechanics.md
 COPY packages/shared packages/shared
 COPY packages/client packages/client
-COPY legacy/server/data legacy/server/data
+COPY packages/server/data packages/server/data
 RUN pnpm --filter @mud/client-next build
 
 FROM nginx:alpine

@@ -1,0 +1,226 @@
+[
+  {
+    "itemId": "sword_pellet",
+    "name": "剑丸",
+    "type": "material",
+    "level": 20,
+    "desc": "断剑堆中凝出的锋气丸珠，是金行低阶炼材。",
+    "grade": "yellow"
+  },
+  {
+    "itemId": "fivephase_dust",
+    "name": "五炁尘",
+    "type": "material",
+    "level": 29,
+    "desc": "归藏脉窟里五行乱炁磨出来的细尘，握在掌心都会互相顶撞。",
+    "grade": "earth"
+  },
+  {
+    "itemId": "guizang_vein_core",
+    "name": "归藏脉核",
+    "type": "material",
+    "level": 30,
+    "desc": "混脉压到极处后凝出的硬核碎块，是练气后段少见的合脉炼材。",
+    "grade": "earth"
+  },
+  {
+    "itemId": "cleft_iron_fragment",
+    "name": "残兵铁片",
+    "type": "material",
+    "level": 20,
+    "desc": "裂锋原旧兵器在风砂里磨剩下的铁片，边缘依旧带着细碎锋意。",
+    "grade": "yellow"
+  },
+  {
+    "itemId": "blade_pattern_crystal",
+    "name": "锋纹残晶",
+    "type": "material",
+    "level": 26,
+    "desc": "断兵锋气在碑纹与砂金间凝成的碎晶，常用于金行器胚重铸。",
+    "grade": "mystic"
+  },
+  {
+    "itemId": "verdant_vine",
+    "name": "青髓藤",
+    "type": "material",
+    "level": 20,
+    "desc": "青萝谷深处长出的韧藤，内里带着温和却不断生发的木行气。",
+    "grade": "yellow"
+  },
+  {
+    "itemId": "nurturing_leaf",
+    "name": "养脉叶",
+    "type": "material",
+    "level": 20,
+    "desc": "晾干后仍能缓慢吐出草木气息，是养脉药最常用的底材。",
+    "grade": "yellow"
+  },
+  {
+    "itemId": "spiritwood_heart",
+    "name": "生灵木心",
+    "type": "material",
+    "level": 26,
+    "desc": "老藤与木魅在地脉交汇处凝出的木心，最适合做续航与养脉法器。",
+    "grade": "mystic"
+  },
+  {
+    "itemId": "coldspirit_dew",
+    "name": "寒魄露",
+    "type": "material",
+    "level": 20,
+    "desc": "寒汐泽夜露凝成的冷滴，入手清寒，常被拿去压杂气和做回灵药。",
+    "grade": "yellow"
+  },
+  {
+    "itemId": "moonwell_frost_sand",
+    "name": "月井冰砂",
+    "type": "material",
+    "level": 20,
+    "desc": "月井边结出的细砂，带着迟滞与收敛两种水性。",
+    "grade": "yellow"
+  },
+  {
+    "itemId": "cleantide_essence",
+    "name": "净潮水精",
+    "type": "material",
+    "level": 26,
+    "desc": "多层寒潮反复淘洗后留下的净水精华，是洗脉与寒性法衣的核心炼材。",
+    "grade": "mystic"
+  },
+  {
+    "itemId": "ember_sand",
+    "name": "陨火砂",
+    "type": "material",
+    "level": 20,
+    "desc": "赤陨庭地火烤出的细砂，捏在指间都还能感到余烫。",
+    "grade": "yellow"
+  },
+  {
+    "itemId": "embershard_char",
+    "name": "炎髓炭",
+    "type": "material",
+    "level": 20,
+    "desc": "火脉熬出来的深色炭芯，最适合做淬体和爆发类耗材。",
+    "grade": "yellow"
+  },
+  {
+    "itemId": "furnace_red_crystal",
+    "name": "炉心赤晶",
+    "type": "material",
+    "level": 26,
+    "desc": "炉心台深处结出的赤色晶核，常被拿来压成烈性器坠或爆发药引。",
+    "grade": "mystic"
+  },
+  {
+    "itemId": "earthbearing_stone",
+    "name": "承脉石",
+    "type": "material",
+    "level": 20,
+    "desc": "厚脉岭地气压出来的承重石，拿在手里就觉得气机往下沉。",
+    "grade": "yellow"
+  },
+  {
+    "itemId": "thickrock_core",
+    "name": "厚岩核",
+    "type": "material",
+    "level": 20,
+    "desc": "厚石里最密最实的一截岩心，炼体和护甲都用得上。",
+    "grade": "yellow"
+  },
+  {
+    "itemId": "stonegall_core",
+    "name": "镇岳石胆",
+    "type": "material",
+    "level": 26,
+    "desc": "石胆久受土行重压而成，最适合做稳脉、镇岳一类的核心炼材。",
+    "grade": "mystic"
+  },
+  {
+    "itemId": "half_base_embryo",
+    "name": "半基灵胚",
+    "type": "material",
+    "level": 30,
+    "desc": "旧阵把五炁压成半成品后遗下的灵胚，拿在手里都像要自行立基。",
+    "grade": "earth"
+  },
+  {
+    "itemId": "mat.longvein_vine",
+    "name": "长脉藤",
+    "type": "material",
+    "level": 20,
+    "desc": "沿谷壁攀出的韧藤，藤芯温润，最擅长牵引木行药力深入经脉。",
+    "grade": "yellow"
+  },
+  {
+    "itemId": "mat.returnspring_leaf",
+    "name": "回春叶",
+    "type": "material",
+    "level": 20,
+    "desc": "叶背常藏一线回生青气，晒干后仍能缓慢吐纳木息。",
+    "grade": "yellow"
+  },
+  {
+    "itemId": "mat.coldmarrow_reed",
+    "name": "寒髓苇",
+    "type": "material",
+    "level": 20,
+    "desc": "生在寒汐浅滩的青白苇芯，内里一缕冷意直入髓海。",
+    "grade": "yellow"
+  },
+  {
+    "itemId": "mat.moonwell_stamen",
+    "name": "月井蕊",
+    "type": "material",
+    "level": 20,
+    "desc": "月井寒莲退花后留下的细蕊，最善收束散乱水气。",
+    "grade": "yellow"
+  },
+  {
+    "itemId": "mat.scorchheart_petal",
+    "name": "灼心瓣",
+    "type": "material",
+    "level": 20,
+    "desc": "贴着地火边缘生出的赤瓣，药性炽而不躁，适合做烈性主药。",
+    "grade": "yellow"
+  },
+  {
+    "itemId": "mat.flamegrain_spike",
+    "name": "炎穗芒",
+    "type": "material",
+    "level": 20,
+    "desc": "火穗结出的细芒，入炉后能把火行药势拉成一线。",
+    "grade": "yellow"
+  },
+  {
+    "itemId": "mat.bearingroot_ginseng",
+    "name": "承脉参",
+    "type": "material",
+    "level": 20,
+    "desc": "深扎裂岩的厚根，嚼之微涩，却最能稳住下沉地气。",
+    "grade": "yellow"
+  },
+  {
+    "itemId": "mat.stonecore_lingzhi",
+    "name": "岩髓芝",
+    "type": "material",
+    "level": 20,
+    "desc": "贴石而生的灰芝，内蕴绵长土息，是护脉丹常见主材。",
+    "grade": "yellow"
+  },
+  {
+    "itemId": "mat.goldthread_briar",
+    "name": "金芒棘",
+    "type": "material",
+    "level": 20,
+    "desc": "棘藤细刺泛着淡金光，轻折便能闻到锋锐药香。",
+    "grade": "yellow"
+  },
+  {
+    "itemId": "mat.ironvein_caltrop",
+    "name": "铁脉蒺",
+    "type": "material",
+    "level": 20,
+    "desc": "生在埋锋砂地的硬刺草，药性紧收，最宜淬锋。",
+    "grade": "yellow"
+  }
+]

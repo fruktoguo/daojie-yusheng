@@ -8,15 +8,11 @@ import type { PersistedPlayerCollections } from '../game/player-storage';
 import { PLAYER_KEY } from '../constants/storage/redis';
 
 @Injectable()
-/** RedisService：封装相关状态与行为。 */
 export class RedisService implements OnModuleDestroy {
-/** client：定义该变量以承载业务值。 */
   private readonly client: Redis;
   private readonly logger = new Logger(RedisService.name);
 
-/** constructor：处理当前场景中的对应操作。 */
   constructor() {
-/** redisUrl：定义该变量以承载业务值。 */
     const redisUrl = process.env.REDIS_URL;
     this.client = redisUrl
       ? new Redis(redisUrl, { lazyConnect: true })
@@ -30,7 +26,6 @@ export class RedisService implements OnModuleDestroy {
     });
   }
 
-/** onModuleDestroy：处理当前场景中的对应操作。 */
   async onModuleDestroy() {
     await this.client.quit();
   }
@@ -56,7 +51,6 @@ export class RedisService implements OnModuleDestroy {
       deathCount: String(state.deathCount ?? 0),
       boneAgeBaseYears: String(state.boneAgeBaseYears ?? 0),
       lifeElapsedTicks: String(state.lifeElapsedTicks ?? 0),
-/** lifespanYears：定义该变量以承载业务值。 */
       lifespanYears: state.lifespanYears == null ? '' : String(state.lifespanYears),
       baseAttrs: JSON.stringify(state.baseAttrs),
       bonuses: JSON.stringify(state.bonuses),
@@ -83,22 +77,14 @@ export class RedisService implements OnModuleDestroy {
       combatTargetingRules: JSON.stringify(state.combatTargetingRules ?? { hostile: ['monster', 'retaliators', 'terrain'], friendly: ['non_hostile_players'] }),
       autoBattleTargetingMode: state.autoBattleTargetingMode ?? 'auto',
       combatTargetId: state.combatTargetId ?? '',
-/** combatTargetLocked：定义该变量以承载业务值。 */
       combatTargetLocked: state.combatTargetLocked === true ? '1' : '0',
-/** autoRetaliate：定义该变量以承载业务值。 */
       autoRetaliate: state.autoRetaliate === false ? '0' : '1',
-/** autoBattleStationary：定义该变量以承载业务值。 */
       autoBattleStationary: state.autoBattleStationary === true ? '1' : '0',
-/** allowAoePlayerHit：定义该变量以承载业务值。 */
       allowAoePlayerHit: state.allowAoePlayerHit === true ? '1' : '0',
-/** autoIdleCultivation：定义该变量以承载业务值。 */
       autoIdleCultivation: state.autoIdleCultivation === false ? '0' : '1',
-/** autoSwitchCultivation：定义该变量以承载业务值。 */
       autoSwitchCultivation: state.autoSwitchCultivation === true ? '1' : '0',
       cultivatingTechId: state.cultivatingTechId ?? '',
-/** online：定义该变量以承载业务值。 */
       online: state.online === true ? '1' : '0',
-/** inWorld：定义该变量以承载业务值。 */
       inWorld: state.inWorld === false ? '0' : '1',
       lastHeartbeatAt: state.lastHeartbeatAt ? String(state.lastHeartbeatAt) : '',
       offlineSinceAt: state.offlineSinceAt ? String(state.offlineSinceAt) : '',
@@ -110,9 +96,7 @@ export class RedisService implements OnModuleDestroy {
     await this.client.del(PLAYER_KEY(playerId));
   }
 
-/** clearPlayerCache：执行对应的业务逻辑。 */
   async clearPlayerCache(): Promise<void> {
-/** cursor：定义该变量以承载业务值。 */
     let cursor = '0';
     do {
       const [nextCursor, keys] = await this.client.scan(cursor, 'MATCH', PLAYER_KEY('*'), 'COUNT', 200);

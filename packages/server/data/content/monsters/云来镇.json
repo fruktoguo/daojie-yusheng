@@ -1,0 +1,223 @@
+[
+  {
+    "id": "m_town_rat_south",
+    "name": "南沟灰尾鼠",
+    "char": "鼠",
+    "color": "#9b9b9b",
+    "radius": 5,
+    "respawnSec": 10,
+    "level": 1,
+    "drops": [
+      {
+        "itemId": "rat_tail",
+        "name": "鼠尾",
+        "type": "material",
+        "count": 1
+      }
+    ],
+    "grade": "mortal",
+    "tier": "mortal_blood",
+    "count": 5,
+    "equipment": {
+      "head": "equip.gate_headcloth",
+      "legs": "equip.trench_runner_boots"
+    },
+    "attrs": {
+      "constitution": 10,
+      "spirit": 5,
+      "perception": 20,
+      "talent": 8,
+      "comprehension": 2,
+      "luck": 2
+    },
+    "statPercents": {
+      "maxHp": 10,
+      "maxQi": 13,
+      "physAtk": 33,
+      "spellAtk": 8,
+      "physDef": 22,
+      "spellDef": 17,
+      "hit": 35,
+      "dodge": 41,
+      "crit": 34,
+      "breakPower": 28,
+      "resolvePower": 20,
+      "maxQiOutputPerTick": 14,
+      "viewRange": 100,
+      "moveSpeed": 155
+    },
+    "skills": [
+      "skill.predator_pounce"
+    ]
+  },
+  {
+    "id": "m_town_rat_refuse",
+    "name": "废棚灰尾鼠",
+    "char": "鼠",
+    "color": "#8f8f8f",
+    "radius": 3,
+    "respawnSec": 10,
+    "level": 1,
+    "drops": [
+      {
+        "itemId": "rat_tail",
+        "name": "鼠尾",
+        "type": "material",
+        "count": 1
+      }
+    ],
+    "grade": "mortal",
+    "tier": "mortal_blood",
+    "count": 4,
+    "equipment": {
+      "head": "equip.gate_headcloth",
+      "legs": "equip.trench_runner_boots"
+    },
+    "attrs": {
+      "constitution": 10,
+      "spirit": 5,
+      "perception": 20,
+      "talent": 8,
+      "comprehension": 2,
+      "luck": 2
+    },
+    "statPercents": {
+      "maxHp": 10,
+      "maxQi": 13,
+      "physAtk": 33,
+      "spellAtk": 8,
+      "physDef": 22,
+      "spellDef": 17,
+      "hit": 35,
+      "dodge": 41,
+      "crit": 34,
+      "breakPower": 28,
+      "resolvePower": 20,
+      "maxQiOutputPerTick": 14,
+      "viewRange": 100,
+      "moveSpeed": 155
+    },
+    "skills": [
+      "skill.predator_pounce"
+    ]
+  },
+  {
+    "id": "m_gate_thug",
+    "name": "断路暴徒",
+    "char": "匪",
+    "color": "#ba6f5a",
+    "radius": 6,
+    "respawnSec": 10,
+    "level": 2,
+    "drops": [
+      {
+        "itemId": "bandit_insignia",
+        "name": "匪徒腰牌",
+        "type": "material",
+        "count": 1
+      }
+    ],
+    "grade": "mortal",
+    "tier": "mortal_blood",
+    "count": 4,
+    "equipment": {
+      "weapon": "equip.broken_rune_blade",
+      "body": "equip.herb_mist_robe",
+      "legs": "equip.trench_runner_boots"
+    },
+    "attrs": {
+      "constitution": 22,
+      "spirit": 9,
+      "perception": 19,
+      "talent": 18,
+      "comprehension": 3,
+      "luck": 3
+    },
+    "statPercents": {
+      "maxHp": 20,
+      "maxQi": 16,
+      "physAtk": 36,
+      "spellAtk": 12,
+      "physDef": 34,
+      "spellDef": 27,
+      "hit": 34,
+      "dodge": 29,
+      "crit": 30,
+      "breakPower": 34,
+      "resolvePower": 32,
+      "maxQiOutputPerTick": 20,
+      "viewRange": 100,
+      "moveSpeed": 102.32
+    },
+    "skills": [
+      "skill.houtu_chengyuan"
+    ]
+  },
+  {
+    "id": "m_night_blade",
+    "name": "夜行刀客",
+    "char": "刀",
+    "color": "#8b3d3d",
+    "radius": 4,
+    "respawnSec": 10,
+    "level": 3,
+    "drops": [
+      {
+        "itemId": "bandit_insignia",
+        "name": "匪徒腰牌",
+        "type": "material",
+        "count": 1
+      },
+      {
+        "itemId": "book.iron_bone_art",
+        "name": "《铁骨功》",
+        "type": "skill_book",
+        "count": 1,
+        "chance": 0.01
+      },
+      {
+        "itemId": "equip.trench_runner_boots",
+        "name": "越沟快靴",
+        "type": "equipment",
+        "count": 1
+      }
+    ],
+    "grade": "mortal",
+    "tier": "mortal_blood",
+    "count": 2,
+    "aggroMode": "night_only",
+    "equipment": {
+      "weapon": "equip.broken_rune_blade",
+      "head": "equip.gate_headcloth",
+      "legs": "equip.trench_runner_boots",
+      "accessory": "equip.gather_qi_pendant"
+    },
+    "attrs": {
+      "constitution": 28,
+      "spirit": 17,
+      "perception": 44,
+      "talent": 22,
+      "comprehension": 5,
+      "luck": 5
+    },
+    "statPercents": {
+      "maxHp": 30,
+      "maxQi": 26,
+      "physAtk": 50,
+      "spellAtk": 26,
+      "physDef": 30,
+      "spellDef": 26,
+      "hit": 48,
+      "dodge": 46,
+      "crit": 46,
+      "breakPower": 50,
+      "resolvePower": 30,
+      "maxQiOutputPerTick": 29,
+      "viewRange": 100,
+      "moveSpeed": 148.64
+    },
+    "skills": [
+      "skill.cloud_blade"
+    ]
+  }
+]

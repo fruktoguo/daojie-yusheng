@@ -3,9 +3,7 @@ import { SOUL_DEVOUR_EROSION_BUFF_ID } from '../constants/gameplay/equipment';
 import { FIRE_BURN_MARK_BUFF_ID } from '../constants/gameplay/technique-buffs';
 import { getBuffSustainCost, getBuffSustainResourceLabel, getNextBuffSustainCost } from './buff-sustain';
 
-/** getSoulDevourErosionRatio：执行对应的业务逻辑。 */
 export function getSoulDevourErosionRatio(stacks: number): number {
-/** safeStacks：定义该变量以承载业务值。 */
   const safeStacks = Math.max(0, stacks);
   if (safeStacks <= 0) {
     return 0;
@@ -13,9 +11,7 @@ export function getSoulDevourErosionRatio(stacks: number): number {
   return safeStacks / (safeStacks + 1000);
 }
 
-/** formatDynamicPercent：执行对应的业务逻辑。 */
 function formatDynamicPercent(value: number): string {
-/** percent：定义该变量以承载业务值。 */
   const percent = Math.max(0, value * 100);
   if (percent === 0) {
     return '0%';
@@ -26,7 +22,6 @@ function formatDynamicPercent(value: number): string {
   return `${percent.toFixed(2)}%`;
 }
 
-/** appendSustainDescription：执行对应的业务逻辑。 */
 function appendSustainDescription(
   buff: Pick<TemporaryBuffState, 'sustainCost' | 'sustainTicksElapsed'>,
   fallback?: string,
@@ -34,38 +29,30 @@ function appendSustainDescription(
   if (!buff.sustainCost) {
     return fallback;
   }
-/** currentCost：定义该变量以承载业务值。 */
   const currentCost = getBuffSustainCost(buff);
-/** nextCost：定义该变量以承载业务值。 */
   const nextCost = getNextBuffSustainCost(buff);
   if (currentCost === null || nextCost === null) {
     return fallback;
   }
-/** resourceLabel：定义该变量以承载业务值。 */
   const resourceLabel = getBuffSustainResourceLabel(buff.sustainCost.resource);
-/** sustainText：定义该变量以承载业务值。 */
   const sustainText = `当前维持每息消耗 ${currentCost} 点${resourceLabel}，下一息将增至 ${nextCost} 点；${resourceLabel}不足时会自行解体。`;
   return fallback ? `${fallback} ${sustainText}` : sustainText;
 }
 
-/** buildDynamicBuffDescription：执行对应的业务逻辑。 */
 export function buildDynamicBuffDescription(
   buff: Pick<TemporaryBuffState, 'buffId' | 'stacks' | 'desc' | 'baseDesc' | 'sustainCost' | 'sustainTicksElapsed'>,
 ): string | undefined {
-/** fallback：定义该变量以承载业务值。 */
   const fallback = buff.baseDesc ?? buff.desc;
   if (buff.buffId === SOUL_DEVOUR_EROSION_BUFF_ID) {
     return `当前总层数 ${Math.max(0, Math.round(buff.stacks))}，四维已降低 ${formatDynamicPercent(getSoulDevourErosionRatio(buff.stacks))}；此残意即使身死也不会散去。`;
   }
   if (buff.buffId === FIRE_BURN_MARK_BUFF_ID) {
-/** safeStacks：定义该变量以承载业务值。 */
     const safeStacks = Math.max(0, Math.round(buff.stacks));
     return `当前 ${safeStacks} 层；每层每息造成目标当前气血 1% 的火伤，对精英仅 10% 效果，对 Boss 仅 1% 效果。`;
   }
   return appendSustainDescription(buff, fallback);
 }
 
-/** syncDynamicBuffPresentation：执行对应的业务逻辑。 */
 export function syncDynamicBuffPresentation<T extends Pick<TemporaryBuffState, 'buffId' | 'stacks' | 'desc' | 'baseDesc' | 'sustainCost' | 'sustainTicksElapsed'>>(buff: T): T {
   buff.desc = buildDynamicBuffDescription(buff);
   return buff;

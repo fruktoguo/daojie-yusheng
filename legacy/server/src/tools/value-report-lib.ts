@@ -24,33 +24,21 @@ import {
   TechniqueLayerDef,
 } from '@mud/shared';
 
-/** RawTechnique：定义该类型的结构与数据语义。 */
 type RawTechnique = {
-/** id：定义该变量以承载业务值。 */
   id: string;
-/** name：定义该变量以承载业务值。 */
   name: string;
-/** grade：定义该变量以承载业务值。 */
   grade: TechniqueGrade;
-/** realmLv：定义该变量以承载业务值。 */
   realmLv: number;
-/** layers：定义该变量以承载业务值。 */
   layers: TechniqueLayerDef[];
-/** skills：定义该变量以承载业务值。 */
   skills: Array<Omit<SkillDef, 'cost'> & { cost?: number; costMultiplier?: number }>;
 };
 
-/** RawEquipment：定义该类型的结构与数据语义。 */
 type RawEquipment = {
-/** itemId：定义该变量以承载业务值。 */
   itemId: string;
-/** name：定义该变量以承载业务值。 */
   name: string;
-/** type：定义该变量以承载业务值。 */
   type: string;
   grade?: TechniqueGrade;
   level?: number;
-/** desc：定义该变量以承载业务值。 */
   desc: string;
   equipSlot?: string;
   equipAttrs?: ItemStack['equipAttrs'];
@@ -59,41 +47,32 @@ type RawEquipment = {
   effects?: unknown;
 };
 
-/** RawMap：定义该类型的结构与数据语义。 */
 type RawMap = {
   dangerLevel?: number;
 };
 
-/** RealmLevelEntry：定义该类型的结构与数据语义。 */
 type RealmLevelEntry = {
-/** realmLv：定义该变量以承载业务值。 */
   realmLv: number;
   displayName?: string | null;
   name?: string | null;
 };
 
-/** RealmLevelsConfig：定义该类型的结构与数据语义。 */
 type RealmLevelsConfig = {
   levels?: RealmLevelEntry[];
 };
 
 /** 价值报表单行数据 */
 export interface ValueReportRow {
-/** name：定义该变量以承载业务值。 */
   name: string;
-/** grade：定义该变量以承载业务值。 */
   grade: string;
   realm?: string;
-/** level：定义该变量以承载业务值。 */
   level: string;
   baseQuantifiedValue?: string;
   range?: string;
   damageTargets?: string;
   cooldown?: string;
   cost?: string;
-/** quantifiedValue：定义该变量以承载业务值。 */
   quantifiedValue: string;
-/** unquantifiedValue：定义该变量以承载业务值。 */
   unquantifiedValue: string;
 }
 
@@ -434,7 +413,6 @@ function buildEquipmentMapDangerIndex(): Map<string, number> {
     } catch {
       continue;
     }
-/** found：定义该变量以承载业务值。 */
     const found = new Set<string>();
     walkForItemIds(map, found);
 /**
@@ -691,11 +669,8 @@ function resolveEquipmentRuntimeStats(item: Pick<RawEquipment, 'equipStats' | 'e
  * 处理summarizeequipmentfor报表。
  */
 function summarizeEquipmentForReport(item: RawEquipment): {
-/** runtimeQuantifiedValue：定义该变量以承载业务值。 */
   runtimeQuantifiedValue: number;
-/** baseQuantifiedValue：定义该变量以承载业务值。 */
   baseQuantifiedValue: number;
-/** unquantified：定义该变量以承载业务值。 */
   unquantified: string[];
 } {
 /**
@@ -732,10 +707,8 @@ function summarizeEquipmentForReport(item: RawEquipment): {
 
 /** 构建装备价值报表行 */
 export function buildEquipmentRows(): ValueReportRow[] {
-/** dangerIndex：定义该变量以承载业务值。 */
   const dangerIndex = buildEquipmentMapDangerIndex();
   return readEquipmentItems().map((item) => {
-/** summary：定义该变量以承载业务值。 */
     const summary = summarizeEquipmentForReport(item);
 /**
  * 记录危险度等级。
@@ -773,7 +746,6 @@ export function buildTechniqueRows(): ValueReportRow[] {
   return readTechniques()
     .filter((technique) => !isMonsterTechnique(technique))
     .map((technique) => {
-/** maxLevel：定义该变量以承载业务值。 */
       const maxLevel = getTechniqueMaxLevel(technique.layers);
 /**
  * 记录汇总。
@@ -801,7 +773,6 @@ export function buildTechniqueRows(): ValueReportRow[] {
 /** 构建技能价值报表行 */
 export function buildSkillRows(): ValueReportRow[] {
   return readTechniques().flatMap((technique) => technique.skills.map((skill) => {
-/** actualCost：定义该变量以承载业务值。 */
     const actualCost = calculateTechniqueSkillQiCost(
       Number.isFinite(skill.costMultiplier) ? Number(skill.costMultiplier) : Math.max(0, skill.cost ?? 0),
       technique.grade,
@@ -869,9 +840,7 @@ export function buildBuffRows(): ValueReportRow[] {
 
 /** 将报表行渲染为 Markdown 表格 */
 export function renderMarkdownTable(title: string, rows: ValueReportRow[]): string {
-/** sortedRows：定义该变量以承载业务值。 */
   const sortedRows = [...rows].sort((left, right) => {
-/** leftValue：定义该变量以承载业务值。 */
     const leftValue = Number(left.quantifiedValue) || 0;
 /**
  * 记录right价值。

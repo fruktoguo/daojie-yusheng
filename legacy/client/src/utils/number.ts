@@ -1,9 +1,9 @@
-/** trimTrailingZeros：执行对应的业务逻辑。 */
+
 function trimTrailingZeros(text: string): string {
   return text.replace(/\.?0+$/, '');
 }
 
-/** formatPlainNumber：执行对应的业务逻辑。 */
+/** formatPlainNumber：格式化输出字符串用于展示。 */
 function formatPlainNumber(value: number, maximumFractionDigits: number): string {
   if (!Number.isFinite(value)) {
     return '0';
@@ -14,14 +14,13 @@ function formatPlainNumber(value: number, maximumFractionDigits: number): string
   return trimTrailingZeros(value.toFixed(maximumFractionDigits));
 }
 
-/** DisplayNumberOptions：定义该接口的能力与字段约束。 */
 export interface DisplayNumberOptions {
   maximumFractionDigits?: number;
   compactThreshold?: number;
   compactMaximumFractionDigits?: number;
 }
 
-/** formatDisplayNumber：执行对应的业务逻辑。 */
+/** formatDisplayNumber：格式化输出字符串用于展示。 */
 export function formatDisplayNumber(value: number, options: DisplayNumberOptions = {}): string {
   if (!Number.isFinite(value)) {
     return '0';
@@ -31,9 +30,7 @@ export function formatDisplayNumber(value: number, options: DisplayNumberOptions
     compactThreshold = 10_000,
     compactMaximumFractionDigits = 1,
   } = options;
-/** absValue：定义该变量以承载业务值。 */
   const absValue = Math.abs(value);
-/** sign：定义该变量以承载业务值。 */
   const sign = value < 0 ? '-' : '';
   if (absValue < compactThreshold) {
     return `${sign}${formatPlainNumber(absValue, maximumFractionDigits)}`;
@@ -44,7 +41,7 @@ export function formatDisplayNumber(value: number, options: DisplayNumberOptions
   return `${sign}${formatPlainNumber(absValue / 10_000, compactMaximumFractionDigits)}万`;
 }
 
-/** formatDisplayInteger：执行对应的业务逻辑。 */
+/** formatDisplayInteger：格式化输出字符串用于展示。 */
 export function formatDisplayInteger(value: number, options: Omit<DisplayNumberOptions, 'maximumFractionDigits'> = {}): string {
   return formatDisplayNumber(Math.round(value), {
     ...options,
@@ -52,14 +49,13 @@ export function formatDisplayInteger(value: number, options: Omit<DisplayNumberO
   });
 }
 
-/** formatDisplaySignedNumber：执行对应的业务逻辑。 */
+/** formatDisplaySignedNumber：格式化输出字符串用于展示。 */
 export function formatDisplaySignedNumber(value: number, options: DisplayNumberOptions = {}): string {
-/** sign：定义该变量以承载业务值。 */
   const sign = value >= 0 ? '+' : '-';
   return `${sign}${formatDisplayNumber(Math.abs(value), options)}`;
 }
 
-/** formatDisplayPercent：执行对应的业务逻辑。 */
+/** formatDisplayPercent：格式化输出字符串用于展示。 */
 export function formatDisplayPercent(value: number, options: DisplayNumberOptions = {}): string {
   return `${formatDisplayNumber(value, options)}%`;
 }
@@ -69,19 +65,17 @@ export function formatAdaptiveRatePercent(value: number): string {
   if (!Number.isFinite(value)) {
     return '0%';
   }
-/** absValue：定义该变量以承载业务值。 */
   const absValue = Math.abs(value);
-/** maximumFractionDigits：定义该变量以承载业务值。 */
   const maximumFractionDigits = absValue < 10 ? 2 : absValue < 100 ? 1 : 0;
   return formatDisplayPercent(value, { maximumFractionDigits });
 }
 
-/** formatDisplayCurrentMax：执行对应的业务逻辑。 */
+/** formatDisplayCurrentMax：格式化输出字符串用于展示。 */
 export function formatDisplayCurrentMax(current: number, max: number): string {
   return `${formatDisplayInteger(current)} / ${formatDisplayInteger(max)}`;
 }
 
-/** formatDisplayCountBadge：执行对应的业务逻辑。 */
+/** formatDisplayCountBadge：格式化输出字符串用于展示。 */
 export function formatDisplayCountBadge(count: number): string {
   return `x${formatDisplayInteger(count)}`;
 }

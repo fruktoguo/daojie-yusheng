@@ -2,24 +2,18 @@ import { PanelCapabilities } from './types';
 import { UI_RESPONSIVE_BREAKPOINTS } from '../../constants/ui/responsive';
 import { getEffectiveViewportHeight, getEffectiveViewportWidth } from '../responsive-viewport';
 
-/** matchMediaSafe：执行对应的业务逻辑。 */
+
 function matchMediaSafe(win: Window, query: string): boolean {
   return typeof win.matchMedia === 'function' ? win.matchMedia(query).matches : false;
 }
 
-/** detectPanelCapabilities：执行对应的业务逻辑。 */
+
 export function detectPanelCapabilities(win: Window): PanelCapabilities {
-/** viewportWidth：定义该变量以承载业务值。 */
   const viewportWidth = getEffectiveViewportWidth(win);
-/** viewportHeight：定义该变量以承载业务值。 */
   const viewportHeight = getEffectiveViewportHeight(win);
-/** pointerCoarse：定义该变量以承载业务值。 */
   const pointerCoarse = matchMediaSafe(win, '(pointer: coarse)');
-/** hoverAvailable：定义该变量以承载业务值。 */
   const hoverAvailable = matchMediaSafe(win, '(hover: hover)');
-/** reducedMotion：定义该变量以承载业务值。 */
   const reducedMotion = matchMediaSafe(win, '(prefers-reduced-motion: reduce)');
-/** breakpoint：定义该变量以承载业务值。 */
   const breakpoint = viewportWidth < UI_RESPONSIVE_BREAKPOINTS.panelMobile
     ? 'mobile'
     : viewportWidth < UI_RESPONSIVE_BREAKPOINTS.layoutCompactDesktop
@@ -43,9 +37,7 @@ export function detectPanelCapabilities(win: Window): PanelCapabilities {
   };
 }
 
-/** PanelCapabilityMonitor：封装相关状态与行为。 */
 export class PanelCapabilityMonitor {
-/** win：定义该变量以承载业务值。 */
   private readonly win: Window;
   private readonly listener: (capabilities: PanelCapabilities) => void;
   private readonly boundRefresh: () => void;
@@ -59,7 +51,7 @@ export class PanelCapabilityMonitor {
     };
   }
 
-/** start：执行对应的业务逻辑。 */
+
   start(): void {
     if (this.started) {
       return;
@@ -71,7 +63,7 @@ export class PanelCapabilityMonitor {
     this.boundRefresh();
   }
 
-/** stop：执行对应的业务逻辑。 */
+
   stop(): void {
     if (!this.started) {
       return;

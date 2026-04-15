@@ -11,14 +11,10 @@ import type { SocketManager } from '../network/socket';
 import { detailModalHost } from './detail-modal-host';
 import { SUGGESTION_PANEL_REFRESH_INTERVAL_MS } from '../constants/ui/suggestion';
 
-/** SuggestionListTab：定义该类型的结构与数据语义。 */
 type SuggestionListTab = 'all' | 'mine';
-/** SuggestionEditableFieldId：定义该类型的结构与数据语义。 */
 type SuggestionEditableFieldId = 'suggest-title' | 'suggest-desc' | 'suggest-reply-content' | 'suggest-search';
 
-/** SUGGESTION_PAGE_SIZE：定义该变量以承载业务值。 */
 const SUGGESTION_PAGE_SIZE = 6;
-/** SUGGESTION_EDITABLE_FIELD_IDS：定义该变量以承载业务值。 */
 const SUGGESTION_EDITABLE_FIELD_IDS = new Set<SuggestionEditableFieldId>([
   'suggest-title',
   'suggest-desc',
@@ -26,60 +22,46 @@ const SUGGESTION_EDITABLE_FIELD_IDS = new Set<SuggestionEditableFieldId>([
   'suggest-search',
 ]);
 
-/** SuggestionRenderState：定义该类型的结构与数据语义。 */
 type SuggestionRenderState = {
-/** focusedFieldId：定义该变量以承载业务值。 */
   focusedFieldId: SuggestionEditableFieldId | null;
-/** selectionStart：定义该变量以承载业务值。 */
   selectionStart: number | null;
-/** selectionEnd：定义该变量以承载业务值。 */
   selectionEnd: number | null;
-/** fieldScrollTop：定义该变量以承载业务值。 */
   fieldScrollTop: number;
-/** listScrollTop：定义该变量以承载业务值。 */
   listScrollTop: number;
-/** threadScrollTop：定义该变量以承载业务值。 */
   threadScrollTop: number;
 };
 
-/** SuggestionModalMeta：定义该类型的结构与数据语义。 */
 type SuggestionModalMeta = {
-/** subtitle：定义该变量以承载业务值。 */
   subtitle: string;
 };
 
 /** 意见收集面板 */
 export class SuggestionPanel {
   private static readonly MODAL_OWNER = 'suggestion-panel';
-/** suggestions：定义该变量以承载业务值。 */
   private suggestions: Suggestion[] = [];
   private playerId = '';
   private draftTitle = '';
   private draftDescription = '';
   private replyDraft = '';
   private searchKeyword = '';
-/** selectedSuggestionId：定义该变量以承载业务值。 */
   private selectedSuggestionId: string | null = null;
-/** activeTab：定义该变量以承载业务值。 */
   private activeTab: SuggestionListTab = 'all';
-/** pageByTab：定义该变量以承载业务值。 */
   private pageByTab: Record<SuggestionListTab, number> = { all: 1, mine: 1 };
   private lastSuggestionSyncAt = 0;
   private lastRefreshRequestAt = 0;
   private delegatedEventsBound = false;
 
-/** constructor：处理当前场景中的对应操作。 */
+/** constructor：初始化实例并完成构造。 */
   constructor(private readonly socket: SocketManager) {
     this.setupGlobalListeners();
   }
 
-/** setPlayerId：执行对应的业务逻辑。 */
+/** setPlayerId：设置并同步相关状态。 */
   setPlayerId(id: string): void {
     this.playerId = id;
     this.updateHudUnreadState();
   }
 
-/** updateSuggestions：执行对应的业务逻辑。 */
   updateSuggestions(suggestions: Suggestion[]): void {
     this.suggestions = suggestions;
     this.lastSuggestionSyncAt = Date.now();
@@ -93,18 +75,17 @@ export class SuggestionPanel {
     this.render();
   }
 
-/** setupGlobalListeners：执行对应的业务逻辑。 */
+/** setupGlobalListeners：设置并同步相关状态。 */
   private setupGlobalListeners(): void {
     document.getElementById('hud-open-suggestions')?.addEventListener('click', () => {
       this.open();
     });
   }
 
-/** open：执行对应的业务逻辑。 */
+/** open：打开界面或流程。 */
   open(): void {
     this.requestSuggestionsIfNeeded();
     this.ensureSelection();
-/** meta：定义该变量以承载业务值。 */
     const meta = this.buildModalMeta();
     detailModalHost.open({
       ownerId: SuggestionPanel.MODAL_OWNER,
@@ -117,13 +98,12 @@ export class SuggestionPanel {
     });
   }
 
-/** requestSuggestionsIfNeeded：执行对应的业务逻辑。 */
+/** requestSuggestionsIfNeeded：发起对应请求。 */
   private requestSuggestionsIfNeeded(): void {
     if (!this.socket.connected) {
       return;
     }
 
-/** now：定义该变量以承载业务值。 */
     const now = Date.now();
     if (now - this.lastRefreshRequestAt < SUGGESTION_PANEL_REFRESH_INTERVAL_MS) {
       return;
@@ -137,17 +117,11 @@ export class SuggestionPanel {
     this.socket.sendRequestSuggestions();
   }
 
-/** buildBodyHtml：执行对应的业务逻辑。 */
   private buildBodyHtml(): string {
-/** pendingCount：定义该变量以承载业务值。 */
     const pendingCount = this.suggestions.filter((suggestion) => suggestion.status === 'pending').length;
-/** mySuggestions：定义该变量以承载业务值。 */
     const mySuggestions = this.getMySuggestions();
-/** unreadCount：定义该变量以承载业务值。 */
     const unreadCount = mySuggestions.filter((suggestion) => this.hasUnreadGmReply(suggestion)).length;
-/** pageData：定义该变量以承载业务值。 */
     const pageData = this.getPagedSuggestions(this.activeTab);
-/** selectedSuggestion：定义该变量以承载业务值。 */
     const selectedSuggestion = this.getSelectedSuggestion();
 
     return `
@@ -236,15 +210,11 @@ export class SuggestionPanel {
     `;
   }
 
-/** renderSuggestionListEntry：执行对应的业务逻辑。 */
+/** renderSuggestionListEntry：渲染当前界面内容。 */
   private renderSuggestionListEntry(suggestion: Suggestion): string {
-/** score：定义该变量以承载业务值。 */
     const score = suggestion.upvotes.length - suggestion.downvotes.length;
-/** lastReply：定义该变量以承载业务值。 */
     const lastReply = suggestion.replies[suggestion.replies.length - 1] ?? null;
-/** isSelected：定义该变量以承载业务值。 */
     const isSelected = suggestion.id === this.selectedSuggestionId;
-/** unread：定义该变量以承载业务值。 */
     const unread = this.hasUnreadGmReply(suggestion);
     return `
       <article
@@ -278,21 +248,14 @@ export class SuggestionPanel {
     `;
   }
 
-/** renderSuggestionDetail：执行对应的业务逻辑。 */
+/** renderSuggestionDetail：渲染当前界面内容。 */
   private renderSuggestionDetail(suggestion: Suggestion): string {
-/** score：定义该变量以承载业务值。 */
     const score = suggestion.upvotes.length - suggestion.downvotes.length;
-/** isUpvoted：定义该变量以承载业务值。 */
     const isUpvoted = suggestion.upvotes.includes(this.playerId);
-/** isDownvoted：定义该变量以承载业务值。 */
     const isDownvoted = suggestion.downvotes.includes(this.playerId);
-/** isAuthor：定义该变量以承载业务值。 */
     const isAuthor = suggestion.authorId === this.playerId;
-/** canReply：定义该变量以承载业务值。 */
     const canReply = this.canCurrentPlayerReply(suggestion);
-/** hasGmReply：定义该变量以承载业务值。 */
     const hasGmReply = suggestion.replies.some((reply) => reply.authorType === 'gm');
-/** replyHint：定义该变量以承载业务值。 */
     const replyHint = canReply
       ? '开发者已回复，你现在可以继续补充。'
       : suggestion.authorId === this.playerId
@@ -350,9 +313,8 @@ export class SuggestionPanel {
     `;
   }
 
-/** renderReply：执行对应的业务逻辑。 */
+/** renderReply：渲染当前界面内容。 */
   private renderReply(reply: SuggestionReply): string {
-/** roleLabel：定义该变量以承载业务值。 */
     const roleLabel = reply.authorType === 'gm' ? '开发者' : '发起人';
     return `
       <article class="suggestion-reply-entry ${reply.authorType === 'gm' ? 'gm' : 'author'}">
@@ -365,7 +327,7 @@ export class SuggestionPanel {
     `;
   }
 
-/** bindEvents：执行对应的业务逻辑。 */
+/** bindEvents：绑定回调。 */
   private bindEvents(el: HTMLElement): void {
     if (this.delegatedEventsBound) {
       return;
@@ -376,13 +338,12 @@ export class SuggestionPanel {
     el.addEventListener('keydown', (event) => this.handleKeyDown(event));
   }
 
-/** render：执行对应的业务逻辑。 */
+/** render：渲染当前界面内容。 */
   private render(): void {
     if (!detailModalHost.isOpenFor(SuggestionPanel.MODAL_OWNER)) {
       return;
     }
 
-/** body：定义该变量以承载业务值。 */
     const body = document.getElementById('detail-modal-body');
     if (!body) {
       return;
@@ -390,10 +351,8 @@ export class SuggestionPanel {
 
     this.captureDraft(body);
     this.ensureSelection();
-/** renderState：定义该变量以承载业务值。 */
     const renderState = this.captureRenderState(body);
     if (!this.patchBody(body)) {
-/** meta：定义该变量以承载业务值。 */
       const meta = this.buildModalMeta();
       detailModalHost.open({
         ownerId: SuggestionPanel.MODAL_OWNER,
@@ -408,13 +367,10 @@ export class SuggestionPanel {
     this.restoreRenderState(body, renderState);
   }
 
-/** captureRenderState：执行对应的业务逻辑。 */
+
   private captureRenderState(body: HTMLElement): SuggestionRenderState {
-/** activeElement：定义该变量以承载业务值。 */
     const activeElement = document.activeElement;
-/** listScrollTop：定义该变量以承载业务值。 */
     const listScrollTop = body.querySelector<HTMLElement>(`[data-list-kind="${this.activeTab}"]`)?.scrollTop ?? 0;
-/** threadScrollTop：定义该变量以承载业务值。 */
     const threadScrollTop = body.querySelector<HTMLElement>('[data-thread-kind="detail"]')?.scrollTop ?? 0;
     if (
       !(activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement)
@@ -440,11 +396,9 @@ export class SuggestionPanel {
     };
   }
 
-/** restoreRenderState：执行对应的业务逻辑。 */
+
   private restoreRenderState(body: HTMLElement, state: SuggestionRenderState): void {
-/** list：定义该变量以承载业务值。 */
     const list = body.querySelector<HTMLElement>(`[data-list-kind="${this.activeTab}"]`);
-/** thread：定义该变量以承载业务值。 */
     const thread = body.querySelector<HTMLElement>('[data-thread-kind="detail"]');
     if (list) {
       list.scrollTop = state.listScrollTop;
@@ -455,7 +409,6 @@ export class SuggestionPanel {
     if (!state.focusedFieldId) {
       return;
     }
-/** field：定义该变量以承载业务值。 */
     const field = body.querySelector<HTMLInputElement | HTMLTextAreaElement>(`#${state.focusedFieldId}`);
     if (!field || field.disabled) {
       return;
@@ -477,7 +430,7 @@ export class SuggestionPanel {
     }
   }
 
-/** captureDraft：执行对应的业务逻辑。 */
+
   private captureDraft(body: HTMLElement): void {
     this.draftTitle = body.querySelector<HTMLInputElement>('#suggest-title')?.value ?? this.draftTitle;
     this.draftDescription = body.querySelector<HTMLTextAreaElement>('#suggest-desc')?.value ?? this.draftDescription;
@@ -485,64 +438,46 @@ export class SuggestionPanel {
     this.searchKeyword = body.querySelector<HTMLInputElement>('#suggest-search')?.value ?? this.searchKeyword;
   }
 
-/** buildSubtitle：执行对应的业务逻辑。 */
   private buildSubtitle(): string {
-/** myUnreadCount：定义该变量以承载业务值。 */
     const myUnreadCount = this.getMySuggestions().filter((suggestion) => this.hasUnreadGmReply(suggestion)).length;
     return `待处理 ${this.suggestions.filter((suggestion) => suggestion.status === 'pending').length} · 我的意见 ${this.getMySuggestions().length} · 未读回复 ${myUnreadCount}`;
   }
 
-/** buildModalMeta：执行对应的业务逻辑。 */
   private buildModalMeta(): SuggestionModalMeta {
     return {
       subtitle: this.buildSubtitle(),
     };
   }
 
-/** renderMineTabLabel：执行对应的业务逻辑。 */
+/** renderMineTabLabel：渲染当前界面内容。 */
   private renderMineTabLabel(unreadCount: number): string {
     return `我的意见${unreadCount > 0 ? `<span class="suggestion-inline-dot" aria-hidden="true">${unreadCount}</span>` : ''}`;
   }
 
-/** patchBody：执行对应的业务逻辑。 */
+
   private patchBody(body: HTMLElement): boolean {
     if (!body.querySelector('.suggestion-shell')) {
       return false;
     }
 
-/** pendingNode：定义该变量以承载业务值。 */
     const pendingNode = body.querySelector<HTMLElement>('[data-suggestion-summary-pending="true"]');
-/** mineNode：定义该变量以承载业务值。 */
     const mineNode = body.querySelector<HTMLElement>('[data-suggestion-summary-mine="true"]');
-/** unreadNode：定义该变量以承载业务值。 */
     const unreadNode = body.querySelector<HTMLElement>('[data-suggestion-summary-unread="true"]');
-/** toolbarNoteNode：定义该变量以承载业务值。 */
     const toolbarNoteNode = body.querySelector<HTMLElement>('[data-suggestion-toolbar-note="true"]');
-/** listRoot：定义该变量以承载业务值。 */
     const listRoot = body.querySelector<HTMLElement>('[data-suggestion-list="true"]');
-/** threadRoot：定义该变量以承载业务值。 */
     const threadRoot = body.querySelector<HTMLElement>('[data-suggestion-thread="true"]');
-/** allTabButton：定义该变量以承载业务值。 */
     const allTabButton = body.querySelector<HTMLButtonElement>('[data-suggestion-tab="all"]');
-/** mineTabButton：定义该变量以承载业务值。 */
     const mineTabButton = body.querySelector<HTMLButtonElement>('[data-suggestion-tab="mine"]');
-/** prevPageButton：定义该变量以承载业务值。 */
     const prevPageButton = body.querySelector<HTMLButtonElement>('[data-suggestion-page-action="prev"]');
-/** nextPageButton：定义该变量以承载业务值。 */
     const nextPageButton = body.querySelector<HTMLButtonElement>('[data-suggestion-page-action="next"]');
     if (!pendingNode || !mineNode || !unreadNode || !toolbarNoteNode || !listRoot || !threadRoot || !allTabButton || !mineTabButton || !prevPageButton || !nextPageButton) {
       return false;
     }
 
-/** pendingCount：定义该变量以承载业务值。 */
     const pendingCount = this.suggestions.filter((suggestion) => suggestion.status === 'pending').length;
-/** mySuggestions：定义该变量以承载业务值。 */
     const mySuggestions = this.getMySuggestions();
-/** unreadCount：定义该变量以承载业务值。 */
     const unreadCount = mySuggestions.filter((suggestion) => this.hasUnreadGmReply(suggestion)).length;
-/** pageData：定义该变量以承载业务值。 */
     const pageData = this.getPagedSuggestions(this.activeTab);
-/** selectedSuggestion：定义该变量以承载业务值。 */
     const selectedSuggestion = this.getSelectedSuggestion();
 
     pendingNode.textContent = String(pendingCount);
@@ -568,9 +503,8 @@ export class SuggestionPanel {
     return true;
   }
 
-/** patchModalMeta：执行对应的业务逻辑。 */
+
   private patchModalMeta(meta: SuggestionModalMeta): void {
-/** subtitle：定义该变量以承载业务值。 */
     const subtitle = document.getElementById('detail-modal-subtitle');
     if (subtitle) {
       subtitle.textContent = meta.subtitle;
@@ -578,9 +512,8 @@ export class SuggestionPanel {
     }
   }
 
-/** handleInput：执行对应的业务逻辑。 */
+/** handleInput：处理输入事件。 */
   private handleInput(event: Event): void {
-/** target：定义该变量以承载业务值。 */
     const target = event.target;
     if (!(target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement)) {
       return;
@@ -605,20 +538,16 @@ export class SuggestionPanel {
     }
   }
 
-/** handleClick：执行对应的业务逻辑。 */
+/** handleClick：处理输入事件。 */
   private handleClick(event: Event): void {
-/** target：定义该变量以承载业务值。 */
     const target = event.target;
     if (!(target instanceof HTMLElement)) {
       return;
     }
 
-/** submitButton：定义该变量以承载业务值。 */
     const submitButton = target.closest<HTMLButtonElement>('#btn-submit-suggest');
     if (submitButton) {
-/** title：定义该变量以承载业务值。 */
       const title = this.draftTitle.trim();
-/** description：定义该变量以承载业务值。 */
       const description = this.draftDescription.trim();
       if (!title) {
         alert('请输入标题');
@@ -632,11 +561,8 @@ export class SuggestionPanel {
       this.socket.emit(C2S.CreateSuggestion, { title, description } as C2S_CreateSuggestion);
       this.draftTitle = '';
       this.draftDescription = '';
-/** body：定义该变量以承载业务值。 */
       const body = document.getElementById('detail-modal-body');
-/** titleInput：定义该变量以承载业务值。 */
       const titleInput = body?.querySelector<HTMLInputElement>('#suggest-title');
-/** descInput：定义该变量以承载业务值。 */
       const descInput = body?.querySelector<HTMLTextAreaElement>('#suggest-desc');
       if (titleInput) {
         titleInput.value = '';
@@ -647,12 +573,9 @@ export class SuggestionPanel {
       return;
     }
 
-/** submitReplyButton：定义该变量以承载业务值。 */
     const submitReplyButton = target.closest<HTMLButtonElement>('#btn-submit-suggest-reply');
     if (submitReplyButton) {
-/** selectedSuggestion：定义该变量以承载业务值。 */
       const selectedSuggestion = this.getSelectedSuggestion();
-/** content：定义该变量以承载业务值。 */
       const content = this.replyDraft.trim();
       if (!selectedSuggestion) {
         return;
@@ -671,9 +594,7 @@ export class SuggestionPanel {
         content,
       } as C2S_ReplySuggestion);
       this.replyDraft = '';
-/** body：定义该变量以承载业务值。 */
       const body = document.getElementById('detail-modal-body');
-/** replyInput：定义该变量以承载业务值。 */
       const replyInput = body?.querySelector<HTMLTextAreaElement>('#suggest-reply-content');
       if (replyInput) {
         replyInput.value = '';
@@ -681,13 +602,10 @@ export class SuggestionPanel {
       return;
     }
 
-/** voteButton：定义该变量以承载业务值。 */
     const voteButton = target.closest<HTMLElement>('.suggestion-vote-btn');
     if (voteButton) {
       event.stopPropagation();
-/** id：定义该变量以承载业务值。 */
       const id = voteButton.dataset.id;
-/** vote：定义该变量以承载业务值。 */
       const vote = voteButton.dataset.vote;
       if (!id || (vote !== 'up' && vote !== 'down')) {
         return;
@@ -696,10 +614,8 @@ export class SuggestionPanel {
       return;
     }
 
-/** tabButton：定义该变量以承载业务值。 */
     const tabButton = target.closest<HTMLButtonElement>('[data-suggestion-tab]');
     if (tabButton) {
-/** tab：定义该变量以承载业务值。 */
       const tab = tabButton.dataset.suggestionTab;
       if (tab !== 'all' && tab !== 'mine') {
         return;
@@ -710,12 +626,9 @@ export class SuggestionPanel {
       return;
     }
 
-/** pageButton：定义该变量以承载业务值。 */
     const pageButton = target.closest<HTMLButtonElement>('[data-suggestion-page-action]');
     if (pageButton) {
-/** action：定义该变量以承载业务值。 */
       const action = pageButton.dataset.suggestionPageAction;
-/** pageData：定义该变量以承载业务值。 */
       const pageData = this.getPagedSuggestions(this.activeTab);
       if (action === 'prev' && pageData.page > 1) {
         this.pageByTab[this.activeTab] -= 1;
@@ -728,12 +641,10 @@ export class SuggestionPanel {
       return;
     }
 
-/** suggestionEntry：定义该变量以承载业务值。 */
     const suggestionEntry = target.closest<HTMLElement>('[data-suggestion-select]');
     if (!suggestionEntry) {
       return;
     }
-/** suggestionId：定义该变量以承载业务值。 */
     const suggestionId = suggestionEntry.dataset.suggestionSelect;
     if (!suggestionId) {
       return;
@@ -741,7 +652,7 @@ export class SuggestionPanel {
     this.selectSuggestion(suggestionId);
   }
 
-/** handleKeyDown：执行对应的业务逻辑。 */
+/** handleKeyDown：处理输入事件。 */
   private handleKeyDown(event: Event): void {
     if (!(event instanceof KeyboardEvent)) {
       return;
@@ -749,14 +660,11 @@ export class SuggestionPanel {
     if (event.key !== 'Enter' && event.key !== ' ') {
       return;
     }
-/** target：定义该变量以承载业务值。 */
     const target = event.target;
     if (!(target instanceof HTMLElement)) {
       return;
     }
-/** suggestionEntry：定义该变量以承载业务值。 */
     const suggestionEntry = target.closest<HTMLElement>('[data-suggestion-select]');
-/** suggestionId：定义该变量以承载业务值。 */
     const suggestionId = suggestionEntry?.dataset.suggestionSelect;
     if (!suggestionId) {
       return;
@@ -765,7 +673,7 @@ export class SuggestionPanel {
     this.selectSuggestion(suggestionId);
   }
 
-/** selectSuggestion：执行对应的业务逻辑。 */
+
   private selectSuggestion(suggestionId: string): void {
     this.selectedSuggestionId = suggestionId;
     this.replyDraft = '';
@@ -773,7 +681,6 @@ export class SuggestionPanel {
     this.render();
   }
 
-/** getMySuggestions：执行对应的业务逻辑。 */
   private getMySuggestions(): Suggestion[] {
     if (!this.playerId) {
       return [];
@@ -781,37 +688,24 @@ export class SuggestionPanel {
     return this.suggestions.filter((suggestion) => suggestion.authorId === this.playerId);
   }
 
-/** getVisibleSuggestions：执行对应的业务逻辑。 */
   private getVisibleSuggestions(tab: SuggestionListTab): Suggestion[] {
-/** keyword：定义该变量以承载业务值。 */
     const keyword = this.searchKeyword.trim().toLocaleLowerCase('zh-CN');
-/** candidates：定义该变量以承载业务值。 */
     const candidates = (tab === 'mine' ? this.getMySuggestions() : this.suggestions)
       .filter((suggestion) => this.matchesSuggestionKeyword(suggestion, keyword));
     candidates.sort((left, right) => this.compareSuggestions(left, right, tab));
     return candidates;
   }
 
-/** getPagedSuggestions：执行对应的业务逻辑。 */
   private getPagedSuggestions(tab: SuggestionListTab): {
-/** items：定义该变量以承载业务值。 */
     items: Suggestion[];
-/** total：定义该变量以承载业务值。 */
     total: number;
-/** page：定义该变量以承载业务值。 */
     page: number;
-/** totalPages：定义该变量以承载业务值。 */
     totalPages: number;
   } {
-/** items：定义该变量以承载业务值。 */
     const items = this.getVisibleSuggestions(tab);
-/** total：定义该变量以承载业务值。 */
     const total = items.length;
-/** totalPages：定义该变量以承载业务值。 */
     const totalPages = Math.max(1, Math.ceil(total / SUGGESTION_PAGE_SIZE));
-/** page：定义该变量以承载业务值。 */
     const page = Math.min(totalPages, Math.max(1, this.pageByTab[tab]));
-/** start：定义该变量以承载业务值。 */
     const start = (page - 1) * SUGGESTION_PAGE_SIZE;
     this.pageByTab[tab] = page;
     return {
@@ -822,12 +716,10 @@ export class SuggestionPanel {
     };
   }
 
-/** compareSuggestions：执行对应的业务逻辑。 */
+
   private compareSuggestions(left: Suggestion, right: Suggestion, tab: SuggestionListTab): number {
     if (tab === 'mine') {
-/** leftUnread：定义该变量以承载业务值。 */
       const leftUnread = this.hasUnreadGmReply(left);
-/** rightUnread：定义该变量以承载业务值。 */
       const rightUnread = this.hasUnreadGmReply(right);
       if (leftUnread !== rightUnread) {
         return leftUnread ? -1 : 1;
@@ -838,17 +730,13 @@ export class SuggestionPanel {
       return left.status === 'pending' ? -1 : 1;
     }
 
-/** leftLastActivityAt：定义该变量以承载业务值。 */
     const leftLastActivityAt = Math.max(left.createdAt, left.replies[left.replies.length - 1]?.createdAt ?? 0);
-/** rightLastActivityAt：定义该变量以承载业务值。 */
     const rightLastActivityAt = Math.max(right.createdAt, right.replies[right.replies.length - 1]?.createdAt ?? 0);
     if (rightLastActivityAt !== leftLastActivityAt) {
       return rightLastActivityAt - leftLastActivityAt;
     }
 
-/** leftScore：定义该变量以承载业务值。 */
     const leftScore = left.upvotes.length - left.downvotes.length;
-/** rightScore：定义该变量以承载业务值。 */
     const rightScore = right.upvotes.length - right.downvotes.length;
     if (rightScore !== leftScore) {
       return rightScore - leftScore;
@@ -857,7 +745,7 @@ export class SuggestionPanel {
     return right.createdAt - left.createdAt;
   }
 
-/** matchesSuggestionKeyword：执行对应的业务逻辑。 */
+
   private matchesSuggestionKeyword(suggestion: Suggestion, keyword: string): boolean {
     if (!keyword) {
       return true;
@@ -871,9 +759,8 @@ export class SuggestionPanel {
     ].some((text) => text.toLocaleLowerCase('zh-CN').includes(keyword));
   }
 
-/** ensureSelection：执行对应的业务逻辑。 */
+
   private ensureSelection(): void {
-/** visibleSuggestions：定义该变量以承载业务值。 */
     const visibleSuggestions = this.getVisibleSuggestions(this.activeTab);
     if (visibleSuggestions.length === 0) {
       this.selectedSuggestionId = null;
@@ -887,41 +774,36 @@ export class SuggestionPanel {
     this.selectedSuggestionId = visibleSuggestions[0]?.id ?? null;
   }
 
-/** clampPages：执行对应的业务逻辑。 */
+
   private clampPages(): void {
     (['all', 'mine'] as SuggestionListTab[]).forEach((tab) => {
-/** totalPages：定义该变量以承载业务值。 */
       const totalPages = Math.max(1, Math.ceil(this.getVisibleSuggestions(tab).length / SUGGESTION_PAGE_SIZE));
       this.pageByTab[tab] = Math.min(totalPages, Math.max(1, this.pageByTab[tab]));
     });
   }
 
-/** getSelectedSuggestion：执行对应的业务逻辑。 */
   private getSelectedSuggestion(): Suggestion | null {
     return this.suggestions.find((suggestion) => suggestion.id === this.selectedSuggestionId) ?? null;
   }
 
-/** canCurrentPlayerReply：执行对应的业务逻辑。 */
+
   private canCurrentPlayerReply(suggestion: Suggestion): boolean {
     if (!this.playerId || suggestion.authorId !== this.playerId) {
       return false;
     }
-/** lastReply：定义该变量以承载业务值。 */
     const lastReply = suggestion.replies[suggestion.replies.length - 1];
     return lastReply?.authorType === 'gm';
   }
 
-/** hasUnreadGmReply：执行对应的业务逻辑。 */
+/** hasUnreadGmReply：判断并返回条件结果。 */
   private hasUnreadGmReply(suggestion: Suggestion): boolean {
     if (!this.playerId || suggestion.authorId !== this.playerId) {
       return false;
     }
-/** lastGmReplyAt：定义该变量以承载业务值。 */
     const lastGmReplyAt = this.getLastGmReplyAt(suggestion);
     return lastGmReplyAt > suggestion.authorLastReadGmReplyAt;
   }
 
-/** getLastGmReplyAt：执行对应的业务逻辑。 */
   private getLastGmReplyAt(suggestion: Suggestion): number {
     for (let index = suggestion.replies.length - 1; index >= 0; index -= 1) {
       const reply = suggestion.replies[index];
@@ -932,9 +814,8 @@ export class SuggestionPanel {
     return 0;
   }
 
-/** markSuggestionReadIfNeeded：执行对应的业务逻辑。 */
+
   private markSuggestionReadIfNeeded(suggestionId: string): void {
-/** suggestion：定义该变量以承载业务值。 */
     const suggestion = this.suggestions.find((entry) => entry.id === suggestionId);
     if (!suggestion || !this.hasUnreadGmReply(suggestion)) {
       return;
@@ -944,20 +825,17 @@ export class SuggestionPanel {
     this.socket.emit(C2S.MarkSuggestionRepliesRead, { suggestionId } as C2S_MarkSuggestionRepliesRead);
   }
 
-/** updateHudUnreadState：执行对应的业务逻辑。 */
   private updateHudUnreadState(): void {
-/** button：定义该变量以承载业务值。 */
     const button = document.getElementById('hud-open-suggestions');
     if (!button) {
       return;
     }
-/** hasUnread：定义该变量以承载业务值。 */
     const hasUnread = this.getMySuggestions().some((suggestion) => this.hasUnreadGmReply(suggestion));
     button.toggleAttribute('data-has-unread', hasUnread);
   }
 }
 
-/** escapeHtml：执行对应的业务逻辑。 */
+
 function escapeHtml(input: string): string {
   return input
     .replaceAll('&', '&amp;')
@@ -967,7 +845,7 @@ function escapeHtml(input: string): string {
     .replaceAll("'", '&#39;');
 }
 
-/** escapeHtmlAttr：执行对应的业务逻辑。 */
+
 function escapeHtmlAttr(input: string): string {
   return escapeHtml(input);
 }

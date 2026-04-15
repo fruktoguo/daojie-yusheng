@@ -1,11 +1,7 @@
-/** ConfirmModalOptions：定义该类型的结构与数据语义。 */
 type ConfirmModalOptions = {
-/** ownerId：定义该变量以承载业务值。 */
   ownerId: string;
-/** title：定义该变量以承载业务值。 */
   title: string;
   subtitle?: string;
-/** bodyHtml：定义该变量以承载业务值。 */
   bodyHtml: string;
   confirmLabel?: string;
   cancelLabel?: string;
@@ -15,29 +11,20 @@ type ConfirmModalOptions = {
   onClose?: () => void;
 };
 
-/** ConfirmModalHost：封装相关状态与行为。 */
 class ConfirmModalHost {
-/** modal：定义该变量以承载业务值。 */
   private modal: HTMLElement | null = null;
-/** card：定义该变量以承载业务值。 */
   private card: HTMLElement | null = null;
-/** title：定义该变量以承载业务值。 */
   private title: HTMLElement | null = null;
-/** subtitle：定义该变量以承载业务值。 */
   private subtitle: HTMLElement | null = null;
-/** body：定义该变量以承载业务值。 */
   private body: HTMLElement | null = null;
-/** cancelButton：定义该变量以承载业务值。 */
   private cancelButton: HTMLButtonElement | null = null;
-/** confirmButton：定义该变量以承载业务值。 */
   private confirmButton: HTMLButtonElement | null = null;
-/** ownerId：定义该变量以承载业务值。 */
   private ownerId: string | null = null;
   private onConfirm: (() => void) | null = null;
   private onClose: (() => void) | null = null;
   private initialized = false;
 
-/** open：执行对应的业务逻辑。 */
+/** open：打开界面或流程。 */
   open(options: ConfirmModalOptions): void {
     this.ensureInitialized();
     if (!this.modal || !this.card || !this.title || !this.subtitle || !this.body || !this.cancelButton || !this.confirmButton) {
@@ -59,7 +46,7 @@ class ConfirmModalHost {
     this.modal.setAttribute('aria-hidden', 'false');
   }
 
-/** close：执行对应的业务逻辑。 */
+/** close：关闭界面或流程。 */
   close(ownerId: string): void {
     if (this.ownerId !== ownerId) {
       return;
@@ -67,19 +54,18 @@ class ConfirmModalHost {
     this.dismiss(false);
   }
 
-/** isOpenFor：执行对应的业务逻辑。 */
+/** isOpenFor：判断并返回条件结果。 */
   isOpenFor(ownerId: string): boolean {
     return this.ownerId === ownerId && !this.modal?.classList.contains('hidden');
   }
 
-/** ensureInitialized：执行对应的业务逻辑。 */
+
   private ensureInitialized(): void {
     if (this.initialized) {
       return;
     }
     this.initialized = true;
 
-/** modal：定义该变量以承载业务值。 */
     const modal = document.createElement('div');
     modal.className = 'confirm-modal-layer hidden';
     modal.setAttribute('aria-hidden', 'true');
@@ -122,7 +108,6 @@ class ConfirmModalHost {
       if (this.confirmButton?.disabled) {
         return;
       }
-/** onConfirm：定义该变量以承载业务值。 */
       const onConfirm = this.onConfirm;
       this.dismiss(false);
       onConfirm?.();
@@ -137,12 +122,11 @@ class ConfirmModalHost {
     }, true);
   }
 
-/** dismiss：执行对应的业务逻辑。 */
+
   private dismiss(notify: boolean): void {
     if (!this.modal || this.modal.classList.contains('hidden')) {
       return;
     }
-/** onClose：定义该变量以承载业务值。 */
     const onClose = this.onClose;
     this.ownerId = null;
     this.onConfirm = null;
@@ -156,6 +140,5 @@ class ConfirmModalHost {
   }
 }
 
-/** confirmModalHost：定义该变量以承载业务值。 */
 export const confirmModalHost = new ConfirmModalHost();
 

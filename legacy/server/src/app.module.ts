@@ -18,6 +18,5 @@ import { HealthController } from './health.controller';
   ],
   controllers: [HealthController],
 })
-/** AppModule：封装相关状态与行为。 */
 export class AppModule {}
 

@@ -1,0 +1,274 @@
+{
+  "quests": [
+    {
+      "id": "q_intro_south_gate_rollcall",
+      "title": "先进镇里",
+      "line": "main",
+      "chapter": "序章·断道入镇",
+      "story": "你从北关残墙边醒来时，老关卒正守着那段早已废掉的旧路。他见你还能站，没问来历，只让你别继续在北井旧坊磨蹭，先顺着镇路往里走，去南市脚店找沈七娘挂个名，不然天一黑，连个能缩身子的炕角都轮不到你。",
+      "desc": "顺着镇路往里走，去南市脚店找沈七娘，先拿到今晚的落脚资格。",
+      "objectiveType": "talk",
+      "objectiveText": "去沈记脚店见沈七娘",
+      "targetNpcId": "npc_shen_qiniang",
+      "targetNpcName": "沈七娘",
+      "targetMapId": "yunlai_town",
+      "targetName": "沈七娘",
+      "required": 1,
+      "reward": [
+        {
+          "itemId": "pill.minor_heal",
+          "name": "回春散",
+          "type": "consumable",
+          "count": 2
+        }
+      ],
+      "nextQuestId": "q_intro_old_road_witness",
+      "giverMapId": "yunlai_town",
+      "giverNpcId": "npc_old_gate_guard",
+      "submitMapId": "yunlai_town",
+      "submitNpcId": "npc_shen_qiniang"
+    },
+    {
+      "id": "q_intro_old_road_witness",
+      "title": "断道见闻",
+      "line": "main",
+      "chapter": "序章·断道入镇",
+      "story": "沈七娘不收只会喊苦的人。她让你先去问赵老六，确认门外那批人到底还能剩下多少活口，也顺便看看你是不是个跑得动腿、带得回话的人。",
+      "desc": "去南门外找赵老六问清断道上的情况，再回脚店交代。",
+      "objectiveType": "talk",
+      "objectiveText": "和赵老六对话，问清断道上的见闻",
+      "targetNpcId": "npc_zhao_laoliu",
+      "targetNpcName": "赵老六",
+      "targetMapId": "yunlai_town",
+      "targetName": "赵老六",
+      "required": 1,
+      "reward": [
+        {
+          "itemId": "equip.trench_runner_boots",
+          "name": "越沟快靴",
+          "type": "equipment",
+          "count": 1
+        },
+        {
+          "itemId": "equip.gather_qi_pendant",
+          "name": "采气木坠",
+          "type": "equipment",
+          "count": 1
+        },
+        {
+          "itemId": "equip.herb_mist_robe",
+          "name": "药烟轻袍",
+          "type": "equipment",
+          "count": 1
+        }
+      ],
+      "nextQuestId": "q_intro_manual",
+      "giverMapId": "yunlai_town",
+      "giverNpcId": "npc_shen_qiniang",
+      "submitMapId": "yunlai_town",
+      "submitNpcId": "npc_shen_qiniang"
+    },
+    {
+      "id": "q_intro_manual",
+      "title": "活命先练气",
+      "line": "main",
+      "chapter": "序章·断道入镇",
+      "story": "赵老六提了一句你身上还带着书卷，沈七娘便把你推给了清玄执事。清玄不关心你从哪来，只说在这个镇子里，没点护身的本事，迟早会死在替别人跑腿的路上。",
+      "desc": "打开背包，先学会《青木剑诀》护身。",
+      "objectiveType": "learn_technique",
+      "objectiveText": "打开背包并学会《青木剑诀》",
+      "targetTechniqueId": "qingmu_sword",
+      "targetName": "青木剑诀",
+      "required": 1,
+      "reward": [
+        {
+          "itemId": "minor_qi_pill",
+          "name": "小还灵丹",
+          "type": "consumable",
+          "count": 2
+        },
+        {
+          "itemId": "map.yunlai_town",
+          "name": "云来初境图",
+          "type": "consumable",
+          "count": 1
+        }
+      ],
+      "nextQuestId": "q_intro_clear_south_gate",
+      "giverMapId": "yunlai_town",
+      "giverNpcId": "npc_qingxuan",
+      "submitMapId": "yunlai_town",
+      "submitNpcId": "npc_qingxuan"
+    },
+    {
+      "id": "q_intro_clear_south_gate",
+      "title": "门外先清一圈",
+      "line": "main",
+      "chapter": "序章·断道入镇",
+      "story": "马会头不愿多给你一句好话，但他也确实不想让南门外继续烂下去。粮袋边、垃圾堆旁都是灰尾鼠，再拖下去，流民和守兵今晚都别想睡安稳。",
+      "desc": "清掉南门外与废料堆附近的灰尾鼠，证明你不是白吃脚店饭的人。",
+      "objectiveText": "击退南门外的灰尾鼠",
+      "targetMonsterId": "m_town_rat_south",
+      "targetCount": 6,
+      "targetMapId": "yunlai_town",
+      "targetName": "灰尾鼠",
+      "required": 6,
+      "reward": [
+        {
+          "itemId": "pill.minor_heal",
+          "name": "回春散",
+          "type": "consumable",
+          "count": 3
+        }
+      ],
+      "nextQuestId": "q_intro_medicine_fee",
+      "giverMapId": "yunlai_town",
+      "giverNpcId": "npc_ma_huitou",
+      "submitMapId": "yunlai_town",
+      "submitNpcId": "npc_ma_huitou"
+    },
+    {
+      "id": "q_intro_medicine_fee",
+      "title": "伤药要拿命换",
+      "line": "main",
+      "chapter": "序章·断道入镇",
+      "story": "脚店里那名无名伤者快撑不住了，沈七娘却不打算倒贴药。她让你去收拾几名趁夜摸到城边的流匪，把他们身上的腰牌带回来，算作今晚那锅药汤的钱。",
+      "desc": "击退南门外流匪，并带回足够的匪徒腰牌交给沈七娘。",
+      "objectiveText": "清掉城边流匪并带回腰牌",
+      "targetMonsterId": "m_gate_thug",
+      "targetCount": 4,
+      "targetMapId": "yunlai_town",
+      "targetName": "趁火打劫的流匪",
+      "required": 4,
+      "requiredItemId": "bandit_insignia",
+      "requiredItemCount": 2,
+      "reward": [
+        {
+          "itemId": "minor_qi_pill",
+          "name": "小还灵丹",
+          "type": "consumable",
+          "count": 2
+        },
+        {
+          "itemId": "pill.crimson_bud_elixir",
+          "name": "赤芽丹",
+          "type": "consumable",
+          "count": 1
+        }
+      ],
+      "nextQuestId": "q_intro_wounded_words",
+      "giverMapId": "yunlai_town",
+      "giverNpcId": "npc_shen_qiniang",
+      "submitMapId": "yunlai_town",
+      "submitNpcId": "npc_shen_qiniang"
+    },
+    {
+      "id": "q_intro_wounded_words",
+      "title": "醒来的那一句话",
+      "line": "main",
+      "chapter": "序章·断道入镇",
+      "story": "伤药熬下去后，那无名伤者终于醒过一次。沈七娘让你去听听他还能吐出什么话，再把能记住的东西带去告诉清玄。她不想惹麻烦，但也知道这人身上的伤不像普通刀口。",
+      "desc": "去脚店内与无名伤者交谈，再把听见的话转告清玄执事。",
+      "objectiveType": "talk",
+      "objectiveText": "与无名伤者交谈",
+      "targetNpcId": "npc_wounded_stranger",
+      "targetNpcName": "无名伤者",
+      "targetMapId": "yunlai_town",
+      "targetName": "无名伤者",
+      "required": 1,
+      "reward": [
+        {
+          "itemId": "pill.clear_eye_elixir",
+          "name": "明目丹",
+          "type": "consumable",
+          "count": 1
+        }
+      ],
+      "nextQuestId": "q_intro_old_well_watch",
+      "giverMapId": "yunlai_town",
+      "giverNpcId": "npc_shen_qiniang",
+      "submitMapId": "yunlai_town",
+      "submitNpcId": "npc_qingxuan"
+    },
+    {
+      "id": "q_intro_old_well_watch",
+      "title": "北井别回头",
+      "line": "main",
+      "chapter": "序章·断道入镇",
+      "story": "清玄听完那句呓语后，脸色也沉了下来。他不打算现在追查，只让你先去问守夜人，确认北井旧坊最近夜里是不是又出了怪事。这个镇子还撑得住，可有些东西显然比匪患更早就在里面扎了根。",
+      "desc": "去问守夜人北井夜里的异动，再回清玄处复命。",
+      "objectiveType": "talk",
+      "objectiveText": "向守夜人打听北井夜里的异动",
+      "targetNpcId": "npc_watchman",
+      "targetNpcName": "守夜人",
+      "targetMapId": "yunlai_town",
+      "targetName": "守夜人",
+      "required": 1,
+      "reward": [
+        {
+          "itemId": "book.mountain_insight_chart",
+          "name": "《玄照图》",
+          "type": "skill_book",
+          "count": 1
+        },
+        {
+          "itemId": "book.standing_stake_art",
+          "name": "《站桩功》",
+          "type": "skill_book",
+          "count": 1
+        },
+        {
+          "itemId": "map.wildlands",
+          "name": "荒原游猎图",
+          "type": "consumable",
+          "count": 1
+        }
+      ],
+      "nextQuestId": "q_intro_body_tempering",
+      "giverMapId": "yunlai_town",
+      "giverNpcId": "npc_qingxuan",
+      "submitMapId": "yunlai_town",
+      "submitNpcId": "npc_qingxuan"
+    },
+    {
+      "id": "q_intro_body_tempering",
+      "title": "先把脚跟站住",
+      "line": "main",
+      "chapter": "序章·断道入镇",
+      "story": "清玄不打算现在就替你掀开北井那层盖子。他给你的要求更现实: 先把境界练到能在云来镇外活着回来。等你真正撑住第一口内息，这镇子里的话你才有资格继续往下听。",
+      "desc": "继续在镇外历练，先学好《站桩功》，备齐突破要的鼠尾并把体魄练够，再突破到炼皮境。",
+      "objectiveType": "realm_stage",
+      "objectiveText": "查看突破要求，备齐鼠尾并达到体魄门槛后突破至炼皮境",
+      "targetRealmStage": "BodyTempering",
+      "targetRealmLv": 2,
+      "targetMapId": "wildlands",
+      "targetName": "炼体境",
+      "required": 1,
+      "reward": [
+        {
+          "itemId": "book.golden_lock_body",
+          "name": "《固元功》",
+          "type": "skill_book",
+          "count": 1
+        },
+        {
+          "itemId": "pill.windstride_elixir",
+          "name": "轻身丹",
+          "type": "consumable",
+          "count": 1
+        },
+        {
+          "itemId": "major_qi_pill",
+          "name": "大还灵丹",
+          "type": "consumable",
+          "count": 1
+        }
+      ],
+      "nextQuestId": "q_wildlands_roadhouse",
+      "giverMapId": "yunlai_town",
+      "giverNpcId": "npc_qingxuan",
+      "submitMapId": "yunlai_town",
+      "submitNpcId": "npc_qingxuan"
+    }
+  ]
+}

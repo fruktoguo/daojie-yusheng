@@ -5,7 +5,6 @@ import {
 } from 'typeorm';
 
 @Entity('mail_audience_members')
-/** MailAudienceMemberEntity：封装相关状态与行为。 */
 export class MailAudienceMemberEntity {
   @PrimaryColumn({ type: 'uuid' })
   mailId!: string;

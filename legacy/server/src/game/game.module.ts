@@ -108,6 +108,5 @@ import { EnhancementService } from './enhancement.service';
   exports: [MapService, PlayerService, SuggestionService, SuggestionRealtimeService, MailService, RedeemCodeService],
 })
 
-/** GameModule：封装相关状态与行为。 */
 export class GameModule {}
 

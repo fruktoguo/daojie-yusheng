@@ -11,13 +11,9 @@ import {
   renderMarkdownTable,
 } from './value-report-lib';
 
-/** ReportFileDef：定义该类型的结构与数据语义。 */
 type ReportFileDef = {
-/** fileName：定义该变量以承载业务值。 */
   fileName: string;
-/** title：定义该变量以承载业务值。 */
   title: string;
-/** content：定义该变量以承载业务值。 */
   content: string;
 };
 

@@ -8,7 +8,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const ROOT = process.cwd();
-const DEFAULT_SOURCE_DIR = path.join(ROOT, 'legacy/server/data/content/techniques');
+const DEFAULT_SOURCE_DIR = path.join(ROOT, 'packages/server/data/content/techniques');
 
 /**
  * 记录境界folders。

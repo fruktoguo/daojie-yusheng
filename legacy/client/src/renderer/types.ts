@@ -5,16 +5,12 @@
 import { GameTimeState, GridPoint, NpcQuestMarker, TargetingShape, Tile } from '@mud/shared';
 import { Camera } from './camera';
 
-/** FloatingActionTextStyle：定义该类型的结构与数据语义。 */
 export type FloatingActionTextStyle = 'default' | 'divine' | 'chant';
 
 /** 技能瞄准叠加层状态 */
 export interface TargetingOverlayState {
-/** originX：定义该变量以承载业务值。 */
   originX: number;
-/** originY：定义该变量以承载业务值。 */
   originY: number;
-/** range：定义该变量以承载业务值。 */
   range: number;
   visibleOnly?: boolean;
   shape?: TargetingShape;
@@ -53,15 +49,10 @@ export interface IRenderer {
   ): void;
   updateEntities(
     list: readonly {
-/** id：定义该变量以承载业务值。 */
       id: string;
-/** wx：定义该变量以承载业务值。 */
       wx: number;
-/** wy：定义该变量以承载业务值。 */
       wy: number;
-/** char：定义该变量以承载业务值。 */
       char: string;
-/** color：定义该变量以承载业务值。 */
       color: string;
       name?: string;
       kind?: string;

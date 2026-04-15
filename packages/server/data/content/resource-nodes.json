@@ -1,0 +1,528 @@
+{
+  "resourceNodes": [
+    {
+      "id": "tile.spirit_ore",
+      "kind": "runtime_tile",
+      "name": "灵石矿",
+      "sourceLabel": "灵石矿",
+      "tileType": "spirit_ore",
+      "itemId": "spirit_stone",
+      "baseChanceBps": 20
+    },
+    {
+      "id": "tile.black_iron_ore",
+      "kind": "runtime_tile",
+      "name": "玄铁矿",
+      "sourceLabel": "玄铁矿",
+      "tileType": "black_iron_ore",
+      "itemId": "black_iron_chunk",
+      "baseChanceBps": 50
+    },
+    {
+      "id": "tile.broken_sword_heap",
+      "kind": "runtime_tile",
+      "name": "断剑堆",
+      "sourceLabel": "断剑堆",
+      "tileType": "broken_sword_heap",
+      "itemId": "sword_pellet",
+      "baseChanceBps": 1200
+    },
+    {
+      "id": "tile.cloud_wall",
+      "kind": "runtime_tile",
+      "name": "云墙",
+      "sourceLabel": "云墙",
+      "tileType": "cloud",
+      "itemId": "cloud_puff",
+      "baseChanceBps": 200
+    },
+    {
+      "id": "landmark.spirit_ore_vein",
+      "kind": "landmark_marker",
+      "name": "灵石矿脉",
+      "sourceLabel": "灵石矿",
+      "itemId": "spirit_stone"
+    },
+    {
+      "id": "landmark.black_iron_vein",
+      "kind": "landmark_marker",
+      "name": "玄铁矿脉",
+      "sourceLabel": "玄铁矿",
+      "itemId": "black_iron_chunk"
+    },
+    {
+      "id": "landmark.ore_basement_black_iron_vein",
+      "kind": "landmark_container",
+      "name": "玄铁矿脉",
+      "container": {
+        "grade": "mortal",
+        "refreshTicks": 2400,
+        "char": "矿",
+        "color": "#6b7787",
+        "lootPools": [
+          {
+            "chance": 0.75,
+            "maxLevel": 2,
+            "maxGrade": "yellow",
+            "countMin": 1,
+            "countMax": 2,
+            "tagGroups": [
+              [
+                "矿材"
+              ],
+              [
+                "玄铁"
+              ]
+            ]
+          },
+          {
+            "chance": 0.18,
+            "maxLevel": 2,
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "矿材"
+              ],
+              [
+                "灵铁"
+              ]
+            ]
+          },
+          {
+            "chance": 0.4,
+            "maxLevel": 2,
+            "maxGrade": "mortal",
+            "tagGroups": [
+              [
+                "消耗品"
+              ],
+              [
+                "灵石"
+              ]
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "landmark.herb.moondew_grass",
+      "kind": "landmark_container",
+      "name": "月露草",
+      "container": {
+        "variant": "herb",
+        "grade": "mortal",
+        "refreshTicksMin": 50,
+        "refreshTicksMax": 70,
+        "char": "草",
+        "color": "#7bbd8f",
+        "drops": [
+          {
+            "itemId": "mat.moondew_grass",
+            "name": "月露草",
+            "type": "material",
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "landmark.herb.red_flame_leaf",
+      "kind": "landmark_container",
+      "name": "赤火叶",
+      "container": {
+        "variant": "herb",
+        "grade": "yellow",
+        "refreshTicksMin": 50,
+        "refreshTicksMax": 70,
+        "char": "叶",
+        "color": "#c86d4a",
+        "drops": [
+          {
+            "itemId": "mat.red_flame_leaf",
+            "name": "赤火叶",
+            "type": "material",
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "landmark.herb.green_spirit_stem",
+      "kind": "landmark_container",
+      "name": "青灵茎",
+      "container": {
+        "variant": "herb",
+        "grade": "yellow",
+        "refreshTicksMin": 50,
+        "refreshTicksMax": 70,
+        "char": "茎",
+        "color": "#6ba06f",
+        "drops": [
+          {
+            "itemId": "mat.green_spirit_stem",
+            "name": "青灵茎",
+            "type": "material",
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "landmark.herb.frost_lotus_petal",
+      "kind": "landmark_container",
+      "name": "寒莲瓣",
+      "container": {
+        "variant": "herb",
+        "grade": "mystic",
+        "refreshTicksMin": 50,
+        "refreshTicksMax": 70,
+        "char": "莲",
+        "color": "#8bb8cf",
+        "drops": [
+          {
+            "itemId": "mat.frost_lotus_petal",
+            "name": "寒莲瓣",
+            "type": "material",
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "landmark.herb.clear_mind_flower",
+      "kind": "landmark_container",
+      "name": "明心花",
+      "container": {
+        "variant": "herb",
+        "grade": "mystic",
+        "refreshTicksMin": 50,
+        "refreshTicksMax": 70,
+        "char": "花",
+        "color": "#d7e5c0",
+        "drops": [
+          {
+            "itemId": "mat.clear_mind_flower",
+            "name": "明心花",
+            "type": "material",
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "landmark.herb.bloodbud_fruit",
+      "kind": "landmark_container",
+      "name": "赤芽果",
+      "container": {
+        "variant": "herb",
+        "grade": "yellow",
+        "refreshTicksMin": 50,
+        "refreshTicksMax": 70,
+        "char": "果",
+        "color": "#bf5a4c",
+        "drops": [
+          {
+            "itemId": "mat.bloodbud_fruit",
+            "name": "赤芽果",
+            "type": "material",
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "landmark.herb.breakarray_shard",
+      "kind": "landmark_container",
+      "name": "破纹砂",
+      "container": {
+        "variant": "herb",
+        "grade": "mystic",
+        "refreshTicksMin": 50,
+        "refreshTicksMax": 70,
+        "char": "砂",
+        "color": "#8a8174",
+        "drops": [
+          {
+            "itemId": "mat.breakarray_shard",
+            "name": "破纹砂",
+            "type": "material",
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "landmark.herb.swiftwind_reed",
+      "kind": "landmark_container",
+      "name": "疾风苇",
+      "container": {
+        "variant": "herb",
+        "grade": "mystic",
+        "refreshTicksMin": 50,
+        "refreshTicksMax": 70,
+        "char": "苇",
+        "color": "#9ac6ad",
+        "drops": [
+          {
+            "itemId": "mat.swiftwind_reed",
+            "name": "疾风苇",
+            "type": "material",
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "landmark.herb.bitterheart_vine",
+      "kind": "landmark_container",
+      "name": "苦心藤",
+      "container": {
+        "variant": "herb",
+        "grade": "earth",
+        "refreshTicksMin": 50,
+        "refreshTicksMax": 70,
+        "char": "藤",
+        "color": "#567a4b",
+        "drops": [
+          {
+            "itemId": "mat.bitterheart_vine",
+            "name": "苦心藤",
+            "type": "material",
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "landmark.herb.sunmelt_seed",
+      "kind": "landmark_container",
+      "name": "融阳子",
+      "container": {
+        "variant": "herb",
+        "grade": "earth",
+        "refreshTicksMin": 50,
+        "refreshTicksMax": 70,
+        "char": "子",
+        "color": "#d59a43",
+        "drops": [
+          {
+            "itemId": "mat.sunmelt_seed",
+            "name": "融阳子",
+            "type": "material",
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "landmark.herb.longvein_vine",
+      "kind": "landmark_container",
+      "name": "长脉藤",
+      "container": {
+        "variant": "herb",
+        "grade": "yellow",
+        "refreshTicksMin": 80,
+        "refreshTicksMax": 120,
+        "char": "藤",
+        "color": "#5d8d58",
+        "drops": [
+          {
+            "itemId": "mat.longvein_vine",
+            "name": "长脉藤",
+            "type": "material",
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "landmark.herb.returnspring_leaf",
+      "kind": "landmark_container",
+      "name": "回春叶",
+      "container": {
+        "variant": "herb",
+        "grade": "yellow",
+        "refreshTicksMin": 80,
+        "refreshTicksMax": 120,
+        "char": "叶",
+        "color": "#8bb06b",
+        "drops": [
+          {
+            "itemId": "mat.returnspring_leaf",
+            "name": "回春叶",
+            "type": "material",
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "landmark.herb.coldmarrow_reed",
+      "kind": "landmark_container",
+      "name": "寒髓苇",
+      "container": {
+        "variant": "herb",
+        "grade": "yellow",
+        "refreshTicksMin": 80,
+        "refreshTicksMax": 120,
+        "char": "苇",
+        "color": "#91c6c7",
+        "drops": [
+          {
+            "itemId": "mat.coldmarrow_reed",
+            "name": "寒髓苇",
+            "type": "material",
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "landmark.herb.moonwell_stamen",
+      "kind": "landmark_container",
+      "name": "月井蕊",
+      "container": {
+        "variant": "herb",
+        "grade": "yellow",
+        "refreshTicksMin": 80,
+        "refreshTicksMax": 120,
+        "char": "蕊",
+        "color": "#c7d9ef",
+        "drops": [
+          {
+            "itemId": "mat.moonwell_stamen",
+            "name": "月井蕊",
+            "type": "material",
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "landmark.herb.scorchheart_petal",
+      "kind": "landmark_container",
+      "name": "灼心瓣",
+      "container": {
+        "variant": "herb",
+        "grade": "yellow",
+        "refreshTicksMin": 80,
+        "refreshTicksMax": 120,
+        "char": "瓣",
+        "color": "#cf6845",
+        "drops": [
+          {
+            "itemId": "mat.scorchheart_petal",
+            "name": "灼心瓣",
+            "type": "material",
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "landmark.herb.flamegrain_spike",
+      "kind": "landmark_container",
+      "name": "炎穗芒",
+      "container": {
+        "variant": "herb",
+        "grade": "yellow",
+        "refreshTicksMin": 80,
+        "refreshTicksMax": 120,
+        "char": "芒",
+        "color": "#a8583f",
+        "drops": [
+          {
+            "itemId": "mat.flamegrain_spike",
+            "name": "炎穗芒",
+            "type": "material",
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "landmark.herb.bearingroot_ginseng",
+      "kind": "landmark_container",
+      "name": "承脉参",
+      "container": {
+        "variant": "herb",
+        "grade": "yellow",
+        "refreshTicksMin": 80,
+        "refreshTicksMax": 120,
+        "char": "参",
+        "color": "#8d7b63",
+        "drops": [
+          {
+            "itemId": "mat.bearingroot_ginseng",
+            "name": "承脉参",
+            "type": "material",
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "landmark.herb.stonecore_lingzhi",
+      "kind": "landmark_container",
+      "name": "岩髓芝",
+      "container": {
+        "variant": "herb",
+        "grade": "yellow",
+        "refreshTicksMin": 80,
+        "refreshTicksMax": 120,
+        "char": "芝",
+        "color": "#6f6558",
+        "drops": [
+          {
+            "itemId": "mat.stonecore_lingzhi",
+            "name": "岩髓芝",
+            "type": "material",
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "landmark.herb.goldthread_briar",
+      "kind": "landmark_container",
+      "name": "金芒棘",
+      "container": {
+        "variant": "herb",
+        "grade": "yellow",
+        "refreshTicksMin": 80,
+        "refreshTicksMax": 120,
+        "char": "棘",
+        "color": "#b69a55",
+        "drops": [
+          {
+            "itemId": "mat.goldthread_briar",
+            "name": "金芒棘",
+            "type": "material",
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "landmark.herb.ironvein_caltrop",
+      "kind": "landmark_container",
+      "name": "铁脉蒺",
+      "container": {
+        "variant": "herb",
+        "grade": "yellow",
+        "refreshTicksMin": 80,
+        "refreshTicksMax": 120,
+        "char": "蒺",
+        "color": "#7e7064",
+        "drops": [
+          {
+            "itemId": "mat.ironvein_caltrop",
+            "name": "铁脉蒺",
+            "type": "material",
+            "count": 1
+          }
+        ]
+      }
+    }
+  ]
+}

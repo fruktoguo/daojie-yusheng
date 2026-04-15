@@ -15,7 +15,6 @@ import {
   MapTileResourcePoint,
 } from './map.service.shared';
 
-/** normalizeContainerGrade：执行对应的业务逻辑。 */
 export function normalizeContainerGrade(grade: unknown): TechniqueGrade {
   if (
     grade === 'mortal' ||
@@ -32,7 +31,6 @@ export function normalizeContainerGrade(grade: unknown): TechniqueGrade {
   return 'mortal';
 }
 
-/** normalizeAuraPoints：执行对应的业务逻辑。 */
 export function normalizeAuraPoints(
   rawAuras: unknown,
   meta: MapMeta,
@@ -41,7 +39,6 @@ export function normalizeAuraPoints(
 ): MapAuraPoint[] {
   if (!Array.isArray(rawAuras)) return [];
 
-/** result：定义该变量以承载业务值。 */
   const result: MapAuraPoint[] = [];
   for (const candidate of rawAuras) {
     const point = candidate as Partial<MapAuraPoint>;
@@ -69,7 +66,6 @@ export function normalizeAuraPoints(
   return result;
 }
 
-/** normalizeTileResourcePoints：执行对应的业务逻辑。 */
 export function normalizeTileResourcePoints(
   rawResources: unknown,
   meta: MapMeta,
@@ -81,12 +77,10 @@ export function normalizeTileResourcePoints(
     return [];
   }
 
-/** result：定义该变量以承载业务值。 */
   const result: MapTileResourcePoint[] = [];
   for (const candidate of rawResources) {
     const point = candidate as Partial<GmMapResourceRecord>;
     const resourceKey = normalizeTileResourceKey(point.resourceKey);
-/** valid：定义该变量以承载业务值。 */
     const valid =
       Number.isInteger(point.x) &&
       Number.isInteger(point.y) &&
@@ -115,13 +109,11 @@ export function normalizeTileResourcePoints(
   return result;
 }
 
-/** normalizeDrops：执行对应的业务逻辑。 */
 export function normalizeDrops(rawDrops: unknown): DropConfig[] {
   if (!Array.isArray(rawDrops)) {
     return [];
   }
 
-/** drops：定义该变量以承载业务值。 */
   const drops: DropConfig[] = [];
   for (const rawDrop of rawDrops) {
     const drop = rawDrop as Partial<DropConfig>;
@@ -137,20 +129,17 @@ export function normalizeDrops(rawDrops: unknown): DropConfig[] {
       name: drop.name,
       type: drop.type as ItemType,
       count: Number.isInteger(drop.count) ? Number(drop.count) : 1,
-/** chance：定义该变量以承载业务值。 */
       chance: typeof drop.chance === 'number' ? drop.chance : 1,
     });
   }
   return drops;
 }
 
-/** normalizeContainerLootPools：执行对应的业务逻辑。 */
 export function normalizeContainerLootPools(rawPools: unknown): ContainerLootPoolConfig[] {
   if (!Array.isArray(rawPools)) {
     return [];
   }
 
-/** pools：定义该变量以承载业务值。 */
   const pools: ContainerLootPoolConfig[] = [];
   for (const rawPool of rawPools) {
     const pool = rawPool as Partial<GmMapContainerLootPoolRecord>;
@@ -163,17 +152,11 @@ export function normalizeContainerLootPools(rawPools: unknown): ContainerLootPoo
           : [])
         .filter((group) => group.length > 0)
       : [];
-/** rolls：定义该变量以承载业务值。 */
     const rolls = Number.isInteger(pool.rolls) && Number(pool.rolls) > 0 ? Number(pool.rolls) : 1;
-/** chance：定义该变量以承载业务值。 */
     const chance = typeof pool.chance === 'number' ? Math.max(0, Math.min(1, Number(pool.chance))) : 1;
-/** minLevel：定义该变量以承载业务值。 */
     const minLevel = Number.isInteger(pool.minLevel) && Number(pool.minLevel) > 0 ? Number(pool.minLevel) : undefined;
-/** maxLevel：定义该变量以承载业务值。 */
     const maxLevel = Number.isInteger(pool.maxLevel) && Number(pool.maxLevel) > 0 ? Number(pool.maxLevel) : undefined;
-/** countMin：定义该变量以承载业务值。 */
     const countMin = Number.isInteger(pool.countMin) && Number(pool.countMin) > 0 ? Number(pool.countMin) : undefined;
-/** countMax：定义该变量以承载业务值。 */
     const countMax = Number.isInteger(pool.countMax) && Number(pool.countMax) > 0 ? Number(pool.countMax) : undefined;
     pools.push({
       rolls,
@@ -185,7 +168,6 @@ export function normalizeContainerLootPools(rawPools: unknown): ContainerLootPoo
       tagGroups: normalizedTagGroups,
       countMin,
       countMax,
-/** allowDuplicates：定义该变量以承载业务值。 */
       allowDuplicates: pool.allowDuplicates === true,
     });
   }

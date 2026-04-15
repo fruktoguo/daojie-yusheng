@@ -59,7 +59,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile || pnpm install
 
-      - name: Verify shadow backup gate with DB
+      - name: Verify default local/with-db replace-ready gate
         run: pnpm verify:replace-ready
 
   build-server-next-image:

@@ -65,75 +65,49 @@ import {
   TECHNIQUE_SOURCE_PREFIX,
 } from '../constants/gameplay/technique';
 
-/** TechniqueDirtyFlag：定义该类型的结构与数据语义。 */
 type TechniqueDirtyFlag = 'inv' | 'tech' | 'attr' | 'actions';
-/** TechniqueMessageKind：定义该类型的结构与数据语义。 */
 type TechniqueMessageKind = 'system' | 'quest' | 'combat' | 'loot';
 
-/** TechniqueMessage：定义该接口的能力与字段约束。 */
 interface TechniqueMessage {
-/** text：定义该变量以承载业务值。 */
   text: string;
   kind?: TechniqueMessageKind;
 }
 
-/** CultivationResult：定义该接口的能力与字段约束。 */
 interface CultivationResult {
   error?: string;
-/** changed：定义该变量以承载业务值。 */
   changed: boolean;
-/** dirty：定义该变量以承载业务值。 */
   dirty: TechniqueDirtyFlag[];
-/** messages：定义该变量以承载业务值。 */
   messages: TechniqueMessage[];
 }
 
-/** TechniqueExpAdvanceResult：定义该接口的能力与字段约束。 */
 interface TechniqueExpAdvanceResult {
-/** changed：定义该变量以承载业务值。 */
   changed: boolean;
-/** gained：定义该变量以承载业务值。 */
   gained: number;
   targetLabel?: string;
-/** expLabel：定义该变量以承载业务值。 */
   expLabel: string;
-/** dirty：定义该变量以承载业务值。 */
   dirty: TechniqueDirtyFlag[];
-/** messages：定义该变量以承载业务值。 */
   messages: TechniqueMessage[];
 }
 
-/** BreakthroughResult：定义该接口的能力与字段约束。 */
 interface BreakthroughResult {
   error?: string;
-/** dirty：定义该变量以承载业务值。 */
   dirty: TechniqueDirtyFlag[];
-/** messages：定义该变量以承载业务值。 */
   messages: TechniqueMessage[];
 }
 
-/** HeavenGateActionResult：定义该接口的能力与字段约束。 */
 interface HeavenGateActionResult {
   error?: string;
-/** dirty：定义该变量以承载业务值。 */
   dirty: TechniqueDirtyFlag[];
-/** messages：定义该变量以承载业务值。 */
   messages: TechniqueMessage[];
 }
 
-/** ResolvedBreakthroughRequirement：定义该接口的能力与字段约束。 */
 interface ResolvedBreakthroughRequirement {
-/** def：定义该变量以承载业务值。 */
   def: BreakthroughRequirementDef;
-/** completed：定义该变量以承载业务值。 */
   completed: boolean;
-/** blocksBreakthrough：定义该变量以承载业务值。 */
   blocksBreakthrough: boolean;
-/** view：定义该变量以承载业务值。 */
   view: BreakthroughRequirementView;
 }
 
-/** MonsterKillExpInput：定义该接口的能力与字段约束。 */
 interface MonsterKillExpInput {
   monsterLevel?: number;
   monsterName?: string;
@@ -144,7 +118,6 @@ interface MonsterKillExpInput {
   expAdjustmentRealmLv?: number;
 }
 
-/** RealmExpAdvanceOptions：定义该接口的能力与字段约束。 */
 interface RealmExpAdvanceOptions {
   expBonus?: number;
   minimumGain?: number;
@@ -153,20 +126,13 @@ interface RealmExpAdvanceOptions {
   trackCombatExp?: boolean;
 }
 
-/** SpiritualRootSeedTier：定义该类型的结构与数据语义。 */
 type SpiritualRootSeedTier = 'heaven' | 'divine';
 
-/** HEAVEN_GATE_REALM_LEVEL：定义该变量以承载业务值。 */
 const HEAVEN_GATE_REALM_LEVEL = 18;
-/** HEAVEN_GATE_MAX_SEVERED：定义该变量以承载业务值。 */
 const HEAVEN_GATE_MAX_SEVERED = 4;
-/** HEAVEN_GATE_ROOTS_SOURCE：定义该变量以承载业务值。 */
 const HEAVEN_GATE_ROOTS_SOURCE = 'heaven_gate:roots';
-/** HEAVEN_GATE_REROLL_AVERAGE_BONUS：定义该变量以承载业务值。 */
 const HEAVEN_GATE_REROLL_AVERAGE_BONUS = 2;
-/** HEAVEN_GATE_EXTRA_PERFECT_ROOT_SOFT_CAP：定义该变量以承载业务值。 */
 const HEAVEN_GATE_EXTRA_PERFECT_ROOT_SOFT_CAP = 174;
-/** HEAVEN_GATE_AVERAGE_QUALITY_SEGMENTS：定义该变量以承载业务值。 */
 const HEAVEN_GATE_AVERAGE_QUALITY_SEGMENTS: Record<number, Array<{ min: number; max: number; weight: number }>> = {
   5: [
     { min: 1, max: 15, weight: 35 },
@@ -215,7 +181,6 @@ const HEAVEN_GATE_AVERAGE_QUALITY_SEGMENTS: Record<number, Array<{ min: number; 
     { min: 100, max: 100, weight: 3 },
   ],
 };
-/** HEAVEN_GATE_DISTRIBUTION_SPREAD：定义该变量以承载业务值。 */
 const HEAVEN_GATE_DISTRIBUTION_SPREAD: Record<number, number> = {
   5: 0.18,
   4: 0.28,
@@ -224,40 +189,26 @@ const HEAVEN_GATE_DISTRIBUTION_SPREAD: Record<number, number> = {
   1: 0,
 };
 
-/** RealmExpAdvanceResult：定义该接口的能力与字段约束。 */
 interface RealmExpAdvanceResult {
-/** changed：定义该变量以承载业务值。 */
   changed: boolean;
-/** gained：定义该变量以承载业务值。 */
   gained: number;
-/** techniqueEligibleGain：定义该变量以承载业务值。 */
   techniqueEligibleGain: number;
-/** foundationSpent：定义该变量以承载业务值。 */
   foundationSpent: number;
-/** foundationGained：定义该变量以承载业务值。 */
   foundationGained: number;
-/** combatExpGained：定义该变量以承载业务值。 */
   combatExpGained: number;
-/** dirty：定义该变量以承载业务值。 */
   dirty: TechniqueDirtyFlag[];
-/** messages：定义该变量以承载业务值。 */
   messages: TechniqueMessage[];
 }
 
-/** FOUNDATION_EXP_MULTIPLIER：定义该变量以承载业务值。 */
 const FOUNDATION_EXP_MULTIPLIER = 3;
-/** FOUNDATION_EXP_BONUS_MULTIPLIER：定义该变量以承载业务值。 */
 const FOUNDATION_EXP_BONUS_MULTIPLIER = FOUNDATION_EXP_MULTIPLIER - 1;
-/** SINGLE_COMBAT_REALM_EXP_CAP_MULTIPLIER：定义该变量以承载业务值。 */
 const SINGLE_COMBAT_REALM_EXP_CAP_MULTIPLIER = 5;
-/** SPIRITUAL_ROOT_SEED_REROLL_EQUIVALENTS：定义该变量以承载业务值。 */
 const SPIRITUAL_ROOT_SEED_REROLL_EQUIVALENTS: Record<SpiritualRootSeedTier, number> = {
   heaven: 10,
   divine: 100,
 };
 
 @Injectable()
-/** TechniqueService：封装相关状态与行为。 */
 export class TechniqueService {
   private readonly progressionInitialized = new WeakSet<PlayerState>();
 
@@ -273,13 +224,9 @@ export class TechniqueService {
   /** 初始化玩家境界与功法进度（加载时、持久化前调用） */
   initializePlayerProgression(player: PlayerState): void {
     this.initializePlayerSpecialStats(player);
-/** previousHp：定义该变量以承载业务值。 */
     const previousHp = player.hp;
-/** previousMaxHp：定义该变量以承载业务值。 */
     const previousMaxHp = player.maxHp;
-/** persisted：定义该变量以承载业务值。 */
     const persisted = this.readPersistedRealmState(player);
-/** normalized：定义该变量以承载业务值。 */
     const normalized = this.resolveInitialRealmState(player, persisted);
     this.syncTechniqueMetadata(player);
     this.applyRealmBonus(player, normalized);
@@ -310,30 +257,22 @@ export class TechniqueService {
     }
   }
 
-/** preparePlayerForPersistence：执行对应的业务逻辑。 */
   preparePlayerForPersistence(player: PlayerState): void {
     this.initializePlayerProgression(player);
   }
 
-/** normalizeHeavenGateState：执行对应的业务逻辑。 */
   normalizeHeavenGateState(value: unknown): HeavenGateState | null {
     if (!value || typeof value !== 'object' || Array.isArray(value)) {
       return null;
     }
-/** raw：定义该变量以承载业务值。 */
     const raw = value as Record<string, unknown>;
-/** severed：定义该变量以承载业务值。 */
     const severed = Array.isArray(raw.severed)
       ? [...new Set(raw.severed.filter((entry): entry is ElementKey => typeof entry === 'string' && ELEMENT_KEYS.includes(entry as ElementKey)))]
         .slice(0, HEAVEN_GATE_MAX_SEVERED)
       : [];
-/** roots：定义该变量以承载业务值。 */
     const roots = this.normalizeHeavenGateRoots(raw.roots);
-/** entered：定义该变量以承载业务值。 */
     const entered = raw.entered === true;
-/** averageBonus：定义该变量以承载业务值。 */
     const averageBonus = Math.max(0, Math.floor(Number(raw.averageBonus ?? 0) || 0));
-/** unlocked：定义该变量以承载业务值。 */
     const unlocked = raw.unlocked === true || entered || roots !== null || severed.length > 0;
     if (!unlocked && severed.length === 0 && roots === null) {
       return null;
@@ -353,13 +292,11 @@ export class TechniqueService {
     element?: ElementKey,
   ): HeavenGateActionResult {
     this.initializePlayerProgression(player);
-/** realm：定义该变量以承载业务值。 */
     const realm = player.realm;
     if (!realm || !this.hasReachedHeavenGateRealm(realm.realmLv)) {
       return { error: '当前境界不可开天门', dirty: [], messages: [] };
     }
 
-/** heavenGate：定义该变量以承载业务值。 */
     const heavenGate = this.syncHeavenGateState(player, realm);
     if (!heavenGate?.unlocked) {
       return { error: '当前尚未叩开仙门，暂时不能开天门', dirty: [], messages: [] };
@@ -372,12 +309,10 @@ export class TechniqueService {
       if (!element || !ELEMENT_KEYS.includes(element)) {
         return { error: '灵根目标无效', dirty: [], messages: [] };
       }
-/** cost：定义该变量以承载业务值。 */
       const cost = this.getHeavenGateSeverCost(realm);
       if (realm.progress < cost) {
         return { error: '当前境界修为不足', dirty: [], messages: [] };
       }
-/** severed：定义该变量以承载业务值。 */
       const severed = new Set<ElementKey>(heavenGate.severed);
       if (action === 'sever') {
         if (severed.has(element)) {
@@ -403,7 +338,6 @@ export class TechniqueService {
       return {
         dirty: ['attr', 'actions'],
         messages: [{
-/** text：定义该变量以承载业务值。 */
           text: `${action === 'sever' ? '斩断' : '补回'}${ELEMENT_KEY_LABELS[element]}灵根，消耗 ${cost} 点境界修为。`,
           kind: 'quest',
         }],
@@ -414,7 +348,6 @@ export class TechniqueService {
       if (heavenGate.entered) {
         return { error: '当前已入天门，无法再重开天门', dirty: [], messages: [] };
       }
-/** roots：定义该变量以承载业务值。 */
       const roots = this.rollHeavenGateRoots(heavenGate.severed, heavenGate.averageBonus);
       player.heavenGate = {
         unlocked: true,
@@ -424,7 +357,6 @@ export class TechniqueService {
         averageBonus: heavenGate.averageBonus,
       };
       this.syncRealmPresentation(player, this.normalizeRealmState(realm.realmLv, realm.progress));
-/** total：定义该变量以承载业务值。 */
       const total = ELEMENT_KEYS.reduce((sum, key) => sum + roots[key], 0);
       return {
         dirty: ['attr'],
@@ -442,7 +374,6 @@ export class TechniqueService {
       if (!heavenGate.roots) {
         return { error: '当前尚未开天门，无法逆天改命', dirty: [], messages: [] };
       }
-/** cost：定义该变量以承载业务值。 */
       const cost = this.getHeavenGateRerollCost(realm);
       if (realm.progress < cost) {
         return { error: '当前境界修为不足，无法逆天改命', dirty: [], messages: [] };
@@ -470,7 +401,6 @@ export class TechniqueService {
     if (heavenGate.entered) {
       return { error: '当前已入天门，无需重复确认', dirty: [], messages: [] };
     }
-/** resolvedRoots：定义该变量以承载业务值。 */
     const resolvedRoots = this.cloneHeavenGateRoots(heavenGate.roots);
     player.spiritualRoots = resolvedRoots;
     player.heavenGate = {
@@ -492,48 +422,36 @@ export class TechniqueService {
     };
   }
 
-/** setRealmLevel：执行对应的业务逻辑。 */
   setRealmLevel(player: PlayerState, realmLv: number): void {
     this.setRealmState(player, realmLv, 0);
   }
 
-/** setRealmProgress：执行对应的业务逻辑。 */
   setRealmProgress(player: PlayerState, progress: number): void {
     this.initializePlayerProgression(player);
-/** currentRealmLv：定义该变量以承载业务值。 */
     const currentRealmLv = Math.max(1, Math.floor(player.realm?.realmLv ?? player.realmLv ?? 1));
     this.applyResolvedRealmState(player, this.normalizeRealmState(currentRealmLv, progress));
   }
 
-/** setRealmState：执行对应的业务逻辑。 */
   setRealmState(player: PlayerState, realmLv: number, progress = 0): void {
     this.initializePlayerProgression(player);
     this.applyResolvedRealmState(player, this.normalizeRealmState(realmLv, progress));
   }
 
-/** resetHeavenGateForTesting：执行对应的业务逻辑。 */
   resetHeavenGateForTesting(player: PlayerState): void {
     this.initializePlayerProgression(player);
-/** currentRealmLv：定义该变量以承载业务值。 */
     const currentRealmLv = Math.max(1, Math.floor(player.realm?.realmLv ?? player.realmLv ?? 1));
-/** currentProgress：定义该变量以承载业务值。 */
     const currentProgress = Math.max(0, Math.floor(player.realm?.progress ?? 0));
-/** currentRealm：定义该变量以承载业务值。 */
     const currentRealm = this.normalizeRealmState(currentRealmLv, currentProgress);
-/** heavenGate：定义该变量以承载业务值。 */
     const heavenGate = this.normalizeHeavenGateState(player.heavenGate);
     this.applyHeavenGateResetState(player, currentRealm, heavenGate?.averageBonus ?? 0, heavenGate?.unlocked === true);
   }
 
-/** canUseShatterSpiritPill：执行对应的业务逻辑。 */
   canUseShatterSpiritPill(player: PlayerState): string | null {
     this.initializePlayerProgression(player);
-/** realm：定义该变量以承载业务值。 */
     const realm = player.realm;
     if (!realm || !this.hasReachedHeavenGateRealm(realm.realmLv)) {
       return '当前至少需要叩仙门境界，才能使用碎灵丹';
     }
-/** heavenGate：定义该变量以承载业务值。 */
     const heavenGate = this.syncHeavenGateState(player, realm);
     if (!heavenGate?.unlocked) {
       return '当前尚未叩开仙门，暂时不能使用碎灵丹';
@@ -541,30 +459,22 @@ export class TechniqueService {
     return null;
   }
 
-/** useShatterSpiritPill：执行对应的业务逻辑。 */
   useShatterSpiritPill(player: PlayerState): HeavenGateActionResult {
-/** error：定义该变量以承载业务值。 */
     const error = this.canUseShatterSpiritPill(player);
     if (error) {
       return { error, dirty: [], messages: [] };
     }
-/** realm：定义该变量以承载业务值。 */
     const realm = player.realm;
     if (!realm) {
       return { error: '当前境界异常，无法使用碎灵丹', dirty: [], messages: [] };
     }
-/** heavenGate：定义该变量以承载业务值。 */
     const heavenGate = this.syncHeavenGateState(player, realm);
     if (!heavenGate) {
       return { error: '当前尚未叩开仙门，暂时不能使用碎灵丹', dirty: [], messages: [] };
     }
-/** cost：定义该变量以承载业务值。 */
     const cost = this.getShatterSpiritPillCost(realm);
-/** previousRerollCount：定义该变量以承载业务值。 */
     const previousRerollCount = this.getHeavenGateRerollCount(heavenGate.averageBonus);
-/** nextRerollCount：定义该变量以承载业务值。 */
     const nextRerollCount = previousRerollCount + 1;
-/** nextRealm：定义该变量以承载业务值。 */
     const nextRealm = this.normalizeRealmState(realm.realmLv, Math.max(0, realm.progress - cost));
     this.applyHeavenGateResetState(
       player,
@@ -580,9 +490,7 @@ export class TechniqueService {
     };
   }
 
-/** useWangshengPill：执行对应的业务逻辑。 */
   useWangshengPill(player: PlayerState): HeavenGateActionResult {
-/** nextRealm：定义该变量以承载业务值。 */
     const nextRealm = this.normalizeRealmState(1, 0);
     this.applyResolvedRealmState(player, nextRealm);
     player.foundation = 0;
@@ -598,15 +506,12 @@ export class TechniqueService {
     };
   }
 
-/** canUseSpiritualRootSeed：执行对应的业务逻辑。 */
   canUseSpiritualRootSeed(player: PlayerState, tier: SpiritualRootSeedTier): string | null {
     this.initializePlayerProgression(player);
-/** realm：定义该变量以承载业务值。 */
     const realm = player.realm;
     if (!realm || !this.hasReachedHeavenGateRealm(realm.realmLv)) {
       return '当前至少需要叩仙门境界，才能使用灵根幼苗';
     }
-/** heavenGate：定义该变量以承载业务值。 */
     const heavenGate = this.syncHeavenGateState(player, realm);
     if (!heavenGate?.unlocked) {
       return '当前尚未叩开仙门，暂时不能使用灵根幼苗';
@@ -614,7 +519,6 @@ export class TechniqueService {
     if (heavenGate.entered) {
       return '当前已入天门，无法再使用灵根幼苗';
     }
-/** cost：定义该变量以承载业务值。 */
     const cost = this.getSpiritualRootSeedFoundationCost(realm, heavenGate.averageBonus, tier);
     if (this.getPlayerFoundation(player) < cost) {
       return '当前底蕴不足，无法催化这株灵根幼苗';
@@ -622,33 +526,24 @@ export class TechniqueService {
     return null;
   }
 
-/** useSpiritualRootSeed：执行对应的业务逻辑。 */
   useSpiritualRootSeed(player: PlayerState, tier: SpiritualRootSeedTier): HeavenGateActionResult {
-/** error：定义该变量以承载业务值。 */
     const error = this.canUseSpiritualRootSeed(player, tier);
     if (error) {
       return { error, dirty: [], messages: [] };
     }
-/** realm：定义该变量以承载业务值。 */
     const realm = player.realm;
     if (!realm) {
       return { error: '当前境界异常，无法使用灵根幼苗', dirty: [], messages: [] };
     }
-/** heavenGate：定义该变量以承载业务值。 */
     const heavenGate = this.syncHeavenGateState(player, realm);
     if (!heavenGate) {
       return { error: '当前尚未叩开仙门，暂时不能使用灵根幼苗', dirty: [], messages: [] };
     }
-/** gainedRerollCount：定义该变量以承载业务值。 */
     const gainedRerollCount = this.getSpiritualRootSeedRerollEquivalent(tier);
-/** previousRerollCount：定义该变量以承载业务值。 */
     const previousRerollCount = this.getHeavenGateRerollCount(heavenGate.averageBonus);
-/** nextRerollCount：定义该变量以承载业务值。 */
     const nextRerollCount = previousRerollCount + gainedRerollCount;
-/** cost：定义该变量以承载业务值。 */
     const cost = this.getSpiritualRootSeedFoundationCost(realm, heavenGate.averageBonus, tier);
     this.consumeFoundation(player, cost);
-/** roots：定义该变量以承载业务值。 */
     const roots = tier === 'divine'
       ? this.createDivineSpiritualRootSeedRoots()
       : this.createHeavenSpiritualRootSeedRoots();
@@ -663,7 +558,6 @@ export class TechniqueService {
     return {
       dirty: ['attr'],
       messages: [{
-/** text：定义该变量以承载业务值。 */
         text: `${tier === 'divine' ? '神品' : '天品'}灵根幼苗扎入命宫，消耗 ${cost} 点底蕴，当前灵根已被重塑，逆天改命累计提升 ${gainedRerollCount} 次（现为 ${nextRerollCount} 次）。`,
         kind: 'quest',
       }],
@@ -686,7 +580,6 @@ export class TechniqueService {
       return '已学会该功法';
     }
 
-/** technique：定义该变量以承载业务值。 */
     const technique: TechniqueState = {
       techId,
       name,
@@ -717,12 +610,10 @@ export class TechniqueService {
         this.initializePlayerProgression(player);
       });
     }
-/** cultivationBuff：定义该变量以承载业务值。 */
     const cultivationBuff = this.measureCpuSection('cultivation_resolve', '修炼: 主修解析', () => (
       this.getCultivationBuff(player)
     ));
     if (!cultivationBuff) return EMPTY_CULTIVATION_RESULT;
-/** cultivationTarget：定义该变量以承载业务值。 */
     const cultivationTarget = this.measureCpuSection('cultivation_resolve', '修炼: 主修解析', () => (
       this.resolveActiveCultivatingTechnique(player)
     ));
@@ -731,24 +622,17 @@ export class TechniqueService {
     }
     this.refreshCultivationBuff(cultivationBuff, cultivationTarget.technique?.name, player.realm?.realmLv ?? player.realmLv ?? 1);
 
-/** numericStats：定义该变量以承载业务值。 */
     const numericStats = this.measureCpuSection('cultivation_stats', '修炼: 数值采集', () => (
       this.attrService.getPlayerNumericStats(player)
     ));
-/** auraMultiplier：定义该变量以承载业务值。 */
     const auraMultiplier = this.measureCpuSection('cultivation_stats', '修炼: 数值采集', () => (
       this.getCultivationAuraMultiplier(player)
     ));
-/** realmExpBonus：定义该变量以承载业务值。 */
     const realmExpBonus = numericStats.playerExpRate / 10000;
-/** techniqueExpBonus：定义该变量以承载业务值。 */
     const techniqueExpBonus = numericStats.techniqueExpRate / 10000;
-/** dirty：定义该变量以承载业务值。 */
     const dirty = new Set<TechniqueDirtyFlag>(cultivationTarget.dirty);
-/** messages：定义该变量以承载业务值。 */
     const messages: TechniqueMessage[] = [...cultivationTarget.messages];
 
-/** realmResult：定义该变量以承载业务值。 */
     const realmResult = this.measureCpuSection('cultivation_realm', '修炼: 境界推进', () => (
       this.advanceRealmProgress(player, Math.max(0, Math.round(numericStats.realmExpPerTick * auraMultiplier)), {
         expBonus: realmExpBonus,
@@ -763,7 +647,6 @@ export class TechniqueService {
       messages.push(...realmResult.messages);
     }
 
-/** techniqueResult：定义该变量以承载业务值。 */
     const techniqueResult = this.measureCpuSection('cultivation_technique', '修炼: 功法推进', () => (
       this.advanceTechniqueProgress(
         player,
@@ -786,7 +669,6 @@ export class TechniqueService {
   }
 
   private measureCpuSection<T>(key: string, label: string, work: () => T): T {
-/** startedAt：定义该变量以承载业务值。 */
     const startedAt = process.hrtime.bigint();
     try {
       return work();
@@ -799,7 +681,6 @@ export class TechniqueService {
     }
   }
 
-/** hasCultivationBuff：执行对应的业务逻辑。 */
   hasCultivationBuff(player: PlayerState): boolean {
     return Boolean(this.getCultivationBuff(player));
   }
@@ -807,18 +688,14 @@ export class TechniqueService {
   /** 开始修炼（添加修炼 Buff） */
   startCultivation(player: PlayerState): CultivationResult {
     this.initializePlayerProgression(player);
-/** technique：定义该变量以承载业务值。 */
     const technique = this.resolveCultivatingTechnique(player);
     if (!technique && player.cultivatingTechId) {
       return this.clearInvalidCultivation(player);
     }
 
-/** techniqueName：定义该变量以承载业务值。 */
     const techniqueName = technique?.name;
-/** sourceRealmLv：定义该变量以承载业务值。 */
     const sourceRealmLv = player.realm?.realmLv ?? player.realmLv ?? 1;
     player.temporaryBuffs ??= [];
-/** current：定义该变量以承载业务值。 */
     const current = this.getCultivationBuff(player);
     if (current) {
       this.refreshCultivationBuff(current, techniqueName, sourceRealmLv);
@@ -839,7 +716,6 @@ export class TechniqueService {
 
   /** 停止修炼（移除修炼 Buff） */
   stopCultivation(player: PlayerState, reason = '你收束气机，停止了修炼。', kind: TechniqueMessageKind = 'quest'): CultivationResult {
-/** removed：定义该变量以承载业务值。 */
     const removed = this.removeCultivationBuff(player);
     if (!removed) {
       return EMPTY_CULTIVATION_RESULT;
@@ -868,26 +744,17 @@ export class TechniqueService {
   /** 击杀怪物后发放境界和功法经验 */
   grantCombatExpFromMonsterKill(player: PlayerState, input: MonsterKillExpInput = {}): CultivationResult {
     this.initializePlayerProgression(player);
-/** numericStats：定义该变量以承载业务值。 */
     const numericStats = this.attrService.getPlayerNumericStats(player);
-/** techniqueExpBonus：定义该变量以承载业务值。 */
     const techniqueExpBonus = numericStats.techniqueExpRate / 10000;
-/** realmExpBonus：定义该变量以承载业务值。 */
     const realmExpBonus = numericStats.playerExpRate / 10000;
-/** normalizedMonsterLevel：定义该变量以承载业务值。 */
     const normalizedMonsterLevel = Math.max(1, Math.floor(input.monsterLevel ?? 1));
-/** contributionRatio：定义该变量以承载业务值。 */
     const contributionRatio = Math.min(1, Math.max(0, Number.isFinite(input.contributionRatio) ? Number(input.contributionRatio) : 1));
-/** expAdjustmentRealmLv：定义该变量以承载业务值。 */
     const expAdjustmentRealmLv = Math.max(
       1,
       Math.floor(input.expAdjustmentRealmLv ?? this.getPlayerRealmLv(player)),
     );
-/** dirty：定义该变量以承载业务值。 */
     const dirty = new Set<TechniqueDirtyFlag>();
-/** messages：定义该变量以承载业务值。 */
     const messages: TechniqueMessage[] = [];
-/** realmBaseExp：定义该变量以承载业务值。 */
     const realmBaseExp = this.getRealmCombatExp(
       normalizedMonsterLevel,
       expAdjustmentRealmLv,
@@ -896,7 +763,6 @@ export class TechniqueService {
       contributionRatio,
     );
 
-/** realmResult：定义该变量以承载业务值。 */
     const realmResult = this.advanceRealmProgress(player, realmBaseExp, {
       expBonus: realmExpBonus,
       minimumGain: 0,
@@ -911,7 +777,6 @@ export class TechniqueService {
       messages.push(...realmResult.messages);
     }
 
-/** techniqueResult：定义该变量以承载业务值。 */
     const techniqueResult = this.advanceTechniqueCombatExp(
       player,
       this.getTechniqueCombatExp(
@@ -932,7 +797,6 @@ export class TechniqueService {
     }
 
     if (realmResult.gained > 0 || techniqueResult.gained > 0 || realmResult.combatExpGained > 0 || realmResult.foundationGained > 0) {
-/** segments：定义该变量以承载业务值。 */
       const segments: string[] = [];
       if (realmResult.gained > 0) {
         segments.push(`获得 ${realmResult.gained} 点境界修为`);
@@ -950,7 +814,6 @@ export class TechniqueService {
         segments.push(`底蕴增加 ${realmResult.foundationGained}`);
       }
       messages.unshift({
-/** text：定义该变量以承载业务值。 */
         text: `${input.monsterName ? `${input.isKiller === false ? '参与击杀' : '斩杀'} ${input.monsterName}` : '击败敌人'}，${segments.join('，')}。`,
         kind: 'quest',
       });
@@ -966,9 +829,7 @@ export class TechniqueService {
   /** 收集玩家已解锁的技能行动列表 */
   getSkillActions(player: PlayerState): ActionDef[] {
     this.ensurePlayerProgressionInitialized(player);
-/** playerRealmStage：定义该变量以承载业务值。 */
     const playerRealmStage = player.realm?.stage ?? DEFAULT_PLAYER_REALM_STAGE;
-/** actions：定义该变量以承载业务值。 */
     const actions: ActionDef[] = [];
 
     for (const technique of player.techniques) {
@@ -996,15 +857,12 @@ export class TechniqueService {
     return actions;
   }
 
-/** setTechniqueSkillsEnabled：执行对应的业务逻辑。 */
   setTechniqueSkillsEnabled(player: PlayerState, techId: string, enabled: boolean): boolean {
     this.initializePlayerProgression(player);
-/** technique：定义该变量以承载业务值。 */
     const technique = player.techniques.find((entry) => entry.techId === techId);
     if (!technique) {
       return false;
     }
-/** normalizedEnabled：定义该变量以承载业务值。 */
     const normalizedEnabled = enabled !== false;
     if ((technique.skillsEnabled !== false) === normalizedEnabled) {
       return false;
@@ -1016,7 +874,6 @@ export class TechniqueService {
   /** 获取突破行动（境界圆满时可用） */
   getBreakthroughAction(player: PlayerState): ActionDef | null {
     this.ensurePlayerProgressionInitialized(player);
-/** realm：定义该变量以承载业务值。 */
     const realm = player.realm;
     if (!realm) return null;
     if (this.requiresHeavenGateCompletion(player, realm)) {
@@ -1041,7 +898,6 @@ export class TechniqueService {
   /** 尝试突破到下一境界 */
   attemptBreakthrough(player: PlayerState): BreakthroughResult {
     this.initializePlayerProgression(player);
-/** realm：定义该变量以承载业务值。 */
     const realm = player.realm;
     if (!realm) {
       return { error: '当前境界状态异常', dirty: [], messages: [] };
@@ -1059,27 +915,22 @@ export class TechniqueService {
     return this.completeBreakthrough(player, realm);
   }
 
-/** infuseBodyTrainingWithFoundation：执行对应的业务逻辑。 */
   infuseBodyTrainingWithFoundation(player: PlayerState, requestedFoundation: number): BreakthroughResult {
     this.initializePlayerProgression(player);
-/** normalizedRequested：定义该变量以承载业务值。 */
     const normalizedRequested = this.normalizeCounter(requestedFoundation);
     if (normalizedRequested <= 0) {
       return { error: '灌注量无效', dirty: [], messages: [] };
     }
-/** consumed：定义该变量以承载业务值。 */
     const consumed = this.consumeFoundation(player, normalizedRequested);
     if (consumed <= 0) {
       return { error: '当前底蕴不足，无法灌注', dirty: [], messages: [] };
     }
 
-/** result：定义该变量以承载业务值。 */
     const result = this.advanceBodyTrainingProgress(
       player,
       consumed * BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER,
       { dirty: ['attr'], messages: [] },
     );
-/** dirty：定义该变量以承载业务值。 */
     const dirty = new Set<TechniqueDirtyFlag>(result.dirty);
     dirty.add('attr');
     return {
@@ -1091,15 +942,12 @@ export class TechniqueService {
     };
   }
 
-/** grantCraftRealmExp：执行对应的业务逻辑。 */
   grantCraftRealmExp(player: PlayerState, baseGain: number): CultivationResult {
     this.initializePlayerProgression(player);
-/** normalizedBaseGain：定义该变量以承载业务值。 */
     const normalizedBaseGain = Math.max(0, Math.round(Number(baseGain) || 0));
     if (normalizedBaseGain <= 0) {
       return EMPTY_CULTIVATION_RESULT;
     }
-/** realmResult：定义该变量以承载业务值。 */
     const realmResult = this.advanceRealmProgress(player, normalizedBaseGain, {
       minimumGain: 0,
       useFoundation: false,
@@ -1112,9 +960,7 @@ export class TechniqueService {
     };
   }
 
-/** advanceRealmProgress：执行对应的业务逻辑。 */
   private advanceRealmProgress(player: PlayerState, baseGain: number, options: RealmExpAdvanceOptions = {}): RealmExpAdvanceResult {
-/** realm：定义该变量以承载业务值。 */
     const realm = player.realm;
     if (!realm || baseGain <= 0) {
       return {
@@ -1129,28 +975,21 @@ export class TechniqueService {
       };
     }
 
-/** uncappedGain：定义该变量以承载业务值。 */
     const uncappedGain = this.applyRateBonus(baseGain, options.expBonus ?? 0, options.minimumGain ?? 1);
-/** gain：定义该变量以承载业务值。 */
     const gain = options.trackCombatExp
       ? this.capSingleCombatRealmExpGain(realm, uncappedGain)
       : uncappedGain;
-/** dirty：定义该变量以承载业务值。 */
     const dirty = new Set<TechniqueDirtyFlag>();
-/** messages：定义该变量以承载业务值。 */
     const messages: TechniqueMessage[] = [];
-/** combatExpGained：定义该变量以承载业务值。 */
     const combatExpGained = options.trackCombatExp ? this.addCombatExp(player, gain) : 0;
     if (combatExpGained > 0) {
       dirty.add('attr');
     }
 
-/** room：定义该变量以承载业务值。 */
     const room = realm.progressToNext > 0 && !realm.breakthroughReady
       ? Math.max(0, realm.progressToNext - realm.progress)
       : 0;
     if (room <= 0) {
-/** foundationGained：定义该变量以承载业务值。 */
       const foundationGained = options.overflowToFoundation ? this.addOverflowFoundation(player, realm, gain) : 0;
       if (foundationGained > 0) {
         dirty.add('attr');
@@ -1167,9 +1006,7 @@ export class TechniqueService {
       };
     }
 
-/** acceptedBaseGain：定义该变量以承载业务值。 */
     const acceptedBaseGain = Math.min(gain, room);
-/** foundationSpent：定义该变量以承载业务值。 */
     const foundationSpent = options.useFoundation
       ? this.consumeFoundation(player, Math.min(
         this.getPlayerFoundation(player),
@@ -1181,15 +1018,10 @@ export class TechniqueService {
       dirty.add('attr');
     }
 
-/** previousProgress：定义该变量以承载业务值。 */
     const previousProgress = realm.progress;
-/** nextState：定义该变量以承载业务值。 */
     const nextState = this.normalizeRealmState(realm.realmLv, realm.progress + acceptedBaseGain + foundationSpent);
-/** actualGain：定义该变量以承载业务值。 */
     const actualGain = Math.max(0, nextState.progress - previousProgress);
-/** foundationOverflow：定义该变量以承载业务值。 */
     const foundationOverflow = Math.max(0, gain - acceptedBaseGain);
-/** foundationGained：定义该变量以承载业务值。 */
     const foundationGained = options.overflowToFoundation ? this.addOverflowFoundation(player, nextState, foundationOverflow) : 0;
     if (foundationGained > 0) {
       dirty.add('attr');
@@ -1230,13 +1062,9 @@ export class TechniqueService {
     };
   }
 
-/** applyRateBonus：执行对应的业务逻辑。 */
   private applyRateBonus(base: number, bonusRate: number, minimumGain = 1): number {
-/** exactGain：定义该变量以承载业务值。 */
     const exactGain = Math.max(minimumGain, base * percentModifierToMultiplier(bonusRate * 100));
-/** guaranteed：定义该变量以承载业务值。 */
     const guaranteed = Math.floor(exactGain);
-/** remainder：定义该变量以承载业务值。 */
     const remainder = exactGain - guaranteed;
     if (remainder <= 0) {
       return guaranteed;
@@ -1244,11 +1072,8 @@ export class TechniqueService {
     return guaranteed + (Math.random() < remainder ? 1 : 0);
   }
 
-/** capSingleCombatRealmExpGain：执行对应的业务逻辑。 */
   private capSingleCombatRealmExpGain(realm: Pick<PlayerRealmState, 'progressToNext'>, gain: number): number {
-/** normalizedGain：定义该变量以承载业务值。 */
     const normalizedGain = this.normalizeCounter(gain);
-/** progressToNext：定义该变量以承载业务值。 */
     const progressToNext = Math.max(0, Math.floor(realm.progressToNext ?? 0));
     if (normalizedGain <= 0 || progressToNext <= 0) {
       return normalizedGain;
@@ -1256,28 +1081,22 @@ export class TechniqueService {
     return Math.min(normalizedGain, progressToNext * SINGLE_COMBAT_REALM_EXP_CAP_MULTIPLIER);
   }
 
-/** advanceTechniqueCombatExp：执行对应的业务逻辑。 */
   private advanceTechniqueCombatExp(player: PlayerState, baseGain: number, expBonus = 0, minimumGain = 1): TechniqueExpAdvanceResult {
     return this.advanceTechniqueProgress(player, baseGain, expBonus, minimumGain);
   }
 
-/** advanceTechniqueProgress：执行对应的业务逻辑。 */
   private advanceTechniqueProgress(player: PlayerState, baseGain: number, expBonus = 0, minimumGain = 1): TechniqueExpAdvanceResult {
     if (!player.cultivatingTechId) {
       if (player.techniques.length > 0) {
-/** gain：定义该变量以承载业务值。 */
         const gain = this.applyRateBonus(baseGain, expBonus, minimumGain);
         return this.advanceBodyTrainingProgress(player, gain, { dirty: [], messages: [] });
       }
       return { changed: false, gained: 0, expLabel: '功法经验', dirty: [], messages: [] };
     }
 
-/** resolvedTarget：定义该变量以承载业务值。 */
     const resolvedTarget = this.resolveActiveCultivatingTechnique(player);
-/** technique：定义该变量以承载业务值。 */
     const technique = resolvedTarget.technique;
     if (!technique) {
-/** cleared：定义该变量以承载业务值。 */
       const cleared = this.clearInvalidCultivation(player);
       return {
         changed: cleared.changed,
@@ -1299,11 +1118,9 @@ export class TechniqueService {
       };
     }
 
-/** maxLevel：定义该变量以承载业务值。 */
     const maxLevel = getTechniqueMaxLevel(technique.layers);
     if (technique.level >= maxLevel || technique.expToNext <= 0) {
       if (this.areAllTechniquesMaxed(player)) {
-/** gain：定义该变量以承载业务值。 */
         const gain = this.applyRateBonus(baseGain, expBonus, minimumGain);
         return this.advanceBodyTrainingProgress(player, gain, resolvedTarget);
       }
@@ -1317,15 +1134,10 @@ export class TechniqueService {
       };
     }
 
-/** techniqueLevelAdjustment：定义该变量以承载业务值。 */
     const techniqueLevelAdjustment = getTechniqueExpLevelAdjustment(this.getPlayerRealmLv(player), technique.realmLv);
-/** gain：定义该变量以承载业务值。 */
     const gain = this.applyRateBonus(baseGain * techniqueLevelAdjustment, expBonus, minimumGain);
-/** previousLevel：定义该变量以承载业务值。 */
     const previousLevel = technique.level;
-/** previousExp：定义该变量以承载业务值。 */
     const previousExp = technique.exp;
-/** messages：定义该变量以承载业务值。 */
     const messages: TechniqueMessage[] = [...resolvedTarget.messages];
     technique.exp += gain;
 
@@ -1353,7 +1165,6 @@ export class TechniqueService {
       };
     }
 
-/** dirty：定义该变量以承载业务值。 */
     const dirty = new Set<TechniqueDirtyFlag>(['tech', ...resolvedTarget.dirty]);
     if (technique.level !== previousLevel) {
       this.applyTechniqueBonuses(player);
@@ -1362,7 +1173,6 @@ export class TechniqueService {
       dirty.add('actions');
     }
 
-/** switchedAfterCompletion：定义该变量以承载业务值。 */
     const switchedAfterCompletion = this.resolveActiveCultivatingTechnique(player);
     if (switchedAfterCompletion.technique && switchedAfterCompletion.technique.techId !== technique.techId) {
       for (const flag of switchedAfterCompletion.dirty) {
@@ -1384,7 +1194,6 @@ export class TechniqueService {
   private advanceBodyTrainingProgress(
     player: PlayerState,
     gain: number,
-/** resolvedTarget：定义该变量以承载业务值。 */
     resolvedTarget: { dirty: TechniqueDirtyFlag[]; messages: TechniqueMessage[] },
   ): TechniqueExpAdvanceResult {
     if (gain <= 0) {
@@ -1398,13 +1207,9 @@ export class TechniqueService {
       };
     }
 
-/** bodyTraining：定义该变量以承载业务值。 */
     const bodyTraining = normalizeBodyTrainingState(player.bodyTraining);
-/** previousLevel：定义该变量以承载业务值。 */
     const previousLevel = bodyTraining.level;
-/** previousExp：定义该变量以承载业务值。 */
     const previousExp = bodyTraining.exp;
-/** messages：定义该变量以承载业务值。 */
     const messages: TechniqueMessage[] = [...resolvedTarget.messages];
     bodyTraining.exp += gain;
 
@@ -1430,7 +1235,6 @@ export class TechniqueService {
       };
     }
 
-/** dirty：定义该变量以承载业务值。 */
     const dirty = new Set<TechniqueDirtyFlag>(['tech', ...resolvedTarget.dirty]);
     if (bodyTraining.level !== previousLevel) {
       this.applyTechniqueBonuses(player);
@@ -1449,7 +1253,6 @@ export class TechniqueService {
     };
   }
 
-/** resolveCultivatingTechnique：执行对应的业务逻辑。 */
   private resolveCultivatingTechnique(player: PlayerState): TechniqueState | null {
     if (!player.cultivatingTechId) {
       return null;
@@ -1458,7 +1261,6 @@ export class TechniqueService {
   }
 
   private resolveActiveCultivatingTechnique(player: PlayerState): { technique: TechniqueState | null; dirty: TechniqueDirtyFlag[]; messages: TechniqueMessage[] } {
-/** technique：定义该变量以承载业务值。 */
     const technique = this.resolveCultivatingTechnique(player);
     if (!technique) {
       return { technique: null, dirty: [], messages: [] };
@@ -1467,14 +1269,12 @@ export class TechniqueService {
       return { technique, dirty: [], messages: [] };
     }
 
-/** nextTechnique：定义该变量以承载业务值。 */
     const nextTechnique = this.findNextCultivatingTechnique(player, technique.techId);
     if (!nextTechnique) {
       return { technique, dirty: [], messages: [] };
     }
 
     player.cultivatingTechId = nextTechnique.techId;
-/** cultivationBuff：定义该变量以承载业务值。 */
     const cultivationBuff = this.getCultivationBuff(player);
     if (cultivationBuff) {
       this.refreshCultivationBuff(cultivationBuff, nextTechnique.name, player.realm?.realmLv ?? player.realmLv ?? 1);
@@ -1490,9 +1290,7 @@ export class TechniqueService {
     };
   }
 
-/** findNextCultivatingTechnique：执行对应的业务逻辑。 */
   private findNextCultivatingTechnique(player: PlayerState, currentTechId: string): TechniqueState | null {
-/** currentIndex：定义该变量以承载业务值。 */
     const currentIndex = player.techniques.findIndex((entry) => entry.techId === currentTechId);
     if (currentIndex < 0 || player.techniques.length <= 1) {
       return null;
@@ -1506,26 +1304,20 @@ export class TechniqueService {
     return null;
   }
 
-/** isTechniqueMaxed：执行对应的业务逻辑。 */
   private isTechniqueMaxed(technique: Pick<TechniqueState, 'level' | 'layers'>): boolean {
     return technique.level >= getTechniqueMaxLevel(technique.layers);
   }
 
-/** areAllTechniquesMaxed：执行对应的业务逻辑。 */
   private areAllTechniquesMaxed(player: PlayerState): boolean {
     return player.techniques.length > 0 && player.techniques.every((entry) => this.isTechniqueMaxed(entry));
   }
 
-/** getCultivationBuff：执行对应的业务逻辑。 */
   private getCultivationBuff(player: PlayerState): TemporaryBuffState | undefined {
     return player.temporaryBuffs?.find((buff) => buff.buffId === CULTIVATION_BUFF_ID);
   }
 
-/** getCultivationAuraMultiplier：执行对应的业务逻辑。 */
   private getCultivationAuraMultiplier(player: PlayerState): number {
-/** auraResources：定义该变量以承载业务值。 */
     const auraResources = this.mapService.getTileAuraResourceValues(player.mapId, player.x, player.y);
-/** auraLevel：定义该变量以承载业务值。 */
     const auraLevel = auraResources.length > 0
       ? this.qiProjectionService.getAuraLevelFromResources(
           player,
@@ -1540,7 +1332,6 @@ export class TechniqueService {
     return 1 + Math.max(0, auraLevel);
   }
 
-/** buildCultivationBuffState：执行对应的业务逻辑。 */
   private buildCultivationBuffState(techniqueName: string | undefined, sourceRealmLv: number): TemporaryBuffState {
     return {
       buffId: CULTIVATION_BUFF_ID,
@@ -1564,7 +1355,6 @@ export class TechniqueService {
     };
   }
 
-/** refreshCultivationBuff：执行对应的业务逻辑。 */
   private refreshCultivationBuff(buff: TemporaryBuffState, techniqueName: string | undefined, sourceRealmLv: number): void {
     buff.name = '修炼中';
     buff.desc = this.buildCultivationBuffDescription(techniqueName);
@@ -1585,7 +1375,6 @@ export class TechniqueService {
     buff.statMode = 'flat';
   }
 
-/** buildCultivationStartMessage：执行对应的业务逻辑。 */
   private buildCultivationStartMessage(techniqueName: string | undefined, hasLearnedTechniques: boolean): string {
     if (techniqueName) {
       return `你沉心运转 ${techniqueName}，开始修炼。移动、主动出手或受击都会中断修炼。`;
@@ -1596,7 +1385,6 @@ export class TechniqueService {
     return '你沉心调息，开始修炼。移动、主动出手或受击都会中断修炼。';
   }
 
-/** buildCultivationBuffDescription：执行对应的业务逻辑。 */
   private buildCultivationBuffDescription(techniqueName?: string): string {
     if (techniqueName) {
       return `${techniqueName} 正在运转，每息获得境界修为与功法经验，移动、主动攻击或受击都会打断修炼。`;
@@ -1604,12 +1392,10 @@ export class TechniqueService {
     return '正在调息修炼，每息获得境界修为与功法经验；若未设主修，功法经验会直接转入炼体。移动、主动攻击或受击都会打断修炼。';
   }
 
-/** removeCultivationBuff：执行对应的业务逻辑。 */
   private removeCultivationBuff(player: PlayerState): boolean {
     if (!player.temporaryBuffs || player.temporaryBuffs.length === 0) {
       return false;
     }
-/** nextBuffs：定义该变量以承载业务值。 */
     const nextBuffs = player.temporaryBuffs.filter((buff) => buff.buffId !== CULTIVATION_BUFF_ID);
     if (nextBuffs.length === player.temporaryBuffs.length) {
       return false;
@@ -1619,9 +1405,7 @@ export class TechniqueService {
     return true;
   }
 
-/** clearInvalidCultivation：执行对应的业务逻辑。 */
   private clearInvalidCultivation(player: PlayerState): CultivationResult {
-/** hadBuff：定义该变量以承载业务值。 */
     const hadBuff = this.removeCultivationBuff(player);
     if (!player.cultivatingTechId && !hadBuff) {
       return EMPTY_CULTIVATION_RESULT;
@@ -1641,26 +1425,19 @@ export class TechniqueService {
     expMultiplier = 1,
     contributionRatio = 1,
   ): number {
-/** level：定义该变量以承载业务值。 */
     const level = Math.max(1, Math.floor(monsterLevel));
-/** expToNext：定义该变量以承载业务值。 */
     const expToNext = Math.max(0, this.contentService.getRealmLevelEntry(level)?.expToNext ?? 0);
     if (expToNext <= 0) {
       return 0;
     }
 
-/** normalizedMultiplier：定义该变量以承载业务值。 */
     const normalizedMultiplier = Number.isFinite(expMultiplier) ? Math.max(0, expMultiplier) : 1;
-/** normalizedContributionRatio：定义该变量以承载业务值。 */
     const normalizedContributionRatio = Math.min(1, Math.max(0, Number.isFinite(contributionRatio) ? Number(contributionRatio) : 1));
-/** levelAdjustment：定义该变量以承载业务值。 */
     const levelAdjustment = this.getMonsterKillRealmExpAdjustment(playerRealmLv, level, monsterTier);
-/** monsterLevelDecay：定义该变量以承载业务值。 */
     const monsterLevelDecay = getMonsterLevelExpDecayMultiplier(level);
     return (expToNext * normalizedMultiplier * levelAdjustment * monsterLevelDecay * normalizedContributionRatio) / 1000;
   }
 
-/** getCultivationTechniqueExp：执行对应的业务逻辑。 */
   private getCultivationTechniqueExp(techniqueExpPerTick: number, auraMultiplier: number): number {
     return Math.max(0, Math.round(Math.max(0, techniqueExpPerTick) * Math.max(0, auraMultiplier)));
   }
@@ -1672,57 +1449,43 @@ export class TechniqueService {
     expMultiplier = 1,
     contributionRatio = 1,
   ): number {
-/** level：定义该变量以承载业务值。 */
     const level = Math.max(1, Math.floor(monsterLevel));
-/** expToNext：定义该变量以承载业务值。 */
     const expToNext = Math.max(0, this.contentService.getRealmLevelEntry(level)?.expToNext ?? 0);
     if (expToNext <= 0) {
       return 0;
     }
 
-/** normalizedMultiplier：定义该变量以承载业务值。 */
     const normalizedMultiplier = Number.isFinite(expMultiplier) ? Math.max(0, expMultiplier) : 1;
-/** normalizedContributionRatio：定义该变量以承载业务值。 */
     const normalizedContributionRatio = Math.min(1, Math.max(0, Number.isFinite(contributionRatio) ? Number(contributionRatio) : 1));
-/** levelAdjustment：定义该变量以承载业务值。 */
     const levelAdjustment = this.getMonsterKillRealmExpAdjustment(playerRealmLv, level, monsterTier);
-/** monsterLevelDecay：定义该变量以承载业务值。 */
     const monsterLevelDecay = getMonsterLevelExpDecayMultiplier(level);
     return (expToNext * normalizedMultiplier * levelAdjustment * monsterLevelDecay * normalizedContributionRatio) / 200;
   }
 
-/** getMonsterKillRealmExpAdjustment：执行对应的业务逻辑。 */
   private getMonsterKillRealmExpAdjustment(playerRealmLv: number, monsterLevel: number, monsterTier?: MonsterTier): number {
     return getMonsterKillExpLevelAdjustment(playerRealmLv, monsterLevel, monsterTier);
   }
 
-/** getPlayerRealmLv：执行对应的业务逻辑。 */
   private getPlayerRealmLv(player: PlayerState): number {
     return Math.max(1, Math.floor(player.realm?.realmLv ?? player.realmLv ?? 1));
   }
 
-/** initializePlayerSpecialStats：执行对应的业务逻辑。 */
   private initializePlayerSpecialStats(player: PlayerState): void {
     player.foundation = this.normalizeCounter(player.foundation);
     player.combatExp = this.normalizeCounter(player.combatExp);
     player.bodyTraining = normalizeBodyTrainingState(player.bodyTraining);
   }
 
-/** normalizeCounter：执行对应的业务逻辑。 */
   private normalizeCounter(value: unknown): number {
     return Math.max(0, Number.isFinite(value) ? Math.floor(Number(value)) : 0);
   }
 
-/** getPlayerFoundation：执行对应的业务逻辑。 */
   private getPlayerFoundation(player: PlayerState): number {
     return this.normalizeCounter(player.foundation);
   }
 
-/** addOverflowFoundation：执行对应的业务逻辑。 */
   private addOverflowFoundation(player: PlayerState, realm: Pick<PlayerRealmState, 'progressToNext'>, amount: number): number {
-/** exactGain：定义该变量以承载业务值。 */
     const exactGain = this.calculateOverflowFoundationGain(player, realm, amount);
-/** normalized：定义该变量以承载业务值。 */
     const normalized = this.rollFractionalGain(exactGain);
     if (normalized <= 0) {
       return 0;
@@ -1731,9 +1494,7 @@ export class TechniqueService {
     return normalized;
   }
 
-/** addFoundation：执行对应的业务逻辑。 */
   private addFoundation(player: PlayerState, amount: number): number {
-/** normalized：定义该变量以承载业务值。 */
     const normalized = this.normalizeCounter(amount);
     if (normalized <= 0) {
       return 0;
@@ -1742,24 +1503,18 @@ export class TechniqueService {
     return normalized;
   }
 
-/** consumeFoundation：执行对应的业务逻辑。 */
   private consumeFoundation(player: PlayerState, amount: number): number {
-/** normalized：定义该变量以承载业务值。 */
     const normalized = this.normalizeCounter(amount);
     if (normalized <= 0) {
       return 0;
     }
-/** available：定义该变量以承载业务值。 */
     const available = this.getPlayerFoundation(player);
-/** consumed：定义该变量以承载业务值。 */
     const consumed = Math.min(available, normalized);
     player.foundation = available - consumed;
     return consumed;
   }
 
-/** addCombatExp：执行对应的业务逻辑。 */
   private addCombatExp(player: PlayerState, amount: number): number {
-/** normalized：定义该变量以承载业务值。 */
     const normalized = this.normalizeCounter(amount);
     if (normalized <= 0) {
       return 0;
@@ -1768,37 +1523,28 @@ export class TechniqueService {
     return normalized;
   }
 
-/** calculateOverflowFoundationGain：执行对应的业务逻辑。 */
   private calculateOverflowFoundationGain(player: PlayerState, realm: Pick<PlayerRealmState, 'progressToNext'>, amount: number): number {
-/** normalized：定义该变量以承载业务值。 */
     const normalized = this.normalizeCounter(amount);
     if (normalized <= 0) {
       return 0;
     }
 
-/** referenceProgress：定义该变量以承载业务值。 */
     const referenceProgress = this.normalizeCounter(realm.progressToNext);
     if (referenceProgress <= 0) {
       return normalized;
     }
 
-/** currentFoundation：定义该变量以承载业务值。 */
     const currentFoundation = this.getPlayerFoundation(player);
-/** decayRate：定义该变量以承载业务值。 */
     const decayRate = Math.log(2) / (referenceProgress * 10);
-/** decaySeed：定义该变量以承载业务值。 */
     const decaySeed = Math.exp(-decayRate * currentFoundation);
     return Math.log1p(decayRate * normalized * decaySeed) / decayRate;
   }
 
-/** rollFractionalGain：执行对应的业务逻辑。 */
   private rollFractionalGain(value: number): number {
     if (!Number.isFinite(value) || value <= 0) {
       return 0;
     }
-/** guaranteed：定义该变量以承载业务值。 */
     const guaranteed = Math.floor(value);
-/** remainder：定义该变量以承载业务值。 */
     const remainder = value - guaranteed;
     if (remainder <= 0) {
       return guaranteed;
@@ -1806,26 +1552,16 @@ export class TechniqueService {
     return guaranteed + (Math.random() < remainder ? 1 : 0);
   }
 
-/** createRealmStateFromLevel：执行对应的业务逻辑。 */
   private createRealmStateFromLevel(realmLv: number, progress = 0): PlayerRealmState {
-/** normalizedRealmLv：定义该变量以承载业务值。 */
     const normalizedRealmLv = this.clampRealmLv(realmLv);
-/** realmEntry：定义该变量以承载业务值。 */
     const realmEntry = this.contentService.getRealmLevelEntry(normalizedRealmLv)
       ?? this.contentService.getRealmLevelEntry(1);
-/** stage：定义该变量以承载业务值。 */
     const stage = this.resolveStageForRealmLevel(normalizedRealmLv);
-/** config：定义该变量以承载业务值。 */
     const config = PLAYER_REALM_CONFIG[stage];
-/** expToNext：定义该变量以承载业务值。 */
     const expToNext = Math.max(0, realmEntry?.expToNext ?? 0);
-/** cappedProgress：定义该变量以承载业务值。 */
     const cappedProgress = expToNext > 0 ? Math.max(0, Math.min(progress, expToNext)) : 0;
-/** maxRealmLv：定义该变量以承载业务值。 */
     const maxRealmLv = this.getMaxRealmLv();
-/** breakthroughReady：定义该变量以承载业务值。 */
     const breakthroughReady = expToNext > 0 && cappedProgress >= expToNext && normalizedRealmLv < maxRealmLv;
-/** nextStage：定义该变量以承载业务值。 */
     const nextStage = normalizedRealmLv < maxRealmLv
       ? this.resolveStageForRealmLevel(normalizedRealmLv + 1)
       : undefined;
@@ -1850,12 +1586,10 @@ export class TechniqueService {
     };
   }
 
-/** normalizeRealmState：执行对应的业务逻辑。 */
   private normalizeRealmState(realmLv: number, progress = 0): PlayerRealmState {
     return this.createRealmStateFromLevel(realmLv, Math.max(0, Math.floor(progress)));
   }
 
-/** applyResolvedRealmState：执行对应的业务逻辑。 */
   private applyResolvedRealmState(player: PlayerState, realm: PlayerRealmState): void {
     this.applyRealmBonus(player, realm);
     this.applyTechniqueBonuses(player);
@@ -1865,38 +1599,29 @@ export class TechniqueService {
 
   private resolveInitialRealmState(
     player: PlayerState,
-/** persisted：定义该变量以承载业务值。 */
     persisted: { stage?: PlayerRealmStage; progress?: number; realmLv?: number },
   ): PlayerRealmState {
-/** persistedProgress：定义该变量以承载业务值。 */
     const persistedProgress = persisted.progress ?? player.realm?.progress ?? 0;
-/** persistedRealmLv：定义该变量以承载业务值。 */
     const persistedRealmLv = persisted.realmLv ?? player.realm?.realmLv ?? player.realmLv;
     if (typeof persistedRealmLv === 'number' && persistedRealmLv > 0) {
       return this.normalizeRealmState(persistedRealmLv, persistedProgress);
     }
 
-/** stage：定义该变量以承载业务值。 */
     const stage = persisted.stage ?? player.realm?.stage ?? DEFAULT_PLAYER_REALM_STAGE;
-/** stageProgress：定义该变量以承载业务值。 */
     const stageProgress = Math.max(0, persistedProgress);
-/** legacyProgressToNext：定义该变量以承载业务值。 */
     const legacyProgressToNext = Math.max(0, PLAYER_REALM_CONFIG[stage].progressToNext);
-/** legacyEntry：定义该变量以承载业务值。 */
     const legacyEntry = this.contentService.resolveRealmLevelEntry(
       stage,
       stageProgress,
       legacyProgressToNext,
       legacyProgressToNext > 0 && stageProgress >= legacyProgressToNext,
     );
-/** mappedProgress：定义该变量以承载业务值。 */
     const mappedProgress = legacyProgressToNext > 0
       ? Math.floor((Math.max(0, legacyEntry.expToNext ?? 0) * Math.min(stageProgress, legacyProgressToNext)) / legacyProgressToNext)
       : 0;
     return this.normalizeRealmState(legacyEntry.realmLv, mappedProgress);
   }
 
-/** cloneHeavenGateRoots：执行对应的业务逻辑。 */
   private cloneHeavenGateRoots(roots: HeavenGateRootValues): HeavenGateRootValues {
     return ELEMENT_KEYS.reduce((result, key) => {
       result[key] = Math.max(0, Math.min(100, Math.floor(roots[key] ?? 0)));
@@ -1904,14 +1629,11 @@ export class TechniqueService {
     }, {} as HeavenGateRootValues);
   }
 
-/** getSpiritualRootAbsorptionEfficiencyBp：执行对应的业务逻辑。 */
   private getSpiritualRootAbsorptionEfficiencyBp(value: number): number {
-/** normalized：定义该变量以承载业务值。 */
     const normalized = Math.max(0, Math.min(100, Number.isFinite(value) ? Math.floor(value) : 0));
     return normalized * normalized;
   }
 
-/** buildHeavenGateRootQiProjection：执行对应的业务逻辑。 */
   private buildHeavenGateRootQiProjection(roots: HeavenGateRootValues): NonNullable<AttrBonus['qiProjection']> {
     return ELEMENT_KEYS
       .filter((element) => (roots[element] ?? 0) > 0)
@@ -1925,16 +1647,12 @@ export class TechniqueService {
       }));
   }
 
-/** normalizeHeavenGateRoots：执行对应的业务逻辑。 */
   normalizeHeavenGateRoots(value: unknown): HeavenGateRootValues | null {
     if (!value || typeof value !== 'object' || Array.isArray(value)) {
       return null;
     }
-/** raw：定义该变量以承载业务值。 */
     const raw = value as Record<string, unknown>;
-/** roots：定义该变量以承载业务值。 */
     const roots = ELEMENT_KEYS.reduce((result, key) => {
-/** next：定义该变量以承载业务值。 */
       const next = Number(raw[key] ?? 0);
       result[key] = Number.isFinite(next) ? Math.max(0, Math.min(100, Math.floor(next))) : 0;
       return result;
@@ -1942,26 +1660,20 @@ export class TechniqueService {
     return ELEMENT_KEYS.some((key) => roots[key] > 0) ? roots : null;
   }
 
-/** syncHeavenGateState：执行对应的业务逻辑。 */
   private syncHeavenGateState(player: PlayerState, realm: PlayerRealmState): HeavenGateState | null {
     if (!this.hasReachedHeavenGateRealm(realm.realmLv)) {
       return null;
     }
-/** persisted：定义该变量以承载业务值。 */
     const persisted = this.normalizeHeavenGateState(player.heavenGate);
-/** resolvedRoots：定义该变量以承载业务值。 */
     const resolvedRoots = persisted?.roots
       ? this.cloneHeavenGateRoots(persisted.roots)
       : this.normalizeHeavenGateRoots(player.spiritualRoots);
-/** entered：定义该变量以承载业务值。 */
     const entered = persisted?.entered === true || resolvedRoots !== null && player.spiritualRoots !== null;
-/** unlocked：定义该变量以承载业务值。 */
     const unlocked = persisted?.unlocked === true || entered || this.hasReachedHeavenGateRealm(realm.realmLv);
     if (!unlocked && !resolvedRoots && (persisted?.severed.length ?? 0) === 0) {
       player.heavenGate = null;
       return null;
     }
-/** nextState：定义该变量以承载业务值。 */
     const nextState: HeavenGateState = {
       unlocked,
       severed: persisted?.severed ?? [],
@@ -1973,49 +1685,39 @@ export class TechniqueService {
     return nextState;
   }
 
-/** hasCompletedHeavenGate：执行对应的业务逻辑。 */
   private hasCompletedHeavenGate(player: PlayerState): boolean {
-/** state：定义该变量以承载业务值。 */
     const state = this.normalizeHeavenGateState(player.heavenGate);
     return state?.entered === true || this.normalizeHeavenGateRoots(player.spiritualRoots) !== null;
   }
 
-/** hasReachedHeavenGateRealm：执行对应的业务逻辑。 */
   private hasReachedHeavenGateRealm(realmLv: number): boolean {
     return Number.isFinite(realmLv) && realmLv >= HEAVEN_GATE_REALM_LEVEL;
   }
 
-/** requiresHeavenGateCompletion：执行对应的业务逻辑。 */
   private requiresHeavenGateCompletion(player: PlayerState, realm: PlayerRealmState): boolean {
     return this.hasReachedHeavenGateRealm(realm.realmLv) && !this.hasCompletedHeavenGate(player);
   }
 
-/** getHeavenGateSeverCost：执行对应的业务逻辑。 */
   private getHeavenGateSeverCost(realm: PlayerRealmState): number {
     return Math.max(1, Math.round(realm.progressToNext * HEAVEN_GATE_SEVER_COST_RATIO));
   }
 
-/** getHeavenGateRerollCost：执行对应的业务逻辑。 */
   private getHeavenGateRerollCost(realm: PlayerRealmState): number {
     return Math.max(1, Math.round(realm.progressToNext * HEAVEN_GATE_REROLL_COST_RATIO));
   }
 
-/** getShatterSpiritPillCost：执行对应的业务逻辑。 */
   private getShatterSpiritPillCost(realm: PlayerRealmState): number {
     return Math.max(0, Math.round(Math.max(0, realm.progress) * SHATTER_SPIRIT_PILL_COST_RATIO));
   }
 
-/** getHeavenGateRerollCount：执行对应的业务逻辑。 */
   private getHeavenGateRerollCount(averageBonus: number): number {
     return Math.max(0, Math.floor(Math.max(0, averageBonus) / HEAVEN_GATE_REROLL_AVERAGE_BONUS));
   }
 
-/** getHeavenGateAverageBonusFromRerollCount：执行对应的业务逻辑。 */
   private getHeavenGateAverageBonusFromRerollCount(rerollCount: number): number {
     return Math.max(0, Math.floor(rerollCount)) * HEAVEN_GATE_REROLL_AVERAGE_BONUS;
   }
 
-/** getSpiritualRootSeedRerollEquivalent：执行对应的业务逻辑。 */
   private getSpiritualRootSeedRerollEquivalent(tier: SpiritualRootSeedTier): number {
     return SPIRITUAL_ROOT_SEED_REROLL_EQUIVALENTS[tier];
   }
@@ -2025,19 +1727,14 @@ export class TechniqueService {
     averageBonus: number,
     tier: SpiritualRootSeedTier,
   ): number {
-/** rerollCost：定义该变量以承载业务值。 */
     const rerollCost = this.getHeavenGateRerollCost(realm);
-/** rerollCount：定义该变量以承载业务值。 */
     const rerollCount = this.getHeavenGateRerollCount(averageBonus);
-/** remainingEquivalent：定义该变量以承载业务值。 */
     const remainingEquivalent = Math.max(0, SPIRITUAL_ROOT_SEED_REROLL_EQUIVALENTS[tier] - rerollCount);
     return rerollCost * remainingEquivalent;
   }
 
   private weightedPickHeavenGateSegment(segments: Array<{ min: number; max: number; weight: number }>): { min: number; max: number; weight: number } {
-/** totalWeight：定义该变量以承载业务值。 */
     const totalWeight = segments.reduce((sum, segment) => sum + segment.weight, 0);
-/** cursor：定义该变量以承载业务值。 */
     let cursor = Math.random() * totalWeight;
     for (const segment of segments) {
       cursor -= segment.weight;
@@ -2048,28 +1745,21 @@ export class TechniqueService {
     return segments[segments.length - 1];
   }
 
-/** randomHeavenGateInt：执行对应的业务逻辑。 */
   private randomHeavenGateInt(min: number, max: number): number {
     return Math.floor(Math.random() * (max - min + 1)) + min;
   }
 
-/** getHeavenGateExtraPerfectRootKeepChance：执行对应的业务逻辑。 */
   private getHeavenGateExtraPerfectRootKeepChance(averageBonus: number): number {
-/** bonus：定义该变量以承载业务值。 */
     const bonus = Math.max(0, averageBonus);
     if (bonus <= 0) {
       return 1;
     }
-/** squaredBonus：定义该变量以承载业务值。 */
     const squaredBonus = bonus * bonus;
-/** squaredSoftCap：定义该变量以承载业务值。 */
     const squaredSoftCap = HEAVEN_GATE_EXTRA_PERFECT_ROOT_SOFT_CAP * HEAVEN_GATE_EXTRA_PERFECT_ROOT_SOFT_CAP;
     return squaredBonus / (squaredBonus + squaredSoftCap);
   }
 
-/** distributeHeavenGateRoots：执行对应的业务逻辑。 */
   private distributeHeavenGateRoots(total: number, remaining: ElementKey[]): HeavenGateRootValues {
-/** result：定义该变量以承载业务值。 */
     const result = ELEMENT_KEYS.reduce((state, key) => {
       state[key] = 0;
       return state;
@@ -2094,28 +1784,19 @@ export class TechniqueService {
       return result;
     }
 
-/** spread：定义该变量以承载业务值。 */
     const spread = HEAVEN_GATE_DISTRIBUTION_SPREAD[remaining.length] ?? 0.18;
-/** scores：定义该变量以承载业务值。 */
     const scores = remaining.map(() => Math.max(0.08, 1 + (Math.random() * 2 - 1) * spread));
-/** scoreSum：定义该变量以承载业务值。 */
     const scoreSum = scores.reduce((sum, score) => sum + score, 0);
-/** remainder：定义该变量以承载业务值。 */
     const remainder = Math.max(0, total - remaining.length);
-/** allocations：定义该变量以承载业务值。 */
     const allocations = remaining.map((element, index) => ({
       element,
       extra: Math.min(99, Math.floor((remainder * scores[index]) / scoreSum)),
       fraction: (remainder * scores[index]) / scoreSum,
     }));
-/** allocated：定义该变量以承载业务值。 */
     let allocated = allocations.reduce((sum, entry) => sum + entry.extra, 0);
-/** sorted：定义该变量以承载业务值。 */
     const sorted = [...allocations].sort((left, right) => right.fraction - left.fraction);
-/** cursor：定义该变量以承载业务值。 */
     let cursor = 0;
     while (allocated < remainder) {
-/** target：定义该变量以承载业务值。 */
       const target = sorted[cursor % sorted.length];
       if (target.extra < 99) {
         target.extra += 1;
@@ -2129,11 +1810,8 @@ export class TechniqueService {
     return result;
   }
 
-/** softenHeavenGatePerfectRoots：执行对应的业务逻辑。 */
   private softenHeavenGatePerfectRoots(roots: HeavenGateRootValues, averageBonus: number): HeavenGateRootValues {
-/** keepChance：定义该变量以承载业务值。 */
     const keepChance = this.getHeavenGateExtraPerfectRootKeepChance(averageBonus);
-/** preservedPerfectCount：定义该变量以承载业务值。 */
     let preservedPerfectCount = 0;
     for (const key of ELEMENT_KEYS) {
       if (roots[key] !== 100) {
@@ -2152,9 +1830,7 @@ export class TechniqueService {
     return roots;
   }
 
-/** createHeavenSpiritualRootSeedRoots：执行对应的业务逻辑。 */
   private createHeavenSpiritualRootSeedRoots(): HeavenGateRootValues {
-/** roots：定义该变量以承载业务值。 */
     const roots = ELEMENT_KEYS.reduce((result, key) => {
       result[key] = Math.random() < 0.5 ? 100 : 99;
       return result;
@@ -2162,13 +1838,11 @@ export class TechniqueService {
     if (ELEMENT_KEYS.some((key) => roots[key] === 100)) {
       return roots;
     }
-/** guaranteedKey：定义该变量以承载业务值。 */
     const guaranteedKey = ELEMENT_KEYS[this.randomHeavenGateInt(0, ELEMENT_KEYS.length - 1)];
     roots[guaranteedKey] = 100;
     return roots;
   }
 
-/** createDivineSpiritualRootSeedRoots：执行对应的业务逻辑。 */
   private createDivineSpiritualRootSeedRoots(): HeavenGateRootValues {
     return ELEMENT_KEYS.reduce((result, key) => {
       result[key] = 100;
@@ -2176,17 +1850,11 @@ export class TechniqueService {
     }, {} as HeavenGateRootValues);
   }
 
-/** rollHeavenGateRoots：执行对应的业务逻辑。 */
   private rollHeavenGateRoots(severed: readonly ElementKey[], averageBonus: number): HeavenGateRootValues {
-/** remaining：定义该变量以承载业务值。 */
     const remaining = ELEMENT_KEYS.filter((element) => !severed.includes(element));
-/** segments：定义该变量以承载业务值。 */
     const segments = HEAVEN_GATE_AVERAGE_QUALITY_SEGMENTS[remaining.length] ?? HEAVEN_GATE_AVERAGE_QUALITY_SEGMENTS[1];
-/** segment：定义该变量以承载业务值。 */
     const segment = this.weightedPickHeavenGateSegment(segments);
-/** average：定义该变量以承载业务值。 */
     const average = Math.min(100, this.randomHeavenGateInt(segment.min, segment.max) + Math.max(0, averageBonus));
-/** roots：定义该变量以承载业务值。 */
     const roots = this.distributeHeavenGateRoots(average * remaining.length, remaining);
     return this.softenHeavenGatePerfectRoots(roots, averageBonus);
   }
@@ -2200,12 +1868,10 @@ export class TechniqueService {
       return { error: '你的境界火候未到，尚不能突破', dirty: [], messages: [] };
     }
 
-/** breakthrough：定义该变量以承载业务值。 */
     const breakthrough = this.resolveBreakthroughRequirements(player, realm.realmLv);
     if (breakthrough.blockedReason) {
       return { error: breakthrough.blockedReason, dirty: [], messages: [] };
     }
-/** unmet：定义该变量以承载业务值。 */
     const unmet = breakthrough.requirements.filter((entry) => entry.blocksBreakthrough && !entry.completed);
     if (unmet.length > 0) {
       return { error: '突破条件尚未满足', dirty: [], messages: [] };
@@ -2219,9 +1885,7 @@ export class TechniqueService {
       player.spiritualRoots = this.cloneHeavenGateRoots(spiritualRoots);
     }
 
-/** nextState：定义该变量以承载业务值。 */
     const nextState = this.createRealmStateFromLevel(realm.breakthrough.targetRealmLv, 0);
-/** crossedStage：定义该变量以承载业务值。 */
     const crossedStage = nextState.stage !== realm.stage;
     this.syncRealmPresentation(player, nextState);
     if (crossedStage) {
@@ -2240,16 +1904,11 @@ export class TechniqueService {
     };
   }
 
-/** applyRealmBonus：执行对应的业务逻辑。 */
   private applyRealmBonus(player: PlayerState, realm: PlayerRealmState): void {
-/** nextBonuses：定义该变量以承载业务值。 */
     const nextBonuses = player.bonuses.filter((bonus) => bonus.source !== REALM_STAGE_SOURCE);
-/** config：定义该变量以承载业务值。 */
     const config = PLAYER_REALM_CONFIG[realm.stage];
-/** hasBonus：定义该变量以承载业务值。 */
     const hasBonus = Object.values(config.attrBonus).some((value) => typeof value === 'number' && value > 0);
     if (hasBonus) {
-/** bonus：定义该变量以承载业务值。 */
       const bonus: AttrBonus = {
         source: REALM_STAGE_SOURCE,
         label: realm.name,
@@ -2260,7 +1919,6 @@ export class TechniqueService {
     player.bonuses = nextBonuses;
   }
 
-/** applyRealmStateMirror：执行对应的业务逻辑。 */
   private applyRealmStateMirror(player: PlayerState, realm: PlayerRealmState): void {
     player.bonuses = player.bonuses.filter((bonus) => bonus.source !== REALM_STATE_SOURCE);
     player.bonuses.push({
@@ -2276,27 +1934,18 @@ export class TechniqueService {
   }
 
   private readPersistedRealmState(player: PlayerState): { stage?: PlayerRealmStage; progress?: number; realmLv?: number } {
-/** mirrored：定义该变量以承载业务值。 */
     const mirrored = player.bonuses.find((bonus) => bonus.source === REALM_STATE_SOURCE);
-/** stage：定义该变量以承载业务值。 */
     const stage = mirrored?.meta?.stage;
-/** realmLv：定义该变量以承载业务值。 */
     const realmLv = mirrored?.meta?.realmLv;
-/** progress：定义该变量以承载业务值。 */
     const progress = mirrored?.meta?.progress;
     return {
-/** stage：定义该变量以承载业务值。 */
       stage: typeof stage === 'number' ? stage as PlayerRealmStage : undefined,
-/** realmLv：定义该变量以承载业务值。 */
       realmLv: typeof realmLv === 'number' ? realmLv : undefined,
-/** progress：定义该变量以承载业务值。 */
       progress: typeof progress === 'number' ? progress : undefined,
     };
   }
 
-/** syncRealmPresentation：执行对应的业务逻辑。 */
   private syncRealmPresentation(player: PlayerState, realm: PlayerRealmState): void {
-/** nextRealm：定义该变量以承载业务值。 */
     const nextRealm: PlayerRealmState = {
       ...realm,
       breakthrough: this.buildBreakthroughPreview(player, realm),
@@ -2318,10 +1967,8 @@ export class TechniqueService {
     averageBonus: number,
     preserveUnlocked = false,
   ): void {
-/** heavenGate：定义该变量以承载业务值。 */
     const heavenGate = this.normalizeHeavenGateState(player.heavenGate);
     player.heavenGate = {
-/** unlocked：定义该变量以承载业务值。 */
       unlocked: (preserveUnlocked && heavenGate?.unlocked === true) || this.hasReachedHeavenGateRealm(realm.realmLv),
       severed: [],
       roots: null,
@@ -2338,9 +1985,7 @@ export class TechniqueService {
   /** 揭示隐藏的突破条件 */
   revealBreakthroughRequirements(player: PlayerState, requirementIds: readonly string[]): boolean {
     if (requirementIds.length === 0) return false;
-/** known：定义该变量以承载业务值。 */
     const known = new Set(player.revealedBreakthroughRequirementIds ?? []);
-/** previousSize：定义该变量以承载业务值。 */
     const previousSize = known.size;
     for (const requirementId of requirementIds) {
       if (typeof requirementId !== 'string' || !requirementId) continue;
@@ -2356,14 +2001,10 @@ export class TechniqueService {
     return true;
   }
 
-/** buildBreakthroughPreview：执行对应的业务逻辑。 */
   private buildBreakthroughPreview(player: PlayerState, realm: PlayerRealmState): BreakthroughPreviewState | undefined {
     if (!realm.breakthroughReady) return undefined;
-/** resolved：定义该变量以承载业务值。 */
     const resolved = this.resolveBreakthroughRequirements(player, realm.realmLv);
-/** requirements：定义该变量以承载业务值。 */
     const requirements = resolved.requirements.map((entry) => entry.view);
-/** targetEntry：定义该变量以承载业务值。 */
     const targetEntry = this.contentService.getRealmLevelEntry(resolved.config.toRealmLv);
     return {
       targetRealmLv: resolved.config.toRealmLv,
@@ -2383,19 +2024,13 @@ export class TechniqueService {
     player: PlayerState,
     fromRealmLv: number,
   ): {
-/** config：定义该变量以承载业务值。 */
     config: BreakthroughConfigEntry;
-/** requirements：定义该变量以承载业务值。 */
     requirements: ResolvedBreakthroughRequirement[];
-/** canBreakthrough：定义该变量以承载业务值。 */
     canBreakthrough: boolean;
-/** blockingRequirements：定义该变量以承载业务值。 */
     blockingRequirements: number;
-/** completedBlockingRequirements：定义该变量以承载业务值。 */
     completedBlockingRequirements: number;
     blockedReason?: string;
   } {
-/** config：定义该变量以承载业务值。 */
     const config = this.getBreakthroughConfig(fromRealmLv);
     if (config.requirements.length === 0) {
       return {
@@ -2407,24 +2042,17 @@ export class TechniqueService {
         blockedReason: PATH_SEVERED_BREAKTHROUGH_REASON,
       };
     }
-/** revealed：定义该变量以承载业务值。 */
     const revealed = new Set(player.revealedBreakthroughRequirementIds ?? []);
-/** increaseMultiplier：定义该变量以承载业务值。 */
     const increaseMultiplier = config.requirements.reduce((multiplier, def) => {
       if (!this.isOptionalAttributeIncreaser(def) || this.isBreakthroughRequirementCompleted(player, def)) {
         return multiplier;
       }
       return multiplier * (1 + this.getRequirementIncreaseRate(def));
     }, 1);
-/** requirements：定义该变量以承载业务值。 */
     const requirements = config.requirements.map((def) => {
-/** blocksBreakthrough：定义该变量以承载业务值。 */
       const blocksBreakthrough = this.doesRequirementBlockBreakthrough(def);
-/** completed：定义该变量以承载业务值。 */
       const completed = this.isBreakthroughRequirementCompleted(player, def, increaseMultiplier);
-/** hidden：定义该变量以承载业务值。 */
       const hidden = def.hidden === true && !completed && !revealed.has(def.id);
-/** view：定义该变量以承载业务值。 */
       const view = this.buildBreakthroughRequirementView(player, def, {
         hidden,
         completed,
@@ -2433,23 +2061,18 @@ export class TechniqueService {
       });
       return { def, completed, blocksBreakthrough, view };
     });
-/** blockingRequirements：定义该变量以承载业务值。 */
     const blockingRequirements = requirements.filter((entry) => entry.blocksBreakthrough).length;
-/** completedBlockingRequirements：定义该变量以承载业务值。 */
     const completedBlockingRequirements = requirements.filter((entry) => entry.blocksBreakthrough && entry.completed).length;
     return {
       config,
       requirements,
-/** canBreakthrough：定义该变量以承载业务值。 */
       canBreakthrough: blockingRequirements === completedBlockingRequirements,
       blockingRequirements,
       completedBlockingRequirements,
     };
   }
 
-/** buildPathSeveredRequirement：执行对应的业务逻辑。 */
   private buildPathSeveredRequirement(fromRealmLv: number): ResolvedBreakthroughRequirement {
-/** def：定义该变量以承载业务值。 */
     const def: BreakthroughRequirementDef = {
       id: `missing-config:${fromRealmLv}`,
       type: 'attribute',
@@ -2473,9 +2096,7 @@ export class TechniqueService {
     };
   }
 
-/** getBreakthroughConfig：执行对应的业务逻辑。 */
   private getBreakthroughConfig(fromRealmLv: number): BreakthroughConfigEntry {
-/** nextRealmLv：定义该变量以承载业务值。 */
     const nextRealmLv = Math.min(this.getMaxRealmLv(), fromRealmLv + 1);
     return this.contentService.getBreakthroughConfig(fromRealmLv) ?? {
       fromRealmLv,
@@ -2493,7 +2114,6 @@ export class TechniqueService {
       case 'item':
         return this.getInventoryCount(player, requirement.itemId) >= requirement.count;
       case 'technique': {
-/** qualified：定义该变量以承载业务值。 */
         const qualified = player.techniques.filter((technique) => {
           if (requirement.techniqueId && technique.techId !== requirement.techniqueId) return false;
           if (requirement.minGrade && !this.isTechniqueGradeAtLeast(technique.grade, requirement.minGrade)) return false;
@@ -2504,7 +2124,6 @@ export class TechniqueService {
         return qualified.length >= (requirement.count ?? 1);
       }
       case 'attribute': {
-/** currentValue：定义该变量以承载业务值。 */
         const currentValue = player.finalAttrs?.[requirement.attr] ?? player.baseAttrs[requirement.attr] ?? 0;
         return currentValue >= this.getEffectiveAttributeRequirement(requirement.minValue, increaseMultiplier);
       }
@@ -2515,7 +2134,6 @@ export class TechniqueService {
     }
   }
 
-/** doesRequirementBlockBreakthrough：执行对应的业务逻辑。 */
   private doesRequirementBlockBreakthrough(requirement: BreakthroughRequirementDef): boolean {
     if (requirement.type === 'attribute') {
       return true;
@@ -2523,13 +2141,11 @@ export class TechniqueService {
     return !this.isOptionalAttributeIncreaser(requirement);
   }
 
-/** isOptionalAttributeIncreaser：执行对应的业务逻辑。 */
   private isOptionalAttributeIncreaser(requirement: BreakthroughRequirementDef): boolean {
     return (requirement.type === 'item' || requirement.type === 'technique')
       && this.getRequirementIncreasePct(requirement) > 0;
   }
 
-/** getRequirementIncreasePct：执行对应的业务逻辑。 */
   private getRequirementIncreasePct(requirement: BreakthroughRequirementDef): number {
     if (requirement.type !== 'item' && requirement.type !== 'technique') {
       return 0;
@@ -2537,12 +2153,10 @@ export class TechniqueService {
     return Math.max(0, Math.floor(requirement.increaseAttrRequirementPct ?? 0));
   }
 
-/** getRequirementIncreaseRate：执行对应的业务逻辑。 */
   private getRequirementIncreaseRate(requirement: BreakthroughRequirementDef): number {
     return this.getRequirementIncreasePct(requirement) / 100;
   }
 
-/** getEffectiveAttributeRequirement：执行对应的业务逻辑。 */
   private getEffectiveAttributeRequirement(baseValue: number, increaseMultiplier: number): number {
     return Math.max(1, Math.ceil(baseValue * Math.max(1, increaseMultiplier)));
   }
@@ -2551,13 +2165,9 @@ export class TechniqueService {
     player: PlayerState,
     requirement: BreakthroughRequirementDef,
     options: {
-/** hidden：定义该变量以承载业务值。 */
       hidden: boolean;
-/** completed：定义该变量以承载业务值。 */
       completed: boolean;
-/** increaseMultiplier：定义该变量以承载业务值。 */
       increaseMultiplier: number;
-/** blocksBreakthrough：定义该变量以承载业务值。 */
       blocksBreakthrough: boolean;
     },
   ): BreakthroughRequirementView {
@@ -2584,19 +2194,15 @@ export class TechniqueService {
     };
   }
 
-/** formatBreakthroughRequirementLabel：执行对应的业务逻辑。 */
   private formatBreakthroughRequirementLabel(requirement: BreakthroughRequirementDef, increaseMultiplier = 1): string {
     if (requirement.type !== 'attribute' && requirement.label) return requirement.label;
     switch (requirement.type) {
       case 'item': {
-/** itemName：定义该变量以承载业务值。 */
         const itemName = this.contentService.getItem(requirement.itemId)?.name ?? requirement.itemId;
         return `${itemName} x${requirement.count}`;
       }
       case 'technique': {
-/** parts：定义该变量以承载业务值。 */
         const parts: string[] = ['至少掌握'];
-/** count：定义该变量以承载业务值。 */
         const count = requirement.count ?? 1;
         parts.push(`${count}门`);
         if (requirement.techniqueId) {
@@ -2615,7 +2221,6 @@ export class TechniqueService {
         return parts.join('');
       }
       case 'attribute': {
-/** effectiveValue：定义该变量以承载业务值。 */
         const effectiveValue = this.getEffectiveAttributeRequirement(requirement.minValue, increaseMultiplier);
         return effectiveValue > requirement.minValue
           ? `${this.attrLabel(requirement.attr)}达到 ${effectiveValue}（基础 ${requirement.minValue}）`
@@ -2638,23 +2243,19 @@ export class TechniqueService {
     blocksBreakthrough: boolean,
   ): string {
     if (requirement.type === 'attribute') {
-/** currentValue：定义该变量以承载业务值。 */
       const currentValue = player.finalAttrs?.[requirement.attr] ?? player.baseAttrs[requirement.attr] ?? 0;
-/** effectiveValue：定义该变量以承载业务值。 */
       const effectiveValue = this.getEffectiveAttributeRequirement(requirement.minValue, increaseMultiplier);
       return effectiveValue > requirement.minValue
         ? `当前${this.attrLabel(requirement.attr)} ${currentValue} / ${effectiveValue}，基础要求 ${requirement.minValue}`
         : `当前${this.attrLabel(requirement.attr)} ${currentValue} / ${requirement.minValue}`;
     }
     if (requirement.type === 'root') {
-/** currentValue：定义该变量以承载业务值。 */
       const currentValue = this.getCurrentRootRequirementValue(player, requirement.element);
       return requirement.element
         ? `当前${this.rootLabel(requirement.element)}灵根 ${currentValue} / ${requirement.minValue}`
         : `当前最高灵根 ${currentValue} / ${requirement.minValue}`;
     }
     if (this.isOptionalAttributeIncreaser(requirement)) {
-/** increasePct：定义该变量以承载业务值。 */
       const increasePct = this.getRequirementIncreasePct(requirement);
       if (requirement.type === 'item') {
         return completed
@@ -2671,13 +2272,11 @@ export class TechniqueService {
     return completed ? '当前已满足。' : (blocksBreakthrough ? '当前尚未满足。' : '当前未生效。');
   }
 
-/** isTechniqueGradeAtLeast：执行对应的业务逻辑。 */
   private isTechniqueGradeAtLeast(current: TechniqueGrade | undefined, expected: TechniqueGrade): boolean {
     if (!current) return false;
     return TECHNIQUE_GRADE_ORDER.indexOf(current) >= TECHNIQUE_GRADE_ORDER.indexOf(expected);
   }
 
-/** attrLabel：执行对应的业务逻辑。 */
   private attrLabel(attr: keyof PlayerState['baseAttrs']): string {
     switch (attr) {
       case 'constitution':
@@ -2697,14 +2296,11 @@ export class TechniqueService {
     }
   }
 
-/** rootLabel：执行对应的业务逻辑。 */
   private rootLabel(element: ElementKey): string {
     return ELEMENT_KEY_LABELS[element] ?? String(element);
   }
 
-/** getCurrentRootRequirementValue：执行对应的业务逻辑。 */
   private getCurrentRootRequirementValue(player: PlayerState, element?: ElementKey): number {
-/** rootStats：定义该变量以承载业务值。 */
     const rootStats = this.normalizeHeavenGateRoots(player.spiritualRoots);
     if (!rootStats) {
       return 0;
@@ -2715,7 +2311,6 @@ export class TechniqueService {
     return ELEMENT_KEYS.reduce((maxValue, key) => Math.max(maxValue, Math.round(rootStats[key] ?? 0)), 0);
   }
 
-/** resolveStageForRealmLevel：执行对应的业务逻辑。 */
   private resolveStageForRealmLevel(realmLv: number): PlayerRealmStage {
     for (const stage of [...PLAYER_REALM_ORDER].reverse()) {
       const range = this.contentService.getRealmLevelRange(stage);
@@ -2726,11 +2321,8 @@ export class TechniqueService {
     return DEFAULT_PLAYER_REALM_STAGE;
   }
 
-/** getMaxRealmLv：执行对应的业务逻辑。 */
   private getMaxRealmLv(): number {
-/** levelCap：定义该变量以承载业务值。 */
     const levelCap = this.contentService.getRealmLevelsConfig()?.levels?.at(-1)?.realmLv;
-/** breakthroughCap：定义该变量以承载业务值。 */
     const breakthroughCap = this.contentService.getMaxConfiguredBreakthroughRealmLv();
     if (typeof levelCap === 'number' && levelCap > 0) {
       return Math.min(levelCap, breakthroughCap);
@@ -2738,20 +2330,16 @@ export class TechniqueService {
     return breakthroughCap;
   }
 
-/** clampRealmLv：执行对应的业务逻辑。 */
   private clampRealmLv(realmLv: number): number {
     return Math.max(1, Math.min(this.getMaxRealmLv(), Math.floor(realmLv)));
   }
 
-/** applyTechniqueBonuses：执行对应的业务逻辑。 */
   private applyTechniqueBonuses(player: PlayerState): void {
-/** nextBonuses：定义该变量以承载业务值。 */
     const nextBonuses = player.bonuses.filter((bonus) => (
       !bonus.source.startsWith(TECHNIQUE_SOURCE_PREFIX)
       && bonus.source !== HEAVEN_GATE_ROOTS_SOURCE
       && bonus.source !== BODY_TRAINING_SOURCE
     ));
-/** attrs：定义该变量以承载业务值。 */
     const attrs = calcTechniqueFinalAttrBonus(player.techniques);
     if (Object.values(attrs).some((value) => value > 0)) {
       nextBonuses.push({
@@ -2760,7 +2348,6 @@ export class TechniqueService {
         attrs,
       });
     }
-/** bodyTrainingAttrs：定义该变量以承载业务值。 */
     const bodyTrainingAttrs = calcBodyTrainingAttrBonus(player.bodyTraining?.level ?? 0);
     if (Object.values(bodyTrainingAttrs).some((value) => (value ?? 0) > 0)) {
       nextBonuses.push({
@@ -2769,7 +2356,6 @@ export class TechniqueService {
         attrs: bodyTrainingAttrs,
       });
     }
-/** roots：定义该变量以承载业务值。 */
     const roots = this.normalizeHeavenGateRoots(player.spiritualRoots);
     if (roots) {
       nextBonuses.push({
@@ -2786,16 +2372,13 @@ export class TechniqueService {
     player.bonuses = nextBonuses;
   }
 
-/** syncTechniqueMetadata：执行对应的业务逻辑。 */
   private syncTechniqueMetadata(player: PlayerState): void {
-/** normalizedTechniques：定义该变量以承载业务值。 */
     const normalizedTechniques: TechniqueState[] = [];
     for (const technique of player.techniques) {
       const template = this.contentService.getTechnique(technique.techId);
       if (!template) {
         continue;
       }
-/** previousExpToNext：定义该变量以承载业务值。 */
       const previousExpToNext = Math.max(0, technique.expToNext);
       technique.name = template.name;
       technique.grade = template.grade;
@@ -2804,7 +2387,6 @@ export class TechniqueService {
       technique.layers = template.layers;
       technique.skills = template.skills;
       technique.skillsEnabled = technique.skillsEnabled !== false;
-/** maxLevel：定义该变量以承载业务值。 */
       const maxLevel = getTechniqueMaxLevel(template.layers);
       if (technique.level > maxLevel) {
         technique.level = maxLevel;
@@ -2817,7 +2399,6 @@ export class TechniqueService {
       if (technique.expToNext <= 0) {
         technique.exp = 0;
       } else if (previousExpToNext > 0 && previousExpToNext !== technique.expToNext) {
-/** progressRate：定义该变量以承载业务值。 */
         const progressRate = Math.max(0, Math.min(1, technique.exp / previousExpToNext));
         technique.exp = Math.floor(progressRate * technique.expToNext);
       } else if (technique.exp >= technique.expToNext) {
@@ -2834,29 +2415,23 @@ export class TechniqueService {
     }
   }
 
-/** getInventoryCount：执行对应的业务逻辑。 */
   private getInventoryCount(player: PlayerState, itemId: string): number {
     return player.inventory.items
       .filter((item) => item.itemId === itemId)
       .reduce((sum, item) => sum + item.count, 0);
   }
 
-/** consumeItem：执行对应的业务逻辑。 */
   private consumeItem(player: PlayerState, itemId: string, count: number): void {
-/** remaining：定义该变量以承载业务值。 */
     let remaining = count;
     while (remaining > 0) {
-/** slotIndex：定义该变量以承载业务值。 */
       const slotIndex = this.inventoryService.findItem(player, itemId);
       if (slotIndex < 0) return;
-/** removed：定义该变量以承载业务值。 */
       const removed = this.inventoryService.removeItem(player, slotIndex, remaining);
       if (!removed) return;
       remaining -= removed.count;
     }
   }
 
-/** techniqueRealmLabel：执行对应的业务逻辑。 */
   private techniqueRealmLabel(realm: TechniqueRealm): string {
     switch (realm) {
       case TechniqueRealm.Entry:
@@ -2870,7 +2445,6 @@ export class TechniqueService {
     }
   }
 
-/** buildBreakthroughMessage：执行对应的业务逻辑。 */
   private buildBreakthroughMessage(from: PlayerRealmStage, to: PlayerRealmStage, nextName: string): string {
     if (from < PlayerRealmStage.QiRefining && to >= PlayerRealmStage.QiRefining) {
       return `你打破凡武桎梏，正式踏入${nextName}，从江湖武者迈入修仙之门。`;

@@ -35,59 +35,38 @@ import { ContentService } from './content.service';
 import { InventoryService } from './inventory.service';
 import { PlayerService } from './player.service';
 
-/** MarketMessage：定义该接口的能力与字段约束。 */
 interface MarketMessage {
-/** playerId：定义该变量以承载业务值。 */
   playerId: string;
-/** text：定义该变量以承载业务值。 */
   text: string;
   kind?: 'system' | 'loot';
 }
 
-/** MarketPlayerSnapshot：定义该接口的能力与字段约束。 */
 interface MarketPlayerSnapshot {
   inventory: {
-/** items：定义该变量以承载业务值。 */
     items: ItemStack[];
-/** capacity：定义该变量以承载业务值。 */
     capacity: number;
   };
-/** marketStorage：定义该变量以承载业务值。 */
   marketStorage: MarketStorage;
 }
 
-/** MarketMutationContext：定义该接口的能力与字段约束。 */
 interface MarketMutationContext {
-/** orderRepo：定义该变量以承载业务值。 */
   orderRepo: Repository<MarketOrderEntity>;
-/** tradeHistoryRepo：定义该变量以承载业务值。 */
   tradeHistoryRepo: Repository<MarketTradeHistoryEntity>;
-/** playerRepo：定义该变量以承载业务值。 */
   playerRepo: Repository<PlayerEntity>;
-/** openOrdersSnapshot：定义该变量以承载业务值。 */
   openOrdersSnapshot: MarketOrderEntity[];
-/** onlinePlayerSnapshots：定义该变量以承载业务值。 */
   onlinePlayerSnapshots: Map<string, MarketPlayerSnapshot>;
-/** touchedOnlinePlayerIds：定义该变量以承载业务值。 */
   touchedOnlinePlayerIds: Set<string>;
 }
 
-/** MarketActionResult：定义该接口的能力与字段约束。 */
 export interface MarketActionResult {
-/** affectedPlayerIds：定义该变量以承载业务值。 */
   affectedPlayerIds: string[];
-/** messages：定义该变量以承载业务值。 */
   messages: MarketMessage[];
-/** privateStatePlayerIds：定义该变量以承载业务值。 */
   privateStatePlayerIds: string[];
-/** touchedItemIds：定义该变量以承载业务值。 */
   touchedItemIds: string[];
-/** tradeHistoryPlayerIds：定义该变量以承载业务值。 */
   tradeHistoryPlayerIds: string[];
 }
 
 @Injectable()
-/** MarketService：封装相关状态与行为。 */
 export class MarketService implements OnModuleInit {
   private readonly logger = new Logger(MarketService.name);
   private static readonly MARKET_PRICE_COLUMN_TABLES = [
@@ -96,9 +75,7 @@ export class MarketService implements OnModuleInit {
   ] as const;
   private static readonly TRADE_HISTORY_VISIBLE_LIMIT = 100;
   private static readonly TRADE_HISTORY_PAGE_SIZE = 10;
-/** openOrders：定义该变量以承载业务值。 */
   private openOrders: MarketOrderEntity[] = [];
-/** marketOperationQueue：定义该变量以承载业务值。 */
   private marketOperationQueue: Promise<void> = Promise.resolve();
 
   constructor(
@@ -113,13 +90,11 @@ export class MarketService implements OnModuleInit {
     private readonly playerService: PlayerService,
   ) {}
 
-/** onModuleInit：执行对应的业务逻辑。 */
   async onModuleInit(): Promise<void> {
     await this.ensureMarketUnitPriceCapacity();
     await this.reloadOpenOrders();
   }
 
-/** reloadOpenOrders：执行对应的业务逻辑。 */
   async reloadOpenOrders(): Promise<void> {
     this.openOrders = await this.marketOrderRepo.find({
       where: { status: 'open' },
@@ -132,22 +107,18 @@ export class MarketService implements OnModuleInit {
     this.compactOpenOrders();
   }
 
-/** refreshInvalidOrders：执行对应的业务逻辑。 */
   async refreshInvalidOrders(): Promise<MarketActionResult> {
     return this.runExclusive(async () => {
-/** context：定义该变量以承载业务值。 */
       const context = this.createMutationContext();
       try {
         return await this.marketOrderRepo.manager.transaction(async (manager) => {
           this.bindTransactionRepos(context, manager);
-/** result：定义该变量以承载业务值。 */
           const result = await this.sanitizeOpenOrdersInContext(context);
           await this.persistTouchedOnlinePlayers(context);
           return result;
         });
       } catch (error) {
         this.restoreMutationContext(context);
-/** message：定义该变量以承载业务值。 */
         const message = error instanceof Error ? error.message : String(error);
         this.logger.error(`坊市无效订单清理失败，已回滚: ${message}`);
         return this.createBaseResult();
@@ -155,45 +126,33 @@ export class MarketService implements OnModuleInit {
     });
   }
 
-/** getCurrencyItemId：执行对应的业务逻辑。 */
   getCurrencyItemId(): string {
     return MARKET_CURRENCY_ITEM_ID;
   }
 
-/** getCurrencyItemName：执行对应的业务逻辑。 */
   getCurrencyItemName(): string {
     return this.contentService.getItem(MARKET_CURRENCY_ITEM_ID)?.name ?? '灵石';
   }
 
   buildListingsPage(input: {
-/** page：定义该变量以承载业务值。 */
     page: number;
     pageSize?: number;
     category?: ItemType | 'all';
     equipmentSlot?: EquipSlot | 'all';
     techniqueCategory?: TechniqueCategory | 'all';
   }): S2C_MarketListings {
-/** category：定义该变量以承载业务值。 */
     const category = input.category ?? 'all';
-/** equipmentSlot：定义该变量以承载业务值。 */
     const equipmentSlot = input.equipmentSlot ?? 'all';
-/** techniqueCategory：定义该变量以承载业务值。 */
     const techniqueCategory = input.techniqueCategory ?? 'all';
-/** pageSize：定义该变量以承载业务值。 */
     const pageSize = this.normalizeListingsPageSize(input.pageSize);
-/** filtered：定义该变量以承载业务值。 */
     const filtered = this.filterMarketItems(this.buildListingGroups(), {
       category,
       equipmentSlot,
       techniqueCategory,
     });
-/** total：定义该变量以承载业务值。 */
     const total = filtered.length;
-/** totalPages：定义该变量以承载业务值。 */
     const totalPages = Math.max(1, Math.ceil(total / pageSize));
-/** page：定义该变量以承载业务值。 */
     const page = Math.max(1, Math.min(totalPages, Math.floor(Number.isFinite(input.page) ? input.page : 1)));
-/** start：定义该变量以承载业务值。 */
     const start = (page - 1) * pageSize;
     return {
       currencyItemId: this.getCurrencyItemId(),
@@ -210,7 +169,6 @@ export class MarketService implements OnModuleInit {
     };
   }
 
-/** buildOrdersUpdate：执行对应的业务逻辑。 */
   buildOrdersUpdate(player: PlayerState): S2C_MarketOrders {
     return {
       currencyItemId: this.getCurrencyItemId(),
@@ -228,19 +186,14 @@ export class MarketService implements OnModuleInit {
     };
   }
 
-/** buildStorageUpdate：执行对应的业务逻辑。 */
   buildStorageUpdate(player: PlayerState): S2C_MarketStorage {
-/** grouped：定义该变量以承载业务值。 */
     const grouped = new Map<string, { item: ItemStack; count: number }>();
     for (const item of player.marketStorage?.items ?? []) {
       if (!item?.itemId || !Number.isFinite(item.count) || item.count <= 0) {
         continue;
       }
-/** normalized：定义该变量以承载业务值。 */
       const normalized = this.toOrderItem(item);
-/** itemKey：定义该变量以承载业务值。 */
       const itemKey = this.buildItemKey(normalized);
-/** current：定义该变量以承载业务值。 */
       const current = grouped.get(itemKey) ?? {
         item: normalized,
         count: 0,
@@ -259,7 +212,6 @@ export class MarketService implements OnModuleInit {
     };
   }
 
-/** buildMarketUpdate：执行对应的业务逻辑。 */
   buildMarketUpdate(player: PlayerState): S2C_MarketUpdate {
     return {
       currencyItemId: this.getCurrencyItemId(),
@@ -271,9 +223,7 @@ export class MarketService implements OnModuleInit {
   }
 
   buildItemBook(itemKey: string): { itemKey: string; item: ItemStack; sells: MarketPriceLevelView[]; buys: MarketPriceLevelView[] } | null {
-/** orders：定义该变量以承载业务值。 */
     const orders = this.openOrders.filter((order) => {
-/** orderItem：定义该变量以承载业务值。 */
       const orderItem = this.cloneOrderItem(order);
       return order.remainingQuantity > 0
         && this.isSupportedMarketItem(orderItem)
@@ -291,18 +241,12 @@ export class MarketService implements OnModuleInit {
     };
   }
 
-/** buildTradeHistoryPage：执行对应的业务逻辑。 */
   async buildTradeHistoryPage(playerId: string, page: number): Promise<{
-/** page：定义该变量以承载业务值。 */
     page: number;
-/** pageSize：定义该变量以承载业务值。 */
     pageSize: number;
-/** totalVisible：定义该变量以承载业务值。 */
     totalVisible: number;
-/** records：定义该变量以承载业务值。 */
     records: MarketTradeHistoryEntryView[];
   }> {
-/** visibleRecords：定义该变量以承载业务值。 */
     const visibleRecords = await this.marketTradeHistoryRepo.find({
       where: [
         { buyerId: playerId },
@@ -314,13 +258,9 @@ export class MarketService implements OnModuleInit {
       },
       take: MarketService.TRADE_HISTORY_VISIBLE_LIMIT,
     });
-/** totalVisible：定义该变量以承载业务值。 */
     const totalVisible = visibleRecords.length;
-/** totalPages：定义该变量以承载业务值。 */
     const totalPages = Math.max(1, Math.ceil(totalVisible / MarketService.TRADE_HISTORY_PAGE_SIZE));
-/** normalizedPage：定义该变量以承载业务值。 */
     const normalizedPage = Math.max(1, Math.min(totalPages, Math.floor(Number.isFinite(page) ? page : 1)));
-/** start：定义该变量以承载业务值。 */
     const start = (normalizedPage - 1) * MarketService.TRADE_HISTORY_PAGE_SIZE;
     return {
       page: normalizedPage,
@@ -330,7 +270,6 @@ export class MarketService implements OnModuleInit {
         .slice(start, start + MarketService.TRADE_HISTORY_PAGE_SIZE)
         .map((record) => ({
           id: record.id,
-/** side：定义该变量以承载业务值。 */
           side: record.buyerId === playerId ? 'buy' : 'sell',
           itemId: record.itemId,
           itemName: this.contentService.getItem(record.itemId)?.name ?? record.itemId,
@@ -341,7 +280,6 @@ export class MarketService implements OnModuleInit {
     };
   }
 
-/** createSellOrder：执行对应的业务逻辑。 */
   async createSellOrder(player: PlayerState, payload: { slotIndex: number; quantity: number; unitPrice: number }): Promise<MarketActionResult> {
     return this.runExclusiveMarketMutation(player.id, async (context) => {
       this.captureOnlinePlayerState(player.id, context);
@@ -351,18 +289,14 @@ export class MarketService implements OnModuleInit {
 
   private async createSellOrderUnsafe(
     player: PlayerState,
-/** payload：定义该变量以承载业务值。 */
     payload: { slotIndex: number; quantity: number; unitPrice: number },
     context: MarketMutationContext,
   ): Promise<MarketActionResult> {
-/** item：定义该变量以承载业务值。 */
     const item = this.inventoryService.getItem(player, payload.slotIndex);
     if (!item) {
       return this.singleMessage(player.id, '要挂售的物品不存在。');
     }
-/** quantity：定义该变量以承载业务值。 */
     const quantity = this.normalizeQuantity(payload.quantity);
-/** unitPrice：定义该变量以承载业务值。 */
     const unitPrice = this.normalizeUnitPrice(payload.unitPrice);
     if (!quantity || !unitPrice) {
       return this.singleMessage(player.id, '挂售数量或单价无效。');
@@ -379,15 +313,12 @@ export class MarketService implements OnModuleInit {
     if (!this.isSupportedMarketItem(this.toOrderItem(item))) {
       return this.singleMessage(player.id, `该物品强化等级超过坊市支持上限 +${MAX_ENHANCE_LEVEL}，无法挂售。`);
     }
-/** orderItem：定义该变量以承载业务值。 */
     const orderItem = this.toOrderItem(item);
-/** itemKey：定义该变量以承载业务值。 */
     const itemKey = this.buildItemKey(orderItem);
     if (this.hasConflictingOpenOrder(player.id, itemKey, 'sell')) {
       return this.singleMessage(player.id, '同一种物品已在求购中，不能同时挂售。');
     }
 
-/** removed：定义该变量以承载业务值。 */
     const removed = this.inventoryService.removeItem(player, payload.slotIndex, quantity);
     if (!removed) {
       return this.singleMessage(player.id, '挂售失败，未能扣除物品。');
@@ -395,22 +326,17 @@ export class MarketService implements OnModuleInit {
     this.playerService.markDirty(player.id, 'inv');
     context.touchedOnlinePlayerIds.add(player.id);
 
-/** result：定义该变量以承载业务值。 */
     const result = this.createEmptyResult(player.id);
     this.touchPrivateStatePlayer(result, player.id);
     this.touchItem(result, orderItem.itemId);
-/** buyOrders：定义该变量以承载业务值。 */
     const buyOrders = this.getSortedOrders(itemKey, 'buy')
       .filter((order) => order.ownerId !== player.id && order.unitPrice >= unitPrice);
-/** matchPlan：定义该变量以承载业务值。 */
     const matchPlan = this.planOrderMatches(buyOrders, removed.count, unitPrice);
-/** remaining：定义该变量以承载业务值。 */
     let remaining = matchPlan.remainingQuantity;
 
     for (const match of matchPlan.matches) {
       const buyOrder = match.order;
       const tradeQuantity = match.quantity;
-/** tradePrice：定义该变量以承载业务值。 */
       const tradePrice = buyOrder.unitPrice;
       await this.deliverItemToPlayer(buyOrder.ownerId, { ...orderItem, count: tradeQuantity }, context);
       await this.deliverItemToPlayer(player.id, this.createCurrencyItem(match.totalCost), context);
@@ -433,9 +359,7 @@ export class MarketService implements OnModuleInit {
     }
 
     if (remaining > 0) {
-/** now：定义该变量以承载业务值。 */
       const now = Date.now();
-/** order：定义该变量以承载业务值。 */
       const order = this.marketOrderRepo.create({
         id: randomUUID(),
         ownerId: player.id,
@@ -458,7 +382,6 @@ export class MarketService implements OnModuleInit {
     return result;
   }
 
-/** createBuyOrder：执行对应的业务逻辑。 */
   async createBuyOrder(player: PlayerState, payload: { itemKey: string; quantity: number; unitPrice: number }): Promise<MarketActionResult> {
     return this.runExclusiveMarketMutation(player.id, async (context) => {
       this.captureOnlinePlayerState(player.id, context);
@@ -468,11 +391,9 @@ export class MarketService implements OnModuleInit {
 
   private async createBuyOrderUnsafe(
     player: PlayerState,
-/** payload：定义该变量以承载业务值。 */
     payload: { itemKey: string; quantity: number; unitPrice: number },
     context: MarketMutationContext,
   ): Promise<MarketActionResult> {
-/** item：定义该变量以承载业务值。 */
     const item = this.resolveBuyOrderItem(player, payload.itemKey);
     if (!item) {
       return this.singleMessage(player.id, '求购的物品不存在。');
@@ -483,9 +404,7 @@ export class MarketService implements OnModuleInit {
     if (!this.isSupportedMarketItem(this.toOrderItem(item))) {
       return this.singleMessage(player.id, `该物品强化等级超过坊市支持上限 +${MAX_ENHANCE_LEVEL}，无法求购。`);
     }
-/** quantity：定义该变量以承载业务值。 */
     const quantity = this.normalizeQuantity(payload.quantity);
-/** unitPrice：定义该变量以承载业务值。 */
     const unitPrice = this.normalizeUnitPrice(payload.unitPrice);
     if (!quantity || !unitPrice) {
       return this.singleMessage(player.id, '求购数量或单价无效。');
@@ -493,15 +412,12 @@ export class MarketService implements OnModuleInit {
     if (!isValidMarketTradeQuantity(unitPrice, quantity)) {
       return this.singleMessage(player.id, this.buildTradeQuantityError(unitPrice));
     }
-/** orderItem：定义该变量以承载业务值。 */
     const orderItem = this.toOrderItem(item);
-/** itemKey：定义该变量以承载业务值。 */
     const itemKey = this.buildItemKey(orderItem);
     if (this.hasConflictingOpenOrder(player.id, itemKey, 'buy')) {
       return this.singleMessage(player.id, '同一种物品已在挂售中，不能同时求购。');
     }
 
-/** totalCost：定义该变量以承载业务值。 */
     const totalCost = calculateMarketTradeTotalCost(quantity, unitPrice);
     if (totalCost === null) {
       return this.singleMessage(player.id, this.buildTradeQuantityError(unitPrice));
@@ -512,22 +428,17 @@ export class MarketService implements OnModuleInit {
     this.playerService.markDirty(player.id, 'inv');
     context.touchedOnlinePlayerIds.add(player.id);
 
-/** result：定义该变量以承载业务值。 */
     const result = this.createEmptyResult(player.id);
     this.touchPrivateStatePlayer(result, player.id);
     this.touchItem(result, orderItem.itemId);
-/** sellOrders：定义该变量以承载业务值。 */
     const sellOrders = this.getSortedOrders(itemKey, 'sell')
       .filter((order) => order.ownerId !== player.id && order.unitPrice <= unitPrice);
-/** matchPlan：定义该变量以承载业务值。 */
     const matchPlan = this.planOrderMatches(sellOrders, quantity, unitPrice);
-/** remaining：定义该变量以承载业务值。 */
     let remaining = matchPlan.remainingQuantity;
 
     for (const match of matchPlan.matches) {
       const sellOrder = match.order;
       const tradeQuantity = match.quantity;
-/** tradePrice：定义该变量以承载业务值。 */
       const tradePrice = sellOrder.unitPrice;
       await this.deliverItemToPlayer(player.id, { ...orderItem, count: tradeQuantity }, context);
       await this.deliverItemToPlayer(sellOrder.ownerId, this.createCurrencyItem(match.totalCost), context);
@@ -541,9 +452,7 @@ export class MarketService implements OnModuleInit {
       this.touchPrivateStatePlayer(result, sellOrder.ownerId);
       this.touchTradeHistoryPlayer(result, player.id);
       this.touchTradeHistoryPlayer(result, sellOrder.ownerId);
-/** reservedCost：定义该变量以承载业务值。 */
       const reservedCost = calculateMarketTradeTotalCost(tradeQuantity, unitPrice) ?? match.totalCost;
-/** refund：定义该变量以承载业务值。 */
       const refund = Math.max(0, reservedCost - match.totalCost);
       if (refund > 0) {
         await this.deliverItemToPlayer(player.id, this.createCurrencyItem(refund), context);
@@ -557,9 +466,7 @@ export class MarketService implements OnModuleInit {
     }
 
     if (remaining > 0) {
-/** now：定义该变量以承载业务值。 */
       const now = Date.now();
-/** order：定义该变量以承载业务值。 */
       const order = this.marketOrderRepo.create({
         id: randomUUID(),
         ownerId: player.id,
@@ -582,7 +489,6 @@ export class MarketService implements OnModuleInit {
     return result;
   }
 
-/** buyNow：执行对应的业务逻辑。 */
   async buyNow(player: PlayerState, payload: { itemKey: string; quantity: number }): Promise<MarketActionResult> {
     return this.runExclusiveMarketMutation(player.id, async (context) => {
       this.captureOnlinePlayerState(player.id, context);
@@ -592,27 +498,22 @@ export class MarketService implements OnModuleInit {
 
   private async buyNowUnsafe(
     player: PlayerState,
-/** payload：定义该变量以承载业务值。 */
     payload: { itemKey: string; quantity: number },
     context: MarketMutationContext,
   ): Promise<MarketActionResult> {
-/** quantity：定义该变量以承载业务值。 */
     const quantity = this.normalizeQuantity(payload.quantity);
     if (!quantity) {
       return this.singleMessage(player.id, '买入数量无效。');
     }
-/** sells：定义该变量以承载业务值。 */
     const sells = this.getSortedOrders(payload.itemKey, 'sell')
       .filter((order) => order.ownerId !== player.id);
     if (sells.length === 0) {
       return this.singleMessage(player.id, '当前没有可买入的挂售。');
     }
-/** plan：定义该变量以承载业务值。 */
     const plan = this.planOrderMatches(sells, quantity);
     if (plan.fulfilledQuantity < quantity) {
       return this.singleMessage(player.id, `当前最多只能买到 ${plan.fulfilledQuantity} 件。`);
     }
-/** totalCost：定义该变量以承载业务值。 */
     const totalCost = plan.totalCost;
     if (!this.consumeCurrencyFromInventory(player, totalCost)) {
       return this.singleMessage(player.id, `${this.getCurrencyItemName()}不足，无法完成买入。`);
@@ -620,10 +521,8 @@ export class MarketService implements OnModuleInit {
     this.playerService.markDirty(player.id, 'inv');
     context.touchedOnlinePlayerIds.add(player.id);
 
-/** result：定义该变量以承载业务值。 */
     const result = this.createEmptyResult(player.id);
     this.touchPrivateStatePlayer(result, player.id);
-/** item：定义该变量以承载业务值。 */
     const item = this.cloneOrderItem(sells[0]);
     this.touchItem(result, item.itemId);
 
@@ -654,7 +553,6 @@ export class MarketService implements OnModuleInit {
     return result;
   }
 
-/** sellNow：执行对应的业务逻辑。 */
   async sellNow(player: PlayerState, payload: { slotIndex: number; quantity: number }): Promise<MarketActionResult> {
     return this.runExclusiveMarketMutation(player.id, async (context) => {
       this.captureOnlinePlayerState(player.id, context);
@@ -664,16 +562,13 @@ export class MarketService implements OnModuleInit {
 
   private async sellNowUnsafe(
     player: PlayerState,
-/** payload：定义该变量以承载业务值。 */
     payload: { slotIndex: number; quantity: number },
     context: MarketMutationContext,
   ): Promise<MarketActionResult> {
-/** item：定义该变量以承载业务值。 */
     const item = this.inventoryService.getItem(player, payload.slotIndex);
     if (!item) {
       return this.singleMessage(player.id, '要出售的物品不存在。');
     }
-/** quantity：定义该变量以承载业务值。 */
     const quantity = this.normalizeQuantity(payload.quantity);
     if (!quantity) {
       return this.singleMessage(player.id, '出售数量无效。');
@@ -684,24 +579,20 @@ export class MarketService implements OnModuleInit {
     if (!this.canTradeItemOnMarket(item)) {
       return this.singleMessage(player.id, `${this.getCurrencyItemName()}是坊市货币，不能出售给求购盘。`);
     }
-/** orderItem：定义该变量以承载业务值。 */
     const orderItem = this.toOrderItem(item);
     if (!this.isSupportedMarketItem(orderItem)) {
       return this.singleMessage(player.id, `该物品强化等级超过坊市支持上限 +${MAX_ENHANCE_LEVEL}，无法出售给求购盘。`);
     }
-/** buys：定义该变量以承载业务值。 */
     const buys = this.getSortedOrders(this.buildItemKey(orderItem), 'buy')
       .filter((order) => order.ownerId !== player.id);
     if (buys.length === 0) {
       return this.singleMessage(player.id, '当前没有可直接成交的求购。');
     }
-/** plan：定义该变量以承载业务值。 */
     const plan = this.planOrderMatches(buys, quantity);
     if (plan.fulfilledQuantity < quantity) {
       return this.singleMessage(player.id, `当前求购盘最多只能接下 ${plan.fulfilledQuantity} 件。`);
     }
 
-/** removed：定义该变量以承载业务值。 */
     const removed = this.inventoryService.removeItem(player, payload.slotIndex, quantity);
     if (!removed) {
       return this.singleMessage(player.id, '出售失败，未能扣除物品。');
@@ -709,10 +600,8 @@ export class MarketService implements OnModuleInit {
     this.playerService.markDirty(player.id, 'inv');
     context.touchedOnlinePlayerIds.add(player.id);
 
-/** result：定义该变量以承载业务值。 */
     const result = this.createEmptyResult(player.id);
     this.touchPrivateStatePlayer(result, player.id);
-/** totalIncome：定义该变量以承载业务值。 */
     const totalIncome = plan.totalCost;
     this.touchItem(result, orderItem.itemId);
 
@@ -743,7 +632,6 @@ export class MarketService implements OnModuleInit {
     return result;
   }
 
-/** cancelOrder：执行对应的业务逻辑。 */
   async cancelOrder(player: PlayerState, payload: { orderId: string }): Promise<MarketActionResult> {
     return this.runExclusiveMarketMutation(player.id, async (context) => {
       this.captureOnlinePlayerState(player.id, context);
@@ -756,7 +644,6 @@ export class MarketService implements OnModuleInit {
     payload: { orderId: string },
     context: MarketMutationContext,
   ): Promise<MarketActionResult> {
-/** order：定义该变量以承载业务值。 */
     const order = this.openOrders.find((entry) => entry.id === payload.orderId && entry.ownerId === player.id);
     if (!order) {
       return this.singleMessage(player.id, '未找到可取消的订单。');
@@ -765,14 +652,12 @@ export class MarketService implements OnModuleInit {
     if (order.side === 'sell') {
       await this.deliverItemToPlayer(player.id, { ...this.cloneOrderItem(order), count: order.remainingQuantity }, context);
     } else {
-/** refund：定义该变量以承载业务值。 */
       const refund = calculateMarketTradeTotalCost(order.remainingQuantity, order.unitPrice);
       if (refund) {
         await this.deliverItemToPlayer(player.id, this.createCurrencyItem(refund), context);
       }
     }
 
-/** result：定义该变量以承载业务值。 */
     const result = this.singleMessage(player.id, '订单已取消，剩余托管物已退回你的坊市托管仓。');
     this.touchPrivateStatePlayer(result, player.id);
     this.touchItem(result, this.cloneOrderItem(order).itemId);
@@ -782,7 +667,6 @@ export class MarketService implements OnModuleInit {
     return result;
   }
 
-/** claimStorage：执行对应的业务逻辑。 */
   async claimStorage(player: PlayerState): Promise<MarketActionResult> {
     return this.runExclusiveMarketMutation(player.id, async (context) => {
       this.captureOnlinePlayerState(player.id, context);
@@ -790,17 +674,13 @@ export class MarketService implements OnModuleInit {
     });
   }
 
-/** claimStorageUnsafe：执行对应的业务逻辑。 */
   private async claimStorageUnsafe(player: PlayerState, context: MarketMutationContext): Promise<MarketActionResult> {
-/** storage：定义该变量以承载业务值。 */
     const storage = player.marketStorage ?? { items: [] };
     if (storage.items.length === 0) {
       return this.singleMessage(player.id, '坊市托管仓里暂时没有可领取的物品。');
     }
 
-/** movedCount：定义该变量以承载业务值。 */
     let movedCount = 0;
-/** nextItems：定义该变量以承载业务值。 */
     const nextItems: ItemStack[] = [];
     for (const item of storage.items) {
       if (this.inventoryService.addItem(player, { ...item })) {
@@ -816,7 +696,6 @@ export class MarketService implements OnModuleInit {
     if (movedCount === 0) {
       return this.singleMessage(player.id, '背包空间不足，托管仓物品暂时无法领取。');
     }
-/** result：定义该变量以承载业务值。 */
     const result = this.singleMessage(
       player.id,
       nextItems.length > 0
@@ -831,20 +710,13 @@ export class MarketService implements OnModuleInit {
     return result;
   }
 
-/** buildListedItems：执行对应的业务逻辑。 */
   private buildListedItems(): MarketListedItemView[] {
-/** grouped：定义该变量以承载业务值。 */
     const grouped = new Map<string, {
-/** item：定义该变量以承载业务值。 */
       item: ItemStack;
-/** sellOrderCount：定义该变量以承载业务值。 */
       sellOrderCount: number;
-/** sellQuantity：定义该变量以承载业务值。 */
       sellQuantity: number;
       lowestSellPrice?: number;
-/** buyOrderCount：定义该变量以承载业务值。 */
       buyOrderCount: number;
-/** buyQuantity：定义该变量以承载业务值。 */
       buyQuantity: number;
       highestBuyPrice?: number;
     }>();
@@ -867,14 +739,11 @@ export class MarketService implements OnModuleInit {
       if (order.remainingQuantity <= 0) {
         continue;
       }
-/** item：定义该变量以承载业务值。 */
       const item = this.cloneOrderItem(order);
       if (!this.isSupportedMarketItem(item) || !this.isOrderItemDefined(item)) {
         continue;
       }
-/** itemKey：定义该变量以承载业务值。 */
       const itemKey = this.buildItemKey(item);
-/** current：定义该变量以承载业务值。 */
       const current = grouped.get(itemKey) ?? {
         item,
         sellOrderCount: 0,
@@ -910,23 +779,17 @@ export class MarketService implements OnModuleInit {
         highestBuyPrice: entry.highestBuyPrice,
       }))
       .sort((left, right) => {
-/** leftLevel：定义该变量以承载业务值。 */
         const leftLevel = this.contentService.getItemSortLevel(left.item);
-/** rightLevel：定义该变量以承载业务值。 */
         const rightLevel = this.contentService.getItemSortLevel(right.item);
         if (leftLevel !== rightLevel) {
           return leftLevel - rightLevel;
         }
-/** leftHasSell：定义该变量以承载业务值。 */
         const leftHasSell = left.sellQuantity > 0 ? 1 : 0;
-/** rightHasSell：定义该变量以承载业务值。 */
         const rightHasSell = right.sellQuantity > 0 ? 1 : 0;
         if (leftHasSell !== rightHasSell) {
           return rightHasSell - leftHasSell;
         }
-/** leftPrice：定义该变量以承载业务值。 */
         const leftPrice = left.lowestSellPrice ?? Number.MAX_SAFE_INTEGER;
-/** rightPrice：定义该变量以承载业务值。 */
         const rightPrice = right.lowestSellPrice ?? Number.MAX_SAFE_INTEGER;
         if (leftPrice !== rightPrice) {
           return leftPrice - rightPrice;
@@ -935,14 +798,11 @@ export class MarketService implements OnModuleInit {
       });
   }
 
-/** buildListingGroups：执行对应的业务逻辑。 */
   private buildListingGroups(): S2C_MarketListings['items'] {
-/** grouped：定义该变量以承载业务值。 */
     const grouped = new Map<string, S2C_MarketListings['items'][number]>();
     for (const entry of this.buildListedItems()) {
       const canEnhance = this.canGroupEnhancementVariants(entry.item);
       const groupKey = canEnhance ? entry.item.itemId : entry.itemKey;
-/** current：定义该变量以承载业务值。 */
       const current = grouped.get(groupKey) ?? {
         itemId: entry.item.itemId,
         item: canEnhance
@@ -977,11 +837,9 @@ export class MarketService implements OnModuleInit {
     }
     return [...grouped.values()]
       .map((entry) => {
-/** variants：定义该变量以承载业务值。 */
         const variants = entry.canEnhance
           ? this.fillEnhancementListingVariants(entry.itemId, entry.variants)
           : [...entry.variants];
-/** zeroVariant：定义该变量以承载业务值。 */
         const zeroVariant = variants.find((variant) => Math.max(0, Math.floor(Number(variant.item.enhanceLevel) || 0)) === 0) ?? null;
         return {
           ...entry,
@@ -989,16 +847,12 @@ export class MarketService implements OnModuleInit {
           lowestSellPrice: zeroVariant?.lowestSellPrice,
           highestBuyPrice: zeroVariant?.highestBuyPrice,
           variants: variants.sort((left, right) => {
-/** leftEnhanceLevel：定义该变量以承载业务值。 */
           const leftEnhanceLevel = Math.max(0, Math.floor(Number(left.item.enhanceLevel) || 0));
-/** rightEnhanceLevel：定义该变量以承载业务值。 */
           const rightEnhanceLevel = Math.max(0, Math.floor(Number(right.item.enhanceLevel) || 0));
           if (leftEnhanceLevel !== rightEnhanceLevel) {
             return leftEnhanceLevel - rightEnhanceLevel;
           }
-/** leftPrice：定义该变量以承载业务值。 */
           const leftPrice = left.lowestSellPrice ?? Number.MAX_SAFE_INTEGER;
-/** rightPrice：定义该变量以承载业务值。 */
           const rightPrice = right.lowestSellPrice ?? Number.MAX_SAFE_INTEGER;
           if (leftPrice !== rightPrice) {
             return leftPrice - rightPrice;
@@ -1008,23 +862,17 @@ export class MarketService implements OnModuleInit {
         };
       })
       .sort((left, right) => {
-/** leftLevel：定义该变量以承载业务值。 */
         const leftLevel = this.contentService.getItemSortLevel(left.item);
-/** rightLevel：定义该变量以承载业务值。 */
         const rightLevel = this.contentService.getItemSortLevel(right.item);
         if (leftLevel !== rightLevel) {
           return leftLevel - rightLevel;
         }
-/** leftHasSell：定义该变量以承载业务值。 */
         const leftHasSell = left.variants.some((variant) => variant.sellQuantity > 0) ? 1 : 0;
-/** rightHasSell：定义该变量以承载业务值。 */
         const rightHasSell = right.variants.some((variant) => variant.sellQuantity > 0) ? 1 : 0;
         if (leftHasSell !== rightHasSell) {
           return rightHasSell - leftHasSell;
         }
-/** leftPrice：定义该变量以承载业务值。 */
         const leftPrice = left.lowestSellPrice ?? Number.MAX_SAFE_INTEGER;
-/** rightPrice：定义该变量以承载业务值。 */
         const rightPrice = right.lowestSellPrice ?? Number.MAX_SAFE_INTEGER;
         if (leftPrice !== rightPrice) {
           return leftPrice - rightPrice;
@@ -1033,11 +881,9 @@ export class MarketService implements OnModuleInit {
       });
   }
 
-/** buildOwnOrders：执行对应的业务逻辑。 */
   private buildOwnOrders(playerId: string): MarketOwnOrderView[] {
     return this.openOrders
       .filter((order) => {
-/** orderItem：定义该变量以承载业务值。 */
         const orderItem = this.cloneOrderItem(order);
         return order.ownerId === playerId
           && order.remainingQuantity > 0
@@ -1057,9 +903,7 @@ export class MarketService implements OnModuleInit {
       }));
   }
 
-/** buildPriceLevels：执行对应的业务逻辑。 */
   private buildPriceLevels(itemKey: string, side: MarketOrderSide): MarketPriceLevelView[] {
-/** grouped：定义该变量以承载业务值。 */
     const grouped = new Map<number, { quantity: number; orderCount: number }>();
     for (const order of this.openOrders) {
       const orderItem = this.cloneOrderItem(order);
@@ -1072,13 +916,11 @@ export class MarketService implements OnModuleInit {
       ) {
         continue;
       }
-/** current：定义该变量以承载业务值。 */
       const current = grouped.get(order.unitPrice) ?? { quantity: 0, orderCount: 0 };
       current.quantity += order.remainingQuantity;
       current.orderCount += 1;
       grouped.set(order.unitPrice, current);
     }
-/** levels：定义该变量以承载业务值。 */
     const levels = [...grouped.entries()].map(([unitPrice, entry]) => ({
       unitPrice,
       quantity: entry.quantity,
@@ -1093,11 +935,8 @@ export class MarketService implements OnModuleInit {
   private filterMarketItems<T extends { item: ItemStack }>(
     items: T[],
     filter: {
-/** category：定义该变量以承载业务值。 */
       category: ItemType | 'all';
-/** equipmentSlot：定义该变量以承载业务值。 */
       equipmentSlot: EquipSlot | 'all';
-/** techniqueCategory：定义该变量以承载业务值。 */
       techniqueCategory: TechniqueCategory | 'all';
     },
   ): T[] {
@@ -1115,9 +954,7 @@ export class MarketService implements OnModuleInit {
     });
   }
 
-/** resolveTechniqueCategoryForItem：执行对应的业务逻辑。 */
   private resolveTechniqueCategoryForItem(itemId: string): TechniqueCategory | null {
-/** techniqueId：定义该变量以承载业务值。 */
     const techniqueId = this.resolveTechniqueIdFromBookItemId(itemId);
     if (!techniqueId) {
       return null;
@@ -1125,7 +962,6 @@ export class MarketService implements OnModuleInit {
     return this.contentService.getTechnique(techniqueId)?.category ?? null;
   }
 
-/** resolveTechniqueIdFromBookItemId：执行对应的业务逻辑。 */
   private resolveTechniqueIdFromBookItemId(itemId: string): string | null {
     if (itemId.startsWith('book.')) {
       return itemId.slice(5);
@@ -1136,7 +972,6 @@ export class MarketService implements OnModuleInit {
     return null;
   }
 
-/** normalizeListingsPageSize：执行对应的业务逻辑。 */
   private normalizeListingsPageSize(pageSize: number | undefined): number {
     if (!Number.isFinite(pageSize)) {
       return 24;
@@ -1144,14 +979,12 @@ export class MarketService implements OnModuleInit {
     return Math.max(8, Math.min(48, Math.floor(Number(pageSize))));
   }
 
-/** getSortedOrders：执行对应的业务逻辑。 */
   private getSortedOrders(itemKey: string, side: MarketOrderSide): MarketOrderEntity[] {
     return this.openOrders
       .filter((order) => {
         if (order.side !== side || order.remainingQuantity <= 0) {
           return false;
         }
-/** orderItem：定义该变量以承载业务值。 */
         const orderItem = this.cloneOrderItem(order);
         return this.isSupportedMarketItem(orderItem)
           && this.isOrderItemDefined(orderItem)
@@ -1168,9 +1001,7 @@ export class MarketService implements OnModuleInit {
       });
   }
 
-/** hasConflictingOpenOrder：执行对应的业务逻辑。 */
   private hasConflictingOpenOrder(ownerId: string, itemKey: string, nextSide: MarketOrderSide): boolean {
-/** oppositeSide：定义该变量以承载业务值。 */
     const oppositeSide: MarketOrderSide = nextSide === 'sell' ? 'buy' : 'sell';
     return this.openOrders.some((order) =>
       order.ownerId === ownerId
@@ -1187,33 +1018,23 @@ export class MarketService implements OnModuleInit {
     quantity: number,
     takerUnitPrice?: number,
   ): {
-/** matches：定义该变量以承载业务值。 */
     matches: Array<{ order: MarketOrderEntity; quantity: number; totalCost: number }>;
-/** fulfilledQuantity：定义该变量以承载业务值。 */
     fulfilledQuantity: number;
-/** remainingQuantity：定义该变量以承载业务值。 */
     remainingQuantity: number;
-/** totalCost：定义该变量以承载业务值。 */
     totalCost: number;
   } {
-/** remaining：定义该变量以承载业务值。 */
     let remaining = quantity;
-/** total：定义该变量以承载业务值。 */
     let total = 0;
-/** matches：定义该变量以承载业务值。 */
     const matches: Array<{ order: MarketOrderEntity; quantity: number; totalCost: number }> = [];
     for (const order of orders) {
       if (remaining <= 0) {
         break;
       }
-/** maxTradable：定义该变量以承载业务值。 */
       const maxTradable = Math.min(remaining, order.remainingQuantity);
-/** traded：定义该变量以承载业务值。 */
       const traded = this.getCompatibleTradeQuantity(maxTradable, order.unitPrice, takerUnitPrice);
       if (traded <= 0) {
         continue;
       }
-/** tradeTotal：定义该变量以承载业务值。 */
       const tradeTotal = calculateMarketTradeTotalCost(traded, order.unitPrice);
       if (!tradeTotal) {
         continue;
@@ -1234,12 +1055,10 @@ export class MarketService implements OnModuleInit {
     };
   }
 
-/** getCompatibleTradeQuantity：执行对应的业务逻辑。 */
   private getCompatibleTradeQuantity(maxQuantity: number, ...unitPrices: Array<number | undefined>): number {
     if (maxQuantity <= 0) {
       return 0;
     }
-/** quantityStep：定义该变量以承载业务值。 */
     let quantityStep = 1;
     for (const unitPrice of unitPrices) {
       if (!unitPrice || !isValidMarketPrice(unitPrice)) {
@@ -1250,7 +1069,6 @@ export class MarketService implements OnModuleInit {
     return Math.floor(maxQuantity / quantityStep) * quantityStep;
   }
 
-/** leastCommonMultiple：执行对应的业务逻辑。 */
   private leastCommonMultiple(left: number, right: number): number {
     if (left <= 0 || right <= 0) {
       return 0;
@@ -1258,14 +1076,10 @@ export class MarketService implements OnModuleInit {
     return (left / this.greatestCommonDivisor(left, right)) * right;
   }
 
-/** greatestCommonDivisor：执行对应的业务逻辑。 */
   private greatestCommonDivisor(left: number, right: number): number {
-/** currentLeft：定义该变量以承载业务值。 */
     let currentLeft = Math.abs(Math.trunc(left));
-/** currentRight：定义该变量以承载业务值。 */
     let currentRight = Math.abs(Math.trunc(right));
     while (currentRight !== 0) {
-/** next：定义该变量以承载业务值。 */
       const next = currentLeft % currentRight;
       currentLeft = currentRight;
       currentRight = next;
@@ -1273,9 +1087,7 @@ export class MarketService implements OnModuleInit {
     return Math.max(1, currentLeft);
   }
 
-/** buildItemKey：执行对应的业务逻辑。 */
   private buildItemKey(item: ItemStack): string {
-/** enhanceLevel：定义该变量以承载业务值。 */
     const enhanceLevel = this.getSupportedMarketEnhanceLevel(item);
     if (this.canGroupEnhancementVariants(item) && enhanceLevel !== null) {
       return createItemStackSignature(this.createEnhancementVariantItem(item.itemId, enhanceLevel));
@@ -1286,9 +1098,7 @@ export class MarketService implements OnModuleInit {
     });
   }
 
-/** createDisplayItemForListingGroup：执行对应的业务逻辑。 */
   private createDisplayItemForListingGroup(itemId: string, fallback: ItemStack): ItemStack {
-/** template：定义该变量以承载业务值。 */
     const template = this.contentService.createItem(itemId, 1);
     if (template) {
       return this.toOrderItem(template);
@@ -1300,7 +1110,6 @@ export class MarketService implements OnModuleInit {
     });
   }
 
-/** canGroupEnhancementVariants：执行对应的业务逻辑。 */
   private canGroupEnhancementVariants(item: ItemStack): boolean {
     return item.type === 'equipment';
   }
@@ -1309,17 +1118,13 @@ export class MarketService implements OnModuleInit {
     itemId: string,
     variants: S2C_MarketListings['items'][number]['variants'],
   ): S2C_MarketListings['items'][number]['variants'] {
-/** byLevel：定义该变量以承载业务值。 */
     const byLevel = new Map<number, S2C_MarketListings['items'][number]['variants'][number]>();
     variants.forEach((variant) => {
-/** level：定义该变量以承载业务值。 */
       const level = this.getSupportedMarketEnhanceLevel(variant.item);
       if (level === null) {
         return;
       }
-/** item：定义该变量以承载业务值。 */
       const item = this.createEnhancementVariantItem(itemId, level);
-/** current：定义该变量以承载业务值。 */
       const current = byLevel.get(level) ?? {
         itemKey: this.buildItemKey(item),
         item,
@@ -1350,7 +1155,6 @@ export class MarketService implements OnModuleInit {
       if (byLevel.has(level)) {
         continue;
       }
-/** item：定义该变量以承载业务值。 */
       const item = this.createEnhancementVariantItem(itemId, level);
       byLevel.set(level, {
         itemKey: this.buildItemKey(item),
@@ -1368,11 +1172,8 @@ export class MarketService implements OnModuleInit {
       .map(([, entry]) => entry);
   }
 
-/** createEnhancementVariantItem：执行对应的业务逻辑。 */
   private createEnhancementVariantItem(itemId: string, enhanceLevel: number): ItemStack {
-/** template：定义该变量以承载业务值。 */
     const template = this.contentService.createItem(itemId, 1);
-/** base：定义该变量以承载业务值。 */
     const base = template ?? {
       itemId,
       count: 1,
@@ -1387,9 +1188,7 @@ export class MarketService implements OnModuleInit {
     });
   }
 
-/** toOrderItem：执行对应的业务逻辑。 */
   private toOrderItem(item: ItemStack): ItemStack {
-/** normalized：定义该变量以承载业务值。 */
     const normalized = this.contentService.normalizeItemStack(item);
     return {
       ...normalized,
@@ -1397,17 +1196,14 @@ export class MarketService implements OnModuleInit {
     };
   }
 
-/** cloneOrderItem：执行对应的业务逻辑。 */
   private cloneOrderItem(order: MarketOrderEntity): ItemStack {
     return this.toOrderItem(order.itemSnapshot as unknown as ItemStack);
   }
 
-/** getOrderItemKey：执行对应的业务逻辑。 */
   private getOrderItemKey(order: MarketOrderEntity): string {
     return this.buildItemKey(this.cloneOrderItem(order));
   }
 
-/** createCurrencyItem：执行对应的业务逻辑。 */
   private createCurrencyItem(count: number): ItemStack {
     return this.contentService.createItem(MARKET_CURRENCY_ITEM_ID, count) ?? {
       itemId: MARKET_CURRENCY_ITEM_ID,
@@ -1418,40 +1214,32 @@ export class MarketService implements OnModuleInit {
     };
   }
 
-/** canTradeItemOnMarket：执行对应的业务逻辑。 */
   private canTradeItemOnMarket(item: Pick<ItemStack, 'itemId'>): boolean {
     return item.itemId !== MARKET_CURRENCY_ITEM_ID;
   }
 
-/** getSupportedMarketEnhanceLevel：执行对应的业务逻辑。 */
   private getSupportedMarketEnhanceLevel(item: ItemStack): number | null {
     if (!this.canGroupEnhancementVariants(item)) {
       return 0;
     }
-/** level：定义该变量以承载业务值。 */
     const level = Math.max(0, Math.floor(Number(item.enhanceLevel) || 0));
     return level <= MAX_ENHANCE_LEVEL ? level : null;
   }
 
-/** isSupportedMarketItem：执行对应的业务逻辑。 */
   private isSupportedMarketItem(item: ItemStack): boolean {
     return this.canTradeItemOnMarket(item)
       && (!this.canGroupEnhancementVariants(item) || this.getSupportedMarketEnhanceLevel(item) !== null);
   }
 
-/** resolveBuyOrderItem：执行对应的业务逻辑。 */
   private resolveBuyOrderItem(player: PlayerState, itemKey: string): ItemStack | null {
-/** listed：定义该变量以承载业务值。 */
     const listed = this.buildListedItems().find((entry) => entry.itemKey === itemKey)?.item;
     if (listed) {
       return { ...listed };
     }
-/** inventoryItem：定义该变量以承载业务值。 */
     const inventoryItem = player.inventory.items.find((entry) => this.buildItemKey(this.toOrderItem(entry)) === itemKey);
     if (inventoryItem) {
       return this.toOrderItem(inventoryItem);
     }
-/** parsed：定义该变量以承载业务值。 */
     const parsed = this.parseItemKey(itemKey);
     if (parsed) {
       return parsed;
@@ -1459,17 +1247,13 @@ export class MarketService implements OnModuleInit {
     return null;
   }
 
-/** parseItemKey：执行对应的业务逻辑。 */
   private parseItemKey(itemKey: string): ItemStack | null {
     try {
-/** candidate：定义该变量以承载业务值。 */
       const candidate = JSON.parse(itemKey) as Partial<ItemStack>;
-/** itemId：定义该变量以承载业务值。 */
       const itemId = typeof candidate.itemId === 'string' ? candidate.itemId.trim() : '';
       if (!itemId) {
         return null;
       }
-/** template：定义该变量以承载业务值。 */
       const template = this.contentService.createItem(itemId, 1);
       if (!template) {
         return null;
@@ -1484,17 +1268,14 @@ export class MarketService implements OnModuleInit {
     }
   }
 
-/** isOrderItemDefined：执行对应的业务逻辑。 */
   private isOrderItemDefined(item: Pick<ItemStack, 'itemId'>): boolean {
     return Boolean(this.contentService.getItem(item.itemId));
   }
 
-/** normalizeQuantity：执行对应的业务逻辑。 */
   private normalizeQuantity(value: number): number | null {
     if (!Number.isFinite(value)) {
       return null;
     }
-/** quantity：定义该变量以承载业务值。 */
     const quantity = Math.floor(value);
     if (quantity <= 0 || quantity > MARKET_MAX_ORDER_QUANTITY) {
       return null;
@@ -1502,12 +1283,10 @@ export class MarketService implements OnModuleInit {
     return quantity;
   }
 
-/** normalizeUnitPrice：执行对应的业务逻辑。 */
   private normalizeUnitPrice(value: number): number | null {
     if (!Number.isFinite(value)) {
       return null;
     }
-/** unitPrice：定义该变量以承载业务值。 */
     const unitPrice = value;
     if (unitPrice <= 0 || unitPrice > MARKET_MAX_UNIT_PRICE) {
       return null;
@@ -1518,13 +1297,9 @@ export class MarketService implements OnModuleInit {
     return unitPrice;
   }
 
-/** ensureMarketUnitPriceCapacity：执行对应的业务逻辑。 */
   private async ensureMarketUnitPriceCapacity(): Promise<void> {
-/** tableNames：定义该变量以承载业务值。 */
     const tableNames = [...new Set(MarketService.MARKET_PRICE_COLUMN_TABLES.map((entry) => entry.table))];
-/** columnNames：定义该变量以承载业务值。 */
     const columnNames = [...new Set(MarketService.MARKET_PRICE_COLUMN_TABLES.map((entry) => entry.column))];
-/** rows：定义该变量以承载业务值。 */
     const rows = await this.marketOrderRepo.query(`
       SELECT table_name, column_name, data_type, numeric_scale
       FROM information_schema.columns
@@ -1533,7 +1308,6 @@ export class MarketService implements OnModuleInit {
         AND column_name = ANY($2::text[])
     `, [tableNames, columnNames]);
 
-/** columnsNeedingUpgrade：定义该变量以承载业务值。 */
     const columnsNeedingUpgrade = new Set<string>();
     for (const row of rows as Array<{ table_name?: unknown; column_name?: unknown; data_type?: unknown; numeric_scale?: unknown }>) {
       if ((row.data_type !== 'numeric' || Number(row.numeric_scale ?? 0) !== 1)
@@ -1562,14 +1336,11 @@ export class MarketService implements OnModuleInit {
     this.logger.warn(`已将市场表 unitPrice 字段升级为 numeric(20,1): ${[...columnsNeedingUpgrade].join(', ')}`);
   }
 
-/** quotePgIdentifier：执行对应的业务逻辑。 */
   private quotePgIdentifier(value: string): string {
     return `"${value.replace(/"/g, '""')}"`;
   }
 
-/** buildTradeQuantityError：执行对应的业务逻辑。 */
   private buildTradeQuantityError(unitPrice: number): string {
-/** minimumQuantity：定义该变量以承载业务值。 */
     const minimumQuantity = getMarketMinimumTradeQuantity(unitPrice);
     if (minimumQuantity <= 1) {
       return '挂售数量或单价无效。';
@@ -1577,33 +1348,28 @@ export class MarketService implements OnModuleInit {
     return `当前单价 ${this.formatUnitPrice(unitPrice)} ${this.getCurrencyItemName()} 时，数量必须是 ${minimumQuantity} 的倍数，才能按整灵石结算。`;
   }
 
-/** formatUnitPrice：执行对应的业务逻辑。 */
   private formatUnitPrice(value: number): string {
     return Number.isInteger(value)
       ? String(value)
       : value.toFixed(1).replace(/\.0$/, '');
   }
 
-/** consumeCurrencyFromInventory：执行对应的业务逻辑。 */
   private consumeCurrencyFromInventory(player: PlayerState, count: number): boolean {
     if (count <= 0) {
       return true;
     }
-/** owned：定义该变量以承载业务值。 */
     const owned = player.inventory.items
       .filter((item) => item.itemId === MARKET_CURRENCY_ITEM_ID)
       .reduce((sum, item) => sum + item.count, 0);
     if (owned < count) {
       return false;
     }
-/** remaining：定义该变量以承载业务值。 */
     let remaining = count;
     for (let index = player.inventory.items.length - 1; index >= 0 && remaining > 0; index -= 1) {
       const item = player.inventory.items[index];
       if (item.itemId !== MARKET_CURRENCY_ITEM_ID) {
         continue;
       }
-/** removed：定义该变量以承载业务值。 */
       const removed = this.inventoryService.removeItem(player, index, remaining);
       if (!removed) {
         continue;
@@ -1613,9 +1379,7 @@ export class MarketService implements OnModuleInit {
     return remaining === 0;
   }
 
-/** deliverItemToPlayer：执行对应的业务逻辑。 */
   private async deliverItemToPlayer(playerId: string, item: ItemStack, context: MarketMutationContext): Promise<void> {
-/** player：定义该变量以承载业务值。 */
     const player = this.playerService.getPlayer(playerId);
     if (player) {
       this.captureOnlinePlayerState(player.id, context);
@@ -1628,25 +1392,19 @@ export class MarketService implements OnModuleInit {
       return;
     }
 
-/** entity：定义该变量以承载业务值。 */
     const entity = await context.playerRepo.findOne({ where: { id: playerId } });
     if (!entity) {
       this.logger.warn(`坊市结算时未找到玩家存档: ${playerId}`);
       return;
     }
-/** storage：定义该变量以承载业务值。 */
     const storage = this.normalizeStorage(entity.marketStorage);
     entity.marketStorage = this.toPersistedStorage(this.mergeStorageItem(storage, item)) as unknown as Record<string, unknown>;
     await context.playerRepo.save(entity);
   }
 
-/** mergeStorageItem：执行对应的业务逻辑。 */
   private mergeStorageItem(storage: MarketStorage | undefined, item: ItemStack): MarketStorage {
-/** current：定义该变量以承载业务值。 */
     const current = this.cloneStorage(storage);
-/** signature：定义该变量以承载业务值。 */
     const signature = createItemStackSignature(item);
-/** existing：定义该变量以承载业务值。 */
     const existing = current.items.find((entry) => createItemStackSignature(entry) === signature);
     if (existing) {
       existing.count += item.count;
@@ -1660,11 +1418,8 @@ export class MarketService implements OnModuleInit {
     return current;
   }
 
-/** normalizeStorage：执行对应的业务逻辑。 */
   private normalizeStorage(raw: unknown): MarketStorage {
-/** source：定义该变量以承载业务值。 */
     const source = (typeof raw === 'object' && raw !== null ? raw : {}) as { items?: unknown[] };
-/** items：定义该变量以承载业务值。 */
     const items = Array.isArray(source.items)
       ? source.items
         .map((entry) => this.normalizeStorageItem(entry))
@@ -1678,12 +1433,10 @@ export class MarketService implements OnModuleInit {
     };
   }
 
-/** normalizeStorageItem：执行对应的业务逻辑。 */
   private normalizeStorageItem(raw: unknown): ItemStack | null {
     if (typeof raw !== 'object' || raw === null || typeof (raw as { itemId?: unknown }).itemId !== 'string') {
       return null;
     }
-/** item：定义该变量以承载业务值。 */
     const item = raw as ItemStack;
     return this.contentService.normalizeItemStack({
       ...item,
@@ -1691,7 +1444,6 @@ export class MarketService implements OnModuleInit {
     });
   }
 
-/** cloneStorage：执行对应的业务逻辑。 */
   private cloneStorage(storage: MarketStorage | undefined): MarketStorage {
     return {
       items: (storage?.items ?? []).map((item) => ({ ...item })),
@@ -1705,24 +1457,17 @@ export class MarketService implements OnModuleInit {
     };
   }
 
-/** toPlainItem：执行对应的业务逻辑。 */
   private toPlainItem(item: ItemStack): Record<string, unknown> {
     return JSON.parse(JSON.stringify(item)) as Record<string, unknown>;
   }
 
   private async recordTrade(payload: {
-/** buyerId：定义该变量以承载业务值。 */
     buyerId: string;
-/** sellerId：定义该变量以承载业务值。 */
     sellerId: string;
-/** itemId：定义该变量以承载业务值。 */
     itemId: string;
-/** quantity：定义该变量以承载业务值。 */
     quantity: number;
-/** unitPrice：定义该变量以承载业务值。 */
     unitPrice: number;
   }, context: MarketMutationContext): Promise<void> {
-/** now：定义该变量以承载业务值。 */
     const now = Date.now();
     await context.tradeHistoryRepo.save(context.tradeHistoryRepo.create({
       id: randomUUID(),
@@ -1735,15 +1480,12 @@ export class MarketService implements OnModuleInit {
     }));
   }
 
-/** toTradeHistoryView：执行对应的业务逻辑。 */
   private toTradeHistoryView(playerId: string, record: MarketTradeHistoryEntity): MarketTradeHistoryEntryView {
-/** itemName：定义该变量以承载业务值。 */
     const itemName = this.contentService.getItem(record.itemId)?.name
       ?? this.contentService.createItem(record.itemId, 1)?.name
       ?? record.itemId;
     return {
       id: record.id,
-/** side：定义该变量以承载业务值。 */
       side: record.buyerId === playerId ? 'buy' : 'sell',
       itemId: record.itemId,
       itemName,
@@ -1765,9 +1507,7 @@ export class MarketService implements OnModuleInit {
     await context.orderRepo.save(order);
   }
 
-/** sanitizeOpenOrders：执行对应的业务逻辑。 */
   private async sanitizeOpenOrders(): Promise<void> {
-/** context：定义该变量以承载业务值。 */
     const context = this.createMutationContext();
     try {
       await this.marketOrderRepo.manager.transaction(async (manager) => {
@@ -1781,14 +1521,11 @@ export class MarketService implements OnModuleInit {
     }
   }
 
-/** sanitizeOpenOrdersInContext：执行对应的业务逻辑。 */
   private async sanitizeOpenOrdersInContext(context: MarketMutationContext): Promise<MarketActionResult> {
-/** result：定义该变量以承载业务值。 */
     const result = this.createBaseResult();
     for (const order of this.openOrders) {
       const orderItem = this.cloneOrderItem(order);
       const canonicalKey = this.getOrderItemKey(order);
-/** validUnitPrice：定义该变量以承载业务值。 */
       const validUnitPrice = this.normalizeUnitPrice(order.unitPrice);
       if (!this.isOrderItemDefined(orderItem)) {
         await this.removeDeletedItemOrder(order, orderItem, context, result);
@@ -1823,7 +1560,6 @@ export class MarketService implements OnModuleInit {
     if (order.side === 'sell') {
       await this.deliverItemToPlayer(order.ownerId, { ...orderItem, count: order.remainingQuantity }, context);
     } else {
-/** refund：定义该变量以承载业务值。 */
       const refund = calculateMarketTradeTotalCost(order.remainingQuantity, order.unitPrice);
       if (refund) {
         await this.deliverItemToPlayer(order.ownerId, this.createCurrencyItem(refund), context);
@@ -1848,7 +1584,6 @@ export class MarketService implements OnModuleInit {
     result: MarketActionResult,
   ): Promise<void> {
     if (order.side === 'buy') {
-/** refund：定义该变量以承载业务值。 */
       const refund = calculateMarketTradeTotalCost(order.remainingQuantity, order.unitPrice);
       if (refund) {
         await this.deliverItemToPlayer(order.ownerId, this.createCurrencyItem(refund), context);
@@ -1866,12 +1601,10 @@ export class MarketService implements OnModuleInit {
     this.logger.warn(`已自动移除已删除物品的坊市订单 ${order.id}，side=${order.side} itemId=${orderItem.itemId}`);
   }
 
-/** compactOpenOrders：执行对应的业务逻辑。 */
   private compactOpenOrders(): void {
     this.openOrders = this.openOrders.filter((order) => order.status === 'open' && order.remainingQuantity > 0);
   }
 
-/** createBaseResult：执行对应的业务逻辑。 */
   private createBaseResult(): MarketActionResult {
     return {
       affectedPlayerIds: [],
@@ -1882,17 +1615,13 @@ export class MarketService implements OnModuleInit {
     };
   }
 
-/** createEmptyResult：执行对应的业务逻辑。 */
   private createEmptyResult(playerId: string): MarketActionResult {
-/** result：定义该变量以承载业务值。 */
     const result = this.createBaseResult();
     result.affectedPlayerIds.push(playerId);
     return result;
   }
 
-/** mergeResults：执行对应的业务逻辑。 */
   private mergeResults(...results: MarketActionResult[]): MarketActionResult {
-/** merged：定义该变量以承载业务值。 */
     const merged = this.createBaseResult();
     for (const result of results) {
       for (const playerId of result.affectedPlayerIds) {
@@ -1912,7 +1641,6 @@ export class MarketService implements OnModuleInit {
     return merged;
   }
 
-/** singleMessage：执行对应的业务逻辑。 */
   private singleMessage(playerId: string, text: string, kind: 'system' | 'loot' = 'system'): MarketActionResult {
     return {
       affectedPlayerIds: [playerId],
@@ -1923,34 +1651,29 @@ export class MarketService implements OnModuleInit {
     };
   }
 
-/** touchAffectedPlayer：执行对应的业务逻辑。 */
   private touchAffectedPlayer(result: MarketActionResult, playerId: string): void {
     if (!result.affectedPlayerIds.includes(playerId)) {
       result.affectedPlayerIds.push(playerId);
     }
   }
 
-/** pushMessage：执行对应的业务逻辑。 */
   private pushMessage(result: MarketActionResult, playerId: string, text: string, kind: 'system' | 'loot' = 'system'): void {
     result.messages.push({ playerId, text, kind });
     this.touchAffectedPlayer(result, playerId);
   }
 
-/** touchPrivateStatePlayer：执行对应的业务逻辑。 */
   private touchPrivateStatePlayer(result: MarketActionResult, playerId: string): void {
     if (!result.privateStatePlayerIds.includes(playerId)) {
       result.privateStatePlayerIds.push(playerId);
     }
   }
 
-/** touchItem：执行对应的业务逻辑。 */
   private touchItem(result: MarketActionResult, itemId: string): void {
     if (!result.touchedItemIds.includes(itemId)) {
       result.touchedItemIds.push(itemId);
     }
   }
 
-/** touchTradeHistoryPlayer：执行对应的业务逻辑。 */
   private touchTradeHistoryPlayer(result: MarketActionResult, playerId: string): void {
     if (!result.tradeHistoryPlayerIds.includes(playerId)) {
       result.tradeHistoryPlayerIds.push(playerId);
@@ -1962,15 +1685,11 @@ export class MarketService implements OnModuleInit {
     action: (context: MarketMutationContext) => Promise<MarketActionResult>,
   ): Promise<MarketActionResult> {
     return this.runExclusive(async () => {
-/** context：定义该变量以承载业务值。 */
       const context = this.createMutationContext();
       try {
-/** result：定义该变量以承载业务值。 */
         const result = await this.marketOrderRepo.manager.transaction(async (manager) => {
           this.bindTransactionRepos(context, manager);
-/** cleanupResult：定义该变量以承载业务值。 */
           const cleanupResult = await this.sanitizeOpenOrdersInContext(context);
-/** nextResult：定义该变量以承载业务值。 */
           const nextResult = await action(context);
           await this.persistTouchedOnlinePlayers(context);
           return this.mergeResults(cleanupResult, nextResult);
@@ -1978,7 +1697,6 @@ export class MarketService implements OnModuleInit {
         return result;
       } catch (error) {
         this.restoreMutationContext(context);
-/** message：定义该变量以承载业务值。 */
         const message = error instanceof Error ? error.message : String(error);
         this.logger.error(`坊市结算失败，已回滚: ${message}`);
         return this.singleMessage(playerId, '坊市结算失败，已回滚本次操作。');
@@ -1987,9 +1705,7 @@ export class MarketService implements OnModuleInit {
   }
 
   private async runExclusive<T>(action: () => Promise<T>): Promise<T> {
-/** previous：定义该变量以承载业务值。 */
     const previous = this.marketOperationQueue;
-/** release：定义该变量以承载业务值。 */
     let release!: () => void;
     this.marketOperationQueue = new Promise<void>((resolve) => {
       release = resolve;
@@ -2002,7 +1718,6 @@ export class MarketService implements OnModuleInit {
     }
   }
 
-/** createMutationContext：执行对应的业务逻辑。 */
   private createMutationContext(): MarketMutationContext {
     return {
       orderRepo: this.marketOrderRepo,
@@ -2014,19 +1729,16 @@ export class MarketService implements OnModuleInit {
     };
   }
 
-/** bindTransactionRepos：执行对应的业务逻辑。 */
   private bindTransactionRepos(context: MarketMutationContext, manager: EntityManager): void {
     context.orderRepo = manager.getRepository(MarketOrderEntity);
     context.tradeHistoryRepo = manager.getRepository(MarketTradeHistoryEntity);
     context.playerRepo = manager.getRepository(PlayerEntity);
   }
 
-/** captureOnlinePlayerState：执行对应的业务逻辑。 */
   private captureOnlinePlayerState(playerId: string, context: MarketMutationContext): void {
     if (context.onlinePlayerSnapshots.has(playerId)) {
       return;
     }
-/** player：定义该变量以承载业务值。 */
     const player = this.playerService.getPlayer(playerId);
     if (!player) {
       return;
@@ -2040,7 +1752,6 @@ export class MarketService implements OnModuleInit {
     });
   }
 
-/** persistTouchedOnlinePlayers：执行对应的业务逻辑。 */
   private async persistTouchedOnlinePlayers(context: MarketMutationContext): Promise<void> {
     for (const playerId of context.touchedOnlinePlayerIds) {
       const player = this.playerService.getPlayer(playerId);
@@ -2058,7 +1769,6 @@ export class MarketService implements OnModuleInit {
     }
   }
 
-/** restoreMutationContext：执行对应的业务逻辑。 */
   private restoreMutationContext(context: MarketMutationContext): void {
     this.openOrders = this.cloneOpenOrders(context.openOrdersSnapshot);
     for (const [playerId, snapshot] of context.onlinePlayerSnapshots.entries()) {
@@ -2074,7 +1784,6 @@ export class MarketService implements OnModuleInit {
     }
   }
 
-/** cloneOpenOrders：执行对应的业务逻辑。 */
   private cloneOpenOrders(source: MarketOrderEntity[]): MarketOrderEntity[] {
     return source.map((order) => this.marketOrderRepo.create({
       ...order,

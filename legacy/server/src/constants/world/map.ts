@@ -6,13 +6,10 @@ import { TileType, type TerrainDurabilityMaterial } from '@mud/shared';
 
 /** 地形耐久配置。 */
 export type TerrainDurabilityProfile = {
-/** material：定义该变量以承载业务值。 */
   material: TerrainDurabilityMaterial;
-/** multiplier：定义该变量以承载业务值。 */
   multiplier: number;
 };
 
-/** durability：定义该变量以承载业务值。 */
 const durability = (material: TerrainDurabilityMaterial, multiplier: number): TerrainDurabilityProfile => ({
   material,
   multiplier,

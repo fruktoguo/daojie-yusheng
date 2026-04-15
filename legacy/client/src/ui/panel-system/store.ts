@@ -1,9 +1,8 @@
 import { PanelCapabilities, PanelId, PanelLayoutProfile, PanelRuntimeState, PanelSystemState, PanelUiState } from './types';
 
-/** PanelSystemListener：定义该类型的结构与数据语义。 */
 type PanelSystemListener = (state: PanelSystemState, previousState: PanelSystemState) => void;
 
-/** clonePanelsState：执行对应的业务逻辑。 */
+
 function clonePanelsState(
   panels: Partial<Record<PanelId, PanelUiState>>,
 ): Partial<Record<PanelId, PanelUiState>> {
@@ -15,13 +14,11 @@ function clonePanelsState(
   ) as Partial<Record<PanelId, PanelUiState>>;
 }
 
-/** PanelSystemStore：封装相关状态与行为。 */
 export class PanelSystemStore {
-/** state：定义该变量以承载业务值。 */
   private state: PanelSystemState;
   private readonly listeners = new Set<PanelSystemListener>();
 
-/** constructor：处理当前场景中的对应操作。 */
+/** constructor：初始化实例并完成构造。 */
   constructor(initialState: PanelSystemState) {
     this.state = {
       ...initialState,
@@ -36,7 +33,6 @@ export class PanelSystemStore {
     };
   }
 
-/** getState：执行对应的业务逻辑。 */
   getState(): PanelSystemState {
     return {
       ...this.state,
@@ -58,7 +54,7 @@ export class PanelSystemStore {
     };
   }
 
-/** setCapabilities：执行对应的业务逻辑。 */
+/** setCapabilities：设置并同步相关状态。 */
   setCapabilities(capabilities: PanelCapabilities, layout: PanelLayoutProfile): void {
     this.patchState({
       capabilities: {
@@ -73,7 +69,7 @@ export class PanelSystemStore {
     });
   }
 
-/** setRuntime：执行对应的业务逻辑。 */
+/** setRuntime：设置并同步相关状态。 */
   setRuntime(runtimePatch: Partial<PanelRuntimeState>): void {
     this.patchState({
       runtime: {
@@ -83,9 +79,8 @@ export class PanelSystemStore {
     });
   }
 
-/** patchPanelUi：执行对应的业务逻辑。 */
+
   patchPanelUi(panelId: PanelId, panelPatch: Partial<PanelUiState>): void {
-/** current：定义该变量以承载业务值。 */
     const current = this.state.panels[panelId] ?? {};
     this.patchState({
       panels: {
@@ -98,15 +93,13 @@ export class PanelSystemStore {
     });
   }
 
-/** patchState：执行对应的业务逻辑。 */
+
   private patchState(patch: Partial<PanelSystemState>): void {
-/** previousState：定义该变量以承载业务值。 */
     const previousState = this.getState();
     this.state = {
       ...this.state,
       ...patch,
     };
-/** nextState：定义该变量以承载业务值。 */
     const nextState = this.getState();
     for (const listener of this.listeners) {
       listener(nextState, previousState);

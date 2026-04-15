@@ -27,7 +27,7 @@ const sharedName = normalizeSharedName(args.shared);
 /**
  * 记录内容目录。
  */
-const contentDir = path.join(repoRoot, 'legacy/server/data/content');
+const contentDir = path.join(repoRoot, 'packages/server/data/content');
 function resolvePackagesDirName(name) {
   if (name === 'client-next') {
     return 'client';

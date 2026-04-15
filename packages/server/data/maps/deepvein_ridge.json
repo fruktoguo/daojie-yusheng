@@ -1,0 +1,421 @@
+{
+  "id": "deepvein_ridge",
+  "name": "厚脉岭",
+  "width": 60,
+  "height": 60,
+  "routeDomain": "system",
+  "terrainProfileId": "earth_stone_wild",
+  "spaceVisionMode": "isolated",
+  "description": "练气期土行地图厚脉岭。整张图从右侧山脚切入，入口外层只露一小块石坪，之后一路被岩层、灵石矿和玄铁矿压住，必须沿着斜向内压的矿脉和断层不断掘进，最终抵达左上最深处的镇岳石府前庭。",
+  "dangerLevel": 4,
+  "recommendedRealm": "19-29级",
+  "tiles": [
+    "崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖",
+    "崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖",
+    "崖崖oooooooo铁oooLoooLoooooooooooooo铁oooLoooLoooooooooooooo铁o崖崖",
+    "崖崖ooLoooooooooooooo铁oooLoooLoooooooooooooo铁oooLoooLooooooo崖崖",
+    "崖崖ooo铁崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖ooo铁oooLoooLoooooooooooooo铁oooLoo崖崖",
+    "崖崖oooo崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖oooooooooooo铁oooLoooLoooooooooooo崖崖",
+    "崖崖oo崖oooLoooooooooo崖崖崖崖崖oooLoooLoooooooooooooo铁oooLoooLooo崖崖",
+    "崖崖oo崖oLLLLLLLLLLLLo崖崖崖崖崖oooooooo铁oooLoooLoooooooooooooo铁oo崖崖",
+    "崖崖oL崖oLL铁铁P铁铁铁铁铁LL铁崖崖崖崖崖ooLoooooooooooooo铁oooLoooLoooooooo崖崖",
+    "崖崖oo崖oLL铁;=;;铁铁铁,Looooooooo铁oooLoooLoooooooooooooo铁oooLooo崖崖",
+    "崖崖oo崖oLL铁;;;;铁铁,,,oooLoooo崖崖崖ooooooo铁oooLoooLooooooooooooo崖崖",
+    "崖崖oL崖oLL铁,,,,,,,,,,ooo铁ooo崖崖崖oLoooooooooooooo铁oooLoooLoooo崖崖",
+    "崖崖oo崖oLL,,,,,,,,,,ooooooooooooo铁oooLoooLoooooooooooooo铁ooo崖崖",
+    "崖崖Lo崖oLL铁,:,,,铁铁,LoooLoooLooo铁铁铁oooooooo铁oooLoooLooooooooo崖崖",
+    "崖崖o铁崖oLL铁铁铁::铁铁铁LLoooooooo铁oo铁铁铁,^^^ooooooooooooo铁oooLoooL崖崖",
+    "崖崖oo崖oLLLLLLL::LLLooLoooooooo铁铁铁^^;^oooLoooLoooooooooooooo崖崖",
+    "崖崖Lo崖oLLLLLLLLL:LLooo铁oooLoo^^,^^^oooooooooo铁oooLoooLooooo崖崖",
+    "崖崖oo崖oo铁oooLoooLoooooooooooo^;;;;^LoooLoooooooooooooo铁oooL崖崖",
+    "崖崖oo崖崖崖ooooooooo铁oLLLoooLo^^,;,;,ooo铁oo铁oooLoooLoooooooooo崖崖",
+    "崖崖铁oooLoooLoooooo,LLLooo,铁^oo;;;oLoo铁LLLoooooooo铁oooLoooLo崖崖",
+    "崖崖ooooooo铁铁铁o,oL,,,Looo,,,,o,ooooo铁oLLLLooLoooooooooooooo铁崖崖",
+    "崖崖oooLooo铁铁oooooo,oo铁ooo,oooLo,oooooL铁铁Looo铁oooLoooLoooooo崖崖",
+    "崖崖oooo铁oo铁铁oooLo崖崖oooo,oooo^o铁oooo,oL铁铁Loooooooooooo铁oooLo崖崖",
+    "崖崖ooooooooooooo铁崖崖oL,o;;;o;^ooooooooLLLLo,LoooLooo,ooooooo崖崖",
+    "崖崖oooLoooLoo崖崖oo崖崖o,,o;,;oLoLoooLo,;;;LLooooo,o铁oooLoooLoo崖崖",
+    "崖崖oooooooo铁o崖崖LoooLooo;;;oLoooooo铁o;,;LLoLoooo;;;ooo,;oo铁o崖崖",
+    "崖崖ooLooooo,o崖崖ooooo,o:oLoooLoooooo,;;;,ooo铁o,o;,;oLooooooo崖崖",
+    "崖崖ooo铁ooo,,,oLo,oooo:崖崖oo,oo铁oooLoooLooooooooo;;;oo铁oo,Loo崖崖",
+    "崖崖oooooooo,ooo铁oo;,:o崖崖ooo崖崖崖oooooooo铁o,oLo,;Looooo,ooooo,崖崖",
+    "崖崖ooLoooLoooooooo,,,o崖崖铁oooLoooLo,oooo崖崖ooo::o铁oooLoooLoo,崖崖",
+    "崖崖ooooooo铁oooLo,o:,;ooo崖崖ooooooo铁oooLo崖崖崖o,ooooooooooo,;P,,崖",
+    "崖崖oLooooooooooo,:o铁oo,L崖崖oLooooooooooo崖崖崖铁oo;;;o,Looooooo,崖崖",
+    "崖崖oo铁oooLoooLoo:崖ooooo,崖崖oo铁oooLoooLoo崖崖崖o,o;,;ooo铁oooLoo,崖崖",
+    "崖崖ooooooooooo铁o崖崖Looo,,,oooooooooooo铁o崖崖崖ooo;;:oooo,oooooo崖崖",
+    "崖崖oLoooLo,ooooo崖崖ooooo,oooLoooLooooooo崖崖崖ooo::oooL,;oLoooo崖崖",
+    "崖崖oooooo,,,oLoooLoooooLLLoooooo铁oooLoo崖崖崖o::oo,;oooooo铁ooo崖崖",
+    "崖崖Loooooo,ooooooo铁oooLLLLLoooooooooooo崖崖崖oooLoooLooooooooo崖崖",
+    "崖崖o铁oooLoooLoooooooooooooo铁oooLoooLooo崖崖崖oooooooo铁oooLoooL崖崖",
+    "崖崖oooooooooo崖崖崖oLoooLoooooooooooooo铁oo崖崖崖ooLoooooooooooooo崖崖",
+    "崖崖LoooLoooooooooooooo铁oooLoooLoooooooo崖崖崖ooo铁oooLoooLooooo崖崖",
+    "崖崖ooooo铁oooLoooLoooooooooooooo铁oooLooo崖崖崖oooooooooooo铁oooL崖崖",
+    "崖崖oooooooooooooo铁oooLoooLoooooooooooooo铁oooLoooLoooooooooo崖崖",
+    "崖崖铁oooLoooLoooooooooooooo铁oooLoooLoooooooooooooo铁oooLoooLo崖崖",
+    "崖崖ooooooooo铁oooLoooLoooooooooooooo铁oooLoooLoooooooooooooo铁崖崖",
+    "崖崖oooLoooooooooooooo铁oooLoooLoooooooooooooo铁oooLoooLoooooo崖崖",
+    "崖崖oooo铁oooLoooLoooooooooooooo铁oooLoooLoooooooooooooo铁oooLo崖崖",
+    "崖崖ooooooooooooo铁oooLoooLoooooooooooooo铁oooLoooLooooooooooo崖崖",
+    "崖崖oooLoooLoooooooooooooo铁oooLoooLoooooooooooooo铁oooLoooLoo崖崖",
+    "崖崖oooooooo铁oooLoooLoooooooooooooo铁oooLoooLoooooooooooooo铁o崖崖",
+    "崖崖ooLoooooooooooooo铁oooLoooLoooooooooooooo铁oooLoooLooooooo崖崖",
+    "崖崖ooo铁oooLoooLoooooooooooooo铁oooLoooLoooooooooooooo铁oooLoo崖崖",
+    "崖崖oooooooooooo铁oooLoooLoooooooooooooo铁oooLoooLoooooooooooo崖崖",
+    "崖崖ooLoooLoooooooooooooo铁oooLoooLoooooooooooooo铁oooLoooLooo崖崖",
+    "崖崖ooooooo铁oooLoooLoooooooooooooo铁oooLoooLoooooooooooooo铁oo崖崖",
+    "崖崖oLoooooooooooooo铁oooLoooLoooooooooooooo铁oooLoooLoooooooo崖崖",
+    "崖崖oo铁oooLoooLoooooooooooooo铁oooLoooLoooooooooooooo铁oooLooo崖崖",
+    "崖崖ooooooooooo铁oooLoooLoooooooooooooo铁oooLoooLooooooooooooo崖崖",
+    "崖崖oLoooLoooooooooooooo铁oooLoooLoooooooooooooo铁oooLoooLoooo崖崖",
+    "崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖",
+    "崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖"
+  ],
+  "portals": [
+    {
+      "x": 56,
+      "y": 30,
+      "targetMapId": "qizhen_crossing",
+      "targetX": 7,
+      "targetY": 37,
+      "kind": "portal",
+      "trigger": "manual",
+      "routeDomain": "inherit",
+      "allowPlayerOverlap": false,
+      "hidden": false
+    },
+    {
+      "x": 10,
+      "y": 8,
+      "targetMapId": "guizang_vein_cavern",
+      "targetX": 58,
+      "targetY": 28,
+      "kind": "portal",
+      "trigger": "manual",
+      "routeDomain": "inherit",
+      "allowPlayerOverlap": false,
+      "hidden": false
+    }
+  ],
+  "spawnPoint": {
+    "x": 55,
+    "y": 30
+  },
+  "time": {
+    "offsetTicks": 220,
+    "scale": 1,
+    "light": {
+      "base": 36,
+      "timeInfluence": 18
+    },
+    "palette": {
+      "dawn": {
+        "tint": "#d8c1a0",
+        "alpha": 0.08
+      },
+      "dusk": {
+        "tint": "#8a6243",
+        "alpha": 0.14
+      },
+      "night": {
+        "tint": "#221913",
+        "alpha": 0.24
+      }
+    }
+  },
+  "auras": [],
+  "resources": [
+    {
+      "x": 54,
+      "y": 30,
+      "resourceKey": "aura.refined.earth",
+      "value": 8000
+    },
+    {
+      "x": 47,
+      "y": 26,
+      "resourceKey": "aura.refined.earth",
+      "value": 8000
+    },
+    {
+      "x": 44,
+      "y": 29,
+      "resourceKey": "aura.refined.earth",
+      "value": 8000
+    },
+    {
+      "x": 36,
+      "y": 25,
+      "resourceKey": "aura.refined.earth",
+      "value": 8000
+    },
+    {
+      "x": 30,
+      "y": 18,
+      "resourceKey": "aura.refined.earth",
+      "value": 8000
+    },
+    {
+      "x": 23,
+      "y": 24,
+      "resourceKey": "aura.refined.earth",
+      "value": 16000
+    },
+    {
+      "x": 18,
+      "y": 29,
+      "resourceKey": "aura.refined.earth",
+      "value": 16000
+    },
+    {
+      "x": 11,
+      "y": 12,
+      "resourceKey": "aura.refined.earth",
+      "value": 16000
+    }
+  ],
+  "safeZones": [],
+  "landmarks": [
+    {
+      "id": "lm_deepvein_return_pier",
+      "name": "回渡石坪",
+      "x": 56,
+      "y": 30,
+      "desc": "厚脉岭最外层唯一还能站稳脚跟的石坪，背后就是栖真渡，往前一步便是整座山体压下来的采脉路。"
+    },
+    {
+      "id": "lm_deepvein_foothill_pocket",
+      "name": "山脚采脉口",
+      "x": 47,
+      "y": 26,
+      "desc": "这里不是露天矿场，只是山脚被凿穿后露出来的一口浅袋。站在这儿就能看见前面的路其实全埋在矿里。"
+    },
+    {
+      "id": "lm_deepvein_slant_cut",
+      "name": "裂脉斜沟",
+      "x": 44,
+      "y": 29,
+      "desc": "一道斜着吃进山体的旧掘线，左右全是硬矿和断石，能往里走的缝只够一层层抠开。"
+    },
+    {
+      "id": "lm_deepvein_fall_choke",
+      "name": "坠石狭喉",
+      "x": 36,
+      "y": 25,
+      "desc": "断层把中段掐成一截石喉，挖开一块才多一格，怪物也常卡在这些刚露出来的小口袋里。"
+    },
+    {
+      "id": "lm_deepvein_stele_slope",
+      "name": "负碑缓坡",
+      "x": 30,
+      "y": 18,
+      "desc": "坡道上残着压脉旧碑和被砸进山里的台阶，越往上掘，越像整座山在往人背上落。"
+    },
+    {
+      "id": "lm_deepvein_pillar_highland",
+      "name": "石柱高坪",
+      "x": 18,
+      "y": 29,
+      "desc": "这一层终于稍微开阔一些，但视野全被石柱和残矿切碎，真正能站人的地方反而比狭道更零散。"
+    },
+    {
+      "id": "lm_deepvein_guizang_gate",
+      "name": "镇岳地关",
+      "x": 10,
+      "y": 8,
+      "desc": "最深处的石府前庭只剩一道被强行压住的旧门，门后还连着更深的地脉缝，就是归藏脉窟外围。"
+    }
+  ],
+  "npcs": [
+    {
+      "id": "npc_deepvein_pick_foreman",
+      "name": "开脉把头·石沉",
+      "x": 57,
+      "y": 29,
+      "char": "矿",
+      "color": "#cbb08a",
+      "dialogue": "厚脉岭没有现成的路。你若只想着往前冲，不是先被石头卡死，就是先把自己挖空。先认哪块该开，哪块该绕，再谈往里走。",
+      "role": "quest_hint",
+      "shopItems": [],
+      "quests": []
+    },
+    {
+      "id": "npc_deepvein_old_steward",
+      "name": "守碑老修·陶埴",
+      "x": 21,
+      "y": 33,
+      "char": "碑",
+      "color": "#b89f7d",
+      "dialogue": "土行不是叫你变慢，是叫你扛得住。真到了镇岳前庭，能不能再往里走，看的不是你打多狠，是你这口气海还能不能继续承压。",
+      "role": "lore",
+      "shopItems": [],
+      "quests": []
+    }
+  ],
+  "monsterSpawns": [
+    {
+      "id": "m_deepvein_croc",
+      "x": 54,
+      "y": 30
+    },
+    {
+      "id": "m_deepvein_stonebound",
+      "x": 47,
+      "y": 26
+    },
+    {
+      "id": "m_deepvein_armor_spirit",
+      "x": 36,
+      "y": 25
+    },
+    {
+      "id": "m_deepvein_ridge_warden",
+      "x": 18,
+      "y": 29
+    },
+    {
+      "id": "m_deepvein_stele_bearer",
+      "x": 30,
+      "y": 18,
+      "count": 1,
+      "maxAlive": 1,
+      "radius": 3,
+      "wanderRadius": 3
+    },
+    {
+      "id": "spawn_deepvein_stele_bearer_b",
+      "templateId": "m_deepvein_stele_bearer",
+      "x": 36,
+      "y": 25,
+      "count": 1,
+      "maxAlive": 1,
+      "radius": 3,
+      "wanderRadius": 3
+    },
+    {
+      "id": "spawn_deepvein_stele_bearer_c",
+      "templateId": "m_deepvein_stele_bearer",
+      "x": 21,
+      "y": 20,
+      "count": 1,
+      "maxAlive": 1,
+      "radius": 3,
+      "wanderRadius": 3
+    },
+    {
+      "id": "m_deepvein_heavy_guard",
+      "x": 23,
+      "y": 24,
+      "count": 1,
+      "maxAlive": 1,
+      "radius": 3,
+      "wanderRadius": 3
+    },
+    {
+      "id": "spawn_deepvein_heavy_guard_b",
+      "templateId": "m_deepvein_heavy_guard",
+      "x": 18,
+      "y": 29,
+      "count": 1,
+      "maxAlive": 1,
+      "radius": 3,
+      "wanderRadius": 3
+    },
+    {
+      "id": "spawn_deepvein_heavy_guard_c",
+      "templateId": "m_deepvein_heavy_guard",
+      "x": 13,
+      "y": 16,
+      "count": 1,
+      "maxAlive": 1,
+      "radius": 3,
+      "wanderRadius": 3
+    },
+    {
+      "id": "m_deepvein_earth_effigy",
+      "x": 11,
+      "y": 12
+    }
+  ],
+  "terrainRealmLv": 19,
+  "resourceNodeGroups": [
+    {
+      "resourceNodeId": "landmark.herb.bearingroot_ginseng",
+      "idPrefix": "lm_deepvein_bearingroot",
+      "name": "承脉参",
+      "placements": [
+        {
+          "x": 55,
+          "y": 29
+        },
+        {
+          "x": 48,
+          "y": 25
+        },
+        {
+          "x": 42,
+          "y": 28
+        },
+        {
+          "x": 34,
+          "y": 24
+        },
+        {
+          "x": 28,
+          "y": 18
+        },
+        {
+          "x": 20,
+          "y": 30
+        },
+        {
+          "x": 14,
+          "y": 17
+        },
+        {
+          "x": 10,
+          "y": 12
+        }
+      ]
+    },
+    {
+      "resourceNodeId": "landmark.herb.stonecore_lingzhi",
+      "idPrefix": "lm_deepvein_stonecore",
+      "name": "岩髓芝",
+      "placements": [
+        {
+          "x": 52,
+          "y": 32
+        },
+        {
+          "x": 45,
+          "y": 22
+        },
+        {
+          "x": 38,
+          "y": 26
+        },
+        {
+          "x": 30,
+          "y": 15
+        },
+        {
+          "x": 24,
+          "y": 24
+        },
+        {
+          "x": 16,
+          "y": 28
+        },
+        {
+          "x": 12,
+          "y": 20
+        },
+        {
+          "x": 8,
+          "y": 9
+        }
+      ]
+    }
+  ]
+}

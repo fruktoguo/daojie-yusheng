@@ -7,21 +7,17 @@ import { preserveSelection } from './selection-preserver';
 
 /** 弹层配置项 */
 type DetailModalOptions = {
-/** ownerId：定义该变量以承载业务值。 */
   ownerId: string;
   variantClass?: string;
-/** title：定义该变量以承载业务值。 */
   title: string;
   subtitle?: string;
   hint?: string;
-/** bodyHtml：定义该变量以承载业务值。 */
   bodyHtml: string;
   onRequestClose?: () => boolean;
   onClose?: () => void;
   onAfterRender?: (body: HTMLElement) => void;
 };
 
-/** DetailModalHost：封装相关状态与行为。 */
 class DetailModalHost {
   private modal = document.getElementById('detail-modal')!;
   private card = document.getElementById('detail-modal-card')!;
@@ -29,7 +25,6 @@ class DetailModalHost {
   private subtitle = document.getElementById('detail-modal-subtitle')!;
   private hint = document.getElementById('detail-modal-hint')!;
   private body = document.getElementById('detail-modal-body')!;
-/** ownerId：定义该变量以承载业务值。 */
   private ownerId: string | null = null;
   private onRequestClose: (() => boolean) | null = null;
   private onClose: (() => void) | null = null;
@@ -72,7 +67,7 @@ class DetailModalHost {
     return this.ownerId === ownerId && !this.modal.classList.contains('hidden');
   }
 
-/** ensureInitialized：执行对应的业务逻辑。 */
+
   private ensureInitialized(): void {
     if (this.initialized) return;
     this.initialized = true;
@@ -89,13 +84,12 @@ class DetailModalHost {
     });
   }
 
-/** dismiss：执行对应的业务逻辑。 */
+
   private dismiss(notify: boolean): boolean {
     if (!this.ownerId && this.modal.classList.contains('hidden')) return true;
     if (notify && this.onRequestClose && this.onRequestClose() === false) {
       return false;
     }
-/** onClose：定义该变量以承载业务值。 */
     const onClose = this.onClose;
     this.ownerId = null;
     this.onRequestClose = null;
@@ -110,7 +104,7 @@ class DetailModalHost {
     return true;
   }
 
-/** setVariantClass：执行对应的业务逻辑。 */
+/** setVariantClass：设置并同步相关状态。 */
   private setVariantClass(nextClass: string): void {
     if (this.variantClass) {
       this.modal.classList.remove(this.variantClass);
@@ -124,6 +118,5 @@ class DetailModalHost {
   }
 }
 
-/** detailModalHost：定义该变量以承载业务值。 */
 export const detailModalHost = new DetailModalHost();
 

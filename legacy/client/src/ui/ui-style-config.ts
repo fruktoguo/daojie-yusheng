@@ -21,14 +21,11 @@ import { shouldUseMobileUi } from './responsive-viewport';
 export type { UiColorMode, UiFontLevelDefinition, UiFontLevelKey, UiStyleConfig };
 export { UI_COLOR_MODE_OPTIONS, UI_FONT_LEVEL_DEFINITIONS, UI_GLOBAL_FONT_OFFSET_RANGE, UI_SCALE_RANGE };
 
-/** currentConfig：定义该变量以承载业务值。 */
 let currentConfig = cloneConfig(DEFAULT_UI_STYLE_CONFIG);
-/** initialized：定义该变量以承载业务值。 */
 let initialized = false;
-/** responsiveSyncBound：定义该变量以承载业务值。 */
 let responsiveSyncBound = false;
 
-/** initializeUiStyleConfig：执行对应的业务逻辑。 */
+
 export function initializeUiStyleConfig(): UiStyleConfig {
   if (initialized) {
     applyUiStyleConfig(currentConfig);
@@ -42,7 +39,6 @@ export function initializeUiStyleConfig(): UiStyleConfig {
   return cloneConfig(currentConfig);
 }
 
-/** getUiStyleConfig：执行对应的业务逻辑。 */
 export function getUiStyleConfig(): UiStyleConfig {
   if (!initialized) {
     return initializeUiStyleConfig();
@@ -50,7 +46,6 @@ export function getUiStyleConfig(): UiStyleConfig {
   return cloneConfig(currentConfig);
 }
 
-/** updateUiColorMode：执行对应的业务逻辑。 */
 export function updateUiColorMode(colorMode: UiColorMode): UiStyleConfig {
   currentConfig = normalizeConfig({
     ...currentConfig,
@@ -60,7 +55,6 @@ export function updateUiColorMode(colorMode: UiColorMode): UiStyleConfig {
   return cloneConfig(currentConfig);
 }
 
-/** updateUiGlobalFontOffset：执行对应的业务逻辑。 */
 export function updateUiGlobalFontOffset(offset: number): UiStyleConfig {
   currentConfig = normalizeConfig({
     ...currentConfig,
@@ -70,7 +64,6 @@ export function updateUiGlobalFontOffset(offset: number): UiStyleConfig {
   return cloneConfig(currentConfig);
 }
 
-/** updateUiScale：执行对应的业务逻辑。 */
 export function updateUiScale(scale: number): UiStyleConfig {
   currentConfig = normalizeConfig({
     ...currentConfig,
@@ -80,20 +73,17 @@ export function updateUiScale(scale: number): UiStyleConfig {
   return cloneConfig(currentConfig);
 }
 
-/** resetUiStyleConfig：执行对应的业务逻辑。 */
+/** resetUiStyleConfig：重置为初始状态。 */
 export function resetUiStyleConfig(): UiStyleConfig {
   currentConfig = cloneConfig(DEFAULT_UI_STYLE_CONFIG);
   commitConfig();
   return cloneConfig(currentConfig);
 }
 
-/** getEffectiveUiFontSize：执行对应的业务逻辑。 */
 export function getEffectiveUiFontSize(
   key: UiFontLevelKey,
-/** config：定义该变量以承载业务值。 */
   config: UiStyleConfig = currentConfig,
 ): number {
-/** definition：定义该变量以承载业务值。 */
   const definition = UI_FONT_LEVEL_DEFINITIONS.find((entry) => entry.key === key);
   if (!definition) {
     return 0;
@@ -101,20 +91,18 @@ export function getEffectiveUiFontSize(
   return resolveAppliedFontSize(config, definition, shouldUseMobileUiPreset(window));
 }
 
-/** commitConfig：执行对应的业务逻辑。 */
+
 function commitConfig(): void {
   applyUiStyleConfig(currentConfig);
   persistConfig(currentConfig);
 }
 
-/** applyUiStyleConfig：执行对应的业务逻辑。 */
+
 function applyUiStyleConfig(config: UiStyleConfig): void {
-/** root：定义该变量以承载业务值。 */
   const root = document.documentElement;
   root.dataset.colorMode = config.colorMode;
   root.style.colorScheme = config.colorMode;
   applyUiTextCssVariables(root.style);
-/** mobilePresetActive：定义该变量以承载业务值。 */
   const mobilePresetActive = shouldUseMobileUiPreset(window);
   root.style.setProperty('--ui-scale', config.uiScale.toFixed(3));
 
@@ -123,20 +111,17 @@ function applyUiStyleConfig(config: UiStyleConfig): void {
   }
 }
 
-/** normalizeConfig：执行对应的业务逻辑。 */
+
 function normalizeConfig(
   raw: Partial<UiStyleConfig> | null | undefined,
-/** fallbackConfig：定义该变量以承载业务值。 */
   fallbackConfig: UiStyleConfig = DEFAULT_UI_STYLE_CONFIG,
 ): UiStyleConfig {
-/** legacyFontSizes：通过常量导出可复用函数行为。 */
+
   const legacyFontSizes = (() => {
-/** bodyDefinition：定义该变量以承载业务值。 */
     const bodyDefinition = UI_FONT_LEVEL_DEFINITIONS.find((entry) => entry.key === 'body');
     if (!bodyDefinition) {
       return undefined;
     }
-/** bodyCandidate：定义该变量以承载业务值。 */
     const bodyCandidate = (raw as { fontSizes?: Partial<Record<UiFontLevelKey, number>> } | null | undefined)?.fontSizes?.body;
     if (typeof bodyCandidate !== 'number' || !Number.isFinite(bodyCandidate)) {
       return undefined;
@@ -145,24 +130,22 @@ function normalizeConfig(
   })();
 
   return {
-/** colorMode：定义该变量以承载业务值。 */
     colorMode: raw?.colorMode === 'dark' ? 'dark' : fallbackConfig.colorMode,
     globalFontOffset: clampGlobalFontOffset(raw?.globalFontOffset, legacyFontSizes ?? fallbackConfig.globalFontOffset),
     uiScale: clampUiScale(raw?.uiScale, fallbackConfig.uiScale),
   };
 }
 
-/** clampGlobalFontOffset：执行对应的业务逻辑。 */
+
 function clampGlobalFontOffset(value: unknown, fallbackValue: number): number {
   if (typeof value !== 'number' || !Number.isFinite(value)) {
     return fallbackValue;
   }
-/** rounded：定义该变量以承载业务值。 */
   const rounded = Math.round(value);
   return Math.max(UI_GLOBAL_FONT_OFFSET_RANGE.min, Math.min(UI_GLOBAL_FONT_OFFSET_RANGE.max, rounded));
 }
 
-/** clampUiScale：执行对应的业务逻辑。 */
+
 function clampUiScale(value: unknown, fallbackValue: number): number {
   if (typeof value !== 'number' || !Number.isFinite(value)) {
     return fallbackValue;
@@ -170,7 +153,7 @@ function clampUiScale(value: unknown, fallbackValue: number): number {
   return Math.max(UI_SCALE_RANGE.min, Math.min(UI_SCALE_RANGE.max, Number(value.toFixed(2))));
 }
 
-/** persistConfig：执行对应的业务逻辑。 */
+
 function persistConfig(config: UiStyleConfig): void {
   try {
     window.localStorage.setItem(UI_STYLE_STORAGE_KEY, JSON.stringify(config));
@@ -179,15 +162,13 @@ function persistConfig(config: UiStyleConfig): void {
   }
 }
 
-/** readStoredConfig：执行对应的业务逻辑。 */
+
 function readStoredConfig(): Partial<UiStyleConfig> | null {
   try {
-/** raw：定义该变量以承载业务值。 */
     const raw = window.localStorage.getItem(UI_STYLE_STORAGE_KEY);
     if (!raw) {
       return null;
     }
-/** parsed：定义该变量以承载业务值。 */
     const parsed = JSON.parse(raw);
     if (!parsed || typeof parsed !== 'object') {
       return null;
@@ -198,7 +179,7 @@ function readStoredConfig(): Partial<UiStyleConfig> | null {
   }
 }
 
-/** cloneConfig：执行对应的业务逻辑。 */
+
 function cloneConfig(config: UiStyleConfig): UiStyleConfig {
   return {
     colorMode: config.colorMode,
@@ -207,31 +188,29 @@ function cloneConfig(config: UiStyleConfig): UiStyleConfig {
   };
 }
 
-/** shouldUseMobileUiPreset：执行对应的业务逻辑。 */
+
 function shouldUseMobileUiPreset(win: Window): boolean {
   return shouldUseMobileUi(win);
 }
 
-/** resolveAppliedFontSize：执行对应的业务逻辑。 */
+
 function resolveAppliedFontSize(
   config: UiStyleConfig,
   definition: UiFontLevelDefinition,
   mobilePresetActive: boolean,
 ): number {
-/** baselineOffset：定义该变量以承载业务值。 */
   const baselineOffset = mobilePresetActive ? definition.min - definition.defaultSize : 0;
-/** resolved：定义该变量以承载业务值。 */
   const resolved = (definition.defaultSize + baselineOffset + config.globalFontOffset) * config.uiScale;
   return Math.max(1, Math.round(resolved));
 }
 
-/** bindResponsiveSync：执行对应的业务逻辑。 */
+/** bindResponsiveSync：绑定回调。 */
 function bindResponsiveSync(): void {
   if (responsiveSyncBound) {
     return;
   }
   responsiveSyncBound = true;
-/** refresh：通过常量导出可复用函数行为。 */
+/** refresh：刷新缓存并触发重绘。 */
   const refresh = () => {
     if (!initialized) {
       return;

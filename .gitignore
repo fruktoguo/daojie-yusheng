@@ -11,3 +11,5 @@ packages/server/.runtime/
 packages/server/data/gm-config.json
 packages/server/data/runtime/
 packages/server/data/backups/
+
+.legna/

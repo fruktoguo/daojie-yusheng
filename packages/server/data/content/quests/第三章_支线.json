@@ -1,0 +1,94 @@
+{
+  "quests": [
+    {
+      "id": "q_mine_overseer_echo",
+      "title": "矿监残魂",
+      "desc": "矿监残魂仍把自己当成值夜的人。它要你先把洞里乱窜的晶蝠和活尸压下去，再回来听它念那份过时的矿册。",
+      "story": "最可怕的不是死了还不走的人，而是死了还以为自己没出事的人。",
+      "objectiveType": "talk",
+      "objectiveText": "先去见矿监残魂，再决定要不要接它的活",
+      "targetNpcId": "npc_mine_overseer_ghost",
+      "targetNpcName": "矿监残魂",
+      "targetMapId": "black_iron_mine",
+      "targetName": "矿监残魂",
+      "required": 1,
+      "reward": [
+        {
+          "itemId": "pill.minor_heal",
+          "name": "回春散",
+          "type": "consumable",
+          "count": 2
+        }
+      ],
+      "nextQuestId": "q_mine_overseer_cleanup",
+      "line": "side",
+      "giverMapId": "black_iron_mine",
+      "giverNpcId": "npc_mine_overseer_ghost",
+      "submitMapId": "black_iron_mine",
+      "submitNpcId": "npc_mine_overseer_ghost"
+    },
+    {
+      "id": "q_mine_overseer_cleanup",
+      "title": "旧矿册上的名字",
+      "desc": "矿监残魂说矿册上有一批人从未“出矿”，但名字也没算死。你先替它把洞里乱晃的活尸清掉，再把矿晶核带回来，它才肯继续往下说。",
+      "story": "被记在账上的人未必活着，不在账上的人也未必真死了。",
+      "objectiveText": "清掉矿洞活尸并带回矿晶核",
+      "targetMonsterId": "m_mine_ghoul",
+      "targetCount": 6,
+      "targetMapId": "black_iron_mine",
+      "targetName": "矿洞活尸",
+      "requiredItemId": "mine_crystal_core",
+      "requiredItemCount": 1,
+      "reward": [
+        {
+          "itemId": "pill.break_array_elixir",
+          "name": "破阵丹",
+          "type": "consumable",
+          "count": 1
+        }
+      ],
+      "line": "side",
+      "giverMapId": "black_iron_mine",
+      "giverNpcId": "npc_mine_overseer_ghost",
+      "submitMapId": "black_iron_mine",
+      "submitNpcId": "npc_mine_overseer_ghost"
+    },
+    {
+      "id": "q_ruin_owl_watch",
+      "title": "碑上夜枭",
+      "desc": "碑灵学士烦死了那些绕着残碑盘旋的骨枭。它要你先把它们清了，省得它每说半句旧话，就被怪叫声打断。",
+      "story": "有些死人比活人更爱讲话，可要让它们开口，也得先替它们把环境收拾干净。",
+      "objectiveText": "清掉遗迹骨枭",
+      "targetMonsterId": "m_bone_owl",
+      "targetCount": 6,
+      "targetMapId": "ancient_ruins",
+      "targetName": "遗迹骨枭",
+      "required": 6,
+      "reward": [
+        {
+          "itemId": "major_qi_pill",
+          "name": "大还灵丹",
+          "type": "consumable",
+          "count": 1
+        },
+        {
+          "itemId": "pill.bitter_cultivation_elixir",
+          "name": "苦修丹",
+          "type": "consumable",
+          "count": 1
+        },
+        {
+          "itemId": "pill.clear_eye_elixir",
+          "name": "明目丹",
+          "type": "consumable",
+          "count": 1
+        }
+      ],
+      "line": "side",
+      "giverMapId": "ancient_ruins",
+      "giverNpcId": "npc_ruin_scholar_spirit",
+      "submitMapId": "ancient_ruins",
+      "submitNpcId": "npc_ruin_scholar_spirit"
+    }
+  ]
+}

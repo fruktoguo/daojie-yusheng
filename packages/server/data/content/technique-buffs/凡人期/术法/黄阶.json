@@ -1,0 +1,39 @@
+[
+  {
+    "id": "fanren.shufa.yellow.tafeng_step",
+    "target": "self",
+    "buffId": "buff.tafeng_step",
+    "name": "踏风",
+    "desc": "借风提身，移速与闪避齐增。",
+    "shortMark": "风",
+    "category": "buff",
+    "visibility": "public",
+    "color": "#8cc7a5",
+    "duration": 12,
+    "maxStacks": 1,
+    "statMode": "percent",
+    "valueStats": {
+      "moveSpeed": 30,
+      "dodge": 30
+    }
+  },
+  {
+    "id": "fanren.shufa.yellow.tiegu_guard",
+    "target": "self",
+    "buffId": "buff.tiegu_guard",
+    "name": "铁骨",
+    "desc": "铁息护体，护甲、法抗与生机回转大涨。",
+    "shortMark": "骨",
+    "category": "buff",
+    "visibility": "public",
+    "color": "#a5937a",
+    "duration": 12,
+    "maxStacks": 1,
+    "statMode": "percent",
+    "valueStats": {
+      "physDef": 30,
+      "spellDef": 30,
+      "hpRegenRate": 30
+    }
+  }
+]

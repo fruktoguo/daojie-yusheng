@@ -1,0 +1,96 @@
+{
+  "quests": [
+    {
+      "id": "q_sky_observer_talk",
+      "title": "残宫里先听一句实话",
+      "line": "main",
+      "chapter": "第五章·残宫封天",
+      "story": "练气之后，清玄终于肯让你去碰天穹残宫。那地方比矿洞、遗迹和兽谷都更像真相的正面，可也是凡人篇里最容易把人直接碾死的一段路。先去见观星残影，让它告诉你封柱究竟塌在什么地方。",
+      "desc": "前往天穹残宫，与观星残影对话。",
+      "objectiveType": "talk",
+      "objectiveText": "去天穹残宫见观星残影",
+      "targetNpcId": "npc_sky_observer",
+      "targetNpcName": "观星残影",
+      "targetMapId": "sky_ruins",
+      "targetName": "观星残影",
+      "required": 1,
+      "reward": [
+        {
+          "itemId": "pure_yang_pill",
+          "name": "纯阳丹",
+          "type": "consumable",
+          "count": 1
+        }
+      ],
+      "nextQuestId": "q_sky_star_metal_main",
+      "giverMapId": "yunlai_town",
+      "giverNpcId": "npc_qingxuan",
+      "submitMapId": "sky_ruins",
+      "submitNpcId": "npc_sky_observer"
+    },
+    {
+      "id": "q_sky_star_metal_main",
+      "title": "先把坠星铁拿回来",
+      "line": "main",
+      "chapter": "第五章·残宫封天",
+      "story": "观星残影告诉你，封柱真正崩断前，天穹残宫先下过一场“星铁雨”。若想补上那道口子，你至少得先从宫里猎者手里夺回足够的星陨金，让凡人的手上也有一件能碰天门的东西。",
+      "desc": "击败天宫猎者，收回足够的星陨金。",
+      "objectiveText": "击败天宫猎者并收回星陨金",
+      "targetMonsterId": "m_void_hunter",
+      "targetCount": 6,
+      "targetMapId": "sky_ruins",
+      "targetName": "天宫猎者",
+      "required": 6,
+      "requiredItemId": "star_metal",
+      "requiredItemCount": 4,
+      "reward": [
+        {
+          "itemId": "pill.break_array_elixir",
+          "name": "破阵丹",
+          "type": "consumable",
+          "count": 1
+        }
+      ],
+      "nextQuestId": "q_sky_seal_core_main",
+      "giverMapId": "sky_ruins",
+      "giverNpcId": "npc_sky_observer",
+      "submitMapId": "sky_ruins",
+      "submitNpcId": "npc_sky_observer"
+    },
+    {
+      "id": "q_sky_seal_core_main",
+      "title": "把那颗封柱核心带走",
+      "line": "main",
+      "chapter": "第五章·残宫封天",
+      "story": "星陨金到手后，观星残影终于让开最后那段路。它说天穹残宫剩下的不是宝藏，而是一块卡在天门和人间之间的碎骨。你得杀进最深处，把天封核心拿回来，替云来镇争下继续活到下一卷的资格。",
+      "desc": "击败噬星兽，取回天封核心。",
+      "objectiveText": "击败噬星兽并取回天封核心",
+      "targetMonsterId": "m_star_devourer",
+      "targetCount": 2,
+      "targetMapId": "sky_ruins",
+      "targetName": "噬星兽",
+      "required": 2,
+      "requiredItemId": "sky_seal_core",
+      "requiredItemCount": 1,
+      "reward": [
+        {
+          "itemId": "book.starfall_spear",
+          "name": "《陨星枪诀》",
+          "type": "skill_book",
+          "count": 1
+        },
+        {
+          "itemId": "pure_yang_pill",
+          "name": "纯阳丹",
+          "type": "consumable",
+          "count": 2
+        }
+      ],
+      "nextQuestId": "q_foundation_oath",
+      "giverMapId": "sky_ruins",
+      "giverNpcId": "npc_sky_observer",
+      "submitMapId": "yunlai_town",
+      "submitNpcId": "npc_qingxuan"
+    }
+  ]
+}

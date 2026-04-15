@@ -3,12 +3,12 @@ import { existsSync } from 'node:fs';
 import { defineConfig, loadEnv, type Plugin } from 'vite';
 import path from 'path';
 
-/** createBuildVersionPlugin：执行对应的业务逻辑。 */
+/** createBuildVersionPlugin：创建并返回用于构建版本信息的插件对象。 */
 function createBuildVersionPlugin(buildId: string, builtAt: string): Plugin {
   return {
     name: 'mud-client-build-version',
     apply: 'build',
-/** generateBundle：处理当前场景中的对应操作。 */
+    /** generateBundle：写入版本信息资源文件。 */
     generateBundle() {
       this.emitFile({
         type: 'asset',
@@ -27,20 +27,14 @@ function createBuildVersionPlugin(buildId: string, builtAt: string): Plugin {
 }
 
 export default defineConfig(({ mode }) => {
-/** env：定义该变量以承载业务值。 */
   const env = loadEnv(mode, __dirname, '');
-/** proxyTarget：定义该变量以承载业务值。 */
   const proxyTarget = env.VITE_DEV_PROXY_TARGET?.trim();
-/** builtAt：定义该变量以承载业务值。 */
   const builtAt = new Date().toISOString();
-/** buildId：定义该变量以承载业务值。 */
   const buildId = createHash('sha1').update(`${mode}:${builtAt}`).digest('hex').slice(0, 12);
-/** clientInputs：定义该变量以承载业务值。 */
   const clientInputs: Record<string, string> = {
     main: path.resolve(__dirname, 'index.html'),
     gm: path.resolve(__dirname, 'gm.html'),
   };
-/** gmV2Entry：定义该变量以承载业务值。 */
   const gmV2Entry = path.resolve(__dirname, 'gm-v2.html');
 
   if (existsSync(gmV2Entry)) {
@@ -61,7 +55,7 @@ export default defineConfig(({ mode }) => {
       rollupOptions: {
         input: clientInputs,
         output: {
-/** manualChunks：处理当前场景中的对应操作。 */
+          /** manualChunks：按模块路径拆分打包入口。 */
           manualChunks(id) {
             if (id.includes('/node_modules/')) {
               return 'vendor';
@@ -102,4 +96,3 @@ export default defineConfig(({ mode }) => {
       : undefined,
   };
 });
-

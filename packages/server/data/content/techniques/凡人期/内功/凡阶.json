@@ -1,0 +1,202 @@
+[
+  {
+    "id": "standing_stake_art",
+    "name": "站桩功",
+    "grade": "mortal",
+    "category": "internal",
+    "layers": [
+      {
+        "level": 1,
+        "expFactor": 18,
+        "attrs": {
+          "constitution": 1,
+          "spirit": 2,
+          "perception": 3,
+          "talent": 2
+        }
+      },
+      {
+        "level": 2,
+        "expFactor": 22,
+        "attrs": {
+          "constitution": 1,
+          "spirit": 1,
+          "perception": 3,
+          "talent": 2
+        }
+      },
+      {
+        "level": 3,
+        "expFactor": 27,
+        "attrs": {
+          "constitution": 1,
+          "spirit": 1,
+          "perception": 3,
+          "talent": 2
+        }
+      },
+      {
+        "level": 4,
+        "expFactor": 32,
+        "attrs": {
+          "constitution": 1,
+          "spirit": 1,
+          "perception": 2,
+          "talent": 2
+        }
+      },
+      {
+        "level": 5,
+        "expFactor": 38,
+        "attrs": {
+          "constitution": 1,
+          "spirit": 1,
+          "perception": 2,
+          "talent": 2
+        }
+      },
+      {
+        "level": 6,
+        "expFactor": 45,
+        "attrs": {
+          "constitution": 1,
+          "spirit": 1,
+          "perception": 2,
+          "talent": 2
+        }
+      },
+      {
+        "level": 7,
+        "expFactor": 53,
+        "attrs": {
+          "constitution": 1,
+          "spirit": 1,
+          "perception": 2,
+          "talent": 2
+        }
+      },
+      {
+        "level": 8,
+        "expFactor": 62,
+        "attrs": {
+          "constitution": 1,
+          "spirit": 1,
+          "perception": 2,
+          "talent": 2
+        }
+      },
+      {
+        "level": 9,
+        "expFactor": 72,
+        "attrs": {
+          "constitution": 1,
+          "spirit": 1,
+          "perception": 2,
+          "talent": 2
+        }
+      },
+      {
+        "level": 10,
+        "expFactor": 0,
+        "attrs": {
+          "constitution": 1,
+          "spirit": 1,
+          "perception": 2,
+          "talent": 2
+        }
+      }
+    ],
+    "skills": [],
+    "realmLv": 1
+  },
+  {
+    "id": "bear_cauldron_art",
+    "name": "担石功",
+    "grade": "mortal",
+    "layers": [
+      {
+        "level": 1,
+        "expFactor": 60,
+        "attrs": {
+          "constitution": 2,
+          "spirit": 2,
+          "perception": 3,
+          "talent": 3
+        }
+      },
+      {
+        "level": 2,
+        "expFactor": 66,
+        "attrs": {
+          "constitution": 2,
+          "spirit": 2,
+          "perception": 3,
+          "talent": 3
+        }
+      },
+      {
+        "level": 3,
+        "expFactor": 72.5,
+        "attrs": {
+          "constitution": 1,
+          "spirit": 2,
+          "perception": 3,
+          "talent": 3
+        }
+      },
+      {
+        "level": 4,
+        "expFactor": 79.5,
+        "attrs": {
+          "constitution": 1,
+          "spirit": 2,
+          "perception": 3,
+          "talent": 3
+        }
+      },
+      {
+        "level": 5,
+        "expFactor": 87,
+        "attrs": {
+          "constitution": 1,
+          "spirit": 1,
+          "perception": 3,
+          "talent": 3
+        }
+      },
+      {
+        "level": 6,
+        "expFactor": 95,
+        "attrs": {
+          "constitution": 1,
+          "spirit": 1,
+          "perception": 3,
+          "talent": 2
+        }
+      },
+      {
+        "level": 7,
+        "expFactor": 103.5,
+        "attrs": {
+          "constitution": 1,
+          "spirit": 1,
+          "perception": 3,
+          "talent": 2
+        }
+      },
+      {
+        "level": 8,
+        "expFactor": 0,
+        "attrs": {
+          "constitution": 1,
+          "spirit": 1,
+          "perception": 2,
+          "talent": 2
+        }
+      }
+    ],
+    "skills": [],
+    "realmLv": 5,
+    "category": "internal"
+  }
+]

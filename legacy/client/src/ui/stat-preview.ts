@@ -9,23 +9,20 @@ import { getAttrKeyLabel, getElementKeyLabel, getNumericScalarStatKeyLabel } fro
 import { PERCENT_STAT_KEYS } from '../constants/ui/stat-preview';
 import { formatDisplayNumber, formatDisplaySignedNumber, formatDisplayPercent } from '../utils/number';
 
-/** formatSignedNumber：执行对应的业务逻辑。 */
+/** formatSignedNumber：格式化输出字符串用于展示。 */
 function formatSignedNumber(value: number): string {
   return formatDisplaySignedNumber(value);
 }
 
-/** formatSignedPercentValue：执行对应的业务逻辑。 */
+/** formatSignedPercentValue：格式化输出字符串用于展示。 */
 function formatSignedPercentValue(value: number): string {
-/** sign：定义该变量以承载业务值。 */
   const sign = value >= 0 ? '+' : '-';
   return `${sign}${formatDisplayPercent(Math.abs(value))}`;
 }
 
-/** formatSignedStatValue：执行对应的业务逻辑。 */
+/** formatSignedStatValue：格式化输出字符串用于展示。 */
 function formatSignedStatValue(key: string, value: number): string {
-/** sign：定义该变量以承载业务值。 */
   const sign = value >= 0 ? '+' : '-';
-/** absValue：定义该变量以承载业务值。 */
   const absValue = Math.abs(value);
   if (key === 'critDamage') {
     return `${sign}${formatDisplayPercent(absValue / 10)}`;
@@ -36,7 +33,7 @@ function formatSignedStatValue(key: string, value: number): string {
   return `${sign}${formatDisplayNumber(absValue)}`;
 }
 
-/** resolvePreviewStats：执行对应的业务逻辑。 */
+
 export function resolvePreviewStats(
   stats?: PartialNumericStats,
   valueStats?: PartialNumericStats,
@@ -51,7 +48,7 @@ export function resolvePreviewStats(
   return valueStats ? compileValueStatsToActualStats(valueStats) : undefined;
 }
 
-/** describePreviewBonuses：执行对应的业务逻辑。 */
+
 export function describePreviewBonuses(
   attrs?: Partial<Attributes>,
   stats?: PartialNumericStats,
@@ -59,7 +56,6 @@ export function describePreviewBonuses(
   attrMode?: BuffModifierMode,
   statMode?: BuffModifierMode,
 ): string[] {
-/** lines：定义该变量以承载业务值。 */
   const lines: string[] = [];
   if (attrs) {
     for (const [key, value] of Object.entries(attrs)) {
@@ -70,7 +66,6 @@ export function describePreviewBonuses(
     }
   }
 
-/** resolvedStats：定义该变量以承载业务值。 */
   const resolvedStats = resolvePreviewStats(stats, valueStats, statMode);
   if (!resolvedStats) {
     return lines;

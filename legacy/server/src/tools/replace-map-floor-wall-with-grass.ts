@@ -8,13 +8,10 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { getMapCharFromTileType, getTileTypeFromMapChar, TileType } from '@mud/shared';
 
-/** CliOptions：定义该接口的能力与字段约束。 */
 interface CliOptions {
-/** mapId：定义该变量以承载业务值。 */
   mapId: string;
 }
 
-/** EditableMapFile：定义该接口的能力与字段约束。 */
 interface EditableMapFile {
   id?: string;
   width?: number;
@@ -49,7 +46,6 @@ function parseArgs(argv: string[]): CliOptions {
   return { mapId };
 }
 
-/** collectJsonFiles：执行对应的业务逻辑。 */
 function collectJsonFiles(dirPath: string): string[] {
 /**
  * 汇总当前条目列表。

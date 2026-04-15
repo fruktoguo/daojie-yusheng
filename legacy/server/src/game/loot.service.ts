@@ -30,163 +30,105 @@ import { ContainerConfig, DropConfig, MapService } from './map.service';
 import { CONTAINER_SEARCH_TICKS } from '../constants/gameplay/loot';
 import { TechniqueService } from './technique.service';
 
-/** LootMessageKind：定义该类型的结构与数据语义。 */
 type LootMessageKind = 'system' | 'loot' | 'quest';
 type LootPlayerDirtyFlag = 'inv' | 'tech' | 'attr' | 'actions';
 
-/** LootMessage：定义该接口的能力与字段约束。 */
 interface LootMessage {
-/** playerId：定义该变量以承载业务值。 */
   playerId: string;
-/** text：定义该变量以承载业务值。 */
   text: string;
-/** kind：定义该变量以承载业务值。 */
   kind: LootMessageKind;
 }
 
-/** LootEntry：定义该接口的能力与字段约束。 */
 interface LootEntry {
-/** item：定义该变量以承载业务值。 */
   item: ItemStack;
-/** createdTick：定义该变量以承载业务值。 */
   createdTick: number;
   expiresAtTick?: number;
-/** visible：定义该变量以承载业务值。 */
   visible: boolean;
 }
 
-/** GroundPileState：定义该接口的能力与字段约束。 */
 interface GroundPileState {
-/** sourceId：定义该变量以承载业务值。 */
   sourceId: string;
-/** mapId：定义该变量以承载业务值。 */
   mapId: string;
-/** x：定义该变量以承载业务值。 */
   x: number;
-/** y：定义该变量以承载业务值。 */
   y: number;
-/** entries：定义该变量以承载业务值。 */
   entries: LootEntry[];
 }
 
-/** ContainerState：定义该接口的能力与字段约束。 */
 interface ContainerState {
-/** sourceId：定义该变量以承载业务值。 */
   sourceId: string;
-/** mapId：定义该变量以承载业务值。 */
   mapId: string;
-/** containerId：定义该变量以承载业务值。 */
   containerId: string;
   variant?: LootSourceVariant;
   generatedAtTick?: number;
   refreshAtTick?: number;
   respawnTotalTicks?: number;
-/** entries：定义该变量以承载业务值。 */
   entries: LootEntry[];
   herb?: LootWindowHerbMeta;
   hp?: number;
   maxHp?: number;
   destroyed?: boolean;
   activeSearch?: {
-/** itemKey：定义该变量以承载业务值。 */
     itemKey: string;
-/** mode：定义该变量以承载业务值。 */
     mode?: 'reveal' | 'harvest';
-/** playerId：定义该变量以承载业务值。 */
     playerId?: string;
-/** totalTicks：定义该变量以承载业务值。 */
     totalTicks: number;
-/** remainingTicks：定义该变量以承载业务值。 */
     remainingTicks: number;
   };
 }
 
-/** LootSession：定义该接口的能力与字段约束。 */
 interface LootSession {
-/** playerId：定义该变量以承载业务值。 */
   playerId: string;
-/** mapId：定义该变量以承载业务值。 */
   mapId: string;
-/** tileX：定义该变量以承载业务值。 */
   tileX: number;
-/** tileY：定义该变量以承载业务值。 */
   tileY: number;
 }
 
-/** GroupedLootRow：定义该接口的能力与字段约束。 */
 interface GroupedLootRow {
-/** itemKey：定义该变量以承载业务值。 */
   itemKey: string;
-/** item：定义该变量以承载业务值。 */
   item: ItemStack;
-/** entries：定义该变量以承载业务值。 */
   entries: LootEntry[];
 }
 
-/** LootTickResult：定义该接口的能力与字段约束。 */
 interface LootTickResult {
-/** dirtyPlayers：定义该变量以承载业务值。 */
   dirtyPlayers: string[];
-/** messages：定义该变量以承载业务值。 */
   messages: LootMessage[];
-/** playerDirtyFlags：定义该变量以承载业务值。 */
   playerDirtyFlags: Array<{ playerId: string; flags: LootPlayerDirtyFlag[] }>;
 }
 
-/** LootActionResult：定义该接口的能力与字段约束。 */
 interface LootActionResult {
   error?: string;
-/** messages：定义该变量以承载业务值。 */
   messages: LootMessage[];
-/** dirtyPlayers：定义该变量以承载业务值。 */
   dirtyPlayers: string[];
   inventoryChanged?: boolean;
 }
 
-/** PersistedLootEntryRecord：定义该接口的能力与字段约束。 */
 interface PersistedLootEntryRecord {
-/** item：定义该变量以承载业务值。 */
   item: ItemStack;
-/** createdTick：定义该变量以承载业务值。 */
   createdTick: number;
   expiresAtTick?: number;
-/** visible：定义该变量以承载业务值。 */
   visible: boolean;
 }
 
-/** PersistedGroundPileRecord：定义该接口的能力与字段约束。 */
 interface PersistedGroundPileRecord {
-/** x：定义该变量以承载业务值。 */
   x: number;
-/** y：定义该变量以承载业务值。 */
   y: number;
-/** entries：定义该变量以承载业务值。 */
   entries: PersistedLootEntryRecord[];
 }
 
-/** PersistedContainerSearchRecord：定义该接口的能力与字段约束。 */
 interface PersistedContainerSearchRecord {
-/** itemKey：定义该变量以承载业务值。 */
   itemKey: string;
-/** mode：定义该变量以承载业务值。 */
   mode?: 'reveal' | 'harvest';
-/** playerId：定义该变量以承载业务值。 */
   playerId?: string;
-/** totalTicks：定义该变量以承载业务值。 */
   totalTicks: number;
-/** remainingTicks：定义该变量以承载业务值。 */
   remainingTicks: number;
 }
 
-/** PersistedContainerRecord：定义该接口的能力与字段约束。 */
 interface PersistedContainerRecord {
-/** containerId：定义该变量以承载业务值。 */
   containerId: string;
   variant?: LootSourceVariant;
   generatedAtTick?: number;
   refreshAtTick?: number;
   respawnTotalTicks?: number;
-/** entries：定义该变量以承载业务值。 */
   entries: PersistedLootEntryRecord[];
   herb?: LootWindowHerbMeta;
   hp?: number;
@@ -195,31 +137,24 @@ interface PersistedContainerRecord {
   activeSearch?: PersistedContainerSearchRecord;
 }
 
-/** PersistedLootMapState：定义该接口的能力与字段约束。 */
 interface PersistedLootMapState {
   tick?: number;
   groundPiles?: PersistedGroundPileRecord[];
   containers?: PersistedContainerRecord[];
 }
 
-/** PersistedLootRuntimeSnapshot：定义该接口的能力与字段约束。 */
 interface PersistedLootRuntimeSnapshot {
-/** version：定义该变量以承载业务值。 */
   version: 1;
-/** maps：定义该变量以承载业务值。 */
   maps: Record<string, PersistedLootMapState>;
 }
 
-/** RUNTIME_STATE_SCOPE：定义该变量以承载业务值。 */
 const RUNTIME_STATE_SCOPE = 'runtime_state';
-/** MAP_LOOT_RUNTIME_DOCUMENT_KEY：定义该变量以承载业务值。 */
 const MAP_LOOT_RUNTIME_DOCUMENT_KEY = 'map_loot';
 const HERB_GATHER_TIME_RATE = 0.5;
 const HERB_RESPAWN_TIME_RATE = 0.5;
 const GATHER_SPEED_PER_LEVEL = 0.02;
 
 @Injectable()
-/** LootService：封装相关状态与行为。 */
 export class LootService implements OnModuleInit, OnModuleDestroy {
   private readonly mapTicks = new Map<string, number>();
   private readonly groundPiles = new Map<string, GroundPileState>();
@@ -237,17 +172,14 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
     private readonly techniqueService: TechniqueService,
   ) {}
 
-/** onModuleInit：执行对应的业务逻辑。 */
   async onModuleInit(): Promise<void> {
     await this.loadPersistedRuntimeState();
   }
 
-/** onModuleDestroy：执行对应的业务逻辑。 */
   async onModuleDestroy(): Promise<void> {
     await this.persistRuntimeState();
   }
 
-/** reloadRuntimeStateFromPersistence：执行对应的业务逻辑。 */
   async reloadRuntimeStateFromPersistence(): Promise<void> {
     this.mapTicks.clear();
     this.groundPiles.clear();
@@ -259,27 +191,21 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
 
   /** 每 tick 处理掉落物过期、容器刷新、搜索进度 */
   tick(mapId: string, players: PlayerState[]): LootTickResult {
-/** currentTick：定义该变量以承载业务值。 */
     const currentTick = (this.mapTicks.get(mapId) ?? 0) + 1;
     this.mapTicks.set(mapId, currentTick);
     if (this.hasPersistableRuntimeState(mapId)) {
       this.markRuntimeStateDirty();
     }
 
-/** dirtyPlayers：定义该变量以承载业务值。 */
     const dirtyPlayers = new Set<string>();
-/** playerById：定义该变量以承载业务值。 */
     const playerById = new Map(players.map((player) => [player.id, player]));
-/** messages：定义该变量以承载业务值。 */
     const messages: LootMessage[] = [];
-/** playerDirtyFlags：定义该变量以承载业务值。 */
     const playerDirtyFlags = new Map<string, Set<LootPlayerDirtyFlag>>();
 
     for (const [sourceId, pile] of this.groundPiles.entries()) {
       if (pile.mapId !== mapId) {
         continue;
       }
-/** remaining：定义该变量以承载业务值。 */
       const remaining = pile.entries.filter((entry) => (entry.expiresAtTick ?? Number.MAX_SAFE_INTEGER) > currentTick);
       if (remaining.length === pile.entries.length) {
         continue;
@@ -297,7 +223,6 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
       if (state.mapId !== mapId || state.refreshAtTick === undefined || state.refreshAtTick > currentTick) {
         continue;
       }
-/** container：定义该变量以承载业务值。 */
       const container = this.resolveContainerBySourceId(sourceId);
       if (!container) {
         continue;
@@ -326,7 +251,6 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
         continue;
       }
 
-/** player：定义该变量以承载业务值。 */
       const player = playerById.get(playerId);
       if (!player) {
         this.sessions.delete(playerId);
@@ -340,10 +264,8 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
         continue;
       }
 
-/** container：定义该变量以承载业务值。 */
       const container = this.mapService.getContainerAt(mapId, session.tileX, session.tileY);
       if (container) {
-/** state：定义该变量以承载业务值。 */
         const state = this.ensureContainerState(mapId, container);
         if (!state.activeSearch && !state.destroyed && this.hasHiddenContainerEntries(state.entries)) {
           this.beginContainerSearch(mapId, container);
@@ -361,7 +283,6 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
       if (state.mapId !== mapId || !state.activeSearch) {
         continue;
       }
-/** container：定义该变量以承载业务值。 */
       const container = this.resolveContainerBySourceId(state.sourceId);
       if (!container) {
         state.activeSearch = undefined;
@@ -387,7 +308,6 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
         continue;
       }
 
-/** target：定义该变量以承载业务值。 */
       const target = state.entries.find((entry) => !entry.visible && createItemStackSignature(entry.item) === state.activeSearch?.itemKey);
       if (target) {
         target.visible = true;
@@ -409,11 +329,8 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
 
   /** 将物品掉落到地面 */
   dropToGround(mapId: string, x: number, y: number, item: ItemStack): string[] {
-/** sourceId：定义该变量以承载业务值。 */
     const sourceId = this.buildGroundSourceId(mapId, x, y);
-/** currentTick：定义该变量以承载业务值。 */
     const currentTick = this.getCurrentTick(mapId);
-/** pile：定义该变量以承载业务值。 */
     const pile = this.groundPiles.get(sourceId) ?? {
       sourceId,
       mapId,
@@ -434,12 +351,10 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
 
   /** 将物品放入容器 */
   dropToContainer(mapId: string, containerId: string, item: ItemStack): string[] {
-/** container：定义该变量以承载业务值。 */
     const container = this.mapService.getContainerById(mapId, containerId);
     if (!container) {
       return [];
     }
-/** state：定义该变量以承载业务值。 */
     const state = this.ensureContainerState(mapId, container);
     state.entries.push({
       item: { ...item },
@@ -460,7 +375,6 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
       return { error: '目标格子没有可拿取的物品或容器。', messages: [], dirtyPlayers: [] };
     }
 
-/** session：定义该变量以承载业务值。 */
     const session: LootSession = {
       playerId: player.id,
       mapId: player.mapId,
@@ -468,7 +382,6 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
       tileY: y,
     };
 
-/** container：定义该变量以承载业务值。 */
     const container = this.mapService.getContainerAt(player.mapId, x, y);
     if (container && container.variant !== 'herb') {
       this.beginContainerSearch(player.mapId, container);
@@ -480,9 +393,7 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
 
   /** 关闭玩家当前的拾取窗口，并中断对应的连续采摘 */
   closeLootWindow(playerId: string): string[] {
-/** dirtyPlayers：定义该变量以承载业务值。 */
     const dirtyPlayers = new Set<string>([playerId]);
-/** session：定义该变量以承载业务值。 */
     const session = this.sessions.get(playerId);
     if (session) {
       for (const viewerId of this.getTileViewerIds(session.mapId, session.tileX, session.tileY)) {
@@ -496,7 +407,6 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
 
   /** 从指定来源拾取物品 */
   takeFromSource(player: PlayerState, sourceId: string, itemKey: string): LootActionResult {
-/** session：定义该变量以承载业务值。 */
     const session = this.sessions.get(player.id);
     if (!session || session.mapId !== player.mapId) {
       return { error: '请先打开拿取界面。', messages: [], dirtyPlayers: [] };
@@ -518,7 +428,6 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
 
   /** 从指定来源拿取当前可见的全部物品 */
   takeAllFromSource(player: PlayerState, sourceId: string): LootActionResult {
-/** session：定义该变量以承载业务值。 */
     const session = this.sessions.get(player.id);
     if (!session || session.mapId !== player.mapId) {
       return { error: '请先打开拿取界面。', messages: [], dirtyPlayers: [] };
@@ -540,7 +449,6 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
 
   /** 构建当前拾取窗口的视图数据 */
   buildLootWindow(player: PlayerState): SyncedLootWindowState | null {
-/** session：定义该变量以承载业务值。 */
     const session = this.sessions.get(player.id);
     if (!session || session.mapId !== player.mapId) {
       return null;
@@ -551,11 +459,8 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
       return null;
     }
 
-/** sources：定义该变量以承载业务值。 */
     const sources: SyncedLootWindowState['sources'] = [];
-/** groundSourceId：定义该变量以承载业务值。 */
     const groundSourceId = this.buildGroundSourceId(session.mapId, session.tileX, session.tileY);
-/** pile：定义该变量以承载业务值。 */
     const pile = this.groundPiles.get(groundSourceId);
     if (pile && pile.entries.length > 0) {
       sources.push({
@@ -568,22 +473,15 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
       });
     }
 
-/** container：定义该变量以承载业务值。 */
     const container = this.mapService.getContainerAt(session.mapId, session.tileX, session.tileY);
     if (container) {
-/** state：定义该变量以承载业务值。 */
       const state = this.ensureContainerState(session.mapId, container);
-/** isHerb：定义该变量以承载业务值。 */
       const isHerb = container.variant === 'herb';
-/** herbRespawning：定义该变量以承载业务值。 */
       const herbRespawning = isHerb && this.isHerbRespawningState(state);
-/** respawnRemainingTicks：定义该变量以承载业务值。 */
       const respawnRemainingTicks = isHerb ? this.getRespawnRemainingTicks(session.mapId, state) : undefined;
-/** items：定义该变量以承载业务值。 */
       const items = state.destroyed
         ? []
         : (isHerb ? this.buildLootWindowItems(state.entries) : this.buildVisibleLootWindowItems(state.entries));
-/** herbMeta：定义该变量以承载业务值。 */
       const herbMeta = state.herb
         ? {
             ...state.herb,
@@ -606,7 +504,6 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
             }
           : undefined,
         herb: herbMeta,
-/** destroyed：定义该变量以承载业务值。 */
         destroyed: state.destroyed === true,
         items,
         emptyText: isHerb
@@ -641,7 +538,6 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
 
   /** 获取玩家视野内的地面物品堆视图 */
   getVisibleGroundPiles(viewer: PlayerState, visibleKeys: Set<string>): GroundItemPileView[] {
-/** result：定义该变量以承载业务值。 */
     const result: GroundItemPileView[] = [];
     for (const pile of this.groundPiles.values()) {
       if (pile.mapId !== viewer.mapId || pile.entries.length === 0) {
@@ -667,13 +563,11 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
     visibleKeys: Set<string>,
     projectPoint: (x: number, y: number) => { x: number; y: number } | null,
   ): GroundItemPileView[] {
-/** result：定义该变量以承载业务值。 */
     const result: GroundItemPileView[] = [];
     for (const pile of this.groundPiles.values()) {
       if (pile.mapId !== sourceMapId || pile.entries.length === 0) {
         continue;
       }
-/** projected：定义该变量以承载业务值。 */
       const projected = projectPoint(pile.x, pile.y);
       if (!projected || !visibleKeys.has(`${projected.x},${projected.y}`)) {
         continue;
@@ -689,25 +583,19 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
     return result;
   }
 
-/** getContainerRuntimeView：执行对应的业务逻辑。 */
   getContainerRuntimeView(mapId: string, container: ContainerConfig): {
     variant?: LootSourceVariant;
     herb?: LootWindowHerbMeta;
     availableCount?: number;
     hp?: number;
     maxHp?: number;
-/** destroyed：定义该变量以承载业务值。 */
     destroyed: boolean;
-/** respawning：定义该变量以承载业务值。 */
     respawning: boolean;
     respawnRemainingTicks?: number;
     respawnTotalTicks?: number;
   } {
-/** state：定义该变量以承载业务值。 */
     const state = this.ensureContainerState(mapId, container);
-/** respawning：定义该变量以承载业务值。 */
     const respawning = this.isHerbRespawningState(state);
-/** respawnRemainingTicks：定义该变量以承载业务值。 */
     const respawnRemainingTicks = state.destroyed || respawning
       ? this.getRespawnRemainingTicks(mapId, state)
       : undefined;
@@ -717,11 +605,9 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
       availableCount: state.entries.reduce((sum, entry) => sum + Math.max(0, Math.floor(entry.item.count || 0)), 0),
       hp: state.hp,
       maxHp: state.maxHp,
-/** destroyed：定义该变量以承载业务值。 */
       destroyed: state.destroyed === true,
       respawning,
       respawnRemainingTicks,
-/** respawnTotalTicks：定义该变量以承载业务值。 */
       respawnTotalTicks: respawnRemainingTicks !== undefined ? state.respawnTotalTicks : undefined,
     };
   }
@@ -731,25 +617,17 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
     containerId: string,
     damage: number,
   ): {
-/** destroyed：定义该变量以承载业务值。 */
     destroyed: boolean;
-/** hp：定义该变量以承载业务值。 */
     hp: number;
-/** maxHp：定义该变量以承载业务值。 */
     maxHp: number;
-/** appliedDamage：定义该变量以承载业务值。 */
     appliedDamage: number;
-/** dirtyPlayers：定义该变量以承载业务值。 */
     dirtyPlayers: string[];
-/** herb：定义该变量以承载业务值。 */
     herb: LootWindowHerbMeta;
   } | null {
-/** container：定义该变量以承载业务值。 */
     const container = this.mapService.getContainerById(mapId, containerId);
     if (!container || container.variant !== 'herb') {
       return null;
     }
-/** state：定义该变量以承载业务值。 */
     const state = this.ensureContainerState(mapId, container);
     if (
       !state.herb
@@ -761,20 +639,15 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
       return null;
     }
 
-/** nextDamage：定义该变量以承载业务值。 */
     const nextDamage = Math.max(0, Math.round(damage));
-/** currentHp：定义该变量以承载业务值。 */
     const currentHp = Math.max(0, Math.round(state.hp ?? state.maxHp ?? 0));
-/** appliedDamage：定义该变量以承载业务值。 */
     const appliedDamage = Math.min(currentHp, nextDamage);
-/** nextHp：定义该变量以承载业务值。 */
     const nextHp = Math.max(0, currentHp - appliedDamage);
     state.hp = nextHp;
     if (nextHp <= 0) {
       state.destroyed = true;
       state.entries = [];
       state.activeSearch = undefined;
-/** respawnTicks：定义该变量以承载业务值。 */
       const respawnTicks = this.resolveContainerRefreshTicks(container);
       state.refreshAtTick = respawnTicks !== undefined ? this.getCurrentTick(mapId) + respawnTicks : undefined;
       state.respawnTotalTicks = respawnTicks;
@@ -782,7 +655,6 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
     this.markRuntimeStateDirty();
 
     return {
-/** destroyed：定义该变量以承载业务值。 */
       destroyed: state.destroyed === true,
       hp: Math.max(0, Math.round(state.hp ?? 0)),
       maxHp: Math.max(1, Math.round(state.maxHp ?? 1)),
@@ -792,21 +664,17 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
     };
   }
 
-/** takeFromGround：执行对应的业务逻辑。 */
   private takeFromGround(player: PlayerState, session: LootSession, sourceId: string, itemKey: string): LootActionResult {
-/** expectedSourceId：定义该变量以承载业务值。 */
     const expectedSourceId = this.buildGroundSourceId(session.mapId, session.tileX, session.tileY);
     if (sourceId !== expectedSourceId) {
       return { error: '当前拿取界面与目标地面物品不一致。', messages: [], dirtyPlayers: [] };
     }
 
-/** pile：定义该变量以承载业务值。 */
     const pile = this.groundPiles.get(sourceId);
     if (!pile || pile.entries.length === 0) {
       return { error: '地面物品已经被拿走了。', messages: [], dirtyPlayers: this.getTileViewerIds(session.mapId, session.tileX, session.tileY) };
     }
 
-/** row：定义该变量以承载业务值。 */
     const row = this.groupLootEntries(pile.entries).find((entry) => entry.itemKey === itemKey);
     if (!row) {
       return { error: '目标物品已经不存在。', messages: [], dirtyPlayers: this.getTileViewerIds(session.mapId, session.tileX, session.tileY) };
@@ -816,7 +684,6 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
     }
 
     this.addItems(player, row.entries.map((entry) => entry.item));
-/** keySet：定义该变量以承载业务值。 */
     const keySet = new Set(row.entries);
     pile.entries = pile.entries.filter((entry) => !keySet.has(entry));
     if (pile.entries.length === 0) {
@@ -835,29 +702,23 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
     };
   }
 
-/** takeAllFromGround：执行对应的业务逻辑。 */
   private takeAllFromGround(player: PlayerState, session: LootSession, sourceId: string): LootActionResult {
-/** expectedSourceId：定义该变量以承载业务值。 */
     const expectedSourceId = this.buildGroundSourceId(session.mapId, session.tileX, session.tileY);
     if (sourceId !== expectedSourceId) {
       return { error: '当前拿取界面与目标地面物品不一致。', messages: [], dirtyPlayers: [] };
     }
 
-/** pile：定义该变量以承载业务值。 */
     const pile = this.groundPiles.get(sourceId);
     if (!pile || pile.entries.length === 0) {
       return { error: '地面物品已经被拿走了。', messages: [], dirtyPlayers: this.getTileViewerIds(session.mapId, session.tileX, session.tileY) };
     }
 
-/** rows：定义该变量以承载业务值。 */
     const rows = this.groupLootEntries(pile.entries);
-/** result：定义该变量以承载业务值。 */
     const result = this.takeRowsWithCapacity(player, rows);
     if (result.takenRows.length === 0) {
       return { error: '背包空间不足，无法继续拿取。', messages: [], dirtyPlayers: [] };
     }
 
-/** keySet：定义该变量以承载业务值。 */
     const keySet = new Set(result.takenRows.flatMap((row) => row.entries));
     pile.entries = pile.entries.filter((entry) => !keySet.has(entry));
     if (pile.entries.length === 0) {
@@ -865,7 +726,6 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
     }
     this.markRuntimeStateDirty();
 
-/** messages：定义该变量以承载业务值。 */
     const messages: LootMessage[] = [{
       playerId: player.id,
       text: `你拾起了 ${this.formatTakenRowsSummary(result.takenRows)}。`,
@@ -900,7 +760,6 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
         dirtyPlayers: this.getTileViewerIds(session.mapId, session.tileX, session.tileY),
       };
     }
-/** row：定义该变量以承载业务值。 */
     const row = this.groupLootEntries(state.entries).find((entry) => entry.itemKey === itemKey && entry.item.count > 0);
     if (!row || !state.herb) {
       return {
@@ -909,12 +768,10 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
         dirtyPlayers: this.getTileViewerIds(session.mapId, session.tileX, session.tileY),
       };
     }
-/** singleHerb：定义该变量以承载业务值。 */
     const singleHerb: ItemStack = { ...row.item, count: 1 };
     if (!this.canAddItems(player, [singleHerb])) {
       return { error: '背包空间不足，无法采下该草药。', messages: [], dirtyPlayers: [] };
     }
-/** totalTicks：定义该变量以承载业务值。 */
     const totalTicks = this.computeEffectiveHerbGatherTicks(player, state.herb);
     state.activeSearch = {
       itemKey,
@@ -930,21 +787,17 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
     };
   }
 
-/** takeFromContainer：执行对应的业务逻辑。 */
   private takeFromContainer(player: PlayerState, session: LootSession, sourceId: string, itemKey: string): LootActionResult {
-/** container：定义该变量以承载业务值。 */
     const container = this.mapService.getContainerAt(session.mapId, session.tileX, session.tileY);
     if (!container) {
       return { error: '该格子当前没有容器。', messages: [], dirtyPlayers: [player.id] };
     }
 
-/** expectedSourceId：定义该变量以承载业务值。 */
     const expectedSourceId = this.buildContainerSourceId(session.mapId, container.id);
     if (sourceId !== expectedSourceId) {
       return { error: '当前拿取界面与目标容器不一致。', messages: [], dirtyPlayers: [] };
     }
 
-/** state：定义该变量以承载业务值。 */
     const state = this.ensureContainerState(session.mapId, container);
     if (state.destroyed) {
       return { error: '这株草药已被摧毁，无法采集。', messages: [], dirtyPlayers: this.getTileViewerIds(session.mapId, session.tileX, session.tileY) };
@@ -959,11 +812,9 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
     if (container.variant === 'herb') {
       return this.beginHerbHarvest(player, session, container, state, itemKey);
     }
-/** row：定义该变量以承载业务值。 */
     const row = this.groupLootEntries(state.entries.filter((entry) => entry.visible)).find((entry) => entry.itemKey === itemKey);
     if (!row) {
       return {
-/** error：定义该变量以承载业务值。 */
         error: '目标物品已经被其他人拿走了。',
         messages: [],
         dirtyPlayers: this.getTileViewerIds(session.mapId, session.tileX, session.tileY),
@@ -974,7 +825,6 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
     }
 
     this.addItems(player, row.entries.map((entry) => entry.item));
-/** keySet：定义该变量以承载业务值。 */
     const keySet = new Set(row.entries);
     state.entries = state.entries.filter((entry) => !keySet.has(entry));
     this.markRuntimeStateDirty();
@@ -982,7 +832,6 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
     return {
       messages: [{
         playerId: player.id,
-/** text：定义该变量以承载业务值。 */
         text: `你从 ${container.name} 中拿走了 ${row.item.name} x${row.item.count}。`,
         kind: 'loot',
       }],
@@ -991,21 +840,17 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
     };
   }
 
-/** takeAllFromContainer：执行对应的业务逻辑。 */
   private takeAllFromContainer(player: PlayerState, session: LootSession, sourceId: string): LootActionResult {
-/** container：定义该变量以承载业务值。 */
     const container = this.mapService.getContainerAt(session.mapId, session.tileX, session.tileY);
     if (!container) {
       return { error: '该格子当前没有容器。', messages: [], dirtyPlayers: [player.id] };
     }
 
-/** expectedSourceId：定义该变量以承载业务值。 */
     const expectedSourceId = this.buildContainerSourceId(session.mapId, container.id);
     if (sourceId !== expectedSourceId) {
       return { error: '当前拿取界面与目标容器不一致。', messages: [], dirtyPlayers: [] };
     }
 
-/** state：定义该变量以承载业务值。 */
     const state = this.ensureContainerState(session.mapId, container);
     if (state.destroyed) {
       return { error: '这株草药已被摧毁，无法采集。', messages: [], dirtyPlayers: this.getTileViewerIds(session.mapId, session.tileX, session.tileY) };
@@ -1024,32 +869,26 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
         dirtyPlayers: this.getTileViewerIds(session.mapId, session.tileX, session.tileY),
       };
     }
-/** rows：定义该变量以承载业务值。 */
     const rows = this.groupLootEntries(state.entries.filter((entry) => entry.visible));
     if (rows.length === 0) {
       return {
-/** error：定义该变量以承载业务值。 */
         error: '当前没有可拿取的物品。',
         messages: [],
         dirtyPlayers: this.getTileViewerIds(session.mapId, session.tileX, session.tileY),
       };
     }
 
-/** result：定义该变量以承载业务值。 */
     const result = this.takeRowsWithCapacity(player, rows);
     if (result.takenRows.length === 0) {
       return { error: '背包空间不足，无法继续拿取。', messages: [], dirtyPlayers: [] };
     }
 
-/** keySet：定义该变量以承载业务值。 */
     const keySet = new Set(result.takenRows.flatMap((row) => row.entries));
     state.entries = state.entries.filter((entry) => !keySet.has(entry));
     this.markRuntimeStateDirty();
 
-/** messages：定义该变量以承载业务值。 */
     const messages: LootMessage[] = [{
       playerId: player.id,
-/** text：定义该变量以承载业务值。 */
       text: `你从 ${container.name} 中拿走了 ${this.formatTakenRowsSummary(result.takenRows)}。`,
       kind: 'loot',
     }];
@@ -1068,9 +907,7 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
     };
   }
 
-/** hasAnyLootSource：执行对应的业务逻辑。 */
   private hasAnyLootSource(mapId: string, x: number, y: number): boolean {
-/** pile：定义该变量以承载业务值。 */
     const pile = this.groundPiles.get(this.buildGroundSourceId(mapId, x, y));
     if (pile && pile.entries.length > 0) {
       return true;
@@ -1078,7 +915,6 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
     return Boolean(this.mapService.getContainerAt(mapId, x, y));
   }
 
-/** buildGroundItemEntries：执行对应的业务逻辑。 */
   private buildGroundItemEntries(entries: LootEntry[]): GroundItemEntryView[] {
     return this.groupLootEntries(entries).map((entry) => ({
       itemKey: entry.itemKey,
@@ -1091,7 +927,6 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
     }));
   }
 
-/** buildLootWindowItems：执行对应的业务逻辑。 */
   private buildLootWindowItems(entries: LootEntry[]): SyncedLootWindowItemView[] {
     return this.groupLootEntries(entries).map((entry) => ({
       itemKey: entry.itemKey,
@@ -1099,7 +934,6 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
     }));
   }
 
-/** buildVisibleLootWindowItems：执行对应的业务逻辑。 */
   private buildVisibleLootWindowItems(entries: LootEntry[]): SyncedLootWindowItemView[] {
     return this.groupLootEntries(entries.filter((entry) => entry.visible)).map((entry) => ({
       itemKey: entry.itemKey,
@@ -1107,7 +941,6 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
     }));
   }
 
-/** toSyncedItemStack：执行对应的业务逻辑。 */
   private toSyncedItemStack(item: ItemStack): SyncedItemStack {
     if (this.contentService.getItem(item.itemId)) {
       return {
@@ -1155,14 +988,10 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
     };
   }
 
-/** groupLootEntries：执行对应的业务逻辑。 */
   private groupLootEntries(entries: LootEntry[]): GroupedLootRow[] {
-/** rows：定义该变量以承载业务值。 */
     const rows: GroupedLootRow[] = [];
-/** index：定义该变量以承载业务值。 */
     const index = new Map<string, GroupedLootRow>();
 
-/** sorted：定义该变量以承载业务值。 */
     const sorted = [...entries].sort((left, right) => left.createdTick - right.createdTick);
     for (const entry of sorted) {
       const itemKey = createItemStackSignature(entry.item);
@@ -1172,7 +1001,6 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
         existing.entries.push(entry);
         continue;
       }
-/** created：定义该变量以承载业务值。 */
       const created: GroupedLootRow = {
         itemKey,
         item: { ...entry.item },
@@ -1185,9 +1013,7 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
     return rows;
   }
 
-/** canAddItems：执行对应的业务逻辑。 */
   private canAddItems(player: PlayerState, items: ItemStack[]): boolean {
-/** simulated：定义该变量以承载业务值。 */
     const simulated = player.inventory.items.map((item) => ({ ...item }));
     for (const item of items) {
       const signature = createItemStackSignature(item);
@@ -1208,11 +1034,8 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
     player: PlayerState,
     rows: GroupedLootRow[],
   ): { takenRows: GroupedLootRow[]; blockedByCapacity: boolean } {
-/** simulated：定义该变量以承载业务值。 */
     const simulated = player.inventory.items.map((item) => ({ ...item }));
-/** takenRows：定义该变量以承载业务值。 */
     const takenRows: GroupedLootRow[] = [];
-/** blockedByCapacity：定义该变量以承载业务值。 */
     let blockedByCapacity = false;
 
     for (const row of rows) {
@@ -1227,7 +1050,6 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
     return { takenRows, blockedByCapacity };
   }
 
-/** canAddItemsToInventory：执行对应的业务逻辑。 */
   private canAddItemsToInventory(simulated: ItemStack[], capacity: number, items: ItemStack[]): boolean {
     for (const item of items) {
       const signature = createItemStackSignature(item);
@@ -1244,9 +1066,7 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
     return true;
   }
 
-/** formatTakenRowsSummary：执行对应的业务逻辑。 */
   private formatTakenRowsSummary(rows: GroupedLootRow[]): string {
-/** preview：定义该变量以承载业务值。 */
     const preview = rows.slice(0, 3).map((row) => `${row.item.name} x${row.item.count}`);
     if (rows.length <= 3) {
       return preview.join('、');
@@ -1254,29 +1074,22 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
     return `${preview.join('、')} 等 ${rows.length} 种物品`;
   }
 
-/** addItems：执行对应的业务逻辑。 */
   private addItems(player: PlayerState, items: ItemStack[]): void {
     for (const item of items) {
       this.inventoryService.addItem(player, { ...item });
     }
   }
 
-/** ensureContainerState：执行对应的业务逻辑。 */
   private ensureContainerState(mapId: string, container: ContainerConfig): ContainerState {
-/** sourceId：定义该变量以承载业务值。 */
     const sourceId = this.buildContainerSourceId(mapId, container.id);
-/** existing：定义该变量以承载业务值。 */
     const existing = this.containers.get(sourceId);
     if (existing && existing.generatedAtTick !== undefined) {
       this.syncContainerVariantState(container, existing);
       return existing;
     }
 
-/** currentTick：定义该变量以承载业务值。 */
     const currentTick = this.getCurrentTick(mapId);
-/** herbGrowthTicks：定义该变量以承载业务值。 */
     const herbGrowthTicks = container.variant === 'herb' ? this.resolveContainerRefreshTicks(container) : undefined;
-/** generated：定义该变量以承载业务值。 */
     const generated: ContainerState = existing ?? {
       sourceId,
       mapId,
@@ -1301,9 +1114,7 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
     return generated;
   }
 
-/** generateContainerEntries：执行对应的业务逻辑。 */
   private generateContainerEntries(container: ContainerConfig, currentTick: number): LootEntry[] {
-/** entries：定义该变量以承载业务值。 */
     const entries: LootEntry[] = [];
     for (const pool of container.lootPools) {
       const items = this.contentService.rollLootPoolItems(pool);
@@ -1324,7 +1135,6 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
       if (Math.random() > drop.chance) {
         continue;
       }
-/** item：定义该变量以承载业务值。 */
       const item = this.createItemFromDrop(drop);
       if (!item) {
         continue;
@@ -1338,21 +1148,17 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
     return entries;
   }
 
-/** beginContainerSearch：执行对应的业务逻辑。 */
   private beginContainerSearch(mapId: string, container: ContainerConfig): void {
-/** state：定义该变量以承载业务值。 */
     const state = this.ensureContainerState(mapId, container);
     if (container.variant === 'herb' || state.activeSearch || state.destroyed) {
       return;
     }
 
-/** nextHidden：定义该变量以承载业务值。 */
     const nextHidden = this.groupLootEntries(state.entries.filter((entry) => !entry.visible))[0];
     if (!nextHidden) {
       return;
     }
 
-/** totalTicks：定义该变量以承载业务值。 */
     const totalTicks = state.herb?.gatherTicks ?? (CONTAINER_SEARCH_TICKS[container.grade] ?? 1);
     state.activeSearch = {
       itemKey: nextHidden.itemKey,
@@ -1363,7 +1169,6 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
     this.markRuntimeStateDirty();
   }
 
-/** syncContainerVariantState：执行对应的业务逻辑。 */
   private syncContainerVariantState(container: ContainerConfig, state: ContainerState, resetHp = false): void {
     state.variant = container.variant;
     if (container.variant !== 'herb') {
@@ -1381,7 +1186,6 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
       state.activeSearch = undefined;
     }
 
-/** herbItem：定义该变量以承载业务值。 */
     const herbItem = state.entries[0]?.item;
     if (herbItem) {
       state.herb = this.buildHerbMeta(herbItem);
@@ -1401,7 +1205,6 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
-/** nextMaxHp：定义该变量以承载业务值。 */
     const nextMaxHp = this.computeHerbDurability(state.herb);
     state.maxHp = nextMaxHp;
     if (this.isHerbRespawningState(state)) {
@@ -1418,7 +1221,6 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
     state.destroyed = state.destroyed === true && state.hp <= 0;
   }
 
-/** isHerbRespawningState：执行对应的业务逻辑。 */
   private isHerbRespawningState(state: Pick<ContainerState, 'variant' | 'refreshAtTick' | 'entries' | 'destroyed'>): boolean {
     return state.variant === 'herb' && state.destroyed !== true && state.refreshAtTick !== undefined && state.entries.length === 0;
   }
@@ -1433,42 +1235,33 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
     return Math.max(0, state.refreshAtTick - this.getCurrentTick(mapId));
   }
 
-/** resolveContainerRefreshTicks：执行对应的业务逻辑。 */
   private resolveContainerRefreshTicks(container: ContainerConfig): number | undefined {
-/** fixed：定义该变量以承载业务值。 */
     const fixed = Number.isInteger(container.refreshTicks) && container.refreshTicks! > 0
       ? Number(container.refreshTicks)
       : undefined;
-/** min：定义该变量以承载业务值。 */
     const min = Number.isInteger(container.refreshTicksMin) && container.refreshTicksMin! > 0
       ? Number(container.refreshTicksMin)
       : fixed;
-/** max：定义该变量以承载业务值。 */
     const max = Number.isInteger(container.refreshTicksMax) && container.refreshTicksMax! > 0
       ? Number(container.refreshTicksMax)
       : (fixed ?? min);
     if (min === undefined && max === undefined) {
       return undefined;
     }
-/** lower：定义该变量以承载业务值。 */
     const lower = Math.max(1, Math.min(min ?? max ?? 1, max ?? min ?? 1));
-/** upper：定义该变量以承载业务值。 */
     const upper = Math.max(lower, max ?? min ?? lower);
     if (lower === upper) {
       return container.variant === 'herb'
         ? Math.max(1, Math.ceil(lower * HERB_RESPAWN_TIME_RATE))
         : lower;
     }
-/** resolved：定义该变量以承载业务值。 */
     const resolved = lower + Math.floor(Math.random() * (upper - lower + 1));
     return container.variant === 'herb'
       ? Math.max(1, Math.ceil(resolved * HERB_RESPAWN_TIME_RATE))
       : resolved;
   }
 
-/** scheduleHerbRespawn：执行对应的业务逻辑。 */
   private scheduleHerbRespawn(mapId: string, container: ContainerConfig, state: ContainerState): void {
-/** respawnTicks：定义该变量以承载业务值。 */
     const respawnTicks = this.resolveContainerRefreshTicks(container);
     state.activeSearch = undefined;
     state.hp = 0;
@@ -1482,13 +1275,9 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
     state.respawnTotalTicks = respawnTicks;
   }
 
-/** buildHerbMeta：执行对应的业务逻辑。 */
   private buildHerbMeta(item: ItemStack): LootWindowHerbMeta {
-/** grade：定义该变量以承载业务值。 */
     const grade = item.grade;
-/** level：定义该变量以承载业务值。 */
     const level = Math.max(1, Math.floor(Number(item.level) || 1));
-/** nativeGatherTicks：定义该变量以承载业务值。 */
     const nativeGatherTicks = this.computeHerbGatherTicks(grade, level);
     return {
       itemId: item.itemId,
@@ -1500,43 +1289,32 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
     };
   }
 
-/** computeHerbGatherTicks：执行对应的业务逻辑。 */
   private computeHerbGatherTicks(grade: TechniqueGrade | undefined, level: number | undefined): number {
-/** normalizedLevel：定义该变量以承载业务值。 */
     const normalizedLevel = Math.max(1, Math.floor(Number(level) || 1));
-/** baseTicks：定义该变量以承载业务值。 */
     const baseTicks = normalizedLevel + resolveAlchemyGradeValue(grade) - 1;
     return Math.max(1, Math.ceil(baseTicks * HERB_GATHER_TIME_RATE));
   }
 
   private computeEffectiveHerbGatherTicks(player: PlayerState, herb: LootWindowHerbMeta): number {
-/** nativeGatherTicks：定义该变量以承载业务值。 */
     const nativeGatherTicks = Math.max(1, Math.floor(Number(herb.nativeGatherTicks ?? herb.gatherTicks) || 1));
-/** gatherLevel：定义该变量以承载业务值。 */
     const gatherLevel = Math.max(1, Math.floor(Number(this.ensureGatherSkill(player).level) || 1));
-/** speedRate：定义该变量以承载业务值。 */
     const speedRate = gatherLevel * GATHER_SPEED_PER_LEVEL;
     return computeAdjustedCraftTicks(nativeGatherTicks, speedRate);
   }
 
-/** computeHerbDurability：执行对应的业务逻辑。 */
   private computeHerbDurability(herb: LootWindowHerbMeta): number {
-/** level：定义该变量以承载业务值。 */
     const level = Math.max(1, Math.floor(Number(herb.level) || 1));
     return 8 + level * 6 + resolveAlchemyGradeValue(herb.grade) * 8;
   }
 
   private ensureGatherSkill(player: PlayerState) {
-/** expToNext：定义该变量以承载业务值。 */
     const expToNext = Math.max(0, this.contentService.getRealmLevelEntry(1)?.expToNext ?? 60);
-/** normalized：定义该变量以承载业务值。 */
     const normalized = normalizeAlchemySkillState(player.gatherSkill, expToNext);
     player.gatherSkill = normalized;
     return normalized;
   }
 
   private getGatherSkillExpToNext(level: number): number {
-/** normalizedLevel：定义该变量以承载业务值。 */
     const normalizedLevel = Math.max(1, Math.floor(Number(level) || 1));
     return Math.max(0, this.contentService.getRealmLevelEntry(normalizedLevel)?.expToNext ?? 0);
   }
@@ -1545,12 +1323,10 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
     player: PlayerState,
     herb: LootWindowHerbMeta,
   ): { changed: boolean; messages: LootMessage[]; dirtyFlags: LootPlayerDirtyFlag[] } {
-/** skill：定义该变量以承载业务值。 */
     const skill = this.ensureGatherSkill(player);
     if (skill.expToNext <= 0) {
       return { changed: false, messages: [], dirtyFlags: [] };
     }
-/** gainResult：定义该变量以承载业务值。 */
     const gainResult = computeCraftSkillExpGain({
       skillLevel: skill.level,
       targetLevel: herb.level ?? 1,
@@ -1560,15 +1336,12 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
       successMultiplier: 1,
       getExpToNextByLevel: (level) => this.getGatherSkillExpToNext(level),
     });
-/** gain：定义该变量以承载业务值。 */
     const gain = gainResult.finalGain;
     if (gain <= 0) {
       return { changed: false, messages: [], dirtyFlags: [] };
     }
     skill.exp += gain;
-/** messages：定义该变量以承载业务值。 */
     const messages: LootMessage[] = [];
-/** dirtyFlags：定义该变量以承载业务值。 */
     const dirtyFlags = new Set<LootPlayerDirtyFlag>();
     while (skill.expToNext > 0 && skill.exp >= skill.expToNext) {
       skill.exp -= skill.expToNext;
@@ -1584,7 +1357,6 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
       });
     }
     player.gatherSkill = skill;
-/** craftRealmGain：定义该变量以承载业务值。 */
     const craftRealmGain = this.techniqueService.grantCraftRealmExp(player, gain / 2);
     for (const flag of craftRealmGain.dirty) {
       dirtyFlags.add(flag);
@@ -1605,9 +1377,7 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
   }
 
   private applyHerbGrowth(mapId: string, container: ContainerConfig, state: ContainerState, currentTick: number): void {
-/** growthTicks：定义该变量以承载业务值。 */
     const growthTicks = this.resolveContainerRefreshTicks(container);
-/** growthEntries：定义该变量以承载业务值。 */
     const growthEntries = this.generateContainerEntries(container, currentTick);
     if (growthEntries.length === 0) {
       state.refreshAtTick = growthTicks !== undefined ? currentTick + growthTicks : undefined;
@@ -1627,9 +1397,7 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
   }
 
   private mergeContainerEntry(entries: LootEntry[], nextEntry: LootEntry): void {
-/** signature：定义该变量以承载业务值。 */
     const signature = createItemStackSignature(nextEntry.item);
-/** existing：定义该变量以承载业务值。 */
     const existing = entries.find((entry) => createItemStackSignature(entry.item) === signature && entry.visible === nextEntry.visible);
     if (existing) {
       existing.item.count += nextEntry.item.count;
@@ -1662,15 +1430,12 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
     messages: LootMessage[];
     playerDirtyFlags: Map<string, Set<LootPlayerDirtyFlag>>;
   }): void {
-/** search：定义该变量以承载业务值。 */
     const search = params.state.activeSearch;
     if (!search || search.mode !== 'harvest' || !search.playerId) {
       params.state.activeSearch = undefined;
       return;
     }
-/** session：定义该变量以承载业务值。 */
     const session = this.sessions.get(search.playerId);
-/** player：定义该变量以承载业务值。 */
     const player = params.playerById.get(search.playerId);
     if (
       !player
@@ -1695,14 +1460,12 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
-/** herbEntry：定义该变量以承载业务值。 */
     const herbEntry = params.state.entries.find((entry) => createItemStackSignature(entry.item) === search.itemKey && entry.item.count > 0);
     if (!herbEntry || !params.state.herb) {
       params.state.activeSearch = undefined;
       this.markRuntimeStateDirty();
       return;
     }
-/** harvestedItem：定义该变量以承载业务值。 */
     const harvestedItem: ItemStack = { ...herbEntry.item, count: 1 };
     if (!this.canAddItems(player, [harvestedItem])) {
       params.state.activeSearch = undefined;
@@ -1720,13 +1483,11 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
     if (herbEntry.item.count <= 0) {
       params.state.entries = params.state.entries.filter((entry) => entry !== herbEntry);
     }
-/** nextRow：定义该变量以承载业务值。 */
     const nextRow = this.groupLootEntries(params.state.entries).find((entry) => entry.item.count > 0);
     if (!nextRow) {
       this.scheduleHerbRespawn(params.mapId, params.container, params.state);
     } else {
       params.state.herb = this.buildHerbMeta(nextRow.item);
-/** nextTotalTicks：定义该变量以承载业务值。 */
       const nextTotalTicks = this.computeEffectiveHerbGatherTicks(player, params.state.herb);
       params.state.activeSearch = {
         itemKey: nextRow.itemKey,
@@ -1743,7 +1504,6 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
       kind: 'loot',
     });
     this.addPlayerDirtyFlags(params.playerDirtyFlags, player.id, ['inv']);
-/** expResult：定义该变量以承载业务值。 */
     const expResult = this.grantGatherSkillExp(player, params.state.herb);
     params.messages.push(...expResult.messages);
     this.addPlayerDirtyFlags(params.playerDirtyFlags, player.id, expResult.dirtyFlags);
@@ -1757,7 +1517,6 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
     if (flags.length === 0) {
       return;
     }
-/** flagSet：定义该变量以承载业务值。 */
     const flagSet = playerDirtyFlags.get(playerId) ?? new Set<LootPlayerDirtyFlag>();
     for (const flag of flags) {
       flagSet.add(flag);
@@ -1765,12 +1524,10 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
     playerDirtyFlags.set(playerId, flagSet);
   }
 
-/** hasHiddenContainerEntries：执行对应的业务逻辑。 */
   private hasHiddenContainerEntries(entries: LootEntry[]): boolean {
     return entries.some((entry) => !entry.visible);
   }
 
-/** hasActiveViewerForTile：执行对应的业务逻辑。 */
   private hasActiveViewerForTile(mapId: string, x: number, y: number): boolean {
     for (const session of this.sessions.values()) {
       if (session.mapId === mapId && session.tileX === x && session.tileY === y) {
@@ -1780,7 +1537,6 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
     return false;
   }
 
-/** createItemFromDrop：执行对应的业务逻辑。 */
   private createItemFromDrop(drop: DropConfig): ItemStack | null {
     return this.contentService.createItem(drop.itemId, drop.count) ?? {
       itemId: drop.itemId,
@@ -1791,22 +1547,18 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
     };
   }
 
-/** getCurrentTick：执行对应的业务逻辑。 */
   private getCurrentTick(mapId: string): number {
     return this.mapTicks.get(mapId) ?? 0;
   }
 
-/** buildGroundSourceId：执行对应的业务逻辑。 */
   private buildGroundSourceId(mapId: string, x: number, y: number): string {
     return `ground:${mapId}:${x}:${y}`;
   }
 
-/** buildContainerSourceId：执行对应的业务逻辑。 */
   private buildContainerSourceId(mapId: string, containerId: string): string {
     return `container:${mapId}:${containerId}`;
   }
 
-/** resolveContainerBySourceId：执行对应的业务逻辑。 */
   private resolveContainerBySourceId(sourceId: string): ContainerConfig | null {
     const [, mapId, containerId] = sourceId.split(':');
     if (!mapId || !containerId) {
@@ -1815,21 +1567,17 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
     return this.mapService.getContainerById(mapId, containerId) ?? null;
   }
 
-/** isPlayerWithinLootRange：执行对应的业务逻辑。 */
   private isPlayerWithinLootRange(player: PlayerState, x: number, y: number): boolean {
     return isPointInRange(player, { x, y }, 1);
   }
 
-/** markTileViewersDirty：执行对应的业务逻辑。 */
   private markTileViewersDirty(mapId: string, x: number, y: number, dirtyPlayers: Set<string>): void {
     for (const playerId of this.getTileViewerIds(mapId, x, y)) {
       dirtyPlayers.add(playerId);
     }
   }
 
-/** getTileViewerIds：执行对应的业务逻辑。 */
   private getTileViewerIds(mapId: string, x: number, y: number): string[] {
-/** result：定义该变量以承载业务值。 */
     const result: string[] = [];
     for (const session of this.sessions.values()) {
       if (session.mapId !== mapId || session.tileX !== x || session.tileY !== y) {
@@ -1840,20 +1588,17 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
     return result;
   }
 
-/** persistRuntimeState：执行对应的业务逻辑。 */
   async persistRuntimeState(): Promise<void> {
     if (!this.runtimeStateDirty) {
       return;
     }
 
     try {
-/** snapshot：定义该变量以承载业务值。 */
       const snapshot: PersistedLootRuntimeSnapshot = {
         version: 1,
         maps: {},
       };
 
-/** mapIds：定义该变量以承载业务值。 */
       const mapIds = this.collectPersistedMapIds();
       for (const mapId of mapIds) {
         const groundPiles = [...this.groundPiles.values()]
@@ -1865,7 +1610,6 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
             entries: pile.entries.map((entry) => this.toPersistedLootEntry(entry)),
           }));
 
-/** containers：定义该变量以承载业务值。 */
         const containers = [...this.containers.values()]
           .filter((state) => state.mapId === mapId && this.resolveContainerBySourceId(state.sourceId))
           .sort((left, right) => left.containerId.localeCompare(right.containerId, 'zh-CN'))
@@ -1905,15 +1649,12 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
       await this.persistentDocumentService.save(RUNTIME_STATE_SCOPE, MAP_LOOT_RUNTIME_DOCUMENT_KEY, snapshot);
       this.runtimeStateDirty = false;
     } catch (error) {
-/** message：定义该变量以承载业务值。 */
       const message = error instanceof Error ? error.message : String(error);
       this.logger.error(`掉落运行时持久化到 PostgreSQL 失败: ${message}`);
     }
   }
 
-/** loadPersistedRuntimeState：执行对应的业务逻辑。 */
   private async loadPersistedRuntimeState(): Promise<void> {
-/** snapshot：定义该变量以承载业务值。 */
     let snapshot = await this.persistentDocumentService.get<Partial<PersistedLootRuntimeSnapshot>>(
       RUNTIME_STATE_SCOPE,
       MAP_LOOT_RUNTIME_DOCUMENT_KEY,
@@ -1935,16 +1676,13 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
         return;
       }
 
-/** restoredPileCount：定义该变量以承载业务值。 */
       let restoredPileCount = 0;
-/** restoredContainerCount：定义该变量以承载业务值。 */
       let restoredContainerCount = 0;
       for (const [mapId, rawState] of Object.entries(snapshot.maps)) {
         if (!rawState || typeof rawState !== 'object') {
           continue;
         }
 
-/** tick：定义该变量以承载业务值。 */
         const tick = typeof rawState.tick === 'number' && Number.isFinite(rawState.tick)
           ? Math.max(0, Math.floor(rawState.tick))
           : 0;
@@ -1977,33 +1715,27 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
         this.logger.log(`已恢复掉落运行时状态：地面物品堆 ${restoredPileCount} 处，容器 ${restoredContainerCount} 个`);
       }
     } catch (error) {
-/** message：定义该变量以承载业务值。 */
       const message = error instanceof Error ? error.message : String(error);
       this.logger.error(`读取掉落运行时持久化数据失败: ${message}`);
     }
   }
 
-/** importLegacyRuntimeStateIfNeeded：执行对应的业务逻辑。 */
   private async importLegacyRuntimeStateIfNeeded(): Promise<void> {
     if (!fs.existsSync(this.runtimeStatePath)) {
       return;
     }
 
     try {
-/** snapshot：定义该变量以承载业务值。 */
       const snapshot = JSON.parse(fs.readFileSync(this.runtimeStatePath, 'utf-8')) as PersistedLootRuntimeSnapshot;
       await this.persistentDocumentService.save(RUNTIME_STATE_SCOPE, MAP_LOOT_RUNTIME_DOCUMENT_KEY, snapshot);
       this.logger.log('已从旧掉落运行时 JSON 导入 PostgreSQL');
     } catch (error) {
-/** message：定义该变量以承载业务值。 */
       const message = error instanceof Error ? error.message : String(error);
       this.logger.error(`导入旧掉落运行时 JSON 失败: ${message}`);
     }
   }
 
-/** collectPersistedMapIds：执行对应的业务逻辑。 */
   private collectPersistedMapIds(): string[] {
-/** mapIds：定义该变量以承载业务值。 */
     const mapIds = new Set<string>();
     for (const pile of this.groundPiles.values()) {
       if (pile.entries.length > 0) {
@@ -2018,7 +1750,6 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
     return [...mapIds].sort((left, right) => left.localeCompare(right, 'zh-CN'));
   }
 
-/** hasPersistableRuntimeState：执行对应的业务逻辑。 */
   private hasPersistableRuntimeState(mapId: string): boolean {
     for (const pile of this.groundPiles.values()) {
       if (pile.mapId === mapId && pile.entries.length > 0) {
@@ -2033,7 +1764,6 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
     return false;
   }
 
-/** toPersistedLootEntry：执行对应的业务逻辑。 */
   private toPersistedLootEntry(entry: LootEntry): PersistedLootEntryRecord {
     return {
       item: { ...entry.item },
@@ -2043,19 +1773,16 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
     };
   }
 
-/** normalizePersistedGroundPile：执行对应的业务逻辑。 */
   private normalizePersistedGroundPile(mapId: string, raw: unknown): GroundPileState | null {
     if (!raw || typeof raw !== 'object') {
       return null;
     }
 
-/** candidate：定义该变量以承载业务值。 */
     const candidate = raw as Partial<PersistedGroundPileRecord>;
     if (!Number.isInteger(candidate.x) || !Number.isInteger(candidate.y) || !Array.isArray(candidate.entries)) {
       return null;
     }
 
-/** entries：定义该变量以承载业务值。 */
     const entries = candidate.entries
       .map((entry) => this.normalizePersistedLootEntry(entry))
       .filter((entry): entry is LootEntry => entry !== null);
@@ -2072,19 +1799,16 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
     };
   }
 
-/** normalizePersistedContainerState：执行对应的业务逻辑。 */
   private normalizePersistedContainerState(mapId: string, raw: unknown): ContainerState | null {
     if (!raw || typeof raw !== 'object') {
       return null;
     }
 
-/** candidate：定义该变量以承载业务值。 */
     const candidate = raw as Partial<PersistedContainerRecord>;
     if (typeof candidate.containerId !== 'string' || !Array.isArray(candidate.entries)) {
       return null;
     }
 
-/** entries：定义该变量以承载业务值。 */
     const entries = candidate.entries
       .map((entry) => this.normalizePersistedLootEntry(entry))
       .filter((entry): entry is LootEntry => entry !== null);
@@ -2093,7 +1817,6 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
       sourceId: this.buildContainerSourceId(mapId, candidate.containerId),
       mapId,
       containerId: candidate.containerId,
-/** variant：定义该变量以承载业务值。 */
       variant: candidate.variant === 'herb' ? 'herb' : undefined,
       generatedAtTick: Number.isInteger(candidate.generatedAtTick) ? Number(candidate.generatedAtTick) : undefined,
       refreshAtTick: Number.isInteger(candidate.refreshAtTick) ? Number(candidate.refreshAtTick) : undefined,
@@ -2102,18 +1825,15 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
       herb: this.normalizePersistedHerbMeta(candidate.herb),
       hp: Number.isFinite(candidate.hp) ? Math.max(0, Math.round(Number(candidate.hp))) : undefined,
       maxHp: Number.isFinite(candidate.maxHp) ? Math.max(1, Math.round(Number(candidate.maxHp))) : undefined,
-/** destroyed：定义该变量以承载业务值。 */
       destroyed: candidate.destroyed === true,
       activeSearch: this.normalizePersistedContainerSearch(candidate.activeSearch),
     };
   }
 
-/** normalizePersistedHerbMeta：执行对应的业务逻辑。 */
   private normalizePersistedHerbMeta(raw: unknown): LootWindowHerbMeta | undefined {
     if (!raw || typeof raw !== 'object') {
       return undefined;
     }
-/** candidate：定义该变量以承载业务值。 */
     const candidate = raw as Partial<LootWindowHerbMeta>;
     if (
       typeof candidate.itemId !== 'string'
@@ -2134,13 +1854,11 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
     };
   }
 
-/** normalizePersistedContainerSearch：执行对应的业务逻辑。 */
   private normalizePersistedContainerSearch(raw: unknown): ContainerState['activeSearch'] {
     if (!raw || typeof raw !== 'object') {
       return undefined;
     }
 
-/** candidate：定义该变量以承载业务值。 */
     const candidate = raw as Partial<PersistedContainerSearchRecord>;
     if (
       typeof candidate.itemKey !== 'string'
@@ -2150,9 +1868,7 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
       return undefined;
     }
 
-/** totalTicks：定义该变量以承载业务值。 */
     const totalTicks = Math.max(1, Number(candidate.totalTicks));
-/** remainingTicks：定义该变量以承载业务值。 */
     const remainingTicks = Math.max(0, Math.min(totalTicks, Number(candidate.remainingTicks)));
     if (remainingTicks <= 0) {
       return undefined;
@@ -2167,15 +1883,12 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
     };
   }
 
-/** normalizePersistedLootEntry：执行对应的业务逻辑。 */
   private normalizePersistedLootEntry(raw: unknown): LootEntry | null {
     if (!raw || typeof raw !== 'object') {
       return null;
     }
 
-/** candidate：定义该变量以承载业务值。 */
     const candidate = raw as Partial<PersistedLootEntryRecord>;
-/** item：定义该变量以承载业务值。 */
     const item = this.normalizePersistedItemStack(candidate.item);
     if (!item || !Number.isInteger(candidate.createdTick) || typeof candidate.visible !== 'boolean') {
       return null;
@@ -2189,13 +1902,11 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
     };
   }
 
-/** normalizePersistedItemStack：执行对应的业务逻辑。 */
   private normalizePersistedItemStack(raw: unknown): ItemStack | null {
     if (!raw || typeof raw !== 'object') {
       return null;
     }
 
-/** candidate：定义该变量以承载业务值。 */
     const candidate = raw as Partial<ItemStack>;
     if (
       typeof candidate.itemId !== 'string'
@@ -2213,7 +1924,6 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
     })) as ItemStack;
   }
 
-/** markRuntimeStateDirty：执行对应的业务逻辑。 */
   private markRuntimeStateDirty(): void {
     this.runtimeStateDirty = true;
   }

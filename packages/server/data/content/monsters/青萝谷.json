@@ -1,0 +1,550 @@
+[
+  {
+    "id": "m_verdant_lesser_sprite",
+    "name": "青萝小妖",
+    "char": "妖",
+    "color": "#95d57c",
+    "grade": "yellow",
+    "tier": "mortal_blood",
+    "level": 20,
+    "count": 4,
+    "maxAlive": 4,
+    "radius": 4,
+    "aggroRange": 6,
+    "viewRange": 7,
+    "respawnSec": 15,
+    "attrs": {
+      "constitution": 204,
+      "spirit": 192,
+      "perception": 256,
+      "talent": 216,
+      "comprehension": 26,
+      "luck": 20
+    },
+    "statPercents": {
+      "maxHp": 200,
+      "maxQi": 96,
+      "physAtk": 106,
+      "spellAtk": 116,
+      "physDef": 104,
+      "spellDef": 114,
+      "hit": 128,
+      "dodge": 142,
+      "crit": 122,
+      "breakPower": 102,
+      "resolvePower": 112,
+      "maxQiOutputPerTick": 118,
+      "moveSpeed": 162
+    },
+    "skills": [
+      "skill.bamboo_whip",
+      "skill.predator_pounce"
+    ],
+    "equipment": {
+      "head": {
+        "itemId": "equip.verdant_crown"
+      },
+      "body": {
+        "itemId": "equip.cleantide_robe"
+      },
+      "accessory": {
+        "itemId": "equip.returnbreath_copper_pendant"
+      }
+    },
+    "drops": [
+      {
+        "itemId": "verdant_vine",
+        "name": "青髓藤",
+        "type": "material",
+        "count": 1
+      },
+      {
+        "itemId": "nurturing_leaf",
+        "name": "养脉叶",
+        "type": "material",
+        "count": 1
+      },
+      {
+        "itemId": "equip.verdant_crown",
+        "name": "青萝束冠",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "book.qingmu_yangmai",
+        "name": "《青木养脉篇》",
+        "type": "skill_book",
+        "count": 1
+      },
+      {
+        "itemId": "book.qingteng_huixi",
+        "name": "《青藤回息诀》",
+        "type": "skill_book",
+        "count": 1
+      }
+    ]
+  },
+  {
+    "id": "m_verdant_parasitic_child",
+    "name": "寄脉藤童",
+    "char": "童",
+    "color": "#78c965",
+    "grade": "yellow",
+    "tier": "mortal_blood",
+    "level": 23,
+    "count": 4,
+    "maxAlive": 4,
+    "radius": 4,
+    "aggroRange": 6,
+    "viewRange": 7,
+    "respawnSec": 16,
+    "attrs": {
+      "constitution": 236,
+      "spirit": 244,
+      "perception": 268,
+      "talent": 232,
+      "comprehension": 28,
+      "luck": 22
+    },
+    "statPercents": {
+      "maxHp": 230,
+      "maxQi": 108,
+      "physAtk": 112,
+      "spellAtk": 122,
+      "physDef": 110,
+      "spellDef": 120,
+      "hit": 134,
+      "dodge": 148,
+      "crit": 124,
+      "breakPower": 106,
+      "resolvePower": 114,
+      "maxQiOutputPerTick": 132,
+      "moveSpeed": 166
+    },
+    "skills": [
+      "skill.bamboo_whip",
+      "skill.leaf_storm"
+    ],
+    "equipment": {
+      "head": {
+        "itemId": "equip.verdant_crown"
+      },
+      "legs": {
+        "itemId": "equip.scar_tread_boots"
+      },
+      "accessory": {
+        "itemId": "equip.returnbreath_copper_pendant"
+      }
+    },
+    "drops": [
+      {
+        "itemId": "verdant_vine",
+        "name": "青髓藤",
+        "type": "material",
+        "count": 1
+      },
+      {
+        "itemId": "nurturing_leaf",
+        "name": "养脉叶",
+        "type": "material",
+        "count": 1
+      },
+      {
+        "itemId": "equip.verdant_crown",
+        "name": "青萝束冠",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "book.qingteng_huixi",
+        "name": "《青藤回息诀》",
+        "type": "skill_book",
+        "count": 1
+      },
+      {
+        "itemId": "book.qingmu_yangmai",
+        "name": "《青木养脉篇》",
+        "type": "skill_book",
+        "count": 1
+      }
+    ]
+  },
+  {
+    "id": "m_verdant_siphon_flower",
+    "name": "吸灵花妖",
+    "char": "花",
+    "color": "#c4e58d",
+    "grade": "mystic",
+    "tier": "mortal_blood",
+    "level": 26,
+    "count": 3,
+    "maxAlive": 3,
+    "radius": 4,
+    "aggroRange": 7,
+    "viewRange": 8,
+    "respawnSec": 18,
+    "attrs": {
+      "constitution": 264,
+      "spirit": 336,
+      "perception": 300,
+      "talent": 276,
+      "comprehension": 36,
+      "luck": 28
+    },
+    "statPercents": {
+      "maxHp": 260,
+      "maxQi": 95.2,
+      "physAtk": 75.6,
+      "spellAtk": 103.6,
+      "physDef": 79.8,
+      "spellDef": 92.4,
+      "hit": 99.4,
+      "dodge": 109.2,
+      "crit": 92.4,
+      "breakPower": 71.4,
+      "resolvePower": 85.4,
+      "maxQiOutputPerTick": 110.6,
+      "moveSpeed": 117.6
+    },
+    "skills": [
+      "skill.leaf_storm",
+      "skill.echo_screech"
+    ],
+    "equipment": {
+      "weapon": {
+        "itemId": "equip.vineguide_staff"
+      },
+      "body": {
+        "itemId": "equip.cleantide_robe"
+      },
+      "accessory": {
+        "itemId": "equip.returnbreath_copper_pendant"
+      }
+    },
+    "drops": [
+      {
+        "itemId": "verdant_vine",
+        "name": "青髓藤",
+        "type": "material",
+        "count": 1
+      },
+      {
+        "itemId": "nurturing_leaf",
+        "name": "养脉叶",
+        "type": "material",
+        "count": 1
+      },
+      {
+        "itemId": "equip.vineguide_staff",
+        "name": "养枝引脉杖",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "book.qingmu_yangmai",
+        "name": "《青木养脉篇》",
+        "type": "skill_book",
+        "count": 1
+      },
+      {
+        "itemId": "book.qingteng_huixi",
+        "name": "《青藤回息诀》",
+        "type": "skill_book",
+        "count": 1
+      },
+      {
+        "itemId": "book.manzhi_jiaoluo",
+        "name": "《蔓织绞络术》",
+        "type": "skill_book",
+        "count": 1
+      },
+      {
+        "itemId": "pill.breakmirror_pellet",
+        "name": "破镜丹",
+        "type": "consumable",
+        "count": 1,
+        "chance": 0.01
+      }
+    ]
+  },
+  {
+    "id": "m_verdant_wither_guard",
+    "name": "枯荣藤卫",
+    "char": "卫",
+    "color": "#63a96b",
+    "grade": "mystic",
+    "tier": "variant",
+    "level": 25,
+    "count": 8,
+    "maxAlive": 8,
+    "radius": 8,
+    "aggroRange": 9,
+    "viewRange": 12,
+    "respawnSec": 24,
+    "attrs": {
+      "constitution": 440,
+      "spirit": 475,
+      "perception": 340,
+      "talent": 415,
+      "comprehension": 50,
+      "luck": 32
+    },
+    "statPercents": {
+      "maxHp": 250,
+      "maxQi": 124.3,
+      "physAtk": 102.5,
+      "spellAtk": 121,
+      "physDef": 105.8,
+      "spellDef": 124.3,
+      "hit": 114.2,
+      "dodge": 105.8,
+      "crit": 109.2,
+      "breakPower": 94.1,
+      "resolvePower": 115.9,
+      "maxQiOutputPerTick": 141.1,
+      "moveSpeed": 102.5
+    },
+    "skills": [
+      "skill.qingmu_yangmai",
+      "skill.wanzhi_huichun",
+      "skill.changsheng_chanyuan"
+    ],
+    "equipment": {
+      "weapon": "equip.vineguide_staff",
+      "head": "equip.verdant_crown",
+      "body": "equip.cleantide_robe",
+      "accessory": "equip.returnbreath_copper_pendant"
+    },
+    "drops": [
+      {
+        "itemId": "verdant_vine",
+        "name": "青髓藤",
+        "type": "material",
+        "count": 1
+      },
+      {
+        "itemId": "spiritwood_heart",
+        "name": "生灵木心",
+        "type": "material",
+        "count": 1
+      },
+      {
+        "itemId": "equip.vineguide_staff",
+        "name": "养枝引脉杖",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.verdant_crown",
+        "name": "青萝束冠",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "book.wanzhi_huichun",
+        "name": "《万枝回春卷》",
+        "type": "skill_book",
+        "count": 1
+      },
+      {
+        "itemId": "pill.breakmirror_pellet",
+        "name": "破镜丹",
+        "type": "consumable",
+        "count": 1,
+        "chance": 0.01
+      }
+    ],
+    "aggroMode": "always"
+  },
+  {
+    "id": "m_verdant_marrow_sprite",
+    "name": "碧髓树魈",
+    "char": "魈",
+    "color": "#5e8c55",
+    "grade": "earth",
+    "tier": "variant",
+    "level": 29,
+    "count": 4,
+    "maxAlive": 4,
+    "radius": 4,
+    "aggroRange": 10,
+    "viewRange": 12,
+    "respawnSec": 28,
+    "attrs": {
+      "constitution": 595,
+      "spirit": 445,
+      "perception": 355,
+      "talent": 565,
+      "comprehension": 55,
+      "luck": 42
+    },
+    "statPercents": {
+      "maxHp": 290,
+      "maxQi": 133.1,
+      "physAtk": 133.1,
+      "spellAtk": 147.1,
+      "physDef": 167.3,
+      "spellDef": 163.3,
+      "hit": 143.2,
+      "dodge": 129,
+      "crit": 133.1,
+      "breakPower": 123,
+      "resolvePower": 157.2,
+      "maxQiOutputPerTick": 163.3,
+      "moveSpeed": 108.8
+    },
+    "skills": [
+      "skill.qingmu_yangmai",
+      "skill.wanzhi_huichun",
+      "skill.changsheng_chanyuan"
+    ],
+    "equipment": {
+      "weapon": {
+        "itemId": "equip.vineguide_staff"
+      },
+      "head": {
+        "itemId": "equip.verdant_crown"
+      },
+      "body": {
+        "itemId": "equip.cleantide_robe"
+      },
+      "legs": {
+        "itemId": "equip.scar_tread_boots"
+      }
+    },
+    "drops": [
+      {
+        "itemId": "verdant_vine",
+        "name": "青髓藤",
+        "type": "material",
+        "count": 1
+      },
+      {
+        "itemId": "spiritwood_heart",
+        "name": "生灵木心",
+        "type": "material",
+        "count": 1
+      },
+      {
+        "itemId": "equip.vineguide_staff",
+        "name": "养枝引脉杖",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.verdant_crown",
+        "name": "青萝束冠",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "book.qingmu_yangmai",
+        "name": "《青木养脉篇》",
+        "type": "skill_book",
+        "count": 1
+      },
+      {
+        "itemId": "book.qingteng_huixi",
+        "name": "《青藤回息诀》",
+        "type": "skill_book",
+        "count": 1
+      },
+      {
+        "itemId": "book.manzhi_jiaoluo",
+        "name": "《蔓织绞络术》",
+        "type": "skill_book",
+        "count": 1
+      },
+      {
+        "itemId": "book.wanzhi_huichun",
+        "name": "《万枝回春卷》",
+        "type": "skill_book",
+        "count": 1
+      }
+    ]
+  },
+  {
+    "id": "m_verdant_vein_mother",
+    "name": "噬脉藤母",
+    "char": "母",
+    "color": "#d0ee9a",
+    "grade": "earth",
+    "tier": "demon_king",
+    "level": 29,
+    "count": 1,
+    "maxAlive": 1,
+    "radius": 2,
+    "aggroRange": 10,
+    "viewRange": 10,
+    "respawnSec": 45,
+    "attrs": {
+      "constitution": 852,
+      "spirit": 696,
+      "perception": 444,
+      "talent": 774,
+      "comprehension": 78,
+      "luck": 60
+    },
+    "statPercents": {
+      "maxHp": 290,
+      "maxQi": 134.1,
+      "physAtk": 112.9,
+      "spellAtk": 151.7,
+      "physDef": 135.8,
+      "spellDef": 157,
+      "hit": 130.5,
+      "dodge": 120,
+      "crit": 121.7,
+      "breakPower": 105.8,
+      "resolvePower": 146.4,
+      "maxQiOutputPerTick": 165.8,
+      "hpRegenRate": 100,
+      "moveSpeed": 102.3
+    },
+    "skills": [
+      "skill.qingmu_yangmai",
+      "skill.wanzhi_huichun",
+      "skill.changsheng_chanyuan"
+    ],
+    "equipment": {
+      "weapon": "equip.vineguide_staff",
+      "head": "equip.verdant_crown",
+      "body": "equip.cleantide_robe",
+      "legs": "equip.scar_tread_boots",
+      "accessory": "equip.returnbreath_copper_pendant"
+    },
+    "drops": [
+      {
+        "itemId": "spiritwood_heart",
+        "name": "生灵木心",
+        "type": "material",
+        "count": 1
+      },
+      {
+        "itemId": "verdant_vine",
+        "name": "青髓藤",
+        "type": "material",
+        "count": 1
+      },
+      {
+        "itemId": "equip.vineguide_staff",
+        "name": "养枝引脉杖",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "equip.verdant_crown",
+        "name": "青萝束冠",
+        "type": "equipment",
+        "count": 1
+      },
+      {
+        "itemId": "book.changsheng_chanyuan",
+        "name": "《长生缠元经》",
+        "type": "skill_book",
+        "count": 1
+      }
+    ],
+    "aggroMode": "always"
+  }
+]

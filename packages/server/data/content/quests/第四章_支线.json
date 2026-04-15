@@ -1,0 +1,95 @@
+{
+  "quests": [
+    {
+      "id": "q_valley_bone_heap",
+      "title": "谷边埋骨",
+      "desc": "重伤巡山弟子不想让同门的尸骨继续烂在谷边。去把裂齿妖狼再压一轮，把还能辨认的妖狼骨带回来，也算给活着的人留点交代。",
+      "story": "兽谷里没什么体面活法，能给同门收回几根骨头，已经算恩情。",
+      "objectiveText": "清掉裂齿妖狼并收回妖狼骨",
+      "targetMonsterId": "m_valley_wolf",
+      "targetCount": 6,
+      "targetMapId": "beast_valley",
+      "targetName": "裂齿妖狼",
+      "requiredItemId": "demon_wolf_bone",
+      "requiredItemCount": 8,
+      "reward": [
+        {
+          "itemId": "pill.crimson_bud_elixir",
+          "name": "赤芽丹",
+          "type": "consumable",
+          "count": 1
+        }
+      ],
+      "line": "side",
+      "giverMapId": "beast_valley",
+      "giverNpcId": "npc_wounded_patrol",
+      "submitMapId": "beast_valley",
+      "submitNpcId": "npc_wounded_patrol"
+    },
+    {
+      "id": "q_ridge_tiger_claw",
+      "title": "拿爪换路",
+      "desc": "守岭老修嘴上不说，实际上一直在靠岭兽爪修补山路上的旧桩。你去多收些回来，他便肯把更像样的轻身靴交给你。",
+      "story": "灵脊岭不是讲道理的地方，想在这里留条路，靠的是一件件捡回来的硬东西。",
+      "objectiveText": "击败灵脊虎并收回岭兽爪",
+      "targetMonsterId": "m_spirit_tiger",
+      "targetCount": 6,
+      "targetMapId": "spirit_ridge",
+      "targetName": "灵脊虎",
+      "requiredItemId": "ridge_beast_claw",
+      "requiredItemCount": 6,
+      "reward": [
+        {
+          "itemId": "pill.windstride_elixir",
+          "name": "轻身丹",
+          "type": "consumable",
+          "count": 1
+        }
+      ],
+      "nextQuestId": "q_ridge_frost_essence_side",
+      "line": "side",
+      "giverMapId": "spirit_ridge",
+      "giverNpcId": "npc_ridge_sage",
+      "submitMapId": "spirit_ridge",
+      "submitNpcId": "npc_ridge_sage"
+    },
+    {
+      "id": "q_ridge_frost_essence_side",
+      "title": "霜华照脉",
+      "desc": "守岭老修让你顺手再收些霜华精粹。他说你既然准备叩门，就该学会先把经脉里的躁气压下去。",
+      "story": "越临近门槛，越要知道什么时候该快，什么时候该停。",
+      "objectiveText": "猎杀寒翎鹤并收回霜华精粹",
+      "targetMonsterId": "m_frost_crane",
+      "targetCount": 6,
+      "targetMapId": "spirit_ridge",
+      "targetName": "寒翎鹤",
+      "requiredItemId": "frost_essence",
+      "requiredItemCount": 4,
+      "reward": [
+        {
+          "itemId": "major_qi_pill",
+          "name": "大还灵丹",
+          "type": "consumable",
+          "count": 2
+        },
+        {
+          "itemId": "pill.break_array_elixir",
+          "name": "破阵丹",
+          "type": "consumable",
+          "count": 1
+        },
+        {
+          "itemId": "frost_heart_paste",
+          "name": "寒心膏",
+          "type": "consumable",
+          "count": 2
+        }
+      ],
+      "line": "side",
+      "giverMapId": "spirit_ridge",
+      "giverNpcId": "npc_ridge_sage",
+      "submitMapId": "spirit_ridge",
+      "submitNpcId": "npc_ridge_sage"
+    }
+  ]
+}

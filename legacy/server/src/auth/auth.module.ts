@@ -24,6 +24,5 @@ import { PlayerEntity } from '../database/entities/player.entity';
   providers: [AuthService, NameUniquenessService, RoleNameModerationService],
   exports: [AuthService, NameUniquenessService, RoleNameModerationService],
 })
-/** AuthModule：封装相关状态与行为。 */
 export class AuthModule {}
 

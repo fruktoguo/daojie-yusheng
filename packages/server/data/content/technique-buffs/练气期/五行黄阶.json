@@ -1,0 +1,124 @@
+[
+  {
+    "id": "lianqi.fire.burn_mark",
+    "target": "target",
+    "buffId": "buff.fire_burn_mark",
+    "name": "灼脉",
+    "desc": "火脉灼入经络，每层每息造成目标当前气血 1% 的火伤，对精英仅 10% 效果，对 Boss 仅 1% 效果。",
+    "shortMark": "灼",
+    "category": "debuff",
+    "visibility": "public",
+    "color": "#ef6b3b",
+    "duration": 10,
+    "maxStacks": 30,
+    "statMode": "percent"
+  },
+  {
+    "id": "lianqi.metal.edge_mark",
+    "target": "target",
+    "buffId": "buff.metal_edge_mark",
+    "name": "破甲",
+    "desc": "锋炁裂甲，双防随层数持续崩落。",
+    "shortMark": "破",
+    "category": "debuff",
+    "visibility": "public",
+    "color": "#d2bd6e",
+    "duration": 28,
+    "maxStacks": 5,
+    "statMode": "percent",
+    "valueStats": {
+      "physDef": -30,
+      "spellDef": -30
+    }
+  },
+  {
+    "id": "lianqi.wood.bloom",
+    "target": "allies",
+    "buffId": "buff.wood_bloom",
+    "name": "回春",
+    "desc": "木脉回春，生命自动回复大幅提高。",
+    "shortMark": "春",
+    "category": "buff",
+    "visibility": "public",
+    "color": "#6eb46a",
+    "duration": 20,
+    "maxStacks": 3,
+    "statMode": "percent",
+    "valueStats": {
+      "hpRegenRate": 100
+    }
+  },
+  {
+    "id": "lianqi.wood.vine_mark",
+    "target": "target",
+    "buffId": "buff.wood_vine_mark",
+    "name": "禁脉",
+    "desc": "木意锁脉，生机回转近乎断绝。",
+    "shortMark": "禁",
+    "category": "debuff",
+    "visibility": "public",
+    "color": "#69ba74",
+    "duration": 20,
+    "maxStacks": 1,
+    "statMode": "percent",
+    "valueStats": {
+      "hpRegenRate": -100
+    }
+  },
+  {
+    "id": "lianqi.water.frost_mark",
+    "target": "target",
+    "buffId": "buff.water_frost_mark",
+    "name": "锁流",
+    "desc": "寒流锁身，双攻被逐层压低。",
+    "shortMark": "锁",
+    "category": "debuff",
+    "visibility": "public",
+    "color": "#74bdd7",
+    "duration": 20,
+    "maxStacks": 10,
+    "statMode": "percent",
+    "valueStats": {
+      "physAtk": -5,
+      "spellAtk": -5
+    }
+  },
+  {
+    "id": "lianqi.water.glide",
+    "target": "self",
+    "buffId": "buff.water_glide",
+    "name": "潮势",
+    "desc": "潮意回身，双攻双防俱增。",
+    "shortMark": "潮",
+    "category": "buff",
+    "visibility": "public",
+    "color": "#7dbfd8",
+    "duration": 20,
+    "maxStacks": 5,
+    "statMode": "percent",
+    "valueStats": {
+      "physAtk": 10,
+      "spellAtk": 10,
+      "physDef": 10,
+      "spellDef": 10
+    }
+  },
+  {
+    "id": "lianqi.earth.self_fortify",
+    "target": "self",
+    "buffId": "buff.earth_guard",
+    "name": "承岳",
+    "desc": "土息加身，双抗层层抬升。",
+    "shortMark": "岳",
+    "category": "buff",
+    "visibility": "public",
+    "color": "#aa9271",
+    "duration": 20,
+    "maxStacks": 5,
+    "statMode": "percent",
+    "valueStats": {
+      "physDef": 20,
+      "spellDef": 20
+    }
+  }
+]

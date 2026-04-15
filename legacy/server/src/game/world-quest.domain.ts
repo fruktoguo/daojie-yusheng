@@ -13,36 +13,26 @@ import { ContainerConfig, DropConfig, MapService, NpcConfig, QuestConfig } from 
 import { PlayerService } from './player.service';
 import { isLikelyInternalContentId, resolveQuestTargetName } from './quest-display';
 
-/** RuntimeMonsterLike：定义该接口的能力与字段约束。 */
 interface RuntimeMonsterLike {
-/** id：定义该变量以承载业务值。 */
   id: string;
-/** name：定义该变量以承载业务值。 */
   name: string;
-/** mapId：定义该变量以承载业务值。 */
   mapId: string;
-/** x：定义该变量以承载业务值。 */
   x: number;
-/** y：定义该变量以承载业务值。 */
   y: number;
-/** drops：定义该变量以承载业务值。 */
   drops: DropConfig[];
 }
 
-/** NpcInteractionState：定义该接口的能力与字段约束。 */
 interface NpcInteractionState {
   quest?: QuestConfig;
   questState?: QuestState;
   relation?: 'giver' | 'target' | 'submit';
 }
 
-/** QuestDomainDeps：定义该接口的能力与字段约束。 */
 interface QuestDomainDeps {
   getCurrentMainQuestId: (player: PlayerState) => string | undefined;
   getEffectiveDropChance: (player: PlayerState, monster: RuntimeMonsterLike, drop: DropConfig) => number;
 }
 
-/** WorldQuestDomain：封装相关状态与行为。 */
 export class WorldQuestDomain {
   constructor(
     private readonly mapService: MapService,
@@ -53,14 +43,11 @@ export class WorldQuestDomain {
     private readonly deps: QuestDomainDeps,
   ) {}
 
-/** advanceQuestProgress：执行对应的业务逻辑。 */
   advanceQuestProgress(player: PlayerState, monsterId: string, monsterName: string): Array<'quest' | 'actions'> {
-/** changed：定义该变量以承载业务值。 */
     let changed = false;
     for (const quest of player.quests) {
       if (quest.status !== 'active' || quest.objectiveType !== 'kill' || quest.targetMonsterId !== monsterId) continue;
       quest.progress = Math.min(quest.required, quest.progress + 1);
-/** targetName：定义该变量以承载业务值。 */
       const targetName = resolveQuestTargetName({
         objectiveType: quest.objectiveType,
         title: quest.title,
@@ -80,14 +67,11 @@ export class WorldQuestDomain {
     return changed ? ['quest'] : [];
   }
 
-/** refreshQuestStatuses：执行对应的业务逻辑。 */
   refreshQuestStatuses(player: PlayerState): boolean {
-/** changed：定义该变量以承载业务值。 */
     let changed = false;
     for (const quest of player.quests) {
       const config = this.mapService.getQuest(quest.id);
       if (!config) continue;
-/** canBecomeReady：定义该变量以承载业务值。 */
       const canBecomeReady = this.canQuestBecomeReady(player, quest, config);
       if (quest.status === 'active' && canBecomeReady) {
         quest.status = 'ready';
@@ -100,7 +84,6 @@ export class WorldQuestDomain {
     return changed;
   }
 
-/** canQuestBecomeReady：执行对应的业务逻辑。 */
   canQuestBecomeReady(player: PlayerState, quest: QuestState, config: QuestConfig): boolean {
     if (quest.progress < quest.required) {
       return false;
@@ -108,7 +91,6 @@ export class WorldQuestDomain {
     return !config.requiredItemId || this.getInventoryCount(player, config.requiredItemId) >= (config.requiredItemCount ?? 1);
   }
 
-/** resolveQuestProgress：执行对应的业务逻辑。 */
   resolveQuestProgress(player: PlayerState, questState: QuestState, config: QuestConfig): number {
     switch (config.objectiveType) {
       case 'talk':
@@ -155,15 +137,12 @@ export class WorldQuestDomain {
     }
   }
 
-/** syncQuestNpcLocations：执行对应的业务逻辑。 */
   syncQuestNpcLocations(quest: QuestState): boolean {
-/** changed：定义该变量以承载业务值。 */
     let changed = false;
     if (
       (!quest.giverMapName || quest.giverX === undefined || quest.giverY === undefined || (quest.giverMapId && quest.giverMapName === quest.giverMapId))
       && quest.giverId
     ) {
-/** giverLocation：定义该变量以承载业务值。 */
       const giverLocation = this.mapService.getNpcLocation(quest.giverId);
       if (giverLocation) {
         quest.giverMapId = giverLocation.mapId;
@@ -175,7 +154,6 @@ export class WorldQuestDomain {
     }
 
     if (quest.targetNpcId) {
-/** targetLocation：定义该变量以承载业务值。 */
       const targetLocation = this.mapService.getNpcLocation(quest.targetNpcId);
       if (targetLocation && (
         quest.targetMapId !== targetLocation.mapId
@@ -194,7 +172,6 @@ export class WorldQuestDomain {
     }
 
     if (quest.submitNpcId) {
-/** submitLocation：定义该变量以承载业务值。 */
       const submitLocation = this.mapService.getNpcLocation(quest.submitNpcId);
       if (submitLocation && (
         quest.submitMapId !== submitLocation.mapId
@@ -214,9 +191,7 @@ export class WorldQuestDomain {
     return changed;
   }
 
-/** getNpcInteractionState：执行对应的业务逻辑。 */
   getNpcInteractionState(player: PlayerState, npc: NpcConfig): NpcInteractionState {
-/** readySubmitQuest：定义该变量以承载业务值。 */
     const readySubmitQuest = player.quests.find((entry) => (
       entry.status === 'ready'
       && this.isQuestSubmitNpc(entry, npc, player.mapId)
@@ -229,7 +204,6 @@ export class WorldQuestDomain {
       };
     }
 
-/** activeTargetQuest：定义该变量以承载业务值。 */
     const activeTargetQuest = player.quests.find((entry) => (
       entry.status === 'active'
       && entry.objectiveType === 'talk'
@@ -243,13 +217,10 @@ export class WorldQuestDomain {
       };
     }
 
-/** currentMainQuestId：定义该变量以承载业务值。 */
     const currentMainQuestId = this.deps.getCurrentMainQuestId(player);
     if (currentMainQuestId) {
-/** currentMainQuest：定义该变量以承载业务值。 */
       const currentMainQuest = npc.quests.find((quest) => quest.id === currentMainQuestId);
       if (currentMainQuest) {
-/** questState：定义该变量以承载业务值。 */
         const questState = player.quests.find((entry) => entry.id === currentMainQuest.id);
         if (questState && questState.status !== 'completed') {
           return { quest: currentMainQuest, questState, relation: 'giver' };
@@ -264,13 +235,11 @@ export class WorldQuestDomain {
       if (quest.line === 'main' && currentMainQuestId && quest.id !== currentMainQuestId) {
         continue;
       }
-/** questState：定义该变量以承载业务值。 */
       const questState = player.quests.find((entry) => entry.id === quest.id);
       if (questState && questState.status !== 'completed') {
         return { quest, questState, relation: 'giver' };
       }
       if (!questState) {
-/** previousIncomplete：定义该变量以承载业务值。 */
         const previousIncomplete = npc.quests
           .slice(0, npc.quests.indexOf(quest))
           .some((candidate) => player.quests.find((entry) => entry.id === candidate.id)?.status !== 'completed');
@@ -283,9 +252,7 @@ export class WorldQuestDomain {
     return {};
   }
 
-/** resolveNpcQuestMarker：执行对应的业务逻辑。 */
   resolveNpcQuestMarker(player: PlayerState, npc: NpcConfig): NpcQuestMarker | undefined {
-/** interaction：定义该变量以承载业务值。 */
     const interaction = this.getNpcInteractionState(player, npc);
     if (interaction.quest && !interaction.questState && !this.getQuestAcceptRequirementText(player, interaction.quest)) {
       return { line: interaction.quest.line, state: 'available' };
@@ -299,11 +266,8 @@ export class WorldQuestDomain {
     return undefined;
   }
 
-/** getQuestAcceptRequirementText：执行对应的业务逻辑。 */
   getQuestAcceptRequirementText(player: PlayerState, quest: QuestConfig): string | null {
-/** currentRealmLv：定义该变量以承载业务值。 */
     const currentRealmLv = Math.max(1, Math.floor(player.realm?.realmLv ?? player.realmLv ?? 1));
-/** currentStage：定义该变量以承载业务值。 */
     const currentStage = player.realm?.stage;
     if (quest.acceptRealmLv !== undefined && currentRealmLv < quest.acceptRealmLv) {
       return this.contentService.getRealmLevelEntry(quest.acceptRealmLv)?.displayName ?? `Lv.${quest.acceptRealmLv}`;
@@ -314,9 +278,7 @@ export class WorldQuestDomain {
     return null;
   }
 
-/** buildRewardItems：执行对应的业务逻辑。 */
   buildRewardItems(quest: QuestConfig): ItemStack[] {
-/** rewards：定义该变量以承载业务值。 */
     const rewards = quest.rewards.length > 0
       ? quest.rewards
       : quest.rewardItemIds.map((itemId) => ({
@@ -331,23 +293,19 @@ export class WorldQuestDomain {
       .filter((item): item is ItemStack => Boolean(item));
   }
 
-/** buildQuestStateRewards：执行对应的业务逻辑。 */
   buildQuestStateRewards(quest: QuestState): ItemStack[] {
     if (quest.rewards?.length) {
       return quest.rewards
         .map((reward) => this.contentService.createItem(reward.itemId, reward.count))
         .filter((item): item is ItemStack => Boolean(item));
     }
-/** rewardIds：定义该变量以承载业务值。 */
     const rewardIds = quest.rewardItemIds?.length ? quest.rewardItemIds : [quest.rewardItemId];
     return rewardIds
       .map((itemId) => this.contentService.createItem(itemId))
       .filter((item): item is ItemStack => Boolean(item));
   }
 
-/** canReceiveItems：执行对应的业务逻辑。 */
   canReceiveItems(player: PlayerState, items: ItemStack[]): boolean {
-/** simulated：定义该变量以承载业务值。 */
     const simulated = player.inventory.items.map((item) => ({ ...item }));
     for (const item of items) {
       const signature = createItemStackSignature(item);
@@ -364,20 +322,16 @@ export class WorldQuestDomain {
     return true;
   }
 
-/** createItemFromDrop：执行对应的业务逻辑。 */
   createItemFromDrop(drop: DropConfig): ItemStack | null {
     return this.contentService.createItem(drop.itemId, drop.count);
   }
 
-/** rollMonsterDrops：执行对应的业务逻辑。 */
   rollMonsterDrops(killer: PlayerState, monster: RuntimeMonsterLike): ItemStack[] {
-/** loots：定义该变量以承载业务值。 */
     const loots: ItemStack[] = [];
     for (const drop of monster.drops) {
       if (Math.random() > this.deps.getEffectiveDropChance(killer, monster, drop)) {
         continue;
       }
-/** loot：定义该变量以承载业务值。 */
       const loot = this.createItemFromDrop(drop);
       if (loot) {
         loots.push(loot);
@@ -392,7 +346,6 @@ export class WorldQuestDomain {
     loot: ItemStack,
     killerId: string,
     dirty: Set<'inv' | 'quest' | 'actions' | 'tech' | 'attr' | 'loot'>,
-/** messages：定义该变量以承载业务值。 */
     messages: Array<{ playerId: string; text: string; kind?: 'system' | 'quest' | 'combat' | 'loot' }>,
   ): void {
     if (this.inventoryService.addItem(player, loot)) {
@@ -422,20 +375,16 @@ export class WorldQuestDomain {
     count: number,
     errorMessage = '任务物品不足，暂时无法交付',
   ): string | null {
-/** remaining：定义该变量以承载业务值。 */
     let remaining = count;
     while (remaining > 0) {
-/** slotIndex：定义该变量以承载业务值。 */
       const slotIndex = this.inventoryService.findItem(player, itemId);
       if (slotIndex < 0) {
         return errorMessage;
       }
-/** stack：定义该变量以承载业务值。 */
       const stack = this.inventoryService.getItem(player, slotIndex);
       if (!stack) {
         return errorMessage;
       }
-/** removed：定义该变量以承载业务值。 */
       const removed = this.inventoryService.removeItem(player, slotIndex, remaining);
       if (!removed) {
         return errorMessage;
@@ -445,23 +394,18 @@ export class WorldQuestDomain {
     return null;
   }
 
-/** getShopCurrencyItemName：执行对应的业务逻辑。 */
   getShopCurrencyItemName(): string {
     return this.contentService.getItem(MARKET_CURRENCY_ITEM_ID)?.name ?? '灵石';
   }
 
-/** getInventoryCount：执行对应的业务逻辑。 */
   getInventoryCount(player: PlayerState, itemId: string): number {
     return player.inventory.items
       .filter((item) => item.itemId === itemId)
       .reduce((total, item) => total + item.count, 0);
   }
 
-/** describeQuestProgress：执行对应的业务逻辑。 */
   describeQuestProgress(player: PlayerState, questState: QuestState, questConfig?: QuestConfig): string {
-/** objective：定义该变量以承载业务值。 */
     const objective = questState.objectiveText ?? questConfig?.objectiveText ?? questState.desc;
-/** parts：定义该变量以承载业务值。 */
     const parts = [objective];
     switch (questState.objectiveType) {
       case 'talk':
@@ -487,25 +431,20 @@ export class WorldQuestDomain {
         break;
     }
     if (questConfig?.requiredItemId) {
-/** itemName：定义该变量以承载业务值。 */
       const itemName = this.contentService.getItem(questConfig.requiredItemId)?.name
         ?? (isLikelyInternalContentId(questConfig.requiredItemId) ? '任务物品' : questConfig.requiredItemId);
-/** requiredItemCount：定义该变量以承载业务值。 */
       const requiredItemCount = Math.max(1, questConfig.requiredItemCount ?? 1);
-/** currentItemCount：定义该变量以承载业务值。 */
       const currentItemCount = Math.min(requiredItemCount, this.getInventoryCount(player, questConfig.requiredItemId));
       parts.push(`当前持有 ${itemName} ${currentItemCount}/${requiredItemCount}`);
     }
     return parts.join('，');
   }
 
-/** isQuestTargetNpc：执行对应的业务逻辑。 */
   private isQuestTargetNpc(quest: QuestState, npc: NpcConfig, currentMapId: string): boolean {
     return quest.targetNpcId === npc.id
       && (!quest.targetMapId || quest.targetMapId === currentMapId);
   }
 
-/** isQuestSubmitNpc：执行对应的业务逻辑。 */
   private isQuestSubmitNpc(quest: QuestState, npc: NpcConfig, currentMapId: string): boolean {
     return quest.submitNpcId === npc.id
       && quest.submitMapId === currentMapId;

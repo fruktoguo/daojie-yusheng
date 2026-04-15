@@ -1,0 +1,802 @@
+[
+  {
+    "id": "stillheart",
+    "name": "止念诀",
+    "grade": "mystic",
+    "layers": [
+      {
+        "level": 1,
+        "expFactor": 39,
+        "attrs": {
+          "constitution": 7,
+          "spirit": 8,
+          "perception": 4,
+          "talent": 6
+        }
+      },
+      {
+        "level": 2,
+        "expFactor": 42,
+        "attrs": {
+          "constitution": 6,
+          "spirit": 8,
+          "perception": 4,
+          "talent": 6
+        }
+      },
+      {
+        "level": 3,
+        "expFactor": 45,
+        "attrs": {
+          "constitution": 6,
+          "spirit": 8,
+          "perception": 4,
+          "talent": 6
+        }
+      },
+      {
+        "level": 4,
+        "expFactor": 48,
+        "attrs": {
+          "constitution": 6,
+          "spirit": 8,
+          "perception": 4,
+          "talent": 6
+        }
+      },
+      {
+        "level": 5,
+        "expFactor": 52,
+        "attrs": {
+          "constitution": 6,
+          "spirit": 8,
+          "perception": 4,
+          "talent": 6
+        }
+      },
+      {
+        "level": 6,
+        "expFactor": 56,
+        "attrs": {
+          "constitution": 6,
+          "spirit": 8,
+          "perception": 4,
+          "talent": 6
+        }
+      },
+      {
+        "level": 7,
+        "expFactor": 61,
+        "attrs": {
+          "constitution": 6,
+          "spirit": 8,
+          "perception": 4,
+          "talent": 6
+        }
+      },
+      {
+        "level": 8,
+        "expFactor": 66,
+        "attrs": {
+          "constitution": 6,
+          "spirit": 8,
+          "perception": 4,
+          "talent": 6
+        }
+      },
+      {
+        "level": 9,
+        "expFactor": 74,
+        "attrs": {
+          "constitution": 6,
+          "spirit": 8,
+          "perception": 4,
+          "talent": 6
+        }
+      },
+      {
+        "level": 10,
+        "expFactor": 82,
+        "attrs": {
+          "constitution": 6,
+          "spirit": 8,
+          "perception": 4,
+          "talent": 6
+        }
+      },
+      {
+        "level": 11,
+        "expFactor": 91,
+        "attrs": {
+          "constitution": 6,
+          "spirit": 8,
+          "perception": 4,
+          "talent": 6
+        }
+      },
+      {
+        "level": 12,
+        "expFactor": 101,
+        "attrs": {
+          "constitution": 6,
+          "spirit": 7,
+          "perception": 4,
+          "talent": 6
+        }
+      },
+      {
+        "level": 13,
+        "expFactor": 113,
+        "attrs": {
+          "constitution": 6,
+          "spirit": 7,
+          "perception": 4,
+          "talent": 5
+        }
+      },
+      {
+        "level": 14,
+        "expFactor": 126,
+        "attrs": {
+          "constitution": 6,
+          "spirit": 7,
+          "perception": 3,
+          "talent": 5
+        }
+      },
+      {
+        "level": 15,
+        "expFactor": 140,
+        "attrs": {
+          "constitution": 6,
+          "spirit": 7,
+          "perception": 3,
+          "talent": 5
+        }
+      },
+      {
+        "level": 16,
+        "expFactor": 0,
+        "attrs": {
+          "constitution": 6,
+          "spirit": 7,
+          "perception": 3,
+          "talent": 5
+        }
+      }
+    ],
+    "skills": [],
+    "realmLv": 15,
+    "category": "internal"
+  },
+  {
+    "id": "lightshadow_art",
+    "name": "折影提气诀",
+    "grade": "mystic",
+    "layers": [
+      {
+        "level": 1,
+        "expFactor": 52,
+        "attrs": {
+          "constitution": 9,
+          "spirit": 11,
+          "perception": 6,
+          "talent": 8
+        }
+      },
+      {
+        "level": 2,
+        "expFactor": 57,
+        "attrs": {
+          "constitution": 9,
+          "spirit": 11,
+          "perception": 5,
+          "talent": 8
+        }
+      },
+      {
+        "level": 3,
+        "expFactor": 63,
+        "attrs": {
+          "constitution": 8,
+          "spirit": 11,
+          "perception": 5,
+          "talent": 8
+        }
+      },
+      {
+        "level": 4,
+        "expFactor": 69,
+        "attrs": {
+          "constitution": 8,
+          "spirit": 10,
+          "perception": 5,
+          "talent": 8
+        }
+      },
+      {
+        "level": 5,
+        "expFactor": 76,
+        "attrs": {
+          "constitution": 8,
+          "spirit": 10,
+          "perception": 5,
+          "talent": 8
+        }
+      },
+      {
+        "level": 6,
+        "expFactor": 84,
+        "attrs": {
+          "constitution": 8,
+          "spirit": 10,
+          "perception": 5,
+          "talent": 8
+        }
+      },
+      {
+        "level": 7,
+        "expFactor": 93,
+        "attrs": {
+          "constitution": 8,
+          "spirit": 10,
+          "perception": 5,
+          "talent": 8
+        }
+      },
+      {
+        "level": 8,
+        "expFactor": 103,
+        "attrs": {
+          "constitution": 8,
+          "spirit": 10,
+          "perception": 5,
+          "talent": 8
+        }
+      },
+      {
+        "level": 9,
+        "expFactor": 114,
+        "attrs": {
+          "constitution": 8,
+          "spirit": 10,
+          "perception": 5,
+          "talent": 7
+        }
+      },
+      {
+        "level": 10,
+        "expFactor": 126,
+        "attrs": {
+          "constitution": 8,
+          "spirit": 10,
+          "perception": 5,
+          "talent": 7
+        }
+      },
+      {
+        "level": 11,
+        "expFactor": 139,
+        "attrs": {
+          "constitution": 8,
+          "spirit": 10,
+          "perception": 5,
+          "talent": 7
+        }
+      },
+      {
+        "level": 12,
+        "expFactor": 0,
+        "attrs": {
+          "constitution": 8,
+          "spirit": 10,
+          "perception": 5,
+          "talent": 7
+        }
+      }
+    ],
+    "skills": [],
+    "realmLv": 16,
+    "category": "internal"
+  },
+  {
+    "id": "body_tempering_formula",
+    "name": "锻体决",
+    "grade": "mystic",
+    "layers": [
+      {
+        "level": 1,
+        "expFactor": 58,
+        "attrs": {
+          "constitution": 2,
+          "spirit": 3,
+          "perception": 2,
+          "talent": 2
+        }
+      },
+      {
+        "level": 2,
+        "expFactor": 60,
+        "attrs": {
+          "constitution": 2,
+          "spirit": 3,
+          "perception": 2,
+          "talent": 2
+        }
+      },
+      {
+        "level": 3,
+        "expFactor": 62,
+        "attrs": {
+          "constitution": 2,
+          "spirit": 3,
+          "perception": 2,
+          "talent": 2
+        }
+      },
+      {
+        "level": 4,
+        "expFactor": 67,
+        "attrs": {
+          "constitution": 2,
+          "spirit": 3,
+          "perception": 2,
+          "talent": 2
+        }
+      },
+      {
+        "level": 5,
+        "expFactor": 73,
+        "attrs": {
+          "constitution": 2,
+          "spirit": 3,
+          "perception": 2,
+          "talent": 2
+        }
+      },
+      {
+        "level": 6,
+        "expFactor": 81,
+        "attrs": {
+          "constitution": 2,
+          "spirit": 3,
+          "perception": 2,
+          "talent": 2
+        }
+      },
+      {
+        "level": 7,
+        "expFactor": 91,
+        "attrs": {
+          "constitution": 2,
+          "spirit": 3,
+          "perception": 2,
+          "talent": 2
+        }
+      },
+      {
+        "level": 8,
+        "expFactor": 103,
+        "attrs": {
+          "constitution": 2,
+          "spirit": 3,
+          "perception": 2,
+          "talent": 2
+        }
+      },
+      {
+        "level": 9,
+        "expFactor": 117,
+        "attrs": {
+          "constitution": 2,
+          "spirit": 3,
+          "perception": 2,
+          "talent": 2
+        }
+      },
+      {
+        "level": 10,
+        "expFactor": 132,
+        "attrs": {
+          "constitution": 2,
+          "spirit": 3,
+          "perception": 2,
+          "talent": 2
+        }
+      },
+      {
+        "level": 11,
+        "expFactor": 149,
+        "attrs": {
+          "constitution": 2,
+          "spirit": 3,
+          "perception": 2,
+          "talent": 2
+        }
+      },
+      {
+        "level": 12,
+        "expFactor": 168,
+        "attrs": {
+          "constitution": 2,
+          "spirit": 3,
+          "perception": 2,
+          "talent": 2
+        }
+      },
+      {
+        "level": 13,
+        "expFactor": 189,
+        "attrs": {
+          "constitution": 2,
+          "spirit": 3,
+          "perception": 1,
+          "talent": 2
+        }
+      },
+      {
+        "level": 14,
+        "expFactor": 212,
+        "attrs": {
+          "constitution": 2,
+          "spirit": 3,
+          "perception": 1,
+          "talent": 2
+        }
+      },
+      {
+        "level": 15,
+        "expFactor": 236,
+        "attrs": {
+          "constitution": 2,
+          "spirit": 3,
+          "perception": 1,
+          "talent": 2
+        }
+      },
+      {
+        "level": 16,
+        "expFactor": 262,
+        "attrs": {
+          "constitution": 2,
+          "spirit": 3,
+          "perception": 1,
+          "talent": 2
+        }
+      },
+      {
+        "level": 17,
+        "expFactor": 290,
+        "attrs": {
+          "constitution": 2,
+          "spirit": 3,
+          "perception": 1,
+          "talent": 2
+        }
+      },
+      {
+        "level": 18,
+        "expFactor": 320,
+        "attrs": {
+          "constitution": 2,
+          "spirit": 3,
+          "perception": 1,
+          "talent": 2
+        }
+      },
+      {
+        "level": 19,
+        "expFactor": 352,
+        "attrs": {
+          "constitution": 2,
+          "spirit": 3,
+          "perception": 1,
+          "talent": 2
+        }
+      },
+      {
+        "level": 20,
+        "expFactor": 373,
+        "attrs": {
+          "constitution": 2,
+          "spirit": 3,
+          "perception": 1,
+          "talent": 2
+        }
+      },
+      {
+        "level": 21,
+        "expFactor": 395,
+        "attrs": {
+          "constitution": 2,
+          "spirit": 3,
+          "perception": 1,
+          "talent": 2
+        }
+      },
+      {
+        "level": 22,
+        "expFactor": 419,
+        "attrs": {
+          "constitution": 2,
+          "spirit": 3,
+          "perception": 1,
+          "talent": 2
+        }
+      },
+      {
+        "level": 23,
+        "expFactor": 444,
+        "attrs": {
+          "constitution": 2,
+          "spirit": 3,
+          "perception": 1,
+          "talent": 2
+        }
+      },
+      {
+        "level": 24,
+        "expFactor": 471,
+        "attrs": {
+          "constitution": 2,
+          "spirit": 3,
+          "perception": 1,
+          "talent": 2
+        }
+      },
+      {
+        "level": 25,
+        "expFactor": 499,
+        "attrs": {
+          "constitution": 2,
+          "spirit": 3,
+          "perception": 1,
+          "talent": 2
+        }
+      },
+      {
+        "level": 26,
+        "expFactor": 529,
+        "attrs": {
+          "constitution": 2,
+          "spirit": 2,
+          "perception": 1,
+          "talent": 2
+        }
+      },
+      {
+        "level": 27,
+        "expFactor": 561,
+        "attrs": {
+          "constitution": 2,
+          "spirit": 2,
+          "perception": 1,
+          "talent": 2
+        }
+      },
+      {
+        "level": 28,
+        "expFactor": 595,
+        "attrs": {
+          "constitution": 2,
+          "spirit": 2,
+          "perception": 1,
+          "talent": 2
+        }
+      },
+      {
+        "level": 29,
+        "expFactor": 631,
+        "attrs": {
+          "constitution": 2,
+          "spirit": 2,
+          "perception": 1,
+          "talent": 2
+        }
+      },
+      {
+        "level": 30,
+        "expFactor": 669,
+        "attrs": {
+          "constitution": 2,
+          "spirit": 2,
+          "perception": 1,
+          "talent": 2
+        }
+      },
+      {
+        "level": 31,
+        "expFactor": 709,
+        "attrs": {
+          "constitution": 2,
+          "spirit": 2,
+          "perception": 1,
+          "talent": 2
+        }
+      },
+      {
+        "level": 32,
+        "expFactor": 752,
+        "attrs": {
+          "constitution": 2,
+          "spirit": 2,
+          "perception": 1,
+          "talent": 2
+        }
+      },
+      {
+        "level": 33,
+        "expFactor": 797,
+        "attrs": {
+          "constitution": 2,
+          "spirit": 2,
+          "perception": 1,
+          "talent": 2
+        }
+      },
+      {
+        "level": 34,
+        "expFactor": 845,
+        "attrs": {
+          "constitution": 2,
+          "spirit": 2,
+          "perception": 1,
+          "talent": 2
+        }
+      },
+      {
+        "level": 35,
+        "expFactor": 896,
+        "attrs": {
+          "constitution": 2,
+          "spirit": 2,
+          "perception": 1,
+          "talent": 2
+        }
+      },
+      {
+        "level": 36,
+        "expFactor": 950,
+        "attrs": {
+          "constitution": 2,
+          "spirit": 2,
+          "perception": 1,
+          "talent": 2
+        }
+      },
+      {
+        "level": 37,
+        "expFactor": 1007,
+        "attrs": {
+          "constitution": 2,
+          "spirit": 2,
+          "perception": 1,
+          "talent": 2
+        }
+      },
+      {
+        "level": 38,
+        "expFactor": 1067,
+        "attrs": {
+          "constitution": 2,
+          "spirit": 2,
+          "perception": 1,
+          "talent": 2
+        }
+      },
+      {
+        "level": 39,
+        "expFactor": 1131,
+        "attrs": {
+          "constitution": 2,
+          "spirit": 2,
+          "perception": 1,
+          "talent": 2
+        }
+      },
+      {
+        "level": 40,
+        "expFactor": 1199,
+        "attrs": {
+          "constitution": 2,
+          "spirit": 2,
+          "perception": 1,
+          "talent": 2
+        }
+      },
+      {
+        "level": 41,
+        "expFactor": 1271,
+        "attrs": {
+          "constitution": 2,
+          "spirit": 2,
+          "perception": 1,
+          "talent": 2
+        }
+      },
+      {
+        "level": 42,
+        "expFactor": 1347,
+        "attrs": {
+          "constitution": 2,
+          "spirit": 2,
+          "perception": 1,
+          "talent": 2
+        }
+      },
+      {
+        "level": 43,
+        "expFactor": 1428,
+        "attrs": {
+          "constitution": 2,
+          "spirit": 2,
+          "perception": 1,
+          "talent": 2
+        }
+      },
+      {
+        "level": 44,
+        "expFactor": 1514,
+        "attrs": {
+          "constitution": 2,
+          "spirit": 2,
+          "perception": 1,
+          "talent": 1
+        }
+      },
+      {
+        "level": 45,
+        "expFactor": 1605,
+        "attrs": {
+          "constitution": 2,
+          "spirit": 2,
+          "perception": 1,
+          "talent": 1
+        }
+      },
+      {
+        "level": 46,
+        "expFactor": 1701,
+        "attrs": {
+          "constitution": 2,
+          "spirit": 2,
+          "perception": 1,
+          "talent": 1
+        }
+      },
+      {
+        "level": 47,
+        "expFactor": 1803,
+        "attrs": {
+          "constitution": 2,
+          "spirit": 2,
+          "perception": 1,
+          "talent": 1
+        }
+      },
+      {
+        "level": 48,
+        "expFactor": 1911,
+        "attrs": {
+          "constitution": 2,
+          "spirit": 2,
+          "perception": 1,
+          "talent": 1
+        }
+      },
+      {
+        "level": 49,
+        "expFactor": 0,
+        "attrs": {
+          "constitution": 2,
+          "spirit": 2,
+          "perception": 1,
+          "talent": 1
+        }
+      }
+    ],
+    "skills": [],
+    "realmLv": 18,
+    "category": "internal"
+  }
+]

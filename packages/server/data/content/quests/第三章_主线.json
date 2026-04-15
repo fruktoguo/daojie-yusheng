@@ -1,0 +1,213 @@
+{
+  "quests": [
+    {
+      "id": "q_mine_signal_talk",
+      "title": "矿路先问还剩什么",
+      "line": "main",
+      "chapter": "第三章·矿洞遗火",
+      "story": "青竹林给了你方向，真正的答案却埋在矿洞和断碑遗迹里。清玄要你先去见锻炉余火，看那条早该断掉的矿路如今还剩下什么能用、什么不能碰。",
+      "desc": "进入玄铁矿洞，先与锻炉余火对话。",
+      "objectiveType": "talk",
+      "objectiveText": "去玄铁矿洞找锻炉余火",
+      "targetNpcId": "npc_mine_smith",
+      "targetNpcName": "锻炉余火",
+      "targetMapId": "black_iron_mine",
+      "targetName": "锻炉余火",
+      "required": 1,
+      "reward": [
+        {
+          "itemId": "book.redflame_art",
+          "name": "《赤焰诀》",
+          "type": "skill_book",
+          "count": 1
+        },
+        {
+          "itemId": "pill.minor_heal",
+          "name": "回春散",
+          "type": "consumable",
+          "count": 2
+        }
+      ],
+      "nextQuestId": "q_mine_signal_core",
+      "giverMapId": "yunlai_town",
+      "giverNpcId": "npc_qingxuan",
+      "submitMapId": "black_iron_mine",
+      "submitNpcId": "npc_mine_smith"
+    },
+    {
+      "id": "q_mine_signal_core",
+      "title": "把失落信标抢回来",
+      "line": "main",
+      "chapter": "第三章·矿洞遗火",
+      "story": "锻炉余火说矿路不是自己死的，是有人让它死的。若想知道当年矿道和镇里到底断在什么地方，就先去把那枚失落信标核心抢回来。矿路若还能亮一回，很多旧事都会自己浮出来。",
+      "desc": "击退矿洞活尸，抢回失落信标核心。",
+      "objectiveText": "击退矿洞活尸并夺回失落信标核心",
+      "targetMonsterId": "m_mine_ghoul",
+      "targetCount": 6,
+      "targetMapId": "black_iron_mine",
+      "targetName": "矿洞活尸",
+      "required": 6,
+      "requiredItemId": "mine_signal_core",
+      "requiredItemCount": 1,
+      "acceptRealmLv": 8,
+      "reward": [
+        {
+          "itemId": "book_thunder_palm",
+          "name": "《惊雷掌》残卷",
+          "type": "skill_book",
+          "count": 1
+        },
+        {
+          "itemId": "major_qi_pill",
+          "name": "大还灵丹",
+          "type": "consumable",
+          "count": 2
+        }
+      ],
+      "nextQuestId": "q_ruin_keeper_talk",
+      "giverMapId": "black_iron_mine",
+      "giverNpcId": "npc_mine_smith",
+      "submitMapId": "yunlai_town",
+      "submitNpcId": "npc_qingxuan"
+    },
+    {
+      "id": "q_ruin_keeper_talk",
+      "title": "轮到遗迹开口",
+      "line": "main",
+      "chapter": "第三章·矿洞遗火",
+      "story": "信标核心回到手里，清玄却只看了一眼就把你赶去断碑遗迹。他说矿路告诉你的只是“怎么坏的”，而遗迹里还埋着“为什么会坏”。去见守纹残念，那地方现在只剩死人肯说旧话。",
+      "desc": "前往断碑遗迹，与守纹残念对话。",
+      "objectiveType": "talk",
+      "objectiveText": "去断碑遗迹找守纹残念",
+      "targetNpcId": "npc_rune_keeper",
+      "targetNpcName": "守纹残念",
+      "targetMapId": "ancient_ruins",
+      "targetName": "守纹残念",
+      "required": 1,
+      "reward": [
+        {
+          "itemId": "book.hidden_fortune_record",
+          "name": "《藏运录》",
+          "type": "skill_book",
+          "count": 1
+        },
+        {
+          "itemId": "book.spirit_anchor",
+          "name": "《镇灵篇》",
+          "type": "skill_book",
+          "count": 1
+        },
+        {
+          "itemId": "pill.clear_eye_elixir",
+          "name": "明目丹",
+          "type": "consumable",
+          "count": 1
+        }
+      ],
+      "nextQuestId": "q_ruin_keystone_main",
+      "giverMapId": "yunlai_town",
+      "giverNpcId": "npc_qingxuan",
+      "submitMapId": "ancient_ruins",
+      "submitNpcId": "npc_rune_keeper"
+    },
+    {
+      "id": "q_ruin_keystone_main",
+      "title": "把门钥从死人手里拿走",
+      "line": "main",
+      "chapter": "第三章·矿洞遗火",
+      "story": "守纹残念承认自己只是守门的壳，真正能解释那段断裂历史的，是门后还没散干净的东西。你得先把遗迹钥石拿到手，让它没法继续把故事藏在门里。",
+      "desc": "击败符阵看守，取回遗迹钥石。",
+      "objectiveText": "击败符阵看守并取回遗迹钥石",
+      "targetMonsterId": "m_rune_watcher",
+      "targetCount": 2,
+      "targetMapId": "ancient_ruins",
+      "targetName": "符阵看守",
+      "required": 2,
+      "requiredItemId": "ruin_keystone",
+      "requiredItemCount": 1,
+      "acceptRealmLv": 10,
+      "reward": [
+        {
+          "itemId": "equip.rift_guard_armor",
+          "name": "镇煞护心甲",
+          "type": "equipment",
+          "count": 1
+        }
+      ],
+      "nextQuestId": "q_ruin_shard_trace",
+      "giverMapId": "ancient_ruins",
+      "giverNpcId": "npc_rune_keeper",
+      "submitMapId": "yunlai_town",
+      "submitNpcId": "npc_qingxuan"
+    },
+    {
+      "id": "q_ruin_shard_trace",
+      "title": "散开的旧纹",
+      "line": "main",
+      "chapter": "第三章·矿洞遗火",
+      "story": "矿洞的信标和遗迹的钥石拼在一起后，事情已经很清楚了: 云来镇外的那些怪事不是偶然，是旧阵崩坏以后一路往人间漏出来的余波。清玄让你再收一批断纹石片，把最后能辨认的线索都带回来。",
+      "desc": "清掉遗迹石卫，带回断纹石片让清玄确认旧阵残痕。",
+      "objectiveText": "清掉遗迹石卫并带回断纹石片",
+      "targetMonsterId": "m_ruin_guardian",
+      "targetCount": 6,
+      "targetMapId": "ancient_ruins",
+      "targetName": "石卫傀儡",
+      "required": 6,
+      "requiredItemId": "rune_shard",
+      "requiredItemCount": 6,
+      "reward": [
+        {
+          "itemId": "book_stillheart",
+          "name": "《止念诀》",
+          "type": "skill_book",
+          "count": 1
+        },
+        {
+          "itemId": "map.beast_valley",
+          "name": "群兽谷行图",
+          "type": "consumable",
+          "count": 1
+        }
+      ],
+      "nextQuestId": "q_ruin_innate",
+      "giverMapId": "yunlai_town",
+      "giverNpcId": "npc_qingxuan",
+      "submitMapId": "yunlai_town",
+      "submitNpcId": "npc_qingxuan"
+    },
+    {
+      "id": "q_ruin_innate",
+      "title": "先把自己练到能扛真相",
+      "line": "main",
+      "chapter": "第三章·矿洞遗火",
+      "story": "清玄终于承认，你已经摸到云来镇这场烂局的一角。但他还是那句话: 现在知道太多，对你只有死得更快一个下场。先把内外一炁练到先天，再去碰兽谷里真正往外冒的那股东西。",
+      "desc": "继续历练，迈入先天境，为进入噬魂兽谷做准备。",
+      "objectiveType": "realm_stage",
+      "objectiveText": "历练至先天境",
+      "targetRealmStage": "Innate",
+      "targetRealmLv": 13,
+      "targetMapId": "ancient_ruins",
+      "targetName": "先天境",
+      "required": 1,
+      "reward": [
+        {
+          "itemId": "pill.bitter_cultivation_elixir",
+          "name": "苦修丹",
+          "type": "consumable",
+          "count": 1
+        },
+        {
+          "itemId": "spirit_iron_fragment",
+          "name": "灵铁碎片",
+          "type": "material",
+          "count": 6
+        }
+      ],
+      "nextQuestId": "q_valley_patrol_talk",
+      "giverMapId": "yunlai_town",
+      "giverNpcId": "npc_qingxuan",
+      "submitMapId": "yunlai_town",
+      "submitNpcId": "npc_qingxuan"
+    }
+  ]
+}

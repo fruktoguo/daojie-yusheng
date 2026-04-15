@@ -1,0 +1,1377 @@
+[
+  {
+    "id": "monster_blade_limb_arts",
+    "name": "刃肢裂杀",
+    "grade": "yellow",
+    "category": "arts",
+    "realmLv": 1,
+    "layers": [
+      {
+        "level": 1,
+        "expFactor": 15,
+        "attrs": {
+          "perception": 3,
+          "constitution": 1
+        }
+      },
+      {
+        "level": 2,
+        "expFactor": 17,
+        "attrs": {
+          "perception": 3,
+          "constitution": 1
+        }
+      },
+      {
+        "level": 3,
+        "expFactor": 20,
+        "attrs": {
+          "perception": 3,
+          "constitution": 1
+        }
+      },
+      {
+        "level": 4,
+        "expFactor": 24,
+        "attrs": {
+          "perception": 3,
+          "constitution": 2
+        }
+      },
+      {
+        "level": 5,
+        "expFactor": 28,
+        "attrs": {
+          "perception": 4,
+          "constitution": 2
+        }
+      },
+      {
+        "level": 6,
+        "expFactor": 33,
+        "attrs": {
+          "perception": 4,
+          "constitution": 2
+        }
+      },
+      {
+        "level": 7,
+        "expFactor": 39,
+        "attrs": {
+          "perception": 4,
+          "constitution": 2
+        }
+      },
+      {
+        "level": 8,
+        "expFactor": 0,
+        "attrs": {
+          "perception": 5,
+          "constitution": 2
+        }
+      }
+    ],
+    "skills": [
+      {
+        "id": "skill.scythe_limb",
+        "name": "裂刃前肢",
+        "desc": "前肢先切出一道刃口，自身刃势也会顺着这次扑杀一起提起来。",
+        "cooldown": 10,
+        "costMultiplier": 3,
+        "range": 1,
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "physical",
+            "formula": {
+              "op": "mul",
+              "args": [
+                {
+                  "var": "caster.stat.physAtk",
+                  "scale": 3.2
+                },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    {
+                      "var": "techLevel",
+                      "scale": 0.1
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "buff",
+            "target": "self",
+            "buffId": "buff.monster_blade_limb",
+            "name": "刃势",
+            "desc": "肢锋未止，下一式更容易撕开破绽。",
+            "shortMark": "刃",
+            "category": "buff",
+            "visibility": "public",
+            "color": "#89c46a",
+            "duration": 24,
+            "maxStacks": 18,
+            "valueStats": {
+              "crit": 4,
+              "breakPower": 5
+            }
+          }
+        ],
+        "unlockLevel": 1
+      },
+      {
+        "id": "skill.whirl_scythe",
+        "name": "回旋碎叶",
+        "desc": "借刃势把前肢轮成一圈碎叶，贴身敌群会被一口气卷进斩击里。",
+        "cooldown": 17,
+        "costMultiplier": 3,
+        "range": 2,
+        "targeting": {
+          "shape": "area",
+          "radius": 1,
+          "maxTargets": 5
+        },
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "physical",
+            "formula": {
+              "op": "mul",
+              "args": [
+                {
+                  "var": "caster.stat.physAtk",
+                  "scale": 3.4
+                },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    {
+                      "var": "techLevel",
+                      "scale": 0.1
+                    },
+                    {
+                      "var": "caster.buff.buff.monster_blade_limb.stacks",
+                      "scale": 0.1
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "buff",
+            "target": "self",
+            "buffId": "buff.monster_blade_limb",
+            "name": "刃势",
+            "desc": "肢锋未止，下一式更容易撕开破绽。",
+            "shortMark": "刃",
+            "category": "buff",
+            "visibility": "public",
+            "color": "#89c46a",
+            "duration": 24,
+            "maxStacks": 18,
+            "valueStats": {
+              "crit": 4,
+              "breakPower": 5
+            }
+          }
+        ],
+        "unlockLevel": 4
+      }
+    ]
+  },
+  {
+    "id": "monster_venom_arts",
+    "name": "妖毒腑纹",
+    "grade": "yellow",
+    "category": "arts",
+    "realmLv": 1,
+    "layers": [
+      {
+        "level": 1,
+        "expFactor": 16,
+        "attrs": {
+          "spirit": 2,
+          "perception": 2
+        }
+      },
+      {
+        "level": 2,
+        "expFactor": 18,
+        "attrs": {
+          "spirit": 2,
+          "perception": 2
+        }
+      },
+      {
+        "level": 3,
+        "expFactor": 21,
+        "attrs": {
+          "spirit": 2,
+          "perception": 2
+        }
+      },
+      {
+        "level": 4,
+        "expFactor": 24,
+        "attrs": {
+          "spirit": 3,
+          "perception": 2
+        }
+      },
+      {
+        "level": 5,
+        "expFactor": 28,
+        "attrs": {
+          "spirit": 3,
+          "perception": 2
+        }
+      },
+      {
+        "level": 6,
+        "expFactor": 33,
+        "attrs": {
+          "spirit": 3,
+          "perception": 3
+        }
+      },
+      {
+        "level": 7,
+        "expFactor": 39,
+        "attrs": {
+          "spirit": 4,
+          "perception": 3
+        }
+      },
+      {
+        "level": 8,
+        "expFactor": 0,
+        "attrs": {
+          "spirit": 4,
+          "perception": 3
+        }
+      }
+    ],
+    "skills": [
+      {
+        "id": "skill.venom_fang",
+        "name": "毒牙噬",
+        "desc": "毒牙先把毒蚀送进经络，后续每一口瘴气都会更容易顺着伤处发作。",
+        "cooldown": 9,
+        "costMultiplier": 3,
+        "range": 1,
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "spell",
+            "element": "wood",
+            "formula": {
+              "op": "mul",
+              "args": [
+                {
+                  "var": "caster.stat.spellAtk",
+                  "scale": 3.1
+                },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    {
+                      "var": "techLevel",
+                      "scale": 0.1
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "buff",
+            "target": "target",
+            "buffId": "buff.monster_toxin",
+            "name": "毒蚀",
+            "desc": "毒性沿血脉渗开，法抗、闪避和化解一并走低。",
+            "shortMark": "毒",
+            "category": "debuff",
+            "visibility": "public",
+            "color": "#6aa84f",
+            "duration": 28,
+            "maxStacks": 24,
+            "valueStats": {
+              "spellDef": -3,
+              "dodge": -2,
+              "resolvePower": -3
+            }
+          }
+        ],
+        "unlockLevel": 1
+      },
+      {
+        "id": "skill.miasma_spray",
+        "name": "瘴雾喷吐",
+        "desc": "把先前灌入的毒意化成瘴雾一路压过去，毒蚀越深，后劲越狠。",
+        "cooldown": 18,
+        "costMultiplier": 3,
+        "range": 3,
+        "targeting": {
+          "shape": "line",
+          "maxTargets": 3
+        },
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "spell",
+            "element": "wood",
+            "formula": {
+              "op": "mul",
+              "args": [
+                {
+                  "var": "caster.stat.spellAtk",
+                  "scale": 3.4
+                },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    {
+                      "var": "techLevel",
+                      "scale": 0.1
+                    },
+                    {
+                      "var": "target.buff.buff.monster_toxin.stacks",
+                      "scale": 0.05
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "buff",
+            "target": "target",
+            "buffId": "buff.monster_toxin",
+            "name": "毒蚀",
+            "desc": "毒性沿血脉渗开，法抗、闪避和化解一并走低。",
+            "shortMark": "毒",
+            "category": "debuff",
+            "visibility": "public",
+            "color": "#6aa84f",
+            "duration": 28,
+            "maxStacks": 24,
+            "valueStats": {
+              "spellDef": -3,
+              "dodge": -2,
+              "resolvePower": -3
+            }
+          }
+        ],
+        "unlockLevel": 4
+      }
+    ]
+  },
+  {
+    "id": "monster_beast_arts",
+    "name": "妖兽猎杀本能",
+    "grade": "yellow",
+    "category": "arts",
+    "realmLv": 1,
+    "layers": [
+      {
+        "level": 1,
+        "expFactor": 16,
+        "attrs": {
+          "constitution": 2,
+          "perception": 2
+        }
+      },
+      {
+        "level": 2,
+        "expFactor": 18,
+        "attrs": {
+          "constitution": 2,
+          "perception": 2
+        }
+      },
+      {
+        "level": 3,
+        "expFactor": 20,
+        "attrs": {
+          "constitution": 2,
+          "perception": 2
+        }
+      },
+      {
+        "level": 4,
+        "expFactor": 23,
+        "attrs": {
+          "constitution": 3,
+          "perception": 2
+        }
+      },
+      {
+        "level": 5,
+        "expFactor": 26,
+        "attrs": {
+          "constitution": 3,
+          "perception": 2
+        }
+      },
+      {
+        "level": 6,
+        "expFactor": 30,
+        "attrs": {
+          "constitution": 3,
+          "perception": 3
+        }
+      },
+      {
+        "level": 7,
+        "expFactor": 35,
+        "attrs": {
+          "constitution": 3,
+          "perception": 3
+        }
+      },
+      {
+        "level": 8,
+        "expFactor": 0,
+        "attrs": {
+          "constitution": 4,
+          "perception": 3
+        }
+      }
+    ],
+    "skills": [
+      {
+        "id": "skill.predator_pounce",
+        "name": "裂喉扑杀",
+        "desc": "压低妖躯后猛扑夺位，先抢到贴身节奏，再把凶奔一并提起来。",
+        "cooldown": 12,
+        "costMultiplier": 3,
+        "range": 2,
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "physical",
+            "formula": {
+              "op": "mul",
+              "args": [
+                {
+                  "var": "caster.stat.physAtk",
+                  "scale": 3.4
+                },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    {
+                      "var": "techLevel",
+                      "scale": 0.1
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "buff",
+            "target": "self",
+            "buffId": "buff.monster_bloodrush",
+            "name": "凶奔",
+            "desc": "血气翻涌，扑杀后更快更狠。",
+            "shortMark": "凶",
+            "category": "buff",
+            "visibility": "public",
+            "color": "#c96d56",
+            "duration": 24,
+            "maxStacks": 18,
+            "valueStats": {
+              "moveSpeed": 8,
+              "crit": 4,
+              "breakPower": 4
+            }
+          }
+        ],
+        "unlockLevel": 1
+      },
+      {
+        "id": "skill.rending_claw",
+        "name": "裂骨爪",
+        "desc": "借扑势把爪锋拖成一道撕骨长痕，凶奔越盛，这一下越难硬吃。",
+        "cooldown": 17,
+        "costMultiplier": 3,
+        "range": 2,
+        "targeting": {
+          "shape": "line",
+          "maxTargets": 3
+        },
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "physical",
+            "formula": {
+              "op": "mul",
+              "args": [
+                {
+                  "var": "caster.stat.physAtk",
+                  "scale": 3.7
+                },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    {
+                      "var": "techLevel",
+                      "scale": 0.1
+                    },
+                    {
+                      "var": "caster.buff.buff.monster_bloodrush.stacks",
+                      "scale": 0.1
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "buff",
+            "target": "self",
+            "buffId": "buff.monster_bloodrush",
+            "name": "凶奔",
+            "desc": "血气翻涌，扑杀后更快更狠。",
+            "shortMark": "凶",
+            "category": "buff",
+            "visibility": "public",
+            "color": "#c96d56",
+            "duration": 24,
+            "maxStacks": 18,
+            "valueStats": {
+              "moveSpeed": 8,
+              "crit": 4,
+              "breakPower": 4
+            }
+          }
+        ],
+        "unlockLevel": 4
+      },
+      {
+        "id": "skill.brutal_ram",
+        "name": "蛮骨冲",
+        "desc": "把筋骨、体重和凶奔余势全压进一撞里，最适合强行开路撞穿前排。",
+        "cooldown": 17,
+        "costMultiplier": 3,
+        "range": 2,
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "physical",
+            "formula": {
+              "op": "mul",
+              "args": [
+                {
+                  "var": "caster.stat.physAtk",
+                  "scale": 3.1
+                },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    {
+                      "var": "techLevel",
+                      "scale": 0.1
+                    },
+                    {
+                      "var": "caster.buff.buff.monster_bloodrush.stacks",
+                      "scale": 0.1
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        "unlockLevel": 6
+      }
+    ]
+  },
+  {
+    "id": "monster_wing_arts",
+    "name": "异羽啸空",
+    "grade": "yellow",
+    "category": "arts",
+    "realmLv": 1,
+    "layers": [
+      {
+        "level": 1,
+        "expFactor": 16,
+        "attrs": {
+          "perception": 2,
+          "spirit": 2
+        }
+      },
+      {
+        "level": 2,
+        "expFactor": 18,
+        "attrs": {
+          "perception": 2,
+          "spirit": 2
+        }
+      },
+      {
+        "level": 3,
+        "expFactor": 21,
+        "attrs": {
+          "perception": 2,
+          "spirit": 2
+        }
+      },
+      {
+        "level": 4,
+        "expFactor": 24,
+        "attrs": {
+          "perception": 3,
+          "spirit": 2
+        }
+      },
+      {
+        "level": 5,
+        "expFactor": 28,
+        "attrs": {
+          "perception": 3,
+          "spirit": 3
+        }
+      },
+      {
+        "level": 6,
+        "expFactor": 33,
+        "attrs": {
+          "perception": 3,
+          "spirit": 3
+        }
+      },
+      {
+        "level": 7,
+        "expFactor": 39,
+        "attrs": {
+          "perception": 4,
+          "spirit": 3
+        }
+      },
+      {
+        "level": 8,
+        "expFactor": 0,
+        "attrs": {
+          "perception": 4,
+          "spirit": 4
+        }
+      }
+    ],
+    "skills": [
+      {
+        "id": "skill.plume_shot",
+        "name": "裂羽攒射",
+        "desc": "羽翎离弦时先校准高空身位，命中后自身也会顺势维持凌空压制。",
+        "cooldown": 13,
+        "costMultiplier": 3,
+        "range": 3,
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "spell",
+            "element": "fire",
+            "formula": {
+              "op": "mul",
+              "args": [
+                {
+                  "var": "caster.stat.spellAtk",
+                  "scale": 3.1
+                },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    {
+                      "var": "techLevel",
+                      "scale": 0.1
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "buff",
+            "target": "self",
+            "buffId": "buff.monster_skyline",
+            "name": "凌空",
+            "desc": "尖啸过后气机更稳，命中与闪避都随之走高。",
+            "shortMark": "凌",
+            "category": "buff",
+            "visibility": "public",
+            "color": "#9bb7d4",
+            "duration": 24,
+            "maxStacks": 18,
+            "valueStats": {
+              "hit": 4,
+              "dodge": 4
+            }
+          }
+        ],
+        "unlockLevel": 1
+      },
+      {
+        "id": "skill.echo_screech",
+        "name": "裂空尖啸",
+        "desc": "以尖啸震乱前排后，再借凌空余势把回音一路压进整条战线。",
+        "cooldown": 24,
+        "costMultiplier": 3,
+        "range": 4,
+        "targeting": {
+          "shape": "line",
+          "maxTargets": 4
+        },
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "spell",
+            "element": "metal",
+            "formula": {
+              "op": "mul",
+              "args": [
+                {
+                  "var": "caster.stat.spellAtk",
+                  "scale": 3.4
+                },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    {
+                      "var": "techLevel",
+                      "scale": 0.1
+                    },
+                    {
+                      "var": "caster.buff.buff.monster_skyline.stacks",
+                      "scale": 0.1
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "buff",
+            "target": "self",
+            "buffId": "buff.monster_skyline",
+            "name": "凌空",
+            "desc": "尖啸过后气机更稳，命中与闪避都随之走高。",
+            "shortMark": "凌",
+            "category": "buff",
+            "visibility": "public",
+            "color": "#9bb7d4",
+            "duration": 24,
+            "maxStacks": 18,
+            "valueStats": {
+              "hit": 4,
+              "dodge": 4
+            }
+          }
+        ],
+        "unlockLevel": 4
+      },
+      {
+        "id": "skill.frost_plume",
+        "name": "霜羽坠",
+        "desc": "把高空积起的寒意压进羽锋，坠下时会连霜痕一起钉进目标体表。",
+        "cooldown": 19,
+        "costMultiplier": 3,
+        "range": 3,
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "spell",
+            "element": "water",
+            "formula": {
+              "op": "mul",
+              "args": [
+                {
+                  "var": "caster.stat.spellAtk",
+                  "scale": 3.9
+                },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    {
+                      "var": "techLevel",
+                      "scale": 0.1
+                    },
+                    {
+                      "var": "caster.buff.buff.monster_skyline.stacks",
+                      "scale": 0.1
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "buff",
+            "target": "target",
+            "buffId": "buff.monster_frost",
+            "name": "霜痕",
+            "desc": "寒意黏身，法抗、命中与闪避同步下降。",
+            "shortMark": "霜",
+            "category": "debuff",
+            "visibility": "public",
+            "color": "#7db5d8",
+            "duration": 28,
+            "maxStacks": 24,
+            "valueStats": {
+              "spellDef": -3,
+              "hit": -3,
+              "dodge": -3
+            }
+          }
+        ],
+        "unlockLevel": 6
+      }
+    ]
+  },
+  {
+    "id": "monster_wood_sprite_arts",
+    "name": "竹灵草意",
+    "grade": "yellow",
+    "category": "arts",
+    "realmLv": 1,
+    "layers": [
+      {
+        "level": 1,
+        "expFactor": 16,
+        "attrs": {
+          "spirit": 2,
+          "perception": 2
+        }
+      },
+      {
+        "level": 2,
+        "expFactor": 18,
+        "attrs": {
+          "spirit": 2,
+          "perception": 2
+        }
+      },
+      {
+        "level": 3,
+        "expFactor": 21,
+        "attrs": {
+          "spirit": 3,
+          "perception": 2
+        }
+      },
+      {
+        "level": 4,
+        "expFactor": 24,
+        "attrs": {
+          "spirit": 3,
+          "perception": 2
+        }
+      },
+      {
+        "level": 5,
+        "expFactor": 28,
+        "attrs": {
+          "spirit": 3,
+          "perception": 3
+        }
+      },
+      {
+        "level": 6,
+        "expFactor": 33,
+        "attrs": {
+          "spirit": 4,
+          "perception": 3
+        }
+      },
+      {
+        "level": 7,
+        "expFactor": 39,
+        "attrs": {
+          "spirit": 4,
+          "perception": 3
+        }
+      },
+      {
+        "level": 8,
+        "expFactor": 0,
+        "attrs": {
+          "spirit": 4,
+          "perception": 4
+        }
+      }
+    ],
+    "skills": [
+      {
+        "id": "skill.bamboo_whip",
+        "name": "竹影抽",
+        "desc": "先用竹影抽乱步点，再把草木青缠顺着这一抽一起缠上去。",
+        "cooldown": 13,
+        "costMultiplier": 3,
+        "range": 3,
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "spell",
+            "element": "wood",
+            "formula": {
+              "op": "mul",
+              "args": [
+                {
+                  "var": "caster.stat.spellAtk",
+                  "scale": 3.2
+                },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    {
+                      "var": "techLevel",
+                      "scale": 0.1
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "buff",
+            "target": "target",
+            "buffId": "buff.monster_bamboo_bind",
+            "name": "青缠",
+            "desc": "草木灵气缠身，闪避和法抗一并走低。",
+            "shortMark": "缠",
+            "category": "debuff",
+            "visibility": "public",
+            "color": "#79b56b",
+            "duration": 28,
+            "maxStacks": 24,
+            "valueStats": {
+              "spellDef": -3,
+              "dodge": -3
+            }
+          }
+        ],
+        "unlockLevel": 1
+      },
+      {
+        "id": "skill.leaf_storm",
+        "name": "青叶乱雨",
+        "desc": "把缠在敌身上的草叶一口气搅成乱雨，青缠越深，落下时越密。",
+        "cooldown": 19,
+        "costMultiplier": 3,
+        "range": 3,
+        "targeting": {
+          "shape": "line",
+          "maxTargets": 3
+        },
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "spell",
+            "element": "wood",
+            "formula": {
+              "op": "mul",
+              "args": [
+                {
+                  "var": "caster.stat.spellAtk",
+                  "scale": 3.6
+                },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    {
+                      "var": "techLevel",
+                      "scale": 0.1
+                    },
+                    {
+                      "var": "target.buff.buff.monster_bamboo_bind.stacks",
+                      "scale": 0.05
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "buff",
+            "target": "target",
+            "buffId": "buff.monster_bamboo_bind",
+            "name": "青缠",
+            "desc": "草木灵气缠身，闪避和法抗一并走低。",
+            "shortMark": "缠",
+            "category": "debuff",
+            "visibility": "public",
+            "color": "#79b56b",
+            "duration": 28,
+            "maxStacks": 24,
+            "valueStats": {
+              "spellDef": -3,
+              "dodge": -3
+            }
+          }
+        ],
+        "unlockLevel": 4
+      }
+    ]
+  },
+  {
+    "id": "redflame_art",
+    "name": "赤焰诀",
+    "grade": "yellow",
+    "layers": [
+      {
+        "level": 1,
+        "expFactor": 18
+      },
+      {
+        "level": 2,
+        "expFactor": 19
+      },
+      {
+        "level": 3,
+        "expFactor": 21
+      },
+      {
+        "level": 4,
+        "expFactor": 23
+      },
+      {
+        "level": 5,
+        "expFactor": 25
+      },
+      {
+        "level": 6,
+        "expFactor": 28
+      },
+      {
+        "level": 7,
+        "expFactor": 31
+      },
+      {
+        "level": 8,
+        "expFactor": 34
+      },
+      {
+        "level": 9,
+        "expFactor": 38
+      },
+      {
+        "level": 10,
+        "expFactor": 43
+      },
+      {
+        "level": 11,
+        "expFactor": 0
+      }
+    ],
+    "skills": [
+      {
+        "id": "skill.redflame_art",
+        "name": "赤焰诀",
+        "desc": "离火化网罩落，灼脉缠身不绝。",
+        "cooldown": 12,
+        "costMultiplier": 5,
+        "range": 3,
+        "targeting": {
+          "shape": "box",
+          "maxTargets": 9,
+          "width": 3,
+          "height": 3
+        },
+        "targetMode": "tile",
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "spell",
+            "formula": {
+              "op": "mul",
+              "args": [
+                {
+                  "op": "add",
+                  "args": [
+                    50,
+                    {
+                      "var": "caster.stat.spellAtk",
+                      "scale": 3
+                    }
+                  ]
+                },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    {
+                      "var": "techLevel",
+                      "scale": 0.1
+                    },
+                    {
+                      "var": "target.buff.buff.fire_burn_mark.stacks",
+                      "scale": 0.01
+                    }
+                  ]
+                }
+              ]
+            },
+            "element": "fire"
+          },
+          {
+            "type": "buff",
+            "buffRef": "lianqi.fire.burn_mark",
+            "stacks": 5
+          }
+        ],
+        "unlockLevel": 1
+      }
+    ],
+    "realmLv": 10,
+    "category": "arts"
+  },
+  {
+    "id": "wind_step",
+    "name": "踏风步",
+    "grade": "yellow",
+    "layers": [
+      {
+        "level": 1,
+        "expFactor": 16
+      },
+      {
+        "level": 2,
+        "expFactor": 18
+      },
+      {
+        "level": 3,
+        "expFactor": 20
+      },
+      {
+        "level": 4,
+        "expFactor": 22
+      },
+      {
+        "level": 5,
+        "expFactor": 25
+      },
+      {
+        "level": 6,
+        "expFactor": 29
+      },
+      {
+        "level": 7,
+        "expFactor": 33
+      },
+      {
+        "level": 8,
+        "expFactor": 38
+      },
+      {
+        "level": 9,
+        "expFactor": 44
+      },
+      {
+        "level": 10,
+        "expFactor": 0
+      }
+    ],
+    "skills": [
+      {
+        "id": "skill.wind_step",
+        "name": "踏风步",
+        "desc": "借风提身，轻灵游走。",
+        "cooldown": 12,
+        "costMultiplier": 1,
+        "range": 0,
+        "requiresTarget": false,
+        "effects": [
+          {
+            "type": "buff",
+            "buffRef": "fanren.shufa.yellow.tafeng_step"
+          }
+        ],
+        "unlockLevel": 1
+      }
+    ],
+    "realmLv": 11,
+    "category": "arts"
+  },
+  {
+    "id": "iron_bone_art",
+    "name": "铁骨功",
+    "grade": "yellow",
+    "layers": [
+      {
+        "level": 1,
+        "expFactor": 16
+      },
+      {
+        "level": 2,
+        "expFactor": 19
+      },
+      {
+        "level": 3,
+        "expFactor": 24
+      },
+      {
+        "level": 4,
+        "expFactor": 32
+      },
+      {
+        "level": 5,
+        "expFactor": 38
+      },
+      {
+        "level": 6,
+        "expFactor": 48
+      },
+      {
+        "level": 7,
+        "expFactor": 58
+      },
+      {
+        "level": 8,
+        "expFactor": 0
+      }
+    ],
+    "skills": [
+      {
+        "id": "skill.iron_bone_art",
+        "name": "铁骨功",
+        "desc": "铁息贯骨，护体续命。",
+        "cooldown": 12,
+        "costMultiplier": 1,
+        "range": 0,
+        "requiresTarget": false,
+        "effects": [
+          {
+            "type": "buff",
+            "buffRef": "fanren.shufa.yellow.tiegu_guard"
+          }
+        ],
+        "unlockLevel": 1
+      }
+    ],
+    "realmLv": 12,
+    "category": "arts"
+  },
+  {
+    "id": "cloud_blade",
+    "name": "流云刀谱",
+    "grade": "yellow",
+    "layers": [
+      {
+        "level": 1,
+        "expFactor": 18
+      },
+      {
+        "level": 2,
+        "expFactor": 20
+      },
+      {
+        "level": 3,
+        "expFactor": 22
+      },
+      {
+        "level": 4,
+        "expFactor": 24
+      },
+      {
+        "level": 5,
+        "expFactor": 27
+      },
+      {
+        "level": 6,
+        "expFactor": 30
+      },
+      {
+        "level": 7,
+        "expFactor": 33
+      },
+      {
+        "level": 8,
+        "expFactor": 39
+      },
+      {
+        "level": 9,
+        "expFactor": 43
+      },
+      {
+        "level": 10,
+        "expFactor": 48
+      },
+      {
+        "level": 11,
+        "expFactor": 0
+      }
+    ],
+    "skills": [
+      {
+        "id": "skill.cloud_blade",
+        "name": "流云刀谱",
+        "desc": "身随刀走，刀随风掠，一线截开前路。",
+        "cooldown": 12,
+        "costMultiplier": 5,
+        "range": 3,
+        "targeting": {
+          "shape": "orientedBox",
+          "width": 3,
+          "height": 1,
+          "maxTargets": 3
+        },
+        "targetMode": "tile",
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "physical",
+            "formula": {
+              "op": "mul",
+              "args": [
+                {
+                  "op": "add",
+                  "args": [
+                    50,
+                    {
+                      "var": "caster.stat.physAtk",
+                      "scale": 3.25
+                    }
+                  ]
+                },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    {
+                      "var": "techLevel",
+                      "scale": 0.1
+                    },
+                    {
+                      "var": "caster.stat.moveSpeed",
+                      "scale": 0.001
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        "unlockLevel": 1
+      }
+    ],
+    "realmLv": 13,
+    "category": "arts"
+  }
+]

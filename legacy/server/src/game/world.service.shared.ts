@@ -1,6 +1,5 @@
 import { ActionDef, Attributes, percentModifierToMultiplier } from '@mud/shared';
 
-/** MONSTER_ATTR_KEYS：定义该变量以承载业务值。 */
 export const MONSTER_ATTR_KEYS: readonly (keyof Attributes)[] = [
   'constitution',
   'spirit',
@@ -10,7 +9,6 @@ export const MONSTER_ATTR_KEYS: readonly (keyof Attributes)[] = [
   'luck',
 ];
 
-/** createMonsterAttributeSnapshot：执行对应的业务逻辑。 */
 export function createMonsterAttributeSnapshot(initial = 0): Attributes {
   return {
     constitution: initial,
@@ -22,7 +20,6 @@ export function createMonsterAttributeSnapshot(initial = 0): Attributes {
   };
 }
 
-/** applyAttributeAdditions：执行对应的业务逻辑。 */
 export function applyAttributeAdditions(target: Attributes, patch: Partial<Attributes> | undefined): void {
   if (!patch) {
     return;
@@ -36,7 +33,6 @@ export function applyAttributeAdditions(target: Attributes, patch: Partial<Attri
   }
 }
 
-/** applyAttributePercentMultipliers：执行对应的业务逻辑。 */
 export function applyAttributePercentMultipliers(target: Attributes, patch: Partial<Attributes> | undefined): void {
   if (!patch) {
     return;
@@ -50,7 +46,6 @@ export function applyAttributePercentMultipliers(target: Attributes, patch: Part
   }
 }
 
-/** STATIC_CONTEXT_TOGGLE_ACTIONS：定义该变量以承载业务值。 */
 export const STATIC_CONTEXT_TOGGLE_ACTIONS: readonly ActionDef[] = [{
   id: 'toggle:auto_battle',
   name: '自动战斗',
@@ -95,59 +90,35 @@ export const STATIC_CONTEXT_TOGGLE_ACTIONS: readonly ActionDef[] = [{
   cooldownLeft: 0,
 }];
 
-/** INTRO_BODY_TECHNIQUE_ID：定义该变量以承载业务值。 */
 export const INTRO_BODY_TECHNIQUE_ID = 'standing_stake_art';
-/** INTRO_BODY_TECHNIQUE_BOOK_ID：定义该变量以承载业务值。 */
 export const INTRO_BODY_TECHNIQUE_BOOK_ID = 'book.standing_stake_art';
-/** INTRO_BODY_TEMPERING_QUEST_ID：定义该变量以承载业务值。 */
 export const INTRO_BODY_TEMPERING_QUEST_ID = 'q_intro_body_tempering';
-/** HUANLING_ZHENREN_MONSTER_ID：定义该变量以承载业务值。 */
 export const HUANLING_ZHENREN_MONSTER_ID = 'm_huanling_zhenren';
-/** HUANLING_FAXIANG_SKILL_ID：定义该变量以承载业务值。 */
 export const HUANLING_FAXIANG_SKILL_ID = 'skill.huanling_candan_faxiang';
-/** HUANLING_LIEFU_WAIHUAN_SKILL_ID：定义该变量以承载业务值。 */
 export const HUANLING_LIEFU_WAIHUAN_SKILL_ID = 'skill.huanling_liefu_waihuan';
-/** HUANLING_XINGLUO_CANPAN_SKILL_ID：定义该变量以承载业务值。 */
 export const HUANLING_XINGLUO_CANPAN_SKILL_ID = 'skill.huanling_xingluo_canpan';
-/** HUANLING_RONGHE_GUANMAI_SKILL_ID：定义该变量以承载业务值。 */
 export const HUANLING_RONGHE_GUANMAI_SKILL_ID = 'skill.huanling_ronghe_guanmai';
-/** HUANLING_LIEQI_ZHIXIAN_SKILL_ID：定义该变量以承载业务值。 */
 export const HUANLING_LIEQI_ZHIXIAN_SKILL_ID = 'skill.huanling_lieqi_zhixian';
-/** HUANLING_SUOGONG_NEIHUAN_SKILL_ID：定义该变量以承载业务值。 */
 export const HUANLING_SUOGONG_NEIHUAN_SKILL_ID = 'skill.huanling_suogong_neihuan';
-/** HUANLING_DIFU_CHENYIN_SKILL_ID：定义该变量以承载业务值。 */
 export const HUANLING_DIFU_CHENYIN_SKILL_ID = 'skill.huanling_difu_chenyin';
-/** HUANLING_DUANHUN_DING_SKILL_ID：定义该变量以承载业务值。 */
 export const HUANLING_DUANHUN_DING_SKILL_ID = 'skill.huanling_duanhun_ding';
-/** HUANLING_CANPO_ZHANG_SKILL_ID：定义该变量以承载业务值。 */
 export const HUANLING_CANPO_ZHANG_SKILL_ID = 'skill.huanling_canpo_zhang';
-/** HUANLING_FAXIANG_BUFF_ID：定义该变量以承载业务值。 */
 export const HUANLING_FAXIANG_BUFF_ID = 'buff.huanling_candan_faxiang';
-/** HUANLING_RONGMAI_YIN_BUFF_ID：定义该变量以承载业务值。 */
 export const HUANLING_RONGMAI_YIN_BUFF_ID = 'buff.huanling_rongmai_yin';
-/** HUANLING_CANMAI_SUOBU_BUFF_ID：定义该变量以承载业务值。 */
 export const HUANLING_CANMAI_SUOBU_BUFF_ID = 'buff.huanling_canmai_suobu';
-/** TERRAIN_MOLTEN_POOL_BURN_BUFF_ID：定义该变量以承载业务值。 */
 export const TERRAIN_MOLTEN_POOL_BURN_BUFF_ID = 'terrain_molten_pool_burn';
 
-/** RUNTIME_STATE_SCOPE：定义该变量以承载业务值。 */
 export const RUNTIME_STATE_SCOPE = 'runtime_state';
-/** MAP_MONSTER_RUNTIME_DOCUMENT_KEY：定义该变量以承载业务值。 */
 export const MAP_MONSTER_RUNTIME_DOCUMENT_KEY = 'map_monster';
-/** NPC_SHOP_RUNTIME_DOCUMENT_KEY：定义该变量以承载业务值。 */
 export const NPC_SHOP_RUNTIME_DOCUMENT_KEY = 'npc_shop';
 
-/** getMonsterDisplayName：执行对应的业务逻辑。 */
 export function getMonsterDisplayName(name: string, tier: 'mortal_blood' | 'variant' | 'demon_king'): string {
   if (tier !== 'variant') {
     return name;
   }
-/** sanitized：定义该变量以承载业务值。 */
   const sanitized = name.replaceAll('精英', '').trim();
   return sanitized.length > 0 ? sanitized : name;
 }
 
-/** DEFENSE_REDUCTION_ATTACK_RATIO：定义该变量以承载业务值。 */
 export const DEFENSE_REDUCTION_ATTACK_RATIO = 0.1;
-/** DEFENSE_REDUCTION_BASELINE：定义该变量以承载业务值。 */
 export const DEFENSE_REDUCTION_BASELINE = 100;

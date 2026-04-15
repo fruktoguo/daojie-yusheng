@@ -5,7 +5,6 @@
 
 import { C2S_GmUpdatePlayer, GmPlayerSummary, S2C_GmState, Suggestion } from '@mud/shared';
 
-/** GmCallbacks：定义该接口的能力与字段约束。 */
 interface GmCallbacks {
   onRefresh: () => void;
   onResetSelf: () => void;
@@ -19,17 +18,15 @@ interface GmCallbacks {
   onRemoveSuggestion: (id: string) => void;
 }
 
-/** getPlayerAccountLabel：执行对应的业务逻辑。 */
 function getPlayerAccountLabel(player: GmPlayerSummary): string {
   return player.accountName ?? (player.isBot ? '机器人' : '无');
 }
 
-/** getPlayerMapLabel：执行对应的业务逻辑。 */
 function getPlayerMapLabel(player: GmPlayerSummary): string {
   return player.mapName || player.mapId;
 }
 
-/** createEmptyGmState：执行对应的业务逻辑。 */
+
 function createEmptyGmState(): S2C_GmState {
   return {
     players: [],
@@ -100,62 +97,37 @@ function createEmptyGmState(): S2C_GmState {
   };
 }
 
-/** GmPanel：封装相关状态与行为。 */
 export class GmPanel {
   private pane = document.getElementById('pane-gm')!;
-/** state：定义该变量以承载业务值。 */
   private state: S2C_GmState = createEmptyGmState();
-/** suggestions：定义该变量以承载业务值。 */
   private suggestions: Suggestion[] = [];
-/** selectedPlayerId：定义该变量以承载业务值。 */
   private selectedPlayerId: string | null = null;
-/** callbacks：定义该变量以承载业务值。 */
   private callbacks: GmCallbacks | null = null;
   private initialized = false;
 
-/** perfCpuEl：定义该变量以承载业务值。 */
   private perfCpuEl: HTMLElement | null = null;
-/** perfMemoryEl：定义该变量以承载业务值。 */
   private perfMemoryEl: HTMLElement | null = null;
-/** perfTickEl：定义该变量以承载业务值。 */
   private perfTickEl: HTMLElement | null = null;
-/** playerCountEl：定义该变量以承载业务值。 */
   private playerCountEl: HTMLElement | null = null;
-/** botsDisplayEl：定义该变量以承载业务值。 */
   private botsDisplayEl: HTMLElement | null = null;
-/** playerListEl：定义该变量以承载业务值。 */
   private playerListEl: HTMLElement | null = null;
-/** detailFormEl：定义该变量以承载业务值。 */
   private detailFormEl: HTMLElement | null = null;
-/** detailEmptyEl：定义该变量以承载业务值。 */
   private detailEmptyEl: HTMLElement | null = null;
-/** suggestionListEl：定义该变量以承载业务值。 */
   private suggestionListEl: HTMLElement | null = null;
 
-/** mapSelect：定义该变量以承载业务值。 */
   private mapSelect: HTMLSelectElement | null = null;
-/** xInput：定义该变量以承载业务值。 */
   private xInput: HTMLInputElement | null = null;
-/** yInput：定义该变量以承载业务值。 */
   private yInput: HTMLInputElement | null = null;
-/** hpInput：定义该变量以承载业务值。 */
   private hpInput: HTMLInputElement | null = null;
-/** autoBattleCheckbox：定义该变量以承载业务值。 */
   private autoBattleCheckbox: HTMLInputElement | null = null;
-/** saveBtn：定义该变量以承载业务值。 */
   private saveBtn: HTMLButtonElement | null = null;
-/** healBtn：定义该变量以承载业务值。 */
   private healBtn: HTMLButtonElement | null = null;
-/** resetBtn：定义该变量以承载业务值。 */
   private resetBtn: HTMLButtonElement | null = null;
-/** resetHeavenGateBtn：定义该变量以承载业务值。 */
   private resetHeavenGateBtn: HTMLButtonElement | null = null;
-/** removeBtn：定义该变量以承载业务值。 */
   private removeBtn: HTMLButtonElement | null = null;
-/** botCountInput：定义该变量以承载业务值。 */
   private botCountInput: HTMLInputElement | null = null;
 
-/** setCallbacks：执行对应的业务逻辑。 */
+/** setCallbacks：设置并同步相关状态。 */
   setCallbacks(callbacks: GmCallbacks): void {
     this.callbacks = callbacks;
   }
@@ -174,20 +146,16 @@ export class GmPanel {
     this.updateSuggestions();
   }
 
-/** updateSuggestionsData：处理当前场景中的对应操作。 */
   updateSuggestionsData(suggestions: Suggestion[]) {
     this.suggestions = suggestions;
     this.updateSuggestions();
   }
 
-/** updateSuggestions：处理当前场景中的对应操作。 */
   private updateSuggestions() {
     if (!this.suggestionListEl) return;
 
-/** preserved：定义该变量以承载业务值。 */
     const preserved = this.captureContainerState(this.suggestionListEl);
     if (this.suggestions.length === 0) {
-/** empty：定义该变量以承载业务值。 */
       const empty = document.createElement('div');
       empty.dataset.gmEmptyState = 'suggestions';
       empty.style.color = '#666';
@@ -198,23 +166,17 @@ export class GmPanel {
       return;
     }
 
-/** orderedSuggestions：定义该变量以承载业务值。 */
     const orderedSuggestions = [...this.suggestions].sort((a, b) => b.createdAt - a.createdAt);
-/** existingItems：定义该变量以承载业务值。 */
     const existingItems = new Map<string, HTMLElement>();
     this.suggestionListEl.querySelectorAll<HTMLElement>('[data-gm-suggestion-id]').forEach((item) => {
-/** id：定义该变量以承载业务值。 */
       const id = item.dataset.gmSuggestionId;
       if (id) {
         existingItems.set(id, item);
       }
     });
 
-/** orderedItems：定义该变量以承载业务值。 */
     const orderedItems = orderedSuggestions.map((suggestion) => {
-/** existing：定义该变量以承载业务值。 */
       const existing = existingItems.get(suggestion.id);
-/** item：定义该变量以承载业务值。 */
       const item = existing ?? this.createSuggestionItem();
       this.patchSuggestionItem(item, suggestion);
       existingItems.delete(suggestion.id);
@@ -226,7 +188,7 @@ export class GmPanel {
     this.restoreContainerState(this.suggestionListEl, preserved);
   }
 
-/** clear：执行对应的业务逻辑。 */
+/** clear：清理并清空临时数据。 */
   clear(): void {
     this.state = createEmptyGmState();
     this.suggestions = [];
@@ -255,7 +217,7 @@ export class GmPanel {
     this.pane.innerHTML = '<div class="empty-hint">暂无 GM 数据</div>';
   }
 
-/** ensureLayout：执行对应的业务逻辑。 */
+
   private ensureLayout(): void {
     if (this.initialized) return;
     this.initialized = true;
@@ -364,13 +326,12 @@ export class GmPanel {
     this.setDetailVisibility(false);
   }
 
-/** bindStaticEvents：执行对应的业务逻辑。 */
+/** bindStaticEvents：绑定回调。 */
   private bindStaticEvents(): void {
     document.getElementById('gm-refresh')?.addEventListener('click', () => this.callbacks?.onRefresh());
     document.getElementById('gm-reset-self')?.addEventListener('click', () => this.callbacks?.onResetSelf());
     document.getElementById('gm-cycle-zoom')?.addEventListener('click', () => this.callbacks?.onCycleZoom());
     document.getElementById('gm-spawn-bots')?.addEventListener('click', () => {
-/** count：定义该变量以承载业务值。 */
       const count = Number(this.botCountInput?.value ?? '0');
       if (Number.isNaN(count) || count <= 0) return;
       this.callbacks?.onSpawnBots(count);
@@ -380,23 +341,18 @@ export class GmPanel {
     });
 
     this.playerListEl?.addEventListener('click', (event) => {
-/** button：定义该变量以承载业务值。 */
       const button = (event.target as HTMLElement).closest<HTMLElement>('[data-gm-player-id]');
-/** id：定义该变量以承载业务值。 */
       const id = button?.dataset.gmPlayerId;
       if (id) {
         this.handlePlayerSelect(id);
       }
     });
     this.suggestionListEl?.addEventListener('click', (event) => {
-/** button：定义该变量以承载业务值。 */
       const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-gm-suggest-action][data-id]');
-/** id：定义该变量以承载业务值。 */
       const id = button?.dataset.id;
       if (!id) {
         return;
       }
-/** action：定义该变量以承载业务值。 */
       const action = button.dataset.gmSuggestAction;
       if (action === 'complete') {
         this.callbacks?.onMarkSuggestionCompleted(id);
@@ -414,24 +370,20 @@ export class GmPanel {
     this.removeBtn?.addEventListener('click', () => this.handleRemove());
   }
 
-/** updatePerformance：执行对应的业务逻辑。 */
   private updatePerformance(): void {
     if (!this.perfCpuEl || !this.perfMemoryEl || !this.perfTickEl) return;
     this.perfCpuEl.textContent = `${Math.round(this.state.perf.cpuPercent)}%`;
     this.perfMemoryEl.textContent = `${Math.round(this.state.perf.memoryMb)} MB`;
-/** tickPerf：定义该变量以承载业务值。 */
     const tickPerf = this.state.perf.tick ?? {
       lastMapId: null,
       lastMs: this.state.perf.tickMs,
     };
-/** lastMapId：定义该变量以承载业务值。 */
     const lastMapId = tickPerf.lastMapId;
     this.perfTickEl.textContent = lastMapId
       ? `${Math.round(tickPerf.lastMs)} ms · ${lastMapId}`
       : `${Math.round(tickPerf.lastMs)} ms`;
   }
 
-/** updateOverview：执行对应的业务逻辑。 */
   private updateOverview(): void {
     if (this.playerCountEl) {
       this.playerCountEl.textContent = `${this.state.players.length}`;
@@ -441,13 +393,10 @@ export class GmPanel {
     }
   }
 
-/** updatePlayerList：执行对应的业务逻辑。 */
   private updatePlayerList(): void {
     if (!this.playerListEl) return;
-/** preserved：定义该变量以承载业务值。 */
     const preserved = this.captureContainerState(this.playerListEl);
     if (this.state.players.length === 0) {
-/** empty：定义该变量以承载业务值。 */
       const empty = document.createElement('div');
       empty.className = 'empty-hint';
       empty.dataset.gmEmptyState = 'players';
@@ -455,20 +404,15 @@ export class GmPanel {
       this.playerListEl.replaceChildren(empty);
       return;
     }
-/** existingRows：定义该变量以承载业务值。 */
     const existingRows = new Map<string, HTMLButtonElement>();
     this.playerListEl.querySelectorAll<HTMLButtonElement>('[data-gm-player-id]').forEach((row) => {
-/** id：定义该变量以承载业务值。 */
       const id = row.dataset.gmPlayerId;
       if (id) {
         existingRows.set(id, row);
       }
     });
-/** orderedRows：定义该变量以承载业务值。 */
     const orderedRows = this.state.players.map((player) => {
-/** existing：定义该变量以承载业务值。 */
       const existing = existingRows.get(player.id);
-/** row：定义该变量以承载业务值。 */
       const row = existing ?? this.createPlayerRow();
       this.patchPlayerRow(row, player);
       existingRows.delete(player.id);
@@ -479,9 +423,7 @@ export class GmPanel {
     this.restoreContainerState(this.playerListEl, preserved);
   }
 
-/** updateDetail：执行对应的业务逻辑。 */
   private updateDetail(): void {
-/** selected：定义该变量以承载业务值。 */
     const selected = this.getSelectedPlayer();
     if (!selected) {
       this.setDetailVisibility(false);
@@ -493,12 +435,9 @@ export class GmPanel {
     this.updateDetailFields(selected);
   }
 
-/** updateDetailFields：执行对应的业务逻辑。 */
   private updateDetailFields(selected: GmPlayerSummary): void {
     if (this.mapSelect && !this.isActiveElement(this.mapSelect)) {
-/** maps：定义该变量以承载业务值。 */
       const maps = this.state.mapIds.map((mapId) => ` <option value="${mapId}">${mapId}</option>`).join('');
-/** includesSelected：定义该变量以承载业务值。 */
       const includesSelected = this.state.mapIds.includes(selected.mapId);
       this.mapSelect.innerHTML = `${maps}${includesSelected ? '' : `<option value="${selected.mapId}">${selected.mapId}</option>`}`;
       this.mapSelect.value = selected.mapId;
@@ -524,7 +463,7 @@ export class GmPanel {
     }
   }
 
-/** setDetailVisibility：执行对应的业务逻辑。 */
+/** setDetailVisibility：设置并同步相关状态。 */
   private setDetailVisibility(visible: boolean): void {
     if (this.detailFormEl) {
       (this.detailFormEl as HTMLElement).style.display = visible ? '' : 'none';
@@ -534,7 +473,7 @@ export class GmPanel {
     }
   }
 
-/** toggleDetailButtons：执行对应的业务逻辑。 */
+
   private toggleDetailButtons(enabled: boolean, showRemove: boolean): void {
     if (this.saveBtn) {
       this.saveBtn.disabled = !enabled;
@@ -551,13 +490,12 @@ export class GmPanel {
     }
   }
 
-/** getSelectedPlayer：执行对应的业务逻辑。 */
   private getSelectedPlayer(): GmPlayerSummary | null {
     if (!this.selectedPlayerId) return null;
     return this.state.players.find((player) => player.id === this.selectedPlayerId) ?? null;
   }
 
-/** handlePlayerSelect：执行对应的业务逻辑。 */
+/** handlePlayerSelect：处理输入事件。 */
   private handlePlayerSelect(id: string): void {
     if (this.selectedPlayerId === id) return;
     this.selectedPlayerId = id;
@@ -565,27 +503,20 @@ export class GmPanel {
     this.updateDetail();
   }
 
-/** handleSave：执行对应的业务逻辑。 */
+/** handleSave：处理输入事件。 */
   private handleSave(): void {
-/** player：定义该变量以承载业务值。 */
     const player = this.getSelectedPlayer();
     if (!player) return;
-/** mapId：定义该变量以承载业务值。 */
     const mapId = this.mapSelect?.value ?? player.mapId;
-/** x：定义该变量以承载业务值。 */
     const x = Number(this.xInput?.value ?? player.x);
-/** y：定义该变量以承载业务值。 */
     const y = Number(this.yInput?.value ?? player.y);
-/** hp：定义该变量以承载业务值。 */
     const hp = Number(this.hpInput?.value ?? player.hp);
-/** autoBattle：定义该变量以承载业务值。 */
     const autoBattle = Boolean(this.autoBattleCheckbox?.checked ?? player.autoBattle);
     this.callbacks?.onUpdatePlayer({ playerId: player.id, mapId, x, y, hp, autoBattle });
   }
 
-/** handleHeal：执行对应的业务逻辑。 */
+/** handleHeal：处理输入事件。 */
   private handleHeal(): void {
-/** player：定义该变量以承载业务值。 */
     const player = this.getSelectedPlayer();
     if (!player) return;
     this.callbacks?.onUpdatePlayer({
@@ -598,47 +529,39 @@ export class GmPanel {
     });
   }
 
-/** handleReset：执行对应的业务逻辑。 */
+/** handleReset：处理输入事件。 */
   private handleReset(): void {
-/** player：定义该变量以承载业务值。 */
     const player = this.getSelectedPlayer();
     if (!player) return;
     this.callbacks?.onResetPlayer(player.id);
   }
 
-/** handleResetHeavenGate：执行对应的业务逻辑。 */
+/** handleResetHeavenGate：处理输入事件。 */
   private handleResetHeavenGate(): void {
-/** player：定义该变量以承载业务值。 */
     const player = this.getSelectedPlayer();
     if (!player) return;
     this.callbacks?.onResetHeavenGate(player.id);
   }
 
-/** handleRemove：执行对应的业务逻辑。 */
+/** handleRemove：处理输入事件。 */
   private handleRemove(): void {
-/** player：定义该变量以承载业务值。 */
     const player = this.getSelectedPlayer();
     if (!player || !player.isBot) return;
     this.callbacks?.onRemoveBots([player.id], false);
   }
 
-/** createPlayerRow：执行对应的业务逻辑。 */
+
   private createPlayerRow(): HTMLButtonElement {
-/** button：定义该变量以承载业务值。 */
     const button = document.createElement('button');
     button.className = 'gm-player-row';
     button.type = 'button';
-/** content：定义该变量以承载业务值。 */
     const content = document.createElement('div');
-/** name：定义该变量以承载业务值。 */
     const name = document.createElement('div');
     name.className = 'gm-player-name';
     name.dataset.gmRole = 'name';
-/** accountMeta：定义该变量以承载业务值。 */
     const accountMeta = document.createElement('div');
     accountMeta.className = 'gm-player-meta';
     accountMeta.dataset.gmRole = 'account';
-/** mapMeta：定义该变量以承载业务值。 */
     const mapMeta = document.createElement('div');
     mapMeta.className = 'gm-player-meta';
     mapMeta.dataset.gmRole = 'map';
@@ -647,15 +570,12 @@ export class GmPanel {
     return button;
   }
 
-/** patchPlayerRow：执行对应的业务逻辑。 */
+
   private patchPlayerRow(row: HTMLButtonElement, player: GmPlayerSummary): void {
     row.dataset.gmPlayerId = player.id;
     row.classList.toggle('active', player.id === this.selectedPlayerId);
-/** name：定义该变量以承载业务值。 */
     const name = row.querySelector<HTMLElement>('[data-gm-role="name"]');
-/** accountMeta：定义该变量以承载业务值。 */
     const accountMeta = row.querySelector<HTMLElement>('[data-gm-role="account"]');
-/** mapMeta：定义该变量以承载业务值。 */
     const mapMeta = row.querySelector<HTMLElement>('[data-gm-role="map"]');
     if (name) {
       name.textContent = player.roleName;
@@ -668,38 +588,32 @@ export class GmPanel {
     }
   }
 
-/** createSuggestionItem：执行对应的业务逻辑。 */
+
   private createSuggestionItem(): HTMLElement {
-/** item：定义该变量以承载业务值。 */
     const item = document.createElement('div');
     item.style.borderBottom = '1px solid #333';
     item.style.padding = '5px';
     item.style.marginBottom = '5px';
 
-/** header：定义该变量以承载业务值。 */
     const header = document.createElement('div');
     header.style.display = 'flex';
     header.style.justifyContent = 'space-between';
 
-/** title：定义该变量以承载业务值。 */
     const title = document.createElement('span');
     title.dataset.gmSuggestionRole = 'title';
     title.style.fontWeight = 'var(--font-weight-strong)';
-/** author：定义该变量以承载业务值。 */
     const author = document.createElement('span');
     author.dataset.gmSuggestionRole = 'author';
     author.style.color = '#888';
     author.style.fontSize = '10px';
     header.append(title, author);
 
-/** description：定义该变量以承载业务值。 */
     const description = document.createElement('div');
     description.dataset.gmSuggestionRole = 'description';
     description.style.color = '#aaa';
     description.style.margin = '3px 0';
     description.style.wordBreak = 'break-all';
 
-/** actions：定义该变量以承载业务值。 */
     const actions = document.createElement('div');
     actions.dataset.gmSuggestionRole = 'actions';
     actions.style.display = 'flex';
@@ -707,7 +621,6 @@ export class GmPanel {
     actions.style.alignItems = 'center';
     actions.style.marginTop = '5px';
 
-/** votes：定义该变量以承载业务值。 */
     const votes = document.createElement('span');
     votes.dataset.gmSuggestionRole = 'votes';
     votes.style.color = '#888';
@@ -717,18 +630,13 @@ export class GmPanel {
     return item;
   }
 
-/** patchSuggestionItem：执行对应的业务逻辑。 */
+
   private patchSuggestionItem(item: HTMLElement, suggestion: Suggestion): void {
     item.dataset.gmSuggestionId = suggestion.id;
-/** title：定义该变量以承载业务值。 */
     const title = item.querySelector<HTMLElement>('[data-gm-suggestion-role="title"]');
-/** author：定义该变量以承载业务值。 */
     const author = item.querySelector<HTMLElement>('[data-gm-suggestion-role="author"]');
-/** description：定义该变量以承载业务值。 */
     const description = item.querySelector<HTMLElement>('[data-gm-suggestion-role="description"]');
-/** votes：定义该变量以承载业务值。 */
     const votes = item.querySelector<HTMLElement>('[data-gm-suggestion-role="votes"]');
-/** actions：定义该变量以承载业务值。 */
     const actions = item.querySelector<HTMLElement>('[data-gm-suggestion-role="actions"]');
 
     if (title) {
@@ -749,7 +657,6 @@ export class GmPanel {
     }
 
     this.setSuggestionPendingAction(actions, suggestion);
-/** removeButton：定义该变量以承载业务值。 */
     let removeButton = actions.querySelector<HTMLButtonElement>('[data-gm-suggest-action="remove"]');
     if (!removeButton) {
       removeButton = this.createSuggestionActionButton('移除', 'remove', '#ff4444');
@@ -758,27 +665,23 @@ export class GmPanel {
     removeButton.dataset.id = suggestion.id;
   }
 
-/** setSuggestionPendingAction：执行对应的业务逻辑。 */
+/** setSuggestionPendingAction：设置并同步相关状态。 */
   private setSuggestionPendingAction(actions: HTMLElement, suggestion: Suggestion): void {
-/** existing：定义该变量以承载业务值。 */
     const existing = actions.querySelector<HTMLButtonElement>('[data-gm-suggest-action="complete"]');
     if (suggestion.status !== 'pending') {
       existing?.remove();
       return;
     }
-/** button：定义该变量以承载业务值。 */
     const button = existing ?? this.createSuggestionActionButton('标记完成', 'complete');
     button.dataset.id = suggestion.id;
     if (!existing) {
-/** removeButton：定义该变量以承载业务值。 */
       const removeButton = actions.querySelector('[data-gm-suggest-action="remove"]');
       actions.insertBefore(button, removeButton ?? null);
     }
   }
 
-/** createSuggestionActionButton：执行对应的业务逻辑。 */
+
   private createSuggestionActionButton(label: string, action: 'complete' | 'remove', color?: string): HTMLButtonElement {
-/** button：定义该变量以承载业务值。 */
     const button = document.createElement('button');
     button.type = 'button';
     button.dataset.gmSuggestAction = action;
@@ -792,9 +695,8 @@ export class GmPanel {
     return button;
   }
 
-/** syncContainerChildren：执行对应的业务逻辑。 */
+/** syncContainerChildren：同步外部状态到本地。 */
   private syncContainerChildren(container: HTMLElement, orderedChildren: HTMLElement[]): void {
-/** allowed：定义该变量以承载业务值。 */
     const allowed = new Set(orderedChildren);
     Array.from(container.children).forEach((child) => {
       if (child instanceof HTMLElement && !allowed.has(child)) {
@@ -802,7 +704,6 @@ export class GmPanel {
       }
     });
     orderedChildren.forEach((child, index) => {
-/** current：定义该变量以承载业务值。 */
       const current = container.children.item(index);
       if (current !== child) {
         container.insertBefore(child, current ?? null);
@@ -817,39 +718,31 @@ export class GmPanel {
     };
   }
 
-/** restoreContainerState：执行对应的业务逻辑。 */
+
   private restoreContainerState(container: HTMLElement, preserved: { scrollTop: number; focusSelector: string | null }): void {
     container.scrollTop = preserved.scrollTop;
     if (!preserved.focusSelector) {
       return;
     }
-/** target：定义该变量以承载业务值。 */
     const target = container.querySelector<HTMLElement>(preserved.focusSelector);
     target?.focus({ preventScroll: true });
   }
 
-/** buildContainedFocusSelector：执行对应的业务逻辑。 */
   private buildContainedFocusSelector(container: HTMLElement): string | null {
-/** active：定义该变量以承载业务值。 */
     const active = document.activeElement;
     if (!(active instanceof HTMLElement) || !container.contains(active)) {
       return null;
     }
-/** suggestionButton：定义该变量以承载业务值。 */
     const suggestionButton = active.closest<HTMLElement>('[data-gm-suggest-action][data-id]');
     if (suggestionButton && container.contains(suggestionButton)) {
-/** action：定义该变量以承载业务值。 */
       const action = suggestionButton.dataset.gmSuggestAction;
-/** id：定义该变量以承载业务值。 */
       const id = suggestionButton.dataset.id;
       if (action && id) {
         return `[data-gm-suggest-action="${action}"][data-id="${this.escapeSelectorValue(id)}"]`;
       }
     }
-/** playerButton：定义该变量以承载业务值。 */
     const playerButton = active.closest<HTMLElement>('[data-gm-player-id]');
     if (playerButton && container.contains(playerButton)) {
-/** id：定义该变量以承载业务值。 */
       const id = playerButton.dataset.gmPlayerId;
       if (id) {
         return `[data-gm-player-id="${this.escapeSelectorValue(id)}"]`;
@@ -858,7 +751,7 @@ export class GmPanel {
     return null;
   }
 
-/** escapeSelectorValue：执行对应的业务逻辑。 */
+
   private escapeSelectorValue(value: string): string {
     if (typeof CSS !== 'undefined' && typeof CSS.escape === 'function') {
       return CSS.escape(value);
@@ -866,7 +759,7 @@ export class GmPanel {
     return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
   }
 
-/** isActiveElement：执行对应的业务逻辑。 */
+/** isActiveElement：判断并返回条件结果。 */
   private isActiveElement(element?: Element | null): boolean {
     return Boolean(element && document.activeElement === element);
   }

@@ -19,15 +19,21 @@
 - 当前保守判断下，距离“完整替换游戏整体”仍约差 `35% - 40%`。
 - 这份文件只负责解释“跑什么、证明什么、不能证明什么”，不负责替代任务账本或运维手册。
 
-## 四层 Gate
+## 五层 Gate
 
-这四层不是同一件事的不同叫法，不能混读。
+这五层不是同一件事的不同叫法，不能混读。
 
 ### `local`
 
 - 回答的问题：代码和主证明链是否绿。
 - 典型内容：`client-next build`、本地主证明链、协议审计。
 - 不回答的问题：shadow 实物验收、数据库补证、破坏性维护窗口是否可控。
+
+### `with-db`
+
+- 回答的问题：在提供数据库环境时，本地主证明链与持久化 proof 是否成立。
+- 典型内容：`local` + `verify:replace-ready:with-db` 对应的 persistence 带库链。
+- 不回答的问题：shadow 实物验收、GM 关键写路径、维护窗口 destructive proof。
 
 ### `acceptance`
 
@@ -98,7 +104,7 @@
 
 | 任务 | 在测试文档里的职责 | 当前状态 |
 | --- | --- | --- |
-| `T11` | 把 `local / acceptance / full / shadow-destructive` 四层 gate 的定义写死 | 基本收口，仍要和 README / ops / workflow 持续对齐 |
+| `T11` | 把 `local / with-db / acceptance / full / shadow-destructive` 五层 gate 的定义写死 | 基本收口，仍要和 README / ops / workflow 持续对齐 |
 | `T12` | 把自动 proof 与人工回归边界写硬，避免把命令存在误读成运营已完成 | 需要继续落成表格与清单 |
 | `T14` | 把 workflow 里的可选 destructive 补证和测试文档口径对齐 | 已支持，但真实维护窗口说明仍要补齐 |
 | `T25` | 把“完整替换完成”的判定标准逐条对应到 gate / smoke / runbook | 仍在门禁化过程中 |
@@ -114,9 +120,9 @@
 
 - 先检查环境变量是否齐备
 - 再跑 `client-next build`、本地主证明链、协议审计
-- 如果存在 `DATABASE_URL` 或 `SERVER_NEXT_DATABASE_URL`，会自动转入带库链
+- 如果存在 `DATABASE_URL` 或 `SERVER_NEXT_DATABASE_URL`，会自动转入带库链；但这仍属于 `local` 主入口，不等于显式 `with-db` 回归
 
-### 2. 最小带库证明
+### 3. 最小带库证明
 
 - `pnpm verify:replace-ready:proof:with-db`
 

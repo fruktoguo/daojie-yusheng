@@ -18,7 +18,6 @@ import { RedeemCodeEntity } from './entities/redeem-code.entity';
 import { PersistentDocumentService } from './persistent-document.service';
 import { RedisService } from './redis.service';
 
-/** DATABASE_ENTITIES：定义该变量以承载业务值。 */
 const DATABASE_ENTITIES = [
   UserEntity,
   PlayerEntity,
@@ -33,7 +32,6 @@ const DATABASE_ENTITIES = [
   RedeemCodeEntity,
 ];
 
-/** PRESYNC_BIGINT_COLUMNS：定义该变量以承载业务值。 */
 const PRESYNC_BIGINT_COLUMNS = [
   { table: 'users', column: 'totalOnlineSeconds' },
   { table: 'players', column: 'foundation' },
@@ -45,13 +43,11 @@ const PRESYNC_BIGINT_COLUMNS = [
   { table: 'players', column: 'deathCount' },
  ] as const;
 
-/** PRESYNC_MARKET_PRICE_COLUMNS：定义该变量以承载业务值。 */
 const PRESYNC_MARKET_PRICE_COLUMNS = [
   { table: 'market_orders', column: 'unitPrice' },
   { table: 'market_trade_history', column: 'unitPrice' },
 ] as const;
 
-/** PgBootstrapConnectionOptions：定义该类型的结构与数据语义。 */
 type PgBootstrapConnectionOptions = {
   connectionString?: string;
   host?: string;
@@ -61,15 +57,11 @@ type PgBootstrapConnectionOptions = {
   database?: string;
 };
 
-/** PgBootstrapQueryResult：定义该接口的能力与字段约束。 */
 interface PgBootstrapQueryResult<Row> {
-/** rowCount：定义该变量以承载业务值。 */
   rowCount: number | null;
-/** rows：定义该变量以承载业务值。 */
   rows: Row[];
 }
 
-/** PgBootstrapClient：定义该接口的能力与字段约束。 */
 interface PgBootstrapClient {
   connect(): Promise<void>;
   query<Row>(sql: string, params?: unknown[]): Promise<PgBootstrapQueryResult<Row>>;
@@ -88,11 +80,9 @@ const { Client: PgClient } = require('pg') as {
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: async (cfg: ConfigService) => {
-/** baseOptions：定义该变量以承载业务值。 */
         const baseOptions = buildBasePostgresOptions(cfg);
         await applyPreSynchronizeCompatibilityFixes(baseOptions);
 
-/** url：定义该变量以承载业务值。 */
         const url = cfg.get<string>('DATABASE_URL');
         if (url) {
           return {
@@ -132,12 +122,9 @@ const { Client: PgClient } = require('pg') as {
   providers: [RedisService, PersistentDocumentService],
   exports: [TypeOrmModule, RedisService, PersistentDocumentService],
 })
-/** DatabaseModule：封装相关状态与行为。 */
 export class DatabaseModule {}
 
-/** buildBasePostgresOptions：执行对应的业务逻辑。 */
 function buildBasePostgresOptions(cfg: ConfigService): PgBootstrapConnectionOptions {
-/** url：定义该变量以承载业务值。 */
   const url = cfg.get<string>('DATABASE_URL');
   if (url) {
     return {
@@ -154,15 +141,12 @@ function buildBasePostgresOptions(cfg: ConfigService): PgBootstrapConnectionOpti
   };
 }
 
-/** applyPreSynchronizeCompatibilityFixes：执行对应的业务逻辑。 */
 async function applyPreSynchronizeCompatibilityFixes(connectionOptions: PgBootstrapConnectionOptions): Promise<void> {
-/** client：定义该变量以承载业务值。 */
   const client = new PgClient(connectionOptions);
   await client.connect();
   try {
     for (const entry of PRESYNC_BIGINT_COLUMNS) {
       const row = await client.query<{
-/** data_type：定义该变量以承载业务值。 */
         data_type: string;
       }>(
         `
@@ -196,9 +180,7 @@ async function applyPreSynchronizeCompatibilityFixes(connectionOptions: PgBootst
 
     for (const entry of PRESYNC_MARKET_PRICE_COLUMNS) {
       const row = await client.query<{
-/** data_type：定义该变量以承载业务值。 */
         data_type: string;
-/** numeric_scale：定义该变量以承载业务值。 */
         numeric_scale: number | null;
       }>(
         `
@@ -221,9 +203,7 @@ async function applyPreSynchronizeCompatibilityFixes(connectionOptions: PgBootst
         WHERE ${quotePgIdentifier(entry.column)} IS NULL
       `);
 
-/** dataType：定义该变量以承载业务值。 */
       const dataType = row.rows[0]?.data_type;
-/** numericScale：定义该变量以承载业务值。 */
       const numericScale = Number(row.rows[0]?.numeric_scale ?? 0);
       if (dataType !== 'numeric' || numericScale !== 1) {
         await client.query(`
@@ -238,7 +218,6 @@ async function applyPreSynchronizeCompatibilityFixes(connectionOptions: PgBootst
   }
 }
 
-/** quotePgIdentifier：执行对应的业务逻辑。 */
 function quotePgIdentifier(value: string): string {
   return `"${value.replace(/"/g, '""')}"`;
 }

@@ -1,0 +1,79 @@
+{
+  "id": "ancient_ruins_monument_hall",
+  "name": "断碑遗迹·断碑主殿",
+  "width": 18,
+  "height": 12,
+  "routeDomain": "system",
+  "terrainProfileId": "mystic_rune_ruins",
+  "spaceVisionMode": "isolated",
+  "description": "中庭背后的主殿早被裂纹贯穿，残碑、断门和旧司命台依旧保留着某种勉强不散的秩序。",
+  "dangerLevel": 4,
+  "recommendedRealm": "天权",
+  "tiles": [
+    "##################",
+    "#....####....oooo#",
+    "#..oo#..#....oo..#",
+    "#..oo#++#====::..#",
+    "#....####....::..#",
+    "#oo..::::oooo::..#",
+    "#oo..:......:..oo#",
+    "#....::::....::::#",
+    "#..oo..==..==..o.#",
+    "#P===::::####::..#",
+    "#....oooo....oo..#",
+    "##################"
+  ],
+  "portals": [
+    {
+      "x": 1,
+      "y": 9,
+      "targetMapId": "ancient_ruins",
+      "targetX": 24,
+      "targetY": 22,
+      "kind": "portal",
+      "trigger": "manual",
+      "routeDomain": "inherit",
+      "allowPlayerOverlap": false,
+      "hidden": false
+    }
+  ],
+  "spawnPoint": {
+    "x": 2,
+    "y": 9
+  },
+  "time": {
+    "offsetTicks": 420,
+    "scale": 1,
+    "light": {
+      "base": 12,
+      "timeInfluence": 22
+    },
+    "palette": {}
+  },
+  "auras": [
+    {
+      "x": 14,
+      "y": 5,
+      "value": 3
+    }
+  ],
+  "safeZones": [],
+  "landmarks": [
+    {
+      "id": "lm_monument_hall_arbiter_seat",
+      "name": "司命断座",
+      "x": 13,
+      "y": 5,
+      "desc": "主殿尽头的石座已经被裂成数段，却还残留着足以驱使旧纹路的余威，裂碑司命正借它重新聚起全殿断纹。"
+    }
+  ],
+  "npcs": [],
+  "monsterSpawns": [
+    {
+      "id": "m_stele_arbiter",
+      "x": 13,
+      "y": 5
+    }
+  ],
+  "terrainRealmLv": 11
+}

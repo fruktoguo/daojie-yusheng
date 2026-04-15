@@ -101,139 +101,90 @@ import {
   REALM_STATE_SOURCE,
 } from '../constants/gameplay/technique';
 
-/** GM_PLAYER_PAGE_SIZE_DEFAULT：定义该变量以承载业务值。 */
 const GM_PLAYER_PAGE_SIZE_DEFAULT = 50;
-/** GM_PLAYER_PAGE_SIZE_MAX：定义该变量以承载业务值。 */
 const GM_PLAYER_PAGE_SIZE_MAX = 100;
-/** GM_PLAYER_KEYWORD_MAX_LENGTH：定义该变量以承载业务值。 */
 const GM_PLAYER_KEYWORD_MAX_LENGTH = 60;
 
-/** GmCommand：定义该类型的结构与数据语义。 */
 type GmCommand =
   | {
-/** type：定义该变量以承载业务值。 */
       type: 'updatePlayer';
-/** playerId：定义该变量以承载业务值。 */
       playerId: string;
-/** snapshot：定义该变量以承载业务值。 */
       snapshot: Partial<PlayerState>;
       section?: GmPlayerUpdateSection;
     }
   | {
-/** type：定义该变量以承载业务值。 */
       type: 'resetPlayer';
-/** playerId：定义该变量以承载业务值。 */
       playerId: string;
     }
   | {
-/** type：定义该变量以承载业务值。 */
       type: 'resetHeavenGate';
-/** playerId：定义该变量以承载业务值。 */
       playerId: string;
     }
   | {
-/** type：定义该变量以承载业务值。 */
       type: 'setBodyTrainingLevel';
-/** playerId：定义该变量以承载业务值。 */
       playerId: string;
-/** level：定义该变量以承载业务值。 */
       level: number;
     }
   | {
-/** type：定义该变量以承载业务值。 */
       type: 'addFoundation';
-/** playerId：定义该变量以承载业务值。 */
       playerId: string;
-/** amount：定义该变量以承载业务值。 */
       amount: number;
     }
   | {
-/** type：定义该变量以承载业务值。 */
       type: 'addCombatExp';
-/** playerId：定义该变量以承载业务值。 */
       playerId: string;
-/** amount：定义该变量以承载业务值。 */
       amount: number;
     }
   | {
-/** type：定义该变量以承载业务值。 */
       type: 'spawnBots';
-/** anchorPlayerId：定义该变量以承载业务值。 */
       anchorPlayerId: string;
-/** mapId：定义该变量以承载业务值。 */
       mapId: string;
-/** x：定义该变量以承载业务值。 */
       x: number;
-/** y：定义该变量以承载业务值。 */
       y: number;
-/** count：定义该变量以承载业务值。 */
       count: number;
     }
   | {
-/** type：定义该变量以承载业务值。 */
       type: 'grantCombatExpCompensation';
-/** playerId：定义该变量以承载业务值。 */
       playerId: string;
-/** amount：定义该变量以承载业务值。 */
       amount: number;
     }
   | {
-/** type：定义该变量以承载业务值。 */
       type: 'grantFoundationCompensation';
-/** playerId：定义该变量以承载业务值。 */
       playerId: string;
-/** amount：定义该变量以承载业务值。 */
       amount: number;
     }
   | {
-/** type：定义该变量以承载业务值。 */
       type: 'cleanupInvalidItems';
-/** playerId：定义该变量以承载业务值。 */
       playerId: string;
     }
   | {
-/** type：定义该变量以承载业务值。 */
       type: 'removeBots';
       playerIds?: string[];
       all?: boolean;
     };
 
-/** GmPlayerUserIdentity：定义该接口的能力与字段约束。 */
 interface GmPlayerUserIdentity {
   userId?: string;
   accountName?: string;
 }
 
-/** GmWorldObservationSession：定义该接口的能力与字段约束。 */
 interface GmWorldObservationSession {
-/** viewerId：定义该变量以承载业务值。 */
   viewerId: string;
-/** mapId：定义该变量以承载业务值。 */
   mapId: string;
-/** startX：定义该变量以承载业务值。 */
   startX: number;
-/** startY：定义该变量以承载业务值。 */
   startY: number;
-/** endX：定义该变量以承载业务值。 */
   endX: number;
-/** endY：定义该变量以承载业务值。 */
   endY: number;
-/** lastSeenAt：定义该变量以承载业务值。 */
   lastSeenAt: number;
 }
 
-/** InvalidItemCleanupSummary：定义该接口的能力与字段约束。 */
 interface InvalidItemCleanupSummary {
-/** inventoryStacksRemoved：定义该变量以承载业务值。 */
   inventoryStacksRemoved: number;
-/** marketStorageStacksRemoved：定义该变量以承载业务值。 */
   marketStorageStacksRemoved: number;
-/** equipmentRemoved：定义该变量以承载业务值。 */
   equipmentRemoved: number;
 }
 
 @Injectable()
-/** GmService：封装相关状态与行为。 */
 export class GmService {
   private readonly commandsByMap = new Map<string, GmCommand[]>();
   private readonly worldObservationSessions = new Map<string, GmWorldObservationSession>();
@@ -262,7 +213,6 @@ export class GmService {
 
   /** 获取分页后的 GM 全局状态：玩家列表当前页、聚合统计、地图列表、性能快照 */
   async getState(query?: GmListPlayersQuery): Promise<GmStateRes> {
-/** normalizedQuery：定义该变量以承载业务值。 */
     const normalizedQuery = this.normalizePlayerListQuery(query);
     const [playerPage, playerStats] = await Promise.all([
       this.loadPlayerPage(normalizedQuery),
@@ -286,41 +236,28 @@ export class GmService {
     };
   }
 
-/** normalizePlayerListQuery：执行对应的业务逻辑。 */
   private normalizePlayerListQuery(query?: GmListPlayersQuery): {
-/** page：定义该变量以承载业务值。 */
     page: number;
-/** pageSize：定义该变量以承载业务值。 */
     pageSize: number;
-/** keyword：定义该变量以承载业务值。 */
     keyword: string;
-/** sort：定义该变量以承载业务值。 */
     sort: GmPlayerSortMode;
   } {
-/** rawPage：定义该变量以承载业务值。 */
     const rawPage = Number(query?.page);
-/** page：定义该变量以承载业务值。 */
     const page = Number.isFinite(rawPage)
       ? Math.max(1, Math.floor(rawPage))
       : 1;
-/** rawPageSize：定义该变量以承载业务值。 */
     const rawPageSize = Number(query?.pageSize);
-/** requestedPageSize：定义该变量以承载业务值。 */
     const requestedPageSize = Number.isFinite(rawPageSize)
       ? Math.floor(rawPageSize)
       : GM_PLAYER_PAGE_SIZE_DEFAULT;
-/** pageSize：定义该变量以承载业务值。 */
     const pageSize = Math.max(1, Math.min(GM_PLAYER_PAGE_SIZE_MAX, requestedPageSize || GM_PLAYER_PAGE_SIZE_DEFAULT));
-/** keyword：定义该变量以承载业务值。 */
     const keyword = typeof query?.keyword === 'string'
       ? query.keyword.trim().slice(0, GM_PLAYER_KEYWORD_MAX_LENGTH)
       : '';
-/** sort：定义该变量以承载业务值。 */
     const sort = this.normalizePlayerSortMode(query?.sort);
     return { page, pageSize, keyword, sort };
   }
 
-/** normalizePlayerSortMode：执行对应的业务逻辑。 */
   private normalizePlayerSortMode(sort: string | undefined): GmPlayerSortMode {
     switch (sort) {
       case 'realm-asc':
@@ -334,15 +271,10 @@ export class GmService {
     }
   }
 
-/** loadPlayerSummaryStats：执行对应的业务逻辑。 */
   private async loadPlayerSummaryStats(): Promise<{
-/** totalPlayers：定义该变量以承载业务值。 */
     totalPlayers: number;
-/** onlinePlayers：定义该变量以承载业务值。 */
     onlinePlayers: number;
-/** offlineHangingPlayers：定义该变量以承载业务值。 */
     offlineHangingPlayers: number;
-/** offlinePlayers：定义该变量以承载业务值。 */
     offlinePlayers: number;
   }> {
     const [totalPlayers, onlinePlayers, offlineHangingPlayers] = await Promise.all([
@@ -359,48 +291,31 @@ export class GmService {
   }
 
   private async loadPlayerPage(query: {
-/** page：定义该变量以承载业务值。 */
     page: number;
-/** pageSize：定义该变量以承载业务值。 */
     pageSize: number;
-/** keyword：定义该变量以承载业务值。 */
     keyword: string;
-/** sort：定义该变量以承载业务值。 */
     sort: GmPlayerSortMode;
   }): Promise<{
-/** players：定义该变量以承载业务值。 */
     players: GmManagedPlayerSummary[];
-/** page：定义该变量以承载业务值。 */
     page: number;
-/** pageSize：定义该变量以承载业务值。 */
     pageSize: number;
-/** total：定义该变量以承载业务值。 */
     total: number;
-/** totalPages：定义该变量以承载业务值。 */
     totalPages: number;
   }> {
-/** baseQuery：定义该变量以承载业务值。 */
     const baseQuery = this.playerRepo.createQueryBuilder('player')
       .leftJoin(UserEntity, 'player_user', 'player_user.id = player."userId"');
     this.applyPlayerListKeyword(baseQuery, query.keyword);
 
-/** total：定义该变量以承载业务值。 */
     const total = await baseQuery.clone().getCount();
-/** totalPages：定义该变量以承载业务值。 */
     const totalPages = Math.max(1, Math.ceil(total / query.pageSize));
-/** page：定义该变量以承载业务值。 */
     const page = Math.min(totalPages, query.page);
-/** entities：定义该变量以承载业务值。 */
     const entities = await this.applyPlayerListSort(baseQuery.clone(), query.sort)
       .offset((page - 1) * query.pageSize)
       .limit(query.pageSize)
       .getMany();
 
-/** userById：定义该变量以承载业务值。 */
     const userById = await this.loadUsersByIds(entities.map((entity) => entity.userId));
-/** players：定义该变量以承载业务值。 */
     const players = entities.map((entity) => {
-/** user：定义该变量以承载业务值。 */
       const user = userById.get(entity.userId);
       return this.buildSummary(
         this.hydrateStoredPlayer(entity, this.resolveStoredDisplayName(user)),
@@ -419,16 +334,12 @@ export class GmService {
     };
   }
 
-/** applyPlayerListKeyword：执行对应的业务逻辑。 */
   private applyPlayerListKeyword(query: SelectQueryBuilder<PlayerEntity>, keyword: string): void {
     if (!keyword) {
       return;
     }
-/** normalizedKeyword：定义该变量以承载业务值。 */
     const normalizedKeyword = keyword.toLowerCase();
-/** likeKeyword：定义该变量以承载业务值。 */
     const likeKeyword = `%${normalizedKeyword}%`;
-/** matchedMapIds：定义该变量以承载业务值。 */
     const matchedMapIds = this.findMatchingMapIds(keyword);
     query.andWhere(new Brackets((builder) => {
       builder
@@ -446,7 +357,6 @@ export class GmService {
     query: SelectQueryBuilder<PlayerEntity>,
     sort: GmPlayerSortMode,
   ): SelectQueryBuilder<PlayerEntity> {
-/** realmLvExpression：定义该变量以承载业务值。 */
     const realmLvExpression = this.getPlayerRealmLevelSql('player');
     switch (sort) {
       case 'realm-asc':
@@ -475,22 +385,18 @@ export class GmService {
     }
   }
 
-/** findMatchingMapIds：执行对应的业务逻辑。 */
   private findMatchingMapIds(keyword: string): string[] {
-/** normalizedKeyword：定义该变量以承载业务值。 */
     const normalizedKeyword = keyword.trim().toLowerCase();
     if (!normalizedKeyword) {
       return [];
     }
     return this.mapService.getAllMapIds().filter((mapId) => {
-/** meta：定义该变量以承载业务值。 */
       const meta = this.mapService.getMapMeta(mapId);
       return mapId.toLowerCase().includes(normalizedKeyword)
         || (meta?.name?.toLowerCase().includes(normalizedKeyword) ?? false);
     });
   }
 
-/** getPlayerRealmLevelSql：执行对应的业务逻辑。 */
   private getPlayerRealmLevelSql(alias: string): string {
     return `COALESCE((
       SELECT NULLIF(bonus->'meta'->>'realmLv', '')::int
@@ -500,35 +406,27 @@ export class GmService {
     ), 1)`;
   }
 
-/** getPlayerMapNameSql：执行对应的业务逻辑。 */
   private getPlayerMapNameSql(alias: string): string {
-/** mapIds：定义该变量以承载业务值。 */
     const mapIds = this.mapService.getAllMapIds();
     if (mapIds.length === 0) {
       return `${alias}."mapId"`;
     }
-/** cases：定义该变量以承载业务值。 */
     const cases = mapIds.map((mapId) => {
-/** mapName：定义该变量以承载业务值。 */
       const mapName = this.mapService.getMapMeta(mapId)?.name ?? mapId;
       return `WHEN ${this.quoteSqlStringLiteral(mapId)} THEN ${this.quoteSqlStringLiteral(mapName)}`;
     }).join(' ');
     return `CASE ${alias}."mapId" ${cases} ELSE ${alias}."mapId" END`;
   }
 
-/** quoteSqlStringLiteral：执行对应的业务逻辑。 */
   private quoteSqlStringLiteral(value: string): string {
     return `'${value.replace(/'/g, `''`)}'`;
   }
 
   /** 获取单个玩家的完整详情（在线取运行时，离线取数据库） */
   async getPlayerDetail(playerId: string): Promise<GmManagedPlayerRecord | null> {
-/** runtime：定义该变量以承载业务值。 */
     const runtime = this.playerService.getPlayer(playerId);
     if (runtime) {
-/** userId：定义该变量以承载业务值。 */
       const userId = this.playerService.getUserIdByPlayerId(playerId);
-/** user：定义该变量以承载业务值。 */
       const user = userId ? await this.userRepo.findOne({ where: { id: userId } }) : null;
       return this.buildRecord(
         runtime,
@@ -539,13 +437,11 @@ export class GmService {
       );
     }
 
-/** entity：定义该变量以承载业务值。 */
     const entity = await this.playerRepo.findOne({ where: { id: playerId } });
     if (!entity) {
       return null;
     }
 
-/** user：定义该变量以承载业务值。 */
     const user = await this.userRepo.findOne({ where: { id: entity.userId } });
     return this.buildRecord(
       this.hydrateStoredPlayer(entity, this.resolveStoredDisplayName(user)),
@@ -558,9 +454,7 @@ export class GmService {
 
   /** GM 直接重设玩家账号密码 */
   async updateManagedPlayerPassword(playerId: string, newPassword: string): Promise<string | null> {
-/** runtimeUserId：定义该变量以承载业务值。 */
     const runtimeUserId = this.playerService.getUserIdByPlayerId(playerId);
-/** userId：定义该变量以承载业务值。 */
     const userId = runtimeUserId
       ?? (await this.playerRepo.findOne({
         where: { id: playerId },
@@ -577,9 +471,7 @@ export class GmService {
 
   /** GM 直接修改玩家账号名 */
   async updateManagedPlayerAccount(playerId: string, username: string): Promise<string | null> {
-/** runtimeUserId：定义该变量以承载业务值。 */
     const runtimeUserId = this.playerService.getUserIdByPlayerId(playerId);
-/** userId：定义该变量以承载业务值。 */
     const userId = runtimeUserId
       ?? (await this.playerRepo.findOne({
         where: { id: playerId },
@@ -594,7 +486,6 @@ export class GmService {
     return null;
   }
 
-/** getEditorCatalog：执行对应的业务逻辑。 */
   getEditorCatalog(): GmEditorCatalogRes {
     return {
       techniques: this.contentService.getEditorTechniqueCatalog(),
@@ -610,17 +501,14 @@ export class GmService {
     };
   }
 
-/** getEditableMapList：执行对应的业务逻辑。 */
   getEditableMapList(): GmMapListRes {
     return this.mapService.getEditableMapList();
   }
 
-/** getEditableMap：执行对应的业务逻辑。 */
   getEditableMap(mapId: string): GmMapDocument | null {
     return this.mapService.getEditableMap(mapId) ?? null;
   }
 
-/** clearRuntimeState：执行对应的业务逻辑。 */
   clearRuntimeState(): void {
     this.commandsByMap.clear();
     this.worldObservationSessions.clear();
@@ -635,27 +523,19 @@ export class GmService {
     h: number,
     now = Date.now(),
   ): void {
-/** normalizedViewerId：定义该变量以承载业务值。 */
     const normalizedViewerId = viewerId?.trim().slice(0, 128);
     if (!normalizedViewerId) {
       return;
     }
-/** meta：定义该变量以承载业务值。 */
     const meta = this.mapService.getMapMeta(mapId);
     if (!meta) {
       return;
     }
-/** clampedW：定义该变量以承载业务值。 */
     const clampedW = Math.min(20, Math.max(1, Math.floor(w)));
-/** clampedH：定义该变量以承载业务值。 */
     const clampedH = Math.min(20, Math.max(1, Math.floor(h)));
-/** startX：定义该变量以承载业务值。 */
     const startX = Math.max(0, Math.min(Math.floor(x), meta.width - 1));
-/** startY：定义该变量以承载业务值。 */
     const startY = Math.max(0, Math.min(Math.floor(y), meta.height - 1));
-/** endX：定义该变量以承载业务值。 */
     const endX = Math.min(meta.width, startX + clampedW);
-/** endY：定义该变量以承载业务值。 */
     const endY = Math.min(meta.height, startY + clampedH);
     this.worldObservationSessions.set(normalizedViewerId, {
       viewerId: normalizedViewerId,
@@ -668,9 +548,7 @@ export class GmService {
     });
   }
 
-/** clearWorldObservation：执行对应的业务逻辑。 */
   clearWorldObservation(viewerId: string | undefined): void {
-/** normalizedViewerId：定义该变量以承载业务值。 */
     const normalizedViewerId = viewerId?.trim().slice(0, 128);
     if (!normalizedViewerId) {
       return;
@@ -680,13 +558,11 @@ export class GmService {
 
   syncObservedPlayerBuffs(mapId: string, now = Date.now()): string[] {
     this.pruneExpiredWorldObservations(now);
-/** players：定义该变量以承载业务值。 */
     const players = this.playerService.getPlayersByMap(mapId);
     if (players.length === 0) {
       return [];
     }
 
-/** sessions：定义该变量以承载业务值。 */
     const sessions: GmWorldObservationSession[] = [];
     for (const session of this.worldObservationSessions.values()) {
       if (session.mapId === mapId) {
@@ -694,7 +570,6 @@ export class GmService {
       }
     }
 
-/** changedPlayerIds：定义该变量以承载业务值。 */
     const changedPlayerIds: string[] = [];
     for (const player of players) {
       if (player.isBot) {
@@ -703,14 +578,12 @@ export class GmService {
         }
         continue;
       }
-/** observed：定义该变量以承载业务值。 */
       const observed = sessions.some((session) => (
         player.x >= session.startX
         && player.x < session.endX
         && player.y >= session.startY
         && player.y < session.endY
       ));
-/** changed：定义该变量以承载业务值。 */
       const changed = observed
         ? this.ensureWorldObserveBuff(player)
         : this.removeWorldObserveBuff(player);
@@ -727,10 +600,8 @@ export class GmService {
       return '目标地图不存在';
     }
 
-/** runtimePlayers：定义该变量以承载业务值。 */
     const runtimePlayers = this.playerService.getPlayersByMap(mapId).map((player) => this.clonePlayer(player));
 
-/** error：定义该变量以承载业务值。 */
     const error = await this.mapService.saveEditableMap(mapId, document);
     if (error) {
       return error;
@@ -740,7 +611,6 @@ export class GmService {
     for (const player of runtimePlayers) {
       const relocation = this.resolveMapSaveRelocation(player);
       if (!relocation) continue;
-/** snapshot：定义该变量以承载业务值。 */
       const snapshot = this.clonePlayer(player);
       snapshot.x = relocation.x;
       snapshot.y = relocation.y;
@@ -755,13 +625,11 @@ export class GmService {
 
   /** 入队玩家状态更新命令（在线走 tick 队列，离线直接写库） */
   async enqueuePlayerUpdate(playerId: string, snapshot: Partial<PlayerState>, section?: GmPlayerUpdateSection): Promise<string | null> {
-/** roleNameError：定义该变量以承载业务值。 */
     const roleNameError = await this.validateManagedPlayerRoleNameUpdate(playerId, snapshot, section);
     if (roleNameError) {
       return roleNameError;
     }
 
-/** runtime：定义该变量以承载业务值。 */
     const runtime = this.playerService.getPlayer(playerId);
     if (runtime) {
       this.enqueue(runtime.mapId, {
@@ -773,13 +641,10 @@ export class GmService {
       return null;
     }
 
-/** entity：定义该变量以承载业务值。 */
     const entity = await this.playerRepo.findOne({ where: { id: playerId } });
     if (!entity) return '目标玩家不存在';
 
-/** player：定义该变量以承载业务值。 */
     const player = this.hydrateStoredPlayer(entity);
-/** error：定义该变量以承载业务值。 */
     const error = this.applyPlayerSnapshot(player, this.mergePlayerSnapshot(player, snapshot, section), false);
     if (error) return error;
 
@@ -789,33 +654,27 @@ export class GmService {
 
   /** 入队玩家重置命令（传送回出生点、清除状态） */
   async enqueueResetPlayer(playerId: string): Promise<string | null> {
-/** runtime：定义该变量以承载业务值。 */
     const runtime = this.playerService.getPlayer(playerId);
     if (runtime) {
       this.enqueue(runtime.mapId, { type: 'resetPlayer', playerId });
       return null;
     }
 
-/** entity：定义该变量以承载业务值。 */
     const entity = await this.playerRepo.findOne({ where: { id: playerId } });
     if (!entity) return '目标玩家不存在';
 
-/** player：定义该变量以承载业务值。 */
     const player = this.hydrateStoredPlayer(entity);
     this.resetStoredPlayerToSpawn(player);
     await this.persistOfflinePlayer(entity, player);
     return null;
   }
 
-/** setManagedPlayerBodyTrainingLevel：执行对应的业务逻辑。 */
   async setManagedPlayerBodyTrainingLevel(playerId: string, requestedLevel: unknown): Promise<string | null> {
-/** level：定义该变量以承载业务值。 */
     const level = this.parseBodyTrainingLevel(requestedLevel);
     if (level === null) {
       return '炼体等级必须是非负整数';
     }
 
-/** runtime：定义该变量以承载业务值。 */
     const runtime = this.playerService.getPlayer(playerId);
     if (runtime) {
       this.enqueue(runtime.mapId, {
@@ -826,26 +685,21 @@ export class GmService {
       return null;
     }
 
-/** entity：定义该变量以承载业务值。 */
     const entity = await this.playerRepo.findOne({ where: { id: playerId } });
     if (!entity) return '目标玩家不存在';
 
-/** player：定义该变量以承载业务值。 */
     const player = this.hydrateStoredPlayer(entity);
     this.applyBodyTrainingLevel(player, level);
     await this.persistOfflinePlayer(entity, player);
     return null;
   }
 
-/** addManagedPlayerFoundation：执行对应的业务逻辑。 */
   async addManagedPlayerFoundation(playerId: string, requestedAmount: unknown): Promise<string | null> {
-/** amount：定义该变量以承载业务值。 */
     const amount = this.parseCounterDelta(requestedAmount, '底蕴增量');
     if (typeof amount === 'string') {
       return amount;
     }
 
-/** runtime：定义该变量以承载业务值。 */
     const runtime = this.playerService.getPlayer(playerId);
     if (runtime) {
       this.enqueue(runtime.mapId, {
@@ -856,26 +710,21 @@ export class GmService {
       return null;
     }
 
-/** entity：定义该变量以承载业务值。 */
     const entity = await this.playerRepo.findOne({ where: { id: playerId } });
     if (!entity) return '目标玩家不存在';
 
-/** player：定义该变量以承载业务值。 */
     const player = this.hydrateStoredPlayer(entity);
     player.foundation = this.applyCounterDelta(player.foundation, amount);
     await this.persistOfflinePlayer(entity, player);
     return null;
   }
 
-/** addManagedPlayerCombatExp：执行对应的业务逻辑。 */
   async addManagedPlayerCombatExp(playerId: string, requestedAmount: unknown): Promise<string | null> {
-/** amount：定义该变量以承载业务值。 */
     const amount = this.parseCounterDelta(requestedAmount, '战斗经验增量');
     if (typeof amount === 'string') {
       return amount;
     }
 
-/** runtime：定义该变量以承载业务值。 */
     const runtime = this.playerService.getPlayer(playerId);
     if (runtime) {
       this.enqueue(runtime.mapId, {
@@ -886,11 +735,9 @@ export class GmService {
       return null;
     }
 
-/** entity：定义该变量以承载业务值。 */
     const entity = await this.playerRepo.findOne({ where: { id: playerId } });
     if (!entity) return '目标玩家不存在';
 
-/** player：定义该变量以承载业务值。 */
     const player = this.hydrateStoredPlayer(entity);
     player.combatExp = this.applyCounterDelta(player.combatExp, amount);
     await this.persistOfflinePlayer(entity, player);
@@ -899,13 +746,9 @@ export class GmService {
 
   /** 批量将所有非机器人角色送回默认新手村出生点 */
   async returnAllPlayersToDefaultSpawn(): Promise<GmShortcutRunRes> {
-/** runtimePlayers：定义该变量以承载业务值。 */
     const runtimePlayers = this.playerService.getAllPlayers().filter((player) => !player.isBot && player.inWorld !== false);
-/** runtimeIds：定义该变量以承载业务值。 */
     const runtimeIds = new Set(runtimePlayers.map((player) => player.id));
-/** queuedRuntimePlayers：定义该变量以承载业务值。 */
     let queuedRuntimePlayers = 0;
-/** updatedOfflinePlayers：定义该变量以承载业务值。 */
     let updatedOfflinePlayers = 0;
 
     for (const player of runtimePlayers) {
@@ -913,20 +756,17 @@ export class GmService {
       queuedRuntimePlayers += 1;
     }
 
-/** entities：定义该变量以承载业务值。 */
     const entities = await this.playerRepo.find();
     for (const entity of entities) {
       if (runtimeIds.has(entity.id)) {
         continue;
       }
-/** player：定义该变量以承载业务值。 */
       const player = this.hydrateStoredPlayer(entity);
       this.resetStoredPlayerToSpawn(player);
       await this.persistOfflinePlayer(entity, player);
       updatedOfflinePlayers += 1;
     }
 
-/** placement：定义该变量以承载业务值。 */
     const placement = this.mapService.resolveDefaultPlayerSpawnPosition();
     return {
       ok: true,
@@ -939,21 +779,49 @@ export class GmService {
     };
   }
 
-/** cleanupAllPlayersInvalidItems：执行对应的业务逻辑。 */
-  async cleanupAllPlayersInvalidItems(): Promise<GmShortcutRunRes> {
-/** runtimePlayers：定义该变量以承载业务值。 */
-    const runtimePlayers = this.playerService.getAllPlayers().filter((player) => !player.isBot);
-/** runtimeIds：定义该变量以承载业务值。 */
+/** cleanupAllPlayersInvalidItems：执行 批量将所有非机器人角色送回默认新手村出生点 */
+  async returnAllPlayersToDefaultSpawn(): Promise<GmShortcutRunRes> {
+    const runtimePlayers = this.playerService.getAllPlayers().filter((player) => !player.isBot && player.inWorld !== false);
     const runtimeIds = new Set(runtimePlayers.map((player) => player.id));
-/** queuedRuntimePlayers：定义该变量以承载业务值。 */
     let queuedRuntimePlayers = 0;
-/** updatedOfflinePlayers：定义该变量以承载业务值。 */
     let updatedOfflinePlayers = 0;
-/** totalInvalidInventoryStacksRemoved：定义该变量以承载业务值。 */
+
+    for (const player of runtimePlayers) {
+      this.enqueue(player.mapId, { type: 'resetPlayer', playerId: player.id });
+      queuedRuntimePlayers += 1;
+    }
+
+    const entities = await this.playerRepo.find();
+    for (const entity of entities) {
+      if (runtimeIds.has(entity.id)) {
+        continue;
+      }
+      const player = this.hydrateStoredPlayer(entity);
+      this.resetStoredPlayerToSpawn(player);
+      await this.persistOfflinePlayer(entity, player);
+      updatedOfflinePlayers += 1;
+    }
+
+    const placement = this.mapService.resolveDefaultPlayerSpawnPosition();
+    return {
+      ok: true,
+      totalPlayers: queuedRuntimePlayers + updatedOfflinePlayers,
+      queuedRuntimePlayers,
+      updatedOfflinePlayers,
+      targetMapId: placement.mapId,
+      targetX: placement.x,
+      targetY: placement.y,
+    };
+  }
+
+/** cleanupAllPlayersInvalidItems 的业务逻辑。 */
+  async cleanupAllPlayersInvalidItems(): Promise<GmShortcutRunRes> {
+    const runtimePlayers = this.playerService.getAllPlayers().filter((player) => !player.isBot);
+    const runtimeIds = new Set(runtimePlayers.map((player) => player.id));
+    let queuedRuntimePlayers = 0;
+    let updatedOfflinePlayers = 0;
     let totalInvalidInventoryStacksRemoved = 0;
-/** totalInvalidMarketStorageStacksRemoved：定义该变量以承载业务值。 */
     let totalInvalidMarketStorageStacksRemoved = 0;
-/** totalInvalidEquipmentRemoved：定义该变量以承载业务值。 */
     let totalInvalidEquipmentRemoved = 0;
 
     for (const player of runtimePlayers) {
@@ -968,18 +836,15 @@ export class GmService {
       totalInvalidEquipmentRemoved += summary.equipmentRemoved;
     }
 
-/** entities：定义该变量以承载业务值。 */
     const entities = await this.playerRepo.find();
     for (const entity of entities) {
       if (runtimeIds.has(entity.id)) {
         continue;
       }
-/** player：定义该变量以承载业务值。 */
       const player = this.hydrateStoredPlayer(entity);
       if (player.isBot) {
         continue;
       }
-/** summary：定义该变量以承载业务值。 */
       const summary = this.cleanupInvalidItems(player);
       if (!this.hasInvalidItems(summary)) {
         continue;
@@ -1002,17 +867,11 @@ export class GmService {
     };
   }
 
-/** compensateAllPlayersCombatExp：执行对应的业务逻辑。 */
   async compensateAllPlayersCombatExp(): Promise<GmShortcutRunRes> {
-/** runtimePlayers：定义该变量以承载业务值。 */
     const runtimePlayers = this.playerService.getAllPlayers().filter((player) => !player.isBot && player.inWorld !== false);
-/** runtimeIds：定义该变量以承载业务值。 */
     const runtimeIds = new Set(runtimePlayers.map((player) => player.id));
-/** queuedRuntimePlayers：定义该变量以承载业务值。 */
     let queuedRuntimePlayers = 0;
-/** updatedOfflinePlayers：定义该变量以承载业务值。 */
     let updatedOfflinePlayers = 0;
-/** totalCombatExpGranted：定义该变量以承载业务值。 */
     let totalCombatExpGranted = 0;
 
     for (const player of runtimePlayers) {
@@ -1029,18 +888,15 @@ export class GmService {
       totalCombatExpGranted += amount;
     }
 
-/** entities：定义该变量以承载业务值。 */
     const entities = await this.playerRepo.find();
     for (const entity of entities) {
       if (runtimeIds.has(entity.id)) {
         continue;
       }
-/** player：定义该变量以承载业务值。 */
       const player = this.hydrateStoredPlayer(entity);
       if (player.isBot) {
         continue;
       }
-/** amount：定义该变量以承载业务值。 */
       const amount = this.calculateCombatExpCompensation(player);
       if (amount <= 0) {
         continue;
@@ -1060,17 +916,11 @@ export class GmService {
     };
   }
 
-/** compensateAllPlayersFoundation：执行对应的业务逻辑。 */
   async compensateAllPlayersFoundation(): Promise<GmShortcutRunRes> {
-/** runtimePlayers：定义该变量以承载业务值。 */
     const runtimePlayers = this.playerService.getAllPlayers().filter((player) => !player.isBot && player.inWorld !== false);
-/** runtimeIds：定义该变量以承载业务值。 */
     const runtimeIds = new Set(runtimePlayers.map((player) => player.id));
-/** queuedRuntimePlayers：定义该变量以承载业务值。 */
     let queuedRuntimePlayers = 0;
-/** updatedOfflinePlayers：定义该变量以承载业务值。 */
     let updatedOfflinePlayers = 0;
-/** totalFoundationGranted：定义该变量以承载业务值。 */
     let totalFoundationGranted = 0;
 
     for (const player of runtimePlayers) {
@@ -1087,18 +937,15 @@ export class GmService {
       totalFoundationGranted += amount;
     }
 
-/** entities：定义该变量以承载业务值。 */
     const entities = await this.playerRepo.find();
     for (const entity of entities) {
       if (runtimeIds.has(entity.id)) {
         continue;
       }
-/** player：定义该变量以承载业务值。 */
       const player = this.hydrateStoredPlayer(entity);
       if (player.isBot) {
         continue;
       }
-/** amount：定义该变量以承载业务值。 */
       const amount = this.calculateFoundationCompensation(player);
       if (amount <= 0) {
         continue;
@@ -1118,20 +965,16 @@ export class GmService {
     };
   }
 
-/** enqueueResetHeavenGate：执行对应的业务逻辑。 */
   async enqueueResetHeavenGate(playerId: string): Promise<string | null> {
-/** runtime：定义该变量以承载业务值。 */
     const runtime = this.playerService.getPlayer(playerId);
     if (runtime) {
       this.enqueue(runtime.mapId, { type: 'resetHeavenGate', playerId });
       return null;
     }
 
-/** entity：定义该变量以承载业务值。 */
     const entity = await this.playerRepo.findOne({ where: { id: playerId } });
     if (!entity) return '目标玩家不存在';
 
-/** player：定义该变量以承载业务值。 */
     const player = this.hydrateStoredPlayer(entity);
     this.techniqueService.resetHeavenGateForTesting(player);
     await this.persistOfflinePlayer(entity, player);
@@ -1140,7 +983,6 @@ export class GmService {
 
   /** 入队 Bot 生成命令 */
   async enqueueSpawnBots(anchorPlayerId: string, count: number): Promise<string | null> {
-/** runtime：定义该变量以承载业务值。 */
     const runtime = this.playerService.getPlayer(anchorPlayerId);
     if (runtime) {
       this.enqueue(runtime.mapId, {
@@ -1154,7 +996,6 @@ export class GmService {
       return null;
     }
 
-/** entity：定义该变量以承载业务值。 */
     const entity = await this.playerRepo.findOne({ where: { id: anchorPlayerId } });
     if (!entity) return '锚点玩家不存在';
 
@@ -1171,9 +1012,7 @@ export class GmService {
 
   /** 入队 Bot 移除命令 */
   enqueueRemoveBots(playerIds?: string[], removeAll = false): string | null {
-/** bots：定义该变量以承载业务值。 */
     const bots = this.playerService.getAllPlayers().filter((player) => player.isBot);
-/** targets：定义该变量以承载业务值。 */
     const targets = removeAll
       ? bots
       : bots.filter((player) => playerIds?.includes(player.id));
@@ -1182,7 +1021,6 @@ export class GmService {
       return '没有可移除的机器人';
     }
 
-/** idsByMap：定义该变量以承载业务值。 */
     const idsByMap = new Map<string, string[]>();
     for (const target of targets) {
       const ids = idsByMap.get(target.mapId) ?? [];
@@ -1202,7 +1040,6 @@ export class GmService {
 
   /** 取出并清空指定地图的待执行 GM 命令 */
   drainCommands(mapId: string): GmCommand[] {
-/** commands：定义该变量以承载业务值。 */
     const commands = this.commandsByMap.get(mapId) ?? [];
     this.commandsByMap.set(mapId, []);
     return commands;
@@ -1236,12 +1073,38 @@ export class GmService {
     }
   }
 
-/** applyQueuedPlayerUpdate：执行对应的业务逻辑。 */
+/** applyQueuedPlayerUpdate：执行 在 tick 内执行单条 GM 命令 */
+  applyCommand(command: GmCommand): string | null {
+    switch (command.type) {
+      case 'updatePlayer':
+        return this.applyQueuedPlayerUpdate(command.playerId, command.snapshot, command.section);
+      case 'resetPlayer':
+        return this.applyQueuedResetPlayer(command.playerId);
+      case 'resetHeavenGate':
+        return this.applyQueuedResetHeavenGate(command.playerId);
+      case 'setBodyTrainingLevel':
+        return this.applyQueuedSetBodyTrainingLevel(command.playerId, command.level);
+      case 'addFoundation':
+        return this.applyQueuedAddFoundation(command.playerId, command.amount);
+      case 'addCombatExp':
+        return this.applyQueuedAddCombatExp(command.playerId, command.amount);
+      case 'spawnBots':
+        return this.applyQueuedSpawnBots(command.mapId, command.x, command.y, command.count);
+      case 'grantCombatExpCompensation':
+        return this.applyQueuedGrantCombatExpCompensation(command.playerId, command.amount);
+      case 'grantFoundationCompensation':
+        return this.applyQueuedGrantFoundationCompensation(command.playerId, command.amount);
+      case 'cleanupInvalidItems':
+        return this.applyQueuedCleanupInvalidItems(command.playerId);
+      case 'removeBots':
+        return this.applyQueuedRemoveBots(command.playerIds, command.all);
+    }
+  }
+
+/** applyQueuedPlayerUpdate 的业务逻辑。 */
   private applyQueuedPlayerUpdate(playerId: string, snapshot: Partial<PlayerState>, section?: GmPlayerUpdateSection): string | null {
-/** player：定义该变量以承载业务值。 */
     const player = this.playerService.getPlayer(playerId);
     if (!player) return '目标玩家不存在';
-/** error：定义该变量以承载业务值。 */
     const error = this.applyPlayerSnapshot(player, this.mergePlayerSnapshot(player, snapshot, section), true);
     if (error) return error;
     this.markDirty(player.id, this.getDirtyFlagsForSection(section));
@@ -1251,12 +1114,9 @@ export class GmService {
     return null;
   }
 
-/** applyQueuedResetPlayer：执行对应的业务逻辑。 */
   private applyQueuedResetPlayer(playerId: string): string | null {
-/** player：定义该变量以承载业务值。 */
     const player = this.playerService.getPlayer(playerId);
     if (!player) return '目标玩家不存在';
-/** update：定义该变量以承载业务值。 */
     const update = this.worldService.resetPlayerToSpawn(player);
     this.markDirty(player.id, update.dirty as DirtyFlag[]);
     void this.playerService.savePlayer(player.id).catch((error: Error) => {
@@ -1265,9 +1125,7 @@ export class GmService {
     return null;
   }
 
-/** applyQueuedResetHeavenGate：执行对应的业务逻辑。 */
   private applyQueuedResetHeavenGate(playerId: string): string | null {
-/** player：定义该变量以承载业务值。 */
     const player = this.playerService.getPlayer(playerId);
     if (!player) return '目标玩家不存在';
     this.techniqueService.resetHeavenGateForTesting(player);
@@ -1275,9 +1133,7 @@ export class GmService {
     return null;
   }
 
-/** applyQueuedSetBodyTrainingLevel：执行对应的业务逻辑。 */
   private applyQueuedSetBodyTrainingLevel(playerId: string, level: number): string | null {
-/** player：定义该变量以承载业务值。 */
     const player = this.playerService.getPlayer(playerId);
     if (!player) return '目标玩家不存在';
     this.applyBodyTrainingLevel(player, level);
@@ -1288,9 +1144,7 @@ export class GmService {
     return null;
   }
 
-/** applyQueuedAddFoundation：执行对应的业务逻辑。 */
   private applyQueuedAddFoundation(playerId: string, amount: number): string | null {
-/** player：定义该变量以承载业务值。 */
     const player = this.playerService.getPlayer(playerId);
     if (!player) return '目标玩家不存在';
     if (amount === 0) {
@@ -1304,9 +1158,7 @@ export class GmService {
     return null;
   }
 
-/** applyQueuedAddCombatExp：执行对应的业务逻辑。 */
   private applyQueuedAddCombatExp(playerId: string, amount: number): string | null {
-/** player：定义该变量以承载业务值。 */
     const player = this.playerService.getPlayer(playerId);
     if (!player) return '目标玩家不存在';
     if (amount === 0) {
@@ -1320,17 +1172,13 @@ export class GmService {
     return null;
   }
 
-/** applyQueuedSpawnBots：执行对应的业务逻辑。 */
   private applyQueuedSpawnBots(mapId: string, x: number, y: number, count: number): string | null {
-/** created：定义该变量以承载业务值。 */
     const created = this.botService.spawnBotsAt(mapId, x, y, count);
     if (created <= 0) return '附近没有可用于生成机器人的空位';
     return null;
   }
 
-/** applyQueuedGrantCombatExpCompensation：执行对应的业务逻辑。 */
   private applyQueuedGrantCombatExpCompensation(playerId: string, amount: number): string | null {
-/** player：定义该变量以承载业务值。 */
     const player = this.playerService.getPlayer(playerId);
     if (!player) return '目标玩家不存在';
     if (amount <= 0) {
@@ -1344,9 +1192,7 @@ export class GmService {
     return null;
   }
 
-/** applyQueuedGrantFoundationCompensation：执行对应的业务逻辑。 */
   private applyQueuedGrantFoundationCompensation(playerId: string, amount: number): string | null {
-/** player：定义该变量以承载业务值。 */
     const player = this.playerService.getPlayer(playerId);
     if (!player) return '目标玩家不存在';
     if (amount <= 0) {
@@ -1360,12 +1206,9 @@ export class GmService {
     return null;
   }
 
-/** applyQueuedCleanupInvalidItems：执行对应的业务逻辑。 */
   private applyQueuedCleanupInvalidItems(playerId: string): string | null {
-/** player：定义该变量以承载业务值。 */
     const player = this.playerService.getPlayer(playerId);
     if (!player) return '目标玩家不存在';
-/** summary：定义该变量以承载业务值。 */
     const summary = this.cleanupInvalidItems(player);
     if (!this.hasInvalidItems(summary)) {
       return null;
@@ -1377,9 +1220,7 @@ export class GmService {
     return null;
   }
 
-/** applyQueuedRemoveBots：执行对应的业务逻辑。 */
   private applyQueuedRemoveBots(playerIds?: string[], removeAll = false): string | null {
-/** removed：定义该变量以承载业务值。 */
     const removed = this.botService.removeBots(removeAll ? undefined : playerIds);
     if (removed <= 0) return '没有可移除的机器人';
     return null;
@@ -1391,18 +1232,13 @@ export class GmService {
     online: boolean,
     updatedAt: Date | undefined,
   ): GmManagedPlayerSummary {
-/** realmLv：定义该变量以承载业务值。 */
     const realmLv = Math.max(1, Math.floor(player.realm?.realmLv ?? player.realmLv ?? 1));
-/** realmLabel：定义该变量以承载业务值。 */
     const realmLabel = player.realm?.displayName
       ?? player.realm?.name
       ?? player.realmName
       ?? `Lv.${realmLv}`;
-/** roleName：定义该变量以承载业务值。 */
     const roleName = player.name;
-/** displayName：定义该变量以承载业务值。 */
     const displayName = this.resolvePlayerDisplayName(player.displayName, user.accountName, roleName);
-/** mapName：定义该变量以承载业务值。 */
     const mapName = this.mapService.getMapMeta(player.mapId)?.name ?? player.mapId;
     return {
       id: player.id,
@@ -1421,15 +1257,12 @@ export class GmService {
       qi: player.qi,
       dead: player.dead,
       autoBattle: player.autoBattle,
-/** autoRetaliate：定义该变量以承载业务值。 */
       autoRetaliate: player.autoRetaliate !== false,
-/** autoBattleStationary：定义该变量以承载业务值。 */
       autoBattleStationary: player.autoBattleStationary === true,
       meta: {
         userId: user.userId,
         isBot: Boolean(player.isBot),
         online,
-/** inWorld：定义该变量以承载业务值。 */
         inWorld: player.inWorld !== false,
         lastHeartbeatAt: player.lastHeartbeatAt ? new Date(player.lastHeartbeatAt).toISOString() : undefined,
         offlineSinceAt: player.offlineSinceAt ? new Date(player.offlineSinceAt).toISOString() : undefined,
@@ -1446,11 +1279,8 @@ export class GmService {
     online: boolean,
     updatedAt: Date | undefined,
   ): GmManagedPlayerRecord {
-/** summary：定义该变量以承载业务值。 */
     const summary = this.buildSummary(player, user, online, updatedAt);
-/** snapshot：定义该变量以承载业务值。 */
     const snapshot = this.clonePlayer(player);
-/** persistedCollections：定义该变量以承载业务值。 */
     const persistedCollections = buildPersistedPlayerCollections(player, this.contentService, this.mapService);
     return {
       ...summary,
@@ -1501,7 +1331,6 @@ export class GmService {
 
   /** 从数据库实体还原为运行时 PlayerState */
   private hydrateStoredPlayer(entity: PlayerEntity, displayName?: string): PlayerState {
-/** player：定义该变量以承载业务值。 */
     const player = this.playerService.hydrateStoredPlayerForRead(entity);
     player.displayName = this.resolvePlayerDisplayName(displayName, undefined, entity.name);
     return player;
@@ -1509,13 +1338,9 @@ export class GmService {
 
   /** 将快照数据应用到玩家状态上 */
   private applyPlayerSnapshot(player: PlayerState, snapshot: PlayerState, runtime: boolean): string | null {
-/** nextMapId：定义该变量以承载业务值。 */
     const nextMapId = typeof snapshot.mapId === 'string' ? snapshot.mapId : player.mapId;
-/** nextX：定义该变量以承载业务值。 */
     const nextX = this.normalizeInt(snapshot.x, player.x);
-/** nextY：定义该变量以承载业务值。 */
     const nextY = this.normalizeInt(snapshot.y, player.y);
-/** positionChanged：定义该变量以承载业务值。 */
     const positionChanged = nextMapId !== player.mapId || nextX !== player.x || nextY !== player.y;
 
     if (!this.mapService.getMapMeta(nextMapId)) {
@@ -1525,20 +1350,14 @@ export class GmService {
       return '目标坐标不可站立或已被占用';
     }
 
-/** requestedHp：定义该变量以承载业务值。 */
     const requestedHp = this.normalizeNonNegativeInt(snapshot.hp);
-/** requestedQi：定义该变量以承载业务值。 */
     const requestedQi = this.normalizeNonNegativeInt(snapshot.qi);
-/** requestedRealmProgress：定义该变量以承载业务值。 */
     const requestedRealmProgress = typeof snapshot.realm?.progress === 'number'
       ? this.normalizeNonNegativeInt(snapshot.realm.progress)
       : undefined;
 
-/** previousMapId：定义该变量以承载业务值。 */
     const previousMapId = player.mapId;
-/** previousX：定义该变量以承载业务值。 */
     const previousX = player.x;
-/** previousY：定义该变量以承载业务值。 */
     const previousY = player.y;
 
     player.name = this.normalizeName(snapshot.name, player.name);
@@ -1624,11 +1443,123 @@ export class GmService {
     return null;
   }
 
-/** resetStoredPlayerToSpawn：执行对应的业务逻辑。 */
+/** resetStoredPlayerToSpawn：执行 从数据库实体还原为运行时 PlayerState */
+  private hydrateStoredPlayer(entity: PlayerEntity, displayName?: string): PlayerState {
+    const player = this.playerService.hydrateStoredPlayerForRead(entity);
+    player.displayName = this.resolvePlayerDisplayName(displayName, undefined, entity.name);
+    return player;
+  }
+
+  /** 将快照数据应用到玩家状态上 */
+  private applyPlayerSnapshot(player: PlayerState, snapshot: PlayerState, runtime: boolean): string | null {
+    const nextMapId = typeof snapshot.mapId === 'string' ? snapshot.mapId : player.mapId;
+    const nextX = this.normalizeInt(snapshot.x, player.x);
+    const nextY = this.normalizeInt(snapshot.y, player.y);
+    const positionChanged = nextMapId !== player.mapId || nextX !== player.x || nextY !== player.y;
+
+    if (!this.mapService.getMapMeta(nextMapId)) {
+      return '目标地图不存在';
+    }
+    if (positionChanged && !this.canSetPosition(nextMapId, nextX, nextY, player.id, runtime)) {
+      return '目标坐标不可站立或已被占用';
+    }
+
+    const requestedHp = this.normalizeNonNegativeInt(snapshot.hp);
+    const requestedQi = this.normalizeNonNegativeInt(snapshot.qi);
+    const requestedRealmProgress = typeof snapshot.realm?.progress === 'number'
+      ? this.normalizeNonNegativeInt(snapshot.realm.progress)
+      : undefined;
+
+    const previousMapId = player.mapId;
+    const previousX = player.x;
+    const previousY = player.y;
+
+    player.name = this.normalizeName(snapshot.name, player.name);
+    player.mapId = nextMapId;
+    player.respawnMapId = this.mapService.resolvePlayerRespawnMapId(snapshot.respawnMapId ?? player.respawnMapId);
+    player.x = nextX;
+    player.y = nextY;
+    player.facing = this.normalizeDirection(snapshot.facing);
+    player.viewRange = this.normalizePositiveInt(snapshot.viewRange, player.viewRange);
+    player.foundation = this.normalizeNonNegativeInt(snapshot.foundation ?? player.foundation ?? 0);
+    player.combatExp = this.normalizeNonNegativeInt(snapshot.combatExp ?? player.combatExp ?? 0);
+    player.boneAgeBaseYears = normalizeBoneAgeBaseYears(snapshot.boneAgeBaseYears ?? player.boneAgeBaseYears);
+    player.lifeElapsedTicks = normalizeLifeElapsedTicks(snapshot.lifeElapsedTicks ?? player.lifeElapsedTicks);
+    player.lifespanYears = snapshot.lifespanYears === undefined
+      ? player.lifespanYears ?? null
+      : normalizeLifespanYears(snapshot.lifespanYears);
+    player.baseAttrs = this.normalizeAttributes(snapshot.baseAttrs);
+    player.bonuses = this.cloneArray<AttrBonus>(snapshot.bonuses);
+    player.temporaryBuffs = this.normalizeTemporaryBuffs(snapshot.temporaryBuffs);
+    player.inventory = this.contentService.normalizeInventory(this.normalizeInventory(snapshot.inventory));
+    player.equipment = this.contentService.normalizeEquipment(this.normalizeEquipment(snapshot.equipment));
+    player.techniques = this.cloneArray<TechniqueState>(snapshot.techniques);
+    player.quests = this.cloneArray<QuestState>(snapshot.quests);
+    player.autoBattleSkills = this.cloneArray<AutoBattleSkillConfig>(snapshot.autoBattleSkills);
+    player.autoUsePills = normalizeAutoUsePillConfigs(snapshot.autoUsePills ?? player.autoUsePills);
+    player.combatTargetingRules = normalizeCombatTargetingRules(
+      snapshot.combatTargetingRules ?? player.combatTargetingRules,
+      buildDefaultCombatTargetingRules({ includeAllPlayersHostile: (snapshot.allowAoePlayerHit ?? player.allowAoePlayerHit) === true }),
+    );
+    player.autoBattleTargetingMode = normalizeAutoBattleTargetingMode(snapshot.autoBattleTargetingMode, player.autoBattleTargetingMode);
+    player.autoRetaliate = snapshot.autoRetaliate !== false;
+    player.autoBattleStationary = snapshot.autoBattleStationary === true;
+    player.allowAoePlayerHit = hasCombatTargetingRule(player.combatTargetingRules, 'hostile', 'all_players');
+    player.autoIdleCultivation = snapshot.autoIdleCultivation !== undefined
+      ? snapshot.autoIdleCultivation !== false
+      : player.autoIdleCultivation !== false;
+    player.autoSwitchCultivation = snapshot.autoSwitchCultivation === true;
+    player.idleTicks = 0;
+    player.revealedBreakthroughRequirementIds = Array.isArray(snapshot.revealedBreakthroughRequirementIds)
+      ? snapshot.revealedBreakthroughRequirementIds.filter((entry): entry is string => typeof entry === 'string')
+      : [];
+    player.unlockedMinimapIds = Array.isArray(snapshot.unlockedMinimapIds)
+      ? [...new Set(snapshot.unlockedMinimapIds.filter((entry): entry is string => typeof entry === 'string' && entry.length > 0))].sort()
+      : [];
+    player.cultivatingTechId = typeof snapshot.cultivatingTechId === 'string' && snapshot.cultivatingTechId.length > 0
+      ? snapshot.cultivatingTechId
+      : undefined;
+
+    this.techniqueService.initializePlayerProgression(player);
+    if (typeof snapshot.realmLv === 'number' && snapshot.realmLv > 0) {
+      if (requestedRealmProgress !== undefined) {
+        this.techniqueService.setRealmState(player, snapshot.realmLv, requestedRealmProgress);
+      } else {
+        this.techniqueService.setRealmLevel(player, snapshot.realmLv);
+      }
+    } else if (requestedRealmProgress !== undefined) {
+      this.techniqueService.setRealmProgress(player, requestedRealmProgress);
+    }
+    this.equipmentService.rebuildBonuses(player);
+
+    player.hp = Math.min(player.maxHp, requestedHp);
+    player.qi = Math.min(Math.max(0, Math.round(player.numericStats?.maxQi ?? player.qi)), requestedQi);
+    player.dead = snapshot.dead === true || player.hp <= 0;
+    if (player.dead) {
+      player.hp = 0;
+    }
+
+    player.autoBattle = !player.dead && Boolean(snapshot.autoBattle);
+    player.autoBattleTargetingMode = normalizeAutoBattleTargetingMode(snapshot.autoBattleTargetingMode, player.autoBattleTargetingMode);
+    player.combatTargetId = player.autoBattle && typeof snapshot.combatTargetId === 'string'
+      ? snapshot.combatTargetId
+      : undefined;
+    player.combatTargetLocked = player.autoBattle && snapshot.combatTargetLocked === true;
+
+    if (runtime) {
+      this.navigationService.clearMoveTarget(player.id);
+      if (previousMapId !== player.mapId || previousX !== player.x || previousY !== player.y) {
+        this.mapService.removeOccupant(previousMapId, previousX, previousY, player.id);
+        this.mapService.addOccupant(player.mapId, player.x, player.y, player.id, 'player');
+      }
+    }
+
+    return null;
+  }
+
+/** resetStoredPlayerToSpawn 的业务逻辑。 */
   private resetStoredPlayerToSpawn(player: PlayerState): void {
-/** spawn：定义该变量以承载业务值。 */
     const spawn = this.mapService.getSpawnPoint(DEFAULT_PLAYER_MAP_ID) ?? { x: player.x, y: player.y };
-/** pos：定义该变量以承载业务值。 */
     const pos = this.mapService.findNearbyWalkable(DEFAULT_PLAYER_MAP_ID, spawn.x, spawn.y, 4, { actorType: 'player' }) ?? spawn;
     player.mapId = DEFAULT_PLAYER_MAP_ID;
     player.x = pos.x;
@@ -1645,9 +1576,7 @@ export class GmService {
     player.retaliatePlayerTargetId = undefined;
   }
 
-/** canSetPosition：执行对应的业务逻辑。 */
   private canSetPosition(mapId: string, x: number, y: number, playerId: string, runtime: boolean): boolean {
-/** tile：定义该变量以承载业务值。 */
     const tile = this.mapService.getTile(mapId, x, y);
     if (!tile?.walkable) return false;
     if (!runtime) {
@@ -1660,7 +1589,6 @@ export class GmService {
   /** 将离线玩家状态持久化到数据库 */
   private async persistOfflinePlayer(entity: PlayerEntity, player: PlayerState): Promise<void> {
     this.techniqueService.preparePlayerForPersistence(player);
-/** persisted：定义该变量以承载业务值。 */
     const persisted = buildPersistedPlayerCollections(player, this.contentService, this.mapService);
     await this.playerRepo.update(entity.id, {
       name: player.name,
@@ -1694,29 +1622,72 @@ export class GmService {
       combatTargetingRules: player.combatTargetingRules as any,
       autoBattleTargetingMode: player.autoBattleTargetingMode,
       combatTargetId: player.combatTargetId ?? null,
-/** combatTargetLocked：定义该变量以承载业务值。 */
       combatTargetLocked: player.combatTargetLocked === true,
       autoRetaliate: player.autoRetaliate,
-/** autoBattleStationary：定义该变量以承载业务值。 */
       autoBattleStationary: player.autoBattleStationary === true,
-/** allowAoePlayerHit：定义该变量以承载业务值。 */
       allowAoePlayerHit: player.allowAoePlayerHit === true,
       autoIdleCultivation: player.autoIdleCultivation,
-/** autoSwitchCultivation：定义该变量以承载业务值。 */
       autoSwitchCultivation: player.autoSwitchCultivation === true,
       cultivatingTechId: player.cultivatingTechId ?? null,
-/** online：定义该变量以承载业务值。 */
       online: player.online === true,
-/** inWorld：定义该变量以承载业务值。 */
       inWorld: player.inWorld !== false,
       lastHeartbeatAt: player.lastHeartbeatAt ? new Date(player.lastHeartbeatAt) : null,
       offlineSinceAt: player.offlineSinceAt ? new Date(player.offlineSinceAt) : null,
     });
   }
 
-/** enqueue：执行对应的业务逻辑。 */
+/** enqueue：执行 将离线玩家状态持久化到数据库 */
+  private async persistOfflinePlayer(entity: PlayerEntity, player: PlayerState): Promise<void> {
+    this.techniqueService.preparePlayerForPersistence(player);
+    const persisted = buildPersistedPlayerCollections(player, this.contentService, this.mapService);
+    await this.playerRepo.update(entity.id, {
+      name: player.name,
+      mapId: player.mapId,
+      respawnMapId: player.respawnMapId,
+      x: player.x,
+      y: player.y,
+      facing: player.facing,
+      viewRange: player.viewRange,
+      hp: player.hp,
+      maxHp: player.maxHp,
+      qi: player.qi,
+      dead: player.dead,
+      foundation: player.foundation,
+      combatExp: player.combatExp,
+      boneAgeBaseYears: player.boneAgeBaseYears,
+      lifeElapsedTicks: player.lifeElapsedTicks,
+      lifespanYears: player.lifespanYears,
+      baseAttrs: player.baseAttrs as any,
+      bonuses: player.bonuses as any,
+      temporaryBuffs: persisted.temporaryBuffs as any,
+      inventory: persisted.inventory as any,
+      equipment: persisted.equipment as any,
+      techniques: persisted.techniques as any,
+      quests: persisted.quests as any,
+      revealedBreakthroughRequirementIds: player.revealedBreakthroughRequirementIds as any,
+      unlockedMinimapIds: player.unlockedMinimapIds as any,
+      autoBattle: player.autoBattle,
+      autoBattleSkills: player.autoBattleSkills as any,
+      autoUsePills: (player.autoUsePills ?? []) as any,
+      combatTargetingRules: player.combatTargetingRules as any,
+      autoBattleTargetingMode: player.autoBattleTargetingMode,
+      combatTargetId: player.combatTargetId ?? null,
+      combatTargetLocked: player.combatTargetLocked === true,
+      autoRetaliate: player.autoRetaliate,
+      autoBattleStationary: player.autoBattleStationary === true,
+      allowAoePlayerHit: player.allowAoePlayerHit === true,
+      autoIdleCultivation: player.autoIdleCultivation,
+      autoSwitchCultivation: player.autoSwitchCultivation === true,
+      cultivatingTechId: player.cultivatingTechId ?? null,
+      online: player.online === true,
+      inWorld: player.inWorld !== false,
+      lastHeartbeatAt: player.lastHeartbeatAt ? new Date(player.lastHeartbeatAt) : null,
+      offlineSinceAt: player.offlineSinceAt ? new Date(player.offlineSinceAt) : null,
+    });
+  }
+
+/** enqueue 的业务逻辑。 */
   private enqueue(mapId: string, command: GmCommand): void {
-/** commands：定义该变量以承载业务值。 */
     const commands = this.commandsByMap.get(mapId) ?? [];
     commands.push(command);
     this.commandsByMap.set(mapId, commands);
@@ -1724,11 +1695,9 @@ export class GmService {
 
   /** 地图保存后为位置不合法的玩家寻找安全坐标 */
   private resolveMapSaveRelocation(player: PlayerState): { x: number; y: number } | null {
-/** mapMeta：定义该变量以承载业务值。 */
     const mapMeta = this.mapService.getMapMeta(player.mapId);
     if (!mapMeta) return null;
 
-/** inBounds：定义该变量以承载业务值。 */
     const inBounds =
       player.x >= 0 &&
       player.y >= 0 &&
@@ -1742,7 +1711,6 @@ export class GmService {
       return null;
     }
 
-/** origin：定义该变量以承载业务值。 */
     const origin = inBounds
       ? { x: player.x, y: player.y }
       : {
@@ -1750,14 +1718,12 @@ export class GmService {
           y: Math.min(mapMeta.height - 1, Math.max(0, player.y)),
         };
 
-/** nearby：定义该变量以承载业务值。 */
     const nearby = this.mapService.findNearbyWalkable(player.mapId, origin.x, origin.y, 10, {
       occupancyId: player.id,
       actorType: 'player',
     });
     if (nearby) return nearby;
 
-/** spawn：定义该变量以承载业务值。 */
     const spawn = this.mapService.getSpawnPoint(player.mapId);
     if (spawn && this.mapService.canOccupy(player.mapId, spawn.x, spawn.y, {
       occupancyId: player.id,
@@ -1767,7 +1733,6 @@ export class GmService {
     }
 
     if (spawn) {
-/** nearSpawn：定义该变量以承载业务值。 */
       const nearSpawn = this.mapService.findNearbyWalkable(player.mapId, spawn.x, spawn.y, 12, {
         occupancyId: player.id,
         actorType: 'player',
@@ -1778,34 +1743,25 @@ export class GmService {
     return null;
   }
 
-/** markDirty：执行对应的业务逻辑。 */
   private markDirty(playerId: string, flags: DirtyFlag[]): void {
     for (const flag of flags) {
       this.playerService.markDirty(playerId, flag);
     }
   }
 
-/** calculateCombatExpCompensation：执行对应的业务逻辑。 */
   private calculateCombatExpCompensation(player: Pick<PlayerState, 'realm' | 'bodyTraining'>): number {
-/** realmExpToNext：定义该变量以承载业务值。 */
     const realmExpToNext = this.normalizeNonNegativeInt(player.realm?.progressToNext ?? 0);
-/** bodyTrainingExpToNext：定义该变量以承载业务值。 */
     const bodyTrainingExpToNext = normalizeBodyTrainingState(player.bodyTraining).expToNext;
     return realmExpToNext + this.normalizeNonNegativeInt(bodyTrainingExpToNext);
   }
 
-/** calculateFoundationCompensation：执行对应的业务逻辑。 */
   private calculateFoundationCompensation(player: Pick<PlayerState, 'realm'>): number {
-/** realmExpToNext：定义该变量以承载业务值。 */
     const realmExpToNext = this.normalizeNonNegativeInt(player.realm?.progressToNext ?? 0);
     return realmExpToNext * 5;
   }
 
-/** applyBodyTrainingLevel：执行对应的业务逻辑。 */
   private applyBodyTrainingLevel(player: PlayerState, level: number): void {
-/** preservedExp：定义该变量以承载业务值。 */
     const preservedExp = this.normalizeNonNegativeInt(player.bodyTraining?.exp ?? 0);
-/** expToNext：定义该变量以承载业务值。 */
     const expToNext = getBodyTrainingExpToNext(level);
     player.bodyTraining = normalizeBodyTrainingState({
       level,
@@ -1814,9 +1770,7 @@ export class GmService {
     this.techniqueService.initializePlayerProgression(player);
   }
 
-/** parseBodyTrainingLevel：执行对应的业务逻辑。 */
   private parseBodyTrainingLevel(value: unknown): number | null {
-/** numeric：定义该变量以承载业务值。 */
     const numeric = Number(value);
     if (!Number.isFinite(numeric) || numeric < 0) {
       return null;
@@ -1824,9 +1778,7 @@ export class GmService {
     return Math.floor(numeric);
   }
 
-/** parseCounterDelta：执行对应的业务逻辑。 */
   private parseCounterDelta(value: unknown, label: string): number | string {
-/** numeric：定义该变量以承载业务值。 */
     const numeric = Number(value);
     if (!Number.isFinite(numeric) || !Number.isInteger(numeric)) {
       return `${label}必须是整数`;
@@ -1834,25 +1786,19 @@ export class GmService {
     return numeric;
   }
 
-/** applyCounterDelta：执行对应的业务逻辑。 */
   private applyCounterDelta(currentValue: unknown, amount: number): number {
     return Math.max(0, this.normalizeNonNegativeInt(currentValue) + amount);
   }
 
-/** hasInvalidItems：执行对应的业务逻辑。 */
   private hasInvalidItems(summary: InvalidItemCleanupSummary): boolean {
     return summary.inventoryStacksRemoved > 0
       || summary.marketStorageStacksRemoved > 0
       || summary.equipmentRemoved > 0;
   }
 
-/** inspectInvalidItems：执行对应的业务逻辑。 */
   private inspectInvalidItems(player: Pick<PlayerState, 'inventory' | 'marketStorage' | 'equipment'>): InvalidItemCleanupSummary {
-/** inventoryStacksRemoved：定义该变量以承载业务值。 */
     const inventoryStacksRemoved = (player.inventory?.items ?? []).filter((item) => !this.contentService.getItem(item.itemId)).length;
-/** marketStorageStacksRemoved：定义该变量以承载业务值。 */
     const marketStorageStacksRemoved = (player.marketStorage?.items ?? []).filter((item) => !this.contentService.getItem(item.itemId)).length;
-/** equipmentRemoved：定义该变量以承载业务值。 */
     let equipmentRemoved = 0;
     for (const slot of EQUIP_SLOTS) {
       const item = player.equipment?.[slot];
@@ -1867,9 +1813,7 @@ export class GmService {
     };
   }
 
-/** cleanupInvalidItems：执行对应的业务逻辑。 */
   private cleanupInvalidItems(player: PlayerState): InvalidItemCleanupSummary {
-/** summary：定义该变量以承载业务值。 */
     const summary = this.inspectInvalidItems(player);
     if (!this.hasInvalidItems(summary)) {
       return summary;
@@ -1885,7 +1829,6 @@ export class GmService {
     };
 
     if (summary.equipmentRemoved > 0) {
-/** nextEquipment：定义该变量以承载业务值。 */
       const nextEquipment = { ...player.equipment };
       for (const slot of EQUIP_SLOTS) {
         const item = nextEquipment[slot];
@@ -1896,7 +1839,6 @@ export class GmService {
       player.equipment = nextEquipment;
       this.equipmentService.rebuildBonuses(player);
       player.hp = Math.min(player.maxHp, this.normalizeNonNegativeInt(player.hp));
-/** maxQi：定义该变量以承载业务值。 */
       const maxQi = Math.max(0, Math.round(player.numericStats?.maxQi ?? player.qi ?? 0));
       player.qi = Math.min(maxQi, Math.max(0, Math.round(player.qi ?? 0)));
       if (player.hp <= 0) {
@@ -1920,41 +1862,34 @@ export class GmService {
       return null;
     }
 
-/** runtime：定义该变量以承载业务值。 */
     const runtime = this.playerService.getPlayer(playerId);
-/** currentName：定义该变量以承载业务值。 */
     const currentName = normalizeRoleName(runtime?.name ?? (
       await this.playerRepo.findOne({
         where: { id: playerId },
         select: { name: true },
       })
     )?.name ?? '');
-/** nextName：定义该变量以承载业务值。 */
     const nextName = normalizeRoleName(snapshot.name);
 
     if (!nextName || nextName === currentName) {
       return null;
     }
 
-/** roleNameError：定义该变量以承载业务值。 */
     const roleNameError = validateRoleName(nextName);
     if (roleNameError) {
       return roleNameError;
     }
-/** roleNameSensitiveError：定义该变量以承载业务值。 */
     const roleNameSensitiveError = this.roleNameModerationService.validateRoleName(nextName);
     if (roleNameSensitiveError) {
       return roleNameSensitiveError;
     }
 
-/** userId：定义该变量以承载业务值。 */
     const userId = this.playerService.getUserIdByPlayerId(playerId) ?? (
       await this.playerRepo.findOne({
         where: { id: playerId },
         select: { userId: true },
       })
     )?.userId;
-/** roleNameConflict：定义该变量以承载业务值。 */
     const roleNameConflict = await this.nameUniquenessService.ensureAvailable(nextName, 'role', {
       exclude: userId ? [{ userId, kind: 'role' }] : [],
     });
@@ -1975,7 +1910,6 @@ export class GmService {
       return this.clonePlayer(snapshot) as PlayerState;
     }
 
-/** merged：定义该变量以承载业务值。 */
     const merged = this.clonePlayer(player);
     switch (section) {
       case 'basic':
@@ -2041,7 +1975,6 @@ export class GmService {
     return merged;
   }
 
-/** getDirtyFlagsForSection：执行对应的业务逻辑。 */
   private getDirtyFlagsForSection(section?: GmPlayerUpdateSection): DirtyFlag[] {
     switch (section) {
       case 'basic':
@@ -2063,14 +1996,11 @@ export class GmService {
     }
   }
 
-/** normalizeName：执行对应的业务逻辑。 */
   private normalizeName(value: unknown, fallback: string): string {
     return typeof value === 'string' && value.trim().length > 0 ? value.trim().slice(0, 50) : fallback;
   }
 
-/** normalizeAttributes：执行对应的业务逻辑。 */
   private normalizeAttributes(value: unknown): Attributes {
-/** source：定义该变量以承载业务值。 */
     const source = typeof value === 'object' && value !== null ? value as Partial<Attributes> : {};
     return {
       constitution: this.normalizeNonNegativeInt(source.constitution ?? DEFAULT_BASE_ATTRS.constitution),
@@ -2082,9 +2012,7 @@ export class GmService {
     };
   }
 
-/** normalizeInventory：执行对应的业务逻辑。 */
   private normalizeInventory(value: unknown): Inventory {
-/** source：定义该变量以承载业务值。 */
     const source = typeof value === 'object' && value !== null ? value as Partial<Inventory> : {};
     return {
       capacity: this.normalizePositiveInt(source.capacity, DEFAULT_INVENTORY_CAPACITY),
@@ -2092,9 +2020,7 @@ export class GmService {
     };
   }
 
-/** normalizeEquipment：执行对应的业务逻辑。 */
   private normalizeEquipment(value: unknown): EquipmentSlots {
-/** source：定义该变量以承载业务值。 */
     const source = typeof value === 'object' && value !== null ? value as Partial<EquipmentSlots> : {};
     return {
       weapon: source.weapon ? this.cloneObject(source.weapon) : null,
@@ -2105,18 +2031,13 @@ export class GmService {
     };
   }
 
-/** normalizeTemporaryBuffs：执行对应的业务逻辑。 */
   private normalizeTemporaryBuffs(value: unknown): TemporaryBuffState[] {
     return Array.isArray(value) ? this.cloneArray<TemporaryBuffState>(value) : [];
   }
 
-/** buildEditorBuffCatalog：执行对应的业务逻辑。 */
   private buildEditorBuffCatalog(): GmEditorBuffOption[] {
-/** catalog：定义该变量以承载业务值。 */
     const catalog = new Map<string, GmEditorBuffOption>();
-/** register：定义该变量以承载业务值。 */
     const register = (buff: TemporaryBuffState): void => {
-/** buffId：定义该变量以承载业务值。 */
       const buffId = buff.buffId.trim();
       if (!buffId || catalog.has(buffId)) {
         return;
@@ -2130,21 +2051,17 @@ export class GmService {
           if (effect.type !== 'buff') {
             continue;
           }
-/** buffId：定义该变量以承载业务值。 */
           const buffId = effect.buffId.trim();
           if (!buffId) {
             continue;
           }
-/** duration：定义该变量以承载业务值。 */
           const duration = Math.max(1, effect.duration);
-/** maxStacks：定义该变量以承载业务值。 */
           const maxStacks = Math.max(1, effect.maxStacks ?? 1);
           register({
             buffId,
             name: effect.name,
             desc: effect.desc,
             shortMark: this.normalizeEditorBuffShortMark(effect.shortMark, effect.name),
-/** category：定义该变量以承载业务值。 */
             category: effect.category ?? (effect.target === 'self' ? 'buff' : 'debuff'),
             visibility: effect.visibility ?? 'public',
             remainingTicks: duration,
@@ -2171,9 +2088,7 @@ export class GmService {
         if (!buffId) {
           continue;
         }
-/** duration：定义该变量以承载业务值。 */
         const duration = Math.max(1, buff.duration);
-/** maxStacks：定义该变量以承载业务值。 */
         const maxStacks = Math.max(1, buff.maxStacks ?? 1);
         register({
           buffId,
@@ -2202,14 +2117,11 @@ export class GmService {
         if (effect.type !== 'timed_buff') {
           continue;
         }
-/** buffId：定义该变量以承载业务值。 */
         const buffId = effect.buff.buffId.trim();
         if (!buffId) {
           continue;
         }
-/** duration：定义该变量以承载业务值。 */
         const duration = Math.max(1, effect.buff.duration);
-/** maxStacks：定义该变量以承载业务值。 */
         const maxStacks = Math.max(1, effect.buff.maxStacks ?? 1);
         register({
           buffId,
@@ -2274,7 +2186,6 @@ export class GmService {
     register(this.buildWorldObserveBuffState());
 
     return [...catalog.values()].sort((left, right) => {
-/** nameOrder：定义该变量以承载业务值。 */
       const nameOrder = left.name.localeCompare(right.name, 'zh-CN');
       if (nameOrder !== 0) {
         return nameOrder;
@@ -2283,24 +2194,19 @@ export class GmService {
     });
   }
 
-/** normalizeEditorBuffShortMark：执行对应的业务逻辑。 */
   private normalizeEditorBuffShortMark(raw: string | undefined, fallbackName: string): string {
-/** value：定义该变量以承载业务值。 */
     const value = raw?.trim();
     if (value) {
       return [...value][0] ?? value;
     }
-/** fallback：定义该变量以承载业务值。 */
     const fallback = fallbackName.trim();
     return [...fallback][0] ?? '气';
   }
 
-/** normalizeQuests：执行对应的业务逻辑。 */
   private normalizeQuests(quests: QuestState[]): QuestState[] {
     return this.cloneArray<QuestState>(quests);
   }
 
-/** normalizeDirection：执行对应的业务逻辑。 */
   private normalizeDirection(value: unknown): Direction {
     if (value === Direction.North || value === Direction.South || value === Direction.East || value === Direction.West) {
       return value;
@@ -2308,51 +2214,41 @@ export class GmService {
     return Direction.South;
   }
 
-/** normalizeInt：执行对应的业务逻辑。 */
   private normalizeInt(value: unknown, fallback = 0): number {
     return Number.isFinite(value) ? Math.floor(Number(value)) : fallback;
   }
 
-/** normalizeNonNegativeInt：执行对应的业务逻辑。 */
   private normalizeNonNegativeInt(value: unknown, fallback = 0): number {
     return Math.max(0, this.normalizeInt(value, fallback));
   }
 
-/** normalizePositiveInt：执行对应的业务逻辑。 */
   private normalizePositiveInt(value: unknown, fallback = 1): number {
     return Math.max(1, this.normalizeInt(value, fallback));
   }
 
-/** clonePlayer：执行对应的业务逻辑。 */
   private clonePlayer<T>(player: T): T {
     return JSON.parse(JSON.stringify(player)) as T;
   }
 
-/** cloneArray：执行对应的业务逻辑。 */
   private cloneArray<T>(value: unknown): T[] {
     return Array.isArray(value) ? JSON.parse(JSON.stringify(value)) as T[] : [];
   }
 
-/** cloneObject：执行对应的业务逻辑。 */
   private cloneObject<T>(value: T): T {
     return JSON.parse(JSON.stringify(value)) as T;
   }
 
-/** loadUsersByIds：执行对应的业务逻辑。 */
   private async loadUsersByIds(userIds: Iterable<string | undefined>): Promise<Map<string, UserEntity>> {
-/** ids：定义该变量以承载业务值。 */
     const ids = [...new Set(
       Array.from(userIds).filter((userId): userId is string => typeof userId === 'string' && userId.length > 0),
     )];
     if (ids.length === 0) {
       return new Map();
     }
-/** users：定义该变量以承载业务值。 */
     const users = await this.userRepo.findBy({ id: In(ids) });
     return new Map(users.map((user) => [user.id, user]));
   }
 
-/** resolveStoredDisplayName：执行对应的业务逻辑。 */
   private resolveStoredDisplayName(user?: UserEntity | null): string | undefined {
     if (!user) {
       return undefined;
@@ -2365,30 +2261,24 @@ export class GmService {
     accountName: string | undefined,
     fallbackName: string,
   ): string {
-/** normalizedDisplayName：定义该变量以承载业务值。 */
     const normalizedDisplayName = displayName?.trim();
     if (normalizedDisplayName) {
       return normalizedDisplayName;
     }
-/** normalizedAccountName：定义该变量以承载业务值。 */
     const normalizedAccountName = accountName?.trim();
     if (normalizedAccountName) {
       return normalizedAccountName.slice(0, 1);
     }
-/** normalizedFallback：定义该变量以承载业务值。 */
     const normalizedFallback = fallbackName.trim();
     return normalizedFallback.length > 0 ? normalizedFallback.slice(0, 1) : '';
   }
 
-/** buildAccountRecord：执行对应的业务逻辑。 */
   private buildAccountRecord(user: UserEntity | null | undefined, online: boolean): GmManagedAccountRecord | undefined {
     if (!user) {
       return undefined;
     }
-/** sessionStartedAt：定义该变量以承载业务值。 */
     const sessionStartedAt = this.playerService.getOnlineSessionStartedAt(user.id)
       ?? user.currentOnlineStartedAt?.getTime();
-/** currentSessionSeconds：定义该变量以承载业务值。 */
     const currentSessionSeconds = online && sessionStartedAt
       ? Math.max(0, Math.floor((Date.now() - sessionStartedAt) / 1000))
       : 0;
@@ -2411,21 +2301,14 @@ export class GmService {
     tickPaused: boolean,
     viewerId?: string,
   ): GmMapRuntimeRes | null {
-/** meta：定义该变量以承载业务值。 */
     const meta = this.mapService.getMapMeta(mapId);
     if (!meta) return null;
 
-/** clampedW：定义该变量以承载业务值。 */
     const clampedW = Math.min(20, Math.max(1, w));
-/** clampedH：定义该变量以承载业务值。 */
     const clampedH = Math.min(20, Math.max(1, h));
-/** startX：定义该变量以承载业务值。 */
     const startX = Math.max(0, Math.min(x, meta.width - 1));
-/** startY：定义该变量以承载业务值。 */
     const startY = Math.max(0, Math.min(y, meta.height - 1));
-/** endX：定义该变量以承载业务值。 */
     const endX = Math.min(meta.width, startX + clampedW);
-/** endY：定义该变量以承载业务值。 */
     const endY = Math.min(meta.height, startY + clampedH);
     this.updateWorldObservation(viewerId, mapId, startX, startY, endX - startX, endY - startY);
 
@@ -2457,7 +2340,6 @@ export class GmService {
           hp: player.hp,
           maxHp: player.maxHp,
           dead: player.dead,
-/** online：定义该变量以承载业务值。 */
           online: player.online === true,
           autoBattle: player.autoBattle,
           isBot: Boolean(player.isBot),
@@ -2501,11 +2383,9 @@ export class GmService {
       }
     }
 
-/** time：定义该变量以承载业务值。 */
     const time = this.timeService.buildPlayerTimeState(
       { mapId, viewRange: VIEW_RADIUS } as PlayerState,
     );
-/** timeConfig：定义该变量以承载业务值。 */
     const timeConfig = this.mapService.getMapTimeConfig(mapId);
 
     return {
@@ -2527,7 +2407,12 @@ export class GmService {
     return this.mapService.updateMapTimeConfig(mapId, req);
   }
 
-/** pruneExpiredWorldObservations：执行对应的业务逻辑。 */
+/** pruneExpiredWorldObservations：执行 GM 修改地图时间配置 */
+  updateMapTime(mapId: string, req: GmUpdateMapTimeReq): string | null {
+    return this.mapService.updateMapTimeConfig(mapId, req);
+  }
+
+/** pruneExpiredWorldObservations 的业务逻辑。 */
   private pruneExpiredWorldObservations(now: number): void {
     for (const [viewerId, session] of this.worldObservationSessions.entries()) {
       if (now - session.lastSeenAt > GM_WORLD_OBSERVE_SESSION_TTL_MS) {
@@ -2536,11 +2421,8 @@ export class GmService {
     }
   }
 
-/** ensureWorldObserveBuff：执行对应的业务逻辑。 */
   private ensureWorldObserveBuff(player: PlayerState): boolean {
-/** targetBuffs：定义该变量以承载业务值。 */
     const targetBuffs = player.temporaryBuffs ??= [];
-/** existing：定义该变量以承载业务值。 */
     const existing = targetBuffs.find((buff) => buff.buffId === GM_WORLD_OBSERVE_BUFF_ID);
     if (!existing) {
       targetBuffs.push(this.buildWorldObserveBuffState());
@@ -2548,7 +2430,6 @@ export class GmService {
       return true;
     }
 
-/** changed：定义该变量以承载业务值。 */
     let changed = false;
     if (existing.name !== GM_WORLD_OBSERVE_BUFF_NAME) {
       existing.name = GM_WORLD_OBSERVE_BUFF_NAME;
@@ -2612,14 +2493,11 @@ export class GmService {
     return changed;
   }
 
-/** removeWorldObserveBuff：执行对应的业务逻辑。 */
   private removeWorldObserveBuff(player: PlayerState): boolean {
-/** targetBuffs：定义该变量以承载业务值。 */
     const targetBuffs = player.temporaryBuffs;
     if (!targetBuffs || targetBuffs.length === 0) {
       return false;
     }
-/** index：定义该变量以承载业务值。 */
     const index = targetBuffs.findIndex((buff) => buff.buffId === GM_WORLD_OBSERVE_BUFF_ID);
     if (index < 0) {
       return false;
@@ -2629,7 +2507,6 @@ export class GmService {
     return true;
   }
 
-/** buildWorldObserveBuffState：执行对应的业务逻辑。 */
   private buildWorldObserveBuffState(): TemporaryBuffState {
     return {
       buffId: GM_WORLD_OBSERVE_BUFF_ID,

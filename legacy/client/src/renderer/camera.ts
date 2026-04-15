@@ -11,12 +11,10 @@ export class Camera {
   y = 0;
   private targetX = 0;
   private targetY = 0;
-/** divergeTime：定义该变量以承载业务值。 */
   private divergeTime: number | null = null;
 
   /** 设置追踪目标（不立即跳转，等待延迟后平滑移动） */
   follow(player: PlayerState) {
-/** cellSize：定义该变量以承载业务值。 */
     const cellSize = getCellSize();
     this.targetX = (player.x + 0.5) * cellSize;
     this.targetY = (player.y + 0.5) * cellSize;
@@ -24,11 +22,8 @@ export class Camera {
 
   /** 每帧更新，延迟后以指数衰减 lerp 逼近目标 */
   update(dt: number) {
-/** dx：定义该变量以承载业务值。 */
     const dx = this.targetX - this.x;
-/** dy：定义该变量以承载业务值。 */
     const dy = this.targetY - this.y;
-/** dist：定义该变量以承载业务值。 */
     const dist = Math.sqrt(dx * dx + dy * dy);
 
     if (dist < 0.1) {
@@ -42,11 +37,9 @@ export class Camera {
       this.divergeTime = performance.now();
     }
 
-/** elapsed：定义该变量以承载业务值。 */
     const elapsed = (performance.now() - this.divergeTime) / 1000;
     if (elapsed < CAMERA_DELAY_SECONDS) return;
 
-/** t：定义该变量以承载业务值。 */
     const t = 1 - Math.exp(-CAMERA_SMOOTH_SPEED * dt);
     this.x += dx * t;
     this.y += dy * t;
@@ -56,7 +49,6 @@ export class Camera {
 
   /** 立即跳转到玩家位置，无平滑过渡 */
   snap(player: PlayerState) {
-/** cellSize：定义该变量以承载业务值。 */
     const cellSize = getCellSize();
     this.targetX = (player.x + 0.5) * cellSize;
     this.targetY = (player.y + 0.5) * cellSize;

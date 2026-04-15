@@ -13,35 +13,22 @@ import {
   PersistedTemporaryBuffSnapshot,
 } from './temporary-buff-storage';
 
-/** PendingMonsterSkillCast：定义该接口的能力与字段约束。 */
 export interface PendingMonsterSkillCast {
-/** skillId：定义该变量以承载业务值。 */
   skillId: string;
-/** targetX：定义该变量以承载业务值。 */
   targetX: number;
-/** targetY：定义该变量以承载业务值。 */
   targetY: number;
-/** remainingTicks：定义该变量以承载业务值。 */
   remainingTicks: number;
-/** qiCost：定义该变量以承载业务值。 */
   qiCost: number;
   warningColor?: string;
 }
 
-/** PersistedMonsterRuntimeRecord：定义该接口的能力与字段约束。 */
 export interface PersistedMonsterRuntimeRecord {
-/** runtimeId：定义该变量以承载业务值。 */
   runtimeId: string;
-/** x：定义该变量以承载业务值。 */
   x: number;
-/** y：定义该变量以承载业务值。 */
   y: number;
-/** hp：定义该变量以承载业务值。 */
   hp: number;
   qi?: number;
-/** alive：定义该变量以承载业务值。 */
   alive: boolean;
-/** respawnLeft：定义该变量以承载业务值。 */
   respawnLeft: number;
   temporaryBuffs?: PersistedTemporaryBuffSnapshot[];
   skillCooldowns?: Record<string, number>;
@@ -54,76 +41,46 @@ export interface PersistedMonsterRuntimeRecord {
   pendingCast?: PendingMonsterSkillCast;
 }
 
-/** PersistedMonsterRuntimeSnapshot：定义该接口的能力与字段约束。 */
 export interface PersistedMonsterRuntimeSnapshot {
-/** version：定义该变量以承载业务值。 */
   version: 1 | 2 | 3 | 4;
-/** maps：定义该变量以承载业务值。 */
   maps: Record<string, PersistedMonsterRuntimeRecord[]>;
   spawnAccelerationStates?: Record<string, PersistedMonsterSpawnAccelerationRecord[]>;
 }
 
-/** MonsterSpawnAccelerationState：定义该接口的能力与字段约束。 */
 export interface MonsterSpawnAccelerationState {
-/** spawnKey：定义该变量以承载业务值。 */
   spawnKey: string;
-/** respawnSpeedBonusPercent：定义该变量以承载业务值。 */
   respawnSpeedBonusPercent: number;
-/** clearDeadlineTick：定义该变量以承载业务值。 */
   clearDeadlineTick: number;
 }
 
-/** PersistedMonsterSpawnAccelerationRecord：定义该接口的能力与字段约束。 */
 export interface PersistedMonsterSpawnAccelerationRecord {
-/** spawnKey：定义该变量以承载业务值。 */
   spawnKey: string;
-/** respawnSpeedBonusPercent：定义该变量以承载业务值。 */
   respawnSpeedBonusPercent: number;
-/** clearDeadlineTick：定义该变量以承载业务值。 */
   clearDeadlineTick: number;
 }
 
-/** PersistedNpcShopRuntimeRecord：定义该接口的能力与字段约束。 */
 export interface PersistedNpcShopRuntimeRecord {
-/** refreshWindowStartMs：定义该变量以承载业务值。 */
   refreshWindowStartMs: number;
-/** soldQuantity：定义该变量以承载业务值。 */
   soldQuantity: number;
 }
 
-/** PersistedNpcShopRuntimeSnapshot：定义该接口的能力与字段约束。 */
 export interface PersistedNpcShopRuntimeSnapshot {
-/** version：定义该变量以承载业务值。 */
   version: 1;
-/** items：定义该变量以承载业务值。 */
   items: Record<string, PersistedNpcShopRuntimeRecord>;
 }
 
-/** RuntimeMonsterLike：定义该接口的能力与字段约束。 */
 interface RuntimeMonsterLike extends MonsterSpawnConfig {
-/** runtimeId：定义该变量以承载业务值。 */
   runtimeId: string;
-/** mapId：定义该变量以承载业务值。 */
   mapId: string;
-/** spawnKey：定义该变量以承载业务值。 */
   spawnKey: string;
-/** spawnX：定义该变量以承载业务值。 */
   spawnX: number;
-/** spawnY：定义该变量以承载业务值。 */
   spawnY: number;
-/** hp：定义该变量以承载业务值。 */
   hp: number;
-/** qi：定义该变量以承载业务值。 */
   qi: number;
-/** alive：定义该变量以承载业务值。 */
   alive: boolean;
-/** respawnLeft：定义该变量以承载业务值。 */
   respawnLeft: number;
-/** temporaryBuffs：定义该变量以承载业务值。 */
   temporaryBuffs: TemporaryBuffState[];
-/** skillCooldowns：定义该变量以承载业务值。 */
   skillCooldowns: Record<string, number>;
-/** damageContributors：定义该变量以承载业务值。 */
   damageContributors: Map<string, number>;
   facing?: Direction;
   targetPlayerId?: string;
@@ -133,18 +90,15 @@ interface RuntimeMonsterLike extends MonsterSpawnConfig {
   pendingCast?: PendingMonsterSkillCast;
 }
 
-/** DomainDeps：定义该接口的能力与字段约束。 */
 interface DomainDeps {
   syncMonsterRuntimeResources: (
     runtime: RuntimeMonsterLike,
-/** resourceDelta：定义该变量以承载业务值。 */
     resourceDelta: { previousHp: number; previousQi: number },
   ) => void;
   findSpawnPosition: (mapId: string, runtime: RuntimeMonsterLike) => { x: number; y: number } | null;
   areAllMonstersAlive: (monsters: RuntimeMonsterLike[]) => boolean;
 }
 
-/** WorldRuntimePersistenceDomain：封装相关状态与行为。 */
 export class WorldRuntimePersistenceDomain {
   constructor(
     private readonly mapService: MapService,
@@ -152,9 +106,7 @@ export class WorldRuntimePersistenceDomain {
     private readonly deps: DomainDeps,
   ) {}
 
-/** normalizePersistedNpcShopRuntimeRecord：执行对应的业务逻辑。 */
   normalizePersistedNpcShopRuntimeRecord(raw: unknown): PersistedNpcShopRuntimeRecord | null {
-/** candidate：定义该变量以承载业务值。 */
     const candidate = raw as Partial<PersistedNpcShopRuntimeRecord>;
     if (
       !Number.isInteger(candidate?.refreshWindowStartMs)
@@ -170,9 +122,7 @@ export class WorldRuntimePersistenceDomain {
     };
   }
 
-/** buildAllowedMonsterRuntimeIds：执行对应的业务逻辑。 */
   buildAllowedMonsterRuntimeIds(mapId: string): Set<string> {
-/** result：定义该变量以承载业务值。 */
     const result = new Set<string>();
     for (const spawn of this.mapService.getMonsterSpawns(mapId)) {
       for (let index = 0; index < spawn.maxAlive; index += 1) {
@@ -182,9 +132,7 @@ export class WorldRuntimePersistenceDomain {
     return result;
   }
 
-/** buildAllowedMonsterSpawnKeys：执行对应的业务逻辑。 */
   buildAllowedMonsterSpawnKeys(mapId: string): Set<string> {
-/** result：定义该变量以承载业务值。 */
     const result = new Set<string>();
     for (const spawn of this.mapService.getMonsterSpawns(mapId)) {
       if (spawn.tier !== 'mortal_blood') {
@@ -214,9 +162,7 @@ export class WorldRuntimePersistenceDomain {
     return `monster:${mapId}:${spawnId}:${spawnX}:${spawnY}:${index}`;
   }
 
-/** captureMonsterRuntimeState：执行对应的业务逻辑。 */
   captureMonsterRuntimeState(monsters: RuntimeMonsterLike[]): Map<string, PersistedMonsterRuntimeRecord> {
-/** result：定义该变量以承载业务值。 */
     const result = new Map<string, PersistedMonsterRuntimeRecord>();
     for (const monster of monsters) {
       result.set(monster.runtimeId, this.captureMonsterRuntimeRecord(monster));
@@ -227,7 +173,6 @@ export class WorldRuntimePersistenceDomain {
   captureMonsterSpawnAccelerationState(
     states: Iterable<MonsterSpawnAccelerationState>,
   ): Map<string, PersistedMonsterSpawnAccelerationRecord> {
-/** result：定义该变量以承载业务值。 */
     const result = new Map<string, PersistedMonsterSpawnAccelerationRecord>();
     for (const state of states) {
       result.set(state.spawnKey, this.captureMonsterSpawnAccelerationRecord(state));
@@ -235,7 +180,6 @@ export class WorldRuntimePersistenceDomain {
     return result;
   }
 
-/** captureMonsterRuntimeRecord：执行对应的业务逻辑。 */
   captureMonsterRuntimeRecord(monster: RuntimeMonsterLike): PersistedMonsterRuntimeRecord {
     return {
       runtimeId: monster.runtimeId,
@@ -280,9 +224,7 @@ export class WorldRuntimePersistenceDomain {
     runtime: RuntimeMonsterLike,
     persisted: PersistedMonsterRuntimeRecord,
   ): void {
-/** persistedHp：定义该变量以承载业务值。 */
     const persistedHp = Math.round(persisted.hp);
-/** persistedQi：定义该变量以承载业务值。 */
     const persistedQi = Math.round(persisted.qi ?? runtime.qi);
     runtime.hp = Math.max(0, Math.min(runtime.maxHp, persistedHp));
     runtime.qi = Math.max(0, Math.min(Math.max(0, Math.round(runtime.numericStats.maxQi)), persistedQi));
@@ -305,11 +247,8 @@ export class WorldRuntimePersistenceDomain {
         .map(([playerId, damage]) => [playerId, Math.max(1, Math.round(Number(damage)))]),
     );
 
-/** canRestoreAlive：定义该变量以承载业务值。 */
     const canRestoreAlive = persisted.alive === true && runtime.hp > 0;
-/** preferredX：定义该变量以承载业务值。 */
     const preferredX = Number.isInteger(persisted.x) ? Number(persisted.x) : runtime.spawnX;
-/** preferredY：定义该变量以承载业务值。 */
     const preferredY = Number.isInteger(persisted.y) ? Number(persisted.y) : runtime.spawnY;
     if (canRestoreAlive && this.mapService.isWalkable(mapId, preferredX, preferredY, { actorType: 'monster' })) {
       runtime.x = preferredX;
@@ -320,7 +259,6 @@ export class WorldRuntimePersistenceDomain {
       return;
     }
 
-/** fallbackPos：定义该变量以承载业务值。 */
     const fallbackPos = canRestoreAlive ? this.deps.findSpawnPosition(mapId, runtime) : null;
     if (canRestoreAlive && fallbackPos && this.mapService.isWalkable(mapId, fallbackPos.x, fallbackPos.y, { actorType: 'monster' })) {
       runtime.x = fallbackPos.x;
@@ -343,9 +281,7 @@ export class WorldRuntimePersistenceDomain {
     monsters: RuntimeMonsterLike[],
     currentTick: number,
   ): MonsterSpawnAccelerationState {
-/** sample：定义该变量以承载业务值。 */
     const sample = monsters[0];
-/** respawnSpeedBonusPercent：定义该变量以承载业务值。 */
     const respawnSpeedBonusPercent = 0;
     return {
       spawnKey,
@@ -366,13 +302,11 @@ export class WorldRuntimePersistenceDomain {
     };
   }
 
-/** normalizePersistedMonsterRuntimeRecord：执行对应的业务逻辑。 */
   normalizePersistedMonsterRuntimeRecord(raw: unknown): PersistedMonsterRuntimeRecord | null {
     if (!raw || typeof raw !== 'object') {
       return null;
     }
 
-/** candidate：定义该变量以承载业务值。 */
     const candidate = raw as Partial<PersistedMonsterRuntimeRecord>;
     if (
       typeof candidate.runtimeId !== 'string'
@@ -398,7 +332,6 @@ export class WorldRuntimePersistenceDomain {
             .map((buff) => normalizePersistedTemporaryBuffSnapshot(buff))
             .filter((buff): buff is PersistedTemporaryBuffSnapshot => buff !== null)
         : undefined,
-/** skillCooldowns：定义该变量以承载业务值。 */
       skillCooldowns: candidate.skillCooldowns && typeof candidate.skillCooldowns === 'object'
         ? Object.fromEntries(
             Object.entries(candidate.skillCooldowns)
@@ -407,7 +340,6 @@ export class WorldRuntimePersistenceDomain {
           )
         : undefined,
       pendingCast: this.normalizePendingMonsterSkillCast(candidate.pendingCast),
-/** damageContributors：定义该变量以承载业务值。 */
       damageContributors: candidate.damageContributors && typeof candidate.damageContributors === 'object'
         ? Object.fromEntries(
             Object.entries(candidate.damageContributors)
@@ -416,7 +348,6 @@ export class WorldRuntimePersistenceDomain {
           )
         : undefined,
       facing: candidate.facing,
-/** targetPlayerId：定义该变量以承载业务值。 */
       targetPlayerId: typeof candidate.targetPlayerId === 'string' ? candidate.targetPlayerId : undefined,
       lastSeenTargetX: Number.isInteger(candidate.lastSeenTargetX) ? Number(candidate.lastSeenTargetX) : undefined,
       lastSeenTargetY: Number.isInteger(candidate.lastSeenTargetY) ? Number(candidate.lastSeenTargetY) : undefined,
@@ -424,12 +355,10 @@ export class WorldRuntimePersistenceDomain {
     };
   }
 
-/** normalizePendingMonsterSkillCast：执行对应的业务逻辑。 */
   normalizePendingMonsterSkillCast(raw: unknown): PendingMonsterSkillCast | undefined {
     if (!raw || typeof raw !== 'object') {
       return undefined;
     }
-/** candidate：定义该变量以承载业务值。 */
     const candidate = raw as Record<string, unknown>;
     if (
       typeof candidate.skillId !== 'string'
@@ -446,7 +375,6 @@ export class WorldRuntimePersistenceDomain {
       targetY: Number(candidate.targetY),
       remainingTicks: Math.max(1, Math.round(Number(candidate.remainingTicks))),
       qiCost: Math.max(0, Math.round(Number(candidate.qiCost))),
-/** warningColor：定义该变量以承载业务值。 */
       warningColor: typeof candidate.warningColor === 'string' && candidate.warningColor.trim().length > 0
         ? candidate.warningColor.trim()
         : undefined,
@@ -460,7 +388,6 @@ export class WorldRuntimePersistenceDomain {
       return null;
     }
 
-/** candidate：定义该变量以承载业务值。 */
     const candidate = raw as Partial<PersistedMonsterSpawnAccelerationRecord>;
     if (
       typeof candidate.spawnKey !== 'string'
@@ -477,22 +404,17 @@ export class WorldRuntimePersistenceDomain {
     };
   }
 
-/** normalizeMonsterRespawnSpeedBonusPercent：执行对应的业务逻辑。 */
   normalizeMonsterRespawnSpeedBonusPercent(value: number): number {
     if (!Number.isFinite(value)) {
       return 0;
     }
-/** normalized：定义该变量以承载业务值。 */
     const normalized = Math.round(Number(value) / MONSTER_RESPAWN_ACCELERATION_STEP_PERCENT)
       * MONSTER_RESPAWN_ACCELERATION_STEP_PERCENT;
     return Math.max(0, Math.min(MONSTER_RESPAWN_ACCELERATION_MAX_PERCENT, normalized));
   }
 
-/** resolveMonsterRespawnTicksWithBonus：执行对应的业务逻辑。 */
   resolveMonsterRespawnTicksWithBonus(respawnTicks: number, bonusPercent: number): number {
-/** safeTicks：定义该变量以承载业务值。 */
     const safeTicks = Math.max(1, Math.round(respawnTicks));
-/** safeBonusPercent：定义该变量以承载业务值。 */
     const safeBonusPercent = this.normalizeMonsterRespawnSpeedBonusPercent(bonusPercent);
     return Math.max(
       1,

@@ -17,7 +17,7 @@ import {
   STATUS_PRIORITY,
 } from '../../constants/ui/quest-panel';
 
-/** escapeHtml：执行对应的业务逻辑。 */
+
 function escapeHtml(value: string): string {
   return value
     .replaceAll('&', '&amp;')
@@ -27,7 +27,7 @@ function escapeHtml(value: string): string {
     .replaceAll("'", '&#39;');
 }
 
-/** isSameQuestIdSequence：执行对应的业务逻辑。 */
+/** isSameQuestIdSequence：判断并返回条件结果。 */
 function isSameQuestIdSequence(previous: string[] | null, next: string[]): boolean {
   if (!previous || previous.length !== next.length) {
     return false;
@@ -44,22 +44,17 @@ function isSameQuestIdSequence(previous: string[] | null, next: string[]): boole
 export class QuestPanel {
   private static readonly MODAL_OWNER = 'quest-panel';
   private pane = document.getElementById('pane-quest')!;
-/** activeLine：定义该变量以承载业务值。 */
   private activeLine: QuestState['line'] = 'main';
   private selectedQuestId?: string;
   private hasUserSelectedLine = false;
-/** lastQuests：定义该变量以承载业务值。 */
   private lastQuests: QuestState[] = [];
-/** lastVisibleQuestIds：定义该变量以承载业务值。 */
   private lastVisibleQuestIds: string[] | null = null;
-/** lastStructureLine：定义该变量以承载业务值。 */
   private lastStructureLine: QuestState['line'] | null = null;
   private currentMapId?: string;
-/** inventory：定义该变量以承载业务值。 */
   private inventory: Inventory | null = null;
   private onNavigateQuest: ((questId: string) => void) | null = null;
 
-/** constructor：处理当前场景中的对应操作。 */
+/** constructor：初始化实例并完成构造。 */
   constructor() {
     this.bindPaneEvents();
     bindInlineItemTooltips(this.pane);
@@ -69,7 +64,7 @@ export class QuestPanel {
     this.onNavigateQuest = onNavigateQuest;
   }
 
-/** setCurrentMapId：执行对应的业务逻辑。 */
+/** setCurrentMapId：设置并同步相关状态。 */
   setCurrentMapId(mapId?: string): void {
     this.currentMapId = mapId;
     if (!this.patchModal()) {
@@ -77,7 +72,7 @@ export class QuestPanel {
     }
   }
 
-/** syncInventory：执行对应的业务逻辑。 */
+/** syncInventory：同步外部状态到本地。 */
   syncInventory(inventory: Inventory): void {
     this.inventory = inventory;
     if (this.lastQuests.length === 0) {
@@ -103,14 +98,14 @@ export class QuestPanel {
     }
   }
 
-/** initFromPlayer：执行对应的业务逻辑。 */
+
   initFromPlayer(player: PlayerState): void {
     this.currentMapId = player.mapId;
     this.inventory = player.inventory;
     this.update(player.quests ?? []);
   }
 
-/** clear：执行对应的业务逻辑。 */
+/** clear：清理并清空临时数据。 */
   clear(): void {
     this.lastQuests = [];
     this.lastVisibleQuestIds = null;
@@ -122,15 +117,14 @@ export class QuestPanel {
     detailModalHost.close(QuestPanel.MODAL_OWNER);
   }
 
-/** closeDetail：执行对应的业务逻辑。 */
+/** closeDetail：关闭界面或流程。 */
   closeDetail(): void {
     this.selectedQuestId = undefined;
     detailModalHost.close(QuestPanel.MODAL_OWNER);
   }
 
-/** renderList：执行对应的业务逻辑。 */
+/** renderList：渲染当前界面内容。 */
   private renderList(): void {
-/** quests：定义该变量以承载业务值。 */
     const quests = this.lastQuests;
     if (quests.length === 0) {
       this.selectedQuestId = undefined;
@@ -140,21 +134,16 @@ export class QuestPanel {
       return;
     }
 
-/** counts：定义该变量以承载业务值。 */
     const counts = this.buildCounts(quests);
-/** visibleQuests：定义该变量以承载业务值。 */
     const visibleQuests = this.getVisibleQuests(quests);
     this.lastVisibleQuestIds = visibleQuests.map((quest) => quest.id);
     this.lastStructureLine = this.activeLine;
 
-/** tabs：定义该变量以承载业务值。 */
     const tabs = LINE_ORDER.map((line) => {
-/** active：定义该变量以承载业务值。 */
       const active = this.activeLine === line ? 'active' : '';
       return `<button class="quest-subtab-btn ${active}" data-quest-line="${line}" type="button">${getQuestLineLabel(line)}<span class="quest-subtab-count" data-quest-line-count="${line}">${counts[line]}</span></button>`;
     }).join('');
 
-/** html：定义该变量以承载业务值。 */
     let html = `<div class="panel-section">
       <div class="panel-section-title">任务簿</div>
       <div class="quest-subtabs">${tabs}</div>`;
@@ -170,7 +159,6 @@ export class QuestPanel {
     for (const quest of visibleQuests) {
       const percent = quest.required > 0 ? Math.min(100, Math.floor((quest.progress / quest.required) * 100)) : 0;
       const progressText = this.resolveProgressText(quest);
-/** nextStep：定义该变量以承载业务值。 */
       const nextStep = this.resolveNextStep(quest);
       html += `<button class="quest-card quest-card-toggle" data-quest-id="${escapeHtml(quest.id)}" type="button">
         <div class="quest-title-row">
@@ -192,19 +180,16 @@ export class QuestPanel {
     });
   }
 
-/** bindPaneEvents：执行对应的业务逻辑。 */
+/** bindPaneEvents：绑定回调。 */
   private bindPaneEvents(): void {
     this.pane.addEventListener('click', (event) => {
-/** target：定义该变量以承载业务值。 */
       const target = event.target;
       if (!(target instanceof HTMLElement)) {
         return;
       }
 
-/** lineButton：定义该变量以承载业务值。 */
       const lineButton = target.closest<HTMLElement>('[data-quest-line]');
       if (lineButton) {
-/** line：定义该变量以承载业务值。 */
         const line = lineButton.dataset.questLine as QuestState['line'] | undefined;
         if (!line || line === this.activeLine) return;
         this.hasUserSelectedLine = true;
@@ -215,12 +200,10 @@ export class QuestPanel {
         return;
       }
 
-/** questButton：定义该变量以承载业务值。 */
       const questButton = target.closest<HTMLElement>('[data-quest-id]');
       if (!questButton) {
         return;
       }
-/** questId：定义该变量以承载业务值。 */
       const questId = questButton.dataset.questId;
       if (!questId) return;
       this.selectedQuestId = questId;
@@ -228,23 +211,19 @@ export class QuestPanel {
     });
   }
 
-/** patchList：执行对应的业务逻辑。 */
+
   private patchList(): boolean {
-/** quests：定义该变量以承载业务值。 */
     const quests = this.lastQuests;
     if (quests.length === 0) {
       return false;
     }
 
-/** section：定义该变量以承载业务值。 */
     const section = this.pane.querySelector<HTMLElement>('.panel-section');
-/** subtabs：定义该变量以承载业务值。 */
     const subtabs = section?.querySelector<HTMLElement>('.quest-subtabs');
     if (!section || !subtabs) {
       return false;
     }
 
-/** counts：定义该变量以承载业务值。 */
     const counts = this.buildCounts(quests);
     for (const line of LINE_ORDER) {
       const button = this.pane.querySelector<HTMLElement>(`[data-quest-line="${line}"]`);
@@ -256,12 +235,9 @@ export class QuestPanel {
       countNode.textContent = `${counts[line]}`;
     }
 
-/** visibleQuests：定义该变量以承载业务值。 */
     const visibleQuests = this.getVisibleQuests(quests);
-/** visibleQuestIds：定义该变量以承载业务值。 */
     const visibleQuestIds = visibleQuests.map((quest) => quest.id);
     if (visibleQuests.length === 0) {
-/** emptyNode：定义该变量以承载业务值。 */
       const emptyNode = this.pane.querySelector<HTMLElement>('[data-quest-empty="true"]') ?? this.createEmptyState();
       emptyNode.textContent = `当前没有${getQuestLineLabel(this.activeLine)}任务`;
       this.syncSectionContent(section, subtabs, [emptyNode]);
@@ -270,18 +246,14 @@ export class QuestPanel {
       return true;
     }
 
-/** existingCards：定义该变量以承载业务值。 */
     const existingCards = new Map<string, HTMLElement>();
     this.pane.querySelectorAll<HTMLElement>('[data-quest-id]').forEach((card) => {
-/** questId：定义该变量以承载业务值。 */
       const questId = card.dataset.questId;
       if (questId) {
         existingCards.set(questId, card);
       }
     });
-/** orderedCards：定义该变量以承载业务值。 */
     const orderedCards = visibleQuests.map((quest) => {
-/** card：定义该变量以承载业务值。 */
       const card = existingCards.get(quest.id) ?? this.createQuestCard(quest);
       this.patchQuestCard(card, quest);
       existingCards.delete(quest.id);
@@ -305,18 +277,16 @@ export class QuestPanel {
     return true;
   }
 
-/** createEmptyState：执行对应的业务逻辑。 */
+
   private createEmptyState(): HTMLElement {
-/** empty：定义该变量以承载业务值。 */
     const empty = document.createElement('div');
     empty.className = 'empty-hint';
     empty.dataset.questEmpty = 'true';
     return empty;
   }
 
-/** createQuestCard：执行对应的业务逻辑。 */
+
   private createQuestCard(quest: QuestState): HTMLButtonElement {
-/** card：定义该变量以承载业务值。 */
     const card = document.createElement('button');
     card.className = 'quest-card quest-card-toggle';
     card.dataset.questId = quest.id;
@@ -337,27 +307,19 @@ export class QuestPanel {
     return card;
   }
 
-/** patchQuestCard：执行对应的业务逻辑。 */
+
   private patchQuestCard(card: HTMLElement, quest: QuestState): boolean {
-/** titleNode：定义该变量以承载业务值。 */
     const titleNode = card.querySelector<HTMLElement>('[data-quest-title="true"]');
-/** statusNode：定义该变量以承载业务值。 */
     const statusNode = card.querySelector<HTMLElement>('[data-quest-status="true"]');
-/** chapterNode：定义该变量以承载业务值。 */
     const chapterNode = card.querySelector<HTMLElement>('[data-quest-chapter="true"]');
-/** descNode：定义该变量以承载业务值。 */
     const descNode = card.querySelector<HTMLElement>('[data-quest-desc="true"]');
-/** progressLabelNode：定义该变量以承载业务值。 */
     const progressLabelNode = card.querySelector<HTMLElement>('[data-quest-progress-label="true"]');
-/** progressFillNode：定义该变量以承载业务值。 */
     const progressFillNode = card.querySelector<HTMLElement>('[data-quest-progress-fill="true"]');
-/** nextStepNode：定义该变量以承载业务值。 */
     const nextStepNode = card.querySelector<HTMLElement>('[data-quest-next-step="true"]');
     if (!titleNode || !statusNode || !chapterNode || !descNode || !progressLabelNode || !progressFillNode || !nextStepNode) {
       return false;
     }
 
-/** percent：定义该变量以承载业务值。 */
     const percent = quest.required > 0 ? Math.min(100, Math.floor((quest.progress / quest.required) * 100)) : 0;
     card.dataset.questId = quest.id;
     titleNode.textContent = quest.title;
@@ -372,14 +334,12 @@ export class QuestPanel {
     return true;
   }
 
-/** syncSectionContent：执行对应的业务逻辑。 */
+/** syncSectionContent：同步外部状态到本地。 */
   private syncSectionContent(section: HTMLElement, subtabs: HTMLElement, orderedNodes: HTMLElement[]): void {
-/** titleNode：定义该变量以承载业务值。 */
     const titleNode = section.querySelector<HTMLElement>('.panel-section-title');
     if (!titleNode) {
       return;
     }
-/** allowed：定义该变量以承载业务值。 */
     const allowed = new Set<HTMLElement>(orderedNodes);
     for (const child of Array.from(section.children)) {
       if (child === titleNode || child === subtabs) {
@@ -389,7 +349,6 @@ export class QuestPanel {
         child.remove();
       }
     }
-/** reference：定义该变量以承载业务值。 */
     let reference = subtabs.nextSibling;
     for (const node of orderedNodes) {
       if (reference !== node) {
@@ -399,14 +358,13 @@ export class QuestPanel {
     }
   }
 
-/** renderModal：执行对应的业务逻辑。 */
+/** renderModal：渲染当前界面内容。 */
   private renderModal(): void {
     if (!this.selectedQuestId) {
       detailModalHost.close(QuestPanel.MODAL_OWNER);
       return;
     }
 
-/** quest：定义该变量以承载业务值。 */
     const quest = this.lastQuests.find((entry) => entry.id === this.selectedQuestId);
     if (!quest) {
       this.selectedQuestId = undefined;
@@ -414,21 +372,16 @@ export class QuestPanel {
       return;
     }
 
-/** canNavigateQuest：定义该变量以承载业务值。 */
     const canNavigateQuest = this.canNavigateQuest(quest);
-/** giverLocation：定义该变量以承载业务值。 */
     const giverLocation = quest.giverMapName && quest.giverX !== undefined && quest.giverY !== undefined
       ? `${quest.giverMapName} (${quest.giverX}, ${quest.giverY})`
       : quest.giverMapName ?? '未知';
-/** targetLocation：定义该变量以承载业务值。 */
     const targetLocation = this.formatQuestLocation(
       quest.targetMapName ?? (quest.objectiveType === 'kill' ? quest.giverMapName : undefined),
       quest.targetX,
       quest.targetY,
     );
-/** submitLocation：定义该变量以承载业务值。 */
     const submitLocation = this.formatQuestLocation(quest.submitMapName ?? quest.giverMapName, quest.submitX ?? quest.giverX, quest.submitY ?? quest.giverY);
-/** navigateLabel：定义该变量以承载业务值。 */
     const navigateLabel = quest.status === 'ready' ? '前往交付' : '前往目标';
 
     detailModalHost.open({
@@ -473,10 +426,8 @@ export class QuestPanel {
         bindInlineItemTooltips(body);
         body.querySelector<HTMLElement>('[data-quest-navigate]')?.addEventListener('click', (event) => {
           event.stopPropagation();
-/** button：定义该变量以承载业务值。 */
           const button = event.currentTarget;
           if (!(button instanceof HTMLElement) || button.dataset.questCanNavigate !== '1') return;
-/** questId：定义该变量以承载业务值。 */
           const questId = button.dataset.questId;
           if (!questId) return;
           this.onNavigateQuest?.(questId);
@@ -485,7 +436,7 @@ export class QuestPanel {
     });
   }
 
-/** patchModal：执行对应的业务逻辑。 */
+
   private patchModal(): boolean {
     if (!this.selectedQuestId) {
       detailModalHost.close(QuestPanel.MODAL_OWNER);
@@ -495,7 +446,6 @@ export class QuestPanel {
       return false;
     }
 
-/** quest：定义该变量以承载业务值。 */
     const quest = this.lastQuests.find((entry) => entry.id === this.selectedQuestId);
     if (!quest) {
       this.selectedQuestId = undefined;
@@ -503,47 +453,26 @@ export class QuestPanel {
       return true;
     }
 
-/** titleNode：定义该变量以承载业务值。 */
     const titleNode = document.getElementById('detail-modal-title');
-/** subtitleNode：定义该变量以承载业务值。 */
     const subtitleNode = document.getElementById('detail-modal-subtitle');
-/** chapterSection：定义该变量以承载业务值。 */
     const chapterSection = document.querySelector<HTMLElement>('[data-quest-modal-chapter-section="true"]');
-/** chapterNode：定义该变量以承载业务值。 */
     const chapterNode = document.querySelector<HTMLElement>('[data-quest-modal-chapter="true"]');
-/** descNode：定义该变量以承载业务值。 */
     const descNode = document.querySelector<HTMLElement>('[data-quest-modal-desc="true"]');
-/** storySection：定义该变量以承载业务值。 */
     const storySection = document.querySelector<HTMLElement>('[data-quest-modal-story-section="true"]');
-/** storyNode：定义该变量以承载业务值。 */
     const storyNode = document.querySelector<HTMLElement>('[data-quest-modal-story="true"]');
-/** giverNode：定义该变量以承载业务值。 */
     const giverNode = document.querySelector<HTMLElement>('[data-quest-modal-giver="true"]');
-/** locationNode：定义该变量以承载业务值。 */
     const locationNode = document.querySelector<HTMLElement>('[data-quest-modal-location="true"]');
-/** navigateButton：定义该变量以承载业务值。 */
     const navigateButton = document.querySelector<HTMLButtonElement>('[data-quest-navigate="true"]');
-/** rewardNode：定义该变量以承载业务值。 */
     const rewardNode = document.querySelector<HTMLElement>('[data-quest-modal-reward="true"]');
-/** progressNode：定义该变量以承载业务值。 */
     const progressNode = document.querySelector<HTMLElement>('[data-quest-modal-progress="true"]');
-/** nextStepNode：定义该变量以承载业务值。 */
     const nextStepNode = document.querySelector<HTMLElement>('[data-quest-modal-next-step="true"]');
-/** requiredItemSection：定义该变量以承载业务值。 */
     const requiredItemSection = document.querySelector<HTMLElement>('[data-quest-modal-required-item-section="true"]');
-/** requiredItemNode：定义该变量以承载业务值。 */
     const requiredItemNode = document.querySelector<HTMLElement>('[data-quest-modal-required-item="true"]');
-/** targetLocationNode：定义该变量以承载业务值。 */
     const targetLocationNode = document.querySelector<HTMLElement>('[data-quest-modal-target-location="true"]');
-/** submitLocationNode：定义该变量以承载业务值。 */
     const submitLocationNode = document.querySelector<HTMLElement>('[data-quest-modal-submit-location="true"]');
-/** objectiveSection：定义该变量以承载业务值。 */
     const objectiveSection = document.querySelector<HTMLElement>('[data-quest-modal-objective-section="true"]');
-/** objectiveNode：定义该变量以承载业务值。 */
     const objectiveNode = document.querySelector<HTMLElement>('[data-quest-modal-objective="true"]');
-/** relaySection：定义该变量以承载业务值。 */
     const relaySection = document.querySelector<HTMLElement>('[data-quest-modal-relay-section="true"]');
-/** relayNode：定义该变量以承载业务值。 */
     const relayNode = document.querySelector<HTMLElement>('[data-quest-modal-relay="true"]');
     if (
       !titleNode
@@ -571,19 +500,15 @@ export class QuestPanel {
       return false;
     }
 
-/** canNavigateQuest：定义该变量以承载业务值。 */
     const canNavigateQuest = this.canNavigateQuest(quest);
-/** giverLocation：定义该变量以承载业务值。 */
     const giverLocation = quest.giverMapName && quest.giverX !== undefined && quest.giverY !== undefined
       ? `${quest.giverMapName} (${quest.giverX}, ${quest.giverY})`
       : quest.giverMapName ?? '未知';
-/** targetLocation：定义该变量以承载业务值。 */
     const targetLocation = this.formatQuestLocation(
       quest.targetMapName ?? (quest.objectiveType === 'kill' ? quest.giverMapName : undefined),
       quest.targetX,
       quest.targetY,
     );
-/** submitLocation：定义该变量以承载业务值。 */
     const submitLocation = this.formatQuestLocation(quest.submitMapName ?? quest.giverMapName, quest.submitX ?? quest.giverX, quest.submitY ?? quest.giverY);
 
     titleNode.textContent = quest.title;
@@ -613,9 +538,8 @@ export class QuestPanel {
     return true;
   }
 
-/** normalizeState：执行对应的业务逻辑。 */
+
   private normalizeState(quests: QuestState[]): void {
-/** counts：定义该变量以承载业务值。 */
     const counts = this.buildCounts(quests);
     if (!this.hasUserSelectedLine && counts[this.activeLine] === 0) {
       this.activeLine = LINE_ORDER.find((line) => counts[line] > 0) ?? 'main';
@@ -625,19 +549,16 @@ export class QuestPanel {
     }
   }
 
-/** getVisibleQuests：执行对应的业务逻辑。 */
   private getVisibleQuests(quests: QuestState[]): QuestState[] {
     return [...quests]
       .filter((quest) => quest.line === this.activeLine)
       .sort((a, b) => STATUS_PRIORITY[a.status] - STATUS_PRIORITY[b.status]);
   }
 
-/** buildVisibleQuestIds：执行对应的业务逻辑。 */
   private buildVisibleQuestIds(quests: QuestState[]): string[] {
     return this.getVisibleQuests(quests).map((quest) => quest.id);
   }
 
-/** buildCounts：执行对应的业务逻辑。 */
   private buildCounts(quests: QuestState[]): Record<QuestState['line'], number> {
     return {
       main: quests.filter((quest) => quest.line === 'main').length,
@@ -647,7 +568,7 @@ export class QuestPanel {
     };
   }
 
-/** resolveProgressText：执行对应的业务逻辑。 */
+
   private resolveProgressText(quest: QuestState): string {
     if (quest.objectiveType === 'talk') {
       return quest.progress >= quest.required ? '口信已传达' : '尚未传达';
@@ -658,7 +579,6 @@ export class QuestPanel {
     if (quest.objectiveType === 'realm_stage') {
       return `${quest.targetName} ${quest.progress >= quest.required ? '已达成' : '未达成'}`;
     }
-/** requiredItemProgress：定义该变量以承载业务值。 */
     const requiredItemProgress = this.resolveRequiredItemProgress(quest);
     if (quest.objectiveType === 'kill' && requiredItemProgress) {
       return `${quest.targetName} ${quest.progress}/${quest.required}，${requiredItemProgress.itemName} ${requiredItemProgress.current}/${requiredItemProgress.required}`;
@@ -666,12 +586,10 @@ export class QuestPanel {
     return `${quest.targetName} ${quest.progress}/${quest.required}`;
   }
 
-/** resolveNextStep：执行对应的业务逻辑。 */
+
   private resolveNextStep(quest: QuestState): string {
     if (quest.status === 'ready') {
-/** submitLabel：定义该变量以承载业务值。 */
       const submitLabel = quest.submitNpcName ?? quest.giverName;
-/** submitLocation：定义该变量以承载业务值。 */
       const submitLocation = this.formatQuestLocation(quest.submitMapName ?? quest.giverMapName, quest.submitX ?? quest.giverX, quest.submitY ?? quest.giverY);
       return submitLocation !== '未设置'
         ? `前往 ${submitLocation} 找 ${submitLabel} 交付任务`
@@ -681,23 +599,19 @@ export class QuestPanel {
       return '任务已结清';
     }
     if (quest.status === 'available') {
-/** giverLocation：定义该变量以承载业务值。 */
       const giverLocation = this.formatQuestLocation(quest.giverMapName, quest.giverX, quest.giverY);
       return giverLocation !== '未设置'
         ? `前往 ${giverLocation} 找 ${quest.giverName} 接取任务`
         : `前往 ${quest.giverName} 接取任务`;
     }
     if (quest.objectiveType === 'talk') {
-/** talkTarget：定义该变量以承载业务值。 */
       const talkTarget = quest.targetNpcName ?? quest.targetName;
-/** talkLocation：定义该变量以承载业务值。 */
       const talkLocation = this.formatQuestLocation(quest.targetMapName, quest.targetX, quest.targetY);
       return talkLocation !== '未设置'
         ? `前往 ${talkLocation} 找 ${talkTarget} 传达口信`
         : `前往 ${talkTarget} 传达口信`;
     }
     if (quest.objectiveType === 'submit_item') {
-/** submitLocation：定义该变量以承载业务值。 */
       const submitLocation = this.formatQuestLocation(quest.submitMapName ?? quest.giverMapName, quest.submitX ?? quest.giverX, quest.submitY ?? quest.giverY);
       return submitLocation !== '未设置'
         ? `准备 ${quest.targetName}，再前往 ${submitLocation} 交付`
@@ -712,19 +626,16 @@ export class QuestPanel {
     if (quest.objectiveType === 'realm_stage') {
       return `继续历练；境界圆满后点击顶部境界/突破查看要求并突破，达到 ${quest.targetName}`;
     }
-/** requiredItemProgress：定义该变量以承载业务值。 */
     const requiredItemProgress = this.resolveRequiredItemProgress(quest);
     if (quest.objectiveType === 'kill' && requiredItemProgress) {
       if (quest.progress >= quest.required && requiredItemProgress.current < requiredItemProgress.required) {
         return `继续收集 ${requiredItemProgress.itemName} (${requiredItemProgress.current}/${requiredItemProgress.required})`;
       }
-/** targetLocation：定义该变量以承载业务值。 */
       const targetLocation = this.formatQuestLocation(quest.targetMapName ?? quest.giverMapName, quest.targetX, quest.targetY);
       return targetLocation !== '未设置'
         ? `前往 ${targetLocation} 击杀 ${quest.targetName}，并收集 ${requiredItemProgress.itemName}`
         : `前往击杀 ${quest.targetName}，并收集 ${requiredItemProgress.itemName}`;
     }
-/** targetLocation：定义该变量以承载业务值。 */
     const targetLocation = this.formatQuestLocation(quest.targetMapName ?? quest.giverMapName, quest.targetX, quest.targetY);
     return targetLocation !== '未设置'
       ? `前往 ${targetLocation} 击杀 ${quest.targetName}`
@@ -735,9 +646,7 @@ export class QuestPanel {
     if (!quest.requiredItemId) {
       return null;
     }
-/** required：定义该变量以承载业务值。 */
     const required = Math.max(1, quest.requiredItemCount ?? 1);
-/** current：定义该变量以承载业务值。 */
     const current = Math.min(required, this.getInventoryItemCount(quest.requiredItemId));
     return {
       itemName: getLocalItemTemplate(quest.requiredItemId)?.name ?? quest.requiredItemId,
@@ -746,7 +655,6 @@ export class QuestPanel {
     };
   }
 
-/** getInventoryItemCount：执行对应的业务逻辑。 */
   private getInventoryItemCount(itemId: string): number {
     if (!this.inventory) {
       return 0;
@@ -756,7 +664,7 @@ export class QuestPanel {
     ), 0);
   }
 
-/** formatQuestLocation：执行对应的业务逻辑。 */
+/** formatQuestLocation：格式化输出字符串用于展示。 */
   private formatQuestLocation(mapName?: string, x?: number, y?: number): string {
     if (mapName && x !== undefined && y !== undefined) {
       return `${mapName} (${x}, ${y})`;
@@ -764,7 +672,7 @@ export class QuestPanel {
     return mapName ?? '未设置';
   }
 
-/** canNavigateQuest：执行对应的业务逻辑。 */
+
   private canNavigateQuest(quest: QuestState): boolean {
     if (quest.status === 'ready') {
       return Boolean(quest.submitMapId ?? quest.giverMapId);
@@ -778,12 +686,12 @@ export class QuestPanel {
     return false;
   }
 
-/** renderRichText：执行对应的业务逻辑。 */
+/** renderRichText：渲染当前界面内容。 */
   private renderRichText(text: string): string {
     return renderTextWithInlineItemHighlights(text);
   }
 
-/** renderQuestText：执行对应的业务逻辑。 */
+/** renderQuestText：渲染当前界面内容。 */
   private renderQuestText(text: string, quest: QuestState): string {
     if (!text.trim()) {
       return '';
@@ -791,18 +699,15 @@ export class QuestPanel {
     if (quest.objectiveType !== 'kill' || !quest.targetMonsterId || !quest.targetName.trim()) {
       return this.renderRichText(text);
     }
-/** token：定义该变量以承载业务值。 */
     const token = '[[[QUEST_MONSTER_TARGET]]]';
-/** normalizedText：定义该变量以承载业务值。 */
     const normalizedText = text.replaceAll(quest.targetName, token);
     return this.renderRichText(normalizedText).replaceAll(token, renderInlineMonsterChip(quest.targetMonsterId, {
       label: quest.targetName,
     }));
   }
 
-/** renderRewardContent：执行对应的业务逻辑。 */
+/** renderRewardContent：渲染当前界面内容。 */
   private renderRewardContent(quest: QuestState): string {
-/** rewardChips：定义该变量以承载业务值。 */
     const rewardChips = quest.rewards
       .map((reward) => renderInlineItemChip(reward.itemId, {
         count: reward.count,
@@ -810,15 +715,12 @@ export class QuestPanel {
         tone: 'reward',
       }))
       .join('');
-/** fallbackRewardText：定义该变量以承载业务值。 */
     const fallbackRewardText = quest.rewards
       .map((reward) => `${reward.name} x${reward.count}`)
       .join('、');
-/** shouldShowRewardText：定义该变量以承载业务值。 */
     const shouldShowRewardText = quest.rewardText.trim().length > 0
       && quest.rewardText.trim() !== '无'
       && quest.rewardText.trim() !== fallbackRewardText;
-/** sections：定义该变量以承载业务值。 */
     const sections: string[] = [];
     if (rewardChips) {
       sections.push(`<div class="inline-item-flow">${rewardChips}</div>`);
@@ -832,9 +734,8 @@ export class QuestPanel {
     return sections.join('');
   }
 
-/** renderRequiredItemContent：执行对应的业务逻辑。 */
+/** renderRequiredItemContent：渲染当前界面内容。 */
   private renderRequiredItemContent(quest: QuestState): string {
-/** requiredItemProgress：定义该变量以承载业务值。 */
     const requiredItemProgress = this.resolveRequiredItemProgress(quest);
     if (!requiredItemProgress || !quest.requiredItemId) {
       return '<div class="inline-rich-text">当前任务无额外提交材料。</div>';

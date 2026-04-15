@@ -143,7 +143,6 @@ export const ATTR_TO_PERCENT_NUMERIC_WEIGHTS: Record<AttrKey, PartialNumericStat
   },
 };
 
-/** createScalarMultiplierFloorStats：执行对应的业务逻辑。 */
 function createScalarMultiplierFloorStats(): Omit<NumericStats, 'elementDamageBonus' | 'elementDamageReduce'> {
   return {
     maxHp: BASE_MAX_HP,
@@ -180,12 +179,9 @@ function createScalarMultiplierFloorStats(): Omit<NumericStats, 'elementDamageBo
   };
 }
 
-/** TECHNIQUE_EXP_REFERENCE_PER_TICK：定义该变量以承载业务值。 */
 const TECHNIQUE_EXP_REFERENCE_PER_TICK = 5;
-/** VIEW_RANGE_REFERENCE：定义该变量以承载业务值。 */
 const VIEW_RANGE_REFERENCE = 8;
 
-/** ELEMENT_MULTIPLIER_FLOOR：定义该变量以承载业务值。 */
 const ELEMENT_MULTIPLIER_FLOOR: ElementStatGroup = {
   metal: 100,
   wood: 100,

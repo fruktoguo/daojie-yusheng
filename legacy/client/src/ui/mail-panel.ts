@@ -11,7 +11,7 @@ import type { SocketManager } from '../network/socket';
 import { getLocalItemTemplate } from '../content/local-templates';
 import { detailModalHost } from './detail-modal-host';
 
-/** escapeHtml：执行对应的业务逻辑。 */
+
 function escapeHtml(value: string): string {
   return value
     .replaceAll('&', '&amp;')
@@ -21,26 +21,23 @@ function escapeHtml(value: string): string {
     .replaceAll("'", '&#39;');
 }
 
-/** escapeHtmlAttr：执行对应的业务逻辑。 */
+
 function escapeHtmlAttr(value: string): string {
   return escapeHtml(value);
 }
 
-/** MAIL_FILTER_OPTIONS：定义该变量以承载业务值。 */
 const MAIL_FILTER_OPTIONS: Array<{ id: MailFilter; label: string }> = [
   { id: 'all', label: '全部' },
   { id: 'unread', label: '未读' },
   { id: 'claimable', label: '可领取' },
 ];
 
-/** EMPTY_SUMMARY：定义该变量以承载业务值。 */
 const EMPTY_SUMMARY: MailSummaryView = {
   unreadCount: 0,
   claimableCount: 0,
   revision: 0,
 };
 
-/** EMPTY_PAGE：定义该变量以承载业务值。 */
 const EMPTY_PAGE: MailPageView = {
   items: [],
   total: 0,
@@ -50,58 +47,44 @@ const EMPTY_PAGE: MailPageView = {
   filter: 'all',
 };
 
-/** MAIL_ATTACHMENT_PAGE_SIZE：定义该变量以承载业务值。 */
 const MAIL_ATTACHMENT_PAGE_SIZE = 10;
 
-/** MailRenderState：定义该类型的结构与数据语义。 */
 type MailRenderState = {
-/** listScrollTop：定义该变量以承载业务值。 */
   listScrollTop: number;
-/** detailScrollTop：定义该变量以承载业务值。 */
   detailScrollTop: number;
-/** focusSelector：定义该变量以承载业务值。 */
   focusSelector: string | null;
 };
 
-/** MailModalMeta：定义该类型的结构与数据语义。 */
 type MailModalMeta = {
-/** subtitle：定义该变量以承载业务值。 */
   subtitle: string;
-/** hint：定义该变量以承载业务值。 */
   hint: string;
 };
 
-/** MailPanel：封装相关状态与行为。 */
 export class MailPanel {
   private static readonly MODAL_OWNER = 'mail-panel';
   private playerId = '';
-/** summary：定义该变量以承载业务值。 */
   private summary: MailSummaryView = { ...EMPTY_SUMMARY };
-/** pageData：定义该变量以承载业务值。 */
   private pageData: MailPageView = { ...EMPTY_PAGE };
-/** activeFilter：定义该变量以承载业务值。 */
   private activeFilter: MailFilter = 'all';
-/** selectedMailId：定义该变量以承载业务值。 */
   private selectedMailId: string | null = null;
   private selectedMailIds = new Set<string>();
-/** detail：定义该变量以承载业务值。 */
   private detail: MailDetailView | null = null;
   private attachmentPage = 1;
   private statusMessage = '';
   private delegatedEventsBound = false;
 
-/** constructor：处理当前场景中的对应操作。 */
+/** constructor：初始化实例并完成构造。 */
   constructor(private readonly socket: SocketManager) {
     document.getElementById('hud-open-mail')?.addEventListener('click', () => this.open());
   }
 
-/** setPlayerId：执行对应的业务逻辑。 */
+/** setPlayerId：设置并同步相关状态。 */
   setPlayerId(playerId: string): void {
     this.playerId = playerId;
     this.updateHudUnreadState();
   }
 
-/** clear：执行对应的业务逻辑。 */
+/** clear：清理并清空临时数据。 */
   clear(): void {
     this.summary = { ...EMPTY_SUMMARY };
     this.pageData = { ...EMPTY_PAGE };
@@ -115,18 +98,15 @@ export class MailPanel {
     detailModalHost.close(MailPanel.MODAL_OWNER);
   }
 
-/** updateSummary：执行对应的业务逻辑。 */
   updateSummary(summary: MailSummaryView): void {
     this.summary = summary;
     this.updateHudUnreadState();
     this.render();
   }
 
-/** updatePage：执行对应的业务逻辑。 */
   updatePage(page: MailPageView): void {
     this.pageData = page;
     this.activeFilter = page.filter;
-/** visibleIds：定义该变量以承载业务值。 */
     const visibleIds = new Set(page.items.map((item) => item.mailId));
     this.selectedMailIds = new Set([...this.selectedMailIds].filter((mailId) => visibleIds.has(mailId)));
     if (this.selectedMailId && !visibleIds.has(this.selectedMailId)) {
@@ -145,7 +125,6 @@ export class MailPanel {
     this.render();
   }
 
-/** updateDetail：执行对应的业务逻辑。 */
   updateDetail(detail: MailDetailView | null, error?: string): void {
     if (!detail) {
       this.detail = null;
@@ -165,7 +144,7 @@ export class MailPanel {
     this.render();
   }
 
-/** handleOpResult：执行对应的业务逻辑。 */
+/** handleOpResult：处理输入事件。 */
   handleOpResult(result: { operation: 'markRead' | 'claim' | 'delete'; ok: boolean; mailIds: string[]; message?: string }): void {
     this.statusMessage = result.message ?? (result.ok ? '操作已提交。' : '操作失败。');
     if (result.ok) {
@@ -182,7 +161,7 @@ export class MailPanel {
     this.render();
   }
 
-/** open：执行对应的业务逻辑。 */
+/** open：打开界面或流程。 */
   open(): void {
     this.socket.sendRequestMailSummary();
     this.requestCurrentPage();
@@ -197,19 +176,18 @@ export class MailPanel {
     });
   }
 
-/** requestCurrentPage：执行对应的业务逻辑。 */
+/** requestCurrentPage：发起对应请求。 */
   private requestCurrentPage(): void {
     this.socket.sendRequestMailPage(this.pageData.page || 1, this.pageData.pageSize || MAIL_PAGE_SIZE_DEFAULT, this.activeFilter);
   }
 
-/** requestDetail：执行对应的业务逻辑。 */
+/** requestDetail：发起对应请求。 */
   private requestDetail(mailId: string): void {
     this.socket.sendRequestMailDetail(mailId);
   }
 
-/** markReadIfNeeded：执行对应的业务逻辑。 */
+
   private markReadIfNeeded(mailId: string): void {
-/** item：定义该变量以承载业务值。 */
     const item = this.pageData.items.find((entry) => entry.mailId === mailId);
     if (!item || item.read) {
       return;
@@ -217,16 +195,13 @@ export class MailPanel {
     this.socket.sendMarkMailRead([mailId]);
   }
 
-/** render：执行对应的业务逻辑。 */
+/** render：渲染当前界面内容。 */
   private render(): void {
     if (!detailModalHost.isOpenFor(MailPanel.MODAL_OWNER)) {
       return;
     }
-/** body：定义该变量以承载业务值。 */
     const body = document.getElementById('detail-modal-body');
-/** renderState：定义该变量以承载业务值。 */
     const renderState = body ? this.captureRenderState(body) : null;
-/** meta：定义该变量以承载业务值。 */
     const meta = this.buildModalMeta();
     if (body && this.patchBody(body, meta)) {
       if (renderState) {
@@ -250,13 +225,9 @@ export class MailPanel {
     });
   }
 
-/** buildBodyHtml：执行对应的业务逻辑。 */
   private buildBodyHtml(): string {
-/** total：定义该变量以承载业务值。 */
     const total = this.pageData.total;
-/** selectedCount：定义该变量以承载业务值。 */
     const selectedCount = this.selectedMailIds.size;
-/** detail：定义该变量以承载业务值。 */
     const detail = this.detail && this.selectedMailId === this.detail.mailId ? this.detail : null;
     return `
       <div class="mail-shell">
@@ -322,13 +293,10 @@ export class MailPanel {
     `;
   }
 
-/** renderListEntry：执行对应的业务逻辑。 */
+/** renderListEntry：渲染当前界面内容。 */
   private renderListEntry(item: MailPageView['items'][number]): string {
-/** selected：定义该变量以承载业务值。 */
     const selected = item.mailId === this.selectedMailId;
-/** checked：定义该变量以承载业务值。 */
     const checked = this.selectedMailIds.has(item.mailId);
-/** stateChips：定义该变量以承载业务值。 */
     const stateChips = [
       item.read ? '已读' : '未读',
       item.hasAttachments ? (item.claimed ? '附件已领' : '可领附件') : '无附件',
@@ -357,20 +325,14 @@ export class MailPanel {
     `;
   }
 
-/** renderDetail：执行对应的业务逻辑。 */
+/** renderDetail：渲染当前界面内容。 */
   private renderDetail(detail: MailDetailView): string {
-/** title：定义该变量以承载业务值。 */
     const title = renderMailTitlePlain(detail.templateId, detail.args, detail.fallbackTitle);
-/** body：定义该变量以承载业务值。 */
     const body = renderMailBodyPlain(detail.templateId, detail.args, detail.fallbackBody);
-/** totalAttachmentPages：定义该变量以承载业务值。 */
     const totalAttachmentPages = Math.max(1, Math.ceil(detail.attachments.length / MAIL_ATTACHMENT_PAGE_SIZE));
-/** attachmentPage：定义该变量以承载业务值。 */
     const attachmentPage = Math.min(totalAttachmentPages, Math.max(1, this.attachmentPage));
     this.attachmentPage = attachmentPage;
-/** attachmentStart：定义该变量以承载业务值。 */
     const attachmentStart = (attachmentPage - 1) * MAIL_ATTACHMENT_PAGE_SIZE;
-/** visibleAttachments：定义该变量以承载业务值。 */
     const visibleAttachments = detail.attachments.slice(attachmentStart, attachmentStart + MAIL_ATTACHMENT_PAGE_SIZE);
     return `
       <div class="mail-detail-head">
@@ -412,7 +374,7 @@ export class MailPanel {
     `;
   }
 
-/** bindEvents：执行对应的业务逻辑。 */
+/** bindEvents：绑定回调。 */
   private bindEvents(root: HTMLElement): void {
     if (this.delegatedEventsBound) {
       return;
@@ -422,18 +384,15 @@ export class MailPanel {
     root.addEventListener('change', (event) => this.handleRootChange(event));
   }
 
-/** handleRootClick：执行对应的业务逻辑。 */
+/** handleRootClick：处理输入事件。 */
   private handleRootClick(event: Event): void {
-/** target：定义该变量以承载业务值。 */
     const target = event.target;
     if (!(target instanceof HTMLElement)) {
       return;
     }
 
-/** filterButton：定义该变量以承载业务值。 */
     const filterButton = target.closest<HTMLButtonElement>('[data-mail-filter]');
     if (filterButton) {
-/** filter：定义该变量以承载业务值。 */
       const filter = filterButton.dataset.mailFilter as MailFilter | undefined;
       if (!filter || filter === this.activeFilter) {
         return;
@@ -446,10 +405,8 @@ export class MailPanel {
       return;
     }
 
-/** pageButton：定义该变量以承载业务值。 */
     const pageButton = target.closest<HTMLButtonElement>('[data-mail-page-action]');
     if (pageButton) {
-/** action：定义该变量以承载业务值。 */
       const action = pageButton.dataset.mailPageAction;
       if (action === 'prev' && this.pageData.page > 1) {
         this.pageData.page -= 1;
@@ -461,15 +418,12 @@ export class MailPanel {
       return;
     }
 
-/** attachmentPageButton：定义该变量以承载业务值。 */
     const attachmentPageButton = target.closest<HTMLButtonElement>('[data-mail-attachment-page]');
     if (attachmentPageButton) {
       if (!this.detail) {
         return;
       }
-/** totalAttachmentPages：定义该变量以承载业务值。 */
       const totalAttachmentPages = Math.max(1, Math.ceil(this.detail.attachments.length / MAIL_ATTACHMENT_PAGE_SIZE));
-/** action：定义该变量以承载业务值。 */
       const action = attachmentPageButton.dataset.mailAttachmentPage;
       if (action === 'prev' && this.attachmentPage > 1) {
         this.attachmentPage -= 1;
@@ -492,7 +446,6 @@ export class MailPanel {
       return;
     }
     if (target.closest('[data-mail-batch-claim]')) {
-/** ids：定义该变量以承载业务值。 */
       const ids = [...this.selectedMailIds];
       if (ids.length > 0) {
         this.socket.sendClaimMailAttachments(ids);
@@ -500,7 +453,6 @@ export class MailPanel {
       return;
     }
     if (target.closest('[data-mail-batch-delete]')) {
-/** ids：定义该变量以承载业务值。 */
       const ids = [...this.selectedMailIds];
       if (ids.length > 0) {
         this.socket.sendDeleteMail(ids);
@@ -508,30 +460,24 @@ export class MailPanel {
       return;
     }
 
-/** markReadButton：定义该变量以承载业务值。 */
     const markReadButton = target.closest<HTMLButtonElement>('[data-mail-mark-read]');
     if (markReadButton) {
-/** mailId：定义该变量以承载业务值。 */
       const mailId = markReadButton.dataset.mailMarkRead;
       if (mailId) {
         this.socket.sendMarkMailRead([mailId]);
       }
       return;
     }
-/** claimButton：定义该变量以承载业务值。 */
     const claimButton = target.closest<HTMLButtonElement>('[data-mail-claim]');
     if (claimButton) {
-/** mailId：定义该变量以承载业务值。 */
       const mailId = claimButton.dataset.mailClaim;
       if (mailId) {
         this.socket.sendClaimMailAttachments([mailId]);
       }
       return;
     }
-/** deleteButton：定义该变量以承载业务值。 */
     const deleteButton = target.closest<HTMLButtonElement>('[data-mail-delete]');
     if (deleteButton) {
-/** mailId：定义该变量以承载业务值。 */
       const mailId = deleteButton.dataset.mailDelete;
       if (mailId) {
         this.socket.sendDeleteMail([mailId]);
@@ -542,12 +488,10 @@ export class MailPanel {
     if (target.closest('[data-mail-check]') || target.closest('.mail-entry-check')) {
       return;
     }
-/** mailEntry：定义该变量以承载业务值。 */
     const mailEntry = target.closest<HTMLElement>('[data-mail-select]');
     if (!mailEntry) {
       return;
     }
-/** mailId：定义该变量以承载业务值。 */
     const mailId = mailEntry.dataset.mailSelect;
     if (!mailId) {
       return;
@@ -559,14 +503,12 @@ export class MailPanel {
     this.markReadIfNeeded(mailId);
   }
 
-/** handleRootChange：执行对应的业务逻辑。 */
+/** handleRootChange：处理输入事件。 */
   private handleRootChange(event: Event): void {
-/** target：定义该变量以承载业务值。 */
     const target = event.target;
     if (!(target instanceof HTMLInputElement)) {
       return;
     }
-/** mailId：定义该变量以承载业务值。 */
     const mailId = target.dataset.mailCheck;
     if (!mailId) {
       return;
@@ -579,30 +521,23 @@ export class MailPanel {
     this.render();
   }
 
-/** patchBody：执行对应的业务逻辑。 */
+
   private patchBody(body: HTMLElement, meta: MailModalMeta): boolean {
     if (!body.querySelector('.mail-shell')) {
       return false;
     }
     this.patchModalMeta(meta);
 
-/** unreadNode：定义该变量以承载业务值。 */
     const unreadNode = body.querySelector<HTMLElement>('[data-mail-summary-unread="true"]');
-/** claimableNode：定义该变量以承载业务值。 */
     const claimableNode = body.querySelector<HTMLElement>('[data-mail-summary-claimable="true"]');
-/** totalNode：定义该变量以承载业务值。 */
     const totalNode = body.querySelector<HTMLElement>('[data-mail-summary-total="true"]');
-/** pageMetaNode：定义该变量以承载业务值。 */
     const pageMetaNode = body.querySelector<HTMLElement>('[data-mail-summary-page-meta="true"]');
-/** listRoot：定义该变量以承载业务值。 */
     const listRoot = body.querySelector<HTMLElement>('[data-mail-list="true"]');
-/** detailRoot：定义该变量以承载业务值。 */
     const detailRoot = body.querySelector<HTMLElement>('[data-mail-detail="true"]');
     if (!unreadNode || !claimableNode || !totalNode || !pageMetaNode || !listRoot || !detailRoot) {
       return false;
     }
 
-/** selectedCount：定义该变量以承载业务值。 */
     const selectedCount = this.selectedMailIds.size;
     unreadNode.textContent = String(this.summary.unreadCount);
     claimableNode.textContent = String(this.summary.claimableCount);
@@ -617,17 +552,11 @@ export class MailPanel {
       button.classList.toggle('active', option.id === this.activeFilter);
     }
 
-/** selectPageButton：定义该变量以承载业务值。 */
     const selectPageButton = body.querySelector<HTMLButtonElement>('[data-mail-select-page]');
-/** clearSelectionButton：定义该变量以承载业务值。 */
     const clearSelectionButton = body.querySelector<HTMLButtonElement>('[data-mail-clear-selection]');
-/** batchClaimButton：定义该变量以承载业务值。 */
     const batchClaimButton = body.querySelector<HTMLButtonElement>('[data-mail-batch-claim]');
-/** batchDeleteButton：定义该变量以承载业务值。 */
     const batchDeleteButton = body.querySelector<HTMLButtonElement>('[data-mail-batch-delete]');
-/** prevPageButton：定义该变量以承载业务值。 */
     const prevPageButton = body.querySelector<HTMLButtonElement>('[data-mail-page-action="prev"]');
-/** nextPageButton：定义该变量以承载业务值。 */
     const nextPageButton = body.querySelector<HTMLButtonElement>('[data-mail-page-action="next"]');
     if (!selectPageButton || !clearSelectionButton || !batchClaimButton || !batchDeleteButton || !prevPageButton || !nextPageButton) {
       return false;
@@ -643,13 +572,11 @@ export class MailPanel {
       ? this.pageData.items.map((item) => this.renderListEntry(item)).join('')
       : '<div class="empty-hint">当前筛选下暂无邮件</div>';
 
-/** detail：定义该变量以承载业务值。 */
     const detail = this.detail && this.selectedMailId === this.detail.mailId ? this.detail : null;
     detailRoot.innerHTML = detail ? this.renderDetail(detail) : '<div class="empty-hint">请选择一封邮件查看详情</div>';
     return true;
   }
 
-/** buildModalMeta：执行对应的业务逻辑。 */
   private buildModalMeta(): MailModalMeta {
     return {
       subtitle: `未读 ${this.summary.unreadCount} · 可领取 ${this.summary.claimableCount}`,
@@ -657,11 +584,9 @@ export class MailPanel {
     };
   }
 
-/** patchModalMeta：执行对应的业务逻辑。 */
+
   private patchModalMeta(meta: MailModalMeta): void {
-/** subtitleNode：定义该变量以承载业务值。 */
     const subtitleNode = document.getElementById('detail-modal-subtitle');
-/** hintNode：定义该变量以承载业务值。 */
     const hintNode = document.getElementById('detail-modal-hint');
     if (subtitleNode) {
       subtitleNode.textContent = meta.subtitle;
@@ -672,9 +597,8 @@ export class MailPanel {
     }
   }
 
-/** captureRenderState：执行对应的业务逻辑。 */
+
   private captureRenderState(body: HTMLElement): MailRenderState {
-/** activeElement：定义该变量以承载业务值。 */
     const activeElement = document.activeElement;
     return {
       listScrollTop: body.querySelector<HTMLElement>('.mail-list')?.scrollTop ?? 0,
@@ -685,11 +609,9 @@ export class MailPanel {
     };
   }
 
-/** restoreRenderState：执行对应的业务逻辑。 */
+
   private restoreRenderState(body: HTMLElement, state: MailRenderState): void {
-/** list：定义该变量以承载业务值。 */
     const list = body.querySelector<HTMLElement>('.mail-list');
-/** detail：定义该变量以承载业务值。 */
     const detail = body.querySelector<HTMLElement>('.mail-detail');
     if (list) {
       list.scrollTop = state.listScrollTop;
@@ -700,14 +622,12 @@ export class MailPanel {
     if (!state.focusSelector) {
       return;
     }
-/** focusTarget：定义该变量以承载业务值。 */
     const focusTarget = body.querySelector<HTMLElement>(state.focusSelector);
     focusTarget?.focus({ preventScroll: true });
   }
 
-/** resolveFocusSelector：执行对应的业务逻辑。 */
+
   private resolveFocusSelector(element: HTMLElement): string | null {
-/** datasetEntries：定义该变量以承载业务值。 */
     const datasetEntries: Array<[string, string | undefined, (value: string) => string]> = [
       ['mailFilter', element.dataset.mailFilter, (value) => `[data-mail-filter="${escapeHtmlAttr(value)}"]`],
       ['mailPageAction', element.dataset.mailPageAction, (value) => `[data-mail-page-action="${escapeHtmlAttr(value)}"]`],
@@ -738,14 +658,11 @@ export class MailPanel {
     return null;
   }
 
-/** updateHudUnreadState：执行对应的业务逻辑。 */
   private updateHudUnreadState(): void {
-/** button：定义该变量以承载业务值。 */
     const button = document.getElementById('hud-open-mail');
     if (!(button instanceof HTMLButtonElement)) {
       return;
     }
-/** hasUnread：定义该变量以承载业务值。 */
     const hasUnread = this.summary.unreadCount > 0 || this.summary.claimableCount > 0;
     button.dataset.hasUnread = hasUnread ? 'true' : 'false';
   }

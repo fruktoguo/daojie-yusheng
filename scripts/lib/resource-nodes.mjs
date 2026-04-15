@@ -15,7 +15,7 @@ const repoRoot = path.resolve(__dirname, '..', '..');
 /**
  * 记录资源nodes路径。
  */
-const resourceNodesPath = path.join(repoRoot, 'legacy/server/data/content/resource-nodes.json');
+const resourceNodesPath = path.join(repoRoot, 'packages/server/data/content/resource-nodes.json');
 
 /**
  * 读取json。

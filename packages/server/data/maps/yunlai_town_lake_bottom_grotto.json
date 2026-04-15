@@ -1,0 +1,93 @@
+{
+  "id": "yunlai_town_lake_bottom_grotto",
+  "name": "云来镇·湖底洞天",
+  "width": 22,
+  "height": 14,
+  "routeDomain": "system",
+  "terrainProfileId": "mortal_settlement",
+  "parentMapId": "yunlai_town",
+  "floorLevel": -2,
+  "floorName": "湖底洞天",
+  "spaceVisionMode": "isolated",
+  "description": "湖心暗眼之下藏着一处半天然半石室的湖底洞天，湿冷却有灵气回旋。",
+  "dangerLevel": 1,
+  "recommendedRealm": "Entry",
+  "tiles": [
+    "######################",
+    "#........oooo........#",
+    "#......##....##......#",
+    "#......#......#......#",
+    "#..oo..#..~~..#..oo..#",
+    "#......#.~;;~.#......#",
+    "#......#~~%%~~#......#",
+    "#......#~;..;~#......#",
+    "#......#~~%%~~#......#",
+    "#..oo..#.~;;~.#..oo..#",
+    "#......##....##......#",
+    "#.........S..........#",
+    "#....................#",
+    "######################"
+  ],
+  "portals": [
+    {
+      "x": 10,
+      "y": 11,
+      "targetMapId": "yunlai_town",
+      "targetX": 49,
+      "targetY": 42,
+      "kind": "stairs",
+      "trigger": "auto",
+      "routeDomain": "inherit",
+      "allowPlayerOverlap": false,
+      "hidden": false
+    }
+  ],
+  "spawnPoint": {
+    "x": 11,
+    "y": 11
+  },
+  "time": {
+    "offsetTicks": 120,
+    "scale": 1,
+    "light": {
+      "base": 20,
+      "timeInfluence": 0
+    },
+    "palette": {}
+  },
+  "auras": [
+    {
+      "x": 8,
+      "y": 5,
+      "value": 3
+    },
+    {
+      "x": 11,
+      "y": 7,
+      "value": 3
+    },
+    {
+      "x": 13,
+      "y": 5,
+      "value": 3
+    },
+    {
+      "x": 10,
+      "y": 7,
+      "value": 3
+    }
+  ],
+  "safeZones": [],
+  "landmarks": [
+    {
+      "id": "lm_lake_bottom_stone_seat",
+      "name": "湖心石台",
+      "x": 11,
+      "y": 6,
+      "desc": "被水汽打磨得极平的石台，像是专门给人打坐吐纳留下的位置。"
+    }
+  ],
+  "npcs": [],
+  "monsterSpawns": [],
+  "terrainRealmLv": 1
+}

@@ -6,11 +6,11 @@ import { fileURLToPath } from 'node:url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, '..');
-const itemsDir = path.join(repoRoot, 'legacy/server/data/content/items');
-const monstersDir = path.join(repoRoot, 'legacy/server/data/content/monsters');
-const mapsDir = path.join(repoRoot, 'legacy/server/data/maps');
-const recipesPath = path.join(repoRoot, 'legacy/server/data/content/alchemy/recipes.json');
-const resourceNodesPath = path.join(repoRoot, 'legacy/server/data/content/resource-nodes.json');
+const itemsDir = path.join(repoRoot, 'packages/server/data/content/items');
+const monstersDir = path.join(repoRoot, 'packages/server/data/content/monsters');
+const mapsDir = path.join(repoRoot, 'packages/server/data/maps');
+const recipesPath = path.join(repoRoot, 'packages/server/data/content/alchemy/recipes.json');
+const resourceNodesPath = path.join(repoRoot, 'packages/server/data/content/resource-nodes.json');
 
 const GRADE_ORDER = ['mortal', 'yellow', 'mystic', 'earth', 'heaven', 'dao'];
 const MAX_POWER_RATIO = 1.5;

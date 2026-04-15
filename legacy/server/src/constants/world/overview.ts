@@ -7,17 +7,12 @@ import { DEFAULT_RATIO_DIVISOR, type NumericRatioDivisors } from '@mud/shared';
 /** 空世界更新结果，占位表示本次没有任何变化。 */
 export const EMPTY_UPDATE = {
   messages: [] as Array<{
-/** playerId：定义该变量以承载业务值。 */
     playerId: string;
-/** text：定义该变量以承载业务值。 */
     text: string;
     kind?: 'system' | 'quest' | 'combat' | 'loot';
     floating?: {
-/** x：定义该变量以承载业务值。 */
       x: number;
-/** y：定义该变量以承载业务值。 */
       y: number;
-/** text：定义该变量以承载业务值。 */
       text: string;
       color?: string;
     };

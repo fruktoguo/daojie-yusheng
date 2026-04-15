@@ -34,7 +34,6 @@ import {
   updateMapPerformanceConfig,
 } from '../performance-config';
 
-/** SettingsPanelOptions：定义该类型的结构与数据语义。 */
 type SettingsPanelOptions = {
   getCurrentAccountName: () => string;
   getCurrentDisplayName: () => string;
@@ -45,22 +44,17 @@ type SettingsPanelOptions = {
   onLogout: () => void;
 };
 
-/** SettingsPanel：封装相关状态与行为。 */
 export class SettingsPanel {
-/** activeTab：定义该变量以承载业务值。 */
   private activeTab: 'account' | 'redeem' | 'ui' | 'performance' = 'account';
   private currentAccountName = '';
   private currentDisplayName = '';
   private currentRoleName = '';
-/** displayNameCheckTimer：定义该变量以承载业务值。 */
   private displayNameCheckTimer: ReturnType<typeof setTimeout> | null = null;
-/** displayNameAbortController：定义该变量以承载业务值。 */
   private displayNameAbortController: AbortController | null = null;
   private displayNameAvailable = false;
-/** options：定义该变量以承载业务值。 */
   private options: SettingsPanelOptions | null = null;
 
-/** constructor：处理当前场景中的对应操作。 */
+/** constructor：初始化实例并完成构造。 */
   constructor() {
     document.getElementById('hud-open-settings')?.addEventListener('click', () => this.open());
     document.getElementById('hud-logout')?.addEventListener('click', () => {
@@ -68,7 +62,7 @@ export class SettingsPanel {
     });
   }
 
-/** setOptions：执行对应的业务逻辑。 */
+/** setOptions：设置并同步相关状态。 */
   setOptions(options: SettingsPanelOptions): void {
     this.options = options;
   }
@@ -137,7 +131,7 @@ export class SettingsPanel {
     });
   }
 
-/** bindModal：执行对应的业务逻辑。 */
+/** bindModal：绑定回调。 */
   private bindModal(body: HTMLElement): void {
     this.bindTabs(body);
     this.bindAccountSettings(body);
@@ -146,18 +140,16 @@ export class SettingsPanel {
     this.bindPerformanceSettings(body);
   }
 
-/** bindTabs：执行对应的业务逻辑。 */
+/** bindTabs：绑定回调。 */
   private bindTabs(body: HTMLElement): void {
     body.querySelectorAll<HTMLButtonElement>('[data-settings-tab]').forEach((button) => {
       button.addEventListener('click', () => {
-/** nextTab：定义该变量以承载业务值。 */
         const nextTab = button.dataset.settingsTab;
         if (nextTab !== 'account' && nextTab !== 'redeem' && nextTab !== 'ui' && nextTab !== 'performance') {
           return;
         }
         this.activeTab = nextTab;
         body.querySelectorAll<HTMLElement>('[data-settings-tab]').forEach((entry) => {
-/** active：定义该变量以承载业务值。 */
           const active = entry.dataset.settingsTab === nextTab;
           entry.classList.toggle('active', active);
           entry.setAttribute('aria-selected', active ? 'true' : 'false');
@@ -169,27 +161,17 @@ export class SettingsPanel {
     });
   }
 
-/** bindAccountSettings：执行对应的业务逻辑。 */
+/** bindAccountSettings：绑定回调。 */
   private bindAccountSettings(body: HTMLElement): void {
-/** displayNameInput：定义该变量以承载业务值。 */
     const displayNameInput = body.querySelector<HTMLInputElement>('#settings-display-name');
-/** displayNameStatus：定义该变量以承载业务值。 */
     const displayNameStatus = body.querySelector<HTMLElement>('#settings-display-name-status');
-/** displayNameSubmit：定义该变量以承载业务值。 */
     const displayNameSubmit = body.querySelector<HTMLButtonElement>('#settings-display-name-submit');
-/** currentPasswordInput：定义该变量以承载业务值。 */
     const currentPasswordInput = body.querySelector<HTMLInputElement>('#settings-current-password');
-/** newPasswordInput：定义该变量以承载业务值。 */
     const newPasswordInput = body.querySelector<HTMLInputElement>('#settings-new-password');
-/** passwordStatus：定义该变量以承载业务值。 */
     const passwordStatus = body.querySelector<HTMLElement>('#settings-password-status');
-/** passwordSubmit：定义该变量以承载业务值。 */
     const passwordSubmit = body.querySelector<HTMLButtonElement>('#settings-password-submit');
-/** roleNameInput：定义该变量以承载业务值。 */
     const roleNameInput = body.querySelector<HTMLInputElement>('#settings-role-name');
-/** roleNameStatus：定义该变量以承载业务值。 */
     const roleNameStatus = body.querySelector<HTMLElement>('#settings-role-name-status');
-/** roleNameSubmit：定义该变量以承载业务值。 */
     const roleNameSubmit = body.querySelector<HTMLButtonElement>('#settings-role-name-submit');
     if (!displayNameInput || !displayNameStatus || !displayNameSubmit || !currentPasswordInput || !newPasswordInput || !passwordStatus || !passwordSubmit || !roleNameInput || !roleNameStatus || !roleNameSubmit) {
       return;
@@ -209,21 +191,14 @@ export class SettingsPanel {
     });
   }
 
-/** bindUiSettings：执行对应的业务逻辑。 */
+/** bindUiSettings：绑定回调。 */
   private bindUiSettings(body: HTMLElement): void {
-/** config：定义该变量以承载业务值。 */
     const config = getUiStyleConfig();
-/** styleStatus：定义该变量以承载业务值。 */
     const styleStatus = body.querySelector<HTMLElement>('#settings-ui-style-status');
-/** resetButton：定义该变量以承载业务值。 */
     const resetButton = body.querySelector<HTMLButtonElement>('#settings-ui-reset');
-/** globalRangeInput：定义该变量以承载业务值。 */
     const globalRangeInput = body.querySelector<HTMLInputElement>('[data-ui-global-font-range]');
-/** globalNumberInput：定义该变量以承载业务值。 */
     const globalNumberInput = body.querySelector<HTMLInputElement>('[data-ui-global-font-number]');
-/** scaleRangeInput：定义该变量以承载业务值。 */
     const scaleRangeInput = body.querySelector<HTMLInputElement>('[data-ui-scale-range]');
-/** scaleNumberInput：定义该变量以承载业务值。 */
     const scaleNumberInput = body.querySelector<HTMLInputElement>('[data-ui-scale-number]');
 
     this.syncUiGlobalFontOffsetRow(body, config.globalFontOffset);
@@ -231,31 +206,26 @@ export class SettingsPanel {
 
     body.querySelectorAll<HTMLButtonElement>('[data-ui-color-mode]').forEach((button) => {
       button.addEventListener('click', () => {
-/** colorMode：定义该变量以承载业务值。 */
         const colorMode = button.dataset.uiColorMode;
         if (colorMode !== 'light' && colorMode !== 'dark') {
           return;
         }
-/** nextConfig：定义该变量以承载业务值。 */
         const nextConfig = updateUiColorMode(colorMode as UiColorMode);
         this.syncUiModeButtons(body, colorMode as UiColorMode);
         this.syncUiGlobalFontOffsetRow(body, nextConfig.globalFontOffset);
         this.syncUiScaleRow(body, nextConfig.uiScale);
-/** setStatus：处理当前场景中的对应操作。 */
+/** setStatus：设置并同步相关状态。 */
         setStatus(styleStatus, `已切换为${colorMode === 'dark' ? '深色' : '浅色'}模式`, 'success');
       });
     });
 
     if (globalRangeInput && globalNumberInput) {
-/** applyGlobalOffset：通过常量导出可复用函数行为。 */
+
       const applyGlobalOffset = (rawValue: string) => {
-/** parsed：定义该变量以承载业务值。 */
         const parsed = Number.parseInt(rawValue, 10);
-/** nextValue：定义该变量以承载业务值。 */
         const nextValue = Number.isFinite(parsed)
           ? Math.max(UI_GLOBAL_FONT_OFFSET_RANGE.min, Math.min(UI_GLOBAL_FONT_OFFSET_RANGE.max, parsed))
           : UI_GLOBAL_FONT_OFFSET_RANGE.defaultValue;
-/** nextConfig：定义该变量以承载业务值。 */
         const nextConfig = updateUiGlobalFontOffset(nextValue);
         this.syncUiGlobalFontOffsetRow(body, nextConfig.globalFontOffset);
         setStatus(styleStatus, '已更新全局字号', 'success');
@@ -273,15 +243,12 @@ export class SettingsPanel {
     }
 
     if (scaleRangeInput && scaleNumberInput) {
-/** applyScale：通过常量导出可复用函数行为。 */
+
       const applyScale = (rawValue: string) => {
-/** parsed：定义该变量以承载业务值。 */
         const parsed = Number.parseFloat(rawValue);
-/** nextValue：定义该变量以承载业务值。 */
         const nextValue = Number.isFinite(parsed)
           ? Math.max(UI_SCALE_RANGE.min, Math.min(UI_SCALE_RANGE.max, parsed))
           : UI_SCALE_RANGE.defaultValue;
-/** nextConfig：定义该变量以承载业务值。 */
         const nextConfig = updateUiScale(nextValue);
         this.syncUiScaleRow(body, nextConfig.uiScale);
         setStatus(styleStatus, '已更新界面缩放', 'success');
@@ -299,7 +266,6 @@ export class SettingsPanel {
     }
 
     resetButton?.addEventListener('click', () => {
-/** nextConfig：定义该变量以承载业务值。 */
       const nextConfig = resetUiStyleConfig();
       this.syncUiModeButtons(body, nextConfig.colorMode);
       this.syncUiGlobalFontOffsetRow(body, nextConfig.globalFontOffset);
@@ -308,15 +274,11 @@ export class SettingsPanel {
     });
   }
 
-/** bindRedeemSettings：执行对应的业务逻辑。 */
+/** bindRedeemSettings：绑定回调。 */
   private bindRedeemSettings(body: HTMLElement): void {
-/** textarea：定义该变量以承载业务值。 */
     const textarea = body.querySelector<HTMLTextAreaElement>('#settings-redeem-codes');
-/** statusEl：定义该变量以承载业务值。 */
     const statusEl = body.querySelector<HTMLElement>('#settings-redeem-status');
-/** button：定义该变量以承载业务值。 */
     const button = body.querySelector<HTMLButtonElement>('#settings-redeem-submit');
-/** resultEl：定义该变量以承载业务值。 */
     const resultEl = body.querySelector<HTMLElement>('#settings-redeem-results');
     if (!textarea || !statusEl || !button || !resultEl) {
       return;
@@ -327,56 +289,46 @@ export class SettingsPanel {
     });
   }
 
-/** bindPerformanceSettings：执行对应的业务逻辑。 */
+/** bindPerformanceSettings：绑定回调。 */
   private bindPerformanceSettings(body: HTMLElement): void {
-/** config：定义该变量以承载业务值。 */
     const config = getMapPerformanceConfig();
-/** statusEl：定义该变量以承载业务值。 */
     const statusEl = body.querySelector<HTMLElement>('#settings-performance-status');
-/** resetButton：定义该变量以承载业务值。 */
     const resetButton = body.querySelector<HTMLButtonElement>('#settings-performance-reset');
 
     this.syncPerformanceFpsButtons(body, config.showFpsMonitor);
 
     body.querySelectorAll<HTMLButtonElement>('[data-performance-fps-toggle]').forEach((button) => {
       button.addEventListener('click', () => {
-/** nextValue：定义该变量以承载业务值。 */
         const nextValue = button.dataset.performanceFpsToggle === 'on';
-/** nextConfig：定义该变量以承载业务值。 */
         const nextConfig = updateMapPerformanceConfig({
           showFpsMonitor: nextValue,
         });
         this.syncPerformanceFpsButtons(body, nextConfig.showFpsMonitor);
-/** setStatus：处理当前场景中的对应操作。 */
+/** setStatus：设置并同步相关状态。 */
         setStatus(statusEl, nextConfig.showFpsMonitor ? '已开启地图帧率浮层，并自动保存到本机' : '已关闭地图帧率浮层，并自动保存到本机', 'success');
       });
     });
 
     resetButton?.addEventListener('click', () => {
-/** nextConfig：定义该变量以承载业务值。 */
       const nextConfig = resetMapPerformanceConfig();
       this.syncPerformanceFpsButtons(body, nextConfig.showFpsMonitor);
       setStatus(statusEl, '性能设置已恢复默认，并自动保存到本机', 'success');
     });
   }
 
-/** syncUiModeButtons：执行对应的业务逻辑。 */
+/** syncUiModeButtons：同步外部状态到本地。 */
   private syncUiModeButtons(body: HTMLElement, currentMode: UiColorMode): void {
     body.querySelectorAll<HTMLButtonElement>('[data-ui-color-mode]').forEach((button) => {
-/** active：定义该变量以承载业务值。 */
       const active = button.dataset.uiColorMode === currentMode;
       button.classList.toggle('active', active);
       button.setAttribute('aria-pressed', active ? 'true' : 'false');
     });
   }
 
-/** syncUiGlobalFontOffsetRow：执行对应的业务逻辑。 */
+/** syncUiGlobalFontOffsetRow：同步外部状态到本地。 */
   private syncUiGlobalFontOffsetRow(body: HTMLElement, globalFontOffset: number): void {
-/** rangeInput：定义该变量以承载业务值。 */
     const rangeInput = body.querySelector<HTMLInputElement>('[data-ui-global-font-range]');
-/** numberInput：定义该变量以承载业务值。 */
     const numberInput = body.querySelector<HTMLInputElement>('[data-ui-global-font-number]');
-/** valueEl：定义该变量以承载业务值。 */
     const valueEl = body.querySelector<HTMLElement>('[data-ui-global-font-value]');
     if (rangeInput) {
       rangeInput.value = String(globalFontOffset);
@@ -389,13 +341,10 @@ export class SettingsPanel {
     }
   }
 
-/** syncUiScaleRow：执行对应的业务逻辑。 */
+/** syncUiScaleRow：同步外部状态到本地。 */
   private syncUiScaleRow(body: HTMLElement, uiScale: number): void {
-/** rangeInput：定义该变量以承载业务值。 */
     const rangeInput = body.querySelector<HTMLInputElement>('[data-ui-scale-range]');
-/** numberInput：定义该变量以承载业务值。 */
     const numberInput = body.querySelector<HTMLInputElement>('[data-ui-scale-number]');
-/** valueEl：定义该变量以承载业务值。 */
     const valueEl = body.querySelector<HTMLElement>('[data-ui-scale-value]');
     if (rangeInput) {
       rangeInput.value = uiScale.toFixed(2);
@@ -408,17 +357,16 @@ export class SettingsPanel {
     }
   }
 
-/** syncPerformanceFpsButtons：执行对应的业务逻辑。 */
+/** syncPerformanceFpsButtons：同步外部状态到本地。 */
   private syncPerformanceFpsButtons(body: HTMLElement, showFpsMonitor: boolean): void {
     body.querySelectorAll<HTMLButtonElement>('[data-performance-fps-toggle]').forEach((button) => {
-/** active：定义该变量以承载业务值。 */
       const active = (button.dataset.performanceFpsToggle === 'on') === showFpsMonitor;
       button.classList.toggle('active', active);
       button.setAttribute('aria-pressed', active ? 'true' : 'false');
     });
   }
 
-/** renderAccountTab：执行对应的业务逻辑。 */
+/** renderAccountTab：渲染当前界面内容。 */
   private renderAccountTab(): string {
     return `
       <div class="panel-section account-settings-section">
@@ -469,9 +417,8 @@ export class SettingsPanel {
     `;
   }
 
-/** renderUiTab：执行对应的业务逻辑。 */
+/** renderUiTab：渲染当前界面内容。 */
   private renderUiTab(): string {
-/** config：定义该变量以承载业务值。 */
     const config = getUiStyleConfig();
     return `
       <div class="panel-section account-settings-section">
@@ -558,7 +505,7 @@ export class SettingsPanel {
     `;
   }
 
-/** renderRedeemTab：执行对应的业务逻辑。 */
+/** renderRedeemTab：渲染当前界面内容。 */
   private renderRedeemTab(): string {
     return `
       <div class="panel-section account-settings-section">
@@ -582,9 +529,8 @@ export class SettingsPanel {
     `;
   }
 
-/** renderPerformanceTab：执行对应的业务逻辑。 */
+/** renderPerformanceTab：渲染当前界面内容。 */
   private renderPerformanceTab(): string {
-/** config：定义该变量以承载业务值。 */
     const config = getMapPerformanceConfig();
     return `
       <div class="panel-section account-settings-section">
@@ -629,7 +575,6 @@ export class SettingsPanel {
     if (!this.options) {
       return;
     }
-/** codes：定义该变量以承载业务值。 */
     const codes = parseRedeemCodes(textarea.value);
     if (codes.length === 0) {
       setStatus(statusEl, '请至少填写一个兑换码', 'error');
@@ -641,11 +586,8 @@ export class SettingsPanel {
     setStatus(statusEl, '兑换请求已发送，等待本息结算...', '');
     resultEl.innerHTML = '';
     try {
-/** result：定义该变量以承载业务值。 */
       const result = await this.options.redeemCodes(codes);
-/** successCount：定义该变量以承载业务值。 */
       const successCount = result.results.filter((entry) => entry.ok).length;
-/** failedCount：定义该变量以承载业务值。 */
       const failedCount = result.results.length - successCount;
       setStatus(
         statusEl,
@@ -664,7 +606,7 @@ export class SettingsPanel {
         </div>
       `).join('');
     } catch (error) {
-/** setStatus：处理当前场景中的对应操作。 */
+/** setStatus：设置并同步相关状态。 */
       setStatus(statusEl, error instanceof Error ? error.message : '兑换失败', 'error');
       resultEl.innerHTML = '';
     } finally {
@@ -679,7 +621,6 @@ export class SettingsPanel {
     if (this.displayNameCheckTimer) {
       clearTimeout(this.displayNameCheckTimer);
     }
-/** displayName：定义该变量以承载业务值。 */
     const displayName = input.value.normalize('NFC');
     if (displayName === this.currentDisplayName) {
       this.displayNameAvailable = true;
@@ -687,7 +628,6 @@ export class SettingsPanel {
       return;
     }
 
-/** localError：定义该变量以承载业务值。 */
     const localError = validateDisplayName(displayName);
     if (localError) {
       this.displayNameAvailable = false;
@@ -701,7 +641,7 @@ export class SettingsPanel {
     }, 250);
   }
 
-/** checkDisplayName：执行对应的业务逻辑。 */
+
   private async checkDisplayName(displayName: string, statusEl: HTMLElement): Promise<void> {
     if (displayName === this.currentDisplayName) {
       this.displayNameAvailable = true;
@@ -711,12 +651,10 @@ export class SettingsPanel {
     if (this.displayNameAbortController) {
       this.displayNameAbortController.abort();
     }
-/** controller：定义该变量以承载业务值。 */
     const controller = new AbortController();
     this.displayNameAbortController = controller;
 
     try {
-/** result：定义该变量以承载业务值。 */
       const result = await checkDisplayNameAvailability(displayName, controller.signal);
       if (controller.signal.aborted) {
         return;
@@ -732,7 +670,7 @@ export class SettingsPanel {
         return;
       }
       this.displayNameAvailable = false;
-/** setStatus：处理当前场景中的对应操作。 */
+/** setStatus：设置并同步相关状态。 */
       setStatus(statusEl, error instanceof Error ? error.message : '检测失败', 'error');
     }
   }
@@ -742,16 +680,13 @@ export class SettingsPanel {
     statusEl: HTMLElement,
     button: HTMLButtonElement,
   ): Promise<void> {
-/** accessToken：定义该变量以承载业务值。 */
     const accessToken = getAccessToken();
     if (!accessToken) {
       setStatus(statusEl, '登录已失效，请重新登录', 'error');
       return;
     }
 
-/** displayName：定义该变量以承载业务值。 */
     const displayName = input.value.normalize('NFC');
-/** localError：定义该变量以承载业务值。 */
     const localError = validateDisplayName(displayName);
     if (localError) {
       setStatus(statusEl, localError, 'error');
@@ -767,7 +702,6 @@ export class SettingsPanel {
     button.disabled = true;
     setStatus(statusEl, '正在保存...', '');
     try {
-/** result：定义该变量以承载业务值。 */
       const result = await updateDisplayName(accessToken, { displayName });
       this.currentDisplayName = result.displayName;
       this.displayNameAvailable = true;
@@ -775,7 +709,7 @@ export class SettingsPanel {
       this.options?.onDisplayNameUpdated(result.displayName);
       setStatus(statusEl, '显示名称已更新', 'success');
     } catch (error) {
-/** setStatus：处理当前场景中的对应操作。 */
+/** setStatus：设置并同步相关状态。 */
       setStatus(statusEl, error instanceof Error ? error.message : '保存失败', 'error');
     } finally {
       button.disabled = false;
@@ -788,7 +722,6 @@ export class SettingsPanel {
     statusEl: HTMLElement,
     button: HTMLButtonElement,
   ): Promise<void> {
-/** accessToken：定义该变量以承载业务值。 */
     const accessToken = getAccessToken();
     if (!accessToken) {
       setStatus(statusEl, '登录已失效，请重新登录', 'error');
@@ -799,7 +732,6 @@ export class SettingsPanel {
       setStatus(statusEl, '当前密码不能为空', 'error');
       return;
     }
-/** passwordError：定义该变量以承载业务值。 */
     const passwordError = validatePassword(newPasswordInput.value);
     if (passwordError) {
       setStatus(statusEl, passwordError, 'error');
@@ -817,7 +749,7 @@ export class SettingsPanel {
       newPasswordInput.value = '';
       setStatus(statusEl, '密码已更新', 'success');
     } catch (error) {
-/** setStatus：处理当前场景中的对应操作。 */
+/** setStatus：设置并同步相关状态。 */
       setStatus(statusEl, error instanceof Error ? error.message : '保存失败', 'error');
     } finally {
       button.disabled = false;
@@ -829,16 +761,13 @@ export class SettingsPanel {
     statusEl: HTMLElement,
     button: HTMLButtonElement,
   ): Promise<void> {
-/** accessToken：定义该变量以承载业务值。 */
     const accessToken = getAccessToken();
     if (!accessToken) {
       setStatus(statusEl, '登录已失效，请重新登录', 'error');
       return;
     }
 
-/** roleName：定义该变量以承载业务值。 */
     const roleName = input.value.normalize('NFC').trim();
-/** roleNameError：定义该变量以承载业务值。 */
     const roleNameError = validateRoleName(roleName);
     if (roleNameError) {
       setStatus(statusEl, roleNameError, 'error');
@@ -852,14 +781,13 @@ export class SettingsPanel {
     button.disabled = true;
     setStatus(statusEl, '正在保存...', '');
     try {
-/** result：定义该变量以承载业务值。 */
       const result = await updateRoleName(accessToken, { roleName });
       this.currentRoleName = result.roleName;
       input.value = result.roleName;
       this.options?.onRoleNameUpdated(result.roleName);
       setStatus(statusEl, '角色名称已更新', 'success');
     } catch (error) {
-/** setStatus：处理当前场景中的对应操作。 */
+/** setStatus：设置并同步相关状态。 */
       setStatus(statusEl, error instanceof Error ? error.message : '保存失败', 'error');
     } finally {
       button.disabled = false;
@@ -867,12 +795,12 @@ export class SettingsPanel {
   }
 }
 
-/** formatGlobalFontOffset：执行对应的业务逻辑。 */
+/** formatGlobalFontOffset：格式化输出字符串用于展示。 */
 function formatGlobalFontOffset(value: number): string {
   return `${value >= 0 ? '+' : ''}${value}px`;
 }
 
-/** setStatus：执行对应的业务逻辑。 */
+/** setStatus：设置并同步相关状态。 */
 function setStatus(target: HTMLElement | null, message: string, tone: '' | 'success' | 'error'): void {
   if (!target) {
     return;
@@ -884,7 +812,7 @@ function setStatus(target: HTMLElement | null, message: string, tone: '' | 'succ
   }
 }
 
-/** escapeHtml：执行对应的业务逻辑。 */
+
 function escapeHtml(input: string): string {
   return input
     .replaceAll('&', '&amp;')
@@ -894,9 +822,8 @@ function escapeHtml(input: string): string {
     .replaceAll("'", '&#39;');
 }
 
-/** parseRedeemCodes：执行对应的业务逻辑。 */
+/** parseRedeemCodes：解析参数并返回标准化结果。 */
 function parseRedeemCodes(raw: string): string[] {
-/** entries：定义该变量以承载业务值。 */
   const entries = raw
     .split(/[\s,，;；]+/u)
     .map((entry) => entry.trim().toUpperCase())

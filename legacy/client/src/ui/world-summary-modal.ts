@@ -5,10 +5,9 @@ import {
 import { formatDisplayInteger } from '../utils/number';
 import { detailModalHost } from './detail-modal-host';
 
-/** WORLD_SUMMARY_OWNER_ID：定义该变量以承载业务值。 */
 const WORLD_SUMMARY_OWNER_ID = 'world-summary-modal';
 
-/** escapeHtml：执行对应的业务逻辑。 */
+
 function escapeHtml(value: string): string {
   return value
     .replaceAll('&', '&amp;')
@@ -18,25 +17,19 @@ function escapeHtml(value: string): string {
     .replaceAll("'", '&#39;');
 }
 
-/** formatGeneratedAt：执行对应的业务逻辑。 */
+/** formatGeneratedAt：格式化输出字符串用于展示。 */
 function formatGeneratedAt(timestamp?: number): string {
   if (!timestamp || !Number.isFinite(timestamp)) {
     return '调卷中';
   }
-/** date：定义该变量以承载业务值。 */
   const date = new Date(timestamp);
-/** month：定义该变量以承载业务值。 */
   const month = String(date.getMonth() + 1).padStart(2, '0');
-/** day：定义该变量以承载业务值。 */
   const day = String(date.getDate()).padStart(2, '0');
-/** hour：定义该变量以承载业务值。 */
   const hour = String(date.getHours()).padStart(2, '0');
-/** minute：定义该变量以承载业务值。 */
   const minute = String(date.getMinutes()).padStart(2, '0');
   return `${month}-${day} ${hour}:${minute}`;
 }
 
-/** WorldSummaryModal：封装相关状态与行为。 */
 export class WorldSummaryModal {
   private data: S2C_WorldSummary | null = null;
   private loading = false;
@@ -48,14 +41,14 @@ export class WorldSummaryModal {
     this.requestData = callbacks.onRequestData;
   }
 
-/** open：执行对应的业务逻辑。 */
+/** open：打开界面或流程。 */
   open(): void {
     this.loading = true;
     this.render();
     this.requestData?.();
   }
 
-/** applyData：执行对应的业务逻辑。 */
+
   applyData(data: S2C_WorldSummary): void {
     this.data = data;
     this.loading = false;
@@ -64,7 +57,7 @@ export class WorldSummaryModal {
     }
   }
 
-/** render：执行对应的业务逻辑。 */
+/** render：渲染当前界面内容。 */
   private render(): void {
     detailModalHost.open({
       ownerId: WORLD_SUMMARY_OWNER_ID,
@@ -85,7 +78,7 @@ export class WorldSummaryModal {
     });
   }
 
-/** renderBodyHtml：执行对应的业务逻辑。 */
+/** renderBodyHtml：渲染当前界面内容。 */
   private renderBodyHtml(): string {
     return `
       <div class="leaderboard-shell">
@@ -101,7 +94,7 @@ export class WorldSummaryModal {
     `;
   }
 
-/** renderSummary：执行对应的业务逻辑。 */
+/** renderSummary：渲染当前界面内容。 */
   private renderSummary(): string {
     if (!this.data) {
       return '<div class="empty-hint">暂无世界卷宗。</div>';
@@ -109,7 +102,7 @@ export class WorldSummaryModal {
     return this.renderWorldBoard(this.data.summary);
   }
 
-/** renderWorldBoard：执行对应的业务逻辑。 */
+/** renderWorldBoard：渲染当前界面内容。 */
   private renderWorldBoard(summary: LeaderboardWorldSummary): string {
     return `
       <div class="leaderboard-world-grid">
@@ -140,7 +133,7 @@ export class WorldSummaryModal {
     `;
   }
 
-/** renderWorldSection：执行对应的业务逻辑。 */
+/** renderWorldSection：渲染当前界面内容。 */
   private renderWorldSection(title: string, entries: Array<{ label: string; value: string; hint?: string }>): string {
     return `
       <section class="leaderboard-world-card">

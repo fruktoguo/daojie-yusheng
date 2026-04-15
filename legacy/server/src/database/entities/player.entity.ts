@@ -16,7 +16,6 @@ import {
   VIEW_RADIUS,
 } from '@mud/shared';
 
-/** BIGINT_NUMBER_TRANSFORMER：定义该变量以承载业务值。 */
 const BIGINT_NUMBER_TRANSFORMER = {
   to: (value: number): number => value,
   from: (value: string | number): number => Number(value),
@@ -24,7 +23,6 @@ const BIGINT_NUMBER_TRANSFORMER = {
 
 /** 玩家角色存档表，主键为角色存档 ID */
 @Entity('players')
-/** PlayerEntity：封装相关状态与行为。 */
 export class PlayerEntity {
   @PrimaryColumn({ type: 'varchar', length: 100 })
   id!: string;

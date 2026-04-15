@@ -1,16 +1,15 @@
 import { detailModalHost } from './detail-modal-host';
 import { CHANGELOG_ENTRIES, getLatestChangelogEntry } from './changelog-data';
 
-/** ChangelogPanel：封装相关状态与行为。 */
 export class ChangelogPanel {
   private static readonly MODAL_OWNER = 'changelog-panel';
 
-/** constructor：处理当前场景中的对应操作。 */
+/** constructor：初始化实例并完成构造。 */
   constructor() {
     document.getElementById('hud-open-chronicle')?.addEventListener('click', () => this.open());
   }
 
-/** open：执行对应的业务逻辑。 */
+/** open：打开界面或流程。 */
   open(): void {
     detailModalHost.open({
       ownerId: ChangelogPanel.MODAL_OWNER,
@@ -21,14 +20,11 @@ export class ChangelogPanel {
     });
   }
 
-/** buildSubtitle：执行对应的业务逻辑。 */
   private buildSubtitle(): string {
-/** latest：定义该变量以承载业务值。 */
     const latest = getLatestChangelogEntry();
     return latest ? `最近记载：${latest.updatedAt}` : '暂无记载';
   }
 
-/** buildBodyHtml：执行对应的业务逻辑。 */
   private buildBodyHtml(): string {
     return `
       <div class="chronicle-shell">
@@ -42,7 +38,7 @@ export class ChangelogPanel {
     `;
   }
 
-/** renderEntry：执行对应的业务逻辑。 */
+/** renderEntry：渲染当前界面内容。 */
   private renderEntry(entry: { updatedAt: string; summary: string; items: string[] }): string {
     return `
       <article class="chronicle-entry">
@@ -58,7 +54,7 @@ export class ChangelogPanel {
   }
 }
 
-/** escapeHtml：执行对应的业务逻辑。 */
+
 function escapeHtml(input: string): string {
   return input
     .replaceAll('&', '&amp;')

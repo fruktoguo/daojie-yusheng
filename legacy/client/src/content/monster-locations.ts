@@ -1,26 +1,17 @@
-/** MonsterLocationEntry：定义该接口的能力与字段约束。 */
 export interface MonsterLocationEntry {
-/** monsterId：定义该变量以承载业务值。 */
   monsterId: string;
-/** monsterName：定义该变量以承载业务值。 */
   monsterName: string;
-/** mapId：定义该变量以承载业务值。 */
   mapId: string;
-/** mapName：定义该变量以承载业务值。 */
   mapName: string;
   dangerLevel?: number;
-/** totalMaps：定义该变量以承载业务值。 */
   totalMaps: number;
 }
 
-/** MonsterLocationCatalog：定义该类型的结构与数据语义。 */
 type MonsterLocationCatalog = Record<string, MonsterLocationEntry>;
-/** monsterLocationCatalog：定义该变量以承载业务值。 */
 let monsterLocationCatalog: MonsterLocationCatalog | null = null;
-/** monsterLocationCatalogPromise：定义该变量以承载业务值。 */
 let monsterLocationCatalogPromise: Promise<MonsterLocationCatalog> | null = null;
 
-/** loadMonsterLocationCatalog：执行对应的业务逻辑。 */
+/** loadMonsterLocationCatalog：加载外部资源或状态。 */
 function loadMonsterLocationCatalog(): Promise<MonsterLocationCatalog> {
   if (monsterLocationCatalog) {
     return Promise.resolve(monsterLocationCatalog);
@@ -35,17 +26,16 @@ function loadMonsterLocationCatalog(): Promise<MonsterLocationCatalog> {
   return monsterLocationCatalogPromise;
 }
 
-/** hasLoadedMonsterLocationCatalog：执行对应的业务逻辑。 */
+/** hasLoadedMonsterLocationCatalog：判断并返回条件结果。 */
 export function hasLoadedMonsterLocationCatalog(): boolean {
   return monsterLocationCatalog !== null;
 }
 
-/** preloadMonsterLocationCatalog：执行对应的业务逻辑。 */
+
 export async function preloadMonsterLocationCatalog(): Promise<void> {
   await loadMonsterLocationCatalog();
 }
 
-/** getMonsterLocationEntry：执行对应的业务逻辑。 */
 export function getMonsterLocationEntry(monsterId: string): MonsterLocationEntry | null {
   if (!monsterLocationCatalog) {
     void loadMonsterLocationCatalog();
@@ -54,9 +44,8 @@ export function getMonsterLocationEntry(monsterId: string): MonsterLocationEntry
   return monsterLocationCatalog[monsterId] ?? null;
 }
 
-/** loadMonsterLocationEntry：执行对应的业务逻辑。 */
+/** loadMonsterLocationEntry：加载外部资源或状态。 */
 export async function loadMonsterLocationEntry(monsterId: string): Promise<MonsterLocationEntry | null> {
-/** catalog：定义该变量以承载业务值。 */
   const catalog = await loadMonsterLocationCatalog();
   return catalog[monsterId] ?? null;
 }

@@ -23,13 +23,12 @@ export {
 
 /** HTTP 请求失败时抛出，携带状态码 */
 export class RequestError extends Error {
-/** constructor：处理当前场景中的对应操作。 */
+/** constructor：初始化实例并完成构造。 */
   constructor(message: string, readonly status: number) {
     super(message);
   }
 }
 
-/** RequestOptions：定义该类型的结构与数据语义。 */
 type RequestOptions = {
   method?: 'GET' | 'POST';
   body?: unknown;
@@ -44,7 +43,6 @@ export function getAccessToken(): string | null {
 
 /** 从当前 accessToken 读取账号名 */
 export function getCurrentAccountName(): string | null {
-/** accessToken：定义该变量以承载业务值。 */
   const accessToken = getAccessToken();
   if (!accessToken) {
     return null;
@@ -71,7 +69,6 @@ export function clearStoredTokens(): void {
 
 /** 通用 JSON 请求，自动处理 body 序列化与 Bearer 鉴权 */
 export async function requestJson<TResponse>(url: string, options: RequestOptions = {}): Promise<TResponse> {
-/** headers：定义该变量以承载业务值。 */
   const headers: Record<string, string> = {};
   if (options.body !== undefined) {
     headers['Content-Type'] = 'application/json';
@@ -80,11 +77,9 @@ export async function requestJson<TResponse>(url: string, options: RequestOption
     headers.Authorization = `Bearer ${options.accessToken}`;
   }
 
-/** res：定义该变量以承载业务值。 */
   const res = await fetch(url, {
     method: options.method ?? 'GET',
     headers,
-/** body：定义该变量以承载业务值。 */
     body: options.body === undefined ? undefined : JSON.stringify(options.body),
     signal: options.signal,
   });
@@ -112,7 +107,6 @@ export function checkDisplayNameAvailability(
   displayName: string,
   signal?: AbortSignal,
 ): Promise<DisplayNameAvailabilityRes> {
-/** params：定义该变量以承载业务值。 */
   const params = new URLSearchParams({ displayName });
   return requestJson<DisplayNameAvailabilityRes>(`/auth/display-name/check?${params.toString()}`, { signal });
 }
@@ -153,10 +147,9 @@ export function updateRoleName(
   });
 }
 
-/** readError：执行对应的业务逻辑。 */
+
 async function readError(res: Response): Promise<string> {
   try {
-/** data：定义该变量以承载业务值。 */
     const data = await res.json() as { message?: string | string[] };
     if (Array.isArray(data.message)) {
       return data.message.join('，');
@@ -170,23 +163,17 @@ async function readError(res: Response): Promise<string> {
   return '请求失败';
 }
 
-/** parseJwtPayload：执行对应的业务逻辑。 */
+/** parseJwtPayload：解析参数并返回标准化结果。 */
 function parseJwtPayload(token: string): { username?: string } | null {
-/** parts：定义该变量以承载业务值。 */
   const parts = token.split('.');
   if (parts.length < 2) {
     return null;
   }
   try {
-/** normalized：定义该变量以承载业务值。 */
     const normalized = parts[1].replace(/-/g, '+').replace(/_/g, '/');
-/** padded：定义该变量以承载业务值。 */
     const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=');
-/** binary：定义该变量以承载业务值。 */
     const binary = window.atob(padded);
-/** bytes：定义该变量以承载业务值。 */
     const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
-/** json：定义该变量以承载业务值。 */
     const json = new TextDecoder().decode(bytes);
     return JSON.parse(json) as { username?: string };
   } catch {

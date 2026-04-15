@@ -1,0 +1,90 @@
+[
+  {
+    "id": "qingmu_sword",
+    "name": "青木剑诀",
+    "grade": "mortal",
+    "layers": [
+      {
+        "level": 1,
+        "expFactor": 13
+      },
+      {
+        "level": 2,
+        "expFactor": 14
+      },
+      {
+        "level": 3,
+        "expFactor": 16
+      },
+      {
+        "level": 4,
+        "expFactor": 18
+      },
+      {
+        "level": 5,
+        "expFactor": 21
+      },
+      {
+        "level": 6,
+        "expFactor": 23
+      },
+      {
+        "level": 7,
+        "expFactor": 27
+      },
+      {
+        "level": 8,
+        "expFactor": 31
+      },
+      {
+        "level": 9,
+        "expFactor": 0
+      }
+    ],
+    "skills": [
+      {
+        "id": "skill.qingmu_sword",
+        "name": "青木剑诀",
+        "desc": "青木剑气凝作一线，专取单体破敌。",
+        "cooldown": 10,
+        "costMultiplier": 4,
+        "range": 2,
+        "effects": [
+          {
+            "type": "damage",
+            "damageKind": "physical",
+            "formula": {
+              "op": "mul",
+              "args": [
+                {
+                  "op": "add",
+                  "args": [
+                    30,
+                    {
+                      "var": "caster.stat.physAtk",
+                      "scale": 3
+                    }
+                  ]
+                },
+                {
+                  "op": "add",
+                  "args": [
+                    1,
+                    {
+                      "var": "techLevel",
+                      "scale": 0.1
+                    }
+                  ]
+                }
+              ]
+            },
+            "element": "wood"
+          }
+        ],
+        "unlockLevel": 1
+      }
+    ],
+    "realmLv": 1,
+    "category": "arts"
+  }
+]

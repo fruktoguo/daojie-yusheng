@@ -1,0 +1,66 @@
+{
+  "id": "ruined_cavern_manor",
+  "name": "破败洞府",
+  "width": 18,
+  "height": 12,
+  "routeDomain": "system",
+  "terrainProfileId": "earth_stone_wild",
+  "terrainRealmLv": 43,
+  "spaceVisionMode": "isolated",
+  "description": "归藏阵核旁裂开的暗缝后面，藏着一座早就塌空的旧洞府。洞里没有陈设，只剩几块被压裂的残石和一口还未完全散尽的金丹余威。",
+  "dangerLevel": 6,
+  "recommendedRealm": "金丹一层",
+  "tiles": [
+    "##################",
+    "#................#",
+    "#....o.......o...#",
+    "#................#",
+    "#......o.........#",
+    "#............o...#",
+    "#.........o......#",
+    "#................#",
+    "#..o.............#",
+    "#................#",
+    "#.....o..........#",
+    "##################"
+  ],
+  "portals": [
+    {
+      "x": 2,
+      "y": 9,
+      "targetMapId": "guizang_vein_cavern",
+      "targetX": 30,
+      "targetY": 32,
+      "kind": "portal",
+      "trigger": "auto",
+      "routeDomain": "inherit",
+      "allowPlayerOverlap": false,
+      "hidden": true
+    }
+  ],
+  "spawnPoint": {
+    "x": 3,
+    "y": 9
+  },
+  "time": {
+    "offsetTicks": 0,
+    "scale": 1,
+    "light": {
+      "base": 0,
+      "timeInfluence": 100
+    },
+    "palette": {}
+  },
+  "auras": [],
+  "resources": [],
+  "safeZones": [],
+  "landmarks": [],
+  "npcs": [],
+  "monsterSpawns": [
+    {
+      "id": "m_huanling_zhenren",
+      "x": 9,
+      "y": 5
+    }
+  ]
+}

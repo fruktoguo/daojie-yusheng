@@ -5,47 +5,31 @@ import {
 } from './constants/ui/mail';
 import type { MailAttachment, MailFilter, MailTemplateArg } from './types';
 
-/** MailTargetScope：定义该类型的结构与数据语义。 */
 export type MailTargetScope = 'global' | 'direct';
-/** MailCampaignStatus：定义该类型的结构与数据语义。 */
 export type MailCampaignStatus = 'active' | 'cancelled';
 
-/** MailTemplateToken：定义该类型的结构与数据语义。 */
 export type MailTemplateToken =
   | { kind: 'text'; value: string }
   | { kind: 'arg'; index: number };
 
-/** MailTemplateDef：定义该接口的能力与字段约束。 */
 export interface MailTemplateDef {
-/** id：定义该变量以承载业务值。 */
   id: string;
-/** title：定义该变量以承载业务值。 */
   title: MailTemplateToken[];
-/** body：定义该变量以承载业务值。 */
   body: MailTemplateToken[];
 }
 
-/** GmMailTemplateOption：定义该接口的能力与字段约束。 */
 export interface GmMailTemplateOption {
-/** templateId：定义该变量以承载业务值。 */
   templateId: string;
-/** label：定义该变量以承载业务值。 */
   label: string;
-/** description：定义该变量以承载业务值。 */
   description: string;
 }
 
-/** MAIL_FILTERS：定义该变量以承载业务值。 */
 export const MAIL_FILTERS: MailFilter[] = ['all', 'unread', 'claimable'];
 
-/** MAIL_TEMPLATE_BEGINNER_JOURNEY_ID：定义该变量以承载业务值。 */
 export const MAIL_TEMPLATE_BEGINNER_JOURNEY_ID = 'mail.starter.beginner_journey.v1';
-/** MAIL_TEMPLATE_HEAVEN_ROOT_SEED_ID：定义该变量以承载业务值。 */
 export const MAIL_TEMPLATE_HEAVEN_ROOT_SEED_ID = 'mail.item.heaven_root_seed.v1';
-/** MAIL_TEMPLATE_DIVINE_ROOT_SEED_ID：定义该变量以承载业务值。 */
 export const MAIL_TEMPLATE_DIVINE_ROOT_SEED_ID = 'mail.item.divine_root_seed.v1';
 
-/** MAIL_TEMPLATE_DEFS：定义该变量以承载业务值。 */
 export const MAIL_TEMPLATE_DEFS: Record<string, MailTemplateDef> = {
   'mail.welcome.v1': {
     id: 'mail.welcome.v1',
@@ -106,7 +90,6 @@ export const MAIL_TEMPLATE_DEFS: Record<string, MailTemplateDef> = {
   },
 } as const;
 
-/** GM_MAIL_TEMPLATE_OPTIONS：定义该变量以承载业务值。 */
 export const GM_MAIL_TEMPLATE_OPTIONS: GmMailTemplateOption[] = [
   {
     templateId: '',
@@ -130,7 +113,6 @@ export const GM_MAIL_TEMPLATE_OPTIONS: GmMailTemplateOption[] = [
   },
 ];
 
-/** getMailTemplateDef：执行对应的业务逻辑。 */
 export function getMailTemplateDef(templateId: string | null | undefined): MailTemplateDef | null {
   if (!templateId) {
     return null;
@@ -138,7 +120,6 @@ export function getMailTemplateDef(templateId: string | null | undefined): MailT
   return MAIL_TEMPLATE_DEFS[templateId] ?? null;
 }
 
-/** stringifyMailArg：执行对应的业务逻辑。 */
 function stringifyMailArg(arg: MailTemplateArg): string {
   switch (arg.kind) {
     case 'text':
@@ -152,16 +133,13 @@ function stringifyMailArg(arg: MailTemplateArg): string {
   }
 }
 
-/** renderTokensPlain：执行对应的业务逻辑。 */
 function renderTokensPlain(tokens: MailTemplateToken[], args: MailTemplateArg[]): string {
-/** output：定义该变量以承载业务值。 */
   let output = '';
   for (const token of tokens) {
     if (token.kind === 'text') {
       output += token.value;
       continue;
     }
-/** arg：定义该变量以承载业务值。 */
     const arg = args[token.index];
     if (!arg) {
       continue;
@@ -171,41 +149,33 @@ function renderTokensPlain(tokens: MailTemplateToken[], args: MailTemplateArg[])
   return output;
 }
 
-/** renderMailTitlePlain：执行对应的业务逻辑。 */
 export function renderMailTitlePlain(
   templateId: string | null | undefined,
   args: MailTemplateArg[] | undefined,
   fallbackTitle?: string | null,
 ): string {
-/** template：定义该变量以承载业务值。 */
   const template = getMailTemplateDef(templateId);
   if (!template) {
     return fallbackTitle?.trim() || '未命名邮件';
   }
-/** rendered：定义该变量以承载业务值。 */
   const rendered = renderTokensPlain(template.title, args ?? []);
   return rendered.trim() || fallbackTitle?.trim() || '未命名邮件';
 }
 
-/** renderMailBodyPlain：执行对应的业务逻辑。 */
 export function renderMailBodyPlain(
   templateId: string | null | undefined,
   args: MailTemplateArg[] | undefined,
   fallbackBody?: string | null,
 ): string {
-/** template：定义该变量以承载业务值。 */
   const template = getMailTemplateDef(templateId);
   if (!template) {
     return fallbackBody?.trim() || '';
   }
-/** rendered：定义该变量以承载业务值。 */
   const rendered = renderTokensPlain(template.body, args ?? []);
   return rendered.trim() || fallbackBody?.trim() || '';
 }
 
-/** buildMailPreviewSnippet：执行对应的业务逻辑。 */
 export function buildMailPreviewSnippet(body: string, maxLength = 72): string {
-/** normalized：定义该变量以承载业务值。 */
   const normalized = body.replace(/\s+/g, ' ').trim();
   if (normalized.length <= maxLength) {
     return normalized;
@@ -213,34 +183,27 @@ export function buildMailPreviewSnippet(body: string, maxLength = 72): string {
   return `${normalized.slice(0, Math.max(0, maxLength - 1)).trimEnd()}…`;
 }
 
-/** normalizeMailFilter：执行对应的业务逻辑。 */
 export function normalizeMailFilter(filter: unknown): MailFilter {
   return typeof filter === 'string' && MAIL_FILTERS.includes(filter as MailFilter)
     ? filter as MailFilter
     : 'all';
 }
 
-/** normalizeMailPageSize：执行对应的业务逻辑。 */
 export function normalizeMailPageSize(value: unknown): number {
-/** requested：定义该变量以承载业务值。 */
   const requested = Number.isFinite(value) ? Math.floor(Number(value)) : MAIL_PAGE_SIZE_DEFAULT;
   return Math.min(MAIL_PAGE_SIZE_MAX, Math.max(1, requested || MAIL_PAGE_SIZE_DEFAULT));
 }
 
-/** normalizeMailBatchIds：执行对应的业务逻辑。 */
 export function normalizeMailBatchIds(ids: unknown): string[] {
   if (!Array.isArray(ids)) {
     return [];
   }
-/** unique：定义该变量以承载业务值。 */
   const unique: string[] = [];
-/** seen：定义该变量以承载业务值。 */
   const seen = new Set<string>();
   for (const entry of ids) {
     if (typeof entry !== 'string') {
       continue;
     }
-/** trimmed：定义该变量以承载业务值。 */
     const trimmed = entry.trim();
     if (!trimmed || seen.has(trimmed)) {
       continue;

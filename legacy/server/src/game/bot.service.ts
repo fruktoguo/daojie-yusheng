@@ -17,7 +17,6 @@ import { NavigationService } from './navigation.service';
 import { PlayerService } from './player.service';
 
 @Injectable()
-/** BotService：封装相关状态与行为。 */
 export class BotService {
   private readonly botIds = new Set<string>();
   private nextBotSeq = 1;
@@ -36,18 +35,14 @@ export class BotService {
 
   /** 在指定地图坐标附近生成指定数量的 Bot */
   spawnBotsAt(mapId: string, centerX: number, centerY: number, count: number): number {
-/** targetCount：定义该变量以承载业务值。 */
     const targetCount = Math.max(0, Math.min(50, Math.floor(count)));
-/** created：定义该变量以承载业务值。 */
     let created = 0;
 
     for (let index = 0; index < targetCount; index++) {
       const pos = this.findSpawnPosition(mapId, centerX, centerY);
       if (!pos) break;
 
-/** botId：定义该变量以承载业务值。 */
       const botId = `bot_${Date.now()}_${this.nextBotSeq++}`;
-/** bot：定义该变量以承载业务值。 */
       const bot: PlayerState = {
         id: botId,
         name: `傀儡${String(this.nextBotSeq - 1).padStart(2, '0')}`,
@@ -100,12 +95,10 @@ export class BotService {
 
   /** 每 tick 驱动 Bot AI：随机漫游寻路 */
   tickBots(mapId: string) {
-/** bots：定义该变量以承载业务值。 */
     const bots = this.playerService.getPlayersByMap(mapId).filter((player) => player.isBot);
     for (const bot of bots) {
       if (bot.dead) continue;
       if (!this.navigationService.hasMoveTarget(bot.id) || Math.random() < 0.12) {
-/** target：定义该变量以承载业务值。 */
         const target = this.findRoamTarget(bot);
         if (!target) continue;
         this.navigationService.setMoveTarget(bot, target.x, target.y);
@@ -115,12 +108,10 @@ export class BotService {
 
   /** 移除指定或全部 Bot */
   removeBots(playerIds?: string[]): number {
-/** targets：定义该变量以承载业务值。 */
     const targets = playerIds && playerIds.length > 0
       ? playerIds.filter((id) => this.botIds.has(id))
       : [...this.botIds];
 
-/** removed：定义该变量以承载业务值。 */
     let removed = 0;
     for (const playerId of targets) {
       const bot = this.playerService.getPlayer(playerId);
@@ -135,12 +126,10 @@ export class BotService {
     return removed;
   }
 
-/** getBotCount：执行对应的业务逻辑。 */
   getBotCount(): number {
     return this.botIds.size;
   }
 
-/** clearRuntimeState：执行对应的业务逻辑。 */
   clearRuntimeState(): void {
     this.botIds.clear();
   }
@@ -153,7 +142,6 @@ export class BotService {
         for (let dx = -radius; dx <= radius; dx++) {
           if (!isOffsetInRange(dx, dy, radius)) continue;
           const x = centerX + dx;
-/** y：定义该变量以承载业务值。 */
           const y = centerY + dy;
           if (!this.mapService.isWalkable(mapId, x, y, { actorType: 'player' })) continue;
           candidates.push({ x, y });
@@ -168,14 +156,11 @@ export class BotService {
 
   /** 为 Bot 随机选取一个漫游目标点 */
   private findRoamTarget(bot: PlayerState): { x: number; y: number } | null {
-/** candidates：定义该变量以承载业务值。 */
     const candidates: Array<{ x: number; y: number }> = [];
     for (let attempt = 0; attempt < 16; attempt++) {
       const dx = Math.floor(Math.random() * 11) - 5;
       const dy = Math.floor(Math.random() * 11) - 5;
-/** x：定义该变量以承载业务值。 */
       const x = bot.x + dx;
-/** y：定义该变量以承载业务值。 */
       const y = bot.y + dy;
       if ((x === bot.x && y === bot.y) || !this.mapService.isTerrainWalkable(bot.mapId, x, y)) continue;
       candidates.push({ x, y });

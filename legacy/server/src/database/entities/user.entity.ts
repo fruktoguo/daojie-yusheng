@@ -9,7 +9,6 @@ import {
   Index,
 } from 'typeorm';
 
-/** BIGINT_NUMBER_TRANSFORMER：定义该变量以承载业务值。 */
 const BIGINT_NUMBER_TRANSFORMER = {
   to: (value: number): number => value,
   from: (value: string | number): number => Number(value),
@@ -21,7 +20,6 @@ const BIGINT_NUMBER_TRANSFORMER = {
   where: `"displayName" IS NOT NULL AND "displayName" <> '人'`,
 })
 @Entity('users')
-/** UserEntity：封装相关状态与行为。 */
 export class UserEntity {
   @PrimaryGeneratedColumn('uuid')
   id!: string;

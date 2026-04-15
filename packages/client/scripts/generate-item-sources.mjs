@@ -20,19 +20,19 @@ const repoRoot = path.resolve(clientDir, '..', '..');
 /**
  * 记录物品目录。
  */
-const itemsDir = path.join(repoRoot, 'legacy/server/data/content/items');
+const itemsDir = path.join(repoRoot, 'packages/server/data/content/items');
 /**
  * 记录怪物目录。
  */
-const monstersDir = path.join(repoRoot, 'legacy/server/data/content/monsters');
+const monstersDir = path.join(repoRoot, 'packages/server/data/content/monsters');
 /**
  * 记录任务目录。
  */
-const questsDir = path.join(repoRoot, 'legacy/server/data/content/quests');
+const questsDir = path.join(repoRoot, 'packages/server/data/content/quests');
 /**
  * 记录地图目录。
  */
-const mapsDir = path.join(repoRoot, 'legacy/server/data/maps');
+const mapsDir = path.join(repoRoot, 'packages/server/data/maps');
 /**
  * 记录输出文件路径。
  */

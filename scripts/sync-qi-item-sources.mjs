@@ -8,8 +8,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const ROOT = process.cwd();
-const ITEMS_DIR = path.join(ROOT, 'legacy/server/data/content/items/练气期');
-const MONSTERS_DIR = path.join(ROOT, 'legacy/server/data/content/monsters');
+const ITEMS_DIR = path.join(ROOT, 'packages/server/data/content/items/练气期');
+const MONSTERS_DIR = path.join(ROOT, 'packages/server/data/content/monsters');
 
 /**
  * 记录consumableassignments。

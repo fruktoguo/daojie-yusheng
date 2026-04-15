@@ -131,7 +131,6 @@ import { AlchemyService } from './alchemy.service';
 import { EnhancementService } from './enhancement.service';
 
 @WebSocketGateway({ cors: true })
-/** GameGateway：封装相关状态与行为。 */
 export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit {
   @WebSocketServer()
   server!: Server;
@@ -167,7 +166,6 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     private readonly enhancementService: EnhancementService,
   ) {}
 
-/** afterInit：执行对应的业务逻辑。 */
   afterInit(server: Server): void {
     this.suggestionRealtimeService.bindServer(server);
   }
@@ -180,14 +178,12 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
       client.disconnect();
       return;
     }
-/** token：定义该变量以承载业务值。 */
     const token = client.handshake?.auth?.token as string;
     if (!token) {
       client.disconnect();
       return;
     }
 
-/** payload：定义该变量以承载业务值。 */
     const payload = this.authService.validateToken(token);
     if (!payload) {
       client.emit(S2C.Error, { code: 'AUTH_FAIL', message: '认证失败' });
@@ -199,19 +195,15 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     // 顶号检测
     const existingPlayerId = this.playerService.getPlayerByUserId(userId);
     if (existingPlayerId) {
-/** oldSocket：定义该变量以承载业务值。 */
       const oldSocket = this.playerService.getSocket(existingPlayerId);
       if (oldSocket) {
         oldSocket.emit(S2C.Kick);
         oldSocket.disconnect();
       }
-/** existing：定义该变量以承载业务值。 */
       const existing = this.playerService.getPlayer(existingPlayerId);
       if (existing) {
         existing.displayName = displayName;
-/** placement：定义该变量以承载业务值。 */
         const placement = this.resolveLoginPlacement(existing);
-/** moved：定义该变量以承载业务值。 */
         const moved = placement.mapId !== existing.mapId || placement.x !== existing.x || placement.y !== existing.y;
         if (moved) {
           this.mapService.removeOccupant(existing.mapId, existing.x, existing.y, existing.id);
@@ -228,9 +220,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
         this.playerService.setSocket(existingPlayerId, client);
         this.playerService.setUserMapping(userId, existingPlayerId);
         this.playerService.markPlayerOnline(existingPlayerId);
-/** introBackfillChanged：定义该变量以承载业务值。 */
         const introBackfillChanged = this.worldService.backfillIntroBodyTechnique(existing);
-/** questDirty：定义该变量以承载业务值。 */
         const questDirty = this.worldService.syncQuestState(existing);
         await this.mailService.ensureWelcomeMail(existing.id);
         if (introBackfillChanged || questDirty.length > 0) {
@@ -254,7 +244,6 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     const saved = await this.playerService.loadPlayer(userId);
     if (saved) {
       saved.displayName = displayName;
-/** placement：定义该变量以承载业务值。 */
       const placement = this.resolveLoginPlacement(saved);
       saved.mapId = placement.mapId;
       saved.x = placement.x;
@@ -262,9 +251,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
       this.playerService.setSocket(saved.id, client);
       this.playerService.setUserMapping(userId, saved.id);
       this.playerService.markPlayerOnline(saved.id);
-/** introBackfillChanged：定义该变量以承载业务值。 */
       const introBackfillChanged = this.worldService.backfillIntroBodyTechnique(saved);
-/** questDirty：定义该变量以承载业务值。 */
       const questDirty = this.worldService.syncQuestState(saved);
       await this.mailService.ensureWelcomeMail(saved.id);
       if (introBackfillChanged || questDirty.length > 0) {
@@ -285,15 +272,10 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
 
     // 创建新角色
     const playerId = `p_${userId}_${Date.now()}`;
-/** spawn：定义该变量以承载业务值。 */
     const spawn = this.mapService.getSpawnPoint(DEFAULT_PLAYER_MAP_ID) ?? { x: 10, y: 10 };
-/** initRoleName：定义该变量以承载业务值。 */
     const initRoleName = await this.authService.takePendingRoleName(userId);
-/** initMaxHp：定义该变量以承载业务值。 */
     const initMaxHp = BASE_MAX_HP + DEFAULT_BASE_ATTRS.constitution * HP_PER_CONSTITUTION;
-/** initialAlchemyExpToNext：定义该变量以承载业务值。 */
     const initialAlchemyExpToNext = Math.max(0, this.contentService.getRealmLevelEntry(1)?.expToNext ?? 60);
-/** playerState：定义该变量以承载业务值。 */
     const playerState: PlayerState = {
       id: playerId,
       name: initRoleName || buildDefaultRoleName(username) || username,
@@ -365,7 +347,6 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
       inWorld: true,
     };
 
-/** startPlacement：定义该变量以承载业务值。 */
     const startPlacement = this.resolveLoginPlacement(playerState);
     playerState.mapId = startPlacement.mapId;
     playerState.x = startPlacement.x;
@@ -386,7 +367,6 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
 
   /** 客户端断开时：仅标记离线，玩家仍留在世界中 */
   async handleDisconnect(client: Socket) {
-/** playerId：定义该变量以承载业务值。 */
     const playerId = client.data?.playerId as string;
     if (!playerId) return;
     if (this.playerService.getSocket(playerId) !== client) return;
@@ -394,7 +374,6 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     this.marketListingRequests.delete(playerId);
     this.marketTradeHistoryRequests.delete(playerId);
 
-/** player：定义该变量以承载业务值。 */
     const player = this.playerService.getPlayer(playerId);
     if (player) {
       this.tickService.resetPlayerSyncState(playerId);
@@ -405,18 +384,14 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.Heartbeat)
-/** handleHeartbeat：处理当前场景中的对应操作。 */
   handleHeartbeat(client: Socket, _data: C2S_Heartbeat) {
-/** playerId：定义该变量以承载业务值。 */
     const playerId = client.data?.playerId as string;
     if (!playerId) return;
     this.playerService.touchHeartbeat(playerId);
   }
 
   @SubscribeMessage(C2S.Ping)
-/** handlePing：处理当前场景中的对应操作。 */
   handlePing(client: Socket, data: C2S_Ping) {
-/** playerId：定义该变量以承载业务值。 */
     const playerId = client.data?.playerId as string;
     if (!playerId) {
       return;
@@ -428,11 +403,8 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.Move)
-/** handleMove：处理当前场景中的对应操作。 */
   handleMove(client: Socket, data: C2S_Move) {
-/** playerId：定义该变量以承载业务值。 */
     const playerId = client.data?.playerId as string;
-/** player：定义该变量以承载业务值。 */
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
 
@@ -445,15 +417,11 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.MoveTo)
-/** handleMoveTo：处理当前场景中的对应操作。 */
   handleMoveTo(client: Socket, data: C2S_MoveTo) {
-/** playerId：定义该变量以承载业务值。 */
     const playerId = client.data?.playerId as string;
-/** player：定义该变量以承载业务值。 */
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
 
-/** error：定义该变量以承载业务值。 */
     const error = this.navigationService.primeMoveTarget(player, data.x, data.y, {
       allowNearestReachable: data.allowNearestReachable,
       clientPackedPath: data.packedPath,
@@ -478,11 +446,8 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.NavigateQuest)
-/** handleNavigateQuest：处理当前场景中的对应操作。 */
   handleNavigateQuest(client: Socket, data: C2S_NavigateQuest) {
-/** playerId：定义该变量以承载业务值。 */
     const playerId = client.data?.playerId as string;
-/** player：定义该变量以承载业务值。 */
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
 
@@ -495,11 +460,8 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.NavigateMapPoint)
-/** handleNavigateMapPoint：处理当前场景中的对应操作。 */
   handleNavigateMapPoint(client: Socket, data: C2S_NavigateMapPoint) {
-/** playerId：定义该变量以承载业务值。 */
     const playerId = client.data?.playerId as string;
-/** player：定义该变量以承载业务值。 */
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
 
@@ -512,11 +474,8 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.Action)
-/** handleAction：处理当前场景中的对应操作。 */
   handleAction(client: Socket, data: C2S_Action) {
-/** playerId：定义该变量以承载业务值。 */
     const playerId = client.data?.playerId as string;
-/** player：定义该变量以承载业务值。 */
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
 
@@ -529,15 +488,11 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.HeavenGateAction)
-/** handleHeavenGateAction：处理当前场景中的对应操作。 */
   async handleHeavenGateAction(client: Socket, data: C2S_HeavenGateAction) {
-/** playerId：定义该变量以承载业务值。 */
     const playerId = client.data?.playerId as string;
-/** player：定义该变量以承载业务值。 */
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
 
-/** result：定义该变量以承载业务值。 */
     const result = this.techniqueService.handleHeavenGateAction(player, data.action, data.element);
     if (result.error) {
       client.emit(S2C.SystemMsg, {
@@ -562,14 +517,10 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.RequestNpcShop)
-/** handleRequestNpcShop：处理当前场景中的对应操作。 */
   handleRequestNpcShop(client: Socket, data: C2S_RequestNpcShop) {
-/** playerId：定义该变量以承载业务值。 */
     const playerId = client.data?.playerId as string;
-/** player：定义该变量以承载业务值。 */
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
-/** result：定义该变量以承载业务值。 */
     const result = this.worldService.buildNpcShopView(player, data.npcId);
     client.emit(S2C.NpcShop, {
       npcId: data.npcId,
@@ -579,11 +530,8 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.BuyNpcShopItem)
-/** handleBuyNpcShopItem：处理当前场景中的对应操作。 */
   handleBuyNpcShopItem(client: Socket, data: C2S_BuyNpcShopItem) {
-/** playerId：定义该变量以承载业务值。 */
     const playerId = client.data?.playerId as string;
-/** player：定义该变量以承载业务值。 */
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
 
@@ -596,22 +544,16 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.RequestAlchemyPanel)
-/** handleRequestAlchemyPanel：处理当前场景中的对应操作。 */
   handleRequestAlchemyPanel(client: Socket, data: C2S_RequestAlchemyPanel) {
-/** playerId：定义该变量以承载业务值。 */
     const playerId = client.data?.playerId as string;
-/** player：定义该变量以承载业务值。 */
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
     client.emit(S2C.AlchemyPanel, this.alchemyService.buildPanelPayload(player, data.knownCatalogVersion) satisfies S2C_AlchemyPanel);
   }
 
   @SubscribeMessage(C2S.SaveAlchemyPreset)
-/** handleSaveAlchemyPreset：处理当前场景中的对应操作。 */
   handleSaveAlchemyPreset(client: Socket, data: C2S_SaveAlchemyPreset) {
-/** playerId：定义该变量以承载业务值。 */
     const playerId = client.data?.playerId as string;
-/** player：定义该变量以承载业务值。 */
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
 
@@ -624,11 +566,8 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.DeleteAlchemyPreset)
-/** handleDeleteAlchemyPreset：处理当前场景中的对应操作。 */
   handleDeleteAlchemyPreset(client: Socket, data: C2S_DeleteAlchemyPreset) {
-/** playerId：定义该变量以承载业务值。 */
     const playerId = client.data?.playerId as string;
-/** player：定义该变量以承载业务值。 */
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
 
@@ -641,11 +580,8 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.StartAlchemy)
-/** handleStartAlchemy：处理当前场景中的对应操作。 */
   handleStartAlchemy(client: Socket, data: C2S_StartAlchemy) {
-/** playerId：定义该变量以承载业务值。 */
     const playerId = client.data?.playerId as string;
-/** player：定义该变量以承载业务值。 */
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
 
@@ -658,11 +594,8 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.CancelAlchemy)
-/** handleCancelAlchemy：处理当前场景中的对应操作。 */
   handleCancelAlchemy(client: Socket, _data: C2S_CancelAlchemy) {
-/** playerId：定义该变量以承载业务值。 */
     const playerId = client.data?.playerId as string;
-/** player：定义该变量以承载业务值。 */
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
 
@@ -675,22 +608,16 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.RequestEnhancementPanel)
-/** handleRequestEnhancementPanel：处理当前场景中的对应操作。 */
   handleRequestEnhancementPanel(client: Socket, _data: C2S_RequestEnhancementPanel) {
-/** playerId：定义该变量以承载业务值。 */
     const playerId = client.data?.playerId as string;
-/** player：定义该变量以承载业务值。 */
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
     client.emit(S2C.EnhancementPanel, this.enhancementService.buildPanelPayload(player) satisfies S2C_EnhancementPanel);
   }
 
   @SubscribeMessage(C2S.StartEnhancement)
-/** handleStartEnhancement：处理当前场景中的对应操作。 */
   handleStartEnhancement(client: Socket, data: C2S_StartEnhancement) {
-/** playerId：定义该变量以承载业务值。 */
     const playerId = client.data?.playerId as string;
-/** player：定义该变量以承载业务值。 */
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
 
@@ -703,11 +630,8 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.CancelEnhancement)
-/** handleCancelEnhancement：处理当前场景中的对应操作。 */
   handleCancelEnhancement(client: Socket, _data: C2S_CancelEnhancement) {
-/** playerId：定义该变量以承载业务值。 */
     const playerId = client.data?.playerId as string;
-/** player：定义该变量以承载业务值。 */
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
 
@@ -720,66 +644,48 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.UpdateAutoBattleSkills)
-/** handleUpdateAutoBattleSkills：处理当前场景中的对应操作。 */
   handleUpdateAutoBattleSkills(client: Socket, data: C2S_UpdateAutoBattleSkills) {
-/** playerId：定义该变量以承载业务值。 */
     const playerId = client.data?.playerId as string;
-/** player：定义该变量以承载业务值。 */
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
     this.tickService.executeImmediate(player, 'updateAutoBattleSkills', data);
   }
 
   @SubscribeMessage(C2S.UpdateAutoUsePills)
-/** handleUpdateAutoUsePills：处理当前场景中的对应操作。 */
   handleUpdateAutoUsePills(client: Socket, data: C2S_UpdateAutoUsePills) {
-/** playerId：定义该变量以承载业务值。 */
     const playerId = client.data?.playerId as string;
-/** player：定义该变量以承载业务值。 */
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
     this.tickService.executeImmediate(player, 'updateAutoUsePills', data);
   }
 
   @SubscribeMessage(C2S.UpdateCombatTargetingRules)
-/** handleUpdateCombatTargetingRules：处理当前场景中的对应操作。 */
   handleUpdateCombatTargetingRules(client: Socket, data: C2S_UpdateCombatTargetingRules) {
-/** playerId：定义该变量以承载业务值。 */
     const playerId = client.data?.playerId as string;
-/** player：定义该变量以承载业务值。 */
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
     this.tickService.executeImmediate(player, 'updateCombatTargetingRules', data);
   }
 
   @SubscribeMessage(C2S.UpdateAutoBattleTargetingMode)
-/** handleUpdateAutoBattleTargetingMode：处理当前场景中的对应操作。 */
   handleUpdateAutoBattleTargetingMode(client: Socket, data: C2S_UpdateAutoBattleTargetingMode) {
-/** playerId：定义该变量以承载业务值。 */
     const playerId = client.data?.playerId as string;
-/** player：定义该变量以承载业务值。 */
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
     this.tickService.executeImmediate(player, 'updateAutoBattleTargetingMode', data);
   }
 
   @SubscribeMessage(C2S.UpdateTechniqueSkillAvailability)
-/** handleUpdateTechniqueSkillAvailability：处理当前场景中的对应操作。 */
   handleUpdateTechniqueSkillAvailability(client: Socket, data: C2S_UpdateTechniqueSkillAvailability) {
-/** playerId：定义该变量以承载业务值。 */
     const playerId = client.data?.playerId as string;
-/** player：定义该变量以承载业务值。 */
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
     this.tickService.executeImmediate(player, 'updateTechniqueSkillAvailability', data);
   }
 
   @SubscribeMessage(C2S.DebugResetSpawn)
-/** handleDebugResetSpawn：处理当前场景中的对应操作。 */
   handleDebugResetSpawn(client: Socket, data: C2S_DebugResetSpawn) {
-/** playerId：定义该变量以承载业务值。 */
     const playerId = client.data?.playerId as string;
-/** player：定义该变量以承载业务值。 */
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
 
@@ -794,44 +700,32 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.UseItem)
-/** handleUseItem：处理当前场景中的对应操作。 */
   handleUseItem(client: Socket, data: C2S_UseItem) {
-/** playerId：定义该变量以承载业务值。 */
     const playerId = client.data?.playerId as string;
-/** player：定义该变量以承载业务值。 */
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
     this.tickService.executeImmediate(player, 'useItem', data);
   }
 
   @SubscribeMessage(C2S.DropItem)
-/** handleDropItem：处理当前场景中的对应操作。 */
   handleDropItem(client: Socket, data: C2S_DropItem) {
-/** playerId：定义该变量以承载业务值。 */
     const playerId = client.data?.playerId as string;
-/** player：定义该变量以承载业务值。 */
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
     this.tickService.executeImmediate(player, 'dropItem', data);
   }
 
   @SubscribeMessage(C2S.DestroyItem)
-/** handleDestroyItem：处理当前场景中的对应操作。 */
   handleDestroyItem(client: Socket, data: C2S_DestroyItem) {
-/** playerId：定义该变量以承载业务值。 */
     const playerId = client.data?.playerId as string;
-/** player：定义该变量以承载业务值。 */
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
     this.tickService.executeImmediate(player, 'destroyItem', data);
   }
 
   @SubscribeMessage(C2S.TakeLoot)
-/** handleTakeLoot：处理当前场景中的对应操作。 */
   handleTakeLoot(client: Socket, data: C2S_TakeLoot) {
-/** playerId：定义该变量以承载业务值。 */
     const playerId = client.data?.playerId as string;
-/** player：定义该变量以承载业务值。 */
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
 
@@ -844,11 +738,8 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.CloseLootWindow)
-/** handleCloseLootWindow：处理当前场景中的对应操作。 */
   handleCloseLootWindow(client: Socket, data: C2S_CloseLootWindow) {
-/** playerId：定义该变量以承载业务值。 */
     const playerId = client.data?.playerId as string;
-/** player：定义该变量以承载业务值。 */
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
 
@@ -861,52 +752,36 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.SortInventory)
-/** handleSortInventory：处理当前场景中的对应操作。 */
   handleSortInventory(client: Socket, data: C2S_SortInventory) {
-/** playerId：定义该变量以承载业务值。 */
     const playerId = client.data?.playerId as string;
-/** player：定义该变量以承载业务值。 */
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
     this.tickService.executeImmediate(player, 'sortInventory', data);
   }
 
   @SubscribeMessage(C2S.InspectTileRuntime)
-/** handleInspectTileRuntime：处理当前场景中的对应操作。 */
   handleInspectTileRuntime(client: Socket, data: C2S_InspectTileRuntime) {
-/** playerId：定义该变量以承载业务值。 */
     const playerId = client.data?.playerId as string;
-/** player：定义该变量以承载业务值。 */
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
 
-/** time：定义该变量以承载业务值。 */
     const time = this.timeService.buildPlayerTimeState(player);
-/** visibility：定义该变量以承载业务值。 */
     const visibility = this.aoiService.getVisibility(player, time.effectiveViewRange);
-/** targetX：定义该变量以承载业务值。 */
     const targetX = Math.round(data.x);
-/** targetY：定义该变量以承载业务值。 */
     const targetY = Math.round(data.y);
-/** key：定义该变量以承载业务值。 */
     const key = `${targetX},${targetY}`;
     if (!visibility.visibleKeys.has(key)) {
       return;
     }
 
-/** detail：定义该变量以承载业务值。 */
     const detail = this.mapService.getTileRuntimeDetail(player.mapId, targetX, targetY);
-/** observedEntities：定义该变量以承载业务值。 */
     const observedEntities = this.worldService.getObservedEntitiesAt(player, targetX, targetY);
     if (!detail && observedEntities.length === 0) {
       return;
     }
-/** auraLevelBaseValue：定义该变量以承载业务值。 */
     const auraLevelBaseValue = this.tickService.getAuraLevelBaseValue();
-/** detailedAuraResources：定义该变量以承载业务值。 */
     const detailedAuraResources = (detail?.resources ?? [])
       .filter((resource) => {
-/** parsedResource：定义该变量以承载业务值。 */
         const parsedResource = parseQiResourceKey(resource.key);
         return Boolean(parsedResource && isAuraQiResourceKey(resource.key));
       })
@@ -914,11 +789,9 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
         key: resource.key,
         value: resource.value,
       }));
-/** visibleDetailedAuraResources：定义该变量以承载业务值。 */
     const visibleDetailedAuraResources = detailedAuraResources.filter((resource) => (
       this.qiProjectionService.getResourceVisibility(player, resource.key) !== 'hidden'
     ));
-/** response：定义该变量以承载业务值。 */
     const response: S2C_TileRuntimeDetail = {
       mapId: player.mapId,
       x: targetX,
@@ -932,7 +805,6 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
           if (detailedAuraResources.length > 0 && visibleDetailedAuraResources.length <= 0) {
             return null;
           }
-/** effectiveValue：定义该变量以承载业务值。 */
           const effectiveValue = visibleDetailedAuraResources.length > 0
             ? this.qiProjectionService.getEffectiveAuraValueFromResources(player, visibleDetailedAuraResources)
             : this.qiProjectionService.getEffectiveAuraValue(player, resource.value);
@@ -952,7 +824,6 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
             effectiveValue,
           };
         }
-/** parsedResource：定义该变量以承载业务值。 */
         const parsedResource = parseQiResourceKey(resource.key);
         if (!parsedResource || !isAuraQiResourceKey(resource.key)) {
           return resource;
@@ -960,7 +831,6 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
         if (this.qiProjectionService.getResourceVisibility(player, resource.key) === 'hidden') {
           return null;
         }
-/** effectiveValue：定义该变量以承载业务值。 */
         const effectiveValue = this.qiProjectionService.getEffectiveResourceValue(player, resource.key, resource.value);
         return {
           ...resource,
@@ -974,61 +844,45 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.Equip)
-/** handleEquip：处理当前场景中的对应操作。 */
   handleEquip(client: Socket, data: C2S_Equip) {
-/** playerId：定义该变量以承载业务值。 */
     const playerId = client.data?.playerId as string;
-/** player：定义该变量以承载业务值。 */
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
     this.tickService.executeImmediate(player, 'equip', data);
   }
 
   @SubscribeMessage(C2S.Unequip)
-/** handleUnequip：处理当前场景中的对应操作。 */
   handleUnequip(client: Socket, data: C2S_Unequip) {
-/** playerId：定义该变量以承载业务值。 */
     const playerId = client.data?.playerId as string;
-/** player：定义该变量以承载业务值。 */
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
     this.tickService.executeImmediate(player, 'unequip', data);
   }
 
   @SubscribeMessage(C2S.Cultivate)
-/** handleCultivate：处理当前场景中的对应操作。 */
   handleCultivate(client: Socket, data: C2S_Cultivate) {
-/** playerId：定义该变量以承载业务值。 */
     const playerId = client.data?.playerId as string;
-/** player：定义该变量以承载业务值。 */
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
     this.tickService.executeImmediate(player, 'cultivate', data);
   }
 
   @SubscribeMessage(C2S.Chat)
-/** handleChat：处理当前场景中的对应操作。 */
   handleChat(client: Socket, data: C2S_Chat) {
-/** playerId：定义该变量以承载业务值。 */
     const playerId = client.data?.playerId as string;
-/** player：定义该变量以承载业务值。 */
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
 
-/** message：定义该变量以承载业务值。 */
     const message = typeof data?.message === 'string' ? data.message.trim() : '';
     if (!message) return;
 
-/** text：定义该变量以承载业务值。 */
     const text = message.slice(0, 200);
-/** chatMsg：定义该变量以承载业务值。 */
     const chatMsg: S2C_SystemMsg = {
       text,
       kind: 'chat',
       from: player.name,
     };
 
-/** viewers：定义该变量以承载业务值。 */
     const viewers = this.playerService.getPlayersByMap(player.mapId);
     for (const viewer of viewers) {
       const socket = this.playerService.getSocket(viewer.id);
@@ -1037,14 +891,11 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.AckSystemMessages)
-/** handleAckSystemMessages：处理当前场景中的对应操作。 */
   handleAckSystemMessages(client: Socket, data: C2S_AckSystemMessages) {
-/** playerId：定义该变量以承载业务值。 */
     const playerId = client.data?.playerId as string;
     if (!playerId) {
       return;
     }
-/** ids：定义该变量以承载业务值。 */
     const ids = Array.isArray(data?.ids)
       ? data.ids.filter((entry): entry is string => typeof entry === 'string' && entry.length > 0)
       : [];
@@ -1054,30 +905,21 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     this.playerService.ackPendingLogbookMessages(playerId, ids);
   }
 
-/** sendInit：处理当前场景中的对应操作。 */
   private sendInit(client: Socket, player: PlayerState) {
-/** mapMeta：定义该变量以承载业务值。 */
     const mapMeta = this.mapService.getMapMeta(player.mapId);
     if (!mapMeta) return;
-/** unlockedMinimapIds：定义该变量以承载业务值。 */
     const unlockedMinimapIds = [...new Set((player.unlockedMinimapIds ?? []).filter((entry) => typeof entry === 'string' && entry.length > 0))].sort();
-/** minimap：定义该变量以承载业务值。 */
     const minimap = unlockedMinimapIds.includes(player.mapId)
       ? this.mapService.getMinimapSnapshot(player.mapId)
       : undefined;
-/** minimapLibrary：定义该变量以承载业务值。 */
     const minimapLibrary = this.mapService.getMinimapArchiveEntries(unlockedMinimapIds);
     this.tickService.resetPlayerSyncState(player.id);
     this.timeService.syncPlayerTimeEffects(player);
     this.actionService.rebuildActions(player, this.worldService.getContextActions(player));
 
-/** time：定义该变量以承载业务值。 */
     const time = this.timeService.buildPlayerTimeState(player);
-/** visibility：定义该变量以承载业务值。 */
     const visibility = this.aoiService.getVisibility(player, time.effectiveViewRange);
-/** visibleMinimapMarkers：定义该变量以承载业务值。 */
     const visibleMinimapMarkers = this.mapService.getVisibleMinimapMarkers(player.mapId, visibility.visibleKeys);
-/** nearbyPlayers：定义该变量以承载业务值。 */
     const nearbyPlayers = this.playerService.getPlayersByMap(player.mapId)
       .filter((target) => visibility.visibleKeys.has(`${target.x},${target.y}`))
       .map((target) => this.worldService.buildPlayerRenderEntity(
@@ -1085,12 +927,9 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
         target,
         target.id === player.id ? '#ff0' : target.isBot ? '#6bb8ff' : '#0f0',
       ));
-/** visiblePlayers：定义该变量以承载业务值。 */
     const visiblePlayers = this.worldService.buildCrowdedPlayerRenderEntities(nearbyPlayers, player.id);
-/** visibleEntities：定义该变量以承载业务值。 */
     const visibleEntities = this.worldService.getVisibleEntities(player, visibility.visibleKeys);
 
-/** initData：定义该变量以承载业务值。 */
     const initData: S2C_Init = {
       self: this.buildInitPlayerCore(player),
       mapMeta,
@@ -1112,7 +951,6 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     this.playerService.emitPendingLogbookMessages(player.id);
   }
 
-/** buildInitPlayerCore：执行对应的业务逻辑。 */
   private buildInitPlayerCore(player: PlayerState): PlayerState {
     const { pendingLogbookMessages: _pendingLogbookMessages, ...publicPlayer } = player;
     return {
@@ -1151,15 +989,12 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.RequestSuggestions)
-/** handleRequestSuggestions：处理当前场景中的对应操作。 */
   async handleRequestSuggestions(client: Socket, _data: C2S_RequestSuggestions) {
     client.emit(S2C.SuggestionUpdate, { suggestions: this.suggestionService.getAll() });
   }
 
   @SubscribeMessage(C2S.RequestMailSummary)
-/** handleRequestMailSummary：处理当前场景中的对应操作。 */
   async handleRequestMailSummary(client: Socket, _data: C2S_RequestMailSummary) {
-/** playerId：定义该变量以承载业务值。 */
     const playerId = client.data?.playerId as string;
     if (!playerId) {
       return;
@@ -1168,9 +1003,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.RequestMailPage)
-/** handleRequestMailPage：处理当前场景中的对应操作。 */
   async handleRequestMailPage(client: Socket, data: C2S_RequestMailPage) {
-/** playerId：定义该变量以承载业务值。 */
     const playerId = client.data?.playerId as string;
     if (!playerId) {
       return;
@@ -1181,14 +1014,11 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.RequestMailDetail)
-/** handleRequestMailDetail：处理当前场景中的对应操作。 */
   async handleRequestMailDetail(client: Socket, data: C2S_RequestMailDetail) {
-/** playerId：定义该变量以承载业务值。 */
     const playerId = client.data?.playerId as string;
     if (!playerId) {
       return;
     }
-/** detail：定义该变量以承载业务值。 */
     const detail = await this.mailService.getDetail(playerId, data.mailId);
     client.emit(S2C.MailDetail, {
       detail,
@@ -1197,17 +1027,13 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.RedeemCodes)
-/** handleRedeemCodes：处理当前场景中的对应操作。 */
   async handleRedeemCodes(client: Socket, data: C2S_RedeemCodes) {
-/** playerId：定义该变量以承载业务值。 */
     const playerId = client.data?.playerId as string;
-/** player：定义该变量以承载业务值。 */
     const player = this.playerService.getPlayer(playerId);
     if (!player) {
       return;
     }
 
-/** prepared：定义该变量以承载业务值。 */
     const prepared = await this.redeemCodeService.prepareRedeemCodes(data.codes);
     this.playerService.enqueueCommand(player.mapId, {
       playerId,
@@ -1218,15 +1044,11 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.MarkMailRead)
-/** handleMarkMailRead：处理当前场景中的对应操作。 */
   async handleMarkMailRead(client: Socket, data: C2S_MarkMailRead) {
-/** playerId：定义该变量以承载业务值。 */
     const playerId = client.data?.playerId as string;
-/** player：定义该变量以承载业务值。 */
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
 
-/** prepared：定义该变量以承载业务值。 */
     const prepared = await this.mailService.prepareMarkRead(playerId, data.mailIds);
     if (!prepared) {
       client.emit(S2C.MailOpResult, {
@@ -1247,15 +1069,11 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.ClaimMailAttachments)
-/** handleClaimMailAttachments：处理当前场景中的对应操作。 */
   async handleClaimMailAttachments(client: Socket, data: C2S_ClaimMailAttachments) {
-/** playerId：定义该变量以承载业务值。 */
     const playerId = client.data?.playerId as string;
-/** player：定义该变量以承载业务值。 */
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
 
-/** prepared：定义该变量以承载业务值。 */
     const prepared = await this.mailService.prepareClaim(playerId, data.mailIds);
     if (!prepared.operation) {
       client.emit(S2C.MailOpResult, {
@@ -1276,15 +1094,11 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.DeleteMail)
-/** handleDeleteMail：处理当前场景中的对应操作。 */
   async handleDeleteMail(client: Socket, data: C2S_DeleteMail) {
-/** playerId：定义该变量以承载业务值。 */
     const playerId = client.data?.playerId as string;
-/** player：定义该变量以承载业务值。 */
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
 
-/** prepared：定义该变量以承载业务值。 */
     const prepared = await this.mailService.prepareDelete(playerId, data.mailIds);
     if (!prepared.operation) {
       client.emit(S2C.MailOpResult, {
@@ -1305,11 +1119,8 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.CreateSuggestion)
-/** handleCreateSuggestion：处理当前场景中的对应操作。 */
   async handleCreateSuggestion(client: Socket, data: C2S_CreateSuggestion) {
-/** playerId：定义该变量以承载业务值。 */
     const playerId = client.data?.playerId as string;
-/** player：定义该变量以承载业务值。 */
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
 
@@ -1323,9 +1134,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.VoteSuggestion)
-/** handleVoteSuggestion：处理当前场景中的对应操作。 */
   async handleVoteSuggestion(client: Socket, data: C2S_VoteSuggestion) {
-/** playerId：定义该变量以承载业务值。 */
     const playerId = client.data?.playerId as string;
     if (!playerId) return;
 
@@ -1334,15 +1143,11 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.ReplySuggestion)
-/** handleReplySuggestion：处理当前场景中的对应操作。 */
   async handleReplySuggestion(client: Socket, data: C2S_ReplySuggestion) {
-/** playerId：定义该变量以承载业务值。 */
     const playerId = client.data?.playerId as string;
-/** player：定义该变量以承载业务值。 */
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
 
-/** updated：定义该变量以承载业务值。 */
     const updated = await this.suggestionService.addReply(
       data.suggestionId,
       'author',
@@ -1356,13 +1161,10 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.MarkSuggestionRepliesRead)
-/** handleMarkSuggestionRepliesRead：处理当前场景中的对应操作。 */
   async handleMarkSuggestionRepliesRead(client: Socket, data: C2S_MarkSuggestionRepliesRead) {
-/** playerId：定义该变量以承载业务值。 */
     const playerId = client.data?.playerId as string;
     if (!playerId) return;
 
-/** updated：定义该变量以承载业务值。 */
     const updated = await this.suggestionService.markRepliesRead(data.suggestionId, playerId);
     if (updated) {
       this.broadcastSuggestions();
@@ -1370,29 +1172,23 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.GmMarkSuggestionCompleted)
-/** handleGmMarkSuggestionCompleted：处理当前场景中的对应操作。 */
   async handleGmMarkSuggestionCompleted(client: Socket, data: C2S_GmMarkSuggestionCompleted) {
     await this.suggestionService.markCompleted(data.suggestionId);
     this.broadcastSuggestions();
   }
 
   @SubscribeMessage(C2S.GmRemoveSuggestion)
-/** handleGmRemoveSuggestion：处理当前场景中的对应操作。 */
   async handleGmRemoveSuggestion(client: Socket, data: C2S_GmRemoveSuggestion) {
     await this.suggestionService.remove(data.suggestionId);
     this.broadcastSuggestions();
   }
 
   @SubscribeMessage(C2S.RequestMarket)
-/** handleRequestMarket：处理当前场景中的对应操作。 */
   async handleRequestMarket(client: Socket, _data: C2S_RequestMarket) {
-/** playerId：定义该变量以承载业务值。 */
     const playerId = client.data?.playerId as string;
-/** player：定义该变量以承载业务值。 */
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
     this.marketSubscriberPlayerIds.add(playerId);
-/** request：定义该变量以承载业务值。 */
     const request = this.marketListingRequests.get(playerId) ?? { page: 1 };
     this.marketListingRequests.set(playerId, request);
     await this.flushMarketResult(await this.marketService.refreshInvalidOrders());
@@ -1400,14 +1196,10 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.RequestMarketListings)
-/** handleRequestMarketListings：处理当前场景中的对应操作。 */
   async handleRequestMarketListings(client: Socket, data: C2S_RequestMarketListings) {
-/** playerId：定义该变量以承载业务值。 */
     const playerId = client.data?.playerId as string;
-/** player：定义该变量以承载业务值。 */
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
-/** request：定义该变量以承载业务值。 */
     const request: C2S_RequestMarketListings = {
       page: data.page,
       pageSize: data.pageSize,
@@ -1422,7 +1214,6 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.RequestMarketItemBook)
-/** handleRequestMarketItemBook：处理当前场景中的对应操作。 */
   handleRequestMarketItemBook(client: Socket, data: C2S_RequestMarketItemBook) {
     client.emit(S2C.MarketItemBook, {
       currencyItemId: this.marketService.getCurrencyItemId(),
@@ -1433,9 +1224,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.RequestMarketTradeHistory)
-/** handleRequestMarketTradeHistory：处理当前场景中的对应操作。 */
   async handleRequestMarketTradeHistory(client: Socket, data: C2S_RequestMarketTradeHistory) {
-/** playerId：定义该变量以承载业务值。 */
     const playerId = client.data?.playerId as string;
     if (playerId) {
       this.marketTradeHistoryRequests.set(playerId, data.page);
@@ -1444,11 +1233,8 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.RequestAttrDetail)
-/** handleRequestAttrDetail：处理当前场景中的对应操作。 */
   handleRequestAttrDetail(client: Socket, _data: C2S_RequestAttrDetail) {
-/** playerId：定义该变量以承载业务值。 */
     const playerId = client.data?.playerId as string;
-/** player：定义该变量以承载业务值。 */
     const player = this.playerService.getPlayer(playerId);
     if (!player) {
       return;
@@ -1467,105 +1253,75 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   }
 
   @SubscribeMessage(C2S.RequestLeaderboard)
-/** handleRequestLeaderboard：处理当前场景中的对应操作。 */
   async handleRequestLeaderboard(client: Socket, data: C2S_RequestLeaderboard) {
-/** playerId：定义该变量以承载业务值。 */
     const playerId = client.data?.playerId as string;
     if (!playerId) {
       return;
     }
-/** payload：定义该变量以承载业务值。 */
     const payload = await this.leaderboardService.buildLeaderboard(data.limit);
     client.emit(S2C.Leaderboard, payload satisfies S2C_Leaderboard);
   }
 
   @SubscribeMessage(C2S.RequestWorldSummary)
-/** handleRequestWorldSummary：处理当前场景中的对应操作。 */
   async handleRequestWorldSummary(client: Socket) {
-/** playerId：定义该变量以承载业务值。 */
     const playerId = client.data?.playerId as string;
     if (!playerId) {
       return;
     }
-/** payload：定义该变量以承载业务值。 */
     const payload = await this.leaderboardService.buildWorldSummary();
     client.emit(S2C.WorldSummary, payload satisfies S2C_WorldSummary);
   }
 
   @SubscribeMessage(C2S.CreateMarketSellOrder)
-/** handleCreateMarketSellOrder：处理当前场景中的对应操作。 */
   async handleCreateMarketSellOrder(client: Socket, data: C2S_CreateMarketSellOrder) {
-/** playerId：定义该变量以承载业务值。 */
     const playerId = client.data?.playerId as string;
-/** player：定义该变量以承载业务值。 */
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
-/** result：定义该变量以承载业务值。 */
     const result = await this.marketService.createSellOrder(player, data);
     await this.flushMarketResult(result);
   }
 
   @SubscribeMessage(C2S.CreateMarketBuyOrder)
-/** handleCreateMarketBuyOrder：处理当前场景中的对应操作。 */
   async handleCreateMarketBuyOrder(client: Socket, data: C2S_CreateMarketBuyOrder) {
-/** playerId：定义该变量以承载业务值。 */
     const playerId = client.data?.playerId as string;
-/** player：定义该变量以承载业务值。 */
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
-/** result：定义该变量以承载业务值。 */
     const result = await this.marketService.createBuyOrder(player, data);
     await this.flushMarketResult(result);
   }
 
   @SubscribeMessage(C2S.BuyMarketItem)
-/** handleBuyMarketItem：处理当前场景中的对应操作。 */
   async handleBuyMarketItem(client: Socket, data: C2S_BuyMarketItem) {
-/** playerId：定义该变量以承载业务值。 */
     const playerId = client.data?.playerId as string;
-/** player：定义该变量以承载业务值。 */
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
-/** result：定义该变量以承载业务值。 */
     const result = await this.marketService.buyNow(player, data);
     await this.flushMarketResult(result);
   }
 
   @SubscribeMessage(C2S.SellMarketItem)
-/** handleSellMarketItem：处理当前场景中的对应操作。 */
   async handleSellMarketItem(client: Socket, data: C2S_SellMarketItem) {
-/** playerId：定义该变量以承载业务值。 */
     const playerId = client.data?.playerId as string;
-/** player：定义该变量以承载业务值。 */
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
-/** result：定义该变量以承载业务值。 */
     const result = await this.marketService.sellNow(player, data);
     await this.flushMarketResult(result);
   }
 
   @SubscribeMessage(C2S.CancelMarketOrder)
-/** handleCancelMarketOrder：处理当前场景中的对应操作。 */
   async handleCancelMarketOrder(client: Socket, data: C2S_CancelMarketOrder) {
-/** playerId：定义该变量以承载业务值。 */
     const playerId = client.data?.playerId as string;
-/** player：定义该变量以承载业务值。 */
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
-/** result：定义该变量以承载业务值。 */
     const result = await this.marketService.cancelOrder(player, data);
     await this.flushMarketResult(result);
   }
 
   @SubscribeMessage(C2S.ClaimMarketStorage)
-/** handleClaimMarketStorage：处理当前场景中的对应操作。 */
   async handleClaimMarketStorage(client: Socket, _data: C2S_ClaimMarketStorage) {
-/** playerId：定义该变量以承载业务值。 */
     const playerId = client.data?.playerId as string;
-/** player：定义该变量以承载业务值。 */
     const player = this.playerService.getPlayer(playerId);
     if (!player) return;
-/** result：定义该变量以承载业务值。 */
     const result = await this.marketService.claimStorage(player);
     await this.flushMarketResult(result);
   }
@@ -1575,13 +1331,15 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     this.suggestionRealtimeService.broadcastSuggestions(this.suggestionService.getAll());
   }
 
-/** flushMarketResult：执行对应的业务逻辑。 */
+/** flushMarketResult：执行 向所有在线玩家广播最新建议列表 */
+  private broadcastSuggestions() {
+    this.suggestionRealtimeService.broadcastSuggestions(this.suggestionService.getAll());
+  }
+
+/** flushMarketResult 的业务逻辑。 */
   private async flushMarketResult(result: MarketActionResult): Promise<void> {
-/** privateStatePlayerIds：定义该变量以承载业务值。 */
     const privateStatePlayerIds = new Set(result.privateStatePlayerIds);
-/** touchedItemIds：定义该变量以承载业务值。 */
     const touchedItemIds = new Set(result.touchedItemIds);
-/** tradeHistoryPlayerIds：定义该变量以承载业务值。 */
     const tradeHistoryPlayerIds = new Set(result.tradeHistoryPlayerIds);
 
     for (const playerId of result.affectedPlayerIds) {
@@ -1620,7 +1378,6 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
           this.marketTradeHistoryRequests.delete(subscriberPlayerId);
           continue;
         }
-/** request：定义该变量以承载业务值。 */
         const request = this.marketListingRequests.get(subscriberPlayerId) ?? { page: 1 };
         this.marketListingRequests.set(subscriberPlayerId, request);
         socket.emit(S2C.MarketListings, this.marketService.buildListingsPage(request));
@@ -1628,12 +1385,10 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     }
 
     await Promise.all([...tradeHistoryPlayerIds].map(async (playerId) => {
-/** page：定义该变量以承载业务值。 */
       const page = this.marketTradeHistoryRequests.get(playerId);
       if (!page) {
         return;
       }
-/** socket：定义该变量以承载业务值。 */
       const socket = this.playerService.getSocket(playerId);
       if (!socket) {
         this.marketTradeHistoryRequests.delete(playerId);
@@ -1643,7 +1398,6 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     }));
   }
 
-/** broadcastMarketUpdates：执行对应的业务逻辑。 */
   private broadcastMarketUpdates(): void {
     for (const playerId of this.marketSubscriberPlayerIds) {
       const player = this.playerService.getPlayer(playerId);
@@ -1652,42 +1406,32 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
         this.marketListingRequests.delete(playerId);
         continue;
       }
-/** socket：定义该变量以承载业务值。 */
       const socket = this.playerService.getSocket(player.id);
       if (!socket) {
         continue;
       }
-/** request：定义该变量以承载业务值。 */
       const request = this.marketListingRequests.get(player.id) ?? { page: 1 };
       this.marketListingRequests.set(player.id, request);
       this.emitMarketPanelSnapshot(socket, player, request);
     }
   }
 
-/** emitMarketPanelSnapshot：执行对应的业务逻辑。 */
   private emitMarketPanelSnapshot(client: Socket, player: PlayerState, request: C2S_RequestMarketListings): void {
     client.emit(S2C.MarketListings, this.marketService.buildListingsPage(request));
     client.emit(S2C.MarketOrders, this.marketService.buildOrdersUpdate(player));
     client.emit(S2C.MarketStorage, this.marketService.buildStorageUpdate(player));
   }
 
-/** toClientVisibleTiles：执行对应的业务逻辑。 */
   private toClientVisibleTiles(viewer: PlayerState, tiles: VisibleTile[][]): VisibleTile[][] {
-/** auraLevelBaseValue：定义该变量以承载业务值。 */
     const auraLevelBaseValue = this.tickService.getAuraLevelBaseValue();
-/** originX：定义该变量以承载业务值。 */
     const originX = viewer.x - Math.floor(tiles[0]?.length ? tiles[0].length / 2 : 0);
-/** originY：定义该变量以承载业务值。 */
     const originY = viewer.y - Math.floor(tiles.length / 2);
     return tiles.map((row, rowIndex) => row.map((tile, columnIndex) => {
       if (!tile) {
         return null;
       }
-/** x：定义该变量以承载业务值。 */
       const x = originX + columnIndex;
-/** y：定义该变量以承载业务值。 */
       const y = originY + rowIndex;
-/** auraResources：定义该变量以承载业务值。 */
       const auraResources = this.mapService.getTileAuraResourceValues(viewer.mapId, x, y);
       return {
         ...tile,
@@ -1704,7 +1448,6 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
 
   /** 解析登录落点：地图被移除时回到初始地图复活点，其余情况就近落到可站立位置 */
   private resolveLoginPlacement(player: Pick<PlayerState, 'id' | 'mapId' | 'x' | 'y'>): { mapId: string; x: number; y: number } {
-/** placement：定义该变量以承载业务值。 */
     const placement = this.mapService.resolvePlayerPlacement(player.mapId, player.x, player.y, player.id);
     return {
       mapId: placement.mapId,
@@ -1720,14 +1463,10 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     }
     (client.data as { __networkInstrumented?: boolean }).__networkInstrumented = true;
 
-/** originalEmit：定义该变量以承载业务值。 */
     const originalEmit = client.emit.bind(client);
     client.emit = ((event: string, ...args: unknown[]) => {
-/** startedAt：定义该变量以承载业务值。 */
       const startedAt = process.hrtime.bigint();
-/** encodedArgs：定义该变量以承载业务值。 */
       const encodedArgs = args.map((arg) => encodeServerEventPayload(event, arg));
-/** label：定义该变量以承载业务值。 */
       const label = `WS ${event}`;
       this.performanceService.recordNetworkOutBytes(this.estimateSocketPacketBytes(event, encodedArgs), label, label);
       this.performanceService.recordCpuSection(
@@ -1739,9 +1478,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     }) as typeof client.emit;
 
     client.onAny((event, ...args) => {
-/** startedAt：定义该变量以承载业务值。 */
       const startedAt = process.hrtime.bigint();
-/** label：定义该变量以承载业务值。 */
       const label = `WS ${event}`;
       this.performanceService.recordNetworkInBytes(this.estimateSocketPacketBytes(event, args), label, label);
       this.performanceService.recordCpuSection(
@@ -1752,12 +1489,10 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     });
   }
 
-/** estimateSocketPacketBytes：执行对应的业务逻辑。 */
   private estimateSocketPacketBytes(event: string, args: unknown[]): number {
     return Buffer.byteLength(String(event)) + args.reduce<number>((total, arg) => total + this.estimateSocketValueBytes(arg), 0);
   }
 
-/** estimateSocketValueBytes：执行对应的业务逻辑。 */
   private estimateSocketValueBytes(value: unknown): number {
     if (value === undefined || value === null) {
       return 0;

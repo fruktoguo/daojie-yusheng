@@ -5,7 +5,6 @@ import { Injectable } from '@nestjs/common';
 import { PlayerState, ItemStack, ITEM_USABLE_TYPES, compareInventoryItems, createItemStackSignature } from '@mud/shared';
 
 @Injectable()
-/** InventoryService：封装相关状态与行为。 */
 export class InventoryService {
   /** 获取背包指定槽位的物品 */
   getItem(player: PlayerState, slotIndex: number): ItemStack | null {
@@ -14,9 +13,7 @@ export class InventoryService {
 
   /** 添加物品到背包，返回是否成功 */
   addItem(player: PlayerState, item: ItemStack): boolean {
-/** signature：定义该变量以承载业务值。 */
     const signature = createItemStackSignature(item);
-/** existing：定义该变量以承载业务值。 */
     const existing = player.inventory.items.find((entry) => createItemStackSignature(entry) === signature);
     if (existing) {
       existing.count += item.count;
@@ -31,13 +28,10 @@ export class InventoryService {
 
   /** 从背包移除物品，返回被移除的物品栈（部分或全部） */
   removeItem(player: PlayerState, slotIndex: number, count: number): ItemStack | null {
-/** item：定义该变量以承载业务值。 */
     const item = player.inventory.items[slotIndex];
     if (!item || count <= 0) return null;
-/** removed：定义该变量以承载业务值。 */
     const removed = Math.min(count, item.count);
     item.count -= removed;
-/** result：定义该变量以承载业务值。 */
     const result: ItemStack = { ...item, count: removed };
     if (item.count <= 0) {
       player.inventory.items.splice(slotIndex, 1);
@@ -47,11 +41,9 @@ export class InventoryService {
 
   /** 使用物品，返回错误信息或 null */
   useItem(player: PlayerState, slotIndex: number, count = 1): string | null {
-/** item：定义该变量以承载业务值。 */
     const item = player.inventory.items[slotIndex];
     if (!item) return '物品不存在';
     if (!ITEM_USABLE_TYPES.includes(item.type)) return '该物品不可使用';
-/** consumeCount：定义该变量以承载业务值。 */
     const consumeCount = Number.isInteger(count) ? count : Math.floor(count);
     if (consumeCount <= 0) return '使用数量无效';
     if (item.count < consumeCount) return '物品数量不足';
@@ -79,7 +71,6 @@ export class InventoryService {
 
   /** 整理背包：合并完全相同的物品，并按类型、品阶、等级稳定排序 */
   sortInventory(player: PlayerState): void {
-/** mergedItems：定义该变量以承载业务值。 */
     const mergedItems = new Map<string, ItemStack>();
 
     for (const item of player.inventory.items) {
@@ -87,9 +78,7 @@ export class InventoryService {
         continue;
       }
 
-/** signature：定义该变量以承载业务值。 */
       const signature = createItemStackSignature(item);
-/** existing：定义该变量以承载业务值。 */
       const existing = mergedItems.get(signature);
       if (existing) {
         existing.count += item.count;

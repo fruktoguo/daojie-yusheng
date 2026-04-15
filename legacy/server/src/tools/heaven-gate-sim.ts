@@ -6,47 +6,28 @@
  */
 import { ELEMENT_KEYS, type ElementKey, type HeavenGateRootValues } from '@mud/shared';
 
-/** Segment：定义该接口的能力与字段约束。 */
 interface Segment {
-/** min：定义该变量以承载业务值。 */
   min: number;
-/** max：定义该变量以承载业务值。 */
   max: number;
-/** weight：定义该变量以承载业务值。 */
   weight: number;
 }
 
-/** CliOptions：定义该接口的能力与字段约束。 */
 interface CliOptions {
-/** remaining：定义该变量以承载业务值。 */
   remaining: number;
-/** bonus：定义该变量以承载业务值。 */
   bonus: number;
-/** runs：定义该变量以承载业务值。 */
   runs: number;
-/** seed：定义该变量以承载业务值。 */
   seed: number;
 }
 
-/** SimulationSummary：定义该接口的能力与字段约束。 */
 interface SimulationSummary {
-/** sampledAverageQuality：定义该变量以承载业务值。 */
   sampledAverageQuality: number;
-/** sampledTotalAverage：定义该变量以承载业务值。 */
   sampledTotalAverage: number;
-/** minTotal：定义该变量以承载业务值。 */
   minTotal: number;
-/** maxTotal：定义该变量以承载业务值。 */
   maxTotal: number;
-/** averageTopRoot：定义该变量以承载业务值。 */
   averageTopRoot: number;
-/** averageBottomRoot：定义该变量以承载业务值。 */
   averageBottomRoot: number;
-/** totalPerfectCount：定义该变量以承载业务值。 */
   totalPerfectCount: number;
-/** anyPerfectRootCount：定义该变量以承载业务值。 */
   anyPerfectRootCount: number;
-/** allRootsEqualCount：定义该变量以承载业务值。 */
   allRootsEqualCount: number;
 }
 

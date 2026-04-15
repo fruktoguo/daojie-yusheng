@@ -25,56 +25,33 @@ import { EnhancementService } from './enhancement.service';
 import { PlayerService } from './player.service';
 import { TechniqueService } from './technique.service';
 
-/** DEFAULT_LEADERBOARD_LIMIT：定义该变量以承载业务值。 */
 const DEFAULT_LEADERBOARD_LIMIT = 10;
-/** MAX_LEADERBOARD_LIMIT：定义该变量以承载业务值。 */
 const MAX_LEADERBOARD_LIMIT = 10;
-/** LEADERBOARD_REFRESH_INTERVAL_MS：定义该变量以承载业务值。 */
 const LEADERBOARD_REFRESH_INTERVAL_MS = 10 * 60 * 1000;
 
-/** SupremeAttrKey：定义该类型的结构与数据语义。 */
 type SupremeAttrKey = 'constitution' | 'spirit' | 'perception' | 'talent';
 
-/** LeaderboardSnapshot：定义该接口的能力与字段约束。 */
 interface LeaderboardSnapshot {
-/** playerId：定义该变量以承载业务值。 */
   playerId: string;
-/** playerName：定义该变量以承载业务值。 */
   playerName: string;
-/** realmLv：定义该变量以承载业务值。 */
   realmLv: number;
-/** realmName：定义该变量以承载业务值。 */
   realmName: string;
   realmShortName?: string;
-/** realmProgress：定义该变量以承载业务值。 */
   realmProgress: number;
-/** foundation：定义该变量以承载业务值。 */
   foundation: number;
-/** monsterKillCount：定义该变量以承载业务值。 */
   monsterKillCount: number;
-/** eliteMonsterKillCount：定义该变量以承载业务值。 */
   eliteMonsterKillCount: number;
-/** bossMonsterKillCount：定义该变量以承载业务值。 */
   bossMonsterKillCount: number;
-/** spiritStoneCount：定义该变量以承载业务值。 */
   spiritStoneCount: number;
-/** marketStorageSpiritStoneCount：定义该变量以承载业务值。 */
   marketStorageSpiritStoneCount: number;
-/** playerKillCount：定义该变量以承载业务值。 */
   playerKillCount: number;
-/** deathCount：定义该变量以承载业务值。 */
   deathCount: number;
-/** bodyTrainingLevel：定义该变量以承载业务值。 */
   bodyTrainingLevel: number;
-/** bodyTrainingExp：定义该变量以承载业务值。 */
   bodyTrainingExp: number;
-/** bodyTrainingExpToNext：定义该变量以承载业务值。 */
   bodyTrainingExpToNext: number;
-/** finalAttrs：定义该变量以承载业务值。 */
   finalAttrs: Pick<Attributes, SupremeAttrKey>;
 }
 
-/** SUPREME_ATTR_LABELS：定义该变量以承载业务值。 */
 const SUPREME_ATTR_LABELS: Record<SupremeAttrKey, string> = {
   constitution: '体魄',
   spirit: '神识',
@@ -82,7 +59,6 @@ const SUPREME_ATTR_LABELS: Record<SupremeAttrKey, string> = {
   talent: '根骨',
 };
 
-/** clampLeaderboardLimit：执行对应的业务逻辑。 */
 function clampLeaderboardLimit(limit?: number): number {
   if (!Number.isFinite(limit)) {
     return DEFAULT_LEADERBOARD_LIMIT;
@@ -90,15 +66,12 @@ function clampLeaderboardLimit(limit?: number): number {
   return Math.max(1, Math.min(MAX_LEADERBOARD_LIMIT, Math.floor(Number(limit))));
 }
 
-/** compareName：执行对应的业务逻辑。 */
 function compareName(left: LeaderboardSnapshot, right: LeaderboardSnapshot): number {
   return left.playerName.localeCompare(right.playerName, 'zh-Hans-CN');
 }
 
 @Injectable()
-/** LeaderboardService：封装相关状态与行为。 */
 export class LeaderboardService {
-/** cachedLeaderboard：定义该变量以承载业务值。 */
   private cachedLeaderboard: S2C_Leaderboard | null = null;
   private cachedWorldSummary: S2C_WorldSummary | null = null;
 
@@ -114,19 +87,14 @@ export class LeaderboardService {
     private readonly enhancementService: EnhancementService,
   ) {}
 
-/** buildLeaderboard：执行对应的业务逻辑。 */
   async buildLeaderboard(limit?: number): Promise<S2C_Leaderboard> {
-/** effectiveLimit：定义该变量以承载业务值。 */
     const effectiveLimit = clampLeaderboardLimit(limit);
-/** cached：定义该变量以承载业务值。 */
     const cached = this.cachedLeaderboard;
     if (cached && Date.now() - cached.generatedAt < LEADERBOARD_REFRESH_INTERVAL_MS) {
       return this.sliceLeaderboard(cached, effectiveLimit);
     }
 
-/** snapshots：定义该变量以承载业务值。 */
     const snapshots = await this.collectSnapshots();
-/** fullPayload：定义该变量以承载业务值。 */
     const fullPayload: S2C_Leaderboard = {
       generatedAt: Date.now(),
       limit: MAX_LEADERBOARD_LIMIT,
@@ -145,7 +113,6 @@ export class LeaderboardService {
     return this.sliceLeaderboard(fullPayload, effectiveLimit);
   }
 
-/** sliceLeaderboard：执行对应的业务逻辑。 */
   private sliceLeaderboard(source: S2C_Leaderboard, limit: number): S2C_Leaderboard {
     if (limit >= source.limit) {
       return source;
@@ -165,19 +132,14 @@ export class LeaderboardService {
     };
   }
 
-/** buildWorldSummary：执行对应的业务逻辑。 */
   async buildWorldSummary(): Promise<S2C_WorldSummary> {
-/** cached：定义该变量以承载业务值。 */
     const cached = this.cachedWorldSummary;
     if (cached && Date.now() - cached.generatedAt < LEADERBOARD_REFRESH_INTERVAL_MS) {
       return cached;
     }
 
-/** snapshots：定义该变量以承载业务值。 */
     const snapshots = await this.collectSnapshots();
-/** reservedSpiritStoneTotal：定义该变量以承载业务值。 */
     const reservedSpiritStoneTotal = await this.collectReservedSpiritStoneTotal();
-/** payload：定义该变量以承载业务值。 */
     const payload: S2C_WorldSummary = {
       generatedAt: Date.now(),
       summary: this.buildWorldBoard(snapshots, reservedSpiritStoneTotal),
@@ -186,15 +148,10 @@ export class LeaderboardService {
     return payload;
   }
 
-/** collectSnapshots：执行对应的业务逻辑。 */
   private async collectSnapshots(): Promise<LeaderboardSnapshot[]> {
-/** livePlayers：定义该变量以承载业务值。 */
     const livePlayers = this.playerService.getAllPlayers().filter((player) => !player.isBot);
-/** livePlayerMap：定义该变量以承载业务值。 */
     const livePlayerMap = new Map(livePlayers.map((player) => [player.id, player] as const));
-/** entities：定义该变量以承载业务值。 */
     const entities = await this.playerRepo.find();
-/** snapshots：定义该变量以承载业务值。 */
     const snapshots = livePlayers.map((player) => this.createSnapshot(player));
 
     for (const entity of entities) {
@@ -207,9 +164,7 @@ export class LeaderboardService {
     return snapshots;
   }
 
-/** createSnapshot：执行对应的业务逻辑。 */
   private createSnapshot(player: PlayerState): LeaderboardSnapshot {
-/** finalAttrs：定义该变量以承载业务值。 */
     const finalAttrs = this.attrService.getPlayerFinalAttrs(player);
     return {
       playerId: player.id,
@@ -238,7 +193,6 @@ export class LeaderboardService {
     };
   }
 
-/** buildRealmBoard：执行对应的业务逻辑。 */
   private buildRealmBoard(snapshots: LeaderboardSnapshot[], limit: number): LeaderboardRealmEntry[] {
     return [...snapshots]
       .sort((left, right) => (
@@ -262,7 +216,6 @@ export class LeaderboardService {
       }));
   }
 
-/** buildMonsterKillBoard：执行对应的业务逻辑。 */
   private buildMonsterKillBoard(snapshots: LeaderboardSnapshot[], limit: number): LeaderboardMonsterKillEntry[] {
     return [...snapshots]
       .sort((left, right) => (
@@ -282,7 +235,6 @@ export class LeaderboardService {
       }));
   }
 
-/** buildSpiritStoneBoard：执行对应的业务逻辑。 */
   private buildSpiritStoneBoard(snapshots: LeaderboardSnapshot[], limit: number): LeaderboardSpiritStoneEntry[] {
     return [...snapshots]
       .sort((left, right) => right.spiritStoneCount - left.spiritStoneCount || compareName(left, right))
@@ -295,7 +247,6 @@ export class LeaderboardService {
       }));
   }
 
-/** buildPlayerKillBoard：执行对应的业务逻辑。 */
   private buildPlayerKillBoard(snapshots: LeaderboardSnapshot[], limit: number): LeaderboardPlayerKillEntry[] {
     return [...snapshots]
       .sort((left, right) => right.playerKillCount - left.playerKillCount || compareName(left, right))
@@ -308,7 +259,6 @@ export class LeaderboardService {
       }));
   }
 
-/** buildDeathBoard：执行对应的业务逻辑。 */
   private buildDeathBoard(snapshots: LeaderboardSnapshot[], limit: number): LeaderboardDeathEntry[] {
     return [...snapshots]
       .sort((left, right) => right.deathCount - left.deathCount || compareName(left, right))
@@ -321,7 +271,6 @@ export class LeaderboardService {
       }));
   }
 
-/** buildBodyTrainingBoard：执行对应的业务逻辑。 */
   private buildBodyTrainingBoard(snapshots: LeaderboardSnapshot[], limit: number): LeaderboardBodyTrainingEntry[] {
     return [...snapshots]
       .sort((left, right) => (
@@ -340,11 +289,9 @@ export class LeaderboardService {
       }));
   }
 
-/** buildSupremeAttrBoard：执行对应的业务逻辑。 */
   private buildSupremeAttrBoard(snapshots: LeaderboardSnapshot[]): LeaderboardSupremeAttrEntry[] {
     return (Object.keys(SUPREME_ATTR_LABELS) as SupremeAttrKey[])
       .map((attr) => {
-/** top：定义该变量以承载业务值。 */
         const top = [...snapshots].sort((left, right) => (
           right.finalAttrs[attr] - left.finalAttrs[attr]
           || right.realmLv - left.realmLv
@@ -360,22 +307,16 @@ export class LeaderboardService {
       });
   }
 
-/** buildWorldBoard：执行对应的业务逻辑。 */
   private buildWorldBoard(
     snapshots: LeaderboardSnapshot[],
     reservedSpiritStoneTotal: number,
   ): LeaderboardWorldSummary {
-/** livePlayers：定义该变量以承载业务值。 */
     const livePlayers = this.playerService.getAllPlayers().filter((player) => !player.isBot && player.inWorld !== false && !player.dead);
-/** totalSpiritStones：定义该变量以承载业务值。 */
     const totalSpiritStones = snapshots.reduce((total, snapshot) => (
       total + snapshot.spiritStoneCount + snapshot.marketStorageSpiritStoneCount
     ), 0) + reservedSpiritStoneTotal;
-/** eliteMonsterKills：定义该变量以承载业务值。 */
     const eliteMonsterKills = snapshots.reduce((total, snapshot) => total + snapshot.eliteMonsterKillCount, 0);
-/** bossMonsterKills：定义该变量以承载业务值。 */
     const bossMonsterKills = snapshots.reduce((total, snapshot) => total + snapshot.bossMonsterKillCount, 0);
-/** totalMonsterKills：定义该变量以承载业务值。 */
     const totalMonsterKills = snapshots.reduce((total, snapshot) => total + snapshot.monsterKillCount, 0);
 
     return {
@@ -405,9 +346,7 @@ export class LeaderboardService {
     };
   }
 
-/** collectReservedSpiritStoneTotal：执行对应的业务逻辑。 */
   private async collectReservedSpiritStoneTotal(): Promise<number> {
-/** orders：定义该变量以承载业务值。 */
     const orders = await this.marketOrderRepo.find({
       where: {
         status: 'open',
@@ -420,14 +359,12 @@ export class LeaderboardService {
     ), 0);
   }
 
-/** getInventoryItemCount：执行对应的业务逻辑。 */
   private getInventoryItemCount(player: PlayerState, itemId: string): number {
     return player.inventory.items.reduce((total, item) => (
       item.itemId === itemId ? total + Math.max(0, Math.floor(item.count)) : total
     ), 0);
   }
 
-/** getMarketStorageItemCount：执行对应的业务逻辑。 */
   private getMarketStorageItemCount(player: PlayerState, itemId: string): number {
     return (player.marketStorage?.items ?? []).reduce((total, item) => (
       item.itemId === itemId ? total + Math.max(0, Math.floor(item.count)) : total

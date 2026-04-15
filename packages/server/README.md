@@ -17,7 +17,7 @@
 - `server-next` 现在仍然有 `25` 项明确任务
 - 如果按“完整替换游戏整体”看，当前保守仍约差 `35% - 40%`
 - 当前最关键的硬阻塞仍集中在 `auth/token/bootstrap/snapshot/session`
-- `local / acceptance / full / shadow-destructive` 是四层不同门禁，不能混读
+- `local / with-db / acceptance / full / shadow-destructive` 是五层不同门禁，不能混读
 - `README` 只负责入口导航和边界说明，不负责长版分析、任务账本或删除门槛细则
 
 ## README 只回答什么
@@ -26,7 +26,7 @@
 
 1. `server-next` 当前是什么定位。
 2. 当前该先看哪份仓库级文档。
-3. `local / acceptance / full / shadow-destructive` 大概各自是做什么的。
+3. `local / with-db / acceptance / full / shadow-destructive` 大概各自是做什么的。
 4. 现在还不能把 `server-next` 当作完整替换完成。
 
 ## README 不回答什么
@@ -65,14 +65,15 @@
 - legacy 边界审计：[../../docs/next-legacy-boundary-audit.md](../../docs/next-legacy-boundary-audit.md)
 - next 协议审计：[../../docs/next-protocol-audit.md](../../docs/next-protocol-audit.md)
 
-## 四层门禁
+## 五层门禁
 
-- `local`：本地主证明链，只回答“代码和主证明链是否绿”
-- `acceptance`：本地主证明链 + shadow 实物验收 + shadow GM 关键写路径验证
-- `full`：在 `acceptance` 基础上再加数据库运营面自动 proof
+- `local`：默认本地主证明链，只回答“代码和主证明链是否绿”
+- `with-db`：默认门禁的带库增强版，回答“本地主证明链 + 持久化 proof”是否成立
+- `acceptance`：`local/with-db` 之外，再补 shadow 实物验收 + shadow GM 关键写路径验证
+- `full`：在 `acceptance` 基础上，再补数据库运营面自动 proof，作为最严格自动化门禁
 - `shadow-destructive`：维护窗口内的破坏性数据库闭环，只允许显式开启
 
-这四层不是同一件事的不同叫法，不能混成一个“全过”。
+这五层不是同一件事的不同叫法，不能混成一个“全过”。
 
 ## 推荐命令
 

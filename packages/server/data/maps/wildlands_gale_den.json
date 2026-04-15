@@ -1,0 +1,71 @@
+{
+  "id": "wildlands_gale_den",
+  "name": "荒野·荒骨风穴",
+  "width": 18,
+  "height": 12,
+  "routeDomain": "system",
+  "terrainProfileId": "yellow_frontier",
+  "spaceVisionMode": "isolated",
+  "description": "残碑背后的风蚀裂穴，骨堆与毒丝一层套一层，主路上被赶散的荒物最终都被逼进了这里。",
+  "dangerLevel": 3,
+  "recommendedRealm": "易筋",
+  "tiles": [
+    "##################",
+    "#....,,,,崖崖..oo..#",
+    "#..oo,,,,崖崖......#",
+    "#..oo::::====::..#",
+    "#....::::....::..#",
+    "#,,,;;;;%%%%;,,,,#",
+    "#,,..;;%%oo%%;,,,#",
+    "#..oo::::..::::..#",
+    "#..oo..==..==..o.#",
+    "#P===::::....::..#",
+    "#....,,,,........#",
+    "##################"
+  ],
+  "portals": [
+    {
+      "x": 1,
+      "y": 9,
+      "targetMapId": "wildlands",
+      "targetX": 24,
+      "targetY": 10,
+      "kind": "portal",
+      "trigger": "manual",
+      "routeDomain": "inherit",
+      "allowPlayerOverlap": false,
+      "hidden": false
+    }
+  ],
+  "spawnPoint": {
+    "x": 2,
+    "y": 9
+  },
+  "time": {
+    "offsetTicks": 180,
+    "scale": 1,
+    "light": {
+      "base": 22,
+      "timeInfluence": 18
+    }
+  },
+  "auras": [],
+  "landmarks": [
+    {
+      "id": "lm_gale_den_bone_eye",
+      "name": "裂风骨眼",
+      "x": 13,
+      "y": 2,
+      "desc": "风穴最深处的骨堆像一只被砂石磨开的眼，裂风荒王就盘在这里，把闯进来的活物一点点剥成白骨。"
+    }
+  ],
+  "npcs": [],
+  "monsterSpawns": [
+    {
+      "id": "m_gale_bone_king",
+      "x": 13,
+      "y": 2
+    }
+  ],
+  "terrainRealmLv": 4
+}

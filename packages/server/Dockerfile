@@ -10,7 +10,7 @@ COPY scripts scripts
 COPY docs/tutorial-mechanics.md docs/tutorial-mechanics.md
 COPY packages/shared packages/shared
 COPY packages/server packages/server
-COPY legacy/server/data legacy/server/data
+COPY packages/server/data packages/server/data
 RUN pnpm --filter @mud/shared-next build && pnpm --filter @mud/server-next compile
 
 FROM node:20-alpine
@@ -26,7 +26,7 @@ COPY --from=builder /app/packages/shared/node_modules packages/shared/node_modul
 COPY --from=builder /app/packages/server/package.json packages/server/
 COPY --from=builder /app/packages/server/dist packages/server/dist
 COPY --from=builder /app/packages/server/node_modules packages/server/node_modules
-COPY --from=builder /app/legacy/server/data legacy/server/data
+COPY --from=builder /app/packages/server/data packages/server/data
 WORKDIR /app/packages/server
 EXPOSE 13001
 CMD ["node", "dist/main.js"]

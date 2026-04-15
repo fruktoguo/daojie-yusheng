@@ -14,7 +14,6 @@ import { EquipmentEffectService } from './equipment-effect.service';
 import { InventoryService } from './inventory.service';
 
 @Injectable()
-/** EquipmentService：封装相关状态与行为。 */
 export class EquipmentService {
   constructor(
     private readonly attrService: AttrService,
@@ -24,17 +23,13 @@ export class EquipmentService {
 
   /** 从背包装备到槽位，已有装备则交换回背包 */
   equip(player: PlayerState, slotIndex: number): string | null {
-/** item：定义该变量以承载业务值。 */
     const item = player.inventory.items[slotIndex];
     if (!item) return '物品不存在';
     if (item.type !== 'equipment' || !item.equipSlot) return '该物品不可装备';
 
-/** slot：定义该变量以承载业务值。 */
     const slot = item.equipSlot;
-/** current：定义该变量以承载业务值。 */
     const current = player.equipment[slot];
 
-/** removed：定义该变量以承载业务值。 */
     const removed = this.inventoryService.removeItem(player, slotIndex, 1);
     if (!removed) {
       return '物品不存在';
@@ -59,7 +54,6 @@ export class EquipmentService {
 
   /** 从槽位卸下到背包 */
   unequip(player: PlayerState, slot: EquipSlot): string | null {
-/** item：定义该变量以承载业务值。 */
     const item = player.equipment[slot];
     if (!item) return '该槽位没有装备';
 
@@ -83,7 +77,6 @@ export class EquipmentService {
 
   /** 获取所有装备提供的属性加成 */
   getEquipBonuses(equipment: EquipmentSlots): AttrBonus[] {
-/** bonuses：定义该变量以承载业务值。 */
     const bonuses: AttrBonus[] = [];
     for (const slot of EQUIP_SLOTS) {
       const item = equipment[slot];

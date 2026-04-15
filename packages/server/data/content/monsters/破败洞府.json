@@ -1,0 +1,79 @@
+[
+  {
+    "id": "m_huanling_zhenren",
+    "name": "重伤的唤灵真人",
+    "char": "真",
+    "color": "#f0d2a4",
+    "grade": "spirit",
+    "tier": "demon_king",
+    "level": 43,
+    "expMultiplier": 3,
+    "count": 1,
+    "maxAlive": 1,
+    "radius": 2,
+    "aggroRange": 10,
+    "viewRange": 11,
+    "respawnSec": 120,
+    "attrs": {
+      "constitution": 2000,
+      "spirit": 2000,
+      "perception": 2000,
+      "talent": 2000,
+      "comprehension": 100,
+      "luck": 100
+    },
+    "initialBuffs": [
+      {
+        "buffId": "buff.huanling_zhenren_wounded",
+        "name": "重伤",
+        "desc": "旧伤未愈，战斗属性被大幅压制。",
+        "category": "debuff",
+        "visibility": "public",
+        "duration": 999999,
+        "infiniteDuration": true,
+        "stacks": 1,
+        "maxStacks": 1,
+        "stats": {
+          "maxHp": -500,
+          "maxQi": -500,
+          "physAtk": -500,
+          "spellAtk": -500,
+          "physDef": -500,
+          "spellDef": -500,
+          "hit": -500,
+          "dodge": -500,
+          "crit": -500,
+          "critDamage": -500,
+          "breakPower": -500,
+          "resolvePower": -500,
+          "maxQiOutputPerTick": -500,
+          "qiRegenRate": -500,
+          "hpRegenRate": -500
+        },
+        "statMode": "percent",
+        "shortMark": "伤",
+        "color": "#b85c5c"
+      }
+    ],
+    "skills": [
+      "skill.huanling_difu_chenyin",
+      "skill.huanling_liefu_waihuan",
+      "skill.huanling_suogong_neihuan",
+      "skill.huanling_xingluo_canpan",
+      "skill.huanling_ronghe_guanmai",
+      "skill.huanling_lieqi_zhixian",
+      "skill.huanling_candan_faxiang",
+      "skill.huanling_duanhun_ding",
+      "skill.huanling_canpo_zhang"
+    ],
+    "drops": [
+      {
+        "itemId": "pill.ningxiang",
+        "name": "凝相丹",
+        "type": "consumable",
+        "count": 1
+      }
+    ],
+    "aggroMode": "always"
+  }
+]

@@ -101,7 +101,7 @@
 - `T09` 和 `T10`
   - 不依赖真源替换完成，但依赖真实环境和维护窗口
 - `T11 -> T12 -> T14 -> T25`
-  - 这是“把证明链变成正式门禁”的治理主线
+  - 这是“把 `replace-ready / with-db / acceptance / full / shadow-destructive` 证明链变成正式门禁”的治理主线
 - `T15 -> T16/T17/T18 -> T19 -> T20`
   - 这是“先识别和拆热点，再建立正式性能门禁”的性能主线
 - `T22 -> T23`
@@ -190,7 +190,7 @@
 
 ## 零点三、本周直接开工顺序
 
-如果当前目标不是继续扩散分析，而是要看到仓库继续实打实往前走，最值得直接开工的是下面 3 批。
+- 当前最值得直接开工的是下面 3 批。
 
 ### 批次 1：先拿掉“只存在文档里”的不确定性
 
@@ -448,19 +448,19 @@
   - `../packages/server/src/tools/shadow-gm-database-proof.js`
   - `../packages/server/REPLACE-RUNBOOK.md`
 
-### T11 把 `local / acceptance / full / shadow-destructive` 四层门禁口径彻底写死
+### T11 把 `local / with-db / acceptance / full / shadow-destructive` 五层门禁口径彻底写死
 
-- 当前状态：本轮 README、TESTING、RUNBOOK 已继续统一这四层口径，并补齐 `full` 与 `shadow-destructive` 的依赖、组合顺序和维护窗口提示；剩下主要是 workflow / wrapper 级零星核对，而不是主文档空白。
+- 当前状态：本轮 README、TESTING、RUNBOOK 已继续统一这五层口径，并补齐 `with-db`、`full` 与 `shadow-destructive` 的依赖、组合顺序和维护窗口提示；剩下主要是 workflow / wrapper 级零星核对，而不是主文档空白。
 - 为什么还没完成：现在的主文档误读空间已经缩小，但还没到“所有 wrapper/workflow/别名输出都完全一致”的程度。
-- 完成定义：README、TESTING、RUNBOOK、workflow、wrapper 对 `local / acceptance / full / shadow-destructive` 的回答问题完全一致。
+- 完成定义：README、TESTING、RUNBOOK、workflow、wrapper 对 `local / with-db / acceptance / full / shadow-destructive` 的回答问题完全一致。
 - 下一步最小实改：
-  - 增加一张四层门禁对照表：目的、是否要求 DB、是否要求 shadow、是否 destructive、适用场景
+  - 增加一张五层门禁对照表：目的、是否要求 DB、是否要求 shadow、是否 destructive、适用场景
   - 统一 wrapper 输出文案，避免命令行提示和文档口径不一致
   - 把 `verify:server-next*` alias 在文档中统一降格成兼容别名说明，避免继续被当主入口
 - 最小验证：
   - `rg -n "local|acceptance|full|shadow-destructive" packages/server/README.md packages/server/TESTING.md packages/server/REPLACE-RUNBOOK.md .github/workflows/deploy-server-next.yml`
 - 退出条件：
-  - 任何一个入口文件都能用同一套词解释四层门禁
+  - 任何一个入口文件都能用同一套词解释五层门禁
   - 不再出现“默认门禁 = 完整替换完成”的文案漂移
 - 风险：如果口径不稳，后面真源替换每做一步都会被误判完成度。
 - 并行性：`可安全并行`

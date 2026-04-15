@@ -16,23 +16,23 @@ const repoRoot = path.resolve(__dirname, '..');
 /**
  * 指向物品内容目录，作为物品真源扫描入口。
  */
-const itemsDir = path.join(repoRoot, 'legacy/server/data/content/items');
+const itemsDir = path.join(repoRoot, 'packages/server/data/content/items');
 /**
  * 指向怪物内容目录，用于收集掉落和装备来源。
  */
-const monstersDir = path.join(repoRoot, 'legacy/server/data/content/monsters');
+const monstersDir = path.join(repoRoot, 'packages/server/data/content/monsters');
 /**
  * 记录任务目录。
  */
-const questsDir = path.join(repoRoot, 'legacy/server/data/content/quests');
+const questsDir = path.join(repoRoot, 'packages/server/data/content/quests');
 /**
  * 记录地图目录。
  */
-const mapsDir = path.join(repoRoot, 'legacy/server/data/maps');
+const mapsDir = path.join(repoRoot, 'packages/server/data/maps');
 /**
  * 记录starterinventory路径。
  */
-const starterInventoryPath = path.join(repoRoot, 'legacy/server/data/content/starter-inventory.json');
+const starterInventoryPath = path.join(repoRoot, 'packages/server/data/content/starter-inventory.json');
 /**
  * 指定审计 Markdown 报告的输出位置。
  */

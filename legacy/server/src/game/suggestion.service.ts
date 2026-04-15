@@ -11,7 +11,6 @@ import { Suggestion, SuggestionPage, SuggestionReply, SuggestionReplyAuthorType,
 import { SuggestionEntity } from '../database/entities/suggestion.entity';
 import { resolveServerDataPath } from '../common/data-path';
 
-/** SuggestionPageOptions：定义该接口的能力与字段约束。 */
 interface SuggestionPageOptions {
   keyword?: string;
   page?: number;
@@ -19,11 +18,9 @@ interface SuggestionPageOptions {
 }
 
 @Injectable()
-/** SuggestionService：封装相关状态与行为。 */
 export class SuggestionService implements OnModuleInit {
   private static readonly DEFAULT_PAGE_SIZE = 10;
   private static readonly MAX_PAGE_SIZE = 50;
-/** suggestions：定义该变量以承载业务值。 */
   private suggestions: Suggestion[] = [];
   private readonly logger = new Logger(SuggestionService.name);
   private readonly legacyFilePath = resolveServerDataPath('runtime', 'suggestions.json');
@@ -33,12 +30,10 @@ export class SuggestionService implements OnModuleInit {
     private readonly suggestionRepo: Repository<SuggestionEntity>,
   ) {}
 
-/** onModuleInit：执行对应的业务逻辑。 */
   async onModuleInit(): Promise<void> {
     await this.load();
   }
 
-/** load：执行对应的业务逻辑。 */
   private async load(): Promise<void> {
     try {
       await this.importLegacyFileIfNeeded();
@@ -49,9 +44,7 @@ export class SuggestionService implements OnModuleInit {
     }
   }
 
-/** refreshCache：执行对应的业务逻辑。 */
   private async refreshCache(): Promise<void> {
-/** entities：定义该变量以承载业务值。 */
     const entities = await this.suggestionRepo.find({
       order: {
         createdAt: 'ASC',
@@ -61,20 +54,15 @@ export class SuggestionService implements OnModuleInit {
     this.suggestions = entities.map((entity) => this.toSuggestion(entity));
   }
 
-/** importLegacyFileIfNeeded：执行对应的业务逻辑。 */
   private async importLegacyFileIfNeeded(): Promise<void> {
-/** persistedCount：定义该变量以承载业务值。 */
     const persistedCount = await this.suggestionRepo.count();
     if (persistedCount > 0 || !fs.existsSync(this.legacyFilePath)) {
       return;
     }
 
     try {
-/** raw：定义该变量以承载业务值。 */
       const raw = await fsAsync.readFile(this.legacyFilePath, 'utf-8');
-/** parsed：定义该变量以承载业务值。 */
       const parsed = JSON.parse(raw) as unknown;
-/** suggestions：定义该变量以承载业务值。 */
       const suggestions = this.normalizeLegacySuggestions(parsed);
       if (suggestions.length === 0) {
         return;
@@ -96,25 +84,26 @@ export class SuggestionService implements OnModuleInit {
     }));
   }
 
-/** getPage：执行对应的业务逻辑。 */
+/** getPage：执行 获取所有建议 */
+  getAll(): Suggestion[] {
+    return this.suggestions.map((suggestion) => ({
+      ...suggestion,
+      upvotes: [...suggestion.upvotes],
+      downvotes: [...suggestion.downvotes],
+      replies: suggestion.replies.map((reply) => ({ ...reply })),
+    }));
+  }
+
+/** getPage 的业务逻辑。 */
   getPage(options: SuggestionPageOptions = {}): SuggestionPage {
-/** keyword：定义该变量以承载业务值。 */
     const keyword = options.keyword?.trim() ?? '';
-/** pageSize：定义该变量以承载业务值。 */
     const pageSize = this.normalizePageSize(options.pageSize);
-/** filtered：定义该变量以承载业务值。 */
     const filtered = this.filterSuggestions(keyword);
-/** sorted：定义该变量以承载业务值。 */
     const sorted = filtered.sort((left, right) => this.compareSuggestions(left, right));
-/** total：定义该变量以承载业务值。 */
     const total = sorted.length;
-/** totalPages：定义该变量以承载业务值。 */
     const totalPages = Math.max(1, Math.ceil(total / pageSize));
-/** requestedPage：定义该变量以承载业务值。 */
     const requestedPage = Number.isFinite(options.page) ? Math.floor(Number(options.page)) : 1;
-/** page：定义该变量以承载业务值。 */
     const page = Math.min(totalPages, Math.max(1, requestedPage || 1));
-/** start：定义该变量以承载业务值。 */
     const start = (page - 1) * pageSize;
 
     return {
@@ -134,7 +123,6 @@ export class SuggestionService implements OnModuleInit {
 
   /** 创建新建议 */
   async create(authorId: string, authorName: string, title: string, description: string): Promise<Suggestion> {
-/** suggestion：定义该变量以承载业务值。 */
     const suggestion = this.suggestionRepo.create({
       id: randomUUID(),
       authorId,
@@ -148,9 +136,7 @@ export class SuggestionService implements OnModuleInit {
       authorLastReadGmReplyAt: 0,
       createdAt: Date.now(),
     });
-/** saved：定义该变量以承载业务值。 */
     const saved = await this.suggestionRepo.save(suggestion);
-/** result：定义该变量以承载业务值。 */
     const result = this.toSuggestion(saved);
     this.suggestions.push(result);
     return result;
@@ -158,7 +144,6 @@ export class SuggestionService implements OnModuleInit {
 
   /** 对建议投票（赞成/反对，重复点击取消） */
   async vote(playerId: string, suggestionId: string, vote: 'up' | 'down'): Promise<Suggestion | null> {
-/** suggestion：定义该变量以承载业务值。 */
     const suggestion = await this.suggestionRepo.findOne({ where: { id: suggestionId } });
     if (!suggestion) return null;
 
@@ -182,9 +167,7 @@ export class SuggestionService implements OnModuleInit {
       }
     }
 
-/** saved：定义该变量以承载业务值。 */
     const saved = await this.suggestionRepo.save(suggestion);
-/** result：定义该变量以承载业务值。 */
     const result = this.toSuggestion(saved);
     this.replaceCachedSuggestion(result);
     return result;
@@ -192,14 +175,11 @@ export class SuggestionService implements OnModuleInit {
 
   /** 标记建议为已完成 */
   async markCompleted(suggestionId: string): Promise<Suggestion | null> {
-/** suggestion：定义该变量以承载业务值。 */
     const suggestion = await this.suggestionRepo.findOne({ where: { id: suggestionId } });
     if (!suggestion) return null;
 
     suggestion.status = 'completed';
-/** saved：定义该变量以承载业务值。 */
     const saved = await this.suggestionRepo.save(suggestion);
-/** result：定义该变量以承载业务值。 */
     const result = this.toSuggestion(saved);
     this.replaceCachedSuggestion(result);
     return result;
@@ -207,7 +187,6 @@ export class SuggestionService implements OnModuleInit {
 
   /** 删除建议 */
   async remove(suggestionId: string): Promise<boolean> {
-/** result：定义该变量以承载业务值。 */
     const result = await this.suggestionRepo.delete({ id: suggestionId });
     if (!result.affected) return false;
 
@@ -222,25 +201,21 @@ export class SuggestionService implements OnModuleInit {
     authorName: string,
     content: string,
   ): Promise<Suggestion | null> {
-/** suggestion：定义该变量以承载业务值。 */
     const suggestion = await this.suggestionRepo.findOne({ where: { id: suggestionId } });
     if (!suggestion) {
       return null;
     }
 
-/** normalizedContent：定义该变量以承载业务值。 */
     const normalizedContent = content.trim();
     if (!normalizedContent) {
       return null;
     }
 
-/** currentReplies：定义该变量以承载业务值。 */
     const currentReplies = Array.isArray(suggestion.replies) ? [...suggestion.replies] : [];
     if (authorType === 'author') {
       if (suggestion.authorId !== authorId) {
         return null;
       }
-/** lastReply：定义该变量以承载业务值。 */
       const lastReply = currentReplies[currentReplies.length - 1];
       if (!lastReply || lastReply.authorType !== 'gm') {
         return null;
@@ -248,7 +223,6 @@ export class SuggestionService implements OnModuleInit {
       suggestion.authorLastReadGmReplyAt = lastReply.createdAt;
     }
 
-/** reply：定义该变量以承载业务值。 */
     const reply: SuggestionReply = {
       id: randomUUID(),
       authorType,
@@ -259,40 +233,98 @@ export class SuggestionService implements OnModuleInit {
     };
 
     suggestion.replies = [...currentReplies, reply];
-/** saved：定义该变量以承载业务值。 */
     const saved = await this.suggestionRepo.save(suggestion);
-/** result：定义该变量以承载业务值。 */
     const result = this.toSuggestion(saved);
     this.replaceCachedSuggestion(result);
     return result;
   }
 
-/** markRepliesRead：执行对应的业务逻辑。 */
+/** markRepliesRead：执行 标记建议为已完成 */
+  async markCompleted(suggestionId: string): Promise<Suggestion | null> {
+    const suggestion = await this.suggestionRepo.findOne({ where: { id: suggestionId } });
+    if (!suggestion) return null;
+
+    suggestion.status = 'completed';
+    const saved = await this.suggestionRepo.save(suggestion);
+    const result = this.toSuggestion(saved);
+    this.replaceCachedSuggestion(result);
+    return result;
+  }
+
+  /** 删除建议 */
+  async remove(suggestionId: string): Promise<boolean> {
+    const result = await this.suggestionRepo.delete({ id: suggestionId });
+    if (!result.affected) return false;
+
+    this.suggestions = this.suggestions.filter((suggestion) => suggestion.id !== suggestionId);
+    return true;
+  }
+
+  async addReply(
+    suggestionId: string,
+    authorType: SuggestionReplyAuthorType,
+    authorId: string,
+    authorName: string,
+    content: string,
+  ): Promise<Suggestion | null> {
+    const suggestion = await this.suggestionRepo.findOne({ where: { id: suggestionId } });
+    if (!suggestion) {
+      return null;
+    }
+
+    const normalizedContent = content.trim();
+    if (!normalizedContent) {
+      return null;
+    }
+
+    const currentReplies = Array.isArray(suggestion.replies) ? [...suggestion.replies] : [];
+    if (authorType === 'author') {
+      if (suggestion.authorId !== authorId) {
+        return null;
+      }
+      const lastReply = currentReplies[currentReplies.length - 1];
+      if (!lastReply || lastReply.authorType !== 'gm') {
+        return null;
+      }
+      suggestion.authorLastReadGmReplyAt = lastReply.createdAt;
+    }
+
+    const reply: SuggestionReply = {
+      id: randomUUID(),
+      authorType,
+      authorId,
+      authorName,
+      content: normalizedContent,
+      createdAt: Date.now(),
+    };
+
+    suggestion.replies = [...currentReplies, reply];
+    const saved = await this.suggestionRepo.save(suggestion);
+    const result = this.toSuggestion(saved);
+    this.replaceCachedSuggestion(result);
+    return result;
+  }
+
+/** markRepliesRead 的业务逻辑。 */
   async markRepliesRead(suggestionId: string, authorId: string): Promise<Suggestion | null> {
-/** suggestion：定义该变量以承载业务值。 */
     const suggestion = await this.suggestionRepo.findOne({ where: { id: suggestionId } });
     if (!suggestion || suggestion.authorId !== authorId) {
       return null;
     }
 
-/** lastGmReplyAt：定义该变量以承载业务值。 */
     const lastGmReplyAt = this.getLastGmReplyAt(Array.isArray(suggestion.replies) ? suggestion.replies : []);
     if (lastGmReplyAt <= Number(suggestion.authorLastReadGmReplyAt ?? 0)) {
       return this.toSuggestion(suggestion);
     }
 
     suggestion.authorLastReadGmReplyAt = lastGmReplyAt;
-/** saved：定义该变量以承载业务值。 */
     const saved = await this.suggestionRepo.save(suggestion);
-/** result：定义该变量以承载业务值。 */
     const result = this.toSuggestion(saved);
     this.replaceCachedSuggestion(result);
     return result;
   }
 
-/** replaceCachedSuggestion：执行对应的业务逻辑。 */
   private replaceCachedSuggestion(updated: Suggestion): void {
-/** index：定义该变量以承载业务值。 */
     const index = this.suggestions.findIndex((suggestion) => suggestion.id === updated.id);
     if (index === -1) {
       this.suggestions.push(updated);
@@ -301,7 +333,6 @@ export class SuggestionService implements OnModuleInit {
     this.suggestions[index] = updated;
   }
 
-/** toSuggestion：执行对应的业务逻辑。 */
   private toSuggestion(entity: SuggestionEntity): Suggestion {
     return {
       id: entity.id,
@@ -318,19 +349,16 @@ export class SuggestionService implements OnModuleInit {
     };
   }
 
-/** normalizeLegacySuggestions：执行对应的业务逻辑。 */
   private normalizeLegacySuggestions(value: unknown): Suggestion[] {
     if (!Array.isArray(value)) {
       return [];
     }
     return value.flatMap((entry) => {
-/** normalized：定义该变量以承载业务值。 */
       const normalized = this.normalizeLegacySuggestion(entry);
       return normalized ? [normalized] : [];
     });
   }
 
-/** normalizeLegacySuggestion：执行对应的业务逻辑。 */
   private normalizeLegacySuggestion(value: unknown): Suggestion | null {
     if (!this.isPlainObject(value)) {
       return null;
@@ -360,9 +388,7 @@ export class SuggestionService implements OnModuleInit {
       return null;
     }
 
-/** normalizedReplies：定义该变量以承载业务值。 */
     const normalizedReplies = this.normalizeReplies(replies);
-/** normalizedAuthorLastReadGmReplyAt：定义该变量以承载业务值。 */
     const normalizedAuthorLastReadGmReplyAt = Number.isFinite(authorLastReadGmReplyAt)
       ? Math.max(0, Number(authorLastReadGmReplyAt))
       : 0;
@@ -382,7 +408,6 @@ export class SuggestionService implements OnModuleInit {
     };
   }
 
-/** normalizePlayerIds：执行对应的业务逻辑。 */
   private normalizePlayerIds(value: unknown): string[] {
     if (!Array.isArray(value)) {
       return [];
@@ -390,12 +415,10 @@ export class SuggestionService implements OnModuleInit {
     return [...new Set(value.filter((entry): entry is string => typeof entry === 'string' && entry.length > 0))];
   }
 
-/** isSuggestionStatus：执行对应的业务逻辑。 */
   private isSuggestionStatus(value: unknown): value is SuggestionStatus {
     return value === 'pending' || value === 'completed';
   }
 
-/** normalizeReplies：执行对应的业务逻辑。 */
   private normalizeReplies(value: unknown): SuggestionReply[] {
     if (!Array.isArray(value)) {
       return [];
@@ -427,12 +450,10 @@ export class SuggestionService implements OnModuleInit {
     });
   }
 
-/** isSuggestionReplyAuthorType：执行对应的业务逻辑。 */
   private isSuggestionReplyAuthorType(value: unknown): value is SuggestionReplyAuthorType {
     return value === 'author' || value === 'gm';
   }
 
-/** getLastGmReplyAt：执行对应的业务逻辑。 */
   private getLastGmReplyAt(replies: SuggestionReply[]): number {
     for (let index = replies.length - 1; index >= 0; index -= 1) {
       const reply = replies[index];
@@ -443,18 +464,15 @@ export class SuggestionService implements OnModuleInit {
     return 0;
   }
 
-/** filterSuggestions：执行对应的业务逻辑。 */
   private filterSuggestions(keyword: string): Suggestion[] {
     if (!keyword) {
       return this.getAll();
     }
 
-/** normalizedKeyword：定义该变量以承载业务值。 */
     const normalizedKeyword = keyword.toLocaleLowerCase('zh-CN');
     return this.getAll().filter((suggestion) => this.matchesSuggestionKeyword(suggestion, normalizedKeyword));
   }
 
-/** matchesSuggestionKeyword：执行对应的业务逻辑。 */
   private matchesSuggestionKeyword(suggestion: Suggestion, keyword: string): boolean {
     return [
       suggestion.title,
@@ -464,23 +482,18 @@ export class SuggestionService implements OnModuleInit {
     ].some((text) => text.toLocaleLowerCase('zh-CN').includes(keyword));
   }
 
-/** compareSuggestions：执行对应的业务逻辑。 */
   private compareSuggestions(left: Suggestion, right: Suggestion): number {
     if (left.status !== right.status) {
       return left.status === 'pending' ? -1 : 1;
     }
 
-/** leftLastActivityAt：定义该变量以承载业务值。 */
     const leftLastActivityAt = Math.max(left.createdAt, left.replies[left.replies.length - 1]?.createdAt ?? 0);
-/** rightLastActivityAt：定义该变量以承载业务值。 */
     const rightLastActivityAt = Math.max(right.createdAt, right.replies[right.replies.length - 1]?.createdAt ?? 0);
     if (rightLastActivityAt !== leftLastActivityAt) {
       return rightLastActivityAt - leftLastActivityAt;
     }
 
-/** leftScore：定义该变量以承载业务值。 */
     const leftScore = left.upvotes.length - left.downvotes.length;
-/** rightScore：定义该变量以承载业务值。 */
     const rightScore = right.upvotes.length - right.downvotes.length;
     if (rightScore !== leftScore) {
       return rightScore - leftScore;
@@ -489,7 +502,6 @@ export class SuggestionService implements OnModuleInit {
     return right.createdAt - left.createdAt;
   }
 
-/** normalizePageSize：执行对应的业务逻辑。 */
   private normalizePageSize(pageSize: number | undefined): number {
     if (!Number.isFinite(pageSize)) {
       return SuggestionService.DEFAULT_PAGE_SIZE;
@@ -500,7 +512,6 @@ export class SuggestionService implements OnModuleInit {
     );
   }
 
-/** isPlainObject：执行对应的业务逻辑。 */
   private isPlainObject(value: unknown): value is Record<string, unknown> {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
   }

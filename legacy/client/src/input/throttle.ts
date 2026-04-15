@@ -8,12 +8,12 @@ import { TICK_INTERVAL } from '@mud/shared';
 export class InputThrottle {
   private lastAction = 0;
 
-/** canAct：执行对应的业务逻辑。 */
+
   canAct(): boolean {
     return Date.now() - this.lastAction >= TICK_INTERVAL;
   }
 
-/** mark：处理当前场景中的对应操作。 */
+
   mark() {
     this.lastAction = Date.now();
   }

@@ -1,0 +1,509 @@
+[
+  {
+    "recipeId": "alchemy.pill.minor_heal",
+    "outputItemId": "pill.minor_heal",
+    "outputCount": 1,
+    "baseBrewTicks": 12,
+    "ingredients": [
+      {
+        "itemId": "mat.moondew_grass",
+        "count": 2,
+        "role": "main"
+      },
+      {
+        "itemId": "mat.beast_bone",
+        "count": 1,
+        "role": "aux"
+      },
+      {
+        "itemId": "rat_tail",
+        "count": 1,
+        "role": "aux"
+      }
+    ]
+  },
+  {
+    "recipeId": "alchemy.minor_qi_pill",
+    "outputItemId": "minor_qi_pill",
+    "outputCount": 1,
+    "baseBrewTicks": 16,
+    "ingredients": [
+      {
+        "itemId": "mat.moondew_grass",
+        "count": 2,
+        "role": "main"
+      },
+      {
+        "itemId": "mat.green_spirit_stem",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "rat_tail",
+        "count": 2,
+        "role": "aux"
+      },
+      {
+        "itemId": "boar_tusk",
+        "count": 2,
+        "role": "aux"
+      }
+    ]
+  },
+  {
+    "recipeId": "alchemy.pill.crimson_bud_elixir",
+    "outputItemId": "pill.crimson_bud_elixir",
+    "outputCount": 1,
+    "baseBrewTicks": 20,
+    "ingredients": [
+      {
+        "itemId": "mat.bloodbud_fruit",
+        "count": 2,
+        "role": "main"
+      },
+      {
+        "itemId": "mat.red_flame_leaf",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "crystal_dust",
+        "count": 2,
+        "role": "aux"
+      },
+      {
+        "itemId": "serpent_gall",
+        "count": 2,
+        "role": "aux"
+      }
+    ]
+  },
+  {
+    "recipeId": "alchemy.major_qi_pill",
+    "outputItemId": "major_qi_pill",
+    "outputCount": 1,
+    "baseBrewTicks": 22,
+    "ingredients": [
+      {
+        "itemId": "mat.green_spirit_stem",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "mat.clear_mind_flower",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "crystal_dust",
+        "count": 3,
+        "role": "aux"
+      },
+      {
+        "itemId": "serpent_gall",
+        "count": 3,
+        "role": "aux"
+      }
+    ]
+  },
+  {
+    "recipeId": "alchemy.frost_heart_paste",
+    "outputItemId": "frost_heart_paste",
+    "outputCount": 1,
+    "baseBrewTicks": 24,
+    "ingredients": [
+      {
+        "itemId": "mat.frost_lotus_petal",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "mat.clear_mind_flower",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "bamboo_heart",
+        "count": 2,
+        "role": "aux"
+      },
+      {
+        "itemId": "serpent_gall",
+        "count": 4,
+        "role": "aux"
+      },
+      {
+        "itemId": "lizard_scale",
+        "count": 5,
+        "role": "aux"
+      }
+    ]
+  },
+  {
+    "recipeId": "alchemy.pill.break_array_elixir",
+    "outputItemId": "pill.break_array_elixir",
+    "outputCount": 1,
+    "baseBrewTicks": 26,
+    "ingredients": [
+      {
+        "itemId": "mat.breakarray_shard",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "mat.swiftwind_reed",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "soul_ink",
+        "count": 6,
+        "role": "aux"
+      }
+    ]
+  },
+  {
+    "recipeId": "alchemy.pill.clear_eye_elixir",
+    "outputItemId": "pill.clear_eye_elixir",
+    "outputCount": 1,
+    "baseBrewTicks": 24,
+    "ingredients": [
+      {
+        "itemId": "mat.clear_mind_flower",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "mat.frost_lotus_petal",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "crystal_dust",
+        "count": 4,
+        "role": "aux"
+      },
+      {
+        "itemId": "soul_ink",
+        "count": 3,
+        "role": "aux"
+      }
+    ]
+  },
+  {
+    "recipeId": "alchemy.pill.windstride_elixir",
+    "outputItemId": "pill.windstride_elixir",
+    "outputCount": 1,
+    "baseBrewTicks": 24,
+    "ingredients": [
+      {
+        "itemId": "mat.swiftwind_reed",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "mat.green_spirit_stem",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "spider_silk",
+        "count": 4,
+        "role": "aux"
+      },
+      {
+        "itemId": "lizard_scale",
+        "count": 2,
+        "role": "aux"
+      },
+      {
+        "itemId": "bamboo_heart",
+        "count": 3,
+        "role": "aux"
+      }
+    ]
+  },
+  {
+    "recipeId": "alchemy.pure_yang_pill",
+    "outputItemId": "pure_yang_pill",
+    "outputCount": 1,
+    "baseBrewTicks": 30,
+    "ingredients": [
+      {
+        "itemId": "mat.red_flame_leaf",
+        "count": 2,
+        "role": "main"
+      },
+      {
+        "itemId": "mat.sunmelt_seed",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "wolf_fang",
+        "count": 5,
+        "role": "aux"
+      },
+      {
+        "itemId": "serpent_gall",
+        "count": 7,
+        "role": "aux"
+      }
+    ]
+  },
+  {
+    "recipeId": "alchemy.pill.bitter_cultivation_elixir",
+    "outputItemId": "pill.bitter_cultivation_elixir",
+    "outputCount": 1,
+    "baseBrewTicks": 32,
+    "ingredients": [
+      {
+        "itemId": "mat.bitterheart_vine",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "mat.clear_mind_flower",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "wolf_fang",
+        "count": 6,
+        "role": "aux"
+      },
+      {
+        "itemId": "soul_ink",
+        "count": 5,
+        "role": "aux"
+      }
+    ]
+  },
+  {
+    "recipeId": "alchemy.pill.guiding_powder",
+    "outputItemId": "pill.guiding_powder",
+    "outputCount": 1,
+    "baseBrewTicks": 34,
+    "ingredients": [
+      {
+        "itemId": "mat.longvein_vine",
+        "count": 2,
+        "role": "main"
+      },
+      {
+        "itemId": "mat.returnspring_leaf",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "spiritwood_heart",
+        "count": 1,
+        "role": "aux"
+      }
+    ]
+  },
+  {
+    "recipeId": "alchemy.recovery_powder",
+    "outputItemId": "recovery_powder",
+    "outputCount": 1,
+    "baseBrewTicks": 34,
+    "ingredients": [
+      {
+        "itemId": "mat.coldmarrow_reed",
+        "count": 2,
+        "role": "main"
+      },
+      {
+        "itemId": "mat.moonwell_stamen",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "cleantide_essence",
+        "count": 1,
+        "role": "aux"
+      }
+    ]
+  },
+  {
+    "recipeId": "alchemy.stabilizing_pellet",
+    "outputItemId": "stabilizing_pellet",
+    "outputCount": 1,
+    "baseBrewTicks": 38,
+    "ingredients": [
+      {
+        "itemId": "mat.bearingroot_ginseng",
+        "count": 2,
+        "role": "main"
+      },
+      {
+        "itemId": "mat.stonecore_lingzhi",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "stonegall_core",
+        "count": 1,
+        "role": "aux"
+      }
+    ]
+  },
+  {
+    "recipeId": "alchemy.pill.edge_quenching_powder",
+    "outputItemId": "pill.edge_quenching_powder",
+    "outputCount": 1,
+    "baseBrewTicks": 38,
+    "ingredients": [
+      {
+        "itemId": "mat.goldthread_briar",
+        "count": 2,
+        "role": "main"
+      },
+      {
+        "itemId": "mat.ironvein_caltrop",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "blade_pattern_crystal",
+        "count": 1,
+        "role": "aux"
+      }
+    ]
+  },
+  {
+    "recipeId": "alchemy.pill.nurturing_paste",
+    "outputItemId": "pill.nurturing_paste",
+    "outputCount": 1,
+    "baseBrewTicks": 40,
+    "ingredients": [
+      {
+        "itemId": "mat.longvein_vine",
+        "count": 2,
+        "role": "main"
+      },
+      {
+        "itemId": "mat.returnspring_leaf",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "spiritwood_heart",
+        "count": 1,
+        "role": "aux"
+      }
+    ]
+  },
+  {
+    "recipeId": "alchemy.pill.cleartide_powder",
+    "outputItemId": "pill.cleartide_powder",
+    "outputCount": 1,
+    "baseBrewTicks": 40,
+    "ingredients": [
+      {
+        "itemId": "mat.coldmarrow_reed",
+        "count": 2,
+        "role": "main"
+      },
+      {
+        "itemId": "mat.moonwell_stamen",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "cleantide_essence",
+        "count": 1,
+        "role": "aux"
+      }
+    ]
+  },
+  {
+    "recipeId": "alchemy.pill.chiyang_draught",
+    "outputItemId": "pill.chiyang_draught",
+    "outputCount": 1,
+    "baseBrewTicks": 40,
+    "ingredients": [
+      {
+        "itemId": "mat.scorchheart_petal",
+        "count": 2,
+        "role": "main"
+      },
+      {
+        "itemId": "mat.flamegrain_spike",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "furnace_red_crystal",
+        "count": 1,
+        "role": "aux"
+      }
+    ]
+  },
+  {
+    "recipeId": "alchemy.pill.earthrest_paste",
+    "outputItemId": "pill.earthrest_paste",
+    "outputCount": 1,
+    "baseBrewTicks": 42,
+    "ingredients": [
+      {
+        "itemId": "mat.bearingroot_ginseng",
+        "count": 2,
+        "role": "main"
+      },
+      {
+        "itemId": "mat.stonecore_lingzhi",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "stonegall_core",
+        "count": 1,
+        "role": "aux"
+      }
+    ]
+  },
+  {
+    "recipeId": "alchemy.pill.fivephase_harmony_pellet",
+    "outputItemId": "pill.fivephase_harmony_pellet",
+    "outputCount": 1,
+    "baseBrewTicks": 48,
+    "ingredients": [
+      {
+        "itemId": "mat.longvein_vine",
+        "count": 2,
+        "role": "main"
+      },
+      {
+        "itemId": "mat.coldmarrow_reed",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "mat.scorchheart_petal",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "mat.bearingroot_ginseng",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "mat.goldthread_briar",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "spiritwood_heart",
+        "count": 1,
+        "role": "aux"
+      },
+      {
+        "itemId": "cleantide_essence",
+        "count": 1,
+        "role": "aux"
+      }
+    ]
+  }
+]

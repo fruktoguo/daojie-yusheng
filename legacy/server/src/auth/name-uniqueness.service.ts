@@ -6,24 +6,18 @@ import { PlayerEntity } from '../database/entities/player.entity';
 import { UserEntity } from '../database/entities/user.entity';
 import { normalizeRoleName, normalizeUsername, resolveDisplayName } from './account-validation';
 
-/** UniqueNameKind：定义该类型的结构与数据语义。 */
 export type UniqueNameKind = 'account' | 'display' | 'role';
 
-/** NameConflictEntry：定义该类型的结构与数据语义。 */
 type NameConflictEntry = {
-/** kind：定义该变量以承载业务值。 */
   kind: UniqueNameKind;
-/** userId：定义该变量以承载业务值。 */
   userId: string;
 };
 
-/** NameConflictCheckOptions：定义该类型的结构与数据语义。 */
 type NameConflictCheckOptions = {
   exclude?: NameConflictEntry[];
 };
 
 @Injectable()
-/** NameUniquenessService：封装相关状态与行为。 */
 export class NameUniquenessService {
   constructor(
     @InjectRepository(UserEntity)
@@ -35,7 +29,6 @@ export class NameUniquenessService {
   async findConflict(
     value: string,
     requestedKind: UniqueNameKind,
-/** options：定义该变量以承载业务值。 */
     options: NameConflictCheckOptions = {},
   ): Promise<NameConflictEntry | null> {
     if (!value) {
@@ -45,10 +38,8 @@ export class NameUniquenessService {
       return null;
     }
 
-/** conflicts：定义该变量以承载业务值。 */
     const conflicts = await this.findConflictsByKind(value, requestedKind);
 
-/** exclude：定义该变量以承载业务值。 */
     const exclude = options.exclude ?? [];
     return conflicts.find((entry) => !exclude.some((candidate) => (
       candidate.kind === entry.kind && candidate.userId === entry.userId
@@ -58,10 +49,8 @@ export class NameUniquenessService {
   async ensureAvailable(
     value: string,
     requestedKind: UniqueNameKind,
-/** options：定义该变量以承载业务值。 */
     options: NameConflictCheckOptions = {},
   ): Promise<string | null> {
-/** conflict：定义该变量以承载业务值。 */
     const conflict = await this.findConflict(value, requestedKind, options);
     if (!conflict) {
       return null;
@@ -69,10 +58,8 @@ export class NameUniquenessService {
     return this.buildConflictMessage(requestedKind, conflict.kind);
   }
 
-/** findConflictsByKind：执行对应的业务逻辑。 */
   private async findConflictsByKind(value: string, requestedKind: UniqueNameKind): Promise<NameConflictEntry[]> {
     if (requestedKind === 'account') {
-/** users：定义该变量以承载业务值。 */
       const users = await this.userRepo.find({
         select: ['id', 'username'],
         where: { username: value },
@@ -108,7 +95,6 @@ export class NameUniquenessService {
       return [];
     }
 
-/** users：定义该变量以承载业务值。 */
     const users = await this.userRepo.createQueryBuilder('user')
       .select(['user.id', 'user.username', 'user.displayName'])
       .where(new Brackets((qb) => {
@@ -121,7 +107,6 @@ export class NameUniquenessService {
       .map((user) => ({ kind: 'display' as const, userId: user.id }));
   }
 
-/** buildConflictMessage：执行对应的业务逻辑。 */
   private buildConflictMessage(requestedKind: UniqueNameKind, conflictKind: UniqueNameKind): string {
     if (requestedKind === 'account' || conflictKind === 'account') {
       return '账号已存在';

@@ -4,14 +4,12 @@ import {
   PrimaryColumn,
 } from 'typeorm';
 
-/** BIGINT_NUMBER_TRANSFORMER：定义该变量以承载业务值。 */
 const BIGINT_NUMBER_TRANSFORMER = {
   to: (value: number | null): number | null => value,
   from: (value: string | number | null): number | null => value == null ? null : Number(value),
 };
 
 @Entity('player_mail_receipts')
-/** PlayerMailReceiptEntity：封装相关状态与行为。 */
 export class PlayerMailReceiptEntity {
   @PrimaryColumn({ type: 'uuid' })
   mailId!: string;

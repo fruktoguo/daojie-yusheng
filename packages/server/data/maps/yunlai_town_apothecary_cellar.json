@@ -1,0 +1,336 @@
+{
+  "id": "yunlai_town_apothecary_cellar",
+  "name": "云来镇·兰氏药铺地窖",
+  "width": 18,
+  "height": 12,
+  "parentMapId": "yunlai_town",
+  "parentOriginX": 35,
+  "parentOriginY": 30,
+  "floorLevel": -1,
+  "floorName": "药窖",
+  "spaceVisionMode": "parent_overlay",
+  "description": "药铺地窖阴凉干燥，分层放着草药、药酒和临时封存的猎获材料。",
+  "tiles": [
+    "##################",
+    "#....o.....o.....#",
+    "#................#",
+    "#..######..#####.#",
+    "#..#....#..#...#.#",
+    "#..#....#..#...#.#",
+    "#..#....#..#...#.#",
+    "#..######..#...#.#",
+    "#......;;..#...#.#",
+    "#......S.........#",
+    "#.......oo.......#",
+    "##################"
+  ],
+  "portals": [
+    {
+      "x": 7,
+      "y": 9,
+      "targetMapId": "yunlai_town",
+      "targetX": 39,
+      "targetY": 35,
+      "kind": "stairs",
+      "trigger": "auto"
+    }
+  ],
+  "dangerLevel": 1,
+  "recommendedRealm": "Entry",
+  "spawnPoint": {
+    "x": 8,
+    "y": 9
+  },
+  "time": {
+    "offsetTicks": 120,
+    "scale": 1,
+    "light": {
+      "base": 26,
+      "timeInfluence": 8
+    }
+  },
+  "landmarks": [
+    {
+      "id": "lm_apothecary_cellar_crate",
+      "name": "封蜡药材柜",
+      "x": 13,
+      "y": 2,
+      "desc": "柜屉都打过蜡封，防潮也防鼠，里头多是难得材料。",
+      "container": {
+        "grade": "mortal",
+        "refreshTicks": 1600,
+        "char": "柜",
+        "color": "#6d8e61",
+        "lootPools": [
+          {
+            "chance": 0.8,
+            "minLevel": 1,
+            "maxLevel": 1,
+            "maxGrade": "mortal",
+            "tagGroups": [
+              [
+                "药品"
+              ],
+              [
+                "基础药品"
+              ]
+            ]
+          },
+          {
+            "chance": 0.32,
+            "minLevel": 3,
+            "maxLevel": 4,
+            "maxGrade": "mortal",
+            "tagGroups": [
+              [
+                "药品"
+              ],
+              [
+                "药膏"
+              ]
+            ]
+          },
+          {
+            "chance": 0.24,
+            "maxLevel": 2,
+            "maxGrade": "mortal",
+            "tagGroups": [
+              [
+                "药材"
+              ],
+              [
+                "蛇胆"
+              ]
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "lm_apothecary_cellar_jar",
+      "name": "药酒陶缸",
+      "x": 3,
+      "y": 1,
+      "desc": "陶缸里封着浸泡药酒，缸沿边上还挂着没刮干净的草渣。",
+      "container": {
+        "grade": "mortal",
+        "refreshTicks": 1700,
+        "char": "缸",
+        "color": "#7a6554",
+        "lootPools": [
+          {
+            "chance": 0.8,
+            "minLevel": 1,
+            "maxLevel": 1,
+            "maxGrade": "mortal",
+            "tagGroups": [
+              [
+                "药品"
+              ],
+              [
+                "基础药品"
+              ]
+            ]
+          },
+          {
+            "chance": 0.32,
+            "minLevel": 3,
+            "maxLevel": 4,
+            "maxGrade": "mortal",
+            "tagGroups": [
+              [
+                "药品"
+              ],
+              [
+                "药膏"
+              ]
+            ]
+          },
+          {
+            "chance": 0.24,
+            "maxLevel": 2,
+            "maxGrade": "mortal",
+            "tagGroups": [
+              [
+                "药材"
+              ],
+              [
+                "蛇胆"
+              ]
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "lm_apothecary_cellar_shelf",
+      "name": "低矮药架",
+      "x": 5,
+      "y": 8,
+      "desc": "临时搁在墙边的小药架上堆着零散蛇胆、蛛丝和包好的外用药。",
+      "container": {
+        "grade": "mortal",
+        "refreshTicks": 1500,
+        "char": "架",
+        "color": "#73825f",
+        "lootPools": [
+          {
+            "chance": 0.42,
+            "minLevel": 1,
+            "maxLevel": 1,
+            "maxGrade": "mortal",
+            "tagGroups": [
+              [
+                "药品"
+              ],
+              [
+                "基础药品"
+              ]
+            ]
+          },
+          {
+            "chance": 0.22,
+            "maxLevel": 2,
+            "maxGrade": "mortal",
+            "tagGroups": [
+              [
+                "药材"
+              ],
+              [
+                "蛇胆"
+              ]
+            ]
+          },
+          {
+            "chance": 0.2,
+            "maxLevel": 2,
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "药材"
+              ],
+              [
+                "蛛丝"
+              ]
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "lm_apothecary_cellar_drying_basket",
+      "name": "阴干药篓",
+      "x": 6,
+      "y": 2,
+      "desc": "竹篓里铺满了待阴干的草药和细碎蛛丝。",
+      "container": {
+        "grade": "mortal",
+        "refreshTicks": 1500,
+        "char": "篓",
+        "color": "#8c8159",
+        "lootPools": [
+          {
+            "chance": 0.42,
+            "minLevel": 1,
+            "maxLevel": 1,
+            "maxGrade": "mortal",
+            "tagGroups": [
+              [
+                "药品"
+              ],
+              [
+                "基础药品"
+              ]
+            ]
+          },
+          {
+            "chance": 0.22,
+            "maxLevel": 2,
+            "maxGrade": "mortal",
+            "tagGroups": [
+              [
+                "药材"
+              ],
+              [
+                "蛇胆"
+              ]
+            ]
+          },
+          {
+            "chance": 0.2,
+            "maxLevel": 2,
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "药材"
+              ],
+              [
+                "蛛丝"
+              ]
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "lm_apothecary_cellar_spare_cabinet",
+      "name": "封存偏柜",
+      "x": 15,
+      "y": 9,
+      "desc": "偏柜里存着不常用的外敷药和少量封蜡材料。",
+      "container": {
+        "grade": "mortal",
+        "refreshTicks": 1650,
+        "char": "柜",
+        "color": "#678561",
+        "lootPools": [
+          {
+            "chance": 0.8,
+            "minLevel": 1,
+            "maxLevel": 1,
+            "maxGrade": "mortal",
+            "tagGroups": [
+              [
+                "药品"
+              ],
+              [
+                "基础药品"
+              ]
+            ]
+          },
+          {
+            "chance": 0.32,
+            "minLevel": 3,
+            "maxLevel": 4,
+            "maxGrade": "mortal",
+            "tagGroups": [
+              [
+                "药品"
+              ],
+              [
+                "药膏"
+              ]
+            ]
+          },
+          {
+            "chance": 0.24,
+            "maxLevel": 2,
+            "maxGrade": "mortal",
+            "tagGroups": [
+              [
+                "药材"
+              ],
+              [
+                "蛇胆"
+              ]
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "npcs": [],
+  "monsterSpawns": [],
+  "terrainProfileId": "mortal_settlement",
+  "terrainRealmLv": 1
+}

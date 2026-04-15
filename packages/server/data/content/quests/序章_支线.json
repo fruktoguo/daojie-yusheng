@@ -1,0 +1,100 @@
+{
+  "quests": [
+    {
+      "id": "q_han_gate_steel",
+      "title": "门楼旧铁",
+      "desc": "韩铁匠让你去收拾城边流匪，把还像样的铁件和腰牌一并带回来，他好给门楼和你各打一件能用的家伙。",
+      "story": "云来镇不缺会抱怨的人，缺的是能把死人和匪徒身上那点东西重新敲成活路的人。",
+      "objectiveText": "清掉城边流匪，并交回匪徒腰牌",
+      "targetMonsterId": "m_gate_thug",
+      "targetCount": 6,
+      "targetMapId": "yunlai_town",
+      "targetName": "城边流匪",
+      "requiredItemId": "bandit_insignia",
+      "requiredItemCount": 3,
+      "reward": [
+        {
+          "itemId": "pill.break_array_elixir",
+          "name": "破阵丹",
+          "type": "consumable",
+          "count": 1
+        }
+      ],
+      "line": "side",
+      "giverMapId": "yunlai_town",
+      "giverNpcId": "npc_blacksmith_han",
+      "submitMapId": "yunlai_town",
+      "submitNpcId": "npc_blacksmith_han"
+    },
+    {
+      "id": "q_lan_refuse_tail",
+      "title": "药铺清秽",
+      "desc": "药铺后的废料堆总招灰尾鼠，兰药师让你先把那一片清干净，再收些鼠尾回来给她配驱虫药。",
+      "story": "兰药师嘴上说着“药不轻给”，可谁真替她把脏活做了，她也从不让人白跑。",
+      "objectiveText": "清掉药铺后巷鼠患，并带回鼠尾",
+      "targetMonsterId": "m_town_rat_refuse",
+      "targetCount": 6,
+      "targetMapId": "yunlai_town",
+      "targetName": "后巷灰尾鼠",
+      "requiredItemId": "rat_tail",
+      "requiredItemCount": 5,
+      "reward": [
+        {
+          "itemId": "minor_qi_pill",
+          "name": "小还灵丹",
+          "type": "consumable",
+          "count": 1
+        },
+        {
+          "itemId": "frost_heart_paste",
+          "name": "寒心膏",
+          "type": "consumable",
+          "count": 2
+        },
+        {
+          "itemId": "pill.clear_eye_elixir",
+          "name": "明目丹",
+          "type": "consumable",
+          "count": 1
+        }
+      ],
+      "line": "side",
+      "giverMapId": "yunlai_town",
+      "giverNpcId": "npc_herbalist_lan",
+      "submitMapId": "yunlai_town",
+      "submitNpcId": "npc_herbalist_lan"
+    },
+    {
+      "id": "q_shen_bunk_deposit",
+      "title": "脚店押铺钱",
+      "desc": "沈七娘说想在她这儿把名头挂稳，光会喘气不够。去把赵老六托来的路上旧物送回，再把话带回来。",
+      "story": "脚店不是善堂，但在这镇里，能让你记住自己还算个人的地方，也就这么几处。",
+      "objectiveType": "talk",
+      "objectiveText": "去找赵老六，把脚店的话带到",
+      "targetNpcId": "npc_zhao_laoliu",
+      "targetNpcName": "赵老六",
+      "targetMapId": "yunlai_town",
+      "targetName": "赵老六",
+      "required": 1,
+      "reward": [
+        {
+          "itemId": "minor_qi_pill",
+          "name": "小还灵丹",
+          "type": "consumable",
+          "count": 1
+        },
+        {
+          "itemId": "pill.minor_heal",
+          "name": "回春散",
+          "type": "consumable",
+          "count": 2
+        }
+      ],
+      "line": "side",
+      "giverMapId": "yunlai_town",
+      "giverNpcId": "npc_shen_qiniang",
+      "submitMapId": "yunlai_town",
+      "submitNpcId": "npc_shen_qiniang"
+    }
+  ]
+}

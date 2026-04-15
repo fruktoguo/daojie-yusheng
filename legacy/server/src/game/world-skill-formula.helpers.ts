@@ -9,37 +9,27 @@ import {
   TemporaryBuffState,
 } from '@mud/shared';
 
-/** SkillFormulaMonsterLike：定义该接口的能力与字段约束。 */
 export interface SkillFormulaMonsterLike {
   x?: number;
   y?: number;
-/** hp：定义该变量以承载业务值。 */
   hp: number;
-/** maxHp：定义该变量以承载业务值。 */
   maxHp: number;
-/** qi：定义该变量以承载业务值。 */
   qi: number;
   temporaryBuffs?: TemporaryBuffState[];
 }
 
-/** SkillFormulaResolvedTarget：定义该类型的结构与数据语义。 */
 export type SkillFormulaResolvedTarget =
   | { kind: 'monster'; x: number; y: number; monster: SkillFormulaMonsterLike }
   | { kind: 'player'; x: number; y: number; player: PlayerState }
   | { kind: 'container'; x: number; y: number }
   | { kind: 'tile'; x: number; y: number; tileType?: string };
 
-/** SkillFormulaContext：定义该接口的能力与字段约束。 */
 export interface SkillFormulaContext {
   player?: PlayerState;
   monsterCaster?: SkillFormulaMonsterLike;
-/** skill：定义该变量以承载业务值。 */
   skill: SkillDef;
-/** techLevel：定义该变量以承载业务值。 */
   techLevel: number;
-/** targetCount：定义该变量以承载业务值。 */
   targetCount: number;
-/** casterStats：定义该变量以承载业务值。 */
   casterStats: NumericStats;
   casterAttrs?: Attributes;
   target?: SkillFormulaResolvedTarget;
@@ -47,12 +37,10 @@ export interface SkillFormulaContext {
   targetAttrs?: Attributes;
 }
 
-/** SkillFormulaHelpers：定义该接口的能力与字段约束。 */
 export interface SkillFormulaHelpers {
   getPlayerMaxQi(player: PlayerState): number;
 }
 
-/** parseBuffStackVariable：执行对应的业务逻辑。 */
 export function parseBuffStackVariable(
   variable: SkillFormulaVar,
 ): { side: 'caster' | 'target'; buffId: string } | null {
@@ -71,7 +59,6 @@ export function parseBuffStackVariable(
   return null;
 }
 
-/** resolveBuffStackVariable：执行对应的业务逻辑。 */
 export function resolveBuffStackVariable(
   side: 'caster' | 'target',
   buffId: string,
@@ -91,13 +78,11 @@ export function resolveBuffStackVariable(
   return 0;
 }
 
-/** resolveSkillFormulaVar：执行对应的业务逻辑。 */
 export function resolveSkillFormulaVar(
   variable: SkillFormulaVar,
   context: SkillFormulaContext,
   helpers: SkillFormulaHelpers,
 ): number {
-/** parsedBuffVar：定义该变量以承载业务值。 */
   const parsedBuffVar = parseBuffStackVariable(variable);
   if (parsedBuffVar) {
     return resolveBuffStackVariable(parsedBuffVar.side, parsedBuffVar.buffId, context);
@@ -123,7 +108,6 @@ export function resolveSkillFormulaVar(
           : []
       )?.filter((buff) => buff.remainingTicks > 0 && buff.category === 'debuff').length ?? 0);
     case 'target.distance': {
-/** origin：定义该变量以承载业务值。 */
       const origin = context.player
         ?? (typeof context.monsterCaster?.x === 'number' && typeof context.monsterCaster?.y === 'number'
           ? { x: context.monsterCaster.x, y: context.monsterCaster.y }
@@ -150,24 +134,19 @@ export function resolveSkillFormulaVar(
         : 0;
     default:
       if (variable.startsWith('caster.attr.')) {
-/** key：定义该变量以承载业务值。 */
         const key = variable.slice('caster.attr.'.length) as keyof Attributes;
         return typeof context.casterAttrs?.[key] === 'number' ? context.casterAttrs[key] as number : 0;
       }
       if (variable.startsWith('target.attr.')) {
-/** key：定义该变量以承载业务值。 */
         const key = variable.slice('target.attr.'.length) as keyof Attributes;
         return typeof context.targetAttrs?.[key] === 'number' ? context.targetAttrs[key] as number : 0;
       }
       if (variable.startsWith('caster.stat.')) {
-/** key：定义该变量以承载业务值。 */
         const key = variable.slice('caster.stat.'.length) as keyof NumericStats;
         return typeof context.casterStats[key] === 'number' ? context.casterStats[key] as number : 0;
       }
       if (variable.startsWith('target.stat.')) {
-/** key：定义该变量以承载业务值。 */
         const key = variable.slice('target.stat.'.length) as keyof NumericStats;
-/** targetStats：定义该变量以承载业务值。 */
         const targetStats = context.targetStats;
         return targetStats && typeof targetStats[key] === 'number' ? targetStats[key] as number : 0;
       }
@@ -175,7 +154,6 @@ export function resolveSkillFormulaVar(
   }
 }
 
-/** evaluateSkillFormula：执行对应的业务逻辑。 */
 export function evaluateSkillFormula(
   formula: SkillFormula,
   context: SkillFormulaContext,
@@ -188,16 +166,12 @@ export function evaluateSkillFormula(
     return resolveSkillFormulaVar(formula.var, context, helpers) * (formula.scale ?? 1);
   }
   if (formula.op === 'clamp') {
-/** value：定义该变量以承载业务值。 */
     const value = evaluateSkillFormula(formula.value, context, helpers);
-/** min：定义该变量以承载业务值。 */
     const min = formula.min === undefined ? Number.NEGATIVE_INFINITY : evaluateSkillFormula(formula.min, context, helpers);
-/** max：定义该变量以承载业务值。 */
     const max = formula.max === undefined ? Number.POSITIVE_INFINITY : evaluateSkillFormula(formula.max, context, helpers);
     return Math.min(max, Math.max(min, value));
   }
 
-/** values：定义该变量以承载业务值。 */
   const values = formula.args.map((entry) => evaluateSkillFormula(entry, context, helpers));
   switch (formula.op) {
     case 'add':
