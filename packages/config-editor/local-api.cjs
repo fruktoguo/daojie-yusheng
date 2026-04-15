@@ -21,12 +21,12 @@ const {
   shouldPersistMonsterExpMultiplier,
   shouldPersistMonsterTier,
   validateEditableMapDocument,
-} = require(path.join(ROOT_DIR, 'packages/shared/dist/index.js'));
+} = require(path.join(ROOT_DIR, 'legacy/shared/dist/index.js'));
 
 /**
  * 服务端数据根目录。
  */
-const SERVER_DATA_DIR = path.join(ROOT_DIR, 'packages/server/data');
+const SERVER_DATA_DIR = path.join(ROOT_DIR, 'legacy/server/data');
 /**
  * 地图配置目录。
  */

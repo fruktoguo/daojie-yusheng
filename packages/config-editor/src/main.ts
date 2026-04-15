@@ -36,7 +36,7 @@ import {
   type TechniqueGrade,
   type TechniqueLayerDef,
 } from '@mud/shared';
-import { GmMapEditor } from '../../client/src/gm-map-editor';
+import { GmMapEditor } from '../../../legacy/client/src/gm-map-editor';
 
 /** PageId：定义该类型的结构与数据语义。 */
 type PageId = 'maps' | 'monsters' | 'skills' | 'files' | 'service';
@@ -2853,7 +2853,4 @@ window.addEventListener('beforeunload', () => {
     window.clearInterval(servicePollTimer);
   }
 });
-
-
-
 

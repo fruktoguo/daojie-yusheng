@@ -8,8 +8,8 @@
     "noEmit": true,
     "baseUrl": ".",
     "paths": {
-      "@mud/shared": ["../shared/src/index.ts"]
+      "@mud/shared": ["../../legacy/shared/src/index.ts"]
     }
   },
-  "include": ["src", "../client/src/gm-map-editor.ts"]
+  "include": ["src", "../../legacy/client/src/gm-map-editor.ts"]
 }

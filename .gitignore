@@ -4,6 +4,9 @@ dist/
 *.log
 .DS_Store
 .codex/tmp/
+.runtime/
+.playwright-mcp/
+packages/server/.runtime/
 参考/
 packages/server/data/gm-config.json
 packages/server/data/runtime/

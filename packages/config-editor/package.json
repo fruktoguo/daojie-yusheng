@@ -4,8 +4,8 @@
   "private": true,
   "scripts": {
     "prebuild": "pnpm --filter @mud/shared build",
-    "dev": "../client/node_modules/.bin/vite --host 127.0.0.1 --port 5174",
-    "build": "../client/node_modules/.bin/tsc -p tsconfig.json && ../client/node_modules/.bin/vite build",
+    "dev": "vite --host 127.0.0.1 --port 5174",
+    "build": "tsc -p tsconfig.json && vite build",
     "start:api": "pnpm --filter @mud/shared build && node --watch local-api.cjs"
   },
   "dependencies": {
