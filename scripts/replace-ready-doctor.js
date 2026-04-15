@@ -4,6 +4,7 @@
 /**
  * 用途：执行 server-next 替换链路的环境自检流程。
  */
+// TODO(next:VERIFY03): 继续统一 doctor/acceptance/full 等脚本的中文输出与环境缺失提示，减少运维入口文案漂移。
 
 const {
   resolveServerNextDatabaseUrl,

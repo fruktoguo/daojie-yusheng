@@ -2,6 +2,7 @@
  * 设置面板
  * 提供显示名称、角色名称修改、密码修改与兑换码功能
  */
+// TODO(next:UI05): 继续把 settings-panel 收成统一业务 recipe，并消掉结果区与表单区的模板式重建长尾。
 
 import {
   AccountRedeemCodesRes,

@@ -4,6 +4,7 @@
 /**
  * 用途：执行 server-next 替换链路的默认验证流程。
  */
+// TODO(next:VERIFY03): 继续统一 replace-ready 家族脚本的中文输出、边界说明和失败提示，避免脚本口径与文档继续漂移。
 
 const { spawnSync } = require('node:child_process');
 const path = require('node:path');

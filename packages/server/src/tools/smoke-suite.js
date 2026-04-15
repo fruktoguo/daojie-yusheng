@@ -2,6 +2,7 @@
 /**
  * 用途：编排执行 server-next smoke 冒烟验证套件。
  */
+// TODO(next:VERIFY03): 继续统一 smoke-suite 与各子 smoke 的中文日志、异常文案和门禁边界提示，减少工具链口径漂移。
 
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;

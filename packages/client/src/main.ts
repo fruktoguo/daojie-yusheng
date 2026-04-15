@@ -2,6 +2,7 @@
  * 游戏客户端主入口。
  * 负责初始化各子系统、挂接网络事件，并驱动整套渲染与交互流程。
  */
+// TODO(next:UI02): 继续拆薄 client 主入口，收拢观察弹层、缩放/UI 状态和整块 DOM 重建，避免 main.ts 长期承担过多编排职责。
 
 import './styles/tokens.css';
 import './styles/base.css';

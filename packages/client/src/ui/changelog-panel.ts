@@ -1,3 +1,4 @@
+// TODO(next:UI06): 把 changelog-panel 的模板化装载保持在低频前提下继续收口到统一 modal recipe，减少孤立 UI 壳体。
 import { detailModalHost } from './detail-modal-host';
 import { CHANGELOG_ENTRIES, getLatestChangelogEntry } from './changelog-data';
 
@@ -66,6 +67,5 @@ function escapeHtml(input: string): string {
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#39;');
 }
-
 
 

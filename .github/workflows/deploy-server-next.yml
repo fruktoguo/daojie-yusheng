@@ -42,6 +42,7 @@ jobs:
 
     env:
       DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mud_next_ci?schema=public
+      # TODO(next:SEC02): CI/workflow 侧也应逐步去掉 admin123 这类默认 GM 密码回退，避免门禁环境固化弱口令。
       SERVER_NEXT_GM_PASSWORD: admin123
 
     steps:

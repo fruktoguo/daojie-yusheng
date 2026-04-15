@@ -30,8 +30,15 @@
 - 任务账本：`TODO(next:Txx)`
 - 安全与门禁：`TODO(next:SECxx)`、`TODO(next:VERIFYxx)`
 - 架构 / 持久化 / 热路径 / 大模块：`TODO(next:ARCHxx)`、`TODO(next:PERSISTxx)`、`TODO(next:PERFxx)`、`TODO(next:REFACTORxx)`
+- 迁移链路残项：`TODO(next:MIGRATE01)`
 - 前端尾项：`TODO(next:UIxx)`
 - 建议检索：`rg -n "TODO\\(next:" packages docs scripts .github`
+
+- 说明：JSON 文件本身无法写注释，像 `package.json` 里的 `*-next` 包名残留这类问题，统一落在相邻迁移文档 TODO 中追踪。
+
+## 仍未就近落到代码注释、当前保留在文档追踪的项
+
+- TODO(next:ARCH04): `packages/client/package.json`、`packages/server/package.json`、`packages/shared/package.json` 与根 `package.json` 仍残留 `*-next` 包名/脚本标识，需在 legacy 包名冲突彻底解除后统一回归正式命名。
 
 ---
 

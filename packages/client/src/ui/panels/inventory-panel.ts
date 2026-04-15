@@ -2,6 +2,7 @@
  * 背包面板
  * 展示物品网格列表，支持分类筛选、使用/装备/丢弃操作与物品详情弹层
  */
+// TODO(next:UI05): 在 inventory-panel 上继续压业务 recipe，减少列表/详情/工具栏的专用样式与零散模板分支。
 
 import {
   EquipSlot,
@@ -1711,4 +1712,3 @@ export class InventoryPanel {
       .replaceAll("'", '&#39;');
   }
 }
-

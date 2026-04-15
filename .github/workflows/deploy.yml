@@ -22,8 +22,10 @@ jobs:
       matrix:
         include:
           - image_name: daojie-yusheng-server
+            # TODO(next:MIGRATE01): 生产 build/deploy 仍直接消费 legacy Dockerfile，需在 next 替换完成前统一迁移。
             dockerfile: legacy/server/Dockerfile
           - image_name: daojie-yusheng-client
+            # TODO(next:MIGRATE01): 生产 build/deploy 仍直接消费 legacy Dockerfile，需在 next 替换完成前统一迁移。
             dockerfile: legacy/client/Dockerfile
 
     steps:

@@ -1,3 +1,4 @@
+// TODO(next:UI06): 把 entity-detail-modal 从一次性 bodyHtml 渲染继续推进到 patch-first，减少详情弹层整体重建。
 import { NEXT_S2C_Detail, NEXT_S2C_NpcDetail, NEXT_S2C_PlayerDetail, NEXT_S2C_MonsterDetail, NEXT_S2C_ContainerDetail, VisibleBuffState, MONSTER_TIER_LABELS, type NpcQuestMarker } from '@mud/shared-next';
 import { getEntityKindLabel, getQuestLineLabel } from '../domain-labels';
 import { detailModalHost } from './detail-modal-host';
@@ -308,6 +309,5 @@ export class EntityDetailModal {
     `;
   }
 }
-
 
 

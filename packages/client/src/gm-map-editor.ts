@@ -1,6 +1,7 @@
 /**
  * GM 地图编辑器 —— Canvas 可视化地图编辑，支持地块绘制、对象管理、撤销与 JSON 导入导出
  */
+// TODO(next:UI04): 把 GM 地图编辑器的工具栏、列表和 inspector 继续从整块重绘收成稳定 patch，减少 editor 主入口复杂度。
 
 import {
   GmEditorItemOption,

@@ -2,6 +2,7 @@
  * 拾取面板
  * 以弹层形式展示地面物品和容器搜索结果，支持逐件或批量拿取
  */
+// TODO(next:UI06): 把 loot-panel 的弹层主体继续从模板装载推进到稳定 patch，减少 bodyHtml 入口和批量列表重建。
 
 import { LootWindowState } from '@mud/shared-next';
 import { detailModalHost } from '../detail-modal-host';
@@ -134,6 +135,5 @@ export class LootPanel {
     });
   }
 }
-
 
 

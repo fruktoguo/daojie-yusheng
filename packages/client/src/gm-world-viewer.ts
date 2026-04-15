@@ -2,6 +2,7 @@
  * GM 世界管理查看器 —— 复用 TextRenderer + Camera 渲染运行时地图
  * 上帝视角，无迷雾，支持拖动、缩放、选中查看
  */
+// TODO(next:UI04): 把 GM 世界查看器的地图列表、时间控制和信息面板继续拆成局部更新，避免查看器维持整段 HTML 重建。
 
 import {
   GM_WORLD_DEFAULT_ZOOM,

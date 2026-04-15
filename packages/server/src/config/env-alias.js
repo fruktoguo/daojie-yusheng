@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.resolveServerNextShadowUrl = exports.resolveServerNextShadowUrlEnvSource = exports.resolveServerNextUrl = exports.resolveServerNextUrlEnvSource = exports.resolveServerNextGmPassword = exports.resolveServerNextGmPasswordEnvSource = exports.resolveServerNextDatabaseUrl = exports.resolveServerNextDatabaseEnvSource = exports.readTrimmedEnv = void 0;
+// TODO(next:ARCH01): 把 env alias 这类核心配置入口纳入 strict TS 收口路径，避免关键环境解析长期停留在 plain JS。
 /** readTrimmedEnv：处理read Trimmed Env。 */
 function readTrimmedEnv(...names) {
     for (const name of names) {
@@ -78,6 +79,5 @@ function resolveServerNextShadowUrl() {
     return readTrimmedEnv('SERVER_NEXT_SHADOW_URL', 'SERVER_NEXT_URL');
 }
 exports.resolveServerNextShadowUrl = resolveServerNextShadowUrl;
-
 
 

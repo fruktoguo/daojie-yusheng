@@ -1,3 +1,4 @@
+// TODO(next:UI06): 把 heaven-gate-modal 的结构化区域继续从整段模板渲染推进到局部 patch，降低复杂交互回归面。
 import {
   HEAVEN_GATE_REROLL_COST_RATIO,
   HEAVEN_GATE_SEVER_COST_RATIO,
@@ -547,4 +548,3 @@ export function openHeavenGateModal(player: PlayerState | null | undefined, opti
   renderHeavenGateModal(player, session, options);
   return true;
 }
-

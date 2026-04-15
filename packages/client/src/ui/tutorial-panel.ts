@@ -1,3 +1,4 @@
+// TODO(next:UI06): 把 tutorial-panel 从模板式 body 装载继续收成局部更新，并复用更稳定的 modal/list/detail recipe。
 import {
   TUTORIAL_FLOW_TOPICS,
   TUTORIAL_MECHANIC_TOPICS,
@@ -545,4 +546,3 @@ export class TutorialPanel {
     });
   }
 }
-

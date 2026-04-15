@@ -1,4 +1,5 @@
 /** 任务面板：按任务线分类展示，并支持全局单实例详情弹层 */
+// TODO(next:UI05): 继续收口 quest-panel 的业务 recipe 与零散 innerHTML 更新，避免任务线/详情仍保留模板式长尾。
 
 import { Inventory, PlayerState, QuestState } from '@mud/shared-next';
 import { getLocalItemTemplate } from '../../content/local-templates';
@@ -803,5 +804,4 @@ export class QuestPanel {
     `;
   }
 }
-
 
