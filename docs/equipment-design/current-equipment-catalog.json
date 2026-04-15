@@ -304,7 +304,7 @@
   "items": [
     {
       "realm": "凡人期",
-      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/凡人期/装备.json",
       "itemId": "equip.road_cleaver",
       "name": "断道柴刀",
       "grade": "mortal",
@@ -324,7 +324,7 @@
     },
     {
       "realm": "凡人期",
-      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/凡人期/装备.json",
       "itemId": "equip.scavenger_fang",
       "name": "拾荒尖牙",
       "grade": "mortal",
@@ -346,7 +346,7 @@
     },
     {
       "realm": "凡人期",
-      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/凡人期/装备.json",
       "itemId": "equip.scavenger_crest",
       "name": "拾荒翎冠",
       "grade": "mortal",
@@ -368,7 +368,7 @@
     },
     {
       "realm": "凡人期",
-      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/凡人期/装备.json",
       "itemId": "equip.porter_jacket",
       "name": "扛包短褂",
       "grade": "mortal",
@@ -388,7 +388,7 @@
     },
     {
       "realm": "凡人期",
-      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/凡人期/装备.json",
       "itemId": "equip.scrap_hide",
       "name": "杂皮护层",
       "grade": "mortal",
@@ -410,7 +410,7 @@
     },
     {
       "realm": "凡人期",
-      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/凡人期/装备.json",
       "itemId": "equip.grassbound_shoes",
       "name": "赶路草鞋",
       "grade": "mortal",
@@ -430,7 +430,7 @@
     },
     {
       "realm": "凡人期",
-      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/凡人期/装备.json",
       "itemId": "equip.gutter_paws",
       "name": "沟行爪套",
       "grade": "mortal",
@@ -450,7 +450,7 @@
     },
     {
       "realm": "凡人期",
-      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/凡人期/装备.json",
       "itemId": "equip.bone_dagger",
       "name": "猎户骨匕",
       "grade": "yellow",
@@ -470,7 +470,7 @@
     },
     {
       "realm": "凡人期",
-      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/凡人期/装备.json",
       "itemId": "equip.copper_pill_furnace",
       "name": "铜胎丹炉",
       "grade": "yellow",
@@ -490,7 +490,7 @@
     },
     {
       "realm": "凡人期",
-      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/凡人期/装备.json",
       "itemId": "equip.rust_saber",
       "name": "旧铁长刀",
       "grade": "yellow",
@@ -510,7 +510,7 @@
     },
     {
       "realm": "凡人期",
-      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/凡人期/装备.json",
       "itemId": "equip.gate_headcloth",
       "name": "门丁裹头巾",
       "grade": "yellow",
@@ -532,7 +532,7 @@
     },
     {
       "realm": "凡人期",
-      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/凡人期/装备.json",
       "itemId": "equip.hunter_cap",
       "name": "猎风帽",
       "grade": "yellow",
@@ -552,7 +552,7 @@
     },
     {
       "realm": "凡人期",
-      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/凡人期/装备.json",
       "itemId": "equip.wasteland_cap",
       "name": "荒路皮帽",
       "grade": "yellow",
@@ -572,7 +572,7 @@
     },
     {
       "realm": "凡人期",
-      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/凡人期/装备.json",
       "itemId": "equip.bound_chest",
       "name": "旧皮绑胸",
       "grade": "yellow",
@@ -592,7 +592,7 @@
     },
     {
       "realm": "凡人期",
-      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/凡人期/装备.json",
       "itemId": "equip.leather_vest",
       "name": "硬皮护衣",
       "grade": "yellow",
@@ -612,7 +612,7 @@
     },
     {
       "realm": "凡人期",
-      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/凡人期/装备.json",
       "itemId": "equip.cloud_boots",
       "name": "踏云履",
       "grade": "yellow",
@@ -634,7 +634,7 @@
     },
     {
       "realm": "凡人期",
-      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/凡人期/装备.json",
       "itemId": "equip.step_boots",
       "name": "游侠靴",
       "grade": "yellow",
@@ -654,7 +654,7 @@
     },
     {
       "realm": "凡人期",
-      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/凡人期/装备.json",
       "itemId": "equip.trench_runner_boots",
       "name": "越沟快靴",
       "grade": "yellow",
@@ -676,7 +676,7 @@
     },
     {
       "realm": "凡人期",
-      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/凡人期/装备.json",
       "itemId": "equip.herb_basket_charm",
       "name": "药篓挂坠",
       "grade": "yellow",
@@ -696,7 +696,7 @@
     },
     {
       "realm": "凡人期",
-      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/凡人期/装备.json",
       "itemId": "equip.marsh_poison_gland",
       "name": "沼毒囊结",
       "grade": "yellow",
@@ -718,7 +718,7 @@
     },
     {
       "realm": "凡人期",
-      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/凡人期/装备.json",
       "itemId": "equip.nanshi_token",
       "name": "南市木牌",
       "grade": "yellow",
@@ -738,7 +738,7 @@
     },
     {
       "realm": "凡人期",
-      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/凡人期/装备.json",
       "itemId": "equip.bamboo_fang_blade",
       "name": "竹牙短刃",
       "grade": "yellow",
@@ -760,7 +760,7 @@
     },
     {
       "realm": "凡人期",
-      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/凡人期/装备.json",
       "itemId": "equip.bamboo_split_blade",
       "name": "青竹分水刃",
       "grade": "yellow",
@@ -782,7 +782,7 @@
     },
     {
       "realm": "凡人期",
-      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/凡人期/装备.json",
       "itemId": "equip.black_iron_sword",
       "name": "玄铁长剑",
       "grade": "mystic",
@@ -804,7 +804,7 @@
     },
     {
       "realm": "凡人期",
-      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/凡人期/装备.json",
       "itemId": "equip.crystal_maw_spike",
       "name": "晶獠骨刺",
       "grade": "yellow",
@@ -826,7 +826,7 @@
     },
     {
       "realm": "凡人期",
-      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/凡人期/装备.json",
       "itemId": "equip.orebreak_hammer",
       "name": "矿卫破岩锤",
       "grade": "mystic",
@@ -848,7 +848,7 @@
     },
     {
       "realm": "凡人期",
-      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/凡人期/装备.json",
       "itemId": "equip.bamboo_hat",
       "name": "竹骨斗笠",
       "grade": "yellow",
@@ -870,7 +870,7 @@
     },
     {
       "realm": "凡人期",
-      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/凡人期/装备.json",
       "itemId": "equip.crow_night_mask",
       "name": "夜鸦面",
       "grade": "yellow",
@@ -886,7 +886,7 @@
     },
     {
       "realm": "凡人期",
-      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/凡人期/装备.json",
       "itemId": "equip.echo_crystal_crest",
       "name": "回声晶冠",
       "grade": "yellow",
@@ -908,7 +908,7 @@
     },
     {
       "realm": "凡人期",
-      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/凡人期/装备.json",
       "itemId": "equip.leafshadow_crest",
       "name": "叶隐翎冠",
       "grade": "yellow",
@@ -930,7 +930,7 @@
     },
     {
       "realm": "凡人期",
-      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/凡人期/装备.json",
       "itemId": "equip.miner_helmet",
       "name": "矿卫盔",
       "grade": "mystic",
@@ -952,7 +952,7 @@
     },
     {
       "realm": "凡人期",
-      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/凡人期/装备.json",
       "itemId": "equip.soot_lamp_hood",
       "name": "熄火矿灯冠",
       "grade": "mystic",
@@ -976,7 +976,7 @@
     },
     {
       "realm": "凡人期",
-      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/凡人期/装备.json",
       "itemId": "equip.blackiron_brigandine",
       "name": "黑铁束身甲",
       "grade": "mystic",
@@ -998,7 +998,7 @@
     },
     {
       "realm": "凡人期",
-      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/凡人期/装备.json",
       "itemId": "equip.herb_mist_robe",
       "name": "药烟轻袍",
       "grade": "yellow",
@@ -1020,7 +1020,7 @@
     },
     {
       "realm": "凡人期",
-      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/凡人期/装备.json",
       "itemId": "equip.oreplate_carapace",
       "name": "矿壳重甲",
       "grade": "mystic",
@@ -1044,7 +1044,7 @@
     },
     {
       "realm": "凡人期",
-      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/凡人期/装备.json",
       "itemId": "equip.rune_robe",
       "name": "断纹法袍",
       "grade": "mystic",
@@ -1066,7 +1066,7 @@
     },
     {
       "realm": "凡人期",
-      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/凡人期/装备.json",
       "itemId": "equip.snakeshed_vest",
       "name": "蛇蜕灵甲",
       "grade": "yellow",
@@ -1090,7 +1090,7 @@
     },
     {
       "realm": "凡人期",
-      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/凡人期/装备.json",
       "itemId": "equip.ash_tread",
       "name": "炉灰踏靴",
       "grade": "yellow",
@@ -1110,7 +1110,7 @@
     },
     {
       "realm": "凡人期",
-      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/凡人期/装备.json",
       "itemId": "equip.cave_skitter_spurs",
       "name": "穴行钩爪",
       "grade": "yellow",
@@ -1132,7 +1132,7 @@
     },
     {
       "realm": "凡人期",
-      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/凡人期/装备.json",
       "itemId": "equip.dewstep_boots",
       "name": "引露行靴",
       "grade": "yellow",
@@ -1154,7 +1154,7 @@
     },
     {
       "realm": "凡人期",
-      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/凡人期/装备.json",
       "itemId": "equip.windjoint_boots",
       "name": "风节行靴",
       "grade": "yellow",
@@ -1176,7 +1176,7 @@
     },
     {
       "realm": "凡人期",
-      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/凡人期/装备.json",
       "itemId": "equip.bamboo_heart_charm",
       "name": "竹心灵坠",
       "grade": "yellow",
@@ -1198,7 +1198,7 @@
     },
     {
       "realm": "凡人期",
-      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/凡人期/装备.json",
       "itemId": "equip.blood_burn_rope",
       "name": "焚脉黑绳",
       "grade": "yellow",
@@ -1215,7 +1215,7 @@
     },
     {
       "realm": "凡人期",
-      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/凡人期/装备.json",
       "itemId": "equip.gather_qi_pendant",
       "name": "采气木坠",
       "grade": "yellow",
@@ -1235,7 +1235,7 @@
     },
     {
       "realm": "凡人期",
-      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/凡人期/装备.json",
       "itemId": "equip.mineral_pulse_core",
       "name": "矿脉搏核",
       "grade": "yellow",
@@ -1259,7 +1259,7 @@
     },
     {
       "realm": "凡人期",
-      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/凡人期/装备.json",
       "itemId": "equip.orevein_ring",
       "name": "矿脉扣环",
       "grade": "yellow",
@@ -1279,7 +1279,7 @@
     },
     {
       "realm": "凡人期",
-      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/凡人期/装备.json",
       "itemId": "equip.broken_rune_blade",
       "name": "断碑纹剑",
       "grade": "mystic",
@@ -1301,7 +1301,7 @@
     },
     {
       "realm": "凡人期",
-      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/凡人期/装备.json",
       "itemId": "equip.valley_fang_blade",
       "name": "裂齿斩骨刀",
       "grade": "mystic",
@@ -1323,7 +1323,7 @@
     },
     {
       "realm": "凡人期",
-      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/凡人期/装备.json",
       "itemId": "equip.celestial_crown",
       "name": "观脉骨冠",
       "grade": "mystic",
@@ -1343,7 +1343,7 @@
     },
     {
       "realm": "凡人期",
-      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/凡人期/装备.json",
       "itemId": "equip.remnant_array_crown",
       "name": "残阵束冠",
       "grade": "mystic",
@@ -1363,7 +1363,7 @@
     },
     {
       "realm": "凡人期",
-      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/凡人期/装备.json",
       "itemId": "equip.windhear_crown",
       "name": "听风兽皮冠",
       "grade": "yellow",
@@ -1385,7 +1385,7 @@
     },
     {
       "realm": "凡人期",
-      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/凡人期/装备.json",
       "itemId": "equip.beastbone_mail",
       "name": "兽骨玄甲",
       "grade": "mystic",
@@ -1409,7 +1409,7 @@
     },
     {
       "realm": "凡人期",
-      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/凡人期/装备.json",
       "itemId": "equip.ridge_calm_robe",
       "name": "灵脊镇息袍",
       "grade": "mystic",
@@ -1431,7 +1431,7 @@
     },
     {
       "realm": "凡人期",
-      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/凡人期/装备.json",
       "itemId": "equip.rift_guard_armor",
       "name": "镇煞护心甲",
       "grade": "mystic",
@@ -1455,7 +1455,7 @@
     },
     {
       "realm": "凡人期",
-      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/凡人期/装备.json",
       "itemId": "equip.stele_shell_armor",
       "name": "断碑甲壳",
       "grade": "mystic",
@@ -1479,7 +1479,7 @@
     },
     {
       "realm": "凡人期",
-      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/凡人期/装备.json",
       "itemId": "equip.moonshadow_boots",
       "name": "逐月疾靴",
       "grade": "mystic",
@@ -1501,7 +1501,7 @@
     },
     {
       "realm": "凡人期",
-      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/凡人期/装备.json",
       "itemId": "equip.predator_tendon_boots",
       "name": "猎脉疾靴",
       "grade": "mystic",
@@ -1523,7 +1523,7 @@
     },
     {
       "realm": "凡人期",
-      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/凡人期/装备.json",
       "itemId": "equip.threshold_boots",
       "name": "叩门行靴",
       "grade": "mystic",
@@ -1545,7 +1545,7 @@
     },
     {
       "realm": "凡人期",
-      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/凡人期/装备.json",
       "itemId": "equip.trace_pattern_boots",
       "name": "踏纹履",
       "grade": "mystic",
@@ -1565,7 +1565,7 @@
     },
     {
       "realm": "凡人期",
-      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/凡人期/装备.json",
       "itemId": "equip.bloodcore_talisman",
       "name": "血核妖符",
       "grade": "mystic",
@@ -1589,7 +1589,7 @@
     },
     {
       "realm": "凡人期",
-      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/凡人期/装备.json",
       "itemId": "equip.guiding_marrow_pendant",
       "name": "引灵髓坠",
       "grade": "mystic",
@@ -1609,7 +1609,7 @@
     },
     {
       "realm": "凡人期",
-      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/凡人期/装备.json",
       "itemId": "equip.pattern_picker_ring",
       "name": "拾纹指环",
       "grade": "mystic",
@@ -1629,7 +1629,7 @@
     },
     {
       "realm": "凡人期",
-      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/凡人期/装备.json",
       "itemId": "equip.soul_devour_token",
       "name": "噬元骨牌",
       "grade": "mystic",
@@ -1647,7 +1647,7 @@
     },
     {
       "realm": "凡人期",
-      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/凡人期/装备.json",
       "itemId": "equip.soul_ink_pendant",
       "name": "魂墨坠",
       "grade": "mystic",
@@ -1671,7 +1671,7 @@
     },
     {
       "realm": "凡人期",
-      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/凡人期/装备.json",
       "itemId": "equip.spirit_ring",
       "name": "养灵木戒",
       "grade": "yellow",
@@ -1693,7 +1693,7 @@
     },
     {
       "realm": "凡人期",
-      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/凡人期/装备.json",
       "itemId": "equip.wellward_talisman",
       "name": "井语避邪符",
       "grade": "yellow",
@@ -1715,7 +1715,7 @@
     },
     {
       "realm": "凡人期",
-      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/凡人期/装备.json",
       "itemId": "equip.starfall_spear",
       "name": "残星乌铁枪",
       "grade": "mystic",
@@ -1739,7 +1739,7 @@
     },
     {
       "realm": "凡人期",
-      "sourceFile": "packages/server/data/content/items/凡人期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/凡人期/装备.json",
       "itemId": "equip.void_talisman",
       "name": "镇脉玄纹佩",
       "grade": "mystic",
@@ -1759,7 +1759,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.cleft_short_blade",
       "name": "裂痕短刃",
       "grade": "yellow",
@@ -1783,7 +1783,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.ember_scorch_spear",
       "name": "赤陨灼枪",
       "grade": "yellow",
@@ -1805,7 +1805,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.hanxi_flow_ruler",
       "name": "寒汐引流尺",
       "grade": "yellow",
@@ -1827,7 +1827,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.vineguide_staff",
       "name": "养枝引脉杖",
       "grade": "yellow",
@@ -1851,7 +1851,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.liyan_crown",
       "name": "离炎束冠",
       "grade": "yellow",
@@ -1873,7 +1873,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.moonwell_gauze_crown",
       "name": "月井纱冠",
       "grade": "yellow",
@@ -1895,7 +1895,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.sand_edge_headband",
       "name": "砂锋束额",
       "grade": "yellow",
@@ -1919,7 +1919,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.verdant_crown",
       "name": "青萝束冠",
       "grade": "yellow",
@@ -1943,7 +1943,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.yellow_stone_browguard",
       "name": "黄岩额护",
       "grade": "yellow",
@@ -1967,7 +1967,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.ridgehide_vest",
       "name": "岭皮坎肩",
       "grade": "yellow",
@@ -1987,7 +1987,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.heavy_claw_boots",
       "name": "重爪靴",
       "grade": "yellow",
@@ -2011,7 +2011,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.scar_tread_boots",
       "name": "裂痕踏靴",
       "grade": "yellow",
@@ -2033,7 +2033,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.returnbreath_copper_pendant",
       "name": "归息铜佩",
       "grade": "yellow",
@@ -2057,7 +2057,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.cleft_long_halberd",
       "name": "裂原长戟",
       "grade": "yellow",
@@ -2079,7 +2079,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.sinking_vein_hammer",
       "name": "沉脉锤",
       "grade": "yellow",
@@ -2103,7 +2103,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.cleantide_robe",
       "name": "净潮法衣",
       "grade": "yellow",
@@ -2125,7 +2125,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.deepvein_plate",
       "name": "厚脉板甲",
       "grade": "yellow",
@@ -2149,7 +2149,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.gold_sand_cuirass",
       "name": "砂金胸甲",
       "grade": "yellow",
@@ -2171,7 +2171,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.returnvine_robe",
       "name": "回藤法衣",
       "grade": "yellow",
@@ -2193,7 +2193,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.scorchcourt_battlecoat",
       "name": "焦庭战衣",
       "grade": "yellow",
@@ -2215,7 +2215,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.burden_greaves",
       "name": "负岳胫甲",
       "grade": "yellow",
@@ -2239,7 +2239,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.firestride_boots",
       "name": "踏火疾靴",
       "grade": "yellow",
@@ -2261,7 +2261,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.iron_track_boots",
       "name": "铁辙靴",
       "grade": "yellow",
@@ -2285,7 +2285,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.mistwalker_boots",
       "name": "雾行履",
       "grade": "yellow",
@@ -2307,7 +2307,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.vale_stride_boots",
       "name": "绕谷轻履",
       "grade": "yellow",
@@ -2329,7 +2329,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.fallrock_maul",
       "name": "坠岩槌",
       "grade": "yellow",
@@ -2353,7 +2353,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.full_edge_blade",
       "name": "满锋刀",
       "grade": "yellow",
@@ -2377,7 +2377,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.sand_ghost_mask",
       "name": "砂魇面",
       "grade": "yellow",
@@ -2401,7 +2401,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.stone_ridge_helm",
       "name": "石岭盔",
       "grade": "yellow",
@@ -2427,7 +2427,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.ridgewall_armor",
       "name": "岭垣甲",
       "grade": "yellow",
@@ -2451,7 +2451,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.chasing_edge_boots",
       "name": "逐锋履",
       "grade": "yellow",
@@ -2475,7 +2475,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.cleft_edge_ring",
       "name": "裂锋指环",
       "grade": "yellow",
@@ -2499,7 +2499,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.deepvein_kneeguards",
       "name": "厚脉护膝",
       "grade": "yellow",
@@ -2523,7 +2523,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.gold_sand_talisman",
       "name": "砂金符坠",
       "grade": "yellow",
@@ -2547,7 +2547,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.shieldvein_stone",
       "name": "护脉石",
       "grade": "yellow",
@@ -2573,7 +2573,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.banner_war_halberd",
       "name": "残旗战戟",
       "grade": "mystic",
@@ -2597,7 +2597,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.yuepattern_pole",
       "name": "岳纹杆",
       "grade": "mystic",
@@ -2623,7 +2623,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.remnant_banner_helm",
       "name": "残旗盔",
       "grade": "mystic",
@@ -2647,7 +2647,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.yuetown_mask",
       "name": "御土面",
       "grade": "mystic",
@@ -2671,7 +2671,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.cleft_blade_cloak",
       "name": "裂锋披",
       "grade": "mystic",
@@ -2695,7 +2695,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.cleft_scale_armor",
       "name": "裂鳞甲",
       "grade": "mystic",
@@ -2719,7 +2719,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.deepvein_chestguard",
       "name": "厚脉护胸",
       "grade": "mystic",
@@ -2743,7 +2743,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.terrace_guard_armor",
       "name": "台垣守甲",
       "grade": "mystic",
@@ -2769,7 +2769,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.edge_command_token",
       "name": "锋令牌",
       "grade": "mystic",
@@ -2795,7 +2795,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.mountainheart_token",
       "name": "山心符",
       "grade": "mystic",
@@ -2821,7 +2821,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.dew_tide_pendant",
       "name": "凝露潮佩",
       "grade": "mystic",
@@ -2845,7 +2845,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.furnace_red_ring",
       "name": "炉心赤戒",
       "grade": "mystic",
@@ -2869,7 +2869,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.lifepulse_pendant",
       "name": "生脉木佩",
       "grade": "mystic",
@@ -2893,7 +2893,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.burden_stele_staff",
       "name": "负碑杖",
       "grade": "mystic",
@@ -2919,7 +2919,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.stele_edge_blade",
       "name": "碑锋刃",
       "grade": "mystic",
@@ -2945,7 +2945,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.heavystele_helm",
       "name": "重碑盔",
       "grade": "mystic",
@@ -2969,7 +2969,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.stele_pattern_helm",
       "name": "碑纹盔",
       "grade": "mystic",
@@ -2993,7 +2993,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.edge_core_shell",
       "name": "锋核壳甲",
       "grade": "mystic",
@@ -3019,7 +3019,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.loadstone_plate",
       "name": "载山甲",
       "grade": "mystic",
@@ -3045,7 +3045,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.cleft_blade_armguard",
       "name": "裂锋护臂",
       "grade": "mystic",
@@ -3069,7 +3069,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.deepvein_gauntlets",
       "name": "厚脉护手",
       "grade": "mystic",
@@ -3093,7 +3093,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.quakeheart_stone",
       "name": "震心石",
       "grade": "mystic",
@@ -3119,7 +3119,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.sealed_edge_stoneheart",
       "name": "封锋石心",
       "grade": "mystic",
@@ -3143,7 +3143,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.darkpeak_fist_seal",
       "name": "黯峰拳印",
       "grade": "mystic",
@@ -3171,7 +3171,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.geng_gate_blade",
       "name": "庚门断锋",
       "grade": "mystic",
@@ -3199,7 +3199,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.guizang_conflux_blade",
       "name": "归藏合流刃",
       "grade": "mystic",
@@ -3223,7 +3223,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.remnant_banner_spear",
       "name": "残旌枪",
       "grade": "mystic",
@@ -3249,7 +3249,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.ridgecleft_halberd",
       "name": "裂岭戟",
       "grade": "mystic",
@@ -3273,7 +3273,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.bent_flag_heavy_helm",
       "name": "折旗重盔",
       "grade": "mystic",
@@ -3297,7 +3297,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.earthlord_helm",
       "name": "镇岳君盔",
       "grade": "mystic",
@@ -3323,7 +3323,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.fiveqi_watch_crown",
       "name": "五炁观脉冠",
       "grade": "mystic",
@@ -3345,7 +3345,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.mount_guard_helm",
       "name": "镇岭盔",
       "grade": "mystic",
@@ -3371,7 +3371,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.tomb_gate_general_helm",
       "name": "镇门将盔",
       "grade": "mystic",
@@ -3397,7 +3397,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.cleft_blade_relic_armor",
       "name": "裂锋遗甲",
       "grade": "mystic",
@@ -3423,7 +3423,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.gold_coffin_plate",
       "name": "金棺重甲",
       "grade": "mystic",
@@ -3449,7 +3449,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.guizang_aperture_robe",
       "name": "归窍法衣",
       "grade": "mystic",
@@ -3473,7 +3473,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.mountainseal_plate",
       "name": "封岳甲",
       "grade": "mystic",
@@ -3499,7 +3499,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.old_guard_iron_armor",
       "name": "旧卫铁甲",
       "grade": "mystic",
@@ -3523,7 +3523,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.rampart_plate",
       "name": "垒垣甲",
       "grade": "mystic",
@@ -3547,7 +3547,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.returnarray_boots",
       "name": "回阵行履",
       "grade": "mystic",
@@ -3569,7 +3569,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.cleft_blade_shoulder",
       "name": "裂锋肩甲",
       "grade": "mystic",
@@ -3593,7 +3593,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.counter_shock_iron_ring",
       "name": "反震铁环",
       "grade": "mystic",
@@ -3617,7 +3617,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.deepvein_core",
       "name": "厚脉核",
       "grade": "mystic",
@@ -3645,7 +3645,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.deepvein_relic",
       "name": "厚脉遗器",
       "grade": "mystic",
@@ -3673,7 +3673,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.deepvein_relic_shard",
       "name": "厚脉遗片",
       "grade": "mystic",
@@ -3699,7 +3699,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.sealed_path_token",
       "name": "封路令",
       "grade": "mystic",
@@ -3725,7 +3725,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.sealridge_iron_ring",
       "name": "封岭铁环",
       "grade": "mystic",
@@ -3751,7 +3751,7 @@
     },
     {
       "realm": "练气期",
-      "sourceFile": "packages/server/data/content/items/练气期/装备.json",
+      "sourceFile": "legacy/server/data/content/items/练气期/装备.json",
       "itemId": "equip.halfbase_ring",
       "name": "半基灵环",
       "grade": "earth",

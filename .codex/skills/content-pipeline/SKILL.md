@@ -9,9 +9,9 @@ description: Use this skill when reorganizing or syncing game content in this re
 
 适用场景：
 
-- 调整了 `packages/server/data/content/techniques/`
-- 调整了 `packages/server/data/content/items/`
-- 调整了 `packages/server/data/content/monsters/`
+- 调整了 `legacy/server/data/content/techniques/`
+- 调整了 `legacy/server/data/content/items/`
+- 调整了 `legacy/server/data/content/monsters/`
 - 需要更新编辑器目录或客户端物品/功法可选项
 - 需要整理功法文件目录，而不是继续手改散文件
 
@@ -25,13 +25,13 @@ description: Use this skill when reorganizing or syncing game content in this re
 
 真源：
 
-- `packages/server/data/content/techniques/`
-- `packages/server/data/content/items/`
-- `packages/server/data/content/monsters/`
+- `legacy/server/data/content/techniques/`
+- `legacy/server/data/content/items/`
+- `legacy/server/data/content/monsters/`
 
 生成物，不要手改：
 
-- `packages/client/src/constants/world/editor-catalog.generated.json`
+- `legacy/client/src/constants/world/editor-catalog.generated.json`
 - `packages/client-next/src/constants/world/editor-catalog.generated.json`
 
 ## 选脚本规则

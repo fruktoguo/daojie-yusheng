@@ -9,7 +9,7 @@ description: Use this skill when implementing or refactoring UI in this repo, in
 
 适用场景：
 
-- 新增或修改 `packages/client/src/ui/`、`packages/client-next/src/ui/`
+- 新增或修改 `legacy/client/src/ui/`、`packages/client-next/src/ui/`
 - 调整 HUD、面板、弹层、浮层、聊天、背包、任务、市场、地图侧栏
 - 重构 UI 状态流、面板切换、弹层交互、局部刷新策略
 - 协议字段变化后回接客户端 UI
@@ -18,13 +18,13 @@ description: Use this skill when implementing or refactoring UI in this repo, in
 
 优先参考这些现有实现：
 
-- `packages/client/src/ui/panel-system/store.ts`
+- `legacy/client/src/ui/panel-system/store.ts`
 - `packages/client-next/src/ui/panel-system/store.ts`
-- `packages/client/src/game-map/store/map-store.ts`
-- `packages/client/src/ui/selection-preserver.ts`
-- `packages/client/src/ui/detail-modal-host.ts`
-- `packages/client/src/ui/ui-style-config.ts`
-- `packages/client/src/ui/responsive-viewport.ts`
+- `legacy/client/src/game-map/store/map-store.ts`
+- `legacy/client/src/ui/selection-preserver.ts`
+- `legacy/client/src/ui/detail-modal-host.ts`
+- `legacy/client/src/ui/ui-style-config.ts`
+- `legacy/client/src/ui/responsive-viewport.ts`
 
 如果改的是旧客户端，也同时看 next；如果改的是 next，也先确认旧客户端是否需要同步。没有明确要求只改一边时，默认保持两端行为一致。
 

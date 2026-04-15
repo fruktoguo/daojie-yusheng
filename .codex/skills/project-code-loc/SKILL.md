@@ -32,9 +32,9 @@ description: Use this skill when you need to count a repository's source-code li
   - 常见工具配置文件，例如 `vite.config.ts`、`vitest.config.ts`、`jest.config.ts`、`tailwind.config.ts`、`webpack.config.js`
 - 不把 `json`、`yaml`、`toml`、`ini`、lockfile 这类配置或数据文件纳入源码行数。
 - 默认区域识别：
-  - `packages/client`、`packages/client-next`、`packages/config-editor` 归为 `frontend`
-  - `packages/server`、`packages/server-next` 归为 `backend`
-  - `packages/shared`、`packages/shared-next` 归为 `shared`
+  - `legacy/client`、`packages/client-next`、`packages/config-editor` 归为 `frontend`
+  - `legacy/server`、`packages/server-next` 归为 `backend`
+  - `legacy/shared`、`packages/shared-next` 归为 `shared`
   - 其他路径归为 `other`
 
 ## 常用命令
@@ -48,14 +48,14 @@ python3 .codex/skills/project-code-loc/scripts/count_code_lines.py .
 只统计某个子目录：
 
 ```bash
-python3 .codex/skills/project-code-loc/scripts/count_code_lines.py packages/server
+python3 .codex/skills/project-code-loc/scripts/count_code_lines.py legacy/server
 ```
 
 追加自定义排除规则：
 
 ```bash
 python3 .codex/skills/project-code-loc/scripts/count_code_lines.py . \
-  --extra-exclude 'packages/client/src/generated/**' \
+  --extra-exclude 'legacy/client/src/generated/**' \
   --extra-exclude '**/*.gen.ts'
 ```
 

@@ -9,9 +9,9 @@ description: Use this skill when creating or refactoring network protocols and p
 
 适用场景：
 
-- 修改 `packages/shared/src/protocol.ts`
-- 修改 `packages/shared/src/network-protobuf.ts`
-- 修改 `packages/server/src/game/` 或 `packages/server-next/src/` 的发包逻辑
+- 修改 `legacy/shared/src/protocol.ts`
+- 修改 `legacy/shared/src/network-protobuf.ts`
+- 修改 `legacy/server/src/game/` 或 `packages/server-next/src/` 的发包逻辑
 - 新增 socket 事件、重构现有 delta、拆分 bootstrap/static/detail/panel/world/self 同步
 - 审查某段广播是否发太多、发太宽、发错层
 
@@ -19,8 +19,8 @@ description: Use this skill when creating or refactoring network protocols and p
 
 优先参考：
 
-- `packages/shared/src/protocol.ts`
-- `packages/shared/src/network-protobuf.ts`
+- `legacy/shared/src/protocol.ts`
+- `legacy/shared/src/network-protobuf.ts`
 - `docs/next-protocol-audit.md`
 - `docs/qi-system-design.md`
 - `packages/server-next/src/tools/next-protocol-audit.js`

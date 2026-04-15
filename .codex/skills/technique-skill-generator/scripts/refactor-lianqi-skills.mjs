@@ -8,10 +8,10 @@ import { spawnSync } from 'node:child_process';
 const ROOT = process.cwd();
 const GENERATOR_PATH = path.resolve(ROOT, '.codex/skills/technique-skill-generator/scripts/generate-technique-skill.mjs');
 const TARGET_FILES = [
-  'packages/server/data/content/techniques/练气期/术法/黄阶.json',
-  'packages/server/data/content/techniques/练气期/术法/玄阶.json',
-  'packages/server/data/content/techniques/练气期/术法/地阶.json',
-  'packages/server/data/content/techniques/练气期/神通/玄阶.json',
+  'legacy/server/data/content/techniques/练气期/术法/黄阶.json',
+  'legacy/server/data/content/techniques/练气期/术法/玄阶.json',
+  'legacy/server/data/content/techniques/练气期/术法/地阶.json',
+  'legacy/server/data/content/techniques/练气期/神通/玄阶.json',
 ];
 
 const ALLOWED_BASE_VARS = new Set([

@@ -18,15 +18,15 @@ description: Use this skill when creating or updating building content in this r
 
 建筑正式真源：
 
-- `packages/server/data/maps/*.json`
-- `packages/server/data/maps/compose/**/*.json`
+- `legacy/server/data/maps/*.json`
+- `legacy/server/data/maps/compose/**/*.json`
 
 常用参考：
 
 - 同区域相邻地图与同主题建筑子图
 - `docs/story/凡人/yunlai-town-layout.md`
 - `docs/story/凡人/fanren-map-redesign.md`
-- `packages/shared/src/map-document.ts`
+- `legacy/shared/src/map-document.ts`
 
 ## 强制流程
 

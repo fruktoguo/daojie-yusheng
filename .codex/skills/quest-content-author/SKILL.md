@@ -18,7 +18,7 @@ description: Use this skill when creating or updating quest content in this repo
 
 任务正式真源：
 
-- `packages/server/data/content/quests/*.json`
+- `legacy/server/data/content/quests/*.json`
 
 常用参考：
 

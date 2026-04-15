@@ -18,14 +18,14 @@ description: Use this skill when creating, expanding, or rebalancing item conten
 
 物品正式真源：
 
-- `packages/server/data/content/items/凡人期/*.json`
-- `packages/server/data/content/items/练气期/*.json`
-- `packages/server/data/content/items/更高境界/*.json`
+- `legacy/server/data/content/items/凡人期/*.json`
+- `legacy/server/data/content/items/练气期/*.json`
+- `legacy/server/data/content/items/更高境界/*.json`
 
 常用参考：
 
 - 同境界、同类型相邻物品文件
-- `packages/shared/src/types.ts`
+- `legacy/shared/src/types.ts`
 - `docs/物品来源审计.md`
 
 ## 强制流程

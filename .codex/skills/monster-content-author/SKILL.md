@@ -18,12 +18,12 @@ description: Use this skill when creating, expanding, or rebalancing monster con
 
 怪物正式真源：
 
-- `packages/server/data/content/monsters/*.json`
+- `legacy/server/data/content/monsters/*.json`
 
 常用参考：
 
 - `docs/story/练气/练气期地图怪物草案.md`
-- `packages/server/data/content/items/`
+- `legacy/server/data/content/items/`
 - `packages/config-editor/src/main.ts`
 
 ## 写怪前必须先做
