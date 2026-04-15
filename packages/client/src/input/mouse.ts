@@ -6,11 +6,9 @@ import { MapMeta, Tile } from '@mud/shared-next';
 import { Camera } from '../renderer/camera';
 import { getCellSize } from '../display';
 
-/** ClickTarget：定义该接口的能力与字段约束。 */
+/** 鼠标命中结果，包含坐标、实体和可交互状态。 */
 interface ClickTarget {
-/** x：定义该变量以承载业务值。 */
   x: number;
-/** y：定义该变量以承载业务值。 */
   y: number;
   clientX?: number;
   clientY?: number;
@@ -19,15 +17,23 @@ interface ClickTarget {
   walkable?: boolean;
 }
 
-/** 鼠标输入，将画布上的点击和悬停事件解析为游戏世界中的目标 */
+/**
+ * 鼠标输入模块。
+ * 负责把画布上的坐标事件映射到世界坐标并落到格子/实体上。
+ */
 export class MouseInput {
+  /** 懒加载获取当前相机。 */
   private getCamera: (() => Camera) | null = null;
+  /** 懒加载获取指定世界坐标的地块。 */
   private getTileAt: ((x: number, y: number) => Tile | null) | null = null;
   private getEntities: (() => { id: string; wx: number; wy: number; kind?: string }[]) | null = null;
+  /** 懒加载获取当前地图元信息。 */
   private getMapMeta: (() => MapMeta | null) | null = null;
+  /** 点击目标回调。 */
   private onTarget: ((target: ClickTarget) => void) | null = null;
+  /** 悬停目标回调。 */
   private onHover: ((target: ClickTarget | null) => void) | null = null;
-/** canvas：定义该变量以承载业务值。 */
+  /** 当前监听事件的画布。 */
   private canvas: HTMLCanvasElement | null = null;
 
   /** 初始化鼠标监听，绑定画布事件和坐标转换所需的依赖 */
@@ -52,15 +58,14 @@ export class MouseInput {
     canvas.addEventListener('mouseleave', () => this.onHover?.(null));
   }
 
-/** onClick：处理当前场景中的对应操作。 */
+  /** 把点击位置解析为目标并触发回调。 */
   private onClick(e: MouseEvent) {
-/** target：定义该变量以承载业务值。 */
     const target = this.resolveTargetFromMouse(e);
     if (!target) return;
     this.onTarget?.(target);
   }
 
-/** onMove：处理当前场景中的对应操作。 */
+  /** 持续更新悬停目标。 */
   private onMove(e: MouseEvent) {
     this.onHover?.(this.resolveTargetFromMouse(e));
   }
@@ -69,38 +74,25 @@ export class MouseInput {
   private resolveTargetFromMouse(e: MouseEvent): ClickTarget | null {
     if (!this.canvas || !this.getCamera || !this.getTileAt || !this.getEntities || !this.getMapMeta || !this.onTarget) return null;
 
-/** cam：定义该变量以承载业务值。 */
     const cam = this.getCamera();
-/** rect：定义该变量以承载业务值。 */
     const rect = this.canvas.getBoundingClientRect();
-/** sw：定义该变量以承载业务值。 */
     const sw = this.canvas.width;
-/** sh：定义该变量以承载业务值。 */
     const sh = this.canvas.height;
 
     // 屏幕像素坐标
     const screenX = (e.clientX - rect.left) * (sw / rect.width);
-/** screenY：定义该变量以承载业务值。 */
     const screenY = (e.clientY - rect.top) * (sh / rect.height);
 
     // 屏幕像素 → 世界像素 → 世界格子
     const worldPX = screenX - sw / 2 + cam.x;
-/** worldPY：定义该变量以承载业务值。 */
     const worldPY = screenY - sh / 2 + cam.y;
-/** cellSize：定义该变量以承载业务值。 */
     const cellSize = getCellSize();
-/** worldGX：定义该变量以承载业务值。 */
     const worldGX = Math.floor(worldPX / cellSize);
-/** worldGY：定义该变量以承载业务值。 */
     const worldGY = Math.floor(worldPY / cellSize);
 
-/** tile：定义该变量以承载业务值。 */
     const tile = this.getTileAt(worldGX, worldGY);
-/** entity：定义该变量以承载业务值。 */
     const entity = this.getEntities().find((entry) => entry.wx === worldGX && entry.wy === worldGY);
-/** mapMeta：定义该变量以承载业务值。 */
     const mapMeta = this.getMapMeta();
-/** inCurrentMapBounds：定义该变量以承载业务值。 */
     const inCurrentMapBounds = mapMeta
       ? worldGX >= 0 && worldGX < mapMeta.width && worldGY >= 0 && worldGY < mapMeta.height
       : false;
@@ -133,4 +125,3 @@ export class MouseInput {
     };
   }
 }
-

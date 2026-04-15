@@ -2,14 +2,13 @@
 
 declare const __APP_BUILD_ID__: string;
 
-/** ImportMetaEnv：定义该接口的能力与字段约束。 */
+/** Vite 注入到 `import.meta.env` 的客户端环境变量。 */
 interface ImportMetaEnv {
   readonly VITE_NEXT_DEBUG_MOVEMENT?: string;
 }
 
-/** ImportMeta：定义该接口的能力与字段约束。 */
+/** 扩展 `import.meta` 类型，补上项目自己的环境变量字段。 */
 interface ImportMeta {
-/** env：定义该变量以承载业务值。 */
+  /** Vite 提供的运行时环境变量集合。 */
   readonly env: ImportMetaEnv;
 }
-

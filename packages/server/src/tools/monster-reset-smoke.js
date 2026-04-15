@@ -7,7 +7,6 @@ const smoke_timeout_1 = require("./smoke-timeout");
 (0, smoke_timeout_1.installSmokeTimeout)(__filename);
 const env_alias_1 = require("../config/env-alias");
 const SERVER_NEXT_URL = (0, env_alias_1.resolveServerNextUrl)() || 'http://127.0.0.1:3111';
-/** instanceId：定义该变量以承载业务值。 */
 const instanceId = process.env.SERVER_NEXT_SMOKE_INSTANCE_ID ?? 'public:wildlands';
 /**
  * 记录优先值怪物ID。
@@ -77,7 +76,6 @@ async function main() {
         monsterId: target.monsterId,
         damageApplied: target.hp - damagedMonster.monster.hp,
         hpRecovered: finalMonster.monster.hp - damagedMonster.monster.hp,
-/** fullyRecovered：定义该变量以承载业务值。 */
         fullyRecovered: finalMonster.monster.hp === finalMonster.monster.maxHp,
         finalMonster,
     }, null, 2));

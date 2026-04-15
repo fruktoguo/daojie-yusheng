@@ -1,89 +1,109 @@
 "use strict";
-/** __decorate：定义该变量以承载业务值。 */
+
 var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-/** c：定义该变量以承载业务值。 */
+
     var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
     if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
     else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
     return c > 3 && r && Object.defineProperty(target, key, r), r;
 };
-/** __metadata：定义该变量以承载业务值。 */
+
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
-/** __param：定义该变量以承载业务值。 */
+
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
-/** WorldGateway_1：定义该变量以承载业务值。 */
+
 var WorldGateway_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.WorldGateway = void 0;
-/** websockets_1：定义该变量以承载业务值。 */
+
 const websockets_1 = require("@nestjs/websockets");
-/** common_1：定义该变量以承载业务值。 */
+
 const common_1 = require("@nestjs/common");
-/** shared_1：定义该变量以承载业务值。 */
+
 const shared_1 = require("@mud/shared-next");
-/** socket_io_1：定义该变量以承载业务值。 */
+
 const socket_io_1 = require("socket.io");
-/** movement_debug_1：定义该变量以承载业务值。 */
+
 const movement_debug_1 = require("../debug/movement-debug");
-/** health_readiness_service_1：定义该变量以承载业务值。 */
+
 const health_readiness_service_1 = require("../health/health-readiness.service");
-/** player_persistence_flush_service_1：定义该变量以承载业务值。 */
+
 const player_persistence_flush_service_1 = require("../persistence/player-persistence-flush.service");
-/** mail_runtime_service_1：定义该变量以承载业务值。 */
+
 const mail_runtime_service_1 = require("../runtime/mail/mail-runtime.service");
-/** market_runtime_service_1：定义该变量以承载业务值。 */
+
 const market_runtime_service_1 = require("../runtime/market/market-runtime.service");
-/** craft_panel_runtime_service_1：定义该变量以承载业务值。 */
+
 const craft_panel_runtime_service_1 = require("../runtime/craft/craft-panel-runtime.service");
-/** leaderboard_runtime_service_1：定义该变量以承载业务值。 */
+
 const leaderboard_runtime_service_1 = require("../runtime/player/leaderboard-runtime.service");
-/** player_runtime_service_1：定义该变量以承载业务值。 */
+
 const player_runtime_service_1 = require("../runtime/player/player-runtime.service");
-/** suggestion_runtime_service_1：定义该变量以承载业务值。 */
+
 const suggestion_runtime_service_1 = require("../runtime/suggestion/suggestion-runtime.service");
-/** world_runtime_service_1：定义该变量以承载业务值。 */
+
 const world_runtime_service_1 = require("../runtime/world/world-runtime.service");
-/** world_client_event_service_1：定义该变量以承载业务值。 */
+
 const world_client_event_service_1 = require("./world-client-event.service");
-/** world_gm_socket_service_1：定义该变量以承载业务值。 */
+
 const world_gm_socket_service_1 = require("./world-gm-socket.service");
-/** world_protocol_projection_service_1：定义该变量以承载业务值。 */
+
 const world_protocol_projection_service_1 = require("./world-protocol-projection.service");
-/** world_session_bootstrap_service_1：定义该变量以承载业务值。 */
+
 const world_session_bootstrap_service_1 = require("./world-session-bootstrap.service");
-/** world_session_service_1：定义该变量以承载业务值。 */
+
 const world_session_service_1 = require("./world-session.service");
-/** AUTHENTICATED_REQUESTED_SESSION_ID_AUTH_SOURCES：定义该变量以承载业务值。 */
+
+/** 鉴权后请求 sessionId 只允许从 next/token 两类来源带入。 */
 const AUTHENTICATED_REQUESTED_SESSION_ID_AUTH_SOURCES = new Set([
     'next',
     'token',
 ]);
-/** WorldGateway：定义该变量以承载业务值。 */
+
+/** 世界 Socket 入口：负责鉴权、会话引导、GM 操作和 gameplay 命令分发。 */
 let WorldGateway = WorldGateway_1 = class WorldGateway {
+    /** GM Socket 入口。 */
     worldGmSocketService;
+    /** 协议投影服务。 */
     worldProtocolProjectionService;
+    /** 会话引导服务。 */
     sessionBootstrapService;
+    /** readiness 检查服务。 */
     healthReadinessService;
+    /** 玩家刷盘服务。 */
     playerPersistenceFlushService;
+    /** 玩家 runtime。 */
     playerRuntimeService;
+    /** 邮件 runtime。 */
     mailRuntimeService;
+    /** 坊市 runtime。 */
     marketRuntimeService;
+    /** 采集/锻造面板 runtime。 */
     craftPanelRuntimeService;
+    /** 建议 runtime。 */
     suggestionRuntimeService;
+    /** 排行榜 runtime。 */
     leaderboardRuntimeService;
+    /** 世界 runtime。 */
     worldRuntimeService;
+    /** 客户端事件服务。 */
     worldClientEventService;
+    /** 会话管理入口。 */
     worldSessionService;
+    /** Socket.IO server 实例。 */
     server;
+    /** 入口日志。 */
     logger = new common_1.Logger(WorldGateway_1.name);
+    /** 用于过滤坊市订阅广播的玩家集合。 */
     marketSubscriberPlayerIds = new Set();
+    /** 玩家对应的坊市列表请求页码缓存。 */
     marketListingRequestsByPlayerId = new Map();
+    /** 玩家对应的成交历史请求页码缓存。 */
     marketTradeHistoryRequestsByPlayerId = new Map();
-/** 构造函数：执行实例初始化流程。 */
     constructor(worldGmSocketService, worldProtocolProjectionService, sessionBootstrapService, healthReadinessService, playerPersistenceFlushService, playerRuntimeService, mailRuntimeService, marketRuntimeService, craftPanelRuntimeService, suggestionRuntimeService, leaderboardRuntimeService, worldRuntimeService, worldClientEventService, worldSessionService) {
         this.worldGmSocketService = worldGmSocketService;
         this.worldProtocolProjectionService = worldProtocolProjectionService;
@@ -100,7 +120,7 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         this.worldClientEventService = worldClientEventService;
         this.worldSessionService = worldSessionService;
     }
-/** setBootstrapTraceContext：执行对应的业务逻辑。 */
+    /** 记录握手阶段的引导上下文。 */
     setBootstrapTraceContext(client, entryPath, identity) {
         client.data.bootstrapEntryPath = entryPath;
         client.data.bootstrapIdentitySource = identity?.authSource ?? null;
@@ -108,13 +128,13 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         client.data.bootstrapSnapshotSource = null;
         client.data.bootstrapSnapshotPersistedSource = null;
     }
-/** resolveBootstrapPromise：执行对应的业务逻辑。 */
+    /** 读取当前 socket 上的 bootstrap promise。 */
     resolveBootstrapPromise(client) {
-/** promise：定义该变量以承载业务值。 */
+
         const promise = client?.data?.bootstrapPromise;
         return promise && typeof promise.then === 'function' ? promise : null;
     }
-/** rememberBootstrapPromise：执行对应的业务逻辑。 */
+    /** 记录 bootstrap promise，防止重复发起引导。 */
     rememberBootstrapPromise(client, promise) {
         client.data.bootstrapPromise = promise;
         promise.finally(() => {
@@ -124,12 +144,12 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         }).catch(() => undefined);
         return promise;
     }
-/** awaitPendingBootstrap：执行对应的业务逻辑。 */
+    /** 等待未完成的 bootstrap 过程结束。 */
     async awaitPendingBootstrap(client) {
-/** deadline：定义该变量以承载业务值。 */
+
         const deadline = Date.now() + 1000;
         while (Date.now() <= deadline) {
-/** promise：定义该变量以承载业务值。 */
+
             const promise = this.resolveBootstrapPromise(client);
             if (promise) {
                 await promise;
@@ -140,7 +160,7 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             }
             await new Promise((resolve) => setTimeout(resolve, 20));
         }
-/** promise：定义该变量以承载业务值。 */
+
         const promise = this.resolveBootstrapPromise(client);
         if (promise) {
             await promise;
@@ -148,44 +168,44 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         }
         return typeof client?.data?.playerId === 'string' && client.data.playerId.trim().length > 0;
     }
-/** hasSocketAuthHint：执行对应的业务逻辑。 */
+    /** 判断 socket 是否携带鉴权提示。 */
     hasSocketAuthHint(client) {
         return this.sessionBootstrapService.pickSocketToken(client).length > 0
             || this.sessionBootstrapService.pickSocketGmToken(client).length > 0;
     }
-/** resolveAuthenticatedBootstrapEntryPath：执行对应的业务逻辑。 */
+    /** 根据当前身份决定本次 bootstrap 入口路径。 */
     resolveAuthenticatedBootstrapEntryPath(client) {
         return client?.data?.isGm === true ? 'connect_gm_token' : 'connect_token';
     }
-/** resolveAuthenticatedIdentitySource：执行对应的业务逻辑。 */
+    /** 解析鉴权后最终采用的身份来源。 */
     resolveAuthenticatedIdentitySource(client, identity) {
-/** authSource：定义该变量以承载业务值。 */
+
         const authSource = typeof identity?.authSource === 'string' ? identity.authSource.trim() : '';
         if (authSource) {
             return authSource;
         }
-/** bootstrapIdentitySource：定义该变量以承载业务值。 */
+
         const bootstrapIdentitySource = typeof client?.data?.bootstrapIdentitySource === 'string'
             ? client.data.bootstrapIdentitySource.trim()
             : '';
         return bootstrapIdentitySource;
     }
-/** resolveAuthenticatedIdentityPersistedSource：执行对应的业务逻辑。 */
+    /** 解析鉴权后最终采用的持久化来源。 */
     resolveAuthenticatedIdentityPersistedSource(client, identity) {
-/** persistedSource：定义该变量以承载业务值。 */
+
         const persistedSource = typeof identity?.persistedSource === 'string' ? identity.persistedSource.trim() : '';
         if (persistedSource) {
             return persistedSource;
         }
-/** bootstrapIdentityPersistedSource：定义该变量以承载业务值。 */
+
         const bootstrapIdentityPersistedSource = typeof client?.data?.bootstrapIdentityPersistedSource === 'string'
             ? client.data.bootstrapIdentityPersistedSource.trim()
             : '';
         return bootstrapIdentityPersistedSource;
     }
-/** resolveAuthenticatedRequestedSessionId：执行对应的业务逻辑。 */
+    /** 解析鉴权阶段最终使用的 sessionId。 */
     resolveAuthenticatedRequestedSessionId(client, identity) {
-/** requestedSessionId：定义该变量以承载业务值。 */
+
         const requestedSessionId = this.sessionBootstrapService.pickSocketRequestedSessionId(client);
         if (!requestedSessionId) {
             return undefined;
@@ -194,7 +214,7 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             this.logger.warn(`已忽略 GM 引导中的请求 sessionId：socket=${client.id} sessionId=${requestedSessionId}`);
             return undefined;
         }
-/** authSource：定义该变量以承载业务值。 */
+
         const authSource = this.resolveAuthenticatedIdentitySource(client, identity);
         if (!AUTHENTICATED_REQUESTED_SESSION_ID_AUTH_SOURCES.has(authSource)) {
             this.logger.warn(`已忽略鉴权引导中的请求 sessionId：socket=${client.id} authSource=${authSource || '未知'} sessionId=${requestedSessionId}`);
@@ -206,7 +226,7 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         }
         return requestedSessionId;
     }
-/** buildAuthenticatedBootstrapInput：执行对应的业务逻辑。 */
+    /** 组装鉴权 bootstrap 输入。 */
     buildAuthenticatedBootstrapInput(client, identity) {
         return {
             playerId: identity.playerId,
@@ -221,45 +241,45 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             loadSnapshot: () => this.sessionBootstrapService.loadAuthenticatedPlayerSnapshot(identity, client),
         };
     }
-/** startAuthenticatedBootstrap：执行对应的业务逻辑。 */
+    /** 发起普通玩家的 bootstrap。 */
     startAuthenticatedBootstrap(client, entryPath, identity) {
-/** existing：定义该变量以承载业务值。 */
+
         const existing = this.resolveBootstrapPromise(client);
         if (existing) {
             return existing;
         }
         this.setBootstrapTraceContext(client, entryPath, identity);
         client.data.authenticatedSnapshotRecovery = null;
-/** promise：定义该变量以承载业务值。 */
+
         const promise = (async () => {
             await this.sessionBootstrapService.bootstrapPlayerSession(client, this.buildAuthenticatedBootstrapInput(client, identity));
             client.data.userId = identity.userId;
         })();
         return this.rememberBootstrapPromise(client, promise);
     }
-/** resolveGuestDetachedBinding：执行对应的业务逻辑。 */
+    /** 解析游客离线续连的 session 绑定。 */
     resolveGuestDetachedBinding(payloadSessionId) {
         return this.worldSessionService.getDetachedBindingBySessionId(payloadSessionId);
     }
-/** buildGuestHelloBootstrapInput：执行对应的业务逻辑。 */
+    /** 组装游客 hello 的 bootstrap 输入。 */
     buildGuestHelloBootstrapInput(client, payload) {
-/** detachedBinding：定义该变量以承载业务值。 */
+
         const detachedBinding = this.resolveGuestDetachedBinding(payload?.sessionId);
-/** guestDetachedBinding：定义该变量以承载业务值。 */
+
         const guestDetachedBinding = detachedBinding && this.worldSessionService.isGuestPlayerId(detachedBinding.playerId)
             ? detachedBinding
             : null;
         if (detachedBinding && !guestDetachedBinding) {
             this.logger.warn(`已拒绝非游客绑定上的游客 hello 脱机续连：socket=${client.id} playerId=${detachedBinding.playerId} sessionId=${detachedBinding.sessionId}`);
         }
-/** playerId：定义该变量以承载业务值。 */
+
         const playerId = guestDetachedBinding?.playerId
             ?? this.worldSessionService.createGuestPlayerId();
-/** mapId：定义该变量以承载业务值。 */
+
         const mapId = guestDetachedBinding ? undefined : payload.mapId;
-/** preferredX：定义该变量以承载业务值。 */
+
         const preferredX = guestDetachedBinding ? undefined : payload.preferredX;
-/** preferredY：定义该变量以承载业务值。 */
+
         const preferredY = guestDetachedBinding ? undefined : payload.preferredY;
         return {
             playerId,
@@ -270,22 +290,20 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             loadSnapshot: () => this.sessionBootstrapService.loadPlayerSnapshot(playerId, false),
         };
     }
-/** handleGuestHello：执行对应的业务逻辑。 */
     async handleGuestHello(client, payload) {
         this.setBootstrapTraceContext(client, 'hello_guest', null);
         await this.sessionBootstrapService.bootstrapPlayerSession(client, this.buildGuestHelloBootstrapInput(client, payload));
     }
-/** resolveBootstrapAuthContext：执行对应的业务逻辑。 */
     async resolveBootstrapAuthContext(client, options = undefined) {
-/** allowGuest：定义该变量以承载业务值。 */
+
         const allowGuest = options?.allowGuest === true;
-/** token：定义该变量以承载业务值。 */
+
         const token = this.sessionBootstrapService.pickSocketToken(client);
-/** gmToken：定义该变量以承载业务值。 */
+
         const gmToken = this.sessionBootstrapService.pickSocketGmToken(client);
-/** requestedSessionInspection：定义该变量以承载业务值。 */
+
         const requestedSessionInspection = this.sessionBootstrapService.inspectSocketRequestedSessionId(client);
-/** protocol：定义该变量以承载业务值。 */
+
         const protocol = typeof client?.data?.protocol === 'string' ? client.data.protocol.trim().toLowerCase() : '';
         if ((token || gmToken)
             && protocol === 'next'
@@ -315,7 +333,7 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
                 }
                 : null;
         }
-/** identity：定义该变量以承载业务值。 */
+
         const identity = await this.sessionBootstrapService.authenticateSocketToken(token, {
             protocol,
         });
@@ -331,7 +349,7 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             client.disconnect(true);
             return null;
         }
-/** authenticatedBootstrapContractViolation：定义该变量以承载业务值。 */
+
         const authenticatedBootstrapContractViolation = this.sessionBootstrapService.resolveAuthenticatedBootstrapContractViolation(client, {
             authSource: this.resolveAuthenticatedIdentitySource(client, identity),
             persistedSource: this.resolveAuthenticatedIdentityPersistedSource(client, identity),
@@ -343,14 +361,14 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         }
         return { identity };
     }
-/** handleConnection：执行对应的业务逻辑。 */
+    /** 处理 socket 连接：校验协议、阻断未就绪流量并触发鉴权引导。 */
     async handleConnection(client) {
         this.logger.debug(`Socket 已连接：${client.id}`);
-/** handshakeProtocol：定义该变量以承载业务值。 */
+
         const handshakeProtocol = typeof client.handshake?.auth?.protocol === 'string'
             ? client.handshake.auth.protocol.trim().toLowerCase()
             : '';
-/** hasAuthHint：定义该变量以承载业务值。 */
+
         const hasAuthHint = this.hasSocketAuthHint(client);
         if (handshakeProtocol === 'next') {
             this.worldClientEventService.markProtocol(client, handshakeProtocol);
@@ -377,7 +395,7 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             return;
         }
         try {
-/** authContext：定义该变量以承载业务值。 */
+
             const authContext = await this.resolveBootstrapAuthContext(client);
             if (!authContext?.identity) {
                 return;
@@ -393,9 +411,9 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             client.disconnect(true);
         }
     }
-/** handleDisconnect：执行对应的业务逻辑。 */
+    /** 处理 socket 断开：解绑会话、清理订阅并刷盘离线玩家。 */
     async handleDisconnect(client) {
-/** binding：定义该变量以承载业务值。 */
+
         const binding = this.worldSessionService.unregisterSocket(client.id);
         if (!binding) {
             return;
@@ -412,9 +430,9 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         });
         this.logger.debug(`Socket 已脱离：${client.id} -> ${binding.playerId}, expiresAt=${binding.expireAt}`);
     }
-/** handleHello：执行对应的业务逻辑。 */
+    /** 处理 hello：确认协议上下文后进入游客或鉴权 bootstrap。 */
     async handleHello(client, payload) {
-/** currentProtocol：定义该变量以承载业务值。 */
+
         const currentProtocol = typeof client?.data?.protocol === 'string' ? client.data.protocol.trim().toLowerCase() : '';
         if (currentProtocol === 'legacy') {
             this.worldClientEventService.emitError(client, 'HELLO_PROTOCOL_MISMATCH', 'legacy 握手连接不能进入 next hello 链路');
@@ -435,7 +453,7 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
                 return;
             }
             if (this.hasSocketAuthHint(client)) {
-/** waited：定义该变量以承载业务值。 */
+
                 const waited = await this.awaitPendingBootstrap(client);
                 if (waited) {
                     return;
@@ -445,7 +463,7 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
                 client.disconnect(true);
                 return;
             }
-/** requestedSessionInspection：定义该变量以承载业务值。 */
+
             const requestedSessionInspection = this.sessionBootstrapService.inspectRequestedSessionId(payload?.sessionId, client, 'hello');
             if (requestedSessionInspection.error) {
                 this.worldClientEventService.emitError(client, 'HELLO_SESSION_ID_INVALID', 'hello 请求 sessionId 非法');
@@ -458,50 +476,44 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             this.worldClientEventService.emitGatewayError(client, 'HELLO_FAILED', error);
         }
     }
-/** handleNextHeartbeat：执行对应的业务逻辑。 */
     handleNextHeartbeat(client, _payload) {
-/** playerId：定义该变量以承载业务值。 */
+
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
         }
     }
-/** rejectWhenNotReady：执行对应的业务逻辑。 */
     rejectWhenNotReady(client) {
         if (readBooleanEnv('SERVER_NEXT_ALLOW_UNREADY_TRAFFIC') || readBooleanEnv('SERVER_NEXT_SMOKE_ALLOW_UNREADY')) {
             return false;
         }
-/** health：定义该变量以承载业务值。 */
+
         const health = this.healthReadinessService.build();
         if (health.readiness.ok) {
             return false;
         }
-/** isMaintenance：定义该变量以承载业务值。 */
+
         const isMaintenance = health.readiness.maintenance?.active === true;
         this.worldClientEventService.emitError(client, isMaintenance ? 'SERVER_BUSY' : 'SERVER_NOT_READY', isMaintenance ? '数据库维护中，请稍后重连' : '服务未就绪，请稍后重连');
         client.disconnect(true);
         return true;
     }
-/** handleNextGmGetState：执行对应的业务逻辑。 */
     handleNextGmGetState(client, _payload) {
         this.handleGmGetState(client, _payload);
     }
-/** handleGmGetState：执行对应的业务逻辑。 */
     handleGmGetState(client, _payload) {
-/** playerId：定义该变量以承载业务值。 */
+
         const playerId = this.requireGm(client);
         if (!playerId) {
             return;
         }
         this.worldGmSocketService.emitState(client);
     }
-/** handleNextGmSpawnBots：执行对应的业务逻辑。 */
     handleNextGmSpawnBots(client, payload) {
         this.handleGmSpawnBots(client, payload);
     }
-/** handleGmSpawnBots：执行对应的业务逻辑。 */
     handleGmSpawnBots(client, payload) {
-/** playerId：定义该变量以承载业务值。 */
+
         const playerId = this.requireGm(client);
         if (!playerId) {
             return;
@@ -513,13 +525,11 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             this.worldClientEventService.emitGatewayError(client, 'GM_SPAWN_BOTS_FAILED', error);
         }
     }
-/** handleNextGmRemoveBots：执行对应的业务逻辑。 */
     handleNextGmRemoveBots(client, payload) {
         this.handleGmRemoveBots(client, payload);
     }
-/** handleGmRemoveBots：执行对应的业务逻辑。 */
     handleGmRemoveBots(client, payload) {
-/** playerId：定义该变量以承载业务值。 */
+
         const playerId = this.requireGm(client);
         if (!playerId) {
             return;
@@ -531,13 +541,11 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             this.worldClientEventService.emitGatewayError(client, 'GM_REMOVE_BOTS_FAILED', error);
         }
     }
-/** handleNextGmUpdatePlayer：执行对应的业务逻辑。 */
     handleNextGmUpdatePlayer(client, payload) {
         this.handleGmUpdatePlayer(client, payload);
     }
-/** handleGmUpdatePlayer：执行对应的业务逻辑。 */
     handleGmUpdatePlayer(client, payload) {
-/** requesterPlayerId：定义该变量以承载业务值。 */
+
         const requesterPlayerId = this.requireGm(client);
         if (!requesterPlayerId) {
             return;
@@ -549,13 +557,11 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             this.worldClientEventService.emitGatewayError(client, 'GM_UPDATE_PLAYER_FAILED', error);
         }
     }
-/** handleNextGmResetPlayer：执行对应的业务逻辑。 */
     handleNextGmResetPlayer(client, payload) {
         this.handleGmResetPlayer(client, payload);
     }
-/** handleGmResetPlayer：执行对应的业务逻辑。 */
     handleGmResetPlayer(client, payload) {
-/** requesterPlayerId：定义该变量以承载业务值。 */
+
         const requesterPlayerId = this.requireGm(client);
         if (!requesterPlayerId) {
             return;
@@ -567,9 +573,8 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             this.worldClientEventService.emitGatewayError(client, 'GM_RESET_PLAYER_FAILED', error);
         }
     }
-/** handleNextMoveTo：执行对应的业务逻辑。 */
     handleNextMoveTo(client, payload) {
-/** playerId：定义该变量以承载业务值。 */
+
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
@@ -581,9 +586,9 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             payload: {
                 x: payload?.x ?? null,
                 y: payload?.y ?? null,
-/** allowNearestReachable：定义该变量以承载业务值。 */
+
                 allowNearestReachable: payload?.allowNearestReachable === true,
-/** ignoreVisibilityLimit：定义该变量以承载业务值。 */
+
                 ignoreVisibilityLimit: payload?.ignoreVisibilityLimit === true,
                 packedPathSteps: payload?.packedPathSteps ?? null,
                 packedPath: payload?.packedPath ?? null,
@@ -598,14 +603,13 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             this.worldClientEventService.emitGatewayError(client, 'MOVE_TO_FAILED', error);
         }
     }
-/** handleNextNavigateQuest：执行对应的业务逻辑。 */
     handleNextNavigateQuest(client, payload) {
-/** playerId：定义该变量以承载业务值。 */
+
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
         }
-/** questId：定义该变量以承载业务值。 */
+
         const questId = typeof payload?.questId === 'string' ? payload.questId.trim() : '';
         (0, movement_debug_1.logServerNextMovement)(this.logger, 'gateway.recv.navigateQuest', {
             playerId,
@@ -625,9 +629,8 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             this.worldClientEventService.emitQuestNavigateResult(client, questId, false, error instanceof Error ? error.message : String(error));
         }
     }
-/** handleMove：执行对应的业务逻辑。 */
     handleMove(client, payload) {
-/** playerId：定义该变量以承载业务值。 */
+
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
@@ -645,15 +648,14 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             this.worldClientEventService.emitGatewayError(client, 'MOVE_FAILED', error);
         }
     }
-/** handleNextDestroyItem：执行对应的业务逻辑。 */
     handleNextDestroyItem(client, payload) {
-/** playerId：定义该变量以承载业务值。 */
+
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
         }
         try {
-/** destroyed：定义该变量以承载业务值。 */
+
             const destroyed = this.playerRuntimeService.destroyInventoryItem(playerId, payload?.slotIndex, payload?.count);
             this.playerRuntimeService.enqueueNotice(playerId, {
                 text: `你摧毁了 ${destroyed.name ?? destroyed.itemId} x${destroyed.count}。`,
@@ -664,9 +666,8 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             this.worldClientEventService.emitGatewayError(client, 'DESTROY_ITEM_FAILED', error);
         }
     }
-/** handleNextSortInventory：执行对应的业务逻辑。 */
     handleNextSortInventory(client, _payload) {
-/** playerId：定义该变量以承载业务值。 */
+
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
@@ -682,36 +683,32 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             this.worldClientEventService.emitGatewayError(client, 'SORT_INVENTORY_FAILED', error);
         }
     }
-/** handleNextChat：执行对应的业务逻辑。 */
     handleNextChat(client, payload) {
-/** playerId：定义该变量以承载业务值。 */
+
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
         }
         this.worldClientEventService.broadcastChat(playerId, payload);
     }
-/** handleNextAckSystemMessages：执行对应的业务逻辑。 */
     handleNextAckSystemMessages(client, payload) {
-/** playerId：定义该变量以承载业务值。 */
+
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
         }
         this.worldClientEventService.acknowledgeSystemMessages(playerId, payload);
     }
-/** handleNextDebugResetSpawn：执行对应的业务逻辑。 */
     handleNextDebugResetSpawn(client, _payload) {
-/** playerId：定义该变量以承载业务值。 */
+
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
         }
         this.worldRuntimeService.enqueueResetPlayerSpawn(playerId);
     }
-/** handleNextUpdateAutoBattleSkills：执行对应的业务逻辑。 */
     handleNextUpdateAutoBattleSkills(client, payload) {
-/** playerId：定义该变量以承载业务值。 */
+
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
@@ -723,9 +720,8 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             this.worldClientEventService.emitGatewayError(client, 'UPDATE_AUTO_BATTLE_SKILLS_FAILED', error);
         }
     }
-/** handleNextUpdateAutoUsePills：执行对应的业务逻辑。 */
     handleNextUpdateAutoUsePills(client, payload) {
-/** playerId：定义该变量以承载业务值。 */
+
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
@@ -737,9 +733,8 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             this.worldClientEventService.emitGatewayError(client, 'UPDATE_AUTO_USE_PILLS_FAILED', error);
         }
     }
-/** handleNextUpdateCombatTargetingRules：执行对应的业务逻辑。 */
     handleNextUpdateCombatTargetingRules(client, payload) {
-/** playerId：定义该变量以承载业务值。 */
+
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
@@ -751,9 +746,8 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             this.worldClientEventService.emitGatewayError(client, 'UPDATE_COMBAT_TARGETING_RULES_FAILED', error);
         }
     }
-/** handleNextUpdateAutoBattleTargetingMode：执行对应的业务逻辑。 */
     handleNextUpdateAutoBattleTargetingMode(client, payload) {
-/** playerId：定义该变量以承载业务值。 */
+
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
@@ -765,9 +759,8 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             this.worldClientEventService.emitGatewayError(client, 'UPDATE_AUTO_BATTLE_TARGETING_MODE_FAILED', error);
         }
     }
-/** handleNextUpdateTechniqueSkillAvailability：执行对应的业务逻辑。 */
     handleNextUpdateTechniqueSkillAvailability(client, payload) {
-/** playerId：定义该变量以承载业务值。 */
+
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
@@ -779,9 +772,8 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             this.worldClientEventService.emitGatewayError(client, 'UPDATE_TECHNIQUE_SKILL_AVAILABILITY_FAILED', error);
         }
     }
-/** handleNextHeavenGateAction：执行对应的业务逻辑。 */
     handleNextHeavenGateAction(client, payload) {
-/** playerId：定义该变量以承载业务值。 */
+
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
@@ -793,9 +785,8 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             this.worldClientEventService.emitGatewayError(client, 'HEAVEN_GATE_ACTION_FAILED', error);
         }
     }
-/** handleUseAction：执行对应的业务逻辑。 */
     handleUseAction(client, payload) {
-/** playerId：定义该变量以承载业务值。 */
+
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
@@ -808,9 +799,8 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             this.worldClientEventService.emitGatewayError(client, 'USE_ACTION_FAILED', error);
         }
     }
-/** handleRequestQuests：执行对应的业务逻辑。 */
     handleRequestQuests(client, _payload) {
-/** playerId：定义该变量以承载业务值。 */
+
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
@@ -822,13 +812,11 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             this.worldClientEventService.emitGatewayError(client, 'REQUEST_QUESTS_FAILED', error);
         }
     }
-/** handleNextRequestMailSummary：执行对应的业务逻辑。 */
     async handleNextRequestMailSummary(client, payload) {
         await this.executeRequestMailSummary(client);
     }
-/** executeRequestMailSummary：执行对应的业务逻辑。 */
     async executeRequestMailSummary(client) {
-/** playerId：定义该变量以承载业务值。 */
+
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
@@ -840,32 +828,28 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             this.worldClientEventService.emitGatewayError(client, 'REQUEST_MAIL_SUMMARY_FAILED', error);
         }
     }
-/** handleNextRequestSuggestions：执行对应的业务逻辑。 */
     handleNextRequestSuggestions(client, payload) {
         this.executeRequestSuggestions(client);
     }
-/** executeRequestSuggestions：执行对应的业务逻辑。 */
     executeRequestSuggestions(client) {
-/** playerId：定义该变量以承载业务值。 */
+
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
         }
         this.emitNextSuggestionUpdate(client, this.suggestionRuntimeService.getAll());
     }
-/** handleNextRequestMailPage：执行对应的业务逻辑。 */
     async handleNextRequestMailPage(client, payload) {
         await this.executeRequestMailPage(client, payload);
     }
-/** executeRequestMailPage：执行对应的业务逻辑。 */
     async executeRequestMailPage(client, payload) {
-/** playerId：定义该变量以承载业务值。 */
+
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
         }
         try {
-/** page：定义该变量以承载业务值。 */
+
             const page = await this.mailRuntimeService.getPage(playerId, payload?.page, payload?.pageSize, payload?.filter);
             this.emitNextMailPage(client, page);
         }
@@ -873,19 +857,17 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             this.worldClientEventService.emitGatewayError(client, 'REQUEST_MAIL_PAGE_FAILED', error);
         }
     }
-/** handleNextRequestMailDetail：执行对应的业务逻辑。 */
     async handleNextRequestMailDetail(client, payload) {
         await this.executeRequestMailDetail(client, payload);
     }
-/** executeRequestMailDetail：执行对应的业务逻辑。 */
     async executeRequestMailDetail(client, payload) {
-/** playerId：定义该变量以承载业务值。 */
+
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
         }
         try {
-/** detail：定义该变量以承载业务值。 */
+
             const detail = await this.mailRuntimeService.getDetail(playerId, payload?.mailId ?? '');
             this.emitNextMailDetail(client, detail);
         }
@@ -893,13 +875,11 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             this.worldClientEventService.emitGatewayError(client, 'REQUEST_MAIL_DETAIL_FAILED', error);
         }
     }
-/** handleNextRedeemCodes：执行对应的业务逻辑。 */
     handleNextRedeemCodes(client, payload) {
         this.executeRedeemCodes(client, payload);
     }
-/** executeRedeemCodes：执行对应的业务逻辑。 */
     executeRedeemCodes(client, payload) {
-/** playerId：定义该变量以承载业务值。 */
+
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
@@ -911,13 +891,11 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             this.worldClientEventService.emitGatewayError(client, 'REDEEM_CODES_FAILED', error);
         }
     }
-/** handleNextRequestMarket：执行对应的业务逻辑。 */
     handleNextRequestMarket(client, payload) {
         this.executeRequestMarket(client);
     }
-/** executeRequestMarket：执行对应的业务逻辑。 */
     executeRequestMarket(client) {
-/** playerId：定义该变量以承载业务值。 */
+
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
@@ -925,7 +903,7 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         try {
             this.marketSubscriberPlayerIds.add(playerId);
             this.marketListingRequestsByPlayerId.set(playerId, { page: 1 });
-/** response：定义该变量以承载业务值。 */
+
             const response = this.marketRuntimeService.buildMarketUpdate(playerId);
             this.emitNextMarketUpdate(client, response);
             this.emitNextMarketListings(client, this.marketRuntimeService.buildMarketListingsPage(this.marketListingRequestsByPlayerId.get(playerId)));
@@ -936,9 +914,8 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             this.worldClientEventService.emitGatewayError(client, 'REQUEST_MARKET_FAILED', error);
         }
     }
-/** handleNextRequestMarketListings：执行对应的业务逻辑。 */
     handleNextRequestMarketListings(client, payload) {
-/** playerId：定义该变量以承载业务值。 */
+
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
@@ -953,19 +930,17 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             this.worldClientEventService.emitGatewayError(client, 'REQUEST_MARKET_LISTINGS_FAILED', error);
         }
     }
-/** handleNextMarkMailRead：执行对应的业务逻辑。 */
     async handleNextMarkMailRead(client, payload) {
         await this.executeMarkMailRead(client, payload);
     }
-/** executeMarkMailRead：执行对应的业务逻辑。 */
     async executeMarkMailRead(client, payload) {
-/** playerId：定义该变量以承载业务值。 */
+
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
         }
         try {
-/** response：定义该变量以承载业务值。 */
+
             const response = await this.mailRuntimeService.markRead(playerId, payload?.mailIds ?? []);
             this.emitNextMailOperationResult(client, response);
             await this.emitNextMailSummaryForPlayer(client, playerId);
@@ -974,13 +949,11 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             this.worldClientEventService.emitGatewayError(client, 'MARK_MAIL_READ_FAILED', error);
         }
     }
-/** handleNextCreateSuggestion：执行对应的业务逻辑。 */
     async handleNextCreateSuggestion(client, payload) {
         await this.executeCreateSuggestion(client, payload);
     }
-/** executeCreateSuggestion：执行对应的业务逻辑。 */
     async executeCreateSuggestion(client, payload) {
-/** playerId：定义该变量以承载业务值。 */
+
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
@@ -993,13 +966,11 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             this.worldClientEventService.emitGatewayError(client, 'CREATE_SUGGESTION_FAILED', error);
         }
     }
-/** handleNextVoteSuggestion：执行对应的业务逻辑。 */
     async handleNextVoteSuggestion(client, payload) {
         await this.executeVoteSuggestion(client, payload);
     }
-/** executeVoteSuggestion：执行对应的业务逻辑。 */
     async executeVoteSuggestion(client, payload) {
-/** playerId：定义该变量以承载业务值。 */
+
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
@@ -1012,13 +983,11 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             this.worldClientEventService.emitGatewayError(client, 'VOTE_SUGGESTION_FAILED', error);
         }
     }
-/** handleNextReplySuggestion：执行对应的业务逻辑。 */
     async handleNextReplySuggestion(client, payload) {
         await this.executeReplySuggestion(client, payload);
     }
-/** executeReplySuggestion：执行对应的业务逻辑。 */
     async executeReplySuggestion(client, payload) {
-/** playerId：定义该变量以承载业务值。 */
+
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
@@ -1031,13 +1000,11 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             this.worldClientEventService.emitGatewayError(client, 'REPLY_SUGGESTION_FAILED', error);
         }
     }
-/** handleNextMarkSuggestionRepliesRead：执行对应的业务逻辑。 */
     async handleNextMarkSuggestionRepliesRead(client, payload) {
         await this.executeMarkSuggestionRepliesRead(client, payload);
     }
-/** executeMarkSuggestionRepliesRead：执行对应的业务逻辑。 */
     async executeMarkSuggestionRepliesRead(client, payload) {
-/** playerId：定义该变量以承载业务值。 */
+
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
@@ -1050,13 +1017,11 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             this.worldClientEventService.emitGatewayError(client, 'MARK_SUGGESTION_REPLIES_READ_FAILED', error);
         }
     }
-/** handleNextGmMarkSuggestionCompleted：执行对应的业务逻辑。 */
     async handleNextGmMarkSuggestionCompleted(client, payload) {
         await this.executeGmMarkSuggestionCompleted(client, payload);
     }
-/** executeGmMarkSuggestionCompleted：执行对应的业务逻辑。 */
     async executeGmMarkSuggestionCompleted(client, payload) {
-/** playerId：定义该变量以承载业务值。 */
+
         const playerId = this.requireGm(client);
         if (!playerId) {
             return;
@@ -1069,13 +1034,11 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             this.worldClientEventService.emitGatewayError(client, 'GM_MARK_SUGGESTION_COMPLETED_FAILED', error);
         }
     }
-/** handleNextGmRemoveSuggestion：执行对应的业务逻辑。 */
     async handleNextGmRemoveSuggestion(client, payload) {
         await this.executeGmRemoveSuggestion(client, payload);
     }
-/** executeGmRemoveSuggestion：执行对应的业务逻辑。 */
     async executeGmRemoveSuggestion(client, payload) {
-/** playerId：定义该变量以承载业务值。 */
+
         const playerId = this.requireGm(client);
         if (!playerId) {
             return;
@@ -1088,19 +1051,17 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             this.worldClientEventService.emitGatewayError(client, 'GM_REMOVE_SUGGESTION_FAILED', error);
         }
     }
-/** handleNextClaimMailAttachments：执行对应的业务逻辑。 */
     async handleNextClaimMailAttachments(client, payload) {
         await this.executeClaimMailAttachments(client, payload);
     }
-/** executeClaimMailAttachments：执行对应的业务逻辑。 */
     async executeClaimMailAttachments(client, payload) {
-/** playerId：定义该变量以承载业务值。 */
+
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
         }
         try {
-/** response：定义该变量以承载业务值。 */
+
             const response = await this.mailRuntimeService.claimAttachments(playerId, payload?.mailIds ?? []);
             this.emitNextMailOperationResult(client, response);
             await this.emitNextMailSummaryForPlayer(client, playerId);
@@ -1109,19 +1070,17 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             this.worldClientEventService.emitGatewayError(client, 'CLAIM_MAIL_ATTACHMENTS_FAILED', error);
         }
     }
-/** handleNextDeleteMail：执行对应的业务逻辑。 */
     async handleNextDeleteMail(client, payload) {
         await this.executeDeleteMail(client, payload);
     }
-/** executeDeleteMail：执行对应的业务逻辑。 */
     async executeDeleteMail(client, payload) {
-/** playerId：定义该变量以承载业务值。 */
+
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
         }
         try {
-/** response：定义该变量以承载业务值。 */
+
             const response = await this.mailRuntimeService.deleteMails(playerId, payload?.mailIds ?? []);
             this.emitNextMailOperationResult(client, response);
             await this.emitNextMailSummaryForPlayer(client, playerId);
@@ -1130,19 +1089,17 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             this.worldClientEventService.emitGatewayError(client, 'DELETE_MAIL_FAILED', error);
         }
     }
-/** handleNextRequestMarketItemBook：执行对应的业务逻辑。 */
     handleNextRequestMarketItemBook(client, payload) {
         this.executeRequestMarketItemBook(client, payload);
     }
-/** executeRequestMarketItemBook：执行对应的业务逻辑。 */
     executeRequestMarketItemBook(client, payload) {
-/** playerId：定义该变量以承载业务值。 */
+
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
         }
         try {
-/** response：定义该变量以承载业务值。 */
+
             const response = this.marketRuntimeService.buildItemBook(payload?.itemKey ?? '');
             this.emitNextMarketItemBook(client, response);
         }
@@ -1150,20 +1107,18 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             this.worldClientEventService.emitGatewayError(client, 'REQUEST_MARKET_ITEM_BOOK_FAILED', error);
         }
     }
-/** handleNextRequestMarketTradeHistory：执行对应的业务逻辑。 */
     handleNextRequestMarketTradeHistory(client, payload) {
         this.executeRequestMarketTradeHistory(client, payload);
     }
-/** executeRequestMarketTradeHistory：执行对应的业务逻辑。 */
     executeRequestMarketTradeHistory(client, payload) {
-/** playerId：定义该变量以承载业务值。 */
+
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
         }
         try {
             this.marketTradeHistoryRequestsByPlayerId.set(playerId, Number.isFinite(payload?.page) ? Math.max(1, Math.trunc(payload.page)) : 1);
-/** response：定义该变量以承载业务值。 */
+
             const response = this.marketRuntimeService.buildTradeHistoryPage(playerId, payload?.page);
             this.emitNextMarketTradeHistory(client, response);
         }
@@ -1171,15 +1126,14 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             this.worldClientEventService.emitGatewayError(client, 'REQUEST_MARKET_TRADE_HISTORY_FAILED', error);
         }
     }
-/** handleNextRequestAttrDetail：执行对应的业务逻辑。 */
     handleNextRequestAttrDetail(client, _payload) {
-/** playerId：定义该变量以承载业务值。 */
+
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
         }
         try {
-/** player：定义该变量以承载业务值。 */
+
             const player = this.playerRuntimeService.getPlayer(playerId);
             if (!player) {
                 return;
@@ -1203,15 +1157,14 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             this.worldClientEventService.emitGatewayError(client, 'REQUEST_ATTR_DETAIL_FAILED', error);
         }
     }
-/** handleNextRequestAlchemyPanel：执行对应的业务逻辑。 */
     handleNextRequestAlchemyPanel(client, payload) {
-/** playerId：定义该变量以承载业务值。 */
+
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
         }
         try {
-/** player：定义该变量以承载业务值。 */
+
             const player = this.playerRuntimeService.getPlayer(playerId);
             if (!player) {
                 return;
@@ -1223,15 +1176,14 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             this.worldClientEventService.emitGatewayError(client, 'REQUEST_ALCHEMY_PANEL_FAILED', error);
         }
     }
-/** handleNextRequestEnhancementPanel：执行对应的业务逻辑。 */
     handleNextRequestEnhancementPanel(client, _payload) {
-/** playerId：定义该变量以承载业务值。 */
+
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
         }
         try {
-/** player：定义该变量以承载业务值。 */
+
             const player = this.playerRuntimeService.getPlayer(playerId);
             if (!player) {
                 return;
@@ -1243,7 +1195,6 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             this.worldClientEventService.emitGatewayError(client, 'REQUEST_ENHANCEMENT_PANEL_FAILED', error);
         }
     }
-/** handleNextStartAlchemy：执行对应的业务逻辑。 */
     handleNextStartAlchemy(client, payload) {
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
@@ -1257,7 +1208,6 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             this.worldClientEventService.emitGatewayError(client, 'START_ALCHEMY_FAILED', error);
         }
     }
-/** handleNextCancelAlchemy：执行对应的业务逻辑。 */
     handleNextCancelAlchemy(client, _payload) {
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
@@ -1271,7 +1221,6 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             this.worldClientEventService.emitGatewayError(client, 'CANCEL_ALCHEMY_FAILED', error);
         }
     }
-/** handleNextStartEnhancement：执行对应的业务逻辑。 */
     handleNextStartEnhancement(client, payload) {
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
@@ -1285,7 +1234,6 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             this.worldClientEventService.emitGatewayError(client, 'START_ENHANCEMENT_FAILED', error);
         }
     }
-/** handleNextCancelEnhancement：执行对应的业务逻辑。 */
     handleNextCancelEnhancement(client, _payload) {
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
@@ -1299,9 +1247,8 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             this.worldClientEventService.emitGatewayError(client, 'CANCEL_ENHANCEMENT_FAILED', error);
         }
     }
-/** handleNextRequestLeaderboard：执行对应的业务逻辑。 */
     handleNextRequestLeaderboard(client, payload) {
-/** playerId：定义该变量以承载业务值。 */
+
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
@@ -1314,9 +1261,8 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             this.worldClientEventService.emitGatewayError(client, 'REQUEST_LEADERBOARD_FAILED', error);
         }
     }
-/** handleNextRequestWorldSummary：执行对应的业务逻辑。 */
     handleNextRequestWorldSummary(client, _payload) {
-/** playerId：定义该变量以承载业务值。 */
+
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
@@ -1329,9 +1275,8 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             this.worldClientEventService.emitGatewayError(client, 'REQUEST_WORLD_SUMMARY_FAILED', error);
         }
     }
-/** handleRequestDetail：执行对应的业务逻辑。 */
     handleRequestDetail(client, payload) {
-/** playerId：定义该变量以承载业务值。 */
+
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
@@ -1346,9 +1291,8 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             this.worldClientEventService.emitGatewayError(client, 'REQUEST_DETAIL_FAILED', error);
         }
     }
-/** handleRequestTileDetail：执行对应的业务逻辑。 */
     handleRequestTileDetail(client, payload) {
-/** playerId：定义该变量以承载业务值。 */
+
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
@@ -1363,9 +1307,8 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             this.worldClientEventService.emitGatewayError(client, 'REQUEST_TILE_DETAIL_FAILED', error);
         }
     }
-/** handleUsePortal：执行对应的业务逻辑。 */
     handleUsePortal(client) {
-/** playerId：定义该变量以承载业务值。 */
+
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
@@ -1377,9 +1320,8 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             this.worldClientEventService.emitGatewayError(client, 'PORTAL_FAILED', error);
         }
     }
-/** executeUseItem：执行对应的业务逻辑。 */
     executeUseItem(client, payload) {
-/** playerId：定义该变量以承载业务值。 */
+
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
@@ -1391,13 +1333,11 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             this.worldClientEventService.emitGatewayError(client, 'USE_ITEM_FAILED', error);
         }
     }
-/** handleNextUseItem：执行对应的业务逻辑。 */
     handleNextUseItem(client, payload) {
         this.executeUseItem(client, payload);
     }
-/** executeDropItem：执行对应的业务逻辑。 */
     executeDropItem(client, payload) {
-/** playerId：定义该变量以承载业务值。 */
+
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
@@ -1409,13 +1349,11 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             this.worldClientEventService.emitGatewayError(client, 'DROP_ITEM_FAILED', error);
         }
     }
-/** handleNextDropItem：执行对应的业务逻辑。 */
     handleNextDropItem(client, payload) {
         this.executeDropItem(client, payload);
     }
-/** handleTakeGround：执行对应的业务逻辑。 */
     handleTakeGround(client, payload) {
-/** playerId：定义该变量以承载业务值。 */
+
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
@@ -1431,9 +1369,8 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             this.worldClientEventService.emitGatewayError(client, 'TAKE_GROUND_FAILED', error);
         }
     }
-/** executeEquip：执行对应的业务逻辑。 */
     executeEquip(client, payload) {
-/** playerId：定义该变量以承载业务值。 */
+
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
@@ -1445,13 +1382,11 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             this.worldClientEventService.emitGatewayError(client, 'EQUIP_FAILED', error);
         }
     }
-/** handleNextEquip：执行对应的业务逻辑。 */
     handleNextEquip(client, payload) {
         this.executeEquip(client, payload);
     }
-/** executeUnequip：执行对应的业务逻辑。 */
     executeUnequip(client, payload) {
-/** playerId：定义该变量以承载业务值。 */
+
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
@@ -1463,13 +1398,11 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             this.worldClientEventService.emitGatewayError(client, 'UNEQUIP_FAILED', error);
         }
     }
-/** handleNextUnequip：执行对应的业务逻辑。 */
     handleNextUnequip(client, payload) {
         this.executeUnequip(client, payload);
     }
-/** executeCultivate：执行对应的业务逻辑。 */
     executeCultivate(client, payload) {
-/** playerId：定义该变量以承载业务值。 */
+
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
@@ -1481,13 +1414,11 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             this.worldClientEventService.emitGatewayError(client, 'CULTIVATE_FAILED', error);
         }
     }
-/** handleNextCultivate：执行对应的业务逻辑。 */
     handleNextCultivate(client, payload) {
         this.executeCultivate(client, payload);
     }
-/** handleCastSkill：执行对应的业务逻辑。 */
     handleCastSkill(client, payload) {
-/** playerId：定义该变量以承载业务值。 */
+
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
@@ -1499,9 +1430,8 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             this.worldClientEventService.emitGatewayError(client, 'CAST_SKILL_FAILED', error);
         }
     }
-/** handleNextRequestNpcShop：执行对应的业务逻辑。 */
     handleNextRequestNpcShop(client, payload) {
-/** playerId：定义该变量以承载业务值。 */
+
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
@@ -1513,15 +1443,14 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             this.worldClientEventService.emitGatewayError(client, 'NPC_SHOP_REQUEST_FAILED', error);
         }
     }
-/** executeCreateMarketSellOrder：执行对应的业务逻辑。 */
     async executeCreateMarketSellOrder(client, payload) {
-/** playerId：定义该变量以承载业务值。 */
+
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
         }
         try {
-/** result：定义该变量以承载业务值。 */
+
             const result = await this.marketRuntimeService.createSellOrder(playerId, {
                 slotIndex: payload?.slotIndex,
                 quantity: payload?.quantity,
@@ -1533,19 +1462,17 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             this.worldClientEventService.emitGatewayError(client, 'CREATE_MARKET_SELL_ORDER_FAILED', error);
         }
     }
-/** handleNextCreateMarketSellOrder：执行对应的业务逻辑。 */
     async handleNextCreateMarketSellOrder(client, payload) {
         await this.executeCreateMarketSellOrder(client, payload);
     }
-/** executeCreateMarketBuyOrder：执行对应的业务逻辑。 */
     async executeCreateMarketBuyOrder(client, payload) {
-/** playerId：定义该变量以承载业务值。 */
+
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
         }
         try {
-/** result：定义该变量以承载业务值。 */
+
             const result = await this.marketRuntimeService.createBuyOrder(playerId, {
                 itemKey: payload?.itemKey ?? '',
                 itemId: payload?.itemId ?? '',
@@ -1558,19 +1485,17 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             this.worldClientEventService.emitGatewayError(client, 'CREATE_MARKET_BUY_ORDER_FAILED', error);
         }
     }
-/** handleNextCreateMarketBuyOrder：执行对应的业务逻辑。 */
     async handleNextCreateMarketBuyOrder(client, payload) {
         await this.executeCreateMarketBuyOrder(client, payload);
     }
-/** executeBuyMarketItem：执行对应的业务逻辑。 */
     async executeBuyMarketItem(client, payload) {
-/** playerId：定义该变量以承载业务值。 */
+
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
         }
         try {
-/** result：定义该变量以承载业务值。 */
+
             const result = await this.marketRuntimeService.buyNow(playerId, {
                 itemKey: payload?.itemKey ?? '',
                 quantity: payload?.quantity,
@@ -1581,19 +1506,17 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             this.worldClientEventService.emitGatewayError(client, 'BUY_MARKET_ITEM_FAILED', error);
         }
     }
-/** handleNextBuyMarketItem：执行对应的业务逻辑。 */
     async handleNextBuyMarketItem(client, payload) {
         await this.executeBuyMarketItem(client, payload);
     }
-/** executeSellMarketItem：执行对应的业务逻辑。 */
     async executeSellMarketItem(client, payload) {
-/** playerId：定义该变量以承载业务值。 */
+
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
         }
         try {
-/** result：定义该变量以承载业务值。 */
+
             const result = await this.marketRuntimeService.sellNow(playerId, {
                 slotIndex: payload?.slotIndex,
                 quantity: payload?.quantity,
@@ -1604,19 +1527,17 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             this.worldClientEventService.emitGatewayError(client, 'SELL_MARKET_ITEM_FAILED', error);
         }
     }
-/** handleNextSellMarketItem：执行对应的业务逻辑。 */
     async handleNextSellMarketItem(client, payload) {
         await this.executeSellMarketItem(client, payload);
     }
-/** executeCancelMarketOrder：执行对应的业务逻辑。 */
     async executeCancelMarketOrder(client, payload) {
-/** playerId：定义该变量以承载业务值。 */
+
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
         }
         try {
-/** result：定义该变量以承载业务值。 */
+
             const result = await this.marketRuntimeService.cancelOrder(playerId, {
                 orderId: payload?.orderId ?? '',
             });
@@ -1626,19 +1547,17 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             this.worldClientEventService.emitGatewayError(client, 'CANCEL_MARKET_ORDER_FAILED', error);
         }
     }
-/** handleNextCancelMarketOrder：执行对应的业务逻辑。 */
     async handleNextCancelMarketOrder(client, payload) {
         await this.executeCancelMarketOrder(client, payload);
     }
-/** executeClaimMarketStorage：执行对应的业务逻辑。 */
     async executeClaimMarketStorage(client) {
-/** playerId：定义该变量以承载业务值。 */
+
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
         }
         try {
-/** result：定义该变量以承载业务值。 */
+
             const result = await this.marketRuntimeService.claimStorage(playerId);
             this.flushMarketResult(result);
         }
@@ -1646,13 +1565,11 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             this.worldClientEventService.emitGatewayError(client, 'CLAIM_MARKET_STORAGE_FAILED', error);
         }
     }
-/** handleNextClaimMarketStorage：执行对应的业务逻辑。 */
     async handleNextClaimMarketStorage(client, payload) {
         await this.executeClaimMarketStorage(client);
     }
-/** handleRequestNpcQuests：执行对应的业务逻辑。 */
     handleRequestNpcQuests(client, payload) {
-/** playerId：定义该变量以承载业务值。 */
+
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
@@ -1664,9 +1581,8 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             this.worldClientEventService.emitGatewayError(client, 'NPC_QUEST_REQUEST_FAILED', error);
         }
     }
-/** handleAcceptNpcQuest：执行对应的业务逻辑。 */
     handleAcceptNpcQuest(client, payload) {
-/** playerId：定义该变量以承载业务值。 */
+
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
@@ -1678,9 +1594,8 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             this.worldClientEventService.emitGatewayError(client, 'NPC_QUEST_ACCEPT_FAILED', error);
         }
     }
-/** handleSubmitNpcQuest：执行对应的业务逻辑。 */
     handleSubmitNpcQuest(client, payload) {
-/** playerId：定义该变量以承载业务值。 */
+
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
@@ -1692,9 +1607,8 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             this.worldClientEventService.emitGatewayError(client, 'NPC_QUEST_SUBMIT_FAILED', error);
         }
     }
-/** executeBuyNpcShopItem：执行对应的业务逻辑。 */
     executeBuyNpcShopItem(client, payload) {
-/** playerId：定义该变量以承载业务值。 */
+
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return;
@@ -1706,99 +1620,82 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             this.worldClientEventService.emitGatewayError(client, 'NPC_SHOP_BUY_FAILED', error);
         }
     }
-/** handleNextBuyNpcShopItem：执行对应的业务逻辑。 */
     handleNextBuyNpcShopItem(client, payload) {
         this.executeBuyNpcShopItem(client, payload);
     }
-/** handlePing：执行对应的业务逻辑。 */
     handlePing(client, payload) {
         this.worldClientEventService.emitPong(client, payload);
     }
-/** emitNextQuests：执行对应的业务逻辑。 */
     emitNextQuests(client, payload) {
         this.worldClientEventService.markProtocol(client, 'next');
         this.worldClientEventService.emitQuests(client, payload);
     }
-/** emitNextSuggestionUpdate：执行对应的业务逻辑。 */
     emitNextSuggestionUpdate(client, suggestions) {
         this.worldClientEventService.markProtocol(client, 'next');
         this.worldClientEventService.emitSuggestionUpdate(client, suggestions);
     }
-/** emitNextMailSummary：执行对应的业务逻辑。 */
     emitNextMailSummary(client, summary) {
         this.worldClientEventService.markProtocol(client, 'next');
         this.worldClientEventService.emitMailSummary(client, summary);
     }
-/** emitNextMailSummaryForPlayer：执行对应的业务逻辑。 */
     async emitNextMailSummaryForPlayer(client, playerId) {
         this.worldClientEventService.markProtocol(client, 'next');
         await this.worldClientEventService.emitMailSummaryForPlayer(client, playerId);
     }
-/** emitNextMailPage：执行对应的业务逻辑。 */
     emitNextMailPage(client, page) {
         this.worldClientEventService.markProtocol(client, 'next');
         this.worldClientEventService.emitMailPage(client, page);
     }
-/** emitNextMailDetail：执行对应的业务逻辑。 */
     emitNextMailDetail(client, detail) {
         this.worldClientEventService.markProtocol(client, 'next');
         this.worldClientEventService.emitMailDetail(client, detail);
     }
-/** emitNextMailOperationResult：执行对应的业务逻辑。 */
     emitNextMailOperationResult(client, payload) {
         this.worldClientEventService.markProtocol(client, 'next');
         this.worldClientEventService.emitMailOperationResult(client, payload);
     }
-/** emitNextMarketUpdate：执行对应的业务逻辑。 */
     emitNextMarketUpdate(client, payload) {
         this.worldClientEventService.markProtocol(client, 'next');
         this.worldClientEventService.emitMarketUpdate(client, payload);
     }
-/** emitNextMarketListings：执行对应的业务逻辑。 */
     emitNextMarketListings(client, payload) {
         this.worldClientEventService.markProtocol(client, 'next');
         this.worldClientEventService.emitMarketListings(client, payload);
     }
-/** emitNextMarketOrders：执行对应的业务逻辑。 */
     emitNextMarketOrders(client, payload) {
         this.worldClientEventService.markProtocol(client, 'next');
         this.worldClientEventService.emitMarketOrders(client, payload);
     }
-/** emitNextMarketStorage：执行对应的业务逻辑。 */
     emitNextMarketStorage(client, payload) {
         this.worldClientEventService.markProtocol(client, 'next');
         this.worldClientEventService.emitMarketStorage(client, payload);
     }
-/** emitNextMarketItemBook：执行对应的业务逻辑。 */
     emitNextMarketItemBook(client, payload) {
         this.worldClientEventService.markProtocol(client, 'next');
         this.worldClientEventService.emitMarketItemBook(client, payload);
     }
-/** emitNextMarketTradeHistory：执行对应的业务逻辑。 */
     emitNextMarketTradeHistory(client, payload) {
         this.worldClientEventService.markProtocol(client, 'next');
         this.worldClientEventService.emitMarketTradeHistory(client, payload);
     }
-/** emitNextNpcShop：执行对应的业务逻辑。 */
     emitNextNpcShop(client, payload) {
         this.worldClientEventService.markProtocol(client, 'next');
         this.worldClientEventService.emitNpcShop(client, payload);
     }
-/** handleProtocolAction：执行对应的业务逻辑。 */
     handleProtocolAction(client, playerId, payload) {
-/** actionId：定义该变量以承载业务值。 */
+
         const actionId = this.resolveActionId(payload);
         if (actionId === 'debug:reset_spawn' || actionId === 'travel:return_spawn') {
             this.worldRuntimeService.enqueueResetPlayerSpawn(playerId);
             return;
         }
         if (actionId === 'loot:open') {
-/** tile：定义该变量以承载业务值。 */
+
             const tile = typeof payload?.target === 'string' ? (0, shared_1.parseTileTargetRef)(payload.target) : null;
             if (!tile) {
                 throw new Error('拿取需要指定目标格子');
             }
-/** player：定义该变量以承载业务值。 */
+
             const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
             if (Math.max(Math.abs(player.x - tile.x), Math.abs(player.y - tile.y)) > 1) {
                 throw new Error('拿取范围只有 1 格。');
@@ -1807,13 +1704,13 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             return;
         }
         if (actionId === 'battle:engage' || actionId === 'battle:force_attack') {
-/** target：定义该变量以承载业务值。 */
+
             const target = typeof payload?.target === 'string' ? payload.target.trim() : '';
-/** tile：定义该变量以承载业务值。 */
+
             const tile = target ? (0, shared_1.parseTileTargetRef)(target) : null;
-/** targetPlayerId：定义该变量以承载业务值。 */
+
             const targetPlayerId = target.startsWith('player:') ? target.slice('player:'.length) : null;
-/** targetMonsterId：定义该变量以承载业务值。 */
+
             const targetMonsterId = target && !target.startsWith('player:') && !tile ? target : null;
             if (targetMonsterId) {
                 this.worldRuntimeService.enqueueBattleTarget(playerId, actionId === 'battle:force_attack', null, targetMonsterId);
@@ -1823,10 +1720,10 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             return;
         }
         if (actionId.startsWith('npc:')) {
-            this.worldRuntimeService.enqueueLegacyNpcInteraction(playerId, actionId);
+            this.worldRuntimeService.enqueueNpcInteraction(playerId, actionId);
             return;
         }
-/** target：定义该变量以承载业务值。 */
+
         const target = typeof payload?.target === 'string' ? payload.target.trim() : '';
         if (actionId === 'body_training:infuse') {
             this.emitProtocolActionResult(client, playerId, this.worldRuntimeService.executeAction(playerId, actionId, target));
@@ -1838,9 +1735,8 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         }
         this.emitProtocolActionResult(client, playerId, this.worldRuntimeService.executeAction(playerId, actionId));
     }
-/** resolveActionId：执行对应的业务逻辑。 */
     resolveActionId(payload) {
-/** actionId：定义该变量以承载业务值。 */
+
         const actionId = typeof payload?.actionId === 'string' && payload.actionId.trim()
             ? payload.actionId.trim()
             : (typeof payload?.type === 'string' ? payload.type.trim() : '');
@@ -1849,7 +1745,6 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         }
         return actionId;
     }
-/** emitProtocolActionResult：执行对应的业务逻辑。 */
     emitProtocolActionResult(client, playerId, result) {
         if (result.kind === 'npcShop' && result.npcShop) {
             this.worldClientEventService.emitNpcShop(client, result.npcShop);
@@ -1863,9 +1758,8 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         }
         this.worldClientEventService.emitQuests(client, this.worldRuntimeService.buildQuestListView(playerId));
     }
-/** requirePlayerId：执行对应的业务逻辑。 */
     requirePlayerId(client) {
-/** playerId：定义该变量以承载业务值。 */
+
         const playerId = typeof client.data.playerId === 'string' ? client.data.playerId : '';
         if (playerId) {
             return playerId;
@@ -1873,9 +1767,8 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         this.worldClientEventService.emitNotReady(client);
         return null;
     }
-/** requireGm：执行对应的业务逻辑。 */
     requireGm(client) {
-/** playerId：定义该变量以承载业务值。 */
+
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
             return null;
@@ -1886,18 +1779,15 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         this.worldClientEventService.emitError(client, 'GM_FORBIDDEN', 'GM 权限不足');
         return null;
     }
-/** flushMarketResult：执行对应的业务逻辑。 */
     flushMarketResult(result) {
         this.worldClientEventService.flushMarketResult(this.marketSubscriberPlayerIds, result, {
             marketListingRequests: this.marketListingRequestsByPlayerId,
             marketTradeHistoryRequests: this.marketTradeHistoryRequestsByPlayerId,
         });
     }
-/** emitMailSummary：执行对应的业务逻辑。 */
     async emitMailSummary(client, playerId) {
         await this.worldClientEventService.emitMailSummaryForPlayer(client, playerId);
     }
-/** broadcastSuggestions：执行对应的业务逻辑。 */
     broadcastSuggestions() {
         this.worldClientEventService.broadcastSuggestionUpdate();
     }
@@ -2502,24 +2392,22 @@ exports.WorldGateway = WorldGateway = WorldGateway_1 = __decorate([
         world_client_event_service_1.WorldClientEventService,
         world_session_service_1.WorldSessionService])
 ], WorldGateway);
-/** readBooleanEnv：执行对应的业务逻辑。 */
 function readBooleanEnv(key) {
-/** value：定义该变量以承载业务值。 */
+
     const value = process.env[key];
     if (typeof value !== 'string') {
         return false;
     }
-/** normalized：定义该变量以承载业务值。 */
+
     const normalized = value.trim().toLowerCase();
     return normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'on';
 }
-/** buildAttrDetailBonuses：执行对应的业务逻辑。 */
 function buildAttrDetailBonuses(player) {
-/** bonuses：定义该变量以承载业务值。 */
+
     const bonuses = [];
-/** realmStage：定义该变量以承载业务值。 */
+
     const realmStage = player.realm?.stage ?? player.attrs?.stage ?? shared_1.DEFAULT_PLAYER_REALM_STAGE;
-/** realmConfig：定义该变量以承载业务值。 */
+
     const realmConfig = shared_1.PLAYER_REALM_CONFIG[realmStage];
     if (realmConfig && hasNonZeroAttributes(realmConfig.attrBonus)) {
         bonuses.push({
@@ -2529,7 +2417,7 @@ function buildAttrDetailBonuses(player) {
         });
     }
     for (const technique of player.techniques?.techniques ?? []) {
-/** techniqueAttrs：定义该变量以承载业务值。 */
+
         const techniqueAttrs = (0, shared_1.calcTechniqueFinalAttrBonus)([toTechniqueState(technique)]);
         if (!hasNonZeroAttributes(techniqueAttrs)) {
             continue;
@@ -2541,7 +2429,7 @@ function buildAttrDetailBonuses(player) {
         });
     }
     for (const entry of player.equipment?.slots ?? []) {
-/** item：定义该变量以承载业务值。 */
+
         const item = entry.item;
         if (!item || (!hasNonZeroAttributes(item.equipAttrs) && !hasNonZeroPartialNumericStats(resolveItemNumericStats(item)))) {
             continue;
@@ -2583,25 +2471,24 @@ function buildAttrDetailBonuses(player) {
     }
     return bonuses;
 }
-/** buildAttrDetailNumericStatBreakdowns：执行对应的业务逻辑。 */
 function buildAttrDetailNumericStatBreakdowns(player) {
-/** stage：定义该变量以承载业务值。 */
+
     const stage = player.realm?.stage ?? player.attrs?.stage ?? shared_1.DEFAULT_PLAYER_REALM_STAGE;
-/** template：定义该变量以承载业务值。 */
+
     const template = shared_1.PLAYER_REALM_NUMERIC_TEMPLATES[stage] ?? shared_1.PLAYER_REALM_NUMERIC_TEMPLATES[shared_1.DEFAULT_PLAYER_REALM_STAGE];
-/** realmBaseStats：定义该变量以承载业务值。 */
+
     const realmBaseStats = template?.stats ? (0, shared_1.cloneNumericStats)(template.stats) : (0, shared_1.createNumericStats)();
-/** baseStats：定义该变量以承载业务值。 */
+
     const baseStats = (0, shared_1.cloneNumericStats)(realmBaseStats);
-/** flatBuffStats：定义该变量以承载业务值。 */
+
     const flatBuffStats = (0, shared_1.createNumericStats)();
-/** attrMultipliers：定义该变量以承载业务值。 */
+
     const attrMultipliers = (0, shared_1.createNumericStats)();
-/** finalAttrs：定义该变量以承载业务值。 */
+
     const finalAttrs = player.attrs?.finalAttrs ?? player.attrs?.baseAttrs;
     if (finalAttrs) {
         for (const key of shared_1.ATTR_KEYS) {
-/** value：定义该变量以承载业务值。 */
+
             const value = Number(finalAttrs[key] ?? 0);
             if (value === 0) {
                 continue;
@@ -2611,7 +2498,7 @@ function buildAttrDetailNumericStatBreakdowns(player) {
         }
     }
     for (const entry of player.equipment?.slots ?? []) {
-/** item：定义该变量以承载业务值。 */
+
         const item = entry.item;
         if (!item) {
             continue;
@@ -2623,7 +2510,7 @@ function buildAttrDetailNumericStatBreakdowns(player) {
             (0, shared_1.addPartialNumericStats)(baseStats, bonus.stats);
         }
     }
-/** vitalBaselineBonus：定义该变量以承载业务值。 */
+
     const vitalBaselineBonus = resolveVitalBaselineBonus(player.runtimeBonuses);
     if (vitalBaselineBonus?.stats) {
         (0, shared_1.addPartialNumericStats)(baseStats, vitalBaselineBonus.stats);
@@ -2633,19 +2520,19 @@ function buildAttrDetailNumericStatBreakdowns(player) {
             (0, shared_1.addPartialNumericStats)(flatBuffStats, buff.stats);
         }
     }
-/** preMultiplierStats：定义该变量以承载业务值。 */
+
     const preMultiplierStats = (0, shared_1.cloneNumericStats)(baseStats);
     (0, shared_1.addPartialNumericStats)(preMultiplierStats, flatBuffStats);
-/** finalStats：定义该变量以承载业务值。 */
+
     const finalStats = player.attrs?.numericStats ?? preMultiplierStats;
-/** breakdowns：定义该变量以承载业务值。 */
+
     const breakdowns = {};
     for (const key of shared_1.NUMERIC_SCALAR_STAT_KEYS) {
-/** realmBaseValue：定义该变量以承载业务值。 */
+
         const realmBaseValue = getNumericStatValue(realmBaseStats, key);
-/** baseValue：定义该变量以承载业务值。 */
+
         const baseValue = getNumericStatValue(baseStats, key);
-/** flatBuffValue：定义该变量以承载业务值。 */
+
         const flatBuffValue = getNumericStatValue(flatBuffStats, key);
         breakdowns[key] = {
             realmBaseValue,
@@ -2662,36 +2549,34 @@ function buildAttrDetailNumericStatBreakdowns(player) {
     }
     return breakdowns;
 }
-/** getNumericStatValue：执行对应的业务逻辑。 */
 function getNumericStatValue(stats, key) {
-/** value：定义该变量以承载业务值。 */
+
     const value = stats?.[key];
     return typeof value === 'number' ? value : 0;
 }
-/** scalePartialNumericStats：执行对应的业务逻辑。 */
 function scalePartialNumericStats(stats, factor) {
     if (!stats || factor === 0) {
         return undefined;
     }
-/** result：定义该变量以承载业务值。 */
+
     const result = {};
     for (const key of shared_1.NUMERIC_SCALAR_STAT_KEYS) {
-/** value：定义该变量以承载业务值。 */
+
         const value = stats[key];
         if (value !== undefined) {
             result[key] = value * factor;
         }
     }
     for (const groupKey of ['elementDamageBonus', 'elementDamageReduce']) {
-/** group：定义该变量以承载业务值。 */
+
         const group = stats[groupKey];
         if (!isPlainObject(group)) {
             continue;
         }
-/** scaledGroup：定义该变量以承载业务值。 */
+
         const scaledGroup = {};
         for (const key of shared_1.ELEMENT_KEYS) {
-/** value：定义该变量以承载业务值。 */
+
             const value = group[key];
             if (value !== undefined) {
                 scaledGroup[key] = value * factor;
@@ -2703,24 +2588,21 @@ function scalePartialNumericStats(stats, factor) {
     }
     return Object.keys(result).length > 0 ? result : undefined;
 }
-/** collectProjectedRuntimeBonuses：执行对应的业务逻辑。 */
 function collectProjectedRuntimeBonuses(runtimeBonuses) {
     if (!Array.isArray(runtimeBonuses) || runtimeBonuses.length === 0) {
         return [];
     }
     return runtimeBonuses.filter((entry) => {
-/** source：定义该变量以承载业务值。 */
+
         const source = typeof entry?.source === 'string' ? entry.source : '';
         return Boolean(source && !isDerivedRuntimeBonusSource(source) && (entry.attrs || entry.stats));
     });
 }
-/** resolveVitalBaselineBonus：执行对应的业务逻辑。 */
 function resolveVitalBaselineBonus(runtimeBonuses) {
     return Array.isArray(runtimeBonuses)
         ? runtimeBonuses.find((entry) => entry?.source === 'runtime:vitals_baseline' && entry.stats && typeof entry.stats === 'object')
         : null;
 }
-/** isDerivedRuntimeBonusSource：执行对应的业务逻辑。 */
 function isDerivedRuntimeBonusSource(source) {
     if (typeof source !== 'string' || source.length === 0) {
         return true;
@@ -2734,18 +2616,15 @@ function isDerivedRuntimeBonusSource(source) {
         || source.startsWith('equipment:')
         || source.startsWith('buff:');
 }
-/** resolveItemNumericStats：执行对应的业务逻辑。 */
 function resolveItemNumericStats(item) {
     return item?.equipValueStats ? (0, shared_1.compileValueStatsToActualStats)(item.equipValueStats) : item?.equipStats;
 }
-/** hasNonZeroAttributes：执行对应的业务逻辑。 */
 function hasNonZeroAttributes(attrs) {
     if (!attrs) {
         return false;
     }
     return shared_1.ATTR_KEYS.some((key) => Number(attrs[key] ?? 0) !== 0);
 }
-/** hasNonZeroPartialNumericStats：执行对应的业务逻辑。 */
 function hasNonZeroPartialNumericStats(stats) {
     if (!stats) {
         return false;
@@ -2756,17 +2635,16 @@ function hasNonZeroPartialNumericStats(stats) {
         }
     }
     return ['elementDamageBonus', 'elementDamageReduce'].some((groupKey) => {
-/** group：定义该变量以承载业务值。 */
+
         const group = stats[groupKey];
         return isPlainObject(group) && Object.values(group).some((value) => Number(value ?? 0) !== 0);
     });
 }
-/** clonePartialAttributes：执行对应的业务逻辑。 */
 function clonePartialAttributes(attrs) {
-/** result：定义该变量以承载业务值。 */
+
     const result = {};
     for (const key of shared_1.ATTR_KEYS) {
-/** value：定义该变量以承载业务值。 */
+
         const value = Number(attrs?.[key] ?? 0);
         if (value !== 0) {
             result[key] = value;
@@ -2774,12 +2652,11 @@ function clonePartialAttributes(attrs) {
     }
     return result;
 }
-/** clonePartialNumericStats：执行对应的业务逻辑。 */
 function clonePartialNumericStats(stats) {
     if (!stats) {
         return undefined;
     }
-/** clone：定义该变量以承载业务值。 */
+
     const clone = {};
     for (const key of shared_1.NUMERIC_SCALAR_STAT_KEYS) {
         if (stats[key] !== undefined) {
@@ -2794,7 +2671,6 @@ function clonePartialNumericStats(stats) {
     }
     return Object.keys(clone).length > 0 ? clone : undefined;
 }
-/** cloneQiProjectionModifiers：执行对应的业务逻辑。 */
 function cloneQiProjectionModifiers(source) {
     if (!Array.isArray(source) || source.length === 0) {
         return undefined;
@@ -2812,9 +2688,8 @@ function cloneQiProjectionModifiers(source) {
             : undefined,
     }));
 }
-/** toTechniqueState：执行对应的业务逻辑。 */
 function toTechniqueState(entry) {
-/** skills：定义该变量以承载业务值。 */
+
     const skills = entry.skills?.map((skill) => cloneTechniqueSkill(skill)) ?? [];
     return {
         techId: entry.techId,
@@ -2836,7 +2711,6 @@ function toTechniqueState(entry) {
         attrCurves: entry.attrCurves ? { ...entry.attrCurves } : undefined,
     };
 }
-/** cloneTechniqueSkill：执行对应的业务逻辑。 */
 function cloneTechniqueSkill(source) {
     return {
         ...source,
@@ -2844,7 +2718,6 @@ function cloneTechniqueSkill(source) {
         desc: '',
     };
 }
-/** isPlainObject：执行对应的业务逻辑。 */
 function isPlainObject(value) {
     return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }

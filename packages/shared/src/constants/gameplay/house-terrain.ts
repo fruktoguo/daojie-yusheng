@@ -9,36 +9,25 @@ import { TileType } from '../../types';
  */
 
 export type HouseDecorTileDefinition = {
-/** type：定义该变量以承载业务值。 */
   type: TileType;
-/** mapChar：定义该变量以承载业务值。 */
   mapChar: string;
-/** label：定义该变量以承载业务值。 */
   label: string;
-/** walkable：定义该变量以承载业务值。 */
   walkable: boolean;
-/** blocksSight：定义该变量以承载业务值。 */
   blocksSight: boolean;
-/** traversalCost：定义该变量以承载业务值。 */
   traversalCost: number;
-/** bgColor：定义该变量以承载业务值。 */
   bgColor: string;
-/** glyph：定义该变量以承载业务值。 */
   glyph: string;
-/** glyphColor：定义该变量以承载业务值。 */
   glyphColor: string;
-/** minimapColor：定义该变量以承载业务值。 */
   minimapColor: string;
 };
 
-/** HouseDecorTileType：定义该类型的结构与数据语义。 */
+/** export ：共享数据结构定义。 */
 export type HouseDecorTileType =
   | TileType.HouseEave
   | TileType.HouseCorner
   | TileType.ScreenWall
   | TileType.Veranda;
 
-/** HOUSE_DECOR_TILE_DEFINITIONS：定义该变量以承载业务值。 */
 export const HOUSE_DECOR_TILE_DEFINITIONS: readonly HouseDecorTileDefinition[] = [
   {
     type: TileType.HouseEave,
@@ -90,53 +79,58 @@ export const HOUSE_DECOR_TILE_DEFINITIONS: readonly HouseDecorTileDefinition[] =
   },
 ] as const;
 
-/** HOUSE_DECOR_TILE_TYPE_TO_MAP_CHAR：定义该变量以承载业务值。 */
+/** HOUSE_DECOR_TILE_TYPE_TO_MAP_CHAR：HOUSE DECOR地块类型TO地图CHAR。 */
 export const HOUSE_DECOR_TILE_TYPE_TO_MAP_CHAR = Object.fromEntries(
   HOUSE_DECOR_TILE_DEFINITIONS.map((entry) => [entry.type, entry.mapChar]),
 ) as Record<HouseDecorTileType, string>;
 
-/** HOUSE_DECOR_TILE_LABELS：定义该变量以承载业务值。 */
+/** HOUSE_DECOR_TILE_LABELS：HOUSE DECOR地块标签。 */
 export const HOUSE_DECOR_TILE_LABELS = Object.fromEntries(
   HOUSE_DECOR_TILE_DEFINITIONS.map((entry) => [entry.type, entry.label]),
 ) as Record<HouseDecorTileType, string>;
 
-/** HOUSE_DECOR_TILE_TRAVERSAL_COST：定义该变量以承载业务值。 */
+/** HOUSE_DECOR_TILE_TRAVERSAL_COST：HOUSE DECOR地块TRAVERSAL COST。 */
 export const HOUSE_DECOR_TILE_TRAVERSAL_COST = Object.fromEntries(
   HOUSE_DECOR_TILE_DEFINITIONS.map((entry) => [entry.type, entry.traversalCost]),
 ) as Record<HouseDecorTileType, number>;
 
-/** HOUSE_DECOR_TILE_BG_COLORS：定义该变量以承载业务值。 */
+/** HOUSE_DECOR_TILE_BG_COLORS：HOUSE DECOR地块BG颜色。 */
 export const HOUSE_DECOR_TILE_BG_COLORS = Object.fromEntries(
   HOUSE_DECOR_TILE_DEFINITIONS.map((entry) => [entry.type, entry.bgColor]),
 ) as Record<HouseDecorTileType, string>;
 
-/** HOUSE_DECOR_TILE_GLYPHS：定义该变量以承载业务值。 */
+/** HOUSE_DECOR_TILE_GLYPHS：HOUSE DECOR地块GLYPHS。 */
 export const HOUSE_DECOR_TILE_GLYPHS = Object.fromEntries(
   HOUSE_DECOR_TILE_DEFINITIONS.map((entry) => [entry.type, entry.glyph]),
 ) as Record<HouseDecorTileType, string>;
 
-/** HOUSE_DECOR_TILE_GLYPH_COLORS：定义该变量以承载业务值。 */
+/** HOUSE_DECOR_TILE_GLYPH_COLORS：HOUSE DECOR地块GLYPH颜色。 */
 export const HOUSE_DECOR_TILE_GLYPH_COLORS = Object.fromEntries(
   HOUSE_DECOR_TILE_DEFINITIONS.map((entry) => [entry.type, entry.glyphColor]),
 ) as Record<HouseDecorTileType, string>;
 
-/** HOUSE_DECOR_TILE_MINIMAP_COLORS：定义该变量以承载业务值。 */
+/** HOUSE_DECOR_TILE_MINIMAP_COLORS：HOUSE DECOR地块小地图颜色。 */
 export const HOUSE_DECOR_TILE_MINIMAP_COLORS = Object.fromEntries(
   HOUSE_DECOR_TILE_DEFINITIONS.map((entry) => [entry.type, entry.minimapColor]),
 ) as Record<HouseDecorTileType, string>;
 
-/** HOUSE_DECOR_TILE_MAP_CHARS：定义该变量以承载业务值。 */
+/** HOUSE_DECOR_TILE_MAP_CHARS：HOUSE DECOR地块地图CHARS集合。 */
 export const HOUSE_DECOR_TILE_MAP_CHARS = new Set(
   HOUSE_DECOR_TILE_DEFINITIONS.map((entry) => entry.mapChar),
 );
 
-/** HOUSE_DECOR_WALKABLE_TILE_TYPES：定义该变量以承载业务值。 */
+/** HOUSE_DECOR_WALKABLE_TILE_TYPES：HOUSE DECOR WALKABLE地块类型集合。 */
 export const HOUSE_DECOR_WALKABLE_TILE_TYPES = new Set(
   HOUSE_DECOR_TILE_DEFINITIONS.filter((entry) => entry.walkable).map((entry) => entry.type),
 );
 
-/** HOUSE_DECOR_BLOCK_SIGHT_TILE_TYPES：定义该变量以承载业务值。 */
+/** HOUSE_DECOR_BLOCK_SIGHT_TILE_TYPES：HOUSE DECOR BLOCK SIGHT地块类型集合。 */
 export const HOUSE_DECOR_BLOCK_SIGHT_TILE_TYPES = new Set(
   HOUSE_DECOR_TILE_DEFINITIONS.filter((entry) => entry.blocksSight).map((entry) => entry.type),
 );
+
+
+
+
+
 

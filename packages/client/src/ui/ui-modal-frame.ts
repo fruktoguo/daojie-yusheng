@@ -1,10 +1,13 @@
+/** 统一弹窗尺寸枚举。 */
 export type UiModalSize = 'sm' | 'md' | 'lg' | 'xl' | 'wide' | 'full';
 
+/** 用于拼装弹窗样式类名的状态。 */
 type ModalFrameClassState = {
   layerClasses: string[];
   cardClasses: string[];
 };
 
+/** 弹窗帧需要同步的 DOM 目标。 */
 type ModalFrameTargets = {
   layer: HTMLElement;
   card: HTMLElement;
@@ -24,10 +27,12 @@ const DETAIL_VARIANT_SIZE_MAP: Record<string, UiModalSize> = {
   'detail-modal--skill-preset': 'wide',
 };
 
+/** 拆分弹窗变体的样式类。 */
 export function splitModalVariantClasses(value = ''): string[] {
   return value.split(/\s+/).map((item) => item.trim()).filter(Boolean);
 }
 
+/** 解析详情弹窗尺寸。 */
 export function resolveDetailModalSize(variantClass = '', size: UiModalSize = 'md'): UiModalSize {
   const variantClasses = splitModalVariantClasses(variantClass);
   for (const variant of variantClasses) {
@@ -39,10 +44,12 @@ export function resolveDetailModalSize(variantClass = '', size: UiModalSize = 'm
   return size;
 }
 
+/** 拼装弹窗卡片的 class 列表。 */
 export function buildModalCardClassList(size: UiModalSize, variantClass = ''): string[] {
   return [`ui-modal-card--${size}`, ...splitModalVariantClasses(variantClass)];
 }
 
+/** 将计算好的类名写回弹窗帧节点。 */
 export function applyModalFrameClasses(
   targets: ModalFrameTargets,
   previous: ModalFrameClassState,
@@ -63,3 +70,5 @@ export function applyModalFrameClasses(
   }
   return next;
 }
+
+

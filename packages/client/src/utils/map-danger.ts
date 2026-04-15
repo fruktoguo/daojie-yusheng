@@ -1,37 +1,30 @@
 import type { PlayerState } from '@mud/shared-next';
 import { LOCAL_EDITOR_CATALOG } from '../constants/world/editor-catalog';
 
-/** RealmLevelRange：定义该类型的结构与数据语义。 */
+/** 可用于危险评估的境界等级区间。 */
 type RealmLevelRange = {
-/** minLevel：定义该变量以承载业务值。 */
   minLevel: number;
-/** maxLevel：定义该变量以承载业务值。 */
   maxLevel: number;
-/** displayLabel：定义该变量以承载业务值。 */
   displayLabel: string;
 };
 
-/** MapDangerAssessment：定义该接口的能力与字段约束。 */
+/** 地图危险度评估结果。 */
 export interface MapDangerAssessment {
-/** recommendedRealmLabel：定义该变量以承载业务值。 */
   recommendedRealmLabel: string;
-/** dangerLabel：定义该变量以承载业务值。 */
   dangerLabel: string;
-/** dangerTone：定义该变量以承载业务值。 */
   dangerTone: number;
 }
 
-/** realmRangeByAlias：定义该变量以承载业务值。 */
+/** 境界别名到等级区间的索引。 */
 const realmRangeByAlias = new Map<string, RealmLevelRange>();
 
-/** normalizeRealmToken：执行对应的业务逻辑。 */
+/** 规范化境界文本，便于别名匹配。 */
 function normalizeRealmToken(value: string): string {
   return value.trim().replace(/\s+/g, '');
 }
 
-/** registerRealmAlias：执行对应的业务逻辑。 */
+/** 注册一个境界别名。 */
 function registerRealmAlias(alias: string, range: RealmLevelRange): void {
-/** normalized：定义该变量以承载业务值。 */
   const normalized = normalizeRealmToken(alias);
   if (!normalized) {
     return;
@@ -39,9 +32,8 @@ function registerRealmAlias(alias: string, range: RealmLevelRange): void {
   realmRangeByAlias.set(normalized, range);
 }
 
-/** buildRealmAliasIndex：执行对应的业务逻辑。 */
+/** 根据本地目录构建境界别名索引。 */
 function buildRealmAliasIndex(): void {
-/** groupedByName：定义该变量以承载业务值。 */
   const groupedByName = new Map<string, { minLevel: number; maxLevel: number }>();
   for (const entry of LOCAL_EDITOR_CATALOG.realmLevels) {
     const level = Math.max(1, Math.floor(entry.realmLv));
@@ -63,7 +55,6 @@ function buildRealmAliasIndex(): void {
       });
     }
 
-/** grouped：定义该变量以承载业务值。 */
     const grouped = groupedByName.get(entry.name);
     if (!grouped) {
       groupedByName.set(entry.name, { minLevel: level, maxLevel: level });
@@ -81,54 +72,41 @@ function buildRealmAliasIndex(): void {
     }
   }
 
-/** registerRealmAlias：处理当前场景中的对应操作。 */
   registerRealmAlias('Entry', { minLevel: 1, maxLevel: 3, displayLabel: '凡胎-锻骨' });
-/** registerRealmAlias：处理当前场景中的对应操作。 */
   registerRealmAlias('Minor', { minLevel: 4, maxLevel: 7, displayLabel: '易筋-通脉' });
-/** registerRealmAlias：处理当前场景中的对应操作。 */
   registerRealmAlias('Major', { minLevel: 8, maxLevel: 12, displayLabel: '瑶光-天玑' });
-/** registerRealmAlias：处理当前场景中的对应操作。 */
   registerRealmAlias('Perfection', { minLevel: 13, maxLevel: 18, displayLabel: '天璇-叩仙门' });
-/** registerRealmAlias：处理当前场景中的对应操作。 */
   registerRealmAlias('锻体', { minLevel: 1, maxLevel: 3, displayLabel: '凡胎-锻骨' });
-/** registerRealmAlias：处理当前场景中的对应操作。 */
   registerRealmAlias('后天', { minLevel: 4, maxLevel: 7, displayLabel: '易筋-通脉' });
-/** registerRealmAlias：处理当前场景中的对应操作。 */
   registerRealmAlias('先天', { minLevel: 8, maxLevel: 18, displayLabel: '瑶光-叩仙门' });
-/** registerRealmAlias：处理当前场景中的对应操作。 */
   registerRealmAlias('练气前夜', { minLevel: 18, maxLevel: 18, displayLabel: '叩仙门' });
-/** registerRealmAlias：处理当前场景中的对应操作。 */
   registerRealmAlias('练气启蒙', { minLevel: 19, maxLevel: 19, displayLabel: '练气一层' });
 }
 
 buildRealmAliasIndex();
 
-/** resolveSingleRealmRange：执行对应的业务逻辑。 */
+/** 解析单个境界别名对应的等级区间。 */
 function resolveSingleRealmRange(raw: string): RealmLevelRange | null {
   return realmRangeByAlias.get(normalizeRealmToken(raw)) ?? null;
 }
 
-/** resolveRealmRange：执行对应的业务逻辑。 */
+/** 解析单个境界或区间写法。 */
 function resolveRealmRange(raw: string): RealmLevelRange | null {
-/** normalized：定义该变量以承载业务值。 */
   const normalized = normalizeRealmToken(raw);
   if (!normalized) {
     return null;
   }
 
-/** direct：定义该变量以承载业务值。 */
   const direct = resolveSingleRealmRange(normalized);
   if (direct) {
     return direct;
   }
 
-/** parts：定义该变量以承载业务值。 */
   const parts = normalized.split(/-|到|至|~|～/).map((part) => normalizeRealmToken(part)).filter(Boolean);
   if (parts.length < 2) {
     return null;
   }
 
-/** resolvedParts：定义该变量以承载业务值。 */
   const resolvedParts = parts
     .map((part) => resolveSingleRealmRange(part))
     .filter((part): part is RealmLevelRange => Boolean(part));
@@ -143,12 +121,11 @@ function resolveRealmRange(raw: string): RealmLevelRange | null {
   };
 }
 
-/** resolveRecommendedRealmRange：执行对应的业务逻辑。 */
+/** 解析推荐境界，优先使用显式配置。 */
 function resolveRecommendedRealmRange(
   recommendedRealm: string | undefined,
   fallbackRecommendedRealm: string | undefined,
 ): RealmLevelRange | null {
-/** candidates：定义该变量以承载业务值。 */
   const candidates = [recommendedRealm, fallbackRecommendedRealm]
     .map((value) => (typeof value === 'string' ? value.trim() : ''))
     .filter(Boolean);
@@ -164,14 +141,13 @@ function resolveRecommendedRealmRange(
   return null;
 }
 
-/** resolvePlayerRealmLevel：执行对应的业务逻辑。 */
+/** 读取玩家当前用于危险评估的境界等级。 */
 function resolvePlayerRealmLevel(player: PlayerState): number {
-/** realmLevel：定义该变量以承载业务值。 */
   const realmLevel = player.realm?.realmLv ?? player.realmLv;
   return Number.isFinite(realmLevel) ? Math.max(1, Math.floor(Number(realmLevel))) : 1;
 }
 
-/** describeHarderDanger：执行对应的业务逻辑。 */
+/** 生成“比玩家更强”时的危险描述。 */
 function describeHarderDanger(gap: number): { label: string; tone: number } {
   if (gap <= 1) {
     return { label: '高你一境，稍有风浪', tone: 3 };
@@ -188,7 +164,7 @@ function describeHarderDanger(gap: number): { label: string; tone: number } {
   return { label: `高你${gap}境，十面埋伏`, tone: 5 };
 }
 
-/** describeEasierDanger：执行对应的业务逻辑。 */
+/** 生成“比玩家更弱”时的危险描述。 */
 function describeEasierDanger(gap: number): { label: string; tone: number } {
   if (gap <= 1) {
     return { label: '尚可从容', tone: 2 };
@@ -205,15 +181,13 @@ function describeEasierDanger(gap: number): { label: string; tone: number } {
   return { label: '如履平地', tone: 1 };
 }
 
-/** assessMapDanger：执行对应的业务逻辑。 */
+/** 根据玩家境界与推荐境界评估地图危险度。 */
 export function assessMapDanger(
   player: PlayerState,
   recommendedRealm: string | undefined,
   fallbackRecommendedRealm?: string,
 ): MapDangerAssessment {
-/** resolvedRange：定义该变量以承载业务值。 */
   const resolvedRange = resolveRecommendedRealmRange(recommendedRealm, fallbackRecommendedRealm);
-/** recommendedRealmLabel：定义该变量以承载业务值。 */
   const recommendedRealmLabel = resolvedRange?.displayLabel
     ?? recommendedRealm?.trim()
     ?? fallbackRecommendedRealm?.trim()
@@ -227,12 +201,9 @@ export function assessMapDanger(
     };
   }
 
-/** playerLevel：定义该变量以承载业务值。 */
   const playerLevel = resolvePlayerRealmLevel(player);
   if (playerLevel < resolvedRange.minLevel) {
-/** gap：定义该变量以承载业务值。 */
     const gap = resolvedRange.minLevel - playerLevel;
-/** described：定义该变量以承载业务值。 */
     const described = describeHarderDanger(gap);
     return {
       recommendedRealmLabel,
@@ -241,9 +212,7 @@ export function assessMapDanger(
     };
   }
   if (playerLevel > resolvedRange.maxLevel) {
-/** gap：定义该变量以承载业务值。 */
     const gap = playerLevel - resolvedRange.maxLevel;
-/** described：定义该变量以承载业务值。 */
     const described = describeEasierDanger(gap);
     return {
       recommendedRealmLabel,
@@ -257,7 +226,4 @@ export function assessMapDanger(
     dangerTone: 3,
   };
 }
-
-
-
 

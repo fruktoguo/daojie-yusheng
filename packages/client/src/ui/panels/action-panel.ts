@@ -1,6 +1,6 @@
 /**
  * 行动面板
- * 管理技能、对话、行动三大分类的操作列表，支持快捷键绑定、自动战斗技能排序与拖拽
+ * 负责动作列表、技能管理和技能方案的局部交互，不接管真正的战斗结算。
  */
 
 import { ActionDef, AutoBattleSkillConfig, PlayerState, SkillDef, type ElementKey, type SkillDamageKind } from '@mud/shared-next';
@@ -21,160 +21,162 @@ import {
   readBoolean,
 } from './action-panel-helpers';
 
-/** ActionMainTab：定义该类型的结构与数据语义。 */
+/** 行动面板的主标签页：对话、技能、开关和通用动作。 */
 type ActionMainTab = 'dialogue' | 'skill' | 'toggle' | 'utility';
-/** SkillSubTab：定义该类型的结构与数据语义。 */
+/** 技能区的子标签页：自动技能和手动技能。 */
 type SkillSubTab = 'auto' | 'manual';
-/** SkillManagementTab：定义该类型的结构与数据语义。 */
+/** 技能管理弹层里正在查看的分组。 */
 type SkillManagementTab = SkillSubTab | 'disabled';
-/** SkillManagementBulkMode：定义该类型的结构与数据语义。 */
+/** 技能管理里的批量切换模式。 */
 type SkillManagementBulkMode = SkillSubTab | 'enabled' | 'disabled';
-/** SkillManagementSortField：定义该类型的结构与数据语义。 */
+/** 技能管理的排序字段。 */
 type SkillManagementSortField = 'custom' | 'actualDamage' | 'qiCost' | 'range' | 'targetCount' | 'cooldown';
-/** SkillManagementSortDirection：定义该类型的结构与数据语义。 */
+/** 技能管理的排序方向。 */
 type SkillManagementSortDirection = 'asc' | 'desc';
-/** SkillManagementFilterToggle：定义该类型的结构与数据语义。 */
+/** 技能管理筛选面板中的开关项。 */
 type SkillManagementFilterToggle = 'melee' | 'ranged' | 'physical' | 'spell' | 'single' | 'aoe';
-/** SkillPresetStatusTone：定义该类型的结构与数据语义。 */
+/** 技能预设状态提示的语气。 */
 type SkillPresetStatusTone = 'success' | 'error' | 'info';
 
-/** ActionRowRefs：定义该接口的能力与字段约束。 */
+/** 动作列表行里需要缓存的节点引用，供局部 patch 直接改 DOM。 */
 interface ActionRowRefs {
-/** row：定义该变量以承载业务值。 */
   row: HTMLElement;
-/** cdNode：定义该变量以承载业务值。 */
   cdNode: HTMLElement;
-/** execNode：定义该变量以承载业务值。 */
   execNode: HTMLButtonElement;
   stateNode?: HTMLElement;
   orderNode?: HTMLElement;
   toggleNode?: HTMLButtonElement;
 }
 
-/** SkillManagementEntry：定义该接口的能力与字段约束。 */
+/** 技能管理列表里的单条条目，包含动作本体和预览指标。 */
 interface SkillManagementEntry {
-/** action：定义该变量以承载业务值。 */
   action: ActionDef;
-/** metrics：定义该变量以承载业务值。 */
   metrics: SkillPreviewMetrics;
 }
 
-/** ActionSkillAffinityBadge：定义该接口的能力与字段约束。 */
+/** 动作对应技能的倾向标签，用来在卡片上补充元素倾向说明。 */
 interface ActionSkillAffinityBadge {
-/** label：定义该变量以承载业务值。 */
   label: string;
-/** title：定义该变量以承载业务值。 */
   title: string;
-/** tone：定义该变量以承载业务值。 */
   tone: 'physical' | 'spell' | 'mixed' | 'utility';
-/** element：定义该变量以承载业务值。 */
   element: ElementKey | 'multi' | 'neutral';
 }
 
-/** SkillPresetSkillState：定义该接口的能力与字段约束。 */
+/** 技能预设里单个技能的启用状态，同时保留自动/手动标记。 */
 interface SkillPresetSkillState {
-/** skillId：定义该变量以承载业务值。 */
   skillId: string;
-/** enabled：定义该变量以承载业务值。 */
   enabled: boolean;
-/** skillEnabled：定义该变量以承载业务值。 */
   skillEnabled: boolean;
 }
 
-/** SkillPresetRecord：定义该接口的能力与字段约束。 */
+/** 单个技能预设的持久化记录。 */
 interface SkillPresetRecord {
-/** id：定义该变量以承载业务值。 */
   id: string;
-/** name：定义该变量以承载业务值。 */
   name: string;
-/** skills：定义该变量以承载业务值。 */
   skills: SkillPresetSkillState[];
 }
 
-/** SkillPresetLibrary：定义该接口的能力与字段约束。 */
+/** 技能预设导入导出的库结构。 */
 interface SkillPresetLibrary {
-/** v：定义该变量以承载业务值。 */
   v: number;
   p: Array<{
-/** n：定义该变量以承载业务值。 */
     n: string;
-/** s：定义该变量以承载业务值。 */
     s: Array<[string, 0 | 1]>;
   }>;
 }
 
-/** SkillPresetStatus：定义该接口的能力与字段约束。 */
+/** 技能预设当前的状态提示。 */
 interface SkillPresetStatus {
-/** tone：定义该变量以承载业务值。 */
   tone: SkillPresetStatusTone;
-/** text：定义该变量以承载业务值。 */
   text: string;
 }
 
-/** SKILL_PRESET_NAME_MAX_LENGTH：定义该变量以承载业务值。 */
+/** 技能预设名称的最大长度。 */
 const SKILL_PRESET_NAME_MAX_LENGTH = 24;
-/** SKILL_PRESET_EXPORT_VERSION：定义该变量以承载业务值。 */
+/** 技能预设导出格式版本。 */
 const SKILL_PRESET_EXPORT_VERSION = 2;
 
-/** ActionPanel：封装相关状态与行为。 */
+/** 动作面板实现，负责动作、技能和预设的局部交互。 */
 export class ActionPanel {
+  /** 技能管理弹窗的归属标识，和其他详情弹层互斥。 */
   private static readonly SKILL_MANAGEMENT_MODAL_OWNER = 'action-panel-skill-management';
+  /** 技能预设弹窗的归属标识，和技能管理弹层分开管理。 */
   private static readonly SKILL_PRESET_MODAL_OWNER = 'action-panel-skill-preset';
+  /** 面板根节点，后续只做局部 patch。 */
   private pane = document.getElementById('pane-action')!;
+  /** 执行动作的外部回调，由战斗/交互层接手真正执行。 */
   private onAction: ((actionId: string, requiresTarget?: boolean, targetMode?: string, range?: number, actionName?: string) => void) | null = null;
+  /** 同步自动战斗技能配置的外部回调，保存顺位和开关状态。 */
   private onUpdateAutoBattleSkills: ((skills: AutoBattleSkillConfig[]) => void) | null = null;
-/** activeTab：定义该变量以承载业务值。 */
+  /** 当前主标签页，决定展示对话、技能、开关还是通用动作。 */
   private activeTab: ActionMainTab = 'dialogue';
-/** activeSkillTab：定义该变量以承载业务值。 */
+  /** 当前技能子标签页。 */
   private activeSkillTab: SkillSubTab = 'auto';
-/** skillManagementTab：定义该变量以承载业务值。 */
+  /** 技能管理弹层当前分组。 */
   private skillManagementTab: SkillManagementTab = 'auto';
-/** skillManagementDraft：定义该变量以承载业务值。 */
+  /** 技能管理弹层里的草稿缓存，未应用前只留在本地。 */
   private skillManagementDraft: AutoBattleSkillConfig[] | null = null;
+  /** 技能管理排序面板是否展开。 */
   private skillManagementSortOpen = false;
-/** skillManagementSortField：定义该变量以承载业务值。 */
+  /** 技能管理当前排序字段。 */
   private skillManagementSortField: SkillManagementSortField = 'custom';
-/** skillManagementSortDirection：定义该变量以承载业务值。 */
+  /** 技能管理当前排序方向。 */
   private skillManagementSortDirection: SkillManagementSortDirection = 'desc';
+  /** 技能管理筛选面板是否展开。 */
   private skillManagementFilterOpen = false;
+  /** 技能管理当前启用的筛选条件。 */
   private skillManagementFilterToggles = new Set<SkillManagementFilterToggle>();
-/** skillManagementExternalRevision：定义该变量以承载业务值。 */
+  /** 外部技能管理状态摘要，用来判断弹层是否需要重绘。 */
   private skillManagementExternalRevision: string | null = null;
-/** skillPresetExternalRevision：定义该变量以承载业务值。 */
+  /** 外部技能预设状态摘要，用来判断弹层是否需要重绘。 */
   private skillPresetExternalRevision: string | null = null;
+  /** 技能管理列表的滚动位置，重绘后尽量恢复。 */
   private skillManagementListScrollTop = 0;
+  /** 角色是否开启自动战斗。 */
   private autoBattle = false;
+  /** 角色是否开启自动反击。 */
   private autoRetaliate = true;
+  /** 自动战斗时是否保持原地。 */
   private autoBattleStationary = false;
+  /** 是否允许范围技能误伤玩家。 */
   private allowAoePlayerHit = false;
+  /** 是否开启离线自动修炼。 */
   private autoIdleCultivation = true;
+  /** 是否自动切换修炼模式。 */
   private autoSwitchCultivation = false;
+  /** 当前是否处于修炼态。 */
   private cultivationActive = false;
-/** currentActions：定义该变量以承载业务值。 */
+  /** 当前动作列表快照，包含系统补进来的工具动作。 */
   private currentActions: ActionDef[] = [];
+  /** 快捷键绑定表，key 是 actionId，value 是按键。 */
   private shortcutBindings = new Map<string, string>();
-/** skillPresets：定义该变量以承载业务值。 */
+  /** 技能预设列表，按本地保存顺序排列。 */
   private skillPresets: SkillPresetRecord[] = [];
-/** selectedSkillPresetId：定义该变量以承载业务值。 */
+  /** 当前选中的技能预设 ID。 */
   private selectedSkillPresetId: string | null = null;
+  /** 新建或重命名时的预设名称草稿。 */
   private skillPresetNameDraft = '';
+  /** 导入技能预设时的原始文本。 */
   private skillPresetImportText = '';
-/** skillPresetStatus：定义该变量以承载业务值。 */
+  /** 技能预设的状态提示。 */
   private skillPresetStatus: SkillPresetStatus | null = null;
-/** bindingActionId：定义该变量以承载业务值。 */
+  /** 正在等待绑定快捷键的动作 ID。 */
   private bindingActionId: string | null = null;
-/** draggingSkillId：定义该变量以承载业务值。 */
+  /** 正在拖拽的技能 ID。 */
   private draggingSkillId: string | null = null;
-/** dragOverSkillId：定义该变量以承载业务值。 */
+  /** 拖拽悬停到的技能 ID。 */
   private dragOverSkillId: string | null = null;
-/** dragOverPosition：定义该变量以承载业务值。 */
+  /** 拖拽悬停位置，决定插在目标前还是后。 */
   private dragOverPosition: 'before' | 'after' | null = null;
+  /** 预览角色快照，用来算技能说明和管理指标。 */
   private previewPlayer?: PlayerState;
+  /** 技能查询缓存，保存技能定义、等级和已知技能列表。 */
   private skillLookup = new Map<string, { skill: SkillDef; techLevel: number; knownSkills: SkillDef[] }>();
+  /** 面板内统一复用的悬浮提示。 */
   private tooltip = new FloatingTooltip();
+  /** 动作行节点缓存，供冷却、顺位和开关状态局部更新。 */
   private actionRowRefs = new Map<string, ActionRowRefs>();
 
-/** constructor：处理当前场景中的对应操作。 */
   constructor() {
     this.shortcutBindings = this.loadShortcutBindings();
     this.skillPresets = this.loadSkillPresets();
@@ -182,7 +184,7 @@ export class ActionPanel {
     window.addEventListener('keydown', (event) => this.handleGlobalKeydown(event));
   }
 
-/** clear：执行对应的业务逻辑。 */
+  /** 清空面板、重置缓存并关掉关联弹层。 */
   clear(): void {
     this.tooltip.hide(true);
     this.actionRowRefs.clear();
@@ -203,7 +205,7 @@ export class ActionPanel {
     this.onUpdateAutoBattleSkills = onUpdateAutoBattleSkills ?? null;
   }
 
-  /** 全量更新行动列表并重新渲染 */
+  /** 用新的动作快照覆盖当前状态，并重绘面板和已开的弹层。 */
   update(actions: ActionDef[], _autoBattle?: boolean, _autoRetaliate?: boolean, player?: PlayerState): void {
     if (player) {
       this.previewPlayer = player;
@@ -222,7 +224,7 @@ export class ActionPanel {
     this.renderSkillPresetModalIfOpen();
   }
 
-  /** 增量同步行动状态，优先 DOM patch 避免全量重绘 */
+  /** 只同步会变的动作状态，优先走局部 patch，避免整块重绘。 */
   syncDynamic(actions: ActionDef[], _autoBattle?: boolean, _autoRetaliate?: boolean, player?: PlayerState): void {
     if (player) {
       this.previewPlayer = player;
@@ -244,7 +246,7 @@ export class ActionPanel {
     this.renderSkillPresetModalIfOpen();
   }
 
-/** initFromPlayer：执行对应的业务逻辑。 */
+  /** 从玩家快照初始化面板状态。 */
   initFromPlayer(player: PlayerState): void {
     this.previewPlayer = player;
     this.syncPlayerContext(player);
@@ -261,9 +263,8 @@ export class ActionPanel {
     this.renderSkillPresetModalIfOpen();
   }
 
-/** syncPlayerContext：执行对应的业务逻辑。 */
+  /** 同步玩家上下文到面板缓存。 */
   private syncPlayerContext(player: PlayerState): void {
-/** knownSkills：定义该变量以承载业务值。 */
     const knownSkills = player.techniques.flatMap((technique) => technique.skills);
     this.skillLookup = new Map(
       player.techniques.flatMap((technique) => technique.skills.map((skill) => [
@@ -273,20 +274,16 @@ export class ActionPanel {
     );
   }
 
-/** render：执行对应的业务逻辑。 */
+  /** 渲染动作面板主体。 */
   private render(actions: ActionDef[]): void {
     if (actions.length === 0) {
       this.clear();
       return;
     }
 
-/** tabGroups：定义该变量以承载业务值。 */
     const tabGroups: Array<{
-/** id：定义该变量以承载业务值。 */
       id: ActionMainTab;
-/** label：定义该变量以承载业务值。 */
       label: string;
-/** types：定义该变量以承载业务值。 */
       types: string[];
     }> = [
       { id: 'dialogue', label: '对话', types: ['quest', 'interact', 'travel'] },
@@ -294,17 +291,14 @@ export class ActionPanel {
       { id: 'toggle', label: '开关', types: ['toggle'] },
       { id: 'utility', label: '行动', types: ['toggle'] },
     ];
-/** groups：定义该变量以承载业务值。 */
     const groups = new Map<string, ActionDef[]>();
     for (const action of actions) {
       const list = groups.get(action.type) ?? [];
       list.push(action);
       groups.set(action.type, list);
     }
-/** autoBattleDisplayOrders：定义该变量以承载业务值。 */
     const autoBattleDisplayOrders = this.buildAutoBattleDisplayOrderMap(actions);
 
-/** html：定义该变量以承载业务值。 */
     let html = `<div class="action-tab-bar ui-tab-strip">
       ${tabGroups.map((tab) => `
         <button class="action-tab-btn ui-tab-strip-button ${this.activeTab === tab.id ? 'active' : ''}" data-action-tab="${tab.id}" type="button">${tab.label}</button>
@@ -314,7 +308,6 @@ export class ActionPanel {
     for (const tab of tabGroups) {
       html += `<div class="action-tab-pane ${this.activeTab === tab.id ? 'active' : ''}" data-action-pane="${tab.id}">`;
       if (tab.id === 'toggle') {
-/** switchEntries：定义该变量以承载业务值。 */
         const switchEntries = actions.filter((action) => this.isSwitchAction(action));
         if (switchEntries.length === 0) {
           html += '<div class="empty-hint ui-empty-hint">当前分组暂无内容</div></div>';
@@ -330,7 +323,6 @@ export class ActionPanel {
         continue;
       }
       if (tab.id === 'utility') {
-/** utilityEntries：定义该变量以承载业务值。 */
         const utilityEntries = actions.filter((action) => (
           (action.type === 'toggle' && !this.isSwitchAction(action))
           || this.isUtilityAction(action)
@@ -348,7 +340,6 @@ export class ActionPanel {
         html += '</div></div>';
         continue;
       }
-/** relevantTypes：定义该变量以承载业务值。 */
       const relevantTypes = tab.types.filter((type) => (groups.get(type)?.length ?? 0) > 0);
       if (relevantTypes.length === 0) {
         html += '<div class="empty-hint ui-empty-hint">当前分组暂无内容</div>';
@@ -382,24 +373,18 @@ export class ActionPanel {
     });
   }
 
-/** captureActionRowRefs：执行对应的业务逻辑。 */
+  /** 缓存动作行里后续 patch 会直接改到的节点引用。 */
   private captureActionRowRefs(): void {
     this.actionRowRefs.clear();
     this.pane.querySelectorAll<HTMLElement>('[data-action-row]').forEach((row) => {
-/** actionId：定义该变量以承载业务值。 */
       const actionId = row.dataset.actionRow;
-/** cdNode：定义该变量以承载业务值。 */
       const cdNode = row.querySelector<HTMLElement>('[data-action-cd]');
-/** execNode：定义该变量以承载业务值。 */
       const execNode = row.querySelector<HTMLButtonElement>('[data-action-exec]');
       if (!actionId || !cdNode || !execNode) {
         return;
       }
-/** stateNode：定义该变量以承载业务值。 */
       const stateNode = row.querySelector<HTMLElement>('[data-action-auto-state]');
-/** orderNode：定义该变量以承载业务值。 */
       const orderNode = row.querySelector<HTMLElement>('[data-action-auto-order]');
-/** toggleNode：定义该变量以承载业务值。 */
       const toggleNode = row.querySelector<HTMLButtonElement>('[data-auto-battle-toggle]');
       this.actionRowRefs.set(actionId, {
         row,
@@ -412,11 +397,10 @@ export class ActionPanel {
     });
   }
 
-/** bindEvents：执行对应的业务逻辑。 */
+  /** 给当前渲染出来的动作区装配标签切换、入口按钮和快捷操作事件。 */
   private bindEvents(actions: ActionDef[]): void {
     this.pane.querySelectorAll<HTMLElement>('[data-action-tab]').forEach((button) => {
       button.addEventListener('click', () => {
-/** tab：定义该变量以承载业务值。 */
         const tab = button.dataset.actionTab as ActionMainTab | undefined;
         if (!tab) return;
         this.activeTab = tab;
@@ -425,7 +409,6 @@ export class ActionPanel {
     });
     this.pane.querySelectorAll<HTMLElement>('[data-action-skill-tab]').forEach((button) => {
       button.addEventListener('click', () => {
-/** tab：定义该变量以承载业务值。 */
         const tab = button.dataset.actionSkillTab as SkillSubTab | undefined;
         if (!tab) return;
         this.activeSkillTab = tab;
@@ -449,18 +432,13 @@ export class ActionPanel {
     this.bindAutoBattleDragEvents(this.pane);
   }
 
-/** bindTooltips：执行对应的业务逻辑。 */
+  /** 只给带提示信息的节点绑定悬浮提示，避免重复装配整棵树。 */
   private bindTooltips(root: HTMLElement): void {
-/** tapMode：定义该变量以承载业务值。 */
     const tapMode = prefersPinnedTooltipInteraction();
     root.querySelectorAll<HTMLElement>('[data-action-tooltip-title]').forEach((node) => {
-/** title：定义该变量以承载业务值。 */
       const title = node.dataset.actionTooltipTitle ?? '';
-/** rich：定义该变量以承载业务值。 */
       const rich = node.dataset.actionTooltipRich === '1';
-/** skillId：定义该变量以承载业务值。 */
       const skillId = node.dataset.actionTooltipSkillId ?? '';
-/** skillContext：定义该变量以承载业务值。 */
       const skillContext = skillId ? this.skillLookup.get(skillId) : undefined;
       node.addEventListener('click', (event) => {
         if (!tapMode) {
@@ -470,7 +448,6 @@ export class ActionPanel {
           this.tooltip.hide(true);
           return;
         }
-/** tooltip：定义该变量以承载业务值。 */
         const tooltip = skillContext ? buildSkillTooltipContent(skillContext.skill, {
           techLevel: skillContext.techLevel,
           player: this.previewPlayer,
@@ -487,7 +464,6 @@ export class ActionPanel {
         if (tapMode && this.tooltip.isPinned()) {
           return;
         }
-/** tooltip：定义该变量以承载业务值。 */
         const tooltip = skillContext ? buildSkillTooltipContent(skillContext.skill, {
           techLevel: skillContext.techLevel,
           player: this.previewPlayer,
@@ -510,7 +486,7 @@ export class ActionPanel {
     });
   }
 
-/** handleGlobalKeydown：执行对应的业务逻辑。 */
+  /** 处理全局按键：一边支持绑键，一边支持直接触发动作。 */
   private handleGlobalKeydown(event: KeyboardEvent): void {
     if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) return;
     if (event.target instanceof HTMLElement && event.target.isContentEditable) return;
@@ -523,7 +499,6 @@ export class ActionPanel {
         this.renderSkillManagementModalIfOpen();
         return;
       }
-/** normalized：定义该变量以承载业务值。 */
       const normalized = normalizeShortcutKey(event.key);
       if (!normalized) return;
       event.preventDefault();
@@ -540,49 +515,44 @@ export class ActionPanel {
       return;
     }
 
-/** normalized：定义该变量以承载业务值。 */
     const normalized = normalizeShortcutKey(event.key);
     if (!normalized) return;
-/** actionId：定义该变量以承载业务值。 */
     const actionId = [...this.shortcutBindings.entries()].find(([, binding]) => binding === normalized)?.[0];
     if (!actionId) return;
-/** action：定义该变量以承载业务值。 */
     const action = this.currentActions.find((entry) => entry.id === actionId);
     if (!action || action.cooldownLeft > 0) return;
     event.preventDefault();
     this.onAction?.(action.id, action.requiresTarget, action.targetMode, action.range, action.name);
   }
 
-/** renderShortcutBadge：执行对应的业务逻辑。 */
+  /** 在动作标题旁补一枚快捷键标记。 */
   private renderShortcutBadge(actionId: string): string {
-/** binding：定义该变量以承载业务值。 */
     const binding = this.shortcutBindings.get(actionId);
     return binding ? `<span class="action-shortcut-tag">键 ${binding.toUpperCase()}</span>` : '';
   }
 
-/** renderShortcutMeta：执行对应的业务逻辑。 */
+  /** 在动作摘要里补一段快捷键说明。 */
   private renderShortcutMeta(actionId: string): string {
-/** binding：定义该变量以承载业务值。 */
     const binding = this.shortcutBindings.get(actionId);
     return binding ? ` · 快捷键 ${binding.toUpperCase()}` : '';
   }
 
-/** isSwitchAction：执行对应的业务逻辑。 */
+  /** 判断是否属于需要显示开关卡片的动作。 */
   private isSwitchAction(action: ActionDef): boolean {
     return action.type === 'toggle' && this.isSwitchActionId(action.id);
   }
 
-/** isUtilityAction：执行对应的业务逻辑。 */
+  /** 判断是否属于客户端补进来的通用动作。 */
   private isUtilityAction(action: ActionDef): boolean {
     return this.isUtilityActionId(action.id);
   }
 
-/** isUtilityActionId：执行对应的业务逻辑。 */
+  /** 判断动作 id 是否落在通用动作范围内。 */
   private isUtilityActionId(actionId: string): boolean {
     return actionId === RETURN_TO_SPAWN_ACTION_ID || actionId === 'battle:force_attack';
   }
 
-/** isSwitchActionId：执行对应的业务逻辑。 */
+  /** 判断动作 id 是否是状态开关类动作。 */
   private isSwitchActionId(actionId: string): boolean {
     return actionId === 'toggle:auto_battle'
       || actionId === 'toggle:auto_retaliate'
@@ -594,7 +564,7 @@ export class ActionPanel {
       || actionId === 'sense_qi:toggle';
   }
 
-/** getSwitchCardTitle：执行对应的业务逻辑。 */
+  /** 返回开关卡片在面板里显示的标题。 */
   private getSwitchCardTitle(action: ActionDef): string {
     switch (action.id) {
       case 'toggle:auto_battle':
@@ -618,6 +588,7 @@ export class ActionPanel {
     }
   }
 
+  /** 读取开关卡片当前状态，顺便决定按钮上的开/关文案。 */
   private getSwitchCardState(action: ActionDef): { active: boolean; label: string } {
     switch (action.id) {
       case 'toggle:auto_battle':
@@ -638,7 +609,6 @@ export class ActionPanel {
         }
         return { active: this.cultivationActive, label: this.cultivationActive ? '开' : '关' };
       case 'sense_qi:toggle': {
-/** active：定义该变量以承载业务值。 */
         const active = this.previewPlayer?.senseQiActive === true;
         return { active, label: active ? '开' : '关' };
       }
@@ -647,9 +617,8 @@ export class ActionPanel {
     }
   }
 
-/** renderSwitchItem：执行对应的业务逻辑。 */
+  /** 渲染一条状态开关卡片。 */
   private renderSwitchItem(action: ActionDef): string {
-/** state：定义该变量以承载业务值。 */
     const state = this.getSwitchCardState(action);
     return `<div class="gm-player-row ui-surface-card ui-surface-card--compact ui-selectable-card ${state.active ? 'is-active' : ''}" data-action-card="${action.id}" role="button" tabindex="0">
       <div>
@@ -663,25 +632,21 @@ export class ActionPanel {
     </div>`;
   }
 
-/** getBindButtonLabel：执行对应的业务逻辑。 */
+  /** 根据当前绑键状态返回按钮文案。 */
   private getBindButtonLabel(actionId: string): string {
     if (this.bindingActionId === actionId) {
       return '按键中';
     }
-/** binding：定义该变量以承载业务值。 */
     const binding = this.shortcutBindings.get(actionId);
     return binding ? `改键 ${binding.toUpperCase()}` : '绑定键';
   }
 
-/** loadShortcutBindings：执行对应的业务逻辑。 */
+  /** 从本地存储读回快捷键绑定。 */
   private loadShortcutBindings(): Map<string, string> {
     try {
-/** raw：定义该变量以承载业务值。 */
       const raw = localStorage.getItem(ACTION_SHORTCUTS_KEY);
       if (!raw) return new Map();
-/** parsed：定义该变量以承载业务值。 */
       const parsed = JSON.parse(raw) as Record<string, string>;
-/** result：定义该变量以承载业务值。 */
       const result = new Map<string, string>();
       for (const [actionId, key] of Object.entries(parsed)) {
         const normalized = normalizeShortcutKey(key);
@@ -695,22 +660,19 @@ export class ActionPanel {
     }
   }
 
-/** saveShortcutBindings：执行对应的业务逻辑。 */
+  /** 把快捷键绑定写回本地存储。 */
   private saveShortcutBindings(): void {
-/** payload：定义该变量以承载业务值。 */
     const payload = Object.fromEntries(this.shortcutBindings.entries());
     localStorage.setItem(ACTION_SHORTCUTS_KEY, JSON.stringify(payload));
   }
 
-/** loadSkillPresets：执行对应的业务逻辑。 */
+  /** 从本地存储恢复技能方案列表。 */
   private loadSkillPresets(): SkillPresetRecord[] {
     try {
-/** raw：定义该变量以承载业务值。 */
       const raw = localStorage.getItem(ACTION_SKILL_PRESETS_KEY);
       if (!raw) {
         return [];
       }
-/** parsed：定义该变量以承载业务值。 */
       const parsed = JSON.parse(raw) as unknown;
       return this.parseSkillPresetCollection(parsed, { preserveIds: true });
     } catch {
@@ -718,20 +680,18 @@ export class ActionPanel {
     }
   }
 
-/** saveSkillPresets：执行对应的业务逻辑。 */
+  /** 把当前技能方案列表序列化回本地存储。 */
   private saveSkillPresets(): void {
     localStorage.setItem(ACTION_SKILL_PRESETS_KEY, JSON.stringify(this.buildSkillPresetExportPayload(this.skillPresets)));
   }
 
+  /** 把不同来源的导入数据统一整理成技能方案列表。 */
   private parseSkillPresetCollection(
     payload: unknown,
     options?: { preserveIds?: boolean; existingNames?: Set<string> },
   ): SkillPresetRecord[] {
-/** preserveIds：定义该变量以承载业务值。 */
     const preserveIds = options?.preserveIds === true;
-/** existingNames：定义该变量以承载业务值。 */
     const existingNames = options?.existingNames ?? new Set<string>();
-/** source：定义该变量以承载业务值。 */
     const source = Array.isArray(payload)
       ? payload
       : isRecord(payload) && Array.isArray(payload.p)
@@ -741,9 +701,7 @@ export class ActionPanel {
         : isRecord(payload) && (Array.isArray(payload.skills) || Array.isArray(payload.s))
           ? [payload]
           : [];
-/** result：定义该变量以承载业务值。 */
     const result: SkillPresetRecord[] = [];
-/** usedNames：定义该变量以承载业务值。 */
     const usedNames = new Set(existingNames);
 
     for (const [index, value] of source.entries()) {
@@ -751,7 +709,6 @@ export class ActionPanel {
       if (!preset) {
         continue;
       }
-/** uniqueName：定义该变量以承载业务值。 */
       const uniqueName = this.resolveUniqueSkillPresetName(preset.name, usedNames);
       result.push({
         ...preset,
@@ -762,6 +719,7 @@ export class ActionPanel {
     return result;
   }
 
+  /** 解析单份技能方案记录，过滤掉空内容和重复技能。 */
   private parseSkillPresetRecord(
     value: unknown,
     index: number,
@@ -770,7 +728,6 @@ export class ActionPanel {
     if (!isRecord(value)) {
       return null;
     }
-/** rawSkills：定义该变量以承载业务值。 */
     const rawSkills = Array.isArray(value.s)
       ? value.s
       : Array.isArray(value.skills)
@@ -781,14 +738,11 @@ export class ActionPanel {
     if (!rawSkills || rawSkills.length === 0) {
       return null;
     }
-/** skills：定义该变量以承载业务值。 */
     const skills: SkillPresetSkillState[] = [];
-/** seen：定义该变量以承载业务值。 */
     const seen = new Set<string>();
     for (const entry of rawSkills) {
       if (Array.isArray(entry)) {
         const skillId = typeof entry[0] === 'string' ? entry[0].trim() : '';
-/** auto：定义该变量以承载业务值。 */
         const auto = entry[1] === 1;
         if (!skillId || seen.has(skillId)) {
           continue;
@@ -804,13 +758,11 @@ export class ActionPanel {
       if (!isRecord(entry)) {
         continue;
       }
-/** skillId：定义该变量以承载业务值。 */
       const skillId = typeof entry.skillId === 'string'
         ? entry.skillId.trim()
         : typeof entry.id === 'string'
           ? entry.id.trim()
           : '';
-/** skillEnabled：定义该变量以承载业务值。 */
       const skillEnabled = readBoolean(entry.skillEnabled);
       if (!skillId || seen.has(skillId) || skillEnabled === false) {
         continue;
@@ -825,9 +777,7 @@ export class ActionPanel {
     if (skills.length === 0) {
       return null;
     }
-/** fallbackName：定义该变量以承载业务值。 */
     const fallbackName = `技能方案 ${index + 1}`;
-/** name：定义该变量以承载业务值。 */
     const name = this.sanitizeSkillPresetName(
       typeof value.n === 'string'
         ? value.n
@@ -838,7 +788,6 @@ export class ActionPanel {
             : fallbackName,
     ) || fallbackName;
     return {
-/** id：定义该变量以承载业务值。 */
       id: options?.preserveIds === true && typeof value.id === 'string' && value.id
         ? value.id
         : this.generateSkillPresetId(),
@@ -847,19 +796,17 @@ export class ActionPanel {
     };
   }
 
-/** sanitizeSkillPresetName：执行对应的业务逻辑。 */
+  /** 清理技能方案名称里的空白，并裁掉过长内容。 */
   private sanitizeSkillPresetName(value: string): string {
     return value.replace(/\s+/g, ' ').trim().slice(0, SKILL_PRESET_NAME_MAX_LENGTH);
   }
 
-/** resolveUniqueSkillPresetName：执行对应的业务逻辑。 */
+  /** 在本地方案列表里找到一个不重复的名称。 */
   private resolveUniqueSkillPresetName(name: string, usedNames: Set<string>): string {
-/** base：定义该变量以承载业务值。 */
     const base = this.sanitizeSkillPresetName(name) || '技能方案';
     if (!usedNames.has(base)) {
       return base;
     }
-/** suffix：定义该变量以承载业务值。 */
     let suffix = 2;
     while (usedNames.has(`${base} (${suffix})`)) {
       suffix += 1;
@@ -867,24 +814,23 @@ export class ActionPanel {
     return `${base} (${suffix})`;
   }
 
-/** generateSkillPresetId：执行对应的业务逻辑。 */
+  /** 生成一个本地唯一的技能方案 ID。 */
   private generateSkillPresetId(): string {
     return `skill-preset-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
   }
 
-/** getCurrentSkillPresetSnapshot：执行对应的业务逻辑。 */
+  /** 读取当前动作对应的可保存技能快照。 */
   private getCurrentSkillPresetSnapshot(): SkillPresetSkillState[] {
     return this.getAutoBattleSkillConfigs(this.currentActions)
       .filter((entry) => entry.skillEnabled !== false)
       .map((entry) => ({
         skillId: entry.skillId,
-/** enabled：定义该变量以承载业务值。 */
         enabled: entry.enabled !== false,
         skillEnabled: true,
       }));
   }
 
-/** buildSkillPresetExportPayload：执行对应的业务逻辑。 */
+  /** 把技能方案整理成结构化导出数据。 */
   private buildSkillPresetExportPayload(presets: SkillPresetRecord[]): SkillPresetLibrary {
     return {
       v: SKILL_PRESET_EXPORT_VERSION,
@@ -897,9 +843,8 @@ export class ActionPanel {
     };
   }
 
-/** buildSkillPresetExportText：执行对应的业务逻辑。 */
+  /** 把技能方案拼成可复制、可文件导出的键值文本。 */
   private buildSkillPresetExportText(presets: SkillPresetRecord[]): string {
-/** lines：定义该变量以承载业务值。 */
     const lines = [`v=${SKILL_PRESET_EXPORT_VERSION + 1}`];
     for (const preset of presets) {
       lines.push(`p=${encodeURIComponent(preset.name)}`);
@@ -913,27 +858,23 @@ export class ActionPanel {
     return `${lines.join('\n')}\n`;
   }
 
+  /** 解析技能方案文本，兼容当前键值格式和旧 JSON 格式。 */
   private parseSkillPresetText(
     text: string,
     options?: { preserveIds?: boolean; existingNames?: Set<string> },
   ): SkillPresetRecord[] {
-/** parsedPresets：定义该变量以承载业务值。 */
     const parsedPresets: Array<{ n: string; s: Array<[string, 0 | 1]> }> = [];
-/** current：定义该变量以承载业务值。 */
     let current: { n: string; s: Array<[string, 0 | 1]> } | null = null;
     for (const rawLine of text.split(/\r?\n/)) {
       const line = rawLine.trim();
       if (!line || line.startsWith('#')) {
         continue;
       }
-/** separatorIndex：定义该变量以承载业务值。 */
       const separatorIndex = line.indexOf('=');
       if (separatorIndex <= 0) {
         continue;
       }
-/** key：定义该变量以承载业务值。 */
       const key = line.slice(0, separatorIndex).trim();
-/** value：定义该变量以承载业务值。 */
       const value = line.slice(separatorIndex + 1).trim();
       if (key === 'v') {
         continue;
@@ -949,14 +890,11 @@ export class ActionPanel {
         continue;
       }
       if (key === 's' && current) {
-/** commaIndex：定义该变量以承载业务值。 */
         const commaIndex = value.lastIndexOf(',');
         if (commaIndex <= 0) {
           continue;
         }
-/** skillId：定义该变量以承载业务值。 */
         const skillId = decodePresetTextValue(value.slice(0, commaIndex).trim());
-/** autoFlag：定义该变量以承载业务值。 */
         const autoFlag = value.slice(commaIndex + 1).trim() === '1' ? 1 : 0;
         if (!skillId) {
           continue;
@@ -973,16 +911,12 @@ export class ActionPanel {
     return this.parseSkillPresetCollection({ p: parsedPresets }, options);
   }
 
-/** downloadSkillPresetPayload：执行对应的业务逻辑。 */
+  /** 触发技能方案文本下载。 */
   private downloadSkillPresetPayload(fileName: string, text: string): void {
-/** blob：定义该变量以承载业务值。 */
     const blob = new Blob([text], {
-/** type：定义该变量以承载业务值。 */
       type: 'text/plain;charset=utf-8',
     });
-/** url：定义该变量以承载业务值。 */
     const url = URL.createObjectURL(blob);
-/** anchor：定义该变量以承载业务值。 */
     const anchor = document.createElement('a');
     anchor.href = url;
     anchor.download = fileName;
@@ -990,24 +924,18 @@ export class ActionPanel {
     window.setTimeout(() => URL.revokeObjectURL(url), 0);
   }
 
-/** buildDefaultSkillPresetName：执行对应的业务逻辑。 */
+  /** 用当前日期时间生成一个默认方案名。 */
   private buildDefaultSkillPresetName(): string {
-/** now：定义该变量以承载业务值。 */
     const now = new Date();
-/** month：定义该变量以承载业务值。 */
     const month = String(now.getMonth() + 1).padStart(2, '0');
-/** day：定义该变量以承载业务值。 */
     const day = String(now.getDate()).padStart(2, '0');
-/** hour：定义该变量以承载业务值。 */
     const hour = String(now.getHours()).padStart(2, '0');
-/** minute：定义该变量以承载业务值。 */
     const minute = String(now.getMinutes()).padStart(2, '0');
     return `技能方案 ${month}-${day} ${hour}:${minute}`;
   }
 
-/** buildSkillPresetExternalRevision：执行对应的业务逻辑。 */
+  /** 生成技能方案弹层的外部变更摘要。 */
   private buildSkillPresetExternalRevision(): string {
-/** parts：定义该变量以承载业务值。 */
     const parts: string[] = [];
     for (const action of this.getSkillActions(this.currentActions)) {
       parts.push(action.id);
@@ -1017,11 +945,9 @@ export class ActionPanel {
     return parts.join('\u0001');
   }
 
-/** withUtilityActions：执行对应的业务逻辑。 */
+  /** 给动作列表补上客户端工具动作和兜底技能。 */
   private withUtilityActions(actions: ActionDef[]): ActionDef[] {
-/** result：定义该变量以承载业务值。 */
     const result = [...actions];
-/** knownSkillActions：定义该变量以承载业务值。 */
     const knownSkillActions = this.previewPlayer ? this.buildTechniqueFallbackActions(this.previewPlayer, result) : [];
     for (const action of knownSkillActions) {
       if (!result.some((entry) => entry.id === action.id)) {
@@ -1054,20 +980,16 @@ export class ActionPanel {
     return result;
   }
 
-/** buildTechniqueFallbackActions：执行对应的业务逻辑。 */
+  /** 从角色已学功法里补出当前列表缺失的技能动作。 */
   private buildTechniqueFallbackActions(player: PlayerState, currentActions: ActionDef[]): ActionDef[] {
-/** existingSkillIds：定义该变量以承载业务值。 */
     const existingSkillIds = new Set(currentActions.filter((action) => action.type === 'skill').map((action) => action.id));
-/** autoBattleSkillMap：定义该变量以承载业务值。 */
     const autoBattleSkillMap = new Map((player.autoBattleSkills ?? []).map((entry, index) => [entry.skillId, { entry, index }] as const));
-/** fallback：定义该变量以承载业务值。 */
     const fallback: ActionDef[] = [];
     for (const technique of player.techniques) {
       for (const skill of technique.skills ?? []) {
         if (existingSkillIds.has(skill.id)) {
           continue;
         }
-/** config：定义该变量以承载业务值。 */
         const config = autoBattleSkillMap.get(skill.id);
         fallback.push({
           id: skill.id,
@@ -1085,15 +1007,14 @@ export class ActionPanel {
       }
     }
     fallback.sort((left, right) => {
-/** leftOrder：定义该变量以承载业务值。 */
       const leftOrder = left.autoBattleOrder ?? Number.MAX_SAFE_INTEGER;
-/** rightOrder：定义该变量以承载业务值。 */
       const rightOrder = right.autoBattleOrder ?? Number.MAX_SAFE_INTEGER;
       return (leftOrder - rightOrder) || left.id.localeCompare(right.id, 'zh-Hans-CN');
     });
     return fallback;
   }
 
+  /** 渲染单条动作或技能卡片。 */
   private renderActionItem(
     action: ActionDef,
     options?: {
@@ -1101,37 +1022,27 @@ export class ActionPanel {
       autoBattleDisplayOrder?: number | null;
     },
   ): string {
-/** onCd：定义该变量以承载业务值。 */
     const onCd = action.cooldownLeft > 0;
-/** isAutoBattleSkill：定义该变量以承载业务值。 */
     const isAutoBattleSkill = action.type === 'skill';
-/** skillContext：定义该变量以承载业务值。 */
     const skillContext = this.skillLookup.get(action.id);
-/** tooltipAttrs：定义该变量以承载业务值。 */
     const tooltipAttrs = skillContext
       ? ` data-action-tooltip-title="${escapeHtml(skillContext.skill.name)}" data-action-tooltip-skill-id="${escapeHtml(skillContext.skill.id)}" data-action-tooltip-rich="1"`
       : '';
-/** autoBattleEnabled：定义该变量以承载业务值。 */
     const autoBattleEnabled = action.autoBattleEnabled !== false;
-/** autoBattleOrder：定义该变量以承载业务值。 */
     const autoBattleOrder = typeof options?.autoBattleDisplayOrder === 'number'
       ? options.autoBattleDisplayOrder + 1
       : undefined;
-/** rowAttrs：定义该变量以承载业务值。 */
     const rowAttrs = isAutoBattleSkill && options?.showDragHandle
       ? ` data-auto-battle-skill-row="${action.id}"`
       : '';
-/** autoBattleMeta：定义该变量以承载业务值。 */
     const autoBattleMeta = isAutoBattleSkill
       ? `<span class="action-type ${autoBattleEnabled ? 'auto-battle-enabled' : 'auto-battle-disabled'}">${autoBattleEnabled ? '自动已启用' : '自动已停用'}</span>
          ${autoBattleOrder ? `<span class="action-type">顺位 ${autoBattleOrder}</span>` : ''}`
       : '';
-/** autoBattleControls：定义该变量以承载业务值。 */
     const autoBattleControls = isAutoBattleSkill
       ? `<button class="small-btn ghost ${autoBattleEnabled ? 'active' : ''}" data-auto-battle-toggle="${action.id}" type="button">${autoBattleEnabled ? '自动 开' : '自动 关'}</button>
          ${options?.showDragHandle ? `<button class="small-btn ghost action-drag-handle" data-auto-battle-drag="${action.id}" draggable="true" type="button">拖拽</button>` : ''}`
       : '';
-/** affinityChip：定义该变量以承载业务值。 */
     const affinityChip = skillContext ? this.renderActionSkillAffinityChip(skillContext.skill) : '';
 
     return `<div class="action-item ui-surface-card ui-surface-card--compact ${onCd ? 'cooldown' : ''} ${isAutoBattleSkill ? 'action-item-draggable' : ''}" data-action-row="${action.id}"${rowAttrs}>
@@ -1158,18 +1069,15 @@ export class ActionPanel {
     </div>`;
   }
 
-/** renderActionSkillAffinityChip：执行对应的业务逻辑。 */
+  /** 把技能的元素倾向渲染成一枚徽章。 */
   private renderActionSkillAffinityChip(skill: SkillDef): string {
-/** badge：定义该变量以承载业务值。 */
     const badge = getSkillAffinityBadge(skill);
-/** elementClass：定义该变量以承载业务值。 */
     const elementClass = badge.element === 'neutral' ? '' : ` item-card-chip--element-${badge.element}`;
-/** title：定义该变量以承载业务值。 */
     const title = escapeHtml(badge.title);
     return `<span class="item-card-chip item-card-chip--affinity item-card-chip--${badge.tone}${elementClass} action-skill-affinity-chip" title="${title}" aria-label="${title}">${escapeHtml(badge.label)}</span>`;
   }
 
-/** toggleAutoBattleSkill：执行对应的业务逻辑。 */
+  /** 切换某个自动战斗技能的启用状态。 */
   private toggleAutoBattleSkill(actionId: string): void {
     this.applyAutoBattleSkillMutation((skills) => skills.map((action) => (
       action.id === actionId
@@ -1178,7 +1086,7 @@ export class ActionPanel {
     )));
   }
 
-/** toggleSkillEnabled：执行对应的业务逻辑。 */
+  /** 切换某个技能在列表里的可用状态。 */
   private toggleSkillEnabled(actionId: string): void {
     this.applyAutoBattleSkillMutation((skills) => skills.map((action) => (
       action.id === actionId
@@ -1187,7 +1095,7 @@ export class ActionPanel {
     )));
   }
 
-/** toggleSkillManagementAutoBattleSkill：执行对应的业务逻辑。 */
+  /** 切换技能管理弹层里的自动战斗开关。 */
   private toggleSkillManagementAutoBattleSkill(actionId: string): void {
     this.applySkillManagementDraftMutation((skills) => skills.map((action) => (
       action.id === actionId
@@ -1196,7 +1104,7 @@ export class ActionPanel {
     )));
   }
 
-/** toggleSkillManagementSkillEnabled：执行对应的业务逻辑。 */
+  /** 切换技能管理弹层里的技能启用开关。 */
   private toggleSkillManagementSkillEnabled(actionId: string): void {
     this.applySkillManagementDraftMutation((skills) => skills.map((action) => (
       action.id === actionId
@@ -1205,62 +1113,50 @@ export class ActionPanel {
     )));
   }
 
-/** moveAutoBattleSkill：执行对应的业务逻辑。 */
+  /** 在自动战斗列表里调整技能顺位。 */
   private moveAutoBattleSkill(actionId: string, targetId: string, position: 'before' | 'after'): void {
     if (actionId === targetId) return;
     this.applyAutoBattleSkillMutation((skills) => {
-/** sourceIndex：定义该变量以承载业务值。 */
       const sourceIndex = skills.findIndex((action) => action.id === actionId);
-/** targetIndex：定义该变量以承载业务值。 */
       const targetIndex = skills.findIndex((action) => action.id === targetId);
       if (sourceIndex < 0 || targetIndex < 0) {
         return skills;
       }
-/** next：定义该变量以承载业务值。 */
       const next = [...skills];
       const [moved] = next.splice(sourceIndex, 1);
-/** baseIndex：定义该变量以承载业务值。 */
       const baseIndex = next.findIndex((action) => action.id === targetId);
-/** insertIndex：定义该变量以承载业务值。 */
       const insertIndex = position === 'before' ? baseIndex : baseIndex + 1;
       next.splice(insertIndex, 0, moved);
       return next;
     });
   }
 
-/** moveSkillManagementSkill：执行对应的业务逻辑。 */
+  /** 在技能管理草稿里调整技能顺位。 */
   private moveSkillManagementSkill(actionId: string, targetId: string, position: 'before' | 'after'): void {
     if (actionId === targetId) return;
     this.applySkillManagementDraftMutation((skills) => {
-/** sourceIndex：定义该变量以承载业务值。 */
       const sourceIndex = skills.findIndex((action) => action.id === actionId);
-/** targetIndex：定义该变量以承载业务值。 */
       const targetIndex = skills.findIndex((action) => action.id === targetId);
       if (sourceIndex < 0 || targetIndex < 0) {
         return skills;
       }
-/** next：定义该变量以承载业务值。 */
       const next = [...skills];
       const [moved] = next.splice(sourceIndex, 1);
-/** baseIndex：定义该变量以承载业务值。 */
       const baseIndex = next.findIndex((action) => action.id === targetId);
-/** insertIndex：定义该变量以承载业务值。 */
       const insertIndex = position === 'before' ? baseIndex : baseIndex + 1;
       next.splice(insertIndex, 0, moved);
       return next;
     });
   }
 
+  /** 把自动战斗技能改动写回 currentActions 和预览角色。 */
   private applyAutoBattleSkillMutation(mutator: (skills: ActionDef[]) => ActionDef[]): void {
-/** skillActions：定义该变量以承载业务值。 */
     const skillActions = this.currentActions
       .filter((action) => action.type === 'skill')
       .map((action) => ({
         ...action,
-/** autoBattleEnabled：定义该变量以承载业务值。 */
         autoBattleEnabled: action.autoBattleEnabled !== false,
       }));
-/** mutated：定义该变量以承载业务值。 */
     const mutated = this.withSequentialAutoBattleOrder(mutator(skillActions));
     this.currentActions = this.replaceSkillActions(mutated);
     if (this.previewPlayer) {
@@ -1272,45 +1168,37 @@ export class ActionPanel {
     this.onUpdateAutoBattleSkills?.(this.getAutoBattleSkillConfigs(this.currentActions));
   }
 
+  /** 把技能管理草稿的改动写回预览态并刷新弹层。 */
   private applySkillManagementDraftMutation(mutator: (skills: ActionDef[]) => ActionDef[]): void {
-/** orderedIds：定义该变量以承载业务值。 */
     const orderedIds = this.skillManagementSortField === 'custom'
       ? []
       : this.getSortedSkillManagementActionIds();
-/** skillActions：定义该变量以承载业务值。 */
     const skillActions = this.getSkillActions(this.getSkillManagementPreviewActions())
       .map((action) => ({
         ...action,
-/** autoBattleEnabled：定义该变量以承载业务值。 */
         autoBattleEnabled: action.autoBattleEnabled !== false,
-/** skillEnabled：定义该变量以承载业务值。 */
         skillEnabled: action.skillEnabled !== false,
       }));
-/** orderedSkillActions：定义该变量以承载业务值。 */
     const orderedSkillActions = orderedIds.length > 1
       ? this.reorderSkillManagementSubset(skillActions, orderedIds)
       : skillActions;
-/** mutated：定义该变量以承载业务值。 */
     const mutated = this.withSequentialAutoBattleOrder(mutator(orderedSkillActions));
     this.skillManagementDraft = this.getAutoBattleSkillConfigs(mutated);
     this.renderSkillManagementModal();
   }
 
-/** withSequentialAutoBattleOrder：执行对应的业务逻辑。 */
+  /** 按当前顺序重新编号自动战斗顺位。 */
   private withSequentialAutoBattleOrder(actions: ActionDef[]): ActionDef[] {
     return actions.map((action, index) => ({
       ...action,
-/** autoBattleEnabled：定义该变量以承载业务值。 */
       autoBattleEnabled: action.autoBattleEnabled !== false,
-/** skillEnabled：定义该变量以承载业务值。 */
       skillEnabled: action.skillEnabled !== false,
       autoBattleOrder: index,
     }));
   }
 
-/** replaceSkillActions：执行对应的业务逻辑。 */
+  /** 用新的技能数组替换 currentActions 里对应的位置。 */
   private replaceSkillActions(skillActions: ActionDef[]): ActionDef[] {
-/** skillIndex：定义该变量以承载业务值。 */
     let skillIndex = 0;
     return this.currentActions.map((action) => {
       if (action.type !== 'skill') {
@@ -1320,29 +1208,23 @@ export class ActionPanel {
     });
   }
 
-/** getAutoBattleSkillConfigs：执行对应的业务逻辑。 */
+  /** 把动作快照压成自动战斗技能配置。 */
   private getAutoBattleSkillConfigs(actions: ActionDef[]): AutoBattleSkillConfig[] {
     return actions
       .filter((action) => action.type === 'skill')
       .map((action) => ({
         skillId: action.id,
-/** enabled：定义该变量以承载业务值。 */
         enabled: action.autoBattleEnabled !== false,
-/** skillEnabled：定义该变量以承载业务值。 */
         skillEnabled: action.skillEnabled !== false,
       }));
   }
 
-/** updateDragIndicators：执行对应的业务逻辑。 */
+  /** 同步拖拽高亮状态，让当前悬停行显出插入位置。 */
   private updateDragIndicators(): void {
     document.querySelectorAll<HTMLElement>('[data-auto-battle-skill-row], [data-skill-manage-skill-row]').forEach((row) => {
-/** actionId：定义该变量以承载业务值。 */
       const actionId = row.dataset.autoBattleSkillRow ?? row.dataset.skillManageSkillRow;
-/** isDragging：定义该变量以承载业务值。 */
       const isDragging = actionId === this.draggingSkillId;
-/** isBefore：定义该变量以承载业务值。 */
       const isBefore = actionId === this.dragOverSkillId && this.dragOverPosition === 'before';
-/** isAfter：定义该变量以承载业务值。 */
       const isAfter = actionId === this.dragOverSkillId && this.dragOverPosition === 'after';
       row.classList.toggle('dragging', isDragging);
       row.classList.toggle('drag-over-before', isBefore);
@@ -1350,7 +1232,7 @@ export class ActionPanel {
     });
   }
 
-/** clearDragState：执行对应的业务逻辑。 */
+  /** 清掉拖拽过程中的临时状态。 */
   private clearDragState(): void {
     this.draggingSkillId = null;
     this.dragOverSkillId = null;
@@ -1358,14 +1240,13 @@ export class ActionPanel {
     this.updateDragIndicators();
   }
 
-/** patchToggleCards：执行对应的业务逻辑。 */
+  /** 开关卡片目前仍跟随整块重渲染，不单独 patch。 */
   private patchToggleCards(): boolean {
     return true;
   }
 
-/** patchActionRows：执行对应的业务逻辑。 */
+  /** 只更新动作行里会变的部分，保住冷却、顺位和按钮状态。 */
   private patchActionRows(): boolean {
-/** autoBattleDisplayOrders：定义该变量以承载业务值。 */
     const autoBattleDisplayOrders = this.buildAutoBattleDisplayOrderMap(this.currentActions);
     for (const action of this.currentActions) {
       if (
@@ -1375,9 +1256,7 @@ export class ActionPanel {
       ) {
         continue;
       }
-/** refs：定义该变量以承载业务值。 */
       const refs = this.actionRowRefs.get(action.id);
-/** row：定义该变量以承载业务值。 */
       const row = refs?.row;
       if (!row) {
         if (action.type === 'skill') {
@@ -1385,13 +1264,10 @@ export class ActionPanel {
         }
         return false;
       }
-/** onCd：定义该变量以承载业务值。 */
       const onCd = action.cooldownLeft > 0;
       row.classList.toggle('cooldown', onCd);
 
-/** cdNode：定义该变量以承载业务值。 */
       const cdNode = refs.cdNode;
-/** execNode：定义该变量以承载业务值。 */
       const execNode = refs.execNode;
       if (!cdNode || !execNode) {
         return false;
@@ -1402,20 +1278,14 @@ export class ActionPanel {
       execNode.disabled = onCd;
 
       if (action.type === 'skill') {
-/** stateNode：定义该变量以承载业务值。 */
         const stateNode = refs.stateNode;
-/** orderNode：定义该变量以承载业务值。 */
         const orderNode = refs.orderNode;
-/** toggleNode：定义该变量以承载业务值。 */
         const toggleNode = refs.toggleNode;
         if (!stateNode || !orderNode || !toggleNode) {
           return false;
         }
-/** enabled：定义该变量以承载业务值。 */
         const enabled = action.autoBattleEnabled !== false;
-/** showOrder：定义该变量以承载业务值。 */
         const showOrder = this.activeSkillTab === 'auto' && enabled;
-/** order：定义该变量以承载业务值。 */
         const order = showOrder ? (autoBattleDisplayOrders.get(action.id) ?? null) : null;
         stateNode.textContent = enabled ? '自动已启用' : '自动已停用';
         stateNode.classList.toggle('auto-battle-enabled', enabled);
@@ -1430,22 +1300,16 @@ export class ActionPanel {
     return true;
   }
 
-/** renderSkillSection：执行对应的业务逻辑。 */
+  /** 渲染技能区主体，并按自动/手动给出不同说明。 */
   private renderSkillSection(actions: ActionDef[], autoBattleDisplayOrders: Map<string, number>): string {
-/** enabledSkills：定义该变量以承载业务值。 */
     const enabledSkills = actions.filter((action) => action.skillEnabled !== false);
-/** autoSkills：定义该变量以承载业务值。 */
     const autoSkills = enabledSkills.filter((action) => action.autoBattleEnabled !== false);
-/** manualSkills：定义该变量以承载业务值。 */
     const manualSkills = enabledSkills.filter((action) => action.autoBattleEnabled === false);
-/** visibleSkills：定义该变量以承载业务值。 */
     const visibleSkills = this.activeSkillTab === 'auto' ? autoSkills : manualSkills;
-/** hint：定义该变量以承载业务值。 */
     const hint = this.activeSkillTab === 'auto'
       ? '自动战斗会按列表从上到下尝试已启用技能，可直接拖拽调整优先级。'
       : '这里的技能不会参与自动战斗，但仍可手动点击或使用绑定键触发。';
 
-/** html：定义该变量以承载业务值。 */
     let html = `<div class="panel-section action-skill-section ui-surface-pane ui-surface-pane--stack">
       <div class="panel-section-head">
         <div class="panel-section-title">技能</div>
@@ -1472,9 +1336,7 @@ export class ActionPanel {
       html += '<div class="action-skill-list ui-card-list ui-card-list--compact">';
       for (const action of visibleSkills) {
         html += this.renderActionItem(action, {
-/** showDragHandle：定义该变量以承载业务值。 */
           showDragHandle: this.activeSkillTab === 'auto',
-/** autoBattleDisplayOrder：定义该变量以承载业务值。 */
           autoBattleDisplayOrder: this.activeSkillTab === 'auto'
             ? (autoBattleDisplayOrders.get(action.id) ?? null)
             : null,
@@ -1487,11 +1349,9 @@ export class ActionPanel {
     return html;
   }
 
-/** buildAutoBattleDisplayOrderMap：执行对应的业务逻辑。 */
+  /** 为可自动施放的技能生成展示顺位。 */
   private buildAutoBattleDisplayOrderMap(actions: ActionDef[]): Map<string, number> {
-/** displayOrder：定义该变量以承载业务值。 */
     const displayOrder = new Map<string, number>();
-/** nextOrder：定义该变量以承载业务值。 */
     let nextOrder = 0;
     for (const action of actions) {
       if (action.type !== 'skill' || action.skillEnabled === false || action.autoBattleEnabled === false) {
@@ -1503,49 +1363,40 @@ export class ActionPanel {
     return displayOrder;
   }
 
-/** bindActionCardEvents：执行对应的业务逻辑。 */
+  /** 点击卡片本体时直接触发动作。 */
   private bindActionCardEvents(root: HTMLElement): void {
     root.querySelectorAll<HTMLElement>('[data-action-card]').forEach((button) => {
       button.addEventListener('click', () => {
         if (button.dataset.bindAction) return;
-/** actionId：定义该变量以承载业务值。 */
         const actionId = button.dataset.actionCard;
         if (!actionId) return;
-/** action：定义该变量以承载业务值。 */
         const action = this.currentActions.find((entry) => entry.id === actionId);
         this.onAction?.(actionId, action?.requiresTarget, action?.targetMode, action?.range, action?.name ?? actionId);
       });
     });
   }
 
-/** bindActionExecEvents：执行对应的业务逻辑。 */
+  /** 绑定执行按钮，读取 data-* 参数后交给外部回调。 */
   private bindActionExecEvents(root: HTMLElement): void {
     root.querySelectorAll<HTMLElement>('[data-action]').forEach((button) => {
       button.addEventListener('click', () => {
-/** actionId：定义该变量以承载业务值。 */
         const actionId = button.dataset.action!;
-/** actionName：定义该变量以承载业务值。 */
         const actionName = button.dataset.actionName || actionId;
-/** requiresTarget：定义该变量以承载业务值。 */
         const requiresTarget = button.dataset.actionTarget === '1';
-/** targetMode：定义该变量以承载业务值。 */
         const targetMode = button.dataset.actionTargetMode || undefined;
-/** rangeText：定义该变量以承载业务值。 */
         const rangeText = button.dataset.actionRange;
-/** range：定义该变量以承载业务值。 */
         const range = rangeText ? Number(rangeText) : undefined;
         this.onAction?.(actionId, requiresTarget, targetMode, Number.isFinite(range) ? range : undefined, actionName);
       });
     });
   }
 
-/** bindBindActionEvents：执行对应的业务逻辑。 */
+  /** 进入或退出动作绑键模式。 */
   private bindBindActionEvents(root: HTMLElement): void {
     root.querySelectorAll<HTMLElement>('[data-bind-action]').forEach((button) => {
       button.addEventListener('click', (event) => {
         event.preventDefault();
         event.stopPropagation();
-/** actionId：定义该变量以承载业务值。 */
         const actionId = button.dataset.bindAction;
         if (!actionId) return;
         this.bindingActionId = this.bindingActionId === actionId ? null : actionId;
@@ -1555,13 +1406,12 @@ export class ActionPanel {
     });
   }
 
-/** bindAutoBattleToggleEvents：执行对应的业务逻辑。 */
+  /** 绑定自动战斗开关按钮。 */
   private bindAutoBattleToggleEvents(root: HTMLElement): void {
     root.querySelectorAll<HTMLElement>('[data-auto-battle-toggle]').forEach((button) => {
       button.addEventListener('click', (event) => {
         event.preventDefault();
         event.stopPropagation();
-/** actionId：定义该变量以承载业务值。 */
         const actionId = button.dataset.autoBattleToggle;
         if (!actionId) return;
         this.toggleAutoBattleSkill(actionId);
@@ -1569,13 +1419,12 @@ export class ActionPanel {
     });
   }
 
-/** bindSkillEnabledToggleEvents：执行对应的业务逻辑。 */
+  /** 绑定技能启用开关按钮。 */
   private bindSkillEnabledToggleEvents(root: HTMLElement): void {
     root.querySelectorAll<HTMLElement>('[data-skill-enabled-toggle]').forEach((button) => {
       button.addEventListener('click', (event) => {
         event.preventDefault();
         event.stopPropagation();
-/** actionId：定义该变量以承载业务值。 */
         const actionId = button.dataset.skillEnabledToggle;
         if (!actionId) return;
         this.toggleSkillEnabled(actionId);
@@ -1583,11 +1432,10 @@ export class ActionPanel {
     });
   }
 
-/** bindAutoBattleDragEvents：执行对应的业务逻辑。 */
+  /** 绑定自动战斗列表的拖拽排序交互。 */
   private bindAutoBattleDragEvents(root: HTMLElement): void {
     root.querySelectorAll<HTMLElement>('[data-auto-battle-drag]').forEach((handle) => {
       handle.addEventListener('dragstart', (event) => {
-/** actionId：定义该变量以承载业务值。 */
         const actionId = handle.dataset.autoBattleDrag;
         if (!actionId || !(event.dataTransfer instanceof DataTransfer)) return;
         this.draggingSkillId = actionId;
@@ -1604,19 +1452,15 @@ export class ActionPanel {
     root.querySelectorAll<HTMLElement>('[data-auto-battle-skill-row]').forEach((row) => {
       row.addEventListener('dragover', (event) => {
         event.preventDefault();
-/** actionId：定义该变量以承载业务值。 */
         const actionId = row.dataset.autoBattleSkillRow;
         if (!actionId || !this.draggingSkillId || actionId === this.draggingSkillId) return;
-/** rect：定义该变量以承载业务值。 */
         const rect = row.getBoundingClientRect();
-/** midpoint：定义该变量以承载业务值。 */
         const midpoint = rect.top + rect.height / 2;
         this.dragOverSkillId = actionId;
         this.dragOverPosition = event.clientY < midpoint ? 'before' : 'after';
         this.updateDragIndicators();
       });
       row.addEventListener('dragleave', (event) => {
-/** related：定义该变量以承载业务值。 */
         const related = event.relatedTarget;
         if (related instanceof Node && row.contains(related)) {
           return;
@@ -1629,7 +1473,6 @@ export class ActionPanel {
       });
       row.addEventListener('drop', (event) => {
         event.preventDefault();
-/** targetId：定义该变量以承载业务值。 */
         const targetId = row.dataset.autoBattleSkillRow;
         if (!this.draggingSkillId || !targetId || !this.dragOverPosition) {
           this.clearDragState();
@@ -1641,13 +1484,12 @@ export class ActionPanel {
     });
   }
 
-/** bindSkillManagementAutoToggleEvents：执行对应的业务逻辑。 */
+  /** 绑定技能管理弹层里的自动开关。 */
   private bindSkillManagementAutoToggleEvents(root: HTMLElement): void {
     root.querySelectorAll<HTMLElement>('[data-skill-manage-auto-toggle]').forEach((button) => {
       button.addEventListener('click', (event) => {
         event.preventDefault();
         event.stopPropagation();
-/** actionId：定义该变量以承载业务值。 */
         const actionId = button.dataset.skillManageAutoToggle;
         if (!actionId) return;
         this.toggleSkillManagementAutoBattleSkill(actionId);
@@ -1655,13 +1497,12 @@ export class ActionPanel {
     });
   }
 
-/** bindSkillManagementEnabledToggleEvents：执行对应的业务逻辑。 */
+  /** 绑定技能管理弹层里的启用开关。 */
   private bindSkillManagementEnabledToggleEvents(root: HTMLElement): void {
     root.querySelectorAll<HTMLElement>('[data-skill-manage-enabled-toggle]').forEach((button) => {
       button.addEventListener('click', (event) => {
         event.preventDefault();
         event.stopPropagation();
-/** actionId：定义该变量以承载业务值。 */
         const actionId = button.dataset.skillManageEnabledToggle;
         if (!actionId) return;
         this.toggleSkillManagementSkillEnabled(actionId);
@@ -1669,11 +1510,10 @@ export class ActionPanel {
     });
   }
 
-/** bindSkillManagementDragEvents：执行对应的业务逻辑。 */
+  /** 绑定技能管理弹层的拖拽排序交互。 */
   private bindSkillManagementDragEvents(root: HTMLElement): void {
     root.querySelectorAll<HTMLElement>('[data-skill-manage-drag]').forEach((handle) => {
       handle.addEventListener('dragstart', (event) => {
-/** actionId：定义该变量以承载业务值。 */
         const actionId = handle.dataset.skillManageDrag;
         if (!actionId || !(event.dataTransfer instanceof DataTransfer)) return;
         this.draggingSkillId = actionId;
@@ -1690,19 +1530,15 @@ export class ActionPanel {
     root.querySelectorAll<HTMLElement>('[data-skill-manage-skill-row]').forEach((row) => {
       row.addEventListener('dragover', (event) => {
         event.preventDefault();
-/** actionId：定义该变量以承载业务值。 */
         const actionId = row.dataset.skillManageSkillRow;
         if (!actionId || !this.draggingSkillId || actionId === this.draggingSkillId) return;
-/** rect：定义该变量以承载业务值。 */
         const rect = row.getBoundingClientRect();
-/** midpoint：定义该变量以承载业务值。 */
         const midpoint = rect.top + rect.height / 2;
         this.dragOverSkillId = actionId;
         this.dragOverPosition = event.clientY < midpoint ? 'before' : 'after';
         this.updateDragIndicators();
       });
       row.addEventListener('dragleave', (event) => {
-/** related：定义该变量以承载业务值。 */
         const related = event.relatedTarget;
         if (related instanceof Node && row.contains(related)) {
           return;
@@ -1715,7 +1551,6 @@ export class ActionPanel {
       });
       row.addEventListener('drop', (event) => {
         event.preventDefault();
-/** targetId：定义该变量以承载业务值。 */
         const targetId = row.dataset.skillManageSkillRow;
         if (!this.draggingSkillId || !targetId || !this.dragOverPosition) {
           this.clearDragState();
@@ -1727,12 +1562,12 @@ export class ActionPanel {
     });
   }
 
-/** getSkillActions：执行对应的业务逻辑。 */
+  /** 从动作列表里筛出技能动作。 */
   private getSkillActions(actions: ActionDef[] = this.currentActions): ActionDef[] {
     return actions.filter((action) => action.type === 'skill');
   }
 
-/** openSkillManagement：执行对应的业务逻辑。 */
+  /** 打开技能管理弹层，并以当前自动/手动页签作为初始视图。 */
   private openSkillManagement(): void {
     this.skillManagementTab = this.activeSkillTab;
     this.skillManagementListScrollTop = 0;
@@ -1740,7 +1575,7 @@ export class ActionPanel {
     this.renderSkillManagementModal();
   }
 
-/** openSkillPresetModal：执行对应的业务逻辑。 */
+  /** 打开技能方案弹层。 */
   private openSkillPresetModal(): void {
     if (!this.skillPresetNameDraft) {
       this.skillPresetNameDraft = this.buildDefaultSkillPresetName();
@@ -1752,7 +1587,7 @@ export class ActionPanel {
     this.renderSkillPresetModal();
   }
 
-/** resetSkillPresetModalState：执行对应的业务逻辑。 */
+  /** 关闭方案弹层后，把输入草稿和状态提示清空。 */
   private resetSkillPresetModalState(): void {
     this.skillPresetNameDraft = '';
     this.skillPresetImportText = '';
@@ -1762,7 +1597,7 @@ export class ActionPanel {
     }
   }
 
-/** getSelectedSkillPreset：执行对应的业务逻辑。 */
+  /** 返回当前选中的技能方案。 */
   private getSelectedSkillPreset(): SkillPresetRecord | null {
     if (!this.selectedSkillPresetId) {
       return null;
@@ -1770,29 +1605,23 @@ export class ActionPanel {
     return this.skillPresets.find((preset) => preset.id === this.selectedSkillPresetId) ?? null;
   }
 
-/** getSkillPresetSummaryLine：执行对应的业务逻辑。 */
+  /** 汇总一份方案里自动和手动技能的数量。 */
   private getSkillPresetSummaryLine(skills: SkillPresetSkillState[]): string {
-/** auto：定义该变量以承载业务值。 */
     const auto = skills.filter((skill) => skill.enabled !== false).length;
-/** manual：定义该变量以承载业务值。 */
     const manual = skills.length - auto;
     return `已记录 ${skills.length} 项 · 自动 ${auto} · 手动 ${manual}`;
   }
 
-/** getSkillPresetCompatibilitySummary：执行对应的业务逻辑。 */
+  /** 对比方案与当前技能列表，给出命中和缺失的摘要。 */
   private getSkillPresetCompatibilitySummary(preset: SkillPresetRecord): string {
-/** currentSkillIds：定义该变量以承载业务值。 */
     const currentSkillIds = new Set(this.getSkillActions(this.currentActions).map((action) => action.id));
-/** presetSkillIds：定义该变量以承载业务值。 */
     const presetSkillIds = new Set(preset.skills.map((skill) => skill.skillId));
-/** matched：定义该变量以承载业务值。 */
     let matched = 0;
     for (const skill of preset.skills) {
       if (currentSkillIds.has(skill.skillId)) {
         matched += 1;
       }
     }
-/** currentOnly：定义该变量以承载业务值。 */
     let currentOnly = 0;
     for (const action of this.getSkillActions(this.currentActions)) {
       if (!presetSkillIds.has(action.id)) {
@@ -1802,7 +1631,7 @@ export class ActionPanel {
     return `命中 ${matched}/${preset.skills.length} 项 · 当前新增 ${currentOnly} 项`;
   }
 
-/** renderSkillPresetStatus：执行对应的业务逻辑。 */
+  /** 把方案弹层里的结果提示渲染成状态条。 */
   private renderSkillPresetStatus(): string {
     if (!this.skillPresetStatus) {
       return '';
@@ -1810,17 +1639,12 @@ export class ActionPanel {
     return `<div class="skill-preset-status ui-status-text ${this.skillPresetStatus.tone === 'error' ? 'error' : this.skillPresetStatus.tone === 'success' ? 'success' : ''}">${escapeHtml(this.skillPresetStatus.text)}</div>`;
   }
 
-/** renderSkillPresetModal：执行对应的业务逻辑。 */
+  /** 渲染技能方案弹层，包含保存、导入、导出和列表。 */
   private renderSkillPresetModal(): void {
-/** currentSkills：定义该变量以承载业务值。 */
     const currentSkills = this.getCurrentSkillPresetSnapshot();
-/** selected：定义该变量以承载业务值。 */
     const selected = this.getSelectedSkillPreset();
-/** currentSummary：定义该变量以承载业务值。 */
     const currentSummary = this.getSkillPresetSummaryLine(currentSkills);
-/** selectedSummary：定义该变量以承载业务值。 */
     const selectedSummary = selected ? this.getSkillPresetSummaryLine(selected.skills) : '未选择方案';
-/** compatibilitySummary：定义该变量以承载业务值。 */
     const compatibilitySummary = selected ? this.getSkillPresetCompatibilitySummary(selected) : '从列表选择一个方案后可查看兼容情况。';
 
     detailModalHost.open({
@@ -1919,7 +1743,7 @@ export class ActionPanel {
     this.skillPresetExternalRevision = this.buildSkillPresetExternalRevision();
   }
 
-/** bindSkillPresetEvents：执行对应的业务逻辑。 */
+  /** 给技能方案弹层装配输入、保存、导入和导出事件。 */
   private bindSkillPresetEvents(root: HTMLElement): void {
     root.querySelectorAll<HTMLInputElement>('[data-skill-preset-name-input]').forEach((input) => {
       input.addEventListener('input', () => {
@@ -1938,13 +1762,11 @@ export class ActionPanel {
     });
     root.querySelectorAll<HTMLElement>('[data-skill-preset-select]').forEach((button) => {
       button.addEventListener('click', () => {
-/** presetId：定义该变量以承载业务值。 */
         const presetId = button.dataset.skillPresetSelect;
         if (!presetId) {
           return;
         }
         this.selectedSkillPresetId = presetId;
-/** preset：定义该变量以承载业务值。 */
         const preset = this.getSelectedSkillPreset();
         this.skillPresetNameDraft = preset?.name ?? this.skillPresetNameDraft;
         this.skillPresetStatus = null;
@@ -2000,7 +1822,6 @@ export class ActionPanel {
     });
     root.querySelectorAll<HTMLInputElement>('[data-skill-preset-import-file]').forEach((input) => {
       input.addEventListener('change', async () => {
-/** file：定义该变量以承载业务值。 */
         const file = input.files?.[0];
         if (!file) {
           return;
@@ -2025,9 +1846,8 @@ export class ActionPanel {
     });
   }
 
-/** saveCurrentSkillPreset：执行对应的业务逻辑。 */
+  /** 把当前技能快照保存成新方案，或覆盖选中的方案。 */
   private saveCurrentSkillPreset(overwriteSelected: boolean): void {
-/** snapshot：定义该变量以承载业务值。 */
     const snapshot = this.getCurrentSkillPresetSnapshot();
     if (snapshot.length === 0) {
       this.skillPresetStatus = {
@@ -2037,9 +1857,7 @@ export class ActionPanel {
       this.renderSkillPresetModal();
       return;
     }
-/** selected：定义该变量以承载业务值。 */
     const selected = this.getSelectedSkillPreset();
-/** inputName：定义该变量以承载业务值。 */
     const inputName = this.sanitizeSkillPresetName(this.skillPresetNameDraft);
     if (!inputName && !overwriteSelected) {
       this.skillPresetStatus = {
@@ -2051,9 +1869,7 @@ export class ActionPanel {
     }
 
     if (overwriteSelected && selected) {
-/** nextName：定义该变量以承载业务值。 */
       const nextName = inputName || selected.name;
-/** updatedPreset：定义该变量以承载业务值。 */
       const updatedPreset: SkillPresetRecord = {
         ...selected,
         name: nextName,
@@ -2070,11 +1886,8 @@ export class ActionPanel {
         text: `已覆盖方案“${nextName}”。`,
       };
     } else {
-/** usedNames：定义该变量以承载业务值。 */
       const usedNames = new Set(this.skillPresets.map((preset) => preset.name));
-/** nextName：定义该变量以承载业务值。 */
       const nextName = this.resolveUniqueSkillPresetName(inputName || this.buildDefaultSkillPresetName(), usedNames);
-/** preset：定义该变量以承载业务值。 */
       const preset: SkillPresetRecord = {
         id: this.generateSkillPresetId(),
         name: nextName,
@@ -2093,15 +1906,11 @@ export class ActionPanel {
     this.renderSkillPresetModal();
   }
 
-/** resolveAppliedSkillPresetConfigs：执行对应的业务逻辑。 */
+  /** 把方案内容转换成可直接应用的自动战斗配置。 */
   private resolveAppliedSkillPresetConfigs(preset: SkillPresetRecord): AutoBattleSkillConfig[] {
-/** currentSkillActions：定义该变量以承载业务值。 */
     const currentSkillActions = this.getSkillActions(this.currentActions);
-/** currentMap：定义该变量以承载业务值。 */
     const currentMap = new Map(currentSkillActions.map((action) => [action.id, action] as const));
-/** next：定义该变量以承载业务值。 */
     const next: AutoBattleSkillConfig[] = [];
-/** seen：定义该变量以承载业务值。 */
     const seen = new Set<string>();
 
     for (const skill of preset.skills) {
@@ -2110,7 +1919,6 @@ export class ActionPanel {
       }
       next.push({
         skillId: skill.skillId,
-/** enabled：定义该变量以承载业务值。 */
         enabled: skill.enabled !== false,
         skillEnabled: true,
       });
@@ -2123,7 +1931,6 @@ export class ActionPanel {
       }
       next.push({
         skillId: action.id,
-/** enabled：定义该变量以承载业务值。 */
         enabled: action.autoBattleEnabled !== false,
         skillEnabled: false,
       });
@@ -2133,9 +1940,8 @@ export class ActionPanel {
     return next;
   }
 
-/** commitSkillPresetActions：执行对应的业务逻辑。 */
+  /** 提交套用后的技能配置，并同步回预览角色和面板。 */
   private commitSkillPresetActions(nextActions: ActionDef[]): void {
-/** nextAutoBattleSkills：定义该变量以承载业务值。 */
     const nextAutoBattleSkills = this.getAutoBattleSkillConfigs(nextActions);
     this.currentActions = nextActions;
     if (this.previewPlayer) {
@@ -2152,9 +1958,8 @@ export class ActionPanel {
     this.onUpdateAutoBattleSkills?.(nextAutoBattleSkills);
   }
 
-/** applySelectedSkillPreset：执行对应的业务逻辑。 */
+  /** 套用当前选中的技能方案。 */
   private applySelectedSkillPreset(): void {
-/** preset：定义该变量以承载业务值。 */
     const preset = this.getSelectedSkillPreset();
     if (!preset) {
       this.skillPresetStatus = {
@@ -2164,10 +1969,8 @@ export class ActionPanel {
       this.renderSkillPresetModal();
       return;
     }
-/** previousDraft：定义该变量以承载业务值。 */
     const previousDraft = this.skillManagementDraft;
     this.skillManagementDraft = this.resolveAppliedSkillPresetConfigs(preset);
-/** nextActions：定义该变量以承载业务值。 */
     const nextActions = this.getSkillManagementPreviewActions();
     this.skillManagementDraft = previousDraft;
     this.commitSkillPresetActions(nextActions);
@@ -2178,9 +1981,8 @@ export class ActionPanel {
     this.renderSkillPresetModal();
   }
 
-/** copySelectedSkillPreset：执行对应的业务逻辑。 */
+  /** 把选中方案的导出文本复制到剪贴板。 */
   private async copySelectedSkillPreset(): Promise<void> {
-/** preset：定义该变量以承载业务值。 */
     const preset = this.getSelectedSkillPreset();
     if (!preset) {
       this.skillPresetStatus = {
@@ -2190,7 +1992,6 @@ export class ActionPanel {
       this.renderSkillPresetModal();
       return;
     }
-/** text：定义该变量以承载业务值。 */
     const text = this.buildSkillPresetExportText([preset]);
     if (!navigator.clipboard?.writeText) {
       this.skillPresetStatus = {
@@ -2215,9 +2016,8 @@ export class ActionPanel {
     this.renderSkillPresetModal();
   }
 
-/** exportSelectedSkillPreset：执行对应的业务逻辑。 */
+  /** 导出当前选中的技能方案。 */
   private exportSelectedSkillPreset(): void {
-/** preset：定义该变量以承载业务值。 */
     const preset = this.getSelectedSkillPreset();
     if (!preset) {
       return;
@@ -2230,7 +2030,7 @@ export class ActionPanel {
     this.renderSkillPresetModal();
   }
 
-/** exportAllSkillPresets：执行对应的业务逻辑。 */
+  /** 导出全部本地技能方案。 */
   private exportAllSkillPresets(): void {
     if (this.skillPresets.length === 0) {
       return;
@@ -2243,9 +2043,8 @@ export class ActionPanel {
     this.renderSkillPresetModal();
   }
 
-/** deleteSelectedSkillPreset：执行对应的业务逻辑。 */
+  /** 删除当前选中的技能方案。 */
   private deleteSelectedSkillPreset(): void {
-/** preset：定义该变量以承载业务值。 */
     const preset = this.getSelectedSkillPreset();
     if (!preset) {
       return;
@@ -2264,9 +2063,8 @@ export class ActionPanel {
     this.renderSkillPresetModal();
   }
 
-/** importSkillPresetsFromText：执行对应的业务逻辑。 */
+  /** 从键值文本或旧 JSON 中导入技能方案。 */
   private importSkillPresetsFromText(rawText: string): void {
-/** text：定义该变量以承载业务值。 */
     const text = rawText.trim();
     if (!text) {
       this.skillPresetStatus = {
@@ -2277,14 +2075,11 @@ export class ActionPanel {
       return;
     }
     try {
-/** importOptions：定义该变量以承载业务值。 */
       const importOptions = {
         existingNames: new Set(this.skillPresets.map((preset) => preset.name)),
       };
-/** imported：定义该变量以承载业务值。 */
       const imported = this.parseSkillPresetText(text, importOptions);
       if (imported.length === 0) {
-/** parsed：定义该变量以承载业务值。 */
         const parsed = JSON.parse(text) as unknown;
         imported.push(...this.parseSkillPresetCollection(parsed, importOptions));
       }
@@ -2314,13 +2109,10 @@ export class ActionPanel {
     }
   }
 
-/** getSortedSkillManagementActionIds：执行对应的业务逻辑。 */
+  /** 按当前筛选和排序取出可见技能的 id 顺序。 */
   private getSortedSkillManagementActionIds(): string[] {
-/** previewActions：定义该变量以承载业务值。 */
     const previewActions = this.getSkillManagementPreviewActions();
-/** skillEntries：定义该变量以承载业务值。 */
     const skillEntries = this.getFilteredSkillManagementEntries(this.getSkillManagementEntries(previewActions));
-/** visibleEntries：定义该变量以承载业务值。 */
     const visibleEntries = this.skillManagementTab === 'auto'
       ? skillEntries.filter((entry) => entry.action.skillEnabled !== false && entry.action.autoBattleEnabled !== false)
       : this.skillManagementTab === 'manual'
@@ -2329,15 +2121,12 @@ export class ActionPanel {
     return this.sortSkillManagementEntries(visibleEntries).map((entry) => entry.action.id);
   }
 
-/** reorderSkillManagementSubset：执行对应的业务逻辑。 */
+  /** 只重排被选中的那一段技能，其他位置保持原样。 */
   private reorderSkillManagementSubset(skills: ActionDef[], orderedIds: string[]): ActionDef[] {
-/** subset：定义该变量以承载业务值。 */
     const subset = new Set(orderedIds);
-/** orderedActions：定义该变量以承载业务值。 */
     const orderedActions = orderedIds
       .map((id) => skills.find((action) => action.id === id))
       .filter((action): action is ActionDef => Boolean(action));
-/** nextIndex：定义该变量以承载业务值。 */
     let nextIndex = 0;
     return skills.map((action) => (
       subset.has(action.id)
@@ -2346,17 +2135,12 @@ export class ActionPanel {
     ));
   }
 
-/** syncSkillManagementDraft：执行对应的业务逻辑。 */
+  /** 把草稿和当前技能列表对齐，补齐缺失项并去重。 */
   private syncSkillManagementDraft(): AutoBattleSkillConfig[] {
-/** currentSkillActions：定义该变量以承载业务值。 */
     const currentSkillActions = this.getSkillActions(this.currentActions);
-/** availableIds：定义该变量以承载业务值。 */
     const availableIds = new Set(currentSkillActions.map((action) => action.id));
-/** source：定义该变量以承载业务值。 */
     const source = this.skillManagementDraft ?? this.getAutoBattleSkillConfigs(this.currentActions);
-/** normalized：定义该变量以承载业务值。 */
     const normalized: AutoBattleSkillConfig[] = [];
-/** seen：定义该变量以承载业务值。 */
     const seen = new Set<string>();
 
     for (const entry of source) {
@@ -2365,9 +2149,7 @@ export class ActionPanel {
       }
       normalized.push({
         skillId: entry.skillId,
-/** enabled：定义该变量以承载业务值。 */
         enabled: entry.enabled !== false,
-/** skillEnabled：定义该变量以承载业务值。 */
         skillEnabled: entry.skillEnabled !== false,
       });
       seen.add(entry.skillId);
@@ -2379,9 +2161,7 @@ export class ActionPanel {
       }
       normalized.push({
         skillId: action.id,
-/** enabled：定义该变量以承载业务值。 */
         enabled: action.autoBattleEnabled !== false,
-/** skillEnabled：定义该变量以承载业务值。 */
         skillEnabled: action.skillEnabled !== false,
       });
       seen.add(action.id);
@@ -2391,31 +2171,23 @@ export class ActionPanel {
     return normalized;
   }
 
-/** getSkillManagementPreviewActions：执行对应的业务逻辑。 */
+  /** 把草稿套进当前动作快照，生成弹层里的预览列表。 */
   private getSkillManagementPreviewActions(): ActionDef[] {
-/** draft：定义该变量以承载业务值。 */
     const draft = this.syncSkillManagementDraft();
-/** draftMap：定义该变量以承载业务值。 */
     const draftMap = new Map(draft.map((entry, index) => [entry.skillId, { entry, index }]));
-/** skillActions：定义该变量以承载业务值。 */
     const skillActions = this.getSkillActions(this.currentActions)
       .map((action) => {
-/** draftEntry：定义该变量以承载业务值。 */
         const draftEntry = draftMap.get(action.id);
         if (!draftEntry) {
           return {
             ...action,
-/** autoBattleEnabled：定义该变量以承载业务值。 */
             autoBattleEnabled: action.autoBattleEnabled !== false,
-/** skillEnabled：定义该变量以承载业务值。 */
             skillEnabled: action.skillEnabled !== false,
           };
         }
         return {
           ...action,
-/** autoBattleEnabled：定义该变量以承载业务值。 */
           autoBattleEnabled: draftEntry.entry.enabled !== false,
-/** skillEnabled：定义该变量以承载业务值。 */
           skillEnabled: draftEntry.entry.skillEnabled !== false,
           autoBattleOrder: draftEntry.index,
         };
@@ -2424,21 +2196,16 @@ export class ActionPanel {
     return this.replaceSkillActions(skillActions);
   }
 
-/** buildSkillManagementExternalRevision：执行对应的业务逻辑。 */
+  /** 生成技能管理弹层的外部变更摘要。 */
   private buildSkillManagementExternalRevision(): string {
-/** parts：定义该变量以承载业务值。 */
     const parts = [
       this.skillManagementSortField,
       this.skillManagementSortDirection,
       [...this.skillManagementFilterToggles].sort().join(','),
     ];
-/** includeMeleeRanged：定义该变量以承载业务值。 */
     const includeMeleeRanged = this.skillManagementFilterToggles.has('melee') || this.skillManagementFilterToggles.has('ranged');
-/** includeDamageKind：定义该变量以承载业务值。 */
     const includeDamageKind = this.skillManagementFilterToggles.has('physical') || this.skillManagementFilterToggles.has('spell');
-/** includeTargetKind：定义该变量以承载业务值。 */
     const includeTargetKind = this.skillManagementFilterToggles.has('single') || this.skillManagementFilterToggles.has('aoe');
-/** needsMetrics：定义该变量以承载业务值。 */
     const needsMetrics = includeMeleeRanged || includeDamageKind || includeTargetKind || this.skillManagementSortField !== 'custom';
     for (const action of this.getSkillActions(this.currentActions)) {
       parts.push(action.id);
@@ -2450,7 +2217,6 @@ export class ActionPanel {
       if (!needsMetrics) {
         continue;
       }
-/** metrics：定义该变量以承载业务值。 */
       const metrics = this.buildSkillManagementMetrics(action);
       if (includeMeleeRanged) {
         parts.push(metrics.isMelee ? '1' : '0');
@@ -2487,9 +2253,8 @@ export class ActionPanel {
     return parts.join('\u0001');
   }
 
-/** captureSkillManagementListScroll：执行对应的业务逻辑。 */
+  /** 记录技能管理列表当前的滚动位置。 */
   private captureSkillManagementListScroll(): void {
-/** list：定义该变量以承载业务值。 */
     const list = document.querySelector<HTMLElement>('.skill-manage-list');
     if (!list) {
       return;
@@ -2497,9 +2262,8 @@ export class ActionPanel {
     this.skillManagementListScrollTop = list.scrollTop;
   }
 
-/** restoreSkillManagementListScroll：执行对应的业务逻辑。 */
+  /** 在弹层重绘后恢复技能管理列表的滚动位置。 */
   private restoreSkillManagementListScroll(root: HTMLElement): void {
-/** list：定义该变量以承载业务值。 */
     const list = root.querySelector<HTMLElement>('.skill-manage-list');
     if (!list) {
       return;
@@ -2507,12 +2271,11 @@ export class ActionPanel {
     list.scrollTop = this.skillManagementListScrollTop;
   }
 
-/** renderSkillManagementModalIfOpen：执行对应的业务逻辑。 */
+  /** 仅在技能管理弹层已打开且内容变化时重绘。 */
   private renderSkillManagementModalIfOpen(): void {
     if (!detailModalHost.isOpenFor(ActionPanel.SKILL_MANAGEMENT_MODAL_OWNER)) {
       return;
     }
-/** nextRevision：定义该变量以承载业务值。 */
     const nextRevision = this.buildSkillManagementExternalRevision();
     if (this.skillManagementExternalRevision === nextRevision) {
       return;
@@ -2520,12 +2283,11 @@ export class ActionPanel {
     this.renderSkillManagementModal();
   }
 
-/** renderSkillPresetModalIfOpen：执行对应的业务逻辑。 */
+  /** 仅在技能方案弹层已打开且内容变化时重绘。 */
   private renderSkillPresetModalIfOpen(): void {
     if (!detailModalHost.isOpenFor(ActionPanel.SKILL_PRESET_MODAL_OWNER)) {
       return;
     }
-/** nextRevision：定义该变量以承载业务值。 */
     const nextRevision = this.buildSkillPresetExternalRevision();
     if (this.skillPresetExternalRevision === nextRevision) {
       return;
@@ -2533,26 +2295,18 @@ export class ActionPanel {
     this.renderSkillPresetModal();
   }
 
-/** renderSkillManagementModal：执行对应的业务逻辑。 */
+  /** 渲染技能管理弹层，包含分组、筛选、排序和批量操作。 */
   private renderSkillManagementModal(): void {
     if (detailModalHost.isOpenFor(ActionPanel.SKILL_MANAGEMENT_MODAL_OWNER)) {
       this.captureSkillManagementListScroll();
     }
-/** previewActions：定义该变量以承载业务值。 */
     const previewActions = this.getSkillManagementPreviewActions();
-/** skillEntries：定义该变量以承载业务值。 */
     const skillEntries = this.getSkillManagementEntries(previewActions);
-/** filteredEntries：定义该变量以承载业务值。 */
     const filteredEntries = this.getFilteredSkillManagementEntries(skillEntries);
-/** autoBattleDisplayOrders：定义该变量以承载业务值。 */
     const autoBattleDisplayOrders = this.buildAutoBattleDisplayOrderMap(previewActions);
-/** autoEntries：定义该变量以承载业务值。 */
     const autoEntries = filteredEntries.filter((entry) => entry.action.skillEnabled !== false && entry.action.autoBattleEnabled !== false);
-/** manualEntries：定义该变量以承载业务值。 */
     const manualEntries = filteredEntries.filter((entry) => entry.action.skillEnabled !== false && entry.action.autoBattleEnabled === false);
-/** disabledEntries：定义该变量以承载业务值。 */
     const disabledEntries = filteredEntries.filter((entry) => entry.action.skillEnabled === false);
-/** visibleEntries：定义该变量以承载业务值。 */
     const visibleEntries = this.sortSkillManagementEntries(
       this.skillManagementTab === 'auto'
         ? autoEntries
@@ -2560,11 +2314,9 @@ export class ActionPanel {
           ? manualEntries
           : disabledEntries,
     );
-/** dragSortEnabled：定义该变量以承载业务值。 */
     const dragSortEnabled = this.skillManagementTab === 'auto'
       && this.skillManagementSortField === 'custom'
       && visibleEntries.length > 1;
-/** hint：定义该变量以承载业务值。 */
     const hint = this.buildSkillManagementHint(dragSortEnabled);
 
     detailModalHost.open({
@@ -2639,7 +2391,6 @@ export class ActionPanel {
             : `<div class="action-skill-list skill-manage-list ui-card-list ui-card-list--compact ui-scroll-panel">
               ${visibleEntries.map((entry) => this.renderSkillManagementItem(entry.action, {
                 showDragHandle: dragSortEnabled,
-/** autoBattleDisplayOrder：定义该变量以承载业务值。 */
                 autoBattleDisplayOrder: this.skillManagementTab === 'auto'
                   ? (autoBattleDisplayOrders.get(entry.action.id) ?? null)
                   : null,
@@ -2659,7 +2410,7 @@ export class ActionPanel {
     this.skillManagementExternalRevision = this.buildSkillManagementExternalRevision();
   }
 
-/** bindSkillManagementEvents：执行对应的业务逻辑。 */
+  /** 给技能管理弹层装配分组切换、筛选、排序和应用事件。 */
   private bindSkillManagementEvents(root: HTMLElement): void {
     root.querySelectorAll<HTMLElement>('[data-skill-manage-apply]').forEach((button) => {
       button.addEventListener('click', () => {
@@ -2673,7 +2424,6 @@ export class ActionPanel {
     });
     root.querySelectorAll<HTMLElement>('[data-skill-manage-tab]').forEach((button) => {
       button.addEventListener('click', () => {
-/** tab：定义该变量以承载业务值。 */
         const tab = button.dataset.skillManageTab as SkillManagementTab | undefined;
         if (!tab) return;
         this.skillManagementTab = tab;
@@ -2688,7 +2438,6 @@ export class ActionPanel {
     });
     root.querySelectorAll<HTMLElement>('[data-skill-manage-sort-field-toggle]').forEach((button) => {
       button.addEventListener('click', () => {
-/** value：定义该变量以承载业务值。 */
         const value = button.dataset.skillManageSortFieldToggle as SkillManagementSortField | undefined;
         if (!value) return;
         this.skillManagementSortField = value;
@@ -2697,7 +2446,6 @@ export class ActionPanel {
     });
     root.querySelectorAll<HTMLElement>('[data-skill-manage-sort-direction-toggle]').forEach((button) => {
       button.addEventListener('click', () => {
-/** value：定义该变量以承载业务值。 */
         const value = button.dataset.skillManageSortDirectionToggle as SkillManagementSortDirection | undefined;
         if (!value) return;
         this.skillManagementSortDirection = value;
@@ -2717,7 +2465,6 @@ export class ActionPanel {
     });
     root.querySelectorAll<HTMLElement>('[data-skill-manage-filter-toggle-chip]').forEach((button) => {
       button.addEventListener('click', () => {
-/** value：定义该变量以承载业务值。 */
         const value = button.dataset.skillManageFilterToggleChip as SkillManagementFilterToggle | undefined;
         if (!value) return;
         if (this.skillManagementFilterToggles.has(value)) {
@@ -2736,7 +2483,6 @@ export class ActionPanel {
     });
     root.querySelectorAll<HTMLElement>('[data-skill-manage-bulk]').forEach((button) => {
       button.addEventListener('click', () => {
-/** mode：定义该变量以承载业务值。 */
         const mode = button.dataset.skillManageBulk as SkillManagementBulkMode | undefined;
         if (!mode || !['auto', 'manual', 'enabled', 'disabled'].includes(mode)) {
           return;
@@ -2749,9 +2495,8 @@ export class ActionPanel {
     this.bindSkillManagementDragEvents(root);
   }
 
-/** applySkillManagementBulkMode：执行对应的业务逻辑。 */
+  /** 把当前过滤结果批量切成自动、手动、启用或禁用。 */
   private applySkillManagementBulkMode(mode: SkillManagementBulkMode): void {
-/** filteredSkillIds：定义该变量以承载业务值。 */
     const filteredSkillIds = new Set(
       this.getFilteredSkillManagementEntries(this.getSkillManagementEntries(this.getSkillManagementPreviewActions()))
         .map((entry) => entry.action.id),
@@ -2770,7 +2515,7 @@ export class ActionPanel {
     )));
   }
 
-/** getSkillManagementEntries：执行对应的业务逻辑。 */
+  /** 把技能动作和管理指标整理成可排序条目。 */
   private getSkillManagementEntries(actions: ActionDef[]): SkillManagementEntry[] {
     return this.getSkillActions(actions).map((action) => ({
       action,
@@ -2778,12 +2523,10 @@ export class ActionPanel {
     }));
   }
 
-/** buildSkillManagementMetrics：执行对应的业务逻辑。 */
+  /** 计算技能管理里要用的预览指标；没有上下文时走保底值。 */
   private buildSkillManagementMetrics(action: ActionDef): SkillPreviewMetrics {
-/** context：定义该变量以承载业务值。 */
     const context = this.skillLookup.get(action.id);
     if (!context) {
-/** range：定义该变量以承载业务值。 */
       const range = Number.isFinite(action.range) ? Number(action.range) : 0;
       return {
         actualDamage: null,
@@ -2795,7 +2538,6 @@ export class ActionPanel {
         hasSpellDamage: false,
         isSingleTarget: true,
         isAreaTarget: false,
-/** isMelee：定义该变量以承载业务值。 */
         isMelee: range <= 1,
         isRanged: range > 1,
       };
@@ -2807,7 +2549,7 @@ export class ActionPanel {
     });
   }
 
-/** getFilteredSkillManagementEntries：执行对应的业务逻辑。 */
+  /** 按当前筛选标签过滤技能管理条目。 */
   private getFilteredSkillManagementEntries(entries: SkillManagementEntry[]): SkillManagementEntry[] {
     return entries.filter((entry) => {
       if (!this.matchesSkillManagementToggleGroup(entry, ['single', 'aoe'])) {
@@ -2823,11 +2565,12 @@ export class ActionPanel {
     });
   }
 
+  /** 判断一组筛选标签是否命中当前条目。 */
+  /** 判断一组筛选标签是否命中当前条目。 */
   private matchesSkillManagementToggleGroup(
     entry: SkillManagementEntry,
     group: SkillManagementFilterToggle[],
   ): boolean {
-/** active：定义该变量以承载业务值。 */
     const active = group.filter((value) => this.skillManagementFilterToggles.has(value));
     if (active.length === 0) {
       return true;
@@ -2835,7 +2578,7 @@ export class ActionPanel {
     return active.some((value) => this.matchesSkillManagementToggle(entry.metrics, value));
   }
 
-/** matchesSkillManagementToggle：执行对应的业务逻辑。 */
+  /** 判断某个指标是否命中单个筛选条件。 */
   private matchesSkillManagementToggle(metrics: SkillPreviewMetrics, toggle: SkillManagementFilterToggle): boolean {
     switch (toggle) {
       case 'melee':
@@ -2855,17 +2598,14 @@ export class ActionPanel {
     }
   }
 
-/** sortSkillManagementEntries：执行对应的业务逻辑。 */
+  /** 按当前排序字段和方向排列技能管理条目。 */
   private sortSkillManagementEntries(entries: SkillManagementEntry[]): SkillManagementEntry[] {
     if (this.skillManagementSortField === 'custom') {
       return entries;
     }
-/** factor：定义该变量以承载业务值。 */
     const factor = this.skillManagementSortDirection === 'asc' ? 1 : -1;
-/** next：定义该变量以承载业务值。 */
     const next = [...entries];
     next.sort((left, right) => {
-/** valueDiff：定义该变量以承载业务值。 */
       const valueDiff = this.compareSkillManagementEntry(left, right);
       if (valueDiff !== 0) {
         return valueDiff * factor;
@@ -2875,15 +2615,11 @@ export class ActionPanel {
     return next;
   }
 
-/** compareSkillManagementEntry：执行对应的业务逻辑。 */
+  /** 比较两个技能管理条目的排序值，空值会排到后面。 */
   private compareSkillManagementEntry(left: SkillManagementEntry, right: SkillManagementEntry): number {
-/** leftValue：定义该变量以承载业务值。 */
     const leftValue = this.getSkillManagementSortValue(left.metrics);
-/** rightValue：定义该变量以承载业务值。 */
     const rightValue = this.getSkillManagementSortValue(right.metrics);
-/** leftMissing：定义该变量以承载业务值。 */
     const leftMissing = leftValue === null || !Number.isFinite(leftValue);
-/** rightMissing：定义该变量以承载业务值。 */
     const rightMissing = rightValue === null || !Number.isFinite(rightValue);
     if (leftMissing && rightMissing) {
       return 0;
@@ -2900,7 +2636,7 @@ export class ActionPanel {
     return leftValue < rightValue ? -1 : 1;
   }
 
-/** getSkillManagementSortValue：执行对应的业务逻辑。 */
+  /** 读取当前排序字段对应的数值。 */
   private getSkillManagementSortValue(metrics: SkillPreviewMetrics): number | null {
     switch (this.skillManagementSortField) {
       case 'actualDamage':
@@ -2918,9 +2654,8 @@ export class ActionPanel {
     }
   }
 
-/** renderSkillManagementSortPanel：执行对应的业务逻辑。 */
+  /** 渲染技能管理里的排序面板、方向和应用说明。 */
   private renderSkillManagementSortPanel(visibleCount: number): string {
-/** canApplySort：定义该变量以承载业务值。 */
     const canApplySort = this.skillManagementTab !== 'disabled'
       && this.skillManagementSortField !== 'custom'
       && visibleCount > 1;
@@ -2957,7 +2692,7 @@ export class ActionPanel {
     `;
   }
 
-/** buildSkillManagementHint：执行对应的业务逻辑。 */
+  /** 生成技能管理列表上方的操作提示。 */
   private buildSkillManagementHint(dragSortEnabled: boolean): string {
     if (this.skillManagementTab === 'disabled') {
       return '这里是未启用的技能，重新打开“启用”后，技能会按当前自动状态回到自动或手动列表。';
@@ -2973,31 +2708,29 @@ export class ActionPanel {
       : '这里显示仅手动触发的技能，可通过过滤快速圈定一组技能再批量切换。';
   }
 
-/** renderSkillManagementSortChip：执行对应的业务逻辑。 */
+  /** 渲染排序字段按钮。 */
   private renderSkillManagementSortChip(value: SkillManagementSortField, label: string): string {
     return `<button class="skill-manage-toggle-chip ${this.skillManagementSortField === value ? 'active' : ''}" data-skill-manage-sort-field-toggle="${escapeHtml(value)}" type="button">${escapeHtml(label)}</button>`;
   }
 
-/** renderSkillManagementDirectionChip：执行对应的业务逻辑。 */
+  /** 渲染排序方向按钮。 */
   private renderSkillManagementDirectionChip(value: SkillManagementSortDirection, label: string): string {
     return `<button class="skill-manage-toggle-chip ${this.skillManagementSortDirection === value ? 'active' : ''}" data-skill-manage-sort-direction-toggle="${escapeHtml(value)}" type="button">${escapeHtml(label)}</button>`;
   }
 
-/** renderSkillManagementChipToggle：执行对应的业务逻辑。 */
+  /** 渲染筛选标签按钮。 */
   private renderSkillManagementChipToggle(value: SkillManagementFilterToggle, label: string): string {
     return `<button class="skill-manage-toggle-chip ${this.skillManagementFilterToggles.has(value) ? 'active' : ''}" data-skill-manage-filter-toggle-chip="${escapeHtml(value)}" type="button">${escapeHtml(label)}</button>`;
   }
 
-/** resetSkillManagementFilters：执行对应的业务逻辑。 */
+  /** 清空所有筛选标签。 */
   private resetSkillManagementFilters(): void {
     this.skillManagementFilterToggles.clear();
   }
 
-/** applySkillManagementChanges：执行对应的业务逻辑。 */
+  /** 把管理弹层里的草稿正式写回当前状态并关闭弹层。 */
   private applySkillManagementChanges(): void {
-/** nextActions：定义该变量以承载业务值。 */
     const nextActions = this.getSkillManagementPreviewActions();
-/** nextAutoBattleSkills：定义该变量以承载业务值。 */
     const nextAutoBattleSkills = this.getAutoBattleSkillConfigs(nextActions);
     this.currentActions = nextActions;
     if (this.previewPlayer) {
@@ -3014,13 +2747,13 @@ export class ActionPanel {
     this.onUpdateAutoBattleSkills?.(nextAutoBattleSkills);
   }
 
-/** cancelSkillManagementChanges：执行对应的业务逻辑。 */
+  /** 放弃技能管理草稿并关闭弹层。 */
   private cancelSkillManagementChanges(): void {
     this.discardSkillManagementDraft();
     detailModalHost.close(ActionPanel.SKILL_MANAGEMENT_MODAL_OWNER);
   }
 
-/** discardSkillManagementDraft：执行对应的业务逻辑。 */
+  /** 清掉技能管理草稿、拖拽态和滚动位置。 */
   private discardSkillManagementDraft(): void {
     this.skillManagementDraft = null;
     this.skillManagementExternalRevision = null;
@@ -3029,12 +2762,11 @@ export class ActionPanel {
     this.clearDragState();
   }
 
-/** applySkillManagementSortOrder：执行对应的业务逻辑。 */
+  /** 把当前排序结果写回技能管理草稿顺位。 */
   private applySkillManagementSortOrder(): void {
     if (this.skillManagementTab === 'disabled' || this.skillManagementSortField === 'custom') {
       return;
     }
-/** visibleEntries：定义该变量以承载业务值。 */
     const visibleEntries = this.sortSkillManagementEntries(
       this.getFilteredSkillManagementEntries(this.getSkillManagementEntries(this.getSkillManagementPreviewActions()))
         .filter((entry) => (
@@ -3043,19 +2775,15 @@ export class ActionPanel {
             : entry.action.skillEnabled !== false && entry.action.autoBattleEnabled === false
         )),
     );
-/** orderedIds：定义该变量以承载业务值。 */
     const orderedIds = visibleEntries.map((entry) => entry.action.id);
     if (orderedIds.length <= 1) {
       return;
     }
     this.applySkillManagementDraftMutation((skills) => {
-/** subset：定义该变量以承载业务值。 */
       const subset = new Set(orderedIds);
-/** orderedActions：定义该变量以承载业务值。 */
       const orderedActions = orderedIds
         .map((id) => skills.find((action) => action.id === id))
         .filter((action): action is ActionDef => Boolean(action));
-/** nextIndex：定义该变量以承载业务值。 */
       let nextIndex = 0;
       return skills.map((action) => (
         subset.has(action.id)
@@ -3065,6 +2793,7 @@ export class ActionPanel {
     });
   }
 
+  /** 渲染技能管理弹层里的单条技能。 */
   private renderSkillManagementItem(
     action: ActionDef,
     options?: {
@@ -3072,23 +2801,16 @@ export class ActionPanel {
       autoBattleDisplayOrder?: number | null;
     },
   ): string {
-/** skillContext：定义该变量以承载业务值。 */
     const skillContext = this.skillLookup.get(action.id);
-/** tooltipAttrs：定义该变量以承载业务值。 */
     const tooltipAttrs = skillContext
       ? ` data-action-tooltip-title="${escapeHtml(skillContext.skill.name)}" data-action-tooltip-skill-id="${escapeHtml(skillContext.skill.id)}" data-action-tooltip-rich="1"`
       : '';
-/** autoBattleEnabled：定义该变量以承载业务值。 */
     const autoBattleEnabled = action.autoBattleEnabled !== false;
-/** skillEnabled：定义该变量以承载业务值。 */
     const skillEnabled = action.skillEnabled !== false;
-/** autoBattleOrder：定义该变量以承载业务值。 */
     const autoBattleOrder = typeof options?.autoBattleDisplayOrder === 'number'
       ? options.autoBattleDisplayOrder + 1
       : undefined;
-/** rowAttrs：定义该变量以承载业务值。 */
     const rowAttrs = options?.showDragHandle ? ` data-skill-manage-skill-row="${action.id}"` : '';
-/** affinityChip：定义该变量以承载业务值。 */
     const affinityChip = skillContext ? this.renderActionSkillAffinityChip(skillContext.skill) : '';
 
     return `<div class="action-item action-item-draggable ui-surface-card ui-surface-card--compact" data-action-row="${action.id}"${rowAttrs}>

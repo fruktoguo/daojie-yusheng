@@ -1,9 +1,12 @@
+/** 按钮外观枚举，决定幽灵按钮或危险按钮样式。 */
 type UiButtonVariant = 'ghost' | 'danger';
 
+/** applyUiButtonVariants：应用界面按钮Variants。 */
 function applyUiButtonVariants(button: HTMLButtonElement, variants: UiButtonVariant[] = []): void {
   button.className = ['small-btn', 'ui-btn', ...variants].join(' ');
 }
 
+/** createUiButton：创建界面按钮。 */
 export function createUiButton(options: {
   label: string;
   type?: 'button' | 'submit' | 'reset';
@@ -26,6 +29,7 @@ export function createUiButton(options: {
   return button;
 }
 
+/** createSmallBtn：创建Small Btn。 */
 export function createSmallBtn(
   label: string,
   options: {
@@ -47,6 +51,7 @@ export function createSmallBtn(
   return button;
 }
 
+/** createUiEmptyHint：创建界面Empty Hint。 */
 export function createUiEmptyHint(text: string, className?: string): HTMLDivElement {
   const node = document.createElement('div');
   node.className = 'empty-hint ui-empty-hint';
@@ -57,10 +62,12 @@ export function createUiEmptyHint(text: string, className?: string): HTMLDivElem
   return node;
 }
 
+/** createEmptyHint：创建Empty Hint。 */
 export function createEmptyHint(text: string, className?: string): HTMLDivElement {
   return createUiEmptyHint(text, className);
 }
 
+/** createUiPanelSection：创建界面面板Section。 */
 export function createUiPanelSection(title: string): {
   section: HTMLDivElement;
   title: HTMLDivElement;
@@ -76,6 +83,7 @@ export function createUiPanelSection(title: string): {
   return { section, title: titleEl };
 }
 
+/** createPanelSectionWithTitle：创建面板Section With标题。 */
 export function createPanelSectionWithTitle(title: string): {
   sectionEl: HTMLDivElement;
   titleEl: HTMLDivElement;
@@ -87,6 +95,7 @@ export function createPanelSectionWithTitle(title: string): {
   };
 }
 
+/** ensureChild：确保Child。 */
 export function ensureChild<T extends Element>(
   parent: HTMLElement,
   selector: string,
@@ -100,3 +109,5 @@ export function ensureChild<T extends Element>(
   parent.appendChild(created);
   return created;
 }
+
+

@@ -4,5 +4,4 @@
  */
 import type { MapSafeAreaInsets } from '../../game-map/types';
 
-/** DEFAULT_SAFE_AREA：定义该变量以承载业务值。 */
 export const DEFAULT_SAFE_AREA: MapSafeAreaInsets = { top: 0, right: 0, bottom: 0, left: 0 };

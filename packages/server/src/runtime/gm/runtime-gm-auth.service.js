@@ -1,7 +1,7 @@
 "use strict";
-/** __decorate：定义该变量以承载业务值。 */
+
 var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-/** c：定义该变量以承载业务值。 */
+
     var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
     if (typeof Reflect === "object" && typeof Reflect.decorate === "function")
         r = Reflect.decorate(decorators, target, key, desc);
@@ -13,39 +13,52 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.RuntimeGmAuthService = void 0;
-/** common_1：定义该变量以承载业务值。 */
+
 const common_1 = require("@nestjs/common");
-/** bcrypt：定义该变量以承载业务值。 */
+
 const bcrypt = require("bcryptjs");
-/** crypto：定义该变量以承载业务值。 */
+
 const crypto = require("node:crypto");
-/** pg_1：定义该变量以承载业务值。 */
+
 const pg_1 = require("pg");
-/** persistent_document_table_1：定义该变量以承载业务值。 */
+
 const persistent_document_table_1 = require("../../persistence/persistent-document-table");
-/** env_alias_1：定义该变量以承载业务值。 */
+
 const env_alias_1 = require("../../config/env-alias");
-/** GM_AUTH_SCOPE：定义该变量以承载业务值。 */
-const GM_AUTH_SCOPE = 'server_next_legacy_gm_auth_v1';
-/** GM_AUTH_KEY：定义该变量以承载业务值。 */
+
+/** GM 鉴权作用域名，存放当前 next 体系的密码记录。 */
+const GM_AUTH_SCOPE = 'server_next_gm_auth_v1';
+
+/** 兼容从旧体系迁移过来的 GM 鉴权作用域名。 */
+const LEGACY_NEXT_GM_AUTH_SCOPE = 'server_next_legacy_gm_auth_v1';
+
+/** persistent_documents 里保存 GM 密码的 key。 */
 const GM_AUTH_KEY = 'gm_auth';
-/** LEGACY_GM_AUTH_SCOPE：定义该变量以承载业务值。 */
+
+/** 旧系统里用于读取 GM 密码的作用域。 */
 const LEGACY_GM_AUTH_SCOPE = 'server_config';
-/** DEFAULT_GM_PASSWORD：定义该变量以承载业务值。 */
+
+/** 没有配置时使用的默认 GM 密码。 */
 const DEFAULT_GM_PASSWORD = 'admin123';
-/** DEFAULT_TOKEN_TTL_SEC：定义该变量以承载业务值。 */
+
+/** 默认 token 有效期。 */
 const DEFAULT_TOKEN_TTL_SEC = 12 * 60 * 60;
-/** LEGACY_BCRYPT_SENTINEL_SALT：定义该变量以承载业务值。 */
+
+/** 兼容旧 bcrypt 记录时使用的哨兵盐值。 */
 const LEGACY_BCRYPT_SENTINEL_SALT = '__legacy_bcrypt__';
-/** RuntimeGmAuthService：定义该变量以承载业务值。 */
+
 let RuntimeGmAuthService = class RuntimeGmAuthService {
+    /** 运行时日志器，记录鉴权初始化和登录异常。 */
     logger = new common_1.Logger(RuntimeGmAuthService.name);
+    /** 数据库连接池，未启用持久化时保持为空。 */
     pool = null;
+    /** 是否已经成功接入持久化存储。 */
     persistenceEnabled = false;
+    /** 当前驻留在内存里的密码记录。 */
     memoryRecord = null;
-/** onModuleInit：执行对应的业务逻辑。 */
+    /** 初始化鉴权持久化连接。 */
     async onModuleInit() {
-/** databaseUrl：定义该变量以承载业务值。 */
+
         const databaseUrl = (0, env_alias_1.resolveServerNextDatabaseUrl)();
         if (!databaseUrl.trim()) {
             return;
@@ -62,15 +75,15 @@ let RuntimeGmAuthService = class RuntimeGmAuthService {
             await this.closePool();
         }
     }
-/** onModuleDestroy：执行对应的业务逻辑。 */
+    /** 销毁时关闭数据库连接池。 */
     async onModuleDestroy() {
         await this.closePool();
     }
-/** login：执行对应的业务逻辑。 */
+    /** 校验 GM 密码并签发访问 token。 */
     async login(password) {
-/** normalizedPassword：定义该变量以承载业务值。 */
+
         const normalizedPassword = typeof password === 'string' ? password : '';
-/** record：定义该变量以承载业务值。 */
+
         const record = await this.getOrCreatePasswordRecord();
         if (await verifyPassword(normalizedPassword, record)) {
             this.memoryRecord = record;
@@ -79,7 +92,7 @@ let RuntimeGmAuthService = class RuntimeGmAuthService {
                 expiresInSec: this.getTokenTtlSec(),
             };
         }
-/** legacyRecord：定义该变量以承载业务值。 */
+
         const legacyRecord = await this.loadLegacyPasswordRecordFromDb();
         if (!legacyRecord || !(await verifyPassword(normalizedPassword, legacyRecord))) {
             throw new common_1.UnauthorizedException('GM 密码错误');
@@ -90,20 +103,20 @@ let RuntimeGmAuthService = class RuntimeGmAuthService {
             expiresInSec: this.getTokenTtlSec(),
         };
     }
-/** changePassword：执行对应的业务逻辑。 */
+    /** 修改 GM 密码，同时兼容旧记录回退校验。 */
     async changePassword(currentPassword, newPassword) {
-/** normalizedCurrentPassword：定义该变量以承载业务值。 */
+
         const normalizedCurrentPassword = typeof currentPassword === 'string' ? currentPassword : '';
-/** record：定义该变量以承载业务值。 */
+
         const record = await this.getOrCreatePasswordRecord();
-/** currentVerified：定义该变量以承载业务值。 */
+
         const currentVerified = await verifyPassword(normalizedCurrentPassword, record);
-/** legacyRecord：定义该变量以承载业务值。 */
+
         const legacyRecord = currentVerified ? null : await this.loadLegacyPasswordRecordFromDb();
         if (!currentVerified && (!legacyRecord || !(await verifyPassword(normalizedCurrentPassword, legacyRecord)))) {
             throw new common_1.UnauthorizedException('当前 GM 密码错误');
         }
-/** normalizedPassword：定义该变量以承载业务值。 */
+
         const normalizedPassword = typeof newPassword === 'string' ? newPassword.trim() : '';
         if (normalizedPassword.length < 6) {
             throw new common_1.BadRequestException('GM 密码至少需要 6 位');
@@ -111,33 +124,33 @@ let RuntimeGmAuthService = class RuntimeGmAuthService {
         if (!this.persistenceEnabled || !this.pool) {
             throw new common_1.BadRequestException('未启用数据库持久化，当前不支持修改 GM 密码');
         }
-/** nextRecord：定义该变量以承载业务值。 */
+
         const nextRecord = buildPasswordRecord(normalizedPassword);
         await this.pool.query(`
         INSERT INTO persistent_documents(scope, key, payload, "updatedAt")
         VALUES ($1, $2, $3::jsonb, now())
         ON CONFLICT (scope, key)
         DO UPDATE SET payload = EXCLUDED.payload, "updatedAt" = now()
-      `, [GM_AUTH_SCOPE, GM_AUTH_KEY, JSON.stringify(nextRecord)]);
+        `, [GM_AUTH_SCOPE, GM_AUTH_KEY, JSON.stringify(nextRecord)]);
     }
-/** validateAccessToken：执行对应的业务逻辑。 */
+    /** 校验签名 token 是否仍然有效。 */
     validateAccessToken(token) {
-/** normalizedToken：定义该变量以承载业务值。 */
+
         const normalizedToken = typeof token === 'string' ? token.trim() : '';
         if (!normalizedToken) {
             return false;
         }
-/** parts：定义该变量以承载业务值。 */
+
         const parts = normalizedToken.split('.');
         if (parts.length !== 3 || parts[0] !== 'v1') {
             return false;
         }
-/** payloadJson：定义该变量以承载业务值。 */
+
         const payloadJson = decodeBase64Url(parts[1]);
         if (!payloadJson) {
             return false;
         }
-/** payload：定义该变量以承载业务值。 */
+
         let payload;
         try {
             payload = JSON.parse(payloadJson);
@@ -151,11 +164,11 @@ let RuntimeGmAuthService = class RuntimeGmAuthService {
         if (typeof payload?.rev === 'string' && this.memoryRecord && payload.rev !== this.memoryRecord.updatedAt) {
             return false;
         }
-/** expectedSignature：定义该变量以承载业务值。 */
+
         const expectedSignature = signTokenPayload(parts[1], this.getSigningSecret());
         return safeEqual(parts[2], expectedSignature);
     }
-/** reloadPasswordRecordFromPersistence：执行对应的业务逻辑。 */
+    /** 从持久化层重新载入密码记录。 */
     async reloadPasswordRecordFromPersistence() {
         if (!this.persistenceEnabled || !this.pool) {
             this.memoryRecord = null;
@@ -163,53 +176,53 @@ let RuntimeGmAuthService = class RuntimeGmAuthService {
         }
         this.memoryRecord = await this.loadPasswordRecordFromDb();
     }
-/** issueToken：执行对应的业务逻辑。 */
+    /** 生成当前记录对应的访问 token。 */
     issueToken(record) {
-/** payloadBase64：定义该变量以承载业务值。 */
+
         const payloadBase64 = encodeBase64Url(JSON.stringify({
             role: 'gm',
             exp: Date.now() + this.getTokenTtlSec() * 1000,
             rev: record.updatedAt,
         }));
-/** signature：定义该变量以承载业务值。 */
+
         const signature = signTokenPayload(payloadBase64, this.getSigningSecret(record));
         return `v1.${payloadBase64}.${signature}`;
     }
-/** getSigningSecret：执行对应的业务逻辑。 */
+    /** 计算 token 签名所用的密钥。 */
     getSigningSecret(record = null) {
-/** configured：定义该变量以承载业务值。 */
+
         const configured = process.env.SERVER_NEXT_GM_AUTH_SECRET?.trim()
             || process.env.GM_AUTH_SECRET?.trim()
             || '';
         if (configured) {
             return configured;
         }
-/** source：定义该变量以承载业务值。 */
+
         const source = record ?? this.memoryRecord;
         if (source) {
             return `${source.hash}:${source.salt}:${source.updatedAt}`;
         }
-        return 'server-next-legacy-gm-http-auth';
+        return 'server-next-gm-http-auth';
     }
-/** getTokenTtlSec：执行对应的业务逻辑。 */
+    /** 读取 token 的有效期。 */
     getTokenTtlSec() {
-/** configured：定义该变量以承载业务值。 */
+
         const configured = Number(process.env.SERVER_NEXT_GM_TOKEN_EXPIRES_IN ?? process.env.GM_TOKEN_EXPIRES_IN ?? Number.NaN);
         if (Number.isFinite(configured) && configured > 0) {
             return Math.max(60, Math.trunc(configured));
         }
         return DEFAULT_TOKEN_TTL_SEC;
     }
-/** getOrCreatePasswordRecord：执行对应的业务逻辑。 */
+    /** 读取或创建当前的密码记录。 */
     async getOrCreatePasswordRecord() {
         if (this.persistenceEnabled && this.pool) {
-/** loaded：定义该变量以承载业务值。 */
+
             const loaded = await this.loadPasswordRecordFromDb();
             if (loaded) {
                 this.memoryRecord = loaded;
                 return loaded;
             }
-/** created：定义该变量以承载业务值。 */
+
             const created = buildPasswordRecord(this.getInitialPassword());
             await this.pool.query(`
           INSERT INTO persistent_documents(scope, key, payload, "updatedAt")
@@ -225,37 +238,38 @@ let RuntimeGmAuthService = class RuntimeGmAuthService {
         }
         return this.memoryRecord;
     }
-/** loadPasswordRecordFromDb：执行对应的业务逻辑。 */
+    /** 从数据库读取密码记录。 */
     async loadPasswordRecordFromDb() {
         if (!this.pool) {
             return null;
         }
-/** result：定义该变量以承载业务值。 */
-        const result = await this.pool.query('SELECT payload FROM persistent_documents WHERE scope = $1 AND key = $2', [GM_AUTH_SCOPE, GM_AUTH_KEY]);
-        if (result.rowCount === 0) {
-            return null;
+
+        for (const scope of [GM_AUTH_SCOPE, LEGACY_NEXT_GM_AUTH_SCOPE]) {
+            const result = await this.pool.query('SELECT payload FROM persistent_documents WHERE scope = $1 AND key = $2', [scope, GM_AUTH_KEY]);
+            if (result.rowCount > 0) {
+                return normalizePasswordRecord(result.rows[0]?.payload);
+            }
         }
-        return normalizePasswordRecord(result.rows[0]?.payload);
+        return null;
     }
-/** loadLegacyPasswordRecordFromDb：执行对应的业务逻辑。 */
     async loadLegacyPasswordRecordFromDb() {
         if (!this.pool) {
             return null;
         }
-/** legacyResult：定义该变量以承载业务值。 */
-        const legacyResult = await this.pool.query('SELECT payload FROM persistent_documents WHERE scope = $1 AND key = $2', [LEGACY_GM_AUTH_SCOPE, GM_AUTH_KEY]);
-        if (legacyResult.rowCount === 0) {
-            return null;
+
+        for (const scope of [LEGACY_GM_AUTH_SCOPE, LEGACY_NEXT_GM_AUTH_SCOPE]) {
+            const legacyResult = await this.pool.query('SELECT payload FROM persistent_documents WHERE scope = $1 AND key = $2', [scope, GM_AUTH_KEY]);
+            if (legacyResult.rowCount > 0) {
+                return normalizePasswordRecord(legacyResult.rows[0]?.payload);
+            }
         }
-        return normalizePasswordRecord(legacyResult.rows[0]?.payload);
+        return null;
     }
-/** getInitialPassword：执行对应的业务逻辑。 */
     getInitialPassword() {
         return (0, env_alias_1.resolveServerNextGmPassword)(DEFAULT_GM_PASSWORD);
     }
-/** closePool：执行对应的业务逻辑。 */
     async closePool() {
-/** pool：定义该变量以承载业务值。 */
+
         const pool = this.pool;
         this.pool = null;
         this.persistenceEnabled = false;
@@ -268,12 +282,11 @@ exports.RuntimeGmAuthService = RuntimeGmAuthService;
 exports.RuntimeGmAuthService = RuntimeGmAuthService = __decorate([
     (0, common_1.Injectable)()
 ], RuntimeGmAuthService);
-/** normalizePasswordRecord：执行对应的业务逻辑。 */
 function normalizePasswordRecord(raw) {
     if (!raw || typeof raw !== 'object') {
         return null;
     }
-/** candidate：定义该变量以承载业务值。 */
+
     const candidate = raw;
     if (typeof candidate.passwordHash === 'string' && candidate.passwordHash
         && typeof candidate.updatedAt === 'string' && candidate.updatedAt) {
@@ -294,9 +307,8 @@ function normalizePasswordRecord(raw) {
         updatedAt: candidate.updatedAt,
     };
 }
-/** buildPasswordRecord：执行对应的业务逻辑。 */
 function buildPasswordRecord(password) {
-/** salt：定义该变量以承载业务值。 */
+
     const salt = crypto.randomBytes(16).toString('hex');
     return {
         salt,
@@ -304,11 +316,9 @@ function buildPasswordRecord(password) {
         updatedAt: new Date().toISOString(),
     };
 }
-/** hashPassword：执行对应的业务逻辑。 */
 function hashPassword(password, salt) {
     return crypto.scryptSync(password, salt, 64).toString('hex');
 }
-/** verifyPassword：执行对应的业务逻辑。 */
 async function verifyPassword(password, record) {
     if (record.salt === LEGACY_BCRYPT_SENTINEL_SALT) {
         try {
@@ -320,27 +330,24 @@ async function verifyPassword(password, record) {
     }
     return safeEqual(hashPassword(password, record.salt), record.hash);
 }
-/** signTokenPayload：执行对应的业务逻辑。 */
 function signTokenPayload(payloadBase64, secret) {
     return encodeBase64Url(crypto.createHmac('sha256', secret).update(payloadBase64).digest());
 }
-/** encodeBase64Url：执行对应的业务逻辑。 */
 function encodeBase64Url(input) {
-/** buffer：定义该变量以承载业务值。 */
+
     const buffer = Buffer.isBuffer(input) ? input : Buffer.from(input, 'utf8');
     return buffer.toString('base64')
         .replace(/\+/g, '-')
         .replace(/\//g, '_')
         .replace(/=+$/g, '');
 }
-/** decodeBase64Url：执行对应的业务逻辑。 */
 function decodeBase64Url(input) {
     if (typeof input !== 'string' || !input) {
         return null;
     }
-/** normalized：定义该变量以承载业务值。 */
+
     const normalized = input.replace(/-/g, '+').replace(/_/g, '/');
-/** padded：定义该变量以承载业务值。 */
+
     const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=');
     try {
         return Buffer.from(padded, 'base64').toString('utf8');
@@ -349,14 +356,14 @@ function decodeBase64Url(input) {
         return null;
     }
 }
-/** safeEqual：执行对应的业务逻辑。 */
 function safeEqual(left, right) {
-/** leftBuffer：定义该变量以承载业务值。 */
+
     const leftBuffer = Buffer.from(left, 'utf8');
-/** rightBuffer：定义该变量以承载业务值。 */
+
     const rightBuffer = Buffer.from(right, 'utf8');
     if (leftBuffer.length !== rightBuffer.length) {
         return false;
     }
     return crypto.timingSafeEqual(leftBuffer, rightBuffer);
 }
+

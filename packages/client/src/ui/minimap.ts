@@ -18,174 +18,112 @@ import {
 import { buildCanvasFont } from '../constants/ui/text';
 import { formatDisplayCountBadge, formatDisplayInteger } from '../utils/number';
 
-/** CatalogFilter：定义该类型的结构与数据语义。 */
+/** 小地图目录筛选条件。 */
 type CatalogFilter = 'all' | 'memory' | 'unlock';
-/** MinimapDisplayMode：定义该类型的结构与数据语义。 */
+/** MinimapDisplayMode：模式枚举。 */
 type MinimapDisplayMode = 'memory' | 'unlock';
 
-/** DisplaySourceAvailability：定义该接口的能力与字段约束。 */
+/** 目录来源在当前环境中的可用性。 */
 interface DisplaySourceAvailability {
-/** hasMemory：定义该变量以承载业务值。 */
   hasMemory: boolean;
-/** hasUnlock：定义该变量以承载业务值。 */
   hasUnlock: boolean;
 }
 
-/** MinimapScene：定义该接口的能力与字段约束。 */
+/** 小地图主场景渲染数据。 */
 interface MinimapScene {
-/** mapMeta：定义该变量以承载业务值。 */
   mapMeta: MapMeta | null;
-/** snapshot：定义该变量以承载业务值。 */
   snapshot: MapMinimapSnapshot | null;
-/** rememberedMarkers：定义该变量以承载业务值。 */
   rememberedMarkers: MapMinimapMarker[];
-/** visibleMarkers：定义该变量以承载业务值。 */
   visibleMarkers: MapMinimapMarker[];
-/** tileCache：定义该变量以承载业务值。 */
   tileCache: ReadonlyMap<string, Tile>;
-/** visibleTiles：定义该变量以承载业务值。 */
   visibleTiles: ReadonlySet<string>;
   visibleEntities: ReadonlyArray<{
-/** id：定义该变量以承载业务值。 */
     id: string;
-/** wx：定义该变量以承载业务值。 */
     wx: number;
-/** wy：定义该变量以承载业务值。 */
     wy: number;
     name?: string;
     kind?: string;
   }>;
-/** groundPiles：定义该变量以承载业务值。 */
   groundPiles: ReadonlyMap<string, GroundItemPileView>;
-/** player：定义该变量以承载业务值。 */
   player: { x: number; y: number } | null;
-/** viewRadius：定义该变量以承载业务值。 */
   viewRadius: number;
-/** memoryVersion：定义该变量以承载业务值。 */
   memoryVersion: number;
 }
 
-/** CatalogEntry：定义该接口的能力与字段约束。 */
+/** 小地图目录条目。 */
 interface CatalogEntry {
-/** mapId：定义该变量以承载业务值。 */
   mapId: string;
-/** mapMeta：定义该变量以承载业务值。 */
   mapMeta: MapMeta | null;
-/** hasMemory：定义该变量以承载业务值。 */
   hasMemory: boolean;
-/** hasUnlock：定义该变量以承载业务值。 */
   hasUnlock: boolean;
 }
 
-/** DisplayMapScene：定义该接口的能力与字段约束。 */
+/** 弹窗中正在绘制的地图场景。 */
 interface DisplayMapScene {
-/** mapId：定义该变量以承载业务值。 */
   mapId: string;
-/** mapMeta：定义该变量以承载业务值。 */
   mapMeta: MapMeta;
-/** snapshot：定义该变量以承载业务值。 */
   snapshot: MapMinimapSnapshot | null;
-/** rememberedMarkers：定义该变量以承载业务值。 */
   rememberedMarkers: MapMinimapMarker[];
-/** visibleMarkers：定义该变量以承载业务值。 */
   visibleMarkers: MapMinimapMarker[];
-/** tileCache：定义该变量以承载业务值。 */
   tileCache: ReadonlyMap<string, Tile>;
-/** visibleTiles：定义该变量以承载业务值。 */
   visibleTiles: ReadonlySet<string>;
   visibleEntities: ReadonlyArray<{
-/** id：定义该变量以承载业务值。 */
     id: string;
-/** wx：定义该变量以承载业务值。 */
     wx: number;
-/** wy：定义该变量以承载业务值。 */
     wy: number;
     name?: string;
     kind?: string;
   }>;
-/** groundPiles：定义该变量以承载业务值。 */
   groundPiles: ReadonlyMap<string, GroundItemPileView>;
-/** player：定义该变量以承载业务值。 */
   player: { x: number; y: number } | null;
-/** viewRadius：定义该变量以承载业务值。 */
   viewRadius: number;
-/** isCurrent：定义该变量以承载业务值。 */
   isCurrent: boolean;
-/** memoryVersion：定义该变量以承载业务值。 */
   memoryVersion: number;
-/** displayMode：定义该变量以承载业务值。 */
   displayMode: MinimapDisplayMode;
-/** hasMemory：定义该变量以承载业务值。 */
   hasMemory: boolean;
-/** hasUnlock：定义该变量以承载业务值。 */
   hasUnlock: boolean;
 }
 
-/** ViewportMetrics：定义该接口的能力与字段约束。 */
+/** 小地图弹窗视口换算指标。 */
 interface ViewportMetrics {
-/** width：定义该变量以承载业务值。 */
   width: number;
-/** height：定义该变量以承载业务值。 */
   height: number;
-/** innerWidth：定义该变量以承载业务值。 */
   innerWidth: number;
-/** innerHeight：定义该变量以承载业务值。 */
   innerHeight: number;
-/** mapWidth：定义该变量以承载业务值。 */
   mapWidth: number;
-/** mapHeight：定义该变量以承载业务值。 */
   mapHeight: number;
-/** padding：定义该变量以承载业务值。 */
   padding: number;
-/** scale：定义该变量以承载业务值。 */
   scale: number;
-/** drawWidth：定义该变量以承载业务值。 */
   drawWidth: number;
-/** drawHeight：定义该变量以承载业务值。 */
   drawHeight: number;
-/** baseOffsetX：定义该变量以承载业务值。 */
   baseOffsetX: number;
-/** baseOffsetY：定义该变量以承载业务值。 */
   baseOffsetY: number;
-/** offsetX：定义该变量以承载业务值。 */
   offsetX: number;
-/** offsetY：定义该变量以承载业务值。 */
   offsetY: number;
-/** panX：定义该变量以承载业务值。 */
   panX: number;
-/** panY：定义该变量以承载业务值。 */
   panY: number;
-/** maxPanX：定义该变量以承载业务值。 */
   maxPanX: number;
-/** maxPanY：定义该变量以承载业务值。 */
   maxPanY: number;
 }
 
-/** ModalPanState：定义该接口的能力与字段约束。 */
+/** 弹窗平移拖拽状态。 */
 interface ModalPanState {
-/** pointerId：定义该变量以承载业务值。 */
   pointerId: number;
-/** startClientX：定义该变量以承载业务值。 */
   startClientX: number;
-/** startClientY：定义该变量以承载业务值。 */
   startClientY: number;
-/** startPanX：定义该变量以承载业务值。 */
   startPanX: number;
-/** startPanY：定义该变量以承载业务值。 */
   startPanY: number;
 }
 
-/** clamp：执行对应的业务逻辑。 */
+/** clamp：处理clamp。 */
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
 
-/** parseTileKey：执行对应的业务逻辑。 */
+/** parseTileKey：解析地块Key。 */
 function parseTileKey(key: string): { x: number; y: number } | null {
   const [rawX, rawY] = key.split(',');
-/** x：定义该变量以承载业务值。 */
   const x = Number(rawX);
-/** y：定义该变量以承载业务值。 */
   const y = Number(rawY);
   if (!Number.isFinite(x) || !Number.isFinite(y)) {
     return null;
@@ -196,15 +134,11 @@ function parseTileKey(key: string): { x: number; y: number } | null {
   };
 }
 
-/** ensureCanvasSize：执行对应的业务逻辑。 */
+/** ensureCanvasSize：确保Canvas Size。 */
 function ensureCanvasSize(canvas: HTMLCanvasElement): boolean {
-/** rect：定义该变量以承载业务值。 */
   const rect = canvas.getBoundingClientRect();
-/** dpr：定义该变量以承载业务值。 */
   const dpr = window.devicePixelRatio || 1;
-/** width：定义该变量以承载业务值。 */
   const width = Math.max(1, Math.floor(rect.width * dpr));
-/** height：定义该变量以承载业务值。 */
   const height = Math.max(1, Math.floor(rect.height * dpr));
   if (canvas.width === width && canvas.height === height) {
     return false;
@@ -214,11 +148,9 @@ function ensureCanvasSize(canvas: HTMLCanvasElement): boolean {
   return true;
 }
 
-/** buildFallbackMapMeta：执行对应的业务逻辑。 */
+/** buildFallbackMapMeta：构建兜底地图元数据。 */
 function buildFallbackMapMeta(mapId: string, snapshot: MapMinimapSnapshot | null, tileCache: Map<string, Tile>): MapMeta {
-/** width：定义该变量以承载业务值。 */
   let width = snapshot?.width ?? 1;
-/** height：定义该变量以承载业务值。 */
   let height = snapshot?.height ?? 1;
   if (!snapshot) {
     for (const key of tileCache.keys()) {
@@ -238,9 +170,8 @@ function buildFallbackMapMeta(mapId: string, snapshot: MapMinimapSnapshot | null
   };
 }
 
-/** getCanvasPixels：执行对应的业务逻辑。 */
+/** getCanvasPixels：读取Canvas Pixels。 */
 function getCanvasPixels(canvas: HTMLCanvasElement, clientX: number, clientY: number): { x: number; y: number } | null {
-/** rect：定义该变量以承载业务值。 */
   const rect = canvas.getBoundingClientRect();
   if (rect.width <= 0 || rect.height <= 0) {
     return null;
@@ -251,65 +182,97 @@ function getCanvasPixels(canvas: HTMLCanvasElement, clientX: number, clientY: nu
   };
 }
 
-/** Minimap：封装相关状态与行为。 */
+/** Minimap：小地图实现。 */
 export class Minimap {
+  /** MOVE_CONFIRM_OWNER：移动CONFIRM OWNER。 */
   private static readonly MOVE_CONFIRM_OWNER = 'map-minimap:move-confirm';
+  /** DELETE_MEMORY_OWNER：DELETE MEMORY OWNER。 */
   private static readonly DELETE_MEMORY_OWNER = 'map-minimap:delete-memory';
 
+  /** shell：shell。 */
   private readonly shell = document.getElementById('map-minimap-shell') as HTMLElement | null;
+  /** overlayRoot：overlay Root。 */
   private readonly overlayRoot = document.getElementById('map-minimap') as HTMLElement | null;
+  /** overlayCanvas：overlay Canvas。 */
   private readonly overlayCanvas = document.getElementById('map-minimap-canvas') as HTMLCanvasElement | null;
+  /** overlayTitle：overlay标题。 */
   private readonly overlayTitle = document.getElementById('map-minimap-title') as HTMLElement | null;
+  /** toggleBtn：toggle按钮。 */
   private readonly toggleBtn = document.getElementById('map-minimap-toggle') as HTMLButtonElement | null;
+  /** openBtn：open按钮。 */
   private readonly openBtn = document.getElementById('map-minimap-open') as HTMLButtonElement | null;
+  /** modal：弹窗。 */
   private readonly modal = document.getElementById('map-minimap-modal') as HTMLElement | null;
+  /** modalBody：弹窗身体。 */
   private readonly modalBody = document.querySelector('#map-minimap-modal .map-minimap-modal-body') as HTMLElement | null;
+  /** modalSidebar：弹窗Sidebar。 */
   private readonly modalSidebar = document.querySelector('#map-minimap-modal .map-minimap-modal-sidebar') as HTMLElement | null;
+  /** modalWindow：弹窗窗口。 */
   private readonly modalWindow = document.getElementById('map-minimap-modal-window') as HTMLElement | null;
+  /** modalTitle：弹窗标题。 */
   private readonly modalTitle = document.getElementById('map-minimap-modal-title') as HTMLElement | null;
+  /** modalCatalogToggleBtn：弹窗目录Toggle按钮。 */
   private readonly modalCatalogToggleBtn = document.getElementById('map-minimap-modal-catalog-toggle') as HTMLButtonElement | null;
+  /** modalCloseBtn：弹窗Close按钮。 */
   private readonly modalCloseBtn = document.getElementById('map-minimap-modal-close') as HTMLButtonElement | null;
+  /** modalCanvas：弹窗Canvas。 */
   private readonly modalCanvas = document.getElementById('map-minimap-modal-canvas') as HTMLCanvasElement | null;
+  /** modalSourceSwitch：弹窗来源Switch。 */
   private readonly modalSourceSwitch = document.getElementById('map-minimap-modal-source-switch') as HTMLElement | null;
+  /** modalSourceMemoryBtn：弹窗来源Memory按钮。 */
   private readonly modalSourceMemoryBtn = document.getElementById('map-minimap-modal-source-memory') as HTMLButtonElement | null;
+  /** modalSourceUnlockBtn：弹窗来源解锁按钮。 */
   private readonly modalSourceUnlockBtn = document.getElementById('map-minimap-modal-source-unlock') as HTMLButtonElement | null;
+  /** modalList：弹窗列表。 */
   private readonly modalList = document.getElementById('map-minimap-modal-list') as HTMLElement | null;
+  /** modalTabAll：弹窗Tab All。 */
   private readonly modalTabAll = document.getElementById('map-minimap-filter-all') as HTMLButtonElement | null;
+  /** modalTabMemory：弹窗Tab Memory。 */
   private readonly modalTabMemory = document.getElementById('map-minimap-filter-memory') as HTMLButtonElement | null;
+  /** modalTabUnlock：弹窗Tab解锁。 */
   private readonly modalTabUnlock = document.getElementById('map-minimap-filter-unlock') as HTMLButtonElement | null;
+  /** deleteMemoryBtn：delete Memory按钮。 */
   private readonly deleteMemoryBtn = document.getElementById('map-minimap-delete-memory') as HTMLButtonElement | null;
 
+  /** baseCanvas：基础Canvas。 */
   private readonly baseCanvas = document.createElement('canvas');
+  /** baseCtx：基础Ctx。 */
   private readonly baseCtx = this.baseCanvas.getContext('2d');
-/** scene：定义该变量以承载业务值。 */
+  /** scene：场景。 */
   private scene: MinimapScene | null = null;
+  /** renderQueued：渲染Queued。 */
   private renderQueued = false;
+  /** overlayVisible：overlay可见。 */
   private overlayVisible = true;
+  /** modalOpen：弹窗Open。 */
   private modalOpen = false;
-/** baseKey：定义该变量以承载业务值。 */
+  /** baseKey：基础Key。 */
   private baseKey: string | null = null;
-/** selectedMapId：定义该变量以承载业务值。 */
+  /** selectedMapId：selected地图ID。 */
   private selectedMapId: string | null = null;
-/** modalDisplayMode：定义该变量以承载业务值。 */
+  /** modalDisplayMode：弹窗显示模式。 */
   private modalDisplayMode: MinimapDisplayMode = 'unlock';
-/** catalogFilter：定义该变量以承载业务值。 */
+  /** catalogFilter：目录筛选。 */
   private catalogFilter: CatalogFilter = 'all';
+  /** moveHandler：移动Handler。 */
   private moveHandler: ((x: number, y: number) => void) | null = null;
-/** pendingMovePoint：定义该变量以承载业务值。 */
   private pendingMovePoint: { x: number; y: number } | null = null;
+  /** modalZoom：弹窗缩放。 */
   private modalZoom = 1;
+  /** modalPanX：弹窗Pan X。 */
   private modalPanX = 0;
+  /** modalPanY：弹窗Pan Y。 */
   private modalPanY = 0;
-/** modalPanState：定义该变量以承载业务值。 */
+  /** modalPanState：弹窗Pan状态。 */
   private modalPanState: ModalPanState | null = null;
-/** hoveredModalPoint：定义该变量以承载业务值。 */
   private hoveredModalPoint: { x: number; y: number } | null = null;
+  /** mobileCatalogOpen：mobile目录Open。 */
   private mobileCatalogOpen = false;
+  /** catalogEntryNodes：目录条目Nodes。 */
   private readonly catalogEntryNodes = new Map<string, HTMLButtonElement>();
-/** catalogEmptyNode：定义该变量以承载业务值。 */
+  /** catalogEmptyNode：目录Empty节点。 */
   private catalogEmptyNode: HTMLElement | null = null;
 
-/** constructor：处理当前场景中的对应操作。 */
   constructor() {
     this.mountModalToBody();
 
@@ -370,7 +333,6 @@ export class Minimap {
       if (!this.modalOpen || !this.isCompactViewport() || !this.mobileCatalogOpen) {
         return;
       }
-/** target：定义该变量以承载业务值。 */
       const target = event.target as Node | null;
       if (
         (target && this.modalSidebar?.contains(target))
@@ -405,9 +367,7 @@ export class Minimap {
     });
 
     this.modalList?.addEventListener('click', (event) => {
-/** button：定义该变量以承载业务值。 */
       const button = (event.target as HTMLElement | null)?.closest<HTMLButtonElement>('[data-map-id]');
-/** mapId：定义该变量以承载业务值。 */
       const mapId = button?.dataset.mapId;
       if (!mapId || mapId === this.selectedMapId) {
         return;
@@ -429,33 +389,25 @@ export class Minimap {
       if (!this.modalOpen || !this.modalCanvas) {
         return;
       }
-/** display：定义该变量以承载业务值。 */
       const display = this.getModalDisplayScene();
       if (!display) {
         return;
       }
       ensureCanvasSize(this.modalCanvas);
-/** pixels：定义该变量以承载业务值。 */
       const pixels = getCanvasPixels(this.modalCanvas, event.clientX, event.clientY);
       if (!pixels) {
         return;
       }
-/** previousMetrics：定义该变量以承载业务值。 */
       const previousMetrics = this.getViewportMetrics(this.modalCanvas, display, true);
-/** anchor：定义该变量以承载业务值。 */
       const anchor = this.resolveWorldPoint(previousMetrics, pixels.x, pixels.y)
         ?? { x: previousMetrics.mapWidth / 2, y: previousMetrics.mapHeight / 2 };
-/** factor：定义该变量以承载业务值。 */
       const factor = event.deltaY < 0 ? 1.18 : 1 / 1.18;
-/** nextZoom：定义该变量以承载业务值。 */
       const nextZoom = clamp(Number((this.modalZoom * factor).toFixed(4)), MIN_MODAL_ZOOM, MAX_MODAL_ZOOM);
       if (nextZoom === this.modalZoom) {
         return;
       }
       event.preventDefault();
-/** previewMetrics：定义该变量以承载业务值。 */
       const previewMetrics = this.getViewportMetrics(this.modalCanvas, display, true, nextZoom, this.modalPanX, this.modalPanY);
-/** nextMetrics：定义该变量以承载业务值。 */
       const nextMetrics = this.getViewportMetrics(
         this.modalCanvas,
         display,
@@ -493,20 +445,15 @@ export class Minimap {
       if (!this.modalOpen || !this.modalCanvas) {
         return;
       }
-/** display：定义该变量以承载业务值。 */
       const display = this.getModalDisplayScene();
       if (!display) {
         return;
       }
 
       if (this.modalPanState && this.modalPanState.pointerId === event.pointerId) {
-/** rect：定义该变量以承载业务值。 */
         const rect = this.modalCanvas.getBoundingClientRect();
-/** scaleX：定义该变量以承载业务值。 */
         const scaleX = rect.width > 0 ? this.modalCanvas.width / rect.width : 1;
-/** scaleY：定义该变量以承载业务值。 */
         const scaleY = rect.height > 0 ? this.modalCanvas.height / rect.height : 1;
-/** nextMetrics：定义该变量以承载业务值。 */
         const nextMetrics = this.getViewportMetrics(
           this.modalCanvas,
           display,
@@ -521,9 +468,7 @@ export class Minimap {
         return;
       }
 
-/** point：定义该变量以承载业务值。 */
       const point = this.resolveCanvasPoint(this.modalCanvas, event.clientX, event.clientY, display, true);
-/** nextHover：定义该变量以承载业务值。 */
       const nextHover = point ? { x: point.x, y: point.y } : null;
       if (
         this.hoveredModalPoint?.x !== nextHover?.x
@@ -567,9 +512,7 @@ export class Minimap {
       if (!this.moveHandler) {
         return;
       }
-/** display：定义该变量以承载业务值。 */
       const display = this.getModalDisplayScene();
-/** moveTarget：定义该变量以承载业务值。 */
       const moveTarget = this.resolveCurrentMoveTarget(display, this.modalCanvas, event.clientX, event.clientY, true);
       if (!display || !moveTarget) {
         return;
@@ -606,12 +549,11 @@ export class Minimap {
     });
   }
 
-/** mountModalToBody：执行对应的业务逻辑。 */
+  /** mountModalToBody：处理mount弹窗To身体。 */
   private mountModalToBody(): void {
     if (!this.modal) {
       return;
     }
-/** root：定义该变量以承载业务值。 */
     const root = getViewportRoot(document) ?? document.body;
     if (this.modal.parentElement === root) {
       return;
@@ -619,14 +561,13 @@ export class Minimap {
     root.appendChild(this.modal);
   }
 
-/** isCompactViewport：执行对应的业务逻辑。 */
+  /** isCompactViewport：判断是否Compact视口。 */
   private isCompactViewport(): boolean {
     return window.innerWidth <= 900;
   }
 
-/** syncResponsiveModalChrome：执行对应的业务逻辑。 */
+  /** syncResponsiveModalChrome：同步Responsive弹窗Chrome。 */
   private syncResponsiveModalChrome(): void {
-/** catalogVisible：定义该变量以承载业务值。 */
     const catalogVisible = this.isCompactViewport() ? this.mobileCatalogOpen : true;
     if (this.modal) {
       this.modal.dataset.mobileCatalogOpen = catalogVisible ? 'true' : 'false';
@@ -646,7 +587,6 @@ export class Minimap {
 
   /** 更新当前地图场景数据并触发重绘 */
   updateScene(scene: MinimapScene | null): void {
-/** previousCurrentMapId：定义该变量以承载业务值。 */
     const previousCurrentMapId = this.scene?.mapMeta?.id ?? null;
     this.scene = scene;
     if (!scene) {
@@ -655,9 +595,7 @@ export class Minimap {
       this.hoveredModalPoint = null;
       this.closeMoveConfirm();
     } else {
-/** nextCurrentMapId：定义该变量以承载业务值。 */
       const nextCurrentMapId = scene.mapMeta?.id ?? null;
-/** currentMapChanged：定义该变量以承载业务值。 */
       const currentMapChanged = nextCurrentMapId !== previousCurrentMapId;
       if (currentMapChanged || !this.selectedMapId) {
         this.selectedMapId = nextCurrentMapId;
@@ -673,7 +611,7 @@ export class Minimap {
     this.render();
   }
 
-/** clear：执行对应的业务逻辑。 */
+  /** clear：清理clear。 */
   clear(): void {
     this.scene = null;
     this.selectedMapId = null;
@@ -687,10 +625,8 @@ export class Minimap {
     this.modal?.classList.add('hidden');
     this.modal?.setAttribute('aria-hidden', 'true');
     this.modalOpen = false;
-/** overlayCtx：定义该变量以承载业务值。 */
     const overlayCtx = this.overlayCanvas?.getContext('2d');
     overlayCtx?.clearRect(0, 0, this.overlayCanvas?.width ?? 0, this.overlayCanvas?.height ?? 0);
-/** modalCtx：定义该变量以承载业务值。 */
     const modalCtx = this.modalCanvas?.getContext('2d');
     modalCtx?.clearRect(0, 0, this.modalCanvas?.width ?? 0, this.modalCanvas?.height ?? 0);
     if (this.modalList) {
@@ -699,7 +635,7 @@ export class Minimap {
     this.modalDisplayMode = 'unlock';
   }
 
-/** resize：执行对应的业务逻辑。 */
+  /** resize：处理resize。 */
   resize(): void {
     if (this.overlayCanvas) {
       ensureCanvasSize(this.overlayCanvas);
@@ -710,7 +646,7 @@ export class Minimap {
     this.scheduleRender();
   }
 
-/** render：执行对应的业务逻辑。 */
+  /** render：渲染渲染。 */
   render(): void {
     this.refreshChrome();
     if (this.modalOpen) {
@@ -719,7 +655,7 @@ export class Minimap {
     this.scheduleRender();
   }
 
-/** scheduleRender：执行对应的业务逻辑。 */
+  /** scheduleRender：调度渲染。 */
   private scheduleRender(): void {
     if (this.renderQueued) {
       return;
@@ -732,9 +668,8 @@ export class Minimap {
     });
   }
 
-/** refreshChrome：执行对应的业务逻辑。 */
+  /** refreshChrome：处理refresh Chrome。 */
   private refreshChrome(): void {
-/** hasScene：定义该变量以承载业务值。 */
     const hasScene = !!(this.scene?.mapMeta && this.scene.player);
     this.shell?.classList.toggle('hidden', !hasScene);
     this.overlayRoot?.classList.toggle('hidden', !hasScene || !this.overlayVisible);
@@ -749,7 +684,7 @@ export class Minimap {
     }
   }
 
-/** openModal：执行对应的业务逻辑。 */
+  /** openModal：打开弹窗。 */
   private openModal(): void {
     if (!this.modal) {
       return;
@@ -768,7 +703,7 @@ export class Minimap {
     this.scheduleRender();
   }
 
-/** closeModal：执行对应的业务逻辑。 */
+  /** closeModal：关闭弹窗。 */
   private closeModal(): void {
     this.modalOpen = false;
     this.mobileCatalogOpen = false;
@@ -783,14 +718,14 @@ export class Minimap {
     this.scheduleRender();
   }
 
-/** resetModalViewport：执行对应的业务逻辑。 */
+  /** resetModalViewport：重置弹窗视口。 */
   private resetModalViewport(): void {
     this.modalZoom = 1;
     this.modalPanX = 0;
     this.modalPanY = 0;
   }
 
-/** cancelModalPan：执行对应的业务逻辑。 */
+  /** cancelModalPan：取消弹窗Pan。 */
   private cancelModalPan(): void {
     if (this.modalPanState && this.modalCanvas?.hasPointerCapture(this.modalPanState.pointerId)) {
       this.modalCanvas.releasePointerCapture(this.modalPanState.pointerId);
@@ -798,20 +733,16 @@ export class Minimap {
     this.modalPanState = null;
   }
 
-/** buildCatalogEntries：执行对应的业务逻辑。 */
+  /** buildCatalogEntries：构建目录Entries。 */
   private buildCatalogEntries(): CatalogEntry[] {
-/** entries：定义该变量以承载业务值。 */
     const entries = new Map<string, CatalogEntry>();
-/** currentMapMeta：定义该变量以承载业务值。 */
     const currentMapMeta = this.scene?.mapMeta ?? null;
-/** currentMapId：定义该变量以承载业务值。 */
     const currentMapId = currentMapMeta?.id ?? null;
 
     for (const mapId of listRememberedMapIds()) {
       const existing = entries.get(mapId);
       entries.set(mapId, {
         mapId,
-/** mapMeta：定义该变量以承载业务值。 */
         mapMeta: existing?.mapMeta ?? (mapId === currentMapId ? currentMapMeta : getCachedMapMeta(mapId)),
         hasMemory: true,
         hasUnlock: existing?.hasUnlock ?? false,
@@ -829,7 +760,6 @@ export class Minimap {
     }
 
     if (currentMapId) {
-/** existing：定义该变量以承载业务值。 */
       const existing = entries.get(currentMapId);
       entries.set(currentMapId, {
         mapId: currentMapId,
@@ -846,23 +776,19 @@ export class Minimap {
       if (right.mapId === currentMapId) {
         return 1;
       }
-/** leftName：定义该变量以承载业务值。 */
       const leftName = left.mapMeta?.name ?? left.mapId;
-/** rightName：定义该变量以承载业务值。 */
       const rightName = right.mapMeta?.name ?? right.mapId;
       return leftName.localeCompare(rightName, 'zh-Hans-CN');
     });
   }
 
-/** renderCatalog：执行对应的业务逻辑。 */
+  /** renderCatalog：渲染目录。 */
   private renderCatalog(): void {
     if (!this.modalList) {
       return;
     }
 
-/** allEntries：定义该变量以承载业务值。 */
     const allEntries = this.buildCatalogEntries();
-/** filteredEntries：定义该变量以承载业务值。 */
     const filteredEntries = allEntries.filter((entry) => {
       if (this.catalogFilter === 'memory') {
         return entry.hasMemory;
@@ -873,9 +799,7 @@ export class Minimap {
       return true;
     });
 
-/** currentMapId：定义该变量以承载业务值。 */
     const currentMapId = this.scene?.mapMeta?.id ?? null;
-/** selectedVisible：定义该变量以承载业务值。 */
     const selectedVisible = filteredEntries.some((entry) => entry.mapId === this.selectedMapId);
     if (!selectedVisible) {
       this.selectedMapId = filteredEntries.find((entry) => entry.mapId === currentMapId)?.mapId
@@ -894,17 +818,13 @@ export class Minimap {
     this.modalTabMemory?.classList.toggle('active', this.catalogFilter === 'memory');
     this.modalTabUnlock?.classList.toggle('active', this.catalogFilter === 'unlock');
     if (this.deleteMemoryBtn) {
-/** selectedEntry：定义该变量以承载业务值。 */
       const selectedEntry = allEntries.find((entry) => entry.mapId === this.selectedMapId) ?? null;
       this.deleteMemoryBtn.disabled = !selectedEntry?.hasMemory;
       this.deleteMemoryBtn.title = selectedEntry?.hasMemory ? `删除 ${selectedEntry.mapMeta?.name ?? selectedEntry.mapId} 的本地记忆` : '当前地图没有可删除的本地记忆';
     }
 
-/** catalogContainer：定义该变量以承载业务值。 */
     const catalogContainer = this.modalList;
-/** previousScrollTop：定义该变量以承载业务值。 */
     const previousScrollTop = catalogContainer.scrollTop;
-/** filteredIds：定义该变量以承载业务值。 */
     const filteredIds = new Set(filteredEntries.map((entry) => entry.mapId));
 
     if (filteredEntries.length === 0) {
@@ -924,7 +844,6 @@ export class Minimap {
       }
     }
 
-/** previousNode：定义该变量以承载业务值。 */
     let previousNode: HTMLButtonElement | null = null;
     for (const entry of filteredEntries) {
       let node = this.catalogEntryNodes.get(entry.mapId);
@@ -940,24 +859,20 @@ export class Minimap {
     catalogContainer.scrollTop = previousScrollTop;
   }
 
-/** createCatalogItemNode：执行对应的业务逻辑。 */
+  /** createCatalogItemNode：创建目录物品节点。 */
   private createCatalogItemNode(entry: CatalogEntry): HTMLButtonElement {
-/** button：定义该变量以承载业务值。 */
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'map-minimap-modal-item';
     button.dataset.mapId = entry.mapId;
 
-/** head：定义该变量以承载业务值。 */
     const head = document.createElement('div');
     head.className = 'map-minimap-modal-item-head';
 
-/** name：定义该变量以承载业务值。 */
     const name = document.createElement('span');
     name.className = 'map-minimap-modal-item-name';
     head.appendChild(name);
 
-/** badges：定义该变量以承载业务值。 */
     const badges = document.createElement('span');
     badges.className = 'map-minimap-modal-item-badges';
     head.appendChild(badges);
@@ -967,15 +882,13 @@ export class Minimap {
     return button;
   }
 
-/** updateCatalogItemNode：执行对应的业务逻辑。 */
+  /** updateCatalogItemNode：更新目录物品节点。 */
   private updateCatalogItemNode(entry: CatalogEntry, node: HTMLButtonElement): void {
-/** nameNode：定义该变量以承载业务值。 */
     const nameNode = node.querySelector<HTMLSpanElement>('.map-minimap-modal-item-name');
     if (nameNode) {
       nameNode.textContent = entry.mapMeta?.name ?? '无名地域';
     }
 
-/** badgesNode：定义该变量以承载业务值。 */
     const badgesNode = node.querySelector<HTMLElement>('.map-minimap-modal-item-badges');
     if (badgesNode) {
       badgesNode.replaceChildren();
@@ -996,7 +909,6 @@ export class Minimap {
     previousNode: HTMLButtonElement | null,
     container: HTMLElement,
   ): void {
-/** anchor：定义该变量以承载业务值。 */
     const anchor = previousNode ? previousNode.nextElementSibling : container.firstElementChild;
     if (anchor === node) {
       return;
@@ -1004,7 +916,7 @@ export class Minimap {
     container.insertBefore(node, anchor);
   }
 
-/** getCatalogEmptyNode：执行对应的业务逻辑。 */
+  /** getCatalogEmptyNode：读取目录Empty节点。 */
   private getCatalogEmptyNode(): HTMLElement {
     if (!this.catalogEmptyNode) {
       this.catalogEmptyNode = document.createElement('div');
@@ -1014,7 +926,7 @@ export class Minimap {
     return this.catalogEmptyNode;
   }
 
-/** removeAllCatalogNodes：执行对应的业务逻辑。 */
+  /** removeAllCatalogNodes：处理remove All目录Nodes。 */
   private removeAllCatalogNodes(): void {
     this.catalogEntryNodes.forEach((node) => {
       node.remove();
@@ -1022,18 +934,16 @@ export class Minimap {
     this.catalogEntryNodes.clear();
   }
 
-/** buildCatalogBadge：执行对应的业务逻辑。 */
+  /** buildCatalogBadge：构建目录Badge。 */
   private buildCatalogBadge(badgeClass: 'unlock' | 'memory', label: string): HTMLSpanElement {
-/** badge：定义该变量以承载业务值。 */
     const badge = document.createElement('span');
     badge.className = `map-minimap-modal-badge ${badgeClass}`;
     badge.textContent = label;
     return badge;
   }
 
-/** getCatalogDescription：执行对应的业务逻辑。 */
+  /** getCatalogDescription：读取目录Description。 */
   private getCatalogDescription(entry: CatalogEntry): string {
-/** description：定义该变量以承载业务值。 */
     const description = entry.mapMeta?.description?.trim();
     if (description) {
       return description;
@@ -1047,7 +957,7 @@ export class Minimap {
     return '仅保留本地探索记忆，未获得完整地图。';
   }
 
-/** getCurrentDisplayAvailability：执行对应的业务逻辑。 */
+  /** getCurrentDisplayAvailability：读取当前显示Availability。 */
   private getCurrentDisplayAvailability(): DisplaySourceAvailability {
     if (!this.scene) {
       return { hasMemory: false, hasUnlock: false };
@@ -1061,7 +971,7 @@ export class Minimap {
     };
   }
 
-/** getDisplayAvailability：执行对应的业务逻辑。 */
+  /** getDisplayAvailability：读取显示Availability。 */
   private getDisplayAvailability(selectedMapId: string | null, current: DisplayMapScene | null): DisplaySourceAvailability {
     if (!selectedMapId) {
       return { hasMemory: false, hasUnlock: false };
@@ -1072,11 +982,8 @@ export class Minimap {
         hasUnlock: current.hasUnlock,
       };
     }
-/** snapshot：定义该变量以承载业务值。 */
     const snapshot = getCachedMapSnapshot(selectedMapId);
-/** rememberedMarkers：定义该变量以承载业务值。 */
     const rememberedMarkers = getRememberedMarkers(selectedMapId);
-/** tileCache：定义该变量以承载业务值。 */
     const tileCache = getRememberedTiles(selectedMapId);
     return {
       hasMemory: tileCache.size > 0 || rememberedMarkers.length > 0,
@@ -1084,7 +991,7 @@ export class Minimap {
     };
   }
 
-/** resolveModalDisplayMode：执行对应的业务逻辑。 */
+  /** resolveModalDisplayMode：解析弹窗显示模式。 */
   private resolveModalDisplayMode(availability: DisplaySourceAvailability): MinimapDisplayMode {
     if (this.modalDisplayMode === 'unlock' && availability.hasUnlock) {
       return 'unlock';
@@ -1095,31 +1002,24 @@ export class Minimap {
     return availability.hasUnlock ? 'unlock' : 'memory';
   }
 
-/** syncModalDisplaySwitch：执行对应的业务逻辑。 */
+  /** syncModalDisplaySwitch：同步弹窗显示Switch。 */
   private syncModalDisplaySwitch(): void {
-/** current：定义该变量以承载业务值。 */
     const current = this.getCurrentDisplayScene();
-/** selectedMapId：定义该变量以承载业务值。 */
     const selectedMapId = this.selectedMapId ?? current?.mapId ?? null;
-/** availability：定义该变量以承载业务值。 */
     const availability = this.getDisplayAvailability(selectedMapId, current);
-/** showSwitch：定义该变量以承载业务值。 */
     const showSwitch = availability.hasMemory && availability.hasUnlock;
-/** nextMode：定义该变量以承载业务值。 */
     const nextMode = this.resolveModalDisplayMode(availability);
     this.modalDisplayMode = nextMode;
 
     this.modalSourceSwitch?.classList.toggle('hidden', !showSwitch);
 
     if (this.modalSourceMemoryBtn) {
-/** active：定义该变量以承载业务值。 */
       const active = nextMode === 'memory';
       this.modalSourceMemoryBtn.classList.toggle('active', active);
       this.modalSourceMemoryBtn.setAttribute('aria-pressed', active ? 'true' : 'false');
       this.modalSourceMemoryBtn.title = '显示本地记忆地图';
     }
     if (this.modalSourceUnlockBtn) {
-/** active：定义该变量以承载业务值。 */
       const active = nextMode === 'unlock';
       this.modalSourceUnlockBtn.classList.toggle('active', active);
       this.modalSourceUnlockBtn.setAttribute('aria-pressed', active ? 'true' : 'false');
@@ -1127,13 +1027,10 @@ export class Minimap {
     }
   }
 
-/** setModalDisplayMode：执行对应的业务逻辑。 */
+  /** setModalDisplayMode：处理set弹窗显示模式。 */
   private setModalDisplayMode(mode: MinimapDisplayMode): void {
-/** current：定义该变量以承载业务值。 */
     const current = this.getCurrentDisplayScene();
-/** selectedMapId：定义该变量以承载业务值。 */
     const selectedMapId = this.selectedMapId ?? current?.mapId ?? null;
-/** availability：定义该变量以承载业务值。 */
     const availability = this.getDisplayAvailability(selectedMapId, current);
     if ((mode === 'memory' && !availability.hasMemory) || (mode === 'unlock' && !availability.hasUnlock)) {
       return;
@@ -1149,12 +1046,11 @@ export class Minimap {
     this.scheduleRender();
   }
 
-/** getCurrentDisplayScene：执行对应的业务逻辑。 */
+  /** getCurrentDisplayScene：读取当前显示场景。 */
   private getCurrentDisplayScene(): DisplayMapScene | null {
     if (!this.scene?.mapMeta) {
       return null;
     }
-/** availability：定义该变量以承载业务值。 */
     const availability = this.getCurrentDisplayAvailability();
     return {
       mapId: this.scene.mapMeta.id,
@@ -1176,20 +1072,17 @@ export class Minimap {
     };
   }
 
-/** getModalDisplayScene：执行对应的业务逻辑。 */
+  /** getModalDisplayScene：读取弹窗显示场景。 */
   private getModalDisplayScene(): DisplayMapScene | null {
-/** current：定义该变量以承载业务值。 */
     const current = this.getCurrentDisplayScene();
     if (!this.modalOpen) {
       return null;
     }
-/** selectedMapId：定义该变量以承载业务值。 */
     const selectedMapId = this.selectedMapId ?? current?.mapId ?? null;
     if (!selectedMapId) {
       return current;
     }
     if (current && selectedMapId === current.mapId) {
-/** mode：定义该变量以承载业务值。 */
       const mode = this.resolveModalDisplayMode({
         hasMemory: current.hasMemory,
         hasUnlock: current.hasUnlock,
@@ -1197,35 +1090,26 @@ export class Minimap {
       this.modalDisplayMode = mode;
       return {
         ...current,
-/** snapshot：定义该变量以承载业务值。 */
         snapshot: mode === 'unlock' ? current.snapshot : null,
         displayMode: mode,
       };
     }
 
-/** snapshot：定义该变量以承载业务值。 */
     const snapshot = getCachedMapSnapshot(selectedMapId);
-/** rememberedMarkers：定义该变量以承载业务值。 */
     const rememberedMarkers = getRememberedMarkers(selectedMapId);
-/** tileCache：定义该变量以承载业务值。 */
     const tileCache = getRememberedTiles(selectedMapId);
-/** hasMemory：定义该变量以承载业务值。 */
     const hasMemory = tileCache.size > 0 || rememberedMarkers.length > 0;
-/** hasUnlock：定义该变量以承载业务值。 */
     const hasUnlock = !!snapshot;
     if (!hasUnlock && !hasMemory) {
       return current;
     }
 
-/** mode：定义该变量以承载业务值。 */
     const mode = this.resolveModalDisplayMode({ hasMemory, hasUnlock });
     this.modalDisplayMode = mode;
-/** mapMeta：定义该变量以承载业务值。 */
     const mapMeta = getCachedMapMeta(selectedMapId) ?? buildFallbackMapMeta(selectedMapId, snapshot, tileCache);
     return {
       mapId: selectedMapId,
       mapMeta,
-/** snapshot：定义该变量以承载业务值。 */
       snapshot: mode === 'unlock' ? snapshot : null,
       rememberedMarkers,
       visibleMarkers: [],
@@ -1243,9 +1127,8 @@ export class Minimap {
     };
   }
 
-/** buildTileCacheHash：执行对应的业务逻辑。 */
+  /** buildTileCacheHash：构建地块缓存Hash。 */
   private buildTileCacheHash(tileCache: ReadonlyMap<string, Tile>): string {
-/** hash：定义该变量以承载业务值。 */
     let hash = 0;
     for (const [key, tile] of tileCache.entries()) {
       for (let index = 0; index < key.length; index += 1) {
@@ -1258,7 +1141,7 @@ export class Minimap {
     return `${tileCache.size}:${hash}`;
   }
 
-/** buildBaseKey：执行对应的业务逻辑。 */
+  /** buildBaseKey：构建基础Key。 */
   private buildBaseKey(display: DisplayMapScene): string {
     if (display.snapshot) {
       return `snapshot:${display.mapId}:${display.snapshot.width}:${display.snapshot.height}:${display.snapshot.terrainRows.length}:${display.snapshot.markers.length}`;
@@ -1269,13 +1152,12 @@ export class Minimap {
     return `memory:${display.mapId}:${this.buildTileCacheHash(display.tileCache)}`;
   }
 
-/** ensureBaseCanvas：执行对应的业务逻辑。 */
+  /** ensureBaseCanvas：确保基础Canvas。 */
   private ensureBaseCanvas(display: DisplayMapScene): void {
     if (!this.baseCtx) {
       return;
     }
 
-/** nextKey：定义该变量以承载业务值。 */
     const nextKey = this.buildBaseKey(display);
     if (this.baseKey === nextKey) {
       return;
@@ -1317,11 +1199,9 @@ export class Minimap {
     }
   }
 
-/** renderOverlay：执行对应的业务逻辑。 */
+  /** renderOverlay：渲染Overlay。 */
   private renderOverlay(): void {
-/** ctx：定义该变量以承载业务值。 */
     const ctx = this.overlayCanvas?.getContext('2d');
-/** display：定义该变量以承载业务值。 */
     const display = this.getCurrentDisplayScene();
     if (!ctx || !this.overlayCanvas) {
       return;
@@ -1335,16 +1215,13 @@ export class Minimap {
     if (this.overlayTitle) {
       this.overlayTitle.textContent = `${display.mapMeta.name}${display.snapshot ? ' · 全图' : ' · 记忆'}`;
     }
-/** metrics：定义该变量以承载业务值。 */
     const metrics = this.getViewportMetrics(this.overlayCanvas, display, false);
     this.drawScene(ctx, display, metrics, false);
   }
 
-/** renderModal：执行对应的业务逻辑。 */
+  /** renderModal：渲染弹窗。 */
   private renderModal(): void {
-/** ctx：定义该变量以承载业务值。 */
     const ctx = this.modalCanvas?.getContext('2d');
-/** display：定义该变量以承载业务值。 */
     const display = this.getModalDisplayScene();
     if (!ctx || !this.modalCanvas || !this.modalOpen) {
       return;
@@ -1355,7 +1232,6 @@ export class Minimap {
     }
 
     ensureCanvasSize(this.modalCanvas);
-/** metrics：定义该变量以承载业务值。 */
     const metrics = this.getViewportMetrics(this.modalCanvas, display, true);
     this.modalPanX = metrics.panX;
     this.modalPanY = metrics.panY;
@@ -1368,7 +1244,7 @@ export class Minimap {
     this.drawScene(ctx, display, metrics, true);
   }
 
-/** openMoveConfirm：执行对应的业务逻辑。 */
+  /** openMoveConfirm：打开移动Confirm。 */
   private openMoveConfirm(mapMeta: MapMeta, x: number, y: number): void {
     this.pendingMovePoint = { x, y };
     detailModalHost.open({
@@ -1408,25 +1284,22 @@ export class Minimap {
     });
   }
 
-/** closeMoveConfirm：执行对应的业务逻辑。 */
+  /** closeMoveConfirm：关闭移动Confirm。 */
   private closeMoveConfirm(): void {
     this.pendingMovePoint = null;
     detailModalHost.close(Minimap.MOVE_CONFIRM_OWNER);
   }
 
-/** openDeleteMemoryConfirm：执行对应的业务逻辑。 */
+  /** openDeleteMemoryConfirm：打开Delete Memory Confirm。 */
   private openDeleteMemoryConfirm(): void {
-/** selectedMapId：定义该变量以承载业务值。 */
     const selectedMapId = this.selectedMapId;
     if (!selectedMapId) {
       return;
     }
-/** entry：定义该变量以承载业务值。 */
     const entry = this.buildCatalogEntries().find((candidate) => candidate.mapId === selectedMapId);
     if (!entry?.hasMemory) {
       return;
     }
-/** mapName：定义该变量以承载业务值。 */
     const mapName = entry.mapMeta?.name ?? selectedMapId;
     detailModalHost.open({
       ownerId: Minimap.DELETE_MEMORY_OWNER,
@@ -1456,20 +1329,18 @@ export class Minimap {
     });
   }
 
-/** deleteSelectedMemory：执行对应的业务逻辑。 */
+  /** deleteSelectedMemory：处理delete Selected Memory。 */
   private deleteSelectedMemory(mapId: string): void {
     deleteRememberedMap(mapId);
     this.baseKey = null;
     this.closeMoveConfirm();
     if (this.scene?.mapMeta?.id === mapId) {
-/** nextScene：定义该变量以承载业务值。 */
       const nextScene: MinimapScene = {
         ...this.scene,
         rememberedMarkers: [],
         memoryVersion: this.scene.memoryVersion + 1,
       };
       if (!this.scene.snapshot) {
-/** visibleOnlyTileCache：定义该变量以承载业务值。 */
         const visibleOnlyTileCache = new Map<string, Tile>();
         for (const key of this.scene.visibleTiles) {
           const tile = this.scene.tileCache.get(key);
@@ -1493,41 +1364,24 @@ export class Minimap {
     panX = isModal ? this.modalPanX : 0,
     panY = isModal ? this.modalPanY : 0,
   ): ViewportMetrics {
-/** width：定义该变量以承载业务值。 */
     const width = Math.max(1, canvas.width);
-/** height：定义该变量以承载业务值。 */
     const height = Math.max(1, canvas.height);
-/** mapWidth：定义该变量以承载业务值。 */
     const mapWidth = Math.max(1, display.mapMeta.width);
-/** mapHeight：定义该变量以承载业务值。 */
     const mapHeight = Math.max(1, display.mapMeta.height);
-/** padding：定义该变量以承载业务值。 */
     const padding = isModal
       ? Math.max(18, Math.round(Math.min(width, height) * 0.022))
       : Math.max(8, Math.round(Math.min(width, height) * 0.06));
-/** innerWidth：定义该变量以承载业务值。 */
     const innerWidth = Math.max(1, width - padding * 2);
-/** innerHeight：定义该变量以承载业务值。 */
     const innerHeight = Math.max(1, height - padding * 2);
-/** fitScale：定义该变量以承载业务值。 */
     const fitScale = Math.min(innerWidth / mapWidth, innerHeight / mapHeight);
-/** scale：定义该变量以承载业务值。 */
     const scale = fitScale * (isModal ? zoom : 1);
-/** drawWidth：定义该变量以承载业务值。 */
     const drawWidth = mapWidth * scale;
-/** drawHeight：定义该变量以承载业务值。 */
     const drawHeight = mapHeight * scale;
-/** baseOffsetX：定义该变量以承载业务值。 */
     const baseOffsetX = padding + (innerWidth - drawWidth) / 2;
-/** baseOffsetY：定义该变量以承载业务值。 */
     const baseOffsetY = padding + (innerHeight - drawHeight) / 2;
-/** maxPanX：定义该变量以承载业务值。 */
     const maxPanX = isModal ? Math.max(0, (drawWidth - innerWidth) / 2) : 0;
-/** maxPanY：定义该变量以承载业务值。 */
     const maxPanY = isModal ? Math.max(0, (drawHeight - innerHeight) / 2) : 0;
-/** clampedPanX：定义该变量以承载业务值。 */
     const clampedPanX = isModal ? clamp(panX, -maxPanX, maxPanX) : 0;
-/** clampedPanY：定义该变量以承载业务值。 */
     const clampedPanY = isModal ? clamp(panY, -maxPanY, maxPanY) : 0;
     return {
       width,
@@ -1551,6 +1405,7 @@ export class Minimap {
     };
   }
 
+  /** resolveWorldPoint：解析世界坐标。 */
   private resolveWorldPoint(metrics: ViewportMetrics, px: number, py: number): { x: number; y: number } | null {
     if (
       px < metrics.offsetX
@@ -1573,14 +1428,11 @@ export class Minimap {
     display: DisplayMapScene,
     isModal: boolean,
   ): { x: number; y: number } | null {
-/** pixels：定义该变量以承载业务值。 */
     const pixels = getCanvasPixels(canvas, clientX, clientY);
     if (!pixels) {
       return null;
     }
-/** metrics：定义该变量以承载业务值。 */
     const metrics = this.getViewportMetrics(canvas, display, isModal);
-/** world：定义该变量以承载业务值。 */
     const world = this.resolveWorldPoint(metrics, pixels.x, pixels.y);
     if (!world) {
       return null;
@@ -1601,14 +1453,11 @@ export class Minimap {
     if (!display || !display.isCurrent || !display.player || !canvas) {
       return null;
     }
-/** point：定义该变量以承载业务值。 */
     const point = this.resolveCanvasPoint(canvas, clientX, clientY, display, isModal);
     if (!point) {
       return null;
     }
-/** tile：定义该变量以承载业务值。 */
     const tile = this.getTileAt(display, point.x, point.y);
-/** walkable：定义该变量以承载业务值。 */
     const walkable = tile ? tile.walkable : isTileTypeWalkable(this.getTileTypeAt(display, point.x, point.y));
     if (!walkable) {
       return null;
@@ -1616,18 +1465,14 @@ export class Minimap {
     return point;
   }
 
-/** getTileAt：执行对应的业务逻辑。 */
+  /** getTileAt：读取地块At。 */
   private getTileAt(display: DisplayMapScene, x: number, y: number): Tile | null {
-/** key：定义该变量以承载业务值。 */
     const key = `${x},${y}`;
-/** current：定义该变量以承载业务值。 */
     const current = display.tileCache.get(key);
     if (current) {
       return current;
     }
-/** row：定义该变量以承载业务值。 */
     const row = display.snapshot?.terrainRows[y] ?? '';
-/** type：定义该变量以承载业务值。 */
     const type = row[x] ? getTileTypeFromMapChar(row[x]!) : null;
     if (!type) {
       return null;
@@ -1642,24 +1487,18 @@ export class Minimap {
     };
   }
 
-/** getTileTypeAt：执行对应的业务逻辑。 */
+  /** getTileTypeAt：读取地块类型At。 */
   private getTileTypeAt(display: DisplayMapScene, x: number, y: number): TileType {
     return this.getTileAt(display, x, y)?.type ?? TileType.Floor;
   }
 
-/** getDisplayMarkers：执行对应的业务逻辑。 */
+  /** getDisplayMarkers：读取显示标记。 */
   private getDisplayMarkers(display: DisplayMapScene): MapMinimapMarker[] {
-/** markers：定义该变量以承载业务值。 */
     const markers: MapMinimapMarker[] = [];
-/** markerIndexByKey：定义该变量以承载业务值。 */
     const markerIndexByKey = new Map<string, number>();
-/** occupiedPointKeys：定义该变量以承载业务值。 */
     const occupiedPointKeys = new Set<string>();
-/** pushMarker：定义该变量以承载业务值。 */
     const pushMarker = (marker: MapMinimapMarker): void => {
-/** key：定义该变量以承载业务值。 */
       const key = `${marker.kind}:${marker.x},${marker.y}`;
-/** existingIndex：定义该变量以承载业务值。 */
       const existingIndex = markerIndexByKey.get(key);
       if (existingIndex !== undefined) {
         markers[existingIndex] = marker;
@@ -1733,9 +1572,7 @@ export class Minimap {
       if (!point) {
         continue;
       }
-/** type：定义该变量以承载业务值。 */
       const type = this.getTileTypeAt(display, point.x, point.y);
-/** hasStaticMarkerAtPoint：定义该变量以承载业务值。 */
       const hasStaticMarkerAtPoint = occupiedPointKeys.has(`${point.x},${point.y}`);
       if (type === TileType.Portal) {
         if (hasStaticMarkerAtPoint) {
@@ -1816,9 +1653,7 @@ export class Minimap {
       }
     }
 
-/** markers：定义该变量以承载业务值。 */
     const markers = this.getDisplayMarkers(display);
-/** markerSize：定义该变量以承载业务值。 */
     const markerSize = clamp(metrics.scale * (isModal ? 0.82 : 0.72), isModal ? 5 : 4, isModal ? 14 : 10);
     for (const marker of markers) {
       this.drawMarker(ctx, marker, metrics, markerSize);
@@ -1831,7 +1666,6 @@ export class Minimap {
     }
 
     if (display.isCurrent) {
-/** pileSize：定义该变量以承载业务值。 */
       const pileSize = clamp(metrics.scale * 0.52, 3, isModal ? 10 : 8);
       for (const pile of display.groundPiles.values()) {
         this.drawGroundPile(ctx, pile, metrics, pileSize);
@@ -1839,13 +1673,9 @@ export class Minimap {
     }
 
     if (display.isCurrent && display.player) {
-/** playerLeft：定义该变量以承载业务值。 */
       const playerLeft = clamp(display.player.x - display.viewRadius, 0, metrics.mapWidth);
-/** playerTop：定义该变量以承载业务值。 */
       const playerTop = clamp(display.player.y - display.viewRadius, 0, metrics.mapHeight);
-/** playerRight：定义该变量以承载业务值。 */
       const playerRight = clamp(display.player.x + display.viewRadius + 1, 0, metrics.mapWidth);
-/** playerBottom：定义该变量以承载业务值。 */
       const playerBottom = clamp(display.player.y + display.viewRadius + 1, 0, metrics.mapHeight);
       ctx.strokeStyle = isModal ? 'rgba(255, 241, 186, 0.84)' : 'rgba(247, 233, 180, 0.72)';
       ctx.lineWidth = Math.max(1, metrics.scale * 0.18);
@@ -1856,9 +1686,7 @@ export class Minimap {
         Math.max(metrics.scale, (playerBottom - playerTop) * metrics.scale),
       );
 
-/** playerCenterX：定义该变量以承载业务值。 */
       const playerCenterX = metrics.offsetX + (display.player.x + 0.5) * metrics.scale;
-/** playerCenterY：定义该变量以承载业务值。 */
       const playerCenterY = metrics.offsetY + (display.player.y + 0.5) * metrics.scale;
       ctx.fillStyle = '#fff7ce';
       ctx.beginPath();
@@ -1888,11 +1716,8 @@ export class Minimap {
     metrics: ViewportMetrics,
     markerSize: number,
   ): void {
-/** centerX：定义该变量以承载业务值。 */
     const centerX = metrics.offsetX + (marker.x + 0.5) * metrics.scale;
-/** centerY：定义该变量以承载业务值。 */
     const centerY = metrics.offsetY + (marker.y + 0.5) * metrics.scale;
-/** half：定义该变量以承载业务值。 */
     const half = markerSize / 2;
 
     ctx.save();
@@ -1972,11 +1797,8 @@ export class Minimap {
     marker: MapMinimapMarker,
     metrics: ViewportMetrics,
   ): void {
-/** centerX：定义该变量以承载业务值。 */
     const centerX = metrics.offsetX + (marker.x + 0.5) * metrics.scale;
-/** centerY：定义该变量以承载业务值。 */
     const centerY = metrics.offsetY + (marker.y + 0.5) * metrics.scale;
-/** label：定义该变量以承载业务值。 */
     const label = marker.label.trim();
     if (!label) {
       return;
@@ -1987,25 +1809,18 @@ export class Minimap {
     ctx.strokeStyle = 'rgba(15, 12, 10, 0.92)';
 
     if (marker.kind === 'landmark') {
-/** fontSize：定义该变量以承载业务值。 */
       const fontSize = clamp(metrics.scale * 0.7, 12, 18);
       ctx.font = buildCanvasFont('labelStrong', fontSize);
       ctx.textBaseline = 'middle';
-/** textWidth：定义该变量以承载业务值。 */
       const textWidth = ctx.measureText(label).width;
-/** paddingX：定义该变量以承载业务值。 */
       const paddingX = Math.max(8, metrics.scale * 0.24);
-/** boxHeight：定义该变量以承载业务值。 */
       const boxHeight = Math.max(20, fontSize + 8);
-/** boxWidth：定义该变量以承载业务值。 */
       const boxWidth = textWidth + paddingX * 2;
-/** anchorY：定义该变量以承载业务值。 */
       const anchorY = clamp(
         centerY + Math.max(16, metrics.scale * 0.7),
         metrics.padding + boxHeight / 2 + 2,
         metrics.height - metrics.padding - boxHeight / 2 - 2,
       );
-/** boxLeft：定义该变量以承载业务值。 */
       const boxLeft = clamp(
         centerX - boxWidth / 2,
         metrics.padding + 2,
@@ -2022,9 +1837,7 @@ export class Minimap {
       return;
     }
 
-/** fontSize：定义该变量以承载业务值。 */
     const fontSize = clamp(metrics.scale * 0.6, 11, 16);
-/** textY：定义该变量以承载业务值。 */
     const textY = clamp(
       centerY - Math.max(10, metrics.scale * 0.55),
       metrics.padding + fontSize + 2,
@@ -2051,11 +1864,8 @@ export class Minimap {
     metrics: ViewportMetrics,
     pileSize: number,
   ): void {
-/** centerX：定义该变量以承载业务值。 */
     const centerX = metrics.offsetX + (pile.x + 0.5) * metrics.scale;
-/** centerY：定义该变量以承载业务值。 */
     const centerY = metrics.offsetY + (pile.y + 0.5) * metrics.scale;
-/** half：定义该变量以承载业务值。 */
     const half = pileSize / 2;
     ctx.save();
     ctx.fillStyle = '#f7e39a';
@@ -2078,18 +1888,14 @@ export class Minimap {
     metrics: ViewportMetrics,
     markers: MapMinimapMarker[],
   ): void {
-/** guide：定义该变量以承载业务值。 */
     const guide = display.isCurrent
       ? '滚轮缩放 · 右键拖拽 · 左键前往'
       : '滚轮缩放 · 右键拖拽';
     ctx.save();
     ctx.font = buildCanvasFont('label', 12);
     ctx.textBaseline = 'middle';
-/** guideWidth：定义该变量以承载业务值。 */
     const guideWidth = ctx.measureText(guide).width + 18;
-/** guideX：定义该变量以承载业务值。 */
     const guideX = metrics.width - metrics.padding - guideWidth;
-/** guideY：定义该变量以承载业务值。 */
     const guideY = metrics.padding + 8;
     ctx.fillStyle = 'rgba(8, 9, 12, 0.68)';
     ctx.fillRect(guideX, guideY, guideWidth, 26);
@@ -2103,7 +1909,6 @@ export class Minimap {
       return;
     }
 
-/** lines：定义该变量以承载业务值。 */
     const lines = this.buildHoverLines(display, markers, this.hoveredModalPoint.x, this.hoveredModalPoint.y);
     if (lines.length === 0) {
       ctx.restore();
@@ -2111,17 +1916,11 @@ export class Minimap {
     }
 
     ctx.font = buildCanvasFont('label', 13);
-/** lineHeight：定义该变量以承载业务值。 */
     const lineHeight = 20;
-/** contentWidth：定义该变量以承载业务值。 */
     const contentWidth = lines.reduce((max, line) => Math.max(max, ctx.measureText(line).width), 0);
-/** panelWidth：定义该变量以承载业务值。 */
     const panelWidth = Math.min(metrics.width - metrics.padding * 2, contentWidth + 20);
-/** panelHeight：定义该变量以承载业务值。 */
     const panelHeight = lines.length * lineHeight + 16;
-/** panelX：定义该变量以承载业务值。 */
     const panelX = metrics.padding;
-/** panelY：定义该变量以承载业务值。 */
     const panelY = metrics.height - metrics.padding - panelHeight;
     ctx.fillStyle = 'rgba(8, 9, 12, 0.72)';
     ctx.fillRect(panelX, panelY, panelWidth, panelHeight);
@@ -2134,13 +1933,11 @@ export class Minimap {
     ctx.restore();
   }
 
-/** buildHoverLines：执行对应的业务逻辑。 */
+  /** buildHoverLines：构建Hover Lines。 */
   private buildHoverLines(display: DisplayMapScene, markers: MapMinimapMarker[], x: number, y: number): string[] {
-/** lines：定义该变量以承载业务值。 */
     const lines: string[] = [];
     lines.push(`坐标 (${x}, ${y})`);
 
-/** tile：定义该变量以承载业务值。 */
     const tile = this.getTileAt(display, x, y);
     if (tile) {
       lines.push(`地表：${getTileTypeLabel(tile.type)}`);
@@ -2148,7 +1945,6 @@ export class Minimap {
       lines.push('地表：此处尚未记下');
     }
 
-/** tileMarkers：定义该变量以承载业务值。 */
     const tileMarkers = markers.filter((marker) => marker.x === x && marker.y === y);
     for (const marker of tileMarkers.slice(0, 3)) {
       lines.push(`${getMinimapMarkerKindLabel(marker.kind)}：${marker.label}${marker.detail ? ` · ${marker.detail}` : ''}`);
@@ -2159,12 +1955,9 @@ export class Minimap {
     }
 
     if (display.isCurrent) {
-/** pile：定义该变量以承载业务值。 */
       const pile = [...display.groundPiles.values()].find((entry) => entry.x === x && entry.y === y);
       if (pile) {
-/** itemsLabel：定义该变量以承载业务值。 */
         const itemsLabel = pile.items.slice(0, 2).map((entry) => `${entry.name} ${formatDisplayCountBadge(entry.count)}`).join('、');
-/** suffix：定义该变量以承载业务值。 */
         const suffix = pile.items.length > 2 ? ` 等 ${formatDisplayInteger(pile.items.length)} 件` : '';
         lines.push(`地面：${itemsLabel}${suffix}`);
       }

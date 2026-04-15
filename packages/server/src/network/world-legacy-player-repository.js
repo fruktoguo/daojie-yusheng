@@ -1,11 +1,9 @@
 "use strict";
-/** 模块实现文件，负责当前职责边界内的业务逻辑。 */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.queryLegacyPlayerIdentityRow = queryLegacyPlayerIdentityRow;
 exports.queryLegacyPlayerSnapshotRow = queryLegacyPlayerSnapshotRow;
-/** queryLegacyPlayerIdentityRow：执行对应的业务逻辑。 */
 async function queryLegacyPlayerIdentityRow(pool, userId) {
-/** result：定义该变量以承载业务值。 */
+
     const result = await pool.query(`
         SELECT
           u.id AS "userId",
@@ -21,9 +19,8 @@ async function queryLegacyPlayerIdentityRow(pool, userId) {
       `, [userId]);
     return result.rows[0] ?? null;
 }
-/** queryLegacyPlayerSnapshotRow：执行对应的业务逻辑。 */
 async function queryLegacyPlayerSnapshotRow(pool, playerId) {
-/** result：定义该变量以承载业务值。 */
+
     const result = await pool.query(`
         SELECT
           id,
@@ -66,3 +63,6 @@ async function queryLegacyPlayerSnapshotRow(pool, playerId) {
       `, [playerId]);
     return result.rows[0] ?? null;
 }
+
+
+

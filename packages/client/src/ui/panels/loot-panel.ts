@@ -7,7 +7,7 @@ import { LootWindowState } from '@mud/shared-next';
 import { detailModalHost } from '../detail-modal-host';
 import { formatDisplayCountBadge, formatDisplayInteger } from '../../utils/number';
 
-/** escapeHtml：执行对应的业务逻辑。 */
+/** escapeHtml：转义 HTML 文本中的危险字符。 */
 function escapeHtml(value: string): string {
   return value
     .replaceAll('&', '&amp;')
@@ -17,12 +17,15 @@ function escapeHtml(value: string): string {
     .replaceAll("'", '&#39;');
 }
 
-/** LootPanel：封装相关状态与行为。 */
+/** LootPanel：战利品面板实现。 */
 export class LootPanel {
+  /** MODAL_OWNER：弹窗OWNER。 */
   private static readonly MODAL_OWNER = 'loot-panel';
-/** windowState：定义该变量以承载业务值。 */
+  /** windowState：窗口状态。 */
   private windowState: LootWindowState | null = null;
+  /** onTake：on Take。 */
   private onTake: ((sourceId: string, itemKey: string) => void) | null = null;
+  /** onTakeAll：on Take All。 */
   private onTakeAll: ((sourceId: string) => void) | null = null;
 
   setCallbacks(
@@ -33,7 +36,7 @@ export class LootPanel {
     this.onTakeAll = onTakeAll;
   }
 
-/** clear：执行对应的业务逻辑。 */
+  /** clear：清理clear。 */
   clear(): void {
     this.windowState = null;
     detailModalHost.close(LootPanel.MODAL_OWNER);
@@ -49,7 +52,7 @@ export class LootPanel {
     this.render();
   }
 
-/** render：执行对应的业务逻辑。 */
+  /** render：渲染渲染。 */
   private render(): void {
     if (!this.windowState) {
       return;
@@ -63,7 +66,6 @@ export class LootPanel {
       title,
       subtitle: `坐标 (${tileX}, ${tileY})`,
       bodyHtml: sources.map((source) => {
-/** searchHtml：定义该变量以承载业务值。 */
         const searchHtml = source.search && source.search.remainingTicks > 0
           ? `<div class="loot-search-state">
               <div class="loot-search-copy">
@@ -73,7 +75,6 @@ export class LootPanel {
               <div class="loot-search-bar"><span class="loot-search-fill" style="width:${Math.max(0, Math.min(100, (source.search.elapsedTicks / Math.max(1, source.search.totalTicks)) * 100))}%"></span></div>
             </div>`
           : '';
-/** itemsHtml：定义该变量以承载业务值。 */
         const itemsHtml = source.items.length > 0
           ? `<div class="inventory-grid loot-item-grid">
               ${source.items.map((entry) => `
@@ -111,9 +112,7 @@ export class LootPanel {
         body.querySelectorAll<HTMLElement>('[data-loot-take="true"]').forEach((button) => {
           button.addEventListener('click', (event) => {
             event.stopPropagation();
-/** sourceId：定义该变量以承载业务值。 */
             const sourceId = button.dataset.sourceId;
-/** itemKey：定义该变量以承载业务值。 */
             const itemKey = button.dataset.itemKey;
             if (!sourceId || !itemKey) {
               return;
@@ -124,7 +123,6 @@ export class LootPanel {
         body.querySelectorAll<HTMLElement>('[data-loot-take-all="true"]').forEach((button) => {
           button.addEventListener('click', (event) => {
             event.stopPropagation();
-/** sourceId：定义该变量以承载业务值。 */
             const sourceId = button.dataset.sourceId;
             if (!sourceId) {
               return;
@@ -136,3 +134,6 @@ export class LootPanel {
     });
   }
 }
+
+
+

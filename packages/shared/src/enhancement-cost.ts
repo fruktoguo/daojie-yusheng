@@ -43,12 +43,12 @@ export interface EnhancementExpectedCostAnalysis {
   bestStrategy: EnhancementExpectedCostStrategy | null;
 }
 
-/** clampUnitRate：归一化成功率到 0~1。 */
+/** clampUnitRate：处理clamp Unit速率。 */
 function clampUnitRate(value: number | undefined): number {
   return Math.max(0, Math.min(1, Number.isFinite(value) ? Number(value) : 0));
 }
 
-/** applyEnhancementSuccessModifier：按 50% 枢轴应用强化成功率修正。 */
+/** applyEnhancementSuccessModifier：应用强化Success Modifier。 */
 function applyEnhancementSuccessModifier(rate: number | undefined, modifier: number | undefined): number {
   const normalizedRate = clampUnitRate(rate);
   if (normalizedRate <= 0 || normalizedRate >= 1) {
@@ -72,20 +72,20 @@ function applyEnhancementSuccessModifier(rate: number | undefined, modifier: num
   return 1 - ((1 - normalizedRate) / factor);
 }
 
-/** getEnhancementTargetSuccessRate：读取目标强化等级的基础成功率。 */
+/** getEnhancementTargetSuccessRate：读取强化目标Success速率。 */
 function getEnhancementTargetSuccessRate(targetLevel: number): number {
   const normalizedLevel = Math.max(1, Math.floor(Number(targetLevel) || 1));
   const index = Math.min(normalizedLevel, ENHANCEMENT_TARGET_SUCCESS_RATE_BY_LEVEL.length) - 1;
   return Math.max(0, ENHANCEMENT_TARGET_SUCCESS_RATE_BY_LEVEL[index] ?? 0);
 }
 
-/** getEnhancementSpiritStoneCost：读取每次成功时结算的灵石数量。 */
+/** getEnhancementSpiritStoneCost：读取强化灵石石Cost。 */
 function getEnhancementSpiritStoneCost(itemLevel: number | undefined): number {
   const normalizedLevel = Number.isFinite(itemLevel) ? Number(itemLevel) : 1;
   return Math.max(1, Math.ceil(normalizedLevel / 10));
 }
 
-/** computeEnhancementExpectedCostStrategy：计算单一保护起点策略的期望消耗。 */
+/** computeEnhancementExpectedCostStrategy：计算强化Expected Cost Strategy。 */
 export function computeEnhancementExpectedCostStrategy(input: {
   targetLevel: number;
   itemLevel: number;
@@ -155,7 +155,7 @@ export function computeEnhancementExpectedCostStrategy(input: {
   };
 }
 
-/** computeBestEnhancementExpectedCost：计算所有保护起点并给出最省钱策略。 */
+/** computeBestEnhancementExpectedCost：计算Best强化Expected Cost。 */
 export function computeBestEnhancementExpectedCost(input: {
   targetLevel: number;
   itemLevel: number;
@@ -198,7 +198,7 @@ export function computeBestEnhancementExpectedCost(input: {
   };
 }
 
-/** buildCoefficientMatrix：构造强化期望方程组。 */
+/** buildCoefficientMatrix：构建Coefficient Matrix。 */
 function buildCoefficientMatrix(
   targetLevel: number,
   protectionStartLevel: number | null,
@@ -223,7 +223,7 @@ function buildCoefficientMatrix(
   return matrix;
 }
 
-/** buildRewardVector：构造方程右侧常数项。 */
+/** buildRewardVector：构建Reward Vector。 */
 function buildRewardVector(
   targetLevel: number,
   protectionStartLevel: number | null,
@@ -245,7 +245,7 @@ function buildRewardVector(
   return vector;
 }
 
-/** solveLinearSystem：用高斯消元求解小规模线性方程组。 */
+/** solveLinearSystem：处理solve Linear系统。 */
 function solveLinearSystem(matrix: number[][], vector: number[]): number[] {
   const size = vector.length;
   const a = matrix.map((row) => [...row]);
@@ -291,3 +291,6 @@ function solveLinearSystem(matrix: number[][], vector: number[]): number[] {
 
   return b;
 }
+
+
+

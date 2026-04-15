@@ -4,14 +4,10 @@
  */
 
 Object.defineProperty(exports, "__esModule", { value: true });
-/** smoke_timeout_1：定义该变量以承载业务值。 */
 const smoke_timeout_1 = require("./smoke-timeout");
 (0, smoke_timeout_1.installSmokeTimeout)(__filename);
-/** socket_io_client_1：定义该变量以承载业务值。 */
 const socket_io_client_1 = require("socket.io-client");
-/** shared_1：定义该变量以承载业务值。 */
 const shared_1 = require("@mud/shared-next");
-/** env_alias_1：定义该变量以承载业务值。 */
 const env_alias_1 = require("../config/env-alias");
 /**
  * 记录 server-next 访问地址。
@@ -47,7 +43,6 @@ function resolveTechniqueSkillId(player, techId) {
         if (!entry || typeof entry.id !== 'string' || !entry.id.trim()) {
             return false;
         }
-/** unlockLevel：定义该变量以承载业务值。 */
         const unlockLevel = Number.isFinite(entry.unlockLevel) ? entry.unlockLevel : 1;
         return level >= unlockLevel;
     }) ?? null;
@@ -236,7 +231,6 @@ async function main() {
     }
     await waitFor(async () => {
         const [attackerAfterTick, defenderAfterTick] = await Promise.all([fetchState(attackerId), fetchState(defenderId)]);
-/** cooldownTicked：定义该变量以承载业务值。 */
         const cooldownTicked = readCooldownLeft(attackerAfterTick.player, learnedSkillId) < cooldownAfterCast;
         if (buffAfterCast > 0) {
             return cooldownTicked && readBuffRemaining(defenderAfterTick.player, 'buff.qingmu_mark') < buffAfterCast;

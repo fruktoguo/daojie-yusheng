@@ -8,16 +8,17 @@ import type { TopdownProjection } from '../projection/topdown-projection';
 import type { MapEntityTransition, MapSceneSnapshot } from '../types';
 import type { FloatingActionTextStyle } from '../../renderer/types';
 
-/** CanvasTextRendererAdapter：封装相关状态与行为。 */
+/** Canvas 渲染适配器，连接地图场景数据与文本渲染器实现。 */
 export class CanvasTextRendererAdapter {
+  /** 文本渲染器实例。 */
   private readonly renderer = new TextRenderer();
+  /** 适配 camera 状态到通用 camera 接口的桥接对象。 */
   private readonly cameraBridge = new Camera();
-/** canvas：定义该变量以承载业务值。 */
+  /** 当前挂载画布。 */
   private canvas: HTMLCanvasElement | null = null;
 
-/** mount：执行对应的业务逻辑。 */
+  /** 绑定宿主并初始化画布渲染器。 */
   mount(host: HTMLElement): void {
-/** canvas：定义该变量以承载业务值。 */
     const canvas = host.querySelector<HTMLCanvasElement>('#game-canvas') ?? host.querySelector<HTMLCanvasElement>('canvas');
     if (!canvas) {
       throw new Error('地图宿主节点缺少 canvas');
@@ -26,18 +27,18 @@ export class CanvasTextRendererAdapter {
     this.renderer.init(canvas);
   }
 
-/** unmount：执行对应的业务逻辑。 */
+  /** 清理挂载引用，不销毁底层渲染器。 */
   unmount(): void {
     this.canvas = null;
   }
 
-/** destroy：执行对应的业务逻辑。 */
+  /** 销毁渲染器并清空画布引用。 */
   destroy(): void {
     this.renderer.destroy();
     this.canvas = null;
   }
 
-/** resize：执行对应的业务逻辑。 */
+  /** 同步样式尺寸与实际像素尺寸。 */
   resize(width: number, height: number, backbufferWidth: number, backbufferHeight: number): void {
     if (!this.canvas) {
       return;
@@ -59,7 +60,6 @@ export class CanvasTextRendererAdapter {
     this.renderer.setTargetingOverlay(scene.overlays.targeting);
     this.renderer.setSenseQiOverlay(scene.overlays.senseQi);
     this.renderer.setGroundPiles(scene.groundPiles);
-/** settleEntityId：定义该变量以承载业务值。 */
     const settleEntityId = transition?.settleMotion === true ? scene.player?.id : undefined;
     this.renderer.updateEntities(
       scene.entities,
@@ -72,7 +72,7 @@ export class CanvasTextRendererAdapter {
     );
   }
 
-/** enqueueEffect：执行对应的业务逻辑。 */
+  /** 将服务端特效映射为具体渲染器调用。 */
   enqueueEffect(effect: CombatEffect): void {
     if (effect.type === 'attack') {
       this.renderer.addAttackTrail(effect.fromX, effect.fromY, effect.toX, effect.toY, effect.color);
@@ -100,7 +100,7 @@ export class CanvasTextRendererAdapter {
     );
   }
 
-/** resetScene：执行对应的业务逻辑。 */
+  /** 重置渲染态并清空场景级叠加。 */
   resetScene(): void {
     this.renderer.resetScene();
     this.renderer.setPathHighlight([]);
@@ -121,7 +121,6 @@ export class CanvasTextRendererAdapter {
     this.cameraBridge.x = camera.x;
     this.cameraBridge.y = camera.y;
     this.cameraBridge.worldToScreen = (wx, wy, screenW, screenH) => {
-/** point：定义该变量以承载业务值。 */
         const point = projection.worldToScreen(wx, wy, camera, screenW, screenH);
         return {
           sx: point.x,
@@ -150,12 +149,12 @@ export class CanvasTextRendererAdapter {
     this.renderer.renderFloatingTexts(this.cameraBridge);
   }
 
-/** getCanvas：执行对应的业务逻辑。 */
+  /** 获取当前绑定的画布。 */
   getCanvas(): HTMLCanvasElement | null {
     return this.canvas;
   }
 
-/** resolveActionTextStyle：执行对应的业务逻辑。 */
+  /** 从动作特效推断浮动文字样式。 */
   private resolveActionTextStyle(effect: Extract<CombatEffect, { type: 'float' }>): FloatingActionTextStyle | undefined {
     if (effect.variant !== 'action') {
       return undefined;
@@ -166,4 +165,6 @@ export class CanvasTextRendererAdapter {
     return isLocalDivineSkillName(effect.text) ? 'divine' : 'default';
   }
 }
+
+
 

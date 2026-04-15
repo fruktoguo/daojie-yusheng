@@ -8,12 +8,11 @@
  */
 import { Direction } from './types';
 
-/** PATH_PACK_ALPHABET：定义该变量以承载业务值。 */
+/** PATH_PACK_ALPHABET：路径PACK ALPHABET。 */
 const PATH_PACK_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
-/** PATH_PACK_DECODE：定义该变量以承载业务值。 */
 const PATH_PACK_DECODE = new Map(PATH_PACK_ALPHABET.split('').map((char, index) => [char, index] as const));
 
-/** directionToCode：执行对应的业务逻辑。 */
+/** directionToCode：处理方向To兑换码。 */
 function directionToCode(direction: Direction): number {
   switch (direction) {
     case Direction.North:
@@ -29,7 +28,7 @@ function directionToCode(direction: Direction): number {
   }
 }
 
-/** codeToDirection：执行对应的业务逻辑。 */
+/** codeToDirection：处理兑换码To方向。 */
 function codeToDirection(code: number): Direction | null {
   switch (code) {
     case 0:
@@ -45,25 +44,23 @@ function codeToDirection(code: number): Direction | null {
   }
 }
 
-/** packDirections：执行对应的业务逻辑。 */
+/** packDirections：处理pack方向。 */
 export function packDirections(directions: Direction[]): string {
   if (directions.length === 0) {
     return '';
   }
 
-/** packed：定义该变量以承载业务值。 */
   let packed = '';
   for (let index = 0; index < directions.length; index += 3) {
     const a = directionToCode(directions[index] ?? Direction.North);
     const b = directionToCode(directions[index + 1] ?? Direction.North);
-/** c：定义该变量以承载业务值。 */
     const c = directionToCode(directions[index + 2] ?? Direction.North);
     packed += PATH_PACK_ALPHABET[(a << 4) | (b << 2) | c] ?? '';
   }
   return packed;
 }
 
-/** unpackDirections：执行对应的业务逻辑。 */
+/** unpackDirections：处理unpack方向。 */
 export function unpackDirections(packed: string, stepCount: number): Direction[] | null {
   if (!Number.isInteger(stepCount) || stepCount < 0) {
     return null;
@@ -72,20 +69,17 @@ export function unpackDirections(packed: string, stepCount: number): Direction[]
     return packed.length === 0 ? [] : null;
   }
 
-/** expectedLength：定义该变量以承载业务值。 */
   const expectedLength = Math.ceil(stepCount / 3);
   if (packed.length !== expectedLength) {
     return null;
   }
 
-/** directions：定义该变量以承载业务值。 */
   const directions: Direction[] = [];
   for (const char of packed) {
     const value = PATH_PACK_DECODE.get(char);
     if (value === undefined) {
       return null;
     }
-/** decoded：定义该变量以承载业务值。 */
     const decoded = [
       codeToDirection((value >> 4) & 0b11),
       codeToDirection((value >> 2) & 0b11),
@@ -104,4 +98,10 @@ export function unpackDirections(packed: string, stepCount: number): Direction[]
 
   return directions.length === stepCount ? directions : null;
 }
+
+
+
+
+
+
 

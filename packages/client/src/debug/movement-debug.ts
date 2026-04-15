@@ -1,14 +1,14 @@
-/** MOVEMENT_DEBUG_STORAGE_KEY：定义该变量以承载业务值。 */
+/** MOVEMENT_DEBUG_STORAGE_KEY：移动调试存储KEY。 */
 const MOVEMENT_DEBUG_STORAGE_KEY = 'next.debug.movement';
-/** MOVEMENT_DEBUG_QUERY_KEY：定义该变量以承载业务值。 */
+/** MOVEMENT_DEBUG_QUERY_KEY：移动调试查询KEY。 */
 const MOVEMENT_DEBUG_QUERY_KEY = 'debugMovement';
 
-/** NextMovementDebugWindow：定义该类型的结构与数据语义。 */
+/** NextMovementDebugWindow：挂载 next 移动调试开关的 window 扩展。 */
 type NextMovementDebugWindow = Window & {
   __NEXT_DEBUG_MOVEMENT__?: unknown;
 };
 
-/** normalizeDebugFlag：执行对应的业务逻辑。 */
+/** normalizeDebugFlag：规范化调试Flag。 */
 function normalizeDebugFlag(value: unknown): boolean {
   if (value === true || value === 1) {
     return true;
@@ -16,12 +16,11 @@ function normalizeDebugFlag(value: unknown): boolean {
   if (typeof value !== 'string') {
     return false;
   }
-/** normalized：定义该变量以承载业务值。 */
   const normalized = value.trim().toLowerCase();
   return normalized === '1' || normalized === 'true' || normalized === 'on' || normalized === 'yes';
 }
 
-/** isNextMovementDebugEnabled：执行对应的业务逻辑。 */
+/** isNextMovementDebugEnabled：判断是否新版移动调试启用。 */
 export function isNextMovementDebugEnabled(): boolean {
   if (typeof window === 'undefined') {
     return false;
@@ -29,13 +28,11 @@ export function isNextMovementDebugEnabled(): boolean {
   if (normalizeDebugFlag(import.meta.env.VITE_NEXT_DEBUG_MOVEMENT)) {
     return true;
   }
-/** debugWindow：定义该变量以承载业务值。 */
   const debugWindow = window as NextMovementDebugWindow;
   if (normalizeDebugFlag(debugWindow.__NEXT_DEBUG_MOVEMENT__)) {
     return true;
   }
   try {
-/** queryValue：定义该变量以承载业务值。 */
     const queryValue = new URLSearchParams(window.location.search).get(MOVEMENT_DEBUG_QUERY_KEY);
     if (normalizeDebugFlag(queryValue)) {
       return true;
@@ -50,12 +47,11 @@ export function isNextMovementDebugEnabled(): boolean {
   }
 }
 
-/** logNextMovement：执行对应的业务逻辑。 */
+/** logNextMovement：处理日志新版移动。 */
 export function logNextMovement(scope: string, payload?: unknown): void {
   if (!isNextMovementDebugEnabled()) {
     return;
   }
-/** prefix：定义该变量以承载业务值。 */
   const prefix = `[next-move][${scope}]`;
   if (payload === undefined) {
     console.info(prefix);
@@ -63,4 +59,3 @@ export function logNextMovement(scope: string, payload?: unknown): void {
   }
   console.info(prefix, payload);
 }
-

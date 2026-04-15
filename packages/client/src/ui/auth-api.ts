@@ -27,13 +27,12 @@ export {
 
 /** HTTP 请求失败时抛出，携带状态码 */
 export class RequestError extends Error {
-/** constructor：处理当前场景中的对应操作。 */
   constructor(message: string, readonly status: number) {
     super(message);
   }
 }
 
-/** RequestOptions：定义该类型的结构与数据语义。 */
+/** 请求 JSON 接口时使用的配置项，支持方法、请求体、访问令牌和中断信号。 */
 type RequestOptions = {
   method?: 'GET' | 'POST';
   body?: unknown;
@@ -48,7 +47,6 @@ export function getAccessToken(): string | null {
 
 /** 从当前 accessToken 读取账号名 */
 export function getCurrentAccountName(): string | null {
-/** accessToken：定义该变量以承载业务值。 */
   const accessToken = getAccessToken();
   if (!accessToken) {
     return null;
@@ -75,7 +73,6 @@ export function clearStoredTokens(): void {
 
 /** 通用 JSON 请求，自动处理 body 序列化与 Bearer 鉴权 */
 export async function requestJson<TResponse>(url: string, options: RequestOptions = {}): Promise<TResponse> {
-/** headers：定义该变量以承载业务值。 */
   const headers: Record<string, string> = {};
   if (options.body !== undefined) {
     headers['Content-Type'] = 'application/json';
@@ -84,11 +81,9 @@ export async function requestJson<TResponse>(url: string, options: RequestOption
     headers.Authorization = `Bearer ${options.accessToken}`;
   }
 
-/** res：定义该变量以承载业务值。 */
   const res = await fetch(url, {
     method: options.method ?? 'GET',
     headers,
-/** body：定义该变量以承载业务值。 */
     body: options.body === undefined ? undefined : JSON.stringify(options.body),
     signal: options.signal,
   });
@@ -116,7 +111,6 @@ export function checkDisplayNameAvailability(
   displayName: string,
   signal?: AbortSignal,
 ): Promise<DisplayNameAvailabilityRes> {
-/** params：定义该变量以承载业务值。 */
   const params = new URLSearchParams({ displayName });
   return requestJson<DisplayNameAvailabilityRes>(`${AUTH_API_BASE_PATH}/display-name/check?${params.toString()}`, { signal });
 }
@@ -157,10 +151,9 @@ export function updateRoleName(
   });
 }
 
-/** readError：执行对应的业务逻辑。 */
+/** readError：处理read错误。 */
 async function readError(res: Response): Promise<string> {
   try {
-/** data：定义该变量以承载业务值。 */
     const data = await res.json() as { message?: string | string[] };
     if (Array.isArray(data.message)) {
       return data.message.join('，');
@@ -174,7 +167,7 @@ async function readError(res: Response): Promise<string> {
   return '请求失败';
 }
 
-/** AuthTokenPayload：定义该类型的结构与数据语义。 */
+/** JWT 里用于提取账号名的负载字段。 */
 type AuthTokenPayload = {
   username?: string;
   preferred_username?: string;
@@ -183,7 +176,7 @@ type AuthTokenPayload = {
   sub?: string;
 };
 
-/** extractAccountName：执行对应的业务逻辑。 */
+/** extractAccountName：处理extract账号名称。 */
 function extractAccountName(payload: AuthTokenPayload | null): string | null {
   if (!payload) {
     return null;
@@ -196,26 +189,21 @@ function extractAccountName(payload: AuthTokenPayload | null): string | null {
     ?? null;
 }
 
-/** parseJwtPayload：执行对应的业务逻辑。 */
+/** parseJwtPayload：解析Jwt载荷。 */
 function parseJwtPayload(token: string): AuthTokenPayload | null {
-/** parts：定义该变量以承载业务值。 */
   const parts = token.split('.');
   if (parts.length < 2) {
     return null;
   }
   try {
-/** normalized：定义该变量以承载业务值。 */
     const normalized = parts[1].replace(/-/g, '+').replace(/_/g, '/');
-/** padded：定义该变量以承载业务值。 */
     const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=');
-/** binary：定义该变量以承载业务值。 */
     const binary = window.atob(padded);
-/** bytes：定义该变量以承载业务值。 */
     const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
-/** json：定义该变量以承载业务值。 */
     const json = new TextDecoder().decode(bytes);
     return JSON.parse(json) as { username?: string };
   } catch {
     return null;
   }
 }
+

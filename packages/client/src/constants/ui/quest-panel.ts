@@ -4,7 +4,6 @@
  */
 import { QuestState, QUEST_LINE_KEYS } from '@mud/shared-next';
 
-/** STATUS_CLASS：定义该变量以承载业务值。 */
 export const STATUS_CLASS: Record<QuestState['status'], string> = {
   available: 'status-available',
   active: 'status-active',
@@ -12,7 +11,5 @@ export const STATUS_CLASS: Record<QuestState['status'], string> = {
   completed: 'status-completed',
 };
 
-/** LINE_ORDER：定义该变量以承载业务值。 */
 export const LINE_ORDER: readonly QuestState['line'][] = QUEST_LINE_KEYS;
-/** STATUS_PRIORITY：定义该变量以承载业务值。 */
 export const STATUS_PRIORITY = { ready: 0, active: 1, available: 2, completed: 3 } as const;

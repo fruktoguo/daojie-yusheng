@@ -1,39 +1,33 @@
 import type { AttrBonus, ElementKey, HeavenGateRootValues } from '@mud/shared-next';
 import { ELEMENT_KEY_LABELS } from '../domain-labels';
 
-/** ELEMENTS：定义该变量以承载业务值。 */
 const ELEMENTS: readonly ElementKey[] = ['metal', 'wood', 'water', 'fire', 'earth'];
-/** HEAVEN_GATE_ROOTS_SOURCE：定义该变量以承载业务值。 */
+/** 天门关卡灵根来源的标识。 */
 const HEAVEN_GATE_ROOTS_SOURCE = 'heaven_gate:roots';
 
-/** SpiritualRootDescription：定义该接口的能力与字段约束。 */
+/** 灵根描述结果。 */
 export interface SpiritualRootDescription {
-/** name：定义该变量以承载业务值。 */
   name: string;
-/** meta：定义该变量以承载业务值。 */
   meta: string;
-/** desc：定义该变量以承载业务值。 */
   desc: string;
 }
 
-/** getSpiritualRootAbsorptionRate：执行对应的业务逻辑。 */
+/** 将灵根数值映射为吸收效率曲线。 */
 export function getSpiritualRootAbsorptionRate(value: number): number {
-/** normalized：定义该变量以承载业务值。 */
   const normalized = Math.max(0, Math.min(100, Number.isFinite(value) ? value : 0));
   return (normalized * normalized) / 100;
 }
 
-/** joinElements：执行对应的业务逻辑。 */
+/** 把五行标签拼成一个连续名称。 */
 function joinElements(elements: ElementKey[]): string {
   return elements.map((element) => ELEMENT_KEY_LABELS[element]).join('');
 }
 
-/** normalizeSpiritualRoots：执行对应的业务逻辑。 */
+/** 规范化灵根数值到 0-100 区间。 */
 export function normalizeSpiritualRoots(roots: HeavenGateRootValues | null | undefined): HeavenGateRootValues | null {
   if (!roots) {
     return null;
   }
-/** normalized：定义该变量以承载业务值。 */
   const normalized = ELEMENTS.reduce((result, element) => {
     result[element] = Math.max(0, Math.min(100, Math.floor(roots[element] ?? 0)));
     return result;
@@ -41,16 +35,14 @@ export function normalizeSpiritualRoots(roots: HeavenGateRootValues | null | und
   return ELEMENTS.some((element) => normalized[element] > 0) ? normalized : null;
 }
 
-/** resolveSpiritualRootsFromBonuses：执行对应的业务逻辑。 */
+/** 从属性加成里提取灵根来源。 */
 export function resolveSpiritualRootsFromBonuses(bonuses: AttrBonus[]): HeavenGateRootValues | null {
-/** rootBonus：定义该变量以承载业务值。 */
   const rootBonus = bonuses.find((bonus) => bonus.source === HEAVEN_GATE_ROOTS_SOURCE);
   return normalizeSpiritualRoots(rootBonus?.stats?.elementDamageBonus as HeavenGateRootValues | undefined);
 }
 
-/** describeSpiritualRoots：执行对应的业务逻辑。 */
+/** 根据灵根分布生成玩家可读的资质描述。 */
 export function describeSpiritualRoots(roots: HeavenGateRootValues | null | undefined): SpiritualRootDescription {
-/** normalized：定义该变量以承载业务值。 */
   const normalized = normalizeSpiritualRoots(roots);
   if (!normalized) {
     return {
@@ -59,14 +51,11 @@ export function describeSpiritualRoots(roots: HeavenGateRootValues | null | unde
       desc: '当前没有可用灵根。',
     };
   }
-/** entries：定义该变量以承载业务值。 */
   const entries = ELEMENTS
     .map((element) => ({ element, value: normalized[element] || 0 }))
     .filter((entry) => entry.value > 0)
     .sort((left, right) => right.value - left.value);
-/** total：定义该变量以承载业务值。 */
   const total = entries.reduce((sum, entry) => sum + entry.value, 0);
-/** spread：定义该变量以承载业务值。 */
   const spread = entries[0].value - entries[entries.length - 1].value;
 
   if (entries.length === 1) {
@@ -89,9 +78,7 @@ export function describeSpiritualRoots(roots: HeavenGateRootValues | null | unde
   }
 
   if (entries.length === 2) {
-/** names：定义该变量以承载业务值。 */
     const names = joinElements(entries.map((entry) => entry.element));
-/** highCount：定义该变量以承载业务值。 */
     const highCount = entries.filter((entry) => entry.value >= 90).length;
     if (highCount === 2) {
       return { name: `${names}天灵根`, meta: '双灵根 · 天品', desc: '双系皆过九十，兼顾变化与纯度，属于极罕见的双系天灵根。' };
@@ -112,7 +99,6 @@ export function describeSpiritualRoots(roots: HeavenGateRootValues | null | unde
   }
 
   if (entries.length === 3) {
-/** names：定义该变量以承载业务值。 */
     const names = joinElements(entries.map((entry) => entry.element));
     if (entries.every((entry) => entry.value >= 90)) {
       return { name: `${names}三系天灵根`, meta: '三灵根 · 天品', desc: '三系齐强且都过九十，放在三灵根里已近传说。' };
@@ -133,7 +119,6 @@ export function describeSpiritualRoots(roots: HeavenGateRootValues | null | unde
   }
 
   if (entries.length === 4) {
-/** names：定义该变量以承载业务值。 */
     const names = joinElements(entries.map((entry) => entry.element));
     if (entries.every((entry) => entry.value >= 90)) {
       return { name: `${names}四象天灵根`, meta: '四灵根 · 天品', desc: '四系全部极高，已经超出常规四灵根应有的驳杂程度。' };
@@ -176,4 +161,3 @@ export function describeSpiritualRoots(roots: HeavenGateRootValues | null | unde
   }
   return { name: '极品五行灵根', meta: '五灵根 · 极品', desc: '五行俱全且整体总值极高，虽然未必每条都达天品，但底子已经极厚。' };
 }
-

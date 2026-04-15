@@ -3,11 +3,14 @@
  * 这里保存缩放与格子尺寸的基准值，以利于多处渲染逻辑统一引用。
  */
 export const BASE_CELL_SIZE = 32;
-/** DEFAULT_ZOOM：定义该变量以承载业务值。 */
+/** DEFAULT_ZOOM：缩放默认值。 */
 export const DEFAULT_ZOOM = 1;
-/** MIN_ZOOM：定义该变量以承载业务值。 */
+/** MIN_ZOOM：缩放下限。 */
 export const MIN_ZOOM = 0.5;
-/** MAX_ZOOM：定义该变量以承载业务值。 */
+/** MAX_ZOOM：缩放上限。 */
 export const MAX_ZOOM = 4;
-/** ZOOM_STEP：定义该变量以承载业务值。 */
+/** ZOOM_STEP：缩放STEP。 */
 export const ZOOM_STEP = 0.1;
+
+
+

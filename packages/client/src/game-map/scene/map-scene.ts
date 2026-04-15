@@ -1,8 +1,8 @@
 import type { MapSceneSnapshot, MapStoreSnapshot } from '../types';
 
-/** MapScene：封装相关状态与行为。 */
+/** 从 store 快照构建一次性渲染场景快照。 */
 export class MapScene {
-/** build：执行对应的业务逻辑。 */
+  /** 提取 terrain/entity/overlay 三类数据，供渲染层消费。 */
   build(snapshot: MapStoreSnapshot): MapSceneSnapshot {
     return {
       mapMeta: snapshot.mapMeta,
@@ -19,4 +19,6 @@ export class MapScene {
     };
   }
 }
+
+
 

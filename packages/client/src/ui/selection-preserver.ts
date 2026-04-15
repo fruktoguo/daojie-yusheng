@@ -4,44 +4,37 @@
  */
 
 interface SelectionSnapshot {
-/** start：定义该变量以承载业务值。 */
   start: number;
-/** end：定义该变量以承载业务值。 */
   end: number;
 }
 
-/** containsSelection：执行对应的业务逻辑。 */
+/** containsSelection：判断是否选中项。 */
 function containsSelection(root: HTMLElement): boolean {
-/** selection：定义该变量以承载业务值。 */
   const selection = window.getSelection();
   if (!selection || selection.rangeCount === 0) {
     return false;
   }
-/** range：定义该变量以承载业务值。 */
   const range = selection.getRangeAt(0);
   return root.contains(range.startContainer) && root.contains(range.endContainer);
 }
 
-/** pointToOffset：执行对应的业务逻辑。 */
+/** pointToOffset：处理坐标To偏移。 */
 function pointToOffset(root: HTMLElement, node: Node, offset: number): number {
-/** range：定义该变量以承载业务值。 */
   const range = document.createRange();
   range.selectNodeContents(root);
   range.setEnd(node, offset);
   return range.toString().length;
 }
 
-/** captureSelection：执行对应的业务逻辑。 */
+/** captureSelection：处理capture选中项。 */
 function captureSelection(root: HTMLElement): SelectionSnapshot | null {
   if (!containsSelection(root)) {
     return null;
   }
-/** selection：定义该变量以承载业务值。 */
   const selection = window.getSelection();
   if (!selection || selection.rangeCount === 0) {
     return null;
   }
-/** range：定义该变量以承载业务值。 */
   const range = selection.getRangeAt(0);
   return {
     start: pointToOffset(root, range.startContainer, range.startOffset),
@@ -49,19 +42,14 @@ function captureSelection(root: HTMLElement): SelectionSnapshot | null {
   };
 }
 
-/** resolveOffset：执行对应的业务逻辑。 */
+/** resolveOffset：解析偏移。 */
 function resolveOffset(root: HTMLElement, offset: number): { node: Node; offset: number } | null {
-/** walker：定义该变量以承载业务值。 */
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-/** current：定义该变量以承载业务值。 */
   let current: Node | null = walker.nextNode();
-/** consumed：定义该变量以承载业务值。 */
   let consumed = 0;
 
   while (current) {
-/** text：定义该变量以承载业务值。 */
     const text = current.textContent ?? '';
-/** next：定义该变量以承载业务值。 */
     const next = consumed + text.length;
     if (offset <= next) {
       return {
@@ -69,32 +57,30 @@ function resolveOffset(root: HTMLElement, offset: number): { node: Node; offset:
         offset: Math.max(0, Math.min(text.length, offset - consumed)),
       };
     }
+    /** consumed：consumed。 */
     consumed = next;
+    /** current：当前。 */
     current = walker.nextNode();
   }
 
   return null;
 }
 
-/** restoreSelection：执行对应的业务逻辑。 */
+/** restoreSelection：处理restore选中项。 */
 function restoreSelection(root: HTMLElement, snapshot: SelectionSnapshot | null): void {
   if (!snapshot) {
     return;
   }
-/** startPoint：定义该变量以承载业务值。 */
   const startPoint = resolveOffset(root, snapshot.start);
-/** endPoint：定义该变量以承载业务值。 */
   const endPoint = resolveOffset(root, snapshot.end);
   if (!startPoint || !endPoint) {
     return;
   }
 
-/** range：定义该变量以承载业务值。 */
   const range = document.createRange();
   range.setStart(startPoint.node, startPoint.offset);
   range.setEnd(endPoint.node, endPoint.offset);
 
-/** selection：定义该变量以承载业务值。 */
   const selection = window.getSelection();
   if (!selection) {
     return;
@@ -105,9 +91,11 @@ function restoreSelection(root: HTMLElement, snapshot: SelectionSnapshot | null)
 
 /** 在执行 mutate 前后自动保存和恢复 root 内的文本选区 */
 export function preserveSelection(root: HTMLElement, mutate: () => void): void {
-/** snapshot：定义该变量以承载业务值。 */
   const snapshot = captureSelection(root);
   mutate();
   restoreSelection(root, snapshot);
 }
+
+
+
 

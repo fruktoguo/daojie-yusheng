@@ -17,19 +17,26 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.NextPlayerAuthService = void 0;
 const common_1 = require("@nestjs/common");
 const node_crypto_1 = require("node:crypto");
-const legacy_account_validation_1 = require("../../compat/legacy/legacy-account-validation");
-const legacy_password_hash_1 = require("../../compat/legacy/legacy-password-hash");
+const account_validation_1 = require("../../auth/account-validation");
+const password_hash_1 = require("../../auth/password-hash");
 const world_player_token_codec_service_1 = require("../../network/world-player-token-codec.service");
 const player_identity_persistence_service_1 = require("../../persistence/player-identity-persistence.service");
 const player_runtime_service_1 = require("../../runtime/player/player-runtime.service");
 const world_player_snapshot_service_1 = require("../../network/world-player-snapshot.service");
 const next_player_auth_store_service_1 = require("./next-player-auth-store.service");
+/** Next 玩家鉴权编排服务：负责注册、登录、刷新和身份同步。 */
 let NextPlayerAuthService = class NextPlayerAuthService {
+    /** 记录账号生命周期关键操作。 */
     logger = new common_1.Logger(NextPlayerAuthService.name);
+    /** 账号索引与唯一性检查入口。 */
     authStore;
+    /** 生成和校验 next 访问令牌/刷新令牌。 */
     worldPlayerTokenCodecService;
+    /** 身份持久化入口，确保账号信息下次启动仍可找回。 */
     playerIdentityPersistenceService;
+    /** 在线运行时同步入口，避免登录后身份和 runtime 脱节。 */
     playerRuntimeService;
+    /** 玩家快照入口，用于注册/刷新后补齐 starter snapshot。 */
     worldPlayerSnapshotService;
     constructor(authStore, worldPlayerTokenCodecService, playerIdentityPersistenceService, playerRuntimeService, worldPlayerSnapshotService) {
         this.authStore = authStore;
@@ -38,23 +45,24 @@ let NextPlayerAuthService = class NextPlayerAuthService {
         this.playerRuntimeService = playerRuntimeService;
         this.worldPlayerSnapshotService = worldPlayerSnapshotService;
     }
+    /** 注册新账号，并完成建档、持久化与令牌签发。 */
     async register(accountName, password, displayName, roleName) {
-        const normalizedUsername = (0, legacy_account_validation_1.normalizeUsername)(accountName);
-        const normalizedDisplayName = (0, legacy_account_validation_1.normalizeDisplayName)(displayName);
-        const normalizedRoleName = (0, legacy_account_validation_1.normalizeRoleName)(roleName) || (0, legacy_account_validation_1.buildDefaultRoleName)(normalizedUsername);
-        const usernameError = (0, legacy_account_validation_1.validateUsername)(normalizedUsername);
+        const normalizedUsername = (0, account_validation_1.normalizeUsername)(accountName);
+        const normalizedDisplayName = (0, account_validation_1.normalizeDisplayName)(displayName);
+        const normalizedRoleName = (0, account_validation_1.normalizeRoleName)(roleName) || (0, account_validation_1.buildDefaultRoleName)(normalizedUsername);
+        const usernameError = (0, account_validation_1.validateUsername)(normalizedUsername);
         if (usernameError) {
             throw new common_1.BadRequestException(usernameError);
         }
-        const passwordError = (0, legacy_account_validation_1.validatePassword)(password);
+        const passwordError = (0, account_validation_1.validatePassword)(password);
         if (passwordError) {
             throw new common_1.BadRequestException(passwordError);
         }
-        const displayNameError = (0, legacy_account_validation_1.validateDisplayName)(normalizedDisplayName);
+        const displayNameError = (0, account_validation_1.validateDisplayName)(normalizedDisplayName);
         if (displayNameError) {
             throw new common_1.BadRequestException(displayNameError);
         }
-        const roleNameError = (0, legacy_account_validation_1.validateRoleName)(normalizedRoleName);
+        const roleNameError = (0, account_validation_1.validateRoleName)(normalizedRoleName);
         if (roleNameError) {
             throw new common_1.BadRequestException(roleNameError);
         }
@@ -80,7 +88,7 @@ let NextPlayerAuthService = class NextPlayerAuthService {
             pendingRoleName: normalizedRoleName,
             playerId: buildPlayerId(userId),
             playerName: normalizedRoleName,
-            passwordHash: await (0, legacy_password_hash_1.hashPassword)(password),
+            passwordHash: await (0, password_hash_1.hashPassword)(password),
             totalOnlineSeconds: 0,
             currentOnlineStartedAt: null,
             createdAt,
@@ -90,8 +98,9 @@ let NextPlayerAuthService = class NextPlayerAuthService {
         await this.ensureStarterSnapshot(user.playerId);
         return this.issueTokens(user);
     }
+    /** 登录现有账号，兼容账号名和角色名两种入口。 */
     async login(loginName, password) {
-        const normalizedLoginName = (0, legacy_account_validation_1.normalizeUsername)(loginName).trim();
+        const normalizedLoginName = (0, account_validation_1.normalizeUsername)(loginName).trim();
         const directUser = await this.authStore.findUserByUsername(normalizedLoginName);
         const roleMatchedUsers = await this.authStore.findUsersByRoleName(normalizedLoginName);
         const candidates = new Map();
@@ -106,7 +115,7 @@ let NextPlayerAuthService = class NextPlayerAuthService {
         }
         const matchedUsers = [];
         for (const user of candidates.values()) {
-            if (await (0, legacy_password_hash_1.verifyPassword)(password, user.passwordHash)) {
+            if (await (0, password_hash_1.verifyPassword)(password, user.passwordHash)) {
                 matchedUsers.push(user);
             }
         }
@@ -125,6 +134,7 @@ let NextPlayerAuthService = class NextPlayerAuthService {
         await this.ensureStarterSnapshot(selected.playerId);
         return this.issueTokens(selected);
     }
+    /** 刷新登录态，但只接受普通玩家令牌。 */
     async refresh(refreshToken) {
         const payload = this.worldPlayerTokenCodecService.validateRefreshToken(typeof refreshToken === 'string' ? refreshToken.trim() : '');
         if (!payload || payload.role === 'gm' || typeof payload.sub !== 'string' || typeof payload.username !== 'string') {
@@ -138,9 +148,10 @@ let NextPlayerAuthService = class NextPlayerAuthService {
         await this.ensureStarterSnapshot(user.playerId);
         return this.issueTokens(user);
     }
+    /** 检查显示名可用性，供注册页和 GM 修改前复用。 */
     async checkDisplayName(displayName = '') {
-        const normalizedDisplayName = (0, legacy_account_validation_1.normalizeDisplayName)(displayName);
-        const error = (0, legacy_account_validation_1.validateDisplayName)(normalizedDisplayName);
+        const normalizedDisplayName = (0, account_validation_1.normalizeDisplayName)(displayName);
+        const error = (0, account_validation_1.validateDisplayName)(normalizedDisplayName);
         if (error) {
             return { available: false, message: error };
         }
@@ -150,30 +161,32 @@ let NextPlayerAuthService = class NextPlayerAuthService {
         }
         return { available: true };
     }
+    /** 修改当前账号密码。 */
     async updatePassword(authorization, currentPassword, newPassword) {
         const user = await this.requireUser(authorization);
-        if (!await (0, legacy_password_hash_1.verifyPassword)(currentPassword, user.passwordHash)) {
+        if (!await (0, password_hash_1.verifyPassword)(currentPassword, user.passwordHash)) {
             throw new common_1.BadRequestException('当前密码错误');
         }
-        const passwordError = (0, legacy_account_validation_1.validatePassword)(newPassword);
+        const passwordError = (0, account_validation_1.validatePassword)(newPassword);
         if (passwordError) {
             throw new common_1.BadRequestException(passwordError);
         }
         await this.authStore.saveUser({
             ...user,
-            passwordHash: await (0, legacy_password_hash_1.hashPassword)(newPassword),
+            passwordHash: await (0, password_hash_1.hashPassword)(newPassword),
             updatedAt: Date.now(),
         });
         return { ok: true };
     }
+    /** 修改当前账号显示名，并同步回持久化和 runtime。 */
     async updateDisplayName(authorization, displayName) {
         const user = await this.requireUser(authorization);
-        const normalizedDisplayName = (0, legacy_account_validation_1.normalizeDisplayName)(displayName);
-        const displayNameError = (0, legacy_account_validation_1.validateDisplayName)(normalizedDisplayName);
+        const normalizedDisplayName = (0, account_validation_1.normalizeDisplayName)(displayName);
+        const displayNameError = (0, account_validation_1.validateDisplayName)(normalizedDisplayName);
         if (displayNameError) {
             throw new common_1.BadRequestException(displayNameError);
         }
-        const currentDisplayName = (0, legacy_account_validation_1.resolveDisplayName)(user.displayName, user.username);
+        const currentDisplayName = (0, account_validation_1.resolveDisplayName)(user.displayName, user.username);
         if (normalizedDisplayName === currentDisplayName) {
             return { displayName: normalizedDisplayName };
         }
@@ -192,14 +205,15 @@ let NextPlayerAuthService = class NextPlayerAuthService {
         this.syncRuntimeDisplayName(nextUser);
         return { displayName: normalizedDisplayName };
     }
+    /** 修改当前账号角色名，并同步回持久化和 runtime。 */
     async updateRoleName(authorization, roleName) {
         const user = await this.requireUser(authorization);
-        const normalizedRoleName = (0, legacy_account_validation_1.normalizeRoleName)(roleName);
-        const roleNameError = (0, legacy_account_validation_1.validateRoleName)(normalizedRoleName);
+        const normalizedRoleName = (0, account_validation_1.normalizeRoleName)(roleName);
+        const roleNameError = (0, account_validation_1.validateRoleName)(normalizedRoleName);
         if (roleNameError) {
             throw new common_1.BadRequestException(roleNameError);
         }
-        if ((0, legacy_account_validation_1.normalizeRoleName)(user.pendingRoleName) === normalizedRoleName) {
+        if ((0, account_validation_1.normalizeRoleName)(user.pendingRoleName) === normalizedRoleName) {
             return { roleName: normalizedRoleName };
         }
         const roleNameConflict = await this.authStore.ensureAvailable(normalizedRoleName, 'role', {
@@ -236,7 +250,7 @@ let NextPlayerAuthService = class NextPlayerAuthService {
         return user;
     }
     issueTokens(user) {
-        const displayName = (0, legacy_account_validation_1.resolveDisplayName)(user.displayName, user.username);
+        const displayName = (0, account_validation_1.resolveDisplayName)(user.displayName, user.username);
         const playerName = user.pendingRoleName?.trim() || user.username;
         const payload = {
             sub: user.id,
@@ -259,7 +273,7 @@ let NextPlayerAuthService = class NextPlayerAuthService {
                 version: 1,
                 userId: user.id,
                 username: user.username,
-                displayName: (0, legacy_account_validation_1.resolveDisplayName)(user.displayName, user.username),
+                displayName: (0, account_validation_1.resolveDisplayName)(user.displayName, user.username),
                 playerId: user.playerId,
                 playerName: user.pendingRoleName?.trim() || user.username,
                 persistedSource: 'native',
@@ -287,7 +301,7 @@ let NextPlayerAuthService = class NextPlayerAuthService {
             return;
         }
         this.playerRuntimeService.setIdentity(user.playerId, {
-            displayName: (0, legacy_account_validation_1.resolveDisplayName)(user.displayName, user.username),
+            displayName: (0, account_validation_1.resolveDisplayName)(user.displayName, user.username),
         });
     }
     syncRuntimeRoleName(user) {
@@ -313,3 +327,5 @@ exports.NextPlayerAuthService = NextPlayerAuthService = __decorate([
 function buildPlayerId(userId) {
     return `p_${String(userId ?? '').trim()}`;
 }
+
+

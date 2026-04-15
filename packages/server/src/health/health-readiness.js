@@ -1,33 +1,33 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.buildHealthResponse = buildHealthResponse;
-/** env_alias_1：定义该变量以承载业务值。 */
+
 const env_alias_1 = require("../config/env-alias");
-/** buildHealthResponse：执行对应的业务逻辑。 */
+
+/** 构建统一的 readiness 响应体，汇总数据库、持久化、运行时与维护状态。 */
 function buildHealthResponse(dependencies) {
-/** database：定义该变量以承载业务值。 */
+
     const database = resolveDatabaseReadiness();
-/** maintenance：定义该变量以承载业务值。 */
+
     const maintenance = resolveMaintenanceReadiness(dependencies.maintenanceStateService);
-/** persistence：定义该变量以承载业务值。 */
+
     const persistence = {
         player: resolvePersistenceReadiness(database.configured, dependencies.playerPersistenceService),
         mail: resolvePersistenceReadiness(database.configured, dependencies.mailPersistenceService),
         market: resolvePersistenceReadiness(database.configured, dependencies.marketPersistenceService),
         suggestion: resolvePersistenceReadiness(database.configured, dependencies.suggestionPersistenceService),
     };
-/** legacyAuth：定义该变量以承载业务值。 */
-    const legacyAuth = resolveLegacyAuthReadiness(database.source, dependencies.authStateService);
-/** runtime：定义该变量以承载业务值。 */
+
+    const legacyAuth = resolveLegacyAuthReadiness();
+
     const runtime = resolveRuntimeReadiness(dependencies.worldRuntimeService);
-/** readinessOk：定义该变量以承载业务值。 */
+
     const readinessOk = !maintenance.active
         && database.configured
         && persistence.player.enabled
         && persistence.mail.enabled
         && persistence.market.enabled
         && persistence.suggestion.enabled
-        && legacyAuth.ready
         && runtime.ready;
     return {
         ok: readinessOk,
@@ -46,7 +46,8 @@ function buildHealthResponse(dependencies) {
         },
     };
 }
-/** resolveMaintenanceReadiness：执行对应的业务逻辑。 */
+
+/** 解析维护态来源与开关，决定 readiness 是否受运行时维护影响。 */
 function resolveMaintenanceReadiness(service) {
     if (!service || typeof service.isRuntimeMaintenanceActive !== 'function') {
         return {
@@ -55,7 +56,7 @@ function resolveMaintenanceReadiness(service) {
             reason: 'inactive',
         };
     }
-/** active：定义该变量以承载业务值。 */
+
     const active = service.isRuntimeMaintenanceActive();
     return {
         active,
@@ -63,21 +64,24 @@ function resolveMaintenanceReadiness(service) {
         reason: active ? 'runtime_maintenance_active' : 'inactive',
     };
 }
-/** resolveDatabaseReadiness：执行对应的业务逻辑。 */
+
+/** 检查数据库配置是否可用，返回配置来源。 */
 function resolveDatabaseReadiness() {
-/** source：定义该变量以承载业务值。 */
+
     const source = resolveDatabaseSource();
     return {
-/** configured：定义该变量以承载业务值。 */
+
         configured: source !== null,
         source,
     };
 }
-/** resolveDatabaseSource：执行对应的业务逻辑。 */
+
+/** 读取数据库配置来源，统一从 env alias 解析。 */
 function resolveDatabaseSource() {
     return (0, env_alias_1.resolveServerNextDatabaseEnvSource)();
 }
-/** resolvePersistenceReadiness：执行对应的业务逻辑。 */
+
+/** 读取服务级持久化开关，用于 readiness 中快速降级。 */
 function resolvePersistenceReadiness(databaseConfigured, service) {
     if (!databaseConfigured) {
         return {
@@ -91,65 +95,32 @@ function resolvePersistenceReadiness(databaseConfigured, service) {
             reason: 'service_unavailable',
         };
     }
-/** enabled：定义该变量以承载业务值。 */
+
     const enabled = inspectPersistenceServiceEnabled(service);
     return {
         enabled,
         reason: enabled ? 'ready' : 'init_incomplete_or_failed',
     };
 }
-/** inspectPersistenceServiceEnabled：执行对应的业务逻辑。 */
+
+/** 校验持久化服务是否可用（至少要有 enabled 与有效连接池）。 */
 function inspectPersistenceServiceEnabled(service) {
-/** candidate：定义该变量以承载业务值。 */
+
     const candidate = service;
     return candidate.enabled === true && candidate.pool != null;
 }
-/** resolveLegacyAuthReadiness：执行对应的业务逻辑。 */
-function resolveLegacyAuthReadiness(databaseSource, service) {
-    if (!databaseSource) {
-        return {
-            ready: false,
-            mode: 'token_fallback',
-            source: null,
-            reason: 'database_unconfigured',
-        };
-    }
-    if (!service) {
-        return {
-            ready: false,
-            mode: 'token_fallback',
-            source: databaseSource,
-            reason: 'service_unavailable',
-        };
-    }
-/** candidate：定义该变量以承载业务值。 */
-    const candidate = service;
-/** poolAvailable：定义该变量以承载业务值。 */
-    const poolAvailable = candidate.pool != null;
-    if (poolAvailable) {
-        return {
-            ready: true,
-            mode: 'database',
-            source: databaseSource,
-            reason: 'ready',
-        };
-    }
-    if (candidate.poolUnavailable === true) {
-        return {
-            ready: false,
-            mode: 'token_fallback',
-            source: databaseSource,
-            reason: 'database_init_failed_or_unavailable',
-        };
-    }
+
+/** 兼容鉴权当前固定为 next-only，保留可扩展的 readiness 结构。 */
+function resolveLegacyAuthReadiness() {
     return {
-        ready: false,
-        mode: 'database',
-        source: databaseSource,
-        reason: 'database_init_pending',
+        ready: true,
+        mode: 'unused',
+        source: null,
+        reason: 'next_auth_only',
     };
 }
-/** resolveRuntimeReadiness：执行对应的业务逻辑。 */
+
+/** 读取 world runtime 运行摘要并汇总 readiness 的运行指标。 */
 function resolveRuntimeReadiness(service) {
     if (!service) {
         return {
@@ -161,9 +132,9 @@ function resolveRuntimeReadiness(service) {
             pendingCommandCount: 0,
         };
     }
-/** candidate：定义该变量以承载业务值。 */
+
     const candidate = service;
-/** getRuntimeSummary：定义该变量以承载业务值。 */
+
     const getRuntimeSummary = candidate.getRuntimeSummary;
     if (typeof getRuntimeSummary !== 'function') {
         return {
@@ -176,17 +147,17 @@ function resolveRuntimeReadiness(service) {
         };
     }
     try {
-/** summary：定义该变量以承载业务值。 */
+
         const summary = getRuntimeSummary.call(service);
-/** tick：定义该变量以承载业务值。 */
+
         const tick = readNonNegativeInt(summary.tick);
-/** instanceCount：定义该变量以承载业务值。 */
+
         const instanceCount = readNonNegativeInt(summary.instanceCount);
-/** playerCount：定义该变量以承载业务值。 */
+
         const playerCount = readNonNegativeInt(summary.playerCount);
-/** pendingCommandCount：定义该变量以承载业务值。 */
+
         const pendingCommandCount = readNonNegativeInt(summary.pendingCommandCount);
-/** ready：定义该变量以承载业务值。 */
+
         const ready = instanceCount > 0;
         return {
             ready,
@@ -208,7 +179,8 @@ function resolveRuntimeReadiness(service) {
         };
     }
 }
-/** readNonNegativeInt：执行对应的业务逻辑。 */
+
+/** 将运行时上报值转为非负整数，避免 NaN/负数污染 readiness。 */
 function readNonNegativeInt(value) {
     if (typeof value !== 'number' || !Number.isFinite(value)) {
         return 0;
@@ -216,3 +188,5 @@ function readNonNegativeInt(value) {
     return Math.max(0, Math.floor(value));
 }
 //# sourceMappingURL=health-readiness.js.map
+
+

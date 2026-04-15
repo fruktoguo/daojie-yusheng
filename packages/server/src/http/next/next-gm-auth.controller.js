@@ -19,7 +19,7 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.NextGmAuthController = void 0;
 const common_1 = require("@nestjs/common");
-const legacy_gm_http_auth_guard_1 = require("../../compat/legacy/http/legacy-gm-http-auth.guard");
+const next_gm_auth_guard_1 = require("./next-gm-auth.guard");
 const runtime_gm_auth_service_1 = require("../../runtime/gm/runtime-gm-auth.service");
 let NextGmAuthController = class NextGmAuthController {
     authService;
@@ -44,7 +44,7 @@ __decorate([
 ], NextGmAuthController.prototype, "login", null);
 __decorate([
     (0, common_1.Post)('gm/password'),
-    (0, common_1.UseGuards)(legacy_gm_http_auth_guard_1.LegacyGmHttpAuthGuard),
+    (0, common_1.UseGuards)(next_gm_auth_guard_1.NextGmAuthGuard),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
@@ -54,3 +54,6 @@ exports.NextGmAuthController = NextGmAuthController = __decorate([
     (0, common_1.Controller)('api/auth'),
     __metadata("design:paramtypes", [runtime_gm_auth_service_1.RuntimeGmAuthService])
 ], NextGmAuthController);
+
+
+

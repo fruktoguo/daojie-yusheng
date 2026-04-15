@@ -1,9 +1,9 @@
 import { PanelCapabilities, PanelId, PanelLayoutProfile, PanelRuntimeState, PanelSystemState, PanelUiState } from './types';
 
-/** PanelSystemListener：定义该类型的结构与数据语义。 */
+/** 面板状态变更监听器。 */
 type PanelSystemListener = (state: PanelSystemState, previousState: PanelSystemState) => void;
 
-/** clonePanelsState：执行对应的业务逻辑。 */
+/** clonePanelsState：克隆Panels状态。 */
 function clonePanelsState(
   panels: Partial<Record<PanelId, PanelUiState>>,
 ): Partial<Record<PanelId, PanelUiState>> {
@@ -15,13 +15,13 @@ function clonePanelsState(
   ) as Partial<Record<PanelId, PanelUiState>>;
 }
 
-/** PanelSystemStore：封装相关状态与行为。 */
+/** PanelSystemStore：面板系统存储实现。 */
 export class PanelSystemStore {
-/** state：定义该变量以承载业务值。 */
+  /** state：状态。 */
   private state: PanelSystemState;
+  /** listeners：listeners。 */
   private readonly listeners = new Set<PanelSystemListener>();
 
-/** constructor：处理当前场景中的对应操作。 */
   constructor(initialState: PanelSystemState) {
     this.state = {
       ...initialState,
@@ -36,7 +36,7 @@ export class PanelSystemStore {
     };
   }
 
-/** getState：执行对应的业务逻辑。 */
+  /** getState：读取状态。 */
   getState(): PanelSystemState {
     return {
       ...this.state,
@@ -51,6 +51,7 @@ export class PanelSystemStore {
     };
   }
 
+  /** subscribe：处理subscribe。 */
   subscribe(listener: PanelSystemListener): () => void {
     this.listeners.add(listener);
     return () => {
@@ -58,7 +59,7 @@ export class PanelSystemStore {
     };
   }
 
-/** setCapabilities：执行对应的业务逻辑。 */
+  /** setCapabilities：处理set Capabilities。 */
   setCapabilities(capabilities: PanelCapabilities, layout: PanelLayoutProfile): void {
     this.patchState({
       capabilities: {
@@ -73,7 +74,7 @@ export class PanelSystemStore {
     });
   }
 
-/** setRuntime：执行对应的业务逻辑。 */
+  /** setRuntime：处理set运行时。 */
   setRuntime(runtimePatch: Partial<PanelRuntimeState>): void {
     this.patchState({
       runtime: {
@@ -83,9 +84,8 @@ export class PanelSystemStore {
     });
   }
 
-/** patchPanelUi：执行对应的业务逻辑。 */
+  /** patchPanelUi：处理patch面板界面。 */
   patchPanelUi(panelId: PanelId, panelPatch: Partial<PanelUiState>): void {
-/** current：定义该变量以承载业务值。 */
     const current = this.state.panels[panelId] ?? {};
     this.patchState({
       panels: {
@@ -98,19 +98,16 @@ export class PanelSystemStore {
     });
   }
 
-/** patchState：执行对应的业务逻辑。 */
+  /** patchState：处理patch状态。 */
   private patchState(patch: Partial<PanelSystemState>): void {
-/** previousState：定义该变量以承载业务值。 */
     const previousState = this.getState();
     this.state = {
       ...this.state,
       ...patch,
     };
-/** nextState：定义该变量以承载业务值。 */
     const nextState = this.getState();
     for (const listener of this.listeners) {
       listener(nextState, previousState);
     }
   }
 }
-

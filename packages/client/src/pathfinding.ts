@@ -10,21 +10,16 @@ export function findPath(
   sx: number, sy: number,
   ex: number, ey: number,
 ): Direction[] | null {
-/** rows：定义该变量以承载业务值。 */
   const rows = tiles.length;
   if (rows === 0) return null;
-/** cols：定义该变量以承载业务值。 */
   const cols = tiles[0].length;
 
   if (sx === ex && sy === ey) return [];
   if (ey < 0 || ey >= rows || ex < 0 || ex >= cols) return null;
   if (!tiles[ey]?.[ex]?.walkable) return null;
 
-/** total：定义该变量以承载业务值。 */
   const total = rows * cols;
-/** walkable：定义该变量以承载业务值。 */
   const walkable = new Uint8Array(total);
-/** traversalCost：定义该变量以承载业务值。 */
   const traversalCost = new Uint16Array(total);
 
   for (let y = 0; y < rows; y += 1) {
@@ -33,14 +28,12 @@ export function findPath(
       if (!tile) {
         continue;
       }
-/** index：定义该变量以承载业务值。 */
       const index = y * cols + x;
       walkable[index] = tile.walkable ? 1 : 0;
       traversalCost[index] = getTileTraversalCost(tile.type);
     }
   }
 
-/** result：定义该变量以承载业务值。 */
   const result = findBoundedPath(
     {
       mapId: 'client_preview',
@@ -63,11 +56,8 @@ export function findPath(
     return null;
   }
 
-/** directions：定义该变量以承载业务值。 */
   const directions: Direction[] = [];
-/** currentX：定义该变量以承载业务值。 */
   let currentX = sx;
-/** currentY：定义该变量以承载业务值。 */
   let currentY = sy;
   for (const step of result.path) {
     const direction = deltaToDirection(step.x - currentX, step.y - currentY);
@@ -75,9 +65,14 @@ export function findPath(
       return null;
     }
     directions.push(direction);
+    /** currentX：当前X。 */
     currentX = step.x;
+    /** currentY：当前Y。 */
     currentY = step.y;
   }
 
   return directions;
 }
+
+
+

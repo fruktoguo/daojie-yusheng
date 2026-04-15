@@ -13,32 +13,38 @@ import {
 
 /** 弹层配置项 */
 type DetailModalOptions = {
-/** ownerId：定义该变量以承载业务值。 */
   ownerId: string;
   variantClass?: string;
-/** title：定义该变量以承载业务值。 */
   title: string;
   size?: UiModalSize;
   subtitle?: string;
   hint?: string;
-/** bodyHtml：定义该变量以承载业务值。 */
   bodyHtml: string;
   onClose?: () => void;
   onAfterRender?: (body: HTMLElement) => void;
 };
 
-/** DetailModalHost：封装相关状态与行为。 */
+/** DetailModalHost：详情弹窗宿主实现。 */
 class DetailModalHost {
+  /** modal：弹窗。 */
   private modal = document.getElementById('detail-modal')!;
+  /** card：卡片。 */
   private card = document.getElementById('detail-modal-card')!;
+  /** title：标题。 */
   private title = document.getElementById('detail-modal-title')!;
+  /** subtitle：subtitle。 */
   private subtitle = document.getElementById('detail-modal-subtitle')!;
+  /** hint：hint。 */
   private hint = document.getElementById('detail-modal-hint')!;
+  /** body：身体。 */
   private body = document.getElementById('detail-modal-body')!;
-/** ownerId：定义该变量以承载业务值。 */
+  /** ownerId：owner ID。 */
   private ownerId: string | null = null;
+  /** onClose：on Close。 */
   private onClose: (() => void) | null = null;
+  /** frameClassState：帧Class状态。 */
   private frameClassState = { layerClasses: [] as string[], cardClasses: [] as string[] };
+  /** initialized：initialized。 */
   private initialized = false;
 
   /** 打开弹层，若已有其他 owner 的弹层则先关闭 */
@@ -74,7 +80,7 @@ class DetailModalHost {
     return this.ownerId === ownerId && !this.modal.classList.contains('hidden');
   }
 
-/** ensureInitialized：执行对应的业务逻辑。 */
+  /** ensureInitialized：确保Initialized。 */
   private ensureInitialized(): void {
     if (this.initialized) return;
     this.initialized = true;
@@ -91,10 +97,9 @@ class DetailModalHost {
     });
   }
 
-/** dismiss：执行对应的业务逻辑。 */
+  /** dismiss：处理dismiss。 */
   private dismiss(notify: boolean): void {
     if (!this.ownerId && this.modal.classList.contains('hidden')) return;
-/** onClose：定义该变量以承载业务值。 */
     const onClose = this.onClose;
     this.ownerId = null;
     this.onClose = null;
@@ -107,7 +112,7 @@ class DetailModalHost {
     }
   }
 
-/** setVariantClass：执行对应的业务逻辑。 */
+  /** setFrameClasses：处理set帧Classes。 */
   private setFrameClasses(variantClass: string, size?: UiModalSize): void {
     const resolvedSize = resolveDetailModalSize(variantClass, size);
     this.frameClassState = applyModalFrameClasses({
@@ -120,9 +125,13 @@ class DetailModalHost {
   }
 }
 
+/** splitModalLayerClasses：处理split弹窗层Classes。 */
 function splitModalLayerClasses(variantClass: string): string[] {
   return variantClass.split(/\s+/).map((item) => item.trim()).filter(Boolean);
 }
 
-/** detailModalHost：定义该变量以承载业务值。 */
+/** detailModalHost：详情弹窗宿主。 */
 export const detailModalHost = new DetailModalHost();
+
+
+

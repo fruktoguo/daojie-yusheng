@@ -4,18 +4,12 @@
  */
 
 Object.defineProperty(exports, "__esModule", { value: true });
-/** smoke_timeout_1：定义该变量以承载业务值。 */
 const smoke_timeout_1 = require("./smoke-timeout");
 (0, smoke_timeout_1.installSmokeTimeout)(__filename);
-/** socket_io_client_1：定义该变量以承载业务值。 */
 const socket_io_client_1 = require("socket.io-client");
-/** shared_1：定义该变量以承载业务值。 */
 const shared_1 = require("@mud/shared-next");
-/** env_alias_1：定义该变量以承载业务值。 */
 const env_alias_1 = require("../config/env-alias");
-/** world_session_reaper_service_1：定义该变量以承载业务值。 */
 const world_session_reaper_service_1 = require("../network/world-session-reaper.service");
-/** world_session_service_1：定义该变量以承载业务值。 */
 const world_session_service_1 = require("../network/world-session.service");
 /**
  * 记录 server-next 访问地址。
@@ -27,7 +21,6 @@ const SERVER_NEXT_URL = (0, env_alias_1.resolveServerNextUrl)() || 'http://127.0
 const SESSION_DETACH_EXPIRE_MS = Number.isFinite(Number(process.env.SERVER_NEXT_SESSION_DETACH_EXPIRE_MS))
     ? Math.max(0, Math.trunc(Number(process.env.SERVER_NEXT_SESSION_DETACH_EXPIRE_MS)))
     : 15_000;
-/** LEGACY_SOCKET_PROTOCOL_ENABLED：定义该变量以承载业务值。 */
 const LEGACY_SOCKET_PROTOCOL_ENABLED = readBooleanEnv('SERVER_NEXT_ALLOW_LEGACY_SOCKET_PROTOCOL')
     || readBooleanEnv('NEXT_ALLOW_LEGACY_SOCKET_PROTOCOL');
 /**
@@ -622,7 +615,6 @@ function verifyWorldSessionServicePolicyProof() {
     if (expireZeroService.getDetachedBindingBySessionId(expireZeroBinding.sessionId) !== null) {
         throw new Error(`expected zero-expire detach to block immediate detached resume, got ${JSON.stringify(expireZeroService.getDetachedBindingBySessionId(expireZeroBinding.sessionId))}`);
     }
-/** expiredBindings：定义该变量以承载业务值。 */
     const expiredBindings = expireZeroService.consumeExpiredBindings();
     if (expiredBindings.length !== 1 || expiredBindings[0]?.playerId !== expireZeroPlayerId) {
         throw new Error(`expected zero-expire detach to enqueue expired binding immediately, got ${JSON.stringify(expiredBindings)}`);
@@ -696,12 +688,10 @@ async function runWorldSessionReaperSuccessProof() {
  * 记录reaper。
  */
     const reaper = new world_session_reaper_service_1.WorldSessionReaperService(service, {
-/** clearDetachedPlayerCaches：执行对应的业务逻辑。 */
         clearDetachedPlayerCaches(targetPlayerId) {
             cleared.push(targetPlayerId);
         },
     }, {
-/** flushPlayer：执行对应的业务逻辑。 */
         async flushPlayer(targetPlayerId) {
             flushed.push(targetPlayerId);
         },
@@ -761,12 +751,10 @@ async function runWorldSessionReaperRetryProof() {
  * 记录reaper。
  */
     const reaper = new world_session_reaper_service_1.WorldSessionReaperService(service, {
-/** clearDetachedPlayerCaches：执行对应的业务逻辑。 */
         clearDetachedPlayerCaches(targetPlayerId) {
             cleared.push(targetPlayerId);
         },
     }, {
-/** flushPlayer：执行对应的业务逻辑。 */
         async flushPlayer(targetPlayerId) {
             flushAttempts += 1;
             if (targetPlayerId !== playerId) {
@@ -804,10 +792,8 @@ async function runWorldSessionReaperRetryProof() {
 function createMockSocket(id) {
     return {
         id,
-/** emit：执行对应的业务逻辑。 */
         emit() {
         },
-/** disconnect：执行对应的业务逻辑。 */
         disconnect() {
         },
     };
@@ -857,14 +843,11 @@ function delay(ms) {
         setTimeout(resolve, ms);
     });
 }
-/** readBooleanEnv：执行对应的业务逻辑。 */
 function readBooleanEnv(key) {
-/** value：定义该变量以承载业务值。 */
     const value = process.env[key];
     if (typeof value !== 'string') {
         return false;
     }
-/** normalized：定义该变量以承载业务值。 */
     const normalized = value.trim().toLowerCase();
     return normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'on';
 }

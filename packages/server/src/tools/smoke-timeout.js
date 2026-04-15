@@ -5,7 +5,6 @@
 
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.installSmokeTimeout = installSmokeTimeout;
-/** node_path_1：定义该变量以承载业务值。 */
 const node_path_1 = require("node:path");
 /**
  * 指定单个烟测默认超时时间。

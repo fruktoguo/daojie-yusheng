@@ -25,15 +25,10 @@ export type NumericValueType = 'flat' | 'ratio_value' | 'rate_bp' | 'throughput'
 
 /** 五行元素属性组 */
 export interface ElementStatGroup {
-/** metal：定义该变量以承载业务值。 */
   metal: number;
-/** wood：定义该变量以承载业务值。 */
   wood: number;
-/** water：定义该变量以承载业务值。 */
   water: number;
-/** fire：定义该变量以承载业务值。 */
   fire: number;
-/** earth：定义该变量以承载业务值。 */
   earth: number;
 }
 
@@ -45,69 +40,37 @@ export type NumericScalarStatKey = typeof NUMERIC_SCALAR_STAT_KEYS[number];
 
 /** 完整数值属性集（含五行元素加成/减免） */
 export interface NumericStats {
-/** maxHp：定义该变量以承载业务值。 */
   maxHp: number;
-/** maxQi：定义该变量以承载业务值。 */
   maxQi: number;
-/** physAtk：定义该变量以承载业务值。 */
   physAtk: number;
-/** spellAtk：定义该变量以承载业务值。 */
   spellAtk: number;
-/** physDef：定义该变量以承载业务值。 */
   physDef: number;
-/** spellDef：定义该变量以承载业务值。 */
   spellDef: number;
-/** hit：定义该变量以承载业务值。 */
   hit: number;
-/** dodge：定义该变量以承载业务值。 */
   dodge: number;
-/** crit：定义该变量以承载业务值。 */
   crit: number;
-/** antiCrit：定义该变量以承载业务值。 */
   antiCrit: number;
-/** critDamage：定义该变量以承载业务值。 */
   critDamage: number;
-/** breakPower：定义该变量以承载业务值。 */
   breakPower: number;
-/** resolvePower：定义该变量以承载业务值。 */
   resolvePower: number;
-/** maxQiOutputPerTick：定义该变量以承载业务值。 */
   maxQiOutputPerTick: number;
-/** qiRegenRate：定义该变量以承载业务值。 */
   qiRegenRate: number;
-/** hpRegenRate：定义该变量以承载业务值。 */
   hpRegenRate: number;
-/** cooldownSpeed：定义该变量以承载业务值。 */
   cooldownSpeed: number;
-/** auraCostReduce：定义该变量以承载业务值。 */
   auraCostReduce: number;
-/** auraPowerRate：定义该变量以承载业务值。 */
   auraPowerRate: number;
-/** playerExpRate：定义该变量以承载业务值。 */
   playerExpRate: number;
-/** techniqueExpRate：定义该变量以承载业务值。 */
   techniqueExpRate: number;
-/** realmExpPerTick：定义该变量以承载业务值。 */
   realmExpPerTick: number;
-/** techniqueExpPerTick：定义该变量以承载业务值。 */
   techniqueExpPerTick: number;
-/** lootRate：定义该变量以承载业务值。 */
   lootRate: number;
-/** rareLootRate：定义该变量以承载业务值。 */
   rareLootRate: number;
-/** viewRange：定义该变量以承载业务值。 */
   viewRange: number;
-/** moveSpeed：定义该变量以承载业务值。 */
   moveSpeed: number;
-/** extraAggroRate：定义该变量以承载业务值。 */
   extraAggroRate: number;
-/** extraRange：定义该变量以承载业务值。 */
   extraRange: number;
-/** extraArea：定义该变量以承载业务值。 */
   extraArea: number;
-/** elementDamageBonus：定义该变量以承载业务值。 */
   elementDamageBonus: ElementStatGroup;
-/** elementDamageReduce：定义该变量以承载业务值。 */
   elementDamageReduce: ElementStatGroup;
 }
 
@@ -119,25 +82,15 @@ export interface PartialNumericStats extends Partial<Omit<NumericStats, 'element
 
 /** 具体属性乘区拆解 */
 export interface NumericStatBreakdownEntry {
-/** realmBaseValue：定义该变量以承载业务值。 */
   realmBaseValue: number;
-/** bonusBaseValue：定义该变量以承载业务值。 */
   bonusBaseValue: number;
-/** baseValue：定义该变量以承载业务值。 */
   baseValue: number;
-/** flatBuffValue：定义该变量以承载业务值。 */
   flatBuffValue: number;
-/** preMultiplierValue：定义该变量以承载业务值。 */
   preMultiplierValue: number;
-/** attrMultiplierPct：定义该变量以承载业务值。 */
   attrMultiplierPct: number;
-/** realmMultiplier：定义该变量以承载业务值。 */
   realmMultiplier: number;
-/** buffMultiplierPct：定义该变量以承载业务值。 */
   buffMultiplierPct: number;
-/** pillMultiplierPct：定义该变量以承载业务值。 */
   pillMultiplierPct: number;
-/** finalValue：定义该变量以承载业务值。 */
   finalValue: number;
 }
 
@@ -146,7 +99,6 @@ export type NumericStatBreakdownMap = Partial<Record<NumericScalarStatKey, Numer
 
 /** 数值修改器（来源标识 + 属性/数值增量） */
 export interface NumericModifier {
-/** source：定义该变量以承载业务值。 */
   source: string;
   baseAttrs?: Partial<Attributes>;
   stats?: PartialNumericStats;
@@ -156,29 +108,19 @@ export interface NumericModifier {
 
 /** RatioValue 除数配置（控制闪避/暴击等属性的收益递减曲线） */
 export interface NumericRatioDivisors {
-/** dodge：定义该变量以承载业务值。 */
   dodge: number;
-/** crit：定义该变量以承载业务值。 */
   crit: number;
-/** breakPower：定义该变量以承载业务值。 */
   breakPower: number;
-/** resolvePower：定义该变量以承载业务值。 */
   resolvePower: number;
-/** cooldownSpeed：定义该变量以承载业务值。 */
   cooldownSpeed: number;
-/** moveSpeed：定义该变量以承载业务值。 */
   moveSpeed: number;
-/** elementDamageReduce：定义该变量以承载业务值。 */
   elementDamageReduce: ElementStatGroup;
 }
 
 /** 境界数值模板（基础属性 + RatioValue 除数） */
 export interface RealmNumericTemplate {
-/** stage：定义该变量以承载业务值。 */
   stage: PlayerRealmStage;
-/** stats：定义该变量以承载业务值。 */
   stats: NumericStats;
-/** ratioDivisors：定义该变量以承载业务值。 */
   ratioDivisors: NumericRatioDivisors;
 }
 
@@ -252,7 +194,6 @@ export const NUMERIC_STATS_KEYS: (keyof NumericStats)[] = [
 
 /** 守护 Realm 模板 stats 结构的工具，确保字段完整 */
 export function ensureNumericStatsTemplateStats(stats: Partial<NumericStats>): NumericStats {
-/** missing：定义该变量以承载业务值。 */
   const missing: Array<keyof NumericStats> = [];
   for (const key of NUMERIC_STATS_KEYS) {
     if (!(key in stats)) {
@@ -429,7 +370,6 @@ export function addPartialNumericStats(target: NumericStats, patch?: PartialNume
 
 /** 合并基础数值与多个增量补丁 */
 export function mergeNumericStats(base: NumericStats, patches: readonly PartialNumericStats[]): NumericStats {
-/** result：定义该变量以承载业务值。 */
   const result = cloneNumericStats(base);
   for (const patch of patches) {
     addPartialNumericStats(result, patch);
@@ -486,19 +426,13 @@ export function calcQiCostWithOutputLimit(plannedCost: number, maxQiOutputPerTic
   if (maxQiOutputPerTick <= 0) return Number.POSITIVE_INFINITY;
   if (plannedCost <= maxQiOutputPerTick) return plannedCost;
 
-/** segment：定义该变量以承载业务值。 */
   const segment = maxQiOutputPerTick * 0.2;
   if (segment <= 0) return Number.POSITIVE_INFINITY;
 
-/** overflow：定义该变量以承载业务值。 */
   const overflow = plannedCost - maxQiOutputPerTick;
-/** fullSegments：定义该变量以承载业务值。 */
   const fullSegments = Math.floor(overflow / segment);
-/** remainder：定义该变量以承载业务值。 */
   const remainder = overflow - fullSegments * segment;
-/** fullSegmentCost：定义该变量以承载业务值。 */
   const fullSegmentCost = segment * fullSegments * (fullSegments + 3) / 2;
-/** remainderCost：定义该变量以承载业务值。 */
   const remainderCost = remainder * (fullSegments + 2);
   return maxQiOutputPerTick + fullSegmentCost + remainderCost;
 }

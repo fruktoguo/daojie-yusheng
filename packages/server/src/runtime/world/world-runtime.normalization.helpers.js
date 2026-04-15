@@ -1,13 +1,13 @@
 "use strict";
-/** 模块实现文件，负责当前职责边界内的业务逻辑。 */
+/** 运行时参数标准化工具：统一输入解析、比较稳定性与展示数据。 */
 Object.defineProperty(exports, "__esModule", { value: true });
-/** common_1：定义该变量以承载业务值。 */
+
 const common_1 = require("@nestjs/common");
-/** shared_1：定义该变量以承载业务值。 */
+
 const shared_1 = require("@mud/shared-next");
-/** normalizeRuntimeActionId：执行对应的业务逻辑。 */
+/** 统一动作 ID（兼容 legacy npc: 前缀）。 */
 function normalizeRuntimeActionId(actionIdInput) {
-/** actionId：定义该变量以承载业务值。 */
+
     const actionId = typeof actionIdInput === 'string' ? actionIdInput.trim() : '';
     if (!actionId) {
         return '';
@@ -17,52 +17,52 @@ function normalizeRuntimeActionId(actionIdInput) {
     }
     return actionId;
 }
-/** buildPublicInstanceId：执行对应的业务逻辑。 */
+/** 生成公开实例 ID，统一使用 public 前缀。 */
 function buildPublicInstanceId(templateId) {
     return `public:${templateId}`;
 }
-/** formatItemStackLabel：执行对应的业务逻辑。 */
+/** 生成物品堆叠用于列表展示的标签文本。 */
 function formatItemStackLabel(item) {
-/** label：定义该变量以承载业务值。 */
+
     const label = item.name ?? item.itemId;
     return item.count > 1 ? `${label} x${item.count}` : label;
 }
-/** formatItemListSummary：执行对应的业务逻辑。 */
+/** 将物品列表压缩成前若干项的摘要文本。 */
 function formatItemListSummary(items) {
-/** preview：定义该变量以承载业务值。 */
+
     const preview = items.slice(0, 3).map((entry) => formatItemStackLabel(entry));
     if (items.length <= 3) {
         return preview.join('、');
     }
     return `${preview.join('、')} 等 ${items.length} 种物品`;
 }
-/** cloneCombatEffect：执行对应的业务逻辑。 */
+/** 浅拷贝战斗特效对象，避免共享引用。 */
 function cloneCombatEffect(source) {
     return { ...source };
 }
-/** buildContainerSourceId：执行对应的业务逻辑。 */
+/** 按实例与容器 ID 拼接容器来源 key。 */
 function buildContainerSourceId(instanceId, containerId) {
     return `container:${instanceId}:${containerId}`;
 }
-/** isContainerSourceId：执行对应的业务逻辑。 */
+/** 判断字符串是否为容器来源 ID。 */
 function isContainerSourceId(sourceId) {
     return sourceId.startsWith('container:');
 }
-/** parseContainerSourceId：执行对应的业务逻辑。 */
+/** 解析容器来源 ID，提取实例和容器组件。 */
 function parseContainerSourceId(sourceId) {
     if (!isContainerSourceId(sourceId)) {
         return null;
     }
-/** prefixLength：定义该变量以承载业务值。 */
+
     const prefixLength = 'container:'.length;
-/** splitIndex：定义该变量以承载业务值。 */
+
     const splitIndex = sourceId.indexOf(':', prefixLength);
     if (splitIndex < 0) {
         return null;
     }
-/** instanceId：定义该变量以承载业务值。 */
+
     const instanceId = sourceId.slice(prefixLength, splitIndex).trim();
-/** containerId：定义该变量以承载业务值。 */
+
     const containerId = sourceId.slice(splitIndex + 1).trim();
     if (!instanceId || !containerId) {
         return null;
@@ -72,13 +72,13 @@ function parseContainerSourceId(sourceId) {
         containerId,
     };
 }
-/** createSyncedItemStackSignature：执行对应的业务逻辑。 */
+/** 生成可稳定比较的物品签名用于同步比对。 */
 function createSyncedItemStackSignature(item) {
-/** comparableEntries：定义该变量以承载业务值。 */
+
     const comparableEntries = Object.entries(item)
         .filter(([key, value]) => key !== 'count' && value !== undefined)
         .sort(([leftKey], [rightKey]) => compareStableKeys(leftKey, rightKey));
-/** signature：定义该变量以承载业务值。 */
+
     let signature = '';
     for (const [key, value] of comparableEntries) {
         signature += `${key}=`;
@@ -87,7 +87,7 @@ function createSyncedItemStackSignature(item) {
     }
     return signature;
 }
-/** compareStableKeys：执行对应的业务逻辑。 */
+/** 稳定 key 比较器。 */
 function compareStableKeys(left, right) {
     if (left < right) {
         return -1;
@@ -97,7 +97,7 @@ function compareStableKeys(left, right) {
     }
     return 0;
 }
-/** serializeStableComparableValue：执行对应的业务逻辑。 */
+/** 按类型序列化值，确保签名顺序稳定。 */
 function serializeStableComparableValue(value) {
     if (value === null) {
         return 'null';
@@ -112,7 +112,7 @@ function serializeStableComparableValue(value) {
         return value ? 'b:1' : 'b:0';
     }
     if (Array.isArray(value)) {
-/** serialized：定义该变量以承载业务值。 */
+
         let serialized = 'a[';
         for (let index = 0; index < value.length; index += 1) {
             if (index > 0) {
@@ -124,11 +124,11 @@ function serializeStableComparableValue(value) {
         return serialized;
     }
     if (typeof value === 'object') {
-/** entries：定义该变量以承载业务值。 */
+
         const entries = Object.entries(value)
             .filter(([, nestedValue]) => nestedValue !== undefined)
             .sort(([leftKey], [rightKey]) => compareStableKeys(leftKey, rightKey));
-/** serialized：定义该变量以承载业务值。 */
+
         let serialized = 'o{';
         for (let index = 0; index < entries.length; index += 1) {
             const [nestedKey, nestedValue] = entries[index];
@@ -143,13 +143,13 @@ function serializeStableComparableValue(value) {
     }
     return `u:${typeof value}`;
 }
-/** groupContainerLootRows：执行对应的业务逻辑。 */
+/** 按物品签名将容器条目按时间归组并合并数量。 */
 function groupContainerLootRows(entries) {
-/** rows：定义该变量以承载业务值。 */
+
     const rows = [];
-/** index：定义该变量以承载业务值。 */
+
     const index = new Map();
-/** sorted：定义该变量以承载业务值。 */
+
     const sorted = entries.slice().sort((left, right) => left.createdTick - right.createdTick);
     for (const entry of sorted) {
         const itemKey = createSyncedItemStackSignature(entry.item);
@@ -159,7 +159,7 @@ function groupContainerLootRows(entries) {
             existing.entries.push(entry);
             continue;
         }
-/** created：定义该变量以承载业务值。 */
+
         const created = {
             itemKey,
             item: { ...entry.item },
@@ -170,29 +170,29 @@ function groupContainerLootRows(entries) {
     }
     return rows;
 }
-/** hasHiddenContainerEntries：执行对应的业务逻辑。 */
+/** 检测容器内是否存在未公开条目。 */
 function hasHiddenContainerEntries(entries) {
     return entries.some((entry) => !entry.visible);
 }
-/** buildContainerWindowItems：执行对应的业务逻辑。 */
+/** 构建容器窗口可见条目的展示列表。 */
 function buildContainerWindowItems(entries) {
     return groupContainerLootRows(entries.filter((entry) => entry.visible)).map((entry) => ({
         itemKey: entry.itemKey,
         item: { ...entry.item },
     }));
 }
-/** cloneInventorySimulation：执行对应的业务逻辑。 */
+/** 克隆背包快照用于容量模拟。 */
 function cloneInventorySimulation(items) {
     return items.map((entry) => ({ ...entry }));
 }
-/** canReceiveContainerEntries：执行对应的业务逻辑。 */
+/** 验证在不提交真实背包下，容器条目是否可放入。 */
 function canReceiveContainerEntries(simulatedInventory, capacity, entries) {
-/** simulated：定义该变量以承载业务值。 */
+
     const simulated = cloneInventorySimulation(simulatedInventory);
     applyContainerEntriesToInventorySimulation(simulated, entries);
     return simulated.length <= capacity;
 }
-/** applyContainerEntriesToInventorySimulation：执行对应的业务逻辑。 */
+/** 将容器条目应用到背包模拟状态。 */
 function applyContainerEntriesToInventorySimulation(simulatedInventory, entries) {
     for (const entry of entries) {
         const item = entry.item;
@@ -204,18 +204,18 @@ function applyContainerEntriesToInventorySimulation(simulatedInventory, entries)
         simulatedInventory.push({ ...item });
     }
 }
-/** canReceiveContainerRow：执行对应的业务逻辑。 */
+/** 校验玩家背包是否可接收整行容器物品。 */
 function canReceiveContainerRow(player, entries) {
     return canReceiveContainerEntries(cloneInventorySimulation(player.inventory.items), player.inventory.capacity, entries);
 }
-/** removeContainerRowEntries：执行对应的业务逻辑。 */
+/** 从数组中移除指定容器条目。 */
 function removeContainerRowEntries(source, removed) {
     if (removed.length === 0) {
         return;
     }
-/** removedSet：定义该变量以承载业务值。 */
+
     const removedSet = new Set(removed);
-/** writeIndex：定义该变量以承载业务值。 */
+
     let writeIndex = 0;
     for (let index = 0; index < source.length; index += 1) {
         const entry = source[index];
@@ -226,8 +226,8 @@ function removeContainerRowEntries(source, removed) {
     }
     source.length = writeIndex;
 }
-/** buildLegacyNpcQuestProgressText：执行对应的业务逻辑。 */
-function buildLegacyNpcQuestProgressText(quest) {
+/** 生成 NPC 任务进度的用户可读文本。 */
+function buildNpcQuestProgressText(quest) {
     switch (quest.objectiveType) {
         case 'kill':
             return `去猎杀 ${quest.targetName}（${quest.progress}/${quest.required}）。`;
@@ -246,14 +246,14 @@ function buildLegacyNpcQuestProgressText(quest) {
             return quest.desc || quest.title;
     }
 }
-/** canReceiveItemStack：执行对应的业务逻辑。 */
+/** 判断单个物品堆叠是否可放入背包。 */
 function canReceiveItemStack(player, item) {
     if (player.inventory.items.some((entry) => entry.itemId === item.itemId)) {
         return true;
     }
     return player.inventory.items.length < player.inventory.capacity;
 }
-/** toQuestRewardItem：执行对应的业务逻辑。 */
+/** 将任务奖励条目规范化为标准展示对象。 */
 function toQuestRewardItem(item, fallback) {
     if (!item) {
         return fallback;
@@ -267,18 +267,18 @@ function toQuestRewardItem(item, fallback) {
         count: item.count,
     };
 }
-/** roundDurationMs：执行对应的业务逻辑。 */
+/** 四舍五入到三位小数并返回毫秒数。 */
 function roundDurationMs(value) {
     return Number(value.toFixed(3));
 }
-/** pushDurationMetric：执行对应的业务逻辑。 */
+/** 维护固定窗口长度的耗时指标序列。 */
 function pushDurationMetric(history, value) {
     history.push(value);
     if (history.length > 60) {
         history.shift();
     }
 }
-/** summarizeDurations：执行对应的业务逻辑。 */
+/** 汇总耗时序列，返回最近/平均/最大值。 */
 function summarizeDurations(last, history) {
     if (history.length === 0) {
         return {
@@ -287,9 +287,9 @@ function summarizeDurations(last, history) {
             max60: last,
         };
     }
-/** total：定义该变量以承载业务值。 */
+
     let total = 0;
-/** max：定义该变量以承载业务值。 */
+
     let max = 0;
     for (const value of history) {
         total += value;
@@ -303,11 +303,11 @@ function summarizeDurations(last, history) {
         max60: roundDurationMs(max),
     };
 }
-/** normalizeQuestLine：执行对应的业务逻辑。 */
+/** 任务主线类型校验与兜底。 */
 function normalizeQuestLine(value) {
     return value === 'main' || value === 'daily' || value === 'encounter' ? value : 'side';
 }
-/** normalizeQuestObjectiveType：执行对应的业务逻辑。 */
+/** 任务目标类型合法化，默认转为 kill。 */
 function normalizeQuestObjectiveType(value) {
     return value === 'talk'
         || value === 'submit_item'
@@ -317,7 +317,7 @@ function normalizeQuestObjectiveType(value) {
         ? value
         : 'kill';
 }
-/** normalizeQuestRequired：执行对应的业务逻辑。 */
+/** 任务目标数量归一化为正整数。 */
 function normalizeQuestRequired(quest, objectiveType) {
     if (objectiveType === 'submit_item') {
         if (Number.isInteger(quest.requiredItemCount) && Number(quest.requiredItemCount) > 0) {
@@ -332,7 +332,7 @@ function normalizeQuestRequired(quest, objectiveType) {
     }
     return 1;
 }
-/** normalizeQuestRealmStage：执行对应的业务逻辑。 */
+/** 任务境界目标归一为有效枚举值。 */
 function normalizeQuestRealmStage(value) {
     if (typeof value === 'number' && shared_1.PlayerRealmStage[value] !== undefined) {
         return value;
@@ -342,7 +342,7 @@ function normalizeQuestRealmStage(value) {
     }
     return undefined;
 }
-/** resolveQuestTargetLabel：执行对应的业务逻辑。 */
+/** 按目标类型解析任务面板显示标签。 */
 function resolveQuestTargetLabel(objectiveType, quest, targetRealmStage, targetNpcName, requiredItemName, techniqueName) {
     if (typeof quest.targetName === 'string' && quest.targetName.trim()) {
         return quest.targetName;
@@ -366,7 +366,7 @@ function resolveQuestTargetLabel(objectiveType, quest, targetRealmStage, targetN
     }
     return quest.title;
 }
-/** buildQuestRewardText：执行对应的业务逻辑。 */
+/** 生成任务奖励展示文本。 */
 function buildQuestRewardText(quest, rewards) {
     if (typeof quest.rewardText === 'string' && quest.rewardText.trim()) {
         return quest.rewardText;
@@ -376,7 +376,7 @@ function buildQuestRewardText(quest, rewards) {
     }
     return rewards.map((entry) => formatItemStackLabel(entry)).join('、');
 }
-/** cloneQuestState：执行对应的业务逻辑。 */
+/** 深拷贝任务状态，避免运行时态被外部污染。 */
 function cloneQuestState(quest, status = quest.status) {
     return {
         ...quest,
@@ -385,9 +385,9 @@ function cloneQuestState(quest, status = quest.status) {
         rewards: quest.rewards.map((reward) => ({ ...reward })),
     };
 }
-/** compareQuestViews：执行对应的业务逻辑。 */
+/** 任务列表稳定排序比较器。 */
 function compareQuestViews(left, right) {
-/** statusOrder：定义该变量以承载业务值。 */
+
     const statusOrder = {
         ready: 0,
         active: 1,
@@ -398,7 +398,7 @@ function compareQuestViews(left, right) {
         || compareStableStrings(left.line, right.line)
         || compareStableStrings(left.id, right.id);
 }
-/** compareStableStrings：执行对应的业务逻辑。 */
+/** 稳定字符串比较函数。 */
 function compareStableStrings(left, right) {
     if (left < right) {
         return -1;
@@ -408,7 +408,7 @@ function compareStableStrings(left, right) {
     }
     return 0;
 }
-/** parseDirection：执行对应的业务逻辑。 */
+/** 将外部输入解析为方向枚举。 */
 function parseDirection(input) {
     if (typeof input === 'number' && shared_1.Direction[input] !== undefined) {
         return input;
@@ -437,34 +437,34 @@ function parseDirection(input) {
     }
     throw new common_1.BadRequestException(`Unsupported direction: ${String(input)}`);
 }
-/** normalizeSlotIndex：执行对应的业务逻辑。 */
+/** 标准化物品槽位索引。 */
 function normalizeSlotIndex(input) {
     if (!Number.isFinite(input)) {
         throw new common_1.BadRequestException(`Invalid slotIndex: ${String(input)}`);
     }
     return Math.max(0, Math.trunc(Number(input)));
 }
-/** normalizeEquipSlot：执行对应的业务逻辑。 */
+/** 验证并规范化装备槽位枚举。 */
 function normalizeEquipSlot(input) {
-/** slot：定义该变量以承载业务值。 */
+
     const slot = typeof input === 'string' ? input.trim() : '';
     if (!shared_1.EQUIP_SLOTS.includes(slot)) {
         throw new common_1.BadRequestException(`Invalid equip slot: ${String(input)}`);
     }
     return slot;
 }
-/** normalizeTechniqueId：执行对应的业务逻辑。 */
+/** 标准化功法 ID，空值返回 null。 */
 function normalizeTechniqueId(input) {
     return typeof input === 'string' && input.trim() ? input.trim() : null;
 }
-/** normalizeShopQuantity：执行对应的业务逻辑。 */
+/** 标准化商店购买数量并确保合法。 */
 function normalizeShopQuantity(input) {
     if (typeof input !== 'number' || !Number.isSafeInteger(input) || input <= 0) {
         throw new common_1.BadRequestException('购买数量无效');
     }
     return Math.trunc(input);
 }
-/** normalizePositiveCount：执行对应的业务逻辑。 */
+/** 标准化正整数计数值。 */
 function normalizePositiveCount(input) {
     if (input === undefined || input === null) {
         return 1;
@@ -474,14 +474,14 @@ function normalizePositiveCount(input) {
     }
     return Math.max(1, Math.trunc(Number(input)));
 }
-/** normalizeCoordinate：执行对应的业务逻辑。 */
+/** 标准化坐标输入并取整。 */
 function normalizeCoordinate(input, label) {
     if (!Number.isFinite(input)) {
         throw new common_1.BadRequestException(`Invalid ${label}: ${String(input)}`);
     }
     return Math.trunc(Number(input));
 }
-/** normalizeRollCount：执行对应的业务逻辑。 */
+/** 标准化掉落 roll 次数，限制上限。 */
 function normalizeRollCount(input) {
     if (input === undefined || input === null) {
         return 1;
@@ -491,7 +491,7 @@ function normalizeRollCount(input) {
     }
     return Math.max(1, Math.min(1000, Math.trunc(Number(input))));
 }
-/** findPlayerSkill：执行对应的业务逻辑。 */
+/** 按 ID 在玩家已学习技能中查找条目。 */
 function findPlayerSkill(player, skillId) {
     for (const technique of player.techniques.techniques) {
         for (const skill of technique.skills ?? []) {
@@ -502,11 +502,11 @@ function findPlayerSkill(player, skillId) {
     }
     return null;
 }
-/** isHostileSkill：执行对应的业务逻辑。 */
+/** 判断技能是否包含伤害/对目标生效效果。 */
 function isHostileSkill(skill) {
     return skill.effects.some((effect) => effect.type === 'damage' || (effect.type === 'buff' && effect.target === 'target'));
 }
-/** getSkillEffectColor：执行对应的业务逻辑。 */
+/** 读取技能首个伤害特效颜色，用于战斗表现。 */
 function getSkillEffectColor(skill) {
     for (const effect of skill.effects) {
         if (effect.type === 'damage') {
@@ -515,23 +515,23 @@ function getSkillEffectColor(skill) {
     }
     return (0, shared_1.getDamageTrailColor)('spell');
 }
-/** resolveRuntimeSkillRange：执行对应的业务逻辑。 */
+/** 读取技能在运行时的实际攻击范围。 */
 function resolveRuntimeSkillRange(skill) {
-/** targetingRange：定义该变量以承载业务值。 */
+
     const targetingRange = skill.targeting?.range;
     if (typeof targetingRange === 'number' && Number.isFinite(targetingRange)) {
         return Math.max(1, Math.round(targetingRange));
     }
     return Math.max(1, Math.round(skill.range ?? 1));
 }
-/** resolveAutoBattleSkillQiCost：执行对应的业务逻辑。 */
+/** 计算自动战斗可允许的技能气耗上限。 */
 function resolveAutoBattleSkillQiCost(baseCost, maxQiOutputPerTick) {
-/** normalizedBaseCost：定义该变量以承载业务值。 */
+
     const normalizedBaseCost = Number.isFinite(baseCost) ? Math.max(0, Math.round(baseCost ?? 0)) : 0;
     if (normalizedBaseCost <= 0) {
         return 0;
     }
-/** outputCap：定义该变量以承载业务值。 */
+
     const outputCap = Number.isFinite(maxQiOutputPerTick) ? Math.max(0, Math.round(maxQiOutputPerTick)) : 0;
     if (outputCap <= 0) {
         return normalizedBaseCost;
@@ -557,7 +557,8 @@ exports.canReceiveContainerEntries = canReceiveContainerEntries;
 exports.applyContainerEntriesToInventorySimulation = applyContainerEntriesToInventorySimulation;
 exports.canReceiveContainerRow = canReceiveContainerRow;
 exports.removeContainerRowEntries = removeContainerRowEntries;
-exports.buildLegacyNpcQuestProgressText = buildLegacyNpcQuestProgressText;
+exports.buildNpcQuestProgressText = buildNpcQuestProgressText;
+exports.buildLegacyNpcQuestProgressText = buildNpcQuestProgressText;
 exports.canReceiveItemStack = canReceiveItemStack;
 exports.toQuestRewardItem = toQuestRewardItem;
 exports.roundDurationMs = roundDurationMs;
@@ -585,3 +586,4 @@ exports.isHostileSkill = isHostileSkill;
 exports.getSkillEffectColor = getSkillEffectColor;
 exports.resolveRuntimeSkillRange = resolveRuntimeSkillRange;
 exports.resolveAutoBattleSkillQiCost = resolveAutoBattleSkillQiCost;
+

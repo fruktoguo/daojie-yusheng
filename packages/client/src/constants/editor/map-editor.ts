@@ -69,8 +69,11 @@ export const EDITOR_BASE_CELL_SIZE = 32;
 
 /** 编辑器提供的缩放级别与默认索引，用于视角预设。 */
 export const EDITOR_ZOOM_LEVELS = [0.25, 0.5, 1, 2, 3] as const;
-/** DEFAULT_EDITOR_ZOOM_INDEX：定义该变量以承载业务值。 */
+/** DEFAULT_EDITOR_ZOOM_INDEX：编辑器缩放索引默认值。 */
 export const DEFAULT_EDITOR_ZOOM_INDEX = 3;
 
 /** 撤销栈最多保留的步数。 */
 export const MAX_UNDO_STEPS = 50;
+
+
+

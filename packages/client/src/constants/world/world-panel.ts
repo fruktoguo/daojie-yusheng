@@ -3,21 +3,14 @@
  */
 import { TechniqueRealm } from '@mud/shared-next';
 
-/** WorldGuide：定义该接口的能力与字段约束。 */
+/** WorldGuide：世界指南条目。 */
 export interface WorldGuide {
-/** title：定义该变量以承载业务值。 */
   title: string;
-/** recommendedRealm：定义该变量以承载业务值。 */
   recommendedRealm: string;
-/** route：定义该变量以承载业务值。 */
   route: string;
-/** mood：定义该变量以承载业务值。 */
   mood: string;
-/** desc：定义该变量以承载业务值。 */
   desc: string;
-/** resources：定义该变量以承载业务值。 */
   resources: string[];
-/** threats：定义该变量以承载业务值。 */
   threats: string[];
 }
 
@@ -134,4 +127,3 @@ export const MAP_FALLBACK: Record<string, { recommendedRealm: string }> = {
   spirit_ridge: { recommendedRealm: '天玑-大宗师' },
   sky_ruins: { recommendedRealm: '宗师-叩仙门' },
 };
-

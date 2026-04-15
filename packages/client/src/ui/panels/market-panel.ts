@@ -39,7 +39,7 @@ import { MARKET_MODAL_TABS, MARKET_PANE_HINT, MarketModalTab } from '../../const
 import { formatDisplayCountBadge, formatDisplayInteger, formatDisplayNumber } from '../../utils/number';
 import { getEquipSlotLabel, getItemTypeLabel, getTechniqueCategoryLabel } from '../../domain-labels';
 
-/** escapeHtml：执行对应的业务逻辑。 */
+/** 把普通文本转成可安全插入 HTML 的内容。 */
 function escapeHtml(value: string): string {
   return value
     .replaceAll('&', '&amp;')
@@ -49,16 +49,17 @@ function escapeHtml(value: string): string {
     .replaceAll("'", '&#39;');
 }
 
-/** escapeHtmlAttr：执行对应的业务逻辑。 */
+/** 复用同一套转义逻辑，避免属性值注入。 */
 function escapeHtmlAttr(value: string): string {
   return escapeHtml(value);
 }
 
+/** 拼出一行普通提示文本，供 tooltip 复用。 */
 function renderPlainTooltipLine(label: string, value: string): string {
   return `<span class="skill-tooltip-label">${escapeHtml(label)}：</span>${escapeHtml(value)}`;
 }
 
-/** MarketPanelCallbacks：定义该接口的能力与字段约束。 */
+/** 市场面板对外的请求/提交回调。 */
 interface MarketPanelCallbacks {
   onRequestMarket: () => void;
   onRequestListings: (payload: NEXT_C2S_RequestMarketListings) => void;
@@ -70,28 +71,25 @@ interface MarketPanelCallbacks {
   onClaimStorage: () => void;
 }
 
-/** MarketCategoryFilter：定义该类型的结构与数据语义。 */
+/** 市场主分类筛选项。 */
 type MarketCategoryFilter = 'all' | ItemType;
-/** MarketEquipmentFilter：定义该类型的结构与数据语义。 */
+/** 装备子分类筛选项。 */
 type MarketEquipmentFilter = 'all' | EquipSlot;
-/** MarketTechniqueFilter：定义该类型的结构与数据语义。 */
+/** 功法书子分类筛选项。 */
 type MarketTechniqueFilter = 'all' | TechniqueCategory;
-/** MarketTradeDialogKind：定义该类型的结构与数据语义。 */
+/** 交易弹窗的方向。 */
 type MarketTradeDialogKind = 'buy' | 'sell';
-/** MarketPriceAction：定义该类型的结构与数据语义。 */
+/** 交易弹窗里调价按钮的动作类型。 */
 type MarketPriceAction = 'decrease' | 'increase' | 'double' | 'half' | 'preset';
 
-/** MarketTradeDialogState：定义该接口的能力与字段约束。 */
+/** 交易弹窗当前的可编辑状态。 */
 interface MarketTradeDialogState {
-/** kind：定义该变量以承载业务值。 */
   kind: MarketTradeDialogKind;
-/** quantity：定义该变量以承载业务值。 */
   quantity: number;
-/** unitPrice：定义该变量以承载业务值。 */
   unitPrice: number;
 }
 
-/** MarketEnhancementEstimateView：定义坊市强化估算展示结构。 */
+/** 强化预估结果在界面里的展示结构。 */
 interface MarketEnhancementEstimateView {
   strategy: EnhancementExpectedCostStrategy;
   costLine: string;
@@ -102,21 +100,21 @@ interface MarketEnhancementEstimateView {
   basePricePending: boolean;
 }
 
-/** MARKET_DESKTOP_PAGE_SIZE：定义该变量以承载业务值。 */
+/** 桌面端市场列表的默认分页大小。 */
 const MARKET_DESKTOP_PAGE_SIZE = 32;
-/** MARKET_MOBILE_PAGE_SIZE：定义该变量以承载业务值。 */
+/** 移动端市场列表的默认分页大小。 */
 const MARKET_MOBILE_PAGE_SIZE = 12;
-/** MARKET_DESKTOP_COMPACT_PAGE_SIZE：定义该变量以承载业务值。 */
+/** 桌面端紧凑布局下的分页大小。 */
 const MARKET_DESKTOP_COMPACT_PAGE_SIZE = 28;
-/** MARKET_MOBILE_COMPACT_PAGE_SIZE：定义该变量以承载业务值。 */
+/** 移动端紧凑布局下的分页大小。 */
 const MARKET_MOBILE_COMPACT_PAGE_SIZE = 10;
-/** MARKET_DIALOG_MIN_PRICE：定义该变量以承载业务值。 */
+/** 交易弹窗允许输入的最低单价。 */
 const MARKET_DIALOG_MIN_PRICE = MARKET_PRICE_PRESET_VALUES[0];
-/** MARKET_DIALOG_MAX_PRICE：定义该变量以承载业务值。 */
+/** 交易弹窗允许输入的最高单价。 */
 const MARKET_DIALOG_MAX_PRICE = MARKET_MAX_UNIT_PRICE;
-/** MARKET_DIALOG_MAX_QUANTITY：定义该变量以承载业务值。 */
+/** 交易弹窗允许输入的最大数量。 */
 const MARKET_DIALOG_MAX_QUANTITY = 999_900_000_000;
-/** MARKET_TECHNIQUE_FILTERS：定义该变量以承载业务值。 */
+/** 功法书筛选按钮的静态配置。 */
 const MARKET_TECHNIQUE_FILTERS: Array<{ id: MarketTechniqueFilter; label: string }> = [
   { id: 'all', label: '全部功法' },
   { id: 'arts', label: getTechniqueCategoryLabel('arts') },
@@ -124,66 +122,77 @@ const MARKET_TECHNIQUE_FILTERS: Array<{ id: MarketTechniqueFilter; label: string
   { id: 'divine', label: getTechniqueCategoryLabel('divine') },
   { id: 'secret', label: getTechniqueCategoryLabel('secret') },
 ];
+/** 强化任务的基础耗时。 */
 const ENHANCEMENT_BASE_JOB_TICKS = 5;
+/** 物品等级每升一级额外增加的强化耗时。 */
 const ENHANCEMENT_JOB_TICKS_PER_ITEM_LEVEL = 1;
 
-/** MarketPanel：封装相关状态与行为。 */
+/** 市场面板实现，负责列表浏览、物品书籍、交易弹窗和强化预估。 */
 export class MarketPanel {
+  /** 市场详情弹窗的归属标识。 */
   private static readonly MODAL_OWNER = 'market-panel';
+  /** 交易弹窗根节点的 id。 */
   private static readonly TRADE_MODAL_ID = 'market-trade-modal-root';
+  /** 面板根节点，只负责首屏摘要和打开入口。 */
   private readonly pane = document.getElementById('pane-market')!;
-/** callbacks：定义该变量以承载业务值。 */
+  /** 市场面板对外回调，实际请求都交给外部处理。 */
   private callbacks: MarketPanelCallbacks | null = null;
-/** marketUpdate：定义该变量以承载业务值。 */
+  /** 当前市场主快照，列表、挂单和托管仓都从这里读。 */
   private marketUpdate: NEXT_S2C_MarketUpdate | null = null;
-/** itemBook：定义该变量以承载业务值。 */
+  /** 当前选中物品对应的书籍详情。 */
   private itemBook: MarketOrderBookView | null = null;
-/** marketListings：定义该变量以承载业务值。 */
+  /** 最近一次列表分页数据，供筛选和翻页回填。 */
   private marketListings: NEXT_S2C_MarketListings | null = null;
+  /** 物品书籍本地缓存，避免重复请求同一份详情。 */
   private readonly itemBookCache = new Map<string, MarketOrderBookView>();
+  /** 正在等待服务端回包的物品书籍 key。 */
   private readonly pendingItemBookKeys = new Set<string>();
-/** selectedItemKey：定义该变量以承载业务值。 */
+  /** 当前在市场列表里选中的物品 key。 */
   private selectedItemKey: string | null = null;
-/** modalTab：定义该变量以承载业务值。 */
+  /** 弹窗当前标签页。 */
   private modalTab: MarketModalTab = 'market';
-/** activeCategory：定义该变量以承载业务值。 */
+  /** 当前市场主分类筛选。 */
   private activeCategory: MarketCategoryFilter = 'all';
-/** activeEquipmentCategory：定义该变量以承载业务值。 */
+  /** 当前装备子分类筛选。 */
   private activeEquipmentCategory: MarketEquipmentFilter = 'all';
-/** activeTechniqueCategory：定义该变量以承载业务值。 */
+  /** 当前功法子分类筛选。 */
   private activeTechniqueCategory: MarketTechniqueFilter = 'all';
+  /** 当前列表页码。 */
   private currentPage = 1;
+  /** 交易历史页码。 */
   private tradeHistoryPage = 1;
+  /** 物品书籍是否正在加载。 */
   private itemBookLoading = false;
+  /** 交易历史是否正在加载。 */
   private tradeHistoryLoading = false;
-/** tradeDialog：定义该变量以承载业务值。 */
+  /** 当前交易弹窗状态。 */
   private tradeDialog: MarketTradeDialogState | null = null;
-/** tradeHistory：定义该变量以承载业务值。 */
+  /** 当前交易历史快照。 */
   private tradeHistory: NEXT_S2C_MarketTradeHistory | null = null;
-/** inventory：定义该变量以承载业务值。 */
+  /** 当前玩家背包快照，用于判断能否挂售和买入。 */
   private inventory: Inventory = { items: [], capacity: 0 };
+  /** 市场物品提示浮层，列表和详情共用。 */
   private tooltip = new FloatingTooltip('floating-tooltip market-item-tooltip');
-/** tooltipNode：定义该变量以承载业务值。 */
+  /** 当前正在显示提示的节点。 */
   private tooltipNode: HTMLElement | null = null;
 
-/** constructor：处理当前场景中的对应操作。 */
   constructor() {
     this.bindPaneEvents();
     this.renderPane();
   }
 
-/** setCallbacks：执行对应的业务逻辑。 */
+  /** 注册市场面板回调。 */
   setCallbacks(callbacks: MarketPanelCallbacks): void {
     this.callbacks = callbacks;
   }
 
-/** initFromPlayer：执行对应的业务逻辑。 */
+  /** 从玩家快照初始化背包和首屏。 */
   initFromPlayer(player: PlayerState): void {
     this.inventory = player.inventory;
     this.renderPane();
   }
 
-/** syncInventory：执行对应的业务逻辑。 */
+  /** 同步背包快照，并刷新依赖弹窗。 */
   syncInventory(inventory: Inventory): void {
     this.inventory = inventory;
     if (detailModalHost.isOpenFor(MarketPanel.MODAL_OWNER)) {
@@ -192,7 +201,7 @@ export class MarketPanel {
     }
   }
 
-/** updateMarket：执行对应的业务逻辑。 */
+  /** 更新市场主视图。 */
   updateMarket(data: NEXT_S2C_MarketUpdate): void {
     this.marketUpdate = data;
     if (!this.selectedItemKey && data.listedItems.length > 0) {
@@ -216,7 +225,7 @@ export class MarketPanel {
     }
   }
 
-/** updateListings：执行对应的业务逻辑。 */
+  /** 更新列表分页数据。 */
   updateListings(data: NEXT_S2C_MarketListings): void {
     this.marketListings = data;
     this.currentPage = Math.max(1, Math.floor(Number.isFinite(data.page) ? data.page : 1));
@@ -231,7 +240,7 @@ export class MarketPanel {
     }
   }
 
-/** updateOrders：执行对应的业务逻辑。 */
+  /** 更新我的订单数据。 */
   updateOrders(data: NEXT_S2C_MarketOrders): void {
     if (!this.marketUpdate) {
       return;
@@ -259,7 +268,7 @@ export class MarketPanel {
     }
   }
 
-/** updateStorage：执行对应的业务逻辑。 */
+  /** 同步坊市托管仓快照。 */
   updateStorage(data: NEXT_S2C_MarketStorage): void {
     if (!this.marketUpdate) {
       return;
@@ -276,7 +285,7 @@ export class MarketPanel {
     }
   }
 
-/** updateItemBook：执行对应的业务逻辑。 */
+  /** 同步物品书籍缓存，并尽量只刷新当前选中的详情。 */
   updateItemBook(data: NEXT_S2C_MarketItemBook): void {
     if (data.book) {
       this.itemBookCache.set(data.itemKey, data.book);
@@ -299,7 +308,7 @@ export class MarketPanel {
     this.syncTradeDialogOverlay();
   }
 
-/** updateTradeHistory：执行对应的业务逻辑。 */
+  /** 同步交易历史分页。 */
   updateTradeHistory(data: NEXT_S2C_MarketTradeHistory): void {
     this.tradeHistoryLoading = false;
     this.tradeHistory = data;
@@ -309,7 +318,7 @@ export class MarketPanel {
     }
   }
 
-/** clear：执行对应的业务逻辑。 */
+  /** 清空市场面板状态、缓存和临时弹窗。 */
   clear(): void {
     this.marketUpdate = null;
     this.itemBook = null;
@@ -333,13 +342,10 @@ export class MarketPanel {
     detailModalHost.close(MarketPanel.MODAL_OWNER);
   }
 
-/** renderPane：执行对应的业务逻辑。 */
+  /** 渲染面板首屏摘要，只保留打开坊市的入口。 */
   private renderPane(): void {
-/** listedCount：定义该变量以承载业务值。 */
     const listedCount = this.marketUpdate?.listedItems.length ?? 0;
-/** orderCount：定义该变量以承载业务值。 */
     const orderCount = this.marketUpdate?.myOrders.length ?? 0;
-/** storageCount：定义该变量以承载业务值。 */
     const storageCount = this.marketUpdate?.storage.items.reduce((sum, item) => sum + item.count, 0) ?? 0;
     preserveSelection(this.pane, () => {
       this.pane.innerHTML = `
@@ -357,10 +363,9 @@ export class MarketPanel {
     });
   }
 
-/** bindPaneEvents：执行对应的业务逻辑。 */
+  /** 只给首屏入口绑事件，避免重复监听整个面板。 */
   private bindPaneEvents(): void {
     this.pane.addEventListener('click', (event) => {
-/** target：定义该变量以承载业务值。 */
       const target = event.target;
       if (!(target instanceof HTMLElement)) {
         return;
@@ -372,7 +377,7 @@ export class MarketPanel {
     });
   }
 
-/** openModal：执行对应的业务逻辑。 */
+  /** 打开市场详情弹层，并按当前标签请求需要的数据。 */
   private openModal(): void {
     if (!this.selectedItemKey && this.marketUpdate?.listedItems.length) {
       this.selectedItemKey = this.marketUpdate.listedItems[0].itemKey;
@@ -388,9 +393,8 @@ export class MarketPanel {
     this.renderModal();
   }
 
-/** renderModal：执行对应的业务逻辑。 */
+  /** 渲染市场详情弹层。 */
   private renderModal(): void {
-/** marketUpdate：定义该变量以承载业务值。 */
     const marketUpdate = this.marketUpdate;
     detailModalHost.open({
       ownerId: MarketPanel.MODAL_OWNER,
@@ -408,7 +412,6 @@ export class MarketPanel {
       },
       onAfterRender: (body) => {
         body.querySelectorAll<HTMLElement>('[data-market-modal-tab]').forEach((button) => button.addEventListener('click', () => {
-/** tab：定义该变量以承载业务值。 */
           const tab = button.dataset.marketModalTab as MarketModalTab | undefined;
           if (!tab || tab === this.modalTab) {
             return;
@@ -424,7 +427,6 @@ export class MarketPanel {
         }));
 
         body.querySelectorAll<HTMLElement>('[data-market-category]').forEach((button) => button.addEventListener('click', () => {
-/** category：定义该变量以承载业务值。 */
           const category = button.dataset.marketCategory as MarketCategoryFilter | undefined;
           if (!category || category === this.activeCategory) {
             return;
@@ -444,7 +446,6 @@ export class MarketPanel {
         }));
 
         body.querySelectorAll<HTMLElement>('[data-market-equipment-category]').forEach((button) => button.addEventListener('click', () => {
-/** category：定义该变量以承载业务值。 */
           const category = button.dataset.marketEquipmentCategory as MarketEquipmentFilter | undefined;
           if (!category || category === this.activeEquipmentCategory) {
             return;
@@ -458,7 +459,6 @@ export class MarketPanel {
         }));
 
         body.querySelectorAll<HTMLElement>('[data-market-technique-category]').forEach((button) => button.addEventListener('click', () => {
-/** category：定义该变量以承载业务值。 */
           const category = button.dataset.marketTechniqueCategory as MarketTechniqueFilter | undefined;
           if (!category || category === this.activeTechniqueCategory) {
             return;
@@ -472,7 +472,6 @@ export class MarketPanel {
         }));
 
         body.querySelectorAll<HTMLElement>('[data-market-page]').forEach((button) => button.addEventListener('click', () => {
-/** nextPage：定义该变量以承载业务值。 */
           const nextPage = Number.parseInt(button.dataset.marketPage ?? '1', 10);
           if (!Number.isFinite(nextPage) || nextPage === this.currentPage) {
             return;
@@ -485,7 +484,6 @@ export class MarketPanel {
         }));
 
         body.querySelectorAll<HTMLElement>('[data-market-history-page]').forEach((button) => button.addEventListener('click', () => {
-/** nextPage：定义该变量以承载业务值。 */
           const nextPage = Number.parseInt(button.dataset.marketHistoryPage ?? '1', 10);
           if (!Number.isFinite(nextPage) || nextPage === this.tradeHistoryPage) {
             return;
@@ -495,7 +493,6 @@ export class MarketPanel {
         }));
 
         body.querySelectorAll<HTMLElement>('[data-market-select-item]').forEach((button) => button.addEventListener('click', () => {
-/** itemKey：定义该变量以承载业务值。 */
           const itemKey = button.dataset.marketSelectItem;
           if (!itemKey) {
             return;
@@ -510,7 +507,6 @@ export class MarketPanel {
         this.bindBookPanelActionEvents(body);
 
         body.querySelectorAll<HTMLElement>('[data-market-cancel-order]').forEach((button) => button.addEventListener('click', () => {
-/** orderId：定义该变量以承载业务值。 */
           const orderId = button.dataset.marketCancelOrder;
           if (!orderId) {
             return;
@@ -528,9 +524,8 @@ export class MarketPanel {
     });
   }
 
-/** renderModalBody：执行对应的业务逻辑。 */
+  /** 渲染市场弹层主体和右侧分栏。 */
   private renderModalBody(update: NEXT_S2C_MarketUpdate): string {
-/** tabs：定义该变量以承载业务值。 */
     const tabs = MARKET_MODAL_TABS
       .map((tab) => `<button class="market-side-tab ui-workspace-rail-tab ${this.modalTab === tab.id ? 'active' : ''}" data-market-modal-tab="${tab.id}" type="button">${tab.label}</button>`)
       .join('');
@@ -551,30 +546,22 @@ export class MarketPanel {
     `;
   }
 
-/** renderMarketTab：执行对应的业务逻辑。 */
+  /** 渲染市场列表页和右侧书籍面板。 */
   private renderMarketTab(update: NEXT_S2C_MarketUpdate): string {
-/** listedItems：定义该变量以承载业务值。 */
     const listedItems = this.getVisibleListedItems(update);
     if (listedItems.length === 0) {
       return '<div class="empty-hint">当前分类下暂时没有物品。</div>';
     }
-/** pagination：定义该变量以承载业务值。 */
     const pagination = this.getPaginationState(listedItems);
-/** selectedItem：定义该变量以承载业务值。 */
     const selectedItem = pagination.items.find((item) => item.itemKey === this.selectedItemKey) ?? pagination.items[0];
-/** cards：定义该变量以承载业务值。 */
     const cards = pagination.items.map((entry) => this.renderListedItem(entry, selectedItem.itemKey)).join('');
-/** orderBook：定义该变量以承载业务值。 */
     const orderBook = this.itemBook && this.itemBook.itemKey === selectedItem.itemKey ? this.itemBook : null;
-/** categoryTabs：定义该变量以承载业务值。 */
     const categoryTabs = this.renderCategoryTabs(update);
-/** subcategoryTabs：定义该变量以承载业务值。 */
     const subcategoryTabs = this.activeCategory === 'equipment'
       ? this.renderEquipmentTabs(update)
       : this.activeCategory === 'skill_book'
         ? this.renderTechniqueTabs(update)
         : '';
-/** compactList：定义该变量以承载业务值。 */
     const compactList = this.hasCompactCategoryLayout();
     return `
       <div class="market-market-tab">
@@ -593,11 +580,9 @@ export class MarketPanel {
     `;
   }
 
-/** renderListedItem：执行对应的业务逻辑。 */
+  /** 渲染一张市场列表卡片。 */
   private renderListedItem(entry: MarketListedItemView, activeItemKey: string): string {
-/** ownedCount：定义该变量以承载业务值。 */
     const ownedCount = this.findMatchingInventoryCount(entry.item);
-/** ownedLabel：定义该变量以承载业务值。 */
     const ownedLabel = ownedCount > 0
       ? `<span class="market-item-cell-owned">${formatDisplayCountBadge(ownedCount)}</span>`
       : '';
@@ -615,13 +600,10 @@ export class MarketPanel {
     `;
   }
 
-/** renderBookPanel：执行对应的业务逻辑。 */
+  /** 渲染选中物品的卖盘、买盘和快捷操作。 */
   private renderBookPanel(entry: MarketListedItemView, book: MarketOrderBookView | null, currencyName: string): string {
-/** matchedInventoryCount：定义该变量以承载业务值。 */
     const matchedInventoryCount = this.findMatchingInventoryCount(entry.item);
-/** sellConflict：定义该变量以承载业务值。 */
     const sellConflict = this.findConflictingOwnOrder(entry.itemKey, 'sell');
-/** buyConflict：定义该变量以承载业务值。 */
     const buyConflict = this.findConflictingOwnOrder(entry.itemKey, 'buy');
     return `
       <div class="market-book-header">
@@ -654,7 +636,6 @@ export class MarketPanel {
           ${book ? this.renderPriceLevels(book.buys, currencyName, '当前还没有求购。', {
             kind: 'sell',
             label: '出售',
-/** disabled：定义该变量以承载业务值。 */
             disabled: matchedInventoryCount <= 0 || Boolean(sellConflict),
           }) : this.renderBookLoading(this.itemBookLoading ? '买盘同步中……' : '当前还没有求购。')}
         </div>
@@ -662,14 +643,13 @@ export class MarketPanel {
     `;
   }
 
+  /** 渲染一档买卖盘价格和快捷下单按钮。 */
   private renderPriceLevels(
     levels: MarketOrderBookView['sells'],
     currencyName: string,
     emptyText: string,
     quickAction?: {
-/** kind：定义该变量以承载业务值。 */
       kind: MarketTradeDialogKind;
-/** label：定义该变量以承载业务值。 */
       label: string;
       disabled?: boolean;
     },
@@ -696,18 +676,15 @@ export class MarketPanel {
     `).join('');
   }
 
-/** renderBookLoading：执行对应的业务逻辑。 */
+  /** 物品书籍还没回来时的占位文案。 */
   private renderBookLoading(text: string): string {
     return `<div class="empty-hint">${escapeHtml(text)}</div>`;
   }
 
-/** renderMyOrdersTab：执行对应的业务逻辑。 */
+  /** 渲染我的挂单、求购单和托管仓。 */
   private renderMyOrdersTab(update: NEXT_S2C_MarketUpdate): string {
-/** buyOrders：定义该变量以承载业务值。 */
     const buyOrders = update.myOrders.filter((order) => order.side === 'buy');
-/** sellOrders：定义该变量以承载业务值。 */
     const sellOrders = update.myOrders.filter((order) => order.side === 'sell');
-/** storage：定义该变量以承载业务值。 */
     const storage = update.storage;
     return `
       <div class="market-my-orders">
@@ -732,22 +709,16 @@ export class MarketPanel {
     `;
   }
 
-/** renderTradeHistoryTab：执行对应的业务逻辑。 */
+  /** 渲染交易历史分页。 */
   private renderTradeHistoryTab(currencyName: string): string {
-/** history：定义该变量以承载业务值。 */
     const history = this.tradeHistory;
     if (this.tradeHistoryLoading && !history) {
       return '<div class="empty-hint">交易记录同步中……</div>';
     }
-/** records：定义该变量以承载业务值。 */
     const records = history?.records ?? [];
-/** page：定义该变量以承载业务值。 */
     const page = history?.page ?? this.tradeHistoryPage;
-/** pageSize：定义该变量以承载业务值。 */
     const pageSize = history?.pageSize ?? 10;
-/** totalVisible：定义该变量以承载业务值。 */
     const totalVisible = history?.totalVisible ?? 0;
-/** totalPages：定义该变量以承载业务值。 */
     const totalPages = Math.max(1, Math.ceil(totalVisible / Math.max(1, pageSize)));
     return `
       <div class="market-trade-history">
@@ -776,7 +747,7 @@ export class MarketPanel {
     `;
   }
 
-/** renderOwnOrder：执行对应的业务逻辑。 */
+  /** 渲染一条我的挂单卡片。 */
   private renderOwnOrder(order: MarketOwnOrderView, currencyName: string): string {
     return `
       <div class="market-order-card ui-surface-card ui-surface-card--compact">
@@ -790,7 +761,7 @@ export class MarketPanel {
     `;
   }
 
-/** renderStorage：执行对应的业务逻辑。 */
+  /** 渲染坊市托管仓列表。 */
   private renderStorage(storage: MarketStorage): string {
     if (storage.items.length === 0) {
       return '<div class="empty-hint">托管仓空空如也。</div>';
@@ -807,7 +778,7 @@ export class MarketPanel {
     `;
   }
 
-/** renderListToolbar：执行对应的业务逻辑。 */
+  /** 渲染列表翻页工具条。 */
   private renderListToolbar(page: number, totalPages: number, totalItems: number): string {
     return `
       <div class="market-list-toolbar ui-action-row">
@@ -820,38 +791,24 @@ export class MarketPanel {
     `;
   }
 
-/** renderTradeDialog：执行对应的业务逻辑。 */
+  /** 渲染交易弹窗，只保存临时输入状态。 */
   private renderTradeDialog(entry: MarketListedItemView, currencyItemId: string, currencyName: string): string {
     if (!this.tradeDialog) {
       return '';
     }
-/** dialog：定义该变量以承载业务值。 */
     const dialog = this.tradeDialog;
-/** matchedInventoryCount：定义该变量以承载业务值。 */
     const matchedInventoryCount = this.findMatchingInventoryCount(entry.item);
-/** matchedSlotIndex：定义该变量以承载业务值。 */
     const matchedSlotIndex = this.findMatchingInventorySlot(entry.item);
-/** isBuy：定义该变量以承载业务值。 */
     const isBuy = dialog.kind === 'buy';
-/** conflictOrder：定义该变量以承载业务值。 */
     const conflictOrder = this.findConflictingOwnOrder(entry.itemKey, dialog.kind);
-/** ownedCurrency：定义该变量以承载业务值。 */
     const ownedCurrency = this.findInventoryItemCountByItemId(currencyItemId);
-/** quantityStep：定义该变量以承载业务值。 */
     const quantityStep = this.getTradeDialogQuantityStep(dialog.unitPrice);
-/** quantityMax：定义该变量以承载业务值。 */
     const quantityMax = this.getTradeDialogQuantityMax(entry, dialog.kind, dialog.unitPrice);
-/** totalCost：定义该变量以承载业务值。 */
     const totalCost = this.getMarketTradeTotalCost(dialog.quantity, dialog.unitPrice);
-/** insufficientCurrency：定义该变量以承载业务值。 */
     const insufficientCurrency = isBuy && totalCost !== null && totalCost > ownedCurrency;
-/** insufficientStepQuantity：定义该变量以承载业务值。 */
     const insufficientStepQuantity = quantityMax <= 0;
-/** title：定义该变量以承载业务值。 */
     const title = isBuy ? '发起求购' : '发起挂售';
-/** actionLabel：定义该变量以承载业务值。 */
     const actionLabel = isBuy ? '确认求购' : '确认挂售';
-/** disabled：定义该变量以承载业务值。 */
     const disabled = Boolean(conflictOrder)
       || ((!isBuy && (matchedSlotIndex === null || matchedInventoryCount <= 0)) || insufficientCurrency || insufficientStepQuantity || totalCost === null);
     return `
@@ -946,31 +903,26 @@ export class MarketPanel {
     `;
   }
 
+  /** 给书籍面板里的快捷按钮装事件。 */
   private bindBookPanelActionEvents(root: ParentNode): void {
     root.querySelectorAll<HTMLElement>('[data-market-open-dialog]').forEach((button) => button.addEventListener('click', () => {
-/** kind：定义该变量以承载业务值。 */
       const kind = button.dataset.marketOpenDialog as MarketTradeDialogKind | undefined;
-/** selected：定义该变量以承载业务值。 */
       const selected = this.getSelectedListedItem(this.marketUpdate);
       if (!kind || !selected) {
         return;
       }
-/** presetPrice：定义该变量以承载业务值。 */
       const presetPrice = this.readDatasetNumber(button.dataset.marketOpenDialogPrice);
       this.openTradeDialog(selected, kind, presetPrice);
     }));
   }
 
-/** bindItemTooltipEvents：执行对应的业务逻辑。 */
+  /** 给会显示物品提示的节点绑定悬浮逻辑。 */
   private bindItemTooltipEvents(body: HTMLElement): void {
-/** nodes：定义该变量以承载业务值。 */
     const nodes = body.querySelectorAll<HTMLElement>('[data-market-item-tooltip]');
     if (nodes.length === 0) {
       return;
     }
-/** tapMode：定义该变量以承载业务值。 */
     const tapMode = prefersPinnedTooltipInteraction();
-/** showTooltip：定义该变量以承载业务值。 */
     const showTooltip = (node: HTMLElement, event: PointerEvent): void => {
       const tooltip = this.resolveMarketTooltipPayload(node);
       if (!tooltip) {
@@ -1029,6 +981,7 @@ export class MarketPanel {
     });
   }
 
+  /** 读取当前已打开的市场弹层 body。 */
   private getOpenModalBody(): HTMLElement | null {
     if (!detailModalHost.isOpenFor(MarketPanel.MODAL_OWNER)) {
       return null;
@@ -1036,19 +989,17 @@ export class MarketPanel {
     return document.getElementById('detail-modal-body');
   }
 
+  /** 只同步当前可见区域里的背包相关状态。 */
   private syncVisibleMarketInventoryState(): void {
     if (this.modalTab !== 'market') {
       return;
     }
-/** body：定义该变量以承载业务值。 */
     const body = this.getOpenModalBody();
     if (!body) {
       return;
     }
     body.querySelectorAll<HTMLElement>('[data-market-select-item]').forEach((button) => {
-/** itemKey：定义该变量以承载业务值。 */
       const itemKey = button.dataset.marketSelectItem;
-/** entry：定义该变量以承载业务值。 */
       const entry = itemKey
         ? this.marketUpdate?.listedItems.find((item) => item.itemKey === itemKey) ?? null
         : null;
@@ -1060,13 +1011,12 @@ export class MarketPanel {
     this.syncSelectedBookActionButtons(body);
   }
 
+  /** 同步列表卡片右侧的已持有数量徽记。 */
   private syncOwnedBadge(button: HTMLElement, ownedCount: number): void {
-/** nameContainer：定义该变量以承载业务值。 */
     const nameContainer = button.querySelector<HTMLElement>('.market-item-cell-name');
     if (!nameContainer) {
       return;
     }
-/** badge：定义该变量以承载业务值。 */
     let badge = nameContainer.querySelector<HTMLElement>('.market-item-cell-owned');
     if (ownedCount > 0) {
       if (!badge) {
@@ -1080,25 +1030,20 @@ export class MarketPanel {
     badge?.remove();
   }
 
+  /** 同步选中物品的挂售/求购按钮可用性。 */
   private syncSelectedBookActionButtons(body: HTMLElement): void {
-/** selected：定义该变量以承载业务值。 */
     const selected = this.getSelectedListedItem(this.marketUpdate);
     if (!selected) {
       return;
     }
-/** matchedInventoryCount：定义该变量以承载业务值。 */
     const matchedInventoryCount = this.findMatchingInventoryCount(selected.item);
-/** sellConflict：定义该变量以承载业务值。 */
     const sellConflict = this.findConflictingOwnOrder(selected.itemKey, 'sell');
-/** buyConflict：定义该变量以承载业务值。 */
     const buyConflict = this.findConflictingOwnOrder(selected.itemKey, 'buy');
     body.querySelectorAll<HTMLElement>('[data-market-open-dialog]').forEach((button) => {
-/** kind：定义该变量以承载业务值。 */
       const kind = button.dataset.marketOpenDialog as MarketTradeDialogKind | undefined;
       if (!kind) {
         return;
       }
-/** disabled：定义该变量以承载业务值。 */
       const disabled = kind === 'sell'
         ? matchedInventoryCount <= 0 || Boolean(sellConflict)
         : Boolean(buyConflict);
@@ -1106,46 +1051,39 @@ export class MarketPanel {
     });
   }
 
+  /** 只重绘右侧书籍面板，不动列表主体。 */
   private patchSelectedBookPanel(): void {
     if (this.modalTab !== 'market') {
       return;
     }
-/** body：定义该变量以承载业务值。 */
     const body = this.getOpenModalBody();
     if (!body) {
       return;
     }
-/** bookPanel：定义该变量以承载业务值。 */
     const bookPanel = body.querySelector<HTMLElement>('.market-book-panel');
-/** selected：定义该变量以承载业务值。 */
     const selected = this.getSelectedListedItem(this.marketUpdate);
-/** update：定义该变量以承载业务值。 */
     const update = this.marketUpdate;
     if (!bookPanel || !selected || !update) {
       return;
     }
-/** orderBook：定义该变量以承载业务值。 */
     const orderBook = this.itemBook && this.itemBook.itemKey === selected.itemKey ? this.itemBook : null;
     bookPanel.innerHTML = this.renderBookPanel(selected, orderBook, update.currencyItemName);
     this.bindBookPanelActionEvents(bookPanel);
     this.bindItemTooltipEvents(bookPanel);
   }
 
-/** getSelectedListedItem：执行对应的业务逻辑。 */
+  /** 读取当前选中的列表物品。 */
   private getSelectedListedItem(update: NEXT_S2C_MarketUpdate | null): MarketListedItemView | null {
-/** visibleItems：定义该变量以承载业务值。 */
     const visibleItems = this.getVisibleListedItems(update);
     if (visibleItems.length === 0) {
       return null;
     }
-/** pagination：定义该变量以承载业务值。 */
     const pagination = this.getPaginationState(visibleItems);
     return pagination.items.find((item) => item.itemKey === this.selectedItemKey) ?? pagination.items[0] ?? null;
   }
 
-/** renderCategoryTabs：执行对应的业务逻辑。 */
+  /** 渲染主分类标签。 */
   private renderCategoryTabs(update: NEXT_S2C_MarketUpdate): string {
-/** categories：定义该变量以承载业务值。 */
     const categories: Array<{ id: MarketCategoryFilter; label: string; count: number }> = [
       { id: 'all', label: '全部', count: update.listedItems.length },
       ...ITEM_TYPES.map((type) => ({
@@ -1165,9 +1103,8 @@ export class MarketPanel {
       .join('');
   }
 
-/** renderEquipmentTabs：执行对应的业务逻辑。 */
+  /** 渲染装备子分类标签。 */
   private renderEquipmentTabs(update: NEXT_S2C_MarketUpdate): string {
-/** categories：定义该变量以承载业务值。 */
     const categories: Array<{ id: MarketEquipmentFilter; label: string; count: number }> = [
       {
         id: 'all',
@@ -1191,9 +1128,8 @@ export class MarketPanel {
       .join('');
   }
 
-/** renderTechniqueTabs：执行对应的业务逻辑。 */
+  /** 渲染功法书子分类标签。 */
   private renderTechniqueTabs(update: NEXT_S2C_MarketUpdate): string {
-/** categories：定义该变量以承载业务值。 */
     const categories = MARKET_TECHNIQUE_FILTERS.map((category) => ({
       ...category,
       count: update.listedItems.filter((item) => (
@@ -1212,12 +1148,11 @@ export class MarketPanel {
       .join('');
   }
 
-/** getVisibleListedItems：执行对应的业务逻辑。 */
+  /** 按当前分类筛选出可见列表物品。 */
   private getVisibleListedItems(update: NEXT_S2C_MarketUpdate | null): MarketListedItemView[] {
     if (!update) {
       return [];
     }
-/** items：定义该变量以承载业务值。 */
     let items = update.listedItems;
     if (this.activeCategory !== 'all') {
       items = items.filter((item) => item.item.type === this.activeCategory);
@@ -1231,23 +1166,16 @@ export class MarketPanel {
     return items;
   }
 
-/** getPaginationState：执行对应的业务逻辑。 */
+  /** 计算当前列表分页状态。 */
   private getPaginationState(items: MarketListedItemView[]): {
-/** page：定义该变量以承载业务值。 */
     page: number;
-/** totalPages：定义该变量以承载业务值。 */
     totalPages: number;
-/** items：定义该变量以承载业务值。 */
     items: MarketListedItemView[];
   } {
-/** pageSize：定义该变量以承载业务值。 */
     const pageSize = this.getMarketPageSize();
-/** totalPages：定义该变量以承载业务值。 */
     const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
-/** page：定义该变量以承载业务值。 */
     const page = this.clampPage(this.currentPage, items.length);
     this.currentPage = page;
-/** start：定义该变量以承载业务值。 */
     const start = (page - 1) * pageSize;
     return {
       page,
@@ -1256,9 +1184,8 @@ export class MarketPanel {
     };
   }
 
-/** clampPage：执行对应的业务逻辑。 */
+  /** 把页码夹到合法范围内。 */
   private clampPage(page: number, totalItems: number): number {
-/** totalPages：定义该变量以承载业务值。 */
     const totalPages = Math.max(1, Math.ceil(totalItems / this.getMarketPageSize()));
     if (!Number.isFinite(page)) {
       return 1;
@@ -1266,12 +1193,11 @@ export class MarketPanel {
     return Math.max(1, Math.min(totalPages, Math.floor(page)));
   }
 
-/** getMarketPageSize：执行对应的业务逻辑。 */
+  /** 根据视口和布局模式选择分页大小。 */
   private getMarketPageSize(): number {
     if (typeof window === 'undefined') {
       return this.hasCompactCategoryLayout() ? MARKET_DESKTOP_COMPACT_PAGE_SIZE : MARKET_DESKTOP_PAGE_SIZE;
     }
-/** mobileLayout：定义该变量以承载业务值。 */
     const mobileLayout = window.matchMedia('(max-width: 920px)').matches
       || (window.matchMedia('(max-width: 1180px)').matches
         && (window.matchMedia('(pointer: coarse)').matches || window.matchMedia('(hover: none)').matches));
@@ -1281,12 +1207,12 @@ export class MarketPanel {
     return mobileLayout ? MARKET_MOBILE_PAGE_SIZE : MARKET_DESKTOP_PAGE_SIZE;
   }
 
-/** hasCompactCategoryLayout：执行对应的业务逻辑。 */
+  /** 判断当前是否该用紧凑型分类布局。 */
   private hasCompactCategoryLayout(): boolean {
     return this.activeCategory === 'equipment' || this.activeCategory === 'skill_book';
   }
 
-/** resolveTechniqueCategoryForItem：执行对应的业务逻辑。 */
+  /** 把技能书物品映射到具体功法分类。 */
   private resolveTechniqueCategoryForItem(item: ItemStack): TechniqueCategory | null {
     if (item.type !== 'skill_book') {
       return null;
@@ -1294,17 +1220,12 @@ export class MarketPanel {
     return getLocalTechniqueCategoryForBookItem(item.itemId);
   }
 
-/** syncPageSelection：执行对应的业务逻辑。 */
+  /** 保证当前页里总有一个可见物品处于选中状态。 */
   private syncPageSelection(): void {
-/** visibleItems：定义该变量以承载业务值。 */
     const visibleItems = this.getVisibleListedItems(this.marketUpdate);
-/** pagination：定义该变量以承载业务值。 */
     const pagination = this.getPaginationState(visibleItems);
-/** currentItems：定义该变量以承载业务值。 */
     const currentItems = pagination.items;
-/** hasSelected：定义该变量以承载业务值。 */
     const hasSelected = currentItems.some((item) => item.itemKey === this.selectedItemKey);
-/** nextSelected：定义该变量以承载业务值。 */
     const nextSelected = hasSelected ? this.selectedItemKey : currentItems[0]?.itemKey ?? null;
     if (nextSelected !== this.selectedItemKey) {
       this.selectedItemKey = nextSelected;
@@ -1315,20 +1236,20 @@ export class MarketPanel {
     }
   }
 
-/** requestItemBook：执行对应的业务逻辑。 */
+  /** 向外部请求某个物品的书籍详情。 */
   private requestItemBook(itemKey: string): void {
     this.itemBookLoading = true;
     this.callbacks?.onRequestItemBook(itemKey);
   }
 
-/** requestTradeHistory：执行对应的业务逻辑。 */
+  /** 向外部请求交易历史分页。 */
   private requestTradeHistory(page: number): void {
     this.tradeHistoryLoading = true;
     this.tradeHistoryPage = Math.max(1, Math.floor(Number.isFinite(page) ? page : 1));
     this.callbacks?.onRequestTradeHistory(this.tradeHistoryPage);
   }
 
-/** requestListings：执行对应的业务逻辑。 */
+  /** 向外部请求当前筛选条件下的列表分页。 */
   private requestListings(page: number): void {
     this.callbacks?.onRequestListings({
       page: Math.max(1, Math.floor(Number.isFinite(page) ? page : 1)),
@@ -1339,6 +1260,7 @@ export class MarketPanel {
     });
   }
 
+  /** 把列表分页回填进市场主快照。 */
   private mergeListingsIntoMarketUpdate(update: NEXT_S2C_MarketUpdate | null, data: NEXT_S2C_MarketListings): NEXT_S2C_MarketUpdate | null {
     const entries = data.items.flatMap((entry) => entry.variants.map((variant) => ({
       itemKey: variant.itemKey,
@@ -1371,9 +1293,8 @@ export class MarketPanel {
     };
   }
 
-/** openTradeDialog：执行对应的业务逻辑。 */
+  /** 打开交易弹窗，并用当前盘面价格作为初始值。 */
   private openTradeDialog(entry: MarketListedItemView, kind: MarketTradeDialogKind, preferredPrice?: number | null): void {
-/** unitPrice：定义该变量以承载业务值。 */
     const unitPrice = this.getDefaultTradeDialogPrice(entry, kind, preferredPrice);
     this.tradeDialog = {
       kind,
@@ -1383,13 +1304,10 @@ export class MarketPanel {
     this.syncTradeDialogOverlay();
   }
 
-/** syncTradeDialogOverlay：执行对应的业务逻辑。 */
+  /** 根据当前临时态同步交易弹窗浮层。 */
   private syncTradeDialogOverlay(): void {
-/** root：定义该变量以承载业务值。 */
     const root = this.getTradeDialogOverlayRoot();
-/** update：定义该变量以承载业务值。 */
     const update = this.marketUpdate;
-/** selected：定义该变量以承载业务值。 */
     const selected = this.getSelectedListedItem(update);
     if (!this.tradeDialog || this.modalTab !== 'market' || !detailModalHost.isOpenFor(MarketPanel.MODAL_OWNER) || !update || !selected) {
       root.innerHTML = '';
@@ -1405,6 +1323,7 @@ export class MarketPanel {
     this.bindItemTooltipEvents(root);
   }
 
+  /** 给交易弹窗里会变化的控件装事件，所有修改都只落在临时态上。 */
   private bindTradeDialogOverlayEvents(
     root: HTMLElement,
     selected: MarketListedItemView,
@@ -1442,14 +1361,11 @@ export class MarketPanel {
       if (!this.tradeDialog) {
         return;
       }
-/** action：定义该变量以承载业务值。 */
       const action = button.dataset.marketPriceAction as MarketPriceAction | undefined;
       if (!action) {
         return;
       }
-/** preset：定义该变量以承载业务值。 */
       const preset = this.readDatasetNumber(button.dataset.marketPricePreset);
-/** nextUnitPrice：定义该变量以承载业务值。 */
       const nextUnitPrice = this.getNextTradeDialogPrice(this.tradeDialog.unitPrice, action, preset);
       this.tradeDialog = {
         ...this.tradeDialog,
@@ -1463,9 +1379,7 @@ export class MarketPanel {
       if (!this.tradeDialog) {
         return;
       }
-/** action：定义该变量以承载业务值。 */
       const action = button.dataset.marketQuantityAction;
-/** quantity：定义该变量以承载业务值。 */
       const quantity = action === 'max'
         ? this.getTradeDialogMaxButtonQuantity(selected, update.currencyItemId, this.tradeDialog)
         : this.getTradeDialogQuantityStep(this.tradeDialog.unitPrice);
@@ -1477,14 +1391,11 @@ export class MarketPanel {
     }));
 
     root.querySelectorAll<HTMLElement>('[data-market-submit-dialog]').forEach((button) => button.addEventListener('click', () => {
-/** kind：定义该变量以承载业务值。 */
       const kind = button.dataset.marketSubmitDialog as MarketTradeDialogKind | undefined;
       if (!kind || !this.tradeDialog || this.tradeDialog.kind !== kind) {
         return;
       }
-/** quantity：定义该变量以承载业务值。 */
       const quantity = this.normalizeTradeDialogQuantity(this.tradeDialog.quantity, selected, kind, this.tradeDialog.unitPrice);
-/** unitPrice：定义该变量以承载业务值。 */
       const unitPrice = this.normalizeTradeDialogPrice(this.tradeDialog.unitPrice, kind === 'buy' ? 'up' : 'down');
       if (kind === 'buy') {
         this.callbacks?.onCreateBuyOrder(selected.itemKey, quantity, unitPrice);
@@ -1492,7 +1403,6 @@ export class MarketPanel {
         this.syncTradeDialogOverlay();
         return;
       }
-/** slotIndex：定义该变量以承载业务值。 */
       const slotIndex = this.findMatchingInventorySlot(selected.item);
       if (slotIndex === null) {
         return;
@@ -1503,9 +1413,8 @@ export class MarketPanel {
     }));
   }
 
-/** getTradeDialogOverlayRoot：执行对应的业务逻辑。 */
+  /** 读取交易弹窗的挂载根节点，没有就现建一个。 */
   private getTradeDialogOverlayRoot(): HTMLElement {
-/** root：定义该变量以承载业务值。 */
     let root = document.getElementById(MarketPanel.TRADE_MODAL_ID);
     if (root) {
       return root;
@@ -1517,9 +1426,8 @@ export class MarketPanel {
     return root;
   }
 
-/** findConflictingOwnOrder：执行对应的业务逻辑。 */
+  /** 查找与当前交易方向冲突的自有挂单。 */
   private findConflictingOwnOrder(itemKey: string, nextSide: MarketTradeDialogKind): MarketOwnOrderView | null {
-/** oppositeSide：定义该变量以承载业务值。 */
     const oppositeSide = nextSide === 'sell' ? 'buy' : 'sell';
     return this.marketUpdate?.myOrders.find((order) =>
       order.itemKey === itemKey
@@ -1528,28 +1436,24 @@ export class MarketPanel {
       && order.status === 'open') ?? null;
   }
 
-/** getDefaultTradeDialogPrice：执行对应的业务逻辑。 */
+  /** 读取交易弹窗的默认单价，优先沿用当前盘面价格。 */
   private getDefaultTradeDialogPrice(entry: MarketListedItemView, kind: MarketTradeDialogKind, preferredPrice?: number | null): number {
-/** fallback：定义该变量以承载业务值。 */
     const fallback = kind === 'buy'
       ? (entry.lowestSellPrice ?? entry.highestBuyPrice ?? MARKET_DIALOG_MIN_PRICE)
       : (entry.highestBuyPrice ?? entry.lowestSellPrice ?? MARKET_DIALOG_MIN_PRICE);
-/** source：定义该变量以承载业务值。 */
     const source = preferredPrice && preferredPrice > 0 ? preferredPrice : fallback;
     return this.normalizeTradeDialogPrice(source, kind === 'buy' ? 'up' : 'down');
   }
 
+  /** 规范化交易弹窗里的数量输入，强制对齐最小交易步长。 */
   private normalizeTradeDialogQuantity(
     value: string | number,
     entry: MarketListedItemView,
     kind: MarketTradeDialogKind,
     unitPrice = this.tradeDialog?.unitPrice ?? MARKET_DIALOG_MIN_PRICE,
   ): number {
-/** parsed：定义该变量以承载业务值。 */
     const parsed = typeof value === 'number' ? value : Number.parseInt(value, 10);
-/** quantityStep：定义该变量以承载业务值。 */
     const quantityStep = this.getTradeDialogQuantityStep(unitPrice);
-/** max：定义该变量以承载业务值。 */
     const max = this.getTradeDialogQuantityMax(entry, kind, unitPrice);
     if (max <= 0) {
       return quantityStep;
@@ -1557,24 +1461,22 @@ export class MarketPanel {
     if (!Number.isFinite(parsed)) {
       return quantityStep;
     }
-/** bounded：定义该变量以承载业务值。 */
     const bounded = Math.max(quantityStep, Math.min(max, Math.floor(parsed)));
     return Math.max(quantityStep, Math.floor(bounded / quantityStep) * quantityStep);
   }
 
-/** getTradeDialogQuantityStep：执行对应的业务逻辑。 */
+  /** 根据单价计算这笔交易的最小数量步长。 */
   private getTradeDialogQuantityStep(unitPrice: number): number {
     return Math.max(1, getMarketMinimumTradeQuantity(unitPrice));
   }
 
+  /** 计算当前单价下允许输入的最大数量。 */
   private getTradeDialogQuantityMax(
     entry: MarketListedItemView,
     kind: MarketTradeDialogKind,
     unitPrice: number,
   ): number {
-/** quantityStep：定义该变量以承载业务值。 */
     const quantityStep = this.getTradeDialogQuantityStep(unitPrice);
-/** cap：定义该变量以承载业务值。 */
     const cap = kind === 'sell'
       ? this.findMatchingInventoryCount(entry.item)
       : this.getAffordableBuyQuantity(unitPrice, this.marketUpdate?.currencyItemId ?? '');
@@ -1584,6 +1486,7 @@ export class MarketPanel {
     return Math.floor(Math.min(cap, MARKET_DIALOG_MAX_QUANTITY) / quantityStep) * quantityStep;
   }
 
+  /** 给“最大”按钮计算对应的可交易数量。 */
   private getTradeDialogMaxButtonQuantity(
     entry: MarketListedItemView,
     currencyItemId: string,
@@ -1595,26 +1498,22 @@ export class MarketPanel {
     return this.getAffordableBuyQuantity(dialog.unitPrice, currencyItemId);
   }
 
-/** getAffordableBuyQuantity：执行对应的业务逻辑。 */
+  /** 计算当前持币量在该单价下最多能买多少。 */
   private getAffordableBuyQuantity(unitPrice: number, currencyItemId: string): number {
     if (unitPrice <= 0) {
       return 0;
     }
-/** ownedCurrency：定义该变量以承载业务值。 */
     const ownedCurrency = this.findInventoryItemCountByItemId(currencyItemId);
-/** quantityStep：定义该变量以承载业务值。 */
     const quantityStep = this.getTradeDialogQuantityStep(unitPrice);
-/** stepCost：定义该变量以承载业务值。 */
     const stepCost = this.getMarketTradeTotalCost(quantityStep, unitPrice);
     if (!stepCost || stepCost <= 0) {
       return 0;
     }
-/** affordableSteps：定义该变量以承载业务值。 */
     const affordableSteps = Math.floor(ownedCurrency / stepCost);
     return Math.min(MARKET_DIALOG_MAX_QUANTITY, affordableSteps * quantityStep);
   }
 
-/** getNextTradeDialogPrice：执行对应的业务逻辑。 */
+  /** 按按钮动作算出下一个单价，并保持在合法范围内。 */
   private getNextTradeDialogPrice(currentPrice: number, action: MarketPriceAction, preset?: number | null): number {
     if (action === 'preset') {
       return this.normalizeTradeDialogPrice(preset ?? MARKET_DIALOG_MIN_PRICE, 'up');
@@ -1626,20 +1525,17 @@ export class MarketPanel {
       return this.normalizeTradeDialogPrice(currentPrice / 2, 'down');
     }
     if (action === 'increase') {
-/** step：定义该变量以承载业务值。 */
       const step = currentPrice < 1
         ? getMarketPriceStep(currentPrice)
         : getMarketPriceStep(Math.min(MARKET_DIALOG_MAX_PRICE, currentPrice + 1));
       return this.normalizeTradeDialogPrice(currentPrice + step, 'up');
     }
-/** probe：定义该变量以承载业务值。 */
     const probe = Math.max(MARKET_DIALOG_MIN_PRICE, currentPrice - 1);
     return this.normalizeTradeDialogPrice(currentPrice - getMarketPriceStep(probe), 'down');
   }
 
-/** normalizeTradeDialogPrice：执行对应的业务逻辑。 */
+  /** 按买卖方向把单价夹回合法区间并对齐价格档位。 */
   private normalizeTradeDialogPrice(value: number, direction: 'up' | 'down'): number {
-/** bounded：定义该变量以承载业务值。 */
     const bounded = Math.max(MARKET_DIALOG_MIN_PRICE, Math.min(MARKET_DIALOG_MAX_PRICE, value));
     if (direction === 'up') {
       return Math.min(MARKET_DIALOG_MAX_PRICE, normalizeMarketPriceUp(bounded));
@@ -1647,7 +1543,7 @@ export class MarketPanel {
     return Math.max(MARKET_DIALOG_MIN_PRICE, normalizeMarketPriceDown(bounded));
   }
 
-/** formatPricePresetLabel：执行对应的业务逻辑。 */
+  /** 把价格预设值格式化成按钮上更容易读的文案。 */
   private formatPricePresetLabel(value: number): string {
     if (value < 1) {
       return this.formatMarketUnitPrice(value);
@@ -1661,14 +1557,13 @@ export class MarketPanel {
     return formatDisplayInteger(value);
   }
 
-/** readDatasetNumber：执行对应的业务逻辑。 */
+  /** 从 data-* 属性里读一个数字。 */
   private readDatasetNumber(value: string | undefined): number | null {
-/** parsed：定义该变量以承载业务值。 */
     const parsed = Number.parseFloat(value ?? '');
     return Number.isFinite(parsed) ? parsed : null;
   }
 
-/** formatMarketUnitPrice：执行对应的业务逻辑。 */
+  /** 格式化市场里的单价显示。 */
   private formatMarketUnitPrice(value: number): string {
     return formatDisplayNumber(value, {
       maximumFractionDigits: value < 1 ? 2 : 0,
@@ -1676,6 +1571,7 @@ export class MarketPanel {
     });
   }
 
+  /** 格式化强化预估里的灵石消耗。 */
   private formatEnhancementEstimateCost(value: number): string {
     return formatDisplayNumber(value, {
       maximumFractionDigits: 2,
@@ -1683,6 +1579,7 @@ export class MarketPanel {
     });
   }
 
+  /** 格式化强化预估里的尝试次数。 */
   private formatEnhancementAttemptCount(value: number): string {
     return formatDisplayNumber(value, {
       maximumFractionDigits: 0,
@@ -1690,23 +1587,20 @@ export class MarketPanel {
     });
   }
 
+  /** 计算单次强化任务的基础耗时。 */
   private computeEnhancementJobBaseTicks(itemLevel: number | undefined): number {
-/** normalizedLevel：定义该变量以承载业务值。 */
     const normalizedLevel = Math.max(1, Math.floor(Number(itemLevel) || 1));
     return ENHANCEMENT_BASE_JOB_TICKS + Math.max(0, normalizedLevel - 1) * ENHANCEMENT_JOB_TICKS_PER_ITEM_LEVEL;
   }
 
+  /** 把耗时 ticks 转成更像人工可读的时间。 */
   private formatEnhancementDurationFromTicks(value: number): string {
-/** totalSeconds：定义该变量以承载业务值。 */
     const totalSeconds = Math.max(0, Math.round(value));
     if (totalSeconds < 60) {
       return `${formatDisplayInteger(totalSeconds)}息`;
     }
-/** hours：定义该变量以承载业务值。 */
     const hours = Math.floor(totalSeconds / 3600);
-/** minutes：定义该变量以承载业务值。 */
     const minutes = Math.floor((totalSeconds % 3600) / 60);
-/** seconds：定义该变量以承载业务值。 */
     const seconds = totalSeconds % 60;
     if (hours > 0) {
       return `${formatDisplayInteger(hours)}时${formatDisplayInteger(minutes)}分${formatDisplayInteger(seconds)}秒`;
@@ -1714,17 +1608,19 @@ export class MarketPanel {
     return `${formatDisplayInteger(minutes)}分${formatDisplayInteger(seconds)}秒`;
   }
 
-/** getMarketTradeTotalCost：执行对应的业务逻辑。 */
+  /** 计算这笔交易的总金额。 */
   private getMarketTradeTotalCost(quantity: number, unitPrice: number): number | null {
     return calculateMarketTradeTotalCost(quantity, unitPrice);
   }
 
+  /** 读取装备在市场里的强化等级。 */
   private getMarketEnhanceLevel(item: ItemStack): number {
     return item.type === 'equipment'
       ? Math.max(0, Math.floor(Number(item.enhanceLevel) || 0))
       : 0;
   }
 
+  /** 读取本地盘面里 +0 同款装备的最低卖价。 */
   private getLocalZeroEnhancementLowestSellPrice(itemId: string): number | undefined {
     return this.marketUpdate?.listedItems.find((entry) =>
       entry.item.itemId === itemId
@@ -1732,6 +1628,7 @@ export class MarketPanel {
     )?.lowestSellPrice;
   }
 
+  /** 把基础物品提示补上强化预估内容。 */
   private buildMarketItemTooltipPayload(item: ItemStack) {
     const tooltip = buildItemTooltipPayload(item);
     const estimate = this.buildEnhancementEstimate(item);
@@ -1749,6 +1646,7 @@ export class MarketPanel {
     };
   }
 
+  /** 根据节点上的 data-* 标记找到对应的提示内容。 */
   private resolveMarketTooltipPayload(node: HTMLElement) {
     const key = node.dataset.marketItemTooltip;
     if (!key) {
@@ -1762,18 +1660,16 @@ export class MarketPanel {
     return listed ? this.buildMarketItemTooltipPayload(listed.item) : null;
   }
 
+  /** 根据市场盘面和当前物品推一版强化预估。 */
   private buildEnhancementEstimate(item: ItemStack): MarketEnhancementEstimateView | null {
     if (item.type !== 'equipment') {
       return null;
     }
-/** targetLevel：定义该变量以承载业务值。 */
     const targetLevel = this.getMarketEnhanceLevel(item);
     if (targetLevel <= 0) {
       return null;
     }
-/** itemLevel：定义该变量以承载业务值。 */
     const itemLevel = Math.max(1, Math.floor(Number(item.level) || 1));
-/** baseUnitPrice：定义该变量以承载业务值。 */
     const zeroItemKey = this.getZeroEnhancementItemKey(item);
     const cachedBaseUnitPrice = zeroItemKey
       ? this.itemBookCache.get(zeroItemKey)?.sells[0]?.unitPrice
@@ -1784,7 +1680,6 @@ export class MarketPanel {
     if (basePricePending && zeroItemKey) {
       this.ensureItemBookCached(zeroItemKey);
     }
-/** analysis：定义该变量以承载业务值。 */
     const analysis = computeBestEnhancementExpectedCost({
       targetLevel,
       itemLevel,
@@ -1792,34 +1687,23 @@ export class MarketPanel {
       targetItemUnitPrice: baseUnitPrice,
       selfProtection: true,
     });
-/** strategy：定义该变量以承载业务值。 */
     const strategy = analysis.bestStrategy ?? analysis.strategies[0] ?? null;
     if (!strategy) {
       return null;
     }
-/** usesMarketBasePrice：定义该变量以承载业务值。 */
     const usesMarketBasePrice = baseUnitPrice !== undefined;
-/** expectedProtectionCost：定义该变量以承载业务值。 */
     const expectedProtectionCost = strategy.expectedProtectionCost ?? 0;
-/** expectedTotalCost：定义该变量以承载业务值。 */
     const expectedTotalCost = strategy.expectedSpiritStones + expectedProtectionCost;
-/** protectionStartText：定义该变量以承载业务值。 */
     const protectionStartText = strategy.protectionStartLevel === null ? '无保护' : `+${strategy.protectionStartLevel}`;
-/** zeroPriceText：定义该变量以承载业务值。 */
     const zeroPriceText = baseUnitPrice !== undefined
       ? this.formatMarketUnitPrice(baseUnitPrice)
       : basePricePending
         ? '补拉中'
         : '暂无';
-/** baseTicksPerAttempt：定义该变量以承载业务值。 */
     const baseTicksPerAttempt = this.computeEnhancementJobBaseTicks(itemLevel);
-/** expectedBaseDurationTicks：定义该变量以承载业务值。 */
     const expectedBaseDurationTicks = strategy.expectedAttempts * baseTicksPerAttempt;
-/** costLine：定义该变量以承载业务值。 */
     const costLine = `总灵石 ${this.formatEnhancementEstimateCost(expectedTotalCost)} · 强化消耗 ${this.formatEnhancementEstimateCost(strategy.expectedSpiritStones)} · 保护消耗 ${this.formatEnhancementEstimateCost(expectedProtectionCost)} · +0价格 ${zeroPriceText}`;
-/** attemptsLine：定义该变量以承载业务值。 */
     const attemptsLine = `${this.formatEnhancementAttemptCount(strategy.expectedAttempts)} 次 · 从${protectionStartText}开始保护 · 期望保护 ${this.formatEnhancementEstimateCost(strategy.expectedProtectionCount)} 个`;
-/** timeLine：定义该变量以承载业务值。 */
     const timeLine = `${this.formatEnhancementDurationFromTicks(expectedBaseDurationTicks)}（基准每次 ${this.formatEnhancementDurationFromTicks(baseTicksPerAttempt)}）`;
     return {
       strategy,
@@ -1832,6 +1716,7 @@ export class MarketPanel {
     };
   }
 
+  /** 把装备归一成 +0 版本的物品 key。 */
   private getZeroEnhancementItemKey(item: ItemStack): string {
     return createItemStackSignature({
       ...item,
@@ -1841,6 +1726,7 @@ export class MarketPanel {
     });
   }
 
+  /** 确保某个物品书籍已进入缓存请求流程。 */
   private ensureItemBookCached(itemKey: string): void {
     if (this.itemBookCache.has(itemKey) || this.pendingItemBookKeys.has(itemKey)) {
       return;
@@ -1849,25 +1735,20 @@ export class MarketPanel {
     this.callbacks?.onRequestItemBook(itemKey);
   }
 
-/** findMatchingInventorySlot：执行对应的业务逻辑。 */
+  /** 在背包里找一格能对应当前物品的槽位。 */
   private findMatchingInventorySlot(item: ItemStack): number | null {
-/** targetKey：定义该变量以承载业务值。 */
     const targetKey = createItemStackSignature({ ...item, count: 1 });
-/** exactSlotIndex：定义该变量以承载业务值。 */
     const exactSlotIndex = this.inventory.items.findIndex((entry) => createItemStackSignature({ ...entry, count: 1 }) === targetKey);
     if (exactSlotIndex >= 0) {
       return exactSlotIndex;
     }
-/** fallbackSlotIndex：定义该变量以承载业务值。 */
     const fallbackSlotIndex = this.inventory.items.findIndex((entry) => entry.itemId === item.itemId);
     return fallbackSlotIndex >= 0 ? fallbackSlotIndex : null;
   }
 
-/** findMatchingInventoryCount：执行对应的业务逻辑。 */
+  /** 统计背包里与当前物品匹配的总数量。 */
   private findMatchingInventoryCount(item: ItemStack): number {
-/** targetKey：定义该变量以承载业务值。 */
     const targetKey = createItemStackSignature({ ...item, count: 1 });
-/** exactMatches：定义该变量以承载业务值。 */
     const exactMatches = this.inventory.items.filter((entry) => createItemStackSignature({ ...entry, count: 1 }) === targetKey);
     if (exactMatches.length > 0) {
       return exactMatches.reduce((sum, entry) => sum + entry.count, 0);
@@ -1877,7 +1758,7 @@ export class MarketPanel {
       .reduce((sum, entry) => sum + entry.count, 0);
   }
 
-/** findInventoryItemCountByItemId：执行对应的业务逻辑。 */
+  /** 按物品 id 统计背包里的总数量。 */
   private findInventoryItemCountByItemId(itemId: string): number {
     return this.inventory.items
       .filter((entry) => entry.itemId === itemId)

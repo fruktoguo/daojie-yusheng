@@ -3,7 +3,7 @@
  */
 import { ItemStack } from './types';
 
-/** ComparableValue：定义该类型的结构与数据语义。 */
+/** 可比较值类型：用于统一签名序列化时的递归数据结构。 */
 type ComparableValue =
   | null
   | boolean
@@ -12,7 +12,7 @@ type ComparableValue =
   | ComparableValue[]
   | { [key: string]: ComparableValue };
 
-/** normalizeComparableValue：执行对应的业务逻辑。 */
+/** normalizeComparableValue：规范化Comparable值。 */
 function normalizeComparableValue(value: unknown): ComparableValue | undefined {
   if (value === undefined) {
     return undefined;
@@ -27,7 +27,6 @@ function normalizeComparableValue(value: unknown): ComparableValue | undefined {
     return String(value);
   }
 
-/** normalizedEntries：定义该变量以承载业务值。 */
   const normalizedEntries = Object.entries(value as Record<string, unknown>)
     .filter(([, entry]) => entry !== undefined)
     .sort(([leftKey], [rightKey]) => leftKey.localeCompare(rightKey))
@@ -39,7 +38,6 @@ function normalizeComparableValue(value: unknown): ComparableValue | undefined {
 
 /** 物品叠加签名：忽略数量，其余字段全部参与比较。 */
 export function createItemStackSignature(item: ItemStack): string {
-/** comparableEntries：定义该变量以承载业务值。 */
   const comparableEntries = Object.entries(item as unknown as Record<string, unknown>)
     .filter(([key, value]) => key !== 'count' && value !== undefined)
     .sort(([leftKey], [rightKey]) => leftKey.localeCompare(rightKey))
@@ -53,4 +51,9 @@ export function createItemStackSignature(item: ItemStack): string {
 export function canStackItemStacks(left: ItemStack, right: ItemStack): boolean {
   return createItemStackSignature(left) === createItemStackSignature(right);
 }
+
+
+
+
+
 

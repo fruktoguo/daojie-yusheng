@@ -4,14 +4,10 @@
  */
 
 Object.defineProperty(exports, "__esModule", { value: true });
-/** smoke_timeout_1：定义该变量以承载业务值。 */
 const smoke_timeout_1 = require("./smoke-timeout");
 (0, smoke_timeout_1.installSmokeTimeout)(__filename);
-/** socket_io_client_1：定义该变量以承载业务值。 */
 const socket_io_client_1 = require("socket.io-client");
-/** shared_1：定义该变量以承载业务值。 */
 const shared_1 = require("@mud/shared-next");
-/** env_alias_1：定义该变量以承载业务值。 */
 const env_alias_1 = require("../config/env-alias");
 /**
  * 记录服务端地址。
@@ -242,7 +238,6 @@ async function main() {
  */
 
     const currentMap = assertGmMapsShape(await authedGetJson('/api/gm/maps', token), runtimePlayer.templateId);
-/** runtimeInspection：定义该变量以承载业务值。 */
     const runtimeInspection = assertMapRuntimeShape(await fetchGmMapRuntime(token, runtimePlayer.templateId, runtimePlayerId, runtimePlayer.x, runtimePlayer.y), runtimePlayer.templateId, runtimePlayerId);
     socket.close();
     console.log(JSON.stringify({

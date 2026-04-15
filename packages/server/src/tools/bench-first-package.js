@@ -6,9 +6,7 @@
 const { spawn } = require("node:child_process");
 const { createServer } = require("node:net");
 const { join, resolve } = require("node:path");
-/** io：定义该变量以承载业务值。 */
 const io = require("socket.io-client");
-/** shared：定义该变量以承载业务值。 */
 const shared = require("@mud/shared-next");
 
 /**

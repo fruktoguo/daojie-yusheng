@@ -1,20 +1,15 @@
-/**
- * 渲染器接口定义 —— 约束所有渲染器实现必须提供的能力
- */
+/** 渲染器能力约束，确保 TextRenderer 与其他实现保持一致。 */
 
 import { GameTimeState, GridPoint, NpcQuestMarker, TargetingShape, Tile } from '@mud/shared-next';
 import { Camera } from './camera';
 
-/** FloatingActionTextStyle：定义该类型的结构与数据语义。 */
+/** 浮动文本可选样式。 */
 export type FloatingActionTextStyle = 'default' | 'divine' | 'chant';
 
-/** 技能瞄准叠加层状态 */
+/** 技能瞄准叠加层状态。 */
 export interface TargetingOverlayState {
-/** originX：定义该变量以承载业务值。 */
   originX: number;
-/** originY：定义该变量以承载业务值。 */
   originY: number;
-/** range：定义该变量以承载业务值。 */
   range: number;
   visibleOnly?: boolean;
   shape?: TargetingShape;
@@ -24,14 +19,14 @@ export interface TargetingOverlayState {
   hoverY?: number;
 }
 
-/** 感气视角叠加层状态 */
+/** 感气视角叠加层状态。 */
 export interface SenseQiOverlayState {
   hoverX?: number;
   hoverY?: number;
   levelBaseValue?: number;
 }
 
-/** 渲染器统一接口，当前由 TextRenderer 实现，后续可替换为 SpriteRenderer */
+/** 渲染器统一接口，当前由 TextRenderer 实现，未来可替换为 SpriteRenderer。 */
 export interface IRenderer {
   init(canvas: HTMLCanvasElement): void;
   clear(): void;
@@ -53,15 +48,10 @@ export interface IRenderer {
   ): void;
   updateEntities(
     list: readonly {
-/** id：定义该变量以承载业务值。 */
       id: string;
-/** wx：定义该变量以承载业务值。 */
       wx: number;
-/** wy：定义该变量以承载业务值。 */
       wy: number;
-/** char：定义该变量以承载业务值。 */
       char: string;
-/** color：定义该变量以承载业务值。 */
       color: string;
       name?: string;
       kind?: string;
@@ -91,4 +81,6 @@ export interface IRenderer {
   renderAttackTrails(camera: Camera): void;
   destroy(): void;
 }
+
+
 

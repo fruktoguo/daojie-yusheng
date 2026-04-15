@@ -10,25 +10,27 @@ import {
   type MapPerformanceConfig,
 } from '../constants/ui/performance';
 
-/** initialized：定义该变量以承载业务值。 */
+/** initialized：initialized。 */
 let initialized = false;
-/** currentConfig：定义该变量以承载业务值。 */
+/** currentConfig：当前配置。 */
 let currentConfig = cloneConfig(DEFAULT_MAP_PERFORMANCE_CONFIG);
 
 export type { MapPerformanceConfig };
 export { MAP_PERFORMANCE_CONFIG_CHANGE_EVENT };
 
-/** initializeMapPerformanceConfig：执行对应的业务逻辑。 */
+/** initializeMapPerformanceConfig：初始化地图性能配置。 */
 export function initializeMapPerformanceConfig(): MapPerformanceConfig {
   if (initialized) {
     return cloneConfig(currentConfig);
   }
+  /** currentConfig：当前配置。 */
   currentConfig = normalizeConfig(readStoredConfig());
+  /** initialized：initialized。 */
   initialized = true;
   return cloneConfig(currentConfig);
 }
 
-/** getMapPerformanceConfig：执行对应的业务逻辑。 */
+/** getMapPerformanceConfig：读取地图性能配置。 */
 export function getMapPerformanceConfig(): MapPerformanceConfig {
   if (!initialized) {
     return initializeMapPerformanceConfig();
@@ -36,10 +38,10 @@ export function getMapPerformanceConfig(): MapPerformanceConfig {
   return cloneConfig(currentConfig);
 }
 
-/** updateMapPerformanceConfig：执行对应的业务逻辑。 */
+/** updateMapPerformanceConfig：更新地图性能配置。 */
 export function updateMapPerformanceConfig(patch: Partial<MapPerformanceConfig>): MapPerformanceConfig {
+  /** initialized：initialized。 */
   initialized = true;
-/** previousConfig：定义该变量以承载业务值。 */
   const previousConfig = currentConfig;
   currentConfig = normalizeConfig({
     ...currentConfig,
@@ -54,9 +56,11 @@ export function updateMapPerformanceConfig(patch: Partial<MapPerformanceConfig>)
   return cloneConfig(currentConfig);
 }
 
-/** resetMapPerformanceConfig：执行对应的业务逻辑。 */
+/** resetMapPerformanceConfig：重置地图性能配置。 */
 export function resetMapPerformanceConfig(): MapPerformanceConfig {
+  /** initialized：initialized。 */
   initialized = true;
+  /** currentConfig：当前配置。 */
   currentConfig = cloneConfig(DEFAULT_MAP_PERFORMANCE_CONFIG);
   persistConfig(currentConfig);
   window.dispatchEvent(new CustomEvent<MapPerformanceConfig>(MAP_PERFORMANCE_CONFIG_CHANGE_EVENT, {
@@ -65,15 +69,14 @@ export function resetMapPerformanceConfig(): MapPerformanceConfig {
   return cloneConfig(currentConfig);
 }
 
-/** normalizeConfig：执行对应的业务逻辑。 */
+/** normalizeConfig：规范化配置。 */
 function normalizeConfig(raw: Partial<MapPerformanceConfig> | null | undefined): MapPerformanceConfig {
   return {
-/** showFpsMonitor：定义该变量以承载业务值。 */
     showFpsMonitor: raw?.showFpsMonitor === true,
   };
 }
 
-/** persistConfig：执行对应的业务逻辑。 */
+/** persistConfig：持久化配置。 */
 function persistConfig(config: MapPerformanceConfig): void {
   try {
     window.localStorage.setItem(MAP_PERFORMANCE_STORAGE_KEY, JSON.stringify(config));
@@ -82,15 +85,13 @@ function persistConfig(config: MapPerformanceConfig): void {
   }
 }
 
-/** readStoredConfig：执行对应的业务逻辑。 */
+/** readStoredConfig：处理read Stored配置。 */
 function readStoredConfig(): Partial<MapPerformanceConfig> | null {
   try {
-/** raw：定义该变量以承载业务值。 */
     const raw = window.localStorage.getItem(MAP_PERFORMANCE_STORAGE_KEY);
     if (!raw) {
       return null;
     }
-/** parsed：定义该变量以承载业务值。 */
     const parsed = JSON.parse(raw);
     if (!parsed || typeof parsed !== 'object') {
       return null;
@@ -101,10 +102,13 @@ function readStoredConfig(): Partial<MapPerformanceConfig> | null {
   }
 }
 
-/** cloneConfig：执行对应的业务逻辑。 */
+/** cloneConfig：克隆配置。 */
 function cloneConfig(config: MapPerformanceConfig): MapPerformanceConfig {
   return {
     showFpsMonitor: config.showFpsMonitor,
   };
 }
+
+
+
 

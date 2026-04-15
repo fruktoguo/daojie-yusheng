@@ -1,13 +1,13 @@
 "use strict";
-/** __decorate：定义该变量以承载业务值。 */
+
 var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-    /** c：定义该变量以承载业务值。 */
+
     var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
     if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
     else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
     return c > 3 && r && Object.defineProperty(target, key, r), r;
 };
-/** __metadata：定义该变量以承载业务值。 */
+
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
@@ -19,33 +19,46 @@ const path = require("path");
 const shared_1 = require("@mud/shared-next");
 const content_template_repository_1 = require("../../content/content-template.repository");
 const player_runtime_service_1 = require("../player/player-runtime.service");
-/** ALCHEMY_FURNACE_TAG：定义该变量以承载业务值。 */
+
+/** 丹炉能力判定使用的物品标签。 */
 const ALCHEMY_FURNACE_TAG = 'alchemy_furnace';
-/** ENHANCEMENT_HAMMER_TAG：定义该变量以承载业务值。 */
+
+/** 强化锤能力判定使用的物品标签。 */
 const ENHANCEMENT_HAMMER_TAG = 'enhancement_hammer';
-/** SPIRIT_STONE_ITEM_ID：定义该变量以承载业务值。 */
+
+/** 强化与炼丹计算中固定使用的灵石物品 ID。 */
 const SPIRIT_STONE_ITEM_ID = 'spirit_stone';
-/** DEFAULT_CRAFT_EXP_TO_NEXT：定义该变量以承载业务值。 */
+
+/** 工艺技能的默认升级经验门槛。 */
 const DEFAULT_CRAFT_EXP_TO_NEXT = 60;
-/** ALCHEMY_CATALOG_VERSION：定义该变量以承载业务值。 */
+
+/** 炼丹目录版本，变化后需要把新目录同步给客户端。 */
 const ALCHEMY_CATALOG_VERSION = 1;
-/** ALCHEMY_PREPARATION_TICKS：定义该变量以承载业务值。 */
+
+/** 炼丹任务开始后先经历的准备息数。 */
 const ALCHEMY_PREPARATION_TICKS = 10;
-/** ALCHEMY_INTERRUPT_PAUSE_TICKS：定义该变量以承载业务值。 */
+
+/** 炼丹被打断后进入的暂停息数。 */
 const ALCHEMY_INTERRUPT_PAUSE_TICKS = 10;
-/** MAX_ENHANCE_LEVEL：定义该变量以承载业务值。 */
+
+/** 强化等级上限。 */
 const MAX_ENHANCE_LEVEL = 20;
-/** ENHANCEMENT_BASE_JOB_TICKS：定义该变量以承载业务值。 */
+
+/** 强化基础任务息数。 */
 const ENHANCEMENT_BASE_JOB_TICKS = 5;
-/** ENHANCEMENT_JOB_TICKS_PER_ITEM_LEVEL：定义该变量以承载业务值。 */
+
+/** 每提升 1 级物品强化等级，额外增加的任务息数。 */
 const ENHANCEMENT_JOB_TICKS_PER_ITEM_LEVEL = 1;
-/** ENHANCEMENT_LOWER_LEVEL_SUCCESS_PENALTY：定义该变量以承载业务值。 */
+
+/** 同级及以下装备强化时的额外成功率惩罚。 */
 const ENHANCEMENT_LOWER_LEVEL_SUCCESS_PENALTY = 0.1;
-/** ENHANCEMENT_EXTRA_SUCCESS_RATE_PER_LEVEL：定义该变量以承载业务值。 */
+
+/** 每提升 1 级装备带来的额外成功率修正。 */
 const ENHANCEMENT_EXTRA_SUCCESS_RATE_PER_LEVEL = 0.002;
-/** ENHANCEMENT_EXTRA_SPEED_RATE_PER_LEVEL：定义该变量以承载业务值。 */
+
+/** 每提升 1 级装备带来的额外速度修正。 */
 const ENHANCEMENT_EXTRA_SPEED_RATE_PER_LEVEL = 0.02;
-/** ENHANCEMENT_TARGET_SUCCESS_RATE_BY_LEVEL：定义该变量以承载业务值。 */
+
 const ENHANCEMENT_TARGET_SUCCESS_RATE_BY_LEVEL = [
     0.5,
     0.45,
@@ -69,25 +82,30 @@ const ENHANCEMENT_TARGET_SUCCESS_RATE_BY_LEVEL = [
     0.3,
     0.3,
 ];
-/** ENHANCEMENT_INTERRUPT_PAUSE_TICKS：定义该变量以承载业务值。 */
+
+/** 强化被打断后进入的暂停息数。 */
 const ENHANCEMENT_INTERRUPT_PAUSE_TICKS = 10;
+/** 制作运行时服务：负责炼丹与强化的任务创建、进度推进与结果落库。 */
 let CraftPanelRuntimeService = class CraftPanelRuntimeService {
     contentTemplateRepository;
     playerRuntimeService;
+    /** 运行时日志器，记录炼丹、强化与配置加载问题。 */
     logger = new common_1.Logger(CraftPanelRuntimeService.name);
+    /** 缓存炼丹目录，供面板快照和任务校验共用。 */
     alchemyCatalog = [];
+    /** 缓存强化配置，避免每次操作都重新查表。 */
     enhancementConfigs = new Map();
-/** 构造函数：执行实例初始化流程。 */
+    /** 缓存依赖并初始化日志、配方与强化配置。 */
     constructor(contentTemplateRepository, playerRuntimeService) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.playerRuntimeService = playerRuntimeService;
     }
-    /** onModuleInit：执行对应的业务逻辑。 */
+    /** 模块初始化：按需加载炼丹目录和强化配置。 */
     onModuleInit() {
         this.loadAlchemyCatalog();
         this.loadEnhancementConfigs();
     }
-    /** buildAlchemyPanelPayload：执行对应的业务逻辑。 */
+    /** 读取炼丹面板的状态和可见目录，同步客户端所需的数据快照。 */
     buildAlchemyPanelPayload(player, knownCatalogVersion) {
         this.ensureCraftSkills(player);
         const state = this.buildAlchemyPanelState(player);
@@ -103,7 +121,7 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
         }
         return payload;
     }
-    /** buildEnhancementPanelPayload：执行对应的业务逻辑。 */
+    /** 读取强化面板状态并在未装备强化锤时返回错误。 */
     buildEnhancementPanelPayload(player) {
         this.ensureCraftSkills(player);
         const state = this.buildEnhancementPanelState(player);
@@ -112,15 +130,15 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
             error: state ? undefined : '尚未装备强化锤。',
         };
     }
-    /** hasActiveAlchemyJob：执行对应的业务逻辑。 */
+    /** 判断玩家当前是否有炼丹任务在进行。 */
     hasActiveAlchemyJob(player) {
         return Boolean(player.alchemyJob && player.alchemyJob.remainingTicks > 0);
     }
-    /** hasActiveEnhancementJob：执行对应的业务逻辑。 */
+    /** 判断玩家当前是否有强化任务在进行。 */
     hasActiveEnhancementJob(player) {
         return Boolean(player.enhancementJob && player.enhancementJob.remainingTicks > 0);
     }
-    /** startAlchemy：执行对应的业务逻辑。 */
+    /** 提交新炼丹任务前完成装备与状态校验。 */
     startAlchemy(player, payload) {
         this.ensureCraftSkills(player);
         if (!this.hasEquippedFurnace(player)) {
@@ -191,7 +209,6 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
                 }],
         };
     }
-    /** cancelAlchemy：执行对应的业务逻辑。 */
     cancelAlchemy(player) {
         this.ensureCraftSkills(player);
         const job = player.alchemyJob;
@@ -248,7 +265,6 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
                 }],
         };
     }
-    /** interruptAlchemy：执行对应的业务逻辑。 */
     interruptAlchemy(player, reason) {
         this.ensureCraftSkills(player);
         const job = player.alchemyJob;
@@ -272,7 +288,6 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
                     : `${this.contentTemplateRepository.getItemName(job.outputItemId) ?? job.outputItemId} 的炼制被出手打断，炉火暂歇 ${ALCHEMY_INTERRUPT_PAUSE_TICKS} 息。`,
             }]);
     }
-    /** tickAlchemy：执行对应的业务逻辑。 */
     tickAlchemy(player) {
         this.ensureCraftSkills(player);
         const job = player.alchemyJob;
@@ -352,7 +367,6 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
                     : `第 ${job.completedCount} 炉未能成丹。`,
             }], inventoryChanged, false, skillChanged, groundDrops);
     }
-    /** startEnhancement：执行对应的业务逻辑。 */
     startEnhancement(player, payload) {
         this.ensureCraftSkills(player);
         if (!this.hasEquippedHammer(player)) {
@@ -463,7 +477,6 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
                 }],
         };
     }
-    /** cancelEnhancement：执行对应的业务逻辑。 */
     cancelEnhancement(player) {
         this.ensureCraftSkills(player);
         const job = player.enhancementJob;
@@ -484,7 +497,6 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
                 }],
         };
     }
-    /** interruptEnhancement：执行对应的业务逻辑。 */
     interruptEnhancement(player, reason) {
         this.ensureCraftSkills(player);
         const job = player.enhancementJob;
@@ -508,7 +520,6 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
                     : `${job.targetItemName} 的强化被出手打断，暂歇 ${ENHANCEMENT_INTERRUPT_PAUSE_TICKS} 息。`,
             }]);
     }
-    /** tickEnhancement：执行对应的业务逻辑。 */
     tickEnhancement(player) {
         this.ensureCraftSkills(player);
         const job = player.enhancementJob;
@@ -575,7 +586,6 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
                         : `${job.targetItemName} 强化失败，已归零为 +0。`,
             }], finishResult.inventoryChanged, finishResult.equipmentChanged, finishResult.attrChanged || skillChanged, finishResult.groundDrops);
     }
-    /** blocksEquipSlotChange：执行对应的业务逻辑。 */
     blocksEquipSlotChange(player, slot) {
         if (this.hasActiveAlchemyJob(player) && slot === 'weapon') {
             return true;
@@ -588,7 +598,6 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
         }
         return false;
     }
-    /** getLockedSlotReason：执行对应的业务逻辑。 */
     getLockedSlotReason(player, slot) {
         if (this.hasActiveAlchemyJob(player) && slot === 'weapon') {
             return '炼丹进行中，暂时不能替换或卸下丹炉。';
@@ -604,7 +613,6 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
         }
         return null;
     }
-    /** getCultivationBlockReason：执行对应的业务逻辑。 */
     getCultivationBlockReason(player) {
         if (this.hasActiveAlchemyJob(player)) {
             return '炼丹进行中，暂时不能切换修炼。';
@@ -614,15 +622,12 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
         }
         return null;
     }
-    /** hasEquippedFurnace：执行对应的业务逻辑。 */
     hasEquippedFurnace(player) {
         return Boolean(this.getWeapon(player)?.tags?.includes(ALCHEMY_FURNACE_TAG));
     }
-    /** hasEquippedHammer：执行对应的业务逻辑。 */
     hasEquippedHammer(player) {
         return Boolean(this.getWeapon(player)?.tags?.includes(ENHANCEMENT_HAMMER_TAG));
     }
-    /** ensureCraftSkills：执行对应的业务逻辑。 */
     ensureCraftSkills(player) {
         player.alchemySkill = normalizeCraftSkill(player.alchemySkill);
         player.gatherSkill = normalizeCraftSkill(player.gatherSkill);
@@ -641,7 +646,6 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
         player.alchemyJob = player.alchemyJob ? cloneAlchemyJob(player.alchemyJob) : null;
         player.enhancementJob = player.enhancementJob ? cloneEnhancementJob(player.enhancementJob) : null;
     }
-    /** buildAlchemyPanelState：执行对应的业务逻辑。 */
     buildAlchemyPanelState(player) {
         const furnace = this.getWeapon(player);
         const furnaceItemId = furnace?.tags?.includes(ALCHEMY_FURNACE_TAG) ? furnace.itemId : undefined;
@@ -654,7 +658,6 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
             job: player.alchemyJob ? cloneAlchemyJob(player.alchemyJob) : null,
         };
     }
-    /** buildEnhancementPanelState：执行对应的业务逻辑。 */
     buildEnhancementPanelState(player) {
         const hammer = this.getWeapon(player);
         const hammerItemId = hammer?.tags?.includes(ENHANCEMENT_HAMMER_TAG) ? hammer.itemId : undefined;
@@ -669,7 +672,6 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
             job: player.enhancementJob ? cloneEnhancementJob(player.enhancementJob) : null,
         };
     }
-    /** collectEnhancementCandidates：执行对应的业务逻辑。 */
     collectEnhancementCandidates(player) {
         const candidates = [];
         player.inventory.items.forEach((item, slotIndex) => {
@@ -699,7 +701,6 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
         });
         return candidates;
     }
-    /** buildEnhancementCandidate：执行对应的业务逻辑。 */
     buildEnhancementCandidate(player, ref, item) {
         if (!item || item.type !== 'equipment') {
             return null;
@@ -736,7 +737,6 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
             protectionCandidates: this.buildProtectionCandidates(player, ref, item, config),
         };
     }
-    /** buildProtectionCandidates：执行对应的业务逻辑。 */
     buildProtectionCandidates(player, ref, item, config) {
         const candidates = [];
         const targetProtectionItemId = config?.protectionItemId ?? item.itemId;
@@ -754,34 +754,27 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
         });
         return candidates;
     }
-    /** getEnhancementRequirements：执行对应的业务逻辑。 */
     getEnhancementRequirements(config, targetLevel) {
         const step = config?.steps.find((entry) => entry.targetEnhanceLevel === targetLevel);
         return (step?.materials ?? []).map((entry) => ({ ...entry }));
     }
-    /** getWeapon：执行对应的业务逻辑。 */
     getWeapon(player) {
         return this.getEquippedItem(player, 'weapon');
     }
-    /** getEquippedItem：执行对应的业务逻辑。 */
     getEquippedItem(player, slot) {
         return player.equipment?.slots?.find((entry) => entry.slot === slot)?.item ?? null;
     }
-    /** resolveRequestedTargetLevel：执行对应的业务逻辑。 */
     resolveRequestedTargetLevel(currentLevel, requestedTargetLevel) {
         const normalized = Math.floor(Number(requestedTargetLevel) || 0);
         return Math.min(MAX_ENHANCE_LEVEL, Math.max(currentLevel + 1, normalized || (currentLevel + 1)));
     }
-    /** resolveProtectionStartLevel：执行对应的业务逻辑。 */
     resolveProtectionStartLevel(desiredTargetLevel, requestedProtectionStartLevel) {
         const normalized = Math.floor(Number(requestedProtectionStartLevel) || 0);
         return Math.max(2, Math.min(desiredTargetLevel, normalized || 2));
     }
-    /** shouldUseProtectionForStep：执行对应的业务逻辑。 */
     shouldUseProtectionForStep(targetLevel, protectionStartLevel) {
         return typeof protectionStartLevel === 'number' && targetLevel >= protectionStartLevel;
     }
-    /** resolveEnhancementTarget：执行对应的业务逻辑。 */
     resolveEnhancementTarget(player, ref) {
         if (!ref || typeof ref !== 'object') {
             return null;
@@ -801,7 +794,6 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
         }
         return null;
     }
-    /** resolveEnhancementProtection：执行对应的业务逻辑。 */
     resolveEnhancementProtection(player, ref, target, config) {
         if (!ref || ref.source !== 'inventory') {
             return null;
@@ -821,7 +813,6 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
         }
         return protection;
     }
-    /** touchEnhancementRecord：执行对应的业务逻辑。 */
     touchEnhancementRecord(player, input) {
         const itemId = normalizeText(input.itemId);
         if (!itemId) {
@@ -851,7 +842,6 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
         player.enhancementRecords.push(created);
         return created;
     }
-    /** touchEnhancementLevelRecord：执行对应的业务逻辑。 */
     touchEnhancementLevelRecord(player, itemId, targetLevel, success, resultingLevel) {
         const record = this.touchEnhancementRecord(player, {
             itemId,
@@ -881,7 +871,6 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
         }
         record.highestLevel = Math.max(record.highestLevel, resultingLevel);
     }
-    /** advanceEnhancementJob：执行对应的业务逻辑。 */
     advanceEnhancementJob(player, currentLevel) {
         const job = player.enhancementJob;
         if (!job || currentLevel >= job.desiredTargetLevel) {
@@ -946,7 +935,6 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
                 }],
         };
     }
-    /** finishEnhancementJob：执行对应的业务逻辑。 */
     finishEnhancementJob(player, resultingLevel, status) {
         const job = player.enhancementJob;
         if (!job) {
@@ -998,7 +986,6 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
             groundDrops,
         };
     }
-    /** hasEnoughEnhancementResources：执行对应的业务逻辑。 */
     hasEnoughEnhancementResources(player, target, protection, spiritStoneCost, materials, protectionRequired) {
         const counts = new Map();
         for (const item of player.inventory.items) {
@@ -1015,7 +1002,6 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
         }
         return materials.every((entry) => (counts.get(entry.itemId) ?? 0) >= entry.count);
     }
-    /** hasEnoughQueuedEnhancementResources：执行对应的业务逻辑。 */
     hasEnoughQueuedEnhancementResources(player, protectionItemId, targetItemId, spiritStoneCost, materials) {
         const counts = new Map();
         for (const item of player.inventory.items) {
@@ -1029,7 +1015,6 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
         }
         return materials.every((entry) => (counts.get(entry.itemId) ?? 0) >= entry.count);
     }
-    /** consumeProtectionItemForFailure：执行对应的业务逻辑。 */
     consumeProtectionItemForFailure(player, job) {
         const protectionItemId = job.protectionItemId ?? job.targetItemId;
         if (job.protectionItemSignature
@@ -1038,7 +1023,6 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
         }
         return this.consumeInventoryItemByPredicate(player, (item) => this.isEligibleProtectionItem(item, protectionItemId, job.targetItemId), 1);
     }
-    /** consumeInventoryItemByPredicate：执行对应的业务逻辑。 */
     consumeInventoryItemByPredicate(player, predicate, count) {
         let remaining = Math.max(0, Math.floor(Number(count) || 0));
         if (remaining <= 0) {
@@ -1058,11 +1042,9 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
         }
         return remaining <= 0;
     }
-    /** isSelfProtectionItem：执行对应的业务逻辑。 */
     isSelfProtectionItem(protectionItemId, targetItemId) {
         return protectionItemId === targetItemId;
     }
-    /** isEligibleProtectionItem：执行对应的业务逻辑。 */
     isEligibleProtectionItem(item, protectionItemId, targetItemId) {
         if (!item || item.itemId !== protectionItemId) {
             return false;
@@ -1072,7 +1054,6 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
         }
         return item.type === 'equipment' && normalizeEnhanceLevel(item.enhanceLevel) === 0;
     }
-    /** getEligibleProtectionCount：执行对应的业务逻辑。 */
     getEligibleProtectionCount(player, protectionItemId, targetItemId) {
         let total = 0;
         for (const item of player.inventory.items) {
@@ -1083,7 +1064,6 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
         }
         return total;
     }
-    /** finalizeMutation：执行对应的业务逻辑。 */
     finalizeMutation(player, options = {}) {
         if (options.inventoryChanged) {
             player.inventory.revision += 1;
@@ -1104,9 +1084,8 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
             this.playerRuntimeService.bumpPersistentRevision(player);
         }
     }
-    /** loadAlchemyCatalog：执行对应的业务逻辑。 */
     loadAlchemyCatalog() {
-        const filePath = resolveLegacyContentPath('alchemy', 'recipes.json');
+        const filePath = resolveContentPath('alchemy', 'recipes.json');
         if (!fs.existsSync(filePath)) {
             this.logger.warn(`炼丹配方目录缺失：${filePath}`);
             this.alchemyCatalog = [];
@@ -1123,9 +1102,8 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
             return left.outputItemId.localeCompare(right.outputItemId, 'zh-Hans-CN');
         });
     }
-    /** loadEnhancementConfigs：执行对应的业务逻辑。 */
     loadEnhancementConfigs() {
-        const root = resolveLegacyContentPath('enhancements');
+        const root = resolveContentPath('enhancements');
         this.enhancementConfigs.clear();
         if (!fs.existsSync(root)) {
             this.logger.warn(`强化配置目录缺失：${root}`);
@@ -1144,7 +1122,6 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
             }
         }
     }
-    /** toAlchemyCatalogEntry：执行对应的业务逻辑。 */
     toAlchemyCatalogEntry(entry) {
         const recipeId = typeof entry?.recipeId === 'string' ? entry.recipeId.trim() : '';
         const outputItemId = typeof entry?.outputItemId === 'string' ? entry.outputItemId.trim() : '';
@@ -1178,11 +1155,12 @@ exports.CraftPanelRuntimeService = CraftPanelRuntimeService = __decorate([
     __metadata("design:paramtypes", [content_template_repository_1.ContentTemplateRepository,
         player_runtime_service_1.PlayerRuntimeService])
 ], CraftPanelRuntimeService);
-/** resolveLegacyContentPath：执行对应的业务逻辑。 */
-function resolveLegacyContentPath(...segments) {
-    return path.resolve(__dirname, '../../../../../legacy/server/data/content', ...segments);
+function resolveContentPath(...segments) {
+    return path.resolve(__dirname, '../../../../../packages/server/data/content', ...segments);
 }
-/** walkJsonFiles：执行对应的业务逻辑。 */
+function resolveLegacyContentPath(...segments) {
+    return resolveContentPath(...segments);
+}
 function walkJsonFiles(root) {
     if (!fs.existsSync(root)) {
         return [];
@@ -1200,11 +1178,9 @@ function walkJsonFiles(root) {
     }
     return result;
 }
-/** normalizePositiveInt：执行对应的业务逻辑。 */
 function normalizePositiveInt(value, fallback = 1) {
     return Math.max(1, Math.floor(Number(value) || fallback));
 }
-/** normalizeCraftSkill：执行对应的业务逻辑。 */
 function normalizeCraftSkill(value) {
     const level = Math.max(1, Math.floor(Number(value?.level) || 1));
     return {
@@ -1213,7 +1189,6 @@ function normalizeCraftSkill(value) {
         expToNext: Math.max(0, Math.floor(Number(value?.expToNext) || DEFAULT_CRAFT_EXP_TO_NEXT)),
     };
 }
-/** normalizeEnhancementConfig：执行对应的业务逻辑。 */
 function normalizeEnhancementConfig(value) {
     const targetItemId = typeof value?.targetItemId === 'string' ? value.targetItemId.trim() : '';
     if (!targetItemId) {
@@ -1236,7 +1211,6 @@ function normalizeEnhancementConfig(value) {
             : [],
     };
 }
-/** normalizeEnhancementRequirement：执行对应的业务逻辑。 */
 function normalizeEnhancementRequirement(value) {
     const itemId = typeof value?.itemId === 'string' ? value.itemId.trim() : '';
     const count = Math.max(1, Math.floor(Number(value?.count) || 0));
@@ -1245,7 +1219,6 @@ function normalizeEnhancementRequirement(value) {
     }
     return { itemId, count };
 }
-/** toAlchemyIngredientDef：执行对应的业务逻辑。 */
 function toAlchemyIngredientDef(contentTemplateRepository, ingredient) {
     const itemId = typeof ingredient?.itemId === 'string' ? ingredient.itemId.trim() : '';
     const item = contentTemplateRepository.createItem(itemId, 1);
@@ -1262,7 +1235,6 @@ function toAlchemyIngredientDef(contentTemplateRepository, ingredient) {
         powerPerUnit: computeAlchemyMaterialPower(item.level, item.grade, 1),
     };
 }
-/** resolveAlchemyRecipeCategory：执行对应的业务逻辑。 */
 function resolveAlchemyRecipeCategory(outputItem, recipeId) {
     if ((outputItem.consumeBuffs?.length ?? 0) > 0) {
         return 'buff';
@@ -1274,39 +1246,33 @@ function resolveAlchemyRecipeCategory(outputItem, recipeId) {
     }
     throw new Error(`炼丹配方 ${recipeId} 的产出物 ${outputItem.itemId} 既不是瞬回药，也不是增益药`);
 }
-/** computeAlchemyMaterialPower：执行对应的业务逻辑。 */
 function computeAlchemyMaterialPower(level, grade, count = 1) {
     const normalizedLevel = Math.max(1, Math.floor(Number(level) || 1));
     const normalizedCount = Math.max(0, Math.floor(Number(count) || 0));
     return normalizedLevel * (resolveAlchemyGradeValue(grade) ** 2) * normalizedCount;
 }
-/** resolveAlchemyGradeValue：执行对应的业务逻辑。 */
 function resolveAlchemyGradeValue(grade) {
     const index = shared_1.TECHNIQUE_GRADE_ORDER.indexOf(grade ?? 'mortal');
     return Math.max(1, index + 1);
 }
-/** cloneAlchemyCatalogEntry：执行对应的业务逻辑。 */
 function cloneAlchemyCatalogEntry(entry) {
     return {
         ...entry,
         ingredients: entry.ingredients.map((ingredient) => ({ ...ingredient })),
     };
 }
-/** cloneAlchemyPreset：执行对应的业务逻辑。 */
 function cloneAlchemyPreset(entry) {
     return {
         ...entry,
         ingredients: Array.isArray(entry.ingredients) ? entry.ingredients.map((ingredient) => ({ ...ingredient })) : [],
     };
 }
-/** cloneAlchemyJob：执行对应的业务逻辑。 */
 function cloneAlchemyJob(entry) {
     return {
         ...entry,
         ingredients: Array.isArray(entry.ingredients) ? entry.ingredients.map((ingredient) => ({ ...ingredient })) : [],
     };
 }
-/** cloneItem：执行对应的业务逻辑。 */
 function cloneItem(item) {
     return {
         ...item,
@@ -1318,7 +1284,6 @@ function cloneItem(item) {
         tags: Array.isArray(item.tags) ? item.tags.slice() : undefined,
     };
 }
-/** clonePartialNumericStats：执行对应的业务逻辑。 */
 function clonePartialNumericStats(stats) {
     if (!stats) {
         return undefined;
@@ -1332,14 +1297,12 @@ function clonePartialNumericStats(stats) {
     }
     return clone;
 }
-/** cloneEnhancementRecord：执行对应的业务逻辑。 */
 function cloneEnhancementRecord(entry) {
     return {
         ...entry,
         levels: Array.isArray(entry.levels) ? entry.levels.map((level) => ({ ...level })) : [],
     };
 }
-/** cloneEnhancementJob：执行对应的业务逻辑。 */
 function cloneEnhancementJob(entry) {
     return {
         ...entry,
@@ -1348,11 +1311,9 @@ function cloneEnhancementJob(entry) {
         materials: Array.isArray(entry.materials) ? entry.materials.map((material) => ({ ...material })) : [],
     };
 }
-/** countInventoryItem：执行对应的业务逻辑。 */
 function countInventoryItem(player, itemId) {
     return player.inventory.items.reduce((total, entry) => entry.itemId === itemId ? total + entry.count : total, 0);
 }
-/** receiveInventoryItem：执行对应的业务逻辑。 */
 function receiveInventoryItem(player, contentTemplateRepository, item) {
     const normalized = contentTemplateRepository.normalizeItem(item);
     const existing = player.inventory.items.find((entry) => entry.itemId === normalized.itemId);
@@ -1363,12 +1324,10 @@ function receiveInventoryItem(player, contentTemplateRepository, item) {
     player.inventory.items.push({ ...normalized });
     return normalized;
 }
-/** canReceiveCraftItem：执行对应的业务逻辑。 */
 function canReceiveCraftItem(player, item) {
     return player.inventory.items.some((entry) => entry.itemId === item.itemId)
         || player.inventory.items.length < player.inventory.capacity;
 }
-/** consumeInventoryItemByItemId：执行对应的业务逻辑。 */
 function consumeInventoryItemByItemId(player, itemId, count) {
     let remaining = Math.max(1, Math.trunc(count));
     for (let slotIndex = player.inventory.items.length - 1; slotIndex >= 0 && remaining > 0; slotIndex -= 1) {
@@ -1387,14 +1346,12 @@ function consumeInventoryItemByItemId(player, itemId, count) {
         throw new Error(`Inventory item ${itemId} insufficient`);
     }
 }
-/** extractInventoryItemAt：执行对应的业务逻辑。 */
 function extractInventoryItemAt(player, slotIndex) {
     if (!Number.isInteger(slotIndex) || slotIndex < 0 || slotIndex >= player.inventory.items.length) {
         return null;
     }
     return player.inventory.items.splice(slotIndex, 1)[0] ?? null;
 }
-/** setEquippedItem：执行对应的业务逻辑。 */
 function setEquippedItem(player, slot, item) {
     const entry = player.equipment?.slots?.find((current) => current.slot === slot);
     if (!entry) {
@@ -1402,15 +1359,12 @@ function setEquippedItem(player, slot, item) {
     }
     entry.item = item ? cloneItem(item) : null;
 }
-/** normalizeText：执行对应的业务逻辑。 */
 function normalizeText(value) {
     return typeof value === 'string' ? value.trim() : '';
 }
-/** normalizeQuantity：执行对应的业务逻辑。 */
 function normalizeQuantity(value, fallback = 1, max = 99) {
     return Math.max(1, Math.min(max, Math.floor(Number(value) || fallback)));
 }
-/** normalizeIngredientSelections：执行对应的业务逻辑。 */
 function normalizeIngredientSelections(value) {
     if (!Array.isArray(value)) {
         return [];
@@ -1428,7 +1382,6 @@ function normalizeIngredientSelections(value) {
         .map(([itemId, count]) => ({ itemId, count }))
         .sort((left, right) => left.itemId.localeCompare(right.itemId, 'zh-Hans-CN'));
 }
-/** isExactSubmittedIngredients：执行对应的业务逻辑。 */
 function isExactSubmittedIngredients(recipeIngredients, submitted) {
     const normalizedRecipe = recipeIngredients
         .map((entry) => ({ itemId: entry.itemId, count: Math.max(1, Math.floor(Number(entry.count) || 1)) }))
@@ -1445,7 +1398,6 @@ function isExactSubmittedIngredients(recipeIngredients, submitted) {
     }
     return true;
 }
-/** applyCraftSkillExp：执行对应的业务逻辑。 */
 function applyCraftSkillExp(skill, amount) {
     if (!skill) {
         return false;
@@ -1460,7 +1412,6 @@ function applyCraftSkillExp(skill, amount) {
     }
     return changed || amount > 0;
 }
-/** resolveAlchemyBatchSuccess：执行对应的业务逻辑。 */
 function resolveAlchemyBatchSuccess(outputCount, successRate) {
     let successCount = 0;
     const normalizedOutputCount = Math.max(1, Math.floor(Number(outputCount) || 1));
@@ -1472,17 +1423,14 @@ function resolveAlchemyBatchSuccess(outputCount, successRate) {
     }
     return successCount;
 }
-/** normalizeEquipSlot：执行对应的业务逻辑。 */
 function normalizeEquipSlot(value) {
     return shared_1.EQUIP_SLOTS.includes(value) ? value : null;
 }
-/** cloneTargetRef：执行对应的业务逻辑。 */
 function cloneTargetRef(ref) {
     return ref.source === 'equipment'
         ? { source: 'equipment', slot: ref.slot }
         : { source: 'inventory', slotIndex: ref.slotIndex };
 }
-/** buildCraftMutationResult：执行对应的业务逻辑。 */
 function buildCraftMutationResult(error) {
     return {
         ok: false,
@@ -1491,7 +1439,6 @@ function buildCraftMutationResult(error) {
         panelChanged: false,
     };
 }
-/** buildCraftTickResult：执行对应的业务逻辑。 */
 function buildCraftTickResult(panelChanged = false, messages = [], inventoryChanged = false, equipmentChanged = false, attrChanged = false, groundDrops = []) {
     return {
         ok: true,
@@ -1503,38 +1450,31 @@ function buildCraftTickResult(panelChanged = false, messages = [], inventoryChan
         groundDrops,
     };
 }
-/** normalizeEnhanceLevel：执行对应的业务逻辑。 */
 function normalizeEnhanceLevel(level) {
     return Math.max(0, Math.min(MAX_ENHANCE_LEVEL, Math.floor(Number(level) || 0)));
 }
-/** getEnhancementTargetSuccessRate：执行对应的业务逻辑。 */
 function getEnhancementTargetSuccessRate(targetEnhanceLevel) {
     const normalizedLevel = Math.max(1, Math.floor(Number(targetEnhanceLevel) || 1));
     const index = Math.min(normalizedLevel, ENHANCEMENT_TARGET_SUCCESS_RATE_BY_LEVEL.length) - 1;
     return Math.max(0, ENHANCEMENT_TARGET_SUCCESS_RATE_BY_LEVEL[index] ?? 0);
 }
-/** getEnhancementSpiritStoneCost：执行对应的业务逻辑。 */
 function getEnhancementSpiritStoneCost(itemLevel, hasMaterialCost = false) {
     const level = Number.isFinite(itemLevel) ? Number(itemLevel) : 1;
     return Math.max(1, hasMaterialCost ? Math.floor(level / 10) : Math.ceil(level / 10));
 }
-/** computeEnhancementToolSpeedRate：执行对应的业务逻辑。 */
 function computeEnhancementToolSpeedRate(toolBaseSpeedRate, roleEnhancementLevel, targetItemLevel) {
     const baseSpeedRate = Number.isFinite(toolBaseSpeedRate) ? Number(toolBaseSpeedRate) : 0;
     const targetLevel = Math.max(1, Math.floor(Number(targetItemLevel) || 1));
     const levelBonus = Math.max(0, normalizeEnhanceLevel(roleEnhancementLevel) - targetLevel) * ENHANCEMENT_EXTRA_SPEED_RATE_PER_LEVEL;
     return baseSpeedRate + levelBonus;
 }
-/** computeEnhancementJobTicks：执行对应的业务逻辑。 */
 function computeEnhancementJobTicks(itemLevel, speedRate) {
     return computeAdjustedCraftTicks(computeEnhancementJobBaseTicks(itemLevel), speedRate);
 }
-/** computeEnhancementJobBaseTicks：执行对应的业务逻辑。 */
 function computeEnhancementJobBaseTicks(itemLevel) {
     const normalizedLevel = Math.max(1, Math.floor(Number(itemLevel) || 1));
     return ENHANCEMENT_BASE_JOB_TICKS + Math.max(0, normalizedLevel - 1) * ENHANCEMENT_JOB_TICKS_PER_ITEM_LEVEL;
 }
-/** computeAdjustedCraftTicks：执行对应的业务逻辑。 */
 function computeAdjustedCraftTicks(baseTicks, speedRate) {
     const normalizedBaseTicks = Math.max(1, Math.floor(Number(baseTicks) || 1));
     const normalizedSpeedRate = Number.isFinite(speedRate) ? Number(speedRate) : 0;
@@ -1546,7 +1486,6 @@ function computeAdjustedCraftTicks(baseTicks, speedRate) {
     }
     return Math.max(1, Math.ceil(normalizedBaseTicks * (1 + Math.abs(normalizedSpeedRate))));
 }
-/** applyEnhancementSuccessModifier：执行对应的业务逻辑。 */
 function applyEnhancementSuccessModifier(baseRate, modifier) {
     const normalizedBaseRate = Math.max(0, Math.min(1, Number.isFinite(baseRate) ? Number(baseRate) : 0));
     if (normalizedBaseRate <= 0 || normalizedBaseRate >= 1) {
@@ -1569,7 +1508,6 @@ function applyEnhancementSuccessModifier(baseRate, modifier) {
     }
     return 1 - ((1 - normalizedBaseRate) / factor);
 }
-/** computeEnhancementAdjustedSuccessRate：执行对应的业务逻辑。 */
 function computeEnhancementAdjustedSuccessRate(targetEnhanceLevel, roleEnhancementLevel, targetItemLevel, toolSuccessRateModifier = 0) {
     const baseRate = getEnhancementTargetSuccessRate(targetEnhanceLevel);
     const targetLevel = Math.max(1, Math.floor(Number(targetItemLevel) || 1));
@@ -1581,3 +1519,6 @@ function computeEnhancementAdjustedSuccessRate(targetEnhanceLevel, roleEnhanceme
         + (upperLevelGap * ENHANCEMENT_EXTRA_SUCCESS_RATE_PER_LEVEL);
     return applyEnhancementSuccessModifier(adjustedBaseRate, totalSuccessModifier);
 }
+
+
+

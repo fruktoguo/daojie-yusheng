@@ -44,38 +44,31 @@ import {
   INVENTORY_PANEL_USABLE_ITEM_TYPES,
 } from '../../constants/ui/inventory-panel';
 
-/** InventoryActionKind：定义该类型的结构与数据语义。 */
+/** InventoryActionKind：分类枚举。 */
 type InventoryActionKind = 'use' | 'drop' | 'destroy';
 
-/** InventoryActionDialogState：定义该接口的能力与字段约束。 */
+/** InventoryActionDialogState：背包物品操作对话框状态。 */
 interface InventoryActionDialogState {
-/** kind：定义该变量以承载业务值。 */
   kind: InventoryActionKind;
-/** slotIndex：定义该变量以承载业务值。 */
   slotIndex: number;
-/** defaultCount：定义该变量以承载业务值。 */
   defaultCount: number;
-/** confirmDestroy：定义该变量以承载业务值。 */
   confirmDestroy: boolean;
 }
 
-/** InventoryStructureState：定义该接口的能力与字段约束。 */
+/** InventoryStructureState：背包筛选结果与条目骨架状态。 */
 interface InventoryStructureState {
-/** filter：定义该变量以承载业务值。 */
   filter: InventoryFilter;
-/** items：定义该变量以承载业务值。 */
   items: Array<{ slotIndex: number; identity: string }>;
 }
 
-/** InventoryPrimaryAction：定义该接口的能力与字段约束。 */
+/** InventoryPrimaryAction：背包条目的主操作定义。 */
 interface InventoryPrimaryAction {
-/** label：定义该变量以承载业务值。 */
   label: string;
-/** kind：定义该变量以承载业务值。 */
   kind: 'use' | 'equip' | 'status';
   disabled?: boolean;
 }
 
+/** InventoryShellRefs：背包面板壳层节点引用集合。 */
 interface InventoryShellRefs {
   section: HTMLDivElement;
   title: HTMLDivElement;
@@ -85,75 +78,88 @@ interface InventoryShellRefs {
   loadHint: HTMLDivElement;
 }
 
-/** INVENTORY_SOURCE_COLLAPSED_COUNT：定义该变量以承载业务值。 */
+/** INVENTORY_SOURCE_COLLAPSED_COUNT：背包来源COLLAPSED数量。 */
 const INVENTORY_SOURCE_COLLAPSED_COUNT = 3;
-/** HEAVEN_SPIRITUAL_ROOT_SEED_ITEM_ID：定义该变量以承载业务值。 */
+/** HEAVEN_SPIRITUAL_ROOT_SEED_ITEM_ID：HEAVEN SPIRITUAL ROOT种子物品ID。 */
 const HEAVEN_SPIRITUAL_ROOT_SEED_ITEM_ID = 'root_seed.heaven';
-/** DIVINE_SPIRITUAL_ROOT_SEED_ITEM_ID：定义该变量以承载业务值。 */
+/** DIVINE_SPIRITUAL_ROOT_SEED_ITEM_ID：DIVINE SPIRITUAL ROOT种子物品ID。 */
 const DIVINE_SPIRITUAL_ROOT_SEED_ITEM_ID = 'root_seed.divine';
-/** SHATTER_SPIRIT_PILL_ITEM_ID：定义该变量以承载业务值。 */
+/** SHATTER_SPIRIT_PILL_ITEM_ID：SHATTER灵石PILL物品ID。 */
 const SHATTER_SPIRIT_PILL_ITEM_ID = 'pill.shatter_spirit';
-/** HEAVEN_GATE_REROLL_AVERAGE_BONUS：定义该变量以承载业务值。 */
+/** HEAVEN_GATE_REROLL_AVERAGE_BONUS：HEAVEN关卡REROLL AVERAGE BONUS。 */
 const HEAVEN_GATE_REROLL_AVERAGE_BONUS = 2;
-/** INVENTORY_INITIAL_RENDER_COUNT：定义该变量以承载业务值。 */
+/** INVENTORY_INITIAL_RENDER_COUNT：背包初始渲染数量。 */
 const INVENTORY_INITIAL_RENDER_COUNT = 72;
-/** INVENTORY_RENDER_BATCH_SIZE：定义该变量以承载业务值。 */
+/** INVENTORY_RENDER_BATCH_SIZE：背包渲染BATCH SIZE。 */
 const INVENTORY_RENDER_BATCH_SIZE = 48;
-/** INVENTORY_LOAD_MORE_THRESHOLD_PX：定义该变量以承载业务值。 */
+/** INVENTORY_LOAD_MORE_THRESHOLD_PX：背包LOAD MORE THRESHOLD PX。 */
 const INVENTORY_LOAD_MORE_THRESHOLD_PX = 240;
 
-/** formatItemEffects：执行对应的业务逻辑。 */
+/** formatItemEffects：格式化物品效果。 */
 function formatItemEffects(item: ItemStack): string[] {
   return describeItemEffectDetails(item);
 }
 
 /** 背包面板：显示物品列表，支持使用和丢弃 */
 export class InventoryPanel {
+  /** MODAL_OWNER：弹窗OWNER。 */
   private static readonly MODAL_OWNER = 'inventory-panel';
+  /** pane：pane。 */
   private pane = document.getElementById('pane-inventory')!;
+  /** onUseItem：on使用物品。 */
   private onUseItem: ((slotIndex: number, count?: number) => void) | null = null;
+  /** onDropItem：on掉落物品。 */
   private onDropItem: ((slotIndex: number, count: number) => void) | null = null;
+  /** onDestroyItem：on Destroy物品。 */
   private onDestroyItem: ((slotIndex: number, count: number) => void) | null = null;
+  /** onEquipItem：on Equip物品。 */
   private onEquipItem: ((slotIndex: number) => void) | null = null;
+  /** onSortInventory：on排序背包。 */
   private onSortInventory: (() => void) | null = null;
+  /** tooltip：提示。 */
   private tooltip = new FloatingTooltip('floating-tooltip inventory-tooltip');
-/** activeFilter：定义该变量以承载业务值。 */
+  /** activeFilter：活跃筛选。 */
   private activeFilter: InventoryFilter = 'all';
-/** lastInventory：定义该变量以承载业务值。 */
+  /** lastInventory：last背包。 */
   private lastInventory: Inventory | null = null;
-/** lastStructureState：定义该变量以承载业务值。 */
+  /** lastStructureState：last Structure状态。 */
   private lastStructureState: InventoryStructureState | null = null;
-/** selectedSlotIndex：定义该变量以承载业务值。 */
+  /** selectedSlotIndex：selected槽位索引。 */
   private selectedSlotIndex: number | null = null;
-/** selectedItemKey：定义该变量以承载业务值。 */
+  /** selectedItemKey：selected物品Key。 */
   private selectedItemKey: string | null = null;
-/** actionDialog：定义该变量以承载业务值。 */
+  /** actionDialog：动作对话。 */
   private actionDialog: InventoryActionDialogState | null = null;
-/** lastModalRenderKey：定义该变量以承载业务值。 */
+  /** lastModalRenderKey：last弹窗渲染Key。 */
   private lastModalRenderKey: string | null = null;
-/** tooltipCell：定义该变量以承载业务值。 */
+  /** tooltipCell：提示格子。 */
   private tooltipCell: HTMLElement | null = null;
+  /** sourceExpanded：来源Expanded。 */
   private sourceExpanded = false;
-/** sourceExpandedItemKey：定义该变量以承载业务值。 */
+  /** sourceExpandedItemKey：来源Expanded物品Key。 */
   private sourceExpandedItemKey: string | null = null;
+  /** learnedTechniqueIds：learned Technique ID 列表。 */
   private learnedTechniqueIds = new Set<string>();
+  /** unlockedMinimapIds：unlocked小地图ID 列表。 */
   private unlockedMinimapIds = new Set<string>();
-/** equippedItemsBySlot：定义该变量以承载业务值。 */
+  /** equippedItemsBySlot：equipped物品By槽位。 */
   private equippedItemsBySlot: Partial<Record<EquipSlot, ItemStack>> = {};
-/** playerRealm：定义该变量以承载业务值。 */
+  /** playerRealm：玩家境界。 */
   private playerRealm: PlayerRealmState | null = null;
-/** playerHeavenGate：定义该变量以承载业务值。 */
+  /** playerHeavenGate：玩家Heaven关卡。 */
   private playerHeavenGate: HeavenGateState | null = null;
+  /** playerFoundation：玩家Foundation。 */
   private playerFoundation = 0;
+  /** renderedVisibleCount：rendered可见数量。 */
   private renderedVisibleCount = INVENTORY_INITIAL_RENDER_COUNT;
-/** pendingLoadMoreFrame：定义该变量以承载业务值。 */
+  /** pendingLoadMoreFrame：待处理Load More帧。 */
   private pendingLoadMoreFrame: number | null = null;
-/** cooldownRefreshTimer：定义该变量以承载业务值。 */
+  /** cooldownRefreshTimer：冷却Refresh Timer。 */
   private cooldownRefreshTimer: number | null = null;
+  /** shellRefs：shell Refs。 */
   private shellRefs: InventoryShellRefs | null = null;
-/** handleScrollCapture：将函数作为字段暴露，承接调用行为。 */
+  /** handleScrollCapture：处理Scroll Capture。 */
   private handleScrollCapture = (event: Event) => {
-/** target：定义该变量以承载业务值。 */
     const target = event.target;
     if (!(target instanceof HTMLElement)) {
       return;
@@ -164,7 +170,6 @@ export class InventoryPanel {
     this.maybeLoadMoreVisibleItems(target);
   };
 
-/** constructor：处理当前场景中的对应操作。 */
   constructor() {
     this.ensureTooltipStyle();
     this.bindPaneEvents();
@@ -172,7 +177,7 @@ export class InventoryPanel {
     document.addEventListener('scroll', this.handleScrollCapture, { capture: true, passive: true });
   }
 
-/** clear：执行对应的业务逻辑。 */
+  /** clear：清理clear。 */
   clear(): void {
     this.activeFilter = 'all';
     this.lastInventory = null;
@@ -223,7 +228,6 @@ export class InventoryPanel {
   update(inventory: Inventory): void {
     this.lastInventory = inventory;
     this.syncRenderedVisibleCount(this.getVisibleItems(inventory).length);
-/** structureState：定义该变量以承载业务值。 */
     const structureState = this.buildStructureState(inventory);
     if (!this.isSameStructureState(this.lastStructureState, structureState) || !this.patchList(inventory)) {
       this.render(inventory);
@@ -235,7 +239,7 @@ export class InventoryPanel {
     this.syncCooldownRefresh();
   }
 
-/** initFromPlayer：执行对应的业务逻辑。 */
+  /** initFromPlayer：初始化From玩家。 */
   initFromPlayer(player: PlayerState): void {
     this.syncPlayerContext(player);
     this.update(player.inventory);
@@ -277,26 +281,23 @@ export class InventoryPanel {
     }
   }
 
-/** render：执行对应的业务逻辑。 */
+  /** render：渲染渲染。 */
   private render(inventory: Inventory): void {
     this.lastInventory = inventory;
     this.ensureShell();
     this.patchList(inventory);
   }
 
-/** bindPaneEvents：执行对应的业务逻辑。 */
+  /** bindPaneEvents：绑定Pane事件。 */
   private bindPaneEvents(): void {
     this.pane.addEventListener('click', (event) => {
-/** target：定义该变量以承载业务值。 */
       const target = event.target;
       if (!(target instanceof HTMLElement)) {
         return;
       }
 
-/** filterButton：定义该变量以承载业务值。 */
       const filterButton = target.closest<HTMLElement>('[data-filter-button]');
       if (filterButton) {
-/** filter：定义该变量以承载业务值。 */
         const filter = filterButton.dataset.filter as InventoryFilter | undefined;
         if (!filter || filter === this.activeFilter) {
           return;
@@ -316,20 +317,15 @@ export class InventoryPanel {
         return;
       }
 
-/** primaryButton：定义该变量以承载业务值。 */
       const primaryButton = target.closest<HTMLElement>('[data-inline-primary]');
       if (primaryButton) {
         event.stopPropagation();
-/** rawIndex：定义该变量以承载业务值。 */
         const rawIndex = primaryButton.dataset.inlinePrimary;
         if (!rawIndex) {
           return;
         }
-/** slotIndex：定义该变量以承载业务值。 */
         const slotIndex = parseInt(rawIndex, 10);
-/** item：定义该变量以承载业务值。 */
         const item = this.lastInventory?.items[slotIndex];
-/** action：定义该变量以承载业务值。 */
         const action = item ? this.getPrimaryAction(item) : null;
         if (!action || action.kind === 'status') {
           return;
@@ -348,11 +344,9 @@ export class InventoryPanel {
         return;
       }
 
-/** dropButton：定义该变量以承载业务值。 */
       const dropButton = target.closest<HTMLElement>('[data-inline-drop]');
       if (dropButton) {
         event.stopPropagation();
-/** rawIndex：定义该变量以承载业务值。 */
         const rawIndex = dropButton.dataset.inlineDrop;
         if (!rawIndex) {
           return;
@@ -361,18 +355,15 @@ export class InventoryPanel {
         return;
       }
 
-/** cell：定义该变量以承载业务值。 */
       const cell = target.closest<HTMLElement>('[data-open-item]');
       if (!cell) {
         return;
       }
-/** rawIndex：定义该变量以承载业务值。 */
       const rawIndex = cell.dataset.openItem;
       if (!rawIndex) {
         return;
       }
       this.selectedSlotIndex = parseInt(rawIndex, 10);
-/** item：定义该变量以承载业务值。 */
       const item = this.lastInventory?.items[this.selectedSlotIndex];
       this.selectedItemKey = item ? this.getItemIdentity(item) : null;
       this.tooltip.hide();
@@ -381,25 +372,20 @@ export class InventoryPanel {
     });
   }
 
-/** bindTooltipEvents：执行对应的业务逻辑。 */
+  /** bindTooltipEvents：绑定提示事件。 */
   private bindTooltipEvents(): void {
-/** tapMode：定义该变量以承载业务值。 */
     const tapMode = prefersPinnedTooltipInteraction();
-/** show：通过常量导出可复用函数行为。 */
+    /** show：处理显示。 */
     const show = (cell: HTMLElement, event: PointerEvent) => {
-/** rawIndex：定义该变量以承载业务值。 */
       const rawIndex = cell.dataset.itemSlot;
       if (!rawIndex || !this.lastInventory) {
         return;
       }
-/** slotIndex：定义该变量以承载业务值。 */
       const slotIndex = parseInt(rawIndex, 10);
-/** item：定义该变量以承载业务值。 */
       const item = this.lastInventory.items[slotIndex];
       if (!item) {
         return;
       }
-/** tooltip：定义该变量以承载业务值。 */
       const tooltip = this.buildTooltipPayload(item);
       this.tooltip.show(tooltip.title, tooltip.lines, event.clientX, event.clientY, {
         allowHtml: tooltip.allowHtml,
@@ -411,12 +397,10 @@ export class InventoryPanel {
       if (!tapMode) {
         return;
       }
-/** target：定义该变量以承载业务值。 */
       const target = event.target;
       if (!(target instanceof HTMLElement)) {
         return;
       }
-/** cell：定义该变量以承载业务值。 */
       const cell = target.closest<HTMLElement>('.inventory-cell');
       if (!cell) {
         return;
@@ -426,19 +410,15 @@ export class InventoryPanel {
         this.tooltip.hide(true);
         return;
       }
-/** rawIndex：定义该变量以承载业务值。 */
       const rawIndex = cell.dataset.itemSlot;
       if (!rawIndex || !this.lastInventory) {
         return;
       }
-/** slotIndex：定义该变量以承载业务值。 */
       const slotIndex = parseInt(rawIndex, 10);
-/** item：定义该变量以承载业务值。 */
       const item = this.lastInventory.items[slotIndex];
       if (!item) {
         return;
       }
-/** tooltip：定义该变量以承载业务值。 */
       const tooltip = this.buildTooltipPayload(item);
       this.tooltipCell = cell;
       this.tooltip.showPinned(cell, tooltip.title, tooltip.lines, event.clientX, event.clientY, {
@@ -453,7 +433,6 @@ export class InventoryPanel {
       if (tapMode && this.tooltip.isPinned()) {
         return;
       }
-/** target：定义该变量以承载业务值。 */
       const target = event.target;
       if (!(target instanceof HTMLElement)) {
         if (this.tooltipCell) {
@@ -463,7 +442,6 @@ export class InventoryPanel {
         return;
       }
 
-/** cell：定义该变量以承载业务值。 */
       const cell = target.closest<HTMLElement>('.inventory-cell');
       if (!cell) {
         if (this.tooltipCell) {
@@ -493,69 +471,58 @@ export class InventoryPanel {
     });
   }
 
-/** ensureTooltipStyle：执行对应的业务逻辑。 */
+  /** ensureTooltipStyle：确保提示样式。 */
   private ensureTooltipStyle(): void {
     if (document.getElementById(INVENTORY_PANEL_TOOLTIP_STYLE_ID)) return;
-/** style：定义该变量以承载业务值。 */
     const style = document.createElement('style');
     style.id = INVENTORY_PANEL_TOOLTIP_STYLE_ID;
     style.textContent = `
       .inventory-tooltip {
-/** position：定义该变量以承载业务值。 */
         position: fixed;
         pointer-events: none;
         font-size: var(--font-size-13);
-/** color：定义该变量以承载业务值。 */
         color: var(--ink-black);
         z-index: 2000;
-/** opacity：定义该变量以承载业务值。 */
         opacity: 0;
-/** transition：定义该变量以承载业务值。 */
         transition: opacity 120ms ease;
         min-width: 0;
       }
       .inventory-tooltip.visible {
-/** opacity：定义该变量以承载业务值。 */
         opacity: 1;
       }
       .inventory-tooltip .floating-tooltip-body {
         min-width: 160px;
       }
       .inventory-tooltip .floating-tooltip-body {
-/** display：定义该变量以承载业务值。 */
         display: flex;
         flex-direction: column;
-/** gap：定义该变量以承载业务值。 */
         gap: 4px;
         line-height: 1.4;
       }
       .inventory-tooltip .floating-tooltip-body strong {
-/** display：定义该变量以承载业务值。 */
         display: block;
       }
       .inventory-tooltip .floating-tooltip-detail {
-/** display：定义该变量以承载业务值。 */
         display: flex;
         flex-direction: column;
-/** gap：定义该变量以承载业务值。 */
         gap: 2px;
-/** color：定义该变量以承载业务值。 */
         color: var(--ink-grey);
       }
       .inventory-tooltip .floating-tooltip-line {
-/** display：定义该变量以承载业务值。 */
         display: block;
       }
     `;
     document.head.appendChild(style);
   }
 
+  /** createInventoryEmptyState：创建背包Empty状态。 */
   private createInventoryEmptyState(): HTMLDivElement {
     const empty = createEmptyHint('背包空空如也');
     empty.dataset.inventoryEmpty = 'true';
     return empty;
   }
 
+  /** ensureShell：确保Shell。 */
   private ensureShell(): InventoryShellRefs {
     if (this.shellRefs?.section.isConnected) {
       return this.shellRefs;
@@ -610,6 +577,7 @@ export class InventoryPanel {
     return this.shellRefs;
   }
 
+  /** createInventoryCell：创建背包格子。 */
   private createInventoryCell(slotIndex: number): HTMLDivElement {
     const cell = document.createElement('div');
     cell.dataset.openItem = String(slotIndex);
@@ -658,6 +626,7 @@ export class InventoryPanel {
     return cell;
   }
 
+  /** syncGridChildren：同步Grid Children。 */
   private syncGridChildren(grid: HTMLElement, orderedCells: HTMLElement[]): void {
     const allowed = new Set(orderedCells);
     for (const child of Array.from(grid.children)) {
@@ -769,14 +738,13 @@ export class InventoryPanel {
     return true;
   }
 
-/** renderModal：执行对应的业务逻辑。 */
+  /** renderModal：渲染弹窗。 */
   private renderModal(): void {
     if (!this.lastInventory || !this.selectedItemKey) {
       detailModalHost.close(InventoryPanel.MODAL_OWNER);
       return;
     }
 
-/** resolved：定义该变量以承载业务值。 */
     const resolved = this.resolveSelectedItem(this.lastInventory);
     if (!resolved) {
       this.closeModal();
@@ -792,10 +760,8 @@ export class InventoryPanel {
       return;
     }
 
-/** previewItem：定义该变量以承载业务值。 */
     const previewItem = resolvePreviewItem(item);
     if (!hasLoadedItemSourceCatalog()) {
-/** pendingItemKey：定义该变量以承载业务值。 */
       const pendingItemKey = this.selectedItemKey;
       void preloadItemSourceCatalog().then(() => {
         if (!this.lastInventory || !pendingItemKey || this.selectedItemKey !== pendingItemKey || this.actionDialog) {
@@ -808,25 +774,15 @@ export class InventoryPanel {
       this.sourceExpanded = false;
       this.sourceExpandedItemKey = this.selectedItemKey;
     }
-/** bonusLines：定义该变量以承载业务值。 */
     const bonusLines = describePreviewBonuses(previewItem.equipAttrs, previewItem.equipStats, previewItem.equipValueStats);
-/** effectLines：定义该变量以承载业务值。 */
     const effectLines = formatItemEffects(item);
-/** primaryAction：定义该变量以承载业务值。 */
     const primaryAction = this.getPrimaryAction(item);
-/** statusLabel：定义该变量以承载业务值。 */
     const statusLabel = this.getItemStatusLabel(item);
-/** canBatchUse：定义该变量以承载业务值。 */
     const canBatchUse = primaryAction?.kind === 'use' && this.canBatchUseItem(item);
-/** canBatchDropOrDestroy：定义该变量以承载业务值。 */
     const canBatchDropOrDestroy = this.canBatchDropOrDestroy(item);
-/** sourceEntryCount：定义该变量以承载业务值。 */
     const sourceEntryCount = getItemSourceEntryCount(previewItem.itemId);
-/** useSpecialSourceSummary：定义该变量以承载业务值。 */
     const useSpecialSourceSummary = isSpecialSourceSummaryItem(previewItem.itemId);
-/** canToggleSourceList：定义该变量以承载业务值。 */
     const canToggleSourceList = !useSpecialSourceSummary && sourceEntryCount > INVENTORY_SOURCE_COLLAPSED_COUNT;
-/** sourceListHtml：定义该变量以承载业务值。 */
     const sourceListHtml = renderItemSourceListHtml(previewItem.itemId, {
       maxEntries: this.sourceExpanded || !canToggleSourceList ? undefined : INVENTORY_SOURCE_COLLAPSED_COUNT,
     });
@@ -909,9 +865,7 @@ export class InventoryPanel {
         });
         body.querySelectorAll<HTMLElement>('[data-inventory-open-action]').forEach((button) => button.addEventListener('click', (event) => {
           event.stopPropagation();
-/** kind：定义该变量以承载业务值。 */
           const kind = button.dataset.inventoryOpenAction as InventoryActionKind | undefined;
-/** defaultCount：定义该变量以承载业务值。 */
           const defaultCount = Number.parseInt(button.dataset.defaultCount ?? '1', 10);
           if (!kind) {
             return;
@@ -928,17 +882,12 @@ export class InventoryPanel {
     this.lastModalRenderKey = this.buildModalRenderKey(item);
   }
 
-/** renderActionDialog：执行对应的业务逻辑。 */
+  /** renderActionDialog：渲染动作对话。 */
   private renderActionDialog(item: ItemStack, slotIndex: number, dialog: InventoryActionDialogState): void {
-/** labels：定义该变量以承载业务值。 */
     const labels = this.resolveActionLabels(dialog.kind);
-/** maxCount：定义该变量以承载业务值。 */
     const maxCount = item.count;
-/** halfCount：定义该变量以承载业务值。 */
     const halfCount = Math.max(1, Math.ceil(maxCount / 2));
-/** selectedCount：定义该变量以承载业务值。 */
     const selectedCount = Math.max(1, Math.min(maxCount, dialog.defaultCount));
-/** specialUseSummary：定义该变量以承载业务值。 */
     const specialUseSummary = dialog.kind === 'use' ? this.getSpecialUseConfirmSummary(item) : null;
 
     if (dialog.confirmDestroy) {
@@ -1054,11 +1003,9 @@ export class InventoryPanel {
         this.resetModalState();
       },
       onAfterRender: (body) => {
-/** countInput：定义该变量以承载业务值。 */
         const countInput = body.querySelector<HTMLInputElement>('[data-inventory-action-count="true"]');
         this.syncActionCountInputWidth(countInput, maxCount);
         countInput?.addEventListener('input', () => {
-/** nextValue：定义该变量以承载业务值。 */
           const nextValue = String(this.getUseCountFromInput(countInput, maxCount));
           if (countInput.value !== nextValue) {
             countInput.value = nextValue;
@@ -1080,7 +1027,6 @@ export class InventoryPanel {
         });
         body.querySelector<HTMLElement>('[data-inventory-action-confirm]')?.addEventListener('click', (event) => {
           event.stopPropagation();
-/** selected：定义该变量以承载业务值。 */
           const selected = this.getUseCountFromInput(countInput, maxCount);
           if (dialog.kind === 'use') {
             this.onUseItem?.(slotIndex, selected);
@@ -1104,7 +1050,7 @@ export class InventoryPanel {
     this.lastModalRenderKey = this.buildModalRenderKey(item);
   }
 
-/** patchList：执行对应的业务逻辑。 */
+  /** patchList：处理patch列表。 */
   private patchList(inventory: Inventory): boolean {
     const refs = this.ensureShell();
     refs.title.textContent = `背包 (${formatDisplayInteger(inventory.items.length)}/${formatDisplayInteger(inventory.capacity)})`;
@@ -1117,10 +1063,8 @@ export class InventoryPanel {
       button.classList.toggle('active', this.activeFilter === tab.id);
     }
 
-/** visibleItems：定义该变量以承载业务值。 */
     const visibleItems = this.getVisibleItems(inventory);
     this.syncRenderedVisibleCount(visibleItems.length);
-/** renderedItems：定义该变量以承载业务值。 */
     const renderedItems = visibleItems.slice(0, this.renderedVisibleCount);
     if (visibleItems.length === 0) {
       refs.empty.hidden = false;
@@ -1135,7 +1079,6 @@ export class InventoryPanel {
 
     refs.empty.hidden = true;
     refs.grid.hidden = false;
-/** cooldownStateMap：定义该变量以承载业务值。 */
     const cooldownStateMap = this.getCooldownStateMap(inventory);
     if (renderedItems.length < visibleItems.length) {
       refs.loadHint.hidden = false;
@@ -1175,7 +1118,7 @@ export class InventoryPanel {
     return true;
   }
 
-/** patchModal：执行对应的业务逻辑。 */
+  /** patchModal：处理patch弹窗。 */
   private patchModal(): boolean {
     if (!this.lastInventory || !this.selectedItemKey) {
       this.lastModalRenderKey = null;
@@ -1187,7 +1130,6 @@ export class InventoryPanel {
       return false;
     }
 
-/** resolved：定义该变量以承载业务值。 */
     const resolved = this.resolveSelectedItem(this.lastInventory);
     if (!resolved) {
       this.closeModal();
@@ -1196,20 +1138,19 @@ export class InventoryPanel {
     return this.lastModalRenderKey === this.buildModalRenderKey(resolved.item);
   }
 
+  /** resolveSelectedItem：解析Selected物品。 */
   private resolveSelectedItem(inventory: Inventory): { item: ItemStack; slotIndex: number } | null {
     if (!this.selectedItemKey) {
       return null;
     }
 
     if (this.selectedSlotIndex !== null) {
-/** current：定义该变量以承载业务值。 */
       const current = inventory.items[this.selectedSlotIndex];
       if (current && this.getItemIdentity(current) === this.selectedItemKey) {
         return { item: current, slotIndex: this.selectedSlotIndex };
       }
     }
 
-/** slotIndex：定义该变量以承载业务值。 */
     const slotIndex = inventory.items.findIndex((item) => this.getItemIdentity(item) === this.selectedItemKey);
     if (slotIndex < 0) {
       return null;
@@ -1218,21 +1159,19 @@ export class InventoryPanel {
     return { item: inventory.items[slotIndex], slotIndex };
   }
 
-/** canUseItem：执行对应的业务逻辑。 */
+  /** canUseItem：判断是否使用物品。 */
   private canUseItem(item: ItemStack): boolean {
     return INVENTORY_PANEL_USABLE_ITEM_TYPES.has(item.type);
   }
 
-/** canBatchUseItem：执行对应的业务逻辑。 */
+  /** canBatchUseItem：判断是否Batch使用物品。 */
   private canBatchUseItem(item: ItemStack): boolean {
     return item.allowBatchUse === true && this.canUseItem(item) && item.count > 1;
   }
 
-/** getUseCountFromInput：执行对应的业务逻辑。 */
+  /** getUseCountFromInput：读取使用数量From输入。 */
   private getUseCountFromInput(input: HTMLInputElement | null, maxCount: number): number {
-/** rawValue：定义该变量以承载业务值。 */
     const rawValue = input?.value ?? '1';
-/** parsed：定义该变量以承载业务值。 */
     const parsed = Number.parseInt(rawValue, 10);
     if (!Number.isFinite(parsed)) {
       return 1;
@@ -1240,26 +1179,23 @@ export class InventoryPanel {
     return Math.max(1, Math.min(maxCount, parsed));
   }
 
-/** syncActionCountInputWidth：执行对应的业务逻辑。 */
+  /** syncActionCountInputWidth：同步动作数量输入Width。 */
   private syncActionCountInputWidth(input: HTMLInputElement | null, maxCount: number): void {
     if (!input) {
       return;
     }
-/** valueLength：定义该变量以承载业务值。 */
     const valueLength = Math.max(1, input.value.trim().length);
-/** maxLength：定义该变量以承载业务值。 */
     const maxLength = Math.max(1, String(maxCount).length);
-/** chars：定义该变量以承载业务值。 */
     const chars = Math.max(4, valueLength, maxLength) + 1;
     input.style.width = `calc(${chars}ch + 18px)`;
   }
 
-/** canBatchDropOrDestroy：执行对应的业务逻辑。 */
+  /** canBatchDropOrDestroy：判断是否Batch掉落Or Destroy。 */
   private canBatchDropOrDestroy(item: ItemStack): boolean {
     return item.count > 1;
   }
 
-/** getSpiritualRootSeedTier：执行对应的业务逻辑。 */
+  /** getSpiritualRootSeedTier：读取Spiritual Root种子Tier。 */
   private getSpiritualRootSeedTier(item: ItemStack): 'heaven' | 'divine' | null {
     if (item.itemId === HEAVEN_SPIRITUAL_ROOT_SEED_ITEM_ID) {
       return 'heaven';
@@ -1270,58 +1206,47 @@ export class InventoryPanel {
     return null;
   }
 
-/** requiresUseConfirmation：执行对应的业务逻辑。 */
+  /** requiresUseConfirmation：处理requires使用Confirmation。 */
   private requiresUseConfirmation(item: ItemStack): boolean {
     return this.getSpiritualRootSeedTier(item) !== null
       || item.itemId === SHATTER_SPIRIT_PILL_ITEM_ID
       || this.getTechniqueLearningWarningSummary(item) !== null;
   }
 
-/** getHeavenGateRerollCount：执行对应的业务逻辑。 */
+  /** getHeavenGateRerollCount：读取Heaven关卡Reroll数量。 */
   private getHeavenGateRerollCount(averageBonus: number): number {
     return Math.max(0, Math.floor(Math.max(0, averageBonus) / HEAVEN_GATE_REROLL_AVERAGE_BONUS));
   }
 
-/** getHeavenGateRerollCost：执行对应的业务逻辑。 */
+  /** getHeavenGateRerollCost：读取Heaven关卡Reroll Cost。 */
   private getHeavenGateRerollCost(realm: PlayerRealmState | null): number {
     return Math.max(1, Math.round(Math.max(1, Math.floor(realm?.progressToNext ?? 1)) * HEAVEN_GATE_REROLL_COST_RATIO));
   }
 
-/** getSpiritualRootSeedEquivalentRerollCount：执行对应的业务逻辑。 */
+  /** getSpiritualRootSeedEquivalentRerollCount：读取Spiritual Root种子Equivalent Reroll数量。 */
   private getSpiritualRootSeedEquivalentRerollCount(tier: 'heaven' | 'divine'): number {
     return tier === 'divine' ? 100 : 10;
   }
 
-/** getSpecialUseConfirmSummary：执行对应的业务逻辑。 */
+  /** getSpecialUseConfirmSummary：读取Special使用Confirm摘要。 */
   private getSpecialUseConfirmSummary(item: ItemStack): {
-/** title：定义该变量以承载业务值。 */
     title: string;
-/** lines：定义该变量以承载业务值。 */
     lines: string[];
     confirmLabel?: string;
     cancelLabel?: string;
   } | null {
-/** techniqueWarningSummary：定义该变量以承载业务值。 */
     const techniqueWarningSummary = this.getTechniqueLearningWarningSummary(item);
     if (techniqueWarningSummary) {
       return techniqueWarningSummary;
     }
-/** tier：定义该变量以承载业务值。 */
     const tier = this.getSpiritualRootSeedTier(item);
     if (tier) {
-/** currentRerollCount：定义该变量以承载业务值。 */
       const currentRerollCount = this.getHeavenGateRerollCount(this.playerHeavenGate?.averageBonus ?? 0);
-/** gainedRerollCount：定义该变量以承载业务值。 */
       const gainedRerollCount = this.getSpiritualRootSeedEquivalentRerollCount(tier);
-/** reducedCount：定义该变量以承载业务值。 */
       const reducedCount = Math.max(0, gainedRerollCount - currentRerollCount);
-/** foundationCost：定义该变量以承载业务值。 */
       const foundationCost = this.getHeavenGateRerollCost(this.playerRealm) * reducedCount;
-/** remainingFoundation：定义该变量以承载业务值。 */
       const remainingFoundation = Math.max(0, this.playerFoundation - foundationCost);
-/** nextRerollCount：定义该变量以承载业务值。 */
       const nextRerollCount = currentRerollCount + gainedRerollCount;
-/** lines：定义该变量以承载业务值。 */
       const lines = tier === 'divine'
         ? [
             '使用后，五行灵根会直接全部固定为 100。',
@@ -1334,23 +1259,17 @@ export class InventoryPanel {
             `当前逆天改命累计 ${formatDisplayInteger(currentRerollCount)} 次，使用后会额外增加 ${formatDisplayInteger(gainedRerollCount)} 次，变为 ${formatDisplayInteger(nextRerollCount)} 次。`,
           ];
       return {
-/** title：定义该变量以承载业务值。 */
         title: tier === 'divine' ? '确认使用神品灵根幼苗' : '确认使用天品灵根幼苗',
         lines,
       };
     }
-/** currentRerollCount：定义该变量以承载业务值。 */
     const currentRerollCount = this.getHeavenGateRerollCount(this.playerHeavenGate?.averageBonus ?? 0);
     if (item.itemId !== SHATTER_SPIRIT_PILL_ITEM_ID) {
       return null;
     }
-/** currentExp：定义该变量以承载业务值。 */
     const currentExp = Math.max(0, Math.floor(this.playerRealm?.progress ?? 0));
-/** expCost：定义该变量以承载业务值。 */
     const expCost = Math.max(0, Math.round(currentExp * SHATTER_SPIRIT_PILL_COST_RATIO));
-/** remainingExp：定义该变量以承载业务值。 */
     const remainingExp = Math.max(0, currentExp - expCost);
-/** nextRerollCount：定义该变量以承载业务值。 */
     const nextRerollCount = currentRerollCount + 1;
     return {
       title: '确认使用碎灵丹',
@@ -1362,11 +1281,9 @@ export class InventoryPanel {
     };
   }
 
-/** getTechniqueLearningWarningSummary：执行对应的业务逻辑。 */
+  /** getTechniqueLearningWarningSummary：读取Technique Learning Warning摘要。 */
   private getTechniqueLearningWarningSummary(item: ItemStack): {
-/** title：定义该变量以承载业务值。 */
     title: string;
-/** lines：定义该变量以承载业务值。 */
     lines: string[];
     confirmLabel?: string;
     cancelLabel?: string;
@@ -1374,29 +1291,24 @@ export class InventoryPanel {
     if (item.type !== 'skill_book') {
       return null;
     }
-/** playerRealmLv：定义该变量以承载业务值。 */
     const playerRealmLv = Number.isFinite(this.playerRealm?.realmLv)
       ? Math.max(1, Math.floor(Number(this.playerRealm?.realmLv)))
       : null;
     if (playerRealmLv === null) {
       return null;
     }
-/** techniqueId：定义该变量以承载业务值。 */
     const techniqueId = resolveTechniqueIdFromBookItemId(item.itemId);
     if (!techniqueId) {
       return null;
     }
-/** technique：定义该变量以承载业务值。 */
     const technique = getLocalTechniqueTemplate(techniqueId);
     if (!technique || !Number.isFinite(technique.realmLv)) {
       return null;
     }
-/** techniqueRealmLv：定义该变量以承载业务值。 */
     const techniqueRealmLv = Math.max(1, Math.floor(Number(technique.realmLv)));
     if (!shouldWarnTechniqueLearningDifficulty(playerRealmLv, techniqueRealmLv)) {
       return null;
     }
-/** gap：定义该变量以承载业务值。 */
     const gap = techniqueRealmLv - playerRealmLv;
     return {
       title: `确认学习 ${technique.name || item.name}`,
@@ -1410,7 +1322,7 @@ export class InventoryPanel {
     };
   }
 
-/** openActionDialog：执行对应的业务逻辑。 */
+  /** openActionDialog：打开动作对话。 */
   private openActionDialog(kind: InventoryActionKind, slotIndex: number, defaultCount: number): void {
     this.actionDialog = {
       kind,
@@ -1421,13 +1333,10 @@ export class InventoryPanel {
     this.renderModal();
   }
 
-/** resolveActionLabels：执行对应的业务逻辑。 */
+  /** resolveActionLabels：解析动作标签。 */
   private resolveActionLabels(kind: InventoryActionKind): {
-/** title：定义该变量以承载业务值。 */
     title: string;
-/** confirm：定义该变量以承载业务值。 */
     confirm: string;
-/** danger：定义该变量以承载业务值。 */
     danger: boolean;
   } {
     switch (kind) {
@@ -1442,9 +1351,8 @@ export class InventoryPanel {
     }
   }
 
-/** getPrimaryAction：执行对应的业务逻辑。 */
+  /** getPrimaryAction：读取Primary动作。 */
   private getPrimaryAction(item: ItemStack): InventoryPrimaryAction | null {
-/** statusLabel：定义该变量以承载业务值。 */
     const statusLabel = this.getItemStatusLabel(item);
     if (statusLabel) {
       return { label: statusLabel, kind: 'status', disabled: true };
@@ -1461,17 +1369,14 @@ export class InventoryPanel {
     return null;
   }
 
-/** getItemStatusLabel：执行对应的业务逻辑。 */
+  /** getItemStatusLabel：读取物品状态标签。 */
   private getItemStatusLabel(item: ItemStack): string | null {
-/** cooldownState：定义该变量以承载业务值。 */
     const cooldownState = this.getItemCooldownState(item);
-/** cooldownLeft：定义该变量以承载业务值。 */
     const cooldownLeft = this.getItemCooldownRemainingTicks(cooldownState);
     if (cooldownLeft > 0) {
       return `冷却 ${formatDisplayInteger(cooldownLeft)} 息`;
     }
     if (item.type === 'skill_book') {
-/** techniqueId：定义该变量以承载业务值。 */
       const techniqueId = resolveTechniqueIdFromBookItemId(item.itemId);
       if (techniqueId && this.learnedTechniqueIds.has(techniqueId)) {
         return '已学';
@@ -1488,7 +1393,7 @@ export class InventoryPanel {
     return null;
   }
 
-/** getEquippedItemForCompare：执行对应的业务逻辑。 */
+  /** getEquippedItemForCompare：读取Equipped物品For Compare。 */
   private getEquippedItemForCompare(item: ItemStack): ItemStack | null {
     if (item.type !== 'equipment' || !item.equipSlot) {
       return null;
@@ -1496,7 +1401,7 @@ export class InventoryPanel {
     return this.equippedItemsBySlot[item.equipSlot] ?? null;
   }
 
-/** getCooldownStateMap：执行对应的业务逻辑。 */
+  /** getCooldownStateMap：读取冷却状态地图。 */
   private getCooldownStateMap(inventory: Inventory): Map<string, InventoryItemCooldownState> {
     return new Map(
       (inventory.cooldowns ?? [])
@@ -1505,14 +1410,13 @@ export class InventoryPanel {
     );
   }
 
-/** getItemCooldownState：执行对应的业务逻辑。 */
+  /** getItemCooldownState：读取物品冷却状态。 */
   private getItemCooldownState(item: ItemStack, inventory: Inventory | null = this.lastInventory): InventoryItemCooldownState | null {
-/** cooldownState：定义该变量以承载业务值。 */
     const cooldownState = inventory?.cooldowns?.find((entry) => entry.itemId === item.itemId) ?? null;
     return this.getItemCooldownRemainingTicks(cooldownState) > 0 ? cooldownState : null;
   }
 
-/** getItemCooldownRemainingTicks：执行对应的业务逻辑。 */
+  /** getItemCooldownRemainingTicks：读取物品冷却Remaining Ticks。 */
   private getItemCooldownRemainingTicks(cooldownState: InventoryItemCooldownState | null): number {
     if (!cooldownState) {
       return 0;
@@ -1520,38 +1424,34 @@ export class InventoryPanel {
     return resolveInventoryCooldownLeft(cooldownState.cooldown, cooldownState.startedAtTick);
   }
 
-/** getItemTooltipCooldownState：执行对应的业务逻辑。 */
+  /** getItemTooltipCooldownState：读取物品提示冷却状态。 */
   private getItemTooltipCooldownState(item: ItemStack): ItemTooltipCooldownState | null {
-/** cooldownState：定义该变量以承载业务值。 */
     const cooldownState = this.getItemCooldownState(item);
     if (!cooldownState) {
       return null;
     }
-/** cooldownLeft：定义该变量以承载业务值。 */
     const cooldownLeft = this.getItemCooldownRemainingTicks(cooldownState);
     return cooldownLeft > 0
       ? { cooldown: cooldownState.cooldown, cooldownLeft }
       : null;
   }
 
-/** getItemCooldownRatio：执行对应的业务逻辑。 */
+  /** getItemCooldownRatio：读取物品冷却Ratio。 */
   private getItemCooldownRatio(cooldownState: InventoryItemCooldownState | null): number {
     if (!cooldownState) {
       return 0;
     }
-/** cooldown：定义该变量以承载业务值。 */
     const cooldown = Math.max(1, cooldownState.cooldown);
     return Math.max(0, Math.min(1, this.getItemCooldownRemainingTicks(cooldownState) / cooldown));
   }
 
-/** getItemCooldownTitle：执行对应的业务逻辑。 */
+  /** getItemCooldownTitle：读取物品冷却标题。 */
   private getItemCooldownTitle(cooldownState: InventoryItemCooldownState): string {
     return `使用冷却 ${formatDisplayInteger(this.getItemCooldownRemainingTicks(cooldownState))} / ${formatDisplayInteger(cooldownState.cooldown)} 息`;
   }
 
-/** getNameClass：执行对应的业务逻辑。 */
+  /** getNameClass：读取名称Class。 */
   private getNameClass(name: string): string {
-/** length：定义该变量以承载业务值。 */
     const length = [...name].length;
     if (length >= 7) {
       return 'inventory-cell-name--tiny';
@@ -1562,24 +1462,24 @@ export class InventoryPanel {
     return '';
   }
 
-/** getItemIdentity：执行对应的业务逻辑。 */
+  /** getItemIdentity：读取物品身份。 */
   private getItemIdentity(item: ItemStack): string {
     return createItemStackSignature(item);
   }
 
+  /** getVisibleItems：读取可见物品。 */
   private getVisibleItems(inventory: Inventory): Array<{ item: ItemStack; slotIndex: number }> {
     return inventory.items
       .map((item, slotIndex) => ({ item, slotIndex }))
       .filter(({ item }) => this.activeFilter === 'all' || item.type === this.activeFilter);
   }
 
-/** syncRenderedVisibleCount：执行对应的业务逻辑。 */
+  /** syncRenderedVisibleCount：同步Rendered可见数量。 */
   private syncRenderedVisibleCount(totalVisibleItems: number): void {
     if (totalVisibleItems <= 0) {
       this.renderedVisibleCount = INVENTORY_INITIAL_RENDER_COUNT;
       return;
     }
-/** minimumVisibleCount：定义该变量以承载业务值。 */
     const minimumVisibleCount = Math.min(INVENTORY_INITIAL_RENDER_COUNT, totalVisibleItems);
     this.renderedVisibleCount = Math.min(
       totalVisibleItems,
@@ -1587,40 +1487,35 @@ export class InventoryPanel {
     );
   }
 
-/** maybeLoadMoreVisibleItems：执行对应的业务逻辑。 */
+  /** maybeLoadMoreVisibleItems：处理maybe Load More可见物品。 */
   private maybeLoadMoreVisibleItems(scrollTarget?: HTMLElement): void {
     if (!this.lastInventory || !this.isPaneVisible()) {
       return;
     }
-/** visibleItemCount：定义该变量以承载业务值。 */
     const visibleItemCount = this.getVisibleItems(this.lastInventory).length;
     if (visibleItemCount === 0 || this.renderedVisibleCount >= visibleItemCount) {
       return;
     }
-/** scrollContainer：定义该变量以承载业务值。 */
     const scrollContainer = this.resolveScrollContainer(scrollTarget);
     if (!scrollContainer) {
       return;
     }
-/** remainingDistance：定义该变量以承载业务值。 */
     const remainingDistance = scrollContainer.scrollHeight - scrollContainer.scrollTop - scrollContainer.clientHeight;
     if (remainingDistance > INVENTORY_LOAD_MORE_THRESHOLD_PX) {
       return;
     }
-/** nextRenderedCount：定义该变量以承载业务值。 */
     const nextRenderedCount = Math.min(visibleItemCount, this.renderedVisibleCount + INVENTORY_RENDER_BATCH_SIZE);
     if (nextRenderedCount === this.renderedVisibleCount) {
       return;
     }
     this.renderedVisibleCount = nextRenderedCount;
-/** previousScrollTop：定义该变量以承载业务值。 */
     const previousScrollTop = scrollContainer.scrollTop;
     this.render(this.lastInventory);
     scrollContainer.scrollTop = previousScrollTop;
     this.scheduleLoadMoreCheck(scrollContainer);
   }
 
-/** scheduleLoadMoreCheck：执行对应的业务逻辑。 */
+  /** scheduleLoadMoreCheck：调度Load More检查。 */
   private scheduleLoadMoreCheck(scrollTarget?: HTMLElement): void {
     if (this.pendingLoadMoreFrame !== null) {
       cancelAnimationFrame(this.pendingLoadMoreFrame);
@@ -1631,12 +1526,11 @@ export class InventoryPanel {
     });
   }
 
-/** resolveScrollContainer：执行对应的业务逻辑。 */
+  /** resolveScrollContainer：解析Scroll容器。 */
   private resolveScrollContainer(preferredTarget?: HTMLElement): HTMLElement | null {
     if (preferredTarget && preferredTarget.contains(this.pane) && this.isScrollableContainer(preferredTarget)) {
       return preferredTarget;
     }
-/** current：定义该变量以承载业务值。 */
     let current: HTMLElement | null = this.pane.parentElement;
     while (current) {
       if (this.isScrollableContainer(current)) {
@@ -1647,34 +1541,32 @@ export class InventoryPanel {
     return null;
   }
 
-/** isScrollableContainer：执行对应的业务逻辑。 */
+  /** isScrollableContainer：判断是否Scrollable容器。 */
   private isScrollableContainer(element: HTMLElement): boolean {
     const { overflowY } = window.getComputedStyle(element);
     return (overflowY === 'auto' || overflowY === 'scroll' || overflowY === 'overlay')
       && element.clientHeight > 0;
   }
 
-/** isPaneVisible：执行对应的业务逻辑。 */
+  /** isPaneVisible：判断是否Pane可见。 */
   private isPaneVisible(): boolean {
     return !this.pane.classList.contains('hidden') && this.pane.getClientRects().length > 0;
   }
 
-/** scrollToTop：执行对应的业务逻辑。 */
+  /** scrollToTop：处理scroll To Top。 */
   private scrollToTop(): void {
-/** scrollContainer：定义该变量以承载业务值。 */
     const scrollContainer = this.resolveScrollContainer();
     if (scrollContainer) {
       scrollContainer.scrollTop = 0;
     }
   }
 
-/** buildStructureState：执行对应的业务逻辑。 */
+  /** buildStructureState：构建Structure状态。 */
   private buildStructureState(inventory: Inventory): InventoryStructureState {
     return this.buildStructureStateFromVisibleItems(this.getVisibleItems(inventory).slice(0, this.renderedVisibleCount));
   }
 
   private buildStructureStateFromVisibleItems(
-/** visibleItems：定义该变量以承载业务值。 */
     visibleItems: Array<{ item: ItemStack; slotIndex: number }>,
   ): InventoryStructureState {
     return {
@@ -1703,11 +1595,10 @@ export class InventoryPanel {
     return true;
   }
 
-/** buildTooltipPayload：处理当前场景中的对应操作。 */
+  /** buildTooltipPayload：构建提示载荷。 */
   private buildTooltipPayload(item: ItemStack) {
     return buildItemTooltipPayload({
       ...item,
-/** type：定义该变量以承载业务值。 */
       type: item.type === 'skill_book' ? 'skill_book' : item.type,
     }, {
       learnedTechniqueIds: this.learnedTechniqueIds,
@@ -1717,27 +1608,24 @@ export class InventoryPanel {
     });
   }
 
-/** hasActiveCooldowns：执行对应的业务逻辑。 */
+  /** hasActiveCooldowns：判断是否活跃Cooldowns。 */
   private hasActiveCooldowns(inventory: Inventory | null = this.lastInventory): boolean {
     return (inventory?.cooldowns ?? []).some((entry) => this.getItemCooldownRemainingTicks(entry) > 0);
   }
 
-/** refreshTooltipContent：执行对应的业务逻辑。 */
+  /** refreshTooltipContent：处理refresh提示Content。 */
   private refreshTooltipContent(): void {
     if (!this.tooltipCell || !this.lastInventory) {
       return;
     }
-/** rawIndex：定义该变量以承载业务值。 */
     const rawIndex = this.tooltipCell.dataset.itemSlot;
     if (!rawIndex) {
       return;
     }
-/** item：定义该变量以承载业务值。 */
     const item = this.lastInventory.items[parseInt(rawIndex, 10)];
     if (!item) {
       return;
     }
-/** tooltip：定义该变量以承载业务值。 */
     const tooltip = this.buildTooltipPayload(item);
     this.tooltip.updateContent(tooltip.title, tooltip.lines, {
       allowHtml: tooltip.allowHtml,
@@ -1745,7 +1633,7 @@ export class InventoryPanel {
     });
   }
 
-/** syncCooldownRefresh：执行对应的业务逻辑。 */
+  /** syncCooldownRefresh：同步冷却Refresh。 */
   private syncCooldownRefresh(): void {
     if (this.cooldownRefreshTimer !== null) {
       window.clearTimeout(this.cooldownRefreshTimer);
@@ -1770,14 +1658,14 @@ export class InventoryPanel {
     }, 100);
   }
 
-/** closeModal：执行对应的业务逻辑。 */
+  /** closeModal：关闭弹窗。 */
   private closeModal(): void {
     this.resetModalState();
     this.tooltipCell = null;
     detailModalHost.close(InventoryPanel.MODAL_OWNER);
   }
 
-/** resetModalState：执行对应的业务逻辑。 */
+  /** resetModalState：重置弹窗状态。 */
   private resetModalState(): void {
     this.selectedSlotIndex = null;
     this.selectedItemKey = null;
@@ -1787,7 +1675,7 @@ export class InventoryPanel {
     this.sourceExpandedItemKey = null;
   }
 
-/** buildModalRenderKey：执行对应的业务逻辑。 */
+  /** buildModalRenderKey：构建弹窗渲染Key。 */
   private buildModalRenderKey(item: ItemStack): string {
     if (this.actionDialog) {
       return [
@@ -1800,9 +1688,7 @@ export class InventoryPanel {
       ].join('|');
     }
 
-/** equippedComparisonItem：定义该变量以承载业务值。 */
     const equippedComparisonItem = this.getEquippedItemForCompare(item);
-/** statusLabel：定义该变量以承载业务值。 */
     const statusLabel = this.getItemStatusLabel(item) ?? '';
     return [
       'detail',
@@ -1815,7 +1701,7 @@ export class InventoryPanel {
     ].join('|');
   }
 
-/** escapeHtml：执行对应的业务逻辑。 */
+  /** escapeHtml：转义 HTML 文本中的危险字符。 */
   private escapeHtml(value: string): string {
     return value
       .replaceAll('&', '&amp;')
@@ -1825,3 +1711,4 @@ export class InventoryPanel {
       .replaceAll("'", '&#39;');
   }
 }
+

@@ -4,12 +4,9 @@
  */
 
 Object.defineProperty(exports, "__esModule", { value: true });
-/** smoke_timeout_1：定义该变量以承载业务值。 */
 const smoke_timeout_1 = require("./smoke-timeout");
 (0, smoke_timeout_1.installSmokeTimeout)(__filename);
-/** env_alias_1：定义该变量以承载业务值。 */
 const env_alias_1 = require("../config/env-alias");
-/** gm_database_proof_lib_1：定义该变量以承载业务值。 */
 const gm_database_proof_lib_1 = require("./gm-database-proof-lib");
 /**
  * 记录服务端地址。

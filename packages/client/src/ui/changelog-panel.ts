@@ -1,16 +1,16 @@
 import { detailModalHost } from './detail-modal-host';
 import { CHANGELOG_ENTRIES, getLatestChangelogEntry } from './changelog-data';
 
-/** ChangelogPanel：封装相关状态与行为。 */
+/** ChangelogPanel：Changelog面板实现。 */
 export class ChangelogPanel {
+  /** MODAL_OWNER：弹窗OWNER。 */
   private static readonly MODAL_OWNER = 'changelog-panel';
 
-/** constructor：处理当前场景中的对应操作。 */
   constructor() {
     document.getElementById('hud-open-chronicle')?.addEventListener('click', () => this.open());
   }
 
-/** open：执行对应的业务逻辑。 */
+  /** open：打开open。 */
   open(): void {
     detailModalHost.open({
       ownerId: ChangelogPanel.MODAL_OWNER,
@@ -21,14 +21,13 @@ export class ChangelogPanel {
     });
   }
 
-/** buildSubtitle：执行对应的业务逻辑。 */
+  /** buildSubtitle：构建Subtitle。 */
   private buildSubtitle(): string {
-/** latest：定义该变量以承载业务值。 */
     const latest = getLatestChangelogEntry();
     return latest ? `最近记载：${latest.updatedAt}` : '暂无记载';
   }
 
-/** buildBodyHtml：执行对应的业务逻辑。 */
+  /** buildBodyHtml：构建身体Html。 */
   private buildBodyHtml(): string {
     return `
       <div class="chronicle-shell">
@@ -42,7 +41,7 @@ export class ChangelogPanel {
     `;
   }
 
-/** renderEntry：执行对应的业务逻辑。 */
+  /** renderEntry：渲染条目。 */
   private renderEntry(entry: { updatedAt: string; summary: string; items: string[] }): string {
     return `
       <article class="chronicle-entry">
@@ -58,7 +57,7 @@ export class ChangelogPanel {
   }
 }
 
-/** escapeHtml：执行对应的业务逻辑。 */
+/** escapeHtml：转义 HTML 文本中的危险字符。 */
 function escapeHtml(input: string): string {
   return input
     .replaceAll('&', '&amp;')
@@ -67,4 +66,6 @@ function escapeHtml(input: string): string {
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#39;');
 }
+
+
 

@@ -8,11 +8,9 @@ import {
   TargetingShape,
 } from '@mud/shared-next';
 
-/** TargetingActionState：定义该类型的结构与数据语义。 */
+/** 记录当前待执行动作的目标参数，供落点、范围和目标解析复用。 */
 export type TargetingActionState = {
-/** actionId：定义该变量以承载业务值。 */
   actionId: string;
-/** range：定义该变量以承载业务值。 */
   range: number;
   shape?: TargetingShape;
   radius?: number;
@@ -21,32 +19,28 @@ export type TargetingActionState = {
   targetMode?: string;
 };
 
-/** TargetingTarget：定义该类型的结构与数据语义。 */
+/** 落点或候选实体的轻量快照，仅保留坐标和类型信息。 */
 export type TargetingTarget = {
-/** x：定义该变量以承载业务值。 */
   x: number;
-/** y：定义该变量以承载业务值。 */
   y: number;
   entityId?: string;
   entityKind?: string;
 };
 
-/** TargetingEntityLike：定义该类型的结构与数据语义。 */
+/** 用于判定命中范围的实体轻量对象。 */
 export type TargetingEntityLike = {
   kind?: string;
-/** wx：定义该变量以承载业务值。 */
   wx: number;
-/** wy：定义该变量以承载业务值。 */
   wy: number;
 };
 
-/** TargetTileLike：定义该类型的结构与数据语义。 */
+/** 用于判断格子上是否存在可作用地块的轻量对象。 */
 export type TargetTileLike = {
   hp?: number;
   maxHp?: number;
 };
 
-/** getSkillDefByActionId：执行对应的业务逻辑。 */
+/** 按动作 ID 反查对应技能定义，便于后续按技能模板计算范围。 */
 export function getSkillDefByActionId(myPlayer: PlayerState | null, actionId: string): SkillDef | null {
   if (!myPlayer) return null;
   for (const technique of myPlayer.techniques) {
@@ -58,12 +52,11 @@ export function getSkillDefByActionId(myPlayer: PlayerState | null, actionId: st
   return null;
 }
 
-/** getCurrentSkillTargetingSpec：执行对应的业务逻辑。 */
+/** 汇总当前动作的目标规则，优先用玩家侧配置，再回退到技能模板。 */
 export function getCurrentSkillTargetingSpec(
   action: Pick<TargetingActionState, 'actionId' | 'range' | 'shape' | 'radius' | 'width' | 'height'>,
   myPlayer: PlayerState | null,
 ): TargetingGeometrySpec {
-/** skill：定义该变量以承载业务值。 */
   const skill = myPlayer
     ? myPlayer.techniques
       .flatMap((technique) => technique.skills)
@@ -78,7 +71,7 @@ export function getCurrentSkillTargetingSpec(
   };
 }
 
-/** resolveCurrentTargetingRange：执行对应的业务逻辑。 */
+/** 计算当前动作的可用距离，侦测与观察类动作使用视野范围。 */
 export function resolveCurrentTargetingRange(
   action: Pick<TargetingActionState, 'actionId' | 'range'>,
   infoRadius: number,
@@ -89,7 +82,7 @@ export function resolveCurrentTargetingRange(
   return Math.max(1, action.range);
 }
 
-/** computeAffectedCellsForAction：执行对应的业务逻辑。 */
+/** 以玩家当前位置和锚点为基准，计算该动作会影响到的格子。 */
 export function computeAffectedCellsForAction(
   action: Pick<TargetingActionState, 'actionId' | 'range' | 'shape' | 'radius' | 'width' | 'height'>,
   anchor: GridPoint,
@@ -98,24 +91,21 @@ export function computeAffectedCellsForAction(
   if (!myPlayer) {
     return [];
   }
-/** spec：定义该变量以承载业务值。 */
   const spec = getCurrentSkillTargetingSpec(action, myPlayer);
   return computeAffectedCellsFromAnchor({ x: myPlayer.x, y: myPlayer.y }, anchor, spec);
 }
 
-/** resolveTargetRefForAction：执行对应的业务逻辑。 */
+/** 将目标坐标或实体转换为服务端可识别的 targeting ref。 */
 export function resolveTargetRefForAction(
   action: Pick<TargetingActionState, 'actionId' | 'range' | 'shape' | 'radius' | 'width' | 'height' | 'targetMode'>,
   target: TargetingTarget,
   myPlayer: PlayerState | null,
 ): string | null {
-/** entityTargetRef：定义该变量以承载业务值。 */
   const entityTargetRef = target.entityKind === 'player' && target.entityId
     ? `player:${target.entityId}`
     : target.entityKind === 'monster' && target.entityId
       ? target.entityId
       : null;
-/** geometry：定义该变量以承载业务值。 */
   const geometry = myPlayer ? getCurrentSkillTargetingSpec(action, myPlayer).shape : action.shape;
   if (geometry && geometry !== 'single') {
     return encodeTileTargetRef({ x: target.x, y: target.y });
@@ -132,42 +122,36 @@ export function resolveTargetRefForAction(
   return encodeTileTargetRef({ x: target.x, y: target.y });
 }
 
-/** hasAffectableTargetInArea：执行对应的业务逻辑。 */
+/** 判断候选落点周围是否存在可作用目标，用于高亮与防误点。 */
 export function hasAffectableTargetInArea(
   action: Pick<TargetingActionState, 'actionId' | 'shape' | 'range' | 'radius' | 'width' | 'height'>,
   anchorX: number,
   anchorY: number,
   myPlayer: PlayerState | null,
   args: {
-/** entities：定义该变量以承载业务值。 */
     entities: ReadonlyArray<TargetingEntityLike>;
     getTile: (x: number, y: number) => TargetTileLike | null;
     isPlayerLikeEntityKind: (kind: string | null | undefined) => boolean;
   },
 ): boolean {
-/** spec：定义该变量以承载业务值。 */
   const spec = getCurrentSkillTargetingSpec(action, myPlayer);
   if (!spec.shape || spec.shape === 'single') {
     return true;
   }
-/** origin：定义该变量以承载业务值。 */
   const origin = myPlayer ?? null;
-/** affectedCells：定义该变量以承载业务值。 */
   const affectedCells = computeAffectedCellsForAction(action, { x: anchorX, y: anchorY }, origin);
   if (affectedCells.length === 0) {
     return false;
   }
   return affectedCells.some((cell) => {
-/** hasMonster：定义该变量以承载业务值。 */
     const hasMonster = args.entities.some((entity) => entity.kind === 'monster' && entity.wx === cell.x && entity.wy === cell.y);
-/** hasPlayer：定义该变量以承载业务值。 */
     const hasPlayer = args.entities.some((entity) => args.isPlayerLikeEntityKind(entity.kind) && entity.wx === cell.x && entity.wy === cell.y);
     if (hasMonster || hasPlayer) {
       return true;
     }
-/** tile：定义该变量以承载业务值。 */
     const tile = args.getTile(cell.x, cell.y);
     return Boolean(tile?.hp && tile.hp > 0 && tile.maxHp && tile.maxHp > 0);
   });
 }
+
 

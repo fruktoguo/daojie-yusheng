@@ -16,18 +16,29 @@ const shared_1 = require("@mud/shared-next");
 const pg_1 = require("pg");
 const env_alias_1 = require("../../config/env-alias");
 const persistent_document_table_1 = require("../../persistence/persistent-document-table");
-const legacy_account_validation_1 = require("../../compat/legacy/legacy-account-validation");
+const account_validation_1 = require("../../auth/account-validation");
 const PLAYER_AUTH_SCOPE = 'server_next_player_auth_v1';
+/** Next 玩家鉴权存储：维护账号索引、唯一性检查和持久化读写。 */
 let NextPlayerAuthStoreService = class NextPlayerAuthStoreService {
+    /** 记录存储层状态，便于定位启动和回退分支。 */
     logger = new common_1.Logger(NextPlayerAuthStoreService.name);
+    /** 可选的数据库连接池；未启用时完全走内存模式。 */
     pool = null;
+    /** 标记持久化是否已经成功初始化。 */
     enabled = false;
+    /** 标记数据库初始化失败后是否永久降级。 */
     poolUnavailable = false;
+    /** 按用户 ID 索引的账号快照。 */
     usersById = new Map();
+    /** 按用户名索引到 userId。 */
     userIdByUsername = new Map();
+    /** 按玩家 ID 索引到 userId。 */
     userIdByPlayerId = new Map();
+    /** 按角色名索引到 userId 集合。 */
     userIdsByRoleName = new Map();
+    /** 按显示名索引到 userId 集合。 */
     userIdsByDisplayName = new Map();
+    /** 启动时加载持久化账号到内存索引。 */
     async onModuleInit() {
         const databaseUrl = (0, env_alias_1.resolveServerNextDatabaseUrl)();
         if (!databaseUrl.trim()) {
@@ -49,12 +60,15 @@ let NextPlayerAuthStoreService = class NextPlayerAuthStoreService {
             await this.closePool();
         }
     }
+    /** 关闭模块时释放数据库连接。 */
     async onModuleDestroy() {
         await this.closePool();
     }
+    /** 判断账号存储是否已经完成持久化初始化。 */
     isEnabled() {
         return this.enabled && this.pool !== null;
     }
+    /** 从 persistent_documents 重建账号索引。 */
     async reloadFromPersistence() {
         if (!this.pool || !this.enabled) {
             return;
@@ -69,9 +83,11 @@ let NextPlayerAuthStoreService = class NextPlayerAuthStoreService {
             this.indexUser(normalized);
         }
     }
+    /** 返回当前内存里的账号快照副本。 */
     async listUsers() {
         return Array.from(this.usersById.values()).map(cloneUser);
     }
+    /** 保存账号并同步刷新所有内存索引。 */
     async saveUser(user) {
         const normalized = normalizeAuthRecord(user);
         if (!normalized) {
@@ -88,16 +104,19 @@ let NextPlayerAuthStoreService = class NextPlayerAuthStoreService {
         this.replaceUser(normalized);
         return cloneUser(normalized);
     }
+    /** 按 userId 查询账号。 */
     async findUserById(userId) {
         const normalizedUserId = normalizeRequiredString(userId);
         const user = normalizedUserId ? this.usersById.get(normalizedUserId) ?? null : null;
         return user ? cloneUser(user) : null;
     }
+    /** 直接从内存索引读取账号，供内部调用复用。 */
     getMemoryUserById(userId) {
         const normalizedUserId = normalizeRequiredString(userId);
         const user = normalizedUserId ? this.usersById.get(normalizedUserId) ?? null : null;
         return user ? cloneUser(user) : null;
     }
+    /** 按玩家 ID 查询账号。 */
     async findUserByPlayerId(playerId) {
         const normalizedPlayerId = normalizeRequiredString(playerId);
         const userId = normalizedPlayerId ? this.userIdByPlayerId.get(normalizedPlayerId) ?? '' : '';
@@ -106,16 +125,18 @@ let NextPlayerAuthStoreService = class NextPlayerAuthStoreService {
         }
         return this.findUserById(userId);
     }
+    /** 按用户名查询账号。 */
     async findUserByUsername(username) {
-        const normalizedUsername = (0, legacy_account_validation_1.normalizeUsername)(username).trim();
+        const normalizedUsername = (0, account_validation_1.normalizeUsername)(username).trim();
         const userId = normalizedUsername ? this.userIdByUsername.get(normalizedUsername) ?? '' : '';
         if (!userId) {
             return null;
         }
         return this.findUserById(userId);
     }
+    /** 按角色名查询所有账号。 */
     async findUsersByRoleName(roleName) {
-        const normalizedRoleName = (0, legacy_account_validation_1.normalizeRoleName)(roleName);
+        const normalizedRoleName = (0, account_validation_1.normalizeRoleName)(roleName);
         if (!normalizedRoleName) {
             return [];
         }
@@ -125,6 +146,7 @@ let NextPlayerAuthStoreService = class NextPlayerAuthStoreService {
             .filter((entry) => entry !== null)
             .map(cloneUser);
     }
+    /** 校验候选值是否可用，返回可读冲突说明。 */
     async ensureAvailable(value, requestedKind, options = {}) {
         if (requestedKind === 'display' && (0, shared_1.isDuplicateFriendlyDisplayName)(value)) {
             return null;
@@ -135,20 +157,21 @@ let NextPlayerAuthStoreService = class NextPlayerAuthStoreService {
         }
         return buildConflictMessage(requestedKind, conflict.kind);
     }
+    /** 在账号/角色/显示名三个维度上查找冲突账号。 */
     findConflict(value, requestedKind, options = {}) {
         if (!value) {
             return null;
         }
         const exclude = normalizeExcludeEntries(options.exclude);
         if (requestedKind === 'account') {
-            const userId = this.userIdByUsername.get((0, legacy_account_validation_1.normalizeUsername)(value).trim()) ?? '';
+            const userId = this.userIdByUsername.get((0, account_validation_1.normalizeUsername)(value).trim()) ?? '';
             if (userId && !isExcluded(exclude, userId, 'account')) {
                 return { kind: 'account', userId };
             }
             return null;
         }
         if (requestedKind === 'role') {
-            const userIds = this.userIdsByRoleName.get((0, legacy_account_validation_1.normalizeRoleName)(value)) ?? null;
+            const userIds = this.userIdsByRoleName.get((0, account_validation_1.normalizeRoleName)(value)) ?? null;
             if (!userIds) {
                 return null;
             }
@@ -162,7 +185,7 @@ let NextPlayerAuthStoreService = class NextPlayerAuthStoreService {
         if ((0, shared_1.isDuplicateFriendlyDisplayName)(value)) {
             return null;
         }
-        const userIds = this.userIdsByDisplayName.get((0, legacy_account_validation_1.normalizeDisplayName)(value)) ?? null;
+        const userIds = this.userIdsByDisplayName.get((0, account_validation_1.normalizeDisplayName)(value)) ?? null;
         if (!userIds) {
             return null;
         }
@@ -173,6 +196,7 @@ let NextPlayerAuthStoreService = class NextPlayerAuthStoreService {
         }
         return null;
     }
+    /** 清空全部内存索引，配合重新加载使用。 */
     resetIndexes() {
         this.usersById.clear();
         this.userIdByUsername.clear();
@@ -180,6 +204,7 @@ let NextPlayerAuthStoreService = class NextPlayerAuthStoreService {
         this.userIdsByRoleName.clear();
         this.userIdsByDisplayName.clear();
     }
+    /** 以 user.id 作为主键替换账号记录。 */
     replaceUser(user) {
         const previous = this.usersById.get(user.id) ?? null;
         if (previous) {
@@ -187,6 +212,7 @@ let NextPlayerAuthStoreService = class NextPlayerAuthStoreService {
         }
         this.indexUser(user);
     }
+    /** 将账号写入所有辅助索引。 */
     indexUser(user) {
         this.usersById.set(user.id, user);
         this.userIdByUsername.set(user.username, user.id);
@@ -194,11 +220,12 @@ let NextPlayerAuthStoreService = class NextPlayerAuthStoreService {
         if (user.pendingRoleName) {
             addToSetMap(this.userIdsByRoleName, user.pendingRoleName, user.id);
         }
-        const resolvedDisplayName = (0, legacy_account_validation_1.resolveDisplayName)(user.displayName, user.username);
+        const resolvedDisplayName = (0, account_validation_1.resolveDisplayName)(user.displayName, user.username);
         if (!(0, shared_1.isDuplicateFriendlyDisplayName)(resolvedDisplayName)) {
             addToSetMap(this.userIdsByDisplayName, resolvedDisplayName, user.id);
         }
     }
+    /** 从所有辅助索引中移除账号。 */
     unindexUser(user) {
         this.usersById.delete(user.id);
         if (this.userIdByUsername.get(user.username) === user.id) {
@@ -210,11 +237,12 @@ let NextPlayerAuthStoreService = class NextPlayerAuthStoreService {
         if (user.pendingRoleName) {
             removeFromSetMap(this.userIdsByRoleName, user.pendingRoleName, user.id);
         }
-        const resolvedDisplayName = (0, legacy_account_validation_1.resolveDisplayName)(user.displayName, user.username);
+        const resolvedDisplayName = (0, account_validation_1.resolveDisplayName)(user.displayName, user.username);
         if (!(0, shared_1.isDuplicateFriendlyDisplayName)(resolvedDisplayName)) {
             removeFromSetMap(this.userIdsByDisplayName, resolvedDisplayName, user.id);
         }
     }
+    /** 安全关闭数据库连接池，失败时忽略。 */
     async closePool() {
         const pool = this.pool;
         this.pool = null;
@@ -233,10 +261,10 @@ function normalizeAuthRecord(raw, fallbackKey = '') {
         return null;
     }
     const userId = normalizeRequiredString(raw.userId ?? raw.id ?? fallbackKey);
-    const username = (0, legacy_account_validation_1.normalizeUsername)(raw.username).trim();
+    const username = (0, account_validation_1.normalizeUsername)(raw.username).trim();
     const playerId = normalizeRequiredString(raw.playerId) || buildFallbackPlayerId(userId);
-    const pendingRoleName = (0, legacy_account_validation_1.normalizeRoleName)(raw.playerName ?? raw.pendingRoleName)
-        || (0, legacy_account_validation_1.buildDefaultRoleName)(username);
+    const pendingRoleName = (0, account_validation_1.normalizeRoleName)(raw.playerName ?? raw.pendingRoleName)
+        || (0, account_validation_1.buildDefaultRoleName)(username);
     const passwordHash = typeof raw.passwordHash === 'string' ? raw.passwordHash : '';
     if (!userId || !username || !playerId || !pendingRoleName || !passwordHash) {
         return null;
@@ -282,7 +310,7 @@ function normalizeRequiredString(value) {
     return typeof value === 'string' ? value.trim() : '';
 }
 function normalizeOptionalDisplayName(value) {
-    const normalized = (0, legacy_account_validation_1.normalizeDisplayName)(value);
+    const normalized = (0, account_validation_1.normalizeDisplayName)(value);
     return normalized.trim().length > 0 ? normalized : null;
 }
 function normalizeDateTime(value) {
@@ -332,3 +360,5 @@ function buildConflictMessage(requestedKind, conflictKind) {
     }
     return '称号已存在';
 }
+
+

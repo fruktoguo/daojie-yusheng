@@ -4,11 +4,8 @@
  */
 
 const childProcess = require("node:child_process");
-/** path：定义该变量以承载业务值。 */
 const path = require("node:path");
-/** lib：定义该变量以承载业务值。 */
 const lib = require("./next-protocol-audit-lib");
-/** serverEntry：定义该变量以承载业务值。 */
 const serverEntry = path.join(lib.distRoot, "main.js");
 /**
  * 启动审计服务端。

@@ -4,11 +4,14 @@
  */
 import { GroundItemPileView } from '@mud/shared-next';
 
-/** EMPTY_VISIBLE_TILES：定义该变量以承载业务值。 */
+/** EMPTY_VISIBLE_TILES：EMPTY可见TILES。 */
 export const EMPTY_VISIBLE_TILES = new Set<string>();
-/** EMPTY_GROUND_PILES：定义该变量以承载业务值。 */
+/** EMPTY_GROUND_PILES：EMPTY地面PILES。 */
 export const EMPTY_GROUND_PILES = new Map<string, GroundItemPileView>();
-/** MIN_MODAL_ZOOM：定义该变量以承载业务值。 */
+/** MIN_MODAL_ZOOM：弹窗缩放下限。 */
 export const MIN_MODAL_ZOOM = 1;
-/** MAX_MODAL_ZOOM：定义该变量以承载业务值。 */
+/** MAX_MODAL_ZOOM：弹窗缩放上限。 */
 export const MAX_MODAL_ZOOM = 8;
+
+
+

@@ -2,14 +2,13 @@ import { PanelCapabilities } from './types';
 import { UI_RESPONSIVE_BREAKPOINTS } from '../../constants/ui/responsive';
 import { getEffectiveViewportHeight, getEffectiveViewportWidth } from '../responsive-viewport';
 
-/** matchMediaSafe：执行对应的业务逻辑。 */
+/** matchMediaSafe：处理匹配Media安全。 */
 function matchMediaSafe(win: Window, query: string): boolean {
   return typeof win.matchMedia === 'function' ? win.matchMedia(query).matches : false;
 }
 
-/** readSafeAreaInsets：执行对应的业务逻辑。 */
+/** readSafeAreaInsets：处理read安全区域Insets。 */
 function readSafeAreaInsets(win: Window): PanelCapabilities['safeAreaInsets'] {
-/** probe：定义该变量以承载业务值。 */
   const probe = win.document.createElement('div');
   probe.setAttribute('aria-hidden', 'true');
   probe.style.position = 'fixed';
@@ -21,15 +20,11 @@ function readSafeAreaInsets(win: Window): PanelCapabilities['safeAreaInsets'] {
   probe.style.paddingBottom = 'env(safe-area-inset-bottom, 0px)';
   probe.style.paddingLeft = 'env(safe-area-inset-left, 0px)';
   win.document.body.appendChild(probe);
-/** computed：定义该变量以承载业务值。 */
   const computed = win.getComputedStyle(probe);
-/** toPixels：定义该变量以承载业务值。 */
   const toPixels = (value: string): number => {
-/** parsed：定义该变量以承载业务值。 */
     const parsed = Number.parseFloat(value);
     return Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
   };
-/** insets：定义该变量以承载业务值。 */
   const insets = {
     top: toPixels(computed.paddingTop),
     right: toPixels(computed.paddingRight),
@@ -40,19 +35,13 @@ function readSafeAreaInsets(win: Window): PanelCapabilities['safeAreaInsets'] {
   return insets;
 }
 
-/** detectPanelCapabilities：执行对应的业务逻辑。 */
+/** detectPanelCapabilities：处理detect面板Capabilities。 */
 export function detectPanelCapabilities(win: Window): PanelCapabilities {
-/** viewportWidth：定义该变量以承载业务值。 */
   const viewportWidth = getEffectiveViewportWidth(win);
-/** viewportHeight：定义该变量以承载业务值。 */
   const viewportHeight = getEffectiveViewportHeight(win);
-/** pointerCoarse：定义该变量以承载业务值。 */
   const pointerCoarse = matchMediaSafe(win, '(pointer: coarse)');
-/** hoverAvailable：定义该变量以承载业务值。 */
   const hoverAvailable = matchMediaSafe(win, '(hover: hover)');
-/** reducedMotion：定义该变量以承载业务值。 */
   const reducedMotion = matchMediaSafe(win, '(prefers-reduced-motion: reduce)');
-/** breakpoint：定义该变量以承载业务值。 */
   const breakpoint = viewportWidth < UI_RESPONSIVE_BREAKPOINTS.panelMobile
     ? 'mobile'
     : viewportWidth < UI_RESPONSIVE_BREAKPOINTS.layoutCompactDesktop
@@ -71,12 +60,15 @@ export function detectPanelCapabilities(win: Window): PanelCapabilities {
   };
 }
 
-/** PanelCapabilityMonitor：封装相关状态与行为。 */
+/** PanelCapabilityMonitor：面板Capability Monitor实现。 */
 export class PanelCapabilityMonitor {
-/** win：定义该变量以承载业务值。 */
+  /** win：win。 */
   private readonly win: Window;
+  /** listener：listener。 */
   private readonly listener: (capabilities: PanelCapabilities) => void;
+  /** boundRefresh：bound Refresh。 */
   private readonly boundRefresh: () => void;
+  /** started：started。 */
   private started = false;
 
   constructor(win: Window, listener: (capabilities: PanelCapabilities) => void) {
@@ -87,7 +79,7 @@ export class PanelCapabilityMonitor {
     };
   }
 
-/** start：执行对应的业务逻辑。 */
+  /** start：启动start。 */
   start(): void {
     if (this.started) {
       return;
@@ -99,7 +91,7 @@ export class PanelCapabilityMonitor {
     this.boundRefresh();
   }
 
-/** stop：执行对应的业务逻辑。 */
+  /** stop：停止stop。 */
   stop(): void {
     if (!this.started) {
       return;
@@ -110,4 +102,7 @@ export class PanelCapabilityMonitor {
     this.win.visualViewport?.removeEventListener('resize', this.boundRefresh);
   }
 }
+
+
+
 

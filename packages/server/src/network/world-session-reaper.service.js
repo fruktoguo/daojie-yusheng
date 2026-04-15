@@ -1,31 +1,31 @@
 "use strict";
-/** __decorate：定义该变量以承载业务值。 */
+
 var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-/** c：定义该变量以承载业务值。 */
+
     var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
     if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
     else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
     return c > 3 && r && Object.defineProperty(target, key, r), r;
 };
-/** __metadata：定义该变量以承载业务值。 */
+
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
-/** WorldSessionReaperService_1：定义该变量以承载业务值。 */
+
 var WorldSessionReaperService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.WorldSessionReaperService = void 0;
-/** common_1：定义该变量以承载业务值。 */
+
 const common_1 = require("@nestjs/common");
-/** player_persistence_flush_service_1：定义该变量以承载业务值。 */
+
 const player_persistence_flush_service_1 = require("../persistence/player-persistence-flush.service");
-/** world_session_service_1：定义该变量以承载业务值。 */
+
 const world_session_service_1 = require("./world-session.service");
-/** world_sync_service_1：定义该变量以承载业务值。 */
+
 const world_sync_service_1 = require("./world-sync.service");
-/** SESSION_REAPER_INTERVAL_MS：定义该变量以承载业务值。 */
+
 const SESSION_REAPER_INTERVAL_MS = 1000;
-/** WorldSessionReaperService：定义该变量以承载业务值。 */
+
 let WorldSessionReaperService = WorldSessionReaperService_1 = class WorldSessionReaperService {
     worldSessionService;
     worldSyncService;
@@ -33,13 +33,11 @@ let WorldSessionReaperService = WorldSessionReaperService_1 = class WorldSession
     logger = new common_1.Logger(WorldSessionReaperService_1.name);
     timer = null;
     running = false;
-/** 构造函数：执行实例初始化流程。 */
     constructor(worldSessionService, worldSyncService, playerPersistenceFlushService) {
         this.worldSessionService = worldSessionService;
         this.worldSyncService = worldSyncService;
         this.playerPersistenceFlushService = playerPersistenceFlushService;
     }
-/** onModuleInit：执行对应的业务逻辑。 */
     onModuleInit() {
         this.timer = setInterval(() => {
             void this.reapExpiredSessions();
@@ -47,21 +45,19 @@ let WorldSessionReaperService = WorldSessionReaperService_1 = class WorldSession
         this.timer.unref();
         this.logger.log(`会话回收器已启动，间隔 ${SESSION_REAPER_INTERVAL_MS}ms`);
     }
-/** onModuleDestroy：执行对应的业务逻辑。 */
     onModuleDestroy() {
         if (this.timer) {
             clearInterval(this.timer);
             this.timer = null;
         }
     }
-/** reapExpiredSessions：执行对应的业务逻辑。 */
     async reapExpiredSessions() {
         if (this.running) {
             return;
         }
         this.running = true;
         try {
-/** expiredBindings：定义该变量以承载业务值。 */
+
             const expiredBindings = this.worldSessionService.consumeExpiredBindings();
             for (const binding of expiredBindings) {
                 try {
@@ -90,3 +86,6 @@ exports.WorldSessionReaperService = WorldSessionReaperService = WorldSessionReap
         player_persistence_flush_service_1.PlayerPersistenceFlushService])
 ], WorldSessionReaperService);
 //# sourceMappingURL=world-session-reaper.service.js.map
+
+
+

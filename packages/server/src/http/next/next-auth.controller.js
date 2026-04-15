@@ -20,20 +20,26 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.NextAuthController = void 0;
 const common_1 = require("@nestjs/common");
 const next_player_auth_service_1 = require("./next-player-auth.service");
+/** Next 登录鉴权 HTTP 控制器：负责注册、登录、刷新和显示名可用性检查。 */
 let NextAuthController = class NextAuthController {
+    /** 注入 next 玩家鉴权服务，控制器只负责参数清洗与路由转发。 */
     authService;
     constructor(authService) {
         this.authService = authService;
     }
+    /** 处理注册请求，兼容 accountName/username 两种字段名。 */
     async register(body) {
         return this.authService.register(pickString(body?.accountName) || pickString(body?.username), pickString(body?.password), pickString(body?.displayName), pickString(body?.roleName));
     }
+    /** 处理登录请求，兼容 loginName/username 两种字段名。 */
     async login(body) {
         return this.authService.login(pickString(body?.loginName) || pickString(body?.username), pickString(body?.password));
     }
+    /** 用刷新令牌换取新的访问令牌。 */
     async refresh(body) {
         return this.authService.refresh(pickString(body?.refreshToken));
     }
+    /** 查询显示名是否可用，供前端即时校验。 */
     async checkDisplayName(displayName = '') {
         return this.authService.checkDisplayName(displayName);
     }
@@ -71,6 +77,9 @@ exports.NextAuthController = NextAuthController = __decorate([
     (0, common_1.Controller)('api/auth'),
     __metadata("design:paramtypes", [next_player_auth_service_1.NextPlayerAuthService])
 ], NextAuthController);
+/** 仅接受字符串入参，避免把对象或数字直接传给服务层。 */
 function pickString(value) {
     return typeof value === 'string' ? value : '';
 }
+
+

@@ -1,5 +1,6 @@
 /**
- * 地图记忆持久化 —— 将玩家已探索的地块和标记缓存到 localStorage，跨会话保留
+ * 地图记忆持久化。
+ * 负责把玩家已经探索过的地块与小地图标记缓存到 localStorage，供下次进入时恢复。
  */
 
 import {
@@ -13,54 +14,52 @@ import {
   VisibleTilePatch,
 } from '@mud/shared-next';
 
-/** RememberedTile：定义该类型的结构与数据语义。 */
+/** 已探索地块的持久化字段。 */
 type RememberedTile = Pick<Tile, 'type' | 'walkable' | 'blocksSight' | 'aura'>;
-/** RememberedMarker：定义该类型的结构与数据语义。 */
+/** 已探索标记的持久化字段。 */
 type RememberedMarker = Pick<MapMinimapMarker, 'id' | 'kind' | 'x' | 'y' | 'label' | 'detail'>;
-/** SerializedMapTileMemory：定义该类型的结构与数据语义。 */
+/** 地图级地块记忆序列化结构。 */
 type SerializedMapTileMemory = Record<string, RememberedTile>;
-/** SerializedMapMarkerMemory：定义该类型的结构与数据语义。 */
+/** 地图级标记记忆序列化结构。 */
 type SerializedMapMarkerMemory = Record<string, RememberedMarker>;
-/** SerializedMapMemoryEntry：定义该类型的结构与数据语义。 */
+/** 单张地图的记忆条目。 */
 type SerializedMapMemoryEntry = {
   tiles?: SerializedMapTileMemory;
   markers?: SerializedMapMarkerMemory;
 };
-/** SerializedMapMemoryTilesOnlyShape：定义该类型的结构与数据语义。 */
+/** 兼容旧版仅地块记忆的反序列化形状。 */
 type SerializedMapMemoryTilesOnlyShape = Record<string, SerializedMapTileMemory>;
-/** SerializedMapMemory：定义该类型的结构与数据语义。 */
+/** 全量记忆序列化容器。 */
 type SerializedMapMemory = Record<string, SerializedMapMemoryEntry>;
-/** SerializedMapMemoryEnvelope：定义该类型的结构与数据语义。 */
+/** 持久化文件外层结构（含版本）。 */
 type SerializedMapMemoryEnvelope = {
-/** version：定义该变量以承载业务值。 */
   version: typeof MAP_MEMORY_FORMAT_VERSION;
-/** maps：定义该变量以承载业务值。 */
   maps: SerializedMapMemory;
 };
 
-/** rememberedTilesByMap：定义该变量以承载业务值。 */
+/** 按地图保存已探索地块的内存缓存。 */
 const rememberedTilesByMap = new Map<string, Map<string, Tile>>();
-/** rememberedMarkersByMap：定义该变量以承载业务值。 */
+/** 按地图保存已记住的小地图标记。 */
 const rememberedMarkersByMap = new Map<string, Map<string, MapMinimapMarker>>();
-/** didLoadMemory：定义该变量以承载业务值。 */
+/** 是否已经从本地存储完成过一次加载。 */
 let didLoadMemory = false;
-/** didBindPersistenceLifecycle：定义该变量以承载业务值。 */
+/** 是否已经绑定页面生命周期相关的落盘事件。 */
 let didBindPersistenceLifecycle = false;
-/** storageAccessible：定义该变量以承载业务值。 */
+/** localStorage 是否可用；首次探测后缓存结果。 */
 let storageAccessible: boolean | null = null;
-/** persistDisabled：定义该变量以承载业务值。 */
+/** 是否因为异常而停止继续写入本地存储。 */
 let persistDisabled = false;
-/** persistTimer：定义该变量以承载业务值。 */
+/** 延迟落盘的防抖定时器。 */
 let persistTimer: number | null = null;
-/** hasPendingPersist：定义该变量以承载业务值。 */
+/** 当前是否存在尚未写回存储的记忆改动。 */
 let hasPendingPersist = false;
 
-/** isTileType：执行对应的业务逻辑。 */
+/** 判断值是否为地块枚举中的合法类型。 */
 function isTileType(value: unknown): value is TileType {
   return typeof value === 'string' && Object.values(TileType).includes(value as TileType);
 }
 
-/** toRememberedTile：执行对应的业务逻辑。 */
+/** 将地块压缩为持久化记录。 */
 function toRememberedTile(tile: Pick<Tile, 'type' | 'walkable' | 'blocksSight' | 'aura'>): Tile {
   return {
     type: tile.type,
@@ -72,17 +71,16 @@ function toRememberedTile(tile: Pick<Tile, 'type' | 'walkable' | 'blocksSight' |
   };
 }
 
-/** cloneMarker：执行对应的业务逻辑。 */
+/** 深拷贝地图标记，避免对象引用污染。 */
 function cloneMarker(marker: MapMinimapMarker): MapMinimapMarker {
   return JSON.parse(JSON.stringify(marker)) as MapMinimapMarker;
 }
 
-/** isSerializedRememberedTile：执行对应的业务逻辑。 */
+/** 校验反序列化后地块记录是否符合持久化结构。 */
 function isSerializedRememberedTile(value: unknown): value is RememberedTile {
   if (!value || typeof value !== 'object') {
     return false;
   }
-/** candidate：定义该变量以承载业务值。 */
   const candidate = value as Partial<RememberedTile>;
   return isTileType(candidate.type)
     && typeof candidate.walkable === 'boolean'
@@ -90,12 +88,11 @@ function isSerializedRememberedTile(value: unknown): value is RememberedTile {
     && (typeof candidate.aura === 'number' || candidate.aura === undefined);
 }
 
-/** isSerializedRememberedMarker：执行对应的业务逻辑。 */
+/** 校验反序列化后标记记录是否符合持久化结构。 */
 function isSerializedRememberedMarker(value: unknown): value is RememberedMarker {
   if (!value || typeof value !== 'object') {
     return false;
   }
-/** candidate：定义该变量以承载业务值。 */
   const candidate = value as Partial<RememberedMarker>;
   return typeof candidate.id === 'string'
     && typeof candidate.kind === 'string'
@@ -105,7 +102,7 @@ function isSerializedRememberedMarker(value: unknown): value is RememberedMarker
     && (candidate.detail === undefined || typeof candidate.detail === 'string');
 }
 
-/** getStorage：执行对应的业务逻辑。 */
+/** 读取可用的 localStorage；在受限环境下返回 null。 */
 function getStorage(): Storage | null {
   if (typeof window === 'undefined') {
     return null;
@@ -115,10 +112,8 @@ function getStorage(): Storage | null {
   }
 
   try {
-/** storage：定义该变量以承载业务值。 */
     const storage = window.localStorage;
     if (storageAccessible === null) {
-/** probeKey：定义该变量以承载业务值。 */
       const probeKey = `${MAP_MEMORY_STORAGE_KEY}:probe`;
       storage.setItem(probeKey, '1');
       storage.removeItem(probeKey);
@@ -132,13 +127,12 @@ function getStorage(): Storage | null {
   }
 }
 
-/** getStoredEnvelope：执行对应的业务逻辑。 */
+/** 读取并兼容旧版结构的地图记忆封装。 */
 function getStoredEnvelope(parsed: unknown): SerializedMapMemoryEnvelope | null {
   if (!parsed || typeof parsed !== 'object') {
     return null;
   }
 
-/** candidate：定义该变量以承载业务值。 */
   const candidate = parsed as Partial<SerializedMapMemoryEnvelope> & Record<string, unknown>;
   if (candidate.version === MAP_MEMORY_FORMAT_VERSION && candidate.maps && typeof candidate.maps === 'object') {
     return {
@@ -147,14 +141,11 @@ function getStoredEnvelope(parsed: unknown): SerializedMapMemoryEnvelope | null 
     };
   }
 
-/** candidateVersion：定义该变量以承载业务值。 */
   const candidateVersion = Number(candidate.version);
   if (candidateVersion === 2 || candidate.version === undefined) {
-/** tileOnlyMaps：定义该变量以承载业务值。 */
     const tileOnlyMaps = (candidateVersion === 2 && candidate.maps && typeof candidate.maps === 'object'
       ? candidate.maps
       : candidate) as SerializedMapMemoryTilesOnlyShape;
-/** maps：定义该变量以承载业务值。 */
     const maps: SerializedMapMemory = {};
     for (const [mapId, tiles] of Object.entries(tileOnlyMaps)) {
       maps[mapId] = { tiles };
@@ -168,9 +159,8 @@ function getStoredEnvelope(parsed: unknown): SerializedMapMemoryEnvelope | null 
   return null;
 }
 
-/** importRememberedMaps：执行对应的业务逻辑。 */
+/** 将反序列化后的地图记忆导入运行时缓存。 */
 function importRememberedMaps(serialized: SerializedMapMemory): boolean {
-/** hasValidMemory：定义该变量以承载业务值。 */
   let hasValidMemory = false;
 
   for (const [mapId, entry] of Object.entries(serialized)) {
@@ -178,7 +168,6 @@ function importRememberedMaps(serialized: SerializedMapMemory): boolean {
       continue;
     }
 
-/** rememberedTiles：定义该变量以承载业务值。 */
     const rememberedTiles = new Map<string, Tile>();
     for (const [key, rememberedTile] of Object.entries(entry.tiles ?? {})) {
       if (!isSerializedRememberedTile(rememberedTile)) {
@@ -191,7 +180,6 @@ function importRememberedMaps(serialized: SerializedMapMemory): boolean {
       hasValidMemory = true;
     }
 
-/** rememberedMarkers：定义该变量以承载业务值。 */
     const rememberedMarkers = new Map<string, MapMinimapMarker>();
     for (const [markerId, rememberedMarker] of Object.entries(entry.markers ?? {})) {
       if (!isSerializedRememberedMarker(rememberedMarker)) {
@@ -208,11 +196,9 @@ function importRememberedMaps(serialized: SerializedMapMemory): boolean {
   return hasValidMemory;
 }
 
-/** buildSerializedMapMemory：执行对应的业务逻辑。 */
+/** 把当前运行时缓存整理成可写回存储的结构。 */
 function buildSerializedMapMemory(): SerializedMapMemoryEnvelope {
-/** maps：定义该变量以承载业务值。 */
   const maps: SerializedMapMemory = {};
-/** mapIds：定义该变量以承载业务值。 */
   const mapIds = new Set<string>([
     ...rememberedTilesByMap.keys(),
     ...rememberedMarkersByMap.keys(),
@@ -233,7 +219,6 @@ function buildSerializedMapMemory(): SerializedMapMemoryEnvelope {
       }
     }
 
-/** markers：定义该变量以承载业务值。 */
     const markers = rememberedMarkersByMap.get(mapId);
     if (markers && markers.size > 0) {
       entry.markers = {};
@@ -260,7 +245,7 @@ function buildSerializedMapMemory(): SerializedMapMemoryEnvelope {
   };
 }
 
-/** disablePersistence：执行对应的业务逻辑。 */
+/** 关闭后续持久化，避免异常数据继续覆盖本地存档。 */
 function disablePersistence(reason: string, error?: unknown): void {
   persistDisabled = true;
   hasPendingPersist = false;
@@ -271,14 +256,13 @@ function disablePersistence(reason: string, error?: unknown): void {
   console.warn(`[map-memory] ${reason}`, error);
 }
 
-/** flushPersistMemory：执行对应的业务逻辑。 */
+/** 立即把当前记忆缓存刷写到本地存储。 */
 function flushPersistMemory(): void {
   persistTimer = null;
   if (!hasPendingPersist || persistDisabled) {
     return;
   }
 
-/** storage：定义该变量以承载业务值。 */
   const storage = getStorage();
   if (!storage) {
     hasPendingPersist = false;
@@ -286,12 +270,10 @@ function flushPersistMemory(): void {
   }
 
   try {
-/** envelope：定义该变量以承载业务值。 */
     const envelope = buildSerializedMapMemory();
-/** nextJson：定义该变量以承载业务值。 */
     const nextJson = JSON.stringify(envelope);
 
-    // 安全检查：如果即将写入的数据比已有数据小很多，可能是加载失败后的残留写入
+    // 如果新内容突然比旧内容小很多，通常意味着恢复失败后的残留数据。
     const existingRaw = storage.getItem(MAP_MEMORY_STORAGE_KEY);
     if (existingRaw && nextJson.length < existingRaw.length * 0.5 && existingRaw.length > 1024) {
       disablePersistence(
@@ -307,7 +289,7 @@ function flushPersistMemory(): void {
   }
 }
 
-/** flushPersistMemoryNow：执行对应的业务逻辑。 */
+/** 取消防抖并立刻落盘。 */
 function flushPersistMemoryNow(): void {
   if (persistTimer !== null && typeof window !== 'undefined') {
     window.clearTimeout(persistTimer);
@@ -316,7 +298,7 @@ function flushPersistMemoryNow(): void {
   flushPersistMemory();
 }
 
-/** ensurePersistenceLifecycle：执行对应的业务逻辑。 */
+/** 绑定页面隐藏与切页时的自动落盘钩子。 */
 function ensurePersistenceLifecycle(): void {
   if (didBindPersistenceLifecycle || typeof window === 'undefined') {
     return;
@@ -331,7 +313,7 @@ function ensurePersistenceLifecycle(): void {
   });
 }
 
-/** schedulePersistMemory：执行对应的业务逻辑。 */
+/** 标记当前记忆有变更，并延迟安排一次落盘。 */
 function schedulePersistMemory(): void {
   if (persistDisabled) {
     return;
@@ -348,29 +330,25 @@ function schedulePersistMemory(): void {
   }, MAP_MEMORY_PERSIST_DEBOUNCE_MS);
 }
 
-/** ensureMemoryLoaded：执行对应的业务逻辑。 */
+/** 首次访问时从本地存储加载记忆数据。 */
 function ensureMemoryLoaded(): void {
   if (didLoadMemory) {
     return;
   }
   didLoadMemory = true;
 
-/** storage：定义该变量以承载业务值。 */
   const storage = getStorage();
   if (!storage) {
     return;
   }
 
-/** raw：定义该变量以承载业务值。 */
   const raw = storage.getItem(MAP_MEMORY_STORAGE_KEY);
   if (!raw) {
     return;
   }
 
   try {
-/** parsed：定义该变量以承载业务值。 */
     const parsed = JSON.parse(raw) as unknown;
-/** envelope：定义该变量以承载业务值。 */
     const envelope = getStoredEnvelope(parsed);
     if (!envelope) {
       disablePersistence('本地地图记忆格式无法识别，已保留原始数据且停止本次会话持久化。');
@@ -380,9 +358,7 @@ function ensureMemoryLoaded(): void {
       disablePersistence('本地地图记忆中没有可恢复的有效内容，已保留原始数据且停止本次会话持久化。');
       return;
     }
-/** loadedMapCount：定义该变量以承载业务值。 */
     const loadedMapCount = rememberedTilesByMap.size + rememberedMarkersByMap.size;
-/** storedMapCount：定义该变量以承载业务值。 */
     const storedMapCount = Object.keys(envelope.maps).length;
     if (loadedMapCount < storedMapCount) {
       console.warn(`[map-memory] 部分地图记忆未能恢复（已加载 ${loadedMapCount}/${storedMapCount}），已保留原始数据且停止本次会话持久化。`);
@@ -394,15 +370,14 @@ function ensureMemoryLoaded(): void {
   }
 }
 
-/** persistMemory：执行对应的业务逻辑。 */
+/** 对外暴露的记忆持久化触发入口。 */
 function persistMemory(): void {
   schedulePersistMemory();
 }
 
-/** getRememberedTileMap：执行对应的业务逻辑。 */
+/** 取出某张地图的已记忆地块缓存。 */
 function getRememberedTileMap(mapId: string): Map<string, Tile> {
   ensureMemoryLoaded();
-/** remembered：定义该变量以承载业务值。 */
   let remembered = rememberedTilesByMap.get(mapId);
   if (!remembered) {
     remembered = new Map<string, Tile>();
@@ -411,10 +386,9 @@ function getRememberedTileMap(mapId: string): Map<string, Tile> {
   return remembered;
 }
 
-/** getRememberedMarkerMap：执行对应的业务逻辑。 */
+/** 取出某张地图的已记忆小地图标记缓存。 */
 function getRememberedMarkerMap(mapId: string): Map<string, MapMinimapMarker> {
   ensureMemoryLoaded();
-/** remembered：定义该变量以承载业务值。 */
   let remembered = rememberedMarkersByMap.get(mapId);
   if (!remembered) {
     remembered = new Map<string, MapMinimapMarker>();
@@ -423,7 +397,7 @@ function getRememberedMarkerMap(mapId: string): Map<string, MapMinimapMarker> {
   return remembered;
 }
 
-/** areMarkersEqual：执行对应的业务逻辑。 */
+/** 比较两个标记是否在记忆语义上等价。 */
 function areMarkersEqual(left: MapMinimapMarker | undefined, right: MapMinimapMarker): boolean {
   return !!left
     && left.kind === right.kind
@@ -435,7 +409,6 @@ function areMarkersEqual(left: MapMinimapMarker | undefined, right: MapMinimapMa
 
 /** 将指定地图的记忆地块填充到 tileCache 中，用于初始化时恢复已探索区域 */
 export function hydrateTileCacheFromMemory(mapId: string, tileCache: Map<string, Tile>): void {
-/** remembered：定义该变量以承载业务值。 */
   const remembered = getRememberedTileMap(mapId);
   for (const [key, tile] of remembered.entries()) {
     tileCache.set(key, { ...tile });
@@ -444,9 +417,7 @@ export function hydrateTileCacheFromMemory(mapId: string, tileCache: Map<string,
 
 /** 获取指定地图所有已记忆地块的克隆副本 */
 export function getRememberedTiles(mapId: string): Map<string, Tile> {
-/** remembered：定义该变量以承载业务值。 */
   const remembered = getRememberedTileMap(mapId);
-/** cloned：定义该变量以承载业务值。 */
   const cloned = new Map<string, Tile>();
   for (const [key, tile] of remembered.entries()) {
     cloned.set(key, { ...tile });
@@ -456,7 +427,6 @@ export function getRememberedTiles(mapId: string): Map<string, Tile> {
 
 /** 获取指定地图所有已记忆的小地图标记 */
 export function getRememberedMarkers(mapId: string): MapMinimapMarker[] {
-/** remembered：定义该变量以承载业务值。 */
   const remembered = getRememberedMarkerMap(mapId);
   return [...remembered.values()].map((marker) => cloneMarker(marker));
 }
@@ -470,16 +440,14 @@ export function listRememberedMapIds(): string[] {
   ])].sort();
 }
 
-/** 将当前视野内的地块写入记忆，有变化时触发持久化 */
+/** 记录当前视野内可见地块的记忆内容。 */
 export function rememberVisibleTiles(
   mapId: string,
   tiles: VisibleTile[][],
   originX: number,
   originY: number,
 ): void {
-/** remembered：定义该变量以承载业务值。 */
   const remembered = getRememberedTileMap(mapId);
-/** changed：定义该变量以承载业务值。 */
   let changed = false;
 
   for (let row = 0; row < tiles.length; row += 1) {
@@ -488,11 +456,8 @@ export function rememberVisibleTiles(
       if (!tile) {
         continue;
       }
-/** key：定义该变量以承载业务值。 */
       const key = `${originX + col},${originY + row}`;
-/** nextTile：定义该变量以承载业务值。 */
       const nextTile = toRememberedTile(tile);
-/** previous：定义该变量以承载业务值。 */
       const previous = remembered.get(key);
       if (
         previous?.type === nextTile.type
@@ -512,15 +477,13 @@ export function rememberVisibleTiles(
   }
 }
 
-/** 将增量地块 patch 写入记忆，仅记录当前已知地块，不处理“暂时不可见”的清除 patch */
+/** 记录增量地块 patch，只保留实际可见到的内容。 */
 export function rememberVisibleTilePatches(mapId: string, patches: VisibleTilePatch[]): void {
   if (patches.length === 0) {
     return;
   }
 
-/** remembered：定义该变量以承载业务值。 */
   const remembered = getRememberedTileMap(mapId);
-/** changed：定义该变量以承载业务值。 */
   let changed = false;
 
   for (const patch of patches) {
@@ -528,11 +491,8 @@ export function rememberVisibleTilePatches(mapId: string, patches: VisibleTilePa
       continue;
     }
 
-/** key：定义该变量以承载业务值。 */
     const key = `${patch.x},${patch.y}`;
-/** nextTile：定义该变量以承载业务值。 */
     const nextTile = toRememberedTile(patch.tile);
-/** previous：定义该变量以承载业务值。 */
     const previous = remembered.get(key);
     if (
       previous?.type === nextTile.type
@@ -552,22 +512,19 @@ export function rememberVisibleTilePatches(mapId: string, patches: VisibleTilePa
   }
 }
 
-/** 将当前可见的小地图标记写入记忆 */
+/** 记录当前可见的小地图标记。 */
 export function rememberVisibleMarkers(mapId: string, markers: MapMinimapMarker[]): void {
   if (markers.length === 0) {
     return;
   }
 
-/** remembered：定义该变量以承载业务值。 */
   const remembered = getRememberedMarkerMap(mapId);
-/** changed：定义该变量以承载业务值。 */
   let changed = false;
 
   for (const marker of markers) {
     if (!marker.id || !marker.label) {
       continue;
     }
-/** previous：定义该变量以承载业务值。 */
     const previous = remembered.get(marker.id);
     if (areMarkersEqual(previous, marker)) {
       continue;
@@ -581,15 +538,12 @@ export function rememberVisibleMarkers(mapId: string, markers: MapMinimapMarker[
   }
 }
 
-/** 删除指定地图的所有记忆数据 */
+/** 删除指定地图的全部记忆数据。 */
 export function deleteRememberedMap(mapId: string): void {
   ensureMemoryLoaded();
-/** removedTiles：定义该变量以承载业务值。 */
   const removedTiles = rememberedTilesByMap.delete(mapId);
-/** removedMarkers：定义该变量以承载业务值。 */
   const removedMarkers = rememberedMarkersByMap.delete(mapId);
   if (removedTiles || removedMarkers) {
     persistMemory();
   }
 }
-

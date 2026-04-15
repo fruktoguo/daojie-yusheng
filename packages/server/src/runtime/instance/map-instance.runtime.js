@@ -1,15 +1,18 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.MapInstanceRuntime = void 0;
-/** shared_1：定义该变量以承载业务值。 */
+
 const shared_1 = require("@mud/shared-next");
-/** map_template_repository_1：定义该变量以承载业务值。 */
+
 const map_template_repository_1 = require("../map/map-template.repository");
-/** INVALID_OCCUPANCY：定义该变量以承载业务值。 */
+
+/** INVALID_OCCUPANCY：空占位值，表示该地块当前未被占用。 */
 const INVALID_OCCUPANCY = 0;
-/** DEFAULT_VIEW_RADIUS：定义该变量以承载业务值。 */
+
+/** DEFAULT_VIEW_RADIUS：默认视野半径。 */
 const DEFAULT_VIEW_RADIUS = 10;
-/** DEFAULT_TERRAIN_DURABILITY_BY_TILE：定义该变量以承载业务值。 */
+
+/** DEFAULT_TERRAIN_DURABILITY_BY_TILE：默认地形耐久配置。 */
 const DEFAULT_TERRAIN_DURABILITY_BY_TILE = {
     [shared_1.TileType.Wall]: { grade: 'mortal', material: 'stone' },
     [shared_1.TileType.Cloud]: { grade: 'mortal', material: 'vine' },
@@ -23,7 +26,8 @@ const DEFAULT_TERRAIN_DURABILITY_BY_TILE = {
     [shared_1.TileType.Door]: { grade: 'mortal', material: 'ironwood' },
     [shared_1.TileType.Window]: { grade: 'mortal', material: 'wood' },
 };
-/** TERRAIN_DURABILITY_PROFILES：定义该变量以承载业务值。 */
+
+/** TERRAIN_DURABILITY_PROFILES：按地图风格区分的地形耐久配置。 */
 const TERRAIN_DURABILITY_PROFILES = {
     mortal_settlement: {
         [shared_1.TileType.Wall]: { grade: 'mortal', material: 'stone' },
@@ -93,13 +97,15 @@ const TERRAIN_DURABILITY_PROFILES = {
         [shared_1.TileType.Door]: { grade: 'mystic', material: 'metal' },
     },
 };
-/** SPECIAL_TILE_DURABILITY_MULTIPLIERS：定义该变量以承载业务值。 */
+
+/** SPECIAL_TILE_DURABILITY_MULTIPLIERS：特殊地块耐久倍率表。 */
 const SPECIAL_TILE_DURABILITY_MULTIPLIERS = {
     [shared_1.TileType.SpiritOre]: 1000,
     [shared_1.TileType.BlackIronOre]: 1000,
     [shared_1.TileType.BrokenSwordHeap]: 0.02,
 };
-/** LEGACY_MAP_TERRAIN_PROFILE_IDS：定义该变量以承载业务值。 */
+
+/** LEGACY_MAP_TERRAIN_PROFILE_IDS：旧版地图到地形耐久配置的兼容映射。 */
 const LEGACY_MAP_TERRAIN_PROFILE_IDS = {
     spawn: 'mortal_settlement',
     yunlai_town: 'mortal_settlement',
@@ -111,7 +117,7 @@ const LEGACY_MAP_TERRAIN_PROFILE_IDS = {
     beast_valley: 'earth_stone_wild',
     sky_ruins: 'earth_sky_metal',
 };
-/** MapInstanceRuntime：定义该类及其职责。 */
+/** MapInstanceRuntime：地图实例运行时实现。 */
 class MapInstanceRuntime {
     meta;
     template;
@@ -137,7 +143,6 @@ class MapInstanceRuntime {
     persistentRevision = 1;
     persistedRevision = 1;
     changedAuraTileCount = 0;
-/** 构造函数：执行实例初始化流程。 */
     constructor(request) {
         this.meta = {
             instanceId: request.instanceId,
@@ -227,30 +232,30 @@ class MapInstanceRuntime {
             }
         }
     }
-/** playerCount：执行对应的业务逻辑。 */
+    /** playerCount：当前实例中的在线玩家数量。 */
     get playerCount() {
         return this.playersById.size;
     }
-/** listPlayerIds：执行对应的业务逻辑。 */
+    /** listPlayerIds：列出玩家 ID 列表。 */
     listPlayerIds() {
         return Array.from(this.playersById.keys());
     }
-/** connectPlayer：执行对应的业务逻辑。 */
+    /** connectPlayer：将玩家接入当前实例，并同步初始移动速度与位置。 */
     connectPlayer(request) {
-/** existing：定义该变量以承载业务值。 */
+
         const existing = this.playersById.get(request.playerId);
         if (existing) {
             existing.sessionId = request.sessionId;
             return existing;
         }
-/** spawn：定义该变量以承载业务值。 */
+
         const spawn = this.findSpawnPoint(request.preferredX, request.preferredY);
         if (!spawn) {
             throw new Error(`实例 ${this.meta.instanceId} 中没有可用出生点`);
         }
-/** handle：定义该变量以承载业务值。 */
+
         const handle = this.allocateHandle();
-/** player：定义该变量以承载业务值。 */
+
         const player = {
             handle,
             playerId: request.playerId,
@@ -271,9 +276,9 @@ class MapInstanceRuntime {
         this.worldRevision += 1;
         return player;
     }
-/** disconnectPlayer：执行对应的业务逻辑。 */
+    /** disconnectPlayer：断开玩家与实例的挂接，并清理相关排队状态。 */
     disconnectPlayer(playerId) {
-/** player：定义该变量以承载业务值。 */
+
         const player = this.playersById.get(playerId);
         if (!player) {
             return false;
@@ -286,14 +291,14 @@ class MapInstanceRuntime {
         this.worldRevision += 1;
         return true;
     }
-/** relocatePlayer：执行对应的业务逻辑。 */
+    /** relocatePlayer：把玩家强制迁到指定落点，仍然复用出生点占位逻辑。 */
     relocatePlayer(playerId, preferredX, preferredY) {
-/** player：定义该变量以承载业务值。 */
+
         const player = this.playersById.get(playerId);
         if (!player) {
             return null;
         }
-/** target：定义该变量以承载业务值。 */
+
         const target = this.findSpawnPoint(preferredX, preferredY);
         if (!target) {
             throw new Error(`实例 ${this.meta.instanceId} 中没有可用空地块`);
@@ -315,9 +320,9 @@ class MapInstanceRuntime {
             y: player.y,
         };
     }
-/** getPlayerPosition：执行对应的业务逻辑。 */
+    /** getPlayerPosition：读取玩家当前位置。 */
     getPlayerPosition(playerId) {
-/** player：定义该变量以承载业务值。 */
+
         const player = this.playersById.get(playerId);
         if (!player) {
             return null;
@@ -327,7 +332,7 @@ class MapInstanceRuntime {
             y: player.y,
         };
     }
-/** enqueueMove：执行对应的业务逻辑。 */
+    /** enqueueMove：把方向移动请求排入下一次 tick 统一执行。 */
     enqueueMove(command) {
         if (!this.playersById.has(command.playerId)) {
             return false;
@@ -335,7 +340,7 @@ class MapInstanceRuntime {
         this.pendingCommands.set(command.playerId, {
             kind: 'move',
             direction: command.direction,
-/** continuous：定义该变量以承载业务值。 */
+
             continuous: command.continuous === true,
             maxSteps: Number.isFinite(command.maxSteps) ? Math.max(1, Math.trunc(command.maxSteps)) : undefined,
             path: Array.isArray(command.path)
@@ -343,24 +348,24 @@ class MapInstanceRuntime {
                     .filter((entry) => Number.isFinite(entry?.x) && Number.isFinite(entry?.y))
                     .map((entry) => ({ x: Math.trunc(entry.x), y: Math.trunc(entry.y) }))
                 : undefined,
-/** resetBudget：定义该变量以承载业务值。 */
+
             resetBudget: command.resetBudget === true,
         });
         return true;
     }
-/** setPlayerMoveSpeed：执行对应的业务逻辑。 */
+    /** setPlayerMoveSpeed：设置玩家移动速度。 */
     setPlayerMoveSpeed(playerId, moveSpeed) {
-/** player：定义该变量以承载业务值。 */
+
         const player = this.playersById.get(playerId);
         if (!player) {
             return false;
         }
-/** normalized：定义该变量以承载业务值。 */
+
         const normalized = Number.isFinite(moveSpeed) ? Math.max(0, Math.round(moveSpeed)) : 0;
         player.moveSpeed = normalized;
         return true;
     }
-/** enqueuePortalUse：执行对应的业务逻辑。 */
+    /** enqueuePortalUse：把传送点使用请求排入下一次 tick。 */
     enqueuePortalUse(command) {
         if (!this.playersById.has(command.playerId)) {
             return false;
@@ -368,18 +373,18 @@ class MapInstanceRuntime {
         this.pendingCommands.set(command.playerId, { kind: 'portal' });
         return true;
     }
-/** cancelPendingCommand：执行对应的业务逻辑。 */
+    /** cancelPendingCommand：取消玩家在实例侧排队的待执行命令。 */
     cancelPendingCommand(playerId) {
         return this.pendingCommands.delete(playerId);
     }
-/** tryPortalTransfer：执行对应的业务逻辑。 */
+    /** tryPortalTransfer：尝试按当前站位触发传送点跳转。 */
     tryPortalTransfer(playerId, reason) {
-/** player：定义该变量以承载业务值。 */
+
         const player = this.playersById.get(playerId);
         if (!player) {
             return null;
         }
-/** portal：定义该变量以承载业务值。 */
+
         const portal = this.getPortalAt(player.x, player.y);
         if (!portal) {
             return null;
@@ -392,12 +397,12 @@ class MapInstanceRuntime {
         }
         return this.buildTransfer(player, portal, reason);
     }
-/** tickOnce：执行对应的业务逻辑。 */
+    /** tickOnce：推进当前地图实例的一个逻辑 tick。 */
     tickOnce() {
         this.tick += 1;
-/** transfers：定义该变量以承载业务值。 */
+
         const transfers = [];
-/** monsterActions：定义该变量以承载业务值。 */
+
         const monsterActions = [];
         for (const [playerId, command] of this.pendingCommands) {
             const player = this.playersById.get(playerId);
@@ -412,7 +417,7 @@ class MapInstanceRuntime {
                 this.applyMove(player, command.direction, transfers, command.continuous === true, command.maxSteps, command.path);
             }
             else if (command.kind === 'portal') {
-/** transfer：定义该变量以承载业务值。 */
+
                 const transfer = this.tryPortalTransfer(playerId, 'manual_portal');
                 if (transfer) {
                     transfers.push(transfer);
@@ -427,30 +432,30 @@ class MapInstanceRuntime {
             monsterActions,
         };
     }
-/** buildPlayerView：执行对应的业务逻辑。 */
+    /** buildPlayerView：构建玩家当前视野快照。 */
     buildPlayerView(playerId, radius = DEFAULT_VIEW_RADIUS) {
-/** player：定义该变量以承载业务值。 */
+
         const player = this.playersById.get(playerId);
         if (!player) {
             return null;
         }
-/** visibleTileIndices：定义该变量以承载业务值。 */
+
         const visibleTileIndices = this.collectVisibleTileIndices(player.x, player.y, radius);
-/** visiblePlayers：定义该变量以承载业务值。 */
+
         const visiblePlayers = this.collectVisiblePlayers(player, radius, visibleTileIndices);
-/** localMonsters：定义该变量以承载业务值。 */
+
         const localMonsters = this.collectLocalMonsters(player.x, player.y, radius, visibleTileIndices);
-/** localNpcs：定义该变量以承载业务值。 */
+
         const localNpcs = this.collectLocalNpcs(player.x, player.y, radius, visibleTileIndices);
-/** localPortals：定义该变量以承载业务值。 */
+
         const localPortals = this.collectLocalPortals(player.x, player.y, radius, visibleTileIndices);
-/** localLandmarks：定义该变量以承载业务值。 */
+
         const localLandmarks = this.collectLocalLandmarks(player.x, player.y, radius, visibleTileIndices);
-/** localSafeZones：定义该变量以承载业务值。 */
+
         const localSafeZones = this.collectLocalSafeZones(player.x, player.y, radius, visibleTileIndices);
-/** localContainers：定义该变量以承载业务值。 */
+
         const localContainers = this.collectLocalContainers(player.x, player.y, radius, visibleTileIndices);
-/** localGroundPiles：定义该变量以承载业务值。 */
+
         const localGroundPiles = this.collectLocalGroundPiles(player.x, player.y, radius, visibleTileIndices);
         return {
             playerId: player.playerId,
@@ -482,7 +487,7 @@ class MapInstanceRuntime {
             localGroundPiles,
         };
     }
-/** snapshot：执行对应的业务逻辑。 */
+    /** snapshot：构建地图实例快照。 */
     snapshot() {
         return {
             instanceId: this.meta.instanceId,
@@ -508,71 +513,74 @@ class MapInstanceRuntime {
             })),
         };
     }
-/** forEachPathingBlocker：执行对应的业务逻辑。 */
+    /** forEachPathingBlocker：遍历当前实例里的寻路阻挡地块。 */
     forEachPathingBlocker(excludePlayerId, visitor) {
         for (const npc of this.npcsById.values()) {
+            /** visitor：visitor。 */
             visitor(npc.x, npc.y);
         }
         for (const player of this.playersById.values()) {
             if (player.playerId === excludePlayerId) {
                 continue;
             }
+            /** visitor：visitor。 */
             visitor(player.x, player.y);
         }
         for (const monster of this.monstersByRuntimeId.values()) {
             if (!monster.alive) {
                 continue;
             }
+            /** visitor：visitor。 */
             visitor(monster.x, monster.y);
         }
     }
-/** getTileAura：执行对应的业务逻辑。 */
+    /** getTileAura：读取指定地块灵气。 */
     getTileAura(x, y) {
         if (!this.isInBounds(x, y)) {
             return null;
         }
         return this.auraByTile[this.toTileIndex(x, y)] ?? 0;
     }
-/** getTileGroundPile：执行对应的业务逻辑。 */
+    /** getTileGroundPile：读取指定地块地面物品堆。 */
     getTileGroundPile(x, y) {
         if (!this.isInBounds(x, y)) {
             return null;
         }
         return toGroundPileView(this.groundPilesByTile.get(this.toTileIndex(x, y)) ?? null);
     }
-/** getTileCombatState：执行对应的业务逻辑。 */
+    /** getTileCombatState：读取指定地块战斗状态。 */
     getTileCombatState(x, y) {
         if (!this.isInBounds(x, y)) {
             return null;
         }
-/** tileIndex：定义该变量以承载业务值。 */
+
         const tileIndex = this.toTileIndex(x, y);
-/** tileType：定义该变量以承载业务值。 */
+
         const tileType = (0, shared_1.getTileTypeFromMapChar)(this.template.terrainRows[y]?.[x] ?? '#');
-/** maxHp：定义该变量以承载业务值。 */
+
         const maxHp = resolveTileDurability(this.template, tileType);
         if (maxHp <= 0) {
             return null;
         }
-/** current：定义该变量以承载业务值。 */
+
         const current = this.tileDamageByTile.get(tileIndex);
         return {
             tileType,
             hp: current?.hp ?? maxHp,
             maxHp,
             modifiedAt: current?.modifiedAt ?? null,
-/** destroyed：定义该变量以承载业务值。 */
+
             destroyed: current?.destroyed === true,
         };
     }
-/** damageTile：执行对应的业务逻辑。 */
+    /** damageTile：对可破坏地块施加伤害。 */
     damageTile(x, y, damage) {
-/** current：定义该变量以承载业务值。 */
+
         const current = this.getTileCombatState(x, y);
         if (!current) {
             return null;
         }
-/** normalizedDamage：定义该变量以承载业务值。 */
+
         const normalizedDamage = Math.max(0, Math.round(damage));
         if (normalizedDamage <= 0) {
             return {
@@ -583,22 +591,22 @@ class MapInstanceRuntime {
                 targetType: current.tileType,
             };
         }
-/** tileIndex：定义该变量以承载业务值。 */
+
         const tileIndex = this.toTileIndex(x, y);
-/** appliedDamage：定义该变量以承载业务值。 */
+
         const appliedDamage = Math.min(current.hp, normalizedDamage);
-/** nextHp：定义该变量以承载业务值。 */
+
         const nextHp = Math.max(0, current.hp - appliedDamage);
         this.tileDamageByTile.set(tileIndex, {
             hp: nextHp,
             maxHp: current.maxHp,
-/** destroyed：定义该变量以承载业务值。 */
+
             destroyed: nextHp <= 0,
             modifiedAt: Date.now(),
         });
         this.worldRevision += 1;
         return {
-/** destroyed：定义该变量以承载业务值。 */
+
             destroyed: nextHp <= 0,
             hp: nextHp,
             maxHp: current.maxHp,
@@ -606,7 +614,7 @@ class MapInstanceRuntime {
             targetType: current.tileType,
         };
     }
-/** getGroundPileBySourceId：执行对应的业务逻辑。 */
+    /** getGroundPileBySourceId：按来源 ID 读取地面物品堆。 */
     getGroundPileBySourceId(sourceId) {
         for (const pile of this.groundPilesByTile.values()) {
             if (pile.sourceId !== sourceId) {
@@ -616,12 +624,12 @@ class MapInstanceRuntime {
         }
         return null;
     }
-/** getPlayersAtTile：执行对应的业务逻辑。 */
+    /** getPlayersAtTile：读取指定地块上的玩家。 */
     getPlayersAtTile(x, y) {
         if (!this.isInBounds(x, y)) {
             return [];
         }
-/** result：定义该变量以承载业务值。 */
+
         const result = [];
         for (const player of this.playersById.values()) {
             if (player.x === x && player.y === y) {
@@ -632,52 +640,52 @@ class MapInstanceRuntime {
         }
         return result;
     }
-/** getPortalAtTile：执行对应的业务逻辑。 */
+    /** getPortalAtTile：读取指定地块上的传送点。 */
     getPortalAtTile(x, y) {
         return this.getPortalAt(x, y);
     }
-/** getLandmarkAtTile：执行对应的业务逻辑。 */
+    /** getLandmarkAtTile：读取指定地块上的地标。 */
     getLandmarkAtTile(x, y) {
         if (!this.isInBounds(x, y)) {
             return null;
         }
-/** landmarkId：定义该变量以承载业务值。 */
+
         const landmarkId = this.landmarkIdByTile.get(this.toTileIndex(x, y));
         if (!landmarkId) {
             return null;
         }
-/** landmark：定义该变量以承载业务值。 */
+
         const landmark = this.landmarksById.get(landmarkId);
         return landmark ? snapshotLandmark(landmark) : null;
     }
-/** isSafeZoneTile：执行对应的业务逻辑。 */
+    /** isSafeZoneTile：判断指定地块是否属于安全区。 */
     isSafeZoneTile(x, y) {
         if (!this.isInBounds(x, y)) {
             return false;
         }
         return this.template.safeZoneMask[this.toTileIndex(x, y)] === 1;
     }
-/** getContainerAtTile：执行对应的业务逻辑。 */
+    /** getContainerAtTile：读取指定地块上的容器。 */
     getContainerAtTile(x, y) {
         if (!this.isInBounds(x, y)) {
             return null;
         }
-/** containerId：定义该变量以承载业务值。 */
+
         const containerId = this.containerIdByTile.get(this.toTileIndex(x, y));
         if (!containerId) {
             return null;
         }
-/** container：定义该变量以承载业务值。 */
+
         const container = this.containersById.get(containerId);
         return container ? snapshotContainer(container) : null;
     }
-/** getContainerById：执行对应的业务逻辑。 */
+    /** getContainerById：按容器 ID 读取容器。 */
     getContainerById(containerId) {
-/** container：定义该变量以承载业务值。 */
+
         const container = this.containersById.get(containerId);
         return container ? snapshotContainer(container) : null;
     }
-/** getSafeZoneAtTile：执行对应的业务逻辑。 */
+    /** getSafeZoneAtTile：读取指定地块上的安全区信息。 */
     getSafeZoneAtTile(x, y) {
         if (!this.isInBounds(x, y)) {
             return null;
@@ -689,30 +697,30 @@ class MapInstanceRuntime {
         }
         return null;
     }
-/** isPointInSafeZone：执行对应的业务逻辑。 */
+    /** isPointInSafeZone：判断坐标是否落在安全区内。 */
     isPointInSafeZone(x, y) {
         return this.getSafeZoneAtTile(x, y) !== null;
     }
-/** listMonsters：执行对应的业务逻辑。 */
+    /** listMonsters：列出实例中的妖兽。 */
     listMonsters() {
         return Array.from(this.monstersByRuntimeId.values(), (monster) => snapshotMonster(monster))
             .sort((left, right) => left.runtimeId.localeCompare(right.runtimeId, 'zh-Hans-CN'));
     }
-/** getMonster：执行对应的业务逻辑。 */
+    /** getMonster：按运行时 ID 读取妖兽。 */
     getMonster(runtimeId) {
-/** monster：定义该变量以承载业务值。 */
+
         const monster = this.monstersByRuntimeId.get(runtimeId);
         return monster ? snapshotMonster(monster) : null;
     }
-/** getNpc：执行对应的业务逻辑。 */
+    /** getNpc：按 ID 读取 NPC。 */
     getNpc(npcId) {
-/** npc：定义该变量以承载业务值。 */
+
         const npc = this.npcsById.get(npcId);
         return npc ? snapshotNpc(npc) : null;
     }
-/** getMonsterDamageContributionEntries：执行对应的业务逻辑。 */
+    /** getMonsterDamageContributionEntries：读取妖兽受到的伤害贡献记录。 */
     getMonsterDamageContributionEntries(runtimeId) {
-/** monster：定义该变量以承载业务值。 */
+
         const monster = this.monstersByRuntimeId.get(runtimeId);
         if (!monster) {
             return [];
@@ -722,23 +730,23 @@ class MapInstanceRuntime {
             damage,
         }));
     }
-/** getAdjacentNpc：执行对应的业务逻辑。 */
+    /** getAdjacentNpc：读取玩家相邻的 NPC。 */
     getAdjacentNpc(playerId, npcId) {
-/** player：定义该变量以承载业务值。 */
+
         const player = this.playersById.get(playerId);
         if (!player) {
             return null;
         }
-/** npc：定义该变量以承载业务值。 */
+
         const npc = this.npcsById.get(npcId);
         if (!npc || chebyshevDistance(player.x, player.y, npc.x, npc.y) > 1) {
             return null;
         }
         return snapshotNpc(npc);
     }
-/** applyDamageToMonster：执行对应的业务逻辑。 */
+    /** applyDamageToMonster：对妖兽应用伤害并检查击败结果。 */
     applyDamageToMonster(runtimeId, amount, attackerPlayerId) {
-/** monster：定义该变量以承载业务值。 */
+
         const monster = this.monstersByRuntimeId.get(runtimeId);
         if (!monster || !monster.alive) {
             return null;
@@ -746,7 +754,7 @@ class MapInstanceRuntime {
         if (attackerPlayerId && this.playersById.has(attackerPlayerId)) {
             monster.aggroTargetPlayerId = attackerPlayerId;
         }
-/** appliedDamage：定义该变量以承载业务值。 */
+
         const appliedDamage = Math.max(0, Math.min(monster.hp, Math.trunc(amount)));
         if (appliedDamage <= 0) {
             return {
@@ -759,7 +767,7 @@ class MapInstanceRuntime {
             monster.damageContributors[attackerPlayerId] = (monster.damageContributors[attackerPlayerId] ?? 0) + appliedDamage;
         }
         monster.hp = Math.max(0, monster.hp - appliedDamage);
-/** defeated：定义该变量以承载业务值。 */
+
         const defeated = monster.hp <= 0;
         if (defeated) {
             this.markMonsterDefeated(monster);
@@ -773,14 +781,14 @@ class MapInstanceRuntime {
             defeated,
         };
     }
-/** applyTemporaryBuffToMonster：执行对应的业务逻辑。 */
+    /** applyTemporaryBuffToMonster：给妖兽应用临时 Buff。 */
     applyTemporaryBuffToMonster(runtimeId, buff) {
-/** monster：定义该变量以承载业务值。 */
+
         const monster = this.monstersByRuntimeId.get(runtimeId);
         if (!monster || !monster.alive) {
             return null;
         }
-/** existing：定义该变量以承载业务值。 */
+
         const existing = monster.buffs.find((entry) => entry.buffId === buff.buffId);
         if (existing) {
             existing.remainingTicks = Math.max(existing.remainingTicks, buff.remainingTicks);
@@ -802,9 +810,9 @@ class MapInstanceRuntime {
         }
         return snapshotMonster(monster);
     }
-/** defeatMonster：执行对应的业务逻辑。 */
+    /** defeatMonster：直接结算一只妖兽被击败后的占用释放。 */
     defeatMonster(runtimeId) {
-/** monster：定义该变量以承载业务值。 */
+
         const monster = this.monstersByRuntimeId.get(runtimeId);
         if (!monster || !monster.alive) {
             return null;
@@ -812,21 +820,21 @@ class MapInstanceRuntime {
         this.markMonsterDefeated(monster);
         return snapshotMonster(monster);
     }
-/** addTileAura：执行对应的业务逻辑。 */
+    /** addTileAura：给地块叠加灵气。 */
     addTileAura(x, y, amount) {
         if (!this.isInBounds(x, y) || !Number.isFinite(amount)) {
             return null;
         }
-/** normalizedAmount：定义该变量以承载业务值。 */
+
         const normalizedAmount = Math.trunc(amount);
         if (normalizedAmount === 0) {
             return this.getTileAura(x, y);
         }
-/** tileIndex：定义该变量以承载业务值。 */
+
         const tileIndex = this.toTileIndex(x, y);
-/** previous：定义该变量以承载业务值。 */
+
         const previous = this.auraByTile[tileIndex] ?? 0;
-/** next：定义该变量以承载业务值。 */
+
         const next = Math.max(0, previous + normalizedAmount);
         if (next === previous) {
             return next;
@@ -835,7 +843,7 @@ class MapInstanceRuntime {
         this.updateAuraDirtyState(tileIndex, previous, next);
         return next;
     }
-/** hydrateAura：执行对应的业务逻辑。 */
+    /** hydrateAura：用持久化数据回填地块灵气。 */
     hydrateAura(entries) {
         this.auraByTile.set(this.template.baseAuraByTile);
         this.changedAuraTileCount = 0;
@@ -843,12 +851,12 @@ class MapInstanceRuntime {
             if (!Number.isFinite(entry.tileIndex) || !Number.isFinite(entry.value)) {
                 continue;
             }
-/** tileIndex：定义该变量以承载业务值。 */
+
             const tileIndex = Math.trunc(entry.tileIndex);
             if (tileIndex < 0 || tileIndex >= this.auraByTile.length) {
                 continue;
             }
-/** next：定义该变量以承载业务值。 */
+
             const next = Math.max(0, Math.trunc(entry.value));
             this.auraByTile[tileIndex] = next;
             if (next !== this.template.baseAuraByTile[tileIndex]) {
@@ -858,30 +866,30 @@ class MapInstanceRuntime {
         this.persistentRevision = 1;
         this.persistedRevision = 1;
     }
-/** hydrateGroundPiles：执行对应的业务逻辑。 */
+    /** hydrateGroundPiles：用持久化数据回填地面物品堆。 */
     hydrateGroundPiles(entries) {
         this.groundPilesByTile.clear();
         for (const entry of entries) {
             if (!Number.isFinite(entry.tileIndex) || !Array.isArray(entry.items)) {
                 continue;
             }
-/** tileIndex：定义该变量以承载业务值。 */
+
             const tileIndex = Math.trunc(entry.tileIndex);
             if (tileIndex < 0 || tileIndex >= this.auraByTile.length) {
                 continue;
             }
-/** x：定义该变量以承载业务值。 */
+
             const x = tileIndex % this.template.width;
-/** y：定义该变量以承载业务值。 */
+
             const y = Math.trunc(tileIndex / this.template.width);
-/** items：定义该变量以承载业务值。 */
+
             const items = entry.items
                 .map((item) => normalizePersistedGroundItem(item))
                 .filter((item) => Boolean(item));
             if (items.length === 0) {
                 continue;
             }
-/** pile：定义该变量以承载业务值。 */
+
             const pile = {
                 sourceId: buildGroundSourceId(tileIndex),
                 x,
@@ -898,12 +906,12 @@ class MapInstanceRuntime {
         this.persistentRevision = 1;
         this.persistedRevision = 1;
     }
-/** buildAuraPersistenceEntries：执行对应的业务逻辑。 */
+    /** buildAuraPersistenceEntries：导出灵气持久化条目。 */
     buildAuraPersistenceEntries() {
         if (this.changedAuraTileCount === 0) {
             return [];
         }
-/** entries：定义该变量以承载业务值。 */
+
         const entries = [];
         for (let tileIndex = 0; tileIndex < this.auraByTile.length; tileIndex += 1) {
             const value = this.auraByTile[tileIndex] ?? 0;
@@ -916,12 +924,12 @@ class MapInstanceRuntime {
         }
         return entries;
     }
-/** buildGroundPersistenceEntries：执行对应的业务逻辑。 */
+    /** buildGroundPersistenceEntries：导出地面物品堆持久化条目。 */
     buildGroundPersistenceEntries() {
         if (this.groundPilesByTile.size === 0) {
             return [];
         }
-/** entries：定义该变量以承载业务值。 */
+
         const entries = [];
         for (const pile of this.groundPilesByTile.values()) {
             if (pile.items.length === 0) {
@@ -935,31 +943,31 @@ class MapInstanceRuntime {
         entries.sort((left, right) => left.tileIndex - right.tileIndex);
         return entries;
     }
-/** isPersistentDirty：执行对应的业务逻辑。 */
+    /** isPersistentDirty：判断实例是否还有未落盘的持久化变更。 */
     isPersistentDirty() {
         return this.persistentRevision > this.persistedRevision;
     }
-/** markAuraPersisted：执行对应的业务逻辑。 */
+    /** markAuraPersisted：标记灵气状态已完成持久化。 */
     markAuraPersisted() {
         this.persistedRevision = this.persistentRevision;
     }
-/** dropGroundItem：执行对应的业务逻辑。 */
+    /** dropGroundItem：把物品丢到地面堆中。 */
     dropGroundItem(x, y, item) {
         if (!this.isInBounds(x, y)) {
             return null;
         }
-/** normalizedCount：定义该变量以承载业务值。 */
+
         const normalizedCount = Math.max(1, Math.trunc(item.count));
-/** itemKey：定义该变量以承载业务值。 */
+
         const itemKey = item.itemId;
-/** tileIndex：定义该变量以承载业务值。 */
+
         const tileIndex = this.toTileIndex(x, y);
-/** existingPile：定义该变量以承载业务值。 */
+
         const existingPile = this.groundPilesByTile.get(tileIndex);
-/** changed：定义该变量以承载业务值。 */
+
         let changed = false;
         if (existingPile) {
-/** existingEntry：定义该变量以承载业务值。 */
+
             const existingEntry = existingPile.items.find((entry) => entry.itemKey === itemKey);
             if (existingEntry) {
                 existingEntry.item.count += normalizedCount;
@@ -981,7 +989,7 @@ class MapInstanceRuntime {
             }
             return toGroundPileView(existingPile);
         }
-/** pile：定义该变量以承载业务值。 */
+
         const pile = {
             sourceId: buildGroundSourceId(tileIndex),
             x,
@@ -1000,17 +1008,17 @@ class MapInstanceRuntime {
         this.worldRevision += 1;
         return toGroundPileView(pile);
     }
-/** takeGroundItem：执行对应的业务逻辑。 */
+    /** takeGroundItem：从地面堆中取走指定物品。 */
     takeGroundItem(sourceId, itemKey, takerX, takerY) {
         if (!this.isInBounds(takerX, takerY)) {
             return null;
         }
-/** tileIndex：定义该变量以承载业务值。 */
+
         const tileIndex = parseGroundSourceId(sourceId);
         if (tileIndex === null) {
             return null;
         }
-/** pile：定义该变量以承载业务值。 */
+
         const pile = this.groundPilesByTile.get(tileIndex);
         if (!pile) {
             return null;
@@ -1018,7 +1026,7 @@ class MapInstanceRuntime {
         if (chebyshevDistance(takerX, takerY, pile.x, pile.y) > 1) {
             return null;
         }
-/** entryIndex：定义该变量以承载业务值。 */
+
         const entryIndex = pile.items.findIndex((entry) => entry.itemKey === itemKey);
         if (entryIndex < 0) {
             return null;
@@ -1036,20 +1044,20 @@ class MapInstanceRuntime {
             ...entry.item,
         };
     }
-/** applyMove：执行对应的业务逻辑。 */
+    /** applyMove：应用一次玩家移动。 */
     applyMove(player, direction, transfers, continuous = false, maxSteps = undefined, path = undefined) {
-/** offset：定义该变量以承载业务值。 */
+
         const offset = DIRECTION_OFFSET[direction];
         if (!offset) {
             return;
         }
-/** movePoints：定义该变量以承载业务值。 */
+
         let movePoints = this.rechargePlayerMoveBudget(player);
-/** moved：定义该变量以承载业务值。 */
+
         let moved = false;
-/** remainingSteps：定义该变量以承载业务值。 */
+
         let remainingSteps = Number.isFinite(maxSteps) ? Math.max(1, Math.trunc(maxSteps)) : Number.POSITIVE_INFINITY;
-/** remainingPath：定义该变量以承载业务值。 */
+
         const remainingPath = Array.isArray(path) && path.length > 0 ? path : null;
         if (!remainingPath && player.facing !== direction) {
             player.facing = direction;
@@ -1059,21 +1067,21 @@ class MapInstanceRuntime {
             if (remainingSteps <= 0) {
                 break;
             }
-/** nextX：定义该变量以承载业务值。 */
+
             let nextX;
-/** nextY：定义该变量以承载业务值。 */
+
             let nextY;
-/** stepDirection：定义该变量以承载业务值。 */
+
             let stepDirection = direction;
             if (remainingPath) {
-/** nextStep：定义该变量以承载业务值。 */
+
                 const nextStep = remainingPath[0];
                 if (!nextStep) {
                     break;
                 }
                 nextX = nextStep.x;
                 nextY = nextStep.y;
-/** resolvedDirection：定义该变量以承载业务值。 */
+
                 const resolvedDirection = (0, shared_1.directionFromTo)(player.x, player.y, nextX, nextY);
                 if (resolvedDirection === null) {
                     break;
@@ -1084,7 +1092,7 @@ class MapInstanceRuntime {
                 nextX = player.x + offset.x;
                 nextY = player.y + offset.y;
             }
-/** stepCost：定义该变量以承载业务值。 */
+
             const stepCost = this.getTileTraversalCost(nextX, nextY);
             if (!Number.isFinite(stepCost) || stepCost <= 0 || movePoints < stepCost) {
                 break;
@@ -1098,7 +1106,7 @@ class MapInstanceRuntime {
             if (this.npcIdByTile.has(this.toTileIndex(nextX, nextY))) {
                 break;
             }
-/** nextOccupancy：定义该变量以承载业务值。 */
+
             const nextOccupancy = this.occupancy[this.toTileIndex(nextX, nextY)];
             if (nextOccupancy !== INVALID_OCCUPANCY) {
                 break;
@@ -1118,7 +1126,7 @@ class MapInstanceRuntime {
             }
             this.setOccupied(player.x, player.y, player.handle);
             this.worldRevision += 1;
-/** portal：定义该变量以承载业务值。 */
+
             const portal = this.getPortalAt(player.x, player.y);
             if (portal?.trigger === 'auto') {
                 transfers.push(this.buildTransfer(player, portal, 'auto_portal'));
@@ -1136,7 +1144,7 @@ class MapInstanceRuntime {
         }
         player.movePoints = Math.min(shared_1.MAX_STORED_MOVE_POINTS, Math.max(0, Math.round(movePoints)));
     }
-/** buildTransfer：执行对应的业务逻辑。 */
+    /** buildTransfer：构建跨图传送结果。 */
     buildTransfer(player, portal, reason) {
         return {
             playerId: player.playerId,
@@ -1148,9 +1156,9 @@ class MapInstanceRuntime {
             reason,
         };
     }
-/** rechargePlayerMoveBudget：执行对应的业务逻辑。 */
+    /** rechargePlayerMoveBudget：恢复玩家移动预算。 */
     rechargePlayerMoveBudget(player) {
-/** elapsed：定义该变量以承载业务值。 */
+
         const elapsed = Math.max(0, this.tick - (player.lastMoveBudgetTick ?? this.tick));
         if (elapsed > 0) {
             player.movePoints = Math.min(shared_1.MAX_STORED_MOVE_POINTS, Math.max(0, Math.round(player.movePoints + elapsed * (0, shared_1.getMovePointsPerTick)(player.moveSpeed))));
@@ -1158,31 +1166,32 @@ class MapInstanceRuntime {
         }
         return player.movePoints;
     }
-/** getTileTraversalCost：执行对应的业务逻辑。 */
+    /** getTileTraversalCost：读取地块通行代价。 */
     getTileTraversalCost(x, y) {
         if (x < 0 || y < 0 || x >= this.template.width || y >= this.template.height) {
             return Number.POSITIVE_INFINITY;
         }
-/** tileType：定义该变量以承载业务值。 */
+
         const tileType = (0, shared_1.getTileTypeFromMapChar)(this.template.terrainRows[y]?.[x] ?? '#');
         if (!(0, shared_1.isTileTypeWalkable)(tileType)) {
             return Number.POSITIVE_INFINITY;
         }
+        /** return：return。 */
         return (0, shared_1.getTileTraversalCost)(tileType);
     }
-/** collectVisiblePlayers：执行对应的业务逻辑。 */
+    /** collectVisiblePlayers：收集当前视野内可见玩家。 */
     collectVisiblePlayers(observer, radius, visibleTileIndices = null) {
-/** minX：定义该变量以承载业务值。 */
+
         const minX = Math.max(0, observer.x - radius);
-/** maxX：定义该变量以承载业务值。 */
+
         const maxX = Math.min(this.template.width - 1, observer.x + radius);
-/** minY：定义该变量以承载业务值。 */
+
         const minY = Math.max(0, observer.y - radius);
-/** maxY：定义该变量以承载业务值。 */
+
         const maxY = Math.min(this.template.height - 1, observer.y + radius);
-/** visiblePlayers：定义该变量以承载业务值。 */
+
         const visiblePlayers = [];
-/** seenHandles：定义该变量以承载业务值。 */
+
         const seenHandles = new Set();
         for (let y = minY; y <= maxY; y += 1) {
             for (let x = minX; x <= maxX; x += 1) {
@@ -1191,7 +1200,7 @@ class MapInstanceRuntime {
                     continue;
                 }
                 seenHandles.add(handle);
-/** player：定义该变量以承载业务值。 */
+
                 const player = this.playersByHandle.get(handle);
                 if (!player) {
                     continue;
@@ -1211,15 +1220,15 @@ class MapInstanceRuntime {
         }
         return visiblePlayers;
     }
-/** collectLocalPortals：执行对应的业务逻辑。 */
+    /** collectLocalPortals：收集当前视野内可见传送点。 */
     collectLocalPortals(centerX, centerY, radius, visibleTileIndices = null) {
-/** minX：定义该变量以承载业务值。 */
+
         const minX = Math.max(0, centerX - radius);
-/** maxX：定义该变量以承载业务值。 */
+
         const maxX = Math.min(this.template.width - 1, centerX + radius);
-/** minY：定义该变量以承载业务值。 */
+
         const minY = Math.max(0, centerY - radius);
-/** maxY：定义该变量以承载业务值。 */
+
         const maxY = Math.min(this.template.height - 1, centerY + radius);
         return this.template.portals
             .filter((portal) => !portal.hidden
@@ -1235,17 +1244,17 @@ class MapInstanceRuntime {
             targetMapId: portal.targetMapId,
         }));
     }
-/** collectLocalGroundPiles：执行对应的业务逻辑。 */
+    /** collectLocalGroundPiles：收集当前视野内可见地面物品堆。 */
     collectLocalGroundPiles(centerX, centerY, radius, visibleTileIndices = null) {
-/** minX：定义该变量以承载业务值。 */
+
         const minX = Math.max(0, centerX - radius);
-/** maxX：定义该变量以承载业务值。 */
+
         const maxX = Math.min(this.template.width - 1, centerX + radius);
-/** minY：定义该变量以承载业务值。 */
+
         const minY = Math.max(0, centerY - radius);
-/** maxY：定义该变量以承载业务值。 */
+
         const maxY = Math.min(this.template.height - 1, centerY + radius);
-/** piles：定义该变量以承载业务值。 */
+
         const piles = [];
         for (const pile of this.groundPilesByTile.values()) {
             if (pile.x < minX || pile.x > maxX || pile.y < minY || pile.y > maxY) {
@@ -1254,7 +1263,7 @@ class MapInstanceRuntime {
             if (visibleTileIndices && !visibleTileIndices.has(pile.tileIndex)) {
                 continue;
             }
-/** view：定义该变量以承载业务值。 */
+
             const view = toGroundPileView(pile);
             if (view) {
                 piles.push(view);
@@ -1263,17 +1272,17 @@ class MapInstanceRuntime {
         piles.sort(compareGroundPiles);
         return piles;
     }
-/** collectLocalContainers：执行对应的业务逻辑。 */
+    /** collectLocalContainers：收集当前视野内可见容器。 */
     collectLocalContainers(centerX, centerY, radius, visibleTileIndices = null) {
-/** minX：定义该变量以承载业务值。 */
+
         const minX = Math.max(0, centerX - radius);
-/** maxX：定义该变量以承载业务值。 */
+
         const maxX = Math.min(this.template.width - 1, centerX + radius);
-/** minY：定义该变量以承载业务值。 */
+
         const minY = Math.max(0, centerY - radius);
-/** maxY：定义该变量以承载业务值。 */
+
         const maxY = Math.min(this.template.height - 1, centerY + radius);
-/** containers：定义该变量以承载业务值。 */
+
         const containers = [];
         for (const container of this.containersById.values()) {
             if (container.x < minX || container.x > maxX || container.y < minY || container.y > maxY) {
@@ -1295,17 +1304,17 @@ class MapInstanceRuntime {
         containers.sort(compareLocalContainers);
         return containers;
     }
-/** collectLocalLandmarks：执行对应的业务逻辑。 */
+    /** collectLocalLandmarks：收集当前视野内可见地标。 */
     collectLocalLandmarks(centerX, centerY, radius, visibleTileIndices = null) {
-/** minX：定义该变量以承载业务值。 */
+
         const minX = Math.max(0, centerX - radius);
-/** maxX：定义该变量以承载业务值。 */
+
         const maxX = Math.min(this.template.width - 1, centerX + radius);
-/** minY：定义该变量以承载业务值。 */
+
         const minY = Math.max(0, centerY - radius);
-/** maxY：定义该变量以承载业务值。 */
+
         const maxY = Math.min(this.template.height - 1, centerY + radius);
-/** landmarks：定义该变量以承载业务值。 */
+
         const landmarks = [];
         for (const landmark of this.landmarksById.values()) {
             if (landmark.x < minX || landmark.x > maxX || landmark.y < minY || landmark.y > maxY) {
@@ -1319,24 +1328,24 @@ class MapInstanceRuntime {
                 name: landmark.name,
                 x: landmark.x,
                 y: landmark.y,
-/** hasContainer：定义该变量以承载业务值。 */
+
                 hasContainer: landmark.container !== undefined,
             });
         }
         landmarks.sort(compareLocalLandmarks);
         return landmarks;
     }
-/** collectLocalSafeZones：执行对应的业务逻辑。 */
+    /** collectLocalSafeZones：收集当前视野内可见安全区。 */
     collectLocalSafeZones(centerX, centerY, radius, visibleTileIndices = null) {
-/** minX：定义该变量以承载业务值。 */
+
         const minX = Math.max(0, centerX - radius);
-/** maxX：定义该变量以承载业务值。 */
+
         const maxX = Math.min(this.template.width - 1, centerX + radius);
-/** minY：定义该变量以承载业务值。 */
+
         const minY = Math.max(0, centerY - radius);
-/** maxY：定义该变量以承载业务值。 */
+
         const maxY = Math.min(this.template.height - 1, centerY + radius);
-/** safeZones：定义该变量以承载业务值。 */
+
         const safeZones = [];
         for (const zone of this.template.safeZones) {
             if (zone.x + zone.radius < minX || zone.x - zone.radius > maxX || zone.y + zone.radius < minY || zone.y - zone.radius > maxY) {
@@ -1350,17 +1359,17 @@ class MapInstanceRuntime {
         safeZones.sort(compareLocalSafeZones);
         return safeZones;
     }
-/** collectLocalNpcs：执行对应的业务逻辑。 */
+    /** collectLocalNpcs：收集当前视野内可见 NPC。 */
     collectLocalNpcs(centerX, centerY, radius, visibleTileIndices = null) {
-/** minX：定义该变量以承载业务值。 */
+
         const minX = Math.max(0, centerX - radius);
-/** maxX：定义该变量以承载业务值。 */
+
         const maxX = Math.min(this.template.width - 1, centerX + radius);
-/** minY：定义该变量以承载业务值。 */
+
         const minY = Math.max(0, centerY - radius);
-/** maxY：定义该变量以承载业务值。 */
+
         const maxY = Math.min(this.template.height - 1, centerY + radius);
-/** npcs：定义该变量以承载业务值。 */
+
         const npcs = [];
         for (const npc of this.npcsById.values()) {
             if (npc.x < minX || npc.x > maxX || npc.y < minY || npc.y > maxY) {
@@ -1382,17 +1391,17 @@ class MapInstanceRuntime {
         npcs.sort(compareLocalNpcs);
         return npcs;
     }
-/** collectLocalMonsters：执行对应的业务逻辑。 */
+    /** collectLocalMonsters：收集当前视野内可见妖兽。 */
     collectLocalMonsters(centerX, centerY, radius, visibleTileIndices = null) {
-/** minX：定义该变量以承载业务值。 */
+
         const minX = Math.max(0, centerX - radius);
-/** maxX：定义该变量以承载业务值。 */
+
         const maxX = Math.min(this.template.width - 1, centerX + radius);
-/** minY：定义该变量以承载业务值。 */
+
         const minY = Math.max(0, centerY - radius);
-/** maxY：定义该变量以承载业务值。 */
+
         const maxY = Math.min(this.template.height - 1, centerY + radius);
-/** monsters：定义该变量以承载业务值。 */
+
         const monsters = [];
         for (const monster of this.monstersByRuntimeId.values()) {
             if (!monster.alive) {
@@ -1420,9 +1429,9 @@ class MapInstanceRuntime {
         monsters.sort(compareLocalMonsters);
         return monsters;
     }
-/** advanceMonsters：执行对应的业务逻辑。 */
+    /** advanceMonsters：推进妖兽 AI 和行动。 */
     advanceMonsters(monsterActions) {
-/** changed：定义该变量以承载业务值。 */
+
         let changed = false;
         for (const monster of this.monstersByRuntimeId.values()) {
             if (!monster.alive) {
@@ -1436,13 +1445,13 @@ class MapInstanceRuntime {
                 }
                 continue;
             }
-/** buffChanged：定义该变量以承载业务值。 */
+
             const buffChanged = tickTemporaryBuffs(monster.buffs);
             if (buffChanged && recalculateMonsterDerivedState(monster)) {
                 changed = true;
             }
             changed = recoverMonsterHp(monster) || changed;
-/** target：定义该变量以承载业务值。 */
+
             const target = this.resolveMonsterTarget(monster);
             if (!target) {
                 if (monster.x !== monster.spawnX || monster.y !== monster.spawnY) {
@@ -1450,9 +1459,9 @@ class MapInstanceRuntime {
                 }
                 continue;
             }
-/** distance：定义该变量以承载业务值。 */
+
             const distance = chebyshevDistance(monster.x, monster.y, target.x, target.y);
-/** skill：定义该变量以承载业务值。 */
+
             const skill = chooseMonsterSkill(monster, distance, this.tick);
             if (skill) {
                 monster.cooldownReadyTickBySkillId[skill.id] = this.tick + Math.max(1, Math.round(skill.cooldown));
@@ -1466,7 +1475,7 @@ class MapInstanceRuntime {
                 continue;
             }
             if (distance <= monster.attackRange && monster.attackReadyTick <= this.tick) {
-/** damage：定义该变量以承载业务值。 */
+
                 const damage = buildMonsterAttackDamage(monster);
                 if (damage > 0) {
                     monster.attackReadyTick = this.tick + monster.attackCooldownTicks;
@@ -1486,9 +1495,9 @@ class MapInstanceRuntime {
             this.worldRevision += 1;
         }
     }
-/** findSpawnPoint：执行对应的业务逻辑。 */
+    /** findSpawnPoint：查找生成点。 */
     findSpawnPoint(preferredX, preferredY) {
-/** candidates：定义该变量以承载业务值。 */
+
         const candidates = [];
         if (preferredX !== undefined && preferredY !== undefined) {
             candidates.push({
@@ -1508,19 +1517,19 @@ class MapInstanceRuntime {
         }
         return null;
     }
-/** findNearestOpenTile：执行对应的业务逻辑。 */
+    /** findNearestOpenTile：查找最近的可占用地块。 */
     findNearestOpenTile(originX, originY) {
         if (this.isOpenTile(originX, originY)) {
             return { x: originX, y: originY };
         }
-/** maxRadius：定义该变量以承载业务值。 */
+
         const maxRadius = Math.max(this.template.width, this.template.height);
         for (let radius = 1; radius <= maxRadius; radius += 1) {
             const minX = Math.max(0, originX - radius);
             const maxX = Math.min(this.template.width - 1, originX + radius);
-/** minY：定义该变量以承载业务值。 */
+
             const minY = Math.max(0, originY - radius);
-/** maxY：定义该变量以承载业务值。 */
+
             const maxY = Math.min(this.template.height - 1, originY + radius);
             for (let y = minY; y <= maxY; y += 1) {
                 for (let x = minX; x <= maxX; x += 1) {
@@ -1535,40 +1544,40 @@ class MapInstanceRuntime {
         }
         return null;
     }
-/** isOpenTile：执行对应的业务逻辑。 */
+    /** isOpenTile：判断地块是否可占用。 */
     isOpenTile(x, y) {
         if (!this.isWalkable(x, y)) {
             return false;
         }
-/** tileIndex：定义该变量以承载业务值。 */
+
         const tileIndex = this.toTileIndex(x, y);
         return this.occupancy[tileIndex] === INVALID_OCCUPANCY
             && !this.monsterRuntimeIdByTile.has(tileIndex)
             && !this.npcIdByTile.has(tileIndex);
     }
-/** isWalkable：执行对应的业务逻辑。 */
+    /** isWalkable：判断地块是否可行走。 */
     isWalkable(x, y) {
         if (!this.isInBounds(x, y)) {
             return false;
         }
         return this.template.walkableMask[this.toTileIndex(x, y)] === 1;
     }
-/** isTileSightBlocked：执行对应的业务逻辑。 */
+    /** isTileSightBlocked：判断地块是否阻挡视线。 */
     isTileSightBlocked(x, y) {
         if (!this.isInBounds(x, y)) {
             return true;
         }
         return this.template.blocksSightMask[this.toTileIndex(x, y)] === 1;
     }
-/** collectVisibleTileIndices：执行对应的业务逻辑。 */
+    /** collectVisibleTileIndices：收集视野内可见地块索引。 */
     collectVisibleTileIndices(originX, originY, radius) {
-/** visibleTileIndices：定义该变量以承载业务值。 */
+
         const visibleTileIndices = new Set();
         if (!this.isInBounds(originX, originY)) {
             return visibleTileIndices;
         }
         visibleTileIndices.add(this.toTileIndex(originX, originY));
-/** octants：定义该变量以承载业务值。 */
+
         const octants = [
             [1, 0, 0, 1],
             [0, 1, 1, 0],
@@ -1584,21 +1593,21 @@ class MapInstanceRuntime {
         }
         return visibleTileIndices;
     }
-/** castLight：执行对应的业务逻辑。 */
+    /** castLight：把视野光照落到地图上。 */
     castLight(originX, originY, row, startSlope, endSlope, radius, xx, xy, yx, yy, visibleTileIndices) {
         if (startSlope < endSlope) {
             return;
         }
-/** nextStartSlope：定义该变量以承载业务值。 */
+
         let nextStartSlope = startSlope;
         for (let distance = row; distance <= radius; distance += 1) {
             let blocked = false;
             for (let deltaX = -distance, deltaY = -distance; deltaX <= 0; deltaX += 1) {
                 const currentX = originX + deltaX * xx + deltaY * xy;
                 const currentY = originY + deltaX * yx + deltaY * yy;
-/** leftSlope：定义该变量以承载业务值。 */
+
                 const leftSlope = (deltaX - 0.5) / (deltaY + 0.5);
-/** rightSlope：定义该变量以承载业务值。 */
+
                 const rightSlope = (deltaX + 0.5) / (deltaY - 0.5);
                 if (startSlope < rightSlope) {
                     continue;
@@ -1609,7 +1618,7 @@ class MapInstanceRuntime {
                 if (this.isInBounds(currentX, currentY) && (0, shared_1.isOffsetInRange)(deltaX, deltaY, radius)) {
                     visibleTileIndices.add(this.toTileIndex(currentX, currentY));
                 }
-/** blocksSight：定义该变量以承载业务值。 */
+
                 const blocksSight = this.isTileSightBlocked(currentX, currentY);
                 if (blocked) {
                     if (blocksSight) {
@@ -1631,7 +1640,7 @@ class MapInstanceRuntime {
             }
         }
     }
-/** isAnyTileVisibleInCircle：执行对应的业务逻辑。 */
+    /** isAnyTileVisibleInCircle：判断圆形范围内是否存在可见地块。 */
     isAnyTileVisibleInCircle(centerX, centerY, radius, visibleTileIndices) {
         for (let y = Math.max(0, centerY - radius); y <= Math.min(this.template.height - 1, centerY + radius); y += 1) {
             for (let x = Math.max(0, centerX - radius); x <= Math.min(this.template.width - 1, centerX + radius); x += 1) {
@@ -1645,22 +1654,22 @@ class MapInstanceRuntime {
         }
         return false;
     }
-/** getPortalAt：执行对应的业务逻辑。 */
+    /** getPortalAt：按坐标读取传送点。 */
     getPortalAt(x, y) {
         if (!this.isInBounds(x, y)) {
             return null;
         }
-/** portalIndex：定义该变量以承载业务值。 */
+
         const portalIndex = this.template.portalIndexByTile[this.toTileIndex(x, y)];
         return portalIndex >= 0 ? this.template.portals[portalIndex] ?? null : null;
     }
-/** updateAuraDirtyState：执行对应的业务逻辑。 */
+    /** updateAuraDirtyState：更新灵气脏状态。 */
     updateAuraDirtyState(tileIndex, previous, next) {
-/** baseValue：定义该变量以承载业务值。 */
+
         const baseValue = this.template.baseAuraByTile[tileIndex] ?? 0;
-/** previousDirty：定义该变量以承载业务值。 */
+
         const previousDirty = previous !== baseValue;
-/** nextDirty：定义该变量以承载业务值。 */
+
         const nextDirty = next !== baseValue;
         if (!previousDirty && nextDirty) {
             this.changedAuraTileCount += 1;
@@ -1670,23 +1679,24 @@ class MapInstanceRuntime {
         }
         this.persistentRevision += 1;
     }
-/** isInBounds：执行对应的业务逻辑。 */
+    /** isInBounds：判断坐标是否在地图范围内。 */
     isInBounds(x, y) {
         return x >= 0 && y >= 0 && x < this.template.width && y < this.template.height;
     }
-/** setOccupied：执行对应的业务逻辑。 */
+    /** setOccupied：设置地块占用状态。 */
     setOccupied(x, y, handle) {
         this.occupancy[this.toTileIndex(x, y)] = handle;
     }
-/** toTileIndex：执行对应的业务逻辑。 */
+    /** toTileIndex：把坐标转换成地块索引。 */
     toTileIndex(x, y) {
+        /** return：return。 */
         return (0, map_template_repository_1.getTileIndex)(x, y, this.template.width);
     }
-/** allocateHandle：执行对应的业务逻辑。 */
+    /** allocateHandle：分配一个可复用句柄。 */
     allocateHandle() {
         return this.freeHandles.pop() ?? this.nextHandle++;
     }
-/** markMonsterDefeated：执行对应的业务逻辑。 */
+    /** markMonsterDefeated：标记妖兽已经被击败。 */
     markMonsterDefeated(monster) {
         this.monsterRuntimeIdByTile.delete(this.toTileIndex(monster.x, monster.y));
         monster.alive = false;
@@ -1696,12 +1706,13 @@ class MapInstanceRuntime {
         monster.cooldownReadyTickBySkillId = {};
         monster.aggroTargetPlayerId = null;
         monster.buffs.length = 0;
+        /** recalculateMonsterDerivedState：重算妖兽派生状态。 */
         recalculateMonsterDerivedState(monster);
         this.worldRevision += 1;
     }
-/** respawnMonster：执行对应的业务逻辑。 */
+    /** respawnMonster：在重生点复生妖兽。 */
     respawnMonster(monster) {
-/** respawn：定义该变量以承载业务值。 */
+
         const respawn = this.findNearestOpenTile(monster.spawnX, monster.spawnY) ?? { x: monster.spawnX, y: monster.spawnY };
         monster.x = respawn.x;
         monster.y = respawn.y;
@@ -1712,14 +1723,15 @@ class MapInstanceRuntime {
         monster.aggroTargetPlayerId = null;
         monster.buffs.length = 0;
         monster.damageContributors = {};
+        /** recalculateMonsterDerivedState：重算妖兽派生状态。 */
         recalculateMonsterDerivedState(monster);
         monster.hp = monster.maxHp;
         this.monsterRuntimeIdByTile.set(this.toTileIndex(monster.x, monster.y), monster.runtimeId);
     }
-/** resolveMonsterTarget：执行对应的业务逻辑。 */
+    /** resolveMonsterTarget：解析妖兽的当前目标。 */
     resolveMonsterTarget(monster) {
         if (monster.aggroTargetPlayerId) {
-/** current：定义该变量以承载业务值。 */
+
             const current = this.playersById.get(monster.aggroTargetPlayerId);
             if (current
                 && chebyshevDistance(monster.spawnX, monster.spawnY, current.x, current.y) <= monster.leashRange
@@ -1728,15 +1740,15 @@ class MapInstanceRuntime {
             }
             monster.aggroTargetPlayerId = null;
         }
-/** best：定义该变量以承载业务值。 */
+
         let best = null;
-/** bestDistance：定义该变量以承载业务值。 */
+
         let bestDistance = Number.POSITIVE_INFINITY;
         for (const player of this.playersById.values()) {
             if (chebyshevDistance(monster.spawnX, monster.spawnY, player.x, player.y) > monster.leashRange) {
                 continue;
             }
-/** distance：定义该变量以承载业务值。 */
+
             const distance = chebyshevDistance(monster.x, monster.y, player.x, player.y);
             if (distance > monster.aggroRange || distance >= bestDistance) {
                 continue;
@@ -1747,9 +1759,9 @@ class MapInstanceRuntime {
         monster.aggroTargetPlayerId = best?.playerId ?? null;
         return best;
     }
-/** tryMoveMonsterToward：执行对应的业务逻辑。 */
+    /** tryMoveMonsterToward：尝试让妖兽朝目标移动。 */
     tryMoveMonsterToward(monster, targetX, targetY) {
-/** next：定义该变量以承载业务值。 */
+
         const next = chooseMonsterStep(monster.x, monster.y, targetX, targetY);
         for (const candidate of next) {
             if (!this.isOpenTile(candidate.x, candidate.y)) {
@@ -1766,48 +1778,49 @@ class MapInstanceRuntime {
     }
 }
 exports.MapInstanceRuntime = MapInstanceRuntime;
-/** resolveTileDurability：执行对应的业务逻辑。 */
+/** resolveTileDurability：解析地形耐久配置。 */
 function resolveTileDurability(template, tileType) {
-/** profileId：定义该变量以承载业务值。 */
+
     const profileId = template.source.terrainProfileId
         ?? LEGACY_MAP_TERRAIN_PROFILE_IDS[template.id]
         ?? template.id;
-/** profile：定义该变量以承载业务值。 */
+
     const profile = TERRAIN_DURABILITY_PROFILES[profileId]?.[tileType] ?? DEFAULT_TERRAIN_DURABILITY_BY_TILE[tileType];
     if (!profile) {
         return 0;
     }
-/** baseDurability：定义该变量以承载业务值。 */
+
     const baseDurability = (0, shared_1.calculateTerrainDurability)(profile.grade, profile.material);
-/** multiplier：定义该变量以承载业务值。 */
+
     const multiplier = SPECIAL_TILE_DURABILITY_MULTIPLIERS[tileType] ?? 1;
     return Math.max(1, Math.round(baseDurability * multiplier));
 }
-/** clampCoordinate：执行对应的业务逻辑。 */
+/** clampCoordinate：把坐标夹到地图边界内。 */
 function clampCoordinate(value, size) {
     return Math.max(0, Math.min(size - 1, Math.trunc(value)));
 }
-/** DIRECTION_OFFSET：定义该变量以承载业务值。 */
+
+/** DIRECTION_OFFSET：DIRECTIONOFFSET。 */
 const DIRECTION_OFFSET = {
     [shared_1.Direction.North]: { x: 0, y: -1 },
     [shared_1.Direction.South]: { x: 0, y: 1 },
     [shared_1.Direction.East]: { x: 1, y: 0 },
     [shared_1.Direction.West]: { x: -1, y: 0 },
 };
-/** buildGroundSourceId：执行对应的业务逻辑。 */
+/** buildGroundSourceId：构建地面物品堆来源 ID。 */
 function buildGroundSourceId(tileIndex) {
     return `g:${tileIndex}`;
 }
-/** parseGroundSourceId：执行对应的业务逻辑。 */
+/** parseGroundSourceId：解析地面物品堆来源 ID。 */
 function parseGroundSourceId(sourceId) {
     if (!sourceId.startsWith('g:')) {
         return null;
     }
-/** tileIndex：定义该变量以承载业务值。 */
+
     const tileIndex = Number(sourceId.slice(2));
     return Number.isInteger(tileIndex) && tileIndex >= 0 ? tileIndex : null;
 }
-/** toGroundPileView：执行对应的业务逻辑。 */
+/** toGroundPileView：把地面物品堆转换成视图对象。 */
 function toGroundPileView(pile) {
     if (!pile) {
         return null;
@@ -1827,12 +1840,12 @@ function toGroundPileView(pile) {
         })),
     };
 }
-/** normalizePersistedGroundItem：执行对应的业务逻辑。 */
+/** normalizePersistedGroundItem：规范化持久化地面物品条目。 */
 function normalizePersistedGroundItem(item) {
     if (!item || typeof item !== 'object' || typeof item.itemId !== 'string' || !item.itemId.trim()) {
         return null;
     }
-/** count：定义该变量以承载业务值。 */
+
     const count = Number.isFinite(item.count) ? Math.max(1, Math.trunc(item.count)) : 1;
     return {
         ...item,
@@ -1840,37 +1853,37 @@ function normalizePersistedGroundItem(item) {
         count,
     };
 }
-/** compareGroundPiles：执行对应的业务逻辑。 */
+/** compareGroundPiles：比较地面物品堆顺序。 */
 function compareGroundPiles(left, right) {
     return left.y - right.y || left.x - right.x || left.sourceId.localeCompare(right.sourceId, 'zh-Hans-CN');
 }
-/** compareGroundEntries：执行对应的业务逻辑。 */
+/** compareGroundEntries：比较地面物品条目顺序。 */
 function compareGroundEntries(left, right) {
     return left.itemKey.localeCompare(right.itemKey, 'zh-Hans-CN');
 }
-/** compareLocalMonsters：执行对应的业务逻辑。 */
+/** compareLocalMonsters：比较妖兽排序。 */
 function compareLocalMonsters(left, right) {
     return left.y - right.y || left.x - right.x || left.runtimeId.localeCompare(right.runtimeId, 'zh-Hans-CN');
 }
-/** compareLocalNpcs：执行对应的业务逻辑。 */
+/** compareLocalNpcs：比较 NPC 排序。 */
 function compareLocalNpcs(left, right) {
     return left.y - right.y || left.x - right.x || left.npcId.localeCompare(right.npcId, 'zh-Hans-CN');
 }
-/** compareLocalContainers：执行对应的业务逻辑。 */
+/** compareLocalContainers：比较容器排序。 */
 function compareLocalContainers(left, right) {
     return left.y - right.y || left.x - right.x || left.id.localeCompare(right.id, 'zh-Hans-CN');
 }
-/** compareLocalLandmarks：执行对应的业务逻辑。 */
+/** compareLocalLandmarks：比较地标排序。 */
 function compareLocalLandmarks(left, right) {
     return left.y - right.y || left.x - right.x || left.id.localeCompare(right.id, 'zh-Hans-CN');
 }
-/** compareLocalSafeZones：执行对应的业务逻辑。 */
+/** compareLocalSafeZones：比较安全区排序。 */
 function compareLocalSafeZones(left, right) {
     return left.y - right.y || left.x - right.x || left.radius - right.radius;
 }
-/** countAliveMonsters：执行对应的业务逻辑。 */
+/** countAliveMonsters：统计存活妖兽数量。 */
 function countAliveMonsters(monstersByRuntimeId) {
-/** count：定义该变量以承载业务值。 */
+
     let count = 0;
     for (const monster of monstersByRuntimeId.values()) {
         if (monster.alive) {
@@ -1879,7 +1892,7 @@ function countAliveMonsters(monstersByRuntimeId) {
     }
     return count;
 }
-/** snapshotNpc：执行对应的业务逻辑。 */
+/** snapshotNpc：快照 NPC。 */
 function snapshotNpc(source) {
     return {
         ...source,
@@ -1887,7 +1900,7 @@ function snapshotNpc(source) {
         quests: source.quests.map((entry) => ({ ...entry })),
     };
 }
-/** snapshotContainer：执行对应的业务逻辑。 */
+/** snapshotContainer：快照容器。 */
 function snapshotContainer(source) {
     return {
         ...source,
@@ -1898,14 +1911,14 @@ function snapshotContainer(source) {
         })),
     };
 }
-/** snapshotLandmark：执行对应的业务逻辑。 */
+/** snapshotLandmark：快照地标。 */
 function snapshotLandmark(source) {
     return {
         ...source,
         container: source.container ? snapshotContainer(source.container) : undefined,
     };
 }
-/** snapshotSafeZone：执行对应的业务逻辑。 */
+/** snapshotSafeZone：快照安全区。 */
 function snapshotSafeZone(source) {
     return {
         x: source.x,
@@ -1913,7 +1926,7 @@ function snapshotSafeZone(source) {
         radius: source.radius,
     };
 }
-/** snapshotGroundPile：执行对应的业务逻辑。 */
+/** snapshotGroundPile：快照地面物品堆。 */
 function snapshotGroundPile(source) {
     return {
         ...source,
@@ -1923,7 +1936,7 @@ function snapshotGroundPile(source) {
         })),
     };
 }
-/** snapshotMonster：执行对应的业务逻辑。 */
+/** snapshotMonster：快照妖兽。 */
 function snapshotMonster(source) {
     return {
         ...source,
@@ -1938,7 +1951,7 @@ function snapshotMonster(source) {
         damageContributors: { ...source.damageContributors },
     };
 }
-/** cloneAttributes：执行对应的业务逻辑。 */
+/** cloneAttributes：克隆属性面板。 */
 function cloneAttributes(source) {
     return {
         constitution: source.constitution,
@@ -1949,7 +1962,7 @@ function cloneAttributes(source) {
         luck: source.luck,
     };
 }
-/** cloneNumericStats：执行对应的业务逻辑。 */
+/** cloneNumericStats：克隆数值属性。 */
 function cloneNumericStats(source) {
     return {
         maxHp: source.maxHp,
@@ -1983,7 +1996,7 @@ function cloneNumericStats(source) {
         elementDamageReduce: { ...source.elementDamageReduce },
     };
 }
-/** cloneNumericRatioDivisors：执行对应的业务逻辑。 */
+/** cloneNumericRatioDivisors：克隆数值比例除数。 */
 function cloneNumericRatioDivisors(source) {
     return {
         dodge: source.dodge,
@@ -1995,7 +2008,7 @@ function cloneNumericRatioDivisors(source) {
         elementDamageReduce: { ...source.elementDamageReduce },
     };
 }
-/** cloneSkill：执行对应的业务逻辑。 */
+/** cloneSkill：克隆技能配置。 */
 function cloneSkill(source) {
     return {
         ...source,
@@ -2003,7 +2016,7 @@ function cloneSkill(source) {
         effects: source.effects.map((entry) => ({ ...entry })),
     };
 }
-/** cloneTemporaryBuff：执行对应的业务逻辑。 */
+/** cloneTemporaryBuff：克隆临时 Buff。 */
 function cloneTemporaryBuff(source) {
     return {
         ...source,
@@ -2012,9 +2025,9 @@ function cloneTemporaryBuff(source) {
         qiProjection: source.qiProjection ? source.qiProjection.map((entry) => ({ ...entry })) : undefined,
     };
 }
-/** tickTemporaryBuffs：执行对应的业务逻辑。 */
+/** tickTemporaryBuffs：推进临时 Buff 计时。 */
 function tickTemporaryBuffs(buffs) {
-/** changed：定义该变量以承载业务值。 */
+
     let changed = false;
     for (const buff of buffs) {
         if (buff.remainingTicks > 0) {
@@ -2022,13 +2035,13 @@ function tickTemporaryBuffs(buffs) {
             changed = true;
         }
     }
-/** nextLength：定义该变量以承载业务值。 */
+
     const nextLength = buffs.filter((entry) => entry.remainingTicks > 0 && entry.stacks > 0).length;
     if (nextLength !== buffs.length) {
         changed = true;
     }
     if (changed) {
-/** writeIndex：定义该变量以承载业务值。 */
+
         let writeIndex = 0;
         for (const buff of buffs) {
             if (buff.remainingTicks > 0 && buff.stacks > 0) {
@@ -2040,11 +2053,11 @@ function tickTemporaryBuffs(buffs) {
     }
     return changed;
 }
-/** recalculateMonsterDerivedState：执行对应的业务逻辑。 */
+/** recalculateMonsterDerivedState：重算妖兽派生状态。 */
 function recalculateMonsterDerivedState(monster) {
-/** nextAttrs：定义该变量以承载业务值。 */
+
     const nextAttrs = cloneAttributes(monster.baseAttrs);
-/** nextStats：定义该变量以承载业务值。 */
+
     const nextStats = cloneNumericStats(monster.baseNumericStats);
     for (const buff of monster.buffs) {
         const stacks = Math.max(1, buff.stacks);
@@ -2098,13 +2111,13 @@ function recalculateMonsterDerivedState(monster) {
     }
     nextStats.maxHp = Math.max(1, Math.round(nextStats.maxHp));
     nextStats.maxQi = Math.max(0, Math.round(nextStats.maxQi));
-/** previousMaxHp：定义该变量以承载业务值。 */
+
     const previousMaxHp = monster.maxHp;
-/** previousHp：定义该变量以承载业务值。 */
+
     const previousHp = monster.hp;
-/** previousAttrs：定义该变量以承载业务值。 */
+
     const previousAttrs = monster.attrs;
-/** previousStats：定义该变量以承载业务值。 */
+
     const previousStats = monster.numericStats;
     monster.attrs = nextAttrs;
     monster.numericStats = nextStats;
@@ -2122,7 +2135,7 @@ function recalculateMonsterDerivedState(monster) {
         || previousMaxHp !== monster.maxHp
         || previousHp !== monster.hp;
 }
-/** isSameAttributes：执行对应的业务逻辑。 */
+/** isSameAttributes：判断属性是否一致。 */
 function isSameAttributes(left, right) {
     return left.constitution === right.constitution
         && left.spirit === right.spirit
@@ -2131,7 +2144,7 @@ function isSameAttributes(left, right) {
         && left.comprehension === right.comprehension
         && left.luck === right.luck;
 }
-/** isSameNumericStats：执行对应的业务逻辑。 */
+/** isSameNumericStats：判断数值属性是否一致。 */
 function isSameNumericStats(left, right) {
     return left.maxHp === right.maxHp
         && left.maxQi === right.maxQi
@@ -2171,20 +2184,20 @@ function isSameNumericStats(left, right) {
         && left.elementDamageReduce.fire === right.elementDamageReduce.fire
         && left.elementDamageReduce.earth === right.elementDamageReduce.earth;
 }
-/** buildMonsterAttackDamage：执行对应的业务逻辑。 */
+/** buildMonsterAttackDamage：构建妖兽普通攻击伤害。 */
 function buildMonsterAttackDamage(monster) {
-/** attack：定义该变量以承载业务值。 */
+
     const attack = Math.max(monster.numericStats.physAtk, monster.numericStats.spellAtk);
     return Math.max(1, Math.round(attack));
 }
-/** recoverMonsterHp：执行对应的业务逻辑。 */
+/** recoverMonsterHp：恢复妖兽生命值。 */
 function recoverMonsterHp(monster) {
     if (!monster.alive || monster.hp >= monster.maxHp || monster.numericStats.hpRegenRate <= 0) {
         return false;
     }
-/** heal：定义该变量以承载业务值。 */
+
     const heal = Math.max(1, Math.round(monster.maxHp * (monster.numericStats.hpRegenRate / 10000)));
-/** nextHp：定义该变量以承载业务值。 */
+
     const nextHp = Math.min(monster.maxHp, monster.hp + heal);
     if (nextHp === monster.hp) {
         return false;
@@ -2192,18 +2205,18 @@ function recoverMonsterHp(monster) {
     monster.hp = nextHp;
     return true;
 }
-/** chooseMonsterSkill：执行对应的业务逻辑。 */
+/** chooseMonsterSkill：选择妖兽技能。 */
 function chooseMonsterSkill(monster, distance, currentTick) {
-/** selected：定义该变量以承载业务值。 */
+
     let selected = null;
-/** selectedRange：定义该变量以承载业务值。 */
+
     let selectedRange = 0;
     for (const skill of monster.skills) {
         const skillRange = resolveSkillRange(skill);
         if (distance > skillRange) {
             continue;
         }
-/** readyTick：定义该变量以承载业务值。 */
+
         const readyTick = monster.cooldownReadyTickBySkillId[skill.id] ?? 0;
         if (currentTick < readyTick) {
             continue;
@@ -2220,22 +2233,22 @@ function chooseMonsterSkill(monster, distance, currentTick) {
     }
     return selected;
 }
-/** resolveSkillRange：执行对应的业务逻辑。 */
+/** resolveSkillRange：解析技能射程。 */
 function resolveSkillRange(skill) {
-/** targetingRange：定义该变量以承载业务值。 */
+
     const targetingRange = skill.targeting?.range;
     if (typeof targetingRange === 'number' && Number.isFinite(targetingRange)) {
         return Math.max(1, Math.round(targetingRange));
     }
     return Math.max(1, Math.round(skill.range));
 }
-/** chooseMonsterStep：执行对应的业务逻辑。 */
+/** chooseMonsterStep：选择妖兽下一步移动。 */
 function chooseMonsterStep(fromX, fromY, targetX, targetY) {
-/** dx：定义该变量以承载业务值。 */
+
     const dx = Math.sign(targetX - fromX);
-/** dy：定义该变量以承载业务值。 */
+
     const dy = Math.sign(targetY - fromY);
-/** candidates：定义该变量以承载业务值。 */
+
     const candidates = [];
     if (Math.abs(targetX - fromX) >= Math.abs(targetY - fromY) && dx !== 0) {
         candidates.push({
@@ -2260,8 +2273,10 @@ function chooseMonsterStep(fromX, fromY, targetX, targetY) {
     }
     return candidates;
 }
-/** chebyshevDistance：执行对应的业务逻辑。 */
+/** chebyshevDistance：计算切比雪夫距离。 */
 function chebyshevDistance(ax, ay, bx, by) {
     return Math.max(Math.abs(ax - bx), Math.abs(ay - by));
 }
 //# sourceMappingURL=map-instance.runtime.js.map
+
+

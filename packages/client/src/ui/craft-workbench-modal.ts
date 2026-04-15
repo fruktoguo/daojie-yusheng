@@ -12,6 +12,7 @@ import { getEquipSlotLabel, getItemTypeLabel, getTechniqueGradeLabel } from '../
 import { formatDisplayInteger, formatDisplayPercent } from '../utils/number';
 import { detailModalHost } from './detail-modal-host';
 
+/** escapeHtml：转义 HTML 文本中的危险字符。 */
 function escapeHtml(value: string): string {
   return value
     .replaceAll('&', '&amp;')
@@ -21,6 +22,7 @@ function escapeHtml(value: string): string {
     .replaceAll("'", '&#39;');
 }
 
+/** formatTicks：格式化Ticks。 */
 function formatTicks(ticks: number | undefined): string {
   if (!Number.isFinite(ticks) || Number(ticks) <= 0) {
     return '0 息';
@@ -28,6 +30,7 @@ function formatTicks(ticks: number | undefined): string {
   return `${formatDisplayInteger(Math.max(0, Math.round(Number(ticks))))} 息`;
 }
 
+/** formatPercentRate：格式化Percent速率。 */
 function formatPercentRate(rate: number | undefined): string {
   if (!Number.isFinite(rate)) {
     return '0%';
@@ -38,10 +41,12 @@ function formatPercentRate(rate: number | undefined): string {
   });
 }
 
+/** renderKeyValueCard：渲染Key值卡片。 */
 function renderKeyValueCard(label: string, value: string): string {
   return `<div class="info-line ui-key-value-item ui-surface-card ui-surface-card--compact"><span class="ui-key-value-label">${escapeHtml(label)}</span><strong class="ui-key-value-value">${escapeHtml(value)}</strong></div>`;
 }
 
+/** renderItemSummary：渲染物品摘要。 */
 function renderItemSummary(item: { name?: string; itemId: string; type?: string; level?: number; equipSlot?: string }): string {
   const parts = [
     item.type ? getItemTypeLabel(item.type) : '',
@@ -56,18 +61,22 @@ function renderItemSummary(item: { name?: string; itemId: string; type?: string;
   `;
 }
 
+/** renderEmpty：渲染Empty。 */
 function renderEmpty(text: string): string {
   return `<div class="empty-hint ui-empty-hint">${escapeHtml(text)}</div>`;
 }
 
+/** MAX_ENHANCEMENT_LEVEL：强化等级上限。 */
 const MAX_ENHANCEMENT_LEVEL = 20;
 
+/** toEquipSlot：处理to Equip槽位。 */
 function toEquipSlot(value: string | undefined): EnhancementTargetRef['slot'] | null {
   return value && EQUIP_SLOTS.includes(value as typeof EQUIP_SLOTS[number])
     ? value as EnhancementTargetRef['slot']
     : null;
 }
 
+/** CraftWorkbenchCallbacks：工坊弹窗回调集。 */
 type CraftWorkbenchCallbacks = {
   onRequestAlchemy: (knownCatalogVersion?: number) => void;
   onRequestEnhancement: () => void;
@@ -77,32 +86,48 @@ type CraftWorkbenchCallbacks = {
   onCancelEnhancement: () => void;
 };
 
+/** CraftWorkbenchMode：模式枚举。 */
 type CraftWorkbenchMode = 'alchemy' | 'enhancement' | null;
 
+/** CraftWorkbenchModal：制作Workbench弹窗实现。 */
 export class CraftWorkbenchModal {
+  /** MODAL_OWNER：弹窗OWNER。 */
   private static readonly MODAL_OWNER = 'craft-workbench-modal';
 
+  /** callbacks：callbacks。 */
   private callbacks: CraftWorkbenchCallbacks | null = null;
+  /** activeMode：活跃模式。 */
   private activeMode: CraftWorkbenchMode = null;
+  /** loading：loading。 */
   private loading = false;
+  /** alchemyPanel：炼丹面板。 */
   private alchemyPanel: NEXT_S2C_AlchemyPanel | null = null;
+  /** enhancementPanel：强化面板。 */
   private enhancementPanel: NEXT_S2C_EnhancementPanel | null = null;
+  /** alchemyCatalogVersion：炼丹目录版本。 */
   private alchemyCatalogVersion = 0;
+  /** alchemyCatalog：炼丹目录。 */
   private alchemyCatalog: AlchemyRecipeCatalogEntry[] = [];
+  /** alchemySkillLevel：炼丹技能等级。 */
   private alchemySkillLevel = 1;
+  /** gatherSkillLevel：gather技能等级。 */
   private gatherSkillLevel = 1;
+  /** enhancementSkillLevel：强化技能等级。 */
   private enhancementSkillLevel = 1;
 
+  /** setCallbacks：处理set Callbacks。 */
   setCallbacks(callbacks: CraftWorkbenchCallbacks): void {
     this.callbacks = callbacks;
   }
 
+  /** initFromPlayer：初始化From玩家。 */
   initFromPlayer(player: PlayerState): void {
     this.alchemySkillLevel = Math.max(1, Math.floor(player.alchemySkill?.level ?? 1));
     this.gatherSkillLevel = Math.max(1, Math.floor(player.gatherSkill?.level ?? 1));
     this.enhancementSkillLevel = Math.max(1, Math.floor(player.enhancementSkill?.level ?? player.enhancementSkillLevel ?? 1));
   }
 
+  /** syncAttrUpdate：同步属性更新。 */
   syncAttrUpdate(update: NEXT_S2C_AttrUpdate): void {
     if (update.alchemySkill) {
       this.alchemySkillLevel = Math.max(1, Math.floor(update.alchemySkill.level ?? this.alchemySkillLevel));
@@ -118,14 +143,17 @@ export class CraftWorkbenchModal {
     }
   }
 
+  /** syncInventory：同步背包。 */
   syncInventory(): void {
     this.requestCurrentPanel();
   }
 
+  /** syncEquipment：同步Equipment。 */
   syncEquipment(): void {
     this.requestCurrentPanel();
   }
 
+  /** openAlchemy：打开炼丹。 */
   openAlchemy(): void {
     this.activeMode = 'alchemy';
     this.loading = true;
@@ -133,6 +161,7 @@ export class CraftWorkbenchModal {
     this.callbacks?.onRequestAlchemy(this.alchemyCatalogVersion || undefined);
   }
 
+  /** openEnhancement：打开强化。 */
   openEnhancement(): void {
     this.activeMode = 'enhancement';
     this.loading = true;
@@ -140,6 +169,7 @@ export class CraftWorkbenchModal {
     this.callbacks?.onRequestEnhancement();
   }
 
+  /** updateAlchemy：更新炼丹。 */
   updateAlchemy(data: NEXT_S2C_AlchemyPanel): void {
     this.alchemyPanel = data;
     this.alchemyCatalogVersion = Math.max(0, Math.floor(data.catalogVersion ?? this.alchemyCatalogVersion));
@@ -156,6 +186,7 @@ export class CraftWorkbenchModal {
     this.render();
   }
 
+  /** updateEnhancement：更新强化。 */
   updateEnhancement(data: NEXT_S2C_EnhancementPanel): void {
     this.enhancementPanel = data;
     if (data.state?.enhancementSkillLevel) {
@@ -168,6 +199,7 @@ export class CraftWorkbenchModal {
     this.render();
   }
 
+  /** clear：清理clear。 */
   clear(): void {
     this.activeMode = null;
     this.loading = false;
@@ -178,6 +210,7 @@ export class CraftWorkbenchModal {
     detailModalHost.close(CraftWorkbenchModal.MODAL_OWNER);
   }
 
+  /** requestCurrentPanel：处理请求当前面板。 */
   private requestCurrentPanel(): void {
     if (!detailModalHost.isOpenFor(CraftWorkbenchModal.MODAL_OWNER)) {
       return;
@@ -191,6 +224,7 @@ export class CraftWorkbenchModal {
     }
   }
 
+  /** render：渲染渲染。 */
   private render(): void {
     if (!this.activeMode) {
       return;
@@ -214,6 +248,7 @@ export class CraftWorkbenchModal {
     });
   }
 
+  /** bindActions：绑定动作。 */
   private bindActions(body: HTMLElement): void {
     body.querySelectorAll<HTMLButtonElement>('[data-craft-action]').forEach((button) => {
       button.addEventListener('click', () => {
@@ -290,6 +325,7 @@ export class CraftWorkbenchModal {
     });
   }
 
+  /** renderAlchemyBody：渲染炼丹身体。 */
   private renderAlchemyBody(): string {
     const state = this.alchemyPanel?.state ?? null;
     if (this.loading && !this.alchemyPanel) {
@@ -394,6 +430,7 @@ export class CraftWorkbenchModal {
     `;
   }
 
+  /** renderEnhancementBody：渲染强化身体。 */
   private renderEnhancementBody(): string {
     const state = this.enhancementPanel?.state ?? null;
     if (this.loading && !this.enhancementPanel) {
@@ -553,3 +590,5 @@ export class CraftWorkbenchModal {
     `;
   }
 }
+
+

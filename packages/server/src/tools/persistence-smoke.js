@@ -4,22 +4,14 @@
  */
 
 Object.defineProperty(exports, "__esModule", { value: true });
-/** smoke_timeout_1：定义该变量以承载业务值。 */
 const smoke_timeout_1 = require("./smoke-timeout");
 (0, smoke_timeout_1.installSmokeTimeout)(__filename);
-/** node_child_process_1：定义该变量以承载业务值。 */
 const node_child_process_1 = require("node:child_process");
-/** node_net_1：定义该变量以承载业务值。 */
 const node_net_1 = require("node:net");
-/** node_path_1：定义该变量以承载业务值。 */
 const node_path_1 = require("node:path");
-/** pg_1：定义该变量以承载业务值。 */
 const pg_1 = require("pg");
-/** socket_io_client_1：定义该变量以承载业务值。 */
 const socket_io_client_1 = require("socket.io-client");
-/** shared_1：定义该变量以承载业务值。 */
 const shared_1 = require("@mud/shared-next");
-/** env_alias_1：定义该变量以承载业务值。 */
 const env_alias_1 = require("../config/env-alias");
 /**
  * 记录包根目录。
@@ -259,11 +251,8 @@ async function connectAndMutate(token) {
  * 确保玩家稳定抵达 wildlands，不依赖一次性 portal 指令命中。
  */
 async function ensureTravelToWildlands(socket, currentPlayerId) {
-/** lastTemplateId：定义该变量以承载业务值。 */
     let lastTemplateId = '';
-/** lastX：定义该变量以承载业务值。 */
     let lastX = Number.NaN;
-/** lastY：定义该变量以承载业务值。 */
     let lastY = Number.NaN;
     for (let attempt = 0; attempt < 24; attempt += 1) {
 /**
@@ -276,7 +265,6 @@ async function ensureTravelToWildlands(socket, currentPlayerId) {
         if (lastTemplateId === 'wildlands') {
             return;
         }
-/** hasPortalAction：定义该变量以承载业务值。 */
         const hasPortalAction = Array.isArray(state?.view?.contextActions)
             && state.view.contextActions.some((entry) => entry?.id === 'portal:travel');
         if (hasPortalAction) {
@@ -610,7 +598,6 @@ async function requestJson(path, init = {}) {
  */
     const response = await fetch(`${baseUrl}${path}`, {
         method: init.method ?? 'GET',
-/** headers：定义该变量以承载业务值。 */
         headers: body === undefined ? undefined : {
             'content-type': 'application/json',
             ...(init.token ? { authorization: `Bearer ${init.token}` } : {}),
@@ -687,7 +674,6 @@ async function seedNativePersistenceForToken(token) {
     if (!userId || !seededPlayerId || !playerName) {
         throw new Error(`invalid persistence smoke token payload: ${JSON.stringify(payload)}`);
     }
-/** pool：定义该变量以承载业务值。 */
     const pool = new pg_1.Pool({
         connectionString: databaseUrl,
     });
@@ -785,9 +771,7 @@ async function seedNativePersistenceForToken(token) {
         await pool.end().catch(() => undefined);
     }
 }
-/** parseJwtPayload：执行对应的业务逻辑。 */
 function parseJwtPayload(token) {
-/** segments：定义该变量以承载业务值。 */
     const segments = typeof token === 'string' ? token.split('.') : [];
     if (segments.length < 2) {
         return null;
@@ -804,12 +788,10 @@ function parseJwtPayload(token) {
  */
 async function waitForPersistedPlayerSnapshot(playerIdToCheck) {
     await waitForCondition(async () => {
-/** pool：定义该变量以承载业务值。 */
         const pool = new pg_1.Pool({
             connectionString: databaseUrl,
         });
         try {
-/** result：定义该变量以承载业务值。 */
             const result = await pool.query('SELECT 1 FROM persistent_documents WHERE scope = $1 AND key = $2 LIMIT 1', ['server_next_player_snapshots_v1', playerIdToCheck]);
             return Array.isArray(result?.rows) && result.rows.length > 0;
         }

@@ -4,15 +4,10 @@
  */
 
 var fs = require("node:fs");
-/** path：定义该变量以承载业务值。 */
 var path = require("node:path");
-/** pg：定义该变量以承载业务值。 */
 var pg = require("pg");
-/** shared：定义该变量以承载业务值。 */
 var shared = require("@mud/shared-next");
-/** envAlias：定义该变量以承载业务值。 */
 var envAlias = require("../config/env-alias");
-/** lib：定义该变量以承载业务值。 */
 var lib = require("./next-protocol-audit-lib");
 /**
  * next 协议上行事件枚举快捷引用。
@@ -80,10 +75,7 @@ var LEGACY_S2C_SET = new Set([
  * 协议审计 Markdown 报告的输出路径。
  */
 var DOC_OUTPUT = path.resolve(__dirname, "../../../../docs/next-protocol-audit.md");
-
-/** SERVER_NEXT_DATABASE_URL：定义该变量以承载业务值。 */
 var SERVER_NEXT_DATABASE_URL = envAlias.resolveServerNextDatabaseUrl();
-/** HAS_DATABASE：定义该变量以承载业务值。 */
 var HAS_DATABASE = Boolean(SERVER_NEXT_DATABASE_URL);
 /**
  * 本次审计预期应该覆盖到的 next 上行事件清单。
@@ -246,7 +238,6 @@ function resolveTechniqueSkillId(player, techId) {
     if (!entry || typeof entry.id !== 'string' || !entry.id.trim()) {
       return false;
     }
-/** unlockLevel：定义该变量以承载业务值。 */
     var unlockLevel = Number.isFinite(entry.unlockLevel) ? entry.unlockLevel : 1;
     return level >= unlockLevel;
   }) ?? null;
@@ -315,7 +306,6 @@ async function requestJson(baseUrl, pathname, init) {
  */
   var response = await fetch(baseUrl + pathname, {
     method: init?.method ?? 'GET',
-/** headers：定义该变量以承载业务值。 */
     headers: body === undefined ? undefined : {
       'content-type': 'application/json',
       ...(init?.token ? { authorization: 'Bearer ' + init.token } : {}),
@@ -461,15 +451,12 @@ async function ensureNativeDocsForAccessToken(token) {
   if (!tokenUserId) {
     return;
   }
-/** pool：定义该变量以承载业务值。 */
   var pool = new pg.Pool({
     connectionString: SERVER_NEXT_DATABASE_URL,
   });
   try {
     if (!tokenPlayerId) {
-/** playerResult：定义该变量以承载业务值。 */
       var playerResult = await pool.query('SELECT id, name FROM players WHERE "userId" = $1::uuid LIMIT 1', [tokenUserId]);
-/** playerRow：定义该变量以承载业务值。 */
       var playerRow = Array.isArray(playerResult?.rows) ? playerResult.rows[0] : null;
       tokenPlayerId = normalizeNextPlayerId(typeof playerRow?.id === 'string' ? playerRow.id.trim() : tokenPlayerId);
       if (!tokenPlayerName) {
@@ -477,9 +464,7 @@ async function ensureNativeDocsForAccessToken(token) {
       }
     }
     if (!tokenUsername || !tokenDisplayName) {
-/** userResult：定义该变量以承载业务值。 */
       var userResult = await pool.query('SELECT username, "displayName" FROM users WHERE id = $1::uuid LIMIT 1', [tokenUserId]);
-/** userRow：定义该变量以承载业务值。 */
       var userRow = Array.isArray(userResult?.rows) ? userResult.rows[0] : null;
       if (!tokenUsername) {
         tokenUsername = typeof userRow?.username === 'string' ? userRow.username.trim() : tokenUsername;
@@ -655,7 +640,6 @@ async function hello(runtime, socket, payload) {
   await socket.waitForEvent(NEXT_S2C.Quests);
   return {
     playerId: playerId,
-/** sessionId：定义该变量以承载业务值。 */
     sessionId: typeof initSession?.sid === 'string' ? initSession.sid : '',
     initSession: initSession,
   };
@@ -1894,9 +1878,7 @@ function render(report) {
   lines.push("", "## 备注", "", "- 报告由 `packages/server/src/tools/next-protocol-audit.js` 自动生成。", "- 本次审计主要是黑盒协议回归，不覆盖浏览器 UI、深色模式、手机布局。", "");
   return lines.join("\n");
 }
-/** main：执行对应的业务逻辑。 */
 async function main() {
-/** externalBaseUrl：定义该变量以承载业务值。 */
   var externalBaseUrl = envAlias.resolveServerNextShadowUrl();
 /**
  * 记录requested端口。
@@ -1981,9 +1963,7 @@ async function main() {
       caseResults.push({
         name: entry.name,
         durationMs: Date.now() - startedAt,
-/** c2s：定义该变量以承载业务值。 */
         c2s: auditor.listCaseEvents(entry.name, "c2s").filter(function (event) { return NEXT_C2S_SET.has(event); }).map(function (event) { return auditor.eventNames.c2s.get(event) || event; }),
-/** s2c：定义该变量以承载业务值。 */
         s2c: auditor.listCaseEvents(entry.name, "s2c").filter(function (event) { return NEXT_S2C_SET.has(event); }).map(function (event) { return auditor.eventNames.s2c.get(event) || event; })
       });
     }
@@ -2014,7 +1994,6 @@ async function main() {
     caseResults: caseResults,
     c2sRows: c2sRows,
     s2cRows: s2cRows,
-/** trafficRows：定义该变量以承载业务值。 */
     trafficRows: auditor.buildTrafficRows().filter(function (row) { return row.direction === "c2s" ? NEXT_C2S_SET.has(row.event) : NEXT_S2C_SET.has(row.event); }),
     missing: missing,
   });

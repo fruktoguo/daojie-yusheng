@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import { detectDeclarationFromLine } from './declaration-detector.mjs';
 
 const ARG_DRY_RUN = process.argv.includes('--dry-run');
+const ARG_ALLOW_PLACEHOLDER = process.argv.includes('--allow-placeholder-comments');
 
 const files = execSync('rg --files -g "**/*.ts" -g "**/*.tsx"', {
   encoding: 'utf8',
@@ -32,37 +33,20 @@ function hasDocCommentAbove(lines, index) {
   return false;
 }
 
-function commentLine(kind, name) {
-  switch (kind) {
-    case 'type':
-      return `/** ${name}：定义该类型的结构与数据语义。 */`;
-    case 'interface':
-      return `/** ${name}：定义该接口的能力与字段约束。 */`;
-    case 'class':
-      return `/** ${name}：封装相关状态与行为。 */`;
-    case 'enum':
-      return `/** ${name}：枚举可选项及其取值含义。 */`;
-    case 'function':
-      return `/** ${name}：执行对应的业务逻辑。 */`;
-    case 'method':
-      return `/** ${name}：处理当前场景中的对应操作。 */`;
-    case 'fieldFunction':
-      return `/** ${name}：将函数作为字段暴露，承接调用行为。 */`;
-    case 'constFunction':
-      return `/** ${name}：通过常量导出可复用函数行为。 */`;
-    default:
-      return `/** ${name}：用于描述该声明用途。 */`;
-  }
-}
-
 const detectDeclaration = detectDeclarationFromLine;
 
 let changed = 0;
 let touchedFiles = 0;
+
+if (!ARG_DRY_RUN && !ARG_ALLOW_PLACEHOLDER) {
+  console.error('annotate-declarations.mjs 已默认禁用占位注释写入。');
+  console.error('如需审计缺失声明注释，请使用 --dry-run；如确有必要写入占位注释，需显式传入 --allow-placeholder-comments。');
+  process.exit(1);
+}
+
 for (const file of files) {
   const original = fs.readFileSync(file, 'utf8');
   const lines = original.split(/\r?\n/);
-  const result = [];
   let fileChanged = false;
   let inserted = 0;
 
@@ -70,24 +54,22 @@ for (const file of files) {
     const line = lines[i];
     const decl = detectDeclaration(line);
     if (decl && !hasDocCommentAbove(lines, i)) {
-      const comment = commentLine(decl.kind, decl.name);
-      result.push(comment);
-      fileChanged = true;
       inserted += 1;
       changed += 1;
+      if (!ARG_DRY_RUN) {
+        fileChanged = true;
+      }
     }
-    result.push(line);
   }
 
-  if (fileChanged) {
+  if (inserted > 0) {
     touchedFiles += 1;
     if (ARG_DRY_RUN) {
       console.log(`[dry-run] ${file} +${inserted} 注释`);
     } else {
-      fs.writeFileSync(file, `${result.join('\n')}\n`);
-      console.log(`[written] ${file} +${inserted} 注释`);
+      console.log(`[blocked] ${file} 检测到 ${inserted} 处缺失声明注释，请人工补充业务语义注释。`);
     }
   }
 }
 
-console.log(`共检测到 ${changed} 处可加注释，影响 ${touchedFiles} 个文件。`);
+console.log(`共检测到 ${changed} 处缺失声明注释，影响 ${touchedFiles} 个文件。`);

@@ -5,7 +5,7 @@
 
 import { NEXT_C2S_GmUpdatePlayer, GmPlayerSummary, NEXT_S2C_GmState, Suggestion } from '@mud/shared-next';
 
-/** GmCallbacks：定义该接口的能力与字段约束。 */
+/** GM 面板与主客户端之间的动作回调集合。 */
 interface GmCallbacks {
   onRefresh: () => void;
   onResetSelf: () => void;
@@ -19,17 +19,17 @@ interface GmCallbacks {
   onRemoveSuggestion: (id: string) => void;
 }
 
-/** getPlayerAccountLabel：执行对应的业务逻辑。 */
+/** 生成玩家账号展示文本。 */
 function getPlayerAccountLabel(player: GmPlayerSummary): string {
   return player.accountName ?? (player.isBot ? '机器人' : '无');
 }
 
-/** getPlayerMapLabel：执行对应的业务逻辑。 */
+/** 生成玩家所在地图的展示文本。 */
 function getPlayerMapLabel(player: GmPlayerSummary): string {
   return player.mapName || player.mapId;
 }
 
-/** createEmptyGmState：执行对应的业务逻辑。 */
+/** 构建一份空的 GM 状态快照，作为首屏和清空时的基线。 */
 function createEmptyGmState(): NEXT_S2C_GmState {
   return {
     players: [],
@@ -100,67 +100,69 @@ function createEmptyGmState(): NEXT_S2C_GmState {
   };
 }
 
-/** GmPanel：封装相关状态与行为。 */
+/** GM 面板实现，负责展示服务器概况、玩家列表和意见处理。 */
 export class GmPanel {
+  /** 面板根节点。 */
   private pane = document.getElementById('pane-gm')!;
-/** state：定义该变量以承载业务值。 */
+  /** 当前收到的 GM 状态快照。 */
   private state: NEXT_S2C_GmState = createEmptyGmState();
-/** suggestions：定义该变量以承载业务值。 */
+  /** 意见列表缓存。 */
   private suggestions: Suggestion[] = [];
-/** selectedPlayerId：定义该变量以承载业务值。 */
+  /** 当前选中的玩家 ID。 */
   private selectedPlayerId: string | null = null;
-/** callbacks：定义该变量以承载业务值。 */
+  /** 各类 GM 操作回调。 */
   private callbacks: GmCallbacks | null = null;
+  /** 是否已经完成布局初始化。 */
   private initialized = false;
 
-/** perfCpuEl：定义该变量以承载业务值。 */
+  /** 服务器 CPU 性能显示节点。 */
   private perfCpuEl: HTMLElement | null = null;
-/** perfMemoryEl：定义该变量以承载业务值。 */
+  /** 服务器内存性能显示节点。 */
   private perfMemoryEl: HTMLElement | null = null;
-/** perfTickEl：定义该变量以承载业务值。 */
+  /** tick 性能显示节点。 */
   private perfTickEl: HTMLElement | null = null;
-/** playerCountEl：定义该变量以承载业务值。 */
+  /** 在线玩家数量节点。 */
   private playerCountEl: HTMLElement | null = null;
-/** botsDisplayEl：定义该变量以承载业务值。 */
+  /** 机器人数量显示节点。 */
   private botsDisplayEl: HTMLElement | null = null;
-/** playerListEl：定义该变量以承载业务值。 */
+  /** 玩家列表容器。 */
   private playerListEl: HTMLElement | null = null;
-/** detailFormEl：定义该变量以承载业务值。 */
+  /** 玩家详情表单容器。 */
   private detailFormEl: HTMLElement | null = null;
-/** detailEmptyEl：定义该变量以承载业务值。 */
+  /** 详情空态节点。 */
   private detailEmptyEl: HTMLElement | null = null;
-/** suggestionListEl：定义该变量以承载业务值。 */
+  /** 意见列表容器。 */
   private suggestionListEl: HTMLElement | null = null;
 
-/** mapSelect：定义该变量以承载业务值。 */
+  /** 玩家地图下拉框。 */
   private mapSelect: HTMLSelectElement | null = null;
-/** xInput：定义该变量以承载业务值。 */
+  /** 玩家坐标 X 输入框。 */
   private xInput: HTMLInputElement | null = null;
-/** yInput：定义该变量以承载业务值。 */
+  /** 玩家坐标 Y 输入框。 */
   private yInput: HTMLInputElement | null = null;
-/** hpInput：定义该变量以承载业务值。 */
+  /** 玩家血量输入框。 */
   private hpInput: HTMLInputElement | null = null;
-/** autoBattleCheckbox：定义该变量以承载业务值。 */
+  /** 玩家自动战斗开关。 */
   private autoBattleCheckbox: HTMLInputElement | null = null;
-/** saveBtn：定义该变量以承载业务值。 */
+  /** 保存修改按钮。 */
   private saveBtn: HTMLButtonElement | null = null;
-/** healBtn：定义该变量以承载业务值。 */
+  /** 回满血量按钮。 */
   private healBtn: HTMLButtonElement | null = null;
-/** resetBtn：定义该变量以承载业务值。 */
+  /** 重置玩家按钮。 */
   private resetBtn: HTMLButtonElement | null = null;
-/** resetHeavenGateBtn：定义该变量以承载业务值。 */
+  /** 重置天关按钮。 */
   private resetHeavenGateBtn: HTMLButtonElement | null = null;
-/** removeBtn：定义该变量以承载业务值。 */
+  /** 删除玩家按钮。 */
   private removeBtn: HTMLButtonElement | null = null;
-/** botCountInput：定义该变量以承载业务值。 */
+  /** 批量生成机器人数量输入框。 */
   private botCountInput: HTMLInputElement | null = null;
 
-/** setCallbacks：执行对应的业务逻辑。 */
+  /** 注册 GM 面板对外回调。 */
   setCallbacks(callbacks: GmCallbacks): void {
     this.callbacks = callbacks;
   }
 
-  /** 接收服务端 GM 状态并刷新所有子区域 */
+  /** 接收服务端 GM 状态并刷新所有子区域。 */
   update(state: NEXT_S2C_GmState): void {
     this.state = state;
     this.ensureLayout();
@@ -174,20 +176,18 @@ export class GmPanel {
     this.updateSuggestions();
   }
 
-/** updateSuggestionsData：处理当前场景中的对应操作。 */
+  /** 更新意见列表数据并重绘意见区域。 */
   updateSuggestionsData(suggestions: Suggestion[]) {
     this.suggestions = suggestions;
     this.updateSuggestions();
   }
 
-/** updateSuggestions：处理当前场景中的对应操作。 */
+  /** 以复用节点的方式刷新意见列表。 */
   private updateSuggestions() {
     if (!this.suggestionListEl) return;
 
-/** preserved：定义该变量以承载业务值。 */
     const preserved = this.captureContainerState(this.suggestionListEl);
     if (this.suggestions.length === 0) {
-/** empty：定义该变量以承载业务值。 */
       const empty = document.createElement('div');
       empty.dataset.gmEmptyState = 'suggestions';
       empty.style.color = '#666';
@@ -198,23 +198,17 @@ export class GmPanel {
       return;
     }
 
-/** orderedSuggestions：定义该变量以承载业务值。 */
     const orderedSuggestions = [...this.suggestions].sort((a, b) => b.createdAt - a.createdAt);
-/** existingItems：定义该变量以承载业务值。 */
     const existingItems = new Map<string, HTMLElement>();
     this.suggestionListEl.querySelectorAll<HTMLElement>('[data-gm-suggestion-id]').forEach((item) => {
-/** id：定义该变量以承载业务值。 */
       const id = item.dataset.gmSuggestionId;
       if (id) {
         existingItems.set(id, item);
       }
     });
 
-/** orderedItems：定义该变量以承载业务值。 */
     const orderedItems = orderedSuggestions.map((suggestion) => {
-/** existing：定义该变量以承载业务值。 */
       const existing = existingItems.get(suggestion.id);
-/** item：定义该变量以承载业务值。 */
       const item = existing ?? this.createSuggestionItem();
       this.patchSuggestionItem(item, suggestion);
       existingItems.delete(suggestion.id);
@@ -226,7 +220,7 @@ export class GmPanel {
     this.restoreContainerState(this.suggestionListEl, preserved);
   }
 
-/** clear：执行对应的业务逻辑。 */
+  /** 清空 GM 面板并回到未初始化状态。 */
   clear(): void {
     this.state = createEmptyGmState();
     this.suggestions = [];
@@ -255,7 +249,7 @@ export class GmPanel {
     this.pane.innerHTML = '<div class="empty-hint ui-empty-hint">暂无 GM 数据</div>';
   }
 
-/** ensureLayout：执行对应的业务逻辑。 */
+  /** 确保面板布局只初始化一次。 */
   private ensureLayout(): void {
     if (this.initialized) return;
     this.initialized = true;
@@ -364,13 +358,12 @@ export class GmPanel {
     this.setDetailVisibility(false);
   }
 
-/** bindStaticEvents：执行对应的业务逻辑。 */
+  /** 绑定不依赖当前选中玩家的静态事件。 */
   private bindStaticEvents(): void {
     document.getElementById('gm-refresh')?.addEventListener('click', () => this.callbacks?.onRefresh());
     document.getElementById('gm-reset-self')?.addEventListener('click', () => this.callbacks?.onResetSelf());
     document.getElementById('gm-cycle-zoom')?.addEventListener('click', () => this.callbacks?.onCycleZoom());
     document.getElementById('gm-spawn-bots')?.addEventListener('click', () => {
-/** count：定义该变量以承载业务值。 */
       const count = Number(this.botCountInput?.value ?? '0');
       if (Number.isNaN(count) || count <= 0) return;
       this.callbacks?.onSpawnBots(count);
@@ -380,23 +373,18 @@ export class GmPanel {
     });
 
     this.playerListEl?.addEventListener('click', (event) => {
-/** button：定义该变量以承载业务值。 */
       const button = (event.target as HTMLElement).closest<HTMLElement>('[data-gm-player-id]');
-/** id：定义该变量以承载业务值。 */
       const id = button?.dataset.gmPlayerId;
       if (id) {
         this.handlePlayerSelect(id);
       }
     });
     this.suggestionListEl?.addEventListener('click', (event) => {
-/** button：定义该变量以承载业务值。 */
       const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-gm-suggest-action][data-id]');
-/** id：定义该变量以承载业务值。 */
       const id = button?.dataset.id;
       if (!id) {
         return;
       }
-/** action：定义该变量以承载业务值。 */
       const action = button.dataset.gmSuggestAction;
       if (action === 'complete') {
         this.callbacks?.onMarkSuggestionCompleted(id);
@@ -414,24 +402,22 @@ export class GmPanel {
     this.removeBtn?.addEventListener('click', () => this.handleRemove());
   }
 
-/** updatePerformance：执行对应的业务逻辑。 */
+  /** 刷新性能概览。 */
   private updatePerformance(): void {
     if (!this.perfCpuEl || !this.perfMemoryEl || !this.perfTickEl) return;
     this.perfCpuEl.textContent = `${Math.round(this.state.perf.cpuPercent)}%`;
     this.perfMemoryEl.textContent = `${Math.round(this.state.perf.memoryMb)} MB`;
-/** tickPerf：定义该变量以承载业务值。 */
     const tickPerf = this.state.perf.tick ?? {
       lastMapId: null,
       lastMs: this.state.perf.tickMs,
     };
-/** lastMapId：定义该变量以承载业务值。 */
     const lastMapId = tickPerf.lastMapId;
     this.perfTickEl.textContent = lastMapId
       ? `${Math.round(tickPerf.lastMs)} ms · ${lastMapId}`
       : `${Math.round(tickPerf.lastMs)} ms`;
   }
 
-/** updateOverview：执行对应的业务逻辑。 */
+  /** 刷新在线人数和机器人数量概览。 */
   private updateOverview(): void {
     if (this.playerCountEl) {
       this.playerCountEl.textContent = `${this.state.players.length}`;
@@ -441,13 +427,11 @@ export class GmPanel {
     }
   }
 
-/** updatePlayerList：执行对应的业务逻辑。 */
+  /** 刷新玩家列表，并尽量复用已有条目节点。 */
   private updatePlayerList(): void {
     if (!this.playerListEl) return;
-/** preserved：定义该变量以承载业务值。 */
     const preserved = this.captureContainerState(this.playerListEl);
     if (this.state.players.length === 0) {
-/** empty：定义该变量以承载业务值。 */
       const empty = document.createElement('div');
       empty.className = 'empty-hint ui-empty-hint';
       empty.dataset.gmEmptyState = 'players';
@@ -455,20 +439,15 @@ export class GmPanel {
       this.playerListEl.replaceChildren(empty);
       return;
     }
-/** existingRows：定义该变量以承载业务值。 */
     const existingRows = new Map<string, HTMLButtonElement>();
     this.playerListEl.querySelectorAll<HTMLButtonElement>('[data-gm-player-id]').forEach((row) => {
-/** id：定义该变量以承载业务值。 */
       const id = row.dataset.gmPlayerId;
       if (id) {
         existingRows.set(id, row);
       }
     });
-/** orderedRows：定义该变量以承载业务值。 */
     const orderedRows = this.state.players.map((player) => {
-/** existing：定义该变量以承载业务值。 */
       const existing = existingRows.get(player.id);
-/** row：定义该变量以承载业务值。 */
       const row = existing ?? this.createPlayerRow();
       this.patchPlayerRow(row, player);
       existingRows.delete(player.id);
@@ -479,9 +458,8 @@ export class GmPanel {
     this.restoreContainerState(this.playerListEl, preserved);
   }
 
-/** updateDetail：执行对应的业务逻辑。 */
+  /** 刷新当前选中玩家的详情区。 */
   private updateDetail(): void {
-/** selected：定义该变量以承载业务值。 */
     const selected = this.getSelectedPlayer();
     if (!selected) {
       this.setDetailVisibility(false);
@@ -493,12 +471,10 @@ export class GmPanel {
     this.updateDetailFields(selected);
   }
 
-/** updateDetailFields：执行对应的业务逻辑。 */
+  /** 将选中玩家的信息写回表单字段。 */
   private updateDetailFields(selected: GmPlayerSummary): void {
     if (this.mapSelect && !this.isActiveElement(this.mapSelect)) {
-/** maps：定义该变量以承载业务值。 */
       const maps = this.state.mapIds.map((mapId) => ` <option value="${mapId}">${mapId}</option>`).join('');
-/** includesSelected：定义该变量以承载业务值。 */
       const includesSelected = this.state.mapIds.includes(selected.mapId);
       this.mapSelect.innerHTML = `${maps}${includesSelected ? '' : `<option value="${selected.mapId}">${selected.mapId}</option>`}`;
       this.mapSelect.value = selected.mapId;
@@ -524,7 +500,7 @@ export class GmPanel {
     }
   }
 
-/** setDetailVisibility：执行对应的业务逻辑。 */
+  /** 控制详情表单与空态之间的切换。 */
   private setDetailVisibility(visible: boolean): void {
     if (this.detailFormEl) {
       (this.detailFormEl as HTMLElement).style.display = visible ? '' : 'none';
@@ -534,7 +510,7 @@ export class GmPanel {
     }
   }
 
-/** toggleDetailButtons：执行对应的业务逻辑。 */
+  /** 控制与当前选中玩家相关的操作按钮。 */
   private toggleDetailButtons(enabled: boolean, showRemove: boolean): void {
     if (this.saveBtn) {
       this.saveBtn.disabled = !enabled;
@@ -551,13 +527,13 @@ export class GmPanel {
     }
   }
 
-/** getSelectedPlayer：执行对应的业务逻辑。 */
+  /** 读取当前选中的玩家。 */
   private getSelectedPlayer(): GmPlayerSummary | null {
     if (!this.selectedPlayerId) return null;
     return this.state.players.find((player) => player.id === this.selectedPlayerId) ?? null;
   }
 
-/** handlePlayerSelect：执行对应的业务逻辑。 */
+  /** 切换玩家选中态并刷新详情。 */
   private handlePlayerSelect(id: string): void {
     if (this.selectedPlayerId === id) return;
     this.selectedPlayerId = id;
@@ -565,27 +541,20 @@ export class GmPanel {
     this.updateDetail();
   }
 
-/** handleSave：执行对应的业务逻辑。 */
+  /** 提交玩家编辑表单。 */
   private handleSave(): void {
-/** player：定义该变量以承载业务值。 */
     const player = this.getSelectedPlayer();
     if (!player) return;
-/** mapId：定义该变量以承载业务值。 */
     const mapId = this.mapSelect?.value ?? player.mapId;
-/** x：定义该变量以承载业务值。 */
     const x = Number(this.xInput?.value ?? player.x);
-/** y：定义该变量以承载业务值。 */
     const y = Number(this.yInput?.value ?? player.y);
-/** hp：定义该变量以承载业务值。 */
     const hp = Number(this.hpInput?.value ?? player.hp);
-/** autoBattle：定义该变量以承载业务值。 */
     const autoBattle = Boolean(this.autoBattleCheckbox?.checked ?? player.autoBattle);
     this.callbacks?.onUpdatePlayer({ playerId: player.id, mapId, x, y, hp, autoBattle });
   }
 
-/** handleHeal：执行对应的业务逻辑。 */
+  /** 将选中玩家恢复到满血。 */
   private handleHeal(): void {
-/** player：定义该变量以承载业务值。 */
     const player = this.getSelectedPlayer();
     if (!player) return;
     this.callbacks?.onUpdatePlayer({
@@ -598,47 +567,39 @@ export class GmPanel {
     });
   }
 
-/** handleReset：执行对应的业务逻辑。 */
+  /** 请求将选中玩家送回出生点。 */
   private handleReset(): void {
-/** player：定义该变量以承载业务值。 */
     const player = this.getSelectedPlayer();
     if (!player) return;
     this.callbacks?.onResetPlayer(player.id);
   }
 
-/** handleResetHeavenGate：执行对应的业务逻辑。 */
+  /** 请求重置选中玩家的天关进度。 */
   private handleResetHeavenGate(): void {
-/** player：定义该变量以承载业务值。 */
     const player = this.getSelectedPlayer();
     if (!player) return;
     this.callbacks?.onResetHeavenGate(player.id);
   }
 
-/** handleRemove：执行对应的业务逻辑。 */
+  /** 移除当前选中的机器人。 */
   private handleRemove(): void {
-/** player：定义该变量以承载业务值。 */
     const player = this.getSelectedPlayer();
     if (!player || !player.isBot) return;
     this.callbacks?.onRemoveBots([player.id], false);
   }
 
-/** createPlayerRow：执行对应的业务逻辑。 */
+  /** 创建玩家列表条目的基础节点。 */
   private createPlayerRow(): HTMLButtonElement {
-/** button：定义该变量以承载业务值。 */
     const button = document.createElement('button');
     button.className = 'gm-player-row ui-surface-card ui-surface-card--compact ui-selectable-card';
     button.type = 'button';
-/** content：定义该变量以承载业务值。 */
     const content = document.createElement('div');
-/** name：定义该变量以承载业务值。 */
     const name = document.createElement('div');
     name.className = 'gm-player-name';
     name.dataset.gmRole = 'name';
-/** accountMeta：定义该变量以承载业务值。 */
     const accountMeta = document.createElement('div');
     accountMeta.className = 'gm-player-meta';
     accountMeta.dataset.gmRole = 'account';
-/** mapMeta：定义该变量以承载业务值。 */
     const mapMeta = document.createElement('div');
     mapMeta.className = 'gm-player-meta';
     mapMeta.dataset.gmRole = 'map';
@@ -647,15 +608,12 @@ export class GmPanel {
     return button;
   }
 
-/** patchPlayerRow：执行对应的业务逻辑。 */
+  /** 将玩家数据写入列表条目并同步高亮。 */
   private patchPlayerRow(row: HTMLButtonElement, player: GmPlayerSummary): void {
     row.dataset.gmPlayerId = player.id;
     row.classList.toggle('is-active', player.id === this.selectedPlayerId);
-/** name：定义该变量以承载业务值。 */
     const name = row.querySelector<HTMLElement>('[data-gm-role="name"]');
-/** accountMeta：定义该变量以承载业务值。 */
     const accountMeta = row.querySelector<HTMLElement>('[data-gm-role="account"]');
-/** mapMeta：定义该变量以承载业务值。 */
     const mapMeta = row.querySelector<HTMLElement>('[data-gm-role="map"]');
     if (name) {
       name.textContent = player.roleName;
@@ -668,37 +626,30 @@ export class GmPanel {
     }
   }
 
-/** createSuggestionItem：执行对应的业务逻辑。 */
+  /** 创建意见列表条目的基础节点。 */
   private createSuggestionItem(): HTMLElement {
-/** item：定义该变量以承载业务值。 */
     const item = document.createElement('div');
     item.className = 'gm-suggestion-card ui-surface-card ui-surface-card--compact';
 
-/** header：定义该变量以承载业务值。 */
     const header = document.createElement('div');
     header.className = 'gm-suggestion-head';
 
-/** title：定义该变量以承载业务值。 */
     const title = document.createElement('span');
     title.className = 'gm-suggestion-title';
     title.dataset.gmSuggestionRole = 'title';
-/** author：定义该变量以承载业务值。 */
     const author = document.createElement('span');
     author.className = 'gm-suggestion-author';
     author.dataset.gmSuggestionRole = 'author';
     header.append(title, author);
 
-/** description：定义该变量以承载业务值。 */
     const description = document.createElement('div');
     description.className = 'gm-suggestion-desc';
     description.dataset.gmSuggestionRole = 'description';
 
-/** actions：定义该变量以承载业务值。 */
     const actions = document.createElement('div');
     actions.className = 'gm-suggestion-actions';
     actions.dataset.gmSuggestionRole = 'actions';
 
-/** votes：定义该变量以承载业务值。 */
     const votes = document.createElement('span');
     votes.className = 'gm-suggestion-votes';
     votes.dataset.gmSuggestionRole = 'votes';
@@ -708,18 +659,13 @@ export class GmPanel {
     return item;
   }
 
-/** patchSuggestionItem：执行对应的业务逻辑。 */
+  /** 将意见数据写入条目并同步动作按钮。 */
   private patchSuggestionItem(item: HTMLElement, suggestion: Suggestion): void {
     item.dataset.gmSuggestionId = suggestion.id;
-/** title：定义该变量以承载业务值。 */
     const title = item.querySelector<HTMLElement>('[data-gm-suggestion-role="title"]');
-/** author：定义该变量以承载业务值。 */
     const author = item.querySelector<HTMLElement>('[data-gm-suggestion-role="author"]');
-/** description：定义该变量以承载业务值。 */
     const description = item.querySelector<HTMLElement>('[data-gm-suggestion-role="description"]');
-/** votes：定义该变量以承载业务值。 */
     const votes = item.querySelector<HTMLElement>('[data-gm-suggestion-role="votes"]');
-/** actions：定义该变量以承载业务值。 */
     const actions = item.querySelector<HTMLElement>('[data-gm-suggestion-role="actions"]');
 
     if (title) {
@@ -741,7 +687,6 @@ export class GmPanel {
     }
 
     this.setSuggestionPendingAction(actions, suggestion);
-/** removeButton：定义该变量以承载业务值。 */
     let removeButton = actions.querySelector<HTMLButtonElement>('[data-gm-suggest-action="remove"]');
     if (!removeButton) {
       removeButton = this.createSuggestionActionButton('移除', 'remove', 'danger');
@@ -750,27 +695,23 @@ export class GmPanel {
     removeButton.dataset.id = suggestion.id;
   }
 
-/** setSuggestionPendingAction：执行对应的业务逻辑。 */
+  /** 根据意见状态切换“标记完成”按钮。 */
   private setSuggestionPendingAction(actions: HTMLElement, suggestion: Suggestion): void {
-/** existing：定义该变量以承载业务值。 */
     const existing = actions.querySelector<HTMLButtonElement>('[data-gm-suggest-action="complete"]');
     if (suggestion.status !== 'pending') {
       existing?.remove();
       return;
     }
-/** button：定义该变量以承载业务值。 */
     const button = existing ?? this.createSuggestionActionButton('标记完成', 'complete');
     button.dataset.id = suggestion.id;
     if (!existing) {
-/** removeButton：定义该变量以承载业务值。 */
       const removeButton = actions.querySelector('[data-gm-suggest-action="remove"]');
       actions.insertBefore(button, removeButton ?? null);
     }
   }
 
-/** createSuggestionActionButton：执行对应的业务逻辑。 */
+  /** 创建意见卡片上的操作按钮。 */
   private createSuggestionActionButton(label: string, action: 'complete' | 'remove', tone?: 'danger'): HTMLButtonElement {
-/** button：定义该变量以承载业务值。 */
     const button = document.createElement('button');
     button.type = 'button';
     button.dataset.gmSuggestAction = action;
@@ -779,9 +720,8 @@ export class GmPanel {
     return button;
   }
 
-/** syncContainerChildren：执行对应的业务逻辑。 */
+  /** 按给定顺序同步容器子节点。 */
   private syncContainerChildren(container: HTMLElement, orderedChildren: HTMLElement[]): void {
-/** allowed：定义该变量以承载业务值。 */
     const allowed = new Set(orderedChildren);
     Array.from(container.children).forEach((child) => {
       if (child instanceof HTMLElement && !allowed.has(child)) {
@@ -789,7 +729,6 @@ export class GmPanel {
       }
     });
     orderedChildren.forEach((child, index) => {
-/** current：定义该变量以承载业务值。 */
       const current = container.children.item(index);
       if (current !== child) {
         container.insertBefore(child, current ?? null);
@@ -797,6 +736,7 @@ export class GmPanel {
     });
   }
 
+  /** 记录容器滚动和焦点位置。 */
   private captureContainerState(container: HTMLElement): { scrollTop: number; focusSelector: string | null } {
     return {
       scrollTop: container.scrollTop,
@@ -804,39 +744,32 @@ export class GmPanel {
     };
   }
 
-/** restoreContainerState：执行对应的业务逻辑。 */
+  /** 恢复容器滚动和焦点位置。 */
   private restoreContainerState(container: HTMLElement, preserved: { scrollTop: number; focusSelector: string | null }): void {
     container.scrollTop = preserved.scrollTop;
     if (!preserved.focusSelector) {
       return;
     }
-/** target：定义该变量以承载业务值。 */
     const target = container.querySelector<HTMLElement>(preserved.focusSelector);
     target?.focus({ preventScroll: true });
   }
 
-/** buildContainedFocusSelector：执行对应的业务逻辑。 */
+  /** 为容器内当前焦点构建可复原的选择器。 */
   private buildContainedFocusSelector(container: HTMLElement): string | null {
-/** active：定义该变量以承载业务值。 */
     const active = document.activeElement;
     if (!(active instanceof HTMLElement) || !container.contains(active)) {
       return null;
     }
-/** suggestionButton：定义该变量以承载业务值。 */
     const suggestionButton = active.closest<HTMLElement>('[data-gm-suggest-action][data-id]');
     if (suggestionButton && container.contains(suggestionButton)) {
-/** action：定义该变量以承载业务值。 */
       const action = suggestionButton.dataset.gmSuggestAction;
-/** id：定义该变量以承载业务值。 */
       const id = suggestionButton.dataset.id;
       if (action && id) {
         return `[data-gm-suggest-action="${action}"][data-id="${this.escapeSelectorValue(id)}"]`;
       }
     }
-/** playerButton：定义该变量以承载业务值。 */
     const playerButton = active.closest<HTMLElement>('[data-gm-player-id]');
     if (playerButton && container.contains(playerButton)) {
-/** id：定义该变量以承载业务值。 */
       const id = playerButton.dataset.gmPlayerId;
       if (id) {
         return `[data-gm-player-id="${this.escapeSelectorValue(id)}"]`;
@@ -845,7 +778,7 @@ export class GmPanel {
     return null;
   }
 
-/** escapeSelectorValue：执行对应的业务逻辑。 */
+  /** 转义选择器中的特殊字符。 */
   private escapeSelectorValue(value: string): string {
     if (typeof CSS !== 'undefined' && typeof CSS.escape === 'function') {
       return CSS.escape(value);
@@ -853,8 +786,9 @@ export class GmPanel {
     return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
   }
 
-/** isActiveElement：执行对应的业务逻辑。 */
+  /** 判断节点是否仍处于当前输入焦点。 */
   private isActiveElement(element?: Element | null): boolean {
     return Boolean(element && document.activeElement === element);
   }
 }
+

@@ -4,12 +4,8 @@
  */
 
 const fs = require("node:fs");
-/** path：定义该变量以承载业务值。 */
 const path = require("node:path");
-
-/** packageRoot：定义该变量以承载业务值。 */
 const packageRoot = path.resolve(__dirname, "..", "..", "..");
-/** repoRoot：定义该变量以承载业务值。 */
 const repoRoot = path.resolve(packageRoot, "..", "..");
 /**
  * 记录doc输出。

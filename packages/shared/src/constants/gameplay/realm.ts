@@ -22,26 +22,17 @@ import { VIEW_RADIUS } from './world';
  */
 
 type RealmConfig = {
-/** name：定义该变量以承载业务值。 */
   name: string;
-/** shortName：定义该变量以承载业务值。 */
   shortName: string;
-/** path：定义该变量以承载业务值。 */
   path: 'martial' | 'immortal';
-/** narrative：定义该变量以承载业务值。 */
   narrative: string;
-/** progressToNext：定义该变量以承载业务值。 */
   progressToNext: number;
-/** attrBonus：定义该变量以承载业务值。 */
   attrBonus: Partial<Attributes>;
-/** breakthroughItems：定义该变量以承载业务值。 */
   breakthroughItems: BreakthroughItemRequirement[];
-/** minTechniqueLevel：定义该变量以承载业务值。 */
   minTechniqueLevel: number;
   minTechniqueRealm?: TechniqueRealm;
 };
 
-/** ZERO_ELEMENT_STATS：定义该变量以承载业务值。 */
 const ZERO_ELEMENT_STATS = {
   metal: 0,
   wood: 0,
@@ -50,7 +41,7 @@ const ZERO_ELEMENT_STATS = {
   earth: 0,
 } as const;
 
-/** FIXED_ELEMENT_DAMAGE_REDUCE_DIVISOR：定义该变量以承载业务值。 */
+/** FIXED_ELEMENT_DAMAGE_REDUCE_DIVISOR：FIXED元素DAMAGE REDUCE DIVISOR。 */
 const FIXED_ELEMENT_DAMAGE_REDUCE_DIVISOR = 100;
 
 /** 默认玩家大境界。 */
@@ -546,3 +537,6 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
     },
   },
 };
+
+
+

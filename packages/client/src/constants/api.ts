@@ -2,7 +2,6 @@
  * client-next 侧 HTTP API 前缀常量。
  */
 
-/** HTTP_API_PREFIX：定义该变量以承载业务值。 */
 export const HTTP_API_PREFIX = '/api';
 
 /** AUTH_API_BASE_PATH：玩家登录/刷新 API 前缀。 */

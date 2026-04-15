@@ -1,40 +1,29 @@
 import { TUTORIAL_MECHANIC_TOPICS as SHARED_TUTORIAL_MECHANIC_TOPICS } from '@mud/shared-next';
 
-/** TutorialTopicSection：定义该接口的能力与字段约束。 */
+/** TutorialTopicSection：教程章节分段。 */
 export interface TutorialTopicSection {
-/** title：定义该变量以承载业务值。 */
   title: string;
-/** items：定义该变量以承载业务值。 */
   items: string[];
 }
 
-/** TutorialTopic：定义该接口的能力与字段约束。 */
+/** TutorialTopic：基础教程章节条目。 */
 export interface TutorialTopic {
-/** id：定义该变量以承载业务值。 */
   id: string;
-/** label：定义该变量以承载业务值。 */
   label: string;
-/** summary：定义该变量以承载业务值。 */
   summary: string;
-/** sections：定义该变量以承载业务值。 */
   sections: TutorialTopicSection[];
   tips?: string[];
 }
 
-/** TutorialFlowTopic：定义该接口的能力与字段约束。 */
+/** TutorialFlowTopic：流程型教程章节条目。 */
 export interface TutorialFlowTopic {
-/** id：定义该变量以承载业务值。 */
   id: string;
-/** label：定义该变量以承载业务值。 */
   label: string;
-/** summary：定义该变量以承载业务值。 */
   summary: string;
-/** sections：定义该变量以承载业务值。 */
   sections: TutorialTopicSection[];
   tips?: string[];
 }
 
-/** TUTORIAL_TOPICS：定义该变量以承载业务值。 */
 export const TUTORIAL_TOPICS: TutorialTopic[] = [
   {
     id: 'basics',
@@ -351,10 +340,8 @@ export const TUTORIAL_TOPICS: TutorialTopic[] = [
   },
 ];
 
-/** TUTORIAL_MECHANIC_TOPICS：定义该变量以承载业务值。 */
 export const TUTORIAL_MECHANIC_TOPICS: TutorialTopic[] = SHARED_TUTORIAL_MECHANIC_TOPICS;
 
-/** TUTORIAL_FLOW_TOPICS：定义该变量以承载业务值。 */
 export const TUTORIAL_FLOW_TOPICS: TutorialFlowTopic[] = [
   {
     id: 'how-to-play',
@@ -565,4 +552,3 @@ export const TUTORIAL_FLOW_TOPICS: TutorialFlowTopic[] = [
     ],
   },
 ];
-

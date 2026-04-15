@@ -20,7 +20,6 @@ function hasWhitespace(value: string): boolean {
 
 /** 校验账号名，返回错误提示或 null */
 export function validateAccountName(accountName: string): string | null {
-/** length：定义该变量以承载业务值。 */
   const length = [...accountName].length;
   if (length < ACCOUNT_MIN_LENGTH) {
     return `账号长度不能少于 ${ACCOUNT_MIN_LENGTH} 个字符`;
@@ -64,7 +63,6 @@ export function validateDisplayName(displayName: string): string | null {
 
 /** 校验角色名称，返回错误提示或 null */
 export function validateRoleName(roleName: string): string | null {
-/** normalized：定义该变量以承载业务值。 */
   const normalized = roleName.normalize('NFC').trim();
   if (!normalized) {
     return '角色名称不能为空';

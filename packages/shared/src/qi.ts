@@ -12,26 +12,23 @@ import {
 import { getAuraLevel } from './aura';
 import { DEFAULT_AURA_LEVEL_BASE_VALUE } from './constants/gameplay/aura';
 
-/** QiFamilyKey：定义该类型的结构与数据语义。 */
+/** 灵力族枚举，区分灵气、散气等不同资源大类。 */
 export type QiFamilyKey = typeof QI_FAMILY_KEYS[number];
-/** QiFormKey：定义该类型的结构与数据语义。 */
+/** 灵力形态键名，描述资源是元气态、炼化态还是散逸态。 */
 export type QiFormKey = typeof QI_FORM_KEYS[number];
-/** QiElementKey：定义该类型的结构与数据语义。 */
+/** 五行元素键名。 */
 export type QiElementKey = typeof QI_ELEMENT_KEYS[number];
-/** QiVisibilityLevel：定义该类型的结构与数据语义。 */
+/** 灵力可见性等级，越高表示越容易被感知。 */
 export type QiVisibilityLevel = typeof QI_VISIBILITY_LEVELS[number];
 
-/** QiResourceDescriptor：定义该接口的能力与字段约束。 */
+/** 灵力资源描述符：由族、形态、元素三元信息唯一确定。 */
 export interface QiResourceDescriptor {
-/** family：定义该变量以承载业务值。 */
   family: QiFamilyKey;
-/** form：定义该变量以承载业务值。 */
   form: QiFormKey;
-/** element：定义该变量以承载业务值。 */
   element: QiElementKey;
 }
 
-/** QiProjectionSelector：定义该接口的能力与字段约束。 */
+/** 灵力投影筛选条件：按资源键、族、形态或元素筛选命中项。 */
 export interface QiProjectionSelector {
   resourceKeys?: string[];
   families?: QiFamilyKey[];
@@ -39,58 +36,48 @@ export interface QiProjectionSelector {
   elements?: QiElementKey[];
 }
 
-/** QiProjectionModifier：定义该接口的能力与字段约束。 */
+/** 单条灵力投影规则：控制资源可见性和效率倍率。 */
 export interface QiProjectionModifier {
   selector?: QiProjectionSelector;
   visibility?: Exclude<QiVisibilityLevel, 'hidden'>;
   efficiencyBpMultiplier?: number;
 }
 
-/** CompiledQiResourceProjection：定义该接口的能力与字段约束。 */
+/** 编译后的单条灵力投影结果，供运行时直接查表使用。 */
 export interface CompiledQiResourceProjection {
-/** visibility：定义该变量以承载业务值。 */
   visibility: QiVisibilityLevel;
-/** efficiencyBp：定义该变量以承载业务值。 */
   efficiencyBp: number;
-/** descriptor：定义该变量以承载业务值。 */
   descriptor: QiResourceDescriptor;
 }
 
-/** CompiledQiProjectionProfile：定义该接口的能力与字段约束。 */
+/** 当前角色的灵力投影快照，便于缓存和增量对比。 */
 export interface CompiledQiProjectionProfile {
-/** revision：定义该变量以承载业务值。 */
   revision: number;
-/** resourceProfiles：定义该变量以承载业务值。 */
   resourceProfiles: Record<string, CompiledQiResourceProjection>;
-/** familyVisibility：定义该变量以承载业务值。 */
   familyVisibility: Partial<Record<QiFamilyKey, QiVisibilityLevel>>;
 }
 
-/** QiRuntimeFlowConfig：定义该接口的能力与字段约束。 */
+/** 灵力流衰减参数，决定资源随时间的递减速度。 */
 export interface QiRuntimeFlowConfig {
-/** halfLifeRateScale：定义该变量以承载业务值。 */
   halfLifeRateScale: number;
-/** halfLifeRateScaled：定义该变量以承载业务值。 */
   halfLifeRateScaled: number;
-/** minimumDecayPerTick：定义该变量以承载业务值。 */
   minimumDecayPerTick: number;
 }
 
-/** DEFAULT_QI_RESOURCE_DESCRIPTOR：定义该变量以承载业务值。 */
 export const DEFAULT_QI_RESOURCE_DESCRIPTOR: QiResourceDescriptor = {
   family: 'aura',
   form: 'refined',
   element: 'neutral',
 };
 
-/** DISPERSED_AURA_RESOURCE_DESCRIPTOR：定义该变量以承载业务值。 */
+/** 散气资源的标准描述符。 */
 export const DISPERSED_AURA_RESOURCE_DESCRIPTOR: QiResourceDescriptor = {
   family: 'aura',
   form: 'dispersed',
   element: 'neutral',
 };
 
-/** ALL_QI_RESOURCE_DESCRIPTORS：定义该变量以承载业务值。 */
+/** 全量灵力资源描述符表，用于初始化和遍历。 */
 export const ALL_QI_RESOURCE_DESCRIPTORS: QiResourceDescriptor[] = QI_FAMILY_KEYS.flatMap((family) => (
   QI_FORM_KEYS.flatMap((form) => (
     QI_ELEMENT_KEYS.map((element) => ({
@@ -101,18 +88,18 @@ export const ALL_QI_RESOURCE_DESCRIPTORS: QiResourceDescriptor[] = QI_FAMILY_KEY
   ))
 ));
 
-/** ALL_QI_RESOURCE_KEYS：定义该变量以承载业务值。 */
+/** 所有灵力资源键，供配置校验和批量遍历。 */
 export const ALL_QI_RESOURCE_KEYS = ALL_QI_RESOURCE_DESCRIPTORS.map((descriptor) => buildQiResourceKey(descriptor));
 
-/** DEFAULT_PLAYER_QI_RESOURCE_KEYS：定义该变量以承载业务值。 */
+/** 默认角色会携带的灵气资源键集合。 */
 export const DEFAULT_PLAYER_QI_RESOURCE_KEYS = ALL_QI_RESOURCE_DESCRIPTORS
   .filter((descriptor) => descriptor.family === 'aura' && descriptor.element === 'neutral')
   .map((descriptor) => buildQiResourceKey(descriptor));
 
-/** DISPERSED_AURA_RESOURCE_KEY：定义该变量以承载业务值。 */
+/** 散气资源键。 */
 export const DISPERSED_AURA_RESOURCE_KEY = buildQiResourceKey(DISPERSED_AURA_RESOURCE_DESCRIPTOR);
 
-/** DEFAULT_QI_RUNTIME_FLOW_CONFIGS：定义该变量以承载业务值。 */
+/** 散气资源默认衰减配置。 */
 export const DEFAULT_QI_RUNTIME_FLOW_CONFIGS: Partial<Record<string, QiRuntimeFlowConfig>> = {
   [DISPERSED_AURA_RESOURCE_KEY]: {
     halfLifeRateScale: QI_HALF_LIFE_RATE_SCALE,
@@ -121,12 +108,12 @@ export const DEFAULT_QI_RUNTIME_FLOW_CONFIGS: Partial<Record<string, QiRuntimeFl
   },
 };
 
-/** buildQiResourceKey：执行对应的业务逻辑。 */
+/** 拼接灵力资源键，便于配置和查表。 */
 export function buildQiResourceKey(descriptor: QiResourceDescriptor): string {
   return `${descriptor.family}.${descriptor.form}.${descriptor.element}`;
 }
 
-/** parseQiResourceKey：执行对应的业务逻辑。 */
+/** 拆解灵力资源键并校验三段枚举是否合法。 */
 export function parseQiResourceKey(resourceKey: string): QiResourceDescriptor | null {
   const [family, form, element] = resourceKey.split('.');
   if (!QI_FAMILY_KEYS.includes(family as QiFamilyKey)) {
@@ -145,17 +132,17 @@ export function parseQiResourceKey(resourceKey: string): QiResourceDescriptor | 
   };
 }
 
-/** isQiFamilyResource：执行对应的业务逻辑。 */
+/** 判断资源键是否属于指定灵力族。 */
 export function isQiFamilyResource(resourceKey: string, family: QiFamilyKey): boolean {
   return parseQiResourceKey(resourceKey)?.family === family;
 }
 
-/** isAuraQiResourceKey：执行对应的业务逻辑。 */
+/** 判断资源键是否属于灵气族。 */
 export function isAuraQiResourceKey(resourceKey: string): boolean {
   return isQiFamilyResource(resourceKey, 'aura');
 }
 
-/** normalizeQiEfficiencyBp：执行对应的业务逻辑。 */
+/** 将灵力效率倍率归一化为 basis point 口径。 */
 export function normalizeQiEfficiencyBp(value: unknown, fallback = DEFAULT_QI_EFFICIENCY_BP): number {
   if (!Number.isFinite(value)) {
     return fallback;
@@ -163,17 +150,17 @@ export function normalizeQiEfficiencyBp(value: unknown, fallback = DEFAULT_QI_EF
   return Math.max(0, Math.round(Number(value)));
 }
 
-/** getQiVisibilityRank：执行对应的业务逻辑。 */
+/** 返回灵力可见性的排序值，数值越大表示越显眼。 */
 export function getQiVisibilityRank(visibility: QiVisibilityLevel): number {
   return QI_VISIBILITY_LEVELS.indexOf(visibility);
 }
 
-/** maxQiVisibility：执行对应的业务逻辑。 */
+/** 取两种灵力可见性中更高的一档。 */
 export function maxQiVisibility(left: QiVisibilityLevel, right: QiVisibilityLevel): QiVisibilityLevel {
   return getQiVisibilityRank(left) >= getQiVisibilityRank(right) ? left : right;
 }
 
-/** matchesQiProjectionSelector：执行对应的业务逻辑。 */
+/** 判断资源描述符是否命中投影筛选条件。 */
 export function matchesQiProjectionSelector(
   descriptor: QiResourceDescriptor,
   resourceKey: string,
@@ -197,16 +184,14 @@ export function matchesQiProjectionSelector(
   return true;
 }
 
-/** applyQiEfficiencyBp：执行对应的业务逻辑。 */
+/** 按倍率叠加灵力效率，结果仍按 basis point 口径返回。 */
 export function applyQiEfficiencyBp(baseBp: number, multiplierBp: number): number {
-/** normalizedBase：定义该变量以承载业务值。 */
   const normalizedBase = normalizeQiEfficiencyBp(baseBp);
-/** normalizedMultiplier：定义该变量以承载业务值。 */
   const normalizedMultiplier = normalizeQiEfficiencyBp(multiplierBp);
   return Math.max(0, Math.round((normalizedBase * normalizedMultiplier) / QI_PROJECTION_BP_SCALE));
 }
 
-/** projectQiValue：执行对应的业务逻辑。 */
+/** 按效率折算原始灵力数值。 */
 export function projectQiValue(rawValue: number, efficiencyBp: number): number {
   if (!Number.isFinite(rawValue) || rawValue <= 0) {
     return 0;
@@ -214,8 +199,7 @@ export function projectQiValue(rawValue: number, efficiencyBp: number): number {
   return Math.max(0, Math.round((Math.round(rawValue) * normalizeQiEfficiencyBp(efficiencyBp)) / QI_PROJECTION_BP_SCALE));
 }
 
-/** getProjectedAuraLevel：执行对应的业务逻辑。 */
+/** 将折算后的灵力值映射为灵气等级。 */
 export function getProjectedAuraLevel(auraValue: number, efficiencyBp = DEFAULT_QI_EFFICIENCY_BP, baseValue = DEFAULT_AURA_LEVEL_BASE_VALUE): number {
   return getAuraLevel(projectQiValue(auraValue, efficiencyBp), baseValue);
 }
-

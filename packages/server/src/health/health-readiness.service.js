@@ -1,7 +1,6 @@
 "use strict";
-/** 模块实现文件，负责当前职责边界内的业务逻辑。 */
 var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-/** c：定义该变量以承载业务值。 */
+
     var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
     if (typeof Reflect === "object" && typeof Reflect.decorate === "function")
         r = Reflect.decorate(decorators, target, key, desc);
@@ -11,34 +10,35 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
                 r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
     return c > 3 && r && Object.defineProperty(target, key, r), r;
 };
-/** __metadata：定义该变量以承载业务值。 */
+
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function")
         return Reflect.metadata(k, v);
 };
-/** __param：定义该变量以承载业务值。 */
+
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.HealthReadinessService = void 0;
-/** common_1：定义该变量以承载业务值。 */
+
 const common_1 = require("@nestjs/common");
-/** health_readiness_1：定义该变量以承载业务值。 */
+
 const health_readiness_1 = require("./health-readiness");
-/** mail_persistence_service_1：定义该变量以承载业务值。 */
+
 const mail_persistence_service_1 = require("../persistence/mail-persistence.service");
-/** market_persistence_service_1：定义该变量以承载业务值。 */
+
 const market_persistence_service_1 = require("../persistence/market-persistence.service");
-/** player_persistence_service_1：定义该变量以承载业务值。 */
+
 const player_persistence_service_1 = require("../persistence/player-persistence.service");
-/** suggestion_persistence_service_1：定义该变量以承载业务值。 */
+
 const suggestion_persistence_service_1 = require("../persistence/suggestion-persistence.service");
-/** world_runtime_service_1：定义该变量以承载业务值。 */
+
 const world_runtime_service_1 = require("../runtime/world/world-runtime.service");
-/** server_readiness_dependencies_service_1：定义该变量以承载业务值。 */
+
 const server_readiness_dependencies_service_1 = require("./server-readiness-dependencies.service");
-/** HealthReadinessService：定义该变量以承载业务值。 */
+
+/** 读取就绪检测依赖并输出对外服务态的服务层入口。 */
 let HealthReadinessService = class HealthReadinessService {
     playerPersistenceService;
     mailPersistenceService;
@@ -46,7 +46,8 @@ let HealthReadinessService = class HealthReadinessService {
     suggestionPersistenceService;
     serverReadinessDependenciesService;
     worldRuntimeService;
-/** 构造函数：执行实例初始化流程。 */
+
+    /** 注入各持久化服务与 runtime，用于组合 readiness 检查。 */
     constructor(playerPersistenceService, mailPersistenceService, marketPersistenceService, suggestionPersistenceService, serverReadinessDependenciesService, worldRuntimeService) {
         this.playerPersistenceService = playerPersistenceService;
         this.mailPersistenceService = mailPersistenceService;
@@ -55,7 +56,6 @@ let HealthReadinessService = class HealthReadinessService {
         this.serverReadinessDependenciesService = serverReadinessDependenciesService;
         this.worldRuntimeService = worldRuntimeService;
     }
-/** build：执行对应的业务逻辑。 */
     build() {
         return (0, health_readiness_1.buildHealthResponse)({
             playerPersistenceService: this.playerPersistenceService,
@@ -66,7 +66,8 @@ let HealthReadinessService = class HealthReadinessService {
             worldRuntimeService: this.worldRuntimeService,
         });
     }
-/** isReadyForPlayerTraffic：执行对应的业务逻辑。 */
+
+    /** 公开给网关/控制器：玩家请求前置依赖是否完成。 */
     isReadyForPlayerTraffic() {
         return this.build().readiness.ok;
     }
@@ -87,3 +88,5 @@ exports.HealthReadinessService = HealthReadinessService = __decorate([
         server_readiness_dependencies_service_1.ServerReadinessDependenciesService,
         world_runtime_service_1.WorldRuntimeService])
 ], HealthReadinessService);
+
+

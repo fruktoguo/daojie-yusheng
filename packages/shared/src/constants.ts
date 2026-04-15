@@ -191,7 +191,6 @@ export {
 /** 根据经验倍率与功法境界等级计算功法实际经验需求 */
 export function scaleTechniqueExp(expFactor: number, realmLv = 1): number {
   if (expFactor <= 0) return 0;
-/** normalizedRealmLv：定义该变量以承载业务值。 */
   const normalizedRealmLv = Number.isFinite(realmLv) ? Math.max(1, Math.floor(realmLv)) : 1;
   return Math.max(0, Math.round(expFactor * TECHNIQUE_EXP_BASE * normalizedRealmLv));
 }

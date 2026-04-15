@@ -1,58 +1,66 @@
 "use strict";
-/** __decorate：定义该变量以承载业务值。 */
+
 var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-/** c：定义该变量以承载业务值。 */
+
     var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
     if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
     else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
     return c > 3 && r && Object.defineProperty(target, key, r), r;
 };
-/** __metadata：定义该变量以承载业务值。 */
+
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.RedeemCodeRuntimeService = void 0;
-/** common_1：定义该变量以承载业务值。 */
+
 const common_1 = require("@nestjs/common");
-/** node_crypto_1：定义该变量以承载业务值。 */
+
 const node_crypto_1 = require("node:crypto");
-/** content_template_repository_1：定义该变量以承载业务值。 */
+
 const content_template_repository_1 = require("../../content/content-template.repository");
-/** redeem_code_persistence_service_1：定义该变量以承载业务值。 */
+
 const redeem_code_persistence_service_1 = require("../../persistence/redeem-code-persistence.service");
-/** player_runtime_service_1：定义该变量以承载业务值。 */
+
 const player_runtime_service_1 = require("../player/player-runtime.service");
-/** REDEEM_CODE_LENGTH：定义该变量以承载业务值。 */
+
+/** 兑换码运行时：负责分组、码表、兑换与持久化。 */
 const REDEEM_CODE_LENGTH = 36;
-/** REDEEM_CODE_ALPHABET：定义该变量以承载业务值。 */
+
+/** 兑换码字符表，使用大写字母和数字避免歧义。 */
 const REDEEM_CODE_ALPHABET = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-/** MAX_BATCH_REDEEM_CODES：定义该变量以承载业务值。 */
+
+/** 单次批量兑换的最大兑换码数量。 */
 const MAX_BATCH_REDEEM_CODES = 50;
-/** MAX_GROUP_CREATE_COUNT：定义该变量以承载业务值。 */
+
+/** 单个分组一次最多创建的兑换码数量。 */
 const MAX_GROUP_CREATE_COUNT = 500;
-/** RedeemCodeRuntimeService：定义该变量以承载业务值。 */
+
 let RedeemCodeRuntimeService = class RedeemCodeRuntimeService {
     contentTemplateRepository;
     playerRuntimeService;
     redeemCodePersistenceService;
+    /** 当前全部兑换码分组。 */
     groups = [];
+    /** 当前全部兑换码。 */
     codes = [];
+    /** 持久化文档版本号。 */
     revision = 1;
+    /** 串行化分组/码表写操作。 */
     mutationQueue = Promise.resolve();
-/** 构造函数：执行实例初始化流程。 */
+    /** 注入内容、玩家与兑换码持久化服务。 */
     constructor(contentTemplateRepository, playerRuntimeService, redeemCodePersistenceService) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.playerRuntimeService = playerRuntimeService;
         this.redeemCodePersistenceService = redeemCodePersistenceService;
     }
-/** onModuleInit：执行对应的业务逻辑。 */
+    /** 模块初始化时从持久化回填兑换码数据。 */
     async onModuleInit() {
         await this.reloadFromPersistence();
     }
-/** reloadFromPersistence：执行对应的业务逻辑。 */
+    /** 重新读取兑换码文档，供启动和恢复场景重建内存态。 */
     async reloadFromPersistence() {
-/** loaded：定义该变量以承载业务值。 */
+
         const loaded = await this.redeemCodePersistenceService.loadDocument();
         if (!loaded) {
             this.groups = [];
@@ -63,14 +71,14 @@ let RedeemCodeRuntimeService = class RedeemCodeRuntimeService {
         this.groups = loaded.groups
             .filter((entry) => entry.id && entry.name.trim())
             .map((entry) => cloneGroup(entry));
-/** groupIdSet：定义该变量以承载业务值。 */
+
         const groupIdSet = new Set(this.groups.map((entry) => entry.id));
         this.codes = loaded.codes
             .filter((entry) => entry.groupId && entry.code && groupIdSet.has(entry.groupId))
             .map((entry) => cloneCode(entry));
         this.revision = loaded.revision;
     }
-/** listGroups：执行对应的业务逻辑。 */
+    /** 列出全部兑换码分组。 */
     async listGroups() {
         return {
             groups: this.groups
@@ -78,32 +86,32 @@ let RedeemCodeRuntimeService = class RedeemCodeRuntimeService {
                 .sort((left, right) => compareIsoDesc(left.updatedAt, right.updatedAt) || compareIsoDesc(left.createdAt, right.createdAt) || left.id.localeCompare(right.id, 'zh-Hans-CN')),
         };
     }
-/** getGroupDetail：执行对应的业务逻辑。 */
+    /** 读取某个分组的详情和码表。 */
     async getGroupDetail(groupId) {
-/** group：定义该变量以承载业务值。 */
+
         const group = this.requireGroup(groupId);
-/** codes：定义该变量以承载业务值。 */
+
         const codes = this.listCodesByGroupId(group.id);
         return {
             group: this.toGroupView(group, codes),
             codes: codes.map((entry) => this.toCodeView(entry)),
         };
     }
-/** createGroup：执行对应的业务逻辑。 */
+    /** 创建分组并批量生成兑换码。 */
     async createGroup(name, rewards, count) {
-/** normalizedName：定义该变量以承载业务值。 */
+
         const normalizedName = normalizeGroupName(name);
-/** normalizedRewards：定义该变量以承载业务值。 */
+
         const normalizedRewards = this.normalizeRewardsForMutation(rewards);
-/** normalizedCount：定义该变量以承载业务值。 */
+
         const normalizedCount = normalizeCreateCount(count);
         return this.runExclusive(async () => {
             if (this.groups.some((entry) => entry.name === normalizedName)) {
                 throw new common_1.BadRequestException('兑换码分组名称已存在');
             }
-/** now：定义该变量以承载业务值。 */
+
             const now = new Date().toISOString();
-/** group：定义该变量以承载业务值。 */
+
             const group = {
                 id: `redeem-group:${(0, node_crypto_1.randomUUID)()}`,
                 name: normalizedName,
@@ -111,7 +119,7 @@ let RedeemCodeRuntimeService = class RedeemCodeRuntimeService {
                 createdAt: now,
                 updatedAt: now,
             };
-/** createdCodes：定义该变量以承载业务值。 */
+
             const createdCodes = this.createCodes(group.id, normalizedCount, now);
             this.groups.push(group);
             this.codes.push(...createdCodes);
@@ -122,16 +130,16 @@ let RedeemCodeRuntimeService = class RedeemCodeRuntimeService {
             };
         });
     }
-/** updateGroup：执行对应的业务逻辑。 */
+    /** 更新分组名称和奖励内容。 */
     async updateGroup(groupId, name, rewards) {
-/** normalizedName：定义该变量以承载业务值。 */
+
         const normalizedName = normalizeGroupName(name);
-/** normalizedRewards：定义该变量以承载业务值。 */
+
         const normalizedRewards = this.normalizeRewardsForMutation(rewards);
         return this.runExclusive(async () => {
-/** group：定义该变量以承载业务值。 */
+
             const group = this.requireGroup(groupId);
-/** conflicting：定义该变量以承载业务值。 */
+
             const conflicting = this.groups.find((entry) => entry.id !== group.id && entry.name === normalizedName);
             if (conflicting) {
                 throw new common_1.BadRequestException('兑换码分组名称已存在');
@@ -143,21 +151,21 @@ let RedeemCodeRuntimeService = class RedeemCodeRuntimeService {
             return this.getGroupDetail(group.id);
         });
     }
-/** appendCodes：执行对应的业务逻辑。 */
+    /** 给某个分组追加新的兑换码。 */
     async appendCodes(groupId, count) {
-/** normalizedCount：定义该变量以承载业务值。 */
+
         const normalizedCount = normalizeCreateCount(count);
         return this.runExclusive(async () => {
-/** group：定义该变量以承载业务值。 */
+
             const group = this.requireGroup(groupId);
-/** now：定义该变量以承载业务值。 */
+
             const now = new Date().toISOString();
-/** createdCodes：定义该变量以承载业务值。 */
+
             const createdCodes = this.createCodes(group.id, normalizedCount, now);
             this.codes.push(...createdCodes);
             group.updatedAt = now;
             await this.persist();
-/** allCodes：定义该变量以承载业务值。 */
+
             const allCodes = this.listCodesByGroupId(group.id);
             return {
                 group: this.toGroupView(group, allCodes),
@@ -165,15 +173,15 @@ let RedeemCodeRuntimeService = class RedeemCodeRuntimeService {
             };
         });
     }
-/** destroyCode：执行对应的业务逻辑。 */
+    /** 销毁单个未使用兑换码。 */
     async destroyCode(codeId) {
-/** normalizedCodeId：定义该变量以承载业务值。 */
+
         const normalizedCodeId = typeof codeId === 'string' ? codeId.trim() : '';
         if (!normalizedCodeId) {
             throw new common_1.BadRequestException('目标兑换码不存在');
         }
         return this.runExclusive(async () => {
-/** code：定义该变量以承载业务值。 */
+
             const code = this.codes.find((entry) => entry.id === normalizedCodeId);
             if (!code) {
                 throw new common_1.BadRequestException('目标兑换码不存在');
@@ -184,12 +192,12 @@ let RedeemCodeRuntimeService = class RedeemCodeRuntimeService {
             if (code.status === 'destroyed') {
                 return { ok: true };
             }
-/** now：定义该变量以承载业务值。 */
+
             const now = new Date().toISOString();
             code.status = 'destroyed';
             code.destroyedAt = now;
             code.updatedAt = now;
-/** group：定义该变量以承载业务值。 */
+
             const group = this.groups.find((entry) => entry.id === code.groupId);
             if (group) {
                 group.updatedAt = now;
@@ -198,21 +206,21 @@ let RedeemCodeRuntimeService = class RedeemCodeRuntimeService {
             return { ok: true };
         });
     }
-/** redeemCodes：执行对应的业务逻辑。 */
+    /** 校验并兑换玩家提交的兑换码。 */
     async redeemCodes(playerId, submittedCodes) {
-/** normalizedCodes：定义该变量以承载业务值。 */
+
         const normalizedCodes = normalizeSubmittedCodes(submittedCodes);
         if (normalizedCodes.length === 0) {
             throw new common_1.BadRequestException('请至少填写一个兑换码');
         }
         return this.runExclusive(async () => {
-/** player：定义该变量以承载业务值。 */
+
             const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
-/** nowIso：定义该变量以承载业务值。 */
+
             const nowIso = new Date().toISOString();
-/** changed：定义该变量以承载业务值。 */
+
             let changed = false;
-/** results：定义该变量以承载业务值。 */
+
             const results = [];
             for (const submittedCode of normalizedCodes) {
                 const codeEntry = this.codes.find((entry) => entry.code === submittedCode);
@@ -224,9 +232,9 @@ let RedeemCodeRuntimeService = class RedeemCodeRuntimeService {
                     });
                     continue;
                 }
-/** group：定义该变量以承载业务值。 */
+
                 const group = this.groups.find((entry) => entry.id === codeEntry.groupId) ?? null;
-/** groupName：定义该变量以承载业务值。 */
+
                 const groupName = group?.name ?? undefined;
                 if (codeEntry.status === 'used') {
                     results.push({
@@ -246,7 +254,7 @@ let RedeemCodeRuntimeService = class RedeemCodeRuntimeService {
                     });
                     continue;
                 }
-/** rewards：定义该变量以承载业务值。 */
+
                 const rewards = Array.isArray(group?.rewards) ? group.rewards.map((entry) => ({ ...entry })) : [];
                 if (rewards.length === 0) {
                     results.push({
@@ -257,9 +265,9 @@ let RedeemCodeRuntimeService = class RedeemCodeRuntimeService {
                     });
                     continue;
                 }
-/** items：定义该变量以承载业务值。 */
+
                 const items = [];
-/** invalidRewardItem：定义该变量以承载业务值。 */
+
                 let invalidRewardItem = false;
                 for (const reward of rewards) {
                     const item = this.contentTemplateRepository.createItem(reward.itemId, reward.count);
@@ -325,37 +333,34 @@ let RedeemCodeRuntimeService = class RedeemCodeRuntimeService {
             return { results };
         });
     }
-/** requireGroup：执行对应的业务逻辑。 */
     requireGroup(groupId) {
-/** normalizedGroupId：定义该变量以承载业务值。 */
+
         const normalizedGroupId = typeof groupId === 'string' ? groupId.trim() : '';
-/** group：定义该变量以承载业务值。 */
+
         const group = this.groups.find((entry) => entry.id === normalizedGroupId);
         if (!group) {
             throw new common_1.BadRequestException('兑换码分组不存在');
         }
         return group;
     }
-/** listCodesByGroupId：执行对应的业务逻辑。 */
     listCodesByGroupId(groupId) {
         return this.codes
             .filter((entry) => entry.groupId === groupId)
             .sort((left, right) => compareIsoDesc(left.createdAt, right.createdAt) || left.code.localeCompare(right.code, 'zh-Hans-CN'));
     }
-/** normalizeRewardsForMutation：执行对应的业务逻辑。 */
     normalizeRewardsForMutation(rewards) {
         if (!Array.isArray(rewards) || rewards.length === 0) {
             throw new common_1.BadRequestException('兑换码分组至少需要一个奖励物品');
         }
-/** normalized：定义该变量以承载业务值。 */
+
         const normalized = [];
         for (const reward of rewards) {
             if (!reward || typeof reward.itemId !== 'string') {
                 continue;
             }
-/** itemId：定义该变量以承载业务值。 */
+
             const itemId = reward.itemId.trim();
-/** count：定义该变量以承载业务值。 */
+
             const count = Math.max(1, Math.floor(Number(reward.count) || 0));
             if (!itemId || count <= 0) {
                 continue;
@@ -370,14 +375,13 @@ let RedeemCodeRuntimeService = class RedeemCodeRuntimeService {
         }
         return normalized;
     }
-/** createCodes：执行对应的业务逻辑。 */
     createCodes(groupId, count, nowIso) {
-/** seenCodes：定义该变量以承载业务值。 */
+
         const seenCodes = new Set(this.codes.map((entry) => entry.code));
-/** created：定义该变量以承载业务值。 */
+
         const created = [];
         while (created.length < count) {
-/** code：定义该变量以承载业务值。 */
+
             const code = generateRedeemCode(seenCodes);
             seenCodes.add(code);
             created.push({
@@ -395,11 +399,10 @@ let RedeemCodeRuntimeService = class RedeemCodeRuntimeService {
         }
         return created;
     }
-/** toGroupView：执行对应的业务逻辑。 */
     toGroupView(group, codes) {
-/** usedCodeCount：定义该变量以承载业务值。 */
+
         let usedCodeCount = 0;
-/** activeCodeCount：定义该变量以承载业务值。 */
+
         let activeCodeCount = 0;
         for (const code of codes) {
             if (code.status === 'used') {
@@ -420,7 +423,6 @@ let RedeemCodeRuntimeService = class RedeemCodeRuntimeService {
             updatedAt: group.updatedAt,
         };
     }
-/** toCodeView：执行对应的业务逻辑。 */
     toCodeView(code) {
         return {
             id: code.id,
@@ -435,7 +437,7 @@ let RedeemCodeRuntimeService = class RedeemCodeRuntimeService {
             updatedAt: code.updatedAt,
         };
     }
-/** persist：执行对应的业务逻辑。 */
+    /** 持久化当前分组和码表快照。 */
     async persist() {
         this.revision += 1;
         await this.redeemCodePersistenceService.saveDocument({
@@ -445,11 +447,11 @@ let RedeemCodeRuntimeService = class RedeemCodeRuntimeService {
             codes: this.codes.map((entry) => cloneCode(entry)),
         });
     }
-/** runExclusive：执行对应的业务逻辑。 */
+    /** 按顺序执行一次互斥写操作。 */
     async runExclusive(action) {
-/** previous：定义该变量以承载业务值。 */
+
         const previous = this.mutationQueue;
-/** release：定义该变量以承载业务值。 */
+
         let release;
         this.mutationQueue = new Promise((resolve) => {
             release = resolve;
@@ -470,9 +472,8 @@ exports.RedeemCodeRuntimeService = RedeemCodeRuntimeService = __decorate([
         player_runtime_service_1.PlayerRuntimeService,
         redeem_code_persistence_service_1.RedeemCodePersistenceService])
 ], RedeemCodeRuntimeService);
-/** normalizeGroupName：执行对应的业务逻辑。 */
 function normalizeGroupName(name) {
-/** normalized：定义该变量以承载业务值。 */
+
     const normalized = typeof name === 'string' ? name.normalize('NFC').trim() : '';
     if (!normalized) {
         throw new common_1.BadRequestException('兑换码分组名称不能为空');
@@ -482,9 +483,8 @@ function normalizeGroupName(name) {
     }
     return normalized;
 }
-/** normalizeCreateCount：执行对应的业务逻辑。 */
 function normalizeCreateCount(count) {
-/** normalized：定义该变量以承载业务值。 */
+
     const normalized = Math.max(1, Math.floor(Number(count) || 0));
     if (normalized <= 0) {
         throw new common_1.BadRequestException('兑换码数量必须大于 0');
@@ -494,20 +494,19 @@ function normalizeCreateCount(count) {
     }
     return normalized;
 }
-/** normalizeSubmittedCodes：执行对应的业务逻辑。 */
 function normalizeSubmittedCodes(codes) {
     if (!Array.isArray(codes)) {
         return [];
     }
-/** normalized：定义该变量以承载业务值。 */
+
     const normalized = [];
-/** seen：定义该变量以承载业务值。 */
+
     const seen = new Set();
     for (const entry of codes) {
         if (typeof entry !== 'string') {
             continue;
         }
-/** code：定义该变量以承载业务值。 */
+
         const code = entry.trim().toUpperCase();
         if (!code || seen.has(code)) {
             continue;
@@ -520,27 +519,23 @@ function normalizeSubmittedCodes(codes) {
     }
     return normalized;
 }
-/** cloneGroup：执行对应的业务逻辑。 */
 function cloneGroup(group) {
     return {
         ...group,
         rewards: Array.isArray(group.rewards) ? group.rewards.map((entry) => ({ ...entry })) : [],
     };
 }
-/** cloneCode：执行对应的业务逻辑。 */
 function cloneCode(code) {
     return { ...code };
 }
-/** compareIsoDesc：执行对应的业务逻辑。 */
 function compareIsoDesc(left, right) {
     if (left === right) {
         return 0;
     }
     return right.localeCompare(left, 'en');
 }
-/** canReceiveAllRewards：执行对应的业务逻辑。 */
 function canReceiveAllRewards(currentItems, capacity, items) {
-/** snapshot：定义该变量以承载业务值。 */
+
     const snapshot = Array.isArray(currentItems) ? currentItems.map((entry) => ({ ...entry })) : [];
     for (const item of items) {
         const existing = snapshot.find((entry) => entry.itemId === item.itemId);
@@ -555,7 +550,6 @@ function canReceiveAllRewards(currentItems, capacity, items) {
     }
     return true;
 }
-/** generateRedeemCode：执行对应的业务逻辑。 */
 function generateRedeemCode(seenCodes) {
     for (;;) {
         const bytes = (0, node_crypto_1.randomBytes)(REDEEM_CODE_LENGTH);
@@ -569,3 +563,5 @@ function generateRedeemCode(seenCodes) {
     }
 }
 //# sourceMappingURL=redeem-code-runtime.service.js.map
+
+

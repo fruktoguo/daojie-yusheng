@@ -4,9 +4,7 @@
  */
 
 Object.defineProperty(exports, "__esModule", { value: true });
-/** shared_1：定义该变量以承载业务值。 */
 const shared_1 = require("@mud/shared-next");
-/** map_instance_runtime_1：定义该变量以承载业务值。 */
 const map_instance_runtime_1 = require("../runtime/instance/map-instance.runtime");
 /**
  * 记录width。

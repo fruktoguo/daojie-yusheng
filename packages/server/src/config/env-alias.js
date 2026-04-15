@@ -1,15 +1,14 @@
 "use strict";
-/** 模块实现文件，负责当前职责边界内的业务逻辑。 */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.resolveServerNextShadowUrl = exports.resolveServerNextShadowUrlEnvSource = exports.resolveServerNextUrl = exports.resolveServerNextUrlEnvSource = exports.resolveServerNextGmPassword = exports.resolveServerNextGmPasswordEnvSource = exports.resolveServerNextDatabaseUrl = exports.resolveServerNextDatabaseEnvSource = exports.readTrimmedEnv = void 0;
-/** readTrimmedEnv：执行对应的业务逻辑。 */
+/** readTrimmedEnv：处理read Trimmed Env。 */
 function readTrimmedEnv(...names) {
     for (const name of names) {
         const value = process.env[name];
         if (typeof value !== 'string') {
             continue;
         }
-/** normalized：定义该变量以承载业务值。 */
+
         const normalized = value.trim();
         if (normalized) {
             return normalized;
@@ -18,7 +17,7 @@ function readTrimmedEnv(...names) {
     return '';
 }
 exports.readTrimmedEnv = readTrimmedEnv;
-/** resolveServerNextDatabaseEnvSource：执行对应的业务逻辑。 */
+/** resolveServerNextDatabaseEnvSource：解析服务端新版数据库Env来源。 */
 function resolveServerNextDatabaseEnvSource() {
     if (readTrimmedEnv('SERVER_NEXT_DATABASE_URL')) {
         return 'SERVER_NEXT_DATABASE_URL';
@@ -29,12 +28,12 @@ function resolveServerNextDatabaseEnvSource() {
     return null;
 }
 exports.resolveServerNextDatabaseEnvSource = resolveServerNextDatabaseEnvSource;
-/** resolveServerNextDatabaseUrl：执行对应的业务逻辑。 */
+/** resolveServerNextDatabaseUrl：解析服务端新版数据库URL。 */
 function resolveServerNextDatabaseUrl() {
     return readTrimmedEnv('SERVER_NEXT_DATABASE_URL', 'DATABASE_URL');
 }
 exports.resolveServerNextDatabaseUrl = resolveServerNextDatabaseUrl;
-/** resolveServerNextGmPasswordEnvSource：执行对应的业务逻辑。 */
+/** resolveServerNextGmPasswordEnvSource：解析服务端新版GM密码Env来源。 */
 function resolveServerNextGmPasswordEnvSource() {
     if (readTrimmedEnv('SERVER_NEXT_GM_PASSWORD')) {
         return 'SERVER_NEXT_GM_PASSWORD';
@@ -45,12 +44,12 @@ function resolveServerNextGmPasswordEnvSource() {
     return null;
 }
 exports.resolveServerNextGmPasswordEnvSource = resolveServerNextGmPasswordEnvSource;
-/** resolveServerNextGmPassword：执行对应的业务逻辑。 */
+/** resolveServerNextGmPassword：解析服务端新版GM密码。 */
 function resolveServerNextGmPassword(defaultValue = '') {
     return readTrimmedEnv('SERVER_NEXT_GM_PASSWORD', 'GM_PASSWORD') || defaultValue;
 }
 exports.resolveServerNextGmPassword = resolveServerNextGmPassword;
-/** resolveServerNextUrlEnvSource：执行对应的业务逻辑。 */
+/** resolveServerNextUrlEnvSource：解析服务端新版URL Env来源。 */
 function resolveServerNextUrlEnvSource() {
     if (readTrimmedEnv('SERVER_NEXT_URL')) {
         return 'SERVER_NEXT_URL';
@@ -58,12 +57,12 @@ function resolveServerNextUrlEnvSource() {
     return null;
 }
 exports.resolveServerNextUrlEnvSource = resolveServerNextUrlEnvSource;
-/** resolveServerNextUrl：执行对应的业务逻辑。 */
+/** resolveServerNextUrl：解析服务端新版URL。 */
 function resolveServerNextUrl() {
     return readTrimmedEnv('SERVER_NEXT_URL');
 }
 exports.resolveServerNextUrl = resolveServerNextUrl;
-/** resolveServerNextShadowUrlEnvSource：执行对应的业务逻辑。 */
+/** resolveServerNextShadowUrlEnvSource：解析服务端新版影子URL Env来源。 */
 function resolveServerNextShadowUrlEnvSource() {
     if (readTrimmedEnv('SERVER_NEXT_SHADOW_URL')) {
         return 'SERVER_NEXT_SHADOW_URL';
@@ -74,8 +73,11 @@ function resolveServerNextShadowUrlEnvSource() {
     return null;
 }
 exports.resolveServerNextShadowUrlEnvSource = resolveServerNextShadowUrlEnvSource;
-/** resolveServerNextShadowUrl：执行对应的业务逻辑。 */
+/** resolveServerNextShadowUrl：解析服务端新版影子URL。 */
 function resolveServerNextShadowUrl() {
     return readTrimmedEnv('SERVER_NEXT_SHADOW_URL', 'SERVER_NEXT_URL');
 }
 exports.resolveServerNextShadowUrl = resolveServerNextShadowUrl;
+
+
+

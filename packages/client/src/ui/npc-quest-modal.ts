@@ -4,7 +4,7 @@ import { getQuestLineLabel, getQuestStatusLabel } from '../domain-labels';
 import { detailModalHost } from './detail-modal-host';
 import { bindInlineItemTooltips, renderInlineItemChip, renderInlineMonsterChip, renderTextWithInlineItemHighlights } from './item-inline-tooltip';
 
-/** escapeHtml：执行对应的业务逻辑。 */
+/** escapeHtml：转义 HTML 文本中的危险字符。 */
 function escapeHtml(value: string): string {
   return value
     .replaceAll('&', '&amp;')
@@ -14,7 +14,7 @@ function escapeHtml(value: string): string {
     .replaceAll("'", '&#39;');
 }
 
-/** NpcQuestModalCallbacks：定义该接口的能力与字段约束。 */
+/** NpcQuestModalCallbacks：任务弹窗回调集。 */
 interface NpcQuestModalCallbacks {
   onRequestQuests: (npcId: string) => void;
   onAcceptQuest: (npcId: string, questId: string) => void;
@@ -22,54 +22,52 @@ interface NpcQuestModalCallbacks {
   onNavigateQuest: (questId: string) => void;
 }
 
-/** NpcQuestModalMeta：定义该类型的结构与数据语义。 */
+/** NpcQuestModalMeta：任务弹窗标题元数据。 */
 type NpcQuestModalMeta = {
-/** title：定义该变量以承载业务值。 */
   title: string;
-/** subtitle：定义该变量以承载业务值。 */
   subtitle: string;
 };
 
-/** NpcQuestRenderState：定义该类型的结构与数据语义。 */
+/** NpcQuestRenderState：任务弹窗滚动与焦点状态。 */
 type NpcQuestRenderState = {
-/** listScrollTop：定义该变量以承载业务值。 */
   listScrollTop: number;
-/** detailScrollTop：定义该变量以承载业务值。 */
   detailScrollTop: number;
-/** focusSelector：定义该变量以承载业务值。 */
   focusSelector: string | null;
 };
 
-/** NpcQuestModal：封装相关状态与行为。 */
+/** NpcQuestModal：NPC任务弹窗实现。 */
 export class NpcQuestModal {
+  /** MODAL_OWNER：弹窗OWNER。 */
   private static readonly MODAL_OWNER = 'npc-quest-modal';
-/** callbacks：定义该变量以承载业务值。 */
+  /** callbacks：callbacks。 */
   private callbacks: NpcQuestModalCallbacks | null = null;
-/** activeNpcId：定义该变量以承载业务值。 */
+  /** activeNpcId：活跃NPC ID。 */
   private activeNpcId: string | null = null;
+  /** loading：loading。 */
   private loading = false;
-/** currentMapId：定义该变量以承载业务值。 */
+  /** currentMapId：当前地图ID。 */
   private currentMapId: string | undefined;
-/** inventory：定义该变量以承载业务值。 */
+  /** inventory：背包。 */
   private inventory: Inventory = { items: [], capacity: 0 };
-/** state：定义该变量以承载业务值。 */
+  /** state：状态。 */
   private state: NEXT_S2C_NpcQuests | null = null;
-/** selectedQuestId：定义该变量以承载业务值。 */
+  /** selectedQuestId：selected任务ID。 */
   private selectedQuestId: string | null = null;
+  /** delegatedEventsBound：delegated事件Bound。 */
   private delegatedEventsBound = false;
 
-/** setCallbacks：执行对应的业务逻辑。 */
+  /** setCallbacks：处理set Callbacks。 */
   setCallbacks(callbacks: NpcQuestModalCallbacks): void {
     this.callbacks = callbacks;
   }
 
-/** initFromPlayer：执行对应的业务逻辑。 */
+  /** initFromPlayer：初始化From玩家。 */
   initFromPlayer(player: PlayerState): void {
     this.currentMapId = player.mapId;
     this.inventory = player.inventory;
   }
 
-/** setCurrentMapId：执行对应的业务逻辑。 */
+  /** setCurrentMapId：处理set当前地图ID。 */
   setCurrentMapId(mapId?: string): void {
     this.currentMapId = mapId;
     if (detailModalHost.isOpenFor(NpcQuestModal.MODAL_OWNER)) {
@@ -77,7 +75,7 @@ export class NpcQuestModal {
     }
   }
 
-/** syncInventory：执行对应的业务逻辑。 */
+  /** syncInventory：同步背包。 */
   syncInventory(inventory: Inventory): void {
     this.inventory = inventory;
     if (detailModalHost.isOpenFor(NpcQuestModal.MODAL_OWNER)) {
@@ -85,7 +83,7 @@ export class NpcQuestModal {
     }
   }
 
-/** openPending：执行对应的业务逻辑。 */
+  /** openPending：打开待处理。 */
   openPending(npcId: string): void {
     this.activeNpcId = npcId;
     this.loading = true;
@@ -96,13 +94,13 @@ export class NpcQuestModal {
     this.render();
   }
 
-/** open：执行对应的业务逻辑。 */
+  /** open：打开open。 */
   open(npcId: string): void {
     this.openPending(npcId);
     this.callbacks?.onRequestQuests(npcId);
   }
 
-/** updateQuests：执行对应的业务逻辑。 */
+  /** updateQuests：更新Quests。 */
   updateQuests(data: NEXT_S2C_NpcQuests): void {
     if (this.activeNpcId && this.activeNpcId !== data.npcId && detailModalHost.isOpenFor(NpcQuestModal.MODAL_OWNER)) {
       return;
@@ -110,7 +108,6 @@ export class NpcQuestModal {
     this.activeNpcId = data.npcId;
     this.state = data;
     this.loading = false;
-/** questIds：定义该变量以承载业务值。 */
     const questIds = new Set(data.quests.map((quest) => quest.id));
     if (!this.selectedQuestId || !questIds.has(this.selectedQuestId)) {
       this.selectedQuestId = this.pickPreferredQuestId(data.quests);
@@ -118,7 +115,7 @@ export class NpcQuestModal {
     this.render();
   }
 
-/** refreshActive：执行对应的业务逻辑。 */
+  /** refreshActive：处理refresh活跃。 */
   refreshActive(): void {
     if (!this.activeNpcId) {
       return;
@@ -126,12 +123,12 @@ export class NpcQuestModal {
     this.callbacks?.onRequestQuests(this.activeNpcId);
   }
 
-/** getActiveNpcId：执行对应的业务逻辑。 */
+  /** getActiveNpcId：读取活跃NPC ID。 */
   getActiveNpcId(): string | null {
     return this.activeNpcId;
   }
 
-/** clear：执行对应的业务逻辑。 */
+  /** clear：清理clear。 */
   clear(): void {
     this.activeNpcId = null;
     this.loading = false;
@@ -141,15 +138,12 @@ export class NpcQuestModal {
     detailModalHost.close(NpcQuestModal.MODAL_OWNER);
   }
 
-/** render：执行对应的业务逻辑。 */
+  /** render：渲染渲染。 */
   private render(): void {
-/** meta：定义该变量以承载业务值。 */
     const meta = this.buildModalMeta();
-/** body：定义该变量以承载业务值。 */
     const body = detailModalHost.isOpenFor(NpcQuestModal.MODAL_OWNER)
       ? document.getElementById('detail-modal-body')
       : null;
-/** renderState：定义该变量以承载业务值。 */
     const renderState = body ? this.captureRenderState(body) : null;
     if (detailModalHost.isOpenFor(NpcQuestModal.MODAL_OWNER) && body && this.patchBody(body, meta)) {
       if (renderState) {
@@ -177,7 +171,7 @@ export class NpcQuestModal {
     });
   }
 
-/** buildModalMeta：执行对应的业务逻辑。 */
+  /** buildModalMeta：构建弹窗元数据。 */
   private buildModalMeta(): NpcQuestModalMeta {
     return {
       title: this.state?.npcName ?? '任务委托',
@@ -189,7 +183,7 @@ export class NpcQuestModal {
     };
   }
 
-/** renderBody：执行对应的业务逻辑。 */
+  /** renderBody：渲染身体。 */
   private renderBody(): string {
     if (this.loading && !this.state) {
       return '<div class="empty-hint ui-empty-hint">正在与这位 NPC 对话……</div>';
@@ -201,7 +195,6 @@ export class NpcQuestModal {
       return `<div class="empty-hint ui-empty-hint">${escapeHtml(this.state.npcName)} 目前没有新的委托。</div>`;
     }
 
-/** selected：定义该变量以承载业务值。 */
     const selected = this.resolveSelectedQuest();
     if (!selected) {
       return '<div class="empty-hint ui-empty-hint">暂时无法读取任务详情。</div>';
@@ -217,10 +210,9 @@ export class NpcQuestModal {
     `;
   }
 
-/** renderQuestList：执行对应的业务逻辑。 */
+  /** renderQuestList：渲染任务列表。 */
   private renderQuestList(selected: QuestState): string {
     return this.state?.quests.map((quest) => {
-/** activeClass：定义该变量以承载业务值。 */
       const activeClass = quest.id === selected.id ? ' is-active' : '';
       return `<button class="quest-card quest-card-toggle npc-quest-card ui-surface-card ui-surface-card--compact${activeClass}" data-npc-quest-select="${escapeHtml(quest.id)}" type="button">
         <div class="quest-title-row">
@@ -233,13 +225,10 @@ export class NpcQuestModal {
     }).join('') ?? '';
   }
 
-/** renderQuestDetail：执行对应的业务逻辑。 */
+  /** renderQuestDetail：渲染任务详情。 */
   private renderQuestDetail(selected: QuestState): string {
-/** canNavigate：定义该变量以承载业务值。 */
     const canNavigate = this.canNavigateQuest(selected);
-/** navigateLabel：定义该变量以承载业务值。 */
     const navigateLabel = selected.status === 'ready' ? '前往交付' : '前往目标';
-/** actionButton：定义该变量以承载业务值。 */
     const actionButton = selected.status === 'available'
       ? '<button class="small-btn primary" data-npc-quest-accept="true" type="button">接取任务</button>'
       : selected.status === 'ready'
@@ -271,7 +260,7 @@ export class NpcQuestModal {
     `;
   }
 
-/** bindEvents：执行对应的业务逻辑。 */
+  /** bindEvents：绑定事件。 */
   private bindEvents(body: HTMLElement): void {
     if (this.delegatedEventsBound) {
       return;
@@ -280,18 +269,15 @@ export class NpcQuestModal {
     body.addEventListener('click', (event) => this.handleBodyClick(event));
   }
 
-/** handleBodyClick：执行对应的业务逻辑。 */
+  /** handleBodyClick：处理身体Click。 */
   private handleBodyClick(event: Event): void {
-/** target：定义该变量以承载业务值。 */
     const target = event.target;
     if (!(target instanceof HTMLElement)) {
       return;
     }
 
-/** selectButton：定义该变量以承载业务值。 */
     const selectButton = target.closest<HTMLElement>('[data-npc-quest-select]');
     if (selectButton) {
-/** questId：定义该变量以承载业务值。 */
       const questId = selectButton.dataset.npcQuestSelect;
       if (!questId || questId === this.selectedQuestId) {
         return;
@@ -323,16 +309,13 @@ export class NpcQuestModal {
     this.callbacks?.onNavigateQuest(this.selectedQuestId);
   }
 
-/** patchBody：执行对应的业务逻辑。 */
+  /** patchBody：处理patch身体。 */
   private patchBody(body: HTMLElement, meta: NpcQuestModalMeta): boolean {
     if (!body.querySelector('.npc-quest-modal-shell')) {
       return false;
     }
-/** selected：定义该变量以承载业务值。 */
     const selected = this.resolveSelectedQuest();
-/** listRoot：定义该变量以承载业务值。 */
     const listRoot = body.querySelector<HTMLElement>('[data-npc-quest-list="true"]');
-/** detailRoot：定义该变量以承载业务值。 */
     const detailRoot = body.querySelector<HTMLElement>('[data-npc-quest-detail="true"]');
     if (!selected || !listRoot || !detailRoot) {
       return false;
@@ -344,11 +327,9 @@ export class NpcQuestModal {
     return true;
   }
 
-/** patchModalMeta：执行对应的业务逻辑。 */
+  /** patchModalMeta：处理patch弹窗元数据。 */
   private patchModalMeta(meta: NpcQuestModalMeta): void {
-/** titleNode：定义该变量以承载业务值。 */
     const titleNode = document.getElementById('detail-modal-title');
-/** subtitleNode：定义该变量以承载业务值。 */
     const subtitleNode = document.getElementById('detail-modal-subtitle');
     if (titleNode) {
       titleNode.textContent = meta.title;
@@ -359,14 +340,11 @@ export class NpcQuestModal {
     }
   }
 
-/** captureRenderState：执行对应的业务逻辑。 */
+  /** captureRenderState：处理capture渲染状态。 */
   private captureRenderState(body: HTMLElement): NpcQuestRenderState {
-/** activeElement：定义该变量以承载业务值。 */
     const activeElement = document.activeElement;
     return {
-/** listScrollTop：定义该变量以承载业务值。 */
       listScrollTop: body.querySelector<HTMLElement>('[data-npc-quest-list="true"]')?.scrollTop ?? 0,
-/** detailScrollTop：定义该变量以承载业务值。 */
       detailScrollTop: body.querySelector<HTMLElement>('[data-npc-quest-detail="true"]')?.scrollTop ?? 0,
       focusSelector: activeElement instanceof HTMLElement && body.contains(activeElement)
         ? this.resolveFocusSelector(activeElement)
@@ -374,11 +352,9 @@ export class NpcQuestModal {
     };
   }
 
-/** restoreRenderState：执行对应的业务逻辑。 */
+  /** restoreRenderState：处理restore渲染状态。 */
   private restoreRenderState(body: HTMLElement, state: NpcQuestRenderState): void {
-/** listRoot：定义该变量以承载业务值。 */
     const listRoot = body.querySelector<HTMLElement>('[data-npc-quest-list="true"]');
-/** detailRoot：定义该变量以承载业务值。 */
     const detailRoot = body.querySelector<HTMLElement>('[data-npc-quest-detail="true"]');
     if (listRoot) {
       listRoot.scrollTop = state.listScrollTop;
@@ -392,9 +368,8 @@ export class NpcQuestModal {
     body.querySelector<HTMLElement>(state.focusSelector)?.focus({ preventScroll: true });
   }
 
-/** resolveFocusSelector：执行对应的业务逻辑。 */
+  /** resolveFocusSelector：解析Focus Selector。 */
   private resolveFocusSelector(element: HTMLElement): string | null {
-/** questId：定义该变量以承载业务值。 */
     const questId = element.dataset.npcQuestSelect;
     if (questId) {
       return `[data-npc-quest-select="${escapeHtml(questId)}"]`;
@@ -411,7 +386,7 @@ export class NpcQuestModal {
     return null;
   }
 
-/** resolveSelectedQuest：执行对应的业务逻辑。 */
+  /** resolveSelectedQuest：解析Selected任务。 */
   private resolveSelectedQuest(): QuestState | null {
     if (!this.state || this.state.quests.length === 0) {
       return null;
@@ -419,9 +394,8 @@ export class NpcQuestModal {
     return this.state.quests.find((quest) => quest.id === this.selectedQuestId) ?? this.state.quests[0] ?? null;
   }
 
-/** pickPreferredQuestId：执行对应的业务逻辑。 */
+  /** pickPreferredQuestId：处理pick Preferred任务ID。 */
   private pickPreferredQuestId(quests: QuestState[]): string | null {
-/** priority：定义该变量以承载业务值。 */
     const priority = ['ready', 'available', 'active', 'completed'] as const;
     for (const status of priority) {
       const matched = quests.find((quest) => quest.status === status);
@@ -432,7 +406,7 @@ export class NpcQuestModal {
     return quests[0]?.id ?? null;
   }
 
-/** canNavigateQuest：执行对应的业务逻辑。 */
+  /** canNavigateQuest：判断是否Navigate任务。 */
   private canNavigateQuest(quest: QuestState): boolean {
     if (quest.status === 'ready') {
       return Boolean(quest.submitMapId ?? quest.giverMapId);
@@ -446,7 +420,7 @@ export class NpcQuestModal {
     return false;
   }
 
-/** resolveProgressText：执行对应的业务逻辑。 */
+  /** resolveProgressText：解析进度文本。 */
   private resolveProgressText(quest: QuestState): string {
     if (quest.objectiveType === 'talk') {
       return quest.progress >= quest.required ? '口信已传达' : '尚未传达';
@@ -457,7 +431,6 @@ export class NpcQuestModal {
     if (quest.objectiveType === 'realm_stage') {
       return `${quest.targetName} ${quest.progress >= quest.required ? '已达成' : '未达成'}`;
     }
-/** requiredItemProgress：定义该变量以承载业务值。 */
     const requiredItemProgress = this.resolveRequiredItemProgress(quest);
     if (quest.objectiveType === 'kill' && requiredItemProgress) {
       return `${quest.targetName} ${quest.progress}/${quest.required}，${requiredItemProgress.itemName} ${requiredItemProgress.current}/${requiredItemProgress.required}`;
@@ -465,12 +438,10 @@ export class NpcQuestModal {
     return `${quest.targetName} ${quest.progress}/${quest.required}`;
   }
 
-/** resolveNextStep：执行对应的业务逻辑。 */
+  /** resolveNextStep：解析新版Step。 */
   private resolveNextStep(quest: QuestState): string {
     if (quest.status === 'ready') {
-/** submitLabel：定义该变量以承载业务值。 */
       const submitLabel = quest.submitNpcName ?? quest.giverName;
-/** submitLocation：定义该变量以承载业务值。 */
       const submitLocation = this.formatQuestLocation(quest.submitMapName ?? quest.giverMapName, quest.submitX ?? quest.giverX, quest.submitY ?? quest.giverY);
       return submitLocation !== '未设置'
         ? `前往 ${submitLocation} 找 ${submitLabel} 交付任务`
@@ -480,23 +451,19 @@ export class NpcQuestModal {
       return '任务已结清';
     }
     if (quest.status === 'available') {
-/** giverLocation：定义该变量以承载业务值。 */
       const giverLocation = this.formatQuestLocation(quest.giverMapName, quest.giverX, quest.giverY);
       return giverLocation !== '未设置'
         ? `前往 ${giverLocation} 找 ${quest.giverName} 接取任务`
         : `前往 ${quest.giverName} 接取任务`;
     }
     if (quest.objectiveType === 'talk') {
-/** talkTarget：定义该变量以承载业务值。 */
       const talkTarget = quest.targetNpcName ?? quest.targetName;
-/** talkLocation：定义该变量以承载业务值。 */
       const talkLocation = this.formatQuestLocation(quest.targetMapName, quest.targetX, quest.targetY);
       return talkLocation !== '未设置'
         ? `前往 ${talkLocation} 找 ${talkTarget} 传达口信`
         : `前往 ${talkTarget} 传达口信`;
     }
     if (quest.objectiveType === 'submit_item') {
-/** submitLocation：定义该变量以承载业务值。 */
       const submitLocation = this.formatQuestLocation(quest.submitMapName ?? quest.giverMapName, quest.submitX ?? quest.giverX, quest.submitY ?? quest.giverY);
       return submitLocation !== '未设置'
         ? `准备 ${quest.targetName}，再前往 ${submitLocation} 交付`
@@ -511,32 +478,28 @@ export class NpcQuestModal {
     if (quest.objectiveType === 'realm_stage') {
       return `继续历练；境界圆满后点击顶部境界/突破查看要求并突破，达到 ${quest.targetName}`;
     }
-/** requiredItemProgress：定义该变量以承载业务值。 */
     const requiredItemProgress = this.resolveRequiredItemProgress(quest);
     if (quest.objectiveType === 'kill' && requiredItemProgress) {
       if (quest.progress >= quest.required && requiredItemProgress.current < requiredItemProgress.required) {
         return `继续收集 ${requiredItemProgress.itemName} (${requiredItemProgress.current}/${requiredItemProgress.required})`;
       }
-/** targetLocation：定义该变量以承载业务值。 */
       const targetLocation = this.formatQuestLocation(quest.targetMapName ?? quest.giverMapName, quest.targetX, quest.targetY);
       return targetLocation !== '未设置'
         ? `前往 ${targetLocation} 击杀 ${quest.targetName}，并收集 ${requiredItemProgress.itemName}`
         : `前往击杀 ${quest.targetName}，并收集 ${requiredItemProgress.itemName}`;
     }
-/** targetLocation：定义该变量以承载业务值。 */
     const targetLocation = this.formatQuestLocation(quest.targetMapName ?? quest.giverMapName, quest.targetX, quest.targetY);
     return targetLocation !== '未设置'
       ? `前往 ${targetLocation} 击杀 ${quest.targetName}`
       : `前往击杀 ${quest.targetName}`;
   }
 
+  /** resolveRequiredItemProgress：解析Required物品进度。 */
   private resolveRequiredItemProgress(quest: QuestState): { itemName: string; current: number; required: number } | null {
     if (!quest.requiredItemId) {
       return null;
     }
-/** required：定义该变量以承载业务值。 */
     const required = Math.max(1, quest.requiredItemCount ?? 1);
-/** current：定义该变量以承载业务值。 */
     const current = Math.min(required, this.inventory.items.reduce((total, item) => (
       item.itemId === quest.requiredItemId ? total + item.count : total
     ), 0));
@@ -547,7 +510,7 @@ export class NpcQuestModal {
     };
   }
 
-/** formatQuestLocation：执行对应的业务逻辑。 */
+  /** formatQuestLocation：格式化任务Location。 */
   private formatQuestLocation(mapName?: string, x?: number, y?: number): string {
     if (mapName && x !== undefined && y !== undefined) {
       return `${mapName} (${x}, ${y})`;
@@ -555,7 +518,7 @@ export class NpcQuestModal {
     return mapName ?? '未设置';
   }
 
-/** renderQuestText：执行对应的业务逻辑。 */
+  /** renderQuestText：渲染任务文本。 */
   private renderQuestText(text: string, quest: QuestState): string {
     if (!text.trim()) {
       return '';
@@ -563,18 +526,15 @@ export class NpcQuestModal {
     if (quest.objectiveType !== 'kill' || !quest.targetMonsterId || !quest.targetName.trim()) {
       return renderTextWithInlineItemHighlights(text);
     }
-/** token：定义该变量以承载业务值。 */
     const token = '[[[QUEST_MONSTER_TARGET]]]';
-/** normalized：定义该变量以承载业务值。 */
     const normalized = text.replaceAll(quest.targetName, token);
     return renderTextWithInlineItemHighlights(normalized).replaceAll(token, renderInlineMonsterChip(quest.targetMonsterId, {
       label: quest.targetName,
     }));
   }
 
-/** renderRewardContent：执行对应的业务逻辑。 */
+  /** renderRewardContent：渲染Reward Content。 */
   private renderRewardContent(quest: QuestState): string {
-/** rewardChips：定义该变量以承载业务值。 */
     const rewardChips = quest.rewards
       .map((reward) => renderInlineItemChip(reward.itemId, {
         count: reward.count,
@@ -582,13 +542,10 @@ export class NpcQuestModal {
         tone: 'reward',
       }))
       .join('');
-/** fallbackText：定义该变量以承载业务值。 */
     const fallbackText = quest.rewards.map((reward) => `${reward.name} x${reward.count}`).join('、');
-/** showRewardText：定义该变量以承载业务值。 */
     const showRewardText = quest.rewardText.trim().length > 0
       && quest.rewardText.trim() !== '无'
       && quest.rewardText.trim() !== fallbackText;
-/** sections：定义该变量以承载业务值。 */
     const sections: string[] = [];
     if (rewardChips) {
       sections.push(`<div class="ui-requirement-entry ui-surface-card ui-surface-card--compact"><div class="inline-item-flow">${rewardChips}</div></div>`);
@@ -602,9 +559,8 @@ export class NpcQuestModal {
     return sections.join('');
   }
 
-/** renderRequiredItemContent：执行对应的业务逻辑。 */
+  /** renderRequiredItemContent：渲染Required物品Content。 */
   private renderRequiredItemContent(quest: QuestState): string {
-/** progress：定义该变量以承载业务值。 */
     const progress = this.resolveRequiredItemProgress(quest);
     if (!progress || !quest.requiredItemId) {
       return '<div class="inline-rich-text">当前任务无额外提交材料。</div>';
@@ -625,3 +581,5 @@ export class NpcQuestModal {
     `;
   }
 }
+
+

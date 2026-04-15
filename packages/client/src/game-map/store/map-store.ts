@@ -41,25 +41,24 @@ import type {
   ObservedMapEntity,
 } from '../types';
 
-/** latestObservedEntitiesSnapshot：定义该变量以承载业务值。 */
 let latestObservedEntitiesSnapshot: readonly ObservedMapEntity[] = [];
 
-/** getLatestObservedEntitiesSnapshot：执行对应的业务逻辑。 */
+/** 获取最近一次刷新后的可见实体快照，供 UI 和交互层读取。 */
 export function getLatestObservedEntitiesSnapshot(): readonly ObservedMapEntity[] {
   return latestObservedEntitiesSnapshot;
 }
 
-/** publishLatestObservedEntitiesSnapshot：执行对应的业务逻辑。 */
+/** 覆盖最新可见实体快照，供只读读取路径共享。 */
 function publishLatestObservedEntitiesSnapshot(entities: readonly ObservedMapEntity[]): void {
   latestObservedEntitiesSnapshot = entities;
 }
 
-/** cloneJson：执行对应的业务逻辑。 */
+/** 克隆对象，确保状态快照不共享引用。 */
 function cloneJson<T>(value: T): T {
   return clonePlainValue(value);
 }
 
-/** applyNullablePatch：执行对应的业务逻辑。 */
+/** 按值优先级处理补丁：null 表示清空，undefined 表示不更新。 */
 function applyNullablePatch<T>(value: T | null | undefined, fallback: T | undefined): T | undefined {
   if (value === null) {
     return undefined;
@@ -70,7 +69,7 @@ function applyNullablePatch<T>(value: T | null | undefined, fallback: T | undefi
   return fallback;
 }
 
-/** toObservedEntity：执行对应的业务逻辑。 */
+/** 将服务端渲染实体标准化为本地可观察实体快照。 */
 function toObservedEntity(entity: RenderEntity): ObservedMapEntity {
   return {
     id: entity.id,
@@ -92,7 +91,7 @@ function toObservedEntity(entity: RenderEntity): ObservedMapEntity {
   };
 }
 
-/** mergeObservedEntityPatch：执行对应的业务逻辑。 */
+/** 用增量 patch 覆盖已有实体字段，缺失值回退到旧值。 */
 function mergeObservedEntityPatch(patch: TickRenderEntity, previous?: ObservedMapEntity): ObservedMapEntity {
   return {
     id: patch.id,
@@ -114,7 +113,7 @@ function mergeObservedEntityPatch(patch: TickRenderEntity, previous?: ObservedMa
   };
 }
 
-/** buildLocalPlayerEntity：执行对应的业务逻辑。 */
+/** 从本地玩家状态构造高优先级实体快照。 */
 function buildLocalPlayerEntity(player: PlayerState, previous?: ObservedMapEntity): ObservedMapEntity {
   return {
     id: player.id,
@@ -134,12 +133,12 @@ function buildLocalPlayerEntity(player: PlayerState, previous?: ObservedMapEntit
   };
 }
 
-/** buildThreatArrowKey：执行对应的业务逻辑。 */
+/** 使用“owner->target”拼接唯一定位威胁箭头键。 */
 function buildThreatArrowKey(ownerId: string, targetId: string): string {
   return `${ownerId}->${targetId}`;
 }
 
-/** hasSpatialTickEntityDelta：执行对应的业务逻辑。 */
+/** 判断 tick patch 是否包含位移信息。 */
 function hasSpatialTickEntityDelta(patch: TickRenderEntity | undefined | null): boolean {
   if (!patch) {
     return false;
@@ -147,7 +146,7 @@ function hasSpatialTickEntityDelta(patch: TickRenderEntity | undefined | null): 
   return typeof patch.x === 'number' || typeof patch.y === 'number';
 }
 
-/** isSameMinimapSnapshot：执行对应的业务逻辑。 */
+/** 全量比较两个小地图快照是否一致（元数据与标记）。 */
 function isSameMinimapSnapshot(left: MapMinimapSnapshot | null, right: MapMinimapSnapshot | null): boolean {
   if (!left || !right) {
     return left === right;
@@ -177,9 +176,8 @@ function isSameMinimapSnapshot(left: MapMinimapSnapshot | null, right: MapMinima
   return true;
 }
 
-/** shouldResetRememberedMap：执行对应的业务逻辑。 */
+/** 判断缓存小地图数据是否与最新快照不一致，需要清理。 */
 function shouldResetRememberedMap(mapId: string, nextMeta: MapMeta | null | undefined, nextSnapshot: MapMinimapSnapshot | null | undefined): boolean {
-/** cachedMeta：定义该变量以承载业务值。 */
   const cachedMeta = getCachedMapMeta(mapId);
   if (cachedMeta && nextMeta) {
     if (
@@ -192,7 +190,6 @@ function shouldResetRememberedMap(mapId: string, nextMeta: MapMeta | null | unde
       return true;
     }
   }
-/** cachedSnapshot：定义该变量以承载业务值。 */
   const cachedSnapshot = getCachedMapSnapshot(mapId);
   if (cachedSnapshot && nextSnapshot && !isSameMinimapSnapshot(cachedSnapshot, nextSnapshot)) {
     return true;
@@ -200,45 +197,49 @@ function shouldResetRememberedMap(mapId: string, nextMeta: MapMeta | null | unde
   return false;
 }
 
-/** MapStore：封装相关状态与行为。 */
+/** 地图运行态存储，维护可见地块、实体、叠加层与时间线状态。 */
 export class MapStore {
-/** mapMeta：定义该变量以承载业务值。 */
+  /** 当前所在地图静态信息。 */
   private mapMeta: MapMeta | null = null;
-/** player：定义该变量以承载业务值。 */
+  /** 当前玩家状态。 */
   private player: PlayerState | null = null;
-/** minimapSnapshot：定义该变量以承载业务值。 */
+  /** 小地图缓存快照，优先回退到本地记忆。 */
   private minimapSnapshot: MapMinimapSnapshot | null = null;
-/** visibleMinimapMarkers：定义该变量以承载业务值。 */
+  /** 玩家显式标记（主线/日常/事件）的可见列表。 */
   private visibleMinimapMarkers: MapMinimapMarker[] = [];
+  /** 当前地图时间与视域相关的运行态信息。 */
   private time = null as MapStoreSnapshot['time'];
+  /** 地块可见性缓存，key 为 "x,y"。 */
   private tileCache = new Map<string, Tile>();
+  /** 当前会话内可见地块 key 集合。 */
   private visibleTiles = new Set<string>();
+  /** 可见地块版本号，用于渲染层增量判断。 */
   private visibleTileRevision = 0;
-/** entities：定义该变量以承载业务值。 */
+  /** 当前已知实体列表（含自身与其他可见对象）。 */
   private entities: ObservedMapEntity[] = [];
+  /** 实体 ID 到实体快照索引。 */
   private entityMap = new Map<string, ObservedMapEntity>();
+  /** 地面物品堆叠索引，key 为 "x,y"。 */
   private groundPiles = new Map<string, GroundItemPileView>();
-/** pathCells：定义该变量以承载业务值。 */
   private pathCells: Array<{ x: number; y: number }> = [];
-/** targeting：定义该变量以承载业务值。 */
+  /** 当前寻路/施法叠加层状态。 */
   private targeting: MapTargetingOverlayState | null = null;
-/** senseQi：定义该变量以承载业务值。 */
+  /** 感气视角叠加层状态。 */
   private senseQi: MapSenseQiOverlayState | null = null;
-/** threatArrows：定义该变量以承载业务值。 */
   private threatArrows: Array<{ ownerId: string; targetId: string }> = [];
+  /** 小地图增量版本，推动 minimap 列表与可见性更新。 */
   private minimapMemoryVersion = 0;
-/** awaitingFullVisibilityMapId：定义该变量以承载业务值。 */
+  /** 地图切换后等待首批完整可见块到达时的占位标记。 */
   private awaitingFullVisibilityMapId: string | null = null;
   private tickTiming = {
     startedAt: performance.now(),
     durationMs: 500,
   };
-/** entityTransition：定义该变量以承载业务值。 */
+  /** 本地实体运动过渡信息，用于下一次插值渲染。 */
   private entityTransition: MapEntityTransition | null = null;
 
-/** applyBootstrap：执行对应的业务逻辑。 */
+  /** 首次接入/重连时初始化地图状态与基础缓存。 */
   applyBootstrap(data: MapBootstrapInput): void {
-/** player：定义该变量以承载业务值。 */
     const player = cloneJson(data.self);
     this.player = player;
     this.time = data.time ?? null;
@@ -257,7 +258,6 @@ export class MapStore {
         : null
     );
     if (data.minimap) {
-/** cacheMapSnapshot：处理当前场景中的对应操作。 */
       cacheMapSnapshot(player.mapId, data.minimap, { meta: data.mapMeta, unlocked: true });
     }
 
@@ -277,12 +277,11 @@ export class MapStore {
     this.tickTiming.startedAt = performance.now();
   }
 
-/** applyMapStatic：执行对应的业务逻辑。 */
+  /** 接收地图静态信息更新：元数据、可见块与小地图元数据。 */
   applyMapStatic(data: NEXT_S2C_MapStatic): void {
     if (!this.player) {
       return;
     }
-/** dataWithTiles：定义该变量以承载业务值。 */
     const dataWithTiles = data as NEXT_S2C_MapStatic & {
       tiles?: VisibleTile[][];
       tilesOriginX?: number;
@@ -336,7 +335,7 @@ export class MapStore {
     }
   }
 
-/** applyNextWorldDelta：执行对应的业务逻辑。 */
+  /** 处理世界级增量：实体移动、威胁箭头、地块更新与时间推进。 */
   applyNextWorldDelta(data: MapNextWorldDeltaInput): void {
     if (!this.player) {
       return;
@@ -345,11 +344,8 @@ export class MapStore {
       this.player.mapId = data.mapId;
     }
 
-/** oldX：定义该变量以承载业务值。 */
     const oldX = this.player.x;
-/** oldY：定义该变量以承载业务值。 */
     const oldY = this.player.y;
-/** selfPatch：定义该变量以承载业务值。 */
     const selfPatch = data.playerPatches.find((patch) => patch.id === this.player?.id);
     if (selfPatch) {
       if (selfPatch.name) {
@@ -387,15 +383,12 @@ export class MapStore {
     } else if (Array.isArray(data.visibleTilePatches) && data.visibleTilePatches.length > 0) {
       this.applyVisibleTilePatches(this.player.mapId, data.visibleTilePatches);
     }
-/** hasEntityPatch：定义该变量以承载业务值。 */
     const hasEntityPatch = data.playerPatches.length > 0 || data.entityPatches.length > 0 || (data.removedEntityIds?.length ?? 0) > 0;
     if (hasEntityPatch) {
       this.entities = this.mergeTickEntities(data.playerPatches, data.entityPatches, data.removedEntityIds ?? []);
       publishLatestObservedEntitiesSnapshot(this.entities);
     }
-/** moved：定义该变量以承载业务值。 */
     const moved = this.player.x !== oldX || this.player.y !== oldY;
-/** hasSpatialEntityDelta：定义该变量以承载业务值。 */
     const hasSpatialEntityDelta = moved
       || (data.removedEntityIds?.length ?? 0) > 0
       || data.playerPatches.some((patch) => hasSpatialTickEntityDelta(patch))
@@ -415,15 +408,13 @@ export class MapStore {
     }
   }
 
-/** applyNextSelfDelta：执行对应的业务逻辑。 */
+  /** 处理本体增量：坐标、生命/真元变化、地图切换。 */
   applyNextSelfDelta(data: MapNextSelfDeltaInput): void {
     if (!this.player) {
       return;
     }
 
-/** nextMapId：定义该变量以承载业务值。 */
     const nextMapId = typeof data.mapId === 'string' && data.mapId ? data.mapId : undefined;
-/** mapChanged：定义该变量以承载业务值。 */
     const mapChanged = Boolean(nextMapId && nextMapId !== this.player.mapId);
     if (mapChanged && nextMapId) {
       this.mapMeta = null;
@@ -456,9 +447,7 @@ export class MapStore {
       this.player.facing = data.facing as Direction;
     }
 
-/** oldX：定义该变量以承载业务值。 */
     const oldX = this.player.x;
-/** oldY：定义该变量以承载业务值。 */
     const oldY = this.player.y;
     if (typeof data.x === 'number') {
       this.player.x = data.x;
@@ -474,7 +463,6 @@ export class MapStore {
       publishLatestObservedEntitiesSnapshot(this.entities);
     }
 
-/** moved：定义该变量以承载业务值。 */
     const moved = !mapChanged && (this.player.x !== oldX || this.player.y !== oldY);
     if (mapChanged) {
       this.entityTransition = { snapCamera: true };
@@ -493,7 +481,7 @@ export class MapStore {
     this.entityTransition = null;
   }
 
-/** replaceVisibleEntities：执行对应的业务逻辑。 */
+  /** 用新实体数组替换当前可见实体并更新过渡信息。 */
   replaceVisibleEntities(entities: ObservedMapEntity[], transition: MapEntityTransition | null = null): void {
     this.entities = entities.map((entry) => cloneJson(entry));
     this.entityMap = new Map(this.entities.map((entry) => [entry.id, entry]));
@@ -501,22 +489,22 @@ export class MapStore {
     this.entityTransition = transition;
   }
 
-/** setPathCells：执行对应的业务逻辑。 */
+  /** 写入寻路路径用于前端高亮渲染。 */
   setPathCells(cells: Array<{ x: number; y: number }>): void {
     this.pathCells = cells.map((cell) => ({ x: cell.x, y: cell.y }));
   }
 
-/** setTargetingOverlay：执行对应的业务逻辑。 */
+  /** 更新瞄准叠加层状态。 */
   setTargetingOverlay(state: MapTargetingOverlayState | null): void {
     this.targeting = state ? cloneJson(state) : null;
   }
 
-/** setSenseQiOverlay：执行对应的业务逻辑。 */
+  /** 更新感气叠加层状态。 */
   setSenseQiOverlay(state: MapSenseQiOverlayState | null): void {
     this.senseQi = state ? { ...state } : null;
   }
 
-/** reset：执行对应的业务逻辑。 */
+  /** 清空地图会话状态，保留实例可复用。 */
   reset(): void {
     this.mapMeta = null;
     this.player = null;
@@ -541,7 +529,7 @@ export class MapStore {
     this.visibleTileRevision += 1;
   }
 
-/** setTickDurationMs：执行对应的业务逻辑。 */
+  /** 校验并更新本地 tick 插值时长。 */
   setTickDurationMs(durationMs: number): void {
     if (!Number.isFinite(durationMs) || durationMs <= 0) {
       return;
@@ -549,24 +537,23 @@ export class MapStore {
     this.tickTiming.durationMs = Math.max(1, Math.round(durationMs));
   }
 
-/** getViewRadius：执行对应的业务逻辑。 */
+  /** 读取当前视域半径（时间状态 > 玩家设置 > 默认常量）。 */
   getViewRadius(): number {
     return this.time?.effectiveViewRange ?? this.player?.viewRange ?? VIEW_RADIUS;
   }
 
-/** getMapMeta：执行对应的业务逻辑。 */
+  /** 获取当前地图元数据。 */
   getMapMeta(): MapMeta | null {
     return this.mapMeta;
   }
 
-/** getKnownTileAt：执行对应的业务逻辑。 */
+  /** 按坐标读取已知地块（不考虑可见性）。 */
   getKnownTileAt(x: number, y: number): Tile | null {
     return this.tileCache.get(`${x},${y}`) ?? null;
   }
 
-/** getVisibleTileAt：执行对应的业务逻辑。 */
+  /** 按坐标读取当前可见地块。 */
   getVisibleTileAt(x: number, y: number): Tile | null {
-/** key：定义该变量以承载业务值。 */
     const key = `${x},${y}`;
     if (!this.visibleTiles.has(key)) {
       return null;
@@ -574,12 +561,12 @@ export class MapStore {
     return this.tileCache.get(key) ?? null;
   }
 
-/** getGroundPileAt：执行对应的业务逻辑。 */
+  /** 按坐标读取地面物品堆。 */
   getGroundPileAt(x: number, y: number): GroundItemPileView | null {
     return this.groundPiles.get(`${x},${y}`) ?? null;
   }
 
-/** getSnapshot：执行对应的业务逻辑。 */
+  /** 组装可供渲染/交互使用的只读快照。 */
   getSnapshot(): MapStoreSnapshot {
     return {
       mapMeta: this.mapMeta,
@@ -623,7 +610,7 @@ export class MapStore {
     };
   }
 
-/** getTickTiming：执行对应的业务逻辑。 */
+  /** 返回当前 tick 计时器。 */
   getTickTiming(): MapStoreSnapshot['tickTiming'] {
     return this.tickTiming;
   }
@@ -631,19 +618,14 @@ export class MapStore {
   private mergeTickEntities(
     playerPatches: TickRenderEntity[],
     entityPatches: TickRenderEntity[],
-/** removedEntityIds：定义该变量以承载业务值。 */
     removedEntityIds: string[] = [],
   ): ObservedMapEntity[] {
-/** removedIdSet：定义该变量以承载业务值。 */
     const removedIdSet = new Set(removedEntityIds);
-/** merged：定义该变量以承载业务值。 */
     const merged = this.entities
       .filter((entity) => !removedIdSet.has(entity.id))
       .map((entity) => cloneJson(entity));
-/** nextMap：定义该变量以承载业务值。 */
     const nextMap = new Map<string, ObservedMapEntity>(merged.map((entity) => [entity.id, entity]));
     if (this.player && !removedIdSet.has(this.player.id) && !nextMap.has(this.player.id)) {
-/** localPlayerEntity：定义该变量以承载业务值。 */
       const localPlayerEntity = buildLocalPlayerEntity(this.player, this.entityMap.get(this.player.id));
       merged.unshift(localPlayerEntity);
       nextMap.set(localPlayerEntity.id, localPlayerEntity);
@@ -653,7 +635,6 @@ export class MapStore {
       const previous = nextMap.get(patch.id);
       const next = mergeObservedEntityPatch(patch, previous);
       if (previous) {
-/** index：定义该变量以承载业务值。 */
         const index = merged.findIndex((entity) => entity.id === patch.id);
         if (index >= 0) {
           merged[index] = next;
@@ -668,9 +649,8 @@ export class MapStore {
     return merged;
   }
 
-/** mergeGroundItemPatches：执行对应的业务逻辑。 */
+  /** 合并地面物品增量，返回新 map 用于下发。 */
   private mergeGroundItemPatches(patches: GroundItemPilePatch[]): Map<string, GroundItemPileView> {
-/** nextMap：定义该变量以承载业务值。 */
     const nextMap = new Map(this.groundPiles);
     for (const patch of patches) {
       const key = `${patch.x},${patch.y}`;
@@ -695,7 +675,6 @@ export class MapStore {
     adds: MapMinimapMarker[],
     removes: string[],
   ): MapMinimapMarker[] {
-/** nextMap：定义该变量以承载业务值。 */
     const nextMap = new Map(this.visibleMinimapMarkers.map((marker) => [marker.id, cloneJson(marker)]));
     for (const markerId of removes) {
       nextMap.delete(markerId);
@@ -710,7 +689,6 @@ export class MapStore {
     adds: Array<[string, string]>,
     removes: Array<[string, string]>,
   ): Array<{ ownerId: string; targetId: string }> {
-/** nextMap：定义该变量以承载业务值。 */
     const nextMap = new Map(
       this.threatArrows.map((entry) => [buildThreatArrowKey(entry.ownerId, entry.targetId), { ...entry }]),
     );
@@ -726,7 +704,7 @@ export class MapStore {
     return [...nextMap.values()];
   }
 
-/** applyVisibleTilePatches：执行对应的业务逻辑。 */
+  /** 按补丁方式更新可见块并提高 minimap 版本号。 */
   private applyVisibleTilePatches(mapId: string, patches: VisibleTilePatch[]): void {
     rememberVisibleTilePatches(mapId, patches);
     for (const patch of patches) {
@@ -742,7 +720,7 @@ export class MapStore {
     this.visibleTileRevision += 1;
   }
 
-/** cacheVisibleTiles：执行对应的业务逻辑。 */
+  /** 重新缓存整块可见地块并重建可见集合。 */
   private cacheVisibleTiles(mapId: string, tiles: VisibleTile[][], originX: number, originY: number): void {
     this.visibleTiles.clear();
     rememberVisibleTiles(mapId, tiles, originX, originY);
@@ -764,6 +742,8 @@ export class MapStore {
     }
   }
 }
+
+
 
 
 

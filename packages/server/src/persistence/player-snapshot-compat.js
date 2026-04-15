@@ -1,31 +1,34 @@
 "use strict";
-/** 模块实现文件，负责当前职责边界内的业务逻辑。 */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.canonicalizeRuntimeBonusSource = exports.resolveCompatiblePendingLogbookMessages = exports.resolveCompatibleRuntimeBonuses = void 0;
-/** resolveCompatibleSnapshotArray：执行对应的业务逻辑。 */
+
+/** legacy 与 next 快照兼容处理：统一读取历史数组与 bonus 来源。 */
 function resolveCompatibleSnapshotArray(snapshot, primaryKey, compatResolver) {
-/** primaryValue：定义该变量以承载业务值。 */
+
     const primaryValue = snapshot?.[primaryKey];
     if (Array.isArray(primaryValue)) {
         return primaryValue;
     }
-/** compatValue：定义该变量以承载业务值。 */
+
     const compatValue = compatResolver(snapshot);
     return Array.isArray(compatValue) ? compatValue : [];
 }
-/** resolveCompatibleRuntimeBonuses：执行对应的业务逻辑。 */
+
+/** 兼容读取 runtimeBonuses：优先新字段，兼容 legacyBonuses。 */
 function resolveCompatibleRuntimeBonuses(snapshot) {
     return resolveCompatibleSnapshotArray(snapshot, 'runtimeBonuses', (candidate) => candidate?.legacyBonuses);
 }
 exports.resolveCompatibleRuntimeBonuses = resolveCompatibleRuntimeBonuses;
-/** resolveCompatiblePendingLogbookMessages：执行对应的业务逻辑。 */
+
+/** 兼容读取 pendingLogbookMessages：优先新字段并回退 legacyCompat 分支。 */
 function resolveCompatiblePendingLogbookMessages(snapshot) {
     return resolveCompatibleSnapshotArray(snapshot, 'pendingLogbookMessages', (candidate) => candidate?.legacyCompat?.pendingLogbookMessages);
 }
 exports.resolveCompatiblePendingLogbookMessages = resolveCompatiblePendingLogbookMessages;
-/** canonicalizeRuntimeBonusSource：执行对应的业务逻辑。 */
+
+/** 将 legacy bonus source 映射到 next 统一命名空间，便于后续归并。 */
 function canonicalizeRuntimeBonusSource(source) {
-/** normalized：定义该变量以承载业务值。 */
+
     const normalized = typeof source === 'string' ? source.trim() : '';
     if (!normalized) {
         return '';

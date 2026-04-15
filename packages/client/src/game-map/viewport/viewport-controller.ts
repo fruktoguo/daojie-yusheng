@@ -2,34 +2,31 @@ import { updateDisplayMetrics } from '../../display';
 import type { MapSafeAreaInsets } from '../types';
 import { MAX_DPR } from '../../constants/visuals/viewport';
 
-/** ViewportSnapshot：定义该接口的能力与字段约束。 */
+/** 视口计算快照。 */
 export interface ViewportSnapshot {
-/** cssWidth：定义该变量以承载业务值。 */
   cssWidth: number;
-/** cssHeight：定义该变量以承载业务值。 */
   cssHeight: number;
-/** dpr：定义该变量以承载业务值。 */
   dpr: number;
-/** viewportScale：定义该变量以承载业务值。 */
   viewportScale: number;
-/** backbufferWidth：定义该变量以承载业务值。 */
   backbufferWidth: number;
-/** backbufferHeight：定义该变量以承载业务值。 */
   backbufferHeight: number;
-/** safeArea：定义该变量以承载业务值。 */
   safeArea: MapSafeAreaInsets;
 }
 
-/** ViewportController：封装相关状态与行为。 */
+/** 视口参数管理器，维护容器尺寸、缩放与像素比例。 */
 export class ViewportController {
+  /** CSS 宽度（逻辑像素）。 */
   private cssWidth = 1;
+  /** CSS 高度（逻辑像素）。 */
   private cssHeight = 1;
+  /** 设备像素比。 */
   private dpr = 1;
+  /** 外部视口缩放倍率。 */
   private viewportScale = 1;
-/** safeArea：定义该变量以承载业务值。 */
+  /** 当前安全区域边距。 */
   private safeArea: MapSafeAreaInsets = { top: 0, right: 0, bottom: 0, left: 0 };
 
-/** setViewportSize：执行对应的业务逻辑。 */
+  /** 更新容器像素尺寸和比例参数。 */
   setViewportSize(width: number, height: number, dpr: number, viewportScale = 1): void {
     this.cssWidth = Math.max(1, width);
     this.cssHeight = Math.max(1, height);
@@ -37,18 +34,15 @@ export class ViewportController {
     this.viewportScale = Math.max(1, viewportScale);
   }
 
-/** setSafeArea：执行对应的业务逻辑。 */
+  /** 更新安全区域边距（刘海屏/底部留白）。 */
   setSafeArea(insets: MapSafeAreaInsets): void {
     this.safeArea = insets;
   }
 
-/** syncDisplayMetrics：执行对应的业务逻辑。 */
+  /** 基于当前视口参数同步全局显示度量（用于渲染范围与布局）。 */
   syncDisplayMetrics(baseRadius: number): void {
-/** usableWidth：定义该变量以承载业务值。 */
     const usableWidth = Math.max(1, this.cssWidth - this.safeArea.left - this.safeArea.right);
-/** usableHeight：定义该变量以承载业务值。 */
     const usableHeight = Math.max(1, this.cssHeight - this.safeArea.top - this.safeArea.bottom);
-/** pixelRatio：定义该变量以承载业务值。 */
     const pixelRatio = this.dpr * this.viewportScale;
     updateDisplayMetrics(
       Math.max(1, Math.floor(usableWidth * pixelRatio)),
@@ -57,7 +51,7 @@ export class ViewportController {
     );
   }
 
-/** getSnapshot：执行对应的业务逻辑。 */
+  /** 导出当前视口快照供渲染器和适配器使用。 */
   getSnapshot(): ViewportSnapshot {
     return {
       cssWidth: this.cssWidth,
@@ -70,4 +64,6 @@ export class ViewportController {
     };
   }
 }
+
+
 

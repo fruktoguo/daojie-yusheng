@@ -1,7 +1,7 @@
 "use strict";
-/** __decorate：定义该变量以承载业务值。 */
+
 var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-/** c：定义该变量以承载业务值。 */
+
     var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
     if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
     else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
@@ -9,15 +9,18 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.WorldProjectorService = void 0;
-/** common_1：定义该变量以承载业务值。 */
+
 const common_1 = require("@nestjs/common");
-/** shared_1：定义该变量以承载业务值。 */
+
 const shared_1 = require("@mud/shared-next");
-/** ATTR_DELTA_PATCH_THRESHOLD：定义该变量以承载业务值。 */
+
+/** 属性差量阈值，超过后用绝对值而不是 patch 发送。 */
 const ATTR_DELTA_PATCH_THRESHOLD = 10;
-/** ATTRIBUTE_KEYS：定义该变量以承载业务值。 */
+
+/** 角色属性键，用于比较与构造投影数据。 */
 const ATTRIBUTE_KEYS = ['constitution', 'spirit', 'perception', 'talent', 'comprehension', 'luck'];
-/** NUMERIC_STAT_KEYS：定义该变量以承载业务值。 */
+
+/** 数值属性键，决定 self/world 面板里的基础数值投影。 */
 const NUMERIC_STAT_KEYS = [
     'maxHp',
     'maxQi',
@@ -49,7 +52,8 @@ const NUMERIC_STAT_KEYS = [
     'extraRange',
     'extraArea',
 ];
-/** RATIO_DIVISOR_KEYS：定义该变量以承载业务值。 */
+
+/** 比率分母相关的属性键。 */
 const RATIO_DIVISOR_KEYS = [
     'dodge',
     'crit',
@@ -58,12 +62,15 @@ const RATIO_DIVISOR_KEYS = [
     'cooldownSpeed',
     'moveSpeed',
 ];
-/** ELEMENT_GROUP_KEYS：定义该变量以承载业务值。 */
+
+/** 元素属性组键。 */
 const ELEMENT_GROUP_KEYS = ['metal', 'wood', 'water', 'fire', 'earth'];
-/** WorldProjectorService：定义该变量以承载业务值。 */
+
+/** 世界投影服务：把 runtime 视图压缩成 next 协议的初始包和增量包。 */
 let WorldProjectorService = class WorldProjectorService {
+    /** 记录每个玩家上一次投影快照，用于生成增量。 */
     cacheByPlayerId = new Map();
-/** createInitialEnvelope：执行对应的业务逻辑。 */
+    /** 生成玩家首次进入时的完整投影包。 */
     createInitialEnvelope(binding, view, player) {
         this.cacheByPlayerId.set(binding.playerId, captureProjectorState(view, player));
         return {
@@ -79,9 +86,9 @@ let WorldProjectorService = class WorldProjectorService {
             panelDelta: buildFullPanelDelta(player),
         };
     }
-/** createDeltaEnvelope：执行对应的业务逻辑。 */
+    /** 生成常规增量投影；首次或换图时回退为完整包。 */
     createDeltaEnvelope(view, player) {
-/** previous：定义该变量以承载业务值。 */
+
         const previous = this.cacheByPlayerId.get(view.playerId);
         if (!previous) {
             this.cacheByPlayerId.set(view.playerId, captureProjectorState(view, player));
@@ -101,30 +108,30 @@ let WorldProjectorService = class WorldProjectorService {
                 panelDelta: buildFullPanelDelta(player),
             };
         }
-/** currentWorld：定义该变量以承载业务值。 */
+
         const currentWorld = previous.worldRevision === view.worldRevision
             ? previous
             : captureWorldState(view);
-/** current：定义该变量以承载业务值。 */
+
         const current = combineProjectorState(currentWorld, capturePlayerState(player));
         this.cacheByPlayerId.set(view.playerId, current);
-/** worldChanged：定义该变量以承载业务值。 */
+
         const worldChanged = previous.worldRevision !== current.worldRevision;
-/** playerPatch：定义该变量以承载业务值。 */
+
         const playerPatch = worldChanged ? diffPlayerEntries(previous.players, current.players) : [];
-/** monsterPatch：定义该变量以承载业务值。 */
+
         const monsterPatch = worldChanged ? diffMonsterEntries(previous.monsters, current.monsters) : [];
-/** npcPatch：定义该变量以承载业务值。 */
+
         const npcPatch = worldChanged ? diffNpcEntries(previous.npcs, current.npcs) : [];
-/** portalPatch：定义该变量以承载业务值。 */
+
         const portalPatch = worldChanged ? diffPortalEntries(previous.portals, current.portals) : [];
-/** groundPatch：定义该变量以承载业务值。 */
+
         const groundPatch = worldChanged ? diffGroundPiles(previous.groundPiles, current.groundPiles) : [];
-/** containerPatch：定义该变量以承载业务值。 */
+
         const containerPatch = worldChanged ? diffContainerEntries(previous.containers, current.containers) : [];
-/** selfDelta：定义该变量以承载业务值。 */
+
         const selfDelta = buildSelfDelta(previous, player);
-/** panelDelta：定义该变量以承载业务值。 */
+
         const panelDelta = buildPanelDelta(previous, player);
         if (playerPatch.length === 0
             && monsterPatch.length === 0
@@ -154,11 +161,11 @@ let WorldProjectorService = class WorldProjectorService {
             panelDelta: panelDelta ?? undefined,
         };
     }
-/** clear：执行对应的业务逻辑。 */
+    /** 清理玩家投影缓存。 */
     clear(playerId) {
         this.cacheByPlayerId.delete(playerId);
     }
-/** getEventNames：执行对应的业务逻辑。 */
+    /** 暴露当前使用的事件枚举，供上层统一下发。 */
     getEventNames() {
         return shared_1.NEXT_S2C;
     }
@@ -167,7 +174,6 @@ exports.WorldProjectorService = WorldProjectorService;
 exports.WorldProjectorService = WorldProjectorService = __decorate([
     (0, common_1.Injectable)()
 ], WorldProjectorService);
-/** buildMapEnter：执行对应的业务逻辑。 */
 function buildMapEnter(view) {
     return {
         iid: view.instance.instanceId,
@@ -180,9 +186,8 @@ function buildMapEnter(view) {
         y: view.self.y,
     };
 }
-/** buildFullWorldDelta：执行对应的业务逻辑。 */
 function buildFullWorldDelta(view) {
-/** players：定义该变量以承载业务值。 */
+
     const players = [{
             id: view.playerId,
             x: view.self.x,
@@ -192,7 +197,7 @@ function buildFullWorldDelta(view) {
             x: entry.x,
             y: entry.y,
         }))];
-/** monsters：定义该变量以承载业务值。 */
+
     const monsters = Array.from(view.localMonsters, (entry) => ({
         id: entry.runtimeId,
         mid: entry.monsterId,
@@ -204,7 +209,7 @@ function buildFullWorldDelta(view) {
         c: entry.color,
         tr: entry.tier,
     }));
-/** npcs：定义该变量以承载业务值。 */
+
     const npcs = Array.from(view.localNpcs, (entry) => ({
         id: entry.npcId,
         x: entry.x,
@@ -215,23 +220,23 @@ function buildFullWorldDelta(view) {
         sh: entry.hasShop ? 1 : undefined,
         qm: entry.questMarker ?? null,
     }));
-/** portals：定义该变量以承载业务值。 */
+
     const portals = Array.from(view.localPortals, (entry) => ({
         id: buildPortalId(entry.x, entry.y),
         x: entry.x,
         y: entry.y,
         tm: entry.targetMapId,
-/** tr：定义该变量以承载业务值。 */
+
         tr: entry.trigger === 'auto' ? 1 : 0,
     }));
-/** ground：定义该变量以承载业务值。 */
+
     const ground = Array.from(view.localGroundPiles, (entry) => ({
         sourceId: entry.sourceId,
         x: entry.x,
         y: entry.y,
         items: entry.items.map((item) => ({ ...item })),
     }));
-/** containers：定义该变量以承载业务值。 */
+
     const containers = Array.from(view.localContainers, (entry) => ({
         id: `container:${entry.id}`,
         x: entry.x,
@@ -252,7 +257,6 @@ function buildFullWorldDelta(view) {
         c: containers.length > 0 ? containers : undefined,
     };
 }
-/** buildFullSelfDelta：执行对应的业务逻辑。 */
 function buildFullSelfDelta(player) {
     return {
         sr: player.selfRevision,
@@ -267,7 +271,6 @@ function buildFullSelfDelta(player) {
         maxQi: player.maxQi,
     };
 }
-/** buildFullPanelDelta：执行对应的业务逻辑。 */
 function buildFullPanelDelta(player) {
     return {
         inv: {
@@ -300,7 +303,6 @@ function buildFullPanelDelta(player) {
         buff: buildFullBuffDelta(player),
     };
 }
-/** captureWorldState：执行对应的业务逻辑。 */
 function captureWorldState(view) {
     return {
         instanceId: view.instance.instanceId,
@@ -335,7 +337,7 @@ function captureWorldState(view) {
                 x: entry.x,
                 y: entry.y,
                 tm: entry.targetMapId,
-/** tr：定义该变量以承载业务值。 */
+
                 tr: entry.trigger === 'auto' ? 1 : 0,
             }])),
         groundPiles: new Map(view.localGroundPiles.map((entry) => [entry.sourceId, {
@@ -352,7 +354,6 @@ function captureWorldState(view) {
             }])),
     };
 }
-/** capturePlayerState：执行对应的业务逻辑。 */
 function capturePlayerState(player) {
     return {
         selfRevision: player.selfRevision,
@@ -420,7 +421,6 @@ function capturePlayerState(player) {
         },
     };
 }
-/** combineProjectorState：执行对应的业务逻辑。 */
 function combineProjectorState(worldState, playerState) {
     return {
         instanceId: worldState.instanceId,
@@ -436,11 +436,9 @@ function combineProjectorState(worldState, playerState) {
         panel: playerState.panel,
     };
 }
-/** captureProjectorState：执行对应的业务逻辑。 */
 function captureProjectorState(view, player) {
     return combineProjectorState(captureWorldState(view), capturePlayerState(player));
 }
-/** buildFullAttrDelta：执行对应的业务逻辑。 */
 function buildFullAttrDelta(player) {
     return {
         r: player.attrs.revision,
@@ -463,7 +461,6 @@ function buildFullAttrDelta(player) {
         realmBreakthroughReady: player.realm?.breakthroughReady,
     };
 }
-/** buildFullActionDelta：执行对应的业务逻辑。 */
 function buildFullActionDelta(player) {
     return {
         r: player.actions.revision,
@@ -488,7 +485,6 @@ function buildFullActionDelta(player) {
         senseQiActive: player.combat.senseQiActive,
     };
 }
-/** buildFullBuffDelta：执行对应的业务逻辑。 */
 function buildFullBuffDelta(player) {
     return {
         r: player.buffs.revision,
@@ -496,42 +492,41 @@ function buildFullBuffDelta(player) {
         buffs: player.buffs.buffs.map((entry) => cloneVisibleBuff(entry)),
     };
 }
-/** buildAttrDelta：执行对应的业务逻辑。 */
 function buildAttrDelta(previous, player) {
-/** stageChanged：定义该变量以承载业务值。 */
+
     const stageChanged = previous.panel.attrStage !== player.attrs.stage;
-/** baseAttrsPatch：定义该变量以承载业务值。 */
+
     const baseAttrsPatch = diffAttributes(previous.panel.baseAttrs, player.attrs.baseAttrs);
-/** nextBonuses：定义该变量以承载业务值。 */
+
     const nextBonuses = buildAttrBonuses(player);
-/** bonusesChanged：定义该变量以承载业务值。 */
+
     const bonusesChanged = !isSameAttrBonuses(previous.panel.attrBonuses, nextBonuses);
-/** finalAttrsPatch：定义该变量以承载业务值。 */
+
     const finalAttrsPatch = diffAttributes(previous.panel.finalAttrs, player.attrs.finalAttrs);
-/** numericStatsPatch：定义该变量以承载业务值。 */
+
     const numericStatsPatch = diffNumericStats(previous.panel.numericStats, player.attrs.numericStats);
-/** ratioDivisorsPatch：定义该变量以承载业务值。 */
+
     const ratioDivisorsPatch = diffRatioDivisors(previous.panel.ratioDivisors, player.attrs.ratioDivisors);
-/** nextSpecialStats：定义该变量以承载业务值。 */
+
     const nextSpecialStats = {
         foundation: player.foundation,
         combatExp: player.combatExp,
     };
-/** specialStatsChanged：定义该变量以承载业务值。 */
+
     const specialStatsChanged = !isSameSpecialStats(previous.panel.attrSpecialStats, nextSpecialStats);
-/** boneAgeBaseYearsChanged：定义该变量以承载业务值。 */
+
     const boneAgeBaseYearsChanged = previous.panel.attrBoneAgeBaseYears !== player.boneAgeBaseYears;
-/** lifeElapsedTicksChanged：定义该变量以承载业务值。 */
+
     const lifeElapsedTicksChanged = previous.panel.attrLifeElapsedTicks !== player.lifeElapsedTicks;
-/** lifespanYearsChanged：定义该变量以承载业务值。 */
+
     const lifespanYearsChanged = previous.panel.attrLifespanYears !== player.lifespanYears;
-/** realmProgressChanged：定义该变量以承载业务值。 */
+
     const realmProgressChanged = previous.panel.attrRealmProgress !== player.realm?.progress;
-/** realmProgressToNextChanged：定义该变量以承载业务值。 */
+
     const realmProgressToNextChanged = previous.panel.attrRealmProgressToNext !== player.realm?.progressToNext;
-/** realmBreakthroughReadyChanged：定义该变量以承载业务值。 */
+
     const realmBreakthroughReadyChanged = previous.panel.attrRealmBreakthroughReady !== player.realm?.breakthroughReady;
-/** totalChanges：定义该变量以承载业务值。 */
+
     const totalChanges = (stageChanged ? 1 : 0)
         + baseAttrsPatch.changes
         + (bonusesChanged ? 1 : 0)
@@ -565,12 +560,11 @@ function buildAttrDelta(previous, player) {
         realmBreakthroughReady: realmBreakthroughReadyChanged ? player.realm?.breakthroughReady : undefined,
     };
 }
-/** buildSelfDelta：执行对应的业务逻辑。 */
 function buildSelfDelta(previous, player) {
     if (previous.selfRevision === player.selfRevision) {
         return null;
     }
-/** delta：定义该变量以承载业务值。 */
+
     const delta = { sr: player.selfRevision };
     if (previous.self.instanceId !== player.instanceId) {
         delta.iid = player.instanceId;
@@ -595,24 +589,23 @@ function buildSelfDelta(previous, player) {
     }
     return delta;
 }
-/** buildPanelDelta：执行对应的业务逻辑。 */
 function buildPanelDelta(previous, player) {
-/** delta：定义该变量以承载业务值。 */
+
     const delta = {};
     if (previous.panel.inventoryRevision !== player.inventory.revision) {
-/** slotPatch：定义该变量以承载业务值。 */
+
         const slotPatch = diffInventorySlots(previous.panel.inventoryItems, player.inventory.items);
         delta.inv = {
             r: player.inventory.revision,
-/** capacity：定义该变量以承载业务值。 */
+
             capacity: previous.panel.inventoryCapacity !== player.inventory.capacity ? player.inventory.capacity : undefined,
-/** size：定义该变量以承载业务值。 */
+
             size: previous.panel.inventoryItems.length !== player.inventory.items.length ? player.inventory.items.length : undefined,
             slots: slotPatch.length > 0 ? slotPatch : undefined,
         };
     }
     if (previous.panel.equipmentRevision !== player.equipment.revision) {
-/** slotPatch：定义该变量以承载业务值。 */
+
         const slotPatch = diffEquipmentSlots(previous.panel.equipmentSlots, player.equipment.slots);
         delta.eq = {
             r: player.equipment.revision,
@@ -620,25 +613,25 @@ function buildPanelDelta(previous, player) {
         };
     }
     if (previous.panel.techniqueRevision !== player.techniques.revision) {
-/** techniquePatch：定义该变量以承载业务值。 */
+
         const techniquePatch = diffTechniqueEntries(previous.panel.techniques, player.techniques.techniques);
-/** removed：定义该变量以承载业务值。 */
+
         const removed = diffRemovedTechniqueIds(previous.panel.techniques, player.techniques.techniques);
         delta.tech = {
             r: player.techniques.revision,
             techniques: techniquePatch,
             removeTechniqueIds: removed.length > 0 ? removed : undefined,
-/** cultivatingTechId：定义该变量以承载业务值。 */
+
             cultivatingTechId: previous.panel.cultivatingTechId !== player.techniques.cultivatingTechId
                 ? player.techniques.cultivatingTechId
                 : undefined,
-/** bodyTraining：定义该变量以承载业务值。 */
+
             bodyTraining: previous.panel.bodyTraining !== player.bodyTraining
                 ? (player.bodyTraining ? { ...player.bodyTraining } : null)
                 : undefined,
         };
     }
-/** attrMetaChanged：定义该变量以承载业务值。 */
+
     const attrMetaChanged = previous.panel.attrBoneAgeBaseYears !== player.boneAgeBaseYears
         || previous.panel.attrLifeElapsedTicks !== player.lifeElapsedTicks
         || previous.panel.attrLifespanYears !== player.lifespanYears
@@ -654,9 +647,9 @@ function buildPanelDelta(previous, player) {
         delta.attr = buildAttrDelta(previous, player);
     }
     if (previous.panel.actionRevision !== player.actions.revision) {
-/** actionPatch：定义该变量以承载业务值。 */
+
         const actionPatch = diffActionEntries(previous.panel.actions, player.actions.actions);
-/** removedActionIds：定义该变量以承载业务值。 */
+
         const removedActionIds = diffRemovedActionIds(previous.panel.actions, player.actions.actions);
         delta.act = {
             r: player.actions.revision,
@@ -664,7 +657,7 @@ function buildPanelDelta(previous, player) {
             removeActionIds: removedActionIds.length > 0 ? removedActionIds : undefined,
         };
     }
-/** actionTopLevelChanged：定义该变量以承载业务值。 */
+
     const actionTopLevelChanged = previous.panel.actionAutoBattle !== player.combat.autoBattle
         || JSON.stringify(previous.panel.actionAutoUsePills ?? []) !== JSON.stringify(player.combat.autoUsePills ?? [])
         || JSON.stringify(previous.panel.actionCombatTargetingRules ?? null) !== JSON.stringify(player.combat.combatTargetingRules ?? null)
@@ -701,9 +694,9 @@ function buildPanelDelta(previous, player) {
         };
     }
     if (previous.panel.buffRevision !== player.buffs.revision) {
-/** buffPatch：定义该变量以承载业务值。 */
+
         const buffPatch = diffBuffEntries(previous.panel.buffs, player.buffs.buffs);
-/** removedBuffIds：定义该变量以承载业务值。 */
+
         const removedBuffIds = diffRemovedBuffIds(previous.panel.buffs, player.buffs.buffs);
         delta.buff = {
             r: player.buffs.revision,
@@ -713,9 +706,8 @@ function buildPanelDelta(previous, player) {
     }
     return delta.inv || delta.eq || delta.tech || delta.attr || delta.act || delta.buff ? delta : null;
 }
-/** diffPlayerEntries：执行对应的业务逻辑。 */
 function diffPlayerEntries(previous, current) {
-/** result：定义该变量以承载业务值。 */
+
     const result = [];
     for (const [playerId, entry] of current) {
         const prev = previous.get(playerId);
@@ -730,9 +722,8 @@ function diffPlayerEntries(previous, current) {
     }
     return result;
 }
-/** diffNpcEntries：执行对应的业务逻辑。 */
 function diffNpcEntries(previous, current) {
-/** result：定义该变量以承载业务值。 */
+
     const result = [];
     for (const [npcId, entry] of current) {
         const prev = previous.get(npcId);
@@ -744,15 +735,15 @@ function diffNpcEntries(previous, current) {
                 n: entry.n,
                 ch: entry.ch,
                 c: entry.c,
-/** sh：定义该变量以承载业务值。 */
+
                 sh: entry.sh === 1 ? 1 : undefined,
                 qm: entry.qm,
             });
             continue;
         }
-/** delta：定义该变量以承载业务值。 */
+
         const delta = { id: npcId };
-/** changed：定义该变量以承载业务值。 */
+
         let changed = false;
         if (prev.x !== entry.x) {
             delta.x = entry.x;
@@ -793,13 +784,11 @@ function diffNpcEntries(previous, current) {
     }
     return result;
 }
-/** isSameNpcQuestMarker：执行对应的业务逻辑。 */
 function isSameNpcQuestMarker(left, right) {
     return left?.line === right?.line && left?.state === right?.state;
 }
-/** diffPortalEntries：执行对应的业务逻辑。 */
 function diffPortalEntries(previous, current) {
-/** result：定义该变量以承载业务值。 */
+
     const result = [];
     for (const [portalId, entry] of current) {
         const prev = previous.get(portalId);
@@ -814,9 +803,8 @@ function diffPortalEntries(previous, current) {
     }
     return result;
 }
-/** diffMonsterEntries：执行对应的业务逻辑。 */
 function diffMonsterEntries(previous, current) {
-/** result：定义该变量以承载业务值。 */
+
     const result = [];
     for (const [runtimeId, entry] of current) {
         const prev = previous.get(runtimeId);
@@ -834,9 +822,9 @@ function diffMonsterEntries(previous, current) {
             });
             continue;
         }
-/** delta：定义该变量以承载业务值。 */
+
         const delta = { id: runtimeId };
-/** changed：定义该变量以承载业务值。 */
+
         let changed = false;
         if (prev.mid !== entry.mid) {
             delta.mid = entry.mid;
@@ -881,9 +869,8 @@ function diffMonsterEntries(previous, current) {
     }
     return result;
 }
-/** diffGroundPiles：执行对应的业务逻辑。 */
 function diffGroundPiles(previous, current) {
-/** result：定义该变量以承载业务值。 */
+
     const result = [];
     for (const [sourceId, entry] of current) {
         const prev = previous.get(sourceId);
@@ -908,9 +895,8 @@ function diffGroundPiles(previous, current) {
     }
     return result;
 }
-/** diffContainerEntries：执行对应的业务逻辑。 */
 function diffContainerEntries(previous, current) {
-/** result：定义该变量以承载业务值。 */
+
     const result = [];
     for (const [containerId, entry] of current) {
         const prev = previous.get(containerId);
@@ -925,9 +911,9 @@ function diffContainerEntries(previous, current) {
             });
             continue;
         }
-/** delta：定义该变量以承载业务值。 */
+
         const delta = { id: containerId };
-/** changed：定义该变量以承载业务值。 */
+
         let changed = false;
         if (prev.x !== entry.x) {
             delta.x = entry.x;
@@ -960,11 +946,10 @@ function diffContainerEntries(previous, current) {
     }
     return result;
 }
-/** diffInventorySlots：执行对应的业务逻辑。 */
 function diffInventorySlots(previous, current) {
-/** patch：定义该变量以承载业务值。 */
+
     const patch = [];
-/** maxLength：定义该变量以承载业务值。 */
+
     const maxLength = Math.max(previous.length, current.length);
     for (let index = 0; index < maxLength; index += 1) {
         const prev = previous[index] ?? null;
@@ -978,11 +963,10 @@ function diffInventorySlots(previous, current) {
     }
     return patch;
 }
-/** diffEquipmentSlots：执行对应的业务逻辑。 */
 function diffEquipmentSlots(previous, current) {
-/** patch：定义该变量以承载业务值。 */
+
     const patch = [];
-/** previousBySlot：定义该变量以承载业务值。 */
+
     const previousBySlot = new Map(previous.map((entry) => [entry.slot, entry]));
     for (const entry of current) {
         const prev = previousBySlot.get(entry.slot);
@@ -995,59 +979,52 @@ function diffEquipmentSlots(previous, current) {
     }
     return patch;
 }
-/** diffTechniqueEntries：执行对应的业务逻辑。 */
 function diffTechniqueEntries(previous, current) {
-/** previousById：定义该变量以承载业务值。 */
+
     const previousById = new Map(previous.map((entry) => [entry.techId, entry]));
     return current
         .filter((entry) => !isSameTechniqueEntry(previousById.get(entry.techId) ?? null, entry))
         .map((entry) => cloneTechniqueEntry(entry));
 }
-/** diffRemovedTechniqueIds：执行对应的业务逻辑。 */
 function diffRemovedTechniqueIds(previous, current) {
-/** currentIds：定义该变量以承载业务值。 */
+
     const currentIds = new Set(current.map((entry) => entry.techId));
     return previous
         .map((entry) => entry.techId)
         .filter((techId) => !currentIds.has(techId));
 }
-/** diffActionEntries：执行对应的业务逻辑。 */
 function diffActionEntries(previous, current) {
-/** previousById：定义该变量以承载业务值。 */
+
     const previousById = new Map(previous.map((entry) => [entry.id, entry]));
     return current
         .filter((entry) => !isSameActionEntry(previousById.get(entry.id) ?? null, entry))
         .map((entry) => ({ ...entry }));
 }
-/** diffRemovedActionIds：执行对应的业务逻辑。 */
 function diffRemovedActionIds(previous, current) {
-/** currentIds：定义该变量以承载业务值。 */
+
     const currentIds = new Set(current.map((entry) => entry.id));
     return previous
         .map((entry) => entry.id)
         .filter((actionId) => !currentIds.has(actionId));
 }
-/** diffBuffEntries：执行对应的业务逻辑。 */
 function diffBuffEntries(previous, current) {
-/** previousById：定义该变量以承载业务值。 */
+
     const previousById = new Map(previous.map((entry) => [entry.buffId, entry]));
     return current
         .filter((entry) => !isSameBuffEntry(previousById.get(entry.buffId) ?? null, entry))
         .map((entry) => cloneVisibleBuff(entry));
 }
-/** diffRemovedBuffIds：执行对应的业务逻辑。 */
 function diffRemovedBuffIds(previous, current) {
-/** currentIds：定义该变量以承载业务值。 */
+
     const currentIds = new Set(current.map((entry) => entry.buffId));
     return previous
         .map((entry) => entry.buffId)
         .filter((buffId) => !currentIds.has(buffId));
 }
-/** diffAttributes：执行对应的业务逻辑。 */
 function diffAttributes(previous, current) {
-/** patch：定义该变量以承载业务值。 */
+
     const patch = {};
-/** changes：定义该变量以承载业务值。 */
+
     let changes = 0;
     for (const key of ATTRIBUTE_KEYS) {
         if (previous[key] === current[key]) {
@@ -1058,11 +1035,10 @@ function diffAttributes(previous, current) {
     }
     return changes > 0 ? { patch, changes } : { changes: 0 };
 }
-/** diffNumericStats：执行对应的业务逻辑。 */
 function diffNumericStats(previous, current) {
-/** patch：定义该变量以承载业务值。 */
+
     const patch = {};
-/** changes：定义该变量以承载业务值。 */
+
     let changes = 0;
     for (const key of NUMERIC_STAT_KEYS) {
         if (previous[key] === current[key]) {
@@ -1071,13 +1047,13 @@ function diffNumericStats(previous, current) {
         patch[key] = current[key];
         changes += 1;
     }
-/** elementDamageBonusPatch：定义该变量以承载业务值。 */
+
     const elementDamageBonusPatch = diffElementGroup(previous.elementDamageBonus, current.elementDamageBonus);
     if (elementDamageBonusPatch.changes > 0) {
         patch.elementDamageBonus = elementDamageBonusPatch.patch;
         changes += elementDamageBonusPatch.changes;
     }
-/** elementDamageReducePatch：定义该变量以承载业务值。 */
+
     const elementDamageReducePatch = diffElementGroup(previous.elementDamageReduce, current.elementDamageReduce);
     if (elementDamageReducePatch.changes > 0) {
         patch.elementDamageReduce = elementDamageReducePatch.patch;
@@ -1085,11 +1061,10 @@ function diffNumericStats(previous, current) {
     }
     return changes > 0 ? { patch, changes } : { changes: 0 };
 }
-/** diffRatioDivisors：执行对应的业务逻辑。 */
 function diffRatioDivisors(previous, current) {
-/** patch：定义该变量以承载业务值。 */
+
     const patch = {};
-/** changes：定义该变量以承载业务值。 */
+
     let changes = 0;
     for (const key of RATIO_DIVISOR_KEYS) {
         if (previous[key] === current[key]) {
@@ -1098,7 +1073,7 @@ function diffRatioDivisors(previous, current) {
         patch[key] = current[key];
         changes += 1;
     }
-/** elementDamageReducePatch：定义该变量以承载业务值。 */
+
     const elementDamageReducePatch = diffElementGroup(previous.elementDamageReduce, current.elementDamageReduce);
     if (elementDamageReducePatch.changes > 0) {
         patch.elementDamageReduce = elementDamageReducePatch.patch;
@@ -1106,11 +1081,10 @@ function diffRatioDivisors(previous, current) {
     }
     return changes > 0 ? { patch, changes } : { changes: 0 };
 }
-/** diffElementGroup：执行对应的业务逻辑。 */
 function diffElementGroup(previous, current) {
-/** patch：定义该变量以承载业务值。 */
+
     const patch = {};
-/** changes：定义该变量以承载业务值。 */
+
     let changes = 0;
     for (const key of ELEMENT_GROUP_KEYS) {
         if (previous[key] === current[key]) {
@@ -1121,7 +1095,6 @@ function diffElementGroup(previous, current) {
     }
     return changes > 0 ? { patch, changes } : { changes: 0 };
 }
-/** isSameItem：执行对应的业务逻辑。 */
 function isSameItem(left, right) {
     if (left === right) {
         return true;
@@ -1152,11 +1125,10 @@ function isSameItem(left, right) {
         && left.tileAuraGainAmount === right.tileAuraGainAmount
         && left.allowBatchUse === right.allowBatchUse;
 }
-/** cloneTechniqueEntry：执行对应的业务逻辑。 */
 function cloneTechniqueEntry(source) {
     return {
         ...source,
-/** skillsEnabled：定义该变量以承载业务值。 */
+
         skillsEnabled: source.skillsEnabled !== false,
         skills: source.skills?.map((entry) => ({ ...entry })),
         layers: source.layers?.map((entry) => ({
@@ -1167,7 +1139,6 @@ function cloneTechniqueEntry(source) {
         attrCurves: source.attrCurves ? { ...source.attrCurves } : undefined,
     };
 }
-/** isSameTechniqueEntry：执行对应的业务逻辑。 */
 function isSameTechniqueEntry(left, right) {
     if (left === right) {
         return true;
@@ -1189,7 +1160,6 @@ function isSameTechniqueEntry(left, right) {
         && shallowEqualArray(left.layers, right.layers)
         && shallowEqualRecord(left.attrCurves, right.attrCurves);
 }
-/** isSameActionEntry：执行对应的业务逻辑。 */
 function isSameActionEntry(left, right) {
     if (left === right) {
         return true;
@@ -1209,7 +1179,6 @@ function isSameActionEntry(left, right) {
         && left.autoBattleOrder === right.autoBattleOrder
         && left.skillEnabled === right.skillEnabled;
 }
-/** isSameBuffEntry：执行对应的业务逻辑。 */
 function isSameBuffEntry(left, right) {
     if (left === right) {
         return true;
@@ -1234,7 +1203,6 @@ function isSameBuffEntry(left, right) {
         && shallowEqualRecord(left.stats, right.stats)
         && shallowEqualArray(left.qiProjection, right.qiProjection);
 }
-/** isSameGroundPile：执行对应的业务逻辑。 */
 function isSameGroundPile(left, right) {
     if (left === right) {
         return true;
@@ -1252,7 +1220,6 @@ function isSameGroundPile(left, right) {
     }
     return true;
 }
-/** isSameGroundItemEntry：执行对应的业务逻辑。 */
 function isSameGroundItemEntry(left, right) {
     if (left === right) {
         return true;
@@ -1268,7 +1235,6 @@ function isSameGroundItemEntry(left, right) {
         && left.grade === right.grade
         && left.groundLabel === right.groundLabel;
 }
-/** shallowEqualArray：执行对应的业务逻辑。 */
 function shallowEqualArray(left, right) {
     if (left === right) {
         return true;
@@ -1283,7 +1249,6 @@ function shallowEqualArray(left, right) {
     }
     return true;
 }
-/** shallowEqualRecord：执行对应的业务逻辑。 */
 function shallowEqualRecord(left, right) {
     if (left === right) {
         return true;
@@ -1291,13 +1256,13 @@ function shallowEqualRecord(left, right) {
     if (!left || !right) {
         return false;
     }
-/** leftRecord：定义该变量以承载业务值。 */
+
     const leftRecord = left;
-/** rightRecord：定义该变量以承载业务值。 */
+
     const rightRecord = right;
-/** leftKeys：定义该变量以承载业务值。 */
+
     const leftKeys = Object.keys(leftRecord);
-/** rightKeys：定义该变量以承载业务值。 */
+
     const rightKeys = Object.keys(rightRecord);
     if (leftKeys.length !== rightKeys.length) {
         return false;
@@ -1312,7 +1277,6 @@ function shallowEqualRecord(left, right) {
     }
     return true;
 }
-/** shallowEqualValue：执行对应的业务逻辑。 */
 function shallowEqualValue(left, right) {
     if (left === right) {
         return true;
@@ -1325,11 +1289,9 @@ function shallowEqualValue(left, right) {
     }
     return false;
 }
-/** isPlainObject：执行对应的业务逻辑。 */
 function isPlainObject(value) {
     return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
-/** cloneAttributes：执行对应的业务逻辑。 */
 function cloneAttributes(source) {
     return {
         constitution: source.constitution,
@@ -1340,20 +1302,17 @@ function cloneAttributes(source) {
         luck: source.luck,
     };
 }
-/** buildAttrBonuses：执行对应的业务逻辑。 */
 function buildAttrBonuses(player) {
     return Array.isArray(player.bonuses)
         ? player.bonuses.map((entry) => cloneAttrBonus(entry))
         : [];
 }
-/** cloneSpecialStats：执行对应的业务逻辑。 */
 function cloneSpecialStats(source) {
     return {
         foundation: source.foundation,
         combatExp: source.combatExp,
     };
 }
-/** isSameAttrBonuses：执行对应的业务逻辑。 */
 function isSameAttrBonuses(left, right) {
     if (left.length !== right.length) {
         return false;
@@ -1372,7 +1331,6 @@ function isSameAttrBonuses(left, right) {
     }
     return true;
 }
-/** cloneAttrBonus：执行对应的业务逻辑。 */
 function cloneAttrBonus(source) {
     return {
         source: source.source,
@@ -1380,16 +1338,14 @@ function cloneAttrBonus(source) {
         attrs: cloneAttributes(source.attrs),
         stats: clonePartialNumericStats(source.stats),
         qiProjection: source.qiProjection ? source.qiProjection.map((entry) => cloneQiProjectionModifier(entry)) : undefined,
-/** meta：定义该变量以承载业务值。 */
+
         meta: source.meta && typeof source.meta === 'object' ? { ...source.meta } : undefined,
     };
 }
-/** isSameSpecialStats：执行对应的业务逻辑。 */
 function isSameSpecialStats(left, right) {
     return left.foundation === right.foundation
         && left.combatExp === right.combatExp;
 }
-/** cloneNumericStats：执行对应的业务逻辑。 */
 function cloneNumericStats(source) {
     return {
         maxHp: source.maxHp,
@@ -1437,12 +1393,11 @@ function cloneNumericStats(source) {
         },
     };
 }
-/** clonePartialNumericStats：执行对应的业务逻辑。 */
 function clonePartialNumericStats(source) {
     if (!source) {
         return undefined;
     }
-/** clone：定义该变量以承载业务值。 */
+
     const clone = {};
     for (const key of NUMERIC_STAT_KEYS) {
         if (source[key] !== undefined) {
@@ -1457,7 +1412,6 @@ function clonePartialNumericStats(source) {
     }
     return Object.keys(clone).length > 0 ? clone : undefined;
 }
-/** cloneNumericRatioDivisors：执行对应的业务逻辑。 */
 function cloneNumericRatioDivisors(source) {
     return {
         dodge: source.dodge,
@@ -1475,7 +1429,6 @@ function cloneNumericRatioDivisors(source) {
         },
     };
 }
-/** cloneQiProjectionModifier：执行对应的业务逻辑。 */
 function cloneQiProjectionModifier(source) {
     return {
         ...source,
@@ -1490,7 +1443,6 @@ function cloneQiProjectionModifier(source) {
             : undefined,
     };
 }
-/** cloneVisibleBuff：执行对应的业务逻辑。 */
 function cloneVisibleBuff(source) {
     return {
         ...source,
@@ -1499,8 +1451,9 @@ function cloneVisibleBuff(source) {
         qiProjection: source.qiProjection ? source.qiProjection.map((entry) => ({ ...entry })) : undefined,
     };
 }
-/** buildPortalId：执行对应的业务逻辑。 */
 function buildPortalId(x, y) {
     return `${x}:${y}`;
 }
 //# sourceMappingURL=world-projector.service.js.map
+
+

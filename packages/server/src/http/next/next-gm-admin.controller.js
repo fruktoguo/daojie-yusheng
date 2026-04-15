@@ -19,25 +19,25 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.NextGmAdminController = void 0;
 const common_1 = require("@nestjs/common");
-const legacy_gm_http_auth_guard_1 = require("../../compat/legacy/http/legacy-gm-http-auth.guard");
-const legacy_gm_admin_compat_service_1 = require("../../compat/legacy/http/legacy-gm-admin-compat.service");
+const next_gm_auth_guard_1 = require("./next-gm-auth.guard");
+const next_gm_admin_service_1 = require("./next-gm-admin.service");
 let NextGmAdminController = class NextGmAdminController {
-    legacyGmAdminCompatService;
-    constructor(legacyGmAdminCompatService) {
-        this.legacyGmAdminCompatService = legacyGmAdminCompatService;
+    nextGmAdminService;
+    constructor(nextGmAdminService) {
+        this.nextGmAdminService = nextGmAdminService;
     }
     getDatabaseState() {
-        return this.legacyGmAdminCompatService.getDatabaseState();
+        return this.nextGmAdminService.getDatabaseState();
     }
     triggerDatabaseBackup() {
-        return this.legacyGmAdminCompatService.triggerDatabaseBackup();
+        return this.nextGmAdminService.triggerDatabaseBackup();
     }
     async downloadDatabaseBackup(backupId, response) {
-        const record = await this.legacyGmAdminCompatService.getBackupDownloadRecord(backupId);
+        const record = await this.nextGmAdminService.getBackupDownloadRecord(backupId);
         response.download(record.filePath, record.fileName);
     }
     triggerDatabaseRestore(body) {
-        return this.legacyGmAdminCompatService.triggerDatabaseRestore(body?.backupId ?? '');
+        return this.nextGmAdminService.triggerDatabaseRestore(body?.backupId ?? '');
     }
 };
 exports.NextGmAdminController = NextGmAdminController;
@@ -70,6 +70,9 @@ __decorate([
 ], NextGmAdminController.prototype, "triggerDatabaseRestore", null);
 exports.NextGmAdminController = NextGmAdminController = __decorate([
     (0, common_1.Controller)('api/gm'),
-    (0, common_1.UseGuards)(legacy_gm_http_auth_guard_1.LegacyGmHttpAuthGuard),
-    __metadata("design:paramtypes", [legacy_gm_admin_compat_service_1.LegacyGmAdminCompatService])
+    (0, common_1.UseGuards)(next_gm_auth_guard_1.NextGmAuthGuard),
+    __metadata("design:paramtypes", [next_gm_admin_service_1.NextGmAdminService])
 ], NextGmAdminController);
+
+
+

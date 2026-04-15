@@ -95,7 +95,7 @@ export const NUMERIC_SCALAR_STAT_KEYS = [
   'extraArea',
 ] as const;
 
-/** AttrPercentStatKey：定义该类型的结构与数据语义。 */
+/** AttrPercentStatKey：百分比属性键。 */
 type AttrPercentStatKey = 'maxHp' | 'maxQi' | 'physAtk' | 'spellAtk';
 
 /** 六维提供的原始点数加成 */
@@ -183,4 +183,3 @@ export const NUMERIC_SCALAR_STAT_VALUE_TYPES = {
 
 /** 默认 RatioValue 除数 */
 export const DEFAULT_RATIO_DIVISOR = 100;
-

@@ -1,67 +1,71 @@
 "use strict";
-/** __decorate：定义该变量以承载业务值。 */
+
 var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-/** c：定义该变量以承载业务值。 */
+
     var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
     if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
     else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
     return c > 3 && r && Object.defineProperty(target, key, r), r;
 };
-/** __metadata：定义该变量以承载业务值。 */
+
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.MailRuntimeService = void 0;
-/** common_1：定义该变量以承载业务值。 */
+
 const common_1 = require("@nestjs/common");
-/** shared_1：定义该变量以承载业务值。 */
+
 const shared_1 = require("@mud/shared-next");
-/** content_template_repository_1：定义该变量以承载业务值。 */
+
 const content_template_repository_1 = require("../../content/content-template.repository");
-/** mail_persistence_service_1：定义该变量以承载业务值。 */
+
 const mail_persistence_service_1 = require("../../persistence/mail-persistence.service");
-/** player_runtime_service_1：定义该变量以承载业务值。 */
+
 const player_runtime_service_1 = require("../player/player-runtime.service");
-/** MAIL_WELCOME_TEMPLATE_ID：定义该变量以承载业务值。 */
+
+/** 邮件运行时：负责系统信件、附件领取和直接邮件的持久化读写。 */
 const MAIL_WELCOME_TEMPLATE_ID = 'mail.welcome.v1';
-/** MAIL_DEFAULT_SENDER_LABEL：定义该变量以承载业务值。 */
+
+/** 默认系统发件人名称。 */
 const MAIL_DEFAULT_SENDER_LABEL = '司命台';
-/** MailRuntimeService：定义该变量以承载业务值。 */
+
 let MailRuntimeService = class MailRuntimeService {
     contentTemplateRepository;
     playerRuntimeService;
     mailPersistenceService;
+    /** 玩家邮箱缓存，按 playerId 索引。 */
     mailboxByPlayerId = new Map();
+    /** 正在加载中的邮箱任务，避免重复读库。 */
     loadingMailboxByPlayerId = new Map();
-/** 构造函数：执行实例初始化流程。 */
+    /** 注入内容、玩家与邮件持久化服务。 */
     constructor(contentTemplateRepository, playerRuntimeService, mailPersistenceService) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.playerRuntimeService = playerRuntimeService;
         this.mailPersistenceService = mailPersistenceService;
     }
-/** clearRuntimeCache：执行对应的业务逻辑。 */
+    /** 清空内存邮箱缓存，通常用于重载或测试。 */
     clearRuntimeCache() {
         this.mailboxByPlayerId.clear();
         this.loadingMailboxByPlayerId.clear();
     }
-/** ensurePlayerMailbox：执行对应的业务逻辑。 */
+    /** 读取玩家邮箱，缓存未命中时从持久化层回填。 */
     async ensurePlayerMailbox(playerId) {
-/** cached：定义该变量以承载业务值。 */
+
         const cached = this.mailboxByPlayerId.get(playerId);
         if (cached) {
             return cached;
         }
-/** existingLoad：定义该变量以承载业务值。 */
+
         const existingLoad = this.loadingMailboxByPlayerId.get(playerId);
         if (existingLoad) {
             return existingLoad;
         }
-/** loading：定义该变量以承载业务值。 */
+
         const loading = (async () => {
-/** loaded：定义该变量以承载业务值。 */
+
             const loaded = await this.mailPersistenceService.loadMailbox(playerId);
-/** mailbox：定义该变量以承载业务值。 */
+
             const mailbox = loaded ?? createEmptyMailbox();
             this.compactMailbox(mailbox);
             this.mailboxByPlayerId.set(playerId, mailbox);
@@ -71,9 +75,9 @@ let MailRuntimeService = class MailRuntimeService {
         this.loadingMailboxByPlayerId.set(playerId, loading);
         return loading;
     }
-/** ensureWelcomeMail：执行对应的业务逻辑。 */
+    /** 确保新玩家至少会收到一封欢迎信。 */
     async ensureWelcomeMail(playerId) {
-/** mailbox：定义该变量以承载业务值。 */
+
         const mailbox = await this.ensurePlayerMailbox(playerId);
         if (mailbox.mails.some((entry) => entry.templateId === MAIL_WELCOME_TEMPLATE_ID)) {
             return;
@@ -87,15 +91,15 @@ let MailRuntimeService = class MailRuntimeService {
         });
         await this.persistMailbox(playerId, mailbox);
     }
-/** getSummary：执行对应的业务逻辑。 */
+    /** 汇总邮箱未读数和可领取附件数。 */
     async getSummary(playerId) {
-/** mailbox：定义该变量以承载业务值。 */
+
         const mailbox = await this.ensurePlayerMailbox(playerId);
-/** visible：定义该变量以承载业务值。 */
+
         const visible = this.listVisibleMails(mailbox);
-/** unreadCount：定义该变量以承载业务值。 */
+
         let unreadCount = 0;
-/** claimableCount：定义该变量以承载业务值。 */
+
         let claimableCount = 0;
         for (const entry of visible) {
             if (entry.readAt == null) {
@@ -111,23 +115,23 @@ let MailRuntimeService = class MailRuntimeService {
             revision: mailbox.revision,
         };
     }
-/** getPage：执行对应的业务逻辑。 */
+    /** 分页读取邮箱列表，支持过滤未读或仅附件邮件。 */
     async getPage(playerId, requestedPage, requestedPageSize, requestedFilter) {
-/** mailbox：定义该变量以承载业务值。 */
+
         const mailbox = await this.ensurePlayerMailbox(playerId);
-/** filter：定义该变量以承载业务值。 */
+
         const filter = (0, shared_1.normalizeMailFilter)(requestedFilter);
-/** pageSize：定义该变量以承载业务值。 */
+
         const pageSize = (0, shared_1.normalizeMailPageSize)(requestedPageSize);
-/** filtered：定义该变量以承载业务值。 */
+
         const filtered = this.filterMails(this.listVisibleMails(mailbox), filter);
-/** total：定义该变量以承载业务值。 */
+
         const total = filtered.length;
-/** totalPages：定义该变量以承载业务值。 */
+
         const totalPages = Math.max(1, Math.ceil(total / pageSize));
-/** page：定义该变量以承载业务值。 */
+
         const page = Math.min(totalPages, Math.max(1, Math.floor(requestedPage || 1)));
-/** start：定义该变量以承载业务值。 */
+
         const start = (page - 1) * pageSize;
         return {
             items: filtered.slice(start, start + pageSize).map((entry) => this.toMailListEntryView(entry)),
@@ -138,19 +142,19 @@ let MailRuntimeService = class MailRuntimeService {
             filter,
         };
     }
-/** getDetail：执行对应的业务逻辑。 */
+    /** 读取单封邮件详情。 */
     async getDetail(playerId, mailId) {
-/** mailbox：定义该变量以承载业务值。 */
+
         const mailbox = await this.ensurePlayerMailbox(playerId);
-/** entry：定义该变量以承载业务值。 */
+
         const entry = this.findVisibleMail(mailbox, mailId);
         return entry ? this.toMailDetailView(entry) : null;
     }
-/** markRead：执行对应的业务逻辑。 */
+    /** 批量标记邮件已读。 */
     async markRead(playerId, mailIds) {
-/** mailbox：定义该变量以承载业务值。 */
+
         const mailbox = await this.ensurePlayerMailbox(playerId);
-/** normalizedIds：定义该变量以承载业务值。 */
+
         const normalizedIds = (0, shared_1.normalizeMailBatchIds)(mailIds);
         if (normalizedIds.length === 0) {
             return {
@@ -160,7 +164,7 @@ let MailRuntimeService = class MailRuntimeService {
                 message: '未选择要标记已读的邮件。',
             };
         }
-/** visible：定义该变量以承载业务值。 */
+
         const visible = this.findVisibleMails(mailbox, normalizedIds);
         if (visible.length === 0) {
             return {
@@ -170,9 +174,9 @@ let MailRuntimeService = class MailRuntimeService {
                 message: '目标邮件不存在、已过期，或已被删除。',
             };
         }
-/** now：定义该变量以承载业务值。 */
+
         const now = Date.now();
-/** changed：定义该变量以承载业务值。 */
+
         let changed = false;
         for (const entry of visible) {
             if (entry.firstSeenAt == null) {
@@ -195,11 +199,11 @@ let MailRuntimeService = class MailRuntimeService {
             mailIds: visible.map((entry) => entry.mailId),
         };
     }
-/** claimAttachments：执行对应的业务逻辑。 */
+    /** 批量领取邮件附件。 */
     async claimAttachments(playerId, mailIds) {
-/** mailbox：定义该变量以承载业务值。 */
+
         const mailbox = await this.ensurePlayerMailbox(playerId);
-/** normalizedIds：定义该变量以承载业务值。 */
+
         const normalizedIds = (0, shared_1.normalizeMailBatchIds)(mailIds);
         if (normalizedIds.length === 0) {
             return {
@@ -209,7 +213,7 @@ let MailRuntimeService = class MailRuntimeService {
                 message: '未选择要领取附件的邮件。',
             };
         }
-/** visible：定义该变量以承载业务值。 */
+
         const visible = this.findVisibleMails(mailbox, normalizedIds)
             .filter((entry) => entry.attachments.length > 0 && entry.claimedAt == null);
         if (visible.length === 0) {
@@ -220,7 +224,7 @@ let MailRuntimeService = class MailRuntimeService {
                 message: '当前没有可领取附件的邮件。',
             };
         }
-/** items：定义该变量以承载业务值。 */
+
         const items = this.resolveAttachmentItems(visible);
         if (!items) {
             return {
@@ -241,7 +245,7 @@ let MailRuntimeService = class MailRuntimeService {
         for (const item of items) {
             this.playerRuntimeService.receiveInventoryItem(playerId, item);
         }
-/** now：定义该变量以承载业务值。 */
+
         const now = Date.now();
         for (const entry of visible) {
             entry.firstSeenAt ??= now;
@@ -258,11 +262,11 @@ let MailRuntimeService = class MailRuntimeService {
             message: `已领取 ${visible.length} 封邮件的附件。`,
         };
     }
-/** deleteMails：执行对应的业务逻辑。 */
+    /** 批量删除已满足删除条件的邮件。 */
     async deleteMails(playerId, mailIds) {
-/** mailbox：定义该变量以承载业务值。 */
+
         const mailbox = await this.ensurePlayerMailbox(playerId);
-/** normalizedIds：定义该变量以承载业务值。 */
+
         const normalizedIds = (0, shared_1.normalizeMailBatchIds)(mailIds);
         if (normalizedIds.length === 0) {
             return {
@@ -272,7 +276,7 @@ let MailRuntimeService = class MailRuntimeService {
                 message: '未选择要删除的邮件。',
             };
         }
-/** visible：定义该变量以承载业务值。 */
+
         const visible = this.findVisibleMails(mailbox, normalizedIds);
         if (visible.length === 0) {
             return {
@@ -290,7 +294,7 @@ let MailRuntimeService = class MailRuntimeService {
                 message: '仍有未领取附件的邮件，不能直接删除。',
             };
         }
-/** now：定义该变量以承载业务值。 */
+
         const now = Date.now();
         for (const entry of visible) {
             entry.deletedAt = now;
@@ -304,20 +308,20 @@ let MailRuntimeService = class MailRuntimeService {
             mailIds: visible.map((entry) => entry.mailId),
         };
     }
-/** createDirectMail：执行对应的业务逻辑。 */
+    /** 创建一封直接邮件，并在需要时尝试立刻发送附件。 */
     async createDirectMail(playerId, input) {
-/** mailbox：定义该变量以承载业务值。 */
+
         const mailbox = await this.ensurePlayerMailbox(playerId);
-/** mailId：定义该变量以承载业务值。 */
+
         const mailId = this.appendMail(mailbox, input);
         await this.persistMailbox(playerId, mailbox);
         return mailId;
     }
-/** appendMail：执行对应的业务逻辑。 */
+    /** 往邮箱里追加一封邮件，供欢迎信和系统发信复用。 */
     appendMail(mailbox, input) {
-/** now：定义该变量以承载业务值。 */
+
         const now = Date.now();
-/** mailId：定义该变量以承载业务值。 */
+
         const mailId = `mail:${now.toString(36)}:${mailbox.revision.toString(36)}:${mailbox.mails.length.toString(36)}`;
         mailbox.mails.unshift({
             version: 1,
@@ -340,30 +344,30 @@ let MailRuntimeService = class MailRuntimeService {
         this.compactMailbox(mailbox);
         return mailId;
     }
-/** findVisibleMail：执行对应的业务逻辑。 */
+    /** 在可见邮件里按 ID 查找单封邮件。 */
     findVisibleMail(mailbox, mailId) {
-/** normalizedId：定义该变量以承载业务值。 */
+
         const normalizedId = String(mailId ?? '').trim();
         if (!normalizedId) {
             return null;
         }
         return this.listVisibleMails(mailbox).find((entry) => entry.mailId === normalizedId) ?? null;
     }
-/** findVisibleMails：执行对应的业务逻辑。 */
+    /** 在可见邮件里按 ID 批量查找邮件。 */
     findVisibleMails(mailbox, mailIds) {
-/** visibleById：定义该变量以承载业务值。 */
+
         const visibleById = new Map(this.listVisibleMails(mailbox).map((entry) => [entry.mailId, entry]));
         return mailIds
             .map((mailId) => visibleById.get(mailId) ?? null)
             .filter((entry) => Boolean(entry));
     }
-/** listVisibleMails：执行对应的业务逻辑。 */
+    /** 列出当前仍然可见的邮件。 */
     listVisibleMails(mailbox) {
-/** now：定义该变量以承载业务值。 */
+
         const now = Date.now();
         return mailbox.mails.filter((entry) => entry.deletedAt == null && (entry.expireAt == null || entry.expireAt > now));
     }
-/** filterMails：执行对应的业务逻辑。 */
+    /** 根据邮箱过滤条件筛选邮件。 */
     filterMails(mails, filter) {
         if (filter === 'unread') {
             return mails.filter((entry) => entry.readAt == null);
@@ -373,11 +377,11 @@ let MailRuntimeService = class MailRuntimeService {
         }
         return mails;
     }
-/** toMailListEntryView：执行对应的业务逻辑。 */
+    /** 把邮件压成列表项视图。 */
     toMailListEntryView(entry) {
-/** title：定义该变量以承载业务值。 */
+
         const title = (0, shared_1.renderMailTitlePlain)(entry.templateId, entry.args, entry.fallbackTitle);
-/** body：定义该变量以承载业务值。 */
+
         const body = (0, shared_1.renderMailBodyPlain)(entry.templateId, entry.args, entry.fallbackBody);
         return {
             mailId: entry.mailId,
@@ -387,13 +391,13 @@ let MailRuntimeService = class MailRuntimeService {
             createdAt: entry.createdAt,
             expireAt: entry.expireAt,
             hasAttachments: entry.attachments.length > 0,
-/** read：定义该变量以承载业务值。 */
+
             read: entry.readAt != null,
-/** claimed：定义该变量以承载业务值。 */
+
             claimed: entry.attachments.length === 0 || entry.claimedAt != null,
         };
     }
-/** toMailDetailView：执行对应的业务逻辑。 */
+    /** 把邮件压成详情视图。 */
     toMailDetailView(entry) {
         return {
             mailId: entry.mailId,
@@ -405,17 +409,17 @@ let MailRuntimeService = class MailRuntimeService {
             fallbackTitle: entry.fallbackTitle,
             fallbackBody: entry.fallbackBody,
             attachments: entry.attachments.map((attachment) => ({ ...attachment })),
-/** read：定义该变量以承载业务值。 */
+
             read: entry.readAt != null,
-/** claimed：定义该变量以承载业务值。 */
+
             claimed: entry.attachments.length === 0 || entry.claimedAt != null,
-/** deletable：定义该变量以承载业务值。 */
+
             deletable: entry.attachments.length === 0 || entry.claimedAt != null,
         };
     }
-/** resolveAttachmentItems：执行对应的业务逻辑。 */
+    /** 汇总待发送附件，领取失败时返回 null。 */
     resolveAttachmentItems(mails) {
-/** items：定义该变量以承载业务值。 */
+
         const items = [];
         for (const mail of mails) {
             for (const attachment of mail.attachments) {
@@ -451,15 +455,15 @@ let MailRuntimeService = class MailRuntimeService {
         }
         return items;
     }
-/** canReceiveAllAttachments：执行对应的业务逻辑。 */
+    /** 检查玩家背包是否能一次性容纳全部附件。 */
     canReceiveAllAttachments(playerId, items) {
-/** player：定义该变量以承载业务值。 */
+
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
-/** simulated：定义该变量以承载业务值。 */
+
         const simulated = player.inventory.items.map((entry) => ({ ...this.contentTemplateRepository.normalizeItem(entry) }));
-/** nextSize：定义该变量以承载业务值。 */
+
         let nextSize = simulated.length;
-/** signatureIndex：定义该变量以承载业务值。 */
+
         const signatureIndex = new Map();
         for (let index = 0; index < simulated.length; index += 1) {
             signatureIndex.set((0, shared_1.createItemStackSignature)(simulated[index]), index);
@@ -480,15 +484,15 @@ let MailRuntimeService = class MailRuntimeService {
         }
         return true;
     }
-/** compactMailbox：执行对应的业务逻辑。 */
+    /** 规范化邮箱数据，去掉过期垃圾并压缩结构。 */
     compactMailbox(mailbox) {
-/** now：定义该变量以承载业务值。 */
+
         const now = Date.now();
         mailbox.mails = mailbox.mails
             .filter((entry) => entry.deletedAt == null && (entry.expireAt == null || entry.expireAt > now))
             .sort((left, right) => right.createdAt - left.createdAt || left.mailId.localeCompare(right.mailId));
     }
-/** persistMailbox：执行对应的业务逻辑。 */
+    /** 持久化单个玩家的邮箱快照。 */
     async persistMailbox(playerId, mailbox) {
         this.compactMailbox(mailbox);
         await this.mailPersistenceService.saveMailbox(playerId, {
@@ -509,7 +513,6 @@ exports.MailRuntimeService = MailRuntimeService = __decorate([
         player_runtime_service_1.PlayerRuntimeService,
         mail_persistence_service_1.MailPersistenceService])
 ], MailRuntimeService);
-/** createEmptyMailbox：执行对应的业务逻辑。 */
 function createEmptyMailbox() {
     return {
         version: 1,
@@ -517,12 +520,11 @@ function createEmptyMailbox() {
         mails: [],
     };
 }
-/** normalizeArgs：执行对应的业务逻辑。 */
 function normalizeArgs(args) {
     if (!Array.isArray(args)) {
         return [];
     }
-/** normalized：定义该变量以承载业务值。 */
+
     const normalized = [];
     for (const entry of args) {
         if (!entry || typeof entry !== 'object' || typeof entry.kind !== 'string') {
@@ -540,7 +542,7 @@ function normalizeArgs(args) {
             normalized.push({
                 kind: 'item',
                 itemId: entry.itemId.trim(),
-/** label：定义该变量以承载业务值。 */
+
                 label: typeof entry.label === 'string' ? entry.label : undefined,
                 count: Number.isFinite(entry.count) ? Math.max(1, Math.trunc(Number(entry.count))) : undefined,
             });
@@ -548,7 +550,6 @@ function normalizeArgs(args) {
     }
     return normalized;
 }
-/** normalizeAttachments：执行对应的业务逻辑。 */
 function normalizeAttachments(attachments) {
     if (!Array.isArray(attachments)) {
         return [];
@@ -561,3 +562,4 @@ function normalizeAttachments(attachments) {
     }));
 }
 //# sourceMappingURL=mail-runtime.service.js.map
+

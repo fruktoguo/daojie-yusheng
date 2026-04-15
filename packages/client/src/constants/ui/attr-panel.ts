@@ -4,14 +4,13 @@
  */
 import { NumericStats, PlayerSpecialStats } from '@mud/shared-next';
 
-/** AttrTab：定义该类型的结构与数据语义。 */
+/** AttrTab：属性面板分页标识。 */
 export type AttrTab = 'base' | 'root' | 'vein' | 'combat' | 'qi' | 'special' | 'craft';
-/** NumericCardKey：定义该类型的结构与数据语义。 */
+/** NumericCardKey：属性面板数值条目键。 */
 export type NumericCardKey = Exclude<keyof NumericStats, 'elementDamageBonus' | 'elementDamageReduce'>;
-/** PlayerSpecialCardKey：定义该类型的结构与数据语义。 */
+/** PlayerSpecialCardKey：玩家特殊属性条目键。 */
 export type PlayerSpecialCardKey = keyof PlayerSpecialStats;
 
-/** ATTR_TAB_LABELS：定义该变量以承载业务值。 */
 export const ATTR_TAB_LABELS: Record<AttrTab, string> = {
   base: '六维',
   root: '灵根',
@@ -22,15 +21,12 @@ export const ATTR_TAB_LABELS: Record<AttrTab, string> = {
   craft: '技艺',
 };
 
-/** ATTR_COLORS：定义该变量以承载业务值。 */
 export const ATTR_COLORS = ['#ff8a65', '#ffd54f', '#4fc3f7', '#4db6ac', '#ba68c8', '#f06292'];
-/** ELEMENT_COLORS：定义该变量以承载业务值。 */
 export const ELEMENT_COLORS = ['#f9a825', '#7cb342', '#039be5', '#e53935', '#6d4c41'];
 
-/** TOOLTIP_STYLE_ID：定义该变量以承载业务值。 */
+/** TOOLTIP_STYLE_ID：提示样式ID。 */
 export const TOOLTIP_STYLE_ID = 'attr-panel-tooltip-style';
 
-/** RATE_BP_KEYS：定义该变量以承载业务值。 */
 export const RATE_BP_KEYS = new Set<NumericCardKey>([
   'qiRegenRate',
   'hpRegenRate',
@@ -42,7 +38,6 @@ export const RATE_BP_KEYS = new Set<NumericCardKey>([
   'rareLootRate',
 ]);
 
-/** NUMERIC_TOOLTIP_LABELS：定义该变量以承载业务值。 */
 export const NUMERIC_TOOLTIP_LABELS: Partial<Record<NumericCardKey, string>> = {
   maxHp: '最大生命值',
   maxQi: '最大灵力值',
@@ -73,7 +68,6 @@ export const NUMERIC_TOOLTIP_LABELS: Partial<Record<NumericCardKey, string>> = {
   viewRange: '视野范围',
 };
 
-/** NUMERIC_TOOLTIP_DESCRIPTIONS：定义该变量以承载业务值。 */
 export const NUMERIC_TOOLTIP_DESCRIPTIONS: Partial<Record<NumericCardKey, string>> = {
   maxHp: '决定你在战斗中的生存上限。',
   maxQi: '决定你可承载的灵力总量。',
@@ -104,13 +98,11 @@ export const NUMERIC_TOOLTIP_DESCRIPTIONS: Partial<Record<NumericCardKey, string
   viewRange: '决定地图上的可见范围。',
 };
 
-/** PLAYER_SPECIAL_TOOLTIP_LABELS：定义该变量以承载业务值。 */
 export const PLAYER_SPECIAL_TOOLTIP_LABELS: Record<PlayerSpecialCardKey, string> = {
   foundation: '底蕴',
   combatExp: '战斗经验',
 };
 
-/** PLAYER_SPECIAL_TOOLTIP_DESCRIPTIONS：定义该变量以承载业务值。 */
 export const PLAYER_SPECIAL_TOOLTIP_DESCRIPTIONS: Record<PlayerSpecialCardKey, string> = {
   foundation: '在能够获得境界修为时，优先把本次境界修为抬高到三倍上限；实际额外补上的部分会等量消耗底蕴。',
   combatExp: '通过战斗获得的境界修为会一比一累计到战斗经验，并按双方差距影响攻击时的命中、受击时的闪避（两者最高翻倍），以及普通攻击 50% 到 200% 的独立伤害乘区。',

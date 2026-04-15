@@ -23,37 +23,32 @@ import { getCellSize, setZoom, updateDisplayMetrics } from './display';
 import { GM_WORLD_VIEW_MAX } from './constants/world/gm-world-viewer';
 import { GM_API_BASE_PATH } from './constants/api';
 
-/** RequestFn：定义该类型的结构与数据语义。 */
+/** RequestFn：世界查看器的请求回调签名。 */
 type RequestFn = <T>(path: string, init?: RequestInit) => Promise<T>;
-/** StatusFn：定义该类型的结构与数据语义。 */
+/** StatusFn：向世界查看器状态栏输出提示或错误的回调签名。 */
 type StatusFn = (message: string, isError?: boolean) => void;
 
-/** escapeHtml：执行对应的业务逻辑。 */
+/** escapeHtml：转义 HTML 文本中的危险字符。 */
 function escapeHtml(s: string): string {
   return s.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
 }
 
-/** formatClockFromTicks：执行对应的业务逻辑。 */
+/** formatClockFromTicks：格式化时钟From Ticks。 */
 function formatClockFromTicks(localTicks: number, dayLength: number): string {
-/** safeDayLength：定义该变量以承载业务值。 */
   const safeDayLength = Math.max(1, dayLength);
-/** normalizedTicks：定义该变量以承载业务值。 */
   const normalizedTicks = ((localTicks % safeDayLength) + safeDayLength) % safeDayLength;
-/** totalMinutes：定义该变量以承载业务值。 */
   const totalMinutes = Math.floor((normalizedTicks / safeDayLength) * 24 * 60);
-/** hours：定义该变量以承载业务值。 */
   const hours = String(Math.floor(totalMinutes / 60) % 24).padStart(2, '0');
-/** minutes：定义该变量以承载业务值。 */
   const minutes = String(totalMinutes % 60).padStart(2, '0');
   return `${hours}:${minutes}`;
 }
 
-/** formatDebugNumber：执行对应的业务逻辑。 */
+/** formatDebugNumber：格式化调试数值。 */
 function formatDebugNumber(value: number, digits = 2): string {
   return Number.isFinite(value) ? value.toFixed(digits) : '-';
 }
 
-/** createViewerId：执行对应的业务逻辑。 */
+/** createViewerId：创建Viewer ID。 */
 function createViewerId(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID();
@@ -61,55 +56,63 @@ function createViewerId(): string {
   return `gm-viewer-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-/** GmWorldViewer：封装相关状态与行为。 */
+/** GmWorldViewer：GM世界Viewer实现。 */
 export class GmWorldViewer {
-/** canvas：定义该变量以承载业务值。 */
+  /** canvas：canvas。 */
   private canvas: HTMLCanvasElement;
-/** mapListEl：定义该变量以承载业务值。 */
+  /** mapListEl：地图列表元素。 */
   private mapListEl: HTMLElement;
-/** timeControlEl：定义该变量以承载业务值。 */
+  /** timeControlEl：时间Control元素。 */
   private timeControlEl: HTMLElement;
-/** infoEl：定义该变量以承载业务值。 */
+  /** infoEl：信息元素。 */
   private infoEl: HTMLElement;
 
-/** renderer：定义该变量以承载业务值。 */
+  /** renderer：renderer。 */
   private renderer: TextRenderer;
-/** camera：定义该变量以承载业务值。 */
+  /** camera：camera。 */
   private camera: Camera;
 
-/** currentMapId：定义该变量以承载业务值。 */
+  /** currentMapId：当前地图ID。 */
   private currentMapId: string | null = null;
-/** maps：定义该变量以承载业务值。 */
+  /** maps：maps。 */
   private maps: GmMapSummary[] = [];
-/** runtimeData：定义该变量以承载业务值。 */
+  /** runtimeData：运行时数据。 */
   private runtimeData: GmMapRuntimeRes | null = null;
 
   // 视口中心（世界坐标）
   private viewX = 0;
+  /** viewY：视图Y。 */
   private viewY = 0;
 
   // 选中状态
   private selectedCell: { x: number; y: number } | null = null;
-/** selectedEntity：定义该变量以承载业务值。 */
+  /** selectedEntity：selected实体。 */
   private selectedEntity: GmRuntimeEntity | null = null;
 
   // 拖动状态
   private isDragging = false;
+  /** dragStartScreenX：drag Start屏幕X。 */
   private dragStartScreenX = 0;
+  /** dragStartScreenY：drag Start屏幕Y。 */
   private dragStartScreenY = 0;
+  /** dragStartViewX：drag Start视图X。 */
   private dragStartViewX = 0;
+  /** dragStartViewY：drag Start视图Y。 */
   private dragStartViewY = 0;
 
-/** pollTimer：定义该变量以承载业务值。 */
+  /** pollTimer：poll Timer。 */
   private pollTimer: number | null = null;
-/** rafId：定义该变量以承载业务值。 */
+  /** rafId：raf ID。 */
   private rafId: number | null = null;
+  /** mounted：mounted。 */
   private mounted = false;
-/** speedDraft：定义该变量以承载业务值。 */
+  /** speedDraft：速度Draft。 */
   private speedDraft: string | null = null;
-/** offsetDraft：定义该变量以承载业务值。 */
+  /** offsetDraft：偏移Draft。 */
   private offsetDraft: string | null = null;
+  /** viewerId：viewer ID。 */
   private readonly viewerId = createViewerId();
+  /** observationRegistered：observation Registered。 */
   private observationRegistered = false;
 
   constructor(
@@ -125,7 +128,7 @@ export class GmWorldViewer {
     this.camera = new Camera();
   }
 
-/** mount：执行对应的业务逻辑。 */
+  /** mount：处理mount。 */
   mount(): void {
     if (this.mounted) return;
     this.mounted = true;
@@ -136,7 +139,7 @@ export class GmWorldViewer {
     window.addEventListener('resize', this.handleResize);
   }
 
-/** unmount：执行对应的业务逻辑。 */
+  /** unmount：处理unmount。 */
   unmount(): void {
     this.stopPolling();
     this.stopRaf();
@@ -144,10 +147,9 @@ export class GmWorldViewer {
     this.mounted = false;
   }
 
-/** updateMapIds：执行对应的业务逻辑。 */
+  /** updateMapIds：更新地图ID 列表。 */
   async updateMapIds(_mapIds: string[]): Promise<void> {
     try {
-/** res：定义该变量以承载业务值。 */
       const res = await this.request<GmMapListRes>(`${GM_API_BASE_PATH}/maps`);
       this.maps = res.maps;
     } catch {
@@ -156,7 +158,7 @@ export class GmWorldViewer {
     this.renderMapList();
   }
 
-/** selectMap：执行对应的业务逻辑。 */
+  /** selectMap：选择地图。 */
   async selectMap(mapId: string): Promise<void> {
     this.currentMapId = mapId;
     this.selectedCell = null;
@@ -173,7 +175,7 @@ export class GmWorldViewer {
     this.renderAll();
   }
 
-/** startPolling：执行对应的业务逻辑。 */
+  /** startPolling：启动Polling。 */
   startPolling(): void {
     this.stopPolling();
     this.pollTimer = window.setInterval(() => {
@@ -184,7 +186,7 @@ export class GmWorldViewer {
     this.startRaf();
   }
 
-/** stopPolling：执行对应的业务逻辑。 */
+  /** stopPolling：停止Polling。 */
   stopPolling(): void {
     if (this.pollTimer !== null) {
       clearInterval(this.pollTimer);
@@ -198,11 +200,9 @@ export class GmWorldViewer {
 
   private startRaf(): void {
     if (this.rafId !== null) return;
-/** lastTime：定义该变量以承载业务值。 */
     let lastTime = performance.now();
-/** loop：通过常量导出可复用函数行为。 */
+    /** loop：处理loop。 */
     const loop = (now: number) => {
-/** dt：定义该变量以承载业务值。 */
       const dt = (now - lastTime) / 1000;
       lastTime = now;
       this.camera.update(dt);
@@ -212,7 +212,7 @@ export class GmWorldViewer {
     this.rafId = requestAnimationFrame(loop);
   }
 
-/** stopRaf：执行对应的业务逻辑。 */
+  /** stopRaf：停止Raf。 */
   private stopRaf(): void {
     if (this.rafId !== null) {
       cancelAnimationFrame(this.rafId);
@@ -226,7 +226,6 @@ export class GmWorldViewer {
     if (!this.currentMapId) return;
     const { startX, startY, w, h } = this.getViewport();
     try {
-/** params：定义该变量以承载业务值。 */
       const params = new URLSearchParams({
         x: String(startX),
         y: String(startY),
@@ -249,10 +248,8 @@ export class GmWorldViewer {
   /** 将服务端运行时数据转换为 TextRenderer 需要的格式 */
   private syncToRenderer(): void {
     if (!this.runtimeData) return;
-/** d：定义该变量以承载业务值。 */
     const d = this.runtimeData;
     const { startX, startY } = this.getViewport();
-/** cellSize：定义该变量以承载业务值。 */
     const cellSize = getCellSize();
 
     // 构建 tileCache
@@ -262,9 +259,7 @@ export class GmWorldViewer {
       for (let dx = 0; dx < row.length; dx++) {
         const vt = row[dx];
         if (!vt) continue;
-/** wx：定义该变量以承载业务值。 */
         const wx = startX + dx;
-/** wy：定义该变量以承载业务值。 */
         const wy = startY + dy;
         tileCache.set(`${wx},${wy}`, {
           type: vt.type as TileType,
@@ -294,20 +289,17 @@ export class GmWorldViewer {
     this.renderer.updateEntities(entityList);
   }
 
-/** currentTileCache：定义该变量以承载业务值。 */
+  /** currentTileCache：当前地块缓存。 */
   private currentTileCache: Map<string, Tile> = new Map();
+  /** currentTileRevision：当前地块Revision。 */
   private currentTileRevision = 0;
 
+  /** getViewport：读取视口。 */
   private getViewport(): { startX: number; startY: number; w: number; h: number } {
-/** cellSize：定义该变量以承载业务值。 */
     const cellSize = getCellSize();
-/** tilesX：定义该变量以承载业务值。 */
     const tilesX = Math.min(GM_WORLD_VIEW_MAX, Math.ceil(this.canvas.width / cellSize) + 2);
-/** tilesY：定义该变量以承载业务值。 */
     const tilesY = Math.min(GM_WORLD_VIEW_MAX, Math.ceil(this.canvas.height / cellSize) + 2);
-/** halfX：定义该变量以承载业务值。 */
     const halfX = Math.floor(tilesX / 2);
-/** halfY：定义该变量以承载业务值。 */
     const halfY = Math.floor(tilesY / 2);
     return {
       startX: Math.max(0, this.viewX - halfX),
@@ -317,11 +309,9 @@ export class GmWorldViewer {
     };
   }
 
-/** snapCamera：执行对应的业务逻辑。 */
+  /** snapCamera：处理snap Camera。 */
   private snapCamera(): void {
-/** cellSize：定义该变量以承载业务值。 */
     const cellSize = getCellSize();
-/** fakePlayer：定义该变量以承载业务值。 */
     const fakePlayer = {
       x: this.viewX,
       y: this.viewY,
@@ -342,11 +332,10 @@ export class GmWorldViewer {
     this.renderInfo();
   }
 
-/** renderCanvas：执行对应的业务逻辑。 */
+  /** renderCanvas：渲染Canvas。 */
   private renderCanvas(): void {
     if (!this.runtimeData || !this.mounted) return;
 
-/** cellSize：定义该变量以承载业务值。 */
     const cellSize = getCellSize();
     updateDisplayMetrics(this.canvas.width, this.canvas.height, GM_WORLD_VIEW_MAX);
 
@@ -373,7 +362,6 @@ export class GmWorldViewer {
 
     // 选中高亮
     if (this.selectedCell) {
-/** ctx：定义该变量以承载业务值。 */
       const ctx = this.canvas.getContext('2d')!;
       const { sx, sy } = this.camera.worldToScreen(
         this.selectedCell.x * cellSize,
@@ -409,7 +397,6 @@ export class GmWorldViewer {
       return;
     }
     if (e.button === 0) {
-/** cell：定义该变量以承载业务值。 */
       const cell = this.screenToWorld(e.offsetX, e.offsetY);
       if (!cell) return;
       this.selectedCell = cell;
@@ -420,11 +407,8 @@ export class GmWorldViewer {
 
   private handlePointerMove = (e: PointerEvent): void => {
     if (!this.isDragging) return;
-/** cellSize：定义该变量以承载业务值。 */
     const cellSize = getCellSize();
-/** deltaX：定义该变量以承载业务值。 */
     const deltaX = (this.dragStartScreenX - e.clientX) / cellSize;
-/** deltaY：定义该变量以承载业务值。 */
     const deltaY = (this.dragStartScreenY - e.clientY) / cellSize;
     this.viewX = Math.round(this.dragStartViewX + deltaX);
     this.viewY = Math.round(this.dragStartViewY + deltaY);
@@ -443,11 +427,8 @@ export class GmWorldViewer {
 
   private handleWheel = (e: WheelEvent): void => {
     e.preventDefault();
-/** current：定义该变量以承载业务值。 */
     const current = getCellSize() / 32;
-/** delta：定义该变量以承载业务值。 */
     const delta = e.deltaY < 0 ? 0.25 : -0.25;
-/** next：定义该变量以承载业务值。 */
     const next = Math.max(0.5, Math.min(4, current + delta));
     setZoom(next);
     updateDisplayMetrics(this.canvas.width, this.canvas.height, GM_WORLD_VIEW_MAX);
@@ -460,39 +441,33 @@ export class GmWorldViewer {
     this.renderCanvas();
   };
 
+  /** screenToWorld：处理屏幕To世界。 */
   private screenToWorld(sx: number, sy: number): { x: number; y: number } | null {
     if (!this.runtimeData) return null;
-/** cellSize：定义该变量以承载业务值。 */
     const cellSize = getCellSize();
     const { sx: camSx, sy: camSy } = this.camera.worldToScreen(0, 0, this.canvas.width, this.canvas.height);
-/** wx：定义该变量以承载业务值。 */
     const wx = Math.floor((sx - camSx) / cellSize);
-/** wy：定义该变量以承载业务值。 */
     const wy = Math.floor((sy - camSy) / cellSize);
     if (wx < 0 || wy < 0 || wx >= this.runtimeData.width || wy >= this.runtimeData.height) return null;
     return { x: wx, y: wy };
   }
 
-/** findEntityAt：执行对应的业务逻辑。 */
+  /** findEntityAt：查找实体At。 */
   private findEntityAt(x: number, y: number): GmRuntimeEntity | null {
     if (!this.runtimeData) return null;
-/** sorted：定义该变量以承载业务值。 */
     const sorted = [...this.runtimeData.entities]
       .filter((e) => e.x === x && e.y === y)
       .sort((a, b) => {
-/** order：定义该变量以承载业务值。 */
         const order = { player: 0, monster: 1, npc: 2, container: 3 };
         return (order[a.kind] ?? 9) - (order[b.kind] ?? 9);
       });
     return sorted[0] ?? null;
   }
 
-/** resizeCanvas：执行对应的业务逻辑。 */
+  /** resizeCanvas：处理resize Canvas。 */
   private resizeCanvas(): void {
-/** parent：定义该变量以承载业务值。 */
     const parent = this.canvas.parentElement;
     if (!parent) return;
-/** rect：定义该变量以承载业务值。 */
     const rect = parent.getBoundingClientRect();
     this.canvas.width = rect.width;
     this.canvas.height = rect.height;
@@ -511,7 +486,6 @@ export class GmWorldViewer {
 
     this.mapListEl.querySelectorAll('.world-map-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
-/** mapId：定义该变量以承载业务值。 */
         const mapId = (btn as HTMLElement).dataset.mapId;
         if (mapId && mapId !== this.currentMapId) {
           this.selectMap(mapId).catch(() => {});
@@ -523,22 +497,14 @@ export class GmWorldViewer {
   // ===== 时间操控 =====
 
   private captureTimeControlDraftState(): {
-/** focusedField：定义该变量以承载业务值。 */
     focusedField: 'speed' | 'offset' | null;
-/** selectionStart：定义该变量以承载业务值。 */
     selectionStart: number | null;
-/** selectionEnd：定义该变量以承载业务值。 */
     selectionEnd: number | null;
   } {
-/** speedInput：定义该变量以承载业务值。 */
     const speedInput = this.timeControlEl.querySelector<HTMLInputElement>('[data-world-speed-input]');
-/** offsetInput：定义该变量以承载业务值。 */
     const offsetInput = this.timeControlEl.querySelector<HTMLInputElement>('[data-world-offset-input]');
-/** active：定义该变量以承载业务值。 */
     const active = document.activeElement;
-/** focusedInput：定义该变量以承载业务值。 */
     const focusedInput = active instanceof HTMLInputElement ? active : null;
-/** focusedField：定义该变量以承载业务值。 */
     const focusedField = focusedInput === speedInput
       ? 'speed'
       : focusedInput === offsetInput
@@ -558,19 +524,14 @@ export class GmWorldViewer {
   }
 
   private restoreTimeControlFocus(state: {
-/** focusedField：定义该变量以承载业务值。 */
     focusedField: 'speed' | 'offset' | null;
-/** selectionStart：定义该变量以承载业务值。 */
     selectionStart: number | null;
-/** selectionEnd：定义该变量以承载业务值。 */
     selectionEnd: number | null;
   }): void {
     if (!state.focusedField) {
       return;
     }
-/** selector：定义该变量以承载业务值。 */
     const selector = state.focusedField === 'speed' ? '[data-world-speed-input]' : '[data-world-offset-input]';
-/** input：定义该变量以承载业务值。 */
     const input = this.timeControlEl.querySelector<HTMLInputElement>(selector);
     if (!input) {
       return;
@@ -581,33 +542,24 @@ export class GmWorldViewer {
     }
   }
 
-/** renderTimeControl：执行对应的业务逻辑。 */
+  /** renderTimeControl：渲染时间Control。 */
   private renderTimeControl(): void {
     if (!this.runtimeData) {
       this.timeControlEl.innerHTML = '<div class="empty-hint">未选择地图</div>';
       return;
     }
 
-/** previousControlState：定义该变量以承载业务值。 */
     const previousControlState = this.captureTimeControlDraftState();
     const { time, tickSpeed, tickPaused, timeConfig } = this.runtimeData;
-/** configuredScale：定义该变量以承载业务值。 */
     const configuredScale = typeof timeConfig.scale === 'number' ? timeConfig.scale : 1;
-/** offsetTicks：定义该变量以承载业务值。 */
     const offsetTicks = typeof timeConfig.offsetTicks === 'number' ? timeConfig.offsetTicks : 0;
-/** realtimeTickRate：定义该变量以承载业务值。 */
     const realtimeTickRate = tickPaused ? 0 : tickSpeed;
-/** localTicksPerSecond：定义该变量以承载业务值。 */
     const localTicksPerSecond = realtimeTickRate * configuredScale;
-/** realtimeMinutesPerSecond：定义该变量以承载业务值。 */
     const realtimeMinutesPerSecond = time.dayLength > 0
       ? localTicksPerSecond / time.dayLength * 24 * 60
       : 0;
-/** speedValue：定义该变量以承载业务值。 */
     const speedValue = this.speedDraft ?? String(realtimeTickRate);
-/** offsetValue：定义该变量以承载业务值。 */
     const offsetValue = this.offsetDraft ?? String(offsetTicks);
-/** speeds：定义该变量以承载业务值。 */
     const speeds = [0, 0.5, 1, 2, 5, 10, 20, 50, 100];
 
     this.timeControlEl.innerHTML = `
@@ -663,9 +615,7 @@ export class GmWorldViewer {
       </div>
     `;
 
-/** speedInput：定义该变量以承载业务值。 */
     const speedInput = this.timeControlEl.querySelector<HTMLInputElement>('[data-world-speed-input]');
-/** offsetInput：定义该变量以承载业务值。 */
     const offsetInput = this.timeControlEl.querySelector<HTMLInputElement>('[data-world-offset-input]');
     speedInput?.addEventListener('input', () => {
       this.speedDraft = speedInput.value;
@@ -676,7 +626,6 @@ export class GmWorldViewer {
 
     this.timeControlEl.querySelectorAll('.world-speed-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
-/** speed：定义该变量以承载业务值。 */
         const speed = parseFloat((btn as HTMLElement).dataset.speed ?? '1');
         this.speedDraft = String(speed);
         this.setWorldSpeed(speed).catch(() => {});
@@ -684,7 +633,6 @@ export class GmWorldViewer {
     });
 
     document.getElementById('world-speed-apply')?.addEventListener('click', () => {
-/** speed：定义该变量以承载业务值。 */
       const speed = parseFloat(speedInput?.value ?? '1');
       if (Number.isFinite(speed)) {
         this.setWorldSpeed(speed).catch(() => {});
@@ -692,9 +640,7 @@ export class GmWorldViewer {
     });
 
     document.getElementById('world-time-apply')?.addEventListener('click', () => {
-/** input：定义该变量以承载业务值。 */
       const input = document.getElementById('world-time-offset') as HTMLInputElement;
-/** offset：定义该变量以承载业务值。 */
       const offset = parseInt(input.value, 10);
       if (Number.isFinite(offset)) {
         this.updateTime({ offsetTicks: offset }).catch(() => {});
@@ -708,10 +654,9 @@ export class GmWorldViewer {
     this.restoreTimeControlFocus(previousControlState);
   }
 
-/** setWorldSpeed：执行对应的业务逻辑。 */
+  /** setWorldSpeed：处理set世界速度。 */
   private async setWorldSpeed(speed: number): Promise<void> {
     if (!this.currentMapId) return;
-/** clamped：定义该变量以承载业务值。 */
     const clamped = Math.max(0, Math.min(100, speed));
     try {
       await this.request<{ ok: true }>(`${GM_API_BASE_PATH}/maps/${this.currentMapId}/tick`, {
@@ -728,7 +673,7 @@ export class GmWorldViewer {
     }
   }
 
-/** updateTime：执行对应的业务逻辑。 */
+  /** updateTime：更新时间。 */
   private async updateTime(req: GmUpdateMapTimeReq): Promise<void> {
     if (!this.currentMapId) return;
     try {
@@ -748,7 +693,7 @@ export class GmWorldViewer {
     }
   }
 
-/** reloadTickConfig：执行对应的业务逻辑。 */
+  /** reloadTickConfig：重载Tick配置。 */
   private async reloadTickConfig(): Promise<void> {
     try {
       await this.request<{ ok: true }>(`${GM_API_BASE_PATH}/tick-config/reload`, {
@@ -764,7 +709,7 @@ export class GmWorldViewer {
     }
   }
 
-/** clearObservation：执行对应的业务逻辑。 */
+  /** clearObservation：清理Observation。 */
   private clearObservation(): void {
     if (!this.observationRegistered) {
       return;
@@ -783,16 +728,11 @@ export class GmWorldViewer {
       return;
     }
 
-/** d：定义该变量以承载业务值。 */
     const d = this.runtimeData;
-/** playerCount：定义该变量以承载业务值。 */
     const playerCount = d.entities.filter((e) => e.kind === 'player').length;
-/** monsterCount：定义该变量以承载业务值。 */
     const monsterCount = d.entities.filter((e) => e.kind === 'monster').length;
-/** npcCount：定义该变量以承载业务值。 */
     const npcCount = d.entities.filter((e) => e.kind === 'npc').length;
 
-/** html：定义该变量以承载业务值。 */
     let html = `
       <div class="panel-section">
         <div class="panel-section-title">地图信息</div>
@@ -805,9 +745,7 @@ export class GmWorldViewer {
     `;
 
     if (this.selectedCell) {
-/** key：定义该变量以承载业务值。 */
       const key = `${this.selectedCell.x},${this.selectedCell.y}`;
-/** tile：定义该变量以承载业务值。 */
       const tile = this.currentTileCache.get(key);
 
       html += `
@@ -823,7 +761,6 @@ export class GmWorldViewer {
     }
 
     if (this.selectedEntity) {
-/** e：定义该变量以承载业务值。 */
       const e = this.selectedEntity;
       html += `
         <div class="panel-section">

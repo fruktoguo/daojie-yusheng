@@ -11,14 +11,15 @@ export class KeyboardInput {
     window.addEventListener('keydown', (e) => this.onKeyDown(e));
   }
 
-/** onKeyDown：处理当前场景中的对应操作。 */
+  /** 将方向键按下转为单步移动方向并提交。 */
   private onKeyDown(e: KeyboardEvent) {
     // 忽略输入框内的按键
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-/** dir：定义该变量以承载业务值。 */
     const dir = KEY_TO_DIRECTION_MAP[e.key];
     if (dir === undefined) return;
     this.onPath([dir]);
   }
 }
+
+
 

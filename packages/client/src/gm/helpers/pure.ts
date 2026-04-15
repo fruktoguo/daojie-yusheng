@@ -5,33 +5,24 @@ import {
   type RedeemCodeGroupRewardItem,
 } from '@mud/shared-next';
 
-/** GmMailAttachmentDraft：定义该接口的能力与字段约束。 */
+/** GM 邮件草稿里单条附件的最小输入结构。 */
 interface GmMailAttachmentDraft {
-/** itemId：定义该变量以承载业务值。 */
   itemId: string;
-/** count：定义该变量以承载业务值。 */
   count: number;
 }
 
-/** GmMailComposerDraft：定义该接口的能力与字段约束。 */
+/** GM 邮件编辑器中整份草稿的输入结构。 */
 interface GmMailComposerDraft {
-/** templateId：定义该变量以承载业务值。 */
   templateId: string;
-/** targetPlayerId：定义该变量以承载业务值。 */
   targetPlayerId: string;
-/** senderLabel：定义该变量以承载业务值。 */
   senderLabel: string;
-/** title：定义该变量以承载业务值。 */
   title: string;
-/** body：定义该变量以承载业务值。 */
   body: string;
-/** expireHours：定义该变量以承载业务值。 */
   expireHours: string;
-/** attachments：定义该变量以承载业务值。 */
   attachments: GmMailAttachmentDraft[];
 }
 
-/** getBrowserLocalStorage：执行对应的业务逻辑。 */
+/** 读取浏览器 LocalStorage；当前环境不可用时返回 null。 */
 export function getBrowserLocalStorage(): Storage | null {
   try {
     return window.localStorage;
@@ -40,9 +31,8 @@ export function getBrowserLocalStorage(): Storage | null {
   }
 }
 
-/** readPersistedGmPassword：执行对应的业务逻辑。 */
+/** 读取已保存的 GM 登录口令，并去掉首尾空白。 */
 export function readPersistedGmPassword(storageKey = GM_PASSWORD_STORAGE_KEY): string {
-/** storage：定义该变量以承载业务值。 */
   const storage = getBrowserLocalStorage();
   if (!storage) return '';
   try {
@@ -52,12 +42,10 @@ export function readPersistedGmPassword(storageKey = GM_PASSWORD_STORAGE_KEY): s
   }
 }
 
-/** persistGmPassword：执行对应的业务逻辑。 */
+/** 保存或清理 GM 登录口令，空值会直接移除历史记录。 */
 export function persistGmPassword(password: string, storageKey = GM_PASSWORD_STORAGE_KEY): void {
-/** storage：定义该变量以承载业务值。 */
   const storage = getBrowserLocalStorage();
   if (!storage) return;
-/** normalized：定义该变量以承载业务值。 */
   const normalized = password.trim();
   try {
     if (normalized) {
@@ -66,11 +54,11 @@ export function persistGmPassword(password: string, storageKey = GM_PASSWORD_STO
     }
     storage.removeItem(storageKey);
   } catch {
-    // 本地存储不可用时忽略，避免影响 GM 主流程。
+    // 本地存储不可用时直接跳过，不影响 GM 主流程。
   }
 }
 
-/** createDefaultMailAttachmentDraft：执行对应的业务逻辑。 */
+/** 创建空的邮件附件草稿，供编辑面板新增一行使用。 */
 export function createDefaultMailAttachmentDraft(): GmMailAttachmentDraft {
   return {
     itemId: '',
@@ -78,17 +66,13 @@ export function createDefaultMailAttachmentDraft(): GmMailAttachmentDraft {
   };
 }
 
-/** createDefaultRedeemGroupDraft：执行对应的业务逻辑。 */
+/** 创建兑换码批量生成分组草稿，填充可直接提交的默认值。 */
 export function createDefaultRedeemGroupDraft(
   createRedeemReward: () => RedeemCodeGroupRewardItem = createDefaultRedeemReward,
 ): {
-/** name：定义该变量以承载业务值。 */
   name: string;
-/** rewards：定义该变量以承载业务值。 */
   rewards: RedeemCodeGroupRewardItem[];
-/** createCount：定义该变量以承载业务值。 */
   createCount: string;
-/** appendCount：定义该变量以承载业务值。 */
   appendCount: string;
 } {
   return {
@@ -99,7 +83,7 @@ export function createDefaultRedeemGroupDraft(
   };
 }
 
-/** createDefaultRedeemReward：执行对应的业务逻辑。 */
+/** 创建单条奖励草稿，作为兑换码分组的默认奖励项。 */
 export function createDefaultRedeemReward(): RedeemCodeGroupRewardItem {
   return {
     itemId: '',
@@ -107,7 +91,7 @@ export function createDefaultRedeemReward(): RedeemCodeGroupRewardItem {
   };
 }
 
-/** createDefaultMailComposerDraft：执行对应的业务逻辑。 */
+/** 创建邮件编辑草稿，预置默认发件人与有效期。 */
 export function createDefaultMailComposerDraft(): GmMailComposerDraft {
   return {
     templateId: '',
@@ -120,12 +104,12 @@ export function createDefaultMailComposerDraft(): GmMailComposerDraft {
   };
 }
 
-/** clone：执行对应的业务逻辑。 */
+/** 纯数据快照的深拷贝工具，当前实现基于 JSON 序列化。 */
 export function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
-/** escapeHtml：执行对应的业务逻辑。 */
+/** 转义 HTML 实体，避免 GM 面板中的内容被当成标签渲染。 */
 export function escapeHtml(input: string): string {
   return input
     .replaceAll('&', '&amp;')
@@ -135,14 +119,13 @@ export function escapeHtml(input: string): string {
     .replaceAll("'", '&#39;');
 }
 
-/** formatJson：执行对应的业务逻辑。 */
+/** 将任意值格式化成缩进 JSON，便于详情和日志查看。 */
 export function formatJson(value: unknown): string {
   return JSON.stringify(value ?? null, null, 2);
 }
 
-/** formatBytes：执行对应的业务逻辑。 */
+/** 将字节数转成 B/KB/MB/GB 文本，便于运维面板阅读。 */
 export function formatBytes(bytes: number | undefined): string {
-/** safe：定义该变量以承载业务值。 */
   const safe = Number.isFinite(bytes) ? Math.max(0, Number(bytes)) : 0;
   if (safe < 1024) return `${Math.round(safe)} B`;
   if (safe < 1024 * 1024) return `${(safe / 1024).toFixed(1)} KB`;
@@ -150,7 +133,7 @@ export function formatBytes(bytes: number | undefined): string {
   return `${(safe / (1024 * 1024 * 1024)).toFixed(2)} GB`;
 }
 
-/** formatPercent：执行对应的业务逻辑。 */
+/** 将分子分母转换成百分比字符串，异常输入回退为 0。 */
 export function formatPercent(numerator: number, denominator: number): string {
   if (!Number.isFinite(numerator) || numerator <= 0 || !Number.isFinite(denominator) || denominator <= 0) {
     return '0.0%';
@@ -158,7 +141,7 @@ export function formatPercent(numerator: number, denominator: number): string {
   return `${((numerator / denominator) * 100).toFixed(1)}%`;
 }
 
-/** formatBytesPerSecond：执行对应的业务逻辑。 */
+/** 计算并格式化每秒吞吐量。 */
 export function formatBytesPerSecond(bytes: number, elapsedSec: number): string {
   if (!Number.isFinite(bytes) || bytes <= 0 || !Number.isFinite(elapsedSec) || elapsedSec <= 0) {
     return '0 B/s';
@@ -166,7 +149,7 @@ export function formatBytesPerSecond(bytes: number, elapsedSec: number): string 
   return `${formatBytes(bytes / elapsedSec)}/s`;
 }
 
-/** formatAverageBytesPerEvent：执行对应的业务逻辑。 */
+/** 计算并格式化单次事件平均字节数。 */
 export function formatAverageBytesPerEvent(bytes: number, count: number): string {
   if (!Number.isFinite(bytes) || bytes <= 0 || !Number.isFinite(count) || count <= 0) {
     return '0 B';
@@ -174,17 +157,12 @@ export function formatAverageBytesPerEvent(bytes: number, count: number): string
   return formatBytes(bytes / count);
 }
 
-/** formatDurationSeconds：执行对应的业务逻辑。 */
+/** 将秒数格式化成中文可读时长。 */
 export function formatDurationSeconds(seconds: number): string {
-/** safe：定义该变量以承载业务值。 */
   const safe = Number.isFinite(seconds) ? Math.max(0, Math.floor(seconds)) : 0;
-/** days：定义该变量以承载业务值。 */
   const days = Math.floor(safe / 86400);
-/** hours：定义该变量以承载业务值。 */
   const hours = Math.floor((safe % 86400) / 3600);
-/** minutes：定义该变量以承载业务值。 */
   const minutes = Math.floor((safe % 3600) / 60);
-/** secs：定义该变量以承载业务值。 */
   const secs = safe % 60;
   if (days > 0) return `${days}天 ${hours}时 ${minutes}分`;
   if (hours > 0) return `${hours}时 ${minutes}分 ${secs}秒`;
@@ -192,12 +170,11 @@ export function formatDurationSeconds(seconds: number): string {
   return `${secs}秒`;
 }
 
-/** formatDateTime：执行对应的业务逻辑。 */
+/** 将 ISO 时间转成本地中文时间，非法值返回 `无`。 */
 export function formatDateTime(value?: string): string {
   if (!value) {
     return '无';
   }
-/** time：定义该变量以承载业务值。 */
   const time = new Date(value);
   if (Number.isNaN(time.getTime())) {
     return '无';
@@ -205,13 +182,11 @@ export function formatDateTime(value?: string): string {
   return time.toLocaleString('zh-CN');
 }
 
-/** getPlayerPresenceMeta：执行对应的业务逻辑。 */
+/** 根据玩家在线状态生成列表里的样式与文案。 */
 export function getPlayerPresenceMeta(
   player: Pick<GmManagedPlayerSummary, 'meta'>,
 ): {
-/** className：定义该变量以承载业务值。 */
   className: 'online' | 'offline';
-/** label：定义该变量以承载业务值。 */
   label: '在线' | '离线挂机' | '离线';
 } {
   if (player.meta.online) {
@@ -223,23 +198,20 @@ export function getPlayerPresenceMeta(
   return { className: 'offline', label: '离线' };
 }
 
-/** getManagedAccountStatusLabel：执行对应的业务逻辑。 */
+/** 复用在线状态映射，生成托管账号的显示文本。 */
 export function getManagedAccountStatusLabel(player: Pick<GmManagedPlayerRecord, 'meta'>): string {
-/** presence：定义该变量以承载业务值。 */
   const presence = getPlayerPresenceMeta(player);
   return presence.label;
 }
 
-/** pathSegments：执行对应的业务逻辑。 */
+/** 将点分路径拆成片段，供路径读写工具复用。 */
 export function pathSegments(path: string): string[] {
   return path.split('.');
 }
 
-/** setValueByPath：执行对应的业务逻辑。 */
+/** 按点分路径写值，缺失节点会按后续片段自动补齐数组或对象。 */
 export function setValueByPath(target: unknown, path: string, value: unknown): void {
-/** segments：定义该变量以承载业务值。 */
   const segments = pathSegments(path);
-/** cursor：定义该变量以承载业务值。 */
   let cursor = target as Record<string, unknown>;
   for (let index = 0; index < segments.length - 1; index += 1) {
     const key = segments[index]!;
@@ -252,9 +224,8 @@ export function setValueByPath(target: unknown, path: string, value: unknown): v
   cursor[segments[segments.length - 1]!] = value;
 }
 
-/** getValueByPath：执行对应的业务逻辑。 */
+/** 按点分路径读取任意对象字段，路径缺失时返回 undefined。 */
 export function getValueByPath(target: unknown, path: string): unknown {
-/** cursor：定义该变量以承载业务值。 */
   let cursor = target as Record<string, unknown> | undefined;
   for (const segment of pathSegments(path)) {
     if (cursor === undefined || cursor === null) return undefined;
@@ -263,16 +234,16 @@ export function getValueByPath(target: unknown, path: string): unknown {
   return cursor;
 }
 
-/** removeArrayIndex：执行对应的业务逻辑。 */
+/** 定位点路径上的数组并移除指定下标，用于草稿表单删除。 */
 export function removeArrayIndex(target: unknown, path: string, index: number): void {
-/** value：定义该变量以承载业务值。 */
   const value = getValueByPath(target, path);
   if (!Array.isArray(value)) return;
   value.splice(index, 1);
 }
 
-/** ensureArray：执行对应的业务逻辑。 */
+/** 将输入统一规范成数组，非数组输入返回空数组。 */
 export function ensureArray<T>(value: T[] | undefined | null): T[] {
   return Array.isArray(value) ? value : [];
 }
+
 

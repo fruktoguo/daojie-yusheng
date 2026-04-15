@@ -8,16 +8,14 @@ import { getAttrKeyLabel, getElementKeyLabel, getNumericScalarStatKeyLabel } fro
 import { PERCENT_STAT_KEYS } from '../constants/ui/stat-preview';
 import { formatDisplayNumber, formatDisplaySignedNumber, formatDisplayPercent } from '../utils/number';
 
-/** formatSignedNumber：执行对应的业务逻辑。 */
+/** formatSignedNumber：格式化Signed数值。 */
 function formatSignedNumber(value: number): string {
   return formatDisplaySignedNumber(value);
 }
 
-/** formatSignedStatValue：执行对应的业务逻辑。 */
+/** formatSignedStatValue：格式化Signed Stat值。 */
 function formatSignedStatValue(key: string, value: number): string {
-/** sign：定义该变量以承载业务值。 */
   const sign = value >= 0 ? '+' : '-';
-/** absValue：定义该变量以承载业务值。 */
   const absValue = Math.abs(value);
   if (key === 'critDamage') {
     return `${sign}${formatDisplayPercent(absValue / 10)}`;
@@ -28,7 +26,7 @@ function formatSignedStatValue(key: string, value: number): string {
   return `${sign}${formatDisplayNumber(absValue)}`;
 }
 
-/** resolvePreviewStats：执行对应的业务逻辑。 */
+/** resolvePreviewStats：解析Preview属性。 */
 export function resolvePreviewStats(
   stats?: PartialNumericStats,
   valueStats?: PartialNumericStats,
@@ -36,13 +34,12 @@ export function resolvePreviewStats(
   return valueStats ? compileValueStatsToActualStats(valueStats) : stats;
 }
 
-/** describePreviewBonuses：执行对应的业务逻辑。 */
+/** describePreviewBonuses：处理describe Preview Bonuses。 */
 export function describePreviewBonuses(
   attrs?: Partial<Attributes>,
   stats?: PartialNumericStats,
   valueStats?: PartialNumericStats,
 ): string[] {
-/** lines：定义该变量以承载业务值。 */
   const lines: string[] = [];
   if (attrs) {
     for (const [key, value] of Object.entries(attrs)) {
@@ -53,7 +50,6 @@ export function describePreviewBonuses(
     }
   }
 
-/** resolvedStats：定义该变量以承载业务值。 */
   const resolvedStats = resolvePreviewStats(stats, valueStats);
   if (!resolvedStats) {
     return lines;
@@ -87,4 +83,7 @@ export function describePreviewBonuses(
 
   return lines;
 }
+
+
+
 
