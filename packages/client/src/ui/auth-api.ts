@@ -2,6 +2,7 @@
  * 认证与账号 HTTP API 封装
  * 负责 token 存取、登录/注册/刷新请求、账号信息修改
  */
+// TODO(next:SEC05): 评估把 access/refresh token 从 localStorage 迁到更窄的会话承载策略，并补最小暴露面约束。
 
 import {
   ACCESS_TOKEN_STORAGE_KEY,
@@ -206,4 +207,3 @@ function parseJwtPayload(token: string): AuthTokenPayload | null {
     return null;
   }
 }
-

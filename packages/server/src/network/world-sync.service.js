@@ -33,6 +33,9 @@ const world_projector_service_1 = require("./world-projector.service");
 const world_sync_protocol_service_1 = require("./world-sync-protocol.service");
 
 const world_session_service_1 = require("./world-session.service");
+// TODO(next:T15): 继续拆薄 Bootstrap + MapStatic + PanelDelta 的首包重复字段，减少静态/低频信息在首包与增量间反复出现。
+// TODO(next:T18): 给 minimap marker 建地图级预处理或事件驱动刷新，避免每轮同步重复构建/过滤/排序。
+// TODO(next:PERF01): 去掉 world-sync actions/combat 顶层比较中的 JSON.stringify 热点，改成 revision 或稳定结构比较。
 
 /** 世界同步服务：把 runtime 视图投影成 next 协议增量包并维护同步缓存。 */
 let WorldSyncService = class WorldSyncService {
@@ -2454,5 +2457,3 @@ function isPlainEqual(left, right) {
     return false;
 }
 //# sourceMappingURL=world-sync.service.js.map
-
-

@@ -2,6 +2,7 @@
  * 装备面板
  * 展示 5 个装备槽位的当前装备与词条，支持卸下操作
  */
+// TODO(next:UI01): 把 equipment-panel 主体继续 patch-first 化，并与 inventory/quest/technique 已稳定壳体对齐。
 
 import { EquipmentEffectDef, EquipmentSlots, EQUIP_SLOTS, EquipSlot, PlayerState } from '@mud/shared-next';
 import { getEquipSlotLabel } from '../../domain-labels';
@@ -419,4 +420,3 @@ export class EquipmentPanel {
     document.head.appendChild(style);
   }
 }
-

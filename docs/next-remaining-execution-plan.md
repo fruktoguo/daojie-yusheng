@@ -39,6 +39,8 @@
   - 首包/热路径/扩展边界的性能尾项
   - `shared-next / client-next` 稳定性收口
   - 替换后的 compat 保留策略定稿
+- TODO(next:T13): 定稿 GM/admin/restore 是继续 next-native 化还是长期保留 compat 壳，并把策略写回任务账本与运维口径。
+- TODO(next:T24): 定稿 legacy HTTP / GM / socket compat 的最终保留范围、观察窗口和删除前置条件。
 
 ## 1.1 2026-04-07 最新状态
 

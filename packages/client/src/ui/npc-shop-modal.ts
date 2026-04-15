@@ -1,3 +1,4 @@
+// TODO(next:UI01): 把 npc-shop-modal 的列表/详情渲染继续从整块写入收成局部 patch，避免商店刷新打断当前操作。
 import { Inventory, ItemStack, PlayerState } from '@mud/shared-next';
 import { buildItemTooltipPayload, describeItemEffectDetails } from './equipment-tooltip';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from './floating-tooltip';
@@ -619,5 +620,4 @@ export class NpcShopModal {
       .reduce((total, item) => total + item.count, 0);
   }
 }
-
 

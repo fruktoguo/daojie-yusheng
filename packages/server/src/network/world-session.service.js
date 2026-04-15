@@ -17,6 +17,7 @@ const shared_1 = require("@mud/shared-next");
 const DEFAULT_SESSION_DETACH_EXPIRE_MS = 15_000;
 
 const MAX_REQUESTED_SESSION_ID_LENGTH = 128;
+// TODO(next:T07): 明确单进程 session 是否就是最终真源，并把当前 detached/reuse/reaper 语义从 proof 收口成正式设计边界。
 
 /** 世界会话管理入口：管理 socket 与 player 绑定、会话恢复、断线回收。 */
 function resolveSessionDetachExpireMs() {

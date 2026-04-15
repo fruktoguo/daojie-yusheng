@@ -63,6 +63,8 @@ const AUTHENTICATED_REQUESTED_SESSION_ID_AUTH_SOURCES = new Set([
     'next',
     'token',
 ]);
+// TODO(next:T05): 继续把 connect_token / hello / guest / GM 四类入口写成单线 bootstrap 行为，避免 gateway 再承担兜底 auth/bootstrap 旁路。
+// TODO(next:T06): 把 guest / authenticated / GM 三类握手错误码、恢复路径和协议边界完全拆开并固定为正式 contract。
 
 /** 世界 Socket 入口：负责鉴权、会话引导、GM 操作和 gameplay 命令分发。 */
 let WorldGateway = WorldGateway_1 = class WorldGateway {

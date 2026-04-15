@@ -2,6 +2,7 @@
 /**
  * 用途：执行 session 链路的冒烟验证。
  */
+// TODO(next:VERIFY01): 修复 local replace-ready 当前的 session smoke 漂移，统一 legacy/next Pong 事件引用并消除超时失败。
 
 Object.defineProperty(exports, "__esModule", { value: true });
 const smoke_timeout_1 = require("./smoke-timeout");

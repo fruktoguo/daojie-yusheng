@@ -65,6 +65,7 @@ function isCompatMigrationAccessExplicit(options) {
 function isLegacyHttpIdentityFallbackExplicit(options) {
     return options?.allowLegacyHttpIdentityFallback === true;
 }
+// TODO(next:T02): 把 WorldPlayerSourceService 从 legacy facade 收成 next-native source，并把 legacy/HTTP fallback 限制为显式迁移入口。
 
 /** 玩家来源服务：负责从 legacy / HTTP / next 持久化源恢复玩家身份。 */
 let WorldPlayerSourceService = class WorldPlayerSourceService {
@@ -871,4 +872,3 @@ function resolveRealmLevelFromStage(stage) {
             return 1;
     }
 }
-

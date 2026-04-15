@@ -46,6 +46,8 @@ const PENDING_LOGBOOK_KINDS = new Set([
     'loot',
     'grudge',
 ]);
+// TODO(next:PERF01): 去掉 player-runtime 热路径里基于 JSON.stringify 的结构比较，改成 revision 或显式结构比较。
+// TODO(next:REFACTOR02): player-runtime 仍承担过多在线态、持久化快照与战斗/成长辅助职责，后续要继续按状态拥有者拆分。
 
 let PlayerRuntimeService = class PlayerRuntimeService {
     /** 内容仓库，提供起始背包、默认装备和物品模板。 */
@@ -2597,5 +2599,4 @@ function cloneCombatEffect(source) {
     return { ...source };
 }
 //# sourceMappingURL=player-runtime.service.js.map
-
 

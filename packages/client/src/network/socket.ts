@@ -1,6 +1,7 @@
 /**
  * Socket.IO 网络管理器 —— 封装客户端与服务端的双向通信，提供类型安全的事件收发接口
  */
+// TODO(next:T21): 清理 client-next 事件表面的旧命名兼容层，把对外 API 完全收成 next-native 命名。
 
 import { io, Socket } from 'socket.io-client';
 import type { NEXT_S2C_MapStatic, NEXT_S2C_Realm } from '@mud/shared-next';

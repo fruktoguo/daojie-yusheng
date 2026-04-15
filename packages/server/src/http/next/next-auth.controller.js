@@ -20,6 +20,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.NextAuthController = void 0;
 const common_1 = require("@nestjs/common");
 const next_player_auth_service_1 = require("./next-player-auth.service");
+// TODO(next:SEC04): 给 register/login/refresh/gm-login 补正式限流/节流，区分 IP、账号维度和失败窗口。
 /** Next 登录鉴权 HTTP 控制器：负责注册、登录、刷新和显示名可用性检查。 */
 let NextAuthController = class NextAuthController {
     /** 注入 next 玩家鉴权服务，控制器只负责参数清洗与路由转发。 */
@@ -81,5 +82,4 @@ exports.NextAuthController = NextAuthController = __decorate([
 function pickString(value) {
     return typeof value === 'string' ? value : '';
 }
-
 

@@ -2,6 +2,7 @@
 /**
  * 用途：执行 gm-database-backup-persistence 链路的冒烟验证。
  */
+// TODO(next:T09): 在真实 DB 环境固定补跑 backup-persistence proof，并把真实执行记录回填到 replace-ready/ops 文档。
 
 Object.defineProperty(exports, "__esModule", { value: true });
 const smoke_timeout_1 = require("./smoke-timeout");

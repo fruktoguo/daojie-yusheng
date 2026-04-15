@@ -184,6 +184,7 @@ jobs:
           SERVER_NEXT_GM_PASSWORD: ${{ secrets.PROD_GM_PASSWORD }}
           SERVER_NEXT_SHADOW_URL: http://${{ secrets.DEPLOY_SSH_HOST }}:11923
           SERVER_NEXT_SHADOW_ALLOW_DESTRUCTIVE: '1'
+        # TODO(next:T14): 把 destructive proof 的维护窗口前置条件、补证产物和失败回滚记录正式纳入 deploy workflow 证据链。
         run: pnpm verify:replace-ready:shadow:destructive
 
       - name: Verify deployed shadow GM compat

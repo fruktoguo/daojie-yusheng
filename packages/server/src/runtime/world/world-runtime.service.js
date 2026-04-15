@@ -53,6 +53,8 @@ const world_runtime_normalization_helpers_1 = require("./world-runtime.normaliza
 const world_runtime_observation_helpers_1 = require("./world-runtime.observation.helpers");
 
 const world_runtime_path_planning_helpers_1 = require("./world-runtime.path-planning.helpers");
+// TODO(next:ARCH02): 明确 next 在线态/实时态分层：哪些状态留进程内、哪些应进入 Redis 或替代层、哪些必须保持数据库真源。
+// TODO(next:REFACTOR01): world-runtime 仍是巨型强状态模块，后续要按编排/查询/规则/运行时域拆分，而不是继续把新职责堆进同一个 service。
 const {
     normalizeRuntimeActionId,
     buildPublicInstanceId,

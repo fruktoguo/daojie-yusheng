@@ -65,6 +65,10 @@ const RATIO_DIVISOR_KEYS = [
 
 /** 元素属性组键。 */
 const ELEMENT_GROUP_KEYS = ['metal', 'wood', 'water', 'fire', 'earth'];
+// TODO(next:T16): 把 WorldProjector 从整量 capture/clone + diff 再往下拆成稳定的 slice / revision 驱动投影。
+// TODO(next:T17): 给 panel/attr bonus 与相关 diff 建 revision 和 invalidation 边界，降低每 tick CPU 与分配压力。
+// TODO(next:T20): 把新系统默认继续往巨型 PlayerState / projector 堆字段的趋势压住，明确 slice 扩展边界。
+// TODO(next:PERF01): 去掉 world-projector 面板顶层比较中的 JSON.stringify 热点，避免热路径序列化比较继续常驻。
 
 /** 世界投影服务：把 runtime 视图压缩成 next 协议的初始包和增量包。 */
 let WorldProjectorService = class WorldProjectorService {
@@ -1455,5 +1459,3 @@ function buildPortalId(x, y) {
     return `${x}:${y}`;
 }
 //# sourceMappingURL=world-projector.service.js.map
-
-

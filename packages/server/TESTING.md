@@ -18,6 +18,8 @@
 - 当前任务账本按统一口径仍是 `25` 项。
 - 当前保守判断下，距离“完整替换游戏整体”仍约差 `35% - 40%`。
 - 这份文件只负责解释“跑什么、证明什么、不能证明什么”，不负责替代任务账本或运维手册。
+- TODO(next:T11): 继续核齐 README / TESTING / RUNBOOK / workflow / wrapper 的门禁口径，避免文档先绿、命令后红。
+- TODO(next:T25): 把“完整替换完成”的关键项逐条绑定到 smoke / runbook / workflow / acceptance 证据，不再只停留在描述层。
 
 ## 五层 Gate
 

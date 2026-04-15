@@ -2,6 +2,7 @@
  * 属性面板
  * 以雷达图和数值卡片展示六维、灵根、灵脉、斗法、灵力、特殊六大分类属性
  */
+// TODO(next:UI01): 把 attr-panel 从大段 innerHTML 重建继续收成固定壳体 + 局部 patch，避免低频属性刷新重建整面板。
 
 import {
   ATTR_KEYS,
@@ -1255,4 +1256,3 @@ export class AttrPanel {
     });
   }
 }
-

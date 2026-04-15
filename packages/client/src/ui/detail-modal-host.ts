@@ -2,6 +2,7 @@
  * 全局单实例详情弹层宿主
  * 所有"点击展开详情"类交互共用此弹层，通过 ownerId 区分归属
  */
+// TODO(next:UI01): 继续压缩 detail-modal-host 对 bodyHtml 的整体重载，优先提供可复用的局部 patch 容器能力。
 
 import { preserveSelection } from './selection-preserver';
 import {
@@ -132,6 +133,5 @@ function splitModalLayerClasses(variantClass: string): string[] {
 
 /** detailModalHost：详情弹窗宿主。 */
 export const detailModalHost = new DetailModalHost();
-
 
 

@@ -2,6 +2,7 @@
 /**
  * 用途：检查 shared-next 数值属性键定义是否一致。
  */
+// TODO(next:T23): 把 shared 一致性检查从单点 numeric 守卫扩成覆盖 protocol/reset/projection/protobuf 的统一检查入口。
 
 const fs = require('node:fs');
 const path = require('node:path');

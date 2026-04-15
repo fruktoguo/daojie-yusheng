@@ -2,6 +2,7 @@
  * 行动面板
  * 负责动作列表、技能管理和技能方案的局部交互，不接管真正的战斗结算。
  */
+// TODO(next:UI01): 把 action-panel 主体和相关 modal 继续收成 patch-first，并复用统一 toolbar/list/detail recipe，避免大段 innerHTML 重建。
 
 import { ActionDef, AutoBattleSkillConfig, PlayerState, SkillDef, type ElementKey, type SkillDamageKind } from '@mud/shared-next';
 import { detailModalHost } from '../detail-modal-host';

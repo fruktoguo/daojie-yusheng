@@ -162,6 +162,7 @@ async function bootstrap() {
 
     const app = await core_1.NestFactory.create(app_module_1.AppModule, { logger });
     app.enableShutdownHooks();
+    // TODO(next:SEC03): 按环境限制 CORS origins/methods/headers，避免 app.enableCors() 在正式环境维持全开。
     app.enableCors();
 
     const port = Number(process.env.SERVER_NEXT_PORT ?? 13001);

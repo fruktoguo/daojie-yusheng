@@ -82,6 +82,8 @@ const NEXT_BOOTSTRAP_ALLOWED_IDENTITY_SOURCES = new Set([
 const NEXT_BOOTSTRAP_ALLOWED_NEXT_PERSISTED_SOURCES = new Set([
     'native',
 ]);
+// TODO(next:T03): 继续收掉 authenticated snapshot 的 compat fallback，把 runtime compat snapshot 回退压到 migration/no-persistence 专用边界。
+// TODO(next:T05): 把 connect_token / hello / guest / GM 四类 bootstrap 入口彻底收成单线 contract，避免旁路恢复语义继续扩散。
 /** 是否强制只允许 native 快照，不接受兼容回填。 */
 function isStrictNativeSnapshotRequired() {
     for (const key of STRICT_NATIVE_SNAPSHOT_ENV_KEYS) {

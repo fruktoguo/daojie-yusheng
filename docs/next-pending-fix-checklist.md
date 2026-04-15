@@ -25,6 +25,14 @@
   - 前端主链过重、patch-first 未完全收口
   - proof / acceptance / shadow / GM-admin 运营闭环未完全做实
 
+内联 TODO 检索约定：
+
+- 任务账本：`TODO(next:Txx)`
+- 安全与门禁：`TODO(next:SECxx)`、`TODO(next:VERIFYxx)`
+- 架构 / 持久化 / 热路径 / 大模块：`TODO(next:ARCHxx)`、`TODO(next:PERSISTxx)`、`TODO(next:PERFxx)`、`TODO(next:REFACTORxx)`
+- 前端尾项：`TODO(next:UIxx)`
+- 建议检索：`rg -n "TODO\\(next:" packages docs scripts .github`
+
 ---
 
 ## P0：正式替换前必须先修
@@ -338,4 +346,3 @@
 - `docs/next-legacy-removal-checklist.md`
 - `docs/next-gap-analysis.md`
 - `docs/next-remaining-task-breakdown.md`
-

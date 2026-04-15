@@ -1,6 +1,7 @@
 /**
  * 数值属性系统：战斗数值结构定义、五行元素属性组、RatioValue 计算、灵力消耗公式。
  */
+// TODO(next:T22): 继续稳定 shared-next 的数值 / realm / bootstrap 类型基线，避免 client/server/shared 对 numeric 语义再漂移。
 import type { Attributes } from './types';
 import { PlayerRealmStage } from './types';
 import {

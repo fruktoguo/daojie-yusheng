@@ -23,6 +23,7 @@ const player_runtime_service_1 = require("../runtime/player/player-runtime.servi
 const player_persistence_service_1 = require("./player-persistence.service");
 
 const PLAYER_PERSISTENCE_FLUSH_INTERVAL_MS = 5000;
+// TODO(next:PERSIST02): 把玩家刷盘从固定 5 秒串行循环收成更细粒度的 dirty 分发、批量写、并行度和失败重试策略。
 
 /** 玩家快照脏数据刷盘服务：定时/退出时持久化玩家运行时快照。 */
 let PlayerPersistenceFlushService = PlayerPersistenceFlushService_1 = class PlayerPersistenceFlushService {
@@ -132,5 +133,4 @@ function isRestoreFreezeActive() {
     return typeof value === 'string' && /^(1|true|yes|on)$/iu.test(value.trim());
 }
 //# sourceMappingURL=player-persistence-flush.service.js.map
-
 

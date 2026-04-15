@@ -2,6 +2,7 @@
 /**
  * 用途：执行 shadow 环境下的 GM 数据库破坏性 proof 验证。
  */
+// TODO(next:T10): 在维护窗口真实补跑 destructive proof，并把可重复执行的前置条件、风险控制和结果记录写回运维门禁。
 
 Object.defineProperty(exports, "__esModule", { value: true });
 const smoke_timeout_1 = require("./smoke-timeout");

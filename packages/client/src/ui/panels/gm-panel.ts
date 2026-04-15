@@ -2,6 +2,7 @@
  * GM 管理面板
  * 提供服务端性能监控、在线玩家列表、玩家编辑、机器人控制与意见管理
  */
+// TODO(next:UI01): 把 gm-panel 从拼接式模板继续拆成固定壳体 + 局部更新，减少后续 GM 面板回归面。
 
 import { NEXT_C2S_GmUpdatePlayer, GmPlayerSummary, NEXT_S2C_GmState, Suggestion } from '@mud/shared-next';
 
@@ -791,4 +792,3 @@ export class GmPanel {
     return Boolean(element && document.activeElement === element);
   }
 }
-

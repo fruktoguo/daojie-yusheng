@@ -1,3 +1,4 @@
+// TODO(next:UI01): 把 suggestion-panel 的列表/线程区域继续改成 patch-first，并顺手抽离 card/list/detail recipe。
 import { type Suggestion, type SuggestionReply } from '@mud/shared-next';
 import type { SocketManager } from '../network/socket';
 import { detailModalHost } from './detail-modal-host';
@@ -873,4 +874,3 @@ function escapeHtml(input: string): string {
 function escapeHtmlAttr(input: string): string {
   return escapeHtml(input);
 }
-

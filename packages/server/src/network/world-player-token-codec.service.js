@@ -37,6 +37,7 @@ const PLAYER_TOKEN_SECRET_ENV_KEYS = [
     'NEXT_PLAYER_TOKEN_SECRET',
     'JWT_SECRET',
 ];
+// TODO(next:SEC01): 生产/非开发环境禁止回退内置 dev secret，缺少合法 player token secret 时应 fail-fast。
 
 /** 玩家令牌编解码服务：负责签发和验证 next 访问/刷新令牌。 */
 let WorldPlayerTokenCodecService = class WorldPlayerTokenCodecService {
@@ -205,5 +206,4 @@ function base64UrlEncode(value) {
         .replace(/\//g, '_')
         .replace(/=+$/g, '');
 }
-
 

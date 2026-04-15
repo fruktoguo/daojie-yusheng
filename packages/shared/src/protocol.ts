@@ -2,6 +2,8 @@
  * 前后端通信协议：定义事件名，以及引导包、世界增量、面板增量、详情包等共享载荷。
  * NEXT_C2S = 客户端→服务端，NEXT_S2C = 服务端→客户端。
  */
+// TODO(next:T22): 把 bootstrap / panel / delta 的 shared 补全规则继续写硬，避免新增字段只落在单边协议实现。
+// TODO(next:T23): 为 shared 字段新增补全“初始化 / 克隆 / 重置 / 序列化 / 投影”一致性检查，并把检查提升成正式门禁。
 import type { ElementKey } from './numeric';
 import { Direction, PlayerState, Tile, VisibleTile, RenderEntity, MapMeta, Attributes, Inventory, EquipmentSlots, TechniqueState, ActionDef, AttrBonus, EquipSlot, EntityKind, NpcQuestMarker, ObservationInsight, PlayerRealmState, PlayerRealmStage, PlayerSpecialStats, QuestState, CombatEffect, AutoBattleSkillConfig, AutoUsePillConfig, AutoBattleTargetingMode, CombatTargetingRules, ItemType, QuestLine, QuestObjectiveType, GameTimeState, MapTimeConfig, MonsterAggroMode, MonsterTier, NumericStatPercentages, TechniqueCategory, TechniqueGrade, GroundItemPileView, LootSearchProgressView, VisibleBuffState, TemporaryBuffState, ActionType, SkillDef, TechniqueAttrCurves, TechniqueLayerDef, TechniqueRealm, GroundItemEntryView, LootSourceKind, MapMinimapArchiveEntry, MapMinimapMarker, MapMinimapSnapshot, Suggestion, ItemStack, EquipmentEffectDef, ConsumableBuffDef, MarketListedItemView, MarketOrderBookView, MarketOwnOrderView, MarketStorage, MarketTradeHistoryEntryView, MapRouteDomain, PortalRouteDomain, MailSummaryView, MailPageView, MailDetailView, MailFilter, MailTemplateArg, MailAttachment, BodyTrainingState, AlchemyIngredientSelection, AlchemyRecipeCatalogEntry, SyncedAlchemyPanelState, EnhancementTargetRef, SyncedEnhancementPanelState } from './types';
 import { NumericRatioDivisors, NumericStats, NumericStatBreakdownMap } from './numeric';

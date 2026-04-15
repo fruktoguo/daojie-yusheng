@@ -40,6 +40,7 @@ const LEGACY_GM_AUTH_SCOPE = 'server_config';
 
 /** 没有配置时使用的默认 GM 密码。 */
 const DEFAULT_GM_PASSWORD = 'admin123';
+// TODO(next:SEC02): 禁止生产环境默认 GM 密码启动；正式环境应强制来自安全配置而不是 admin123 回退。
 
 /** 默认 token 有效期。 */
 const DEFAULT_TOKEN_TTL_SEC = 12 * 60 * 60;
@@ -366,4 +367,3 @@ function safeEqual(left, right) {
     }
     return crypto.timingSafeEqual(leftBuffer, rightBuffer);
 }
-

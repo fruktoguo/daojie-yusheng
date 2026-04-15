@@ -26,6 +26,7 @@
 - `acceptance` 只能回答“本地主证明链 + shadow 最小实物验收是否绿”
 - `full` 只能回答“在数据库、shadow、GM 密码都齐备时，自动化门禁是否全绿”
 - `shadow-destructive` 只能回答“维护窗口里的 destructive 闭环是否可控”，不回答日常替换是否完成
+- TODO(next:T12): 继续把自动 proof 与人工回归边界写硬，避免“命令存在”被误读成运营链路已完成。
 
 ## 推荐入口
 
@@ -98,6 +99,7 @@
 - 需要显式设置 `SERVER_NEXT_SHADOW_ALLOW_DESTRUCTIVE=1`
 - 用于 shadow 上单独验证 `backup -> download -> restore`
 - 默认不应进入日常 deploy 链
+- TODO(next:T14): 把真实维护窗口 secrets、执行记录和可选 destructive 补证流程继续回填到 workflow 与 runbook。
 
 ## 环境变量矩阵
 

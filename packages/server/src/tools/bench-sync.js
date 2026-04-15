@@ -2,6 +2,7 @@
 /**
  * 用途：基准测试 sync 链路性能。
  */
+// TODO(next:T19): 把 tick / AOI / projector / sync 的高负载基准与阈值门禁补齐，避免 bench 只覆盖局部场景。
 
 Object.defineProperty(exports, "__esModule", { value: true });
 const shared_1 = require("@mud/shared-next");

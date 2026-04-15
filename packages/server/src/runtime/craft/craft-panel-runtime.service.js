@@ -1159,6 +1159,7 @@ function resolveContentPath(...segments) {
     return path.resolve(__dirname, '../../../../../packages/server/data/content', ...segments);
 }
 function resolveLegacyContentPath(...segments) {
+    // TODO(next:DATA01): 明确 next 体系的内容真源目录，清理 legacy-content 命名与兼容壳，避免内容真源长期停留在迁移态。
     return resolveContentPath(...segments);
 }
 function walkJsonFiles(root) {
@@ -1519,6 +1520,5 @@ function computeEnhancementAdjustedSuccessRate(targetEnhanceLevel, roleEnhanceme
         + (upperLevelGap * ENHANCEMENT_EXTRA_SUCCESS_RATE_PER_LEVEL);
     return applyEnhancementSuccessModifier(adjustedBaseRate, totalSuccessModifier);
 }
-
 
 

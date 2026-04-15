@@ -11,6 +11,7 @@
 - 当前最关键的阻塞仍是 `auth/token/bootstrap/snapshot/session` 真源主线
 - `GM/admin/restore/shadow` 目前更像证明链与运维门禁问题，不是单纯缺脚本
 - `首包 / projector / sync / shared-next` 仍是性能与稳定性尾项
+- TODO(next:ARCH01): `server-next` 仍未进入 strict TS 约束收口阶段，后续需要按核心模块逐步收紧 `allowJs/checkJs/strict` 相关配置与写法。
 
 ## 文档分工
 

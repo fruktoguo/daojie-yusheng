@@ -2,6 +2,7 @@
  * 世界面板
  * 展示当前地图情报、附近实体、任务建议与可执行行动
  */
+// TODO(next:UI01): 把 world-panel 的地图/附近/建议三块继续从整段 HTML 重建收成局部 patch，保持焦点和滚动连续性。
 
 import { ActionDef, gridDistance, MapMeta, MonsterTier, PlayerState, QuestState } from '@mud/shared-next';
 import { preserveSelection } from '../selection-preserver';

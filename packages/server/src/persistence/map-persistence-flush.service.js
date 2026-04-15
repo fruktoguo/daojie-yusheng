@@ -23,6 +23,7 @@ const world_runtime_service_1 = require("../runtime/world/world-runtime.service"
 const map_persistence_service_1 = require("./map-persistence.service");
 
 const MAP_PERSISTENCE_FLUSH_INTERVAL_MS = 5000;
+// TODO(next:PERSIST03): 把地图刷盘从固定 5 秒串行循环收成更细粒度的 dirty 分发、批量写、优先级和失败恢复策略。
 
 /** 地图快照脏实例定时刷盘服务：按周期落库并支持进程关闭前强刷。 */
 let MapPersistenceFlushService = MapPersistenceFlushService_1 = class MapPersistenceFlushService {
@@ -122,5 +123,4 @@ function isRestoreFreezeActive() {
     return typeof value === 'string' && /^(1|true|yes|on)$/iu.test(value.trim());
 }
 //# sourceMappingURL=map-persistence-flush.service.js.map
-
 

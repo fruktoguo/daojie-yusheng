@@ -1,3 +1,4 @@
+// TODO(next:UI01): 把 npc-quest-modal 的任务列表/详情继续改成 patch-first，减少 bodyHtml + innerHTML 的双重重建。
 import { Inventory, NEXT_S2C_NpcQuests, PlayerState, QuestState } from '@mud/shared-next';
 import { getLocalItemTemplate } from '../content/local-templates';
 import { getQuestLineLabel, getQuestStatusLabel } from '../domain-labels';
@@ -581,5 +582,4 @@ export class NpcQuestModal {
     `;
   }
 }
-
 

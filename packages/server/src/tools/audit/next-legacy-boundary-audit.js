@@ -2,6 +2,7 @@
 /**
  * 用途：审计 server-next 与 legacy 兼容边界依赖。
  */
+// TODO(next:VERIFY02): 审计清单仍引用已迁移文件路径时应 fail-soft 或同步更新 inventory，避免 boundary audit 因路径漂移直接失效。
 
 const fs = require("node:fs");
 const path = require("node:path");
