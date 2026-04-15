@@ -81,5 +81,5 @@ for (const step of steps) {
 
 process.stdout.write(`[replace-ready] completed mode=${replaceReadyMode}\n`);
 process.stdout.write('[replace-ready] boundary=local proof only; this does not include shadow acceptance or complete GM/admin regression\n');
-process.stdout.write('[replace-ready] next=run pnpm verify:server-next:acceptance for shadow + gm-compat, or pnpm verify:server-next:full for the strictest automated gate\n');
+process.stdout.write('[replace-ready] next=run pnpm verify:server-next:acceptance for shadow + gm-next, or pnpm verify:server-next:full for the strictest automated gate\n');
 process.exit(0);

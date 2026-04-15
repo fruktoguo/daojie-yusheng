@@ -13,7 +13,7 @@
 - 本轮已把 `T01/T03/T05` 从“纯分析阶段”推进到“主链部分收口”：token fallback 已从 authenticated identity 主链移除，authenticated snapshot 不再按 `persistedSource` 放开 compat fallback，带 token 的 next bootstrap 已在 gateway 侧收成 `connect_token` 单线 promise；`hello` 在存在 pending connect-bootstrap 时只等待/让路，但在无 pending 时会被拒绝为 `HELLO_AUTH_BOOTSTRAP_FORBIDDEN`
 - `T03/T04` 本轮又多了两条收口边界 proof：`compatIdentityBackfillSnapshotPreseed` 锁住了 compat identity backfill 成功后的 snapshot 前移链，`compatIdentityBackfillSnapshotSeedFailureRejected` 锁住了“identity backfill 成功但 snapshot preseed 首次失败时，当前必须直接拒绝而不是再靠 `legacy_backfill` runtime fallback rescue”
 - 本轮也补了几项低风险并行收口：`T11` 文档门禁口径继续统一、`T19` 首包基准骨架落库、`T21` client-next 事件表面开始 next-native 命名化、`T22` shared-next realm 数值模板加了完整性守卫
-- 本轮验证结果：`pnpm --filter @mud/server-next compile` 通过；`smoke-suite --case next-auth-bootstrap --require-legacy-auth`（无库链）通过；with-db 链路受本机 `127.0.0.1:5432` 不可达阻塞，待数据库恢复后补跑
+- 本轮验证结果：`pnpm --filter @mud/server-next compile` 通过；`smoke-suite --case next-auth-bootstrap`（无库链）通过；with-db 链路受本机 `127.0.0.1:5432` 不可达阻塞，待数据库恢复后补跑
 - 本轮新增硬收口（runtime compat snapshot）：`legacy_runtime -> compat snapshot` 的 runtime fallback 已代码层彻底关闭，不再提供开关放行路径
 - 本轮同步补齐两条 proof：`legacyBackfillFallbackContract` 已验证 no-persistence 默认阻断；`compatRuntimeSnapshotGuardContract` 已验证 `identity_source:next / identity_source:legacy_runtime / migration_runtime:legacy_snapshot` 三种原因均阻断
 - 本轮验证结果追加：`next-auth-bootstrap-mainline`、`next-auth-bootstrap-migration`、`next-auth-bootstrap` 无库链均实跑通过（2026-04-10 20:54~20:55）
@@ -252,8 +252,8 @@
   - 给 auth 层补一条“next miss identity 必须在 auth gate 失败”的独立 proof，不再只从 bootstrap 结果侧旁证
 - 最小验证：
   - `pnpm --filter @mud/server-next compile`
-  - `pnpm --filter @mud/server-next exec node dist/tools/smoke-suite.js --case next-auth-bootstrap-mainline --require-legacy-auth`
-  - `pnpm --filter @mud/server-next exec node dist/tools/smoke-suite.js --case next-auth-bootstrap-migration --require-legacy-auth`
+  - `pnpm --filter @mud/server-next exec node dist/tools/smoke-suite.js --case next-auth-bootstrap-mainline`
+  - `pnpm --filter @mud/server-next exec node dist/tools/smoke-suite.js --case next-auth-bootstrap-migration`
 - 退出条件：
   - next 协议 authenticated 入场时，trace 不再出现 runtime compat identity 成功来源
   - 仅 `migration` 协议还能触发 compat identity backfill，且 smoke 有正反两条证明
@@ -274,14 +274,14 @@
   - 明确列出 migration 入口允许调用的唯一方法名单，避免未来又把 compat 能力加回主链
 - 最小验证：
   - `pnpm --filter @mud/server-next compile`
-  - `pnpm --filter @mud/server-next exec node dist/tools/smoke-suite.js --case legacy-auth --case next-auth-bootstrap --require-legacy-auth`
+  - `pnpm --filter @mud/server-next exec node dist/tools/smoke-suite.js --case next-auth-bootstrap-mainline --case next-auth-bootstrap-migration`
 - 退出条件：
   - `WorldPlayerSourceService` 不再直接暴露 legacy facade 风格 API
   - authenticated 主链只依赖 next provider，legacy provider 只被 migration/import/repair 路径引用
 - 风险：这是 identity 和 snapshot 的共同上游，切错会同时影响登录与 bootstrap。
 - 并行性：`不建议与 T01/T03/T05 并行混改`
 - 相关文件：
-   - `../packages/server/src/compat/legacy/http/legacy-auth-http.service.js`
+   - `../packages/server/src/http/next/next-player-auth.service.js`
    - `../packages/server/src/network/world-player-source.service.js`
    - `../packages/server/src/network/world-legacy-player-source.service.js`
 
@@ -296,8 +296,8 @@
   - 给 snapshot 层补一条“next identity + next snapshot miss + compat snapshot 存在时仍必须失败”的显式 contract，避免回退
 - 最小验证：
   - `pnpm --filter @mud/server-next compile`
-  - `pnpm --filter @mud/server-next exec node dist/tools/smoke-suite.js --case next-auth-bootstrap-mainline --require-legacy-auth`
-  - `pnpm --filter @mud/server-next exec node dist/tools/smoke-suite.js --case next-auth-bootstrap-migration --require-legacy-auth`
+  - `pnpm --filter @mud/server-next exec node dist/tools/smoke-suite.js --case next-auth-bootstrap-mainline`
+  - `pnpm --filter @mud/server-next exec node dist/tools/smoke-suite.js --case next-auth-bootstrap-migration`
 - 退出条件：
   - persistence-enabled authenticated 主链不再出现 compat snapshot runtime 读取
   - recovery notice 不再携带 compat backfill 恢复语义
@@ -317,8 +317,8 @@
   - 把 `next(native)` 命中顺序 proof 从“有可能第一次就命中”提升成“authenticated 主链只允许命中”
   - 在文档里明确迁移完成后准备删除的 proof 清单，防止迁移期 proof 永久变成架构依赖
 - 最小验证：
-  - `pnpm --filter @mud/server-next exec node dist/tools/smoke-suite.js --case next-auth-bootstrap --require-legacy-auth`
-  - `pnpm --filter @mud/server-next exec node dist/tools/smoke-suite.js --case persistence --require-legacy-auth`
+  - `pnpm --filter @mud/server-next exec node dist/tools/smoke-suite.js --case next-auth-bootstrap`
+  - `pnpm --filter @mud/server-next exec node dist/tools/smoke-suite.js --case persistence`
 - 退出条件：
   - 文档与 smoke 都能明确区分 runtime 主链 proof 和 migration 工具 proof
   - authenticated 主链完成定义不再依赖 compat seed 成功
@@ -339,8 +339,8 @@
   - 把 smoke 分成“连接时 bootstrap”和“guest hello”两组，避免同一脚本里语义纠缠
 - 最小验证：
   - `pnpm --filter @mud/server-next compile`
-  - `pnpm --filter @mud/server-next exec node dist/tools/smoke-suite.js --case next-auth-bootstrap-mainline --require-legacy-auth`
-  - `pnpm --filter @mud/server-next exec node dist/tools/smoke-suite.js --case next-auth-bootstrap --require-legacy-auth`
+  - `pnpm --filter @mud/server-next exec node dist/tools/smoke-suite.js --case next-auth-bootstrap-mainline`
+  - `pnpm --filter @mud/server-next exec node dist/tools/smoke-suite.js --case next-auth-bootstrap`
 - 退出条件：
   - token/gmToken 连接的 bootstrap trace 只出现 `connect_token`
   - `hello` 不再被用作 authenticated bootstrap 的隐式补救入口
@@ -360,8 +360,8 @@
   - 再把 `WorldGateway` 里三类入口拆成三个清晰 helper，避免条件分支继续交错
   - 给 guest forged sid、authenticated 缺 connect-bootstrap、GM token bootstrap 三类场景各补一条独立 proof
 - 最小验证：
-  - `pnpm --filter @mud/server-next exec node dist/tools/smoke-suite.js --case session --case next-auth-bootstrap --require-legacy-auth`
-  - `pnpm --filter @mud/server-next exec node dist/tools/compat/gm-compat-smoke.js`
+  - `pnpm --filter @mud/server-next exec node dist/tools/smoke-suite.js --case session --case next-auth-bootstrap`
+  - `pnpm --filter @mud/server-next exec node dist/tools/gm-next-smoke.js`
 - 退出条件：
   - `world.gateway.js` 中 guest / authenticated / GM 的 bootstrap 分支可按入口函数直接读懂
   - 文档能用一张 contract 表说明三类握手，不再靠源码推断
@@ -385,7 +385,7 @@
   - 如果选 `B`，就先定义最小持久化字段与恢复时序，不急着一次性重写实现
 - 最小验证：
   - `pnpm --filter @mud/server-next exec node dist/tools/session-smoke.js`
-  - `pnpm --filter @mud/server-next exec node dist/tools/smoke-suite.js --case session --require-legacy-auth`
+  - `pnpm --filter @mud/server-next exec node dist/tools/smoke-suite.js --case session`
 - 退出条件：
   - session 真源方案在文档里只剩一个正式答案
   - `detach / expire / purge / restore / replace` 的语义可通过 smoke 与 runbook 同时解释
@@ -472,7 +472,7 @@
 
 ### T12 把 GM/admin/restore 自动化边界与人工回归边界正式分层
 
-- 当前状态：`gm-compat`、`gm-database-smoke`、`shadow` 只读链、`shadow destructive` 都已补齐，自动 proof 分层已经基本成型，仓库里可以直接看出 `with-db -> gm-database -> gm-database-backup-persistence -> shadow -> gm-compat` 这条 proof 链路，文档在说明哪些属于自动化，哪些仍要靠人工演练。
+- 当前状态：`gm-next`、`gm-database-smoke`、`shadow` 只读链、`shadow destructive` 都已补齐，自动 proof 分层已经基本成型，仓库里可以直接看出 `with-db -> gm-database -> gm-database-backup-persistence -> shadow -> gm-next` 这条 proof 链路，文档在说明哪些属于自动化，哪些仍要靠人工演练。
 - 为什么还没完成：虽然 automation proof pipeline 的入口都在 README/TESTING/RUNBOOK 里写了，但缺乏真实 shadow/GM 环境复跑与制度化闭环，运营还不能把“命令存在" 直接当作“自动化已经完成”的取证。
 - 完成定义：在实物 shadow/GM 上复跑上述自动链路、记录结果，并把自动 proof 与人工维护的边界、gate、回退、维护窗口规程写死在 RUNBOOK/TESTING/SOP，确保每次替换可以按流程复核。
 - 下一步最小实改：
@@ -509,7 +509,7 @@
 - 风险：这是产品与运维策略问题，不是纯工程清理。
 - 并行性：`可先文档化决策，不必立刻改代码`
 - 相关文件：
-  - `../packages/server/src/compat/legacy/http`
+  - `../packages/server/src/http/next`
   - `./next-remaining-execution-plan.md`
 
 ### T14 把 deploy workflow 升级到“可选 shadow destructive 补证”
@@ -1138,9 +1138,9 @@
 ### 15.2 回归结果
 
 - 通过：`pnpm --filter @mud/server-next compile`
-- 通过：`pnpm --filter @mud/server-next exec node dist/tools/smoke-suite.js --case next-auth-bootstrap-mainline --require-legacy-auth`
-- 通过：`pnpm --filter @mud/server-next exec node dist/tools/smoke-suite.js --case next-auth-bootstrap-migration --require-legacy-auth`
-- 通过：`pnpm --filter @mud/server-next exec node dist/tools/smoke-suite.js --case next-auth-bootstrap --require-legacy-auth`
+- 通过：`pnpm --filter @mud/server-next exec node dist/tools/smoke-suite.js --case next-auth-bootstrap-mainline`
+- 通过：`pnpm --filter @mud/server-next exec node dist/tools/smoke-suite.js --case next-auth-bootstrap-migration`
+- 通过：`pnpm --filter @mud/server-next exec node dist/tools/smoke-suite.js --case next-auth-bootstrap`
 - 关键证明输出（`next-auth-bootstrap`）：
   - `nextProtocolRejectsLegacyEventContract.rejectedEvents` 包含 5 个 legacy 事件，全部返回 `LEGACY_EVENT_ON_NEXT_PROTOCOL`
   - `nextProtocolRejectsLegacyEventContract.nextPongCount = 1`
@@ -1168,9 +1168,9 @@
 ### 16.2 回归结果
 
 - 通过：`pnpm --filter @mud/server-next compile`
-- 通过：`pnpm --filter @mud/server-next exec node dist/tools/smoke-suite.js --case next-auth-bootstrap-mainline --require-legacy-auth`
-- 通过：`pnpm --filter @mud/server-next exec node dist/tools/smoke-suite.js --case next-auth-bootstrap-migration --require-legacy-auth`
-- 通过：`pnpm --filter @mud/server-next exec node dist/tools/smoke-suite.js --case next-auth-bootstrap --require-legacy-auth`
+- 通过：`pnpm --filter @mud/server-next exec node dist/tools/smoke-suite.js --case next-auth-bootstrap-mainline`
+- 通过：`pnpm --filter @mud/server-next exec node dist/tools/smoke-suite.js --case next-auth-bootstrap-migration`
+- 通过：`pnpm --filter @mud/server-next exec node dist/tools/smoke-suite.js --case next-auth-bootstrap`
 - 关键证明输出（`next-auth-bootstrap`）：
   - `nextProtocolRejectsLegacyEventContract.rejectedEvents` 已包含新增业务事件，全部返回 `LEGACY_EVENT_ON_NEXT_PROTOCOL`
   - `nextProtocolRejectsLegacyEventContract.nextPongCount = 1`
@@ -1201,9 +1201,9 @@
 ### 17.2 回归结果
 
 - 通过：`pnpm --filter @mud/server-next compile`
-- 通过：`pnpm --filter @mud/server-next exec node dist/tools/smoke-suite.js --case next-auth-bootstrap-mainline --require-legacy-auth`
-- 通过：`pnpm --filter @mud/server-next exec node dist/tools/smoke-suite.js --case next-auth-bootstrap-migration --require-legacy-auth`
-- 通过：`pnpm --filter @mud/server-next exec node dist/tools/smoke-suite.js --case next-auth-bootstrap --require-legacy-auth`
+- 通过：`pnpm --filter @mud/server-next exec node dist/tools/smoke-suite.js --case next-auth-bootstrap-mainline`
+- 通过：`pnpm --filter @mud/server-next exec node dist/tools/smoke-suite.js --case next-auth-bootstrap-migration`
+- 通过：`pnpm --filter @mud/server-next exec node dist/tools/smoke-suite.js --case next-auth-bootstrap`
 - 关键新增证明输出（`legacyBackfillFallbackContract`）：
   - `tokenRuntimeNextProtocolIdentityDefaultSource = token_runtime`
   - `tokenRuntimeNextProtocolIdentityStrictSource = null`

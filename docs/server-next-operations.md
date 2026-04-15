@@ -1,6 +1,6 @@
 # server-next 运维与验证
 
-更新时间：2026-04-11
+更新时间：2026-04-16
 
 这份文档收口原先分散在 `packages/server/TESTING.md`、`packages/server/REPLACE-RUNBOOK.md`
 与 workflow / wrapper 里的重复内容，统一回答四件事：
@@ -76,7 +76,7 @@
 
 - 先跑 `local`
 - 再跑 `shadow`
-- 再跑 shadow 上的 `pnpm --filter @mud/server-next smoke:gm-compat`
+- 再跑 shadow 上的 `pnpm --filter @mud/server-next smoke:gm-next`
 
 ### 6. 最严格自动化门禁
 
@@ -85,7 +85,7 @@
 用途：
 
 - 强制要求数据库、shadow、GM 密码环境齐备
-- 串行执行 `with-db -> gm-database -> gm-database-backup-persistence -> shadow -> gm-compat`
+- 串行执行 `with-db -> gm-database -> gm-database-backup-persistence -> shadow -> gm-next`
 - 只证明自动化门禁，不代替人工运营回归
 
 ### 7. 维护窗口破坏性 proof
@@ -195,7 +195,7 @@ shadow-destructive 额外需要：
 
 - `shadow-destructive` 的维护窗口是否真的开放
 - `gm/database/*` 真实恢复后的业务态是否符合预期
-- `gm-compat` 输出里需要人工核对的只读摘要
+- `gm-next` 输出里需要人工核对的只读摘要
 - 真实 shadow / GM 环境是否按 runbook 完成演练
 
 ### 和 task-breakdown 对齐
@@ -213,10 +213,8 @@ shadow-destructive 额外需要：
 - `pnpm --filter @mud/server-next verify:proof:with-db`
 - `pnpm --filter @mud/server-next smoke:session`
 - `pnpm --filter @mud/server-next smoke:readiness-gate`
-- `pnpm --filter @mud/server-next smoke:legacy-auth`
 - `pnpm --filter @mud/server-next smoke:next-auth-bootstrap`
-- `pnpm --filter @mud/server-next smoke:legacy-player-compat`
-- `pnpm --filter @mud/server-next smoke:gm-compat`
+- `pnpm --filter @mud/server-next smoke:gm-next`
 - `pnpm --filter @mud/server-next smoke:gm-database`
 - `pnpm --filter @mud/server-next smoke:shadow`
 - `pnpm --filter @mud/server-next smoke:shadow:gm-database`
@@ -230,6 +228,11 @@ shadow-destructive 额外需要：
 node node_modules/.pnpm/node_modules/typescript/bin/tsc -p packages/server/tsconfig.json
 ```
 
+说明：
+
+- `smoke:legacy-auth` 与 `smoke:legacy-player-compat` 已从 active 主包删除，不再是默认验证入口。
+- 旧兼容入口的剩余覆盖，当前统一收进 `smoke:next-auth-bootstrap`、`smoke:gm-next` 与 `next-legacy-boundary-audit`。
+
 ## shadow / 数据库演练要点
 
 ### 本地 shadow
@@ -238,7 +241,7 @@ node node_modules/.pnpm/node_modules/typescript/bin/tsc -p packages/server/tscon
 2. `pnpm verify:replace-ready:doctor`
 3. `pnpm verify:replace-ready:with-db`
 4. `SERVER_NEXT_SHADOW_URL=http://127.0.0.1:11923 pnpm verify:replace-ready:shadow`
-5. 如需 GM 关键写路径：`SERVER_NEXT_URL=http://127.0.0.1:11923 pnpm --filter @mud/server-next smoke:gm-compat`
+5. 如需 GM 关键写路径：`SERVER_NEXT_URL=http://127.0.0.1:11923 pnpm --filter @mud/server-next smoke:gm-next`
 
 ### `gm/database/*`
 
@@ -258,14 +261,14 @@ node node_modules/.pnpm/node_modules/typescript/bin/tsc -p packages/server/tscon
 2. `SERVER_NEXT_GM_PASSWORD` 或 `GM_PASSWORD` 已就绪
 3. `SERVER_NEXT_SHADOW_ALLOW_DESTRUCTIVE=1` 已显式设置
 4. 维护窗口、回滚预案、负责人已经确认
-5. 先执行非破坏性 `shadow` / `gm-compat` 验证，再执行 destructive proof
+5. 先执行非破坏性 `shadow` / `gm-next` 验证，再执行 destructive proof
 6. destructive 结束后立刻检查 `backup / download / restore / checkpoint metadata`
 
 ### 已部署 shadow
 
 1. 先确保 `SERVER_NEXT_SHADOW_URL/SERVER_NEXT_URL` 与 `SERVER_NEXT_GM_PASSWORD/GM_PASSWORD` 已配置
 2. 跑 `pnpm verify:replace-ready:shadow`
-3. 再跑 `pnpm --filter @mud/server-next smoke:gm-compat`
+3. 再跑 `pnpm --filter @mud/server-next smoke:gm-next`
 4. 如需破坏性数据库闭环，再进入维护窗口执行 `pnpm verify:replace-ready:shadow:destructive`
 
 ### `acceptance` 与 `full` 的边界

@@ -75,9 +75,9 @@ const steps = [
   },
   { label: 'shadow', kind: 'node', args: ['scripts/replace-ready-shadow.js'] },
   {
-    label: 'gm-compat',
+    label: 'gm-next',
     kind: 'pnpm',
-    args: ['--filter', '@mud/server-next', 'smoke:gm-compat'],
+    args: ['--filter', '@mud/server-next', 'smoke:gm-next'],
     extraEnv: {
       SERVER_NEXT_URL: shadowUrl,
     },
@@ -93,7 +93,7 @@ const childEnv = {
   ...(gmPasswordEnvSource === 'SERVER_NEXT_GM_PASSWORD' ? null : { SERVER_NEXT_GM_PASSWORD: gmPassword }),
 };
 
-process.stdout.write('[replace-ready:full] steps=with-db -> gm-database -> gm-database-backup-persistence -> shadow -> gm-compat\n');
+process.stdout.write('[replace-ready:full] steps=with-db -> gm-database -> gm-database-backup-persistence -> shadow -> gm-next\n');
 
 for (const step of steps) {
 /**

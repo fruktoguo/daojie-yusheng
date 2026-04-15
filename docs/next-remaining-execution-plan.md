@@ -44,7 +44,7 @@
 
 这一轮新增确认了几件关键事实：
 
-1. `legacy-auth` 带库链路已重新转绿。
+1. 旧 `legacy-auth` 带库 proof 已并入 `next-auth-bootstrap` 与主证明链，并保持为绿。
    当前已补平两类真实回归：
    - `/account/role-name` 在“有 `users` 行但没有 `players` 行”时不再直接 `401 角色不存在`，而是回写 `users.pendingRoleName`，有 `players` 行时再同步 `players.name`
    - `legacy HTTP account` 侧把 identity 回写到 next 持久化时，不再因为“有库但还没 legacy `players` 行”而放弃同步；同时 `bootstrap` 现在会按 identity 的 `persistedSource` 决定是否允许 legacy snapshot fallback，避免把 `legacy_backfill / legacy_sync / token_seed` 的 next identity 误当成已经 next-native 的完整链路
@@ -70,7 +70,7 @@
 
 6. 本地主证明链这轮已再次实跑全绿。
    - `pnpm --filter @mud/server-next verify:replace-ready` 已于 `2026-04-07` 本地再次跑通，退出码为 `0`
-   - 本轮 summary 已覆盖 `readiness-gate / session / runtime / progression / combat / loot / legacy-auth / next-auth-bootstrap / legacy-player-compat / gm-compat / redeem-code / monster-runtime / monster-combat / monster-ai / monster-skill / monster-reset / monster-loot / player-recovery / player-respawn`
+   - 本轮 summary 已覆盖 `readiness-gate / session / runtime / progression / combat / loot / next-auth-bootstrap / gm-next / redeem-code / monster-runtime / monster-combat / monster-ai / monster-skill / monster-reset / monster-loot / player-recovery / player-respawn`
    - 总耗时约 `56087ms`
    - 配套 `next-legacy-boundary-audit` 最新结果也已回到 `0 / 22`、`0`
 
@@ -166,7 +166,7 @@
 - `verify:replace-ready:with-db`
 - `verify:replace-ready:shadow`
 - `verify:replace-ready:acceptance`
-- `smoke:gm-compat`
+- `smoke:gm-next`
 - `gm-database-smoke`
 
 收敛成清晰的“默认验收门禁”“增强验收门禁”“最严格自动化门禁”三层，而不是多条链各自为政。
@@ -187,14 +187,14 @@
    - `shadow` 实物验收
    - `shadow` 上的 GM 关键写路径验证
    - `shadow` 上 `/gm/maps`、`/gm/editor-catalog`、`/gm/maps/:mapId/runtime` 三个 GM admin 只读证明点
-   - `shadow` 上玩家改密闭环与 `gm-compat` 输出里的 `passwordChange` 摘要
+   - `shadow` 上玩家改密闭环与 `gm-next` 输出里的 `passwordChange` 摘要
 
 3. `full` 当前已固定为最严格自动化门禁。
    它会：
    - 强制要求数据库环境
    - 强制要求 shadow 环境
    - 强制要求 GM 密码环境
-   - 显式串行执行 `with-db -> gm-database -> shadow -> gm-compat`
+   - 显式串行执行 `with-db -> gm-database -> shadow -> gm-next`
 
 4. 仍待继续完成的是更完整的 GM/admin/backup/restore 证明整理。
    当前已有最小 compat smoke、`gm/database/state / gm/maps / editor-catalog / map runtime` 只读管理面摘要，以及带库 `backup/restore` 回归。
@@ -245,11 +245,11 @@
 #### 当前已完成到哪
 
 1. `token` 真源第一刀已经落地。
-   stale token 重连不再优先覆盖最新 compat identity，`smoke:legacy-auth` 已重新通过。
+   stale token 重连不再优先覆盖最新 compat identity，对应旧登录/账号 proof 已并入 `next-auth-bootstrap` 与主证明链。
 2. `identity` 真源第一刀已经落地。
    当前身份读取顺序已固定成 `next -> compat -> token fallback`，并保留 next 持久化回填。
 3. GM 玩家改密接口的 compat 契约已补回。
-   `/gm/players/:playerId/password` 现兼容 `newPassword` 与历史 `password` 字段，`smoke:gm-compat` 已重新通过。
+   `/gm/players/:playerId/password` 现兼容 `newPassword` 与历史 `password` 字段，`smoke:gm-next` 已重新通过。
 4. guest canonical bootstrap/resume 已完成。
    guest 首登不再依赖客户端自带 `playerId`，主链 smoke 统一读取 `InitSession.pid`；detached `sessionId -> playerId` 恢复链、forged sid 负向语义，以及 forged `playerId` 负向语义都已固定。
 
@@ -389,17 +389,17 @@
 
 #### 目标
 
-把已经存在的 `gm-compat`、`gm-database-smoke`、`shadow` 只读管理面证明点进一步整理成更稳定的 replace-ready 补证链，但不夸大成“完整运营面已 next 化”。
+把已经存在的 `gm-next`、`gm-database-smoke`、`shadow` 只读管理面证明点进一步整理成更稳定的 replace-ready 补证链，但不夸大成“完整运营面已 next 化”。
 
 #### 需要完成的内容
 
 1. 继续明确 GM/admin/restore 哪些属于自动化门禁，哪些仍属于人工回归。
-2. 把 `acceptance`、`full`、`gm-compat`、`gm-database-smoke` 的口径在 README / TESTING / workflow / wrapper 中写成统一说法。
+2. 把 `acceptance`、`full`、`gm-next`、`gm-database-smoke` 的口径在 README / TESTING / workflow / wrapper 中写成统一说法。
 3. 避免把“最小 compat smoke 已有”误读成“完整运营面自动化已完成”。
 
 #### 完成定义
 
-- `acceptance`、`full`、`gm-compat`、`gm-database-smoke` 的定位一致
+- `acceptance`、`full`、`gm-next`、`gm-database-smoke` 的定位一致
 - 文档不会再把运营面 proof 夸大成完整 next 化
 - shadow 与 with-db 的补证链能被稳定复跑
 
@@ -513,7 +513,7 @@
 
 同时推进：
 
-- `gm-compat`
+- `gm-next`
 - `gm-database-smoke`
 - shadow 管理只读面与关键写路径 proof
 - 文档 / workflow / wrapper 口径统一
@@ -699,10 +699,8 @@
 
 - [TESTING.md](../packages/server/TESTING.md)
 - [next-legacy-removal-checklist.md](next-legacy-removal-checklist.md)
-- [compat-http.registry.js](../packages/server/src/compat/compat-http.registry.js)
-- [legacy-gm-admin-compat.service.js](../packages/server/src/compat/legacy/http/legacy-gm-admin-compat.service.js)
-- [legacy-session-bootstrap.service.js](../packages/server/src/compat/legacy/legacy-session-bootstrap.service.js)
-- [legacy-auth-readiness-warmup.service.js](../packages/server/src/health/legacy-auth-readiness-warmup.service.js)
+- [server-next-operations.md](server-next-operations.md)
+- [next-legacy-boundary-audit.md](next-legacy-boundary-audit.md)
 
 为什么它还是 P0：
 
@@ -853,7 +851,7 @@
 - `packages/server/src/network/world-player-source.service.js`
 - `packages/server/src/network/world-legacy-player-source.service.js`
 - `packages/server/src/network/world-legacy-player-repository.js`
-- `packages/server/src/compat/legacy/http/legacy-auth-http.service.js`
+- `packages/server/src/http/next/next-player-auth.service.js`
 
 还剩的具体工程块：
 
@@ -965,23 +963,19 @@
 - 这是当前不能删 `legacy` 的第一硬门槛。
 - `L1` 不过，就谈不上整批删除运行主链 compat。
 
-#### P1-2 `L2` 还没过：外部旧入口仍挂载
+#### P1-2 `L2` 还没过：代码侧旧入口已退役，但真实环境退役证明未完成
 
 当前文件族：
 
-- `packages/server/src/compat/compat-http.registry.js`
-- `packages/server/src/compat/legacy/http/legacy-auth.controller.js`
-- `packages/server/src/compat/legacy/http/legacy-account.controller.js`
-- `packages/server/src/compat/legacy/http/legacy-gm.controller.js`
-- `packages/server/src/compat/legacy/http/legacy-gm-admin.controller.js`
-- `packages/server/src/compat/legacy/http/legacy-gm-auth.controller.js`
-- `packages/server/src/compat/legacy/legacy-session-bootstrap.service.js`
-- `packages/server/src/health/legacy-auth-readiness-warmup.service.js`
+- `docs/server-next-operations.md`
+- `docs/next-legacy-removal-checklist.md`
+- `packages/server/src/tools/gm-next-smoke.js`
+- `packages/server/src/tools/audit/next-legacy-boundary-audit.js`
 
 当前判断：
 
-- 旧 `/auth/*`、`/account/*`、`/gm/*` 和 legacy socket 入口还在。
-- 所以现在不能把“主链 smoke 跑绿”误读成“外部旧入口可以立即退役”。
+- 旧 `/auth/*`、`/account/*`、`/gm/*` 兼容 HTTP 入口已经从 active 主包删除。
+- 但这不等于真实环境已经完成旧入口退役；当前还缺流量观测、维护窗口取证与回滚预案确认。
 
 #### P1-3 `L3-L5` 还没全过：证明链已很强，但还没到可删 legacy
 

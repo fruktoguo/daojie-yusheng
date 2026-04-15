@@ -67,16 +67,16 @@ const steps = [
     extraEnv: null,
   },
   {
-    label: 'gm-compat',
+    label: 'gm-next',
     kind: 'pnpm',
-    args: ['--filter', '@mud/server-next', 'smoke:gm-compat'],
+    args: ['--filter', '@mud/server-next', 'smoke:gm-next'],
     extraEnv: {
       SERVER_NEXT_URL: shadowUrl,
     },
   },
 ];
 
-process.stdout.write('[replace-ready:acceptance] steps=replace-ready -> shadow -> gm-compat\n');
+process.stdout.write('[replace-ready:acceptance] steps=replace-ready -> shadow -> gm-next\n');
 
 for (const step of steps) {
 /**

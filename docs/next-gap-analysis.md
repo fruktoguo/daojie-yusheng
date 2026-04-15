@@ -124,7 +124,7 @@
    但当前已不是“完全没开始替换”状态，而是完成了 `token/identity` 第一刀，并开始把 snapshot provenance 收进 next 持久化层；剩余主块已收缩为 `snapshot/player-source` 与 `bootstrap/session`。
 2. 正式替换的证明链仍没有完全闭环，但根级 `pnpm verify:replace-ready` 现已至少覆盖本地 `client-next build + verify:replace-ready + audit:server-next-protocol` 这条主证明链；`pnpm verify:server-next` 当前只保留为兼容别名，wrapper 会先打印 alias 委托关系再转入对应的 `replace-ready` 链。
 3. `next-protocol-audit` 的负向门禁虽然已经补上并回绿，但它还没有和 `shadow` 实例实物验收组成完整 replace-ready 门禁。
-   现在 `pnpm verify:replace-ready:acceptance` 已经提升成“本地主证明链 + shadow 实物验收 + shadow GM 关键写路径验证”的组合入口，deploy workflow 也已在部署后补跑 `shadow + gm-compat`；当前未闭环的，已经不是“没有组合入口”或“没有带库门禁”，而是 `shadow/GM-admin` 仍不是所有链路里的统一默认门禁，且完整 GM/admin 人工回归仍缺统一自动证明。
+   现在 `pnpm verify:replace-ready:acceptance` 已经提升成“本地主证明链 + shadow 实物验收 + shadow GM 关键写路径验证”的组合入口，deploy workflow 也已在部署后补跑 `shadow + gm-next`；当前未闭环的，已经不是“没有组合入口”或“没有带库门禁”，而是 `shadow/GM-admin` 仍不是所有链路里的统一默认门禁，且完整 GM/admin 人工回归仍缺统一自动证明。
 4. `docs/next-legacy-boundary-audit.md` 当前已经把 `P0 auth/bootstrap 真源`、`P0 legacy HTTP/GM/admin`、`P1 world sync compat`、`P1 runtime/persistence compat` 与“目标差距: 性能/扩展”这五组 direct inventory 全部清到 `0`，但这不等于底层真源已替换完成。
 5. 后台 GM / HTTP / admin / restore 的运营真源仍未 next 化；但 `shadow destructive` 与 `backup dir` 两条自动 proof 入口现已补齐，当前缺的是维护窗口与真实带库环境执行，不再是仓库内没有命令可跑。
 6. `client-next` 虽然主链已基本 next-native，但前台侧也仍存在“够替换、但还不够极致”的扩展性和性能尾项。
@@ -145,7 +145,7 @@
 `docs/next-legacy-boundary-audit.md` 已经清到 `0/22`、`0`，所以现在不应该再把主要精力放在“再找一条 direct legacy 命中”上。更真实的剩余缺口已经变成：
 
 1. replace-ready 三层门禁已经基本收敛，但默认/`acceptance`/`full` 的边界仍要继续写死。
-   `acceptance` 现在已经覆盖“本地主证明链 + shadow 实物验收 + shadow GM 关键写路径验证”，`full` 也已继续抬高到“强制 with-db + gm-database + shadow + gm-compat”；当前真正缺的是把每一层自动化门禁与“完整 GM/admin/restore 运营面闭环”明确切开，而不是再要求默认入口必须等于最重链路。
+   `acceptance` 现在已经覆盖“本地主证明链 + shadow 实物验收 + shadow GM 关键写路径验证”，`full` 也已继续抬高到“强制 with-db + gm-database + shadow + gm-next”；当前真正缺的是把每一层自动化门禁与“完整 GM/admin/restore 运营面闭环”明确切开，而不是再要求默认入口必须等于最重链路。
 2. `snapshot/player-source` 真源仍未真正收紧。
    带库 `next-auth-bootstrap` 已经实跑通过“第一次 `legacy_seeded`、第二次 `next(native)`”顺序证明，这说明 provenance 与顺序护栏已具备；但 legacy fallback 仍在默认主链里，不能据此说 snapshot 真源已 next-native。
    当前已额外收掉七类静默成功链，并补上一类 next 真源宽容归一边界：`legacy_seeded` 写入 next persistence 失败时会直接失败；如果 next 持久化里已经存在非法 snapshot 记录，会直接报错并打 `next_invalid` trace；如果 compat snapshot 查询因为 `users/players` schema 缺失而不可判定，会直接失败并记录 `legacy_source_error`；如果 compat snapshot 行里的 `mapId` 为空，也会直接失败并落到同一条 `legacy_source_error` 护栏，不再静默退回 compat、fresh-player 链或云来镇默认落点；如果 compat `unlockedMinimapIds` 非法，也会直接失败而不是静默压成当前图已解锁；如果带库 `token_seed` 首登缺失 compat snapshot，当前会直接 seed 一份 next-native starter snapshot，而不是继续卡在 legacy preseed；如果带库 `compat backfill` 缺失 compat snapshot，当前也会直接 seed 一份 next-native starter snapshot，而不是继续卡在 `legacy_preseed_blocked`；如果 next snapshot 主体有效、只是 `unlockedMapIds` 扩展字段脏掉，则当前会继续 bootstrap，并在运行时读取时归一成空数组，而不是误判成 `next_invalid`。
@@ -166,7 +166,7 @@
 - 为了把 `server-next` 本体与 boundary inventory 单独压实，这轮也补跑了不依赖整条 workspace 门禁的最小验证：
   - `node node_modules/.pnpm/node_modules/typescript/bin/tsc -p packages/server/tsconfig.json`
   - `node packages/server/dist/tools/audit/next-legacy-boundary-audit.js`
-  - `node packages/server/dist/tools/smoke-suite.js --case session --case runtime --case next-auth-bootstrap --case legacy-player-compat --case monster-runtime --require-legacy-auth`
+  - `node packages/server/dist/tools/smoke-suite.js --case session --case runtime --case next-auth-bootstrap --case monster-runtime`
 - 其中 boundary audit 最新结果已降到 `0 / 22` 个检查项、`0` 处代码证据；`P0 auth/bootstrap 真源`、`P0 legacy HTTP/GM/admin`、`P1 world sync compat`、`P1 runtime/persistence compat` 与“目标差距: 性能/扩展” inventory 已全部清零
 - `pnpm --filter @mud/server-next smoke:next-auth-bootstrap` 这轮也已接入 replace-ready 主链，已覆盖 `protocol: next + legacy HTTP 登录 token` 的当前 compat 入场链，并显式断言 next socket 不混入 legacy `s:*` 事件；该 smoke 也锁定了当前真实语义：带 token 的 next 连接会在连接阶段直接 bootstrap，后续补发 `n:c:hello` 不会重复入场
 - 显式开启 `NEXT_AUTH_TRACE_ENABLED=1` 后，`next-auth-bootstrap` smoke 当前还会输出 `snapshotPersistedSource`；无库时会明确返回 `snapshotSequence.supported=false`，而带库时则会把“第一次 `legacy_seeded`、第二次 `next` 且 persistedSource=native`”作为硬门禁，不再把“只打印顺序结果”误写成真源已替换完成
@@ -180,10 +180,8 @@
 - `pnpm verify:replace-ready:shadow` 这轮也已对本地 `11923` shadow 实例实跑通过，至少证明 `/health`、GM 登录、`/gm/state`、`/gm/maps`、`/gm/editor-catalog`、`/gm/maps/:mapId/runtime` 这组 GM-admin 只读面，以及最小 `n:c:hello` next 会话链路当前可用；runtime 只读断言会在 bootstrap 成功后按玩家真实 `templateId/x/y` 取样，不再只看固定出生图
 - 仓库里现已新增 `pnpm verify:replace-ready:shadow:destructive` / `pnpm --filter @mud/server-next smoke:shadow:gm-database`，用于在维护窗口里单独证明已部署 shadow 的 `backup -> download -> restore` destructive 闭环；它默认不并入共享 shadow 只读链，必须显式设置 `SERVER_NEXT_SHADOW_ALLOW_DESTRUCTIVE=1`
 - 仓库里现已新增 `pnpm --filter @mud/server-next smoke:gm-database:backup-persistence`，用于证明同一 `SERVER_NEXT_GM_DATABASE_BACKUP_DIR` 在服务重建后仍能通过 `gm/database/state` 与 download 读回旧备份；`pnpm verify:replace-ready:full` 也已把这条本地安全 proof 串入最严格自动化链
-- `pnpm --filter @mud/server-next smoke:legacy-auth` 这轮也已扩到 legacy 普通玩家 HTTP compat 最小闭环，覆盖 `POST /auth/register /auth/login /auth/refresh /account/password /account/display-name /account/role-name`，并显式验证 account 资料更新后 runtime 身份投影与重新握手 bootstrap 都会跟上最新 `displayName / roleName`
-- 它现在在无数据库环境下会先走 compat HTTP `/auth/register`/`/auth/login` 来获取真实 access token，再用该 token 完成 socket bootstrap；带数据库时仍保留 seeded legacy token fixture 来证明 legacy token 兼容链。
-- `pnpm --filter @mud/server-next smoke:legacy-player-compat` 这轮也已补上并通过，已覆盖 legacy 普通玩家 socket 的 `navigateQuest / action(loot:open) / sortInventory / destroyItem / ackSystemMessages / chat`，并显式断言握手声明 `protocol: legacy` 后不会混入任何 `n:s:*` next 事件
-- `pnpm --filter @mud/server-next smoke:gm-compat` 本轮已通过，除旧 GM socket/HTTP 最小兼容链外，也已覆盖 `/gm/maps`、`/gm/editor-catalog`、`/gm/maps/:mapId/runtime` 三组只读管理面，以及玩家改密、地图 tick/time、邮件、建议单等关键维护写路径，并在结果里输出 `passwordChange / adminRead.currentMap / editorCatalog / runtimeInspection`
+- 旧 `legacy-auth / legacy-player-compat` smoke 曾经覆盖的 compat 登录与 legacy socket 边界，当前已经退役；active 主包里对应 HTTP/controller 与 smoke 都已删除，剩余 proof 统一收口到 `next-auth-bootstrap` 与 `next-legacy-boundary-audit`
+- `pnpm --filter @mud/server-next smoke:gm-next` 本轮已通过，除旧 GM socket/HTTP 最小兼容链外，也已覆盖 `/gm/maps`、`/gm/editor-catalog`、`/gm/maps/:mapId/runtime` 三组只读管理面，以及玩家改密、地图 tick/time、邮件、建议单等关键维护写路径，并在结果里输出 `passwordChange / adminRead.currentMap / editorCatalog / runtimeInspection`
 - `pnpm --filter @mud/server-next smoke:readiness-gate` 这轮也已补上，用独立自起实例显式锁定 readiness gate 语义：无数据库且未显式旁路时 `/health` 返回 `503` 且新 next socket 会收到 `SERVER_NOT_READY`；只有开启 `SERVER_NEXT_ALLOW_UNREADY_TRAFFIC=1` / `SERVER_NEXT_SMOKE_ALLOW_UNREADY=1` 后，本地 smoke 才允许继续跑。这里补的是系统稳定性门禁，不是 auth/bootstrap 真源替换
 - `pnpm audit:server-next-boundaries` 对应的最新自动报告已刷新到 `docs/next-legacy-boundary-audit.md`；当前结果是 `0/22`、`0`，这说明主服务里的 direct legacy/perf inventory 已清零，但它不是 replace-ready 验收，也不代表底层真源或整体替换已经完成
 - `WorldSyncService` 这轮也不再继续承载 compat 初始/增量同步主体：legacy 同步分支已外提到 `WorldLegacySyncService`，低频协议双发和协议分流已外提到 `WorldSyncProtocolService`。这说明 `world-sync` 主服务已经从“兼容主体”收口成“中性编排层”，但 legacy socket facade 仍存在，不能据此夸大成 next 已彻底摆脱 legacy。
@@ -224,8 +222,8 @@
 
 1. 根级 `pnpm verify:replace-ready` 仍不自动覆盖 `shadow`，所以默认主入口通过，不等于已部署实例实物验收通过。
 2. 独立 `with-db` workflow 现在仍是 `workflow_dispatch` 手工补充链，但它的角色已经转成隔离排障与单独补证，而不再是 publish/deploy 获得带库门禁的唯一入口。
-3. `Publish Server Next Image` 现在也会先过带库 replace-ready；`Deploy Server Next` 则会在此前置基础上追加 `shadow` 与 `gm-compat` 验收，但它们仍不等于完整 GM/admin 人工回归。
-4. `pnpm verify:replace-ready:acceptance` 现在虽然已经补到“本地主证明链 + shadow 实物验收 + shadow GM 关键写路径验证”，并且 `gm-compat` 已能额外给出管理只读面摘要，但仍不会神奇补齐完整 GM/admin/backup/restore 人工回归。
+3. `Publish Server Next Image` 现在也会先过带库 replace-ready；`Deploy Server Next` 则会在此前置基础上追加 `shadow` 与 `gm-next` 验收，但它们仍不等于完整 GM/admin 人工回归。
+4. `pnpm verify:replace-ready:acceptance` 现在虽然已经补到“本地主证明链 + shadow 实物验收 + shadow GM 关键写路径验证”，并且 `gm-next` 已能额外给出管理只读面摘要，但仍不会神奇补齐完整 GM/admin/backup/restore 人工回归。
 5. 当前工作区若缺少 `DATABASE_URL` / `SERVER_NEXT_DATABASE_URL` 或 `SERVER_NEXT_SHADOW_URL` / `SERVER_NEXT_URL` 与 `SERVER_NEXT_GM_PASSWORD` / `GM_PASSWORD`，阻塞点是环境，不是脚本缺失。
 6. `auth/token/bootstrap` 里真正高风险的 `bootstrap/session` 主链替换当前仍不该并行混改；带库场景下“第一次 `legacy_seeded`、第二次 `next(native)`”的顺序型 smoke 这轮已经实跑通过，下一步应先单线收紧 `snapshot/player-source` 的 legacy fallback，再进入 `bootstrap/session` 真源收口。
 7. `auth/token/bootstrap` 的证明链仍有两块没补完：
@@ -251,13 +249,13 @@
 
 - `node node_modules/.pnpm/node_modules/typescript/bin/tsc -p packages/server/tsconfig.json`
 - `node packages/server/dist/tools/audit/next-legacy-boundary-audit.js`
-- `node packages/server/dist/tools/smoke-suite.js --case session --case runtime --case next-auth-bootstrap --case legacy-player-compat --case monster-runtime --require-legacy-auth`
+- `node packages/server/dist/tools/smoke-suite.js --case session --case runtime --case next-auth-bootstrap --case monster-runtime`
 
 当前可直接据此固定的口径是：
 
 - `server-next` 当前源码可独立编过 `tsc`
 - latest boundary audit 当前为绿，且已刷新到 `docs/next-legacy-boundary-audit.md`；当前结果是 `0/22` 个检查项、`0` 处代码证据
-- `session / runtime / next-auth-bootstrap / legacy-player-compat / monster-runtime` 这一组最小 smoke 当前为绿，说明这轮后端收口没有把 `server-next` 主链打坏
+- `session / runtime / next-auth-bootstrap / monster-runtime` 这一组最小 smoke 当前为绿，说明这轮后端收口没有把 `server-next` 主链打坏
 - 标准 `pnpm --filter @mud/server-next verify:replace-ready` 这轮已经重新确认可跑并通过；共享层当前更应被视为需要继续稳定的风险源，而不是现时阻塞点
 - 这只能证明“server-next 本体与 direct inventory 当前稳定可复跑”；不能把它夸大成 auth/bootstrap 真源已经完整替换完成
 
@@ -349,7 +347,7 @@
 1. 根级 `verify:replace-ready` 现在已经覆盖 `client-next build`、本地 replace-ready smoke、协议负向断言；在提供 `DATABASE_URL` / `SERVER_NEXT_DATABASE_URL` 时，还会转入 `with-db` 并覆盖带库 restore 自动回归，但仍不覆盖完整 `shadow` 实例实物验收。
 2. CI/workflow 当前已经把带库 replace-ready 挂到 publish/deploy 前置，但还不是完整 replace-ready 证明。
 3. shadow 自动化仍偏薄，很多业务回归仍依赖人工观察。
-4. GM socket / GM HTTP 当前已补上最小 compat smoke，`gm-compat-smoke` 也已补到 `gm/maps / editor-catalog / map runtime` 只读管理面与地图 tick/time、邮件、建议单等关键维护写路径，`gm-database-smoke` 也已覆盖 `backup|download|restore`、下载内容与 state/磁盘一致性，以及 `pre_import` 检查点下载；但 GM admin 整体仍没有一套 next replace-ready 级别的统一自动证明。
+4. GM socket / GM HTTP 当前已补上最小 compat smoke，`gm-next-smoke` 也已补到 `gm/maps / editor-catalog / map runtime` 只读管理面与地图 tick/time、邮件、建议单等关键维护写路径，`gm-database-smoke` 也已覆盖 `backup|download|restore`、下载内容与 state/磁盘一致性，以及 `pre_import` 检查点下载；但 GM admin 整体仍没有一套 next replace-ready 级别的统一自动证明。
 5. `DATABASE_URL / SERVER_NEXT_DATABASE_URL` 的入口口径这轮已对齐，不再存在根脚本与 smoke 是否带库判断不一致的问题。
 6. 现在新增的 `verify:replace-ready:doctor` 只能解决“先暴露环境缺口”，不能替代带库与 shadow 的真实替换验收。
 7. 即便这轮已经把 publish/deploy 的前置门禁抬到带库 replace-ready，并补了独立 `with-db` workflow 与最小 `GM compat` smoke，完整 GM/admin/backup/restore 统一证明仍未完成，不宜夸大成“完整替换就绪”。
@@ -407,7 +405,7 @@
 
 ### 已完成的关键收口
 
-- `pnpm verify:replace-ready` 这轮本地已通过；此前 `gm-compat-smoke` 的 HTTP GM update 超时问题已经修稳，`pnpm verify:server-next` 当前只保留为兼容别名，wrapper 会先打印 alias 委托关系。
+- `pnpm verify:replace-ready` 这轮本地已通过；此前 `gm-next-smoke` 的 HTTP GM update 超时问题已经修稳，`pnpm verify:server-next` 当前只保留为兼容别名，wrapper 会先打印 alias 委托关系。
 - `pnpm verify:replace-ready:doctor` 当前可通过，并会显式报告 `local / with-db / proof with-db / shadow / acceptance / full` 各链分别缺哪些环境变量；`pnpm verify:server-next:doctor` 当前也只是同一条链的兼容别名。
 - 根级 `pnpm verify:replace-ready` 这轮也已串行覆盖 `pnpm audit:server-next-protocol`；其包内实际执行入口 `pnpm --filter @mud/server-next audit:next-protocol` 也已通过并生成/刷新报告到 `docs/next-protocol-audit.md`。
 - `client-next` 的高频主链已经直接消费 next：

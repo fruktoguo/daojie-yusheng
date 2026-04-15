@@ -45,7 +45,7 @@ lines.push(`- acceptance replace-ready: ${hasShadowUrl && hasGmPassword ? 'ready
   hasShadowUrl ? null : 'SERVER_NEXT_SHADOW_URL/SERVER_NEXT_URL',
   hasGmPassword ? null : 'SERVER_NEXT_GM_PASSWORD/GM_PASSWORD',
 ].filter(Boolean).join(' + ')}`);
-lines.push(`- full replace-ready: ${hasDatabase && hasShadowUrl && hasGmPassword ? 'ready (with-db + gm-database + shadow + gm-compat)' : 'missing ' + [
+lines.push(`- full replace-ready: ${hasDatabase && hasShadowUrl && hasGmPassword ? 'ready (with-db + gm-database + shadow + gm-next)' : 'missing ' + [
   hasDatabase ? null : 'DATABASE_URL/SERVER_NEXT_DATABASE_URL',
   hasShadowUrl ? null : 'SERVER_NEXT_SHADOW_URL/SERVER_NEXT_URL',
   hasGmPassword ? null : 'SERVER_NEXT_GM_PASSWORD/GM_PASSWORD',

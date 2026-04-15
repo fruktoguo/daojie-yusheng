@@ -87,7 +87,7 @@
 ## 当前边界
 
 - 当前所有镜像、workflow、stack 和 smoke 默认只服务于 shadow / 备份线
-- 包内 `src/compat/legacy/` 仍是旧后端兼容面收口位置
+- 包内 `src/compat/legacy/` 当前只保留迁移参考与最小兼容核，不再承担默认 HTTP 主入口
 - 当前重点仍是：
   - `auth/token/bootstrap` 真源替换
   - replace-ready / shadow / with-db / GM-admin 证明链收口

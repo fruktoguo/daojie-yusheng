@@ -22,10 +22,10 @@
 
 所以不能按“文件名里还有 `legacy`”来判断替换是否完成，也不能按“主链某一段已收口”就直接整批删除。
 
-## 2026-04-13 本轮状态
+## 2026-04-16 本轮状态
 
 - `pnpm --filter @mud/server-next verify:replace-ready` 与无库 `session / next-auth-bootstrap` 当前轮次仍保持可复跑；但 with-db 与真实 shadow destructive 仍缺真实环境补证
-- `legacy-auth` smoke 现在已按真实主链前置对齐：无数据库环境先走 compat HTTP `/auth/register`/`/auth/login` 取真实 token，再验证 socket bootstrap；带数据库环境仍保留 seeded legacy token proof
+- active 主包里的旧 compat HTTP `/auth/* /account/* /gm/*` 与 `legacy-auth / legacy-player-compat` smoke 已删除；剩余自动 proof 当前改由 `next-auth-bootstrap / gm-next / next-legacy-boundary-audit` 覆盖
 - `protocol=next` 时，compat identity online backfill 已继续收成 `migration-only`；`legacy protocol` 也已不再能通过 `hello(next)` 或 `token/gmToken` 混入主链
 - `legacy_runtime -> compat snapshot` 的运行态 fallback 已继续收紧；`hello` 对 token/gmToken 连接也不再承担 bootstrap 兜底入口
 - `client-next` 主链通信已 next-native，但 `T21` 的 alias 清理与部分面板 patch-first 收口仍未完成；这说明前台主链已可替换，不说明旧入口可立即整体删除
@@ -33,7 +33,7 @@
 - `local / acceptance / full / shadow-destructive` 四层门禁定义已统一，但 `acceptance/full` 仍未全部落成 workflow/job 级闭环
 - `docs/next-legacy-boundary-audit.md` 最新 audit 已回到 `0 / 22`、`0`
 - 当前统一工程口径已收成：剩余任务 `25` 项，距离“完整替换游戏整体”仍约差 `35% - 40%`
-- 因此当前最安全还能继续清理的，仍是 `D/E` 两类；`A/B/C` 还不能因为名字里带 `legacy` 就直接删
+- 因此当前最安全还能继续清理的，仍是 `C/D` 这类已脱链工具与 proof；`A/B` 还不能因为名字里带 `legacy` 就直接删
 
 ## 当前轮次先别误删的 4 组
 
@@ -41,10 +41,10 @@
 
 1. `auth/token/bootstrap/snapshot/session` 真源主链相关 legacy。
    对应 `T01-T07`。虽然 `T01/T03/T05/T07` 已进入“已完成待验证”，但 `T02/T06` 仍未完成，这组整体还在迁移窗口里，不能因为 boundary audit 清零就先删文件。
-2. 对外 compat HTTP / GM / socket 入口。
-   对应 `T13/T24`。这组还没完成长期策略定稿，删早了会把运维和回滚链路一起打断。
-3. `legacy-auth / legacy-player-compat / gm-compat` 这类 smoke 与审计脚本。
-   对应 `L3/L4`。在真实环境证明“没人再用旧入口”之前，它们还是删除门槛的一部分，不是噪音。
+2. 认证迁移真源与 provenance 兼容层。
+   对应 `T01-T08`。虽然外层 compat HTTP 已退役，但 `world-legacy-player-source / player-snapshot-compat / world-player-token-compat` 这组真源兼容还在迁移窗口里。
+3. `next-auth-bootstrap / gm-next / next-legacy-boundary-audit` 这类 proof 与审计脚本。
+   对应 `L3/L4`。即使旧 smoke 已退役，这组 proof 仍是删除门槛的一部分，不是噪音。
 4. `shadow-destructive / gm-database-backup-persistence` 相关 proof 辅助件。
    对应 `T09/T10/T25`。真实环境没取证前，这组是“未来删除前必须看过”的护栏，不是可以顺手清理的杂物。
 
@@ -80,7 +80,7 @@
 对应口径：
 
 - 不再有旧客户端、旧 GM 工具、旧运营脚本依赖这些入口
-- `AppModule` 不再需要通过 [compat-http.registry.js](../packages/server/src/compat/compat-http.registry.js) 批量挂载 compat controller/provider
+- 代码侧旧 compat HTTP registry/controller 已经退役；`L2` 当前剩余重点已从“还挂没挂”转成“真实环境是否已无人再用旧入口”
 
 ### L3 自动 proof 全绿
 
@@ -146,59 +146,41 @@
 | [player-snapshot-compat.js](../packages/server/src/persistence/player-snapshot-compat.js) | next snapshot 读兼容归一 | `PlayerPersistenceService` 仍在运行态使用 | `L1` |
 | [world-player-source.service.js](../packages/server/src/network/world-player-source.service.js) | 当前还是 legacy facade | 壳本身不该先删，得先把 provider 换掉 | `L1` |
 
-### B. 仍提供外部兼容入口，当前不能删
+### B. 对外 compat HTTP / GM 入口已完成代码侧退役，但 `L2` 仍未完全通过
 
-这组未必是“内部真源”，但还在对外提供旧入口。
+这组当前最大的变化不是“还在挂载”，而是“代码侧已下线，但真实环境退役证明还没补完”。
 
-| 文件 | 当前角色 | 为什么不能删 | 删除门槛 |
-| --- | --- | --- | --- |
-| [compat-http.registry.js](../packages/server/src/compat/compat-http.registry.js) | compat HTTP 聚合注册 | `AppModule` 还靠它挂旧 controller/provider | `L2` |
-| [legacy-auth.service.js](../packages/server/src/compat/legacy/legacy-auth.service.js) | legacy HTTP auth 主服务 | `/auth/*` 与兼容登录仍依赖它 | `L2` |
-| `packages/server/src/compat/legacy/http/legacy-auth-http.service.js` | legacy `/auth/*` HTTP 兼容 | 旧登录入口仍在 | `L2` |
-| [legacy-account-http.service.js](../packages/server/src/compat/legacy/http/legacy-account-http.service.js) | legacy `/account/*` HTTP 兼容 | 旧账号修改入口仍在 | `L2` |
-| `packages/server/src/compat/legacy/http/legacy-gm-http-auth.service.js` | legacy GM HTTP 鉴权 | 旧 GM HTTP 入口仍依赖 | `L2` |
-| [legacy-gm-http-auth.guard.js](../packages/server/src/compat/legacy/http/legacy-gm-http-auth.guard.js) | legacy GM HTTP guard | 旧 GM controller 仍依赖 | `L2` |
-| `packages/server/src/compat/legacy/http/legacy-gm-http-compat.service.js` | legacy GM HTTP 行为壳 | `/gm/*` 兼容接口仍依赖 | `L2` |
-| [legacy-gm.controller.js](../packages/server/src/compat/legacy/http/legacy-gm.controller.js) | legacy GM HTTP controller | 旧 GM 入口仍挂载 | `L2` |
-| [legacy-gm-admin-compat.service.js](../packages/server/src/compat/legacy/http/legacy-gm-admin-compat.service.js) | legacy GM admin 兼容服务 | database/state/backup/restore 兼容入口仍在 | `L2` |
-| [legacy-gm-admin.controller.js](../packages/server/src/compat/legacy/http/legacy-gm-admin.controller.js) | legacy GM admin controller | 旧 GM admin 入口仍挂载 | `L2` |
-| [legacy-gm-auth.controller.js](../packages/server/src/compat/legacy/http/legacy-gm-auth.controller.js) | legacy GM 登录入口 | 旧 GM 登录仍兼容 | `L2` |
-| [legacy-gm-redeem-code.controller.js](../packages/server/src/compat/legacy/http/legacy-gm-redeem-code.controller.js) | legacy GM redeem controller | 旧 GM redeem 入口仍挂载 | `L2` |
-| [legacy-auth.controller.js](../packages/server/src/compat/legacy/http/legacy-auth.controller.js) | legacy auth controller | 旧 `/auth/*` controller 层 | `L2` |
-| [legacy-account.controller.js](../packages/server/src/compat/legacy/http/legacy-account.controller.js) | 旧账号入口 controller | 旧 `/account/*` controller 层 | `L2` |
-| [legacy-database-restore-coordinator.service.js](../packages/server/src/compat/legacy/http/legacy-database-restore-coordinator.service.js) | legacy restore 协调 | restore 兼容流程仍依赖 | `L2` |
-| `packages/server/src/compat/legacy/legacy-gm-compat.service.js` | legacy GM socket / runtime compat 壳 | `world-gm-socket`、projection、tick 仍引用 | `L2` |
-| [legacy-session-bootstrap.service.js](../packages/server/src/compat/legacy/legacy-session-bootstrap.service.js) | legacy socket bootstrap compat | 仍通过 compat registry 注入 | `L2` |
-| [legacy-auth-readiness-warmup.service.js](../packages/server/src/health/legacy-auth-readiness-warmup.service.js) | legacy auth readiness 预热 | compat HTTP providers 仍挂载 | `L2` |
+已完成的代码侧收口：
 
-### C. 主要是 compat 基础工具，最后随入口一起删
+- `AppModule` 不再挂 compat HTTP registry
+- `packages/server/src/compat/legacy/http/*` 已从 active 主包删除
+- `legacy-auth-readiness-warmup.service.js`、旧 compat tokens、旧 controller/provider 已删除
 
-这组通常不需要单独优先处理，跟着 compat HTTP/GM 入口一起退役。
+当前为什么 `L2` 还没过：
 
-| 文件 | 当前角色 | 建议 |
-| --- | --- | --- |
-| [legacy-password-hash.js](../packages/server/src/compat/legacy/legacy-password-hash.js) | 旧密码 hash helper | 跟 legacy auth HTTP 一起删 |
-| [legacy-account-validation.js](../packages/server/src/compat/legacy/legacy-account-validation.js) | 旧账号字段校验 | 跟 legacy `/auth/*`、`/account/*` 一起删 |
-| [legacy-gm-compat.constants.js](../packages/server/src/compat/legacy/legacy-gm-compat.constants.js) | GM compat 常量 | 跟 GM compat 服务一起删 |
+- 还没有真实环境证明“旧客户端 / 旧 GM 工具 / 旧运营脚本”已全部停止使用旧入口
+- 还没有完成退役后的观察窗口与回滚预案取证
+- 文档和 runbook 仍在收口，不能因为代码文件没了就宣布旧入口已经安全退役
 
-### D. 只是验证 / 审计脚本，不是运行主链阻塞
+### C. active 主包里的 compat 基础工具已清空
 
-这组文件名字里有 `legacy/compat`，但本质上是验证工具，不代表系统主链没替完。
+这组原先跟着 compat HTTP/GM 入口存在的 helper/常量，当前已经从 active 主包删除：
+
+- `legacy-password-hash.js`
+- `legacy-account-validation.js`
+- `legacy-gm-compat.constants.js`
+- `legacy-session-bootstrap.service.js`
+- `packages/server/src/auth/legacy-auth.service.js`
+
+### D. 当前仍保留的 proof / 审计脚本
+
+这组不是运行主链阻塞，但仍是删除门槛的一部分：
 
 | 文件 | 当前角色 | 什么时候删 |
 | --- | --- | --- |
-| [legacy-auth-smoke.js](../packages/server/src/tools/compat/legacy-auth-smoke.js) | 验证 legacy HTTP auth 兼容 | `L2-L4` 之后 |
-| [legacy-player-compat-smoke.js](../packages/server/src/tools/compat/legacy-player-compat-smoke.js) | 验证 legacy 玩家 socket 兼容 | `L2-L4` 之后 |
-| [gm-compat-smoke.js](../packages/server/src/tools/compat/gm-compat-smoke.js) | 验证 GM compat 关键链路 | `L2-L4` 之后 |
+| [next-auth-bootstrap-smoke.js](../packages/server/src/tools/next-auth-bootstrap-smoke.js) | 验证 next 登录、bootstrap 与迁移来源门禁 | `L1-L4` 之后 |
+| [gm-next-smoke.js](../packages/server/src/tools/gm-next-smoke.js) | 验证当前 GM 主链与 shadow 关键写路径 | `L3-L4` 之后 |
 | [next-legacy-boundary-audit.js](../packages/server/src/tools/audit/next-legacy-boundary-audit.js) | 审计 legacy 边界是否继续扩散 | 最后删除，直到完全不需要监控 legacy 边界 |
-
-### E. 已接近可清理候选
-
-这组不是“立刻删”，但已经值得优先复核。
-
-| 文件 | 当前判断 | 建议动作 |
-| --- | --- | --- |
-| [packages/server/src/auth/legacy-auth.service.js](../packages/server/src/auth/legacy-auth.service.js) | 当前未发现仓库内引用，更像旧位置残留副本；但该文件在当前工作区已存在未提交改动 | 先人工复核，再决定直接删或迁归档 |
 
 ## 三、现在可以做什么
 
@@ -215,8 +197,7 @@
 
 - 看到 `legacy` 名字就整批删
 - 在 `L1` 没过前搬走所有运行主链 compat 文件
-- 在 `L2` 没过前删 compat HTTP registry 和旧 controller
-- 因为 `client-next` 主链已 next-native，就误判 legacy HTTP / GM / socket 可以顺手退役
+- 因为代码侧 compat HTTP 已退役，就误判真实环境旧入口已经安全下线
 - 在 `T09/T10` 没完成真实环境补证前，把 smoke / audit / destructive proof 当成“可删脚手架”
 
 ## 四、推荐的清理顺序
@@ -233,8 +214,7 @@
 
 本轮最适合直接做的具体动作：
 
-- 继续复核 `E` 类孤儿候选，明确“删 / 迁 / 保留”三选一
-- 给 `A/B/C/D/E` 五类各补一列“删除前必须看哪个任务”
+- 给 `A/B/C/D` 四类各补一列“删除前必须看哪个任务”
 - 把 `legacy` 脚本、审计、运行壳在文档里彻底分桶，避免继续混读
 
 ### 第 2 批：退役外部兼容入口

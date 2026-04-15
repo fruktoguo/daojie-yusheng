@@ -32,13 +32,13 @@
 ### `acceptance`
 
 - 回答的问题：`local` 之外，shadow 实物验收和 shadow GM 关键写路径是否也绿。
-- 典型内容：`local` + `shadow` + `gm-compat`。
+- 典型内容：`local` + `shadow` + `gm-next`。
 - 不回答的问题：完整数据库运营面 proof、破坏性闭环、人工运营回归是否都已完成。
 
 ### `full`
 
 - 回答的问题：数据库、shadow、GM 密码都齐备时，自动化门禁是否全绿。
-- 典型内容：`with-db -> gm-database -> gm-database-backup-persistence -> shadow -> gm-compat`。
+- 典型内容：`with-db -> gm-database -> gm-database-backup-persistence -> shadow -> gm-next`。
 - 不回答的问题：真实维护窗口 destructive 演练是否已执行、人工运营边界是否已彻底制度化。
 
 ### `shadow-destructive`
@@ -152,7 +152,7 @@
 
 - 先跑 `local`
 - 再跑 `shadow`
-- 再跑 shadow 上的 `pnpm --filter @mud/server-next smoke:gm-compat`
+- 再跑 shadow 上的 `pnpm --filter @mud/server-next smoke:gm-next`
 
 ### 6. 最严格自动化门禁
 
@@ -161,7 +161,7 @@
 用途：
 
 - 强制要求数据库、shadow、GM 密码环境齐备
-- 串行执行 `with-db -> gm-database -> gm-database-backup-persistence -> shadow -> gm-compat`
+- 串行执行 `with-db -> gm-database -> gm-database-backup-persistence -> shadow -> gm-next`
 - 只证明自动化门禁，不代替人工运营回归
 
 ### 7. 维护窗口破坏性 proof

@@ -1,20 +1,15 @@
 "use strict";
 /**
- * 用途：执行 gm-compat 兼容链路的冒烟验证。
+ * 用途：执行 gm-next 主链路的冒烟验证。
  */
 
 Object.defineProperty(exports, "__esModule", { value: true });
-/** smoke_timeout_1：定义该变量以承载业务值。 */
-const smoke_timeout_1 = require("../smoke-timeout");
+const smoke_timeout_1 = require("./smoke-timeout");
 (0, smoke_timeout_1.installSmokeTimeout)(__filename);
-/** pg_1：定义该变量以承载业务值。 */
 const pg_1 = require("pg");
-/** socket_io_client_1：定义该变量以承载业务值。 */
 const socket_io_client_1 = require("socket.io-client");
-/** shared_1：定义该变量以承载业务值。 */
 const shared_1 = require("@mud/shared-next");
-/** env_alias_1：定义该变量以承载业务值。 */
-const env_alias_1 = require("../../config/env-alias");
+const env_alias_1 = require("../config/env-alias");
 /**
  * 指定烟测要连接的 server-next 地址。
  */
@@ -27,10 +22,8 @@ const SERVER_NEXT_DATABASE_URL = (0, env_alias_1.resolveServerNextDatabaseUrl)()
  * 标记当前是否具备数据库环境。
  */
 const hasDatabaseUrl = Boolean(SERVER_NEXT_DATABASE_URL);
-/** LEGACY_HTTP_MEMORY_FALLBACK_ENABLED：定义该变量以承载业务值。 */
 const LEGACY_HTTP_MEMORY_FALLBACK_ENABLED = readBooleanEnv('SERVER_NEXT_ALLOW_LEGACY_HTTP_MEMORY_FALLBACK')
     || readBooleanEnv('NEXT_ALLOW_LEGACY_HTTP_MEMORY_FALLBACK');
-/** LEGACY_SOCKET_PROTOCOL_ENABLED：定义该变量以承载业务值。 */
 const LEGACY_SOCKET_PROTOCOL_ENABLED = readBooleanEnv('SERVER_NEXT_ALLOW_LEGACY_SOCKET_PROTOCOL')
     || readBooleanEnv('NEXT_ALLOW_LEGACY_SOCKET_PROTOCOL');
 /**
@@ -309,7 +302,6 @@ async function main() {
  * 记录socket出生点bot数量。
  */
         const socketSpawnBotCount = Number(socketSpawnState?.payload?.botCount ?? 0);
-/** socketUpdateAck：定义该变量以承载业务值。 */
         const socketUpdateAck = await emitAndWaitForGmState(socket, gmStateEvents, socketError, shared_1.NEXT_C2S.GmUpdatePlayer, {
             playerId: auth.playerId,
             mapId: initialRuntime.templateId,
@@ -473,7 +465,7 @@ async function main() {
             token: gmToken,
             body: {
                 fallbackTitle: `GM直邮${suffix.slice(-4)}`,
-                fallbackBody: `gm-compat direct ${suffix}`,
+                fallbackBody: `gm-next direct ${suffix}`,
                 attachments: [{ itemId: 'spirit_stone', count: 1 }],
             },
         });
@@ -485,7 +477,7 @@ async function main() {
             token: gmToken,
             body: {
                 fallbackTitle: `GM群邮${suffix.slice(-4)}`,
-                fallbackBody: `gm-compat broadcast ${suffix}`,
+                fallbackBody: `gm-next broadcast ${suffix}`,
                 attachments: [{ itemId: 'pill.minor_heal', count: 1 }],
             },
         });
@@ -506,7 +498,7 @@ async function main() {
             method: 'POST',
             body: {
                 title: `GM建议${suffix.slice(-4)}`,
-                description: `gm-compat suggestion ${suffix}`,
+                description: `gm-next suggestion ${suffix}`,
             },
         });
 /**
@@ -701,7 +693,6 @@ async function main() {
                 mapRuntime: {
                     mapId: httpResetRuntime.templateId,
                     tickSpeed: Number(mapRuntimeReloaded?.tickSpeed ?? 0),
-/** tickPaused：定义该变量以承载业务值。 */
                     tickPaused: mapRuntimeReloaded?.tickPaused === true,
                     timeScale: Number(mapRuntimeReloaded?.timeConfig?.scale ?? 0),
                     offsetTicks: Number(mapRuntimeReloaded?.timeConfig?.offsetTicks ?? 0),
@@ -775,7 +766,6 @@ function computeReducedHp(currentHp, maxHp, preferredDelta) {
  * 注册并登录一个临时玩家，作为 GM 操作目标。
  */
 async function registerAndLoginPlayer() {
-/** registered：定义该变量以承载业务值。 */
     let registered = false;
 /**
  * 记录注册账号名。
@@ -812,7 +802,6 @@ async function registerAndLoginPlayer() {
             break;
         }
         catch (error) {
-/** message：定义该变量以承载业务值。 */
             const message = error instanceof Error ? error.message : String(error);
             if (!message.includes('显示名称已存在')
                 && !message.includes('账号已存在')
@@ -882,15 +871,12 @@ async function ensureNativeDocsForAccessToken(token) {
     if (!tokenUserId) {
         return;
     }
-/** pool：定义该变量以承载业务值。 */
     const pool = new pg_1.Pool({
         connectionString: SERVER_NEXT_DATABASE_URL,
     });
     try {
         if (!tokenPlayerId) {
-/** playerResult：定义该变量以承载业务值。 */
             const playerResult = await pool.query('SELECT id, name FROM players WHERE "userId" = $1::uuid LIMIT 1', [tokenUserId]);
-/** playerRow：定义该变量以承载业务值。 */
             const playerRow = Array.isArray(playerResult?.rows) ? playerResult.rows[0] : null;
             tokenPlayerId = normalizeNextPlayerId(typeof playerRow?.id === 'string' ? playerRow.id.trim() : tokenPlayerId);
             if (!tokenPlayerName) {
@@ -898,9 +884,7 @@ async function ensureNativeDocsForAccessToken(token) {
             }
         }
         if (!tokenUsername || !tokenDisplayName) {
-/** userResult：定义该变量以承载业务值。 */
             const userResult = await pool.query('SELECT username, "displayName" FROM users WHERE id = $1::uuid LIMIT 1', [tokenUserId]);
-/** userRow：定义该变量以承载业务值。 */
             const userRow = Array.isArray(userResult?.rows) ? userResult.rows[0] : null;
             if (!tokenUsername) {
                 tokenUsername = typeof userRow?.username === 'string' ? userRow.username.trim() : tokenUsername;
@@ -1253,7 +1237,6 @@ async function findNearbyWalkablePosition(token, playerId, mapId, x, y) {
             if (!fallback) {
                 fallback = { x: candidateX, y: candidateY };
             }
-/** detail：定义该变量以承载业务值。 */
             const detail = await fetchPlayerTileDetail(playerId, candidateX, candidateY);
             if (detail?.safeZone) {
                 continue;
@@ -1775,18 +1758,14 @@ function delay(ms) {
         setTimeout(resolve, ms);
     });
 }
-/** resolveExpectedLegacySocketProtocolGuardCode：执行对应的业务逻辑。 */
 function resolveExpectedLegacySocketProtocolGuardCode() {
     return LEGACY_SOCKET_PROTOCOL_ENABLED ? 'AUTH_PROTOCOL_MISMATCH' : 'LEGACY_PROTOCOL_DISABLED';
 }
-/** readBooleanEnv：执行对应的业务逻辑。 */
 function readBooleanEnv(key) {
-/** value：定义该变量以承载业务值。 */
     const value = process.env[key];
     if (typeof value !== 'string') {
         return false;
     }
-/** normalized：定义该变量以承载业务值。 */
     const normalized = value.trim().toLowerCase();
     return normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'on';
 }

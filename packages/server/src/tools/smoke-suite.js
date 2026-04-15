@@ -5,7 +5,6 @@
 
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
-/** desc：定义该变量以承载业务值。 */
     var desc = Object.getOwnPropertyDescriptor(m, k);
     if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
       desc = { enumerable: true, get: function() { return m[k]; } };
@@ -15,13 +14,11 @@ var __createBinding = (this && this.__createBinding) || (Object.create ? (functi
     if (k2 === undefined) k2 = k;
     o[k2] = m[k];
 }));
-/** __setModuleDefault：定义该变量以承载业务值。 */
 var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
     Object.defineProperty(o, "default", { enumerable: true, value: v });
 }) : function(o, v) {
     o["default"] = v;
 });
-/** __importStar：定义该变量以承载业务值。 */
 var __importStar = (this && this.__importStar) || (function () {
 /**
  * 记录ownkeys。
@@ -49,7 +46,6 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-/** node_child_process_1：定义该变量以承载业务值。 */
 const node_child_process_1 = require("node:child_process");
 /**
  * 记录net。
@@ -59,7 +55,6 @@ const net = __importStar(require("node:net"));
  * 记录path路径。
  */
 const path = __importStar(require("node:path"));
-/** env_alias_1：定义该变量以承载业务值。 */
 const env_alias_1 = require("../config/env-alias");
 /**
  * 记录包根目录。
@@ -84,7 +79,6 @@ const includePersistence = cliArgs.includes('--include-persistence');
 /**
  * 记录requirelegacy认证。
  */
-const requireLegacyAuth = cliArgs.includes('--require-legacy-auth');
 /**
  * 记录用户指定的用例名称。
  */
@@ -99,12 +93,10 @@ const smokeCases = [
     { name: 'progression', scriptFile: 'progression-smoke.js' },
     { name: 'combat', scriptFile: 'combat-smoke.js' },
     { name: 'loot', scriptFile: 'loot-smoke.js' },
-    { name: 'legacy-auth', scriptFile: 'compat/legacy-auth-smoke.js' },
     { name: 'next-auth-bootstrap', scriptFile: 'next-auth-bootstrap-smoke.js' },
     { name: 'next-auth-bootstrap-mainline', scriptFile: 'next-auth-bootstrap-smoke.js' },
     { name: 'next-auth-bootstrap-migration', scriptFile: 'next-auth-bootstrap-smoke.js' },
-    { name: 'legacy-player-compat', scriptFile: 'compat/legacy-player-compat-smoke.js' },
-    { name: 'gm-compat', scriptFile: 'compat/gm-compat-smoke.js' },
+    { name: 'gm-next', scriptFile: 'gm-next-smoke.js' },
     { name: 'redeem-code', scriptFile: 'redeem-code-smoke.js' },
     { name: 'monster-runtime', scriptFile: 'monster-runtime-smoke.js' },
     { name: 'monster-combat', scriptFile: 'monster-combat-smoke.js' },
@@ -364,12 +356,7 @@ function resolveCaseExtraEnv(entry) {
     if (databaseUrl) {
         extraEnv.SERVER_NEXT_DATABASE_URL = databaseUrl;
     }
-    if ((entry.name === 'legacy-auth' || entry.name === 'legacy-player-compat') && requireLegacyAuth) {
-        extraEnv.SERVER_NEXT_LEGACY_AUTH_REQUIRED = '1';
-    }
-    if (entry.name === 'legacy-auth'
-        || entry.name === 'legacy-player-compat'
-        || entry.name === 'gm-compat'
+    if (entry.name === 'gm-next'
         || entry.name === 'redeem-code'
         || entry.name === 'persistence'
         || entry.name === 'gm-database'
