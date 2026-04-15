@@ -3,7 +3,7 @@ services:
     image: postgres:16-alpine
     container_name: mud-local-postgres-next
     environment:
-      POSTGRES_USER: ${DB_USERNAME:-postgres}
+      POSTGRES_USER: ${DB_USERNAME:-mud}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-jiuzhou123}
       POSTGRES_DB: ${DB_DATABASE:-mud_mmo_next}
     volumes:
@@ -11,7 +11,7 @@ services:
     ports:
       - "${DB_PORT:-15432}:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-postgres} -d ${DB_DATABASE:-mud_mmo_next}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-mud} -d ${DB_DATABASE:-mud_mmo_next}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -33,16 +33,17 @@ services:
       dockerfile: packages/server-next/Dockerfile
     environment:
       SERVER_NEXT_HOST: 0.0.0.0
-      SERVER_NEXT_PORT: ${SERVER_NEXT_PORT:-13001}
-      SERVER_NEXT_DATABASE_URL: postgres://${DB_USERNAME:-postgres}:${DB_PASSWORD:-jiuzhou123}@postgres:5432/${DB_DATABASE:-mud_mmo_next}
-      DATABASE_URL: postgres://${DB_USERNAME:-postgres}:${DB_PASSWORD:-jiuzhou123}@postgres:5432/${DB_DATABASE:-mud_mmo_next}
-      JWT_SECRET: daojie-yusheng-production-secret
-      SERVER_NEXT_GM_PASSWORD: admin123
-      GM_PASSWORD: admin123
-      SERVER_NEXT_RUNTIME_TOKEN: ${SERVER_NEXT_RUNTIME_TOKEN:-server-next-dev-runtime-token}
+      SERVER_NEXT_PORT: ${SERVER_NEXT_PORT:-3000}
+      SERVER_NEXT_DATABASE_URL: postgres://${DB_USERNAME:-mud}:${DB_PASSWORD:-jiuzhou123}@postgres:5432/${DB_DATABASE:-mud_mmo_next}
+      DATABASE_URL: postgres://${DB_USERNAME:-mud}:${DB_PASSWORD:-jiuzhou123}@postgres:5432/${DB_DATABASE:-mud_mmo_next}
+      JWT_SECRET: ${JWT_SECRET}
+      SERVER_NEXT_GM_PASSWORD: ${GM_PASSWORD:-admin123}
+      GM_PASSWORD: ${GM_PASSWORD:-admin123}
+      SERVER_NEXT_RUNTIME_TOKEN: ${SERVER_NEXT_RUNTIME_TOKEN}
+      SERVER_NEXT_ALLOW_LEGACY_HTTP_COMPAT: ${SERVER_NEXT_ALLOW_LEGACY_HTTP_COMPAT:-1}
       SERVER_NEXT_GM_DATABASE_BACKUP_DIR: /var/lib/server-next/gm-database-backups
     ports:
-      - "${SERVER_NEXT_PORT:-13001}:${SERVER_NEXT_PORT:-13001}"
+      - "${SERVER_NEXT_PORT:-3000}:${SERVER_NEXT_PORT:-3000}"
     volumes:
       - server_next_backup_data:/var/lib/server-next
     depends_on:
@@ -52,7 +53,7 @@ services:
         condition: service_healthy
     stop_grace_period: 30s
     healthcheck:
-      test: ["CMD-SHELL", "wget --spider -q http://127.0.0.1:${SERVER_NEXT_PORT:-13001}/health || exit 1"]
+      test: ["CMD-SHELL", "wget --spider -q http://127.0.0.1:${SERVER_NEXT_PORT:-3000}/health || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 3

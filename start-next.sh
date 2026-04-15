@@ -137,7 +137,7 @@ cleanup_existing_local_dev_processes() {
     kill_process_tree_if_running "$pid"
   done
 
-  kill_port_listener_if_needed "${SERVER_NEXT_PORT:-13020}"
+  kill_port_listener_if_needed "${SERVER_NEXT_PORT:-3000}"
   kill_port_listener_if_needed "${CLIENT_NEXT_PORT:-15173}"
 }
 
@@ -149,6 +149,117 @@ require_command() {
     echo "!! 缺少命令: $command_name"
     exit 1
   fi
+}
+
+# 按固定顺序加载本地 env 文件，用于在本地还原线上部署同名环境变量。
+source_env_file_if_present() {
+# 记录env文件路径。
+  local env_file="$1"
+  if [[ ! -f "$env_file" ]]; then
+    return 0
+  fi
+
+  echo "==> 加载环境配置 ${env_file} ..."
+  set -a
+  # shellcheck disable=SC1090
+  source "$env_file"
+  set +a
+}
+
+# 以“仓库级默认 -> 仓库级本地覆盖 -> 包级默认 -> 包级本地覆盖”顺序加载。
+load_server_next_local_env() {
+  source_env_file_if_present ".runtime/server-next.local.env"
+  source_env_file_if_present ".env"
+  source_env_file_if_present ".env.local"
+  source_env_file_if_present "packages/server-next/.env"
+  source_env_file_if_present "packages/server-next/.env.local"
+}
+
+# 校验线上部署也要求提供的关键环境变量，避免脚本走私有开发默认值。
+require_env_value() {
+# 记录环境变量名称。
+  local env_name="$1"
+# 记录缺失提示。
+  local hint="$2"
+  if [[ -n "${!env_name:-}" ]]; then
+    return 0
+  fi
+
+  echo "!! 缺少环境变量: ${env_name}"
+  echo "   ${hint}"
+  exit 1
+}
+
+# 转义 YAML 单引号字符串，避免 docker override 文件被特殊字符打坏。
+escape_yaml_single_quoted() {
+# 记录原始值。
+  local value="${1:-}"
+  value="${value//\'/\'\'}"
+  printf '%s' "$value"
+}
+
+# 为本地 next 启动生成一次性密钥环境，避免回退到硬编码开发密钥。
+ensure_server_next_local_secret_env() {
+# 记录本地密钥 env 文件。
+  local local_env_file=".runtime/server-next.local.env"
+# 记录是否需要写入。
+  local needs_write=0
+# 记录jwt密钥。
+  local generated_jwt_secret=""
+# 记录运行时令牌。
+  local generated_runtime_token=""
+
+  if [[ -z "${JWT_SECRET:-}" ]]; then
+    generated_jwt_secret="$(node -e "process.stdout.write(require('node:crypto').randomBytes(32).toString('hex'))")"
+    needs_write=1
+  fi
+
+  if [[ -z "${SERVER_NEXT_RUNTIME_TOKEN:-}" ]]; then
+    generated_runtime_token="$(node -e "process.stdout.write(require('node:crypto').randomBytes(32).toString('hex'))")"
+    needs_write=1
+  fi
+
+  if (( needs_write == 0 )); then
+    return 0
+  fi
+
+  mkdir -p ".runtime"
+  touch "$local_env_file"
+
+  if [[ -n "$generated_jwt_secret" ]] && ! grep -q '^JWT_SECRET=' "$local_env_file"; then
+    printf 'JWT_SECRET=%s\n' "$generated_jwt_secret" >> "$local_env_file"
+  fi
+
+  if [[ -n "$generated_runtime_token" ]] && ! grep -q '^SERVER_NEXT_RUNTIME_TOKEN=' "$local_env_file"; then
+    printf 'SERVER_NEXT_RUNTIME_TOKEN=%s\n' "$generated_runtime_token" >> "$local_env_file"
+  fi
+
+  echo "==> 已写入本地 next 密钥缓存 ${local_env_file}"
+}
+
+# 准备与线上部署一致的 next 基础环境变量，宿主机或容器网络差异由调用方补充。
+prepare_server_next_base_env() {
+  load_server_next_local_env
+  ensure_server_next_local_secret_env
+  load_server_next_local_env
+
+  export SERVER_NEXT_HOST="${SERVER_NEXT_HOST:-0.0.0.0}"
+  export SERVER_NEXT_PORT="${SERVER_NEXT_PORT:-3000}"
+  export CLIENT_NEXT_PORT="${CLIENT_NEXT_PORT:-15173}"
+  export SERVER_NEXT_ALLOW_LEGACY_HTTP_COMPAT="${SERVER_NEXT_ALLOW_LEGACY_HTTP_COMPAT:-1}"
+  export NEXT_ALLOW_LEGACY_HTTP_COMPAT="${NEXT_ALLOW_LEGACY_HTTP_COMPAT:-$SERVER_NEXT_ALLOW_LEGACY_HTTP_COMPAT}"
+  export DB_USERNAME="${DB_USERNAME:-${SERVER_NEXT_DB_USERNAME:-mud}}"
+  export SERVER_NEXT_DB_USERNAME="$DB_USERNAME"
+  export DB_PASSWORD="${DB_PASSWORD:-${SERVER_NEXT_DB_PASSWORD:-jiuzhou123}}"
+  export SERVER_NEXT_DB_PASSWORD="$DB_PASSWORD"
+  export DB_DATABASE="${DB_DATABASE:-${SERVER_NEXT_DB_DATABASE:-mud_mmo_next}}"
+  export SERVER_NEXT_DB_DATABASE="$DB_DATABASE"
+  export GM_PASSWORD="${GM_PASSWORD:-${SERVER_NEXT_GM_PASSWORD:-admin123}}"
+  export SERVER_NEXT_GM_PASSWORD="${SERVER_NEXT_GM_PASSWORD:-$GM_PASSWORD}"
+  export SERVER_NEXT_GM_DATABASE_BACKUP_DIR="${SERVER_NEXT_GM_DATABASE_BACKUP_DIR:-${GM_DATABASE_BACKUP_DIR:-}}"
+
+  require_env_value "JWT_SECRET" "请按线上部署同名变量提供 JWT_SECRET，可放在 .env/.env.local 或 packages/server-next/.env(.local)。"
+  require_env_value "SERVER_NEXT_RUNTIME_TOKEN" "请按线上部署同名变量提供 SERVER_NEXT_RUNTIME_TOKEN，可放在 .env/.env.local 或 packages/server-next/.env(.local)。"
 }
 
 # 判断是否本地主机。
@@ -203,6 +314,35 @@ try_start_existing_container() {
   echo "==> 启动已有本地 ${display_name} 容器: ${container_name}"
   docker start "$container_name" >/dev/null
   return 0
+}
+
+# 校验 next 本地 PostgreSQL 容器是否仍然停留在旧的初始化账号上。
+ensure_local_postgres_env_matches() {
+  if ! is_local_host "${DB_HOST:-localhost}"; then
+    return 0
+  fi
+
+  if ! docker_container_exists "mud-local-postgres-next"; then
+    return 0
+  fi
+
+# 记录容器中的数据库用户。
+  local container_db_user=""
+  container_db_user="$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' mud-local-postgres-next 2>/dev/null | awk -F= '/^POSTGRES_USER=/{print $2; exit}')"
+
+  if [[ -z "$container_db_user" || "$container_db_user" == "$DB_USERNAME" ]]; then
+    return 0
+  fi
+
+# 记录数据库卷名。
+  local postgres_volume_name="${SERVER_NEXT_COMPOSE_PROJECT}_pgdata_server_next"
+  echo "!! 本地 next PostgreSQL 仍是旧初始化口径，当前容器 POSTGRES_USER=${container_db_user}，但脚本已按线上口径要求 DB_USERNAME=${DB_USERNAME}。"
+  echo "   请执行以下命令重建 next 本地数据库后再重新启动："
+  echo "   docker compose -p ${SERVER_NEXT_COMPOSE_PROJECT} -f ${SERVER_NEXT_COMPOSE_FILE} stop postgres"
+  echo "   docker compose -p ${SERVER_NEXT_COMPOSE_PROJECT} -f ${SERVER_NEXT_COMPOSE_FILE} rm -sf postgres"
+  echo "   docker volume rm ${postgres_volume_name}"
+  echo "   bash ./start-next.sh"
+  exit 1
 }
 
 # 等待 server-next Compose 内的数据库或 Redis 服务就绪。
@@ -340,42 +480,30 @@ case "$MODE" in
     echo "==> 编译新线共享包..."
     pnpm --filter @mud/shared-next build
 
-    if [[ -f "packages/server-next/.env" ]]; then
-      echo "==> 加载服务端环境配置 packages/server-next/.env ..."
-      set -a
-      source "packages/server-next/.env"
-      set +a
-    fi
-
-    export SERVER_NEXT_HOST="${SERVER_NEXT_HOST:-0.0.0.0}"
-    export SERVER_NEXT_PORT="${SERVER_NEXT_PORT:-13020}"
-    export CLIENT_NEXT_PORT="${CLIENT_NEXT_PORT:-15173}"
-    export JWT_SECRET="${JWT_SECRET:-daojie-yusheng-dev-secret}"
-    export SERVER_NEXT_GM_PASSWORD="${SERVER_NEXT_GM_PASSWORD:-admin123}"
-    export GM_PASSWORD="$SERVER_NEXT_GM_PASSWORD"
-    export SERVER_NEXT_RUNTIME_TOKEN="${SERVER_NEXT_RUNTIME_TOKEN:-server-next-dev-runtime-token}"
-    export SERVER_NEXT_DB_HOST="${SERVER_NEXT_DB_HOST:-localhost}"
-    export DB_HOST="$SERVER_NEXT_DB_HOST"
-    export SERVER_NEXT_DB_PORT="${SERVER_NEXT_DB_PORT:-15432}"
-    export DB_PORT="$SERVER_NEXT_DB_PORT"
-    export SERVER_NEXT_DB_USERNAME="${SERVER_NEXT_DB_USERNAME:-postgres}"
-    export DB_USERNAME="$SERVER_NEXT_DB_USERNAME"
-    export SERVER_NEXT_DB_PASSWORD="${SERVER_NEXT_DB_PASSWORD:-jiuzhou123}"
-    export DB_PASSWORD="$SERVER_NEXT_DB_PASSWORD"
-    export SERVER_NEXT_DB_DATABASE="${SERVER_NEXT_DB_DATABASE:-mud_mmo_next}"
-    export DB_DATABASE="$SERVER_NEXT_DB_DATABASE"
+    prepare_server_next_base_env
+    export DB_HOST="${DB_HOST:-${SERVER_NEXT_DB_HOST:-localhost}}"
+    export SERVER_NEXT_DB_HOST="$DB_HOST"
+    export DB_PORT="${DB_PORT:-${SERVER_NEXT_DB_PORT:-15432}}"
+    export SERVER_NEXT_DB_PORT="$DB_PORT"
     export SERVER_NEXT_REDIS_HOST="${SERVER_NEXT_REDIS_HOST:-localhost}"
     export REDIS_HOST="$SERVER_NEXT_REDIS_HOST"
     export SERVER_NEXT_REDIS_PORT="${SERVER_NEXT_REDIS_PORT:-16379}"
     export REDIS_PORT="$SERVER_NEXT_REDIS_PORT"
-    export SERVER_NEXT_DATABASE_URL="${SERVER_NEXT_DATABASE_URL:-postgres://${DB_USERNAME}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_DATABASE}}"
+    export DATABASE_URL="${DATABASE_URL:-${SERVER_NEXT_DATABASE_URL:-}}"
+
+    if [[ -z "${DATABASE_URL}" ]]; then
+      require_env_value "DB_PASSWORD" "未显式提供 DATABASE_URL/SERVER_NEXT_DATABASE_URL 时，需像线上一样提供 DB_PASSWORD 以组装 PostgreSQL 连接串。"
+      export DATABASE_URL="postgres://${DB_USERNAME}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_DATABASE}"
+    fi
+
+    export SERVER_NEXT_DATABASE_URL="${SERVER_NEXT_DATABASE_URL:-$DATABASE_URL}"
     export DATABASE_URL="$SERVER_NEXT_DATABASE_URL"
-    export SERVER_NEXT_ALLOW_LEGACY_HTTP_COMPAT="${SERVER_NEXT_ALLOW_LEGACY_HTTP_COMPAT:-1}"
     export SERVER_NEXT_DEBUG_MOVEMENT="${SERVER_NEXT_DEBUG_MOVEMENT:-${NEXT_DEBUG_MOVEMENT:-0}}"
     export VITE_NEXT_DEBUG_MOVEMENT="${VITE_NEXT_DEBUG_MOVEMENT:-${SERVER_NEXT_DEBUG_MOVEMENT}}"
     export VITE_DEV_PROXY_TARGET="${VITE_DEV_PROXY_TARGET:-http://127.0.0.1:${SERVER_NEXT_PORT}}"
 
     ensure_local_infra
+    ensure_local_postgres_env_matches
     cleanup_existing_local_dev_processes
 
     echo "==> 启动新线共享包监听构建..."
@@ -411,7 +539,23 @@ case "$MODE" in
     ;;
   docker)
     echo "==> Docker Compose 模式启动 next 本地栈..."
-    docker_compose_next up --build
+    prepare_server_next_base_env
+    require_env_value "DB_PASSWORD" "docker 模式会按线上同名变量拉起 next PostgreSQL，本地也需显式提供 DB_PASSWORD。"
+
+# 记录docker覆盖配置文件。
+    docker_override_file=""
+    docker_override_file="$(mktemp "${TMPDIR:-/tmp}/start-next.override.XXXXXX.yml")"
+    cat > "$docker_override_file" <<EOF
+services:
+  server-next:
+    environment:
+      JWT_SECRET: '$(escape_yaml_single_quoted "$JWT_SECRET")'
+      SERVER_NEXT_GM_PASSWORD: '$(escape_yaml_single_quoted "$SERVER_NEXT_GM_PASSWORD")'
+      GM_PASSWORD: '$(escape_yaml_single_quoted "$GM_PASSWORD")'
+EOF
+
+    docker compose -p "$SERVER_NEXT_COMPOSE_PROJECT" -f "$SERVER_NEXT_COMPOSE_FILE" -f "$docker_override_file" up --build
+    rm -f "$docker_override_file"
     ;;
   *)
     echo "用法: ./start-next.sh [local|docker]"
@@ -420,12 +564,16 @@ case "$MODE" in
     echo ""
     echo "可选环境变量:"
     echo "  SKIP_LOCAL_INFRA=1         跳过本地 PostgreSQL / Redis 自动拉起"
-    echo "  SERVER_NEXT_PORT=13020     指定 server-next 端口"
+    echo "  SERVER_NEXT_PORT=3000      指定 server-next 端口"
     echo "  CLIENT_NEXT_PORT=15173     指定 client-next 端口"
-    echo "  SERVER_NEXT_DB_PORT=15432  指定 next PostgreSQL 端口"
-    echo "  SERVER_NEXT_DB_DATABASE=mud_mmo_next 指定 next PostgreSQL 数据库名"
-    echo "  SERVER_NEXT_REDIS_PORT=16379 指定 next Redis 端口"
-    echo "  NEXT_DEBUG_MOVEMENT=1        同时开启前后端移动诊断日志"
+    echo "  DB_USERNAME=mud           指定 next PostgreSQL 用户名"
+    echo "  DB_PASSWORD=...           指定 next PostgreSQL 密码"
+    echo "  DB_DATABASE=mud_mmo_next  指定 next PostgreSQL 数据库名"
+    echo "  DB_PORT=15432             指定 next PostgreSQL 端口"
+    echo "  REDIS_PORT=16379          指定 next Redis 端口"
+    echo "  JWT_SECRET=...            指定线上同名 JWT 密钥"
+    echo "  SERVER_NEXT_RUNTIME_TOKEN=... 指定线上同名运行时令牌"
+    echo "  NEXT_DEBUG_MOVEMENT=1     同时开启前后端移动诊断日志"
     echo "  VITE_DEV_PROXY_TARGET=...  指定前端代理目标"
     exit 1
     ;;
