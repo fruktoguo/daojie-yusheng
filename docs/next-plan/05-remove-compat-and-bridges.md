@@ -12,6 +12,7 @@
 - [x] `WorldPlayerAuthService / WorldPlayerSnapshotService` 对外方法名与注释口径已从 `compat backfill` 收成 `migration backfill`
 - [x] `next-auth-bootstrap-smoke.js` 已切到 `resolvePlayerIdentityForMigration / loadPlayerSnapshotForMigration / ensureMigrationBackfillSnapshot`
 - [x] `WorldPlayerAuthService / WorldPlayerSourceService / WorldPlayerSnapshotService` 内部变量、日志和拦截 reason 已继续从 `compat` 收成 `migration`
+- [x] `WorldPlayerAuthService / WorldPlayerSnapshotService / WorldSessionBootstrapService / next-auth-bootstrap-smoke.js` 第一批 `compat_*` failureStage 与回退 reason 已收成中性 migration 命名
 
 - [x] 盘点 `packages/server/src/network/` 下所有 compat / bridge 入口
 - [x] 盘点 `packages/server/src/persistence/` 下所有 compat 读取入口
@@ -31,6 +32,24 @@
 - [ ] 玩家主链不再默认走 compat fallback
 - [ ] 主要路径只剩 next 单线逻辑
 
+## 当前卡点拆解
+
+当前 `05` 最容易卡死在“公开 alias 已删”与“内部 compat 已清完”被混成一件事。
+
+这里要按两层推进：
+
+- 第 1 层：公开 alias / facade / 文件删除
+- 第 2 层：内部 `compat_snapshot_*` / trace / reason / smoke proof 收口
+
+只有第 2 层做完，`05` 里“内部 compat 已继续收口”这类条目才算真的完成。
+
+当前建议直接按下面顺序拆：
+
+1. 先修文档里的假完成勾选
+2. 单独修 `world-player-auth.service.js` / `world-player-snapshot.service.js` 的 `compat_*` trace 与 failureStage
+3. 同步修 `next-auth-bootstrap-smoke.js` 对旧命名的断言
+4. 最后再删 runtime bridge 和 legacy source
+
 ## 当前剩余 compat 面盘点
 
 ### `packages/server/src/network/*`
@@ -42,11 +61,11 @@
   - 仍持有 legacy 数据库入口和 migration source gate。
   - 还残留 `allowCompatMigration` 命名与 `legacy:vitals_baseline` 规范化兼容。
 - `packages/server/src/network/world-player-auth.service.js`
-  - 仍保留 `legacy_backfill` / `legacy_sync` 来源提升、migration backfill 保存、快照补种失败分支。
+  - `compat_*` failureStage 已收口，但仍保留 `legacy_backfill` / `legacy_sync` 来源提升、migration backfill 保存与快照补种主逻辑。
 - `packages/server/src/network/world-player-snapshot.service.js`
-  - 仍保留 migration snapshot load / save / miss 失败分支和 `compat_snapshot_*` failureStage。
+  - `compat_snapshot_*` failureStage 已删，仍保留 migration snapshot load / save / miss 失败分支本体。
 - `packages/server/src/network/world-session-bootstrap.service.js`
-  - 仍显式记录 `runtime_compat_snapshot_disabled:legacy_runtime` 之类回退原因。
+  - 已改成中性 migration 回退 reason，但 runtime fallback 分支本体还没删除。
 - `packages/server/src/network/world-sync.service.js`
   - 当前确认仍直接读取 `getLegacyCombatEffects()`。
   - 其它 compat 初始/增量分支由 boundary audit 持续盯住，删前先以 audit 结果为准。
@@ -98,7 +117,7 @@
 ### 第 1 批：先删 facade / alias / 命名兼容
 
 - [ ] 删除 `world-player-source.service.js` 中剩余 compat 命名、布尔参数、注释口径
-- [ ] 删除 `world-player-auth.service.js` / `world-player-snapshot.service.js` 中仍保留的 `compat_*` failureStage / trace 命名
+- [x] 删除 `world-player-auth.service.js` / `world-player-snapshot.service.js` 中仍保留的 `compat_*` failureStage / trace 命名
 - [ ] 删除只为兼容旧命名存在的 wrapper / facade，而不是继续新增别名
 
 删除前提：
@@ -109,6 +128,9 @@
 
 - `pnpm --filter @mud/server-next build`
 - `pnpm --filter @mud/server-next smoke:next-auth-bootstrap`
+- 本轮实际补跑：
+  - `pnpm build`
+  - `pnpm verify:replace-ready`
 
 ### 第 2 批：删鉴权 / 快照 migration bridge
 

@@ -112,7 +112,7 @@ let WorldPlayerAuthService = class WorldPlayerAuthService {
         if (!this.worldPlayerSnapshotService?.ensureMigrationBackfillSnapshot) {
             return {
                 ok: false,
-                failureStage: 'compat_snapshot_service_unavailable',
+                failureStage: 'migration_snapshot_service_unavailable',
             };
         }
         return this.worldPlayerSnapshotService.ensureMigrationBackfillSnapshot(playerId);
@@ -309,11 +309,11 @@ let WorldPlayerAuthService = class WorldPlayerAuthService {
                     persistedSource: 'legacy_backfill',
                     updatedAt: Date.now(),
                 }).catch((error) => {
-                    persistFailureStage = 'compat_backfill_save_failed';
+                    persistFailureStage = 'migration_backfill_save_failed';
                     this.logger.warn(`玩家身份 migration 回填保存失败：userId=${migrationIdentity.userId} playerId=${migrationIdentity.playerId} error=${error instanceof Error ? error.message : String(error)}`);
                     return null;
                 });
-                if (persistFailureStage === 'compat_backfill_save_failed') {
+                if (persistFailureStage === 'migration_backfill_save_failed') {
                     (0, world_player_token_service_1.recordAuthTrace)({
                         type: 'identity',
                         source: 'migration_persist_blocked',
@@ -344,14 +344,14 @@ let WorldPlayerAuthService = class WorldPlayerAuthService {
                         compatTried: true,
                         persistAttempted: true,
                         persistSucceeded: false,
-                        persistFailureStage: 'compat_backfill_persisted_source_mismatch',
+                        persistFailureStage: 'migration_backfill_persisted_source_mismatch',
                     });
                     return null;
                 }
 
                 const ensuredCompatSnapshot = persistedCompatIdentity
                     ? await this.ensureLegacyBackfillSnapshot(migrationIdentity.playerId)
-                    : { ok: false, failureStage: 'compat_snapshot_not_attempted' };
+                    : { ok: false, failureStage: 'migration_snapshot_not_attempted' };
                 if (persistedCompatIdentity && !ensuredCompatSnapshot.ok) {
                     (0, world_player_token_service_1.recordAuthTrace)({
                         type: 'identity',
@@ -364,7 +364,7 @@ let WorldPlayerAuthService = class WorldPlayerAuthService {
                         compatTried: true,
                         persistAttempted: true,
                         persistSucceeded: true,
-                        persistFailureStage: ensuredCompatSnapshot.failureStage ?? 'compat_snapshot_seed_failed',
+                        persistFailureStage: ensuredCompatSnapshot.failureStage ?? 'migration_snapshot_seed_failed',
                     });
                     return null;
                 }

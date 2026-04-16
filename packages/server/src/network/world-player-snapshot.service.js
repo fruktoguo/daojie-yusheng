@@ -74,7 +74,7 @@ let WorldPlayerSnapshotService = class WorldPlayerSnapshotService {
         if (!normalizedPlayerId || !this.playerPersistenceService.isEnabled()) {
             return {
                 ok: false,
-                failureStage: 'compat_snapshot_persistence_disabled',
+                failureStage: 'migration_snapshot_persistence_disabled',
             };
         }
         try {
@@ -96,7 +96,7 @@ let WorldPlayerSnapshotService = class WorldPlayerSnapshotService {
             this.logger.warn(`玩家 migration 回填快照在身份回填后跳过补齐：playerId=${normalizedPlayerId} nextLoadFailed=${error instanceof Error ? error.message : String(error)}`);
             return {
                 ok: false,
-                failureStage: 'compat_snapshot_next_load_failed',
+                failureStage: 'migration_snapshot_next_load_failed',
             };
         }
 
@@ -108,7 +108,7 @@ let WorldPlayerSnapshotService = class WorldPlayerSnapshotService {
             this.logger.warn(`玩家 migration 回填快照在身份回填后加载失败：playerId=${normalizedPlayerId} migrationLoadFailed=${error instanceof Error ? error.message : String(error)}`);
             return {
                 ok: false,
-                failureStage: 'compat_snapshot_legacy_load_failed',
+                failureStage: 'migration_snapshot_source_load_failed',
             };
         }
         if (migrationSnapshot) {
@@ -128,14 +128,14 @@ let WorldPlayerSnapshotService = class WorldPlayerSnapshotService {
                 this.logger.warn(`玩家 migration 回填快照保存失败：playerId=${normalizedPlayerId} error=${error instanceof Error ? error.message : String(error)}`);
                 return {
                     ok: false,
-                    failureStage: 'compat_snapshot_legacy_seed_failed',
+                    failureStage: 'migration_snapshot_seed_failed',
                 };
             }
         }
         this.logger.warn(`显式迁移来源中缺少玩家 migration 回填快照：playerId=${normalizedPlayerId}`);
         return {
             ok: false,
-            failureStage: 'compat_snapshot_missing',
+            failureStage: 'migration_snapshot_missing',
         };
     }
     /** 在 next 身份首次进入时补齐 starter snapshot。 */
@@ -268,8 +268,8 @@ function buildNextOnlySnapshotMissResult(playerId, fallbackReason, compatFallbac
         allowLegacyFallback: false,
         fallbackReason: compatFallbackRequested === true
             ? (typeof fallbackReason === 'string' && fallbackReason.trim()
-                ? `${fallbackReason.trim()}:compat_runtime_blocked`
-                : 'compat_runtime_blocked')
+                ? `${fallbackReason.trim()}:migration_runtime_blocked`
+                : 'migration_runtime_blocked')
             : fallbackReason,
         fallbackHit: false,
     });

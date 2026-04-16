@@ -2289,7 +2289,7 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
     }, {
         ensureMigrationBackfillSnapshot: async () => ({
             ok: false,
-            failureStage: 'compat_snapshot_next_load_failed',
+            failureStage: 'migration_snapshot_next_load_failed',
         }),
         ensureNativeStarterSnapshot: async () => ({
             ok: false,
@@ -2331,7 +2331,7 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
     }, {
         ensureMigrationBackfillSnapshot: async () => ({
             ok: false,
-            failureStage: 'unexpected_compat_snapshot_seed',
+            failureStage: 'unexpected_migration_snapshot_seed',
         }),
         ensureNativeStarterSnapshot: async () => ({
             ok: false,
@@ -2552,7 +2552,7 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
     const compatPersistedSourceMismatchTrace = readLatestIdentityTrace(payload.playerId);
     if (compatPersistedSourceMismatchResult !== null
         || compatPersistedSourceMismatchTrace.entry?.source !== 'migration_persist_blocked'
-        || compatPersistedSourceMismatchTrace.entry?.persistFailureStage !== 'compat_backfill_persisted_source_mismatch'
+        || compatPersistedSourceMismatchTrace.entry?.persistFailureStage !== 'migration_backfill_persisted_source_mismatch'
         || compatPersistedSourceMismatchTrace.entry?.persistedSource !== 'token_seed') {
         throw new Error(`expected compat persistedSource mismatch to block migration backfill before bootstrap, got result=${JSON.stringify(compatPersistedSourceMismatchResult)} trace=${JSON.stringify(compatPersistedSourceMismatchTrace)}`);
     }
@@ -2910,7 +2910,7 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
         await compatSnapshotMissingSourceService.onModuleDestroy().catch(() => undefined);
     }
     if (compatSnapshotMissingBackfillResult?.ok !== false
-        || compatSnapshotMissingBackfillResult?.failureStage !== 'compat_snapshot_missing') {
+        || compatSnapshotMissingBackfillResult?.failureStage !== 'migration_snapshot_missing') {
         throw new Error(`expected explicit compat snapshot backfill to fail when compat snapshot is missing instead of seeding native starter, got ${JSON.stringify(compatSnapshotMissingBackfillResult)}`);
     }
     let nextProtocolLoadedLegacyBackfillSnapshotLoads = 0;
@@ -2940,7 +2940,7 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
         },
         ensureMigrationBackfillSnapshot: async () => ({
             ok: false,
-            failureStage: 'unexpected_compat_snapshot_seed',
+            failureStage: 'unexpected_migration_snapshot_seed',
         }),
         ensureNativeStarterSnapshot: async () => ({
             ok: false,
@@ -3001,7 +3001,7 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
         },
         ensureMigrationBackfillSnapshot: async () => ({
             ok: false,
-            failureStage: 'unexpected_compat_snapshot_seed',
+            failureStage: 'unexpected_migration_snapshot_seed',
         }),
         ensureNativeStarterSnapshot: async () => ({
             ok: false,
@@ -3064,7 +3064,7 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
         },
         ensureMigrationBackfillSnapshot: async () => ({
             ok: false,
-            failureStage: 'unexpected_compat_snapshot_seed',
+            failureStage: 'unexpected_migration_snapshot_seed',
         }),
         ensureNativeStarterSnapshot: async () => ({
             ok: false,
@@ -3508,7 +3508,7 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
     const noPersistenceSnapshot = await noPersistenceBootstrapService.loadAuthenticatedPlayerSnapshot(legacyRuntimeIdentity);
     if (noPersistenceSnapshot !== null
         || noPersistenceCalls[0]?.allowLegacyFallback !== false
-        || noPersistenceCalls[0]?.fallbackReason !== 'runtime_compat_snapshot_disabled:legacy_runtime') {
+        || noPersistenceCalls[0]?.fallbackReason !== 'runtime_migration_snapshot_blocked:legacy_identity') {
         throw new Error(`expected non-persistence legacy_runtime identity to block compat snapshot fallback by default, got snapshot=${JSON.stringify(noPersistenceSnapshot ?? null)} call=${JSON.stringify(noPersistenceCalls[0] ?? null)}`);
     }
 /**
@@ -3539,7 +3539,7 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
     const runtimeMigrationSnapshot = await runtimeMigrationBootstrapService.loadAuthenticatedPlayerSnapshot(legacyRuntimeIdentity);
     if (runtimeMigrationSnapshot !== null
         || runtimeMigrationCalls[0]?.allowLegacyFallback !== false
-        || runtimeMigrationCalls[0]?.fallbackReason !== 'runtime_compat_snapshot_disabled:legacy_runtime') {
+        || runtimeMigrationCalls[0]?.fallbackReason !== 'runtime_migration_snapshot_blocked:legacy_identity') {
         throw new Error(`expected runtime migration switch path to stay blocked after runtime fallback removal, got snapshot=${JSON.stringify(runtimeMigrationSnapshot ?? null)} call=${JSON.stringify(runtimeMigrationCalls[0] ?? null)}`);
     }
 /**
@@ -3574,7 +3574,7 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
     });
     if (noPersistenceNextProtocolSnapshot !== null
         || noPersistenceNextProtocolCalls[0]?.allowLegacyFallback !== false
-        || noPersistenceNextProtocolCalls[0]?.fallbackReason !== 'next_protocol_blocked:legacy_runtime') {
+        || noPersistenceNextProtocolCalls[0]?.fallbackReason !== 'next_protocol_blocked:legacy_identity') {
         throw new Error(`expected next-protocol legacy_runtime identity to block compat snapshot fallback, got snapshot=${JSON.stringify(noPersistenceNextProtocolSnapshot ?? null)} call=${JSON.stringify(noPersistenceNextProtocolCalls[0] ?? null)}`);
     }
 /**
@@ -4652,7 +4652,7 @@ async function verifyTokenSeedIdentityContract() {
         }),
         ensureMigrationBackfillSnapshot: async () => ({
             ok: false,
-            failureStage: 'unexpected_compat_snapshot_seed',
+            failureStage: 'unexpected_migration_snapshot_seed',
         }),
     });
 /**
@@ -4713,7 +4713,7 @@ async function verifyTokenSeedIdentityContract() {
         }),
         ensureMigrationBackfillSnapshot: async () => ({
             ok: false,
-            failureStage: 'unexpected_compat_snapshot_seed',
+            failureStage: 'unexpected_migration_snapshot_seed',
         }),
     });
     const nextProtocolIdentity = await nextStoreAuthService.authenticatePlayerToken('proof.token.token_seed', {
@@ -4845,7 +4845,7 @@ async function verifyTokenSeedNativeStarterSnapshotContract() {
         },
         ensureMigrationBackfillSnapshot: async () => ({
             ok: false,
-            failureStage: 'unexpected_compat_snapshot_seed',
+            failureStage: 'unexpected_migration_snapshot_seed',
         }),
     });
 /**
@@ -5076,7 +5076,7 @@ async function verifyTokenSeedPersistFailureContract() {
         }),
         ensureMigrationBackfillSnapshot: async () => ({
             ok: false,
-            failureStage: 'unexpected_compat_snapshot_seed',
+            failureStage: 'unexpected_migration_snapshot_seed',
         }),
     });
 /**
@@ -5773,8 +5773,8 @@ async function verifyCompatIdentityBackfillSnapshotSeedFailureRejection(token, p
  * 记录failure认证trace。
  */
         const failureAuthTrace = await waitForFailedIdentitySourceAuthTrace(userId, playerId, 'migration_preseed_blocked');
-        if (failureAuthTrace.identityPersistFailureStage !== 'compat_snapshot_legacy_seed_failed') {
-            throw new Error(`expected compat-identity-backfill snapshot-seed-failure rejection stage to be compat_snapshot_legacy_seed_failed, got ${failureAuthTrace.identityPersistFailureStage ?? 'unknown'}`);
+        if (failureAuthTrace.identityPersistFailureStage !== 'migration_snapshot_seed_failed') {
+            throw new Error(`expected compat-identity-backfill snapshot-seed-failure rejection stage to be migration_snapshot_seed_failed, got ${failureAuthTrace.identityPersistFailureStage ?? 'unknown'}`);
         }
         if (failureAuthTrace.snapshotPresent) {
             throw new Error(`expected compat-identity-backfill snapshot-seed-failure rejection to stop before snapshot load, got ${JSON.stringify(failureAuthTrace)}`);
@@ -5958,8 +5958,8 @@ async function verifyCompatBackfillSaveFailure(token, playerId) {
         if (failureAuthTrace.identityPersistSucceeded !== false) {
             throw new Error(`expected compat-backfill-save-failed persistence result to be false, got ${JSON.stringify(failureAuthTrace)}`);
         }
-        if (failureAuthTrace.identityPersistFailureStage !== 'compat_backfill_save_failed') {
-            throw new Error(`expected compat-backfill-save-failed stage to be compat_backfill_save_failed, got ${failureAuthTrace.identityPersistFailureStage ?? 'unknown'}`);
+        if (failureAuthTrace.identityPersistFailureStage !== 'migration_backfill_save_failed') {
+            throw new Error(`expected compat-backfill-save-failed stage to be migration_backfill_save_failed, got ${failureAuthTrace.identityPersistFailureStage ?? 'unknown'}`);
         }
         if (failureAuthTrace.snapshotPresent) {
             throw new Error(`expected compat-backfill-save-failed to stop before snapshot load, got ${JSON.stringify(failureAuthTrace)}`);

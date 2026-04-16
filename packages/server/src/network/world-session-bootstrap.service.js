@@ -627,13 +627,13 @@ let WorldSessionBootstrapService = class WorldSessionBootstrapService {
         if (authSource === 'legacy_runtime' && protocol === 'next') {
             return {
                 allowLegacyFallback: false,
-                fallbackReason: 'next_protocol_blocked:legacy_runtime',
+                fallbackReason: 'next_protocol_blocked:legacy_identity',
             };
         }
         if (authSource === 'legacy_runtime') {
             return {
                 allowLegacyFallback: false,
-                fallbackReason: 'runtime_compat_snapshot_disabled:legacy_runtime',
+                fallbackReason: 'runtime_migration_snapshot_blocked:legacy_identity',
             };
         }
         return {
