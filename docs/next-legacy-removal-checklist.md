@@ -24,14 +24,14 @@
 
 ## 2026-04-16 本轮状态
 
-- `pnpm --filter @mud/server-next verify:replace-ready` 与无库 `session / next-auth-bootstrap` 当前轮次仍保持可复跑；但 with-db 与真实 shadow destructive 仍缺真实环境补证
+- `pnpm --filter @mud/server-next verify:replace-ready` 当前轮次已从头完整复跑并通过；但 with-db 与真实 shadow destructive 仍缺真实环境补证
 - active 主包里的旧 compat HTTP `/auth/* /account/* /gm/*` 与 `legacy-auth / legacy-player-compat` smoke 已删除；剩余自动 proof 当前改由 `next-auth-bootstrap / gm-next / next-legacy-boundary-audit` 覆盖
 - `protocol=next` 时，compat identity online backfill 已继续收成 `migration-only`；`legacy protocol` 也已不再能通过 `hello(next)` 或 `token/gmToken` 混入主链
 - `legacy_runtime -> compat snapshot` 的运行态 fallback 已继续收紧；`hello` 对 token/gmToken 连接也不再承担 bootstrap 兜底入口
 - `client-next` 主链通信已 next-native，但 `T21` 的 alias 清理与部分面板 patch-first 收口仍未完成；这说明前台主链已可替换，不说明旧入口可立即整体删除
 - `shared-next` 的协议定义、protocol audit 与数值模板守卫已形成基础护栏，但 `T22/T23` 还没有达到“新增字段自动全链路硬门禁”；这说明 shared 稳定性在收口，不说明 compat 删除前置条件已满足
 - `local / acceptance / full / shadow-destructive` 四层门禁定义已统一，但 `acceptance/full` 仍未全部落成 workflow/job 级闭环
-- `docs/next-legacy-boundary-audit.md` 最新 audit 已回到 `0 / 22`、`0`
+- `docs/next-legacy-boundary-audit.md` 最新 audit 为 `1 / 22`、`1`，另有 `3` 项因 inventory 路径漂移已 fail-soft 跳过；这说明脚本已不再因旧路径直接失效，但也说明仍有少量 compat/perf 证据未清空
 - 当前统一工程口径已收成：剩余任务 `25` 项，距离“完整替换游戏整体”仍约差 `35% - 40%`
 - 因此当前最安全还能继续清理的，仍是 `C/D` 这类已脱链工具与 proof；`A/B` 还不能因为名字里带 `legacy` 就直接删
 

@@ -2,7 +2,6 @@
  * 认证与账号 HTTP API 封装
  * 负责 token 存取、登录/注册/刷新请求、账号信息修改
  */
-// TODO(next:SEC05): 评估把 access/refresh token 从 localStorage 迁到更窄的会话承载策略，并补最小暴露面约束。
 
 import {
   ACCESS_TOKEN_STORAGE_KEY,
@@ -41,9 +40,60 @@ type RequestOptions = {
   signal?: AbortSignal;
 };
 
-/** 从 localStorage 读取 accessToken */
+let memoryAccessToken: string | null = null;
+let memoryRefreshToken: string | null = null;
+
+/** 读取当前可用的 sessionStorage；受限环境下回退到内存态。 */
+function getSessionStorage(): Storage | null {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+  try {
+    return window.sessionStorage;
+  } catch {
+    return null;
+  }
+}
+
+/** 清理旧 localStorage 中遗留的认证 token，避免长期暴露面继续存在。 */
+function migrateLegacyLocalStorageTokens(): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  const sessionStorage = getSessionStorage();
+  let legacyAccessToken: string | null = null;
+  let legacyRefreshToken: string | null = null;
+  try {
+    legacyAccessToken = window.localStorage.getItem(ACCESS_TOKEN_STORAGE_KEY);
+    legacyRefreshToken = window.localStorage.getItem(REFRESH_TOKEN_STORAGE_KEY);
+  } catch {
+    return;
+  }
+  if (sessionStorage) {
+    if (legacyAccessToken && !sessionStorage.getItem(ACCESS_TOKEN_STORAGE_KEY)) {
+      sessionStorage.setItem(ACCESS_TOKEN_STORAGE_KEY, legacyAccessToken);
+    }
+    if (legacyRefreshToken && !sessionStorage.getItem(REFRESH_TOKEN_STORAGE_KEY)) {
+      sessionStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, legacyRefreshToken);
+    }
+  } else {
+    memoryAccessToken ??= legacyAccessToken;
+    memoryRefreshToken ??= legacyRefreshToken;
+  }
+  try {
+    window.localStorage.removeItem(ACCESS_TOKEN_STORAGE_KEY);
+    window.localStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY);
+  } catch {
+    // noop
+  }
+}
+
+migrateLegacyLocalStorageTokens();
+
+/** 从 sessionStorage 读取 accessToken */
 export function getAccessToken(): string | null {
-  return localStorage.getItem(ACCESS_TOKEN_STORAGE_KEY);
+  const storage = getSessionStorage();
+  return storage?.getItem(ACCESS_TOKEN_STORAGE_KEY) ?? memoryAccessToken;
 }
 
 /** 从当前 accessToken 读取账号名 */
@@ -55,21 +105,39 @@ export function getCurrentAccountName(): string | null {
   return extractAccountName(parseJwtPayload(accessToken));
 }
 
-/** 从 localStorage 读取 refreshToken */
+/** 从 sessionStorage 读取 refreshToken */
 export function getRefreshToken(): string | null {
-  return localStorage.getItem(REFRESH_TOKEN_STORAGE_KEY);
+  const storage = getSessionStorage();
+  return storage?.getItem(REFRESH_TOKEN_STORAGE_KEY) ?? memoryRefreshToken;
 }
 
-/** 将 token 对写入 localStorage */
+/** 将 token 对写入 sessionStorage，不再跨浏览器重启长期驻留。 */
 export function storeTokens(data: AuthTokenRes): void {
-  localStorage.setItem(ACCESS_TOKEN_STORAGE_KEY, data.accessToken);
-  localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, data.refreshToken);
+  memoryAccessToken = data.accessToken;
+  memoryRefreshToken = data.refreshToken;
+  const storage = getSessionStorage();
+  if (!storage) {
+    return;
+  }
+  storage.setItem(ACCESS_TOKEN_STORAGE_KEY, data.accessToken);
+  storage.setItem(REFRESH_TOKEN_STORAGE_KEY, data.refreshToken);
 }
 
-/** 清除 localStorage 中的 token */
+/** 清除当前会话中的 token */
 export function clearStoredTokens(): void {
-  localStorage.removeItem(ACCESS_TOKEN_STORAGE_KEY);
-  localStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY);
+  memoryAccessToken = null;
+  memoryRefreshToken = null;
+  const storage = getSessionStorage();
+  storage?.removeItem(ACCESS_TOKEN_STORAGE_KEY);
+  storage?.removeItem(REFRESH_TOKEN_STORAGE_KEY);
+  if (typeof window !== 'undefined') {
+    try {
+      window.localStorage.removeItem(ACCESS_TOKEN_STORAGE_KEY);
+      window.localStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY);
+    } catch {
+      // noop
+    }
+  }
 }
 
 /** 通用 JSON 请求，自动处理 body 序列化与 Bearer 鉴权 */

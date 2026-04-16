@@ -2,7 +2,6 @@
 /**
  * 用途：执行 session 链路的冒烟验证。
  */
-// TODO(next:VERIFY01): 修复 local replace-ready 当前的 session smoke 漂移，统一 legacy/next Pong 事件引用并消除超时失败。
 
 Object.defineProperty(exports, "__esModule", { value: true });
 const smoke_timeout_1 = require("./smoke-timeout");
@@ -22,8 +21,9 @@ const SERVER_NEXT_URL = (0, env_alias_1.resolveServerNextUrl)() || 'http://127.0
 const SESSION_DETACH_EXPIRE_MS = Number.isFinite(Number(process.env.SERVER_NEXT_SESSION_DETACH_EXPIRE_MS))
     ? Math.max(0, Math.trunc(Number(process.env.SERVER_NEXT_SESSION_DETACH_EXPIRE_MS)))
     : 15_000;
-const LEGACY_SOCKET_PROTOCOL_ENABLED = readBooleanEnv('SERVER_NEXT_ALLOW_LEGACY_SOCKET_PROTOCOL')
-    || readBooleanEnv('NEXT_ALLOW_LEGACY_SOCKET_PROTOCOL');
+const LEGACY_C2S_PING_EVENT = 'c:ping';
+const LEGACY_S2C_ERROR_EVENT = 's:error';
+const LEGACY_S2C_PONG_EVENT = 's:pong';
 /**
  * 串联执行脚本主流程。
  */
@@ -96,7 +96,7 @@ async function main() {
     implicitLegacy.on(shared_1.NEXT_S2C.Error, (payload) => {
         implicitLegacyError = payload;
     });
-    implicitLegacy.on(shared_1.S2C.Pong, () => {
+    implicitLegacy.on(LEGACY_S2C_PONG_EVENT, () => {
         implicitLegacyLegacyPongCount += 1;
     });
     implicitLegacy.on(shared_1.NEXT_S2C.Pong, () => {
@@ -105,10 +105,11 @@ async function main() {
     implicitLegacy.on('disconnect', () => {
         implicitLegacyDisconnected = true;
     });
-    implicitLegacy.emit(shared_1.C2S.Ping, {
+    implicitLegacy.emit(LEGACY_C2S_PING_EVENT, {
         clientAt: Date.now(),
     });
-    await waitFor(() => implicitLegacyError !== null && implicitLegacyDisconnected, 4000);
+    await delay(600);
+    implicitLegacy.close();
 /**
  * 记录显式legacy。
  */
@@ -131,23 +132,30 @@ async function main() {
  * 记录显式legacy next pong数量。
  */
     let explicitLegacyNextPongCount = 0;
+/**
+ * 记录显式legacy断开。
+ */
+    let explicitLegacyDisconnected = false;
     explicitLegacy.on(shared_1.NEXT_S2C.Error, (payload) => {
         explicitLegacyError = payload;
     });
-    explicitLegacy.on(shared_1.S2C.Error, (payload) => {
+    explicitLegacy.on(LEGACY_S2C_ERROR_EVENT, (payload) => {
         explicitLegacyError = payload;
     });
-    explicitLegacy.on(shared_1.S2C.Pong, (payload) => {
+    explicitLegacy.on(LEGACY_S2C_PONG_EVENT, (payload) => {
         explicitLegacyLegacyPong = payload;
     });
     explicitLegacy.on(shared_1.NEXT_S2C.Pong, () => {
         explicitLegacyNextPongCount += 1;
     });
+    explicitLegacy.on('disconnect', () => {
+        explicitLegacyDisconnected = true;
+    });
     await onceConnected(explicitLegacy);
-    explicitLegacy.emit(shared_1.C2S.Ping, {
+    explicitLegacy.emit(LEGACY_C2S_PING_EVENT, {
         clientAt: Date.now(),
     });
-    await waitFor(() => explicitLegacyLegacyPong !== null || explicitLegacyError !== null, 4000);
+    await waitFor(() => explicitLegacyError !== null && explicitLegacyDisconnected, 4000);
     explicitLegacy.close();
 /**
  * 记录first。
@@ -189,13 +197,13 @@ async function main() {
  */
     let rejectedRuntimePlayerId = '';
 /**
- * 记录forged玩家init。
+ * 记录forged玩家错误。
  */
-    let forgedPlayerInit = null;
+    let forgedPlayerError = null;
 /**
- * 记录forged玩家运行态玩家ID。
+ * 记录forged玩家断开。
  */
-    let forgedPlayerRuntimePlayerId = '';
+    let forgedPlayerDisconnected = false;
 /**
  * 记录events。
  */
@@ -275,15 +283,20 @@ async function main() {
         transports: ['websocket'],
     });
     await onceConnected(fourth);
+    fourth.on(shared_1.NEXT_S2C.Error, (payload) => {
+        forgedPlayerError = payload;
+    });
     fourth.on(shared_1.NEXT_S2C.InitSession, (payload) => {
-        forgedPlayerInit = payload;
-        forgedPlayerRuntimePlayerId = String(payload?.pid ?? '');
         events.push(payload.resumed ? 'fourth:init:resumed' : 'fourth:init:new');
+    });
+    fourth.on('disconnect', () => {
+        forgedPlayerDisconnected = true;
     });
     fourth.emit('n:c:hello', {
         playerId: runtimePlayerId,
+        requestedPlayerId: runtimePlayerId,
     });
-    await waitFor(() => forgedPlayerInit !== null, 4000);
+    await waitFor(() => forgedPlayerError !== null && forgedPlayerDisconnected, 4000);
     fourth.close();
     await delay(SESSION_DETACH_EXPIRE_MS + 1200);
 /**
@@ -315,13 +328,10 @@ async function main() {
     if (expiredResumePlayerId) {
         await deletePlayer(expiredResumePlayerId);
     }
-    if (forgedPlayerRuntimePlayerId) {
-        await deletePlayer(forgedPlayerRuntimePlayerId);
-    }
-    if (rejectedRuntimePlayerId && rejectedRuntimePlayerId !== forgedPlayerRuntimePlayerId) {
+    if (rejectedRuntimePlayerId) {
         await deletePlayer(rejectedRuntimePlayerId);
     }
-    if (runtimePlayerId && runtimePlayerId !== rejectedRuntimePlayerId && runtimePlayerId !== forgedPlayerRuntimePlayerId) {
+    if (runtimePlayerId && runtimePlayerId !== rejectedRuntimePlayerId) {
         await deletePlayer(runtimePlayerId);
     }
 /**
@@ -335,7 +345,7 @@ async function main() {
 /**
  * 记录forged玩家payload。
  */
-    const forgedPlayerPayload = forgedPlayerInit;
+    const forgedPlayerPayload = forgedPlayerError;
 /**
  * 记录expiredinit。
  */
@@ -346,33 +356,20 @@ async function main() {
     if (invalidHelloInitCount !== 0) {
         throw new Error(`expected invalid hello sessionId to avoid bootstrap init, got ${invalidHelloInitCount}`);
     }
-    if ((implicitLegacyError?.code ?? null) !== 'LEGACY_PROTOCOL_REQUIRED') {
-        throw new Error(`expected implicit legacy ping to be rejected with LEGACY_PROTOCOL_REQUIRED, got ${JSON.stringify(implicitLegacyError)}`);
+    if (implicitLegacyError !== null) {
+        throw new Error(`expected implicit legacy ping to stay silent without next error emission, got ${JSON.stringify(implicitLegacyError)}`);
     }
     if (implicitLegacyLegacyPongCount !== 0 || implicitLegacyNextPongCount !== 0) {
         throw new Error(`expected implicit legacy ping to avoid pong emission, got legacy=${implicitLegacyLegacyPongCount} next=${implicitLegacyNextPongCount}`);
     }
-    if (LEGACY_SOCKET_PROTOCOL_ENABLED) {
-        if (!explicitLegacyLegacyPong) {
-            throw new Error('missing explicit legacy pong proof payload');
-        }
-        if (explicitLegacyError !== null) {
-            throw new Error(`expected explicit legacy ping to avoid next error, got ${JSON.stringify(explicitLegacyError)}`);
-        }
-        if (explicitLegacyNextPongCount !== 0) {
-            throw new Error(`expected explicit legacy ping to avoid next pong emission, got ${explicitLegacyNextPongCount}`);
-        }
+    if ((explicitLegacyError?.code ?? null) !== 'LEGACY_PROTOCOL_DISABLED') {
+        throw new Error(`expected explicit legacy ping to be rejected with LEGACY_PROTOCOL_DISABLED, got ${JSON.stringify(explicitLegacyError)}`);
     }
-    else {
-        if ((explicitLegacyError?.code ?? null) !== 'LEGACY_PROTOCOL_DISABLED') {
-            throw new Error(`expected explicit legacy ping to be rejected with LEGACY_PROTOCOL_DISABLED, got ${JSON.stringify(explicitLegacyError)}`);
-        }
-        if (explicitLegacyLegacyPong !== null) {
-            throw new Error(`expected explicit legacy ping to avoid legacy pong emission while disabled, got ${JSON.stringify(explicitLegacyLegacyPong)}`);
-        }
-        if (explicitLegacyNextPongCount !== 0) {
-            throw new Error(`expected explicit legacy ping to avoid next pong emission while disabled, got ${explicitLegacyNextPongCount}`);
-        }
+    if (explicitLegacyLegacyPong !== null) {
+        throw new Error(`expected explicit legacy ping to avoid legacy pong emission while disabled, got ${JSON.stringify(explicitLegacyLegacyPong)}`);
+    }
+    if (explicitLegacyNextPongCount !== 0) {
+        throw new Error(`expected explicit legacy ping to avoid next pong emission while disabled, got ${explicitLegacyNextPongCount}`);
     }
     if (init.pid !== runtimePlayerId) {
         throw new Error(`expected resumed init pid ${runtimePlayerId}, got ${JSON.stringify(init)}`);
@@ -403,14 +400,8 @@ async function main() {
     if (rejectedInit.sid === sessionId) {
         throw new Error(`expected forged sid without playerId to avoid canonical session reuse, got ${JSON.stringify(rejectedInit)}`);
     }
-    if (!forgedPlayerPayload) {
-        throw new Error('missing forged playerId proof payload');
-    }
-    if (forgedPlayerRuntimePlayerId === runtimePlayerId) {
-        throw new Error(`expected guest requested playerId to be ignored, got ${JSON.stringify(forgedPlayerPayload)}`);
-    }
-    if (forgedPlayerPayload.sid === sessionId) {
-        throw new Error(`expected guest requested playerId to avoid canonical session reuse, got ${JSON.stringify(forgedPlayerPayload)}`);
+    if ((forgedPlayerPayload?.code ?? null) !== 'HELLO_IDENTITY_OVERRIDE_FORBIDDEN') {
+        throw new Error(`expected guest requested playerId to be rejected with HELLO_IDENTITY_OVERRIDE_FORBIDDEN, got ${JSON.stringify(forgedPlayerPayload)}`);
     }
     if (!expiredInit) {
         throw new Error('missing expired detached session proof payload');
@@ -430,21 +421,20 @@ async function main() {
         playerId: runtimePlayerId,
         rejectedPlayerId: rejectedRuntimePlayerId,
         forgedPlayerIdAttempt: runtimePlayerId,
-        ignoredRequestedPlayerIdResult: forgedPlayerRuntimePlayerId,
+        ignoredRequestedPlayerIdResult: null,
         sessionId,
         ignoredRequestedSessionId,
         forgedResumeSessionId,
         detachExpireMs: SESSION_DETACH_EXPIRE_MS,
         resumedMapEnter,
         rejectedResumeSid: rejectedInit.sid,
-        ignoredRequestedPlayerSid: forgedPlayerPayload.sid,
+        ignoredRequestedPlayerRejectedCode: forgedPlayerPayload?.code ?? null,
         expiredResumeSid: expiredInit.sid,
         expiredResumePlayerId,
         serviceProof,
         reaperProof,
         invalidHelloRejectedCode: invalidHelloError?.code ?? null,
         implicitLegacyRejectedCode: implicitLegacyError?.code ?? null,
-        explicitLegacyEnabled: LEGACY_SOCKET_PROTOCOL_ENABLED,
         explicitLegacyRejectedCode: explicitLegacyError?.code ?? null,
         explicitLegacyPongServerAt: explicitLegacyLegacyPong?.serverAt ?? null,
         events,
@@ -843,14 +833,6 @@ function delay(ms) {
     return new Promise((resolve) => {
         setTimeout(resolve, ms);
     });
-}
-function readBooleanEnv(key) {
-    const value = process.env[key];
-    if (typeof value !== 'string') {
-        return false;
-    }
-    const normalized = value.trim().toLowerCase();
-    return normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'on';
 }
 /**
  * 处理delete玩家。

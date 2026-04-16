@@ -1,6 +1,6 @@
 # next 待修复问题清单
 
-更新时间：2026-04-16
+更新时间：2026-04-16（本轮已同步 P0 安全收口）
 
 这份清单用于统一回答两件事：
 
@@ -46,57 +46,65 @@
 
 ### 1. 玩家 token secret 仍会回退到内置开发密钥
 
-- 状态：未修
+- 状态：已修
 - 风险：公网环境下属于事故级安全风险
 - 现状：
   - `packages/server/src/network/world-player-token-codec.service.js`
-  - `this.signingSecret = this.secrets[0] ?? 'daojie-yusheng-dev-secret'`
-- 待修：
-  - 生产/非开发环境禁止回退默认 secret
-  - 启动时若缺少合法 secret 直接 fail-fast
+  - 非开发环境若缺少 `SERVER_NEXT_PLAYER_TOKEN_SECRET / NEXT_PLAYER_TOKEN_SECRET / JWT_SECRET` 会直接 fail-fast
+  - 仅开发态保留内置 dev secret 回退
+- 本轮处理：
+  - 移除了 `this.signingSecret = this.secrets[0] ?? 'daojie-yusheng-dev-secret'` 这类非开发环境静默回退
+  - 已补生产态定向断言，确认缺 secret 时启动直接失败
 
 ### 2. GM 默认密码仍会回退到 `admin123`
 
-- 状态：未修
+- 状态：已修
 - 风险：公网环境下属于事故级安全风险
 - 现状：
   - `packages/server/src/runtime/gm/runtime-gm-auth.service.js`
-  - `const DEFAULT_GM_PASSWORD = 'admin123'`
-- 待修：
-  - 禁止生产环境默认密码启动
-  - 首启强制设置或强制从环境变量/安全存储读取
+  - 仍保留开发态 `admin123` 便于本地 smoke
+- 本轮处理：
+  - `onModuleInit()` 与初始密码读取都已补 fail-fast
+  - 非开发环境缺少 `SERVER_NEXT_GM_PASSWORD / GM_PASSWORD`，或仍为 `admin123` 时，服务直接拒绝启动
 
 ### 3. 服务端 CORS 仍是全开
 
-- 状态：未修
+- 状态：已修
 - 风险：跨域暴露面过大
 - 现状：
+  - `packages/server/src/config/server-cors.js`
   - `packages/server/src/main.js`
-  - `app.enableCors()`
-- 待修：
-  - 按环境限制 allowed origins / methods / headers
-  - 区分本地开发与正式部署配置
+  - `packages/server/src/network/world.gateway.js`
+- 本轮处理：
+  - HTTP 与 Socket 共用同一套 CORS 配置解析
+  - 本地开发默认只放行 `localhost / 127.0.0.1 / ::1`
+  - 非开发环境必须显式配置 `SERVER_NEXT_CORS_ORIGINS / NEXT_CORS_ORIGINS`
 
 ### 4. 认证接口未见正式限流/节流
 
-- 状态：未修
+- 状态：已修
 - 风险：登录、注册、刷新接口容易遭暴力尝试
 - 现状：
   - `packages/server/src/http/next/next-auth.controller.js`
-  - 当前未见 throttler / rate limiter 接入
-- 待修：
-  - 给登录、注册、刷新、GM 登录补限流
-  - 区分 IP、账号维度和失败重试窗口
+  - `packages/server/src/http/next/next-gm-auth.controller.js`
+  - `packages/server/src/http/next/next-auth-rate-limit.service.js`
+- 本轮处理：
+  - 已覆盖 `register / login / refresh / gm-login`
+  - 限流同时按 IP 与账号/主体两个维度累计失败窗口
+  - 成功请求会清掉对应失败桶，避免正常会话被误封
 
 ### 5. 玩家 access/refresh token 直接存 `localStorage`
 
-- 状态：未修
+- 状态：已完成第一步
 - 风险：一旦出现 XSS，会话可直接被窃取
 - 现状：
   - `packages/client/src/ui/auth-api.ts`
-- 待修：
-  - 评估改为 HttpOnly Cookie 或更窄的会话承载策略
-  - 至少先补 CSP、最小化 token 暴露面、缩短有效期
+- 本轮处理：
+  - 已从 `localStorage` 收口到 `sessionStorage`，并提供受限环境下的内存回退
+  - 首次加载会把旧 `localStorage` token 迁入会话存储并立即删除旧值
+- 剩余待修：
+  - 仍未切到 HttpOnly Cookie
+  - CSP、token 最小暴露面和有效期策略仍需继续收口
 
 ### 6. `auth/token/bootstrap/player-source/session` 真源替换仍未完成
 
@@ -105,6 +113,12 @@
 - 现状：
   - 见 `docs/next-remaining-task-breakdown.md` 的 `T01-T07`
   - 见 `docs/next-gap-analysis.md`
+- 本轮处理：
+  - `guest hello` 携带 `playerId/requestedPlayerId` 现在会直接拒绝为 `HELLO_IDENTITY_OVERRIDE_FORBIDDEN`，不再“静默忽略”
+  - `GM socket` 携带 `sessionId` 现在会直接拒绝为 `GM_SESSION_ID_FORBIDDEN`，不再保留模糊续连语义
+  - `WorldPlayerSourceService.resolve/load*CompatSource` 现在也要求显式 `allowCompatMigration`，不再允许 direct compat source 被旁路当常规真源使用
+  - `authenticatePlayerToken` 的 compat identity backfill 运行时入口现在只认 `protocol=migration`；此前残留的 `legacy + allowCompatMigrationBackfill` 显式放行后门已删除
+  - `packages/shared/src/protocol.ts` 的 `NEXT_C2S_Hello` 已补成真实 payload 结构，不再维持空接口
 - 待修：
   - 彻底移除 authenticated 主链里的 compat identity fallback
   - 继续收掉 snapshot/player-source 的 legacy 回退
@@ -221,11 +235,15 @@
 
 ### 16. shared 协议稳定性护栏还没完全硬化
 
-- 状态：未修
+- 状态：已完成第一步
 - 风险：新增字段容易出现 client/server/shared 漂移
 - 现状：
   - `docs/next-gap-analysis.md`
   - `docs/next-remaining-task-breakdown.md` 中 `T22 / T23`
+- 本轮处理：
+  - `packages/shared/scripts/check-protocol-event-maps.cjs` 已把 next 事件常量与 payload map 对齐检查接进 shared build
+  - `packages/shared/scripts/check-numeric-stats.cjs` 已覆盖 `NumericStats` 的 create / clone / reset，以及 `NumericRatioDivisors` 的 create / clone 和 realm 模板 `ratioDivisors` 完整性
+  - `packages/shared/src/constants/gameplay/realm.ts` 的所有境界模板现在都通过 `ensureNumericRatioDivisorsTemplate(...)` 做运行时结构守卫
 - 待修：
   - 把字段补全检查、reset/projection/protobuf 一致性检查继续做硬
   - 把 shared 一致性从单点脚本提升到正式门禁
@@ -237,6 +255,8 @@
 - 现状：
   - `docs/next-gap-analysis.md`
   - `docs/next-remaining-task-breakdown.md` 中 `T09 / T10 / T11 / T12 / T14 / T25`
+  - 本地 `pnpm verify:replace-ready` 已于 `2026-04-16` 再次完整通过
+  - 无库 `session / next-auth-bootstrap / monster-runtime` 与 `audit:next-protocol` 当前也都已单独复跑通过
 - 待修：
   - 继续补 with-db / shadow / destructive 的真实环境执行记录
   - 把 workflow/job 级闭环补齐

@@ -9,6 +9,8 @@ const node_fs_1 = require("node:fs");
 
 const app_module_1 = require("./app.module");
 
+const server_cors_1 = require("./config/server-cors");
+
 const date_console_logger_1 = require("./logging/date-console-logger");
 
 /** 端口冲突诊断最多采样次数。 */
@@ -162,8 +164,10 @@ async function bootstrap() {
 
     const app = await core_1.NestFactory.create(app_module_1.AppModule, { logger });
     app.enableShutdownHooks();
-    // TODO(next:SEC03): 按环境限制 CORS origins/methods/headers，避免 app.enableCors() 在正式环境维持全开。
-    app.enableCors();
+    const corsOptions = (0, server_cors_1.resolveServerNextCorsOptions)();
+    if (corsOptions) {
+        app.enableCors(corsOptions);
+    }
 
     const port = Number(process.env.SERVER_NEXT_PORT ?? 13001);
 

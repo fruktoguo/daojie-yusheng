@@ -9,6 +9,7 @@ const next_gm_world_service_1 = require("./next/next-gm-world.service");
 const next_gm_auth_guard_1 = require("./next/next-gm-auth.guard");
 const next_player_auth_store_service_1 = require("./next/next-player-auth-store.service");
 const next_player_auth_service_1 = require("./next/next-player-auth.service");
+const next_auth_rate_limit_service_1 = require("./next/next-auth-rate-limit.service");
 const next_managed_account_service_1 = require("./next/next-managed-account.service");
 const next_auth_controller_1 = require("./next/next-auth.controller");
 const next_account_controller_1 = require("./next/next-account.controller");
@@ -29,6 +30,7 @@ exports.NEXT_HTTP_CONTROLLERS = [
 exports.NEXT_HTTP_PROVIDERS = [
     next_player_auth_store_service_1.NextPlayerAuthStoreService,
     next_player_auth_service_1.NextPlayerAuthService,
+    next_auth_rate_limit_service_1.NextAuthRateLimitService,
     next_managed_account_service_1.NextManagedAccountService,
     next_gm_auth_guard_1.NextGmAuthGuard,
     next_database_restore_coordinator_service_1.NextDatabaseRestoreCoordinatorService,

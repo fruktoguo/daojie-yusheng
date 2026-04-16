@@ -61,8 +61,8 @@ function hasExplicitTokenPlayerIdentityClaims(payload) {
 function normalizeProtocol(protocol) {
     return typeof protocol === 'string' ? protocol.trim().toLowerCase() : '';
 }
-function isCompatMigrationBackfillRequested(options) {
-    return options?.allowCompatMigrationBackfill === true;
+function isExplicitMigrationProtocol(protocol) {
+    return protocol === 'migration';
 }
 function normalizePersistedSource(identity) {
 
@@ -429,7 +429,7 @@ let WorldPlayerAuthService = class WorldPlayerAuthService {
 
         const nextProtocolStrict = protocol === 'next';
 
-        const compatBackfillProtocolAllowed = !nextProtocolStrict && isCompatMigrationBackfillRequested(options);
+        const compatBackfillProtocolAllowed = isExplicitMigrationProtocol(protocol);
 
         const tokenIdentity = this.worldPlayerTokenService.resolvePlayerIdentityFromPayload(payload);
 
@@ -552,6 +552,7 @@ let WorldPlayerAuthService = class WorldPlayerAuthService {
 
         const allowTokenRuntimeIdentity = !identityPersistenceEnabled
             && !nextProtocolStrict
+            && !isExplicitMigrationProtocol(protocol)
             && tokenIdentity
             && hasExplicitTokenPlayerIdentityClaims(payload)
             && !legacyDatabaseConfigured;
@@ -696,4 +697,3 @@ exports.WorldPlayerAuthService = WorldPlayerAuthService = __decorate([
         world_player_snapshot_service_1.WorldPlayerSnapshotService])
 ], WorldPlayerAuthService);
 //# sourceMappingURL=world-player-auth.service.js.map
-

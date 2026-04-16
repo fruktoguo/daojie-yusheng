@@ -40,13 +40,13 @@ const allowDestructive = normalizeBooleanEnv(process.env.SERVER_NEXT_SHADOW_ALLO
 
 if (!shadowUrl) {
   process.stderr.write('replace-ready shadow destructive requires SERVER_NEXT_SHADOW_URL or SERVER_NEXT_URL\n');
-  process.stderr.write('set SERVER_NEXT_SHADOW_URL or SERVER_NEXT_URL first, then run pnpm verify:server-next:shadow:destructive\n');
+  process.stderr.write('run pnpm verify:server-next:doctor first, then set SERVER_NEXT_SHADOW_URL or SERVER_NEXT_URL and rerun pnpm verify:server-next:shadow:destructive\n');
   process.exit(1);
 }
 
 if (!gmPassword) {
   process.stderr.write('replace-ready shadow destructive requires SERVER_NEXT_GM_PASSWORD or GM_PASSWORD\n');
-  process.stderr.write('set SERVER_NEXT_GM_PASSWORD or GM_PASSWORD first, then run pnpm verify:server-next:shadow:destructive\n');
+  process.stderr.write('run pnpm verify:server-next:doctor first, then set SERVER_NEXT_GM_PASSWORD or GM_PASSWORD and rerun pnpm verify:server-next:shadow:destructive\n');
   process.exit(1);
 }
 
@@ -57,6 +57,7 @@ if (!allowDestructive) {
 }
 
 process.stdout.write('[replace-ready:shadow:destructive] steps=smoke:shadow:gm-database\n');
+process.stdout.write('[replace-ready:shadow:destructive] gate=shadow-destructive\n');
 process.stdout.write('[replace-ready:shadow:destructive] start step=smoke:shadow:gm-database\n');
 
 /**
@@ -85,4 +86,6 @@ if (result.status !== 0) {
 
 process.stdout.write('[replace-ready:shadow:destructive] done step=smoke:shadow:gm-database\n');
 process.stdout.write('[replace-ready:shadow:destructive] completed\n');
+process.stdout.write('[replace-ready:shadow:destructive] boundary=maintenance-window destructive proof only; this does not imply daily replace-ready gates or complete replacement completion\n');
+process.stdout.write('[replace-ready:shadow:destructive] next=write the real maintenance-window evidence back into ops/runbook records after execution\n');
 process.exit(0);

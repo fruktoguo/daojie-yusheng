@@ -28,6 +28,8 @@ const shared_1 = require("@mud/shared-next");
 
 const socket_io_1 = require("socket.io");
 
+const server_cors_1 = require("../config/server-cors");
+
 const movement_debug_1 = require("../debug/movement-debug");
 
 const health_readiness_service_1 = require("../health/health-readiness.service");
@@ -62,6 +64,10 @@ const world_session_service_1 = require("./world-session.service");
 const AUTHENTICATED_REQUESTED_SESSION_ID_AUTH_SOURCES = new Set([
     'next',
     'token',
+]);
+const GUEST_HELLO_IDENTITY_OVERRIDE_KEYS = Object.freeze([
+    'playerId',
+    'requestedPlayerId',
 ]);
 // TODO(next:T05): 继续把 connect_token / hello / guest / GM 四类入口写成单线 bootstrap 行为，避免 gateway 再承担兜底 auth/bootstrap 旁路。
 // TODO(next:T06): 把 guest / authenticated / GM 三类握手错误码、恢复路径和协议边界完全拆开并固定为正式 contract。
@@ -325,6 +331,11 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
                 client.disconnect(true);
                 return null;
             }
+            if (requestedSessionInspection.sessionId) {
+                this.worldClientEventService.emitError(client, 'GM_SESSION_ID_FORBIDDEN', 'GM socket 不允许携带 sessionId 续连');
+                client.disconnect(true);
+                return null;
+            }
             client.data.isGm = true;
             client.data.gmRole = 'gm';
         }
@@ -469,6 +480,12 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             const requestedSessionInspection = this.sessionBootstrapService.inspectRequestedSessionId(payload?.sessionId, client, 'hello');
             if (requestedSessionInspection.error) {
                 this.worldClientEventService.emitError(client, 'HELLO_SESSION_ID_INVALID', 'hello 请求 sessionId 非法');
+                client.disconnect(true);
+                return;
+            }
+            const identityOverrideKeys = GUEST_HELLO_IDENTITY_OVERRIDE_KEYS.filter((key) => typeof payload?.[key] === 'string' && payload[key].trim());
+            if (identityOverrideKeys.length > 0) {
+                this.worldClientEventService.emitError(client, 'HELLO_IDENTITY_OVERRIDE_FORBIDDEN', 'guest hello 不允许自带 playerId/requestedPlayerId');
                 client.disconnect(true);
                 return;
             }
@@ -2376,7 +2393,7 @@ __decorate([
 ], WorldGateway.prototype, "handlePing", null);
 exports.WorldGateway = WorldGateway = WorldGateway_1 = __decorate([
     (0, websockets_1.WebSocketGateway)({
-        cors: true,
+        cors: (0, server_cors_1.resolveServerNextCorsOptions)(),
         path: '/socket.io',
     }),
     __metadata("design:paramtypes", [world_gm_socket_service_1.WorldGmSocketService,

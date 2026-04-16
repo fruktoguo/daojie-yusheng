@@ -1768,6 +1768,7 @@ async function verifyLegacyHttpIdentityFallbackGateContract() {
                 throw new Error(`expected legacy http identity fallback gate to block pool-unavailable http fallback, got result=${JSON.stringify(poolUnavailableResult)} httpCallCount=${httpCallCount}`);
             }
             const poolUnavailableExplicitResult = await service.resolvePlayerIdentityFromCompatSource(payload, {
+                allowCompatMigration: true,
                 allowLegacyHttpIdentityFallback: true,
             });
             if (poolUnavailableExplicitResult !== null || httpCallCount !== 0) {
@@ -1836,6 +1837,7 @@ async function verifyLegacyHttpIdentityFallbackOptInContract() {
                 throw new Error(`expected legacy http fallback to stay blocked without explicit opt-in, got result=${JSON.stringify(defaultBlockedResult)} httpCallCount=${httpCallCount}`);
             }
             const explicitPoolUnavailableResult = await service.resolvePlayerIdentityFromCompatSource(payload, {
+                allowCompatMigration: true,
                 allowLegacyHttpIdentityFallback: true,
             });
             if (explicitPoolUnavailableResult !== null || httpCallCount !== 0) {
@@ -1844,6 +1846,7 @@ async function verifyLegacyHttpIdentityFallbackOptInContract() {
             service.ensurePool = async () => ({});
             world_legacy_player_repository_1.queryLegacyPlayerIdentityRow = async () => null;
             const explicitMissingRowResult = await service.resolvePlayerIdentityFromCompatSource(payload, {
+                allowCompatMigration: true,
                 allowLegacyHttpIdentityFallback: true,
             });
             if (explicitMissingRowResult !== null || httpCallCount !== 0) {
@@ -1855,6 +1858,7 @@ async function verifyLegacyHttpIdentityFallbackOptInContract() {
                 throw error;
             };
             const explicitMissingSchemaResult = await service.resolvePlayerIdentityFromCompatSource(payload, {
+                allowCompatMigration: true,
                 allowLegacyHttpIdentityFallback: true,
             });
             if (explicitMissingSchemaResult !== null || httpCallCount !== 0) {
@@ -1866,6 +1870,7 @@ async function verifyLegacyHttpIdentityFallbackOptInContract() {
             }, async () => {
                 service.ensurePool = async () => null;
                 const allowEnvPoolUnavailableResult = await service.resolvePlayerIdentityFromCompatSource(payload, {
+                    allowCompatMigration: true,
                     allowLegacyHttpIdentityFallback: true,
                 });
                 if (!allowEnvPoolUnavailableResult || allowEnvPoolUnavailableResult.userId !== payload.sub || httpCallCount !== 1) {
@@ -1874,6 +1879,7 @@ async function verifyLegacyHttpIdentityFallbackOptInContract() {
                 service.ensurePool = async () => ({});
                 world_legacy_player_repository_1.queryLegacyPlayerIdentityRow = async () => null;
                 const allowEnvMissingRowResult = await service.resolvePlayerIdentityFromCompatSource(payload, {
+                    allowCompatMigration: true,
                     allowLegacyHttpIdentityFallback: true,
                 });
                 if (!allowEnvMissingRowResult || allowEnvMissingRowResult.userId !== payload.sub || httpCallCount !== 2) {
@@ -1885,6 +1891,7 @@ async function verifyLegacyHttpIdentityFallbackOptInContract() {
                     throw error;
                 };
                 const allowEnvMissingSchemaResult = await service.resolvePlayerIdentityFromCompatSource(payload, {
+                    allowCompatMigration: true,
                     allowLegacyHttpIdentityFallback: true,
                 });
                 if (!allowEnvMissingSchemaResult || allowEnvMissingSchemaResult.userId !== payload.sub || httpCallCount !== 3) {
@@ -2317,7 +2324,6 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
         });
         compatBackfillLegacyProtocolExplicit = await compatMigrationProtocolGateAuthService.authenticatePlayerToken('proof.token.compat_protocol.explicit', {
             protocol: 'legacy',
-            allowCompatMigrationBackfill: true,
         });
         compatBackfillMigrationProtocol = await compatMigrationProtocolGateAuthService.authenticatePlayerToken('proof.token.compat_protocol.migration', {
             protocol: 'migration',
@@ -2352,11 +2358,11 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
     if (compatBackfillLegacyProtocolDefault !== null) {
         throw new Error(`expected compat backfill to reject legacy protocol runtime entry, got ${JSON.stringify(compatBackfillLegacyProtocolDefault)}`);
     }
-    if (compatBackfillLegacyProtocolExplicit?.authSource !== 'migration_backfill') {
-        throw new Error(`expected compat backfill to allow explicit allowCompatMigrationBackfill runtime entry under legacy protocol, got ${JSON.stringify(compatBackfillLegacyProtocolExplicit)}`);
+    if (compatBackfillLegacyProtocolExplicit !== null) {
+        throw new Error(`expected compat backfill to reject legacy protocol explicit runtime entry, got ${JSON.stringify(compatBackfillLegacyProtocolExplicit)}`);
     }
-    if (compatBackfillMigrationProtocol !== null) {
-        throw new Error(`expected compat backfill to reject migration protocol runtime entry, got ${JSON.stringify(compatBackfillMigrationProtocol)}`);
+    if (compatBackfillMigrationProtocol?.authSource !== 'migration_backfill') {
+        throw new Error(`expected compat backfill to allow explicit migration protocol runtime entry, got ${JSON.stringify(compatBackfillMigrationProtocol)}`);
     }
     const tokenPersistedSourceMismatchPayload = {
         sub: 'proof_user_token_persisted_source_mismatch',
@@ -2427,8 +2433,7 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
     try {
         (0, world_player_token_service_1.clearAuthTrace)();
         compatPersistedSourceMismatchResult = await compatPersistedSourceMismatchAuthService.authenticatePlayerToken('proof.token.compat_persisted_source_mismatch', {
-            protocol: 'legacy',
-            allowCompatMigrationBackfill: true,
+            protocol: 'migration',
         });
     }
     finally {
@@ -2510,14 +2515,21 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
  * 记录token运行态default。
  */
     let tokenRuntimeDefaultIdentity = null;
-/**
- * 记录token运行态next协议identity。
- */
+    /**
+     * 记录token运行态next协议identity。
+     */
     let tokenRuntimeNextProtocolIdentity = null;
+    /**
+     * 记录token运行态migration协议identity。
+     */
+    let tokenRuntimeMigrationProtocolIdentity = null;
     try {
         tokenRuntimeDefaultIdentity = await tokenRuntimeAuthService.authenticatePlayerToken('proof.token.token_runtime.default');
         tokenRuntimeNextProtocolIdentity = await tokenRuntimeAuthService.authenticatePlayerToken('proof.token.token_runtime.next', {
             protocol: 'next',
+        });
+        tokenRuntimeMigrationProtocolIdentity = await tokenRuntimeAuthService.authenticatePlayerToken('proof.token.token_runtime.migration', {
+            protocol: 'migration',
         });
     }
     finally {
@@ -2539,6 +2551,9 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
     }
     if (tokenRuntimeNextProtocolIdentity !== null) {
         throw new Error(`expected next protocol token auth path to reject token_runtime fallback by default, got ${JSON.stringify(tokenRuntimeNextProtocolIdentity)}`);
+    }
+    if (tokenRuntimeMigrationProtocolIdentity !== null) {
+        throw new Error(`expected migration protocol token auth path to reject token_runtime fallback by default, got ${JSON.stringify(tokenRuntimeMigrationProtocolIdentity)}`);
     }
 /**
  * 记录迁移source开关调用次数。

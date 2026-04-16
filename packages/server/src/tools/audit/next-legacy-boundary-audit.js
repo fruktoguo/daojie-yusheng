@@ -2,7 +2,6 @@
 /**
  * 用途：审计 server-next 与 legacy 兼容边界依赖。
  */
-// TODO(next:VERIFY02): 审计清单仍引用已迁移文件路径时应 fail-soft 或同步更新 inventory，避免 boundary audit 因路径漂移直接失效。
 
 const fs = require("node:fs");
 const path = require("node:path");
@@ -225,6 +224,13 @@ function runCheck(entry) {
  * 记录absolute路径。
  */
   const absolutePath = path.join(repoRoot, entry.file);
+  if (!fs.existsSync(absolutePath)) {
+    return {
+      ...entry,
+      hits: [],
+      skippedReason: `missing file: ${entry.file}`,
+    };
+  }
 /**
  * 记录来源。
  */
@@ -259,6 +265,7 @@ function runCheck(entry) {
   return {
     ...entry,
     hits,
+    skippedReason: null,
   };
 }
 
@@ -289,6 +296,7 @@ function buildSummary(results) {
     generatedAt: new Date().toISOString().slice(0, 10),
     totalChecks: results.length,
     matchedChecks: results.filter((entry) => entry.hits.length > 0).length,
+    skippedChecks: results.filter((entry) => typeof entry.skippedReason === "string" && entry.skippedReason.length > 0).length,
     totalHits: results.reduce((sum, entry) => sum + entry.hits.length, 0),
     categories,
   };
@@ -310,6 +318,9 @@ function renderMarkdown(summary, results) {
   lines.push("");
   lines.push("- 这份报告只统计仓库里仍可见的 direct legacy 边界与性能热点，不等于 replace-ready 失败，也不代表完整替换已完成。");
   lines.push(`- 当前自动审计命中 ${summary.matchedChecks} / ${summary.totalChecks} 个检查项，共 ${summary.totalHits} 处代码证据。`);
+  if (summary.skippedChecks > 0) {
+    lines.push(`- 另有 ${summary.skippedChecks} 个检查项因 inventory 文件路径漂移被 fail-soft 跳过，不影响其余检查继续产出。`);
+  }
   lines.push("- 保守口径不变：`next` 离“完整替换游戏整体”仍约差 `40% - 45%`。");
   lines.push("");
   lines.push("## 汇总");
@@ -341,12 +352,27 @@ function renderMarkdown(summary, results) {
       lines.push(`  - 首个证据：\`${escapeBackticks(firstHit.excerpt)}\``);
     }
   }
+/**
+ * 记录跳过项。
+ */
+  const skippedChecks = results.filter((entry) => typeof entry.skippedReason === "string" && entry.skippedReason.length > 0);
+  if (skippedChecks.length > 0) {
+    lines.push("");
+    lines.push("## 已跳过项");
+    lines.push("");
+    for (const entry of skippedChecks) {
+      lines.push(`- ${entry.description}`);
+      lines.push(`  - 文件：\`${entry.file}\``);
+      lines.push(`  - 原因：${entry.skippedReason}`);
+    }
+  }
   lines.push("");
   lines.push("## 备注");
   lines.push("");
   lines.push("- 运行命令：`pnpm audit:server-next-boundaries` 或 `pnpm --filter @mud/server-next audit:legacy-boundaries`。");
   lines.push("- 报告由 `packages/server/src/tools/audit/next-legacy-boundary-audit.js` 自动生成。");
   lines.push("- 这份审计的定位是 inventory，不是 replace-ready 验收，也不会替代 `pnpm verify:replace-ready`、`with-db`、`shadow` 或协议审计。");
+  lines.push("- 清单里若仍残留已迁移路径，脚本现在会 fail-soft 跳过并把原因写进报告，而不是直接中断。");
   lines.push("");
   return `${lines.join("\n")}\n`;
 }

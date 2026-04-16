@@ -2867,15 +2867,15 @@ function handleNextPanelDelta(data: NEXT_S2C_PanelDelta): void {
 }
 
 socket.onRealm(handleRealmUpdate);
-socket.onNextInitSession((data) => {
+socket.onInitSession((data) => {
   latestNextInitSession = data;
 });
-socket.onNextMapEnter((data) => {
+socket.onMapEnter((data) => {
   latestNextMapEnter = data;
 });
-socket.onNextWorldDelta(handleNextWorldDeltaMessage);
-socket.onNextSelfDelta(handleNextSelfDeltaMessage);
-socket.onNextPanelDelta((data) => {
+socket.onWorldDelta(handleNextWorldDeltaMessage);
+socket.onSelfDelta(handleNextSelfDeltaMessage);
+socket.onPanelDelta((data) => {
   if (!myPlayer) {
     pendingNextPanelDelta = data;
     return;
@@ -2886,7 +2886,7 @@ socket.onNextPanelDelta((data) => {
 socket.onLootWindowUpdate((data) => {
   lootPanel.update(hydrateLootWindowState(data.window));
 });
-socket.onNextTileDetail((data) => {
+socket.onTileDetail((data) => {
   if (
     !myPlayer
     || !activeObservedTile
@@ -2903,7 +2903,7 @@ socket.onNextTileDetail((data) => {
   }
   renderObserveModal(data.x, data.y);
 });
-socket.onNextDetail((data) => {
+socket.onDetail((data) => {
   entityDetailModal.updateDetail(data);
 });
 socket.onAttrDetail((data) => {
@@ -2927,10 +2927,10 @@ socket.onWorldSummary((data) => {
     renderWorldSummaryModal();
   }
 });
-socket.onNextNpcQuests((data) => {
+socket.onNpcQuests((data) => {
   npcQuestModal.updateQuests(data);
 });
-socket.onQuestUpdate((data) => {
+socket.onQuests((data) => {
   if (myPlayer) myPlayer.quests = data.quests;
   questPanel.setCurrentMapId(myPlayer?.mapId);
   npcQuestModal.setCurrentMapId(myPlayer?.mapId);
@@ -3010,8 +3010,6 @@ function handleSystemMsg(data: NEXT_S2C_SystemMsg): void {
   }
   showToast(data.text, data.kind ?? 'system');
 }
-
-socket.onSystemMsg(handleSystemMsg);
 function resolveSystemMsgIdFromNextNotice(item: NEXT_S2C_NoticeItem): string | undefined {
   if (typeof item.messageId === 'string' && item.messageId.length > 0) {
     return item.messageId;
@@ -3046,7 +3044,7 @@ function toSystemMsgFromNextNotice(item: NEXT_S2C_NoticeItem): NEXT_S2C_SystemMs
     persistUntilAck: item.persistUntilAck,
   };
 }
-socket.onNextNotice((payload) => {
+socket.onNotice((payload) => {
   for (const item of payload.items) {
     handleSystemMsg(toSystemMsgFromNextNotice(item));
   }
@@ -4317,7 +4315,7 @@ socket.onMarketOrders((data) => {
 socket.onMarketStorage((data) => {
   if (myPlayer) {
     myPlayer.marketStorage = {
-      items: data.items.map((entry: { item: SyncedItemStack }) => cloneJson(entry.item)),
+      items: data.items.map((entry: { item: SyncedItemStack }) => hydrateSyncedItemStack(entry.item)),
     };
   }
   marketPanel.updateStorage(data);

@@ -94,6 +94,7 @@ const childEnv = {
 };
 
 process.stdout.write('[replace-ready:full] steps=with-db -> gm-database -> gm-database-backup-persistence -> shadow -> gm-next\n');
+process.stdout.write('[replace-ready:full] gate=full\n');
 
 for (const step of steps) {
 /**
@@ -126,4 +127,5 @@ for (const step of steps) {
 
 process.stdout.write('[replace-ready:full] completed\n');
 process.stdout.write('[replace-ready:full] boundary=strictest automated gate only; this still does not equal complete GM/admin manual regression\n');
+process.stdout.write('[replace-ready:full] next=if you need destructive proof, run pnpm verify:server-next:shadow:destructive during a maintenance window with explicit approval\n');
 process.exit(0);

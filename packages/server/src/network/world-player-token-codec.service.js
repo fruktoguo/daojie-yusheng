@@ -37,7 +37,8 @@ const PLAYER_TOKEN_SECRET_ENV_KEYS = [
     'NEXT_PLAYER_TOKEN_SECRET',
     'JWT_SECRET',
 ];
-// TODO(next:SEC01): 生产/非开发环境禁止回退内置 dev secret，缺少合法 player token secret 时应 fail-fast。
+const DEFAULT_DEV_PLAYER_TOKEN_SECRET = 'daojie-yusheng-dev-secret';
+const DEVELOPMENT_LIKE_ENVS = new Set(['', 'development', 'dev', 'local', 'test']);
 
 /** 玩家令牌编解码服务：负责签发和验证 next 访问/刷新令牌。 */
 let WorldPlayerTokenCodecService = class WorldPlayerTokenCodecService {
@@ -47,7 +48,7 @@ let WorldPlayerTokenCodecService = class WorldPlayerTokenCodecService {
     signingSecret;
     constructor() {
         this.secrets = resolvePlayerTokenSecrets();
-        this.signingSecret = this.secrets[0] ?? 'daojie-yusheng-dev-secret';
+        this.signingSecret = this.secrets[0];
     }
     /** 校验访问令牌。 */
     validateAccessToken(token) {
@@ -139,10 +140,18 @@ function resolvePlayerTokenSecrets() {
             secrets.push(value);
         }
     }
-    if (secrets.length === 0) {
-        secrets.push('daojie-yusheng-dev-secret');
+    if (secrets.length > 0) {
+        return secrets;
     }
+    if (!isDevelopmentLikeEnv()) {
+        throw new Error('非开发环境必须配置 SERVER_NEXT_PLAYER_TOKEN_SECRET / NEXT_PLAYER_TOKEN_SECRET / JWT_SECRET，禁止回退内置开发密钥。');
+    }
+    secrets.push(DEFAULT_DEV_PLAYER_TOKEN_SECRET);
     return secrets;
+}
+function isDevelopmentLikeEnv() {
+    const runtimeEnv = String(process.env.SERVER_NEXT_RUNTIME_ENV ?? process.env.APP_ENV ?? process.env.NODE_ENV ?? '').trim().toLowerCase();
+    return DEVELOPMENT_LIKE_ENVS.has(runtimeEnv);
 }
 function normalizeValidatedPayload(payload, expectedKind) {
     if (!payload || typeof payload !== 'object') {
@@ -206,4 +215,3 @@ function base64UrlEncode(value) {
         .replace(/\//g, '_')
         .replace(/=+$/g, '');
 }
-

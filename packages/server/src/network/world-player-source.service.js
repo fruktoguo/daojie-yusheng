@@ -65,6 +65,14 @@ function isCompatMigrationAccessExplicit(options) {
 function isLegacyHttpIdentityFallbackExplicit(options) {
     return options?.allowLegacyHttpIdentityFallback === true;
 }
+/** compat 迁移入口必须显式声明，避免继续把 direct compat source 当常规真源。 */
+function assertExplicitCompatMigrationAccess(options, logger, action) {
+    if (isCompatMigrationAccessExplicit(options)) {
+        return true;
+    }
+    logger?.warn?.(`旧玩家源 ${action} 已拦截：reason=explicit_compat_migration_required`);
+    return false;
+}
 // TODO(next:T02): 把 WorldPlayerSourceService 从 legacy facade 收成 next-native source，并把 legacy/HTTP fallback 限制为显式迁移入口。
 
 /** 玩家来源服务：负责从 legacy / HTTP / next 持久化源恢复玩家身份。 */
@@ -142,6 +150,9 @@ let WorldPlayerSourceService = class WorldPlayerSourceService {
     }
     /** 从 legacy 数据库源恢复玩家身份。 */
     async resolvePlayerIdentityFromCompatSource(payload, options = undefined) {
+        if (!assertExplicitCompatMigrationAccess(options, this.logger, 'identity_source')) {
+            return null;
+        }
 
         const pool = await this.ensurePool();
         if (!pool) {
@@ -206,7 +217,10 @@ let WorldPlayerSourceService = class WorldPlayerSourceService {
         };
     }
     /** 从 legacy 数据库源恢复玩家快照。 */
-    async loadPlayerSnapshotFromCompatSource(playerId) {
+    async loadPlayerSnapshotFromCompatSource(playerId, options = undefined) {
+        if (!assertExplicitCompatMigrationAccess(options, this.logger, 'snapshot_source')) {
+            return null;
+        }
 
         const pool = await this.ensurePool();
         if (!pool) {
@@ -282,7 +296,7 @@ let WorldPlayerSourceService = class WorldPlayerSourceService {
         if (!this.isMigrationSourceEnabled(options)) {
             return null;
         }
-        return this.loadPlayerSnapshotFromCompatSource(playerId);
+        return this.loadPlayerSnapshotFromCompatSource(playerId, options);
     }
     async resolveCompatPlayerIdentityForMigration(payload, options = undefined) {
         return this.resolvePlayerIdentityForMigration(payload, options);

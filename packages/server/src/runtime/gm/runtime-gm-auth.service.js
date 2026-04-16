@@ -40,7 +40,7 @@ const LEGACY_GM_AUTH_SCOPE = 'server_config';
 
 /** 没有配置时使用的默认 GM 密码。 */
 const DEFAULT_GM_PASSWORD = 'admin123';
-// TODO(next:SEC02): 禁止生产环境默认 GM 密码启动；正式环境应强制来自安全配置而不是 admin123 回退。
+const DEVELOPMENT_LIKE_ENVS = new Set(['', 'development', 'dev', 'local', 'test']);
 
 /** 默认 token 有效期。 */
 const DEFAULT_TOKEN_TTL_SEC = 12 * 60 * 60;
@@ -59,6 +59,7 @@ let RuntimeGmAuthService = class RuntimeGmAuthService {
     memoryRecord = null;
     /** 初始化鉴权持久化连接。 */
     async onModuleInit() {
+        assertConfiguredGmPassword();
 
         const databaseUrl = (0, env_alias_1.resolveServerNextDatabaseUrl)();
         if (!databaseUrl.trim()) {
@@ -267,6 +268,7 @@ let RuntimeGmAuthService = class RuntimeGmAuthService {
         return null;
     }
     getInitialPassword() {
+        assertConfiguredGmPassword();
         return (0, env_alias_1.resolveServerNextGmPassword)(DEFAULT_GM_PASSWORD);
     }
     async closePool() {
@@ -366,4 +368,21 @@ function safeEqual(left, right) {
         return false;
     }
     return crypto.timingSafeEqual(leftBuffer, rightBuffer);
+}
+function assertConfiguredGmPassword() {
+    const password = (0, env_alias_1.resolveServerNextGmPassword)(DEFAULT_GM_PASSWORD);
+    if (isDevelopmentLikeEnv()) {
+        return;
+    }
+    const envSource = (0, env_alias_1.resolveServerNextGmPasswordEnvSource)();
+    if (!envSource) {
+        throw new Error('非开发环境必须显式配置 SERVER_NEXT_GM_PASSWORD 或 GM_PASSWORD，禁止继续回退默认 GM 密码。');
+    }
+    if (password === DEFAULT_GM_PASSWORD) {
+        throw new Error('非开发环境禁止使用默认 GM 密码 admin123，请改为安全配置中的独立密码。');
+    }
+}
+function isDevelopmentLikeEnv() {
+    const runtimeEnv = String(process.env.SERVER_NEXT_RUNTIME_ENV ?? process.env.APP_ENV ?? process.env.NODE_ENV ?? '').trim().toLowerCase();
+    return DEVELOPMENT_LIKE_ENVS.has(runtimeEnv);
 }

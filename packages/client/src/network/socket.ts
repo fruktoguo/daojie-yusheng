@@ -1,30 +1,37 @@
 /**
  * Socket.IO 网络管理器 —— 封装客户端与服务端的双向通信，提供类型安全的事件收发接口
  */
-// TODO(next:T21): 清理 client-next 事件表面的旧命名兼容层，把对外 API 完全收成 next-native 命名。
-// TODO(next:ARCH03): 清理 SocketManager 里的 any 回调与 any 发送面，补齐事件负载类型，避免主链类型收口停留在半完成状态。
 
 import { io, Socket } from 'socket.io-client';
-import type { NEXT_S2C_MapStatic, NEXT_S2C_Realm } from '@mud/shared-next';
 import { logNextMovement } from '../debug/movement-debug';
 import {
+  AutoBattleSkillConfig,
+  AutoBattleTargetingMode,
+  AutoUsePillConfig,
+  CombatTargetingRules,
+  decodeServerEventPayload,
+  Direction,
+  encodeClientEventPayload,
+  EquipSlot,
   NEXT_C2S,
+  NEXT_C2S_EventName,
+  NEXT_C2S_EventPayload,
   NEXT_S2C,
-  NEXT_S2C_InitSession,
-  NEXT_S2C_MapEnter,
-  NEXT_S2C_WorldDelta,
-  NEXT_S2C_SelfDelta,
-  NEXT_S2C_PanelDelta,
-  NEXT_S2C_Notice,
-  NEXT_S2C_NpcQuests,
-  NEXT_S2C_Detail,
-  NEXT_S2C_TileDetail,
-  NEXT_S2C_Bootstrap,
-  decodeServerEventPayload, encodeClientEventPayload,
-  AutoBattleSkillConfig, AutoUsePillConfig, AutoBattleTargetingMode, CombatTargetingRules, Direction, EquipSlot, PLAYER_HEARTBEAT_INTERVAL_MS,
-  SOCKET_CONNECT_TIMEOUT_MS, SOCKET_RECONNECTION_ATTEMPTS, SOCKET_RECONNECTION_DELAY_MS,
-  SOCKET_RECONNECTION_DELAY_MAX_MS, SOCKET_TRANSPORTS,
+  NEXT_S2C_EventName,
+  NEXT_S2C_EventPayload,
+  PLAYER_HEARTBEAT_INTERVAL_MS,
+  SOCKET_CONNECT_TIMEOUT_MS,
+  SOCKET_RECONNECTION_ATTEMPTS,
+  SOCKET_RECONNECTION_DELAY_MAX_MS,
+  SOCKET_RECONNECTION_DELAY_MS,
+  SOCKET_TRANSPORTS,
 } from '@mud/shared-next';
+
+type BoundServerEventName = Exclude<NEXT_S2C_EventName, typeof NEXT_S2C.Kick>;
+type ServerEventCallback<TEvent extends BoundServerEventName> = (data: NEXT_S2C_EventPayload<TEvent>) => void;
+type ServerEventCallbackBuckets = {
+  [TEvent in BoundServerEventName]?: Array<ServerEventCallback<TEvent>>;
+};
 
 /** 客户端 Socket.IO 连接管理器，负责连接生命周期、协议编解码和事件分发。 */
 export class SocketManager {
@@ -34,88 +41,17 @@ export class SocketManager {
   private accessToken: string | null = null;
   /** 心跳定时器，用于周期性向服务端报活。 */
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+  /** 各服务端事件的订阅回调桶。 */
+  private readonly serverEventCallbacks: ServerEventCallbackBuckets = {};
   /** 被踢下线时触发的回调集合。 */
-  private onKickCallbacks: Array<() => void> = [];
-  /** 首包 Bootstrap 事件回调集合。 */
-  private onBootstrapCallbacks: Array<(data: NEXT_S2C_Bootstrap) => void> = [];
-  /** 新版会话初始化事件回调集合。 */
-  private onNextInitSessionCallbacks: Array<(data: NEXT_S2C_InitSession) => void> = [];
-  /** 新版地图入场事件回调集合。 */
-  private onNextMapEnterCallbacks: Array<(data: NEXT_S2C_MapEnter) => void> = [];
-  /** 世界级增量事件回调集合。 */
-  private onNextWorldDeltaCallbacks: Array<(data: NEXT_S2C_WorldDelta) => void> = [];
-  /** 自身状态增量事件回调集合。 */
-  private onNextSelfDeltaCallbacks: Array<(data: NEXT_S2C_SelfDelta) => void> = [];
-  /** 面板增量事件回调集合。 */
-  private onNextPanelDeltaCallbacks: Array<(data: NEXT_S2C_PanelDelta) => void> = [];
-  /** 通知类事件回调集合。 */
-  private onNextNoticeCallbacks: Array<(data: NEXT_S2C_Notice) => void> = [];
-  /** NPC 任务列表回调集合。 */
-  private onNextNpcQuestsCallbacks: Array<(data: NEXT_S2C_NpcQuests) => void> = [];
-  /** 详情面板回调集合。 */
-  private onNextDetailCallbacks: Array<(data: NEXT_S2C_Detail) => void> = [];
-  /** 地块详情回调集合。 */
-  private onNextTileDetailCallbacks: Array<(data: NEXT_S2C_TileDetail) => void> = [];
-  /** 地图静态数据回调集合。 */
-  private onMapStaticCallbacks: Array<(data: NEXT_S2C_MapStatic) => void> = [];
-  /** 境界信息回调集合。 */
-  private onRealmCallbacks: Array<(data: NEXT_S2C_Realm) => void> = [];
-  /** 战利品窗口更新回调集合。 */
-  private onLootWindowUpdateCallbacks: Array<(data: any) => void> = [];
-  /** 任务状态更新回调集合。 */
-  private onQuestUpdateCallbacks: Array<(data: any) => void> = [];
-  /** 任务导航结果回调集合。 */
-  private onQuestNavigateResultCallbacks: Array<(data: any) => void> = [];
-  /** 系统消息回调集合。 */
-  private onSystemMsgCallbacks: Array<(data: any) => void> = [];
-  /** 服务端错误事件回调集合。 */
-  private onErrorCallbacks: Array<(data: any) => void> = [];
-  /** GM 面板状态回调集合。 */
-  private onGmStateCallbacks: Array<(data: any) => void> = [];
-  /** 建议面板更新回调集合。 */
-  private onSuggestionUpdateCallbacks: Array<(data: any) => void> = [];
-  /** 邮件摘要回调集合。 */
-  private onMailSummaryCallbacks: Array<(data: any) => void> = [];
-  /** 邮件分页回调集合。 */
-  private onMailPageCallbacks: Array<(data: any) => void> = [];
-  /** 邮件详情回调集合。 */
-  private onMailDetailCallbacks: Array<(data: any) => void> = [];
-  /** 兑换码结果回调集合。 */
-  private onRedeemCodesResultCallbacks: Array<(data: any) => void> = [];
-  /** 邮件操作结果回调集合。 */
-  private onMailOpResultCallbacks: Array<(data: any) => void> = [];
-  /** 市场概览更新回调集合。 */
-  private onMarketUpdateCallbacks: Array<(data: any) => void> = [];
-  /** 市场挂单列表回调集合。 */
-  private onMarketListingsCallbacks: Array<(data: any) => void> = [];
-  /** 市场订单回调集合。 */
-  private onMarketOrdersCallbacks: Array<(data: any) => void> = [];
-  /** 市场仓储回调集合。 */
-  private onMarketStorageCallbacks: Array<(data: any) => void> = [];
-  /** 市场物品图鉴回调集合。 */
-  private onMarketItemBookCallbacks: Array<(data: any) => void> = [];
-  /** 市场交易历史回调集合。 */
-  private onMarketTradeHistoryCallbacks: Array<(data: any) => void> = [];
-  /** 属性详情回调集合。 */
-  private onAttrDetailCallbacks: Array<(data: any) => void> = [];
-  /** 排行榜回调集合。 */
-  private onLeaderboardCallbacks: Array<(data: any) => void> = [];
-  /** 世界摘要回调集合。 */
-  private onWorldSummaryCallbacks: Array<(data: any) => void> = [];
-  /** NPC 商店回调集合。 */
-  private onNpcShopCallbacks: Array<(data: any) => void> = [];
-  /** 炼丹面板回调集合。 */
-  private onAlchemyPanelCallbacks: Array<(data: any) => void> = [];
-  /** 强化面板回调集合。 */
-  private onEnhancementPanelCallbacks: Array<(data: any) => void> = [];
-  /** 心跳响应回调集合。 */
-  private onPongCallbacks: Array<(data: any) => void> = [];
+  private readonly onKickCallbacks: Array<() => void> = [];
   /** 断开连接回调集合。 */
-  private onDisconnectCallbacks: Array<(reason: string) => void> = [];
+  private readonly onDisconnectCallbacks: Array<(reason: string) => void> = [];
   /** 连接失败回调集合。 */
-  private onConnectErrorCallbacks: Array<(message: string) => void> = [];
+  private readonly onConnectErrorCallbacks: Array<(message: string) => void> = [];
+
   /** 建立 WebSocket 连接并绑定所有服务端事件。 */
-  connect(token: string) {
+  connect(token: string): void {
     this.accessToken = token;
     this.disposeSocket({ clearToken: false });
     this.socket = io({
@@ -136,72 +72,101 @@ export class SocketManager {
       this.sendHello();
     });
 
-    this.bindServerEvent(NEXT_S2C.Bootstrap, this.onBootstrapCallbacks);
-    this.bindServerEvent(NEXT_S2C.InitSession, this.onNextInitSessionCallbacks);
-    this.bindServerEvent(NEXT_S2C.MapEnter, this.onNextMapEnterCallbacks);
-    this.bindServerEvent(NEXT_S2C.MapStatic, this.onMapStaticCallbacks);
-    this.bindServerEvent(NEXT_S2C.Realm, this.onRealmCallbacks);
-    this.bindServerEvent(NEXT_S2C.WorldDelta, this.onNextWorldDeltaCallbacks);
-    this.bindServerEvent(NEXT_S2C.SelfDelta, this.onNextSelfDeltaCallbacks);
-    this.bindServerEvent(NEXT_S2C.PanelDelta, this.onNextPanelDeltaCallbacks);
-    this.bindServerEvent(NEXT_S2C.Notice, this.onNextNoticeCallbacks);
-    this.bindServerEvent(NEXT_S2C.LootWindowUpdate, this.onLootWindowUpdateCallbacks);
-    this.bindServerEvent(NEXT_S2C.TileDetail, this.onNextTileDetailCallbacks);
-    this.bindServerEvent(NEXT_S2C.Detail, this.onNextDetailCallbacks);
-    this.bindServerEvent(NEXT_S2C.Quests, this.onQuestUpdateCallbacks);
-    this.bindServerEvent(NEXT_S2C.NpcQuests, this.onNextNpcQuestsCallbacks);
-    this.bindServerEvent(NEXT_S2C.QuestNavigateResult, this.onQuestNavigateResultCallbacks);
-    this.bindServerEvent(NEXT_S2C.SuggestionUpdate, this.onSuggestionUpdateCallbacks);
-    this.bindServerEvent(NEXT_S2C.MailSummary, this.onMailSummaryCallbacks);
-    this.bindServerEvent(NEXT_S2C.MailPage, this.onMailPageCallbacks);
-    this.bindServerEvent(NEXT_S2C.MailDetail, this.onMailDetailCallbacks);
-    this.bindServerEvent(NEXT_S2C.RedeemCodesResult, this.onRedeemCodesResultCallbacks);
-    this.bindServerEvent(NEXT_S2C.MailOpResult, this.onMailOpResultCallbacks);
-    this.bindServerEvent(NEXT_S2C.MarketUpdate, this.onMarketUpdateCallbacks);
-    this.bindServerEvent(NEXT_S2C.MarketListings, this.onMarketListingsCallbacks);
-    this.bindServerEvent(NEXT_S2C.MarketOrders, this.onMarketOrdersCallbacks);
-    this.bindServerEvent(NEXT_S2C.MarketStorage, this.onMarketStorageCallbacks);
-    this.bindServerEvent(NEXT_S2C.MarketItemBook, this.onMarketItemBookCallbacks);
-    this.bindServerEvent(NEXT_S2C.MarketTradeHistory, this.onMarketTradeHistoryCallbacks);
-    this.bindServerEvent(NEXT_S2C.AttrDetail, this.onAttrDetailCallbacks);
-    this.bindServerEvent(NEXT_S2C.Leaderboard, this.onLeaderboardCallbacks);
-    this.bindServerEvent(NEXT_S2C.WorldSummary, this.onWorldSummaryCallbacks);
-    this.bindServerEvent(NEXT_S2C.NpcShop, this.onNpcShopCallbacks);
-    this.bindServerEvent(NEXT_S2C.AlchemyPanel, this.onAlchemyPanelCallbacks);
-    this.bindServerEvent(NEXT_S2C.EnhancementPanel, this.onEnhancementPanelCallbacks);
-    this.bindServerEvent(NEXT_S2C.Pong, this.onPongCallbacks);
-    this.bindServerEvent(NEXT_S2C.Error, this.onErrorCallbacks);
-    this.bindServerEvent(NEXT_S2C.GmState, this.onGmStateCallbacks);
+    this.bindServerEvent(NEXT_S2C.Bootstrap);
+    this.bindServerEvent(NEXT_S2C.InitSession);
+    this.bindServerEvent(NEXT_S2C.MapEnter);
+    this.bindServerEvent(NEXT_S2C.MapStatic);
+    this.bindServerEvent(NEXT_S2C.Realm);
+    this.bindServerEvent(NEXT_S2C.WorldDelta);
+    this.bindServerEvent(NEXT_S2C.SelfDelta);
+    this.bindServerEvent(NEXT_S2C.PanelDelta);
+    this.bindServerEvent(NEXT_S2C.Notice);
+    this.bindServerEvent(NEXT_S2C.LootWindowUpdate);
+    this.bindServerEvent(NEXT_S2C.TileDetail);
+    this.bindServerEvent(NEXT_S2C.Detail);
+    this.bindServerEvent(NEXT_S2C.Quests);
+    this.bindServerEvent(NEXT_S2C.NpcQuests);
+    this.bindServerEvent(NEXT_S2C.QuestNavigateResult);
+    this.bindServerEvent(NEXT_S2C.SuggestionUpdate);
+    this.bindServerEvent(NEXT_S2C.MailSummary);
+    this.bindServerEvent(NEXT_S2C.MailPage);
+    this.bindServerEvent(NEXT_S2C.MailDetail);
+    this.bindServerEvent(NEXT_S2C.RedeemCodesResult);
+    this.bindServerEvent(NEXT_S2C.MailOpResult);
+    this.bindServerEvent(NEXT_S2C.MarketUpdate);
+    this.bindServerEvent(NEXT_S2C.MarketListings);
+    this.bindServerEvent(NEXT_S2C.MarketOrders);
+    this.bindServerEvent(NEXT_S2C.MarketStorage);
+    this.bindServerEvent(NEXT_S2C.MarketItemBook);
+    this.bindServerEvent(NEXT_S2C.MarketTradeHistory);
+    this.bindServerEvent(NEXT_S2C.AttrDetail);
+    this.bindServerEvent(NEXT_S2C.Leaderboard);
+    this.bindServerEvent(NEXT_S2C.WorldSummary);
+    this.bindServerEvent(NEXT_S2C.NpcShop);
+    this.bindServerEvent(NEXT_S2C.AlchemyPanel);
+    this.bindServerEvent(NEXT_S2C.EnhancementPanel);
+    this.bindServerEvent(NEXT_S2C.Pong);
+    this.bindServerEvent(NEXT_S2C.Error);
+    this.bindServerEvent(NEXT_S2C.GmState);
+
     this.socket.on(NEXT_S2C.Kick, () => {
-      this.onKickCallbacks.forEach(cb => cb());
+      this.onKickCallbacks.forEach((cb) => cb());
       this.disconnect();
     });
 
     this.socket.on('disconnect', (reason: string) => {
       this.stopHeartbeat();
-      this.onDisconnectCallbacks.forEach(cb => cb(reason));
+      this.onDisconnectCallbacks.forEach((cb) => cb(reason));
     });
 
     this.socket.on('connect_error', (error: Error) => {
-      this.onConnectErrorCallbacks.forEach(cb => cb(error.message));
+      this.onConnectErrorCallbacks.forEach((cb) => cb(error.message));
     });
+  }
+
+  /** 返回指定服务端事件的回调桶，不存在时按需初始化。 */
+  private getServerEventCallbacks<TEvent extends BoundServerEventName>(
+    event: TEvent,
+  ): Array<ServerEventCallback<TEvent>> {
+    const existing = this.serverEventCallbacks[event] as Array<ServerEventCallback<TEvent>> | undefined;
+    if (existing) {
+      return existing;
+    }
+    const next: Array<ServerEventCallback<TEvent>> = [];
+    this.serverEventCallbacks[event] = next as ServerEventCallbackBuckets[TEvent];
+    return next;
+  }
+
+  /** 注册服务端事件订阅。 */
+  private onServerEvent<TEvent extends BoundServerEventName>(
+    event: TEvent,
+    cb: ServerEventCallback<TEvent>,
+  ): void {
+    this.getServerEventCallbacks(event).push(cb);
   }
 
   /** 绑定服务端事件，自动解码载荷后再分发给回调。 */
-  private bindServerEvent<T>(event: string, callbacks: Array<(data: T) => void>): void {
-    this.socket?.on(event, (raw: unknown) => {
-      const data = decodeServerEventPayload<T>(event, raw);
-      callbacks.forEach(cb => cb(data));
-    });
+  private bindServerEvent<TEvent extends BoundServerEventName>(event: TEvent): void {
+    const listener = ((raw: unknown) => {
+      const data = decodeServerEventPayload<NEXT_S2C_EventPayload<TEvent>>(event, raw);
+      for (const callback of this.getServerEventCallbacks(event)) {
+        callback(data);
+      }
+    }) as (payload: unknown) => void;
+    const socket = this.socket as Socket<any, any> | null;
+    socket?.on(event as never, listener as never);
   }
 
   /** 向服务端发送事件，自动编码载荷。 */
-  private emitServer<T>(event: string, payload: T): void {
+  private sendEvent<TEvent extends NEXT_C2S_EventName>(
+    event: TEvent,
+    payload: NEXT_C2S_EventPayload<TEvent>,
+  ): void {
     this.socket?.emit(event, encodeClientEventPayload(event, payload));
   }
 
   /** 断开当前连接并清理 token。 */
-  disconnect() {
+  disconnect(): void {
     this.disposeSocket({ clearToken: true });
   }
 
@@ -216,7 +181,7 @@ export class SocketManager {
   }
 
   /** 释放 Socket 实例并按需清除 token。 */
-  private disposeSocket(options: { clearToken: boolean }) {
+  private disposeSocket(options: { clearToken: boolean }): void {
     if (options.clearToken) {
       this.accessToken = null;
     }
@@ -244,26 +209,26 @@ export class SocketManager {
 
   /** 向服务端发送心跳包。 */
   private sendHeartbeat(): void {
-    this.emitServer(NEXT_C2S.Heartbeat, { clientAt: Date.now() });
+    this.sendEvent(NEXT_C2S.Heartbeat, { clientAt: Date.now() });
   }
 
   /** 发送握手消息，完成客户端就绪声明。 */
   private sendHello(): void {
-    this.emitServer(NEXT_C2S.Hello, {});
+    this.sendEvent(NEXT_C2S.Hello, {});
   }
 
   sendPing(clientAt = Date.now()): number {
-    this.emitServer(NEXT_C2S.Ping, { clientAt });
+    this.sendEvent(NEXT_C2S.Ping, { clientAt });
     return clientAt;
   }
 
   /** 发送移动指令。 */
-  sendMove(direction: Direction) {
+  sendMove(direction: Direction): void {
     logNextMovement('client.emit.move', {
       direction,
       connected: this.socket?.connected ?? false,
     });
-    this.emitServer(NEXT_C2S.Move, { d: direction });
+    this.sendEvent(NEXT_C2S.Move, { d: direction });
   }
 
   sendMoveTo(
@@ -277,7 +242,7 @@ export class SocketManager {
       pathStartX?: number;
       pathStartY?: number;
     },
-  ) {
+  ): void {
     logNextMovement('client.emit.moveTo', {
       x,
       y,
@@ -289,7 +254,7 @@ export class SocketManager {
       pathStartY: options?.pathStartY ?? null,
       connected: this.socket?.connected ?? false,
     });
-    this.emitServer(NEXT_C2S.MoveTo, {
+    this.sendEvent(NEXT_C2S.MoveTo, {
       x,
       y,
       ignoreVisibilityLimit: options?.ignoreVisibilityLimit,
@@ -302,116 +267,114 @@ export class SocketManager {
   }
 
   /** 发送任务导航请求。 */
-  sendNavigateQuest(questId: string) {
+  sendNavigateQuest(questId: string): void {
     logNextMovement('client.emit.navigateQuest', { questId });
-    this.emitServer(NEXT_C2S.NavigateQuest, {
-      questId,
-    });
+    this.sendEvent(NEXT_C2S.NavigateQuest, { questId });
   }
 
   /** 申请刷新当前任务列表。 */
-  sendRequestQuests() {
-    this.emitServer(NEXT_C2S.RequestQuests, {});
+  sendRequestQuests(): void {
+    this.sendEvent(NEXT_C2S.RequestQuests, {});
   }
 
   /** 申请刷新某个 NPC 的任务列表。 */
-  sendRequestNpcQuests(npcId: string) {
-    this.emitServer(NEXT_C2S.RequestNpcQuests, { npcId });
+  sendRequestNpcQuests(npcId: string): void {
+    this.sendEvent(NEXT_C2S.RequestNpcQuests, { npcId });
   }
 
   /** 接受 NPC 任务。 */
-  sendAcceptNpcQuest(npcId: string, questId: string) {
-    this.emitServer(NEXT_C2S.AcceptNpcQuest, { npcId, questId });
+  sendAcceptNpcQuest(npcId: string, questId: string): void {
+    this.sendEvent(NEXT_C2S.AcceptNpcQuest, { npcId, questId });
   }
 
   /** 提交 NPC 任务。 */
-  sendSubmitNpcQuest(npcId: string, questId: string) {
-    this.emitServer(NEXT_C2S.SubmitNpcQuest, { npcId, questId });
+  sendSubmitNpcQuest(npcId: string, questId: string): void {
+    this.sendEvent(NEXT_C2S.SubmitNpcQuest, { npcId, questId });
   }
 
   /** 申请指定对象的详情数据。 */
-  sendRequestDetail(kind: string, id: string) {
-    this.emitServer(NEXT_C2S.RequestDetail, { kind, id });
+  sendRequestDetail(
+    kind: NEXT_C2S_EventPayload<typeof NEXT_C2S.RequestDetail>['kind'],
+    id: string,
+  ): void {
+    this.sendEvent(NEXT_C2S.RequestDetail, { kind, id });
   }
 
   /** 读取 GM 当前状态。 */
-  sendGmGetState() {
-    this.emitServer(NEXT_C2S.GmGetState, {});
+  sendGmGetState(): void {
+    this.sendEvent(NEXT_C2S.GmGetState, {});
   }
 
   /** 让 GM 生成测试机器人。 */
-  sendGmSpawnBots(count: number) {
-    this.emitServer(NEXT_C2S.GmSpawnBots, { count });
+  sendGmSpawnBots(count: number): void {
+    this.sendEvent(NEXT_C2S.GmSpawnBots, { count });
   }
 
   /** 删除 GM 生成的测试机器人。 */
-  sendGmRemoveBots(playerIds?: string[], all = false) {
-    this.emitServer(NEXT_C2S.GmRemoveBots, { playerIds, all });
+  sendGmRemoveBots(playerIds?: string[], all = false): void {
+    this.sendEvent(NEXT_C2S.GmRemoveBots, { playerIds, all });
   }
 
   /** 更新 GM 面板中的玩家状态。 */
-  sendGmUpdatePlayer(payload: any) {
-    this.emitServer(NEXT_C2S.GmUpdatePlayer, payload);
+  sendGmUpdatePlayer(
+    payload: NEXT_C2S_EventPayload<typeof NEXT_C2S.GmUpdatePlayer>,
+  ): void {
+    this.sendEvent(NEXT_C2S.GmUpdatePlayer, payload);
   }
 
   /** 重置 GM 目标玩家。 */
-  sendGmResetPlayer(playerId: string) {
-    this.emitServer(NEXT_C2S.GmResetPlayer, { playerId });
+  sendGmResetPlayer(playerId: string): void {
+    this.sendEvent(NEXT_C2S.GmResetPlayer, { playerId });
   }
 
   /** 使用物品。 */
-  sendUseItem(slotIndex: number, count?: number) {
-    this.emitServer(NEXT_C2S.UseItem, { slotIndex, count });
+  sendUseItem(slotIndex: number, count?: number): void {
+    this.sendEvent(NEXT_C2S.UseItem, { slotIndex, count });
   }
 
   /** 丢弃物品。 */
-  sendDropItem(slotIndex: number, count: number) {
-    this.emitServer(NEXT_C2S.DropItem, { slotIndex, count });
+  sendDropItem(slotIndex: number, count: number): void {
+    this.sendEvent(NEXT_C2S.DropItem, { slotIndex, count });
   }
 
   /** 销毁物品。 */
-  sendDestroyItem(slotIndex: number, count: number) {
-    this.emitServer(NEXT_C2S.DestroyItem, { slotIndex, count });
+  sendDestroyItem(slotIndex: number, count: number): void {
+    this.sendEvent(NEXT_C2S.DestroyItem, { slotIndex, count });
   }
 
   /** 领取战利品。 */
-  sendTakeLoot(sourceId: string, itemKey?: string, takeAll = false) {
-    this.emitServer(NEXT_C2S.TakeGround, { sourceId, itemKey, takeAll });
+  sendTakeLoot(sourceId: string, itemKey?: string, takeAll = false): void {
+    this.sendEvent(NEXT_C2S.TakeGround, { sourceId, itemKey, takeAll });
   }
 
   /** 请求背包排序。 */
-  sendSortInventory() {
-    this.emitServer(NEXT_C2S.SortInventory, {});
+  sendSortInventory(): void {
+    this.sendEvent(NEXT_C2S.SortInventory, {});
   }
 
   /** 请求查看地块运行时信息。 */
-  sendInspectTileRuntime(x: number, y: number) {
-    this.emitServer(NEXT_C2S.RequestTileDetail, { x, y });
+  sendInspectTileRuntime(x: number, y: number): void {
+    this.sendEvent(NEXT_C2S.RequestTileDetail, { x, y });
   }
 
   /** 装备指定物品。 */
-  sendEquip(slotIndex: number) {
-    this.emitServer(NEXT_C2S.Equip, { slotIndex });
+  sendEquip(slotIndex: number): void {
+    this.sendEvent(NEXT_C2S.Equip, { slotIndex });
   }
 
   /** 卸下指定装备槽。 */
-  sendUnequip(slot: EquipSlot) {
-    this.emitServer(NEXT_C2S.Unequip, { slot });
+  sendUnequip(slot: EquipSlot): void {
+    this.sendEvent(NEXT_C2S.Unequip, { slot });
   }
 
   /** 请求开始或切换修炼。 */
-  sendCultivate(techId: string | null) {
-    this.emitServer(NEXT_C2S.Cultivate, { techId });
+  sendCultivate(techId: string | null): void {
+    this.sendEvent(NEXT_C2S.Cultivate, { techId });
   }
 
   /** 释放技能。 */
-  sendCastSkill(skillId: string, target?: string) {
-    const payload: {
-      skillId: string;
-      targetPlayerId?: string | null;
-      targetMonsterId?: string | null;
-      targetRef?: string | null;
-    } = { skillId };
+  sendCastSkill(skillId: string, target?: string): void {
+    const payload: NEXT_C2S_EventPayload<typeof NEXT_C2S.CastSkill> = { skillId };
     if (target) {
       if (target.startsWith('player:')) {
         payload.targetPlayerId = target.slice('player:'.length) || null;
@@ -421,285 +384,420 @@ export class SocketManager {
         payload.targetMonsterId = target;
       }
     }
-    this.emitServer(NEXT_C2S.CastSkill, payload);
+    this.sendEvent(NEXT_C2S.CastSkill, payload);
   }
 
   /** 请求建议面板数据。 */
-  sendRequestSuggestions() {
-    this.emitServer(NEXT_C2S.RequestSuggestions, {});
+  sendRequestSuggestions(): void {
+    this.sendEvent(NEXT_C2S.RequestSuggestions, {});
   }
 
   /** 新建一条建议。 */
-  sendCreateSuggestion(title: string, description: string) {
-    this.emitServer(NEXT_C2S.CreateSuggestion, { title, description });
+  sendCreateSuggestion(title: string, description: string): void {
+    this.sendEvent(NEXT_C2S.CreateSuggestion, { title, description });
   }
 
   /** 回复某条建议。 */
-  sendReplySuggestion(suggestionId: string, content: string) {
-    this.emitServer(NEXT_C2S.ReplySuggestion, { suggestionId, content });
+  sendReplySuggestion(suggestionId: string, content: string): void {
+    this.sendEvent(NEXT_C2S.ReplySuggestion, { suggestionId, content });
   }
 
   /** 给建议投票。 */
-  sendVoteSuggestion(suggestionId: string, vote: 'up' | 'down') {
-    this.emitServer(NEXT_C2S.VoteSuggestion, { suggestionId, vote });
+  sendVoteSuggestion(suggestionId: string, vote: 'up' | 'down'): void {
+    this.sendEvent(NEXT_C2S.VoteSuggestion, { suggestionId, vote });
   }
 
   /** 标记建议回复已读。 */
-  sendMarkSuggestionRepliesRead(suggestionId: string) {
-    this.emitServer(NEXT_C2S.MarkSuggestionRepliesRead, { suggestionId });
+  sendMarkSuggestionRepliesRead(suggestionId: string): void {
+    this.sendEvent(NEXT_C2S.MarkSuggestionRepliesRead, { suggestionId });
   }
 
   /** 请求邮件摘要。 */
-  sendRequestMailSummary() {
-    this.emitServer(NEXT_C2S.RequestMailSummary, {});
+  sendRequestMailSummary(): void {
+    this.sendEvent(NEXT_C2S.RequestMailSummary, {});
   }
 
   /** 请求邮件分页。 */
-  sendRequestMailPage(page: number, pageSize?: number, filter?: any) {
-    this.emitServer(NEXT_C2S.RequestMailPage, { page, pageSize, filter });
+  sendRequestMailPage(
+    page: number,
+    pageSize?: number,
+    filter?: NEXT_C2S_EventPayload<typeof NEXT_C2S.RequestMailPage>['filter'],
+  ): void {
+    this.sendEvent(NEXT_C2S.RequestMailPage, { page, pageSize, filter });
   }
 
   /** 请求邮件详情。 */
-  sendRequestMailDetail(mailId: string) {
-    this.emitServer(NEXT_C2S.RequestMailDetail, { mailId });
+  sendRequestMailDetail(mailId: string): void {
+    this.sendEvent(NEXT_C2S.RequestMailDetail, { mailId });
   }
 
   /** 兑换礼包码。 */
-  sendRedeemCodes(codes: string[]) {
-    this.emitServer(NEXT_C2S.RedeemCodes, { codes });
+  sendRedeemCodes(codes: string[]): void {
+    this.sendEvent(NEXT_C2S.RedeemCodes, { codes });
   }
 
   /** 标记邮件为已读。 */
-  sendMarkMailRead(mailIds: string[]) {
-    this.emitServer(NEXT_C2S.MarkMailRead, { mailIds });
+  sendMarkMailRead(mailIds: string[]): void {
+    this.sendEvent(NEXT_C2S.MarkMailRead, { mailIds });
   }
 
   /** 领取邮件附件。 */
-  sendClaimMailAttachments(mailIds: string[]) {
-    this.emitServer(NEXT_C2S.ClaimMailAttachments, { mailIds });
+  sendClaimMailAttachments(mailIds: string[]): void {
+    this.sendEvent(NEXT_C2S.ClaimMailAttachments, { mailIds });
   }
 
   /** 删除邮件。 */
-  sendDeleteMail(mailIds: string[]) {
-    this.emitServer(NEXT_C2S.DeleteMail, { mailIds });
+  sendDeleteMail(mailIds: string[]): void {
+    this.sendEvent(NEXT_C2S.DeleteMail, { mailIds });
   }
 
   /** 请求市场概览。 */
-  sendRequestMarket() {
-    this.emitServer(NEXT_C2S.RequestMarket, {});
+  sendRequestMarket(): void {
+    this.sendEvent(NEXT_C2S.RequestMarket, {});
   }
 
   /** 请求市场挂单列表。 */
-  sendRequestMarketListings(payload: any) {
-    this.emitServer(NEXT_C2S.RequestMarketListings, payload);
+  sendRequestMarketListings(
+    payload: NEXT_C2S_EventPayload<typeof NEXT_C2S.RequestMarketListings>,
+  ): void {
+    this.sendEvent(NEXT_C2S.RequestMarketListings, payload);
   }
 
   /** 请求市场物品图鉴。 */
-  sendRequestMarketItemBook(itemKey: string) {
-    this.emitServer(NEXT_C2S.RequestMarketItemBook, { itemKey });
+  sendRequestMarketItemBook(itemKey: string): void {
+    this.sendEvent(NEXT_C2S.RequestMarketItemBook, { itemKey });
   }
 
   /** 请求市场交易历史。 */
-  sendRequestMarketTradeHistory(page: number) {
-    this.emitServer(NEXT_C2S.RequestMarketTradeHistory, { page });
+  sendRequestMarketTradeHistory(page: number): void {
+    this.sendEvent(NEXT_C2S.RequestMarketTradeHistory, { page });
   }
 
   /** 请求属性详情。 */
-  sendRequestAttrDetail() {
-    this.emitServer(NEXT_C2S.RequestAttrDetail, {});
+  sendRequestAttrDetail(): void {
+    this.sendEvent(NEXT_C2S.RequestAttrDetail, {});
   }
 
   /** 请求排行榜数据。 */
-  sendRequestLeaderboard(limit?: number) {
-    this.emitServer(NEXT_C2S.RequestLeaderboard, { limit });
+  sendRequestLeaderboard(
+    limit?: NEXT_C2S_EventPayload<typeof NEXT_C2S.RequestLeaderboard>['limit'],
+  ): void {
+    this.sendEvent(NEXT_C2S.RequestLeaderboard, { limit });
   }
 
   /** 请求世界摘要。 */
-  sendRequestWorldSummary() {
-    this.emitServer(NEXT_C2S.RequestWorldSummary, {});
+  sendRequestWorldSummary(): void {
+    this.sendEvent(NEXT_C2S.RequestWorldSummary, {});
   }
 
   /** 创建市场卖单。 */
-  sendCreateMarketSellOrder(slotIndex: number, quantity: number, unitPrice: number) {
-    this.emitServer(NEXT_C2S.CreateMarketSellOrder, { slotIndex, quantity, unitPrice });
+  sendCreateMarketSellOrder(slotIndex: number, quantity: number, unitPrice: number): void {
+    this.sendEvent(NEXT_C2S.CreateMarketSellOrder, { slotIndex, quantity, unitPrice });
   }
 
   /** 创建市场买单。 */
-  sendCreateMarketBuyOrder(itemKey: string, quantity: number, unitPrice: number) {
-    this.emitServer(NEXT_C2S.CreateMarketBuyOrder, { itemKey, quantity, unitPrice });
+  sendCreateMarketBuyOrder(itemKey: string, quantity: number, unitPrice: number): void {
+    this.sendEvent(NEXT_C2S.CreateMarketBuyOrder, { itemKey, quantity, unitPrice });
   }
 
   /** 直接购买市场物品。 */
-  sendBuyMarketItem(itemKey: string, quantity: number) {
-    this.emitServer(NEXT_C2S.BuyMarketItem, { itemKey, quantity });
+  sendBuyMarketItem(itemKey: string, quantity: number): void {
+    this.sendEvent(NEXT_C2S.BuyMarketItem, { itemKey, quantity });
   }
 
   /** 直接出售背包里的市场物品。 */
-  sendSellMarketItem(slotIndex: number, quantity: number) {
-    this.emitServer(NEXT_C2S.SellMarketItem, { slotIndex, quantity });
+  sendSellMarketItem(slotIndex: number, quantity: number): void {
+    this.sendEvent(NEXT_C2S.SellMarketItem, { slotIndex, quantity });
   }
 
   /** 取消市场订单。 */
-  sendCancelMarketOrder(orderId: string) {
-    this.emitServer(NEXT_C2S.CancelMarketOrder, { orderId });
+  sendCancelMarketOrder(orderId: string): void {
+    this.sendEvent(NEXT_C2S.CancelMarketOrder, { orderId });
   }
 
   /** 领取市场仓储。 */
-  sendClaimMarketStorage() {
-    this.emitServer(NEXT_C2S.ClaimMarketStorage, {});
+  sendClaimMarketStorage(): void {
+    this.sendEvent(NEXT_C2S.ClaimMarketStorage, {});
   }
 
   /** 请求 NPC 商店数据。 */
-  sendRequestNpcShop(npcId: string) {
-    this.emitServer(NEXT_C2S.RequestNpcShop, { npcId });
+  sendRequestNpcShop(npcId: string): void {
+    this.sendEvent(NEXT_C2S.RequestNpcShop, { npcId });
   }
 
   /** 从 NPC 商店购买物品。 */
-  sendBuyNpcShopItem(npcId: string, itemId: string, quantity: number) {
-    this.emitServer(NEXT_C2S.BuyNpcShopItem, { npcId, itemId, quantity });
+  sendBuyNpcShopItem(npcId: string, itemId: string, quantity: number): void {
+    this.sendEvent(NEXT_C2S.BuyNpcShopItem, { npcId, itemId, quantity });
   }
 
   /** 请求炼丹面板。 */
-  sendRequestAlchemyPanel(knownCatalogVersion?: number) {
-    this.emitServer(NEXT_C2S.RequestAlchemyPanel, { knownCatalogVersion });
+  sendRequestAlchemyPanel(knownCatalogVersion?: number): void {
+    this.sendEvent(NEXT_C2S.RequestAlchemyPanel, { knownCatalogVersion });
   }
 
   /** 保存炼丹预设。 */
-  sendSaveAlchemyPreset(payload: any) {
-    this.emitServer(NEXT_C2S.SaveAlchemyPreset, payload);
+  sendSaveAlchemyPreset(
+    payload: NEXT_C2S_EventPayload<typeof NEXT_C2S.SaveAlchemyPreset>,
+  ): void {
+    this.sendEvent(NEXT_C2S.SaveAlchemyPreset, payload);
   }
 
   /** 删除炼丹预设。 */
-  sendDeleteAlchemyPreset(presetId: string) {
-    this.emitServer(NEXT_C2S.DeleteAlchemyPreset, { presetId });
+  sendDeleteAlchemyPreset(presetId: string): void {
+    this.sendEvent(NEXT_C2S.DeleteAlchemyPreset, { presetId });
   }
 
   /** 开始炼丹。 */
-  sendStartAlchemy(payload: any) {
-    this.emitServer(NEXT_C2S.StartAlchemy, payload);
+  sendStartAlchemy(
+    payload: NEXT_C2S_EventPayload<typeof NEXT_C2S.StartAlchemy>,
+  ): void {
+    this.sendEvent(NEXT_C2S.StartAlchemy, payload);
   }
 
   /** 取消炼丹。 */
-  sendCancelAlchemy() {
-    this.emitServer(NEXT_C2S.CancelAlchemy, {});
+  sendCancelAlchemy(): void {
+    this.sendEvent(NEXT_C2S.CancelAlchemy, {});
   }
 
   /** 请求强化面板。 */
-  sendRequestEnhancementPanel() {
-    this.emitServer(NEXT_C2S.RequestEnhancementPanel, {});
+  sendRequestEnhancementPanel(): void {
+    this.sendEvent(NEXT_C2S.RequestEnhancementPanel, {});
   }
 
   /** 开始强化。 */
-  sendStartEnhancement(payload: any) {
-    this.emitServer(NEXT_C2S.StartEnhancement, payload);
+  sendStartEnhancement(
+    payload: NEXT_C2S_EventPayload<typeof NEXT_C2S.StartEnhancement>,
+  ): void {
+    this.sendEvent(NEXT_C2S.StartEnhancement, payload);
   }
 
   /** 取消强化。 */
-  sendCancelEnhancement() {
-    this.emitServer(NEXT_C2S.CancelEnhancement, {});
+  sendCancelEnhancement(): void {
+    this.sendEvent(NEXT_C2S.CancelEnhancement, {});
   }
 
   /** 发送天门相关动作。 */
-  sendHeavenGateAction(action: any, element?: any) {
-    this.emitServer(NEXT_C2S.HeavenGateAction, { action, element });
+  sendHeavenGateAction(
+    action: NEXT_C2S_EventPayload<typeof NEXT_C2S.HeavenGateAction>['action'],
+    element?: NEXT_C2S_EventPayload<typeof NEXT_C2S.HeavenGateAction>['element'],
+  ): void {
+    this.sendEvent(NEXT_C2S.HeavenGateAction, { action, element });
   }
 
   /** 发送通用动作指令。 */
-  sendAction(actionId: string, target?: string) {
+  sendAction(actionId: string, target?: string): void {
     if (!target && actionId === 'portal:travel') {
-      this.emitServer(NEXT_C2S.UsePortal, {});
+      this.sendEvent(NEXT_C2S.UsePortal, {});
       return;
     }
-    this.emitServer(NEXT_C2S.UseAction, { actionId, target });
+    this.sendEvent(NEXT_C2S.UseAction, { actionId, target });
   }
 
   /** 更新自动战斗技能配置。 */
-  sendUpdateAutoBattleSkills(skills: AutoBattleSkillConfig[]) {
-    this.emitServer(NEXT_C2S.UpdateAutoBattleSkills, { skills });
+  sendUpdateAutoBattleSkills(skills: AutoBattleSkillConfig[]): void {
+    this.sendEvent(NEXT_C2S.UpdateAutoBattleSkills, { skills });
   }
 
   /** 更新自动用药配置。 */
-  sendUpdateAutoUsePills(pills: AutoUsePillConfig[]) {
-    this.emitServer(NEXT_C2S.UpdateAutoUsePills, { pills });
+  sendUpdateAutoUsePills(pills: AutoUsePillConfig[]): void {
+    this.sendEvent(NEXT_C2S.UpdateAutoUsePills, { pills });
   }
 
   /** 更新战斗目标选择规则。 */
-  sendUpdateCombatTargetingRules(combatTargetingRules: CombatTargetingRules) {
-    this.emitServer(NEXT_C2S.UpdateCombatTargetingRules, { combatTargetingRules });
+  sendUpdateCombatTargetingRules(combatTargetingRules: CombatTargetingRules): void {
+    this.sendEvent(NEXT_C2S.UpdateCombatTargetingRules, { combatTargetingRules });
   }
 
   /** 更新自动战斗寻敌模式。 */
-  sendUpdateAutoBattleTargetingMode(mode: AutoBattleTargetingMode) {
-    this.emitServer(NEXT_C2S.UpdateAutoBattleTargetingMode, { mode });
+  sendUpdateAutoBattleTargetingMode(mode: AutoBattleTargetingMode): void {
+    this.sendEvent(NEXT_C2S.UpdateAutoBattleTargetingMode, { mode });
   }
 
   /** 更新功法技能启用状态。 */
-  sendUpdateTechniqueSkillAvailability(techId: string, enabled: boolean) {
-    this.emitServer(NEXT_C2S.UpdateTechniqueSkillAvailability, { techId, enabled });
+  sendUpdateTechniqueSkillAvailability(techId: string, enabled: boolean): void {
+    this.sendEvent(NEXT_C2S.UpdateTechniqueSkillAvailability, { techId, enabled });
   }
 
   /** 发送调试用重置刷怪指令。 */
-  sendDebugResetSpawn() {
-    this.emitServer(NEXT_C2S.DebugResetSpawn, { force: true });
+  sendDebugResetSpawn(): void {
+    this.sendEvent(NEXT_C2S.DebugResetSpawn, { force: true });
   }
 
   /** 发送聊天消息。 */
-  sendChat(message: string) {
-    this.emitServer(NEXT_C2S.Chat, { message });
+  sendChat(message: string): void {
+    this.sendEvent(NEXT_C2S.Chat, { message });
   }
 
   /** 确认已读系统消息。 */
-  ackSystemMessages(ids: string[]) {
+  ackSystemMessages(ids: string[]): void {
     if (ids.length === 0) {
       return;
     }
-    this.emitServer(NEXT_C2S.AckSystemMessages, { ids });
+    this.sendEvent(NEXT_C2S.AckSystemMessages, { ids });
   }
 
-  onBootstrap(cb: (data: NEXT_S2C_Bootstrap) => void) { this.onBootstrapCallbacks.push(cb); }
-  onNextInitSession(cb: (data: NEXT_S2C_InitSession) => void) { this.onNextInitSessionCallbacks.push(cb); }
-  onNextMapEnter(cb: (data: NEXT_S2C_MapEnter) => void) { this.onNextMapEnterCallbacks.push(cb); }
-  onNextWorldDelta(cb: (data: NEXT_S2C_WorldDelta) => void) { this.onNextWorldDeltaCallbacks.push(cb); }
-  onNextSelfDelta(cb: (data: NEXT_S2C_SelfDelta) => void) { this.onNextSelfDeltaCallbacks.push(cb); }
-  onNextPanelDelta(cb: (data: NEXT_S2C_PanelDelta) => void) { this.onNextPanelDeltaCallbacks.push(cb); }
-  onNextNotice(cb: (data: NEXT_S2C_Notice) => void) { this.onNextNoticeCallbacks.push(cb); }
-  onNextNpcQuests(cb: (data: NEXT_S2C_NpcQuests) => void) { this.onNextNpcQuestsCallbacks.push(cb); }
-  onNextDetail(cb: (data: NEXT_S2C_Detail) => void) { this.onNextDetailCallbacks.push(cb); }
-  onNextTileDetail(cb: (data: NEXT_S2C_TileDetail) => void) { this.onNextTileDetailCallbacks.push(cb); }
-  onMapStatic(cb: (data: NEXT_S2C_MapStatic) => void) { this.onMapStaticCallbacks.push(cb); }
-  onRealm(cb: (data: NEXT_S2C_Realm) => void) { this.onRealmCallbacks.push(cb); }
-  onKick(cb: () => void) { this.onKickCallbacks.push(cb); }
-  onLootWindowUpdate(cb: (data: any) => void) { this.onLootWindowUpdateCallbacks.push(cb); }
-  onQuestUpdate(cb: (data: any) => void) { this.onQuestUpdateCallbacks.push(cb); }
-  onQuestNavigateResult(cb: (data: any) => void) { this.onQuestNavigateResultCallbacks.push(cb); }
-  onSystemMsg(cb: (data: any) => void) { this.onSystemMsgCallbacks.push(cb); }
-  onSuggestionUpdate(cb: (data: any) => void) { this.onSuggestionUpdateCallbacks.push(cb); }
-  onMailSummary(cb: (data: any) => void) { this.onMailSummaryCallbacks.push(cb); }
-  onMailPage(cb: (data: any) => void) { this.onMailPageCallbacks.push(cb); }
-  onMailDetail(cb: (data: any) => void) { this.onMailDetailCallbacks.push(cb); }
-  onRedeemCodesResult(cb: (data: any) => void) { this.onRedeemCodesResultCallbacks.push(cb); }
-  onMailOpResult(cb: (data: any) => void) { this.onMailOpResultCallbacks.push(cb); }
-  onMarketUpdate(cb: (data: any) => void) { this.onMarketUpdateCallbacks.push(cb); }
-  onMarketListings(cb: (data: any) => void) { this.onMarketListingsCallbacks.push(cb); }
-  onMarketOrders(cb: (data: any) => void) { this.onMarketOrdersCallbacks.push(cb); }
-  onMarketStorage(cb: (data: any) => void) { this.onMarketStorageCallbacks.push(cb); }
-  onMarketItemBook(cb: (data: any) => void) { this.onMarketItemBookCallbacks.push(cb); }
-  onMarketTradeHistory(cb: (data: any) => void) { this.onMarketTradeHistoryCallbacks.push(cb); }
-  onAttrDetail(cb: (data: any) => void) { this.onAttrDetailCallbacks.push(cb); }
-  onLeaderboard(cb: (data: any) => void) { this.onLeaderboardCallbacks.push(cb); }
-  onWorldSummary(cb: (data: any) => void) { this.onWorldSummaryCallbacks.push(cb); }
-  onNpcShop(cb: (data: any) => void) { this.onNpcShopCallbacks.push(cb); }
-  onAlchemyPanel(cb: (data: any) => void) { this.onAlchemyPanelCallbacks.push(cb); }
-  onEnhancementPanel(cb: (data: any) => void) { this.onEnhancementPanelCallbacks.push(cb); }
-  onPong(cb: (data: any) => void) { this.onPongCallbacks.push(cb); }
-  onError(cb: (data: any) => void) { this.onErrorCallbacks.push(cb); }
-  onGmState(cb: (data: any) => void) { this.onGmStateCallbacks.push(cb); }
-  onDisconnect(cb: (reason: string) => void) { this.onDisconnectCallbacks.push(cb); }
-  onConnectError(cb: (message: string) => void) { this.onConnectErrorCallbacks.push(cb); }
+  onBootstrap(cb: ServerEventCallback<typeof NEXT_S2C.Bootstrap>): void {
+    this.onServerEvent(NEXT_S2C.Bootstrap, cb);
+  }
+
+  onInitSession(cb: ServerEventCallback<typeof NEXT_S2C.InitSession>): void {
+    this.onServerEvent(NEXT_S2C.InitSession, cb);
+  }
+
+  onMapEnter(cb: ServerEventCallback<typeof NEXT_S2C.MapEnter>): void {
+    this.onServerEvent(NEXT_S2C.MapEnter, cb);
+  }
+
+  onWorldDelta(cb: ServerEventCallback<typeof NEXT_S2C.WorldDelta>): void {
+    this.onServerEvent(NEXT_S2C.WorldDelta, cb);
+  }
+
+  onSelfDelta(cb: ServerEventCallback<typeof NEXT_S2C.SelfDelta>): void {
+    this.onServerEvent(NEXT_S2C.SelfDelta, cb);
+  }
+
+  onPanelDelta(cb: ServerEventCallback<typeof NEXT_S2C.PanelDelta>): void {
+    this.onServerEvent(NEXT_S2C.PanelDelta, cb);
+  }
+
+  onNotice(cb: ServerEventCallback<typeof NEXT_S2C.Notice>): void {
+    this.onServerEvent(NEXT_S2C.Notice, cb);
+  }
+
+  onNpcQuests(cb: ServerEventCallback<typeof NEXT_S2C.NpcQuests>): void {
+    this.onServerEvent(NEXT_S2C.NpcQuests, cb);
+  }
+
+  onDetail(cb: ServerEventCallback<typeof NEXT_S2C.Detail>): void {
+    this.onServerEvent(NEXT_S2C.Detail, cb);
+  }
+
+  onTileDetail(cb: ServerEventCallback<typeof NEXT_S2C.TileDetail>): void {
+    this.onServerEvent(NEXT_S2C.TileDetail, cb);
+  }
+
+  onMapStatic(cb: ServerEventCallback<typeof NEXT_S2C.MapStatic>): void {
+    this.onServerEvent(NEXT_S2C.MapStatic, cb);
+  }
+
+  onRealm(cb: ServerEventCallback<typeof NEXT_S2C.Realm>): void {
+    this.onServerEvent(NEXT_S2C.Realm, cb);
+  }
+
+  onKick(cb: () => void): void {
+    this.onKickCallbacks.push(cb);
+  }
+
+  onLootWindowUpdate(cb: ServerEventCallback<typeof NEXT_S2C.LootWindowUpdate>): void {
+    this.onServerEvent(NEXT_S2C.LootWindowUpdate, cb);
+  }
+
+  onQuests(cb: ServerEventCallback<typeof NEXT_S2C.Quests>): void {
+    this.onServerEvent(NEXT_S2C.Quests, cb);
+  }
+
+  onQuestNavigateResult(cb: ServerEventCallback<typeof NEXT_S2C.QuestNavigateResult>): void {
+    this.onServerEvent(NEXT_S2C.QuestNavigateResult, cb);
+  }
+
+  onSuggestionUpdate(cb: ServerEventCallback<typeof NEXT_S2C.SuggestionUpdate>): void {
+    this.onServerEvent(NEXT_S2C.SuggestionUpdate, cb);
+  }
+
+  onMailSummary(cb: ServerEventCallback<typeof NEXT_S2C.MailSummary>): void {
+    this.onServerEvent(NEXT_S2C.MailSummary, cb);
+  }
+
+  onMailPage(cb: ServerEventCallback<typeof NEXT_S2C.MailPage>): void {
+    this.onServerEvent(NEXT_S2C.MailPage, cb);
+  }
+
+  onMailDetail(cb: ServerEventCallback<typeof NEXT_S2C.MailDetail>): void {
+    this.onServerEvent(NEXT_S2C.MailDetail, cb);
+  }
+
+  onRedeemCodesResult(cb: ServerEventCallback<typeof NEXT_S2C.RedeemCodesResult>): void {
+    this.onServerEvent(NEXT_S2C.RedeemCodesResult, cb);
+  }
+
+  onMailOpResult(cb: ServerEventCallback<typeof NEXT_S2C.MailOpResult>): void {
+    this.onServerEvent(NEXT_S2C.MailOpResult, cb);
+  }
+
+  onMarketUpdate(cb: ServerEventCallback<typeof NEXT_S2C.MarketUpdate>): void {
+    this.onServerEvent(NEXT_S2C.MarketUpdate, cb);
+  }
+
+  onMarketListings(cb: ServerEventCallback<typeof NEXT_S2C.MarketListings>): void {
+    this.onServerEvent(NEXT_S2C.MarketListings, cb);
+  }
+
+  onMarketOrders(cb: ServerEventCallback<typeof NEXT_S2C.MarketOrders>): void {
+    this.onServerEvent(NEXT_S2C.MarketOrders, cb);
+  }
+
+  onMarketStorage(cb: ServerEventCallback<typeof NEXT_S2C.MarketStorage>): void {
+    this.onServerEvent(NEXT_S2C.MarketStorage, cb);
+  }
+
+  onMarketItemBook(cb: ServerEventCallback<typeof NEXT_S2C.MarketItemBook>): void {
+    this.onServerEvent(NEXT_S2C.MarketItemBook, cb);
+  }
+
+  onMarketTradeHistory(cb: ServerEventCallback<typeof NEXT_S2C.MarketTradeHistory>): void {
+    this.onServerEvent(NEXT_S2C.MarketTradeHistory, cb);
+  }
+
+  onAttrDetail(cb: ServerEventCallback<typeof NEXT_S2C.AttrDetail>): void {
+    this.onServerEvent(NEXT_S2C.AttrDetail, cb);
+  }
+
+  onLeaderboard(cb: ServerEventCallback<typeof NEXT_S2C.Leaderboard>): void {
+    this.onServerEvent(NEXT_S2C.Leaderboard, cb);
+  }
+
+  onWorldSummary(cb: ServerEventCallback<typeof NEXT_S2C.WorldSummary>): void {
+    this.onServerEvent(NEXT_S2C.WorldSummary, cb);
+  }
+
+  onNpcShop(cb: ServerEventCallback<typeof NEXT_S2C.NpcShop>): void {
+    this.onServerEvent(NEXT_S2C.NpcShop, cb);
+  }
+
+  onAlchemyPanel(cb: ServerEventCallback<typeof NEXT_S2C.AlchemyPanel>): void {
+    this.onServerEvent(NEXT_S2C.AlchemyPanel, cb);
+  }
+
+  onEnhancementPanel(cb: ServerEventCallback<typeof NEXT_S2C.EnhancementPanel>): void {
+    this.onServerEvent(NEXT_S2C.EnhancementPanel, cb);
+  }
+
+  onPong(cb: ServerEventCallback<typeof NEXT_S2C.Pong>): void {
+    this.onServerEvent(NEXT_S2C.Pong, cb);
+  }
+
+  onError(cb: ServerEventCallback<typeof NEXT_S2C.Error>): void {
+    this.onServerEvent(NEXT_S2C.Error, cb);
+  }
+
+  onGmState(cb: ServerEventCallback<typeof NEXT_S2C.GmState>): void {
+    this.onServerEvent(NEXT_S2C.GmState, cb);
+  }
+
+  onDisconnect(cb: (reason: string) => void): void {
+    this.onDisconnectCallbacks.push(cb);
+  }
+
+  onConnectError(cb: (message: string) => void): void {
+    this.onConnectErrorCallbacks.push(cb);
+  }
 
   /** 透传通用发包接口。 */
-  emit(event: string, payload: any) {
-    this.emitServer(event, payload);
+  emit<TEvent extends NEXT_C2S_EventName>(
+    event: TEvent,
+    payload: NEXT_C2S_EventPayload<TEvent>,
+  ): void {
+    this.sendEvent(event, payload);
   }
 
   /** 当前连接是否处于已连接状态。 */

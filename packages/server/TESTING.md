@@ -111,6 +111,26 @@
 | `T14` | 把 workflow 里的可选 destructive 补证和测试文档口径对齐 | 已支持，但真实维护窗口说明仍要补齐 |
 | `T25` | 把“完整替换完成”的判定标准逐条对应到 gate / smoke / runbook | 仍在门禁化过程中 |
 
+## “完整替换完成”目前至少需要什么
+
+下面这些项没有全部满足前，不应把 `next` 对外改口为“已经完整替换旧服”。
+
+| 判定项 | 自动证据 | 人工 / 真实环境证据 |
+| --- | --- | --- |
+| 本地主链稳定 | `pnpm verify:replace-ready` | 无 |
+| 带库主链稳定 | `pnpm verify:replace-ready:with-db` | 真实数据库环境一次独立复跑 |
+| shadow 实物验收稳定 | `pnpm verify:replace-ready:shadow` | shadow 地址、维护人、执行时间记录 |
+| shadow + GM 关键写路径稳定 | `pnpm verify:replace-ready:acceptance` | GM/admin 实际操作清单确认 |
+| 数据库运营面自动化稳定 | `pnpm verify:replace-ready:full` | 真实环境 backup/restore 记录 |
+| destructive 闭环可控 | `pnpm verify:replace-ready:shadow:destructive` | 维护窗口、回滚预案、执行记录 |
+| legacy/compat 退役条件满足 | 协议审计、boundary audit、smoke 全绿 | 真实环境无人依赖旧入口的观察证据 |
+
+当前状态：
+
+- 前五项只能证明自动门禁是否绿，不能单独替代真实维护窗口记录。
+- `shadow-destructive` 只回答破坏性 proof 是否可控，不回答日常接班是否完成。
+- `legacy/compat` 最终退役范围仍未定稿，因此仓库当前仍不能宣称“完整替换完成”。
+
 ## 推荐入口
 
 ### 1. 本地默认入口

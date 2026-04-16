@@ -1,7 +1,6 @@
 /**
  * 数值属性系统：战斗数值结构定义、五行元素属性组、RatioValue 计算、灵力消耗公式。
  */
-// TODO(next:T22): 继续稳定 shared-next 的数值 / realm / bootstrap 类型基线，避免 client/server/shared 对 numeric 语义再漂移。
 import type { Attributes } from './types';
 import { PlayerRealmStage } from './types';
 import {
@@ -125,6 +124,17 @@ export interface RealmNumericTemplate {
   ratioDivisors: NumericRatioDivisors;
 }
 
+/** 所有 `NumericRatioDivisors` 标量字段列表，便于模板和守护工具重用 */
+export const NUMERIC_RATIO_DIVISOR_KEYS: (keyof NumericRatioDivisors)[] = [
+  'dodge',
+  'crit',
+  'breakPower',
+  'resolvePower',
+  'cooldownSpeed',
+  'moveSpeed',
+  'elementDamageReduce',
+];
+
 /** 创建全零五行元素属性组 */
 export function createElementStatGroup(initialValue = 0): ElementStatGroup {
   return {
@@ -205,6 +215,20 @@ export function ensureNumericStatsTemplateStats(stats: Partial<NumericStats>): N
     throw new Error(`incomplete numeric stats template: missing ${missing.join(', ')}`);
   }
   return stats as NumericStats;
+}
+
+/** 守护 Realm 模板 ratioDivisors 结构的工具，确保字段完整 */
+export function ensureNumericRatioDivisorsTemplate(divisors: Partial<NumericRatioDivisors>): NumericRatioDivisors {
+  const missing: Array<keyof NumericRatioDivisors> = [];
+  for (const key of NUMERIC_RATIO_DIVISOR_KEYS) {
+    if (!(key in divisors)) {
+      missing.push(key);
+    }
+  }
+  if (missing.length) {
+    throw new Error(`incomplete numeric ratio divisors template: missing ${missing.join(', ')}`);
+  }
+  return divisors as NumericRatioDivisors;
 }
 
 /** 将部分五行属性叠加到目标上 */

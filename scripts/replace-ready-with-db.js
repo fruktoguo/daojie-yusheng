@@ -25,7 +25,7 @@ const databaseEnvSource = resolveServerNextDatabaseEnvSource();
 
 if (!databaseUrl) {
   process.stderr.write('replace-ready with-db requires DATABASE_URL or SERVER_NEXT_DATABASE_URL\n');
-  process.stderr.write('set DATABASE_URL or SERVER_NEXT_DATABASE_URL first, then run pnpm verify:server-next:with-db\n');
+  process.stderr.write('run pnpm verify:server-next:doctor first, then set DATABASE_URL or SERVER_NEXT_DATABASE_URL and rerun pnpm verify:server-next:with-db\n');
   process.exit(1);
 }
 
@@ -46,6 +46,7 @@ const steps = [
 ];
 
 process.stdout.write('[replace-ready:with-db] steps=build:client-next -> verify:server-next:with-db -> audit:server-next-protocol\n');
+process.stdout.write('[replace-ready:with-db] gate=with-db\n');
 
 for (const step of steps) {
   process.stdout.write(`[replace-ready:with-db] start step=${step.label}\n`);
@@ -70,4 +71,6 @@ for (const step of steps) {
 }
 
 process.stdout.write('[replace-ready:with-db] completed\n');
+process.stdout.write('[replace-ready:with-db] boundary=with-db automated proof only; this still does not include shadow acceptance or destructive proof\n');
+process.stdout.write('[replace-ready:with-db] next=run pnpm verify:server-next:acceptance or pnpm verify:server-next:full when shadow + GM env are ready\n');
 process.exit(0);

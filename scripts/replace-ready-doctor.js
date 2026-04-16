@@ -4,8 +4,6 @@
 /**
  * 用途：执行 server-next 替换链路的环境自检流程。
  */
-// TODO(next:VERIFY03): 继续统一 doctor/acceptance/full 等脚本的中文输出与环境缺失提示，减少运维入口文案漂移。
-
 const {
   resolveServerNextDatabaseUrl,
   resolveServerNextGmPassword,
@@ -29,6 +27,8 @@ const hasShadowDestructiveGate = process.env.SERVER_NEXT_SHADOW_ALLOW_DESTRUCTIV
 const lines = [];
 
 lines.push('replace-ready doctor');
+lines.push('');
+lines.push('说明: doctor 只回答环境是否齐备，不回答门禁已经通过，更不代表完整替换完成。');
 lines.push('');
 lines.push(`- local replace-ready: ready`);
 lines.push(`- with-db replace-ready: ${hasDatabase ? 'ready' : 'missing DATABASE_URL/SERVER_NEXT_DATABASE_URL'}`);
@@ -89,5 +89,11 @@ lines.push('- pnpm verify:replace-ready:shadow');
 lines.push('- pnpm verify:replace-ready:shadow:destructive');
 lines.push('- pnpm verify:replace-ready:acceptance');
 lines.push('- pnpm verify:replace-ready:full');
+lines.push('');
+lines.push('boundary summary:');
+lines.push('- local/with-db: 自动 proof');
+lines.push('- acceptance: local + shadow + gm-next');
+lines.push('- full: with-db + gm-database + backup-persistence + shadow + gm-next');
+lines.push('- shadow-destructive: 维护窗口 destructive proof；不等于日常替换完成');
 
 process.stdout.write(lines.join('\n') + '\n');

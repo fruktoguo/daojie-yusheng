@@ -16,7 +16,7 @@
 
 当前统一口径：
 
-- `server-next` 的 direct legacy/perf inventory 已清零，最新 audit 为 `0 / 22`、`0`
+- `server-next` 的 direct legacy/perf inventory 已不再阻断主门禁；最新 boundary audit 为 `1 / 22` 命中、`1` 处证据，另有 `3` 项因 inventory 路径漂移被 fail-soft 跳过
 - `auth/token/bootstrap` 真源替换已经开始第一刀，但还没完成 next-native 收口；本轮又继续把 `protocol=next` 的 compat identity runtime 回退、`legacy_runtime -> compat snapshot` 的运行态回退、以及带 token 的 `hello` 兜底入口继续收紧
 - 已落地的是 `token/identity` 读优先级收正：`next -> compat -> token fallback`
 - legacy HTTP auth 与 next socket auth 当前已经共用同一套 next token codec
@@ -42,7 +42,7 @@
 - TODO(next:T13): 定稿 GM/admin/restore 是继续 next-native 化还是长期保留 compat 壳，并把策略写回任务账本与运维口径。
 - TODO(next:T24): 定稿 legacy HTTP / GM / socket compat 的最终保留范围、观察窗口和删除前置条件。
 
-## 1.1 2026-04-07 最新状态
+## 1.1 2026-04-16 最新状态
 
 这一轮新增确认了几件关键事实：
 
@@ -53,6 +53,10 @@
 
 2. 运行时主路径的真源替换已经收口。
    - `guest hello/requestedPlayerId` 真 fallback 已移除
+   - `guest hello` 现在若再携带 `playerId/requestedPlayerId` 会直接拒绝 `HELLO_IDENTITY_OVERRIDE_FORBIDDEN`
+   - `GM socket` 现在若携带 `sessionId` 会直接拒绝 `GM_SESSION_ID_FORBIDDEN`
+   - `WorldPlayerSourceService` 的 direct compat source 读取现在也要求显式 `allowCompatMigration`
+   - `authenticatePlayerToken` 的 compat identity backfill 运行时入口现在只认 `protocol=migration`；`protocol=legacy` 上残留的 explicit backfill 后门已经删除
    - authenticated 非 native next 身份在 `snapshot miss` 时继续 fresh bootstrap 的入口也已关闭
 
 3. 证明链的仓库内代码缺口已经收口。
@@ -68,13 +72,13 @@
 5. guest smoke 迁移已经收口到 canonical 模式。
    - `session / readiness-gate / runtime / shadow / persistence / next-protocol-audit` 这组主链 smoke 已统一读取 `InitSession.pid`
    - guest `hello` 不再依赖客户端自带 `playerId`；跨重连恢复只认 detached `sessionId`
-   - `hello_guest/requestedPlayerId` 真源替换已经完成，后续只需要继续维护这组 canonical smoke 不回退
+   - `hello_guest/requestedPlayerId` 真源替换已经完成；当前 canonical smoke 已改成直接验证 `HELLO_IDENTITY_OVERRIDE_FORBIDDEN`
 
 6. 本地主证明链这轮已再次实跑全绿。
-   - `pnpm --filter @mud/server-next verify:replace-ready` 已于 `2026-04-07` 本地再次跑通，退出码为 `0`
+   - `pnpm --filter @mud/server-next verify:replace-ready` 已于 `2026-04-16` 本地再次跑通，退出码为 `0`
    - 本轮 summary 已覆盖 `readiness-gate / session / runtime / progression / combat / loot / next-auth-bootstrap / gm-next / redeem-code / monster-runtime / monster-combat / monster-ai / monster-skill / monster-reset / monster-loot / player-recovery / player-respawn`
-   - 总耗时约 `56087ms`
-   - 配套 `next-legacy-boundary-audit` 最新结果也已回到 `0 / 22`、`0`
+   - 总耗时约 `117320ms`
+   - 配套 `next-legacy-boundary-audit` 当前结果为 `1 / 22`、`1`，另有 `3` 项 inventory 路径漂移已改成 fail-soft 跳过
 
 ## 1.2 2026-04-13 当前轮次
 

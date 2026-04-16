@@ -79,7 +79,7 @@ export class LoginUI {
     this.setMode('login');
   }
 
-  /** 尝试用 localStorage 中的 refreshToken 恢复登录态 */
+  /** 尝试用当前会话里的 refreshToken 恢复登录态 */
   async restoreSession(): Promise<boolean> {
     if (this.restoreSessionPromise) {
       return this.restoreSessionPromise;
@@ -341,5 +341,4 @@ export class LoginUI {
     this.setDisplayNameStatus('注册时必填', '');
   }
 }
-
 

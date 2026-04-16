@@ -29,7 +29,7 @@ const traceEnabledValue = process.env.SERVER_NEXT_AUTH_TRACE_ENABLED || process.
 
 if (!databaseUrl) {
   process.stderr.write('replace-ready proof with-db requires DATABASE_URL or SERVER_NEXT_DATABASE_URL\n');
-  process.stderr.write('set DATABASE_URL or SERVER_NEXT_DATABASE_URL first, then run pnpm verify:replace-ready:proof:with-db\n');
+  process.stderr.write('run pnpm verify:server-next:doctor first, then set DATABASE_URL or SERVER_NEXT_DATABASE_URL and rerun pnpm verify:server-next:proof:with-db\n');
   process.exit(1);
 }
 
@@ -44,6 +44,7 @@ const childEnv = {
 };
 
 process.stdout.write('[replace-ready:proof:with-db] steps=verify:proof:with-db\n');
+process.stdout.write('[replace-ready:proof:with-db] gate=proof-with-db\n');
 process.stdout.write('[replace-ready:proof:with-db] start step=verify:proof:with-db\n');
 
 /**
@@ -66,4 +67,6 @@ if (result.status !== 0) {
 
 process.stdout.write('[replace-ready:proof:with-db] done step=verify:proof:with-db\n');
 process.stdout.write('[replace-ready:proof:with-db] completed\n');
+process.stdout.write('[replace-ready:proof:with-db] boundary=minimal auth/token/bootstrap proof only; this does not replace full with-db, acceptance, or full gate\n');
+process.stdout.write('[replace-ready:proof:with-db] next=run pnpm verify:server-next:with-db for the broader local database gate\n');
 process.exit(0);

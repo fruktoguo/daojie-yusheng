@@ -2,7 +2,6 @@
 /**
  * 用途：编排执行 server-next smoke 冒烟验证套件。
  */
-// TODO(next:VERIFY03): 继续统一 smoke-suite 与各子 smoke 的中文日志、异常文案和门禁边界提示，减少工具链口径漂移。
 
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
@@ -110,6 +109,22 @@ const smokeCases = [
     { name: 'persistence', scriptFile: 'persistence-smoke.js', standalone: true },
     { name: 'gm-database', scriptFile: 'gm-database-smoke.js', standalone: true },
 ];
+const LONG_RUNNING_SMOKE_TIMEOUT_MS = '20000';
+const LONG_RUNNING_SMOKE_CASES = new Set([
+    'session',
+    'next-auth-bootstrap',
+    'next-auth-bootstrap-mainline',
+    'next-auth-bootstrap-migration',
+    'monster-runtime',
+    'monster-combat',
+    'monster-ai',
+    'monster-skill',
+    'monster-reset',
+    'monster-loot',
+]);
+function resolveSmokeGateLabel() {
+    return hasDatabaseUrl() ? 'with-db' : 'local';
+}
 /**
  * 串联执行脚本主流程。
  */
@@ -122,10 +137,13 @@ async function main() {
  * 记录cases。
  */
     const cases = resolveSelectedCases();
+    const gate = resolveSmokeGateLabel();
 /**
  * 汇总执行结果。
  */
     const results = [];
+    process.stdout.write(`[server-next smoke] gate=${gate}\n`);
+    process.stdout.write(`[server-next smoke] cases=${cases.map((entry) => entry.name).join(', ')}\n`);
     for (const entry of cases) {
         if ((entry.name === 'persistence' || entry.name === 'gm-database') && !hasDatabaseUrl()) {
             results.push({
@@ -155,6 +173,7 @@ async function main() {
     for (const result of results) {
         process.stdout.write(`- ${result.name}: ${result.skipped ? 'skipped' : `${result.durationMs}ms`}\n`);
     }
+    process.stdout.write(`[server-next smoke] boundary=${gate === 'with-db' ? 'includes local + database smoke cases selected in this run' : 'local/no-db smoke only; this does not prove persistence, shadow, or destructive flows'}\n`);
     process.stdout.write(`[server-next smoke] total ${Date.now() - startedAt}ms\n`);
 }
 /**
@@ -388,6 +407,9 @@ function resolveCaseExtraEnv(entry) {
         extraEnv.NEXT_AUTH_TRACE_ENABLED = '1';
         extraEnv.SERVER_NEXT_AUTH_TRACE_ENABLED = '1';
         extraEnv.NEXT_AUTH_TRACE_FILE = path.join(packageRoot, '.runtime', `next-auth-trace-${traceSuffix}.jsonl`);
+    }
+    if (LONG_RUNNING_SMOKE_CASES.has(entry.name)) {
+        extraEnv.SERVER_NEXT_SMOKE_TIMEOUT_MS = LONG_RUNNING_SMOKE_TIMEOUT_MS;
     }
     return extraEnv;
 }

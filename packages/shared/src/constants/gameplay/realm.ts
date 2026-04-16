@@ -1,7 +1,7 @@
 import type { RealmNumericTemplate } from '../../numeric';
 import type { Attributes, BreakthroughItemRequirement } from '../../types';
 import { PlayerRealmStage, TechniqueRealm } from '../../types';
-import { ensureNumericStatsTemplateStats } from '../../numeric';
+import { ensureNumericRatioDivisorsTemplate, ensureNumericStatsTemplateStats } from '../../numeric';
 
 import {
   BASE_HIT,
@@ -208,7 +208,7 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
       elementDamageBonus: { ...ZERO_ELEMENT_STATS },
       elementDamageReduce: { ...ZERO_ELEMENT_STATS },
     }),
-    ratioDivisors: {
+    ratioDivisors: ensureNumericRatioDivisorsTemplate({
       dodge: 100,
       crit: 100,
       breakPower: 100,
@@ -222,7 +222,7 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
         fire: FIXED_ELEMENT_DAMAGE_REDUCE_DIVISOR,
         earth: FIXED_ELEMENT_DAMAGE_REDUCE_DIVISOR,
       },
-    },
+    }),
   },
   [PlayerRealmStage.BodyTempering]: {
     stage: PlayerRealmStage.BodyTempering,
@@ -260,7 +260,7 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
       elementDamageBonus: { ...ZERO_ELEMENT_STATS },
       elementDamageReduce: { ...ZERO_ELEMENT_STATS },
     }),
-    ratioDivisors: {
+    ratioDivisors: ensureNumericRatioDivisorsTemplate({
       dodge: 120,
       crit: 120,
       breakPower: 120,
@@ -274,7 +274,7 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
         fire: FIXED_ELEMENT_DAMAGE_REDUCE_DIVISOR,
         earth: FIXED_ELEMENT_DAMAGE_REDUCE_DIVISOR,
       },
-    },
+    }),
   },
   [PlayerRealmStage.BoneForging]: {
     stage: PlayerRealmStage.BoneForging,
@@ -312,7 +312,7 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
       elementDamageBonus: { ...ZERO_ELEMENT_STATS },
       elementDamageReduce: { ...ZERO_ELEMENT_STATS },
     }),
-    ratioDivisors: {
+    ratioDivisors: ensureNumericRatioDivisorsTemplate({
       dodge: 150,
       crit: 150,
       breakPower: 150,
@@ -326,7 +326,7 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
         fire: FIXED_ELEMENT_DAMAGE_REDUCE_DIVISOR,
         earth: FIXED_ELEMENT_DAMAGE_REDUCE_DIVISOR,
       },
-    },
+    }),
   },
   [PlayerRealmStage.Meridian]: {
     stage: PlayerRealmStage.Meridian,
@@ -364,7 +364,7 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
       elementDamageBonus: { ...ZERO_ELEMENT_STATS },
       elementDamageReduce: { ...ZERO_ELEMENT_STATS },
     }),
-    ratioDivisors: {
+    ratioDivisors: ensureNumericRatioDivisorsTemplate({
       dodge: 190,
       crit: 190,
       breakPower: 190,
@@ -378,7 +378,7 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
         fire: FIXED_ELEMENT_DAMAGE_REDUCE_DIVISOR,
         earth: FIXED_ELEMENT_DAMAGE_REDUCE_DIVISOR,
       },
-    },
+    }),
   },
   [PlayerRealmStage.Innate]: {
     stage: PlayerRealmStage.Innate,
@@ -416,7 +416,7 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
       elementDamageBonus: { ...ZERO_ELEMENT_STATS },
       elementDamageReduce: { ...ZERO_ELEMENT_STATS },
     }),
-    ratioDivisors: {
+    ratioDivisors: ensureNumericRatioDivisorsTemplate({
       dodge: 240,
       crit: 240,
       breakPower: 240,
@@ -430,7 +430,7 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
         fire: FIXED_ELEMENT_DAMAGE_REDUCE_DIVISOR,
         earth: FIXED_ELEMENT_DAMAGE_REDUCE_DIVISOR,
       },
-    },
+    }),
   },
   [PlayerRealmStage.QiRefining]: {
     stage: PlayerRealmStage.QiRefining,
@@ -468,7 +468,7 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
       elementDamageBonus: { ...ZERO_ELEMENT_STATS },
       elementDamageReduce: { ...ZERO_ELEMENT_STATS },
     }),
-    ratioDivisors: {
+    ratioDivisors: ensureNumericRatioDivisorsTemplate({
       dodge: 300,
       crit: 300,
       breakPower: 300,
@@ -482,7 +482,7 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
         fire: FIXED_ELEMENT_DAMAGE_REDUCE_DIVISOR,
         earth: FIXED_ELEMENT_DAMAGE_REDUCE_DIVISOR,
       },
-    },
+    }),
   },
   [PlayerRealmStage.Foundation]: {
     stage: PlayerRealmStage.Foundation,
@@ -520,7 +520,7 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
       elementDamageBonus: { ...ZERO_ELEMENT_STATS },
       elementDamageReduce: { ...ZERO_ELEMENT_STATS },
     }),
-    ratioDivisors: {
+    ratioDivisors: ensureNumericRatioDivisorsTemplate({
       dodge: 380,
       crit: 380,
       breakPower: 380,
@@ -534,9 +534,7 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
         fire: FIXED_ELEMENT_DAMAGE_REDUCE_DIVISOR,
         earth: FIXED_ELEMENT_DAMAGE_REDUCE_DIVISOR,
       },
-    },
+    }),
   },
 };
-
-
 

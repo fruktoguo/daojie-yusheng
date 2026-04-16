@@ -56,7 +56,7 @@ function startAuditServer(requestedPort) {
 /**
  * 记录match。
  */
-      const match = buffer.match(/Server Next running on http:\/\/[^:]+:(\d+)/);
+      const match = buffer.match(/(?:Server Next running on|服务端已运行于)\s+http:\/\/[^:]+:(\d+)/);
       if (match && !settled) {
         settled = true;
         clearTimeout(timeout);

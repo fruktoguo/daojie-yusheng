@@ -71,6 +71,10 @@ async function main() {
  */
     let legacyProtocolGuardSocket = null;
 /**
+ * 记录GM sessionId 守卫socket。
+ */
+    let gmSessionIdGuardSocket = null;
+/**
  * 记录socket。
  */
     let socket = null;
@@ -102,6 +106,10 @@ async function main() {
  * 记录legacy协议守卫错误。
  */
     let legacyProtocolGuardError = null;
+/**
+ * 记录GM sessionId 守卫错误。
+ */
+    let gmSessionIdGuardError = null;
     protocolGuardSocket.on(shared_1.NEXT_S2C.Error, (payload) => {
         protocolGuardError = payload ?? null;
     });
@@ -131,6 +139,25 @@ async function main() {
         return legacyProtocolGuardError?.code === resolveExpectedLegacySocketProtocolGuardCode();
     }, 5000, 'authenticated gm socket legacy protocol mismatch');
     legacyProtocolGuardSocket.close();
+    gmSessionIdGuardSocket = (0, socket_io_client_1.io)(SERVER_NEXT_URL, {
+        path: '/socket.io',
+        transports: ['websocket'],
+        forceNew: true,
+        auth: {
+            token: auth.accessToken,
+            gmToken,
+            protocol: 'next',
+            sessionId: `gm_forbidden_${suffix}`,
+        },
+    });
+    gmSessionIdGuardSocket.on(shared_1.NEXT_S2C.Error, (payload) => {
+        gmSessionIdGuardError = payload ?? null;
+    });
+    await onceConnected(gmSessionIdGuardSocket);
+    await waitFor(() => {
+        return gmSessionIdGuardError?.code === 'GM_SESSION_ID_FORBIDDEN';
+    }, 5000, 'authenticated gm socket requested sessionId forbidden');
+    gmSessionIdGuardSocket.close();
     if (!hasDatabaseUrl) {
         console.log(JSON.stringify({
             ok: true,
@@ -139,6 +166,7 @@ async function main() {
             reason: 'no_db_next_protocol_rejects_token_runtime',
             protocolGuardRejectedCode: protocolGuardError?.code ?? null,
             legacyProtocolGuardRejectedCode: legacyProtocolGuardError?.code ?? null,
+            gmSessionIdGuardRejectedCode: gmSessionIdGuardError?.code ?? null,
         }, null, 2));
         return;
     }
@@ -643,6 +671,7 @@ async function main() {
                 },
                 protocolGuardRejectedCode: protocolGuardError?.code ?? null,
                 legacyProtocolGuardRejectedCode: legacyProtocolGuardError?.code ?? null,
+                gmSessionIdGuardRejectedCode: gmSessionIdGuardError?.code ?? null,
                 spawnBotCount: socketSpawnBotCount,
                 update: {
                     x: socketUpdatedRuntime.x,
@@ -721,6 +750,7 @@ async function main() {
     finally {
         protocolGuardSocket?.close();
         legacyProtocolGuardSocket?.close();
+        gmSessionIdGuardSocket?.close();
         socket?.close();
         await cleanup(gmToken, auth?.playerId ?? '').catch(() => undefined);
     }

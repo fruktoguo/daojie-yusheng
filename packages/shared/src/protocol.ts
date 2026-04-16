@@ -2,8 +2,6 @@
  * 前后端通信协议：定义事件名，以及引导包、世界增量、面板增量、详情包等共享载荷。
  * NEXT_C2S = 客户端→服务端，NEXT_S2C = 服务端→客户端。
  */
-// TODO(next:T22): 把 bootstrap / panel / delta 的 shared 补全规则继续写硬，避免新增字段只落在单边协议实现。
-// TODO(next:T23): 为 shared 字段新增补全“初始化 / 克隆 / 重置 / 序列化 / 投影”一致性检查，并把检查提升成正式门禁。
 import type { ElementKey } from './numeric';
 import { Direction, PlayerState, Tile, VisibleTile, RenderEntity, MapMeta, Attributes, Inventory, EquipmentSlots, TechniqueState, ActionDef, AttrBonus, EquipSlot, EntityKind, NpcQuestMarker, ObservationInsight, PlayerRealmState, PlayerRealmStage, PlayerSpecialStats, QuestState, CombatEffect, AutoBattleSkillConfig, AutoUsePillConfig, AutoBattleTargetingMode, CombatTargetingRules, ItemType, QuestLine, QuestObjectiveType, GameTimeState, MapTimeConfig, MonsterAggroMode, MonsterTier, NumericStatPercentages, TechniqueCategory, TechniqueGrade, GroundItemPileView, LootSearchProgressView, VisibleBuffState, TemporaryBuffState, ActionType, SkillDef, TechniqueAttrCurves, TechniqueLayerDef, TechniqueRealm, GroundItemEntryView, LootSourceKind, MapMinimapArchiveEntry, MapMinimapMarker, MapMinimapSnapshot, Suggestion, ItemStack, EquipmentEffectDef, ConsumableBuffDef, MarketListedItemView, MarketOrderBookView, MarketOwnOrderView, MarketStorage, MarketTradeHistoryEntryView, MapRouteDomain, PortalRouteDomain, MailSummaryView, MailPageView, MailDetailView, MailFilter, MailTemplateArg, MailAttachment, BodyTrainingState, AlchemyIngredientSelection, AlchemyRecipeCatalogEntry, SyncedAlchemyPanelState, EnhancementTargetRef, SyncedEnhancementPanelState } from './types';
 import { NumericRatioDivisors, NumericStats, NumericStatBreakdownMap } from './numeric';
@@ -127,6 +125,12 @@ export const NEXT_S2C = {
   Pong: 'n:s:pong',
 } as const;
 
+/** next 客户端事件名联合。 */
+export type NEXT_C2S_EventName = typeof NEXT_C2S[keyof typeof NEXT_C2S];
+
+/** next 服务端事件名联合。 */
+export type NEXT_S2C_EventName = typeof NEXT_S2C[keyof typeof NEXT_S2C];
+
 /** 首次连接引导包：同步自身状态、首屏地图和小地图图鉴。 */
 export interface NEXT_S2C_Bootstrap {
   self: PlayerState;
@@ -149,6 +153,14 @@ export interface NEXT_S2C_QuestNavigateResult {
   questId: string;
   ok: boolean;
   error?: string;
+}
+
+/** 握手就绪声明：游客链路仅允许声明续连 sid 或首登落点。 */
+export interface NEXT_C2S_Hello {
+  sessionId?: string;
+  mapId?: string;
+  preferredX?: number;
+  preferredY?: number;
 }
 
 /** 兑换码兑换结果：返回每个兑换码的奖励结果。 */
@@ -659,6 +671,9 @@ export interface NEXT_C2S_CancelMarketOrder {
 /** 领取坊市寄售仓库。 */
 export interface NEXT_C2S_ClaimMarketStorage {}
 
+/** 请求触发当前位置传送点。 */
+export interface NEXT_C2S_UsePortal {}
+
 /** 请求 NPC 商店面板。 */
 export interface NEXT_C2S_RequestNpcShop {
   npcId: string;
@@ -1019,6 +1034,14 @@ export interface NEXT_C2S_Unequip {
 /** 开始或停止修炼功法。 */
 export interface NEXT_C2S_Cultivate {
   techId: string | null; // null 表示停止修炼
+}
+
+/** 释放技能。 */
+export interface NEXT_C2S_CastSkill {
+  skillId: string;
+  targetPlayerId?: string | null;
+  targetMonsterId?: string | null;
+  targetRef?: string | null;
 }
 
 /** 兑换码提交请求。 */
@@ -1701,6 +1724,131 @@ export interface NEXT_C2S_GmRemoveSuggestion {
 export interface NEXT_S2C_SuggestionUpdate {
   suggestions: Suggestion[];
 }
+
+/** next 客户端事件与载荷映射，作为 client/server/shared 的统一类型真源。 */
+export interface NEXT_C2S_PayloadMap extends Record<NEXT_C2S_EventName, unknown> {
+  [NEXT_C2S.Hello]: NEXT_C2S_Hello;
+  [NEXT_C2S.Move]: NEXT_C2S_Move;
+  [NEXT_C2S.MoveTo]: NEXT_C2S_MoveTo;
+  [NEXT_C2S.NavigateQuest]: NEXT_C2S_NavigateQuest;
+  [NEXT_C2S.Heartbeat]: NEXT_C2S_Heartbeat;
+  [NEXT_C2S.UseAction]: NEXT_C2S_Action;
+  [NEXT_C2S.RequestDetail]: NEXT_C2S_RequestDetail;
+  [NEXT_C2S.RequestTileDetail]: NEXT_C2S_InspectTileRuntime;
+  [NEXT_C2S.GmGetState]: NEXT_C2S_GmGetState;
+  [NEXT_C2S.GmSpawnBots]: NEXT_C2S_GmSpawnBots;
+  [NEXT_C2S.GmRemoveBots]: NEXT_C2S_GmRemoveBots;
+  [NEXT_C2S.GmUpdatePlayer]: NEXT_C2S_GmUpdatePlayer;
+  [NEXT_C2S.GmResetPlayer]: NEXT_C2S_GmResetPlayer;
+  [NEXT_C2S.RequestSuggestions]: NEXT_C2S_RequestSuggestions;
+  [NEXT_C2S.CreateSuggestion]: NEXT_C2S_CreateSuggestion;
+  [NEXT_C2S.VoteSuggestion]: NEXT_C2S_VoteSuggestion;
+  [NEXT_C2S.ReplySuggestion]: NEXT_C2S_ReplySuggestion;
+  [NEXT_C2S.MarkSuggestionRepliesRead]: NEXT_C2S_MarkSuggestionRepliesRead;
+  [NEXT_C2S.GmMarkSuggestionCompleted]: NEXT_C2S_GmMarkSuggestionCompleted;
+  [NEXT_C2S.GmRemoveSuggestion]: NEXT_C2S_GmRemoveSuggestion;
+  [NEXT_C2S.RequestMailSummary]: NEXT_C2S_RequestMailSummary;
+  [NEXT_C2S.RequestMailPage]: NEXT_C2S_RequestMailPage;
+  [NEXT_C2S.RequestMailDetail]: NEXT_C2S_RequestMailDetail;
+  [NEXT_C2S.RedeemCodes]: NEXT_C2S_RedeemCodes;
+  [NEXT_C2S.MarkMailRead]: NEXT_C2S_MarkMailRead;
+  [NEXT_C2S.ClaimMailAttachments]: NEXT_C2S_ClaimMailAttachments;
+  [NEXT_C2S.DeleteMail]: NEXT_C2S_DeleteMail;
+  [NEXT_C2S.RequestQuests]: NEXT_C2S_RequestQuests;
+  [NEXT_C2S.RequestNpcQuests]: NEXT_C2S_RequestNpcQuests;
+  [NEXT_C2S.AcceptNpcQuest]: NEXT_C2S_AcceptNpcQuest;
+  [NEXT_C2S.SubmitNpcQuest]: NEXT_C2S_SubmitNpcQuest;
+  [NEXT_C2S.RequestMarket]: NEXT_C2S_RequestMarket;
+  [NEXT_C2S.RequestMarketListings]: NEXT_C2S_RequestMarketListings;
+  [NEXT_C2S.RequestMarketItemBook]: NEXT_C2S_RequestMarketItemBook;
+  [NEXT_C2S.RequestMarketTradeHistory]: NEXT_C2S_RequestMarketTradeHistory;
+  [NEXT_C2S.RequestAttrDetail]: NEXT_C2S_RequestAttrDetail;
+  [NEXT_C2S.RequestLeaderboard]: NEXT_C2S_RequestLeaderboard;
+  [NEXT_C2S.RequestWorldSummary]: NEXT_C2S_RequestWorldSummary;
+  [NEXT_C2S.CreateMarketSellOrder]: NEXT_C2S_CreateMarketSellOrder;
+  [NEXT_C2S.CreateMarketBuyOrder]: NEXT_C2S_CreateMarketBuyOrder;
+  [NEXT_C2S.BuyMarketItem]: NEXT_C2S_BuyMarketItem;
+  [NEXT_C2S.SellMarketItem]: NEXT_C2S_SellMarketItem;
+  [NEXT_C2S.CancelMarketOrder]: NEXT_C2S_CancelMarketOrder;
+  [NEXT_C2S.ClaimMarketStorage]: NEXT_C2S_ClaimMarketStorage;
+  [NEXT_C2S.UsePortal]: NEXT_C2S_UsePortal;
+  [NEXT_C2S.UseItem]: NEXT_C2S_UseItem;
+  [NEXT_C2S.DropItem]: NEXT_C2S_DropItem;
+  [NEXT_C2S.DestroyItem]: NEXT_C2S_DestroyItem;
+  [NEXT_C2S.TakeGround]: NEXT_C2S_TakeLoot;
+  [NEXT_C2S.SortInventory]: NEXT_C2S_SortInventory;
+  [NEXT_C2S.Equip]: NEXT_C2S_Equip;
+  [NEXT_C2S.Unequip]: NEXT_C2S_Unequip;
+  [NEXT_C2S.Cultivate]: NEXT_C2S_Cultivate;
+  [NEXT_C2S.CastSkill]: NEXT_C2S_CastSkill;
+  [NEXT_C2S.RequestNpcShop]: NEXT_C2S_RequestNpcShop;
+  [NEXT_C2S.BuyNpcShopItem]: NEXT_C2S_BuyNpcShopItem;
+  [NEXT_C2S.RequestAlchemyPanel]: NEXT_C2S_RequestAlchemyPanel;
+  [NEXT_C2S.SaveAlchemyPreset]: NEXT_C2S_SaveAlchemyPreset;
+  [NEXT_C2S.DeleteAlchemyPreset]: NEXT_C2S_DeleteAlchemyPreset;
+  [NEXT_C2S.StartAlchemy]: NEXT_C2S_StartAlchemy;
+  [NEXT_C2S.CancelAlchemy]: NEXT_C2S_CancelAlchemy;
+  [NEXT_C2S.RequestEnhancementPanel]: NEXT_C2S_RequestEnhancementPanel;
+  [NEXT_C2S.StartEnhancement]: NEXT_C2S_StartEnhancement;
+  [NEXT_C2S.CancelEnhancement]: NEXT_C2S_CancelEnhancement;
+  [NEXT_C2S.UpdateAutoBattleSkills]: NEXT_C2S_UpdateAutoBattleSkills;
+  [NEXT_C2S.UpdateAutoUsePills]: NEXT_C2S_UpdateAutoUsePills;
+  [NEXT_C2S.UpdateCombatTargetingRules]: NEXT_C2S_UpdateCombatTargetingRules;
+  [NEXT_C2S.UpdateAutoBattleTargetingMode]: NEXT_C2S_UpdateAutoBattleTargetingMode;
+  [NEXT_C2S.UpdateTechniqueSkillAvailability]: NEXT_C2S_UpdateTechniqueSkillAvailability;
+  [NEXT_C2S.DebugResetSpawn]: NEXT_C2S_DebugResetSpawn;
+  [NEXT_C2S.Chat]: NEXT_C2S_Chat;
+  [NEXT_C2S.AckSystemMessages]: NEXT_C2S_AckSystemMessages;
+  [NEXT_C2S.HeavenGateAction]: NEXT_C2S_HeavenGateAction;
+  [NEXT_C2S.Ping]: NEXT_C2S_Ping;
+}
+
+/** next 服务端事件与载荷映射，作为 bootstrap/panel/delta 的共享护栏。 */
+export interface NEXT_S2C_PayloadMap extends Record<NEXT_S2C_EventName, unknown> {
+  [NEXT_S2C.Bootstrap]: NEXT_S2C_Bootstrap;
+  [NEXT_S2C.InitSession]: NEXT_S2C_InitSession;
+  [NEXT_S2C.MapEnter]: NEXT_S2C_MapEnter;
+  [NEXT_S2C.MapStatic]: NEXT_S2C_MapStatic;
+  [NEXT_S2C.Realm]: NEXT_S2C_Realm;
+  [NEXT_S2C.WorldDelta]: NEXT_S2C_WorldDelta;
+  [NEXT_S2C.SelfDelta]: NEXT_S2C_SelfDelta;
+  [NEXT_S2C.PanelDelta]: NEXT_S2C_PanelDelta;
+  [NEXT_S2C.LootWindowUpdate]: NEXT_S2C_LootWindowUpdate;
+  [NEXT_S2C.QuestNavigateResult]: NEXT_S2C_QuestNavigateResult;
+  [NEXT_S2C.Notice]: NEXT_S2C_Notice;
+  [NEXT_S2C.SuggestionUpdate]: NEXT_S2C_SuggestionUpdate;
+  [NEXT_S2C.MailSummary]: NEXT_S2C_MailSummary;
+  [NEXT_S2C.MailPage]: NEXT_S2C_MailPage;
+  [NEXT_S2C.MailDetail]: NEXT_S2C_MailDetail;
+  [NEXT_S2C.RedeemCodesResult]: NEXT_S2C_RedeemCodesResult;
+  [NEXT_S2C.MailOpResult]: NEXT_S2C_MailOpResult;
+  [NEXT_S2C.Quests]: NEXT_S2C_QuestUpdate;
+  [NEXT_S2C.NpcQuests]: NEXT_S2C_NpcQuests;
+  [NEXT_S2C.MarketUpdate]: NEXT_S2C_MarketUpdate;
+  [NEXT_S2C.MarketListings]: NEXT_S2C_MarketListings;
+  [NEXT_S2C.MarketOrders]: NEXT_S2C_MarketOrders;
+  [NEXT_S2C.MarketStorage]: NEXT_S2C_MarketStorage;
+  [NEXT_S2C.MarketItemBook]: NEXT_S2C_MarketItemBook;
+  [NEXT_S2C.MarketTradeHistory]: NEXT_S2C_MarketTradeHistory;
+  [NEXT_S2C.AttrDetail]: NEXT_S2C_AttrDetail;
+  [NEXT_S2C.Leaderboard]: NEXT_S2C_Leaderboard;
+  [NEXT_S2C.WorldSummary]: NEXT_S2C_WorldSummary;
+  [NEXT_S2C.Detail]: NEXT_S2C_Detail;
+  [NEXT_S2C.TileDetail]: NEXT_S2C_TileDetail;
+  [NEXT_S2C.NpcShop]: NEXT_S2C_NpcShop;
+  [NEXT_S2C.AlchemyPanel]: NEXT_S2C_AlchemyPanel;
+  [NEXT_S2C.EnhancementPanel]: NEXT_S2C_EnhancementPanel;
+  [NEXT_S2C.GmState]: NEXT_S2C_GmState;
+  [NEXT_S2C.Error]: NEXT_S2C_Error;
+  [NEXT_S2C.Kick]: undefined;
+  [NEXT_S2C.Pong]: NEXT_S2C_Pong;
+}
+
+/** 根据 next 客户端事件名读取对应载荷类型。 */
+export type NEXT_C2S_EventPayload<TEvent extends NEXT_C2S_EventName> = NEXT_C2S_PayloadMap[TEvent];
+
+/** 根据 next 服务端事件名读取对应载荷类型。 */
+export type NEXT_S2C_EventPayload<TEvent extends NEXT_S2C_EventName> = NEXT_S2C_PayloadMap[TEvent];
 
 /** GM 发信请求，支持模板或自定义正文。 */
 export interface GmCreateMailReq {

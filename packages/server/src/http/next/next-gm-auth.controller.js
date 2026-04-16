@@ -20,14 +20,26 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.NextGmAuthController = void 0;
 const common_1 = require("@nestjs/common");
 const next_gm_auth_guard_1 = require("./next-gm-auth.guard");
+const next_auth_rate_limit_service_1 = require("./next-auth-rate-limit.service");
 const runtime_gm_auth_service_1 = require("../../runtime/gm/runtime-gm-auth.service");
 let NextGmAuthController = class NextGmAuthController {
     authService;
-    constructor(authService) {
+    rateLimitService;
+    constructor(authService, rateLimitService) {
         this.authService = authService;
+        this.rateLimitService = rateLimitService;
     }
-    async login(body) {
-        return this.authService.login(body?.password ?? '');
+    async login(body, request) {
+        this.rateLimitService.assertAllowed('gmLogin', request, 'gm');
+        try {
+            const result = await this.authService.login(body?.password ?? '');
+            this.rateLimitService.recordSuccess('gmLogin', request, 'gm');
+            return result;
+        }
+        catch (error) {
+            this.rateLimitService.recordFailure('gmLogin', request, 'gm');
+            throw error;
+        }
     }
     async changePassword(body) {
         await this.authService.changePassword(body?.currentPassword ?? '', body?.newPassword ?? '');
@@ -38,8 +50,9 @@ exports.NextGmAuthController = NextGmAuthController;
 __decorate([
     (0, common_1.Post)('gm/login'),
     __param(0, (0, common_1.Body)()),
+    __param(1, (0, common_1.Req)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
+    __metadata("design:paramtypes", [Object, Object]),
     __metadata("design:returntype", Promise)
 ], NextGmAuthController.prototype, "login", null);
 __decorate([
@@ -52,8 +65,8 @@ __decorate([
 ], NextGmAuthController.prototype, "changePassword", null);
 exports.NextGmAuthController = NextGmAuthController = __decorate([
     (0, common_1.Controller)('api/auth'),
-    __metadata("design:paramtypes", [runtime_gm_auth_service_1.RuntimeGmAuthService])
+    __metadata("design:paramtypes", [runtime_gm_auth_service_1.RuntimeGmAuthService,
+        next_auth_rate_limit_service_1.NextAuthRateLimitService])
 ], NextGmAuthController);
-
 
 
