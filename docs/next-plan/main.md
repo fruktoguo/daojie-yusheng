@@ -87,7 +87,7 @@
 - [x] 列出市场相关数据
 - [x] 列出建议 / 回复相关数据
 - [x] 列出兑换码和 GM 必要持久化数据
-- [ ] 对每个数据域写清 legacy 来源、next 目标、转换规则、默认值、可丢弃项
+- [x] 对每个数据域写清 legacy 来源、next 目标、转换规则、默认值、可丢弃项
 - [x] 把这份数据清单单独落成文档
 
 ## 5. 写一次性迁移脚本
@@ -120,9 +120,9 @@
 
 - [05 删除 compat 与桥接层](./05-remove-compat-and-bridges.md)
 
-- [ ] 盘点 `packages/server/src/network/` 下仍然存在的 compat / bridge 入口
-- [ ] 盘点 `packages/server/src/persistence/` 下仍然存在的 compat 读取入口
-- [ ] 盘点 `packages/client/src/` 下仍然存在的旧协议 alias / 旧 UI 兼容入口
+- [x] 盘点 `packages/server/src/network/` 下仍然存在的 compat / bridge 入口
+- [x] 盘点 `packages/server/src/persistence/` 下仍然存在的 compat 读取入口
+- [x] 盘点 `packages/client/src/` 下仍然存在的旧协议 alias / 旧 UI 兼容入口
 - [ ] 删除只为 legacy 让路的旧事件名兼容
 - [ ] 删除只为 parity 存在的双路径处理分支
 - [ ] 删除不再需要的 legacy wrapper / facade
@@ -193,14 +193,14 @@
 
 - [09 验证门禁与验收](./09-verification-and-acceptance.md)
 
-- [ ] 把 `local / with-db / acceptance / full / shadow-destructive` 继续固定为唯一门禁口径
+- [x] 把 `local / with-db / acceptance / full / shadow-destructive` 继续固定为唯一门禁口径
 - [ ] 给“数据迁移完成”补一条迁移 proof 链
 - [x] 跑通 `pnpm build`
 - [x] 跑通 `pnpm verify:replace-ready`
-- [ ] 跑通 `pnpm verify:replace-ready:with-db`
-- [ ] 跑通 `pnpm verify:replace-ready:acceptance`
-- [ ] 跑通 `pnpm verify:replace-ready:full`
-- [ ] 确认这些门禁都以 next 主链为口径，不再默认证明 legacy 对齐
+- [x] 跑通 `pnpm verify:replace-ready:with-db`
+- [x] 跑通 `pnpm verify:replace-ready:acceptance`
+- [x] 跑通 `pnpm verify:replace-ready:full`
+- [x] 确认这些门禁都以 next 主链为口径，不再默认证明 legacy 对齐
 
 ## 12. legacy 归档收尾
 
@@ -228,7 +228,7 @@
 
 ## 14. 当前建议顺序
 
-- [ ] 先完成“必须迁移的数据清单”
+- [x] 先完成“必须迁移的数据清单”
 - [ ] 再补协议空洞和最外层 compat 删除
 - [ ] 再写一次性迁移脚本
 - [ ] 再做 server/client/shared 主链收口

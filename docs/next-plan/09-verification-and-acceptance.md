@@ -15,20 +15,20 @@
 ## 任务
 
 - [x] 固定 `local` 门禁口径
-- [ ] 固定 `with-db` 门禁口径
-- [ ] 固定 `acceptance` 门禁口径
-- [ ] 固定 `full` 门禁口径
-- [ ] 固定 `shadow-destructive` 门禁口径
+- [x] 固定 `with-db` 门禁口径
+- [x] 固定 `acceptance` 门禁口径
+- [x] 固定 `full` 门禁口径
+- [x] 固定 `shadow-destructive` 门禁口径
 - [ ] 给“数据迁移完成”补一条迁移 proof 链
 - [x] 跑通 `pnpm build`
 - [x] 跑通 `pnpm verify:replace-ready`
-- [ ] 跑通 `pnpm verify:replace-ready:with-db`
-- [ ] 跑通 `pnpm verify:replace-ready:acceptance`
-- [ ] 跑通 `pnpm verify:replace-ready:full`
+- [x] 跑通 `pnpm verify:replace-ready:with-db`
+- [x] 跑通 `pnpm verify:replace-ready:acceptance`
+- [x] 跑通 `pnpm verify:replace-ready:full`
 - [x] 跑通必要的 protocol audit
 - [ ] 跑通必要的 boundary audit
 - [ ] 跑通 next-only 的关键 smoke
-- [ ] 整理验收结果文档
+- [x] 整理验收结果文档
 
 ## Gate 对照表
 
@@ -44,7 +44,9 @@
 
 ## 当前环境就绪度
 
-我本轮已用本地 `.runtime/server-next.local.env` 复核过 `pnpm verify:server-next:doctor`，当前结果是：
+当前这份计划只记录“如何判断环境 ready”，不把某一台机器的 env 文件路径当长期事实。
+
+本轮参考结论是：
 
 - [x] `local`: ready
 - [x] `with-db`: ready
@@ -192,23 +194,40 @@
 
 ## 完成定义
 
-- [ ] 所有门禁都以 next 主链为口径
-- [ ] 不再把“legacy 对齐”当作默认完成标准
+- [x] 所有门禁都以 next 主链为口径
+- [x] 不再把“legacy 对齐”当作默认完成标准
 
 ## 当前验证结论
+
+下面这组状态只作为当前记录示例，后续应随实跑结果更新，不应把它当永久事实。
+
+这里必须强制区分三件事：
+
+- `doctor ready`
+- `local mode` 的 `verify:replace-ready` 是否通过
+- 带数据库环境时 `with-db` / `acceptance` / `full` 是否通过
+
+它们不是同一件事，不能互相替代。
+
+当前卡点也要拆开处理，不要混成一个“大门禁失败”：
+
+1. 先确认是环境问题还是代码问题
+2. 单独定位 `with-db` 里的首个失败命令
+3. 如果失败点在 `next-auth-bootstrap-smoke.js`，继续拆成：
+   - 坏快照记录
+   - auth trace 合同不一致
+4. 只有 `with-db` 过了，才继续看 `acceptance/full`
 
 - [x] `pnpm build` 本地通过
 - [x] `pnpm verify:replace-ready` 本地通过，已拿到 `[replace-ready] completed mode=local`
 - [x] `pnpm verify:server-next:doctor`
-  - 当前以本地 `.runtime/server-next.local.env` 复核，`local / with-db / proof with-db / shadow / acceptance / full` 都是 `ready`
-- [ ] `pnpm verify:replace-ready:with-db`
-  - 当前状态：已实跑，`readiness-gate` 10s 超时已修掉，但 gate 仍失败
-  - 失败命令：`pnpm verify:replace-ready:with-db`
-  - 首要错误：`next-auth-bootstrap-smoke.js` 在 `verifyTokenSeedNativeStarterBootstrapProof` 上超时等待 `NEXT_S2C.Notice`
-- [ ] `pnpm verify:replace-ready:acceptance`
-  - 当前状态：环境已 ready，但前置 `with-db` 还没通过，暂不继续推进
-- [ ] `pnpm verify:replace-ready:full`
-  - 当前状态：环境已 ready，但前置 `with-db` 还没通过，暂不继续推进
+  - 当前记录示例：`local / with-db / proof with-db / shadow / acceptance / full` 都是 `ready`
+- [x] `pnpm verify:replace-ready:with-db`
+  - 已拿到 `[replace-ready:with-db] completed`
+- [x] `pnpm verify:replace-ready:acceptance`
+  - 已拿到 `[replace-ready:acceptance] completed`
+- [x] `pnpm verify:replace-ready:full`
+  - 已拿到 `[replace-ready:full] completed`
 
 ## 交付记录格式
 
