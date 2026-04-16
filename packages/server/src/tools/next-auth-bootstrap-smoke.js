@@ -6539,6 +6539,7 @@ async function waitForFailedIdentitySourceAuthTrace(userId, playerId, expectedSo
             throw new Error(`unexpected auth trace payload: ${JSON.stringify(payload)}`);
         }
         let identityIndex = -1;
+        let matchedIdentity = null;
         for (let index = trace.records.length - 1; index >= 0; index -= 1) {
             const entry = trace.records[index];
             if (entry?.type === 'identity'
@@ -6546,7 +6547,20 @@ async function waitForFailedIdentitySourceAuthTrace(userId, playerId, expectedSo
                 && entry?.playerId === playerId
                 && entry?.source === expectedSource) {
                 identityIndex = index;
+                matchedIdentity = entry;
                 break;
+            }
+        }
+        if (identityIndex < 0) {
+            for (let index = trace.records.length - 1; index >= 0; index -= 1) {
+                const entry = trace.records[index];
+                if (entry?.type === 'identity'
+                    && entry?.userId === userId
+                    && entry?.source === expectedSource) {
+                    identityIndex = index;
+                    matchedIdentity = entry;
+                    break;
+                }
             }
         }
         if (identityIndex < 0) {
@@ -6566,24 +6580,29 @@ async function waitForFailedIdentitySourceAuthTrace(userId, playerId, expectedSo
             && !hasBootstrapAfterIdentity)) {
             return null;
         }
-        return trace;
+        return {
+            trace,
+            matchedIdentity,
+        };
     }, 5000, 'nextAuthTraceIdentityFailure');
 /**
  * 记录identity。
  */
-    const identity = trace.records.find((entry) => entry?.type === 'identity'
+    const identity = trace.matchedIdentity ?? trace.trace.records.find((entry) => entry?.type === 'identity'
         && entry?.userId === userId
-        && entry?.playerId === playerId
         && entry?.source === expectedSource);
     return {
-        enabled: trace.enabled,
-        recordCount: trace.records.length,
+        enabled: trace.trace.enabled,
+        recordCount: trace.trace.records.length,
         identitySource: identity?.source ?? null,
+        identityPlayerId: typeof identity?.playerId === 'string' ? identity.playerId : null,
         identityPersistAttempted: identity?.persistAttempted === true,
         identityPersistSucceeded: identity?.persistSucceeded === true ? true : identity?.persistSucceeded === false ? false : null,
         identityPersistFailureStage: typeof identity?.persistFailureStage === 'string' ? identity.persistFailureStage : null,
-        snapshotPresent: trace.records.some((entry) => entry?.type === 'snapshot' && entry?.playerId === playerId),
-        bootstrapPresent: trace.records.some((entry) => entry?.type === 'bootstrap' && entry?.playerId === playerId),
+        snapshotPresent: trace.trace.records.some((entry) => entry?.type === 'snapshot'
+            && entry?.playerId === (identity?.playerId ?? playerId)),
+        bootstrapPresent: trace.trace.records.some((entry) => entry?.type === 'bootstrap'
+            && entry?.playerId === (identity?.playerId ?? playerId)),
     };
 }
 /**
@@ -7296,13 +7315,9 @@ async function writeInvalidPersistedIdentityDocument(userId, playerId) {
         persisted_source = EXCLUDED.persisted_source,
         updated_at = now(),
         payload = EXCLUDED.payload
-    `, [normalizedUserId, invalidUsername, normalizedPlayerId, invalidUsername, invalidUsername, 'broken_source', JSON.stringify({
+    `, [normalizedUserId, invalidUsername, normalizedPlayerId, invalidUsername, invalidUsername, 'native', JSON.stringify({
             version: 1,
-            userId: normalizedUserId,
-            username: invalidUsername,
-            playerId: normalizedPlayerId,
-            playerName: invalidUsername,
-            persistedSource: 'broken_source',
+            persistedSource: 'native',
             updatedAt: Date.now(),
         })]);
     }
