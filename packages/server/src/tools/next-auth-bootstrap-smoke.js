@@ -932,12 +932,19 @@ async function runNextBootstrap(token, expectedIdentity = null, options = undefi
         let recoveryNoticePersisted = false;
         if (typeof options?.expectedNoticeMessageId === 'string' && options.expectedNoticeMessageId.trim()) {
             const expectedNoticeMessageId = options.expectedNoticeMessageId.trim();
-            const existingNoticeItems = flattenNoticeItems(successSocket.listEventPayloads(shared_1.NEXT_S2C.Notice));
-            recoveryNoticeDelivered = existingNoticeItems.some((item) => item?.messageId === expectedNoticeMessageId);
-            recoveryNoticePersisted = hasPendingLogbookMessage(state, expectedNoticeMessageId);
+            const refreshRecoveryNoticeState = async () => {
+                const existingNoticeItems = flattenNoticeItems(successSocket.listEventPayloads(shared_1.NEXT_S2C.Notice));
+                recoveryNoticeDelivered = existingNoticeItems.some((item) => item?.messageId === expectedNoticeMessageId);
+                if (recoveryNoticeDelivered) {
+                    return true;
+                }
+                const latestState = await fetchPlayerState(runtimePlayerId);
+                recoveryNoticePersisted = hasPendingLogbookMessage(latestState, expectedNoticeMessageId);
+                return recoveryNoticePersisted;
+            };
+            await refreshRecoveryNoticeState();
             if (!recoveryNoticeDelivered && !recoveryNoticePersisted) {
-                const noticePayload = await successSocket.waitForEvent(shared_1.NEXT_S2C.Notice, (payload) => flattenNoticeItems([payload]).some((item) => item?.messageId === expectedNoticeMessageId), 5000);
-                recoveryNoticeDelivered = flattenNoticeItems([noticePayload]).some((item) => item?.messageId === expectedNoticeMessageId);
+                await waitFor(() => refreshRecoveryNoticeState(), 5000, `snapshotRecoveryNotice:${expectedNoticeMessageId}`);
             }
             if (!recoveryNoticeDelivered && !recoveryNoticePersisted) {
                 throw new Error(`expected snapshot recovery notice to be delivered or persisted: ${expectedNoticeMessageId}`);

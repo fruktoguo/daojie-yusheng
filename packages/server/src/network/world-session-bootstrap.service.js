@@ -416,6 +416,28 @@ let WorldSessionBootstrapService = class WorldSessionBootstrapService {
         }
         return recovery && typeof recovery === 'object' ? recovery : null;
     }
+    /** 当临时 recovery 上下文丢失时，尝试用 bootstrap 真源上下文回推恢复合同。 */
+    resolveAuthenticatedSnapshotRecovery(client) {
+        const directRecovery = this.consumeAuthenticatedSnapshotRecovery(client);
+        if (directRecovery) {
+            return directRecovery;
+        }
+        const snapshotSource = this.resolveBootstrapSnapshotSource(client);
+        const identityPersistedSource = this.resolveBootstrapIdentityPersistedSource(client);
+        const snapshotPersistedSource = this.resolveBootstrapSnapshotPersistedSource(client);
+        const matchesTokenSeedNativeRecovery = identityPersistedSource === 'token_seed'
+            && snapshotPersistedSource === 'native';
+        if (snapshotSource !== 'recovery_native' && !matchesTokenSeedNativeRecovery) {
+            return null;
+        }
+        return {
+            identityPersistedSource,
+            snapshotPersistedSource,
+            recoveryReason: snapshotSource === 'recovery_native'
+                ? 'bootstrap_context:recovery_native'
+                : 'bootstrap_context:token_seed_native',
+        };
+    }
     /** 生成快照恢复提示文案。 */
     buildAuthenticatedSnapshotRecoveryMessage(recovery) {
 
@@ -428,7 +450,7 @@ let WorldSessionBootstrapService = class WorldSessionBootstrapService {
     /** 将快照恢复结果写入玩家日志书，供客户端确认。 */
     emitAuthenticatedSnapshotRecoveryNotice(client, playerId) {
 
-        const recovery = this.consumeAuthenticatedSnapshotRecovery(client);
+        const recovery = this.resolveAuthenticatedSnapshotRecovery(client);
         if (!recovery) {
             return null;
         }
