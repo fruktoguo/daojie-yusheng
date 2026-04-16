@@ -21,7 +21,6 @@ import {
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from './floating-tooltip';
 import {
   appendChannelMessages,
-  clearPreviousChatStorage,
   loadOlderChannelMessages,
   loadRecentChannelMessages,
 } from './chat-storage';
@@ -327,7 +326,6 @@ export class ChatUI {
   private hoveredDamageTooltipTarget: HTMLElement | null = null;
 
   constructor() {
-    clearPreviousChatStorage();
     this.sendBtn.addEventListener('click', () => this.submit());
     this.input.addEventListener('keydown', (event) => {
       if (event.key === 'Enter') {

@@ -3568,7 +3568,7 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
         <button class="small-btn" type="button" data-action="save-player-account">修改账号</button>
         <button class="small-btn" type="button" data-action="save-player-password">修改账号密码</button>
       </div>
-      <div class="editor-note">密码只会提交到服务端，并由服务端写入 bcrypt 哈希，不会以明文落库。</div>
+      <div class="editor-note">密码只会提交到服务端，并由服务端写入 next scrypt 哈希，不会以明文落库。</div>
       ${activity.note ? `<div class="editor-note">${escapeHtml(activity.note)}</div>` : ''}
       ${catalogFallbackNote ? `<div class="editor-note">${escapeHtml(catalogFallbackNote)}</div>` : ''}
       ` : '<div class="editor-note">当前目标没有可编辑的账号信息，通常是机器人或异常存档。</div>'}

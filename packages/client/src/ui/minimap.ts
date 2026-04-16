@@ -2,8 +2,6 @@
  * 小地图与大地图浏览器
  * 提供角落缩略图、全屏地图弹窗、地图目录切换、缩放平移、点击前往等功能
  */
-// TODO(next:UI06): 把 minimap 的目录/弹层主体继续从模板型 modal 收成稳定 patch，并统一桌面/手机模式下的局部更新路径。
-
 import { getTileTypeFromMapChar, GroundItemPileView, isTileTypeWalkable, MapMeta, MapMinimapMarker, MapMinimapSnapshot, MINIMAP_MARKER_COLORS, Tile, TILE_MINIMAP_COLORS, TileType } from '@mud/shared-next';
 import { deleteRememberedMap, getRememberedMarkers, getRememberedTiles, listRememberedMapIds } from '../map-memory';
 import { getCachedMapMeta, getCachedMapSnapshot, listCachedUnlockedMapSummaries } from '../map-static-cache';
@@ -1253,34 +1251,14 @@ export class Minimap {
       title: '确认前往',
       subtitle: `${mapMeta.name} · 坐标 (${x}, ${y})`,
       hint: '点击空白处取消',
-      bodyHtml: `
-        <div class="panel-section">
-          <div class="empty-hint">将角色移动至该坐标。实际是否可达仍以服务端寻路与通行判定为准。</div>
-        </div>
-        <div class="tech-modal-actions ui-modal-footer-actions">
-          <button class="small-btn ghost" type="button" data-map-move-cancel>取消</button>
-          <button class="small-btn" type="button" data-map-move-confirm>确认前往</button>
-        </div>
-      `,
+      renderBody: (body) => {
+        body.replaceChildren(
+          this.createConfirmMessage('将角色移动至该坐标。实际是否可达仍以服务端寻路与通行判定为准。'),
+          this.createMoveConfirmActions(x, y),
+        );
+      },
       onClose: () => {
         this.pendingMovePoint = null;
-      },
-      onAfterRender: (body) => {
-        body.querySelector<HTMLElement>('[data-map-move-cancel]')?.addEventListener('click', (event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          this.closeMoveConfirm();
-        });
-        body.querySelector<HTMLElement>('[data-map-move-confirm]')?.addEventListener('click', (event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          if (!this.moveHandler) {
-            this.closeMoveConfirm();
-            return;
-          }
-          this.moveHandler(x, y);
-          this.closeMoveConfirm();
-        });
       },
     });
   }
@@ -1307,27 +1285,82 @@ export class Minimap {
       title: '删除本地记忆',
       subtitle: mapName,
       hint: '点击空白处取消',
-      bodyHtml: `
-        <div class="panel-section">
-          <div class="empty-hint">只会删除这张地图的本地记忆，不会影响已解锁整图。若你当前正站在该地图，视野内正在看到的部分会重新记入。</div>
-        </div>
-        <div class="tech-modal-actions ui-modal-footer-actions">
-          <button class="small-btn ghost" type="button" data-map-memory-cancel>取消</button>
-          <button class="small-btn danger" type="button" data-map-memory-confirm>确认删除</button>
-        </div>
-      `,
-      onAfterRender: (body) => {
-        body.querySelector<HTMLElement>('[data-map-memory-cancel]')?.addEventListener('click', (event) => {
-          event.stopPropagation();
-          detailModalHost.close(Minimap.DELETE_MEMORY_OWNER);
-        });
-        body.querySelector<HTMLElement>('[data-map-memory-confirm]')?.addEventListener('click', (event) => {
-          event.stopPropagation();
-          this.deleteSelectedMemory(selectedMapId);
-          detailModalHost.close(Minimap.DELETE_MEMORY_OWNER);
-        });
+      renderBody: (body) => {
+        body.replaceChildren(
+          this.createConfirmMessage('只会删除这张地图的本地记忆，不会影响已解锁整图。若你当前正站在该地图，视野内正在看到的部分会重新记入。'),
+          this.createDeleteMemoryActions(selectedMapId),
+        );
       },
     });
+  }
+
+  /** createConfirmMessage：创建确认说明。 */
+  private createConfirmMessage(message: string): HTMLElement {
+    const section = document.createElement('div');
+    section.className = 'panel-section';
+    const hint = document.createElement('div');
+    hint.className = 'empty-hint';
+    hint.textContent = message;
+    section.append(hint);
+    return section;
+  }
+
+  /** createMoveConfirmActions：创建移动确认按钮区。 */
+  private createMoveConfirmActions(x: number, y: number): HTMLElement {
+    const actions = this.createConfirmActions();
+    const cancelButton = this.createConfirmButton('取消', 'small-btn ghost');
+    cancelButton.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      this.closeMoveConfirm();
+    });
+    const confirmButton = this.createConfirmButton('确认前往', 'small-btn');
+    confirmButton.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (!this.moveHandler) {
+        this.closeMoveConfirm();
+        return;
+      }
+      this.moveHandler(x, y);
+      this.closeMoveConfirm();
+    });
+    actions.append(cancelButton, confirmButton);
+    return actions;
+  }
+
+  /** createDeleteMemoryActions：创建删除记忆按钮区。 */
+  private createDeleteMemoryActions(mapId: string): HTMLElement {
+    const actions = this.createConfirmActions();
+    const cancelButton = this.createConfirmButton('取消', 'small-btn ghost');
+    cancelButton.addEventListener('click', (event) => {
+      event.stopPropagation();
+      detailModalHost.close(Minimap.DELETE_MEMORY_OWNER);
+    });
+    const confirmButton = this.createConfirmButton('确认删除', 'small-btn danger');
+    confirmButton.addEventListener('click', (event) => {
+      event.stopPropagation();
+      this.deleteSelectedMemory(mapId);
+      detailModalHost.close(Minimap.DELETE_MEMORY_OWNER);
+    });
+    actions.append(cancelButton, confirmButton);
+    return actions;
+  }
+
+  /** createConfirmActions：创建确认动作容器。 */
+  private createConfirmActions(): HTMLElement {
+    const actions = document.createElement('div');
+    actions.className = 'tech-modal-actions ui-modal-footer-actions';
+    return actions;
+  }
+
+  /** createConfirmButton：创建确认按钮。 */
+  private createConfirmButton(label: string, className: string): HTMLButtonElement {
+    const button = document.createElement('button');
+    button.className = className;
+    button.type = 'button';
+    button.textContent = label;
+    return button;
   }
 
   /** deleteSelectedMemory：处理delete Selected Memory。 */

@@ -1,4 +1,3 @@
-// TODO(next:UI01): 把 npc-quest-modal 的任务列表/详情继续改成 patch-first，减少 bodyHtml + innerHTML 的双重重建。
 import { Inventory, NEXT_S2C_NpcQuests, PlayerState, QuestState } from '@mud/shared-next';
 import { getLocalItemTemplate } from '../content/local-templates';
 import { getQuestLineLabel, getQuestStatusLabel } from '../domain-labels';
@@ -157,7 +156,9 @@ export class NpcQuestModal {
       variantClass: 'detail-modal--quest',
       title: meta.title,
       subtitle: meta.subtitle,
-      bodyHtml: this.renderBody(),
+      renderBody: (modalBody) => {
+        this.renderBody(modalBody);
+      },
       onClose: () => {
         this.activeNpcId = null;
         this.loading = false;
@@ -185,45 +186,158 @@ export class NpcQuestModal {
   }
 
   /** renderBody：渲染身体。 */
-  private renderBody(): string {
+  private renderBody(body: HTMLElement): void {
     if (this.loading && !this.state) {
-      return '<div class="empty-hint ui-empty-hint">正在与这位 NPC 对话……</div>';
+      body.replaceChildren(this.createEmptyState('正在与这位 NPC 对话……'));
+      return;
     }
     if (!this.state) {
-      return '<div class="empty-hint ui-empty-hint">暂时无法读取任务列表。</div>';
+      body.replaceChildren(this.createEmptyState('暂时无法读取任务列表。'));
+      return;
     }
     if (this.state.quests.length === 0) {
-      return `<div class="empty-hint ui-empty-hint">${escapeHtml(this.state.npcName)} 目前没有新的委托。</div>`;
+      body.replaceChildren(this.createEmptyState(`${this.state.npcName} 目前没有新的委托。`));
+      return;
     }
 
     const selected = this.resolveSelectedQuest();
     if (!selected) {
-      return '<div class="empty-hint ui-empty-hint">暂时无法读取任务详情。</div>';
+      body.replaceChildren(this.createEmptyState('暂时无法读取任务详情。'));
+      return;
     }
 
-    return `
-      <div class="npc-quest-modal-shell ui-workspace-shell">
-        <div class="npc-quest-list ui-card-list ui-scroll-panel" data-npc-quest-list="true">${this.renderQuestList(selected)}</div>
-        <div class="ui-surface-pane ui-surface-pane--stack ui-scroll-panel" data-npc-quest-detail="true">
-          ${this.renderQuestDetail(selected)}
-        </div>
-      </div>
-    `;
+    const shell = this.createModalShell();
+    const listRoot = shell.querySelector<HTMLElement>('[data-npc-quest-list="true"]');
+    const detailRoot = shell.querySelector<HTMLElement>('[data-npc-quest-detail="true"]');
+    if (!listRoot || !detailRoot) {
+      body.replaceChildren(this.createEmptyState('暂时无法读取任务详情。'));
+      return;
+    }
+    this.syncQuestList(listRoot, selected);
+    this.syncQuestDetail(detailRoot, selected);
+    body.replaceChildren(shell);
   }
 
-  /** renderQuestList：渲染任务列表。 */
-  private renderQuestList(selected: QuestState): string {
-    return this.state?.quests.map((quest) => {
-      const activeClass = quest.id === selected.id ? ' is-active' : '';
-      return `<button class="quest-card quest-card-toggle npc-quest-card ui-surface-card ui-surface-card--compact${activeClass}" data-npc-quest-select="${escapeHtml(quest.id)}" type="button">
-        <div class="quest-title-row">
-          <span class="quest-title">${escapeHtml(quest.title)}</span>
-          <span class="quest-status">${escapeHtml(getQuestStatusLabel(quest.status))}</span>
-        </div>
-        <div class="quest-meta">${escapeHtml(getQuestLineLabel(quest.line))}</div>
-        <div class="quest-desc">${this.renderQuestText(quest.desc, quest)}</div>
-      </button>`;
-    }).join('') ?? '';
+  /** createEmptyState：创建空态节点。 */
+  private createEmptyState(text: string): HTMLDivElement {
+    const empty = document.createElement('div');
+    empty.className = 'empty-hint ui-empty-hint';
+    empty.textContent = text;
+    return empty;
+  }
+
+  /** createModalShell：创建任务弹窗稳定壳体。 */
+  private createModalShell(): HTMLDivElement {
+    const shell = document.createElement('div');
+    shell.className = 'npc-quest-modal-shell ui-workspace-shell';
+
+    const list = document.createElement('div');
+    list.className = 'npc-quest-list ui-card-list ui-scroll-panel';
+    list.dataset.npcQuestList = 'true';
+
+    const detail = document.createElement('div');
+    detail.className = 'ui-surface-pane ui-surface-pane--stack ui-scroll-panel';
+    detail.dataset.npcQuestDetail = 'true';
+
+    shell.append(list, detail);
+    return shell;
+  }
+
+  /** createQuestCard：创建任务列表卡片。 */
+  private createQuestCard(): HTMLButtonElement {
+    const card = document.createElement('button');
+    card.className = 'quest-card quest-card-toggle npc-quest-card ui-surface-card ui-surface-card--compact';
+    card.type = 'button';
+
+    const titleRow = document.createElement('div');
+    titleRow.className = 'quest-title-row';
+
+    const title = document.createElement('span');
+    title.className = 'quest-title';
+    title.dataset.npcQuestCardTitle = 'true';
+
+    const status = document.createElement('span');
+    status.className = 'quest-status';
+    status.dataset.npcQuestCardStatus = 'true';
+
+    titleRow.append(title, status);
+
+    const line = document.createElement('div');
+    line.className = 'quest-meta';
+    line.dataset.npcQuestCardLine = 'true';
+
+    const desc = document.createElement('div');
+    desc.className = 'quest-desc';
+    desc.dataset.npcQuestCardDesc = 'true';
+
+    card.append(titleRow, line, desc);
+    return card;
+  }
+
+  /** patchQuestCard：按当前任务状态局部更新卡片。 */
+  private patchQuestCard(card: HTMLButtonElement, quest: QuestState, active: boolean): boolean {
+    const titleNode = card.querySelector<HTMLElement>('[data-npc-quest-card-title="true"]');
+    const statusNode = card.querySelector<HTMLElement>('[data-npc-quest-card-status="true"]');
+    const lineNode = card.querySelector<HTMLElement>('[data-npc-quest-card-line="true"]');
+    const descNode = card.querySelector<HTMLElement>('[data-npc-quest-card-desc="true"]');
+    if (!titleNode || !statusNode || !lineNode || !descNode) {
+      return false;
+    }
+
+    card.dataset.npcQuestSelect = quest.id;
+    card.classList.toggle('is-active', active);
+    titleNode.textContent = quest.title;
+    statusNode.textContent = getQuestStatusLabel(quest.status);
+    lineNode.textContent = getQuestLineLabel(quest.line);
+    descNode.innerHTML = this.renderQuestText(quest.desc, quest);
+    return true;
+  }
+
+  /** syncQuestList：同步任务列表节点，优先复用现有卡片。 */
+  private syncQuestList(listRoot: HTMLElement, selected: QuestState): boolean {
+    const quests = this.state?.quests ?? [];
+    const existingCards = new Map<string, HTMLButtonElement>();
+    listRoot.querySelectorAll<HTMLButtonElement>('[data-npc-quest-select]').forEach((card) => {
+      const questId = card.dataset.npcQuestSelect;
+      if (questId) {
+        existingCards.set(questId, card);
+      }
+    });
+
+    const orderedCards = quests.map((quest) => {
+      const card = existingCards.get(quest.id) ?? this.createQuestCard();
+      this.patchQuestCard(card, quest, quest.id === selected.id);
+      existingCards.delete(quest.id);
+      return card;
+    });
+    existingCards.forEach((card) => card.remove());
+    this.syncContainerChildren(listRoot, orderedCards);
+    return true;
+  }
+
+  /** syncQuestDetail：刷新详情区内容。 */
+  private syncQuestDetail(detailRoot: HTMLElement, selected: QuestState): void {
+    const template = document.createElement('template');
+    template.innerHTML = this.renderQuestDetail(selected).trim();
+    detailRoot.replaceChildren(template.content.cloneNode(true));
+  }
+
+  /** syncContainerChildren：按目标顺序复用并重排子节点。 */
+  private syncContainerChildren(container: HTMLElement, orderedNodes: HTMLElement[]): void {
+    const allowed = new Set(orderedNodes);
+    for (const child of Array.from(container.children)) {
+      if (!(child instanceof HTMLElement) || !allowed.has(child)) {
+        child.remove();
+      }
+    }
+
+    let reference: ChildNode | null = container.firstChild;
+    for (const node of orderedNodes) {
+      if (reference !== node) {
+        container.insertBefore(node, reference);
+      }
+      reference = node.nextSibling;
+    }
   }
 
   /** renderQuestDetail：渲染任务详情。 */
@@ -321,24 +435,15 @@ export class NpcQuestModal {
     if (!selected || !listRoot || !detailRoot) {
       return false;
     }
-    this.patchModalMeta(meta);
-    listRoot.innerHTML = this.renderQuestList(selected);
-    detailRoot.innerHTML = this.renderQuestDetail(selected);
+    detailModalHost.patch({
+      ownerId: NpcQuestModal.MODAL_OWNER,
+      title: meta.title,
+      subtitle: meta.subtitle,
+    });
+    this.syncQuestList(listRoot, selected);
+    this.syncQuestDetail(detailRoot, selected);
     bindInlineItemTooltips(body);
     return true;
-  }
-
-  /** patchModalMeta：处理patch弹窗元数据。 */
-  private patchModalMeta(meta: NpcQuestModalMeta): void {
-    const titleNode = document.getElementById('detail-modal-title');
-    const subtitleNode = document.getElementById('detail-modal-subtitle');
-    if (titleNode) {
-      titleNode.textContent = meta.title;
-    }
-    if (subtitleNode) {
-      subtitleNode.textContent = meta.subtitle;
-      subtitleNode.classList.toggle('hidden', meta.subtitle.length === 0);
-    }
   }
 
   /** captureRenderState：处理capture渲染状态。 */
@@ -582,4 +687,3 @@ export class NpcQuestModal {
     `;
   }
 }
-

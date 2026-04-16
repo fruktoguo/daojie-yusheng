@@ -187,7 +187,7 @@ function calcTechniqueTotalExp(tech: TechniqueState): number {
 
 /** getResolvedTechniqueRealm：读取Resolved Technique境界。 */
 function getResolvedTechniqueRealm(tech: TechniqueState): TechniqueRealm {
-  return deriveTechniqueRealm(tech.level, tech.layers, tech.attrCurves);
+  return deriveTechniqueRealm(tech.level, tech.layers);
 }
 
 /** getTechniqueRealmLevelLabel：读取Technique境界等级标签。 */
@@ -270,10 +270,9 @@ function findTechniqueRealmStartLevel(
   realm: TechniqueRealm,
   maxLevel: number,
   layers?: TechniqueLayerDef[],
-  compatCurves?: TechniqueState['attrCurves'],
 ): number | null {
   for (let level = 1; level <= maxLevel; level += 1) {
-    if (deriveTechniqueRealm(level, layers, compatCurves) === realm) {
+    if (deriveTechniqueRealm(level, layers) === realm) {
       return level;
     }
   }
@@ -284,7 +283,7 @@ function findTechniqueRealmStartLevel(
 function buildTechniqueMilestones(tech: TechniqueState, maxLevel: number): Map<number, TechniqueRealm> {
   const milestones = new Map<number, TechniqueRealm>();
   for (const realm of [TechniqueRealm.Minor, TechniqueRealm.Major, TechniqueRealm.Perfection]) {
-    const level = findTechniqueRealmStartLevel(realm, maxLevel, tech.layers, tech.attrCurves);
+    const level = findTechniqueRealmStartLevel(realm, maxLevel, tech.layers);
     if (level !== null) {
       milestones.set(level, realm);
     }
@@ -441,7 +440,7 @@ export class TechniquePanel {
 
   /** renderTechniqueCard：渲染Technique卡片。 */
   private renderTechniqueCard(tech: TechniqueState): string {
-    const maxLevel = getTechniqueMaxLevel(tech.layers, tech.level, tech.attrCurves);
+    const maxLevel = getTechniqueMaxLevel(tech.layers, tech.level);
     const isCultivating = this.lastState.cultivatingTechId === tech.techId;
     const skillsEnabled = areTechniqueSkillsEnabled(tech, this.lastState.previewPlayer);
     const progressRatio = getTechniqueProgressRatio(tech);
@@ -522,7 +521,7 @@ export class TechniquePanel {
     if (filter === 'all') {
       return true;
     }
-    const maxLevel = getTechniqueMaxLevel(tech.layers, tech.level, tech.attrCurves);
+    const maxLevel = getTechniqueMaxLevel(tech.layers, tech.level);
     if (filter === 'in_progress') {
       return tech.level < maxLevel;
     }
@@ -603,9 +602,9 @@ export class TechniquePanel {
       return;
     }
 
-    const maxLevel = getTechniqueMaxLevel(tech.layers, tech.level, tech.attrCurves);
+    const maxLevel = getTechniqueMaxLevel(tech.layers, tech.level);
     const previewTechniques = resolvePreviewTechniques(this.lastState.techniques);
-    const currentAttrs = calcTechniqueAttrValues(tech.level, tech.layers, tech.attrCurves);
+    const currentAttrs = calcTechniqueAttrValues(tech.level, tech.layers);
     const effectiveAttrs = calcTechniqueEffectiveContribution(previewTechniques, tech.techId);
     const skillsByLevel = new Map<number, TechniqueState['skills']>();
     const milestones = buildTechniqueMilestones(tech, maxLevel);
@@ -678,7 +677,7 @@ export class TechniquePanel {
       rows.push({
         level,
         expToNext: level >= maxLevel ? 0 : 0,
-        attrs: calcTechniqueNextLevelGains(level - 1, undefined, tech.attrCurves),
+        attrs: calcTechniqueNextLevelGains(level - 1, tech.layers),
       });
     }
     return rows;
@@ -723,7 +722,7 @@ export class TechniquePanel {
     milestones: Map<number, TechniqueRealm>,
   ): string {
     const layer = layers.find((entry) => entry.level === selectedLevel) ?? layers[0];
-    const selectedRealm = deriveTechniqueRealm(layer.level, tech.layers, tech.attrCurves);
+    const selectedRealm = deriveTechniqueRealm(layer.level, tech.layers);
     const skills = skillsByLevel.get(layer.level) ?? [];
     const skillTags = skills.length > 0
       ? skills.map((skill) => {
@@ -736,7 +735,7 @@ export class TechniquePanel {
       : '<span class="tech-layer-empty">此层未解锁新技能</span>';
 
     const layerAttrs = formatAttrMap(layer.attrs ?? {}, '本层不增加六维');
-    const totalAttrs = formatAttrMap(calcTechniqueAttrValues(layer.level, tech.layers, tech.attrCurves));
+    const totalAttrs = formatAttrMap(calcTechniqueAttrValues(layer.level, tech.layers));
     const milestone = milestones.get(layer.level);
     const stateLabel = layer.level < tech.level ? '已贯通' : layer.level === tech.level ? '当前停驻' : '尚未抵达';
     const expText = layer.expToNext > 0 ? `升下一层需 ${formatDisplayInteger(layer.expToNext)} 功法经验` : '此层已是终点';
@@ -1133,7 +1132,7 @@ export class TechniquePanel {
         return false;
       }
 
-      const maxLevel = getTechniqueMaxLevel(tech.layers, tech.level, tech.attrCurves);
+      const maxLevel = getTechniqueMaxLevel(tech.layers, tech.level);
       const isCultivating = cultivatingTechId === tech.techId;
       const skillsEnabled = areTechniqueSkillsEnabled(tech, this.lastState.previewPlayer);
       const progressRatio = getTechniqueProgressRatio(tech);
@@ -1185,9 +1184,9 @@ export class TechniquePanel {
     if (!expNode || !totalExpNode || !currentAttrsNode || !focusShell || !constellationShell || !titleNode || !subtitleNode) {
       return false;
     }
-    const maxLevel = getTechniqueMaxLevel(tech.layers, tech.level, tech.attrCurves);
+    const maxLevel = getTechniqueMaxLevel(tech.layers, tech.level);
     const previewTechniques = resolvePreviewTechniques(this.lastState.techniques);
-    const currentAttrs = calcTechniqueAttrValues(tech.level, tech.layers, tech.attrCurves);
+    const currentAttrs = calcTechniqueAttrValues(tech.level, tech.layers);
     const effectiveAttrs = calcTechniqueEffectiveContribution(previewTechniques, tech.techId);
     const skillsByLevel = new Map<number, TechniqueState['skills']>();
     for (const skill of tech.skills) {
@@ -1272,9 +1271,9 @@ export class TechniquePanel {
       expPercent: Math.round(getTechniqueProgressRatio(tech) * 100),
       selectedLevel,
       nodes: layers.map((layer) => {
-        const layerRealm = deriveTechniqueRealm(layer.level, tech.layers, tech.attrCurves);
+        const layerRealm = deriveTechniqueRealm(layer.level, tech.layers);
         const layerAttrs = formatAttrMap(layer.attrs ?? {}, '本层不增加六维');
-        const totalAttrs = formatAttrMap(calcTechniqueAttrValues(layer.level, tech.layers, tech.attrCurves));
+        const totalAttrs = formatAttrMap(calcTechniqueAttrValues(layer.level, tech.layers));
         const progressText = layer.level < tech.level
           ? '进度：已贯通'
           : layer.level === tech.level
@@ -1352,13 +1351,13 @@ export class TechniquePanel {
     if (!layer || !card || !title || !subtitle || !state || !exp || !layerAttrsNode || !totalAttrsNode) {
       return;
     }
-    const selectedRealm = deriveTechniqueRealm(layer.level, tech.layers, tech.attrCurves);
+    const selectedRealm = deriveTechniqueRealm(layer.level, tech.layers);
     const milestone = milestones.get(layer.level);
     const stateLabel = layer.level < tech.level ? '已贯通' : layer.level === tech.level ? '当前停驻' : '尚未抵达';
     const expText = layer.expToNext > 0 ? `升下一层需 ${formatDisplayInteger(layer.expToNext)} 功法经验` : '此层已是终点';
     const milestoneText = milestone ? `此层踏入${getTechniqueRealmLabel(milestone)}` : `此层属${getTechniqueRealmLabel(selectedRealm)}阶段`;
     const layerAttrs = formatAttrMap(layer.attrs ?? {}, '本层不增加六维');
-    const totalAttrs = formatAttrMap(calcTechniqueAttrValues(layer.level, tech.layers, tech.attrCurves));
+    const totalAttrs = formatAttrMap(calcTechniqueAttrValues(layer.level, tech.layers));
 
     card.classList.toggle('passed', layer.level < tech.level);
     card.classList.toggle('current', layer.level === tech.level);

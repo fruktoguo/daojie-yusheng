@@ -1,4 +1,3 @@
-// TODO(next:UI06): 把 heaven-gate-modal 的结构化区域继续从整段模板渲染推进到局部 patch，降低复杂交互回归面。
 import {
   HEAVEN_GATE_REROLL_COST_RATIO,
   HEAVEN_GATE_SEVER_COST_RATIO,
@@ -409,6 +408,25 @@ function renderHeavenGateModal(player: PlayerState, session: HeavenGateSession, 
   const judgement = session.roots ? describeRoots(session.roots) : null;
   /** lastRenderedSessionKey：last Rendered会话Key。 */
   lastRenderedSessionKey = getSessionRenderKey(session);
+  const existingBody = detailModalHost.isOpenFor(HEAVEN_GATE_OWNER)
+    ? document.getElementById('detail-modal-body')
+    : null;
+  if (existingBody && patchHeavenGateModalBody(existingBody, session, judgement)) {
+    const title = document.getElementById('detail-modal-title');
+    const subtitle = document.getElementById('detail-modal-subtitle');
+    const hint = document.getElementById('detail-modal-hint');
+    if (title) {
+      title.textContent = '开天门';
+    }
+    if (subtitle) {
+      subtitle.textContent = `${player.realm?.displayName ?? '开天门'}`;
+    }
+    if (hint) {
+      hint.textContent = '点击空白处关闭';
+    }
+    bindHeavenGateEvents(existingBody, player, session, options, shouldAnimate, rootsKey);
+    return;
+  }
 
   detailModalHost.open({
     ownerId: HEAVEN_GATE_OWNER,
@@ -417,18 +435,9 @@ function renderHeavenGateModal(player: PlayerState, session: HeavenGateSession, 
     title: '开天门',
     subtitle: `${player.realm?.displayName ?? '开天门'}`,
     hint: '点击空白处关闭',
-    bodyHtml: `
-      <div class="heaven-gate-shell">
-        <section class="heaven-gate-judgement ${session.roots ? '' : 'hidden'}">
-          <div class="heaven-gate-judgement-name">${escapeHtml(judgement?.name ?? '')}</div>
-          <div class="heaven-gate-judgement-meta">${escapeHtml(judgement?.meta ?? '')}</div>
-          <div class="heaven-gate-judgement-desc">${escapeHtml(judgement?.desc ?? '')}</div>
-        </section>
-        ${renderBoard(session)}
-        ${renderBoardActions(session)}
-        ${renderPendingPopup(session)}
-      </div>
-    `,
+    renderBody: (body) => {
+      body.innerHTML = renderHeavenGateShell(session, judgement);
+    },
     onClose: () => {
       clearPendingAction();
       cursorCleanup?.();
@@ -439,66 +448,131 @@ function renderHeavenGateModal(player: PlayerState, session: HeavenGateSession, 
       document.body.classList.remove('heaven-gate-brush-cursor');
     },
     onAfterRender: (body) => {
-      bindCursor(body);
-      body.querySelectorAll<HTMLButtonElement>('[data-heaven-gate-path]').forEach((button) => {
-        const element = button.dataset.heavenGatePath as ElementKey | undefined;
-        if (!element) {
-          return;
-        }
-        button.addEventListener('click', (event) => {
-          event.stopPropagation();
-          if (!session.severed.has(element) && session.severed.size >= 4) {
-            options.showToast('最多只能斩断四条灵根。');
-            return;
-          }
-          pendingAction = session.severed.has(element)
-            ? { kind: 'restore', element }
-            : { kind: 'sever', element };
-          renderHeavenGateModal(player, session, options);
-        });
-      });
-      body.querySelector<HTMLButtonElement>('[data-heaven-gate-core]')?.addEventListener('click', (event) => {
-        event.stopPropagation();
-        pendingAction = session.roots ? { kind: 'enter' } : { kind: 'open' };
-        renderHeavenGateModal(player, session, options);
-      });
-      body.querySelector<HTMLButtonElement>('[data-heaven-gate-reroll]')?.addEventListener('click', (event) => {
-        event.stopPropagation();
-        pendingAction = { kind: 'reroll' };
-        renderHeavenGateModal(player, session, options);
-      });
-      body.querySelector<HTMLElement>('[data-heaven-gate-popup]')?.addEventListener('click', (event) => {
-        event.stopPropagation();
-      });
-      body.querySelector<HTMLElement>('[data-heaven-gate-popup-overlay]')?.addEventListener('click', (event) => {
-        event.stopPropagation();
-        if (event.target !== event.currentTarget) {
+      bindHeavenGateEvents(body, player, session, options, shouldAnimate, rootsKey);
+    },
+  });
+}
+
+function renderHeavenGateShell(
+  session: HeavenGateSession,
+  judgement: { name: string; meta: string; desc: string } | null,
+): string {
+  return `
+    <div class="heaven-gate-shell">
+      <section class="heaven-gate-judgement ${session.roots ? '' : 'hidden'}" data-heaven-gate-judgement="true">
+        <div class="heaven-gate-judgement-name">${escapeHtml(judgement?.name ?? '')}</div>
+        <div class="heaven-gate-judgement-meta">${escapeHtml(judgement?.meta ?? '')}</div>
+        <div class="heaven-gate-judgement-desc">${escapeHtml(judgement?.desc ?? '')}</div>
+      </section>
+      <div data-heaven-gate-board-shell="true">${renderBoard(session)}</div>
+      <div data-heaven-gate-actions-shell="true">${renderBoardActions(session)}</div>
+      <div data-heaven-gate-popup-shell="true">${renderPendingPopup(session)}</div>
+    </div>
+  `;
+}
+
+function patchHeavenGateModalBody(
+  body: HTMLElement,
+  session: HeavenGateSession,
+  judgement: { name: string; meta: string; desc: string } | null,
+): boolean {
+  const shell = body.querySelector<HTMLElement>('.heaven-gate-shell');
+  const judgementSection = body.querySelector<HTMLElement>('[data-heaven-gate-judgement="true"]');
+  const boardShell = body.querySelector<HTMLElement>('[data-heaven-gate-board-shell="true"]');
+  const actionsShell = body.querySelector<HTMLElement>('[data-heaven-gate-actions-shell="true"]');
+  const popupShell = body.querySelector<HTMLElement>('[data-heaven-gate-popup-shell="true"]');
+  if (!shell || !judgementSection || !boardShell || !actionsShell || !popupShell) {
+    return false;
+  }
+  judgementSection.classList.toggle('hidden', !session.roots);
+  setInnerHtml(judgementSection.querySelector('.heaven-gate-judgement-name'), escapeHtml(judgement?.name ?? ''));
+  setInnerHtml(judgementSection.querySelector('.heaven-gate-judgement-meta'), escapeHtml(judgement?.meta ?? ''));
+  setInnerHtml(judgementSection.querySelector('.heaven-gate-judgement-desc'), escapeHtml(judgement?.desc ?? ''));
+  boardShell.innerHTML = renderBoard(session);
+  actionsShell.innerHTML = renderBoardActions(session);
+  popupShell.innerHTML = renderPendingPopup(session);
+  return true;
+}
+
+function bindHeavenGateEvents(
+  body: HTMLElement,
+  player: PlayerState,
+  session: HeavenGateSession,
+  options: HeavenGateModalOptions,
+  shouldAnimate: boolean,
+  rootsKey: string | null,
+): void {
+  bindCursor(body);
+  if (body.dataset.heavenGateBound !== 'true') {
+    body.dataset.heavenGateBound = 'true';
+    body.addEventListener('click', (event) => {
+      const target = event.target instanceof HTMLElement
+        ? event.target.closest<HTMLElement>('[data-heaven-gate-path],[data-heaven-gate-core],[data-heaven-gate-reroll],[data-heaven-gate-cancel],[data-heaven-gate-confirm],[data-heaven-gate-popup-overlay],[data-heaven-gate-popup]')
+        : null;
+      if (!target) {
+        return;
+      }
+      event.stopPropagation();
+      if (target.hasAttribute('data-heaven-gate-popup')) {
+        return;
+      }
+      if (target.hasAttribute('data-heaven-gate-popup-overlay')) {
+        if (event.target !== target) {
           return;
         }
         clearPendingAction();
         renderHeavenGateModal(player, session, options);
-      });
-      body.querySelector<HTMLButtonElement>('[data-heaven-gate-cancel]')?.addEventListener('click', (event) => {
-        event.stopPropagation();
+        return;
+      }
+      if (target.hasAttribute('data-heaven-gate-cancel')) {
         clearPendingAction();
         renderHeavenGateModal(player, session, options);
-      });
-      body.querySelector<HTMLButtonElement>('[data-heaven-gate-confirm]')?.addEventListener('click', (event) => {
-        event.stopPropagation();
+        return;
+      }
+      if (target.hasAttribute('data-heaven-gate-confirm')) {
         if (!pendingAction) {
           return;
         }
         const action = pendingAction;
         clearPendingAction();
         options.sendAction(action.kind === 'restore' ? 'restore' : action.kind, 'element' in action ? action.element : undefined);
-      });
-      if (shouldAnimate && rootsKey) {
-        animateValues(body, session, rootsKey);
-      } else if (!rootsKey) {
-        lastAnimatedRootsKey = null;
+        return;
       }
-    },
-  });
+      if (target.hasAttribute('data-heaven-gate-reroll')) {
+        pendingAction = { kind: 'reroll' };
+        renderHeavenGateModal(player, session, options);
+        return;
+      }
+      if (target.hasAttribute('data-heaven-gate-core')) {
+        pendingAction = session.roots ? { kind: 'enter' } : { kind: 'open' };
+        renderHeavenGateModal(player, session, options);
+        return;
+      }
+      const element = target.dataset.heavenGatePath as ElementKey | undefined;
+      if (!element) {
+        return;
+      }
+      if (!session.severed.has(element) && session.severed.size >= 4) {
+        options.showToast('最多只能斩断四条灵根。');
+        return;
+      }
+      pendingAction = session.severed.has(element)
+        ? { kind: 'restore', element }
+        : { kind: 'sever', element };
+      renderHeavenGateModal(player, session, options);
+    });
+  }
+  if (shouldAnimate && rootsKey) {
+    animateValues(body, session, rootsKey);
+  } else if (!rootsKey) {
+    lastAnimatedRootsKey = null;
+  }
+}
+
+function setInnerHtml(node: Element | null, value: string): void {
+  if (node) {
+    node.innerHTML = value;
+  }
 }
 
 /** refreshHeavenGateModal：处理refresh Heaven关卡弹窗。 */

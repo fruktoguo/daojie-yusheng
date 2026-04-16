@@ -1,12 +1,10 @@
 import {
   CHAT_LOG_MAX_PERSISTED_MESSAGES_PER_CHANNEL,
-  CHAT_LOG_STORAGE_KEY,
   type ChatChannel,
   type ChatMessageKind,
   type ChatMessageScope,
   type ChatStoredMessage,
 } from '../constants/ui/chat';
-// TODO(next:MIGRATE01): 在旧版 localStorage 聊天缓存彻底退出观察窗口后，删除 clearPreviousChatStorage 这类迁移清理分支。
 
 /** ChatMessageRecord：聊天持久化记录。 */
 type ChatMessageRecord = ChatStoredMessage & {
@@ -28,8 +26,6 @@ const CHAT_DB_INDEX_BY_CHANNEL_TIME = 'by-channel-time';
 
 /** databasePromise：数据库异步结果。 */
 let databasePromise: Promise<IDBDatabase | null> | null = null;
-/** previousStorageCleared：previous存储Cleared。 */
-let previousStorageCleared = false;
 /** indexedDbUnavailableWarned：indexed Db Unavailable Warned。 */
 let indexedDbUnavailableWarned = false;
 
@@ -58,36 +54,6 @@ function withTransactionComplete(transaction: IDBTransaction): Promise<void> {
     transaction.onabort = () => reject(transaction.error ?? new Error('IndexedDB transaction aborted'));
     transaction.onerror = () => reject(transaction.error ?? new Error('IndexedDB transaction failed'));
   });
-}
-
-/** getPreviousStorage：读取Previous存储。 */
-function getPreviousStorage(): Storage | null {
-  if (typeof window === 'undefined') {
-    return null;
-  }
-  try {
-    return window.localStorage;
-  } catch {
-    return null;
-  }
-}
-
-/** clearPreviousChatStorage：清理Previous聊天存储。 */
-export function clearPreviousChatStorage(): void {
-  if (previousStorageCleared) {
-    return;
-  }
-  /** previousStorageCleared：previous存储Cleared。 */
-  previousStorageCleared = true;
-  const storage = getPreviousStorage();
-  if (!storage) {
-    return;
-  }
-  try {
-    storage.removeItem(CHAT_LOG_STORAGE_KEY);
-  } catch (error) {
-    console.warn('[chat] 清理旧版 localStorage 聊天缓存失败。', error);
-  }
 }
 
 /** openDatabase：打开数据库。 */
@@ -305,5 +271,4 @@ export async function appendChannelMessages(
     return false;
   }
 }
-
 

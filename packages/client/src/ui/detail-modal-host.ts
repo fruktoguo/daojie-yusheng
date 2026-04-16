@@ -2,8 +2,6 @@
  * 全局单实例详情弹层宿主
  * 所有"点击展开详情"类交互共用此弹层，通过 ownerId 区分归属
  */
-// TODO(next:UI01): 继续压缩 detail-modal-host 对 bodyHtml 的整体重载，优先提供可复用的局部 patch 容器能力。
-
 import { preserveSelection } from './selection-preserver';
 import {
   applyModalFrameClasses,
@@ -20,8 +18,23 @@ type DetailModalOptions = {
   size?: UiModalSize;
   subtitle?: string;
   hint?: string;
-  bodyHtml: string;
+  bodyHtml?: string;
+  renderBody?: (body: HTMLElement) => void;
   onClose?: () => void;
+  onAfterRender?: (body: HTMLElement) => void;
+};
+
+/** 弹层局部 patch 配置项。 */
+type DetailModalPatchOptions = {
+  ownerId: string;
+  variantClass?: string;
+  title?: string;
+  size?: UiModalSize;
+  subtitle?: string;
+  hint?: string;
+  bodyHtml?: string;
+  renderBody?: (body: HTMLElement) => void;
+  onClose?: (() => void) | null;
   onAfterRender?: (body: HTMLElement) => void;
 };
 
@@ -63,7 +76,12 @@ class DetailModalHost {
     this.subtitle.classList.toggle('hidden', !options.subtitle);
     this.hint.textContent = options.hint ?? '点击空白处关闭';
     preserveSelection(this.body, () => {
-      this.body.innerHTML = options.bodyHtml;
+      if (typeof options.renderBody === 'function') {
+        this.body.replaceChildren();
+        options.renderBody(this.body);
+        return;
+      }
+      this.body.innerHTML = options.bodyHtml ?? '';
     });
     this.modal.classList.remove('hidden');
     this.modal.setAttribute('aria-hidden', 'false');
@@ -79,6 +97,41 @@ class DetailModalHost {
   /** 判断当前弹层是否属于指定 owner 且处于打开状态 */
   isOpenFor(ownerId: string): boolean {
     return this.ownerId === ownerId && !this.modal.classList.contains('hidden');
+  }
+
+  /** 对已打开的同 owner 弹层做局部更新，避免调用方重复操作宿主节点。 */
+  patch(options: DetailModalPatchOptions): boolean {
+    if (!this.isOpenFor(options.ownerId)) {
+      return false;
+    }
+    if (options.onClose !== undefined) {
+      this.onClose = options.onClose;
+    }
+    if (options.variantClass !== undefined || options.size !== undefined) {
+      this.setFrameClasses(options.variantClass ?? '', options.size);
+    }
+    if (options.title !== undefined) {
+      this.title.textContent = options.title;
+    }
+    if (options.subtitle !== undefined) {
+      this.subtitle.textContent = options.subtitle;
+      this.subtitle.classList.toggle('hidden', !options.subtitle);
+    }
+    if (options.hint !== undefined) {
+      this.hint.textContent = options.hint || '点击空白处关闭';
+    }
+    if (typeof options.renderBody === 'function' || options.bodyHtml !== undefined) {
+      preserveSelection(this.body, () => {
+        if (typeof options.renderBody === 'function') {
+          this.body.replaceChildren();
+          options.renderBody(this.body);
+          return;
+        }
+        this.body.innerHTML = options.bodyHtml ?? '';
+      });
+      options.onAfterRender?.(this.body);
+    }
+    return true;
   }
 
   /** ensureInitialized：确保Initialized。 */
@@ -133,5 +186,3 @@ function splitModalLayerClasses(variantClass: string): string[] {
 
 /** detailModalHost：详情弹窗宿主。 */
 export const detailModalHost = new DetailModalHost();
-
-

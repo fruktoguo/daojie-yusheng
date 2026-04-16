@@ -1,4 +1,3 @@
-// TODO(next:UI06): 把 changelog-panel 的模板化装载保持在低频前提下继续收口到统一 modal recipe，减少孤立 UI 壳体。
 import { detailModalHost } from './detail-modal-host';
 import { CHANGELOG_ENTRIES, getLatestChangelogEntry } from './changelog-data';
 
@@ -18,7 +17,9 @@ export class ChangelogPanel {
       title: '岁月史书',
       subtitle: this.buildSubtitle(),
       hint: '点击空白处关闭',
-      bodyHtml: this.buildBodyHtml(),
+      renderBody: (body) => {
+        this.renderBody(body);
+      },
     });
   }
 
@@ -28,44 +29,46 @@ export class ChangelogPanel {
     return latest ? `最近记载：${latest.updatedAt}` : '暂无记载';
   }
 
-  /** buildBodyHtml：构建身体Html。 */
-  private buildBodyHtml(): string {
-    return `
-      <div class="chronicle-shell">
-        <section class="panel-section chronicle-history">
-          <div class="panel-section-title">更新日志</div>
-          <div class="chronicle-entry-list">
-            ${CHANGELOG_ENTRIES.map((entry) => this.renderEntry(entry)).join('')}
-          </div>
-        </section>
-      </div>
-    `;
+  /** renderBody：渲染身体。 */
+  private renderBody(body: HTMLElement): void {
+    const shell = createElement('div', 'chronicle-shell');
+    const historySection = createElement('section', 'panel-section chronicle-history');
+    const sectionTitle = createElement('div', 'panel-section-title', '更新日志');
+    const entryList = createElement('div', 'chronicle-entry-list');
+    for (const entry of CHANGELOG_ENTRIES) {
+      entryList.append(this.renderEntry(entry));
+    }
+    historySection.append(sectionTitle, entryList);
+    shell.append(historySection);
+    body.replaceChildren(shell);
   }
 
   /** renderEntry：渲染条目。 */
-  private renderEntry(entry: { updatedAt: string; summary: string; items: string[] }): string {
-    return `
-      <article class="chronicle-entry">
-        <div class="chronicle-entry-head">
-          <div class="chronicle-entry-time">${escapeHtml(entry.updatedAt)}</div>
-          <div class="chronicle-entry-summary">${escapeHtml(entry.summary)}</div>
-        </div>
-        <ul class="chronicle-entry-items">
-          ${entry.items.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}
-        </ul>
-      </article>
-    `;
+  private renderEntry(entry: { updatedAt: string; summary: string; items: string[] }): HTMLElement {
+    const article = createElement('article', 'chronicle-entry');
+    const head = createElement('div', 'chronicle-entry-head');
+    head.append(
+      createElement('div', 'chronicle-entry-time', entry.updatedAt),
+      createElement('div', 'chronicle-entry-summary', entry.summary),
+    );
+    const list = createElement('ul', 'chronicle-entry-items');
+    for (const item of entry.items) {
+      list.append(createElement('li', '', item));
+    }
+    article.append(head, list);
+    return article;
   }
 }
 
-/** escapeHtml：转义 HTML 文本中的危险字符。 */
-function escapeHtml(input: string): string {
-  return input
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;');
+/** createElement：创建文本元素。 */
+function createElement<K extends keyof HTMLElementTagNameMap>(tagName: K, className: string, text?: string): HTMLElementTagNameMap[K] {
+  const element = document.createElement(tagName);
+  if (className) {
+    element.className = className;
+  }
+  if (typeof text === 'string') {
+    element.textContent = text;
+  }
+  return element;
 }
-
 

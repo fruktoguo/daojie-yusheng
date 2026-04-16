@@ -2,7 +2,6 @@
  * 登录/注册界面
  * 管理登录、注册表单切换，显示名称可用性检测，以及 token 会话恢复
  */
-// TODO(next:MIGRATE01): 在 next 鉴权 contract 完全稳定后，复核这里的账号/角色双入口与会话恢复语义，清掉迁移期遗留的兼容口径。
 
 import { AuthLoginReq, AuthRegisterReq, AuthTokenRes } from '@mud/shared-next';
 import { SocketManager } from '../network/socket';
@@ -317,8 +316,8 @@ export class LoginUI {
     this.registerAccountGroup.classList.toggle('hidden', !isRegister);
     this.roleNameGroup.classList.toggle('hidden', !isRegister);
     this.displayNameGroup.classList.toggle('hidden', !isRegister);
-    this.loginNameLabel.textContent = '账号 / 角色名';
-    this.loginNameInput.placeholder = '输入账号或角色名';
+    this.loginNameLabel.textContent = '账号';
+    this.loginNameInput.placeholder = '输入账号';
     this.submitText.textContent = isRegister ? '注册' : '登录';
     this.setError('');
     if (!isRegister) {

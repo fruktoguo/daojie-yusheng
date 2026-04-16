@@ -2,7 +2,6 @@
  * 认证与账号 HTTP API 封装
  * 负责 token 存取、登录/注册/刷新请求、账号信息修改
  */
-// TODO(next:MIGRATE01): 在旧前端会话观察窗口结束后，删除 localStorage -> sessionStorage 的 token 迁移逻辑，并继续把 token 暴露面收口到更安全承载。
 
 import {
   ACCESS_TOKEN_STORAGE_KEY,
@@ -56,41 +55,6 @@ function getSessionStorage(): Storage | null {
   }
 }
 
-/** 清理旧 localStorage 中遗留的认证 token，避免长期暴露面继续存在。 */
-function migrateLegacyLocalStorageTokens(): void {
-  if (typeof window === 'undefined') {
-    return;
-  }
-  const sessionStorage = getSessionStorage();
-  let legacyAccessToken: string | null = null;
-  let legacyRefreshToken: string | null = null;
-  try {
-    legacyAccessToken = window.localStorage.getItem(ACCESS_TOKEN_STORAGE_KEY);
-    legacyRefreshToken = window.localStorage.getItem(REFRESH_TOKEN_STORAGE_KEY);
-  } catch {
-    return;
-  }
-  if (sessionStorage) {
-    if (legacyAccessToken && !sessionStorage.getItem(ACCESS_TOKEN_STORAGE_KEY)) {
-      sessionStorage.setItem(ACCESS_TOKEN_STORAGE_KEY, legacyAccessToken);
-    }
-    if (legacyRefreshToken && !sessionStorage.getItem(REFRESH_TOKEN_STORAGE_KEY)) {
-      sessionStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, legacyRefreshToken);
-    }
-  } else {
-    memoryAccessToken ??= legacyAccessToken;
-    memoryRefreshToken ??= legacyRefreshToken;
-  }
-  try {
-    window.localStorage.removeItem(ACCESS_TOKEN_STORAGE_KEY);
-    window.localStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY);
-  } catch {
-    // noop
-  }
-}
-
-migrateLegacyLocalStorageTokens();
-
 /** 从 sessionStorage 读取 accessToken */
 export function getAccessToken(): string | null {
   const storage = getSessionStorage();
@@ -131,14 +95,6 @@ export function clearStoredTokens(): void {
   const storage = getSessionStorage();
   storage?.removeItem(ACCESS_TOKEN_STORAGE_KEY);
   storage?.removeItem(REFRESH_TOKEN_STORAGE_KEY);
-  if (typeof window !== 'undefined') {
-    try {
-      window.localStorage.removeItem(ACCESS_TOKEN_STORAGE_KEY);
-      window.localStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY);
-    } catch {
-      // noop
-    }
-  }
 }
 
 /** 通用 JSON 请求，自动处理 body 序列化与 Bearer 鉴权 */

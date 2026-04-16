@@ -1,4 +1,3 @@
-// TODO(next:UI06): 把 entity-detail-modal 从一次性 bodyHtml 渲染继续推进到 patch-first，减少详情弹层整体重建。
 import { NEXT_S2C_Detail, NEXT_S2C_NpcDetail, NEXT_S2C_PlayerDetail, NEXT_S2C_MonsterDetail, NEXT_S2C_ContainerDetail, VisibleBuffState, MONSTER_TIER_LABELS, type NpcQuestMarker } from '@mud/shared-next';
 import { getEntityKindLabel, getQuestLineLabel } from '../domain-labels';
 import { detailModalHost } from './detail-modal-host';
@@ -81,12 +80,20 @@ export class EntityDetailModal {
   private render(): void {
     const title = this.detail ? this.resolveTitle(this.detail, this.pending?.title) : (this.pending?.title ?? '详情');
     const subtitle = this.detail ? `目标类型：${escapeHtml(getEntityKindLabel(this.detail.kind, this.detail.kind))}` : '详情同步中';
+    const existingBody = detailModalHost.isOpenFor(EntityDetailModal.MODAL_OWNER)
+      ? document.getElementById('detail-modal-body')
+      : null;
+    if (existingBody && this.patchBody(existingBody, title, subtitle)) {
+      return;
+    }
     detailModalHost.open({
       ownerId: EntityDetailModal.MODAL_OWNER,
       variantClass: 'detail-modal--quest',
       title,
       subtitle,
-      bodyHtml: this.renderBody(),
+      renderBody: (body) => {
+        body.innerHTML = `<div data-entity-detail-body="true">${this.renderBody()}</div>`;
+      },
       onClose: () => {
         this.pending = null;
         this.detail = null;
@@ -96,6 +103,21 @@ export class EntityDetailModal {
         bindInlineItemTooltips(body);
       },
     });
+  }
+
+  /** patchBody：局部刷新详情弹层。 */
+  private patchBody(body: HTMLElement, title: string, subtitle: string): boolean {
+    const shell = body.querySelector<HTMLElement>('[data-entity-detail-body="true"]');
+    const titleNode = document.getElementById('detail-modal-title');
+    const subtitleNode = document.getElementById('detail-modal-subtitle');
+    if (!shell || !titleNode || !subtitleNode) {
+      return false;
+    }
+    titleNode.textContent = title;
+    subtitleNode.textContent = subtitle;
+    shell.innerHTML = this.renderBody();
+    bindInlineItemTooltips(body);
+    return true;
   }
 
   /** renderBody：渲染身体。 */
@@ -309,5 +331,4 @@ export class EntityDetailModal {
     `;
   }
 }
-
 

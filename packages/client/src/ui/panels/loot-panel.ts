@@ -2,8 +2,6 @@
  * 拾取面板
  * 以弹层形式展示地面物品和容器搜索结果，支持逐件或批量拿取
  */
-// TODO(next:UI06): 把 loot-panel 的弹层主体继续从模板装载推进到稳定 patch，减少 bodyHtml 入口和批量列表重建。
-
 import { LootWindowState } from '@mud/shared-next';
 import { detailModalHost } from '../detail-modal-host';
 import { formatDisplayCountBadge, formatDisplayInteger } from '../../utils/number';
@@ -60,80 +58,182 @@ export class LootPanel {
     }
 
     const { tileX, tileY, title, sources } = this.windowState;
+    const existingBody = detailModalHost.isOpenFor(LootPanel.MODAL_OWNER)
+      ? document.getElementById('detail-modal-body')
+      : null;
+    if (existingBody && this.patchBody(existingBody, sources)) {
+      return;
+    }
     detailModalHost.open({
       ownerId: LootPanel.MODAL_OWNER,
       size: 'lg',
       variantClass: 'detail-modal--loot',
       title,
       subtitle: `坐标 (${tileX}, ${tileY})`,
-      bodyHtml: sources.map((source) => {
-        const searchHtml = source.search && source.search.remainingTicks > 0
-          ? `<div class="loot-search-state">
-              <div class="loot-search-copy">
-                <strong>搜索中</strong>
-                <span>${formatDisplayInteger(source.search.elapsedTicks)} / ${formatDisplayInteger(source.search.totalTicks)} 息</span>
-              </div>
-              <div class="loot-search-bar"><span class="loot-search-fill" style="width:${Math.max(0, Math.min(100, (source.search.elapsedTicks / Math.max(1, source.search.totalTicks)) * 100))}%"></span></div>
-            </div>`
-          : '';
-        const itemsHtml = source.items.length > 0
-          ? `<div class="inventory-grid loot-item-grid">
-              ${source.items.map((entry) => `
-                <div class="inventory-cell">
-                  <div class="inventory-cell-head">
-                    <span class="inventory-cell-type">${source.kind === 'ground' ? '地面' : '容器'}</span>
-                    <span class="inventory-cell-count">${formatDisplayCountBadge(entry.item.count)}</span>
-                  </div>
-                  <div class="inventory-cell-name" title="${escapeHtml(entry.item.name)}">${escapeHtml(entry.item.name)}</div>
-                  <div class="inventory-cell-actions">
-                    <button class="small-btn" data-loot-take="true" data-source-id="${escapeHtml(source.sourceId)}" data-item-key="${escapeHtml(entry.itemKey)}" type="button">拿取</button>
-                  </div>
-                </div>
-              `).join('')}
-            </div>`
-          : `<div class="loot-source-empty">${escapeHtml(source.emptyText ?? '这里什么都没有。')}</div>`;
-        return `
-          <section class="loot-source-section">
-            <div class="loot-source-head">
-              <div>
-                <div class="loot-source-title">${escapeHtml(source.title)}</div>
-                <div class="loot-source-subtitle">${escapeHtml(source.kind === 'ground' ? '直接拾取' : `容器搜索${source.grade ? ` · ${source.grade}` : ''}`)}</div>
-              </div>
-              <div class="loot-source-actions">
-                ${source.items.length > 0 ? `<button class="small-btn" data-loot-take-all="true" data-source-id="${escapeHtml(source.sourceId)}" type="button">全部拿取</button>` : ''}
-                ${source.desc ? `<div class="loot-source-desc">${escapeHtml(source.desc)}</div>` : ''}
-              </div>
-            </div>
-            ${searchHtml}
-            ${itemsHtml}
-          </section>
-        `;
-      }).join(''),
+      renderBody: (body) => {
+        this.renderBody(body, sources);
+      },
       onAfterRender: (body) => {
-        body.querySelectorAll<HTMLElement>('[data-loot-take="true"]').forEach((button) => {
-          button.addEventListener('click', (event) => {
-            event.stopPropagation();
-            const sourceId = button.dataset.sourceId;
-            const itemKey = button.dataset.itemKey;
-            if (!sourceId || !itemKey) {
-              return;
-            }
-            this.onTake?.(sourceId, itemKey);
-          });
-        });
-        body.querySelectorAll<HTMLElement>('[data-loot-take-all="true"]').forEach((button) => {
-          button.addEventListener('click', (event) => {
-            event.stopPropagation();
-            const sourceId = button.dataset.sourceId;
-            if (!sourceId) {
-              return;
-            }
-            this.onTakeAll?.(sourceId);
-          });
-        });
+        this.bindEvents(body);
       },
     });
   }
+
+  /** renderBody：渲染身体。 */
+  private renderBody(body: HTMLElement, sources: LootWindowState['sources']): void {
+    const shell = createElement('div', 'loot-shell');
+    for (const source of sources) {
+      shell.append(this.createSourceSection(source));
+    }
+    body.replaceChildren(shell);
+  }
+
+  /** patchBody：按 source section 粒度刷新拾取弹层。 */
+  private patchBody(body: HTMLElement, sources: LootWindowState['sources']): boolean {
+    let shell = body.querySelector<HTMLElement>('.loot-shell');
+    if (!shell) {
+      shell = createElement('div', 'loot-shell');
+      body.replaceChildren(shell);
+    }
+    const staleSections = new Map<string, HTMLElement>();
+    shell.querySelectorAll<HTMLElement>('[data-loot-source-section]').forEach((section) => {
+      const sourceId = section.dataset.lootSourceSection ?? '';
+      if (sourceId) {
+        staleSections.set(sourceId, section);
+      }
+    });
+    for (const source of sources) {
+      const nextSection = this.createSourceSection(source);
+      const existing = staleSections.get(source.sourceId);
+      if (existing) {
+        existing.replaceWith(nextSection);
+        staleSections.delete(source.sourceId);
+      } else {
+        shell.append(nextSection);
+      }
+    }
+    staleSections.forEach((section) => section.remove());
+    return true;
+  }
+
+  /** bindEvents：绑定事件。 */
+  private bindEvents(body: HTMLElement): void {
+    if (body.dataset.lootBound === 'true') {
+      return;
+    }
+    body.dataset.lootBound = 'true';
+    body.addEventListener('click', (event) => {
+      const target = event.target instanceof HTMLElement ? event.target.closest<HTMLElement>('[data-loot-take],[data-loot-take-all]') : null;
+      if (!target || !(target instanceof HTMLButtonElement)) {
+        return;
+      }
+      event.stopPropagation();
+      const sourceId = target.dataset.sourceId;
+      if (!sourceId) {
+        return;
+      }
+      if (target.dataset.lootTake === 'true') {
+        const itemKey = target.dataset.itemKey;
+        if (!itemKey) {
+          return;
+        }
+        this.onTake?.(sourceId, itemKey);
+        return;
+      }
+      if (target.dataset.lootTakeAll === 'true') {
+        this.onTakeAll?.(sourceId);
+      }
+    });
+  }
+
+  /** createSourceSection：创建 source section。 */
+  private createSourceSection(source: LootWindowState['sources'][number]): HTMLElement {
+    const section = createElement('section', 'loot-source-section');
+    section.dataset.lootSourceSection = source.sourceId;
+    const head = createElement('div', 'loot-source-head');
+    const titleWrap = createElement('div', '');
+    titleWrap.append(
+      createElement('div', 'loot-source-title', source.title),
+      createElement('div', 'loot-source-subtitle', source.kind === 'ground' ? '直接拾取' : `容器搜索${source.grade ? ` · ${source.grade}` : ''}`),
+    );
+    const actions = createElement('div', 'loot-source-actions');
+    if (source.items.length > 0) {
+      const takeAllButton = createElement('button', 'small-btn', '全部拿取');
+      takeAllButton.type = 'button';
+      takeAllButton.dataset.lootTakeAll = 'true';
+      takeAllButton.dataset.sourceId = source.sourceId;
+      actions.append(takeAllButton);
+    }
+    if (source.desc) {
+      actions.append(createElement('div', 'loot-source-desc', source.desc));
+    }
+    head.append(titleWrap, actions);
+    section.append(head);
+    const searchState = this.createSearchState(source);
+    if (searchState) {
+      section.append(searchState);
+    }
+    section.append(this.createItemsContent(source));
+    return section;
+  }
+
+  /** createSearchState：创建搜索状态。 */
+  private createSearchState(source: LootWindowState['sources'][number]): HTMLElement | null {
+    if (!source.search || source.search.remainingTicks <= 0) {
+      return null;
+    }
+    const searchState = createElement('div', 'loot-search-state');
+    const copy = createElement('div', 'loot-search-copy');
+    copy.append(
+      createElement('strong', '', '搜索中'),
+      createElement('span', '', `${formatDisplayInteger(source.search.elapsedTicks)} / ${formatDisplayInteger(source.search.totalTicks)} 息`),
+    );
+    const bar = createElement('div', 'loot-search-bar');
+    const fill = createElement('span', 'loot-search-fill');
+    fill.style.width = `${Math.max(0, Math.min(100, (source.search.elapsedTicks / Math.max(1, source.search.totalTicks)) * 100))}%`;
+    bar.append(fill);
+    searchState.append(copy, bar);
+    return searchState;
+  }
+
+  /** createItemsContent：创建物品区域。 */
+  private createItemsContent(source: LootWindowState['sources'][number]): HTMLElement {
+    if (source.items.length <= 0) {
+      return createElement('div', 'loot-source-empty', source.emptyText ?? '这里什么都没有。');
+    }
+    const grid = createElement('div', 'inventory-grid loot-item-grid');
+    for (const entry of source.items) {
+      const cell = createElement('div', 'inventory-cell');
+      const head = createElement('div', 'inventory-cell-head');
+      head.append(
+        createElement('span', 'inventory-cell-type', source.kind === 'ground' ? '地面' : '容器'),
+        createElement('span', 'inventory-cell-count', formatDisplayCountBadge(entry.item.count)),
+      );
+      const name = createElement('div', 'inventory-cell-name', entry.item.name);
+      name.title = entry.item.name;
+      const actions = createElement('div', 'inventory-cell-actions');
+      const button = createElement('button', 'small-btn', '拿取');
+      button.type = 'button';
+      button.dataset.lootTake = 'true';
+      button.dataset.sourceId = source.sourceId;
+      button.dataset.itemKey = entry.itemKey;
+      actions.append(button);
+      cell.append(head, name, actions);
+      grid.append(cell);
+    }
+    return grid;
+  }
 }
 
+/** createElement：创建基础元素。 */
+function createElement<K extends keyof HTMLElementTagNameMap>(tagName: K, className: string, text?: string): HTMLElementTagNameMap[K] {
+  const element = document.createElement(tagName);
+  if (className) {
+    element.className = className;
+  }
+  if (typeof text === 'string') {
+    element.textContent = text;
+  }
+  return element;
+}
 

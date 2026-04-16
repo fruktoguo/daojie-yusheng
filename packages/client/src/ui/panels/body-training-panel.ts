@@ -1,4 +1,3 @@
-// TODO(next:UI06): 把 body-training-panel 的灌注弹层继续从模板化 body 装载收成局部 patch，并和 craft/heaven-gate modal recipe 对齐。
 import {
   ATTR_KEY_LABELS,
   BodyTrainingState,
@@ -477,6 +476,12 @@ export class BodyTrainingPanel {
       return;
     }
     const plan = this.getSelectedPlan();
+    const existingBody = detailModalHost.isOpenFor(BodyTrainingPanel.MODAL_OWNER)
+      ? document.getElementById('detail-modal-body')
+      : null;
+    if (existingBody && this.patchInfusionModalBody(existingBody, plan, maxLevelGain)) {
+      return;
+    }
     detailModalHost.open({
       ownerId: BodyTrainingPanel.MODAL_OWNER,
       size: 'sm',
@@ -484,14 +489,67 @@ export class BodyTrainingPanel {
       title: '灌注炼体',
       subtitle: `当前第 ${formatDisplayInteger(this.baseState.level)} 层`,
       hint: '点击空白处关闭',
-      bodyHtml: this.renderInfusionModalBody(plan, maxLevelGain),
+      renderBody: (body) => {
+        body.innerHTML = this.renderInfusionModalBody(plan, maxLevelGain);
+      },
       onClose: () => {
         this.infusionModalOpen = false;
       },
       onAfterRender: (body) => {
-        this.bindInfusionModalEvents(body, maxLevelGain);
+        this.bindInfusionModalEvents(body);
       },
     });
+  }
+
+  /** patchInfusionModalBody：局部刷新 Infusion 弹层。 */
+  private patchInfusionModalBody(body: HTMLElement, plan: BodyTrainingInfusionPlan, maxLevelGain: number): boolean {
+    const root = body.querySelector<HTMLElement>('.body-training-infuse-modal');
+    if (!root) {
+      return false;
+    }
+    const inAllMode = this.selectedInfusionMode === 'all';
+    const canDecrease = plan.levelGain > 1;
+    const canIncrease = plan.levelGain < maxLevelGain;
+    setTextContent(body, '[data-body-infuse-available="true"]', formatDisplayInteger(this.baseFoundation));
+    setTextContent(
+      body,
+      '[data-body-infuse-max="true"]',
+      maxLevelGain > 0 ? `+${formatDisplayInteger(maxLevelGain)} 层` : `${formatDisplayInteger(this.baseFoundation)} 底蕴`,
+    );
+    setTextContent(
+      body,
+      '[data-body-infuse-picker-value="true"]',
+      inAllMode ? '全部底蕴' : `+${formatDisplayInteger(plan.levelGain)} 层`,
+    );
+    setTextContent(body, '[data-body-infuse-foundation-cost="true"]', formatDisplayInteger(plan.foundationCost));
+    setTextContent(
+      body,
+      '[data-body-infuse-exp-gain="true"]',
+      formatDisplayInteger(plan.foundationCost * BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER),
+    );
+    setTextContent(body, '[data-body-infuse-preview-level="true"]', `第 ${formatDisplayInteger(plan.previewState.level)} 层`);
+    setTextContent(
+      body,
+      '[data-body-infuse-preview-exp="true"]',
+      `${formatDisplayInteger(plan.previewState.exp)}/${formatDisplayInteger(plan.previewState.expToNext)}`,
+    );
+    setTextContent(
+      body,
+      '[data-body-infuse-note="true"]',
+      inAllMode
+        ? `本次将直接灌入全部 ${formatDisplayInteger(plan.foundationCost)} 点底蕴。`
+        : `本次需要 ${formatDisplayInteger(plan.expNeeded)} 点炼体经验，换算为 ${formatDisplayInteger(plan.foundationCost)} 点底蕴。`,
+    );
+    patchInfusionAdjustButton(body, '-10', !inAllMode, inAllMode || plan.levelGain <= 10);
+    patchInfusionAdjustButton(body, '-1', !inAllMode, inAllMode || !canDecrease);
+    patchInfusionAdjustButton(body, '1', !inAllMode, inAllMode || !canIncrease);
+    patchInfusionAdjustButton(body, '10', !inAllMode, inAllMode || plan.levelGain + 10 > maxLevelGain);
+    const allButton = body.querySelector<HTMLButtonElement>('[data-body-infuse-all="true"]');
+    if (allButton) {
+      allButton.classList.toggle('active', inAllMode);
+      allButton.disabled = this.baseFoundation <= 0;
+    }
+    return true;
   }
 
   /** renderInfusionModalBody：渲染Infusion弹窗身体。 */
@@ -504,11 +562,11 @@ export class BodyTrainingPanel {
         <section class="body-training-infuse-summary">
           <article class="body-training-infuse-stat">
             <span class="body-training-infuse-stat-label">可用底蕴</span>
-            <strong class="body-training-infuse-stat-value">${formatDisplayInteger(this.baseFoundation)}</strong>
+            <strong class="body-training-infuse-stat-value" data-body-infuse-available="true">${formatDisplayInteger(this.baseFoundation)}</strong>
           </article>
           <article class="body-training-infuse-stat">
             <span class="body-training-infuse-stat-label">${maxLevelGain > 0 ? '最多可升' : '当前可灌'}</span>
-            <strong class="body-training-infuse-stat-value">${maxLevelGain > 0 ? `+${formatDisplayInteger(maxLevelGain)} 层` : `${formatDisplayInteger(this.baseFoundation)} 底蕴`}</strong>
+            <strong class="body-training-infuse-stat-value" data-body-infuse-max="true">${maxLevelGain > 0 ? `+${formatDisplayInteger(maxLevelGain)} 层` : `${formatDisplayInteger(this.baseFoundation)} 底蕴`}</strong>
           </article>
         </section>
         <section class="body-training-infuse-picker">
@@ -516,7 +574,7 @@ export class BodyTrainingPanel {
           <div class="body-training-infuse-picker-row">
             <button class="small-btn ghost ${!inAllMode ? 'active' : ''}" type="button" data-body-infuse-adjust="-10" ${(inAllMode || plan.levelGain <= 10) ? 'disabled' : ''}>-10</button>
             <button class="small-btn ghost ${!inAllMode ? 'active' : ''}" type="button" data-body-infuse-adjust="-1" ${(inAllMode || !canDecrease) ? 'disabled' : ''}>-1</button>
-            <strong class="body-training-infuse-picker-value">${inAllMode ? '全部底蕴' : `+${formatDisplayInteger(plan.levelGain)} 层`}</strong>
+            <strong class="body-training-infuse-picker-value" data-body-infuse-picker-value="true">${inAllMode ? '全部底蕴' : `+${formatDisplayInteger(plan.levelGain)} 层`}</strong>
             <button class="small-btn ghost ${!inAllMode ? 'active' : ''}" type="button" data-body-infuse-adjust="1" ${(inAllMode || !canIncrease) ? 'disabled' : ''}>+1</button>
             <button class="small-btn ghost ${!inAllMode ? 'active' : ''}" type="button" data-body-infuse-adjust="10" ${(inAllMode || plan.levelGain + 10 > maxLevelGain) ? 'disabled' : ''}>+10</button>
             <button class="small-btn ghost ${inAllMode ? 'active' : ''}" type="button" data-body-infuse-all="true" ${this.baseFoundation > 0 ? '' : 'disabled'}>全部灌注</button>
@@ -525,22 +583,22 @@ export class BodyTrainingPanel {
         <section class="body-training-infuse-preview">
           <div class="body-training-infuse-preview-row">
             <span>消耗底蕴</span>
-            <strong>${formatDisplayInteger(plan.foundationCost)}</strong>
+            <strong data-body-infuse-foundation-cost="true">${formatDisplayInteger(plan.foundationCost)}</strong>
           </div>
           <div class="body-training-infuse-preview-row">
             <span>转化经验</span>
-            <strong>${formatDisplayInteger(plan.foundationCost * BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER)}</strong>
+            <strong data-body-infuse-exp-gain="true">${formatDisplayInteger(plan.foundationCost * BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER)}</strong>
           </div>
           <div class="body-training-infuse-preview-row">
             <span>预计境界</span>
-            <strong>第 ${formatDisplayInteger(plan.previewState.level)} 层</strong>
+            <strong data-body-infuse-preview-level="true">第 ${formatDisplayInteger(plan.previewState.level)} 层</strong>
           </div>
           <div class="body-training-infuse-preview-row">
             <span>预计当前经验</span>
-            <strong>${formatDisplayInteger(plan.previewState.exp)}/${formatDisplayInteger(plan.previewState.expToNext)}</strong>
+            <strong data-body-infuse-preview-exp="true">${formatDisplayInteger(plan.previewState.exp)}/${formatDisplayInteger(plan.previewState.expToNext)}</strong>
           </div>
         </section>
-        <div class="body-training-infuse-note">
+        <div class="body-training-infuse-note" data-body-infuse-note="true">
           ${inAllMode
             ? `本次将直接灌入全部 ${formatDisplayInteger(plan.foundationCost)} 点底蕴。`
             : `本次需要 ${formatDisplayInteger(plan.expNeeded)} 点炼体经验，换算为 ${formatDisplayInteger(plan.foundationCost)} 点底蕴。`}
@@ -554,35 +612,48 @@ export class BodyTrainingPanel {
   }
 
   /** bindInfusionModalEvents：绑定Infusion弹窗事件。 */
-  private bindInfusionModalEvents(body: HTMLElement, maxLevelGain: number): void {
-    body.querySelectorAll<HTMLElement>('[data-body-infuse-adjust]').forEach((button) => button.addEventListener('click', () => {
-      const delta = Number.parseInt(button.dataset.bodyInfuseAdjust ?? '0', 10);
-      if (!Number.isFinite(delta) || delta === 0) {
+  private bindInfusionModalEvents(body: HTMLElement): void {
+    if (body.dataset.bodyInfuseBound === 'true') {
+      return;
+    }
+    body.dataset.bodyInfuseBound = 'true';
+    body.addEventListener('click', (event) => {
+      const target = event.target instanceof HTMLElement ? event.target.closest<HTMLElement>('[data-body-infuse-adjust],[data-body-infuse-all],[data-body-infuse-close],[data-body-infuse-confirm]') : null;
+      if (!target || !(target instanceof HTMLButtonElement) || target.disabled) {
         return;
       }
-      this.selectedInfusionMode = 'level';
-      this.selectedLevelGain = this.clampLevelGain(this.selectedLevelGain + delta);
-      this.renderInfusionModal();
-    }));
-    body.querySelector<HTMLElement>('[data-body-infuse-all="true"]')?.addEventListener('click', () => {
-      this.selectedInfusionMode = 'all';
-      this.selectedLevelGain = Math.max(1, Math.min(maxLevelGain, this.selectedLevelGain || 1));
-      this.renderInfusionModal();
-    });
-    body.querySelector<HTMLElement>('[data-body-infuse-close="true"]')?.addEventListener('click', () => {
-      this.closeInfusionModal();
-    });
-    body.querySelector<HTMLElement>('[data-body-infuse-confirm="true"]')?.addEventListener('click', () => {
-      const plan = this.getSelectedPlan();
-      if (!this.onInfuse || plan.foundationCost <= 0 || plan.foundationCost > this.baseFoundation) {
+      if (target.dataset.bodyInfuseAdjust) {
+        const delta = Number.parseInt(target.dataset.bodyInfuseAdjust, 10);
+        if (!Number.isFinite(delta) || delta === 0) {
+          return;
+        }
+        this.selectedInfusionMode = 'level';
+        this.selectedLevelGain = this.clampLevelGain(this.selectedLevelGain + delta);
+        this.renderInfusionModal();
         return;
       }
-      this.baseState = plan.previewState;
-      this.baseFoundation = Math.max(0, this.baseFoundation - plan.foundationCost);
-      this.syncDisplayState();
-      this.patchOrRender();
-      this.closeInfusionModal();
-      this.onInfuse(plan.foundationCost);
+      if (target.dataset.bodyInfuseAll === 'true') {
+        this.selectedInfusionMode = 'all';
+        this.selectedLevelGain = Math.max(1, Math.min(this.getMaxLevelGain(), this.selectedLevelGain || 1));
+        this.renderInfusionModal();
+        return;
+      }
+      if (target.dataset.bodyInfuseClose === 'true') {
+        this.closeInfusionModal();
+        return;
+      }
+      if (target.dataset.bodyInfuseConfirm === 'true') {
+        const plan = this.getSelectedPlan();
+        if (!this.onInfuse || plan.foundationCost <= 0 || plan.foundationCost > this.baseFoundation) {
+          return;
+        }
+        this.baseState = plan.previewState;
+        this.baseFoundation = Math.max(0, this.baseFoundation - plan.foundationCost);
+        this.syncDisplayState();
+        this.patchOrRender();
+        this.closeInfusionModal();
+        this.onInfuse(plan.foundationCost);
+      }
     });
   }
 
@@ -657,3 +728,20 @@ export class BodyTrainingPanel {
   }
 }
 
+/** setTextContent：设置文本内容。 */
+function setTextContent(root: ParentNode, selector: string, value: string): void {
+  const element = root.querySelector<HTMLElement>(selector);
+  if (element) {
+    element.textContent = value;
+  }
+}
+
+/** patchInfusionAdjustButton：更新灌注调整按钮。 */
+function patchInfusionAdjustButton(root: ParentNode, delta: string, active: boolean, disabled: boolean): void {
+  const button = root.querySelector<HTMLButtonElement>(`[data-body-infuse-adjust="${delta}"]`);
+  if (!button) {
+    return;
+  }
+  button.classList.toggle('active', active);
+  button.disabled = disabled;
+}

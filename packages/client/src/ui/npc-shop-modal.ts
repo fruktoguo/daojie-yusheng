@@ -1,4 +1,3 @@
-// TODO(next:UI01): 把 npc-shop-modal 的列表/详情渲染继续从整块写入收成局部 patch，避免商店刷新打断当前操作。
 import { Inventory, ItemStack, PlayerState } from '@mud/shared-next';
 import { buildItemTooltipPayload, describeItemEffectDetails } from './equipment-tooltip';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from './floating-tooltip';
@@ -58,6 +57,15 @@ interface NpcShopResponseState {
 interface NpcShopModalMeta {
   title: string;
   subtitle: string;
+}
+
+/** NpcShopRenderState：商店弹窗滚动与输入焦点状态。 */
+interface NpcShopRenderState {
+  listScrollTop: number;
+  detailScrollTop: number;
+  focusedQuantityItemId: string | null;
+  selectionStart: number | null;
+  selectionEnd: number | null;
 }
 
 /** NpcShopModal：NPC商店弹窗实现。 */
@@ -155,11 +163,15 @@ export class NpcShopModal {
 
   /** render：渲染渲染。 */
   private render(): void {
-    const response = this.shopState;
-    const shop = response?.shop ?? null;
     const meta = this.buildModalMeta();
-    const body = document.getElementById('detail-modal-body');
+    const body = detailModalHost.isOpenFor(NpcShopModal.MODAL_OWNER)
+      ? document.getElementById('detail-modal-body')
+      : null;
+    const renderState = body ? this.captureRenderState(body) : null;
     if (detailModalHost.isOpenFor(NpcShopModal.MODAL_OWNER) && body && this.patchBody(body, meta)) {
+      if (renderState) {
+        this.restoreRenderState(body, renderState);
+      }
       return;
     }
     detailModalHost.open({
@@ -168,7 +180,9 @@ export class NpcShopModal {
       variantClass: 'detail-modal--market',
       title: meta.title,
       subtitle: meta.subtitle,
-      bodyHtml: this.renderBody(),
+      renderBody: (modalBody) => {
+        this.renderBody(modalBody);
+      },
       onClose: () => {
         this.activeNpcId = null;
         this.loading = false;
@@ -178,76 +192,207 @@ export class NpcShopModal {
       onAfterRender: (body) => {
         this.bindEvents(body);
         this.bindItemTooltipEvents(body);
+        if (renderState) {
+          this.restoreRenderState(body, renderState);
+        }
       },
     });
   }
 
   /** renderBody：渲染身体。 */
-  private renderBody(): string {
+  private renderBody(body: HTMLElement): void {
     if (this.loading && !this.shopState) {
-      return '<div class="empty-hint ui-empty-hint">商店货架同步中……</div>';
+      body.replaceChildren(this.createEmptyState('商店货架同步中……'));
+      return;
     }
 
     const response = this.shopState;
     const shop = response?.shop ?? null;
     if (!shop) {
-      return `<div class="empty-hint ui-empty-hint">${escapeHtml(response?.error ?? '暂时无法打开商店。')}</div>`;
+      body.replaceChildren(this.createEmptyState(response?.error ?? '暂时无法打开商店。'));
+      return;
     }
     if (shop.items.length === 0) {
-      return '<div class="empty-hint ui-empty-hint">这家店今天还没有上货。</div>';
+      body.replaceChildren(this.createEmptyState('这家店今天还没有上货。'));
+      return;
     }
 
     const selectedItem = shop.items.find((item) => item.itemId === this.selectedItemId) ?? shop.items[0]!;
-    const listItems = shop.items
-      .map((item) => this.renderListItem(item, item.itemId === selectedItem.itemId))
-      .join('');
-    const ownedCurrency = this.findInventoryItemCount(shop.currencyItemId);
-
-    return `
-      <div class="npc-shop-modal-shell ui-card-list">
-        <div class="market-modal-content market-modal-content--wide">
-          <div class="market-market-tab">
-            <div class="market-board">
-              <div class="market-board-list-wrap ui-surface-pane ui-surface-pane--stack">
-                <div class="market-list-toolbar ui-action-row">
-                  <div class="market-list-toolbar-meta" data-npc-shop-toolbar-meta="true">共 ${formatDisplayInteger(shop.items.length)} 件，持有 ${escapeHtml(shop.currencyItemName)} ${formatDisplayInteger(ownedCurrency)}</div>
-                  <div class="market-list-toolbar-actions"></div>
-                </div>
-                <div class="market-board-list ui-scroll-panel" data-npc-shop-list="true">${listItems}</div>
-              </div>
-              <div class="market-book-panel ui-surface-pane ui-surface-pane--stack" data-npc-shop-detail="true">
-                ${this.renderDetailPanel(shop, selectedItem)}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    `;
+    const shell = this.createModalShell();
+    const toolbarMeta = shell.querySelector<HTMLElement>('[data-npc-shop-toolbar-meta="true"]');
+    const listRoot = shell.querySelector<HTMLElement>('[data-npc-shop-list="true"]');
+    const detailRoot = shell.querySelector<HTMLElement>('[data-npc-shop-detail="true"]');
+    if (!toolbarMeta || !listRoot || !detailRoot) {
+      body.replaceChildren(this.createEmptyState('暂时无法打开商店。'));
+      return;
+    }
+    this.syncToolbarMeta(toolbarMeta, shop);
+    this.syncShopList(listRoot, shop, selectedItem);
+    this.syncDetailPanel(detailRoot, shop, selectedItem);
+    body.replaceChildren(shell);
   }
 
-  /** renderListItem：渲染列表物品。 */
-  private renderListItem(item: NpcShopItemState, active: boolean): string {
+  /** createEmptyState：创建空态节点。 */
+  private createEmptyState(text: string): HTMLDivElement {
+    const empty = document.createElement('div');
+    empty.className = 'empty-hint ui-empty-hint';
+    empty.textContent = text;
+    return empty;
+  }
+
+  /** createModalShell：创建商店弹层的稳定壳体。 */
+  private createModalShell(): HTMLDivElement {
+    const shell = document.createElement('div');
+    shell.className = 'npc-shop-modal-shell ui-card-list';
+
+    const content = document.createElement('div');
+    content.className = 'market-modal-content market-modal-content--wide';
+    const tab = document.createElement('div');
+    tab.className = 'market-market-tab';
+    const board = document.createElement('div');
+    board.className = 'market-board';
+
+    const listWrap = document.createElement('div');
+    listWrap.className = 'market-board-list-wrap ui-surface-pane ui-surface-pane--stack';
+    const toolbar = document.createElement('div');
+    toolbar.className = 'market-list-toolbar ui-action-row';
+    const toolbarMeta = document.createElement('div');
+    toolbarMeta.className = 'market-list-toolbar-meta';
+    toolbarMeta.dataset.npcShopToolbarMeta = 'true';
+    const toolbarActions = document.createElement('div');
+    toolbarActions.className = 'market-list-toolbar-actions';
+    toolbar.append(toolbarMeta, toolbarActions);
+
+    const list = document.createElement('div');
+    list.className = 'market-board-list ui-scroll-panel';
+    list.dataset.npcShopList = 'true';
+    listWrap.append(toolbar, list);
+
+    const detail = document.createElement('div');
+    detail.className = 'market-book-panel ui-surface-pane ui-surface-pane--stack';
+    detail.dataset.npcShopDetail = 'true';
+
+    board.append(listWrap, detail);
+    tab.appendChild(board);
+    content.appendChild(tab);
+    shell.appendChild(content);
+    return shell;
+  }
+
+  /** createListItem：创建商店列表项。 */
+  private createListItem(): HTMLButtonElement {
+    const button = document.createElement('button');
+    button.className = 'market-item-cell';
+    button.type = 'button';
+
+    const name = document.createElement('div');
+    name.className = 'market-item-cell-name';
+    name.dataset.npcShopItemNameWrap = 'true';
+
+    const nameText = document.createElement('span');
+    nameText.className = 'market-item-cell-name-text market-item-title--interactive';
+    nameText.dataset.npcShopItemTooltip = '';
+
+    const owned = document.createElement('span');
+    owned.className = 'market-item-cell-owned';
+    owned.dataset.npcShopOwned = 'true';
+
+    name.append(nameText, owned);
+
+    const prices = document.createElement('div');
+    prices.className = 'market-item-cell-prices';
+
+    const price = document.createElement('span');
+    price.dataset.npcShopPrice = 'true';
+
+    const stock = document.createElement('span');
+    stock.dataset.npcShopStock = 'true';
+
+    prices.append(price, stock);
+    button.append(name, prices);
+    return button;
+  }
+
+  /** patchListItem：按当前商店状态更新列表项。 */
+  private patchListItem(button: HTMLButtonElement, item: NpcShopItemState, active: boolean): boolean {
+    const nameWrap = button.querySelector<HTMLElement>('[data-npc-shop-item-name-wrap="true"]');
+    const nameText = button.querySelector<HTMLElement>('[data-npc-shop-item-tooltip]');
+    const ownedNode = button.querySelector<HTMLElement>('[data-npc-shop-owned="true"]');
+    const priceNode = button.querySelector<HTMLElement>('[data-npc-shop-price="true"]');
+    const stockNode = button.querySelector<HTMLElement>('[data-npc-shop-stock="true"]');
+    if (!nameWrap || !nameText || !ownedNode || !priceNode || !stockNode) {
+      return false;
+    }
+
     const ownedCount = this.findInventoryItemCount(item.itemId);
-    const ownedLabel = ownedCount > 0
-      ? `<span class="market-item-cell-owned">${formatDisplayCountBadge(ownedCount)}</span>`
-      : '';
     const stockLabel = item.remainingQuantity === undefined
-      ? escapeHtml(getItemTypeLabel(item.item.type))
+      ? getItemTypeLabel(item.item.type)
       : item.remainingQuantity > 0
-        ? `${escapeHtml(getItemTypeLabel(item.item.type))} · 余 ${formatDisplayInteger(item.remainingQuantity)}${item.stockLimit ? `/${formatDisplayInteger(item.stockLimit)}` : ''}`
-        : `${escapeHtml(getItemTypeLabel(item.item.type))} · 已售罄`;
-    return `
-      <button class="market-item-cell ${active ? 'active' : ''}" data-npc-shop-select-item="${escapeHtmlAttr(item.itemId)}" type="button">
-        <div class="market-item-cell-name" title="${escapeHtmlAttr(item.item.name)}">
-          <span class="market-item-cell-name-text market-item-title--interactive" data-npc-shop-item-tooltip="${escapeHtmlAttr(item.itemId)}">${escapeHtml(item.item.name)}</span>
-          ${ownedLabel}
-        </div>
-        <div class="market-item-cell-prices">
-          <span>售价 ${formatDisplayInteger(item.unitPrice)}</span>
-          <span>${stockLabel}</span>
-        </div>
-      </button>
-    `;
+        ? `${getItemTypeLabel(item.item.type)} · 余 ${formatDisplayInteger(item.remainingQuantity)}${item.stockLimit ? `/${formatDisplayInteger(item.stockLimit)}` : ''}`
+        : `${getItemTypeLabel(item.item.type)} · 已售罄`;
+
+    button.dataset.npcShopSelectItem = item.itemId;
+    button.classList.toggle('active', active);
+    nameWrap.title = item.item.name;
+    nameText.textContent = item.item.name;
+    nameText.dataset.npcShopItemTooltip = item.itemId;
+    ownedNode.textContent = ownedCount > 0 ? formatDisplayCountBadge(ownedCount) : '';
+    ownedNode.classList.toggle('hidden', ownedCount <= 0);
+    priceNode.textContent = `售价 ${formatDisplayInteger(item.unitPrice)}`;
+    stockNode.textContent = stockLabel;
+    return true;
+  }
+
+  /** syncToolbarMeta：同步列表顶部摘要。 */
+  private syncToolbarMeta(toolbarMeta: HTMLElement, shop: NpcShopState): void {
+    const ownedCurrency = this.findInventoryItemCount(shop.currencyItemId);
+    toolbarMeta.textContent = `共 ${formatDisplayInteger(shop.items.length)} 件，持有 ${shop.currencyItemName} ${formatDisplayInteger(ownedCurrency)}`;
+  }
+
+  /** syncShopList：同步商品列表，优先复用已有节点。 */
+  private syncShopList(listRoot: HTMLElement, shop: NpcShopState, selectedItem: NpcShopItemState): boolean {
+    const existingCards = new Map<string, HTMLButtonElement>();
+    listRoot.querySelectorAll<HTMLButtonElement>('[data-npc-shop-select-item]').forEach((card) => {
+      const itemId = card.dataset.npcShopSelectItem;
+      if (itemId) {
+        existingCards.set(itemId, card);
+      }
+    });
+
+    const orderedCards = shop.items.map((item) => {
+      const card = existingCards.get(item.itemId) ?? this.createListItem();
+      this.patchListItem(card, item, item.itemId === selectedItem.itemId);
+      existingCards.delete(item.itemId);
+      return card;
+    });
+    existingCards.forEach((card) => card.remove());
+    this.syncContainerChildren(listRoot, orderedCards);
+    return true;
+  }
+
+  /** syncDetailPanel：刷新右侧详情区。 */
+  private syncDetailPanel(detailRoot: HTMLElement, shop: NpcShopState, selectedItem: NpcShopItemState): void {
+    const template = document.createElement('template');
+    template.innerHTML = this.renderDetailPanel(shop, selectedItem).trim();
+    detailRoot.replaceChildren(template.content.cloneNode(true));
+  }
+
+  /** syncContainerChildren：按目标顺序复用并重排子节点。 */
+  private syncContainerChildren(container: HTMLElement, orderedNodes: HTMLElement[]): void {
+    const allowed = new Set(orderedNodes);
+    for (const child of Array.from(container.children)) {
+      if (!(child instanceof HTMLElement) || !allowed.has(child)) {
+        child.remove();
+      }
+    }
+
+    let reference: ChildNode | null = container.firstChild;
+    for (const node of orderedNodes) {
+      if (reference !== node) {
+        container.insertBefore(node, reference);
+      }
+      reference = node.nextSibling;
+    }
   }
 
   private renderDetailPanel(
@@ -476,27 +621,59 @@ export class NpcShopModal {
     }
 
     const selectedItem = shop.items.find((item) => item.itemId === this.selectedItemId) ?? shop.items[0]!;
-    const ownedCurrency = this.findInventoryItemCount(shop.currencyItemId);
-    toolbarMeta.textContent = `共 ${formatDisplayInteger(shop.items.length)} 件，持有 ${shop.currencyItemName} ${formatDisplayInteger(ownedCurrency)}`;
-    listRoot.innerHTML = shop.items
-      .map((item) => this.renderListItem(item, item.itemId === selectedItem.itemId))
-      .join('');
-    detailRoot.innerHTML = this.renderDetailPanel(shop, selectedItem);
-    this.patchModalMeta(meta);
+    detailModalHost.patch({
+      ownerId: NpcShopModal.MODAL_OWNER,
+      title: meta.title,
+      subtitle: meta.subtitle,
+    });
+    this.syncToolbarMeta(toolbarMeta, shop);
+    this.syncShopList(listRoot, shop, selectedItem);
+    this.syncDetailPanel(detailRoot, shop, selectedItem);
     this.bindItemTooltipEvents(body);
     return true;
   }
 
-  /** patchModalMeta：处理patch弹窗元数据。 */
-  private patchModalMeta(meta: NpcShopModalMeta): void {
-    const titleNode = document.getElementById('detail-modal-title');
-    const subtitleNode = document.getElementById('detail-modal-subtitle');
-    if (titleNode) {
-      titleNode.textContent = meta.title;
+  /** captureRenderState：记录当前滚动和数量输入焦点。 */
+  private captureRenderState(body: HTMLElement): NpcShopRenderState {
+    const activeElement = document.activeElement;
+    if (activeElement instanceof HTMLInputElement && body.contains(activeElement)) {
+      return {
+        listScrollTop: body.querySelector<HTMLElement>('[data-npc-shop-list="true"]')?.scrollTop ?? 0,
+        detailScrollTop: body.querySelector<HTMLElement>('[data-npc-shop-detail="true"]')?.scrollTop ?? 0,
+        focusedQuantityItemId: activeElement.dataset.npcShopQuantity ?? null,
+        selectionStart: activeElement.selectionStart,
+        selectionEnd: activeElement.selectionEnd,
+      };
     }
-    if (subtitleNode) {
-      subtitleNode.textContent = meta.subtitle;
-      subtitleNode.classList.toggle('hidden', meta.subtitle.length === 0);
+    return {
+      listScrollTop: body.querySelector<HTMLElement>('[data-npc-shop-list="true"]')?.scrollTop ?? 0,
+      detailScrollTop: body.querySelector<HTMLElement>('[data-npc-shop-detail="true"]')?.scrollTop ?? 0,
+      focusedQuantityItemId: null,
+      selectionStart: null,
+      selectionEnd: null,
+    };
+  }
+
+  /** restoreRenderState：恢复滚动和数量输入焦点。 */
+  private restoreRenderState(body: HTMLElement, state: NpcShopRenderState): void {
+    const listRoot = body.querySelector<HTMLElement>('[data-npc-shop-list="true"]');
+    const detailRoot = body.querySelector<HTMLElement>('[data-npc-shop-detail="true"]');
+    if (listRoot) {
+      listRoot.scrollTop = state.listScrollTop;
+    }
+    if (detailRoot) {
+      detailRoot.scrollTop = state.detailScrollTop;
+    }
+    if (!state.focusedQuantityItemId) {
+      return;
+    }
+    const input = body.querySelector<HTMLInputElement>(`[data-npc-shop-quantity="${state.focusedQuantityItemId}"]`);
+    if (!input) {
+      return;
+    }
+    input.focus({ preventScroll: true });
+    if (state.selectionStart !== null && state.selectionEnd !== null) {
+      input.setSelectionRange(state.selectionStart, state.selectionEnd);
     }
   }
 
@@ -560,6 +737,10 @@ export class NpcShopModal {
       if (!entry) {
         return;
       }
+      if (node.dataset.npcShopTooltipBound === itemId) {
+        return;
+      }
+      node.dataset.npcShopTooltipBound = itemId;
       const tooltip = buildItemTooltipPayload(entry.item);
       const showTooltip = (event: PointerEvent): void => {
         this.tooltip.show(tooltip.title, tooltip.lines, event.clientX, event.clientY, {
@@ -620,4 +801,3 @@ export class NpcShopModal {
       .reduce((total, item) => total + item.count, 0);
   }
 }
-
