@@ -112,6 +112,8 @@ const LEGACY_S2C_EVENTS = new Set([
     's:npcShop',
 ]);
 const LEGACY_ERROR_EVENT = 's:error';
+const REGISTER_ACCOUNT_NAME_PREFIX = 'acct_';
+const REGISTER_ACCOUNT_NAME_MAX_LENGTH = 20;
 /**
  * 为本次 smoke 生成唯一后缀，避免账号和玩家标识冲突。
  */
@@ -132,6 +134,12 @@ function buildProfileSkippedProof(reason) {
         reason,
         profile: NEXT_AUTH_BOOTSTRAP_PROFILE,
     };
+}
+function buildRegisterAccountName(accountSuffix, retryAttempt = null) {
+    const retrySuffix = retryAttempt === null ? '' : `_${retryAttempt}`;
+    const maxSuffixLength = Math.max(0, REGISTER_ACCOUNT_NAME_MAX_LENGTH - REGISTER_ACCOUNT_NAME_PREFIX.length - retrySuffix.length);
+    const normalizedSuffix = accountSuffix.slice(0, maxSuffixLength);
+    return `${REGISTER_ACCOUNT_NAME_PREFIX}${normalizedSuffix}${retrySuffix}`;
 }
 async function withEnvOverrides(overrides, run) {
     const previous = new Map();
@@ -6265,7 +6273,7 @@ async function registerAndLoginPlayer(accountSuffix, displayName, roleName) {
 /**
  * 记录account名称。
  */
-    let accountName = `acct_${accountSuffix}`;
+    let accountName = buildRegisterAccountName(accountSuffix);
 /**
  * 记录password。
  */
@@ -6294,7 +6302,7 @@ async function registerAndLoginPlayer(accountSuffix, displayName, roleName) {
                 throw error;
             }
             const retrySuffix = `${suffix.slice(-4)}${attempt}`.slice(0, 5);
-            accountName = `acct_${accountSuffix}_${attempt}`;
+            accountName = buildRegisterAccountName(accountSuffix, attempt);
             currentDisplayName = buildRetryDisplayName(displayName, retrySuffix, attempt + 1);
             currentRoleName = buildRetryRoleName(roleName, retrySuffix);
         }
