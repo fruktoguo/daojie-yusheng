@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.NEXT_HTTP_PROVIDERS = exports.NEXT_HTTP_CONTROLLERS = void 0;
+exports.NEXT_HTTP_PROVIDERS = exports.NEXT_HTTP_CONTROLLERS = exports.NEXT_HTTP_CONTRACT = void 0;
 const next_database_restore_coordinator_service_1 = require("./next/next-database-restore-coordinator.service");
 const next_gm_admin_service_1 = require("./next/next-gm-admin.service");
 const next_gm_mail_service_1 = require("./next/next-gm-mail.service");
@@ -16,7 +16,15 @@ const next_account_controller_1 = require("./next/next-account.controller");
 const next_gm_auth_controller_1 = require("./next/next-gm-auth.controller");
 const next_gm_controller_1 = require("./next/next-gm.controller");
 const next_gm_admin_controller_1 = require("./next/next-gm-admin.controller");
-// TODO(next:T13): 在 next HTTP contract 最终定稿后，复核这层 controller/provider 总入口是否还要继续承担迁移期 GM/auth/admin 聚合壳。
+const next_gm_contract_1 = require("./next/next-gm-contract");
+
+/** Next 体系 HTTP 路由与依赖注册清单（控制器 + 服务）。 */
+exports.NEXT_HTTP_CONTRACT = Object.freeze({
+    controllerShape: next_gm_contract_1.NEXT_GM_HTTP_CONTRACT.controllerShape,
+    authSurface: next_gm_contract_1.NEXT_GM_HTTP_CONTRACT.authSurface,
+    adminSurface: next_gm_contract_1.NEXT_GM_HTTP_CONTRACT.adminSurface,
+    restoreSurface: next_gm_contract_1.NEXT_GM_HTTP_CONTRACT.restoreSurface,
+});
 
 /** Next 体系 HTTP 路由与依赖注册清单（控制器 + 服务）。 */
 exports.NEXT_HTTP_CONTROLLERS = [

@@ -37,16 +37,6 @@ const DISABLE_COMPAT_MIGRATION_SOURCE_ENV_KEYS = [
     'SERVER_NEXT_AUTH_DISABLE_COMPAT_MIGRATION_SOURCE',
     'NEXT_AUTH_DISABLE_COMPAT_MIGRATION_SOURCE',
 ];
-
-const DISABLE_LEGACY_HTTP_IDENTITY_FALLBACK_ENV_KEYS = [
-    'SERVER_NEXT_AUTH_DISABLE_LEGACY_HTTP_IDENTITY_FALLBACK',
-    'NEXT_AUTH_DISABLE_LEGACY_HTTP_IDENTITY_FALLBACK',
-];
-
-const ALLOW_LEGACY_HTTP_IDENTITY_FALLBACK_ENV_KEYS = [
-    'SERVER_NEXT_ALLOW_LEGACY_HTTP_IDENTITY_FALLBACK',
-    'NEXT_ALLOW_LEGACY_HTTP_IDENTITY_FALLBACK',
-];
 /** 是否关闭 compat migration 源入口。 */
 function isCompatMigrationSourceDisabled() {
     for (const key of DISABLE_COMPAT_MIGRATION_SOURCE_ENV_KEYS) {
@@ -61,10 +51,6 @@ function isCompatMigrationSourceDisabled() {
 function isCompatMigrationAccessExplicit(options) {
     return options?.allowCompatMigration === true;
 }
-/** 是否显式允许 legacy HTTP 身份回退。 */
-function isLegacyHttpIdentityFallbackExplicit(options) {
-    return options?.allowLegacyHttpIdentityFallback === true;
-}
 /** compat 迁移入口必须显式声明，避免继续把 direct compat source 当常规真源。 */
 function assertExplicitCompatMigrationAccess(options, logger, action) {
     if (isCompatMigrationAccessExplicit(options)) {
@@ -73,13 +59,12 @@ function assertExplicitCompatMigrationAccess(options, logger, action) {
     logger?.warn?.(`旧玩家源 ${action} 已拦截：reason=explicit_compat_migration_required`);
     return false;
 }
-// TODO(next:T02): 把 WorldPlayerSourceService 从 legacy facade 收成 next-native source，并把 legacy/HTTP fallback 限制为显式迁移入口。
 
-/** 玩家来源服务：负责从 legacy / HTTP / next 持久化源恢复玩家身份。 */
+/** 玩家来源服务：主链只认 next 真源，legacy 数据库只保留给显式 migration 入口。 */
 let WorldPlayerSourceService = class WorldPlayerSourceService {
-    /** 记录来源解析与回退路径。 */
+    /** 记录来源解析与迁移入口行为。 */
     logger = new common_1.Logger(WorldPlayerSourceService.name);
-    /** legacy HTTP 兼容存储入口。 */
+    /** 保留注入位，避免迁移期外部 provider 断裂。 */
     authStore;
     /** next 身份持久化入口。 */
     playerIdentityPersistenceService;
@@ -156,7 +141,8 @@ let WorldPlayerSourceService = class WorldPlayerSourceService {
 
         const pool = await this.ensurePool();
         if (!pool) {
-            return this.resolveCompatIdentityHttpFallback(payload, 'pool_unavailable', options);
+            this.logger.warn(`旧玩家源 compat 身份迁移已拦截：reason=pool_unavailable migration_only=true userId=${typeof payload?.sub === 'string' ? payload.sub : '未知'}`);
+            return null;
         }
 
         let row;
@@ -165,13 +151,14 @@ let WorldPlayerSourceService = class WorldPlayerSourceService {
         }
         catch (error) {
             if (isMissingLegacySchemaError(error)) {
-                this.logger.warn('旧玩家源鉴权回退：users/players 表不可用，已请求 compat 身份回退');
-                return this.resolveCompatIdentityHttpFallback(payload, 'missing_legacy_schema', options);
+                this.logger.warn(`旧玩家源 compat 身份迁移已拦截：reason=missing_legacy_schema migration_only=true userId=${typeof payload?.sub === 'string' ? payload.sub : '未知'}`);
+                return null;
             }
             throw error;
         }
         if (!row) {
-            return this.resolveCompatIdentityHttpFallback(payload, 'missing_legacy_row', options);
+            this.logger.warn(`旧玩家源 compat 身份迁移已拦截：reason=missing_legacy_row migration_only=true userId=${typeof payload?.sub === 'string' ? payload.sub : '未知'}`);
+            return null;
         }
         return {
             userId: row?.userId ?? payload.sub,
@@ -179,41 +166,6 @@ let WorldPlayerSourceService = class WorldPlayerSourceService {
             displayName: resolveDisplayName(row?.displayName, row?.username ?? payload.username, payload.displayName),
             playerId: row?.playerId ?? buildFallbackPlayerId(payload.sub),
             playerName: resolvePlayerName(row?.playerName ?? row?.pendingRoleName ?? null, row?.username ?? payload.username, payload.displayName),
-        };
-    }
-    /** legacy 数据库不可用时，按配置尝试 HTTP 兼容回退。 */
-    async resolveCompatIdentityHttpFallback(payload, reason, options = undefined) {
-        if (!isLegacyHttpIdentityFallbackExplicit(options)) {
-            this.logger.warn(`旧玩家源 compat 身份 HTTP 回退已拦截：reason=${reason} explicit_opt_in_required=true userId=${typeof payload?.sub === 'string' ? payload.sub : '未知'}`);
-            return null;
-        }
-        if (!isLegacyHttpIdentityFallbackAllowed() || isLegacyHttpIdentityFallbackDisabled()) {
-            this.logger.warn(`旧玩家源 compat 身份 HTTP 回退已拦截：reason=${reason} userId=${typeof payload?.sub === 'string' ? payload.sub : '未知'}`);
-            return null;
-        }
-        if (!this.authStore) {
-            this.logger.warn(`旧玩家源 compat 身份 HTTP 回退不可用：reason=${reason} compat_http_disabled=true userId=${typeof payload?.sub === 'string' ? payload.sub : '未知'}`);
-            return null;
-        }
-        return this.resolveLegacyHttpPlayerIdentity(payload);
-    }
-    /** 从 legacy HTTP 账号存储恢复玩家身份。 */
-    async resolveLegacyHttpPlayerIdentity(payload) {
-
-        const user = await this.authStore.findUserById(payload.sub);
-        if (!user?.id || !user?.username) {
-            return null;
-        }
-
-        const userId = user.id;
-
-        const username = user.username;
-        return {
-            userId,
-            username,
-            displayName: resolveDisplayName(user?.displayName ?? null, username, payload.displayName),
-            playerId: buildFallbackPlayerId(userId),
-            playerName: resolvePlayerName(user?.pendingRoleName ?? null, username, payload.displayName),
         };
     }
     /** 从 legacy 数据库源恢复玩家快照。 */
@@ -315,24 +267,6 @@ exports.WorldPlayerSourceService = WorldPlayerSourceService = __decorate([
 ], WorldPlayerSourceService);
 function isMissingLegacySchemaError(error) {
     return Boolean(error && typeof error === 'object' && error.code === '42P01');
-}
-function isLegacyHttpIdentityFallbackDisabled() {
-    for (const key of DISABLE_LEGACY_HTTP_IDENTITY_FALLBACK_ENV_KEYS) {
-        const value = typeof process.env[key] === 'string' ? process.env[key].trim().toLowerCase() : '';
-        if (value === '1' || value === 'true' || value === 'yes' || value === 'on') {
-            return true;
-        }
-    }
-    return false;
-}
-function isLegacyHttpIdentityFallbackAllowed() {
-    for (const key of ALLOW_LEGACY_HTTP_IDENTITY_FALLBACK_ENV_KEYS) {
-        const value = typeof process.env[key] === 'string' ? process.env[key].trim().toLowerCase() : '';
-        if (value === '1' || value === 'true' || value === 'yes' || value === 'on') {
-            return true;
-        }
-    }
-    return false;
 }
 function resolveDisplayName(displayName, username, fallback) {
 

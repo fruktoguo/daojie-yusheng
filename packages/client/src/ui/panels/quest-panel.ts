@@ -1,5 +1,4 @@
 /** 任务面板：按任务线分类展示，并支持全局单实例详情弹层 */
-// TODO(next:UI05): 继续收口 quest-panel 的业务 recipe 与零散 innerHTML 更新，避免任务线/详情仍保留模板式长尾。
 
 import { Inventory, PlayerState, QuestState } from '@mud/shared-next';
 import { getLocalItemTemplate } from '../../content/local-templates';
@@ -27,6 +26,22 @@ function escapeHtml(value: string): string {
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#39;');
+}
+
+/** createFragmentFromHtml：从 HTML 文本创建文档片段。 */
+function createFragmentFromHtml(html: string): DocumentFragment {
+  const template = document.createElement('template');
+  template.innerHTML = html.trim();
+  return template.content.cloneNode(true) as DocumentFragment;
+}
+
+/** replaceRichContent：以片段替换富文本节点内容。 */
+function replaceRichContent(node: HTMLElement, html: string): void {
+  if (!html.trim()) {
+    node.replaceChildren();
+    return;
+  }
+  node.replaceChildren(createFragmentFromHtml(html));
 }
 
 /** isSameQuestIdSequence：判断是否Same任务ID Sequence。 */
@@ -369,10 +384,10 @@ export class QuestPanel {
     statusNode.className = `quest-status ${STATUS_CLASS[quest.status]}`;
     chapterNode.className = `quest-meta ${quest.chapter ? '' : 'hidden'}`.trim();
     chapterNode.textContent = `章节：${quest.chapter ?? ''}`;
-    descNode.innerHTML = this.renderQuestText(quest.desc, quest);
-    progressLabelNode.innerHTML = `目标：${this.renderQuestText(this.resolveProgressText(quest), quest)}`;
+    replaceRichContent(descNode, this.renderQuestText(quest.desc, quest));
+    replaceRichContent(progressLabelNode, `目标：${this.renderQuestText(this.resolveProgressText(quest), quest)}`);
     progressFillNode.style.width = `${percent}%`;
-    nextStepNode.innerHTML = `下一步：${this.renderQuestText(this.resolveNextStep(quest), quest)}`;
+    replaceRichContent(nextStepNode, `下一步：${this.renderQuestText(this.resolveNextStep(quest), quest)}`);
     return true;
   }
 
@@ -432,7 +447,38 @@ export class QuestPanel {
       variantClass: 'detail-modal--quest',
       title: quest.title,
       subtitle: `${getQuestLineLabel(quest.line)} · ${getQuestStatusLabel(quest.status)}`,
-      bodyHtml: `
+      renderBody: (body) => {
+        this.renderModalBody(body, quest, canNavigateQuest, giverLocation, targetLocation, submitLocation, navigateLabel);
+      },
+      onClose: () => {
+        this.selectedQuestId = undefined;
+      },
+      onAfterRender: (body) => {
+        bindInlineItemTooltips(body);
+        body.querySelector<HTMLElement>('[data-quest-navigate]')?.addEventListener('click', (event) => {
+          event.stopPropagation();
+          const button = event.currentTarget;
+          if (!(button instanceof HTMLElement) || button.dataset.questCanNavigate !== '1') return;
+          const questId = button.dataset.questId;
+          if (!questId) return;
+          this.onNavigateQuest?.(questId);
+        });
+      },
+    });
+  }
+
+  /** renderModalBody：渲染任务详情主体。 */
+  private renderModalBody(
+    body: HTMLElement,
+    quest: QuestState,
+    canNavigateQuest: boolean,
+    giverLocation: string,
+    targetLocation: string,
+    submitLocation: string,
+    navigateLabel: string,
+  ): void {
+    const template = document.createElement('template');
+    template.innerHTML = `
         <div class="ui-detail-field ui-detail-field--section ${quest.chapter ? '' : 'hidden'}" data-quest-modal-chapter-section="true"><strong>章节</strong><span data-quest-modal-chapter="true">${escapeHtml(quest.chapter ?? '')}</span></div>
         <div class="ui-detail-field ui-detail-field--section"><strong>任务描述</strong><div data-quest-modal-desc="true">${this.renderQuestText(quest.desc, quest)}</div></div>
         <div class="ui-detail-field ui-detail-field--section ${quest.story ? '' : 'hidden'}" data-quest-modal-story-section="true"><strong>剧情</strong><span data-quest-modal-story="true">${escapeHtml(quest.story ?? '')}</span></div>
@@ -461,22 +507,8 @@ export class QuestPanel {
         </div>
         <div class="ui-detail-field ui-detail-field--section ${quest.objectiveText ? '' : 'hidden'}" data-quest-modal-objective-section="true"><strong>任务说明</strong><div data-quest-modal-objective="true">${this.renderQuestText(quest.objectiveText ?? '', quest)}</div></div>
         <div class="ui-detail-field ui-detail-field--section ${quest.relayMessage ? '' : 'hidden'}" data-quest-modal-relay-section="true"><strong>传话内容</strong><div data-quest-modal-relay="true">${this.renderQuestText(quest.relayMessage ?? '', quest)}</div></div>
-      `,
-      onClose: () => {
-        this.selectedQuestId = undefined;
-      },
-      onAfterRender: (body) => {
-        bindInlineItemTooltips(body);
-        body.querySelector<HTMLElement>('[data-quest-navigate]')?.addEventListener('click', (event) => {
-          event.stopPropagation();
-          const button = event.currentTarget;
-          if (!(button instanceof HTMLElement) || button.dataset.questCanNavigate !== '1') return;
-          const questId = button.dataset.questId;
-          if (!questId) return;
-          this.onNavigateQuest?.(questId);
-        });
-      },
-    });
+      `;
+    body.replaceChildren(template.content.cloneNode(true));
   }
 
   /** patchModal：处理patch弹窗。 */
@@ -558,7 +590,7 @@ export class QuestPanel {
     subtitleNode.textContent = `${getQuestLineLabel(quest.line)} · ${getQuestStatusLabel(quest.status)}`;
     chapterSection.classList.toggle('hidden', !quest.chapter);
     chapterNode.textContent = quest.chapter ?? '';
-    descNode.innerHTML = this.renderQuestText(quest.desc, quest);
+    replaceRichContent(descNode, this.renderQuestText(quest.desc, quest));
     storySection.classList.toggle('hidden', !quest.story);
     storyNode.textContent = quest.story ?? '';
     giverNode.textContent = quest.giverName;
@@ -567,17 +599,17 @@ export class QuestPanel {
     navigateButton.dataset.questId = quest.id;
     navigateButton.dataset.questCanNavigate = canNavigateQuest ? '1' : '0';
     navigateButton.textContent = quest.status === 'ready' ? '前往交付' : '前往目标';
-    rewardNode.innerHTML = this.renderRewardContent(quest);
+    replaceRichContent(rewardNode, this.renderRewardContent(quest));
     requiredItemSection.classList.toggle('hidden', !quest.requiredItemId);
-    requiredItemNode.innerHTML = this.renderRequiredItemContent(quest);
-    progressNode.innerHTML = this.renderQuestText(this.resolveProgressText(quest), quest);
-    nextStepNode.innerHTML = this.renderQuestText(this.resolveNextStep(quest), quest);
+    replaceRichContent(requiredItemNode, this.renderRequiredItemContent(quest));
+    replaceRichContent(progressNode, this.renderQuestText(this.resolveProgressText(quest), quest));
+    replaceRichContent(nextStepNode, this.renderQuestText(this.resolveNextStep(quest), quest));
     objectiveSection.classList.toggle('hidden', !quest.objectiveText);
-    objectiveNode.innerHTML = this.renderQuestText(quest.objectiveText ?? '', quest);
+    replaceRichContent(objectiveNode, this.renderQuestText(quest.objectiveText ?? '', quest));
     targetLocationNode.textContent = targetLocation;
     submitLocationNode.textContent = submitLocation;
     relaySection.classList.toggle('hidden', !quest.relayMessage);
-    relayNode.innerHTML = this.renderQuestText(quest.relayMessage ?? '', quest);
+    replaceRichContent(relayNode, this.renderQuestText(quest.relayMessage ?? '', quest));
     return true;
   }
 
@@ -804,4 +836,3 @@ export class QuestPanel {
     `;
   }
 }
-

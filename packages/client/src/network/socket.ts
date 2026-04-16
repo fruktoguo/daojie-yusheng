@@ -1,7 +1,6 @@
 /**
  * Socket.IO 网络管理器 —— 封装客户端与服务端的双向通信，提供类型安全的事件收发接口
  */
-// TODO(next:T05): 随着 bootstrap/session contract 定稿，把 connect/hello/initSession/reconnect 编排继续拆开，避免客户端 socket 入口长期同时承担握手、会话恢复和事件注册。
 
 import { io, Socket } from 'socket.io-client';
 import { logNextMovement } from '../debug/movement-debug';
@@ -55,7 +54,15 @@ export class SocketManager {
   connect(token: string): void {
     this.accessToken = token;
     this.disposeSocket({ clearToken: false });
-    this.socket = io({
+    this.socket = this.createSocketConnection(token);
+    this.bindConnectionLifecycle(this.socket);
+    this.bindSessionServerEvents();
+    this.bindGameplayServerEvents();
+  }
+
+  /** 创建底层 Socket.IO 连接实例。 */
+  private createSocketConnection(token: string): Socket {
+    return io({
       auth: { token, protocol: 'next' },
       // Swarm rolling updates and reverse proxies can route polling requests
       // to a different task, while a single WebSocket connection avoids SID drift.
@@ -66,13 +73,33 @@ export class SocketManager {
       reconnectionDelayMax: SOCKET_RECONNECTION_DELAY_MAX_MS,
       timeout: SOCKET_CONNECT_TIMEOUT_MS,
     });
+  }
 
-    this.socket.on('connect', () => {
+  /** 绑定连接生命周期与握手入口。 */
+  private bindConnectionLifecycle(socket: Socket): void {
+    socket.on('connect', () => {
       this.startHeartbeat();
       this.sendHeartbeat();
       this.sendHello();
     });
 
+    socket.on(NEXT_S2C.Kick, () => {
+      this.onKickCallbacks.forEach((cb) => cb());
+      this.disconnect();
+    });
+
+    socket.on('disconnect', (reason: string) => {
+      this.stopHeartbeat();
+      this.onDisconnectCallbacks.forEach((cb) => cb(reason));
+    });
+
+    socket.on('connect_error', (error: Error) => {
+      this.onConnectErrorCallbacks.forEach((cb) => cb(error.message));
+    });
+  }
+
+  /** 绑定 bootstrap / session / map 入口相关事件。 */
+  private bindSessionServerEvents(): void {
     this.bindServerEvent(NEXT_S2C.Bootstrap);
     this.bindServerEvent(NEXT_S2C.InitSession);
     this.bindServerEvent(NEXT_S2C.MapEnter);
@@ -82,6 +109,12 @@ export class SocketManager {
     this.bindServerEvent(NEXT_S2C.SelfDelta);
     this.bindServerEvent(NEXT_S2C.PanelDelta);
     this.bindServerEvent(NEXT_S2C.Notice);
+    this.bindServerEvent(NEXT_S2C.Pong);
+    this.bindServerEvent(NEXT_S2C.Error);
+  }
+
+  /** 绑定业务与面板相关事件。 */
+  private bindGameplayServerEvents(): void {
     this.bindServerEvent(NEXT_S2C.LootWindowUpdate);
     this.bindServerEvent(NEXT_S2C.TileDetail);
     this.bindServerEvent(NEXT_S2C.Detail);
@@ -106,23 +139,7 @@ export class SocketManager {
     this.bindServerEvent(NEXT_S2C.NpcShop);
     this.bindServerEvent(NEXT_S2C.AlchemyPanel);
     this.bindServerEvent(NEXT_S2C.EnhancementPanel);
-    this.bindServerEvent(NEXT_S2C.Pong);
-    this.bindServerEvent(NEXT_S2C.Error);
     this.bindServerEvent(NEXT_S2C.GmState);
-
-    this.socket.on(NEXT_S2C.Kick, () => {
-      this.onKickCallbacks.forEach((cb) => cb());
-      this.disconnect();
-    });
-
-    this.socket.on('disconnect', (reason: string) => {
-      this.stopHeartbeat();
-      this.onDisconnectCallbacks.forEach((cb) => cb(reason));
-    });
-
-    this.socket.on('connect_error', (error: Error) => {
-      this.onConnectErrorCallbacks.forEach((cb) => cb(error.message));
-    });
   }
 
   /** 返回指定服务端事件的回调桶，不存在时按需初始化。 */

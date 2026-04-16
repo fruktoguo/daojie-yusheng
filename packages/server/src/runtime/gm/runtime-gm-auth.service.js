@@ -22,22 +22,23 @@ const crypto = require("node:crypto");
 
 const pg_1 = require("pg");
 
+const next_gm_contract_1 = require("../../http/next/next-gm-contract");
+
 const persistent_document_table_1 = require("../../persistence/persistent-document-table");
 
 const env_alias_1 = require("../../config/env-alias");
-// TODO(next:T13): 定稿 GM auth 是否继续以 compat 持久化壳承载；若继续 next-native 化，需要收掉 legacy scope 回读与默认迁移逻辑。
 
 /** GM 鉴权作用域名，存放当前 next 体系的密码记录。 */
-const GM_AUTH_SCOPE = 'server_next_gm_auth_v1';
+const GM_AUTH_SCOPE = next_gm_contract_1.NEXT_GM_AUTH_CONTRACT.passwordRecordScope;
 
 /** 兼容从旧体系迁移过来的 GM 鉴权作用域名。 */
-const LEGACY_NEXT_GM_AUTH_SCOPE = 'server_next_legacy_gm_auth_v1';
+const LEGACY_NEXT_GM_AUTH_SCOPE = next_gm_contract_1.NEXT_GM_AUTH_CONTRACT.legacyPasswordRecordScopes[0];
 
 /** persistent_documents 里保存 GM 密码的 key。 */
-const GM_AUTH_KEY = 'gm_auth';
+const GM_AUTH_KEY = next_gm_contract_1.NEXT_GM_AUTH_CONTRACT.passwordRecordKey;
 
 /** 旧系统里用于读取 GM 密码的作用域。 */
-const LEGACY_GM_AUTH_SCOPE = 'server_config';
+const LEGACY_GM_AUTH_SCOPE = next_gm_contract_1.NEXT_GM_AUTH_CONTRACT.legacyPasswordRecordScopes[1];
 
 /** 没有配置时使用的默认 GM 密码。 */
 const DEFAULT_GM_PASSWORD = 'admin123';

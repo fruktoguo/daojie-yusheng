@@ -37,9 +37,9 @@ const player_runtime_service_1 = require("../../runtime/player/player-runtime.se
 const suggestion_runtime_service_1 = require("../../runtime/suggestion/suggestion-runtime.service");
 
 const runtime_gm_auth_service_1 = require("../../runtime/gm/runtime-gm-auth.service");
+const next_gm_contract_1 = require("./next-gm-contract");
 
 const world_runtime_service_1 = require("../../runtime/world/world-runtime.service");
-// TODO(next:T13): 在 GM/admin/restore 完成定义钉死后，把 restore 前后 flush/清场/回载编排收成明确的 next-native 恢复合同。
 
 let NextDatabaseRestoreCoordinatorService = class NextDatabaseRestoreCoordinatorService {
     worldSessionService;
@@ -65,23 +65,39 @@ let NextDatabaseRestoreCoordinatorService = class NextDatabaseRestoreCoordinator
         this.runtimeGmAuthService = runtimeGmAuthService;
     }
     async prepareForRestore() {
-        await this.playerPersistenceFlushService.flushAllNow();
-        await this.mapPersistenceFlushService.flushAllNow();
+        if (next_gm_contract_1.NEXT_GM_RESTORE_CONTRACT.flushPlayersBeforeRestore) {
+            await this.playerPersistenceFlushService.flushAllNow();
+        }
+        if (next_gm_contract_1.NEXT_GM_RESTORE_CONTRACT.flushMapsBeforeRestore) {
+            await this.mapPersistenceFlushService.flushAllNow();
+        }
 
         const runtimePlayerIds = this.playerRuntimeService.listPlayerSnapshots().map((entry) => entry.playerId);
-        this.worldSessionService.purgeAllSessions('database_restore');
+        if (next_gm_contract_1.NEXT_GM_RESTORE_CONTRACT.purgeSessionsBeforeRestore) {
+            this.worldSessionService.purgeAllSessions('database_restore');
+        }
         for (const playerId of runtimePlayerIds) {
             this.worldRuntimeService.removePlayer(playerId);
-            this.worldSyncService.clearDetachedPlayerCaches(playerId);
+            if (next_gm_contract_1.NEXT_GM_RESTORE_CONTRACT.clearDetachedCachesBeforeRestore) {
+                this.worldSyncService.clearDetachedPlayerCaches(playerId);
+            }
         }
         this.mailRuntimeService.clearRuntimeCache();
     }
     async reloadAfterRestore() {
-        await this.worldRuntimeService.rebuildPersistentRuntimeAfterRestore();
-        await this.marketRuntimeService.reloadFromPersistence();
+        if (next_gm_contract_1.NEXT_GM_RESTORE_CONTRACT.reloadWorldRuntimeAfterRestore) {
+            await this.worldRuntimeService.rebuildPersistentRuntimeAfterRestore();
+        }
+        if (next_gm_contract_1.NEXT_GM_RESTORE_CONTRACT.reloadMarketAfterRestore) {
+            await this.marketRuntimeService.reloadFromPersistence();
+        }
         this.mailRuntimeService.clearRuntimeCache();
-        await this.suggestionRuntimeService.reloadFromPersistence();
-        await this.runtimeGmAuthService.reloadPasswordRecordFromPersistence();
+        if (next_gm_contract_1.NEXT_GM_RESTORE_CONTRACT.reloadSuggestionAfterRestore) {
+            await this.suggestionRuntimeService.reloadFromPersistence();
+        }
+        if (next_gm_contract_1.NEXT_GM_RESTORE_CONTRACT.reloadGmAuthAfterRestore) {
+            await this.runtimeGmAuthService.reloadPasswordRecordFromPersistence();
+        }
     }
 };
 exports.NextDatabaseRestoreCoordinatorService = NextDatabaseRestoreCoordinatorService;
@@ -98,5 +114,4 @@ exports.NextDatabaseRestoreCoordinatorService = NextDatabaseRestoreCoordinatorSe
         suggestion_runtime_service_1.SuggestionRuntimeService,
         runtime_gm_auth_service_1.RuntimeGmAuthService])
 ], NextDatabaseRestoreCoordinatorService);
-
 

@@ -1,4 +1,3 @@
-// TODO(next:UI06): 把 craft-workbench-modal 的炼丹/强化 body 继续从整段 bodyHtml 收成局部 patch，减少复杂表单切换时的整体重装。
 import {
   type AlchemyRecipeCatalogEntry,
   type NEXT_C2S_StartEnhancement,
@@ -234,19 +233,42 @@ export class CraftWorkbenchModal {
     const subtitle = this.activeMode === 'alchemy'
       ? `丹道 Lv ${formatDisplayInteger(this.alchemySkillLevel)} · 采集 Lv ${formatDisplayInteger(this.gatherSkillLevel)}`
       : `强化 Lv ${formatDisplayInteger(this.enhancementSkillLevel)}`;
+    const existingBody = detailModalHost.isOpenFor(CraftWorkbenchModal.MODAL_OWNER)
+      ? document.getElementById('detail-modal-body')
+      : null;
+    if (existingBody && this.patchBody(existingBody, title, subtitle)) {
+      return;
+    }
     detailModalHost.open({
       ownerId: CraftWorkbenchModal.MODAL_OWNER,
       size: 'full',
       variantClass: 'detail-modal--market',
       title,
       subtitle,
-      bodyHtml: this.activeMode === 'alchemy' ? this.renderAlchemyBody() : this.renderEnhancementBody(),
+      renderBody: (body) => {
+        body.innerHTML = `<div data-craft-workbench-body="true">${this.activeMode === 'alchemy' ? this.renderAlchemyBody() : this.renderEnhancementBody()}</div>`;
+      },
       onAfterRender: (body) => this.bindActions(body),
       onClose: () => {
         this.activeMode = null;
         this.loading = false;
       },
     });
+  }
+
+  /** patchBody：局部刷新工坊弹层。 */
+  private patchBody(body: HTMLElement, title: string, subtitle: string): boolean {
+    const shell = body.querySelector<HTMLElement>('[data-craft-workbench-body="true"]');
+    const titleNode = document.getElementById('detail-modal-title');
+    const subtitleNode = document.getElementById('detail-modal-subtitle');
+    if (!shell || !titleNode || !subtitleNode) {
+      return false;
+    }
+    titleNode.textContent = title;
+    subtitleNode.textContent = subtitle;
+    shell.innerHTML = this.activeMode === 'alchemy' ? this.renderAlchemyBody() : this.renderEnhancementBody();
+    this.bindActions(body);
+    return true;
   }
 
   /** bindActions：绑定动作。 */
@@ -591,4 +613,3 @@ export class CraftWorkbenchModal {
     `;
   }
 }
-

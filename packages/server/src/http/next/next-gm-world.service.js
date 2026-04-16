@@ -43,7 +43,6 @@ const world_runtime_service_1 = require("../../runtime/world/world-runtime.servi
 const next_gm_constants_1 = require("./next-gm.constants");
 
 const next_managed_account_service_1 = require("./next-managed-account.service");
-// TODO(next:T13): 定稿 GM/world/admin 数据面是继续保留 managed/compat 聚合壳还是收成 next-native contract，并清理这里残留的兼容汇总语义。
 
 let NextGmWorldService = class NextGmWorldService {
     contentTemplateRepository;
@@ -72,23 +71,17 @@ let NextGmWorldService = class NextGmWorldService {
         this.worldRuntimeService = worldRuntimeService;
         this.runtimeMapConfigService = runtimeMapConfigService;
     }
-    async getState() {
-
-        const perf = this.buildPerformanceSnapshot();
-
-        const runtimePlayers = this.playerRuntimeService.listPlayerSnapshots();
-
-        const persistedEntries = await this.playerPersistenceService.listPlayerSnapshots();
-
-        const accountIndex = await this.nextManagedAccountService.getManagedAccountIndex([
+    collectManagedPlayerIds(runtimePlayers, persistedEntries) {
+        return [
             ...runtimePlayers.map((entry) => entry.playerId),
             ...persistedEntries.map((entry) => entry.playerId),
-        ]);
+        ];
+    }
+    buildManagedPlayers(runtimePlayers, persistedEntries, accountIndex) {
 
         const players = runtimePlayers
             .map((snapshot) => this.toManagedPlayerSummary(snapshot, accountIndex.get(snapshot.playerId)))
             .sort(compareManagedPlayerSummary);
-
         const runtimePlayerIds = new Set(runtimePlayers.map((entry) => entry.playerId));
         for (const entry of persistedEntries) {
             if (runtimePlayerIds.has(entry.playerId)) {
@@ -97,6 +90,18 @@ let NextGmWorldService = class NextGmWorldService {
             players.push(this.toManagedPlayerSummaryFromPersistence(entry.playerId, entry.snapshot, entry.updatedAt, accountIndex.get(entry.playerId)));
         }
         players.sort(compareManagedPlayerSummary);
+        return players;
+    }
+    async getState() {
+
+        const perf = this.buildPerformanceSnapshot();
+
+        const runtimePlayers = this.playerRuntimeService.listPlayerSnapshots();
+
+        const persistedEntries = await this.playerPersistenceService.listPlayerSnapshots();
+
+        const accountIndex = await this.nextManagedAccountService.getManagedAccountIndex(this.collectManagedPlayerIds(runtimePlayers, persistedEntries));
+        const players = this.buildManagedPlayers(runtimePlayers, persistedEntries, accountIndex);
         return {
             players,
             mapIds: this.mapTemplateRepository.listSummaries().map((entry) => entry.id).sort((left, right) => left.localeCompare(right, 'zh-Hans-CN')),
@@ -976,5 +981,4 @@ function cloneRatioDivisors(source) {
         elementDamageReduce: source.elementDamageReduce ? { ...source.elementDamageReduce } : undefined,
     };
 }
-
 

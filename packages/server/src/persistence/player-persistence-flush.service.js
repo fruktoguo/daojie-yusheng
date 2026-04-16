@@ -23,7 +23,9 @@ const player_runtime_service_1 = require("../runtime/player/player-runtime.servi
 const player_persistence_service_1 = require("./player-persistence.service");
 
 const PLAYER_PERSISTENCE_FLUSH_INTERVAL_MS = 5000;
-// TODO(next:PERSIST02): 把玩家刷盘从固定 5 秒串行循环收成更细粒度的 dirty 分发、批量写、并行度和失败重试策略。
+const PLAYER_PERSISTENCE_FLUSH_BATCH_SIZE = 24;
+const PLAYER_PERSISTENCE_FLUSH_PARALLELISM = 4;
+const PLAYER_PERSISTENCE_FLUSH_RETRY_COUNT = 1;
 
 /** 玩家快照脏数据刷盘服务：定时/退出时持久化玩家运行时快照。 */
 let PlayerPersistenceFlushService = PlayerPersistenceFlushService_1 = class PlayerPersistenceFlushService {
@@ -96,18 +98,20 @@ let PlayerPersistenceFlushService = PlayerPersistenceFlushService_1 = class Play
             if (dirtyPlayerIds.length === 0) {
                 return;
             }
-            try {
-                for (const playerId of dirtyPlayerIds) {
+            const batches = chunkValues(dirtyPlayerIds, PLAYER_PERSISTENCE_FLUSH_BATCH_SIZE);
+            for (const batch of batches) {
+                await runConcurrent(batch, PLAYER_PERSISTENCE_FLUSH_PARALLELISM, async (playerId) => {
                     const snapshot = this.playerRuntimeService.buildPersistenceSnapshot(playerId);
                     if (!snapshot) {
-                        continue;
+                        return;
                     }
-                    await this.playerPersistenceService.savePlayerSnapshot(playerId, snapshot);
+                    await retryFlush(PLAYER_PERSISTENCE_FLUSH_RETRY_COUNT, async () => {
+                        await this.playerPersistenceService.savePlayerSnapshot(playerId, snapshot);
+                    });
                     this.playerRuntimeService.markPersisted(playerId);
-                }
-            }
-            catch (error) {
-                this.logger.error(`玩家持久化刷新失败（${reason}）`, error instanceof Error ? error.stack : String(error));
+                }, (playerId, error) => {
+                    this.logger.error(`玩家持久化刷新失败（${reason}） playerId=${playerId}`, error instanceof Error ? error.stack : String(error));
+                });
             }
         })();
         this.flushPromise = promise;
@@ -132,5 +136,41 @@ function isRestoreFreezeActive() {
     const value = process.env.SERVER_NEXT_RUNTIME_RESTORE_ACTIVE;
     return typeof value === 'string' && /^(1|true|yes|on)$/iu.test(value.trim());
 }
+function chunkValues(values, chunkSize) {
+    if (!Array.isArray(values) || values.length === 0) {
+        return [];
+    }
+    const normalizedChunkSize = Math.max(1, Math.trunc(chunkSize));
+    const chunks = [];
+    for (let index = 0; index < values.length; index += normalizedChunkSize) {
+        chunks.push(values.slice(index, index + normalizedChunkSize));
+    }
+    return chunks;
+}
+async function runConcurrent(values, parallelism, worker, onError) {
+    const normalizedParallelism = Math.max(1, Math.trunc(parallelism));
+    for (let index = 0; index < values.length; index += normalizedParallelism) {
+        const slice = values.slice(index, index + normalizedParallelism);
+        const results = await Promise.allSettled(slice.map((value) => worker(value)));
+        results.forEach((result, resultIndex) => {
+            if (result.status === 'rejected') {
+                onError?.(slice[resultIndex], result.reason);
+            }
+        });
+    }
+}
+async function retryFlush(retryCount, work) {
+    const attempts = Math.max(0, Math.trunc(retryCount)) + 1;
+    let lastError = null;
+    for (let attempt = 0; attempt < attempts; attempt += 1) {
+        try {
+            await work();
+            return;
+        }
+        catch (error) {
+            lastError = error;
+        }
+    }
+    throw lastError;
+}
 //# sourceMappingURL=player-persistence-flush.service.js.map
-

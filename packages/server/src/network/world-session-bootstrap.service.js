@@ -82,8 +82,6 @@ const NEXT_BOOTSTRAP_ALLOWED_IDENTITY_SOURCES = new Set([
 const NEXT_BOOTSTRAP_ALLOWED_NEXT_PERSISTED_SOURCES = new Set([
     'native',
 ]);
-// TODO(next:T03): 继续收掉 authenticated snapshot 的 compat fallback，把 runtime compat snapshot 回退压到 migration/no-persistence 专用边界。
-// TODO(next:T05): 把 connect_token / hello / guest / GM 四类 bootstrap 入口彻底收成单线 contract，避免旁路恢复语义继续扩散。
 /** 是否强制只允许 native 快照，不接受兼容回填。 */
 function isStrictNativeSnapshotRequired() {
     for (const key of STRICT_NATIVE_SNAPSHOT_ENV_KEYS) {
@@ -268,22 +266,37 @@ let WorldSessionBootstrapService = class WorldSessionBootstrapService {
         client.data.bootstrapIdentitySource = this.resolveAuthenticatedBootstrapIdentitySource(client, input);
         client.data.bootstrapIdentityPersistedSource = this.resolveAuthenticatedBootstrapIdentityPersistedSource(client, input);
     }
+    /** 统一解析 bootstrap 合同上下文，避免各入口重复各自判断。 */
+    resolveBootstrapContractContext(client, input = undefined) {
+        const entryPath = this.resolveBootstrapEntryPath(client);
+        const protocol = this.resolveClientProtocol(client);
+        const identitySource = this.resolveAuthenticatedBootstrapIdentitySource(client, input);
+        const identityPersistedSource = this.resolveAuthenticatedBootstrapIdentityPersistedSource(client, input);
+        const effectiveIdentitySource = identitySource === 'next' && identityPersistedSource === 'token_seed'
+            ? 'token'
+            : identitySource;
+        return {
+            entryPath,
+            protocol,
+            identitySource,
+            identityPersistedSource,
+            effectiveIdentitySource,
+            isAuthenticatedEntry: AUTHENTICATED_BOOTSTRAP_ENTRY_PATHS.has(entryPath ?? ''),
+            isGm: client?.data?.isGm === true,
+        };
+    }
     /** 校验 next 协议 bootstrap 是否越权使用了旧身份来源。 */
     resolveAuthenticatedBootstrapContractViolation(client, input = undefined) {
 
-        const entryPath = this.resolveBootstrapEntryPath(client);
-        if (!AUTHENTICATED_BOOTSTRAP_ENTRY_PATHS.has(entryPath ?? '')) {
+        const contract = this.resolveBootstrapContractContext(client, input);
+        if (!contract.isAuthenticatedEntry) {
             return null;
         }
-
-        const protocol = this.resolveClientProtocol(client);
-        if (protocol !== 'next') {
+        if (contract.protocol !== 'next') {
             return null;
         }
-
-        const authSource = this.resolveAuthenticatedBootstrapIdentitySource(client, input);
-
-        const persistedSource = this.resolveAuthenticatedBootstrapIdentityPersistedSource(client, input);
+        const authSource = contract.identitySource;
+        const persistedSource = contract.identityPersistedSource;
         if (!NEXT_BOOTSTRAP_ALLOWED_IDENTITY_SOURCES.has(authSource ?? '')) {
             return {
                 stage: 'next_bootstrap_identity_source_blocked',
@@ -312,7 +325,8 @@ let WorldSessionBootstrapService = class WorldSessionBootstrapService {
     }
     /** 计算不同入口下的 session 复用策略。 */
     resolveBootstrapSessionReusePolicy(client) {
-        if (client?.data?.isGm === true) {
+        const contract = this.resolveBootstrapContractContext(client);
+        if (contract.isGm) {
             return {
                 allowImplicitDetachedResume: false,
                 allowRequestedDetachedResume: false,
@@ -320,21 +334,12 @@ let WorldSessionBootstrapService = class WorldSessionBootstrapService {
             };
         }
 
-        const entryPath = this.resolveBootstrapEntryPath(client);
+        if (contract.isAuthenticatedEntry) {
 
-        const identitySource = this.resolveAuthenticatedBootstrapIdentitySource(client);
-
-        const identityPersistedSource = this.resolveAuthenticatedBootstrapIdentityPersistedSource(client);
-
-        const effectiveIdentitySource = identitySource === 'next' && identityPersistedSource === 'token_seed'
-            ? 'token'
-            : identitySource;
-        if (AUTHENTICATED_BOOTSTRAP_ENTRY_PATHS.has(entryPath ?? '')) {
-
-            const allowAuthenticatedReuse = effectiveIdentitySource === 'next'
-                ? AUTHENTICATED_NEXT_REUSE_PERSISTED_SOURCES.has(identityPersistedSource ?? '')
-                : effectiveIdentitySource === 'token'
-                    ? AUTHENTICATED_TOKEN_REUSE_PERSISTED_SOURCES.has(identityPersistedSource ?? '')
+            const allowAuthenticatedReuse = contract.effectiveIdentitySource === 'next'
+                ? AUTHENTICATED_NEXT_REUSE_PERSISTED_SOURCES.has(contract.identityPersistedSource ?? '')
+                : contract.effectiveIdentitySource === 'token'
+                    ? AUTHENTICATED_TOKEN_REUSE_PERSISTED_SOURCES.has(contract.identityPersistedSource ?? '')
                     : false;
             return {
                 allowImplicitDetachedResume: allowAuthenticatedReuse,
@@ -342,7 +347,7 @@ let WorldSessionBootstrapService = class WorldSessionBootstrapService {
                 allowConnectedSessionReuse: allowAuthenticatedReuse,
             };
         }
-        if (!identitySource) {
+        if (!contract.identitySource) {
             return {
                 allowImplicitDetachedResume: true,
                 allowRequestedDetachedResume: true,
@@ -542,7 +547,7 @@ let WorldSessionBootstrapService = class WorldSessionBootstrapService {
             recoverySnapshotPersistedSource: typeof bootstrapRecovery?.snapshotPersistedSource === 'string' ? bootstrapRecovery.snapshotPersistedSource : null,
         });
     }
-    /** 读取玩家快照，必要时允许 legacy 回退。 */
+    /** 读取玩家快照；authenticated 主链只记录 next-only miss，不再做 runtime compat 回退。 */
     async loadPlayerSnapshot(playerId, allowLegacyFallback) {
         return this.worldPlayerSnapshotService.loadPlayerSnapshot(playerId, allowLegacyFallback);
     }
@@ -561,8 +566,8 @@ let WorldSessionBootstrapService = class WorldSessionBootstrapService {
             seedPersisted: false,
         };
     }
-    /** 计算鉴权身份是否允许使用 legacy 快照回退。 */
-    resolveAuthenticatedLegacySnapshotFallback(identity, client = undefined) {
+    /** 计算 authenticated 主链的 next-only 快照策略。 */
+    resolveAuthenticatedSnapshotPolicy(identity, client = undefined) {
 
         const persistenceEnabled = this.worldPlayerSnapshotService.isPersistenceEnabled();
         if (persistenceEnabled && isStrictNativeSnapshotRequired()) {
@@ -597,10 +602,6 @@ let WorldSessionBootstrapService = class WorldSessionBootstrapService {
             allowLegacyFallback: false,
             fallbackReason: authSource ? `identity_source:${authSource}` : 'identity_source:unknown',
         };
-    }
-    /** 判断鉴权身份是否允许 legacy 快照回退。 */
-    shouldAllowAuthenticatedLegacySnapshotFallback(identity) {
-        return this.resolveAuthenticatedLegacySnapshotFallback(identity).allowLegacyFallback;
     }
     /** 计算缺失快照时是否允许原生补齐。 */
     resolveAuthenticatedMissingSnapshotRecovery(identity) {
@@ -666,7 +667,7 @@ let WorldSessionBootstrapService = class WorldSessionBootstrapService {
     async loadAuthenticatedPlayerSnapshot(identity, client = undefined) {
         this.rememberBootstrapIdentityPersistedSource(client, identity?.persistedSource ?? null);
 
-        const fallbackPolicy = this.resolveAuthenticatedLegacySnapshotFallback(identity, client);
+        const fallbackPolicy = this.resolveAuthenticatedSnapshotPolicy(identity, client);
 
         const snapshotResult = await this.loadPlayerSnapshotWithTrace(identity.playerId, fallbackPolicy.allowLegacyFallback, fallbackPolicy.fallbackReason);
         this.rememberBootstrapSnapshotContext(client, snapshotResult.source, snapshotResult.persistedSource);

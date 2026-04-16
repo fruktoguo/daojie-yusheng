@@ -14,7 +14,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 
 var WorldSessionReaperService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldSessionReaperService = void 0;
+exports.WorldSessionReaperService = exports.WORLD_SESSION_REAPER_CONTRACT = void 0;
 
 const common_1 = require("@nestjs/common");
 
@@ -23,9 +23,14 @@ const player_persistence_flush_service_1 = require("../persistence/player-persis
 const world_session_service_1 = require("./world-session.service");
 
 const world_sync_service_1 = require("./world-sync.service");
-// TODO(next:T07): 在 session 真源、detached 生命周期和刷盘 contract 完全定稿后，复核这层回收器是否仍需维持当前定时器 + requeue 壳。
 
 const SESSION_REAPER_INTERVAL_MS = 1000;
+const WORLD_SESSION_REAPER_CONTRACT = Object.freeze({
+    intervalMs: SESSION_REAPER_INTERVAL_MS,
+    retryOnFlushFailure: true,
+    clearDetachedCachesAfterFlush: true,
+});
+exports.WORLD_SESSION_REAPER_CONTRACT = WORLD_SESSION_REAPER_CONTRACT;
 
 let WorldSessionReaperService = WorldSessionReaperService_1 = class WorldSessionReaperService {
     worldSessionService;
@@ -87,5 +92,4 @@ exports.WorldSessionReaperService = WorldSessionReaperService = WorldSessionReap
         player_persistence_flush_service_1.PlayerPersistenceFlushService])
 ], WorldSessionReaperService);
 //# sourceMappingURL=world-session-reaper.service.js.map
-
 

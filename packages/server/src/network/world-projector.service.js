@@ -13,6 +13,7 @@ exports.WorldProjectorService = void 0;
 const common_1 = require("@nestjs/common");
 
 const shared_1 = require("@mud/shared-next");
+const player_combat_config_helpers_1 = require("../runtime/player/player-combat-config.helpers");
 
 /** 属性差量阈值，超过后用绝对值而不是 patch 发送。 */
 const ATTR_DELTA_PATCH_THRESHOLD = 10;
@@ -65,11 +66,6 @@ const RATIO_DIVISOR_KEYS = [
 
 /** 元素属性组键。 */
 const ELEMENT_GROUP_KEYS = ['metal', 'wood', 'water', 'fire', 'earth'];
-// TODO(next:T16): 把 WorldProjector 从整量 capture/clone + diff 再往下拆成稳定的 slice / revision 驱动投影。
-// TODO(next:T17): 给 panel/attr bonus 与相关 diff 建 revision 和 invalidation 边界，降低每 tick CPU 与分配压力。
-// TODO(next:T20): 把新系统默认继续往巨型 PlayerState / projector 堆字段的趋势压住，明确 slice 扩展边界。
-// TODO(next:PERF01): 去掉 world-projector 面板顶层比较中的 JSON.stringify 热点，避免热路径序列化比较继续常驻。
-
 /** 世界投影服务：把 runtime 视图压缩成 next 协议的初始包和增量包。 */
 let WorldProjectorService = class WorldProjectorService {
     /** 记录每个玩家上一次投影快照，用于生成增量。 */
@@ -373,56 +369,83 @@ function capturePlayerState(player) {
             maxQi: player.maxQi,
         },
         panel: {
-            inventoryRevision: player.inventory.revision,
-            inventoryCapacity: player.inventory.capacity,
-            inventoryItems: player.inventory.items.map((entry) => ({ ...entry })),
-            equipmentRevision: player.equipment.revision,
-            equipmentSlots: player.equipment.slots.map((entry) => ({
-                slot: entry.slot,
-                item: entry.item ? { ...entry.item } : null,
-            })),
-            techniqueRevision: player.techniques.revision,
-            techniques: player.techniques.techniques.map((entry) => cloneTechniqueEntry(entry)),
-            cultivatingTechId: player.techniques.cultivatingTechId,
-            bodyTraining: player.bodyTraining ? { ...player.bodyTraining } : null,
-            attrRevision: player.attrs.revision,
-            attrStage: player.attrs.stage,
-            baseAttrs: cloneAttributes(player.attrs.baseAttrs),
-            attrBonuses: buildAttrBonuses(player),
-            finalAttrs: cloneAttributes(player.attrs.finalAttrs),
-            numericStats: cloneNumericStats(player.attrs.numericStats),
-            ratioDivisors: cloneNumericRatioDivisors(player.attrs.ratioDivisors),
-            attrSpecialStats: cloneSpecialStats({
-                foundation: player.foundation,
-                combatExp: player.combatExp,
-            }),
-            attrBoneAgeBaseYears: player.boneAgeBaseYears,
-            attrLifeElapsedTicks: player.lifeElapsedTicks,
-            attrLifespanYears: player.lifespanYears,
-            attrRealmProgress: player.realm?.progress,
-            attrRealmProgressToNext: player.realm?.progressToNext,
-            attrRealmBreakthroughReady: player.realm?.breakthroughReady,
-            actionRevision: player.actions.revision,
-            actions: player.actions.actions.map((entry) => ({ ...entry })),
-            actionAutoBattle: player.combat.autoBattle,
-            actionAutoUsePills: player.combat.autoUsePills.map((entry) => ({
-                ...entry,
-                conditions: Array.isArray(entry.conditions) ? entry.conditions.map((condition) => ({ ...condition })) : [],
-            })),
-            actionCombatTargetingRules: player.combat.combatTargetingRules ? { ...player.combat.combatTargetingRules } : undefined,
-            actionAutoBattleTargetingMode: player.combat.autoBattleTargetingMode,
-            actionCombatTargetId: player.combat.combatTargetId,
-            actionCombatTargetLocked: player.combat.combatTargetLocked,
-            actionAutoRetaliate: player.combat.autoRetaliate,
-            actionAutoBattleStationary: player.combat.autoBattleStationary,
-            actionAllowAoePlayerHit: player.combat.allowAoePlayerHit,
-            actionAutoIdleCultivation: player.combat.autoIdleCultivation,
-            actionAutoSwitchCultivation: player.combat.autoSwitchCultivation,
-            actionCultivationActive: player.combat.cultivationActive,
-            actionSenseQiActive: player.combat.senseQiActive,
-            buffRevision: player.buffs.revision,
-            buffs: player.buffs.buffs.map((entry) => cloneVisibleBuff(entry)),
+            inventory: captureInventoryPanelSlice(player),
+            equipment: captureEquipmentPanelSlice(player),
+            technique: captureTechniquePanelSlice(player),
+            attr: captureAttrPanelSlice(player),
+            action: captureActionPanelSlice(player),
+            buff: captureBuffPanelSlice(player),
         },
+    };
+}
+function captureInventoryPanelSlice(player) {
+    return {
+        revision: player.inventory.revision,
+        capacity: player.inventory.capacity,
+        items: player.inventory.items.map((entry) => ({ ...entry })),
+    };
+}
+function captureEquipmentPanelSlice(player) {
+    return {
+        revision: player.equipment.revision,
+        slots: player.equipment.slots.map((entry) => ({
+            slot: entry.slot,
+            item: entry.item ? { ...entry.item } : null,
+        })),
+    };
+}
+function captureTechniquePanelSlice(player) {
+    return {
+        revision: player.techniques.revision,
+        techniques: player.techniques.techniques.map((entry) => cloneTechniqueEntry(entry)),
+        cultivatingTechId: player.techniques.cultivatingTechId,
+        bodyTraining: player.bodyTraining ? { ...player.bodyTraining } : null,
+    };
+}
+function captureAttrPanelSlice(player) {
+    return {
+        revision: player.attrs.revision,
+        stage: player.attrs.stage,
+        baseAttrs: cloneAttributes(player.attrs.baseAttrs),
+        bonuses: buildAttrBonuses(player),
+        finalAttrs: cloneAttributes(player.attrs.finalAttrs),
+        numericStats: cloneNumericStats(player.attrs.numericStats),
+        ratioDivisors: cloneNumericRatioDivisors(player.attrs.ratioDivisors),
+        specialStats: cloneSpecialStats({
+            foundation: player.foundation,
+            combatExp: player.combatExp,
+        }),
+        boneAgeBaseYears: player.boneAgeBaseYears,
+        lifeElapsedTicks: player.lifeElapsedTicks,
+        lifespanYears: player.lifespanYears,
+        realmProgress: player.realm?.progress,
+        realmProgressToNext: player.realm?.progressToNext,
+        realmBreakthroughReady: player.realm?.breakthroughReady,
+    };
+}
+function captureActionPanelSlice(player) {
+    return {
+        revision: player.actions.revision,
+        actions: player.actions.actions.map((entry) => ({ ...entry })),
+        autoBattle: player.combat.autoBattle,
+        autoUsePills: (0, player_combat_config_helpers_1.cloneAutoUsePillList)(player.combat.autoUsePills),
+        combatTargetingRules: (0, player_combat_config_helpers_1.cloneCombatTargetingRules)(player.combat.combatTargetingRules),
+        autoBattleTargetingMode: player.combat.autoBattleTargetingMode,
+        combatTargetId: player.combat.combatTargetId,
+        combatTargetLocked: player.combat.combatTargetLocked,
+        autoRetaliate: player.combat.autoRetaliate,
+        autoBattleStationary: player.combat.autoBattleStationary,
+        allowAoePlayerHit: player.combat.allowAoePlayerHit,
+        autoIdleCultivation: player.combat.autoIdleCultivation,
+        autoSwitchCultivation: player.combat.autoSwitchCultivation,
+        cultivationActive: player.combat.cultivationActive,
+        senseQiActive: player.combat.senseQiActive,
+    };
+}
+function captureBuffPanelSlice(player) {
+    return {
+        revision: player.buffs.revision,
+        buffs: player.buffs.buffs.map((entry) => cloneVisibleBuff(entry)),
     };
 }
 function combineProjectorState(worldState, playerState) {
@@ -472,11 +495,8 @@ function buildFullActionDelta(player) {
         actions: player.actions.actions.map((entry) => ({ ...entry })),
         actionOrder: player.actions.actions.map((entry) => entry.id),
         autoBattle: player.combat.autoBattle,
-        autoUsePills: player.combat.autoUsePills.map((entry) => ({
-            ...entry,
-            conditions: Array.isArray(entry.conditions) ? entry.conditions.map((condition) => ({ ...condition })) : [],
-        })),
-        combatTargetingRules: player.combat.combatTargetingRules ? { ...player.combat.combatTargetingRules } : undefined,
+        autoUsePills: (0, player_combat_config_helpers_1.cloneAutoUsePillList)(player.combat.autoUsePills),
+        combatTargetingRules: (0, player_combat_config_helpers_1.cloneCombatTargetingRules)(player.combat.combatTargetingRules),
         autoBattleTargetingMode: player.combat.autoBattleTargetingMode,
         combatTargetId: player.combat.combatTargetId,
         combatTargetLocked: player.combat.combatTargetLocked,
@@ -496,40 +516,40 @@ function buildFullBuffDelta(player) {
         buffs: player.buffs.buffs.map((entry) => cloneVisibleBuff(entry)),
     };
 }
-function buildAttrDelta(previous, player) {
+function buildAttrDelta(previousAttr, player) {
 
-    const stageChanged = previous.panel.attrStage !== player.attrs.stage;
+    const stageChanged = previousAttr.stage !== player.attrs.stage;
 
-    const baseAttrsPatch = diffAttributes(previous.panel.baseAttrs, player.attrs.baseAttrs);
+    const baseAttrsPatch = diffAttributes(previousAttr.baseAttrs, player.attrs.baseAttrs);
 
     const nextBonuses = buildAttrBonuses(player);
 
-    const bonusesChanged = !isSameAttrBonuses(previous.panel.attrBonuses, nextBonuses);
+    const bonusesChanged = !isSameAttrBonuses(previousAttr.bonuses, nextBonuses);
 
-    const finalAttrsPatch = diffAttributes(previous.panel.finalAttrs, player.attrs.finalAttrs);
+    const finalAttrsPatch = diffAttributes(previousAttr.finalAttrs, player.attrs.finalAttrs);
 
-    const numericStatsPatch = diffNumericStats(previous.panel.numericStats, player.attrs.numericStats);
+    const numericStatsPatch = diffNumericStats(previousAttr.numericStats, player.attrs.numericStats);
 
-    const ratioDivisorsPatch = diffRatioDivisors(previous.panel.ratioDivisors, player.attrs.ratioDivisors);
+    const ratioDivisorsPatch = diffRatioDivisors(previousAttr.ratioDivisors, player.attrs.ratioDivisors);
 
     const nextSpecialStats = {
         foundation: player.foundation,
         combatExp: player.combatExp,
     };
 
-    const specialStatsChanged = !isSameSpecialStats(previous.panel.attrSpecialStats, nextSpecialStats);
+    const specialStatsChanged = !isSameSpecialStats(previousAttr.specialStats, nextSpecialStats);
 
-    const boneAgeBaseYearsChanged = previous.panel.attrBoneAgeBaseYears !== player.boneAgeBaseYears;
+    const boneAgeBaseYearsChanged = previousAttr.boneAgeBaseYears !== player.boneAgeBaseYears;
 
-    const lifeElapsedTicksChanged = previous.panel.attrLifeElapsedTicks !== player.lifeElapsedTicks;
+    const lifeElapsedTicksChanged = previousAttr.lifeElapsedTicks !== player.lifeElapsedTicks;
 
-    const lifespanYearsChanged = previous.panel.attrLifespanYears !== player.lifespanYears;
+    const lifespanYearsChanged = previousAttr.lifespanYears !== player.lifespanYears;
 
-    const realmProgressChanged = previous.panel.attrRealmProgress !== player.realm?.progress;
+    const realmProgressChanged = previousAttr.realmProgress !== player.realm?.progress;
 
-    const realmProgressToNextChanged = previous.panel.attrRealmProgressToNext !== player.realm?.progressToNext;
+    const realmProgressToNextChanged = previousAttr.realmProgressToNext !== player.realm?.progressToNext;
 
-    const realmBreakthroughReadyChanged = previous.panel.attrRealmBreakthroughReady !== player.realm?.breakthroughReady;
+    const realmBreakthroughReadyChanged = previousAttr.realmBreakthroughReady !== player.realm?.breakthroughReady;
 
     const totalChanges = (stageChanged ? 1 : 0)
         + baseAttrsPatch.changes
@@ -596,65 +616,71 @@ function buildSelfDelta(previous, player) {
 function buildPanelDelta(previous, player) {
 
     const delta = {};
-    if (previous.panel.inventoryRevision !== player.inventory.revision) {
+    const previousInventory = previous.panel.inventory;
+    const previousEquipment = previous.panel.equipment;
+    const previousTechnique = previous.panel.technique;
+    const previousAttr = previous.panel.attr;
+    const previousAction = previous.panel.action;
+    const previousBuff = previous.panel.buff;
+    if (previousInventory.revision !== player.inventory.revision) {
 
-        const slotPatch = diffInventorySlots(previous.panel.inventoryItems, player.inventory.items);
+        const slotPatch = diffInventorySlots(previousInventory.items, player.inventory.items);
         delta.inv = {
             r: player.inventory.revision,
 
-            capacity: previous.panel.inventoryCapacity !== player.inventory.capacity ? player.inventory.capacity : undefined,
+            capacity: previousInventory.capacity !== player.inventory.capacity ? player.inventory.capacity : undefined,
 
-            size: previous.panel.inventoryItems.length !== player.inventory.items.length ? player.inventory.items.length : undefined,
+            size: previousInventory.items.length !== player.inventory.items.length ? player.inventory.items.length : undefined,
             slots: slotPatch.length > 0 ? slotPatch : undefined,
         };
     }
-    if (previous.panel.equipmentRevision !== player.equipment.revision) {
+    if (previousEquipment.revision !== player.equipment.revision) {
 
-        const slotPatch = diffEquipmentSlots(previous.panel.equipmentSlots, player.equipment.slots);
+        const slotPatch = diffEquipmentSlots(previousEquipment.slots, player.equipment.slots);
         delta.eq = {
             r: player.equipment.revision,
             slots: slotPatch,
         };
     }
-    if (previous.panel.techniqueRevision !== player.techniques.revision) {
+    if (previousTechnique.revision !== player.techniques.revision) {
 
-        const techniquePatch = diffTechniqueEntries(previous.panel.techniques, player.techniques.techniques);
+        const techniquePatch = diffTechniqueEntries(previousTechnique.techniques, player.techniques.techniques);
 
-        const removed = diffRemovedTechniqueIds(previous.panel.techniques, player.techniques.techniques);
+        const removed = diffRemovedTechniqueIds(previousTechnique.techniques, player.techniques.techniques);
         delta.tech = {
             r: player.techniques.revision,
             techniques: techniquePatch,
             removeTechniqueIds: removed.length > 0 ? removed : undefined,
 
-            cultivatingTechId: previous.panel.cultivatingTechId !== player.techniques.cultivatingTechId
+            cultivatingTechId: previousTechnique.cultivatingTechId !== player.techniques.cultivatingTechId
                 ? player.techniques.cultivatingTechId
                 : undefined,
 
-            bodyTraining: previous.panel.bodyTraining !== player.bodyTraining
+            bodyTraining: previousTechnique.bodyTraining !== player.bodyTraining
                 ? (player.bodyTraining ? { ...player.bodyTraining } : null)
                 : undefined,
         };
     }
 
-    const attrMetaChanged = previous.panel.attrBoneAgeBaseYears !== player.boneAgeBaseYears
-        || previous.panel.attrLifeElapsedTicks !== player.lifeElapsedTicks
-        || previous.panel.attrLifespanYears !== player.lifespanYears
-        || previous.panel.attrRealmProgress !== player.realm?.progress
-        || previous.panel.attrRealmProgressToNext !== player.realm?.progressToNext
-        || previous.panel.attrRealmBreakthroughReady !== player.realm?.breakthroughReady
-        || !isSameSpecialStats(previous.panel.attrSpecialStats, {
+    const attrMetaChanged = previousAttr.boneAgeBaseYears !== player.boneAgeBaseYears
+        || previousAttr.lifeElapsedTicks !== player.lifeElapsedTicks
+        || previousAttr.lifespanYears !== player.lifespanYears
+        || previousAttr.realmProgress !== player.realm?.progress
+        || previousAttr.realmProgressToNext !== player.realm?.progressToNext
+        || previousAttr.realmBreakthroughReady !== player.realm?.breakthroughReady
+        || !isSameSpecialStats(previousAttr.specialStats, {
             foundation: player.foundation,
             combatExp: player.combatExp,
         })
-        || !isSameAttrBonuses(previous.panel.attrBonuses, buildAttrBonuses(player));
-    if (previous.panel.attrRevision !== player.attrs.revision || attrMetaChanged) {
-        delta.attr = buildAttrDelta(previous, player);
+        || !isSameAttrBonuses(previousAttr.bonuses, buildAttrBonuses(player));
+    if (previousAttr.revision !== player.attrs.revision || attrMetaChanged) {
+        delta.attr = buildAttrDelta(previousAttr, player);
     }
-    if (previous.panel.actionRevision !== player.actions.revision) {
+    if (previousAction.revision !== player.actions.revision) {
 
-        const actionPatch = diffActionEntries(previous.panel.actions, player.actions.actions);
+        const actionPatch = diffActionEntries(previousAction.actions, player.actions.actions);
 
-        const removedActionIds = diffRemovedActionIds(previous.panel.actions, player.actions.actions);
+        const removedActionIds = diffRemovedActionIds(previousAction.actions, player.actions.actions);
         delta.act = {
             r: player.actions.revision,
             actions: actionPatch,
@@ -662,29 +688,26 @@ function buildPanelDelta(previous, player) {
         };
     }
 
-    const actionTopLevelChanged = previous.panel.actionAutoBattle !== player.combat.autoBattle
-        || JSON.stringify(previous.panel.actionAutoUsePills ?? []) !== JSON.stringify(player.combat.autoUsePills ?? [])
-        || JSON.stringify(previous.panel.actionCombatTargetingRules ?? null) !== JSON.stringify(player.combat.combatTargetingRules ?? null)
-        || previous.panel.actionAutoBattleTargetingMode !== player.combat.autoBattleTargetingMode
-        || previous.panel.actionCombatTargetId !== player.combat.combatTargetId
-        || previous.panel.actionCombatTargetLocked !== player.combat.combatTargetLocked
-        || previous.panel.actionAutoRetaliate !== player.combat.autoRetaliate
-        || previous.panel.actionAutoBattleStationary !== player.combat.autoBattleStationary
-        || previous.panel.actionAllowAoePlayerHit !== player.combat.allowAoePlayerHit
-        || previous.panel.actionAutoIdleCultivation !== player.combat.autoIdleCultivation
-        || previous.panel.actionAutoSwitchCultivation !== player.combat.autoSwitchCultivation
-        || previous.panel.actionCultivationActive !== player.combat.cultivationActive
-        || previous.panel.actionSenseQiActive !== player.combat.senseQiActive;
+    const actionTopLevelChanged = previousAction.autoBattle !== player.combat.autoBattle
+        || !(0, player_combat_config_helpers_1.isSameAutoUsePillList)(previousAction.autoUsePills ?? [], player.combat.autoUsePills ?? [])
+        || !(0, player_combat_config_helpers_1.isSameCombatTargetingRules)(previousAction.combatTargetingRules ?? null, player.combat.combatTargetingRules ?? null)
+        || previousAction.autoBattleTargetingMode !== player.combat.autoBattleTargetingMode
+        || previousAction.combatTargetId !== player.combat.combatTargetId
+        || previousAction.combatTargetLocked !== player.combat.combatTargetLocked
+        || previousAction.autoRetaliate !== player.combat.autoRetaliate
+        || previousAction.autoBattleStationary !== player.combat.autoBattleStationary
+        || previousAction.allowAoePlayerHit !== player.combat.allowAoePlayerHit
+        || previousAction.autoIdleCultivation !== player.combat.autoIdleCultivation
+        || previousAction.autoSwitchCultivation !== player.combat.autoSwitchCultivation
+        || previousAction.cultivationActive !== player.combat.cultivationActive
+        || previousAction.senseQiActive !== player.combat.senseQiActive;
     if (actionTopLevelChanged) {
         delta.act = {
             ...(delta.act ?? { r: player.actions.revision }),
             actionOrder: player.actions.actions.map((entry) => entry.id),
             autoBattle: player.combat.autoBattle,
-            autoUsePills: player.combat.autoUsePills.map((entry) => ({
-                ...entry,
-                conditions: Array.isArray(entry.conditions) ? entry.conditions.map((condition) => ({ ...condition })) : [],
-            })),
-            combatTargetingRules: player.combat.combatTargetingRules ? { ...player.combat.combatTargetingRules } : undefined,
+            autoUsePills: (0, player_combat_config_helpers_1.cloneAutoUsePillList)(player.combat.autoUsePills),
+            combatTargetingRules: (0, player_combat_config_helpers_1.cloneCombatTargetingRules)(player.combat.combatTargetingRules),
             autoBattleTargetingMode: player.combat.autoBattleTargetingMode,
             combatTargetId: player.combat.combatTargetId,
             combatTargetLocked: player.combat.combatTargetLocked,
@@ -697,11 +720,11 @@ function buildPanelDelta(previous, player) {
             senseQiActive: player.combat.senseQiActive,
         };
     }
-    if (previous.panel.buffRevision !== player.buffs.revision) {
+    if (previousBuff.revision !== player.buffs.revision) {
 
-        const buffPatch = diffBuffEntries(previous.panel.buffs, player.buffs.buffs);
+        const buffPatch = diffBuffEntries(previousBuff.buffs, player.buffs.buffs);
 
-        const removedBuffIds = diffRemovedBuffIds(previous.panel.buffs, player.buffs.buffs);
+        const removedBuffIds = diffRemovedBuffIds(previousBuff.buffs, player.buffs.buffs);
         delta.buff = {
             r: player.buffs.revision,
             buffs: buffPatch,

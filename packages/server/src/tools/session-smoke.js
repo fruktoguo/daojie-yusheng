@@ -2,7 +2,6 @@
 /**
  * 用途：执行 session 链路的冒烟验证。
  */
-// TODO(next:T07): 持续把 detached/reuse/reaper 证明脚本对齐到最终 session 真源设计，避免 proof 语义长期先于正式 contract。
 
 Object.defineProperty(exports, "__esModule", { value: true });
 const smoke_timeout_1 = require("./smoke-timeout");
@@ -611,7 +610,14 @@ function verifyWorldSessionServicePolicyProof() {
     if (expiredBindings.length !== 1 || expiredBindings[0]?.playerId !== expireZeroPlayerId) {
         throw new Error(`expected zero-expire detach to enqueue expired binding immediately, got ${JSON.stringify(expiredBindings)}`);
     }
+    if (world_session_service_1.WORLD_SESSION_CONTRACT.sourceOfTruth !== 'single_process_memory') {
+        throw new Error(`unexpected session source of truth contract: ${JSON.stringify(world_session_service_1.WORLD_SESSION_CONTRACT)}`);
+    }
+    if (world_session_service_1.WORLD_SESSION_CONTRACT.zeroExpireBehavior !== 'expire_immediately_and_enqueue_for_reaper') {
+        throw new Error(`unexpected zero-expire contract: ${JSON.stringify(world_session_service_1.WORLD_SESSION_CONTRACT)}`);
+    }
     return {
+        contract: world_session_service_1.WORLD_SESSION_CONTRACT,
         initialSid: firstBinding.sessionId,
         connectedReuseBlockedSid: replacedBinding.sessionId,
         implicitResumeBlockedSid: implicitRejectedBinding.sessionId,
@@ -632,6 +638,7 @@ async function verifyWorldSessionReaperProof() {
  */
     const retryProof = await runWorldSessionReaperRetryProof();
     return {
+        contract: world_session_reaper_service_1.WORLD_SESSION_REAPER_CONTRACT,
         success: successProof,
         retry: retryProof,
     };
@@ -770,6 +777,9 @@ async function runWorldSessionReaperRetryProof() {
     }
     if (cleared.length !== 1 || cleared[0] !== playerId) {
         throw new Error(`expected reaper retry proof to clear detached caches after retry, got ${JSON.stringify(cleared)}`);
+    }
+    if (world_session_reaper_service_1.WORLD_SESSION_REAPER_CONTRACT.retryOnFlushFailure !== true) {
+        throw new Error(`unexpected reaper retry contract: ${JSON.stringify(world_session_reaper_service_1.WORLD_SESSION_REAPER_CONTRACT)}`);
     }
     return {
         playerId,

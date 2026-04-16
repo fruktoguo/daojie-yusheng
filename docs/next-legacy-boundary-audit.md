@@ -5,14 +5,14 @@
 ## 一句话结论
 
 - 这份报告只统计仓库里仍可见的 direct legacy 边界与性能热点，不等于 replace-ready 失败，也不代表完整替换已完成。
-- 当前自动审计命中 3 / 22 个检查项，共 3 处代码证据。
+- 当前自动审计命中 4 / 22 个检查项，共 5 处代码证据。
 - 保守口径不变：`next` 离“完整替换游戏整体”仍约差 `40% - 45%`。
 
 ## 汇总
 
 | 类别 | 命中检查项 | 代码证据 |
 | --- | ---: | ---: |
-| P0 auth/bootstrap 真源 | 2 / 5 | 2 |
+| P0 auth/bootstrap 真源 | 3 / 5 | 4 |
 | P0 legacy HTTP/GM/admin | 0 / 3 | 0 |
 | P1 world sync compat | 1 / 5 | 1 |
 | P1 runtime/persistence compat | 0 / 4 | 0 |
@@ -20,6 +20,10 @@
 
 ## P0 auth/bootstrap 真源
 
+- next 玩家 token codec 仍复用 compat JWT 验签与载荷解码
+  - 文件：`packages/server/src/network/world-player-token-codec.service.js:74`
+  - 命中次数：2
+  - 首个证据：`const result = verifyPlayerTokenPayloadDetailed(normalizedToken, secret);`
 - legacy player repository 仍直接查询 users/players 表
   - 文件：`packages/server/src/network/world-legacy-player-repository.js:16`
   - 命中次数：1
@@ -32,7 +36,7 @@
 ## P1 world sync compat
 
 - compat tick 仍直接读取 legacy combat effects
-  - 文件：`packages/server/src/network/world-sync.service.js:165`
+  - 文件：`packages/server/src/network/world-sync.service.js:164`
   - 命中次数：1
   - 首个证据：`return filterLegacyCombatEffects(this.worldRuntimeService.getLegacyCombatEffects(view.instance.instanceId), visibleTileKeys);`
 

@@ -2,8 +2,6 @@
  * 行动面板
  * 负责动作列表、技能管理和技能方案的局部交互，不接管真正的战斗结算。
  */
-// TODO(next:UI01): 把 action-panel 主体和相关 modal 继续收成 patch-first，并复用统一 toolbar/list/detail recipe，避免大段 innerHTML 重建。
-
 import { ActionDef, AutoBattleSkillConfig, PlayerState, SkillDef, type ElementKey, type SkillDamageKind } from '@mud/shared-next';
 import { detailModalHost } from '../detail-modal-host';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from '../floating-tooltip';
@@ -21,6 +19,13 @@ import {
   normalizeShortcutKey,
   readBoolean,
 } from './action-panel-helpers';
+
+/** createFragmentFromHtml：从 HTML 文本创建文档片段。 */
+function createFragmentFromHtml(html: string): DocumentFragment {
+  const template = document.createElement('template');
+  template.innerHTML = html.trim();
+  return template.content.cloneNode(true) as DocumentFragment;
+}
 
 /** 行动面板的主标签页：对话、技能、开关和通用动作。 */
 type ActionMainTab = 'dialogue' | 'skill' | 'toggle' | 'utility';
@@ -195,7 +200,7 @@ export class ActionPanel {
     this.skillManagementListScrollTop = 0;
     detailModalHost.close(ActionPanel.SKILL_MANAGEMENT_MODAL_OWNER);
     detailModalHost.close(ActionPanel.SKILL_PRESET_MODAL_OWNER);
-    this.pane.innerHTML = '<div class="empty-hint ui-empty-hint">暂无可用行动</div>';
+    this.pane.replaceChildren(createFragmentFromHtml('<div class="empty-hint ui-empty-hint">暂无可用行动</div>'));
   }
 
   setCallbacks(
@@ -367,7 +372,7 @@ export class ActionPanel {
     }
 
     preserveSelection(this.pane, () => {
-      this.pane.innerHTML = html;
+      this.pane.replaceChildren(createFragmentFromHtml(html));
       this.captureActionRowRefs();
       this.bindEvents(actions);
       this.bindTooltips(this.pane);
@@ -1653,7 +1658,8 @@ export class ActionPanel {
       variantClass: 'detail-modal--skill-preset',
       title: '技能方案',
       subtitle: `本地方案 ${this.skillPresets.length} 份 · 当前技能 ${currentSkills.length} 项`,
-      bodyHtml: `
+      renderBody: (body) => {
+        body.replaceChildren(createFragmentFromHtml(`
         <div class="skill-preset-shell ui-card-list">
           <div class="skill-preset-hero">
             <div class="skill-preset-card ui-surface-pane ui-surface-pane--stack">
@@ -1733,7 +1739,8 @@ export class ActionPanel {
             </div>
           </div>
         </div>
-      `,
+      `));
+      },
       onClose: () => {
         this.resetSkillPresetModalState();
       },
@@ -2325,7 +2332,8 @@ export class ActionPanel {
       variantClass: 'detail-modal--skill-management',
       title: '技能管理',
       subtitle: `已学技能 ${skillEntries.length} 项 · 当前过滤 ${filteredEntries.length} 项`,
-      bodyHtml: `
+      renderBody: (body) => {
+        body.replaceChildren(createFragmentFromHtml(`
         <div class="skill-manage-shell ui-card-list">
           <div class="skill-manage-topbar">
             <div class="action-skill-subtabs skill-manage-subtabs ui-subtab-grid ui-subtab-grid--three-column">
@@ -2398,7 +2406,8 @@ export class ActionPanel {
               })).join('')}
             </div>`}
         </div>
-      `,
+      `));
+      },
       onClose: () => {
         this.discardSkillManagementDraft();
       },

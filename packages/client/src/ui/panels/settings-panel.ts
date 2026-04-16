@@ -2,8 +2,6 @@
  * 设置面板
  * 提供显示名称、角色名称修改、密码修改与兑换码功能
  */
-// TODO(next:UI05): 继续把 settings-panel 收成统一业务 recipe，并消掉结果区与表单区的模板式重建长尾。
-
 import {
   AccountRedeemCodesRes,
   ROLE_NAME_MAX_ASCII_LENGTH,
@@ -94,7 +92,19 @@ export class SettingsPanel {
       title: '设置',
       subtitle: `账号：${this.currentAccountName || '未登录'} · 显示：${this.currentDisplayName || '未设置'} · 角色名：${this.currentRoleName || '未设置'}`,
       hint: '点击空白处关闭',
-      bodyHtml: `
+      renderBody: (body) => {
+        this.renderBody(body);
+      },
+      onAfterRender: (body) => {
+        this.bindModal(body);
+      },
+    });
+  }
+
+  /** renderBody：渲染设置弹层主体。 */
+  private renderBody(body: HTMLElement): void {
+    const template = document.createElement('template');
+    template.innerHTML = `
         <div class="settings-modal-shell ui-tabbed-modal-shell">
           <div class="settings-modal-tabs ui-tabbed-modal-tabs" role="tablist" aria-label="设置分组">
             <button
@@ -135,11 +145,8 @@ export class SettingsPanel {
             ${this.renderPerformanceTab()}
           </div>
         </div>
-      `,
-      onAfterRender: (body) => {
-        this.bindModal(body);
-      },
-    });
+      `;
+    body.replaceChildren(template.content.cloneNode(true));
   }
 
   /** bindModal：绑定弹窗。 */
@@ -589,13 +596,13 @@ export class SettingsPanel {
     const codes = parseRedeemCodes(textarea.value);
     if (codes.length === 0) {
       setStatus(statusEl, '请至少填写一个兑换码', 'error');
-      resultEl.innerHTML = '';
+      resultEl.replaceChildren();
       return;
     }
 
     button.disabled = true;
     setStatus(statusEl, '兑换请求已发送，等待本息结算...', '');
-    resultEl.innerHTML = '';
+    resultEl.replaceChildren();
     try {
       const result = await this.options.redeemCodes(codes);
       const successCount = result.results.filter((entry) => entry.ok).length;
@@ -605,23 +612,34 @@ export class SettingsPanel {
         failedCount > 0 ? `兑换完成：成功 ${successCount}，失败 ${failedCount}` : `兑换完成：成功 ${successCount}`,
         failedCount > 0 ? 'error' : 'success',
       );
-      resultEl.innerHTML = result.results.map((entry) => `
-        <div class="settings-redeem-result ui-surface-card ui-surface-card--compact${entry.ok ? ' success' : ' error'}">
-          <div class="settings-redeem-result-head">
-            <span>${escapeHtml(entry.code)}</span>
-            <span>${entry.ok ? '成功' : '失败'}</span>
-          </div>
-          <div class="settings-redeem-result-body">
-            ${escapeHtml(entry.groupName ? `${entry.groupName} · ${entry.message}` : entry.message)}
-          </div>
-        </div>
-      `).join('');
+      resultEl.replaceChildren(
+        ...result.results.map((entry) => this.createRedeemResultCard(entry)),
+      );
     } catch (error) {
       setStatus(statusEl, error instanceof Error ? error.message : '兑换失败', 'error');
-      resultEl.innerHTML = '';
+      resultEl.replaceChildren();
     } finally {
       button.disabled = false;
     }
+  }
+
+  /** createRedeemResultCard：创建兑换结果卡片。 */
+  private createRedeemResultCard(entry: AccountRedeemCodesRes['results'][number]): HTMLElement {
+    const card = document.createElement('div');
+    card.className = `settings-redeem-result ui-surface-card ui-surface-card--compact${entry.ok ? ' success' : ' error'}`;
+    const head = document.createElement('div');
+    head.className = 'settings-redeem-result-head';
+    const code = document.createElement('span');
+    code.textContent = entry.code;
+    const status = document.createElement('span');
+    status.textContent = entry.ok ? '成功' : '失败';
+    head.append(code, status);
+
+    const body = document.createElement('div');
+    body.className = 'settings-redeem-result-body';
+    body.textContent = entry.groupName ? `${entry.groupName} · ${entry.message}` : entry.message;
+    card.append(head, body);
+    return card;
   }
 
   private async scheduleDisplayNameCheck(

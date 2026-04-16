@@ -2,7 +2,6 @@
 /**
  * 用途：执行 persistence 链路的冒烟验证。
  */
-// TODO(next:T09): 在真实 DB proof 固定后，把这里的验证边界继续收成正式持久化证据，避免 migration 过渡语义长期混在默认 smoke 里。
 
 Object.defineProperty(exports, "__esModule", { value: true });
 const smoke_timeout_1 = require("./smoke-timeout");
@@ -26,6 +25,11 @@ const serverEntry = (0, node_path_1.join)(packageRoot, 'dist', 'main.js');
  * 记录数据库地址。
  */
 const databaseUrl = (0, env_alias_1.resolveServerNextDatabaseUrl)();
+const PERSISTENCE_SMOKE_CONTRACT = Object.freeze({
+    answers: 'with-db 本地环境下的 next 持久化闭环：重启后玩家状态、掉落、灵气与地图解锁仍可从数据库真源恢复',
+    excludes: 'shadow destructive、维护窗口 backup/restore、真实运营取证与跨环境灾备演练',
+    completionMapping: 'replace-ready:proof:with-db.persistence',
+});
 /**
  * 记录default端口。
  */
@@ -55,6 +59,9 @@ async function main() {
             ok: true,
             skipped: true,
             reason: 'SERVER_NEXT_DATABASE_URL/DATABASE_URL missing',
+            answers: PERSISTENCE_SMOKE_CONTRACT.answers,
+            excludes: PERSISTENCE_SMOKE_CONTRACT.excludes,
+            completionMapping: PERSISTENCE_SMOKE_CONTRACT.completionMapping,
         }, null, 2));
         return;
     }
@@ -89,6 +96,9 @@ async function main() {
         console.log(JSON.stringify({
             ok: true,
             playerId,
+            answers: PERSISTENCE_SMOKE_CONTRACT.answers,
+            excludes: PERSISTENCE_SMOKE_CONTRACT.excludes,
+            completionMapping: PERSISTENCE_SMOKE_CONTRACT.completionMapping,
             restored,
         }, null, 2));
     }

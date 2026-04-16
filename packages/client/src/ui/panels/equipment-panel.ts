@@ -2,8 +2,6 @@
  * 装备面板
  * 展示 5 个装备槽位的当前装备与词条，支持卸下操作
  */
-// TODO(next:UI01): 把 equipment-panel 主体继续 patch-first 化，并与 inventory/quest/technique 已稳定壳体对齐。
-
 import { EquipmentEffectDef, EquipmentSlots, EQUIP_SLOTS, EquipSlot, PlayerState } from '@mud/shared-next';
 import { getEquipSlotLabel } from '../../domain-labels';
 import { resolvePreviewItem } from '../../content/local-templates';
@@ -98,6 +96,13 @@ function formatItemBonuses(item: EquipmentSlots[EquipSlot]): string {
   return parts.length > 0 ? parts.join(' / ') : '暂无词条';
 }
 
+/** createFragmentFromHtml：从 HTML 文本创建文档片段。 */
+function createFragmentFromHtml(html: string): DocumentFragment {
+  const template = document.createElement('template');
+  template.innerHTML = html.trim();
+  return template.content.cloneNode(true) as DocumentFragment;
+}
+
 /** EquipmentSlotView：装备槽位的渲染引用集合。 */
 type EquipmentSlotView = {
   root: HTMLDivElement;
@@ -141,7 +146,7 @@ export class EquipmentPanel {
     this.slotViews.clear();
     this.sectionEl = null;
     this.emptyStateEl = null;
-    this.pane.innerHTML = '<div class="empty-hint ui-empty-hint">尚未装备任何物品</div>';
+    this.pane.replaceChildren(createFragmentFromHtml('<div class="empty-hint ui-empty-hint">尚未装备任何物品</div>'));
   }
 
   setCallbacks(onUnequip: (slot: EquipSlot) => void): void {

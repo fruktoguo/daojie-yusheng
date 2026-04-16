@@ -1,4 +1,3 @@
-// TODO(next:UI01): 把 market-panel 主体、书册区和交易弹层继续改成 patch-first，并压缩重复业务样式 recipe。
 import {
   NEXT_C2S_RequestMarketListings,
   computeBestEnhancementExpectedCost,
@@ -53,6 +52,13 @@ function escapeHtml(value: string): string {
 /** 复用同一套转义逻辑，避免属性值注入。 */
 function escapeHtmlAttr(value: string): string {
   return escapeHtml(value);
+}
+
+/** createFragmentFromHtml：从 HTML 文本创建文档片段。 */
+function createFragmentFromHtml(html: string): DocumentFragment {
+  const template = document.createElement('template');
+  template.innerHTML = html.trim();
+  return template.content.cloneNode(true) as DocumentFragment;
 }
 
 /** 拼出一行普通提示文本，供 tooltip 复用。 */
@@ -349,7 +355,7 @@ export class MarketPanel {
     const orderCount = this.marketUpdate?.myOrders.length ?? 0;
     const storageCount = this.marketUpdate?.storage.items.reduce((sum, item) => sum + item.count, 0) ?? 0;
     preserveSelection(this.pane, () => {
-      this.pane.innerHTML = `
+      this.pane.replaceChildren(createFragmentFromHtml(`
         <div class="panel-section market-pane ui-surface-pane ui-surface-pane--stack">
           <div class="panel-section-title">坊市</div>
           <div class="market-pane-copy ui-form-copy">${escapeHtml(MARKET_PANE_HINT)}</div>
@@ -360,7 +366,7 @@ export class MarketPanel {
           </div>
           <button class="small-btn" data-market-open type="button">打开坊市</button>
         </div>
-      `;
+      `));
     });
   }
 
@@ -403,9 +409,13 @@ export class MarketPanel {
       variantClass: 'detail-modal--market',
       title: '坊市',
       subtitle: '匿名挂售、求购与自动撮合',
-      bodyHtml: marketUpdate
-        ? this.renderModalBody(marketUpdate)
-        : '<div class="empty-hint">坊市盘面同步中……</div>',
+      renderBody: (body) => {
+        body.replaceChildren(createFragmentFromHtml(
+          marketUpdate
+            ? this.renderModalBody(marketUpdate)
+            : '<div class="empty-hint">坊市盘面同步中……</div>',
+        ));
+      },
       onClose: () => {
         this.itemBookLoading = false;
         this.tooltipNode = null;
@@ -1068,7 +1078,7 @@ export class MarketPanel {
       return;
     }
     const orderBook = this.itemBook && this.itemBook.itemKey === selected.itemKey ? this.itemBook : null;
-    bookPanel.innerHTML = this.renderBookPanel(selected, orderBook, update.currencyItemName);
+    bookPanel.replaceChildren(createFragmentFromHtml(this.renderBookPanel(selected, orderBook, update.currencyItemName)));
     this.bindBookPanelActionEvents(bookPanel);
     this.bindItemTooltipEvents(bookPanel);
   }
@@ -1311,7 +1321,7 @@ export class MarketPanel {
     const update = this.marketUpdate;
     const selected = this.getSelectedListedItem(update);
     if (!this.tradeDialog || this.modalTab !== 'market' || !detailModalHost.isOpenFor(MarketPanel.MODAL_OWNER) || !update || !selected) {
-      root.innerHTML = '';
+      root.replaceChildren();
       root.classList.add('hidden');
       this.tooltipNode = null;
       this.tooltip.hide(true);
@@ -1319,7 +1329,7 @@ export class MarketPanel {
     }
 
     root.classList.remove('hidden');
-    root.innerHTML = this.renderTradeDialog(selected, update.currencyItemId, update.currencyItemName);
+    root.replaceChildren(createFragmentFromHtml(this.renderTradeDialog(selected, update.currencyItemId, update.currencyItemName)));
     this.bindTradeDialogOverlayEvents(root, selected, update);
     this.bindItemTooltipEvents(root);
   }

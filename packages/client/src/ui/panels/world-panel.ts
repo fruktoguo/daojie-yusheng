@@ -2,8 +2,6 @@
  * 世界面板
  * 展示当前地图情报、附近实体、任务建议与可执行行动
  */
-// TODO(next:UI01): 把 world-panel 的地图/附近/建议三块继续从整段 HTML 重建收成局部 patch，保持焦点和滚动连续性。
-
 import { ActionDef, gridDistance, MapMeta, MonsterTier, PlayerState, QuestState } from '@mud/shared-next';
 import { preserveSelection } from '../selection-preserver';
 import { TECH_REALM_LABELS, TECH_REALM_NAME_BY_KEY, WORLD_GUIDE } from '../../constants/world/world-panel';
@@ -95,6 +93,13 @@ function escapeHtml(value: string): string {
     .replaceAll("'", '&#39;');
 }
 
+/** createFragmentFromHtml：从 HTML 文本创建文档片段。 */
+function createFragmentFromHtml(html: string): DocumentFragment {
+  const template = document.createElement('template');
+  template.innerHTML = html.trim();
+  return template.content.cloneNode(true) as DocumentFragment;
+}
+
 /** inferRealm：处理infer境界。 */
 function inferRealm(player: PlayerState): string {
   if (player.realmName) {
@@ -184,9 +189,9 @@ export class WorldPanel {
 
   /** clear：清理clear。 */
   clear(): void {
-    this.mapPane.innerHTML = '<div class="empty-hint ui-empty-hint">尚未进入世界</div>';
-    this.nearbyPane.innerHTML = '<div class="empty-hint ui-empty-hint">尚未进入世界</div>';
-    this.suggestionPane.innerHTML = '<div class="empty-hint ui-empty-hint">尚未进入世界</div>';
+    this.mapPane.replaceChildren(createFragmentFromHtml('<div class="empty-hint ui-empty-hint">尚未进入世界</div>'));
+    this.nearbyPane.replaceChildren(createFragmentFromHtml('<div class="empty-hint ui-empty-hint">尚未进入世界</div>'));
+    this.suggestionPane.replaceChildren(createFragmentFromHtml('<div class="empty-hint ui-empty-hint">尚未进入世界</div>'));
     this.lastNearbyMonsterIds = null;
     this.lastNearbyNpcIds = null;
     this.lastSuggestionActionIds = null;
@@ -324,7 +329,7 @@ export class WorldPanel {
       </div>
     `;
     preserveSelection(this.mapPane, () => {
-      this.mapPane.innerHTML = html;
+      this.mapPane.replaceChildren(createFragmentFromHtml(html));
     });
   }
 
@@ -365,7 +370,7 @@ export class WorldPanel {
       ` : ''}
     `;
     preserveSelection(this.nearbyPane, () => {
-      this.nearbyPane.innerHTML = html;
+      this.nearbyPane.replaceChildren(createFragmentFromHtml(html));
     });
     this.captureNearbyRefs(snapshot);
   }
@@ -399,7 +404,7 @@ export class WorldPanel {
       </div>
     `;
     preserveSelection(this.suggestionPane, () => {
-      this.suggestionPane.innerHTML = html;
+      this.suggestionPane.replaceChildren(createFragmentFromHtml(html));
     });
     this.captureSuggestionRefs(snapshot);
   }
@@ -460,7 +465,7 @@ export class WorldPanel {
       if (!refs) {
         return false;
       }
-      refs.nameNode.innerHTML = this.renderMonsterName(monster);
+      refs.nameNode.replaceChildren(createFragmentFromHtml(this.renderMonsterName(monster)));
       refs.metaNode.textContent = `距离 ${formatDisplayInteger(monster.distance)} 格 · HP ${formatDisplayCurrentMax(monster.hp, monster.maxHp)}`;
       refs.statusNode.textContent = buildMonsterStatus(monster.distance);
     }

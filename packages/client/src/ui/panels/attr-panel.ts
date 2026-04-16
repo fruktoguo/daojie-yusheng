@@ -2,8 +2,6 @@
  * 属性面板
  * 以雷达图和数值卡片展示六维、灵根、灵脉、斗法、灵力、特殊六大分类属性
  */
-// TODO(next:UI01): 把 attr-panel 从大段 innerHTML 重建继续收成固定壳体 + 局部 patch，避免低频属性刷新重建整面板。
-
 import {
   ATTR_KEYS,
   ATTR_TO_PERCENT_NUMERIC_WEIGHTS,
@@ -249,6 +247,13 @@ function escapeHtml(value: string): string {
     .replaceAll("'", '&#39;');
 }
 
+/** createFragmentFromHtml：从 HTML 文本创建文档片段。 */
+function createFragmentFromHtml(html: string): DocumentFragment {
+  const template = document.createElement('template');
+  template.innerHTML = html.trim();
+  return template.content.cloneNode(true) as DocumentFragment;
+}
+
 /** 属性雷达图中的单个节点，包含标签、数值、颜色和提示文案。 */
 interface RadarEntry {
   label: string;
@@ -360,7 +365,7 @@ export class AttrPanel {
     this.lastStructureKey = null;
     this.tooltipTarget = null;
     this.tooltip.hide(true);
-    this.pane.innerHTML = '<div class="empty-hint">尚未观测到角色属性</div>';
+    this.pane.replaceChildren(createFragmentFromHtml('<div class="empty-hint">尚未观测到角色属性</div>'));
   }
 
   /** 接收属性更新事件并重新渲染 */
@@ -817,7 +822,7 @@ export class AttrPanel {
     this.lastSnapshot = snapshot;
     this.lastStructureKey = this.buildStructureKey(snapshot);
     preserveSelection(this.pane, () => {
-      this.pane.innerHTML = `<div class="attr-layout">
+      this.pane.replaceChildren(createFragmentFromHtml(`<div class="attr-layout">
         <div class="action-tab-bar ui-tab-strip">${this.renderTabs()}</div>
         <div class="action-tab-pane ${this.activeTab === 'base' ? 'active' : ''}" data-attr-pane="base">${this.renderPane(snapshot.panes.base)}</div>
         <div class="action-tab-pane ${this.activeTab === 'root' ? 'active' : ''}" data-attr-pane="root">${this.renderPane(snapshot.panes.root)}</div>
@@ -826,7 +831,7 @@ export class AttrPanel {
         <div class="action-tab-pane ${this.activeTab === 'qi' ? 'active' : ''}" data-attr-pane="qi">${this.renderPane(snapshot.panes.qi)}</div>
         <div class="action-tab-pane ${this.activeTab === 'special' ? 'active' : ''}" data-attr-pane="special">${this.renderPane(snapshot.panes.special)}</div>
         <div class="action-tab-pane ${this.activeTab === 'craft' ? 'active' : ''}" data-attr-pane="craft">${this.renderPane(snapshot.panes.craft)}</div>
-      </div>`;
+      </div>`));
     });
   }
 

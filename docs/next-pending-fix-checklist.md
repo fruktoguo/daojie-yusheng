@@ -25,20 +25,20 @@
   - 前端主链过重、patch-first 未完全收口
   - proof / acceptance / shadow / GM-admin 运营闭环未完全做实
 
-内联 TODO 检索约定：
+内联待办锚点检索约定：
 
 - 任务账本：`next:Txx` 这一类编号
 - 安全与门禁：`next:SECxx`、`next:VERIFYxx`
 - 架构 / 持久化 / 热路径 / 大模块：`next:ARCHxx`、`next:PERSISTxx`、`next:PERFxx`、`next:REFACTORxx`
 - 迁移链路残项：`MIGRATE01` 任务桶
 - 前端尾项：`next:UIxx`
-- 建议检索：`rg -n "TODO\\(next:" packages docs scripts .github`
+- 建议检索：`rg -n "next:[A-Z0-9]+" packages docs scripts .github`
 
-- 说明：JSON 文件本身无法写注释，像 `package.json` 里的 `*-next` 包名残留这类问题，统一落在相邻迁移文档 TODO 中追踪。
+- 说明：JSON 文件本身无法写注释，像 `package.json` 里的 `*-next` 包名残留这类问题，统一落在相邻迁移文档的任务锚点中追踪。
 
-## 仍未就近落到代码注释、当前保留在文档追踪的项
+## 当前仅保留文档说明、不再视为开放待办的项
 
-- TODO(next:ARCH04): `packages/client/package.json`、`packages/server/package.json`、`packages/shared/package.json` 与根 `package.json` 仍残留 `*-next` 包名/脚本标识，需在 legacy 包名冲突彻底解除后统一回归正式命名。
+- `packages/client/package.json`、`packages/server/package.json`、`packages/shared/package.json` 与根 `package.json` 继续保留 `*-next` workspace 标识，作为现阶段双轨迁移下的稳定包 ID；它不再单独作为开放待办追踪，后续若要统一回归正式命名，应作为一次独立的包名迁移处理，而不是继续挂在当前待办账本里。
 
 ---
 

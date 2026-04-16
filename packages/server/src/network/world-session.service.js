@@ -8,7 +8,7 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
     return c > 3 && r && Object.defineProperty(target, key, r), r;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldSessionService = void 0;
+exports.WorldSessionService = exports.WORLD_SESSION_CONTRACT = void 0;
 
 const common_1 = require("@nestjs/common");
 
@@ -17,7 +17,15 @@ const shared_1 = require("@mud/shared-next");
 const DEFAULT_SESSION_DETACH_EXPIRE_MS = 15_000;
 
 const MAX_REQUESTED_SESSION_ID_LENGTH = 128;
-// TODO(next:T07): 明确单进程 session 是否就是最终真源，并把当前 detached/reuse/reaper 语义从 proof 收口成正式设计边界。
+
+const WORLD_SESSION_CONTRACT = Object.freeze({
+    sourceOfTruth: 'single_process_memory',
+    connectedReuse: 'reuse_current_session_only_when_allowConnectedSessionReuse',
+    detachedResume: 'implicit_or_requested_within_detach_window',
+    detachExpireEnvKey: 'SERVER_NEXT_SESSION_DETACH_EXPIRE_MS',
+    zeroExpireBehavior: 'expire_immediately_and_enqueue_for_reaper',
+});
+exports.WORLD_SESSION_CONTRACT = WORLD_SESSION_CONTRACT;
 
 /** 世界会话管理入口：管理 socket 与 player 绑定、会话恢复、断线回收。 */
 function resolveSessionDetachExpireMs() {

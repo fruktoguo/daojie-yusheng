@@ -2,7 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.queryLegacyPlayerIdentityRow = queryLegacyPlayerIdentityRow;
 exports.queryLegacyPlayerSnapshotRow = queryLegacyPlayerSnapshotRow;
-// TODO(next:T02): 在 WorldPlayerSourceService 完成 next-native 真源替换后，删除这个对 users/players 表的 legacy 直读仓库。
+// 仅供显式 migration 入口使用的 legacy 数据库查询仓库，不参与 next 主链真源读取。
 async function queryLegacyPlayerIdentityRow(pool, userId) {
 
     const result = await pool.query(`
@@ -64,5 +64,4 @@ async function queryLegacyPlayerSnapshotRow(pool, playerId) {
       `, [playerId]);
     return result.rows[0] ?? null;
 }
-
 

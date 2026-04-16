@@ -16,19 +16,23 @@ exports.WorldGmAuthService = void 0;
 
 const common_1 = require("@nestjs/common");
 
+const next_gm_contract_1 = require("../http/next/next-gm-contract");
+
 const runtime_gm_auth_service_1 = require("../runtime/gm/runtime-gm-auth.service");
-// TODO(next:T13): 把 GM socket 鉴权从 runtime compat 密码记录收成 next-native 真源，并与 HTTP/GM-admin 的最终边界一起定稿。
 
 /** GM 令牌透传鉴权服务：Socket 与 runtime gm auth service 对接。 */
 let WorldGmAuthService = class WorldGmAuthService {
-    compatAuthService;
-    constructor(compatAuthService) {
-        this.compatAuthService = compatAuthService;
+    gmAuthService;
+    constructor(gmAuthService) {
+        this.gmAuthService = gmAuthService;
     }
 
-    /** 校验 GM socket token，返回兼容鉴权服务的验证结果。 */
+    /** 校验 GM socket token，统一走 runtime GM auth 真源。 */
     validateSocketGmToken(token) {
-        return this.compatAuthService.validateAccessToken(token);
+        if (next_gm_contract_1.NEXT_GM_AUTH_CONTRACT.tokenValidatorOwner !== 'runtime_gm_auth_service') {
+            return false;
+        }
+        return this.gmAuthService.validateAccessToken(token);
     }
 };
 exports.WorldGmAuthService = WorldGmAuthService;
@@ -37,4 +41,3 @@ exports.WorldGmAuthService = WorldGmAuthService = __decorate([
     __metadata("design:paramtypes", [runtime_gm_auth_service_1.RuntimeGmAuthService])
 ], WorldGmAuthService);
 //# sourceMappingURL=world-gm-auth.service.js.map
-

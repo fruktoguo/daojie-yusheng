@@ -1,6 +1,6 @@
 # next 剩余完整执行方案
 
-更新时间：2026-04-13（当前轮次）
+更新时间：2026-04-16（本轮复核）
 
 ## 1. 目标定义
 
@@ -16,7 +16,7 @@
 
 当前统一口径：
 
-- `server-next` 的 direct legacy/perf inventory 已不再阻断主门禁；最新 boundary audit 为 `1 / 22` 命中、`1` 处证据，另有 `3` 项因 inventory 路径漂移被 fail-soft 跳过
+- `server-next` 的 direct legacy/perf inventory 仍未清空；最新 boundary audit 为 `4 / 22` 命中、`5` 处证据
 - `auth/token/bootstrap` 真源替换已经开始第一刀，但还没完成 next-native 收口；本轮又继续把 `protocol=next` 的 compat identity runtime 回退、`legacy_runtime -> compat snapshot` 的运行态回退、以及带 token 的 `hello` 兜底入口继续收紧
 - 已落地的是 `token/identity` 读优先级收正：`next -> compat -> token fallback`
 - legacy HTTP auth 与 next socket auth 当前已经共用同一套 next token codec
@@ -31,15 +31,19 @@
 - `shared-next` 的协议定义、protocol audit 与数值模板守卫已形成基础护栏，但 `T22/T23` 还没有达到“新增字段自动全链路硬门禁”的程度
 - `local / acceptance / full / shadow-destructive` 四层门禁定义已统一，但 `acceptance/full` 仍未全部落成 workflow/job 级闭环
 - 这不等于“最小包体、最高性能、极高扩展度、系统稳定性”已经全部满足
-- 本轮本机已复跑 `pnpm --filter @mud/server-next compile` 与无库 `node packages/server/dist/tools/smoke-suite.js --case session --case next-auth-bootstrap`；with-db proof 仍待 `DATABASE_URL/SERVER_NEXT_DATABASE_URL`
-- 保守估计，`next` 距离“完整替换游戏整体”仍约差 `35% - 40%`
+- 本轮本机已复跑 `pnpm build`、`pnpm verify:server-next`、`pnpm --filter @mud/server-next verify:replace-ready`、`pnpm audit:server-next-boundaries` 与 `pnpm audit:server-next-protocol`；with-db proof 仍待 `DATABASE_URL/SERVER_NEXT_DATABASE_URL`
+- 保守估计，`next` 距离“完整替换游戏整体”仍约差 `40% - 45%`
 - 当前剩余工作已经可以压缩成 5 个主块：
   - `snapshot/player-source -> bootstrap/session` 真源替换本体
   - GM/admin/restore/shadow 证明链补齐
   - 首包/热路径/扩展边界的性能尾项
   - `shared-next / client-next` 稳定性收口
   - 替换后的 compat 保留策略定稿
-- TODO(next:T13): 定稿 GM/admin/restore 是继续 next-native 化还是长期保留 compat 壳，并把策略写回任务账本与运维口径。
+- 当前 `GM/admin/restore` 策略已定稿为：
+  - HTTP 面继续保持 `next-native` controller/service 合同，不再回退到 legacy controller 聚合壳
+  - GM socket 仅保留 `runtime queue only` 辅助面，不再承担独立真源或额外管理语义
+  - restore 只作用于 `server-next` 的兼容持久化真源，并以 `NEXT_GM_RESTORE_CONTRACT` 约束 flush / purge / reload 顺序
+  - 剩余工作不再是“决定走哪条路”，而是继续删除残留 compat 壳和补齐真实环境 proof
 
 ## 1.1 2026-04-16 最新状态
 
@@ -73,11 +77,12 @@
    - guest `hello` 不再依赖客户端自带 `playerId`；跨重连恢复只认 detached `sessionId`
    - `hello_guest/requestedPlayerId` 真源替换已经完成；当前 canonical smoke 已改成直接验证 `HELLO_IDENTITY_OVERRIDE_FORBIDDEN`
 
-6. 本地主证明链这轮已再次实跑全绿。
-   - `pnpm --filter @mud/server-next verify:replace-ready` 已于 `2026-04-16` 本地再次跑通，退出码为 `0`
+6. 本地 local gate 这轮已重新复跑，但结论要分开看。
+   - 根级 `pnpm verify:server-next` 已于 `2026-04-16` 在本轮修复 `env-alias` 源级入口后重新恢复可用
+   - 包级 `pnpm --filter @mud/server-next verify:replace-ready` 已于 `2026-04-16` 本地再次跑通，退出码为 `0`
    - 本轮 summary 已覆盖 `readiness-gate / session / runtime / progression / combat / loot / next-auth-bootstrap / gm-next / redeem-code / monster-runtime / monster-combat / monster-ai / monster-skill / monster-reset / monster-loot / player-recovery / player-respawn`
-   - 总耗时约 `117320ms`
-   - 配套 `next-legacy-boundary-audit` 当前结果为 `1 / 22`、`1`，另有 `3` 项 inventory 路径漂移已改成 fail-soft 跳过
+   - 本轮包级 local gate 耗时约 `58961ms`
+   - 配套 `next-legacy-boundary-audit` 当前结果为 `4 / 22`、`5`
 
 ## 1.2 2026-04-13 当前轮次
 
@@ -113,13 +118,13 @@
 - `client-next` 玩家主链已经基本切到 next-native
 - `client-next` socket 已不再监听 legacy 事件名
 - `client-next` 的增量 UI/store 框架已形成，核心面板与地图 store 已能以 patch/增量更新为主
-- `server-next` 主服务里的 direct legacy/perf inventory 已清零
 - `pnpm --filter @mud/server-next verify:replace-ready` 当前已重新确认可跑并通过
+- 根级 `pnpm verify:server-next` 已恢复可用，但这只证明 local gate 可跑，不等于替换完成
 - `verify:replace-ready:proof:with-db`
 - `verify:replace-ready:with-db`
 - `verify:replace-ready:shadow`
 - `verify:replace-ready:acceptance`
-  这四条链都已有通过证据，但这不等于 `acceptance/full` 已在 workflow 层完全闭环
+  这四条链都已有历史通过证据，但本轮未在当前环境重跑，也不等于 `acceptance/full` 已在 workflow 层完全闭环
 - `shared-next` 的协议定义、protocol audit 与数值模板守卫已形成基础可验证链路
 
 ### 2.2 仍然未完成的核心问题
@@ -131,6 +136,7 @@
 5. `client-next` 虽主链已 next-native，但 `T21` alias 清理与部分 patch-first 收口仍未完成。
 6. `shared-next` 仍需继续稳定，避免再次变成 workspace 级验证风险源。
 7. “最小包体、最高性能、极高扩展度、系统稳定性”都还只到部分满足或未满足。
+8. `next-legacy-boundary-audit` 当前仍有 `4 / 22` 命中，不能再把“direct inventory 清零”当成当前事实。
 
 ## 3. 总体策略
 

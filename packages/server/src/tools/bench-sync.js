@@ -2,7 +2,6 @@
 /**
  * 用途：基准测试 sync 链路性能。
  */
-// TODO(next:T19): 把 tick / AOI / projector / sync 的高负载基准与阈值门禁补齐，避免 bench 只覆盖局部场景。
 
 Object.defineProperty(exports, "__esModule", { value: true });
 const shared_1 = require("@mud/shared-next");
@@ -11,6 +10,14 @@ const world_projector_service_1 = require("../network/world-projector.service");
  * 记录iterations。
  */
 const ITERATIONS = 20_000;
+const DEFAULT_SCENARIO_THRESHOLDS = Object.freeze({
+    'idle-steady-state': { avgMs: 0.08, p95Ms: 0.15, p99Ms: 0.25, maxBytes: 0 },
+    'self-move': { avgMs: 0.2, p95Ms: 0.45, p99Ms: 0.7, maxBytes: 2400 },
+    'inventory-single-slot': { avgMs: 0.2, p95Ms: 0.45, p99Ms: 0.7, maxBytes: 2600 },
+    'ground-single-pile': { avgMs: 0.25, p95Ms: 0.55, p99Ms: 0.85, maxBytes: 3200 },
+    'technique-learn': { avgMs: 0.2, p95Ms: 0.45, p99Ms: 0.7, maxBytes: 2600 },
+    'dense-crowd-delta': { avgMs: 0.5, p95Ms: 1.1, p99Ms: 1.6, maxBytes: 12000 },
+});
 /**
  * 串联执行脚本主流程。
  */
@@ -44,10 +51,16 @@ function main() {
         runInventoryScenario(binding, baseView, basePlayer),
         runGroundScenario(binding, baseView, basePlayer),
         runTechniqueScenario(binding, baseView, basePlayer),
+        runDenseCrowdScenario(binding, baseView, basePlayer),
     ];
+    const gate = evaluateScenarioGate(scenarios);
+    if (!gate.ok) {
+        process.exitCode = 1;
+    }
     console.log(JSON.stringify({
-        ok: true,
+        ok: gate.ok,
         iterations: ITERATIONS,
+        gate,
         scenarios,
     }, null, 2));
 }
@@ -244,6 +257,64 @@ function runGroundScenario(binding, baseView, basePlayer) {
     };
     return runAlternatingScenario('ground-single-pile', projector, [
         { view: nextView, player: basePlayer },
+        { view: baseView, player: basePlayer },
+    ]);
+}
+/**
+ * 运行高负载 crowd scenario。
+ */
+function runDenseCrowdScenario(binding, baseView, basePlayer) {
+    const projector = new world_projector_service_1.WorldProjectorService();
+    projector.createInitialEnvelope(binding, baseView, basePlayer);
+    const denseView = {
+        ...baseView,
+        tick: baseView.tick + 2,
+        worldRevision: baseView.worldRevision + 2,
+        localMonsters: Array.from({ length: 24 }, (_, index) => ({
+            runtimeId: `monster:bench:dense:${index}`,
+            monsterId: 'm_dummy',
+            name: `密集傀儡${index}`,
+            char: '傀',
+            color: '#8c6f52',
+            tier: 'mortal_blood',
+            x: 8 + (index % 8),
+            y: 12 + Math.trunc(index / 8),
+            hp: 18,
+            maxHp: 18,
+        })),
+        localGroundPiles: Array.from({ length: 18 }, (_, index) => ({
+            sourceId: `g:${2000 + index}`,
+            x: 10 + (index % 6),
+            y: 16 + Math.trunc(index / 6),
+            items: [
+                {
+                    itemKey: `bench_item_${index}`,
+                    itemId: 'rat_tail',
+                    name: '鼠尾',
+                    type: 'material',
+                    count: 2 + (index % 3),
+                },
+            ],
+        })),
+    };
+    const densePlayer = {
+        ...basePlayer,
+        selfRevision: basePlayer.selfRevision + 2,
+        inventory: {
+            ...basePlayer.inventory,
+            revision: basePlayer.inventory.revision + 1,
+            items: basePlayer.inventory.items.concat(Array.from({ length: 10 }, (_, index) => ({
+                itemId: `dense.material.${index}`,
+                name: `高负载材料${index}`,
+                type: 'material',
+                desc: '用于高负载同步基准。',
+                allowBatchUse: false,
+                count: 1 + (index % 4),
+            }))),
+        },
+    };
+    return runAlternatingScenario('dense-crowd-delta', projector, [
+        { view: denseView, player: densePlayer },
         { view: baseView, player: basePlayer },
     ]);
 }
@@ -487,6 +558,9 @@ function createBasePlayer() {
             autoBattle: false,
             autoRetaliate: true,
             autoBattleStationary: false,
+            autoUsePills: [],
+            combatTargetingRules: undefined,
+            autoBattleTargetingMode: 'auto',
             combatTargetId: null,
             combatTargetLocked: false,
             allowAoePlayerHit: false,
@@ -565,6 +639,77 @@ function round3(value) {
  */
 function round6(value) {
     return Number(value.toFixed(6));
+}
+/**
+ * 读取数值 env override。
+ */
+function readThresholdOverride(name) {
+    const raw = typeof process.env[name] === 'string' ? process.env[name].trim() : '';
+    if (!raw) {
+        return null;
+    }
+    const numeric = Number(raw);
+    return Number.isFinite(numeric) ? numeric : null;
+}
+/**
+ * 解析单场景阈值。
+ */
+function resolveScenarioThresholds(name) {
+    const defaults = DEFAULT_SCENARIO_THRESHOLDS[name] ?? null;
+    if (!defaults) {
+        return null;
+    }
+    const prefix = `SERVER_NEXT_BENCH_SYNC_${name.toUpperCase().replace(/[^A-Z0-9]+/g, '_')}`;
+    return {
+        avgMs: readThresholdOverride(`${prefix}_AVG_MS`) ?? defaults.avgMs,
+        p95Ms: readThresholdOverride(`${prefix}_P95_MS`) ?? defaults.p95Ms,
+        p99Ms: readThresholdOverride(`${prefix}_P99_MS`) ?? defaults.p99Ms,
+        maxBytes: readThresholdOverride(`${prefix}_MAX_BYTES`) ?? defaults.maxBytes,
+    };
+}
+/**
+ * 评估单场景是否通过阈值。
+ */
+function evaluateScenario(scenario) {
+    const thresholds = resolveScenarioThresholds(scenario.name);
+    if (!thresholds) {
+        return {
+            ok: true,
+            thresholds: null,
+            failures: [],
+        };
+    }
+    const failures = [];
+    if (scenario.avgMs > thresholds.avgMs) {
+        failures.push(`avgMs>${thresholds.avgMs}`);
+    }
+    if (scenario.p95Ms > thresholds.p95Ms) {
+        failures.push(`p95Ms>${thresholds.p95Ms}`);
+    }
+    if (scenario.p99Ms > thresholds.p99Ms) {
+        failures.push(`p99Ms>${thresholds.p99Ms}`);
+    }
+    if (scenario.maxBytes > thresholds.maxBytes) {
+        failures.push(`maxBytes>${thresholds.maxBytes}`);
+    }
+    return {
+        ok: failures.length === 0,
+        thresholds,
+        failures,
+    };
+}
+/**
+ * 汇总所有场景 gate。
+ */
+function evaluateScenarioGate(scenarios) {
+    const results = scenarios.map((scenario) => ({
+        name: scenario.name,
+        ...evaluateScenario(scenario),
+    }));
+    return {
+        ok: results.every((entry) => entry.ok),
+        results,
+    };
 }
 main();
 //# sourceMappingURL=bench-sync.js.map

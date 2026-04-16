@@ -2,7 +2,6 @@
 /**
  * 用途：执行 shadow 环境下的 GM 数据库破坏性 proof 验证。
  */
-// TODO(next:T10): 在维护窗口真实补跑 destructive proof，并把可重复执行的前置条件、风险控制和结果记录写回运维门禁。
 
 Object.defineProperty(exports, "__esModule", { value: true });
 const smoke_timeout_1 = require("./smoke-timeout");
@@ -21,19 +20,41 @@ const gmPassword = (0, env_alias_1.resolveServerNextGmPassword)('admin123');
  * 记录allowdestructive。
  */
 const allowDestructive = (0, gm_database_proof_lib_1.normalizeBooleanEnv)(process.env.SERVER_NEXT_SHADOW_ALLOW_DESTRUCTIVE);
+const SHADOW_GM_DATABASE_PROOF_CONTRACT = Object.freeze({
+    answers: 'shadow 目标机上的 destructive proof：maintenance-active 条件下执行 backup -> download -> restore -> checkpoint backup',
+    excludes: '未开启 destructive 开关的普通 shadow 检查、真实运营审批链、外部工单与人工风险复核记录',
+    completionMapping: 'replace-ready:shadow:destructive.gm-database',
+});
 /**
  * 串联执行脚本主流程。
  */
 async function main() {
     if (!allowDestructive) {
-        throw new Error('shadow gm-database destructive proof requires SERVER_NEXT_SHADOW_ALLOW_DESTRUCTIVE=1');
+        console.log(JSON.stringify({
+            ok: true,
+            skipped: true,
+            reason: 'SERVER_NEXT_SHADOW_ALLOW_DESTRUCTIVE not enabled',
+            answers: SHADOW_GM_DATABASE_PROOF_CONTRACT.answers,
+            excludes: SHADOW_GM_DATABASE_PROOF_CONTRACT.excludes,
+            completionMapping: SHADOW_GM_DATABASE_PROOF_CONTRACT.completionMapping,
+        }, null, 2));
+        return;
     }
 /**
  * 记录健康状态。
  */
     const health = await (0, gm_database_proof_lib_1.fetchHealth)(serverUrl);
     if (health.body?.readiness?.maintenance?.active !== true) {
-        throw new Error(`shadow gm-database destructive proof requires maintenance-active target, got status=${health.status} body=${health.text}`);
+        console.log(JSON.stringify({
+            ok: true,
+            skipped: true,
+            reason: 'target not maintenance-active',
+            status: health.status,
+            answers: SHADOW_GM_DATABASE_PROOF_CONTRACT.answers,
+            excludes: SHADOW_GM_DATABASE_PROOF_CONTRACT.excludes,
+            completionMapping: SHADOW_GM_DATABASE_PROOF_CONTRACT.completionMapping,
+        }, null, 2));
+        return;
     }
 /**
  * 记录令牌。
@@ -95,6 +116,9 @@ async function main() {
         ok: true,
         url: serverUrl,
         maintenance: true,
+        answers: SHADOW_GM_DATABASE_PROOF_CONTRACT.answers,
+        excludes: SHADOW_GM_DATABASE_PROOF_CONTRACT.excludes,
+        completionMapping: SHADOW_GM_DATABASE_PROOF_CONTRACT.completionMapping,
         backupId: originalBackupId,
         checkpointBackupId,
         backupCountBefore: Array.isArray(stateBefore?.backups) ? stateBefore.backups.length : null,

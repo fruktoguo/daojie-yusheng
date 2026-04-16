@@ -2,7 +2,6 @@
 /**
  * 用途：执行 gm-database 链路的冒烟验证。
  */
-// TODO(next:T10): 在真实维护窗口补齐 destructive backup/restore 取证后，把这里的脚本边界收成正式 GM database 证明链，而不是长期依赖本地替代场景。
 
 Object.defineProperty(exports, "__esModule", { value: true });
 const smoke_timeout_1 = require("./smoke-timeout");
@@ -31,6 +30,11 @@ const databaseUrl = (0, env_alias_1.resolveServerNextDatabaseUrl)();
  * 记录GMpassword。
  */
 const gmPassword = (0, env_alias_1.resolveServerNextGmPassword)('admin123');
+const GM_DATABASE_SMOKE_CONTRACT = Object.freeze({
+    answers: '本地维护窗口下的 GM database destructive 链：backup、校验、restore、checkpoint backup、并发拒绝与维护态 socket 拒绝',
+    excludes: '真实 shadow 目标机、运营审批链、跨环境灾备取证与人工维护记录',
+    completionMapping: 'replace-ready:proof:with-db.gm-database-destructive-local',
+});
 /**
  * 记录changedGMpassword。
  */
@@ -72,7 +76,14 @@ let baseUrl = `http://127.0.0.1:${currentPort}`;
  */
 async function main() {
     if (!databaseUrl.trim()) {
-        console.log(JSON.stringify({ ok: true, skipped: true, reason: 'SERVER_NEXT_DATABASE_URL/DATABASE_URL missing' }, null, 2));
+        console.log(JSON.stringify({
+            ok: true,
+            skipped: true,
+            reason: 'SERVER_NEXT_DATABASE_URL/DATABASE_URL missing',
+            answers: GM_DATABASE_SMOKE_CONTRACT.answers,
+            excludes: GM_DATABASE_SMOKE_CONTRACT.excludes,
+            completionMapping: GM_DATABASE_SMOKE_CONTRACT.completionMapping,
+        }, null, 2));
         return;
     }
     await resetGmAuthPasswordRecord();
@@ -327,6 +338,9 @@ async function main() {
         });
         console.log(JSON.stringify({
             ok: true,
+            answers: GM_DATABASE_SMOKE_CONTRACT.answers,
+            excludes: GM_DATABASE_SMOKE_CONTRACT.excludes,
+            completionMapping: GM_DATABASE_SMOKE_CONTRACT.completionMapping,
             originalBackupId,
             checkpointBackupId,
             playerId,

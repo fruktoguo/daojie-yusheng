@@ -29,11 +29,11 @@ const node_url_1 = require("node:url");
 const pg_1 = require("pg");
 
 const next_database_restore_coordinator_service_1 = require("./next-database-restore-coordinator.service");
+const next_gm_contract_1 = require("./next-gm-contract");
 
 const persistent_document_table_1 = require("../../persistence/persistent-document-table");
 
 const env_alias_1 = require("../../config/env-alias");
-// TODO(next:T13): 定稿 GM/admin/restore 是继续 next-native 化还是长期保留 compat 壳，并把这里的 legacy scope 双写/回读策略一并收口。
 const DEFAULT_AFDIAN_API_BASE_URL = 'https://afdian.net';
 
 const DEFAULT_AFDIAN_WEBHOOK_PATH = '/integrations/afdian/webhook';
@@ -171,12 +171,12 @@ let NextGmAdminService = NextGmAdminService_1 = class NextGmAdminService {
             automation: {
                 retentionEnforced: false,
                 schedulesActive: false,
-                restoreRequiresMaintenance: true,
-                preImportBackupEnabled: true,
+                restoreRequiresMaintenance: next_gm_contract_1.NEXT_GM_RESTORE_CONTRACT.requiresMaintenance,
+                preImportBackupEnabled: next_gm_contract_1.NEXT_GM_RESTORE_CONTRACT.preImportBackupEnabled,
             },
             persistenceEnabled: this.persistenceEnabled,
-            compatScope: BACKUP_SCOPE_LABEL,
-            restoreMode: 'replace_persistent_documents',
+            compatScope: next_gm_contract_1.NEXT_GM_RESTORE_CONTRACT.compatScope,
+            restoreMode: next_gm_contract_1.NEXT_GM_RESTORE_CONTRACT.restoreMode,
             note: '仅作用于 server-next 兼容层 persistent_documents，不会恢复旧后端 users/players 等正式业务表；当前 backup/restore 仍为手工触发，不存在自动定时备份或自动保留清理',
         };
     }
@@ -1623,4 +1623,3 @@ function buildWebhookUrl(publicBaseUrl, webhookPath) {
     }
     return `${baseUrl.replace(/\/+$/u, '')}${webhookPath}`;
 }
-

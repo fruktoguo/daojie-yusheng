@@ -2,9 +2,14 @@
  * GM 管理面板
  * 提供服务端性能监控、在线玩家列表、玩家编辑、机器人控制与意见管理
  */
-// TODO(next:UI01): 把 gm-panel 从拼接式模板继续拆成固定壳体 + 局部更新，减少后续 GM 面板回归面。
-
 import { NEXT_C2S_GmUpdatePlayer, GmPlayerSummary, NEXT_S2C_GmState, Suggestion } from '@mud/shared-next';
+
+/** createFragmentFromHtml：从 HTML 文本创建文档片段。 */
+function createFragmentFromHtml(html: string): DocumentFragment {
+  const template = document.createElement('template');
+  template.innerHTML = html.trim();
+  return template.content.cloneNode(true) as DocumentFragment;
+}
 
 /** GM 面板与主客户端之间的动作回调集合。 */
 interface GmCallbacks {
@@ -247,14 +252,14 @@ export class GmPanel {
     this.resetHeavenGateBtn = null;
     this.removeBtn = null;
     this.botCountInput = null;
-    this.pane.innerHTML = '<div class="empty-hint ui-empty-hint">暂无 GM 数据</div>';
+    this.pane.replaceChildren(createFragmentFromHtml('<div class="empty-hint ui-empty-hint">暂无 GM 数据</div>'));
   }
 
   /** 确保面板布局只初始化一次。 */
   private ensureLayout(): void {
     if (this.initialized) return;
     this.initialized = true;
-    this.pane.innerHTML = `
+    this.pane.replaceChildren(createFragmentFromHtml(`
       <div class="panel-section ui-surface-pane ui-surface-pane--stack">
         <div class="panel-section-title">服务端性能</div>
         <div class="panel-row"><span class="panel-label">CPU 压力</span><span class="panel-value" data-gm-perf-cpu>0%</span></div>
@@ -326,7 +331,7 @@ export class GmPanel {
         <div id="gm-suggestion-list" class="gm-suggestion-list ui-surface-pane ui-surface-pane--stack ui-scroll-panel">
         </div>
       </div>
-    `;
+    `));
 
     this.perfCpuEl = this.pane.querySelector('[data-gm-perf-cpu]');
     this.perfMemoryEl = this.pane.querySelector('[data-gm-perf-memory]');
@@ -475,9 +480,24 @@ export class GmPanel {
   /** 将选中玩家的信息写回表单字段。 */
   private updateDetailFields(selected: GmPlayerSummary): void {
     if (this.mapSelect && !this.isActiveElement(this.mapSelect)) {
-      const maps = this.state.mapIds.map((mapId) => ` <option value="${mapId}">${mapId}</option>`).join('');
+      const fragment = document.createDocumentFragment();
+      const seen = new Set<string>();
+      for (const mapId of this.state.mapIds) {
+        const option = document.createElement('option');
+        option.value = mapId;
+        option.textContent = mapId;
+        fragment.appendChild(option);
+        seen.add(mapId);
+      }
       const includesSelected = this.state.mapIds.includes(selected.mapId);
-      this.mapSelect.innerHTML = `${maps}${includesSelected ? '' : `<option value="${selected.mapId}">${selected.mapId}</option>`}`;
+      if (!includesSelected) {
+        const option = document.createElement('option');
+        option.value = selected.mapId;
+        option.textContent = selected.mapId;
+        fragment.appendChild(option);
+        seen.add(selected.mapId);
+      }
+      this.mapSelect.replaceChildren(fragment);
       this.mapSelect.value = selected.mapId;
     }
 

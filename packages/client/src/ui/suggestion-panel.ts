@@ -1,8 +1,14 @@
-// TODO(next:UI01): 把 suggestion-panel 的列表/线程区域继续改成 patch-first，并顺手抽离 card/list/detail recipe。
 import { type Suggestion, type SuggestionReply } from '@mud/shared-next';
 import type { SocketManager } from '../network/socket';
 import { detailModalHost } from './detail-modal-host';
 import { SUGGESTION_PANEL_REFRESH_INTERVAL_MS } from '../constants/ui/suggestion';
+
+/** createFragmentFromHtml：从 HTML 文本创建文档片段。 */
+function createFragmentFromHtml(html: string): DocumentFragment {
+  const template = document.createElement('template');
+  template.innerHTML = html.trim();
+  return template.content.cloneNode(true) as DocumentFragment;
+}
 
 /** SuggestionListTab：建议列表页签。 */
 type SuggestionListTab = 'all' | 'mine';
@@ -113,7 +119,9 @@ export class SuggestionPanel {
       subtitle: meta.subtitle,
       variantClass: 'detail-modal--suggestion',
       hint: '点击空白处关闭',
-      bodyHtml: this.buildBodyHtml(),
+      renderBody: (body) => {
+        this.renderBody(body);
+      },
       onAfterRender: (el: HTMLElement) => this.bindEvents(el),
     });
   }
@@ -229,6 +237,11 @@ export class SuggestionPanel {
         </div>
       </div>
     `;
+  }
+
+  /** renderBody：渲染建议面板主体。 */
+  private renderBody(body: HTMLElement): void {
+    body.replaceChildren(createFragmentFromHtml(this.buildBodyHtml()));
   }
 
   /** renderSuggestionListEntry：渲染建议列表条目。 */
@@ -382,7 +395,9 @@ export class SuggestionPanel {
         subtitle: meta.subtitle,
         variantClass: 'detail-modal--suggestion',
         hint: '点击空白处关闭',
-        bodyHtml: this.buildBodyHtml(),
+        renderBody: (nextBody) => {
+          this.renderBody(nextBody);
+        },
         onAfterRender: (el: HTMLElement) => this.bindEvents(el),
       });
     }
@@ -511,15 +526,19 @@ export class SuggestionPanel {
 
     allTabButton.classList.toggle('active', this.activeTab === 'all');
     mineTabButton.classList.toggle('active', this.activeTab === 'mine');
-    mineTabButton.innerHTML = this.renderMineTabLabel(unreadCount);
+    mineTabButton.replaceChildren(createFragmentFromHtml(this.renderMineTabLabel(unreadCount)));
 
     listRoot.dataset.listKind = this.activeTab;
-    listRoot.innerHTML = pageData.items.length > 0
-      ? pageData.items.map((suggestion) => this.renderSuggestionListEntry(suggestion)).join('')
-      : `<div class="empty-hint">${this.activeTab === 'mine' ? '暂无符合条件的我的意见' : '暂无符合条件的意见'}</div>`;
-    threadRoot.innerHTML = selectedSuggestion
-      ? this.renderSuggestionDetail(selectedSuggestion)
-      : '<div class="empty-hint">请选择一条意见查看详情与回复记录</div>';
+    listRoot.replaceChildren(createFragmentFromHtml(
+      pageData.items.length > 0
+        ? pageData.items.map((suggestion) => this.renderSuggestionListEntry(suggestion)).join('')
+        : `<div class="empty-hint">${this.activeTab === 'mine' ? '暂无符合条件的我的意见' : '暂无符合条件的意见'}</div>`,
+    ));
+    threadRoot.replaceChildren(createFragmentFromHtml(
+      selectedSuggestion
+        ? this.renderSuggestionDetail(selectedSuggestion)
+        : '<div class="empty-hint">请选择一条意见查看详情与回复记录</div>',
+    ));
 
     prevPageButton.disabled = pageData.page <= 1;
     nextPageButton.disabled = pageData.page >= pageData.totalPages;

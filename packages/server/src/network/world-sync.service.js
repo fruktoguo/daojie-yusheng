@@ -27,16 +27,13 @@ const runtime_map_config_service_1 = require("../runtime/map/runtime-map-config.
 const world_runtime_service_1 = require("../runtime/world/world-runtime.service");
 
 const player_runtime_service_1 = require("../runtime/player/player-runtime.service");
+const player_combat_config_helpers_1 = require("../runtime/player/player-combat-config.helpers");
 
 const world_projector_service_1 = require("./world-projector.service");
 
 const world_sync_protocol_service_1 = require("./world-sync-protocol.service");
 
 const world_session_service_1 = require("./world-session.service");
-// TODO(next:T15): 继续拆薄 Bootstrap + MapStatic + PanelDelta 的首包重复字段，减少静态/低频信息在首包与增量间反复出现。
-// TODO(next:T18): 给 minimap marker 建地图级预处理或事件驱动刷新，避免每轮同步重复构建/过滤/排序。
-// TODO(next:PERF01): 去掉 world-sync actions/combat 顶层比较中的 JSON.stringify 热点，改成 revision 或稳定结构比较。
-
 /** 世界同步服务：把 runtime 视图投影成 next 协议增量包并维护同步缓存。 */
 let WorldSyncService = class WorldSyncService {
     /** 世界 runtime，用于读取当前玩家视图和上下文动作。 */
@@ -59,6 +56,8 @@ let WorldSyncService = class WorldSyncService {
     lootWindowByPlayerId = new Map();
     /** next 侧附加状态缓存。 */
     nextAuxStateByPlayerId = new Map();
+    /** 地图级 minimap marker 缓存。 */
+    minimapMarkersByMapId = new Map();
     /** 同步日志，用于追踪初始包和增量包下发。 */
     logger = new common_1.Logger(WorldSyncService.name);
     constructor(worldRuntimeService, playerRuntimeService, worldProjectorService, worldSessionService, templateRepository, mapRuntimeConfigService, worldSyncProtocolService) {
@@ -302,13 +301,9 @@ let WorldSyncService = class WorldSyncService {
         const bootstrapPayload = this.buildBootstrapSyncPayload(view, player, template, visibleTiles, renderEntities, visibleMinimapMarkers, minimapLibrary, timeState);
         socket.emit(shared_1.NEXT_S2C.Bootstrap, bootstrapPayload);
         this.worldSyncProtocolService.sendMapStatic(socket, this.buildMapStaticSyncPayload(template, {
-            mapMeta: bootstrapPayload.mapMeta,
-            minimap: bootstrapPayload.minimap,
             tiles: visibleTiles.matrix,
             tilesOriginX: view.self.x - Math.max(1, Math.round(player.attrs.numericStats.viewRange)),
             tilesOriginY: view.self.y - Math.max(1, Math.round(player.attrs.numericStats.viewRange)),
-            visibleMinimapMarkers,
-            minimapLibrary,
         }));
         this.worldSyncProtocolService.sendRealm(socket, this.buildRealmSyncPayload(player));
 
@@ -455,7 +450,13 @@ let WorldSyncService = class WorldSyncService {
         return buildMinimapSnapshotSync(template);
     }
     buildMinimapMarkers(template) {
-        return buildMinimapMarkers(template);
+        const cached = this.minimapMarkersByMapId.get(template.id);
+        if (cached) {
+            return cached;
+        }
+        const markers = buildMinimapMarkers(template);
+        this.minimapMarkersByMapId.set(template.id, markers);
+        return markers;
     }
     buildVisibleMinimapMarkers(markers, visibleTiles) {
         return buildVisibleMinimapMarkers(markers, visibleTiles);
@@ -900,8 +901,8 @@ function buildActionsUpdate(previous, player) {
     if (previous
         && previous.actionRevision === player.actions.revision
         && previous.autoBattle === player.combat.autoBattle
-        && JSON.stringify(previous.autoUsePills ?? []) === JSON.stringify(player.combat.autoUsePills ?? [])
-        && JSON.stringify(previous.combatTargetingRules ?? null) === JSON.stringify(player.combat.combatTargetingRules ?? null)
+        && (0, player_combat_config_helpers_1.isSameAutoUsePillList)(previous.autoUsePills ?? [], player.combat.autoUsePills ?? [])
+        && (0, player_combat_config_helpers_1.isSameCombatTargetingRules)(previous.combatTargetingRules ?? null, player.combat.combatTargetingRules ?? null)
         && previous.autoBattleTargetingMode === player.combat.autoBattleTargetingMode
         && previous.combatTargetId === player.combat.combatTargetId
         && previous.combatTargetLocked === player.combat.combatTargetLocked
@@ -919,11 +920,8 @@ function buildActionsUpdate(previous, player) {
             actions: normalizedActions,
             actionOrder: normalizedActions.map((entry) => entry.id),
             autoBattle: player.combat.autoBattle,
-            autoUsePills: player.combat.autoUsePills.map((entry) => ({
-                ...entry,
-                conditions: Array.isArray(entry.conditions) ? entry.conditions.map((condition) => ({ ...condition })) : [],
-            })),
-            combatTargetingRules: player.combat.combatTargetingRules ? { ...player.combat.combatTargetingRules } : undefined,
+            autoUsePills: (0, player_combat_config_helpers_1.cloneAutoUsePillList)(player.combat.autoUsePills),
+            combatTargetingRules: (0, player_combat_config_helpers_1.cloneCombatTargetingRules)(player.combat.combatTargetingRules),
             autoBattleTargetingMode: player.combat.autoBattleTargetingMode,
             combatTargetId: player.combat.combatTargetId,
             combatTargetLocked: player.combat.combatTargetLocked,
@@ -942,8 +940,8 @@ function buildActionsUpdate(previous, player) {
     const removeActionIds = diffRemovedIds(previous.actions.map((entry) => entry.id), normalizedActions.map((entry) => entry.id));
 
     const topLevelChanged = previous.autoBattle !== player.combat.autoBattle
-        || JSON.stringify(previous.autoUsePills ?? []) !== JSON.stringify(player.combat.autoUsePills ?? [])
-        || JSON.stringify(previous.combatTargetingRules ?? null) !== JSON.stringify(player.combat.combatTargetingRules ?? null)
+        || !(0, player_combat_config_helpers_1.isSameAutoUsePillList)(previous.autoUsePills ?? [], player.combat.autoUsePills ?? [])
+        || !(0, player_combat_config_helpers_1.isSameCombatTargetingRules)(previous.combatTargetingRules ?? null, player.combat.combatTargetingRules ?? null)
         || previous.autoBattleTargetingMode !== player.combat.autoBattleTargetingMode
         || previous.combatTargetId !== player.combat.combatTargetId
         || previous.combatTargetLocked !== player.combat.combatTargetLocked
@@ -962,11 +960,8 @@ function buildActionsUpdate(previous, player) {
         removeActionIds: removeActionIds.length > 0 ? removeActionIds : undefined,
         actionOrder: normalizedActions.map((entry) => entry.id),
         autoBattle: player.combat.autoBattle,
-        autoUsePills: player.combat.autoUsePills.map((entry) => ({
-            ...entry,
-            conditions: Array.isArray(entry.conditions) ? entry.conditions.map((condition) => ({ ...condition })) : [],
-        })),
-        combatTargetingRules: player.combat.combatTargetingRules ? { ...player.combat.combatTargetingRules } : undefined,
+        autoUsePills: (0, player_combat_config_helpers_1.cloneAutoUsePillList)(player.combat.autoUsePills),
+        combatTargetingRules: (0, player_combat_config_helpers_1.cloneCombatTargetingRules)(player.combat.combatTargetingRules),
         autoBattleTargetingMode: player.combat.autoBattleTargetingMode,
         combatTargetId: player.combat.combatTargetId,
         combatTargetLocked: player.combat.combatTargetLocked,

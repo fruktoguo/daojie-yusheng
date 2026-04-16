@@ -2,8 +2,6 @@
  * 背包面板
  * 展示物品网格列表，支持分类筛选、使用/装备/丢弃操作与物品详情弹层
  */
-// TODO(next:UI05): 在 inventory-panel 上继续压业务 recipe，减少列表/详情/工具栏的专用样式与零散模板分支。
-
 import {
   EquipSlot,
   HeavenGateState,
@@ -99,6 +97,13 @@ const INVENTORY_LOAD_MORE_THRESHOLD_PX = 240;
 /** formatItemEffects：格式化物品效果。 */
 function formatItemEffects(item: ItemStack): string[] {
   return describeItemEffectDetails(item);
+}
+
+/** createFragmentFromHtml：从 HTML 文本创建文档片段。 */
+function createFragmentFromHtml(html: string): DocumentFragment {
+  const template = document.createElement('template');
+  template.innerHTML = html.trim();
+  return template.content.cloneNode(true) as DocumentFragment;
 }
 
 /** 背包面板：显示物品列表，支持使用和丢弃 */
@@ -792,57 +797,9 @@ export class InventoryPanel {
       ownerId: InventoryPanel.MODAL_OWNER,
       title: item.name,
       subtitle: `${getItemTypeLabel(item.type)} · 数量 ${formatDisplayCountBadge(item.count)}`,
-      bodyHtml: `
-        <div class="ui-detail-grid ui-detail-grid--section inventory-detail-grid">
-          <div class="ui-detail-field ui-detail-field--section">
-            <strong>物品类型</strong>
-            <span data-inventory-modal-type="true">${this.escapeHtml(getItemTypeLabel(item.type))}</span>
-          </div>
-          <div class="ui-detail-field ui-detail-field--section">
-            <strong>当前数量</strong>
-            <span data-inventory-modal-count="true">${formatDisplayCountBadge(item.count)}</span>
-          </div>
-          ${item.equipSlot ? `<div class="ui-detail-field ui-detail-field--section">
-            <strong>装备部位</strong>
-            <span data-inventory-modal-slot="true">${this.escapeHtml(getEquipSlotLabel(item.equipSlot))}</span>
-          </div>` : ''}
-        </div>
-        <div class="ui-detail-field ui-detail-field--section">
-          <strong>物品说明</strong>
-          <span data-inventory-modal-desc="true">${this.escapeHtml(previewItem.desc)}</span>
-        </div>
-        ${statusLabel ? `<div class="ui-detail-field ui-detail-field--section">
-          <strong>当前状态</strong>
-          <span data-inventory-modal-status="true">${this.escapeHtml(statusLabel)}</span>
-        </div>` : ''}
-        ${bonusLines.length > 0 ? `<div class="ui-detail-field ui-detail-field--section">
-          <strong>附加词条</strong>
-          <span data-inventory-modal-bonuses="true">${this.escapeHtml(bonusLines.join(' / '))}</span>
-        </div>` : ''}
-        ${effectLines.length > 0 ? `<div class="ui-detail-field ui-detail-field--section">
-          <strong>特殊效果</strong>
-          <span data-inventory-modal-effects="true">${this.escapeHtml(effectLines.join(' / '))}</span>
-        </div>` : ''}
-        <div class="ui-detail-field ui-detail-field--section inventory-source-section">
-          <strong>来源</strong>
-          ${sourceListHtml}
-          ${canToggleSourceList
-            ? `<button class="small-btn ghost inventory-source-toggle" data-inventory-source-toggle="true" type="button">${this.sourceExpanded ? '收起来源' : `展开全部来源（${sourceEntryCount}）`}</button>`
-            : ''}
-        </div>
-        <div class="inventory-detail-actions">
-          <div class="inventory-detail-actions-group inventory-detail-actions-group--left">
-            ${primaryAction ? `<button class="small-btn" data-inventory-primary="true" type="button" ${primaryAction.disabled ? 'disabled' : ''}>${primaryAction.label}</button>` : ''}
-            ${canBatchUse ? `<button class="small-btn ghost" data-inventory-open-action="use" data-default-count="1" type="button">批量使用</button>` : ''}
-          </div>
-          <div class="inventory-detail-actions-group inventory-detail-actions-group--right">
-            <button class="small-btn ghost" data-inventory-open-action="drop" data-default-count="1" type="button">丢下</button>
-            ${canBatchDropOrDestroy ? `<button class="small-btn ghost" data-inventory-open-action="drop" data-default-count="${item.count}" type="button">批量丢下</button>` : ''}
-            <button class="small-btn danger" data-inventory-open-action="destroy" data-default-count="1" type="button">摧毁</button>
-            ${canBatchDropOrDestroy ? `<button class="small-btn danger" data-inventory-open-action="destroy" data-default-count="${item.count}" type="button">批量摧毁</button>` : ''}
-          </div>
-        </div>
-      `,
+      renderBody: (body) => {
+        this.renderItemDetailBody(body, item, sourceListHtml, sourceEntryCount, canToggleSourceList, primaryAction, canBatchUse, canBatchDropOrDestroy, bonusLines, effectLines, statusLabel);
+      },
       onClose: () => {
         this.resetModalState();
       },
@@ -897,17 +854,9 @@ export class InventoryPanel {
         title: '确认摧毁',
         subtitle: `${item.name} · 数量 ${formatDisplayCountBadge(selectedCount)}`,
         hint: '点击空白处取消',
-        bodyHtml: `
-          <div class="panel-section">
-            <div class="empty-hint">摧毁后物品会永久消失，无法找回。</div>
-          </div>
-          <div class="inventory-detail-actions">
-            <div class="inventory-detail-actions-group inventory-detail-actions-group--right inventory-detail-actions-group--stretch">
-              <button class="small-btn ghost" type="button" data-inventory-destroy-back>返回修改数量</button>
-              <button class="small-btn danger" type="button" data-inventory-destroy-confirm>确认摧毁</button>
-            </div>
-          </div>
-        `,
+        renderBody: (body) => {
+          this.renderDestroyConfirmBody(body);
+        },
         onClose: () => {
           this.resetModalState();
         },
@@ -937,18 +886,9 @@ export class InventoryPanel {
         title: specialUseSummary.title,
         subtitle: `${item.name} · 数量 ${formatDisplayCountBadge(1)}`,
         hint: '点击空白处取消',
-        bodyHtml: `
-          <div class="ui-detail-field ui-detail-field--section">
-            <strong>使用说明</strong>
-            ${specialUseSummary.lines.map((line) => `<div>${this.escapeHtml(line)}</div>`).join('')}
-          </div>
-          <div class="inventory-detail-actions">
-            <div class="inventory-detail-actions-group inventory-detail-actions-group--right inventory-detail-actions-group--stretch">
-              <button class="small-btn ghost" type="button" data-inventory-action-cancel>${this.escapeHtml(specialUseSummary.cancelLabel ?? '返回详情')}</button>
-              <button class="small-btn" type="button" data-inventory-action-confirm>${this.escapeHtml(specialUseSummary.confirmLabel ?? '确认使用')}</button>
-            </div>
-          </div>
-        `,
+        renderBody: (body) => {
+          this.renderSpecialUseConfirmBody(body, specialUseSummary);
+        },
         onClose: () => {
           this.resetModalState();
         },
@@ -974,32 +914,9 @@ export class InventoryPanel {
       title: labels.title,
       subtitle: `${item.name} · 当前最多 ${formatDisplayInteger(maxCount)} 个`,
       hint: '点击空白处取消',
-      bodyHtml: `
-        <div class="ui-detail-field ui-detail-field--section">
-          <strong>选择数量</strong>
-          <div class="inventory-batch-use-row inventory-batch-use-row--dialog">
-            <button class="small-btn ghost" type="button" data-inventory-quick-count="1">1 个</button>
-            <button class="small-btn ghost" type="button" data-inventory-quick-count="${halfCount}">一半</button>
-            <button class="small-btn ghost" type="button" data-inventory-quick-count="${maxCount}">全部</button>
-            <input
-              class="gm-inline-input"
-              data-inventory-action-count="true"
-              type="number"
-              min="1"
-              max="${maxCount}"
-              step="1"
-              value="${selectedCount}"
-              inputmode="numeric"
-            />
-          </div>
-        </div>
-        <div class="inventory-detail-actions">
-          <div class="inventory-detail-actions-group inventory-detail-actions-group--right inventory-detail-actions-group--stretch">
-            <button class="small-btn ghost" type="button" data-inventory-action-cancel>返回详情</button>
-            <button class="small-btn ${labels.danger ? 'danger' : ''}" type="button" data-inventory-action-confirm>${labels.confirm}</button>
-          </div>
-        </div>
-      `,
+      renderBody: (body) => {
+        this.renderActionDialogBody(body, labels, selectedCount, halfCount, maxCount);
+      },
       onClose: () => {
         this.resetModalState();
       },
@@ -1049,6 +966,144 @@ export class InventoryPanel {
       },
     });
     this.lastModalRenderKey = this.buildModalRenderKey(item);
+  }
+
+  /** renderItemDetailBody：渲染物品详情主体。 */
+  private renderItemDetailBody(
+    body: HTMLElement,
+    item: ItemStack,
+    sourceListHtml: string,
+    sourceEntryCount: number,
+    canToggleSourceList: boolean,
+    primaryAction: InventoryPrimaryAction | null,
+    canBatchUse: boolean,
+    canBatchDropOrDestroy: boolean,
+    bonusLines: string[],
+    effectLines: string[],
+    statusLabel: string | null,
+  ): void {
+    const previewItem = resolvePreviewItem(item);
+    body.replaceChildren(createFragmentFromHtml(`
+      <div class="ui-detail-grid ui-detail-grid--section inventory-detail-grid">
+        <div class="ui-detail-field ui-detail-field--section">
+          <strong>物品类型</strong>
+          <span data-inventory-modal-type="true">${this.escapeHtml(getItemTypeLabel(item.type))}</span>
+        </div>
+        <div class="ui-detail-field ui-detail-field--section">
+          <strong>当前数量</strong>
+          <span data-inventory-modal-count="true">${formatDisplayCountBadge(item.count)}</span>
+        </div>
+        ${item.equipSlot ? `<div class="ui-detail-field ui-detail-field--section">
+          <strong>装备部位</strong>
+          <span data-inventory-modal-slot="true">${this.escapeHtml(getEquipSlotLabel(item.equipSlot))}</span>
+        </div>` : ''}
+      </div>
+      <div class="ui-detail-field ui-detail-field--section">
+        <strong>物品说明</strong>
+        <span data-inventory-modal-desc="true">${this.escapeHtml(previewItem.desc)}</span>
+      </div>
+      ${statusLabel ? `<div class="ui-detail-field ui-detail-field--section">
+        <strong>当前状态</strong>
+        <span data-inventory-modal-status="true">${this.escapeHtml(statusLabel)}</span>
+      </div>` : ''}
+      ${bonusLines.length > 0 ? `<div class="ui-detail-field ui-detail-field--section">
+        <strong>附加词条</strong>
+        <span data-inventory-modal-bonuses="true">${this.escapeHtml(bonusLines.join(' / '))}</span>
+      </div>` : ''}
+      ${effectLines.length > 0 ? `<div class="ui-detail-field ui-detail-field--section">
+        <strong>特殊效果</strong>
+        <span data-inventory-modal-effects="true">${this.escapeHtml(effectLines.join(' / '))}</span>
+      </div>` : ''}
+      <div class="ui-detail-field ui-detail-field--section inventory-source-section">
+        <strong>来源</strong>
+        ${sourceListHtml}
+        ${canToggleSourceList
+          ? `<button class="small-btn ghost inventory-source-toggle" data-inventory-source-toggle="true" type="button">${this.sourceExpanded ? '收起来源' : `展开全部来源（${sourceEntryCount}）`}</button>`
+          : ''}
+      </div>
+      <div class="inventory-detail-actions">
+        <div class="inventory-detail-actions-group inventory-detail-actions-group--left">
+          ${primaryAction ? `<button class="small-btn" data-inventory-primary="true" type="button" ${primaryAction.disabled ? 'disabled' : ''}>${primaryAction.label}</button>` : ''}
+          ${canBatchUse ? `<button class="small-btn ghost" data-inventory-open-action="use" data-default-count="1" type="button">批量使用</button>` : ''}
+        </div>
+        <div class="inventory-detail-actions-group inventory-detail-actions-group--right">
+          <button class="small-btn ghost" data-inventory-open-action="drop" data-default-count="1" type="button">丢下</button>
+          ${canBatchDropOrDestroy ? `<button class="small-btn ghost" data-inventory-open-action="drop" data-default-count="${item.count}" type="button">批量丢下</button>` : ''}
+          <button class="small-btn danger" data-inventory-open-action="destroy" data-default-count="1" type="button">摧毁</button>
+          ${canBatchDropOrDestroy ? `<button class="small-btn danger" data-inventory-open-action="destroy" data-default-count="${item.count}" type="button">批量摧毁</button>` : ''}
+        </div>
+      </div>
+    `));
+  }
+
+  /** renderDestroyConfirmBody：渲染摧毁确认主体。 */
+  private renderDestroyConfirmBody(body: HTMLElement): void {
+    body.replaceChildren(createFragmentFromHtml(`
+      <div class="panel-section">
+        <div class="empty-hint">摧毁后物品会永久消失，无法找回。</div>
+      </div>
+      <div class="inventory-detail-actions">
+        <div class="inventory-detail-actions-group inventory-detail-actions-group--right inventory-detail-actions-group--stretch">
+          <button class="small-btn ghost" type="button" data-inventory-destroy-back>返回修改数量</button>
+          <button class="small-btn danger" type="button" data-inventory-destroy-confirm>确认摧毁</button>
+        </div>
+      </div>
+    `));
+  }
+
+  /** renderSpecialUseConfirmBody：渲染特殊使用确认主体。 */
+  private renderSpecialUseConfirmBody(
+    body: HTMLElement,
+    summary: { title: string; lines: string[]; confirmLabel?: string; cancelLabel?: string },
+  ): void {
+    body.replaceChildren(createFragmentFromHtml(`
+      <div class="ui-detail-field ui-detail-field--section">
+        <strong>使用说明</strong>
+        ${summary.lines.map((line) => `<div>${this.escapeHtml(line)}</div>`).join('')}
+      </div>
+      <div class="inventory-detail-actions">
+        <div class="inventory-detail-actions-group inventory-detail-actions-group--right inventory-detail-actions-group--stretch">
+          <button class="small-btn ghost" type="button" data-inventory-action-cancel>${this.escapeHtml(summary.cancelLabel ?? '返回详情')}</button>
+          <button class="small-btn" type="button" data-inventory-action-confirm>${this.escapeHtml(summary.confirmLabel ?? '确认使用')}</button>
+        </div>
+      </div>
+    `));
+  }
+
+  /** renderActionDialogBody：渲染动作对话主体。 */
+  private renderActionDialogBody(
+    body: HTMLElement,
+    labels: { title: string; confirm: string; danger: boolean },
+    selectedCount: number,
+    halfCount: number,
+    maxCount: number,
+  ): void {
+    body.replaceChildren(createFragmentFromHtml(`
+      <div class="ui-detail-field ui-detail-field--section">
+        <strong>选择数量</strong>
+        <div class="inventory-batch-use-row inventory-batch-use-row--dialog">
+          <button class="small-btn ghost" type="button" data-inventory-quick-count="1">1 个</button>
+          <button class="small-btn ghost" type="button" data-inventory-quick-count="${halfCount}">一半</button>
+          <button class="small-btn ghost" type="button" data-inventory-quick-count="${maxCount}">全部</button>
+          <input
+            class="gm-inline-input"
+            data-inventory-action-count="true"
+            type="number"
+            min="1"
+            max="${maxCount}"
+            step="1"
+            value="${selectedCount}"
+            inputmode="numeric"
+          />
+        </div>
+      </div>
+      <div class="inventory-detail-actions">
+        <div class="inventory-detail-actions-group inventory-detail-actions-group--right inventory-detail-actions-group--stretch">
+          <button class="small-btn ghost" type="button" data-inventory-action-cancel>返回详情</button>
+          <button class="small-btn ${labels.danger ? 'danger' : ''}" type="button" data-inventory-action-confirm>${labels.confirm}</button>
+        </div>
+      </div>
+    `));
   }
 
   /** patchList：处理patch列表。 */

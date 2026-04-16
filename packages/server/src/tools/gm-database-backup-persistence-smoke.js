@@ -2,7 +2,6 @@
 /**
  * 用途：执行 gm-database-backup-persistence 链路的冒烟验证。
  */
-// TODO(next:T09): 在真实 DB 环境固定补跑 backup-persistence proof，并把真实执行记录回填到 replace-ready/ops 文档。
 
 Object.defineProperty(exports, "__esModule", { value: true });
 const smoke_timeout_1 = require("./smoke-timeout");
@@ -30,6 +29,11 @@ const databaseUrl = (0, env_alias_1.resolveServerNextDatabaseUrl)();
  * 记录GMpassword。
  */
 const gmPassword = (0, env_alias_1.resolveServerNextGmPassword)('admin123');
+const GM_DATABASE_BACKUP_PERSISTENCE_CONTRACT = Object.freeze({
+    answers: 'with-db 本地环境下的 GM backup 元数据持久化：进程重启后同一备份目录、下载路径与 lastJob 状态仍可恢复',
+    excludes: '维护窗口 destructive restore、shadow 目标机取证、真实运营备份保留策略与人工审批链',
+    completionMapping: 'replace-ready:proof:with-db.gm-database-backup-persistence',
+});
 /**
  * 记录备份directory。
  */
@@ -47,7 +51,14 @@ let baseUrl = `http://127.0.0.1:${currentPort}`;
  */
 async function main() {
     if (!databaseUrl.trim()) {
-        console.log(JSON.stringify({ ok: true, skipped: true, reason: 'SERVER_NEXT_DATABASE_URL/DATABASE_URL missing' }, null, 2));
+        console.log(JSON.stringify({
+            ok: true,
+            skipped: true,
+            reason: 'SERVER_NEXT_DATABASE_URL/DATABASE_URL missing',
+            answers: GM_DATABASE_BACKUP_PERSISTENCE_CONTRACT.answers,
+            excludes: GM_DATABASE_BACKUP_PERSISTENCE_CONTRACT.excludes,
+            completionMapping: GM_DATABASE_BACKUP_PERSISTENCE_CONTRACT.completionMapping,
+        }, null, 2));
         return;
     }
     await resetGmAuthPasswordRecord();
@@ -131,6 +142,9 @@ async function main() {
             ok: true,
             backupDirectory,
             backupId: originalBackupId,
+            answers: GM_DATABASE_BACKUP_PERSISTENCE_CONTRACT.answers,
+            excludes: GM_DATABASE_BACKUP_PERSISTENCE_CONTRACT.excludes,
+            completionMapping: GM_DATABASE_BACKUP_PERSISTENCE_CONTRACT.completionMapping,
             lastJob: {
                 id: persistedState.lastJob?.id ?? null,
                 type: persistedState.lastJob?.type ?? null,

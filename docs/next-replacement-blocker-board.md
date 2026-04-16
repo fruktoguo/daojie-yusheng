@@ -1,164 +1,19 @@
 # next 替换阻塞看板
 
-更新时间：2026-04-16（本轮已同步到 `total=70`）
+更新时间：2026-04-16（基于实跑与审计）
 
-## 口径
-
-- 数据来源：仓库当前全部 next 任务锚点
-- 统计范围：`packages/`、`docs/`、`.github/workflows/`、`scripts/`、`legacy/`
-- 当前总量：`70`
-
-这份看板只回答两件事：
-
-1. 当前 next 任务锚点主要堆在哪些模块
-2. 后续应该按什么优先级车道去收敛这些迁移尾项
-
-关联文档：
-
-- 详细任务统计：[next-replacement-progress-checklist.md](./next-replacement-progress-checklist.md)
-- 按 legacy 基线映射的任务桶说明：[next-migration-board.md](./next-migration-board.md)
-- 按 `server/client/shared` 分区的 packages 基线：[next-package-migration-board.md](./next-package-migration-board.md)
-
-## 模块热区
-
-| 模块带 | TODO 数量 | 结论 |
+| 模块带 | blocker 组数量 | 结论 |
 | --- | ---: | --- |
-| `packages/client/src/ui` | 10 | modal 与通用 UI 壳体尾项仍然最密 |
-| `packages/server/src/network` | 18 | 真源替换、bootstrap、session、sync/projector 与协议下发薄壳仍是最大阻塞区 |
-| `packages/server/src/http/next` | 9 | GM/admin/account/restore 的对外 contract 还在迁移态壳层 |
-| `packages/client/src/ui/panels` | 12 | patch-first 与业务 recipe 仍未收完 |
-| `packages/server/src/tools` | 6 | proof / smoke / acceptance / replace-ready 证据链仍在收口 |
-| `packages/server/src/runtime` | 6 | world/player/runtime 架构与在线态分层仍在迁移态 |
-| `packages/server/src/persistence` | 3 | 剩余 flush 策略与 snapshot compat 回读还未完全收口 |
-| `docs` | 3 | 运维、完成定义与策略说明还未完全钉死 |
-
-## 优先级车道
-
-### L0 真源硬阻塞
-
-这些桶不收掉，就不能说 next 主链已可替换 legacy：
-
-- `T02`
-- `T03`
-- `T04`
-- `T05`
-- `T06`
-- `T07`
-
-主模块分布：
-
-- `packages/server/src/network`
-- `packages/client/src/network`
-- `packages/server/src/http/next`
-
-### L1 高阻塞收口
-
-这些桶不一定当天阻断运行，但会阻断“安全替换 / 删 legacy / 正式接班”：
-
-- `T13`
-- `T15`
-- `T16`
-- `T17`
-- `T20`
-
-主模块分布：
-
-- `packages/server/src/network`
-- `packages/server/src/http/next`
-- `packages/server/src/persistence`
-- `packages/server/src/tools`
-
-### L2 中阻塞尾项
-
-这些桶不阻断最小可运行替换，但会显著影响稳定性、性能或体验对齐：
-
-- `UI01`
-- `UI02`
-- `UI03`
-- `UI04`
-- `UI05`
-- `UI06`
-- `PERF01`
-- `PERSIST02`
-- `PERSIST03`
-- `ARCH01`
-- `ARCH02`
-- `DATA01`
-- `REFACTOR01`
-- `REFACTOR02`
-- `T09`
-- `T10`
-- `T18`
-- `T19`
-
-主模块分布：
-
-- `packages/client/src/ui`
-- `packages/client/src/ui/panels`
-- `packages/server/src/runtime`
-- `packages/server/src/tools`
-- `packages/server/src/persistence`
-
-### L3 低阻塞治理项
-
-- `ARCH04`
-
-这类问题应当放在主链稳定以后统一收尾。
-
-## 任务桶分布表
-
-| 任务桶 | TODO 数量 | 主要模块分布 | 优先级车道 |
-| --- | ---: | --- | --- |
-| `T13` | 14 | `server/http-next`、`server/http`、`server/runtime/gm`、`server/network` | `L1` |
-| `UI01` | 10 | `client/ui`、`client/ui/panels` | `L2` |
-| `UI06` | 4 | `client/ui`、`client/ui/panels` | `L2` |
-| `PERF01` | 3 | `server/runtime`、`server/network` | `L2` |
-| `T05` | 3 | `client/network`、`server/network` | `L0` |
-| `UI05` | 3 | `client/ui/panels` | `L2` |
-| `ARCH01` | 2 | `packages/server/src/config/env-alias.js`、`packages/server/NEXT-GAP-ANALYSIS.md` | `L2` |
-| `T02` | 2 | `server/network` | `L0` |
-| `T04` | 2 | `server/persistence`、`server/network` | `L0` |
-| `T07` | 3 | `server/tools`、`server/network` | `L0` |
-| `T09` | 2 | `server/tools` | `L2` |
-| `T10` | 2 | `server/tools` | `L2` |
-| `UI03` | 2 | `docs`、`packages/client/src/gm.ts` | `L2` |
-| `UI04` | 2 | `packages/client/src/gm-world-viewer.ts`、`packages/client/src/gm-map-editor.ts` | `L2` |
-| `ARCH02` | 1 | `server/runtime` | `L2` |
-| `ARCH04` | 1 | `docs` | `L3` |
-| `DATA01` | 1 | `server/runtime` | `L2` |
-| `PERSIST02` | 1 | `server/persistence` | `L2` |
-| `PERSIST03` | 1 | `server/persistence` | `L2` |
-| `REFACTOR01` | 1 | `server/runtime` | `L2` |
-| `REFACTOR02` | 1 | `server/runtime` | `L2` |
-| `T03` | 1 | `server/network` | `L0` |
-| `T06` | 1 | `server/network` | `L0` |
-| `T15` | 1 | `server/network` | `L1` |
-| `T16` | 1 | `server/network` | `L1` |
-| `T17` | 1 | `server/network` | `L1` |
-| `T18` | 1 | `server/network` | `L2` |
-| `T19` | 1 | `server/tools` | `L2` |
-| `T20` | 1 | `server/network` | `L1` |
-| `UI02` | 1 | `packages/client/src/main.ts` | `L2` |
+| `packages/server/src/network` | 2 | auth/bootstrap 真源与 world sync compat/perf 仍是主阻塞 |
+| `packages/server` proof / ops | 1 | with-db / shadow / acceptance / full 仍缺本轮实环境复证 |
+| `packages/client/src/ui` | 1 | patch-first 仍未完全收口 |
+| `packages/shared` | 1 | 字段级全链路硬门禁仍未完成 |
+| `docs` | 1 | 需要持续维持“实跑口径 > TODO 锚点口径” |
 
 ## 直接执行顺序
 
-后续如果要按优先级快速收敛，建议就按下面的顺序推进：
-
-1. `L0`
-   先清 `T01-T07`
-2. `L1`
-   再清 `T13 / T15-T20`
-3. `L2`
-   最后成批压 `client UI`、runtime/perf、proof/ops 尾项
-4. `L3`
-   命名与治理类收尾最后做
-
-## 结论
-
-如果只看当前阻塞面，最值得优先盯的不是“TODO 最多的单文件”，而是下面三个模块带：
-
-1. `packages/server/src/network`
-2. `packages/server/src/tools` + `packages/server/src/http/next`
-3. `packages/client/src/ui` + `packages/client/src/ui/panels`
-
-它们合起来就是现在 next 替换最核心的堵点：主链真源、证明链闭环、以及前端交互收口。
+1. 继续推进 `snapshot/player-source -> bootstrap/session` 真源替换，优先清掉 token codec 与 legacy source 依赖。
+2. 在带库与 shadow 条件齐备后，补跑 `verify:server-next:with-db / acceptance / full / shadow:destructive`，把历史证据变成当前证据。
+3. 压首包与同步链尾项，先看 `Bootstrap / MapStatic / PanelDelta` 重复分层，再看 `WorldProjector` 与 sync compat 读取。
+4. 收掉 `client-next` 的 patch-first 尾项，避免仍有整块重绘面板混在 next 主链里。
+5. 补强 `shared-next` 的新增字段全链路硬门禁，避免协议新增再次靠人工补洞。

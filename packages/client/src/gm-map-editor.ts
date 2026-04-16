@@ -1,7 +1,6 @@
 /**
  * GM 地图编辑器 —— Canvas 可视化地图编辑，支持地块绘制、对象管理、撤销与 JSON 导入导出
  */
-// TODO(next:UI04): 把 GM 地图编辑器的工具栏、列表和 inspector 继续从整块重绘收成稳定 patch，减少 editor 主入口复杂度。
 
 import {
   GmEditorItemOption,
@@ -174,6 +173,13 @@ type EditorUndoEntry = {
   composeSourceMapId: string;
   dirty: boolean;
 };
+
+/** createFragmentFromHtml：从 HTML 创建片段。 */
+function createFragmentFromHtml(html: string): DocumentFragment {
+  const template = document.createElement('template');
+  template.innerHTML = html;
+  return template.content;
+}
 
 /** GM 地图可视化编辑器，支持地块绘制、对象增删、撤销和 JSON 导入导出 */
 export class GmMapEditor {
@@ -370,9 +376,9 @@ export class GmMapEditor {
     this.linePaintStart = null;
     this.undoStack = [];
     this.listLoaded = false;
-    this.listEl.innerHTML = '';
-    this.inspectorEl.innerHTML = '';
-    this.summaryEl.innerHTML = '';
+    this.listEl.replaceChildren();
+    this.inspectorEl.replaceChildren();
+    this.summaryEl.replaceChildren();
     this.jsonEl.value = '';
     this.editorPanelEl.classList.add('hidden');
     this.editorEmptyEl.classList.remove('hidden');
@@ -568,31 +574,82 @@ export class GmMapEditor {
   /** renderToolControls：渲染Tool Controls。 */
   private renderToolControls(): void {
     const currentTool = this.getCurrentTool();
-    this.toolButtonsEl.innerHTML = TOOL_OPTIONS.map((tool) => `
-      <button class="map-tool-btn ${currentTool === tool.value ? 'active' : ''}" data-tool="${tool.value}" type="button">
-        ${escapeHtml(tool.label)} · ${escapeHtml(tool.value === 'paint' ? `左键拖拽刷${this.paintLayer === 'tile' ? '地块' : this.paintLayer === 'aura' ? '无属性灵气' : '气机'}` : tool.note)}
-      </button>
-    `).join('');
+    const existingToolButtons = new Map<string, HTMLButtonElement>();
+    this.toolButtonsEl.querySelectorAll<HTMLButtonElement>('[data-tool]').forEach((button) => {
+      const tool = button.dataset.tool;
+      if (tool) {
+        existingToolButtons.set(tool, button);
+      }
+    });
+    const toolFragment = document.createDocumentFragment();
+    for (const tool of TOOL_OPTIONS) {
+      const button = existingToolButtons.get(tool.value) ?? document.createElement('button');
+      button.type = 'button';
+      button.dataset.tool = tool.value;
+      button.className = `map-tool-btn ${currentTool === tool.value ? 'active' : ''}`;
+      button.textContent = `${tool.label} · ${tool.value === 'paint' ? `左键拖拽刷${this.paintLayer === 'tile' ? '地块' : this.paintLayer === 'aura' ? '无属性灵气' : '气机'}` : tool.note}`;
+      toolFragment.append(button);
+    }
+    this.toolButtonsEl.replaceChildren(toolFragment);
 
     if (this.paintLayerTabsEl) {
-      this.paintLayerTabsEl.innerHTML = PAINT_LAYER_OPTIONS.map((option) => `
-      <button class="side-tab ${this.paintLayer === option.value ? 'active' : ''}" data-paint-layer="${option.value}" type="button">
-        ${escapeHtml(option.label)}
-      </button>
-      `).join('');
+      const existingTabs = new Map<string, HTMLButtonElement>();
+      this.paintLayerTabsEl.querySelectorAll<HTMLButtonElement>('[data-paint-layer]').forEach((button) => {
+        const value = button.dataset.paintLayer;
+        if (value) {
+          existingTabs.set(value, button);
+        }
+      });
+      const tabFragment = document.createDocumentFragment();
+      for (const option of PAINT_LAYER_OPTIONS) {
+        const button = existingTabs.get(option.value) ?? document.createElement('button');
+        button.type = 'button';
+        button.dataset.paintLayer = option.value;
+        button.className = `side-tab ${this.paintLayer === option.value ? 'active' : ''}`;
+        button.textContent = option.label;
+        tabFragment.append(button);
+      }
+      this.paintLayerTabsEl.replaceChildren(tabFragment);
     }
 
-    this.tilePaletteEl.innerHTML = this.paintLayer === 'tile'
-      ? PAINT_TILE_TYPES.map((tileType) => `
-        <button class="map-tile-btn ${this.paintTileType === tileType ? 'active' : ''}" data-tile-type="${tileType}" type="button">
-          ${escapeHtml(TILE_TYPE_LABELS[tileType])}
-        </button>
-      `).join('')
-      : AURA_BRUSH_LEVELS.map((value) => `
-        <button class="map-tile-btn ${(this.paintLayer === 'aura' ? this.auraPaintValue : this.resourcePaintValue) === value ? 'active' : ''}" data-aura-value="${value}" type="button">
-          ${value === 0 ? '清除' : `${this.paintLayer === 'aura' ? '灵气' : '气机'} ${value}`}
-        </button>
-      `).join('');
+    const paletteFragment = document.createDocumentFragment();
+    if (this.paintLayer === 'tile') {
+      const existingPaletteButtons = new Map<string, HTMLButtonElement>();
+      this.tilePaletteEl.querySelectorAll<HTMLButtonElement>('[data-tile-type]').forEach((button) => {
+        const tileType = button.dataset.tileType;
+        if (tileType) {
+          existingPaletteButtons.set(tileType, button);
+        }
+      });
+      for (const tileType of PAINT_TILE_TYPES) {
+        const button = existingPaletteButtons.get(tileType) ?? document.createElement('button');
+        button.type = 'button';
+        button.dataset.tileType = tileType;
+        button.dataset.auraValue = '';
+        button.className = `map-tile-btn ${this.paintTileType === tileType ? 'active' : ''}`;
+        button.textContent = TILE_TYPE_LABELS[tileType];
+        paletteFragment.append(button);
+      }
+    } else {
+      const existingPaletteButtons = new Map<string, HTMLButtonElement>();
+      this.tilePaletteEl.querySelectorAll<HTMLButtonElement>('[data-aura-value]').forEach((button) => {
+        const value = button.dataset.auraValue;
+        if (value) {
+          existingPaletteButtons.set(value, button);
+        }
+      });
+      for (const value of AURA_BRUSH_LEVELS) {
+        const key = String(value);
+        const button = existingPaletteButtons.get(key) ?? document.createElement('button');
+        button.type = 'button';
+        button.dataset.auraValue = key;
+        delete button.dataset.tileType;
+        button.className = `map-tile-btn ${(this.paintLayer === 'aura' ? this.auraPaintValue : this.resourcePaintValue) === value ? 'active' : ''}`;
+        button.textContent = value === 0 ? '清除' : `${this.paintLayer === 'aura' ? '灵气' : '气机'} ${value}`;
+        paletteFragment.append(button);
+      }
+    }
+    this.tilePaletteEl.replaceChildren(paletteFragment);
   }
 
   /** loadMapList：加载地图列表。 */
@@ -623,16 +680,30 @@ export class GmMapEditor {
         .some((value) => value.toLowerCase().includes(keyword));
     });
     if (filtered.length === 0) {
-      this.listEl.innerHTML = '<div class="empty-hint">没有符合条件的地图。</div>';
+      this.listEl.replaceChildren(createFragmentFromHtml('<div class="empty-hint">没有符合条件的地图。</div>'));
       return;
     }
-    this.listEl.innerHTML = filtered.map((map) => `
-      <button class="map-row ${map.id === this.selectedMapId ? 'active' : ''}" data-map-id="${escapeHtml(map.id)}" type="button">
+    const existingRows = new Map<string, HTMLButtonElement>();
+    this.listEl.querySelectorAll<HTMLButtonElement>('[data-map-id]').forEach((button) => {
+      const mapId = button.dataset.mapId;
+      if (mapId) {
+        existingRows.set(mapId, button);
+      }
+    });
+    const fragment = document.createDocumentFragment();
+    for (const map of filtered) {
+      const button = existingRows.get(map.id) ?? document.createElement('button');
+      button.type = 'button';
+      button.dataset.mapId = map.id;
+      button.className = `map-row ${map.id === this.selectedMapId ? 'active' : ''}`;
+      button.replaceChildren(createFragmentFromHtml(`
         <div class="map-row-title">${escapeHtml(map.name)}</div>
         <div class="map-row-meta">${escapeHtml(map.id)} · ${map.width} x ${map.height} · 危险度 ${map.dangerLevel ?? '-'}</div>
         <div class="map-row-meta">传送点 ${map.portalCount} · NPC ${map.npcCount} · 怪物刷新点 ${map.monsterSpawnCount}</div>
-      </button>
-    `).join('');
+      `));
+      fragment.append(button);
+    }
+    this.listEl.replaceChildren(fragment);
   }
 
   /** selectMap：选择地图。 */
@@ -678,8 +749,8 @@ export class GmMapEditor {
       this.editorPanelEl.classList.add('hidden');
       this.editorEmptyEl.classList.remove('hidden');
       this.canvasEmptyEl.classList.remove('hidden');
-      this.summaryEl.innerHTML = '';
-      this.inspectorEl.innerHTML = '';
+      this.summaryEl.replaceChildren();
+      this.inspectorEl.replaceChildren();
       this.jsonEl.value = '';
       return;
     }
@@ -708,22 +779,55 @@ export class GmMapEditor {
       this.dirty ? '有未保存修改' : this.syncedSummaryLabel,
     ];
     this.summaryEl.textContent = summaryBits.join(' · ');
-    this.inspectorEl.innerHTML = `
-      <div class="inspector-layout">
-        <div class="inspector-tabs">
-          ${INSPECTOR_TABS.map((tab) => `
-            <button class="side-tab inspector-tab-btn ${this.currentInspectorTab === tab.value ? 'active' : ''}" data-map-inspector-tab="${tab.value}" type="button">
-              ${escapeHtml(tab.label)}
-            </button>
-          `).join('')}
-        </div>
-        <div class="inspector-panel">
-          ${this.renderInspectorTabContent(selectedCell, selectedTileType, selectedEntityPoint)}
-        </div>
-      </div>
-    `;
+    this.ensureInspectorShell();
+    this.syncInspectorTabs();
+    this.syncInspectorPanel(this.renderInspectorTabContent(selectedCell, selectedTileType, selectedEntityPoint));
     this.jsonEl.value = formatJson(this.draft);
     this.renderCanvas();
+  }
+
+  private ensureInspectorShell(): void {
+    if (this.inspectorEl.querySelector('[data-map-inspector-shell]')) {
+      return;
+    }
+    this.inspectorEl.replaceChildren(createFragmentFromHtml(`
+      <div class="inspector-layout" data-map-inspector-shell>
+        <div class="inspector-tabs" data-map-inspector-tabs></div>
+        <div class="inspector-panel" data-map-inspector-panel></div>
+      </div>
+    `));
+  }
+
+  private syncInspectorTabs(): void {
+    const tabsRoot = this.inspectorEl.querySelector<HTMLElement>('[data-map-inspector-tabs]');
+    if (!tabsRoot) {
+      return;
+    }
+    const existingTabs = new Map<string, HTMLButtonElement>();
+    tabsRoot.querySelectorAll<HTMLButtonElement>('[data-map-inspector-tab]').forEach((button) => {
+      const tab = button.dataset.mapInspectorTab;
+      if (tab) {
+        existingTabs.set(tab, button);
+      }
+    });
+    const fragment = document.createDocumentFragment();
+    for (const tab of INSPECTOR_TABS) {
+      const button = existingTabs.get(tab.value) ?? document.createElement('button');
+      button.type = 'button';
+      button.dataset.mapInspectorTab = tab.value;
+      button.className = `side-tab inspector-tab-btn ${this.currentInspectorTab === tab.value ? 'active' : ''}`;
+      button.textContent = tab.label;
+      fragment.append(button);
+    }
+    tabsRoot.replaceChildren(fragment);
+  }
+
+  private syncInspectorPanel(html: string): void {
+    const panel = this.inspectorEl.querySelector<HTMLElement>('[data-map-inspector-panel]');
+    if (!panel) {
+      return;
+    }
+    panel.replaceChildren(createFragmentFromHtml(html));
   }
 
   private renderInspectorTabContent(

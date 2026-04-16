@@ -2,7 +2,6 @@
  * 游戏客户端主入口。
  * 负责初始化各子系统、挂接网络事件，并驱动整套渲染与交互流程。
  */
-// TODO(next:UI02): 继续拆薄 client 主入口，收拢观察弹层、缩放/UI 状态和整块 DOM 重建，避免 main.ts 长期承担过多编排职责。
 
 import './styles/tokens.css';
 import './styles/base.css';
@@ -70,6 +69,13 @@ import { FloatingTooltip, prefersPinnedTooltipInteraction } from './ui/floating-
 import { detailModalHost } from './ui/detail-modal-host';
 import { bindInlineItemTooltips, renderTextWithInlineItemHighlights } from './ui/item-inline-tooltip';
 import { describePreviewBonuses } from './ui/stat-preview';
+import {
+  bindZoomControls,
+  createObserveModalController,
+  formatZoom,
+  refreshZoomChrome as syncZoomChrome,
+  type ObserveAsideCard,
+} from './main-ui-helpers';
 import {
   initializeMapPerformanceConfig,
   MAP_PERFORMANCE_CONFIG_CHANGE_EVENT,
@@ -651,6 +657,14 @@ const observeModalSubtitleEl = document.getElementById('observe-modal-subtitle')
 const observeModalShellEl = observeModalEl?.querySelector('.observe-modal-shell') as HTMLElement | null;
 const observeModalAsideEl = document.getElementById('observe-modal-aside');
 const observeBuffTooltip = new FloatingTooltip();
+const observeModalController = createObserveModalController({
+  observeModalEl,
+  observeModalBodyEl,
+  observeModalSubtitleEl,
+  observeModalAsideEl,
+  observeBuffTooltip,
+  escapeHtml,
+});
 const senseQiTooltip = new FloatingTooltip();
 let pendingTargetedAction: {
   actionId: string;
@@ -1017,11 +1031,7 @@ function isWithinDisplayedMemoryBounds(x: number, y: number): boolean {
 }
 
 function hideObserveModal(): void {
-  observeBuffTooltip.hide(true);
-  observeModalEl?.classList.add('hidden');
-  observeModalEl?.setAttribute('aria-hidden', 'true');
-  observeModalAsideEl?.classList.add('hidden');
-  observeModalAsideEl?.setAttribute('aria-hidden', 'true');
+  observeModalController.hide();
   activeObservedTile = null;
   activeObservedTileDetail = null;
   activeObservedTileError = null;
@@ -1063,13 +1073,6 @@ type TileRuntimeResourceDetail = {
   level?: number;
   sourceValue?: number;
 };
-type ObserveAsideCard = {
-  mark?: string;
-  title: string;
-  lines: string[];
-  tone?: 'buff' | 'debuff';
-};
-
 function getObservedTileRuntimeResources(targetX: number, targetY: number): TileRuntimeResourceDetail[] {
   if (
     !myPlayer
@@ -1168,29 +1171,7 @@ function buildObservedResourceAsideCards(targetX: number, targetY: number, tile:
 }
 
 function renderObserveAsideCards(cards: ObserveAsideCard[]): void {
-  if (!observeModalAsideEl) {
-    return;
-  }
-  if (cards.length === 0) {
-    observeModalAsideEl.innerHTML = '';
-    observeModalAsideEl.classList.add('hidden');
-    observeModalAsideEl.setAttribute('aria-hidden', 'true');
-    return;
-  }
-  observeModalAsideEl.innerHTML = cards.map((card) => {
-    const detail = card.lines
-      .map((line) => `<span class="floating-tooltip-aside-line">${escapeHtml(line)}</span>`)
-      .join('');
-    return `<div class="floating-tooltip-aside-card ${card.tone === 'debuff' ? 'debuff' : 'buff'}">
-      <div class="floating-tooltip-aside-head">
-        ${card.mark ? `<span class="floating-tooltip-aside-mark">${escapeHtml(card.mark)}</span>` : ''}
-        <strong>${escapeHtml(card.title)}</strong>
-      </div>
-      ${detail ? `<div class="floating-tooltip-aside-detail">${detail}</div>` : ''}
-    </div>`;
-  }).join('');
-  observeModalAsideEl.classList.remove('hidden');
-  observeModalAsideEl.setAttribute('aria-hidden', 'false');
+  observeModalController.renderAsideCards(cards);
 }
 
 function formatBuffDuration(buff: VisibleBuffState): string {
@@ -2324,9 +2305,7 @@ function renderObserveModal(targetX: number, targetY: number): void {
     terrainRows.push({ label: '界门去向', value: portalDetail.targetMapName ?? portalDetail.targetMapId });
   }
 
-  if (observeModalSubtitleEl) {
-    observeModalSubtitleEl.textContent = `坐标 (${targetX}, ${targetY})`;
-  }
+  observeModalController.setSubtitle(targetX, targetY);
   if (observeModalBodyEl) {
     const groundHtml = groundItems.length > 0
       ? `<div class="observe-entity-list">${groundItems.map((entry) => `
@@ -2395,7 +2374,7 @@ function renderObserveModal(targetX: number, targetY: number): void {
         </section>
       `
       : '';
-    observeModalBodyEl.innerHTML = `
+    observeModalController.renderBody(`
       <div class="observe-modal-top">
         ${errorHtml}
         <section class="observe-modal-section">
@@ -2423,13 +2402,12 @@ function renderObserveModal(targetX: number, targetY: number): void {
         </section>
       </div>
       ${buildObservedEntitySectionHtml(sortedEntities)}
-    `;
+    `);
     bindObserveEntityDetailActions(observeModalBodyEl);
     bindObserveBuffTooltips(observeModalBodyEl);
   }
   renderObserveAsideCards(buildObservedResourceAsideCards(targetX, targetY, tile));
-  observeModalEl?.classList.remove('hidden');
-  observeModalEl?.setAttribute('aria-hidden', 'false');
+  observeModalController.show();
 }
 
 function showObserveModal(targetX: number, targetY: number): void {
@@ -2623,18 +2601,13 @@ function applyZoomChange(nextZoom: number): number {
   return zoom;
 }
 
-zoomSlider?.setAttribute('min', String(MIN_ZOOM));
-zoomSlider?.setAttribute('max', String(MAX_ZOOM));
-zoomSlider?.addEventListener('input', () => {
-  applyZoomChange(Number(zoomSlider.value));
-});
-zoomSlider?.addEventListener('change', () => {
-  const zoom = applyZoomChange(Number(zoomSlider.value));
-  showToast(`缩放已调整为 ${formatZoom(zoom)}x`);
-});
-zoomResetBtn?.addEventListener('click', () => {
-  const zoom = applyZoomChange(2);
-  showToast(`缩放已重置为 ${formatZoom(zoom)}x`);
+bindZoomControls({
+  zoomSlider,
+  zoomResetBtn,
+  minZoom: MIN_ZOOM,
+  maxZoom: MAX_ZOOM,
+  applyZoomChange,
+  showToast,
 });
 joinQqGroupBtns.forEach((button) => {
   button.addEventListener('click', (event) => {
@@ -3323,17 +3296,8 @@ async function copyTextToClipboard(text: string): Promise<boolean> {
   }
 }
 
-function formatZoom(zoom: number): string {
-  return zoom.toFixed(2).replace(/\.00$/, '').replace(/(\.\d)0$/, '$1');
-}
-
 function refreshZoomChrome(zoom = getZoom()) {
-  if (zoomSlider) {
-    zoomSlider.value = zoom.toFixed(2);
-  }
-  if (zoomLevelEl) {
-    zoomLevelEl.innerHTML = `<span>x</span><span>${formatZoom(zoom)}</span>`;
-  }
+  syncZoomChrome(zoom, zoomSlider, zoomLevelEl);
 }
 
 function refreshZoomViewport() {

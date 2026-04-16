@@ -53,8 +53,8 @@ const world_runtime_normalization_helpers_1 = require("./world-runtime.normaliza
 const world_runtime_observation_helpers_1 = require("./world-runtime.observation.helpers");
 
 const world_runtime_path_planning_helpers_1 = require("./world-runtime.path-planning.helpers");
-// TODO(next:ARCH02): 明确 next 在线态/实时态分层：哪些状态留进程内、哪些应进入 Redis 或替代层、哪些必须保持数据库真源。
-// TODO(next:REFACTOR01): world-runtime 仍是巨型强状态模块，后续要按编排/查询/规则/运行时域拆分，而不是继续把新职责堆进同一个 service。
+const world_runtime_contract_1 = require("./world-runtime.contract");
+const world_runtime_state_1 = require("./world-runtime.state");
 const {
     normalizeRuntimeActionId,
     buildPublicInstanceId,
@@ -232,12 +232,14 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     redeemCodeRuntimeService;
     craftPanelRuntimeService;
     logger = new common_1.Logger(WorldRuntimeService_1.name);
-    instances = new Map();
-    playerLocations = new Map();
-    pendingCommands = new Map();
-    pendingSystemCommands = [];
-    pendingRespawnPlayerIds = new Set();
-    navigationIntents = new Map();
+    stateLayerContract = world_runtime_contract_1.WORLD_RUNTIME_STATE_CONTRACT;
+    runtimeState = (0, world_runtime_state_1.createWorldRuntimeStateStore)();
+    instances = this.runtimeState.instances;
+    playerLocations = this.runtimeState.playerLocations;
+    pendingCommands = this.runtimeState.pendingCommands;
+    pendingSystemCommands = this.runtimeState.pendingSystemCommands;
+    pendingRespawnPlayerIds = this.runtimeState.pendingRespawnPlayerIds;
+    navigationIntents = this.runtimeState.navigationIntents;
     tick = 0;
     lastTickDurationMs = 0;
     lastSyncFlushDurationMs = 0;
@@ -251,10 +253,10 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     };
     tickDurationHistoryMs = [];
     syncFlushDurationHistoryMs = [];
-    instanceTickProgressById = new Map();
-    containerStatesByInstanceId = new Map();
-    dirtyContainerPersistenceInstanceIds = new Set();
-    latestCombatEffectsByInstanceId = new Map();
+    instanceTickProgressById = this.runtimeState.instanceTickProgressById;
+    containerStatesByInstanceId = this.runtimeState.containerStatesByInstanceId;
+    dirtyContainerPersistenceInstanceIds = this.runtimeState.dirtyContainerPersistenceInstanceIds;
+    latestCombatEffectsByInstanceId = this.runtimeState.latestCombatEffectsByInstanceId;
     nextGmBotSequence = 1;
     constructor(contentTemplateRepository, templateRepository, mapPersistenceService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService, craftPanelRuntimeService) {
         this.contentTemplateRepository = contentTemplateRepository;

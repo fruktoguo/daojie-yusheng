@@ -20,6 +20,8 @@ exports.NextGmMailService = void 0;
 
 const common_1 = require("@nestjs/common");
 
+const next_gm_contract_1 = require("./next-gm-contract");
+
 const next_gm_constants_1 = require("./next-gm.constants");
 
 const mail_runtime_service_1 = require("../../runtime/mail/mail-runtime.service");
@@ -27,7 +29,6 @@ const mail_runtime_service_1 = require("../../runtime/mail/mail-runtime.service"
 const player_persistence_service_1 = require("../../persistence/player-persistence.service");
 
 const player_runtime_service_1 = require("../../runtime/player/player-runtime.service");
-// TODO(next:T13): 在 GM 邮件投递 contract 定稿后，收掉这里对 runtime + persistence 双路收件人的迁移期聚合壳。
 
 let NextGmMailService = class NextGmMailService {
     mailRuntimeService;
@@ -41,28 +42,29 @@ let NextGmMailService = class NextGmMailService {
     async createDirectMail(playerId, input) {
         return this.mailRuntimeService.createDirectMail(playerId, input ?? {});
     }
-    async createBroadcastMail(input) {
+    async collectBroadcastRecipientPlayerIds() {
 
         const runtimePlayerIds = this.playerRuntimeService.listPlayerSnapshots()
             .filter((entry) => !(0, next_gm_constants_1.isNextGmBotPlayerId)(entry.playerId))
             .map((entry) => entry.playerId);
-
-        const persistedEntries = await this.playerPersistenceService.listPlayerSnapshots();
-
         const deliveredPlayerIds = new Set(runtimePlayerIds);
-
-        const deliveredMailIds = [];
-
-        const batchId = `broadcast:${Date.now().toString(36)}`;
-        for (const playerId of runtimePlayerIds) {
-            deliveredMailIds.push(await this.mailRuntimeService.createDirectMail(playerId, input ?? {}));
+        if (next_gm_contract_1.NEXT_GM_MAIL_RECIPIENT_CONTRACT.persistedFallbackRecipients !== 'persisted_non_runtime_non_bot_players') {
+            return runtimePlayerIds;
         }
+        const persistedEntries = await this.playerPersistenceService.listPlayerSnapshots();
         for (const entry of persistedEntries) {
             if ((0, next_gm_constants_1.isNextGmBotPlayerId)(entry.playerId) || deliveredPlayerIds.has(entry.playerId)) {
                 continue;
             }
-            deliveredMailIds.push(await this.mailRuntimeService.createDirectMail(entry.playerId, input ?? {}));
             deliveredPlayerIds.add(entry.playerId);
+        }
+        return Array.from(deliveredPlayerIds);
+    }
+    async createBroadcastMail(input) {
+        const deliveredMailIds = [];
+        const batchId = `broadcast:${Date.now().toString(36)}`;
+        for (const playerId of await this.collectBroadcastRecipientPlayerIds()) {
+            deliveredMailIds.push(await this.mailRuntimeService.createDirectMail(playerId, input ?? {}));
         }
         return {
             mailId: deliveredMailIds[0] ?? batchId,
@@ -78,5 +80,4 @@ exports.NextGmMailService = NextGmMailService = __decorate([
         player_persistence_service_1.PlayerPersistenceService,
         player_runtime_service_1.PlayerRuntimeService])
 ], NextGmMailService);
-
 

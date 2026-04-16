@@ -1,4 +1,3 @@
-// TODO(next:UI06): 把 tutorial-panel 从模板式 body 装载继续收成局部更新，并复用更稳定的 modal/list/detail recipe。
 import {
   TUTORIAL_FLOW_TOPICS,
   TUTORIAL_MECHANIC_TOPICS,
@@ -161,19 +160,23 @@ export class TutorialPanel {
       title: '简易教程',
       subtitle: '把常用玩法讲明白，迷路时回来翻一眼就够用。',
       hint: '点击空白处关闭',
-      bodyHtml: this.renderBody(),
+      renderBody: (body) => {
+        this.renderBody(body);
+      },
       onClose: () => {
         this.tooltip.hide(true);
       },
       onAfterRender: (body) => {
         this.bind(body);
+        this.sync(body);
       },
     });
   }
 
   /** renderBody：渲染身体。 */
-  private renderBody(): string {
-    return `
+  private renderBody(body: HTMLElement): void {
+    const template = document.createElement('template');
+    template.innerHTML = `
       <div class="tutorial-modal-body">
         <div class="tutorial-modal-main-tabs ui-modal-main-tabs" role="tablist" aria-label="简易教程分类">
           ${TUTORIAL_MAIN_TABS.map((tab) => this.renderMainTab(tab.id, tab.label)).join('')}
@@ -220,6 +223,7 @@ export class TutorialPanel {
         </div>
       </div>
     `;
+    body.replaceChildren(template.content.cloneNode(true));
   }
 
   /** renderMainTab：渲染主流程Tab。 */
@@ -416,41 +420,50 @@ export class TutorialPanel {
 
   /** bind：绑定bind。 */
   private bind(body: HTMLElement): void {
-    body.querySelectorAll<HTMLButtonElement>('[data-tutorial-main-tab]').forEach((button) => {
-      button.addEventListener('click', () => {
-        const nextId = button.dataset.tutorialMainTab as TutorialMainTabId | undefined;
-        if (!nextId || nextId === this.activeMainTabId) {
+    if (body.dataset.tutorialBound !== '1') {
+      body.dataset.tutorialBound = '1';
+      body.addEventListener('click', (event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLElement)) {
           return;
         }
-        this.activeMainTabId = nextId;
-        this.tooltip.hide(true);
-        this.sync(body);
-      });
-    });
-    body.querySelectorAll<HTMLButtonElement>('[data-tutorial-tab]').forEach((button) => {
-      button.addEventListener('click', () => {
-        const nextId = button.dataset.tutorialTab;
-        if (!nextId || nextId === this.activeTopicId) {
+        const mainTab = target.closest<HTMLElement>('[data-tutorial-main-tab]');
+        if (mainTab) {
+          const nextId = mainTab.dataset.tutorialMainTab as TutorialMainTabId | undefined;
+          if (!nextId || nextId === this.activeMainTabId) {
+            return;
+          }
+          this.activeMainTabId = nextId;
+          this.tooltip.hide(true);
+          this.sync(body);
           return;
         }
-        this.activeTopicId = nextId;
-        this.sync(body);
-      });
-    });
-    body.querySelectorAll<HTMLButtonElement>('[data-tutorial-mechanic-tab]').forEach((button) => {
-      button.addEventListener('click', () => {
-        const nextId = button.dataset.tutorialMechanicTab;
-        if (!nextId || nextId === this.activeMechanicTopicId) {
+        const topicTab = target.closest<HTMLElement>('[data-tutorial-tab]');
+        if (topicTab) {
+          const nextId = topicTab.dataset.tutorialTab;
+          if (!nextId || nextId === this.activeTopicId) {
+            return;
+          }
+          this.activeTopicId = nextId;
+          this.sync(body);
           return;
         }
-        this.activeMechanicTopicId = nextId;
-        this.tooltip.hide(true);
-        this.sync(body);
-      });
-    });
-    body.querySelectorAll<HTMLButtonElement>('[data-tutorial-flow-tab]').forEach((button) => {
-      button.addEventListener('click', () => {
-        const nextId = button.dataset.tutorialFlowTab;
+        const mechanicTab = target.closest<HTMLElement>('[data-tutorial-mechanic-tab]');
+        if (mechanicTab) {
+          const nextId = mechanicTab.dataset.tutorialMechanicTab;
+          if (!nextId || nextId === this.activeMechanicTopicId) {
+            return;
+          }
+          this.activeMechanicTopicId = nextId;
+          this.tooltip.hide(true);
+          this.sync(body);
+          return;
+        }
+        const flowTab = target.closest<HTMLElement>('[data-tutorial-flow-tab]');
+        if (!flowTab) {
+          return;
+        }
+        const nextId = flowTab.dataset.tutorialFlowTab;
         if (!nextId || nextId === this.activeFlowTopicId) {
           return;
         }
@@ -458,7 +471,7 @@ export class TutorialPanel {
         this.tooltip.hide(true);
         this.sync(body);
       });
-    });
+    }
     this.bindTooltips(body);
   }
 

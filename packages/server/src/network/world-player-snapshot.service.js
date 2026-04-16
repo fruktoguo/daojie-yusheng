@@ -23,9 +23,8 @@ const player_runtime_service_1 = require("../runtime/player/player-runtime.servi
 const world_player_source_service_1 = require("./world-player-source.service");
 
 const world_player_token_service_1 = require("./world-player-token.service");
-// TODO(next:T04): 把 snapshot 真源从“proof 完整”推进到“主链只读 next-native”，彻底明确 compat backfill 的退出边界。
 
-/** 玩家快照服务：负责 next 初始快照、compat 回填和迁移来源的快照读写。 */
+/** 玩家快照服务：主链只读 next 持久化记录，compat 只允许显式 migration backfill。 */
 let WorldPlayerSnapshotService = class WorldPlayerSnapshotService {
     /** 记录快照加载、回填和恢复过程。 */
     logger = new common_1.Logger(WorldPlayerSnapshotService.name);
@@ -40,8 +39,8 @@ let WorldPlayerSnapshotService = class WorldPlayerSnapshotService {
         this.playerRuntimeService = playerRuntimeService;
         this.worldPlayerSourceService = worldPlayerSourceService;
     }
-    /** 生成兼容迁移来源选项。 */
-    buildCompatMigrationSourceOptions(reason) {
+    /** 生成显式 migration 快照来源选项。 */
+    buildMigrationSnapshotSourceOptions(reason) {
         return {
             allowCompatMigration: true,
             allowLegacyHttpIdentityFallback: false,
@@ -62,7 +61,7 @@ let WorldPlayerSnapshotService = class WorldPlayerSnapshotService {
     /** 从兼容来源读取迁移用快照。 */
     async loadMigrationPlayerSnapshot(playerId) {
 
-        const migrationSourceOptions = this.buildCompatMigrationSourceOptions('snapshot_backfill');
+        const migrationSourceOptions = this.buildMigrationSnapshotSourceOptions('snapshot_backfill');
         if (typeof this.worldPlayerSourceService?.loadPlayerSnapshotForMigration === 'function') {
             return this.worldPlayerSourceService.loadPlayerSnapshotForMigration(playerId, migrationSourceOptions);
         }
@@ -203,7 +202,7 @@ let WorldPlayerSnapshotService = class WorldPlayerSnapshotService {
             };
         }
     }
-    /** 读取快照并携带来源、回退和种子信息。 */
+    /** 读取快照并携带来源、回退和种子信息。主链 miss 时只返回 next-only miss。 */
     async loadPlayerSnapshotResult(playerId, allowLegacyFallback, fallbackReason = null) {
 
         let nextSnapshotRecord = null;
@@ -245,42 +244,9 @@ let WorldPlayerSnapshotService = class WorldPlayerSnapshotService {
             };
         }
         if (!allowLegacyFallback) {
-            this.logger.debug(`玩家快照来源=miss playerId=${playerId} allowLegacyFallback=false fallbackReason=${fallbackReason ?? '无'}`);
-            (0, world_player_token_service_1.recordAuthTrace)({
-                type: 'snapshot',
-                playerId,
-                source: 'miss',
-                allowLegacyFallback: false,
-                fallbackReason,
-                fallbackHit: false,
-            });
-            return {
-                snapshot: null,
-                source: 'miss',
-                persistedSource: null,
-                fallbackReason,
-                seedPersisted: false,
-            };
+            return buildNextOnlySnapshotMissResult(playerId, fallbackReason, false, this.logger);
         }
-        this.logger.debug(`玩家快照来源=miss playerId=${playerId} compatFallbackBlocked=true fallbackReason=${fallbackReason ?? '无'}`);
-        (0, world_player_token_service_1.recordAuthTrace)({
-            type: 'snapshot',
-            playerId,
-            source: 'miss',
-            allowLegacyFallback: false,
-
-            fallbackReason: typeof fallbackReason === 'string' && fallbackReason.trim()
-                ? `${fallbackReason.trim()}:compat_runtime_blocked`
-                : 'compat_runtime_blocked',
-            fallbackHit: false,
-        });
-        return {
-            snapshot: null,
-            source: 'miss',
-            persistedSource: null,
-            fallbackReason,
-            seedPersisted: false,
-        };
+        return buildNextOnlySnapshotMissResult(playerId, fallbackReason, true, this.logger);
     }
     /** 读取快照，保持旧调用方兼容。 */
     async loadPlayerSnapshot(playerId, allowLegacyFallback, fallbackReason = null) {
@@ -296,4 +262,26 @@ exports.WorldPlayerSnapshotService = WorldPlayerSnapshotService = __decorate([
         player_runtime_service_1.PlayerRuntimeService,
         world_player_source_service_1.WorldPlayerSourceService])
 ], WorldPlayerSnapshotService);
+function buildNextOnlySnapshotMissResult(playerId, fallbackReason, compatFallbackRequested, logger) {
+    logger.debug(`玩家快照来源=miss playerId=${playerId} nextOnly=true compatFallbackRequested=${compatFallbackRequested === true} fallbackReason=${fallbackReason ?? '无'}`);
+    (0, world_player_token_service_1.recordAuthTrace)({
+        type: 'snapshot',
+        playerId,
+        source: 'miss',
+        allowLegacyFallback: false,
+        fallbackReason: compatFallbackRequested === true
+            ? (typeof fallbackReason === 'string' && fallbackReason.trim()
+                ? `${fallbackReason.trim()}:compat_runtime_blocked`
+                : 'compat_runtime_blocked')
+            : fallbackReason,
+        fallbackHit: false,
+    });
+    return {
+        snapshot: null,
+        source: 'miss',
+        persistedSource: null,
+        fallbackReason,
+        seedPersisted: false,
+    };
+}
 //# sourceMappingURL=world-player-snapshot.service.js.map

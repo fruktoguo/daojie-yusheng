@@ -27,6 +27,8 @@ const map_template_repository_1 = require("../map/map-template.repository");
 const player_attributes_service_1 = require("./player-attributes.service");
 
 const player_progression_service_1 = require("./player-progression.service");
+const player_combat_config_helpers_1 = require("./player-combat-config.helpers");
+const player_runtime_state_1 = require("./player-runtime.state");
 
 /** 新角色默认出生地图。 */
 const DEFAULT_PLAYER_STARTER_MAP_ID = 'yunlai_town';
@@ -46,9 +48,6 @@ const PENDING_LOGBOOK_KINDS = new Set([
     'loot',
     'grudge',
 ]);
-// TODO(next:PERF01): 去掉 player-runtime 热路径里基于 JSON.stringify 的结构比较，改成 revision 或显式结构比较。
-// TODO(next:REFACTOR02): player-runtime 仍承担过多在线态、持久化快照与战斗/成长辅助职责，后续要继续按状态拥有者拆分。
-
 let PlayerRuntimeService = class PlayerRuntimeService {
     /** 内容仓库，提供起始背包、默认装备和物品模板。 */
     contentTemplateRepository;
@@ -58,10 +57,12 @@ let PlayerRuntimeService = class PlayerRuntimeService {
     playerAttributesService;
     /** 成长结算器，负责境界、经验和修炼态推进。 */
     playerProgressionService;
+    /** 玩家在线态 store，集中托管运行时拥有的热状态。 */
+    runtimeState = (0, player_runtime_state_1.createPlayerRuntimeStateStore)();
     /** 在线玩家运行时实例，按 playerId 直接索引。 */
-    players = new Map();
+    players = this.runtimeState.players;
     /** 断线重连或死亡切换时，暂存的战斗副作用。 */
-    pendingCombatEffectsByPlayerId = new Map();
+    pendingCombatEffectsByPlayerId = this.runtimeState.pendingCombatEffectsByPlayerId;
     /** 注入基础仓库与成长/属性结算器，供玩家在线态统一管理。 */
     constructor(contentTemplateRepository, mapTemplateRepository, playerAttributesService, playerProgressionService) {
         this.contentTemplateRepository = contentTemplateRepository;
@@ -983,8 +984,8 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
         const player = this.getPlayerOrThrow(playerId);
 
-        const normalized = normalizePersistedAutoUsePills(input);
-        if (isSameAutoUsePillList(player.combat.autoUsePills, normalized)) {
+        const normalized = (0, player_combat_config_helpers_1.normalizePersistedAutoUsePills)(input);
+        if ((0, player_combat_config_helpers_1.isSameAutoUsePillList)(player.combat.autoUsePills, normalized)) {
             return player;
         }
         player.combat.autoUsePills = normalized;
@@ -995,8 +996,8 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
         const player = this.getPlayerOrThrow(playerId);
 
-        const normalized = normalizePersistedCombatTargetingRules(input);
-        if (isSameCombatTargetingRules(player.combat.combatTargetingRules, normalized)) {
+        const normalized = (0, player_combat_config_helpers_1.normalizePersistedCombatTargetingRules)(input);
+        if ((0, player_combat_config_helpers_1.isSameCombatTargetingRules)(player.combat.combatTargetingRules, normalized)) {
             return player;
         }
         player.combat.combatTargetingRules = normalized;
@@ -1393,8 +1394,8 @@ let PlayerRuntimeService = class PlayerRuntimeService {
                 autoRetaliate: snapshot.combat?.autoRetaliate !== false,
 
                 autoBattleStationary: snapshot.combat?.autoBattleStationary === true,
-                autoUsePills: normalizePersistedAutoUsePills(snapshot.combat?.autoUsePills),
-                combatTargetingRules: normalizePersistedCombatTargetingRules(snapshot.combat?.combatTargetingRules),
+                autoUsePills: (0, player_combat_config_helpers_1.normalizePersistedAutoUsePills)(snapshot.combat?.autoUsePills),
+                combatTargetingRules: (0, player_combat_config_helpers_1.normalizePersistedCombatTargetingRules)(snapshot.combat?.combatTargetingRules),
                 autoBattleTargetingMode: normalizePersistedAutoBattleTargetingMode(snapshot.combat?.autoBattleTargetingMode),
 
                 combatTargetId: typeof snapshot.combat?.combatTargetId === 'string' && snapshot.combat.combatTargetId.trim()
@@ -1574,11 +1575,8 @@ function cloneRuntimePlayerState(player) {
             autoBattle: player.combat.autoBattle,
             autoRetaliate: player.combat.autoRetaliate,
             autoBattleStationary: player.combat.autoBattleStationary,
-            autoUsePills: player.combat.autoUsePills.map((entry) => ({
-                ...entry,
-                conditions: Array.isArray(entry.conditions) ? entry.conditions.map((condition) => ({ ...condition })) : [],
-            })),
-            combatTargetingRules: player.combat.combatTargetingRules ? { ...player.combat.combatTargetingRules } : undefined,
+            autoUsePills: (0, player_combat_config_helpers_1.cloneAutoUsePillList)(player.combat.autoUsePills),
+            combatTargetingRules: (0, player_combat_config_helpers_1.cloneCombatTargetingRules)(player.combat.combatTargetingRules),
             autoBattleTargetingMode: player.combat.autoBattleTargetingMode,
             combatTargetId: player.combat.combatTargetId,
             combatTargetLocked: player.combat.combatTargetLocked,
@@ -1752,11 +1750,8 @@ function buildRuntimePlayerPersistenceSnapshot(player) {
             autoBattle: player.combat.autoBattle,
             autoRetaliate: player.combat.autoRetaliate,
             autoBattleStationary: player.combat.autoBattleStationary,
-            autoUsePills: player.combat.autoUsePills.map((entry) => ({
-                ...entry,
-                conditions: Array.isArray(entry.conditions) ? entry.conditions.map((condition) => ({ ...condition })) : [],
-            })),
-            combatTargetingRules: player.combat.combatTargetingRules ? { ...player.combat.combatTargetingRules } : undefined,
+            autoUsePills: (0, player_combat_config_helpers_1.cloneAutoUsePillList)(player.combat.autoUsePills),
+            combatTargetingRules: (0, player_combat_config_helpers_1.cloneCombatTargetingRules)(player.combat.combatTargetingRules),
             autoBattleTargetingMode: player.combat.autoBattleTargetingMode,
             combatTargetId: player.combat.combatTargetId,
             combatTargetLocked: player.combat.combatTargetLocked,
@@ -2190,38 +2185,6 @@ function normalizeAutoBattleSkills(skillIds, input) {
     }
     return normalized;
 }
-function normalizePersistedAutoUsePills(input) {
-    if (!Array.isArray(input)) {
-        return [];
-    }
-    return input
-        .filter((entry) => entry && typeof entry.itemId === 'string' && entry.itemId.trim().length > 0)
-        .map((entry) => ({
-        itemId: entry.itemId.trim(),
-        conditions: Array.isArray(entry.conditions)
-            ? entry.conditions
-                .filter((condition) => condition && typeof condition.type === 'string')
-                .map((condition) => ({ ...condition }))
-            : [],
-    }));
-}
-function isSameAutoUsePillList(previous, current) {
-    return JSON.stringify(previous ?? []) === JSON.stringify(current ?? []);
-}
-function normalizePersistedCombatTargetingRules(input) {
-    if (!input || typeof input !== 'object') {
-        return undefined;
-    }
-    return {
-        includeNormalMonsters: input.includeNormalMonsters !== false,
-        includeEliteMonsters: input.includeEliteMonsters !== false,
-        includeBosses: input.includeBosses !== false,
-        includePlayers: input.includePlayers === true,
-    };
-}
-function isSameCombatTargetingRules(left, right) {
-    return JSON.stringify(left ?? null) === JSON.stringify(right ?? null);
-}
 function normalizePersistedAutoBattleTargetingMode(input) {
 
     const value = typeof input === 'string'
@@ -2599,4 +2562,3 @@ function cloneCombatEffect(source) {
     return { ...source };
 }
 //# sourceMappingURL=player-runtime.service.js.map
-

@@ -23,7 +23,9 @@ const world_runtime_service_1 = require("../runtime/world/world-runtime.service"
 const map_persistence_service_1 = require("./map-persistence.service");
 
 const MAP_PERSISTENCE_FLUSH_INTERVAL_MS = 5000;
-// TODO(next:PERSIST03): 把地图刷盘从固定 5 秒串行循环收成更细粒度的 dirty 分发、批量写、优先级和失败恢复策略。
+const MAP_PERSISTENCE_FLUSH_BATCH_SIZE = 16;
+const MAP_PERSISTENCE_FLUSH_PARALLELISM = 3;
+const MAP_PERSISTENCE_FLUSH_RETRY_COUNT = 1;
 
 /** 地图快照脏实例定时刷盘服务：按周期落库并支持进程关闭前强刷。 */
 let MapPersistenceFlushService = MapPersistenceFlushService_1 = class MapPersistenceFlushService {
@@ -86,18 +88,21 @@ let MapPersistenceFlushService = MapPersistenceFlushService_1 = class MapPersist
             if (dirtyInstanceIds.length === 0) {
                 return;
             }
-            try {
-                for (const instanceId of dirtyInstanceIds) {
+            const prioritizedInstanceIds = prioritizeMapFlushTargets(dirtyInstanceIds);
+            const batches = chunkValues(prioritizedInstanceIds, MAP_PERSISTENCE_FLUSH_BATCH_SIZE);
+            for (const batch of batches) {
+                await runConcurrent(batch, MAP_PERSISTENCE_FLUSH_PARALLELISM, async (instanceId) => {
                     const snapshot = this.worldRuntimeService.buildMapPersistenceSnapshot(instanceId);
                     if (!snapshot) {
-                        continue;
+                        return;
                     }
-                    await this.mapPersistenceService.saveMapSnapshot(instanceId, snapshot);
+                    await retryFlush(MAP_PERSISTENCE_FLUSH_RETRY_COUNT, async () => {
+                        await this.mapPersistenceService.saveMapSnapshot(instanceId, snapshot);
+                    });
                     this.worldRuntimeService.markMapPersisted(instanceId);
-                }
-            }
-            catch (error) {
-                this.logger.error(`地图持久化刷新失败（${reason}）`, error instanceof Error ? error.stack : String(error));
+                }, (instanceId, error) => {
+                    this.logger.error(`地图持久化刷新失败（${reason}） instanceId=${instanceId}`, error instanceof Error ? error.stack : String(error));
+                });
             }
         })();
         this.flushPromise = promise;
@@ -122,5 +127,48 @@ function isRestoreFreezeActive() {
     const value = process.env.SERVER_NEXT_RUNTIME_RESTORE_ACTIVE;
     return typeof value === 'string' && /^(1|true|yes|on)$/iu.test(value.trim());
 }
+function prioritizeMapFlushTargets(instanceIds) {
+    return [...instanceIds].sort((left, right) => {
+        const leftPriority = left.includes('container:') ? 0 : 1;
+        const rightPriority = right.includes('container:') ? 0 : 1;
+        return leftPriority - rightPriority || left.localeCompare(right);
+    });
+}
+function chunkValues(values, chunkSize) {
+    if (!Array.isArray(values) || values.length === 0) {
+        return [];
+    }
+    const normalizedChunkSize = Math.max(1, Math.trunc(chunkSize));
+    const chunks = [];
+    for (let index = 0; index < values.length; index += normalizedChunkSize) {
+        chunks.push(values.slice(index, index + normalizedChunkSize));
+    }
+    return chunks;
+}
+async function runConcurrent(values, parallelism, worker, onError) {
+    const normalizedParallelism = Math.max(1, Math.trunc(parallelism));
+    for (let index = 0; index < values.length; index += normalizedParallelism) {
+        const slice = values.slice(index, index + normalizedParallelism);
+        const results = await Promise.allSettled(slice.map((value) => worker(value)));
+        results.forEach((result, resultIndex) => {
+            if (result.status === 'rejected') {
+                onError?.(slice[resultIndex], result.reason);
+            }
+        });
+    }
+}
+async function retryFlush(retryCount, work) {
+    const attempts = Math.max(0, Math.trunc(retryCount)) + 1;
+    let lastError = null;
+    for (let attempt = 0; attempt < attempts; attempt += 1) {
+        try {
+            await work();
+            return;
+        }
+        catch (error) {
+            lastError = error;
+        }
+    }
+    throw lastError;
+}
 //# sourceMappingURL=map-persistence-flush.service.js.map
-

@@ -1,7 +1,6 @@
 /**
  * GM 管理后台前端 —— 登录鉴权、角色列表/编辑器、机器人管理、建议反馈
  */
-// TODO(next:UI03): 继续拆薄 GM 前端主入口，减少整段刷新与拼接式 DOM 生成，把列表/编辑/工具栏编排拆离 gm.ts。
 
 import {
   type BasicOkRes,
@@ -89,6 +88,7 @@ import { GmWorldViewer } from './gm-world-viewer';
 import * as gmCatalogHelpers from './gm/helpers/catalog';
 import * as gmMarkupHelpers from './gm/helpers/markup';
 import * as gmPureHelpers from './gm/helpers/pure';
+import { renderGmPlayerListSection } from './gm/helpers/player-list';
 import {
   GM_API_BASE_PATH,
   GM_AUTH_API_BASE_PATH,
@@ -3984,13 +3984,6 @@ function renderSummary(data: GmStateRes): void {
   renderPerfLists(data);
 }
 
-/** renderPlayerPageMeta：渲染玩家分页元数据。 */
-function renderPlayerPageMeta(data: GmStateRes): void {
-  playerPageMetaEl.textContent = `第 ${data.playerPage.page} / ${data.playerPage.totalPages} 页 · 共 ${data.playerPage.total} 条`;
-  playerPrevPageBtn.disabled = data.playerPage.page <= 1;
-  playerNextPageBtn.disabled = data.playerPage.page >= data.playerPage.totalPages;
-}
-
 /** renderPlayerList：渲染玩家列表。 */
 function renderPlayerList(data: GmStateRes): void {
   const filtered = getFilteredPlayers(data);
@@ -4001,29 +3994,34 @@ function renderPlayerList(data: GmStateRes): void {
   }
 
   if (filtered.length === 0) {
-    if (lastPlayerListStructureKey !== 'empty') {
-      playerListEl.innerHTML = '<div class="empty-hint">没有符合筛选条件的角色。</div>';
-      lastPlayerListStructureKey = 'empty';
-    }
-    renderPlayerPageMeta(data);
+    lastPlayerListStructureKey = renderGmPlayerListSection({
+      playerListEl,
+      playerPageMetaEl,
+      playerPrevPageBtn,
+      playerNextPageBtn,
+    }, {
+      data,
+      filtered,
+      selectedPlayerId,
+      lastStructureKey: lastPlayerListStructureKey,
+      getPlayerRowMarkup,
+      patchPlayerRow,
+    });
     return;
   }
-
-  const structureKey = filtered.map((player) => player.id).join('|');
-  if (lastPlayerListStructureKey !== structureKey) {
-    playerListEl.innerHTML = filtered.map((player) => getPlayerRowMarkup(player)).join('');
-    /** lastPlayerListStructureKey：last玩家列表Structure Key。 */
-    lastPlayerListStructureKey = structureKey;
-  }
-
-  filtered.forEach((player, index) => {
-    const row = playerListEl.children[index];
-    if (!(row instanceof HTMLButtonElement)) {
-      return;
-    }
-    patchPlayerRow(row, player, player.id === selectedPlayerId);
+  lastPlayerListStructureKey = renderGmPlayerListSection({
+    playerListEl,
+    playerPageMetaEl,
+    playerPrevPageBtn,
+    playerNextPageBtn,
+  }, {
+    data,
+    filtered,
+    selectedPlayerId,
+    lastStructureKey: lastPlayerListStructureKey,
+    getPlayerRowMarkup,
+    patchPlayerRow,
   });
-  renderPlayerPageMeta(data);
 }
 
 /** renderEditor：渲染编辑器。 */

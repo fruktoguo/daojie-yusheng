@@ -69,8 +69,26 @@ const GUEST_HELLO_IDENTITY_OVERRIDE_KEYS = Object.freeze([
     'playerId',
     'requestedPlayerId',
 ]);
-// TODO(next:T05): 继续把 connect_token / hello / guest / GM 四类入口写成单线 bootstrap 行为，避免 gateway 再承担兜底 auth/bootstrap 旁路。
-// TODO(next:T06): 把 guest / authenticated / GM 三类握手错误码、恢复路径和协议边界完全拆开并固定为正式 contract。
+const AUTHENTICATED_CONNECT_CONTRACT = Object.freeze({
+    protocolRequiredCode: 'AUTH_PROTOCOL_REQUIRED',
+    unsupportedProtocolCode: 'AUTH_PROTOCOL_UNSUPPORTED',
+    invalidSessionIdCode: 'AUTH_SESSION_ID_INVALID',
+    authFailCode: 'AUTH_FAIL',
+    legacyProtocolDisabledCode: 'LEGACY_PROTOCOL_DISABLED',
+});
+const GM_CONNECT_CONTRACT = Object.freeze({
+    authFailCode: 'GM_AUTH_FAIL',
+    playerAuthRequiredCode: 'GM_PLAYER_AUTH_REQUIRED',
+    sessionIdForbiddenCode: 'GM_SESSION_ID_FORBIDDEN',
+});
+const GUEST_HELLO_CONTRACT = Object.freeze({
+    protocolMismatchCode: 'HELLO_PROTOCOL_MISMATCH',
+    unsupportedProtocolCode: 'HELLO_PROTOCOL_UNSUPPORTED',
+    authBootstrapForbiddenCode: 'HELLO_AUTH_BOOTSTRAP_FORBIDDEN',
+    sessionIdInvalidCode: 'HELLO_SESSION_ID_INVALID',
+    identityOverrideForbiddenCode: 'HELLO_IDENTITY_OVERRIDE_FORBIDDEN',
+    helloFailedCode: 'HELLO_FAILED',
+});
 
 /** 世界 Socket 入口：负责鉴权、会话引导、GM 操作和 gameplay 命令分发。 */
 let WorldGateway = WorldGateway_1 = class WorldGateway {
@@ -269,6 +287,24 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
     resolveGuestDetachedBinding(payloadSessionId) {
         return this.worldSessionService.getDetachedBindingBySessionId(payloadSessionId);
     }
+    /** authenticated connect 错误统一走认证 contract。 */
+    rejectAuthenticatedConnect(client, code, message) {
+        this.worldClientEventService.emitError(client, code, message);
+        client.disconnect(true);
+        return null;
+    }
+    /** GM connect 错误统一走 GM contract。 */
+    rejectGmConnect(client, code, message) {
+        this.worldClientEventService.emitError(client, code, message);
+        client.disconnect(true);
+        return null;
+    }
+    /** guest hello 错误统一走 hello contract。 */
+    rejectGuestHello(client, code, message) {
+        this.worldClientEventService.emitError(client, code, message);
+        client.disconnect(true);
+        return false;
+    }
     /** 组装游客 hello 的 bootstrap 输入。 */
     buildGuestHelloBootstrapInput(client, payload) {
 
@@ -316,25 +352,17 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         if ((token || gmToken)
             && protocol === 'next'
             && requestedSessionInspection.error) {
-            this.worldClientEventService.emitError(client, 'AUTH_SESSION_ID_INVALID', 'next 认证握手 sessionId 非法');
-            client.disconnect(true);
-            return null;
+            return this.rejectAuthenticatedConnect(client, AUTHENTICATED_CONNECT_CONTRACT.invalidSessionIdCode, 'next 认证握手 sessionId 非法');
         }
         if (gmToken) {
             if (!this.sessionBootstrapService.authenticateSocketGmToken(gmToken)) {
-                this.worldClientEventService.emitError(client, 'GM_AUTH_FAIL', 'GM 认证失败');
-                client.disconnect(true);
-                return null;
+                return this.rejectGmConnect(client, GM_CONNECT_CONTRACT.authFailCode, 'GM 认证失败');
             }
             if (!token) {
-                this.worldClientEventService.emitError(client, 'GM_PLAYER_AUTH_REQUIRED', 'GM socket 需要同时提供玩家登录令牌');
-                client.disconnect(true);
-                return null;
+                return this.rejectGmConnect(client, GM_CONNECT_CONTRACT.playerAuthRequiredCode, 'GM socket 需要同时提供玩家登录令牌');
             }
             if (requestedSessionInspection.sessionId) {
-                this.worldClientEventService.emitError(client, 'GM_SESSION_ID_FORBIDDEN', 'GM socket 不允许携带 sessionId 续连');
-                client.disconnect(true);
-                return null;
+                return this.rejectGmConnect(client, GM_CONNECT_CONTRACT.sessionIdForbiddenCode, 'GM socket 不允许携带 sessionId 续连');
             }
             client.data.isGm = true;
             client.data.gmRole = 'gm';
@@ -351,16 +379,12 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             protocol,
         });
         if (!identity) {
-            this.worldClientEventService.emitError(client, 'AUTH_FAIL', '认证失败');
-            client.disconnect(true);
-            return null;
+            return this.rejectAuthenticatedConnect(client, AUTHENTICATED_CONNECT_CONTRACT.authFailCode, '认证失败');
         }
         if (protocol === 'next'
             && identity.authSource !== 'next'
             && identity.authSource !== 'token') {
-            this.worldClientEventService.emitError(client, 'AUTH_FAIL', 'NEXT 协议仅允许 next 真源身份');
-            client.disconnect(true);
-            return null;
+            return this.rejectAuthenticatedConnect(client, AUTHENTICATED_CONNECT_CONTRACT.authFailCode, 'NEXT 协议仅允许 next 真源身份');
         }
 
         const authenticatedBootstrapContractViolation = this.sessionBootstrapService.resolveAuthenticatedBootstrapContractViolation(client, {
@@ -368,37 +392,80 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             persistedSource: this.resolveAuthenticatedIdentityPersistedSource(client, identity),
         });
         if (authenticatedBootstrapContractViolation) {
-            this.worldClientEventService.emitError(client, 'AUTH_FAIL', authenticatedBootstrapContractViolation.message);
-            client.disconnect(true);
-            return null;
+            return this.rejectAuthenticatedConnect(client, AUTHENTICATED_CONNECT_CONTRACT.authFailCode, authenticatedBootstrapContractViolation.message);
         }
         return { identity };
+    }
+    /** 统一校验 connect 阶段握手协议。 */
+    ensureConnectionProtocol(client) {
+        const handshakeProtocol = typeof client.handshake?.auth?.protocol === 'string'
+            ? client.handshake.auth.protocol.trim().toLowerCase()
+            : '';
+        const hasAuthHint = this.hasSocketAuthHint(client);
+        if (handshakeProtocol === 'next') {
+            this.worldClientEventService.markProtocol(client, handshakeProtocol);
+            return true;
+        }
+        if (handshakeProtocol === 'legacy') {
+            return this.rejectAuthenticatedConnect(client, AUTHENTICATED_CONNECT_CONTRACT.legacyProtocolDisabledCode, 'legacy socket API 已移除，仅支持 next 协议握手') !== null;
+        }
+        if (handshakeProtocol && hasAuthHint) {
+            return this.rejectAuthenticatedConnect(client, AUTHENTICATED_CONNECT_CONTRACT.unsupportedProtocolCode, `不支持的握手协议: ${handshakeProtocol}`) !== null;
+        }
+        if (!handshakeProtocol && hasAuthHint) {
+            return this.rejectAuthenticatedConnect(client, AUTHENTICATED_CONNECT_CONTRACT.protocolRequiredCode, 'token/gmToken 连接必须声明握手协议') !== null;
+        }
+        return true;
+    }
+    /** connect 阶段仅负责鉴权型 bootstrap。 */
+    async startConnectionBootstrap(client) {
+        const authContext = await this.resolveBootstrapAuthContext(client);
+        if (!authContext?.identity) {
+            return;
+        }
+        const { identity } = authContext;
+        void this.startAuthenticatedBootstrap(client, this.resolveAuthenticatedBootstrapEntryPath(client), identity).catch((error) => {
+            this.worldClientEventService.emitGatewayError(client, 'AUTH_FAIL', error);
+            client.disconnect(true);
+        });
+    }
+    /** 统一校验 hello 协议上下文。 */
+    ensureHelloProtocol(client) {
+        const currentProtocol = typeof client?.data?.protocol === 'string' ? client.data.protocol.trim().toLowerCase() : '';
+        if (currentProtocol === 'legacy') {
+            return this.rejectGuestHello(client, GUEST_HELLO_CONTRACT.protocolMismatchCode, 'legacy 握手连接不能进入 next hello 链路');
+        }
+        if (currentProtocol && currentProtocol !== 'next') {
+            return this.rejectGuestHello(client, GUEST_HELLO_CONTRACT.unsupportedProtocolCode, `不支持的 hello 协议上下文: ${currentProtocol}`);
+        }
+        this.worldClientEventService.markProtocol(client, 'next');
+        return true;
+    }
+    /** 统一校验 guest hello 是否允许进入 bootstrap。 */
+    async shouldAllowGuestHelloBootstrap(client, payload) {
+        if (this.hasSocketAuthHint(client)) {
+
+            const waited = await this.awaitPendingBootstrap(client);
+            if (waited) {
+                return false;
+            }
+            this.logger.warn(`已拒绝 token hello 引导回退：socket=${client.id} protocol=${'next'}`);
+            return this.rejectGuestHello(client, GUEST_HELLO_CONTRACT.authBootstrapForbiddenCode, 'token/gmToken 连接只允许 connect 阶段 bootstrap');
+        }
+        const requestedSessionInspection = this.sessionBootstrapService.inspectRequestedSessionId(payload?.sessionId, client, 'hello');
+        if (requestedSessionInspection.error) {
+            return this.rejectGuestHello(client, GUEST_HELLO_CONTRACT.sessionIdInvalidCode, 'hello 请求 sessionId 非法');
+        }
+        const identityOverrideKeys = GUEST_HELLO_IDENTITY_OVERRIDE_KEYS.filter((key) => typeof payload?.[key] === 'string' && payload[key].trim());
+        if (identityOverrideKeys.length > 0) {
+            return this.rejectGuestHello(client, GUEST_HELLO_CONTRACT.identityOverrideForbiddenCode, 'guest hello 不允许自带 playerId/requestedPlayerId');
+        }
+        return true;
     }
     /** 处理 socket 连接：校验协议、阻断未就绪流量并触发鉴权引导。 */
     async handleConnection(client) {
         this.logger.debug(`Socket 已连接：${client.id}`);
-
-        const handshakeProtocol = typeof client.handshake?.auth?.protocol === 'string'
-            ? client.handshake.auth.protocol.trim().toLowerCase()
-            : '';
-
-        const hasAuthHint = this.hasSocketAuthHint(client);
-        if (handshakeProtocol === 'next') {
-            this.worldClientEventService.markProtocol(client, handshakeProtocol);
-        }
-        else if (handshakeProtocol === 'legacy') {
-            this.worldClientEventService.emitError(client, 'LEGACY_PROTOCOL_DISABLED', 'legacy socket API 已移除，仅支持 next 协议握手');
-            client.disconnect(true);
-            return;
-        }
-        else if (handshakeProtocol && hasAuthHint) {
-            this.worldClientEventService.emitError(client, 'AUTH_PROTOCOL_UNSUPPORTED', `不支持的握手协议: ${handshakeProtocol}`);
-            client.disconnect(true);
-            return;
-        }
-        else if (!handshakeProtocol && hasAuthHint) {
-            this.worldClientEventService.emitError(client, 'AUTH_PROTOCOL_REQUIRED', 'token/gmToken 连接必须声明握手协议');
-            client.disconnect(true);
+        if (!this.ensureConnectionProtocol(client)) {
             return;
         }
         if (this.rejectWhenNotReady(client)) {
@@ -408,19 +475,10 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             return;
         }
         try {
-
-            const authContext = await this.resolveBootstrapAuthContext(client);
-            if (!authContext?.identity) {
-                return;
-            }
-            const { identity } = authContext;
-            void this.startAuthenticatedBootstrap(client, this.resolveAuthenticatedBootstrapEntryPath(client), identity).catch((error) => {
-                this.worldClientEventService.emitGatewayError(client, 'AUTH_FAIL', error);
-                client.disconnect(true);
-            });
+            await this.startConnectionBootstrap(client);
         }
         catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'AUTH_FAIL', error);
+            this.worldClientEventService.emitGatewayError(client, AUTHENTICATED_CONNECT_CONTRACT.authFailCode, error);
             client.disconnect(true);
         }
     }
@@ -445,19 +503,9 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
     }
     /** 处理 hello：确认协议上下文后进入游客或鉴权 bootstrap。 */
     async handleHello(client, payload) {
-
-        const currentProtocol = typeof client?.data?.protocol === 'string' ? client.data.protocol.trim().toLowerCase() : '';
-        if (currentProtocol === 'legacy') {
-            this.worldClientEventService.emitError(client, 'HELLO_PROTOCOL_MISMATCH', 'legacy 握手连接不能进入 next hello 链路');
-            client.disconnect(true);
+        if (!this.ensureHelloProtocol(client)) {
             return;
         }
-        if (currentProtocol && currentProtocol !== 'next') {
-            this.worldClientEventService.emitError(client, 'HELLO_PROTOCOL_UNSUPPORTED', `不支持的 hello 协议上下文: ${currentProtocol}`);
-            client.disconnect(true);
-            return;
-        }
-        this.worldClientEventService.markProtocol(client, 'next');
         try {
             if (this.rejectWhenNotReady(client)) {
                 return;
@@ -465,34 +513,13 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             if (typeof client.data.playerId === 'string' && client.data.playerId.trim()) {
                 return;
             }
-            if (this.hasSocketAuthHint(client)) {
-
-                const waited = await this.awaitPendingBootstrap(client);
-                if (waited) {
-                    return;
-                }
-                this.worldClientEventService.emitError(client, 'HELLO_AUTH_BOOTSTRAP_FORBIDDEN', 'token/gmToken 连接只允许 connect 阶段 bootstrap');
-                this.logger.warn(`已拒绝 token hello 引导回退：socket=${client.id} protocol=${'next'}`);
-                client.disconnect(true);
-                return;
-            }
-
-            const requestedSessionInspection = this.sessionBootstrapService.inspectRequestedSessionId(payload?.sessionId, client, 'hello');
-            if (requestedSessionInspection.error) {
-                this.worldClientEventService.emitError(client, 'HELLO_SESSION_ID_INVALID', 'hello 请求 sessionId 非法');
-                client.disconnect(true);
-                return;
-            }
-            const identityOverrideKeys = GUEST_HELLO_IDENTITY_OVERRIDE_KEYS.filter((key) => typeof payload?.[key] === 'string' && payload[key].trim());
-            if (identityOverrideKeys.length > 0) {
-                this.worldClientEventService.emitError(client, 'HELLO_IDENTITY_OVERRIDE_FORBIDDEN', 'guest hello 不允许自带 playerId/requestedPlayerId');
-                client.disconnect(true);
+            if (!(await this.shouldAllowGuestHelloBootstrap(client, payload))) {
                 return;
             }
             await this.handleGuestHello(client, payload);
         }
         catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'HELLO_FAILED', error);
+            this.worldClientEventService.emitGatewayError(client, GUEST_HELLO_CONTRACT.helloFailedCode, error);
         }
     }
     handleNextHeartbeat(client, _payload) {

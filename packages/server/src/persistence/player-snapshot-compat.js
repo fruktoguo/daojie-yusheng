@@ -1,29 +1,26 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.canonicalizeRuntimeBonusSource = exports.resolveCompatiblePendingLogbookMessages = exports.resolveCompatibleRuntimeBonuses = void 0;
-// TODO(next:T04): 当 snapshot 主链彻底只读 next-native 后，删除 legacyBonuses / legacyCompat.pendingLogbookMessages 等兼容回读。
 
-/** legacy 与 next 快照兼容处理：统一读取历史数组与 bonus 来源。 */
-function resolveCompatibleSnapshotArray(snapshot, primaryKey, compatResolver) {
+/** next 快照主链只读取正式字段，compat 行已经在迁移入口提前规范化。 */
+function resolveNextSnapshotArray(snapshot, primaryKey) {
 
     const primaryValue = snapshot?.[primaryKey];
     if (Array.isArray(primaryValue)) {
         return primaryValue;
     }
-
-    const compatValue = compatResolver(snapshot);
-    return Array.isArray(compatValue) ? compatValue : [];
+    return [];
 }
 
-/** 兼容读取 runtimeBonuses：优先新字段，兼容 legacyBonuses。 */
+/** 读取 next runtimeBonuses：compat 数据需先在 migration 入口转成 next snapshot。 */
 function resolveCompatibleRuntimeBonuses(snapshot) {
-    return resolveCompatibleSnapshotArray(snapshot, 'runtimeBonuses', (candidate) => candidate?.legacyBonuses);
+    return resolveNextSnapshotArray(snapshot, 'runtimeBonuses');
 }
 exports.resolveCompatibleRuntimeBonuses = resolveCompatibleRuntimeBonuses;
 
-/** 兼容读取 pendingLogbookMessages：优先新字段并回退 legacyCompat 分支。 */
+/** 读取 next pendingLogbookMessages：compat 数据需先在 migration 入口转成 next snapshot。 */
 function resolveCompatiblePendingLogbookMessages(snapshot) {
-    return resolveCompatibleSnapshotArray(snapshot, 'pendingLogbookMessages', (candidate) => candidate?.legacyCompat?.pendingLogbookMessages);
+    return resolveNextSnapshotArray(snapshot, 'pendingLogbookMessages');
 }
 exports.resolveCompatiblePendingLogbookMessages = resolveCompatiblePendingLogbookMessages;
 

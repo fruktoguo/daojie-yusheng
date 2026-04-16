@@ -2,8 +2,6 @@
  * 功法面板
  * 展示已习得功法列表、逐层详情弹窗、主修切换与技能提示
  */
-// TODO(next:UI06): 把 technique-panel 的层焦点/星图详情继续从局部 innerHTML 重写收口到稳定 patch，减少功法 modal 长尾回归面。
-
 import {
   Attributes,
   calcTechniqueAttrValues,
@@ -71,6 +69,13 @@ function escapeHtml(value: string): string {
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#39;');
+}
+
+/** createFragmentFromHtml：从 HTML 文本创建文档片段。 */
+function createFragmentFromHtml(html: string): DocumentFragment {
+  const template = document.createElement('template');
+  template.innerHTML = html.trim();
+  return template.content.cloneNode(true) as DocumentFragment;
 }
 
 /** formatAttrMap：格式化属性地图。 */
@@ -622,7 +627,6 @@ export class TechniquePanel {
     const constellationHtml = this.renderConstellation(tech, layers, tech.level, selectedLevel, skillsByLevel, milestones);
     const focusHtml = this.renderLayerFocus(tech, layers, selectedLevel, skillsByLevel, milestones);
     const constellationSignature = this.buildConstellationStructureSignature(layers, skillsByLevel);
-    const focusSignature = this.buildFocusStructureSignature(selectedLevel, skillsByLevel, milestones);
     const totalExp = calcTechniqueTotalExp(tech);
     detailModalHost.open({
       ownerId: TechniquePanel.MODAL_OWNER,
@@ -652,7 +656,7 @@ export class TechniquePanel {
         </section>
         <section class="tech-modal-pane tech-modal-pane--focus">
           <div class="tech-modal-section-title">星位注解</div>
-          <div class="tech-modal-pane-body" data-tech-modal-focus-shell="true" data-tech-modal-focus-signature="${escapeHtml(focusSignature)}">${focusHtml}</div>
+          <div class="tech-modal-pane-body" data-tech-modal-focus-shell="true">${focusHtml}</div>
         </section>
       </div>
     `,
@@ -1207,10 +1211,8 @@ export class TechniquePanel {
     totalExpNode.textContent = formatDisplayInteger(calcTechniqueTotalExp(tech));
     currentAttrsNode.textContent = formatTechniqueContributionSummary(effectiveAttrs, currentAttrs);
 
-    const focusSignature = this.buildFocusStructureSignature(selectedLevel, skillsByLevel, milestones);
-    if (focusShell.dataset.techModalFocusSignature !== focusSignature) {
-      focusShell.dataset.techModalFocusSignature = focusSignature;
-      focusShell.innerHTML = this.renderLayerFocus(tech, layers, selectedLevel, skillsByLevel, milestones);
+    if (!focusShell.querySelector('[data-tech-focus-card="true"]')) {
+      focusShell.replaceChildren(createFragmentFromHtml(this.renderLayerFocus(tech, layers, selectedLevel, skillsByLevel, milestones)));
       this.bindSkillTooltips(focusShell);
     } else {
       this.patchLayerFocus(focusShell, tech, layers, selectedLevel, skillsByLevel, milestones);
@@ -1219,7 +1221,7 @@ export class TechniquePanel {
     const constellationSignature = this.buildConstellationStructureSignature(layers, skillsByLevel);
     if (constellationShell.dataset.techModalConstellationSignature !== constellationSignature) {
       constellationShell.dataset.techModalConstellationSignature = constellationSignature;
-      constellationShell.innerHTML = this.renderConstellation(tech, layers, tech.level, selectedLevel, skillsByLevel, milestones);
+      constellationShell.replaceChildren(createFragmentFromHtml(this.renderConstellation(tech, layers, tech.level, selectedLevel, skillsByLevel, milestones)));
       this.mountConstellation(constellationShell, tech, layers, selectedLevel, skillsByLevel, milestones);
       this.bindSkillTooltips(constellationShell);
     }
@@ -1318,20 +1320,6 @@ export class TechniquePanel {
     }).join('|');
   }
 
-  private buildFocusStructureSignature(
-    selectedLevel: number,
-    skillsByLevel: Map<number, TechniqueState['skills']>,
-    milestones: Map<number, TechniqueRealm>,
-  ): string {
-    const skills = skillsByLevel.get(selectedLevel) ?? [];
-    const milestone = milestones.get(selectedLevel) ?? '';
-    return [
-      selectedLevel,
-      milestone,
-      skills.map((skill) => skill.id).join(','),
-    ].join('|');
-  }
-
   private patchLayerFocus(
     focusShell: HTMLElement,
     tech: TechniqueState,
@@ -1348,11 +1336,13 @@ export class TechniquePanel {
     const exp = focusShell.querySelector<HTMLElement>('[data-tech-focus-exp="true"]');
     const layerAttrsNode = focusShell.querySelector<HTMLElement>('[data-tech-focus-layer-attrs="true"]');
     const totalAttrsNode = focusShell.querySelector<HTMLElement>('[data-tech-focus-total-attrs="true"]');
-    if (!layer || !card || !title || !subtitle || !state || !exp || !layerAttrsNode || !totalAttrsNode) {
+    const skillsNode = focusShell.querySelector<HTMLElement>('[data-tech-focus-skills="true"]');
+    if (!layer || !card || !title || !subtitle || !state || !exp || !layerAttrsNode || !totalAttrsNode || !skillsNode) {
       return;
     }
     const selectedRealm = deriveTechniqueRealm(layer.level, tech.layers);
     const milestone = milestones.get(layer.level);
+    const skills = skillsByLevel.get(layer.level) ?? [];
     const stateLabel = layer.level < tech.level ? '已贯通' : layer.level === tech.level ? '当前停驻' : '尚未抵达';
     const expText = layer.expToNext > 0 ? `升下一层需 ${formatDisplayInteger(layer.expToNext)} 功法经验` : '此层已是终点';
     const milestoneText = milestone ? `此层踏入${getTechniqueRealmLabel(milestone)}` : `此层属${getTechniqueRealmLabel(selectedRealm)}阶段`;
@@ -1367,6 +1357,26 @@ export class TechniquePanel {
     exp.textContent = expText;
     layerAttrsNode.textContent = layerAttrs;
     totalAttrsNode.textContent = totalAttrs;
+    if (skills.length === 0) {
+      const empty = document.createElement('span');
+      empty.className = 'tech-layer-empty';
+      empty.textContent = '此层未解锁新技能';
+      skillsNode.replaceChildren(empty);
+      return;
+    }
+    skillsNode.replaceChildren(
+      ...skills.map((skill) => {
+        const node = document.createElement('span');
+        node.className = 'tech-skill-tag';
+        node.dataset.skillTooltipTitle = skill.name;
+        node.dataset.skillTooltipSkillId = skill.id;
+        node.dataset.skillTooltipUnlockLevel = String(resolveSkillUnlockLevel(skill));
+        node.dataset.skillTooltipRich = '1';
+        node.textContent = skill.name;
+        return node;
+      }),
+    );
+    this.bindSkillTooltips(focusShell);
   }
 
   /** findPreviewTechnique：查找Preview Technique。 */

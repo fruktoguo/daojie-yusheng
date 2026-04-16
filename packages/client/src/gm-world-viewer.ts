@@ -2,8 +2,6 @@
  * GM 世界管理查看器 —— 复用 TextRenderer + Camera 渲染运行时地图
  * 上帝视角，无迷雾，支持拖动、缩放、选中查看
  */
-// TODO(next:UI04): 把 GM 世界查看器的地图列表、时间控制和信息面板继续拆成局部更新，避免查看器维持整段 HTML 重建。
-
 import {
   GM_WORLD_DEFAULT_ZOOM,
   GM_WORLD_POLL_INTERVAL_MS,
@@ -32,6 +30,13 @@ type StatusFn = (message: string, isError?: boolean) => void;
 /** escapeHtml：转义 HTML 文本中的危险字符。 */
 function escapeHtml(s: string): string {
   return s.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
+}
+
+/** createFragmentFromHtml：从 HTML 创建片段。 */
+function createFragmentFromHtml(html: string): DocumentFragment {
+  const template = document.createElement('template');
+  template.innerHTML = html;
+  return template.content;
 }
 
 /** formatClockFromTicks：格式化时钟From Ticks。 */
@@ -115,6 +120,8 @@ export class GmWorldViewer {
   private readonly viewerId = createViewerId();
   /** observationRegistered：observation Registered。 */
   private observationRegistered = false;
+  /** timeControlBound：时间控制事件是否已绑定。 */
+  private timeControlBound = false;
 
   constructor(
     private readonly request: RequestFn,
@@ -478,21 +485,38 @@ export class GmWorldViewer {
   // ===== 地图列表 =====
 
   private renderMapList(): void {
-    this.mapListEl.innerHTML = this.maps.map((m) => `
-      <button class="world-map-btn ${m.id === this.currentMapId ? 'active' : ''}" data-map-id="${escapeHtml(m.id)}">
-        ${escapeHtml(m.name || m.id)}
-        <span style="font-size:11px;color:#888;margin-left:4px;">${escapeHtml(m.id)}</span>
-      </button>
-    `).join('');
-
-    this.mapListEl.querySelectorAll('.world-map-btn').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const mapId = (btn as HTMLElement).dataset.mapId;
-        if (mapId && mapId !== this.currentMapId) {
-          this.selectMap(mapId).catch(() => {});
-        }
-      });
+    const fragment = document.createDocumentFragment();
+    const existingButtons = new Map<string, HTMLButtonElement>();
+    this.mapListEl.querySelectorAll<HTMLButtonElement>('.world-map-btn').forEach((button) => {
+      const mapId = button.dataset.mapId;
+      if (mapId) {
+        existingButtons.set(mapId, button);
+      }
     });
+
+    for (const map of this.maps) {
+      const button = existingButtons.get(map.id) ?? document.createElement('button');
+      if (!existingButtons.has(map.id)) {
+        button.addEventListener('click', () => {
+          const mapId = button.dataset.mapId;
+          if (mapId && mapId !== this.currentMapId) {
+            this.selectMap(mapId).catch(() => {});
+          }
+        });
+      }
+      button.className = `world-map-btn ${map.id === this.currentMapId ? 'active' : ''}`;
+      button.dataset.mapId = map.id;
+      const nameNode = document.createTextNode(map.name || map.id);
+      const idNode = document.createElement('span');
+      idNode.style.fontSize = '11px';
+      idNode.style.color = '#888';
+      idNode.style.marginLeft = '4px';
+      idNode.textContent = map.id;
+      button.replaceChildren(nameNode, idNode);
+      fragment.append(button);
+    }
+
+    this.mapListEl.replaceChildren(fragment);
   }
 
   // ===== 时间操控 =====
@@ -546,7 +570,7 @@ export class GmWorldViewer {
   /** renderTimeControl：渲染时间Control。 */
   private renderTimeControl(): void {
     if (!this.runtimeData) {
-      this.timeControlEl.innerHTML = '<div class="empty-hint">未选择地图</div>';
+      this.timeControlEl.replaceChildren(createFragmentFromHtml('<div class="empty-hint">未选择地图</div>'));
       return;
     }
 
@@ -562,60 +586,106 @@ export class GmWorldViewer {
     const speedValue = this.speedDraft ?? String(realtimeTickRate);
     const offsetValue = this.offsetDraft ?? String(offsetTicks);
     const speeds = [0, 0.5, 1, 2, 5, 10, 20, 50, 100];
+    this.ensureTimeControlShell(speeds);
+    this.syncTimeControlMetric('current', formatClockFromTicks(time.localTicks, time.dayLength));
+    this.syncTimeControlMetric('phase', time.phaseLabel);
+    this.syncTimeControlMetric('light', `${time.lightPercent}%`);
+    this.syncTimeControlMetric('darkness', String(time.darknessStacks));
+    this.syncTimeControlMetric('control', tickPaused ? '已暂停' : `${formatDebugNumber(realtimeTickRate)}x`);
+    this.syncTimeControlMetric('total-ticks', String(time.totalTicks));
+    this.syncTimeControlMetric('local-ticks', `${formatDebugNumber(time.localTicks, 2)} / ${time.dayLength}`);
+    this.syncTimeControlMetric('offset', String(offsetTicks));
+    this.syncTimeControlMetric('scale', `${configuredScale}x`);
+    this.syncTimeControlMetric('map-tick', tickPaused ? '已暂停' : `${formatDebugNumber(realtimeTickRate)} 次/秒`);
+    this.syncTimeControlMetric('advance', tickPaused ? '已暂停' : `${formatDebugNumber(localTicksPerSecond)} 本地 Tick/秒`);
+    this.syncTimeControlMetric('clock-speed', tickPaused ? '已暂停' : `${formatDebugNumber(realtimeMinutesPerSecond)} 分钟/秒`);
 
-    this.timeControlEl.innerHTML = `
-      <div class="world-time-info">
-        <div class="panel-row"><span class="panel-label">当前时刻</span><span class="panel-value">${formatClockFromTicks(time.localTicks, time.dayLength)}</span></div>
-        <div class="panel-row"><span class="panel-label">时辰</span><span class="panel-value">${escapeHtml(time.phaseLabel)}</span></div>
-        <div class="panel-row"><span class="panel-label">光照</span><span class="panel-value">${time.lightPercent}%</span></div>
-        <div class="panel-row"><span class="panel-label">黑暗层数</span><span class="panel-value">${time.darknessStacks}</span></div>
-        <div class="panel-row"><span class="panel-label">时间控制</span><span class="panel-value">${tickPaused ? '已暂停' : `${formatDebugNumber(realtimeTickRate)}x`}</span></div>
-        <div class="panel-row"><span class="panel-label">总 Tick</span><span class="panel-value">${time.totalTicks}</span></div>
-        <div class="panel-row"><span class="panel-label">本地 Tick</span><span class="panel-value">${formatDebugNumber(time.localTicks, 2)} / ${time.dayLength}</span></div>
-        <div class="panel-row"><span class="panel-label">时间偏移</span><span class="panel-value">${offsetTicks}</span></div>
-        <div class="panel-row"><span class="panel-label">基础倍率</span><span class="panel-value">${configuredScale}x</span></div>
-        <div class="panel-row"><span class="panel-label">地图 Tick</span><span class="panel-value">${tickPaused ? '已暂停' : `${formatDebugNumber(realtimeTickRate)} 次/秒`}</span></div>
-        <div class="panel-row"><span class="panel-label">时间推进</span><span class="panel-value">${tickPaused ? '已暂停' : `${formatDebugNumber(localTicksPerSecond)} 本地 Tick/秒`}</span></div>
-        <div class="panel-row"><span class="panel-label">时钟速度</span><span class="panel-value">${tickPaused ? '已暂停' : `${formatDebugNumber(realtimeMinutesPerSecond)} 分钟/秒`}</span></div>
-      </div>
-      <div class="world-tick-control">
-        <div class="panel-section-title">时间控制</div>
-        <div class="world-speed-btns">
-          ${speeds.map((s) => `
-            <button class="small-btn world-speed-btn ${(tickPaused && s === 0) || (!tickPaused && tickSpeed === s) ? 'active' : ''}" data-speed="${s}">
-              ${s === 0 ? '暂停' : s + 'x'}
-            </button>
-          `).join('')}
-        </div>
-        <div class="gm-btn-row" style="margin-top:6px;">
-          <input
-            type="number"
-            class="gm-inline-input"
-            data-world-speed-input
-            value="${escapeHtml(speedValue)}"
-            step="0.1"
-            min="0"
-            max="100"
-            style="width:96px"
-          />
-          <button class="small-btn" id="world-speed-apply">应用速度</button>
-        </div>
-      </div>
-      <div class="world-time-adjust">
-        <div class="panel-section-title">时间偏移</div>
-        <div class="gm-btn-row">
-          <input type="number" id="world-time-offset" data-world-offset-input class="gm-inline-input" value="${escapeHtml(offsetValue)}" style="width:80px" />
-          <button class="small-btn" id="world-time-apply">应用</button>
-        </div>
-      </div>
-      <div class="world-time-adjust">
-        <div class="panel-section-title">运行配置</div>
-        <div class="gm-btn-row">
-          <button class="small-btn" id="world-reload-tick-config">重新加载服务端配置</button>
-        </div>
-      </div>
-    `;
+    const speedInput = this.timeControlEl.querySelector<HTMLInputElement>('[data-world-speed-input]');
+    const offsetInput = this.timeControlEl.querySelector<HTMLInputElement>('[data-world-offset-input]');
+    if (speedInput && document.activeElement !== speedInput) {
+      speedInput.value = speedValue;
+    }
+    if (offsetInput && document.activeElement !== offsetInput) {
+      offsetInput.value = offsetValue;
+    }
+    this.timeControlEl.querySelectorAll<HTMLButtonElement>('.world-speed-btn').forEach((button) => {
+      const speed = parseFloat(button.dataset.speed ?? '1');
+      const active = (tickPaused && speed === 0) || (!tickPaused && tickSpeed === speed);
+      button.classList.toggle('active', active);
+    });
 
+    this.restoreTimeControlFocus(previousControlState);
+  }
+
+  private ensureTimeControlShell(speeds: number[]): void {
+    if (this.timeControlEl.querySelector('[data-world-time-shell]')) {
+      return;
+    }
+    this.timeControlEl.replaceChildren(createFragmentFromHtml(`
+      <div data-world-time-shell>
+        <div class="world-time-info" data-world-time-info></div>
+        <div class="world-tick-control">
+          <div class="panel-section-title">时间控制</div>
+          <div class="world-speed-btns" data-world-speed-buttons>
+            ${speeds.map((speed) => `
+              <button class="small-btn world-speed-btn" data-speed="${speed}">
+                ${speed === 0 ? '暂停' : `${speed}x`}
+              </button>
+            `).join('')}
+          </div>
+          <div class="gm-btn-row" style="margin-top:6px;">
+            <input
+              type="number"
+              class="gm-inline-input"
+              data-world-speed-input
+              step="0.1"
+              min="0"
+              max="100"
+              style="width:96px"
+            />
+            <button class="small-btn" data-world-speed-apply>应用速度</button>
+          </div>
+        </div>
+        <div class="world-time-adjust">
+          <div class="panel-section-title">时间偏移</div>
+          <div class="gm-btn-row">
+            <input type="number" data-world-offset-input class="gm-inline-input" style="width:80px" />
+            <button class="small-btn" data-world-time-apply>应用</button>
+          </div>
+        </div>
+        <div class="world-time-adjust">
+          <div class="panel-section-title">运行配置</div>
+          <div class="gm-btn-row">
+            <button class="small-btn" data-world-reload-tick-config>重新加载服务端配置</button>
+          </div>
+        </div>
+      </div>
+    `));
+    const infoEl = this.timeControlEl.querySelector<HTMLElement>('[data-world-time-info]');
+    if (infoEl) {
+      infoEl.replaceChildren(createFragmentFromHtml(`
+        <div class="panel-row"><span class="panel-label">当前时刻</span><span class="panel-value" data-world-metric="current"></span></div>
+        <div class="panel-row"><span class="panel-label">时辰</span><span class="panel-value" data-world-metric="phase"></span></div>
+        <div class="panel-row"><span class="panel-label">光照</span><span class="panel-value" data-world-metric="light"></span></div>
+        <div class="panel-row"><span class="panel-label">黑暗层数</span><span class="panel-value" data-world-metric="darkness"></span></div>
+        <div class="panel-row"><span class="panel-label">时间控制</span><span class="panel-value" data-world-metric="control"></span></div>
+        <div class="panel-row"><span class="panel-label">总 Tick</span><span class="panel-value" data-world-metric="total-ticks"></span></div>
+        <div class="panel-row"><span class="panel-label">本地 Tick</span><span class="panel-value" data-world-metric="local-ticks"></span></div>
+        <div class="panel-row"><span class="panel-label">时间偏移</span><span class="panel-value" data-world-metric="offset"></span></div>
+        <div class="panel-row"><span class="panel-label">基础倍率</span><span class="panel-value" data-world-metric="scale"></span></div>
+        <div class="panel-row"><span class="panel-label">地图 Tick</span><span class="panel-value" data-world-metric="map-tick"></span></div>
+        <div class="panel-row"><span class="panel-label">时间推进</span><span class="panel-value" data-world-metric="advance"></span></div>
+        <div class="panel-row"><span class="panel-label">时钟速度</span><span class="panel-value" data-world-metric="clock-speed"></span></div>
+      `));
+    }
+    this.bindTimeControlEvents();
+  }
+
+  private bindTimeControlEvents(): void {
+    if (this.timeControlBound) {
+      return;
+    }
+    this.timeControlBound = true;
     const speedInput = this.timeControlEl.querySelector<HTMLInputElement>('[data-world-speed-input]');
     const offsetInput = this.timeControlEl.querySelector<HTMLInputElement>('[data-world-offset-input]');
     speedInput?.addEventListener('input', () => {
@@ -624,35 +694,43 @@ export class GmWorldViewer {
     offsetInput?.addEventListener('input', () => {
       this.offsetDraft = offsetInput.value;
     });
-
-    this.timeControlEl.querySelectorAll('.world-speed-btn').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const speed = parseFloat((btn as HTMLElement).dataset.speed ?? '1');
+    this.timeControlEl.addEventListener('click', (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) {
+        return;
+      }
+      const speedButton = target.closest<HTMLButtonElement>('.world-speed-btn');
+      if (speedButton) {
+        const speed = parseFloat(speedButton.dataset.speed ?? '1');
         this.speedDraft = String(speed);
         this.setWorldSpeed(speed).catch(() => {});
-      });
-    });
-
-    document.getElementById('world-speed-apply')?.addEventListener('click', () => {
-      const speed = parseFloat(speedInput?.value ?? '1');
-      if (Number.isFinite(speed)) {
-        this.setWorldSpeed(speed).catch(() => {});
+        return;
+      }
+      if (target.closest('[data-world-speed-apply]')) {
+        const speed = parseFloat(speedInput?.value ?? '1');
+        if (Number.isFinite(speed)) {
+          this.setWorldSpeed(speed).catch(() => {});
+        }
+        return;
+      }
+      if (target.closest('[data-world-time-apply]')) {
+        const offset = parseInt(offsetInput?.value ?? '0', 10);
+        if (Number.isFinite(offset)) {
+          this.updateTime({ offsetTicks: offset }).catch(() => {});
+        }
+        return;
+      }
+      if (target.closest('[data-world-reload-tick-config]')) {
+        this.reloadTickConfig().catch(() => {});
       }
     });
+  }
 
-    document.getElementById('world-time-apply')?.addEventListener('click', () => {
-      const input = document.getElementById('world-time-offset') as HTMLInputElement;
-      const offset = parseInt(input.value, 10);
-      if (Number.isFinite(offset)) {
-        this.updateTime({ offsetTicks: offset }).catch(() => {});
-      }
-    });
-
-    document.getElementById('world-reload-tick-config')?.addEventListener('click', () => {
-      this.reloadTickConfig().catch(() => {});
-    });
-
-    this.restoreTimeControlFocus(previousControlState);
+  private syncTimeControlMetric(key: string, value: string): void {
+    const element = this.timeControlEl.querySelector<HTMLElement>(`[data-world-metric="${key}"]`);
+    if (element) {
+      element.textContent = value;
+    }
   }
 
   /** setWorldSpeed：处理set世界速度。 */
@@ -725,7 +803,7 @@ export class GmWorldViewer {
 
   private renderInfo(): void {
     if (!this.runtimeData) {
-      this.infoEl.innerHTML = '<div class="empty-hint">未选择地图</div>';
+      this.infoEl.replaceChildren(createFragmentFromHtml('<div class="empty-hint">未选择地图</div>'));
       return;
     }
 
@@ -733,69 +811,98 @@ export class GmWorldViewer {
     const playerCount = d.entities.filter((e) => e.kind === 'player').length;
     const monsterCount = d.entities.filter((e) => e.kind === 'monster').length;
     const npcCount = d.entities.filter((e) => e.kind === 'npc').length;
-
-    let html = `
-      <div class="panel-section">
+    this.ensureInfoShell();
+    this.syncInfoSection(
+      'map',
+      `
         <div class="panel-section-title">地图信息</div>
         <div class="panel-row"><span class="panel-label">名称</span><span class="panel-value">${escapeHtml(d.mapName)}</span></div>
         <div class="panel-row"><span class="panel-label">尺寸</span><span class="panel-value">${d.width} × ${d.height}</span></div>
         <div class="panel-row"><span class="panel-label">视口玩家</span><span class="panel-value">${playerCount}</span></div>
         <div class="panel-row"><span class="panel-label">视口怪物</span><span class="panel-value">${monsterCount}</span></div>
         <div class="panel-row"><span class="panel-label">视口 NPC</span><span class="panel-value">${npcCount}</span></div>
-      </div>
-    `;
+      `,
+    );
 
     if (this.selectedCell) {
       const key = `${this.selectedCell.x},${this.selectedCell.y}`;
       const tile = this.currentTileCache.get(key);
-
-      html += `
-        <div class="panel-section">
+      this.syncInfoSection(
+        'cell',
+        `
           <div class="panel-section-title">选中格 (${this.selectedCell.x}, ${this.selectedCell.y})</div>
-          ${tile ? `
-          <div class="panel-row"><span class="panel-label">地块</span><span class="panel-value">${TILE_TYPE_LABELS[tile.type] ?? tile.type}</span></div>
-            <div class="panel-row"><span class="panel-label">可行走</span><span class="panel-value">${tile.walkable ? '是' : '否'}</span></div>
-            <div class="panel-row"><span class="panel-label">灵气</span><span class="panel-value">${tile.aura ?? 0}</span></div>
-          ` : '<div class="empty-hint">无地块数据</div>'}
-        </div>
-      `;
+          ${tile
+            ? `
+              <div class="panel-row"><span class="panel-label">地块</span><span class="panel-value">${TILE_TYPE_LABELS[tile.type] ?? tile.type}</span></div>
+              <div class="panel-row"><span class="panel-label">可行走</span><span class="panel-value">${tile.walkable ? '是' : '否'}</span></div>
+              <div class="panel-row"><span class="panel-label">灵气</span><span class="panel-value">${tile.aura ?? 0}</span></div>
+            `
+            : '<div class="empty-hint">无地块数据</div>'}
+        `,
+      );
+    } else {
+      this.syncInfoSection('cell', '');
     }
 
     if (this.selectedEntity) {
-      const e = this.selectedEntity;
-      html += `
-        <div class="panel-section">
-          <div class="panel-section-title">${ENTITY_KIND_LABELS[e.kind] ?? e.kind}：${escapeHtml(e.name)}</div>
-          <div class="panel-row"><span class="panel-label">坐标</span><span class="panel-value">(${e.x}, ${e.y})</span></div>
-          <div class="panel-row"><span class="panel-label">字符</span><span class="panel-value">${escapeHtml(e.char)}</span></div>
+      const entity = this.selectedEntity;
+      let html = `
+        <div class="panel-section-title">${ENTITY_KIND_LABELS[entity.kind] ?? entity.kind}：${escapeHtml(entity.name)}</div>
+        <div class="panel-row"><span class="panel-label">坐标</span><span class="panel-value">(${entity.x}, ${entity.y})</span></div>
+        <div class="panel-row"><span class="panel-label">字符</span><span class="panel-value">${escapeHtml(entity.char)}</span></div>
       `;
-
-      if (e.hp !== undefined && e.maxHp) {
-        html += `<div class="panel-row"><span class="panel-label">HP</span><span class="panel-value">${e.hp} / ${e.maxHp}</span></div>`;
+      if (entity.hp !== undefined && entity.maxHp) {
+        html += `<div class="panel-row"><span class="panel-label">HP</span><span class="panel-value">${entity.hp} / ${entity.maxHp}</span></div>`;
       }
-
-      if (e.kind === 'player') {
+      if (entity.kind === 'player') {
         html += `
-          <div class="panel-row"><span class="panel-label">在线</span><span class="panel-value">${e.online ? '是' : '否'}</span></div>
-          <div class="panel-row"><span class="panel-label">自动战斗</span><span class="panel-value">${e.autoBattle ? '是' : '否'}</span></div>
-          <div class="panel-row"><span class="panel-label">机器人</span><span class="panel-value">${e.isBot ? '是' : '否'}</span></div>
+          <div class="panel-row"><span class="panel-label">在线</span><span class="panel-value">${entity.online ? '是' : '否'}</span></div>
+          <div class="panel-row"><span class="panel-label">自动战斗</span><span class="panel-value">${entity.autoBattle ? '是' : '否'}</span></div>
+          <div class="panel-row"><span class="panel-label">机器人</span><span class="panel-value">${entity.isBot ? '是' : '否'}</span></div>
         `;
-        if (e.dead) html += `<div class="panel-row"><span class="panel-label">状态</span><span class="panel-value" style="color:#f44336">死亡</span></div>`;
-      }
-
-      if (e.kind === 'monster') {
-        html += `<div class="panel-row"><span class="panel-label">存活</span><span class="panel-value">${e.alive ? '是' : '否'}</span></div>`;
-        if (e.targetPlayerId) {
-          html += `<div class="panel-row"><span class="panel-label">仇恨目标</span><span class="panel-value">${escapeHtml(e.targetPlayerId)}</span></div>`;
-        }
-        if (e.respawnLeft !== undefined && e.respawnLeft > 0) {
-          html += `<div class="panel-row"><span class="panel-label">重生倒计时</span><span class="panel-value">${e.respawnLeft}s</span></div>`;
+        if (entity.dead) {
+          html += `<div class="panel-row"><span class="panel-label">状态</span><span class="panel-value" style="color:#f44336">死亡</span></div>`;
         }
       }
-
-      html += '</div>';
+      if (entity.kind === 'monster') {
+        html += `<div class="panel-row"><span class="panel-label">存活</span><span class="panel-value">${entity.alive ? '是' : '否'}</span></div>`;
+        if (entity.targetPlayerId) {
+          html += `<div class="panel-row"><span class="panel-label">仇恨目标</span><span class="panel-value">${escapeHtml(entity.targetPlayerId)}</span></div>`;
+        }
+        if (entity.respawnLeft !== undefined && entity.respawnLeft > 0) {
+          html += `<div class="panel-row"><span class="panel-label">重生倒计时</span><span class="panel-value">${entity.respawnLeft}s</span></div>`;
+        }
+      }
+      this.syncInfoSection('entity', html);
+    } else {
+      this.syncInfoSection('entity', '');
     }
+  }
 
-    this.infoEl.innerHTML = html;
+  private ensureInfoShell(): void {
+    if (this.infoEl.querySelector('[data-world-info-shell]')) {
+      return;
+    }
+    this.infoEl.replaceChildren(createFragmentFromHtml(`
+      <div data-world-info-shell>
+        <div class="panel-section" data-world-info-section="map"></div>
+        <div class="panel-section" data-world-info-section="cell"></div>
+        <div class="panel-section" data-world-info-section="entity"></div>
+      </div>
+    `));
+  }
+
+  private syncInfoSection(section: 'map' | 'cell' | 'entity', html: string): void {
+    const root = this.infoEl.querySelector<HTMLElement>(`[data-world-info-section="${section}"]`);
+    if (!root) {
+      return;
+    }
+    if (!html) {
+      root.replaceChildren();
+      root.hidden = true;
+      return;
+    }
+    root.hidden = false;
+    root.replaceChildren(createFragmentFromHtml(html));
   }
 }

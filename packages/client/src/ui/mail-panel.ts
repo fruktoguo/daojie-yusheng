@@ -1,4 +1,3 @@
-// TODO(next:UI06): 把 mail-panel 的 modal 外壳从 buildBodyHtml 继续收成更稳定的局部 patch，减少仍残留的模板式装载入口。
 import {
   MAIL_PAGE_SIZE_DEFAULT,
   MailDetailView,
@@ -211,7 +210,9 @@ export class MailPanel {
       title: '飞书台',
       subtitle: `未读 ${this.summary.unreadCount} · 可领取 ${this.summary.claimableCount}`,
       hint: this.statusMessage || '点击空白处关闭',
-      bodyHtml: this.buildBodyHtml(),
+      renderBody: (body) => {
+        body.innerHTML = this.buildBodyHtml();
+      },
       onAfterRender: (body) => this.bindEvents(body),
     });
   }
@@ -256,7 +257,9 @@ export class MailPanel {
       title: '飞书台',
       subtitle: meta.subtitle,
       hint: meta.hint,
-      bodyHtml: this.buildBodyHtml(),
+      renderBody: (body) => {
+        body.innerHTML = this.buildBodyHtml();
+      },
       onAfterRender: (nextBody) => {
         this.bindEvents(nextBody);
         if (renderState) {
