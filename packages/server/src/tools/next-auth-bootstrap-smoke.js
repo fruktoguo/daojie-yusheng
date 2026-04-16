@@ -1850,7 +1850,7 @@ async function verifyLegacyHttpIdentityFallbackGateContract() {
                 throw new Error(`expected migration source to stay closed without explicit opt-in after legacy HTTP fallback removal, got result=${JSON.stringify(poolUnavailableResult)} httpCallCount=${httpCallCount}`);
             }
             const poolUnavailableExplicitResult = await service.resolvePlayerIdentityFromMigrationSource(payload, {
-                allowCompatMigration: true,
+                allowMigrationSource: true,
                 allowLegacyHttpIdentityFallback: true,
             });
             if (poolUnavailableExplicitResult !== null || httpCallCount !== 0) {
@@ -1923,7 +1923,7 @@ async function verifyLegacyHttpIdentityFallbackOptInContract() {
                 throw new Error(`expected migration source to stay closed without explicit opt-in after legacy HTTP fallback removal, got result=${JSON.stringify(defaultBlockedResult)} httpCallCount=${httpCallCount}`);
             }
             const explicitPoolUnavailableResult = await service.resolvePlayerIdentityFromMigrationSource(payload, {
-                allowCompatMigration: true,
+                allowMigrationSource: true,
                 allowLegacyHttpIdentityFallback: true,
             });
             if (explicitPoolUnavailableResult !== null || httpCallCount !== 0) {
@@ -1932,7 +1932,7 @@ async function verifyLegacyHttpIdentityFallbackOptInContract() {
             service.ensurePool = async () => ({});
             world_legacy_player_repository_1.queryLegacyPlayerIdentityRow = async () => null;
             const explicitMissingRowResult = await service.resolvePlayerIdentityFromMigrationSource(payload, {
-                allowCompatMigration: true,
+                allowMigrationSource: true,
                 allowLegacyHttpIdentityFallback: true,
             });
             if (explicitMissingRowResult !== null || httpCallCount !== 0) {
@@ -1944,7 +1944,7 @@ async function verifyLegacyHttpIdentityFallbackOptInContract() {
                 throw error;
             };
             const explicitMissingSchemaResult = await service.resolvePlayerIdentityFromMigrationSource(payload, {
-                allowCompatMigration: true,
+                allowMigrationSource: true,
                 allowLegacyHttpIdentityFallback: true,
             });
             if (explicitMissingSchemaResult !== null || httpCallCount !== 0) {
@@ -1956,7 +1956,7 @@ async function verifyLegacyHttpIdentityFallbackOptInContract() {
             }, async () => {
                 service.ensurePool = async () => null;
                 const allowEnvPoolUnavailableResult = await service.resolvePlayerIdentityFromMigrationSource(payload, {
-                    allowCompatMigration: true,
+                    allowMigrationSource: true,
                     allowLegacyHttpIdentityFallback: true,
                 });
                 if (allowEnvPoolUnavailableResult !== null || httpCallCount !== 0) {
@@ -1965,7 +1965,7 @@ async function verifyLegacyHttpIdentityFallbackOptInContract() {
                 service.ensurePool = async () => ({});
                 world_legacy_player_repository_1.queryLegacyPlayerIdentityRow = async () => null;
                 const allowEnvMissingRowResult = await service.resolvePlayerIdentityFromMigrationSource(payload, {
-                    allowCompatMigration: true,
+                    allowMigrationSource: true,
                     allowLegacyHttpIdentityFallback: true,
                 });
                 if (allowEnvMissingRowResult !== null || httpCallCount !== 0) {
@@ -1977,7 +1977,7 @@ async function verifyLegacyHttpIdentityFallbackOptInContract() {
                     throw error;
                 };
                 const allowEnvMissingSchemaResult = await service.resolvePlayerIdentityFromMigrationSource(payload, {
-                    allowCompatMigration: true,
+                    allowMigrationSource: true,
                     allowLegacyHttpIdentityFallback: true,
                 });
                 if (allowEnvMissingSchemaResult !== null || httpCallCount !== 0) {
@@ -2722,14 +2722,14 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
  * 记录迁移source显式identity。
  */
     const compatMigrationExplicitIdentity = await compatMigrationSourceService.resolvePlayerIdentityForMigration(payload, {
-        allowCompatMigration: true,
+        allowMigrationSource: true,
         reason: 'smoke_explicit_identity',
     });
 /**
  * 记录迁移source显式snapshot。
  */
     const compatMigrationExplicitSnapshot = await compatMigrationSourceService.loadPlayerSnapshotForMigration(payload.playerId, {
-        allowCompatMigration: true,
+        allowMigrationSource: true,
         reason: 'smoke_explicit_snapshot',
     });
     const previousDisableCompatMigrationSource = process.env.SERVER_NEXT_AUTH_DISABLE_COMPAT_MIGRATION_SOURCE;
@@ -2746,11 +2746,11 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
     let compatMigrationStrictSnapshot = null;
     try {
         compatMigrationStrictIdentity = await compatMigrationSourceService.resolvePlayerIdentityForMigration(payload, {
-            allowCompatMigration: true,
+            allowMigrationSource: true,
             reason: 'smoke_strict_identity',
         });
         compatMigrationStrictSnapshot = await compatMigrationSourceService.loadPlayerSnapshotForMigration(payload.playerId, {
-            allowCompatMigration: true,
+            allowMigrationSource: true,
             reason: 'smoke_strict_snapshot',
         });
     }
@@ -3302,11 +3302,11 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
         NEXT_AUTH_DISABLE_COMPAT_MIGRATION_SOURCE: null,
     }, async () => {
         const explicitMigrationIdentity = await guardedSourceService.resolvePlayerIdentityForMigration(payload, {
-            allowCompatMigration: true,
+            allowMigrationSource: true,
             reason: 'guarded_explicit_identity',
         });
         const explicitMigrationSnapshot = await guardedSourceService.loadPlayerSnapshotForMigration(payload.playerId, {
-            allowCompatMigration: true,
+            allowMigrationSource: true,
             reason: 'guarded_explicit_snapshot',
         });
         return {

@@ -98,6 +98,12 @@
 
 ### 玩家身份映射 `server_next_player_identity`
 
+legacy 来源当前锁定为：
+
+- `legacy users`：`users.id -> userId`、`users.username -> username`、`users.displayName -> displayName`、`users.pendingRoleName -> pendingRoleName`
+- `legacy players`：通过 `players.userId = users.id` 左连接补 `players.id -> playerId`、`players.name -> playerName`
+- next 侧显式 migration 读取入口：`packages/server/src/network/world-legacy-player-repository.js -> queryLegacyPlayerIdentityRow()`
+
 | legacy 字段 | next 字段 | 转换规则 | 默认值 / 失败策略 |
 | --- | --- | --- | --- |
 | `payload.userId` / `payload.id` / `key` | `user_id` | 取首个非空字符串 | 缺失则整条失败 |
@@ -109,6 +115,12 @@
 | legacy 整体 payload | `payload` | 补齐身份字段后整体写回 jsonb | 迁移时保留原始扩展字段 |
 
 ### 玩家快照 `server_next_player_snapshot`
+
+legacy 来源当前锁定为：
+
+- `legacy players`：`players.id` 单表直接作为 player snapshot 来源
+- next 侧显式 migration 读取入口：`packages/server/src/network/world-legacy-player-repository.js -> queryLegacyPlayerSnapshotRow()`
+- 这条来源只服务显式 migration / backfill，不再是 next 主链真源
 
 | legacy 字段 | next 字段 | 转换规则 | 默认值 / 失败策略 |
 | --- | --- | --- | --- |
@@ -398,7 +410,7 @@ legacy 来源当前锁定为：
 - [x] `server_next_player_snapshots_v1`
 - [x] `server_next_legacy_gm_auth_v1`
 - [x] `server_config`
-- [ ] legacy `users` / `players` 正式来源仍需补最终定位
+- [x] legacy `users` / `players` 正式来源已锁定到 `users LEFT JOIN players(userId)` 的 identity 映射，以及 `players` 单表快照来源
 - [x] legacy 邮件真源已锁定到 `mail_campaigns / mail_audience_members / player_mail_receipts`
 - [x] legacy 市场真源已锁定到 `market_orders / market_trade_history / players.marketStorage`
 - [x] legacy 建议真源已锁定到 `suggestions` 表，空表时回退 `legacy/server/data/runtime/suggestions.json`

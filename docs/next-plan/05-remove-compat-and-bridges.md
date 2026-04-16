@@ -13,6 +13,7 @@
 - [x] `next-auth-bootstrap-smoke.js` 已切到 `resolvePlayerIdentityForMigration / loadPlayerSnapshotForMigration / ensureMigrationBackfillSnapshot`
 - [x] `WorldPlayerAuthService / WorldPlayerSourceService / WorldPlayerSnapshotService` 内部变量、日志和拦截 reason 已继续从 `compat` 收成 `migration`
 - [x] `WorldPlayerAuthService / WorldPlayerSnapshotService / WorldSessionBootstrapService / next-auth-bootstrap-smoke.js` 第一批 `compat_*` failureStage 与回退 reason 已收成中性 migration 命名
+- [x] `WorldPlayerSourceService` 与调用侧的 `allowCompatMigration` 已收成 `allowMigrationSource`
 
 - [x] 盘点 `packages/server/src/network/` 下所有 compat / bridge 入口
 - [x] 盘点 `packages/server/src/persistence/` 下所有 compat 读取入口
@@ -59,7 +60,7 @@
   - 当前只该服务于显式 migration，不应继续扩职责。
 - `packages/server/src/network/world-player-source.service.js`
   - 仍持有 legacy 数据库入口和 migration source gate。
-  - 还残留 `allowCompatMigration` 命名与 `legacy:vitals_baseline` 规范化兼容。
+  - `allowCompatMigration` 命名已删；还残留 `legacy:vitals_baseline` 规范化兼容与 legacy 库读取本体。
 - `packages/server/src/network/world-player-auth.service.js`
   - `compat_*` failureStage 已收口，但仍保留 `legacy_backfill` / `legacy_sync` 来源提升、migration backfill 保存与快照补种主逻辑。
 - `packages/server/src/network/world-player-snapshot.service.js`
@@ -116,7 +117,7 @@
 
 ### 第 1 批：先删 facade / alias / 命名兼容
 
-- [ ] 删除 `world-player-source.service.js` 中剩余 compat 命名、布尔参数、注释口径
+- [x] 删除 `world-player-source.service.js` 中剩余 compat 命名、布尔参数、注释口径
 - [x] 删除 `world-player-auth.service.js` / `world-player-snapshot.service.js` 中仍保留的 `compat_*` failureStage / trace 命名
 - [ ] 删除只为兼容旧命名存在的 wrapper / facade，而不是继续新增别名
 

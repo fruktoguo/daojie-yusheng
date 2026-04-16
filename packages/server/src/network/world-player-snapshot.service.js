@@ -42,7 +42,7 @@ let WorldPlayerSnapshotService = class WorldPlayerSnapshotService {
     /** 生成显式 migration 快照来源选项。 */
     buildMigrationSnapshotSourceOptions(reason) {
         return {
-            allowCompatMigration: true,
+            allowMigrationSource: true,
             allowLegacyHttpIdentityFallback: false,
             reason,
         };

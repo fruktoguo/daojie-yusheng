@@ -15,7 +15,7 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.toPlayerSnapshotFromCompatRow = exports.WorldPlayerSourceService = void 0;
+exports.toPlayerSnapshotFromMigrationRow = exports.WorldPlayerSourceService = void 0;
 
 const common_1 = require("@nestjs/common");
 
@@ -49,7 +49,7 @@ function isMigrationSourceDisabled() {
 }
 /** 是否显式允许 migration-only 身份来源。 */
 function isMigrationAccessExplicit(options) {
-    return options?.allowCompatMigration === true;
+    return options?.allowMigrationSource === true;
 }
 /** 迁移入口必须显式声明，避免继续把 legacy 源当常规真源。 */
 function assertExplicitMigrationAccess(options, logger, action) {
@@ -195,7 +195,7 @@ let WorldPlayerSourceService = class WorldPlayerSourceService {
         if (!row) {
             return null;
         }
-        return toPlayerSnapshotFromCompatRow(row);
+        return toPlayerSnapshotFromMigrationRow(row);
     }
     /** 懒加载 legacy 数据库连接。 */
     async ensurePool() {
@@ -298,7 +298,7 @@ function isValidVisibleDisplayName(value) {
         && (0, shared_1.hasVisibleNameGrapheme)(value)
         && !(0, shared_1.containsInvisibleOnlyNameGrapheme)(value);
 }
-function toPlayerSnapshotFromCompatRow(row) {
+function toPlayerSnapshotFromMigrationRow(row) {
 
     const currentMapId = resolveRequiredCompatMapId(row.mapId);
 
@@ -387,12 +387,12 @@ function toPlayerSnapshotFromCompatRow(row) {
         },
     };
 }
-exports.toPlayerSnapshotFromCompatRow = toPlayerSnapshotFromCompatRow;
+exports.toPlayerSnapshotFromMigrationRow = toPlayerSnapshotFromMigrationRow;
 function resolveRequiredCompatMapId(value) {
 
     const normalized = typeof value === 'string' ? value.trim() : '';
     if (!normalized) {
-        throw new Error('Compat player snapshot invalid mapId');
+        throw new Error('Migration player snapshot invalid mapId');
     }
     return normalized;
 }
@@ -522,7 +522,7 @@ function normalizeQuests(value) {
 }
 function normalizeUnlockedMapIds(value) {
     if (!Array.isArray(value)) {
-        throw new Error('Compat player snapshot invalid unlockedMinimapIds');
+        throw new Error('Migration player snapshot invalid unlockedMinimapIds');
     }
 
     const result = new Set();

@@ -74,7 +74,7 @@ function resolvePersistedNextIdentityAuthSource(persistedSource) {
 }
 
 const MIGRATION_SOURCE_OPTIONS = Object.freeze({
-    allowCompatMigration: true,
+    allowMigrationSource: true,
     allowLegacyHttpIdentityFallback: false,
     reason: 'auth_migration',
 });
