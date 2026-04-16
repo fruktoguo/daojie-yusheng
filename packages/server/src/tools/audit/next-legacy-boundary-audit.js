@@ -116,13 +116,6 @@ const CHECKS = [
     pattern: "getLegacyNavigationPath(",
   },
   {
-    id: "sync.legacy_combat_effects",
-    category: "P1 world sync compat",
-    description: "compat tick 仍直接读取 legacy combat effects",
-    file: "packages/server/src/network/world-sync.service.js",
-    pattern: "getLegacyCombatEffects(",
-  },
-  {
     id: "sync.protocol_dual_emit",
     category: "P1 world sync compat",
     description: "低频同步仍通过 protocol-aware helper 维持 next/legacy 双发",

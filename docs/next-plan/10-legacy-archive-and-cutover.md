@@ -21,11 +21,7 @@
 - workflow / deploy 口径
   - `.github/workflows/*`
 
-当前顶层 README 还有一个明显历史口径问题：
-
-- 它仍在用 `client-next/shared-next/server-next` 的叫法描述实际 `packages/client`、`packages/shared`、`packages/server`
-
-所以 `10` 不只是“归档 legacy”，还包含把仓库主入口文案彻底改成 next 唯一主线。
+当前这一步的重点，不再是发现“README 和运维文档哪里写错了”，而是把已经修过的入口文档彻底纳入切换前/切换后检查。
 
 ## 任务
 
@@ -57,7 +53,7 @@
 
 ### 第 2 批：清理主文档口径
 
-- [ ] 更新 `README.md`
+- [x] 更新 `README.md`
 - [ ] 更新 `docs/next-in-place-hard-cut-plan.md`
 - [ ] 更新 `docs/next-plan/README.md`
 - [ ] 确认主文档不再把 legacy 写成“默认落点”或“并行主线”
@@ -70,10 +66,10 @@
 
 ### 第 3 批：清理验证 / 运维口径
 
-- [ ] 更新 `docs/server-next-operations.md`
-- [ ] 更新 `packages/server/README.md`
-- [ ] 更新 `packages/server/TESTING.md`
-- [ ] 更新 `packages/server/REPLACE-RUNBOOK.md`
+- [x] 更新 `docs/server-next-operations.md`
+- [x] 更新 `packages/server/README.md`
+- [x] 更新 `packages/server/TESTING.md`
+- [x] 更新 `packages/server/REPLACE-RUNBOOK.md`
 - [ ] 检查 `.github/workflows/*` 是否仍有误导性的旧主线描述
 
 目标：
@@ -105,6 +101,13 @@
   - `pnpm verify:replace-ready:full`
 - [ ] `05` 中定义的主要 compat 面已退到可接受范围
 - [ ] `10` 白名单里的 legacy 范围已确定
+
+## 当前阻塞
+
+- `packages/server/src/network/world-legacy-player-repository.js` 仍在，且 `next-auth-bootstrap-smoke.js` 还直接 import 它做 proof 注入。
+- auth/snapshot 的 runtime migration bridge 还没完全退出主链。
+- GM legacy scope fallback 还没删。
+- 工作区仍存在既有文档/运行手册脏改，切换前检查还不能判定完成。
 
 ### 第 6 批：做切换后检查
 

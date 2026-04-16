@@ -161,7 +161,7 @@ let WorldSyncService = class WorldSyncService {
         const template = this.templateRepository.getOrThrow(view.instance.templateId);
 
         const visibleTileKeys = this.buildVisibleTileKeySet(view, player, template);
-        return filterLegacyCombatEffects(this.worldRuntimeService.getLegacyCombatEffects(view.instance.instanceId), visibleTileKeys);
+        return filterCombatEffects(this.worldRuntimeService.getCombatEffects(view.instance.instanceId), visibleTileKeys);
     }
     /** 在调试模式下记录同步包里是否带有位移信号。 */
     logMovementEnvelope(playerId, phase, envelope) {
@@ -2132,7 +2132,7 @@ function compareStableStrings(left, right) {
     }
     return 0;
 }
-function filterLegacyCombatEffects(effects, visibleTiles) {
+function filterCombatEffects(effects, visibleTiles) {
     if (effects.length === 0 || visibleTiles.size === 0) {
         return [];
     }

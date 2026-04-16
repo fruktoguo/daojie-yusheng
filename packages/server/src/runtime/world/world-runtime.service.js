@@ -317,8 +317,8 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             combat: instance.getTileCombatState(x, y),
         };
     }
-    /** getLegacyCombatEffects：读取旧版战斗效果。 */
-    getLegacyCombatEffects(instanceId) {
+    /** getCombatEffects：读取当前实例战斗效果。 */
+    getCombatEffects(instanceId) {
 
         const effects = this.latestCombatEffectsByInstanceId.get(instanceId);
         return effects ? effects.map((entry) => cloneCombatEffect(entry)) : [];

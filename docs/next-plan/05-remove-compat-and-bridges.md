@@ -68,7 +68,7 @@
 - `packages/server/src/network/world-session-bootstrap.service.js`
   - 已改成中性 migration 回退 reason，但 runtime fallback 分支本体还没删除。
 - `packages/server/src/network/world-sync.service.js`
-  - 当前确认仍直接读取 `getLegacyCombatEffects()`。
+  - `getLegacyCombatEffects()` 命名已删，但 combat effects 仍由现有 runtime 缓存提供。
   - 其它 compat 初始/增量分支由 boundary audit 持续盯住，删前先以 audit 结果为准。
 
 ### `packages/server/src/persistence/*` 与运行时兼容装载
@@ -156,6 +156,7 @@
 ### 第 3 批：删运行时 / 持久化 compat 装载
 
 - [ ] 删除 `world-sync.service.js` 中对 `getLegacyCombatEffects()` 的直接读取
+- [x] 删除 `world-sync.service.js` 中对 `getLegacyCombatEffects()` 的直接读取
 - [ ] 删除 `player-runtime.service.js` 中 `resolveCompatiblePendingLogbookMessages()` / `resolveCompatibleRuntimeBonuses()`
 - [ ] 删除 `player-runtime.service.js`、`player-persistence.service.js`、`world-player-source.service.js` 中对 `legacy:vitals_baseline` 的兼容规范化
 - [ ] 删除 `world-session-bootstrap.service.js` 中只用于 compat miss 描述的回退原因分支
