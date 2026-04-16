@@ -352,8 +352,8 @@ async function main() {
         if (DATABASE_ENABLED && authTrace?.identitySource !== 'next') {
             throw new Error(`expected with-db first identity source to be next, got ${authTrace?.identitySource ?? 'unknown'}`);
         }
-        if (DATABASE_ENABLED && authTrace?.identityPersistedSource !== 'legacy_sync') {
-            throw new Error(`expected with-db first identity persisted source to be legacy_sync, got ${authTrace?.identityPersistedSource ?? 'unknown'}`);
+        if (DATABASE_ENABLED && authTrace?.identityPersistedSource !== 'native') {
+            throw new Error(`expected with-db first identity persisted source to be native, got ${authTrace?.identityPersistedSource ?? 'unknown'}`);
         }
         if (!DATABASE_ENABLED && authTrace?.identitySource !== 'token_runtime') {
             throw new Error(`expected no-db first identity source to be token_runtime, got ${authTrace?.identitySource ?? 'unknown'}`);
@@ -995,9 +995,7 @@ async function runNextBootstrap(token, expectedIdentity = null, options = undefi
  * 验证 next socket 发出 legacy 事件会被拒绝，且不会降级为 legacy 协议。
  */
 async function verifyNextSocketRejectsLegacyEventContract(token, expectedPlayerId) {
-    const socket = createNextSocket(token, {
-        allowedNextErrorCodes: ['LEGACY_EVENT_ON_NEXT_PROTOCOL'],
-    });
+    const socket = createNextSocket(token);
     try {
         await socket.onceConnected();
         const initSession = await socket.waitForEvent(shared_1.NEXT_S2C.InitSession, (payload) => typeof payload?.pid === 'string' && payload.pid.trim().length > 0, 5000);
@@ -1007,63 +1005,64 @@ async function verifyNextSocketRejectsLegacyEventContract(token, expectedPlayerI
         }
         const legacyRejectProofs = [];
         const legacyEventsToReject = [
-            { event: shared_1.C2S.Ping, payload: { clientAt: Date.now() }, label: 'c:ping' },
-            { event: shared_1.C2S.RequestSuggestions, payload: {}, label: 'c:requestSuggestions' },
-            { event: shared_1.C2S.RequestMailSummary, payload: {}, label: 'c:requestMailSummary' },
-            { event: shared_1.C2S.RequestMailPage, payload: {}, label: 'c:requestMailPage' },
-            { event: shared_1.C2S.RequestMailDetail, payload: {}, label: 'c:requestMailDetail' },
-            { event: shared_1.C2S.RequestMarket, payload: {}, label: 'c:requestMarket' },
-            { event: shared_1.C2S.RedeemCodes, payload: {}, label: 'c:redeemCodes' },
-            { event: shared_1.C2S.MarkMailRead, payload: {}, label: 'c:markMailRead' },
-            { event: shared_1.C2S.CreateSuggestion, payload: {}, label: 'c:createSuggestion' },
-            { event: shared_1.C2S.VoteSuggestion, payload: {}, label: 'c:voteSuggestion' },
-            { event: shared_1.C2S.ReplySuggestion, payload: {}, label: 'c:replySuggestion' },
-            { event: shared_1.C2S.MarkSuggestionRepliesRead, payload: {}, label: 'c:markSuggestionRepliesRead' },
-            { event: shared_1.C2S.GmMarkSuggestionCompleted, payload: {}, label: 'c:gmMarkSuggestionCompleted' },
-            { event: shared_1.C2S.GmRemoveSuggestion, payload: {}, label: 'c:gmRemoveSuggestion' },
-            { event: shared_1.C2S.ClaimMailAttachments, payload: {}, label: 'c:claimMailAttachments' },
-            { event: shared_1.C2S.DeleteMail, payload: {}, label: 'c:deleteMail' },
-            { event: shared_1.C2S.RequestMarketItemBook, payload: {}, label: 'c:requestMarketItemBook' },
-            { event: shared_1.C2S.RequestMarketTradeHistory, payload: {}, label: 'c:requestMarketTradeHistory' },
-            { event: shared_1.C2S.UseItem, payload: {}, label: 'c:useItem' },
-            { event: shared_1.C2S.DropItem, payload: {}, label: 'c:dropItem' },
-            { event: shared_1.C2S.Equip, payload: {}, label: 'c:equip' },
-            { event: shared_1.C2S.Unequip, payload: {}, label: 'c:unequip' },
-            { event: shared_1.C2S.Cultivate, payload: {}, label: 'c:cultivate' },
-            { event: shared_1.C2S.RequestNpcShop, payload: {}, label: 'c:requestNpcShop' },
-            { event: shared_1.C2S.CreateMarketSellOrder, payload: {}, label: 'c:createMarketSellOrder' },
-            { event: shared_1.C2S.CreateMarketBuyOrder, payload: {}, label: 'c:createMarketBuyOrder' },
-            { event: shared_1.C2S.BuyMarketItem, payload: {}, label: 'c:buyMarketItem' },
-            { event: shared_1.C2S.SellMarketItem, payload: {}, label: 'c:sellMarketItem' },
-            { event: shared_1.C2S.CancelMarketOrder, payload: {}, label: 'c:cancelMarketOrder' },
-            { event: shared_1.C2S.ClaimMarketStorage, payload: {}, label: 'c:claimMarketStorage' },
-            { event: shared_1.C2S.BuyNpcShopItem, payload: {}, label: 'c:buyNpcShopItem' },
+            { event: 'c:ping', payload: { clientAt: Date.now() }, label: 'c:ping' },
+            { event: 'c:requestSuggestions', payload: {}, label: 'c:requestSuggestions' },
+            { event: 'c:requestMailSummary', payload: {}, label: 'c:requestMailSummary' },
+            { event: 'c:requestMailPage', payload: {}, label: 'c:requestMailPage' },
+            { event: 'c:requestMailDetail', payload: {}, label: 'c:requestMailDetail' },
+            { event: 'c:requestMarket', payload: {}, label: 'c:requestMarket' },
+            { event: 'c:redeemCodes', payload: {}, label: 'c:redeemCodes' },
+            { event: 'c:markMailRead', payload: {}, label: 'c:markMailRead' },
+            { event: 'c:createSuggestion', payload: {}, label: 'c:createSuggestion' },
+            { event: 'c:voteSuggestion', payload: {}, label: 'c:voteSuggestion' },
+            { event: 'c:replySuggestion', payload: {}, label: 'c:replySuggestion' },
+            { event: 'c:markSuggestionRepliesRead', payload: {}, label: 'c:markSuggestionRepliesRead' },
+            { event: 'c:gmMarkSuggestionCompleted', payload: {}, label: 'c:gmMarkSuggestionCompleted' },
+            { event: 'c:gmRemoveSuggestion', payload: {}, label: 'c:gmRemoveSuggestion' },
+            { event: 'c:claimMailAttachments', payload: {}, label: 'c:claimMailAttachments' },
+            { event: 'c:deleteMail', payload: {}, label: 'c:deleteMail' },
+            { event: 'c:requestMarketItemBook', payload: {}, label: 'c:requestMarketItemBook' },
+            { event: 'c:requestMarketTradeHistory', payload: {}, label: 'c:requestMarketTradeHistory' },
+            { event: 'c:useItem', payload: {}, label: 'c:useItem' },
+            { event: 'c:dropItem', payload: {}, label: 'c:dropItem' },
+            { event: 'c:equip', payload: {}, label: 'c:equip' },
+            { event: 'c:unequip', payload: {}, label: 'c:unequip' },
+            { event: 'c:cultivate', payload: {}, label: 'c:cultivate' },
+            { event: 'c:requestNpcShop', payload: {}, label: 'c:requestNpcShop' },
+            { event: 'c:createMarketSellOrder', payload: {}, label: 'c:createMarketSellOrder' },
+            { event: 'c:createMarketBuyOrder', payload: {}, label: 'c:createMarketBuyOrder' },
+            { event: 'c:buyMarketItem', payload: {}, label: 'c:buyMarketItem' },
+            { event: 'c:sellMarketItem', payload: {}, label: 'c:sellMarketItem' },
+            { event: 'c:cancelMarketOrder', payload: {}, label: 'c:cancelMarketOrder' },
+            { event: 'c:claimMarketStorage', payload: {}, label: 'c:claimMarketStorage' },
+            { event: 'c:buyNpcShopItem', payload: {}, label: 'c:buyNpcShopItem' },
         ];
         for (const entry of legacyEventsToReject) {
             const rejectErrorCountBeforeEmit = socket.getEventCount(shared_1.NEXT_S2C.Error);
+            const pongCountBeforeEmit = socket.getEventCount(shared_1.NEXT_S2C.Pong);
+            const legacyEventCountBeforeEmit = socket.legacyEvents.length;
             socket.emit(entry.event, entry.payload);
-            await waitFor(() => socket.getEventCount(shared_1.NEXT_S2C.Error) > rejectErrorCountBeforeEmit, 5000, `nextLegacyReject:${entry.label}`);
-            const rejectPayload = socket.listEventPayloads(shared_1.NEXT_S2C.Error)
-                .slice()
-                .reverse()
-                .find((payload) => payload?.code === 'LEGACY_EVENT_ON_NEXT_PROTOCOL');
-            if (!rejectPayload) {
-                throw new Error(`expected LEGACY_EVENT_ON_NEXT_PROTOCOL when next socket emits ${entry.label}`);
+            await delay(150);
+            if (socket.getEventCount(shared_1.NEXT_S2C.Error) !== rejectErrorCountBeforeEmit) {
+                throw new Error(`expected next socket to ignore legacy event ${entry.label} without NEXT_S2C.Error, got ${JSON.stringify(socket.listEventPayloads(shared_1.NEXT_S2C.Error).slice(-1)[0] ?? null)}`);
             }
-            legacyRejectProofs.push({
-                event: entry.label,
-                code: rejectPayload.code,
-            });
+            if (socket.getEventCount(shared_1.NEXT_S2C.Pong) !== pongCountBeforeEmit) {
+                throw new Error(`expected legacy event ${entry.label} to avoid NEXT_S2C.Pong on next socket`);
+            }
+            if (socket.legacyEvents.length !== legacyEventCountBeforeEmit) {
+                throw new Error(`expected next socket to avoid legacy s2c echo while ignoring ${entry.label}, got ${socket.legacyEvents.join(', ')}`);
+            }
+            legacyRejectProofs.push(entry.label);
         }
         if (socket.legacyEvents.length > 0) {
-            throw new Error(`expected no legacy s2c events while rejecting legacy c2s on next socket, got ${socket.legacyEvents.join(', ')}`);
+            throw new Error(`expected no legacy s2c events while ignoring legacy c2s on next socket, got ${socket.legacyEvents.join(', ')}`);
         }
         socket.emit(shared_1.NEXT_C2S.Ping, { clientAt: Date.now() });
         await socket.waitForEvent(shared_1.NEXT_S2C.Pong, () => true, 5000);
         return {
-            rejectedCode: legacyRejectProofs[0]?.code ?? null,
-            rejectedSecondCode: legacyRejectProofs[1]?.code ?? null,
-            rejectedEvents: legacyRejectProofs,
+            ignoredLegacyEvent: legacyRejectProofs[0] ?? null,
+            ignoredSecondLegacyEvent: legacyRejectProofs[1] ?? null,
+            ignoredLegacyEvents: legacyRejectProofs,
             nextPongCount: socket.getEventCount(shared_1.NEXT_S2C.Pong),
             legacyEvents: socket.legacyEvents.slice(),
         };
@@ -1318,7 +1317,7 @@ async function verifyImplicitLegacyProtocolEntryContract() {
             y: 1,
             entities: [],
         });
-        const RuntimeGmStateService = require("../runtime/api/gm/runtime-gm-state.service").RuntimeGmStateService;
+        const RuntimeGmStateService = require("../runtime/gm/runtime-gm-state.service").RuntimeGmStateService;
         const runtimeGmStateService = new RuntimeGmStateService({
             listSummaries: () => [],
         }, {
@@ -1368,9 +1367,8 @@ async function verifyImplicitLegacyProtocolEntryContract() {
         throw new Error(`expected explicit legacy disabled event emission to stay next-only, got ${JSON.stringify(explicitLegacyDisabledEventClient.emitted)}`);
     }
     if (!explicitLegacyDisabledSyncEmission
-        || explicitLegacyDisabledSyncEmission.emitLegacy !== false
         || explicitLegacyDisabledSyncEmission.emitNext !== true
-        || explicitLegacyDisabledSyncEmission.protocol !== null) {
+        || explicitLegacyDisabledSyncEmission.protocol !== 'next') {
         throw new Error(`expected explicit legacy disabled sync emission to stay next-only, got ${JSON.stringify(explicitLegacyDisabledSyncEmission)}`);
     }
     if (projectionClient.emitted.some((entry) => LEGACY_S2C_EVENTS.has(entry.event))) {
@@ -1835,36 +1833,40 @@ async function verifyLegacyHttpIdentityFallbackGateContract() {
         const originalEnsurePool = service.ensurePool.bind(service);
         const originalQueryLegacyPlayerIdentityRow = world_legacy_player_repository_1.queryLegacyPlayerIdentityRow;
         try {
-            service.ensurePool = async () => null;
-            const poolUnavailableResult = await service.resolvePlayerIdentityFromCompatSource(payload);
-            if (poolUnavailableResult !== null || httpCallCount !== 0) {
-                throw new Error(`expected legacy http identity fallback gate to block pool-unavailable http fallback, got result=${JSON.stringify(poolUnavailableResult)} httpCallCount=${httpCallCount}`);
+            if (typeof service.resolvePlayerIdentityFromCompatSource === 'function') {
+                throw new Error('expected legacy HTTP identity fallback entry to be removed from world player source service');
             }
-            const poolUnavailableExplicitResult = await service.resolvePlayerIdentityFromCompatSource(payload, {
+            service.ensurePool = async () => null;
+            const poolUnavailableResult = await service.resolvePlayerIdentityFromMigrationSource(payload);
+            if (poolUnavailableResult !== null || httpCallCount !== 0) {
+                throw new Error(`expected migration source to stay closed without explicit opt-in after legacy HTTP fallback removal, got result=${JSON.stringify(poolUnavailableResult)} httpCallCount=${httpCallCount}`);
+            }
+            const poolUnavailableExplicitResult = await service.resolvePlayerIdentityFromMigrationSource(payload, {
                 allowCompatMigration: true,
                 allowLegacyHttpIdentityFallback: true,
             });
             if (poolUnavailableExplicitResult !== null || httpCallCount !== 0) {
-                throw new Error(`expected env-gated legacy http fallback to stay blocked even with explicit opt-in, got result=${JSON.stringify(poolUnavailableExplicitResult)} httpCallCount=${httpCallCount}`);
+                throw new Error(`expected removed legacy HTTP fallback to stay blocked even when migration opt-in is explicit and pool is unavailable, got result=${JSON.stringify(poolUnavailableExplicitResult)} httpCallCount=${httpCallCount}`);
             }
             service.ensurePool = async () => ({});
             world_legacy_player_repository_1.queryLegacyPlayerIdentityRow = async () => null;
-            const missingRowResult = await service.resolvePlayerIdentityFromCompatSource(payload);
+            const missingRowResult = await service.resolvePlayerIdentityFromMigrationSource(payload);
             if (missingRowResult !== null || httpCallCount !== 0) {
-                throw new Error(`expected legacy http identity fallback gate to block missing-row http fallback, got result=${JSON.stringify(missingRowResult)} httpCallCount=${httpCallCount}`);
+                throw new Error(`expected migration source to stay closed without explicit opt-in after legacy HTTP fallback removal, got result=${JSON.stringify(missingRowResult)} httpCallCount=${httpCallCount}`);
             }
             world_legacy_player_repository_1.queryLegacyPlayerIdentityRow = async () => {
                 const error = new Error('legacy schema missing');
                 error.code = '42P01';
                 throw error;
             };
-            const missingSchemaResult = await service.resolvePlayerIdentityFromCompatSource(payload);
+            const missingSchemaResult = await service.resolvePlayerIdentityFromMigrationSource(payload);
             if (missingSchemaResult !== null || httpCallCount !== 0) {
-                throw new Error(`expected legacy http identity fallback gate to block missing-schema http fallback, got result=${JSON.stringify(missingSchemaResult)} httpCallCount=${httpCallCount}`);
+                throw new Error(`expected migration source to stay closed without explicit opt-in after legacy HTTP fallback removal, got result=${JSON.stringify(missingSchemaResult)} httpCallCount=${httpCallCount}`);
             }
             return {
+                compatEntryRemoved: true,
                 poolUnavailableBlocked: true,
-                explicitEnvBlocked: true,
+                explicitPoolUnavailableBlocked: true,
                 missingRowBlocked: true,
                 missingSchemaBlocked: true,
                 httpCallCount,
@@ -1904,78 +1906,82 @@ async function verifyLegacyHttpIdentityFallbackOptInContract() {
         const originalEnsurePool = service.ensurePool.bind(service);
         const originalQueryLegacyPlayerIdentityRow = world_legacy_player_repository_1.queryLegacyPlayerIdentityRow;
         try {
-            service.ensurePool = async () => null;
-            const defaultBlockedResult = await service.resolvePlayerIdentityFromCompatSource(payload);
-            if (defaultBlockedResult !== null || httpCallCount !== 0) {
-                throw new Error(`expected legacy http fallback to stay blocked without explicit opt-in, got result=${JSON.stringify(defaultBlockedResult)} httpCallCount=${httpCallCount}`);
+            if (typeof service.resolvePlayerIdentityFromCompatSource === 'function') {
+                throw new Error('expected legacy HTTP identity fallback entry to stay removed even when allow envs are present');
             }
-            const explicitPoolUnavailableResult = await service.resolvePlayerIdentityFromCompatSource(payload, {
+            service.ensurePool = async () => null;
+            const defaultBlockedResult = await service.resolvePlayerIdentityFromMigrationSource(payload);
+            if (defaultBlockedResult !== null || httpCallCount !== 0) {
+                throw new Error(`expected migration source to stay closed without explicit opt-in after legacy HTTP fallback removal, got result=${JSON.stringify(defaultBlockedResult)} httpCallCount=${httpCallCount}`);
+            }
+            const explicitPoolUnavailableResult = await service.resolvePlayerIdentityFromMigrationSource(payload, {
                 allowCompatMigration: true,
                 allowLegacyHttpIdentityFallback: true,
             });
             if (explicitPoolUnavailableResult !== null || httpCallCount !== 0) {
-                throw new Error(`expected explicit opt-in to stay blocked without allow env, got result=${JSON.stringify(explicitPoolUnavailableResult)} httpCallCount=${httpCallCount}`);
+                throw new Error(`expected removed legacy HTTP fallback to stay blocked without allow env, got result=${JSON.stringify(explicitPoolUnavailableResult)} httpCallCount=${httpCallCount}`);
             }
             service.ensurePool = async () => ({});
             world_legacy_player_repository_1.queryLegacyPlayerIdentityRow = async () => null;
-            const explicitMissingRowResult = await service.resolvePlayerIdentityFromCompatSource(payload, {
+            const explicitMissingRowResult = await service.resolvePlayerIdentityFromMigrationSource(payload, {
                 allowCompatMigration: true,
                 allowLegacyHttpIdentityFallback: true,
             });
             if (explicitMissingRowResult !== null || httpCallCount !== 0) {
-                throw new Error(`expected missing-row explicit opt-in to stay blocked without allow env, got result=${JSON.stringify(explicitMissingRowResult)} httpCallCount=${httpCallCount}`);
+                throw new Error(`expected removed legacy HTTP fallback to stay blocked for missing legacy row, got result=${JSON.stringify(explicitMissingRowResult)} httpCallCount=${httpCallCount}`);
             }
             world_legacy_player_repository_1.queryLegacyPlayerIdentityRow = async () => {
                 const error = new Error('legacy schema missing');
                 error.code = '42P01';
                 throw error;
             };
-            const explicitMissingSchemaResult = await service.resolvePlayerIdentityFromCompatSource(payload, {
+            const explicitMissingSchemaResult = await service.resolvePlayerIdentityFromMigrationSource(payload, {
                 allowCompatMigration: true,
                 allowLegacyHttpIdentityFallback: true,
             });
             if (explicitMissingSchemaResult !== null || httpCallCount !== 0) {
-                throw new Error(`expected missing-schema explicit opt-in to stay blocked without allow env, got result=${JSON.stringify(explicitMissingSchemaResult)} httpCallCount=${httpCallCount}`);
+                throw new Error(`expected removed legacy HTTP fallback to stay blocked for missing legacy schema, got result=${JSON.stringify(explicitMissingSchemaResult)} httpCallCount=${httpCallCount}`);
             }
             return withEnvOverrides({
                 SERVER_NEXT_ALLOW_LEGACY_HTTP_IDENTITY_FALLBACK: '1',
                 NEXT_ALLOW_LEGACY_HTTP_IDENTITY_FALLBACK: null,
             }, async () => {
                 service.ensurePool = async () => null;
-                const allowEnvPoolUnavailableResult = await service.resolvePlayerIdentityFromCompatSource(payload, {
+                const allowEnvPoolUnavailableResult = await service.resolvePlayerIdentityFromMigrationSource(payload, {
                     allowCompatMigration: true,
                     allowLegacyHttpIdentityFallback: true,
                 });
-                if (!allowEnvPoolUnavailableResult || allowEnvPoolUnavailableResult.userId !== payload.sub || httpCallCount !== 1) {
-                    throw new Error(`expected explicit opt-in plus allow env to enable pool-unavailable http fallback, got result=${JSON.stringify(allowEnvPoolUnavailableResult)} httpCallCount=${httpCallCount}`);
+                if (allowEnvPoolUnavailableResult !== null || httpCallCount !== 0) {
+                    throw new Error(`expected allow env to stop resurrecting removed legacy HTTP fallback when pool is unavailable, got result=${JSON.stringify(allowEnvPoolUnavailableResult)} httpCallCount=${httpCallCount}`);
                 }
                 service.ensurePool = async () => ({});
                 world_legacy_player_repository_1.queryLegacyPlayerIdentityRow = async () => null;
-                const allowEnvMissingRowResult = await service.resolvePlayerIdentityFromCompatSource(payload, {
+                const allowEnvMissingRowResult = await service.resolvePlayerIdentityFromMigrationSource(payload, {
                     allowCompatMigration: true,
                     allowLegacyHttpIdentityFallback: true,
                 });
-                if (!allowEnvMissingRowResult || allowEnvMissingRowResult.userId !== payload.sub || httpCallCount !== 2) {
-                    throw new Error(`expected explicit opt-in plus allow env to enable missing-row http fallback, got result=${JSON.stringify(allowEnvMissingRowResult)} httpCallCount=${httpCallCount}`);
+                if (allowEnvMissingRowResult !== null || httpCallCount !== 0) {
+                    throw new Error(`expected allow env to stop resurrecting removed legacy HTTP fallback for missing legacy row, got result=${JSON.stringify(allowEnvMissingRowResult)} httpCallCount=${httpCallCount}`);
                 }
                 world_legacy_player_repository_1.queryLegacyPlayerIdentityRow = async () => {
                     const error = new Error('legacy schema missing');
                     error.code = '42P01';
                     throw error;
                 };
-                const allowEnvMissingSchemaResult = await service.resolvePlayerIdentityFromCompatSource(payload, {
+                const allowEnvMissingSchemaResult = await service.resolvePlayerIdentityFromMigrationSource(payload, {
                     allowCompatMigration: true,
                     allowLegacyHttpIdentityFallback: true,
                 });
-                if (!allowEnvMissingSchemaResult || allowEnvMissingSchemaResult.userId !== payload.sub || httpCallCount !== 3) {
-                    throw new Error(`expected explicit opt-in plus allow env to enable missing-schema http fallback, got result=${JSON.stringify(allowEnvMissingSchemaResult)} httpCallCount=${httpCallCount}`);
+                if (allowEnvMissingSchemaResult !== null || httpCallCount !== 0) {
+                    throw new Error(`expected allow env to stop resurrecting removed legacy HTTP fallback for missing legacy schema, got result=${JSON.stringify(allowEnvMissingSchemaResult)} httpCallCount=${httpCallCount}`);
                 }
                 return {
+                    compatEntryRemoved: true,
                     defaultBlockedWithoutExplicitOptIn: true,
                     explicitBlockedWithoutAllowEnv: true,
-                    explicitPoolUnavailableEnabled: true,
-                    explicitMissingRowEnabled: true,
-                    explicitMissingSchemaEnabled: true,
+                    allowEnvPoolUnavailableStillBlocked: true,
+                    allowEnvMissingRowStillBlocked: true,
+                    allowEnvMissingSchemaStillBlocked: true,
                     httpCallCount,
                 };
             });

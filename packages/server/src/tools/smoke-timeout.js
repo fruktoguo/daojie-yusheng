@@ -10,6 +10,9 @@ const node_path_1 = require("node:path");
  * 指定单个烟测默认超时时间。
  */
 const DEFAULT_SMOKE_TIMEOUT_MS = 10_000;
+const ENTRY_TIMEOUT_OVERRIDES_MS = new Map([
+    ['next-auth-bootstrap-smoke.js', 45_000],
+]);
 /**
  * 解析是否关闭统一烟测超时。
  */
@@ -48,13 +51,13 @@ function installSmokeTimeout(entryPath) {
         return;
     }
     /**
-     * 记录本次超时时长。
-     */
-    const timeoutMs = resolveSmokeTimeoutMs();
-    /**
      * 生成更易读的烟测标识。
      */
     const entryLabel = entryPath ? (0, node_path_1.basename)(entryPath) : (0, node_path_1.basename)(process.argv[1] ?? 'smoke');
+    /**
+     * 记录本次超时时长。
+     */
+    const timeoutMs = ENTRY_TIMEOUT_OVERRIDES_MS.get(entryLabel) ?? resolveSmokeTimeoutMs();
     /**
      * 创建硬超时定时器；若脚本挂起则直接退出。
      */
