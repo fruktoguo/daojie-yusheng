@@ -1,13 +1,13 @@
 # next 替换进度清单
 
-更新时间：2026-04-16 16:57 CST
+更新时间：2026-04-16（本轮已同步到 `total=70`）
 
 ## 说明
 
-- 这份清单按仓库内全部 `TODO(next:...)` 聚合生成。
+- 这份清单按仓库内全部 next 任务锚点聚合生成。
 - 统计范围：`packages/`、`docs/`、`.github/workflows/`、`scripts/`、`legacy/`，排除 `dist` 与 `node_modules`。
-- 当前总计：`131` 条 `TODO(next:...)`
-- 当前任务编号：`41` 个
+- 当前总计：`70` 条 next 任务锚点
+- 当前任务编号：`31` 个
 - 这里的“密度”表示 TODO 锚点数量，不等于真实工作量，但能反映当前替换卡点最集中的区域。
 
 ## 总览
@@ -16,36 +16,34 @@
 
 | 区域 | TODO 数量 | 说明 |
 | --- | ---: | --- |
-| `packages/server` | 79 | 真源替换、协议/同步、GM/admin、proof 与持久化尾项最集中 |
-| `packages/client` | 31 | 主要是 UI patch-first 与主入口收口尾项 |
-| `packages/shared` | 9 | shared 合同、旧模型兼容桥与迁移参数 |
-| `docs` | 7 | 完成定义、运维口径、替换策略定稿 |
-| `.github` | 5 | deploy / publish 仍有 legacy 构建链与 proof 门禁待收口 |
+| `packages/server` | 45 | 真源替换、协议/同步、GM/admin 与 runtime 尾项最集中 |
+| `packages/client` | 22 | 主要是 UI patch-first 与主入口收口尾项 |
+| `packages/shared` | 0 | shared 旧模型兼容桥尾项已清空 |
+| `docs` | 3 | 完成定义、运维口径、替换策略定稿 |
+| `.github` | 0 | workflow 内联 TODO 已清空 |
 
 按高密度模块看：
 
 | 模块 | TODO 数量 | 密度判断 |
 | --- | ---: | --- |
-| `packages/client/src/ui` | 26 | 高 |
-| `packages/server/src/network` | 28 | 高 |
-| `packages/server/src/tools` | 16 | 高 |
-| `packages/server/src/http/next` | 14 | 高 |
+| `packages/client/src/ui` | 10 | 高 |
+| `packages/server/src/network` | 18 | 高 |
+| `packages/server/src/http/next` | 9 | 高 |
 | `packages/client/src/ui/panels` | 12 | 高 |
-| `packages/shared/src` | 9 | 中 |
-| `packages/server/src/runtime` | 8 | 中 |
-| `packages/server/src/persistence` | 6 | 中 |
-| `docs` | 7 | 中 |
-| `.github/workflows` | 5 | 中 |
+| `packages/server/src/tools` | 6 | 中 |
+| `packages/server/src/runtime` | 6 | 中 |
+| `packages/server/src/persistence` | 3 | 中 |
+| `docs` | 3 | 中 |
 
 ## 高密度未完成区域
 
 ### 1. client UI patch-first 尾项
 
 - `UI01`：`10`
-- `UI06`：`10`
+- `UI06`：`4`
 - `UI05`：`3`
 - `UI02/UI03/UI04`：`5`
-- 合计：`28`
+- 合计：`22`
 
 当前最密集文件带：
 
@@ -58,11 +56,10 @@
 
 ### 2. server network 真源替换与 legacy 退役
 
-- `T01-T08`：`17`
+- `T01-T08`：`12`
 - `T15-T20`：`6`
-- `T24`：`9`
 - `PERF01`：`3`
-- 合计：`35`
+- 合计：`21`
 
 当前最密集文件带：
 
@@ -76,9 +73,8 @@
 
 ### 3. server proof / ops / GM-admin 完成定义
 
-- `T09-T14`：`24`
-- `T25`：`6`
-- 合计：`30`
+- `T09-T14`：`18`
+- 合计：`20`
 
 当前最密集文件带：
 
@@ -86,18 +82,17 @@
 - `packages/server/src/tools/next-auth-bootstrap-smoke/*`
 - `packages/server/TESTING.md`
 - `docs/server-next-operations.md`
-- `.github/workflows/*`
 - `packages/server/src/http/next/next-gm-*.js`
 
 结论：现在不是“没有 proof”，而是 proof、workflow、runbook、GM/admin/restore 的完成定义还没完全钉死。
 
 ### 4. 持久化 / runtime 架构尾项
 
-- `PERSIST01-PERSIST03`：`6`
+- `PERSIST01-PERSIST03`：`2`
 - `ARCH01/ARCH02`：`3`
 - `REFACTOR01/REFACTOR02`：`2`
 - `DATA01`：`1`
-- 合计：`12`
+- 合计：`8`
 
 当前最密集文件带：
 
@@ -110,20 +105,13 @@
 
 ### 5. shared / content 迁移桥
 
-- `MIGRATE01`：`13`
-- `T22/T23`：`8`
-- 合计：`21`
+- 合计：`0`
 
 当前最密集文件带：
 
-- `packages/shared/src/protocol.ts`
-- `packages/shared/src/aura.ts`
-- `packages/shared/src/monster.ts`
-- `packages/shared/src/technique.ts`
-- `packages/shared/src/constants/index.ts`
-- workflow 中仍指向 legacy Dockerfile 的生产链路
+- 无
 
-结论：shared 层数量不大，但都是替换边界。这里的问题是“旧模型兼容桥还在”、“shared 合同硬门禁还不够”。
+结论：shared 旧模型桥和旧密码 hash 兼容都已经清空，这条迁移主线当前不再是阻塞面。
 
 ## 任务编号清单
 
@@ -136,17 +124,10 @@
 | 任务号 | 数量 | 密度 | 当前主要区域 |
 | --- | ---: | --- | --- |
 | `T13` | 14 | 高 | GM/admin/restore 与 GM HTTP 面是否彻底 next-native 化的定稿 |
-| `MIGRATE01` | 13 | 高 | shared 旧模型桥、账号密码/GM bot 兼容、workflow 仍指向 legacy 构建链 |
 | `UI01` | 10 | 高 | client UI patch-first 主体面板与 detail host |
-| `UI06` | 10 | 高 | client 各类 modal / bodyHtml 模板装载尾项 |
-| `T24` | 9 | 高 | legacy HTTP / GM / socket / JWT / compat verifier 退役策略 |
-| `T23` | 7 | 高 | 协议审计 helper、runtime emit 面与 shared/runtime 一致性检查 |
-| `T25` | 6 | 高 | “完整替换完成”完成定义与 proof 映射 |
-| `T01` | 6 | 高 | auth HTTP contract、token codec 与 authenticated identity 默认不再 compat fallback |
+| `UI06` | 4 | 中 | client 各类 modal / bodyHtml 模板装载尾项 |
 | `PERF01` | 3 | 中 | projector / world-sync / player-runtime 热路径比较 |
 | `T07` | 3 | 中 | session 真源与 detached/reuse/reaper contract |
-| `PERSIST01` | 4 | 中 | player identity / snapshot / persistent_documents 真源收口 |
-| `T11` | 3 | 中 | smoke-suite / TESTING / boundary audit 口径同步 |
 | `T05` | 3 | 中 | connect_token / hello / guest / GM 单线 bootstrap |
 | `UI05` | 3 | 中 | inventory / quest / settings 的 recipe 收口 |
 | `ARCH01` | 2 | 低 | strict TS / env alias 收口 |
@@ -154,9 +135,6 @@
 | `T04` | 2 | 低 | snapshot 真源只读 next-native |
 | `T09` | 2 | 低 | backup-persistence 真实 DB proof |
 | `T10` | 2 | 低 | destructive backup/restore 维护窗口 proof |
-| `T12` | 2 | 低 | shadow / acceptance 与人工回归边界 |
-| `T14` | 2 | 低 | deploy workflow 与维护窗口证据链 |
-| `T22` | 2 | 低 | shared 协议字段新增门禁 |
 | `UI03` | 2 | 低 | GM 前端主入口与前端手工验证清单 |
 | `UI04` | 2 | 低 | GM 编辑器 / GM 世界查看器局部更新 |
 | `ARCH02` | 1 | 低 | online/runtime/Redis/DB 真源分层 |
@@ -168,7 +146,6 @@
 | `REFACTOR02` | 1 | 低 | player-runtime 职责拆分 |
 | `T03` | 1 | 低 | authenticated snapshot compat fallback 继续退出 |
 | `T06` | 1 | 低 | guest / authenticated / GM 错误码与恢复 contract |
-| `T08` | 1 | 低 | auth trace 从完成定义退回观测工具 |
 | `T15` | 1 | 低 | Bootstrap + MapStatic + PanelDelta 首包重复字段 |
 | `T16` | 1 | 低 | projector 改为 slice / revision 驱动 |
 | `T17` | 1 | 低 | panel/attr bonus revision 与 invalidation |
@@ -181,25 +158,25 @@
 
 - [ ] `auth/token/bootstrap/player-source/session` 真源主线完全 next-native
   - 对应：`T01-T08`
-  - 当前密度：`17`
-- [ ] legacy 对外入口与 compat 真源桥完全退役
-  - 对应：`T24`、`MIGRATE01`
-  - 当前密度：`22`
+  - 当前密度：`11`
+- [x] legacy 对外入口与 compat 真源桥完全退役
+  - 对应：`MIGRATE01`
+  - 当前密度：`0`
 - [ ] GM/admin/restore / acceptance / workflow 完成定义钉死
-  - 对应：`T09-T14`、`T25`
-  - 当前密度：`30`
+  - 对应：`T09-T14`
+  - 当前密度：`20`
 - [ ] 首包 / projector / sync / runtime 热路径进入长期稳定结构
   - 对应：`T15-T20`、`PERF01`
   - 当前密度：`9`
-- [ ] persistent_documents 迁移态收成正式真源模型
+- [ ] flush / runtime 分层与持久化边界彻底收口
   - 对应：`PERSIST01-PERSIST03`、`ARCH02`
-  - 当前密度：`6`
+  - 当前密度：`3`
 - [ ] client-next UI patch-first 与 modal recipe 长尾收完
   - 对应：`UI01-UI06`
-  - 当前密度：`28`
-- [ ] shared-next 协议硬门禁与旧模型兼容桥退出
-  - 对应：`T22-T23`、`MIGRATE01`
-  - 当前密度：`21`
+  - 当前密度：`22`
+- [x] shared-next 旧模型兼容桥退出
+  - 对应：`MIGRATE01`
+  - 当前密度：`0`
 
 ## 当前最需要盯的高密度文件带
 
@@ -221,9 +198,7 @@
   4. `shared/persistence` 迁移桥退出
 
 - 如果目标是快速找“最密集未完成区”，先看：
-  - `MIGRATE01`
   - `T13`
   - `UI01`
   - `UI06`
-  - `T24`
-  - `T25`
+  - `T07`

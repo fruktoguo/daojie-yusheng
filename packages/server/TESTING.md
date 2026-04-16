@@ -18,8 +18,9 @@
 - 当前任务账本按统一口径仍是 `25` 项。
 - 当前保守判断下，距离“完整替换游戏整体”仍约差 `35% - 40%`。
 - 这份文件只负责解释“跑什么、证明什么、不能证明什么”，不负责替代任务账本或运维手册。
-- TODO(next:T11): 继续核齐 README / TESTING / RUNBOOK / workflow / wrapper 的门禁口径，避免文档先绿、命令后红。
-- TODO(next:T25): 把“完整替换完成”的关键项逐条绑定到 smoke / runbook / workflow / acceptance 证据，不再只停留在描述层。
+- README / TESTING / REPLACE-RUNBOOK / workflow / package wrapper 当前统一使用 `local / with-db / acceptance / full / shadow-destructive` 五层 gate 命名。
+- `smoke-suite` 当前只承担 `local / with-db` 子集执行，并会在运行时打印自己回答什么、明确不回答什么。
+- 当前 `next-auth-bootstrap`、`gm-next` 和 `smoke-suite/readiness-gate` 都已经在脚本输出里显式打印 `answers / excludes / completionMapping`，不再只靠外部口头解释完成定义。
 
 ## 五层 Gate
 
@@ -106,10 +107,18 @@
 
 | 任务 | 在测试文档里的职责 | 当前状态 |
 | --- | --- | --- |
-| `T11` | 把 `local / with-db / acceptance / full / shadow-destructive` 五层 gate 的定义写死 | 基本收口，仍要和 README / ops / workflow 持续对齐 |
-| `T12` | 把自动 proof 与人工回归边界写硬，避免把命令存在误读成运营已完成 | 需要继续落成表格与清单 |
+| `T11` | 把 `local / with-db / acceptance / full / shadow-destructive` 五层 gate 的定义写死 | 已收口，当前脚本 / 文档 / workflow 统一使用同一套 gate 名称 |
+| `T12` | 把自动 proof 与人工回归边界写硬，避免把命令存在误读成运营已完成 | 已收口，shadow-smoke 与 ops 文档已明确只读 acceptance / destructive 分层 |
 | `T14` | 把 workflow 里的可选 destructive 补证和测试文档口径对齐 | 已支持，但真实维护窗口说明仍要补齐 |
-| `T25` | 把“完整替换完成”的判定标准逐条对应到 gate / smoke / runbook | 仍在门禁化过程中 |
+| `T25` | 把“完整替换完成”的判定标准逐条对应到 gate / smoke / runbook | 已收口到脚本输出和本文档口径：`next-auth-bootstrap -> local/proof:with-db`，`gm-next -> acceptance`，`readiness-gate/smoke-suite -> gate 边界说明` |
+
+## 关键 Smoke 到完成定义的绑定
+
+| 脚本 | 回答什么 | 不回答什么 | 对应 gate |
+| --- | --- | --- | --- |
+| `pnpm --filter @mud/server-next smoke:next-auth-bootstrap` | `auth/token/bootstrap/session` 主证明链、mainline/migration proof 矩阵、next socket 协议守卫 | 不回答 GM/admin/restore、shadow、full、destructive | `local` / `proof:with-db` |
+| `pnpm --filter @mud/server-next smoke:gm-next` | GM socket / HTTP 主链、玩家编辑、邮件、建议、地图控制等关键写路径 | 不回答 backup/restore、destructive、完整运营闭环 | `acceptance` |
+| `pnpm --filter @mud/server-next smoke:readiness-gate` | `local / with-db` 两层 gate 的边界声明是否一致 | 不回答任何业务 proof 是否已经完成 | gate 口径校准 |
 
 ## “完整替换完成”目前至少需要什么
 
@@ -220,7 +229,7 @@
 
 基础必填：
 
-- `JWT_SECRET`
+- `SERVER_NEXT_PLAYER_TOKEN_SECRET` 或 `NEXT_PLAYER_TOKEN_SECRET`
 - `SERVER_NEXT_RUNTIME_TOKEN`
 
 带库链额外需要：

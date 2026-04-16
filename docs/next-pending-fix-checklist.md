@@ -27,11 +27,11 @@
 
 内联 TODO 检索约定：
 
-- 任务账本：`TODO(next:Txx)`
-- 安全与门禁：`TODO(next:SECxx)`、`TODO(next:VERIFYxx)`
-- 架构 / 持久化 / 热路径 / 大模块：`TODO(next:ARCHxx)`、`TODO(next:PERSISTxx)`、`TODO(next:PERFxx)`、`TODO(next:REFACTORxx)`
-- 迁移链路残项：`TODO(next:MIGRATE01)`
-- 前端尾项：`TODO(next:UIxx)`
+- 任务账本：`next:Txx` 这一类编号
+- 安全与门禁：`next:SECxx`、`next:VERIFYxx`
+- 架构 / 持久化 / 热路径 / 大模块：`next:ARCHxx`、`next:PERSISTxx`、`next:PERFxx`、`next:REFACTORxx`
+- 迁移链路残项：`MIGRATE01` 任务桶
+- 前端尾项：`next:UIxx`
 - 建议检索：`rg -n "TODO\\(next:" packages docs scripts .github`
 
 - 说明：JSON 文件本身无法写注释，像 `package.json` 里的 `*-next` 包名残留这类问题，统一落在相邻迁移文档 TODO 中追踪。
@@ -50,7 +50,7 @@
 - 风险：公网环境下属于事故级安全风险
 - 现状：
   - `packages/server/src/network/world-player-token-codec.service.js`
-  - 非开发环境若缺少 `SERVER_NEXT_PLAYER_TOKEN_SECRET / NEXT_PLAYER_TOKEN_SECRET / JWT_SECRET` 会直接 fail-fast
+  - 非开发环境若缺少 `SERVER_NEXT_PLAYER_TOKEN_SECRET / NEXT_PLAYER_TOKEN_SECRET` 会直接 fail-fast
   - 仅开发态保留内置 dev secret 回退
 - 本轮处理：
   - 移除了 `this.signingSecret = this.secrets[0] ?? 'daojie-yusheng-dev-secret'` 这类非开发环境静默回退

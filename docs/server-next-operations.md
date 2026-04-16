@@ -26,7 +26,7 @@
 - `acceptance` 只能回答“本地主证明链 + shadow 最小实物验收是否绿”
 - `full` 只能回答“在数据库、shadow、GM 密码都齐备时，自动化门禁是否全绿”
 - `shadow-destructive` 只能回答“维护窗口里的 destructive 闭环是否可控”，不回答日常替换是否完成
-- TODO(next:T12): 继续把自动 proof 与人工回归边界写硬，避免“命令存在”被误读成运营链路已完成。
+- `shadow-smoke` 当前只回答 shadow 上的只读 acceptance 与最小 GM/runtime read path，destructive backup/restore 继续留在 `shadow-destructive` 独立门禁链。
 
 ## 推荐入口
 
@@ -99,13 +99,20 @@
 - 需要显式设置 `SERVER_NEXT_SHADOW_ALLOW_DESTRUCTIVE=1`
 - 用于 shadow 上单独验证 `backup -> download -> restore`
 - 默认不应进入日常 deploy 链
-- TODO(next:T14): 把真实维护窗口 secrets、执行记录和可选 destructive 补证流程继续回填到 workflow 与 runbook。
+- `Deploy Server Next Shadow` workflow 现在只会在显式开启 `run-destructive-proof=true` 时进入这条链
+- workflow dispatch 还会强制要求填写：
+  - `destructive-maintenance-ticket`
+  - `destructive-rollback-plan-ref`
+  - `destructive-operator`
+- destructive proof 结束后，workflow 会上传 `shadow-destructive-proof-*` 产物，至少包含：
+  - `output.log`
+  - `manifest.json`
 
 ## 环境变量矩阵
 
 基础必填：
 
-- `JWT_SECRET`
+- `SERVER_NEXT_PLAYER_TOKEN_SECRET` 或 `NEXT_PLAYER_TOKEN_SECRET`
 - `SERVER_NEXT_RUNTIME_TOKEN`
 
 带库链额外需要：
@@ -121,6 +128,7 @@ shadow-destructive 额外需要：
 
 - `SERVER_NEXT_SHADOW_ALLOW_DESTRUCTIVE=1`
 - 维护窗口、回滚预案、操作人确认
+- 如果走 deploy workflow，还必须补齐 maintenance ticket / rollback plan / operator 三个输入
 
 按需：
 

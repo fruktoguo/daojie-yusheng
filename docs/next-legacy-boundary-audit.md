@@ -5,19 +5,29 @@
 ## 一句话结论
 
 - 这份报告只统计仓库里仍可见的 direct legacy 边界与性能热点，不等于 replace-ready 失败，也不代表完整替换已完成。
-- 当前自动审计命中 1 / 22 个检查项，共 1 处代码证据。
-- 另有 3 个检查项因 inventory 文件路径漂移被 fail-soft 跳过，不影响其余检查继续产出。
+- 当前自动审计命中 3 / 22 个检查项，共 3 处代码证据。
 - 保守口径不变：`next` 离“完整替换游戏整体”仍约差 `40% - 45%`。
 
 ## 汇总
 
 | 类别 | 命中检查项 | 代码证据 |
 | --- | ---: | ---: |
-| P0 auth/bootstrap 真源 | 0 / 5 | 0 |
+| P0 auth/bootstrap 真源 | 2 / 5 | 2 |
 | P0 legacy HTTP/GM/admin | 0 / 3 | 0 |
 | P1 world sync compat | 1 / 5 | 1 |
 | P1 runtime/persistence compat | 0 / 4 | 0 |
 | 目标差距: 性能/扩展 | 0 / 5 | 0 |
+
+## P0 auth/bootstrap 真源
+
+- legacy player repository 仍直接查询 users/players 表
+  - 文件：`packages/server/src/network/world-legacy-player-repository.js:16`
+  - 命中次数：1
+  - 首个证据：`FROM users u`
+- legacy player snapshot 仓库仍直接查询 players 表
+  - 文件：`packages/server/src/network/world-legacy-player-repository.js:61`
+  - 命中次数：1
+  - 首个证据：`FROM players`
 
 ## P1 world sync compat
 
@@ -25,18 +35,6 @@
   - 文件：`packages/server/src/network/world-sync.service.js:165`
   - 命中次数：1
   - 首个证据：`return filterLegacyCombatEffects(this.worldRuntimeService.getLegacyCombatEffects(view.instance.instanceId), visibleTileKeys);`
-
-## 已跳过项
-
-- legacy player source 仍直接查询 users/players 表
-  - 文件：`packages/server/src/network/world-legacy-player-source.service.js`
-  - 原因：missing file: packages/server/src/network/world-legacy-player-source.service.js
-- legacy player snapshot 仍直接查询 players 表
-  - 文件：`packages/server/src/network/world-legacy-player-source.service.js`
-  - 原因：missing file: packages/server/src/network/world-legacy-player-source.service.js
-- legacy player source 仍构造 toLegacyPlayerSnapshot 适配对象
-  - 文件：`packages/server/src/network/world-legacy-player-source.service.js`
-  - 原因：missing file: packages/server/src/network/world-legacy-player-source.service.js
 
 ## 备注
 
