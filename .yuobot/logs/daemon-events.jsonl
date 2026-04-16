@@ -1,6 +1,0 @@
-{"ts":"2026-04-16T08:22:52.852Z","type":"daemon.started","run_cwd":"/home/yuohira/mud-mmo-next","bus_dir":"/home/yuohira/mud-mmo-next/.yuobot/bus","logs_dir":"/home/yuohira/mud-mmo-next/.yuobot/logs"}
-{"ts":"2026-04-16T08:23:27.889Z","type":"command.received","source":"web","kind":"run","text":"任务目标：\\n分析next,把所有没有完成重构部分对比legacy补上todo,和现有的todo一样\\n\\n结束要求：\\n基本上没有遗漏就行,或者一个小时后"}
-{"ts":"2026-04-16T08:23:27.892Z","type":"child.launched","pid":142419,"objective":"任务目标：\\n分析next,把所有没有完成重构部分对比legacy补上todo,和现有的todo一样\\n\\n结束要求：\\n基本上没有遗漏就行,或者一个小时后","log_path":"/home/yuohira/mud-mmo-next/.yuobot/logs/run-2026-04-16T08-23-27-889Z.log","control_path":"/home/yuohira/mud-mmo-next/.yuobot/bus/child-control-2026-04-16T08-23-27-889Z.jsonl"}
-{"ts":"2026-04-16T09:01:33.299Z","type":"command.received","source":"web","kind":"stop","text":""}
-{"ts":"2026-04-16T09:01:33.300Z","type":"child.command.forwarded","kind":"stop","text":"","source":"web"}
-{"ts":"2026-04-16T09:01:33.303Z","type":"child.exit","pid":142419,"exit_code":null,"signal":"SIGTERM","objective":"任务目标：\\n分析next,把所有没有完成重构部分对比legacy补上todo,和现有的todo一样\\n\\n结束要求：\\n基本上没有遗漏就行,或者一个小时后","log_path":"/home/yuohira/mud-mmo-next/.yuobot/logs/run-2026-04-16T08-23-27-889Z.log"}
