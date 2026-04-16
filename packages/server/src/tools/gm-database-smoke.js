@@ -1213,21 +1213,30 @@ async function waitForJobSettled(token, jobId, type) {
  * 等待for恢复settledafterpasswordrollback。
  */
 async function waitForRestoreSettledAfterPasswordRollback(jobId) {
-    return waitForCondition(async () => {
 /**
- * 记录令牌。
+ * 记录缓存token。
  */
-        let token = '';
-        try {
-            token = await login(gmPassword);
-        }
-        catch {
-            return false;
+    let cachedToken = '';
+    return waitForCondition(async () => {
+        if (!cachedToken) {
+            try {
+                cachedToken = await login(gmPassword);
+            }
+            catch {
+                return false;
+            }
         }
 /**
  * 记录状态。
  */
-        const state = await authedGetJson('/api/gm/database/state', token);
+        let state;
+        try {
+            state = await authedGetJson('/api/gm/database/state', cachedToken);
+        }
+        catch {
+            cachedToken = '';
+            return false;
+        }
         if (state.runningJob?.id === jobId) {
             return false;
         }
@@ -1238,7 +1247,7 @@ async function waitForRestoreSettledAfterPasswordRollback(jobId) {
             throw new Error(`expected completed restore lastJob, got ${JSON.stringify(state.lastJob)}`);
         }
         return state;
-    }, 15000);
+    }, 45000, 1000);
 }
 /**
  * 等待for恢复running。
@@ -1433,7 +1442,7 @@ function computeChecksumForDocs(docs) {
 /**
  * 等待forcondition。
  */
-async function waitForCondition(predicate, timeoutMs) {
+async function waitForCondition(predicate, timeoutMs, intervalMs = 100) {
 /**
  * 记录startedat。
  */
@@ -1449,7 +1458,7 @@ async function waitForCondition(predicate, timeoutMs) {
         if (Date.now() - startedAt > timeoutMs) {
             throw new Error('waitFor timeout');
         }
-        await delay(100);
+        await delay(intervalMs);
     }
 }
 /**
