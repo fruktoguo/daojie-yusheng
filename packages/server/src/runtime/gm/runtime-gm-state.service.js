@@ -1,6 +1,5 @@
 "use strict";
 /** GM 状态聚合器：把玩家、地图与运行时性能信息拼成 GM 面板快照。 */
-// TODO(next:T24): 在 legacy socket/GM 观察窗口结束后，移除这里对 legacy 协议开关和 legacy bot 前缀的兼容分支。
 var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
 
     var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
@@ -20,8 +19,6 @@ const common_1 = require("@nestjs/common");
 const shared_1 = require("@mud/shared-next");
 
 const os = require("os");
-
-const legacy_protocol_env_1 = require("../../network/legacy-protocol.env");
 
 const world_session_service_1 = require("../../network/world-session.service");
 
@@ -106,36 +103,26 @@ let RuntimeGmStateService = class RuntimeGmStateService {
     enqueueRemoveBots(playerIds, all) {
         this.worldRuntimeService.enqueueGmRemoveBots(playerIds, all);
     }
-    /** 根据客户端协议版本选择对应的 GM 状态事件名。 */
+    /** GM 状态下发固定收敛到 next 事件。 */
     getGmStateEvent(client) {
-        return this.resolveGmStateEmission(client).emitLegacy ? shared_1.S2C.GmState : shared_1.NEXT_S2C.GmState;
+        return shared_1.NEXT_S2C.GmState;
     }
-    /** 解析 GM 面板在当前 socket 上应使用的协议分支。 */
+    /** GM 面板协议分支固定为 next-only。 */
     resolveGmStateEmission(client) {
-
-        const protocol = this.resolveEffectiveProtocol(client);
         return {
-            protocol,
-
-            emitNext: protocol !== 'legacy',
-
-            emitLegacy: protocol === 'legacy',
+            protocol: 'next',
+            emitNext: true,
+            emitLegacy: false,
         };
     }
-    /** 读取客户端显式声明的协议版本。 */
+    /** 读取客户端显式声明的协议版本，仅用于调试观测。 */
     getExplicitProtocol(client) {
-
         const protocol = client?.data?.protocol;
         return protocol === 'next' || protocol === 'legacy' ? protocol : null;
     }
-    /** 兼容 legacy 协议开关，计算最终可用的 GM 协议分支。 */
+    /** GM 状态最终协议固定收敛到 next。 */
     resolveEffectiveProtocol(client) {
-
-        const protocol = this.getExplicitProtocol(client);
-        if (protocol === 'legacy' && !(0, legacy_protocol_env_1.isLegacySocketProtocolEnabled)()) {
-            return null;
-        }
-        return protocol;
+        return 'next';
     }
     /** 汇总在线玩家、地图列表和性能数据，生成 GM 面板快照。 */
     buildState() {

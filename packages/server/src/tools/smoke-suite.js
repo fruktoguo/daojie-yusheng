@@ -2,8 +2,6 @@
 /**
  * 用途：编排执行 server-next smoke 冒烟验证套件。
  */
-// TODO(next:T11): 持续把 smoke-suite case 编排与 local / acceptance / full 门禁定义对齐，避免 wrapper 口径和实际覆盖漂移。
-
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -123,8 +121,21 @@ const LONG_RUNNING_SMOKE_CASES = new Set([
     'monster-reset',
     'monster-loot',
 ]);
+const SMOKE_GATE_PROFILES = {
+    local: {
+        answers: '代码、主证明链和无库 smoke 子集是否可跑通。',
+        excludes: '不证明 persistence、shadow、acceptance、full 或 destructive 维护窗口。',
+    },
+    'with-db': {
+        answers: '在提供数据库环境时，local smoke 子集和数据库相关 smoke case 是否可跑通。',
+        excludes: '不证明 shadow、acceptance、full 或 destructive 维护窗口。',
+    },
+};
 function resolveSmokeGateLabel() {
     return hasDatabaseUrl() ? 'with-db' : 'local';
+}
+function resolveSmokeGateProfile() {
+    return SMOKE_GATE_PROFILES[resolveSmokeGateLabel()];
 }
 /**
  * 串联执行脚本主流程。
@@ -139,11 +150,14 @@ async function main() {
  */
     const cases = resolveSelectedCases();
     const gate = resolveSmokeGateLabel();
+    const gateProfile = resolveSmokeGateProfile();
 /**
  * 汇总执行结果。
  */
     const results = [];
     process.stdout.write(`[server-next smoke] gate=${gate}\n`);
+    process.stdout.write(`[server-next smoke] answers=${gateProfile.answers}\n`);
+    process.stdout.write(`[server-next smoke] excludes=${gateProfile.excludes}\n`);
     process.stdout.write(`[server-next smoke] cases=${cases.map((entry) => entry.name).join(', ')}\n`);
     for (const entry of cases) {
         if ((entry.name === 'persistence' || entry.name === 'gm-database') && !hasDatabaseUrl()) {
@@ -174,7 +188,8 @@ async function main() {
     for (const result of results) {
         process.stdout.write(`- ${result.name}: ${result.skipped ? 'skipped' : `${result.durationMs}ms`}\n`);
     }
-    process.stdout.write(`[server-next smoke] boundary=${gate === 'with-db' ? 'includes local + database smoke cases selected in this run' : 'local/no-db smoke only; this does not prove persistence, shadow, or destructive flows'}\n`);
+    process.stdout.write(`[server-next smoke] boundary=${gateProfile.answers}\n`);
+    process.stdout.write(`[server-next smoke] not_proved=${gateProfile.excludes}\n`);
     process.stdout.write(`[server-next smoke] total ${Date.now() - startedAt}ms\n`);
 }
 /**

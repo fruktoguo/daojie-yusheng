@@ -3,7 +3,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.buildHealthResponse = buildHealthResponse;
 
 const env_alias_1 = require("../config/env-alias");
-// TODO(next:T24): 随着 legacy 外部入口退役，继续清理 readiness 中的 legacy/compat 兼容分支，避免健康检查口径长期混流。
 
 /** 构建统一的 readiness 响应体，汇总数据库、持久化、运行时与维护状态。 */
 function buildHealthResponse(dependencies) {
@@ -19,7 +18,7 @@ function buildHealthResponse(dependencies) {
         suggestion: resolvePersistenceReadiness(database.configured, dependencies.suggestionPersistenceService),
     };
 
-    const legacyAuth = resolveLegacyAuthReadiness();
+    const auth = resolveAuthReadiness();
 
     const runtime = resolveRuntimeReadiness(dependencies.worldRuntimeService);
 
@@ -42,7 +41,7 @@ function buildHealthResponse(dependencies) {
             maintenance,
             database,
             persistence,
-            legacyAuth,
+            auth,
             runtime,
         },
     };
@@ -111,11 +110,11 @@ function inspectPersistenceServiceEnabled(service) {
     return candidate.enabled === true && candidate.pool != null;
 }
 
-/** 兼容鉴权当前固定为 next-only，保留可扩展的 readiness 结构。 */
-function resolveLegacyAuthReadiness() {
+/** 鉴权 readiness 当前固定为 next-only。 */
+function resolveAuthReadiness() {
     return {
         ready: true,
-        mode: 'unused',
+        mode: 'next_only',
         source: null,
         reason: 'next_auth_only',
     };
@@ -189,4 +188,3 @@ function readNonNegativeInt(value) {
     return Math.max(0, Math.floor(value));
 }
 //# sourceMappingURL=health-readiness.js.map
-

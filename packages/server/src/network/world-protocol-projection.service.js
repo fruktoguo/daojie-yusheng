@@ -18,7 +18,6 @@ const common_1 = require("@nestjs/common");
 const shared_1 = require("@mud/shared-next");
 
 const world_client_event_service_1 = require("./world-client-event.service");
-// TODO(next:T23): 把 tile detail / loot interaction 这类投影 emit 继续并入 shared protocol/audit 门禁，避免投影层和共享合同脱节。
 
 /** 协议投影服务：把世界层的局部视图转成 next Socket 事件。 */
 let WorldProtocolProjectionService = class WorldProtocolProjectionService {
@@ -49,4 +48,3 @@ exports.WorldProtocolProjectionService = WorldProtocolProjectionService = __deco
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [world_client_event_service_1.WorldClientEventService])
 ], WorldProtocolProjectionService);
-

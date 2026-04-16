@@ -23,10 +23,37 @@ const pg_1 = require("pg");
 
 const env_alias_1 = require("../config/env-alias");
 
-const persistent_document_table_1 = require("./persistent-document-table");
-// TODO(next:PERSIST01): 把 player identity 从 persistent_documents 迁到正式专表/索引，并在迁移窗口结束后收掉 legacy_backfill/legacy_sync/token_seed 过渡来源。
-
 const PLAYER_IDENTITY_SCOPE = 'server_next_player_identities_v1';
+
+const PLAYER_IDENTITY_TABLE = 'server_next_player_identity';
+
+const CREATE_PLAYER_IDENTITY_TABLE_SQL = `
+  CREATE TABLE IF NOT EXISTS ${PLAYER_IDENTITY_TABLE} (
+    user_id varchar(100) PRIMARY KEY,
+    username varchar(80) NOT NULL UNIQUE,
+    player_id varchar(100) NOT NULL UNIQUE,
+    display_name varchar(32),
+    player_name varchar(120) NOT NULL,
+    persisted_source varchar(32) NOT NULL,
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    payload jsonb NOT NULL
+  )
+`;
+
+const CREATE_PLAYER_IDENTITY_USERNAME_INDEX_SQL = `
+  CREATE INDEX IF NOT EXISTS server_next_player_identity_username_idx
+  ON ${PLAYER_IDENTITY_TABLE}(username)
+`;
+
+const CREATE_PLAYER_IDENTITY_PLAYER_INDEX_SQL = `
+  CREATE INDEX IF NOT EXISTS server_next_player_identity_player_idx
+  ON ${PLAYER_IDENTITY_TABLE}(player_id)
+`;
+
+const CREATE_PLAYER_IDENTITY_DISPLAY_INDEX_SQL = `
+  CREATE INDEX IF NOT EXISTS server_next_player_identity_display_idx
+  ON ${PLAYER_IDENTITY_TABLE}(display_name)
+`;
 
 const PLAYER_IDENTITY_PERSISTED_SOURCE_NATIVE = 'native';
 
@@ -52,9 +79,9 @@ let PlayerIdentityPersistenceService = PlayerIdentityPersistenceService_1 = clas
             connectionString: databaseUrl,
         });
         try {
-            await (0, persistent_document_table_1.ensurePersistentDocumentsTable)(this.pool);
+            await ensurePlayerIdentityTable(this.pool);
             this.enabled = true;
-            this.logger.log('玩家身份持久化已启用（persistent_documents）');
+            this.logger.log('玩家身份持久化已启用（server_next_player_identity）');
         }
         catch (error) {
             this.logger.error('玩家身份持久化初始化失败，已回退为禁用模式', error instanceof Error ? error.stack : String(error));
@@ -78,12 +105,25 @@ let PlayerIdentityPersistenceService = PlayerIdentityPersistenceService_1 = clas
             return null;
         }
 
-        const result = await this.pool.query('SELECT payload FROM persistent_documents WHERE scope = $1 AND key = $2', [PLAYER_IDENTITY_SCOPE, normalizedUserId]);
+        const result = await this.pool.query(`
+        SELECT
+          user_id,
+          username,
+          player_id,
+          display_name,
+          player_name,
+          persisted_source,
+          updated_at,
+          payload
+        FROM ${PLAYER_IDENTITY_TABLE}
+        WHERE user_id = $1
+        LIMIT 1
+      `, [normalizedUserId]);
         if (result.rowCount === 0) {
             return null;
         }
 
-        const normalized = normalizePlayerIdentity(result.rows[0]?.payload);
+        const normalized = normalizePersistedPlayerIdentityRow(result.rows[0]);
         if (!normalized) {
             throw new Error(`Player identity next record invalid: userId=${normalizedUserId}`);
         }
@@ -96,11 +136,36 @@ let PlayerIdentityPersistenceService = PlayerIdentityPersistenceService_1 = clas
             return null;
         }
         await this.pool.query(`
-        INSERT INTO persistent_documents(scope, key, payload, "updatedAt")
-        VALUES ($1, $2, $3::jsonb, now())
-        ON CONFLICT (scope, key)
-        DO UPDATE SET payload = EXCLUDED.payload, "updatedAt" = now()
-      `, [PLAYER_IDENTITY_SCOPE, normalized.userId, JSON.stringify(normalized)]);
+        INSERT INTO ${PLAYER_IDENTITY_TABLE}(
+          user_id,
+          username,
+          player_id,
+          display_name,
+          player_name,
+          persisted_source,
+          updated_at,
+          payload
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, now(), $7::jsonb)
+        ON CONFLICT (user_id)
+        DO UPDATE SET
+          username = EXCLUDED.username,
+          player_id = EXCLUDED.player_id,
+          display_name = EXCLUDED.display_name,
+          player_name = EXCLUDED.player_name,
+          persisted_source = EXCLUDED.persisted_source,
+          updated_at = now(),
+          payload = EXCLUDED.payload
+      `, [
+            normalized.userId,
+            normalized.username,
+            normalized.playerId,
+            normalized.displayName,
+            normalized.playerName,
+            normalizePlayerIdentityPersistedSource(normalized.persistedSource)
+                ?? PLAYER_IDENTITY_PERSISTED_SOURCE_NATIVE,
+            JSON.stringify(normalized),
+        ]);
         return normalized;
     }
     async safeClosePool() {
@@ -117,6 +182,96 @@ exports.PlayerIdentityPersistenceService = PlayerIdentityPersistenceService;
 exports.PlayerIdentityPersistenceService = PlayerIdentityPersistenceService = PlayerIdentityPersistenceService_1 = __decorate([
     (0, common_1.Injectable)()
 ], PlayerIdentityPersistenceService);
+async function ensurePlayerIdentityTable(pool) {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        await client.query(CREATE_PLAYER_IDENTITY_TABLE_SQL);
+        await client.query(CREATE_PLAYER_IDENTITY_USERNAME_INDEX_SQL);
+        await client.query(CREATE_PLAYER_IDENTITY_PLAYER_INDEX_SQL);
+        await client.query(CREATE_PLAYER_IDENTITY_DISPLAY_INDEX_SQL);
+        await migrateLegacyIdentityDocumentsToTable(client);
+        await client.query('COMMIT');
+    }
+    catch (error) {
+        await client.query('ROLLBACK').catch(() => undefined);
+        throw error;
+    }
+    finally {
+        client.release();
+    }
+}
+async function migrateLegacyIdentityDocumentsToTable(client) {
+    const existing = await client.query(`SELECT 1 FROM ${PLAYER_IDENTITY_TABLE} LIMIT 1`);
+    if (existing.rowCount > 0) {
+        return;
+    }
+    const relation = await client.query(`SELECT to_regclass('public.persistent_documents') AS relation_name`);
+    if (!relation.rows[0]?.relation_name) {
+        return;
+    }
+    const legacyRows = await client.query('SELECT key, payload FROM persistent_documents WHERE scope = $1 ORDER BY key ASC', [PLAYER_IDENTITY_SCOPE]);
+    for (const row of legacyRows.rows) {
+        const normalized = normalizePlayerIdentity(row?.payload);
+        if (!normalized) {
+            continue;
+        }
+        await client.query(`
+        INSERT INTO ${PLAYER_IDENTITY_TABLE}(
+          user_id,
+          username,
+          player_id,
+          display_name,
+          player_name,
+          persisted_source,
+          updated_at,
+          payload
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, now(), $7::jsonb)
+        ON CONFLICT (user_id) DO NOTHING
+      `, [
+            normalized.userId,
+            normalized.username,
+            normalized.playerId,
+            normalized.displayName,
+            normalized.playerName,
+            normalizePlayerIdentityPersistedSource(normalized.persistedSource)
+                ?? PLAYER_IDENTITY_PERSISTED_SOURCE_NATIVE,
+            JSON.stringify(normalized),
+        ]);
+    }
+}
+function normalizePersistedPlayerIdentityRow(row) {
+    if (!row || typeof row !== 'object') {
+        return null;
+    }
+    const normalizedFromPayload = normalizePlayerIdentity(row.payload);
+    if (!normalizedFromPayload) {
+        return null;
+    }
+    const userId = normalizeRequiredString(row.user_id) || normalizedFromPayload.userId;
+    const username = normalizeRequiredString(row.username) || normalizedFromPayload.username;
+    const playerId = normalizeRequiredString(row.player_id) || normalizedFromPayload.playerId;
+    const playerName = normalizePlayerName(row.player_name, username) || normalizedFromPayload.playerName;
+    if (!userId || !username || !playerId || !playerName) {
+        return null;
+    }
+    return {
+        ...normalizedFromPayload,
+        userId,
+        username,
+        playerId,
+        displayName: normalizeDisplayName(row.display_name, username),
+        playerName,
+        persistedSource: normalizePlayerIdentityPersistedSource(row.persisted_source)
+            ?? normalizedFromPayload.persistedSource,
+        updatedAt: row.updated_at instanceof Date
+            ? row.updated_at.getTime()
+            : Number.isFinite(Date.parse(String(row.updated_at ?? '')))
+                ? Date.parse(String(row.updated_at))
+                : normalizedFromPayload.updatedAt,
+    };
+}
 
 /** 解析并规整玩家身份记录，补齐默认来源和值。 */
 function normalizePlayerIdentity(raw) {
@@ -189,4 +344,3 @@ function isValidVisibleDisplayName(value) {
         && (0, shared_1.hasVisibleNameGrapheme)(value)
         && !(0, shared_1.containsInvisibleOnlyNameGrapheme)(value);
 }
-

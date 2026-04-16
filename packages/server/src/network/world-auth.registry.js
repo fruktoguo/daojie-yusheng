@@ -7,7 +7,6 @@ const world_player_source_service_1 = require("./world-player-source.service");
 const world_player_snapshot_service_1 = require("./world-player-snapshot.service");
 const world_player_token_codec_service_1 = require("./world-player-token-codec.service");
 const world_player_token_service_1 = require("./world-player-token.service");
-// TODO(next:T01): 在 auth/source/token/snapshot 真源完全收口后，复核这组 provider 聚合边界，避免迁移期鉴权拼装长期停留在 registry 壳层。
 
 /** 世界鉴权注入项：负责玩家来源、Token 解析、鉴权与 GM 权限校验。 */
 exports.WORLD_AUTH_PROVIDERS = [

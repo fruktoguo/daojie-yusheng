@@ -24,7 +24,6 @@ const player_identity_persistence_service_1 = require("../../persistence/player-
 const player_runtime_service_1 = require("../../runtime/player/player-runtime.service");
 const world_player_snapshot_service_1 = require("../../network/world-player-snapshot.service");
 const next_player_auth_store_service_1 = require("./next-player-auth-store.service");
-// TODO(next:T01): 随着 auth/token/snapshot 真源完全收口到 next-native，继续压缩这里对 starter snapshot 补齐与迁移态身份同步的过渡承载。
 /** Next 玩家鉴权编排服务：负责注册、登录、刷新和身份同步。 */
 let NextPlayerAuthService = class NextPlayerAuthService {
     /** 记录账号生命周期关键操作。 */
@@ -99,41 +98,19 @@ let NextPlayerAuthService = class NextPlayerAuthService {
         await this.ensureStarterSnapshot(user.playerId);
         return this.issueTokens(user);
     }
-    /** 登录现有账号，兼容账号名和角色名两种入口。 */
+    /** 登录现有账号，只接受账号名入口。 */
     async login(loginName, password) {
         const normalizedLoginName = (0, account_validation_1.normalizeUsername)(loginName).trim();
-        const directUser = await this.authStore.findUserByUsername(normalizedLoginName);
-        const roleMatchedUsers = await this.authStore.findUsersByRoleName(normalizedLoginName);
-        const candidates = new Map();
-        if (directUser) {
-            candidates.set(directUser.id, directUser);
-        }
-        for (const user of roleMatchedUsers) {
-            candidates.set(user.id, user);
-        }
-        if (candidates.size === 0) {
+        const user = await this.authStore.findUserByUsername(normalizedLoginName);
+        if (!user) {
             throw new common_1.UnauthorizedException('用户不存在');
         }
-        const matchedUsers = [];
-        for (const user of candidates.values()) {
-            if (await (0, password_hash_1.verifyPassword)(password, user.passwordHash)) {
-                matchedUsers.push(user);
-            }
-        }
-        if (matchedUsers.length === 0) {
+        if (!await (0, password_hash_1.verifyPassword)(password, user.passwordHash)) {
             throw new common_1.UnauthorizedException('密码错误');
         }
-        const selected = directUser && matchedUsers.some((entry) => entry.id === directUser.id)
-            ? directUser
-            : matchedUsers.length === 1
-                ? matchedUsers[0]
-                : null;
-        if (!selected) {
-            throw new common_1.BadRequestException('该角色名对应多个账号，请改用账号登录');
-        }
-        await this.persistIdentity(selected);
-        await this.ensureStarterSnapshot(selected.playerId);
-        return this.issueTokens(selected);
+        await this.persistIdentity(user);
+        await this.ensureStarterSnapshot(user.playerId);
+        return this.issueTokens(user);
     }
     /** 刷新登录态，但只接受普通玩家令牌。 */
     async refresh(refreshToken) {
@@ -163,8 +140,8 @@ let NextPlayerAuthService = class NextPlayerAuthService {
         return { available: true };
     }
     /** 修改当前账号密码。 */
-    async updatePassword(authorization, currentPassword, newPassword) {
-        const user = await this.requireUser(authorization);
+    async updatePassword(accessToken, currentPassword, newPassword) {
+        const user = await this.requireUser(accessToken);
         if (!await (0, password_hash_1.verifyPassword)(currentPassword, user.passwordHash)) {
             throw new common_1.BadRequestException('当前密码错误');
         }
@@ -180,8 +157,8 @@ let NextPlayerAuthService = class NextPlayerAuthService {
         return { ok: true };
     }
     /** 修改当前账号显示名，并同步回持久化和 runtime。 */
-    async updateDisplayName(authorization, displayName) {
-        const user = await this.requireUser(authorization);
+    async updateDisplayName(accessToken, displayName) {
+        const user = await this.requireUser(accessToken);
         const normalizedDisplayName = (0, account_validation_1.normalizeDisplayName)(displayName);
         const displayNameError = (0, account_validation_1.validateDisplayName)(normalizedDisplayName);
         if (displayNameError) {
@@ -207,8 +184,8 @@ let NextPlayerAuthService = class NextPlayerAuthService {
         return { displayName: normalizedDisplayName };
     }
     /** 修改当前账号角色名，并同步回持久化和 runtime。 */
-    async updateRoleName(authorization, roleName) {
-        const user = await this.requireUser(authorization);
+    async updateRoleName(accessToken, roleName) {
+        const user = await this.requireUser(accessToken);
         const normalizedRoleName = (0, account_validation_1.normalizeRoleName)(roleName);
         const roleNameError = (0, account_validation_1.validateRoleName)(normalizedRoleName);
         if (roleNameError) {
@@ -233,10 +210,8 @@ let NextPlayerAuthService = class NextPlayerAuthService {
         this.syncRuntimeRoleName(nextUser);
         return { roleName: normalizedRoleName };
     }
-    async requireUser(authorization) {
-        const token = typeof authorization === 'string' && authorization.startsWith('Bearer ')
-            ? authorization.slice('Bearer '.length).trim()
-            : '';
+    async requireUser(accessToken) {
+        const token = typeof accessToken === 'string' ? accessToken.trim() : '';
         if (!token) {
             throw new common_1.UnauthorizedException('未登录');
         }
@@ -328,4 +303,3 @@ exports.NextPlayerAuthService = NextPlayerAuthService = __decorate([
 function buildPlayerId(userId) {
     return `p_${String(userId ?? '').trim()}`;
 }
-

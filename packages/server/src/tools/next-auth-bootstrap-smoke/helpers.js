@@ -1,50 +1,18 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-// TODO(next:T25): 随着 next-auth-bootstrap proof 收口，压缩这里对 legacy/compat 辅助函数的登记，避免测试辅助名单长期背迁移矩阵包袱。
-const helperFunctionNames = [
-    'isEnvEnabled',
-    'buildStrictNativeSkippedProof',
-    'buildProfileSkippedProof',
-    'withEnvOverrides',
-    'readBootstrapProfile',
-    'expectNextSocketAuthFailure',
-    'createNextSocket',
-    'assertNoLegacyEvents',
-    'flattenNoticeItems',
-    'createAuthStarterSnapshotDeps',
-    'runNextBootstrap',
-    'shouldExpectImplicitDetachedResume',
-    'shouldExpectConnectedSessionReuse',
-    'shouldExpectRequestedSessionMismatchRotation',
-    'registerAndLoginPlayer',
-    'parseTokenIdentity',
-    'assertBootstrapMatchesExpectedIdentity',
-    'fetchPlayerState',
-    'deletePlayer',
-    'flushPersistence',
-    'fetchAuthTrace',
-    'clearAuthTrace',
-    'waitForFailedSnapshotAuthTrace',
-    'waitForFailedIdentityAuthTrace',
-    'waitForFailedIdentitySourceAuthTrace',
-    'readSummaryCount',
-    'waitForAuthTrace',
-    'withLocalAuthTraceEnabled',
-    'findLatestSnapshotRecoveryTrace',
-    'requestJson',
-    'waitFor',
-    'waitForValue',
-    'waitForPlayerState',
-    'delay',
-    'buildUniqueDisplayName',
-    'buildRetryDisplayName',
-    'buildRetryRoleName',
-    'buildSingleDisplayNameChar',
-    'buildCompactSeed',
-    'computeSeedHash',
-    'parseJwtPayload',
-];
+const HELPER_EXCLUDES = new Set([
+    'main',
+    'collectExports',
+]);
+
+function buildHelperFunctionNames(declaredFunctionNames, fixtureFunctionNames = []) {
+    const fixtureSet = new Set(Array.isArray(fixtureFunctionNames) ? fixtureFunctionNames : []);
+    return Array.from(new Set(Array.isArray(declaredFunctionNames) ? declaredFunctionNames : []))
+        .filter((name) => !HELPER_EXCLUDES.has(name))
+        .filter((name) => !fixtureSet.has(name))
+        .filter((name) => !/^verify/.test(name));
+}
 
 module.exports = {
-    helperFunctionNames,
+    buildHelperFunctionNames,
 };

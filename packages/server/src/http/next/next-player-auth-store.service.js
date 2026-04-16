@@ -15,10 +15,32 @@ const common_1 = require("@nestjs/common");
 const shared_1 = require("@mud/shared-next");
 const pg_1 = require("pg");
 const env_alias_1 = require("../../config/env-alias");
-const persistent_document_table_1 = require("../../persistence/persistent-document-table");
 const account_validation_1 = require("../../auth/account-validation");
 const PLAYER_AUTH_SCOPE = 'server_next_player_auth_v1';
-// TODO(next:PERSIST01): 把 next 玩家鉴权存储从 persistent_documents + 内存降级收成正式 auth 真源模型，并逐步去掉 normalizeAuthRecord 里的迁移态兜底。
+const PLAYER_AUTH_TABLE = 'server_next_player_auth';
+const CREATE_PLAYER_AUTH_TABLE_SQL = `
+  CREATE TABLE IF NOT EXISTS ${PLAYER_AUTH_TABLE} (
+    user_id varchar(100) PRIMARY KEY,
+    username varchar(80) NOT NULL UNIQUE,
+    player_id varchar(100) NOT NULL UNIQUE,
+    pending_role_name varchar(120) NOT NULL,
+    display_name varchar(32),
+    password_hash text NOT NULL,
+    total_online_seconds integer NOT NULL DEFAULT 0,
+    current_online_started_at timestamptz,
+    created_at timestamptz NOT NULL,
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    payload jsonb NOT NULL
+  )
+`;
+const CREATE_PLAYER_AUTH_ROLE_INDEX_SQL = `
+  CREATE INDEX IF NOT EXISTS server_next_player_auth_role_idx
+  ON ${PLAYER_AUTH_TABLE}(pending_role_name)
+`;
+const CREATE_PLAYER_AUTH_DISPLAY_INDEX_SQL = `
+  CREATE INDEX IF NOT EXISTS server_next_player_auth_display_idx
+  ON ${PLAYER_AUTH_TABLE}(display_name)
+`;
 /** Next 玩家鉴权存储：维护账号索引、唯一性检查和持久化读写。 */
 let NextPlayerAuthStoreService = class NextPlayerAuthStoreService {
     /** 记录存储层状态，便于定位启动和回退分支。 */
@@ -50,7 +72,7 @@ let NextPlayerAuthStoreService = class NextPlayerAuthStoreService {
             connectionString: databaseUrl,
         });
         try {
-            await (0, persistent_document_table_1.ensurePersistentDocumentsTable)(this.pool);
+            await ensurePlayerAuthTable(this.pool);
             this.enabled = true;
             await this.reloadFromPersistence();
             this.logger.log(`Next 玩家鉴权存储已就绪：已加载 ${this.usersById.size} 个账号`);
@@ -69,15 +91,30 @@ let NextPlayerAuthStoreService = class NextPlayerAuthStoreService {
     isEnabled() {
         return this.enabled && this.pool !== null;
     }
-    /** 从 persistent_documents 重建账号索引。 */
+    /** 从正式 auth 专表重建账号索引。 */
     async reloadFromPersistence() {
         if (!this.pool || !this.enabled) {
             return;
         }
-        const result = await this.pool.query('SELECT key, payload FROM persistent_documents WHERE scope = $1', [PLAYER_AUTH_SCOPE]);
+        const result = await this.pool.query(`
+      SELECT
+        user_id,
+        username,
+        player_id,
+        pending_role_name,
+        display_name,
+        password_hash,
+        total_online_seconds,
+        current_online_started_at,
+        created_at,
+        updated_at,
+        payload
+      FROM ${PLAYER_AUTH_TABLE}
+      ORDER BY user_id ASC
+    `);
         this.resetIndexes();
         for (const row of result.rows) {
-            const normalized = normalizeAuthRecord(row?.payload, typeof row?.key === 'string' ? row.key : '');
+            const normalized = normalizePersistedAuthRow(row);
             if (!normalized) {
                 continue;
             }
@@ -96,11 +133,44 @@ let NextPlayerAuthStoreService = class NextPlayerAuthStoreService {
         }
         if (this.pool && this.enabled) {
             await this.pool.query(`
-        INSERT INTO persistent_documents(scope, key, payload, "updatedAt")
-        VALUES ($1, $2, $3::jsonb, now())
-        ON CONFLICT (scope, key)
-        DO UPDATE SET payload = EXCLUDED.payload, "updatedAt" = now()
-      `, [PLAYER_AUTH_SCOPE, normalized.id, JSON.stringify(toPersistedUser(normalized))]);
+        INSERT INTO ${PLAYER_AUTH_TABLE}(
+          user_id,
+          username,
+          player_id,
+          pending_role_name,
+          display_name,
+          password_hash,
+          total_online_seconds,
+          current_online_started_at,
+          created_at,
+          updated_at,
+          payload
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8::timestamptz, $9::timestamptz, now(), $10::jsonb)
+        ON CONFLICT (user_id)
+        DO UPDATE SET
+          username = EXCLUDED.username,
+          player_id = EXCLUDED.player_id,
+          pending_role_name = EXCLUDED.pending_role_name,
+          display_name = EXCLUDED.display_name,
+          password_hash = EXCLUDED.password_hash,
+          total_online_seconds = EXCLUDED.total_online_seconds,
+          current_online_started_at = EXCLUDED.current_online_started_at,
+          created_at = EXCLUDED.created_at,
+          updated_at = now(),
+          payload = EXCLUDED.payload
+      `, [
+                normalized.id,
+                normalized.username,
+                normalized.playerId,
+                normalized.pendingRoleName,
+                normalized.displayName,
+                normalized.passwordHash,
+                normalized.totalOnlineSeconds,
+                normalized.currentOnlineStartedAt,
+                normalized.createdAt,
+                JSON.stringify(toPersistedUser(normalized)),
+            ]);
         }
         this.replaceUser(normalized);
         return cloneUser(normalized);
@@ -257,6 +327,43 @@ exports.NextPlayerAuthStoreService = NextPlayerAuthStoreService;
 exports.NextPlayerAuthStoreService = NextPlayerAuthStoreService = __decorate([
     (0, common_1.Injectable)()
 ], NextPlayerAuthStoreService);
+function normalizePersistedAuthRow(row) {
+    if (!row || typeof row !== 'object') {
+        return null;
+    }
+    const userId = normalizeRequiredString(row.user_id);
+    const username = (0, account_validation_1.normalizeUsername)(row.username).trim();
+    const playerId = normalizeRequiredString(row.player_id);
+    const pendingRoleName = (0, account_validation_1.normalizeRoleName)(row.pending_role_name);
+    const passwordHash = typeof row.password_hash === 'string' ? row.password_hash : '';
+    if (!userId || !username || !playerId || !pendingRoleName || !passwordHash) {
+        return null;
+    }
+    const createdAt = row.created_at instanceof Date
+        ? row.created_at.toISOString()
+        : normalizeDateTime(row.created_at) ?? new Date(0).toISOString();
+    const currentOnlineStartedAt = row.current_online_started_at instanceof Date
+        ? row.current_online_started_at.toISOString()
+        : normalizeDateTime(row.current_online_started_at);
+    const updatedAt = row.updated_at instanceof Date
+        ? row.updated_at.getTime()
+        : Number.isFinite(Date.parse(String(row.updated_at ?? ''))) ? Date.parse(String(row.updated_at)) : Date.now();
+    return {
+        version: 1,
+        id: userId,
+        userId,
+        username,
+        displayName: normalizeOptionalDisplayName(row.display_name),
+        pendingRoleName,
+        playerId,
+        playerName: pendingRoleName,
+        passwordHash,
+        totalOnlineSeconds: Number.isFinite(row.total_online_seconds) ? Math.max(0, Math.trunc(row.total_online_seconds)) : 0,
+        currentOnlineStartedAt,
+        createdAt,
+        updatedAt,
+    };
+}
 function normalizeAuthRecord(raw, fallbackKey = '') {
     if (!raw || typeof raw !== 'object') {
         return null;
@@ -361,4 +468,66 @@ function buildConflictMessage(requestedKind, conflictKind) {
     }
     return '称号已存在';
 }
-
+async function ensurePlayerAuthTable(pool) {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        await client.query(CREATE_PLAYER_AUTH_TABLE_SQL);
+        await client.query(CREATE_PLAYER_AUTH_ROLE_INDEX_SQL);
+        await client.query(CREATE_PLAYER_AUTH_DISPLAY_INDEX_SQL);
+        await migrateLegacyAuthDocumentsToTable(client);
+        await client.query('COMMIT');
+    }
+    catch (error) {
+        await client.query('ROLLBACK').catch(() => undefined);
+        throw error;
+    }
+    finally {
+        client.release();
+    }
+}
+async function migrateLegacyAuthDocumentsToTable(client) {
+    const existing = await client.query(`SELECT 1 FROM ${PLAYER_AUTH_TABLE} LIMIT 1`);
+    if (existing.rowCount > 0) {
+        return;
+    }
+    const relation = await client.query(`SELECT to_regclass('public.persistent_documents') AS relation_name`);
+    if (!relation.rows[0]?.relation_name) {
+        return;
+    }
+    const legacyRows = await client.query('SELECT key, payload FROM persistent_documents WHERE scope = $1 ORDER BY key ASC', [PLAYER_AUTH_SCOPE]);
+    for (const row of legacyRows.rows) {
+        const normalized = normalizeAuthRecord(row?.payload, typeof row?.key === 'string' ? row.key : '');
+        if (!normalized) {
+            continue;
+        }
+        await client.query(`
+      INSERT INTO ${PLAYER_AUTH_TABLE}(
+        user_id,
+        username,
+        player_id,
+        pending_role_name,
+        display_name,
+        password_hash,
+        total_online_seconds,
+        current_online_started_at,
+        created_at,
+        updated_at,
+        payload
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8::timestamptz, $9::timestamptz, now(), $10::jsonb)
+      ON CONFLICT (user_id) DO NOTHING
+    `, [
+            normalized.id,
+            normalized.username,
+            normalized.playerId,
+            normalized.pendingRoleName,
+            normalized.displayName,
+            normalized.passwordHash,
+            normalized.totalOnlineSeconds,
+            normalized.currentOnlineStartedAt,
+            normalized.createdAt,
+            JSON.stringify(toPersistedUser(normalized)),
+        ]);
+    }
+}

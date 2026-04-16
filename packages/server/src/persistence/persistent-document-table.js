@@ -15,7 +15,10 @@ const CREATE_PERSISTENT_DOCUMENTS_SQL = `
     PRIMARY KEY (scope, key)
   )
 `;
-// TODO(next:PERSIST01): 明确哪些状态继续留在 persistent_documents，哪些需要拆成长期专表与索引，避免 MMO 真源长期停留在通用文档表。
+
+// persistent_documents 现在只承担低频、文档型或批量 scope 的真源：
+// map aura、mailbox、suggestion、redeem-code、market，以及 GM/admin 的备份元数据等。
+// 账号、player auth、player identity、player snapshot 这类高频主链状态已迁到专表，不再继续堆进通用文档表。
 
 /** 初始化 persistent_documents 表并加数据库 advisory lock，避免并发重复建表。 */
 async function ensurePersistentDocumentsTable(pool) {
@@ -30,4 +33,3 @@ async function ensurePersistentDocumentsTable(pool) {
         client.release();
     }
 }
-

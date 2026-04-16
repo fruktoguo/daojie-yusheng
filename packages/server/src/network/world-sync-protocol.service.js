@@ -12,7 +12,6 @@ exports.WorldSyncProtocolService = void 0;
 const common_1 = require("@nestjs/common");
 
 const shared_1 = require("@mud/shared-next");
-// TODO(next:T23): 把这里的手写 next emit 列表继续收进 shared protocol/audit 门禁，避免 server 侧协议分发与 shared-only 事件图漂移。
 
 let WorldSyncProtocolService = class WorldSyncProtocolService {
     resolveEmission(socket) {
@@ -48,5 +47,4 @@ exports.WorldSyncProtocolService = WorldSyncProtocolService;
 exports.WorldSyncProtocolService = WorldSyncProtocolService = __decorate([
     (0, common_1.Injectable)()
 ], WorldSyncProtocolService);
-
 

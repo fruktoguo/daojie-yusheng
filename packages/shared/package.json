@@ -5,10 +5,12 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "build": "node ../../scripts/sync-tutorial-mechanics.mjs && tsc && node scripts/check-numeric-stats.cjs && node scripts/check-protocol-event-maps.cjs",
+    "build": "node ../../scripts/sync-tutorial-mechanics.mjs && tsc && node scripts/check-numeric-stats.cjs && node scripts/check-protocol-event-maps.cjs && node scripts/check-protocol-payload-shapes.cjs && node scripts/check-network-protobuf-contract.cjs",
     "build:watch": "tsc --watch",
     "check:numeric-stats": "node scripts/check-numeric-stats.cjs",
-    "check:protocol-event-maps": "node scripts/check-protocol-event-maps.cjs"
+    "check:protocol-event-maps": "node scripts/check-protocol-event-maps.cjs",
+    "check:protocol-payload-shapes": "node scripts/check-protocol-payload-shapes.cjs",
+    "check:network-protobuf-contract": "node scripts/check-network-protobuf-contract.cjs"
   },
   "dependencies": {
     "protobufjs": "^7.5.4"

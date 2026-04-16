@@ -2,7 +2,6 @@
  * Protobuf 网络编解码层：把高频同步包（Tick、属性、功法、行动等）
  * 压成二进制，减少带宽占用和 JSON 序列化压力。
  */
-// TODO(next:T23): 持续把 protobuf schema、事件白名单和 protocol.ts 对齐，避免 shared/runtime 在高频包上继续漂出隐性合同差异。
 import protobuf from 'protobufjs';
 import { type ActionUpdateEntry, type GroundItemPilePatch, type NEXT_S2C_ActionsUpdate, type NEXT_S2C_AttrUpdate, type NEXT_S2C_TechniqueUpdate, type NEXT_S2C_Tick, type TechniqueUpdateEntry, type TickRenderEntity, type VisibleTilePatch } from './protocol';
 import type { NumericRatioDivisors, NumericStats } from './numeric';
@@ -322,10 +321,10 @@ const actionsPayloadType = root.lookupType('ActionsUpdatePayload');
 /** 属性面板增量包的 protobuf 类型。 */
 const attrPayloadType = root.lookupType('AttrUpdatePayload');
 
-/** 走 protobuf 二进制编码的 NEXT_S2C 事件集合。 */
+/** 走 protobuf 二进制编码的 NEXT_S2C 事件集合；当前 next 主链未启用独立 protobuf 事件。 */
 const PROTOBUF_NEXT_S2C_EVENTS = new Set<string>();
 
-/** 走 protobuf 二进制编码的 NEXT_C2S 事件集合，当前为空。 */
+/** 走 protobuf 二进制编码的 NEXT_C2S 事件集合；如重新引入需同步更新 shared/server 校验脚本。 */
 const PROTOBUF_NEXT_C2S_EVENTS = new Set<string>();
 
 export { PROTOBUF_NEXT_S2C_EVENTS, PROTOBUF_NEXT_C2S_EVENTS };

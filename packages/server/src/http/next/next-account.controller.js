@@ -20,20 +20,19 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.NextAccountController = void 0;
 const common_1 = require("@nestjs/common");
 const next_player_auth_service_1 = require("./next-player-auth.service");
-// TODO(next:T01): 在 next account 自助接口完全定稿后，收掉这层对旧 Bearer 壳与迁移期字段清洗的薄适配。
 let NextAccountController = class NextAccountController {
     authService;
     constructor(authService) {
         this.authService = authService;
     }
     async updatePassword(authorization, body) {
-        return this.authService.updatePassword(authorization, pickString(body?.currentPassword), pickString(body?.newPassword));
+        return this.authService.updatePassword(extractBearerToken(authorization), pickString(body?.currentPassword), pickString(body?.newPassword));
     }
     async updateDisplayName(authorization, body) {
-        return this.authService.updateDisplayName(authorization, pickString(body?.displayName));
+        return this.authService.updateDisplayName(extractBearerToken(authorization), pickString(body?.displayName));
     }
     async updateRoleName(authorization, body) {
-        return this.authService.updateRoleName(authorization, pickString(body?.roleName));
+        return this.authService.updateRoleName(extractBearerToken(authorization), pickString(body?.roleName));
     }
 };
 exports.NextAccountController = NextAccountController;
@@ -68,5 +67,10 @@ exports.NextAccountController = NextAccountController = __decorate([
 function pickString(value) {
     return typeof value === 'string' ? value : '';
 }
-
+function extractBearerToken(authorization) {
+    const normalizedAuthorization = typeof authorization === 'string' ? authorization.trim() : '';
+    return normalizedAuthorization.startsWith('Bearer ')
+        ? normalizedAuthorization.slice('Bearer '.length).trim()
+        : '';
+}
 

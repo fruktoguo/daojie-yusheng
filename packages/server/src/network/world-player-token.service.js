@@ -31,7 +31,7 @@ const TRACE_RECORD_LIMIT = 256;
 const AUTH_TRACE_ENABLE_ENV_KEYS = ['SERVER_NEXT_AUTH_TRACE_ENABLED', 'NEXT_AUTH_TRACE_ENABLED'];
 
 const AUTH_TRACE_TRUE_VALUES = new Set(['1', 'true', 'yes', 'on', 'enable', 'enabled']);
-// TODO(next:T08): 让 auth trace 退回调试/验收观测角色，不再承担完成定义；同时保留最小可审计摘要而不是继续扩张依赖面。
+const AUTH_TRACE_PURPOSE = 'debug_and_audit_summary';
 /** 玩家认证 trace 服务：记录鉴权、回填和 bootstrap 的调试轨迹。 */
 function resolveTraceFilePath() {
 
@@ -86,13 +86,17 @@ exports.recordAuthTrace = recordAuthTrace;
 function readAuthTrace() {
 
     const trace = ensureAuthTraceState();
+    const summary = buildAuthTraceSummary(trace.records);
     return {
+        purpose: AUTH_TRACE_PURPOSE,
+        completionDefinition: false,
+        boundedRecords: true,
         enabled: trace.enabled,
         limit: TRACE_RECORD_LIMIT,
         records: trace.records.slice(),
         filePath: trace.filePath,
         fileErrored: trace.fileErrored,
-        summary: buildAuthTraceSummary(trace.records),
+        summary,
     };
 }
 exports.readAuthTrace = readAuthTrace;
@@ -489,4 +493,3 @@ function isValidVisibleDisplayName(value) {
         && !(0, shared_1.containsInvisibleOnlyNameGrapheme)(value);
 }
 //# sourceMappingURL=world-player-token.service.js.map
-

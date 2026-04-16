@@ -32,7 +32,6 @@ const suggestion_runtime_service_1 = require("../runtime/suggestion/suggestion-r
 const world_session_service_1 = require("./world-session.service");
 
 const world_sync_service_1 = require("./world-sync.service");
-// TODO(next:T23): 把 notice/chat/loot/window 等 runtime emit 面继续纳入 shared protocol/audit 门禁，减少事件服务和 shared 合同脱节。
 
 /** 世界客户端事件服务：把 runtime 结果翻译成 Socket 事件并按玩家维度下发。 */
 let WorldClientEventService = class WorldClientEventService {
@@ -378,4 +377,3 @@ exports.WorldClientEventService = WorldClientEventService = __decorate([
         world_session_service_1.WorldSessionService,
         world_sync_service_1.WorldSyncService])
 ], WorldClientEventService);
-

@@ -2,8 +2,6 @@
 /**
  * 用途：执行 next-auth-bootstrap 链路的冒烟验证。
  */
-// TODO(next:T25): 持续把 mainline/migration proof 矩阵对齐到真实完成定义，避免 smoke 绿色被误读成 auth/bootstrap 真源已经完全替换。
-
 Object.defineProperty(exports, "__esModule", { value: true });
 const smoke_timeout_1 = require("./smoke-timeout");
 (0, smoke_timeout_1.installSmokeTimeout)(__filename);
@@ -56,6 +54,21 @@ const SESSION_DETACH_EXPIRE_MS = Number.isFinite(Number(process.env.SERVER_NEXT_
 const NEXT_AUTH_BOOTSTRAP_PROFILE = readBootstrapProfile();
 const RUN_MAINLINE_PROOFS = NEXT_AUTH_BOOTSTRAP_PROFILE !== 'migration';
 const RUN_MIGRATION_PROOFS = NEXT_AUTH_BOOTSTRAP_PROFILE !== 'mainline';
+const NEXT_AUTH_BOOTSTRAP_BOUNDARY = Object.freeze({
+    answers: [
+        'next token/bootstrap/session 主链在当前 profile 下是否仍按正式 next 合同工作',
+        'mainline / migration proof 矩阵、next socket 协议守卫与 auth trace 主证明链是否通过',
+    ],
+    excludes: [
+        '不证明 shadow / acceptance / full / destructive 维护窗口',
+        '不证明 GM/admin/restore 运营面已经闭环',
+        '不证明 legacy/compat 已经整体退役或 next 已完成完整替换',
+    ],
+    completionMapping: [
+        '映射 local 与 proof:with-db 里的 auth/bootstrap 主证明链',
+        '不是 replace-ready 完整完成定义，也不能单独替代 acceptance/full',
+    ],
+});
 /**
  * 记录 legacy 下行事件集合，用于断言 next socket 没有串出旧协议消息。
  */
@@ -163,6 +176,9 @@ async function main() {
             skipped: true,
             reason: 'no_db_legacy_http_memory_fallback_disabled',
             profile: NEXT_AUTH_BOOTSTRAP_PROFILE,
+            answers: NEXT_AUTH_BOOTSTRAP_BOUNDARY.answers,
+            excludes: NEXT_AUTH_BOOTSTRAP_BOUNDARY.excludes,
+            completionMapping: NEXT_AUTH_BOOTSTRAP_BOUNDARY.completionMapping,
         }, null, 2));
         return;
     }
@@ -282,6 +298,9 @@ async function main() {
             ok: true,
             url: SERVER_NEXT_URL,
             profile: NEXT_AUTH_BOOTSTRAP_PROFILE,
+            answers: NEXT_AUTH_BOOTSTRAP_BOUNDARY.answers,
+            excludes: NEXT_AUTH_BOOTSTRAP_BOUNDARY.excludes,
+            completionMapping: NEXT_AUTH_BOOTSTRAP_BOUNDARY.completionMapping,
             playerId: null,
             verified: {
                 nextProtocolNoDbRejectsTokenRuntime: true,
@@ -383,6 +402,9 @@ async function main() {
             ok: true,
             url: SERVER_NEXT_URL,
             profile: NEXT_AUTH_BOOTSTRAP_PROFILE,
+            answers: NEXT_AUTH_BOOTSTRAP_BOUNDARY.answers,
+            excludes: NEXT_AUTH_BOOTSTRAP_BOUNDARY.excludes,
+            completionMapping: NEXT_AUTH_BOOTSTRAP_BOUNDARY.completionMapping,
             playerId: runtimePlayerId,
             verified: {
                 nextTokenBootstrap: {
@@ -7860,14 +7882,16 @@ if (require.main === module) {
     });
 }
 
-const { helperFunctionNames } = require('./next-auth-bootstrap-smoke/helpers');
-const { fixtureFunctionNames } = require('./next-auth-bootstrap-smoke/fixtures');
+const { buildHelperFunctionNames } = require('./next-auth-bootstrap-smoke/helpers');
+const { buildFixtureFunctionNames } = require('./next-auth-bootstrap-smoke/fixtures');
 const { buildVerifyFunctionNames } = require('./next-auth-bootstrap-smoke/contract-verifiers');
 const coreSource = (() => {
     const fs = require('node:fs');
     return fs.readFileSync(__filename, 'utf8');
 })();
 const declaredFunctionNames = Array.from(coreSource.matchAll(/^\s*(?:async\s+)?function\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*\(/gm), (match) => match[1]);
+const fixtureFunctionNames = buildFixtureFunctionNames(declaredFunctionNames);
+const helperFunctionNames = buildHelperFunctionNames(declaredFunctionNames, fixtureFunctionNames);
 function collectExports(names) {
     const result = {};
     for (const name of names) {

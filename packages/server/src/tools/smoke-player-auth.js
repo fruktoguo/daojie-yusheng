@@ -2,8 +2,6 @@
 /**
  * 用途：为 smoke 脚本生成玩家身份与访问令牌。
  */
-// TODO(next:T25): 在 player token 真源和验收口径彻底定稿后，收掉这里对 JWT_SECRET 历史别名的沿用，保持 smoke helper 与正式 token contract 同步。
-
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.createSmokePlayerIdentity = void 0;
 const node_crypto_1 = require("node:crypto");
@@ -26,7 +24,6 @@ const ACCESS_EXPIRES_SECONDS = 15 * 60;
 const PLAYER_TOKEN_SECRET_ENV_KEYS = [
     'SERVER_NEXT_PLAYER_TOKEN_SECRET',
     'NEXT_PLAYER_TOKEN_SECRET',
-    'JWT_SECRET',
 ];
 /**
  * 创建smoke 校验玩家identity。

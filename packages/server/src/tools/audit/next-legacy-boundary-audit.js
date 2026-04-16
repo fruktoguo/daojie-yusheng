@@ -2,8 +2,6 @@
 /**
  * 用途：审计 server-next 与 legacy 兼容边界依赖。
  */
-// TODO(next:T11): 持续把审计 inventory 的路径与模式同步到当前目录结构，避免 missing file / fail-soft 漂移削弱门禁可信度。
-
 const fs = require("node:fs");
 const path = require("node:path");
 const packageRoot = path.resolve(__dirname, "..", "..", "..");
@@ -52,15 +50,15 @@ const CHECKS = [
   {
     id: "auth.snapshot.legacy_tables_users_players",
     category: "P0 auth/bootstrap 真源",
-    description: "legacy player source 仍直接查询 users/players 表",
-    file: "packages/server/src/network/world-legacy-player-source.service.js",
+    description: "legacy player repository 仍直接查询 users/players 表",
+    file: "packages/server/src/network/world-legacy-player-repository.js",
     pattern: "FROM users u",
   },
   {
     id: "auth.snapshot.legacy_tables_players",
     category: "P0 auth/bootstrap 真源",
-    description: "legacy player snapshot 仍直接查询 players 表",
-    file: "packages/server/src/network/world-legacy-player-source.service.js",
+    description: "legacy player snapshot 仓库仍直接查询 players 表",
+    file: "packages/server/src/network/world-legacy-player-repository.js",
     pattern: "FROM players",
   },
   {
@@ -155,9 +153,9 @@ const CHECKS = [
   {
     id: "runtime.legacy_snapshot_adapter",
     category: "P1 runtime/persistence compat",
-    description: "legacy player source 仍构造 toLegacyPlayerSnapshot 适配对象",
-    file: "packages/server/src/network/world-legacy-player-source.service.js",
-    pattern: "toLegacyPlayerSnapshot(",
+    description: "WorldPlayerSource 仍通过 legacy repository 拉 compat snapshot",
+    file: "packages/server/src/network/world-player-source.service.js",
+    pattern: "queryLegacyPlayerSnapshotRow(",
   },
   {
     id: "perf.full_capture",

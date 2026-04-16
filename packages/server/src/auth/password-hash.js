@@ -1,25 +1,14 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.hashPassword = exports.verifyPassword = exports.isLegacyBcryptHash = void 0;
+exports.hashPassword = exports.verifyPassword = void 0;
 const node_crypto_1 = require("node:crypto");
-const bcryptjs = require("bcryptjs");
-// TODO(next:MIGRATE01): 在 legacy 账号密码完成重哈希与迁移窗口关闭后，删除 bcrypt 旧格式兼容，只保留 next 密码存储格式。
 
-/** 识别 legacy bcrypt 旧格式 hash，用于兼容旧密码库。 */
-function isLegacyBcryptHash(hash) {
-    return typeof hash === 'string' && /^\$2[aby]\$/.test(hash);
-}
-exports.isLegacyBcryptHash = isLegacyBcryptHash;
-
-/** 对接收密码进行验证：优先兼容 bcrypt，其次验证自定义 scrypt 格式。 */
+/** 对接收密码进行验证：统一验证 next 自定义 scrypt 格式。 */
 async function verifyPassword(password, storedHash) {
     const normalizedPassword = typeof password === 'string' ? password : '';
     const normalizedHash = typeof storedHash === 'string' ? storedHash : '';
     if (!normalizedHash) {
         return false;
-    }
-    if (isLegacyBcryptHash(normalizedHash)) {
-        return bcryptjs.compare(normalizedPassword, normalizedHash);
     }
     const parsed = parseScryptHash(normalizedHash);
     if (!parsed) {
@@ -35,17 +24,15 @@ async function verifyPassword(password, storedHash) {
 }
 exports.verifyPassword = verifyPassword;
 
-/** 生成密码存储串：有密码则走 bcrypt，新建时走 scrypt 自定义前缀格式。 */
+/** 生成密码存储串：统一写入 next 自定义前缀的 scrypt 格式。 */
 async function hashPassword(password) {
-    if (typeof password === 'string' && password.length > 0) {
-        return bcryptjs.hash(password, 10);
-    }
+    const normalizedPassword = typeof password === 'string' ? password : '';
     const salt = (0, node_crypto_1.randomBytes)(16);
     const cost = 16384;
     const blockSize = 8;
     const parallelization = 1;
     const keyLength = 64;
-    const hash = (0, node_crypto_1.scryptSync)(password, salt, keyLength, {
+    const hash = (0, node_crypto_1.scryptSync)(normalizedPassword, salt, keyLength, {
         N: cost,
         r: blockSize,
         p: parallelization,
@@ -83,4 +70,3 @@ function parseScryptHash(value) {
         hash,
     };
 }
-

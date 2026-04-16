@@ -21,7 +21,6 @@ exports.NextAuthController = void 0;
 const common_1 = require("@nestjs/common");
 const next_player_auth_service_1 = require("./next-player-auth.service");
 const next_auth_rate_limit_service_1 = require("./next-auth-rate-limit.service");
-// TODO(next:T01): 在注册/登录/刷新 contract 与字段别名完全定稿后，收掉 controller 层对迁移期入参别名的兼容清洗。
 /** Next 登录鉴权 HTTP 控制器：负责注册、登录、刷新和显示名可用性检查。 */
 let NextAuthController = class NextAuthController {
     /** 注入 next 玩家鉴权服务，控制器只负责参数清洗与路由转发。 */
@@ -32,9 +31,9 @@ let NextAuthController = class NextAuthController {
         this.authService = authService;
         this.rateLimitService = rateLimitService;
     }
-    /** 处理注册请求，兼容 accountName/username 两种字段名。 */
+    /** 处理注册请求，固定走 next accountName/displayName/roleName 合同。 */
     async register(body, request) {
-        const accountName = pickString(body?.accountName) || pickString(body?.username);
+        const accountName = pickString(body?.accountName);
         this.rateLimitService.assertAllowed('register', request, accountName);
         try {
             const result = await this.authService.register(accountName, pickString(body?.password), pickString(body?.displayName), pickString(body?.roleName));
@@ -46,9 +45,9 @@ let NextAuthController = class NextAuthController {
             throw error;
         }
     }
-    /** 处理登录请求，兼容 loginName/username 两种字段名。 */
+    /** 处理登录请求，固定走 next loginName/password 合同。 */
     async login(body, request) {
-        const loginName = pickString(body?.loginName) || pickString(body?.username);
+        const loginName = pickString(body?.loginName);
         this.rateLimitService.assertAllowed('login', request, loginName);
         try {
             const result = await this.authService.login(loginName, pickString(body?.password));

@@ -78,7 +78,6 @@ const COMPAT_MIGRATION_SOURCE_OPTIONS = Object.freeze({
     allowLegacyHttpIdentityFallback: false,
     reason: 'auth_migration',
 });
-// TODO(next:T01): 彻底移除 authenticated next 入场对 compat identity/runtime backfill 的默认依赖，只保留显式 migration 窗口。
 
 /** 世界玩家鉴权服务：把 token 校验、兼容回填和身份持久化收敛到一起。 */
 let WorldPlayerAuthService = class WorldPlayerAuthService {
@@ -429,6 +428,7 @@ let WorldPlayerAuthService = class WorldPlayerAuthService {
 
         const nextProtocolStrict = protocol === 'next';
 
+        // compat identity/backfill 只允许显式 migration 协议窗口，默认与 legacy 入口都不可旁路开启。
         const compatBackfillProtocolAllowed = isExplicitMigrationProtocol(protocol);
 
         const tokenIdentity = this.worldPlayerTokenService.resolvePlayerIdentityFromPayload(payload);

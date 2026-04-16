@@ -2,8 +2,6 @@
 /**
  * 用途：执行 gm-next 主链路的冒烟验证。
  */
-// TODO(next:T25): 继续把 GM/admin/restore 的完成定义映射到独立证据，避免 gm-next smoke 通过被误判为完整运营闭环已完成。
-
 Object.defineProperty(exports, "__esModule", { value: true });
 const smoke_timeout_1 = require("./smoke-timeout");
 (0, smoke_timeout_1.installSmokeTimeout)(__filename);
@@ -51,6 +49,21 @@ const roleName = `兼烟${suffix.slice(-4)}`;
  * 预留给 GM 改密验证链路使用的新密码。
  */
 const gmChangedPassword = `${password}_gmchg${suffix.slice(-4)}`;
+const GM_NEXT_SMOKE_BOUNDARY = Object.freeze({
+    answers: [
+        'shadow 或本地带库环境下，GM socket / HTTP 主链、玩家编辑、邮件、建议与地图控制关键写路径是否可跑通',
+        'GM 协议守卫、GM sessionId 守卫与 next-only 协议边界是否生效',
+    ],
+    excludes: [
+        '不证明 backup / restore / destructive 维护窗口',
+        '不证明 acceptance/full 已经自动闭环',
+        '不证明 GM/admin/restore 的长期完成定义已经全部收口',
+    ],
+    completionMapping: [
+        '映射 acceptance 里的 GM 关键写路径自动证据',
+        '不能单独替代 full、shadow-destructive 或人工运营回归',
+    ],
+});
 /**
  * 串联 socket GM、HTTP GM、邮件、建议和地图控制等兼容验证流程。
  */
@@ -85,6 +98,9 @@ async function main() {
             url: SERVER_NEXT_URL,
             skipped: true,
             reason: 'no_db_legacy_http_memory_fallback_disabled',
+            answers: GM_NEXT_SMOKE_BOUNDARY.answers,
+            excludes: GM_NEXT_SMOKE_BOUNDARY.excludes,
+            completionMapping: GM_NEXT_SMOKE_BOUNDARY.completionMapping,
         }, null, 2));
         return;
     }
@@ -165,6 +181,9 @@ async function main() {
             url: SERVER_NEXT_URL,
             skipped: true,
             reason: 'no_db_next_protocol_rejects_token_runtime',
+            answers: GM_NEXT_SMOKE_BOUNDARY.answers,
+            excludes: GM_NEXT_SMOKE_BOUNDARY.excludes,
+            completionMapping: GM_NEXT_SMOKE_BOUNDARY.completionMapping,
             protocolGuardRejectedCode: protocolGuardError?.code ?? null,
             legacyProtocolGuardRejectedCode: legacyProtocolGuardError?.code ?? null,
             gmSessionIdGuardRejectedCode: gmSessionIdGuardError?.code ?? null,
@@ -655,6 +674,9 @@ async function main() {
         console.log(JSON.stringify({
             ok: true,
             url: SERVER_NEXT_URL,
+            answers: GM_NEXT_SMOKE_BOUNDARY.answers,
+            excludes: GM_NEXT_SMOKE_BOUNDARY.excludes,
+            completionMapping: GM_NEXT_SMOKE_BOUNDARY.completionMapping,
             playerId: auth.playerId,
             socket: {
                 gmStateEvents: gmStateEvents.length,

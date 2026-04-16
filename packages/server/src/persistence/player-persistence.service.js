@@ -18,14 +18,35 @@ const pg_1 = require("pg");
 
 const shared_1 = require("@mud/shared-next");
 
-const persistent_document_table_1 = require("./persistent-document-table");
-
 const player_snapshot_compat_1 = require("./player-snapshot-compat");
 
 const env_alias_1 = require("../config/env-alias");
-// TODO(next:PERSIST01): 把 player snapshot 真源从 persistent_documents 收成正式快照模型，并在 next-native 主链稳定后移除 compat/legacy_seeded 过渡语义。
 
 const PLAYER_SNAPSHOT_SCOPE = 'server_next_player_snapshots_v1';
+
+const PLAYER_SNAPSHOT_TABLE = 'server_next_player_snapshot';
+
+const CREATE_PLAYER_SNAPSHOT_TABLE_SQL = `
+  CREATE TABLE IF NOT EXISTS ${PLAYER_SNAPSHOT_TABLE} (
+    player_id varchar(100) PRIMARY KEY,
+    template_id varchar(120) NOT NULL,
+    persisted_source varchar(32) NOT NULL,
+    seeded_at bigint,
+    saved_at bigint NOT NULL,
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    payload jsonb NOT NULL
+  )
+`;
+
+const CREATE_PLAYER_SNAPSHOT_TEMPLATE_INDEX_SQL = `
+  CREATE INDEX IF NOT EXISTS server_next_player_snapshot_template_idx
+  ON ${PLAYER_SNAPSHOT_TABLE}(template_id)
+`;
+
+const CREATE_PLAYER_SNAPSHOT_SOURCE_INDEX_SQL = `
+  CREATE INDEX IF NOT EXISTS server_next_player_snapshot_source_idx
+  ON ${PLAYER_SNAPSHOT_TABLE}(persisted_source)
+`;
 
 const PLAYER_SNAPSHOT_META_KEY = '__snapshotMeta';
 
@@ -48,9 +69,9 @@ let PlayerPersistenceService = PlayerPersistenceService_1 = class PlayerPersiste
             connectionString: databaseUrl,
         });
         try {
-            await (0, persistent_document_table_1.ensurePersistentDocumentsTable)(this.pool);
+            await ensurePlayerSnapshotTable(this.pool);
             this.enabled = true;
-            this.logger.log('玩家快照持久化已启用（persistent_documents）');
+            this.logger.log('玩家快照持久化已启用（server_next_player_snapshot）');
         }
         catch (error) {
             this.logger.error('玩家快照持久化初始化失败，已回退为禁用模式', error instanceof Error ? error.stack : String(error));
@@ -73,15 +94,27 @@ let PlayerPersistenceService = PlayerPersistenceService_1 = class PlayerPersiste
             return null;
         }
 
-        const result = await this.pool.query('SELECT payload FROM persistent_documents WHERE scope = $1 AND key = $2', [PLAYER_SNAPSHOT_SCOPE, playerId]);
+        const result = await this.pool.query(`
+        SELECT
+          player_id,
+          template_id,
+          persisted_source,
+          seeded_at,
+          saved_at,
+          updated_at,
+          payload
+        FROM ${PLAYER_SNAPSHOT_TABLE}
+        WHERE player_id = $1
+        LIMIT 1
+      `, [playerId]);
         if (result.rowCount === 0) {
             return null;
         }
 
-        const record = normalizePlayerSnapshotRecord(result.rows[0]?.payload);
+        const record = normalizePersistedPlayerSnapshotRow(result.rows[0]);
         if (!record) {
 
-            const message = `Persisted player snapshot record invalid: playerId=${playerId} scope=${PLAYER_SNAPSHOT_SCOPE}`;
+            const message = `Persisted player snapshot record invalid: playerId=${playerId} table=${PLAYER_SNAPSHOT_TABLE}`;
             this.logger.error(message);
             throw new Error(message);
         }
@@ -92,13 +125,18 @@ let PlayerPersistenceService = PlayerPersistenceService_1 = class PlayerPersiste
             return [];
         }
 
-        const result = await this.pool.query('SELECT key, payload, "updatedAt" FROM persistent_documents WHERE scope = $1 ORDER BY key ASC', [PLAYER_SNAPSHOT_SCOPE]);
+        const result = await this.pool.query(`
+        SELECT
+          player_id,
+          updated_at,
+          payload
+        FROM ${PLAYER_SNAPSHOT_TABLE}
+        ORDER BY player_id ASC
+      `);
         return result.rows
             .map((row) => {
-
-            const playerId = typeof row?.key === 'string' ? row.key.trim() : '';
-
-            const record = normalizePlayerSnapshotRecord(row?.payload);
+            const playerId = typeof row?.player_id === 'string' ? row.player_id.trim() : '';
+            const record = normalizePersistedPlayerSnapshotRow(row);
 
             const snapshot = record?.snapshot ?? null;
             if (!playerId || !snapshot) {
@@ -107,9 +145,9 @@ let PlayerPersistenceService = PlayerPersistenceService_1 = class PlayerPersiste
             return {
                 playerId,
                 snapshot,
-                updatedAt: row?.updatedAt instanceof Date
-                    ? row.updatedAt.getTime()
-                    : Date.parse(String(row?.updatedAt ?? '')) || 0,
+                updatedAt: row?.updated_at instanceof Date
+                    ? row.updated_at.getTime()
+                    : Date.parse(String(row?.updated_at ?? '')) || 0,
             };
         })
             .filter((entry) => entry !== null);
@@ -132,11 +170,32 @@ let PlayerPersistenceService = PlayerPersistenceService_1 = class PlayerPersiste
             seededAt: options?.seededAt,
         });
         await this.pool.query(`
-        INSERT INTO persistent_documents(scope, key, payload, "updatedAt")
-        VALUES ($1, $2, $3::jsonb, now())
-        ON CONFLICT (scope, key)
-        DO UPDATE SET payload = EXCLUDED.payload, "updatedAt" = now()
-      `, [PLAYER_SNAPSHOT_SCOPE, playerId, JSON.stringify(payload)]);
+        INSERT INTO ${PLAYER_SNAPSHOT_TABLE}(
+          player_id,
+          template_id,
+          persisted_source,
+          seeded_at,
+          saved_at,
+          updated_at,
+          payload
+        )
+        VALUES ($1, $2, $3, $4, $5, now(), $6::jsonb)
+        ON CONFLICT (player_id)
+        DO UPDATE SET
+          template_id = EXCLUDED.template_id,
+          persisted_source = EXCLUDED.persisted_source,
+          seeded_at = EXCLUDED.seeded_at,
+          saved_at = EXCLUDED.saved_at,
+          updated_at = now(),
+          payload = EXCLUDED.payload
+      `, [
+            playerId,
+            normalizedSnapshot.placement.templateId,
+            persistedSource,
+            Number.isFinite(options?.seededAt) ? Math.max(0, Math.trunc(options.seededAt)) : null,
+            Math.max(0, Math.trunc(normalizedSnapshot.savedAt)),
+            JSON.stringify(payload),
+        ]);
     }
     async safeClosePool() {
 
@@ -152,6 +211,94 @@ exports.PlayerPersistenceService = PlayerPersistenceService;
 exports.PlayerPersistenceService = PlayerPersistenceService = PlayerPersistenceService_1 = __decorate([
     (0, common_1.Injectable)()
 ], PlayerPersistenceService);
+async function ensurePlayerSnapshotTable(pool) {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        await client.query(CREATE_PLAYER_SNAPSHOT_TABLE_SQL);
+        await client.query(CREATE_PLAYER_SNAPSHOT_TEMPLATE_INDEX_SQL);
+        await client.query(CREATE_PLAYER_SNAPSHOT_SOURCE_INDEX_SQL);
+        await migrateLegacySnapshotDocumentsToTable(client);
+        await client.query('COMMIT');
+    }
+    catch (error) {
+        await client.query('ROLLBACK').catch(() => undefined);
+        throw error;
+    }
+    finally {
+        client.release();
+    }
+}
+async function migrateLegacySnapshotDocumentsToTable(client) {
+    const existing = await client.query(`SELECT 1 FROM ${PLAYER_SNAPSHOT_TABLE} LIMIT 1`);
+    if (existing.rowCount > 0) {
+        return;
+    }
+    const relation = await client.query(`SELECT to_regclass('public.persistent_documents') AS relation_name`);
+    if (!relation.rows[0]?.relation_name) {
+        return;
+    }
+    const legacyRows = await client.query('SELECT key, payload FROM persistent_documents WHERE scope = $1 ORDER BY key ASC', [PLAYER_SNAPSHOT_SCOPE]);
+    for (const row of legacyRows.rows) {
+        const record = normalizePlayerSnapshotRecord(row?.payload);
+        if (!record?.snapshot) {
+            continue;
+        }
+        const playerId = typeof row?.key === 'string' ? row.key.trim() : '';
+        if (!playerId) {
+            continue;
+        }
+        await client.query(`
+        INSERT INTO ${PLAYER_SNAPSHOT_TABLE}(
+          player_id,
+          template_id,
+          persisted_source,
+          seeded_at,
+          saved_at,
+          updated_at,
+          payload
+        )
+        VALUES ($1, $2, $3, $4, $5, now(), $6::jsonb)
+        ON CONFLICT (player_id) DO NOTHING
+      `, [
+            playerId,
+            record.snapshot.placement.templateId,
+            record.persistedSource,
+            record.seededAt,
+            Math.max(0, Math.trunc(record.snapshot.savedAt)),
+            JSON.stringify(buildPersistedPlayerSnapshotPayload(record.snapshot, {
+                persistedSource: record.persistedSource,
+                seededAt: record.seededAt,
+            })),
+        ]);
+    }
+}
+function normalizePersistedPlayerSnapshotRow(row) {
+    if (!row || typeof row !== 'object') {
+        return null;
+    }
+    const record = normalizePlayerSnapshotRecord(row.payload);
+    if (!record?.snapshot) {
+        return null;
+    }
+    return {
+        snapshot: {
+            ...record.snapshot,
+            savedAt: Number.isFinite(row.saved_at)
+                ? Math.max(0, Math.trunc(row.saved_at))
+                : record.snapshot.savedAt,
+            placement: {
+                ...record.snapshot.placement,
+                templateId: typeof row.template_id === 'string' && row.template_id.trim()
+                    ? row.template_id.trim()
+                    : record.snapshot.placement.templateId,
+            },
+        },
+        persistedSource: normalizePlayerSnapshotPersistedSource(row.persisted_source)
+            ?? record.persistedSource,
+        seededAt: Number.isFinite(row.seeded_at) ? Math.max(0, Math.trunc(row.seeded_at)) : record.seededAt,
+    };
+}
 function normalizePlayerSnapshotRecord(raw) {
 
     const snapshot = normalizePlayerSnapshotPayload(raw);
@@ -394,5 +541,4 @@ function normalizePendingLogbookKind(value) {
     }
 }
 //# sourceMappingURL=player-persistence.service.js.map
-
 

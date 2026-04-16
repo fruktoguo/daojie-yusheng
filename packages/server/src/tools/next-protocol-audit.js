@@ -2,7 +2,6 @@
 /**
  * 用途：执行 server-next 协议审计。
  */
-// TODO(next:T23): 继续把协议审计绑定到真实 next contract，发现 shared/runtime 偏移时直接给出硬门禁而不是只写报告。
 
 var fs = require("node:fs");
 var path = require("node:path");
@@ -188,6 +187,49 @@ if (HAS_DATABASE) {
   EXPECTED_S2C.push(NEXT_S2C.GmState);
   EXPECTED_S2C.push(NEXT_S2C.RedeemCodesResult);
 }
+/**
+ * 记录需要被协议审计静态钉住的 server next emit 面。
+ */
+var STATIC_S2C_SURFACE_CHECKS = [
+  {
+    label: 'world-sync-protocol service emits',
+    relativePath: 'packages/server/src/network/world-sync-protocol.service.js',
+    qualifierName: 'NEXT_S2C',
+    expectedMembers: ['LootWindowUpdate', 'MapStatic', 'Notice', 'Quests', 'Realm'],
+  },
+  {
+    label: 'world-client-event service emits',
+    relativePath: 'packages/server/src/network/world-client-event.service.js',
+    qualifierName: 'NEXT_S2C',
+    expectedMembers: [
+      'Error',
+      'LootWindowUpdate',
+      'MailDetail',
+      'MailOpResult',
+      'MailPage',
+      'MailSummary',
+      'MarketItemBook',
+      'MarketListings',
+      'MarketOrders',
+      'MarketStorage',
+      'MarketTradeHistory',
+      'MarketUpdate',
+      'Notice',
+      'NpcShop',
+      'Pong',
+      'QuestNavigateResult',
+      'Quests',
+      'RedeemCodesResult',
+      'SuggestionUpdate',
+    ],
+  },
+  {
+    label: 'world-protocol-projection service emits',
+    relativePath: 'packages/server/src/network/world-protocol-projection.service.js',
+    qualifierName: 'NEXT_S2C',
+    expectedMembers: ['TileDetail'],
+  },
+];
 /**
  * 为审计过程生成唯一玩家或实体标识。
  */
@@ -1940,6 +1982,10 @@ async function main() {
     else {
       api = lib.createRuntimeApi(baseUrl);
     }
+    STATIC_S2C_SURFACE_CHECKS.forEach(function (entry) {
+      var result = lib.assertStaticProtocolEventSurface(entry);
+      process.stdout.write("[next audit] static surface ok: " + result.label + " => " + result.members.join(', ') + "\n");
+    });
     for (var i = 0; i < cases.length; i += 1) {
 /**
  * 记录entry。

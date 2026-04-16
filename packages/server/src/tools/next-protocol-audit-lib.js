@@ -2,10 +2,9 @@
 /**
  * 用途：提供 next 协议审计脚本的共享函数。
  */
-// TODO(next:T23): 继续扩协议审计 helper 对 shared/runtime 漂移、reset/projection 和新字段漏接的自动检查范围。
 
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.loadUniqueItemIds = exports.waitForState = exports.createCaseRuntime = exports.createRuntimeApi = exports.createAuditedSocket = exports.createAuditor = exports.measurePayloadBytes = exports.waitForHealth = exports.stopServer = exports.startIsolatedServer = exports.allocateFreePort = exports.waitForValue = exports.waitFor = exports.delay = exports.repoRoot = exports.distRoot = exports.packageRoot = void 0;
+exports.loadUniqueItemIds = exports.waitForState = exports.createCaseRuntime = exports.createRuntimeApi = exports.createAuditedSocket = exports.createAuditor = exports.assertStaticProtocolEventSurface = exports.measurePayloadBytes = exports.waitForHealth = exports.stopServer = exports.startIsolatedServer = exports.allocateFreePort = exports.waitForValue = exports.waitFor = exports.delay = exports.repoRoot = exports.distRoot = exports.packageRoot = void 0;
 const node_child_process_1 = require("node:child_process");
 const fs = require("node:fs");
 const net = require("node:net");
@@ -244,6 +243,39 @@ function invertEventMap(input) {
   }
   return result;
 }
+/**
+ * 从源码里提取 NEXT_C2S / NEXT_S2C 成员引用，作为协议静态面校验基础。
+ */
+function extractStaticProtocolMembers(relativePath, qualifierName) {
+  const sourcePath = path.join(exports.repoRoot, relativePath);
+  const source = fs.readFileSync(sourcePath, 'utf8');
+  const pattern = new RegExp(`${qualifierName}\\.([A-Za-z0-9_]+)`, 'g');
+  const result = new Set();
+  let match = null;
+  while ((match = pattern.exec(source))) {
+    result.add(match[1]);
+  }
+  return [...result].sort();
+}
+/**
+ * 对指定源码文件执行协议事件面硬校验，漂移时直接抛错。
+ */
+function assertStaticProtocolEventSurface(options) {
+  const actual = extractStaticProtocolMembers(options.relativePath, options.qualifierName);
+  const expected = [...options.expectedMembers].sort();
+  const missing = expected.filter((entry) => !actual.includes(entry));
+  const extra = actual.filter((entry) => !expected.includes(entry));
+  if (missing.length > 0 || extra.length > 0) {
+    throw new Error(`${options.label} static protocol surface mismatch. missing=${missing.join(', ') || 'none'} extra=${extra.join(', ') || 'none'} file=${options.relativePath}`);
+  }
+  return {
+    label: options.label,
+    relativePath: options.relativePath,
+    qualifierName: options.qualifierName,
+    members: actual,
+  };
+}
+exports.assertStaticProtocolEventSurface = assertStaticProtocolEventSurface;
 /**
  * 创建auditor。
  */

@@ -2,8 +2,6 @@
 /**
  * 用途：执行 shadow 链路的冒烟验证。
  */
-// TODO(next:T12): 保持 shadow smoke 只回答只读 acceptance 问题，把 destructive backup/restore 证据继续明确留在独立门禁链。
-
 Object.defineProperty(exports, "__esModule", { value: true });
 const smoke_timeout_1 = require("./smoke-timeout");
 (0, smoke_timeout_1.installSmokeTimeout)(__filename);
@@ -18,6 +16,10 @@ const serverUrl = (0, env_alias_1.resolveServerNextShadowUrl)() || 'http://127.0
  * 记录GMpassword。
  */
 const gmPassword = (0, env_alias_1.resolveServerNextGmPassword)('admin123');
+const SHADOW_SMOKE_BOUNDARY = {
+    answers: '已部署 shadow 实例上的只读 acceptance 与最小 GM/runtime read path 是否通过。',
+    excludes: '不证明 destructive backup/restore、维护窗口是否开放、完整运营人工回归是否完成。',
+};
 /**
  * 记录legacys2cevents。
  */
@@ -244,6 +246,7 @@ async function main() {
     console.log(JSON.stringify({
         ok: true,
         url: serverUrl,
+        boundary: SHADOW_SMOKE_BOUNDARY,
         playerId: runtimePlayerId,
         gmState: {
             playerCount: gmState.players.length,
