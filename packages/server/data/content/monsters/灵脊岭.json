@@ -148,8 +148,7 @@
         "itemId": "equip.soul_devour_token",
         "name": "噬元骨牌",
         "type": "equipment",
-        "count": 1,
-        "chance": 0.2
+        "count": 1
       }
     ],
     "grade": "yellow",

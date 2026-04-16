@@ -217,8 +217,7 @@
         "itemId": "equip.rift_guard_armor",
         "name": "裂隙镇守甲",
         "type": "equipment",
-        "count": 1,
-        "chance": 0.2
+        "count": 1
       },
       {
         "itemId": "book.golden_lock_body",
@@ -316,8 +315,7 @@
         "itemId": "equip.rift_guard_armor",
         "name": "裂隙镇守甲",
         "type": "equipment",
-        "count": 1,
-        "chance": 0.5
+        "count": 1
       },
       {
         "itemId": "book.redflame_art",
