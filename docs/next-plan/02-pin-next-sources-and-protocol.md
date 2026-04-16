@@ -2,6 +2,50 @@
 
 目标：让 `packages/*` 内部不再存在“谁才是真源”的歧义。
 
+## 当前基线
+
+当前 next 主线里，最容易漂移的是三类真源：
+
+- 协议真源
+  - `packages/shared/src/protocol.ts` `2638` 行
+  - `packages/shared/src/types.ts` `1481` 行
+  - `packages/shared/src/network-protobuf.ts` `1072` 行
+- 运行时真源
+  - `packages/server/src/runtime/*`
+  - `packages/server/src/network/world.gateway.js`
+- 内容与地图真源
+  - `packages/server/data/content/*`
+  - `packages/server/data/maps/*`
+
+当前仓库里已经有 shared 护栏脚本：
+
+- `packages/shared/scripts/check-network-protobuf-contract.cjs`
+- `packages/shared/scripts/check-numeric-stats.cjs`
+- `packages/shared/scripts/check-protocol-event-maps.cjs`
+- `packages/shared/scripts/check-protocol-payload-shapes.cjs`
+
+协议侧当前还有一个明确事实：
+
+- [docs/next-protocol-audit.md](../next-protocol-audit.md) 已经能覆盖大部分 next socket 事件面
+- 高流量热点仍集中在：
+  - `Bootstrap`
+  - `MapStatic`
+  - `PanelDelta`
+- 所以这一阶段不只是“确认谁是真源”，还要避免其它文件重新偷偷定义这些事件的行为和含义
+
+## 真源矩阵
+
+| 范围 | 唯一真源 | 不应再承担真源职责的地方 |
+| --- | --- | --- |
+| next socket 事件与 payload 合同 | `packages/shared/src/protocol.ts` | `legacy/shared/*`、客户端本地事件常量、服务端临时 payload 形状 |
+| 共享基础类型 | `packages/shared/src/types.ts` | 客户端/服务端各自复制的局部同名 type |
+| wire event / protobuf 映射 | `packages/shared/src/network-protobuf.ts` | 服务端私有 emit key、客户端本地 alias |
+| 服务端权威运行时 | `packages/server/src/runtime/*` | `legacy/server/*`、临时 compat helper |
+| 客户端 socket 主入口 | `packages/client/src/network/socket.ts` | `main.ts` 内散落的临时监听或旧 alias |
+| 客户端前台启动主入口 | `packages/client/src/main.ts` | 其它页面入口、GM 页面零散 bootstrap |
+| 内容真源 | `packages/server/data/content/*` | 客户端 generated 副本、legacy 内容目录 |
+| 地图真源 | `packages/server/data/maps/*` | 客户端缓存、编辑器导出中间态、legacy 地图目录 |
+
 ## 任务
 
 - [ ] 确认 `packages/shared/src/protocol.ts` 是唯一协议真源
@@ -20,6 +64,123 @@
 - [x] 已补齐服务端实现
 - [ ] 如果不保留，删除共享协议声明和客户端发送入口
 - [ ] 跑一次协议审计，确认 client/server/shared 三边一致
+
+## 执行顺序
+
+### 第 1 批：先把“唯一真源”写死
+
+- [ ] 在这份文档里把协议、共享类型、内容、地图、运行时、客户端入口的唯一真源表述固定
+- [ ] 检查顶层文档是否还在用 `client-next/shared-next/server-next` 这种历史命名描述实际 `packages/*`
+- [ ] 把“由 legacy 决定 next 行为”的情况视为 bug，不再视为正常桥接
+
+最小验证：
+
+- 手工核对 [README.md](/home/yuohira/mud-mmo-next/README.md:1)
+- 手工核对 [docs/next-in-place-hard-cut-plan.md](/home/yuohira/mud-mmo-next/docs/next-in-place-hard-cut-plan.md:1)
+
+### 第 2 批：盘点 next 行为仍受 legacy 影响的入口
+
+- [ ] 扫描 `packages/server/src/network/*`、`packages/server/src/runtime/*`
+- [ ] 扫描 `packages/client/src/*`
+- [ ] 扫描 `packages/shared/src/*`
+- [ ] 只记录会影响 next 行为定义的入口，不把纯 inventory/audit 统计进来
+
+应优先记入清单的类型：
+
+- next 事件名或 payload 字段仍由 legacy 常量或 legacy 协议导出决定
+- next 主链逻辑仍显式读取 `legacy/*`
+- next 内容或地图仍从 legacy 目录取真源
+- 客户端主链仍通过旧 alias 监听 next 事件
+
+输出结果：
+
+- 哪些入口已在 `01/05` 里归为“临时允许”
+- 哪些入口应直接删除
+
+### 第 3 批：对齐 `NEXT_C2S` 到 `world.gateway.js`
+
+- [ ] 列出 `NEXT_C2S` 中所有事件
+- [ ] 对照 `packages/server/src/network/world.gateway.js`
+- [ ] 标记三类结果：
+  - 已声明且已实现
+  - 已声明但未实现
+  - 服务端有处理但 shared 未声明
+
+重点优先看：
+
+- craft：`Alchemy / Enhancement`
+- 市场 / 邮件 / 建议 / 任务
+- GM / debug / player controls
+- 详情 / tile / attr / leaderboards
+
+最小验证：
+
+- `pnpm --filter @mud/server-next build`
+- `pnpm --filter @mud/server-next audit:next-protocol`
+
+### 第 4 批：对齐 `NEXT_S2C` 到客户端监听
+
+- [ ] 列出 `NEXT_S2C` 中所有事件
+- [ ] 对照 `packages/client/src/network/socket.ts`
+- [ ] 对照 `packages/client/src/main.ts`
+- [ ] 标记三类结果：
+  - 已声明且已监听
+  - 已声明但客户端未消费
+  - 客户端依赖了 shared 未声明的事件
+
+重点优先看：
+
+- `Bootstrap / InitSession / MapEnter / MapStatic`
+- `WorldDelta / SelfDelta / PanelDelta`
+- `Mail* / Market* / SuggestionUpdate / Detail / TileDetail / NpcShop`
+
+最小验证：
+
+- `pnpm --filter @mud/client-next build`
+- `pnpm --filter @mud/server-next audit:next-protocol`
+
+### 第 5 批：清掉“next 行为由 legacy 决定”的残留路径
+
+- [ ] 删除 next 代码里仍通过 legacy 文件决定行为的地方
+- [ ] 删除 shared/client/server 间重复的本地事件定义
+- [ ] 删除只为“旧协议也这样”存在的 next 行为分支
+
+这一步不负责删所有 compat，只负责：
+
+- 把 next 真源唯一化
+- 让 `05` 后续删 compat 时不再碰到“删掉后 next 根本没真源”的问题
+
+最小验证：
+
+- `pnpm build`
+- `pnpm verify:replace-ready`
+- `pnpm --filter @mud/server-next audit:next-protocol`
+
+## 文件级检查表
+
+### shared
+
+- [ ] `protocol.ts` 不再被其它本地事件表“反向定义”
+- [ ] `types.ts` 不再被客户端/服务端重复复制同名结构
+- [ ] `network-protobuf.ts` 不再和 `protocol.ts` 存在漂移
+
+### server
+
+- [ ] `world.gateway.js` 不再消费 shared 未声明事件
+- [ ] `runtime/*` 不再通过 legacy 文件决定 next 行为
+- [ ] `server/data/*` 不再由 legacy 内容或地图目录兜底
+
+### client
+
+- [ ] `socket.ts` 成为唯一 socket 监听主入口
+- [ ] `main.ts` 不再自己持有散落事件契约
+- [ ] 主要 UI 更新都只消费 next 协议，不消费旧 alias
+
+## 本阶段不做的事
+
+- 不在这里顺手做 `05` 的 compat 删除。
+- 不在这里顺手做 `07` 的 UI patch-first 重构。
+- 不在这里重做协议设计；这里只负责把真源唯一化和空洞补齐。
 
 ## 完成定义
 
