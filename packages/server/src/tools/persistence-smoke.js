@@ -690,6 +690,37 @@ async function seedNativePersistenceForToken(token) {
     });
     try {
         await pool.query(`
+      INSERT INTO server_next_player_identity(
+        user_id,
+        username,
+        player_id,
+        display_name,
+        player_name,
+        persisted_source,
+        updated_at,
+        payload
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, now(), $7::jsonb)
+      ON CONFLICT (user_id)
+      DO UPDATE SET
+        username = EXCLUDED.username,
+        player_id = EXCLUDED.player_id,
+        display_name = EXCLUDED.display_name,
+        player_name = EXCLUDED.player_name,
+        persisted_source = EXCLUDED.persisted_source,
+        updated_at = now(),
+        payload = EXCLUDED.payload
+    `, [userId, username, seededPlayerId, displayName, playerName, 'token_seed', JSON.stringify({
+            version: 1,
+            userId,
+            username,
+            displayName,
+            playerId: seededPlayerId,
+            playerName,
+            persistedSource: 'token_seed',
+            updatedAt: Date.now(),
+        })]);
+        await pool.query(`
       INSERT INTO persistent_documents(scope, key, payload, "updatedAt")
       VALUES ($1, $2, $3::jsonb, now())
       ON CONFLICT (scope, key)
@@ -704,6 +735,93 @@ async function seedNativePersistenceForToken(token) {
                 persistedSource: 'token_seed',
                 updatedAt: Date.now(),
             })]);
+        await pool.query(`
+      INSERT INTO server_next_player_snapshot(
+        player_id,
+        template_id,
+        persisted_source,
+        seeded_at,
+        saved_at,
+        updated_at,
+        payload
+      )
+      VALUES ($1, $2, $3, $4, $5, now(), $6::jsonb)
+      ON CONFLICT (player_id)
+      DO UPDATE SET
+        template_id = EXCLUDED.template_id,
+        persisted_source = EXCLUDED.persisted_source,
+        seeded_at = EXCLUDED.seeded_at,
+        saved_at = EXCLUDED.saved_at,
+        updated_at = now(),
+        payload = EXCLUDED.payload
+    `, [seededPlayerId, 'yunlai_town', 'native', Date.now(), Date.now(), JSON.stringify({
+            version: 1,
+            savedAt: Date.now(),
+            placement: {
+                templateId: 'yunlai_town',
+                x: 31,
+                y: 54,
+                facing: 1,
+            },
+            vitals: {
+                hp: 100,
+                maxHp: 100,
+                qi: 0,
+                maxQi: 100,
+            },
+            progression: {
+                foundation: 0,
+                combatExp: 0,
+                bodyTraining: null,
+                boneAgeBaseYears: 18,
+                lifeElapsedTicks: 0,
+                lifespanYears: null,
+                realm: null,
+                heavenGate: null,
+                spiritualRoots: null,
+            },
+            unlockedMapIds: ['yunlai_town'],
+            inventory: {
+                revision: 1,
+                capacity: 24,
+                items: [],
+            },
+            equipment: {
+                revision: 1,
+                slots: [],
+            },
+            techniques: {
+                revision: 1,
+                techniques: [],
+                cultivatingTechId: null,
+            },
+            buffs: {
+                revision: 1,
+                buffs: [],
+            },
+            quests: {
+                revision: 1,
+                entries: [],
+            },
+            combat: {
+                autoBattle: false,
+                autoRetaliate: true,
+                autoBattleStationary: false,
+                combatTargetId: null,
+                combatTargetLocked: false,
+                allowAoePlayerHit: false,
+                autoIdleCultivation: true,
+                autoSwitchCultivation: false,
+                senseQiActive: false,
+                autoBattleSkills: [],
+            },
+            pendingLogbookMessages: [],
+            runtimeBonuses: [],
+            __snapshotMeta: {
+                persistedSource: 'native',
+                seededAt: Date.now(),
+            },
+        })]);
         await pool.query(`
       INSERT INTO persistent_documents(scope, key, payload, "updatedAt")
       VALUES ($1, $2, $3::jsonb, now())

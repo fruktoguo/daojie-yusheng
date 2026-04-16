@@ -13,6 +13,7 @@ const DEFAULT_SMOKE_TIMEOUT_MS = 10_000;
 const ENTRY_TIMEOUT_OVERRIDES_MS = new Map([
     ['next-auth-bootstrap-smoke.js', 45_000],
     ['gm-next-smoke.js', 45_000],
+    ['persistence-smoke.js', 45_000],
 ]);
 /**
  * 解析是否关闭统一烟测超时。
