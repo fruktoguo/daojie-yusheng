@@ -1,0 +1,228 @@
+# next 原地硬切任务计划
+
+更新时间：2026-04-16
+
+这份文档是原地硬切的实际执行清单。
+
+使用规则：
+
+- `[ ]` 代表未完成
+- `[x]` 代表已完成
+- 新任务默认只往这份清单里加，不再另起一套“兼容迁移”计划
+- 如果某项不做了，直接删掉，不保留僵尸任务
+
+执行时以这份总表为总索引，以编号任务文档为实际落地清单：
+
+- 第 1 阶段对应 [01 冻结 legacy 与边界收口](./01-freeze-legacy-and-boundaries.md)
+- 第 2-3 阶段对应 [02 钉死 next 真源与协议主线](./02-pin-next-sources-and-protocol.md)
+- 第 4 阶段对应 [03 必须迁移的数据清单](./03-required-data-migration-checklist.md)
+- 第 5 阶段对应 [04 一次性迁移脚本](./04-one-off-migration-script.md)
+- 第 6 阶段对应 [05 删除 compat 与桥接层](./05-remove-compat-and-bridges.md)
+- 第 7 阶段对应 [06 服务端主链收口](./06-server-mainline-refactor.md)
+- 第 8 阶段对应 [07 客户端主链收口](./07-client-mainline-refactor.md)
+- 第 9-10 阶段对应 [08 shared 与内容地图收口](./08-shared-content-and-map-cleanup.md)
+- 第 11 阶段对应 [09 验证门禁与验收](./09-verification-and-acceptance.md)
+- 第 12-13 阶段对应 [10 legacy 归档与最终切换](./10-legacy-archive-and-cutover.md)
+
+## 0. 已完成前置
+
+- [x] 明确不再新开第三套主线，继续在当前仓库原地推进
+- [x] 明确 `packages/client`、`packages/server`、`packages/shared` 为唯一主线方向
+- [x] 写出 [next 系统模块 / API / 数据目录总盘点](../next-system-module-api-inventory.md)
+- [x] 写出 [next 原地硬切执行文档](../next-in-place-hard-cut-plan.md)
+
+## 1. 立刻冻结 legacy
+
+对应任务文档：
+
+- [01 冻结 legacy 与边界收口](./01-freeze-legacy-and-boundaries.md)
+
+- [ ] 在文档口径里明确 `legacy/*` 只作为参考和迁移来源，不再承担主开发职责
+- [ ] 停止新增任何“为了对齐 legacy 行为”的新任务
+- [ ] 停止向 `legacy/client`、`legacy/server`、`legacy/shared` 落新功能
+- [ ] 盘点当前还在直接读写 `legacy/*` 的 next 主链入口
+- [ ] 列出必须暂时保留的 legacy 读取点
+- [ ] 列出可以直接删除的 legacy / compat / parity 入口
+
+## 2. 钉死 next 真源
+
+对应任务文档：
+
+- [02 钉死 next 真源与协议主线](./02-pin-next-sources-and-protocol.md)
+
+- [ ] 确认 `packages/shared/src/protocol.ts` 是唯一 next 协议真源
+- [ ] 确认 `packages/server/data/*` 是唯一内容和地图真源
+- [ ] 确认 `packages/server/src/runtime/*` 是唯一服务端运行时主链
+- [ ] 确认 `packages/client/src/network/socket.ts` 是唯一前台 Socket 主链
+- [ ] 确认 `packages/client/src/main.ts` 是唯一前台入口主链
+- [ ] 清掉仍然通过 legacy 文件定义 next 行为的地方
+
+## 3. 先补协议硬缺口
+
+对应任务文档：
+
+- [02 钉死 next 真源与协议主线](./02-pin-next-sources-and-protocol.md)
+
+- [ ] 决定 `SaveAlchemyPreset` 是否保留为 next 正式能力
+- [ ] 决定 `DeleteAlchemyPreset` 是否保留为 next 正式能力
+- [ ] 如果保留，就在 `server-next` 网关和 runtime 补齐实现
+- [ ] 如果不保留，就从 `packages/shared/src/protocol.ts` 和客户端发送层删掉
+- [ ] 扫一遍所有 `NEXT_C2S` / `NEXT_S2C`，确认不再有“声明了但没实现”的事件
+- [ ] 跑一遍协议审计，确认共享协议、客户端、服务端三边一致
+
+## 4. 产出必须迁移的数据清单
+
+对应任务文档：
+
+- [03 必须迁移的数据清单](./03-required-data-migration-checklist.md)
+
+- [ ] 列出账号身份相关数据
+- [ ] 列出角色基础信息相关数据
+- [ ] 列出地图位置 / 出生点 / 当前实例相关数据
+- [ ] 列出境界 / 属性 / 数值成长相关数据
+- [ ] 列出背包 / 装备 / 物品相关数据
+- [ ] 列出功法 / 技能 / 修炼状态相关数据
+- [ ] 列出任务相关数据
+- [ ] 列出邮件相关数据
+- [ ] 列出市场相关数据
+- [ ] 列出建议 / 回复相关数据
+- [ ] 列出兑换码和 GM 必要持久化数据
+- [ ] 对每个数据域写清 legacy 来源、next 目标、转换规则、默认值、可丢弃项
+- [ ] 把这份数据清单单独落成文档
+
+## 5. 写一次性迁移脚本
+
+对应任务文档：
+
+- [04 一次性迁移脚本](./04-one-off-migration-script.md)
+
+- [ ] 选定迁移脚本落点目录
+- [ ] 支持 dry-run
+- [ ] 支持输出迁移统计摘要
+- [ ] 支持输出失败清单
+- [ ] 支持按数据域分段执行
+- [ ] 支持从 legacy 来源读取账号与角色数据
+- [ ] 支持迁移背包 / 装备 / 功法 / 任务 / 邮件 / 市场 / 建议等核心数据
+- [ ] 支持把结果写入 next 所需持久化结构
+- [ ] 设计迁移后的最小验证命令
+- [ ] 用一份样本数据跑通完整转换
+
+## 6. 删除 compat / bridge / parity 层
+
+对应任务文档：
+
+- [05 删除 compat 与桥接层](./05-remove-compat-and-bridges.md)
+
+- [ ] 盘点 `packages/server/src/network/` 下仍然存在的 compat / bridge 入口
+- [ ] 盘点 `packages/server/src/persistence/` 下仍然存在的 compat 读取入口
+- [ ] 盘点 `packages/client/src/` 下仍然存在的旧协议 alias / 旧 UI 兼容入口
+- [ ] 删除只为 legacy 让路的旧事件名兼容
+- [ ] 删除只为 parity 存在的双路径处理分支
+- [ ] 删除不再需要的 legacy wrapper / facade
+- [ ] 删除 runtime 中只为了 compat fallback 存在的回退路径
+- [ ] 删除客户端里只为旧协议 / 旧 UI 结构存在的兼容逻辑
+- [ ] 每删完一批，就补最小 next 主链验证
+
+## 7. 收口服务端主链
+
+对应任务文档：
+
+- [06 服务端主链收口](./06-server-mainline-refactor.md)
+
+- [ ] 继续拆 `packages/server/src/runtime/world/world-runtime.service.js`
+- [ ] 继续拆 `packages/server/src/network/world.gateway.js`
+- [ ] 继续拆 `packages/server/src/network/world-sync.service.js`
+- [ ] 继续拆 `packages/server/src/network/world-projector.service.js`
+- [ ] 把 tick 内状态写入口继续收束
+- [ ] 把玩家、地图、战斗、掉落、交互写路径继续分责
+- [ ] 明确哪些 GM 操作必须走 runtime queue
+- [ ] 明确哪些 GM 操作允许直改持久态
+- [ ] 把玩家从登录到进入世界到持久化的主链整理成单路径
+
+## 8. 收口客户端主链
+
+对应任务文档：
+
+- [07 客户端主链收口](./07-client-mainline-refactor.md)
+
+- [ ] 继续整理 `packages/client/src/main.ts`
+- [ ] 继续整理 `packages/client/src/network/socket.ts`
+- [ ] 继续整理主面板 patch-first 更新路径
+- [ ] 清掉仍依赖大块重建的 UI 区域
+- [ ] 检查 GM 页面、GM 世界查看器、地图编辑器是否都还要长期保留
+- [ ] 收口详情弹层、邮件、建议、任务、市场、设置等面板的状态来源
+- [ ] 明确哪些状态只能由 Socket 增量驱动
+- [ ] 明确哪些状态允许客户端本地派生缓存
+- [ ] 补一次浅色 / 深色 / 手机模式检查
+
+## 9. 收口共享层
+
+对应任务文档：
+
+- [08 shared 与内容地图收口](./08-shared-content-and-map-cleanup.md)
+
+- [ ] 继续整理 `packages/shared/src/protocol.ts`
+- [ ] 继续整理 `packages/shared/src/types.ts`
+- [ ] 继续整理 `packages/shared/src/network-protobuf.ts`
+- [ ] 给新增协议字段补一致性检查
+- [ ] 给新增数值字段补完整性检查
+- [ ] 确保 shared 变更默认会被 audit / check 拦住
+
+## 10. 内容与地图整理
+
+对应任务文档：
+
+- [08 shared 与内容地图收口](./08-shared-content-and-map-cleanup.md)
+
+- [ ] 重新标注哪些 `packages/server/data/content/*` 是玩法真源
+- [ ] 重新标注哪些数据是编辑器辅助产物
+- [ ] 检查地图文档、怪物包、任务、物品、功法之间的引用一致性
+- [ ] 检查 compose 地图、室内地图、传送点、NPC 锚点规范
+- [ ] 决定哪些客户端 generated 数据继续保留，哪些可以重做或删掉
+
+## 11. 验证门禁收口
+
+对应任务文档：
+
+- [09 验证门禁与验收](./09-verification-and-acceptance.md)
+
+- [ ] 把 `local / with-db / acceptance / full / shadow-destructive` 继续固定为唯一门禁口径
+- [ ] 给“数据迁移完成”补一条迁移 proof 链
+- [ ] 跑通 `pnpm build`
+- [ ] 跑通 `pnpm verify:replace-ready`
+- [ ] 跑通 `pnpm verify:replace-ready:with-db`
+- [ ] 跑通 `pnpm verify:replace-ready:acceptance`
+- [ ] 跑通 `pnpm verify:replace-ready:full`
+- [ ] 确认这些门禁都以 next 主链为口径，不再默认证明 legacy 对齐
+
+## 12. legacy 归档收尾
+
+对应任务文档：
+
+- [10 legacy 归档与最终切换](./10-legacy-archive-and-cutover.md)
+
+- [ ] 列出仍然必须保留的 legacy 文件范围
+- [ ] 把不再需要的 legacy 入口从主文档和主流程中移除
+- [ ] 把 legacy 剩余价值收束为“查规则 / 查旧数据格式 / 迁移来源”
+- [ ] 更新顶层说明文档，明确当前仓库只有 next 是活跃主线
+
+## 13. 硬切完成定义
+
+对应任务文档：
+
+- [10 legacy 归档与最终切换](./10-legacy-archive-and-cutover.md)
+
+- [ ] `packages/*` 成为唯一活跃主线
+- [ ] legacy 数据可以稳定迁到 next
+- [ ] 玩家主链不再默认走 compat fallback
+- [ ] GM 关键面与必要管理面能闭环
+- [ ] 协议、运行时、UI 不再为了 legacy 对齐背额外复杂度
+- [ ] 验证门禁全部按 next 主链口径通过
+
+## 14. 当前建议顺序
+
+- [ ] 先完成“必须迁移的数据清单”
+- [ ] 再补协议空洞和最外层 compat 删除
+- [ ] 再写一次性迁移脚本
+- [ ] 再做 server/client/shared 主链收口
+- [ ] 最后跑完整验证门禁并做 legacy 归档
