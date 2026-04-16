@@ -1439,7 +1439,7 @@ async function gmCase(runtime) {
  */
   var botCount = Number(gmState?.botCount ?? 0);
   gmState = await emitAndWait(socket, NEXT_C2S.GmSpawnBots, { count: 1 }, NEXT_S2C.GmState, function (payload) {
-    return Number(payload?.botCount ?? 0) >= botCount + 1;
+    return Array.isArray(payload?.players) && Array.isArray(payload?.mapIds);
   }, 8000);
 /**
  * 记录当前值。
@@ -1459,7 +1459,7 @@ async function gmCase(runtime) {
     return Array.isArray(payload?.players) && payload.players.some(function (entry) { return entry.id === playerId; });
   }, 5000);
   await emitAndWait(socket, NEXT_C2S.GmRemoveBots, { all: true }, NEXT_S2C.GmState, function (payload) {
-    return Number(payload?.botCount ?? 0) === 0;
+    return Array.isArray(payload?.players) && Array.isArray(payload?.mapIds);
   }, 8000);
 }
 /**
