@@ -276,6 +276,7 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         }
         this.setBootstrapTraceContext(client, entryPath, identity);
         client.data.authenticatedSnapshotRecovery = null;
+        client.data.authenticatedSnapshotRecoveryFallback = null;
 
         const promise = (async () => {
             await this.sessionBootstrapService.bootstrapPlayerSession(client, this.buildAuthenticatedBootstrapInput(client, identity));

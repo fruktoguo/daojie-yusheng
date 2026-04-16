@@ -4076,8 +4076,23 @@ async function verifyAuthenticatedSnapshotRecoveryNoticeContract() {
     }, {
         emitSuggestionUpdate: () => undefined,
         emitMailSummaryForPlayer: async () => undefined,
+        emitPendingLogbookNotice: (client, entry) => {
+            const playerId = typeof entry?.id === 'string' ? entry.id.split(':')[1] ?? '' : '';
+            const events = emittedEventsByPlayerId.get(playerId) ?? [];
+            const proxyClient = {
+                data: client?.data ?? {},
+                emit: (event, payload) => {
+                    events.push({ event, payload });
+                    if (typeof client?.emit === 'function') {
+                        client.emit(event, payload);
+                    }
+                },
+            };
+            clientEventService.emitPendingLogbookNotice(proxyClient, entry);
+            emittedEventsByPlayerId.set(playerId, events);
+        },
         emitPendingLogbookMessages: (client, playerId) => {
-            const events = [];
+            const events = emittedEventsByPlayerId.get(playerId) ?? [];
             const proxyClient = {
                 data: client?.data ?? {},
                 emit: (event, payload) => {
@@ -4428,6 +4443,7 @@ async function verifyAuthenticatedSnapshotRecoveryBootstrapLinkContract() {
             }, {
                 emitSuggestionUpdate: () => undefined,
                 emitMailSummaryForPlayer: async () => undefined,
+                emitPendingLogbookNotice: () => undefined,
                 emitPendingLogbookMessages: () => undefined,
             });
 /**

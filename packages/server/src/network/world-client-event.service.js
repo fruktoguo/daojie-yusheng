@@ -113,12 +113,36 @@ let WorldClientEventService = class WorldClientEventService {
         if (!normalizedText) {
             return;
         }
+        this.emitNoticeItems(client, [{
+                kind,
+                text: normalizedText,
+            }]);
+    }
+    /** 统一发送 next Notice，供即时提示与日志书回放共用。 */
+    emitNoticeItems(client, items) {
+        const normalizedItems = Array.isArray(items)
+            ? items.filter((entry) => entry && typeof entry === 'object' && typeof entry.text === 'string' && entry.text.trim().length > 0)
+            : [];
+        if (normalizedItems.length <= 0) {
+            return;
+        }
         client.emit(shared_1.NEXT_S2C.Notice, {
-            items: [{
-                    kind,
-                    text: normalizedText,
-                }],
+            items: normalizedItems,
         });
+    }
+    /** 将待确认日志书条目直接翻译成 next Notice。 */
+    emitPendingLogbookNotice(client, entry) {
+        if (!entry || typeof entry !== 'object') {
+            return;
+        }
+        this.emitNoticeItems(client, [{
+                messageId: entry.id,
+                kind: entry.kind,
+                text: entry.text,
+                from: entry.from,
+                occurredAt: entry.at,
+                persistUntilAck: true,
+            }]);
     }
     /** 发送未完成 hello 的提示，拦住非法 gameplay 命令。 */
     emitNotReady(client) {
@@ -159,17 +183,18 @@ let WorldClientEventService = class WorldClientEventService {
     emitPendingLogbookMessages(client, playerId) {
 
         const pending = this.playerRuntimeService.getPendingLogbookMessages(playerId);
+        const prefilledMessageIds = client?.data?.prefilledPendingLogbookMessageIds instanceof Set
+            ? client.data.prefilledPendingLogbookMessageIds
+            : null;
         for (const entry of pending) {
-            client.emit(shared_1.NEXT_S2C.Notice, {
-                items: [{
-                        messageId: entry.id,
-                        kind: entry.kind,
-                        text: entry.text,
-                        from: entry.from,
-                        occurredAt: entry.at,
-                        persistUntilAck: true,
-                    }],
-            });
+            if (prefilledMessageIds?.has(entry.id)) {
+                prefilledMessageIds.delete(entry.id);
+                continue;
+            }
+            this.emitPendingLogbookNotice(client, entry);
+        }
+        if (prefilledMessageIds && prefilledMessageIds.size <= 0 && client?.data) {
+            client.data.prefilledPendingLogbookMessageIds = null;
         }
     }
     /** 将同实例内的聊天广播给所有在线玩家。 */

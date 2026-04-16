@@ -399,6 +399,7 @@ let WorldSessionBootstrapService = class WorldSessionBootstrapService {
             return;
         }
         client.data.authenticatedSnapshotRecovery = null;
+        client.data.authenticatedSnapshotRecoveryFallback = null;
     }
     /** 记录 bootstrap 阶段的快照恢复结果。 */
     rememberAuthenticatedSnapshotRecovery(client, recovery) {
@@ -406,13 +407,15 @@ let WorldSessionBootstrapService = class WorldSessionBootstrapService {
             return;
         }
         client.data.authenticatedSnapshotRecovery = recovery;
+        client.data.authenticatedSnapshotRecoveryFallback = { ...recovery };
     }
     /** 消费并清空快照恢复结果。 */
     consumeAuthenticatedSnapshotRecovery(client) {
 
-        const recovery = client?.data?.authenticatedSnapshotRecovery ?? null;
+        const recovery = client?.data?.authenticatedSnapshotRecovery ?? client?.data?.authenticatedSnapshotRecoveryFallback ?? null;
         if (client?.data) {
             client.data.authenticatedSnapshotRecovery = null;
+            client.data.authenticatedSnapshotRecoveryFallback = null;
         }
         return recovery && typeof recovery === 'object' ? recovery : null;
     }
@@ -456,15 +459,18 @@ let WorldSessionBootstrapService = class WorldSessionBootstrapService {
         }
 
         const message = this.buildAuthenticatedSnapshotRecoveryMessage(recovery);
-        this.playerRuntimeService.queuePendingLogbookMessage(playerId, {
-
+        const queuedNotice = {
             id: `snapshot_recovery:${playerId}:${typeof recovery.identityPersistedSource === 'string' ? recovery.identityPersistedSource : 'unknown'}`,
             kind: 'system',
             text: message,
             from: 'system',
             at: Date.now(),
-        });
-        return recovery;
+        };
+        this.playerRuntimeService.queuePendingLogbookMessage(playerId, queuedNotice);
+        return {
+            ...recovery,
+            queuedNotice,
+        };
     }
     /** 延迟一拍后再发初始同步，避免与握手流程抢时序。 */
     async deferInitialSyncEmission() {
@@ -529,6 +535,16 @@ let WorldSessionBootstrapService = class WorldSessionBootstrapService {
         this.worldSyncService.emitInitialSync(binding.playerId, client);
 
         const bootstrapRecovery = this.emitAuthenticatedSnapshotRecoveryNotice(client, binding.playerId);
+        if (bootstrapRecovery?.queuedNotice) {
+            if (client?.data) {
+                const existingPrefilledIds = client.data.prefilledPendingLogbookMessageIds instanceof Set
+                    ? client.data.prefilledPendingLogbookMessageIds
+                    : new Set();
+                existingPrefilledIds.add(bootstrapRecovery.queuedNotice.id);
+                client.data.prefilledPendingLogbookMessageIds = existingPrefilledIds;
+            }
+            this.worldClientEventService.emitPendingLogbookNotice(client, bootstrapRecovery.queuedNotice);
+        }
         this.worldClientEventService.emitSuggestionUpdate(client, this.suggestionRuntimeService.getAll());
         await this.worldClientEventService.emitMailSummaryForPlayer(client, binding.playerId);
         this.worldClientEventService.emitPendingLogbookMessages(client, binding.playerId);
