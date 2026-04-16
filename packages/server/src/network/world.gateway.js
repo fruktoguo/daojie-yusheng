@@ -1267,6 +1267,32 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             this.worldClientEventService.emitGatewayError(client, 'CANCEL_ALCHEMY_FAILED', error);
         }
     }
+    handleNextSaveAlchemyPreset(client, payload) {
+        const playerId = this.requirePlayerId(client);
+        if (!playerId) {
+            return;
+        }
+        try {
+            this.worldClientEventService.markProtocol(client, 'next');
+            this.worldRuntimeService.enqueueSaveAlchemyPreset(playerId, payload);
+        }
+        catch (error) {
+            this.worldClientEventService.emitGatewayError(client, 'SAVE_ALCHEMY_PRESET_FAILED', error);
+        }
+    }
+    handleNextDeleteAlchemyPreset(client, payload) {
+        const playerId = this.requirePlayerId(client);
+        if (!playerId) {
+            return;
+        }
+        try {
+            this.worldClientEventService.markProtocol(client, 'next');
+            this.worldRuntimeService.enqueueDeleteAlchemyPreset(playerId, payload?.presetId);
+        }
+        catch (error) {
+            this.worldClientEventService.emitGatewayError(client, 'DELETE_ALCHEMY_PRESET_FAILED', error);
+        }
+    }
     handleNextStartEnhancement(client, payload) {
         const playerId = this.requirePlayerId(client);
         if (!playerId) {
@@ -2211,6 +2237,22 @@ __decorate([
     __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
     __metadata("design:returntype", void 0)
 ], WorldGateway.prototype, "handleNextCancelAlchemy", null);
+__decorate([
+    (0, websockets_1.SubscribeMessage)(shared_1.NEXT_C2S.SaveAlchemyPreset),
+    __param(0, (0, websockets_1.ConnectedSocket)()),
+    __param(1, (0, websockets_1.MessageBody)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
+    __metadata("design:returntype", void 0)
+], WorldGateway.prototype, "handleNextSaveAlchemyPreset", null);
+__decorate([
+    (0, websockets_1.SubscribeMessage)(shared_1.NEXT_C2S.DeleteAlchemyPreset),
+    __param(0, (0, websockets_1.ConnectedSocket)()),
+    __param(1, (0, websockets_1.MessageBody)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
+    __metadata("design:returntype", void 0)
+], WorldGateway.prototype, "handleNextDeleteAlchemyPreset", null);
 __decorate([
     (0, websockets_1.SubscribeMessage)(shared_1.NEXT_C2S.StartEnhancement),
     __param(0, (0, websockets_1.ConnectedSocket)()),

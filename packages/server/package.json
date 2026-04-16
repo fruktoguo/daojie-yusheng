@@ -38,6 +38,7 @@
     "smoke:loot": "pnpm compile && node dist/tools/smoke-suite.js --case loot",
     "smoke:monster-loot": "pnpm compile && node dist/tools/smoke-suite.js --case monster-loot",
     "smoke:monster-runtime": "pnpm compile && node dist/tools/smoke-suite.js --case monster-runtime",
+    "migrate:legacy-next:once": "node src/tools/migrate-next-mainline-once.js --dry-run",
     "bench:tick": "pnpm compile && node dist/tools/bench-tick.js",
     "bench:sync": "pnpm compile && node dist/tools/bench-sync.js",
     "bench:combat": "pnpm compile && node dist/tools/bench-combat.js",

@@ -1823,7 +1823,7 @@ function renderDatabasePanel(): void {
   const busy = databaseState?.runningJob?.status === 'running';
   const backups = databaseState?.backups ?? [];
   const summary = databaseStateLoading && !databaseState
-    ? '正在读取兼容持久化备份状态…'
+    ? '正在读取 server-next 持久化备份状态…'
     : formatDatabaseJobLabel(databaseState);
   const schedulesLine = databaseState?.automation?.schedulesActive === false
     ? '当前未启用自动定时备份，现阶段仅支持手工触发导出。'
@@ -1831,16 +1831,16 @@ function renderDatabasePanel(): void {
   const retentionLine = databaseState?.automation?.retentionEnforced === false
     ? '当前未启用自动保留清理，历史备份需要手工管理。'
     : `保留策略：整点备份最多 ${databaseState?.retention.hourly ?? 72} 份，每日备份最多 ${databaseState?.retention.daily ?? 14} 份。手动导出和导入前备份当前不自动删。`;
-  const restoreLine = `${databaseState?.automation?.restoreRequiresMaintenance === true ? '导入历史备份前必须先开启维护态；' : ''}${databaseState?.automation?.preImportBackupEnabled === false ? '' : '服务端会先生成一份“导入前备份”，随后暂停 tick、断开玩家连接、覆盖兼容持久化并重建运行时。'}${databaseState?.automation?.preImportBackupEnabled === false ? '导入会直接覆盖当前兼容持久化。' : ''}`;
-  const scopeLine = databaseState?.compatScope === 'persistent_documents_only'
-    ? '作用范围：仅兼容持久化 persistent_documents。'
+  const restoreLine = `${databaseState?.automation?.restoreRequiresMaintenance === true ? '导入历史备份前必须先开启维护态；' : ''}${databaseState?.automation?.preImportBackupEnabled === false ? '' : '服务端会先生成一份“导入前备份”，随后暂停 tick、断开玩家连接、覆盖 server-next persistent_documents 并重建运行时。'}${databaseState?.automation?.preImportBackupEnabled === false ? '导入会直接覆盖当前 server-next persistent_documents。' : ''}`;
+  const scopeLine = databaseState?.scope === 'persistent_documents_only'
+    ? '作用范围：仅 server-next persistent_documents。'
     : '作用范围：以服务端返回说明为准。';
   const restoreModeLine = databaseState?.restoreMode === 'replace_persistent_documents'
-    ? '恢复方式：覆盖兼容持久化中的 persistent_documents。'
+    ? '恢复方式：覆盖 server-next persistent_documents。'
     : '恢复方式：以服务端返回说明为准。';
   const persistenceLine = databaseState?.persistenceEnabled === false
-    ? '当前未启用数据库持久化，此面板仅供查看兼容说明。'
-    : '当前兼容持久化已启用，可手工导出或恢复其快照。';
+    ? '当前未启用数据库持久化，此面板仅供查看主线持久化说明。'
+    : '当前 server-next 持久化已启用，可手工导出或恢复其快照。';
   const rows = backups.length > 0
     ? backups.map((backup) => `
         <div class="network-row">
@@ -1850,16 +1850,16 @@ function renderDatabasePanel(): void {
           </div>
           <div class="button-row" style="margin-top:8px;">
             <button class="small-btn" data-db-download="${escapeHtml(backup.id)}" type="button">下载备份</button>
-            <button class="small-btn danger" data-db-restore="${escapeHtml(backup.id)}" type="button" ${busy ? 'disabled' : ''}>恢复兼容持久化</button>
+            <button class="small-btn danger" data-db-restore="${escapeHtml(backup.id)}" type="button" ${busy ? 'disabled' : ''}>恢复持久化快照</button>
           </div>
         </div>
       `).join('')
-    : '<div class="empty-hint">当前还没有兼容持久化备份。</div>';
+    : '<div class="empty-hint">当前还没有 server-next 持久化备份。</div>';
 
   serverPanelDatabaseEl.innerHTML = `
     <div class="button-row">
-      <button id="database-refresh" class="small-btn" type="button">刷新兼容持久化状态</button>
-      <button id="database-export-current" class="small-btn primary" type="button" ${busy ? 'disabled' : ''}>导出兼容持久化</button>
+      <button id="database-refresh" class="small-btn" type="button">刷新持久化状态</button>
+      <button id="database-export-current" class="small-btn primary" type="button" ${busy ? 'disabled' : ''}>导出持久化快照</button>
     </div>
     <div class="note-card">${escapeHtml(summary)}</div>
     <div class="note-card">
@@ -1869,12 +1869,12 @@ function renderDatabasePanel(): void {
       ${schedulesLine}<br />
       ${retentionLine}<br />
       ${escapeHtml(restoreLine)}<br />
-      ${escapeHtml(databaseState?.note ?? '当前为兼容备份面板，具体覆盖范围与限制以服务端返回说明为准。')}
+      ${escapeHtml(databaseState?.note ?? '当前为 server-next 持久化备份面板，具体覆盖范围与限制以服务端返回说明为准。')}
     </div>
     <div class="network-breakdown">
       <div class="network-breakdown-head">
-        <div class="panel-title">历史兼容持久化备份</div>
-        <div class="network-breakdown-subtitle">支持下载任意历史备份，也支持把某份备份重新恢复为当前兼容持久化</div>
+        <div class="panel-title">历史持久化备份</div>
+        <div class="network-breakdown-subtitle">支持下载任意历史备份，也支持把某份备份重新恢复为当前 server-next persistent_documents</div>
       </div>
       <div class="network-breakdown-list">${rows}</div>
     </div>

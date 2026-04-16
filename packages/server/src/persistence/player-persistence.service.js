@@ -18,8 +18,6 @@ const pg_1 = require("pg");
 
 const shared_1 = require("@mud/shared-next");
 
-const player_snapshot_compat_1 = require("./player-snapshot-compat");
-
 const env_alias_1 = require("../config/env-alias");
 
 const PLAYER_SNAPSHOT_SCOPE = 'server_next_player_snapshots_v1';
@@ -430,8 +428,8 @@ function normalizePlayerSnapshotPayload(raw) {
             senseQiActive: combat.senseQiActive === true,
             autoBattleSkills: Array.isArray(combat.autoBattleSkills) ? combat.autoBattleSkills : [],
         },
-        pendingLogbookMessages: normalizePendingLogbookMessages((0, player_snapshot_compat_1.resolveCompatiblePendingLogbookMessages)(snapshot)),
-        runtimeBonuses: normalizeRuntimeBonuses((0, player_snapshot_compat_1.resolveCompatibleRuntimeBonuses)(snapshot)),
+        pendingLogbookMessages: normalizePendingLogbookMessages(resolveSnapshotArray(snapshot, 'pendingLogbookMessages')),
+        runtimeBonuses: normalizeRuntimeBonuses(resolveSnapshotArray(snapshot, 'runtimeBonuses')),
     };
 }
 function buildPersistedPlayerSnapshotPayload(snapshot, meta) {
@@ -466,7 +464,7 @@ function normalizeRuntimeBonuses(value) {
         .filter((entry) => entry && typeof entry === 'object')
         .map((entry) => ({
 
-        source: (0, player_snapshot_compat_1.canonicalizeRuntimeBonusSource)(typeof entry.source === 'string' ? entry.source : ''),
+        source: canonicalizeRuntimeBonusSource(typeof entry.source === 'string' ? entry.source : ''),
 
         label: typeof entry.label === 'string' ? entry.label : undefined,
 
@@ -478,6 +476,35 @@ function normalizeRuntimeBonuses(value) {
         meta: entry.meta && typeof entry.meta === 'object' ? { ...entry.meta } : undefined,
     }))
         .filter((entry) => entry.source.length > 0);
+}
+function resolveSnapshotArray(snapshot, key) {
+    const value = snapshot?.[key];
+    return Array.isArray(value) ? value : [];
+}
+function canonicalizeRuntimeBonusSource(source) {
+    const normalized = typeof source === 'string' ? source.trim() : '';
+    if (!normalized) {
+        return '';
+    }
+    if (normalized === 'legacy:vitals_baseline') {
+        return 'runtime:vitals_baseline';
+    }
+    if (normalized === 'technique:aggregate') {
+        return 'runtime:technique_aggregate';
+    }
+    if (normalized === 'realm:state') {
+        return 'runtime:realm_state';
+    }
+    if (normalized === 'realm:stage') {
+        return 'runtime:realm_stage';
+    }
+    if (normalized === 'heaven_gate:roots') {
+        return 'runtime:heaven_gate_roots';
+    }
+    if (normalized.startsWith('equip:')) {
+        return `equipment:${normalized.slice('equip:'.length)}`;
+    }
+    return normalized;
 }
 function normalizePendingLogbookMessages(value) {
     if (!Array.isArray(value)) {
@@ -541,4 +568,3 @@ function normalizePendingLogbookKind(value) {
     }
 }
 //# sourceMappingURL=player-persistence.service.js.map
-

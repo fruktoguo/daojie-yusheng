@@ -343,7 +343,7 @@ GM Admin：
 
 - `NEXT_C2S` 共声明 `74` 个事件。
 - `server-next` 网关当前实际接入 `72` 个。
-- 当前声明但未在服务端落地的事件：`SaveAlchemyPreset`、`DeleteAlchemyPreset`。
+- 当前协议清点下，这两条炼制预设事件已经补齐到 next 主链：`SaveAlchemyPreset`、`DeleteAlchemyPreset`。
 
 连接与探活：
 
@@ -611,7 +611,7 @@ GM：
 ### 6.4 协议与同步
 
 - 把 `protocol.ts` 作为唯一 next 协议真源
-- 收掉“协议已声明但服务端未实现”的空洞，当前已知缺口是 `SaveAlchemyPreset`、`DeleteAlchemyPreset`
+- `SaveAlchemyPreset`、`DeleteAlchemyPreset` 已补齐到 next gateway/runtime；这组已不再是协议空洞
 - 继续拆清首包静态、低频静态、按需详情和高频动态
 - 继续缩 `Bootstrap / MapStatic / PanelDelta / WorldDelta` 的重复字段
 - 统一事件字段命名和面板增量约定

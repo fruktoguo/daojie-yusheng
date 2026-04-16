@@ -2192,7 +2192,7 @@ export interface GmDatabaseStateRes {
   runningJob?: GmDatabaseJobSnapshot;
   lastJob?: GmDatabaseJobSnapshot;
   persistenceEnabled?: boolean;
-  compatScope?: 'persistent_documents_only';
+  scope?: 'persistent_documents_only';
   restoreMode?: 'replace_persistent_documents';
   note?: string;
   automation?: {
@@ -2214,7 +2214,7 @@ export interface GmDatabaseStateRes {
 /** 触发数据库备份后的响应。 */
 export interface GmTriggerDatabaseBackupRes {
   job: GmDatabaseJobSnapshot;
-  compatScope?: 'persistent_documents_only';
+  scope?: 'persistent_documents_only';
   documentsCount?: number;
 }
 

@@ -41,7 +41,7 @@ exports.NEXT_GM_SOCKET_CONTRACT = NEXT_GM_SOCKET_CONTRACT;
 
 const NEXT_GM_RESTORE_CONTRACT = Object.freeze({
     restoreMode: 'replace_persistent_documents',
-    compatScope: 'persistent_documents_only',
+    scope: 'persistent_documents_only',
     flushPlayersBeforeRestore: true,
     flushMapsBeforeRestore: true,
     purgeSessionsBeforeRestore: true,

@@ -4,6 +4,11 @@
 
 ## 任务
 
+本轮已收掉一条公开 compat 口径：
+
+- [x] GM 数据库备份 / 恢复 API 对外返回里的 `compatScope` 已改成中性 `scope`
+- [x] `packages/server/src/persistence/player-snapshot-compat.js` 已删除，并把 next-only 归一逻辑内联回 `player-persistence.service.js`
+
 - [ ] 盘点 `packages/server/src/network/` 下所有 compat / bridge 入口
 - [ ] 盘点 `packages/server/src/persistence/` 下所有 compat 读取入口
 - [ ] 盘点 `packages/client/src/` 下所有旧协议 alias / 旧 UI 兼容入口

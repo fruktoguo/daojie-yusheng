@@ -175,9 +175,9 @@ let NextGmAdminService = NextGmAdminService_1 = class NextGmAdminService {
                 preImportBackupEnabled: next_gm_contract_1.NEXT_GM_RESTORE_CONTRACT.preImportBackupEnabled,
             },
             persistenceEnabled: this.persistenceEnabled,
-            compatScope: next_gm_contract_1.NEXT_GM_RESTORE_CONTRACT.compatScope,
+            scope: next_gm_contract_1.NEXT_GM_RESTORE_CONTRACT.scope,
             restoreMode: next_gm_contract_1.NEXT_GM_RESTORE_CONTRACT.restoreMode,
-            note: '仅作用于 server-next 兼容层 persistent_documents，不会恢复旧后端 users/players 等正式业务表；当前 backup/restore 仍为手工触发，不存在自动定时备份或自动保留清理',
+            note: '仅作用于 server-next persistent_documents，不会恢复旧后端 users/players 等正式业务表；当前 backup/restore 仍为手工触发，不存在自动定时备份或自动保留清理',
         };
     }
     isRuntimeMaintenanceActive() {
@@ -211,7 +211,7 @@ let NextGmAdminService = NextGmAdminService_1 = class NextGmAdminService {
         });
         return {
             job,
-            compatScope: BACKUP_SCOPE_LABEL,
+            scope: BACKUP_SCOPE_LABEL,
         };
     }
     async getBackupDownloadRecord(backupId) {
@@ -305,7 +305,7 @@ let NextGmAdminService = NextGmAdminService_1 = class NextGmAdminService {
         });
         return {
             job,
-            compatScope: BACKUP_SCOPE_LABEL,
+            scope: BACKUP_SCOPE_LABEL,
         };
     }
     getAfdianConfig() {
@@ -569,7 +569,7 @@ let NextGmAdminService = NextGmAdminService_1 = class NextGmAdminService {
             fileName,
             createdAt: input.createdAt,
             sizeBytes: Buffer.byteLength(serialized, 'utf8'),
-            compatScope: BACKUP_SCOPE_LABEL,
+            scope: BACKUP_SCOPE_LABEL,
             documentsCount: docs.length,
             checksumSha256,
         });
@@ -612,7 +612,7 @@ let NextGmAdminService = NextGmAdminService_1 = class NextGmAdminService {
             fileName: record.fileName,
             createdAt: record.createdAt,
             sizeBytes: record.sizeBytes,
-            compatScope: BACKUP_SCOPE_LABEL,
+            scope: BACKUP_SCOPE_LABEL,
         })));
     }
     async loadAfdianPersistentConfig() {
@@ -1161,7 +1161,7 @@ function normalizeStoredBackupMetadata(value) {
         ? record.kind
         : null;
 
-    const compatScope = record?.compatScope === BACKUP_SCOPE_LABEL ? BACKUP_SCOPE_LABEL : BACKUP_SCOPE_LABEL;
+    const scope = record?.scope === BACKUP_SCOPE_LABEL ? BACKUP_SCOPE_LABEL : BACKUP_SCOPE_LABEL;
 
     const documentsCount = Number(record?.documentsCount);
 
@@ -1177,7 +1177,7 @@ function normalizeStoredBackupMetadata(value) {
         fileName,
         createdAt,
         sizeBytes: Math.trunc(sizeBytes),
-        compatScope,
+        scope,
 
         documentsCount: Number.isFinite(documentsCount) && documentsCount >= 0 ? Math.trunc(documentsCount) : undefined,
         checksumSha256,

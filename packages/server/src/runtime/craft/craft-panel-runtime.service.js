@@ -265,6 +265,65 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
                 }],
         };
     }
+    saveAlchemyPreset(player, payload) {
+        this.ensureCraftSkills(player);
+        const recipeId = normalizeText(payload?.recipeId);
+        const recipe = this.alchemyCatalog.find((entry) => entry.recipeId === recipeId);
+        if (!recipe) {
+            return buildCraftMutationResult('对应丹方不存在。');
+        }
+        const ingredients = normalizeIngredientSelections(payload?.ingredients);
+        if (!isExactSubmittedIngredients(recipe.ingredients, ingredients)) {
+            return buildCraftMutationResult('当前仅支持保存目录里已定义的原方预设。');
+        }
+        const requestedPresetId = normalizeText(payload?.presetId);
+        const presetName = normalizeAlchemyPresetName(payload?.name, recipe.outputName || recipe.recipeId);
+        const presetId = requestedPresetId || createAlchemyPresetId(recipe.recipeId);
+        const existingIndex = player.alchemyPresets.findIndex((entry) => entry.presetId === presetId);
+        const nextPreset = {
+            presetId,
+            recipeId: recipe.recipeId,
+            name: presetName,
+            ingredients: ingredients.map((entry) => ({ ...entry })),
+            updatedAt: Date.now(),
+        };
+        if (existingIndex >= 0) {
+            player.alchemyPresets.splice(existingIndex, 1, nextPreset);
+        }
+        else {
+            player.alchemyPresets.unshift(nextPreset);
+        }
+        this.finalizeMutation(player, { persistentOnly: true });
+        return {
+            ok: true,
+            panelChanged: true,
+            messages: [{
+                    kind: 'system',
+                    text: existingIndex >= 0 ? `已更新炼制预设：${presetName}` : `已保存炼制预设：${presetName}`,
+                }],
+        };
+    }
+    deleteAlchemyPreset(player, presetIdInput) {
+        this.ensureCraftSkills(player);
+        const presetId = normalizeText(presetIdInput);
+        if (!presetId) {
+            return buildCraftMutationResult('预设标识不能为空。');
+        }
+        const index = player.alchemyPresets.findIndex((entry) => entry.presetId === presetId);
+        if (index < 0) {
+            return buildCraftMutationResult('对应炼制预设不存在。');
+        }
+        const [removed] = player.alchemyPresets.splice(index, 1);
+        this.finalizeMutation(player, { persistentOnly: true });
+        return {
+            ok: true,
+            panelChanged: true,
+            messages: [{
+                    kind: 'system',
+                    text: `已删除炼制预设：${removed?.name ?? presetId}`,
+                }],
+        };
+    }
     interruptAlchemy(player, reason) {
         this.ensureCraftSkills(player);
         const job = player.alchemyJob;
@@ -1359,6 +1418,14 @@ function setEquippedItem(player, slot, item) {
 function normalizeText(value) {
     return typeof value === 'string' ? value.trim() : '';
 }
+function normalizeAlchemyPresetName(value, fallback) {
+    const normalized = normalizeText(value);
+    return normalized || normalizeText(fallback) || '未命名丹方';
+}
+function createAlchemyPresetId(recipeId) {
+    const base = normalizeText(recipeId) || 'alchemy';
+    return `alchemy:${base}:${Date.now().toString(36)}:${Math.random().toString(36).slice(2, 8)}`;
+}
 function normalizeQuantity(value, fallback = 1, max = 99) {
     return Math.max(1, Math.min(max, Math.floor(Number(value) || fallback)));
 }
@@ -1516,4 +1583,3 @@ function computeEnhancementAdjustedSuccessRate(targetEnhanceLevel, roleEnhanceme
         + (upperLevelGap * ENHANCEMENT_EXTRA_SUCCESS_RATE_PER_LEVEL);
     return applyEnhancementSuccessModifier(adjustedBaseRate, totalSuccessModifier);
 }
-

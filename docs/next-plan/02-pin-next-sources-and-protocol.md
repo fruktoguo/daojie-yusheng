@@ -15,9 +15,9 @@
 - [ ] 清掉“next 行为由 legacy 文件决定”的残留路径
 - [ ] 盘点 `NEXT_C2S` 声明与 `world.gateway.js` 实现差异
 - [ ] 盘点 `NEXT_S2C` 声明与客户端监听差异
-- [ ] 决定 `SaveAlchemyPreset` 是否保留
-- [ ] 决定 `DeleteAlchemyPreset` 是否保留
-- [ ] 如果保留，补齐服务端实现
+- [x] 决定 `SaveAlchemyPreset` 保留为 next 正式能力
+- [x] 决定 `DeleteAlchemyPreset` 保留为 next 正式能力
+- [x] 已补齐服务端实现
 - [ ] 如果不保留，删除共享协议声明和客户端发送入口
 - [ ] 跑一次协议审计，确认 client/server/shared 三边一致
 

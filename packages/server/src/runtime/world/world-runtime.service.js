@@ -835,6 +835,31 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         });
         return this.getPlayerViewOrThrow(playerId);
     }
+    /** enqueueSaveAlchemyPreset：把排队保存炼制预设请求排入下一次 tick。 */
+    enqueueSaveAlchemyPreset(playerId, payload) {
+        this.getPlayerLocationOrThrow(playerId);
+        this.pendingCommands.set(playerId, {
+            kind: 'saveAlchemyPreset',
+            payload: payload && typeof payload === 'object'
+                ? {
+                    ...payload,
+                    ingredients: Array.isArray(payload.ingredients)
+                        ? payload.ingredients.map((entry) => ({ ...entry }))
+                        : [],
+                }
+                : {},
+        });
+        return this.getPlayerViewOrThrow(playerId);
+    }
+    /** enqueueDeleteAlchemyPreset：把排队删除炼制预设请求排入下一次 tick。 */
+    enqueueDeleteAlchemyPreset(playerId, presetId) {
+        this.getPlayerLocationOrThrow(playerId);
+        this.pendingCommands.set(playerId, {
+            kind: 'deleteAlchemyPreset',
+            presetId: typeof presetId === 'string' ? presetId : '',
+        });
+        return this.getPlayerViewOrThrow(playerId);
+    }
     /** enqueueStartEnhancement：把排队StartEnhancement请求排入下一次 tick。 */
     enqueueStartEnhancement(playerId, payload) {
         this.getPlayerLocationOrThrow(playerId);
@@ -2953,6 +2978,12 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             case 'cancelAlchemy':
                 this.dispatchCancelAlchemy(playerId);
                 return;
+            case 'saveAlchemyPreset':
+                this.dispatchSaveAlchemyPreset(playerId, command.payload);
+                return;
+            case 'deleteAlchemyPreset':
+                this.dispatchDeleteAlchemyPreset(playerId, command.presetId);
+                return;
             case 'startEnhancement':
                 this.dispatchStartEnhancement(playerId, command.payload);
                 return;
@@ -3899,6 +3930,28 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         const result = this.craftPanelRuntimeService.cancelAlchemy(player);
         if (!result.ok) {
             throw new common_1.BadRequestException(result.error ?? '取消炼丹失败');
+        }
+        this.flushCraftMutation(playerId, result, 'alchemy');
+    }
+    /** dispatchSaveAlchemyPreset：保存炼制预设。 */
+    dispatchSaveAlchemyPreset(playerId, payload) {
+
+        const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
+
+        const result = this.craftPanelRuntimeService.saveAlchemyPreset(player, payload);
+        if (!result.ok) {
+            throw new common_1.BadRequestException(result.error ?? '保存炼制预设失败');
+        }
+        this.flushCraftMutation(playerId, result, 'alchemy');
+    }
+    /** dispatchDeleteAlchemyPreset：删除炼制预设。 */
+    dispatchDeleteAlchemyPreset(playerId, presetId) {
+
+        const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
+
+        const result = this.craftPanelRuntimeService.deleteAlchemyPreset(player, presetId);
+        if (!result.ok) {
+            throw new common_1.BadRequestException(result.error ?? '删除炼制预设失败');
         }
         this.flushCraftMutation(playerId, result, 'alchemy');
     }
