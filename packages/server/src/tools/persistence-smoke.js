@@ -441,44 +441,62 @@ async function registerAndLoginPlayer() {
 /**
  * 记录suffix。
  */
-    const suffix = `${Date.now().toString(36).slice(-6)}${Math.random().toString(36).slice(2, 6)}`;
+    const baseSuffix = `${Date.now().toString(36).slice(-6)}${Math.random().toString(36).slice(2, 6)}`;
+    for (let attempt = 0; attempt < 12; attempt += 1) {
+/**
+ * 记录suffix。
+ */
+        const suffix = attempt === 0 ? baseSuffix : `${baseSuffix}${attempt.toString(36)}`;
 /**
  * 记录account名称。
  */
-    const accountName = `ps_${suffix}`;
+        const accountName = `ps_${suffix}`;
 /**
  * 记录password。
  */
-    const password = `Pass_${suffix}`;
-    await requestJson('/api/auth/register', {
-        method: 'POST',
-        body: {
-            accountName,
-            password,
-            displayName: buildUniqueDisplayName(`persistence:${suffix}`),
-            roleName: `久存${suffix.slice(-4)}`,
-        },
-    });
+        const password = `Pass_${suffix}`;
+        try {
+            await requestJson('/api/auth/register', {
+                method: 'POST',
+                body: {
+                    accountName,
+                    password,
+                    displayName: buildUniqueDisplayName(`persistence:${suffix}`, attempt),
+                    roleName: buildPersistenceRoleName(suffix, attempt),
+                },
+            });
 /**
  * 记录login。
  */
-    const login = await requestJson('/api/auth/login', {
-        method: 'POST',
-        body: {
-            loginName: accountName,
-            password,
-        },
-    });
+            const login = await requestJson('/api/auth/login', {
+                method: 'POST',
+                body: {
+                    loginName: accountName,
+                    password,
+                },
+            });
 /**
  * 记录nextaccess令牌。
  */
-    const nextAccessToken = typeof login?.accessToken === 'string' ? login.accessToken.trim() : '';
-    if (!nextAccessToken) {
-        throw new Error(`unexpected login payload: ${JSON.stringify(login)}`);
+            const nextAccessToken = typeof login?.accessToken === 'string' ? login.accessToken.trim() : '';
+            if (!nextAccessToken) {
+                throw new Error(`unexpected login payload: ${JSON.stringify(login)}`);
+            }
+            return {
+                accessToken: nextAccessToken,
+            };
+        }
+        catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            if (message.includes('账号已存在')
+                || message.includes('称号已存在')
+                || message.includes('角色名已存在')) {
+                continue;
+            }
+            throw error;
+        }
     }
-    return {
-        accessToken: nextAccessToken,
-    };
+    throw new Error('register failed: persistence smoke unique retries exhausted');
 }
 /**
  * 启动服务端。
@@ -969,15 +987,33 @@ function delay(ms) {
 /**
  * 构建unique显示信息名称。
  */
-function buildUniqueDisplayName(seed) {
+function buildUniqueDisplayName(seed, attempt = 0) {
 /**
  * 记录hash。
  */
     let hash = 0;
-    for (let index = 0; index < seed.length; index += 1) {
-        hash = (hash * 33 + seed.charCodeAt(index)) >>> 0;
+/**
+ * 记录material。
+ */
+    const material = attempt > 0 ? `${seed}:${attempt}` : seed;
+    for (let index = 0; index < material.length; index += 1) {
+        hash = (hash * 33 + material.charCodeAt(index)) >>> 0;
     }
     return String.fromCodePoint(0x4E00 + (hash % (0x9FFF - 0x4E00 + 1)));
+}
+/**
+ * 构建 persistence smoke 角色名，避免样本 write 后角色名重复。
+ */
+function buildPersistenceRoleName(suffix, attempt = 0) {
+/**
+ * 记录prefix。
+ */
+    const prefix = attempt > 0 ? `久${attempt.toString(36)}` : '久存';
+/**
+ * 记录token。
+ */
+    const token = suffix.slice(-4);
+    return `${prefix}${token}`;
 }
 /**
  * 分配free端口。
