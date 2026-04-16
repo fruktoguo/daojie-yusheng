@@ -38,6 +38,27 @@
 | GM 数据库备份元数据 / 作业状态 | 建议迁移 | `persistent_documents` scopes `server_next_db_backups_v1` / `server_next_db_jobs_v1` | `NextGmAdminService` | legacy 对应 scope 已存在兼容读 | 如切服前要保留运维记录则迁 |
 | Afdian 配置与订单 | 待确认 | `persistent_documents` scopes `server_next_afdian_config_v1` / `server_next_afdian_orders_v1` | `NextGmAdminService` | legacy 对应 scope 已存在兼容读 | 若当前线上在用，升级为必须迁移；否则可暂缓 |
 
+## “下次还在”状态矩阵
+
+下面这张表只保留当前 hard cut 还必须明确的长期状态，统一写清真源、副本、legacy 来源和转换口径。
+
+| 数据域 | next 正式真源 | 运行时副本 | legacy 来源 | 转换规则 |
+| --- | --- | --- | --- | --- |
+| auth | `server_next_player_auth` | `NextPlayerAuthStoreService` | `server_next_player_auth_v1` 文档；更旧 legacy 账号表 | 归一成 `user_id/username/player_id/password_hash/online fields`，非法主键整条失败 |
+| identity | `server_next_player_identity` | auth/bootstrap 链内存态 | `server_next_player_identities_v1` 文档；显式 migration identity 源 | 归一成单一 `userId/username/playerId/displayName/playerName` 映射，非法主键整条失败 |
+| snapshot | `server_next_player_snapshot` | `PlayerRuntimeService` 在线态 | `server_next_player_snapshots_v1` 文档；显式 migration snapshot 源 | 主链只认 next snapshot；legacy 只允许一次性迁移或显式 backfill |
+| progression / attrs | `server_next_player_snapshot.payload.progression/attrs` | `PlayerRuntimeService` 数值态 | legacy snapshot 内的 progression/attrs 字段 | 基础成长字段保留；非法派生字段直接丢弃并由 next 重算 |
+| inventory / equipment | `server_next_player_snapshot.payload.inventory/equipment` | `PlayerRuntimeService` 背包/装备态 | legacy snapshot 内的 inventory/equipment 字段 | 物品与槽位逐项归一；非法子项跳过；缺失补 starter 或空槽 |
+| techniques | `server_next_player_snapshot.payload.techniques` | `PlayerRuntimeService` 修炼态 | legacy snapshot 内的 techniques 字段 | 保留可恢复的功法/修炼字段，非法等级/经验回最小合法值 |
+| quests | `server_next_player_snapshot.payload.quests` | `PlayerRuntimeService` 任务态 | legacy snapshot 内的 quests 字段 | 保留 next 可恢复的任务条目、目标状态和奖励领取态，非法子项跳过 |
+| mail | `persistent_documents(server_next_mailboxes_v1)` | `MailRuntimeService` | `mail_campaigns / mail_audience_members / player_mail_receipts` | 按玩家聚合邮箱；非法邮件或附件子项跳过，其余继续写入 |
+| market | `persistent_documents(server_next_market_orders_v1/server_next_market_trade_history_v1/server_next_market_storage_v1)` | `MarketRuntimeService` | `market_orders / market_trade_history / players.marketStorage 或 market_storage` | 订单、成交、暂存仓库分别归一；非法单条跳过，其余继续写入 |
+| suggestion | `persistent_documents(server_next_suggestions_v1, global)` | `SuggestionRuntimeService` | `suggestions` 表；兜底 `runtime/suggestions.json` | 过滤非法建议/回复子项，保留有效记录并重排 revision |
+| redeem | `persistent_documents(server_next_redeem_codes_v1, global)` | `RedeemCodeRuntimeService` | `redeem_code_groups / redeem_codes` | 分组与兑换码分别归一，孤儿 group/code 直接跳过 |
+| gm-auth | `persistent_documents(server_next_gm_auth_v1, gm_auth)` | `RuntimeGmAuthService` | `server_next_legacy_gm_auth_v1 / server_config` | legacy bcrypt 或 next 形态统一归一成 `hash/salt/updatedAt` |
+| gm-database | `persistent_documents(server_next_db_backups_v1/server_next_db_jobs_v1)` | `NextGmAdminService` | `server_next_legacy_db_backups_v1 / server_next_legacy_db_jobs_v1` | backup/job 元数据分别归一，非法 payload 回默认值并记失败清单 |
+| map aura | `persistent_documents(server_next_map_aura_v1)` | map/world runtime 实例态 | `legacy/server/src/game/map.service.ts` 导出的 `runtime/map-aura-state.json` | 若不要求继承演化可重建；要继承则按 mapId 逐图归一 |
+
 ## 玩家快照内部迁移项
 
 下面这些属于玩家快照里的核心内容，默认按“必须迁移”处理。
@@ -133,7 +154,11 @@
 | --- | --- | --- | --- |
 | `payload.quests.entries[].questId` | `payload.quests.entries[].questId` | 原样迁移 | 缺失则该任务条目跳过 |
 | `payload.quests.entries[].status` | `payload.quests.entries[].status` | 归一为 next 可识别状态值 | 非法时回退 `active` 或任务默认态 |
+| `payload.quests.entries[].acceptedAt` | `payload.quests.entries[].acceptedAt` | 归一为毫秒整数或 `null` | 非法时置 `null` |
+| `payload.quests.entries[].updatedAt` | `payload.quests.entries[].updatedAt` | 归一为毫秒整数或 `null` | 非法时置 `null` |
 | `payload.quests.entries[].progress` / `steps` | `payload.quests.entries[]` | 仅保留 next 任务运行时可恢复字段 | 非法计数置 `0` |
+| `payload.quests.entries[].objectiveStates[]` | `payload.quests.entries[].objectiveStates[]` | 仅保留 next 仍能恢复的目标计数/完成态字段 | 非法子项跳过 |
+| `payload.quests.entries[].rewardsClaimed` | `payload.quests.entries[].rewardsClaimed` | 归一为布尔值 | 缺失时置 `false` |
 | `payload.quests.entries[].completedAt` | `payload.quests.entries[].completedAt` | 归一为毫秒整数或 `null` | 非法时置 `null` |
 
 #### 境界 / 属性 / 数值成长 `payload.progression` + `payload.attrs`
@@ -391,7 +416,9 @@ legacy 来源当前锁定为：
 | snapshot | 缺 `savedAt` 置当前毫秒；缺 `persistedSource` 置 `native` |
 | inventory / equipment | 缺容量回 starter；缺槽位补固定空槽 |
 | techniques / quests | 缺 exp/progress 置 `0`；缺当前修炼/完成时间置 `null` |
+| progression / attrs | 缺 stage/realmLv/progress 置最低合法值；缺派生 attrs/numericStats 时按 next 重算 |
 | mail | 缺 sender 回 `司命台`；缺附件数量置 `1`；空邮箱 `revision=1` |
+| market | 缺订单状态回 `open`；缺数量回最小合法值；缺时间回当前毫秒 |
 | suggestion | 缺 status 回 `pending`；缺已读时间置 `0`；空文档 `revision=1` |
 | redeem | 缺状态回 `active`；缺时间回 epoch 或 `null`；空文档 `revision=1` |
 | gm-auth | 缺 `updatedAt` 回当前时间；legacy bcrypt 记录补 `salt=__legacy_bcrypt__` |
@@ -404,7 +431,9 @@ legacy 来源当前锁定为：
 | --- | --- |
 | auth / identity / snapshot | 缺主键或关键映射字段时整条失败并记失败清单 |
 | inventory / equipment / techniques / quests | 非法子项按条目跳过，外层 snapshot 继续迁 |
+| progression / attrs | 非法派生字段直接丢弃并由 next 重算；基础成长关键字段缺失时整条 snapshot 失败 |
 | mail / suggestion / redeem | 非法子记录跳过，文档其余合法项继续写入 |
+| market | 非法订单/成交/暂存条目按单条跳过，其余记录继续写入 |
 | gm-auth | 缺 hash/passwordHash 时整条失败 |
 | gm backup/job / Afdian | 非法结构回退 `null` 或默认值，同时记失败清单 |
 

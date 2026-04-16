@@ -14,6 +14,9 @@
 - 支持 `--domains=auth,identity,snapshot,mail,market,redeem,suggestion,gm-auth,gm-database`
 - 输出迁移摘要与失败清单
 - 当前已覆盖 `auth / identity / snapshot / mail / market / redeem / suggestion / gm-auth / gm-database`
+- 样本 fixture：`packages/server/src/tools/fixtures/migrate-next-mainline-once/sample-legacy.json`
+- 已实际跑通样本 dry-run：
+  - `pnpm --filter @mud/server-next migrate:legacy-next:once -- --fixture=src/tools/fixtures/migrate-next-mainline-once/sample-legacy.json --domains=auth,identity,snapshot,mail,market,redeem,suggestion,gm-auth,gm-database`
 
 ## 任务
 
@@ -38,8 +41,8 @@
 - [ ] 实现功法 / 技能 / 修炼状态迁移
 - [ ] 实现任务迁移
 - [x] 实现兑换码与 GM 备份/作业等必要数据迁移
-- [ ] 补一份样本迁移数据
-- [x] 跑通一份样本 dry-run（脚本级帮助/参数与真实 dry-run 入口已落地，待真实数据库样本）
+- [x] 补一份样本迁移数据
+- [x] 跑通一份样本 dry-run（fixture 样本已落地并实际执行）
 - [ ] 跑通一份样本正式转换
 - [x] 为迁移脚本补最小验证命令
 

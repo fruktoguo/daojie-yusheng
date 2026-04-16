@@ -1,6 +1,6 @@
 # next 原地硬切任务计划
 
-更新时间：2026-04-16
+更新时间：2026-04-17
 
 这份文档是原地硬切的实际执行清单。
 
@@ -37,12 +37,12 @@
 
 - [01 冻结 legacy 与边界收口](./01-freeze-legacy-and-boundaries.md)
 
-- [ ] 在文档口径里明确 `legacy/*` 只作为参考和迁移来源，不再承担主开发职责
-- [ ] 停止新增任何“为了对齐 legacy 行为”的新任务
-- [ ] 停止向 `legacy/client`、`legacy/server`、`legacy/shared` 落新功能
-- [ ] 盘点当前还在直接读写 `legacy/*` 的 next 主链入口
-- [ ] 列出必须暂时保留的 legacy 读取点
-- [ ] 列出可以直接删除的 legacy / compat / parity 入口
+- [x] 在文档口径里明确 `legacy/*` 只作为参考和迁移来源，不再承担主开发职责
+- [x] 停止新增任何“为了对齐 legacy 行为”的新任务
+- [x] 停止向 `legacy/client`、`legacy/server`、`legacy/shared` 落新功能
+- [x] 盘点当前还在直接读写 `legacy/*` 的 next 主链入口
+- [x] 列出必须暂时保留的 legacy 读取点
+- [x] 列出可以直接删除的 legacy / compat / parity 入口
 
 ## 2. 钉死 next 真源
 
@@ -79,16 +79,16 @@
 - [x] 列出账号身份相关数据
 - [x] 列出角色基础信息相关数据
 - [x] 列出地图位置 / 出生点 / 当前实例相关数据
-- [ ] 列出境界 / 属性 / 数值成长相关数据
-- [ ] 列出背包 / 装备 / 物品相关数据
-- [ ] 列出功法 / 技能 / 修炼状态相关数据
-- [ ] 列出任务相关数据
+- [x] 列出境界 / 属性 / 数值成长相关数据
+- [x] 列出背包 / 装备 / 物品相关数据
+- [x] 列出功法 / 技能 / 修炼状态相关数据
+- [x] 列出任务相关数据
 - [x] 列出邮件相关数据
 - [x] 列出市场相关数据
 - [x] 列出建议 / 回复相关数据
 - [x] 列出兑换码和 GM 必要持久化数据
 - [ ] 对每个数据域写清 legacy 来源、next 目标、转换规则、默认值、可丢弃项
-- [ ] 把这份数据清单单独落成文档
+- [x] 把这份数据清单单独落成文档
 
 ## 5. 写一次性迁移脚本
 
@@ -111,6 +111,7 @@
 - [ ] 支持迁移背包 / 装备 / 功法 / 任务 / 邮件 / 市场 / 建议等核心数据
 - [ ] 支持把结果写入 next 所需持久化结构
 - [x] 设计迁移后的最小验证命令
+- [x] 补一份样本 fixture 并跑通 dry-run
 - [ ] 用一份样本数据跑通完整转换
 
 ## 6. 删除 compat / bridge / parity 层
@@ -194,8 +195,8 @@
 
 - [ ] 把 `local / with-db / acceptance / full / shadow-destructive` 继续固定为唯一门禁口径
 - [ ] 给“数据迁移完成”补一条迁移 proof 链
-- [ ] 跑通 `pnpm build`
-- [ ] 跑通 `pnpm verify:replace-ready`
+- [x] 跑通 `pnpm build`
+- [x] 跑通 `pnpm verify:replace-ready`
 - [ ] 跑通 `pnpm verify:replace-ready:with-db`
 - [ ] 跑通 `pnpm verify:replace-ready:acceptance`
 - [ ] 跑通 `pnpm verify:replace-ready:full`

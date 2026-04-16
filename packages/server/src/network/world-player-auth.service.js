@@ -73,13 +73,13 @@ function resolvePersistedNextIdentityAuthSource(persistedSource) {
     return persistedSource === 'token_seed' ? 'token' : 'next';
 }
 
-const COMPAT_MIGRATION_SOURCE_OPTIONS = Object.freeze({
+const MIGRATION_SOURCE_OPTIONS = Object.freeze({
     allowCompatMigration: true,
     allowLegacyHttpIdentityFallback: false,
     reason: 'auth_migration',
 });
 
-/** 世界玩家鉴权服务：把 token 校验、兼容回填和身份持久化收敛到一起。 */
+/** 世界玩家鉴权服务：把 token 校验、migration 回填和身份持久化收敛到一起。 */
 let WorldPlayerAuthService = class WorldPlayerAuthService {
     /** 鉴权日志，便于追踪 token、回填和持久化失败。 */
     logger = new common_1.Logger(WorldPlayerAuthService.name);
@@ -89,7 +89,7 @@ let WorldPlayerAuthService = class WorldPlayerAuthService {
     playerIdentityPersistenceService;
     /** 玩家快照服务，用于迁移或回填时检查 starter snapshot。 */
     worldPlayerSnapshotService;
-    /** 兼容玩家源服务，负责从 legacy/compat 数据里恢复身份。 */
+    /** migration 玩家源服务，负责从 legacy 数据里恢复身份。 */
     worldPlayerSourceService;
     constructor(worldPlayerTokenService, playerIdentityPersistenceService, worldPlayerSourceService, worldPlayerSnapshotService = undefined) {
         this.worldPlayerTokenService = worldPlayerTokenService;
@@ -109,13 +109,13 @@ let WorldPlayerAuthService = class WorldPlayerAuthService {
     }
     /** 确保 legacy 回填账号拥有可用的 starter snapshot。 */
     async ensureLegacyBackfillSnapshot(playerId) {
-        if (!this.worldPlayerSnapshotService?.ensureCompatBackfillSnapshot) {
+        if (!this.worldPlayerSnapshotService?.ensureMigrationBackfillSnapshot) {
             return {
                 ok: false,
                 failureStage: 'compat_snapshot_service_unavailable',
             };
         }
-        return this.worldPlayerSnapshotService.ensureCompatBackfillSnapshot(playerId);
+        return this.worldPlayerSnapshotService.ensureMigrationBackfillSnapshot(playerId);
     }
     /** 加载 next 玩家身份，优先走兼容来源服务。 */
     async loadNextPlayerIdentity(userId) {
@@ -246,30 +246,22 @@ let WorldPlayerAuthService = class WorldPlayerAuthService {
     }
     /** 统一对迁移输入做身份解析，便于 HTTP/Socket 共用。 */
     async resolveMigrationIdentity(payload) {
-        if (typeof this.worldPlayerSourceService?.resolvePlayerIdentityForMigration === 'function') {
-            return this.worldPlayerSourceService.resolvePlayerIdentityForMigration(payload, COMPAT_MIGRATION_SOURCE_OPTIONS);
+        if (typeof this.worldPlayerSourceService?.resolvePlayerIdentityForMigration !== 'function') {
+            throw new Error('migration identity source unavailable');
         }
-        if (typeof this.worldPlayerSourceService?.resolveCompatPlayerIdentityForMigration !== 'function') {
-            throw new Error('compat migration identity source unavailable');
-        }
-        return this.worldPlayerSourceService.resolveCompatPlayerIdentityForMigration(payload, COMPAT_MIGRATION_SOURCE_OPTIONS);
+        return this.worldPlayerSourceService.resolvePlayerIdentityForMigration(payload, MIGRATION_SOURCE_OPTIONS);
     }
     async loadMigrationSnapshot(playerId) {
-        if (typeof this.worldPlayerSourceService?.loadPlayerSnapshotForMigration === 'function') {
-            return this.worldPlayerSourceService.loadPlayerSnapshotForMigration(playerId, COMPAT_MIGRATION_SOURCE_OPTIONS);
+        if (typeof this.worldPlayerSourceService?.loadPlayerSnapshotForMigration !== 'function') {
+            throw new Error('migration snapshot source unavailable');
         }
-        if (typeof this.worldPlayerSourceService?.loadCompatPlayerSnapshotForMigration !== 'function') {
-            throw new Error('compat migration snapshot source unavailable');
-        }
-        return this.worldPlayerSourceService.loadCompatPlayerSnapshotForMigration(playerId, COMPAT_MIGRATION_SOURCE_OPTIONS);
+        return this.worldPlayerSourceService.loadPlayerSnapshotForMigration(playerId, MIGRATION_SOURCE_OPTIONS);
     }
-    async shouldPreferCompatBackfill(payload, tokenIdentity, identityPersistenceEnabled) {
+    async shouldPreferMigrationBackfill(payload, tokenIdentity, identityPersistenceEnabled) {
 
-        const hasCompatIdentitySource = typeof this.worldPlayerSourceService?.resolvePlayerIdentityForMigration === 'function'
-            || typeof this.worldPlayerSourceService?.resolveCompatPlayerIdentityForMigration === 'function';
+        const hasCompatIdentitySource = typeof this.worldPlayerSourceService?.resolvePlayerIdentityForMigration === 'function';
 
-        const hasCompatSnapshotSource = typeof this.worldPlayerSourceService?.loadPlayerSnapshotForMigration === 'function'
-            || typeof this.worldPlayerSourceService?.loadCompatPlayerSnapshotForMigration === 'function';
+        const hasCompatSnapshotSource = typeof this.worldPlayerSourceService?.loadPlayerSnapshotForMigration === 'function';
         if (!identityPersistenceEnabled
             || !tokenIdentity
             || !hasLegacyDatabaseConfigured()
@@ -279,7 +271,7 @@ let WorldPlayerAuthService = class WorldPlayerAuthService {
         }
 
         const compatSnapshot = await this.loadMigrationSnapshot(tokenIdentity.playerId).catch((error) => {
-            this.logger.warn(`token seed 前的玩家 compat 快照预检失败：playerId=${tokenIdentity.playerId} error=${error instanceof Error ? error.message : String(error)}`);
+            this.logger.warn(`token seed 前的玩家 migration 快照预检失败：playerId=${tokenIdentity.playerId} error=${error instanceof Error ? error.message : String(error)}`);
             return null;
         });
         if (!compatSnapshot) {
@@ -287,12 +279,12 @@ let WorldPlayerAuthService = class WorldPlayerAuthService {
         }
 
         const compatIdentity = await this.resolveMigrationIdentity(payload).catch((error) => {
-            this.logger.warn(`token seed 前的玩家 compat 身份预检失败：userId=${payload.sub} playerId=${tokenIdentity.playerId} error=${error instanceof Error ? error.message : String(error)}`);
+            this.logger.warn(`token seed 前的玩家 migration 身份预检失败：userId=${payload.sub} playerId=${tokenIdentity.playerId} error=${error instanceof Error ? error.message : String(error)}`);
             return null;
         });
         return Boolean(compatIdentity);
     }
-    async authenticateViaCompatMigration(payload, tokenIdentity, identityPersistenceEnabled, allowCompatBackfill, preferCompatBackfill = false) {
+    async authenticateViaMigration(payload, tokenIdentity, identityPersistenceEnabled, allowMigrationBackfill, preferMigrationBackfill = false) {
 
         let compatIdentity = null;
 
@@ -306,10 +298,10 @@ let WorldPlayerAuthService = class WorldPlayerAuthService {
             return compatIdentity;
         };
 
-        const shouldAttemptPersistedCompatBackfill = identityPersistenceEnabled
-            && allowCompatBackfill
-            && (!tokenIdentity || preferCompatBackfill);
-        if (shouldAttemptPersistedCompatBackfill) {
+        const shouldAttemptPersistedMigrationBackfill = identityPersistenceEnabled
+            && allowMigrationBackfill
+            && (!tokenIdentity || preferMigrationBackfill);
+        if (shouldAttemptPersistedMigrationBackfill) {
             compatIdentity = await resolveCompatIdentityOnce();
             if (compatIdentity) {
 
@@ -321,7 +313,7 @@ let WorldPlayerAuthService = class WorldPlayerAuthService {
                     updatedAt: Date.now(),
                 }).catch((error) => {
                     persistFailureStage = 'compat_backfill_save_failed';
-                    this.logger.warn(`玩家身份 compat 回填保存失败：userId=${compatIdentity.userId} playerId=${compatIdentity.playerId} error=${error instanceof Error ? error.message : String(error)}`);
+                    this.logger.warn(`玩家身份 migration 回填保存失败：userId=${compatIdentity.userId} playerId=${compatIdentity.playerId} error=${error instanceof Error ? error.message : String(error)}`);
                     return null;
                 });
                 if (persistFailureStage === 'compat_backfill_save_failed') {
@@ -343,7 +335,7 @@ let WorldPlayerAuthService = class WorldPlayerAuthService {
 
                 const persistedCompatSource = normalizePersistedSource(persistedCompatIdentity);
                 if (persistedCompatIdentity && persistedCompatSource !== 'legacy_backfill') {
-                    this.logger.error(`玩家身份 compat 回填保存返回了异常 persistedSource：userId=${compatIdentity.userId} playerId=${compatIdentity.playerId} expected=legacy_backfill actual=${persistedCompatSource ?? '未知'}`);
+                    this.logger.error(`玩家身份 migration 回填保存返回了异常 persistedSource：userId=${compatIdentity.userId} playerId=${compatIdentity.playerId} expected=legacy_backfill actual=${persistedCompatSource ?? '未知'}`);
                     (0, world_player_token_service_1.recordAuthTrace)({
                         type: 'identity',
                         source: 'migration_persist_blocked',
@@ -410,7 +402,7 @@ let WorldPlayerAuthService = class WorldPlayerAuthService {
             playerId: tokenIdentity?.playerId ?? null,
             persistenceEnabled: identityPersistenceEnabled,
             nextLoadHit: false,
-            compatTried: allowCompatBackfill,
+            compatTried: allowMigrationBackfill,
             persistAttempted: false,
             persistSucceeded: null,
             persistFailureStage: null,
@@ -544,9 +536,9 @@ let WorldPlayerAuthService = class WorldPlayerAuthService {
             };
         }
 
-        const allowCompatBackfill = compatBackfillProtocolAllowed && isCompatIdentityBackfillAllowed();
+        const allowMigrationBackfill = compatBackfillProtocolAllowed && isCompatIdentityBackfillAllowed();
 
-        const allowCompatMigrationInPersistence = identityPersistenceEnabled && !nextProtocolStrict && allowCompatBackfill;
+        const allowMigrationInPersistence = identityPersistenceEnabled && !nextProtocolStrict && allowMigrationBackfill;
 
         const legacyDatabaseConfigured = hasLegacyDatabaseConfigured();
 
@@ -577,10 +569,10 @@ let WorldPlayerAuthService = class WorldPlayerAuthService {
             };
         }
 
-        const preferCompatBackfill = allowCompatMigrationInPersistence
-            ? await this.shouldPreferCompatBackfill(payload, tokenIdentity, identityPersistenceEnabled)
+        const preferMigrationBackfill = allowMigrationInPersistence
+            ? await this.shouldPreferMigrationBackfill(payload, tokenIdentity, identityPersistenceEnabled)
             : false;
-        if (identityPersistenceEnabled && tokenIdentity && !preferCompatBackfill) {
+        if (identityPersistenceEnabled && tokenIdentity && !preferMigrationBackfill) {
 
             let persistFailureStage = null;
 
@@ -685,7 +677,7 @@ let WorldPlayerAuthService = class WorldPlayerAuthService {
             });
             return null;
         }
-        return this.authenticateViaCompatMigration(payload, tokenIdentity, identityPersistenceEnabled, allowCompatMigrationInPersistence, preferCompatBackfill);
+        return this.authenticateViaMigration(payload, tokenIdentity, identityPersistenceEnabled, allowMigrationInPersistence, preferMigrationBackfill);
     }
 };
 exports.WorldPlayerAuthService = WorldPlayerAuthService;

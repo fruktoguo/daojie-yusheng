@@ -33,13 +33,13 @@ const player_persistence_service_1 = require("../persistence/player-persistence.
 
 const world_legacy_player_repository_1 = require("./world-legacy-player-repository");
 
-const DISABLE_COMPAT_MIGRATION_SOURCE_ENV_KEYS = [
+const DISABLE_MIGRATION_SOURCE_ENV_KEYS = [
     'SERVER_NEXT_AUTH_DISABLE_COMPAT_MIGRATION_SOURCE',
     'NEXT_AUTH_DISABLE_COMPAT_MIGRATION_SOURCE',
 ];
-/** 是否关闭 compat migration 源入口。 */
-function isCompatMigrationSourceDisabled() {
-    for (const key of DISABLE_COMPAT_MIGRATION_SOURCE_ENV_KEYS) {
+/** 是否关闭 migration-only 源入口。 */
+function isMigrationSourceDisabled() {
+    for (const key of DISABLE_MIGRATION_SOURCE_ENV_KEYS) {
         const value = typeof process.env[key] === 'string' ? process.env[key].trim().toLowerCase() : '';
         if (value === '1' || value === 'true' || value === 'yes' || value === 'on') {
             return true;
@@ -47,13 +47,13 @@ function isCompatMigrationSourceDisabled() {
     }
     return false;
 }
-/** 是否显式允许 compat migration 身份来源。 */
-function isCompatMigrationAccessExplicit(options) {
+/** 是否显式允许 migration-only 身份来源。 */
+function isMigrationAccessExplicit(options) {
     return options?.allowCompatMigration === true;
 }
-/** compat 迁移入口必须显式声明，避免继续把 direct compat source 当常规真源。 */
-function assertExplicitCompatMigrationAccess(options, logger, action) {
-    if (isCompatMigrationAccessExplicit(options)) {
+/** 迁移入口必须显式声明，避免继续把 legacy 源当常规真源。 */
+function assertExplicitMigrationAccess(options, logger, action) {
+    if (isMigrationAccessExplicit(options)) {
         return true;
     }
     logger?.warn?.(`旧玩家源 ${action} 已拦截：reason=explicit_compat_migration_required`);
@@ -128,20 +128,20 @@ let WorldPlayerSourceService = class WorldPlayerSourceService {
         const record = await this.loadNextPlayerSnapshotRecord(playerId);
         return record?.snapshot ?? null;
     }
-    /** 判断是否允许进入 compat migration 源。 */
+    /** 判断是否允许进入 migration-only 源。 */
     isMigrationSourceEnabled(options = undefined) {
-        return isCompatMigrationAccessExplicit(options)
-            && !isCompatMigrationSourceDisabled();
+        return isMigrationAccessExplicit(options)
+            && !isMigrationSourceDisabled();
     }
     /** 从 legacy 数据库源恢复玩家身份。 */
-    async resolvePlayerIdentityFromCompatSource(payload, options = undefined) {
-        if (!assertExplicitCompatMigrationAccess(options, this.logger, 'identity_source')) {
+    async resolvePlayerIdentityFromMigrationSource(payload, options = undefined) {
+        if (!assertExplicitMigrationAccess(options, this.logger, 'identity_source')) {
             return null;
         }
 
         const pool = await this.ensurePool();
         if (!pool) {
-            this.logger.warn(`旧玩家源 compat 身份迁移已拦截：reason=pool_unavailable migration_only=true userId=${typeof payload?.sub === 'string' ? payload.sub : '未知'}`);
+            this.logger.warn(`旧玩家源 migration 身份迁移已拦截：reason=pool_unavailable migration_only=true userId=${typeof payload?.sub === 'string' ? payload.sub : '未知'}`);
             return null;
         }
 
@@ -151,13 +151,13 @@ let WorldPlayerSourceService = class WorldPlayerSourceService {
         }
         catch (error) {
             if (isMissingLegacySchemaError(error)) {
-                this.logger.warn(`旧玩家源 compat 身份迁移已拦截：reason=missing_legacy_schema migration_only=true userId=${typeof payload?.sub === 'string' ? payload.sub : '未知'}`);
+                this.logger.warn(`旧玩家源 migration 身份迁移已拦截：reason=missing_legacy_schema migration_only=true userId=${typeof payload?.sub === 'string' ? payload.sub : '未知'}`);
                 return null;
             }
             throw error;
         }
         if (!row) {
-            this.logger.warn(`旧玩家源 compat 身份迁移已拦截：reason=missing_legacy_row migration_only=true userId=${typeof payload?.sub === 'string' ? payload.sub : '未知'}`);
+            this.logger.warn(`旧玩家源 migration 身份迁移已拦截：reason=missing_legacy_row migration_only=true userId=${typeof payload?.sub === 'string' ? payload.sub : '未知'}`);
             return null;
         }
         return {
@@ -169,8 +169,8 @@ let WorldPlayerSourceService = class WorldPlayerSourceService {
         };
     }
     /** 从 legacy 数据库源恢复玩家快照。 */
-    async loadPlayerSnapshotFromCompatSource(playerId, options = undefined) {
-        if (!assertExplicitCompatMigrationAccess(options, this.logger, 'snapshot_source')) {
+    async loadPlayerSnapshotFromMigrationSource(playerId, options = undefined) {
+        if (!assertExplicitMigrationAccess(options, this.logger, 'snapshot_source')) {
             return null;
         }
 
@@ -242,19 +242,13 @@ let WorldPlayerSourceService = class WorldPlayerSourceService {
         if (!this.isMigrationSourceEnabled(options)) {
             return null;
         }
-        return this.resolvePlayerIdentityFromCompatSource(payload, options);
+        return this.resolvePlayerIdentityFromMigrationSource(payload, options);
     }
     async loadPlayerSnapshotForMigration(playerId, options = undefined) {
         if (!this.isMigrationSourceEnabled(options)) {
             return null;
         }
-        return this.loadPlayerSnapshotFromCompatSource(playerId, options);
-    }
-    async resolveCompatPlayerIdentityForMigration(payload, options = undefined) {
-        return this.resolvePlayerIdentityForMigration(payload, options);
-    }
-    async loadCompatPlayerSnapshotForMigration(playerId, options = undefined) {
-        return this.loadPlayerSnapshotForMigration(playerId, options);
+        return this.loadPlayerSnapshotFromMigrationSource(playerId, options);
     }
 };
 exports.WorldPlayerSourceService = WorldPlayerSourceService;

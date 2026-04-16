@@ -2212,8 +2212,8 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
         loadPlayerIdentity: async () => null,
         savePlayerIdentity: async (input) => input,
     }, {
-        resolveCompatPlayerIdentityForMigration: async () => compatIdentity,
-        loadCompatPlayerSnapshotForMigration: async () => ({
+        resolvePlayerIdentityForMigration: async () => compatIdentity,
+        loadPlayerSnapshotForMigration: async () => ({
             version: 1,
             placement: {
                 templateId: 'yunlai_town',
@@ -2223,7 +2223,7 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
             },
         }),
     }, {
-        ensureCompatBackfillSnapshot: async () => ({
+        ensureMigrationBackfillSnapshot: async () => ({
             ok: false,
             failureStage: 'compat_snapshot_next_load_failed',
         }),
@@ -2251,11 +2251,11 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
         loadPlayerIdentity: async () => null,
         savePlayerIdentity: async (input) => input,
     }, {
-        resolveCompatPlayerIdentityForMigration: async () => {
+        resolvePlayerIdentityForMigration: async () => {
             noPersistenceCompatIdentityCalls += 1;
             return compatIdentity;
         },
-        loadCompatPlayerSnapshotForMigration: async () => ({
+        loadPlayerSnapshotForMigration: async () => ({
             version: 1,
             placement: {
                 templateId: 'yunlai_town',
@@ -2265,7 +2265,7 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
             },
         }),
     }, {
-        ensureCompatBackfillSnapshot: async () => ({
+        ensureMigrationBackfillSnapshot: async () => ({
             ok: false,
             failureStage: 'unexpected_compat_snapshot_seed',
         }),
@@ -2301,8 +2301,8 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
         loadPlayerIdentity: async () => null,
         savePlayerIdentity: async (input) => input,
     }, {
-        resolveCompatPlayerIdentityForMigration: async () => compatIdentity,
-        loadCompatPlayerSnapshotForMigration: async () => ({
+        resolvePlayerIdentityForMigration: async () => compatIdentity,
+        loadPlayerSnapshotForMigration: async () => ({
             version: 1,
             placement: {
                 templateId: 'yunlai_town',
@@ -2312,7 +2312,7 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
             },
         }),
     }, {
-        ensureCompatBackfillSnapshot: async () => ({
+        ensureMigrationBackfillSnapshot: async () => ({
             ok: true,
             persistedSource: 'native',
             snapshot: {
@@ -2410,8 +2410,8 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
             persistedSource: 'legacy_backfill',
         }),
     }, {
-        resolveCompatPlayerIdentityForMigration: async () => null,
-        loadCompatPlayerSnapshotForMigration: async () => null,
+        resolvePlayerIdentityForMigration: async () => null,
+        loadPlayerSnapshotForMigration: async () => null,
     }, starterSnapshotDeps);
     (0, world_player_token_service_1.clearAuthTrace)();
     const tokenPersistedSourceMismatchResult = await tokenPersistedSourceMismatchAuthService.authenticatePlayerToken('proof.token.token_persisted_source_mismatch');
@@ -2433,8 +2433,8 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
             persistedSource: 'token_seed',
         }),
     }, {
-        resolveCompatPlayerIdentityForMigration: async () => compatIdentity,
-        loadCompatPlayerSnapshotForMigration: async () => ({
+        resolvePlayerIdentityForMigration: async () => compatIdentity,
+        loadPlayerSnapshotForMigration: async () => ({
             version: 1,
             placement: {
                 templateId: 'yunlai_town',
@@ -2521,8 +2521,8 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
         loadPlayerIdentity: async () => null,
         savePlayerIdentity: async (input) => input,
     }, {
-        resolveCompatPlayerIdentityForMigration: async () => null,
-        loadCompatPlayerSnapshotForMigration: async () => null,
+        resolvePlayerIdentityForMigration: async () => null,
+        loadPlayerSnapshotForMigration: async () => null,
     }, starterSnapshotDeps);
 /**
  * 记录previousservernextdatabaseurl。
@@ -2795,7 +2795,7 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
     };
     let compatSnapshotBackfillResult = null;
     try {
-        compatSnapshotBackfillResult = await compatSnapshotBackfillService.ensureCompatBackfillSnapshot(payload.playerId);
+        compatSnapshotBackfillResult = await compatSnapshotBackfillService.ensureMigrationBackfillSnapshot(payload.playerId);
     }
     finally {
         compatSnapshotBackfillSourceService.ensurePool = originalCompatSnapshotBackfillEnsurePool;
@@ -2838,7 +2838,7 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
     world_legacy_player_repository_1.queryLegacyPlayerSnapshotRow = async () => null;
     let compatSnapshotMissingBackfillResult = null;
     try {
-        compatSnapshotMissingBackfillResult = await compatSnapshotMissingBackfillService.ensureCompatBackfillSnapshot(payload.playerId);
+        compatSnapshotMissingBackfillResult = await compatSnapshotMissingBackfillService.ensureMigrationBackfillSnapshot(payload.playerId);
     }
     finally {
         compatSnapshotMissingSourceService.ensurePool = originalCompatSnapshotMissingEnsurePool;
@@ -2867,14 +2867,14 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
         }),
         savePlayerIdentity: async (input) => input,
     }, {
-        resolveCompatPlayerIdentityForMigration: async () => compatIdentity,
-        loadCompatPlayerSnapshotForMigration: async () => null,
+        resolvePlayerIdentityForMigration: async () => compatIdentity,
+        loadPlayerSnapshotForMigration: async () => null,
     }, {
         loadNextPlayerSnapshotRecord: async () => {
             nextProtocolLoadedLegacyBackfillSnapshotLoads += 1;
             return null;
         },
-        ensureCompatBackfillSnapshot: async () => ({
+        ensureMigrationBackfillSnapshot: async () => ({
             ok: false,
             failureStage: 'unexpected_compat_snapshot_seed',
         }),
@@ -2917,8 +2917,8 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
             return input;
         },
     }, {
-        resolveCompatPlayerIdentityForMigration: async () => compatIdentity,
-        loadCompatPlayerSnapshotForMigration: async () => null,
+        resolvePlayerIdentityForMigration: async () => compatIdentity,
+        loadPlayerSnapshotForMigration: async () => null,
     }, {
         loadNextPlayerSnapshotRecord: async () => {
             nextProtocolLoadedLegacyBackfillPromotionSnapshotLoads += 1;
@@ -2935,7 +2935,7 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
                 persistedSource: 'native',
             };
         },
-        ensureCompatBackfillSnapshot: async () => ({
+        ensureMigrationBackfillSnapshot: async () => ({
             ok: false,
             failureStage: 'unexpected_compat_snapshot_seed',
         }),
@@ -2980,8 +2980,8 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
             return input;
         },
     }, {
-        resolveCompatPlayerIdentityForMigration: async () => compatIdentity,
-        loadCompatPlayerSnapshotForMigration: async () => null,
+        resolvePlayerIdentityForMigration: async () => compatIdentity,
+        loadPlayerSnapshotForMigration: async () => null,
     }, {
         loadNextPlayerSnapshotRecord: async () => {
             nextProtocolLoadedLegacySeededSnapshotLoads += 1;
@@ -2998,7 +2998,7 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
                 persistedSource: 'legacy_seeded',
             };
         },
-        ensureCompatBackfillSnapshot: async () => ({
+        ensureMigrationBackfillSnapshot: async () => ({
             ok: false,
             failureStage: 'unexpected_compat_snapshot_seed',
         }),
@@ -3287,8 +3287,8 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
         }),
         savePlayerIdentity: async (input) => input,
     }, {
-        resolveCompatPlayerIdentityForMigration: async () => compatIdentity,
-        loadCompatPlayerSnapshotForMigration: async () => ({
+        resolvePlayerIdentityForMigration: async () => compatIdentity,
+        loadPlayerSnapshotForMigration: async () => ({
             version: 1,
             placement: {
                 templateId: 'yunlai_town',
@@ -3324,8 +3324,8 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
         }),
         savePlayerIdentity: async (input) => input,
     }, {
-        resolveCompatPlayerIdentityForMigration: async () => compatIdentity,
-        loadCompatPlayerSnapshotForMigration: async () => ({
+        resolvePlayerIdentityForMigration: async () => compatIdentity,
+        loadPlayerSnapshotForMigration: async () => ({
             version: 1,
             placement: {
                 templateId: 'yunlai_town',
@@ -3627,7 +3627,7 @@ async function verifyCompatRuntimeSnapshotGuardContract() {
     }, {
         buildStarterPersistenceSnapshot: () => null,
     }, {
-        loadCompatPlayerSnapshotForMigration: async () => {
+        loadPlayerSnapshotForMigration: async () => {
             compatSnapshotCalls += 1;
             return {
                 version: 1,
@@ -4547,11 +4547,11 @@ async function verifyTokenSeedIdentityContract() {
         loadPlayerIdentity: async () => null,
         savePlayerIdentity: async (input) => input,
     }, {
-        resolveCompatPlayerIdentityForMigration: async () => {
+        resolvePlayerIdentityForMigration: async () => {
             compatIdentityCalls += 1;
             return null;
         },
-        loadCompatPlayerSnapshotForMigration: async () => {
+        loadPlayerSnapshotForMigration: async () => {
             compatSnapshotCalls += 1;
             return null;
         },
@@ -4570,7 +4570,7 @@ async function verifyTokenSeedIdentityContract() {
                 },
             },
         }),
-        ensureCompatBackfillSnapshot: async () => ({
+        ensureMigrationBackfillSnapshot: async () => ({
             ok: false,
             failureStage: 'unexpected_compat_snapshot_seed',
         }),
@@ -4608,11 +4608,11 @@ async function verifyTokenSeedIdentityContract() {
         loadPlayerIdentity: async () => nextStoreIdentity,
         savePlayerIdentity: async (input) => input,
     }, {
-        resolveCompatPlayerIdentityForMigration: async () => {
+        resolvePlayerIdentityForMigration: async () => {
             compatIdentityCalls += 1;
             return null;
         },
-        loadCompatPlayerSnapshotForMigration: async () => {
+        loadPlayerSnapshotForMigration: async () => {
             compatSnapshotCalls += 1;
             return null;
         },
@@ -4631,7 +4631,7 @@ async function verifyTokenSeedIdentityContract() {
                 },
             },
         }),
-        ensureCompatBackfillSnapshot: async () => ({
+        ensureMigrationBackfillSnapshot: async () => ({
             ok: false,
             failureStage: 'unexpected_compat_snapshot_seed',
         }),
@@ -4740,11 +4740,11 @@ async function verifyTokenSeedNativeStarterSnapshotContract() {
         loadPlayerIdentity: async () => null,
         savePlayerIdentity: async (input) => input,
     }, {
-        resolveCompatPlayerIdentityForMigration: async () => {
+        resolvePlayerIdentityForMigration: async () => {
             compatIdentityCalls += 1;
             return null;
         },
-        loadCompatPlayerSnapshotForMigration: async () => {
+        loadPlayerSnapshotForMigration: async () => {
             compatSnapshotCalls += 1;
             return null;
         },
@@ -4763,7 +4763,7 @@ async function verifyTokenSeedNativeStarterSnapshotContract() {
                 snapshot,
             };
         },
-        ensureCompatBackfillSnapshot: async () => ({
+        ensureMigrationBackfillSnapshot: async () => ({
             ok: false,
             failureStage: 'unexpected_compat_snapshot_seed',
         }),
@@ -4978,7 +4978,7 @@ async function verifyTokenSeedPersistFailureContract() {
             throw new Error('forced_token_seed_save_failure');
         },
     }, {
-        resolveCompatPlayerIdentityForMigration: async () => {
+        resolvePlayerIdentityForMigration: async () => {
             compatIdentityCalls += 1;
             return {
                 userId: payload.sub,
@@ -4988,13 +4988,13 @@ async function verifyTokenSeedPersistFailureContract() {
                 playerName: payload.playerName,
             };
         },
-        loadCompatPlayerSnapshotForMigration: async () => null,
+        loadPlayerSnapshotForMigration: async () => null,
     }, {
         ensureNativeStarterSnapshot: async () => ({
             ok: false,
             failureStage: 'unexpected_native_snapshot_seed',
         }),
-        ensureCompatBackfillSnapshot: async () => ({
+        ensureMigrationBackfillSnapshot: async () => ({
             ok: false,
             failureStage: 'unexpected_compat_snapshot_seed',
         }),
@@ -5206,11 +5206,11 @@ async function verifyAuthPreseedSnapshotServiceUnavailableContract() {
             loadPlayerIdentity: async () => null,
             savePlayerIdentity: async (input) => input,
         }, {
-            resolveCompatPlayerIdentityForMigration: async () => {
+            resolvePlayerIdentityForMigration: async () => {
                 tokenCompatIdentityCalls += 1;
                 return null;
             },
-            loadCompatPlayerSnapshotForMigration: async () => null,
+            loadPlayerSnapshotForMigration: async () => null,
         });
         (0, world_player_token_service_1.clearAuthTrace)();
 /**
@@ -5253,7 +5253,7 @@ async function verifyAuthPreseedSnapshotServiceUnavailableContract() {
             loadPlayerIdentity: async () => null,
             savePlayerIdentity: async (input) => input,
         }, {
-            resolveCompatPlayerIdentityForMigration: async () => {
+            resolvePlayerIdentityForMigration: async () => {
                 legacyCompatIdentityCalls += 1;
                 return {
                     userId: legacyPayload.sub,
@@ -5263,7 +5263,7 @@ async function verifyAuthPreseedSnapshotServiceUnavailableContract() {
                     playerName: 'proof legacy preseed service unavailable',
                 };
             },
-            loadCompatPlayerSnapshotForMigration: async () => null,
+            loadPlayerSnapshotForMigration: async () => null,
         });
         (0, world_player_token_service_1.clearAuthTrace)();
 /**

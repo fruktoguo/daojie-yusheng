@@ -24,7 +24,7 @@ const world_player_source_service_1 = require("./world-player-source.service");
 
 const world_player_token_service_1 = require("./world-player-token.service");
 
-/** 玩家快照服务：主链只读 next 持久化记录，compat 只允许显式 migration backfill。 */
+/** 玩家快照服务：主链只读 next 持久化记录，legacy 只允许显式 migration backfill。 */
 let WorldPlayerSnapshotService = class WorldPlayerSnapshotService {
     /** 记录快照加载、回填和恢复过程。 */
     logger = new common_1.Logger(WorldPlayerSnapshotService.name);
@@ -32,7 +32,7 @@ let WorldPlayerSnapshotService = class WorldPlayerSnapshotService {
     playerPersistenceService;
     /** 玩家 runtime，用于生成 starter snapshot。 */
     playerRuntimeService;
-    /** 兼容来源服务。 */
+    /** migration 来源服务。 */
     worldPlayerSourceService;
     constructor(playerPersistenceService, playerRuntimeService, worldPlayerSourceService) {
         this.playerPersistenceService = playerPersistenceService;
@@ -62,16 +62,13 @@ let WorldPlayerSnapshotService = class WorldPlayerSnapshotService {
     async loadMigrationPlayerSnapshot(playerId) {
 
         const migrationSourceOptions = this.buildMigrationSnapshotSourceOptions('snapshot_backfill');
-        if (typeof this.worldPlayerSourceService?.loadPlayerSnapshotForMigration === 'function') {
-            return this.worldPlayerSourceService.loadPlayerSnapshotForMigration(playerId, migrationSourceOptions);
+        if (typeof this.worldPlayerSourceService?.loadPlayerSnapshotForMigration !== 'function') {
+            throw new Error('migration snapshot source unavailable');
         }
-        if (typeof this.worldPlayerSourceService?.loadCompatPlayerSnapshotForMigration !== 'function') {
-            throw new Error('compat migration snapshot source unavailable');
-        }
-        return this.worldPlayerSourceService.loadCompatPlayerSnapshotForMigration(playerId, migrationSourceOptions);
+        return this.worldPlayerSourceService.loadPlayerSnapshotForMigration(playerId, migrationSourceOptions);
     }
-    /** 在身份回填后补齐 compat 快照。 */
-    async ensureCompatBackfillSnapshot(playerId) {
+    /** 在身份回填后补齐 migration 快照。 */
+    async ensureMigrationBackfillSnapshot(playerId) {
 
         const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : '';
         if (!normalizedPlayerId || !this.playerPersistenceService.isEnabled()) {
@@ -96,7 +93,7 @@ let WorldPlayerSnapshotService = class WorldPlayerSnapshotService {
             }
         }
         catch (error) {
-            this.logger.warn(`玩家 compat 回填快照在身份回填后跳过补齐：playerId=${normalizedPlayerId} nextLoadFailed=${error instanceof Error ? error.message : String(error)}`);
+            this.logger.warn(`玩家 migration 回填快照在身份回填后跳过补齐：playerId=${normalizedPlayerId} nextLoadFailed=${error instanceof Error ? error.message : String(error)}`);
             return {
                 ok: false,
                 failureStage: 'compat_snapshot_next_load_failed',
@@ -108,7 +105,7 @@ let WorldPlayerSnapshotService = class WorldPlayerSnapshotService {
             compatSnapshot = await this.loadMigrationPlayerSnapshot(normalizedPlayerId);
         }
         catch (error) {
-            this.logger.warn(`玩家 compat 回填快照在身份回填后加载失败：playerId=${normalizedPlayerId} compatLoadFailed=${error instanceof Error ? error.message : String(error)}`);
+            this.logger.warn(`玩家 migration 回填快照在身份回填后加载失败：playerId=${normalizedPlayerId} migrationLoadFailed=${error instanceof Error ? error.message : String(error)}`);
             return {
                 ok: false,
                 failureStage: 'compat_snapshot_legacy_load_failed',
@@ -128,14 +125,14 @@ let WorldPlayerSnapshotService = class WorldPlayerSnapshotService {
                 };
             }
             catch (error) {
-                this.logger.warn(`玩家 compat 回填快照保存失败：playerId=${normalizedPlayerId} error=${error instanceof Error ? error.message : String(error)}`);
+                this.logger.warn(`玩家 migration 回填快照保存失败：playerId=${normalizedPlayerId} error=${error instanceof Error ? error.message : String(error)}`);
                 return {
                     ok: false,
                     failureStage: 'compat_snapshot_legacy_seed_failed',
                 };
             }
         }
-        this.logger.warn(`显式迁移来源中缺少玩家 compat 回填快照：playerId=${normalizedPlayerId}`);
+        this.logger.warn(`显式迁移来源中缺少玩家 migration 回填快照：playerId=${normalizedPlayerId}`);
         return {
             ok: false,
             failureStage: 'compat_snapshot_missing',
