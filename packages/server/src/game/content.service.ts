@@ -1185,26 +1185,33 @@ export class ContentService implements OnModuleInit {
     if (drop.type === 'material') {
       return this.getMaterialBaseDropChance(context.tier);
     }
+    if (drop.type === 'equipment') {
+      return this.getEquipmentBaseDropChance(context.tier);
+    }
 
 /** categoryBase：定义该变量以承载业务值。 */
     const categoryBase = this.getMonsterDropCategoryBase(drop);
-/** itemGrade：定义该变量以承载业务值。 */
-    const itemGrade = this.getMonsterDropItemGrade(drop);
-/** monsterGradeIndex：定义该变量以承载业务值。 */
-    const monsterGradeIndex = TECHNIQUE_GRADE_ORDER.indexOf(context.grade);
-/** itemGradeIndex：定义该变量以承载业务值。 */
-    const itemGradeIndex = TECHNIQUE_GRADE_ORDER.indexOf(itemGrade);
-/** gradeDelta：定义该变量以承载业务值。 */
-    const gradeDelta = Math.max(-7, monsterGradeIndex - itemGradeIndex);
 /** tierFactor：定义该变量以承载业务值。 */
     const tierFactor = this.getMonsterTierDropFactor(context.tier);
 /** chance：定义该变量以承载业务值。 */
-    const chance = 0.01 * categoryBase * (3 ** gradeDelta) * tierFactor;
+    const chance = 0.01 * categoryBase * tierFactor;
     return Math.max(Number.MIN_VALUE, Math.min(1, chance));
   }
 
 /** getMaterialBaseDropChance：执行对应的业务逻辑。 */
   private getMaterialBaseDropChance(tier: MonsterTier): number {
+    switch (tier) {
+      case 'variant':
+        return 0.2;
+      case 'demon_king':
+        return 0.5;
+      default:
+        return 0.05;
+    }
+  }
+
+/** getEquipmentBaseDropChance：执行对应的业务逻辑。 */
+  private getEquipmentBaseDropChance(tier: MonsterTier): number {
     switch (tier) {
       case 'variant':
         return 0.2;
@@ -1246,36 +1253,6 @@ export class ContentService implements OnModuleInit {
       default:
         return 0.1;
     }
-  }
-
-/** getMonsterDropItemGrade：执行对应的业务逻辑。 */
-  private getMonsterDropItemGrade(drop: Pick<MonsterTemplateDrop, 'itemId' | 'type'>): TechniqueGrade {
-/** item：定义该变量以承载业务值。 */
-    const item = this.items.get(drop.itemId);
-    if (item?.grade) {
-      return item.grade;
-    }
-    if (item?.learnTechniqueId) {
-      return this.techniques.get(item.learnTechniqueId)?.grade ?? 'mortal';
-    }
-    if (Number.isFinite(item?.level)) {
-      return this.inferTechniqueGradeFromItemLevel(Number(item?.level));
-    }
-    return 'mortal';
-  }
-
-/** inferTechniqueGradeFromItemLevel：执行对应的业务逻辑。 */
-  private inferTechniqueGradeFromItemLevel(level: number): TechniqueGrade {
-/** normalizedLevel：定义该变量以承载业务值。 */
-    const normalizedLevel = Math.max(1, Math.trunc(level));
-    if (normalizedLevel >= 85) return 'emperor';
-    if (normalizedLevel >= 73) return 'saint';
-    if (normalizedLevel >= 61) return 'spirit';
-    if (normalizedLevel >= 49) return 'heaven';
-    if (normalizedLevel >= 37) return 'earth';
-    if (normalizedLevel >= 25) return 'mystic';
-    if (normalizedLevel >= 13) return 'yellow';
-    return 'mortal';
   }
 
   private buildSpiritStoneMonsterDrop(

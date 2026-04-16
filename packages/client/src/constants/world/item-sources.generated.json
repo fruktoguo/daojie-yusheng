@@ -2323,20 +2323,18 @@
   "equip.rift_guard_armor": [
     {
       "kind": "monster_drop",
-      "mapId": "beast_valley_blood_altar",
-      "mapName": "噬魂兽谷·血祭坛",
-      "monsterId": "m_soul_wolf_ancestor",
-      "monsterName": "噬魂狼祖",
-      "chance": 0.5,
+      "mapId": "beast_valley",
+      "mapName": "噬魂兽谷",
+      "monsterId": "m_valley_emperor",
+      "monsterName": "裂渊谷皇精英",
       "count": 1
     },
     {
       "kind": "monster_drop",
-      "mapId": "black_iron_mine_molten_heart",
-      "mapName": "玄铁矿洞·玄脉熔心",
-      "monsterId": "m_iron_devour_lord",
-      "monsterName": "噬铁矿君",
-      "chance": 0.5,
+      "mapId": "beast_valley_blood_altar",
+      "mapName": "噬魂兽谷·血祭坛",
+      "monsterId": "m_soul_wolf_ancestor",
+      "monsterName": "噬魂狼祖",
       "count": 1
     },
     {
@@ -2345,16 +2343,14 @@
       "mapName": "玄铁矿洞",
       "monsterId": "m_ore_colossus",
       "monsterName": "玄矿巨像精英",
-      "chance": 0.2,
       "count": 1
     },
     {
       "kind": "monster_drop",
-      "mapId": "beast_valley",
-      "mapName": "噬魂兽谷",
-      "monsterId": "m_valley_emperor",
-      "monsterName": "裂渊谷皇精英",
-      "chance": 0.1,
+      "mapId": "black_iron_mine_molten_heart",
+      "mapName": "玄铁矿洞·玄脉熔心",
+      "monsterId": "m_iron_devour_lord",
+      "monsterName": "噬铁矿君",
       "count": 1
     },
     {
@@ -2430,20 +2426,10 @@
   "equip.soul_devour_token": [
     {
       "kind": "monster_drop",
-      "mapId": "ancient_ruins_monument_hall",
-      "mapName": "断碑遗迹·断碑主殿",
-      "monsterId": "m_stele_arbiter",
-      "monsterName": "裂碑司命",
-      "chance": 0.5,
-      "count": 1
-    },
-    {
-      "kind": "monster_drop",
-      "mapId": "beast_valley",
-      "mapName": "噬魂兽谷",
-      "monsterId": "m_valley_alpha",
-      "monsterName": "裂渊狼主",
-      "chance": 0.5,
+      "mapId": "ancient_ruins",
+      "mapName": "断碑遗迹",
+      "monsterId": "m_bone_owl",
+      "monsterName": "骨翎夜鸮",
       "count": 1
     },
     {
@@ -2452,16 +2438,22 @@
       "mapName": "断碑遗迹",
       "monsterId": "m_rune_watcher",
       "monsterName": "残纹看守精英",
-      "chance": 0.2,
       "count": 1
     },
     {
       "kind": "monster_drop",
-      "mapId": "spirit_ridge",
-      "mapName": "灵脊岭",
-      "monsterId": "m_ridge_ghost",
-      "monsterName": "守岭残魂精英",
-      "chance": 0.2,
+      "mapId": "ancient_ruins_monument_hall",
+      "mapName": "断碑遗迹·断碑主殿",
+      "monsterId": "m_stele_arbiter",
+      "monsterName": "裂碑司命",
+      "count": 1
+    },
+    {
+      "kind": "monster_drop",
+      "mapId": "beast_valley",
+      "mapName": "噬魂兽谷",
+      "monsterId": "m_valley_alpha",
+      "monsterName": "裂渊狼主",
       "count": 1
     },
     {
@@ -2470,16 +2462,14 @@
       "mapName": "噬魂兽谷",
       "monsterId": "m_valley_emperor",
       "monsterName": "裂渊谷皇精英",
-      "chance": 0.1,
       "count": 1
     },
     {
       "kind": "monster_drop",
-      "mapId": "ancient_ruins",
-      "mapName": "断碑遗迹",
-      "monsterId": "m_bone_owl",
-      "monsterName": "骨翎夜鸮",
-      "chance": 0.01,
+      "mapId": "spirit_ridge",
+      "mapName": "灵脊岭",
+      "monsterId": "m_ridge_ghost",
+      "monsterName": "守岭残魂精英",
       "count": 1
     },
     {
