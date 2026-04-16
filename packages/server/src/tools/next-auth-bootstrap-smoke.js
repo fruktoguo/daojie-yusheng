@@ -6240,7 +6240,7 @@ async function verifyInvalidPersistedIdentityRejection(token) {
     if (!userId || !playerId) {
         throw new Error(`next auth token missing identity fields for invalid-identity rejection proof: ${JSON.stringify(payload)}`);
     }
-    await writeInvalidPersistedIdentityDocument(userId);
+    await writeInvalidPersistedIdentityDocument(userId, playerId);
     await clearAuthTrace();
     await expectNextSocketAuthFailure(token, 'AUTH_FAIL');
 /**
@@ -7261,7 +7261,7 @@ async function readPersistedIdentityPayload(userId, errorContext) {
 /**
  * 写入invalidpersistedidentity文档。
  */
-async function writeInvalidPersistedIdentityDocument(userId) {
+async function writeInvalidPersistedIdentityDocument(userId, playerId) {
 /**
  * 记录pool。
  */
@@ -7270,7 +7270,10 @@ async function writeInvalidPersistedIdentityDocument(userId) {
     });
     const normalizedUserId = typeof userId === 'string' ? userId.trim() : '';
     const invalidUsername = `broken_${normalizedUserId.slice(0, 8) || 'user'}`;
-    const invalidPlayerId = `p_invalid_${normalizedUserId.slice(0, 16) || 'player'}`;
+    const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : '';
+    if (!normalizedUserId || !normalizedPlayerId) {
+        throw new Error(`invalid persisted identity proof requires stable userId/playerId, got userId=${JSON.stringify(userId)} playerId=${JSON.stringify(playerId)}`);
+    }
     try {
         await pool.query(`
       INSERT INTO server_next_player_identity(
@@ -7293,13 +7296,13 @@ async function writeInvalidPersistedIdentityDocument(userId) {
         persisted_source = EXCLUDED.persisted_source,
         updated_at = now(),
         payload = EXCLUDED.payload
-    `, [normalizedUserId, invalidUsername, invalidPlayerId, invalidUsername, invalidUsername, 'native', JSON.stringify({
+    `, [normalizedUserId, invalidUsername, normalizedPlayerId, invalidUsername, invalidUsername, 'broken_source', JSON.stringify({
             version: 1,
             userId: normalizedUserId,
             username: invalidUsername,
-            playerId: invalidPlayerId,
+            playerId: normalizedPlayerId,
             playerName: invalidUsername,
-            persistedSource: 'native',
+            persistedSource: 'broken_source',
             updatedAt: Date.now(),
         })]);
     }
