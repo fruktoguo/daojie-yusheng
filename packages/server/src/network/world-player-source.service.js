@@ -56,7 +56,7 @@ function assertExplicitMigrationAccess(options, logger, action) {
     if (isMigrationAccessExplicit(options)) {
         return true;
     }
-    logger?.warn?.(`旧玩家源 ${action} 已拦截：reason=explicit_compat_migration_required`);
+    logger?.warn?.(`旧玩家源 ${action} 已拦截：reason=explicit_migration_access_required`);
     return false;
 }
 

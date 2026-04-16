@@ -100,9 +100,9 @@ let WorldPlayerSnapshotService = class WorldPlayerSnapshotService {
             };
         }
 
-        let compatSnapshot = null;
+        let migrationSnapshot = null;
         try {
-            compatSnapshot = await this.loadMigrationPlayerSnapshot(normalizedPlayerId);
+            migrationSnapshot = await this.loadMigrationPlayerSnapshot(normalizedPlayerId);
         }
         catch (error) {
             this.logger.warn(`玩家 migration 回填快照在身份回填后加载失败：playerId=${normalizedPlayerId} migrationLoadFailed=${error instanceof Error ? error.message : String(error)}`);
@@ -111,16 +111,16 @@ let WorldPlayerSnapshotService = class WorldPlayerSnapshotService {
                 failureStage: 'compat_snapshot_legacy_load_failed',
             };
         }
-        if (compatSnapshot) {
+        if (migrationSnapshot) {
             try {
-                await this.playerPersistenceService.savePlayerSnapshot(normalizedPlayerId, compatSnapshot, {
+                await this.playerPersistenceService.savePlayerSnapshot(normalizedPlayerId, migrationSnapshot, {
                     persistedSource: 'native',
                     seededAt: Date.now(),
                 });
                 return {
                     ok: true,
                     seeded: true,
-                    snapshot: compatSnapshot,
+                    snapshot: migrationSnapshot,
                     persistedSource: 'native',
                 };
             }

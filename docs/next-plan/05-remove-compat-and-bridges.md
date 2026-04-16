@@ -11,6 +11,7 @@
 - [x] `WorldPlayerSourceService` 里的 `resolveCompatPlayerIdentityForMigration / loadCompatPlayerSnapshotForMigration` alias 已删除
 - [x] `WorldPlayerAuthService / WorldPlayerSnapshotService` 对外方法名与注释口径已从 `compat backfill` 收成 `migration backfill`
 - [x] `next-auth-bootstrap-smoke.js` 已切到 `resolvePlayerIdentityForMigration / loadPlayerSnapshotForMigration / ensureMigrationBackfillSnapshot`
+- [x] `WorldPlayerAuthService / WorldPlayerSourceService / WorldPlayerSnapshotService` 内部变量、日志和拦截 reason 已继续从 `compat` 收成 `migration`
 
 - [x] 盘点 `packages/server/src/network/` 下所有 compat / bridge 入口
 - [x] 盘点 `packages/server/src/persistence/` 下所有 compat 读取入口

@@ -24,7 +24,7 @@ const world_player_source_service_1 = require("./world-player-source.service");
 
 const world_player_token_service_1 = require("./world-player-token.service");
 
-const ALLOW_COMPAT_IDENTITY_BACKFILL_ENV_KEYS = [
+const ALLOW_MIGRATION_BACKFILL_ENV_KEYS = [
     'SERVER_NEXT_AUTH_ALLOW_COMPAT_IDENTITY_BACKFILL',
     'NEXT_AUTH_ALLOW_COMPAT_IDENTITY_BACKFILL',
 ];
@@ -33,8 +33,8 @@ const LEGACY_DATABASE_ENV_KEYS = [
     'SERVER_NEXT_DATABASE_URL',
     'DATABASE_URL',
 ];
-function isCompatIdentityBackfillAllowed() {
-    for (const key of ALLOW_COMPAT_IDENTITY_BACKFILL_ENV_KEYS) {
+function isMigrationBackfillAllowed() {
+    for (const key of ALLOW_MIGRATION_BACKFILL_ENV_KEYS) {
         const value = typeof process.env[key] === 'string' ? process.env[key].trim().toLowerCase() : '';
         if (value === '1' || value === 'true' || value === 'yes' || value === 'on') {
             return true;
@@ -117,7 +117,7 @@ let WorldPlayerAuthService = class WorldPlayerAuthService {
         }
         return this.worldPlayerSnapshotService.ensureMigrationBackfillSnapshot(playerId);
     }
-    /** 加载 next 玩家身份，优先走兼容来源服务。 */
+    /** 加载 next 玩家身份，优先走 next 持久化来源。 */
     async loadNextPlayerIdentity(userId) {
         if (typeof this.worldPlayerSourceService?.loadNextPlayerIdentity === 'function') {
             return this.worldPlayerSourceService.loadNextPlayerIdentity(userId);
@@ -259,69 +259,66 @@ let WorldPlayerAuthService = class WorldPlayerAuthService {
     }
     async shouldPreferMigrationBackfill(payload, tokenIdentity, identityPersistenceEnabled) {
 
-        const hasCompatIdentitySource = typeof this.worldPlayerSourceService?.resolvePlayerIdentityForMigration === 'function';
-
-        const hasCompatSnapshotSource = typeof this.worldPlayerSourceService?.loadPlayerSnapshotForMigration === 'function';
+        const hasMigrationIdentitySource = typeof this.worldPlayerSourceService?.resolvePlayerIdentityForMigration === 'function';
+        const hasMigrationSnapshotSource = typeof this.worldPlayerSourceService?.loadPlayerSnapshotForMigration === 'function';
         if (!identityPersistenceEnabled
             || !tokenIdentity
             || !hasLegacyDatabaseConfigured()
-            || !hasCompatIdentitySource
-            || !hasCompatSnapshotSource) {
+            || !hasMigrationIdentitySource
+            || !hasMigrationSnapshotSource) {
             return false;
         }
 
-        const compatSnapshot = await this.loadMigrationSnapshot(tokenIdentity.playerId).catch((error) => {
+        const migrationSnapshot = await this.loadMigrationSnapshot(tokenIdentity.playerId).catch((error) => {
             this.logger.warn(`token seed 前的玩家 migration 快照预检失败：playerId=${tokenIdentity.playerId} error=${error instanceof Error ? error.message : String(error)}`);
             return null;
         });
-        if (!compatSnapshot) {
+        if (!migrationSnapshot) {
             return false;
         }
 
-        const compatIdentity = await this.resolveMigrationIdentity(payload).catch((error) => {
+        const migrationIdentity = await this.resolveMigrationIdentity(payload).catch((error) => {
             this.logger.warn(`token seed 前的玩家 migration 身份预检失败：userId=${payload.sub} playerId=${tokenIdentity.playerId} error=${error instanceof Error ? error.message : String(error)}`);
             return null;
         });
-        return Boolean(compatIdentity);
+        return Boolean(migrationIdentity);
     }
     async authenticateViaMigration(payload, tokenIdentity, identityPersistenceEnabled, allowMigrationBackfill, preferMigrationBackfill = false) {
 
-        let compatIdentity = null;
-
-        let compatIdentityResolved = false;
-
-        const resolveCompatIdentityOnce = async () => {
-            if (!compatIdentityResolved) {
-                compatIdentity = await this.resolveMigrationIdentity(payload);
-                compatIdentityResolved = true;
+        let migrationIdentity = null;
+        let migrationIdentityResolved = false;
+        const resolveMigrationIdentityOnce = async () => {
+            if (!migrationIdentityResolved) {
+                migrationIdentity = await this.resolveMigrationIdentity(payload);
+                migrationIdentityResolved = true;
             }
-            return compatIdentity;
+            return migrationIdentity;
         };
 
         const shouldAttemptPersistedMigrationBackfill = identityPersistenceEnabled
             && allowMigrationBackfill
             && (!tokenIdentity || preferMigrationBackfill);
         if (shouldAttemptPersistedMigrationBackfill) {
-            compatIdentity = await resolveCompatIdentityOnce();
-            if (compatIdentity) {
+            migrationIdentity = await resolveMigrationIdentityOnce();
+            if (migrationIdentity) {
 
                 let persistFailureStage = null;
 
                 const persistedCompatIdentity = await this.playerIdentityPersistenceService.savePlayerIdentity({
-                    ...compatIdentity,
+                    ...migrationIdentity,
                     persistedSource: 'legacy_backfill',
                     updatedAt: Date.now(),
                 }).catch((error) => {
                     persistFailureStage = 'compat_backfill_save_failed';
-                    this.logger.warn(`玩家身份 migration 回填保存失败：userId=${compatIdentity.userId} playerId=${compatIdentity.playerId} error=${error instanceof Error ? error.message : String(error)}`);
+                    this.logger.warn(`玩家身份 migration 回填保存失败：userId=${migrationIdentity.userId} playerId=${migrationIdentity.playerId} error=${error instanceof Error ? error.message : String(error)}`);
                     return null;
                 });
                 if (persistFailureStage === 'compat_backfill_save_failed') {
                     (0, world_player_token_service_1.recordAuthTrace)({
                         type: 'identity',
                         source: 'migration_persist_blocked',
-                        userId: compatIdentity.userId,
-                        playerId: compatIdentity.playerId,
+                        userId: migrationIdentity.userId,
+                        playerId: migrationIdentity.playerId,
                         persistedSource: null,
                         persistenceEnabled: true,
                         nextLoadHit: false,
@@ -335,12 +332,12 @@ let WorldPlayerAuthService = class WorldPlayerAuthService {
 
                 const persistedCompatSource = normalizePersistedSource(persistedCompatIdentity);
                 if (persistedCompatIdentity && persistedCompatSource !== 'legacy_backfill') {
-                    this.logger.error(`玩家身份 migration 回填保存返回了异常 persistedSource：userId=${compatIdentity.userId} playerId=${compatIdentity.playerId} expected=legacy_backfill actual=${persistedCompatSource ?? '未知'}`);
+                    this.logger.error(`玩家身份 migration 回填保存返回了异常 persistedSource：userId=${migrationIdentity.userId} playerId=${migrationIdentity.playerId} expected=legacy_backfill actual=${persistedCompatSource ?? '未知'}`);
                     (0, world_player_token_service_1.recordAuthTrace)({
                         type: 'identity',
                         source: 'migration_persist_blocked',
-                        userId: compatIdentity.userId,
-                        playerId: compatIdentity.playerId,
+                        userId: migrationIdentity.userId,
+                        playerId: migrationIdentity.playerId,
                         persistedSource: persistedCompatSource,
                         persistenceEnabled: true,
                         nextLoadHit: false,
@@ -353,14 +350,14 @@ let WorldPlayerAuthService = class WorldPlayerAuthService {
                 }
 
                 const ensuredCompatSnapshot = persistedCompatIdentity
-                    ? await this.ensureLegacyBackfillSnapshot(compatIdentity.playerId)
+                    ? await this.ensureLegacyBackfillSnapshot(migrationIdentity.playerId)
                     : { ok: false, failureStage: 'compat_snapshot_not_attempted' };
                 if (persistedCompatIdentity && !ensuredCompatSnapshot.ok) {
                     (0, world_player_token_service_1.recordAuthTrace)({
                         type: 'identity',
                         source: 'migration_preseed_blocked',
-                        userId: compatIdentity.userId,
-                        playerId: compatIdentity.playerId,
+                        userId: migrationIdentity.userId,
+                        playerId: migrationIdentity.playerId,
                         persistedSource: persistedCompatIdentity?.persistedSource ?? null,
                         persistenceEnabled: true,
                         nextLoadHit: false,
@@ -376,8 +373,8 @@ let WorldPlayerAuthService = class WorldPlayerAuthService {
                 (0, world_player_token_service_1.recordAuthTrace)({
                     type: 'identity',
                     source: authSource,
-                    userId: compatIdentity.userId,
-                    playerId: compatIdentity.playerId,
+                    userId: migrationIdentity.userId,
+                    playerId: migrationIdentity.playerId,
                     persistedSource: persistedCompatIdentity?.persistedSource ?? null,
                     persistenceEnabled: identityPersistenceEnabled,
                     nextLoadHit: false,
@@ -388,7 +385,7 @@ let WorldPlayerAuthService = class WorldPlayerAuthService {
                     persistFailureStage,
                 });
                 return {
-                    ...compatIdentity,
+                    ...migrationIdentity,
                     persistedSource: persistedCompatIdentity?.persistedSource ?? null,
                     authSource,
                     nextLoadHit: false,
@@ -420,8 +417,8 @@ let WorldPlayerAuthService = class WorldPlayerAuthService {
 
         const nextProtocolStrict = protocol === 'next';
 
-        // compat identity/backfill 只允许显式 migration 协议窗口，默认与 legacy 入口都不可旁路开启。
-        const compatBackfillProtocolAllowed = isExplicitMigrationProtocol(protocol);
+        // migration identity/backfill 只允许显式 migration 协议窗口，默认与 legacy 入口都不可旁路开启。
+        const migrationBackfillProtocolAllowed = isExplicitMigrationProtocol(protocol);
 
         const tokenIdentity = this.worldPlayerTokenService.resolvePlayerIdentityFromPayload(payload);
 
@@ -536,7 +533,7 @@ let WorldPlayerAuthService = class WorldPlayerAuthService {
             };
         }
 
-        const allowMigrationBackfill = compatBackfillProtocolAllowed && isCompatIdentityBackfillAllowed();
+        const allowMigrationBackfill = migrationBackfillProtocolAllowed && isMigrationBackfillAllowed();
 
         const allowMigrationInPersistence = identityPersistenceEnabled && !nextProtocolStrict && allowMigrationBackfill;
 
