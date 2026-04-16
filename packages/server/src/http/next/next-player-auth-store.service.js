@@ -175,10 +175,46 @@ let NextPlayerAuthStoreService = class NextPlayerAuthStoreService {
         this.replaceUser(normalized);
         return cloneUser(normalized);
     }
+    /** 持久化启用时按 userId 回读正式真源，避免继续命中失效内存缓存。 */
+    async refreshUserFromPersistenceById(userId) {
+        if (!this.pool || !this.enabled) {
+            return this.usersById.get(userId) ?? null;
+        }
+        const result = await this.pool.query(`
+      SELECT
+        user_id,
+        username,
+        player_id,
+        pending_role_name,
+        display_name,
+        password_hash,
+        total_online_seconds,
+        current_online_started_at,
+        created_at,
+        updated_at,
+        payload
+      FROM ${PLAYER_AUTH_TABLE}
+      WHERE user_id = $1
+      LIMIT 1
+    `, [userId]);
+        const normalized = normalizePersistedAuthRow(result.rows[0] ?? null);
+        if (!normalized) {
+            const previous = this.usersById.get(userId) ?? null;
+            if (previous) {
+                this.unindexUser(previous);
+            }
+            return null;
+        }
+        this.replaceUser(normalized);
+        return normalized;
+    }
     /** 按 userId 查询账号。 */
     async findUserById(userId) {
         const normalizedUserId = normalizeRequiredString(userId);
-        const user = normalizedUserId ? this.usersById.get(normalizedUserId) ?? null : null;
+        if (!normalizedUserId) {
+            return null;
+        }
+        const user = await this.refreshUserFromPersistenceById(normalizedUserId);
         return user ? cloneUser(user) : null;
     }
     /** 直接从内存索引读取账号，供内部调用复用。 */

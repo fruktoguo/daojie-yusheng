@@ -944,7 +944,20 @@ async function runNextBootstrap(token, expectedIdentity = null, options = undefi
             };
             await refreshRecoveryNoticeState();
             if (!recoveryNoticeDelivered && !recoveryNoticePersisted) {
-                await waitFor(() => refreshRecoveryNoticeState(), 5000, `snapshotRecoveryNotice:${expectedNoticeMessageId}`);
+                try {
+                    await waitFor(() => refreshRecoveryNoticeState(), 5000, `snapshotRecoveryNotice:${expectedNoticeMessageId}`);
+                }
+                catch (error) {
+                    const latestNoticeItems = flattenNoticeItems(successSocket.listEventPayloads(shared_1.NEXT_S2C.Notice));
+                    const latestState = await fetchPlayerState(runtimePlayerId).catch(() => null);
+                    const latestPendingLogbookMessages = Array.isArray(latestState?.player?.pendingLogbookMessages)
+                        ? latestState.player.pendingLogbookMessages
+                        : [];
+                    const latestAuthTrace = await waitForAuthTrace(runtimePlayerId, initSession.sid ?? null, {
+                        requireReject: false,
+                    }).catch(() => null);
+                    throw new Error(`${error instanceof Error ? error.message : String(error)} notices=${JSON.stringify(latestNoticeItems)} pendingLogbookMessages=${JSON.stringify(latestPendingLogbookMessages)} authTrace=${JSON.stringify(latestAuthTrace)}`);
+                }
             }
             if (!recoveryNoticeDelivered && !recoveryNoticePersisted) {
                 throw new Error(`expected snapshot recovery notice to be delivered or persisted: ${expectedNoticeMessageId}`);
@@ -1075,7 +1088,7 @@ async function verifyHelloAuthBootstrapForbiddenContract() {
                 ok: true,
             },
         }),
-    }, {}, {}, {}, {}, {}, {}, {
+    }, {}, {}, {}, {}, {}, {}, {}, {}, {
         markProtocol: (client, protocol) => {
             client.data.protocol = protocol;
         },
@@ -1131,13 +1144,16 @@ async function verifyImplicitLegacyProtocolEntryContract() {
     const emittedErrors = [];
     const emittedEvents = [];
     let disconnected = false;
-    const gateway = new world_gateway_1.WorldGateway({}, {}, {}, {
+    const gateway = new world_gateway_1.WorldGateway({}, {}, {
+        pickSocketToken: (client) => typeof client?.handshake?.auth?.token === 'string' ? client.handshake.auth.token : '',
+        pickSocketGmToken: (client) => typeof client?.handshake?.auth?.gmToken === 'string' ? client.handshake.auth.gmToken : '',
+    }, {
         build: () => ({
             readiness: {
                 ok: true,
             },
         }),
-    }, {}, {}, {}, {}, {}, {}, {
+    }, {}, {}, {}, {}, {}, {}, {}, {}, {
         markProtocol: (client, protocol) => {
             client.data.protocol = protocol;
         },
@@ -1156,20 +1172,26 @@ async function verifyImplicitLegacyProtocolEntryContract() {
         handshake: {
             auth: {},
         },
-        data: {},
+        data: {
+            protocol: 'legacy',
+        },
         disconnect(force) {
             disconnected = force === true;
         },
     };
-    gateway.handleLegacyPing(implicitLegacyClient, { clientAt: 1 });
+    await gateway.handleHello(implicitLegacyClient, {
+        mapId: 'yunlai_town',
+        preferredX: 32,
+        preferredY: 5,
+    });
     if (!disconnected) {
         throw new Error('expected implicit legacy protocol entry to disconnect socket');
     }
-    if (emittedErrors.length !== 1 || emittedErrors[0]?.code !== 'LEGACY_PROTOCOL_REQUIRED') {
-        throw new Error(`expected implicit legacy protocol entry to emit LEGACY_PROTOCOL_REQUIRED, got ${JSON.stringify(emittedErrors)}`);
+    if (emittedErrors.length !== 1 || emittedErrors[0]?.code !== 'HELLO_PROTOCOL_MISMATCH') {
+        throw new Error(`expected implicit legacy protocol entry to emit HELLO_PROTOCOL_MISMATCH, got ${JSON.stringify(emittedErrors)}`);
     }
-    if (typeof implicitLegacyClient.data.protocol === 'string') {
-        throw new Error(`expected implicit legacy protocol entry to avoid marking protocol, got ${implicitLegacyClient.data.protocol}`);
+    if (implicitLegacyClient.data.protocol !== 'legacy') {
+        throw new Error(`expected implicit legacy protocol proof to preserve legacy context, got ${JSON.stringify(implicitLegacyClient.data)}`);
     }
     if (emittedEvents.length !== 0) {
         throw new Error(`expected implicit legacy protocol entry to avoid pong emission, got ${JSON.stringify(emittedEvents)}`);
@@ -1196,7 +1218,7 @@ async function verifyImplicitLegacyProtocolEntryContract() {
         },
     };
     try {
-        gateway.handleLegacyPing(explicitLegacyClient, { clientAt: 2 });
+        await gateway.handleConnection(explicitLegacyClient);
     }
     finally {
         if (typeof previousLegacySocketProtocolFlag === 'string') {
@@ -1252,7 +1274,7 @@ async function verifyImplicitLegacyProtocolEntryContract() {
         throw new Error(`expected unknown protocol event emission to avoid legacy events, got ${JSON.stringify(eventClient.emitted)}`);
     }
     const syncEmission = new (require("../network/world-sync-protocol.service").WorldSyncProtocolService)().resolveEmission({ data: {} });
-    if (syncEmission.emitLegacy !== false || syncEmission.emitNext !== true || syncEmission.protocol !== null) {
+    if (syncEmission.emitNext !== true || syncEmission.protocol !== 'next') {
         throw new Error(`expected unknown protocol sync emission to stay next-only, got ${JSON.stringify(syncEmission)}`);
     }
     const previousLegacySocketProtocolFlagForDeepGuard = process.env.SERVER_NEXT_ALLOW_LEGACY_SOCKET_PROTOCOL;
@@ -1368,7 +1390,7 @@ async function verifyImplicitLegacyProtocolEntryContract() {
 }
 async function verifyGmBootstrapSessionPolicyContract() {
     const bootstrapService = new world_session_bootstrap_service_1.WorldSessionBootstrapService(null, null, null, null, null, null, null, null, null, null);
-    const gateway = new world_gateway_1.WorldGateway(null, null, bootstrapService, null, null, null, null, null, null, null, null, null);
+    const gateway = new world_gateway_1.WorldGateway(null, null, bootstrapService, null, null, null, null, null, null, null, null, null, null, null);
     const gmClient = {
         id: 'proof_gm_bootstrap_client',
         handshake: {
@@ -3050,7 +3072,7 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
         throw new Error(`expected next protocol loaded legacy_backfill identity with legacy_seeded snapshot to normalize into next/native, got identity=${JSON.stringify(nextProtocolLoadedLegacySeededPromotedIdentity)} snapshotLoads=${nextProtocolLoadedLegacySeededSnapshotLoads} saveCalls=${nextProtocolLoadedLegacySeededPromotionSaveCalls} trace=${JSON.stringify(nextProtocolLoadedLegacySeededPromotedTrace)}`);
     }
     const nextProtocolLoadedLegacyBackfillBootstrapService = new world_session_bootstrap_service_1.WorldSessionBootstrapService(null, null, null, null, null, null, null, null, null, null);
-    const nextProtocolLoadedLegacyBackfillGateway = new world_gateway_1.WorldGateway(null, null, nextProtocolLoadedLegacyBackfillBootstrapService, null, null, null, null, null, null, null, null, null);
+    const nextProtocolLoadedLegacyBackfillGateway = new world_gateway_1.WorldGateway(null, null, nextProtocolLoadedLegacyBackfillBootstrapService, null, null, null, null, null, null, null, null, null, null, null);
     const nextProtocolLoadedLegacyBackfillClient = {
         id: 'proof_socket_next_loaded_legacy_backfill_promoted',
         handshake: {
@@ -4690,7 +4712,7 @@ async function verifyTokenSeedIdentityContract() {
         throw new Error(`expected next protocol token_seed identity store hit to keep persistedSource=token_seed, got ${JSON.stringify(nextProtocolIdentity)}`);
     }
     const tokenSeedBootstrapService = new world_session_bootstrap_service_1.WorldSessionBootstrapService(null, null, null, null, null, null, null, null, null, null);
-    const tokenSeedGateway = new world_gateway_1.WorldGateway(null, null, tokenSeedBootstrapService, null, null, null, null, null, null, null, null, null);
+    const tokenSeedGateway = new world_gateway_1.WorldGateway(null, null, tokenSeedBootstrapService, null, null, null, null, null, null, null, null, null, null, null);
     const tokenSeedClient = {
         id: 'proof_socket_token_seed_reuse',
         handshake: {
@@ -7055,7 +7077,7 @@ async function dropPlayerSnapshotSourcesButKeepIdentity(playerId) {
         connectionString: SERVER_NEXT_DATABASE_URL,
     });
     try {
-        await pool.query('DELETE FROM persistent_documents WHERE scope = $1 AND key = $2', ['server_next_player_snapshots_v1', playerId]).catch(ignoreMissingCompatCleanupError);
+        await pool.query('DELETE FROM server_next_player_snapshot WHERE player_id = $1', [playerId]).catch(ignoreMissingCompatCleanupError);
         await pool.query('DELETE FROM players WHERE id = $1', [playerId]).catch(ignoreMissingCompatCleanupError);
     }
     finally {
@@ -7073,7 +7095,7 @@ async function dropPersistedPlayerSnapshot(playerId) {
         connectionString: SERVER_NEXT_DATABASE_URL,
     });
     try {
-        await pool.query('DELETE FROM persistent_documents WHERE scope = $1 AND key = $2', ['server_next_player_snapshots_v1', playerId]).catch(ignoreMissingCompatCleanupError);
+        await pool.query('DELETE FROM server_next_player_snapshot WHERE player_id = $1', [playerId]).catch(ignoreMissingCompatCleanupError);
     }
     finally {
         await pool.end().catch(() => undefined);
@@ -7090,7 +7112,7 @@ async function dropPersistedIdentityDocument(userId) {
         connectionString: SERVER_NEXT_DATABASE_URL,
     });
     try {
-        await pool.query('DELETE FROM persistent_documents WHERE scope = $1 AND key = $2', ['server_next_player_identities_v1', userId]).catch(ignoreMissingCompatCleanupError);
+        await pool.query('DELETE FROM server_next_player_identity WHERE user_id = $1', [userId]).catch(ignoreMissingCompatCleanupError);
     }
     finally {
         await pool.end().catch(() => undefined);
@@ -7137,7 +7159,7 @@ async function expectPersistedPlayerSnapshotDocument(playerId, shouldExist) {
 /**
  * 累计当前结果。
  */
-        const result = await pool.query('SELECT 1 FROM persistent_documents WHERE scope = $1 AND key = $2 LIMIT 1', ['server_next_player_snapshots_v1', playerId]).catch(ignoreMissingCompatCleanupError);
+        const result = await pool.query('SELECT 1 FROM server_next_player_snapshot WHERE player_id = $1 LIMIT 1', [playerId]).catch(ignoreMissingCompatCleanupError);
 /**
  * 记录exists。
  */
@@ -7164,7 +7186,7 @@ async function expectPersistedIdentityDocument(userId, shouldExist) {
 /**
  * 累计当前结果。
  */
-        const result = await pool.query('SELECT 1 FROM persistent_documents WHERE scope = $1 AND key = $2 LIMIT 1', ['server_next_player_identities_v1', userId]).catch(ignoreMissingCompatCleanupError);
+        const result = await pool.query('SELECT 1 FROM server_next_player_identity WHERE user_id = $1 LIMIT 1', [userId]).catch(ignoreMissingCompatCleanupError);
 /**
  * 记录exists。
  */
@@ -7191,7 +7213,7 @@ async function readPersistedPlayerSnapshotPayload(playerId, errorContext) {
 /**
  * 累计当前结果。
  */
-        const result = await pool.query('SELECT payload FROM persistent_documents WHERE scope = $1 AND key = $2 LIMIT 1', ['server_next_player_snapshots_v1', playerId]).catch(ignoreMissingCompatCleanupError);
+        const result = await pool.query('SELECT payload FROM server_next_player_snapshot WHERE player_id = $1 LIMIT 1', [playerId]).catch(ignoreMissingCompatCleanupError);
 /**
  * 记录payload。
  */
@@ -7216,7 +7238,7 @@ async function readPersistedIdentityPayload(userId, errorContext) {
 /**
  * 累计当前结果。
  */
-        const result = await pool.query('SELECT payload FROM persistent_documents WHERE scope = $1 AND key = $2 LIMIT 1', ['server_next_player_identities_v1', userId]).catch(ignoreMissingCompatCleanupError);
+        const result = await pool.query('SELECT payload FROM server_next_player_identity WHERE user_id = $1 LIMIT 1', [userId]).catch(ignoreMissingCompatCleanupError);
 /**
  * 记录payload。
  */
@@ -7240,16 +7262,38 @@ async function writeInvalidPersistedIdentityDocument(userId) {
     const pool = new pg_1.Pool({
         connectionString: SERVER_NEXT_DATABASE_URL,
     });
+    const normalizedUserId = typeof userId === 'string' ? userId.trim() : '';
+    const invalidUsername = `broken_${normalizedUserId.slice(0, 8) || 'user'}`;
+    const invalidPlayerId = `p_invalid_${normalizedUserId.slice(0, 16) || 'player'}`;
     try {
         await pool.query(`
-      INSERT INTO persistent_documents(scope, key, payload, "updatedAt")
-      VALUES ($1, $2, $3::jsonb, now())
-      ON CONFLICT (scope, key)
-      DO UPDATE SET payload = EXCLUDED.payload, "updatedAt" = now()
-    `, ['server_next_player_identities_v1', userId, JSON.stringify({
+      INSERT INTO server_next_player_identity(
+        user_id,
+        username,
+        player_id,
+        display_name,
+        player_name,
+        persisted_source,
+        updated_at,
+        payload
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, now(), $7::jsonb)
+      ON CONFLICT (user_id)
+      DO UPDATE SET
+        username = EXCLUDED.username,
+        player_id = EXCLUDED.player_id,
+        display_name = EXCLUDED.display_name,
+        player_name = EXCLUDED.player_name,
+        persisted_source = EXCLUDED.persisted_source,
+        updated_at = now(),
+        payload = EXCLUDED.payload
+    `, [normalizedUserId, invalidUsername, invalidPlayerId, invalidUsername, invalidUsername, 'native', JSON.stringify({
             version: 1,
-            userId,
-            username: `broken_${userId.slice(0, 8)}`,
+            userId: normalizedUserId,
+            username: invalidUsername,
+            playerId: invalidPlayerId,
+            playerName: invalidUsername,
+            persistedSource: 'native',
             updatedAt: Date.now(),
         })]);
     }
@@ -7267,15 +7311,30 @@ async function writeInvalidPersistedSnapshotDocument(playerId) {
     const pool = new pg_1.Pool({
         connectionString: SERVER_NEXT_DATABASE_URL,
     });
+    const savedAt = Date.now();
     try {
         await pool.query(`
-      INSERT INTO persistent_documents(scope, key, payload, "updatedAt")
-      VALUES ($1, $2, $3::jsonb, now())
-      ON CONFLICT (scope, key)
-      DO UPDATE SET payload = EXCLUDED.payload, "updatedAt" = now()
-    `, ['server_next_player_snapshots_v1', playerId, JSON.stringify({
+      INSERT INTO server_next_player_snapshot(
+        player_id,
+        template_id,
+        persisted_source,
+        seeded_at,
+        saved_at,
+        updated_at,
+        payload
+      )
+      VALUES ($1, $2, $3, $4, $5, now(), $6::jsonb)
+      ON CONFLICT (player_id)
+      DO UPDATE SET
+        template_id = EXCLUDED.template_id,
+        persisted_source = EXCLUDED.persisted_source,
+        seeded_at = EXCLUDED.seeded_at,
+        saved_at = EXCLUDED.saved_at,
+        updated_at = now(),
+        payload = EXCLUDED.payload
+    `, [playerId, 'yunlai_town', 'native', null, savedAt, JSON.stringify({
             version: 1,
-            savedAt: Date.now(),
+            savedAt,
             placement: null,
         })]);
     }
@@ -7293,79 +7352,95 @@ async function writePersistedPlayerSnapshotDocument(playerId, persistedSource = 
     const pool = new pg_1.Pool({
         connectionString: SERVER_NEXT_DATABASE_URL,
     });
+    const savedAt = Date.now();
+    const payload = {
+        version: 1,
+        savedAt,
+        placement: {
+            templateId: 'yunlai_town',
+            x: 32,
+            y: 5,
+            facing: 1,
+        },
+        vitals: {
+            hp: 100,
+            maxHp: 100,
+            qi: 0,
+            maxQi: 100,
+        },
+        progression: {
+            foundation: 0,
+            combatExp: 0,
+            bodyTraining: null,
+            boneAgeBaseYears: shared_1.DEFAULT_BONE_AGE_YEARS,
+            lifeElapsedTicks: 0,
+            lifespanYears: null,
+            realm: null,
+            heavenGate: null,
+            spiritualRoots: null,
+        },
+        unlockedMapIds: ['yunlai_town'],
+        inventory: {
+            revision: 1,
+            capacity: shared_1.DEFAULT_INVENTORY_CAPACITY,
+            items: [],
+        },
+        equipment: {
+            revision: 1,
+            slots: [],
+        },
+        techniques: {
+            revision: 1,
+            techniques: [],
+            cultivatingTechId: null,
+        },
+        buffs: {
+            revision: 1,
+            buffs: [],
+        },
+        quests: {
+            revision: 1,
+            entries: [],
+        },
+        combat: {
+            autoBattle: false,
+            autoRetaliate: true,
+            autoBattleStationary: false,
+            combatTargetId: null,
+            combatTargetLocked: false,
+            allowAoePlayerHit: false,
+            autoIdleCultivation: true,
+            autoSwitchCultivation: false,
+            senseQiActive: false,
+            autoBattleSkills: [],
+        },
+        pendingLogbookMessages: [],
+        runtimeBonuses: [],
+        __snapshotMeta: {
+            persistedSource,
+        },
+    };
     try {
         await pool.query(`
-      INSERT INTO persistent_documents(scope, key, payload, "updatedAt")
-      VALUES ($1, $2, $3::jsonb, now())
-      ON CONFLICT (scope, key)
-      DO UPDATE SET payload = EXCLUDED.payload, "updatedAt" = now()
-    `, ['server_next_player_snapshots_v1', playerId, JSON.stringify({
-            version: 1,
-            savedAt: Date.now(),
-            placement: {
-                templateId: 'yunlai_town',
-                x: 32,
-                y: 5,
-                facing: 1,
-            },
-            vitals: {
-                hp: 100,
-                maxHp: 100,
-                qi: 0,
-                maxQi: 100,
-            },
-            progression: {
-                foundation: 0,
-                combatExp: 0,
-                bodyTraining: null,
-                boneAgeBaseYears: shared_1.DEFAULT_BONE_AGE_YEARS,
-                lifeElapsedTicks: 0,
-                lifespanYears: null,
-                realm: null,
-                heavenGate: null,
-                spiritualRoots: null,
-            },
-            unlockedMapIds: ['yunlai_town'],
-            inventory: {
-                revision: 1,
-                capacity: shared_1.DEFAULT_INVENTORY_CAPACITY,
-                items: [],
-            },
-            equipment: {
-                revision: 1,
-                slots: [],
-            },
-            techniques: {
-                revision: 1,
-                techniques: [],
-                cultivatingTechId: null,
-            },
-            buffs: {
-                revision: 1,
-                buffs: [],
-            },
-            quests: {
-                revision: 1,
-                entries: [],
-            },
-            combat: {
-                autoBattle: false,
-                autoRetaliate: true,
-                autoBattleStationary: false,
-                combatTargetId: null,
-                combatTargetLocked: false,
-                allowAoePlayerHit: false,
-                autoIdleCultivation: true,
-                autoSwitchCultivation: false,
-                senseQiActive: false,
-                autoBattleSkills: [],
-            },
-            pendingLogbookMessages: [],
-            runtimeBonuses: [],
-            __snapshotMeta: {
-                persistedSource,
-            },
-        })]);
+      INSERT INTO server_next_player_snapshot(
+        player_id,
+        template_id,
+        persisted_source,
+        seeded_at,
+        saved_at,
+        updated_at,
+        payload
+      )
+      VALUES ($1, $2, $3, $4, $5, now(), $6::jsonb)
+      ON CONFLICT (player_id)
+      DO UPDATE SET
+        template_id = EXCLUDED.template_id,
+        persisted_source = EXCLUDED.persisted_source,
+        seeded_at = EXCLUDED.seeded_at,
+        saved_at = EXCLUDED.saved_at,
+        updated_at = now(),
+        payload = EXCLUDED.payload
+    `, [playerId, 'yunlai_town', persistedSource, null, savedAt, JSON.stringify(payload)]);
     }
     finally {
         await pool.end().catch(() => undefined);
@@ -7381,7 +7456,7 @@ async function ensurePersistedPlayerSnapshotDocument(playerId, persistedSource =
             connectionString: SERVER_NEXT_DATABASE_URL,
         });
         try {
-            const result = await pool.query('SELECT 1 FROM persistent_documents WHERE scope = $1 AND key = $2 LIMIT 1', ['server_next_player_snapshots_v1', playerId]).catch(ignoreMissingCompatCleanupError);
+            const result = await pool.query('SELECT 1 FROM server_next_player_snapshot WHERE player_id = $1 LIMIT 1', [playerId]).catch(ignoreMissingCompatCleanupError);
             return Array.isArray(result?.rows) && result.rows.length > 0 ? true : null;
         }
         finally {
@@ -7424,11 +7499,12 @@ async function writeInvalidPersistedSnapshotMetaPersistedSource(playerId) {
             },
         };
         await pool.query(`
-      INSERT INTO persistent_documents(scope, key, payload, "updatedAt")
-      VALUES ($1, $2, $3::jsonb, now())
-      ON CONFLICT (scope, key)
-      DO UPDATE SET payload = EXCLUDED.payload, "updatedAt" = now()
-    `, ['server_next_player_snapshots_v1', playerId, JSON.stringify(nextPayload)]);
+      UPDATE server_next_player_snapshot
+      SET persisted_source = $2,
+          updated_at = now(),
+          payload = $3::jsonb
+      WHERE player_id = $1
+    `, [playerId, 'invalid_meta_source', JSON.stringify(nextPayload)]);
     }
     finally {
         await pool.end().catch(() => undefined);
@@ -7457,11 +7533,11 @@ async function writeInvalidPersistedSnapshotUnlockedMapIds(playerId) {
             unlockedMapIds: 'invalid_unlocked_map_ids',
         };
         await pool.query(`
-      INSERT INTO persistent_documents(scope, key, payload, "updatedAt")
-      VALUES ($1, $2, $3::jsonb, now())
-      ON CONFLICT (scope, key)
-      DO UPDATE SET payload = EXCLUDED.payload, "updatedAt" = now()
-    `, ['server_next_player_snapshots_v1', playerId, JSON.stringify(nextPayload)]);
+      UPDATE server_next_player_snapshot
+      SET updated_at = now(),
+          payload = $2::jsonb
+      WHERE player_id = $1
+    `, [playerId, JSON.stringify(nextPayload)]);
     }
     finally {
         await pool.end().catch(() => undefined);
@@ -7486,11 +7562,35 @@ async function writePersistedIdentityDocument(identity) {
     });
     try {
         await pool.query(`
-      INSERT INTO persistent_documents(scope, key, payload, "updatedAt")
-      VALUES ($1, $2, $3::jsonb, now())
-      ON CONFLICT (scope, key)
-      DO UPDATE SET payload = EXCLUDED.payload, "updatedAt" = now()
-    `, ['server_next_player_identities_v1', normalizedIdentity.userId, JSON.stringify(normalizedIdentity)]);
+      INSERT INTO server_next_player_identity(
+        user_id,
+        username,
+        player_id,
+        display_name,
+        player_name,
+        persisted_source,
+        updated_at,
+        payload
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, now(), $7::jsonb)
+      ON CONFLICT (user_id)
+      DO UPDATE SET
+        username = EXCLUDED.username,
+        player_id = EXCLUDED.player_id,
+        display_name = EXCLUDED.display_name,
+        player_name = EXCLUDED.player_name,
+        persisted_source = EXCLUDED.persisted_source,
+        updated_at = now(),
+        payload = EXCLUDED.payload
+    `, [
+            normalizedIdentity.userId,
+            normalizedIdentity.username,
+            normalizedIdentity.playerId,
+            normalizedIdentity.displayName,
+            normalizedIdentity.playerName,
+            normalizedIdentity.persistedSource ?? 'native',
+            JSON.stringify(normalizedIdentity),
+        ]);
     }
     finally {
         await pool.end().catch(() => undefined);
@@ -7526,7 +7626,7 @@ async function installIdentityBackfillSaveFailure(userId) {
         connectionString: SERVER_NEXT_DATABASE_URL,
     });
     try {
-        await pool.query(`DROP TRIGGER IF EXISTS "${triggerName}" ON persistent_documents`);
+        await pool.query(`DROP TRIGGER IF EXISTS "${triggerName}" ON server_next_player_identity`);
         await pool.query(`DROP FUNCTION IF EXISTS "${functionName}"()`);
         await pool.query(`
       CREATE FUNCTION "${functionName}"()
@@ -7534,8 +7634,8 @@ async function installIdentityBackfillSaveFailure(userId) {
       LANGUAGE plpgsql
       AS $$
       BEGIN
-        IF NEW.scope = 'server_next_player_identities_v1' AND NEW.key = '${normalizedUserId}' THEN
-          RAISE EXCEPTION 'forced identity backfill failure for %', NEW.key USING ERRCODE = '23514';
+        IF NEW.user_id = '${normalizedUserId}' THEN
+          RAISE EXCEPTION 'forced identity backfill failure for %', NEW.user_id USING ERRCODE = '23514';
         END IF;
         RETURN NEW;
       END;
@@ -7543,7 +7643,7 @@ async function installIdentityBackfillSaveFailure(userId) {
     `);
         await pool.query(`
       CREATE TRIGGER "${triggerName}"
-      BEFORE INSERT OR UPDATE ON persistent_documents
+      BEFORE INSERT OR UPDATE ON server_next_player_identity
       FOR EACH ROW
       EXECUTE FUNCTION "${functionName}"()
     `);
@@ -7586,7 +7686,7 @@ async function installSnapshotSeedSaveFailure(playerId) {
         connectionString: SERVER_NEXT_DATABASE_URL,
     });
     try {
-        await pool.query(`DROP TRIGGER IF EXISTS "${triggerName}" ON persistent_documents`);
+        await pool.query(`DROP TRIGGER IF EXISTS "${triggerName}" ON server_next_player_snapshot`);
         await pool.query(`DROP FUNCTION IF EXISTS "${functionName}"()`);
         await pool.query(`
       CREATE FUNCTION "${functionName}"()
@@ -7594,8 +7694,8 @@ async function installSnapshotSeedSaveFailure(playerId) {
       LANGUAGE plpgsql
       AS $$
       BEGIN
-        IF NEW.scope = 'server_next_player_snapshots_v1' AND NEW.key = '${normalizedPlayerId}' THEN
-          RAISE EXCEPTION 'forced snapshot seed failure for %', NEW.key USING ERRCODE = '23514';
+        IF NEW.player_id = '${normalizedPlayerId}' THEN
+          RAISE EXCEPTION 'forced snapshot seed failure for %', NEW.player_id USING ERRCODE = '23514';
         END IF;
         RETURN NEW;
       END;
@@ -7603,7 +7703,7 @@ async function installSnapshotSeedSaveFailure(playerId) {
     `);
         await pool.query(`
       CREATE TRIGGER "${triggerName}"
-      BEFORE INSERT OR UPDATE ON persistent_documents
+      BEFORE INSERT OR UPDATE ON server_next_player_snapshot
       FOR EACH ROW
       EXECUTE FUNCTION "${functionName}"()
     `);
@@ -7630,7 +7730,7 @@ async function uninstallIdentityBackfillSaveFailure(injection) {
         connectionString: SERVER_NEXT_DATABASE_URL,
     });
     try {
-        await pool.query(`DROP TRIGGER IF EXISTS "${injection.triggerName}" ON persistent_documents`).catch(ignoreMissingCompatCleanupError);
+        await pool.query(`DROP TRIGGER IF EXISTS "${injection.triggerName}" ON server_next_player_identity`).catch(ignoreMissingCompatCleanupError);
         await pool.query(`DROP FUNCTION IF EXISTS "${injection.functionName}"()`).catch(ignoreMissingCompatCleanupError);
     }
     finally {
@@ -7651,7 +7751,7 @@ async function uninstallSnapshotSeedSaveFailure(injection) {
         connectionString: SERVER_NEXT_DATABASE_URL,
     });
     try {
-        await pool.query(`DROP TRIGGER IF EXISTS "${injection.triggerName}" ON persistent_documents`).catch(ignoreMissingCompatCleanupError);
+        await pool.query(`DROP TRIGGER IF EXISTS "${injection.triggerName}" ON server_next_player_snapshot`).catch(ignoreMissingCompatCleanupError);
         await pool.query(`DROP FUNCTION IF EXISTS "${injection.functionName}"()`).catch(ignoreMissingCompatCleanupError);
     }
     finally {
@@ -7721,8 +7821,8 @@ async function cleanupLegacyCompatPlayerSnapshot(identity) {
         connectionString: SERVER_NEXT_DATABASE_URL,
     });
     try {
-        await pool.query('DELETE FROM persistent_documents WHERE scope = $1 AND key = $2', ['server_next_player_snapshots_v1', identity.playerId]).catch(ignoreMissingCompatCleanupError);
-        await pool.query('DELETE FROM persistent_documents WHERE scope = $1 AND key = $2', ['server_next_player_identities_v1', identity.userId]).catch(ignoreMissingCompatCleanupError);
+        await pool.query('DELETE FROM server_next_player_snapshot WHERE player_id = $1', [identity.playerId]).catch(ignoreMissingCompatCleanupError);
+        await pool.query('DELETE FROM server_next_player_identity WHERE user_id = $1', [identity.userId]).catch(ignoreMissingCompatCleanupError);
         await pool.query('DELETE FROM players WHERE id = $1', [identity.playerId]).catch(ignoreMissingCompatCleanupError);
         await pool.query('DELETE FROM users WHERE id = $1::uuid', [identity.userId]).catch(ignoreMissingCompatCleanupError);
     }
