@@ -11,6 +11,21 @@ on:
         options:
           - "true"
           - "false"
+      destructive-maintenance-ticket:
+        description: "维护窗口工单或变更单编号（仅 destructive proof 时必填）"
+        required: false
+        default: ""
+        type: string
+      destructive-rollback-plan-ref:
+        description: "回滚预案引用（仅 destructive proof 时必填）"
+        required: false
+        default: ""
+        type: string
+      destructive-operator:
+        description: "执行 destructive proof 的负责人（仅 destructive proof 时必填）"
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: read
@@ -157,7 +172,7 @@ jobs:
           DB_USERNAME: ${{ secrets.PROD_DB_USERNAME }}
           DB_PASSWORD: ${{ secrets.PROD_DB_PASSWORD }}
           DB_DATABASE: ${{ secrets.PROD_DB_DATABASE }}
-          JWT_SECRET: ${{ secrets.PROD_JWT_SECRET }}
+          SERVER_NEXT_PLAYER_TOKEN_SECRET: ${{ secrets.PROD_JWT_SECRET }}
           GM_PASSWORD: ${{ secrets.PROD_GM_PASSWORD }}
           SERVER_NEXT_RUNTIME_TOKEN: ${{ secrets.PROD_SERVER_NEXT_RUNTIME_TOKEN }}
         run: |
@@ -177,6 +192,26 @@ jobs:
           SERVER_NEXT_SHADOW_URL: http://${{ secrets.DEPLOY_SSH_HOST }}:11923
         run: pnpm verify:replace-ready:shadow
 
+      - name: Validate destructive proof preconditions
+        if: ${{ github.event.inputs.run-destructive-proof == 'true' }}
+        env:
+          DESTRUCTIVE_MAINTENANCE_TICKET: ${{ github.event.inputs.destructive-maintenance-ticket }}
+          DESTRUCTIVE_ROLLBACK_PLAN_REF: ${{ github.event.inputs.destructive-rollback-plan-ref }}
+          DESTRUCTIVE_OPERATOR: ${{ github.event.inputs.destructive-operator }}
+        run: |
+          set -euo pipefail
+          missing=0
+          for name in DESTRUCTIVE_MAINTENANCE_TICKET DESTRUCTIVE_ROLLBACK_PLAN_REF DESTRUCTIVE_OPERATOR; do
+            if [ -z "${!name:-}" ]; then
+              echo "missing required workflow_dispatch input: ${name}" >&2
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            exit 1
+          fi
+          mkdir -p .artifacts/shadow-destructive-proof
+
       - name: Verify shadow destructive proof
         if: ${{ github.event.inputs.run-destructive-proof == 'true' }}
         env:
@@ -184,8 +219,39 @@ jobs:
           SERVER_NEXT_GM_PASSWORD: ${{ secrets.PROD_GM_PASSWORD }}
           SERVER_NEXT_SHADOW_URL: http://${{ secrets.DEPLOY_SSH_HOST }}:11923
           SERVER_NEXT_SHADOW_ALLOW_DESTRUCTIVE: '1'
-        # TODO(next:T14): 把 destructive proof 的维护窗口前置条件、补证产物和失败回滚记录正式纳入 deploy workflow 证据链。
-        run: pnpm verify:replace-ready:shadow:destructive
+        run: |
+          set -euo pipefail
+          pnpm verify:replace-ready:shadow:destructive 2>&1 | tee .artifacts/shadow-destructive-proof/output.log
+
+      - name: Record destructive proof manifest
+        if: ${{ always() && github.event.inputs.run-destructive-proof == 'true' }}
+        env:
+          DESTRUCTIVE_MAINTENANCE_TICKET: ${{ github.event.inputs.destructive-maintenance-ticket }}
+          DESTRUCTIVE_ROLLBACK_PLAN_REF: ${{ github.event.inputs.destructive-rollback-plan-ref }}
+          DESTRUCTIVE_OPERATOR: ${{ github.event.inputs.destructive-operator }}
+        run: |
+          set -euo pipefail
+          cat > .artifacts/shadow-destructive-proof/manifest.json <<EOF
+          {
+            "workflow": "deploy-server-next",
+            "runId": "${{ github.run_id }}",
+            "runAttempt": "${{ github.run_attempt }}",
+            "sha": "${{ github.sha }}",
+            "maintenanceTicket": "${DESTRUCTIVE_MAINTENANCE_TICKET}",
+            "rollbackPlanRef": "${DESTRUCTIVE_ROLLBACK_PLAN_REF}",
+            "operator": "${DESTRUCTIVE_OPERATOR}",
+            "shadowUrl": "http://${{ secrets.DEPLOY_SSH_HOST }}:11923",
+            "destructiveProofEnabled": true
+          }
+          EOF
+
+      - name: Upload destructive proof artifact
+        if: ${{ always() && github.event.inputs.run-destructive-proof == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: shadow-destructive-proof-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .artifacts/shadow-destructive-proof
+          if-no-files-found: error
 
       - name: Verify deployed shadow GM compat
         env:

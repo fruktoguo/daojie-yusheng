@@ -15,11 +15,9 @@ jobs:
       matrix:
         include:
           - image_name: daojie-yusheng-server
-            # TODO(next:MIGRATE01): 生产镜像链路仍直接指向 legacy Dockerfile，需在 next 真源稳定后迁到当前主线构建物。
-            dockerfile: legacy/server/Dockerfile
+            dockerfile: packages/server/Dockerfile
           - image_name: daojie-yusheng-client
-            # TODO(next:MIGRATE01): 生产镜像链路仍直接指向 legacy Dockerfile，需在 next 真源稳定后迁到当前主线构建物。
-            dockerfile: legacy/client/Dockerfile
+            dockerfile: packages/client/Dockerfile
 
     steps:
       - name: Checkout

@@ -54,7 +54,7 @@ jobs:
           DB_USERNAME: ${{ secrets.PROD_DB_USERNAME }}
           DB_PASSWORD: ${{ secrets.PROD_DB_PASSWORD }}
           DB_DATABASE: ${{ secrets.PROD_DB_DATABASE }}
-          JWT_SECRET: ${{ secrets.PROD_JWT_SECRET }}
+          SERVER_NEXT_PLAYER_TOKEN_SECRET: ${{ secrets.PROD_JWT_SECRET }}
         run: |
           docker --context production stack deploy --with-registry-auth -c docker-stack.yml daojie-yusheng
 

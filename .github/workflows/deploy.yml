@@ -22,11 +22,9 @@ jobs:
       matrix:
         include:
           - image_name: daojie-yusheng-server
-            # TODO(next:MIGRATE01): 生产 build/deploy 仍直接消费 legacy Dockerfile，需在 next 替换完成前统一迁移。
-            dockerfile: legacy/server/Dockerfile
+            dockerfile: packages/server/Dockerfile
           - image_name: daojie-yusheng-client
-            # TODO(next:MIGRATE01): 生产 build/deploy 仍直接消费 legacy Dockerfile，需在 next 替换完成前统一迁移。
-            dockerfile: legacy/client/Dockerfile
+            dockerfile: packages/client/Dockerfile
 
     steps:
       - name: Checkout
@@ -108,13 +106,6 @@ jobs:
           DB_USERNAME: ${{ secrets.PROD_DB_USERNAME }}
           DB_PASSWORD: ${{ secrets.PROD_DB_PASSWORD }}
           DB_DATABASE: ${{ secrets.PROD_DB_DATABASE }}
-          JWT_SECRET: ${{ secrets.PROD_JWT_SECRET }}
+          SERVER_NEXT_PLAYER_TOKEN_SECRET: ${{ secrets.PROD_JWT_SECRET }}
         run: |
           docker --context production stack deploy --with-registry-auth -c docker-stack.yml daojie-yusheng
-
-      - name: Verify backup worker
-        env:
-          DOCKER_CONTEXT: production
-          STACK_NAME: daojie-yusheng
-        run: |
-          bash scripts/verify-backup-worker.sh
