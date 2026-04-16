@@ -271,9 +271,6 @@ async function main() {
     socket.on(shared_1.NEXT_S2C.PanelDelta, () => {
         panelDeltaCount += 1;
     });
-    socket.on(shared_1.S2C.GmState, (payload) => {
-        gmStateEvents.push({ kind: 'legacy', payload });
-    });
     socket.on(shared_1.NEXT_S2C.GmState, (payload) => {
         gmStateEvents.push({ kind: 'next', payload });
     });
@@ -343,14 +340,15 @@ async function main() {
 /**
  * 记录socket出生点状态。
  */
-        const socketSpawnState = await emitAndWaitForGmState(socket, gmStateEvents, socketError, shared_1.NEXT_C2S.GmSpawnBots, {
+        const socketSpawnAck = await emitAndWaitForGmState(socket, gmStateEvents, socketError, shared_1.NEXT_C2S.GmSpawnBots, {
             count: 1,
-        }, (entry) => Number(entry?.payload?.botCount ?? 0) >= socketBotBaseline + 1, 8000, 'socket gmSpawnBots');
-        assertNextGmState(socketSpawnState, 'socket gmSpawnBots');
+        }, (entry) => Array.isArray(entry?.payload?.players) && Array.isArray(entry?.payload?.mapIds), 8000, 'socket gmSpawnBots ack');
+        assertNextGmState(socketSpawnAck, 'socket gmSpawnBots ack');
 /**
  * 记录socket出生点bot数量。
  */
-        const socketSpawnBotCount = Number(socketSpawnState?.payload?.botCount ?? 0);
+        const socketSpawnObserved = await waitForGmState(gmToken, (payload) => Number(payload?.botCount ?? 0) >= socketBotBaseline + 1, 8000, 'socket gmSpawnBots observed');
+        const socketSpawnBotCount = Number(socketSpawnObserved?.botCount ?? socketSpawnAck?.payload?.botCount ?? 0);
         const socketUpdateAck = await emitAndWaitForGmState(socket, gmStateEvents, socketError, shared_1.NEXT_C2S.GmUpdatePlayer, {
             playerId: auth.playerId,
             mapId: initialRuntime.templateId,
@@ -403,10 +401,11 @@ async function main() {
 /**
  * 记录socketremove状态。
  */
-        const socketRemoveState = await emitAndWaitForGmState(socket, gmStateEvents, socketError, shared_1.NEXT_C2S.GmRemoveBots, {
+        const socketRemoveAck = await emitAndWaitForGmState(socket, gmStateEvents, socketError, shared_1.NEXT_C2S.GmRemoveBots, {
             all: true,
-        }, (entry) => Number(entry?.payload?.botCount ?? 0) === 0, 8000, 'socket gmRemoveBots');
-        assertNextGmState(socketRemoveState, 'socket gmRemoveBots');
+        }, (entry) => Array.isArray(entry?.payload?.players) && Array.isArray(entry?.payload?.mapIds), 8000, 'socket gmRemoveBots ack');
+        assertNextGmState(socketRemoveAck, 'socket gmRemoveBots ack');
+        const socketRemoveObserved = await waitForGmState(gmToken, (payload) => Number(payload?.botCount ?? 0) === 0, 8000, 'socket gmRemoveBots observed');
 /**
  * 记录initialhttp状态。
  */
@@ -709,7 +708,7 @@ async function main() {
                     maxHp: socketResetRuntime.maxHp,
                     autoBattle: socketResetRuntime.combat?.autoBattle ?? false,
                 },
-                finalBotCount: Number(socketRemoveState?.payload?.botCount ?? 0),
+                finalBotCount: Number(socketRemoveObserved?.botCount ?? socketRemoveAck?.payload?.botCount ?? 0),
             },
             http: {
                 update: {
