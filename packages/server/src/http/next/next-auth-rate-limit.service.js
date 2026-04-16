@@ -95,7 +95,7 @@ let NextAuthRateLimitService = class NextAuthRateLimitService {
     assertBucketAllowed(key, config) {
         const bucket = this.readBucket(key, config.windowMs);
         if (bucket.blockedUntil > Date.now()) {
-            throw new common_1.TooManyRequestsException(config.message);
+            throw new common_1.HttpException(config.message, common_1.HttpStatus.TOO_MANY_REQUESTS);
         }
     }
     registerFailure(key, maxFailures, config) {
