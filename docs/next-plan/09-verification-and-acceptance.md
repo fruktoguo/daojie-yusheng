@@ -202,13 +202,13 @@
 - [x] `pnpm verify:server-next:doctor`
   - 当前以本地 `.runtime/server-next.local.env` 复核，`local / with-db / proof with-db / shadow / acceptance / full` 都是 `ready`
 - [ ] `pnpm verify:replace-ready:with-db`
-  - 当前状态：已实跑，失败于 `readiness-gate-smoke.js exceeded 10000ms`
+  - 当前状态：已实跑，`readiness-gate` 10s 超时已修掉，但 gate 仍失败
   - 失败命令：`pnpm verify:replace-ready:with-db`
-  - 首要错误：`script readiness-gate-smoke.js failed: code=124`
+  - 首要错误：`next-auth-bootstrap-smoke.js` 在 `verifyTokenSeedNativeStarterBootstrapProof` 上超时等待 `NEXT_S2C.Notice`
 - [ ] `pnpm verify:replace-ready:acceptance`
-  - 当前状态：环境已 ready；此前本机跑过一轮并卡在 `readiness-gate-smoke.js exceeded 10000ms`，需要后续重新复跑并更新结果
+  - 当前状态：环境已 ready，但前置 `with-db` 还没通过，暂不继续推进
 - [ ] `pnpm verify:replace-ready:full`
-  - 当前状态：环境已 ready，但本轮还没在这份文档下记一次实跑结果
+  - 当前状态：环境已 ready，但前置 `with-db` 还没通过，暂不继续推进
 
 ## 交付记录格式
 

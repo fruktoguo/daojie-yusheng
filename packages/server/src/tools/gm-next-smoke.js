@@ -64,6 +64,7 @@ const GM_NEXT_SMOKE_BOUNDARY = Object.freeze({
         '不能单独替代 full、shadow-destructive 或人工运营回归',
     ],
 });
+const LEGACY_ERROR_EVENT = 's:error';
 /**
  * 串联 socket GM、HTTP GM、邮件、建议和地图控制等兼容验证流程。
  */
@@ -145,7 +146,7 @@ async function main() {
             protocol: 'legacy',
         },
     });
-    legacyProtocolGuardSocket.on(shared_1.S2C.Error, (payload) => {
+    legacyProtocolGuardSocket.on(LEGACY_ERROR_EVENT, (payload) => {
         legacyProtocolGuardError = payload ?? null;
     });
     legacyProtocolGuardSocket.on(shared_1.NEXT_S2C.Error, (payload) => {
@@ -240,7 +241,7 @@ async function main() {
  * 记录socketerror。
  */
     let socketError = null;
-    socket.on(shared_1.S2C.Error, (payload) => {
+    socket.on(LEGACY_ERROR_EVENT, (payload) => {
         socketError = new Error(`legacy socket error: ${JSON.stringify(payload)}`);
     });
     socket.on(shared_1.NEXT_S2C.Error, (payload) => {

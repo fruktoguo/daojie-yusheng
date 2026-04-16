@@ -111,6 +111,7 @@ const LEGACY_S2C_EVENTS = new Set([
     's:leaderboard',
     's:npcShop',
 ]);
+const LEGACY_ERROR_EVENT = 's:error';
 /**
  * 为本次 smoke 生成唯一后缀，避免账号和玩家标识冲突。
  */
@@ -652,7 +653,7 @@ function createNextSocket(token, options = undefined) {
         }
         fatalError = new Error(`next socket error: ${JSON.stringify(payload)}`);
     });
-    socket.on(shared_1.S2C.Error, (payload) => {
+    socket.on(LEGACY_ERROR_EVENT, (payload) => {
         fatalError = new Error(`legacy error on next socket: ${JSON.stringify(payload)}`);
     });
     socket.on('connect_error', (error) => {
@@ -799,6 +800,12 @@ function flattenNoticeItems(payloads) {
     }
     return items;
 }
+function hasPendingLogbookMessage(playerState, messageId) {
+    const pendingLogbookMessages = Array.isArray(playerState?.player?.pendingLogbookMessages)
+        ? playerState.player.pendingLogbookMessages
+        : [];
+    return pendingLogbookMessages.some((entry) => entry?.id === messageId);
+}
 function createAuthStarterSnapshotDeps() {
     return {
         playerRuntimeService: {
@@ -921,8 +928,20 @@ async function runNextBootstrap(token, expectedIdentity = null, options = undefi
             runtimePlayerId: state.player.playerId,
             runtimePlayerName: typeof state.player.name === 'string' ? state.player.name : null,
         });
+        let recoveryNoticeDelivered = false;
+        let recoveryNoticePersisted = false;
         if (typeof options?.expectedNoticeMessageId === 'string' && options.expectedNoticeMessageId.trim()) {
-            await successSocket.waitForEvent(shared_1.NEXT_S2C.Notice, (payload) => flattenNoticeItems([payload]).some((item) => item?.messageId === options.expectedNoticeMessageId), 5000);
+            const expectedNoticeMessageId = options.expectedNoticeMessageId.trim();
+            const existingNoticeItems = flattenNoticeItems(successSocket.listEventPayloads(shared_1.NEXT_S2C.Notice));
+            recoveryNoticeDelivered = existingNoticeItems.some((item) => item?.messageId === expectedNoticeMessageId);
+            recoveryNoticePersisted = hasPendingLogbookMessage(state, expectedNoticeMessageId);
+            if (!recoveryNoticeDelivered && !recoveryNoticePersisted) {
+                const noticePayload = await successSocket.waitForEvent(shared_1.NEXT_S2C.Notice, (payload) => flattenNoticeItems([payload]).some((item) => item?.messageId === expectedNoticeMessageId), 5000);
+                recoveryNoticeDelivered = flattenNoticeItems([noticePayload]).some((item) => item?.messageId === expectedNoticeMessageId);
+            }
+            if (!recoveryNoticeDelivered && !recoveryNoticePersisted) {
+                throw new Error(`expected snapshot recovery notice to be delivered or persisted: ${expectedNoticeMessageId}`);
+            }
         }
         const noticeItems = flattenNoticeItems(successSocket.listEventPayloads(shared_1.NEXT_S2C.Notice));
         assertNoLegacyEvents(successSocket, 'next-auth-bootstrap');
@@ -943,6 +962,8 @@ async function runNextBootstrap(token, expectedIdentity = null, options = undefi
                 duplicateMapEnter: 0,
             },
             noticeItems,
+            recoveryNoticeDelivered,
+            recoveryNoticePersisted,
             legacyEvents: successSocket.legacyEvents.slice(),
         };
     }

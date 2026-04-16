@@ -36,32 +36,53 @@ async function main() {
  */
     let server = await startServer({ allowUnreadyTraffic: false });
 /**
- * 记录bypass玩家ID。
+ * 汇总待清理的玩家ID。
  */
-    let bypassPlayerId = '';
+    const playerIdsToDelete = [];
+/**
+ * 标记是否带库。
+ */
+    const hasDatabase = (typeof process.env.SERVER_NEXT_DATABASE_URL === 'string' && process.env.SERVER_NEXT_DATABASE_URL.trim().length > 0)
+        || (typeof process.env.DATABASE_URL === 'string' && process.env.DATABASE_URL.trim().length > 0);
     try {
+        if (hasDatabase) {
 /**
  * 记录健康状态。
  */
-        const health = await waitForHealth(503);
+            const health = await waitForHealth(200);
+/**
+ * 记录bootstrap。
+ */
+            const bootstrapped = await expectNextSocketBootstrapped();
+            playerIdsToDelete.push(bootstrapped.playerId);
+            if (health?.readiness?.database?.configured !== true) {
+                throw new Error(`expected database.configured=true when db env exists, got ${JSON.stringify(health?.readiness?.database ?? null)}`);
+            }
+            if (health?.readiness?.maintenance?.active === true) {
+                throw new Error(`expected maintenance inactive for with-db gate, got ${JSON.stringify(health.readiness.maintenance)}`);
+            }
+            if (health?.readiness?.ok !== true) {
+                throw new Error(`expected readiness.ok=true when db env exists, got ${JSON.stringify(health?.readiness ?? null)}`);
+            }
+        }
+        else {
+/**
+ * 记录健康状态。
+ */
+            const health = await waitForHealth(503);
 /**
  * 记录rejection。
  */
-        const rejection = await expectNextSocketRejected();
-        const hasDatabase = (typeof process.env.SERVER_NEXT_DATABASE_URL === 'string' && process.env.SERVER_NEXT_DATABASE_URL.trim().length > 0)
-            || (typeof process.env.DATABASE_URL === 'string' && process.env.DATABASE_URL.trim().length > 0);
-
-        if (health?.readiness?.maintenance?.active === true) {
-            throw new Error(`expected maintenance inactive for not-ready gate, got ${JSON.stringify(health.readiness.maintenance)}`);
-        }
-        if (hasDatabase && health?.readiness?.database?.configured !== true) {
-            throw new Error(`expected database.configured=true when db env exists, got ${JSON.stringify(health?.readiness?.database ?? null)}`);
-        }
-        if (!hasDatabase && health?.readiness?.database?.configured !== false) {
-            throw new Error(`expected database.configured=false when no db env, got ${JSON.stringify(health?.readiness?.database ?? null)}`);
-        }
-        if (rejection.code !== 'SERVER_NOT_READY') {
-            throw new Error(`expected SERVER_NOT_READY, got ${JSON.stringify(rejection)}`);
+            const rejection = await expectNextSocketRejected();
+            if (health?.readiness?.maintenance?.active === true) {
+                throw new Error(`expected maintenance inactive for not-ready gate, got ${JSON.stringify(health.readiness.maintenance)}`);
+            }
+            if (health?.readiness?.database?.configured !== false) {
+                throw new Error(`expected database.configured=false when no db env, got ${JSON.stringify(health?.readiness?.database ?? null)}`);
+            }
+            if (rejection.code !== 'SERVER_NOT_READY') {
+                throw new Error(`expected SERVER_NOT_READY, got ${JSON.stringify(rejection)}`);
+            }
         }
     }
     finally {
@@ -69,35 +90,67 @@ async function main() {
     }
     server = await startServer({ allowUnreadyTraffic: true });
     try {
+        if (hasDatabase) {
 /**
  * 记录健康状态。
  */
-        const health = await waitForHealth(503);
+            const health = await waitForHealth(200);
+/**
+ * 记录bootstrap。
+ */
+            const bootstrapped = await expectNextSocketBootstrapped();
+            playerIdsToDelete.push(bootstrapped.playerId);
+            if (health?.readiness?.ok !== true) {
+                throw new Error(`expected readiness.ok=true under with-db gate, got ${JSON.stringify(health?.readiness ?? null)}`);
+            }
+            console.log(JSON.stringify({
+                ok: true,
+                playerId: bootstrapped.playerId,
+                gate: {
+                    healthStatus: 200,
+                    bootstrapAllowed: true,
+                },
+                bypass: {
+                    healthStatus: 200,
+                    sessionId: bootstrapped.sessionId,
+                    events: bootstrapped.events,
+                },
+            }, null, 2));
+        }
+        else {
+/**
+ * 记录健康状态。
+ */
+            const health = await waitForHealth(503);
 /**
  * 记录bypass。
  */
-        const bypass = await expectNextSocketBootstrapped();
-        bypassPlayerId = bypass.playerId;
-        if (health?.readiness?.ok !== false) {
-            throw new Error(`expected readiness.ok=false under bypass, got ${JSON.stringify(health?.readiness ?? null)}`);
+            const bypass = await expectNextSocketBootstrapped();
+            playerIdsToDelete.push(bypass.playerId);
+            if (health?.readiness?.ok !== false) {
+                throw new Error(`expected readiness.ok=false under bypass, got ${JSON.stringify(health?.readiness ?? null)}`);
+            }
+            console.log(JSON.stringify({
+                ok: true,
+                playerId: bypass.playerId,
+                gate: {
+                    healthStatus: 503,
+                    rejectionCode: 'SERVER_NOT_READY',
+                },
+                bypass: {
+                    healthStatus: 503,
+                    sessionId: bypass.sessionId,
+                    events: bypass.events,
+                },
+            }, null, 2));
         }
-        console.log(JSON.stringify({
-            ok: true,
-            playerId: bypass.playerId,
-            gate: {
-                healthStatus: 503,
-                rejectionCode: 'SERVER_NOT_READY',
-            },
-            bypass: {
-                healthStatus: 503,
-                sessionId: bypass.sessionId,
-                events: bypass.events,
-            },
-        }, null, 2));
     }
     finally {
-        if (bypassPlayerId) {
-            await deletePlayer(bypassPlayerId).catch(() => undefined);
+        for (const playerId of playerIdsToDelete) {
+            if (!playerId) {
+                continue;
+            }
+            await deletePlayer(playerId).catch(() => undefined);
         }
         await stopServer(server);
     }

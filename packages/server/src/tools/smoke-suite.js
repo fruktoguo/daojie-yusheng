@@ -110,6 +110,7 @@ const smokeCases = [
 ];
 const LONG_RUNNING_SMOKE_TIMEOUT_MS = '20000';
 const LONG_RUNNING_SMOKE_CASES = new Set([
+    'readiness-gate',
     'session',
     'next-auth-bootstrap',
     'next-auth-bootstrap-mainline',
