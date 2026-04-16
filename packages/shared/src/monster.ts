@@ -9,7 +9,6 @@ import {
   ATTR_KEYS,
   ATTR_TO_NUMERIC_WEIGHTS,
   ATTR_TO_PERCENT_NUMERIC_WEIGHTS,
-  ELEMENT_KEYS,
   DEFAULT_PLAYER_REALM_STAGE,
   EQUIP_SLOTS,
   MONSTER_GLOBAL_STAT_PERCENTS,
@@ -22,12 +21,10 @@ import {
   PLAYER_REALM_ORDER,
   PLAYER_REALM_NUMERIC_TEMPLATES,
   PLAYER_REALM_STAGE_LEVEL_RANGES,
-} from './constants';
+} from './constants/gameplay';
+import { ELEMENT_KEYS } from './constants/gameplay/attributes';
 import { getRealmAttributeMultiplier, getRealmLinearGrowthMultiplier } from './combat';
-import {
-  compileValueStatsToActualStats,
-  NUMERIC_STAT_ACTUAL_POINTS_PER_CONFIG_VALUE,
-} from './value';
+import { compileValueStatsToActualStats } from './value';
 import type {
   Attributes,
   EquipSlot,
@@ -42,10 +39,9 @@ import type {
   TechniqueGrade,
 } from './types';
 import type { NumericScalarStatKey } from './numeric';
-// TODO(next:MIGRATE01): 在怪物内容真源完全迁到 value_stats/attributes 后，删除 legacy combat model、旧数值档案与 legacy fallback 推导分支。
 
-/** 怪物战斗模型：区分旧版直接数值与 value_stats 口径。 */
-export type MonsterCombatModel = 'legacy' | 'value_stats';
+/** 怪物战斗模型：next 侧统一按 value_stats 运行时数值口径结算。 */
+export type MonsterCombatModel = 'value_stats';
 
 /** 怪物指数成长的数值键，随等级按指数曲线放大。 */
 const MONSTER_EXPONENTIAL_NUMERIC_KEYS = [
@@ -80,28 +76,6 @@ const MONSTER_LINEAR_NUMERIC_GROWTH_RATES: Record<typeof MONSTER_LINEAR_NUMERIC_
   qiRegenRate: 0.02,
   hpRegenRate: 0.02,
 };
-
-/** 返回怪物线性成长键的等级增长率，非线性键返回 null。 */
-function getMonsterLinearGrowthRate(key: NumericScalarStatKey): number | null {
-  switch (key) {
-    case 'critDamage':
-    case 'maxQiOutputPerTick':
-      return 0.1;
-    case 'qiRegenRate':
-    case 'hpRegenRate':
-      return 0.02;
-    default:
-      return null;
-  }
-}
-
-/** 旧版怪物数值档案，用于兼容老模板和迁移换算。 */
-export interface LegacyMonsterNumericProfile {
-  maxHp: number;
-  attack: number;
-  level?: number;
-  viewRange?: number;
-}
 
 /** 怪物公式输入：由属性、装备、等级和百分比修饰组合而成。 */
 export interface MonsterFormulaInput {
@@ -139,9 +113,6 @@ export interface MonsterTemplateConfiguredRecord {
   initialBuffs?: MonsterInitialBuffDef[];
   equipment?: MonsterTemplateEquipmentRefs;
   skills?: string[];
-  hp?: number;
-  maxHp?: number;
-  attack?: number;
   count?: number;
   radius?: number;
   maxAlive?: number;
@@ -177,8 +148,8 @@ export interface MonsterTemplateEditorItem {
   allowBatchUse?: boolean;
 }
 
-/** 怪物模板来源口径，用来区分旧版、value_stats 和属性驱动。 */
-export type MonsterTemplateSourceMode = 'legacy' | 'value_stats' | 'attributes';
+/** 怪物模板来源口径，用来区分 value_stats 和属性驱动。 */
+export type MonsterTemplateSourceMode = 'value_stats' | 'attributes';
 
 /** 解析后的怪物模板记录，已经补齐默认值并计算出运行时数值。 */
 export interface MonsterTemplateResolvedRecord extends MonsterTemplateConfiguredRecord {
@@ -644,72 +615,6 @@ export function estimateMonsterSpiritFromStats(stats: NumericStats, level?: numb
   return Math.max(6, Math.round(normalizedLevel * 12 + stats.physAtk * 0.8 + stats.maxHp * 0.18));
 }
 
-/** 构建旧版怪物数值模板，用于兼容迁移。 */
-export function buildLegacyMonsterNumericStats(profile: LegacyMonsterNumericProfile): NumericStats {
-  const level = normalizeMonsterLevel(profile.level ?? Math.round(profile.attack / 6));
-  const maxHp = Math.max(1, Math.round(profile.maxHp));
-  const attack = Math.max(1, Math.round(profile.attack));
-  const stats = createNumericStats();
-  stats.maxHp = maxHp;
-  stats.maxQi = Math.max(24, Math.round(maxHp * 0.4 + level * 8));
-  stats.physAtk = attack;
-  stats.spellAtk = Math.max(1, Math.round(attack * 0.9));
-  stats.physDef = Math.max(0, Math.round(maxHp * 0.18 + level * 2));
-  stats.spellDef = Math.max(0, Math.round(maxHp * 0.14 + level * 2));
-  stats.hit = 12 + level * 8;
-  stats.dodge = level * 4;
-  stats.crit = level * 2;
-  stats.antiCrit = level * 2;
-  stats.critDamage = level * 6;
-  stats.breakPower = level * 3;
-  stats.resolvePower = level * 3;
-  stats.viewRange = Math.max(0, Math.round(profile.viewRange ?? 6));
-  return stats;
-}
-
-/** 从旧版怪物档案反推 value_stats 配置值。 */
-export function inferMonsterValueStatsFromLegacy(profile: LegacyMonsterNumericProfile): PartialNumericStats {
-  const level = normalizeMonsterLevel(profile.level ?? Math.round(profile.attack / 6));
-  const actualStats = buildLegacyMonsterNumericStats(profile);
-  const valueStats: PartialNumericStats = {};
-
-  const applyScalar = (key: NumericScalarStatKey): void => {
-    const actual = actualStats[key];
-    if (!actual) {
-      return;
-    }
-    const linearGrowthRate = getMonsterLinearGrowthRate(key);
-    const multiplier = (MONSTER_EXPONENTIAL_NUMERIC_KEYS as readonly string[]).includes(key)
-      ? getRealmAttributeMultiplier(level)
-      : linearGrowthRate !== null
-        ? getRealmLinearGrowthMultiplier(level, linearGrowthRate)
-        : 1;
-    const configUnit = NUMERIC_STAT_ACTUAL_POINTS_PER_CONFIG_VALUE[key];
-    const baseValue = actual / multiplier / configUnit;
-    if (Math.abs(baseValue) < 1e-6) {
-      return;
-    }
-    valueStats[key] = roundConfigValue(baseValue);
-  };
-
-  applyScalar('maxHp');
-  applyScalar('maxQi');
-  applyScalar('physAtk');
-  applyScalar('spellAtk');
-  applyScalar('physDef');
-  applyScalar('spellDef');
-  applyScalar('hit');
-  applyScalar('dodge');
-  applyScalar('crit');
-  applyScalar('antiCrit');
-  applyScalar('critDamage');
-  applyScalar('breakPower');
-  applyScalar('resolvePower');
-  applyScalar('viewRange');
-
-  return valueStats;
-}
-
 /** 清洗怪物模板装备引用表。 */
 export function normalizeMonsterTemplateEquipmentRefs(rawEquipment: unknown): MonsterTemplateEquipmentRefs {
   const normalized: MonsterTemplateEquipmentRefs = {};
@@ -859,56 +764,25 @@ export function resolveMonsterTemplateRecord(
   const tier = normalizeMonsterTier(monster.tier ?? inferMonsterTierFromName(typeof monster.name === 'string' ? monster.name : undefined));
   const valueStats = normalizeMonsterConfigStats(monster.valueStats);
   const attrs = attrsInput ? normalizeMonsterAttrs(attrsInput) : undefined;
+  const resolvedStatPercents = normalizeMonsterStatPercents(statPercentsInput);
   const equipmentRefs = normalizeMonsterTemplateEquipmentRefs(monster.equipment);
   const equipment = resolveMonsterTemplateEquipmentSlots(equipmentRefs, itemLookup);
-  const legacyMaxHp = Math.max(
-    1,
-    Math.round(
-      Number.isFinite(monster.maxHp)
-        ? Number(monster.maxHp)
-        : (Number.isFinite(monster.hp) ? Number(monster.hp) : 1),
-    ),
-  );
-  const legacyAttack = Math.max(1, Math.round(Number.isFinite(monster.attack) ? Number(monster.attack) : 1));
-  const fallbackValueStats = !valueStats && !attrs
-    ? inferMonsterValueStatsFromLegacy({
-        maxHp: legacyMaxHp,
-        attack: legacyAttack,
-        level,
-        viewRange: Number.isFinite(monster.viewRange)
-          ? Math.max(0, Math.floor(Number(monster.viewRange)))
-          : (Number.isFinite(monster.aggroRange) ? Math.max(0, Math.floor(Number(monster.aggroRange))) : 6),
-      })
-    : undefined;
-  const effectiveValueStats = valueStats ?? fallbackValueStats;
-  const legacyNumericStats = effectiveValueStats
-    ? resolveMonsterNumericStatsFromValueStats(effectiveValueStats, level)
-    : resolveMonsterNumericStatsFromAttributes({
-        attrs,
+  const sourceMode: MonsterTemplateSourceMode = attrsInput ? 'attributes' : 'value_stats';
+  const resolvedAttrs = attrs ?? createMonsterAttributes();
+  const computedStats = sourceMode === 'attributes'
+    ? resolveMonsterNumericStatsFromAttributes({
+        attrs: resolvedAttrs,
         equipment,
         level,
-      });
-  const resolvedAttrs = normalizeMonsterAttrs(
-    attrsInput,
-    attrs ? undefined : inferMonsterAttrsFromNumericStats(legacyNumericStats),
-  );
-  const resolvedStatPercents = normalizeMonsterStatPercents(statPercentsInput)
-    ?? (attrsInput ? undefined : createMonsterAutoStatPercents(legacyNumericStats, resolvedAttrs, level, equipment));
-  const computedStats = resolveMonsterNumericStatsFromAttributes({
-    attrs: resolvedAttrs,
-    equipment,
-    level,
-    statPercents: resolvedStatPercents,
-    grade,
-    tier,
-  });
+        statPercents: resolvedStatPercents,
+        grade,
+        tier,
+      })
+    : applyNumericStatPercentages(resolveMonsterNumericStatsFromValueStats(valueStats, level), resolvedStatPercents);
   const count = Number.isFinite(monster.count)
     ? Math.max(1, Math.floor(Number(monster.count)))
     : (Number.isFinite(monster.maxAlive) ? Math.max(1, Math.floor(Number(monster.maxAlive))) : 1);
   const aggroRange = Number.isFinite(monster.aggroRange) ? Math.max(0, Math.floor(Number(monster.aggroRange))) : 6;
-  const sourceMode: MonsterTemplateSourceMode = attrsInput
-    ? 'attributes'
-    : (valueStats || fallbackValueStats ? 'value_stats' : 'legacy');
 
   return {
     id: typeof monster.id === 'string' ? monster.id.trim() : '',
@@ -928,12 +802,9 @@ export function resolveMonsterTemplateRecord(
     resolvedStatPercents,
     combatModel: 'value_stats',
     sourceMode,
-    hp: Math.max(1, Math.round(computedStats.maxHp || Number(monster.hp) || 1)),
-    maxHp: Math.max(
-      1,
-      Math.round(computedStats.maxHp || (Number.isFinite(monster.maxHp) ? Number(monster.maxHp) : Number(monster.hp) || 1)),
-    ),
-    attack: Math.max(1, Math.round(computedStats.physAtk || computedStats.spellAtk || Number(monster.attack) || 1)),
+    hp: Math.max(1, Math.round(computedStats.maxHp || 1)),
+    maxHp: Math.max(1, Math.round(computedStats.maxHp || 1)),
+    attack: Math.max(1, Math.round(computedStats.physAtk || computedStats.spellAtk || 1)),
     level,
     count,
     radius: Number.isFinite(monster.radius) ? Math.max(0, Math.floor(Number(monster.radius))) : 3,

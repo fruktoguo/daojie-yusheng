@@ -107,7 +107,7 @@
     {
       "x": 18,
       "y": 7,
-      "value": 1
+      "value": 1000
     }
   ],
   "resources": [
@@ -115,25 +115,25 @@
       "x": 18,
       "y": 7,
       "resourceKey": "aura.refined.metal",
-      "value": 4
+      "value": 3375
     },
     {
       "x": 13,
       "y": 6,
       "resourceKey": "aura.refined.metal",
-      "value": 4
+      "value": 3375
     },
     {
       "x": 9,
       "y": 10,
       "resourceKey": "aura.refined.metal",
-      "value": 5
+      "value": 5063
     },
     {
       "x": 15,
       "y": 8,
       "resourceKey": "aura.refined.earth",
-      "value": 1
+      "value": 1000
     }
   ],
   "safeZones": [],

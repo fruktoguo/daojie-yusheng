@@ -111,22 +111,22 @@
     {
       "x": 25,
       "y": 9,
-      "value": 4
+      "value": 3375
     },
     {
       "x": 17,
       "y": 9,
-      "value": 5
+      "value": 5063
     },
     {
       "x": 10,
       "y": 10,
-      "value": 5
+      "value": 5063
     },
     {
       "x": 5,
       "y": 9,
-      "value": 5
+      "value": 5063
     }
   ],
   "resources": [
@@ -134,43 +134,43 @@
       "x": 25,
       "y": 9,
       "resourceKey": "aura.refined.metal",
-      "value": 6
+      "value": 7595
     },
     {
       "x": 20,
       "y": 8,
       "resourceKey": "aura.refined.metal",
-      "value": 6
+      "value": 7595
     },
     {
       "x": 17,
       "y": 9,
       "resourceKey": "aura.refined.metal",
-      "value": 6
+      "value": 7595
     },
     {
       "x": 10,
       "y": 10,
       "resourceKey": "aura.refined.metal",
-      "value": 6
+      "value": 7595
     },
     {
       "x": 5,
       "y": 9,
       "resourceKey": "aura.refined.metal",
-      "value": 6
+      "value": 7595
     },
     {
       "x": 21,
       "y": 13,
       "resourceKey": "aura.refined.earth",
-      "value": 2
+      "value": 1500
     },
     {
       "x": 12,
       "y": 15,
       "resourceKey": "aura.refined.earth",
-      "value": 2
+      "value": 1500
     }
   ],
   "safeZones": [],

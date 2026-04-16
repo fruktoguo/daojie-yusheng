@@ -57,17 +57,17 @@
     {
       "x": 10,
       "y": 5,
-      "value": 1
+      "value": 1000
     },
     {
       "x": 5,
       "y": 5,
-      "value": 2
+      "value": 1500
     },
     {
       "x": 8,
       "y": 6,
-      "value": 1
+      "value": 1000
     }
   ],
   "safeZones": [],

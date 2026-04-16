@@ -1,4 +1,5 @@
-import { ATTR_KEYS, DEFAULT_MAP_TIME_CONFIG } from './constants';
+import { ATTR_KEYS } from './constants/gameplay/attributes';
+import { DEFAULT_MAP_TIME_CONFIG } from './constants/gameplay/world';
 import { isOffsetInRange } from './geometry';
 import {
   GmMapAuraRecord,

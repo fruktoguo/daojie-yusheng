@@ -1,20 +1,16 @@
 "use strict";
 /** 运行时参数标准化工具：统一输入解析、比较稳定性与展示数据。 */
-// TODO(next:T24): 在 compat snapshot 与旧动作命名窗口关闭后，移除这里对 legacy npc: actionId 和旧 runtime bonus 命名的兼容归一。
 Object.defineProperty(exports, "__esModule", { value: true });
 
 const common_1 = require("@nestjs/common");
 
 const shared_1 = require("@mud/shared-next");
-/** 统一动作 ID（兼容 legacy npc: 前缀）。 */
+/** 统一动作 ID。 */
 function normalizeRuntimeActionId(actionIdInput) {
 
     const actionId = typeof actionIdInput === 'string' ? actionIdInput.trim() : '';
     if (!actionId) {
         return '';
-    }
-    if (actionId.startsWith('npc:')) {
-        return `npc_quests:${actionId.slice('npc:'.length)}`;
     }
     return actionId;
 }

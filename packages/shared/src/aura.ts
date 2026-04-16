@@ -1,5 +1,4 @@
 import { DEFAULT_AURA_LEVEL_BASE_VALUE } from './constants/gameplay/aura';
-// TODO(next:MIGRATE01): 在灵气配置与存档完全迁到当前“数值即 auraValue”口径后，删除 legacy 等级值兼容换算与判定分支。
 
 /** 计算下一档灵气等级门槛，按 1.5 倍递增。 */
 function getNextAuraLevelThreshold(currentThreshold: number): number {
@@ -59,26 +58,7 @@ export function getAuraLevel(auraValue: number, baseValue = DEFAULT_AURA_LEVEL_B
   return level;
 }
 
-/** 将旧版“等级即数值”的灵气存档转换成当前口径的灵气值。 */
-export function convertLegacyAuraLevelToValue(level: number, baseValue = DEFAULT_AURA_LEVEL_BASE_VALUE): number {
-  return getAuraLevelThreshold(level, baseValue);
-}
-
-/** 判断输入是否仍按旧版灵气等级口径存储。 */
-export function isLegacyAuraLevelValue(value: number, baseValue = DEFAULT_AURA_LEVEL_BASE_VALUE): boolean {
-  const normalizedValue = normalizeAuraValue(value);
-  const base = normalizeAuraLevelBaseValue(baseValue);
-  return Number.isInteger(normalizedValue) && normalizedValue > 0 && normalizedValue < base;
-}
-
-/** 兼容旧版等级值并统一输出当前可计算的灵气数值。 */
-export function normalizeConfiguredAuraValue(value: unknown, baseValue = DEFAULT_AURA_LEVEL_BASE_VALUE): number {
-  const normalizedValue = normalizeAuraValue(value);
-  if (normalizedValue <= 0) {
-    return 0;
-  }
-  if (isLegacyAuraLevelValue(normalizedValue, baseValue)) {
-    return convertLegacyAuraLevelToValue(normalizedValue, baseValue);
-  }
-  return normalizedValue;
+/** 规范化地图/编辑器里的灵气配置值，next 侧统一按 auraValue 存储。 */
+export function normalizeConfiguredAuraValue(value: unknown, _baseValue = DEFAULT_AURA_LEVEL_BASE_VALUE): number {
+  return normalizeAuraValue(value);
 }

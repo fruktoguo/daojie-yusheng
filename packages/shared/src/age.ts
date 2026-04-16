@@ -1,4 +1,5 @@
-import { DEFAULT_BONE_AGE_YEARS, GAME_DAY_TICKS, GAME_YEAR_DAYS } from './constants';
+import { DEFAULT_BONE_AGE_YEARS, GAME_YEAR_DAYS } from './constants/gameplay/core';
+import { GAME_DAY_TICKS } from './constants/gameplay/world';
 
 /** 角色寿命信息：记录角色当前年龄换算所需的基础输入。 */
 export interface CharacterChronologyState {
@@ -84,8 +85,6 @@ export function resolveRemainingLifespan(
     expired: totalDays <= 0,
   };
 }
-
-
 
 
 

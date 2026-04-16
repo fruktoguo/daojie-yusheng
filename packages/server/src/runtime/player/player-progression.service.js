@@ -1230,7 +1230,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
 
         const level = Math.max(1, Math.floor(technique.level ?? 1));
 
-        const maxLevel = (0, shared_1.getTechniqueMaxLevel)(technique.layers ?? undefined, level, technique.attrCurves ?? undefined);
+        const maxLevel = (0, shared_1.getTechniqueMaxLevel)(technique.layers ?? undefined, level);
         return level >= maxLevel || (technique.expToNext ?? 0) <= 0;
     }
     advanceTechniqueProgressInternal(player, amount) {
@@ -1253,7 +1253,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
 
         const previousExp = Math.max(0, Math.floor(technique.exp ?? 0));
 
-        const maxLevel = (0, shared_1.getTechniqueMaxLevel)(technique.layers ?? undefined, previousLevel, technique.attrCurves ?? undefined);
+        const maxLevel = (0, shared_1.getTechniqueMaxLevel)(technique.layers ?? undefined, previousLevel);
         if (previousLevel >= maxLevel || (technique.expToNext ?? 0) <= 0) {
             return resolved;
         }
@@ -1269,7 +1269,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
             technique.exp -= technique.expToNext ?? 0;
             technique.level += 1;
             technique.expToNext = (0, shared_1.getTechniqueExpToNext)(technique.level, technique.layers ?? undefined);
-            technique.realm = (0, shared_1.deriveTechniqueRealm)(technique.level, technique.layers ?? undefined, technique.attrCurves ?? undefined);
+            technique.realm = (0, shared_1.deriveTechniqueRealm)(technique.level, technique.layers ?? undefined);
             notices.push({
                 text: (technique.expToNext ?? 0) > 0
                     ? `${technique.name ?? technique.techId} 提升至第 ${technique.level} 层。`
@@ -1617,5 +1617,4 @@ function clamp(value, min, max) {
     return Math.max(min, Math.min(max, value));
 }
 //# sourceMappingURL=player-progression.service.js.map
-
 

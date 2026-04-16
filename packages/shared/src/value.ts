@@ -1105,8 +1105,8 @@ export function calculateTechniqueLayerValue(layer: TechniqueLayerDef): ValueSum
 }
 
 /** 计算功法在当前层数下的总价值。 */
-export function calculateTechniqueValue(technique: Pick<TechniqueState, 'level' | 'layers' | 'attrCurves'>): ValueSummary {
-  const attrs = calcTechniqueAttrValues(technique.level, technique.layers, technique.attrCurves);
+export function calculateTechniqueValue(technique: Pick<TechniqueState, 'level' | 'layers'>): ValueSummary {
+  const attrs = calcTechniqueAttrValues(technique.level, technique.layers);
   const summary = calculateAttributesValue(attrs);
   return finalizeSummary(
     summary.breakdown.map((entry) => ({

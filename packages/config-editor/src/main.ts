@@ -445,7 +445,6 @@ const PLAYER_REALM_STAGE_SORT_ORDER = PLAYER_REALM_ORDER.reduce<Record<PlayerRea
 }, {} as Record<PlayerRealmStage, number>);
 
 const MONSTER_SOURCE_MODE_LABELS: Record<MonsterTemplateRecord['sourceMode'], string> = {
-  legacy: '旧 hp/attack 模式',
   value_stats: 'valueStats 推导模式',
   attributes: 'attrs / statPercents 模式',
 };
