@@ -17,6 +17,7 @@ exports.WorldGmAuthService = void 0;
 const common_1 = require("@nestjs/common");
 
 const runtime_gm_auth_service_1 = require("../runtime/gm/runtime-gm-auth.service");
+// TODO(next:T13): 把 GM socket 鉴权从 runtime compat 密码记录收成 next-native 真源，并与 HTTP/GM-admin 的最终边界一起定稿。
 
 /** GM 令牌透传鉴权服务：Socket 与 runtime gm auth service 对接。 */
 let WorldGmAuthService = class WorldGmAuthService {
@@ -36,5 +37,4 @@ exports.WorldGmAuthService = WorldGmAuthService = __decorate([
     __metadata("design:paramtypes", [runtime_gm_auth_service_1.RuntimeGmAuthService])
 ], WorldGmAuthService);
 //# sourceMappingURL=world-gm-auth.service.js.map
-
 

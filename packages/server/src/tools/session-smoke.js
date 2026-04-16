@@ -2,6 +2,7 @@
 /**
  * 用途：执行 session 链路的冒烟验证。
  */
+// TODO(next:T07): 持续把 detached/reuse/reaper 证明脚本对齐到最终 session 真源设计，避免 proof 语义长期先于正式 contract。
 
 Object.defineProperty(exports, "__esModule", { value: true });
 const smoke_timeout_1 = require("./smoke-timeout");

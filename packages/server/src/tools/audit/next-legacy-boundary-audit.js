@@ -2,6 +2,7 @@
 /**
  * 用途：审计 server-next 与 legacy 兼容边界依赖。
  */
+// TODO(next:T11): 持续把审计 inventory 的路径与模式同步到当前目录结构，避免 missing file / fail-soft 漂移削弱门禁可信度。
 
 const fs = require("node:fs");
 const path = require("node:path");

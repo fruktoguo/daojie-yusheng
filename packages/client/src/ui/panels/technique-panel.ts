@@ -2,6 +2,7 @@
  * 功法面板
  * 展示已习得功法列表、逐层详情弹窗、主修切换与技能提示
  */
+// TODO(next:UI06): 把 technique-panel 的层焦点/星图详情继续从局部 innerHTML 重写收口到稳定 patch，减少功法 modal 长尾回归面。
 
 import {
   Attributes,
@@ -1375,4 +1376,3 @@ export class TechniquePanel {
     return technique ? resolvePreviewTechnique(technique) : undefined;
   }
 }
-

@@ -1,3 +1,4 @@
+// TODO(next:UI06): 把 mail-panel 的 modal 外壳从 buildBodyHtml 继续收成更稳定的局部 patch，减少仍残留的模板式装载入口。
 import {
   MAIL_PAGE_SIZE_DEFAULT,
   MailDetailView,

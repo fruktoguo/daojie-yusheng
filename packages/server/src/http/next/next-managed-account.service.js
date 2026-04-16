@@ -21,6 +21,7 @@ const password_hash_1 = require("../../auth/password-hash");
 const player_identity_persistence_service_1 = require("../../persistence/player-identity-persistence.service");
 const player_runtime_service_1 = require("../../runtime/player/player-runtime.service");
 const next_player_auth_store_service_1 = require("./next-player-auth-store.service");
+// TODO(next:T13): 在 GM/admin 账号管理 contract 定稿后，继续把这里的迁移期密码/身份同步承载收成更清晰的 next-native 管理边界。
 /** Next 托管账号服务：为 GM/管理入口提供账号查询、重命名和密码更新。 */
 let NextManagedAccountService = class NextManagedAccountService {
     /** 记录便于追踪管理操作的服务日志。 */
@@ -166,5 +167,4 @@ exports.NextManagedAccountService = NextManagedAccountService = __decorate([
         player_identity_persistence_service_1.PlayerIdentityPersistenceService,
         player_runtime_service_1.PlayerRuntimeService])
 ], NextManagedAccountService);
-
 

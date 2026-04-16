@@ -2,6 +2,7 @@
 /**
  * 用途：提供 next 协议审计脚本的共享函数。
  */
+// TODO(next:T23): 继续扩协议审计 helper 对 shared/runtime 漂移、reset/projection 和新字段漏接的自动检查范围。
 
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.loadUniqueItemIds = exports.waitForState = exports.createCaseRuntime = exports.createRuntimeApi = exports.createAuditedSocket = exports.createAuditor = exports.measurePayloadBytes = exports.waitForHealth = exports.stopServer = exports.startIsolatedServer = exports.allocateFreePort = exports.waitForValue = exports.waitFor = exports.delay = exports.repoRoot = exports.distRoot = exports.packageRoot = void 0;

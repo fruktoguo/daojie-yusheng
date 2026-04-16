@@ -23,6 +23,7 @@ const player_persistence_flush_service_1 = require("../persistence/player-persis
 const world_session_service_1 = require("./world-session.service");
 
 const world_sync_service_1 = require("./world-sync.service");
+// TODO(next:T07): 在 session 真源、detached 生命周期和刷盘 contract 完全定稿后，复核这层回收器是否仍需维持当前定时器 + requeue 壳。
 
 const SESSION_REAPER_INTERVAL_MS = 1000;
 
@@ -86,6 +87,5 @@ exports.WorldSessionReaperService = WorldSessionReaperService = WorldSessionReap
         player_persistence_flush_service_1.PlayerPersistenceFlushService])
 ], WorldSessionReaperService);
 //# sourceMappingURL=world-session-reaper.service.js.map
-
 
 

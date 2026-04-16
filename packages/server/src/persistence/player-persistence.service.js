@@ -23,6 +23,7 @@ const persistent_document_table_1 = require("./persistent-document-table");
 const player_snapshot_compat_1 = require("./player-snapshot-compat");
 
 const env_alias_1 = require("../config/env-alias");
+// TODO(next:PERSIST01): 把 player snapshot 真源从 persistent_documents 收成正式快照模型，并在 next-native 主链稳定后移除 compat/legacy_seeded 过渡语义。
 
 const PLAYER_SNAPSHOT_SCOPE = 'server_next_player_snapshots_v1';
 
@@ -393,6 +394,5 @@ function normalizePendingLogbookKind(value) {
     }
 }
 //# sourceMappingURL=player-persistence.service.js.map
-
 
 

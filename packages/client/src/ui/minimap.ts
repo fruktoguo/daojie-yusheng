@@ -2,6 +2,7 @@
  * 小地图与大地图浏览器
  * 提供角落缩略图、全屏地图弹窗、地图目录切换、缩放平移、点击前往等功能
  */
+// TODO(next:UI06): 把 minimap 的目录/弹层主体继续从模板型 modal 收成稳定 patch，并统一桌面/手机模式下的局部更新路径。
 
 import { getTileTypeFromMapChar, GroundItemPileView, isTileTypeWalkable, MapMeta, MapMinimapMarker, MapMinimapSnapshot, MINIMAP_MARKER_COLORS, Tile, TILE_MINIMAP_COLORS, TileType } from '@mud/shared-next';
 import { deleteRememberedMap, getRememberedMarkers, getRememberedTiles, listRememberedMapIds } from '../map-memory';

@@ -1,6 +1,7 @@
 /**
  * 全局类型定义：地形、方向、地图、实体、修仙系统（属性/物品/功法/境界/技能/任务）等核心数据结构。
  */
+// TODO(next:T22): 继续把 shared 核心类型与 protocol/persistence/runtime 的字段覆盖关系写硬，避免新增字段只落进单层实现。
 import type { ElementKey, NumericRatioDivisors, NumericScalarStatKey, NumericStats, PartialNumericStats } from './numeric';
 import type { QiProjectionModifier } from './qi';
 import type { GridPoint, TargetingShape } from './targeting';
@@ -1479,4 +1480,3 @@ export interface CombatTargetingRules {
 
 /** 自动战斗目标选择模式。 */
 export type AutoBattleTargetingMode = 'auto' | 'nearest' | 'low_hp' | 'full_hp' | 'boss' | 'player';
-

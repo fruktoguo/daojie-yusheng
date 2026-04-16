@@ -6,6 +6,7 @@ import {
   type ChatMessageScope,
   type ChatStoredMessage,
 } from '../constants/ui/chat';
+// TODO(next:MIGRATE01): 在旧版 localStorage 聊天缓存彻底退出观察窗口后，删除 clearPreviousChatStorage 这类迁移清理分支。
 
 /** ChatMessageRecord：聊天持久化记录。 */
 type ChatMessageRecord = ChatStoredMessage & {
@@ -304,6 +305,5 @@ export async function appendChannelMessages(
     return false;
   }
 }
-
 
 

@@ -2,6 +2,7 @@
 /**
  * 用途：为 smoke 脚本生成玩家身份与访问令牌。
  */
+// TODO(next:T25): 在 player token 真源和验收口径彻底定稿后，收掉这里对 JWT_SECRET 历史别名的沿用，保持 smoke helper 与正式 token contract 同步。
 
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.createSmokePlayerIdentity = void 0;

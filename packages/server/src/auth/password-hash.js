@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.hashPassword = exports.verifyPassword = exports.isLegacyBcryptHash = void 0;
 const node_crypto_1 = require("node:crypto");
 const bcryptjs = require("bcryptjs");
+// TODO(next:MIGRATE01): 在 legacy 账号密码完成重哈希与迁移窗口关闭后，删除 bcrypt 旧格式兼容，只保留 next 密码存储格式。
 
 /** 识别 legacy bcrypt 旧格式 hash，用于兼容旧密码库。 */
 function isLegacyBcryptHash(hash) {
@@ -82,5 +83,4 @@ function parseScryptHash(value) {
         hash,
     };
 }
-
 

@@ -2,6 +2,7 @@
  * 认证与账号 HTTP API 封装
  * 负责 token 存取、登录/注册/刷新请求、账号信息修改
  */
+// TODO(next:MIGRATE01): 在旧前端会话观察窗口结束后，删除 localStorage -> sessionStorage 的 token 迁移逻辑，并继续把 token 暴露面收口到更安全承载。
 
 import {
   ACCESS_TOKEN_STORAGE_KEY,

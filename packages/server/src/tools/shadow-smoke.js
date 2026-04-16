@@ -2,6 +2,7 @@
 /**
  * 用途：执行 shadow 链路的冒烟验证。
  */
+// TODO(next:T12): 保持 shadow smoke 只回答只读 acceptance 问题，把 destructive backup/restore 证据继续明确留在独立门禁链。
 
 Object.defineProperty(exports, "__esModule", { value: true });
 const smoke_timeout_1 = require("./smoke-timeout");

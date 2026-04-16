@@ -2,6 +2,7 @@
 /**
  * 用途：编排执行 server-next smoke 冒烟验证套件。
  */
+// TODO(next:T11): 持续把 smoke-suite case 编排与 local / acceptance / full 门禁定义对齐，避免 wrapper 口径和实际覆盖漂移。
 
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;

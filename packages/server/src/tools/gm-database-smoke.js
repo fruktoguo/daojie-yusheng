@@ -2,6 +2,7 @@
 /**
  * 用途：执行 gm-database 链路的冒烟验证。
  */
+// TODO(next:T10): 在真实维护窗口补齐 destructive backup/restore 取证后，把这里的脚本边界收成正式 GM database 证明链，而不是长期依赖本地替代场景。
 
 Object.defineProperty(exports, "__esModule", { value: true });
 const smoke_timeout_1 = require("./smoke-timeout");

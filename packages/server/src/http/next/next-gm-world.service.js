@@ -43,6 +43,7 @@ const world_runtime_service_1 = require("../../runtime/world/world-runtime.servi
 const next_gm_constants_1 = require("./next-gm.constants");
 
 const next_managed_account_service_1 = require("./next-managed-account.service");
+// TODO(next:T13): 定稿 GM/world/admin 数据面是继续保留 managed/compat 聚合壳还是收成 next-native contract，并清理这里残留的兼容汇总语义。
 
 let NextGmWorldService = class NextGmWorldService {
     contentTemplateRepository;
@@ -975,6 +976,5 @@ function cloneRatioDivisors(source) {
         elementDamageReduce: source.elementDamageReduce ? { ...source.elementDamageReduce } : undefined,
     };
 }
-
 
 

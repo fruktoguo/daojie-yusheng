@@ -22,6 +22,7 @@ const common_1 = require("@nestjs/common");
 const next_gm_auth_guard_1 = require("./next-gm-auth.guard");
 const next_auth_rate_limit_service_1 = require("./next-auth-rate-limit.service");
 const runtime_gm_auth_service_1 = require("../../runtime/gm/runtime-gm-auth.service");
+// TODO(next:T13): 在 GM 登录/改密 contract 定稿后，继续收掉这层对迁移期 GM HTTP 面的薄壳承载，明确最终 next-native auth 边界。
 let NextGmAuthController = class NextGmAuthController {
     authService;
     rateLimitService;
@@ -68,5 +69,4 @@ exports.NextGmAuthController = NextGmAuthController = __decorate([
     __metadata("design:paramtypes", [runtime_gm_auth_service_1.RuntimeGmAuthService,
         next_auth_rate_limit_service_1.NextAuthRateLimitService])
 ], NextGmAuthController);
-
 

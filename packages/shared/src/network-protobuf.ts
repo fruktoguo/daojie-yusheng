@@ -2,6 +2,7 @@
  * Protobuf 网络编解码层：把高频同步包（Tick、属性、功法、行动等）
  * 压成二进制，减少带宽占用和 JSON 序列化压力。
  */
+// TODO(next:T23): 持续把 protobuf schema、事件白名单和 protocol.ts 对齐，避免 shared/runtime 在高频包上继续漂出隐性合同差异。
 import protobuf from 'protobufjs';
 import { type ActionUpdateEntry, type GroundItemPilePatch, type NEXT_S2C_ActionsUpdate, type NEXT_S2C_AttrUpdate, type NEXT_S2C_TechniqueUpdate, type NEXT_S2C_Tick, type TechniqueUpdateEntry, type TickRenderEntity, type VisibleTilePatch } from './protocol';
 import type { NumericRatioDivisors, NumericStats } from './numeric';

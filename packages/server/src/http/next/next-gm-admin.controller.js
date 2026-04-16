@@ -21,6 +21,7 @@ exports.NextGmAdminController = void 0;
 const common_1 = require("@nestjs/common");
 const next_gm_auth_guard_1 = require("./next-gm-auth.guard");
 const next_gm_admin_service_1 = require("./next-gm-admin.service");
+// TODO(next:T13): 在 backup/restore 管理面 contract 定稿后，继续压缩这层 controller 壳，避免长期保留迁移期 admin 路由编排。
 let NextGmAdminController = class NextGmAdminController {
     nextGmAdminService;
     constructor(nextGmAdminService) {
@@ -73,6 +74,5 @@ exports.NextGmAdminController = NextGmAdminController = __decorate([
     (0, common_1.UseGuards)(next_gm_auth_guard_1.NextGmAuthGuard),
     __metadata("design:paramtypes", [next_gm_admin_service_1.NextGmAdminService])
 ], NextGmAdminController);
-
 
 

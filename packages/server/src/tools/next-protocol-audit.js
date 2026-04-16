@@ -2,6 +2,7 @@
 /**
  * 用途：执行 server-next 协议审计。
  */
+// TODO(next:T23): 继续把协议审计绑定到真实 next contract，发现 shared/runtime 偏移时直接给出硬门禁而不是只写报告。
 
 var fs = require("node:fs");
 var path = require("node:path");

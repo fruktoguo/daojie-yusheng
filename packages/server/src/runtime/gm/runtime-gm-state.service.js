@@ -1,5 +1,6 @@
 "use strict";
 /** GM 状态聚合器：把玩家、地图与运行时性能信息拼成 GM 面板快照。 */
+// TODO(next:T24): 在 legacy socket/GM 观察窗口结束后，移除这里对 legacy 协议开关和 legacy bot 前缀的兼容分支。
 var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
 
     var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
@@ -281,4 +282,3 @@ function roundMetric(value) {
 function bytesToMb(value) {
     return roundMetric(value / (1024 * 1024));
 }
-

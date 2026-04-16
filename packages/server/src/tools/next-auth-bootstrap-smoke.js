@@ -2,6 +2,7 @@
 /**
  * 用途：执行 next-auth-bootstrap 链路的冒烟验证。
  */
+// TODO(next:T25): 持续把 mainline/migration proof 矩阵对齐到真实完成定义，避免 smoke 绿色被误读成 auth/bootstrap 真源已经完全替换。
 
 Object.defineProperty(exports, "__esModule", { value: true });
 const smoke_timeout_1 = require("./smoke-timeout");

@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+// TODO(next:T25): 随着 next-auth-bootstrap proof 收口，压缩这里对 legacy/compat 辅助函数的登记，避免测试辅助名单长期背迁移矩阵包袱。
 const helperFunctionNames = [
     'isEnvEnabled',
     'buildStrictNativeSkippedProof',

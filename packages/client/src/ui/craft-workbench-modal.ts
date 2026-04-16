@@ -1,3 +1,4 @@
+// TODO(next:UI06): 把 craft-workbench-modal 的炼丹/强化 body 继续从整段 bodyHtml 收成局部 patch，减少复杂表单切换时的整体重装。
 import {
   type AlchemyRecipeCatalogEntry,
   type NEXT_C2S_StartEnhancement,
@@ -590,5 +591,4 @@ export class CraftWorkbenchModal {
     `;
   }
 }
-
 

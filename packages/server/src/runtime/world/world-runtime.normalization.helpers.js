@@ -1,5 +1,6 @@
 "use strict";
 /** 运行时参数标准化工具：统一输入解析、比较稳定性与展示数据。 */
+// TODO(next:T24): 在 compat snapshot 与旧动作命名窗口关闭后，移除这里对 legacy npc: actionId 和旧 runtime bonus 命名的兼容归一。
 Object.defineProperty(exports, "__esModule", { value: true });
 
 const common_1 = require("@nestjs/common");
@@ -586,4 +587,3 @@ exports.isHostileSkill = isHostileSkill;
 exports.getSkillEffectColor = getSkillEffectColor;
 exports.resolveRuntimeSkillRange = resolveRuntimeSkillRange;
 exports.resolveAutoBattleSkillQiCost = resolveAutoBattleSkillQiCost;
-

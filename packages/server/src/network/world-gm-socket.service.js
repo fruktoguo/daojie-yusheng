@@ -16,6 +16,7 @@ exports.WorldGmSocketService = void 0;
 const common_1 = require("@nestjs/common");
 
 const runtime_gm_state_service_1 = require("../runtime/gm/runtime-gm-state.service");
+// TODO(next:T13): 在 GM 操作面完全收口到最终 next contract 后，评估是否还需要保留这层 socket -> runtime 队列薄壳，避免 GM 双入口长期并存。
 
 /** GM Socket 下发服务：将 GM 操作转换为 runtime gm state 队列。 */
 let WorldGmSocketService = class WorldGmSocketService {
@@ -58,5 +59,4 @@ exports.WorldGmSocketService = WorldGmSocketService = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [runtime_gm_state_service_1.RuntimeGmStateService])
 ], WorldGmSocketService);
-
 

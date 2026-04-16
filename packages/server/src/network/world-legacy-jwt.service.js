@@ -13,6 +13,7 @@ exports.WorldLegacyJwtService = void 0;
 const common_1 = require("@nestjs/common");
 
 const node_crypto_1 = require("node:crypto");
+// TODO(next:T24): 当玩家 token 真源彻底不再依赖 legacy JWT 后，删除这个兼容验签服务与 JWT_SECRET 回退口径。
 
 /** 兼容 legacy JWT 的验证服务，用于 legacy 鉴权流程回传 payload。 */
 let WorldLegacyJwtService = class WorldLegacyJwtService {
@@ -88,5 +89,4 @@ function base64UrlEncode(value) {
         .replace(/\//g, '_')
         .replace(/=+$/g, '');
 }
-
 

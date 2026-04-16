@@ -21,6 +21,7 @@ exports.NextAuthController = void 0;
 const common_1 = require("@nestjs/common");
 const next_player_auth_service_1 = require("./next-player-auth.service");
 const next_auth_rate_limit_service_1 = require("./next-auth-rate-limit.service");
+// TODO(next:T01): 在注册/登录/刷新 contract 与字段别名完全定稿后，收掉 controller 层对迁移期入参别名的兼容清洗。
 /** Next 登录鉴权 HTTP 控制器：负责注册、登录、刷新和显示名可用性检查。 */
 let NextAuthController = class NextAuthController {
     /** 注入 next 玩家鉴权服务，控制器只负责参数清洗与路由转发。 */

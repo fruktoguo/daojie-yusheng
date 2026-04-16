@@ -37,6 +37,7 @@ const PLAYER_TOKEN_SECRET_ENV_KEYS = [
     'NEXT_PLAYER_TOKEN_SECRET',
     'JWT_SECRET',
 ];
+// TODO(next:T01): 收掉 next player token codec 对 JWT_SECRET 历史别名和 compat verifier 的依赖，只保留 next token secret 路径。
 const DEFAULT_DEV_PLAYER_TOKEN_SECRET = 'daojie-yusheng-dev-secret';
 const DEVELOPMENT_LIKE_ENVS = new Set(['', 'development', 'dev', 'local', 'test']);
 

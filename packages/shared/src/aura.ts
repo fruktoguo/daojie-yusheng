@@ -1,4 +1,5 @@
 import { DEFAULT_AURA_LEVEL_BASE_VALUE } from './constants/gameplay/aura';
+// TODO(next:MIGRATE01): 在灵气配置与存档完全迁到当前“数值即 auraValue”口径后，删除 legacy 等级值兼容换算与判定分支。
 
 /** 计算下一档灵气等级门槛，按 1.5 倍递增。 */
 function getNextAuraLevelThreshold(currentThreshold: number): number {

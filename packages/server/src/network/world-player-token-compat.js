@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.verifyPlayerTokenPayloadDetailed = verifyPlayerTokenPayloadDetailed;
+// TODO(next:T24): 当 next token codec 完全脱离历史 JWT 兼容后，删除这个 compat verifier，避免 token 栈继续保留双口径实现。
 
 const node_crypto_1 = require("node:crypto");
 function verifyPlayerTokenPayloadDetailed(token, secret) {
@@ -67,6 +68,5 @@ function base64UrlEncode(value) {
         .replace(/\//g, '_')
         .replace(/=+$/g, '');
 }
-
 
 

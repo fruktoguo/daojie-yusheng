@@ -1,6 +1,7 @@
 /**
  * Socket.IO 网络管理器 —— 封装客户端与服务端的双向通信，提供类型安全的事件收发接口
  */
+// TODO(next:T05): 随着 bootstrap/session contract 定稿，把 connect/hello/initSession/reconnect 编排继续拆开，避免客户端 socket 入口长期同时承担握手、会话恢复和事件注册。
 
 import { io, Socket } from 'socket.io-client';
 import { logNextMovement } from '../debug/movement-debug';

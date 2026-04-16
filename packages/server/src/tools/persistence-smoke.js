@@ -2,6 +2,7 @@
 /**
  * 用途：执行 persistence 链路的冒烟验证。
  */
+// TODO(next:T09): 在真实 DB proof 固定后，把这里的验证边界继续收成正式持久化证据，避免 migration 过渡语义长期混在默认 smoke 里。
 
 Object.defineProperty(exports, "__esModule", { value: true });
 const smoke_timeout_1 = require("./smoke-timeout");

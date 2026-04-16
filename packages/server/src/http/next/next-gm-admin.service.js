@@ -33,6 +33,7 @@ const next_database_restore_coordinator_service_1 = require("./next-database-res
 const persistent_document_table_1 = require("../../persistence/persistent-document-table");
 
 const env_alias_1 = require("../../config/env-alias");
+// TODO(next:T13): 定稿 GM/admin/restore 是继续 next-native 化还是长期保留 compat 壳，并把这里的 legacy scope 双写/回读策略一并收口。
 const DEFAULT_AFDIAN_API_BASE_URL = 'https://afdian.net';
 
 const DEFAULT_AFDIAN_WEBHOOK_PATH = '/integrations/afdian/webhook';
@@ -1622,5 +1623,4 @@ function buildWebhookUrl(publicBaseUrl, webhookPath) {
     }
     return `${baseUrl.replace(/\/+$/u, '')}${webhookPath}`;
 }
-
 

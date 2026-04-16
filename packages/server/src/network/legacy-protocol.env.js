@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.isLegacySocketProtocolEnabled = isLegacySocketProtocolEnabled;
+// TODO(next:T24): 定稿 legacy socket 的最终保留范围后，下线这个 compat 开关与相关环境变量，避免旧协议入口长期被动常驻。
 
 const LEGACY_SOCKET_PROTOCOL_ENV_KEYS = [
     'SERVER_NEXT_ALLOW_LEGACY_SOCKET_PROTOCOL',
@@ -16,5 +17,4 @@ function isLegacySocketProtocolEnabled() {
     }
     return false;
 }
-
 

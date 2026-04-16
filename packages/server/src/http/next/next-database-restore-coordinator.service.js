@@ -39,6 +39,7 @@ const suggestion_runtime_service_1 = require("../../runtime/suggestion/suggestio
 const runtime_gm_auth_service_1 = require("../../runtime/gm/runtime-gm-auth.service");
 
 const world_runtime_service_1 = require("../../runtime/world/world-runtime.service");
+// TODO(next:T13): 在 GM/admin/restore 完成定义钉死后，把 restore 前后 flush/清场/回载编排收成明确的 next-native 恢复合同。
 
 let NextDatabaseRestoreCoordinatorService = class NextDatabaseRestoreCoordinatorService {
     worldSessionService;
@@ -97,6 +98,5 @@ exports.NextDatabaseRestoreCoordinatorService = NextDatabaseRestoreCoordinatorSe
         suggestion_runtime_service_1.SuggestionRuntimeService,
         runtime_gm_auth_service_1.RuntimeGmAuthService])
 ], NextDatabaseRestoreCoordinatorService);
-
 
 

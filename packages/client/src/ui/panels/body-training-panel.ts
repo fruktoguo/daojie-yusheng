@@ -1,3 +1,4 @@
+// TODO(next:UI06): 把 body-training-panel 的灌注弹层继续从模板化 body 装载收成局部 patch，并和 craft/heaven-gate modal recipe 对齐。
 import {
   ATTR_KEY_LABELS,
   BodyTrainingState,
@@ -655,5 +656,4 @@ export class BodyTrainingPanel {
     return buildInfusionPlan(this.baseState, this.clampLevelGain(this.selectedLevelGain));
   }
 }
-
 

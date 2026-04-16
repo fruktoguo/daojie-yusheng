@@ -5,6 +5,7 @@
  * - 新增常量分组目录位于 `./constants/`。
  * - 当前文件仍保留旧导出路径，逐步承接迁移期兼容。
  */
+// TODO(next:T24): 在 legacy/shared 常量旧导出路径彻底退役后，删除这个全局兼容层文件，只保留分组常量入口。
 import { TECHNIQUE_EXP_BASE } from './constants/gameplay/technique';
 
 export {

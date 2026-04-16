@@ -1,6 +1,7 @@
 /**
  * 功法系统计算：层级经验、境界推导、属性成长曲线、品阶软衰减。
  */
+// TODO(next:MIGRATE01): 在功法内容全面切到 layer/curve 新结构后，移除 legacyCurves 参数与相关兼容计算分支。
 import type {
   Attributes,
   BodyTrainingState,
@@ -302,7 +303,6 @@ export function calcTechniqueFinalAttrBonus(techniques: readonly TechniqueState[
 
   return result;
 }
-
 
 
 

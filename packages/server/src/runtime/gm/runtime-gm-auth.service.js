@@ -25,6 +25,7 @@ const pg_1 = require("pg");
 const persistent_document_table_1 = require("../../persistence/persistent-document-table");
 
 const env_alias_1 = require("../../config/env-alias");
+// TODO(next:T13): 定稿 GM auth 是否继续以 compat 持久化壳承载；若继续 next-native 化，需要收掉 legacy scope 回读与默认迁移逻辑。
 
 /** GM 鉴权作用域名，存放当前 next 体系的密码记录。 */
 const GM_AUTH_SCOPE = 'server_next_gm_auth_v1';

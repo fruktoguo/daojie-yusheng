@@ -24,6 +24,7 @@ const player_identity_persistence_service_1 = require("../../persistence/player-
 const player_runtime_service_1 = require("../../runtime/player/player-runtime.service");
 const world_player_snapshot_service_1 = require("../../network/world-player-snapshot.service");
 const next_player_auth_store_service_1 = require("./next-player-auth-store.service");
+// TODO(next:T01): 随着 auth/token/snapshot 真源完全收口到 next-native，继续压缩这里对 starter snapshot 补齐与迁移态身份同步的过渡承载。
 /** Next 玩家鉴权编排服务：负责注册、登录、刷新和身份同步。 */
 let NextPlayerAuthService = class NextPlayerAuthService {
     /** 记录账号生命周期关键操作。 */
@@ -327,5 +328,4 @@ exports.NextPlayerAuthService = NextPlayerAuthService = __decorate([
 function buildPlayerId(userId) {
     return `p_${String(userId ?? '').trim()}`;
 }
-
 

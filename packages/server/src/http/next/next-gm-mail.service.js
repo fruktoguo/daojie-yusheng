@@ -27,6 +27,7 @@ const mail_runtime_service_1 = require("../../runtime/mail/mail-runtime.service"
 const player_persistence_service_1 = require("../../persistence/player-persistence.service");
 
 const player_runtime_service_1 = require("../../runtime/player/player-runtime.service");
+// TODO(next:T13): 在 GM 邮件投递 contract 定稿后，收掉这里对 runtime + persistence 双路收件人的迁移期聚合壳。
 
 let NextGmMailService = class NextGmMailService {
     mailRuntimeService;
@@ -77,6 +78,5 @@ exports.NextGmMailService = NextGmMailService = __decorate([
         player_persistence_service_1.PlayerPersistenceService,
         player_runtime_service_1.PlayerRuntimeService])
 ], NextGmMailService);
-
 
 

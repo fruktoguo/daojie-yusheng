@@ -42,6 +42,7 @@ import type {
   TechniqueGrade,
 } from './types';
 import type { NumericScalarStatKey } from './numeric';
+// TODO(next:MIGRATE01): 在怪物内容真源完全迁到 value_stats/attributes 后，删除 legacy combat model、旧数值档案与 legacy fallback 推导分支。
 
 /** 怪物战斗模型：区分旧版直接数值与 value_stats 口径。 */
 export type MonsterCombatModel = 'legacy' | 'value_stats';

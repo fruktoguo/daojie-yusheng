@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.canonicalizeRuntimeBonusSource = exports.resolveCompatiblePendingLogbookMessages = exports.resolveCompatibleRuntimeBonuses = void 0;
+// TODO(next:T04): 当 snapshot 主链彻底只读 next-native 后，删除 legacyBonuses / legacyCompat.pendingLogbookMessages 等兼容回读。
 
 /** legacy 与 next 快照兼容处理：统一读取历史数组与 bonus 来源。 */
 function resolveCompatibleSnapshotArray(snapshot, primaryKey, compatResolver) {

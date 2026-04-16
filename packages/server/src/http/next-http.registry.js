@@ -16,6 +16,7 @@ const next_account_controller_1 = require("./next/next-account.controller");
 const next_gm_auth_controller_1 = require("./next/next-gm-auth.controller");
 const next_gm_controller_1 = require("./next/next-gm.controller");
 const next_gm_admin_controller_1 = require("./next/next-gm-admin.controller");
+// TODO(next:T13): 在 next HTTP contract 最终定稿后，复核这层 controller/provider 总入口是否还要继续承担迁移期 GM/auth/admin 聚合壳。
 
 /** Next 体系 HTTP 路由与依赖注册清单（控制器 + 服务）。 */
 exports.NEXT_HTTP_CONTROLLERS = [

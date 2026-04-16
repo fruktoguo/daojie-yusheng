@@ -20,6 +20,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.NextAccountController = void 0;
 const common_1 = require("@nestjs/common");
 const next_player_auth_service_1 = require("./next-player-auth.service");
+// TODO(next:T01): 在 next account 自助接口完全定稿后，收掉这层对旧 Bearer 壳与迁移期字段清洗的薄适配。
 let NextAccountController = class NextAccountController {
     authService;
     constructor(authService) {
@@ -67,6 +68,5 @@ exports.NextAccountController = NextAccountController = __decorate([
 function pickString(value) {
     return typeof value === 'string' ? value : '';
 }
-
 
 

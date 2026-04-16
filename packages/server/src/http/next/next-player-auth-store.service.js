@@ -18,6 +18,7 @@ const env_alias_1 = require("../../config/env-alias");
 const persistent_document_table_1 = require("../../persistence/persistent-document-table");
 const account_validation_1 = require("../../auth/account-validation");
 const PLAYER_AUTH_SCOPE = 'server_next_player_auth_v1';
+// TODO(next:PERSIST01): 把 next 玩家鉴权存储从 persistent_documents + 内存降级收成正式 auth 真源模型，并逐步去掉 normalizeAuthRecord 里的迁移态兜底。
 /** Next 玩家鉴权存储：维护账号索引、唯一性检查和持久化读写。 */
 let NextPlayerAuthStoreService = class NextPlayerAuthStoreService {
     /** 记录存储层状态，便于定位启动和回退分支。 */
@@ -360,5 +361,4 @@ function buildConflictMessage(requestedKind, conflictKind) {
     }
     return '称号已存在';
 }
-
 

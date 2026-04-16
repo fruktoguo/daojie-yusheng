@@ -24,6 +24,7 @@ const pg_1 = require("pg");
 const env_alias_1 = require("../config/env-alias");
 
 const persistent_document_table_1 = require("./persistent-document-table");
+// TODO(next:PERSIST01): 把 player identity 从 persistent_documents 迁到正式专表/索引，并在迁移窗口结束后收掉 legacy_backfill/legacy_sync/token_seed 过渡来源。
 
 const PLAYER_IDENTITY_SCOPE = 'server_next_player_identities_v1';
 
@@ -188,5 +189,4 @@ function isValidVisibleDisplayName(value) {
         && (0, shared_1.hasVisibleNameGrapheme)(value)
         && !(0, shared_1.containsInvisibleOnlyNameGrapheme)(value);
 }
-
 

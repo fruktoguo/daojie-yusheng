@@ -2,6 +2,7 @@
 /**
  * 用途：执行 gm-next 主链路的冒烟验证。
  */
+// TODO(next:T25): 继续把 GM/admin/restore 的完成定义映射到独立证据，避免 gm-next smoke 通过被误判为完整运营闭环已完成。
 
 Object.defineProperty(exports, "__esModule", { value: true });
 const smoke_timeout_1 = require("./smoke-timeout");

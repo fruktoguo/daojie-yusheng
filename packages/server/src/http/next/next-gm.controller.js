@@ -25,6 +25,7 @@ const next_gm_player_service_1 = require("./next-gm-player.service");
 const next_gm_world_service_1 = require("./next-gm-world.service");
 const next_managed_account_service_1 = require("./next-managed-account.service");
 const redeem_code_runtime_service_1 = require("../../runtime/redeem/redeem-code-runtime.service");
+// TODO(next:T13): 在 GM HTTP 面定稿后，把这层对 legacy GM controller 的聚合壳继续收成更稳定的 next-native admin/world contract。
 let NextGmController = class NextGmController {
     nextGmWorldService;
     nextManagedAccountService;
@@ -401,6 +402,5 @@ exports.NextGmController = NextGmController = __decorate([
         next_gm_mail_service_1.NextGmMailService,
         redeem_code_runtime_service_1.RedeemCodeRuntimeService])
 ], NextGmController);
-
 
 

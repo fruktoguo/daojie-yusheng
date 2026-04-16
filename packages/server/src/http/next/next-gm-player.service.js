@@ -35,6 +35,7 @@ const player_runtime_service_1 = require("../../runtime/player/player-runtime.se
 const world_runtime_service_1 = require("../../runtime/world/world-runtime.service");
 
 const next_gm_constants_1 = require("./next-gm.constants");
+// TODO(next:T13): 定稿 GM 玩家编辑接口是否继续保留 legacy snapshot section 合同；若转 next-native，需要清掉 applyLegacySnapshotMutation 这类兼容写入路径。
 
 let NextGmPlayerService = class NextGmPlayerService {
     contentTemplateRepository;
@@ -555,5 +556,4 @@ function cloneTemporaryBuff(entry) {
         qiProjection: Array.isArray(entry.qiProjection) ? entry.qiProjection.map((projection) => ({ ...projection })) : undefined,
     };
 }
-
 
