@@ -17,6 +17,20 @@
 - 样本 fixture：`packages/server/src/tools/fixtures/migrate-next-mainline-once/sample-legacy.json`
 - 已实际跑通样本 dry-run：
   - `pnpm --filter @mud/server-next migrate:legacy-next:once -- --fixture=src/tools/fixtures/migrate-next-mainline-once/sample-legacy.json --domains=auth,identity,snapshot,mail,market,redeem,suggestion,gm-auth,gm-database`
+- 已实际跑通样本正式转换：
+  - `pnpm --filter @mud/server-next migrate:legacy-next:once -- --fixture=src/tools/fixtures/migrate-next-mainline-once/sample-legacy.json --domains=auth,identity,snapshot,mail,market,redeem,suggestion,gm-auth,gm-database --write`
+  - `pnpm verify:replace-ready:proof:with-db`
+- 当前样本 `--write` 摘要：
+  - `auth=1`
+  - `identity=1`
+  - `snapshot=1`
+  - `mail=1`
+  - `market=3`
+  - `redeem=2`
+  - `suggestion=1`
+  - `gm-auth=1`
+  - `gm-database=2`
+  - `failed=[]`
 
 ## 当前写入目标口径
 
@@ -64,7 +78,7 @@
 - [x] 实现兑换码与 GM 备份/作业等必要数据迁移
 - [x] 补一份样本迁移数据
 - [x] 跑通一份样本 dry-run（fixture 样本已落地并实际执行）
-- [ ] 跑通一份样本正式转换
+- [x] 跑通一份样本正式转换
 - [x] 为迁移脚本补最小验证命令
 
 ## 输入来源分层
@@ -150,10 +164,10 @@
 
 ### 第 4 批：跑正式写入 proof
 
-- [ ] 用 fixture 跑一次 `--write`
+- [x] 用 fixture 跑一次 `--write`
 - [ ] 用本地测试库跑一次 `--write`
-- [ ] 迁移后立即执行 next proof 链
-- [ ] 记录写入数量、失败数量、失败样本、未覆盖域
+- [x] 迁移后立即执行 next proof 链
+- [x] 记录写入数量、失败数量、失败样本、未覆盖域
 
 最小验证：
 

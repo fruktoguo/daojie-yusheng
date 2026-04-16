@@ -169,8 +169,8 @@
 
 `04` 完成后，这里要补一条固定 proof，不能只靠 dry-run。
 
-- [ ] 跑 `pnpm --filter @mud/server-next migrate:legacy-next:once` 的样本/真实转换
-- [ ] 用迁移后的 next 真源重新跑 `pnpm verify:replace-ready:proof:with-db`
+- [x] 跑 `pnpm --filter @mud/server-next migrate:legacy-next:once` 的样本/真实转换
+- [x] 用迁移后的 next 真源重新跑 `pnpm verify:replace-ready:proof:with-db`
 - [ ] 补 `pnpm --filter @mud/server-next smoke:persistence`
 - [ ] 涉及 GM scope 迁移时，补 `pnpm --filter @mud/server-next smoke:gm-database`
 - [ ] 记录迁移前后摘要：
