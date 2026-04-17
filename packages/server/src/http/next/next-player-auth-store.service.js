@@ -511,7 +511,6 @@ async function ensurePlayerAuthTable(pool) {
         await client.query(CREATE_PLAYER_AUTH_TABLE_SQL);
         await client.query(CREATE_PLAYER_AUTH_ROLE_INDEX_SQL);
         await client.query(CREATE_PLAYER_AUTH_DISPLAY_INDEX_SQL);
-        await migrateLegacyAuthDocumentsToTable(client);
         await client.query('COMMIT');
     }
     catch (error) {
@@ -520,50 +519,5 @@ async function ensurePlayerAuthTable(pool) {
     }
     finally {
         client.release();
-    }
-}
-async function migrateLegacyAuthDocumentsToTable(client) {
-    const existing = await client.query(`SELECT 1 FROM ${PLAYER_AUTH_TABLE} LIMIT 1`);
-    if (existing.rowCount > 0) {
-        return;
-    }
-    const relation = await client.query(`SELECT to_regclass('public.persistent_documents') AS relation_name`);
-    if (!relation.rows[0]?.relation_name) {
-        return;
-    }
-    const legacyRows = await client.query('SELECT key, payload FROM persistent_documents WHERE scope = $1 ORDER BY key ASC', [PLAYER_AUTH_SCOPE]);
-    for (const row of legacyRows.rows) {
-        const normalized = normalizeAuthRecord(row?.payload, typeof row?.key === 'string' ? row.key : '');
-        if (!normalized) {
-            continue;
-        }
-        await client.query(`
-      INSERT INTO ${PLAYER_AUTH_TABLE}(
-        user_id,
-        username,
-        player_id,
-        pending_role_name,
-        display_name,
-        password_hash,
-        total_online_seconds,
-        current_online_started_at,
-        created_at,
-        updated_at,
-        payload
-      )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8::timestamptz, $9::timestamptz, now(), $10::jsonb)
-      ON CONFLICT (user_id) DO NOTHING
-    `, [
-            normalized.id,
-            normalized.username,
-            normalized.playerId,
-            normalized.pendingRoleName,
-            normalized.displayName,
-            normalized.passwordHash,
-            normalized.totalOnlineSeconds,
-            normalized.currentOnlineStartedAt,
-            normalized.createdAt,
-            JSON.stringify(toPersistedUser(normalized)),
-        ]);
     }
 }

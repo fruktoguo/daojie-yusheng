@@ -739,21 +739,6 @@ async function seedNativePersistenceForToken(token) {
             updatedAt: Date.now(),
         })]);
         await pool.query(`
-      INSERT INTO persistent_documents(scope, key, payload, "updatedAt")
-      VALUES ($1, $2, $3::jsonb, now())
-      ON CONFLICT (scope, key)
-      DO UPDATE SET payload = EXCLUDED.payload, "updatedAt" = now()
-    `, ['server_next_player_identities_v1', userId, JSON.stringify({
-                version: 1,
-                userId,
-                username,
-                displayName,
-                playerId: seededPlayerId,
-                playerName,
-                persistedSource: 'token_seed',
-                updatedAt: Date.now(),
-            })]);
-        await pool.query(`
       INSERT INTO server_next_player_snapshot(
         player_id,
         template_id,
@@ -840,79 +825,6 @@ async function seedNativePersistenceForToken(token) {
                 seededAt: Date.now(),
             },
         })]);
-        await pool.query(`
-      INSERT INTO persistent_documents(scope, key, payload, "updatedAt")
-      VALUES ($1, $2, $3::jsonb, now())
-      ON CONFLICT (scope, key)
-      DO UPDATE SET payload = EXCLUDED.payload, "updatedAt" = now()
-    `, ['server_next_player_snapshots_v1', seededPlayerId, JSON.stringify({
-                version: 1,
-                savedAt: Date.now(),
-                placement: {
-                    templateId: 'yunlai_town',
-                    x: 31,
-                    y: 54,
-                    facing: 1,
-                },
-                vitals: {
-                    hp: 100,
-                    maxHp: 100,
-                    qi: 0,
-                    maxQi: 100,
-                },
-                progression: {
-                    foundation: 0,
-                    combatExp: 0,
-                    bodyTraining: null,
-                    boneAgeBaseYears: 18,
-                    lifeElapsedTicks: 0,
-                    lifespanYears: null,
-                    realm: null,
-                    heavenGate: null,
-                    spiritualRoots: null,
-                },
-                unlockedMapIds: ['yunlai_town'],
-                inventory: {
-                    revision: 1,
-                    capacity: 24,
-                    items: [],
-                },
-                equipment: {
-                    revision: 1,
-                    slots: [],
-                },
-                techniques: {
-                    revision: 1,
-                    techniques: [],
-                    cultivatingTechId: null,
-                },
-                buffs: {
-                    revision: 1,
-                    buffs: [],
-                },
-                quests: {
-                    revision: 1,
-                    entries: [],
-                },
-                combat: {
-                    autoBattle: false,
-                    autoRetaliate: true,
-                    autoBattleStationary: false,
-                    combatTargetId: null,
-                    combatTargetLocked: false,
-                    allowAoePlayerHit: false,
-                    autoIdleCultivation: true,
-                    autoSwitchCultivation: false,
-                    senseQiActive: false,
-                    autoBattleSkills: [],
-                },
-                pendingLogbookMessages: [],
-                runtimeBonuses: [],
-                __snapshotMeta: {
-                    persistedSource: 'native',
-                    seededAt: Date.now(),
-                },
-            })]);
     }
     finally {
         await pool.end().catch(() => undefined);
@@ -931,7 +843,7 @@ function parseJwtPayload(token) {
     }
 }
 /**
- * 等待persisted playersnapshot文档落库。
+ * 等待 persisted player snapshot 写入 next 专表。
  */
 async function waitForPersistedPlayerSnapshot(playerIdToCheck) {
     await waitForCondition(async () => {
@@ -939,7 +851,7 @@ async function waitForPersistedPlayerSnapshot(playerIdToCheck) {
             connectionString: databaseUrl,
         });
         try {
-            const result = await pool.query('SELECT 1 FROM persistent_documents WHERE scope = $1 AND key = $2 LIMIT 1', ['server_next_player_snapshots_v1', playerIdToCheck]);
+            const result = await pool.query('SELECT 1 FROM server_next_player_snapshot WHERE player_id = $1 LIMIT 1', [playerIdToCheck]);
             return Array.isArray(result?.rows) && result.rows.length > 0;
         }
         finally {

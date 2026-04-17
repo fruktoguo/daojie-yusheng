@@ -190,7 +190,6 @@ async function ensurePlayerIdentityTable(pool) {
         await client.query(CREATE_PLAYER_IDENTITY_USERNAME_INDEX_SQL);
         await client.query(CREATE_PLAYER_IDENTITY_PLAYER_INDEX_SQL);
         await client.query(CREATE_PLAYER_IDENTITY_DISPLAY_INDEX_SQL);
-        await migrateLegacyIdentityDocumentsToTable(client);
         await client.query('COMMIT');
     }
     catch (error) {
@@ -199,46 +198,6 @@ async function ensurePlayerIdentityTable(pool) {
     }
     finally {
         client.release();
-    }
-}
-async function migrateLegacyIdentityDocumentsToTable(client) {
-    const existing = await client.query(`SELECT 1 FROM ${PLAYER_IDENTITY_TABLE} LIMIT 1`);
-    if (existing.rowCount > 0) {
-        return;
-    }
-    const relation = await client.query(`SELECT to_regclass('public.persistent_documents') AS relation_name`);
-    if (!relation.rows[0]?.relation_name) {
-        return;
-    }
-    const legacyRows = await client.query('SELECT key, payload FROM persistent_documents WHERE scope = $1 ORDER BY key ASC', [PLAYER_IDENTITY_SCOPE]);
-    for (const row of legacyRows.rows) {
-        const normalized = normalizePlayerIdentity(row?.payload);
-        if (!normalized) {
-            continue;
-        }
-        await client.query(`
-        INSERT INTO ${PLAYER_IDENTITY_TABLE}(
-          user_id,
-          username,
-          player_id,
-          display_name,
-          player_name,
-          persisted_source,
-          updated_at,
-          payload
-        )
-        VALUES ($1, $2, $3, $4, $5, $6, now(), $7::jsonb)
-        ON CONFLICT (user_id) DO NOTHING
-      `, [
-            normalized.userId,
-            normalized.username,
-            normalized.playerId,
-            normalized.displayName,
-            normalized.playerName,
-            normalizePlayerIdentityPersistedSource(normalized.persistedSource)
-                ?? PLAYER_IDENTITY_PERSISTED_SOURCE_NATIVE,
-            JSON.stringify(normalized),
-        ]);
     }
 }
 function normalizePersistedPlayerIdentityRow(row) {

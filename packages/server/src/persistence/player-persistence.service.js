@@ -216,7 +216,6 @@ async function ensurePlayerSnapshotTable(pool) {
         await client.query(CREATE_PLAYER_SNAPSHOT_TABLE_SQL);
         await client.query(CREATE_PLAYER_SNAPSHOT_TEMPLATE_INDEX_SQL);
         await client.query(CREATE_PLAYER_SNAPSHOT_SOURCE_INDEX_SQL);
-        await migrateLegacySnapshotDocumentsToTable(client);
         await client.query('COMMIT');
     }
     catch (error) {
@@ -225,50 +224,6 @@ async function ensurePlayerSnapshotTable(pool) {
     }
     finally {
         client.release();
-    }
-}
-async function migrateLegacySnapshotDocumentsToTable(client) {
-    const existing = await client.query(`SELECT 1 FROM ${PLAYER_SNAPSHOT_TABLE} LIMIT 1`);
-    if (existing.rowCount > 0) {
-        return;
-    }
-    const relation = await client.query(`SELECT to_regclass('public.persistent_documents') AS relation_name`);
-    if (!relation.rows[0]?.relation_name) {
-        return;
-    }
-    const legacyRows = await client.query('SELECT key, payload FROM persistent_documents WHERE scope = $1 ORDER BY key ASC', [PLAYER_SNAPSHOT_SCOPE]);
-    for (const row of legacyRows.rows) {
-        const record = normalizePlayerSnapshotRecord(row?.payload);
-        if (!record?.snapshot) {
-            continue;
-        }
-        const playerId = typeof row?.key === 'string' ? row.key.trim() : '';
-        if (!playerId) {
-            continue;
-        }
-        await client.query(`
-        INSERT INTO ${PLAYER_SNAPSHOT_TABLE}(
-          player_id,
-          template_id,
-          persisted_source,
-          seeded_at,
-          saved_at,
-          updated_at,
-          payload
-        )
-        VALUES ($1, $2, $3, $4, $5, now(), $6::jsonb)
-        ON CONFLICT (player_id) DO NOTHING
-      `, [
-            playerId,
-            record.snapshot.placement.templateId,
-            record.persistedSource,
-            record.seededAt,
-            Math.max(0, Math.trunc(record.snapshot.savedAt)),
-            JSON.stringify(buildPersistedPlayerSnapshotPayload(record.snapshot, {
-                persistedSource: record.persistedSource,
-                seededAt: record.seededAt,
-            })),
-        ]);
     }
 }
 function normalizePersistedPlayerSnapshotRow(row) {
