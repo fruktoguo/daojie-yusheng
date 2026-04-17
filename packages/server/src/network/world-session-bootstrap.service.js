@@ -624,18 +624,6 @@ let WorldSessionBootstrapService = class WorldSessionBootstrapService {
                 fallbackReason: authSource ? `persistence_enabled_blocked:${authSource}` : 'persistence_enabled_blocked:unknown',
             };
         }
-        if (authSource === 'legacy_runtime' && protocol === 'next') {
-            return {
-                allowLegacyFallback: false,
-                fallbackReason: 'next_protocol_blocked:legacy_identity',
-            };
-        }
-        if (authSource === 'legacy_runtime') {
-            return {
-                allowLegacyFallback: false,
-                fallbackReason: 'runtime_migration_snapshot_blocked:legacy_identity',
-            };
-        }
         return {
             allowLegacyFallback: false,
             fallbackReason: authSource ? `identity_source:${authSource}` : 'identity_source:unknown',

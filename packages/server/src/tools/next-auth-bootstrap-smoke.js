@@ -3507,7 +3507,7 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
     const noPersistenceSnapshot = await noPersistenceBootstrapService.loadAuthenticatedPlayerSnapshot(legacyRuntimeIdentity);
     if (noPersistenceSnapshot !== null
         || noPersistenceCalls[0]?.allowLegacyFallback !== false
-        || noPersistenceCalls[0]?.fallbackReason !== 'runtime_migration_snapshot_blocked:legacy_identity') {
+        || noPersistenceCalls[0]?.fallbackReason !== 'identity_source:legacy_runtime') {
         throw new Error(`expected non-persistence legacy_runtime identity to block compat snapshot fallback by default, got snapshot=${JSON.stringify(noPersistenceSnapshot ?? null)} call=${JSON.stringify(noPersistenceCalls[0] ?? null)}`);
     }
 /**
@@ -3538,7 +3538,7 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
     const runtimeMigrationSnapshot = await runtimeMigrationBootstrapService.loadAuthenticatedPlayerSnapshot(legacyRuntimeIdentity);
     if (runtimeMigrationSnapshot !== null
         || runtimeMigrationCalls[0]?.allowLegacyFallback !== false
-        || runtimeMigrationCalls[0]?.fallbackReason !== 'runtime_migration_snapshot_blocked:legacy_identity') {
+        || runtimeMigrationCalls[0]?.fallbackReason !== 'identity_source:legacy_runtime') {
         throw new Error(`expected runtime migration switch path to stay blocked after runtime fallback removal, got snapshot=${JSON.stringify(runtimeMigrationSnapshot ?? null)} call=${JSON.stringify(runtimeMigrationCalls[0] ?? null)}`);
     }
 /**
@@ -3573,7 +3573,7 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
     });
     if (noPersistenceNextProtocolSnapshot !== null
         || noPersistenceNextProtocolCalls[0]?.allowLegacyFallback !== false
-        || noPersistenceNextProtocolCalls[0]?.fallbackReason !== 'next_protocol_blocked:legacy_identity') {
+        || noPersistenceNextProtocolCalls[0]?.fallbackReason !== 'identity_source:legacy_runtime') {
         throw new Error(`expected next-protocol legacy_runtime identity to block compat snapshot fallback, got snapshot=${JSON.stringify(noPersistenceNextProtocolSnapshot ?? null)} call=${JSON.stringify(noPersistenceNextProtocolCalls[0] ?? null)}`);
     }
 /**
