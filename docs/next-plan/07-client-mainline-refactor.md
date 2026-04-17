@@ -64,7 +64,7 @@
 - [ ] 收口建议面板状态来源
 - [ ] 收口任务面板状态来源
 - [ ] 收口市场面板状态来源
-- [ ] 收口设置面板状态来源
+- [x] 收口设置面板状态来源
 - [ ] 检查 GM 页面、GM 世界查看器、地图编辑器是否长期保留
 - [ ] 明确哪些状态只能由 Socket 增量驱动
 - [ ] 明确哪些状态允许客户端本地派生缓存
@@ -152,8 +152,8 @@
 - [ ] `quest-panel.ts`
   - 只消费 quest 相关状态
   - 首刀已完成：quest 状态源与低频编排已从 `main.ts` 抽到 `packages/client/src/main-quest-state-source.ts`，`socket.ts` 仍保持唯一事件消费层，`QuestPanel` 保持 patch-first
-- [ ] `settings-panel.ts`
-  - 继续保持本地 UI 派生状态，但不反向决定服务端状态
+- [x] `settings-panel.ts`
+  - 已完成：settings 低频编排与状态来源已从 `main.ts` 抽到 `packages/client/src/main-settings-state-source.ts`，`socket.ts` 仍保持唯一事件消费层，`SettingsPanel` 保持原有渲染/交互行为
 - [ ] `attr-panel.ts` / `technique-panel.ts`
   - 区分按需详情与高频自我状态
 
