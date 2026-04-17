@@ -316,6 +316,11 @@
 - `WorldRuntimeService` 的 craft orchestration（中断、start/cancel/save/delete、tick 推进、面板推送、掉地兜底）已委托给 `WorldRuntimeCraftService`
 - `CraftPanelRuntimeService` 仍保留炼丹/强化规则、job/preset/record 写入、resource consume 与 finalize/tick 细节，说明这次只是第 5 批第二刀的 orchestration 级提取，不是完整 craft runtime 子域拆分
 - 本轮验证已补跑 `smoke:runtime`、`smoke:combat`、`smoke:loot`、`smoke:player-respawn`、根级 `pnpm build` 与 `pnpm verify:replace-ready`
+- 新增 `packages/server/src/runtime/world/world-runtime-npc-quest-shop.service.js`
+- `WorldRuntimeService` 的 NPC/shop/quest 写路径编排（enqueueBuyNpcShopItem / enqueueNpcInteraction / enqueueAcceptNpcQuest / enqueueSubmitNpcQuest / dispatchBuyNpcShopItem / dispatchNpcInteraction / dispatchAcceptNpcQuest / dispatchSubmitNpcQuest）已委托给 `WorldRuntimeNpcQuestShopService`
+- `WorldRuntimeService` 仍保留 `pendingCommands` 队列所有权、`resolveAdjacentNpc()`、`refreshQuestStates()`、`tryAcceptNextQuest()` 与 query/service facade，说明这次只是第 5 批第三刀的 orchestration 级提取，不是完整 NPC/quest/shop runtime 子域拆分
+- `executeAction()` / `executeLegacyNpcAction()` 也已统一走 `WorldRuntimeNpcQuestShopService`，消除了 `npc_quests:*` 的“先入队后校验”路径
+- 本轮验证已补跑 `smoke:progression`、`smoke:runtime`、根级 `pnpm build` 与 `pnpm verify:replace-ready`
 
 这一批结束后，`world-runtime.service.js` 仍可以存在，但不该再同时拥有所有领域细节。
 
