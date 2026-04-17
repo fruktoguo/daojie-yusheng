@@ -58,6 +58,8 @@ const world_runtime_navigation_service_1 = require("./world-runtime-navigation.s
 
 const world_runtime_combat_effects_service_1 = require("./world-runtime-combat-effects.service");
 
+const world_runtime_monster_action_apply_service_1 = require("./world-runtime-monster-action-apply.service");
+
 const player_combat_service_1 = require("../combat/player-combat.service");
 
 const map_instance_runtime_1 = require("../instance/map-instance.runtime");
@@ -243,6 +245,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     worldRuntimeLootContainerService;
     worldRuntimeNavigationService;
     worldRuntimeCombatEffectsService;
+    worldRuntimeMonsterActionApplyService;
     logger = new common_1.Logger(WorldRuntimeService_1.name);
     stateLayerContract = world_runtime_contract_1.WORLD_RUNTIME_STATE_CONTRACT;
     runtimeState = (0, world_runtime_state_1.createWorldRuntimeStateStore)();
@@ -265,7 +268,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     tickDurationHistoryMs = [];
     syncFlushDurationHistoryMs = [];
     instanceTickProgressById = this.runtimeState.instanceTickProgressById;
-    constructor(contentTemplateRepository, templateRepository, mapPersistenceService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService, craftPanelRuntimeService, worldRuntimeNpcShopQueryService, worldRuntimeQuestQueryService, worldRuntimeNpcQuestInteractionQueryService, worldRuntimeGmQueueService, worldRuntimeCraftService, worldRuntimeNpcQuestShopService, worldRuntimeLootContainerService, worldRuntimeNavigationService, worldRuntimeCombatEffectsService) {
+    constructor(contentTemplateRepository, templateRepository, mapPersistenceService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService, craftPanelRuntimeService, worldRuntimeNpcShopQueryService, worldRuntimeQuestQueryService, worldRuntimeNpcQuestInteractionQueryService, worldRuntimeGmQueueService, worldRuntimeCraftService, worldRuntimeNpcQuestShopService, worldRuntimeLootContainerService, worldRuntimeNavigationService, worldRuntimeCombatEffectsService, worldRuntimeMonsterActionApplyService) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.templateRepository = templateRepository;
         this.mapPersistenceService = mapPersistenceService;
@@ -284,6 +287,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.worldRuntimeLootContainerService = worldRuntimeLootContainerService;
         this.worldRuntimeNavigationService = worldRuntimeNavigationService;
         this.worldRuntimeCombatEffectsService = worldRuntimeCombatEffectsService;
+        this.worldRuntimeMonsterActionApplyService = worldRuntimeMonsterActionApplyService;
     }
     /** onModuleInit：初始化公共实例的基础结构。 */
     async onModuleInit() {
@@ -3404,140 +3408,15 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     }
     /** applyMonsterAction：应用实例 tick 产出的妖兽动作。 */
     applyMonsterAction(action) {
-        if (action.kind === 'skill') {
-            this.applyMonsterSkill(action);
-            return;
-        }
-        this.applyMonsterBasicAttack(action);
+        this.worldRuntimeMonsterActionApplyService.applyMonsterAction(action, this);
     }
     /** applyMonsterBasicAttack：把妖兽普通攻击结算到玩家身上。 */
     applyMonsterBasicAttack(action) {
-
-        const location = this.playerLocations.get(action.targetPlayerId);
-        if (!location) {
-            return;
-        }
-
-        const instance = this.instances.get(action.instanceId);
-        if (!instance) {
-            return;
-        }
-
-        const monster = instance.getMonster(action.runtimeId);
-        if (!monster || !monster.alive) {
-            return;
-        }
-
-        const runtimeTargetPosition = instance.getPlayerPosition(action.targetPlayerId);
-        if (!runtimeTargetPosition) {
-            return;
-        }
-
-        const player = this.playerRuntimeService.getPlayer(action.targetPlayerId);
-        if (!player || player.instanceId !== location.instanceId || player.hp <= 0) {
-            return;
-        }
-
-        const distance = chebyshevDistance(monster.x, monster.y, runtimeTargetPosition.x, runtimeTargetPosition.y);
-        if (distance > monster.attackRange) {
-            return;
-        }
-
-        const damage = typeof action.damage === 'number' ? Math.max(0, Math.round(action.damage)) : 0;
-        if (damage <= 0) {
-            return;
-        }
-
-        const effectColor = (0, shared_1.getDamageTrailColor)('physical');
-        this.pushActionLabelEffect(action.instanceId, monster.x, monster.y, '攻击');
-
-        const updated = this.playerRuntimeService.applyDamage(action.targetPlayerId, damage);
-        this.pushAttackEffect(action.instanceId, monster.x, monster.y, runtimeTargetPosition.x, runtimeTargetPosition.y, effectColor);
-        this.pushDamageFloatEffect(action.instanceId, runtimeTargetPosition.x, runtimeTargetPosition.y, damage, effectColor);
-        this.playerRuntimeService.recordActivity(action.targetPlayerId, this.resolveCurrentTickForPlayerId(action.targetPlayerId), {
-            interruptCultivation: true,
-        });
-        if (updated.hp <= 0) {
-            this.handlePlayerDefeat(updated.playerId);
-        }
+        this.worldRuntimeMonsterActionApplyService.applyMonsterBasicAttack(action, this);
     }
     /** applyMonsterSkill：把妖兽技能结算到玩家身上。 */
     applyMonsterSkill(action) {
-        if (!action.skillId) {
-            return;
-        }
-
-        const instance = this.instances.get(action.instanceId);
-        if (!instance) {
-            return;
-        }
-
-        const monster = instance.getMonster(action.runtimeId);
-        if (!monster || !monster.alive) {
-            return;
-        }
-
-        const runtimeTargetPosition = instance.getPlayerPosition(action.targetPlayerId);
-        if (!runtimeTargetPosition) {
-            return;
-        }
-
-        const player = this.playerRuntimeService.getPlayer(action.targetPlayerId);
-        if (!player || player.instanceId !== action.instanceId || player.hp <= 0) {
-            return;
-        }
-
-        const distance = chebyshevDistance(monster.x, monster.y, runtimeTargetPosition.x, runtimeTargetPosition.y);
-        try {
-
-            const currentTick = instance.tick;
-
-            const result = this.playerCombatService.castMonsterSkill({
-                runtimeId: monster.runtimeId,
-                monsterId: monster.monsterId,
-                hp: monster.hp,
-                maxHp: monster.maxHp,
-                qi: 0,
-                maxQi: 0,
-                level: monster.level,
-                skills: monster.skills,
-                cooldownReadyTickBySkillId: monster.cooldownReadyTickBySkillId,
-                attrs: {
-                    finalAttrs: monster.attrs,
-                    numericStats: monster.numericStats,
-                    ratioDivisors: monster.ratioDivisors,
-                },
-                buffs: monster.buffs,
-            }, player, action.skillId, currentTick, distance, (buff) => {
-                instance.applyTemporaryBuffToMonster(monster.runtimeId, buff);
-            }, (buff) => {
-                this.playerRuntimeService.applyTemporaryBuff(player.playerId, buff);
-            });
-
-            const skill = monster.skills.find((entry) => entry.id === action.skillId);
-
-            const effectColor = skill ? getSkillEffectColor(skill) : (0, shared_1.getDamageTrailColor)('spell');
-            if (skill) {
-                this.pushActionLabelEffect(action.instanceId, monster.x, monster.y, skill.name);
-            }
-            this.pushAttackEffect(action.instanceId, monster.x, monster.y, runtimeTargetPosition.x, runtimeTargetPosition.y, effectColor);
-            if (result.totalDamage > 0) {
-                this.pushDamageFloatEffect(action.instanceId, runtimeTargetPosition.x, runtimeTargetPosition.y, result.totalDamage, effectColor);
-            }
-            this.playerRuntimeService.recordActivity(player.playerId, currentTick, {
-                interruptCultivation: true,
-            });
-
-            const updatedPlayer = this.playerRuntimeService.getPlayer(player.playerId);
-            if (updatedPlayer && updatedPlayer.hp <= 0) {
-                this.handlePlayerDefeat(updatedPlayer.playerId);
-            }
-        }
-        catch (error) {
-
-            const message = error instanceof Error ? error.message : String(error);
-            this.logger.warn(`处理妖兽技能 ${action.skillId}（来源 ${action.runtimeId}）失败：${message}`);
-        }
+        this.worldRuntimeMonsterActionApplyService.applyMonsterSkill(action, this);
     }
     /** handlePlayerDefeat：标记玩家进入复生队列。 */
     handlePlayerDefeat(playerId) {
@@ -3666,7 +3545,8 @@ exports.WorldRuntimeService = WorldRuntimeService = WorldRuntimeService_1 = __de
         world_runtime_npc_quest_shop_service_1.WorldRuntimeNpcQuestShopService,
         world_runtime_loot_container_service_1.WorldRuntimeLootContainerService,
         world_runtime_navigation_service_1.WorldRuntimeNavigationService,
-        world_runtime_combat_effects_service_1.WorldRuntimeCombatEffectsService])
+        world_runtime_combat_effects_service_1.WorldRuntimeCombatEffectsService,
+        world_runtime_monster_action_apply_service_1.WorldRuntimeMonsterActionApplyService])
 ], WorldRuntimeService);
 // helper functions were split into dedicated helper modules for maintainability.
 //# sourceMappingURL=world-runtime.service.js.map
