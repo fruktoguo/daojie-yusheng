@@ -70,7 +70,7 @@
 - [ ] 把 `world.gateway.js` 收成“事件分发层”，不再继续承载具体业务分支
 - [x] 抽离握手 / hello / guest 入口处理
 - [ ] 抽离 authenticated player action handler
-- [ ] 抽离 GM socket handler
+- [x] 抽离 GM socket handler
 - [ ] 保留一个薄 gateway，只负责：
   - 协议入口
   - client/session 基础校验
@@ -86,7 +86,7 @@
   - item / equipment / cultivate
   - quest / npc / shop / redeem
   - alchemy / enhancement
-  - gm socket
+  - gm socket（已抽到 `world-gateway-gm-command.helper.js`）
 
 本轮已完成：
 
@@ -97,8 +97,13 @@
 当前仍未完成：
 
 - `world.gateway.js` 仍然承载大量 authenticated gameplay handler
-- GM socket handler 还未抽离
 - gateway 还不是最终意义上的纯分发层
+
+本轮继续完成：
+
+- 新增 `packages/server/src/network/world-gateway-gm-command.helper.js`
+- `GmGetState / GmSpawnBots / GmRemoveBots / GmUpdatePlayer / GmResetPlayer` 已从 gateway 主文件移出
+- suggestion moderation 仍留在 gateway，作为后续更小簇单独处理
 
 最小验证：
 
