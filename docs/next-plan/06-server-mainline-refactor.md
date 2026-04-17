@@ -97,7 +97,7 @@
 当前仍未完成：
 
 - `world.gateway.js` 仍然承载大量 authenticated gameplay handler
-- market、npc/shop/quest、craft 与 player-controls 等 authenticated gameplay handler 仍在 gateway
+- market、craft 与 player-controls 等 authenticated gameplay handler 仍在 gateway
 - gateway 还不是最终意义上的纯分发层
 
 本轮继续完成：
@@ -135,6 +135,12 @@
 - 新增 `packages/server/src/network/world-gateway-mail.helper.js`
 - `handleNextRequestMailSummary / handleNextRequestMailPage / handleNextRequestMailDetail / handleNextMarkMailRead / handleNextClaimMailAttachments / handleNextDeleteMail` 已从 gateway 主文件移出
 - MailSummary / MailPage / MailDetail / MailOpResult 的发包链路与 read/claim/delete 后的 summary 刷新保持不变
+
+本轮继续完成：
+
+- 新增 `packages/server/src/network/world-gateway-npc.helper.js`
+- `handleNextRequestNpcShop / handleRequestNpcQuests / handleAcceptNpcQuest / handleSubmitNpcQuest / handleNextBuyNpcShopItem` 已从 gateway 主文件移出
+- NPC 商店视图、NPC 任务视图、任务接取/提交与商店购买的 gateway error code 与 runtime enqueue 路径保持不变；`useAction` 仍留在 gateway，待后续单独处理
 
 最小验证：
 
