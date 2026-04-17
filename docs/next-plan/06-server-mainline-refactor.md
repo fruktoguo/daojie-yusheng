@@ -263,6 +263,10 @@
 - `world-runtime.service.js` 的 NPC quest envelope、任务模板展开、reward 构造、progress/ready 判定与导航目标解析已委托给 `WorldRuntimeQuestQueryService`
 - `world-runtime.service.js` 仍保留 `resolveAdjacentNpc()`、`buildNpcQuestsView()` facade、`refreshQuestStates()`、`dispatchAcceptNpcQuest()`、`dispatchSubmitNpcQuest()` 与 `tryAcceptNextQuest()` 的写路径编排，避免第 4 批第二刀越界到 batch 5 的状态域拆分
 - 本轮验证已补跑 `audit:next-protocol`、`smoke:progression`、`smoke:redeem-code`、`smoke:gm-next`、根级 `pnpm build` 与 `pnpm verify:replace-ready`
+- 新增 `packages/server/src/runtime/world/world-runtime-npc-quest-interaction-query.service.js`
+- `world-runtime.service.js` 的 NPC quest marker 解析与 `npc_quests:*` 上下文动作构造已委托给 `WorldRuntimeNpcQuestInteractionQueryService`
+- `world-runtime.service.js` 仍保留 `buildNpcQuestsView()` facade、`executeLegacyNpcAction()`、`dispatchNpcInteraction()` 与任务接取/提交写路径，避免第 4 批第三刀越界到 batch 5 的状态域拆分
+- 本轮验证已补跑 `smoke:progression`、`smoke:redeem-code`、`smoke:gm-next`、根级 `pnpm build` 与 `pnpm verify:replace-ready`
 
 当前优先可拆的冷块：
 
