@@ -99,7 +99,7 @@
 - 哪些入口已在 `01/05` 里归为“临时允许”
 - 哪些入口应直接删除
 - 当前 direct legacy source 扫描未命中 `packages/client/src/*` 与 `packages/shared/src/*`；客户端旧 alias / 事件消费差异继续留在 `NEXT_S2C` 对齐阶段处理
-- 当前只保留两组真实 residual：`shared/client` 的协议命名漂移与本地动作桥、`server` 的玩家真源迁移桥；纯 inventory / audit 输出不再单列为待收口入口
+- 当前只保留两组真实 residual：`client` 的观察类本地动作桥与 `server` 的玩家真源迁移桥；纯 inventory / audit 输出不再单列为待收口入口
 
 ### 第 3 批：对齐 `NEXT_C2S` 到 `world.gateway.js`
 
@@ -150,6 +150,12 @@
 - [ ] 删除 next 代码里仍通过 legacy 文件决定行为的地方
 - [ ] 删除 shared/client/server 间重复的本地事件定义
 - [ ] 删除只为“旧协议也这样”存在的 next 行为分支
+
+当前剩余收口重点：
+
+- [x] `client:take` synthetic 动作已收口为真实动作 `loot:open`
+- [ ] `client:observe` 仍是前台本地观察动作
+- [ ] server 玩家身份 / 快照 / auth 真源仍保留 migration-only 桥接入口
 
 这一步不负责删所有 compat，只负责：
 
