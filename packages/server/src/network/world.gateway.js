@@ -62,6 +62,10 @@ const world_session_service_1 = require("./world-session.service");
 
 const world_gateway_bootstrap_helper_1 = require("./world-gateway-bootstrap.helper");
 
+const world_gateway_gm_helper_1 = require("./world-gateway-gm.helper");
+
+const world_gateway_gm_command_helper_1 = require("./world-gateway-gm-command.helper");
+
 /** 鉴权后请求 sessionId 只允许从 next/token 两类来源带入。 */
 const AUTHENTICATED_REQUESTED_SESSION_ID_AUTH_SOURCES = new Set([
     'next',
@@ -124,6 +128,10 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
     worldSessionService;
     /** 连接/hello 引导 helper。 */
     gatewayBootstrapHelper;
+    /** GM socket helper。 */
+    gatewayGmHelper;
+    /** GM command helper。 */
+    gatewayGmCommandHelper;
     /** Socket.IO server 实例。 */
     server;
     /** 入口日志。 */
@@ -150,6 +158,8 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         this.worldClientEventService = worldClientEventService;
         this.worldSessionService = worldSessionService;
         this.gatewayBootstrapHelper = new world_gateway_bootstrap_helper_1.WorldGatewayBootstrapHelper(this);
+        this.gatewayGmHelper = new world_gateway_gm_helper_1.WorldGatewayGmHelper(this);
+        this.gatewayGmCommandHelper = new world_gateway_gm_command_helper_1.WorldGatewayGmCommandHelper(this);
     }
     /** 处理 socket 连接：校验协议、阻断未就绪流量并触发鉴权引导。 */
     async handleConnection(client) {
@@ -204,76 +214,31 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         this.handleGmGetState(client, _payload);
     }
     handleGmGetState(client, _payload) {
-
-        const playerId = this.requireGm(client);
-        if (!playerId) {
-            return;
-        }
-        this.worldGmSocketService.emitState(client);
+        return this.gatewayGmCommandHelper.handleGmGetState(client, _payload);
     }
     handleNextGmSpawnBots(client, payload) {
         this.handleGmSpawnBots(client, payload);
     }
     handleGmSpawnBots(client, payload) {
-
-        const playerId = this.requireGm(client);
-        if (!playerId) {
-            return;
-        }
-        try {
-            this.worldGmSocketService.enqueueSpawnBots(playerId, payload?.count);
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'GM_SPAWN_BOTS_FAILED', error);
-        }
+        return this.gatewayGmCommandHelper.handleGmSpawnBots(client, payload);
     }
     handleNextGmRemoveBots(client, payload) {
         this.handleGmRemoveBots(client, payload);
     }
     handleGmRemoveBots(client, payload) {
-
-        const playerId = this.requireGm(client);
-        if (!playerId) {
-            return;
-        }
-        try {
-            this.worldGmSocketService.enqueueRemoveBots(playerId, payload?.playerIds, payload?.all);
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'GM_REMOVE_BOTS_FAILED', error);
-        }
+        return this.gatewayGmCommandHelper.handleGmRemoveBots(client, payload);
     }
     handleNextGmUpdatePlayer(client, payload) {
         this.handleGmUpdatePlayer(client, payload);
     }
     handleGmUpdatePlayer(client, payload) {
-
-        const requesterPlayerId = this.requireGm(client);
-        if (!requesterPlayerId) {
-            return;
-        }
-        try {
-            this.worldGmSocketService.enqueueUpdatePlayer(requesterPlayerId, payload);
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'GM_UPDATE_PLAYER_FAILED', error);
-        }
+        return this.gatewayGmCommandHelper.handleGmUpdatePlayer(client, payload);
     }
     handleNextGmResetPlayer(client, payload) {
         this.handleGmResetPlayer(client, payload);
     }
     handleGmResetPlayer(client, payload) {
-
-        const requesterPlayerId = this.requireGm(client);
-        if (!requesterPlayerId) {
-            return;
-        }
-        try {
-            this.worldGmSocketService.enqueueResetPlayer(requesterPlayerId, payload?.playerId);
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'GM_RESET_PLAYER_FAILED', error);
-        }
+        return this.gatewayGmCommandHelper.handleGmResetPlayer(client, payload);
     }
     handleNextMoveTo(client, payload) {
 
