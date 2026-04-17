@@ -40,6 +40,8 @@ const redeem_code_runtime_service_1 = require("../redeem/redeem-code-runtime.ser
 
 const craft_panel_runtime_service_1 = require("../craft/craft-panel-runtime.service");
 
+const world_runtime_npc_shop_query_service_1 = require("./world-runtime-npc-shop-query.service");
+
 const player_combat_service_1 = require("../combat/player-combat.service");
 
 const map_instance_runtime_1 = require("../instance/map-instance.runtime");
@@ -160,9 +162,6 @@ const {
 /** DEFAULT_PLAYER_RESPAWN_MAP_ID：DEFAULTPLAYERRESPAWNMAPID。 */
 const DEFAULT_PLAYER_RESPAWN_MAP_ID = 'yunlai_town';
 
-/** NPC_SHOP_CURRENCY_ITEM_ID：NPCSHOPCURRENCYITEMID。 */
-const NPC_SHOP_CURRENCY_ITEM_ID = 'spirit_stone';
-
 /** TICK_METRIC_WINDOW_SIZE：TICKMETRICWINDOWSIZE。 */
 const TICK_METRIC_WINDOW_SIZE = 60;
 
@@ -231,6 +230,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     worldClientEventService;
     redeemCodeRuntimeService;
     craftPanelRuntimeService;
+    worldRuntimeNpcShopQueryService;
     logger = new common_1.Logger(WorldRuntimeService_1.name);
     stateLayerContract = world_runtime_contract_1.WORLD_RUNTIME_STATE_CONTRACT;
     runtimeState = (0, world_runtime_state_1.createWorldRuntimeStateStore)();
@@ -258,7 +258,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     dirtyContainerPersistenceInstanceIds = this.runtimeState.dirtyContainerPersistenceInstanceIds;
     latestCombatEffectsByInstanceId = this.runtimeState.latestCombatEffectsByInstanceId;
     nextGmBotSequence = 1;
-    constructor(contentTemplateRepository, templateRepository, mapPersistenceService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService, craftPanelRuntimeService) {
+    constructor(contentTemplateRepository, templateRepository, mapPersistenceService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService, craftPanelRuntimeService, worldRuntimeNpcShopQueryService) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.templateRepository = templateRepository;
         this.mapPersistenceService = mapPersistenceService;
@@ -268,6 +268,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.worldClientEventService = worldClientEventService;
         this.redeemCodeRuntimeService = redeemCodeRuntimeService;
         this.craftPanelRuntimeService = craftPanelRuntimeService;
+        this.worldRuntimeNpcShopQueryService = worldRuntimeNpcShopQueryService;
     }
     /** onModuleInit：初始化公共实例的基础结构。 */
     async onModuleInit() {
@@ -961,7 +962,8 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         if (!npcId) {
             throw new common_1.BadRequestException('npcId is required');
         }
-        return this.createNpcShopEnvelope(playerId, npcId);
+        const npc = this.resolveAdjacentNpc(playerId, npcId);
+        return this.worldRuntimeNpcShopQueryService.createEnvelopeForNpc(npc);
     }
     /** buildQuestListView：构建玩家任务列表视图。 */
     buildQuestListView(playerId, _input) {
@@ -3787,7 +3789,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     dispatchBuyNpcShopItem(playerId, npcId, itemId, quantity) {
 
         const validated = this.validateNpcShopPurchase(playerId, npcId, itemId, quantity);
-        this.playerRuntimeService.consumeInventoryItemByItemId(playerId, NPC_SHOP_CURRENCY_ITEM_ID, validated.totalCost);
+        this.playerRuntimeService.consumeInventoryItemByItemId(playerId, this.worldRuntimeNpcShopQueryService.getCurrencyItemId(), validated.totalCost);
         this.playerRuntimeService.receiveInventoryItem(playerId, validated.item);
         this.refreshQuestStates(playerId);
         this.queuePlayerNotice(playerId, `购买 ${formatItemStackLabel(validated.item)}，消耗 ${this.getNpcShopCurrencyName()} x${validated.totalCost}`, 'success');
@@ -4227,26 +4229,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     createNpcShopEnvelope(playerId, npcId) {
 
         const npc = this.resolveAdjacentNpc(playerId, npcId);
-        if (!npc.hasShop) {
-            return {
-                npcId,
-                shop: null,
-                error: '对方现在没有经营商店',
-            };
-        }
-
-        const shop = this.buildNpcShopState(npc);
-        if (!shop) {
-            return {
-                npcId,
-                shop: null,
-                error: '商铺货架还没有可售物品',
-            };
-        }
-        return {
-            npcId,
-            shop,
-        };
+        return this.worldRuntimeNpcShopQueryService.createEnvelopeForNpc(npc);
     }
     /** resolveAdjacentNpc：校验并读取相邻 NPC。 */
     resolveAdjacentNpc(playerId, npcId) {
@@ -4263,32 +4246,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     }
     /** buildNpcShopState：构建 NPC 商店的可售状态。 */
     buildNpcShopState(npc) {
-
-        const items = npc.shopItems
-            .map((entry) => {
-
-            const item = this.contentTemplateRepository.createItem(entry.itemId, 1);
-            if (!item) {
-                return null;
-            }
-            return {
-                itemId: entry.itemId,
-                item,
-                unitPrice: entry.price,
-            };
-        })
-            .filter((entry) => Boolean(entry));
-        if (items.length === 0) {
-            return null;
-        }
-        return {
-            npcId: npc.npcId,
-            npcName: npc.name,
-            dialogue: npc.dialogue,
-            currencyItemId: NPC_SHOP_CURRENCY_ITEM_ID,
-            currencyItemName: this.getNpcShopCurrencyName(),
-            items,
-        };
+        return this.worldRuntimeNpcShopQueryService.buildShopState(npc);
     }
     /** createNpcQuestsEnvelope：构建 NPC 任务封装结果。 */
     createNpcQuestsEnvelope(playerId, npcId) {
@@ -4770,38 +4728,11 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     validateNpcShopPurchase(playerId, npcId, itemId, quantity) {
 
         const npc = this.resolveAdjacentNpc(playerId, npcId);
-        if (!npc.hasShop) {
-            throw new common_1.BadRequestException('对方现在没有经营商店');
-        }
-
-        const shopItem = npc.shopItems.find((entry) => entry.itemId === itemId);
-        if (!shopItem) {
-            throw new common_1.NotFoundException('这位商人没有出售该物品');
-        }
-
-        const totalCost = quantity * shopItem.price;
-        if (!Number.isSafeInteger(totalCost) || totalCost <= 0) {
-            throw new common_1.BadRequestException('购买总价过大，暂时无法结算');
-        }
-
-        const item = this.contentTemplateRepository.createItem(itemId, quantity);
-        if (!item) {
-            throw new common_1.NotFoundException('商品配置异常，暂时无法购买');
-        }
-        if (!this.playerRuntimeService.canReceiveInventoryItem(playerId, item.itemId)) {
-            throw new common_1.BadRequestException('背包空间不足，无法购买');
-        }
-        if (this.playerRuntimeService.getInventoryCountByItemId(playerId, NPC_SHOP_CURRENCY_ITEM_ID) < totalCost) {
-            throw new common_1.BadRequestException(`${this.getNpcShopCurrencyName()}不足`);
-        }
-        return {
-            item,
-            totalCost,
-        };
+        return this.worldRuntimeNpcShopQueryService.validatePurchaseForNpc(playerId, npc, itemId, quantity);
     }
     /** getNpcShopCurrencyName：读取 NPC 商店货币名称。 */
     getNpcShopCurrencyName() {
-        return this.contentTemplateRepository.createItem(NPC_SHOP_CURRENCY_ITEM_ID, 1)?.name ?? NPC_SHOP_CURRENCY_ITEM_ID;
+        return this.worldRuntimeNpcShopQueryService.getCurrencyItemName();
     }
     /** decoratePlayerViewNpcs：为玩家视野中的 NPC 补充任务标记。 */
     decoratePlayerViewNpcs(playerId, view) {
@@ -5387,7 +5318,8 @@ exports.WorldRuntimeService = WorldRuntimeService = WorldRuntimeService_1 = __de
         world_session_service_1.WorldSessionService,
         world_client_event_service_1.WorldClientEventService,
         redeem_code_runtime_service_1.RedeemCodeRuntimeService,
-        craft_panel_runtime_service_1.CraftPanelRuntimeService])
+        craft_panel_runtime_service_1.CraftPanelRuntimeService,
+        world_runtime_npc_shop_query_service_1.WorldRuntimeNpcShopQueryService])
 ], WorldRuntimeService);
 // helper functions were split into dedicated helper modules for maintainability.
 //# sourceMappingURL=world-runtime.service.js.map
