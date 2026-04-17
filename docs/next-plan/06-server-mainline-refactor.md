@@ -132,8 +132,8 @@
 本轮继续完成：
 
 - 新增 `packages/server/src/network/world-gateway-action.helper.js`
-- `handleNextRedeemCodes / handleUsePortal / handleNextCultivate / handleCastSkill` 已从 gateway 主文件移出
-- `redeemCodes / portal / cultivate / castSkill` 的 gateway error code 与 runtime enqueue / usePortal 语义保持不变；`handleUseAction` 仍留在 gateway，待最后单独收口
+- `handleNextRedeemCodes / handleUsePortal / handleNextCultivate / handleCastSkill / handleUseAction / handleProtocolAction / resolveActionId / emitProtocolActionResult` 已从 gateway 主文件移入 action helper
+- `redeemCodes / portal / cultivate / castSkill / useAction` 的 gateway error code、runtime enqueue、loot:open / battle / npc action / body_training 分发语义保持不变
 
 最小验证：
 
