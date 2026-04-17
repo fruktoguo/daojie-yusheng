@@ -135,12 +135,6 @@
 - `handleNextRedeemCodes / handleUsePortal / handleNextCultivate / handleCastSkill` 已从 gateway 主文件移出
 - `redeemCodes / portal / cultivate / castSkill` 的 gateway error code 与 runtime enqueue / usePortal 语义保持不变；`handleUseAction` 仍留在 gateway，待最后单独收口
 
-本轮继续完成：
-
-- 新增 `packages/server/src/network/world-gateway-read-model.helper.js`
-- `handleNextRequestAttrDetail / handleNextRequestLeaderboard / handleNextRequestWorldSummary / handleRequestDetail / handleRequestTileDetail` 已从 gateway 主文件移出
-- AttrDetail / Leaderboard / WorldSummary / Detail / TileDetail 的构造与 next-only 发包行为保持不变
-
 最小验证：
 
 - `pnpm --filter @mud/server-next build`
