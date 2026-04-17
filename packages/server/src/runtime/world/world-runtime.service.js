@@ -42,6 +42,8 @@ const craft_panel_runtime_service_1 = require("../craft/craft-panel-runtime.serv
 
 const world_runtime_npc_shop_query_service_1 = require("./world-runtime-npc-shop-query.service");
 
+const world_runtime_quest_query_service_1 = require("./world-runtime-quest-query.service");
+
 const player_combat_service_1 = require("../combat/player-combat.service");
 
 const map_instance_runtime_1 = require("../instance/map-instance.runtime");
@@ -231,6 +233,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     redeemCodeRuntimeService;
     craftPanelRuntimeService;
     worldRuntimeNpcShopQueryService;
+    worldRuntimeQuestQueryService;
     logger = new common_1.Logger(WorldRuntimeService_1.name);
     stateLayerContract = world_runtime_contract_1.WORLD_RUNTIME_STATE_CONTRACT;
     runtimeState = (0, world_runtime_state_1.createWorldRuntimeStateStore)();
@@ -258,7 +261,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     dirtyContainerPersistenceInstanceIds = this.runtimeState.dirtyContainerPersistenceInstanceIds;
     latestCombatEffectsByInstanceId = this.runtimeState.latestCombatEffectsByInstanceId;
     nextGmBotSequence = 1;
-    constructor(contentTemplateRepository, templateRepository, mapPersistenceService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService, craftPanelRuntimeService, worldRuntimeNpcShopQueryService) {
+    constructor(contentTemplateRepository, templateRepository, mapPersistenceService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService, craftPanelRuntimeService, worldRuntimeNpcShopQueryService, worldRuntimeQuestQueryService) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.templateRepository = templateRepository;
         this.mapPersistenceService = mapPersistenceService;
@@ -269,6 +272,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.redeemCodeRuntimeService = redeemCodeRuntimeService;
         this.craftPanelRuntimeService = craftPanelRuntimeService;
         this.worldRuntimeNpcShopQueryService = worldRuntimeNpcShopQueryService;
+        this.worldRuntimeQuestQueryService = worldRuntimeQuestQueryService;
     }
     /** onModuleInit：初始化公共实例的基础结构。 */
     async onModuleInit() {
@@ -982,7 +986,8 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             throw new common_1.BadRequestException('npcId is required');
         }
         this.refreshQuestStates(playerId);
-        return this.createNpcQuestsEnvelope(playerId, npcId);
+        const npc = this.resolveAdjacentNpc(playerId, npcId);
+        return this.worldRuntimeQuestQueryService.createNpcQuestsEnvelope(playerId, npc);
     }
     /** buildDetail：构建目标详情，要求目标必须在当前视野内。 */
     buildDetail(playerId, input) {
@@ -4252,48 +4257,11 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     createNpcQuestsEnvelope(playerId, npcId) {
 
         const npc = this.resolveAdjacentNpc(playerId, npcId);
-        return {
-            npcId: npc.npcId,
-            npcName: npc.name,
-            quests: this.collectNpcQuestViews(playerId, npc),
-        };
+        return this.worldRuntimeQuestQueryService.createNpcQuestsEnvelope(playerId, npc);
     }
     /** collectNpcQuestViews：收集玩家在该 NPC 处可见的任务。 */
     collectNpcQuestViews(playerId, npc) {
-
-        const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
-
-        const byQuestId = new Map(player.quests.quests.map((entry) => [entry.id, entry]));
-
-        const result = [];
-        for (let index = 0; index < npc.quests.length; index += 1) {
-            const rawQuest = npc.quests[index];
-            const existing = byQuestId.get(rawQuest.id);
-            if (existing && existing.status !== 'completed') {
-                result.push(cloneQuestState(existing));
-                continue;
-            }
-            if (existing?.status === 'completed') {
-                continue;
-            }
-
-            const blockedByPrevious = npc.quests
-                .slice(0, index)
-                .some((candidate) => byQuestId.get(candidate.id)?.status !== 'completed');
-            if (blockedByPrevious) {
-                break;
-            }
-            result.push(this.createQuestStateFromSource(playerId, rawQuest.id, 'available'));
-        }
-        for (const quest of player.quests.quests) {
-            if (result.some((entry) => entry.id === quest.id)) {
-                continue;
-            }
-            if (quest.targetNpcId === npc.npcId || quest.submitNpcId === npc.npcId) {
-                result.push(cloneQuestState(quest));
-            }
-        }
-        return result.sort(compareQuestViews);
+        return this.worldRuntimeQuestQueryService.collectNpcQuestViews(playerId, npc);
     }
     /** refreshQuestStates：根据当前运行态刷新任务进度和状态。 */
     refreshQuestStates(playerId, forceDirty = false) {
@@ -4307,7 +4275,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         for (const quest of player.quests.quests) {
             const previousProgress = quest.progress;
             const previousStatus = quest.status;
-            quest.progress = this.resolveQuestProgress(playerId, quest);
+            quest.progress = this.worldRuntimeQuestQueryService.resolveQuestProgress(playerId, quest);
 
             const nextStatus = quest.status === 'completed'
                 ? 'completed'
@@ -4327,144 +4295,15 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     }
     /** resolveQuestProgress：计算任务当前进度。 */
     resolveQuestProgress(playerId, quest) {
-        if (quest.status === 'completed') {
-            return quest.required;
-        }
-        switch (quest.objectiveType) {
-            case 'submit_item':
-                return quest.requiredItemId
-                    ? Math.min(quest.required, this.playerRuntimeService.getInventoryCountByItemId(playerId, quest.requiredItemId))
-                    : quest.progress;
-            case 'learn_technique':
-                return quest.targetTechniqueId
-                    && this.playerRuntimeService.getTechniqueName(playerId, quest.targetTechniqueId)
-                    ? quest.required
-                    : 0;
-            case 'realm_stage': {
-
-                const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
-                return quest.targetRealmStage !== undefined && player.attrs.stage >= quest.targetRealmStage
-                    ? quest.required
-                    : quest.progress;
-            }
-            case 'realm_progress': {
-
-                const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
-                return quest.targetRealmStage !== undefined && player.attrs.stage > quest.targetRealmStage
-                    ? quest.required
-                    : quest.progress;
-            }
-            default:
-                return quest.progress;
-        }
+        return this.worldRuntimeQuestQueryService.resolveQuestProgress(playerId, quest);
     }
     /** canQuestBecomeReady：判断任务是否已经满足交付条件。 */
     canQuestBecomeReady(playerId, quest) {
-        if (quest.progress < quest.required) {
-            return false;
-        }
-        return !quest.requiredItemId || this.playerRuntimeService.getInventoryCountByItemId(playerId, quest.requiredItemId) >= (quest.requiredItemCount ?? 1);
+        return this.worldRuntimeQuestQueryService.canQuestBecomeReady(playerId, quest);
     }
     /** createQuestStateFromSource：把模板任务展开成玩家运行时任务。 */
     createQuestStateFromSource(playerId, questId, status = 'active') {
-
-        const source = this.templateRepository.getQuestSource(questId);
-        if (!source) {
-            throw new common_1.NotFoundException(`Quest ${questId} not found`);
-        }
-
-        const quest = source.quest;
-
-        const objectiveType = normalizeQuestObjectiveType(quest.objectiveType);
-
-        const required = normalizeQuestRequired(quest, objectiveType);
-
-        const targetRealmStage = normalizeQuestRealmStage(quest.targetRealmStage);
-
-        const targetNpcLocation = typeof quest.targetNpcId === 'string' && quest.targetNpcId.trim()
-            ? this.templateRepository.getNpcLocation(quest.targetNpcId.trim())
-            : null;
-
-        const submitNpcLocation = typeof quest.submitNpcId === 'string' && quest.submitNpcId.trim()
-            ? this.templateRepository.getNpcLocation(quest.submitNpcId.trim())
-            : null;
-
-        const rewardItems = this.buildQuestRewardItemsFromRecord(quest);
-
-        const built = {
-            id: source.quest.id,
-            title: source.quest.title,
-            desc: source.quest.desc,
-            line: normalizeQuestLine(source.quest.line),
-
-            chapter: typeof source.quest.chapter === 'string' ? source.quest.chapter : undefined,
-
-            story: typeof source.quest.story === 'string' ? source.quest.story : undefined,
-            status,
-            objectiveType,
-
-            objectiveText: typeof source.quest.objectiveText === 'string' ? source.quest.objectiveText : undefined,
-            progress: 0,
-            required,
-
-            targetName: resolveQuestTargetLabel(objectiveType, source.quest, targetRealmStage, targetNpcLocation?.npcName, this.contentTemplateRepository.getItemName(typeof source.quest.requiredItemId === 'string' ? source.quest.requiredItemId : ''), this.contentTemplateRepository.getTechniqueName(typeof source.quest.targetTechniqueId === 'string' ? source.quest.targetTechniqueId : '')),
-
-            targetTechniqueId: typeof source.quest.targetTechniqueId === 'string' ? source.quest.targetTechniqueId : undefined,
-            targetRealmStage,
-            rewardText: buildQuestRewardText(source.quest, rewardItems),
-
-            targetMonsterId: typeof source.quest.targetMonsterId === 'string' ? source.quest.targetMonsterId : '',
-
-            rewardItemId: typeof source.quest.rewardItemId === 'string' ? source.quest.rewardItemId : (rewardItems[0]?.itemId ?? ''),
-            rewardItemIds: rewardItems.map((entry) => entry.itemId),
-            rewards: rewardItems.map((entry) => ({ ...entry })),
-
-            nextQuestId: typeof source.quest.nextQuestId === 'string' ? source.quest.nextQuestId : undefined,
-
-            requiredItemId: typeof source.quest.requiredItemId === 'string' ? source.quest.requiredItemId : undefined,
-            requiredItemCount: Number.isInteger(source.quest.requiredItemCount) ? Number(source.quest.requiredItemCount) : undefined,
-            giverId: source.giverNpcId,
-            giverName: source.giverNpcName,
-            giverMapId: source.giverMapId,
-            giverMapName: source.giverMapName,
-            giverX: source.giverX,
-            giverY: source.giverY,
-
-            targetMapId: typeof source.quest.targetMapId === 'string' && source.quest.targetMapId.trim()
-                ? source.quest.targetMapId.trim()
-                : targetNpcLocation?.mapId,
-
-            targetMapName: typeof source.quest.targetMapId === 'string' && this.templateRepository.has(source.quest.targetMapId.trim())
-                ? this.templateRepository.getOrThrow(source.quest.targetMapId.trim()).name
-                : targetNpcLocation?.mapName,
-            targetX: Number.isInteger(source.quest.targetX) ? Number(source.quest.targetX) : targetNpcLocation?.x,
-            targetY: Number.isInteger(source.quest.targetY) ? Number(source.quest.targetY) : targetNpcLocation?.y,
-
-            targetNpcId: typeof source.quest.targetNpcId === 'string' ? source.quest.targetNpcId : undefined,
-
-            targetNpcName: typeof source.quest.targetNpcName === 'string' ? source.quest.targetNpcName : targetNpcLocation?.npcName,
-
-            submitNpcId: typeof source.quest.submitNpcId === 'string' ? source.quest.submitNpcId : undefined,
-
-            submitNpcName: typeof source.quest.submitNpcName === 'string' ? source.quest.submitNpcName : submitNpcLocation?.npcName,
-
-            submitMapId: typeof source.quest.submitMapId === 'string' && source.quest.submitMapId.trim()
-                ? source.quest.submitMapId.trim()
-                : submitNpcLocation?.mapId,
-
-            submitMapName: typeof source.quest.submitMapId === 'string' && this.templateRepository.has(source.quest.submitMapId.trim())
-                ? this.templateRepository.getOrThrow(source.quest.submitMapId.trim()).name
-                : submitNpcLocation?.mapName,
-            submitX: Number.isInteger(source.quest.submitX) ? Number(source.quest.submitX) : submitNpcLocation?.x,
-            submitY: Number.isInteger(source.quest.submitY) ? Number(source.quest.submitY) : submitNpcLocation?.y,
-
-            relayMessage: typeof source.quest.relayMessage === 'string' ? source.quest.relayMessage : undefined,
-        };
-        built.progress = this.resolveQuestProgress(playerId, built);
-        if (status !== 'completed' && this.canQuestBecomeReady(playerId, built)) {
-            built.status = 'ready';
-        }
-        return built;
+        return this.worldRuntimeQuestQueryService.createQuestStateFromSource(playerId, questId, status);
     }
     /** tryAcceptNextQuest：尝试自动接取下一环任务。 */
     tryAcceptNextQuest(playerId, nextQuestId) {
@@ -4535,66 +4374,11 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     }
     /** buildQuestRewardItems：构建任务奖励物品列表。 */
     buildQuestRewardItems(quest) {
-        if (quest.rewards.length > 0) {
-            return quest.rewards.map((entry) => toQuestRewardItem(this.contentTemplateRepository.createItem(entry.itemId, entry.count), {
-                itemId: entry.itemId,
-                name: entry.name ?? entry.itemId,
-                type: entry.type ?? 'material',
-                count: entry.count,
-                desc: entry.desc ?? (entry.name ?? entry.itemId),
-            }));
-        }
-        if (!quest.rewardItemId) {
-            return [];
-        }
-
-        const item = this.contentTemplateRepository.createItem(quest.rewardItemId, 1);
-        return [toQuestRewardItem(item, {
-                itemId: quest.rewardItemId,
-                name: quest.rewardItemId,
-                type: 'material',
-                count: 1,
-                desc: quest.rewardItemId,
-            })];
+        return this.worldRuntimeQuestQueryService.buildQuestRewardItems(quest);
     }
     /** buildQuestRewardItemsFromRecord：从任务原始记录构建奖励物品列表。 */
     buildQuestRewardItemsFromRecord(quest) {
-
-        const rewards = [];
-
-        const rewardList = Array.isArray(quest.reward) ? quest.reward : [];
-        for (const entry of rewardList) {
-            const itemId = typeof entry?.itemId === 'string' ? entry.itemId.trim() : '';
-            if (!itemId) {
-                continue;
-            }
-
-            const count = Number.isInteger(entry.count) ? Math.max(1, Number(entry.count)) : 1;
-            rewards.push(toQuestRewardItem(this.contentTemplateRepository.createItem(itemId, count), {
-                itemId,
-                name: itemId,
-                type: 'material',
-                count,
-                desc: itemId,
-            }));
-        }
-        if (rewards.length > 0) {
-            return rewards;
-        }
-
-        const rewardItemId = typeof quest.rewardItemId === 'string' ? quest.rewardItemId.trim() : '';
-        if (!rewardItemId) {
-            return [];
-        }
-
-        const item = this.contentTemplateRepository.createItem(rewardItemId, 1);
-        return [toQuestRewardItem(item, {
-                itemId: rewardItemId,
-                name: rewardItemId,
-                type: 'material',
-                count: 1,
-                desc: rewardItemId,
-            })];
+        return this.worldRuntimeQuestQueryService.buildQuestRewardItemsFromRecord(quest);
     }
     /** canReceiveRewardItems：判断玩家是否还能接收任务奖励。 */
     canReceiveRewardItems(playerId, rewards) {
@@ -4618,70 +4402,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     }
     /** resolveQuestNavigationTarget：解析任务对应的导航目标。 */
     resolveQuestNavigationTarget(quest) {
-        if (quest.status === 'ready') {
-            if (quest.submitMapId && Number.isInteger(quest.submitX) && Number.isInteger(quest.submitY)) {
-                return {
-                    mapId: quest.submitMapId,
-                    x: Number(quest.submitX),
-                    y: Number(quest.submitY),
-                    adjacent: true,
-                };
-            }
-            if (quest.submitNpcId) {
-
-                const location = this.templateRepository.getNpcLocation(quest.submitNpcId);
-                if (location) {
-                    return {
-                        mapId: location.mapId,
-                        x: location.x,
-                        y: location.y,
-                        adjacent: true,
-                    };
-                }
-            }
-        }
-        if (quest.objectiveType === 'talk' && quest.targetNpcId) {
-
-            const location = this.templateRepository.getNpcLocation(quest.targetNpcId);
-            if (location) {
-                return {
-                    mapId: location.mapId,
-                    x: location.x,
-                    y: location.y,
-                    adjacent: true,
-                };
-            }
-        }
-        if (quest.targetMapId && Number.isInteger(quest.targetX) && Number.isInteger(quest.targetY)) {
-            return {
-                mapId: quest.targetMapId,
-                x: Number(quest.targetX),
-                y: Number(quest.targetY),
-                adjacent: Boolean(quest.targetNpcId),
-            };
-        }
-        if (quest.objectiveType === 'kill' && quest.targetMonsterId && quest.targetMapId) {
-
-            const spawn = this.contentTemplateRepository.createRuntimeMonstersForMap(quest.targetMapId)
-                .find((entry) => entry.monsterId === quest.targetMonsterId);
-            if (spawn) {
-                return {
-                    mapId: quest.targetMapId,
-                    x: spawn.x,
-                    y: spawn.y,
-                    adjacent: true,
-                };
-            }
-        }
-        if (quest.giverMapId && Number.isInteger(quest.giverX) && Number.isInteger(quest.giverY)) {
-            return {
-                mapId: quest.giverMapId,
-                x: Number(quest.giverX),
-                y: Number(quest.giverY),
-                adjacent: true,
-            };
-        }
-        return null;
+        return this.worldRuntimeQuestQueryService.resolveQuestNavigationTarget(quest);
     }
     /** resolveNpcQuestMarker：解析 NPC 头顶的任务标记。 */
     resolveNpcQuestMarker(playerId, npcId) {
@@ -5319,7 +5040,8 @@ exports.WorldRuntimeService = WorldRuntimeService = WorldRuntimeService_1 = __de
         world_client_event_service_1.WorldClientEventService,
         redeem_code_runtime_service_1.RedeemCodeRuntimeService,
         craft_panel_runtime_service_1.CraftPanelRuntimeService,
-        world_runtime_npc_shop_query_service_1.WorldRuntimeNpcShopQueryService])
+        world_runtime_npc_shop_query_service_1.WorldRuntimeNpcShopQueryService,
+        world_runtime_quest_query_service_1.WorldRuntimeQuestQueryService])
 ], WorldRuntimeService);
 // helper functions were split into dedicated helper modules for maintainability.
 //# sourceMappingURL=world-runtime.service.js.map

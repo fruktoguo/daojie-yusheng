@@ -66,6 +66,8 @@ const craft_panel_runtime_service_1 = require("./runtime/craft/craft-panel-runti
 
 const world_runtime_npc_shop_query_service_1 = require("./runtime/world/world-runtime-npc-shop-query.service");
 
+const world_runtime_quest_query_service_1 = require("./runtime/world/world-runtime-quest-query.service");
+
 const map_template_repository_1 = require("./runtime/map/map-template.repository");
 
 const runtime_map_config_service_1 = require("./runtime/map/runtime-map-config.service");
@@ -136,6 +138,7 @@ exports.AppModule = AppModule = __decorate([
             runtime_gm_state_service_1.RuntimeGmStateService,
             craft_panel_runtime_service_1.CraftPanelRuntimeService,
             world_runtime_npc_shop_query_service_1.WorldRuntimeNpcShopQueryService,
+            world_runtime_quest_query_service_1.WorldRuntimeQuestQueryService,
             runtime_map_config_service_1.RuntimeMapConfigService,
             player_combat_service_1.PlayerCombatService,
             map_persistence_service_1.MapPersistenceService,
