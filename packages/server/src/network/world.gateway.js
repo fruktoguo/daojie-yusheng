@@ -74,6 +74,8 @@ const world_gateway_inventory_helper_1 = require("./world-gateway-inventory.help
 
 const world_gateway_mail_helper_1 = require("./world-gateway-mail.helper");
 
+const world_gateway_player_controls_helper_1 = require("./world-gateway-player-controls.helper");
+
 const world_gateway_npc_helper_1 = require("./world-gateway-npc.helper");
 
 const world_gateway_craft_helper_1 = require("./world-gateway-craft.helper");
@@ -151,6 +153,7 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
     gatewayMovementHelper;
     gatewayInventoryHelper;
     gatewayMailHelper;
+    gatewayPlayerControlsHelper;
     gatewayNpcHelper;
     gatewayCraftHelper;
     gatewayMarketHelper;
@@ -187,6 +190,7 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         this.gatewayMovementHelper = new world_gateway_movement_helper_1.WorldGatewayMovementHelper(this);
         this.gatewayInventoryHelper = new world_gateway_inventory_helper_1.WorldGatewayInventoryHelper(this);
         this.gatewayMailHelper = new world_gateway_mail_helper_1.WorldGatewayMailHelper(this);
+        this.gatewayPlayerControlsHelper = new world_gateway_player_controls_helper_1.WorldGatewayPlayerControlsHelper(this);
         this.gatewayNpcHelper = new world_gateway_npc_helper_1.WorldGatewayNpcHelper(this);
         this.gatewayCraftHelper = new world_gateway_craft_helper_1.WorldGatewayCraftHelper(this);
         this.gatewayMarketHelper = new world_gateway_market_helper_1.WorldGatewayMarketHelper(this);
@@ -286,106 +290,31 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         return this.gatewayInventoryHelper.handleNextSortInventory(client, _payload);
     }
     handleNextChat(client, payload) {
-
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        this.worldClientEventService.broadcastChat(playerId, payload);
+        return this.gatewayPlayerControlsHelper.handleNextChat(client, payload);
     }
     handleNextAckSystemMessages(client, payload) {
-
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        this.worldClientEventService.acknowledgeSystemMessages(playerId, payload);
+        return this.gatewayPlayerControlsHelper.handleNextAckSystemMessages(client, payload);
     }
     handleNextDebugResetSpawn(client, _payload) {
-
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        this.worldRuntimeService.enqueueResetPlayerSpawn(playerId);
+        return this.gatewayPlayerControlsHelper.handleNextDebugResetSpawn(client, _payload);
     }
     handleNextUpdateAutoBattleSkills(client, payload) {
-
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        try {
-            this.playerRuntimeService.updateAutoBattleSkills(playerId, payload?.skills ?? []);
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'UPDATE_AUTO_BATTLE_SKILLS_FAILED', error);
-        }
+        return this.gatewayPlayerControlsHelper.handleNextUpdateAutoBattleSkills(client, payload);
     }
     handleNextUpdateAutoUsePills(client, payload) {
-
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        try {
-            this.playerRuntimeService.updateAutoUsePills(playerId, payload?.pills ?? []);
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'UPDATE_AUTO_USE_PILLS_FAILED', error);
-        }
+        return this.gatewayPlayerControlsHelper.handleNextUpdateAutoUsePills(client, payload);
     }
     handleNextUpdateCombatTargetingRules(client, payload) {
-
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        try {
-            this.playerRuntimeService.updateCombatTargetingRules(playerId, payload?.combatTargetingRules);
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'UPDATE_COMBAT_TARGETING_RULES_FAILED', error);
-        }
+        return this.gatewayPlayerControlsHelper.handleNextUpdateCombatTargetingRules(client, payload);
     }
     handleNextUpdateAutoBattleTargetingMode(client, payload) {
-
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        try {
-            this.playerRuntimeService.updateAutoBattleTargetingMode(playerId, payload?.mode ?? payload);
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'UPDATE_AUTO_BATTLE_TARGETING_MODE_FAILED', error);
-        }
+        return this.gatewayPlayerControlsHelper.handleNextUpdateAutoBattleTargetingMode(client, payload);
     }
     handleNextUpdateTechniqueSkillAvailability(client, payload) {
-
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        try {
-            this.playerRuntimeService.updateTechniqueSkillAvailability(playerId, payload?.techId ?? '', payload?.enabled !== false);
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'UPDATE_TECHNIQUE_SKILL_AVAILABILITY_FAILED', error);
-        }
+        return this.gatewayPlayerControlsHelper.handleNextUpdateTechniqueSkillAvailability(client, payload);
     }
     handleNextHeavenGateAction(client, payload) {
-
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        try {
-            this.worldRuntimeService.enqueueHeavenGateAction(playerId, payload?.action, payload?.element);
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'HEAVEN_GATE_ACTION_FAILED', error);
-        }
+        return this.gatewayPlayerControlsHelper.handleNextHeavenGateAction(client, payload);
     }
     handleUseAction(client, payload) {
 
@@ -402,17 +331,7 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         }
     }
     handleRequestQuests(client, _payload) {
-
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        try {
-            this.emitNextQuests(client, this.worldRuntimeService.buildQuestListView(playerId));
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'REQUEST_QUESTS_FAILED', error);
-        }
+        return this.gatewayPlayerControlsHelper.handleRequestQuests(client, _payload);
     }
     async handleNextRequestMailSummary(client, payload) {
         return this.gatewayMailHelper.handleNextRequestMailSummary(client, payload);
