@@ -1625,10 +1625,6 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         });
         return { queued: true };
     }
-    /** enqueueLegacyGmUpdatePlayer：兼容旧版 GM 更新玩家入口。 */
-    enqueueLegacyGmUpdatePlayer(input) {
-        return this.enqueueGmUpdatePlayer(input);
-    }
     /** enqueueGmResetPlayer：把 GM 重置玩家请求排入系统命令队列。 */
     enqueueGmResetPlayer(playerIdInput) {
 
@@ -1641,10 +1637,6 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             playerId,
         });
         return { queued: true };
-    }
-    /** enqueueLegacyGmResetPlayer：兼容旧版 GM 重置玩家入口。 */
-    enqueueLegacyGmResetPlayer(playerIdInput) {
-        return this.enqueueGmResetPlayer(playerIdInput);
     }
     /** enqueueGmSpawnBots：把 GM 生成机器人请求排入系统命令队列。 */
     enqueueGmSpawnBots(anchorPlayerIdInput, countInput) {
@@ -1665,10 +1657,6 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         });
         return { queued: true };
     }
-    /** enqueueLegacyGmSpawnBots：兼容旧版 GM 生成机器人入口。 */
-    enqueueLegacyGmSpawnBots(anchorPlayerIdInput, countInput) {
-        return this.enqueueGmSpawnBots(anchorPlayerIdInput, countInput);
-    }
     /** enqueueGmRemoveBots：把 GM 移除机器人请求排入系统命令队列。 */
     enqueueGmRemoveBots(playerIdsInput, allInput) {
 
@@ -1685,10 +1673,6 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             all: allInput === true,
         });
         return { queued: true };
-    }
-    /** enqueueLegacyGmRemoveBots：兼容旧版 GM 移除机器人入口。 */
-    enqueueLegacyGmRemoveBots(playerIdsInput, allInput) {
-        return this.enqueueGmRemoveBots(playerIdsInput, allInput);
     }
     /** getPlayerView：读取玩家当前视野快照，并补上 NPC 任务标记。 */
     getPlayerView(playerId, radius) {
@@ -3006,8 +2990,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
                 this.dispatchBuyNpcShopItem(playerId, command.npcId, command.itemId, command.quantity);
                 return;
             case 'npcInteraction':
-            case 'legacyNpcInteraction':
-                this.dispatchLegacyNpcInteraction(playerId, command.npcId);
+                this.dispatchNpcInteraction(playerId, command.npcId);
                 return;
             case 'interactNpcQuest':
                 this.dispatchInteractNpcQuest(playerId, command.npcId);
@@ -3368,19 +3351,15 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
                 this.respawnPlayer(command.playerId);
                 return;
             case 'gmUpdatePlayer':
-            case 'legacyGmUpdatePlayer':
                 this.dispatchGmUpdatePlayer(command);
                 return;
             case 'gmResetPlayer':
-            case 'legacyGmResetPlayer':
                 this.respawnPlayer(command.playerId);
                 return;
             case 'gmSpawnBots':
-            case 'legacyGmSpawnBots':
                 this.dispatchGmSpawnBots(command.anchorPlayerId, command.count);
                 return;
             case 'gmRemoveBots':
-            case 'legacyGmRemoveBots':
                 this.dispatchGmRemoveBots(command.playerIds, command.all);
                 return;
         }
@@ -3813,8 +3792,8 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.refreshQuestStates(playerId);
         this.queuePlayerNotice(playerId, `购买 ${formatItemStackLabel(validated.item)}，消耗 ${this.getNpcShopCurrencyName()} x${validated.totalCost}`, 'success');
     }
-    /** dispatchLegacyNpcInteraction：执行旧版 NPC 交互结算。 */
-    dispatchLegacyNpcInteraction(playerId, npcId) {
+    /** dispatchNpcInteraction：执行 NPC 交互结算。 */
+    dispatchNpcInteraction(playerId, npcId) {
 
         const npc = this.resolveAdjacentNpc(playerId, npcId);
         this.refreshQuestStates(playerId);
@@ -5174,10 +5153,6 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             }, this.resolveCurrentTickForPlayerId(playerId));
         }
     }
-    /** dispatchLegacyGmUpdatePlayer：兼容旧版 GM 更新玩家入口。 */
-    dispatchLegacyGmUpdatePlayer(command) {
-        return this.dispatchGmUpdatePlayer(command);
-    }
     /** dispatchGmSpawnBots：执行 GM 生成机器人请求。 */
     dispatchGmSpawnBots(anchorPlayerId, count) {
 
@@ -5209,10 +5184,6 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             }, this.resolveCurrentTickForPlayerId(playerId));
         }
     }
-    /** dispatchLegacyGmSpawnBots：兼容旧版 GM 生成机器人入口。 */
-    dispatchLegacyGmSpawnBots(anchorPlayerId, count) {
-        return this.dispatchGmSpawnBots(anchorPlayerId, count);
-    }
     /** dispatchGmRemoveBots：执行 GM 移除机器人请求。 */
     dispatchGmRemoveBots(playerIds, removeAll) {
 
@@ -5228,10 +5199,6 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         for (const playerId of targets) {
             this.removePlayer(playerId);
         }
-    }
-    /** dispatchLegacyGmRemoveBots：兼容旧版 GM 移除机器人入口。 */
-    dispatchLegacyGmRemoveBots(playerIds, removeAll) {
-        return this.dispatchGmRemoveBots(playerIds, removeAll);
     }
     /** respawnPlayer：把玩家复生请求交给世界运行时处理。 */
     respawnPlayer(playerId) {

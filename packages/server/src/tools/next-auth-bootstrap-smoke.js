@@ -1306,10 +1306,10 @@ async function verifyImplicitLegacyProtocolEntryContract() {
                     },
                 },
             }),
-            enqueueLegacyGmUpdatePlayer: () => undefined,
-            enqueueLegacyGmResetPlayer: () => undefined,
-            enqueueLegacyGmSpawnBots: () => undefined,
-            enqueueLegacyGmRemoveBots: () => undefined,
+            enqueueGmUpdatePlayer: () => undefined,
+            enqueueGmResetPlayer: () => undefined,
+            enqueueGmSpawnBots: () => undefined,
+            enqueueGmRemoveBots: () => undefined,
         }, {
             getSocketByPlayerId: () => null,
         });
