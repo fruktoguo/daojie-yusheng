@@ -235,5 +235,5 @@
 
 ## 完成定义
 
-- [ ] 同一份 legacy 数据可以稳定转成 next 真源
+- [ ] 同一份 legacy 数据可以稳定转成 next 真源（依赖本地测试库 `--write` + `pnpm verify:replace-ready:proof:with-db`）
 - [x] 迁移失败能明确定位
