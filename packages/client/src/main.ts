@@ -2492,7 +2492,7 @@ craftWorkbenchModal.setCallbacks({
 });
 actionPanel.setCallbacks(
   (actionId, requiresTarget, targetMode, range, actionName) => {
-    if (actionId === 'client:take') {
+    if (actionId === 'loot:open') {
       beginTargeting(actionId, actionName ?? actionId, targetMode, range ?? 1);
       return;
     }
@@ -4066,7 +4066,7 @@ mapRuntime.setInteractionCallbacks({
         cancelTargeting();
         return;
       }
-      if (pendingTargetedAction.actionId === 'client:take') {
+      if (pendingTargetedAction.actionId === 'loot:open') {
         if (!myPlayer || !isPointInRange({ x: myPlayer.x, y: myPlayer.y }, { x: target.x, y: target.y }, pendingTargetedAction.range)) {
           showToast(`超出拿取范围，最多 ${pendingTargetedAction.range} 格`);
           return;

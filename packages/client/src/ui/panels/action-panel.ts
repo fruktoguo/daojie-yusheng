@@ -960,9 +960,9 @@ export class ActionPanel {
         result.push(action);
       }
     }
-    if (!result.some((action) => action.id === 'client:take')) {
+    if (!result.some((action) => action.id === 'loot:open')) {
       result.push({
-        id: 'client:take',
+        id: 'loot:open',
         name: '拿取',
         type: 'toggle',
         desc: '选定 1 格内的目标，查看地面物品或搜索容器后拿取。',
