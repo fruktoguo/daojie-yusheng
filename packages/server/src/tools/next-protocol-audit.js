@@ -1599,6 +1599,25 @@ async function suggestionCase(runtime) {
   await emitAndWait(socket, NEXT_C2S.MarkSuggestionRepliesRead, { suggestionId: suggestionId }, NEXT_S2C.SuggestionUpdate, function (payload) {
     return payload && payload.suggestions && payload.suggestions.some(function (entry) { return entry.id === suggestionId; });
   }, 5000);
+/**
+ * 记录GM鉴权。
+ */
+  var gmAuth = await registerAndLoginPlayer(runtime.baseUrl, pid("audit_gm_suggestion"));
+/**
+ * 记录GM令牌。
+ */
+  var gmToken = await loginGm(runtime.baseUrl);
+/**
+ * 记录GM socket。
+ */
+  var gmSocket = runtime.createSocket("suggestion:gm", { token: gmAuth.accessToken, gmToken: gmToken, protocol: "next" });
+  await hello(runtime, gmSocket, { mapId: "yunlai_town", preferredX: 32, preferredY: 5 });
+  await emitAndWait(gmSocket, NEXT_C2S.GmMarkSuggestionCompleted, { suggestionId: suggestionId }, NEXT_S2C.SuggestionUpdate, function (payload) {
+    return payload && payload.suggestions && payload.suggestions.some(function (entry) { return entry.id === suggestionId && entry.status === "completed"; });
+  }, 5000);
+  await emitAndWait(gmSocket, NEXT_C2S.GmRemoveSuggestion, { suggestionId: suggestionId }, NEXT_S2C.SuggestionUpdate, function (payload) {
+    return payload && Array.isArray(payload.suggestions) && payload.suggestions.every(function (entry) { return entry.id !== suggestionId; });
+  }, 5000);
 }
 /**
  * 处理mailcase。
