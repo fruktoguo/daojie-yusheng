@@ -1835,51 +1835,31 @@ async function verifyLegacyHttpIdentityFallbackGateContract() {
                 };
             },
         });
-        const originalEnsurePool = service.ensurePool.bind(service);
-        const originalQueryMigrationIdentityRow = service.queryMigrationIdentityRow;
         try {
-            if (typeof service.resolvePlayerIdentityFromCompatSource === 'function') {
-                throw new Error('expected legacy HTTP identity fallback entry to be removed from world player source service');
+            if (typeof service.resolvePlayerIdentityFromCompatSource === 'function'
+                || typeof service.resolvePlayerIdentityFromMigrationSource === 'function') {
+                throw new Error('expected legacy HTTP identity fallback and direct migration identity entry to be removed from world player source service');
             }
-            service.ensurePool = async () => null;
-            const poolUnavailableResult = await service.resolvePlayerIdentityFromMigrationSource(payload);
-            if (poolUnavailableResult !== null || httpCallCount !== 0) {
-                throw new Error(`expected migration source to stay closed without explicit opt-in after legacy HTTP fallback removal, got result=${JSON.stringify(poolUnavailableResult)} httpCallCount=${httpCallCount}`);
+            const defaultBlockedResult = await service.resolvePlayerIdentityForMigration(payload);
+            if (defaultBlockedResult !== null || httpCallCount !== 0) {
+                throw new Error(`expected migration identity wrapper to stay closed by default after legacy users/players removal, got result=${JSON.stringify(defaultBlockedResult)} httpCallCount=${httpCallCount}`);
             }
-            const poolUnavailableExplicitResult = await service.resolvePlayerIdentityFromMigrationSource(payload, {
+            const explicitBlockedResult = await service.resolvePlayerIdentityForMigration(payload, {
                 allowMigrationSource: true,
                 allowLegacyHttpIdentityFallback: true,
             });
-            if (poolUnavailableExplicitResult !== null || httpCallCount !== 0) {
-                throw new Error(`expected removed legacy HTTP fallback to stay blocked even when migration opt-in is explicit and pool is unavailable, got result=${JSON.stringify(poolUnavailableExplicitResult)} httpCallCount=${httpCallCount}`);
-            }
-            service.ensurePool = async () => ({});
-            service.queryMigrationIdentityRow = async () => null;
-            const missingRowResult = await service.resolvePlayerIdentityFromMigrationSource(payload);
-            if (missingRowResult !== null || httpCallCount !== 0) {
-                throw new Error(`expected migration source to stay closed without explicit opt-in after legacy HTTP fallback removal, got result=${JSON.stringify(missingRowResult)} httpCallCount=${httpCallCount}`);
-            }
-            service.queryMigrationIdentityRow = async () => {
-                const error = new Error('legacy schema missing');
-                error.code = '42P01';
-                throw error;
-            };
-            const missingSchemaResult = await service.resolvePlayerIdentityFromMigrationSource(payload);
-            if (missingSchemaResult !== null || httpCallCount !== 0) {
-                throw new Error(`expected migration source to stay closed without explicit opt-in after legacy HTTP fallback removal, got result=${JSON.stringify(missingSchemaResult)} httpCallCount=${httpCallCount}`);
+            if (explicitBlockedResult !== null || httpCallCount !== 0) {
+                throw new Error(`expected explicit migration identity wrapper to remain blocked after legacy users/players removal, got result=${JSON.stringify(explicitBlockedResult)} httpCallCount=${httpCallCount}`);
             }
             return {
                 compatEntryRemoved: true,
-                poolUnavailableBlocked: true,
-                explicitPoolUnavailableBlocked: true,
-                missingRowBlocked: true,
-                missingSchemaBlocked: true,
+                migrationEntryRemoved: true,
+                defaultBlocked: true,
+                explicitBlocked: true,
                 httpCallCount,
             };
         }
         finally {
-            service.ensurePool = originalEnsurePool;
-            service.queryMigrationIdentityRow = originalQueryMigrationIdentityRow;
             await service.onModuleDestroy().catch(() => undefined);
         }
     });
@@ -1908,92 +1888,43 @@ async function verifyLegacyHttpIdentityFallbackOptInContract() {
                 };
             },
         });
-        const originalEnsurePool = service.ensurePool.bind(service);
-        const originalQueryMigrationIdentityRow = service.queryMigrationIdentityRow;
         try {
-            if (typeof service.resolvePlayerIdentityFromCompatSource === 'function') {
-                throw new Error('expected legacy HTTP identity fallback entry to stay removed even when allow envs are present');
+            if (typeof service.resolvePlayerIdentityFromCompatSource === 'function'
+                || typeof service.resolvePlayerIdentityFromMigrationSource === 'function') {
+                throw new Error('expected legacy HTTP identity fallback and direct migration identity entry to stay removed even when allow envs are present');
             }
-            service.ensurePool = async () => null;
-            const defaultBlockedResult = await service.resolvePlayerIdentityFromMigrationSource(payload);
+            const defaultBlockedResult = await service.resolvePlayerIdentityForMigration(payload);
             if (defaultBlockedResult !== null || httpCallCount !== 0) {
                 throw new Error(`expected migration source to stay closed without explicit opt-in after legacy HTTP fallback removal, got result=${JSON.stringify(defaultBlockedResult)} httpCallCount=${httpCallCount}`);
             }
-            const explicitPoolUnavailableResult = await service.resolvePlayerIdentityFromMigrationSource(payload, {
+            const explicitBlockedResult = await service.resolvePlayerIdentityForMigration(payload, {
                 allowMigrationSource: true,
                 allowLegacyHttpIdentityFallback: true,
             });
-            if (explicitPoolUnavailableResult !== null || httpCallCount !== 0) {
-                throw new Error(`expected removed legacy HTTP fallback to stay blocked without allow env, got result=${JSON.stringify(explicitPoolUnavailableResult)} httpCallCount=${httpCallCount}`);
-            }
-            service.ensurePool = async () => ({});
-            service.queryMigrationIdentityRow = async () => null;
-            const explicitMissingRowResult = await service.resolvePlayerIdentityFromMigrationSource(payload, {
-                allowMigrationSource: true,
-                allowLegacyHttpIdentityFallback: true,
-            });
-            if (explicitMissingRowResult !== null || httpCallCount !== 0) {
-                throw new Error(`expected removed legacy HTTP fallback to stay blocked for missing legacy row, got result=${JSON.stringify(explicitMissingRowResult)} httpCallCount=${httpCallCount}`);
-            }
-            service.queryMigrationIdentityRow = async () => {
-                const error = new Error('legacy schema missing');
-                error.code = '42P01';
-                throw error;
-            };
-            const explicitMissingSchemaResult = await service.resolvePlayerIdentityFromMigrationSource(payload, {
-                allowMigrationSource: true,
-                allowLegacyHttpIdentityFallback: true,
-            });
-            if (explicitMissingSchemaResult !== null || httpCallCount !== 0) {
-                throw new Error(`expected removed legacy HTTP fallback to stay blocked for missing legacy schema, got result=${JSON.stringify(explicitMissingSchemaResult)} httpCallCount=${httpCallCount}`);
+            if (explicitBlockedResult !== null || httpCallCount !== 0) {
+                throw new Error(`expected removed legacy HTTP fallback to stay blocked without allow env, got result=${JSON.stringify(explicitBlockedResult)} httpCallCount=${httpCallCount}`);
             }
             return withEnvOverrides({
                 SERVER_NEXT_ALLOW_LEGACY_HTTP_IDENTITY_FALLBACK: '1',
                 NEXT_ALLOW_LEGACY_HTTP_IDENTITY_FALLBACK: null,
             }, async () => {
-                service.ensurePool = async () => null;
-                const allowEnvPoolUnavailableResult = await service.resolvePlayerIdentityFromMigrationSource(payload, {
+                const allowEnvBlockedResult = await service.resolvePlayerIdentityForMigration(payload, {
                     allowMigrationSource: true,
                     allowLegacyHttpIdentityFallback: true,
                 });
-                if (allowEnvPoolUnavailableResult !== null || httpCallCount !== 0) {
-                    throw new Error(`expected allow env to stop resurrecting removed legacy HTTP fallback when pool is unavailable, got result=${JSON.stringify(allowEnvPoolUnavailableResult)} httpCallCount=${httpCallCount}`);
-                }
-                service.ensurePool = async () => ({});
-                service.queryMigrationIdentityRow = async () => null;
-                const allowEnvMissingRowResult = await service.resolvePlayerIdentityFromMigrationSource(payload, {
-                    allowMigrationSource: true,
-                    allowLegacyHttpIdentityFallback: true,
-                });
-                if (allowEnvMissingRowResult !== null || httpCallCount !== 0) {
-                    throw new Error(`expected allow env to stop resurrecting removed legacy HTTP fallback for missing legacy row, got result=${JSON.stringify(allowEnvMissingRowResult)} httpCallCount=${httpCallCount}`);
-                }
-                service.queryMigrationIdentityRow = async () => {
-                    const error = new Error('legacy schema missing');
-                    error.code = '42P01';
-                    throw error;
-                };
-                const allowEnvMissingSchemaResult = await service.resolvePlayerIdentityFromMigrationSource(payload, {
-                    allowMigrationSource: true,
-                    allowLegacyHttpIdentityFallback: true,
-                });
-                if (allowEnvMissingSchemaResult !== null || httpCallCount !== 0) {
-                    throw new Error(`expected allow env to stop resurrecting removed legacy HTTP fallback for missing legacy schema, got result=${JSON.stringify(allowEnvMissingSchemaResult)} httpCallCount=${httpCallCount}`);
+                if (allowEnvBlockedResult !== null || httpCallCount !== 0) {
+                    throw new Error(`expected allow env to stop resurrecting removed legacy HTTP fallback after legacy users/players removal, got result=${JSON.stringify(allowEnvBlockedResult)} httpCallCount=${httpCallCount}`);
                 }
                 return {
                     compatEntryRemoved: true,
                     defaultBlockedWithoutExplicitOptIn: true,
                     explicitBlockedWithoutAllowEnv: true,
-                    allowEnvPoolUnavailableStillBlocked: true,
-                    allowEnvMissingRowStillBlocked: true,
-                    allowEnvMissingSchemaStillBlocked: true,
+                    allowEnvStillBlocked: true,
                     httpCallCount,
                 };
             });
         }
         finally {
-            service.ensurePool = originalEnsurePool;
-            service.queryMigrationIdentityRow = originalQueryMigrationIdentityRow;
             await service.onModuleDestroy().catch(() => undefined);
         }
     });
@@ -2517,8 +2448,6 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
 /**
  * 记录迁移source开关调用次数。
  */
-    let compatMigrationIdentityCalls = 0;
-    let compatMigrationSnapshotCalls = 0;
 /**
  * 记录迁移source服务。
  */
@@ -2529,62 +2458,9 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
         isEnabled: () => false,
         loadPlayerSnapshotRecord: async () => null,
     });
-    const originalCompatMigrationEnsurePool = compatMigrationSourceService.ensurePool.bind(compatMigrationSourceService);
-    const originalCompatMigrationQueryIdentityRow = compatMigrationSourceService.queryMigrationIdentityRow;
-    const originalCompatMigrationQuerySnapshotRow = compatMigrationSourceService.queryMigrationSnapshotRow;
-    compatMigrationSourceService.ensurePool = async () => ({});
-    compatMigrationSourceService.queryMigrationIdentityRow = async () => {
-        compatMigrationIdentityCalls += 1;
-        return {
-            userId: compatIdentity.userId,
-            username: compatIdentity.username,
-            displayName: compatIdentity.displayName,
-            pendingRoleName: compatIdentity.playerName,
-            playerId: compatIdentity.playerId,
-            playerName: compatIdentity.playerName,
-        };
-    };
-    compatMigrationSourceService.queryMigrationSnapshotRow = async () => {
-        compatMigrationSnapshotCalls += 1;
-        return {
-            id: payload.playerId,
-            mapId: 'yunlai_town',
-            x: 1,
-            y: 1,
-            facing: 1,
-            hp: 120,
-            maxHp: 120,
-            qi: 100,
-            pendingLogbookMessages: [],
-            inventory: [],
-            temporaryBuffs: [],
-            equipment: {},
-            techniques: [],
-            quests: [],
-            bonuses: {},
-            foundation: null,
-            combatExp: 0,
-            boneAgeBaseYears: 16,
-            lifeElapsedTicks: 0,
-            lifespanYears: 120,
-            heavenGate: null,
-            spiritualRoots: null,
-            unlockedMinimapIds: [],
-            autoBattle: false,
-            autoBattleSkills: [],
-            combatTargetId: null,
-            combatTargetLocked: false,
-            autoRetaliate: true,
-            autoBattleStationary: false,
-            allowAoePlayerHit: false,
-            autoIdleCultivation: false,
-            autoSwitchCultivation: false,
-            cultivatingTechId: null,
-        };
-    };
-/**
- * 记录迁移source默认identity。
- */
+    /**
+     * 记录迁移source默认identity。
+     */
     const compatMigrationDefaultIdentity = await compatMigrationSourceService.resolvePlayerIdentityForMigration(payload);
 /**
  * 记录迁移source默认snapshot。
@@ -2643,23 +2519,16 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
     try {
         if (compatMigrationDefaultIdentity !== null
             || compatMigrationDefaultSnapshot !== null
-            || compatMigrationExplicitIdentity?.playerId !== payload.playerId
-            || compatMigrationExplicitSnapshot?.placement?.templateId !== 'yunlai_town'
-            || compatMigrationIdentityCalls !== 1
-            || compatMigrationSnapshotCalls !== 1) {
-            throw new Error(`expected migration source to stay closed by default and only open for explicit migration reads, got defaultIdentity=${JSON.stringify(compatMigrationDefaultIdentity)} defaultSnapshot=${JSON.stringify(compatMigrationDefaultSnapshot)} explicitIdentity=${JSON.stringify(compatMigrationExplicitIdentity)} explicitSnapshot=${JSON.stringify(compatMigrationExplicitSnapshot)} identityCalls=${compatMigrationIdentityCalls} snapshotCalls=${compatMigrationSnapshotCalls}`);
+            || compatMigrationExplicitIdentity !== null
+            || compatMigrationExplicitSnapshot !== null) {
+            throw new Error(`expected migration source wrappers to return null after legacy users/players removal, got defaultIdentity=${JSON.stringify(compatMigrationDefaultIdentity)} defaultSnapshot=${JSON.stringify(compatMigrationDefaultSnapshot)} explicitIdentity=${JSON.stringify(compatMigrationExplicitIdentity)} explicitSnapshot=${JSON.stringify(compatMigrationExplicitSnapshot)}`);
         }
         if (compatMigrationStrictIdentity !== null
-            || compatMigrationStrictSnapshot !== null
-            || compatMigrationIdentityCalls !== 1
-            || compatMigrationSnapshotCalls !== 1) {
-            throw new Error(`expected migration source strict path to bypass even explicit migration reads, got identity=${JSON.stringify(compatMigrationStrictIdentity)} snapshot=${JSON.stringify(compatMigrationStrictSnapshot)} identityCalls=${compatMigrationIdentityCalls} snapshotCalls=${compatMigrationSnapshotCalls}`);
+            || compatMigrationStrictSnapshot !== null) {
+            throw new Error(`expected migration source strict path to stay null after legacy users/players removal, got identity=${JSON.stringify(compatMigrationStrictIdentity)} snapshot=${JSON.stringify(compatMigrationStrictSnapshot)}`);
         }
     }
     finally {
-        compatMigrationSourceService.ensurePool = originalCompatMigrationEnsurePool;
-        compatMigrationSourceService.queryMigrationIdentityRow = originalCompatMigrationQueryIdentityRow;
-        compatMigrationSourceService.queryMigrationSnapshotRow = originalCompatMigrationQuerySnapshotRow;
         await compatMigrationSourceService.onModuleDestroy().catch(() => undefined);
     }
     let nextProtocolLoadedLegacyBackfillSnapshotLoads = 0;
@@ -2929,59 +2798,6 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
             };
         },
     });
-    const originalGuardedEnsurePool = guardedSourceService.ensurePool.bind(guardedSourceService);
-    const originalGuardedQueryIdentityRow = guardedSourceService.queryMigrationIdentityRow;
-    const originalGuardedQuerySnapshotRow = guardedSourceService.queryMigrationSnapshotRow;
-    guardedSourceService.ensurePool = async () => ({});
-    guardedSourceService.queryMigrationIdentityRow = async () => {
-        guardedCompatIdentityCalls += 1;
-        return {
-            userId: compatIdentity.userId,
-            username: compatIdentity.username,
-            displayName: compatIdentity.displayName,
-            pendingRoleName: compatIdentity.playerName,
-            playerId: compatIdentity.playerId,
-            playerName: compatIdentity.playerName,
-        };
-    };
-    guardedSourceService.queryMigrationSnapshotRow = async () => {
-        guardedCompatSnapshotCalls += 1;
-        return {
-            id: payload.playerId,
-            mapId: 'yunlai_town',
-            x: 1,
-            y: 1,
-            facing: 1,
-            hp: 120,
-            maxHp: 120,
-            qi: 100,
-            pendingLogbookMessages: [],
-            inventory: [],
-            temporaryBuffs: [],
-            equipment: {},
-            techniques: [],
-            quests: [],
-            bonuses: {},
-            foundation: null,
-            combatExp: 0,
-            boneAgeBaseYears: 16,
-            lifeElapsedTicks: 0,
-            lifespanYears: 120,
-            heavenGate: null,
-            spiritualRoots: null,
-            unlockedMinimapIds: [],
-            autoBattle: false,
-            autoBattleSkills: [],
-            combatTargetId: null,
-            combatTargetLocked: false,
-            autoRetaliate: true,
-            autoBattleStationary: false,
-            allowAoePlayerHit: false,
-            autoIdleCultivation: false,
-            autoSwitchCultivation: false,
-            cultivatingTechId: null,
-        };
-    };
     const guardedNextIdentity = await guardedSourceService.loadNextPlayerIdentity(payload.sub);
     const guardedNextSnapshotRecord = await guardedSourceService.loadNextPlayerSnapshotRecord(payload.playerId);
     const guardedNextSnapshot = await guardedSourceService.loadNextPlayerSnapshot(payload.playerId);
@@ -3008,21 +2824,16 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
         if (guardedNextIdentity?.persistedSource !== 'native'
             || guardedNextSnapshotRecord?.persistedSource !== 'native'
             || guardedNextSnapshot?.placement?.templateId !== 'yunlai_town'
-            || guardedCompatIdentityCalls !== 1
-            || guardedCompatSnapshotCalls !== 1
             || guardedNextIdentityCalls !== 1
             || guardedNextSnapshotRecordCalls !== 2
             || guardedMigrationIdentity !== null
             || guardedMigrationSnapshot !== null
-            || guardedExplicitMigrationResult.explicitMigrationIdentity?.playerId !== payload.playerId
-            || guardedExplicitMigrationResult.explicitMigrationSnapshot?.placement?.templateId !== 'yunlai_town') {
-            throw new Error(`expected next source service to bypass implicit compat migration reads while still exposing explicit migration entry, got nextIdentity=${JSON.stringify(guardedNextIdentity)} nextSnapshotRecord=${JSON.stringify(guardedNextSnapshotRecord)} nextSnapshot=${JSON.stringify(guardedNextSnapshot)} migrationIdentity=${JSON.stringify(guardedMigrationIdentity)} migrationSnapshot=${JSON.stringify(guardedMigrationSnapshot)} explicitMigrationIdentity=${JSON.stringify(guardedExplicitMigrationResult.explicitMigrationIdentity)} explicitMigrationSnapshot=${JSON.stringify(guardedExplicitMigrationResult.explicitMigrationSnapshot)} nextIdentityCalls=${guardedNextIdentityCalls} nextSnapshotRecordCalls=${guardedNextSnapshotRecordCalls} compatIdentityCalls=${guardedCompatIdentityCalls} compatSnapshotCalls=${guardedCompatSnapshotCalls}`);
+            || guardedExplicitMigrationResult.explicitMigrationIdentity !== null
+            || guardedExplicitMigrationResult.explicitMigrationSnapshot !== null) {
+            throw new Error(`expected next source service to keep next sources only and remove explicit migration users/players reads, got nextIdentity=${JSON.stringify(guardedNextIdentity)} nextSnapshotRecord=${JSON.stringify(guardedNextSnapshotRecord)} nextSnapshot=${JSON.stringify(guardedNextSnapshot)} migrationIdentity=${JSON.stringify(guardedMigrationIdentity)} migrationSnapshot=${JSON.stringify(guardedMigrationSnapshot)} explicitMigrationIdentity=${JSON.stringify(guardedExplicitMigrationResult.explicitMigrationIdentity)} explicitMigrationSnapshot=${JSON.stringify(guardedExplicitMigrationResult.explicitMigrationSnapshot)} nextIdentityCalls=${guardedNextIdentityCalls} nextSnapshotRecordCalls=${guardedNextSnapshotRecordCalls}`);
         }
     }
     finally {
-        guardedSourceService.ensurePool = originalGuardedEnsurePool;
-        guardedSourceService.queryMigrationIdentityRow = originalGuardedQueryIdentityRow;
-        guardedSourceService.queryMigrationSnapshotRow = originalGuardedQuerySnapshotRow;
         await guardedSourceService.onModuleDestroy().catch(() => undefined);
     }
     const invalidNextIdentityAuthService = new world_player_auth_service_1.WorldPlayerAuthService({
@@ -3364,7 +3175,6 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
  * 验证 snapshot compat runtime fallback 已彻底关闭。
  */
 async function verifyCompatRuntimeSnapshotGuardContract() {
-    let compatSnapshotCalls = 0;
     const snapshotService = new world_player_snapshot_service_1.WorldPlayerSnapshotService({
         isEnabled: () => false,
         loadPlayerSnapshotRecord: async () => null,
@@ -3375,32 +3185,22 @@ async function verifyCompatRuntimeSnapshotGuardContract() {
         buildStarterPersistenceSnapshot: () => null,
     }, {
         loadPlayerSnapshotForMigration: async () => {
-            compatSnapshotCalls += 1;
-            return {
-                version: 1,
-                placement: {
-                    templateId: 'yunlai_town',
-                    x: 3,
-                    y: 3,
-                    facing: 1,
-                },
-            };
+            return null;
         },
     });
     const blockedResult = await snapshotService.loadPlayerSnapshotResult('proof_player_snapshot_guard', true, 'identity_source:next');
-    if (blockedResult?.snapshot !== null || compatSnapshotCalls !== 0) {
-        throw new Error(`expected non-legacy snapshot fallback reason to block compat runtime read, got result=${JSON.stringify(blockedResult ?? null)} compatSnapshotCalls=${compatSnapshotCalls}`);
+    if (blockedResult?.snapshot !== null) {
+        throw new Error(`expected non-legacy snapshot fallback reason to block compat runtime read, got result=${JSON.stringify(blockedResult ?? null)}`);
     }
     const blockedLegacyReasonResult = await snapshotService.loadPlayerSnapshotResult('proof_player_snapshot_guard', true, 'identity_source:legacy_runtime');
-    if (blockedLegacyReasonResult?.snapshot !== null || compatSnapshotCalls !== 0) {
-        throw new Error(`expected legacy_runtime identity reason to stay blocked without migration marker, got result=${JSON.stringify(blockedLegacyReasonResult ?? null)} compatSnapshotCalls=${compatSnapshotCalls}`);
+    if (blockedLegacyReasonResult?.snapshot !== null) {
+        throw new Error(`expected legacy_runtime identity reason to stay blocked without migration marker, got result=${JSON.stringify(blockedLegacyReasonResult ?? null)}`);
     }
     const blockedMigrationReasonResult = await snapshotService.loadPlayerSnapshotResult('proof_player_snapshot_guard', true, 'migration_runtime:legacy_snapshot');
-    if (blockedMigrationReasonResult?.snapshot !== null || compatSnapshotCalls !== 0) {
-        throw new Error(`expected migration_runtime marker to stay blocked after runtime fallback removal, got result=${JSON.stringify(blockedMigrationReasonResult ?? null)} compatSnapshotCalls=${compatSnapshotCalls}`);
+    if (blockedMigrationReasonResult?.snapshot !== null) {
+        throw new Error(`expected migration_runtime marker to stay blocked after runtime fallback removal, got result=${JSON.stringify(blockedMigrationReasonResult ?? null)}`);
     }
     let migrationNextSnapshotRecordCalls = 0;
-    let migrationCompatSnapshotCalls = 0;
     const migrationSnapshotService = new world_player_snapshot_service_1.WorldPlayerSnapshotService({
         isEnabled: () => true,
         loadPlayerSnapshotRecord: async () => {
@@ -3425,25 +3225,15 @@ async function verifyCompatRuntimeSnapshotGuardContract() {
         buildStarterPersistenceSnapshot: () => null,
     }, {
         loadPlayerSnapshotForMigration: async () => {
-            migrationCompatSnapshotCalls += 1;
-            return {
-                version: 1,
-                placement: {
-                    templateId: 'yunlai_town',
-                    x: 5,
-                    y: 5,
-                    facing: 1,
-                },
-            };
+            return null;
         },
     });
     const migrationNextSnapshotRecord = await migrationSnapshotService.loadNextPlayerSnapshotRecord('proof_player_snapshot_guard');
     const migrationCompatSnapshot = await migrationSnapshotService.loadMigrationPlayerSnapshot('proof_player_snapshot_guard');
     if (migrationNextSnapshotRecord?.persistedSource !== 'native'
         || migrationNextSnapshotRecordCalls !== 1
-        || migrationCompatSnapshotCalls !== 1
-        || migrationCompatSnapshot?.placement?.templateId !== 'yunlai_town') {
-        throw new Error(`expected migration snapshot source to keep next entry and explicit compat migration entry available, got nextRecord=${JSON.stringify(migrationNextSnapshotRecord)} compatSnapshot=${JSON.stringify(migrationCompatSnapshot)} nextRecordCalls=${migrationNextSnapshotRecordCalls} compatSnapshotCalls=${migrationCompatSnapshotCalls}`);
+        || migrationCompatSnapshot !== null) {
+        throw new Error(`expected migration snapshot source to keep next entry and remove explicit compat migration entry, got nextRecord=${JSON.stringify(migrationNextSnapshotRecord)} compatSnapshot=${JSON.stringify(migrationCompatSnapshot)} nextRecordCalls=${migrationNextSnapshotRecordCalls}`);
     }
     return {
         blockedReason: 'identity_source:next',
@@ -3452,9 +3242,8 @@ async function verifyCompatRuntimeSnapshotGuardContract() {
         blockedLegacySnapshotSource: blockedLegacyReasonResult?.source ?? null,
         blockedMigrationReason: 'migration_runtime:legacy_snapshot',
         blockedMigrationSnapshotSource: blockedMigrationReasonResult?.source ?? null,
-        compatSnapshotCalls,
         migrationNextSnapshotRecordCalls,
-        migrationCompatSnapshotCalls,
+        migrationCompatSnapshotRemoved: true,
     };
 }
 /**

@@ -21,10 +21,6 @@ const common_1 = require("@nestjs/common");
 
 const shared_1 = require("@mud/shared-next");
 
-const pg_1 = require("pg");
-
-const env_alias_1 = require("../config/env-alias");
-
 const next_player_auth_store_service_1 = require("../http/next/next-player-auth-store.service");
 
 const player_identity_persistence_service_1 = require("../persistence/player-identity-persistence.service");
@@ -68,14 +64,6 @@ let WorldPlayerSourceService = class WorldPlayerSourceService {
     playerIdentityPersistenceService;
     /** next 快照持久化入口。 */
     playerPersistenceService;
-    /** 懒加载的 legacy 数据库连接。 */
-    pool = null;
-    /** 记录 legacy 连接池初始化中状态。 */
-    poolInitPromise = null;
-    /** 标记 legacy 数据源是否不可用。 */
-    poolUnavailable = false;
-    /** 避免重复打印 pool 不可用告警。 */
-    poolUnavailableLogged = false;
     constructor(authStore, playerIdentityPersistenceService, playerPersistenceService) {
         this.authStore = authStore;
         this.playerIdentityPersistenceService = playerIdentityPersistenceService;
@@ -84,15 +72,8 @@ let WorldPlayerSourceService = class WorldPlayerSourceService {
     async onModuleInit() {
         return;
     }
-    /** 释放 legacy 数据库连接。 */
     async onModuleDestroy() {
-
-        const pool = this.pool;
-        this.pool = null;
-        this.poolInitPromise = null;
-        if (pool) {
-            await pool.end().catch(() => undefined);
-        }
+        return;
     }
     /** next 身份持久化源是否可用。 */
     isNextIdentitySourceEnabled() {
@@ -131,183 +112,17 @@ let WorldPlayerSourceService = class WorldPlayerSourceService {
         return isMigrationAccessExplicit(options)
             && !isMigrationSourceDisabled();
     }
-    /** 显式 migration 身份来源查询。 */
-    async queryMigrationIdentityRow(pool, userId) {
-        const result = await pool.query(`
-        SELECT
-          u.id AS "userId",
-          u.username AS "username",
-          u."displayName" AS "displayName",
-          u."pendingRoleName" AS "pendingRoleName",
-          p.id AS "playerId",
-          p.name AS "playerName"
-        FROM users u
-        LEFT JOIN players p ON p."userId" = u.id
-        WHERE u.id::text = $1
-        LIMIT 1
-      `, [userId]);
-        return result.rows[0] ?? null;
-    }
-    /** 显式 migration 快照来源查询。 */
-    async queryMigrationSnapshotRow(pool, playerId) {
-        const result = await pool.query(`
-        SELECT
-          id,
-          "mapId",
-          x,
-          y,
-          facing,
-          hp,
-          "maxHp",
-          qi,
-          "pendingLogbookMessages",
-          inventory,
-          "temporaryBuffs",
-          equipment,
-          techniques,
-          quests,
-          bonuses,
-          "bodyTraining",
-          foundation,
-          "combatExp",
-          "boneAgeBaseYears",
-          "lifeElapsedTicks",
-          "lifespanYears",
-          "heavenGate",
-          "spiritualRoots",
-          "unlockedMinimapIds",
-          "autoBattle",
-          "autoBattleSkills",
-          "combatTargetId",
-          "combatTargetLocked",
-          "autoRetaliate",
-          "autoBattleStationary",
-          "allowAoePlayerHit",
-          "autoIdleCultivation",
-          "autoSwitchCultivation",
-          "cultivatingTechId"
-        FROM players
-        WHERE id = $1
-        LIMIT 1
-      `, [playerId]);
-        return result.rows[0] ?? null;
-    }
-    /** 从 legacy 数据库源恢复玩家身份。 */
-    async resolvePlayerIdentityFromMigrationSource(payload, options = undefined) {
-        if (!assertExplicitMigrationAccess(options, this.logger, 'identity_source')) {
-            return null;
-        }
-
-        const pool = await this.ensurePool();
-        if (!pool) {
-            this.logger.warn(`旧玩家源 migration 身份迁移已拦截：reason=pool_unavailable migration_only=true userId=${typeof payload?.sub === 'string' ? payload.sub : '未知'}`);
-            return null;
-        }
-
-        let row;
-        try {
-            row = await this.queryMigrationIdentityRow(pool, payload.sub);
-        }
-        catch (error) {
-            if (isMissingLegacySchemaError(error)) {
-                this.logger.warn(`旧玩家源 migration 身份迁移已拦截：reason=missing_legacy_schema migration_only=true userId=${typeof payload?.sub === 'string' ? payload.sub : '未知'}`);
-                return null;
-            }
-            throw error;
-        }
-        if (!row) {
-            this.logger.warn(`旧玩家源 migration 身份迁移已拦截：reason=missing_legacy_row migration_only=true userId=${typeof payload?.sub === 'string' ? payload.sub : '未知'}`);
-            return null;
-        }
-        return {
-            userId: row?.userId ?? payload.sub,
-            username: row?.username ?? payload.username,
-            displayName: resolveDisplayName(row?.displayName, row?.username ?? payload.username, payload.displayName),
-            playerId: row?.playerId ?? buildFallbackPlayerId(payload.sub),
-            playerName: resolvePlayerName(row?.playerName ?? row?.pendingRoleName ?? null, row?.username ?? payload.username, payload.displayName),
-        };
-    }
-    /** 从 legacy 数据库源恢复玩家快照。 */
-    async loadPlayerSnapshotFromMigrationSource(playerId, options = undefined) {
-        if (!assertExplicitMigrationAccess(options, this.logger, 'snapshot_source')) {
-            return null;
-        }
-
-        const pool = await this.ensurePool();
-        if (!pool) {
-            return null;
-        }
-
-        let row;
-        try {
-            row = await this.queryMigrationSnapshotRow(pool, playerId);
-        }
-        catch (error) {
-            if (isMissingLegacySchemaError(error)) {
-
-                const message = `World legacy player source snapshot fallback blocked: playerId=${playerId} users/players tables unavailable`;
-                this.logger.error(message);
-                throw new Error(message);
-            }
-            throw error;
-        }
-        if (!row) {
-            return null;
-        }
-        return toPlayerSnapshotFromMigrationRow(row);
-    }
-    /** 懒加载 legacy 数据库连接。 */
-    async ensurePool() {
-        if (this.poolUnavailable) {
-            return null;
-        }
-        if (this.pool) {
-            return this.pool;
-        }
-        if (this.poolInitPromise) {
-            return this.poolInitPromise;
-        }
-
-        const databaseUrl = (0, env_alias_1.resolveServerNextDatabaseUrl)();
-        if (!databaseUrl.trim()) {
-            this.poolUnavailable = true;
-            if (!this.poolUnavailableLogged) {
-                this.poolUnavailableLogged = true;
-                this.logger.warn('旧玩家源已降级：未提供 SERVER_NEXT_DATABASE_URL/DATABASE_URL，改用纯 token 身份');
-            }
-            return null;
-        }
-        this.poolInitPromise = (async () => {
-
-            const pool = new pg_1.Pool({ connectionString: databaseUrl });
-            try {
-                await pool.query('SELECT 1');
-                this.pool = pool;
-                return pool;
-            }
-            catch (error) {
-                this.poolUnavailable = true;
-                this.logger.error('旧玩家源数据库初始化失败', error instanceof Error ? error.stack : String(error));
-                await pool.end().catch(() => undefined);
-                return null;
-            }
-            finally {
-                this.poolInitPromise = null;
-            }
-        })();
-        return this.poolInitPromise;
-    }
     async resolvePlayerIdentityForMigration(payload, options = undefined) {
-        if (!this.isMigrationSourceEnabled(options)) {
-            return null;
+        if (isMigrationAccessExplicit(options) && !isMigrationSourceDisabled()) {
+            this.logger.warn(`旧玩家源 identity_source 已移除：reason=legacy_users_players_removed migration_only=true userId=${typeof payload?.sub === 'string' ? payload.sub : '未知'}`);
         }
-        return this.resolvePlayerIdentityFromMigrationSource(payload, options);
+        return null;
     }
     async loadPlayerSnapshotForMigration(playerId, options = undefined) {
-        if (!this.isMigrationSourceEnabled(options)) {
-            return null;
+        if (isMigrationAccessExplicit(options) && !isMigrationSourceDisabled()) {
+            this.logger.warn(`旧玩家源 snapshot_source 已移除：reason=legacy_users_players_removed migration_only=true playerId=${typeof playerId === 'string' ? playerId : '未知'}`);
         }
-        return this.loadPlayerSnapshotFromMigrationSource(playerId, options);
+        return null;
     }
 };
 exports.WorldPlayerSourceService = WorldPlayerSourceService;
@@ -318,9 +133,6 @@ exports.WorldPlayerSourceService = WorldPlayerSourceService = __decorate([
         player_identity_persistence_service_1.PlayerIdentityPersistenceService,
         player_persistence_service_1.PlayerPersistenceService])
 ], WorldPlayerSourceService);
-function isMissingLegacySchemaError(error) {
-    return Boolean(error && typeof error === 'object' && error.code === '42P01');
-}
 function resolveDisplayName(displayName, username, fallback) {
 
     const normalized = typeof displayName === 'string' ? displayName.normalize('NFC') : '';
