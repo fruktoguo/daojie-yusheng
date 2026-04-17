@@ -151,6 +151,7 @@
   - 只消费 market 相关低频结果与增量更新
 - [ ] `quest-panel.ts`
   - 只消费 quest 相关状态
+  - 首刀已完成：quest 状态源与低频编排已从 `main.ts` 抽到 `packages/client/src/main-quest-state-source.ts`，`socket.ts` 仍保持唯一事件消费层，`QuestPanel` 保持 patch-first
 - [ ] `settings-panel.ts`
   - 继续保持本地 UI 派生状态，但不反向决定服务端状态
 - [ ] `attr-panel.ts` / `technique-panel.ts`
