@@ -96,69 +96,32 @@
 
 当前仍未完成：
 
-- `world.gateway.js` 仍然承载大量 authenticated gameplay handler
-- player-controls 等 authenticated gameplay handler 仍在 gateway
+- `world.gateway.js` 仍然承载若干 authenticated gameplay / read-model 入口
+- 尚未抽离的主要内联块：player-controls、redeemCodes、attr detail、leaderboard/world summary、detail/tile detail、portal、cultivate、castSkill、useAction
 - gateway 还不是最终意义上的纯分发层
 
-本轮继续完成：
+本轮已完成：
 
 - 新增 `packages/server/src/network/world-gateway-gm-command.helper.js`
 - `GmGetState / GmSpawnBots / GmRemoveBots / GmUpdatePlayer / GmResetPlayer` 已从 gateway 主文件移出
-- suggestion moderation 仍作为单独更小簇处理
-
-本轮继续完成：
-
 - 新增 `packages/server/src/network/world-gateway-gm-suggestion.helper.js`
 - `GmMarkSuggestionCompleted / GmRemoveSuggestion` 已从 gateway 主文件移出
-- 当前 gateway 的 GM 侧只剩普通 gameplay/玩家 suggestion 入口，不再混入 direct GM suggestion moderation 逻辑
-
-本轮继续完成：
-
 - 新增 `packages/server/src/network/world-gateway-movement.helper.js`
 - `handleNextMoveTo / handleMove / handleNextNavigateQuest` 已从 gateway 主文件移出
-- movement debug 日志、quest navigate result 和 gateway error code 保持不变，gateway 继续向 helper 薄委托
-
-本轮继续完成：
-
 - 新增 `packages/server/src/network/world-gateway-suggestion.helper.js`
 - `handleNextRequestSuggestions / handleNextCreateSuggestion / handleNextVoteSuggestion / handleNextReplySuggestion / handleNextMarkSuggestionRepliesRead` 已从 gateway 主文件移出
-- 玩家 suggestion 写路径与列表发包胶水已和 GM suggestion moderation 完全拆开
-
-本轮继续完成：
-
 - 新增 `packages/server/src/network/world-gateway-inventory.helper.js`
 - `handleNextDestroyItem / handleNextSortInventory / handleNextUseItem / handleNextDropItem / handleTakeGround / handleNextEquip / handleNextUnequip` 已从 gateway 主文件移出
-- 背包整理/摧毁提示、takeAll 逻辑和各自 gateway error code 保持不变，gateway 继续向 helper 薄委托
-
-本轮继续完成：
-
 - 新增 `packages/server/src/network/world-gateway-mail.helper.js`
 - `handleNextRequestMailSummary / handleNextRequestMailPage / handleNextRequestMailDetail / handleNextMarkMailRead / handleNextClaimMailAttachments / handleNextDeleteMail` 已从 gateway 主文件移出
-- MailSummary / MailPage / MailDetail / MailOpResult 的发包链路与 read/claim/delete 后的 summary 刷新保持不变
-
-本轮继续完成：
-
 - 新增 `packages/server/src/network/world-gateway-npc.helper.js`
 - `handleNextRequestNpcShop / handleRequestNpcQuests / handleAcceptNpcQuest / handleSubmitNpcQuest / handleNextBuyNpcShopItem` 已从 gateway 主文件移出
-- NPC 商店视图、NPC 任务视图、任务接取/提交与商店购买的 gateway error code 与 runtime enqueue 路径保持不变；`useAction` 仍留在 gateway，待后续单独处理
-
-本轮继续完成：
-
 - 新增 `packages/server/src/network/world-gateway-craft.helper.js`
 - `handleNextRequestAlchemyPanel / handleNextRequestEnhancementPanel / handleNextStartAlchemy / handleNextCancelAlchemy / handleNextSaveAlchemyPreset / handleNextDeleteAlchemyPreset / handleNextStartEnhancement / handleNextCancelEnhancement` 已从 gateway 主文件移出
-- `markProtocol('next')`、Alchemy/EnhancementPanel 发包、preset/job 的 start/cancel 语义和原有 gateway error code 保持不变
-
-本轮继续完成：
-
 - 新增 `packages/server/src/network/world-gateway-market.helper.js`
 - `handleNextRequestMarket / handleNextRequestMarketListings / handleNextRequestMarketItemBook / handleNextRequestMarketTradeHistory / handleNextCreateMarketSellOrder / handleNextCreateMarketBuyOrder / handleNextBuyMarketItem / handleNextSellMarketItem / handleNextCancelMarketOrder / handleNextClaimMarketStorage` 已从 gateway 主文件移出
-- market 订阅集合、listing/trade-history 请求缓存、`flushMarketResult` 副作用以及各类 Market* 发包链路保持不变
-
-本轮继续完成：
-
-- 新增 `packages/server/src/network/world-gateway-craft.helper.js`
-- `handleNextRequestAlchemyPanel / handleNextRequestEnhancementPanel / handleNextStartAlchemy / handleNextCancelAlchemy / handleNextSaveAlchemyPreset / handleNextDeleteAlchemyPreset / handleNextStartEnhancement / handleNextCancelEnhancement` 已从 gateway 主文件移出
-- `markProtocol('next')`、Alchemy/EnhancementPanel 发包、preset/job 的 start/cancel 语义和原有 gateway error code 保持不变
+- 新增 `packages/server/src/network/world-gateway-player-controls.helper.js`
+- `handleNextChat / handleNextAckSystemMessages / handleNextDebugResetSpawn / handleNextUpdateAutoBattleSkills / handleNextUpdateAutoUsePills / handleNextUpdateCombatTargetingRules / handleNextUpdateAutoBattleTargetingMode / handleNextUpdateTechniqueSkillAvailability / handleNextHeavenGateAction / handleRequestQuests` 已从 gateway 主文件移出
 
 最小验证：
 
