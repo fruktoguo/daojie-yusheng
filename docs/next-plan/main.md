@@ -90,6 +90,11 @@
 - [x] 对每个数据域写清 legacy 来源、next 目标、转换规则、默认值、可丢弃项
 - [x] 把这份数据清单单独落成文档
 
+补充口径：
+
+- [x] 已明确可重建项：`buff / runtimeBonuses / pendingLogbookMessages`
+- [x] 已明确可按条件跳过项：`市场成交历史 / 地图环境快照 / Afdian / GM 备份作业历史`
+
 ## 5. 写一次性迁移脚本
 
 对应任务文档：

@@ -490,7 +490,7 @@ legacy 来源当前锁定为：
 - [x] 为每个必须迁移的数据域补字段级映射
 - [x] 单独锁定 legacy 正式来源文件 / 表 / scope
 - [x] 把这份清单和 `04-one-off-migration-script.md` 对齐
-- [ ] 把“可重建”项同步回 `main.md`
+- [x] 把“可重建”项同步回 `main.md`
 
 ## 与 04 迁移脚本的 domain 对齐
 
