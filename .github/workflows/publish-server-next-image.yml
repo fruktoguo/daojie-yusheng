@@ -75,7 +75,7 @@ jobs:
         uses: docker/build-push-action@v7
         with:
           context: .
-          file: packages/server-next/Dockerfile
+          file: packages/server/Dockerfile
           push: true
           tags: |
             ghcr.io/${{ steps.prep.outputs.owner }}/daojie-yusheng-server-next:shadow-latest

@@ -103,7 +103,7 @@ jobs:
         uses: docker/build-push-action@v7
         with:
           context: .
-          file: packages/server-next/Dockerfile
+          file: packages/server/Dockerfile
           push: true
           tags: |
             ghcr.io/${{ steps.prep.outputs.owner }}/daojie-yusheng-server-next:shadow-latest
@@ -253,9 +253,9 @@ jobs:
           path: .artifacts/shadow-destructive-proof
           if-no-files-found: error
 
-      - name: Verify deployed shadow GM compat
+      - name: Verify deployed shadow GM next
         env:
           DEPLOY_SSH_HOST: ${{ secrets.DEPLOY_SSH_HOST }}
           SERVER_NEXT_GM_PASSWORD: ${{ secrets.PROD_GM_PASSWORD }}
           SERVER_NEXT_URL: http://${{ secrets.DEPLOY_SSH_HOST }}:11923
-        run: pnpm --filter @mud/server-next smoke:gm-compat
+        run: pnpm --filter @mud/server-next smoke:gm-next
