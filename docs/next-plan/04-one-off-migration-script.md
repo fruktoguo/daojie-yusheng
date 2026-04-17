@@ -71,10 +71,10 @@
 - [x] 实现建议 / 回复迁移
 - [x] 实现 GM 密码记录迁移
 - [x] 实现 GM 备份/作业迁移
-- [ ] 实现属性 / 数值成长迁移
-- [ ] 实现背包 / 装备 / 物品迁移
-- [ ] 实现功法 / 技能 / 修炼状态迁移
-- [ ] 实现任务迁移
+- [x] 实现属性 / 数值成长迁移
+- [x] 实现背包 / 装备 / 物品迁移
+- [x] 实现功法 / 技能 / 修炼状态迁移
+- [x] 实现任务迁移
 - [x] 实现兑换码与 GM 备份/作业等必要数据迁移
 - [x] 补一份样本迁移数据
 - [x] 跑通一份样本 dry-run（fixture 样本已落地并实际执行）
@@ -134,16 +134,16 @@
 
 ### 第 2 批：补玩家核心进度与资产
 
-- [ ] `progression / attrs`
-- [ ] `inventory / equipment / items`
-- [ ] `techniques / skills / cultivating`
-- [ ] `quests`
+- [x] `progression / attrs`
+- [x] `inventory / equipment / items`
+- [x] `techniques / skills / cultivating`
+- [x] `quests`
 
 这是当前 `04` 最大缺口；不补齐，runtime bridge 无法真正退役。
 
 最小验证：
 
-- `pnpm --filter @mud/server-next migrate:legacy-next:once -- --fixture=... --domains=snapshot`
+- `pnpm --filter @mud/server-next migrate:legacy-next:once -- --fixture=src/tools/fixtures/migrate-next-mainline-once/sample-legacy.json --domains=progression,inventory,techniques,quests`
 - `pnpm --filter @mud/server-next smoke:progression`
 - `pnpm --filter @mud/server-next smoke:runtime`
 
