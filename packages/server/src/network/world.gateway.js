@@ -332,7 +332,7 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             mapId,
             preferredX,
             preferredY,
-            loadSnapshot: () => this.sessionBootstrapService.loadPlayerSnapshot(playerId, false),
+                loadSnapshot: () => this.sessionBootstrapService.loadPlayerSnapshot(playerId),
         };
     }
     async handleGuestHello(client, payload) {

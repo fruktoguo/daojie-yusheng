@@ -586,16 +586,16 @@ let WorldSessionBootstrapService = class WorldSessionBootstrapService {
         });
     }
     /** 读取玩家快照；authenticated 主链只记录 next-only miss，不再做 runtime compat 回退。 */
-    async loadPlayerSnapshot(playerId, allowLegacyFallback) {
-        return this.worldPlayerSnapshotService.loadPlayerSnapshot(playerId, allowLegacyFallback);
+    async loadPlayerSnapshot(playerId) {
+        return this.worldPlayerSnapshotService.loadPlayerSnapshot(playerId);
     }
     /** 读取玩家快照并带上来源追踪。 */
-    async loadPlayerSnapshotWithTrace(playerId, allowLegacyFallback, fallbackReason = null) {
+    async loadPlayerSnapshotWithTrace(playerId, fallbackReason = null) {
         if (this.worldPlayerSnapshotService?.loadPlayerSnapshotResult) {
-            return this.worldPlayerSnapshotService.loadPlayerSnapshotResult(playerId, allowLegacyFallback, fallbackReason);
+            return this.worldPlayerSnapshotService.loadPlayerSnapshotResult(playerId, fallbackReason);
         }
 
-        const snapshot = await this.worldPlayerSnapshotService.loadPlayerSnapshot(playerId, allowLegacyFallback, fallbackReason);
+        const snapshot = await this.worldPlayerSnapshotService.loadPlayerSnapshot(playerId, fallbackReason);
         return {
             snapshot,
             source: snapshot ? 'unknown' : 'miss',
@@ -610,7 +610,6 @@ let WorldSessionBootstrapService = class WorldSessionBootstrapService {
         const persistenceEnabled = this.worldPlayerSnapshotService.isPersistenceEnabled();
         if (persistenceEnabled && isStrictNativeSnapshotRequired()) {
             return {
-                allowLegacyFallback: false,
                 fallbackReason: 'strict_native_snapshot_required',
             };
         }
@@ -620,12 +619,10 @@ let WorldSessionBootstrapService = class WorldSessionBootstrapService {
         const authSource = typeof identity?.authSource === 'string' ? identity.authSource.trim() : '';
         if (persistenceEnabled) {
             return {
-                allowLegacyFallback: false,
                 fallbackReason: authSource ? `persistence_enabled_blocked:${authSource}` : 'persistence_enabled_blocked:unknown',
             };
         }
         return {
-            allowLegacyFallback: false,
             fallbackReason: authSource ? `identity_source:${authSource}` : 'identity_source:unknown',
         };
     }
@@ -695,7 +692,7 @@ let WorldSessionBootstrapService = class WorldSessionBootstrapService {
 
         const fallbackPolicy = this.resolveAuthenticatedSnapshotPolicy(identity, client);
 
-        const snapshotResult = await this.loadPlayerSnapshotWithTrace(identity.playerId, fallbackPolicy.allowLegacyFallback, fallbackPolicy.fallbackReason);
+        const snapshotResult = await this.loadPlayerSnapshotWithTrace(identity.playerId, fallbackPolicy.fallbackReason);
         this.rememberBootstrapSnapshotContext(client, snapshotResult.source, snapshotResult.persistedSource);
 
         const snapshot = snapshotResult.snapshot;

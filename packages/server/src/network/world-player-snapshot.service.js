@@ -129,7 +129,7 @@ let WorldPlayerSnapshotService = class WorldPlayerSnapshotService {
         }
     }
     /** 读取快照并携带来源、回退和种子信息。主链 miss 时只返回 next-only miss。 */
-    async loadPlayerSnapshotResult(playerId, allowLegacyFallback, fallbackReason = null) {
+    async loadPlayerSnapshotResult(playerId, fallbackReason = null) {
 
         let nextSnapshotRecord = null;
         try {
@@ -144,7 +144,6 @@ let WorldPlayerSnapshotService = class WorldPlayerSnapshotService {
                 playerId,
                 source: 'next_invalid',
                 persistedSource: null,
-                allowLegacyFallback: Boolean(allowLegacyFallback),
                 fallbackReason,
                 fallbackHit: false,
             });
@@ -157,7 +156,6 @@ let WorldPlayerSnapshotService = class WorldPlayerSnapshotService {
                 playerId,
                 source: 'next',
                 persistedSource: nextSnapshotRecord.persistedSource,
-                allowLegacyFallback: Boolean(allowLegacyFallback),
                 fallbackReason,
                 fallbackHit: false,
             });
@@ -169,15 +167,12 @@ let WorldPlayerSnapshotService = class WorldPlayerSnapshotService {
                 seedPersisted: false,
             };
         }
-        if (!allowLegacyFallback) {
-            return buildNextOnlySnapshotMissResult(playerId, fallbackReason, false, this.logger);
-        }
-        return buildNextOnlySnapshotMissResult(playerId, fallbackReason, true, this.logger);
+        return buildNextOnlySnapshotMissResult(playerId, fallbackReason, this.logger);
     }
     /** 读取快照，保持旧调用方兼容。 */
-    async loadPlayerSnapshot(playerId, allowLegacyFallback, fallbackReason = null) {
+    async loadPlayerSnapshot(playerId, fallbackReason = null) {
 
-        const result = await this.loadPlayerSnapshotResult(playerId, allowLegacyFallback, fallbackReason);
+        const result = await this.loadPlayerSnapshotResult(playerId, fallbackReason);
         return result.snapshot;
     }
 };
@@ -188,18 +183,14 @@ exports.WorldPlayerSnapshotService = WorldPlayerSnapshotService = __decorate([
         player_runtime_service_1.PlayerRuntimeService,
         world_player_source_service_1.WorldPlayerSourceService])
 ], WorldPlayerSnapshotService);
-function buildNextOnlySnapshotMissResult(playerId, fallbackReason, compatFallbackRequested, logger) {
-    logger.debug(`玩家快照来源=miss playerId=${playerId} nextOnly=true compatFallbackRequested=${compatFallbackRequested === true} fallbackReason=${fallbackReason ?? '无'}`);
+function buildNextOnlySnapshotMissResult(playerId, fallbackReason, logger) {
+    logger.debug(`玩家快照来源=miss playerId=${playerId} nextOnly=true fallbackReason=${fallbackReason ?? '无'}`);
     (0, world_player_token_service_1.recordAuthTrace)({
         type: 'snapshot',
         playerId,
         source: 'miss',
         allowLegacyFallback: false,
-        fallbackReason: compatFallbackRequested === true
-            ? (typeof fallbackReason === 'string' && fallbackReason.trim()
-                ? `${fallbackReason.trim()}:migration_runtime_blocked`
-                : 'migration_runtime_blocked')
-            : fallbackReason,
+        fallbackReason,
         fallbackHit: false,
     });
     return {
