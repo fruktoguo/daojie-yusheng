@@ -44,6 +44,8 @@ const world_runtime_npc_shop_query_service_1 = require("./world-runtime-npc-shop
 
 const world_runtime_quest_query_service_1 = require("./world-runtime-quest-query.service");
 
+const world_runtime_npc_quest_interaction_query_service_1 = require("./world-runtime-npc-quest-interaction-query.service");
+
 const player_combat_service_1 = require("../combat/player-combat.service");
 
 const map_instance_runtime_1 = require("../instance/map-instance.runtime");
@@ -234,6 +236,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     craftPanelRuntimeService;
     worldRuntimeNpcShopQueryService;
     worldRuntimeQuestQueryService;
+    worldRuntimeNpcQuestInteractionQueryService;
     logger = new common_1.Logger(WorldRuntimeService_1.name);
     stateLayerContract = world_runtime_contract_1.WORLD_RUNTIME_STATE_CONTRACT;
     runtimeState = (0, world_runtime_state_1.createWorldRuntimeStateStore)();
@@ -261,7 +264,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     dirtyContainerPersistenceInstanceIds = this.runtimeState.dirtyContainerPersistenceInstanceIds;
     latestCombatEffectsByInstanceId = this.runtimeState.latestCombatEffectsByInstanceId;
     nextGmBotSequence = 1;
-    constructor(contentTemplateRepository, templateRepository, mapPersistenceService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService, craftPanelRuntimeService, worldRuntimeNpcShopQueryService, worldRuntimeQuestQueryService) {
+    constructor(contentTemplateRepository, templateRepository, mapPersistenceService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService, craftPanelRuntimeService, worldRuntimeNpcShopQueryService, worldRuntimeQuestQueryService, worldRuntimeNpcQuestInteractionQueryService) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.templateRepository = templateRepository;
         this.mapPersistenceService = mapPersistenceService;
@@ -273,6 +276,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.craftPanelRuntimeService = craftPanelRuntimeService;
         this.worldRuntimeNpcShopQueryService = worldRuntimeNpcShopQueryService;
         this.worldRuntimeQuestQueryService = worldRuntimeQuestQueryService;
+        this.worldRuntimeNpcQuestInteractionQueryService = worldRuntimeNpcQuestInteractionQueryService;
     }
     /** onModuleInit：初始化公共实例的基础结构。 */
     async onModuleInit() {
@@ -4406,35 +4410,8 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     }
     /** resolveNpcQuestMarker：解析 NPC 头顶的任务标记。 */
     resolveNpcQuestMarker(playerId, npcId) {
-
-        const player = this.playerRuntimeService.getPlayer(playerId);
-        if (!player) {
-            return undefined;
-        }
-
-        const currentMapId = player.templateId;
-        for (const quest of player.quests.quests) {
-            if (quest.status === 'ready' && quest.submitNpcId === npcId && quest.submitMapId === currentMapId) {
-                return { line: quest.line, state: 'ready' };
-            }
-        }
-        for (const quest of player.quests.quests) {
-            if (quest.status === 'active'
-                && ((quest.objectiveType === 'talk' && quest.targetNpcId === npcId && (!quest.targetMapId || quest.targetMapId === currentMapId))
-                    || quest.giverId === npcId)) {
-                return { line: quest.line, state: 'active' };
-            }
-        }
-
         const npc = this.getNpcForPlayerMap(playerId, npcId);
-        if (!npc) {
-            return undefined;
-        }
-
-        const npcViews = this.collectNpcQuestViews(playerId, npc);
-
-        const available = npcViews.find((entry) => entry.status === 'available');
-        return available ? { line: available.line, state: 'available' } : undefined;
+        return this.worldRuntimeNpcQuestInteractionQueryService.resolveNpcQuestMarker(playerId, npcId, npc);
     }
     /** getNpcForPlayerMap：读取玩家当前地图中的 NPC。 */
     getNpcForPlayerMap(playerId, npcId) {
@@ -4523,18 +4500,9 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
                     cooldownLeft: 0,
                 });
             }
-            if (npc.questMarker && chebyshevDistance(view.self.x, view.self.y, npc.x, npc.y) <= 1) {
-                actions.push({
-                    id: `npc_quests:${npc.npcId}`,
-
-                    name: npc.questMarker.state === 'ready' ? `交付任务：${npc.name}` : `任务：${npc.name}`,
-                    type: 'quest',
-
-                    desc: npc.questMarker.state === 'ready'
-                        ? `向 ${npc.name} 提交当前可完成的任务。`
-                        : `查看 ${npc.name} 相关的任务。`,
-                    cooldownLeft: 0,
-                });
+            const npcQuestAction = this.worldRuntimeNpcQuestInteractionQueryService.buildNpcQuestContextAction(view, npc);
+            if (npcQuestAction) {
+                actions.push(npcQuestAction);
             }
             if (!npc.hasShop || chebyshevDistance(view.self.x, view.self.y, npc.x, npc.y) > 1) {
                 continue;
@@ -5041,7 +5009,8 @@ exports.WorldRuntimeService = WorldRuntimeService = WorldRuntimeService_1 = __de
         redeem_code_runtime_service_1.RedeemCodeRuntimeService,
         craft_panel_runtime_service_1.CraftPanelRuntimeService,
         world_runtime_npc_shop_query_service_1.WorldRuntimeNpcShopQueryService,
-        world_runtime_quest_query_service_1.WorldRuntimeQuestQueryService])
+        world_runtime_quest_query_service_1.WorldRuntimeQuestQueryService,
+        world_runtime_npc_quest_interaction_query_service_1.WorldRuntimeNpcQuestInteractionQueryService])
 ], WorldRuntimeService);
 // helper functions were split into dedicated helper modules for maintainability.
 //# sourceMappingURL=world-runtime.service.js.map
