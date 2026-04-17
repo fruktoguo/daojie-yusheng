@@ -52,7 +52,7 @@
 
 - [x] 确认 `packages/shared/src/protocol.ts` 是唯一 next 协议真源
 - [x] 确认 `packages/server/data/*` 是唯一内容和地图真源
-- [ ] 确认 `packages/server/src/runtime/*` 是唯一服务端运行时主链
+- [x] 确认 `packages/server/src/runtime/*` 是唯一服务端运行时主链
 - [x] 确认 `packages/client/src/network/socket.ts` 是唯一前台 Socket 主链
 - [x] 确认 `packages/client/src/main.ts` 是唯一前台入口主链
 - [ ] 清掉仍然通过 legacy 文件定义 next 行为的地方

@@ -179,8 +179,10 @@
 ### server
 
 - [ ] `world.gateway.js` 不再消费 shared 未声明事件
-- [ ] `runtime/*` 不再通过 legacy 文件决定 next 行为
+- [x] `runtime/*` 不再通过 legacy 文件决定 next 行为
 - [x] `server/data/*` 不再由 legacy 内容或地图目录兜底
+
+- [x] 用 `pnpm proof:next-server-runtime-mainline` 固定 runtime 只依赖显式允许的 next 适配边界，不再旁路到 legacy/compat/player-source 主链
 
 ### client
 
