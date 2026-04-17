@@ -76,6 +76,8 @@ const world_gateway_mail_helper_1 = require("./world-gateway-mail.helper");
 
 const world_gateway_npc_helper_1 = require("./world-gateway-npc.helper");
 
+const world_gateway_craft_helper_1 = require("./world-gateway-craft.helper");
+
 /** 鉴权后请求 sessionId 只允许从 next/token 两类来源带入。 */
 const AUTHENTICATED_REQUESTED_SESSION_ID_AUTH_SOURCES = new Set([
     'next',
@@ -148,6 +150,7 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
     gatewayInventoryHelper;
     gatewayMailHelper;
     gatewayNpcHelper;
+    gatewayCraftHelper;
     /** Socket.IO server 实例。 */
     server;
     /** 入口日志。 */
@@ -182,6 +185,7 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         this.gatewayInventoryHelper = new world_gateway_inventory_helper_1.WorldGatewayInventoryHelper(this);
         this.gatewayMailHelper = new world_gateway_mail_helper_1.WorldGatewayMailHelper(this);
         this.gatewayNpcHelper = new world_gateway_npc_helper_1.WorldGatewayNpcHelper(this);
+        this.gatewayCraftHelper = new world_gateway_craft_helper_1.WorldGatewayCraftHelper(this);
     }
     /** 处理 socket 连接：校验协议、阻断未就绪流量并触发鉴权引导。 */
     async handleConnection(client) {
@@ -569,120 +573,28 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         }
     }
     handleNextRequestAlchemyPanel(client, payload) {
-
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        try {
-
-            const player = this.playerRuntimeService.getPlayer(playerId);
-            if (!player) {
-                return;
-            }
-            this.worldClientEventService.markProtocol(client, 'next');
-            client.emit(shared_1.NEXT_S2C.AlchemyPanel, this.craftPanelRuntimeService.buildAlchemyPanelPayload(player, payload?.knownCatalogVersion));
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'REQUEST_ALCHEMY_PANEL_FAILED', error);
-        }
+        return this.gatewayCraftHelper.handleNextRequestAlchemyPanel(client, payload);
     }
     handleNextRequestEnhancementPanel(client, _payload) {
-
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        try {
-
-            const player = this.playerRuntimeService.getPlayer(playerId);
-            if (!player) {
-                return;
-            }
-            this.worldClientEventService.markProtocol(client, 'next');
-            client.emit(shared_1.NEXT_S2C.EnhancementPanel, this.craftPanelRuntimeService.buildEnhancementPanelPayload(player));
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'REQUEST_ENHANCEMENT_PANEL_FAILED', error);
-        }
+        return this.gatewayCraftHelper.handleNextRequestEnhancementPanel(client, _payload);
     }
     handleNextStartAlchemy(client, payload) {
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        try {
-            this.worldClientEventService.markProtocol(client, 'next');
-            this.worldRuntimeService.enqueueStartAlchemy(playerId, payload);
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'START_ALCHEMY_FAILED', error);
-        }
+        return this.gatewayCraftHelper.handleNextStartAlchemy(client, payload);
     }
     handleNextCancelAlchemy(client, _payload) {
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        try {
-            this.worldClientEventService.markProtocol(client, 'next');
-            this.worldRuntimeService.enqueueCancelAlchemy(playerId);
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'CANCEL_ALCHEMY_FAILED', error);
-        }
+        return this.gatewayCraftHelper.handleNextCancelAlchemy(client, _payload);
     }
     handleNextSaveAlchemyPreset(client, payload) {
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        try {
-            this.worldClientEventService.markProtocol(client, 'next');
-            this.worldRuntimeService.enqueueSaveAlchemyPreset(playerId, payload);
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'SAVE_ALCHEMY_PRESET_FAILED', error);
-        }
+        return this.gatewayCraftHelper.handleNextSaveAlchemyPreset(client, payload);
     }
     handleNextDeleteAlchemyPreset(client, payload) {
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        try {
-            this.worldClientEventService.markProtocol(client, 'next');
-            this.worldRuntimeService.enqueueDeleteAlchemyPreset(playerId, payload?.presetId);
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'DELETE_ALCHEMY_PRESET_FAILED', error);
-        }
+        return this.gatewayCraftHelper.handleNextDeleteAlchemyPreset(client, payload);
     }
     handleNextStartEnhancement(client, payload) {
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        try {
-            this.worldClientEventService.markProtocol(client, 'next');
-            this.worldRuntimeService.enqueueStartEnhancement(playerId, payload);
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'START_ENHANCEMENT_FAILED', error);
-        }
+        return this.gatewayCraftHelper.handleNextStartEnhancement(client, payload);
     }
     handleNextCancelEnhancement(client, _payload) {
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        try {
-            this.worldClientEventService.markProtocol(client, 'next');
-            this.worldRuntimeService.enqueueCancelEnhancement(playerId);
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'CANCEL_ENHANCEMENT_FAILED', error);
-        }
+        return this.gatewayCraftHelper.handleNextCancelEnhancement(client, _payload);
     }
     handleNextRequestLeaderboard(client, payload) {
 
