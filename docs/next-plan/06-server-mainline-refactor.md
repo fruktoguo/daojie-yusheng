@@ -346,6 +346,11 @@
 - `dispatchCastSkill / resolveLegacySkillTargetRef / dispatchCastSkillToMonster / dispatchCastSkillToTile` 已委托给 `WorldRuntimePlayerSkillDispatchService`
 - `WorldRuntimeService` 仍保留 `dispatchEngageBattle(...)`、auto-targeting、`handlePlayerMonsterKill()` 与 `handlePlayerDefeat()`，说明这次只是第 5 批第九刀的 player-skill dispatch 抽离，不是完整 player combat 域拆分
 - 本轮验证已补跑 `compile`、`smoke:combat`、根级 `pnpm build` 与 `pnpm verify:replace-ready`
+- 新增 `packages/server/src/runtime/world/world-runtime-auto-combat.service.js`
+- `materializeAutoCombatCommands / buildAutoCombatCommand / selectAutoCombatTarget / resolveTrackedAutoCombatTarget / pickAutoBattleSkill / resolveAutoBattleDesiredRange` 已委托给 `WorldRuntimeAutoCombatService`
+- `WorldRuntimeService` 仍保留 `dispatchEngageBattle(...)` 与玩家战斗主编排；monster 分支的首个 handoff 继续在原入口里执行，只把 auto-combat 目标选择、射程判定与命令物化细节下沉到新 service，说明这次只是第 5 批第十刀的 auto-combat orchestration 抽离，不是完整 `dispatchEngageBattle(...)` / player combat 域拆分
+- `packages/server/src/tools/monster-combat-smoke.js` 已把 `battle:engage` 的证明链收紧到首个 post-engage `SelfDelta / WorldDelta` 绑定证据，不再接受任意 `fx` 或泛化怪物位移误报
+- 本轮验证已补跑 `compile`、`smoke:monster-combat`、根级 `pnpm build` 与 `pnpm verify:replace-ready`
 
 这一批结束后，`world-runtime.service.js` 仍可以存在，但不该再同时拥有所有领域细节。
 
