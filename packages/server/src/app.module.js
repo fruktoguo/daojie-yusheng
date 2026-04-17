@@ -40,6 +40,10 @@ const world_sync_quest_loot_service_1 = require("./network/world-sync-quest-loot
 
 const world_sync_minimap_service_1 = require("./network/world-sync-minimap.service");
 
+const world_sync_map_snapshot_service_1 = require("./network/world-sync-map-snapshot.service");
+
+const world_sync_map_static_aux_service_1 = require("./network/world-sync-map-static-aux.service");
+
 const world_sync_threat_service_1 = require("./network/world-sync-threat.service");
 
 const world_sync_service_1 = require("./network/world-sync.service");
@@ -159,6 +163,8 @@ exports.AppModule = AppModule = __decorate([
             world_sync_protocol_service_1.WorldSyncProtocolService,
             world_sync_quest_loot_service_1.WorldSyncQuestLootService,
             world_sync_minimap_service_1.WorldSyncMinimapService,
+            world_sync_map_snapshot_service_1.WorldSyncMapSnapshotService,
+            world_sync_map_static_aux_service_1.WorldSyncMapStaticAuxService,
             world_sync_threat_service_1.WorldSyncThreatService,
             world_sync_service_1.WorldSyncService,
             runtime_maintenance_service_1.RuntimeMaintenanceService,

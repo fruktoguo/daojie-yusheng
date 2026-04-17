@@ -35,6 +35,10 @@ const world_sync_quest_loot_service_1 = require("./world-sync-quest-loot.service
 
 const world_sync_minimap_service_1 = require("./world-sync-minimap.service");
 
+const world_sync_map_snapshot_service_1 = require("./world-sync-map-snapshot.service");
+
+const world_sync_map_static_aux_service_1 = require("./world-sync-map-static-aux.service");
+
 const world_sync_threat_service_1 = require("./world-sync-threat.service");
 
 const world_sync_protocol_service_1 = require("./world-sync-protocol.service");
@@ -58,6 +62,10 @@ let WorldSyncService = class WorldSyncService {
     worldSyncQuestLootService;
     /** minimap 冷路径同步服务。 */
     worldSyncMinimapService;
+    /** map/static snapshot 构造服务。 */
+    worldSyncMapSnapshotService;
+    /** map/static aux cache 服务。 */
+    worldSyncMapStaticAuxService;
     /** threat 冷路径同步服务。 */
     worldSyncThreatService;
     /** 协议下发辅助服务。 */
@@ -66,7 +74,7 @@ let WorldSyncService = class WorldSyncService {
     nextAuxStateByPlayerId = new Map();
     /** 同步日志，用于追踪初始包和增量包下发。 */
     logger = new common_1.Logger(WorldSyncService.name);
-    constructor(worldRuntimeService, playerRuntimeService, worldProjectorService, worldSessionService, templateRepository, mapRuntimeConfigService, worldSyncQuestLootService, worldSyncMinimapService, worldSyncThreatService, worldSyncProtocolService) {
+    constructor(worldRuntimeService, playerRuntimeService, worldProjectorService, worldSessionService, templateRepository, mapRuntimeConfigService, worldSyncQuestLootService, worldSyncMinimapService, worldSyncMapSnapshotService, worldSyncMapStaticAuxService, worldSyncThreatService, worldSyncProtocolService) {
         this.worldRuntimeService = worldRuntimeService;
         this.playerRuntimeService = playerRuntimeService;
         this.worldProjectorService = worldProjectorService;
@@ -75,6 +83,8 @@ let WorldSyncService = class WorldSyncService {
         this.mapRuntimeConfigService = mapRuntimeConfigService;
         this.worldSyncQuestLootService = worldSyncQuestLootService;
         this.worldSyncMinimapService = worldSyncMinimapService;
+        this.worldSyncMapSnapshotService = worldSyncMapSnapshotService;
+        this.worldSyncMapStaticAuxService = worldSyncMapStaticAuxService;
         this.worldSyncThreatService = worldSyncThreatService;
         this.worldSyncProtocolService = worldSyncProtocolService;
     }
@@ -152,7 +162,7 @@ let WorldSyncService = class WorldSyncService {
 
         const template = this.templateRepository.getOrThrow(view.instance.templateId);
 
-        const visibleTileKeys = this.buildVisibleTileKeySet(view, player, template);
+        const visibleTileKeys = this.worldSyncMapSnapshotService.buildVisibleTileKeySet(view, player, template);
         return filterCombatEffects(this.worldRuntimeService.getCombatEffects(view.instance.instanceId), visibleTileKeys);
     }
     /** 在调试模式下记录同步包里是否带有位移信号。 */
@@ -227,6 +237,7 @@ let WorldSyncService = class WorldSyncService {
             this.playerRuntimeService.detachSession(playerId);
         }
         this.worldSyncQuestLootService.clearPlayerCache(playerId);
+        this.worldSyncMapStaticAuxService.clearPlayerCache(playerId);
         this.nextAuxStateByPlayerId.delete(playerId);
     }
     emitLootWindowUpdate(playerId) {
@@ -239,17 +250,17 @@ let WorldSyncService = class WorldSyncService {
 
         const template = this.templateRepository.getOrThrow(view.instance.templateId);
 
-        const visibleTiles = this.buildVisibleTilesSnapshot(view, player, template);
+        const mapStaticState = this.worldSyncMapStaticAuxService.buildInitialMapStaticState(view, player, template);
 
-        const renderEntities = this.buildRenderEntitiesSnapshot(view, player);
+        const visibleTiles = mapStaticState.visibleTiles;
 
-        const allMinimapMarkers = this.worldSyncMinimapService.buildMinimapMarkers(template);
+        const visibleMinimapMarkers = mapStaticState.visibleMinimapMarkers;
 
-        const visibleMinimapMarkers = this.worldSyncMinimapService.buildVisibleMinimapMarkers(allMinimapMarkers, visibleTiles.byKey);
+        const renderEntities = this.worldSyncMapSnapshotService.buildRenderEntitiesSnapshot(view, player);
 
-        const minimapLibrary = this.buildMinimapLibrarySync(player, template.id);
+        const minimapLibrary = this.worldSyncMapSnapshotService.buildMinimapLibrarySync(player, template.id);
 
-        const timeState = this.buildGameTimeState(template, view, player);
+        const timeState = this.worldSyncMapSnapshotService.buildGameTimeState(template, view, player);
 
         const threatArrows = this.worldSyncThreatService.buildThreatArrows(view);
 
@@ -265,13 +276,10 @@ let WorldSyncService = class WorldSyncService {
         const lootWindow = this.worldSyncQuestLootService.buildLootWindowSyncState(playerId);
         this.worldSyncProtocolService.sendLootWindow(socket, { window: lootWindow });
         this.worldSyncThreatService.emitInitialThreatSync(socket, view, threatArrows);
+        this.worldSyncMapStaticAuxService.commitPlayerCache(playerId, mapStaticState.cacheState);
         this.nextAuxStateByPlayerId.set(playerId, {
-            mapId: view.instance.templateId,
-            instanceId: view.instance.instanceId,
             realm: cloneRealmState(player.realm),
             threatArrows: cloneThreatArrows(threatArrows),
-            visibleTiles: new Map(Array.from(visibleTiles.byKey.entries(), ([key, tile]) => [key, cloneTile(tile)])),
-            visibleMinimapMarkers: visibleMinimapMarkers.map((entry) => cloneMinimapMarker(entry)),
             lootWindow: cloneLootWindow(lootWindow),
         });
     }
@@ -285,21 +293,18 @@ let WorldSyncService = class WorldSyncService {
 
         const template = this.templateRepository.getOrThrow(view.instance.templateId);
 
-        const visibleTiles = this.buildVisibleTilesSnapshot(view, player, template);
+        const mapStaticPlan = this.worldSyncMapStaticAuxService.buildDeltaMapStaticPlan(playerId, view, player, template);
 
-        const currentVisibleTileKeys = this.buildVisibleTileKeySet(view, player, template);
+        const visibleTiles = mapStaticPlan.visibleTiles;
 
-        const allMinimapMarkers = this.worldSyncMinimapService.buildMinimapMarkers(template);
+        const currentVisibleMinimapMarkers = mapStaticPlan.visibleMinimapMarkers;
 
-        const currentVisibleMinimapMarkers = this.worldSyncMinimapService.buildVisibleMinimapMarkers(allMinimapMarkers, currentVisibleTileKeys);
-
-        const mapChanged = previous.mapId !== view.instance.templateId
-            || previous.instanceId !== view.instance.instanceId;
+        const mapChanged = mapStaticPlan.mapChanged;
         if (mapChanged) {
 
-            const minimapLibrary = this.buildMinimapLibrarySync(player, template.id);
+            const minimapLibrary = this.worldSyncMapSnapshotService.buildMinimapLibrarySync(player, template.id);
             this.worldSyncProtocolService.sendMapStatic(socket, this.buildMapStaticSyncPayload(template, {
-                mapMeta: this.buildMapMetaSync(template),
+                mapMeta: this.worldSyncMapSnapshotService.buildMapMetaSync(template),
                 minimap: this.worldSyncMinimapService.buildMinimapSnapshotSync(template),
                 tiles: visibleTiles.matrix,
                 tilesOriginX: view.self.x - Math.max(1, Math.round(player.attrs.numericStats.viewRange)),
@@ -309,15 +314,11 @@ let WorldSyncService = class WorldSyncService {
             }));
         }
         else {
-
-            const tilePatches = diffVisibleTiles(previous.visibleTiles ?? null, visibleTiles.byKey);
-
-            const markerPatch = this.worldSyncMinimapService.diffVisibleMinimapMarkers(previous.visibleMinimapMarkers, currentVisibleMinimapMarkers);
-            if (markerPatch.adds.length > 0 || markerPatch.removes.length > 0 || tilePatches.length > 0) {
+            if (mapStaticPlan.visibleMinimapMarkerAdds.length > 0 || mapStaticPlan.visibleMinimapMarkerRemoves.length > 0 || mapStaticPlan.tilePatches.length > 0) {
                 this.worldSyncProtocolService.sendMapStatic(socket, this.buildMapStaticSyncPayload(template, {
-                    tilePatches: tilePatches.length > 0 ? tilePatches : undefined,
-                    visibleMinimapMarkerAdds: markerPatch.adds.length > 0 ? markerPatch.adds : undefined,
-                    visibleMinimapMarkerRemoves: markerPatch.removes.length > 0 ? markerPatch.removes : undefined,
+                    tilePatches: mapStaticPlan.tilePatches.length > 0 ? mapStaticPlan.tilePatches : undefined,
+                    visibleMinimapMarkerAdds: mapStaticPlan.visibleMinimapMarkerAdds.length > 0 ? mapStaticPlan.visibleMinimapMarkerAdds : undefined,
+                    visibleMinimapMarkerRemoves: mapStaticPlan.visibleMinimapMarkerRemoves.length > 0 ? mapStaticPlan.visibleMinimapMarkerRemoves : undefined,
                 }));
             }
         }
@@ -333,20 +334,17 @@ let WorldSyncService = class WorldSyncService {
         }
 
         const currentThreatArrows = this.worldSyncThreatService.emitDeltaThreatSync(socket, view, previous.threatArrows ?? null, mapChanged);
+        this.worldSyncMapStaticAuxService.commitPlayerCache(playerId, mapStaticPlan.cacheState);
         this.nextAuxStateByPlayerId.set(playerId, {
-            mapId: view.instance.templateId,
-            instanceId: view.instance.instanceId,
             realm: currentRealm,
             threatArrows: cloneThreatArrows(currentThreatArrows),
-            visibleTiles: new Map(Array.from(visibleTiles.byKey.entries(), ([key, tile]) => [key, cloneTile(tile)])),
-            visibleMinimapMarkers: currentVisibleMinimapMarkers.map((entry) => cloneMinimapMarker(entry)),
             lootWindow: cloneLootWindow(lootWindow),
         });
     }
     buildBootstrapSyncPayload(view, player, template, visibleTiles, renderEntities, visibleMinimapMarkers, minimapLibrary, timeState) {
         return {
             self: this.buildPlayerSyncState(player, view, minimapLibrary.map((entry) => entry.mapId)),
-            mapMeta: buildMapMetaSync(template),
+            mapMeta: this.worldSyncMapSnapshotService.buildMapMetaSync(template),
             minimap: this.worldSyncMinimapService.buildMinimapSnapshotSync(template),
             visibleMinimapMarkers,
             minimapLibrary,
@@ -379,142 +377,11 @@ let WorldSyncService = class WorldSyncService {
     buildPlayerSyncState(player, view, unlockedMinimapIds) {
         return buildPlayerSyncState(player, view, unlockedMinimapIds);
     }
-    buildMapMetaSync(template) {
-        return buildMapMetaSync(template);
-    }
     getMapTimeConfig(mapId) {
         return this.mapRuntimeConfigService.getMapTimeConfig(mapId);
     }
     getMapTickSpeed(mapId) {
         return this.mapRuntimeConfigService.getMapTickSpeed(mapId);
-    }
-    buildGameTimeState(template, view, player) {
-        return buildGameTimeState(template, view.tick, Math.max(1, Math.round(player.attrs.numericStats.viewRange)), this.getMapTimeConfig(view.instance.templateId), this.getMapTickSpeed(view.instance.templateId));
-    }
-    buildVisibleTilesSnapshot(view, player, template) {
-
-        const radius = Math.max(1, Math.round(player.attrs.numericStats.viewRange));
-
-        const originX = view.self.x - radius;
-
-        const originY = view.self.y - radius;
-
-        const visibleTileIndices = new Set(Array.isArray(view.visibleTileIndices) ? view.visibleTileIndices : []);
-
-        const matrix = [];
-
-        const byKey = new Map();
-        for (let row = 0; row < radius * 2 + 1; row += 1) {
-            const y = originY + row;
-            const line = [];
-            for (let column = 0; column < radius * 2 + 1; column += 1) {
-                const x = originX + column;
-                const tileIndex = x >= 0 && y >= 0 && x < template.width && y < template.height
-                    ? (0, map_template_repository_1.getTileIndex)(x, y, template.width)
-                    : -1;
-
-                const tile = visibleTileIndices.size > 0 && !visibleTileIndices.has(tileIndex)
-                    ? null
-                    : this.buildTileSyncState(template, view.instance.instanceId, x, y);
-                line.push(tile);
-                if (tile) {
-                    byKey.set(buildCoordKey(x, y), tile);
-                }
-            }
-            matrix.push(line);
-        }
-        return {
-            matrix,
-            byKey,
-        };
-    }
-    buildRenderEntitiesSnapshot(view, player) {
-
-        const entities = new Map();
-        entities.set(player.playerId, buildPlayerRenderEntity(player, '#ff0'));
-        for (const visible of view.visiblePlayers) {
-            const target = this.playerRuntimeService.getPlayer(visible.playerId);
-            if (!target || target.instanceId !== player.instanceId) {
-                continue;
-            }
-            entities.set(target.playerId, buildPlayerRenderEntity(target, '#0f0'));
-        }
-        for (const npc of view.localNpcs) {
-            entities.set(npc.npcId, {
-                id: npc.npcId,
-                x: npc.x,
-                y: npc.y,
-                char: npc.char,
-                color: npc.color,
-                name: npc.name,
-                kind: 'npc',
-                npcQuestMarker: npc.questMarker ?? undefined,
-            });
-        }
-        for (const monster of view.localMonsters) {
-            entities.set(monster.runtimeId, {
-                id: monster.runtimeId,
-                x: monster.x,
-                y: monster.y,
-                char: monster.char,
-                color: monster.color,
-                name: monster.name,
-                kind: 'monster',
-                monsterTier: monster.tier,
-                monsterScale: getBuffPresentationScale(monster.buffs),
-                hp: monster.hp,
-                maxHp: monster.maxHp,
-            });
-        }
-        for (const container of view.localContainers) {
-            entities.set(`container:${view.instance.templateId}:${container.id}`, {
-                id: `container:${view.instance.templateId}:${container.id}`,
-                x: container.x,
-                y: container.y,
-                char: container.char,
-                color: container.color,
-                name: container.name,
-                kind: 'container',
-            });
-        }
-        return entities;
-    }
-    buildMinimapLibrarySync(player, currentMapId) {
-
-        const mapIds = Array.from(new Set([...player.unlockedMapIds, currentMapId]))
-            .filter((entry) => this.templateRepository.has(entry))
-            .sort(compareStableStrings);
-        return mapIds.map((mapId) => {
-
-            const template = this.templateRepository.getOrThrow(mapId);
-            return {
-                mapId,
-                mapMeta: this.buildMapMetaSync(template),
-                snapshot: this.worldSyncMinimapService.buildMinimapSnapshotSync(template),
-            };
-        });
-    }
-    buildTileSyncState(template, instanceId, x, y) {
-        if (x < 0 || y < 0 || x >= template.width || y >= template.height) {
-            return null;
-        }
-
-        const state = this.worldRuntimeService.getInstanceTileState(instanceId, x, y);
-        if (!state) {
-            return null;
-        }
-
-        const tileType = (0, shared_1.getTileTypeFromMapChar)(template.terrainRows[y]?.[x] ?? '#');
-        return {
-            type: tileType,
-            walkable: (0, shared_1.isTileTypeWalkable)(tileType),
-            blocksSight: (0, shared_1.doesTileTypeBlockSight)(tileType),
-            aura: state.aura,
-            occupiedBy: null,
-            modifiedAt: state.combat?.modifiedAt ?? null,
-            hp: state.combat?.hp,
-            maxHp: state.combat?.maxHp,
-        };
     }
     buildAttrUpdate(previous, player) {
         return buildAttrUpdate(previous, player);
@@ -530,37 +397,6 @@ let WorldSyncService = class WorldSyncService {
     }
     buildActionsUpdate(previous, player) {
         return buildActionsUpdate(previous, player);
-    }
-    buildVisibleTileKeySet(view, player, template) {
-
-        const radius = Math.max(1, Math.round(player.attrs.numericStats.viewRange));
-
-        const originX = view.self.x - radius;
-
-        const originY = view.self.y - radius;
-
-        const visibleTileIndices = new Set(Array.isArray(view.visibleTileIndices) ? view.visibleTileIndices : []);
-
-        const keys = new Set();
-        for (let row = 0; row < radius * 2 + 1; row += 1) {
-            const y = originY + row;
-            for (let column = 0; column < radius * 2 + 1; column += 1) {
-                const x = originX + column;
-                if (x < 0 || y < 0 || x >= template.width || y >= template.height) {
-                    continue;
-                }
-
-                const tileIndex = (0, map_template_repository_1.getTileIndex)(x, y, template.width);
-                if (visibleTileIndices.size > 0 && !visibleTileIndices.has(tileIndex)) {
-                    continue;
-                }
-                if (!this.worldRuntimeService.getInstanceTileState(view.instance.instanceId, x, y)) {
-                    continue;
-                }
-                keys.add(buildCoordKey(x, y));
-            }
-        }
-        return keys;
     }
     emitPendingNotices(playerId, socket) {
 
@@ -583,6 +419,8 @@ exports.WorldSyncService = WorldSyncService = __decorate([
         runtime_map_config_service_1.RuntimeMapConfigService,
         world_sync_quest_loot_service_1.WorldSyncQuestLootService,
         world_sync_minimap_service_1.WorldSyncMinimapService,
+        world_sync_map_snapshot_service_1.WorldSyncMapSnapshotService,
+        world_sync_map_static_aux_service_1.WorldSyncMapStaticAuxService,
         world_sync_threat_service_1.WorldSyncThreatService,
         world_sync_protocol_service_1.WorldSyncProtocolService])
 ], WorldSyncService);
@@ -909,98 +747,6 @@ function buildPlayerSyncState(player, view, unlockedMinimapIds) {
         unlockedMinimapIds,
     };
 }
-function buildMapMetaSync(template) {
-    return {
-        id: template.id,
-        name: template.name,
-        width: template.width,
-        height: template.height,
-        routeDomain: template.routeDomain,
-        parentMapId: template.source.parentMapId,
-        parentOriginX: template.source.parentOriginX,
-        parentOriginY: template.source.parentOriginY,
-        floorLevel: template.source.floorLevel,
-        floorName: template.source.floorName,
-        spaceVisionMode: template.source.spaceVisionMode,
-        dangerLevel: template.source.dangerLevel,
-        recommendedRealm: template.source.recommendedRealm,
-        description: template.source.description,
-    };
-}
-function buildGameTimeState(template, totalTicks, baseViewRange, overrideConfig, tickSpeed = 1) {
-
-    const config = normalizeMapTimeConfig(overrideConfig ?? template.source.time);
-
-    const localTimeScale = typeof config.scale === 'number' && Number.isFinite(config.scale) && config.scale >= 0
-        ? config.scale
-        : 1;
-
-    const timeScale = tickSpeed > 0 ? localTimeScale : 0;
-
-    const offsetTicks = typeof config.offsetTicks === 'number' && Number.isFinite(config.offsetTicks)
-        ? Math.round(config.offsetTicks)
-        : 0;
-
-    const effectiveTicks = tickSpeed > 0 ? totalTicks : 0;
-
-    const localTicks = ((Math.floor(effectiveTicks * timeScale) + offsetTicks) % shared_1.GAME_DAY_TICKS + shared_1.GAME_DAY_TICKS) % shared_1.GAME_DAY_TICKS;
-
-    const phase = shared_1.GAME_TIME_PHASES.find((entry) => localTicks >= entry.startTick && localTicks < entry.endTick)
-        ?? shared_1.GAME_TIME_PHASES[shared_1.GAME_TIME_PHASES.length - 1];
-
-    const baseLight = typeof config.light?.base === 'number' && Number.isFinite(config.light.base)
-        ? config.light.base
-        : 0;
-
-    const timeInfluence = typeof config.light?.timeInfluence === 'number' && Number.isFinite(config.light.timeInfluence)
-        ? config.light.timeInfluence
-        : 100;
-
-    const lightPercent = Math.max(0, Math.min(100, Math.round(baseLight + phase.skyLightPercent * (timeInfluence / 100))));
-
-    const darknessStacks = resolveDarknessStacks(lightPercent);
-
-    const visionMultiplier = shared_1.DARKNESS_STACK_TO_VISION_MULTIPLIER[darknessStacks] ?? 0.5;
-
-    const palette = config.palette?.[phase.id];
-    return {
-        totalTicks,
-        localTicks,
-        dayLength: shared_1.GAME_DAY_TICKS,
-        timeScale,
-        phase: phase.id,
-        phaseLabel: phase.label,
-        darknessStacks,
-        visionMultiplier,
-        lightPercent,
-        effectiveViewRange: Math.max(1, Math.ceil(Math.max(1, baseViewRange) * visionMultiplier)),
-        tint: palette?.tint ?? phase.tint,
-        overlayAlpha: palette?.alpha ?? Math.max(phase.overlayAlpha, (100 - lightPercent) / 100 * 0.8),
-    };
-}
-function normalizeMapTimeConfig(input) {
-
-    const candidate = (input ?? {});
-    return {
-        offsetTicks: candidate.offsetTicks,
-        scale: candidate.scale,
-        light: candidate.light,
-        palette: candidate.palette,
-    };
-}
-function resolveDarknessStacks(lightPercent) {
-    if (lightPercent >= 95)
-        return 0;
-    if (lightPercent >= 85)
-        return 1;
-    if (lightPercent >= 75)
-        return 2;
-    if (lightPercent >= 65)
-        return 3;
-    if (lightPercent >= 55)
-        return 4;
-    return 5;
-}
 function cloneGameTimeState(source) {
     return { ...source };
 }
@@ -1017,33 +763,6 @@ function isSameGameTimeState(left, right) {
         && left.effectiveViewRange === right.effectiveViewRange
         && left.tint === right.tint
         && left.overlayAlpha === right.overlayAlpha;
-}
-function getBuffPresentationScale(buffs) {
-
-    let scale = 1;
-    for (const buff of buffs ?? []) {
-        if ((buff?.remainingTicks ?? 0) <= 0 || (buff?.stacks ?? 0) <= 0) {
-            continue;
-        }
-        if (Number.isFinite(buff.presentationScale) && Number(buff.presentationScale) > scale) {
-            scale = Number(buff.presentationScale);
-        }
-    }
-    return scale;
-}
-function buildPlayerRenderEntity(player, color) {
-    return {
-        id: player.playerId,
-        x: player.x,
-        y: player.y,
-        char: (player.displayName.trim()[0] ?? player.name.trim()[0] ?? player.playerId.trim()[0] ?? '@'),
-        color,
-        name: player.name,
-        kind: 'player',
-        monsterScale: getBuffPresentationScale(player.buffs?.buffs),
-        hp: player.hp,
-        maxHp: player.maxHp,
-    };
 }
 function diffRenderEntities(previous, current, fullSync) {
 
@@ -1139,27 +858,6 @@ function toTickRenderEntity(source) {
         maxHp: source.maxHp ?? null,
         npcQuestMarker: source.npcQuestMarker ?? null,
     };
-}
-function diffVisibleTiles(previous, current) {
-
-    const patches = [];
-    for (const [key, tile] of current) {
-        const prev = previous?.get(key) ?? null;
-        if (!prev || !isSameTile(prev, tile)) {
-            const [x, y] = parseCoordKey(key);
-            patches.push({ x, y, tile: cloneTile(tile) });
-        }
-    }
-    if (previous) {
-        for (const key of previous.keys()) {
-            if (current.has(key)) {
-                continue;
-            }
-            const [x, y] = parseCoordKey(key);
-            patches.push({ x, y, tile: null });
-        }
-    }
-    return patches;
 }
 function diffGroundPiles(previous, current, fullSync) {
 
@@ -1339,37 +1037,10 @@ function toGroundPileMap(input) {
 function buildCoordKey(x, y) {
     return `${x},${y}`;
 }
-function parseCoordKey(key) {
-
-    const separatorIndex = key.indexOf(',');
-    if (separatorIndex < 0) {
-        return [0, 0];
-    }
-    return [
-        Number(key.slice(0, separatorIndex)),
-        Number(key.slice(separatorIndex + 1)),
-    ];
-}
 function cloneRenderEntity(source) {
     return {
         ...source,
         npcQuestMarker: source.npcQuestMarker ? { ...source.npcQuestMarker } : undefined,
-    };
-}
-function cloneMinimapMarker(source) {
-    return {
-        id: source.id,
-        kind: source.kind,
-        x: source.x,
-        y: source.y,
-        label: source.label,
-        detail: source.detail,
-    };
-}
-function cloneTile(source) {
-    return {
-        ...source,
-        hiddenEntrance: source.hiddenEntrance ? { ...source.hiddenEntrance } : undefined,
     };
 }
 function cloneGroundPile(source) {
@@ -1953,16 +1624,6 @@ function isSameBodyTrainingState(left, right) {
     return left.level === right.level
         && left.exp === right.exp
         && left.expToNext === right.expToNext;
-}
-function isSameTile(left, right) {
-    return left.type === right.type
-        && left.walkable === right.walkable
-        && left.blocksSight === right.blocksSight
-        && left.aura === right.aura
-        && left.occupiedBy === right.occupiedBy
-        && left.modifiedAt === right.modifiedAt
-        && left.hp === right.hp
-        && left.maxHp === right.maxHp;
 }
 function isSameGroundPile(left, right) {
     if (left.x !== right.x || left.y !== right.y || left.items.length !== right.items.length) {
