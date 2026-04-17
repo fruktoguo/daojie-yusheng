@@ -77,6 +77,7 @@ import {
   type ObserveAsideCard,
 } from './main-ui-helpers';
 import { createMainQuestStateSource } from './main-quest-state-source';
+import { createMainSettingsStateSource } from './main-settings-state-source';
 import {
   initializeMapPerformanceConfig,
   MAP_PERFORMANCE_CONFIG_CHANGE_EVENT,
@@ -97,7 +98,6 @@ import {
 } from './main-targeting-helpers';
 import {
   ActionDef,
-  AccountRedeemCodesRes,
   computeAffectedCellsFromAnchor,
   CONNECTION_RECOVERY_RETRY_MS,
   CURRENT_TIME_REFRESH_MS,
@@ -126,7 +126,6 @@ import {
   NEXT_S2C_InventoryUpdate,
   NEXT_S2C_Leaderboard,
   NEXT_S2C_LootWindowUpdate,
-  NEXT_S2C_RedeemCodesResult,
   NEXT_S2C_TechniqueUpdate,
   NEXT_S2C_ActionsUpdate,
   NEXT_S2C_WorldSummary,
@@ -204,13 +203,6 @@ const QQ_GROUP_DESKTOP_DEEP_LINK = `tencent://AddContact/?fromId=45&fromSubId=1&
 
 // 主入口持有的角色与导航挂起状态
 let auraLevelBaseValue = DEFAULT_AURA_LEVEL_BASE_VALUE;
-let pendingRedeemCodesRequest:
-  | {
-      resolve: (value: AccountRedeemCodesRes) => void;
-      reject: (reason?: unknown) => void;
-      timeoutId: ReturnType<typeof setTimeout>;
-    }
-  | null = null;
 // 当前观察弹层所对应的地块快照
 let activeObservedTile:
   | {
@@ -658,6 +650,44 @@ const questStateSource = createMainQuestStateSource({
   syncQuestBridgeState: (quests) => nextUiBridge.syncQuests(quests),
   syncPlayerBridgeState: (player) => nextUiBridge.syncPlayer(player),
   refreshUiChrome: () => refreshUiChrome(),
+});
+const settingsStateSource = createMainSettingsStateSource({
+  settingsPanel,
+  getCurrentAccountName: () => getCurrentAccountName() ?? '',
+  getPlayer: () => myPlayer,
+  applyVisibleDisplayName: (playerId, displayName) => {
+    latestEntities = latestEntities.map((entity) => {
+      if (entity.id !== playerId) {
+        return entity;
+      }
+      return {
+        ...entity,
+        char: [...displayName][0] ?? entity.char,
+      };
+    });
+    mapRuntime.replaceVisibleEntities(latestEntities);
+  },
+  applyVisibleRoleName: (playerId, roleName) => {
+    latestEntities = latestEntities.map((entity) => {
+      if (entity.id !== playerId) {
+        return entity;
+      }
+      return {
+        ...entity,
+        name: roleName,
+      };
+    });
+    mapRuntime.replaceVisibleEntities(latestEntities);
+  },
+  syncPlayerBridgeState: (player) => nextUiBridge.syncPlayer(player),
+  refreshHudChrome: () => refreshHudChrome(),
+  showToast: (message) => showToast(message),
+  isSocketConnected: () => socket.connected,
+  sendRedeemCodes: (codes) => socket.sendRedeemCodes(codes),
+  closeSettingsPanel: () => detailModalHost.close('settings-panel'),
+  disconnectSocket: () => socket.disconnect(),
+  resetGameState: () => resetGameState(),
+  logout: (message) => loginUI.logout(message),
 });
 new ChangelogPanel();
 new TutorialPanel();
@@ -2556,46 +2586,6 @@ debugPanel.setCallbacks(() => {
   socket.sendDebugResetSpawn();
 });
 chatUI.setCallback((message) => socket.sendChat(message));
-settingsPanel.setOptions({
-  getCurrentAccountName: () => getCurrentAccountName() ?? '',
-  getCurrentDisplayName: () => myPlayer?.displayName ?? '',
-  getCurrentRoleName: () => myPlayer?.name ?? '',
-  onDisplayNameUpdated: (displayName) => {
-    applyLocalDisplayName(displayName);
-    showToast(`显示名称已改为 ${displayName}`);
-  },
-  onRoleNameUpdated: (roleName) => {
-    applyLocalRoleName(roleName);
-    showToast(`角色名称已改为 ${roleName}`);
-  },
-  redeemCodes: (codes) => requestRedeemCodes(codes),
-  onLogout: () => {
-    detailModalHost.close('settings-panel');
-    socket.disconnect();
-    resetGameState();
-    loginUI.logout('已退出登录');
-  },
-});
-
-function requestRedeemCodes(codes: string[]): Promise<AccountRedeemCodesRes> {
-  if (!socket.connected) {
-    return Promise.reject(new Error('当前连接不可用，请稍后重试'));
-  }
-  if (pendingRedeemCodesRequest) {
-    return Promise.reject(new Error('已有兑换请求正在处理中'));
-  }
-  return new Promise<AccountRedeemCodesRes>((resolve, reject) => {
-    const timeoutId = window.setTimeout(() => {
-      if (pendingRedeemCodesRequest?.timeoutId !== timeoutId) {
-        return;
-      }
-      pendingRedeemCodesRequest = null;
-      reject(new Error('兑换结果返回超时，请稍后查看背包或重试'));
-    }, 12000);
-    pendingRedeemCodesRequest = { resolve, reject, timeoutId };
-    socket.sendRedeemCodes(codes);
-  });
-}
 
 function applyZoomChange(nextZoom: number): number {
   const previous = getZoom();
@@ -3048,12 +3038,7 @@ socket.onConnectError((message) => {
 });
 socket.onDisconnect((reason) => {
   if (reason === 'io client disconnect') return;
-  if (pendingRedeemCodesRequest) {
-    const pending = pendingRedeemCodesRequest;
-    pendingRedeemCodesRequest = null;
-    window.clearTimeout(pending.timeoutId);
-    pending.reject(new Error('连接已断开，兑换结果未返回'));
-  }
+  settingsStateSource.rejectPendingRedeemCodes('连接已断开，兑换结果未返回');
   clearPendingSocketPing();
   renderPingLatency(null, navigator.onLine ? '重连' : '断网');
   panelSystem.store.setRuntime({ connected: false });
@@ -3920,44 +3905,6 @@ function resetGameState() {
   document.getElementById('hud')?.classList.add('hidden');
 }
 
-function applyLocalDisplayName(displayName: string) {
-  if (!myPlayer) {
-    return;
-  }
-  myPlayer.displayName = displayName;
-  latestEntities = latestEntities.map((entity) => {
-    if (entity.id !== myPlayer?.id) {
-      return entity;
-    }
-    return {
-      ...entity,
-      char: [...displayName][0] ?? entity.char,
-    };
-  });
-  mapRuntime.replaceVisibleEntities(latestEntities);
-  nextUiBridge.syncPlayer(myPlayer);
-  refreshHudChrome();
-}
-
-function applyLocalRoleName(roleName: string) {
-  if (!myPlayer) {
-    return;
-  }
-  myPlayer.name = roleName;
-  latestEntities = latestEntities.map((entity) => {
-    if (entity.id !== myPlayer?.id) {
-      return entity;
-    }
-    return {
-      ...entity,
-      name: roleName,
-    };
-  });
-  mapRuntime.replaceVisibleEntities(latestEntities);
-  nextUiBridge.syncPlayer(myPlayer);
-  refreshHudChrome();
-}
-
 // 键盘输入入口
 const keyboard = new KeyboardInput((dirs: Direction[]) => {
   clearCurrentPath();
@@ -4264,14 +4211,8 @@ socket.onMailDetail((data) => {
   mailPanel.updateDetail(data.detail, data.error);
 });
 
-socket.onRedeemCodesResult((data: NEXT_S2C_RedeemCodesResult) => {
-  if (!pendingRedeemCodesRequest) {
-    return;
-  }
-  const pending = pendingRedeemCodesRequest;
-  pendingRedeemCodesRequest = null;
-  clearTimeout(pending.timeoutId);
-  pending.resolve(data.result);
+socket.onRedeemCodesResult((data) => {
+  settingsStateSource.handleRedeemCodesResult(data);
 });
 
 socket.onMailOpResult((data) => {
