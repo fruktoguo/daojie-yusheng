@@ -160,6 +160,12 @@
 
 删除目标不是“现在就删 migration”，而是让主链只有一个编排入口。
 
+当前已完成的首刀：
+
+- `world-player-auth.service.js` 不再在 `authenticatePlayerToken()` 里前置执行 `token_seed` starter snapshot 准入
+- `token_seed` 身份在持久化成功后直接从 auth 返回，由 `world-session-bootstrap.service.js -> loadAuthenticatedPlayerSnapshot()` 接管缺快照时的恢复/阻断
+- `next-auth-bootstrap-smoke.js` 已同步把这条责任边界改成“bootstrap/snapshot 阶段负责 snapshot readiness”
+
 最小验证：
 
 - `pnpm --filter @mud/server-next build`

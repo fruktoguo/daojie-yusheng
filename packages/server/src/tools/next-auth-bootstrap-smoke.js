@@ -3124,7 +3124,7 @@ async function verifyTokenSeedNativeStarterSnapshotContract() {
     };
 }
 /**
- * 验证 with-db token_seed 在缺失 next identity 与 compat snapshot 时，能直接 bootstrap 为 next-native starter snapshot。
+ * 验证 with-db token_seed 在鉴权放行后，bootstrap/snapshot 阶段仍能从缺失 next identity 与 compat snapshot 中恢复为 next-native starter snapshot。
  */
 async function verifyTokenSeedNativeStarterBootstrapProof() {
     const expectedRecoveryIdentityPersistedSource = 'token_seed';

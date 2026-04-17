@@ -386,26 +386,7 @@ let WorldPlayerAuthService = class WorldPlayerAuthService {
                 return null;
             }
 
-            const nativeStarterSnapshot = persistedTokenIdentity
-                ? await this.ensureTokenSeedSnapshot(tokenIdentity.playerId)
-                : { ok: false, failureStage: 'native_snapshot_not_attempted' };
-            if (persistedTokenIdentity && !nativeStarterSnapshot.ok) {
-                (0, world_player_token_service_1.recordAuthTrace)({
-                    type: 'identity',
-                    source: 'token_preseed_blocked',
-                    userId: tokenIdentity.userId,
-                    playerId: tokenIdentity.playerId,
-                    persistedSource: persistedTokenIdentity?.persistedSource ?? null,
-                    persistenceEnabled: true,
-                    nextLoadHit: false,
-                    compatTried: false,
-                    persistAttempted: true,
-                    persistSucceeded: true,
-                    persistFailureStage: nativeStarterSnapshot.failureStage ?? 'native_snapshot_seed_failed',
-                });
-                return null;
-            }
-            if (persistedTokenIdentity && nativeStarterSnapshot.ok) {
+            if (persistedTokenIdentity) {
                 (0, world_player_token_service_1.recordAuthTrace)({
                     type: 'identity',
                     source: 'token',
