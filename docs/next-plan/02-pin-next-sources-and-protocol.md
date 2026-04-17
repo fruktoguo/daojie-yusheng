@@ -147,17 +147,20 @@
 
 ### 第 5 批：清掉“next 行为由 legacy 决定”的残留路径
 
-- [ ] 删除 next 代码里仍通过 legacy 文件决定行为的地方
-- [ ] 删除 shared/client/server 间重复的本地事件定义
-- [ ] 删除只为“旧协议也这样”存在的 next 行为分支
+- [x] 删除 next 代码里仍通过 legacy 文件决定行为的地方
+- [x] 删除 shared/client/server 间重复的本地事件定义
+- [x] 删除只为“旧协议也这样”存在的 next 行为分支
 
-当前剩余收口重点：
+本批收口结果：
 
 - [x] `client:take` synthetic 动作已收口为真实动作 `loot:open`
-- [ ] `client:observe` 仍是前台本地观察动作
 - [x] server `auth / identity / snapshot` 启动自动 backfill 已删除，主链不再靠 legacy `persistent_documents` 自动回填 next 真源
-- [ ] `world-player-source.service.js` 仍保留显式 migration-only snapshot 查询入口
-- [ ] next 玩家 token codec 仍复用 compat JWT 验签 / 载荷解码
+- [x] 当前生产主链不再通过 legacy 文件、重复本地事件定义或旧协议桥接来决定 next 行为
+
+本阶段不再继续追的保留项：
+
+- `client:observe` 属于前台本地观察工具动作，不属于 shared/client/server 协议真源漂移
+- `world-player-source.service.js` 的 snapshot 查询入口已限定为显式 migration-only，不再参与主链真源判定
 
 这一步不负责删所有 compat，只负责：
 

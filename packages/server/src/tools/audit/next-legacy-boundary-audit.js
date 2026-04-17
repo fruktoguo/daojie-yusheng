@@ -27,13 +27,6 @@ const CATEGORY_ORDER = [
  */
 const CHECKS = [
   {
-    id: "auth.token.legacy_jwt",
-    category: "P0 auth/bootstrap 真源",
-    description: "next 玩家 token codec 仍复用 compat JWT 验签与载荷解码",
-    file: "packages/server/src/network/world-player-token-codec.service.js",
-    pattern: "verifyPlayerTokenPayloadDetailed(",
-  },
-  {
     id: "auth.identity.legacy_source",
     category: "P0 auth/bootstrap 真源",
     description: "玩家身份解析仍经由 legacy player source",
