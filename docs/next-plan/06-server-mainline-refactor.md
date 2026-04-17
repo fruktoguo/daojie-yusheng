@@ -166,6 +166,11 @@
 - `token_seed` 身份在持久化成功后直接从 auth 返回，由 `world-session-bootstrap.service.js -> loadAuthenticatedPlayerSnapshot()` 接管缺快照时的恢复/阻断
 - `next-auth-bootstrap-smoke.js` 已同步把这条责任边界改成“bootstrap/snapshot 阶段负责 snapshot readiness”
 
+本轮继续完成：
+
+- `world-player-auth.service.js` 不再对已加载的 next 身份执行 `nextProtocolStrict` 二次拦截
+- `world-session-bootstrap.service.js -> resolveAuthenticatedBootstrapContractViolation()` 成为 next 主链准入的唯一合同裁判
+
 最小验证：
 
 - `pnpm --filter @mud/server-next build`

@@ -248,29 +248,6 @@ let WorldPlayerAuthService = class WorldPlayerAuthService {
                 });
                 return null;
             }
-            if (nextProtocolStrict) {
-
-                const nextProtocolNormalizedResult = await this.normalizeLoadedNextIdentityForNextProtocol(normalizedNextIdentity);
-                if (!nextProtocolNormalizedResult.identity) {
-                    (0, world_player_token_service_1.recordAuthTrace)({
-                        type: 'identity',
-                        source: 'next_invalid',
-                        userId: normalizedNextIdentity.userId,
-                        playerId: normalizedNextIdentity.playerId,
-                        persistedSource: nextPersistedSource,
-                        persistenceEnabled: identityPersistenceEnabled,
-                        nextLoadHit: true,
-                        compatTried: false,
-                        persistAttempted: false,
-                        persistSucceeded: null,
-                        persistFailureStage: nextProtocolNormalizedResult.persistFailureStage ?? 'next_protocol_loaded_identity_blocked',
-                    });
-                    return null;
-                }
-                normalizedNextIdentity = nextProtocolNormalizedResult.identity;
-                nextPersistedSource = normalizePersistedSource(normalizedNextIdentity);
-            }
-
             const nextIdentityAuthSource = resolvePersistedNextIdentityAuthSource(nextPersistedSource);
             (0, world_player_token_service_1.recordAuthTrace)({
                 type: 'identity',
