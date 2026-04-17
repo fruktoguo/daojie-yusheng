@@ -31,6 +31,8 @@ const player_combat_config_helpers_1 = require("../runtime/player/player-combat-
 
 const world_projector_service_1 = require("./world-projector.service");
 
+const world_sync_quest_loot_service_1 = require("./world-sync-quest-loot.service");
+
 const world_sync_protocol_service_1 = require("./world-sync-protocol.service");
 
 const world_session_service_1 = require("./world-session.service");
@@ -48,25 +50,24 @@ let WorldSyncService = class WorldSyncService {
     templateRepository;
     /** 地图 runtime 配置。 */
     mapRuntimeConfigService;
+    /** quest / loot 冷路径同步服务。 */
+    worldSyncQuestLootService;
     /** 协议下发辅助服务。 */
     worldSyncProtocolService;
-    /** 每个玩家最近一次任务 revision。 */
-    lastQuestRevisionByPlayerId = new Map();
-    /** 每个玩家的拾取窗口缓存。 */
-    lootWindowByPlayerId = new Map();
     /** next 侧附加状态缓存。 */
     nextAuxStateByPlayerId = new Map();
     /** 地图级 minimap marker 缓存。 */
     minimapMarkersByMapId = new Map();
     /** 同步日志，用于追踪初始包和增量包下发。 */
     logger = new common_1.Logger(WorldSyncService.name);
-    constructor(worldRuntimeService, playerRuntimeService, worldProjectorService, worldSessionService, templateRepository, mapRuntimeConfigService, worldSyncProtocolService) {
+    constructor(worldRuntimeService, playerRuntimeService, worldProjectorService, worldSessionService, templateRepository, mapRuntimeConfigService, worldSyncQuestLootService, worldSyncProtocolService) {
         this.worldRuntimeService = worldRuntimeService;
         this.playerRuntimeService = playerRuntimeService;
         this.worldProjectorService = worldProjectorService;
         this.worldSessionService = worldSessionService;
         this.templateRepository = templateRepository;
         this.mapRuntimeConfigService = mapRuntimeConfigService;
+        this.worldSyncQuestLootService = worldSyncQuestLootService;
         this.worldSyncProtocolService = worldSyncProtocolService;
     }
     /** 发送玩家的初始同步包。 */
@@ -91,7 +92,7 @@ let WorldSyncService = class WorldSyncService {
         this.logMovementEnvelope(playerId, 'initial', envelope);
         this.emitNextEnvelope(socket, envelope);
         this.emitNextInitialSync(binding.playerId, socket, view, player);
-        this.emitQuestSync(socket, binding.playerId, player.quests.revision);
+        this.worldSyncQuestLootService.emitQuestSync(socket, binding.playerId, player.quests.revision);
         this.emitPendingNotices(binding.playerId, socket);
     }
     /** 遍历所有在线玩家并刷新增量同步。 */
@@ -112,10 +113,7 @@ let WorldSyncService = class WorldSyncService {
             this.emitNextEnvelope(socket, envelope);
             this.emitNextDeltaSync(binding.playerId, socket, view, player);
 
-            const lastQuestRevision = this.lastQuestRevisionByPlayerId.get(binding.playerId) ?? 0;
-            if (lastQuestRevision !== player.quests.revision) {
-                this.emitQuestSync(socket, binding.playerId, player.quests.revision);
-            }
+            this.worldSyncQuestLootService.emitQuestSyncIfChanged(socket, binding.playerId, player.quests.revision);
             this.emitPendingNotices(binding.playerId, socket);
         }
     }
@@ -216,15 +214,6 @@ let WorldSyncService = class WorldSyncService {
                 : null,
         });
     }
-    /** 下发任务同步，并记录最新 revision。 */
-    emitQuestSync(socket, playerId, revision) {
-
-        const payload = {
-            quests: this.playerRuntimeService.listQuests(playerId),
-        };
-        this.worldSyncProtocolService.sendQuestSync(socket, payload);
-        this.lastQuestRevisionByPlayerId.set(playerId, revision);
-    }
     /** 清理断线玩家的同步缓存。 */
     clearDetachedPlayerCaches(playerId) {
         this.clearPlayerCaches(playerId, true);
@@ -243,42 +232,14 @@ let WorldSyncService = class WorldSyncService {
         if (detachRuntimeSession) {
             this.playerRuntimeService.detachSession(playerId);
         }
-        this.lastQuestRevisionByPlayerId.delete(playerId);
-        this.lootWindowByPlayerId.delete(playerId);
+        this.worldSyncQuestLootService.clearPlayerCache(playerId);
         this.nextAuxStateByPlayerId.delete(playerId);
     }
     emitLootWindowUpdate(playerId) {
-
-        const socket = this.worldSessionService.getSocketByPlayerId(playerId);
-        if (!socket) {
-            return;
-        }
-
-        const payload = {
-            window: this.buildLootWindowSyncState(playerId),
-        };
-        const { emitNext } = this.worldSyncProtocolService.resolveEmission(socket);
-        this.worldSyncProtocolService.sendLootWindow(socket, payload);
-        if (emitNext) {
-
-            const nextAux = this.nextAuxStateByPlayerId.get(playerId);
-            if (nextAux) {
-                this.nextAuxStateByPlayerId.set(playerId, {
-                    ...nextAux,
-                    lootWindow: cloneLootWindow(payload.window),
-                });
-            }
-        }
+        this.worldSyncQuestLootService.emitLootWindowUpdate(playerId);
     }
     openLootWindow(playerId, x, y) {
-        this.lootWindowByPlayerId.set(playerId, {
-            tileX: Math.trunc(x),
-            tileY: Math.trunc(y),
-        });
-        this.playerRuntimeService.openLootWindow(playerId, Math.trunc(x), Math.trunc(y));
-        return {
-            window: this.buildLootWindowSyncState(playerId),
-        };
+        return this.worldSyncQuestLootService.openLootWindow(playerId, x, y);
     }
     emitNextInitialSync(playerId, socket, view, player) {
 
@@ -307,7 +268,7 @@ let WorldSyncService = class WorldSyncService {
         }));
         this.worldSyncProtocolService.sendRealm(socket, this.buildRealmSyncPayload(player));
 
-        const lootWindow = this.buildLootWindowSyncState(playerId);
+        const lootWindow = this.worldSyncQuestLootService.buildLootWindowSyncState(playerId);
         this.worldSyncProtocolService.sendLootWindow(socket, { window: lootWindow });
         if (threatArrows.length > 0) {
             socket.emit(shared_1.NEXT_S2C.WorldDelta, {
@@ -381,7 +342,7 @@ let WorldSyncService = class WorldSyncService {
             this.worldSyncProtocolService.sendRealm(socket, this.buildRealmSyncPayload(player, currentRealm));
         }
 
-        const lootWindow = this.buildLootWindowSyncState(playerId);
+        const lootWindow = this.worldSyncQuestLootService.buildLootWindowSyncState(playerId);
         if (!isSameLootWindow(previous.lootWindow ?? null, lootWindow)) {
             this.worldSyncProtocolService.sendLootWindow(socket, { window: lootWindow });
         }
@@ -703,27 +664,6 @@ let WorldSyncService = class WorldSyncService {
         }
         this.worldSyncProtocolService.sendNotices(socket, items);
     }
-    buildLootWindowSyncState(playerId) {
-
-        const player = this.playerRuntimeService.getPlayer(playerId);
-        if (!player) {
-            this.lootWindowByPlayerId.delete(playerId);
-            return null;
-        }
-
-        const target = this.playerRuntimeService.getLootWindowTarget(playerId) ?? this.lootWindowByPlayerId.get(playerId);
-        if (!target) {
-            return null;
-        }
-
-        const lootWindow = this.worldRuntimeService.buildLootWindowSyncState(playerId, target.tileX, target.tileY);
-        if (!lootWindow) {
-            this.playerRuntimeService.clearLootWindow(playerId);
-            this.lootWindowByPlayerId.delete(playerId);
-            return null;
-        }
-        return lootWindow;
-    }
 };
 exports.WorldSyncService = WorldSyncService;
 exports.WorldSyncService = WorldSyncService = __decorate([
@@ -735,6 +675,7 @@ exports.WorldSyncService = WorldSyncService = __decorate([
         world_session_service_1.WorldSessionService,
         map_template_repository_1.MapTemplateRepository,
         runtime_map_config_service_1.RuntimeMapConfigService,
+        world_sync_quest_loot_service_1.WorldSyncQuestLootService,
         world_sync_protocol_service_1.WorldSyncProtocolService])
 ], WorldSyncService);
 function buildAttrUpdate(previous, player) {

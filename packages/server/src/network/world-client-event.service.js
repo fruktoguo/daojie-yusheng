@@ -31,7 +31,7 @@ const suggestion_runtime_service_1 = require("../runtime/suggestion/suggestion-r
 
 const world_session_service_1 = require("./world-session.service");
 
-const world_sync_service_1 = require("./world-sync.service");
+const world_sync_quest_loot_service_1 = require("./world-sync-quest-loot.service");
 
 /** 世界客户端事件服务：把 runtime 结果翻译成 Socket 事件并按玩家维度下发。 */
 let WorldClientEventService = class WorldClientEventService {
@@ -45,15 +45,15 @@ let WorldClientEventService = class WorldClientEventService {
     suggestionRuntimeService;
     /** 会话管理入口，用于把 playerId 映射回在线 socket。 */
     worldSessionService;
-    /** 复用同步服务里的拾取窗口和世界态辅助推送。 */
-    worldSyncService;
-    constructor(mailRuntimeService, marketRuntimeService, playerRuntimeService, suggestionRuntimeService, worldSessionService, worldSyncService) {
+    /** 复用 quest / loot 同步服务里的拾取窗口推送。 */
+    worldSyncQuestLootService;
+    constructor(mailRuntimeService, marketRuntimeService, playerRuntimeService, suggestionRuntimeService, worldSessionService, worldSyncQuestLootService) {
         this.mailRuntimeService = mailRuntimeService;
         this.marketRuntimeService = marketRuntimeService;
         this.playerRuntimeService = playerRuntimeService;
         this.suggestionRuntimeService = suggestionRuntimeService;
         this.worldSessionService = worldSessionService;
-        this.worldSyncService = worldSyncService;
+        this.worldSyncQuestLootService = worldSyncQuestLootService;
     }
     /** 记录客户端偏好的 next 协议。 */
     markPrefersNext(client) {
@@ -166,7 +166,7 @@ let WorldClientEventService = class WorldClientEventService {
     /** 打开或刷新拾取窗口。 */
     emitLootWindowUpdate(client, playerId, x, y) {
 
-        const payload = this.worldSyncService.openLootWindow(playerId, x, y);
+        const payload = this.worldSyncQuestLootService.openLootWindow(playerId, x, y);
         this.emit(client, shared_1.NEXT_S2C.LootWindowUpdate, payload);
     }
     /** 向客户端补发聊天风格通知。 */
@@ -394,11 +394,11 @@ let WorldClientEventService = class WorldClientEventService {
 exports.WorldClientEventService = WorldClientEventService;
 exports.WorldClientEventService = WorldClientEventService = __decorate([
     (0, common_1.Injectable)(),
-    __param(5, (0, common_1.Inject)((0, common_1.forwardRef)(() => world_sync_service_1.WorldSyncService))),
+    __param(5, (0, common_1.Inject)((0, common_1.forwardRef)(() => world_sync_quest_loot_service_1.WorldSyncQuestLootService))),
     __metadata("design:paramtypes", [mail_runtime_service_1.MailRuntimeService,
         market_runtime_service_1.MarketRuntimeService,
         player_runtime_service_1.PlayerRuntimeService,
         suggestion_runtime_service_1.SuggestionRuntimeService,
         world_session_service_1.WorldSessionService,
-        world_sync_service_1.WorldSyncService])
+        world_sync_quest_loot_service_1.WorldSyncQuestLootService])
 ], WorldClientEventService);

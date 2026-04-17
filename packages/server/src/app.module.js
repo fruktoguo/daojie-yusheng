@@ -36,6 +36,8 @@ const world_session_service_1 = require("./network/world-session.service");
 
 const world_sync_protocol_service_1 = require("./network/world-sync-protocol.service");
 
+const world_sync_quest_loot_service_1 = require("./network/world-sync-quest-loot.service");
+
 const world_sync_service_1 = require("./network/world-sync.service");
 
 const content_template_repository_1 = require("./content/content-template.repository");
@@ -151,6 +153,7 @@ exports.AppModule = AppModule = __decorate([
             world_protocol_projection_service_1.WorldProtocolProjectionService,
             world_projector_service_1.WorldProjectorService,
             world_sync_protocol_service_1.WorldSyncProtocolService,
+            world_sync_quest_loot_service_1.WorldSyncQuestLootService,
             world_sync_service_1.WorldSyncService,
             runtime_maintenance_service_1.RuntimeMaintenanceService,
             world_runtime_service_1.WorldRuntimeService,
