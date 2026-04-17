@@ -220,6 +220,9 @@
 - `world-client-event.service.js` 的 `emitLootWindowUpdate()` 已改为直接复用 `WorldSyncQuestLootService`
 - `app.module.js` 已完成 batch 3 首刀 provider 接线，`world-sync.service.js` 继续保留 world/self/panel delta、threat、minimap 等主编排与热路径
 - 为恢复 batch 3 验证链，补齐了 `world-gateway-read-model.helper.js` 的 `AttrDetail.numericStatBreakdowns` 结构，使其重新符合 shared 协议约定
+- 新增 `packages/server/src/network/world-sync-threat.service.js`
+- `world-sync.service.js` 的 threat arrow build / diff / emit 冷路径已委托给 `WorldSyncThreatService`，`nextAuxStateByPlayerId.threatArrows` 仍暂留在 sync 编排层，避免第二刀同时扩大到 minimap cache 边界
+- 本轮验证已补跑 `smoke:runtime`、`smoke:monster-ai`、`audit:next-protocol`、根级 `pnpm build` 与 `pnpm verify:replace-ready`
 
 优先保留原状的热路径：
 
