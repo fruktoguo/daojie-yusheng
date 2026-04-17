@@ -33,6 +33,8 @@ const world_projector_service_1 = require("./world-projector.service");
 
 const world_sync_quest_loot_service_1 = require("./world-sync-quest-loot.service");
 
+const world_sync_minimap_service_1 = require("./world-sync-minimap.service");
+
 const world_sync_threat_service_1 = require("./world-sync-threat.service");
 
 const world_sync_protocol_service_1 = require("./world-sync-protocol.service");
@@ -54,17 +56,17 @@ let WorldSyncService = class WorldSyncService {
     mapRuntimeConfigService;
     /** quest / loot 冷路径同步服务。 */
     worldSyncQuestLootService;
+    /** minimap 冷路径同步服务。 */
+    worldSyncMinimapService;
     /** threat 冷路径同步服务。 */
     worldSyncThreatService;
     /** 协议下发辅助服务。 */
     worldSyncProtocolService;
     /** next 侧附加状态缓存。 */
     nextAuxStateByPlayerId = new Map();
-    /** 地图级 minimap marker 缓存。 */
-    minimapMarkersByMapId = new Map();
     /** 同步日志，用于追踪初始包和增量包下发。 */
     logger = new common_1.Logger(WorldSyncService.name);
-    constructor(worldRuntimeService, playerRuntimeService, worldProjectorService, worldSessionService, templateRepository, mapRuntimeConfigService, worldSyncQuestLootService, worldSyncThreatService, worldSyncProtocolService) {
+    constructor(worldRuntimeService, playerRuntimeService, worldProjectorService, worldSessionService, templateRepository, mapRuntimeConfigService, worldSyncQuestLootService, worldSyncMinimapService, worldSyncThreatService, worldSyncProtocolService) {
         this.worldRuntimeService = worldRuntimeService;
         this.playerRuntimeService = playerRuntimeService;
         this.worldProjectorService = worldProjectorService;
@@ -72,6 +74,7 @@ let WorldSyncService = class WorldSyncService {
         this.templateRepository = templateRepository;
         this.mapRuntimeConfigService = mapRuntimeConfigService;
         this.worldSyncQuestLootService = worldSyncQuestLootService;
+        this.worldSyncMinimapService = worldSyncMinimapService;
         this.worldSyncThreatService = worldSyncThreatService;
         this.worldSyncProtocolService = worldSyncProtocolService;
     }
@@ -254,9 +257,9 @@ let WorldSyncService = class WorldSyncService {
 
         const renderEntities = this.buildRenderEntitiesSnapshot(view, player);
 
-        const allMinimapMarkers = this.buildMinimapMarkers(template);
+        const allMinimapMarkers = this.worldSyncMinimapService.buildMinimapMarkers(template);
 
-        const visibleMinimapMarkers = this.buildVisibleMinimapMarkers(allMinimapMarkers, visibleTiles.byKey);
+        const visibleMinimapMarkers = this.worldSyncMinimapService.buildVisibleMinimapMarkers(allMinimapMarkers, visibleTiles.byKey);
 
         const minimapLibrary = this.buildMinimapLibrarySync(player, template.id);
 
@@ -300,9 +303,9 @@ let WorldSyncService = class WorldSyncService {
 
         const currentVisibleTileKeys = this.buildVisibleTileKeySet(view, player, template);
 
-        const allMinimapMarkers = this.buildMinimapMarkers(template);
+        const allMinimapMarkers = this.worldSyncMinimapService.buildMinimapMarkers(template);
 
-        const currentVisibleMinimapMarkers = this.buildVisibleMinimapMarkers(allMinimapMarkers, currentVisibleTileKeys);
+        const currentVisibleMinimapMarkers = this.worldSyncMinimapService.buildVisibleMinimapMarkers(allMinimapMarkers, currentVisibleTileKeys);
 
         const mapChanged = previous.mapId !== view.instance.templateId
             || previous.instanceId !== view.instance.instanceId;
@@ -311,7 +314,7 @@ let WorldSyncService = class WorldSyncService {
             const minimapLibrary = this.buildMinimapLibrarySync(player, template.id);
             this.worldSyncProtocolService.sendMapStatic(socket, this.buildMapStaticSyncPayload(template, {
                 mapMeta: this.buildMapMetaSync(template),
-                minimap: this.buildMinimapSnapshotSync(template),
+                minimap: this.worldSyncMinimapService.buildMinimapSnapshotSync(template),
                 tiles: visibleTiles.matrix,
                 tilesOriginX: view.self.x - Math.max(1, Math.round(player.attrs.numericStats.viewRange)),
                 tilesOriginY: view.self.y - Math.max(1, Math.round(player.attrs.numericStats.viewRange)),
@@ -323,7 +326,7 @@ let WorldSyncService = class WorldSyncService {
 
             const tilePatches = diffVisibleTiles(previous.visibleTiles ?? null, visibleTiles.byKey);
 
-            const markerPatch = diffVisibleMinimapMarkers(previous.visibleMinimapMarkers, currentVisibleMinimapMarkers);
+            const markerPatch = this.worldSyncMinimapService.diffVisibleMinimapMarkers(previous.visibleMinimapMarkers, currentVisibleMinimapMarkers);
             if (markerPatch.adds.length > 0 || markerPatch.removes.length > 0 || tilePatches.length > 0) {
                 this.worldSyncProtocolService.sendMapStatic(socket, this.buildMapStaticSyncPayload(template, {
                     tilePatches: tilePatches.length > 0 ? tilePatches : undefined,
@@ -358,7 +361,7 @@ let WorldSyncService = class WorldSyncService {
         return {
             self: this.buildPlayerSyncState(player, view, minimapLibrary.map((entry) => entry.mapId)),
             mapMeta: buildMapMetaSync(template),
-            minimap: buildMinimapSnapshotSync(template),
+            minimap: this.worldSyncMinimapService.buildMinimapSnapshotSync(template),
             visibleMinimapMarkers,
             minimapLibrary,
             tiles: visibleTiles.matrix,
@@ -392,21 +395,6 @@ let WorldSyncService = class WorldSyncService {
     }
     buildMapMetaSync(template) {
         return buildMapMetaSync(template);
-    }
-    buildMinimapSnapshotSync(template) {
-        return buildMinimapSnapshotSync(template);
-    }
-    buildMinimapMarkers(template) {
-        const cached = this.minimapMarkersByMapId.get(template.id);
-        if (cached) {
-            return cached;
-        }
-        const markers = buildMinimapMarkers(template);
-        this.minimapMarkersByMapId.set(template.id, markers);
-        return markers;
-    }
-    buildVisibleMinimapMarkers(markers, visibleTiles) {
-        return buildVisibleMinimapMarkers(markers, visibleTiles);
     }
     getMapTimeConfig(mapId) {
         return this.mapRuntimeConfigService.getMapTimeConfig(mapId);
@@ -516,7 +504,7 @@ let WorldSyncService = class WorldSyncService {
             return {
                 mapId,
                 mapMeta: this.buildMapMetaSync(template),
-                snapshot: buildMinimapSnapshotSync(template),
+                snapshot: this.worldSyncMinimapService.buildMinimapSnapshotSync(template),
             };
         });
     }
@@ -608,6 +596,7 @@ exports.WorldSyncService = WorldSyncService = __decorate([
         map_template_repository_1.MapTemplateRepository,
         runtime_map_config_service_1.RuntimeMapConfigService,
         world_sync_quest_loot_service_1.WorldSyncQuestLootService,
+        world_sync_minimap_service_1.WorldSyncMinimapService,
         world_sync_threat_service_1.WorldSyncThreatService,
         world_sync_protocol_service_1.WorldSyncProtocolService])
 ], WorldSyncService);
@@ -950,102 +939,6 @@ function buildMapMetaSync(template) {
         dangerLevel: template.source.dangerLevel,
         recommendedRealm: template.source.recommendedRealm,
         description: template.source.description,
-    };
-}
-function buildMinimapSnapshotSync(template) {
-    return {
-        width: template.width,
-        height: template.height,
-        terrainRows: template.terrainRows.slice(),
-        markers: buildMinimapMarkers(template),
-    };
-}
-function buildMinimapMarkers(template) {
-
-    const markers = [];
-    for (const landmark of template.landmarks) {
-        markers.push({
-            id: `landmark:${landmark.id}`,
-            kind: 'landmark',
-            x: landmark.x,
-            y: landmark.y,
-            label: landmark.name,
-            detail: landmark.desc,
-        });
-    }
-    for (const container of template.containers) {
-        markers.push({
-            id: `container:${container.id}`,
-            kind: 'container',
-            x: container.x,
-            y: container.y,
-            label: container.name,
-            detail: container.desc?.trim() || '可搜索容器',
-        });
-    }
-    for (const npc of template.npcs) {
-        markers.push({
-            id: `npc:${npc.id}`,
-            kind: 'npc',
-            x: npc.x,
-            y: npc.y,
-            label: npc.name,
-        });
-    }
-    for (const portal of template.portals) {
-        if (portal.hidden) {
-            continue;
-        }
-        markers.push({
-            id: `${portal.kind}:${portal.x},${portal.y}`,
-            kind: portal.kind,
-            x: portal.x,
-            y: portal.y,
-
-            label: portal.kind === 'stairs' ? '楼梯' : '传送点',
-            detail: portal.targetMapId,
-        });
-    }
-    markers.sort((left, right) => left.y - right.y || left.x - right.x || compareStableStrings(left.id, right.id));
-    return markers;
-}
-function buildVisibleMinimapMarkers(markers, visibleTiles) {
-    if (markers.length === 0 || visibleTiles.size === 0) {
-        return [];
-    }
-
-    const visible = [];
-    for (const marker of markers) {
-        if (!visibleTiles.has(buildCoordKey(marker.x, marker.y))) {
-            continue;
-        }
-        visible.push(cloneMinimapMarker(marker));
-    }
-    return visible;
-}
-function diffVisibleMinimapMarkers(previous, current) {
-
-    const previousById = new Map(previous.map((entry) => [entry.id, entry]));
-
-    const currentById = new Map(current.map((entry) => [entry.id, entry]));
-
-    const adds = [];
-
-    const removes = [];
-    for (const [markerId, marker] of currentById.entries()) {
-        const previousMarker = previousById.get(markerId);
-        if (!previousMarker || !isSameMinimapMarker(previousMarker, marker)) {
-            adds.push(cloneMinimapMarker(marker));
-        }
-    }
-    for (const markerId of previousById.keys()) {
-        if (!currentById.has(markerId)) {
-            removes.push(markerId);
-        }
-    }
-    return {
-        adds,
-        removes,
     };
 }
 function buildGameTimeState(template, totalTicks, baseViewRange, overrideConfig, tickSpeed = 1) {
@@ -2084,14 +1977,6 @@ function isSameTile(left, right) {
         && left.modifiedAt === right.modifiedAt
         && left.hp === right.hp
         && left.maxHp === right.maxHp;
-}
-function isSameMinimapMarker(left, right) {
-    return left.id === right.id
-        && left.kind === right.kind
-        && left.x === right.x
-        && left.y === right.y
-        && left.label === right.label
-        && left.detail === right.detail;
 }
 function isSameGroundPile(left, right) {
     if (left.x !== right.x || left.y !== right.y || left.items.length !== right.items.length) {
