@@ -24,24 +24,10 @@ const world_player_source_service_1 = require("./world-player-source.service");
 
 const world_player_token_service_1 = require("./world-player-token.service");
 
-const ALLOW_MIGRATION_BACKFILL_ENV_KEYS = [
-    'SERVER_NEXT_AUTH_ALLOW_COMPAT_IDENTITY_BACKFILL',
-    'NEXT_AUTH_ALLOW_COMPAT_IDENTITY_BACKFILL',
-];
-
 const LEGACY_DATABASE_ENV_KEYS = [
     'SERVER_NEXT_DATABASE_URL',
     'DATABASE_URL',
 ];
-function isMigrationBackfillAllowed() {
-    for (const key of ALLOW_MIGRATION_BACKFILL_ENV_KEYS) {
-        const value = typeof process.env[key] === 'string' ? process.env[key].trim().toLowerCase() : '';
-        if (value === '1' || value === 'true' || value === 'yes' || value === 'on') {
-            return true;
-        }
-    }
-    return false;
-}
 function hasLegacyDatabaseConfigured() {
     for (const key of LEGACY_DATABASE_ENV_KEYS) {
         const value = typeof process.env[key] === 'string' ? process.env[key].trim() : '';
@@ -73,13 +59,7 @@ function resolvePersistedNextIdentityAuthSource(persistedSource) {
     return persistedSource === 'token_seed' ? 'token' : 'next';
 }
 
-const MIGRATION_SOURCE_OPTIONS = Object.freeze({
-    allowMigrationSource: true,
-    allowLegacyHttpIdentityFallback: false,
-    reason: 'auth_migration',
-});
-
-/** 世界玩家鉴权服务：把 token 校验、migration 回填和身份持久化收敛到一起。 */
+/** 世界玩家鉴权服务：把 token 校验、next 身份加载与 token_seed 持久化收敛到一起。 */
 let WorldPlayerAuthService = class WorldPlayerAuthService {
     /** 鉴权日志，便于追踪 token、回填和持久化失败。 */
     logger = new common_1.Logger(WorldPlayerAuthService.name);
@@ -87,9 +67,9 @@ let WorldPlayerAuthService = class WorldPlayerAuthService {
     worldPlayerTokenService;
     /** 玩家身份持久化入口。 */
     playerIdentityPersistenceService;
-    /** 玩家快照服务，用于迁移或回填时检查 starter snapshot。 */
+    /** 玩家快照服务，用于 token_seed 时检查 starter snapshot。 */
     worldPlayerSnapshotService;
-    /** migration 玩家源服务，负责从 legacy 数据里恢复身份。 */
+    /** 玩家源服务，负责读取 next 真源。 */
     worldPlayerSourceService;
     constructor(worldPlayerTokenService, playerIdentityPersistenceService, worldPlayerSourceService, worldPlayerSnapshotService = undefined) {
         this.worldPlayerTokenService = worldPlayerTokenService;
@@ -106,16 +86,6 @@ let WorldPlayerAuthService = class WorldPlayerAuthService {
             };
         }
         return this.worldPlayerSnapshotService.ensureNativeStarterSnapshot(playerId);
-    }
-    /** 确保 legacy 回填账号拥有可用的 starter snapshot。 */
-    async ensureLegacyBackfillSnapshot(playerId) {
-        if (!this.worldPlayerSnapshotService?.ensureMigrationBackfillSnapshot) {
-            return {
-                ok: false,
-                failureStage: 'migration_snapshot_service_unavailable',
-            };
-        }
-        return this.worldPlayerSnapshotService.ensureMigrationBackfillSnapshot(playerId);
     }
     /** 加载 next 玩家身份，优先走 next 持久化来源。 */
     async loadNextPlayerIdentity(userId) {
@@ -197,168 +167,6 @@ let WorldPlayerAuthService = class WorldPlayerAuthService {
                 : 'next_protocol_legacy_backfill_forbidden',
         };
     }
-    /** 统一对迁移输入做身份解析，便于 HTTP/Socket 共用。 */
-    async resolveMigrationIdentity(payload) {
-        if (typeof this.worldPlayerSourceService?.resolvePlayerIdentityForMigration !== 'function') {
-            throw new Error('migration identity source unavailable');
-        }
-        return this.worldPlayerSourceService.resolvePlayerIdentityForMigration(payload, MIGRATION_SOURCE_OPTIONS);
-    }
-    async loadMigrationSnapshot(playerId) {
-        if (typeof this.worldPlayerSourceService?.loadPlayerSnapshotForMigration !== 'function') {
-            throw new Error('migration snapshot source unavailable');
-        }
-        return this.worldPlayerSourceService.loadPlayerSnapshotForMigration(playerId, MIGRATION_SOURCE_OPTIONS);
-    }
-    async shouldPreferMigrationBackfill(payload, tokenIdentity, identityPersistenceEnabled) {
-
-        const hasMigrationIdentitySource = typeof this.worldPlayerSourceService?.resolvePlayerIdentityForMigration === 'function';
-        const hasMigrationSnapshotSource = typeof this.worldPlayerSourceService?.loadPlayerSnapshotForMigration === 'function';
-        if (!identityPersistenceEnabled
-            || !tokenIdentity
-            || !hasLegacyDatabaseConfigured()
-            || !hasMigrationIdentitySource
-            || !hasMigrationSnapshotSource) {
-            return false;
-        }
-
-        const migrationSnapshot = await this.loadMigrationSnapshot(tokenIdentity.playerId).catch((error) => {
-            this.logger.warn(`token seed 前的玩家 migration 快照预检失败：playerId=${tokenIdentity.playerId} error=${error instanceof Error ? error.message : String(error)}`);
-            return null;
-        });
-        if (!migrationSnapshot) {
-            return false;
-        }
-
-        const migrationIdentity = await this.resolveMigrationIdentity(payload).catch((error) => {
-            this.logger.warn(`token seed 前的玩家 migration 身份预检失败：userId=${payload.sub} playerId=${tokenIdentity.playerId} error=${error instanceof Error ? error.message : String(error)}`);
-            return null;
-        });
-        return Boolean(migrationIdentity);
-    }
-    async authenticateViaMigration(payload, tokenIdentity, identityPersistenceEnabled, allowMigrationBackfill, preferMigrationBackfill = false) {
-
-        let migrationIdentity = null;
-        let migrationIdentityResolved = false;
-        const resolveMigrationIdentityOnce = async () => {
-            if (!migrationIdentityResolved) {
-                migrationIdentity = await this.resolveMigrationIdentity(payload);
-                migrationIdentityResolved = true;
-            }
-            return migrationIdentity;
-        };
-
-        const shouldAttemptPersistedMigrationBackfill = identityPersistenceEnabled
-            && allowMigrationBackfill
-            && (!tokenIdentity || preferMigrationBackfill);
-        if (shouldAttemptPersistedMigrationBackfill) {
-            migrationIdentity = await resolveMigrationIdentityOnce();
-            if (migrationIdentity) {
-
-                let persistFailureStage = null;
-
-                const persistedCompatIdentity = await this.playerIdentityPersistenceService.savePlayerIdentity({
-                    ...migrationIdentity,
-                    persistedSource: 'legacy_backfill',
-                    updatedAt: Date.now(),
-                }).catch((error) => {
-                    persistFailureStage = 'migration_backfill_save_failed';
-                    this.logger.warn(`玩家身份 migration 回填保存失败：userId=${migrationIdentity.userId} playerId=${migrationIdentity.playerId} error=${error instanceof Error ? error.message : String(error)}`);
-                    return null;
-                });
-                if (persistFailureStage === 'migration_backfill_save_failed') {
-                    (0, world_player_token_service_1.recordAuthTrace)({
-                        type: 'identity',
-                        source: 'migration_persist_blocked',
-                        userId: migrationIdentity.userId,
-                        playerId: migrationIdentity.playerId,
-                        persistedSource: null,
-                        persistenceEnabled: true,
-                        nextLoadHit: false,
-                        compatTried: true,
-                        persistAttempted: true,
-                        persistSucceeded: false,
-                        persistFailureStage,
-                    });
-                    return null;
-                }
-
-                const persistedCompatSource = normalizePersistedSource(persistedCompatIdentity);
-                if (persistedCompatIdentity && persistedCompatSource !== 'legacy_backfill') {
-                    this.logger.error(`玩家身份 migration 回填保存返回了异常 persistedSource：userId=${migrationIdentity.userId} playerId=${migrationIdentity.playerId} expected=legacy_backfill actual=${persistedCompatSource ?? '未知'}`);
-                    (0, world_player_token_service_1.recordAuthTrace)({
-                        type: 'identity',
-                        source: 'migration_persist_blocked',
-                        userId: migrationIdentity.userId,
-                        playerId: migrationIdentity.playerId,
-                        persistedSource: persistedCompatSource,
-                        persistenceEnabled: true,
-                        nextLoadHit: false,
-                        compatTried: true,
-                        persistAttempted: true,
-                        persistSucceeded: false,
-                        persistFailureStage: 'migration_backfill_persisted_source_mismatch',
-                    });
-                    return null;
-                }
-
-                const ensuredCompatSnapshot = persistedCompatIdentity
-                    ? await this.ensureLegacyBackfillSnapshot(migrationIdentity.playerId)
-                    : { ok: false, failureStage: 'migration_snapshot_not_attempted' };
-                if (persistedCompatIdentity && !ensuredCompatSnapshot.ok) {
-                    (0, world_player_token_service_1.recordAuthTrace)({
-                        type: 'identity',
-                        source: 'migration_preseed_blocked',
-                        userId: migrationIdentity.userId,
-                        playerId: migrationIdentity.playerId,
-                        persistedSource: persistedCompatIdentity?.persistedSource ?? null,
-                        persistenceEnabled: true,
-                        nextLoadHit: false,
-                        compatTried: true,
-                        persistAttempted: true,
-                        persistSucceeded: true,
-                        persistFailureStage: ensuredCompatSnapshot.failureStage ?? 'migration_snapshot_seed_failed',
-                    });
-                    return null;
-                }
-
-                const authSource = 'migration_backfill';
-                (0, world_player_token_service_1.recordAuthTrace)({
-                    type: 'identity',
-                    source: authSource,
-                    userId: migrationIdentity.userId,
-                    playerId: migrationIdentity.playerId,
-                    persistedSource: persistedCompatIdentity?.persistedSource ?? null,
-                    persistenceEnabled: identityPersistenceEnabled,
-                    nextLoadHit: false,
-                    compatTried: true,
-                    persistAttempted: true,
-
-                    persistSucceeded: persistedCompatIdentity !== null,
-                    persistFailureStage,
-                });
-                return {
-                    ...migrationIdentity,
-                    persistedSource: persistedCompatIdentity?.persistedSource ?? null,
-                    authSource,
-                    nextLoadHit: false,
-                };
-            }
-        }
-        (0, world_player_token_service_1.recordAuthTrace)({
-            type: 'identity',
-            source: 'miss',
-            userId: payload.sub,
-            playerId: tokenIdentity?.playerId ?? null,
-            persistenceEnabled: identityPersistenceEnabled,
-            nextLoadHit: false,
-            compatTried: allowMigrationBackfill,
-            persistAttempted: false,
-            persistSucceeded: null,
-            persistFailureStage: null,
-        });
-        return null;
-    }
     async authenticatePlayerToken(token, options = undefined) {
 
         const payload = this.worldPlayerTokenService.validatePlayerToken(token);
@@ -370,8 +178,7 @@ let WorldPlayerAuthService = class WorldPlayerAuthService {
 
         const nextProtocolStrict = protocol === 'next';
 
-        // migration identity/backfill 只允许显式 migration 协议窗口，默认与 legacy 入口都不可旁路开启。
-        const migrationBackfillProtocolAllowed = isExplicitMigrationProtocol(protocol);
+        const explicitMigrationProtocol = isExplicitMigrationProtocol(protocol);
 
         const tokenIdentity = this.worldPlayerTokenService.resolvePlayerIdentityFromPayload(payload);
 
@@ -486,15 +293,11 @@ let WorldPlayerAuthService = class WorldPlayerAuthService {
             };
         }
 
-        const allowMigrationBackfill = migrationBackfillProtocolAllowed && isMigrationBackfillAllowed();
-
-        const allowMigrationInPersistence = identityPersistenceEnabled && !nextProtocolStrict && allowMigrationBackfill;
-
         const legacyDatabaseConfigured = hasLegacyDatabaseConfigured();
 
         const allowTokenRuntimeIdentity = !identityPersistenceEnabled
             && !nextProtocolStrict
-            && !isExplicitMigrationProtocol(protocol)
+            && !explicitMigrationProtocol
             && tokenIdentity
             && hasExplicitTokenPlayerIdentityClaims(payload)
             && !legacyDatabaseConfigured;
@@ -519,10 +322,22 @@ let WorldPlayerAuthService = class WorldPlayerAuthService {
             };
         }
 
-        const preferMigrationBackfill = allowMigrationInPersistence
-            ? await this.shouldPreferMigrationBackfill(payload, tokenIdentity, identityPersistenceEnabled)
-            : false;
-        if (identityPersistenceEnabled && tokenIdentity && !preferMigrationBackfill) {
+        if (explicitMigrationProtocol) {
+            (0, world_player_token_service_1.recordAuthTrace)({
+                type: 'identity',
+                source: 'miss',
+                userId: payload.sub,
+                playerId: tokenIdentity?.playerId ?? null,
+                persistenceEnabled: identityPersistenceEnabled,
+                nextLoadHit: false,
+                compatTried: false,
+                persistAttempted: false,
+                persistSucceeded: null,
+                persistFailureStage: null,
+            });
+            return null;
+        }
+        if (identityPersistenceEnabled && tokenIdentity) {
 
             let persistFailureStage = null;
 
@@ -627,7 +442,19 @@ let WorldPlayerAuthService = class WorldPlayerAuthService {
             });
             return null;
         }
-        return this.authenticateViaMigration(payload, tokenIdentity, identityPersistenceEnabled, allowMigrationInPersistence, preferMigrationBackfill);
+        (0, world_player_token_service_1.recordAuthTrace)({
+            type: 'identity',
+            source: 'miss',
+            userId: payload.sub,
+            playerId: tokenIdentity?.playerId ?? null,
+            persistenceEnabled: identityPersistenceEnabled,
+            nextLoadHit: false,
+            compatTried: false,
+            persistAttempted: false,
+            persistSucceeded: null,
+            persistFailureStage: null,
+        });
+        return null;
     }
 };
 exports.WorldPlayerAuthService = WorldPlayerAuthService;

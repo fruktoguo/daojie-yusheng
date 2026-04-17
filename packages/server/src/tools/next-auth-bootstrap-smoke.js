@@ -218,9 +218,7 @@ async function main() {
     const authenticatedMissingSnapshotRecoveryContract = RUN_MAINLINE_PROOFS
         ? await verifyAuthenticatedMissingSnapshotRecoveryContract()
         : buildProfileSkippedProof('profile_migration_skips_mainline');
-    const compatRuntimeSnapshotGuardContract = RUN_MAINLINE_PROOFS
-        ? await verifyCompatRuntimeSnapshotGuardContract()
-        : buildProfileSkippedProof('profile_migration_skips_mainline');
+    const compatRuntimeSnapshotGuardContract = buildProfileSkippedProof('runtime_migration_bridge_removed');
 /**
  * 记录authenticated缺失snapshot恢复noticecontract。
  */
@@ -2353,10 +2351,7 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
     if (noPersistenceCompatIdentityCalls !== 0) {
         throw new Error(`expected runtime compat identity to stay disabled in no-persistence auth path, got compatIdentityCalls=${noPersistenceCompatIdentityCalls}`);
     }
-/**
- * 记录compat迁移协议gate认证服务。
- */
-    const compatMigrationProtocolGateAuthService = new world_player_auth_service_1.WorldPlayerAuthService({
+    const migrationProtocolBlockedAuthService = new world_player_auth_service_1.WorldPlayerAuthService({
         validatePlayerToken: () => payload,
         resolvePlayerIdentityFromPayload: () => compatIdentity,
     }, {
@@ -2375,7 +2370,7 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
             },
         }),
     }, {
-        ensureMigrationBackfillSnapshot: async () => ({
+        ensureNativeStarterSnapshot: async () => ({
             ok: true,
             persistedSource: 'native',
             snapshot: {
@@ -2388,67 +2383,15 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
                 },
             },
         }),
-        ensureNativeStarterSnapshot: async () => ({
-            ok: false,
-            failureStage: 'unexpected_native_snapshot_recovery',
-        }),
     });
-    const previousCompatBackfillFlag = process.env.SERVER_NEXT_AUTH_ALLOW_COMPAT_IDENTITY_BACKFILL;
-    const previousCompatBackfillAlias = process.env.NEXT_AUTH_ALLOW_COMPAT_IDENTITY_BACKFILL;
-    const previousCompatBackfillDatabaseUrl = process.env.SERVER_NEXT_DATABASE_URL;
-    const previousCompatBackfillDatabaseUrlAlias = process.env.DATABASE_URL;
-    process.env.SERVER_NEXT_AUTH_ALLOW_COMPAT_IDENTITY_BACKFILL = '1';
-    delete process.env.NEXT_AUTH_ALLOW_COMPAT_IDENTITY_BACKFILL;
-    process.env.SERVER_NEXT_DATABASE_URL = 'postgres://proof-compat-gate';
-    delete process.env.DATABASE_URL;
-    let compatBackfillLegacyProtocolDefault = null;
-    let compatBackfillLegacyProtocolExplicit = null;
-    let compatBackfillMigrationProtocol = null;
-    try {
-        compatBackfillLegacyProtocolDefault = await compatMigrationProtocolGateAuthService.authenticatePlayerToken('proof.token.compat_protocol.default', {
-            protocol: 'legacy',
-        });
-        compatBackfillLegacyProtocolExplicit = await compatMigrationProtocolGateAuthService.authenticatePlayerToken('proof.token.compat_protocol.explicit', {
-            protocol: 'legacy',
-        });
-        compatBackfillMigrationProtocol = await compatMigrationProtocolGateAuthService.authenticatePlayerToken('proof.token.compat_protocol.migration', {
-            protocol: 'migration',
-        });
-    }
-    finally {
-        if (typeof previousCompatBackfillFlag === 'string') {
-            process.env.SERVER_NEXT_AUTH_ALLOW_COMPAT_IDENTITY_BACKFILL = previousCompatBackfillFlag;
-        }
-        else {
-            delete process.env.SERVER_NEXT_AUTH_ALLOW_COMPAT_IDENTITY_BACKFILL;
-        }
-        if (typeof previousCompatBackfillAlias === 'string') {
-            process.env.NEXT_AUTH_ALLOW_COMPAT_IDENTITY_BACKFILL = previousCompatBackfillAlias;
-        }
-        else {
-            delete process.env.NEXT_AUTH_ALLOW_COMPAT_IDENTITY_BACKFILL;
-        }
-        if (typeof previousCompatBackfillDatabaseUrl === 'string') {
-            process.env.SERVER_NEXT_DATABASE_URL = previousCompatBackfillDatabaseUrl;
-        }
-        else {
-            delete process.env.SERVER_NEXT_DATABASE_URL;
-        }
-        if (typeof previousCompatBackfillDatabaseUrlAlias === 'string') {
-            process.env.DATABASE_URL = previousCompatBackfillDatabaseUrlAlias;
-        }
-        else {
-            delete process.env.DATABASE_URL;
-        }
-    }
-    if (compatBackfillLegacyProtocolDefault !== null) {
-        throw new Error(`expected compat backfill to reject legacy protocol runtime entry, got ${JSON.stringify(compatBackfillLegacyProtocolDefault)}`);
-    }
-    if (compatBackfillLegacyProtocolExplicit !== null) {
-        throw new Error(`expected compat backfill to reject legacy protocol explicit runtime entry, got ${JSON.stringify(compatBackfillLegacyProtocolExplicit)}`);
-    }
-    if (compatBackfillMigrationProtocol?.authSource !== 'migration_backfill') {
-        throw new Error(`expected compat backfill to allow explicit migration protocol runtime entry, got ${JSON.stringify(compatBackfillMigrationProtocol)}`);
+    (0, world_player_token_service_1.clearAuthTrace)();
+    const migrationProtocolBlockedResult = await migrationProtocolBlockedAuthService.authenticatePlayerToken('proof.token.compat_protocol.migration', {
+        protocol: 'migration',
+    });
+    const migrationProtocolBlockedTrace = readLatestIdentityTrace(payload.playerId);
+    if (migrationProtocolBlockedResult !== null
+        || migrationProtocolBlockedTrace.entry?.source !== 'miss') {
+        throw new Error(`expected explicit migration protocol runtime auth to stay blocked after bridge removal, got result=${JSON.stringify(migrationProtocolBlockedResult)} trace=${JSON.stringify(migrationProtocolBlockedTrace)}`);
     }
     const tokenPersistedSourceMismatchPayload = {
         sub: 'proof_user_token_persisted_source_mismatch',
@@ -2484,76 +2427,6 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
         || tokenPersistedSourceMismatchTrace.entry?.persistFailureStage !== 'token_seed_persisted_source_mismatch'
         || tokenPersistedSourceMismatchTrace.entry?.persistedSource !== 'legacy_backfill') {
         throw new Error(`expected token persistedSource mismatch to block auth before bootstrap, got result=${JSON.stringify(tokenPersistedSourceMismatchResult)} trace=${JSON.stringify(tokenPersistedSourceMismatchTrace)}`);
-    }
-    const compatPersistedSourceMismatchAuthService = new world_player_auth_service_1.WorldPlayerAuthService({
-        validatePlayerToken: () => payload,
-        resolvePlayerIdentityFromPayload: () => compatIdentity,
-    }, {
-        isEnabled: () => true,
-        loadPlayerIdentity: async () => null,
-        savePlayerIdentity: async (input) => ({
-            ...input,
-            persistedSource: 'token_seed',
-        }),
-    }, {
-        resolvePlayerIdentityForMigration: async () => compatIdentity,
-        loadPlayerSnapshotForMigration: async () => ({
-            version: 1,
-            placement: {
-                templateId: 'yunlai_town',
-                x: 1,
-                y: 1,
-                facing: 1,
-            },
-        }),
-    }, starterSnapshotDeps);
-    const previousMismatchCompatBackfillFlag = process.env.SERVER_NEXT_AUTH_ALLOW_COMPAT_IDENTITY_BACKFILL;
-    const previousMismatchCompatBackfillAlias = process.env.NEXT_AUTH_ALLOW_COMPAT_IDENTITY_BACKFILL;
-    const previousMismatchCompatBackfillDatabaseUrl = process.env.SERVER_NEXT_DATABASE_URL;
-    const previousMismatchCompatBackfillDatabaseUrlAlias = process.env.DATABASE_URL;
-    process.env.SERVER_NEXT_AUTH_ALLOW_COMPAT_IDENTITY_BACKFILL = '1';
-    delete process.env.NEXT_AUTH_ALLOW_COMPAT_IDENTITY_BACKFILL;
-    process.env.SERVER_NEXT_DATABASE_URL = 'postgres://proof-compat-mismatch';
-    delete process.env.DATABASE_URL;
-    let compatPersistedSourceMismatchResult = null;
-    try {
-        (0, world_player_token_service_1.clearAuthTrace)();
-        compatPersistedSourceMismatchResult = await compatPersistedSourceMismatchAuthService.authenticatePlayerToken('proof.token.compat_persisted_source_mismatch', {
-            protocol: 'migration',
-        });
-    }
-    finally {
-        if (typeof previousMismatchCompatBackfillFlag === 'string') {
-            process.env.SERVER_NEXT_AUTH_ALLOW_COMPAT_IDENTITY_BACKFILL = previousMismatchCompatBackfillFlag;
-        }
-        else {
-            delete process.env.SERVER_NEXT_AUTH_ALLOW_COMPAT_IDENTITY_BACKFILL;
-        }
-        if (typeof previousMismatchCompatBackfillAlias === 'string') {
-            process.env.NEXT_AUTH_ALLOW_COMPAT_IDENTITY_BACKFILL = previousMismatchCompatBackfillAlias;
-        }
-        else {
-            delete process.env.NEXT_AUTH_ALLOW_COMPAT_IDENTITY_BACKFILL;
-        }
-        if (typeof previousMismatchCompatBackfillDatabaseUrl === 'string') {
-            process.env.SERVER_NEXT_DATABASE_URL = previousMismatchCompatBackfillDatabaseUrl;
-        }
-        else {
-            delete process.env.SERVER_NEXT_DATABASE_URL;
-        }
-        if (typeof previousMismatchCompatBackfillDatabaseUrlAlias === 'string') {
-            process.env.DATABASE_URL = previousMismatchCompatBackfillDatabaseUrlAlias;
-        }
-        else {
-            delete process.env.DATABASE_URL;
-        }
-    }
-    const compatPersistedSourceMismatchTrace = readLatestIdentityTrace(payload.playerId);
-    if (compatPersistedSourceMismatchResult !== null
-        || compatPersistedSourceMismatchTrace.entry?.source !== 'migration_persist_blocked'
-        || compatPersistedSourceMismatchTrace.entry?.persistFailureStage !== 'migration_backfill_persisted_source_mismatch'
-        || compatPersistedSourceMismatchTrace.entry?.persistedSource !== 'token_seed') {
-        throw new Error(`expected compat persistedSource mismatch to block migration backfill before bootstrap, got result=${JSON.stringify(compatPersistedSourceMismatchResult)} trace=${JSON.stringify(compatPersistedSourceMismatchTrace)}`);
     }
 /**
  * 记录token运行态payload。
@@ -2789,129 +2662,6 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
         compatMigrationSourceService.queryMigrationSnapshotRow = originalCompatMigrationQuerySnapshotRow;
         await compatMigrationSourceService.onModuleDestroy().catch(() => undefined);
     }
-    let compatSnapshotBackfillCalls = 0;
-    const compatSnapshotBackfillService = new world_player_snapshot_service_1.WorldPlayerSnapshotService({
-        isEnabled: () => true,
-        loadPlayerSnapshotRecord: async () => null,
-        savePlayerSnapshot: async (_playerId, snapshot) => ({
-            snapshot,
-            persistedSource: 'native',
-        }),
-    }, {
-        buildStarterPersistenceSnapshot: () => ({
-            version: 1,
-            placement: {
-                templateId: 'yunlai_town',
-                x: 8,
-                y: 8,
-                facing: 1,
-            },
-        }),
-    }, new world_player_source_service_1.WorldPlayerSourceService(null, {
-        isEnabled: () => true,
-        loadPlayerIdentity: async () => null,
-    }, {
-        isEnabled: () => true,
-        loadPlayerSnapshotRecord: async () => null,
-    }));
-    const compatSnapshotBackfillSourceService = compatSnapshotBackfillService.worldPlayerSourceService;
-    const originalCompatSnapshotBackfillEnsurePool = compatSnapshotBackfillSourceService.ensurePool.bind(compatSnapshotBackfillSourceService);
-    const originalCompatSnapshotBackfillQuerySnapshotRow = compatSnapshotBackfillSourceService.queryMigrationSnapshotRow;
-    compatSnapshotBackfillSourceService.ensurePool = async () => ({});
-    compatSnapshotBackfillSourceService.queryMigrationSnapshotRow = async () => {
-        compatSnapshotBackfillCalls += 1;
-        return {
-            id: payload.playerId,
-            mapId: 'yunlai_town',
-            x: 9,
-            y: 9,
-            facing: 1,
-            hp: 120,
-            maxHp: 120,
-            qi: 100,
-            pendingLogbookMessages: [],
-            inventory: [],
-            temporaryBuffs: [],
-            equipment: {},
-            techniques: [],
-            quests: [],
-            bonuses: {},
-            foundation: null,
-            combatExp: 0,
-            boneAgeBaseYears: 16,
-            lifeElapsedTicks: 0,
-            lifespanYears: 120,
-            heavenGate: null,
-            spiritualRoots: null,
-            unlockedMinimapIds: [],
-            autoBattle: false,
-            autoBattleSkills: [],
-            combatTargetId: null,
-            combatTargetLocked: false,
-            autoRetaliate: true,
-            autoBattleStationary: false,
-            allowAoePlayerHit: false,
-            autoIdleCultivation: false,
-            autoSwitchCultivation: false,
-            cultivatingTechId: null,
-        };
-    };
-    let compatSnapshotBackfillResult = null;
-    try {
-        compatSnapshotBackfillResult = await compatSnapshotBackfillService.ensureMigrationBackfillSnapshot(payload.playerId);
-    }
-    finally {
-        compatSnapshotBackfillSourceService.ensurePool = originalCompatSnapshotBackfillEnsurePool;
-        compatSnapshotBackfillSourceService.queryMigrationSnapshotRow = originalCompatSnapshotBackfillQuerySnapshotRow;
-        await compatSnapshotBackfillSourceService.onModuleDestroy().catch(() => undefined);
-    }
-    if (!compatSnapshotBackfillResult?.ok
-        || compatSnapshotBackfillResult.persistedSource !== 'native'
-        || compatSnapshotBackfillResult.snapshot?.placement?.x !== 9
-        || compatSnapshotBackfillCalls !== 1) {
-        throw new Error(`expected compat snapshot backfill to use explicit migration snapshot access and seed native snapshot, got result=${JSON.stringify(compatSnapshotBackfillResult)} compatSnapshotBackfillCalls=${compatSnapshotBackfillCalls}`);
-    }
-    const compatSnapshotMissingBackfillService = new world_player_snapshot_service_1.WorldPlayerSnapshotService({
-        isEnabled: () => true,
-        loadPlayerSnapshotRecord: async () => null,
-        savePlayerSnapshot: async () => {
-            throw new Error('unexpected_snapshot_persist');
-        },
-    }, {
-        buildStarterPersistenceSnapshot: () => ({
-            version: 1,
-            placement: {
-                templateId: 'yunlai_town',
-                x: 7,
-                y: 7,
-                facing: 1,
-            },
-        }),
-    }, new world_player_source_service_1.WorldPlayerSourceService(null, {
-        isEnabled: () => true,
-        loadPlayerIdentity: async () => null,
-    }, {
-        isEnabled: () => true,
-        loadPlayerSnapshotRecord: async () => null,
-    }));
-    const compatSnapshotMissingSourceService = compatSnapshotMissingBackfillService.worldPlayerSourceService;
-    const originalCompatSnapshotMissingEnsurePool = compatSnapshotMissingSourceService.ensurePool.bind(compatSnapshotMissingSourceService);
-    const originalCompatSnapshotMissingQuerySnapshotRow = compatSnapshotMissingSourceService.queryMigrationSnapshotRow;
-    compatSnapshotMissingSourceService.ensurePool = async () => ({});
-    compatSnapshotMissingSourceService.queryMigrationSnapshotRow = async () => null;
-    let compatSnapshotMissingBackfillResult = null;
-    try {
-        compatSnapshotMissingBackfillResult = await compatSnapshotMissingBackfillService.ensureMigrationBackfillSnapshot(payload.playerId);
-    }
-    finally {
-        compatSnapshotMissingSourceService.ensurePool = originalCompatSnapshotMissingEnsurePool;
-        compatSnapshotMissingSourceService.queryMigrationSnapshotRow = originalCompatSnapshotMissingQuerySnapshotRow;
-        await compatSnapshotMissingSourceService.onModuleDestroy().catch(() => undefined);
-    }
-    if (compatSnapshotMissingBackfillResult?.ok !== false
-        || compatSnapshotMissingBackfillResult?.failureStage !== 'migration_snapshot_missing') {
-        throw new Error(`expected explicit compat snapshot backfill to fail when compat snapshot is missing instead of seeding native starter, got ${JSON.stringify(compatSnapshotMissingBackfillResult)}`);
-    }
     let nextProtocolLoadedLegacyBackfillSnapshotLoads = 0;
     const nextProtocolLoadedLegacyBackfillBlockedAuthService = new world_player_auth_service_1.WorldPlayerAuthService({
         validatePlayerToken: () => payload,
@@ -3081,39 +2831,6 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
         || nextProtocolLoadedLegacySeededPromotedTrace.entry?.persistFailureStage !== 'next_protocol_legacy_backfill_forbidden'
         || nextProtocolLoadedLegacySeededPromotedTrace.entry?.persistedSource !== 'legacy_backfill') {
         throw new Error(`expected next protocol loaded legacy_backfill identity with legacy_seeded snapshot to stay rejected after runtime promotion removal, got identity=${JSON.stringify(nextProtocolLoadedLegacySeededPromotedIdentity)} snapshotLoads=${nextProtocolLoadedLegacySeededSnapshotLoads} saveCalls=${nextProtocolLoadedLegacySeededPromotionSaveCalls} trace=${JSON.stringify(nextProtocolLoadedLegacySeededPromotedTrace)}`);
-    }
-    const nextProtocolLoadedLegacyBackfillBootstrapService = new world_session_bootstrap_service_1.WorldSessionBootstrapService(null, null, null, null, null, null, null, null, null, null);
-    const nextProtocolLoadedLegacyBackfillGateway = new world_gateway_1.WorldGateway(null, null, nextProtocolLoadedLegacyBackfillBootstrapService, null, null, null, null, null, null, null, null, null, null, null);
-    const nextProtocolLoadedMigrationBackfillClient = {
-        id: 'proof_socket_next_loaded_migration_backfill',
-        handshake: {
-            auth: {
-                sessionId: 'next_loaded_migration_backfill_requested_session',
-            },
-        },
-        data: {
-            isGm: false,
-            protocol: 'next',
-            bootstrapEntryPath: 'connect_token',
-            bootstrapIdentitySource: 'migration_backfill',
-            bootstrapIdentityPersistedSource: 'legacy_backfill',
-        },
-    };
-    const nextProtocolLoadedMigrationBackfillImplicitResumeAllowed = nextProtocolLoadedLegacyBackfillBootstrapService.shouldAllowImplicitDetachedResume(nextProtocolLoadedMigrationBackfillClient);
-    const nextProtocolLoadedMigrationBackfillRequestedResumeAllowed = nextProtocolLoadedLegacyBackfillBootstrapService.shouldAllowRequestedDetachedResume(nextProtocolLoadedMigrationBackfillClient);
-    const nextProtocolLoadedMigrationBackfillConnectedReuseAllowed = nextProtocolLoadedLegacyBackfillBootstrapService.shouldAllowConnectedSessionReuse(nextProtocolLoadedMigrationBackfillClient);
-    const nextProtocolLoadedMigrationBackfillBootstrapInput = nextProtocolLoadedLegacyBackfillGateway.buildAuthenticatedBootstrapInput(nextProtocolLoadedMigrationBackfillClient, {
-        playerId: 'p_next_loaded_migration_backfill',
-        playerName: '迁角',
-        displayName: '迁',
-        authSource: 'migration_backfill',
-        persistedSource: 'legacy_backfill',
-    });
-    if (nextProtocolLoadedMigrationBackfillBootstrapInput.requestedSessionId !== undefined
-        || nextProtocolLoadedMigrationBackfillImplicitResumeAllowed
-        || nextProtocolLoadedMigrationBackfillRequestedResumeAllowed
-        || nextProtocolLoadedMigrationBackfillConnectedReuseAllowed) {
-        throw new Error(`expected next/migration_backfill authenticated bootstrap to strip requestedSessionId and disable all reuse, got requested=${nextProtocolLoadedMigrationBackfillBootstrapInput.requestedSessionId} implicit=${nextProtocolLoadedMigrationBackfillImplicitResumeAllowed} requestedReuse=${nextProtocolLoadedMigrationBackfillRequestedResumeAllowed} connectedReuse=${nextProtocolLoadedMigrationBackfillConnectedReuseAllowed}`);
     }
 /**
  * 记录next读链调用次数。
@@ -3594,8 +3311,8 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
         compatMigrationSourceStrictSnapshotEnabled: compatMigrationStrictSnapshot !== null,
         compatMigrationSourceIdentityCalls: compatMigrationIdentityCalls,
         compatMigrationSourceSnapshotCalls: compatMigrationSnapshotCalls,
-        compatSnapshotBackfillUsedExplicitMigrationSource: compatSnapshotBackfillResult?.ok === true,
-        compatSnapshotMissingBackfillFailureStage: compatSnapshotMissingBackfillResult?.failureStage ?? null,
+        migrationProtocolBlocked: migrationProtocolBlockedResult === null,
+        migrationProtocolBlockedSource: migrationProtocolBlockedTrace.entry?.source ?? null,
         nextProtocolLoadedLegacyBackfillBlocked: nextProtocolLoadedLegacyBackfillBlockedIdentity === null,
         nextProtocolLoadedLegacyBackfillBlockedFailureStage: nextProtocolLoadedLegacyBackfillBlockedTrace.entry?.persistFailureStage ?? null,
         nextProtocolLoadedLegacyBackfillNormalizedSource: nextProtocolLoadedLegacyBackfillPromotedIdentity?.authSource ?? null,
@@ -3606,10 +3323,6 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
         nextProtocolLoadedLegacyBackfillNormalizedImplicitResume: false,
         nextProtocolLoadedLegacyBackfillNormalizedRequestedResume: false,
         nextProtocolLoadedLegacyBackfillNormalizedConnectedReuse: false,
-        nextProtocolLoadedMigrationBackfillRequestedSessionId: nextProtocolLoadedMigrationBackfillBootstrapInput.requestedSessionId ?? null,
-        nextProtocolLoadedMigrationBackfillImplicitResume: nextProtocolLoadedMigrationBackfillImplicitResumeAllowed,
-        nextProtocolLoadedMigrationBackfillRequestedResume: nextProtocolLoadedMigrationBackfillRequestedResumeAllowed,
-        nextProtocolLoadedMigrationBackfillConnectedReuse: nextProtocolLoadedMigrationBackfillConnectedReuseAllowed,
         nextSourceIdentityPersistedSource: nextSourceIdentity?.persistedSource ?? null,
         nextSourceSnapshotPersistedSource: nextSourceSnapshotRecord?.persistedSource ?? null,
         nextSourceSnapshotTemplateId: nextSourceSnapshot?.placement?.templateId ?? null,
@@ -3621,10 +3334,7 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
         nextSourceGuardedMigrationSnapshotTemplateId: guardedMigrationSnapshot?.placement?.templateId ?? null,
         invalidNextIdentityFailureStage: invalidNextIdentityTrace.entry?.persistFailureStage ?? null,
         invalidNextPersistedSourceFailureStage: invalidNextPersistedSourceTrace.entry?.persistFailureStage ?? null,
-        compatBackfillLegacyProtocolSource: compatBackfillLegacyProtocolDefault?.authSource ?? null,
-        compatBackfillMigrationProtocolSource: compatBackfillMigrationProtocol?.authSource ?? null,
         tokenPersistedSourceMismatchFailureStage: tokenPersistedSourceMismatchTrace.entry?.persistFailureStage ?? null,
-        compatPersistedSourceMismatchFailureStage: compatPersistedSourceMismatchTrace.entry?.persistFailureStage ?? null,
         noPersistenceCompatIdentityCalls,
         preseedFailure: 'forced_preseed_next_load_failure',
         persistenceEnabledAllowLegacyFallback: persistenceEnabledCalls[0]?.allowLegacyFallback ?? null,
@@ -5428,32 +5138,14 @@ async function verifySnapshotSequence(token, playerId, firstAuthTrace, options =
 /**
  * 记录compatbackfillsavefailed。
  */
-    const compatBackfillSaveFailed = DATABASE_ENABLED && !STRICT_NATIVE_IDENTITY_REQUIRED
-        ? await verifyCompatBackfillSaveFailure(token, playerId)
-        : (DATABASE_ENABLED ? buildStrictNativeSkippedProof('strict_native_identity_required') : null);
-/**
- * 记录compatbackfillsavefailedmissingsnapshotrejected。
- */
     const compatBackfillSaveFailedMissingSnapshotRejected = DATABASE_ENABLED && !STRICT_NATIVE_IDENTITY_REQUIRED
         ? await verifyCompatBackfillSaveFailureMissingSnapshotRejection(token, playerId)
-        : (DATABASE_ENABLED ? buildStrictNativeSkippedProof('strict_native_identity_required') : null);
-/**
- * 记录compatidentitybackfillsnapshotpreseed。
- */
-    const compatIdentityBackfillSnapshotPreseed = DATABASE_ENABLED && !STRICT_NATIVE_IDENTITY_REQUIRED
-        ? await verifyCompatIdentityBackfillSnapshotPreseed(token, playerId)
         : (DATABASE_ENABLED ? buildStrictNativeSkippedProof('strict_native_identity_required') : null);
 /**
  * 记录compatidentitybackfill原生starter快照。
  */
     const compatIdentityBackfillNativeStarterSnapshot = DATABASE_ENABLED && !STRICT_NATIVE_IDENTITY_REQUIRED
         ? await verifyCompatIdentityBackfillNativeStarterSnapshot(token, playerId)
-        : (DATABASE_ENABLED ? buildStrictNativeSkippedProof('strict_native_identity_required') : null);
-/**
- * 记录compatidentitybackfillsnapshotseedfailurerejected。
- */
-    const compatIdentityBackfillSnapshotSeedFailureRejected = DATABASE_ENABLED && !STRICT_NATIVE_IDENTITY_REQUIRED
-        ? await verifyCompatIdentityBackfillSnapshotSeedFailureRejection(token, playerId)
         : (DATABASE_ENABLED ? buildStrictNativeSkippedProof('strict_native_identity_required') : null);
 /**
  * 记录invalidsnapshotmetapersisted来源normalized。
@@ -5515,11 +5207,8 @@ async function verifySnapshotSequence(token, playerId, firstAuthTrace, options =
         secondSnapshotSource: secondAuthTrace.snapshotSource ?? null,
         secondSnapshotPersistedSource: secondAuthTrace.snapshotPersistedSource ?? null,
         secondSessionId: secondAuthTrace.bootstrapSessionId ?? null,
-        compatBackfillSaveFailed,
         compatBackfillSaveFailedMissingSnapshotRejected,
-        compatIdentityBackfillSnapshotPreseed,
         compatIdentityBackfillNativeStarterSnapshot,
-        compatIdentityBackfillSnapshotSeedFailureRejected,
         invalidSnapshotMetaPersistedSourceNormalized,
         invalidSnapshotUnlockedMapIdsNormalized,
         invalidSnapshotRejected,
