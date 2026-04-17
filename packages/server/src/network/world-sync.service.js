@@ -33,6 +33,8 @@ const world_projector_service_1 = require("./world-projector.service");
 
 const world_sync_quest_loot_service_1 = require("./world-sync-quest-loot.service");
 
+const world_sync_threat_service_1 = require("./world-sync-threat.service");
+
 const world_sync_protocol_service_1 = require("./world-sync-protocol.service");
 
 const world_session_service_1 = require("./world-session.service");
@@ -52,6 +54,8 @@ let WorldSyncService = class WorldSyncService {
     mapRuntimeConfigService;
     /** quest / loot 冷路径同步服务。 */
     worldSyncQuestLootService;
+    /** threat 冷路径同步服务。 */
+    worldSyncThreatService;
     /** 协议下发辅助服务。 */
     worldSyncProtocolService;
     /** next 侧附加状态缓存。 */
@@ -60,7 +64,7 @@ let WorldSyncService = class WorldSyncService {
     minimapMarkersByMapId = new Map();
     /** 同步日志，用于追踪初始包和增量包下发。 */
     logger = new common_1.Logger(WorldSyncService.name);
-    constructor(worldRuntimeService, playerRuntimeService, worldProjectorService, worldSessionService, templateRepository, mapRuntimeConfigService, worldSyncQuestLootService, worldSyncProtocolService) {
+    constructor(worldRuntimeService, playerRuntimeService, worldProjectorService, worldSessionService, templateRepository, mapRuntimeConfigService, worldSyncQuestLootService, worldSyncThreatService, worldSyncProtocolService) {
         this.worldRuntimeService = worldRuntimeService;
         this.playerRuntimeService = playerRuntimeService;
         this.worldProjectorService = worldProjectorService;
@@ -68,6 +72,7 @@ let WorldSyncService = class WorldSyncService {
         this.templateRepository = templateRepository;
         this.mapRuntimeConfigService = mapRuntimeConfigService;
         this.worldSyncQuestLootService = worldSyncQuestLootService;
+        this.worldSyncThreatService = worldSyncThreatService;
         this.worldSyncProtocolService = worldSyncProtocolService;
     }
     /** 发送玩家的初始同步包。 */
@@ -257,7 +262,7 @@ let WorldSyncService = class WorldSyncService {
 
         const timeState = this.buildGameTimeState(template, view, player);
 
-        const threatArrows = this.buildThreatArrows(view);
+        const threatArrows = this.worldSyncThreatService.buildThreatArrows(view);
 
         const bootstrapPayload = this.buildBootstrapSyncPayload(view, player, template, visibleTiles, renderEntities, visibleMinimapMarkers, minimapLibrary, timeState);
         socket.emit(shared_1.NEXT_S2C.Bootstrap, bootstrapPayload);
@@ -270,14 +275,7 @@ let WorldSyncService = class WorldSyncService {
 
         const lootWindow = this.worldSyncQuestLootService.buildLootWindowSyncState(playerId);
         this.worldSyncProtocolService.sendLootWindow(socket, { window: lootWindow });
-        if (threatArrows.length > 0) {
-            socket.emit(shared_1.NEXT_S2C.WorldDelta, {
-                t: view.tick,
-                wr: view.worldRevision,
-                sr: view.selfRevision,
-                threatArrows: cloneThreatArrows(threatArrows),
-            });
-        }
+        this.worldSyncThreatService.emitInitialThreatSync(socket, view, threatArrows);
         this.nextAuxStateByPlayerId.set(playerId, {
             mapId: view.instance.templateId,
             instanceId: view.instance.instanceId,
@@ -305,8 +303,6 @@ let WorldSyncService = class WorldSyncService {
         const allMinimapMarkers = this.buildMinimapMarkers(template);
 
         const currentVisibleMinimapMarkers = this.buildVisibleMinimapMarkers(allMinimapMarkers, currentVisibleTileKeys);
-
-        const currentThreatArrows = this.buildThreatArrows(view);
 
         const mapChanged = previous.mapId !== view.instance.templateId
             || previous.instanceId !== view.instance.instanceId;
@@ -347,17 +343,7 @@ let WorldSyncService = class WorldSyncService {
             this.worldSyncProtocolService.sendLootWindow(socket, { window: lootWindow });
         }
 
-        const threatArrowPatch = diffThreatArrows(previous.threatArrows ?? null, currentThreatArrows, mapChanged);
-        if (threatArrowPatch.full || threatArrowPatch.adds.length > 0 || threatArrowPatch.removes.length > 0) {
-            socket.emit(shared_1.NEXT_S2C.WorldDelta, {
-                t: view.tick,
-                wr: view.worldRevision,
-                sr: view.selfRevision,
-                threatArrows: threatArrowPatch.full ?? undefined,
-                threatArrowAdds: threatArrowPatch.full ? undefined : (threatArrowPatch.adds.length > 0 ? threatArrowPatch.adds : undefined),
-                threatArrowRemoves: threatArrowPatch.full ? undefined : (threatArrowPatch.removes.length > 0 ? threatArrowPatch.removes : undefined),
-            });
-        }
+        const currentThreatArrows = this.worldSyncThreatService.emitDeltaThreatSync(socket, view, previous.threatArrows ?? null, mapChanged);
         this.nextAuxStateByPlayerId.set(playerId, {
             mapId: view.instance.templateId,
             instanceId: view.instance.instanceId,
@@ -602,60 +588,6 @@ let WorldSyncService = class WorldSyncService {
         }
         return keys;
     }
-    buildThreatArrows(view) {
-
-        const visiblePlayerIds = new Set([
-            view.playerId,
-            ...view.visiblePlayers.map((entry) => entry.playerId),
-        ]);
-
-        const visibleMonsterIds = new Set(view.localMonsters.map((entry) => entry.runtimeId));
-
-        const visibleEntityIds = new Set([...visiblePlayerIds, ...visibleMonsterIds]);
-
-        const arrows = [];
-
-        const seen = new Set();
-
-        const pushArrow = (ownerId, targetId) => {
-            if (!targetId || ownerId === targetId) {
-                return;
-            }
-            if (!visibleEntityIds.has(ownerId) || !visibleEntityIds.has(targetId)) {
-                return;
-            }
-
-            const key = `${ownerId}->${targetId}`;
-            if (seen.has(key)) {
-                return;
-            }
-            seen.add(key);
-            arrows.push([ownerId, targetId]);
-        };
-        for (const playerId of visiblePlayerIds) {
-            const runtimePlayer = this.playerRuntimeService.getPlayer(playerId);
-            const targetRef = runtimePlayer?.combat?.combatTargetId;
-            if (typeof targetRef !== 'string' || targetRef.length === 0) {
-                continue;
-            }
-
-            const targetId = targetRef.startsWith('player:')
-                ? targetRef.slice('player:'.length)
-                : targetRef.startsWith('tile:') || targetRef.startsWith('container:')
-                    ? null
-                    : targetRef;
-            pushArrow(playerId, targetId);
-        }
-        for (const monster of view.localMonsters) {
-            const runtimeMonster = this.worldRuntimeService.getInstanceMonster(view.instance.instanceId, monster.runtimeId);
-            if (!runtimeMonster?.alive || !runtimeMonster.aggroTargetPlayerId) {
-                continue;
-            }
-            pushArrow(monster.runtimeId, runtimeMonster.aggroTargetPlayerId);
-        }
-        arrows.sort(compareThreatArrows);
-        return arrows;
-    }
     emitPendingNotices(playerId, socket) {
 
         const items = this.playerRuntimeService.drainNotices(playerId);
@@ -676,6 +608,7 @@ exports.WorldSyncService = WorldSyncService = __decorate([
         map_template_repository_1.MapTemplateRepository,
         runtime_map_config_service_1.RuntimeMapConfigService,
         world_sync_quest_loot_service_1.WorldSyncQuestLootService,
+        world_sync_threat_service_1.WorldSyncThreatService,
         world_sync_protocol_service_1.WorldSyncProtocolService])
 ], WorldSyncService);
 function buildAttrUpdate(previous, player) {
@@ -2032,37 +1965,6 @@ function isSamePathTuples(left, right) {
         }
     }
     return true;
-}
-function diffThreatArrows(previous, current, forceFull) {
-    if (forceFull || !previous) {
-        return {
-            full: cloneThreatArrows(current),
-            adds: [],
-            removes: [],
-        };
-    }
-
-    const previousKeys = new Set(previous.map(([ownerId, targetId]) => buildThreatArrowKey(ownerId, targetId)));
-
-    const currentKeys = new Set(current.map(([ownerId, targetId]) => buildThreatArrowKey(ownerId, targetId)));
-
-    const adds = current.filter(([ownerId, targetId]) => !previousKeys.has(buildThreatArrowKey(ownerId, targetId)));
-
-    const removes = previous.filter(([ownerId, targetId]) => !currentKeys.has(buildThreatArrowKey(ownerId, targetId)));
-    return {
-        full: null,
-        adds,
-        removes,
-    };
-}
-function buildThreatArrowKey(ownerId, targetId) {
-    return `${ownerId}\n${targetId}`;
-}
-function compareThreatArrows(left, right) {
-    if (left[0] !== right[0]) {
-        return compareStableStrings(left[0], right[0]);
-    }
-    return compareStableStrings(left[1], right[1]);
 }
 function compareStableStrings(left, right) {
     if (left < right) {
