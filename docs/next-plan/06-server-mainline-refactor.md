@@ -306,6 +306,13 @@
   - 跨域事务边界
   - 错误收口
 
+本轮已完成：
+
+- 新增 `packages/server/src/runtime/world/world-runtime-gm-queue.service.js`
+- `WorldRuntimeService` 的 `enqueueGm*` 命令归一与 `gmUpdatePlayer / gmSpawnBots / gmRemoveBots` 派发细节已委托给 `WorldRuntimeGmQueueService`
+- `WorldRuntimeService` 仍保留 `pendingSystemCommands` 队列所有权、tick 内 `dispatchPendingSystemCommands()`、`dispatchSystemCommand()` 分发与 `respawnPlayer()`，说明这次只是第 5 批第一刀的 helper 级提取，不是完整 GM runtime 子域拆分
+- 本轮验证已补跑 `smoke:runtime`、`smoke:gm-next`、`smoke:player-respawn`、根级 `pnpm build` 与 `pnpm verify:replace-ready`
+
 这一批结束后，`world-runtime.service.js` 仍可以存在，但不该再同时拥有所有领域细节。
 
 最小验证：
