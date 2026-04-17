@@ -271,6 +271,10 @@
 - 新增 `packages/server/src/runtime/craft/craft-panel-alchemy-query.helpers.js`
 - `CraftPanelRuntimeService` 的炼丹面板只读 payload/state 构造已委托给 `CraftPanelAlchemyQueryService`，目录版本与 clone helper 已收进共享 helper；炼丹/强化的写路径与 tick 逻辑仍保留在 `CraftPanelRuntimeService`
 - 本轮验证已补跑 `audit:next-protocol`、`smoke:progression`、`smoke:redeem-code`、`smoke:gm-next`、根级 `pnpm build` 与 `pnpm verify:replace-ready`
+- 新增 `packages/server/src/runtime/craft/craft-panel-enhancement-query.service.js`
+- `CraftPanelRuntimeService` 的强化面板只读 payload/state/candidates/protection 展示构造已委托给 `CraftPanelEnhancementQueryService`
+- 强化写路径、资源消耗、保护物校验与 tick 推进仍保留在 `CraftPanelRuntimeService`，避免第 4 批这一刀越界到 batch 5 的状态域拆分
+- 本轮验证已补跑 `audit:next-protocol`、`smoke:progression`、`smoke:redeem-code`、`smoke:gm-next`、根级 `pnpm build` 与 `pnpm verify:replace-ready`
 
 当前优先可拆的冷块：
 
