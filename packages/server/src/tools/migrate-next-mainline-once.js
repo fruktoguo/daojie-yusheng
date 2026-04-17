@@ -30,7 +30,28 @@ const SUGGESTION_SCOPE = 'server_next_suggestions_v1';
 const SUGGESTION_KEY = 'global';
 const LEGACY_SUGGESTION_FILE = path.resolve(__dirname, "../../../../legacy/server/data/runtime/suggestions.json");
 
-const SUPPORTED_DOMAINS = ['auth', 'identity', 'snapshot', 'mail', 'market', 'redeem', 'suggestion', 'gm-auth', 'gm-database'];
+const SUPPORTED_DOMAINS = ['auth', 'identity', 'snapshot', 'progression', 'inventory', 'techniques', 'quests', 'mail', 'market', 'redeem', 'suggestion', 'gm-auth', 'gm-database'];
+const DOMAIN_ALIASES = new Map([
+    ['auth', 'auth'],
+    ['identity', 'identity'],
+    ['snapshot', 'snapshot'],
+    ['progression', 'progression'],
+    ['progression-attrs', 'progression'],
+    ['progression / attrs', 'progression'],
+    ['inventory', 'inventory'],
+    ['inventory-items', 'inventory'],
+    ['inventory / equipment / items', 'inventory'],
+    ['techniques', 'techniques'],
+    ['techniques-skills-cultivating', 'techniques'],
+    ['techniques / skills / cultivating', 'techniques'],
+    ['quests', 'quests'],
+    ['mail', 'mail'],
+    ['market', 'market'],
+    ['redeem', 'redeem'],
+    ['suggestion', 'suggestion'],
+    ['gm-auth', 'gm-auth'],
+    ['gm-database', 'gm-database'],
+]);
 
 const CREATE_PLAYER_AUTH_TABLE_SQL = `
   CREATE TABLE IF NOT EXISTS ${PLAYER_AUTH_TABLE} (
@@ -157,7 +178,9 @@ function parseArgs(argv) {
                 .split(',')
                 .map((entry) => entry.trim())
                 .filter(Boolean);
-            options.domains = requested.filter((entry) => SUPPORTED_DOMAINS.includes(entry));
+            options.domains = requested
+                .map((entry) => DOMAIN_ALIASES.get(entry) ?? null)
+                .filter(Boolean);
             continue;
         }
         if (arg.startsWith('--fixture=')) {
@@ -170,7 +193,7 @@ function parseArgs(argv) {
 
 function printHelp() {
     process.stdout.write([
-        '用法：node packages/server/src/tools/migrate-next-mainline-once.js [--dry-run] [--write] [--fixture=path/to/sample.json] [--domains=auth,identity,snapshot,mail,market,redeem,suggestion,gm-auth,gm-database]',
+        '用法：node packages/server/src/tools/migrate-next-mainline-once.js [--dry-run] [--write] [--fixture=path/to/sample.json] [--domains=auth,identity,snapshot,progression,inventory,techniques,quests,mail,market,redeem,suggestion,gm-auth,gm-database]',
         '',
         '默认行为：',
         '- 连接 SERVER_NEXT_DATABASE_URL / DATABASE_URL',
@@ -234,6 +257,11 @@ async function migrateDomain(client, fixture, domain, dryRun, failures) {
                 dryRun,
                 failures,
             });
+        case 'progression':
+        case 'inventory':
+        case 'techniques':
+        case 'quests':
+            return migrateSnapshotSubdomain(client, fixture, domain, dryRun, failures);
         case 'mail':
             return migrateMailDomain(client, fixture, dryRun, failures);
         case 'market':
@@ -271,6 +299,17 @@ async function migrateGmDatabaseDomain(client, fixture, dryRun, failures) {
         migrated: normalizedBackups.length + (normalizedJobState ? 1 : 0),
         skipped: Math.max(0, backupRows.length - normalizedBackups.length) + (legacyJobPayload && !normalizedJobState ? 1 : 0),
     };
+}
+
+async function migrateSnapshotSubdomain(client, fixture, domain, dryRun, failures) {
+    return migrateRows(client, fixture, {
+        scope: PLAYER_SNAPSHOT_SCOPE,
+        table: `${PLAYER_SNAPSHOT_TABLE}:${domain}`,
+        normalize: normalizeSnapshotRecord,
+        upsert: upsertSnapshotRecord,
+        dryRun,
+        failures,
+    });
 }
 
 async function migrateGmAuthDomain(client, fixture, dryRun, failures) {
