@@ -21,6 +21,7 @@ const content_template_repository_1 = require("../../content/content-template.re
 const player_runtime_service_1 = require("../player/player-runtime.service");
 const craft_panel_alchemy_query_service_1 = require("./craft-panel-alchemy-query.service");
 const craft_panel_alchemy_query_helpers_1 = require("./craft-panel-alchemy-query.helpers");
+const craft_panel_enhancement_query_service_1 = require("./craft-panel-enhancement-query.service");
 
 /** 强化锤能力判定使用的物品标签。 */
 const ENHANCEMENT_HAMMER_TAG = 'enhancement_hammer';
@@ -86,6 +87,7 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
     contentTemplateRepository;
     playerRuntimeService;
     craftPanelAlchemyQueryService;
+    craftPanelEnhancementQueryService;
     /** 运行时日志器，记录炼丹、强化与配置加载问题。 */
     logger = new common_1.Logger(CraftPanelRuntimeService.name);
     /** 缓存炼丹目录，供面板快照和任务校验共用。 */
@@ -93,10 +95,11 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
     /** 缓存强化配置，避免每次操作都重新查表。 */
     enhancementConfigs = new Map();
     /** 缓存依赖并初始化日志、配方与强化配置。 */
-    constructor(contentTemplateRepository, playerRuntimeService, craftPanelAlchemyQueryService) {
+    constructor(contentTemplateRepository, playerRuntimeService, craftPanelAlchemyQueryService, craftPanelEnhancementQueryService) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.playerRuntimeService = playerRuntimeService;
         this.craftPanelAlchemyQueryService = craftPanelAlchemyQueryService;
+        this.craftPanelEnhancementQueryService = craftPanelEnhancementQueryService;
     }
     /** 模块初始化：按需加载炼丹目录和强化配置。 */
     onModuleInit() {
@@ -111,11 +114,7 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
     /** 读取强化面板状态并在未装备强化锤时返回错误。 */
     buildEnhancementPanelPayload(player) {
         this.ensureCraftSkills(player);
-        const state = this.buildEnhancementPanelState(player);
-        return {
-            state,
-            error: state ? undefined : '尚未装备强化锤。',
-        };
+        return this.craftPanelEnhancementQueryService.buildEnhancementPanelPayload(player, this.enhancementConfigs);
     }
     /** 判断玩家当前是否有炼丹任务在进行。 */
     hasActiveAlchemyJob(player) {
@@ -696,18 +695,7 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
         return this.craftPanelAlchemyQueryService.buildAlchemyPanelState(player, this.getWeapon(player));
     }
     buildEnhancementPanelState(player) {
-        const hammer = this.getWeapon(player);
-        const hammerItemId = hammer?.tags?.includes(ENHANCEMENT_HAMMER_TAG) ? hammer.itemId : undefined;
-        if (!hammerItemId && !player.enhancementJob) {
-            return null;
-        }
-        return {
-            hammerItemId,
-            enhancementSkillLevel: Math.max(1, Math.floor(Number(player.enhancementSkill?.level ?? player.enhancementSkillLevel) || 1)),
-            candidates: this.collectEnhancementCandidates(player),
-            records: (player.enhancementRecords ?? []).map((entry) => cloneEnhancementRecord(entry)),
-            job: player.enhancementJob ? cloneEnhancementJob(player.enhancementJob) : null,
-        };
+        return this.craftPanelEnhancementQueryService.buildEnhancementPanelState(player, this.enhancementConfigs);
     }
     collectEnhancementCandidates(player) {
         const candidates = [];
@@ -1191,7 +1179,8 @@ exports.CraftPanelRuntimeService = CraftPanelRuntimeService = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [content_template_repository_1.ContentTemplateRepository,
         player_runtime_service_1.PlayerRuntimeService,
-        craft_panel_alchemy_query_service_1.CraftPanelAlchemyQueryService])
+        craft_panel_alchemy_query_service_1.CraftPanelAlchemyQueryService,
+        craft_panel_enhancement_query_service_1.CraftPanelEnhancementQueryService])
 ], CraftPanelRuntimeService);
 function resolveContentPath(...segments) {
     return path.resolve(__dirname, '../../../../../packages/server/data/content', ...segments);
