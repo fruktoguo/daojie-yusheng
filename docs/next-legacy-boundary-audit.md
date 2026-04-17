@@ -1,21 +1,21 @@
 # server-next 剩余 legacy 边界自动审计
 
-更新时间：2026-04-16
+更新时间：2026-04-17
 
 ## 一句话结论
 
 - 这份报告只统计仓库里仍可见的 direct legacy 边界与性能热点，不等于 replace-ready 失败，也不代表完整替换已完成。
-- 当前自动审计命中 4 / 22 个检查项，共 5 处代码证据。
+- 当前自动审计命中 2 / 19 个检查项，共 4 处代码证据。
 - 保守口径不变：`next` 离“完整替换游戏整体”仍约差 `40% - 45%`。
 
 ## 汇总
 
 | 类别 | 命中检查项 | 代码证据 |
 | --- | ---: | ---: |
-| P0 auth/bootstrap 真源 | 3 / 5 | 4 |
+| P0 auth/bootstrap 真源 | 1 / 3 | 2 |
 | P0 legacy HTTP/GM/admin | 0 / 3 | 0 |
-| P1 world sync compat | 1 / 5 | 1 |
-| P1 runtime/persistence compat | 0 / 4 | 0 |
+| P1 world sync compat | 0 / 4 | 0 |
+| P1 runtime/persistence compat | 1 / 4 | 2 |
 | 目标差距: 性能/扩展 | 0 / 5 | 0 |
 
 ## P0 auth/bootstrap 真源
@@ -24,21 +24,13 @@
   - 文件：`packages/server/src/network/world-player-token-codec.service.js:74`
   - 命中次数：2
   - 首个证据：`const result = verifyPlayerTokenPayloadDetailed(normalizedToken, secret);`
-- legacy player repository 仍直接查询 users/players 表
-  - 文件：`packages/server/src/network/world-legacy-player-repository.js:16`
-  - 命中次数：1
-  - 首个证据：`FROM users u`
-- legacy player snapshot 仓库仍直接查询 players 表
-  - 文件：`packages/server/src/network/world-legacy-player-repository.js:61`
-  - 命中次数：1
-  - 首个证据：`FROM players`
 
-## P1 world sync compat
+## P1 runtime/persistence compat
 
-- compat tick 仍直接读取 legacy combat effects
-  - 文件：`packages/server/src/network/world-sync.service.js:164`
-  - 命中次数：1
-  - 首个证据：`return filterLegacyCombatEffects(this.worldRuntimeService.getLegacyCombatEffects(view.instance.instanceId), visibleTileKeys);`
+- WorldPlayerSource 仍保留显式 migration snapshot 查询入口
+  - 文件：`packages/server/src/network/world-player-source.service.js:152`
+  - 命中次数：2
+  - 首个证据：`async queryMigrationSnapshotRow(pool, playerId) {`
 
 ## 备注
 

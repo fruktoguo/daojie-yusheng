@@ -142,9 +142,9 @@
 
 - [x] 在 `04` 的一次性迁移脚本覆盖身份与玩家快照后，删除 `world-legacy-player-repository.js`
 - [ ] 删除 `world-player-source.service.js` 对 legacy `users/players` 的读取
-- [ ] 删除 `world-player-auth.service.js` 中 `legacy_backfill` / `legacy_sync` 的运行时提升路径
-- [ ] 删除 `world-player-snapshot.service.js` 中 migration backfill snapshot 补种主逻辑
-- [ ] 同步收紧 `next-auth-bootstrap-smoke.js`，把 migration-only proof 缩成“脚本迁移后禁止 runtime backfill”
+- [x] 删除 `world-player-auth.service.js` 中 `legacy_backfill` / `legacy_sync` 的运行时提升路径
+- [x] 删除 `world-player-snapshot.service.js` 中 migration backfill snapshot 补种主逻辑
+- [x] 同步收紧 `next-auth-bootstrap-smoke.js`，把 migration-only proof 缩成“脚本迁移后禁止 runtime backfill”
 
 删除前提：
 
@@ -160,12 +160,17 @@
 
 本轮实际补跑：
 
+- `pnpm --filter @mud/server-next build`
 - `SERVER_NEXT_DATABASE_URL=postgres://mud:jiuzhou123@127.0.0.1:15432/mud_mmo_next DATABASE_URL=postgres://mud:jiuzhou123@127.0.0.1:15432/mud_mmo_next pnpm --filter @mud/server-next smoke:next-auth-bootstrap`
+- `pnpm --filter @mud/server-next audit:legacy-boundaries`
 - `SERVER_NEXT_DATABASE_URL=postgres://mud:jiuzhou123@127.0.0.1:15432/mud_mmo_next DATABASE_URL=postgres://mud:jiuzhou123@127.0.0.1:15432/mud_mmo_next pnpm verify:replace-ready`
 
 本轮已收口的子步：
 
 - next 协议下，已加载 `legacy_backfill / legacy_sync` 身份不再做运行时原地提升；未迁移到 next native 的 identity 直接被拒绝。
+- `WorldPlayerAuthService` 已删除 `authenticateViaMigration()` / `shouldPreferMigrationBackfill()` / `ensureLegacyBackfillSnapshot()`，显式 `migration` 协议窗口不再触发运行时 backfill。
+- `WorldPlayerSnapshotService` 已删除 `ensureMigrationBackfillSnapshot()`；runtime 不再从 migration 源补种 native snapshot。
+- `next-auth-bootstrap-smoke.js` 已移除 `migration_backfill` 运行时认证 / snapshot 补种证明，只保留 explicit migration source gate 与 next/token_seed 主链证明。
 
 ### 第 3 批：删运行时 / 持久化 compat 装载
 
