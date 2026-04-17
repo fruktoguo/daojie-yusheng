@@ -97,7 +97,7 @@
 当前仍未完成：
 
 - `world.gateway.js` 仍然承载大量 authenticated gameplay handler
-- mail、market、npc/shop/quest、craft 与 player-controls 等 authenticated gameplay handler 仍在 gateway
+- market、npc/shop/quest、craft 与 player-controls 等 authenticated gameplay handler 仍在 gateway
 - gateway 还不是最终意义上的纯分发层
 
 本轮继续完成：
@@ -129,6 +129,12 @@
 - 新增 `packages/server/src/network/world-gateway-inventory.helper.js`
 - `handleNextDestroyItem / handleNextSortInventory / handleNextUseItem / handleNextDropItem / handleTakeGround / handleNextEquip / handleNextUnequip` 已从 gateway 主文件移出
 - 背包整理/摧毁提示、takeAll 逻辑和各自 gateway error code 保持不变，gateway 继续向 helper 薄委托
+
+本轮继续完成：
+
+- 新增 `packages/server/src/network/world-gateway-mail.helper.js`
+- `handleNextRequestMailSummary / handleNextRequestMailPage / handleNextRequestMailDetail / handleNextMarkMailRead / handleNextClaimMailAttachments / handleNextDeleteMail` 已从 gateway 主文件移出
+- MailSummary / MailPage / MailDetail / MailOpResult 的发包链路与 read/claim/delete 后的 summary 刷新保持不变
 
 最小验证：
 
