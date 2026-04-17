@@ -83,7 +83,7 @@
 - [x] 扫描 `packages/server/src/network/*`、`packages/server/src/runtime/*`
 - [x] 扫描 `packages/client/src/*`
 - [x] 扫描 `packages/shared/src/*`
-- [ ] 只记录会影响 next 行为定义的入口，不把纯 inventory/audit 统计进来
+- [x] 只记录会影响 next 行为定义的入口，不把纯 inventory/audit 统计进来
 - [x] 用 `pnpm --filter @mud/server-next proof:next-runtime-network-no-legacy-source` 固定 server runtime/network 不 direct 读取 `legacy/*`
 - [x] 用 `pnpm proof:next-client-shared-no-legacy-source` 固定 client/shared 不 direct 读取 `legacy/*`
 
@@ -99,6 +99,7 @@
 - 哪些入口已在 `01/05` 里归为“临时允许”
 - 哪些入口应直接删除
 - 当前 direct legacy source 扫描未命中 `packages/client/src/*` 与 `packages/shared/src/*`；客户端旧 alias / 事件消费差异继续留在 `NEXT_S2C` 对齐阶段处理
+- 当前只保留两组真实 residual：`shared/client` 的协议命名漂移与本地动作桥、`server` 的玩家真源迁移桥；纯 inventory / audit 输出不再单列为待收口入口
 
 ### 第 3 批：对齐 `NEXT_C2S` 到 `world.gateway.js`
 
