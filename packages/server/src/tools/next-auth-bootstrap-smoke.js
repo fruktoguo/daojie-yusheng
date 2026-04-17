@@ -209,16 +209,12 @@ async function main() {
 /**
  * 记录legacybackfillfallbackcontract。
  */
-    const legacyBackfillFallbackContract = RUN_MAINLINE_PROOFS
-        ? await verifyLegacyBackfillSnapshotFallbackContract()
-        : buildProfileSkippedProof('profile_migration_skips_mainline');
 /**
  * 记录authenticated缺失snapshot恢复contract。
  */
     const authenticatedMissingSnapshotRecoveryContract = RUN_MAINLINE_PROOFS
         ? await verifyAuthenticatedMissingSnapshotRecoveryContract()
         : buildProfileSkippedProof('profile_migration_skips_mainline');
-    const compatRuntimeSnapshotGuardContract = buildProfileSkippedProof('runtime_migration_bridge_removed');
 /**
  * 记录authenticated缺失snapshot恢复noticecontract。
  */
@@ -256,14 +252,6 @@ async function main() {
         ? (DATABASE_ENABLED ? await verifyTokenSeedNativeStarterBootstrapProof() : null)
         : buildProfileSkippedProof('profile_migration_skips_mainline');
 /**
- * 记录strictnativecompatsnapshotignoredcontract。
- */
-    const strictNativeCompatSnapshotIgnoredContract = RUN_MAINLINE_PROOFS
-        ? (DATABASE_ENABLED && STRICT_NATIVE_IDENTITY_REQUIRED
-            ? await verifyStrictNativeCompatSnapshotIgnoredContract()
-            : null)
-        : buildProfileSkippedProof('profile_migration_skips_mainline');
-/**
  * 记录令牌seedpersistfailurecontract。
  */
     const tokenSeedPersistFailureContract = RUN_MAINLINE_PROOFS
@@ -283,12 +271,6 @@ async function main() {
         : buildProfileSkippedProof('profile_migration_skips_mainline');
     const gmBootstrapSessionPolicyContract = RUN_MAINLINE_PROOFS
         ? await verifyGmBootstrapSessionPolicyContract()
-        : buildProfileSkippedProof('profile_migration_skips_mainline');
-    const legacyHttpIdentityFallbackGateContract = RUN_MAINLINE_PROOFS
-        ? await verifyLegacyHttpIdentityFallbackGateContract()
-        : buildProfileSkippedProof('profile_migration_skips_mainline');
-    const legacyHttpIdentityFallbackOptInContract = RUN_MAINLINE_PROOFS
-        ? await verifyLegacyHttpIdentityFallbackOptInContract()
         : buildProfileSkippedProof('profile_migration_skips_mainline');
     await expectNextSocketAuthFailure('invalid.next.token');
     await expectNextSocketAuthFailure(auth.refreshToken);
@@ -310,30 +292,24 @@ async function main() {
             playerId: null,
             verified: {
                 nextProtocolNoDbRejectsTokenRuntime: true,
-                legacyBackfillFallbackContract,
                 authenticatedMissingSnapshotRecoveryContract,
-                compatRuntimeSnapshotGuardContract,
                 authenticatedSnapshotRecoveryNoticeContract,
                 authenticatedSnapshotRecoveryTraceContract,
                 authenticatedSnapshotRecoveryBootstrapLinkContract,
                 tokenSeedIdentityContract,
                 tokenSeedNativeStarterSnapshotContract,
                 tokenSeedNativeStarterBootstrapProof,
-                strictNativeCompatSnapshotIgnoredContract,
                 tokenSeedPersistFailureContract,
                 authPreseedSnapshotServiceUnavailableContract,
                 helloAuthBootstrapForbiddenContract,
                 implicitLegacyProtocolEntryContract,
                 gmBootstrapSessionPolicyContract,
-                legacyHttpIdentityFallbackGateContract,
-                legacyHttpIdentityFallbackOptInContract,
                 invalidRequestedSessionIdRejected: true,
                 authenticatedSessionProof: buildProfileSkippedProof('no_db_next_protocol_rejects_token_runtime'),
                 nextProtocolRejectsLegacyEventContract: buildProfileSkippedProof('no_db_next_protocol_rejects_token_runtime'),
                 authTrace: null,
                 snapshotSequence: null,
             },
-            legacyEventsOnNextSocket: 0,
         }, null, 2));
         return;
     }
@@ -425,30 +401,24 @@ async function main() {
                     panelDeltaCount: firstBootstrap.panelDeltaCount,
                 },
                 helloAfterBootstrap: firstBootstrap.helloAfterBootstrap,
-                legacyBackfillFallbackContract,
                 authenticatedMissingSnapshotRecoveryContract,
-                compatRuntimeSnapshotGuardContract,
                 authenticatedSnapshotRecoveryNoticeContract,
                 authenticatedSnapshotRecoveryTraceContract,
                 authenticatedSnapshotRecoveryBootstrapLinkContract,
                 tokenSeedIdentityContract,
                 tokenSeedNativeStarterSnapshotContract,
                 tokenSeedNativeStarterBootstrapProof,
-                strictNativeCompatSnapshotIgnoredContract,
                 tokenSeedPersistFailureContract,
                 authPreseedSnapshotServiceUnavailableContract,
                 helloAuthBootstrapForbiddenContract,
                 implicitLegacyProtocolEntryContract,
                 gmBootstrapSessionPolicyContract,
-                legacyHttpIdentityFallbackGateContract,
-                legacyHttpIdentityFallbackOptInContract,
                 invalidRequestedSessionIdRejected: true,
                 authenticatedSessionProof,
                 nextProtocolRejectsLegacyEventContract,
                 authTrace,
                 snapshotSequence,
             },
-            legacyEventsOnNextSocket: firstBootstrap.legacyEvents.length,
         }, null, 2));
     }
     finally {
@@ -1812,122 +1782,6 @@ async function verifyGmBootstrapSessionPolicyContract() {
         nextInvalidPersistedContractViolationStage: nextInvalidPersistedContractViolation?.stage ?? null,
         unknownContractViolationStage: unknownContractViolation?.stage ?? null,
     };
-}
-async function verifyLegacyHttpIdentityFallbackGateContract() {
-    return withEnvOverrides({
-        SERVER_NEXT_AUTH_DISABLE_LEGACY_HTTP_IDENTITY_FALLBACK: '1',
-        NEXT_AUTH_DISABLE_LEGACY_HTTP_IDENTITY_FALLBACK: null,
-    }, async () => {
-        const payload = {
-            sub: 'proof-user-legacy-http-gate',
-            username: 'proof_user_legacy_http_gate',
-            displayName: '鉴',
-        };
-        let httpCallCount = 0;
-        const service = new world_player_source_service_1.WorldPlayerSourceService({
-            findUserById: async () => {
-                httpCallCount += 1;
-                return {
-                    id: payload.sub,
-                    username: payload.username,
-                    displayName: payload.displayName,
-                    pendingRoleName: '鉴',
-                };
-            },
-        });
-        try {
-            if (typeof service.resolvePlayerIdentityFromCompatSource === 'function'
-                || typeof service.resolvePlayerIdentityFromMigrationSource === 'function') {
-                throw new Error('expected legacy HTTP identity fallback and direct migration identity entry to be removed from world player source service');
-            }
-            const defaultBlockedResult = await service.resolvePlayerIdentityForMigration(payload);
-            if (defaultBlockedResult !== null || httpCallCount !== 0) {
-                throw new Error(`expected migration identity wrapper to stay closed by default after legacy users/players removal, got result=${JSON.stringify(defaultBlockedResult)} httpCallCount=${httpCallCount}`);
-            }
-            const explicitBlockedResult = await service.resolvePlayerIdentityForMigration(payload, {
-                allowMigrationSource: true,
-                allowLegacyHttpIdentityFallback: true,
-            });
-            if (explicitBlockedResult !== null || httpCallCount !== 0) {
-                throw new Error(`expected explicit migration identity wrapper to remain blocked after legacy users/players removal, got result=${JSON.stringify(explicitBlockedResult)} httpCallCount=${httpCallCount}`);
-            }
-            return {
-                compatEntryRemoved: true,
-                migrationEntryRemoved: true,
-                defaultBlocked: true,
-                explicitBlocked: true,
-                httpCallCount,
-            };
-        }
-        finally {
-            await service.onModuleDestroy().catch(() => undefined);
-        }
-    });
-}
-async function verifyLegacyHttpIdentityFallbackOptInContract() {
-    return withEnvOverrides({
-        SERVER_NEXT_AUTH_DISABLE_LEGACY_HTTP_IDENTITY_FALLBACK: null,
-        NEXT_AUTH_DISABLE_LEGACY_HTTP_IDENTITY_FALLBACK: null,
-        SERVER_NEXT_ALLOW_LEGACY_HTTP_IDENTITY_FALLBACK: null,
-        NEXT_ALLOW_LEGACY_HTTP_IDENTITY_FALLBACK: null,
-    }, async () => {
-        const payload = {
-            sub: 'proof-user-legacy-http-opt-in',
-            username: 'proof_user_legacy_http_opt_in',
-            displayName: '鉴',
-        };
-        let httpCallCount = 0;
-        const service = new world_player_source_service_1.WorldPlayerSourceService({
-            findUserById: async () => {
-                httpCallCount += 1;
-                return {
-                    id: payload.sub,
-                    username: payload.username,
-                    displayName: payload.displayName,
-                    pendingRoleName: '鉴',
-                };
-            },
-        });
-        try {
-            if (typeof service.resolvePlayerIdentityFromCompatSource === 'function'
-                || typeof service.resolvePlayerIdentityFromMigrationSource === 'function') {
-                throw new Error('expected legacy HTTP identity fallback and direct migration identity entry to stay removed even when allow envs are present');
-            }
-            const defaultBlockedResult = await service.resolvePlayerIdentityForMigration(payload);
-            if (defaultBlockedResult !== null || httpCallCount !== 0) {
-                throw new Error(`expected migration source to stay closed without explicit opt-in after legacy HTTP fallback removal, got result=${JSON.stringify(defaultBlockedResult)} httpCallCount=${httpCallCount}`);
-            }
-            const explicitBlockedResult = await service.resolvePlayerIdentityForMigration(payload, {
-                allowMigrationSource: true,
-                allowLegacyHttpIdentityFallback: true,
-            });
-            if (explicitBlockedResult !== null || httpCallCount !== 0) {
-                throw new Error(`expected removed legacy HTTP fallback to stay blocked without allow env, got result=${JSON.stringify(explicitBlockedResult)} httpCallCount=${httpCallCount}`);
-            }
-            return withEnvOverrides({
-                SERVER_NEXT_ALLOW_LEGACY_HTTP_IDENTITY_FALLBACK: '1',
-                NEXT_ALLOW_LEGACY_HTTP_IDENTITY_FALLBACK: null,
-            }, async () => {
-                const allowEnvBlockedResult = await service.resolvePlayerIdentityForMigration(payload, {
-                    allowMigrationSource: true,
-                    allowLegacyHttpIdentityFallback: true,
-                });
-                if (allowEnvBlockedResult !== null || httpCallCount !== 0) {
-                    throw new Error(`expected allow env to stop resurrecting removed legacy HTTP fallback after legacy users/players removal, got result=${JSON.stringify(allowEnvBlockedResult)} httpCallCount=${httpCallCount}`);
-                }
-                return {
-                    compatEntryRemoved: true,
-                    defaultBlockedWithoutExplicitOptIn: true,
-                    explicitBlockedWithoutAllowEnv: true,
-                    allowEnvStillBlocked: true,
-                    httpCallCount,
-                };
-            });
-        }
-        finally {
-            await service.onModuleDestroy().catch(() => undefined);
-        }
-    });
 }
 /**
  * 根据身份来源判断断线后是否应隐式续用既有会话。
