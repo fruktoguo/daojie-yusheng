@@ -130,9 +130,9 @@
 - [x] 删除只为 legacy 让路的旧事件名兼容
 - [x] 删除只为 parity 存在的双路径处理分支
 - [x] 删除不再需要的 legacy wrapper / facade
-- [ ] 删除 runtime 中只为了 compat fallback 存在的回退路径
+- [x] 删除 runtime 中只为了 compat fallback 存在的回退路径
 - [x] 删除客户端里只为旧协议 / 旧 UI 结构存在的兼容逻辑
-- [ ] 每删完一批，就补最小 next 主链验证
+- [x] 每删完一批，就补最小 next 主链验证
 
 ## 7. 收口服务端主链
 

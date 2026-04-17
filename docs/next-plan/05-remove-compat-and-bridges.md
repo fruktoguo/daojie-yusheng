@@ -22,7 +22,7 @@
 - [x] 删除只为 legacy 让路的旧事件名兼容
 - [x] 删除只为 parity 存在的双路径分支
 - [x] 删除不再需要的 legacy facade / wrapper
-- [ ] 删除 runtime 中只为 compat fallback 存在的回退路径
+- [x] 删除 runtime 中只为 compat fallback 存在的回退路径
 - [x] 删除客户端中只为旧协议存在的发送 / 监听兼容逻辑
 - [x] 删除客户端中只为旧 UI 结构存在的兼容代码
 - [x] 每删完一批都补一次最小 build / audit / smoke 验证
@@ -30,8 +30,8 @@
 
 ## 完成定义
 
-- [ ] 玩家主链不再默认走 compat fallback
-- [ ] 主要路径只剩 next 单线逻辑
+- [x] 玩家主链不再默认走 compat fallback
+- [x] 主要路径只剩 next 单线逻辑
 
 ## 当前卡点拆解
 
@@ -72,12 +72,11 @@
 ### `packages/server/src/persistence/*` 与运行时兼容装载
 
 - `packages/server/src/persistence/player-persistence.service.js`
-  - `legacy:vitals_baseline` 兼容规范化已删；当前剩余 compat 面是 `legacy_seeded` persistedSource。
+  - `legacy:vitals_baseline` 兼容规范化已删；当前只剩历史 persistedSource 标签 `legacy_seeded` 常量定义。
 - `packages/server/src/persistence/player-identity-persistence.service.js`
-  - 仍显式保留 `legacy_backfill` / `legacy_sync` persistedSource 常量。
+  - 仍显式保留 `legacy_backfill` / `legacy_sync` persistedSource 常量，用于 next 身份记录与拒绝性校验。
 - `packages/server/src/runtime/player/player-runtime.service.js`
-  - 仍通过 `resolveCompatiblePendingLogbookMessages()`、`resolveCompatibleRuntimeBonuses()` 回读 `legacyCompat` / `legacyBonuses`。
-  - 仍兼容 `legacy:vitals_baseline` 来源标签。
+  - `resolveCompatiblePendingLogbookMessages()`、`resolveCompatibleRuntimeBonuses()` 与 `legacy:vitals_baseline` 兼容规范化均已删除。
 - `packages/server/src/runtime/world/world-runtime.service.js`
   - `legacyNpcInteraction`、`legacyGmUpdatePlayer`、`legacyGmResetPlayer`、`legacyGmSpawnBots`、`legacyGmRemoveBots` wrapper 与 dispatch case 已删除。
   - 当前 `world-runtime` 不再保留仅为旧事件名/parity 存在的双路径入口。
@@ -249,6 +248,12 @@
 
 - `world-runtime.service.js` 已删除最后一组旧事件名 wrapper / case：`legacyNpcInteraction`、`legacyGmUpdatePlayer`、`legacyGmResetPlayer`、`legacyGmSpawnBots`、`legacyGmRemoveBots`
 - `next-auth-bootstrap-smoke.js` 的 GM runtime mock 已同步切到 `enqueueGm*` 真入口
+- `world-session-bootstrap.service.js` / `world-player-snapshot.service.js` / `world.gateway.js` 已删除 `allowLegacyFallback` 运行时回退 plumbing，仅保留 next-only miss 与 fallbackReason 追踪
+
+当前阶段结论：
+
+- 运行时主链已不再默认走 compat fallback
+- 主要路径已收成 next 单线逻辑；剩余 legacy 命中只存在于 persistedSource 历史标签、拒绝性 guard 与审计/守卫脚本
 
 最小验证：
 
