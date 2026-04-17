@@ -177,18 +177,21 @@
 
 ## write 模式检查表
 
-- [ ] `--write` 只写 next 真源，不回写 legacy
-- [ ] 同一 domain 能单独重跑
-- [ ] 每个 domain 都能单独输出成功/失败摘要
-- [ ] 失败条目可定位到：
+- [x] `--write` 只写 next 真源，不回写 legacy
+- [x] 同一 domain 能单独重跑
+- [x] 每个 domain 都能单独输出成功/失败摘要
+- [x] 失败条目可定位到：
   - domain
   - legacy key / id
   - 失败原因
-- [ ] write 前先打印：
+- [x] write 前先打印：
   - 输入来源
   - domains
   - dry-run 还是 write
   - 目标 scope / 表
+
+- [x] 用 `pnpm proof:next-migration-write-boundaries` 固定迁移脚本写入边界与失败条目结构
+- [x] 已用 `pnpm --filter @mud/server-next migrate:legacy-next:once -- --fixture=src/tools/fixtures/migrate-next-mainline-once/sample-legacy.json --domains=mail` 验证单 domain preflight + 摘要输出
 
 ## 每个 domain 完成前必须回答
 
