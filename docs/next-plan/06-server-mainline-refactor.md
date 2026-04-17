@@ -192,15 +192,15 @@
 
 ### 第 3 批：把同步与投影拆成三层
 
-- [ ] 把 `world-sync.service.js` 收成“同步编排层”
-- [ ] 把 `world-projector.service.js` 收成“投影 / diff / patch 构建层”
-- [ ] 把 `world-sync-protocol.service.js` 固定为“协议发送层”
-- [ ] 明确区分：
+- [x] 把 `world-sync.service.js` 收成“同步编排层”
+- [x] 把 `world-projector.service.js` 收成“投影 / diff / patch 构建层”
+- [x] 把 `world-sync-protocol.service.js` 固定为“协议发送层”
+- [x] 明确区分：
   - 首包静态/低频静态
   - 动态 world/self/panel delta
   - 详情/按需查询
   - 附加同步（quest / loot / threat / minimap）
-- [ ] 避免 `sync` 继续同时承担：
+- [x] 避免 `sync` 继续同时承担：
   - capture/diff
   - 状态缓存
   - 发包
@@ -228,6 +228,12 @@
 - 本轮验证已补跑 `smoke:runtime`、`smoke:progression`、`audit:next-protocol`、根级 `pnpm build` 与 `pnpm verify:replace-ready`
 - `world-sync-protocol.service.js` 已接管主 envelope（`InitSession / MapEnter / WorldDelta / SelfDelta / PanelDelta`）与 `Bootstrap` 下发，`world-sync.service.js` 对这组发包只再保留薄委托
 - `packages/server/src/tools/next-protocol-audit.js` 与 `packages/shared/scripts/check-network-protobuf-contract.cjs` 已同步扩展 protocol 静态发包面审计；当前仍保留 `threat` 作为独立 `WorldDelta` 附加同步，不把它误写成 protocol 唯一出口
+- 新增 `packages/server/src/network/world-sync-map-snapshot.service.js`
+- `world-sync.service.js` 的 visible tiles / visible tile keys / render entities / minimap library / game time 构造已委托给 `WorldSyncMapSnapshotService`
+- 新增 `packages/server/src/network/world-sync-map-static-aux.service.js`
+- `world-sync.service.js` 不再自持 player 级 `visibleTiles` / `visibleMinimapMarkers` aux cache 与 `diffVisibleTiles()` patch 规划；这部分已收进 `WorldSyncMapStaticAuxService`
+- 本轮验证已补跑 `smoke:next-auth-bootstrap`、`smoke:runtime`、`audit:next-protocol`、根级 `pnpm build` 与 `pnpm verify:replace-ready`
+- 第 3 批到此收口，下一步切到第 4 批：优先从 `world-runtime.service.js` 的只读查询 / 详情块下手
 
 优先保留原状的热路径：
 
@@ -318,8 +324,8 @@
 
 - [ ] `world.gateway.js` 不再自己做大段业务处理
 - [ ] `world-session-bootstrap.service.js` 成为登录到入图的唯一编排入口
-- [ ] `world-sync.service.js` 不再自己做大段 capture/diff 细节
-- [ ] `world-projector.service.js` 不再自己承担 socket 发包
+- [x] `world-sync.service.js` 不再自己做大段 capture/diff 细节
+- [x] `world-projector.service.js` 不再自己承担 socket 发包
 - [ ] `world-runtime.service.js` 不再同时持有查询、展示、热路径、GM queue 全部细节
 - [ ] GM 写路径只剩 runtime queue 或 direct persistence 两类
 - [ ] 玩家主链不再出现多处兜底身份/快照/同步分支
