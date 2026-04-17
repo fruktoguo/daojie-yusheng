@@ -18,8 +18,6 @@ const common_1 = require("@nestjs/common");
 
 const player_identity_persistence_service_1 = require("../persistence/player-identity-persistence.service");
 
-const world_player_snapshot_service_1 = require("./world-player-snapshot.service");
-
 const world_player_source_service_1 = require("./world-player-source.service");
 
 const world_player_token_service_1 = require("./world-player-token.service");
@@ -67,25 +65,12 @@ let WorldPlayerAuthService = class WorldPlayerAuthService {
     worldPlayerTokenService;
     /** 玩家身份持久化入口。 */
     playerIdentityPersistenceService;
-    /** 玩家快照服务，用于 token_seed 时检查 starter snapshot。 */
-    worldPlayerSnapshotService;
     /** 玩家源服务，负责读取 next 真源。 */
     worldPlayerSourceService;
-    constructor(worldPlayerTokenService, playerIdentityPersistenceService, worldPlayerSourceService, worldPlayerSnapshotService = undefined) {
+    constructor(worldPlayerTokenService, playerIdentityPersistenceService, worldPlayerSourceService) {
         this.worldPlayerTokenService = worldPlayerTokenService;
         this.playerIdentityPersistenceService = playerIdentityPersistenceService;
         this.worldPlayerSourceService = worldPlayerSourceService;
-        this.worldPlayerSnapshotService = worldPlayerSnapshotService;
-    }
-    /** 确保 token_seed 账号拥有可用的 starter snapshot。 */
-    async ensureTokenSeedSnapshot(playerId) {
-        if (!this.worldPlayerSnapshotService?.ensureNativeStarterSnapshot) {
-            return {
-                ok: false,
-                failureStage: 'native_snapshot_service_unavailable',
-            };
-        }
-        return this.worldPlayerSnapshotService.ensureNativeStarterSnapshot(playerId);
     }
     /** 加载 next 玩家身份，优先走 next 持久化来源。 */
     async loadNextPlayerIdentity(userId) {
@@ -93,61 +78,6 @@ let WorldPlayerAuthService = class WorldPlayerAuthService {
             return this.worldPlayerSourceService.loadNextPlayerIdentity(userId);
         }
         return this.playerIdentityPersistenceService.loadPlayerIdentity(userId);
-    }
-    /** 将持久化身份提升到 native 来源，供 next 协议继续复用。 */
-    async promotePersistedIdentityToNative(identity, expectedPersistedSources = null) {
-
-        const normalizedUserId = typeof identity?.userId === 'string' ? identity.userId.trim() : '';
-
-        const normalizedPlayerId = typeof identity?.playerId === 'string' ? identity.playerId.trim() : '';
-
-        const persistedSource = normalizePersistedSource(identity);
-
-        const normalizedExpectedPersistedSources = expectedPersistedSources instanceof Set
-            ? expectedPersistedSources
-            : Array.isArray(expectedPersistedSources)
-                ? new Set(expectedPersistedSources)
-                : expectedPersistedSources
-                    ? new Set([expectedPersistedSources])
-                    : null;
-        if (!normalizedUserId
-            || !normalizedPlayerId
-            || !persistedSource
-            || (normalizedExpectedPersistedSources && !normalizedExpectedPersistedSources.has(persistedSource))) {
-            return identity ?? null;
-        }
-        if (!this.playerIdentityPersistenceService.isEnabled()) {
-            return identity ?? null;
-        }
-
-        let promotedIdentity = null;
-        try {
-            promotedIdentity = await this.playerIdentityPersistenceService.savePlayerIdentity({
-                ...identity,
-                persistedSource: 'native',
-                updatedAt: Date.now(),
-            });
-        }
-        catch (error) {
-            this.logger.warn(`玩家身份 token_seed 原生提升失败：userId=${normalizedUserId} playerId=${normalizedPlayerId} error=${error instanceof Error ? error.message : String(error)}`);
-            return identity ?? null;
-        }
-
-        const promotedPersistedSource = normalizePersistedSource(promotedIdentity);
-        if (!promotedIdentity || promotedPersistedSource !== 'native') {
-            this.logger.warn(`玩家身份 token_seed 原生提升返回了异常 persistedSource：userId=${normalizedUserId} playerId=${normalizedPlayerId} actual=${promotedPersistedSource ?? '未知'}`);
-            return identity ?? null;
-        }
-        return {
-            ...promotedIdentity,
-            persistedSource: promotedPersistedSource,
-            authSource: 'next',
-            nextLoadHit: true,
-        };
-    }
-    /** 仅针对 token_seed 来源做原生提升。 */
-    async promoteTokenSeedIdentityToNative(identity) {
-        return this.promotePersistedIdentityToNative(identity, 'token_seed');
     }
     /** next 协议不再接受 legacy backfill/sync 身份的运行时提升。 */
     async normalizeLoadedNextIdentityForNextProtocol(identity) {
@@ -420,7 +350,6 @@ exports.WorldPlayerAuthService = WorldPlayerAuthService = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [world_player_token_service_1.WorldPlayerTokenService,
         player_identity_persistence_service_1.PlayerIdentityPersistenceService,
-        world_player_source_service_1.WorldPlayerSourceService,
-        world_player_snapshot_service_1.WorldPlayerSnapshotService])
+        world_player_source_service_1.WorldPlayerSourceService])
 ], WorldPlayerAuthService);
 //# sourceMappingURL=world-player-auth.service.js.map
