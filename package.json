@@ -47,6 +47,7 @@
     "proof:next-client-s2c-consumption": "node scripts/prove-next-client-s2c-consumption.js",
     "proof:next-shared-types-source": "node scripts/prove-next-shared-types-source.js",
     "proof:next-protobuf-drift": "node scripts/prove-next-protobuf-drift.js",
+    "proof:next-protocol-source": "node scripts/prove-next-protocol-source.js",
     "audit:server-next-protocol": "pnpm --filter @mud/server-next audit:next-protocol",
     "audit:server-next-boundaries": "pnpm --filter @mud/server-next audit:legacy-boundaries",
     "report:alchemy-material-power": "node scripts/report-alchemy-material-power.mjs"
