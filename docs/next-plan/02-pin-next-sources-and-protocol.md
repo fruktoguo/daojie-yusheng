@@ -178,17 +178,21 @@
 
 ### server
 
-- [ ] `world.gateway.js` 不再消费 shared 未声明事件
+- [x] `world.gateway.js` 不再消费 shared 未声明事件
 - [x] `runtime/*` 不再通过 legacy 文件决定 next 行为
 - [x] `server/data/*` 不再由 legacy 内容或地图目录兜底
 
 - [x] 用 `pnpm proof:next-server-runtime-mainline` 固定 runtime 只依赖显式允许的 next 适配边界，不再旁路到 legacy/compat/player-source 主链
+- [x] 用 `pnpm --filter @mud/server-next audit:next-protocol` 固定 gateway 只消费 shared 已声明且已覆盖的 next 事件
 
 ### client
 
-- [ ] `socket.ts` 成为唯一 socket 监听主入口
-- [ ] `main.ts` 不再自己持有散落事件契约
-- [ ] 主要 UI 更新都只消费 next 协议，不消费旧 alias
+- [x] `socket.ts` 成为唯一 socket 监听主入口
+- [x] `main.ts` 不再自己持有散落事件契约
+- [x] 主要 UI 更新都只消费 next 协议，不消费旧 alias
+
+- [x] 用 `pnpm proof:next-client-s2c-consumption` 固定 `socket.ts` / `main.ts` 的 next 监听面对齐
+- [x] 用 `pnpm proof:next-client-no-legacy-alias` 固定生产前台不再写死 legacy socket alias
 
 ## 本阶段不做的事
 
@@ -198,5 +202,5 @@
 
 ## 完成定义
 
-- [ ] 不再存在“共享协议声明了但服务端没实现”的空洞
+- [x] 不再存在“共享协议声明了但服务端没实现”的空洞
 - [ ] 不再通过 legacy 文件决定 next 主链行为
