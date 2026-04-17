@@ -67,11 +67,11 @@
 
 ### 第 1 批：先把入口层收成薄路由
 
-- [ ] 把 `world.gateway.js` 收成“事件分发层”，不再继续承载具体业务分支
+- [x] 把 `world.gateway.js` 收成“事件分发层”，不再继续承载具体业务分支
 - [x] 抽离握手 / hello / guest 入口处理
-- [ ] 抽离 authenticated player action handler
+- [x] 抽离 authenticated player action handler
 - [x] 抽离 GM socket handler
-- [ ] 保留一个薄 gateway，只负责：
+- [x] 保留一个薄 gateway，只负责：
   - 协议入口
   - client/session 基础校验
   - 把 payload 路由到具体 handler service
@@ -96,9 +96,9 @@
 
 当前仍未完成：
 
-- `world.gateway.js` 仍然承载若干 authenticated gameplay / read-model 入口
-- 尚未抽离的主要内联块：useAction / handleProtocolAction / emitProtocolActionResult，以及少量 next 发包/守卫 glue
-- gateway 还不是最终意义上的纯分发层
+- `world.gateway.js` 仍保留少量统一发包/守卫 glue：`emitNext*`、`require*`、`flushMarketResult`、`broadcastSuggestions`
+- `world.gateway.js` 仍保留 `@SubscribeMessage` 装饰入口与 helper 委托，不再直接承载大块 gameplay 业务分支
+- 下一阶段重心转入 batch 2：登录到进入世界的单路径，而不是继续机械拆 gateway
 
 本轮已完成：
 
