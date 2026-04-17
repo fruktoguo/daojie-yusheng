@@ -45,6 +45,7 @@
     "bench:first-package": "pnpm compile && node dist/tools/bench-first-package.js",
     "audit:next-protocol": "pnpm compile && node dist/tools/run-next-protocol-audit.js",
     "proof:next-content-map-sources": "pnpm compile && node dist/tools/prove-next-content-map-sources.js",
+    "proof:next-runtime-network-no-legacy-source": "pnpm compile && node dist/tools/prove-next-runtime-network-no-legacy-source.js",
     "audit:legacy-boundaries": "pnpm compile && node dist/tools/audit/next-legacy-boundary-audit.js"
   },
   "dependencies": {
