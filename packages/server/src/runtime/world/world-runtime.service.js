@@ -50,6 +50,8 @@ const world_runtime_gm_queue_service_1 = require("./world-runtime-gm-queue.servi
 
 const world_runtime_craft_service_1 = require("./world-runtime-craft.service");
 
+const world_runtime_npc_quest_shop_service_1 = require("./world-runtime-npc-quest-shop.service");
+
 const player_combat_service_1 = require("../combat/player-combat.service");
 
 const map_instance_runtime_1 = require("../instance/map-instance.runtime");
@@ -243,6 +245,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     worldRuntimeNpcQuestInteractionQueryService;
     worldRuntimeGmQueueService;
     worldRuntimeCraftService;
+    worldRuntimeNpcQuestShopService;
     logger = new common_1.Logger(WorldRuntimeService_1.name);
     stateLayerContract = world_runtime_contract_1.WORLD_RUNTIME_STATE_CONTRACT;
     runtimeState = (0, world_runtime_state_1.createWorldRuntimeStateStore)();
@@ -269,7 +272,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     containerStatesByInstanceId = this.runtimeState.containerStatesByInstanceId;
     dirtyContainerPersistenceInstanceIds = this.runtimeState.dirtyContainerPersistenceInstanceIds;
     latestCombatEffectsByInstanceId = this.runtimeState.latestCombatEffectsByInstanceId;
-    constructor(contentTemplateRepository, templateRepository, mapPersistenceService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService, craftPanelRuntimeService, worldRuntimeNpcShopQueryService, worldRuntimeQuestQueryService, worldRuntimeNpcQuestInteractionQueryService, worldRuntimeGmQueueService, worldRuntimeCraftService) {
+    constructor(contentTemplateRepository, templateRepository, mapPersistenceService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService, craftPanelRuntimeService, worldRuntimeNpcShopQueryService, worldRuntimeQuestQueryService, worldRuntimeNpcQuestInteractionQueryService, worldRuntimeGmQueueService, worldRuntimeCraftService, worldRuntimeNpcQuestShopService) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.templateRepository = templateRepository;
         this.mapPersistenceService = mapPersistenceService;
@@ -284,6 +287,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.worldRuntimeNpcQuestInteractionQueryService = worldRuntimeNpcQuestInteractionQueryService;
         this.worldRuntimeGmQueueService = worldRuntimeGmQueueService;
         this.worldRuntimeCraftService = worldRuntimeCraftService;
+        this.worldRuntimeNpcQuestShopService = worldRuntimeNpcQuestShopService;
     }
     /** onModuleInit：初始化公共实例的基础结构。 */
     async onModuleInit() {
@@ -686,66 +690,17 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             };
         }
         if (actionId.startsWith('npc_quests:')) {
-
-            const npcId = actionId.slice('npc_quests:'.length);
-            this.pendingCommands.set(playerId, {
-                kind: 'interactNpcQuest',
-                npcId,
-            });
-            return {
-                kind: 'npcQuests',
-                npcQuests: this.buildNpcQuestsView(playerId, npcId),
-            };
+            const npcId = actionId.slice('npc_quests:'.length).trim();
+            if (!npcId) {
+                throw new common_1.BadRequestException('npcId is required');
+            }
+            return this.worldRuntimeNpcQuestShopService.executeNpcQuestAction(playerId, npcId, this);
         }
         throw new common_1.BadRequestException(`Unsupported actionId: ${actionId}`);
     }
     /** executeLegacyNpcAction：兼容旧版 NPC 交互入口，自动转成任务或对话命令。 */
     executeLegacyNpcAction(playerId, npcId) {
-
-        const questsView = this.buildNpcQuestsView(playerId, npcId);
-
-        const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
-
-        const readyQuest = questsView.quests.find((entry) => entry.status === 'ready' && entry.submitNpcId === npcId);
-        if (readyQuest) {
-            this.pendingCommands.set(playerId, {
-                kind: 'submitNpcQuest',
-                npcId,
-                questId: readyQuest.id,
-            });
-            return {
-                kind: 'npcQuests',
-                npcQuests: questsView,
-            };
-        }
-
-        const availableQuest = questsView.quests.find((entry) => entry.status === 'available');
-        if (availableQuest) {
-            this.pendingCommands.set(playerId, {
-                kind: 'acceptNpcQuest',
-                npcId,
-                questId: availableQuest.id,
-            });
-            return {
-                kind: 'npcQuests',
-                npcQuests: questsView,
-            };
-        }
-
-        const talkQuest = questsView.quests.find((entry) => (entry.status === 'active'
-            && entry.objectiveType === 'talk'
-            && entry.targetNpcId === npcId
-            && (!entry.targetMapId || entry.targetMapId === player.templateId)));
-        if (talkQuest) {
-            this.pendingCommands.set(playerId, {
-                kind: 'interactNpcQuest',
-                npcId,
-            });
-        }
-        return {
-            kind: 'npcQuests',
-            npcQuests: questsView,
-        };
+        return this.worldRuntimeNpcQuestShopService.executeNpcQuestAction(playerId, npcId, this);
     }
     /** enqueueUseItem：把排队使用物品请求排入下一次 tick。 */
     enqueueUseItem(playerId, slotIndexInput) {
@@ -1422,90 +1377,23 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     }
     /** enqueueBuyNpcShopItem：把 NPC 商店购买请求排入下一次 tick。 */
     enqueueBuyNpcShopItem(playerId, npcIdInput, itemIdInput, quantityInput) {
-        this.getPlayerLocationOrThrow(playerId);
-
-        const npcId = typeof npcIdInput === 'string' ? npcIdInput.trim() : '';
-
-        const itemId = typeof itemIdInput === 'string' ? itemIdInput.trim() : '';
-        if (!npcId) {
-            throw new common_1.BadRequestException('npcId is required');
-        }
-        if (!itemId) {
-            throw new common_1.BadRequestException('itemId is required');
-        }
-
-        const quantity = normalizeShopQuantity(quantityInput);
-        this.validateNpcShopPurchase(playerId, npcId, itemId, quantity);
-        this.pendingCommands.set(playerId, {
-            kind: 'buyNpcShopItem',
-            npcId,
-            itemId,
-            quantity,
-        });
-        return this.getPlayerViewOrThrow(playerId);
+        return this.worldRuntimeNpcQuestShopService.enqueueBuyNpcShopItem(playerId, npcIdInput, itemIdInput, quantityInput, this);
     }
     /** enqueueNpcInteraction：把 NPC 交互请求排入下一次 tick。 */
     enqueueNpcInteraction(playerId, actionIdInput) {
-        this.getPlayerLocationOrThrow(playerId);
-
-        const actionId = typeof actionIdInput === 'string' ? actionIdInput.trim() : '';
-        if (!actionId.startsWith('npc:')) {
-            throw new common_1.BadRequestException('npc actionId is required');
-        }
-
-        const npcId = actionId.slice('npc:'.length).trim();
-        if (!npcId) {
-            throw new common_1.BadRequestException('npcId is required');
-        }
-        this.pendingCommands.set(playerId, {
-            kind: 'npcInteraction',
-            npcId,
-        });
-        return this.getPlayerViewOrThrow(playerId);
+        return this.worldRuntimeNpcQuestShopService.enqueueNpcInteraction(playerId, actionIdInput, this);
     }
     /** enqueueLegacyNpcInteraction：兼容旧版 NPC 交互入口。 */
     enqueueLegacyNpcInteraction(playerId, actionIdInput) {
-        return this.enqueueNpcInteraction(playerId, actionIdInput);
+        return this.worldRuntimeNpcQuestShopService.enqueueLegacyNpcInteraction(playerId, actionIdInput, this);
     }
     /** enqueueAcceptNpcQuest：把 NPC 任务接取请求排入下一次 tick。 */
     enqueueAcceptNpcQuest(playerId, npcIdInput, questIdInput) {
-        this.getPlayerLocationOrThrow(playerId);
-
-        const npcId = typeof npcIdInput === 'string' ? npcIdInput.trim() : '';
-
-        const questId = typeof questIdInput === 'string' ? questIdInput.trim() : '';
-        if (!npcId) {
-            throw new common_1.BadRequestException('npcId is required');
-        }
-        if (!questId) {
-            throw new common_1.BadRequestException('questId is required');
-        }
-        this.pendingCommands.set(playerId, {
-            kind: 'acceptNpcQuest',
-            npcId,
-            questId,
-        });
-        return this.getPlayerViewOrThrow(playerId);
+        return this.worldRuntimeNpcQuestShopService.enqueueAcceptNpcQuest(playerId, npcIdInput, questIdInput, this);
     }
     /** enqueueSubmitNpcQuest：把 NPC 任务提交请求排入下一次 tick。 */
     enqueueSubmitNpcQuest(playerId, npcIdInput, questIdInput) {
-        this.getPlayerLocationOrThrow(playerId);
-
-        const npcId = typeof npcIdInput === 'string' ? npcIdInput.trim() : '';
-
-        const questId = typeof questIdInput === 'string' ? questIdInput.trim() : '';
-        if (!npcId) {
-            throw new common_1.BadRequestException('npcId is required');
-        }
-        if (!questId) {
-            throw new common_1.BadRequestException('questId is required');
-        }
-        this.pendingCommands.set(playerId, {
-            kind: 'submitNpcQuest',
-            npcId,
-            questId,
-        });
-        return this.getPlayerViewOrThrow(playerId);
+        return this.worldRuntimeNpcQuestShopService.enqueueSubmitNpcQuest(playerId, npcIdInput, questIdInput, this);
     }
     /** enqueueSpawnMonsterLoot：把妖兽掉落生成请求排入系统命令队列。 */
     enqueueSpawnMonsterLoot(instanceIdInput, monsterIdInput, xInput, yInput, rollsInput) {
@@ -3766,52 +3654,11 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     }
     /** dispatchBuyNpcShopItem：执行 NPC 商店购买结算。 */
     dispatchBuyNpcShopItem(playerId, npcId, itemId, quantity) {
-
-        const validated = this.validateNpcShopPurchase(playerId, npcId, itemId, quantity);
-        this.playerRuntimeService.consumeInventoryItemByItemId(playerId, this.worldRuntimeNpcShopQueryService.getCurrencyItemId(), validated.totalCost);
-        this.playerRuntimeService.receiveInventoryItem(playerId, validated.item);
-        this.refreshQuestStates(playerId);
-        this.queuePlayerNotice(playerId, `购买 ${formatItemStackLabel(validated.item)}，消耗 ${this.getNpcShopCurrencyName()} x${validated.totalCost}`, 'success');
+        this.worldRuntimeNpcQuestShopService.dispatchBuyNpcShopItem(playerId, npcId, itemId, quantity, this);
     }
     /** dispatchNpcInteraction：执行 NPC 交互结算。 */
     dispatchNpcInteraction(playerId, npcId) {
-
-        const npc = this.resolveAdjacentNpc(playerId, npcId);
-        this.refreshQuestStates(playerId);
-
-        const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
-
-        const readyQuest = player.quests.quests.find((entry) => (entry.status === 'ready'
-            && entry.submitNpcId === npcId
-            && (!entry.submitMapId || entry.submitMapId === player.templateId)));
-        if (readyQuest) {
-            this.dispatchSubmitNpcQuest(playerId, npcId, readyQuest.id);
-            return;
-        }
-
-        const talkQuest = player.quests.quests.find((entry) => (entry.status === 'active'
-            && entry.objectiveType === 'talk'
-            && entry.targetNpcId === npcId
-            && (!entry.targetMapId || entry.targetMapId === player.templateId)));
-        if (talkQuest) {
-            this.dispatchInteractNpcQuest(playerId, npcId);
-            return;
-        }
-
-        const questViews = this.createNpcQuestsEnvelope(playerId, npcId).quests;
-
-        const availableQuest = questViews.find((entry) => entry.status === 'available');
-        if (availableQuest) {
-            this.dispatchAcceptNpcQuest(playerId, npcId, availableQuest.id);
-            return;
-        }
-
-        const activeQuest = questViews.find((entry) => entry.status === 'active');
-        if (activeQuest) {
-            this.queuePlayerNotice(playerId, `${npc.name}：${buildNpcQuestProgressText(activeQuest)}`, 'info');
-            return;
-        }
-        this.queuePlayerNotice(playerId, `${npc.name}：${npc.dialogue}`, 'info');
+        this.worldRuntimeNpcQuestShopService.dispatchNpcInteraction(playerId, npcId, this);
     }
     /** dispatchEquipItem：执行装备穿戴结算。 */
     dispatchEquipItem(playerId, slotIndex) {
@@ -3897,90 +3744,15 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     }
     /** dispatchInteractNpcQuest：推进 NPC 对话型任务的交互进度。 */
     dispatchInteractNpcQuest(playerId, npcId) {
-
-        const npc = this.resolveAdjacentNpc(playerId, npcId);
-
-        const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
-
-        let changed = false;
-        for (const quest of player.quests.quests) {
-            if (quest.status !== 'active' || quest.objectiveType !== 'talk') {
-                continue;
-            }
-            if (quest.targetNpcId !== npc.npcId) {
-                continue;
-            }
-            if (quest.targetMapId && quest.targetMapId !== player.templateId) {
-                continue;
-            }
-            if (quest.progress >= quest.required) {
-                continue;
-            }
-            quest.progress = quest.required;
-            changed = true;
-            this.queuePlayerNotice(playerId, quest.relayMessage?.trim()
-                ? `你向 ${npc.name} 传达了口信：“${quest.relayMessage.trim()}”`
-                : `你向 ${npc.name} 传达了来意。`, 'info');
-        }
-        if (changed) {
-            this.refreshQuestStates(playerId, true);
-        }
+        this.worldRuntimeNpcQuestShopService.dispatchInteractNpcQuest(playerId, npcId, this);
     }
     /** dispatchAcceptNpcQuest：接取 NPC 任务并写入玩家任务列表。 */
     dispatchAcceptNpcQuest(playerId, npcId, questId) {
-
-        const npc = this.resolveAdjacentNpc(playerId, npcId);
-
-        const questsView = this.createNpcQuestsEnvelope(playerId, npcId).quests;
-
-        const quest = questsView.find((entry) => entry.id === questId && entry.status === 'available');
-        if (!quest) {
-            throw new common_1.NotFoundException('当前无法接取该任务');
-        }
-
-        const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
-        if (player.quests.quests.some((entry) => entry.id === questId && entry.status !== 'completed')) {
-            throw new common_1.BadRequestException('该任务已经接取');
-        }
-        player.quests.quests.push(cloneQuestState(quest, 'active'));
-        this.playerRuntimeService.markQuestStateDirty(playerId);
-        this.refreshQuestStates(playerId, true);
-        this.queuePlayerNotice(playerId, `${npc.name}：${quest.story ?? quest.desc}`, 'success');
+        this.worldRuntimeNpcQuestShopService.dispatchAcceptNpcQuest(playerId, npcId, questId, this);
     }
     /** dispatchSubmitNpcQuest：提交 NPC 任务并发放奖励。 */
     dispatchSubmitNpcQuest(playerId, npcId, questId) {
-
-        const npc = this.resolveAdjacentNpc(playerId, npcId);
-
-        const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
-
-        const quest = player.quests.quests.find((entry) => entry.id === questId);
-        if (!quest || quest.status !== 'ready') {
-            throw new common_1.NotFoundException('该任务当前无法提交');
-        }
-        if (quest.submitNpcId !== npcId) {
-            throw new common_1.BadRequestException('当前不是该任务的提交目标');
-        }
-
-        const rewards = this.buildQuestRewardItems(quest);
-        if (!this.canReceiveRewardItems(playerId, rewards)) {
-            throw new common_1.BadRequestException('背包空间不足，无法领取奖励');
-        }
-        if (quest.requiredItemId && (quest.requiredItemCount ?? 1) > 0) {
-            this.playerRuntimeService.consumeInventoryItemByItemId(playerId, quest.requiredItemId, quest.requiredItemCount ?? 1);
-        }
-        for (const reward of rewards) {
-            this.playerRuntimeService.receiveInventoryItem(playerId, reward);
-        }
-        quest.status = 'completed';
-        this.playerRuntimeService.markQuestStateDirty(playerId);
-
-        const nextQuest = this.tryAcceptNextQuest(playerId, quest.nextQuestId);
-        this.refreshQuestStates(playerId, true);
-        this.queuePlayerNotice(playerId, `${npc.name}：做得不错，这是你的奖励 ${quest.rewardText || '。'}`, 'success');
-        if (nextQuest) {
-            this.queuePlayerNotice(playerId, `新的任务《${nextQuest.title}》已自动接取`, 'info');
-        }
+        this.worldRuntimeNpcQuestShopService.dispatchSubmitNpcQuest(playerId, npcId, questId, this);
     }
     /** dispatchSpawnMonsterLoot：按掉落表生成妖兽战利品。 */
     dispatchSpawnMonsterLoot(instanceId, x, y, monsterId, rolls) {
@@ -4768,7 +4540,8 @@ exports.WorldRuntimeService = WorldRuntimeService = WorldRuntimeService_1 = __de
         world_runtime_quest_query_service_1.WorldRuntimeQuestQueryService,
         world_runtime_npc_quest_interaction_query_service_1.WorldRuntimeNpcQuestInteractionQueryService,
         world_runtime_gm_queue_service_1.WorldRuntimeGmQueueService,
-        world_runtime_craft_service_1.WorldRuntimeCraftService])
+        world_runtime_craft_service_1.WorldRuntimeCraftService,
+        world_runtime_npc_quest_shop_service_1.WorldRuntimeNpcQuestShopService])
 ], WorldRuntimeService);
 // helper functions were split into dedicated helper modules for maintainability.
 //# sourceMappingURL=world-runtime.service.js.map

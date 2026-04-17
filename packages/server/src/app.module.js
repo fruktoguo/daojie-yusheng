@@ -78,6 +78,8 @@ const world_runtime_gm_queue_service_1 = require("./runtime/world/world-runtime-
 
 const world_runtime_craft_service_1 = require("./runtime/world/world-runtime-craft.service");
 
+const world_runtime_npc_quest_shop_service_1 = require("./runtime/world/world-runtime-npc-quest-shop.service");
+
 const map_template_repository_1 = require("./runtime/map/map-template.repository");
 
 const runtime_map_config_service_1 = require("./runtime/map/runtime-map-config.service");
@@ -154,6 +156,7 @@ exports.AppModule = AppModule = __decorate([
             world_runtime_npc_quest_interaction_query_service_1.WorldRuntimeNpcQuestInteractionQueryService,
             world_runtime_gm_queue_service_1.WorldRuntimeGmQueueService,
             world_runtime_craft_service_1.WorldRuntimeCraftService,
+            world_runtime_npc_quest_shop_service_1.WorldRuntimeNpcQuestShopService,
             runtime_map_config_service_1.RuntimeMapConfigService,
             player_combat_service_1.PlayerCombatService,
             map_persistence_service_1.MapPersistenceService,
