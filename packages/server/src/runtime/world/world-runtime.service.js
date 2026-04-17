@@ -46,6 +46,8 @@ const world_runtime_quest_query_service_1 = require("./world-runtime-quest-query
 
 const world_runtime_npc_quest_interaction_query_service_1 = require("./world-runtime-npc-quest-interaction-query.service");
 
+const world_runtime_gm_queue_service_1 = require("./world-runtime-gm-queue.service");
+
 const player_combat_service_1 = require("../combat/player-combat.service");
 
 const map_instance_runtime_1 = require("../instance/map-instance.runtime");
@@ -237,6 +239,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     worldRuntimeNpcShopQueryService;
     worldRuntimeQuestQueryService;
     worldRuntimeNpcQuestInteractionQueryService;
+    worldRuntimeGmQueueService;
     logger = new common_1.Logger(WorldRuntimeService_1.name);
     stateLayerContract = world_runtime_contract_1.WORLD_RUNTIME_STATE_CONTRACT;
     runtimeState = (0, world_runtime_state_1.createWorldRuntimeStateStore)();
@@ -263,8 +266,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     containerStatesByInstanceId = this.runtimeState.containerStatesByInstanceId;
     dirtyContainerPersistenceInstanceIds = this.runtimeState.dirtyContainerPersistenceInstanceIds;
     latestCombatEffectsByInstanceId = this.runtimeState.latestCombatEffectsByInstanceId;
-    nextGmBotSequence = 1;
-    constructor(contentTemplateRepository, templateRepository, mapPersistenceService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService, craftPanelRuntimeService, worldRuntimeNpcShopQueryService, worldRuntimeQuestQueryService, worldRuntimeNpcQuestInteractionQueryService) {
+    constructor(contentTemplateRepository, templateRepository, mapPersistenceService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService, craftPanelRuntimeService, worldRuntimeNpcShopQueryService, worldRuntimeQuestQueryService, worldRuntimeNpcQuestInteractionQueryService, worldRuntimeGmQueueService) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.templateRepository = templateRepository;
         this.mapPersistenceService = mapPersistenceService;
@@ -277,6 +279,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.worldRuntimeNpcShopQueryService = worldRuntimeNpcShopQueryService;
         this.worldRuntimeQuestQueryService = worldRuntimeQuestQueryService;
         this.worldRuntimeNpcQuestInteractionQueryService = worldRuntimeNpcQuestInteractionQueryService;
+        this.worldRuntimeGmQueueService = worldRuntimeGmQueueService;
     }
     /** onModuleInit：初始化公共实例的基础结构。 */
     async onModuleInit() {
@@ -1619,71 +1622,19 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     }
     /** enqueueGmUpdatePlayer：把 GM 更新玩家请求排入系统命令队列。 */
     enqueueGmUpdatePlayer(input) {
-        const playerId = typeof input?.playerId === 'string' ? input.playerId.trim() : '';
-        if (!playerId) {
-            throw new common_1.BadRequestException('playerId is required');
-        }
-        this.pendingSystemCommands.push({
-            kind: 'gmUpdatePlayer',
-            playerId,
-
-            mapId: typeof input?.mapId === 'string' ? input.mapId.trim() : '',
-            x: Number.isFinite(input?.x) ? Math.trunc(input.x) : undefined,
-            y: Number.isFinite(input?.y) ? Math.trunc(input.y) : undefined,
-            hp: Number.isFinite(input?.hp) ? Math.trunc(input.hp) : undefined,
-
-            autoBattle: typeof input?.autoBattle === 'boolean' ? input.autoBattle : undefined,
-        });
-        return { queued: true };
+        return this.worldRuntimeGmQueueService.enqueueGmUpdatePlayer(this.pendingSystemCommands, input);
     }
     /** enqueueGmResetPlayer：把 GM 重置玩家请求排入系统命令队列。 */
     enqueueGmResetPlayer(playerIdInput) {
-
-        const playerId = typeof playerIdInput === 'string' ? playerIdInput.trim() : '';
-        if (!playerId) {
-            throw new common_1.BadRequestException('playerId is required');
-        }
-        this.pendingSystemCommands.push({
-            kind: 'gmResetPlayer',
-            playerId,
-        });
-        return { queued: true };
+        return this.worldRuntimeGmQueueService.enqueueGmResetPlayer(this.pendingSystemCommands, playerIdInput);
     }
     /** enqueueGmSpawnBots：把 GM 生成机器人请求排入系统命令队列。 */
     enqueueGmSpawnBots(anchorPlayerIdInput, countInput) {
-
-        const anchorPlayerId = typeof anchorPlayerIdInput === 'string' ? anchorPlayerIdInput.trim() : '';
-        if (!anchorPlayerId) {
-            throw new common_1.BadRequestException('anchorPlayerId is required');
-        }
-
-        const count = Math.max(0, Math.min(200, Math.trunc(countInput)));
-        if (!Number.isFinite(count) || count <= 0) {
-            throw new common_1.BadRequestException('count must be greater than 0');
-        }
-        this.pendingSystemCommands.push({
-            kind: 'gmSpawnBots',
-            anchorPlayerId,
-            count,
-        });
-        return { queued: true };
+        return this.worldRuntimeGmQueueService.enqueueGmSpawnBots(this.pendingSystemCommands, anchorPlayerIdInput, countInput);
     }
     /** enqueueGmRemoveBots：把 GM 移除机器人请求排入系统命令队列。 */
     enqueueGmRemoveBots(playerIdsInput, allInput) {
-
-        const playerIds = Array.isArray(playerIdsInput)
-            ? playerIdsInput
-                .filter((entry) => typeof entry === 'string')
-                .map((entry) => entry.trim())
-                .filter((entry) => entry.length > 0)
-            : [];
-        this.pendingSystemCommands.push({
-            kind: 'gmRemoveBots',
-            playerIds,
-
-            all: allInput === true,
-        });
-        return { queued: true };
+        return this.worldRuntimeGmQueueService.enqueueGmRemoveBots(this.pendingSystemCommands, playerIdsInput, allInput);
     }
     /** getPlayerView：读取玩家当前视野快照，并补上 NPC 任务标记。 */
     getPlayerView(playerId, radius) {
@@ -3362,16 +3313,35 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
                 this.respawnPlayer(command.playerId);
                 return;
             case 'gmUpdatePlayer':
-                this.dispatchGmUpdatePlayer(command);
+                this.worldRuntimeGmQueueService.dispatchGmUpdatePlayer(command, {
+                    playerRuntimeService: this.playerRuntimeService,
+                    resolveDefaultRespawnMapId: () => this.resolveDefaultRespawnMapId(),
+                    getOrCreatePublicInstance: (mapId) => this.getOrCreatePublicInstance(mapId),
+                    playerLocations: this.playerLocations,
+                    instances: this.instances,
+                    getPlayerViewOrThrow: (playerId) => this.getPlayerViewOrThrow(playerId),
+                    refreshPlayerContextActions: (playerId, view) => this.refreshPlayerContextActions(playerId, view),
+                    resolveCurrentTickForPlayerId: (playerId) => this.resolveCurrentTickForPlayerId(playerId),
+                });
                 return;
             case 'gmResetPlayer':
                 this.respawnPlayer(command.playerId);
                 return;
             case 'gmSpawnBots':
-                this.dispatchGmSpawnBots(command.anchorPlayerId, command.count);
+                this.worldRuntimeGmQueueService.dispatchGmSpawnBots(command.anchorPlayerId, command.count, {
+                    playerRuntimeService: this.playerRuntimeService,
+                    resolveDefaultRespawnMapId: () => this.resolveDefaultRespawnMapId(),
+                    connectPlayer: (input) => this.connectPlayer(input),
+                    getPlayerViewOrThrow: (playerId) => this.getPlayerViewOrThrow(playerId),
+                    refreshPlayerContextActions: (playerId, view) => this.refreshPlayerContextActions(playerId, view),
+                    resolveCurrentTickForPlayerId: (playerId) => this.resolveCurrentTickForPlayerId(playerId),
+                });
                 return;
             case 'gmRemoveBots':
-                this.dispatchGmRemoveBots(command.playerIds, command.all);
+                this.worldRuntimeGmQueueService.dispatchGmRemoveBots(command.playerIds, command.all, {
+                    playerRuntimeService: this.playerRuntimeService,
+                    removePlayer: (playerId) => this.removePlayer(playerId),
+                });
                 return;
         }
     }
@@ -4711,115 +4681,6 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             this.respawnPlayer(playerId);
         }
     }
-    /** dispatchGmUpdatePlayer：执行 GM 更新玩家请求。 */
-    dispatchGmUpdatePlayer(command) {
-        const playerId = command.playerId;
-
-        const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
-
-        const nextMapId = command.mapId || player.templateId || this.resolveDefaultRespawnMapId();
-
-        const targetInstance = this.getOrCreatePublicInstance(nextMapId);
-
-        const previous = this.playerLocations.get(playerId) ?? null;
-
-        const sessionId = previous?.sessionId ?? player.sessionId ?? `session:${playerId}`;
-        if (!previous) {
-            this.playerRuntimeService.ensurePlayer(playerId, sessionId);
-
-            const runtimePlayer = targetInstance.connectPlayer({
-                playerId,
-                sessionId,
-                preferredX: command.x,
-                preferredY: command.y,
-            });
-            targetInstance.setPlayerMoveSpeed(playerId, player.attrs.numericStats.moveSpeed);
-            this.playerLocations.set(playerId, {
-                instanceId: targetInstance.meta.instanceId,
-                sessionId: runtimePlayer.sessionId,
-            });
-        }
-        else if (previous.instanceId !== targetInstance.meta.instanceId) {
-            this.instances.get(previous.instanceId)?.disconnectPlayer(playerId);
-
-            const runtimePlayer = targetInstance.connectPlayer({
-                playerId,
-                sessionId,
-                preferredX: command.x,
-                preferredY: command.y,
-            });
-            targetInstance.setPlayerMoveSpeed(playerId, player.attrs.numericStats.moveSpeed);
-            this.playerLocations.set(playerId, {
-                instanceId: targetInstance.meta.instanceId,
-                sessionId: runtimePlayer.sessionId,
-            });
-        }
-        else if (command.x !== undefined && command.y !== undefined) {
-            targetInstance.relocatePlayer(playerId, command.x, command.y);
-        }
-
-        const view = this.getPlayerViewOrThrow(playerId);
-        this.refreshPlayerContextActions(playerId, view);
-        this.playerRuntimeService.syncFromWorldView(playerId, sessionId, view);
-        if (command.hp !== undefined) {
-            this.playerRuntimeService.setVitals(playerId, {
-                hp: command.hp,
-            });
-            this.playerRuntimeService.deferVitalRecoveryUntilTick(playerId, this.resolveCurrentTickForPlayerId(playerId));
-        }
-        if (command.autoBattle !== undefined) {
-            this.playerRuntimeService.updateCombatSettings(playerId, {
-                autoBattle: command.autoBattle,
-            }, this.resolveCurrentTickForPlayerId(playerId));
-        }
-    }
-    /** dispatchGmSpawnBots：执行 GM 生成机器人请求。 */
-    dispatchGmSpawnBots(anchorPlayerId, count) {
-
-        const anchor = this.playerRuntimeService.getPlayerOrThrow(anchorPlayerId);
-        for (let index = 0; index < count; index += 1) {
-            const sequence = this.nextGmBotSequence++;
-            const playerId = `${next_gm_constants_1.NEXT_GM_BOT_ID_PREFIX}${Date.now().toString(36)}_${sequence.toString(36)}`;
-
-            const sessionId = `bot:${playerId}`;
-            this.playerRuntimeService.ensurePlayer(playerId, sessionId);
-            this.playerRuntimeService.setIdentity(playerId, {
-                name: `挂机分身${sequence}`,
-                displayName: `挂机分身${sequence}`,
-            });
-            this.connectPlayer({
-                playerId,
-                sessionId,
-                mapId: anchor.templateId || this.resolveDefaultRespawnMapId(),
-                preferredX: anchor.x,
-                preferredY: anchor.y,
-            });
-
-            const view = this.getPlayerViewOrThrow(playerId);
-            this.refreshPlayerContextActions(playerId, view);
-            this.playerRuntimeService.syncFromWorldView(playerId, sessionId, view);
-            this.playerRuntimeService.updateCombatSettings(playerId, {
-                autoBattle: true,
-                autoRetaliate: true,
-            }, this.resolveCurrentTickForPlayerId(playerId));
-        }
-    }
-    /** dispatchGmRemoveBots：执行 GM 移除机器人请求。 */
-    dispatchGmRemoveBots(playerIds, removeAll) {
-
-        const requestedIds = Array.isArray(playerIds)
-            ? playerIds.filter((entry) => typeof entry === 'string' && (0, next_gm_constants_1.isNextGmBotPlayerId)(entry))
-            : [];
-
-        const targets = removeAll
-            ? this.playerRuntimeService.listPlayerSnapshots()
-                .map((player) => player.playerId)
-                .filter((playerId) => (0, next_gm_constants_1.isNextGmBotPlayerId)(playerId))
-            : requestedIds;
-        for (const playerId of targets) {
-            this.removePlayer(playerId);
-        }
-    }
     /** respawnPlayer：把玩家复生请求交给世界运行时处理。 */
     respawnPlayer(playerId) {
 
@@ -5010,7 +4871,8 @@ exports.WorldRuntimeService = WorldRuntimeService = WorldRuntimeService_1 = __de
         craft_panel_runtime_service_1.CraftPanelRuntimeService,
         world_runtime_npc_shop_query_service_1.WorldRuntimeNpcShopQueryService,
         world_runtime_quest_query_service_1.WorldRuntimeQuestQueryService,
-        world_runtime_npc_quest_interaction_query_service_1.WorldRuntimeNpcQuestInteractionQueryService])
+        world_runtime_npc_quest_interaction_query_service_1.WorldRuntimeNpcQuestInteractionQueryService,
+        world_runtime_gm_queue_service_1.WorldRuntimeGmQueueService])
 ], WorldRuntimeService);
 // helper functions were split into dedicated helper modules for maintainability.
 //# sourceMappingURL=world-runtime.service.js.map
