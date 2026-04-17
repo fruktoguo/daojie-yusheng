@@ -99,7 +99,7 @@
 - 哪些入口已在 `01/05` 里归为“临时允许”
 - 哪些入口应直接删除
 - 当前 direct legacy source 扫描未命中 `packages/client/src/*` 与 `packages/shared/src/*`；客户端旧 alias / 事件消费差异继续留在 `NEXT_S2C` 对齐阶段处理
-- 当前只保留两组真实 residual：`client` 的观察类本地动作桥与 `server` 的玩家真源迁移桥；纯 inventory / audit 输出不再单列为待收口入口
+- 当前只保留两组真实 residual：`client` 的观察类本地动作桥，以及 `server` 的 migration-only / compat 边界（不再包括 auth / identity / snapshot 启动自动回填）；纯 inventory / audit 输出不再单列为待收口入口
 
 ### 第 3 批：对齐 `NEXT_C2S` 到 `world.gateway.js`
 
@@ -155,7 +155,9 @@
 
 - [x] `client:take` synthetic 动作已收口为真实动作 `loot:open`
 - [ ] `client:observe` 仍是前台本地观察动作
-- [ ] server 玩家身份 / 快照 / auth 真源仍保留 migration-only 桥接入口
+- [x] server `auth / identity / snapshot` 启动自动 backfill 已删除，主链不再靠 legacy `persistent_documents` 自动回填 next 真源
+- [ ] `world-player-source.service.js` 仍保留显式 migration-only snapshot 查询入口
+- [ ] next 玩家 token codec 仍复用 compat JWT 验签 / 载荷解码
 
 这一步不负责删所有 compat，只负责：
 
