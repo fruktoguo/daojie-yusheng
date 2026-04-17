@@ -70,6 +70,8 @@ const world_gateway_suggestion_helper_1 = require("./world-gateway-suggestion.he
 
 const world_gateway_movement_helper_1 = require("./world-gateway-movement.helper");
 
+const world_gateway_inventory_helper_1 = require("./world-gateway-inventory.helper");
+
 /** 鉴权后请求 sessionId 只允许从 next/token 两类来源带入。 */
 const AUTHENTICATED_REQUESTED_SESSION_ID_AUTH_SOURCES = new Set([
     'next',
@@ -139,6 +141,7 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
     gatewayGmSuggestionHelper;
     gatewaySuggestionHelper;
     gatewayMovementHelper;
+    gatewayInventoryHelper;
     /** Socket.IO server 实例。 */
     server;
     /** 入口日志。 */
@@ -170,6 +173,7 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         this.gatewayGmSuggestionHelper = new world_gateway_gm_suggestion_helper_1.WorldGatewayGmSuggestionHelper(this);
         this.gatewaySuggestionHelper = new world_gateway_suggestion_helper_1.WorldGatewaySuggestionHelper(this);
         this.gatewayMovementHelper = new world_gateway_movement_helper_1.WorldGatewayMovementHelper(this);
+        this.gatewayInventoryHelper = new world_gateway_inventory_helper_1.WorldGatewayInventoryHelper(this);
     }
     /** 处理 socket 连接：校验协议、阻断未就绪流量并触发鉴权引导。 */
     async handleConnection(client) {
@@ -260,39 +264,10 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         return this.gatewayMovementHelper.handleMove(client, payload);
     }
     handleNextDestroyItem(client, payload) {
-
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        try {
-
-            const destroyed = this.playerRuntimeService.destroyInventoryItem(playerId, payload?.slotIndex, payload?.count);
-            this.playerRuntimeService.enqueueNotice(playerId, {
-                text: `你摧毁了 ${destroyed.name ?? destroyed.itemId} x${destroyed.count}。`,
-                kind: 'info',
-            });
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'DESTROY_ITEM_FAILED', error);
-        }
+        return this.gatewayInventoryHelper.handleNextDestroyItem(client, payload);
     }
     handleNextSortInventory(client, _payload) {
-
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        try {
-            this.playerRuntimeService.sortInventory(playerId);
-            this.playerRuntimeService.enqueueNotice(playerId, {
-                text: '背包已整理',
-                kind: 'info',
-            });
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'SORT_INVENTORY_FAILED', error);
-        }
+        return this.gatewayInventoryHelper.handleNextSortInventory(client, _payload);
     }
     handleNextChat(client, payload) {
 
@@ -866,85 +841,31 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         }
     }
     executeUseItem(client, payload) {
-
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        try {
-            this.worldRuntimeService.enqueueUseItem(playerId, payload?.slotIndex);
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'USE_ITEM_FAILED', error);
-        }
+        return this.gatewayInventoryHelper.executeUseItem(client, payload);
     }
     handleNextUseItem(client, payload) {
-        this.executeUseItem(client, payload);
+        return this.gatewayInventoryHelper.handleNextUseItem(client, payload);
     }
     executeDropItem(client, payload) {
-
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        try {
-            this.worldRuntimeService.enqueueDropItem(playerId, payload?.slotIndex, payload?.count);
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'DROP_ITEM_FAILED', error);
-        }
+        return this.gatewayInventoryHelper.executeDropItem(client, payload);
     }
     handleNextDropItem(client, payload) {
-        this.executeDropItem(client, payload);
+        return this.gatewayInventoryHelper.handleNextDropItem(client, payload);
     }
     handleTakeGround(client, payload) {
-
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        try {
-            if (payload?.takeAll) {
-                this.worldRuntimeService.enqueueTakeGroundAll(playerId, payload?.sourceId);
-                return;
-            }
-            this.worldRuntimeService.enqueueTakeGround(playerId, payload?.sourceId, payload?.itemKey);
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'TAKE_GROUND_FAILED', error);
-        }
+        return this.gatewayInventoryHelper.handleTakeGround(client, payload);
     }
     executeEquip(client, payload) {
-
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        try {
-            this.worldRuntimeService.enqueueEquip(playerId, payload?.slotIndex);
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'EQUIP_FAILED', error);
-        }
+        return this.gatewayInventoryHelper.executeEquip(client, payload);
     }
     handleNextEquip(client, payload) {
-        this.executeEquip(client, payload);
+        return this.gatewayInventoryHelper.handleNextEquip(client, payload);
     }
     executeUnequip(client, payload) {
-
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        try {
-            this.worldRuntimeService.enqueueUnequip(playerId, payload?.slot);
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'UNEQUIP_FAILED', error);
-        }
+        return this.gatewayInventoryHelper.executeUnequip(client, payload);
     }
     handleNextUnequip(client, payload) {
-        this.executeUnequip(client, payload);
+        return this.gatewayInventoryHelper.handleNextUnequip(client, payload);
     }
     executeCultivate(client, payload) {
 
