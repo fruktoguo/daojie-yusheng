@@ -30,8 +30,6 @@ const socket_io_1 = require("socket.io");
 
 const server_cors_1 = require("../config/server-cors");
 
-const movement_debug_1 = require("../debug/movement-debug");
-
 const health_readiness_service_1 = require("../health/health-readiness.service");
 
 const player_persistence_flush_service_1 = require("../persistence/player-persistence-flush.service");
@@ -67,6 +65,8 @@ const world_gateway_gm_helper_1 = require("./world-gateway-gm.helper");
 const world_gateway_gm_command_helper_1 = require("./world-gateway-gm-command.helper");
 
 const world_gateway_gm_suggestion_helper_1 = require("./world-gateway-gm-suggestion.helper");
+
+const world_gateway_movement_helper_1 = require("./world-gateway-movement.helper");
 
 /** 鉴权后请求 sessionId 只允许从 next/token 两类来源带入。 */
 const AUTHENTICATED_REQUESTED_SESSION_ID_AUTH_SOURCES = new Set([
@@ -135,6 +135,7 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
     /** GM command helper。 */
     gatewayGmCommandHelper;
     gatewayGmSuggestionHelper;
+    gatewayMovementHelper;
     /** Socket.IO server 实例。 */
     server;
     /** 入口日志。 */
@@ -164,6 +165,7 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         this.gatewayGmHelper = new world_gateway_gm_helper_1.WorldGatewayGmHelper(this);
         this.gatewayGmCommandHelper = new world_gateway_gm_command_helper_1.WorldGatewayGmCommandHelper(this);
         this.gatewayGmSuggestionHelper = new world_gateway_gm_suggestion_helper_1.WorldGatewayGmSuggestionHelper(this);
+        this.gatewayMovementHelper = new world_gateway_movement_helper_1.WorldGatewayMovementHelper(this);
     }
     /** 处理 socket 连接：校验协议、阻断未就绪流量并触发鉴权引导。 */
     async handleConnection(client) {
@@ -245,79 +247,13 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         return this.gatewayGmCommandHelper.handleGmResetPlayer(client, payload);
     }
     handleNextMoveTo(client, payload) {
-
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        (0, movement_debug_1.logServerNextMovement)(this.logger, 'gateway.recv.moveTo', {
-            playerId,
-            socketId: client.id,
-            protocol: 'next',
-            payload: {
-                x: payload?.x ?? null,
-                y: payload?.y ?? null,
-
-                allowNearestReachable: payload?.allowNearestReachable === true,
-
-                ignoreVisibilityLimit: payload?.ignoreVisibilityLimit === true,
-                packedPathSteps: payload?.packedPathSteps ?? null,
-                packedPath: payload?.packedPath ?? null,
-                pathStartX: payload?.pathStartX ?? null,
-                pathStartY: payload?.pathStartY ?? null,
-            },
-        });
-        try {
-            this.worldRuntimeService.enqueueMoveTo(playerId, payload?.x, payload?.y, payload?.allowNearestReachable, payload?.packedPath, payload?.packedPathSteps, payload?.pathStartX, payload?.pathStartY);
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'MOVE_TO_FAILED', error);
-        }
+        return this.gatewayMovementHelper.handleNextMoveTo(client, payload);
     }
     handleNextNavigateQuest(client, payload) {
-
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-
-        const questId = typeof payload?.questId === 'string' ? payload.questId.trim() : '';
-        (0, movement_debug_1.logServerNextMovement)(this.logger, 'gateway.recv.navigateQuest', {
-            playerId,
-            socketId: client.id,
-            protocol: 'next',
-            questId,
-        });
-        if (!questId) {
-            this.worldClientEventService.emitQuestNavigateResult(client, '', false, 'questId is required');
-            return;
-        }
-        try {
-            this.worldRuntimeService.navigateQuest(playerId, questId);
-            this.worldClientEventService.emitQuestNavigateResult(client, questId, true);
-        }
-        catch (error) {
-            this.worldClientEventService.emitQuestNavigateResult(client, questId, false, error instanceof Error ? error.message : String(error));
-        }
+        return this.gatewayMovementHelper.handleNextNavigateQuest(client, payload);
     }
     handleMove(client, payload) {
-
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        (0, movement_debug_1.logServerNextMovement)(this.logger, 'gateway.recv.move', {
-            playerId,
-            socketId: client.id,
-            protocol: 'next',
-            direction: payload?.d ?? null,
-        });
-        try {
-            this.worldRuntimeService.enqueueMove(playerId, payload?.d);
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'MOVE_FAILED', error);
-        }
+        return this.gatewayMovementHelper.handleMove(client, payload);
     }
     handleNextDestroyItem(client, payload) {
 
