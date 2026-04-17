@@ -97,7 +97,7 @@
 当前仍未完成：
 
 - `world.gateway.js` 仍然承载若干 authenticated gameplay / read-model 入口
-- 尚未抽离的主要内联块：redeemCodes、read-model（attr/leaderboard/worldsummary/detail/tile-detail）、portal、cultivate、castSkill、useAction
+- 尚未抽离的主要内联块：useAction / handleProtocolAction / emitProtocolActionResult，以及少量 next 发包/守卫 glue
 - gateway 还不是最终意义上的纯分发层
 
 本轮已完成：
@@ -122,6 +122,18 @@
 - `handleNextRequestMarket / handleNextRequestMarketListings / handleNextRequestMarketItemBook / handleNextRequestMarketTradeHistory / handleNextCreateMarketSellOrder / handleNextCreateMarketBuyOrder / handleNextBuyMarketItem / handleNextSellMarketItem / handleNextCancelMarketOrder / handleNextClaimMarketStorage` 已从 gateway 主文件移出
 - 新增 `packages/server/src/network/world-gateway-player-controls.helper.js`
 - `handleNextChat / handleNextAckSystemMessages / handleNextDebugResetSpawn / handleNextUpdateAutoBattleSkills / handleNextUpdateAutoUsePills / handleNextUpdateCombatTargetingRules / handleNextUpdateAutoBattleTargetingMode / handleNextUpdateTechniqueSkillAvailability / handleNextHeavenGateAction / handleRequestQuests` 已从 gateway 主文件移出
+
+本轮继续完成：
+
+- 新增 `packages/server/src/network/world-gateway-read-model.helper.js`
+- `handleNextRequestAttrDetail / handleNextRequestLeaderboard / handleNextRequestWorldSummary / handleRequestDetail / handleRequestTileDetail` 已从 gateway 主文件移出
+- AttrDetail / Leaderboard / WorldSummary / Detail / TileDetail 的构造与 next-only 发包行为保持不变
+
+本轮继续完成：
+
+- 新增 `packages/server/src/network/world-gateway-action.helper.js`
+- `handleNextRedeemCodes / handleUsePortal / handleNextCultivate / handleCastSkill` 已从 gateway 主文件移出
+- `redeemCodes / portal / cultivate / castSkill` 的 gateway error code 与 runtime enqueue / usePortal 语义保持不变；`handleUseAction` 仍留在 gateway，待最后单独收口
 
 本轮继续完成：
 
