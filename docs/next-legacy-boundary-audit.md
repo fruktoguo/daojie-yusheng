@@ -5,7 +5,7 @@
 ## 一句话结论
 
 - 这份报告只统计仓库里仍可见的 direct legacy 边界与性能热点，不等于 replace-ready 失败，也不代表完整替换已完成。
-- 当前自动审计命中 1 / 18 个检查项，共 2 处代码证据。
+- 当前自动审计命中 0 / 18 个检查项，共 0 处代码证据。
 - 保守口径不变：`next` 离“完整替换游戏整体”仍约差 `40% - 45%`。
 
 ## 汇总
@@ -15,15 +15,8 @@
 | P0 auth/bootstrap 真源 | 0 / 2 | 0 |
 | P0 legacy HTTP/GM/admin | 0 / 3 | 0 |
 | P1 world sync compat | 0 / 4 | 0 |
-| P1 runtime/persistence compat | 1 / 4 | 2 |
+| P1 runtime/persistence compat | 0 / 4 | 0 |
 | 目标差距: 性能/扩展 | 0 / 5 | 0 |
-
-## P1 runtime/persistence compat
-
-- WorldPlayerSource 仍保留显式 migration snapshot 查询入口
-  - 文件：`packages/server/src/network/world-player-source.service.js:152`
-  - 命中次数：2
-  - 首个证据：`async queryMigrationSnapshotRow(pool, playerId) {`
 
 ## 备注
 

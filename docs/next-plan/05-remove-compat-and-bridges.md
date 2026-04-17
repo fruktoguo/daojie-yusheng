@@ -56,9 +56,9 @@
 ### `packages/server/src/network/*`
 
 - `packages/server/src/network/world-player-source.service.js`
-  - `world-legacy-player-repository.js` 已删，legacy `users` / `players` 显式 migration 查询已内联到本服务。
-  - 仍持有 legacy 数据库入口和 migration source gate。
-  - `allowCompatMigration` 命名已删；还残留 `legacy:vitals_baseline` 规范化兼容与 legacy 库读取本体。
+  - `world-legacy-player-repository.js` 已删，legacy `users` / `players` 显式 migration 查询也已从本服务删除。
+  - 当前仅保留 `resolvePlayerIdentityForMigration / loadPlayerSnapshotForMigration` no-op wrapper，避免外部调用面立即断裂。
+  - `allowCompatMigration` 命名已删；还残留 `legacy:vitals_baseline` 规范化兼容，但不再保留 legacy 库读取本体。
 - `packages/server/src/network/world-player-auth.service.js`
   - `compat_*` failureStage 已收口，但仍保留 `legacy_backfill` / `legacy_sync` 来源提升、migration backfill 保存与快照补种主逻辑。
 - `packages/server/src/network/world-player-snapshot.service.js`
@@ -141,7 +141,7 @@
 ### 第 2 批：删鉴权 / 快照 migration bridge
 
 - [x] 在 `04` 的一次性迁移脚本覆盖身份与玩家快照后，删除 `world-legacy-player-repository.js`
-- [ ] 删除 `world-player-source.service.js` 对 legacy `users/players` 的读取
+- [x] 删除 `world-player-source.service.js` 对 legacy `users/players` 的读取
 - [x] 删除 `world-player-auth.service.js` 中 `legacy_backfill` / `legacy_sync` 的运行时提升路径
 - [x] 删除 `world-player-snapshot.service.js` 中 migration backfill snapshot 补种主逻辑
 - [x] 同步收紧 `next-auth-bootstrap-smoke.js`，把 migration-only proof 缩成“脚本迁移后禁止 runtime backfill”
@@ -160,10 +160,10 @@
 
 本轮实际补跑：
 
-- `pnpm --filter @mud/server-next build`
-- `SERVER_NEXT_DATABASE_URL=postgres://mud:jiuzhou123@127.0.0.1:15432/mud_mmo_next DATABASE_URL=postgres://mud:jiuzhou123@127.0.0.1:15432/mud_mmo_next pnpm --filter @mud/server-next smoke:next-auth-bootstrap`
+- `pnpm --filter @mud/server-next smoke:next-auth-bootstrap`
 - `pnpm --filter @mud/server-next audit:legacy-boundaries`
-- `SERVER_NEXT_DATABASE_URL=postgres://mud:jiuzhou123@127.0.0.1:15432/mud_mmo_next DATABASE_URL=postgres://mud:jiuzhou123@127.0.0.1:15432/mud_mmo_next pnpm verify:replace-ready`
+- `pnpm build`
+- `pnpm verify:replace-ready`
 
 本轮已收口的子步：
 
@@ -171,6 +171,7 @@
 - `WorldPlayerAuthService` 已删除 `authenticateViaMigration()` / `shouldPreferMigrationBackfill()` / `ensureLegacyBackfillSnapshot()`，显式 `migration` 协议窗口不再触发运行时 backfill。
 - `WorldPlayerSnapshotService` 已删除 `ensureMigrationBackfillSnapshot()`；runtime 不再从 migration 源补种 native snapshot。
 - `next-auth-bootstrap-smoke.js` 已移除 `migration_backfill` 运行时认证 / snapshot 补种证明，只保留 explicit migration source gate 与 next/token_seed 主链证明。
+- `WorldPlayerSourceService` 已删除 direct legacy `users/players` SQL 读取与连接池；migration wrapper 现只保留空返回契约，不再打开 legacy 数据库读取。
 
 ### 第 3 批：删运行时 / 持久化 compat 装载
 
