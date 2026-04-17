@@ -253,6 +253,13 @@
 - [ ] 把纯构建/归一/查询 helper 挪成显式 query/domain 模块
 - [ ] 保持 `world-runtime.service.js` 暂时仍作为总编排层，但减掉查询杂质
 
+本轮已完成：
+
+- 新增 `packages/server/src/runtime/world/world-runtime-npc-shop-query.service.js`
+- `world-runtime.service.js` 的 NPC shop 只读封装、货币名称解析与购买前校验已委托给 `WorldRuntimeNpcShopQueryService`
+- `world-runtime.service.js` 仍保留 `resolveAdjacentNpc()`、`buildNpcShopView()` facade、`enqueueBuyNpcShopItem()` 与 `dispatchBuyNpcShopItem()` 的写路径编排，避免第 4 批第一刀越界到 batch 5 的状态域拆分
+- 本轮验证已补跑 `audit:next-protocol`、`smoke:progression`、`smoke:redeem-code`、`smoke:gm-next`、根级 `pnpm build` 与 `pnpm verify:replace-ready`
+
 当前优先可拆的冷块：
 
 - 任务详情 / reward / target / navigation 解析
