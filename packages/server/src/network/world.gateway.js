@@ -82,6 +82,8 @@ const world_gateway_craft_helper_1 = require("./world-gateway-craft.helper");
 
 const world_gateway_market_helper_1 = require("./world-gateway-market.helper");
 
+const world_gateway_read_model_helper_1 = require("./world-gateway-read-model.helper");
+
 /** 鉴权后请求 sessionId 只允许从 next/token 两类来源带入。 */
 const AUTHENTICATED_REQUESTED_SESSION_ID_AUTH_SOURCES = new Set([
     'next',
@@ -157,6 +159,7 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
     gatewayNpcHelper;
     gatewayCraftHelper;
     gatewayMarketHelper;
+    gatewayReadModelHelper;
     /** Socket.IO server 实例。 */
     server;
     /** 入口日志。 */
@@ -194,6 +197,7 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         this.gatewayNpcHelper = new world_gateway_npc_helper_1.WorldGatewayNpcHelper(this);
         this.gatewayCraftHelper = new world_gateway_craft_helper_1.WorldGatewayCraftHelper(this);
         this.gatewayMarketHelper = new world_gateway_market_helper_1.WorldGatewayMarketHelper(this);
+        this.gatewayReadModelHelper = new world_gateway_read_model_helper_1.WorldGatewayReadModelHelper(this);
     }
     /** 处理 socket 连接：校验协议、阻断未就绪流量并触发鉴权引导。 */
     async handleConnection(client) {
@@ -401,35 +405,7 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         return this.gatewayMarketHelper.handleNextRequestMarketTradeHistory(client, payload);
     }
     handleNextRequestAttrDetail(client, _payload) {
-
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        try {
-
-            const player = this.playerRuntimeService.getPlayer(playerId);
-            if (!player) {
-                return;
-            }
-            this.worldClientEventService.markProtocol(client, 'next');
-            const bonuses = buildAttrDetailBonuses(player);
-            const numericStatBreakdowns = buildAttrDetailNumericStatBreakdowns(player);
-            client.emit(shared_1.NEXT_S2C.AttrDetail, {
-                baseAttrs: { ...player.attrs.baseAttrs },
-                bonuses,
-                finalAttrs: { ...player.attrs.finalAttrs },
-                numericStats: (0, shared_1.cloneNumericStats)(player.attrs.numericStats),
-                ratioDivisors: (0, shared_1.cloneNumericRatioDivisors)(player.attrs.ratioDivisors),
-                numericStatBreakdowns,
-                alchemySkill: player.alchemySkill,
-                gatherSkill: player.gatherSkill,
-                enhancementSkill: player.enhancementSkill,
-            });
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'REQUEST_ATTR_DETAIL_FAILED', error);
-        }
+        return this.gatewayReadModelHelper.handleNextRequestAttrDetail(client, _payload);
     }
     handleNextRequestAlchemyPanel(client, payload) {
         return this.gatewayCraftHelper.handleNextRequestAlchemyPanel(client, payload);
@@ -456,64 +432,16 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         return this.gatewayCraftHelper.handleNextCancelEnhancement(client, _payload);
     }
     handleNextRequestLeaderboard(client, payload) {
-
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        try {
-            this.worldClientEventService.markProtocol(client, 'next');
-            client.emit(shared_1.NEXT_S2C.Leaderboard, this.leaderboardRuntimeService.buildLeaderboard(payload?.limit));
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'REQUEST_LEADERBOARD_FAILED', error);
-        }
+        return this.gatewayReadModelHelper.handleNextRequestLeaderboard(client, payload);
     }
     handleNextRequestWorldSummary(client, _payload) {
-
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        try {
-            this.worldClientEventService.markProtocol(client, 'next');
-            client.emit(shared_1.NEXT_S2C.WorldSummary, this.leaderboardRuntimeService.buildWorldSummary());
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'REQUEST_WORLD_SUMMARY_FAILED', error);
-        }
+        return this.gatewayReadModelHelper.handleNextRequestWorldSummary(client, _payload);
     }
     handleRequestDetail(client, payload) {
-
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        try {
-            client.emit(shared_1.NEXT_S2C.Detail, this.worldRuntimeService.buildDetail(playerId, {
-                kind: payload?.kind,
-                id: payload?.id ?? '',
-            }));
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'REQUEST_DETAIL_FAILED', error);
-        }
+        return this.gatewayReadModelHelper.handleRequestDetail(client, payload);
     }
     handleRequestTileDetail(client, payload) {
-
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        try {
-            client.emit(shared_1.NEXT_S2C.TileDetail, this.worldRuntimeService.buildTileDetail(playerId, {
-                x: payload?.x,
-                y: payload?.y,
-            }));
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'REQUEST_TILE_DETAIL_FAILED', error);
-        }
+        return this.gatewayReadModelHelper.handleRequestTileDetail(client, payload);
     }
     handleUsePortal(client) {
 
