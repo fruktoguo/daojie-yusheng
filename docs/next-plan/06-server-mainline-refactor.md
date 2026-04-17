@@ -97,13 +97,20 @@
 当前仍未完成：
 
 - `world.gateway.js` 仍然承载大量 authenticated gameplay handler
+- suggestion 的玩家侧 request/create/vote/reply/read-replies 处理器仍在 gateway
 - gateway 还不是最终意义上的纯分发层
 
 本轮继续完成：
 
 - 新增 `packages/server/src/network/world-gateway-gm-command.helper.js`
 - `GmGetState / GmSpawnBots / GmRemoveBots / GmUpdatePlayer / GmResetPlayer` 已从 gateway 主文件移出
-- suggestion moderation 仍留在 gateway，作为后续更小簇单独处理
+- suggestion moderation 仍作为单独更小簇处理
+
+本轮继续完成：
+
+- 新增 `packages/server/src/network/world-gateway-gm-suggestion.helper.js`
+- `GmMarkSuggestionCompleted / GmRemoveSuggestion` 已从 gateway 主文件移出
+- 当前 gateway 的 GM 侧只剩普通 gameplay/玩家 suggestion 入口，不再混入 direct GM suggestion moderation 逻辑
 
 最小验证：
 
