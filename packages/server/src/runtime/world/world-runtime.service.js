@@ -60,6 +60,8 @@ const world_runtime_combat_effects_service_1 = require("./world-runtime-combat-e
 
 const world_runtime_monster_action_apply_service_1 = require("./world-runtime-monster-action-apply.service");
 
+const world_runtime_basic_attack_service_1 = require("./world-runtime-basic-attack.service");
+
 const player_combat_service_1 = require("../combat/player-combat.service");
 
 const map_instance_runtime_1 = require("../instance/map-instance.runtime");
@@ -246,6 +248,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     worldRuntimeNavigationService;
     worldRuntimeCombatEffectsService;
     worldRuntimeMonsterActionApplyService;
+    worldRuntimeBasicAttackService;
     logger = new common_1.Logger(WorldRuntimeService_1.name);
     stateLayerContract = world_runtime_contract_1.WORLD_RUNTIME_STATE_CONTRACT;
     runtimeState = (0, world_runtime_state_1.createWorldRuntimeStateStore)();
@@ -268,7 +271,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     tickDurationHistoryMs = [];
     syncFlushDurationHistoryMs = [];
     instanceTickProgressById = this.runtimeState.instanceTickProgressById;
-    constructor(contentTemplateRepository, templateRepository, mapPersistenceService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService, craftPanelRuntimeService, worldRuntimeNpcShopQueryService, worldRuntimeQuestQueryService, worldRuntimeNpcQuestInteractionQueryService, worldRuntimeGmQueueService, worldRuntimeCraftService, worldRuntimeNpcQuestShopService, worldRuntimeLootContainerService, worldRuntimeNavigationService, worldRuntimeCombatEffectsService, worldRuntimeMonsterActionApplyService) {
+    constructor(contentTemplateRepository, templateRepository, mapPersistenceService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService, craftPanelRuntimeService, worldRuntimeNpcShopQueryService, worldRuntimeQuestQueryService, worldRuntimeNpcQuestInteractionQueryService, worldRuntimeGmQueueService, worldRuntimeCraftService, worldRuntimeNpcQuestShopService, worldRuntimeLootContainerService, worldRuntimeNavigationService, worldRuntimeCombatEffectsService, worldRuntimeMonsterActionApplyService, worldRuntimeBasicAttackService) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.templateRepository = templateRepository;
         this.mapPersistenceService = mapPersistenceService;
@@ -288,6 +291,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.worldRuntimeNavigationService = worldRuntimeNavigationService;
         this.worldRuntimeCombatEffectsService = worldRuntimeCombatEffectsService;
         this.worldRuntimeMonsterActionApplyService = worldRuntimeMonsterActionApplyService;
+        this.worldRuntimeBasicAttackService = worldRuntimeBasicAttackService;
     }
     /** onModuleInit：初始化公共实例的基础结构。 */
     async onModuleInit() {
@@ -2683,100 +2687,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     }
     /** dispatchBasicAttack：执行普通攻击结算，目标可以是玩家、妖兽或地块。 */
     dispatchBasicAttack(playerId, targetPlayerId, targetMonsterId, targetX, targetY) {
-
-        const attacker = this.playerRuntimeService.getPlayerOrThrow(playerId);
-
-        const currentTick = this.resolveCurrentTickForPlayerId(playerId);
-        this.playerRuntimeService.recordActivity(playerId, currentTick, {
-            interruptCultivation: true,
-        });
-        this.worldRuntimeCraftService.interruptCraftForReason(playerId, attacker, 'attack', this);
-        if (!attacker.instanceId) {
-            throw new common_1.BadRequestException(`Player ${playerId} not attached to instance`);
-        }
-        this.ensureAttackAllowed(attacker);
-
-        const damageKind = attacker.attrs.numericStats.spellAtk > attacker.attrs.numericStats.physAtk ? 'spell' : 'physical';
-
-        const baseDamage = Math.max(1, Math.round(damageKind === 'spell'
-            ? attacker.attrs.numericStats.spellAtk
-            : attacker.attrs.numericStats.physAtk));
-        if (targetMonsterId) {
-
-            const instance = this.getInstanceRuntimeOrThrow(attacker.instanceId);
-
-            const monster = instance.getMonster(targetMonsterId);
-            if (!monster || !monster.alive) {
-                throw new common_1.NotFoundException(`Monster ${targetMonsterId} not found`);
-            }
-            if (chebyshevDistance(attacker.x, attacker.y, monster.x, monster.y) > 1) {
-                throw new common_1.BadRequestException('目标超出攻击距离');
-            }
-
-            const resolvedDamage = computeResolvedDamage(baseDamage, damageKind, attacker.attrs.numericStats, attacker.attrs.ratioDivisors, monster.numericStats, monster.ratioDivisors);
-
-            const effectColor = (0, shared_1.getDamageTrailColor)(damageKind);
-            this.pushActionLabelEffect(attacker.instanceId, attacker.x, attacker.y, '攻击');
-            this.pushAttackEffect(attacker.instanceId, attacker.x, attacker.y, monster.x, monster.y, effectColor);
-            this.pushDamageFloatEffect(attacker.instanceId, monster.x, monster.y, resolvedDamage.damage, effectColor);
-
-            const outcome = instance.applyDamageToMonster(targetMonsterId, resolvedDamage.damage, attacker.playerId);
-            if (outcome?.defeated) {
-                this.handlePlayerMonsterKill(instance, outcome.monster, attacker.playerId);
-            }
-            this.queuePlayerNotice(playerId, `${formatCombatActionClause('你', monster.name, '攻击')}，造成 ${formatCombatDamageBreakdown(resolvedDamage.rawDamage, resolvedDamage.damage, damageKind)} 伤害`, 'combat');
-            return;
-        }
-        if (targetPlayerId) {
-
-            const target = this.playerRuntimeService.getPlayerOrThrow(targetPlayerId);
-            if (target.instanceId !== attacker.instanceId) {
-                throw new common_1.BadRequestException('目标不在同一地图');
-            }
-            if (chebyshevDistance(attacker.x, attacker.y, target.x, target.y) > 1) {
-                throw new common_1.BadRequestException('目标超出攻击距离');
-            }
-
-            const resolvedDamage = computeResolvedDamage(baseDamage, damageKind, attacker.attrs.numericStats, attacker.attrs.ratioDivisors, target.attrs.numericStats, target.attrs.ratioDivisors);
-
-            const effectColor = (0, shared_1.getDamageTrailColor)(damageKind);
-            this.pushActionLabelEffect(attacker.instanceId, attacker.x, attacker.y, '攻击');
-            this.pushAttackEffect(attacker.instanceId, attacker.x, attacker.y, target.x, target.y, effectColor);
-            this.pushDamageFloatEffect(attacker.instanceId, target.x, target.y, resolvedDamage.damage, effectColor);
-
-            const updated = this.playerRuntimeService.applyDamage(target.playerId, resolvedDamage.damage);
-            this.playerRuntimeService.recordActivity(target.playerId, currentTick, {
-                interruptCultivation: true,
-            });
-            if (updated.hp <= 0) {
-                this.handlePlayerDefeat(updated.playerId);
-            }
-            this.queuePlayerNotice(playerId, `${formatCombatActionClause('你', target.name ?? target.playerId, '攻击')}，造成 ${formatCombatDamageBreakdown(resolvedDamage.rawDamage, resolvedDamage.damage, damageKind)} 伤害`, 'combat');
-            this.queuePlayerNotice(target.playerId, `${formatCombatActionClause(attacker.name ?? attacker.playerId, '你', '攻击')}，造成 ${formatCombatDamageBreakdown(resolvedDamage.rawDamage, resolvedDamage.damage, damageKind)} 伤害`, 'combat');
-            return;
-        }
-        if (targetX !== null && targetY !== null) {
-
-            const instance = this.getInstanceRuntimeOrThrow(attacker.instanceId);
-            if (chebyshevDistance(attacker.x, attacker.y, targetX, targetY) > 1) {
-                throw new common_1.BadRequestException('目标超出攻击距离');
-            }
-
-            const result = instance.damageTile(targetX, targetY, baseDamage);
-            if (!result) {
-                throw new common_1.BadRequestException('该目标无法被攻击');
-            }
-
-            const effectColor = (0, shared_1.getDamageTrailColor)(damageKind);
-            this.pushActionLabelEffect(attacker.instanceId, attacker.x, attacker.y, '攻击');
-            this.pushAttackEffect(attacker.instanceId, attacker.x, attacker.y, targetX, targetY, effectColor);
-            if (result.appliedDamage > 0) {
-                this.pushDamageFloatEffect(attacker.instanceId, targetX, targetY, result.appliedDamage, effectColor);
-            }
-            this.queuePlayerNotice(playerId, `${formatCombatActionClause('你', '地块', '攻击')}，造成 ${formatCombatDamageBreakdown(baseDamage, result.appliedDamage, damageKind)} 伤害`, 'combat');
-            return;
-        }
-        throw new common_1.BadRequestException('target is required');
+        this.worldRuntimeBasicAttackService.dispatchBasicAttack(playerId, targetPlayerId, targetMonsterId, targetX, targetY, this);
     }
     /** dispatchDropItem：执行丢弃物品结算。 */
     dispatchDropItem(playerId, slotIndex, count) {
@@ -3546,7 +3457,8 @@ exports.WorldRuntimeService = WorldRuntimeService = WorldRuntimeService_1 = __de
         world_runtime_loot_container_service_1.WorldRuntimeLootContainerService,
         world_runtime_navigation_service_1.WorldRuntimeNavigationService,
         world_runtime_combat_effects_service_1.WorldRuntimeCombatEffectsService,
-        world_runtime_monster_action_apply_service_1.WorldRuntimeMonsterActionApplyService])
+        world_runtime_monster_action_apply_service_1.WorldRuntimeMonsterActionApplyService,
+        world_runtime_basic_attack_service_1.WorldRuntimeBasicAttackService])
 ], WorldRuntimeService);
 // helper functions were split into dedicated helper modules for maintainability.
 //# sourceMappingURL=world-runtime.service.js.map

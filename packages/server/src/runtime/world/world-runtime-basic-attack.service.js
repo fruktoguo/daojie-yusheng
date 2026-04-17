@@ -1,0 +1,129 @@
+"use strict";
+
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+
+var __metadata = (this && this.__metadata) || function (k, v) {
+    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
+};
+
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.WorldRuntimeBasicAttackService = void 0;
+
+const common_1 = require("@nestjs/common");
+const shared_1 = require("@mud/shared-next");
+const player_runtime_service_1 = require("../player/player-runtime.service");
+const world_runtime_path_planning_helpers_1 = require("./world-runtime.path-planning.helpers");
+const { chebyshevDistance } = world_runtime_path_planning_helpers_1;
+const world_runtime_observation_helpers_1 = require("./world-runtime.observation.helpers");
+const {
+    createTileCombatAttributes,
+    createTileCombatNumericStats,
+    createTileCombatRatioDivisors,
+    computeResolvedDamage,
+    formatCombatDamageBreakdown,
+    formatCombatActionClause,
+} = world_runtime_observation_helpers_1;
+
+/** 普攻落地服务：承接 dispatchBasicAttack 的伤害与副作用编排。 */
+let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
+    playerRuntimeService;
+    constructor(playerRuntimeService) {
+        this.playerRuntimeService = playerRuntimeService;
+    }
+    dispatchBasicAttack(playerId, targetPlayerId, targetMonsterId, targetX, targetY, deps) {
+        const attacker = this.playerRuntimeService.getPlayerOrThrow(playerId);
+        const currentTick = deps.resolveCurrentTickForPlayerId(playerId);
+        this.playerRuntimeService.recordActivity(playerId, currentTick, {
+            interruptCultivation: true,
+        });
+        deps.worldRuntimeCraftService.interruptCraftForReason(playerId, attacker, 'attack', deps);
+        if (!attacker.instanceId) {
+            throw new common_1.BadRequestException(`Player ${playerId} not attached to instance`);
+        }
+        deps.ensureAttackAllowed(attacker);
+        const damageKind = attacker.attrs.numericStats.spellAtk > attacker.attrs.numericStats.physAtk ? 'spell' : 'physical';
+        const baseDamage = Math.max(1, Math.round(damageKind === 'spell'
+            ? attacker.attrs.numericStats.spellAtk
+            : attacker.attrs.numericStats.physAtk));
+        if (targetMonsterId) {
+            return this.dispatchBasicAttackToMonster(attacker, targetMonsterId, damageKind, baseDamage, deps);
+        }
+        if (targetPlayerId) {
+            return this.dispatchBasicAttackToPlayer(attacker, targetPlayerId, damageKind, baseDamage, currentTick, deps);
+        }
+        if (targetX !== null && targetY !== null) {
+            return this.dispatchBasicAttackToTile(attacker, targetX, targetY, damageKind, baseDamage, deps);
+        }
+        throw new common_1.BadRequestException('target is required');
+    }
+    dispatchBasicAttackToMonster(attacker, targetMonsterId, damageKind, baseDamage, deps) {
+        const instance = deps.getInstanceRuntimeOrThrow(attacker.instanceId);
+        const monster = instance.getMonster(targetMonsterId);
+        if (!monster || !monster.alive) {
+            throw new common_1.NotFoundException(`Monster ${targetMonsterId} not found`);
+        }
+        if (chebyshevDistance(attacker.x, attacker.y, monster.x, monster.y) > 1) {
+            throw new common_1.BadRequestException('目标超出攻击距离');
+        }
+        const resolvedDamage = computeResolvedDamage(baseDamage, damageKind, attacker.attrs.numericStats, attacker.attrs.ratioDivisors, monster.numericStats, monster.ratioDivisors);
+        const effectColor = (0, shared_1.getDamageTrailColor)(damageKind);
+        deps.pushActionLabelEffect(attacker.instanceId, attacker.x, attacker.y, '攻击');
+        deps.pushAttackEffect(attacker.instanceId, attacker.x, attacker.y, monster.x, monster.y, effectColor);
+        deps.pushDamageFloatEffect(attacker.instanceId, monster.x, monster.y, resolvedDamage.damage, effectColor);
+        const outcome = instance.applyDamageToMonster(targetMonsterId, resolvedDamage.damage, attacker.playerId);
+        if (outcome?.defeated) {
+            deps.handlePlayerMonsterKill(instance, outcome.monster, attacker.playerId);
+        }
+        deps.queuePlayerNotice(attacker.playerId, `${formatCombatActionClause('你', monster.name, '攻击')}，造成 ${formatCombatDamageBreakdown(resolvedDamage.rawDamage, resolvedDamage.damage, damageKind)} 伤害`, 'combat');
+    }
+    dispatchBasicAttackToPlayer(attacker, targetPlayerId, damageKind, baseDamage, currentTick, deps) {
+        const target = this.playerRuntimeService.getPlayerOrThrow(targetPlayerId);
+        if (target.instanceId !== attacker.instanceId) {
+            throw new common_1.BadRequestException('目标不在同一地图');
+        }
+        if (chebyshevDistance(attacker.x, attacker.y, target.x, target.y) > 1) {
+            throw new common_1.BadRequestException('目标超出攻击距离');
+        }
+        const resolvedDamage = computeResolvedDamage(baseDamage, damageKind, attacker.attrs.numericStats, attacker.attrs.ratioDivisors, target.attrs.numericStats, target.attrs.ratioDivisors);
+        const effectColor = (0, shared_1.getDamageTrailColor)(damageKind);
+        deps.pushActionLabelEffect(attacker.instanceId, attacker.x, attacker.y, '攻击');
+        deps.pushAttackEffect(attacker.instanceId, attacker.x, attacker.y, target.x, target.y, effectColor);
+        deps.pushDamageFloatEffect(attacker.instanceId, target.x, target.y, resolvedDamage.damage, effectColor);
+        const updated = this.playerRuntimeService.applyDamage(target.playerId, resolvedDamage.damage);
+        this.playerRuntimeService.recordActivity(target.playerId, currentTick, {
+            interruptCultivation: true,
+        });
+        if (updated.hp <= 0) {
+            deps.handlePlayerDefeat(updated.playerId);
+        }
+        deps.queuePlayerNotice(attacker.playerId, `${formatCombatActionClause('你', target.name ?? target.playerId, '攻击')}，造成 ${formatCombatDamageBreakdown(resolvedDamage.rawDamage, resolvedDamage.damage, damageKind)} 伤害`, 'combat');
+        deps.queuePlayerNotice(target.playerId, `${formatCombatActionClause(attacker.name ?? attacker.playerId, '你', '攻击')}，造成 ${formatCombatDamageBreakdown(resolvedDamage.rawDamage, resolvedDamage.damage, damageKind)} 伤害`, 'combat');
+    }
+    dispatchBasicAttackToTile(attacker, targetX, targetY, damageKind, baseDamage, deps) {
+        const instance = deps.getInstanceRuntimeOrThrow(attacker.instanceId);
+        if (chebyshevDistance(attacker.x, attacker.y, targetX, targetY) > 1) {
+            throw new common_1.BadRequestException('目标超出攻击距离');
+        }
+        const result = instance.damageTile(targetX, targetY, baseDamage);
+        if (!result) {
+            throw new common_1.BadRequestException('该目标无法被攻击');
+        }
+        const effectColor = (0, shared_1.getDamageTrailColor)(damageKind);
+        deps.pushActionLabelEffect(attacker.instanceId, attacker.x, attacker.y, '攻击');
+        deps.pushAttackEffect(attacker.instanceId, attacker.x, attacker.y, targetX, targetY, effectColor);
+        if (result.appliedDamage > 0) {
+            deps.pushDamageFloatEffect(attacker.instanceId, targetX, targetY, result.appliedDamage, effectColor);
+        }
+        deps.queuePlayerNotice(attacker.playerId, `${formatCombatActionClause('你', '地块', '攻击')}，造成 ${formatCombatDamageBreakdown(baseDamage, result.appliedDamage, damageKind)} 伤害`, 'combat');
+    }
+};
+exports.WorldRuntimeBasicAttackService = WorldRuntimeBasicAttackService;
+exports.WorldRuntimeBasicAttackService = WorldRuntimeBasicAttackService = __decorate([
+    (0, common_1.Injectable)(),
+    __metadata("design:paramtypes", [player_runtime_service_1.PlayerRuntimeService])
+], WorldRuntimeBasicAttackService);
