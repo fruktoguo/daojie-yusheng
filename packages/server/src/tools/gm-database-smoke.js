@@ -14,6 +14,7 @@ const socket_io_client_1 = require("socket.io-client");
 const shared_next_1 = require("@mud/shared-next");
 const pg_1 = require("pg");
 const env_alias_1 = require("../config/env-alias");
+const next_gm_contract_1 = require("../http/next/next-gm-contract");
 /**
  * 记录包根目录。
  */
@@ -407,8 +408,8 @@ async function resetGmAuthPasswordRecord() {
     await client.connect();
     try {
         await client.query('DELETE FROM persistent_documents WHERE scope = $1 AND key = $2', [
-            'server_next_legacy_gm_auth_v1',
-            'gm_auth',
+            next_gm_contract_1.NEXT_GM_AUTH_CONTRACT.passwordRecordScope,
+            next_gm_contract_1.NEXT_GM_AUTH_CONTRACT.passwordRecordKey,
         ]);
     }
     catch (error) {

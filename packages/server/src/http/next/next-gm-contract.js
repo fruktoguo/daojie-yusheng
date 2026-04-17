@@ -14,7 +14,6 @@ exports.NEXT_GM_HTTP_CONTRACT = NEXT_GM_HTTP_CONTRACT;
 
 const NEXT_GM_AUTH_CONTRACT = Object.freeze({
     passwordRecordScope: 'server_next_gm_auth_v1',
-    legacyPasswordRecordScopes: ['server_next_legacy_gm_auth_v1', 'server_config'],
     passwordRecordKey: 'gm_auth',
     identityPersistedSource: 'native',
     tokenValidatorOwner: 'runtime_gm_auth_service',

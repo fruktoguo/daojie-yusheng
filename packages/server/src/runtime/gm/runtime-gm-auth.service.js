@@ -31,14 +31,8 @@ const env_alias_1 = require("../../config/env-alias");
 /** GM 鉴权作用域名，存放当前 next 体系的密码记录。 */
 const GM_AUTH_SCOPE = next_gm_contract_1.NEXT_GM_AUTH_CONTRACT.passwordRecordScope;
 
-/** 兼容从旧体系迁移过来的 GM 鉴权作用域名。 */
-const LEGACY_NEXT_GM_AUTH_SCOPE = next_gm_contract_1.NEXT_GM_AUTH_CONTRACT.legacyPasswordRecordScopes[0];
-
 /** persistent_documents 里保存 GM 密码的 key。 */
 const GM_AUTH_KEY = next_gm_contract_1.NEXT_GM_AUTH_CONTRACT.passwordRecordKey;
-
-/** 旧系统里用于读取 GM 密码的作用域。 */
-const LEGACY_GM_AUTH_SCOPE = next_gm_contract_1.NEXT_GM_AUTH_CONTRACT.legacyPasswordRecordScopes[1];
 
 /** 没有配置时使用的默认 GM 密码。 */
 const DEFAULT_GM_PASSWORD = 'admin123';
@@ -97,13 +91,12 @@ let RuntimeGmAuthService = class RuntimeGmAuthService {
             };
         }
 
-        const legacyRecord = await this.loadLegacyPasswordRecordFromDb();
-        if (!legacyRecord || !(await verifyPassword(normalizedPassword, legacyRecord))) {
+        if (!(await verifyPassword(normalizedPassword, record))) {
             throw new common_1.UnauthorizedException('GM 密码错误');
         }
-        this.memoryRecord = legacyRecord;
+        this.memoryRecord = record;
         return {
-            accessToken: this.issueToken(legacyRecord),
+            accessToken: this.issueToken(record),
             expiresInSec: this.getTokenTtlSec(),
         };
     }
@@ -116,8 +109,7 @@ let RuntimeGmAuthService = class RuntimeGmAuthService {
 
         const currentVerified = await verifyPassword(normalizedCurrentPassword, record);
 
-        const legacyRecord = currentVerified ? null : await this.loadLegacyPasswordRecordFromDb();
-        if (!currentVerified && (!legacyRecord || !(await verifyPassword(normalizedCurrentPassword, legacyRecord)))) {
+        if (!currentVerified) {
             throw new common_1.UnauthorizedException('当前 GM 密码错误');
         }
 
@@ -248,24 +240,9 @@ let RuntimeGmAuthService = class RuntimeGmAuthService {
             return null;
         }
 
-        for (const scope of [GM_AUTH_SCOPE, LEGACY_NEXT_GM_AUTH_SCOPE]) {
-            const result = await this.pool.query('SELECT payload FROM persistent_documents WHERE scope = $1 AND key = $2', [scope, GM_AUTH_KEY]);
-            if (result.rowCount > 0) {
-                return normalizePasswordRecord(result.rows[0]?.payload);
-            }
-        }
-        return null;
-    }
-    async loadLegacyPasswordRecordFromDb() {
-        if (!this.pool) {
-            return null;
-        }
-
-        for (const scope of [LEGACY_GM_AUTH_SCOPE, LEGACY_NEXT_GM_AUTH_SCOPE]) {
-            const legacyResult = await this.pool.query('SELECT payload FROM persistent_documents WHERE scope = $1 AND key = $2', [scope, GM_AUTH_KEY]);
-            if (legacyResult.rowCount > 0) {
-                return normalizePasswordRecord(legacyResult.rows[0]?.payload);
-            }
+        const result = await this.pool.query('SELECT payload FROM persistent_documents WHERE scope = $1 AND key = $2', [GM_AUTH_SCOPE, GM_AUTH_KEY]);
+        if (result.rowCount > 0) {
+            return normalizePasswordRecord(result.rows[0]?.payload);
         }
         return null;
     }
