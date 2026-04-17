@@ -2030,10 +2030,9 @@ async function verifyAuthenticatedMissingSnapshotRecoveryContract() {
  */
     const defaultBootstrapService = new world_session_bootstrap_service_1.WorldSessionBootstrapService(null, {
         isPersistenceEnabled: () => true,
-        loadPlayerSnapshot: async (playerId, allowLegacyFallback, fallbackReason) => {
+        loadPlayerSnapshot: async (playerId, fallbackReason) => {
             defaultCalls.push({
                 playerId,
-                allowLegacyFallback,
                 fallbackReason,
             });
             return null;
@@ -2072,7 +2071,6 @@ async function verifyAuthenticatedMissingSnapshotRecoveryContract() {
     }
     if (!(defaultError instanceof Error)
         || defaultRecoveryCalls !== 0
-        || defaultCalls[0]?.allowLegacyFallback !== false
         || defaultCalls[0]?.fallbackReason !== 'persistence_enabled_blocked:next'
         || !defaultError.message.includes('recoveryReason=native_snapshot_recovery_disabled')) {
         throw new Error(`expected authenticated missing snapshot recovery to stay disabled by default, got error=${defaultError instanceof Error ? defaultError.message : String(defaultError)} recoveryCalls=${defaultRecoveryCalls} call=${JSON.stringify(defaultCalls[0] ?? null)}`);
@@ -2090,10 +2088,9 @@ async function verifyAuthenticatedMissingSnapshotRecoveryContract() {
  */
     const recoveryBootstrapService = new world_session_bootstrap_service_1.WorldSessionBootstrapService(null, {
         isPersistenceEnabled: () => true,
-        loadPlayerSnapshot: async (playerId, allowLegacyFallback, fallbackReason) => {
+        loadPlayerSnapshot: async (playerId, fallbackReason) => {
             recoveryCalls.push({
                 playerId,
-                allowLegacyFallback,
                 fallbackReason,
             });
             return null;
