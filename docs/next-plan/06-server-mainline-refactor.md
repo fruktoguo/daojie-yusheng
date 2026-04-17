@@ -112,11 +112,18 @@
 - `GmMarkSuggestionCompleted / GmRemoveSuggestion` 已从 gateway 主文件移出
 - 当前 gateway 的 GM 侧只剩普通 gameplay/玩家 suggestion 入口，不再混入 direct GM suggestion moderation 逻辑
 
+本轮继续完成：
+
+- 新增 `packages/server/src/network/world-gateway-movement.helper.js`
+- `handleNextMoveTo / handleMove / handleNextNavigateQuest` 已从 gateway 主文件移出
+- movement debug 日志、quest navigate result 和 gateway error code 保持不变，gateway 继续向 helper 薄委托
+
 最小验证：
 
 - `pnpm --filter @mud/server-next build`
 - `pnpm --filter @mud/server-next smoke:session`
 - `pnpm --filter @mud/server-next smoke:next-auth-bootstrap`
+- `pnpm --filter @mud/server-next smoke:runtime`
 
 ### 第 2 批：收口登录到进入世界的单路径
 
