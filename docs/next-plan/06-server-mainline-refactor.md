@@ -213,6 +213,14 @@
 - threat arrow sync
 - minimap marker patch
 
+本轮已完成：
+
+- 新增 `packages/server/src/network/world-sync-quest-loot.service.js`
+- `world-sync.service.js` 不再自持 `lastQuestRevisionByPlayerId` / `lootWindowByPlayerId`，quest revision 检查与 loot window build/open/cleanup 已委托给 `WorldSyncQuestLootService`
+- `world-client-event.service.js` 的 `emitLootWindowUpdate()` 已改为直接复用 `WorldSyncQuestLootService`
+- `app.module.js` 已完成 batch 3 首刀 provider 接线，`world-sync.service.js` 继续保留 world/self/panel delta、threat、minimap 等主编排与热路径
+- 为恢复 batch 3 验证链，补齐了 `world-gateway-read-model.helper.js` 的 `AttrDetail.numericStatBreakdowns` 结构，使其重新符合 shared 协议约定
+
 优先保留原状的热路径：
 
 - world/self/panel delta 主 envelope 结构
