@@ -10,7 +10,6 @@ function createWorldRuntimeStateStore() {
         pendingCommands: new Map(),
         pendingSystemCommands: [],
         pendingRespawnPlayerIds: new Set(),
-        navigationIntents: new Map(),
         instanceTickProgressById: new Map(),
         containerStatesByInstanceId: new Map(),
         dirtyContainerPersistenceInstanceIds: new Set(),

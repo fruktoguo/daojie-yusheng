@@ -54,6 +54,8 @@ const world_runtime_npc_quest_shop_service_1 = require("./world-runtime-npc-ques
 
 const world_runtime_loot_container_service_1 = require("./world-runtime-loot-container.service");
 
+const world_runtime_navigation_service_1 = require("./world-runtime-navigation.service");
+
 const player_combat_service_1 = require("../combat/player-combat.service");
 
 const map_instance_runtime_1 = require("../instance/map-instance.runtime");
@@ -237,6 +239,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     worldRuntimeCraftService;
     worldRuntimeNpcQuestShopService;
     worldRuntimeLootContainerService;
+    worldRuntimeNavigationService;
     logger = new common_1.Logger(WorldRuntimeService_1.name);
     stateLayerContract = world_runtime_contract_1.WORLD_RUNTIME_STATE_CONTRACT;
     runtimeState = (0, world_runtime_state_1.createWorldRuntimeStateStore)();
@@ -245,7 +248,6 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     pendingCommands = this.runtimeState.pendingCommands;
     pendingSystemCommands = this.runtimeState.pendingSystemCommands;
     pendingRespawnPlayerIds = this.runtimeState.pendingRespawnPlayerIds;
-    navigationIntents = this.runtimeState.navigationIntents;
     tick = 0;
     lastTickDurationMs = 0;
     lastSyncFlushDurationMs = 0;
@@ -261,7 +263,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     syncFlushDurationHistoryMs = [];
     instanceTickProgressById = this.runtimeState.instanceTickProgressById;
     latestCombatEffectsByInstanceId = this.runtimeState.latestCombatEffectsByInstanceId;
-    constructor(contentTemplateRepository, templateRepository, mapPersistenceService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService, craftPanelRuntimeService, worldRuntimeNpcShopQueryService, worldRuntimeQuestQueryService, worldRuntimeNpcQuestInteractionQueryService, worldRuntimeGmQueueService, worldRuntimeCraftService, worldRuntimeNpcQuestShopService, worldRuntimeLootContainerService) {
+    constructor(contentTemplateRepository, templateRepository, mapPersistenceService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService, craftPanelRuntimeService, worldRuntimeNpcShopQueryService, worldRuntimeQuestQueryService, worldRuntimeNpcQuestInteractionQueryService, worldRuntimeGmQueueService, worldRuntimeCraftService, worldRuntimeNpcQuestShopService, worldRuntimeLootContainerService, worldRuntimeNavigationService) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.templateRepository = templateRepository;
         this.mapPersistenceService = mapPersistenceService;
@@ -278,6 +280,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.worldRuntimeCraftService = worldRuntimeCraftService;
         this.worldRuntimeNpcQuestShopService = worldRuntimeNpcQuestShopService;
         this.worldRuntimeLootContainerService = worldRuntimeLootContainerService;
+        this.worldRuntimeNavigationService = worldRuntimeNavigationService;
     }
     /** onModuleInit：初始化公共实例的基础结构。 */
     async onModuleInit() {
@@ -379,7 +382,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         if (!location) {
             return false;
         }
-        this.navigationIntents.delete(playerId);
+        this.worldRuntimeNavigationService.clearNavigationIntent(playerId);
         this.pendingCommands.delete(playerId);
         this.pendingRespawnPlayerIds.delete(playerId);
 
@@ -395,7 +398,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             return false;
         }
         this.worldSessionService.purgePlayerSession(normalizedPlayerId, reason);
-        this.navigationIntents.delete(normalizedPlayerId);
+        this.worldRuntimeNavigationService.clearNavigationIntent(normalizedPlayerId);
         this.pendingCommands.delete(normalizedPlayerId);
         this.pendingRespawnPlayerIds.delete(normalizedPlayerId);
 
@@ -410,106 +413,19 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     }
     /** enqueueMove：把方向移动请求排入下一次 tick 统一执行。 */
     enqueueMove(playerId, directionInput) {
-
-        const direction = parseDirection(directionInput);
-        this.getPlayerLocationOrThrow(playerId);
-
-        const player = this.playerRuntimeService.getPlayer(playerId);
-        this.navigationIntents.delete(playerId);
-        this.interruptManualNavigation(playerId);
-        this.pendingCommands.set(playerId, {
-            kind: 'move',
-            direction,
-            continuous: true,
-            resetBudget: true,
-        });
-        (0, movement_debug_1.logServerNextMovement)(this.logger, 'runtime.enqueue.move', {
-            playerId,
-            direction,
-            from: player
-                ? {
-                    mapId: player.templateId,
-                    x: player.x,
-                    y: player.y,
-                }
-                : null,
-        });
-        return this.getPlayerViewOrThrow(playerId);
+        return this.worldRuntimeNavigationService.enqueueMove(playerId, directionInput, this);
     }
     /** enqueueMoveTo：把点位导航请求排入下一次 tick 统一执行。 */
     enqueueMoveTo(playerId, xInput, yInput, allowNearestReachableInput, packedPathInput, packedPathStepsInput, pathStartXInput, pathStartYInput) {
-
-        const location = this.getPlayerLocationOrThrow(playerId);
-
-        const instance = this.getInstanceRuntimeOrThrow(location.instanceId);
-
-        const x = normalizeCoordinate(xInput, 'x');
-
-        const y = normalizeCoordinate(yInput, 'y');
-        if (!isInBounds(x, y, instance.template.width, instance.template.height)) {
-            throw new common_1.BadRequestException('目标超出地图范围');
-        }
-
-        const player = this.playerRuntimeService.getPlayer(playerId);
-        this.interruptManualNavigation(playerId);
-
-        const clientPathHint = decodeClientPathHint(packedPathInput, packedPathStepsInput, pathStartXInput, pathStartYInput);
-        this.pendingCommands.set(playerId, {
-            kind: 'moveTo',
-            x,
-            y,
-
-            allowNearestReachable: allowNearestReachableInput === true,
-            clientPathHint,
-        });
-        (0, movement_debug_1.logServerNextMovement)(this.logger, 'runtime.enqueue.moveTo', {
-            playerId,
-            from: player
-                ? {
-                    mapId: player.templateId,
-                    x: player.x,
-                    y: player.y,
-                }
-                : null,
-            target: {
-                mapId: instance.template.mapId,
-                x,
-                y,
-            },
-
-            allowNearestReachable: allowNearestReachableInput === true,
-            clientPathHint: clientPathHint
-                ? {
-                    startX: clientPathHint.startX,
-                    startY: clientPathHint.startY,
-                    points: clientPathHint.points,
-                }
-                : null,
-        });
-        return this.getPlayerViewOrThrow(playerId);
+        return this.worldRuntimeNavigationService.enqueueMoveTo(playerId, xInput, yInput, allowNearestReachableInput, packedPathInput, packedPathStepsInput, pathStartXInput, pathStartYInput, this);
     }
     /** usePortal：把当前站位的传送请求排入下一次 tick。 */
     usePortal(playerId) {
-        this.getPlayerLocationOrThrow(playerId);
-        this.navigationIntents.delete(playerId);
-        this.interruptManualNavigation(playerId);
-        this.pendingCommands.set(playerId, { kind: 'portal' });
-        return this.getPlayerViewOrThrow(playerId);
+        return this.worldRuntimeNavigationService.usePortal(playerId, this);
     }
     /** navigateQuest：记录任务导航意图，供后续 tick 续跑路径。 */
     navigateQuest(playerId, questIdInput) {
-        this.getPlayerLocationOrThrow(playerId);
-        this.interruptManualNavigation(playerId);
-
-        const questId = typeof questIdInput === 'string' ? questIdInput.trim() : '';
-        if (!questId) {
-            throw new common_1.BadRequestException('questId is required');
-        }
-        this.navigationIntents.set(playerId, {
-            kind: 'quest',
-            questId,
-        });
-        return this.getPlayerViewOrThrow(playerId);
+        return this.worldRuntimeNavigationService.navigateQuest(playerId, questIdInput, this);
     }
     /** enqueueBasicAttack：把排队Basic攻击请求排入下一次 tick。 */
     enqueueBasicAttack(playerId, targetPlayerIdInput, targetMonsterIdInput, targetXInput, targetYInput) {
@@ -1524,50 +1440,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     }
     /** getLegacyNavigationPath：生成旧版导航预览路径，便于调试与兼容。 */
     getLegacyNavigationPath(playerId) {
-
-        const intent = this.navigationIntents.get(playerId);
-        if (!intent) {
-            return [];
-        }
-        try {
-
-            const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
-
-            const location = this.getPlayerLocationOrThrow(playerId);
-
-            const instance = this.getInstanceRuntimeOrThrow(location.instanceId);
-
-            const destination = this.resolveNavigationDestination(playerId, intent);
-            if (destination.mapId !== player.templateId) {
-
-                const route = this.findMapRoute(player.templateId, destination.mapId);
-                if (!route || route.length < 2) {
-                    return [];
-                }
-
-                const nextMapId = route[1];
-
-                const portal = selectNearestPortal(instance.template.portals, nextMapId, player.x, player.y);
-                if (!portal || (portal.x === player.x && portal.y === player.y)) {
-                    return [];
-                }
-
-                const path = findPathPointsOnMap(instance, player.playerId, player.x, player.y, [{
-                        x: portal.x,
-                        y: portal.y,
-                    }]);
-                return path ? path.map((entry) => [entry.x, entry.y]) : [];
-            }
-            if (destination.goals.some((goal) => goal.x === player.x && goal.y === player.y)) {
-                return [];
-            }
-
-            const path = findPathPointsOnMap(instance, player.playerId, player.x, player.y, destination.goals);
-            return path ? path.map((entry) => [entry.x, entry.y]) : [];
-        }
-        catch {
-            return [];
-        }
+        return this.worldRuntimeNavigationService.getLegacyNavigationPath(playerId, this);
     }
     /** getRuntimeSummary：汇总世界 tick、实例和同步耗时信息。 */
     getRuntimeSummary() {
@@ -1685,9 +1558,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
 
         const steppedPlayerIds = new Set();
 
-        const blockedPlayerIds = this.navigationIntents.size > 0
-            ? new Set(this.navigationIntents.keys())
-            : undefined;
+        const blockedPlayerIds = this.worldRuntimeNavigationService.getBlockedPlayerIds();
 
         let totalLogicalTicks = 0;
 
@@ -1788,7 +1659,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.pendingCommands.clear();
         this.pendingSystemCommands.length = 0;
         this.pendingRespawnPlayerIds.clear();
-        this.navigationIntents.clear();
+        this.worldRuntimeNavigationService.reset();
         this.instanceTickProgressById.clear();
         this.worldRuntimeLootContainerService.reset();
         this.latestCombatEffectsByInstanceId.clear();
@@ -1844,37 +1715,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     }
     /** findMapRoute：查找跨地图传送路线。 */
     findMapRoute(fromMapId, toMapId) {
-        if (fromMapId === toMapId) {
-            return [fromMapId];
-        }
-
-        const visited = new Set([fromMapId]);
-
-        const queue = [{
-                mapId: fromMapId,
-                path: [fromMapId],
-            }];
-        for (let index = 0; index < queue.length; index += 1) {
-            const current = queue[index];
-            /** template：当前实例使用的地图模板。 */
-            const template = this.templateRepository.getOrThrow(current.mapId);
-            for (const portal of template.portals) {
-                if (visited.has(portal.targetMapId)) {
-                    continue;
-                }
-
-                const nextPath = current.path.concat(portal.targetMapId);
-                if (portal.targetMapId === toMapId) {
-                    return nextPath;
-                }
-                visited.add(portal.targetMapId);
-                queue.push({
-                    mapId: portal.targetMapId,
-                    path: nextPath,
-                });
-            }
-        }
-        return null;
+        return this.worldRuntimeNavigationService.findMapRoute(fromMapId, toMapId);
     }
     /** getPlayerLocationOrThrow：读取玩家当前接入位置，不存在就抛错。 */
     getPlayerLocationOrThrow(playerId) {
@@ -1905,16 +1746,11 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     }
     /** interruptManualNavigation：中断手动导航并清掉自动战斗状态。 */
     interruptManualNavigation(playerId) {
-
-        const currentTick = this.resolveCurrentTickForPlayerId(playerId);
-        this.playerRuntimeService.updateCombatSettings(playerId, {
-            autoBattle: false,
-        }, currentTick);
-        this.cancelPendingInstanceCommand(playerId);
+        this.worldRuntimeNavigationService.interruptManualNavigation(playerId, this);
     }
     /** interruptManualCombat：中断手动战斗并清掉导航意图。 */
     interruptManualCombat(playerId) {
-        this.navigationIntents.delete(playerId);
+        this.worldRuntimeNavigationService.clearNavigationIntent(playerId);
         this.cancelPendingInstanceCommand(playerId);
     }
     /** getPlayerViewOrThrow：读取玩家视野，不存在就抛错。 */
@@ -1959,226 +1795,24 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             sessionId: transfer.sessionId,
         });
 
-        const navigation = this.navigationIntents.get(transfer.playerId);
-        if (navigation?.kind === 'point') {
-            this.navigationIntents.delete(transfer.playerId);
-        }
-        this.queuePlayerNotice(transfer.playerId, `${transfer.reason === 'manual_portal' ? '通过界门' : '穿过灵脉'}抵达 ${target.template.name}`, 'travel');
+        this.worldRuntimeNavigationService.handleTransfer(transfer, this);
     }
     /** materializeNavigationCommands：把导航意图落成可执行的移动或传送命令。 */
     materializeNavigationCommands() {
-        if (this.navigationIntents.size === 0) {
-            return;
-        }
-        for (const [playerId, intent] of this.navigationIntents) {
-            if (this.pendingCommands.has(playerId)) {
-                continue;
-            }
-
-            const player = this.playerRuntimeService.getPlayer(playerId);
-            if (!player || !player.instanceId || player.hp <= 0) {
-                this.navigationIntents.delete(playerId);
-                continue;
-            }
-            try {
-
-                const step = this.resolveNavigationStep(playerId, intent);
-                (0, movement_debug_1.logServerNextMovement)(this.logger, 'runtime.navigation.step', {
-                    playerId,
-                    intent,
-                    step,
-                });
-                if (step.kind === 'done') {
-                    this.navigationIntents.delete(playerId);
-                    continue;
-                }
-                if (step.kind === 'portal') {
-                    this.pendingCommands.set(playerId, { kind: 'portal' });
-                    continue;
-                }
-                if (step.kind === 'move') {
-                    this.pendingCommands.set(playerId, {
-                        kind: 'move',
-                        direction: step.direction,
-                        continuous: true,
-                        maxSteps: step.maxSteps,
-                        path: step.path ?? undefined,
-                        resetBudget: false,
-                    });
-                }
-            }
-            catch (error) {
-
-                const message = error instanceof Error ? error.message : String(error);
-                (0, movement_debug_1.logServerNextMovement)(this.logger, 'runtime.navigation.error', {
-                    playerId,
-                    intent,
-                    message,
-                });
-                this.navigationIntents.delete(playerId);
-                this.queuePlayerNotice(playerId, message, 'warn');
-            }
-        }
+        this.worldRuntimeNavigationService.materializeNavigationCommands(this);
     }
     /** resolveNavigationStep：为当前导航目标计算下一步动作。 */
     resolveNavigationStep(playerId, intent) {
-
-        const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
-
-        const location = this.getPlayerLocationOrThrow(playerId);
-
-        const instance = this.getInstanceRuntimeOrThrow(location.instanceId);
-
-        const destination = this.resolveNavigationDestination(playerId, intent);
-        if (destination.mapId !== player.templateId) {
-
-            const route = this.findMapRoute(player.templateId, destination.mapId);
-            if (!route || route.length < 2) {
-                throw new common_1.BadRequestException(`无法规划前往 ${destination.mapId} 的跨图路线`);
-            }
-
-            const nextMapId = route[1];
-
-            const portal = selectNearestPortal(instance.template.portals, nextMapId, player.x, player.y);
-            if (!portal) {
-                throw new common_1.BadRequestException(`当前地图没有通往 ${nextMapId} 的界门`);
-            }
-            if (player.x === portal.x && player.y === portal.y) {
-                (0, movement_debug_1.logServerNextMovement)(this.logger, 'runtime.navigation.crossMap.atPortal', {
-                    playerId,
-                    fromMapId: player.templateId,
-                    destinationMapId: destination.mapId,
-                    route,
-                    portal,
-                });
-                return { kind: 'portal' };
-            }
-
-            const pathResult = findOptimalPathOnMap(instance, player.playerId, player.x, player.y, [{
-                    x: portal.x,
-                    y: portal.y,
-                }]);
-            if (!pathResult || pathResult.points.length === 0) {
-                throw new common_1.BadRequestException('前往界门的路径不可达');
-            }
-
-            const previewPath = (0, movement_debug_1.isServerNextMovementDebugEnabled)() ? pathResult.points : null;
-
-            const direction = directionFromStep(player.x, player.y, pathResult.points[0].x, pathResult.points[0].y);
-            if (direction === null) {
-                throw new common_1.BadRequestException('前往界门的路径不可达');
-            }
-            (0, movement_debug_1.logServerNextMovement)(this.logger, 'runtime.navigation.crossMap.path', {
-                playerId,
-                fromMapId: player.templateId,
-                destinationMapId: destination.mapId,
-                from: { x: player.x, y: player.y },
-                route,
-                portal,
-                direction,
-                previewPath: previewPath ? previewPath.map((entry) => ({ x: entry.x, y: entry.y })) : null,
-                pathCost: pathResult.cost,
-            });
-            return {
-                kind: 'move',
-                direction,
-                maxSteps: pathResult.points.length,
-                path: pathResult.points.map((entry) => ({ x: entry.x, y: entry.y })),
-            };
-        }
-        if (destination.goals.some((goal) => goal.x === player.x && goal.y === player.y)) {
-            (0, movement_debug_1.logServerNextMovement)(this.logger, 'runtime.navigation.arrived', {
-                playerId,
-                mapId: destination.mapId,
-                at: { x: player.x, y: player.y },
-                goals: destination.goals,
-            });
-            return { kind: 'done' };
-        }
-
-        const preferredPath = intent.kind === 'point'
-            ? resolvePreferredClientPathHint(instance, player.playerId, player.x, player.y, destination.goals, intent.clientPathHint)
-            : null;
-
-        const serverPathResult = preferredPath
-            ? null
-            : findOptimalPathOnMap(instance, player.playerId, player.x, player.y, destination.goals);
-
-        const pathResult = preferredPath ?? serverPathResult;
-        if (!pathResult || pathResult.points.length === 0) {
-            throw new common_1.BadRequestException(intent.kind === 'quest' ? '任务目标当前不可达' : '无法到达该位置');
-        }
-
-        const direction = directionFromStep(player.x, player.y, pathResult.points[0].x, pathResult.points[0].y);
-        if (direction === null) {
-            throw new common_1.BadRequestException(intent.kind === 'quest' ? '任务目标当前不可达' : '无法到达该位置');
-        }
-
-        const previewPath = (0, movement_debug_1.isServerNextMovementDebugEnabled)() ? pathResult.points : null;
-        (0, movement_debug_1.logServerNextMovement)(this.logger, 'runtime.navigation.local.path', {
-            playerId,
-            mapId: destination.mapId,
-            from: { x: player.x, y: player.y },
-            goals: destination.goals,
-            direction,
-            previewPath: previewPath ? previewPath.map((entry) => ({ x: entry.x, y: entry.y })) : null,
-            pathSource: preferredPath ? 'client_hint' : 'server_optimal',
-            pathCost: pathResult.cost,
-        });
-        return {
-            kind: 'move',
-            direction,
-            maxSteps: pathResult.points.length,
-            path: pathResult.points.map((entry) => ({ x: entry.x, y: entry.y })),
-        };
+        return this.worldRuntimeNavigationService.resolveNavigationStep(playerId, intent, this);
     }
     /** resolveNavigationDestination：把点位导航或任务导航归一成可寻路目标。 */
     resolveNavigationDestination(playerId, intent) {
-        if (intent.kind === 'point') {
-
-            const location = this.getPlayerLocationOrThrow(playerId);
-
-            const instance = this.getInstanceRuntimeOrThrow(location.instanceId);
-
-            const goals = buildGoalPoints(instance, intent.x, intent.y, intent.allowNearestReachable);
-            if (goals.length === 0) {
-                throw new common_1.BadRequestException('无法到达该位置');
-            }
-            return {
-                mapId: intent.mapId,
-                goals,
-            };
-        }
-
-        const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
-
-        const quest = player.quests.quests.find((entry) => entry.id === intent.questId && entry.status !== 'completed');
-        if (!quest) {
-            throw new common_1.NotFoundException('目标任务不存在或已完成');
-        }
-
-        const resolved = this.resolveQuestNavigationTarget(quest);
-        if (!resolved) {
-            throw new common_1.BadRequestException('当前任务没有可导航目标');
-        }
-
-        const targetTemplate = this.templateRepository.getOrThrow(resolved.mapId);
-
-        const goals = resolved.adjacent
-            ? buildAdjacentGoalPoints(targetTemplate, resolved.x, resolved.y)
-            : buildGoalPointsFromTemplate(targetTemplate, resolved.x, resolved.y, true);
-        if (goals.length === 0) {
-            throw new common_1.BadRequestException('任务目标当前不可达');
-        }
-        return {
-            mapId: resolved.mapId,
-            goals,
-        };
+        return this.worldRuntimeNavigationService.resolveNavigationDestination(playerId, intent, this);
     }
     /** materializeAutoCombatCommands：把自动战斗意图落成当前 tick 的战斗命令。 */
     materializeAutoCombatCommands() {
         for (const playerId of this.playerLocations.keys()) {
-            if (this.pendingCommands.has(playerId) || this.navigationIntents.has(playerId)) {
+            if (this.pendingCommands.has(playerId) || this.worldRuntimeNavigationService.hasNavigationIntent(playerId)) {
                 continue;
             }
 
@@ -3040,66 +2674,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     }
     /** dispatchMoveTo：执行点位导航的首步推进。 */
     dispatchMoveTo(playerId, x, y, allowNearestReachable, clientPathHint = null) {
-
-        const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
-        this.playerRuntimeService.recordActivity(playerId, this.resolveCurrentTickForPlayerId(playerId), {
-            interruptCultivation: true,
-        });
-
-        const intent = {
-            kind: 'point',
-            mapId: player.templateId,
-            x,
-            y,
-            allowNearestReachable,
-            clientPathHint,
-        };
-        this.navigationIntents.set(playerId, intent);
-        (0, movement_debug_1.logServerNextMovement)(this.logger, 'runtime.dispatch.moveTo', {
-            playerId,
-            from: {
-                mapId: player.templateId,
-                x: player.x,
-                y: player.y,
-            },
-            target: {
-                mapId: player.templateId,
-                x,
-                y,
-            },
-            allowNearestReachable,
-            previewPath: this.getLegacyNavigationPath(playerId),
-            clientPathHint: clientPathHint
-                ? {
-                    startX: clientPathHint.startX,
-                    startY: clientPathHint.startY,
-                    points: clientPathHint.points,
-                }
-                : null,
-        });
-
-        const initialStep = this.resolveNavigationStep(playerId, intent);
-        (0, movement_debug_1.logServerNextMovement)(this.logger, 'runtime.dispatch.moveTo.initialStep', {
-            playerId,
-            intent,
-            step: initialStep,
-        });
-        if (initialStep.kind === 'done') {
-            this.navigationIntents.delete(playerId);
-            return;
-        }
-        if (initialStep.kind === 'portal') {
-            this.dispatchInstanceCommand(playerId, { kind: 'portal' });
-            return;
-        }
-        this.dispatchInstanceCommand(playerId, {
-            kind: 'move',
-            direction: initialStep.direction,
-            continuous: true,
-            maxSteps: initialStep.maxSteps,
-            path: initialStep.path ?? undefined,
-            resetBudget: true,
-        });
+        this.worldRuntimeNavigationService.dispatchMoveTo(playerId, x, y, allowNearestReachable, clientPathHint, this);
     }
     /** dispatchBasicAttack：执行普通攻击结算，目标可以是玩家、妖兽或地块。 */
     dispatchBasicAttack(playerId, targetPlayerId, targetMonsterId, targetX, targetY) {
@@ -4012,7 +3587,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             instanceId: targetInstance.meta.instanceId,
             sessionId: runtimePlayer.sessionId,
         });
-        this.navigationIntents.delete(playerId);
+        this.worldRuntimeNavigationService.clearNavigationIntent(playerId);
         this.playerRuntimeService.respawnPlayer(playerId, {
             instanceId: targetInstance.meta.instanceId,
             templateId: targetInstance.template.id,
@@ -4115,7 +3690,8 @@ exports.WorldRuntimeService = WorldRuntimeService = WorldRuntimeService_1 = __de
         world_runtime_gm_queue_service_1.WorldRuntimeGmQueueService,
         world_runtime_craft_service_1.WorldRuntimeCraftService,
         world_runtime_npc_quest_shop_service_1.WorldRuntimeNpcQuestShopService,
-        world_runtime_loot_container_service_1.WorldRuntimeLootContainerService])
+        world_runtime_loot_container_service_1.WorldRuntimeLootContainerService,
+        world_runtime_navigation_service_1.WorldRuntimeNavigationService])
 ], WorldRuntimeService);
 // helper functions were split into dedicated helper modules for maintainability.
 //# sourceMappingURL=world-runtime.service.js.map

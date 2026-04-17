@@ -10,7 +10,6 @@ exports.WORLD_RUNTIME_STATE_CONTRACT = Object.freeze({
         'pendingCommands',
         'pendingSystemCommands',
         'pendingRespawnPlayerIds',
-        'navigationIntents',
         'instanceTickProgressById',
         'latestCombatEffectsByInstanceId',
     ]),
