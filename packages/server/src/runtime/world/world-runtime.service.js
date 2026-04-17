@@ -64,6 +64,8 @@ const world_runtime_basic_attack_service_1 = require("./world-runtime-basic-atta
 
 const world_runtime_player_skill_dispatch_service_1 = require("./world-runtime-player-skill-dispatch.service");
 
+const world_runtime_auto_combat_service_1 = require("./world-runtime-auto-combat.service");
+
 const player_combat_service_1 = require("../combat/player-combat.service");
 
 const map_instance_runtime_1 = require("../instance/map-instance.runtime");
@@ -252,6 +254,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     worldRuntimeMonsterActionApplyService;
     worldRuntimeBasicAttackService;
     worldRuntimePlayerSkillDispatchService;
+    worldRuntimeAutoCombatService;
     logger = new common_1.Logger(WorldRuntimeService_1.name);
     stateLayerContract = world_runtime_contract_1.WORLD_RUNTIME_STATE_CONTRACT;
     runtimeState = (0, world_runtime_state_1.createWorldRuntimeStateStore)();
@@ -274,7 +277,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     tickDurationHistoryMs = [];
     syncFlushDurationHistoryMs = [];
     instanceTickProgressById = this.runtimeState.instanceTickProgressById;
-    constructor(contentTemplateRepository, templateRepository, mapPersistenceService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService, craftPanelRuntimeService, worldRuntimeNpcShopQueryService, worldRuntimeQuestQueryService, worldRuntimeNpcQuestInteractionQueryService, worldRuntimeGmQueueService, worldRuntimeCraftService, worldRuntimeNpcQuestShopService, worldRuntimeLootContainerService, worldRuntimeNavigationService, worldRuntimeCombatEffectsService, worldRuntimeMonsterActionApplyService, worldRuntimeBasicAttackService, worldRuntimePlayerSkillDispatchService) {
+    constructor(contentTemplateRepository, templateRepository, mapPersistenceService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService, craftPanelRuntimeService, worldRuntimeNpcShopQueryService, worldRuntimeQuestQueryService, worldRuntimeNpcQuestInteractionQueryService, worldRuntimeGmQueueService, worldRuntimeCraftService, worldRuntimeNpcQuestShopService, worldRuntimeLootContainerService, worldRuntimeNavigationService, worldRuntimeCombatEffectsService, worldRuntimeMonsterActionApplyService, worldRuntimeBasicAttackService, worldRuntimePlayerSkillDispatchService, worldRuntimeAutoCombatService) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.templateRepository = templateRepository;
         this.mapPersistenceService = mapPersistenceService;
@@ -296,6 +299,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.worldRuntimeMonsterActionApplyService = worldRuntimeMonsterActionApplyService;
         this.worldRuntimeBasicAttackService = worldRuntimeBasicAttackService;
         this.worldRuntimePlayerSkillDispatchService = worldRuntimePlayerSkillDispatchService;
+        this.worldRuntimeAutoCombatService = worldRuntimeAutoCombatService;
     }
     /** onModuleInit：初始化公共实例的基础结构。 */
     async onModuleInit() {
@@ -1824,236 +1828,27 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     }
     /** materializeAutoCombatCommands：把自动战斗意图落成当前 tick 的战斗命令。 */
     materializeAutoCombatCommands() {
-        for (const playerId of this.playerLocations.keys()) {
-            if (this.pendingCommands.has(playerId) || this.worldRuntimeNavigationService.hasNavigationIntent(playerId)) {
-                continue;
-            }
-
-            const player = this.playerRuntimeService.getPlayer(playerId);
-            if (!player || player.hp <= 0) {
-                continue;
-            }
-            if (!player.combat.autoBattle && !player.combat.autoRetaliate) {
-                continue;
-            }
-
-            const location = this.playerLocations.get(playerId);
-            if (!location) {
-                continue;
-            }
-
-            const instance = this.instances.get(location.instanceId);
-            if (!instance) {
-                continue;
-            }
-            if (player.combat.autoBattle && instance.isSafeZoneTile(player.x, player.y)) {
-
-                const currentTick = this.resolveCurrentTickForPlayerId(playerId);
-                this.playerRuntimeService.updateCombatSettings(playerId, {
-                    autoBattle: false,
-                }, currentTick);
-                this.playerRuntimeService.clearCombatTarget(playerId, currentTick);
-                this.queuePlayerNotice(playerId, '安全区内无法发起攻击，自动战斗已停止。', 'warn');
-                continue;
-            }
-
-            const command = this.buildAutoCombatCommand(instance, player);
-            if (command) {
-                this.pendingCommands.set(playerId, command);
-            }
-        }
+        this.worldRuntimeAutoCombatService.materializeAutoCombatCommands(this);
     }
     /** buildAutoCombatCommand：为自动战斗构建移动、普攻或施法命令。 */
     buildAutoCombatCommand(instance, player) {
-        if (instance.isPointInSafeZone(player.x, player.y)) {
-            return null;
-        }
-
-        const radius = Math.max(1, Math.round(player.attrs.numericStats.viewRange));
-
-        const view = instance.buildPlayerView(player.playerId, radius);
-        if (!view || view.localMonsters.length === 0) {
-            return null;
-        }
-
-        const target = this.selectAutoCombatTarget(instance, player, view.localMonsters);
-        if (!target) {
-            return null;
-        }
-
-        const distance = chebyshevDistance(player.x, player.y, target.x, target.y);
-
-        const skillId = this.pickAutoBattleSkill(player, distance);
-        if (skillId) {
-            return {
-                kind: 'castSkill',
-                skillId,
-                targetPlayerId: null,
-                targetMonsterId: target.runtimeId,
-            };
-        }
-        if (distance <= 1) {
-            return {
-                kind: 'basicAttack',
-                targetPlayerId: null,
-                targetMonsterId: target.runtimeId,
-                targetX: null,
-                targetY: null,
-            };
-        }
-        if (player.combat.autoBattleStationary) {
-            return null;
-        }
-
-        const desiredRange = this.resolveAutoBattleDesiredRange(player);
-        if (desiredRange > 1 && distance <= desiredRange) {
-            return null;
-        }
-
-        const goals = buildAutoBattleGoalPoints(instance, target.x, target.y, desiredRange);
-
-        const direction = findNextDirectionOnMap(instance, player.playerId, player.x, player.y, goals, false);
-        if (direction === null) {
-            return null;
-        }
-        return {
-            kind: 'move',
-            direction,
-            continuous: true,
-        };
+        return this.worldRuntimeAutoCombatService.buildAutoCombatCommand(instance, player, this);
     }
     /** selectAutoCombatTarget：从当前视野里选择自动战斗目标。 */
     selectAutoCombatTarget(instance, player, visibleMonsters) {
-        if (player.combat.autoBattle) {
-
-            const trackedTarget = this.resolveTrackedAutoCombatTarget(instance, player, visibleMonsters);
-            if (trackedTarget) {
-                return trackedTarget;
-            }
-        }
-
-        let best = null;
-
-        let bestAggro = -1;
-
-        let bestDistance = Number.MAX_SAFE_INTEGER;
-
-        let bestHp = Number.MAX_SAFE_INTEGER;
-        for (const monster of visibleMonsters) {
-            const liveMonster = instance.getMonster(monster.runtimeId);
-            if (!liveMonster?.alive) {
-                continue;
-            }
-
-            const retaliating = liveMonster.aggroTargetPlayerId === player.playerId;
-            if (!player.combat.autoBattle && !retaliating) {
-                continue;
-            }
-
-            const aggroRank = retaliating ? 1 : 0;
-
-            const distance = chebyshevDistance(player.x, player.y, monster.x, monster.y);
-            if (aggroRank > bestAggro
-                || (aggroRank === bestAggro && distance < bestDistance)
-                || (aggroRank === bestAggro && distance === bestDistance && monster.hp < bestHp)
-                || (aggroRank === bestAggro && distance === bestDistance && monster.hp === bestHp
-                    && best && monster.runtimeId < best.runtimeId)) {
-                best = monster;
-                bestAggro = aggroRank;
-                bestDistance = distance;
-                bestHp = monster.hp;
-            }
-        }
-        if (best && player.combat.autoBattle && player.combat.combatTargetId !== best.runtimeId) {
-            this.playerRuntimeService.setCombatTarget(player.playerId, best.runtimeId, false, this.resolveCurrentTickForPlayerId(player.playerId));
-        }
-        return best;
+        return this.worldRuntimeAutoCombatService.selectAutoCombatTarget(instance, player, visibleMonsters, this);
     }
     /** resolveTrackedAutoCombatTarget：解析已锁定的自动战斗目标。 */
     resolveTrackedAutoCombatTarget(instance, player, visibleMonsters) {
-
-        const targetRuntimeId = player.combat.combatTargetId;
-        if (!targetRuntimeId || targetRuntimeId.startsWith('player:') || targetRuntimeId.startsWith('tile:')) {
-            return null;
-        }
-
-        const visibleTarget = visibleMonsters.find((entry) => entry.runtimeId === targetRuntimeId);
-        if (visibleTarget) {
-            return visibleTarget;
-        }
-
-        const trackedTarget = instance.getMonster(targetRuntimeId);
-
-        const radius = Math.max(1, Math.round(player.attrs.numericStats.viewRange));
-        if (trackedTarget?.alive
-            && chebyshevDistance(player.x, player.y, trackedTarget.x, trackedTarget.y) <= radius) {
-            return trackedTarget;
-        }
-
-        const locked = player.combat.combatTargetLocked;
-        if (locked) {
-
-            const currentTick = this.resolveCurrentTickForPlayerId(player.playerId);
-            this.playerRuntimeService.updateCombatSettings(player.playerId, {
-                autoBattle: false,
-            }, currentTick);
-            this.queuePlayerNotice(player.playerId, '强制攻击目标已经失去踪迹，自动战斗已停止。', 'combat');
-            return null;
-        }
-        this.playerRuntimeService.clearCombatTarget(player.playerId, this.resolveCurrentTickForPlayerId(player.playerId));
-        return null;
+        return this.worldRuntimeAutoCombatService.resolveTrackedAutoCombatTarget(instance, player, visibleMonsters, this);
     }
     /** pickAutoBattleSkill：选择当前距离可用的自动战斗技能。 */
     pickAutoBattleSkill(player, distance) {
-        for (const action of player.actions.actions) {
-            if (action.type !== 'skill') {
-                continue;
-            }
-            if (action.autoBattleEnabled === false || action.skillEnabled === false) {
-                continue;
-            }
-            if ((action.cooldownLeft ?? 0) > 0) {
-                continue;
-            }
-
-            const range = Math.max(1, Math.round(action.range ?? 1));
-            if (distance > range) {
-                continue;
-            }
-
-            const skill = findPlayerSkill(player, action.id);
-            if (!skill) {
-                continue;
-            }
-            if (player.qi < resolveAutoBattleSkillQiCost(skill.cost, player.attrs.numericStats.maxQiOutputPerTick)) {
-                continue;
-            }
-            return skill.id;
-        }
-        return null;
+        return this.worldRuntimeAutoCombatService.pickAutoBattleSkill(player, distance);
     }
     /** resolveAutoBattleDesiredRange：计算自动战斗期望停留射程。 */
     resolveAutoBattleDesiredRange(player) {
-
-        let desiredRange = 1;
-        for (const action of player.actions.actions) {
-            if (action.type !== 'skill') {
-                continue;
-            }
-            if (action.autoBattleEnabled === false || action.skillEnabled === false) {
-                continue;
-            }
-
-            const skill = findPlayerSkill(player, action.id);
-            if (!skill) {
-                continue;
-            }
-            if (player.qi < resolveAutoBattleSkillQiCost(skill.cost, player.attrs.numericStats.maxQiOutputPerTick)) {
-                continue;
-            }
-            desiredRange = Math.max(desiredRange, Math.max(1, Math.round(action.range ?? 1)));
-        }
-        return desiredRange;
+        return this.worldRuntimeAutoCombatService.resolveAutoBattleDesiredRange(player);
     }
     /** dispatchPendingCommands：派发玩家待执行命令。 */
     dispatchPendingCommands() {
@@ -3227,7 +3022,8 @@ exports.WorldRuntimeService = WorldRuntimeService = WorldRuntimeService_1 = __de
         world_runtime_combat_effects_service_1.WorldRuntimeCombatEffectsService,
         world_runtime_monster_action_apply_service_1.WorldRuntimeMonsterActionApplyService,
         world_runtime_basic_attack_service_1.WorldRuntimeBasicAttackService,
-        world_runtime_player_skill_dispatch_service_1.WorldRuntimePlayerSkillDispatchService])
+        world_runtime_player_skill_dispatch_service_1.WorldRuntimePlayerSkillDispatchService,
+        world_runtime_auto_combat_service_1.WorldRuntimeAutoCombatService])
 ], WorldRuntimeService);
 // helper functions were split into dedicated helper modules for maintainability.
 //# sourceMappingURL=world-runtime.service.js.map
