@@ -85,6 +85,7 @@ async function main() {
  * 记录defenderself。
  */
     const defenderSelf = [];
+    const attackerWorld = [];
     attacker.on(shared_1.NEXT_S2C.Error, (payload) => {
         throw new Error(`attacker socket error: ${JSON.stringify(payload)}`);
     });
@@ -102,6 +103,9 @@ async function main() {
     });
     defender.on(shared_1.NEXT_S2C.SelfDelta, (payload) => {
         defenderSelf.push(payload);
+    });
+    attacker.on(shared_1.NEXT_S2C.WorldDelta, (payload) => {
+        attackerWorld.push(payload);
     });
     attacker.on(shared_1.NEXT_S2C.InitSession, (payload) => {
         attackerId = String(payload?.pid ?? '');
@@ -205,7 +209,7 @@ async function main() {
         castStateAttacker = await fetchState(attackerId);
         castStateDefender = await fetchState(defenderId);
         damageDetected = castStateDefender.player.hp < defenderBefore.player.hp;
-        if (damageDetected) {
+        if (damageDetected && attackerWorld.some(hasCombatFx)) {
             break;
         }
         if (attempt === 2) {
@@ -228,6 +232,9 @@ async function main() {
     }
     if (cooldownAfterCast <= 0) {
         throw new Error(`expected skill cooldown after cast, got ${cooldownAfterCast}`);
+    }
+    if (!attackerWorld.some(hasCombatFx)) {
+        throw new Error('expected combat fx world delta after cast');
     }
     await waitFor(async () => {
         const [attackerAfterTick, defenderAfterTick] = await Promise.all([fetchState(attackerId), fetchState(defenderId)]);
@@ -268,9 +275,13 @@ async function main() {
         defenderSelfEvents: defenderSelf,
         attackerPanels: attackerPanels.length,
         defenderPanels: defenderPanels.length,
+        attackerWorldEvents: attackerWorld.length,
         finalAttacker,
         finalDefender,
     }, null, 2));
+}
+function hasCombatFx(payload) {
+    return Array.isArray(payload?.fx) && payload.fx.length > 0;
 }
 /**
  * 处理fetch状态。

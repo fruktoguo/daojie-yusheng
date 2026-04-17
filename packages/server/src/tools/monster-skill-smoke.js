@@ -70,8 +70,12 @@ async function main() {
         path: '/socket.io',
         transports: ['websocket'],
     });
+    const worldEvents = [];
     socket.on(shared_1.NEXT_S2C.Error, (payload) => {
         throw new Error(`socket error: ${JSON.stringify(payload)}`);
+    });
+    socket.on(shared_1.NEXT_S2C.WorldDelta, (payload) => {
+        worldEvents.push(payload);
     });
     socket.on(shared_1.NEXT_S2C.InitSession, (payload) => {
         playerId = String(payload?.pid ?? '');
@@ -178,6 +182,9 @@ async function main() {
  * 记录final怪物。
  */
         const finalMonster = await fetchMonster(instanceId, resolvedTarget.runtimeId);
+        if (!worldEvents.some(hasCombatFx)) {
+            throw new Error('expected combat fx world delta after monster skill');
+        }
         console.log(JSON.stringify({
             ok: true,
             url: SERVER_NEXT_URL,
@@ -191,6 +198,7 @@ async function main() {
             targetBuffApplied: targetBuffId
                 ? finalPlayer.player.buffs?.buffs?.some((entry) => entry.buffId === targetBuffId)
                 : null,
+            worldEventCount: worldEvents.length,
             monsterSkillCooldownReadyTick: finalMonster.monster.cooldownReadyTickBySkillId?.[skill.id] ?? null,
             finalMonster,
             finalPlayer,
@@ -200,6 +208,9 @@ async function main() {
         socket.close();
         await deletePlayer(playerId);
     }
+}
+function hasCombatFx(payload) {
+    return Array.isArray(payload?.fx) && payload.fx.length > 0;
 }
 /**
  * 处理selectranged技能。
