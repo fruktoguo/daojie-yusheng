@@ -231,13 +231,14 @@
 
 ### 第 5 批：删协议 / 文档中的过时 compat 证明
 
-- [ ] 在前 4 批完成后，继续清理 `next-auth-bootstrap-smoke.js` 中仍未执行但保留在文件里的 legacy/compat 历史 helper
+- [x] 在前 4 批完成后，继续清理 `next-auth-bootstrap-smoke.js` 中仍未执行但保留在文件里的 legacy/compat 历史 helper
 - [x] 更新 `docs/next-legacy-boundary-audit.md`，确认 inventory 已从“主链 bridge”收缩成“剩余历史痕迹”
 - [x] 更新本任务文档，把已删除 compat 面逐条勾掉
 
 本轮已收口的子步：
 
 - `next-auth-bootstrap-smoke.js` 已删除 stale legacy/compat proof 输出键：`legacyBackfillFallbackContract`、`compatRuntimeSnapshotGuardContract`、`strictNativeCompatSnapshotIgnoredContract`、`legacyHttpIdentityFallbackGateContract`、`legacyHttpIdentityFallbackOptInContract` 与 `legacyEventsOnNextSocket`
+- `next-auth-bootstrap-smoke.js` 已删除对应的 dead helper：`verifyLegacyBackfillSnapshotFallbackContract`、`verifyCompatRuntimeSnapshotGuardContract`、`verifyStrictNativeCompatSnapshotIgnoredContract`
 - `docs/next-legacy-boundary-audit.md` 已更新为 `0 / 18` 命中，当前只保留“剩余历史痕迹”口径
 - 本任务文档已同步前 1-4 批完成状态与本轮验证记录
 
