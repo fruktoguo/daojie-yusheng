@@ -13,7 +13,6 @@ function createWorldRuntimeStateStore() {
         instanceTickProgressById: new Map(),
         containerStatesByInstanceId: new Map(),
         dirtyContainerPersistenceInstanceIds: new Set(),
-        latestCombatEffectsByInstanceId: new Map(),
     };
 }
 exports.createWorldRuntimeStateStore = createWorldRuntimeStateStore;

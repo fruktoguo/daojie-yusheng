@@ -11,7 +11,6 @@ exports.WORLD_RUNTIME_STATE_CONTRACT = Object.freeze({
         'pendingSystemCommands',
         'pendingRespawnPlayerIds',
         'instanceTickProgressById',
-        'latestCombatEffectsByInstanceId',
     ]),
     restoreBackedRuntime: Object.freeze([
         'containerStatesByInstanceId',

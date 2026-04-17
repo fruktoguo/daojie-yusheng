@@ -84,6 +84,8 @@ const world_runtime_loot_container_service_1 = require("./runtime/world/world-ru
 
 const world_runtime_navigation_service_1 = require("./runtime/world/world-runtime-navigation.service");
 
+const world_runtime_combat_effects_service_1 = require("./runtime/world/world-runtime-combat-effects.service");
+
 const map_template_repository_1 = require("./runtime/map/map-template.repository");
 
 const runtime_map_config_service_1 = require("./runtime/map/runtime-map-config.service");
@@ -163,6 +165,7 @@ exports.AppModule = AppModule = __decorate([
             world_runtime_npc_quest_shop_service_1.WorldRuntimeNpcQuestShopService,
             world_runtime_loot_container_service_1.WorldRuntimeLootContainerService,
             world_runtime_navigation_service_1.WorldRuntimeNavigationService,
+            world_runtime_combat_effects_service_1.WorldRuntimeCombatEffectsService,
             runtime_map_config_service_1.RuntimeMapConfigService,
             player_combat_service_1.PlayerCombatService,
             map_persistence_service_1.MapPersistenceService,

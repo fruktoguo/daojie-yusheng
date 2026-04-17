@@ -56,6 +56,8 @@ const world_runtime_loot_container_service_1 = require("./world-runtime-loot-con
 
 const world_runtime_navigation_service_1 = require("./world-runtime-navigation.service");
 
+const world_runtime_combat_effects_service_1 = require("./world-runtime-combat-effects.service");
+
 const player_combat_service_1 = require("../combat/player-combat.service");
 
 const map_instance_runtime_1 = require("../instance/map-instance.runtime");
@@ -240,6 +242,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     worldRuntimeNpcQuestShopService;
     worldRuntimeLootContainerService;
     worldRuntimeNavigationService;
+    worldRuntimeCombatEffectsService;
     logger = new common_1.Logger(WorldRuntimeService_1.name);
     stateLayerContract = world_runtime_contract_1.WORLD_RUNTIME_STATE_CONTRACT;
     runtimeState = (0, world_runtime_state_1.createWorldRuntimeStateStore)();
@@ -262,8 +265,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     tickDurationHistoryMs = [];
     syncFlushDurationHistoryMs = [];
     instanceTickProgressById = this.runtimeState.instanceTickProgressById;
-    latestCombatEffectsByInstanceId = this.runtimeState.latestCombatEffectsByInstanceId;
-    constructor(contentTemplateRepository, templateRepository, mapPersistenceService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService, craftPanelRuntimeService, worldRuntimeNpcShopQueryService, worldRuntimeQuestQueryService, worldRuntimeNpcQuestInteractionQueryService, worldRuntimeGmQueueService, worldRuntimeCraftService, worldRuntimeNpcQuestShopService, worldRuntimeLootContainerService, worldRuntimeNavigationService) {
+    constructor(contentTemplateRepository, templateRepository, mapPersistenceService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService, craftPanelRuntimeService, worldRuntimeNpcShopQueryService, worldRuntimeQuestQueryService, worldRuntimeNpcQuestInteractionQueryService, worldRuntimeGmQueueService, worldRuntimeCraftService, worldRuntimeNpcQuestShopService, worldRuntimeLootContainerService, worldRuntimeNavigationService, worldRuntimeCombatEffectsService) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.templateRepository = templateRepository;
         this.mapPersistenceService = mapPersistenceService;
@@ -281,6 +283,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.worldRuntimeNpcQuestShopService = worldRuntimeNpcQuestShopService;
         this.worldRuntimeLootContainerService = worldRuntimeLootContainerService;
         this.worldRuntimeNavigationService = worldRuntimeNavigationService;
+        this.worldRuntimeCombatEffectsService = worldRuntimeCombatEffectsService;
     }
     /** onModuleInit：初始化公共实例的基础结构。 */
     async onModuleInit() {
@@ -332,9 +335,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     }
     /** getCombatEffects：读取当前实例战斗效果。 */
     getCombatEffects(instanceId) {
-
-        const effects = this.latestCombatEffectsByInstanceId.get(instanceId);
-        return effects ? effects.map((entry) => cloneCombatEffect(entry)) : [];
+        return this.worldRuntimeCombatEffectsService.getCombatEffects(instanceId).map((entry) => cloneCombatEffect(entry));
     }
     /** connectPlayer：将玩家接入当前实例，并同步初始移动速度与位置。 */
     connectPlayer(input) {
@@ -1503,7 +1504,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     advanceFrame(frameDurationMs = 1000, getInstanceTickSpeed = null) {
 
         const startedAt = performance.now();
-        this.latestCombatEffectsByInstanceId.clear();
+        this.worldRuntimeCombatEffectsService.resetFrameEffects();
 
         const instanceStepPlans = [];
 
@@ -1662,7 +1663,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.worldRuntimeNavigationService.reset();
         this.instanceTickProgressById.clear();
         this.worldRuntimeLootContainerService.reset();
-        this.latestCombatEffectsByInstanceId.clear();
+        this.worldRuntimeCombatEffectsService.resetAll();
         this.bootstrapPublicInstances();
         await this.restorePublicInstancePersistence();
     }
@@ -3627,46 +3628,19 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     }
     /** pushCombatEffect：收集战斗特效，等待同步层统一发送。 */
     pushCombatEffect(instanceId, effect) {
-
-        const list = this.latestCombatEffectsByInstanceId.get(instanceId);
-        if (list) {
-            list.push(effect);
-            return;
-        }
-        this.latestCombatEffectsByInstanceId.set(instanceId, [effect]);
+        this.worldRuntimeCombatEffectsService.pushCombatEffect(instanceId, effect);
     }
     /** pushActionLabelEffect：追加动作标签浮字特效。 */
     pushActionLabelEffect(instanceId, x, y, text) {
-        this.pushCombatEffect(instanceId, {
-            type: 'float',
-            x,
-            y,
-            text,
-            color: '#efe3c2',
-            variant: 'action',
-        });
+        this.worldRuntimeCombatEffectsService.pushActionLabelEffect(instanceId, x, y, text);
     }
     /** pushDamageFloatEffect：追加伤害数字浮字特效。 */
     pushDamageFloatEffect(instanceId, x, y, damage, color) {
-        this.pushCombatEffect(instanceId, {
-            type: 'float',
-            x,
-            y,
-            text: `-${Math.max(0, Math.round(damage))}`,
-            color,
-            variant: 'damage',
-        });
+        this.worldRuntimeCombatEffectsService.pushDamageFloatEffect(instanceId, x, y, damage, color);
     }
     /** pushAttackEffect：追加攻击轨迹特效。 */
     pushAttackEffect(instanceId, fromX, fromY, toX, toY, color) {
-        this.pushCombatEffect(instanceId, {
-            type: 'attack',
-            fromX,
-            fromY,
-            toX,
-            toY,
-            color,
-        });
+        this.worldRuntimeCombatEffectsService.pushAttackEffect(instanceId, fromX, fromY, toX, toY, color);
     }
 };
 exports.WorldRuntimeService = WorldRuntimeService;
@@ -3691,7 +3665,8 @@ exports.WorldRuntimeService = WorldRuntimeService = WorldRuntimeService_1 = __de
         world_runtime_craft_service_1.WorldRuntimeCraftService,
         world_runtime_npc_quest_shop_service_1.WorldRuntimeNpcQuestShopService,
         world_runtime_loot_container_service_1.WorldRuntimeLootContainerService,
-        world_runtime_navigation_service_1.WorldRuntimeNavigationService])
+        world_runtime_navigation_service_1.WorldRuntimeNavigationService,
+        world_runtime_combat_effects_service_1.WorldRuntimeCombatEffectsService])
 ], WorldRuntimeService);
 // helper functions were split into dedicated helper modules for maintainability.
 //# sourceMappingURL=world-runtime.service.js.map
