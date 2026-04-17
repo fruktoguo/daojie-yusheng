@@ -82,10 +82,11 @@
 ### 第 2 批：盘点 next 行为仍受 legacy 影响的入口
 
 - [x] 扫描 `packages/server/src/network/*`、`packages/server/src/runtime/*`
-- [ ] 扫描 `packages/client/src/*`
-- [ ] 扫描 `packages/shared/src/*`
+- [x] 扫描 `packages/client/src/*`
+- [x] 扫描 `packages/shared/src/*`
 - [ ] 只记录会影响 next 行为定义的入口，不把纯 inventory/audit 统计进来
 - [x] 用 `pnpm --filter @mud/server-next proof:next-runtime-network-no-legacy-source` 固定 server runtime/network 不 direct 读取 `legacy/*`
+- [x] 用 `pnpm proof:next-client-shared-no-legacy-source` 固定 client/shared 不 direct 读取 `legacy/*`
 
 应优先记入清单的类型：
 
@@ -98,6 +99,7 @@
 
 - 哪些入口已在 `01/05` 里归为“临时允许”
 - 哪些入口应直接删除
+- 当前 direct legacy source 扫描未命中 `packages/client/src/*` 与 `packages/shared/src/*`；客户端旧 alias / 事件消费差异继续留在 `NEXT_S2C` 对齐阶段处理
 
 ### 第 3 批：对齐 `NEXT_C2S` 到 `world.gateway.js`
 
