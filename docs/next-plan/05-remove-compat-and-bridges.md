@@ -72,7 +72,7 @@
 ### `packages/server/src/persistence/*` 与运行时兼容装载
 
 - `packages/server/src/persistence/player-persistence.service.js`
-  - 仍兼容 `legacy:vitals_baseline` 标签。
+  - `legacy:vitals_baseline` 兼容规范化已删；当前剩余 compat 面是 `legacy_seeded` persistedSource。
 - `packages/server/src/persistence/player-identity-persistence.service.js`
   - 仍显式保留 `legacy_backfill` / `legacy_sync` persistedSource 常量。
 - `packages/server/src/runtime/player/player-runtime.service.js`
@@ -177,7 +177,7 @@
 
 - [x] 删除 `world-sync.service.js` 中对 `getLegacyCombatEffects()` 的直接读取
 - [x] 删除 `player-runtime.service.js` 中 `resolveCompatiblePendingLogbookMessages()` / `resolveCompatibleRuntimeBonuses()`
-- [ ] 删除 `player-runtime.service.js`、`player-persistence.service.js`、`world-player-source.service.js` 中对 `legacy:vitals_baseline` 的兼容规范化
+- [x] 删除 `player-runtime.service.js`、`player-persistence.service.js`、`world-player-source.service.js` 中对 `legacy:vitals_baseline` 的兼容规范化
 - [x] 删除 `world-session-bootstrap.service.js` 中只用于 compat miss 描述的回退原因分支
 
 删除前提：
@@ -195,12 +195,13 @@
 本轮实际补跑：
 
 - `world-sync.service.js` 当前只经 `appendNextCombatEffects()` → `collectNextCombatEffects()` 走 next 战斗特效主链
-- `player-persistence.service.js` 已删除对 `legacy:vitals_baseline` → `runtime:vitals_baseline` 的持久化兼容改写（其余 `vitals_baseline` 残留仍待继续清理）
-- `world-player-source.service.js` 已删除对 `legacy:vitals_baseline` → `runtime:vitals_baseline` 的迁移读取兼容改写（其余 `vitals_baseline` 残留仍待继续清理）
-- `SERVER_NEXT_DATABASE_URL=postgres://mud:jiuzhou123@127.0.0.1:15432/mud_mmo_next DATABASE_URL=postgres://mud:jiuzhou123@127.0.0.1:15432/mud_mmo_next pnpm --filter @mud/server-next smoke:runtime`
-- `SERVER_NEXT_DATABASE_URL=postgres://mud:jiuzhou123@127.0.0.1:15432/mud_mmo_next DATABASE_URL=postgres://mud:jiuzhou123@127.0.0.1:15432/mud_mmo_next pnpm --filter @mud/server-next smoke:progression`
-- `SERVER_NEXT_DATABASE_URL=postgres://mud:jiuzhou123@127.0.0.1:15432/mud_mmo_next DATABASE_URL=postgres://mud:jiuzhou123@127.0.0.1:15432/mud_mmo_next pnpm --filter @mud/server-next smoke:next-auth-bootstrap`
-- `SERVER_NEXT_DATABASE_URL=postgres://mud:jiuzhou123@127.0.0.1:15432/mud_mmo_next DATABASE_URL=postgres://mud:jiuzhou123@127.0.0.1:15432/mud_mmo_next pnpm verify:replace-ready`
+- `player-runtime.service.js` 已删除 `legacy:vitals_baseline` → `runtime:vitals_baseline` 的运行时兼容规范化。
+- `player-persistence.service.js` 与 `world-player-source.service.js` 上的 `legacy:vitals_baseline` 兼容点已不再存在；当前持久化侧剩余 compat 面不再属于该标签。
+- `pnpm --filter @mud/server-next smoke:runtime`
+- `pnpm --filter @mud/server-next smoke:progression`
+- `pnpm build`
+- `pnpm verify:replace-ready`
+- `pnpm audit:server-next-boundaries`
 
 ### 第 4 批：删 GM 历史 scope fallback
 
