@@ -226,6 +226,8 @@
 - 新增 `packages/server/src/network/world-sync-minimap.service.js`
 - `world-sync.service.js` 的 minimap marker cache / build / visible filter / diff 冷路径已委托给 `WorldSyncMinimapService`，`nextAuxStateByPlayerId.visibleMinimapMarkers` 仍暂留在 sync 编排层，继续由 mapChanged / MapStatic 编排统一控制
 - 本轮验证已补跑 `smoke:runtime`、`smoke:progression`、`audit:next-protocol`、根级 `pnpm build` 与 `pnpm verify:replace-ready`
+- `world-sync-protocol.service.js` 已接管主 envelope（`InitSession / MapEnter / WorldDelta / SelfDelta / PanelDelta`）与 `Bootstrap` 下发，`world-sync.service.js` 对这组发包只再保留薄委托
+- `packages/server/src/tools/next-protocol-audit.js` 与 `packages/shared/scripts/check-network-protobuf-contract.cjs` 已同步扩展 protocol 静态发包面审计；当前仍保留 `threat` 作为独立 `WorldDelta` 附加同步，不把它误写成 protocol 唯一出口
 
 优先保留原状的热路径：
 
