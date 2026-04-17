@@ -49,21 +49,20 @@
 ## 任务
 
 - [x] 确认 `packages/shared/src/protocol.ts` 是唯一协议真源
-- [ ] 确认 `packages/shared/src/types.ts` 是唯一共享类型真源
+- [x] 确认 `packages/shared/src/types.ts` 是唯一共享类型真源
 - [x] 确认 `packages/server/data/content/*` 是唯一内容真源
 - [x] 确认 `packages/server/data/maps/*` 是唯一地图真源
-- [ ] 确认 `packages/server/src/runtime/*` 是唯一服务端运行时主链
+- [x] 确认 `packages/server/src/runtime/*` 是唯一服务端运行时主链
 - [x] 确认 `packages/client/src/network/socket.ts` 是唯一前台 Socket 主链
 - [x] 确认 `packages/client/src/main.ts` 是唯一前台入口主链
-- [ ] 盘点仍通过 legacy 文件定义 next 行为的入口
-- [ ] 清掉“next 行为由 legacy 文件决定”的残留路径
-- [ ] 盘点 `NEXT_C2S` 声明与 `world.gateway.js` 实现差异
-- [ ] 盘点 `NEXT_S2C` 声明与客户端监听差异
+- [x] 盘点仍通过 legacy 文件定义 next 行为的入口
+- [x] 清掉“next 行为由 legacy 文件决定”的残留路径
+- [x] 盘点 `NEXT_C2S` 声明与 `world.gateway.js` 实现差异
+- [x] 盘点 `NEXT_S2C` 声明与客户端监听差异
 - [x] 决定 `SaveAlchemyPreset` 保留为 next 正式能力
 - [x] 决定 `DeleteAlchemyPreset` 保留为 next 正式能力
 - [x] 已补齐服务端实现
-- [ ] 如果不保留，删除共享协议声明和客户端发送入口
-- [ ] 跑一次协议审计，确认 client/server/shared 三边一致
+- [x] 跑一次协议审计，确认 client/server/shared 三边一致
 
 ## 执行顺序
 
@@ -71,7 +70,7 @@
 
 - [x] 在这份文档里把协议、共享类型、内容、地图、运行时、客户端入口的唯一真源表述固定
 - [x] 检查顶层文档是否还在用 `client-next/shared-next/server-next` 这种历史命名描述实际 `packages/*`
-- [ ] 把“由 legacy 决定 next 行为”的情况视为 bug，不再视为正常桥接
+- [x] 把“由 legacy 决定 next 行为”的情况视为 bug，不再视为正常桥接
 - [x] 用 `pnpm --filter @mud/server-next proof:next-content-map-sources` 固定内容 / 地图真源入口
 
 最小验证：

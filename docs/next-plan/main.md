@@ -66,9 +66,8 @@
 - [x] 决定 `SaveAlchemyPreset` 保留为 next 正式能力
 - [x] 决定 `DeleteAlchemyPreset` 保留为 next 正式能力
 - [x] 已在 next 网关和 runtime 补齐实现
-- [ ] 如果不保留，就从 `packages/shared/src/protocol.ts` 和客户端发送层删掉
-- [ ] 扫一遍所有 `NEXT_C2S` / `NEXT_S2C`，确认不再有“声明了但没实现”的事件
-- [ ] 跑一遍协议审计，确认共享协议、客户端、服务端三边一致
+- [x] 扫一遍所有 `NEXT_C2S` / `NEXT_S2C`，确认不再有“声明了但没实现”的事件
+- [x] 跑一遍协议审计，确认共享协议、客户端、服务端三边一致
 
 ## 4. 产出必须迁移的数据清单
 
