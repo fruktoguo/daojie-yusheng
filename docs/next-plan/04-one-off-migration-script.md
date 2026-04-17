@@ -149,16 +149,16 @@
 
 ### 第 3 批：补社区与运营域
 
-- [ ] `mail`
-- [ ] `market`
-- [ ] `suggestion`
-- [ ] `redeem`
-- [ ] `gm-auth`
-- [ ] `gm-database`
+- [x] `mail`
+- [x] `market`
+- [x] `suggestion`
+- [x] `redeem`
+- [x] `gm-auth`
+- [x] `gm-database`
 
 最小验证：
 
-- `pnpm --filter @mud/server-next migrate:legacy-next:once -- --fixture=... --domains=mail,market,redeem,suggestion,gm-auth,gm-database`
+- `pnpm --filter @mud/server-next migrate:legacy-next:once -- --fixture=src/tools/fixtures/migrate-next-mainline-once/sample-legacy.json --domains=mail,market,redeem,suggestion,gm-auth,gm-database`
 - `pnpm --filter @mud/server-next smoke:gm-database`
 - `pnpm --filter @mud/server-next smoke:gm-database:backup-persistence`
 
