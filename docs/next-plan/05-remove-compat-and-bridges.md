@@ -184,7 +184,7 @@
 
 - [x] 删除 `next-gm-contract.js` 中 `legacyPasswordRecordScopes`
 - [x] 删除 `next-gm-admin.service.js` 对 `server_next_legacy_db_*` 的双读
-- [ ] 删除 `next-gm-admin.service.js` 对 `server_next_legacy_afdian_*` 的双读
+- [x] 删除 `next-gm-admin.service.js` 对 `server_next_legacy_afdian_*` 的双读
 - [x] 删除 `runtime-gm-auth.service.js` 对 legacy GM 密码 scope 的回退读取
 - [x] 把 `gm-database-smoke.js` / `gm-database-backup-persistence-smoke.js` 改成只验证 next native scope
 
@@ -204,6 +204,7 @@
 
 - `SERVER_NEXT_DATABASE_URL=postgres://mud:jiuzhou123@127.0.0.1:15432/mud_mmo_next DATABASE_URL=postgres://mud:jiuzhou123@127.0.0.1:15432/mud_mmo_next SERVER_NEXT_GM_PASSWORD=admin123 GM_PASSWORD=admin123 pnpm --filter @mud/server-next smoke:gm-database`
 - `SERVER_NEXT_DATABASE_URL=postgres://mud:jiuzhou123@127.0.0.1:15432/mud_mmo_next DATABASE_URL=postgres://mud:jiuzhou123@127.0.0.1:15432/mud_mmo_next SERVER_NEXT_GM_PASSWORD=admin123 GM_PASSWORD=admin123 pnpm --filter @mud/server-next smoke:gm-database:backup-persistence`
+- `SERVER_NEXT_DATABASE_URL=postgres://mud:jiuzhou123@127.0.0.1:15432/mud_mmo_next DATABASE_URL=postgres://mud:jiuzhou123@127.0.0.1:15432/mud_mmo_next pnpm --filter @mud/server-next smoke:afdian-persistence`
 
 ### 第 5 批：删协议 / 文档中的过时 compat 证明
 
