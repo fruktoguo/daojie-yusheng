@@ -190,6 +190,7 @@
 
 - `world-sync.service.js` 当前只经 `appendNextCombatEffects()` → `collectNextCombatEffects()` 走 next 战斗特效主链
 - `player-persistence.service.js` 已删除对 `legacy:vitals_baseline` → `runtime:vitals_baseline` 的持久化兼容改写（其余 `vitals_baseline` 残留仍待继续清理）
+- `world-player-source.service.js` 已删除对 `legacy:vitals_baseline` → `runtime:vitals_baseline` 的迁移读取兼容改写（其余 `vitals_baseline` 残留仍待继续清理）
 - `SERVER_NEXT_DATABASE_URL=postgres://mud:jiuzhou123@127.0.0.1:15432/mud_mmo_next DATABASE_URL=postgres://mud:jiuzhou123@127.0.0.1:15432/mud_mmo_next pnpm --filter @mud/server-next smoke:runtime`
 - `SERVER_NEXT_DATABASE_URL=postgres://mud:jiuzhou123@127.0.0.1:15432/mud_mmo_next DATABASE_URL=postgres://mud:jiuzhou123@127.0.0.1:15432/mud_mmo_next pnpm --filter @mud/server-next smoke:progression`
 - `SERVER_NEXT_DATABASE_URL=postgres://mud:jiuzhou123@127.0.0.1:15432/mud_mmo_next DATABASE_URL=postgres://mud:jiuzhou123@127.0.0.1:15432/mud_mmo_next pnpm --filter @mud/server-next smoke:next-auth-bootstrap`
