@@ -777,9 +777,6 @@ function canonicalizeRuntimeBonusSource(source) {
     if (!normalized) {
         return '';
     }
-    if (normalized === 'legacy:vitals_baseline') {
-        return 'runtime:vitals_baseline';
-    }
     if (normalized === 'technique:aggregate') {
         return 'runtime:technique_aggregate';
     }
