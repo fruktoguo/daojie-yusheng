@@ -125,13 +125,14 @@
 
 ### 第 4 批：对齐 `NEXT_S2C` 到客户端监听
 
-- [ ] 列出 `NEXT_S2C` 中所有事件
-- [ ] 对照 `packages/client/src/network/socket.ts`
-- [ ] 对照 `packages/client/src/main.ts`
-- [ ] 标记三类结果：
+- [x] 列出 `NEXT_S2C` 中所有事件
+- [x] 对照 `packages/client/src/network/socket.ts`
+- [x] 对照 `packages/client/src/main.ts`
+- [x] 标记三类结果：
   - 已声明且已监听
   - 已声明但客户端未消费
   - 客户端依赖了 shared 未声明的事件
+- [x] 用 `pnpm proof:next-client-s2c-consumption` 固定客户端监听面对齐，当前未消费事件为 `GmState`
 
 重点优先看：
 
