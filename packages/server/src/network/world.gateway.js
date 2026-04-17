@@ -72,6 +72,8 @@ const world_gateway_movement_helper_1 = require("./world-gateway-movement.helper
 
 const world_gateway_inventory_helper_1 = require("./world-gateway-inventory.helper");
 
+const world_gateway_mail_helper_1 = require("./world-gateway-mail.helper");
+
 /** 鉴权后请求 sessionId 只允许从 next/token 两类来源带入。 */
 const AUTHENTICATED_REQUESTED_SESSION_ID_AUTH_SOURCES = new Set([
     'next',
@@ -142,6 +144,7 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
     gatewaySuggestionHelper;
     gatewayMovementHelper;
     gatewayInventoryHelper;
+    gatewayMailHelper;
     /** Socket.IO server 实例。 */
     server;
     /** 入口日志。 */
@@ -174,6 +177,7 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         this.gatewaySuggestionHelper = new world_gateway_suggestion_helper_1.WorldGatewaySuggestionHelper(this);
         this.gatewayMovementHelper = new world_gateway_movement_helper_1.WorldGatewayMovementHelper(this);
         this.gatewayInventoryHelper = new world_gateway_inventory_helper_1.WorldGatewayInventoryHelper(this);
+        this.gatewayMailHelper = new world_gateway_mail_helper_1.WorldGatewayMailHelper(this);
     }
     /** 处理 socket 连接：校验协议、阻断未就绪流量并触发鉴权引导。 */
     async handleConnection(client) {
@@ -399,59 +403,16 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         }
     }
     async handleNextRequestMailSummary(client, payload) {
-        await this.executeRequestMailSummary(client);
-    }
-    async executeRequestMailSummary(client) {
-
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        try {
-            await this.emitNextMailSummaryForPlayer(client, playerId);
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'REQUEST_MAIL_SUMMARY_FAILED', error);
-        }
+        return this.gatewayMailHelper.handleNextRequestMailSummary(client, payload);
     }
     handleNextRequestSuggestions(client, payload) {
         return this.gatewaySuggestionHelper.handleNextRequestSuggestions(client, payload);
     }
     async handleNextRequestMailPage(client, payload) {
-        await this.executeRequestMailPage(client, payload);
-    }
-    async executeRequestMailPage(client, payload) {
-
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        try {
-
-            const page = await this.mailRuntimeService.getPage(playerId, payload?.page, payload?.pageSize, payload?.filter);
-            this.emitNextMailPage(client, page);
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'REQUEST_MAIL_PAGE_FAILED', error);
-        }
+        return this.gatewayMailHelper.handleNextRequestMailPage(client, payload);
     }
     async handleNextRequestMailDetail(client, payload) {
-        await this.executeRequestMailDetail(client, payload);
-    }
-    async executeRequestMailDetail(client, payload) {
-
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        try {
-
-            const detail = await this.mailRuntimeService.getDetail(playerId, payload?.mailId ?? '');
-            this.emitNextMailDetail(client, detail);
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'REQUEST_MAIL_DETAIL_FAILED', error);
-        }
+        return this.gatewayMailHelper.handleNextRequestMailDetail(client, payload);
     }
     handleNextRedeemCodes(client, payload) {
         this.executeRedeemCodes(client, payload);
@@ -509,23 +470,7 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         }
     }
     async handleNextMarkMailRead(client, payload) {
-        await this.executeMarkMailRead(client, payload);
-    }
-    async executeMarkMailRead(client, payload) {
-
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        try {
-
-            const response = await this.mailRuntimeService.markRead(playerId, payload?.mailIds ?? []);
-            this.emitNextMailOperationResult(client, response);
-            await this.emitNextMailSummaryForPlayer(client, playerId);
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'MARK_MAIL_READ_FAILED', error);
-        }
+        return this.gatewayMailHelper.handleNextMarkMailRead(client, payload);
     }
     async handleNextCreateSuggestion(client, payload) {
         await this.gatewaySuggestionHelper.handleNextCreateSuggestion(client, payload);
@@ -546,42 +491,10 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         await this.gatewayGmSuggestionHelper.handleGmRemoveSuggestion(client, payload);
     }
     async handleNextClaimMailAttachments(client, payload) {
-        await this.executeClaimMailAttachments(client, payload);
-    }
-    async executeClaimMailAttachments(client, payload) {
-
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        try {
-
-            const response = await this.mailRuntimeService.claimAttachments(playerId, payload?.mailIds ?? []);
-            this.emitNextMailOperationResult(client, response);
-            await this.emitNextMailSummaryForPlayer(client, playerId);
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'CLAIM_MAIL_ATTACHMENTS_FAILED', error);
-        }
+        return this.gatewayMailHelper.handleNextClaimMailAttachments(client, payload);
     }
     async handleNextDeleteMail(client, payload) {
-        await this.executeDeleteMail(client, payload);
-    }
-    async executeDeleteMail(client, payload) {
-
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        try {
-
-            const response = await this.mailRuntimeService.deleteMails(playerId, payload?.mailIds ?? []);
-            this.emitNextMailOperationResult(client, response);
-            await this.emitNextMailSummaryForPlayer(client, playerId);
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'DELETE_MAIL_FAILED', error);
-        }
+        return this.gatewayMailHelper.handleNextDeleteMail(client, payload);
     }
     handleNextRequestMarketItemBook(client, payload) {
         this.executeRequestMarketItemBook(client, payload);
