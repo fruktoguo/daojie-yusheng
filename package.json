@@ -44,6 +44,7 @@
     "verify:server-next:with-db": "node scripts/server-next-verify-with-db.js",
     "verify:server-next:shadow": "node scripts/server-next-verify-shadow.js",
     "proof:next-client-shared-no-legacy-source": "node scripts/prove-next-client-shared-no-legacy-source.js",
+    "proof:next-client-s2c-consumption": "node scripts/prove-next-client-s2c-consumption.js",
     "audit:server-next-protocol": "pnpm --filter @mud/server-next audit:next-protocol",
     "audit:server-next-boundaries": "pnpm --filter @mud/server-next audit:legacy-boundaries",
     "report:alchemy-material-power": "node scripts/report-alchemy-material-power.mjs"
