@@ -19,9 +19,8 @@ const path = require("path");
 const shared_1 = require("@mud/shared-next");
 const content_template_repository_1 = require("../../content/content-template.repository");
 const player_runtime_service_1 = require("../player/player-runtime.service");
-
-/** 丹炉能力判定使用的物品标签。 */
-const ALCHEMY_FURNACE_TAG = 'alchemy_furnace';
+const craft_panel_alchemy_query_service_1 = require("./craft-panel-alchemy-query.service");
+const craft_panel_alchemy_query_helpers_1 = require("./craft-panel-alchemy-query.helpers");
 
 /** 强化锤能力判定使用的物品标签。 */
 const ENHANCEMENT_HAMMER_TAG = 'enhancement_hammer';
@@ -31,9 +30,6 @@ const SPIRIT_STONE_ITEM_ID = 'spirit_stone';
 
 /** 工艺技能的默认升级经验门槛。 */
 const DEFAULT_CRAFT_EXP_TO_NEXT = 60;
-
-/** 炼丹目录版本，变化后需要把新目录同步给客户端。 */
-const ALCHEMY_CATALOG_VERSION = 1;
 
 /** 炼丹任务开始后先经历的准备息数。 */
 const ALCHEMY_PREPARATION_TICKS = 10;
@@ -89,6 +85,7 @@ const ENHANCEMENT_INTERRUPT_PAUSE_TICKS = 10;
 let CraftPanelRuntimeService = class CraftPanelRuntimeService {
     contentTemplateRepository;
     playerRuntimeService;
+    craftPanelAlchemyQueryService;
     /** 运行时日志器，记录炼丹、强化与配置加载问题。 */
     logger = new common_1.Logger(CraftPanelRuntimeService.name);
     /** 缓存炼丹目录，供面板快照和任务校验共用。 */
@@ -96,9 +93,10 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
     /** 缓存强化配置，避免每次操作都重新查表。 */
     enhancementConfigs = new Map();
     /** 缓存依赖并初始化日志、配方与强化配置。 */
-    constructor(contentTemplateRepository, playerRuntimeService) {
+    constructor(contentTemplateRepository, playerRuntimeService, craftPanelAlchemyQueryService) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.playerRuntimeService = playerRuntimeService;
+        this.craftPanelAlchemyQueryService = craftPanelAlchemyQueryService;
     }
     /** 模块初始化：按需加载炼丹目录和强化配置。 */
     onModuleInit() {
@@ -108,18 +106,7 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
     /** 读取炼丹面板的状态和可见目录，同步客户端所需的数据快照。 */
     buildAlchemyPanelPayload(player, knownCatalogVersion) {
         this.ensureCraftSkills(player);
-        const state = this.buildAlchemyPanelState(player);
-        const payload = {
-            state,
-            catalogVersion: ALCHEMY_CATALOG_VERSION,
-        };
-        if (knownCatalogVersion !== ALCHEMY_CATALOG_VERSION) {
-            payload.catalog = this.alchemyCatalog.map((entry) => cloneAlchemyCatalogEntry(entry));
-        }
-        if (!state) {
-            payload.error = '尚未装备丹炉。';
-        }
-        return payload;
+        return this.craftPanelAlchemyQueryService.buildAlchemyPanelPayload(player, knownCatalogVersion, this.alchemyCatalog, this.getWeapon(player));
     }
     /** 读取强化面板状态并在未装备强化锤时返回错误。 */
     buildEnhancementPanelPayload(player) {
@@ -682,7 +669,7 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
         return null;
     }
     hasEquippedFurnace(player) {
-        return Boolean(this.getWeapon(player)?.tags?.includes(ALCHEMY_FURNACE_TAG));
+        return Boolean(this.getWeapon(player)?.tags?.includes(craft_panel_alchemy_query_helpers_1.ALCHEMY_FURNACE_TAG));
     }
     hasEquippedHammer(player) {
         return Boolean(this.getWeapon(player)?.tags?.includes(ENHANCEMENT_HAMMER_TAG));
@@ -702,20 +689,11 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
         if (!Array.isArray(player.enhancementRecords)) {
             player.enhancementRecords = [];
         }
-        player.alchemyJob = player.alchemyJob ? cloneAlchemyJob(player.alchemyJob) : null;
+        player.alchemyJob = player.alchemyJob ? (0, craft_panel_alchemy_query_helpers_1.cloneAlchemyJob)(player.alchemyJob) : null;
         player.enhancementJob = player.enhancementJob ? cloneEnhancementJob(player.enhancementJob) : null;
     }
     buildAlchemyPanelState(player) {
-        const furnace = this.getWeapon(player);
-        const furnaceItemId = furnace?.tags?.includes(ALCHEMY_FURNACE_TAG) ? furnace.itemId : undefined;
-        if (!furnaceItemId && !player.alchemyJob) {
-            return null;
-        }
-        return {
-            furnaceItemId,
-            presets: (player.alchemyPresets ?? []).map((entry) => cloneAlchemyPreset(entry)),
-            job: player.alchemyJob ? cloneAlchemyJob(player.alchemyJob) : null,
-        };
+        return this.craftPanelAlchemyQueryService.buildAlchemyPanelState(player, this.getWeapon(player));
     }
     buildEnhancementPanelState(player) {
         const hammer = this.getWeapon(player);
@@ -1212,7 +1190,8 @@ exports.CraftPanelRuntimeService = CraftPanelRuntimeService;
 exports.CraftPanelRuntimeService = CraftPanelRuntimeService = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [content_template_repository_1.ContentTemplateRepository,
-        player_runtime_service_1.PlayerRuntimeService])
+        player_runtime_service_1.PlayerRuntimeService,
+        craft_panel_alchemy_query_service_1.CraftPanelAlchemyQueryService])
 ], CraftPanelRuntimeService);
 function resolveContentPath(...segments) {
     return path.resolve(__dirname, '../../../../../packages/server/data/content', ...segments);
@@ -1310,24 +1289,6 @@ function computeAlchemyMaterialPower(level, grade, count = 1) {
 function resolveAlchemyGradeValue(grade) {
     const index = shared_1.TECHNIQUE_GRADE_ORDER.indexOf(grade ?? 'mortal');
     return Math.max(1, index + 1);
-}
-function cloneAlchemyCatalogEntry(entry) {
-    return {
-        ...entry,
-        ingredients: entry.ingredients.map((ingredient) => ({ ...ingredient })),
-    };
-}
-function cloneAlchemyPreset(entry) {
-    return {
-        ...entry,
-        ingredients: Array.isArray(entry.ingredients) ? entry.ingredients.map((ingredient) => ({ ...ingredient })) : [],
-    };
-}
-function cloneAlchemyJob(entry) {
-    return {
-        ...entry,
-        ingredients: Array.isArray(entry.ingredients) ? entry.ingredients.map((ingredient) => ({ ...ingredient })) : [],
-    };
 }
 function cloneItem(item) {
     return {
