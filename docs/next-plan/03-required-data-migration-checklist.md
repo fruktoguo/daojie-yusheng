@@ -102,7 +102,7 @@ legacy 来源当前锁定为：
 
 - `legacy users`：`users.id -> userId`、`users.username -> username`、`users.displayName -> displayName`、`users.pendingRoleName -> pendingRoleName`
 - `legacy players`：通过 `players.userId = users.id` 左连接补 `players.id -> playerId`、`players.name -> playerName`
-- next 侧显式 migration 读取入口：`packages/server/src/network/world-legacy-player-repository.js -> queryLegacyPlayerIdentityRow()`
+- next 侧显式 migration 读取入口：`packages/server/src/network/world-player-source.service.js -> queryMigrationIdentityRow()`
 
 | legacy 字段 | next 字段 | 转换规则 | 默认值 / 失败策略 |
 | --- | --- | --- | --- |
@@ -119,7 +119,7 @@ legacy 来源当前锁定为：
 legacy 来源当前锁定为：
 
 - `legacy players`：`players.id` 单表直接作为 player snapshot 来源
-- next 侧显式 migration 读取入口：`packages/server/src/network/world-legacy-player-repository.js -> queryLegacyPlayerSnapshotRow()`
+- next 侧显式 migration 读取入口：`packages/server/src/network/world-player-source.service.js -> queryMigrationSnapshotRow()`
 - 这条来源只服务显式 migration / backfill，不再是 next 主链真源
 
 | legacy 字段 | next 字段 | 转换规则 | 默认值 / 失败策略 |
@@ -465,30 +465,30 @@ legacy 来源当前锁定为：
 
 ### 第一批：切服阻塞项
 
-- [ ] 账号认证记录
-- [ ] 玩家身份映射
-- [ ] 玩家持久化快照
-- [ ] 邮件箱
-- [ ] 市场暂存仓库
-- [ ] GM 密码记录
+- [x] 账号认证记录
+- [x] 玩家身份映射
+- [x] 玩家持久化快照
+- [x] 邮件箱
+- [x] 市场暂存仓库
+- [x] GM 密码记录
 
 ### 第二批：核心体验延续项
 
-- [ ] 市场订单
-- [ ] 兑换码组与兑换状态
-- [ ] 建议与回复
+- [x] 市场订单
+- [x] 兑换码组与兑换状态
+- [x] 建议与回复
 
 ### 第三批：可选延续项
 
-- [ ] 市场成交历史
-- [ ] 地图环境快照
-- [ ] 数据库备份元数据 / 作业状态
-- [ ] Afdian 配置与订单
+- [x] 市场成交历史
+- [x] 地图环境快照
+- [x] 数据库备份元数据 / 作业状态
+- [x] Afdian 配置与订单
 
 ## 下一步要补的内容
 
 - [x] 为每个必须迁移的数据域补字段级映射
-- [ ] 单独锁定 legacy 正式来源文件 / 表 / scope
+- [x] 单独锁定 legacy 正式来源文件 / 表 / scope
 - [ ] 把这份清单和 `04-one-off-migration-script.md` 对齐
 - [ ] 把“可重建”项同步回 `main.md`
 
@@ -497,4 +497,4 @@ legacy 来源当前锁定为：
 - [x] 有一份按真源 / 运行态 / legacy 来源组织的数据迁移清单
 - [x] 每个主要数据域都能回答“正式真源是谁、运行时副本是谁、是否必须迁”
 - [x] 有一份覆盖全部切服阻塞域的字段级可执行数据迁移清单
-- [ ] 每个数据域都能回答“从哪来、到哪去、怎么转”
+- [x] 每个数据域都能回答“从哪来、到哪去、怎么转”
