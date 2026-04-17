@@ -329,6 +329,11 @@
 - `navigationIntents` 与导航路径物化/跨图路由逻辑已委托给 `WorldRuntimeNavigationService`，`WorldRuntimeService` 仍保留 tick 顺序、`dispatchInstanceCommand()`、`applyTransfer()` 外壳和 combat 侧调度
 - `packages/server/src/runtime/world/world-runtime.state.js` 与 `packages/server/src/runtime/world/world-runtime.contract.js` 已同步移除 `navigationIntents`，让该状态真正脱离 `WorldRuntimeService.runtimeState`
 - 本轮验证已补跑 `compile`、`smoke:runtime`、`smoke:player-respawn`、根级 `pnpm build` 与 `pnpm verify:replace-ready`
+- 新增 `packages/server/src/runtime/world/world-runtime-combat-effects.service.js`
+- `latestCombatEffectsByInstanceId` 与 `pushActionLabelEffect / pushDamageFloatEffect / pushAttackEffect` 已委托给 `WorldRuntimeCombatEffectsService`
+- `WorldRuntimeService` 仍保留 combat/monster 行为触发点和 sync facade `getCombatEffects()`，说明这次只是第 5 批第六刀的 combat-effects buffer 抽离，不是完整 combat 域拆分
+- `packages/server/src/runtime/world/world-runtime.state.js` 与 `packages/server/src/runtime/world/world-runtime.contract.js` 已同步移除 `latestCombatEffectsByInstanceId`
+- 本轮验证已补跑 `smoke:combat`、`smoke:monster-skill`、根级 `pnpm build` 与 `pnpm verify:replace-ready`
 
 这一批结束后，`world-runtime.service.js` 仍可以存在，但不该再同时拥有所有领域细节。
 
