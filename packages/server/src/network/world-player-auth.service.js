@@ -79,24 +79,6 @@ let WorldPlayerAuthService = class WorldPlayerAuthService {
         }
         return this.playerIdentityPersistenceService.loadPlayerIdentity(userId);
     }
-    /** next 协议不再接受 legacy backfill/sync 身份的运行时提升。 */
-    async normalizeLoadedNextIdentityForNextProtocol(identity) {
-
-        const persistedSource = normalizePersistedSource(identity);
-        if (persistedSource !== 'legacy_backfill' && persistedSource !== 'legacy_sync') {
-            return {
-                identity,
-                persistFailureStage: null,
-            };
-        }
-
-        return {
-            identity: null,
-            persistFailureStage: persistedSource === 'legacy_sync'
-                ? 'next_protocol_legacy_sync_forbidden'
-                : 'next_protocol_legacy_backfill_forbidden',
-        };
-    }
     async authenticatePlayerToken(token, options = undefined) {
 
         const payload = this.worldPlayerTokenService.validatePlayerToken(token);
