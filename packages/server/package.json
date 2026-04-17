@@ -20,6 +20,7 @@
     "smoke:persistence": "pnpm compile && node dist/tools/persistence-smoke.js",
     "smoke:gm-database": "pnpm compile && node dist/tools/gm-database-smoke.js",
     "smoke:gm-database:backup-persistence": "pnpm compile && node dist/tools/gm-database-backup-persistence-smoke.js",
+    "smoke:afdian-persistence": "pnpm compile && node dist/tools/afdian-persistence-smoke.js",
     "smoke:gm-next": "pnpm compile && node dist/tools/smoke-suite.js --case gm-next",
     "smoke:readiness-gate": "pnpm compile && node dist/tools/smoke-suite.js --case readiness-gate",
     "smoke:next-auth-bootstrap": "pnpm compile && node dist/tools/smoke-suite.js --case next-auth-bootstrap",

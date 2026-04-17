@@ -51,13 +51,9 @@ const AFDIAN_KNOWN_HOSTS = new Set([
 
 const AFDIAN_CONFIG_SCOPE = 'server_next_afdian_config_v1';
 
-const LEGACY_AFDIAN_CONFIG_SCOPE = 'server_next_legacy_afdian_config_v1';
-
 const AFDIAN_CONFIG_KEY = 'afdian';
 
 const AFDIAN_ORDER_SCOPE = 'server_next_afdian_orders_v1';
-
-const LEGACY_AFDIAN_ORDER_SCOPE = 'server_next_legacy_afdian_orders_v1';
 
 const DATABASE_BACKUP_METADATA_SCOPE = 'server_next_db_backups_v1';
 
@@ -65,9 +61,9 @@ const DATABASE_JOB_STATE_SCOPE = 'server_next_db_jobs_v1';
 
 const DATABASE_JOB_STATE_KEY = 'gm_database';
 
-const AFDIAN_CONFIG_SCOPES = [AFDIAN_CONFIG_SCOPE, LEGACY_AFDIAN_CONFIG_SCOPE];
+const AFDIAN_CONFIG_SCOPES = [AFDIAN_CONFIG_SCOPE];
 
-const AFDIAN_ORDER_SCOPES = [AFDIAN_ORDER_SCOPE, LEGACY_AFDIAN_ORDER_SCOPE];
+const AFDIAN_ORDER_SCOPES = [AFDIAN_ORDER_SCOPE];
 
 const DATABASE_BACKUP_METADATA_SCOPES = [DATABASE_BACKUP_METADATA_SCOPE];
 
