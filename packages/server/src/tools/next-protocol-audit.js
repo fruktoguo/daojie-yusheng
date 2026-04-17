@@ -698,6 +698,39 @@ async function hello(runtime, socket, payload) {
   };
 }
 /**
+ * 等待鉴权型 next socket 在 connect 阶段完成 bootstrap。
+ */
+async function awaitAuthenticatedBootstrap(runtime, socket, timeoutMs) {
+  await socket.onceConnected();
+/**
+ * 记录init会话。
+ */
+  var initSession = await socket.waitForEvent(NEXT_S2C.InitSession, function () { return true; }, timeoutMs);
+/**
+ * 记录玩家ID。
+ */
+  var playerId = typeof initSession?.pid === 'string' && initSession.pid.trim()
+    ? initSession.pid.trim()
+    : '';
+  if (playerId) {
+    runtime.trackPlayer(playerId);
+  }
+  await socket.waitForEvent(NEXT_S2C.MapEnter, function () { return true; }, timeoutMs);
+  await socket.waitForEvent(NEXT_S2C.WorldDelta, function () { return true; }, timeoutMs);
+  await socket.waitForEvent(NEXT_S2C.SelfDelta, function () { return true; }, timeoutMs);
+  await socket.waitForEvent(NEXT_S2C.PanelDelta, function () { return true; }, timeoutMs);
+  await socket.waitForEvent(NEXT_S2C.Bootstrap, function () { return true; }, timeoutMs);
+  await socket.waitForEvent(NEXT_S2C.MapStatic, function () { return true; }, timeoutMs);
+  await socket.waitForEvent(NEXT_S2C.Realm, function () { return true; }, timeoutMs);
+  await socket.waitForEvent(NEXT_S2C.LootWindowUpdate, function () { return true; }, timeoutMs);
+  await socket.waitForEvent(NEXT_S2C.Quests, function () { return true; }, timeoutMs);
+  return {
+    playerId: playerId,
+    sessionId: typeof initSession?.sid === 'string' ? initSession.sid : '',
+    initSession: initSession,
+  };
+}
+/**
  * 收集legacys2cevents。
  */
 function collectLegacyS2CEvents(runtime) {
@@ -1479,7 +1512,7 @@ async function redeemCodesCase(runtime) {
 /**
  * 记录会话。
  */
-  var session = await hello(runtime, socket, { mapId: 'yunlai_town', preferredX: 32, preferredY: 5 });
+  var session = await awaitAuthenticatedBootstrap(runtime, socket, 12000);
 /**
  * 记录玩家ID。
  */
@@ -1599,25 +1632,27 @@ async function suggestionCase(runtime) {
   await emitAndWait(socket, NEXT_C2S.MarkSuggestionRepliesRead, { suggestionId: suggestionId }, NEXT_S2C.SuggestionUpdate, function (payload) {
     return payload && payload.suggestions && payload.suggestions.some(function (entry) { return entry.id === suggestionId; });
   }, 5000);
+  if (HAS_DATABASE) {
 /**
  * 记录GM鉴权。
  */
-  var gmAuth = await registerAndLoginPlayer(runtime.baseUrl, pid("audit_gm_suggestion"));
+    var gmAuth = await registerAndLoginPlayer(runtime.baseUrl, pid("audit_gm_suggestion"));
 /**
  * 记录GM令牌。
  */
-  var gmToken = await loginGm(runtime.baseUrl);
+    var gmToken = await loginGm(runtime.baseUrl);
 /**
  * 记录GM socket。
  */
-  var gmSocket = runtime.createSocket("suggestion:gm", { token: gmAuth.accessToken, gmToken: gmToken, protocol: "next" });
-  await hello(runtime, gmSocket, { mapId: "yunlai_town", preferredX: 32, preferredY: 5 });
-  await emitAndWait(gmSocket, NEXT_C2S.GmMarkSuggestionCompleted, { suggestionId: suggestionId }, NEXT_S2C.SuggestionUpdate, function (payload) {
-    return payload && payload.suggestions && payload.suggestions.some(function (entry) { return entry.id === suggestionId && entry.status === "completed"; });
-  }, 5000);
-  await emitAndWait(gmSocket, NEXT_C2S.GmRemoveSuggestion, { suggestionId: suggestionId }, NEXT_S2C.SuggestionUpdate, function (payload) {
-    return payload && Array.isArray(payload.suggestions) && payload.suggestions.every(function (entry) { return entry.id !== suggestionId; });
-  }, 5000);
+    var gmSocket = runtime.createSocket("suggestion:gm", { token: gmAuth.accessToken, gmToken: gmToken, protocol: "next" });
+    await awaitAuthenticatedBootstrap(runtime, gmSocket, 12000);
+    await emitAndWait(gmSocket, NEXT_C2S.GmMarkSuggestionCompleted, { suggestionId: suggestionId }, NEXT_S2C.SuggestionUpdate, function (payload) {
+      return payload && payload.suggestions && payload.suggestions.some(function (entry) { return entry.id === suggestionId && entry.status === "completed"; });
+    }, 5000);
+    await emitAndWait(gmSocket, NEXT_C2S.GmRemoveSuggestion, { suggestionId: suggestionId }, NEXT_S2C.SuggestionUpdate, function (payload) {
+      return payload && Array.isArray(payload.suggestions) && payload.suggestions.every(function (entry) { return entry.id !== suggestionId; });
+    }, 5000);
+  }
 }
 /**
  * 处理mailcase。
