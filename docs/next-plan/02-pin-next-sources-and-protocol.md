@@ -81,10 +81,11 @@
 
 ### 第 2 批：盘点 next 行为仍受 legacy 影响的入口
 
-- [ ] 扫描 `packages/server/src/network/*`、`packages/server/src/runtime/*`
+- [x] 扫描 `packages/server/src/network/*`、`packages/server/src/runtime/*`
 - [ ] 扫描 `packages/client/src/*`
 - [ ] 扫描 `packages/shared/src/*`
 - [ ] 只记录会影响 next 行为定义的入口，不把纯 inventory/audit 统计进来
+- [x] 用 `pnpm --filter @mud/server-next proof:next-runtime-network-no-legacy-source` 固定 server runtime/network 不 direct 读取 `legacy/*`
 
 应优先记入清单的类型：
 
