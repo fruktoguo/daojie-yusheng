@@ -171,6 +171,12 @@
 - `world-player-auth.service.js` 不再对已加载的 next 身份执行 `nextProtocolStrict` 二次拦截
 - `world-session-bootstrap.service.js -> resolveAuthenticatedBootstrapContractViolation()` 成为 next 主链准入的唯一合同裁判
 
+本轮继续完成：
+
+- `world-session-bootstrap.service.js` 现在自持 `token_seed -> native` best-effort 提升
+- `world-player-auth.service.js` 不再暴露 `promoteTokenSeedIdentityToNative()` 一类 bootstrap 回调职责
+- `next-auth-bootstrap-smoke.js` 已同步验证“auth 返回 token/token_seed，bootstrap 在快照成功后提升为 next/native”的新边界
+
 最小验证：
 
 - `pnpm --filter @mud/server-next build`
