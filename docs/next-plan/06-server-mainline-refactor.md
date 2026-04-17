@@ -68,7 +68,7 @@
 ### 第 1 批：先把入口层收成薄路由
 
 - [ ] 把 `world.gateway.js` 收成“事件分发层”，不再继续承载具体业务分支
-- [ ] 抽离握手 / hello / guest 入口处理
+- [x] 抽离握手 / hello / guest 入口处理
 - [ ] 抽离 authenticated player action handler
 - [ ] 抽离 GM socket handler
 - [ ] 保留一个薄 gateway，只负责：
@@ -81,12 +81,24 @@
 - `world.gateway.js`
   - 最终只保留 `@SubscribeMessage` 与统一 reject / logging / routing
 - 从 `world.gateway.js` 先抽出去的优先块：
-  - session / hello / authenticated connect
+  - session / hello / authenticated connect（已抽到 `world-gateway-bootstrap.helper.js`）
   - movement / combat / interaction
   - item / equipment / cultivate
   - quest / npc / shop / redeem
   - alchemy / enhancement
   - gm socket
+
+本轮已完成：
+
+- 新增 `packages/server/src/network/world-gateway-bootstrap.helper.js`
+- `world.gateway.js` 的 `handleConnection / handleHello` 已改为薄委托
+- bootstrap promise 跟踪、guest/authenticated bootstrap 输入组装、connect/hello 协议判定、not-ready 拒绝与 hello gate 已移出 gateway 主文件
+
+当前仍未完成：
+
+- `world.gateway.js` 仍然承载大量 authenticated gameplay handler
+- GM socket handler 还未抽离
+- gateway 还不是最终意义上的纯分发层
 
 最小验证：
 
