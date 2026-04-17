@@ -237,3 +237,12 @@
 
 - [x] 同一份 legacy 数据可以稳定转成 next 真源
 - [x] 迁移失败能明确定位
+
+本轮实跑记录：
+
+- `pnpm --filter @mud/server-next migrate:legacy-next:once -- --fixture=src/tools/fixtures/migrate-next-mainline-once/sample-legacy.json --domains=auth,identity,snapshot,progression,inventory,techniques,quests,mail,market,redeem,suggestion,gm-auth,gm-database --write`
+- `pnpm verify:replace-ready:proof:with-db`
+- `pnpm --filter @mud/server-next smoke:persistence`
+- `pnpm --filter @mud/server-next smoke:gm-database`
+- `pnpm --filter @mud/server-next smoke:progression`
+- `pnpm --filter @mud/server-next smoke:runtime`
