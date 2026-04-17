@@ -48,6 +48,8 @@ const world_runtime_npc_quest_interaction_query_service_1 = require("./world-run
 
 const world_runtime_gm_queue_service_1 = require("./world-runtime-gm-queue.service");
 
+const world_runtime_craft_service_1 = require("./world-runtime-craft.service");
+
 const player_combat_service_1 = require("../combat/player-combat.service");
 
 const map_instance_runtime_1 = require("../instance/map-instance.runtime");
@@ -240,6 +242,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     worldRuntimeQuestQueryService;
     worldRuntimeNpcQuestInteractionQueryService;
     worldRuntimeGmQueueService;
+    worldRuntimeCraftService;
     logger = new common_1.Logger(WorldRuntimeService_1.name);
     stateLayerContract = world_runtime_contract_1.WORLD_RUNTIME_STATE_CONTRACT;
     runtimeState = (0, world_runtime_state_1.createWorldRuntimeStateStore)();
@@ -266,7 +269,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     containerStatesByInstanceId = this.runtimeState.containerStatesByInstanceId;
     dirtyContainerPersistenceInstanceIds = this.runtimeState.dirtyContainerPersistenceInstanceIds;
     latestCombatEffectsByInstanceId = this.runtimeState.latestCombatEffectsByInstanceId;
-    constructor(contentTemplateRepository, templateRepository, mapPersistenceService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService, craftPanelRuntimeService, worldRuntimeNpcShopQueryService, worldRuntimeQuestQueryService, worldRuntimeNpcQuestInteractionQueryService, worldRuntimeGmQueueService) {
+    constructor(contentTemplateRepository, templateRepository, mapPersistenceService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService, craftPanelRuntimeService, worldRuntimeNpcShopQueryService, worldRuntimeQuestQueryService, worldRuntimeNpcQuestInteractionQueryService, worldRuntimeGmQueueService, worldRuntimeCraftService) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.templateRepository = templateRepository;
         this.mapPersistenceService = mapPersistenceService;
@@ -280,6 +283,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.worldRuntimeQuestQueryService = worldRuntimeQuestQueryService;
         this.worldRuntimeNpcQuestInteractionQueryService = worldRuntimeNpcQuestInteractionQueryService;
         this.worldRuntimeGmQueueService = worldRuntimeGmQueueService;
+        this.worldRuntimeCraftService = worldRuntimeCraftService;
     }
     /** onModuleInit：初始化公共实例的基础结构。 */
     async onModuleInit() {
@@ -2083,7 +2087,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
                     this.playerRuntimeService.advanceTickForPlayerIds(currentPlayerIds, instance.tick, {
                         idleCultivationBlockedPlayerIds: blockedPlayerIds,
                     });
-                    this.advanceCraftJobs(currentPlayerIds);
+        this.worldRuntimeCraftService.advanceCraftJobs(currentPlayerIds, this);
                     for (const playerId of currentPlayerIds) {
                         steppedPlayerIds.add(playerId);
                     }
@@ -2842,8 +2846,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             this.playerRuntimeService.recordActivity(playerId, this.resolveCurrentTickForPlayerId(playerId), {
                 interruptCultivation: true,
             });
-            this.flushCraftMutation(playerId, this.craftPanelRuntimeService.interruptAlchemy(player, 'move'), 'alchemy');
-            this.flushCraftMutation(playerId, this.craftPanelRuntimeService.interruptEnhancement(player, 'move'), 'enhancement');
+            this.worldRuntimeCraftService.interruptCraftForReason(playerId, player, 'move', this);
             instance.enqueueMove({
                 playerId,
                 direction: command.direction,
@@ -2861,8 +2864,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.playerRuntimeService.recordActivity(playerId, this.resolveCurrentTickForPlayerId(playerId), {
             interruptCultivation: true,
         });
-        this.flushCraftMutation(playerId, this.craftPanelRuntimeService.interruptAlchemy(player, 'move'), 'alchemy');
-        this.flushCraftMutation(playerId, this.craftPanelRuntimeService.interruptEnhancement(player, 'move'), 'enhancement');
+        this.worldRuntimeCraftService.interruptCraftForReason(playerId, player, 'move', this);
 
         const manualTransfer = instance.tryPortalTransfer(playerId, 'manual_portal');
         if (manualTransfer) {
@@ -2991,8 +2993,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.playerRuntimeService.recordActivity(playerId, currentTick, {
             interruptCultivation: true,
         });
-        this.flushCraftMutation(playerId, this.craftPanelRuntimeService.interruptAlchemy(attacker, 'attack'), 'alchemy');
-        this.flushCraftMutation(playerId, this.craftPanelRuntimeService.interruptEnhancement(attacker, 'attack'), 'enhancement');
+        this.worldRuntimeCraftService.interruptCraftForReason(playerId, attacker, 'attack', this);
         if (!attacker.instanceId) {
             throw new common_1.BadRequestException(`Player ${playerId} not attached to instance`);
         }
@@ -3487,8 +3488,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.playerRuntimeService.recordActivity(playerId, currentTick, {
             interruptCultivation: true,
         });
-        this.flushCraftMutation(playerId, this.craftPanelRuntimeService.interruptAlchemy(attacker, 'attack'), 'alchemy');
-        this.flushCraftMutation(playerId, this.craftPanelRuntimeService.interruptEnhancement(attacker, 'attack'), 'enhancement');
+        this.worldRuntimeCraftService.interruptCraftForReason(playerId, attacker, 'attack', this);
         if (!attacker.instanceId) {
             throw new common_1.BadRequestException(`Player ${playerId} not attached to instance`);
         }
@@ -3831,8 +3831,8 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         }
         this.playerRuntimeService.equipItem(playerId, slotIndex);
         this.queuePlayerNotice(playerId, `装备 ${item.name}`, 'success');
-        this.emitCraftPanelUpdate(playerId, 'alchemy');
-        this.emitCraftPanelUpdate(playerId, 'enhancement');
+        this.worldRuntimeCraftService.emitCraftPanelUpdate(playerId, 'alchemy', this);
+        this.worldRuntimeCraftService.emitCraftPanelUpdate(playerId, 'enhancement', this);
     }
     /** dispatchUnequipItem：执行装备卸下结算。 */
     dispatchUnequipItem(playerId, slot) {
@@ -3850,8 +3850,8 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         }
         this.playerRuntimeService.unequipItem(playerId, slot);
         this.queuePlayerNotice(playerId, `卸下 ${item.name}`, 'info');
-        this.emitCraftPanelUpdate(playerId, 'alchemy');
-        this.emitCraftPanelUpdate(playerId, 'enhancement');
+        this.worldRuntimeCraftService.emitCraftPanelUpdate(playerId, 'alchemy', this);
+        this.worldRuntimeCraftService.emitCraftPanelUpdate(playerId, 'enhancement', this);
     }
     /** dispatchCultivateTechnique：执行功法修炼切换。 */
     dispatchCultivateTechnique(playerId, techniqueId) {
@@ -3873,69 +3873,27 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     }
     /** dispatchStartAlchemy：启动炼丹流程。 */
     dispatchStartAlchemy(playerId, payload) {
-
-        const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
-
-        const result = this.craftPanelRuntimeService.startAlchemy(player, payload);
-        if (!result.ok) {
-            throw new common_1.BadRequestException(result.error ?? '启动炼丹失败');
-        }
-        this.flushCraftMutation(playerId, result, 'alchemy');
+        this.worldRuntimeCraftService.dispatchStartAlchemy(playerId, payload, this);
     }
     /** dispatchCancelAlchemy：取消炼丹流程。 */
     dispatchCancelAlchemy(playerId) {
-
-        const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
-
-        const result = this.craftPanelRuntimeService.cancelAlchemy(player);
-        if (!result.ok) {
-            throw new common_1.BadRequestException(result.error ?? '取消炼丹失败');
-        }
-        this.flushCraftMutation(playerId, result, 'alchemy');
+        this.worldRuntimeCraftService.dispatchCancelAlchemy(playerId, this);
     }
     /** dispatchSaveAlchemyPreset：保存炼制预设。 */
     dispatchSaveAlchemyPreset(playerId, payload) {
-
-        const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
-
-        const result = this.craftPanelRuntimeService.saveAlchemyPreset(player, payload);
-        if (!result.ok) {
-            throw new common_1.BadRequestException(result.error ?? '保存炼制预设失败');
-        }
-        this.flushCraftMutation(playerId, result, 'alchemy');
+        this.worldRuntimeCraftService.dispatchSaveAlchemyPreset(playerId, payload, this);
     }
     /** dispatchDeleteAlchemyPreset：删除炼制预设。 */
     dispatchDeleteAlchemyPreset(playerId, presetId) {
-
-        const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
-
-        const result = this.craftPanelRuntimeService.deleteAlchemyPreset(player, presetId);
-        if (!result.ok) {
-            throw new common_1.BadRequestException(result.error ?? '删除炼制预设失败');
-        }
-        this.flushCraftMutation(playerId, result, 'alchemy');
+        this.worldRuntimeCraftService.dispatchDeleteAlchemyPreset(playerId, presetId, this);
     }
     /** dispatchStartEnhancement：启动强化流程。 */
     dispatchStartEnhancement(playerId, payload) {
-
-        const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
-
-        const result = this.craftPanelRuntimeService.startEnhancement(player, payload);
-        if (!result.ok) {
-            throw new common_1.BadRequestException(result.error ?? '启动强化失败');
-        }
-        this.flushCraftMutation(playerId, result, 'enhancement');
+        this.worldRuntimeCraftService.dispatchStartEnhancement(playerId, payload, this);
     }
     /** dispatchCancelEnhancement：取消强化流程。 */
     dispatchCancelEnhancement(playerId) {
-
-        const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
-
-        const result = this.craftPanelRuntimeService.cancelEnhancement(player);
-        if (!result.ok) {
-            throw new common_1.BadRequestException(result.error ?? '取消强化失败');
-        }
-        this.flushCraftMutation(playerId, result, 'enhancement');
+        this.worldRuntimeCraftService.dispatchCancelEnhancement(playerId, this);
     }
     /** dispatchInteractNpcQuest：推进 NPC 对话型任务的交互进度。 */
     dispatchInteractNpcQuest(playerId, npcId) {
@@ -4747,69 +4705,6 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             // 玩家已经不在线时忽略通知，避免影响主流程。
         }
     }
-    /** advanceCraftJobs：推进炼丹和强化任务。 */
-    advanceCraftJobs(playerIds) {
-        for (const playerId of playerIds) {
-            const player = this.playerRuntimeService.getPlayer(playerId);
-            if (!player) {
-                continue;
-            }
-            if (this.craftPanelRuntimeService.hasActiveAlchemyJob(player)) {
-                this.flushCraftMutation(playerId, this.craftPanelRuntimeService.tickAlchemy(player), 'alchemy');
-            }
-            if (this.craftPanelRuntimeService.hasActiveEnhancementJob(player)) {
-                this.flushCraftMutation(playerId, this.craftPanelRuntimeService.tickEnhancement(player), 'enhancement');
-            }
-        }
-    }
-    /** flushCraftMutation：把制作流程变更同步回玩家运行态。 */
-    flushCraftMutation(playerId, result, panel) {
-        if (!result?.ok) {
-            return;
-        }
-        if (Array.isArray(result.groundDrops) && result.groundDrops.length > 0) {
-            this.dropCraftGroundItems(playerId, result.groundDrops);
-        }
-        for (const message of result.messages ?? []) {
-            if (message?.text) {
-                this.queuePlayerNotice(playerId, message.text, message.kind ?? 'info');
-            }
-        }
-        if (result.panelChanged) {
-            this.emitCraftPanelUpdate(playerId, panel);
-        }
-    }
-    /** dropCraftGroundItems：把制作产物落到玩家脚边或回填背包。 */
-    dropCraftGroundItems(playerId, items) {
-        const player = this.playerRuntimeService.getPlayer(playerId);
-        if (!player) {
-            return;
-        }
-        const instance = this.getInstanceRuntimeOrThrow(player.instanceId);
-        for (const item of items) {
-            try {
-                this.spawnGroundItem(instance, player.x, player.y, item);
-                this.queuePlayerNotice(playerId, `${formatItemStackLabel(item)} 背包放不下，已落在你脚边。`, 'loot');
-            }
-            catch {
-                this.playerRuntimeService.receiveInventoryItem(playerId, item);
-                this.queuePlayerNotice(playerId, `${formatItemStackLabel(item)} 无法落地，已直接放回背包。`, 'warn');
-            }
-        }
-    }
-    /** emitCraftPanelUpdate：向客户端推送制作面板更新。 */
-    emitCraftPanelUpdate(playerId, panel) {
-        const socket = this.worldSessionService.getSocketByPlayerId(playerId);
-        const player = this.playerRuntimeService.getPlayer(playerId);
-        if (!socket || !player || !this.worldClientEventService.prefersNext(socket)) {
-            return;
-        }
-        if (panel === 'alchemy') {
-            socket.emit(shared_1.NEXT_S2C.AlchemyPanel, this.craftPanelRuntimeService.buildAlchemyPanelPayload(player));
-            return;
-        }
-        socket.emit(shared_1.NEXT_S2C.EnhancementPanel, this.craftPanelRuntimeService.buildEnhancementPanelPayload(player));
-    }
     /** pushCombatEffect：收集战斗特效，等待同步层统一发送。 */
     pushCombatEffect(instanceId, effect) {
 
@@ -4872,7 +4767,8 @@ exports.WorldRuntimeService = WorldRuntimeService = WorldRuntimeService_1 = __de
         world_runtime_npc_shop_query_service_1.WorldRuntimeNpcShopQueryService,
         world_runtime_quest_query_service_1.WorldRuntimeQuestQueryService,
         world_runtime_npc_quest_interaction_query_service_1.WorldRuntimeNpcQuestInteractionQueryService,
-        world_runtime_gm_queue_service_1.WorldRuntimeGmQueueService])
+        world_runtime_gm_queue_service_1.WorldRuntimeGmQueueService,
+        world_runtime_craft_service_1.WorldRuntimeCraftService])
 ], WorldRuntimeService);
 // helper functions were split into dedicated helper modules for maintainability.
 //# sourceMappingURL=world-runtime.service.js.map
