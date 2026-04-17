@@ -179,11 +179,7 @@ let WorldPlayerAuthService = class WorldPlayerAuthService {
     async promoteTokenSeedIdentityToNative(identity) {
         return this.promotePersistedIdentityToNative(identity, 'token_seed');
     }
-    /** 仅针对 legacy backfill/sync 来源做原生提升。 */
-    async promoteLegacyDerivedIdentityToNative(identity) {
-        return this.promotePersistedIdentityToNative(identity, ['legacy_backfill', 'legacy_sync']);
-    }
-    /** 把 legacy 回填身份规范化到 next 协议可接受的 native 状态。 */
+    /** next 协议不再接受 legacy backfill/sync 身份的运行时提升。 */
     async normalizeLoadedNextIdentityForNextProtocol(identity) {
 
         const persistedSource = normalizePersistedSource(identity);
@@ -194,54 +190,11 @@ let WorldPlayerAuthService = class WorldPlayerAuthService {
             };
         }
 
-        const failureStagePrefix = persistedSource === 'legacy_sync'
-            ? 'next_protocol_legacy_sync'
-            : 'next_protocol_legacy_backfill';
-        if (typeof this.worldPlayerSnapshotService?.loadNextPlayerSnapshotRecord !== 'function') {
-            this.logger.warn(`玩家身份 ${persistedSource} 规范化不可用：userId=${identity?.userId ?? '未知'} playerId=${identity?.playerId ?? '未知'} reason=snapshot_source_unavailable`);
-            return {
-                identity: null,
-                persistFailureStage: `${failureStagePrefix}_snapshot_source_unavailable`,
-            };
-        }
-
-        let nextSnapshotRecord = null;
-        try {
-            nextSnapshotRecord = await this.worldPlayerSnapshotService.loadNextPlayerSnapshotRecord(identity.playerId);
-        }
-        catch (error) {
-            this.logger.warn(`玩家身份 ${persistedSource} 快照加载失败：userId=${identity?.userId ?? '未知'} playerId=${identity?.playerId ?? '未知'} error=${error instanceof Error ? error.message : String(error)}`);
-            return {
-                identity: null,
-                persistFailureStage: `${failureStagePrefix}_snapshot_load_failed`,
-            };
-        }
-
-        const snapshotPersistedSource = typeof nextSnapshotRecord?.persistedSource === 'string'
-            ? nextSnapshotRecord.persistedSource.trim()
-            : '';
-
-        const hasCompatibleSeededSnapshot = Boolean(nextSnapshotRecord?.snapshot)
-            && (snapshotPersistedSource === 'native' || snapshotPersistedSource === 'legacy_seeded');
-        if (!hasCompatibleSeededSnapshot) {
-            return {
-                identity: null,
-                persistFailureStage: `${failureStagePrefix}_requires_native_snapshot`,
-            };
-        }
-
-        const promotedIdentity = await this.promoteLegacyDerivedIdentityToNative(identity);
-
-        const promotedPersistedSource = normalizePersistedSource(promotedIdentity);
-        if (!promotedIdentity || promotedPersistedSource !== 'native') {
-            return {
-                identity: null,
-                persistFailureStage: `${failureStagePrefix}_promotion_failed`,
-            };
-        }
         return {
-            identity: promotedIdentity,
-            persistFailureStage: null,
+            identity: null,
+            persistFailureStage: persistedSource === 'legacy_sync'
+                ? 'next_protocol_legacy_sync_forbidden'
+                : 'next_protocol_legacy_backfill_forbidden',
         };
     }
     /** 统一对迁移输入做身份解析，便于 HTTP/Socket 共用。 */

@@ -2952,9 +2952,9 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
     });
     const nextProtocolLoadedLegacyBackfillBlockedTrace = readLatestIdentityTrace(payload.playerId);
     if (nextProtocolLoadedLegacyBackfillBlockedIdentity !== null
-        || nextProtocolLoadedLegacyBackfillSnapshotLoads !== 1
+        || nextProtocolLoadedLegacyBackfillSnapshotLoads !== 0
         || nextProtocolLoadedLegacyBackfillBlockedTrace.entry?.source !== 'next_invalid'
-        || nextProtocolLoadedLegacyBackfillBlockedTrace.entry?.persistFailureStage !== 'next_protocol_legacy_backfill_requires_native_snapshot'
+        || nextProtocolLoadedLegacyBackfillBlockedTrace.entry?.persistFailureStage !== 'next_protocol_legacy_backfill_forbidden'
         || nextProtocolLoadedLegacyBackfillBlockedTrace.entry?.persistedSource !== 'legacy_backfill') {
         throw new Error(`expected next protocol loaded legacy_backfill identity without native snapshot to be rejected, got identity=${JSON.stringify(nextProtocolLoadedLegacyBackfillBlockedIdentity)} loads=${nextProtocolLoadedLegacyBackfillSnapshotLoads} trace=${JSON.stringify(nextProtocolLoadedLegacyBackfillBlockedTrace)}`);
     }
@@ -3012,14 +3012,13 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
         protocol: 'next',
     });
     const nextProtocolLoadedLegacyBackfillPromotedTrace = readLatestIdentityTrace(payload.playerId);
-    if (!nextProtocolLoadedLegacyBackfillPromotedIdentity
-        || nextProtocolLoadedLegacyBackfillPromotedIdentity.authSource !== 'next'
-        || nextProtocolLoadedLegacyBackfillPromotedIdentity.persistedSource !== 'native'
-        || nextProtocolLoadedLegacyBackfillPromotionSnapshotLoads !== 1
-        || nextProtocolLoadedLegacyBackfillPromotionSaveCalls !== 1
-        || nextProtocolLoadedLegacyBackfillPromotedTrace.entry?.source !== 'next'
-        || nextProtocolLoadedLegacyBackfillPromotedTrace.entry?.persistedSource !== 'native') {
-        throw new Error(`expected next protocol loaded legacy_backfill identity with native snapshot to normalize into next/native, got identity=${JSON.stringify(nextProtocolLoadedLegacyBackfillPromotedIdentity)} snapshotLoads=${nextProtocolLoadedLegacyBackfillPromotionSnapshotLoads} saveCalls=${nextProtocolLoadedLegacyBackfillPromotionSaveCalls} trace=${JSON.stringify(nextProtocolLoadedLegacyBackfillPromotedTrace)}`);
+    if (nextProtocolLoadedLegacyBackfillPromotedIdentity !== null
+        || nextProtocolLoadedLegacyBackfillPromotionSnapshotLoads !== 0
+        || nextProtocolLoadedLegacyBackfillPromotionSaveCalls !== 0
+        || nextProtocolLoadedLegacyBackfillPromotedTrace.entry?.source !== 'next_invalid'
+        || nextProtocolLoadedLegacyBackfillPromotedTrace.entry?.persistFailureStage !== 'next_protocol_legacy_backfill_forbidden'
+        || nextProtocolLoadedLegacyBackfillPromotedTrace.entry?.persistedSource !== 'legacy_backfill') {
+        throw new Error(`expected next protocol loaded legacy_backfill identity with native snapshot to stay rejected after runtime promotion removal, got identity=${JSON.stringify(nextProtocolLoadedLegacyBackfillPromotedIdentity)} snapshotLoads=${nextProtocolLoadedLegacyBackfillPromotionSnapshotLoads} saveCalls=${nextProtocolLoadedLegacyBackfillPromotionSaveCalls} trace=${JSON.stringify(nextProtocolLoadedLegacyBackfillPromotedTrace)}`);
     }
     let nextProtocolLoadedLegacySeededPromotionSaveCalls = 0;
     let nextProtocolLoadedLegacySeededSnapshotLoads = 0;
@@ -3075,41 +3074,16 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
         protocol: 'next',
     });
     const nextProtocolLoadedLegacySeededPromotedTrace = readLatestIdentityTrace(payload.playerId);
-    if (!nextProtocolLoadedLegacySeededPromotedIdentity
-        || nextProtocolLoadedLegacySeededPromotedIdentity.authSource !== 'next'
-        || nextProtocolLoadedLegacySeededPromotedIdentity.persistedSource !== 'native'
-        || nextProtocolLoadedLegacySeededSnapshotLoads !== 1
-        || nextProtocolLoadedLegacySeededPromotionSaveCalls !== 1
-        || nextProtocolLoadedLegacySeededPromotedTrace.entry?.source !== 'next'
-        || nextProtocolLoadedLegacySeededPromotedTrace.entry?.persistedSource !== 'native') {
-        throw new Error(`expected next protocol loaded legacy_backfill identity with legacy_seeded snapshot to normalize into next/native, got identity=${JSON.stringify(nextProtocolLoadedLegacySeededPromotedIdentity)} snapshotLoads=${nextProtocolLoadedLegacySeededSnapshotLoads} saveCalls=${nextProtocolLoadedLegacySeededPromotionSaveCalls} trace=${JSON.stringify(nextProtocolLoadedLegacySeededPromotedTrace)}`);
+    if (nextProtocolLoadedLegacySeededPromotedIdentity !== null
+        || nextProtocolLoadedLegacySeededSnapshotLoads !== 0
+        || nextProtocolLoadedLegacySeededPromotionSaveCalls !== 0
+        || nextProtocolLoadedLegacySeededPromotedTrace.entry?.source !== 'next_invalid'
+        || nextProtocolLoadedLegacySeededPromotedTrace.entry?.persistFailureStage !== 'next_protocol_legacy_backfill_forbidden'
+        || nextProtocolLoadedLegacySeededPromotedTrace.entry?.persistedSource !== 'legacy_backfill') {
+        throw new Error(`expected next protocol loaded legacy_backfill identity with legacy_seeded snapshot to stay rejected after runtime promotion removal, got identity=${JSON.stringify(nextProtocolLoadedLegacySeededPromotedIdentity)} snapshotLoads=${nextProtocolLoadedLegacySeededSnapshotLoads} saveCalls=${nextProtocolLoadedLegacySeededPromotionSaveCalls} trace=${JSON.stringify(nextProtocolLoadedLegacySeededPromotedTrace)}`);
     }
     const nextProtocolLoadedLegacyBackfillBootstrapService = new world_session_bootstrap_service_1.WorldSessionBootstrapService(null, null, null, null, null, null, null, null, null, null);
     const nextProtocolLoadedLegacyBackfillGateway = new world_gateway_1.WorldGateway(null, null, nextProtocolLoadedLegacyBackfillBootstrapService, null, null, null, null, null, null, null, null, null, null, null);
-    const nextProtocolLoadedLegacyBackfillClient = {
-        id: 'proof_socket_next_loaded_legacy_backfill_promoted',
-        handshake: {
-            auth: {
-                sessionId: 'next_loaded_legacy_backfill_requested_session',
-            },
-        },
-        data: {
-            isGm: false,
-            bootstrapEntryPath: 'connect_token',
-            bootstrapIdentitySource: 'next',
-            bootstrapIdentityPersistedSource: 'native',
-        },
-    };
-    const nextProtocolLoadedLegacyBackfillImplicitResumeAllowed = nextProtocolLoadedLegacyBackfillBootstrapService.shouldAllowImplicitDetachedResume(nextProtocolLoadedLegacyBackfillClient);
-    const nextProtocolLoadedLegacyBackfillRequestedResumeAllowed = nextProtocolLoadedLegacyBackfillBootstrapService.shouldAllowRequestedDetachedResume(nextProtocolLoadedLegacyBackfillClient);
-    const nextProtocolLoadedLegacyBackfillConnectedReuseAllowed = nextProtocolLoadedLegacyBackfillBootstrapService.shouldAllowConnectedSessionReuse(nextProtocolLoadedLegacyBackfillClient);
-    const nextProtocolLoadedLegacyBackfillBootstrapInput = nextProtocolLoadedLegacyBackfillGateway.buildAuthenticatedBootstrapInput(nextProtocolLoadedLegacyBackfillClient, nextProtocolLoadedLegacyBackfillPromotedIdentity);
-    if (nextProtocolLoadedLegacyBackfillBootstrapInput.requestedSessionId !== 'next_loaded_legacy_backfill_requested_session'
-        || !nextProtocolLoadedLegacyBackfillImplicitResumeAllowed
-        || !nextProtocolLoadedLegacyBackfillRequestedResumeAllowed
-        || !nextProtocolLoadedLegacyBackfillConnectedReuseAllowed) {
-        throw new Error(`expected normalized next/native identity loaded from legacy_backfill to preserve requestedSessionId and allow reuse, got requested=${nextProtocolLoadedLegacyBackfillBootstrapInput.requestedSessionId} implicit=${nextProtocolLoadedLegacyBackfillImplicitResumeAllowed} requestedReuse=${nextProtocolLoadedLegacyBackfillRequestedResumeAllowed} connectedReuse=${nextProtocolLoadedLegacyBackfillConnectedReuseAllowed}`);
-    }
     const nextProtocolLoadedMigrationBackfillClient = {
         id: 'proof_socket_next_loaded_migration_backfill',
         handshake: {
@@ -3628,10 +3602,10 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
         nextProtocolLoadedLegacyBackfillNormalizedPersistedSource: nextProtocolLoadedLegacyBackfillPromotedIdentity?.persistedSource ?? null,
         nextProtocolLoadedLegacySeededNormalizedSource: nextProtocolLoadedLegacySeededPromotedIdentity?.authSource ?? null,
         nextProtocolLoadedLegacySeededNormalizedPersistedSource: nextProtocolLoadedLegacySeededPromotedIdentity?.persistedSource ?? null,
-        nextProtocolLoadedLegacyBackfillNormalizedRequestedSessionId: nextProtocolLoadedLegacyBackfillBootstrapInput.requestedSessionId ?? null,
-        nextProtocolLoadedLegacyBackfillNormalizedImplicitResume: nextProtocolLoadedLegacyBackfillImplicitResumeAllowed,
-        nextProtocolLoadedLegacyBackfillNormalizedRequestedResume: nextProtocolLoadedLegacyBackfillRequestedResumeAllowed,
-        nextProtocolLoadedLegacyBackfillNormalizedConnectedReuse: nextProtocolLoadedLegacyBackfillConnectedReuseAllowed,
+        nextProtocolLoadedLegacyBackfillNormalizedRequestedSessionId: null,
+        nextProtocolLoadedLegacyBackfillNormalizedImplicitResume: false,
+        nextProtocolLoadedLegacyBackfillNormalizedRequestedResume: false,
+        nextProtocolLoadedLegacyBackfillNormalizedConnectedReuse: false,
         nextProtocolLoadedMigrationBackfillRequestedSessionId: nextProtocolLoadedMigrationBackfillBootstrapInput.requestedSessionId ?? null,
         nextProtocolLoadedMigrationBackfillImplicitResume: nextProtocolLoadedMigrationBackfillImplicitResumeAllowed,
         nextProtocolLoadedMigrationBackfillRequestedResume: nextProtocolLoadedMigrationBackfillRequestedResumeAllowed,
