@@ -52,6 +52,8 @@ const world_runtime_craft_service_1 = require("./world-runtime-craft.service");
 
 const world_runtime_npc_quest_shop_service_1 = require("./world-runtime-npc-quest-shop.service");
 
+const world_runtime_loot_container_service_1 = require("./world-runtime-loot-container.service");
+
 const player_combat_service_1 = require("../combat/player-combat.service");
 
 const map_instance_runtime_1 = require("../instance/map-instance.runtime");
@@ -175,18 +177,6 @@ const DEFAULT_PLAYER_RESPAWN_MAP_ID = 'yunlai_town';
 /** TICK_METRIC_WINDOW_SIZE：TICKMETRICWINDOWSIZE。 */
 const TICK_METRIC_WINDOW_SIZE = 60;
 
-/** CONTAINER_SEARCH_TICKS_BY_GRADE：不同品阶容器每轮翻找所需的 tick 数。 */
-const CONTAINER_SEARCH_TICKS_BY_GRADE = {
-    mortal: 1,
-    yellow: 1,
-    mystic: 2,
-    earth: 2,
-    heaven: 3,
-    spirit: 3,
-    saint: 4,
-    emperor: 4,
-};
-
 /** STATIC_TOGGLE_CONTEXT_ACTIONS：STATICTOGGLECONTEXTACTIONS。 */
 const STATIC_TOGGLE_CONTEXT_ACTIONS = [{
         id: 'toggle:auto_battle',
@@ -246,6 +236,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     worldRuntimeGmQueueService;
     worldRuntimeCraftService;
     worldRuntimeNpcQuestShopService;
+    worldRuntimeLootContainerService;
     logger = new common_1.Logger(WorldRuntimeService_1.name);
     stateLayerContract = world_runtime_contract_1.WORLD_RUNTIME_STATE_CONTRACT;
     runtimeState = (0, world_runtime_state_1.createWorldRuntimeStateStore)();
@@ -269,10 +260,8 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     tickDurationHistoryMs = [];
     syncFlushDurationHistoryMs = [];
     instanceTickProgressById = this.runtimeState.instanceTickProgressById;
-    containerStatesByInstanceId = this.runtimeState.containerStatesByInstanceId;
-    dirtyContainerPersistenceInstanceIds = this.runtimeState.dirtyContainerPersistenceInstanceIds;
     latestCombatEffectsByInstanceId = this.runtimeState.latestCombatEffectsByInstanceId;
-    constructor(contentTemplateRepository, templateRepository, mapPersistenceService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService, craftPanelRuntimeService, worldRuntimeNpcShopQueryService, worldRuntimeQuestQueryService, worldRuntimeNpcQuestInteractionQueryService, worldRuntimeGmQueueService, worldRuntimeCraftService, worldRuntimeNpcQuestShopService) {
+    constructor(contentTemplateRepository, templateRepository, mapPersistenceService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService, craftPanelRuntimeService, worldRuntimeNpcShopQueryService, worldRuntimeQuestQueryService, worldRuntimeNpcQuestInteractionQueryService, worldRuntimeGmQueueService, worldRuntimeCraftService, worldRuntimeNpcQuestShopService, worldRuntimeLootContainerService) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.templateRepository = templateRepository;
         this.mapPersistenceService = mapPersistenceService;
@@ -288,6 +277,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.worldRuntimeGmQueueService = worldRuntimeGmQueueService;
         this.worldRuntimeCraftService = worldRuntimeCraftService;
         this.worldRuntimeNpcQuestShopService = worldRuntimeNpcQuestShopService;
+        this.worldRuntimeLootContainerService = worldRuntimeLootContainerService;
     }
     /** onModuleInit：初始化公共实例的基础结构。 */
     async onModuleInit() {
@@ -1329,31 +1319,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
 
         const container = instance.getContainerAtTile(tileX, tileY);
         if (container) {
-
-            const containerState = this.ensureContainerState(instance.meta.instanceId, container);
-            if (!containerState.activeSearch && hasHiddenContainerEntries(containerState.entries)) {
-                this.beginContainerSearch(containerState, container.grade);
-                this.markContainerPersistenceDirty(instance.meta.instanceId);
-            }
-            sources.push({
-                sourceId: containerState.sourceId,
-                kind: 'container',
-                title: container.name,
-                desc: container.desc,
-                grade: container.grade,
-                searchable: true,
-                search: containerState.activeSearch
-                    ? {
-                        totalTicks: containerState.activeSearch.totalTicks,
-                        remainingTicks: containerState.activeSearch.remainingTicks,
-                        elapsedTicks: containerState.activeSearch.totalTicks - containerState.activeSearch.remainingTicks,
-                    }
-                    : undefined,
-                items: buildContainerWindowItems(containerState.entries),
-                emptyText: hasHiddenContainerEntries(containerState.entries)
-                    ? '正在翻找，每完成一轮搜索会显露一件物品。'
-                    : '容器里已经空了。',
-            });
+            sources.push(this.worldRuntimeLootContainerService.buildContainerLootSource(instance.meta.instanceId, container, this.tick));
         }
         if (sources.length === 0) {
             return null;
@@ -1627,8 +1593,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     }
     /** listDirtyPersistentInstances：列出需要持久化刷新的实例。 */
     listDirtyPersistentInstances() {
-
-        const dirty = new Set(this.dirtyContainerPersistenceInstanceIds);
+        const dirty = new Set(this.worldRuntimeLootContainerService.getDirtyInstanceIds());
         for (const [instanceId, instance] of this.instances.entries()) {
             if (instance.meta.persistent && instance.isPersistentDirty()) {
                 dirty.add(instanceId);
@@ -1649,243 +1614,13 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             templateId: instance.template.id,
             auraEntries: instance.buildAuraPersistenceEntries(),
             groundPileEntries: instance.buildGroundPersistenceEntries(),
-            containerStates: this.buildContainerPersistenceStates(instanceId),
+            containerStates: this.worldRuntimeLootContainerService.buildContainerPersistenceStates(instanceId),
         };
     }
     /** markMapPersisted：标记地图快照已落盘。 */
     markMapPersisted(instanceId) {
         this.instances.get(instanceId)?.markAuraPersisted();
-        this.dirtyContainerPersistenceInstanceIds.delete(instanceId);
-    }
-    /** buildContainerPersistenceStates：导出容器持久化状态。 */
-    buildContainerPersistenceStates(instanceId) {
-
-        const containerStates = this.containerStatesByInstanceId.get(instanceId);
-        if (!containerStates || containerStates.size === 0) {
-            return [];
-        }
-        return Array.from(containerStates.values(), (state) => ({
-            sourceId: state.sourceId,
-            containerId: state.containerId,
-            generatedAtTick: state.generatedAtTick,
-            refreshAtTick: state.refreshAtTick,
-            entries: state.entries.map((entry) => ({
-                item: { ...entry.item },
-                createdTick: entry.createdTick,
-                visible: entry.visible,
-            })),
-            activeSearch: state.activeSearch
-                ? {
-                    itemKey: state.activeSearch.itemKey,
-                    totalTicks: state.activeSearch.totalTicks,
-                    remainingTicks: state.activeSearch.remainingTicks,
-                }
-                : undefined,
-        })).sort((left, right) => compareStableStrings(left.sourceId, right.sourceId));
-    }
-    /** hydrateContainerStates：用持久化数据回填容器状态。 */
-    hydrateContainerStates(instanceId, entries) {
-        if (entries.length === 0) {
-            this.containerStatesByInstanceId.delete(instanceId);
-            this.dirtyContainerPersistenceInstanceIds.delete(instanceId);
-            return;
-        }
-
-        const next = new Map();
-        for (const entry of entries) {
-            next.set(entry.sourceId, {
-                sourceId: entry.sourceId,
-                containerId: entry.containerId,
-                generatedAtTick: entry.generatedAtTick,
-                refreshAtTick: entry.refreshAtTick,
-                entries: entry.entries.map((item) => ({
-                    item: { ...item.item },
-                    createdTick: item.createdTick,
-                    visible: item.visible,
-                })),
-                activeSearch: entry.activeSearch
-                    ? {
-                        itemKey: entry.activeSearch.itemKey,
-                        totalTicks: entry.activeSearch.totalTicks,
-                        remainingTicks: entry.activeSearch.remainingTicks,
-                    }
-                    : undefined,
-            });
-        }
-        this.containerStatesByInstanceId.set(instanceId, next);
-        this.dirtyContainerPersistenceInstanceIds.delete(instanceId);
-    }
-    /** ensureContainerState：确保容器运行时状态已创建并刷新到当前 tick。 */
-    ensureContainerState(instanceId, container) {
-
-        let states = this.containerStatesByInstanceId.get(instanceId);
-        if (!states) {
-            states = new Map();
-            this.containerStatesByInstanceId.set(instanceId, states);
-        }
-
-        const sourceId = buildContainerSourceId(instanceId, container.id);
-
-        const existing = states.get(sourceId);
-        if (existing) {
-            if (typeof existing.refreshAtTick === 'number'
-                && existing.refreshAtTick <= this.tick
-                && !existing.activeSearch) {
-                existing.entries = this.generateContainerEntries(container);
-                existing.generatedAtTick = this.tick;
-                existing.refreshAtTick = container.refreshTicks ? this.tick + container.refreshTicks : undefined;
-                this.markContainerPersistenceDirty(instanceId);
-            }
-            return existing;
-        }
-
-        const created = existing ?? {
-            sourceId,
-            containerId: container.id,
-            entries: [],
-        };
-        created.entries = this.generateContainerEntries(container);
-        created.generatedAtTick = this.tick;
-        created.refreshAtTick = container.refreshTicks ? this.tick + container.refreshTicks : undefined;
-        created.activeSearch = undefined;
-        states.set(sourceId, created);
-        this.markContainerPersistenceDirty(instanceId);
-        return created;
-    }
-    /** generateContainerEntries：生成容器当前轮次的物品条目。 */
-    generateContainerEntries(container) {
-
-        const entries = [];
-        for (const pool of container.lootPools) {
-            const items = this.contentTemplateRepository.rollLootPoolItems({
-                rolls: pool.rolls,
-                chance: pool.chance,
-                minLevel: pool.minLevel,
-                maxLevel: pool.maxLevel,
-                minGrade: pool.minGrade,
-                maxGrade: pool.maxGrade,
-                tagGroups: pool.tagGroups?.map((group) => group.slice()),
-                countMin: pool.countMin,
-                countMax: pool.countMax,
-                allowDuplicates: pool.allowDuplicates,
-            });
-            for (const item of items) {
-                entries.push({
-                    item,
-                    createdTick: this.tick,
-                    visible: false,
-                });
-            }
-        }
-        if (entries.length > 0 || container.lootPools.length > 0) {
-            return entries;
-        }
-        for (const drop of container.drops) {
-            const chance = typeof drop.chance === 'number' ? Math.max(0, Math.min(1, drop.chance)) : 1;
-            if (chance <= 0 || Math.random() > chance) {
-                continue;
-            }
-
-            const item = this.contentTemplateRepository.createItem(drop.itemId, drop.count) ?? {
-                itemId: drop.itemId,
-                count: Math.max(1, Math.trunc(drop.count)),
-                name: drop.name,
-                type: drop.type,
-            };
-            entries.push({
-                item,
-                createdTick: this.tick,
-                visible: false,
-            });
-        }
-        return entries;
-    }
-    /** beginContainerSearch：启动容器翻找进度。 */
-    beginContainerSearch(state, grade) {
-        if (state.activeSearch) {
-            return;
-        }
-
-        const nextHidden = groupContainerLootRows(state.entries.filter((entry) => !entry.visible))[0];
-        if (!nextHidden) {
-            return;
-        }
-
-        const totalTicks = CONTAINER_SEARCH_TICKS_BY_GRADE[grade] ?? 1;
-        state.activeSearch = {
-            itemKey: nextHidden.itemKey,
-            totalTicks,
-            remainingTicks: totalTicks,
-        };
-    }
-    /** advanceContainerSearches：推进所有容器翻找进度。 */
-    advanceContainerSearches() {
-        for (const [instanceId, states] of this.containerStatesByInstanceId) {
-            const instance = this.instances.get(instanceId);
-            if (!instance) {
-                continue;
-            }
-
-            let changed = false;
-            for (const state of states.values()) {
-                const runtimeContainer = instance.template.containers.find((entry) => entry.id === state.containerId) ?? null;
-                if (!runtimeContainer) {
-                    continue;
-                }
-                if (!state.activeSearch) {
-                    if (hasHiddenContainerEntries(state.entries)
-                        && this.hasActiveContainerViewer(instanceId, runtimeContainer.x, runtimeContainer.y)) {
-                        this.beginContainerSearch(state, runtimeContainer.grade);
-                        changed = true;
-                    }
-                    continue;
-                }
-                state.activeSearch.remainingTicks -= 1;
-                changed = true;
-                if (state.activeSearch.remainingTicks > 0) {
-                    continue;
-                }
-
-                const target = state.entries.find((entry) => !entry.visible && createSyncedItemStackSignature(entry.item) === state.activeSearch?.itemKey);
-                if (target) {
-                    target.visible = true;
-                }
-                state.activeSearch = undefined;
-                if (hasHiddenContainerEntries(state.entries)
-                    && this.hasActiveContainerViewer(instanceId, runtimeContainer.x, runtimeContainer.y)) {
-                    this.beginContainerSearch(state, runtimeContainer.grade);
-                }
-            }
-            if (changed) {
-                this.markContainerPersistenceDirty(instanceId);
-            }
-        }
-    }
-    /** hasActiveContainerViewer：判断指定地块是否仍有活跃拿取窗口。 */
-    hasActiveContainerViewer(instanceId, tileX, tileY) {
-        for (const [playerId, location] of this.playerLocations) {
-            if (location.instanceId !== instanceId) {
-                continue;
-            }
-
-            const player = this.playerRuntimeService.getPlayer(playerId);
-
-            const lootWindowTarget = this.playerRuntimeService.getLootWindowTarget(playerId);
-            if (!player || !lootWindowTarget) {
-                continue;
-            }
-            if (Math.max(Math.abs(player.x - lootWindowTarget.tileX), Math.abs(player.y - lootWindowTarget.tileY)) > 1) {
-                continue;
-            }
-            if (lootWindowTarget.tileX === tileX && lootWindowTarget.tileY === tileY) {
-                return true;
-            }
-        }
-        return false;
-    }
-    /** markContainerPersistenceDirty：标记容器持久化状态已变更。 */
-    markContainerPersistenceDirty(instanceId) {
-        this.dirtyContainerPersistenceInstanceIds.add(instanceId);
+        this.worldRuntimeLootContainerService.clearPersisted(instanceId);
     }
     /** tickAll：推进全部实例的默认一秒帧。 */
     tickAll() {
@@ -1975,7 +1710,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
                     this.playerRuntimeService.advanceTickForPlayerIds(currentPlayerIds, instance.tick, {
                         idleCultivationBlockedPlayerIds: blockedPlayerIds,
                     });
-        this.worldRuntimeCraftService.advanceCraftJobs(currentPlayerIds, this);
+                    this.worldRuntimeCraftService.advanceCraftJobs(currentPlayerIds, this);
                     for (const playerId of currentPlayerIds) {
                         steppedPlayerIds.add(playerId);
                     }
@@ -1990,7 +1725,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         const monsterActionsMs = 0;
 
         const playerAdvanceStartedAt = performance.now();
-        this.advanceContainerSearches();
+        this.worldRuntimeLootContainerService.advanceContainerSearches(this.instances, this.playerLocations, this.tick);
         for (const playerId of steppedPlayerIds) {
             this.refreshQuestStates(playerId);
         }
@@ -2043,7 +1778,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             }
             instance.hydrateAura(snapshot.auraEntries);
             instance.hydrateGroundPiles(snapshot.groundPileEntries);
-            this.hydrateContainerStates(instanceId, snapshot.containerStates ?? []);
+            this.worldRuntimeLootContainerService.hydrateContainerStates(instanceId, snapshot.containerStates ?? []);
         }
     }
     /** rebuildPersistentRuntimeAfterRestore：在恢复持久化后重建世界运行态。 */
@@ -2055,8 +1790,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.pendingRespawnPlayerIds.clear();
         this.navigationIntents.clear();
         this.instanceTickProgressById.clear();
-        this.containerStatesByInstanceId.clear();
-        this.dirtyContainerPersistenceInstanceIds.clear();
+        this.worldRuntimeLootContainerService.reset();
         this.latestCombatEffectsByInstanceId.clear();
         this.bootstrapPublicInstances();
         await this.restorePublicInstancePersistence();
@@ -3485,172 +3219,11 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     }
     /** dispatchTakeGround：执行地面或容器拾取结算。 */
     dispatchTakeGround(playerId, sourceId, itemKey) {
-
-        const location = this.getPlayerLocationOrThrow(playerId);
-
-        const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
-        if (isContainerSourceId(sourceId)) {
-
-            const item = this.takeContainerItem(location.instanceId, playerId, player, sourceId, itemKey);
-            this.playerRuntimeService.receiveInventoryItem(playerId, item);
-            this.refreshQuestStates(playerId);
-            this.queuePlayerNotice(playerId, `获得 ${formatItemStackLabel(item)}`, 'loot');
-            return;
-        }
-
-        const instance = this.getInstanceRuntimeOrThrow(location.instanceId);
-
-        const item = instance.takeGroundItem(sourceId, itemKey, player.x, player.y);
-        if (!item) {
-            throw new common_1.NotFoundException(`Ground item ${itemKey} not found at ${sourceId}`);
-        }
-        this.playerRuntimeService.receiveInventoryItem(playerId, item);
-        this.refreshQuestStates(playerId);
-        this.queuePlayerNotice(playerId, `获得 ${formatItemStackLabel(item)}`, 'loot');
+        this.worldRuntimeLootContainerService.dispatchTakeGround(playerId, sourceId, itemKey, this);
     }
     /** dispatchTakeGroundAll：执行一键拾取结算。 */
     dispatchTakeGroundAll(playerId, sourceId) {
-
-        const location = this.getPlayerLocationOrThrow(playerId);
-
-        const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
-        if (isContainerSourceId(sourceId)) {
-
-            const takenItems = this.takeAllContainerItems(location.instanceId, playerId, player, sourceId);
-            if (takenItems.length === 0) {
-                throw new common_1.BadRequestException('当前没有可拿取的物品');
-            }
-            for (const item of takenItems) {
-                this.playerRuntimeService.receiveInventoryItem(playerId, item);
-            }
-            this.refreshQuestStates(playerId);
-            this.queuePlayerNotice(playerId, `获得 ${formatItemListSummary(takenItems)}`, 'loot');
-            return;
-        }
-
-        const instance = this.getInstanceRuntimeOrThrow(location.instanceId);
-
-        const pile = instance.getGroundPileBySourceId(sourceId);
-        if (!pile || pile.items.length === 0) {
-            throw new common_1.NotFoundException(`Ground source ${sourceId} not found`);
-        }
-
-        const takenItems = [];
-        for (const entry of pile.items) {
-            if (!canReceiveItemStack(player, entry.item)) {
-                if (takenItems.length === 0) {
-                    throw new common_1.BadRequestException('背包空间不足，无法继续拿取');
-                }
-                break;
-            }
-
-            const taken = instance.takeGroundItem(sourceId, entry.itemKey, player.x, player.y);
-            if (!taken) {
-                continue;
-            }
-            this.playerRuntimeService.receiveInventoryItem(playerId, taken);
-            takenItems.push(taken);
-        }
-        if (takenItems.length === 0) {
-            throw new common_1.BadRequestException('当前没有可拿取的物品');
-        }
-        this.refreshQuestStates(playerId);
-        this.queuePlayerNotice(playerId, `获得 ${formatItemListSummary(takenItems)}`, 'loot');
-        if (takenItems.length < pile.items.length) {
-            this.queuePlayerNotice(playerId, '背包空间不足，剩余物品暂时拿不下。', 'info');
-        }
-    }
-    /** takeContainerItem：从容器窗口取走单组物品。 */
-    takeContainerItem(instanceId, playerId, player, sourceId, itemKey) {
-
-        const resolved = this.resolveContainerStateForPlayer(instanceId, playerId, player, sourceId);
-
-        const row = groupContainerLootRows(resolved.state.entries.filter((entry) => entry.visible))
-            .find((entry) => entry.itemKey === itemKey);
-        if (!row) {
-            throw new common_1.NotFoundException(`Container item ${itemKey} not found at ${sourceId}`);
-        }
-        if (!canReceiveContainerRow(player, row.entries)) {
-            throw new common_1.BadRequestException('背包空间不足，无法拿取该物品');
-        }
-        /** removeContainerRowEntries：移除容器RowEntries。 */
-        removeContainerRowEntries(resolved.state.entries, row.entries);
-        if (!resolved.state.activeSearch && hasHiddenContainerEntries(resolved.state.entries)) {
-            this.beginContainerSearch(resolved.state, resolved.container.grade);
-        }
-        this.markContainerPersistenceDirty(instanceId);
-        return { ...row.item };
-    }
-    /** takeAllContainerItems：从容器窗口批量取走物品。 */
-    takeAllContainerItems(instanceId, playerId, player, sourceId) {
-
-        const resolved = this.resolveContainerStateForPlayer(instanceId, playerId, player, sourceId);
-
-        const rows = groupContainerLootRows(resolved.state.entries.filter((entry) => entry.visible));
-        if (rows.length === 0) {
-            return [];
-        }
-
-        const takenItems = [];
-
-        const simulatedInventory = cloneInventorySimulation(player.inventory.items);
-        for (const row of rows) {
-            if (!canReceiveContainerEntries(simulatedInventory, player.inventory.capacity, row.entries)) {
-                break;
-            }
-            /** applyContainerEntriesToInventorySimulation：应用容器EntriesTo背包Simulation。 */
-            applyContainerEntriesToInventorySimulation(simulatedInventory, row.entries);
-            /** removeContainerRowEntries：移除容器RowEntries。 */
-            removeContainerRowEntries(resolved.state.entries, row.entries);
-            takenItems.push({ ...row.item });
-        }
-        if (takenItems.length > 0) {
-            if (!resolved.state.activeSearch && hasHiddenContainerEntries(resolved.state.entries)) {
-                this.beginContainerSearch(resolved.state, resolved.container.grade);
-            }
-            this.markContainerPersistenceDirty(instanceId);
-        }
-        return takenItems;
-    }
-    /** resolveContainerStateForPlayer：校验并解析玩家当前打开的容器状态。 */
-    resolveContainerStateForPlayer(instanceId, playerId, player, sourceId) {
-
-        const lootWindowTarget = this.playerRuntimeService.getLootWindowTarget(playerId);
-        if (!lootWindowTarget) {
-            throw new common_1.BadRequestException('请先打开拿取界面');
-        }
-        if (Math.max(Math.abs(player.x - lootWindowTarget.tileX), Math.abs(player.y - lootWindowTarget.tileY)) > 1) {
-            this.playerRuntimeService.clearLootWindow(playerId);
-            throw new common_1.BadRequestException('你已离开拿取范围');
-        }
-
-        const parsedSource = parseContainerSourceId(sourceId);
-        if (!parsedSource) {
-            throw new common_1.BadRequestException('非法容器来源');
-        }
-        if (parsedSource.instanceId !== instanceId) {
-            throw new common_1.BadRequestException('目标容器不在当前实例中');
-        }
-
-        const instance = this.getInstanceRuntimeOrThrow(instanceId);
-
-        const container = instance.getContainerById(parsedSource.containerId);
-        if (!container) {
-            this.playerRuntimeService.clearLootWindow(playerId);
-            throw new common_1.NotFoundException('目标容器不存在');
-        }
-        if (container.x !== lootWindowTarget.tileX || container.y !== lootWindowTarget.tileY) {
-            throw new common_1.BadRequestException('当前拿取界面与目标容器不一致');
-        }
-
-        const expectedSourceId = buildContainerSourceId(instanceId, container.id);
-        if (sourceId !== expectedSourceId) {
-            throw new common_1.BadRequestException('当前拿取界面与目标容器不一致');
-        }
-        return {
-            container,
-            state: this.ensureContainerState(instanceId, container),
-        };
+        this.worldRuntimeLootContainerService.dispatchTakeGroundAll(playerId, sourceId, this);
     }
     /** dispatchBuyNpcShopItem：执行 NPC 商店购买结算。 */
     dispatchBuyNpcShopItem(playerId, npcId, itemId, quantity) {
@@ -4541,7 +4114,8 @@ exports.WorldRuntimeService = WorldRuntimeService = WorldRuntimeService_1 = __de
         world_runtime_npc_quest_interaction_query_service_1.WorldRuntimeNpcQuestInteractionQueryService,
         world_runtime_gm_queue_service_1.WorldRuntimeGmQueueService,
         world_runtime_craft_service_1.WorldRuntimeCraftService,
-        world_runtime_npc_quest_shop_service_1.WorldRuntimeNpcQuestShopService])
+        world_runtime_npc_quest_shop_service_1.WorldRuntimeNpcQuestShopService,
+        world_runtime_loot_container_service_1.WorldRuntimeLootContainerService])
 ], WorldRuntimeService);
 // helper functions were split into dedicated helper modules for maintainability.
 //# sourceMappingURL=world-runtime.service.js.map
