@@ -23,8 +23,8 @@
 - [ ] 删除只为 parity 存在的双路径分支
 - [ ] 删除不再需要的 legacy facade / wrapper
 - [ ] 删除 runtime 中只为 compat fallback 存在的回退路径
-- [ ] 删除客户端中只为旧协议存在的发送 / 监听兼容逻辑
-- [ ] 删除客户端中只为旧 UI 结构存在的兼容代码
+- [x] 删除客户端中只为旧协议存在的发送 / 监听兼容逻辑
+- [x] 删除客户端中只为旧 UI 结构存在的兼容代码
 - [ ] 每删完一批都补一次最小 build / audit / smoke 验证
 - [ ] 更新文档，记录删掉了哪些 compat 面
 
@@ -55,10 +55,8 @@
 
 ### `packages/server/src/network/*`
 
-- `packages/server/src/network/world-legacy-player-repository.js`
-  - 直接访问 legacy `users` / `players` 表。
-  - 当前只该服务于显式 migration，不应继续扩职责。
 - `packages/server/src/network/world-player-source.service.js`
+  - `world-legacy-player-repository.js` 已删，legacy `users` / `players` 显式 migration 查询已内联到本服务。
   - 仍持有 legacy 数据库入口和 migration source gate。
   - `allowCompatMigration` 命名已删；还残留 `legacy:vitals_baseline` 规范化兼容与 legacy 库读取本体。
 - `packages/server/src/network/world-player-auth.service.js`
@@ -101,6 +99,9 @@
   - `persistent_documents_only`
   - `replace_persistent_documents`
 - 这属于 next GM 恢复合同展示，不属于旧 UI 兼容逻辑。
+- 已有证明链：
+  - `pnpm proof:next-client-no-legacy-alias`
+  - `pnpm proof:next-client-s2c-consumption`
 
 ### `packages/shared/src/*`
 
@@ -135,7 +136,7 @@
 
 ### 第 2 批：删鉴权 / 快照 migration bridge
 
-- [ ] 在 `04` 的一次性迁移脚本覆盖身份与玩家快照后，删除 `world-legacy-player-repository.js`
+- [x] 在 `04` 的一次性迁移脚本覆盖身份与玩家快照后，删除 `world-legacy-player-repository.js`
 - [ ] 删除 `world-player-source.service.js` 对 legacy `users/players` 的读取
 - [ ] 删除 `world-player-auth.service.js` 中 `legacy_backfill` / `legacy_sync` 的运行时提升路径
 - [ ] 删除 `world-player-snapshot.service.js` 中 migration backfill snapshot 补种主逻辑
