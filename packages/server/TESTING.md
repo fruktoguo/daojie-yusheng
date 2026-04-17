@@ -15,10 +15,12 @@
 ## 当前口径
 
 - `server-next` 当前仍是独立 shadow / replace-ready 线，不是默认生产接班入口。
+- `packages/server` 是当前目录主线；`server-next` 主要保留为包名与兼容命令名。
 - 当前任务账本按统一口径仍是 `25` 项。
 - 当前保守判断下，距离“完整替换游戏整体”仍约差 `35% - 40%`。
 - 这份文件只负责解释“跑什么、证明什么、不能证明什么”，不负责替代任务账本或运维手册。
 - README / TESTING / REPLACE-RUNBOOK / workflow / package wrapper 当前统一使用 `local / with-db / acceptance / full / shadow-destructive` 五层 gate 命名。
+- 根级主入口现在是 `verify:replace-ready*`；`verify:server-next*` 只保留为兼容别名。
 - `smoke-suite` 当前只承担 `local / with-db` 子集执行，并会在运行时打印自己回答什么、明确不回答什么。
 - 当前 `next-auth-bootstrap`、`gm-next` 和 `smoke-suite/readiness-gate` 都已经在脚本输出里显式打印 `answers / excludes / completionMapping`，不再只靠外部口头解释完成定义。
 

@@ -1,5 +1,11 @@
 # next 现状缺口分析
 
+历史参考文档。
+
+- 这份文档保留的是旧阶段的缺口判断，不再作为当前唯一结论。
+- 当前请优先看 [docs/next-plan/main.md](./next-plan/main.md)、[docs/next-in-place-hard-cut-plan.md](./next-in-place-hard-cut-plan.md)、[docs/server-next-operations.md](./server-next-operations.md)。
+- 文中旧的门禁层数、环境阻塞、进度数字和 `client-next / shared-next / server-next` 叙述，阅读时都应视为当时快照。
+
 更新时间：2026-04-13（当前轮次）
 
 ## 一句话结论

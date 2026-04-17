@@ -12,6 +12,7 @@
 3. 收口 client / server / shared 主链
 4. 验证门禁以 next 主链为准
 5. legacy 退化为归档和迁移来源，不再阻塞开发
+6. 每一轮修改完,都原子化提交git
 
 ---
 

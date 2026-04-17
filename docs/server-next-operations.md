@@ -6,7 +6,7 @@
 与 workflow / wrapper 里的重复内容，统一回答四件事：
 
 1. `server-next` 现在的验证口径是什么
-2. `local / acceptance / full / shadow-destructive` 四层门禁分别怎么跑
+2. `local / with-db / acceptance / full / shadow-destructive` 五层门禁分别怎么跑
 3. 自动 proof 和人工回归边界怎么切
 4. shadow / `gm/database/*` 演练时要注意什么
 
@@ -15,14 +15,18 @@
 ## 当前定位
 
 - `server-next` 当前仍是独立 shadow / replace-ready 线，不是默认正式生产入口。
+- `packages/server` 是当前目录主线；`server-next` 主要保留为包名与历史命令名。
 - 所有 `verify:replace-ready*`、`shadow`、`gm/database` 相关命令，默认都只证明替换链路与运维链路可演练，不等于“已经可完整接班”。
-- 当前推荐把文档里的门禁理解成四层：
+- 根级主入口现在是 `verify:replace-ready*`；`verify:server-next*` 只保留为兼容别名。
+- 当前推荐把文档里的门禁理解成五层：
   - `local`：本地主证明链
-  - `acceptance`：本地主证明链 + shadow 实物验收 + shadow GM 关键写路径
-  - `full`：`acceptance` 再加数据库运营面 proof
+  - `with-db`：本地主证明链 + 持久化带库 proof
+  - `acceptance`：`local + shadow + shadow GM 关键写路径`
+  - `full`：`with-db + gm-database + backup-persistence + shadow + gm-next`
   - `shadow-destructive`：维护窗口内的破坏性数据库闭环，只允许显式开启
-- 这四层不是同一件事的不同叫法，不能混读。
+- 这五层不是同一件事的不同叫法，不能混读。
 - `local` 只能回答“代码和主证明链是否绿”
+- `with-db` 只能回答“本地主证明链与持久化带库 proof 是否成立”
 - `acceptance` 只能回答“本地主证明链 + shadow 最小实物验收是否绿”
 - `full` 只能回答“在数据库、shadow、GM 密码都齐备时，自动化门禁是否全绿”
 - `shadow-destructive` 只能回答“维护窗口里的 destructive 闭环是否可控”，不回答日常替换是否完成
@@ -147,6 +151,12 @@ shadow-destructive 额外需要：
 - 回答的问题：本地主证明链是否通过
 - 不回答的问题：已部署实例是否通过、完整 GM/admin 人工回归是否通过
 
+### `with-db`
+
+- 命令：`pnpm verify:replace-ready:with-db`
+- 回答的问题：带数据库时，本地主证明链与持久化 proof 是否通过
+- 不回答的问题：shadow 实物验收、GM 关键写路径、destructive 维护窗口
+
 ### `acceptance`
 
 - 命令：`pnpm verify:replace-ready:acceptance`
@@ -211,6 +221,7 @@ shadow-destructive 额外需要：
 ### 和 task-breakdown 对齐
 
 - `T11` 负责把 `local / acceptance / full / shadow-destructive` 四层口径写死
+ - 当前 gate 已扩成 `local / with-db / acceptance / full / shadow-destructive` 五层；旧“四层”表述视为历史口径
 - `T12` 负责把自动 proof 与人工回归边界分层
 - `T14` 负责把 workflow 接成可选的 destructive 补证
 - `T25` 负责把“完整替换完成”标准门禁化

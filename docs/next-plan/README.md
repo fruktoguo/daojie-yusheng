@@ -26,9 +26,3 @@
 当前盘点文档：
 
 - [next 系统模块 / API / 数据目录总盘点](../next-system-module-api-inventory.md)
-
-后续建议继续补到这个目录里的文档：
-
-- `next-required-data-migration-checklist.md`
-- `next-compat-removal-checklist.md`
-- `next-hard-cut-acceptance-checklist.md`

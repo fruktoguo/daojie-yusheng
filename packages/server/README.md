@@ -1,6 +1,6 @@
 # server-next
 
-`server-next` 是仓库里的 next 后端包。
+`packages/server` 是仓库里的 next 后端目录主线；包名当前仍保留历史名 `@mud/server-next`。
 
 它当前仍是：
 
@@ -18,6 +18,7 @@
 - 如果按“完整替换游戏整体”看，当前保守仍约差 `35% - 40%`
 - 当前最关键的硬阻塞仍集中在 `auth/token/bootstrap/snapshot/session`
 - `local / with-db / acceptance / full / shadow-destructive` 是五层不同门禁，不能混读
+- 根级主入口现在是 `verify:replace-ready*`；`verify:server-next*` 只保留为兼容别名
 - `README` 只负责入口导航和边界说明，不负责长版分析、任务账本或删除门槛细则
 
 ## README 只回答什么

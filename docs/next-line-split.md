@@ -1,5 +1,11 @@
 # 新线拆分执行文档
 
+历史参考文档。
+
+- 这份文档保留的是当时“拆分新线”的判断和阶段性背景，不再作为当前主计划。
+- 当前执行口径以 [docs/next-plan/main.md](./next-plan/main.md)、[docs/next-in-place-hard-cut-plan.md](./next-in-place-hard-cut-plan.md)、[docs/server-next-operations.md](./server-next-operations.md) 为准。
+- 文中出现的 `client-next / shared-next / server-next` 多数是在描述当时的分线命名，不等于当前目录主线。
+
 更新时间：2026-04-11（当前轮次）
 
 ## 当前轮次判断

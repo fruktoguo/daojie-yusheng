@@ -1,5 +1,11 @@
 # next 剩余完整执行方案
 
+历史参考文档。
+
+- 这份文档保留的是旧阶段的执行判断，不再作为当前主任务账本。
+- 当前主计划以 [docs/next-plan/main.md](./next-plan/main.md) 和 `docs/next-plan/01-10` 为准。
+- 文中旧的进度数字、gate 口径、环境阻塞与 `client-next / shared-next / server-next` 叙述，阅读时都应视为当时快照。
+
 更新时间：2026-04-16（本轮复核）
 
 ## 1. 目标定义

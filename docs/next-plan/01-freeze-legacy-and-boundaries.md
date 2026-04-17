@@ -56,14 +56,14 @@
 
 | 组 | 文件 | 当前角色 | 后续去向 |
 | --- | --- | --- | --- |
-| 显式迁移数据源 | `packages/server/src/network/world-legacy-player-repository.js` | 直接查 legacy `users` / `players` 表，只供显式 migration 使用 | `04` 完成一次性迁移脚本、`05` 删 compat 后退场 |
+| 显式迁移数据源 | `packages/server/src/network/world-player-source.service.js` | 直接查 legacy `users` / `players` 表，只供显式 migration 使用 | `04` 完成一次性迁移脚本、`05` 删 compat 后退场 |
 | 鉴权与快照回填 | `packages/server/src/network/world-player-source.service.js`、`world-player-auth.service.js`、`world-player-snapshot.service.js` | next 主链 miss 时，受显式开关控制地读取 legacy 身份/快照 | 待 `04`、`05`、`06` 收口 |
 | GM 历史 scope 读取 | `packages/server/src/http/next/next-gm-admin.service.js`、`next-gm-contract.js`、`packages/server/src/runtime/gm/runtime-gm-auth.service.js` | 读取 `server_next_legacy_*` scope 或旧 GM 密码记录，保证历史数据可迁 | `03/04` 锁定 GM 迁移后，进入 `05` 删除 |
 | 运行时残余 compat | `packages/server/src/network/world-sync.service.js`、`packages/server/src/runtime/player/player-runtime.service.js`、`packages/server/src/persistence/player-persistence.service.js` | next 同步仍读 legacy combat effects，快照/bonus 仍兼容 `legacy:vitals_baseline` 标签 | 进入 `05/06` 逐步清除 |
 
 ## 必须暂时保留的入口
 
-- `packages/server/src/network/world-legacy-player-repository.js`
+- `packages/server/src/network/world-player-source.service.js`
   - 这是当前唯一明确隔离出来的 legacy 数据库读取仓库。
   - 在 `04` 没把账号/玩家快照一次性迁完之前，不能直接删。
 - `packages/server/src/network/world-player-source.service.js`

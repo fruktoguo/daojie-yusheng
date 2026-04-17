@@ -48,20 +48,6 @@ const CHECKS = [
     pattern: "loadPlayerSnapshotFromCompatSource(",
   },
   {
-    id: "auth.snapshot.legacy_tables_users_players",
-    category: "P0 auth/bootstrap 真源",
-    description: "legacy player repository 仍直接查询 users/players 表",
-    file: "packages/server/src/network/world-legacy-player-repository.js",
-    pattern: "FROM users u",
-  },
-  {
-    id: "auth.snapshot.legacy_tables_players",
-    category: "P0 auth/bootstrap 真源",
-    description: "legacy player snapshot 仓库仍直接查询 players 表",
-    file: "packages/server/src/network/world-legacy-player-repository.js",
-    pattern: "FROM players",
-  },
-  {
     id: "legacy_http.controllers",
     category: "P0 legacy HTTP/GM/admin",
     description: "AppModule 仍挂载 legacy 账号/GM/admin 控制器",
@@ -146,9 +132,9 @@ const CHECKS = [
   {
     id: "runtime.legacy_snapshot_adapter",
     category: "P1 runtime/persistence compat",
-    description: "WorldPlayerSource 仍通过 legacy repository 拉 compat snapshot",
+    description: "WorldPlayerSource 仍保留显式 migration snapshot 查询入口",
     file: "packages/server/src/network/world-player-source.service.js",
-    pattern: "queryLegacyPlayerSnapshotRow(",
+    pattern: "queryMigrationSnapshotRow(",
   },
   {
     id: "perf.full_capture",

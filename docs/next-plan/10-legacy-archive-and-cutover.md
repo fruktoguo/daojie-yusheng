@@ -104,7 +104,7 @@
 
 ## 当前阻塞
 
-- `packages/server/src/network/world-legacy-player-repository.js` 仍在，且 `next-auth-bootstrap-smoke.js` 还直接 import 它做 proof 注入。
+- `packages/server/src/network/world-legacy-player-repository.js` 已删除，legacy `users/players` 显式 migration 查询已内联到 `world-player-source.service.js`。
 - auth/snapshot 的 runtime migration bridge 还没完全退出主链。
 - GM legacy scope fallback 还没删。
 - 工作区仍存在既有文档/运行手册脏改，切换前检查还不能判定完成。

@@ -1,5 +1,11 @@
 # next legacy 清理门槛清单
 
+历史参考文档。
+
+- 这份文档保留的是旧阶段的 legacy 删除门槛判断，不再作为当前唯一删桥依据。
+- 当前删桥计划以 [docs/next-plan/05-remove-compat-and-bridges.md](./next-plan/05-remove-compat-and-bridges.md)、[docs/next-plan/10-legacy-archive-and-cutover.md](./next-plan/10-legacy-archive-and-cutover.md) 为准。
+- 文中旧的环境阻塞、旧 audit 数字和 `client-next / shared-next / server-next` 叙述，阅读时都应视为历史快照。
+
 更新时间：2026-04-13（当前轮次）
 
 这份文档只回答两件事：
