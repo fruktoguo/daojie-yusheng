@@ -204,21 +204,31 @@ function buildAttrDetailNumericStatBreakdowns(player) {
     }
     const preMultiplierStats = (0, shared_1.cloneNumericStats)(baseStats);
     (0, shared_1.addPartialNumericStats)(preMultiplierStats, flatBuffStats);
-    const finalStats = (0, shared_1.cloneNumericStats)(preMultiplierStats);
+    const finalStats = player.attrs?.numericStats ?? preMultiplierStats;
+    const breakdowns = {};
     for (const key of shared_1.NUMERIC_SCALAR_STAT_KEYS) {
-        const multiplier = 1 + Number(attrMultipliers[key] ?? 0);
-        finalStats[key] = Number(finalStats[key] ?? 0) * multiplier;
+        const realmBaseValue = getNumericStatValue(realmBaseStats, key);
+        const baseValue = getNumericStatValue(baseStats, key);
+        const flatBuffValue = getNumericStatValue(flatBuffStats, key);
+        breakdowns[key] = {
+            realmBaseValue,
+            bonusBaseValue: baseValue - realmBaseValue,
+            baseValue,
+            flatBuffValue,
+            preMultiplierValue: getNumericStatValue(preMultiplierStats, key),
+            attrMultiplierPct: getNumericStatValue(attrMultipliers, key),
+            realmMultiplier: 1,
+            buffMultiplierPct: 0,
+            pillMultiplierPct: 0,
+            finalValue: getNumericStatValue(finalStats, key),
+        };
     }
-    if (preMultiplierStats.hp !== undefined || finalStats.hp !== undefined) {
-        finalStats.hp = Number(finalStats.hp ?? 0);
-    }
-    if (preMultiplierStats.mp !== undefined || finalStats.mp !== undefined) {
-        finalStats.mp = Number(finalStats.mp ?? 0);
-    }
-    if (preMultiplierStats.energy !== undefined || finalStats.energy !== undefined) {
-        finalStats.energy = Number(finalStats.energy ?? 0);
-    }
-    return { stage, baseStats, preMultiplierStats, finalStats };
+    return breakdowns;
+}
+function getNumericStatValue(stats, key) {
+
+    const value = stats?.[key];
+    return typeof value === 'number' ? value : 0;
 }
 function scalePartialNumericStats(stats, factor) {
     if (!stats || factor === 0) {
