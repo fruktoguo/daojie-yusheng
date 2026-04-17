@@ -158,7 +158,7 @@
 
 - [ ] 删除 `world-sync.service.js` 中对 `getLegacyCombatEffects()` 的直接读取
 - [x] 删除 `world-sync.service.js` 中对 `getLegacyCombatEffects()` 的直接读取
-- [ ] 删除 `player-runtime.service.js` 中 `resolveCompatiblePendingLogbookMessages()` / `resolveCompatibleRuntimeBonuses()`
+- [x] 删除 `player-runtime.service.js` 中 `resolveCompatiblePendingLogbookMessages()` / `resolveCompatibleRuntimeBonuses()`
 - [ ] 删除 `player-runtime.service.js`、`player-persistence.service.js`、`world-player-source.service.js` 中对 `legacy:vitals_baseline` 的兼容规范化
 - [ ] 删除 `world-session-bootstrap.service.js` 中只用于 compat miss 描述的回退原因分支
 
@@ -173,6 +173,12 @@
 - `pnpm --filter @mud/server-next smoke:session`
 - `pnpm --filter @mud/server-next smoke:progression`
 - `pnpm --filter @mud/server-next audit:legacy-boundaries`
+
+本轮实际补跑：
+
+- `SERVER_NEXT_DATABASE_URL=postgres://mud:jiuzhou123@127.0.0.1:15432/mud_mmo_next DATABASE_URL=postgres://mud:jiuzhou123@127.0.0.1:15432/mud_mmo_next pnpm --filter @mud/server-next smoke:runtime`
+- `SERVER_NEXT_DATABASE_URL=postgres://mud:jiuzhou123@127.0.0.1:15432/mud_mmo_next DATABASE_URL=postgres://mud:jiuzhou123@127.0.0.1:15432/mud_mmo_next pnpm --filter @mud/server-next smoke:progression`
+- `SERVER_NEXT_DATABASE_URL=postgres://mud:jiuzhou123@127.0.0.1:15432/mud_mmo_next DATABASE_URL=postgres://mud:jiuzhou123@127.0.0.1:15432/mud_mmo_next pnpm verify:replace-ready`
 
 ### 第 4 批：删 GM 历史 scope fallback
 
