@@ -188,9 +188,9 @@ async function main() {
  * 记录cast状态defender。
  */
     let castStateDefender = null;
-/**
- * 记录damagedetected。
- */
+    /**
+     * 记录damagedetected。
+     */
     let damageDetected = false;
     for (let attempt = 0; attempt < 3; attempt += 1) {
         attackerBeforeCast = await fetchState(attackerId);
