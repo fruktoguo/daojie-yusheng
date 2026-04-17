@@ -120,11 +120,15 @@
 
 - [x] 删除 `world-player-source.service.js` 中剩余 compat 命名、布尔参数、注释口径
 - [x] 删除 `world-player-auth.service.js` / `world-player-snapshot.service.js` 中仍保留的 `compat_*` failureStage / trace 命名
-- [ ] 删除只为兼容旧命名存在的 wrapper / facade，而不是继续新增别名
+- [x] 删除只为兼容旧命名存在的 wrapper / facade，而不是继续新增别名
 
 删除前提：
 
 - 不改 migration 入口能力，只改命名和薄壳。
+
+本轮实际删除：
+
+- `packages/server/src/network/world-legacy-player-repository.js` 已删除，当前源码 0 引用。
 
 最小验证：
 
