@@ -68,11 +68,15 @@ async function main() {
  * 记录worldevents。
  */
     const worldEvents = [];
+    const selfEvents = [];
     socket.on(shared_1.NEXT_S2C.Error, (payload) => {
         throw new Error(`socket error: ${JSON.stringify(payload)}`);
     });
     socket.on(shared_1.NEXT_S2C.WorldDelta, (payload) => {
         worldEvents.push(payload);
+    });
+    socket.on(shared_1.NEXT_S2C.SelfDelta, (payload) => {
+        selfEvents.push(payload);
     });
     socket.on(shared_1.NEXT_S2C.InitSession, (payload) => {
         playerId = String(payload?.pid ?? '');
@@ -226,6 +230,42 @@ async function main() {
         if (!resolvedMonster.monster?.alive) {
             throw new Error(`resolved monster ${resolvedTarget.runtimeId} is not alive`);
         }
+        const beforeEngagePlayer = await fetchPlayerState(playerId);
+        const beforeEngageMonster = await fetchMonster(instanceId, resolvedTarget.runtimeId);
+        const beforeEngageEventCount = worldEvents.length;
+        const beforeEngageSelfEventCount = selfEvents.length;
+        socket.emit(shared_1.NEXT_C2S.UseAction, {
+            actionId: 'battle:engage',
+            target: resolvedTarget.runtimeId,
+        });
+        await waitFor(async () => {
+            const state = await fetchPlayerState(playerId);
+            return state.player?.combat?.autoBattle === true
+                && state.player?.combat?.combatTargetId === resolvedTarget.runtimeId;
+        }, 5000);
+        const engageProof = await waitForState(async () => {
+            const [playerState, monsterState] = await Promise.all([
+                fetchPlayerState(playerId),
+                fetchMonster(instanceId, resolvedTarget.runtimeId),
+            ]);
+            const firstSelfDelta = selfEvents[beforeEngageSelfEventCount] ?? null;
+            const firstWorldDelta = worldEvents[beforeEngageEventCount] ?? null;
+            if (!firstSelfDelta && !firstWorldDelta) {
+                return null;
+            }
+            const proof = resolveImmediateEngageProof({
+                playerId,
+                runtimeId: resolvedTarget.runtimeId,
+                beforePlayer: beforeEngagePlayer.player,
+                beforeMonster: beforeEngageMonster.monster,
+                firstSelfDelta,
+                firstWorldDelta,
+            });
+            if (proof) {
+                return proof;
+            }
+            throw new Error(`expected first post-engage delta to contain immediate handoff proof, selfDelta=${JSON.stringify(firstSelfDelta)} worldDelta=${JSON.stringify(firstWorldDelta)} currentPlayer=${JSON.stringify(playerState.player?.combat ?? null)} currentMonsterHp=${monsterState.monster?.hp ?? null}`);
+        }, 5000);
 /**
  * 记录before玩家。
  */
@@ -281,6 +321,7 @@ async function main() {
             instanceId,
             runtimeId: resolvedTarget.runtimeId,
             monsterId: resolvedTarget.monsterId,
+            engageProof,
             castObserved,
             damageDetected,
             playerQiSpent: beforePlayer.player.qi - finalPlayer.player.qi,
@@ -294,6 +335,64 @@ async function main() {
         socket.close();
         await deletePlayer(playerId);
     }
+}
+function resolveImmediateEngageProof({ playerId, runtimeId, beforePlayer, beforeMonster, firstSelfDelta, firstWorldDelta, }) {
+    if (firstSelfDelta && (typeof firstSelfDelta.x === 'number' || typeof firstSelfDelta.y === 'number')) {
+        const movedX = typeof firstSelfDelta.x === 'number' && firstSelfDelta.x !== beforePlayer.x;
+        const movedY = typeof firstSelfDelta.y === 'number' && firstSelfDelta.y !== beforePlayer.y;
+        if (movedX || movedY) {
+            return {
+                kind: 'selfDeltaMove',
+                fromX: beforePlayer.x,
+                fromY: beforePlayer.y,
+                toX: typeof firstSelfDelta.x === 'number' ? firstSelfDelta.x : beforePlayer.x,
+                toY: typeof firstSelfDelta.y === 'number' ? firstSelfDelta.y : beforePlayer.y,
+            };
+        }
+    }
+    const playerPatch = Array.isArray(firstWorldDelta?.p)
+        ? firstWorldDelta.p.find((entry) => entry.id === playerId)
+        : null;
+    if (playerPatch && (typeof playerPatch.x === 'number' || typeof playerPatch.y === 'number')) {
+        const movedX = typeof playerPatch.x === 'number' && playerPatch.x !== beforePlayer.x;
+        const movedY = typeof playerPatch.y === 'number' && playerPatch.y !== beforePlayer.y;
+        if (movedX || movedY) {
+            return {
+                kind: 'worldDeltaPlayerMove',
+                fromX: beforePlayer.x,
+                fromY: beforePlayer.y,
+                toX: typeof playerPatch.x === 'number' ? playerPatch.x : beforePlayer.x,
+                toY: typeof playerPatch.y === 'number' ? playerPatch.y : beforePlayer.y,
+            };
+        }
+    }
+    const monsterPatch = Array.isArray(firstWorldDelta?.m)
+        ? firstWorldDelta.m.find((entry) => entry.id === runtimeId)
+        : null;
+    if (monsterPatch && typeof monsterPatch.hp === 'number' && monsterPatch.hp < beforeMonster.hp) {
+        return {
+            kind: 'worldDeltaMonsterHp',
+            beforeHp: beforeMonster.hp,
+            afterHp: monsterPatch.hp,
+        };
+    }
+    const attackFx = Array.isArray(firstWorldDelta?.fx)
+        ? firstWorldDelta.fx.find((entry) => entry?.type === 'attack'
+            && entry.fromX === beforePlayer.x
+            && entry.fromY === beforePlayer.y
+            && entry.toX === beforeMonster.x
+            && entry.toY === beforeMonster.y)
+        : null;
+    if (attackFx) {
+        return {
+            kind: 'worldDeltaAttackFx',
+            fromX: attackFx.fromX,
+            fromY: attackFx.fromY,
+            toX: attackFx.toX,
+            toY: attackFx.toY,
+        };
+    }
+    return null;
 }
 /**
  * 处理fetch玩家状态。
