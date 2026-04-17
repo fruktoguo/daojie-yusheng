@@ -165,7 +165,7 @@
 ### 第 4 批：跑正式写入 proof
 
 - [x] 用 fixture 跑一次 `--write`
-- [ ] 用本地测试库跑一次 `--write`（当前缺少本地测试库 / `SERVER_NEXT_DATABASE_URL` 环境）
+- [x] 用本地测试库跑一次 `--write`
 - [x] 迁移后立即执行 next proof 链
 - [x] 记录写入数量、失败数量、失败样本、未覆盖域
 
@@ -235,5 +235,5 @@
 
 ## 完成定义
 
-- [ ] 同一份 legacy 数据可以稳定转成 next 真源（依赖本地测试库 `--write` + `pnpm verify:replace-ready:proof:with-db`）
+- [x] 同一份 legacy 数据可以稳定转成 next 真源
 - [x] 迁移失败能明确定位

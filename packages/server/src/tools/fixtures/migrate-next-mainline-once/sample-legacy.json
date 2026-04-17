@@ -96,7 +96,7 @@
       {
         "key": "gm_auth",
         "payload": {
-          "passwordHash": "$2b$10$legacygmhash",
+          "passwordHash": "$2b$10$zEjEVGZuhHrG8vXgFaRnZuo0gMcPnINVQ23oGvofFhUQ8GhVXmKki",
           "updatedAt": "2026-01-01T00:00:00.000Z"
         }
       }
