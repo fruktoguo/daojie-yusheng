@@ -21,12 +21,12 @@
 - [x] 盘点 `packages/shared/src/` 下所有仅为旧结构保留的兼容定义
 - [ ] 删除只为 legacy 让路的旧事件名兼容
 - [ ] 删除只为 parity 存在的双路径分支
-- [ ] 删除不再需要的 legacy facade / wrapper
+- [x] 删除不再需要的 legacy facade / wrapper
 - [ ] 删除 runtime 中只为 compat fallback 存在的回退路径
 - [x] 删除客户端中只为旧协议存在的发送 / 监听兼容逻辑
 - [x] 删除客户端中只为旧 UI 结构存在的兼容代码
-- [ ] 每删完一批都补一次最小 build / audit / smoke 验证
-- [ ] 更新文档，记录删掉了哪些 compat 面
+- [x] 每删完一批都补一次最小 build / audit / smoke 验证
+- [x] 更新文档，记录删掉了哪些 compat 面
 
 ## 完成定义
 
@@ -231,9 +231,15 @@
 
 ### 第 5 批：删协议 / 文档中的过时 compat 证明
 
-- [ ] 在前 4 批完成后，清理 `next-auth-bootstrap-smoke.js` 中只证明 legacy/compat gate 的历史 proof
-- [ ] 更新 `docs/next-legacy-boundary-audit.md`，确认 inventory 已从“主链 bridge”收缩成“剩余历史痕迹”
-- [ ] 更新本任务文档，把已删除 compat 面逐条勾掉
+- [ ] 在前 4 批完成后，继续清理 `next-auth-bootstrap-smoke.js` 中仍未执行但保留在文件里的 legacy/compat 历史 helper
+- [x] 更新 `docs/next-legacy-boundary-audit.md`，确认 inventory 已从“主链 bridge”收缩成“剩余历史痕迹”
+- [x] 更新本任务文档，把已删除 compat 面逐条勾掉
+
+本轮已收口的子步：
+
+- `next-auth-bootstrap-smoke.js` 已删除 stale legacy/compat proof 输出键：`legacyBackfillFallbackContract`、`compatRuntimeSnapshotGuardContract`、`strictNativeCompatSnapshotIgnoredContract`、`legacyHttpIdentityFallbackGateContract`、`legacyHttpIdentityFallbackOptInContract` 与 `legacyEventsOnNextSocket`
+- `docs/next-legacy-boundary-audit.md` 已更新为 `0 / 18` 命中，当前只保留“剩余历史痕迹”口径
+- 本任务文档已同步前 1-4 批完成状态与本轮验证记录
 
 最小验证：
 
