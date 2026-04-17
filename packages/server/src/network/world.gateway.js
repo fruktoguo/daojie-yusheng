@@ -325,18 +325,7 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         return this.gatewayPlayerControlsHelper.handleNextHeavenGateAction(client, payload);
     }
     handleUseAction(client, payload) {
-
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        this.worldClientEventService.markProtocol(client, 'next');
-        try {
-            this.handleProtocolAction(client, playerId, payload);
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'USE_ACTION_FAILED', error);
-        }
+        return this.gatewayActionHelper.handleUseAction(client, payload);
     }
     handleRequestQuests(client, _payload) {
         return this.gatewayPlayerControlsHelper.handleRequestQuests(client, _payload);
@@ -588,82 +577,6 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
     emitNextNpcShop(client, payload) {
         this.worldClientEventService.markProtocol(client, 'next');
         this.worldClientEventService.emitNpcShop(client, payload);
-    }
-    handleProtocolAction(client, playerId, payload) {
-
-        const actionId = this.resolveActionId(payload);
-        if (actionId === 'debug:reset_spawn' || actionId === 'travel:return_spawn') {
-            this.worldRuntimeService.enqueueResetPlayerSpawn(playerId);
-            return;
-        }
-        if (actionId === 'loot:open') {
-
-            const tile = typeof payload?.target === 'string' ? (0, shared_1.parseTileTargetRef)(payload.target) : null;
-            if (!tile) {
-                throw new Error('拿取需要指定目标格子');
-            }
-
-            const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
-            if (Math.max(Math.abs(player.x - tile.x), Math.abs(player.y - tile.y)) > 1) {
-                throw new Error('拿取范围只有 1 格。');
-            }
-            this.worldProtocolProjectionService.emitTileLootInteraction(client, playerId, this.worldRuntimeService.buildTileDetail(playerId, tile));
-            return;
-        }
-        if (actionId === 'battle:engage' || actionId === 'battle:force_attack') {
-
-            const target = typeof payload?.target === 'string' ? payload.target.trim() : '';
-
-            const tile = target ? (0, shared_1.parseTileTargetRef)(target) : null;
-
-            const targetPlayerId = target.startsWith('player:') ? target.slice('player:'.length) : null;
-
-            const targetMonsterId = target && !target.startsWith('player:') && !tile ? target : null;
-            if (targetMonsterId) {
-                this.worldRuntimeService.enqueueBattleTarget(playerId, actionId === 'battle:force_attack', null, targetMonsterId);
-                return;
-            }
-            this.worldRuntimeService.enqueueBattleTarget(playerId, actionId === 'battle:force_attack', targetPlayerId, null, tile?.x, tile?.y);
-            return;
-        }
-        if (actionId.startsWith('npc:')) {
-            this.worldRuntimeService.enqueueNpcInteraction(playerId, actionId);
-            return;
-        }
-
-        const target = typeof payload?.target === 'string' ? payload.target.trim() : '';
-        if (actionId === 'body_training:infuse') {
-            this.emitProtocolActionResult(client, playerId, this.worldRuntimeService.executeAction(playerId, actionId, target));
-            return;
-        }
-        if (target) {
-            this.worldRuntimeService.enqueueCastSkillTargetRef(playerId, actionId, target);
-            return;
-        }
-        this.emitProtocolActionResult(client, playerId, this.worldRuntimeService.executeAction(playerId, actionId));
-    }
-    resolveActionId(payload) {
-
-        const actionId = typeof payload?.actionId === 'string' && payload.actionId.trim()
-            ? payload.actionId.trim()
-            : (typeof payload?.type === 'string' ? payload.type.trim() : '');
-        if (!actionId) {
-            throw new Error('actionId is required');
-        }
-        return actionId;
-    }
-    emitProtocolActionResult(client, playerId, result) {
-        if (result.kind === 'npcShop' && result.npcShop) {
-            this.worldClientEventService.emitNpcShop(client, result.npcShop);
-            return;
-        }
-        if (result.kind !== 'npcQuests') {
-            return;
-        }
-        if (this.worldClientEventService.getExplicitProtocol(client) === 'next' && result.npcQuests) {
-            client.emit(shared_1.NEXT_S2C.NpcQuests, result.npcQuests);
-        }
-        this.worldClientEventService.emitQuests(client, this.worldRuntimeService.buildQuestListView(playerId));
     }
     requirePlayerId(client) {
 
