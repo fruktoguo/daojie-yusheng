@@ -52,6 +52,73 @@ const DOMAIN_ALIASES = new Map([
     ['gm-auth', 'gm-auth'],
     ['gm-database', 'gm-database'],
 ]);
+const DOMAIN_TARGETS = new Map([
+    ['auth', {
+            inputs: [PLAYER_AUTH_SCOPE],
+            targetTables: [PLAYER_AUTH_TABLE],
+            targetScopes: [],
+        }],
+    ['identity', {
+            inputs: [PLAYER_IDENTITY_SCOPE],
+            targetTables: [PLAYER_IDENTITY_TABLE],
+            targetScopes: [],
+        }],
+    ['snapshot', {
+            inputs: [PLAYER_SNAPSHOT_SCOPE],
+            targetTables: [PLAYER_SNAPSHOT_TABLE],
+            targetScopes: [],
+        }],
+    ['progression', {
+            inputs: [PLAYER_SNAPSHOT_SCOPE],
+            targetTables: [PLAYER_SNAPSHOT_TABLE],
+            targetScopes: [],
+        }],
+    ['inventory', {
+            inputs: [PLAYER_SNAPSHOT_SCOPE],
+            targetTables: [PLAYER_SNAPSHOT_TABLE],
+            targetScopes: [],
+        }],
+    ['techniques', {
+            inputs: [PLAYER_SNAPSHOT_SCOPE],
+            targetTables: [PLAYER_SNAPSHOT_TABLE],
+            targetScopes: [],
+        }],
+    ['quests', {
+            inputs: [PLAYER_SNAPSHOT_SCOPE],
+            targetTables: [PLAYER_SNAPSHOT_TABLE],
+            targetScopes: [],
+        }],
+    ['mail', {
+            inputs: ['mail_campaigns', 'mail_audience_members', 'player_mail_receipts'],
+            targetTables: [],
+            targetScopes: [MAILBOX_SCOPE],
+        }],
+    ['market', {
+            inputs: ['market_orders', 'market_trade_history', 'players.marketStorage'],
+            targetTables: [],
+            targetScopes: [MARKET_ORDER_SCOPE, MARKET_TRADE_SCOPE, MARKET_STORAGE_SCOPE],
+        }],
+    ['redeem', {
+            inputs: ['redeem_code_groups', 'redeem_codes'],
+            targetTables: [],
+            targetScopes: [REDEEM_CODE_SCOPE],
+        }],
+    ['suggestion', {
+            inputs: ['suggestions', LEGACY_SUGGESTION_FILE],
+            targetTables: [],
+            targetScopes: [SUGGESTION_SCOPE],
+        }],
+    ['gm-auth', {
+            inputs: [...LEGACY_GM_AUTH_SCOPES],
+            targetTables: [],
+            targetScopes: [GM_AUTH_SCOPE],
+        }],
+    ['gm-database', {
+            inputs: [LEGACY_DATABASE_BACKUP_METADATA_SCOPE, LEGACY_DATABASE_JOB_STATE_SCOPE],
+            targetTables: [],
+            targetScopes: [DATABASE_BACKUP_METADATA_SCOPE, DATABASE_JOB_STATE_SCOPE],
+        }],
+]);
 
 const CREATE_PLAYER_AUTH_TABLE_SQL = `
   CREATE TABLE IF NOT EXISTS ${PLAYER_AUTH_TABLE} (
@@ -100,6 +167,7 @@ async function main() {
     }
     const fixture = options.fixturePath ? await loadFixture(options.fixturePath) : null;
     const databaseUrl = resolveServerNextDatabaseUrl();
+    printPreflight(options, fixture, databaseUrl);
     if (!databaseUrl.trim() && !fixture) {
         throw new Error('缺少 SERVER_NEXT_DATABASE_URL/DATABASE_URL');
     }
@@ -178,9 +246,9 @@ function parseArgs(argv) {
                 .split(',')
                 .map((entry) => entry.trim())
                 .filter(Boolean);
-            options.domains = requested
+            options.domains = Array.from(new Set(requested
                 .map((entry) => DOMAIN_ALIASES.get(entry) ?? null)
-                .filter(Boolean);
+                .filter(Boolean)));
             continue;
         }
         if (arg.startsWith('--fixture=')) {
@@ -189,6 +257,26 @@ function parseArgs(argv) {
         }
     }
     return options;
+}
+
+function printPreflight(options, fixture, databaseUrl) {
+    const preflight = {
+        inputSource: fixture ? 'fixture' : 'database',
+        fixturePath: options.fixturePath ?? null,
+        databaseConfigured: Boolean(databaseUrl.trim()),
+        mode: options.dryRun ? 'dry-run' : 'write',
+        domains: options.domains.map((domain) => {
+            const target = DOMAIN_TARGETS.get(domain) || { inputs: [], targetTables: [], targetScopes: [] };
+            return {
+                domain,
+                inputs: [...target.inputs],
+                targetTables: [...target.targetTables],
+                targetScopes: [...target.targetScopes],
+            };
+        }),
+    };
+    process.stdout.write('[next mainline migrate preflight]\n');
+    process.stdout.write(`${JSON.stringify(preflight, null, 2)}\n`);
 }
 
 function printHelp() {

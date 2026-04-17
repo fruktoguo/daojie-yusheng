@@ -45,6 +45,7 @@
     "verify:server-next:shadow": "node scripts/server-next-verify-shadow.js",
     "proof:next-client-shared-no-legacy-source": "node scripts/prove-next-client-shared-no-legacy-source.js",
     "proof:next-client-no-legacy-alias": "node scripts/prove-next-client-no-legacy-alias.js",
+    "proof:next-migration-write-boundaries": "node scripts/prove-next-migration-write-boundaries.js",
     "proof:next-no-legacy-file-behavior": "node scripts/prove-next-no-legacy-file-behavior.js",
     "proof:next-client-s2c-consumption": "node scripts/prove-next-client-s2c-consumption.js",
     "proof:next-shared-types-source": "node scripts/prove-next-shared-types-source.js",
