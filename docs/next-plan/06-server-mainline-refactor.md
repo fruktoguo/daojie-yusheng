@@ -334,6 +334,10 @@
 - `WorldRuntimeService` 仍保留 combat/monster 行为触发点和 sync facade `getCombatEffects()`，说明这次只是第 5 批第六刀的 combat-effects buffer 抽离，不是完整 combat 域拆分
 - `packages/server/src/runtime/world/world-runtime.state.js` 与 `packages/server/src/runtime/world/world-runtime.contract.js` 已同步移除 `latestCombatEffectsByInstanceId`
 - 本轮验证已补跑 `smoke:combat`、`smoke:monster-skill`、根级 `pnpm build` 与 `pnpm verify:replace-ready`
+- 新增 `packages/server/src/runtime/world/world-runtime-monster-action-apply.service.js`
+- `applyMonsterAction / applyMonsterBasicAttack / applyMonsterSkill` 已委托给 `WorldRuntimeMonsterActionApplyService`
+- `WorldRuntimeService` 仍保留 `advanceFrame()` tick 顺序、`dispatchCastSkill*` 与玩家战斗派发，说明这次只是第 5 批第七刀的 monster-action apply 抽离，不是完整 combat/skill 域拆分
+- 本轮验证已补跑 `smoke:monster-ai`、`smoke:monster-skill`、根级 `pnpm build` 与 `pnpm verify:replace-ready`
 
 这一批结束后，`world-runtime.service.js` 仍可以存在，但不该再同时拥有所有领域细节。
 
