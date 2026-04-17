@@ -76,6 +76,7 @@ import {
   refreshZoomChrome as syncZoomChrome,
   type ObserveAsideCard,
 } from './main-ui-helpers';
+import { createMainQuestStateSource } from './main-quest-state-source';
 import {
   initializeMapPerformanceConfig,
   MAP_PERFORMANCE_CONFIG_CHANGE_EVENT,
@@ -203,7 +204,6 @@ const QQ_GROUP_DESKTOP_DEEP_LINK = `tencent://AddContact/?fromId=45&fromSubId=1&
 
 // 主入口持有的角色与导航挂起状态
 let auraLevelBaseValue = DEFAULT_AURA_LEVEL_BASE_VALUE;
-let pendingQuestNavigateId: string | null = null;
 let pendingRedeemCodesRequest:
   | {
       resolve: (value: AccountRedeemCodesRes) => void;
@@ -646,6 +646,19 @@ const worldPanel = new WorldPanel();
 const settingsPanel = new SettingsPanel();
 const mailPanel = new MailPanel(socket);
 const suggestionPanel = new SuggestionPanel(socket);
+const questStateSource = createMainQuestStateSource({
+  questPanel,
+  npcQuestModal,
+  clearCurrentPath: () => clearCurrentPath(),
+  sendNavigateQuest: (questId) => socket.sendNavigateQuest(questId),
+  sendRequestQuests: () => socket.sendRequestQuests(),
+  sendRequestNpcQuests: (npcId) => socket.sendRequestNpcQuests(npcId),
+  sendAcceptNpcQuest: (npcId, questId) => socket.sendAcceptNpcQuest(npcId, questId),
+  sendSubmitNpcQuest: (npcId, questId) => socket.sendSubmitNpcQuest(npcId, questId),
+  syncQuestBridgeState: (quests) => nextUiBridge.syncQuests(quests),
+  syncPlayerBridgeState: (player) => nextUiBridge.syncPlayer(player),
+  refreshUiChrome: () => refreshUiChrome(),
+});
 new ChangelogPanel();
 new TutorialPanel();
 const panelSystem = createClientPanelSystem(window);
@@ -1939,8 +1952,7 @@ function handleNextSelfDeltaMessage(data: NEXT_S2C_SelfDelta): void {
     cancelTargeting();
     myPlayer.mapId = data.mid!;
     panelSystem.store.setRuntime({ mapId: myPlayer.mapId });
-    questPanel.setCurrentMapId(myPlayer.mapId);
-    npcQuestModal.setCurrentMapId(myPlayer.mapId);
+    questStateSource.syncMapId(myPlayer.mapId);
   }
   if (typeof data.hp === 'number') {
     myPlayer.hp = data.hp;
@@ -2452,11 +2464,6 @@ equipmentPanel.setCallbacks(
 techniquePanel.setCallbacks(
   (techId) => socket.sendCultivate(techId),
 );
-questPanel.setCallbacks((questId) => {
-  clearCurrentPath();
-  pendingQuestNavigateId = questId;
-  socket.sendNavigateQuest(questId);
-});
 marketPanel.setCallbacks({
   onRequestMarket: () => socket.sendRequestMarket(),
   onRequestListings: (payload) => socket.sendRequestMarketListings(payload),
@@ -2480,16 +2487,6 @@ worldPanel.setCallbacks({
 npcShopModal.setCallbacks({
   onRequestShop: (npcId) => socket.sendRequestNpcShop(npcId),
   onBuyItem: (npcId, itemId, quantity) => socket.sendBuyNpcShopItem(npcId, itemId, quantity),
-});
-npcQuestModal.setCallbacks({
-  onRequestQuests: (npcId) => socket.sendRequestNpcQuests(npcId),
-  onAcceptQuest: (npcId, questId) => socket.sendAcceptNpcQuest(npcId, questId),
-  onSubmitQuest: (npcId, questId) => socket.sendSubmitNpcQuest(npcId, questId),
-  onNavigateQuest: (questId) => {
-    clearCurrentPath();
-    pendingQuestNavigateId = questId;
-    socket.sendNavigateQuest(questId);
-  },
 });
 craftWorkbenchModal.setCallbacks({
   onRequestAlchemy: (knownCatalogVersion) => socket.sendRequestAlchemyPanel(knownCatalogVersion),
@@ -2710,7 +2707,7 @@ function handleInventoryUpdate(data: NEXT_S2C_InventoryUpdate): void {
     myPlayer.inventory = mergedInventory;
   }
   inventoryPanel.update(mergedInventory);
-  questPanel.syncInventory(mergedInventory);
+  questStateSource.syncInventory(mergedInventory);
   marketPanel.syncInventory(mergedInventory);
   npcShopModal.syncInventory(mergedInventory);
   craftWorkbenchModal.syncInventory();
@@ -2919,29 +2916,13 @@ socket.onWorldSummary((data) => {
   }
 });
 socket.onNpcQuests((data) => {
-  npcQuestModal.updateQuests(data);
+  questStateSource.handleNpcQuests(data);
 });
 socket.onQuests((data) => {
-  if (myPlayer) myPlayer.quests = data.quests;
-  questPanel.setCurrentMapId(myPlayer?.mapId);
-  npcQuestModal.setCurrentMapId(myPlayer?.mapId);
-  questPanel.update(data.quests);
-  if (npcQuestModal.getActiveNpcId()) {
-    npcQuestModal.refreshActive();
-  }
-  nextUiBridge.syncQuests(data.quests);
-  nextUiBridge.syncPlayer(myPlayer);
-  refreshUiChrome();
+  questStateSource.handleQuestUpdate(data, myPlayer);
 });
 socket.onQuestNavigateResult((data) => {
-  if (pendingQuestNavigateId !== data.questId) {
-    return;
-  }
-  pendingQuestNavigateId = null;
-  if (!data.ok) {
-    return;
-  }
-  questPanel.closeDetail();
+  questStateSource.handleQuestNavigateResult(data);
 });
 function handleNextMapStatic(data: NEXT_S2C_MapStatic): void {
   mapRuntime.applyMapStatic({
@@ -3910,11 +3891,10 @@ function resetGameState() {
   inventoryPanel.clear();
   equipmentPanel.clear();
   techniquePanel.clear();
-  questPanel.clear();
+  questStateSource.clear();
   marketPanel.clear();
   actionPanel.clear();
   npcShopModal.clear();
-  npcQuestModal.clear();
   entityDetailModal.clear();
   craftWorkbenchModal.clear();
   detailModalHost.close(LEADERBOARD_MODAL_OWNER);
@@ -3930,7 +3910,6 @@ function resetGameState() {
   nextUiBridge.syncEquipment(null);
   nextUiBridge.syncTechniques([], undefined);
   nextUiBridge.syncActions([], false, true);
-  nextUiBridge.syncQuests(null);
   panelSystem.store.setRuntime({
     connected: false,
     playerId: null,
@@ -4219,7 +4198,7 @@ function handleBootstrap(data: NEXT_S2C_Bootstrap): void {
   nextUiBridge.syncEquipment(myPlayer.equipment);
   nextUiBridge.syncTechniques(myPlayer.techniques, myPlayer.cultivatingTechId);
   nextUiBridge.syncActions(myPlayer.actions, myPlayer.autoBattle, myPlayer.autoRetaliate !== false);
-  nextUiBridge.syncQuests(myPlayer.quests ?? null);
+  questStateSource.syncBootstrapQuestState(myPlayer);
   myPlayer.cultivationActive = myPlayer.cultivationActive === true;
   syncTargetingOverlay();
   mapRuntime.applyBootstrap(data);
@@ -4254,10 +4233,8 @@ function handleBootstrap(data: NEXT_S2C_Bootstrap): void {
   equipmentPanel.initFromPlayer(myPlayer);
   techniquePanel.initFromPlayer(myPlayer);
   bodyTrainingPanel.initFromPlayer(myPlayer);
-  questPanel.initFromPlayer(myPlayer);
-  socket.sendRequestQuests();
+  questStateSource.initFromPlayer(myPlayer);
   npcShopModal.initFromPlayer(myPlayer);
-  npcQuestModal.initFromPlayer(myPlayer);
   craftWorkbenchModal.initFromPlayer(myPlayer);
   actionPanel.initFromPlayer(myPlayer);
   socket.sendRequestLeaderboard();
