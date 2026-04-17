@@ -156,7 +156,6 @@
 
 ### 第 3 批：删运行时 / 持久化 compat 装载
 
-- [ ] 删除 `world-sync.service.js` 中对 `getLegacyCombatEffects()` 的直接读取
 - [x] 删除 `world-sync.service.js` 中对 `getLegacyCombatEffects()` 的直接读取
 - [x] 删除 `player-runtime.service.js` 中 `resolveCompatiblePendingLogbookMessages()` / `resolveCompatibleRuntimeBonuses()`
 - [ ] 删除 `player-runtime.service.js`、`player-persistence.service.js`、`world-player-source.service.js` 中对 `legacy:vitals_baseline` 的兼容规范化
@@ -176,6 +175,7 @@
 
 本轮实际补跑：
 
+- `world-sync.service.js` 当前只经 `appendNextCombatEffects()` → `collectNextCombatEffects()` 走 next 战斗特效主链
 - `SERVER_NEXT_DATABASE_URL=postgres://mud:jiuzhou123@127.0.0.1:15432/mud_mmo_next DATABASE_URL=postgres://mud:jiuzhou123@127.0.0.1:15432/mud_mmo_next pnpm --filter @mud/server-next smoke:runtime`
 - `SERVER_NEXT_DATABASE_URL=postgres://mud:jiuzhou123@127.0.0.1:15432/mud_mmo_next DATABASE_URL=postgres://mud:jiuzhou123@127.0.0.1:15432/mud_mmo_next pnpm --filter @mud/server-next smoke:progression`
 - `SERVER_NEXT_DATABASE_URL=postgres://mud:jiuzhou123@127.0.0.1:15432/mud_mmo_next DATABASE_URL=postgres://mud:jiuzhou123@127.0.0.1:15432/mud_mmo_next pnpm verify:replace-ready`
