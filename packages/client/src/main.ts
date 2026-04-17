@@ -84,6 +84,8 @@ import {
 import { MAX_ZOOM, MIN_ZOOM, getDisplayRangeX, getDisplayRangeY, getZoom, setZoom } from './display';
 import { getAccessToken, getCurrentAccountName } from './ui/auth-api';
 import { formatDisplayCountBadge, formatDisplayCurrentMax, formatDisplayInteger } from './utils/number';
+import { mountNextUi } from './next/app/mount';
+import { nextUiBridge } from './next/bridge/next-ui-bridge';
 import { findPath } from './pathfinding';
 import {
   computeAffectedCellsForAction as computeAffectedCellsForActionHelper,
@@ -599,6 +601,7 @@ renderCurrentTime(null);
 renderPingLatency(null, '待测');
 bindResponsiveViewportCss(window);
 initializeUiStyleConfig();
+mountNextUi(window);
 window.addEventListener(MAP_PERFORMANCE_CONFIG_CHANGE_EVENT, (event) => {
   const config = (event as CustomEvent<MapPerformanceConfig>).detail;
   syncFpsMonitorVisibility(config.showFpsMonitor);
@@ -646,6 +649,12 @@ const suggestionPanel = new SuggestionPanel(socket);
 new ChangelogPanel();
 new TutorialPanel();
 const panelSystem = createClientPanelSystem(window);
+nextUiBridge.syncRuntime(panelSystem.store.getState().runtime);
+nextUiBridge.syncCapabilities(panelSystem.store.getState().capabilities);
+panelSystem.store.subscribe((state) => {
+  nextUiBridge.syncRuntime(state.runtime);
+  nextUiBridge.syncCapabilities(state.capabilities);
+});
 mapRuntime.attach(canvasHost);
 mapRuntime.setMoveHandler((x, y) => {
   planPathTo({ x, y });
@@ -2688,6 +2697,7 @@ function handleAttrUpdate(data: NEXT_S2C_AttrUpdate): void {
     sendAction: (action, element) => socket.sendHeavenGateAction(action, element),
   });
   inventoryPanel.syncPlayerContext(myPlayer ?? undefined);
+  nextUiBridge.syncAttrUpdate(latestAttrUpdate);
   refreshUiChrome();
 }
 
@@ -2704,6 +2714,8 @@ function handleInventoryUpdate(data: NEXT_S2C_InventoryUpdate): void {
   marketPanel.syncInventory(mergedInventory);
   npcShopModal.syncInventory(mergedInventory);
   craftWorkbenchModal.syncInventory();
+  nextUiBridge.syncInventory(mergedInventory);
+  nextUiBridge.syncPlayer(myPlayer);
 }
 
 function handleEquipmentUpdate(data: NEXT_S2C_EquipmentUpdate): void {
@@ -2714,6 +2726,8 @@ function handleEquipmentUpdate(data: NEXT_S2C_EquipmentUpdate): void {
   }
   equipmentPanel.update(mergedEquipment);
   craftWorkbenchModal.syncEquipment();
+  nextUiBridge.syncEquipment(mergedEquipment);
+  nextUiBridge.syncPlayer(myPlayer);
 }
 
 function handleTechniqueUpdate(data: NEXT_S2C_TechniqueUpdate): void {
@@ -2742,6 +2756,8 @@ function handleTechniqueUpdate(data: NEXT_S2C_TechniqueUpdate): void {
   if (myPlayer) {
     actionPanel.syncDynamic(myPlayer.actions, myPlayer.autoBattle, myPlayer.autoRetaliate, myPlayer);
   }
+  nextUiBridge.syncTechniques(mergedTechniques, nextCultivatingTechId);
+  nextUiBridge.syncPlayer(myPlayer);
 }
 
 function handleActionsUpdate(data: NEXT_S2C_ActionsUpdate): void {
@@ -2799,6 +2815,8 @@ function handleActionsUpdate(data: NEXT_S2C_ActionsUpdate): void {
     actionPanel.syncDynamic(mergedActions, nextAutoBattle, nextAutoRetaliate, myPlayer ?? undefined);
   }
   syncSenseQiOverlay();
+  nextUiBridge.syncActions(mergedActions, nextAutoBattle, nextAutoRetaliate);
+  nextUiBridge.syncPlayer(myPlayer);
 }
 
 function mergeVisibleBuffStates(
@@ -2911,6 +2929,8 @@ socket.onQuests((data) => {
   if (npcQuestModal.getActiveNpcId()) {
     npcQuestModal.refreshActive();
   }
+  nextUiBridge.syncQuests(data.quests);
+  nextUiBridge.syncPlayer(myPlayer);
   refreshUiChrome();
 });
 socket.onQuestNavigateResult((data) => {
@@ -3903,6 +3923,14 @@ function resetGameState() {
   worldPanel.clear();
   mailPanel.clear();
   mapRuntime.reset();
+  nextUiBridge.reset();
+  nextUiBridge.syncPlayer(null);
+  nextUiBridge.syncAttrUpdate(null);
+  nextUiBridge.syncInventory(null);
+  nextUiBridge.syncEquipment(null);
+  nextUiBridge.syncTechniques([], undefined);
+  nextUiBridge.syncActions([], false, true);
+  nextUiBridge.syncQuests(null);
   panelSystem.store.setRuntime({
     connected: false,
     playerId: null,
@@ -3928,6 +3956,7 @@ function applyLocalDisplayName(displayName: string) {
     };
   });
   mapRuntime.replaceVisibleEntities(latestEntities);
+  nextUiBridge.syncPlayer(myPlayer);
   refreshHudChrome();
 }
 
@@ -3946,6 +3975,7 @@ function applyLocalRoleName(roleName: string) {
     };
   });
   mapRuntime.replaceVisibleEntities(latestEntities);
+  nextUiBridge.syncPlayer(myPlayer);
   refreshHudChrome();
 }
 
@@ -4183,6 +4213,13 @@ function handleBootstrap(data: NEXT_S2C_Bootstrap): void {
   myPlayer.allowAoePlayerHit = myPlayer.allowAoePlayerHit === true;
   myPlayer.autoIdleCultivation = myPlayer.autoIdleCultivation !== false;
   myPlayer.autoSwitchCultivation = myPlayer.autoSwitchCultivation === true;
+  nextUiBridge.syncPlayer(myPlayer);
+  nextUiBridge.syncAttrUpdate(latestAttrUpdate);
+  nextUiBridge.syncInventory(myPlayer.inventory);
+  nextUiBridge.syncEquipment(myPlayer.equipment);
+  nextUiBridge.syncTechniques(myPlayer.techniques, myPlayer.cultivatingTechId);
+  nextUiBridge.syncActions(myPlayer.actions, myPlayer.autoBattle, myPlayer.autoRetaliate !== false);
+  nextUiBridge.syncQuests(myPlayer.quests ?? null);
   myPlayer.cultivationActive = myPlayer.cultivationActive === true;
   syncTargetingOverlay();
   mapRuntime.applyBootstrap(data);

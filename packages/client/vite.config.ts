@@ -36,9 +36,13 @@ export default defineConfig(({ mode }) => {
     gm: path.resolve(__dirname, 'gm.html'),
   };
   const gmV2Entry = path.resolve(__dirname, 'gm-v2.html');
+  const reactUiPrototypeEntry = path.resolve(__dirname, 'react-ui-prototype.html');
 
   if (existsSync(gmV2Entry)) {
     clientInputs['gm-v2'] = gmV2Entry;
+  }
+  if (existsSync(reactUiPrototypeEntry)) {
+    clientInputs['react-ui-prototype'] = reactUiPrototypeEntry;
   }
 
   return {

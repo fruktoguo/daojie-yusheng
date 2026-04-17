@@ -1,0 +1,26 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#react-ui-prototype-root {
+  width: 100vw;
+  height: 100vh;
+  margin: 0;
+  padding: 0;
+  overflow: hidden !important;
+}
+
+html,
+body {
+  position: fixed;
+  inset: 0;
+  overscroll-behavior: none;
+}
+
+body {
+  background: var(--paper-bg);
+  font-family: var(--font-role-body);
+  color: var(--ink-dark);
+}
