@@ -78,6 +78,8 @@ const world_gateway_npc_helper_1 = require("./world-gateway-npc.helper");
 
 const world_gateway_craft_helper_1 = require("./world-gateway-craft.helper");
 
+const world_gateway_market_helper_1 = require("./world-gateway-market.helper");
+
 /** 鉴权后请求 sessionId 只允许从 next/token 两类来源带入。 */
 const AUTHENTICATED_REQUESTED_SESSION_ID_AUTH_SOURCES = new Set([
     'next',
@@ -151,6 +153,7 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
     gatewayMailHelper;
     gatewayNpcHelper;
     gatewayCraftHelper;
+    gatewayMarketHelper;
     /** Socket.IO server 实例。 */
     server;
     /** 入口日志。 */
@@ -186,6 +189,7 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         this.gatewayMailHelper = new world_gateway_mail_helper_1.WorldGatewayMailHelper(this);
         this.gatewayNpcHelper = new world_gateway_npc_helper_1.WorldGatewayNpcHelper(this);
         this.gatewayCraftHelper = new world_gateway_craft_helper_1.WorldGatewayCraftHelper(this);
+        this.gatewayMarketHelper = new world_gateway_market_helper_1.WorldGatewayMarketHelper(this);
     }
     /** 处理 socket 连接：校验协议、阻断未就绪流量并触发鉴权引导。 */
     async handleConnection(client) {
@@ -439,43 +443,10 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         }
     }
     handleNextRequestMarket(client, payload) {
-        this.executeRequestMarket(client);
-    }
-    executeRequestMarket(client) {
-
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        try {
-            this.marketSubscriberPlayerIds.add(playerId);
-            this.marketListingRequestsByPlayerId.set(playerId, { page: 1 });
-
-            const response = this.marketRuntimeService.buildMarketUpdate(playerId);
-            this.emitNextMarketUpdate(client, response);
-            this.emitNextMarketListings(client, this.marketRuntimeService.buildMarketListingsPage(this.marketListingRequestsByPlayerId.get(playerId)));
-            this.emitNextMarketOrders(client, this.marketRuntimeService.buildMarketOrders(playerId));
-            this.emitNextMarketStorage(client, this.marketRuntimeService.buildMarketStorage(playerId));
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'REQUEST_MARKET_FAILED', error);
-        }
+        return this.gatewayMarketHelper.handleNextRequestMarket(client, payload);
     }
     handleNextRequestMarketListings(client, payload) {
-
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        try {
-            this.marketSubscriberPlayerIds.add(playerId);
-            this.marketListingRequestsByPlayerId.set(playerId, { ...(payload ?? {}) });
-            this.worldClientEventService.markProtocol(client, 'next');
-            this.worldClientEventService.emitMarketListings(client, this.marketRuntimeService.buildMarketListingsPage(payload));
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'REQUEST_MARKET_LISTINGS_FAILED', error);
-        }
+        return this.gatewayMarketHelper.handleNextRequestMarketListings(client, payload);
     }
     async handleNextMarkMailRead(client, payload) {
         return this.gatewayMailHelper.handleNextMarkMailRead(client, payload);
@@ -505,41 +476,10 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         return this.gatewayMailHelper.handleNextDeleteMail(client, payload);
     }
     handleNextRequestMarketItemBook(client, payload) {
-        this.executeRequestMarketItemBook(client, payload);
-    }
-    executeRequestMarketItemBook(client, payload) {
-
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        try {
-
-            const response = this.marketRuntimeService.buildItemBook(payload?.itemKey ?? '');
-            this.emitNextMarketItemBook(client, response);
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'REQUEST_MARKET_ITEM_BOOK_FAILED', error);
-        }
+        return this.gatewayMarketHelper.handleNextRequestMarketItemBook(client, payload);
     }
     handleNextRequestMarketTradeHistory(client, payload) {
-        this.executeRequestMarketTradeHistory(client, payload);
-    }
-    executeRequestMarketTradeHistory(client, payload) {
-
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        try {
-            this.marketTradeHistoryRequestsByPlayerId.set(playerId, Number.isFinite(payload?.page) ? Math.max(1, Math.trunc(payload.page)) : 1);
-
-            const response = this.marketRuntimeService.buildTradeHistoryPage(playerId, payload?.page);
-            this.emitNextMarketTradeHistory(client, response);
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'REQUEST_MARKET_TRADE_HISTORY_FAILED', error);
-        }
+        return this.gatewayMarketHelper.handleNextRequestMarketTradeHistory(client, payload);
     }
     handleNextRequestAttrDetail(client, _payload) {
 
@@ -729,129 +669,40 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         return this.gatewayNpcHelper.handleNextRequestNpcShop(client, payload);
     }
     async executeCreateMarketSellOrder(client, payload) {
-
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        try {
-
-            const result = await this.marketRuntimeService.createSellOrder(playerId, {
-                slotIndex: payload?.slotIndex,
-                quantity: payload?.quantity,
-                unitPrice: payload?.unitPrice,
-            });
-            this.flushMarketResult(result);
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'CREATE_MARKET_SELL_ORDER_FAILED', error);
-        }
+        return this.gatewayMarketHelper.executeCreateMarketSellOrder(client, payload);
     }
     async handleNextCreateMarketSellOrder(client, payload) {
-        await this.executeCreateMarketSellOrder(client, payload);
+        return this.gatewayMarketHelper.handleNextCreateMarketSellOrder(client, payload);
     }
     async executeCreateMarketBuyOrder(client, payload) {
-
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        try {
-
-            const result = await this.marketRuntimeService.createBuyOrder(playerId, {
-                itemKey: payload?.itemKey ?? '',
-                itemId: payload?.itemId ?? '',
-                quantity: payload?.quantity,
-                unitPrice: payload?.unitPrice,
-            });
-            this.flushMarketResult(result);
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'CREATE_MARKET_BUY_ORDER_FAILED', error);
-        }
+        return this.gatewayMarketHelper.executeCreateMarketBuyOrder(client, payload);
     }
     async handleNextCreateMarketBuyOrder(client, payload) {
-        await this.executeCreateMarketBuyOrder(client, payload);
+        return this.gatewayMarketHelper.handleNextCreateMarketBuyOrder(client, payload);
     }
     async executeBuyMarketItem(client, payload) {
-
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        try {
-
-            const result = await this.marketRuntimeService.buyNow(playerId, {
-                itemKey: payload?.itemKey ?? '',
-                quantity: payload?.quantity,
-            });
-            this.flushMarketResult(result);
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'BUY_MARKET_ITEM_FAILED', error);
-        }
+        return this.gatewayMarketHelper.executeBuyMarketItem(client, payload);
     }
     async handleNextBuyMarketItem(client, payload) {
-        await this.executeBuyMarketItem(client, payload);
+        return this.gatewayMarketHelper.handleNextBuyMarketItem(client, payload);
     }
     async executeSellMarketItem(client, payload) {
-
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        try {
-
-            const result = await this.marketRuntimeService.sellNow(playerId, {
-                slotIndex: payload?.slotIndex,
-                quantity: payload?.quantity,
-            });
-            this.flushMarketResult(result);
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'SELL_MARKET_ITEM_FAILED', error);
-        }
+        return this.gatewayMarketHelper.executeSellMarketItem(client, payload);
     }
     async handleNextSellMarketItem(client, payload) {
-        await this.executeSellMarketItem(client, payload);
+        return this.gatewayMarketHelper.handleNextSellMarketItem(client, payload);
     }
     async executeCancelMarketOrder(client, payload) {
-
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        try {
-
-            const result = await this.marketRuntimeService.cancelOrder(playerId, {
-                orderId: payload?.orderId ?? '',
-            });
-            this.flushMarketResult(result);
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'CANCEL_MARKET_ORDER_FAILED', error);
-        }
+        return this.gatewayMarketHelper.executeCancelMarketOrder(client, payload);
     }
     async handleNextCancelMarketOrder(client, payload) {
-        await this.executeCancelMarketOrder(client, payload);
+        return this.gatewayMarketHelper.handleNextCancelMarketOrder(client, payload);
     }
     async executeClaimMarketStorage(client) {
-
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        try {
-
-            const result = await this.marketRuntimeService.claimStorage(playerId);
-            this.flushMarketResult(result);
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'CLAIM_MARKET_STORAGE_FAILED', error);
-        }
+        return this.gatewayMarketHelper.executeClaimMarketStorage(client);
     }
     async handleNextClaimMarketStorage(client, payload) {
-        await this.executeClaimMarketStorage(client);
+        return this.gatewayMarketHelper.handleNextClaimMarketStorage(client, payload);
     }
     handleRequestNpcQuests(client, payload) {
         return this.gatewayNpcHelper.handleRequestNpcQuests(client, payload);
