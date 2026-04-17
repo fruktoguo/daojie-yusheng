@@ -66,6 +66,8 @@ const world_gateway_gm_command_helper_1 = require("./world-gateway-gm-command.he
 
 const world_gateway_gm_suggestion_helper_1 = require("./world-gateway-gm-suggestion.helper");
 
+const world_gateway_suggestion_helper_1 = require("./world-gateway-suggestion.helper");
+
 const world_gateway_movement_helper_1 = require("./world-gateway-movement.helper");
 
 /** 鉴权后请求 sessionId 只允许从 next/token 两类来源带入。 */
@@ -135,6 +137,7 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
     /** GM command helper。 */
     gatewayGmCommandHelper;
     gatewayGmSuggestionHelper;
+    gatewaySuggestionHelper;
     gatewayMovementHelper;
     /** Socket.IO server 实例。 */
     server;
@@ -165,6 +168,7 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         this.gatewayGmHelper = new world_gateway_gm_helper_1.WorldGatewayGmHelper(this);
         this.gatewayGmCommandHelper = new world_gateway_gm_command_helper_1.WorldGatewayGmCommandHelper(this);
         this.gatewayGmSuggestionHelper = new world_gateway_gm_suggestion_helper_1.WorldGatewayGmSuggestionHelper(this);
+        this.gatewaySuggestionHelper = new world_gateway_suggestion_helper_1.WorldGatewaySuggestionHelper(this);
         this.gatewayMovementHelper = new world_gateway_movement_helper_1.WorldGatewayMovementHelper(this);
     }
     /** 处理 socket 连接：校验协议、阻断未就绪流量并触发鉴权引导。 */
@@ -436,15 +440,7 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         }
     }
     handleNextRequestSuggestions(client, payload) {
-        this.executeRequestSuggestions(client);
-    }
-    executeRequestSuggestions(client) {
-
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        this.emitNextSuggestionUpdate(client, this.suggestionRuntimeService.getAll());
+        return this.gatewaySuggestionHelper.handleNextRequestSuggestions(client, payload);
     }
     async handleNextRequestMailPage(client, payload) {
         await this.executeRequestMailPage(client, payload);
@@ -557,72 +553,16 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         }
     }
     async handleNextCreateSuggestion(client, payload) {
-        await this.executeCreateSuggestion(client, payload);
-    }
-    async executeCreateSuggestion(client, payload) {
-
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        try {
-            await this.suggestionRuntimeService.create(playerId, playerId, payload?.title ?? '', payload?.description ?? '');
-            this.broadcastSuggestions();
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'CREATE_SUGGESTION_FAILED', error);
-        }
+        await this.gatewaySuggestionHelper.handleNextCreateSuggestion(client, payload);
     }
     async handleNextVoteSuggestion(client, payload) {
-        await this.executeVoteSuggestion(client, payload);
-    }
-    async executeVoteSuggestion(client, payload) {
-
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        try {
-            await this.suggestionRuntimeService.vote(playerId, payload?.suggestionId ?? '', payload?.vote);
-            this.broadcastSuggestions();
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'VOTE_SUGGESTION_FAILED', error);
-        }
+        await this.gatewaySuggestionHelper.handleNextVoteSuggestion(client, payload);
     }
     async handleNextReplySuggestion(client, payload) {
-        await this.executeReplySuggestion(client, payload);
-    }
-    async executeReplySuggestion(client, payload) {
-
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        try {
-            await this.suggestionRuntimeService.addReply(payload?.suggestionId ?? '', 'author', playerId, playerId, payload?.content ?? '');
-            this.broadcastSuggestions();
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'REPLY_SUGGESTION_FAILED', error);
-        }
+        await this.gatewaySuggestionHelper.handleNextReplySuggestion(client, payload);
     }
     async handleNextMarkSuggestionRepliesRead(client, payload) {
-        await this.executeMarkSuggestionRepliesRead(client, payload);
-    }
-    async executeMarkSuggestionRepliesRead(client, payload) {
-
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        try {
-            await this.suggestionRuntimeService.markRepliesRead(payload?.suggestionId ?? '', playerId);
-            this.broadcastSuggestions();
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'MARK_SUGGESTION_REPLIES_READ_FAILED', error);
-        }
+        await this.gatewaySuggestionHelper.handleNextMarkSuggestionRepliesRead(client, payload);
     }
     async handleNextGmMarkSuggestionCompleted(client, payload) {
         await this.gatewayGmSuggestionHelper.handleGmMarkSuggestionCompleted(client, payload);
