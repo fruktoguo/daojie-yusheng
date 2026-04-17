@@ -158,6 +158,15 @@
 - `pnpm --filter @mud/server-next smoke:persistence`
 - `pnpm --filter @mud/server-next audit:legacy-boundaries`
 
+本轮实际补跑：
+
+- `SERVER_NEXT_DATABASE_URL=postgres://mud:jiuzhou123@127.0.0.1:15432/mud_mmo_next DATABASE_URL=postgres://mud:jiuzhou123@127.0.0.1:15432/mud_mmo_next pnpm --filter @mud/server-next smoke:next-auth-bootstrap`
+- `SERVER_NEXT_DATABASE_URL=postgres://mud:jiuzhou123@127.0.0.1:15432/mud_mmo_next DATABASE_URL=postgres://mud:jiuzhou123@127.0.0.1:15432/mud_mmo_next pnpm verify:replace-ready`
+
+本轮已收口的子步：
+
+- next 协议下，已加载 `legacy_backfill / legacy_sync` 身份不再做运行时原地提升；未迁移到 next native 的 identity 直接被拒绝。
+
 ### 第 3 批：删运行时 / 持久化 compat 装载
 
 - [x] 删除 `world-sync.service.js` 中对 `getLegacyCombatEffects()` 的直接读取
