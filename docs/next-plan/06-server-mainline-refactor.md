@@ -97,7 +97,7 @@
 当前仍未完成：
 
 - `world.gateway.js` 仍然承载大量 authenticated gameplay handler
-- suggestion 的玩家侧 request/create/vote/reply/read-replies 处理器仍在 gateway
+- inventory/equipment、mail、market、npc/shop/quest 等 authenticated gameplay handler 仍在 gateway
 - gateway 还不是最终意义上的纯分发层
 
 本轮继续完成：
@@ -118,12 +118,19 @@
 - `handleNextMoveTo / handleMove / handleNextNavigateQuest` 已从 gateway 主文件移出
 - movement debug 日志、quest navigate result 和 gateway error code 保持不变，gateway 继续向 helper 薄委托
 
+本轮继续完成：
+
+- 新增 `packages/server/src/network/world-gateway-suggestion.helper.js`
+- `handleNextRequestSuggestions / handleNextCreateSuggestion / handleNextVoteSuggestion / handleNextReplySuggestion / handleNextMarkSuggestionRepliesRead` 已从 gateway 主文件移出
+- 玩家 suggestion 写路径与列表发包胶水已和 GM suggestion moderation 完全拆开
+
 最小验证：
 
 - `pnpm --filter @mud/server-next build`
 - `pnpm --filter @mud/server-next smoke:session`
 - `pnpm --filter @mud/server-next smoke:next-auth-bootstrap`
 - `pnpm --filter @mud/server-next smoke:runtime`
+- `pnpm --filter @mud/server-next audit:next-protocol`
 
 ### 第 2 批：收口登录到进入世界的单路径
 
