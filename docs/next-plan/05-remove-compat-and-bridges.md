@@ -177,7 +177,8 @@
 ### 第 4 批：删 GM 历史 scope fallback
 
 - [x] 删除 `next-gm-contract.js` 中 `legacyPasswordRecordScopes`
-- [ ] 删除 `next-gm-admin.service.js` 对 `server_next_legacy_afdian_*`、`server_next_legacy_db_*` 的双读
+- [x] 删除 `next-gm-admin.service.js` 对 `server_next_legacy_db_*` 的双读
+- [ ] 删除 `next-gm-admin.service.js` 对 `server_next_legacy_afdian_*` 的双读
 - [x] 删除 `runtime-gm-auth.service.js` 对 legacy GM 密码 scope 的回退读取
 - [x] 把 `gm-database-smoke.js` / `gm-database-backup-persistence-smoke.js` 改成只验证 next native scope
 
