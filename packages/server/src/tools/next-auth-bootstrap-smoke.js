@@ -10,7 +10,6 @@ const socket_io_client_1 = require("socket.io-client");
 const shared_1 = require("@mud/shared-next");
 const env_alias_1 = require("../config/env-alias");
 const world_gateway_1 = require("../network/world.gateway");
-const world_legacy_player_repository_1 = require("../network/world-legacy-player-repository");
 const world_player_auth_service_1 = require("../network/world-player-auth.service");
 const world_client_event_service_1 = require("../network/world-client-event.service");
 const world_player_snapshot_service_1 = require("../network/world-player-snapshot.service");
@@ -1839,7 +1838,7 @@ async function verifyLegacyHttpIdentityFallbackGateContract() {
             },
         });
         const originalEnsurePool = service.ensurePool.bind(service);
-        const originalQueryLegacyPlayerIdentityRow = world_legacy_player_repository_1.queryLegacyPlayerIdentityRow;
+        const originalQueryMigrationIdentityRow = service.queryMigrationIdentityRow;
         try {
             if (typeof service.resolvePlayerIdentityFromCompatSource === 'function') {
                 throw new Error('expected legacy HTTP identity fallback entry to be removed from world player source service');
@@ -1857,12 +1856,12 @@ async function verifyLegacyHttpIdentityFallbackGateContract() {
                 throw new Error(`expected removed legacy HTTP fallback to stay blocked even when migration opt-in is explicit and pool is unavailable, got result=${JSON.stringify(poolUnavailableExplicitResult)} httpCallCount=${httpCallCount}`);
             }
             service.ensurePool = async () => ({});
-            world_legacy_player_repository_1.queryLegacyPlayerIdentityRow = async () => null;
+            service.queryMigrationIdentityRow = async () => null;
             const missingRowResult = await service.resolvePlayerIdentityFromMigrationSource(payload);
             if (missingRowResult !== null || httpCallCount !== 0) {
                 throw new Error(`expected migration source to stay closed without explicit opt-in after legacy HTTP fallback removal, got result=${JSON.stringify(missingRowResult)} httpCallCount=${httpCallCount}`);
             }
-            world_legacy_player_repository_1.queryLegacyPlayerIdentityRow = async () => {
+            service.queryMigrationIdentityRow = async () => {
                 const error = new Error('legacy schema missing');
                 error.code = '42P01';
                 throw error;
@@ -1882,7 +1881,7 @@ async function verifyLegacyHttpIdentityFallbackGateContract() {
         }
         finally {
             service.ensurePool = originalEnsurePool;
-            world_legacy_player_repository_1.queryLegacyPlayerIdentityRow = originalQueryLegacyPlayerIdentityRow;
+            service.queryMigrationIdentityRow = originalQueryMigrationIdentityRow;
             await service.onModuleDestroy().catch(() => undefined);
         }
     });
@@ -1912,7 +1911,7 @@ async function verifyLegacyHttpIdentityFallbackOptInContract() {
             },
         });
         const originalEnsurePool = service.ensurePool.bind(service);
-        const originalQueryLegacyPlayerIdentityRow = world_legacy_player_repository_1.queryLegacyPlayerIdentityRow;
+        const originalQueryMigrationIdentityRow = service.queryMigrationIdentityRow;
         try {
             if (typeof service.resolvePlayerIdentityFromCompatSource === 'function') {
                 throw new Error('expected legacy HTTP identity fallback entry to stay removed even when allow envs are present');
@@ -1930,7 +1929,7 @@ async function verifyLegacyHttpIdentityFallbackOptInContract() {
                 throw new Error(`expected removed legacy HTTP fallback to stay blocked without allow env, got result=${JSON.stringify(explicitPoolUnavailableResult)} httpCallCount=${httpCallCount}`);
             }
             service.ensurePool = async () => ({});
-            world_legacy_player_repository_1.queryLegacyPlayerIdentityRow = async () => null;
+            service.queryMigrationIdentityRow = async () => null;
             const explicitMissingRowResult = await service.resolvePlayerIdentityFromMigrationSource(payload, {
                 allowMigrationSource: true,
                 allowLegacyHttpIdentityFallback: true,
@@ -1938,7 +1937,7 @@ async function verifyLegacyHttpIdentityFallbackOptInContract() {
             if (explicitMissingRowResult !== null || httpCallCount !== 0) {
                 throw new Error(`expected removed legacy HTTP fallback to stay blocked for missing legacy row, got result=${JSON.stringify(explicitMissingRowResult)} httpCallCount=${httpCallCount}`);
             }
-            world_legacy_player_repository_1.queryLegacyPlayerIdentityRow = async () => {
+            service.queryMigrationIdentityRow = async () => {
                 const error = new Error('legacy schema missing');
                 error.code = '42P01';
                 throw error;
@@ -1963,7 +1962,7 @@ async function verifyLegacyHttpIdentityFallbackOptInContract() {
                     throw new Error(`expected allow env to stop resurrecting removed legacy HTTP fallback when pool is unavailable, got result=${JSON.stringify(allowEnvPoolUnavailableResult)} httpCallCount=${httpCallCount}`);
                 }
                 service.ensurePool = async () => ({});
-                world_legacy_player_repository_1.queryLegacyPlayerIdentityRow = async () => null;
+                service.queryMigrationIdentityRow = async () => null;
                 const allowEnvMissingRowResult = await service.resolvePlayerIdentityFromMigrationSource(payload, {
                     allowMigrationSource: true,
                     allowLegacyHttpIdentityFallback: true,
@@ -1971,7 +1970,7 @@ async function verifyLegacyHttpIdentityFallbackOptInContract() {
                 if (allowEnvMissingRowResult !== null || httpCallCount !== 0) {
                     throw new Error(`expected allow env to stop resurrecting removed legacy HTTP fallback for missing legacy row, got result=${JSON.stringify(allowEnvMissingRowResult)} httpCallCount=${httpCallCount}`);
                 }
-                world_legacy_player_repository_1.queryLegacyPlayerIdentityRow = async () => {
+                service.queryMigrationIdentityRow = async () => {
                     const error = new Error('legacy schema missing');
                     error.code = '42P01';
                     throw error;
@@ -1996,7 +1995,7 @@ async function verifyLegacyHttpIdentityFallbackOptInContract() {
         }
         finally {
             service.ensurePool = originalEnsurePool;
-            world_legacy_player_repository_1.queryLegacyPlayerIdentityRow = originalQueryLegacyPlayerIdentityRow;
+            service.queryMigrationIdentityRow = originalQueryMigrationIdentityRow;
             await service.onModuleDestroy().catch(() => undefined);
         }
     });
@@ -2658,10 +2657,10 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
         loadPlayerSnapshotRecord: async () => null,
     });
     const originalCompatMigrationEnsurePool = compatMigrationSourceService.ensurePool.bind(compatMigrationSourceService);
-    const originalCompatMigrationQueryIdentityRow = world_legacy_player_repository_1.queryLegacyPlayerIdentityRow;
-    const originalCompatMigrationQuerySnapshotRow = world_legacy_player_repository_1.queryLegacyPlayerSnapshotRow;
+    const originalCompatMigrationQueryIdentityRow = compatMigrationSourceService.queryMigrationIdentityRow;
+    const originalCompatMigrationQuerySnapshotRow = compatMigrationSourceService.queryMigrationSnapshotRow;
     compatMigrationSourceService.ensurePool = async () => ({});
-    world_legacy_player_repository_1.queryLegacyPlayerIdentityRow = async () => {
+    compatMigrationSourceService.queryMigrationIdentityRow = async () => {
         compatMigrationIdentityCalls += 1;
         return {
             userId: compatIdentity.userId,
@@ -2672,7 +2671,7 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
             playerName: compatIdentity.playerName,
         };
     };
-    world_legacy_player_repository_1.queryLegacyPlayerSnapshotRow = async () => {
+    compatMigrationSourceService.queryMigrationSnapshotRow = async () => {
         compatMigrationSnapshotCalls += 1;
         return {
             id: payload.playerId,
@@ -2786,8 +2785,8 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
     }
     finally {
         compatMigrationSourceService.ensurePool = originalCompatMigrationEnsurePool;
-        world_legacy_player_repository_1.queryLegacyPlayerIdentityRow = originalCompatMigrationQueryIdentityRow;
-        world_legacy_player_repository_1.queryLegacyPlayerSnapshotRow = originalCompatMigrationQuerySnapshotRow;
+        compatMigrationSourceService.queryMigrationIdentityRow = originalCompatMigrationQueryIdentityRow;
+        compatMigrationSourceService.queryMigrationSnapshotRow = originalCompatMigrationQuerySnapshotRow;
         await compatMigrationSourceService.onModuleDestroy().catch(() => undefined);
     }
     let compatSnapshotBackfillCalls = 0;
@@ -2817,9 +2816,9 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
     }));
     const compatSnapshotBackfillSourceService = compatSnapshotBackfillService.worldPlayerSourceService;
     const originalCompatSnapshotBackfillEnsurePool = compatSnapshotBackfillSourceService.ensurePool.bind(compatSnapshotBackfillSourceService);
-    const originalCompatSnapshotBackfillQuerySnapshotRow = world_legacy_player_repository_1.queryLegacyPlayerSnapshotRow;
+    const originalCompatSnapshotBackfillQuerySnapshotRow = compatSnapshotBackfillSourceService.queryMigrationSnapshotRow;
     compatSnapshotBackfillSourceService.ensurePool = async () => ({});
-    world_legacy_player_repository_1.queryLegacyPlayerSnapshotRow = async () => {
+    compatSnapshotBackfillSourceService.queryMigrationSnapshotRow = async () => {
         compatSnapshotBackfillCalls += 1;
         return {
             id: payload.playerId,
@@ -2863,7 +2862,7 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
     }
     finally {
         compatSnapshotBackfillSourceService.ensurePool = originalCompatSnapshotBackfillEnsurePool;
-        world_legacy_player_repository_1.queryLegacyPlayerSnapshotRow = originalCompatSnapshotBackfillQuerySnapshotRow;
+        compatSnapshotBackfillSourceService.queryMigrationSnapshotRow = originalCompatSnapshotBackfillQuerySnapshotRow;
         await compatSnapshotBackfillSourceService.onModuleDestroy().catch(() => undefined);
     }
     if (!compatSnapshotBackfillResult?.ok
@@ -2897,16 +2896,16 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
     }));
     const compatSnapshotMissingSourceService = compatSnapshotMissingBackfillService.worldPlayerSourceService;
     const originalCompatSnapshotMissingEnsurePool = compatSnapshotMissingSourceService.ensurePool.bind(compatSnapshotMissingSourceService);
-    const originalCompatSnapshotMissingQuerySnapshotRow = world_legacy_player_repository_1.queryLegacyPlayerSnapshotRow;
+    const originalCompatSnapshotMissingQuerySnapshotRow = compatSnapshotMissingSourceService.queryMigrationSnapshotRow;
     compatSnapshotMissingSourceService.ensurePool = async () => ({});
-    world_legacy_player_repository_1.queryLegacyPlayerSnapshotRow = async () => null;
+    compatSnapshotMissingSourceService.queryMigrationSnapshotRow = async () => null;
     let compatSnapshotMissingBackfillResult = null;
     try {
         compatSnapshotMissingBackfillResult = await compatSnapshotMissingBackfillService.ensureMigrationBackfillSnapshot(payload.playerId);
     }
     finally {
         compatSnapshotMissingSourceService.ensurePool = originalCompatSnapshotMissingEnsurePool;
-        world_legacy_player_repository_1.queryLegacyPlayerSnapshotRow = originalCompatSnapshotMissingQuerySnapshotRow;
+        compatSnapshotMissingSourceService.queryMigrationSnapshotRow = originalCompatSnapshotMissingQuerySnapshotRow;
         await compatSnapshotMissingSourceService.onModuleDestroy().catch(() => undefined);
     }
     if (compatSnapshotMissingBackfillResult?.ok !== false
@@ -3240,10 +3239,10 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
         },
     });
     const originalGuardedEnsurePool = guardedSourceService.ensurePool.bind(guardedSourceService);
-    const originalGuardedQueryIdentityRow = world_legacy_player_repository_1.queryLegacyPlayerIdentityRow;
-    const originalGuardedQuerySnapshotRow = world_legacy_player_repository_1.queryLegacyPlayerSnapshotRow;
+    const originalGuardedQueryIdentityRow = guardedSourceService.queryMigrationIdentityRow;
+    const originalGuardedQuerySnapshotRow = guardedSourceService.queryMigrationSnapshotRow;
     guardedSourceService.ensurePool = async () => ({});
-    world_legacy_player_repository_1.queryLegacyPlayerIdentityRow = async () => {
+    guardedSourceService.queryMigrationIdentityRow = async () => {
         guardedCompatIdentityCalls += 1;
         return {
             userId: compatIdentity.userId,
@@ -3254,7 +3253,7 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
             playerName: compatIdentity.playerName,
         };
     };
-    world_legacy_player_repository_1.queryLegacyPlayerSnapshotRow = async () => {
+    guardedSourceService.queryMigrationSnapshotRow = async () => {
         guardedCompatSnapshotCalls += 1;
         return {
             id: payload.playerId,
@@ -3331,8 +3330,8 @@ async function verifyLegacyBackfillSnapshotFallbackContract() {
     }
     finally {
         guardedSourceService.ensurePool = originalGuardedEnsurePool;
-        world_legacy_player_repository_1.queryLegacyPlayerIdentityRow = originalGuardedQueryIdentityRow;
-        world_legacy_player_repository_1.queryLegacyPlayerSnapshotRow = originalGuardedQuerySnapshotRow;
+        guardedSourceService.queryMigrationIdentityRow = originalGuardedQueryIdentityRow;
+        guardedSourceService.queryMigrationSnapshotRow = originalGuardedQuerySnapshotRow;
         await guardedSourceService.onModuleDestroy().catch(() => undefined);
     }
     const invalidNextIdentityAuthService = new world_player_auth_service_1.WorldPlayerAuthService({

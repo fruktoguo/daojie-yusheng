@@ -31,8 +31,6 @@ const player_identity_persistence_service_1 = require("../persistence/player-ide
 
 const player_persistence_service_1 = require("../persistence/player-persistence.service");
 
-const world_legacy_player_repository_1 = require("./world-legacy-player-repository");
-
 const DISABLE_MIGRATION_SOURCE_ENV_KEYS = [
     'SERVER_NEXT_AUTH_DISABLE_COMPAT_MIGRATION_SOURCE',
     'NEXT_AUTH_DISABLE_COMPAT_MIGRATION_SOURCE',
@@ -133,6 +131,67 @@ let WorldPlayerSourceService = class WorldPlayerSourceService {
         return isMigrationAccessExplicit(options)
             && !isMigrationSourceDisabled();
     }
+    /** 显式 migration 身份来源查询。 */
+    async queryMigrationIdentityRow(pool, userId) {
+        const result = await pool.query(`
+        SELECT
+          u.id AS "userId",
+          u.username AS "username",
+          u."displayName" AS "displayName",
+          u."pendingRoleName" AS "pendingRoleName",
+          p.id AS "playerId",
+          p.name AS "playerName"
+        FROM users u
+        LEFT JOIN players p ON p."userId" = u.id
+        WHERE u.id::text = $1
+        LIMIT 1
+      `, [userId]);
+        return result.rows[0] ?? null;
+    }
+    /** 显式 migration 快照来源查询。 */
+    async queryMigrationSnapshotRow(pool, playerId) {
+        const result = await pool.query(`
+        SELECT
+          id,
+          "mapId",
+          x,
+          y,
+          facing,
+          hp,
+          "maxHp",
+          qi,
+          "pendingLogbookMessages",
+          inventory,
+          "temporaryBuffs",
+          equipment,
+          techniques,
+          quests,
+          bonuses,
+          "bodyTraining",
+          foundation,
+          "combatExp",
+          "boneAgeBaseYears",
+          "lifeElapsedTicks",
+          "lifespanYears",
+          "heavenGate",
+          "spiritualRoots",
+          "unlockedMinimapIds",
+          "autoBattle",
+          "autoBattleSkills",
+          "combatTargetId",
+          "combatTargetLocked",
+          "autoRetaliate",
+          "autoBattleStationary",
+          "allowAoePlayerHit",
+          "autoIdleCultivation",
+          "autoSwitchCultivation",
+          "cultivatingTechId"
+        FROM players
+        WHERE id = $1
+        LIMIT 1
+      `, [playerId]);
+        return result.rows[0] ?? null;
+    }
     /** 从 legacy 数据库源恢复玩家身份。 */
     async resolvePlayerIdentityFromMigrationSource(payload, options = undefined) {
         if (!assertExplicitMigrationAccess(options, this.logger, 'identity_source')) {
@@ -147,7 +206,7 @@ let WorldPlayerSourceService = class WorldPlayerSourceService {
 
         let row;
         try {
-            row = await (0, world_legacy_player_repository_1.queryLegacyPlayerIdentityRow)(pool, payload.sub);
+            row = await this.queryMigrationIdentityRow(pool, payload.sub);
         }
         catch (error) {
             if (isMissingLegacySchemaError(error)) {
@@ -181,7 +240,7 @@ let WorldPlayerSourceService = class WorldPlayerSourceService {
 
         let row;
         try {
-            row = await (0, world_legacy_player_repository_1.queryLegacyPlayerSnapshotRow)(pool, playerId);
+            row = await this.queryMigrationSnapshotRow(pool, playerId);
         }
         catch (error) {
             if (isMissingLegacySchemaError(error)) {
