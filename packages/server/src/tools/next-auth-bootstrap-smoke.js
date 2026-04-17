@@ -2669,11 +2669,14 @@ async function verifyAuthenticatedSnapshotRecoveryBootstrapLinkContract() {
  * 记录bootstrap服务。
  */
             const bootstrapService = new world_session_bootstrap_service_1.WorldSessionBootstrapService({
-                promoteTokenSeedIdentityToNative: async (identity) => ({
-                    ...identity,
-                    authSource: 'next',
-                    persistedSource: 'native',
-                }),
+                playerIdentityPersistenceService: {
+                    isEnabled: () => true,
+                    savePlayerIdentity: async (identity) => ({
+                        ...identity,
+                        authSource: 'next',
+                        persistedSource: 'native',
+                    }),
+                },
             }, {
                 isPersistenceEnabled: () => true,
                 loadPlayerSnapshot: async () => null,
@@ -2987,9 +2990,15 @@ async function verifyTokenSeedIdentityContract() {
     if (!tokenSeedRequestedSessionIdAllowed || !tokenSeedConnectedSessionReuseAllowed || !tokenSeedImplicitDetachedResumeAllowed) {
         throw new Error(`expected token/token_seed bootstrap session reuse policy to allow reuse, got implicit=${tokenSeedImplicitDetachedResumeAllowed} requested=${tokenSeedRequestedSessionIdAllowed} connected=${tokenSeedConnectedSessionReuseAllowed}`);
     }
-    const promotedIdentity = await nextStoreAuthService.promoteTokenSeedIdentityToNative(nextProtocolIdentity);
+    if (typeof nextStoreAuthService.promoteTokenSeedIdentityToNative === 'function'
+        || typeof nextStoreAuthService.promotePersistedIdentityToNative === 'function') {
+        throw new Error('expected auth service to stop owning token_seed promotion helpers');
+    }
+    const promotedIdentity = await tokenSeedBootstrapService.promoteAuthenticatedTokenSeedIdentity({
+        ...nextProtocolIdentity,
+    }, tokenSeedClient);
     if (!promotedIdentity || promotedIdentity.authSource !== 'next' || promotedIdentity.persistedSource !== 'native') {
-        throw new Error(`expected token_seed identity promotion to normalize into next/native, got ${JSON.stringify(promotedIdentity)}`);
+        throw new Error(`expected bootstrap-owned token_seed promotion to normalize into next/native, got ${JSON.stringify(promotedIdentity)}`);
     }
     return {
         identitySource: identity.authSource ?? null,

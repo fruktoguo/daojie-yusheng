@@ -663,19 +663,32 @@ let WorldSessionBootstrapService = class WorldSessionBootstrapService {
     }
     /** 针对 token_seed 身份做原生提升。 */
     async promoteAuthenticatedTokenSeedIdentity(identity, client) {
-
         const persistedSource = typeof identity?.persistedSource === 'string' ? identity.persistedSource.trim() : '';
-        if (persistedSource !== 'token_seed'
-            || typeof this.worldPlayerAuthService?.promoteTokenSeedIdentityToNative !== 'function') {
+        const normalizedUserId = typeof identity?.userId === 'string' ? identity.userId.trim() : '';
+        const normalizedPlayerId = typeof identity?.playerId === 'string' ? identity.playerId.trim() : '';
+        const persistenceService = this.worldPlayerAuthService?.playerIdentityPersistenceService;
+        if (persistedSource !== 'token_seed' || !persistenceService?.isEnabled || !persistenceService.isEnabled()) {
             return identity;
         }
 
-        const promotedIdentity = await this.worldPlayerAuthService.promoteTokenSeedIdentityToNative(identity);
+        let promotedIdentity = null;
+        try {
+            promotedIdentity = await persistenceService.savePlayerIdentity({
+                ...identity,
+                persistedSource: 'native',
+                updatedAt: Date.now(),
+            });
+        }
+        catch (error) {
+            this.logger.warn(`玩家身份 token_seed 原生提升失败：userId=${normalizedUserId} playerId=${normalizedPlayerId} error=${error instanceof Error ? error.message : String(error)}`);
+            return identity;
+        }
 
         const promotedPersistedSource = typeof promotedIdentity?.persistedSource === 'string'
             ? promotedIdentity.persistedSource.trim()
             : '';
         if (promotedPersistedSource !== 'native') {
+            this.logger.warn(`玩家身份 token_seed 原生提升返回了异常 persistedSource：userId=${normalizedUserId} playerId=${normalizedPlayerId} actual=${promotedPersistedSource || '未知'}`);
             return identity;
         }
         identity.persistedSource = promotedPersistedSource;
