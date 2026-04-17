@@ -338,6 +338,10 @@
 - `applyMonsterAction / applyMonsterBasicAttack / applyMonsterSkill` 已委托给 `WorldRuntimeMonsterActionApplyService`
 - `WorldRuntimeService` 仍保留 `advanceFrame()` tick 顺序、`dispatchCastSkill*` 与玩家战斗派发，说明这次只是第 5 批第七刀的 monster-action apply 抽离，不是完整 combat/skill 域拆分
 - 本轮验证已补跑 `smoke:monster-ai`、`smoke:monster-skill`、根级 `pnpm build` 与 `pnpm verify:replace-ready`
+- 新增 `packages/server/src/runtime/world/world-runtime-basic-attack.service.js`
+- `dispatchBasicAttack(...)` 已委托给 `WorldRuntimeBasicAttackService`，monster/player/tile 三个目标分支都收进该 service
+- `WorldRuntimeService` 仍保留 `dispatchEngageBattle(...)`、`dispatchCastSkill*`、`handlePlayerMonsterKill()` 与 `handlePlayerDefeat()`，说明这次只是第 5 批第八刀的 basic-attack 抽离，不是完整 player combat 域拆分
+- 本轮验证已补跑 `compile`、`smoke:runtime`、`smoke:combat`、根级 `pnpm build` 与 `pnpm verify:replace-ready`
 
 这一批结束后，`world-runtime.service.js` 仍可以存在，但不该再同时拥有所有领域细节。
 
