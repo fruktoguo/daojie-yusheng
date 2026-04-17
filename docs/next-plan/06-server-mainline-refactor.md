@@ -146,17 +146,17 @@
 
 ### 第 2 批：收口登录到进入世界的单路径
 
-- [ ] 以 `world-session-bootstrap.service.js` 为中心，把 `gateway -> auth -> snapshot -> session binding -> init sync` 串成唯一主链
-- [ ] 明确 `world-player-auth.service.js` 只负责：
+- [x] 以 `world-session-bootstrap.service.js` 为中心，把 `gateway -> auth -> snapshot -> session binding -> init sync` 串成唯一主链
+- [x] 明确 `world-player-auth.service.js` 只负责：
   - token -> identity
   - persistedSource 归一
   - migration identity 收口
-- [ ] 明确 `world-player-snapshot.service.js` 只负责：
+- [x] 明确 `world-player-snapshot.service.js` 只负责：
   - next snapshot load
   - migration snapshot 补种
   - next-only miss contract
-- [ ] 把 session reuse / detached resume 策略固定在 `world-session-bootstrap.service.js`
-- [ ] 避免 bootstrap 期间再从其它 service 临时兜底身份或快照
+- [x] 把 session reuse / detached resume 策略固定在 `world-session-bootstrap.service.js`
+- [x] 避免 bootstrap 期间再从其它 service 临时兜底身份或快照
 
 删除目标不是“现在就删 migration”，而是让主链只有一个编排入口。
 
@@ -176,6 +176,12 @@
 - `world-session-bootstrap.service.js` 现在自持 `token_seed -> native` best-effort 提升
 - `world-player-auth.service.js` 不再暴露 `promoteTokenSeedIdentityToNative()` 一类 bootstrap 回调职责
 - `next-auth-bootstrap-smoke.js` 已同步验证“auth 返回 token/token_seed，bootstrap 在快照成功后提升为 next/native”的新边界
+
+当前结论：
+
+- 登录到进入世界的主链编排已收束到 `world-session-bootstrap.service.js`
+- `world-player-auth.service.js` 与 `world-player-snapshot.service.js` 的职责边界已按本批目标收口
+- 下一阶段重心切到 batch 3：把同步与投影拆成三层
 
 最小验证：
 
