@@ -66,6 +66,8 @@ const world_gateway_gm_helper_1 = require("./world-gateway-gm.helper");
 
 const world_gateway_gm_command_helper_1 = require("./world-gateway-gm-command.helper");
 
+const world_gateway_gm_suggestion_helper_1 = require("./world-gateway-gm-suggestion.helper");
+
 /** 鉴权后请求 sessionId 只允许从 next/token 两类来源带入。 */
 const AUTHENTICATED_REQUESTED_SESSION_ID_AUTH_SOURCES = new Set([
     'next',
@@ -132,6 +134,7 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
     gatewayGmHelper;
     /** GM command helper。 */
     gatewayGmCommandHelper;
+    gatewayGmSuggestionHelper;
     /** Socket.IO server 实例。 */
     server;
     /** 入口日志。 */
@@ -160,6 +163,7 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         this.gatewayBootstrapHelper = new world_gateway_bootstrap_helper_1.WorldGatewayBootstrapHelper(this);
         this.gatewayGmHelper = new world_gateway_gm_helper_1.WorldGatewayGmHelper(this);
         this.gatewayGmCommandHelper = new world_gateway_gm_command_helper_1.WorldGatewayGmCommandHelper(this);
+        this.gatewayGmSuggestionHelper = new world_gateway_gm_suggestion_helper_1.WorldGatewayGmSuggestionHelper(this);
     }
     /** 处理 socket 连接：校验协议、阻断未就绪流量并触发鉴权引导。 */
     async handleConnection(client) {
@@ -685,38 +689,10 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         }
     }
     async handleNextGmMarkSuggestionCompleted(client, payload) {
-        await this.executeGmMarkSuggestionCompleted(client, payload);
-    }
-    async executeGmMarkSuggestionCompleted(client, payload) {
-
-        const playerId = this.requireGm(client);
-        if (!playerId) {
-            return;
-        }
-        try {
-            await this.suggestionRuntimeService.markCompleted(payload?.suggestionId ?? '');
-            this.broadcastSuggestions();
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'GM_MARK_SUGGESTION_COMPLETED_FAILED', error);
-        }
+        await this.gatewayGmSuggestionHelper.handleGmMarkSuggestionCompleted(client, payload);
     }
     async handleNextGmRemoveSuggestion(client, payload) {
-        await this.executeGmRemoveSuggestion(client, payload);
-    }
-    async executeGmRemoveSuggestion(client, payload) {
-
-        const playerId = this.requireGm(client);
-        if (!playerId) {
-            return;
-        }
-        try {
-            await this.suggestionRuntimeService.remove(payload?.suggestionId ?? '');
-            this.broadcastSuggestions();
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'GM_REMOVE_SUGGESTION_FAILED', error);
-        }
+        await this.gatewayGmSuggestionHelper.handleGmRemoveSuggestion(client, payload);
     }
     async handleNextClaimMailAttachments(client, payload) {
         await this.executeClaimMailAttachments(client, payload);
