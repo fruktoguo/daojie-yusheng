@@ -167,8 +167,12 @@
 ### shared
 
 - [ ] `protocol.ts` 不再被其它本地事件表“反向定义”
-- [ ] `types.ts` 不再被客户端/服务端重复复制同名结构
+- [x] `types.ts` 不再被客户端/服务端重复复制同名结构
 - [ ] `network-protobuf.ts` 不再和 `protocol.ts` 存在漂移
+
+补充证明：
+
+- [x] 用 `pnpm proof:next-shared-types-source` 固定 `packages/shared/src/types.ts` 为共享类型唯一命名真源
 
 ### server
 
