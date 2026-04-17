@@ -62,6 +62,8 @@ const world_runtime_monster_action_apply_service_1 = require("./world-runtime-mo
 
 const world_runtime_basic_attack_service_1 = require("./world-runtime-basic-attack.service");
 
+const world_runtime_player_skill_dispatch_service_1 = require("./world-runtime-player-skill-dispatch.service");
+
 const player_combat_service_1 = require("../combat/player-combat.service");
 
 const map_instance_runtime_1 = require("../instance/map-instance.runtime");
@@ -249,6 +251,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     worldRuntimeCombatEffectsService;
     worldRuntimeMonsterActionApplyService;
     worldRuntimeBasicAttackService;
+    worldRuntimePlayerSkillDispatchService;
     logger = new common_1.Logger(WorldRuntimeService_1.name);
     stateLayerContract = world_runtime_contract_1.WORLD_RUNTIME_STATE_CONTRACT;
     runtimeState = (0, world_runtime_state_1.createWorldRuntimeStateStore)();
@@ -271,7 +274,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     tickDurationHistoryMs = [];
     syncFlushDurationHistoryMs = [];
     instanceTickProgressById = this.runtimeState.instanceTickProgressById;
-    constructor(contentTemplateRepository, templateRepository, mapPersistenceService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService, craftPanelRuntimeService, worldRuntimeNpcShopQueryService, worldRuntimeQuestQueryService, worldRuntimeNpcQuestInteractionQueryService, worldRuntimeGmQueueService, worldRuntimeCraftService, worldRuntimeNpcQuestShopService, worldRuntimeLootContainerService, worldRuntimeNavigationService, worldRuntimeCombatEffectsService, worldRuntimeMonsterActionApplyService, worldRuntimeBasicAttackService) {
+    constructor(contentTemplateRepository, templateRepository, mapPersistenceService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService, craftPanelRuntimeService, worldRuntimeNpcShopQueryService, worldRuntimeQuestQueryService, worldRuntimeNpcQuestInteractionQueryService, worldRuntimeGmQueueService, worldRuntimeCraftService, worldRuntimeNpcQuestShopService, worldRuntimeLootContainerService, worldRuntimeNavigationService, worldRuntimeCombatEffectsService, worldRuntimeMonsterActionApplyService, worldRuntimeBasicAttackService, worldRuntimePlayerSkillDispatchService) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.templateRepository = templateRepository;
         this.mapPersistenceService = mapPersistenceService;
@@ -292,6 +295,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.worldRuntimeCombatEffectsService = worldRuntimeCombatEffectsService;
         this.worldRuntimeMonsterActionApplyService = worldRuntimeMonsterActionApplyService;
         this.worldRuntimeBasicAttackService = worldRuntimeBasicAttackService;
+        this.worldRuntimePlayerSkillDispatchService = worldRuntimePlayerSkillDispatchService;
     }
     /** onModuleInit：初始化公共实例的基础结构。 */
     async onModuleInit() {
@@ -2251,164 +2255,11 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     }
     /** dispatchCastSkill：校验目标并把技能释放交给战斗服务。 */
     dispatchCastSkill(playerId, skillId, targetPlayerId, targetMonsterId, targetRef = null) {
-
-        const attacker = this.playerRuntimeService.getPlayerOrThrow(playerId);
-
-        const currentTick = this.resolveCurrentTickForPlayerId(playerId);
-        this.playerRuntimeService.recordActivity(playerId, currentTick, {
-            interruptCultivation: true,
-        });
-        this.worldRuntimeCraftService.interruptCraftForReason(playerId, attacker, 'attack', this);
-        if (!attacker.instanceId) {
-            throw new common_1.BadRequestException(`Player ${playerId} not attached to instance`);
-        }
-
-        const skill = findPlayerSkill(attacker, skillId);
-        if (!skill) {
-            throw new common_1.NotFoundException(`Skill ${skillId} not found`);
-        }
-        this.ensureAttackAllowed(attacker, skill);
-        if (targetRef && !targetMonsterId && !targetPlayerId) {
-
-            const resolvedTarget = this.resolveLegacySkillTargetRef(attacker, skill, targetRef);
-            if (!resolvedTarget) {
-                throw new common_1.BadRequestException('没有可命中的目标');
-            }
-            if (resolvedTarget.kind === 'monster') {
-                this.dispatchCastSkillToMonster(attacker, skillId, resolvedTarget.monsterId);
-                return;
-            }
-            if (resolvedTarget.kind === 'tile') {
-                this.dispatchCastSkillToTile(attacker, skillId, resolvedTarget.x, resolvedTarget.y);
-                return;
-            }
-            this.dispatchCastSkill(playerId, skillId, resolvedTarget.playerId, null, null);
-            return;
-        }
-        if (targetMonsterId) {
-            this.dispatchCastSkillToMonster(attacker, skillId, targetMonsterId);
-            return;
-        }
-        if (!targetPlayerId) {
-            throw new common_1.BadRequestException('targetPlayerId or targetMonsterId is required');
-        }
-
-        const target = this.playerRuntimeService.getPlayerOrThrow(targetPlayerId);
-        if (attacker.instanceId !== target.instanceId) {
-            throw new common_1.BadRequestException(`Target ${targetPlayerId} not in same instance`);
-        }
-
-        const distance = chebyshevDistance(attacker.x, attacker.y, target.x, target.y);
-
-        const result = this.playerCombatService.castSkill(attacker, target, skillId, currentTick, distance);
-
-        const effectColor = getSkillEffectColor(skill);
-        this.pushActionLabelEffect(attacker.instanceId, attacker.x, attacker.y, skill.name);
-        this.pushAttackEffect(attacker.instanceId, attacker.x, attacker.y, target.x, target.y, effectColor);
-        if (result.totalDamage > 0) {
-            this.pushDamageFloatEffect(attacker.instanceId, target.x, target.y, result.totalDamage, effectColor);
-        }
-        this.playerRuntimeService.recordActivity(target.playerId, currentTick, {
-            interruptCultivation: true,
-        });
-
-        const updatedTarget = this.playerRuntimeService.getPlayer(target.playerId);
-        if (updatedTarget && updatedTarget.hp <= 0) {
-            this.handlePlayerDefeat(updatedTarget.playerId);
-        }
+        this.worldRuntimePlayerSkillDispatchService.dispatchCastSkill(playerId, skillId, targetPlayerId, targetMonsterId, targetRef, this);
     }
     /** resolveLegacySkillTargetRef：解析旧版技能目标引用。 */
     resolveLegacySkillTargetRef(attacker, skill, targetRef) {
-        if (!attacker.instanceId) {
-            return null;
-        }
-
-        const targetPlayerId = targetRef.startsWith('player:') ? targetRef.slice('player:'.length).trim() : '';
-        if (targetPlayerId) {
-
-            const target = this.playerRuntimeService.getPlayer(targetPlayerId);
-            if (!target || target.playerId === attacker.playerId || target.instanceId !== attacker.instanceId || target.hp <= 0) {
-                return null;
-            }
-            return {
-                kind: 'player',
-                playerId: target.playerId,
-            };
-        }
-
-        const instance = this.getInstanceRuntimeOrThrow(attacker.instanceId);
-        if (!targetRef.startsWith('tile:')) {
-
-            const monster = instance.getMonster(targetRef);
-            if (!monster?.alive) {
-                return null;
-            }
-            return {
-                kind: 'monster',
-                monsterId: monster.runtimeId,
-            };
-        }
-
-        const tile = (0, shared_1.parseTileTargetRef)(targetRef);
-        if (!tile) {
-            return null;
-        }
-
-        const directDistance = chebyshevDistance(attacker.x, attacker.y, tile.x, tile.y);
-        if (directDistance <= resolveRuntimeSkillRange(skill) && instance.getTileCombatState(tile.x, tile.y)) {
-            return {
-                kind: 'tile',
-                x: tile.x,
-                y: tile.y,
-            };
-        }
-
-        const affectedCells = (0, shared_1.computeAffectedCellsFromAnchor)({ x: attacker.x, y: attacker.y }, { x: tile.x, y: tile.y }, {
-            range: resolveRuntimeSkillRange(skill),
-            shape: skill.targeting?.shape,
-            radius: skill.targeting?.radius,
-            width: skill.targeting?.width,
-            height: skill.targeting?.height,
-        });
-        if (affectedCells.length === 0) {
-            return null;
-        }
-
-        const monsters = instance.listMonsters()
-            .filter((entry) => entry.alive)
-            .sort((left, right) => chebyshevDistance(tile.x, tile.y, left.x, left.y) - chebyshevDistance(tile.x, tile.y, right.x, right.y));
-        for (const cell of affectedCells) {
-            const monster = monsters.find((entry) => entry.x === cell.x && entry.y === cell.y);
-            if (monster) {
-                return {
-                    kind: 'monster',
-                    monsterId: monster.runtimeId,
-                };
-            }
-        }
-
-        const players = this.playerRuntimeService.listPlayerSnapshots()
-            .filter((entry) => entry.instanceId === attacker.instanceId && entry.playerId !== attacker.playerId && entry.hp > 0)
-            .sort((left, right) => chebyshevDistance(tile.x, tile.y, left.x, left.y) - chebyshevDistance(tile.x, tile.y, right.x, right.y));
-        for (const cell of affectedCells) {
-            const player = players.find((entry) => entry.x === cell.x && entry.y === cell.y);
-            if (player) {
-                return {
-                    kind: 'player',
-                    playerId: player.playerId,
-                };
-            }
-        }
-        for (const cell of affectedCells) {
-            if (instance.getTileCombatState(cell.x, cell.y)) {
-                return {
-                    kind: 'tile',
-                    x: cell.x,
-                    y: cell.y,
-                };
-            }
-        }
-        return null;
+        return this.worldRuntimePlayerSkillDispatchService.resolveLegacySkillTargetRef(attacker, skill, targetRef, this);
     }
     /** dispatchEngageBattle：执行战斗锁定或普通攻击的入口。 */
     dispatchEngageBattle(playerId, targetPlayerId, targetMonsterId, targetX, targetY, locked) {
@@ -2468,94 +2319,11 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     }
     /** dispatchCastSkillToMonster：把技能结算到妖兽目标上。 */
     dispatchCastSkillToMonster(attacker, skillId, targetMonsterId) {
-
-        const instance = this.getInstanceRuntimeOrThrow(attacker.instanceId);
-
-        const target = instance.getMonster(targetMonsterId);
-        if (!target) {
-            throw new common_1.NotFoundException(`Monster ${targetMonsterId} not found`);
-        }
-
-        const distance = chebyshevDistance(attacker.x, attacker.y, target.x, target.y);
-
-        const currentTick = this.resolveCurrentTickForPlayerId(attacker.playerId);
-
-        const result = this.playerCombatService.castSkillToMonster(attacker, {
-            runtimeId: target.runtimeId,
-            monsterId: target.monsterId,
-            hp: target.hp,
-            maxHp: target.maxHp,
-            qi: 0,
-            maxQi: 0,
-            attrs: {
-                finalAttrs: target.attrs,
-                numericStats: target.numericStats,
-                ratioDivisors: target.ratioDivisors,
-            },
-            buffs: target.buffs,
-        }, skillId, currentTick, distance, (buff) => {
-            instance.applyTemporaryBuffToMonster(targetMonsterId, buff);
-        });
-
-        const skill = findPlayerSkill(attacker, skillId);
-
-        const effectColor = skill ? getSkillEffectColor(skill) : (0, shared_1.getDamageTrailColor)('spell');
-        if (skill) {
-            this.pushActionLabelEffect(attacker.instanceId, attacker.x, attacker.y, skill.name);
-        }
-        this.pushAttackEffect(attacker.instanceId, attacker.x, attacker.y, target.x, target.y, effectColor);
-        if (result.totalDamage <= 0) {
-            return;
-        }
-        this.pushDamageFloatEffect(attacker.instanceId, target.x, target.y, result.totalDamage, effectColor);
-
-        const outcome = instance.applyDamageToMonster(targetMonsterId, result.totalDamage, attacker.playerId);
-        if (!outcome?.defeated) {
-            return;
-        }
-        this.handlePlayerMonsterKill(instance, outcome.monster, attacker.playerId);
+        this.worldRuntimePlayerSkillDispatchService.dispatchCastSkillToMonster(attacker, skillId, targetMonsterId, this);
     }
     /** dispatchCastSkillToTile：把技能结算到地块目标上。 */
     dispatchCastSkillToTile(attacker, skillId, targetX, targetY) {
-
-        const instance = this.getInstanceRuntimeOrThrow(attacker.instanceId);
-
-        const tileState = instance.getTileCombatState(targetX, targetY);
-        if (!tileState || tileState.destroyed) {
-            throw new common_1.BadRequestException('该目标无法被攻击');
-        }
-
-        const distance = chebyshevDistance(attacker.x, attacker.y, targetX, targetY);
-
-        const currentTick = this.resolveCurrentTickForPlayerId(attacker.playerId);
-
-        const result = this.playerCombatService.castSkillToMonster(attacker, {
-            runtimeId: `tile:${targetX}:${targetY}`,
-            monsterId: `tile:${tileState.tileType}`,
-            hp: tileState.hp,
-            maxHp: tileState.maxHp,
-            qi: 0,
-            maxQi: 0,
-            attrs: {
-                finalAttrs: createTileCombatAttributes(),
-                numericStats: createTileCombatNumericStats(tileState.maxHp),
-                ratioDivisors: createTileCombatRatioDivisors(),
-            },
-            buffs: [],
-        }, skillId, currentTick, distance, () => undefined);
-
-        const skill = findPlayerSkill(attacker, skillId);
-
-        const effectColor = skill ? getSkillEffectColor(skill) : (0, shared_1.getDamageTrailColor)('spell');
-        if (skill) {
-            this.pushActionLabelEffect(attacker.instanceId, attacker.x, attacker.y, skill.name);
-        }
-        this.pushAttackEffect(attacker.instanceId, attacker.x, attacker.y, targetX, targetY, effectColor);
-        if (result.totalDamage <= 0) {
-            return;
-        }
-        this.pushDamageFloatEffect(attacker.instanceId, targetX, targetY, result.totalDamage, effectColor);
-        instance.damageTile(targetX, targetY, result.totalDamage);
+        this.worldRuntimePlayerSkillDispatchService.dispatchCastSkillToTile(attacker, skillId, targetX, targetY, this);
     }
     /** dispatchSystemCommand：执行世界层系统命令。 */
     dispatchSystemCommand(command) {
@@ -3458,7 +3226,8 @@ exports.WorldRuntimeService = WorldRuntimeService = WorldRuntimeService_1 = __de
         world_runtime_navigation_service_1.WorldRuntimeNavigationService,
         world_runtime_combat_effects_service_1.WorldRuntimeCombatEffectsService,
         world_runtime_monster_action_apply_service_1.WorldRuntimeMonsterActionApplyService,
-        world_runtime_basic_attack_service_1.WorldRuntimeBasicAttackService])
+        world_runtime_basic_attack_service_1.WorldRuntimeBasicAttackService,
+        world_runtime_player_skill_dispatch_service_1.WorldRuntimePlayerSkillDispatchService])
 ], WorldRuntimeService);
 // helper functions were split into dedicated helper modules for maintainability.
 //# sourceMappingURL=world-runtime.service.js.map

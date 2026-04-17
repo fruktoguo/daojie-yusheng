@@ -90,6 +90,8 @@ const world_runtime_monster_action_apply_service_1 = require("./runtime/world/wo
 
 const world_runtime_basic_attack_service_1 = require("./runtime/world/world-runtime-basic-attack.service");
 
+const world_runtime_player_skill_dispatch_service_1 = require("./runtime/world/world-runtime-player-skill-dispatch.service");
+
 const map_template_repository_1 = require("./runtime/map/map-template.repository");
 
 const runtime_map_config_service_1 = require("./runtime/map/runtime-map-config.service");
@@ -172,6 +174,7 @@ exports.AppModule = AppModule = __decorate([
             world_runtime_combat_effects_service_1.WorldRuntimeCombatEffectsService,
             world_runtime_monster_action_apply_service_1.WorldRuntimeMonsterActionApplyService,
             world_runtime_basic_attack_service_1.WorldRuntimeBasicAttackService,
+            world_runtime_player_skill_dispatch_service_1.WorldRuntimePlayerSkillDispatchService,
             runtime_map_config_service_1.RuntimeMapConfigService,
             player_combat_service_1.PlayerCombatService,
             map_persistence_service_1.MapPersistenceService,
