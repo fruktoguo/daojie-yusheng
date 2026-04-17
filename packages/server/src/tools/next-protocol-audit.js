@@ -86,6 +86,7 @@ var EXPECTED_C2S = [
   NEXT_C2S.Move,
   NEXT_C2S.MoveTo,
   NEXT_C2S.NavigateQuest,
+  NEXT_C2S.Heartbeat,
   NEXT_C2S.UseAction,
   NEXT_C2S.RequestDetail,
   NEXT_C2S.RequestTileDetail,
@@ -93,6 +94,8 @@ var EXPECTED_C2S = [
   NEXT_C2S.RequestLeaderboard,
   NEXT_C2S.RequestWorldSummary,
   NEXT_C2S.RequestAlchemyPanel,
+  NEXT_C2S.SaveAlchemyPreset,
+  NEXT_C2S.DeleteAlchemyPreset,
   NEXT_C2S.StartAlchemy,
   NEXT_C2S.CancelAlchemy,
   NEXT_C2S.RequestEnhancementPanel,
@@ -100,6 +103,8 @@ var EXPECTED_C2S = [
   NEXT_C2S.CancelEnhancement,
   NEXT_C2S.RequestQuests,
   NEXT_C2S.RequestNpcQuests,
+  NEXT_C2S.AcceptNpcQuest,
+  NEXT_C2S.SubmitNpcQuest,
   NEXT_C2S.UsePortal,
   NEXT_C2S.UseItem,
   NEXT_C2S.DropItem,
@@ -134,6 +139,9 @@ var EXPECTED_C2S = [
   NEXT_C2S.RequestNpcShop,
   NEXT_C2S.BuyNpcShopItem,
   NEXT_C2S.UpdateAutoBattleSkills,
+  NEXT_C2S.UpdateAutoUsePills,
+  NEXT_C2S.UpdateCombatTargetingRules,
+  NEXT_C2S.UpdateAutoBattleTargetingMode,
   NEXT_C2S.UpdateTechniqueSkillAvailability,
   NEXT_C2S.DebugResetSpawn,
   NEXT_C2S.Chat,
@@ -183,6 +191,8 @@ if (HAS_DATABASE) {
   EXPECTED_C2S.push(NEXT_C2S.GmRemoveBots);
   EXPECTED_C2S.push(NEXT_C2S.GmUpdatePlayer);
   EXPECTED_C2S.push(NEXT_C2S.GmResetPlayer);
+  EXPECTED_C2S.push(NEXT_C2S.GmMarkSuggestionCompleted);
+  EXPECTED_C2S.push(NEXT_C2S.GmRemoveSuggestion);
   EXPECTED_C2S.push(NEXT_C2S.RedeemCodes);
   EXPECTED_S2C.push(NEXT_S2C.GmState);
   EXPECTED_S2C.push(NEXT_S2C.RedeemCodesResult);
@@ -850,6 +860,39 @@ async function craftPanelCase(runtime) {
   if (alchemyEntry.category === "buff") {
     await runtime.api.grantItem(playerId, "spirit_stone", alchemyEntry.outputLevel);
   }
+/**
+ * 记录预设名。
+ */
+  var presetName = "协议审计预设 " + playerId;
+  socket.emit(NEXT_C2S.SaveAlchemyPreset, {
+    recipeId: alchemyEntry.recipeId,
+    name: presetName,
+    ingredients: alchemyEntry.ingredients.map(function (entry) {
+      return { itemId: entry.itemId, count: entry.count };
+    }),
+  });
+  await lib.waitForState(runtime.api, playerId, function (current) {
+    return Array.isArray(current?.alchemyPresets)
+      && current.alchemyPresets.some(function (entry) { return entry.name === presetName && entry.recipeId === alchemyEntry.recipeId; });
+  }, 5000, "saveAlchemyPreset");
+/**
+ * 记录已保存玩家。
+ */
+  var savedPlayer = (await runtime.api.fetchState(playerId)).player;
+/**
+ * 记录已保存预设。
+ */
+  var savedPreset = Array.isArray(savedPlayer?.alchemyPresets)
+    ? savedPlayer.alchemyPresets.find(function (entry) { return entry.name === presetName && entry.recipeId === alchemyEntry.recipeId; })
+    : null;
+  if (!savedPreset?.presetId) {
+    throw new Error("missing saved alchemy preset for protocol audit");
+  }
+  socket.emit(NEXT_C2S.DeleteAlchemyPreset, { presetId: savedPreset.presetId });
+  await lib.waitForState(runtime.api, playerId, function (current) {
+    return !Array.isArray(current?.alchemyPresets)
+      || current.alchemyPresets.every(function (entry) { return entry.presetId !== savedPreset.presetId; });
+  }, 5000, "deleteAlchemyPreset");
   await emitAndWait(socket, NEXT_C2S.RequestAlchemyPanel, { knownCatalogVersion: alchemyPanel.catalogVersion }, NEXT_S2C.AlchemyPanel, function (payload) {
     return payload
       && payload.state
@@ -1137,9 +1180,35 @@ async function detailQuestCase(runtime) {
   await emitAndWait(socket, NEXT_C2S.RequestQuests, {}, NEXT_S2C.Quests, function (payload) {
     return payload && Array.isArray(payload.quests);
   }, 5000);
-  await emitAndWait(socket, NEXT_C2S.RequestNpcQuests, { npcId: "npc_herbalist_lan" }, NEXT_S2C.NpcQuests, function (payload) {
+/**
+ * 记录NPC任务。
+ */
+  var npcQuests = await emitAndWait(socket, NEXT_C2S.RequestNpcQuests, { npcId: "npc_herbalist_lan" }, NEXT_S2C.NpcQuests, function (payload) {
     return payload && payload.npcId === "npc_herbalist_lan" && Array.isArray(payload.quests);
   }, 5000);
+/**
+ * 记录首个任务。
+ */
+  var firstNpcQuest = Array.isArray(npcQuests?.quests) ? npcQuests.quests[0] : null;
+/**
+ * 记录任务ID。
+ */
+  var auditedQuestId = firstNpcQuest?.id || "__audit_missing_quest__";
+/**
+ * 记录接取后任务刷新。
+ */
+  var acceptQuestAfter = socket.getEventCount(NEXT_S2C.Quests);
+  socket.emit(NEXT_C2S.AcceptNpcQuest, { npcId: "npc_herbalist_lan", questId: auditedQuestId });
+  if (firstNpcQuest?.id) {
+    await socket.waitForEventAfter(NEXT_S2C.Quests, acceptQuestAfter, function (payload) {
+      return Array.isArray(payload?.quests) && payload.quests.some(function (entry) { return entry.id === auditedQuestId; });
+    }, 5000);
+  }
+  else {
+    await lib.delay(150);
+  }
+  socket.emit(NEXT_C2S.SubmitNpcQuest, { npcId: "npc_herbalist_lan", questId: auditedQuestId });
+  await lib.delay(150);
 /**
  * 记录npc任务after。
  */
@@ -1310,6 +1379,31 @@ async function playerControlCase(runtime) {
       }) === true;
     }, 5000);
   }
+  socket.emit(NEXT_C2S.UpdateAutoUsePills, {
+    pills: [{ itemId: "pill.minor_heal", conditions: [] }],
+  });
+  await lib.waitForState(runtime.api, playerId, function (current) {
+    return Array.isArray(current?.combat?.autoUsePills)
+      && current.combat.autoUsePills.some(function (entry) { return entry.itemId === "pill.minor_heal"; });
+  }, 5000, "updateAutoUsePills");
+  socket.emit(NEXT_C2S.UpdateCombatTargetingRules, {
+    combatTargetingRules: {
+      includeNormalMonsters: false,
+      includeEliteMonsters: true,
+      includeBosses: true,
+      includePlayers: false,
+    },
+  });
+  await lib.waitForState(runtime.api, playerId, function (current) {
+    return current?.combat?.combatTargetingRules?.includeNormalMonsters === false
+      && current.combat.combatTargetingRules.includeEliteMonsters === true
+      && current.combat.combatTargetingRules.includeBosses === true
+      && current.combat.combatTargetingRules.includePlayers === false;
+  }, 5000, "updateCombatTargetingRules");
+  socket.emit(NEXT_C2S.UpdateAutoBattleTargetingMode, { mode: "nearest" });
+  await lib.waitForState(runtime.api, playerId, function (current) {
+    return current?.combat?.autoBattleTargetingMode === "nearest";
+  }, 5000, "updateAutoBattleTargetingMode");
 /**
  * 记录paneldeltaafter。
  */
