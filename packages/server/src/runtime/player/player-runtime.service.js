@@ -1431,9 +1431,9 @@ let PlayerRuntimeService = class PlayerRuntimeService {
                 })),
             },
             lootWindowTarget: null,
-            pendingLogbookMessages: normalizePendingLogbookMessages(resolveCompatiblePendingLogbookMessages(snapshot)),
+            pendingLogbookMessages: normalizePendingLogbookMessages(snapshot.pendingLogbookMessages),
             vitalRecoveryDeferredUntilTick: -1,
-            runtimeBonuses: resolveCompatibleRuntimeBonuses(snapshot)
+            runtimeBonuses: (Array.isArray(snapshot.runtimeBonuses) ? snapshot.runtimeBonuses : [])
                 .map((entry) => cloneRuntimeBonus(entry))
                 .filter((entry) => Boolean(entry)),
         };
@@ -1964,19 +1964,6 @@ function normalizePendingLogbookMessages(input) {
         normalized.push(candidate);
     }
     return normalized.slice(-MAX_PENDING_LOGBOOK_MESSAGES);
-}
-function resolveCompatibleSnapshotArray(snapshot, primaryKey, compatResolver) {
-
-    const primaryValue = snapshot?.[primaryKey];
-    if (Array.isArray(primaryValue)) {
-        return primaryValue;
-    }
-
-    const compatValue = compatResolver(snapshot);
-    return Array.isArray(compatValue) ? compatValue : [];
-}
-function resolveCompatiblePendingLogbookMessages(snapshot) {
-    return resolveCompatibleSnapshotArray(snapshot, 'pendingLogbookMessages', (candidate) => candidate?.legacyCompat?.pendingLogbookMessages);
 }
 function normalizePendingLogbookMessage(input) {
     if (!input || typeof input !== 'object') {
@@ -2528,9 +2515,6 @@ function ensureVitalBaselineBonus(player, vitals) {
     });
     player.runtimeBonuses = nextBonuses;
     return true;
-}
-function resolveCompatibleRuntimeBonuses(snapshot) {
-    return resolveCompatibleSnapshotArray(snapshot, 'runtimeBonuses', (candidate) => candidate?.legacyBonuses);
 }
 function canonicalizeRuntimeBonusSource(source) {
 
