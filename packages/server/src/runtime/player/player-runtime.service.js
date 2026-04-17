@@ -2522,9 +2522,6 @@ function canonicalizeRuntimeBonusSource(source) {
     if (!normalized) {
         return '';
     }
-    if (normalized === 'legacy:vitals_baseline') {
-        return VITAL_BASELINE_BONUS_SOURCE;
-    }
     if (normalized === 'technique:aggregate') {
         return 'runtime:technique_aggregate';
     }
