@@ -205,7 +205,7 @@ var STATIC_S2C_SURFACE_CHECKS = [
     label: 'world-sync-protocol service emits',
     relativePath: 'packages/server/src/network/world-sync-protocol.service.js',
     qualifierName: 'NEXT_S2C',
-    expectedMembers: ['LootWindowUpdate', 'MapStatic', 'Notice', 'Quests', 'Realm'],
+    expectedMembers: ['Bootstrap', 'InitSession', 'LootWindowUpdate', 'MapEnter', 'MapStatic', 'Notice', 'PanelDelta', 'Quests', 'Realm', 'SelfDelta', 'WorldDelta'],
   },
   {
     label: 'world-client-event service emits',
