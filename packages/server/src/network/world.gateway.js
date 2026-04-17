@@ -76,6 +76,8 @@ const world_gateway_mail_helper_1 = require("./world-gateway-mail.helper");
 
 const world_gateway_player_controls_helper_1 = require("./world-gateway-player-controls.helper");
 
+const world_gateway_action_helper_1 = require("./world-gateway-action.helper");
+
 const world_gateway_npc_helper_1 = require("./world-gateway-npc.helper");
 
 const world_gateway_craft_helper_1 = require("./world-gateway-craft.helper");
@@ -160,6 +162,7 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
     gatewayCraftHelper;
     gatewayMarketHelper;
     gatewayReadModelHelper;
+    gatewayActionHelper;
     /** Socket.IO server 实例。 */
     server;
     /** 入口日志。 */
@@ -198,6 +201,7 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         this.gatewayCraftHelper = new world_gateway_craft_helper_1.WorldGatewayCraftHelper(this);
         this.gatewayMarketHelper = new world_gateway_market_helper_1.WorldGatewayMarketHelper(this);
         this.gatewayReadModelHelper = new world_gateway_read_model_helper_1.WorldGatewayReadModelHelper(this);
+        this.gatewayActionHelper = new world_gateway_action_helper_1.WorldGatewayActionHelper(this);
     }
     /** 处理 socket 连接：校验协议、阻断未就绪流量并触发鉴权引导。 */
     async handleConnection(client) {
@@ -350,20 +354,10 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         return this.gatewayMailHelper.handleNextRequestMailDetail(client, payload);
     }
     handleNextRedeemCodes(client, payload) {
-        this.executeRedeemCodes(client, payload);
+        return this.gatewayActionHelper.handleNextRedeemCodes(client, payload);
     }
     executeRedeemCodes(client, payload) {
-
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        try {
-            this.worldRuntimeService.enqueueRedeemCodes(playerId, payload?.codes ?? []);
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'REDEEM_CODES_FAILED', error);
-        }
+        return this.gatewayActionHelper.executeRedeemCodes(client, payload);
     }
     handleNextRequestMarket(client, payload) {
         return this.gatewayMarketHelper.handleNextRequestMarket(client, payload);
@@ -444,17 +438,7 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         return this.gatewayReadModelHelper.handleRequestTileDetail(client, payload);
     }
     handleUsePortal(client) {
-
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        try {
-            this.worldRuntimeService.usePortal(playerId);
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'PORTAL_FAILED', error);
-        }
+        return this.gatewayActionHelper.handleUsePortal(client);
     }
     executeUseItem(client, payload) {
         return this.gatewayInventoryHelper.executeUseItem(client, payload);
@@ -484,33 +468,13 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         return this.gatewayInventoryHelper.handleNextUnequip(client, payload);
     }
     executeCultivate(client, payload) {
-
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        try {
-            this.worldRuntimeService.enqueueCultivate(playerId, payload?.techId ?? null);
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'CULTIVATE_FAILED', error);
-        }
+        return this.gatewayActionHelper.executeCultivate(client, payload);
     }
     handleNextCultivate(client, payload) {
-        this.executeCultivate(client, payload);
+        return this.gatewayActionHelper.handleNextCultivate(client, payload);
     }
     handleCastSkill(client, payload) {
-
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        try {
-            this.worldRuntimeService.enqueueCastSkill(playerId, payload?.skillId, payload?.targetPlayerId ?? null, payload?.targetMonsterId ?? null, payload?.targetRef ?? null);
-        }
-        catch (error) {
-            this.worldClientEventService.emitGatewayError(client, 'CAST_SKILL_FAILED', error);
-        }
+        return this.gatewayActionHelper.handleCastSkill(client, payload);
     }
     handleNextRequestNpcShop(client, payload) {
         return this.gatewayNpcHelper.handleNextRequestNpcShop(client, payload);
