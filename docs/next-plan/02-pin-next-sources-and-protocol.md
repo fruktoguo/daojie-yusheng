@@ -103,12 +103,13 @@
 
 ### 第 3 批：对齐 `NEXT_C2S` 到 `world.gateway.js`
 
-- [ ] 列出 `NEXT_C2S` 中所有事件
-- [ ] 对照 `packages/server/src/network/world.gateway.js`
-- [ ] 标记三类结果：
+- [x] 列出 `NEXT_C2S` 中所有事件
+- [x] 对照 `packages/server/src/network/world.gateway.js`
+- [x] 标记三类结果：
   - 已声明且已实现
   - 已声明但未实现
   - 服务端有处理但 shared 未声明
+- [x] 用 `pnpm --filter @mud/server-next audit:next-protocol` 固定 `EXPECTED_C2S` 与 gateway coverage，未覆盖事件直接失败
 
 重点优先看：
 
