@@ -166,7 +166,7 @@
 
 ### shared
 
-- [ ] `protocol.ts` 不再被其它本地事件表“反向定义”
+- [x] `protocol.ts` 不再被其它本地事件表“反向定义”
 - [x] `types.ts` 不再被客户端/服务端重复复制同名结构
 - [x] `network-protobuf.ts` 不再和 `protocol.ts` 存在漂移
 
@@ -174,6 +174,7 @@
 
 - [x] 用 `pnpm proof:next-shared-types-source` 固定 `packages/shared/src/types.ts` 为共享类型唯一命名真源
 - [x] 用 `pnpm proof:next-protobuf-drift` 固定高频 protobuf payload、schema lookup、wire 函数与空事件集约束
+- [x] 用 `pnpm proof:next-protocol-source` 固定生产主链不再本地定义 `NEXT_C2S/NEXT_S2C` 或写死 `n:c:*` / `n:s:*` 事件字面量
 
 ### server
 
