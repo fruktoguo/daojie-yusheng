@@ -489,8 +489,28 @@ legacy 来源当前锁定为：
 
 - [x] 为每个必须迁移的数据域补字段级映射
 - [x] 单独锁定 legacy 正式来源文件 / 表 / scope
-- [ ] 把这份清单和 `04-one-off-migration-script.md` 对齐
+- [x] 把这份清单和 `04-one-off-migration-script.md` 对齐
 - [ ] 把“可重建”项同步回 `main.md`
+
+## 与 04 迁移脚本的 domain 对齐
+
+| 03 数据域 | 04 对应 domain | 04 批次 | 当前 04 范围说明 |
+| --- | --- | --- | --- |
+| 账号认证记录 | `auth` | 第 1 批 | 已进入脚本主链 |
+| 玩家身份映射 | `identity` | 第 1 批 | 已进入脚本主链 |
+| 玩家持久化快照 | `snapshot` | 第 1 批 | 脚本先写身份/快照主链，核心资产子域继续在 snapshot 内展开 |
+| 境界 / 属性 / 数值成长 | `progression / attrs` | 第 2 批 | 对应 03 的 progression/attrs 字段级表 |
+| 背包 / 装备 / 物品 | `inventory / equipment / items` | 第 2 批 | 对应 03 的 inventory/equipment 字段级表 |
+| 功法 / 技能 / 修炼状态 | `techniques / skills / cultivating` | 第 2 批 | 对应 03 的 techniques 字段级表 |
+| 任务 | `quests` | 第 2 批 | 对应 03 的 quests 字段级表 |
+| 邮件箱 | `mail` | 第 3 批 | 对应 03 的 mailbox 字段级表 |
+| 市场订单 / 成交历史 / 暂存仓库 | `market` | 第 3 批 | 04 用单一 `market` domain 覆盖 order/trade-history/storage 三类持久状态 |
+| 建议与回复 | `suggestion` | 第 3 批 | 对应 03 的 suggestion 字段级表 |
+| 兑换码组与兑换状态 | `redeem` | 第 3 批 | 对应 03 的 redeem 字段级表 |
+| GM 密码记录 | `gm-auth` | 第 3 批 | 对应 03 的 gm-auth 字段级表 |
+| GM 数据库备份元数据 / 作业状态 | `gm-database` | 第 3 批 | 对应 03 的 gm backup/job 字段级表 |
+| 地图环境快照 | 暂不单列 domain | 不在 04 当前必跑批次 | 03 已定义字段级来源与转换，待脚本是否纳入正式 `--domains` 再单独落地 |
+| Afdian 配置与订单 | 暂不单列 domain | 不在 04 当前必跑批次 | 03 已定义字段级来源与转换，是否迁移取决于线上启用状态 |
 
 ## 完成定义
 
