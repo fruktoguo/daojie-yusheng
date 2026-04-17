@@ -203,4 +203,6 @@
 ## 完成定义
 
 - [x] 不再存在“共享协议声明了但服务端没实现”的空洞
-- [ ] 不再通过 legacy 文件决定 next 主链行为
+- [x] 不再通过 legacy 文件决定 next 主链行为
+
+- [x] 用 `pnpm proof:next-no-legacy-file-behavior` 固定 client/server/shared 生产主链不再 direct 命中 `legacy/*` 文件路径（`tools/` 显式排除）
