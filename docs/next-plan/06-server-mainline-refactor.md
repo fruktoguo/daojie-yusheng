@@ -223,6 +223,9 @@
 - 新增 `packages/server/src/network/world-sync-threat.service.js`
 - `world-sync.service.js` 的 threat arrow build / diff / emit 冷路径已委托给 `WorldSyncThreatService`，`nextAuxStateByPlayerId.threatArrows` 仍暂留在 sync 编排层，避免第二刀同时扩大到 minimap cache 边界
 - 本轮验证已补跑 `smoke:runtime`、`smoke:monster-ai`、`audit:next-protocol`、根级 `pnpm build` 与 `pnpm verify:replace-ready`
+- 新增 `packages/server/src/network/world-sync-minimap.service.js`
+- `world-sync.service.js` 的 minimap marker cache / build / visible filter / diff 冷路径已委托给 `WorldSyncMinimapService`，`nextAuxStateByPlayerId.visibleMinimapMarkers` 仍暂留在 sync 编排层，继续由 mapChanged / MapStatic 编排统一控制
+- 本轮验证已补跑 `smoke:runtime`、`smoke:progression`、`audit:next-protocol`、根级 `pnpm build` 与 `pnpm verify:replace-ready`
 
 优先保留原状的热路径：
 
