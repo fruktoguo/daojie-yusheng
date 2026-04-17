@@ -127,8 +127,8 @@
 - [x] 盘点 `packages/server/src/network/` 下仍然存在的 compat / bridge 入口
 - [x] 盘点 `packages/server/src/persistence/` 下仍然存在的 compat 读取入口
 - [x] 盘点 `packages/client/src/` 下仍然存在的旧协议 alias / 旧 UI 兼容入口
-- [ ] 删除只为 legacy 让路的旧事件名兼容
-- [ ] 删除只为 parity 存在的双路径处理分支
+- [x] 删除只为 legacy 让路的旧事件名兼容
+- [x] 删除只为 parity 存在的双路径处理分支
 - [x] 删除不再需要的 legacy wrapper / facade
 - [ ] 删除 runtime 中只为了 compat fallback 存在的回退路径
 - [x] 删除客户端里只为旧协议 / 旧 UI 结构存在的兼容逻辑

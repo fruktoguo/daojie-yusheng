@@ -19,8 +19,8 @@
 - [x] 盘点 `packages/server/src/persistence/` 下所有 compat 读取入口
 - [x] 盘点 `packages/client/src/` 下所有旧协议 alias / 旧 UI 兼容入口
 - [x] 盘点 `packages/shared/src/` 下所有仅为旧结构保留的兼容定义
-- [ ] 删除只为 legacy 让路的旧事件名兼容
-- [ ] 删除只为 parity 存在的双路径分支
+- [x] 删除只为 legacy 让路的旧事件名兼容
+- [x] 删除只为 parity 存在的双路径分支
 - [x] 删除不再需要的 legacy facade / wrapper
 - [ ] 删除 runtime 中只为 compat fallback 存在的回退路径
 - [x] 删除客户端中只为旧协议存在的发送 / 监听兼容逻辑
@@ -78,6 +78,9 @@
 - `packages/server/src/runtime/player/player-runtime.service.js`
   - 仍通过 `resolveCompatiblePendingLogbookMessages()`、`resolveCompatibleRuntimeBonuses()` 回读 `legacyCompat` / `legacyBonuses`。
   - 仍兼容 `legacy:vitals_baseline` 来源标签。
+- `packages/server/src/runtime/world/world-runtime.service.js`
+  - `legacyNpcInteraction`、`legacyGmUpdatePlayer`、`legacyGmResetPlayer`、`legacyGmSpawnBots`、`legacyGmRemoveBots` wrapper 与 dispatch case 已删除。
+  - 当前 `world-runtime` 不再保留仅为旧事件名/parity 存在的双路径入口。
 
 ### `packages/server/src/http/next/*` 与 GM compat
 
@@ -241,6 +244,11 @@
 - `next-auth-bootstrap-smoke.js` 已删除对应的 dead helper：`verifyLegacyBackfillSnapshotFallbackContract`、`verifyCompatRuntimeSnapshotGuardContract`、`verifyStrictNativeCompatSnapshotIgnoredContract`
 - `docs/next-legacy-boundary-audit.md` 已更新为 `0 / 18` 命中，当前只保留“剩余历史痕迹”口径
 - 本任务文档已同步前 1-4 批完成状态与本轮验证记录
+
+顶层补充收口：
+
+- `world-runtime.service.js` 已删除最后一组旧事件名 wrapper / case：`legacyNpcInteraction`、`legacyGmUpdatePlayer`、`legacyGmResetPlayer`、`legacyGmSpawnBots`、`legacyGmRemoveBots`
+- `next-auth-bootstrap-smoke.js` 的 GM runtime mock 已同步切到 `enqueueGm*` 真入口
 
 最小验证：
 
