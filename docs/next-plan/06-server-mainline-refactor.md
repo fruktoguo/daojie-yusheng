@@ -325,6 +325,10 @@
 - 容器运行态、翻找推进、持久化导出/回填、loot window 容器来源构造，以及容器 take/take-all 链路已委托给 `WorldRuntimeLootContainerService`
 - `WorldRuntimeService` 仍保留 outer tick 顺序、ground pile 本体与 monster loot 生产，说明这次只是第 5 批第四刀的 loot/container 状态域提取，不是完整掉落域拆分
 - 本轮验证已补跑 `smoke:loot`、`smoke:runtime`、根级 `pnpm build` 与 `pnpm verify:replace-ready`
+- 新增 `packages/server/src/runtime/world/world-runtime-navigation.service.js`
+- `navigationIntents` 与导航路径物化/跨图路由逻辑已委托给 `WorldRuntimeNavigationService`，`WorldRuntimeService` 仍保留 tick 顺序、`dispatchInstanceCommand()`、`applyTransfer()` 外壳和 combat 侧调度
+- `packages/server/src/runtime/world/world-runtime.state.js` 与 `packages/server/src/runtime/world/world-runtime.contract.js` 已同步移除 `navigationIntents`，让该状态真正脱离 `WorldRuntimeService.runtimeState`
+- 本轮验证已补跑 `compile`、`smoke:runtime`、`smoke:player-respawn`、根级 `pnpm build` 与 `pnpm verify:replace-ready`
 
 这一批结束后，`world-runtime.service.js` 仍可以存在，但不该再同时拥有所有领域细节。
 
