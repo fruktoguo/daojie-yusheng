@@ -118,9 +118,9 @@
 
 ### 第 1 批：先把身份主链写稳
 
-- [ ] `auth`
-- [ ] `identity`
-- [ ] `snapshot`
+- [x] `auth`
+- [x] `identity`
+- [x] `snapshot`
 
 原因：
 
@@ -128,7 +128,7 @@
 
 最小验证：
 
-- `pnpm --filter @mud/server-next migrate:legacy-next:once -- --fixture=... --domains=auth,identity,snapshot`
+- `pnpm --filter @mud/server-next migrate:legacy-next:once -- --fixture=src/tools/fixtures/migrate-next-mainline-once/sample-legacy.json --domains=auth,identity,snapshot`
 - `pnpm verify:replace-ready:proof:with-db`
 - `pnpm --filter @mud/server-next smoke:persistence`
 
