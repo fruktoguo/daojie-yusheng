@@ -14,6 +14,26 @@ const common_1 = require("@nestjs/common");
 const shared_1 = require("@mud/shared-next");
 
 let WorldSyncProtocolService = class WorldSyncProtocolService {
+    sendNextEnvelope(socket, envelope) {
+        if (envelope?.initSession) {
+            socket.emit(shared_1.NEXT_S2C.InitSession, envelope.initSession);
+        }
+        if (envelope?.mapEnter) {
+            socket.emit(shared_1.NEXT_S2C.MapEnter, envelope.mapEnter);
+        }
+        if (envelope?.worldDelta) {
+            socket.emit(shared_1.NEXT_S2C.WorldDelta, envelope.worldDelta);
+        }
+        if (envelope?.selfDelta) {
+            socket.emit(shared_1.NEXT_S2C.SelfDelta, envelope.selfDelta);
+        }
+        if (envelope?.panelDelta) {
+            socket.emit(shared_1.NEXT_S2C.PanelDelta, envelope.panelDelta);
+        }
+    }
+    sendBootstrap(socket, payload) {
+        socket.emit(shared_1.NEXT_S2C.Bootstrap, payload);
+    }
     resolveEmission(socket) {
         return {
             protocol: 'next',
@@ -47,4 +67,3 @@ exports.WorldSyncProtocolService = WorldSyncProtocolService;
 exports.WorldSyncProtocolService = WorldSyncProtocolService = __decorate([
     (0, common_1.Injectable)()
 ], WorldSyncProtocolService);
-

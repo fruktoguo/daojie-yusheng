@@ -127,21 +127,7 @@ let WorldSyncService = class WorldSyncService {
     }
     /** 统一发送 next 协议封装包。 */
     emitNextEnvelope(socket, envelope) {
-        if (envelope?.initSession) {
-            socket.emit(shared_1.NEXT_S2C.InitSession, envelope.initSession);
-        }
-        if (envelope?.mapEnter) {
-            socket.emit(shared_1.NEXT_S2C.MapEnter, envelope.mapEnter);
-        }
-        if (envelope?.worldDelta) {
-            socket.emit(shared_1.NEXT_S2C.WorldDelta, envelope.worldDelta);
-        }
-        if (envelope?.selfDelta) {
-            socket.emit(shared_1.NEXT_S2C.SelfDelta, envelope.selfDelta);
-        }
-        if (envelope?.panelDelta) {
-            socket.emit(shared_1.NEXT_S2C.PanelDelta, envelope.panelDelta);
-        }
+        this.worldSyncProtocolService.sendNextEnvelope(socket, envelope);
     }
     /** 组合战斗特效并附加到世界增量上。 */
     appendNextCombatEffects(envelope, view, player) {
@@ -268,7 +254,7 @@ let WorldSyncService = class WorldSyncService {
         const threatArrows = this.worldSyncThreatService.buildThreatArrows(view);
 
         const bootstrapPayload = this.buildBootstrapSyncPayload(view, player, template, visibleTiles, renderEntities, visibleMinimapMarkers, minimapLibrary, timeState);
-        socket.emit(shared_1.NEXT_S2C.Bootstrap, bootstrapPayload);
+        this.worldSyncProtocolService.sendBootstrap(socket, bootstrapPayload);
         this.worldSyncProtocolService.sendMapStatic(socket, this.buildMapStaticSyncPayload(template, {
             tiles: visibleTiles.matrix,
             tilesOriginX: view.self.x - Math.max(1, Math.round(player.attrs.numericStats.viewRange)),
