@@ -54,6 +54,8 @@ const world_runtime_npc_quest_interaction_query_service_1 = require("./world-run
 
 const world_runtime_gm_queue_service_1 = require("./world-runtime-gm-queue.service");
 
+const world_runtime_respawn_service_1 = require("./world-runtime-respawn.service");
+
 const world_runtime_craft_service_1 = require("./world-runtime-craft.service");
 
 const world_runtime_npc_quest_shop_service_1 = require("./world-runtime-npc-quest-shop.service");
@@ -247,6 +249,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     worldRuntimeInstanceQueryService;
     worldRuntimeNpcQuestInteractionQueryService;
     worldRuntimeGmQueueService;
+    worldRuntimeRespawnService;
     worldRuntimeCraftService;
     worldRuntimeNpcQuestShopService;
     worldRuntimeLootContainerService;
@@ -277,7 +280,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     tickDurationHistoryMs = [];
     syncFlushDurationHistoryMs = [];
     instanceTickProgressById = this.runtimeState.instanceTickProgressById;
-    constructor(contentTemplateRepository, templateRepository, mapPersistenceService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService, craftPanelRuntimeService, worldRuntimeNpcShopQueryService, worldRuntimeQuestQueryService, worldRuntimeDetailQueryService, worldRuntimeSummaryQueryService, worldRuntimeInstanceQueryService, worldRuntimeNpcQuestInteractionQueryService, worldRuntimeGmQueueService, worldRuntimeCraftService, worldRuntimeNpcQuestShopService, worldRuntimeLootContainerService, worldRuntimeNavigationService, worldRuntimeCombatEffectsService, worldRuntimeMonsterActionApplyService, worldRuntimeBasicAttackService, worldRuntimePlayerSkillDispatchService, worldRuntimeBattleEngageService, worldRuntimeAutoCombatService) {
+    constructor(contentTemplateRepository, templateRepository, mapPersistenceService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService, craftPanelRuntimeService, worldRuntimeNpcShopQueryService, worldRuntimeQuestQueryService, worldRuntimeDetailQueryService, worldRuntimeSummaryQueryService, worldRuntimeInstanceQueryService, worldRuntimeNpcQuestInteractionQueryService, worldRuntimeGmQueueService, worldRuntimeRespawnService, worldRuntimeCraftService, worldRuntimeNpcQuestShopService, worldRuntimeLootContainerService, worldRuntimeNavigationService, worldRuntimeCombatEffectsService, worldRuntimeMonsterActionApplyService, worldRuntimeBasicAttackService, worldRuntimePlayerSkillDispatchService, worldRuntimeBattleEngageService, worldRuntimeAutoCombatService) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.templateRepository = templateRepository;
         this.mapPersistenceService = mapPersistenceService;
@@ -294,6 +297,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.worldRuntimeInstanceQueryService = worldRuntimeInstanceQueryService;
         this.worldRuntimeNpcQuestInteractionQueryService = worldRuntimeNpcQuestInteractionQueryService;
         this.worldRuntimeGmQueueService = worldRuntimeGmQueueService;
+        this.worldRuntimeRespawnService = worldRuntimeRespawnService;
         this.worldRuntimeCraftService = worldRuntimeCraftService;
         this.worldRuntimeNpcQuestShopService = worldRuntimeNpcQuestShopService;
         this.worldRuntimeLootContainerService = worldRuntimeLootContainerService;
@@ -2533,57 +2537,11 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     }
     /** processPendingRespawns：处理等待复生的玩家。 */
     processPendingRespawns() {
-        if (!this.worldRuntimeGmQueueService.hasPendingRespawns()) {
-            return;
-        }
-
-        const pending = this.worldRuntimeGmQueueService.drainPendingRespawnPlayerIds();
-        for (const playerId of pending) {
-            const player = this.playerRuntimeService.getPlayer(playerId);
-            if (!player || player.hp > 0) {
-                continue;
-            }
-            this.respawnPlayer(playerId);
-        }
+        this.worldRuntimeRespawnService.processPendingRespawns(this);
     }
     /** respawnPlayer：把玩家复生请求交给世界运行时处理。 */
     respawnPlayer(playerId) {
-
-        const player = this.playerRuntimeService.getPlayer(playerId);
-        if (!player) {
-            return;
-        }
-
-        const previous = this.playerLocations.get(playerId);
-
-        const targetMapId = this.resolveDefaultRespawnMapId();
-
-        const targetInstance = this.getOrCreatePublicInstance(targetMapId);
-        if (previous) {
-            this.instances.get(previous.instanceId)?.disconnectPlayer(playerId);
-        }
-
-        const runtimePlayer = targetInstance.connectPlayer({
-            playerId,
-            sessionId: player.sessionId ?? previous?.sessionId ?? `session:${playerId}`,
-            preferredX: targetInstance.template.spawnX,
-            preferredY: targetInstance.template.spawnY,
-        });
-        targetInstance.setPlayerMoveSpeed(playerId, player.attrs.numericStats.moveSpeed);
-        this.playerLocations.set(playerId, {
-            instanceId: targetInstance.meta.instanceId,
-            sessionId: runtimePlayer.sessionId,
-        });
-        this.worldRuntimeNavigationService.clearNavigationIntent(playerId);
-        this.playerRuntimeService.respawnPlayer(playerId, {
-            instanceId: targetInstance.meta.instanceId,
-            templateId: targetInstance.template.id,
-            x: runtimePlayer.x,
-            y: runtimePlayer.y,
-            facing: runtimePlayer.facing,
-            currentTick: targetInstance.tick,
-        });
-        this.queuePlayerNotice(playerId, `已在 ${targetInstance.template.name} 复生`, 'travel');
+        this.worldRuntimeRespawnService.respawnPlayer(playerId, this);
     }
     /** ensureAttackAllowed：校验当前角色是否允许发起攻击。 */
     ensureAttackAllowed(player, skill) {
@@ -2651,6 +2609,7 @@ exports.WorldRuntimeService = WorldRuntimeService = WorldRuntimeService_1 = __de
         world_runtime_instance_query_service_1.WorldRuntimeInstanceQueryService,
         world_runtime_npc_quest_interaction_query_service_1.WorldRuntimeNpcQuestInteractionQueryService,
         world_runtime_gm_queue_service_1.WorldRuntimeGmQueueService,
+        world_runtime_respawn_service_1.WorldRuntimeRespawnService,
         world_runtime_craft_service_1.WorldRuntimeCraftService,
         world_runtime_npc_quest_shop_service_1.WorldRuntimeNpcQuestShopService,
         world_runtime_loot_container_service_1.WorldRuntimeLootContainerService,

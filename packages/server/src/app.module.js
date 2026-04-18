@@ -82,6 +82,8 @@ const world_runtime_npc_quest_interaction_query_service_1 = require("./runtime/w
 
 const world_runtime_gm_queue_service_1 = require("./runtime/world/world-runtime-gm-queue.service");
 
+const world_runtime_respawn_service_1 = require("./runtime/world/world-runtime-respawn.service");
+
 const world_runtime_craft_service_1 = require("./runtime/world/world-runtime-craft.service");
 
 const world_runtime_npc_quest_shop_service_1 = require("./runtime/world/world-runtime-npc-quest-shop.service");
@@ -180,6 +182,7 @@ exports.AppModule = AppModule = __decorate([
             world_runtime_instance_query_service_1.WorldRuntimeInstanceQueryService,
             world_runtime_npc_quest_interaction_query_service_1.WorldRuntimeNpcQuestInteractionQueryService,
             world_runtime_gm_queue_service_1.WorldRuntimeGmQueueService,
+            world_runtime_respawn_service_1.WorldRuntimeRespawnService,
             world_runtime_craft_service_1.WorldRuntimeCraftService,
             world_runtime_npc_quest_shop_service_1.WorldRuntimeNpcQuestShopService,
             world_runtime_loot_container_service_1.WorldRuntimeLootContainerService,
