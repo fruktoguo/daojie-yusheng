@@ -426,6 +426,10 @@
 - `WorldRuntimeService` 的 `dispatchInstanceCommand()` 已退为 facade，实例侧移动 / 传送执行编排由 `WorldRuntimeMovementService` 承接；`WorldRuntimeNavigationService` 与 `WorldRuntimeBattleEngageService` 的调用面保持不变
 - 这次不迁移导航意图状态或 `MapInstanceRuntime` 占位实现，只移动 move/portal 分支的执行编排、传送 fallback 顺序和 craft 中断 handoff，`WorldRuntimeService` 仍保留 `applyTransfer()` 与跨域错误收口
 - 本轮验证已补跑 `pnpm --filter @mud/server-next smoke:world-runtime-movement`、`pnpm --filter @mud/server-next smoke:runtime`、根级串行 `pnpm build && pnpm verify:replace-ready`；结果全部通过
+- 新增 `packages/server/src/runtime/world/world-runtime-player-combat.service.js`
+- `WorldRuntimeService` 的 `handlePlayerMonsterKill()` / `handlePlayerDefeat()` 已退为 facade，玩家战斗结果收口由 `WorldRuntimePlayerCombatService` 承接；击杀奖励、经验/进度分发、掉落交付和进入复生队列不再留在主服务中
+- 这次不迁移基础攻击、技能派发或 battle engage 入口，只移动战斗结果处理链，`WorldRuntimeService` 仍保留 `dispatchBasicAttack()` / `dispatchCastSkill()` / `dispatchEngageBattle()` 的总编排入口
+- 本轮验证已补跑 `pnpm --filter @mud/server-next smoke:combat`、`pnpm --filter @mud/server-next smoke:monster-combat`、`pnpm --filter @mud/server-next smoke:player-recovery`、根级串行 `pnpm build && pnpm verify:replace-ready`；结果全部通过
 - `packages/server/src/runtime/world/world-runtime.state.js` 与 `packages/server/src/runtime/world/world-runtime.contract.js` 空壳已删除，`WorldRuntimeService` 不再保留无实际用途的 state-layer 包装
 - 这不是新增状态域，而是第 5 批收尾清理：在状态所有权都已下沉后，把空壳层彻底移除，避免继续误导为主服务仍通过统一 state store 托管热态
 
