@@ -58,8 +58,8 @@
 
 这表示：
 
-- 现在 `with-db / acceptance / full` 已经不是“缺环境变量阻塞”。
-- 真正还缺的是对应 gate 的实跑结果，尤其是 `acceptance`、`full`、`shadow-destructive`。
+- 当前 `with-db / proof with-db / shadow / acceptance / full / shadow-destructive` 仍先受环境变量与目标环境是否就绪约束。
+- 在环境 ready 之后，才进一步区分“待实跑”与“代码失败”；尤其 `acceptance`、`full`、`shadow-destructive` 不能再沿用历史结果冒充当前轮次完成。
 
 ## 执行顺序
 
