@@ -86,6 +86,8 @@ const world_runtime_basic_attack_service_1 = require("./world-runtime-basic-atta
 
 const world_runtime_player_combat_service_1 = require("./world-runtime-player-combat.service");
 
+const world_runtime_use_item_service_1 = require("./world-runtime-use-item.service");
+
 const world_runtime_player_skill_dispatch_service_1 = require("./world-runtime-player-skill-dispatch.service");
 
 const world_runtime_battle_engage_service_1 = require("./world-runtime-battle-engage.service");
@@ -279,12 +281,13 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     worldRuntimeMonsterActionApplyService;
     worldRuntimeBasicAttackService;
     worldRuntimePlayerCombatService;
+    worldRuntimeUseItemService;
     worldRuntimePlayerSkillDispatchService;
     worldRuntimeBattleEngageService;
     worldRuntimeAutoCombatService;
     logger = new common_1.Logger(WorldRuntimeService_1.name);
     tick = 0;
-    constructor(contentTemplateRepository, templateRepository, mapPersistenceService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService, craftPanelRuntimeService, worldRuntimeNpcShopQueryService, worldRuntimeQuestQueryService, worldRuntimeDetailQueryService, worldRuntimeMetricsService, worldRuntimeInstanceTickOrchestrationService, worldRuntimeMovementService, worldRuntimeSummaryQueryService, worldRuntimeInstanceStateService, worldRuntimeInstanceQueryService, worldRuntimePendingCommandService, worldRuntimePlayerLocationService, worldRuntimeTickProgressService, worldRuntimeNpcQuestInteractionQueryService, worldRuntimeGmQueueService, worldRuntimeRespawnService, worldRuntimeCraftService, worldRuntimeNpcQuestShopService, worldRuntimeLootContainerService, worldRuntimeNavigationService, worldRuntimeCombatEffectsService, worldRuntimeMonsterActionApplyService, worldRuntimeBasicAttackService, worldRuntimePlayerCombatService, worldRuntimePlayerSkillDispatchService, worldRuntimeBattleEngageService, worldRuntimeAutoCombatService) {
+    constructor(contentTemplateRepository, templateRepository, mapPersistenceService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService, craftPanelRuntimeService, worldRuntimeNpcShopQueryService, worldRuntimeQuestQueryService, worldRuntimeDetailQueryService, worldRuntimeMetricsService, worldRuntimeInstanceTickOrchestrationService, worldRuntimeMovementService, worldRuntimeSummaryQueryService, worldRuntimeInstanceStateService, worldRuntimeInstanceQueryService, worldRuntimePendingCommandService, worldRuntimePlayerLocationService, worldRuntimeTickProgressService, worldRuntimeNpcQuestInteractionQueryService, worldRuntimeGmQueueService, worldRuntimeRespawnService, worldRuntimeCraftService, worldRuntimeNpcQuestShopService, worldRuntimeLootContainerService, worldRuntimeNavigationService, worldRuntimeCombatEffectsService, worldRuntimeMonsterActionApplyService, worldRuntimeBasicAttackService, worldRuntimePlayerCombatService, worldRuntimeUseItemService, worldRuntimePlayerSkillDispatchService, worldRuntimeBattleEngageService, worldRuntimeAutoCombatService) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.templateRepository = templateRepository;
         this.mapPersistenceService = mapPersistenceService;
@@ -317,6 +320,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.worldRuntimeMonsterActionApplyService = worldRuntimeMonsterActionApplyService;
         this.worldRuntimeBasicAttackService = worldRuntimeBasicAttackService;
         this.worldRuntimePlayerCombatService = worldRuntimePlayerCombatService;
+        this.worldRuntimeUseItemService = worldRuntimeUseItemService;
         this.worldRuntimePlayerSkillDispatchService = worldRuntimePlayerSkillDispatchService;
         this.worldRuntimeBattleEngageService = worldRuntimeBattleEngageService;
         this.worldRuntimeAutoCombatService = worldRuntimeAutoCombatService;
@@ -1672,65 +1676,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     }
     /** dispatchUseItem：执行物品使用结算。 */
     dispatchUseItem(playerId, slotIndex) {
-
-        const item = this.playerRuntimeService.peekInventoryItem(playerId, slotIndex);
-        if (!item) {
-            throw new common_1.NotFoundException(`Inventory slot ${slotIndex} not found`);
-        }
-
-        const learnedTechniqueId = this.contentTemplateRepository.getLearnTechniqueId(item.itemId);
-        const mapUnlockIds = Array.isArray(item.mapUnlockIds) && item.mapUnlockIds.length > 0
-            ? item.mapUnlockIds
-            : item.mapUnlockId
-                ? [item.mapUnlockId]
-                : [];
-        if (mapUnlockIds.length > 0) {
-            for (const mapId of mapUnlockIds) {
-                if (!this.templateRepository.has(mapId)) {
-                    throw new common_1.BadRequestException(`Unknown map unlock target: ${mapId}`);
-                }
-            }
-            if (mapUnlockIds.every((mapId) => this.playerRuntimeService.hasUnlockedMap(playerId, mapId))) {
-                throw new common_1.BadRequestException('Map already unlocked');
-            }
-            for (const mapId of mapUnlockIds) {
-                if (!this.playerRuntimeService.hasUnlockedMap(playerId, mapId)) {
-                    this.playerRuntimeService.unlockMap(playerId, mapId);
-                }
-            }
-            this.playerRuntimeService.consumeInventoryItem(playerId, slotIndex, 1);
-            this.refreshQuestStates(playerId);
-            const targetLabel = mapUnlockIds.length === 1
-                ? this.templateRepository.getOrThrow(mapUnlockIds[0]).name
-                : `${item.name ?? '地图'}记载的区域`;
-            this.queuePlayerNotice(playerId, `已解锁地图：${targetLabel}`, 'success');
-            return;
-        }
-        if (item.tileAuraGainAmount) {
-
-            const location = this.getPlayerLocationOrThrow(playerId);
-
-            const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
-
-            const instance = this.getInstanceRuntimeOrThrow(location.instanceId);
-
-            const nextAura = instance.addTileAura(player.x, player.y, item.tileAuraGainAmount);
-            if (nextAura === null) {
-                throw new common_1.BadRequestException(`Failed to add aura at ${player.x},${player.y}`);
-            }
-            this.playerRuntimeService.consumeInventoryItem(playerId, slotIndex, 1);
-            this.refreshQuestStates(playerId);
-            this.queuePlayerNotice(playerId, `使用 ${item.name}，当前地块灵气提升至 ${nextAura}`, 'success');
-            return;
-        }
-        this.playerRuntimeService.useItem(playerId, slotIndex);
-        if (learnedTechniqueId) {
-            this.advanceLearnTechniqueQuest(playerId, learnedTechniqueId);
-        }
-        else {
-            this.refreshQuestStates(playerId);
-        }
-        this.queuePlayerNotice(playerId, `使用 ${item.name}`, 'success');
+        this.worldRuntimeUseItemService.dispatchUseItem(playerId, slotIndex, this);
     }
     /** dispatchBreakthrough：触发修为突破结算。 */
     dispatchBreakthrough(playerId) {
@@ -2379,6 +2325,7 @@ exports.WorldRuntimeService = WorldRuntimeService = WorldRuntimeService_1 = __de
         world_runtime_monster_action_apply_service_1.WorldRuntimeMonsterActionApplyService,
         world_runtime_basic_attack_service_1.WorldRuntimeBasicAttackService,
         world_runtime_player_combat_service_1.WorldRuntimePlayerCombatService,
+        world_runtime_use_item_service_1.WorldRuntimeUseItemService,
         world_runtime_player_skill_dispatch_service_1.WorldRuntimePlayerSkillDispatchService,
         world_runtime_battle_engage_service_1.WorldRuntimeBattleEngageService,
         world_runtime_auto_combat_service_1.WorldRuntimeAutoCombatService])
