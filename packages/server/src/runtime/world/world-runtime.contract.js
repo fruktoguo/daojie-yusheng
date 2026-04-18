@@ -5,7 +5,6 @@ exports.WORLD_RUNTIME_STATE_CONTRACT = void 0;
 
 exports.WORLD_RUNTIME_STATE_CONTRACT = Object.freeze({
     inMemoryRuntime: Object.freeze([
-        'instances',
     ]),
     restoreBackedRuntime: Object.freeze([
         'containerStatesByInstanceId',

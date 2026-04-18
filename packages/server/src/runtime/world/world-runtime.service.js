@@ -48,6 +48,8 @@ const world_runtime_detail_query_service_1 = require("./world-runtime-detail-que
 
 const world_runtime_summary_query_service_1 = require("./world-runtime-summary-query.service");
 
+const world_runtime_instance_state_service_1 = require("./world-runtime-instance-state.service");
+
 const world_runtime_instance_query_service_1 = require("./world-runtime-instance-query.service");
 
 const world_runtime_pending_command_service_1 = require("./world-runtime-pending-command.service");
@@ -252,6 +254,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     worldRuntimeQuestQueryService;
     worldRuntimeDetailQueryService;
     worldRuntimeSummaryQueryService;
+    worldRuntimeInstanceStateService;
     worldRuntimeInstanceQueryService;
     worldRuntimePendingCommandService;
     worldRuntimePlayerLocationService;
@@ -272,7 +275,6 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     logger = new common_1.Logger(WorldRuntimeService_1.name);
     stateLayerContract = world_runtime_contract_1.WORLD_RUNTIME_STATE_CONTRACT;
     runtimeState = (0, world_runtime_state_1.createWorldRuntimeStateStore)();
-    instances = this.runtimeState.instances;
     tick = 0;
     lastTickDurationMs = 0;
     lastSyncFlushDurationMs = 0;
@@ -286,7 +288,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     };
     tickDurationHistoryMs = [];
     syncFlushDurationHistoryMs = [];
-    constructor(contentTemplateRepository, templateRepository, mapPersistenceService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService, craftPanelRuntimeService, worldRuntimeNpcShopQueryService, worldRuntimeQuestQueryService, worldRuntimeDetailQueryService, worldRuntimeSummaryQueryService, worldRuntimeInstanceQueryService, worldRuntimePendingCommandService, worldRuntimePlayerLocationService, worldRuntimeTickProgressService, worldRuntimeNpcQuestInteractionQueryService, worldRuntimeGmQueueService, worldRuntimeRespawnService, worldRuntimeCraftService, worldRuntimeNpcQuestShopService, worldRuntimeLootContainerService, worldRuntimeNavigationService, worldRuntimeCombatEffectsService, worldRuntimeMonsterActionApplyService, worldRuntimeBasicAttackService, worldRuntimePlayerSkillDispatchService, worldRuntimeBattleEngageService, worldRuntimeAutoCombatService) {
+    constructor(contentTemplateRepository, templateRepository, mapPersistenceService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService, craftPanelRuntimeService, worldRuntimeNpcShopQueryService, worldRuntimeQuestQueryService, worldRuntimeDetailQueryService, worldRuntimeSummaryQueryService, worldRuntimeInstanceStateService, worldRuntimeInstanceQueryService, worldRuntimePendingCommandService, worldRuntimePlayerLocationService, worldRuntimeTickProgressService, worldRuntimeNpcQuestInteractionQueryService, worldRuntimeGmQueueService, worldRuntimeRespawnService, worldRuntimeCraftService, worldRuntimeNpcQuestShopService, worldRuntimeLootContainerService, worldRuntimeNavigationService, worldRuntimeCombatEffectsService, worldRuntimeMonsterActionApplyService, worldRuntimeBasicAttackService, worldRuntimePlayerSkillDispatchService, worldRuntimeBattleEngageService, worldRuntimeAutoCombatService) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.templateRepository = templateRepository;
         this.mapPersistenceService = mapPersistenceService;
@@ -300,6 +302,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.worldRuntimeQuestQueryService = worldRuntimeQuestQueryService;
         this.worldRuntimeDetailQueryService = worldRuntimeDetailQueryService;
         this.worldRuntimeSummaryQueryService = worldRuntimeSummaryQueryService;
+        this.worldRuntimeInstanceStateService = worldRuntimeInstanceStateService;
         this.worldRuntimeInstanceQueryService = worldRuntimeInstanceQueryService;
         this.worldRuntimePendingCommandService = worldRuntimePendingCommandService;
         this.worldRuntimePlayerLocationService = worldRuntimePlayerLocationService;
@@ -320,6 +323,9 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     }
     get pendingCommands() {
         return this.worldRuntimePendingCommandService.pendingCommands;
+    }
+    get instances() {
+        return this.worldRuntimeInstanceStateService.instances;
     }
     get playerLocations() {
         return this.worldRuntimePlayerLocationService.playerLocations;
@@ -1380,7 +1386,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     }
     /** rebuildPersistentRuntimeAfterRestore：在恢复持久化后重建世界运行态。 */
     async rebuildPersistentRuntimeAfterRestore() {
-        this.instances.clear();
+        this.worldRuntimeInstanceStateService.resetState();
         this.worldRuntimePlayerLocationService.resetState();
         this.worldRuntimePendingCommandService.resetState();
         this.worldRuntimeGmQueueService.resetState();
@@ -2608,6 +2614,7 @@ exports.WorldRuntimeService = WorldRuntimeService = WorldRuntimeService_1 = __de
         world_runtime_quest_query_service_1.WorldRuntimeQuestQueryService,
         world_runtime_detail_query_service_1.WorldRuntimeDetailQueryService,
         world_runtime_summary_query_service_1.WorldRuntimeSummaryQueryService,
+        world_runtime_instance_state_service_1.WorldRuntimeInstanceStateService,
         world_runtime_instance_query_service_1.WorldRuntimeInstanceQueryService,
         world_runtime_pending_command_service_1.WorldRuntimePendingCommandService,
         world_runtime_player_location_service_1.WorldRuntimePlayerLocationService,
