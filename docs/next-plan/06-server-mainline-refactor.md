@@ -430,6 +430,10 @@
 - `WorldRuntimeService` 的 `handlePlayerMonsterKill()` / `handlePlayerDefeat()` 已退为 facade，玩家战斗结果收口由 `WorldRuntimePlayerCombatService` 承接；击杀奖励、经验/进度分发、掉落交付和进入复生队列不再留在主服务中
 - 这次不迁移基础攻击、技能派发或 battle engage 入口，只移动战斗结果处理链，`WorldRuntimeService` 仍保留 `dispatchBasicAttack()` / `dispatchCastSkill()` / `dispatchEngageBattle()` 的总编排入口
 - 本轮验证已补跑 `pnpm --filter @mud/server-next smoke:combat`、`pnpm --filter @mud/server-next smoke:monster-combat`、`pnpm --filter @mud/server-next smoke:player-recovery`、根级串行 `pnpm build && pnpm verify:replace-ready`；结果全部通过
+- 新增 `packages/server/src/runtime/world/world-runtime-use-item.service.js`
+- `WorldRuntimeService` 的 `dispatchUseItem()` 已退为 facade，地图解锁、地块灵气提升和普通消耗品使用结算由 `WorldRuntimeUseItemService` 承接；物品使用后的 quest refresh / notice 也不再留在主服务中
+- 这次不迁移 `dispatchDropItem()` / `dispatchTakeGround()` / `dispatchEquipItem()` 等相邻物品链路，只移动 `useItem` 这一条叶子业务域，`WorldRuntimeService` 仍保留其它物品/装备命令入口的总编排
+- 本轮验证已补跑 `pnpm --filter @mud/server-next smoke:world-runtime-use-item`、`pnpm --filter @mud/server-next smoke:runtime`、根级串行 `pnpm build && pnpm verify:replace-ready`；结果全部通过
 - `packages/server/src/runtime/world/world-runtime.state.js` 与 `packages/server/src/runtime/world/world-runtime.contract.js` 空壳已删除，`WorldRuntimeService` 不再保留无实际用途的 state-layer 包装
 - 这不是新增状态域，而是第 5 批收尾清理：在状态所有权都已下沉后，把空壳层彻底移除，避免继续误导为主服务仍通过统一 state store 托管热态
 
