@@ -352,6 +352,10 @@
 - `WorldRuntimeService` 仍保留 `dispatchEngageBattle(...)` 与玩家战斗主编排；monster 分支的首个 handoff 继续在原入口里执行，只把 auto-combat 目标选择、射程判定与命令物化细节下沉到新 service，说明这次只是第 5 批第十刀的 auto-combat orchestration 抽离，不是完整 `dispatchEngageBattle(...)` / player combat 域拆分
 - `packages/server/src/tools/monster-combat-smoke.js` 已把 `battle:engage` 的证明链收紧到首个 post-engage `SelfDelta / WorldDelta` 绑定证据，不再接受任意 `fx` 或泛化怪物位移误报
 - 本轮验证已补跑 `compile`、`smoke:monster-combat`、根级 `pnpm build` 与 `pnpm verify:replace-ready`
+- 新增 `packages/server/src/runtime/world/world-runtime-battle-engage.service.js`
+- `dispatchEngageBattle(...)` 的锁定目标、autoBattle 切换与首个命令 handoff 已委托给 `WorldRuntimeBattleEngageService`
+- `WorldRuntimeService` 仍保留 `handlePlayerMonsterKill()`、`handlePlayerDefeat()`、`processPendingRespawns()` 与 `respawnPlayer()`，说明这次只是第 5 批第十一刀的 player-combat engage orchestration 抽离，不是完整玩家战斗 / 复生域拆分
+- 本轮验证已补跑 `pnpm build`、`pnpm verify:replace-ready`、`pnpm --filter @mud/server-next smoke:combat` 与 `pnpm --filter @mud/server-next smoke:monster-combat`
 
 这一批结束后，`world-runtime.service.js` 仍可以存在，但不该再同时拥有所有领域细节。
 
