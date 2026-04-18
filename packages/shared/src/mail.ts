@@ -3,7 +3,7 @@ import {
   MAIL_PAGE_SIZE_DEFAULT,
   MAIL_PAGE_SIZE_MAX,
 } from './constants/ui/mail';
-import type { MailAttachment, MailFilter, MailTemplateArg } from './types';
+import type { MailAttachment, MailFilter, MailTemplateArg } from './mail-types';
 
 /** 邮件投递范围，区分全服和定向投递。 */
 export type MailTargetScope = 'global' | 'direct';

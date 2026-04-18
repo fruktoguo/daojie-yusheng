@@ -27,7 +27,7 @@ function buildDeps(log) {
             recordActivity(playerId, tick, payload) { log.push(['recordActivity', playerId, tick, payload]); },
         },
         resolveCurrentTickForPlayerId() { return 33; },
-        worldRuntimeCraftService: {
+        worldRuntimeCraftInterruptService: {
             interruptCraftForReason(playerId, _player, reason) { log.push(['interruptCraftForReason', playerId, reason]); },
         },
         applyTransfer(transfer) { log.push(['applyTransfer', transfer.reason]); },

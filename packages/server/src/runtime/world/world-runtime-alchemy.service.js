@@ -15,26 +15,22 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.WorldRuntimeAlchemyService = void 0;
 
 const common_1 = require("@nestjs/common");
-const shared_1 = require("@mud/shared-next");
-const world_session_service_1 = require("../../network/world-session.service");
-const world_client_event_service_1 = require("../../network/world-client-event.service");
 const player_runtime_service_1 = require("../player/player-runtime.service");
 const craft_panel_runtime_service_1 = require("../craft/craft-panel-runtime.service");
+const world_runtime_craft_mutation_service_1 = require("./world-runtime-craft-mutation.service");
 
 /** world-runtime alchemy orchestration：承接炼丹写路径、preset 和面板刷新。 */
 let WorldRuntimeAlchemyService = class WorldRuntimeAlchemyService {
     playerRuntimeService;
     craftPanelRuntimeService;
-    worldSessionService;
-    worldClientEventService;
-    constructor(playerRuntimeService, craftPanelRuntimeService, worldSessionService, worldClientEventService) {
+    worldRuntimeCraftMutationService;
+    constructor(playerRuntimeService, craftPanelRuntimeService, worldRuntimeCraftMutationService) {
         this.playerRuntimeService = playerRuntimeService;
         this.craftPanelRuntimeService = craftPanelRuntimeService;
-        this.worldSessionService = worldSessionService;
-        this.worldClientEventService = worldClientEventService;
+        this.worldRuntimeCraftMutationService = worldRuntimeCraftMutationService;
     }
     interruptAlchemyForReason(playerId, player, reason, deps) {
-        this.flushAlchemyMutation(playerId, this.craftPanelRuntimeService.interruptAlchemy(player, reason), deps);
+        this.worldRuntimeCraftMutationService.flushCraftMutation(playerId, this.craftPanelRuntimeService.interruptAlchemy(player, reason), 'alchemy', deps);
     }
     dispatchStartAlchemy(playerId, payload, deps) {
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
@@ -42,7 +38,7 @@ let WorldRuntimeAlchemyService = class WorldRuntimeAlchemyService {
         if (!result.ok) {
             throw new common_1.BadRequestException(result.error ?? '启动炼丹失败');
         }
-        this.flushAlchemyMutation(playerId, result, deps);
+        this.worldRuntimeCraftMutationService.flushCraftMutation(playerId, result, 'alchemy', deps);
     }
     dispatchCancelAlchemy(playerId, deps) {
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
@@ -50,7 +46,7 @@ let WorldRuntimeAlchemyService = class WorldRuntimeAlchemyService {
         if (!result.ok) {
             throw new common_1.BadRequestException(result.error ?? '取消炼丹失败');
         }
-        this.flushAlchemyMutation(playerId, result, deps);
+        this.worldRuntimeCraftMutationService.flushCraftMutation(playerId, result, 'alchemy', deps);
     }
     dispatchSaveAlchemyPreset(playerId, payload, deps) {
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
@@ -58,7 +54,7 @@ let WorldRuntimeAlchemyService = class WorldRuntimeAlchemyService {
         if (!result.ok) {
             throw new common_1.BadRequestException(result.error ?? '保存炼制预设失败');
         }
-        this.flushAlchemyMutation(playerId, result, deps);
+        this.worldRuntimeCraftMutationService.flushCraftMutation(playerId, result, 'alchemy', deps);
     }
     dispatchDeleteAlchemyPreset(playerId, presetId, deps) {
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
@@ -66,51 +62,10 @@ let WorldRuntimeAlchemyService = class WorldRuntimeAlchemyService {
         if (!result.ok) {
             throw new common_1.BadRequestException(result.error ?? '删除炼制预设失败');
         }
-        this.flushAlchemyMutation(playerId, result, deps);
+        this.worldRuntimeCraftMutationService.flushCraftMutation(playerId, result, 'alchemy', deps);
     }
     tickAlchemy(playerId, player, deps) {
-        this.flushAlchemyMutation(playerId, this.craftPanelRuntimeService.tickAlchemy(player), deps);
-    }
-    emitAlchemyPanelUpdate(playerId, deps) {
-        const socket = this.worldSessionService.getSocketByPlayerId(playerId);
-        const player = this.playerRuntimeService.getPlayer(playerId);
-        if (!socket || !player || !this.worldClientEventService.prefersNext(socket)) {
-            return;
-        }
-        socket.emit(shared_1.NEXT_S2C.AlchemyPanel, this.craftPanelRuntimeService.buildAlchemyPanelPayload(player));
-    }
-    flushAlchemyMutation(playerId, result, deps) {
-        if (!result?.ok) {
-            return;
-        }
-        if (Array.isArray(result.groundDrops) && result.groundDrops.length > 0) {
-            this.dropGroundItems(playerId, result.groundDrops, deps);
-        }
-        for (const message of result.messages ?? []) {
-            if (message?.text) {
-                deps.queuePlayerNotice(playerId, message.text, message.kind ?? 'info');
-            }
-        }
-        if (result.panelChanged) {
-            this.emitAlchemyPanelUpdate(playerId, deps);
-        }
-    }
-    dropGroundItems(playerId, items, deps) {
-        const player = this.playerRuntimeService.getPlayer(playerId);
-        if (!player) {
-            return;
-        }
-        const instance = deps.getInstanceRuntimeOrThrow(player.instanceId);
-        for (const item of items) {
-            try {
-                deps.spawnGroundItem(instance, player.x, player.y, item);
-                deps.queuePlayerNotice(playerId, `${formatItemStackLabel(item)} 背包放不下，已落在你脚边。`, 'loot');
-            }
-            catch {
-                this.playerRuntimeService.receiveInventoryItem(playerId, item);
-                deps.queuePlayerNotice(playerId, `${formatItemStackLabel(item)} 无法落地，已直接放回背包。`, 'warn');
-            }
-        }
+        this.worldRuntimeCraftMutationService.flushCraftMutation(playerId, this.craftPanelRuntimeService.tickAlchemy(player), 'alchemy', deps);
     }
 };
 exports.WorldRuntimeAlchemyService = WorldRuntimeAlchemyService;
@@ -118,10 +73,5 @@ exports.WorldRuntimeAlchemyService = WorldRuntimeAlchemyService = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [player_runtime_service_1.PlayerRuntimeService,
         craft_panel_runtime_service_1.CraftPanelRuntimeService,
-        world_session_service_1.WorldSessionService,
-        world_client_event_service_1.WorldClientEventService])
+        world_runtime_craft_mutation_service_1.WorldRuntimeCraftMutationService])
 ], WorldRuntimeAlchemyService);
-
-function formatItemStackLabel(item) {
-    return `${item.name ?? item.itemId} x${Math.max(1, Math.floor(Number(item.count) || 1))}`;
-}

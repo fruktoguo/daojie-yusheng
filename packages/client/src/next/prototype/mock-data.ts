@@ -1,4 +1,5 @@
 export type PrototypeModuleId =
+  | 'foundation'
   | 'login'
   | 'hud'
   | 'attr'
@@ -34,6 +35,7 @@ export interface PrototypeModuleCardData {
 }
 
 export const PROTOTYPE_MODULES: PrototypeModuleCardData[] = [
+  { id: 'foundation', title: '基础组件', domain: '面板', summary: '按钮、胶囊、字段、输入、数值条等基础预设体。', interactions: ['按钮状态', 'Tab 切换', '数值条', '输入控件'], status: 'prototype-ready' },
   { id: 'login', title: '登录', domain: '入口', summary: '账号、角色名、显示名、登录态切换。', interactions: ['表单输入', '错误反馈', '模式切换'], status: 'prototype-ready' },
   { id: 'hud', title: 'HUD', domain: 'HUD', summary: '角色主状态、地图、境界、资源条。', interactions: ['资源条', '快捷动作', '外链按钮'], status: 'prototype-ready' },
   { id: 'attr', title: '属性面板', domain: '面板', summary: '基础属性、战斗属性、特殊属性分页。', interactions: ['Tab 切换', '局部数值更新'], status: 'planned' },

@@ -37,7 +37,7 @@ function testDispatch() {
         ['consumeInventoryItemByItemId', 'player:1', 'spirit_stone', 5],
         ['receiveInventoryItem', 'player:1', 'qi_pill', 1],
         ['refreshQuestStates', 'player:1'],
-        ['queuePlayerNotice', 'player:1', '购买 聚气丹x1，消耗 灵石 x5', 'success'],
+        ['queuePlayerNotice', 'player:1', '购买 聚气丹，消耗 灵石 x5', 'success'],
     ]);
 }
 

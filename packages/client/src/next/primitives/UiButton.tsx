@@ -12,7 +12,8 @@ export function UiButton({
   children,
   ...props
 }: PropsWithChildren<UiButtonProps>) {
-  const classes = ['small-btn', 'ui-btn', ...variants];
+  const classes = ['next-ui-button'];
+  variants.forEach((variant) => classes.push(`next-ui-button--${variant}`));
   if (className) {
     classes.push(className);
   }

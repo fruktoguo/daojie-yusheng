@@ -4,7 +4,7 @@ export interface UiEmptyHintProps {
 }
 
 export function UiEmptyHint({ text, className }: UiEmptyHintProps) {
-  const classes = ['empty-hint', 'ui-empty-hint'];
+  const classes = ['next-ui-empty-hint'];
   if (className) {
     classes.push(className);
   }

@@ -41,7 +41,7 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
         this.playerRuntimeService.recordActivity(playerId, currentTick, {
             interruptCultivation: true,
         });
-        deps.worldRuntimeCraftService.interruptCraftForReason(playerId, attacker, 'attack', deps);
+        deps.worldRuntimeCraftInterruptService.interruptCraftForReason(playerId, attacker, 'attack', deps);
         if (!attacker.instanceId) {
             throw new common_1.BadRequestException(`Player ${playerId} not attached to instance`);
         }

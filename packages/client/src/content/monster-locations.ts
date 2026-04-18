@@ -15,7 +15,7 @@ let monsterLocationCatalog: MonsterLocationCatalog | null = null;
 /** 正在进行中的怪物出现场所目录加载任务。 */
 let monsterLocationCatalogPromise: Promise<MonsterLocationCatalog> | null = null;
 
-/** 按需加载怪物出现场所目录。 */
+/** 按需加载怪物出现场所目录。该 generated JSON 仍被客户端参考文本和地图说明链路直接消费。 */
 function loadMonsterLocationCatalog(): Promise<MonsterLocationCatalog> {
   if (monsterLocationCatalog) {
     return Promise.resolve(monsterLocationCatalog);
@@ -54,4 +54,3 @@ export async function loadMonsterLocationEntry(monsterId: string): Promise<Monst
   const catalog = await loadMonsterLocationCatalog();
   return catalog[monsterId] ?? null;
 }
-

@@ -1,7 +1,7 @@
 /**
  * 物品堆叠判定工具：通过签名比较判断两个 ItemStack 能否合并。
  */
-import { ItemStack } from './types';
+import { ItemStack } from './item-runtime-types';
 
 /** 可比较值类型：用于统一签名序列化时的递归数据结构。 */
 type ComparableValue =
@@ -51,7 +51,6 @@ export function createItemStackSignature(item: ItemStack): string {
 export function canStackItemStacks(left: ItemStack, right: ItemStack): boolean {
   return createItemStackSignature(left) === createItemStackSignature(right);
 }
-
 
 
 

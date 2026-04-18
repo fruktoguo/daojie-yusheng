@@ -8,8 +8,21 @@ const path = require('node:path');
 const ts = require('typescript');
 
 const filePath = path.resolve(__dirname, '../src/protocol.ts');
-const source = fs.readFileSync(filePath, 'utf8');
-const sourceFile = ts.createSourceFile(filePath, source, ts.ScriptTarget.Latest, true);
+const tsconfigPath = path.resolve(__dirname, '../tsconfig.json');
+const rawConfig = ts.readConfigFile(tsconfigPath, ts.sys.readFile);
+if (rawConfig.error) {
+  throw new Error(ts.flattenDiagnosticMessageText(rawConfig.error.messageText, '\n'));
+}
+const parsedConfig = ts.parseJsonConfigFileContent(rawConfig.config, ts.sys, path.dirname(tsconfigPath));
+const program = ts.createProgram({
+  rootNames: parsedConfig.fileNames,
+  options: parsedConfig.options,
+});
+const checker = program.getTypeChecker();
+const sourceFile = program.getSourceFile(filePath);
+if (!sourceFile) {
+  throw new Error(`source file missing: ${filePath}`);
+}
 
 const EXPECTED_INTERFACES = {
   NEXT_S2C_Bootstrap: {
@@ -109,14 +122,19 @@ function extractInterfaceShape(name) {
   if (!declaration) {
     throw new Error(`interface missing: ${name}`);
   }
+  const symbol = checker.getSymbolAtLocation(declaration.name);
+  if (!symbol) {
+    throw new Error(`interface symbol missing: ${name}`);
+  }
+  const interfaceType = checker.getDeclaredTypeOfSymbol(symbol);
   const shape = {};
-  for (const member of declaration.members) {
-    if (!ts.isPropertySignature(member)) continue;
-    const propName = getPropertyName(member);
-    if (!propName || !member.type) continue;
+  for (const propertySymbol of checker.getPropertiesOfType(interfaceType)) {
+    const propName = propertySymbol.getName();
+    const propertyDeclaration = propertySymbol.declarations?.find((node) => ts.isPropertySignature(node) || ts.isPropertyDeclaration(node));
+    if (!propName || !propertyDeclaration || !propertyDeclaration.type) continue;
     shape[propName] = {
-      optional: Boolean(member.questionToken),
-      type: normalizeTypeText(member.type.getText(sourceFile)),
+      optional: Boolean(propertySymbol.flags & ts.SymbolFlags.Optional),
+      type: normalizeTypeText(propertyDeclaration.type.getText(propertyDeclaration.getSourceFile())),
     };
   }
   return shape;

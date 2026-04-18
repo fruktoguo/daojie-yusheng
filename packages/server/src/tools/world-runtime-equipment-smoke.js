@@ -9,7 +9,7 @@ function buildDeps(log) {
             getLockedSlotReason() { return null; },
         },
         queuePlayerNotice(playerId, message, tone) { log.push(['queuePlayerNotice', playerId, message, tone]); },
-        worldRuntimeCraftService: {
+        worldRuntimeCraftMutationService: {
             emitCraftPanelUpdate(playerId, panel) { log.push(['emitCraftPanelUpdate', playerId, panel]); },
         },
     };

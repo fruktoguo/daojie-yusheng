@@ -72,6 +72,8 @@ const world_runtime_npc_shop_query_service_1 = require("./runtime/world/world-ru
 
 const world_runtime_quest_query_service_1 = require("./runtime/world/world-runtime-quest-query.service");
 
+const world_runtime_quest_state_service_1 = require("./runtime/world/world-runtime-quest-state.service");
+
 const world_runtime_detail_query_service_1 = require("./runtime/world/world-runtime-detail-query.service");
 
 const world_runtime_metrics_service_1 = require("./runtime/world/world-runtime-metrics.service");
@@ -102,9 +104,13 @@ const world_runtime_respawn_service_1 = require("./runtime/world/world-runtime-r
 
 const world_runtime_system_command_service_1 = require("./runtime/world/world-runtime-system-command.service");
 
-const world_runtime_craft_service_1 = require("./runtime/world/world-runtime-craft.service");
+const world_runtime_craft_tick_service_1 = require("./runtime/world/world-runtime-craft-tick.service");
 
-const world_runtime_npc_quest_shop_service_1 = require("./runtime/world/world-runtime-npc-quest-shop.service");
+const world_runtime_craft_mutation_service_1 = require("./runtime/world/world-runtime-craft-mutation.service");
+
+const world_runtime_craft_interrupt_service_1 = require("./runtime/world/world-runtime-craft-interrupt.service");
+
+const world_runtime_npc_quest_write_service_1 = require("./runtime/world/world-runtime-npc-quest-write.service");
 
 const world_runtime_loot_container_service_1 = require("./runtime/world/world-runtime-loot-container.service");
 
@@ -116,9 +122,17 @@ const world_runtime_monster_action_apply_service_1 = require("./runtime/world/wo
 
 const world_runtime_basic_attack_service_1 = require("./runtime/world/world-runtime-basic-attack.service");
 
+const world_runtime_monster_system_command_service_1 = require("./runtime/world/world-runtime-monster-system-command.service");
+
 const world_runtime_player_combat_service_1 = require("./runtime/world/world-runtime-player-combat.service");
 
+const world_runtime_player_command_service_1 = require("./runtime/world/world-runtime-player-command.service");
+
 const world_runtime_item_ground_service_1 = require("./runtime/world/world-runtime-item-ground.service");
+
+const world_runtime_transfer_service_1 = require("./runtime/world/world-runtime-transfer.service");
+
+const world_runtime_npc_access_service_1 = require("./runtime/world/world-runtime-npc-access.service");
 
 const world_runtime_equipment_service_1 = require("./runtime/world/world-runtime-equipment.service");
 
@@ -213,6 +227,7 @@ exports.AppModule = AppModule = __decorate([
             craft_panel_runtime_service_1.CraftPanelRuntimeService,
             world_runtime_npc_shop_query_service_1.WorldRuntimeNpcShopQueryService,
             world_runtime_quest_query_service_1.WorldRuntimeQuestQueryService,
+            world_runtime_quest_state_service_1.WorldRuntimeQuestStateService,
             world_runtime_detail_query_service_1.WorldRuntimeDetailQueryService,
             world_runtime_metrics_service_1.WorldRuntimeMetricsService,
             world_runtime_instance_tick_orchestration_service_1.WorldRuntimeInstanceTickOrchestrationService,
@@ -228,15 +243,21 @@ exports.AppModule = AppModule = __decorate([
             world_runtime_gm_queue_service_1.WorldRuntimeGmQueueService,
             world_runtime_respawn_service_1.WorldRuntimeRespawnService,
             world_runtime_system_command_service_1.WorldRuntimeSystemCommandService,
-            world_runtime_craft_service_1.WorldRuntimeCraftService,
-            world_runtime_npc_quest_shop_service_1.WorldRuntimeNpcQuestShopService,
+            world_runtime_craft_tick_service_1.WorldRuntimeCraftTickService,
+            world_runtime_craft_mutation_service_1.WorldRuntimeCraftMutationService,
+            world_runtime_craft_interrupt_service_1.WorldRuntimeCraftInterruptService,
+            world_runtime_npc_quest_write_service_1.WorldRuntimeNpcQuestWriteService,
             world_runtime_loot_container_service_1.WorldRuntimeLootContainerService,
             world_runtime_navigation_service_1.WorldRuntimeNavigationService,
             world_runtime_combat_effects_service_1.WorldRuntimeCombatEffectsService,
             world_runtime_monster_action_apply_service_1.WorldRuntimeMonsterActionApplyService,
             world_runtime_basic_attack_service_1.WorldRuntimeBasicAttackService,
+            world_runtime_monster_system_command_service_1.WorldRuntimeMonsterSystemCommandService,
             world_runtime_player_combat_service_1.WorldRuntimePlayerCombatService,
+            world_runtime_player_command_service_1.WorldRuntimePlayerCommandService,
             world_runtime_item_ground_service_1.WorldRuntimeItemGroundService,
+            world_runtime_transfer_service_1.WorldRuntimeTransferService,
+            world_runtime_npc_access_service_1.WorldRuntimeNpcAccessService,
             world_runtime_equipment_service_1.WorldRuntimeEquipmentService,
             world_runtime_cultivation_service_1.WorldRuntimeCultivationService,
             world_runtime_progression_service_1.WorldRuntimeProgressionService,

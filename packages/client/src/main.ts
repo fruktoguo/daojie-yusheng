@@ -2925,11 +2925,12 @@ function handleSystemMsg(data: NEXT_S2C_SystemMsg): void {
     showToast(data.text, data.kind);
     return;
   }
-  void chatUI.addMessage(data.text, data.from ?? '系统', data.kind ?? 'system');
+  const fallbackKind = data.kind === 'info' ? 'system' : data.kind ?? 'system';
+  void chatUI.addMessage(data.text, data.from ?? '系统', fallbackKind);
   if (data.text === '无法到达该位置' || data.text === '目标过远，无法规划路径') {
     clearCurrentPath();
   }
-  showToast(data.text, data.kind ?? 'system');
+  showToast(data.text, fallbackKind);
 }
 function resolveSystemMsgIdFromNextNotice(item: NEXT_S2C_NoticeItem): string | undefined {
   if (typeof item.messageId === 'string' && item.messageId.length > 0) {

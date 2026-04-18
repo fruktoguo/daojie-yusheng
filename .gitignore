@@ -15,3 +15,5 @@ packages/server/data/backups/
 .legna/
 .yuobot/
 .yuobotlite/
+.sisyphus/
+*.cpuprofile

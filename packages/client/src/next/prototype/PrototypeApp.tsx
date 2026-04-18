@@ -10,8 +10,34 @@ import {
   showNextTooltip,
 } from '../overlays/overlay-store';
 import { UiButton } from '../primitives/UiButton';
+import { UiActionListItem } from '../primitives/UiActionListItem';
+import { UiEquipmentSlot } from '../primitives/UiEquipmentSlot';
+import { UiFieldRow } from '../primitives/UiFieldRow';
+import { UiGameItem, type UiGameItemGradeTone } from '../primitives/UiGameItem';
+import { UiItemCard } from '../primitives/UiItemCard';
+import { UiMailDetail } from '../primitives/UiMailDetail';
+import { UiInventoryCell } from '../primitives/UiInventoryCell';
+import { UiInlineReferenceText } from '../primitives/UiInlineReferenceText';
+import { UiMailListItem } from '../primitives/UiMailListItem';
+import { UiMarketOrderRow } from '../primitives/UiMarketOrderRow';
+import { UiModalScaffold } from '../primitives/UiModalScaffold';
+import { UiPanelFrame } from '../primitives/UiPanelFrame';
+import { UiPriceEditor } from '../primitives/UiPriceEditor';
 import { UiPill } from '../primitives/UiPill';
+import { UiQuantityStepper } from '../primitives/UiQuantityStepper';
+import { UiQuestDetail } from '../primitives/UiQuestDetail';
+import { UiQuestListItem } from '../primitives/UiQuestListItem';
+import { UiResourceBar } from '../primitives/UiResourceBar';
 import { UiSection } from '../primitives/UiSection';
+import { UiList } from '../primitives/UiList';
+import { UiSplitPane } from '../primitives/UiSplitPane';
+import { UiSliderField } from '../primitives/UiSliderField';
+import { UiTabButton } from '../primitives/UiTabButton';
+import { UiTabList } from '../primitives/UiTabList';
+import { UiTechniqueDetail } from '../primitives/UiTechniqueDetail';
+import { UiTechniqueListItem } from '../primitives/UiTechniqueListItem';
+import { UiToolbar } from '../primitives/UiToolbar';
+import { UiWorldEntityRow } from '../primitives/UiWorldEntityRow';
 import {
   PROTOTYPE_ACTIONS,
   PROTOTYPE_ATTR_TABS,
@@ -38,7 +64,7 @@ const MODULE_GROUPS: ReadonlyArray<{
 }> = [
   {
     title: '主壳层',
-    ids: ['login', 'hud', 'attr', 'equipment', 'inventory', 'technique', 'action', 'quest', 'world', 'market', 'mail', 'settings'],
+    ids: ['foundation', 'login', 'hud', 'attr', 'equipment', 'inventory', 'technique', 'action', 'quest', 'world', 'market', 'mail', 'settings'],
   },
   {
     title: '补充面板',
@@ -61,6 +87,35 @@ function ratioPercent(current: number, max: number): string {
   return `${Math.max(0, Math.min(100, (current / max) * 100))}%`;
 }
 
+function resolvePrototypeGradeTone(label: string): UiGameItemGradeTone | null {
+  if (label.includes('凡')) return 'mortal';
+  if (label.includes('黄')) return 'yellow';
+  if (label.includes('玄')) return 'mystic';
+  if (label.includes('地')) return 'earth';
+  if (label.includes('天')) return 'heaven';
+  if (label.includes('灵')) return 'spirit';
+  if (label.includes('圣')) return 'saint';
+  if (label.includes('帝')) return 'emperor';
+  return null;
+}
+
+function getPrototypeItemTypeLabel(category: string): string {
+  switch (category) {
+    case 'equipment':
+      return '装备';
+    case 'consumable':
+      return '丹药';
+    case 'skill_book':
+      return '功法书';
+    case 'material':
+      return '材料';
+    case 'special':
+      return '特殊';
+    default:
+      return '物品';
+  }
+}
+
 function getModuleStatusLabel(status: PrototypeModuleCardData['status']): string {
   if (status === 'prototype-ready') {
     return '原型已覆盖';
@@ -76,8 +131,7 @@ function openModulePreview(module: PrototypeModuleCardData): void {
     title: module.title,
     subtitle: undefined,
     body: (
-      <div className="prototype-modal-grid">
-        <div className="prototype-modal-copy">{module.title}</div>
+      <UiModalScaffold title={module.title}>
         <div className="prototype-chip-row">
           {module.interactions.map((item) => (
             <span key={item} className="prototype-chip">{item}</span>
@@ -86,7 +140,7 @@ function openModulePreview(module: PrototypeModuleCardData): void {
         <div className="next-ui-detail-preview-actions">
           <UiButton type="button" variants={['ghost']} onClick={closeNextDetailModal}>关闭</UiButton>
         </div>
-      </div>
+      </UiModalScaffold>
     ),
   });
 }
@@ -96,14 +150,14 @@ function openInventoryDetail(itemName: string, note: string): void {
     title: itemName,
     subtitle: undefined,
     body: (
-      <div className="prototype-modal-grid">
+      <UiModalScaffold title={itemName} subtitle={note}>
         <div className="prototype-chip-row">
           <span className="prototype-chip">{note}</span>
         </div>
         <div className="next-ui-detail-preview-actions">
           <UiButton type="button" variants={['ghost']} onClick={closeNextDetailModal}>关闭</UiButton>
         </div>
-      </div>
+      </UiModalScaffold>
     ),
   });
 }
@@ -118,18 +172,17 @@ function TooltipItemCard({
   onClick: () => void;
 }) {
   return (
-    <button
-      type="button"
-      className="prototype-item-card"
+    <UiItemCard
+      title={name}
+      subtitle={meta}
       onClick={onClick}
       onPointerMove={(event) => {
         showNextTooltip(name, [meta, '这里未来接入统一物品 Tooltip 内容。'], event.clientX, event.clientY);
       }}
       onPointerLeave={hideNextTooltip}
     >
-      <div className="prototype-list-title">{name}</div>
-      <div className="prototype-item-meta">{meta}</div>
-    </button>
+      <div className="prototype-item-meta">点击查看详情</div>
+    </UiItemCard>
   );
 }
 
@@ -158,64 +211,243 @@ function LoginPanelPreview() {
   );
 }
 
-function HudPanelPreview() {
+function FoundationPanelPreview() {
+  const [activeTab, setActiveTab] = useState<'primary' | 'danger'>('primary');
+  const [activeListTab, setActiveListTab] = useState<'inventory' | 'market' | 'mail'>('inventory');
+  const [sliderValue, setSliderValue] = useState(105);
+  const [quantity, setQuantity] = useState(12);
+  const [price, setPrice] = useState(1880);
+
   return (
-    <UiSection title="HUD" subtitle={`${PROTOTYPE_PLAYER.title} · ${PROTOTYPE_PLAYER.realm}`}>
-      <div className="prototype-resource-stack">
-        <div className="prototype-resource">
-          <div className="prototype-resource-head">
-            <span>生命值</span>
-            <span>{formatNumber(PROTOTYPE_PLAYER.hp)} / {formatNumber(PROTOTYPE_PLAYER.hpMax)}</span>
-          </div>
-          <div className="prototype-resource-track">
-            <div className="prototype-resource-fill" style={{ width: ratioPercent(PROTOTYPE_PLAYER.hp, PROTOTYPE_PLAYER.hpMax) }} />
-          </div>
-        </div>
-        <div className="prototype-resource">
-          <div className="prototype-resource-head">
-            <span>灵力</span>
-            <span>{formatNumber(PROTOTYPE_PLAYER.qi)} / {formatNumber(PROTOTYPE_PLAYER.qiMax)}</span>
-          </div>
-          <div className="prototype-resource-track">
-            <div className="prototype-resource-fill prototype-resource-fill--qi" style={{ width: ratioPercent(PROTOTYPE_PLAYER.qi, PROTOTYPE_PLAYER.qiMax) }} />
-          </div>
-        </div>
-        <div className="prototype-resource">
-          <div className="prototype-resource-head">
-            <span>修为</span>
-            <span>{formatNumber(PROTOTYPE_PLAYER.cultivate)} / {formatNumber(PROTOTYPE_PLAYER.cultivateMax)}</span>
-          </div>
-          <div className="prototype-resource-track">
-            <div className="prototype-resource-fill prototype-resource-fill--cultivate" style={{ width: ratioPercent(PROTOTYPE_PLAYER.cultivate, PROTOTYPE_PLAYER.cultivateMax) }} />
-          </div>
-        </div>
-      </div>
+    <UiSection title="基础组件">
+      <div className="prototype-foundation-grid">
+        <UiPanelFrame title="按钮 / 胶囊 / Tab" subtitle="统一交互语气">
+          <UiToolbar className="prototype-pill-row">
+            <UiButton type="button">主按钮</UiButton>
+            <UiButton type="button" variants={['ghost']}>幽灵按钮</UiButton>
+            <UiButton type="button" variants={['danger']}>危险按钮</UiButton>
+          </UiToolbar>
+          <UiToolbar className="prototype-pill-row">
+            <UiPill>默认胶囊</UiPill>
+            <UiPill tone="accent">强调胶囊</UiPill>
+          </UiToolbar>
+          <UiTabList
+            items={[
+              { key: 'primary', label: '普通态' },
+              { key: 'danger', label: '危险态' },
+            ]}
+            activeKey={activeTab}
+            onChange={setActiveTab}
+          />
+          <UiTabList
+            items={[
+              { key: 'inventory', label: '背包' },
+              { key: 'market', label: '坊市' },
+              { key: 'mail', label: '邮件' },
+            ]}
+            activeKey={activeListTab}
+            onChange={setActiveListTab}
+            orientation="vertical"
+            className="prototype-foundation-vertical-tabs"
+          />
+        </UiPanelFrame>
 
-      <div className="prototype-stat-grid">
-        <div className="prototype-stat">
-          <div className="prototype-stat-label">玩家</div>
-          <div className="prototype-stat-value">{PROTOTYPE_PLAYER.name}</div>
-        </div>
-        <div className="prototype-stat">
-          <div className="prototype-stat-label">地图</div>
-          <div className="prototype-stat-value">{PROTOTYPE_PLAYER.map}</div>
-        </div>
-        <div className="prototype-stat">
-          <div className="prototype-stat-label">位置</div>
-          <div className="prototype-stat-value">{PROTOTYPE_PLAYER.position}</div>
-        </div>
-        <div className="prototype-stat">
-          <div className="prototype-stat-label">底蕴</div>
-          <div className="prototype-stat-value">{formatNumber(PROTOTYPE_PLAYER.foundation)}</div>
-        </div>
-      </div>
+        <UiPanelFrame title="Label / 字段行" subtitle="统一排版层级">
+          <UiFieldRow label="角色名" value="顾长青" />
+          <UiFieldRow label="境界" value="筑基初期" />
+          <UiFieldRow label="灵石" value={formatNumber(58210)} />
+          <div className="prototype-form-stack">
+            <label className="next-ui-form-field">
+              <span className="next-ui-form-label">普通输入</span>
+              <input className="next-ui-input" defaultValue="流火长剑" />
+            </label>
+            <label className="next-ui-form-field">
+              <span className="next-ui-form-label">说明输入</span>
+              <input className="next-ui-input" defaultValue="用于预览统一 input 样式" />
+            </label>
+          </div>
+        </UiPanelFrame>
 
-      <div className="prototype-chip-row">
-        <UiPill tone="accent">{PROTOTYPE_PLAYER.displayName}</UiPill>
-        <UiPill>{PROTOTYPE_PLAYER.realm}</UiPill>
-        <UiPill>{PROTOTYPE_PLAYER.map}</UiPill>
+        <UiPanelFrame title="数值条" subtitle="血条 / 蓝条 / 修为条">
+          <div className="next-ui-resource-stack">
+            <UiResourceBar label="生命值" value={PROTOTYPE_PLAYER.hp} max={PROTOTYPE_PLAYER.hpMax} tone="health" valueText={`${formatNumber(PROTOTYPE_PLAYER.hp)} / ${formatNumber(PROTOTYPE_PLAYER.hpMax)}`} />
+            <UiResourceBar label="灵力" value={PROTOTYPE_PLAYER.qi} max={PROTOTYPE_PLAYER.qiMax} tone="qi" valueText={`${formatNumber(PROTOTYPE_PLAYER.qi)} / ${formatNumber(PROTOTYPE_PLAYER.qiMax)}`} />
+            <UiResourceBar label="修为" value={PROTOTYPE_PLAYER.cultivate} max={PROTOTYPE_PLAYER.cultivateMax} tone="cultivate" variant="progress" valueText={`${formatNumber(PROTOTYPE_PLAYER.cultivate)} / ${formatNumber(PROTOTYPE_PLAYER.cultivateMax)}`} />
+          </div>
+        </UiPanelFrame>
+
+        <UiPanelFrame title="滑杆 / 数量 / 价格" subtitle="统一输入控件">
+          <UiSliderField
+            label="界面缩放"
+            value={sliderValue}
+            min={70}
+            max={130}
+            step={5}
+            valueText={`${sliderValue}%`}
+            onChange={setSliderValue}
+          />
+          <UiQuantityStepper
+            label="数量选择器"
+            value={quantity}
+            min={1}
+            max={99}
+            step={1}
+            onChange={setQuantity}
+          />
+          <UiPriceEditor
+            label="价格输入"
+            value={price}
+            min={1}
+            max={99999}
+            step={10}
+            presets={[1280, 1880, 2880]}
+            onChange={setPrice}
+          />
+        </UiPanelFrame>
+
+        <UiPanelFrame title="列表 / 分栏" subtitle="统一容器骨架">
+          <UiSplitPane
+            secondarySize={260}
+            primary={(
+              <UiList className="prototype-item-grid prototype-item-grid--inventory" orientation="grid" columns={2} scrollable>
+                <UiInventoryCell
+                  name="流火长剑"
+                  typeLabel="装备 · 地品"
+                  grade="武器 · +7 强化"
+                  gradeTone="earth"
+                  note="命中偏向"
+                  quantity={1}
+                  chips={['Lv.48', '火行']}
+                  actions={(
+                    <>
+                      <UiButton type="button">装备</UiButton>
+                      <UiButton type="button" variants={['danger']}>丢下</UiButton>
+                    </>
+                  )}
+                  active
+                />
+                <UiInventoryCell
+                  name="青纹法袍"
+                  typeLabel="装备 · 玄品"
+                  grade="衣服 · 抗性偏向"
+                  gradeTone="mystic"
+                  note="法袍"
+                  quantity={1}
+                  chips={['Lv.36']}
+                  actions={(
+                    <>
+                      <UiButton type="button">装备</UiButton>
+                      <UiButton type="button" variants={['danger']}>丢下</UiButton>
+                    </>
+                  )}
+                />
+                <UiInventoryCell
+                  name="养气丹"
+                  typeLabel="丹药 · 黄品"
+                  grade="可批量使用"
+                  gradeTone="yellow"
+                  note="恢复灵力"
+                  quantity={36}
+                  actions={(
+                    <>
+                      <UiButton type="button">使用</UiButton>
+                      <UiButton type="button" variants={['danger']}>丢下</UiButton>
+                    </>
+                  )}
+                />
+              </UiList>
+            )}
+            secondary={(
+              <div className="prototype-detail-card">
+                <UiPanelFrame title="右侧详情" subtitle="SplitPane Secondary">
+                  <UiFieldRow label="当前选中" value="流火长剑" />
+                  <UiFieldRow label="容器" value="UiSplitPane" />
+                </UiPanelFrame>
+              </div>
+            )}
+          />
+        </UiPanelFrame>
+
+        <UiPanelFrame title="复杂物品" subtitle="品阶 / 类型 / chip / 动作区">
+          <UiGameItem
+            name="九转凝息诀"
+            typeLabel="功法书"
+            quantity="x1"
+            gradeLabel="地品"
+            gradeTone="earth"
+            note="主修功法 · hover 详情"
+            chips={['境五', '法术', '火行']}
+            actions={(
+              <>
+                <UiButton type="button" variants={['ghost']}>查看</UiButton>
+                <UiButton type="button" variants={['ghost']}>上架</UiButton>
+              </>
+            )}
+          />
+        </UiPanelFrame>
       </div>
     </UiSection>
+  );
+}
+
+function HudPanelPreview() {
+  return (
+    <div id="hud">
+      <div className="hud-panel">
+        <div className="hud-identity">
+          <div className="hud-name">{PROTOTYPE_PLAYER.displayName}</div>
+          <div className="hud-title">{PROTOTYPE_PLAYER.title}</div>
+        </div>
+
+        <div className="hud-resource-bars">
+          <UiResourceBar
+            className="hud-resource-bar"
+            label="生命值"
+            value={PROTOTYPE_PLAYER.hp}
+            max={PROTOTYPE_PLAYER.hpMax}
+            tone="health"
+            valueText={`${formatNumber(PROTOTYPE_PLAYER.hp)} / ${formatNumber(PROTOTYPE_PLAYER.hpMax)}`}
+          />
+          <UiResourceBar
+            className="hud-resource-bar"
+            label="灵力"
+            value={PROTOTYPE_PLAYER.qi}
+            max={PROTOTYPE_PLAYER.qiMax}
+            tone="qi"
+            valueText={`${formatNumber(PROTOTYPE_PLAYER.qi)} / ${formatNumber(PROTOTYPE_PLAYER.qiMax)}`}
+          />
+          <UiResourceBar
+            className="hud-resource-bar"
+            label="修为"
+            value={PROTOTYPE_PLAYER.cultivate}
+            max={PROTOTYPE_PLAYER.cultivateMax}
+            tone="cultivate"
+            variant="progress"
+            valueText={`${formatNumber(PROTOTYPE_PLAYER.cultivate)} / ${formatNumber(PROTOTYPE_PLAYER.cultivateMax)}`}
+          />
+        </div>
+
+        <div className="hud-grid">
+          <div className="hud-row">
+            <span className="hud-label">玩家</span>
+            <span className="hud-value">{PROTOTYPE_PLAYER.name}</span>
+          </div>
+          <div className="hud-row">
+            <span className="hud-label">地图</span>
+            <span className="hud-value">{PROTOTYPE_PLAYER.map}</span>
+          </div>
+          <div className="hud-row">
+            <span className="hud-label">位置</span>
+            <span className="hud-value">{PROTOTYPE_PLAYER.position}</span>
+          </div>
+          <div className="hud-row">
+            <span className="hud-label">底蕴</span>
+            <span className="hud-value">{formatNumber(PROTOTYPE_PLAYER.foundation)}</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
   );
 }
 
@@ -225,26 +457,16 @@ function AttrPanelPreview() {
 
   return (
     <UiSection title="属性 / 装备">
-      <div className="prototype-tab-row">
-        {PROTOTYPE_ATTR_TABS.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            className={`prototype-tab-btn ${tab.id === active.id ? 'active' : ''}`}
-            onClick={() => setActiveTab(tab.id)}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-      <div className="prototype-kv-grid">
+      <UiTabList
+        items={PROTOTYPE_ATTR_TABS.map((tab) => ({ key: tab.id, label: tab.label }))}
+        activeKey={active.id}
+        onChange={setActiveTab}
+      />
+      <UiList className="prototype-kv-grid">
         {active.rows.map(([label, value]) => (
-          <div key={label} className="prototype-kv-row">
-            <span className="prototype-kv-label">{label}</span>
-            <span className="prototype-kv-value">{value}</span>
-          </div>
+          <UiFieldRow key={label} label={label} value={value} />
         ))}
-      </div>
+      </UiList>
       <div className="prototype-chip-row">
         <span className="prototype-chip">基础</span>
         <span className="prototype-chip">战斗</span>
@@ -266,13 +488,12 @@ function EquipmentPanelPreview() {
           ['护符', '寒玉符'],
           ['法宝', '未装备'],
         ].map(([slot, item]) => (
-          <div key={slot} className="prototype-list-item">
-            <div className="prototype-list-head">
-              <span className="prototype-list-title">{slot}</span>
-              <span className="prototype-chip">{item === '空' || item === '未装备' ? '空槽' : '已装备'}</span>
-            </div>
-            <div className="prototype-list-note">{item}</div>
-          </div>
+          <UiEquipmentSlot
+            key={slot}
+            slot={slot}
+            itemName={item}
+            stateLabel={item === '空' || item === '未装备' ? '空槽' : '已装备'}
+          />
         ))}
       </div>
       <div className="prototype-item-grid">
@@ -299,61 +520,60 @@ function InventoryPanelPreview() {
 
   return (
     <UiSection title="背包">
-      <div className="prototype-tab-row">
-        {[
-          ['all', '全部'],
-          ['equipment', '装备'],
-          ['consumable', '丹药'],
-          ['skill_book', '功法书'],
-          ['material', '材料'],
-        ].map(([id, label]) => (
-          <button
-            key={id}
-            type="button"
-            className={`prototype-tab-btn ${filter === id ? 'active' : ''}`}
-            onClick={() => setFilter(id)}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-      <div className="prototype-two-pane">
-        <div className="prototype-list">
-          {visibleItems.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              className={`prototype-list-item ${selected?.id === item.id ? 'is-active' : ''}`}
-              onClick={() => setSelectedId(item.id)}
-              onPointerMove={(event) => {
-                showNextTooltip(item.name, [`${item.grade} · ${item.note}`, `数量 ${item.qty}`], event.clientX, event.clientY);
-              }}
-              onPointerLeave={hideNextTooltip}
-            >
-              <div className="prototype-list-head">
-                <span className="prototype-list-title">{item.name}</span>
-                <span className="prototype-chip">{item.qty}</span>
-              </div>
-              <div className="prototype-list-note">{item.grade} · {item.note}</div>
-            </button>
-          ))}
-        </div>
-        <div className="prototype-detail-card">
-          {selected ? (
-            <>
-              <div className="prototype-detail-title">{selected.name}</div>
-              <div className="prototype-detail-copy">{selected.grade} · {selected.note}</div>
-              <div className="prototype-chip-row">
-                <span className="prototype-chip">数量 {selected.qty}</span>
-                <span className="prototype-chip">{selected.grade}</span>
-              </div>
-              <div className="next-ui-detail-preview-actions">
-                <UiButton type="button" variants={['ghost']} onClick={() => openInventoryDetail(selected.name, selected.note)}>打开详情弹层</UiButton>
-              </div>
-            </>
-          ) : null}
-        </div>
-      </div>
+      <UiTabList
+        items={[
+          { key: 'all', label: '全部' },
+          { key: 'equipment', label: '装备' },
+          { key: 'consumable', label: '丹药' },
+          { key: 'skill_book', label: '功法书' },
+          { key: 'material', label: '材料' },
+        ]}
+        activeKey={filter}
+        onChange={setFilter}
+      />
+      <UiSplitPane
+        primary={(
+          <UiList className="prototype-item-grid prototype-item-grid--inventory" orientation="grid" columns={3} scrollable>
+            {visibleItems.map((item) => (
+              <UiInventoryCell
+                key={item.id}
+                name={item.name}
+                typeLabel={getPrototypeItemTypeLabel(item.category)}
+                grade={item.grade}
+                gradeTone={resolvePrototypeGradeTone(item.grade)}
+                note={item.note}
+                quantity={item.qty}
+                chips={item.category === 'skill_book' ? ['主修候选', 'hover'] : undefined}
+                actions={(
+                  <>
+                    <UiButton type="button">{item.category === 'consumable' ? '使用' : item.category === 'equipment' ? '装备' : '查看'}</UiButton>
+                    <UiButton type="button" variants={['danger']}>丢下</UiButton>
+                  </>
+                )}
+                active={selected?.id === item.id}
+                onClick={() => setSelectedId(item.id)}
+                onPointerMove={(event) => {
+                  showNextTooltip(item.name, [`${item.grade} · ${item.note}`, `数量 ${item.qty}`], event.clientX, event.clientY);
+                }}
+                onPointerLeave={hideNextTooltip}
+              />
+            ))}
+          </UiList>
+        )}
+        secondary={(
+          <div className="prototype-detail-card">
+            {selected ? (
+              <UiPanelFrame title={selected.name} subtitle={`${selected.grade} · ${selected.note}`}>
+                <UiFieldRow label="数量" value={selected.qty} />
+                <UiFieldRow label="品阶" value={selected.grade} />
+                <div className="next-ui-detail-preview-actions">
+                  <UiButton type="button" variants={['ghost']} onClick={() => openInventoryDetail(selected.name, selected.note)}>打开详情弹层</UiButton>
+                </div>
+              </UiPanelFrame>
+            ) : null}
+          </div>
+        )}
+      />
     </UiSection>
   );
 }
@@ -364,42 +584,41 @@ function TechniquePanelPreview() {
 
   return (
     <UiSection title="功法">
-      <div className="prototype-two-pane">
-        <div className="prototype-list">
-          {PROTOTYPE_TECHNIQUES.map((technique) => (
-            <button
-              key={technique.id}
-              type="button"
-              className={`prototype-list-item ${selected?.id === technique.id ? 'is-active' : ''}`}
-              onClick={() => setSelectedId(technique.id)}
-            >
-              <div className="prototype-list-head">
-                <span className="prototype-list-title">{technique.name}</span>
-                <span className="prototype-chip">{technique.level}</span>
-              </div>
-              <div className="prototype-list-note">{technique.note}</div>
-            </button>
-          ))}
-        </div>
-        <div className="prototype-detail-card">
-          {selected ? (
-            <>
-              <div className="prototype-detail-title">{selected.name}</div>
-              <div className="prototype-detail-copy">{selected.level} · {selected.note}</div>
-              <div className="prototype-chip-row">
-                <span className="prototype-chip">技能 3 / 5</span>
-                <span className="prototype-chip">里程碑 2 / 4</span>
-              </div>
-              <div className="prototype-map-placeholder prototype-map-placeholder--compact">
-                <div className="prototype-map-copy">
-                  <div className="prototype-map-title">功法展开区</div>
-                  <div className="prototype-map-note">心法、技能、进度</div>
-                </div>
-              </div>
-            </>
-          ) : null}
-        </div>
-      </div>
+      <UiSplitPane
+        primary={(
+          <UiList className="prototype-list" scrollable>
+            {PROTOTYPE_TECHNIQUES.map((technique) => (
+              <UiTechniqueListItem
+                key={technique.id}
+                title={technique.name}
+                level={technique.level}
+                note={technique.note}
+                active={selected?.id === technique.id}
+                onClick={() => setSelectedId(technique.id)}
+              />
+            ))}
+          </UiList>
+        )}
+        secondary={(
+          <div className="prototype-detail-card">
+            {selected ? (
+              <UiTechniqueDetail
+                title={selected.name}
+                subtitle={`${selected.level} · ${selected.note}`}
+                badges={['技能 3 / 5', '里程碑 2 / 4']}
+                footer={(
+                  <div className="prototype-map-placeholder prototype-map-placeholder--compact">
+                    <div className="prototype-map-copy">
+                      <div className="prototype-map-title">功法展开区</div>
+                      <div className="prototype-map-note">心法、技能、进度</div>
+                    </div>
+                  </div>
+                )}
+              />
+            ) : null}
+          </div>
+        )}
+      />
     </UiSection>
   );
 }
@@ -411,26 +630,22 @@ function ActionPanelPreview() {
   return (
     <UiSection title="行动">
       <div className="prototype-chip-row">
-        <button type="button" className={`prototype-tab-btn ${autoBattleEnabled ? 'active' : ''}`} onClick={() => setAutoBattleEnabled((prev) => !prev)}>
+        <UiTabButton active={autoBattleEnabled} onClick={() => setAutoBattleEnabled((prev) => !prev)}>
           自动战斗 {autoBattleEnabled ? '开' : '关'}
-        </button>
+        </UiTabButton>
       </div>
-      <div className="prototype-list">
+      <UiList className="prototype-list" scrollable>
         {PROTOTYPE_ACTIONS.map((action) => (
-          <button
+          <UiActionListItem
             key={action.id}
-            type="button"
-            className={`prototype-list-item ${selectedActionId === action.id ? 'is-active' : ''}`}
+            title={action.name}
+            state={action.state}
+            note={`${action.note} · 默认 ${action.enabled ? '启用' : '禁用'}`}
+            active={selectedActionId === action.id}
             onClick={() => setSelectedActionId(action.id)}
-          >
-            <div className="prototype-list-head">
-              <span className="prototype-list-title">{action.name}</span>
-              <span className="prototype-chip">{action.state}</span>
-            </div>
-            <div className="prototype-list-note">{action.note} · 默认 {action.enabled ? '启用' : '禁用'}</div>
-          </button>
+          />
         ))}
-      </div>
+      </UiList>
     </UiSection>
   );
 }
@@ -441,41 +656,48 @@ function QuestPanelPreview() {
 
   return (
     <UiSection title="任务">
-      <div className="prototype-two-pane">
-        <div className="prototype-list">
-          {PROTOTYPE_QUESTS.map((quest) => (
-            <button
-              key={quest.id}
-              type="button"
-              className={`prototype-list-item ${selected?.id === quest.id ? 'is-active' : ''}`}
-              onClick={() => setSelectedId(quest.id)}
-            >
-              <div className="prototype-list-head">
-                <span className="prototype-list-title">{quest.title}</span>
-                <span className="prototype-chip">{quest.status}</span>
-              </div>
-              <div className="prototype-list-note">{quest.note}</div>
-            </button>
-          ))}
-        </div>
-        <div className="prototype-detail-card">
-          {selected ? (
-            <>
-              <div className="prototype-detail-title">{selected.title}</div>
-              <div className="prototype-detail-copy">{selected.note}</div>
-              <div className="prototype-chip-row">
-                <span className="prototype-chip">追踪中</span>
-                <span className="prototype-chip">目标已标记</span>
-              </div>
-              <div className="next-ui-detail-preview-actions">
-                <UiButton type="button" variants={['ghost']} onClick={() => openModulePreview(PROTOTYPE_MODULES.find((item) => item.id === 'quest') ?? PROTOTYPE_MODULES[0])}>
-                  打开详情
-                </UiButton>
-              </div>
-            </>
-          ) : null}
-        </div>
-      </div>
+      <UiSplitPane
+        primary={(
+          <UiList className="prototype-list" scrollable>
+            {PROTOTYPE_QUESTS.map((quest) => (
+              <UiQuestListItem
+                key={quest.id}
+                title={quest.title}
+                status={quest.status}
+                note={quest.note}
+                active={selected?.id === quest.id}
+                onClick={() => setSelectedId(quest.id)}
+              />
+            ))}
+          </UiList>
+        )}
+        secondary={(
+          <div className="prototype-detail-card">
+            {selected ? (
+              <UiPanelFrame title={selected.title} subtitle={selected.note}>
+                <div className="next-ui-badge-row">
+                  <UiPill>追踪中</UiPill>
+                  <UiPill tone="accent">目标已标记</UiPill>
+                </div>
+                <UiInlineReferenceText
+                  text="收集养气丹与寒铁精，随后前往青石坊外击退赤尾狼，最后把九转凝息诀带回驿馆。"
+                  references={[
+                    { kind: 'item', id: 'pill-1', label: '养气丹', tone: 'required' },
+                    { kind: 'item', id: 'mat-1', label: '寒铁精', tone: 'material' },
+                    { kind: 'item', id: 'book-1', label: '九转凝息诀', tone: 'reward' },
+                    { kind: 'monster', id: 'w-2', label: '赤尾狼', tone: 'monster' },
+                  ]}
+                />
+                <div className="next-ui-detail-preview-actions">
+                  <UiButton type="button" variants={['ghost']} onClick={() => openModulePreview(PROTOTYPE_MODULES.find((item) => item.id === 'quest') ?? PROTOTYPE_MODULES[0])}>
+                    打开详情
+                  </UiButton>
+                </div>
+              </UiPanelFrame>
+            ) : null}
+          </div>
+        )}
+      />
     </UiSection>
   );
 }
@@ -495,17 +717,11 @@ function WorldPanelPreview() {
             </div>
           </div>
         </div>
-        <div className="prototype-list">
+        <UiList className="prototype-list" scrollable>
           {PROTOTYPE_WORLD_ENTITIES.map((entity) => (
-            <div key={entity.id} className="prototype-list-item">
-              <div className="prototype-list-head">
-                <span className="prototype-list-title">{entity.name}</span>
-                <span className="prototype-chip">{entity.kind}</span>
-              </div>
-              <div className="prototype-list-note">{entity.note}</div>
-            </div>
+            <UiWorldEntityRow key={entity.id} name={entity.name} kind={entity.kind} note={entity.note} />
           ))}
-        </div>
+        </UiList>
       </div>
       <div className="prototype-chat-log">
         <div className="prototype-chat-line">[系统] 坊市有新的成交记录，灵石已进入托管仓。</div>
@@ -519,6 +735,7 @@ function WorldPanelPreview() {
 function MarketPanelPreview() {
   const [category, setCategory] = useState<string>('all');
   const [selectedId, setSelectedId] = useState<string>(PROTOTYPE_MARKET[0]?.id ?? '');
+  const [tradeQuantity, setTradeQuantity] = useState<number>(1);
   const visibleEntries = useMemo(() => (
     PROTOTYPE_MARKET.filter((entry) => category === 'all' || entry.category === category)
   ), [category]);
@@ -530,72 +747,72 @@ function MarketPanelPreview() {
     }
   }, [selected, selectedId, visibleEntries]);
 
+  useEffect(() => {
+    setTradeQuantity(1);
+  }, [selectedId]);
+
   return (
     <UiSection title="坊市">
-      <div className="prototype-tab-row">
-        {[
-          ['all', '全部'],
-          ['equipment', '装备'],
-          ['skill_book', '功法书'],
-          ['consumable', '丹药'],
-          ['material', '材料'],
-        ].map(([id, label]) => (
-          <button
-            key={id}
-            type="button"
-            className={`prototype-tab-btn ${category === id ? 'active' : ''}`}
-            onClick={() => setCategory(id)}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-      <div className="prototype-two-pane">
-        <div className="prototype-list">
-          {visibleEntries.map((entry) => (
-            <button
-              key={entry.id}
-              type="button"
-              className={`prototype-list-item ${selected?.id === entry.id ? 'is-active' : ''}`}
-              onClick={() => setSelectedId(entry.id)}
-              onPointerMove={(event) => {
-                showNextTooltip(entry.name, [entry.note, `卖 ${formatNumber(entry.sell)} / 买 ${formatNumber(entry.buy)}`], event.clientX, event.clientY);
-              }}
-              onPointerLeave={hideNextTooltip}
-            >
-              <div className="prototype-list-head">
-                <span className="prototype-list-title">{entry.name}</span>
-                <span className="prototype-chip">持有 {entry.owned}</span>
-              </div>
-              <div className="prototype-list-note">{entry.note}</div>
-              <div className="prototype-list-note">卖 {formatNumber(entry.sell)} · 买 {formatNumber(entry.buy)}</div>
-            </button>
-          ))}
-        </div>
-        <div className="prototype-detail-card">
-          {selected ? (
-            <>
-              <div className="prototype-detail-title">{selected.name}</div>
-              <div className="prototype-detail-copy">{selected.note}</div>
-              <div className="prototype-kv-grid">
-                <div className="prototype-kv-row">
-                  <span className="prototype-kv-label">最低卖价</span>
-                  <span className="prototype-kv-value">{formatNumber(selected.sell)}</span>
+      <UiTabList
+        items={[
+          { key: 'all', label: '全部' },
+          { key: 'equipment', label: '装备' },
+          { key: 'skill_book', label: '功法书' },
+          { key: 'consumable', label: '丹药' },
+          { key: 'material', label: '材料' },
+        ]}
+        activeKey={category}
+        onChange={setCategory}
+      />
+      <UiSplitPane
+        primary={(
+          <UiList className="prototype-list" scrollable>
+            {visibleEntries.map((entry) => (
+              <UiInventoryCell
+                key={entry.id}
+                name={entry.name}
+                typeLabel={getPrototypeItemTypeLabel(entry.category)}
+                grade={`卖 ${formatNumber(entry.sell)} · 买 ${formatNumber(entry.buy)}`}
+                gradeTone={resolvePrototypeGradeTone(entry.note.includes('强化装备') ? '地品' : entry.note.includes('功法书') ? '地品' : '黄品')}
+                note={entry.note}
+                quantity={`持有 ${entry.owned}`}
+                chips={[`${entry.category === 'skill_book' ? '功法' : '交易'}`, `差价 ${formatNumber(entry.sell - entry.buy)}`]}
+                active={selected?.id === entry.id}
+                onClick={() => setSelectedId(entry.id)}
+                onPointerMove={(event) => {
+                  showNextTooltip(entry.name, [entry.note, `卖 ${formatNumber(entry.sell)} / 买 ${formatNumber(entry.buy)}`], event.clientX, event.clientY);
+                }}
+                onPointerLeave={hideNextTooltip}
+              />
+            ))}
+          </UiList>
+        )}
+        secondary={(
+          <div className="prototype-detail-card">
+            {selected ? (
+              <UiPanelFrame title={selected.name} subtitle={selected.note}>
+                <UiFieldRow label="最低卖价" value={formatNumber(selected.sell)} />
+                <UiFieldRow label="最高买价" value={formatNumber(selected.buy)} />
+                <UiMarketOrderRow side="sell" price={formatNumber(selected.sell)} quantity={tradeQuantity} owner="当前卖盘" />
+                <UiMarketOrderRow side="buy" price={formatNumber(selected.buy)} quantity={Math.max(1, tradeQuantity + 2)} owner="当前买盘" />
+                <UiPriceEditor label="单价" value={selected.sell} min={1} max={99999} step={10} presets={[selected.buy, selected.sell, selected.sell + 500]} onChange={() => {}} />
+                <UiQuantityStepper
+                  label="交易数量"
+                  value={tradeQuantity}
+                  min={1}
+                  max={Math.max(1, selected.owned || 99)}
+                  onChange={setTradeQuantity}
+                />
+                <div className="next-ui-detail-preview-actions">
+                  <UiButton type="button" variants={['ghost']} onClick={() => openModulePreview(PROTOTYPE_MODULES.find((item) => item.id === 'market') ?? PROTOTYPE_MODULES[0])}>
+                    打开详情
+                  </UiButton>
                 </div>
-                <div className="prototype-kv-row">
-                  <span className="prototype-kv-label">最高买价</span>
-                  <span className="prototype-kv-value">{formatNumber(selected.buy)}</span>
-                </div>
-              </div>
-              <div className="next-ui-detail-preview-actions">
-                <UiButton type="button" variants={['ghost']} onClick={() => openModulePreview(PROTOTYPE_MODULES.find((item) => item.id === 'market') ?? PROTOTYPE_MODULES[0])}>
-                  打开详情
-                </UiButton>
-              </div>
-            </>
-          ) : null}
-        </div>
-      </div>
+              </UiPanelFrame>
+            ) : null}
+          </div>
+        )}
+      />
     </UiSection>
   );
 }
@@ -606,37 +823,30 @@ function MailPanelPreview() {
 
   return (
     <UiSection title="邮件">
-      <div className="prototype-two-pane">
-        <div className="prototype-list">
-          {PROTOTYPE_MAILS.map((mail) => (
-            <button
-              key={mail.id}
-              type="button"
-              className={`prototype-list-item ${selected?.id === mail.id ? 'is-active' : ''}`}
-              onClick={() => setSelectedId(mail.id)}
-            >
-              <div className="prototype-list-head">
-                <span className="prototype-list-title">{mail.title}</span>
-                <span className="prototype-chip">{mail.status}</span>
-              </div>
-              <div className="prototype-list-note">{mail.from} · {mail.note}</div>
-            </button>
-          ))}
-        </div>
-        <div className="prototype-detail-card">
-          {selected ? (
-            <>
-              <div className="prototype-detail-title">{selected.title}</div>
-              <div className="prototype-detail-copy">来自 {selected.from}</div>
-              <div className="prototype-mail-body">
-                {selected.body.split('\n').map((line, index) => (
-                  <p key={`${selected.id}-${index}`}>{line}</p>
-                ))}
-              </div>
-            </>
-          ) : null}
-        </div>
-      </div>
+      <UiSplitPane
+        primary={(
+          <UiList className="prototype-list" scrollable>
+            {PROTOTYPE_MAILS.map((mail) => (
+              <UiMailListItem
+                key={mail.id}
+                title={mail.title}
+                sender={mail.from}
+                status={mail.status}
+                note={mail.note}
+                active={selected?.id === mail.id}
+                onClick={() => setSelectedId(mail.id)}
+              />
+            ))}
+          </UiList>
+        )}
+        secondary={(
+          <div className="prototype-detail-card">
+            {selected ? (
+              <UiMailDetail title={selected.title} from={selected.from} bodyLines={selected.body.split('\n')} />
+            ) : null}
+          </div>
+        )}
+      />
     </UiSection>
   );
 }
@@ -650,22 +860,22 @@ function SettingsPanelPreview({
   deviceMode: PreviewDeviceMode;
   scalePercent: number;
 }) {
+  const [uiScale, setUiScale] = useState(scalePercent);
+  const [fontScale, setFontScale] = useState(100);
+
+  useEffect(() => {
+    setUiScale(scalePercent);
+  }, [scalePercent]);
+
   return (
     <UiSection title="设置">
-      <div className="prototype-kv-grid">
-        <div className="prototype-kv-row">
-          <span className="prototype-kv-label">主题</span>
-          <span className="prototype-kv-value">{theme === 'light' ? '浅色' : '深色'}</span>
-        </div>
-        <div className="prototype-kv-row">
-          <span className="prototype-kv-label">预览端</span>
-          <span className="prototype-kv-value">{deviceMode === 'pc' ? 'PC' : '手机'}</span>
-        </div>
-        <div className="prototype-kv-row">
-          <span className="prototype-kv-label">预览缩放</span>
-          <span className="prototype-kv-value">{scalePercent}%</span>
-        </div>
-      </div>
+      <UiPanelFrame title="界面选项">
+        <UiFieldRow label="主题" value={theme === 'light' ? '浅色' : '深色'} />
+        <UiFieldRow label="预览端" value={deviceMode === 'pc' ? 'PC' : '手机'} />
+        <UiFieldRow label="预览缩放" value={`${scalePercent}%`} />
+      </UiPanelFrame>
+      <UiSliderField label="界面缩放" value={uiScale} min={70} max={130} step={5} valueText={`${uiScale}%`} onChange={setUiScale} />
+      <UiSliderField label="字体缩放" value={fontScale} min={85} max={120} step={5} valueText={`${fontScale}%`} onChange={setFontScale} />
       <div className="prototype-chip-row">
         <span className="prototype-chip">主题</span>
         <span className="prototype-chip">缩放</span>
@@ -682,6 +892,27 @@ function GenericModulePreview({
   module: PrototypeModuleCardData;
   deviceMode: PreviewDeviceMode;
 }) {
+  if (module.id === 'heaven-gate') {
+    return (
+      <UiSection title={module.title}>
+        <UiPanelFrame title="突破要求" subtitle="自动高亮物品与怪物">
+          <UiInlineReferenceText
+            text="突破前需备好养气丹、寒铁精与九转凝息诀，并确认已击退赤尾狼。若条件齐备，方可尝试叩开天门。"
+            references={[
+              { kind: 'item', id: 'pill-1', label: '养气丹', tone: 'required' },
+              { kind: 'item', id: 'mat-1', label: '寒铁精', tone: 'material' },
+              { kind: 'item', id: 'book-1', label: '九转凝息诀', tone: 'required' },
+              { kind: 'monster', id: 'w-2', label: '赤尾狼', tone: 'monster' },
+            ]}
+          />
+          <div className="next-ui-detail-preview-actions">
+            <UiButton type="button" variants={['ghost']} onClick={() => openModulePreview(module)}>打开详情</UiButton>
+          </div>
+        </UiPanelFrame>
+      </UiSection>
+    );
+  }
+
   return (
     <UiSection
       title={module.title}
@@ -714,6 +945,8 @@ function renderModulePreview(
   scalePercent: number,
 ): ReactNode {
   switch (module.id) {
+    case 'foundation':
+      return <FoundationPanelPreview />;
     case 'login':
       return <LoginPanelPreview />;
     case 'hud':
@@ -758,18 +991,14 @@ function ModuleNavigator({
         {groupedModules.map((group) => (
           <div key={group.title} className="prototype-shell-nav-group">
             <div className="prototype-shell-nav-title">{group.title}</div>
-            <div className="prototype-shell-nav-list">
-              {group.items.map((module) => (
-                <button
-                  key={module.id}
-                  type="button"
-                  className={`prototype-shell-nav-btn ${selectedModuleId === module.id ? 'active' : ''}`}
-                  onClick={() => onSelect(module.id)}
-                >
-                  {module.title}
-                </button>
-              ))}
-            </div>
+            <UiTabList
+              items={group.items.map((module) => ({ key: module.id, label: module.title }))}
+              activeKey={selectedModuleId}
+              onChange={onSelect}
+              orientation="vertical"
+              className="prototype-shell-nav-list"
+              itemClassName="prototype-shell-nav-btn"
+            />
           </div>
         ))}
       </div>
@@ -827,7 +1056,7 @@ export function PrototypeApp() {
   const [theme, setTheme] = useState<PrototypeTheme>('light');
   const [deviceMode, setDeviceMode] = useState<PreviewDeviceMode>('pc');
   const [scalePercent, setScalePercent] = useState<number>(100);
-  const [selectedModuleId, setSelectedModuleId] = useState<PrototypeModuleId>('inventory');
+  const [selectedModuleId, setSelectedModuleId] = useState<PrototypeModuleId>('foundation');
 
   useEffect(() => {
     document.documentElement.dataset.colorMode = theme;
@@ -853,53 +1082,44 @@ export function PrototypeApp() {
     <div className="prototype-page">
       <div className="prototype-shell">
         <UiSection title="显示设置">
-          <div className="prototype-settings-toolbar">
+          <UiToolbar className="prototype-settings-toolbar">
             <div className="prototype-setting-inline">
               <span className="prototype-setting-label">主题</span>
               <div className="prototype-pill-row">
-                <button type="button" className={`prototype-tab-btn ${theme === 'light' ? 'active' : ''}`} onClick={() => setTheme('light')}>浅色</button>
-                <button type="button" className={`prototype-tab-btn ${theme === 'dark' ? 'active' : ''}`} onClick={() => setTheme('dark')}>深色</button>
+                <UiTabButton active={theme === 'light'} onClick={() => setTheme('light')}>浅色</UiTabButton>
+                <UiTabButton active={theme === 'dark'} onClick={() => setTheme('dark')}>深色</UiTabButton>
               </div>
             </div>
 
             <div className="prototype-setting-inline">
               <span className="prototype-setting-label">端</span>
               <div className="prototype-pill-row">
-                <button type="button" className={`prototype-tab-btn ${deviceMode === 'pc' ? 'active' : ''}`} onClick={() => setDeviceMode('pc')}>PC</button>
-                <button type="button" className={`prototype-tab-btn ${deviceMode === 'mobile' ? 'active' : ''}`} onClick={() => setDeviceMode('mobile')}>手机</button>
+                <UiTabButton active={deviceMode === 'pc'} onClick={() => setDeviceMode('pc')}>PC</UiTabButton>
+                <UiTabButton active={deviceMode === 'mobile'} onClick={() => setDeviceMode('mobile')}>手机</UiTabButton>
               </div>
             </div>
 
             <div className="prototype-setting-inline prototype-setting-inline--scale">
-              <span className="prototype-setting-label">缩放 {scalePercent}%</span>
+              <span className="prototype-setting-label">缩放</span>
               <div className="prototype-pill-row">
                 {SCALE_PRESETS.map((value) => (
-                  <button
+                  <UiTabButton
                     key={value}
-                    type="button"
-                    className={`prototype-tab-btn ${scalePercent === value ? 'active' : ''}`}
+                    active={scalePercent === value}
                     onClick={() => setScalePercent(value)}
                   >
                     {value}%
-                  </button>
+                  </UiTabButton>
                 ))}
               </div>
-              <input
-                className="prototype-scale-slider"
-                type="range"
-                min="70"
-                max="130"
-                step="5"
-                value={scalePercent}
-                onChange={(event) => setScalePercent(Number(event.target.value))}
-              />
+              <UiSliderField label="预览缩放" value={scalePercent} min={70} max={130} step={5} valueText={`${scalePercent}%`} onChange={setScalePercent} />
             </div>
 
             <div className="prototype-setting-inline prototype-setting-inline--actions">
               <UiButton type="button" variants={['ghost']} onClick={() => showNextToast('Toast host 正常。', 'success')}>Toast</UiButton>
               <UiButton type="button" variants={['ghost']} onClick={() => openModulePreview(selectedModule)}>详情</UiButton>
             </div>
-          </div>
+          </UiToolbar>
         </UiSection>
 
         <div className="prototype-preview-stage">

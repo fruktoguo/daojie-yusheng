@@ -10,8 +10,9 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldRuntimeCraftService = void 0;
+exports.WorldRuntimeCraftMutationService = void 0;
 
 const common_1 = require("@nestjs/common");
 const shared_1 = require("@mud/shared-next");
@@ -19,62 +20,20 @@ const world_session_service_1 = require("../../network/world-session.service");
 const world_client_event_service_1 = require("../../network/world-client-event.service");
 const player_runtime_service_1 = require("../player/player-runtime.service");
 const craft_panel_runtime_service_1 = require("../craft/craft-panel-runtime.service");
-const world_runtime_enhancement_service_1 = require("./world-runtime-enhancement.service");
-const world_runtime_alchemy_service_1 = require("./world-runtime-alchemy.service");
 
-/** world-runtime craft orchestration：承接 craft 写路径编排、tick 推进和面板同步。 */
-let WorldRuntimeCraftService = class WorldRuntimeCraftService {
+/** craft shared mutation orchestration：承接 panel 更新、掉地兜底与 mutation flush。 */
+let WorldRuntimeCraftMutationService = class WorldRuntimeCraftMutationService {
     playerRuntimeService;
     craftPanelRuntimeService;
     worldSessionService;
     worldClientEventService;
-    worldRuntimeEnhancementService;
-    worldRuntimeAlchemyService;
-    constructor(playerRuntimeService, craftPanelRuntimeService, worldSessionService, worldClientEventService, worldRuntimeEnhancementService, worldRuntimeAlchemyService) {
+    constructor(playerRuntimeService, craftPanelRuntimeService, worldSessionService, worldClientEventService) {
         this.playerRuntimeService = playerRuntimeService;
         this.craftPanelRuntimeService = craftPanelRuntimeService;
         this.worldSessionService = worldSessionService;
         this.worldClientEventService = worldClientEventService;
-        this.worldRuntimeEnhancementService = worldRuntimeEnhancementService;
-        this.worldRuntimeAlchemyService = worldRuntimeAlchemyService;
     }
-    interruptCraftForReason(playerId, player, reason, deps) {
-        this.worldRuntimeAlchemyService.interruptAlchemyForReason(playerId, player, reason, deps);
-        this.flushCraftMutation(playerId, this.craftPanelRuntimeService.interruptEnhancement(player, reason), 'enhancement', deps);
-    }
-    dispatchStartAlchemy(playerId, payload, deps) {
-        this.worldRuntimeAlchemyService.dispatchStartAlchemy(playerId, payload, deps);
-    }
-    dispatchCancelAlchemy(playerId, deps) {
-        this.worldRuntimeAlchemyService.dispatchCancelAlchemy(playerId, deps);
-    }
-    dispatchSaveAlchemyPreset(playerId, payload, deps) {
-        this.worldRuntimeAlchemyService.dispatchSaveAlchemyPreset(playerId, payload, deps);
-    }
-    dispatchDeleteAlchemyPreset(playerId, presetId, deps) {
-        this.worldRuntimeAlchemyService.dispatchDeleteAlchemyPreset(playerId, presetId, deps);
-    }
-    dispatchStartEnhancement(playerId, payload, deps) {
-        this.worldRuntimeEnhancementService.dispatchStartEnhancement(playerId, payload, deps);
-    }
-    dispatchCancelEnhancement(playerId, deps) {
-        this.worldRuntimeEnhancementService.dispatchCancelEnhancement(playerId, deps);
-    }
-    advanceCraftJobs(playerIds, deps) {
-        for (const playerId of playerIds) {
-            const player = this.playerRuntimeService.getPlayer(playerId);
-            if (!player) {
-                continue;
-            }
-            if (this.craftPanelRuntimeService.hasActiveAlchemyJob(player)) {
-                this.worldRuntimeAlchemyService.tickAlchemy(playerId, player, deps);
-            }
-            if (this.craftPanelRuntimeService.hasActiveEnhancementJob(player)) {
-                this.worldRuntimeEnhancementService.tickEnhancement(playerId, player, deps);
-            }
-        }
-    }
-    emitCraftPanelUpdate(playerId, panel, deps) {
+    emitCraftPanelUpdate(playerId, panel, _deps) {
         const socket = this.worldSessionService.getSocketByPlayerId(playerId);
         const player = this.playerRuntimeService.getPlayer(playerId);
         if (!socket || !player || !this.worldClientEventService.prefersNext(socket)) {
@@ -120,16 +79,14 @@ let WorldRuntimeCraftService = class WorldRuntimeCraftService {
         }
     }
 };
-exports.WorldRuntimeCraftService = WorldRuntimeCraftService;
-exports.WorldRuntimeCraftService = WorldRuntimeCraftService = __decorate([
+exports.WorldRuntimeCraftMutationService = WorldRuntimeCraftMutationService;
+exports.WorldRuntimeCraftMutationService = WorldRuntimeCraftMutationService = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [player_runtime_service_1.PlayerRuntimeService,
         craft_panel_runtime_service_1.CraftPanelRuntimeService,
         world_session_service_1.WorldSessionService,
-        world_client_event_service_1.WorldClientEventService,
-        world_runtime_enhancement_service_1.WorldRuntimeEnhancementService,
-        world_runtime_alchemy_service_1.WorldRuntimeAlchemyService])
-], WorldRuntimeCraftService);
+        world_client_event_service_1.WorldClientEventService])
+], WorldRuntimeCraftMutationService);
 
 function formatItemStackLabel(item) {
     return `${item.name ?? item.itemId} x${Math.max(1, Math.floor(Number(item.count) || 1))}`;

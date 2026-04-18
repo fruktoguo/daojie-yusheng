@@ -8,7 +8,7 @@ const ts = require('typescript');
 const filePath = path.resolve(__dirname, '../src/numeric.ts');
 const realmFilePath = path.resolve(__dirname, '../src/constants/gameplay/realm.ts');
 const attributesFilePath = path.resolve(__dirname, '../src/constants/gameplay/attributes.ts');
-const protobufFilePath = path.resolve(__dirname, '../src/network-protobuf.ts');
+const protobufFilePath = path.resolve(__dirname, '../src/network-protobuf-schema.ts');
 /**
  * 记录来源。
  */

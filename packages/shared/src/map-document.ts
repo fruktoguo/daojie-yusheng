@@ -17,7 +17,7 @@ import {
   GmMapResourceRecord,
   GmMapSafeZoneRecord,
   GmMapSummary,
-} from './protocol';
+} from './api-contracts';
 import { parseQiResourceKey } from './qi';
 import { getTileTypeFromMapChar, isTileTypeWalkable } from './terrain';
 import { HOUSE_DECOR_TILE_MAP_CHARS } from './constants/gameplay/house-terrain';
@@ -29,11 +29,10 @@ import {
   PortalKind,
   PortalRouteDomain,
   PortalTrigger,
-  QuestLine,
-  QuestObjectiveType,
-  TechniqueGrade,
   TileType,
-} from './types';
+} from './world-core-types';
+import { QuestLine, QuestObjectiveType } from './quest-types';
+import { TechniqueGrade } from './cultivation-types';
 
 /** 允许出现在地图文档里的地块字符全集。 */
 const SUPPORTED_MAP_TILE_CHARS = new Set(['#', '.', '=', ':', 'P', 'S', '+', 'W', 'B', ',', '^', '崖', ';', '%', '~', '云', '霞', '空', 'T', '竹', 'o', 'L', '铁', '刃', ...HOUSE_DECOR_TILE_MAP_CHARS]);

@@ -119,6 +119,20 @@ let WorldRuntimePlayerCombatService = class WorldRuntimePlayerCombatService {
         deps.spawnGroundItem(instance, x, y, item);
         deps.queuePlayerNotice(playerId, `${formatItemStackLabel(item)} 掉落在 (${x}, ${y}) 的地面上，但你的背包已满。`, 'loot');
     }
+    dispatchDamagePlayer(playerId, amount, deps) {
+        const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
+        if (player.hp <= 0) {
+            this.handlePlayerDefeat(playerId, deps);
+            return;
+        }
+        const updated = this.playerRuntimeService.applyDamage(playerId, amount);
+        this.playerRuntimeService.recordActivity(playerId, deps.resolveCurrentTickForPlayerId(playerId), {
+            interruptCultivation: true,
+        });
+        if (updated.hp <= 0) {
+            this.handlePlayerDefeat(playerId, deps);
+        }
+    }
     handlePlayerDefeat(playerId, deps) {
         deps.pendingCommands.delete(playerId);
         deps.worldRuntimeGmQueueService.markPendingRespawn(playerId);

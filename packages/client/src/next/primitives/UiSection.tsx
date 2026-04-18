@@ -14,16 +14,16 @@ export function UiSection({
   className,
   children,
 }: PropsWithChildren<UiSectionProps>) {
-  const sectionClasses = ['panel-section', 'ui-panel-section', 'ui-surface-pane', 'ui-surface-pane--stack'];
+  const sectionClasses = ['next-ui-section', 'next-ui-surface-pane', 'next-ui-surface-pane--stack'];
   if (className) {
     sectionClasses.push(className);
   }
   return (
     <section className={sectionClasses.join(' ')}>
-      <div className="panel-section-head ui-panel-section-head">
+      <div className="next-ui-section-head">
         <div>
-          <div className="panel-section-title ui-panel-section-title">{title}</div>
-          {subtitle ? <div className="panel-subtext ui-panel-subtext">{subtitle}</div> : null}
+          <div className="next-ui-section-title">{title}</div>
+          {subtitle ? <div className="next-ui-section-subtext">{subtitle}</div> : null}
         </div>
         {actions}
       </div>

@@ -38,7 +38,7 @@ let WorldRuntimeMovementService = class WorldRuntimeMovementService {
         deps.playerRuntimeService.recordActivity(playerId, deps.resolveCurrentTickForPlayerId(playerId), {
             interruptCultivation: true,
         });
-        deps.worldRuntimeCraftService.interruptCraftForReason(playerId, player, 'move', deps);
+        deps.worldRuntimeCraftInterruptService.interruptCraftForReason(playerId, player, 'move', deps);
         instance.enqueueMove({
             playerId,
             direction: command.direction,
@@ -54,7 +54,7 @@ let WorldRuntimeMovementService = class WorldRuntimeMovementService {
         deps.playerRuntimeService.recordActivity(playerId, deps.resolveCurrentTickForPlayerId(playerId), {
             interruptCultivation: true,
         });
-        deps.worldRuntimeCraftService.interruptCraftForReason(playerId, player, 'move', deps);
+        deps.worldRuntimeCraftInterruptService.interruptCraftForReason(playerId, player, 'move', deps);
         const manualTransfer = instance.tryPortalTransfer(playerId, 'manual_portal');
         if (manualTransfer) {
             deps.applyTransfer(manualTransfer);

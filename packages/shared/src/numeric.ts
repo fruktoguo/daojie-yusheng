@@ -1,8 +1,8 @@
 /**
  * 数值属性系统：战斗数值结构定义、五行元素属性组、RatioValue 计算、灵力消耗公式。
  */
-import type { Attributes } from './types';
-import { PlayerRealmStage } from './types';
+import type { Attributes } from './attribute-types';
+import { PlayerRealmStage } from './cultivation-types';
 import {
   DEFAULT_RATIO_DIVISOR,
   ELEMENT_KEYS,

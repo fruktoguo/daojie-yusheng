@@ -45,6 +45,12 @@ let WorldRuntimeItemGroundService = class WorldRuntimeItemGroundService {
     dispatchTakeGroundAll(playerId, sourceId, deps) {
         deps.worldRuntimeLootContainerService.dispatchTakeGroundAll(playerId, sourceId, deps);
     }
+    spawnGroundItem(instance, x, y, item) {
+        const pile = instance.dropGroundItem(x, y, item);
+        if (!pile) {
+            throw new common_1.BadRequestException(`Failed to spawn loot at ${x},${y}`);
+        }
+    }
 };
 exports.WorldRuntimeItemGroundService = WorldRuntimeItemGroundService;
 exports.WorldRuntimeItemGroundService = WorldRuntimeItemGroundService = __decorate([

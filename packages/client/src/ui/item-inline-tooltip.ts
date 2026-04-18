@@ -1,7 +1,7 @@
 import type { ItemStack } from '@mud/shared-next';
+import { LOCAL_EDITOR_CATALOG } from '../content/editor-catalog';
 import { getLocalItemTemplate } from '../content/local-templates';
 import { getMonsterLocationEntry, loadMonsterLocationEntry } from '../content/monster-locations';
-import { LOCAL_EDITOR_CATALOG } from '../constants/world/editor-catalog';
 import { buildItemTooltipPayload } from './equipment-tooltip';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from './floating-tooltip';
 
@@ -287,5 +287,4 @@ export function bindInlineItemTooltips(root: HTMLElement): void {
     }
   });
 }
-
 

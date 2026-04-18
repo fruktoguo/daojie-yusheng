@@ -1,10 +1,8 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import '../styles/tokens.css';
-import '../styles/ui-primitives.css';
-import '../styles/ui-modal.css';
-import '../styles/ui-shells.css';
-import '../styles/ui-recipes.css';
+import '../styles/hud.css';
+import './styles/foundation.css';
 import './styles/index.css';
 import './prototype/reset.css';
 import { initializeUiStyleConfig } from '../ui/ui-style-config';

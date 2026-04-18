@@ -6,20 +6,10 @@ import { ELEMENT_KEYS, NUMERIC_SCALAR_STAT_KEYS } from './constants/gameplay/att
 import { TECHNIQUE_GRADE_ORDER } from './constants/gameplay/technique';
 import type { PartialNumericStats } from './numeric';
 import { calcTechniqueAttrValues } from './technique';
-import type {
-  AttrBonus,
-  AttrKey,
-  Attributes,
-  EquipmentEffectDef,
-  ItemStack,
-  SkillBuffEffectDef,
-  SkillDef,
-  SkillFormula,
-  SkillFormulaVar,
-  TechniqueLayerDef,
-  TechniqueGrade,
-  TechniqueState,
-} from './types';
+import type { AttrBonus, AttrKey, Attributes } from './attribute-types';
+import type { TechniqueLayerDef, TechniqueGrade, TechniqueState } from './cultivation-types';
+import type { EquipmentEffectDef, ItemStack } from './item-runtime-types';
+import type { SkillBuffEffectDef, SkillDef, SkillFormula, SkillFormulaVar } from './skill-types';
 
 /** 六维属性每 1 点折算的价值基准。 */
 export const ATTRIBUTE_VALUE_PER_POINT: Record<AttrKey, number> = {

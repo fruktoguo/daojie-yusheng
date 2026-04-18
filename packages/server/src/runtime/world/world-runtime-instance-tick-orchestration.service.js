@@ -69,7 +69,7 @@ let WorldRuntimeInstanceTickOrchestrationService = class WorldRuntimeInstanceTic
                     deps.playerRuntimeService.advanceTickForPlayerIds(currentPlayerIds, instance.tick, {
                         idleCultivationBlockedPlayerIds: blockedPlayerIds,
                     });
-                    deps.worldRuntimeCraftService.advanceCraftJobs(currentPlayerIds, deps);
+                    deps.worldRuntimeCraftTickService.advanceCraftJobs(currentPlayerIds, deps);
                     for (const playerId of currentPlayerIds) {
                         steppedPlayerIds.add(playerId);
                     }

@@ -42,7 +42,7 @@ function createDeps(log) {
         applyTransfer() { log.push('applyTransfer'); },
         applyMonsterAction() { log.push('applyMonsterAction'); },
         playerRuntimeService: { advanceTickForPlayerIds() { log.push('advanceTickForPlayerIds'); } },
-        worldRuntimeCraftService: { advanceCraftJobs() { log.push('advanceCraftJobs'); } },
+        worldRuntimeCraftTickService: { advanceCraftJobs() { log.push('advanceCraftJobs'); } },
         worldRuntimeLootContainerService: { advanceContainerSearches() { log.push('advanceContainerSearches'); } },
         refreshQuestStates(playerId) { log.push(`refreshQuestStates:${playerId}`); },
     };

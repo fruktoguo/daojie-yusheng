@@ -31,7 +31,7 @@ function testDropItem() {
         ['splitInventoryItem', 'player:1', 2, 2],
         ['dropGroundItem', 5, 7, 'rat_tail', 2],
         ['refreshQuestStates', 'player:1'],
-        ['queuePlayerNotice', 'player:1', '放下 鼠尾x2', 'info'],
+        ['queuePlayerNotice', 'player:1', '放下 鼠尾 x2', 'info'],
     ]);
 }
 
@@ -52,7 +52,34 @@ function testTakeGroundDelegation() {
     ]);
 }
 
+function testSpawnGroundItem() {
+    const log = [];
+    const service = new WorldRuntimeItemGroundService({});
+    service.spawnGroundItem({
+        dropGroundItem(x, y, item) {
+            log.push(['dropGroundItem', x, y, item.itemId, item.count]);
+            return { sourceId: 'ground:1' };
+        },
+    }, 3, 4, { itemId: 'rat_tail', count: 1 });
+    assert.deepEqual(log, [
+        ['dropGroundItem', 3, 4, 'rat_tail', 1],
+    ]);
+}
+
+function testSpawnGroundItemFailure() {
+    const service = new WorldRuntimeItemGroundService({});
+    assert.throws(() => {
+        service.spawnGroundItem({
+            dropGroundItem() {
+                return null;
+            },
+        }, 8, 9, { itemId: 'rat_tail', count: 1 });
+    }, /Failed to spawn loot at 8,9/);
+}
+
 testDropItem();
 testTakeGroundDelegation();
+testSpawnGroundItem();
+testSpawnGroundItemFailure();
 
 console.log(JSON.stringify({ ok: true, case: 'world-runtime-item-ground' }, null, 2));

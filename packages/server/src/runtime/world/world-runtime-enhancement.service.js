@@ -15,23 +15,19 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.WorldRuntimeEnhancementService = void 0;
 
 const common_1 = require("@nestjs/common");
-const shared_1 = require("@mud/shared-next");
-const world_session_service_1 = require("../../network/world-session.service");
-const world_client_event_service_1 = require("../../network/world-client-event.service");
 const player_runtime_service_1 = require("../player/player-runtime.service");
 const craft_panel_runtime_service_1 = require("../craft/craft-panel-runtime.service");
+const world_runtime_craft_mutation_service_1 = require("./world-runtime-craft-mutation.service");
 
 /** world-runtime enhancement orchestration：承接强化写路径与面板刷新。 */
 let WorldRuntimeEnhancementService = class WorldRuntimeEnhancementService {
     playerRuntimeService;
     craftPanelRuntimeService;
-    worldSessionService;
-    worldClientEventService;
-    constructor(playerRuntimeService, craftPanelRuntimeService, worldSessionService, worldClientEventService) {
+    worldRuntimeCraftMutationService;
+    constructor(playerRuntimeService, craftPanelRuntimeService, worldRuntimeCraftMutationService) {
         this.playerRuntimeService = playerRuntimeService;
         this.craftPanelRuntimeService = craftPanelRuntimeService;
-        this.worldSessionService = worldSessionService;
-        this.worldClientEventService = worldClientEventService;
+        this.worldRuntimeCraftMutationService = worldRuntimeCraftMutationService;
     }
     dispatchStartEnhancement(playerId, payload, deps) {
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
@@ -39,7 +35,7 @@ let WorldRuntimeEnhancementService = class WorldRuntimeEnhancementService {
         if (!result.ok) {
             throw new common_1.BadRequestException(result.error ?? '启动强化失败');
         }
-        this.flushEnhancementMutation(playerId, result, deps);
+        this.worldRuntimeCraftMutationService.flushCraftMutation(playerId, result, 'enhancement', deps);
     }
     dispatchCancelEnhancement(playerId, deps) {
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
@@ -47,51 +43,10 @@ let WorldRuntimeEnhancementService = class WorldRuntimeEnhancementService {
         if (!result.ok) {
             throw new common_1.BadRequestException(result.error ?? '取消强化失败');
         }
-        this.flushEnhancementMutation(playerId, result, deps);
+        this.worldRuntimeCraftMutationService.flushCraftMutation(playerId, result, 'enhancement', deps);
     }
     tickEnhancement(playerId, player, deps) {
-        this.flushEnhancementMutation(playerId, this.craftPanelRuntimeService.tickEnhancement(player), deps);
-    }
-    emitEnhancementPanelUpdate(playerId, deps) {
-        const socket = this.worldSessionService.getSocketByPlayerId(playerId);
-        const player = this.playerRuntimeService.getPlayer(playerId);
-        if (!socket || !player || !this.worldClientEventService.prefersNext(socket)) {
-            return;
-        }
-        socket.emit(shared_1.NEXT_S2C.EnhancementPanel, this.craftPanelRuntimeService.buildEnhancementPanelPayload(player));
-    }
-    flushEnhancementMutation(playerId, result, deps) {
-        if (!result?.ok) {
-            return;
-        }
-        if (Array.isArray(result.groundDrops) && result.groundDrops.length > 0) {
-            this.dropGroundItems(playerId, result.groundDrops, deps);
-        }
-        for (const message of result.messages ?? []) {
-            if (message?.text) {
-                deps.queuePlayerNotice(playerId, message.text, message.kind ?? 'info');
-            }
-        }
-        if (result.panelChanged) {
-            this.emitEnhancementPanelUpdate(playerId, deps);
-        }
-    }
-    dropGroundItems(playerId, items, deps) {
-        const player = this.playerRuntimeService.getPlayer(playerId);
-        if (!player) {
-            return;
-        }
-        const instance = deps.getInstanceRuntimeOrThrow(player.instanceId);
-        for (const item of items) {
-            try {
-                deps.spawnGroundItem(instance, player.x, player.y, item);
-                deps.queuePlayerNotice(playerId, `${formatItemStackLabel(item)} 背包放不下，已落在你脚边。`, 'loot');
-            }
-            catch {
-                this.playerRuntimeService.receiveInventoryItem(playerId, item);
-                deps.queuePlayerNotice(playerId, `${formatItemStackLabel(item)} 无法落地，已直接放回背包。`, 'warn');
-            }
-        }
+        this.worldRuntimeCraftMutationService.flushCraftMutation(playerId, this.craftPanelRuntimeService.tickEnhancement(player), 'enhancement', deps);
     }
 };
 exports.WorldRuntimeEnhancementService = WorldRuntimeEnhancementService;
@@ -99,10 +54,5 @@ exports.WorldRuntimeEnhancementService = WorldRuntimeEnhancementService = __deco
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [player_runtime_service_1.PlayerRuntimeService,
         craft_panel_runtime_service_1.CraftPanelRuntimeService,
-        world_session_service_1.WorldSessionService,
-        world_client_event_service_1.WorldClientEventService])
+        world_runtime_craft_mutation_service_1.WorldRuntimeCraftMutationService])
 ], WorldRuntimeEnhancementService);
-
-function formatItemStackLabel(item) {
-    return `${item.name ?? item.itemId} x${Math.max(1, Math.floor(Number(item.count) || 1))}`;
-}

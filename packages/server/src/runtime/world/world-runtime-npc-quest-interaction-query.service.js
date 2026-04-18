@@ -32,7 +32,7 @@ let WorldRuntimeNpcQuestInteractionQueryService = class WorldRuntimeNpcQuestInte
         this.worldRuntimeQuestQueryService = worldRuntimeQuestQueryService;
         this.playerRuntimeService = playerRuntimeService;
     }
-    resolveNpcQuestMarker(playerId, npcId, npc) {
+    resolveNpcQuestMarker(playerId, npcId, deps) {
 
         const player = this.playerRuntimeService.getPlayer(playerId);
         if (!player) {
@@ -52,6 +52,7 @@ let WorldRuntimeNpcQuestInteractionQueryService = class WorldRuntimeNpcQuestInte
                 return { line: quest.line, state: 'active' };
             }
         }
+        const npc = deps.getNpcForPlayerMap(playerId, npcId);
         if (!npc) {
             return undefined;
         }

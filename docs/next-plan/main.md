@@ -156,15 +156,16 @@
 
 - [07 客户端主链收口](./07-client-mainline-refactor.md)
 
+- 当前口径：
+  - 客户端当前阶段只要求完成 next 协议对接、Socket 事件消费收口和必要状态桥接
+  - UI 视觉、交互细修、面板重构、patch-first 深挖、浅色/深色/手机样式回归都不作为当前 hard cut 阻塞项
+  - 客户端 UI 由后续独立设计迭代处理，不纳入本轮 next 完整性判断
 - [ ] 继续整理 `packages/client/src/main.ts`
 - [ ] 继续整理 `packages/client/src/network/socket.ts`
-- [ ] 继续整理主面板 patch-first 更新路径
-- [ ] 清掉仍依赖大块重建的 UI 区域
 - [ ] 检查 GM 页面、GM 世界查看器、地图编辑器是否都还要长期保留
 - [ ] 收口详情弹层、邮件、建议、任务、市场、设置等面板的状态来源
 - [ ] 明确哪些状态只能由 Socket 增量驱动
 - [ ] 明确哪些状态允许客户端本地派生缓存
-- [ ] 补一次浅色 / 深色 / 手机模式检查
 
 ## 9. 收口共享层
 
@@ -172,12 +173,12 @@
 
 - [08 shared 与内容地图收口](./08-shared-content-and-map-cleanup.md)
 
-- [ ] 继续整理 `packages/shared/src/protocol.ts`
-- [ ] 继续整理 `packages/shared/src/types.ts`
-- [ ] 继续整理 `packages/shared/src/network-protobuf.ts`
-- [ ] 给新增协议字段补一致性检查
-- [ ] 给新增数值字段补完整性检查
-- [ ] 确保 shared 变更默认会被 audit / check 拦住
+- [x] 继续整理 `packages/shared/src/protocol.ts`
+- [x] 继续整理 `packages/shared/src/types.ts`
+- [x] 继续整理 `packages/shared/src/network-protobuf.ts`
+- [x] 给新增协议字段补一致性检查
+- [x] 给新增数值字段补完整性检查
+- [x] 确保 shared 变更默认会被 audit / check 拦住
 
 ## 10. 内容与地图整理
 
@@ -185,11 +186,12 @@
 
 - [08 shared 与内容地图收口](./08-shared-content-and-map-cleanup.md)
 
-- [ ] 重新标注哪些 `packages/server/data/content/*` 是玩法真源
-- [ ] 重新标注哪些数据是编辑器辅助产物
-- [ ] 检查地图文档、怪物包、任务、物品、功法之间的引用一致性
-- [ ] 检查 compose 地图、室内地图、传送点、NPC 锚点规范
-- [ ] 决定哪些客户端 generated 数据继续保留，哪些可以重做或删掉
+- [x] 重新标注哪些 `packages/server/data/content/*` 是玩法真源
+- [x] 重新标注哪些数据是编辑器辅助产物
+- [x] 检查地图文档、怪物包、任务、物品、功法之间的引用一致性
+- [x] 检查 compose 地图、室内地图、传送点、NPC 锚点规范
+- [x] 决定哪些客户端 generated 数据可以重做或删掉
+- [x] 决定哪些客户端 generated 数据继续保留
 
 ## 11. 验证门禁收口
 

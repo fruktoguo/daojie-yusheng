@@ -27,17 +27,12 @@ import { getRealmAttributeMultiplier, getRealmLinearGrowthMultiplier } from './c
 import { compileValueStatsToActualStats } from './value';
 import type {
   Attributes,
-  EquipSlot,
-  EquipmentSlots,
-  ItemStack,
-  ItemType,
-  MonsterAggroMode,
-  MonsterInitialBuffDef,
-  MonsterTier,
   NumericStatPercentages,
-  PlayerRealmStage,
-  TechniqueGrade,
-} from './types';
+} from './attribute-types';
+import type { EquipSlot, EquipmentSlots, ItemStack, ItemType } from './item-runtime-types';
+import type { MonsterAggroMode, MonsterTier } from './world-core-types';
+import type { MonsterInitialBuffDef } from './skill-types';
+import type { PlayerRealmStage, TechniqueGrade } from './cultivation-types';
 import type { NumericScalarStatKey } from './numeric';
 
 /** 怪物战斗模型：next 侧统一按 value_stats 运行时数值口径结算。 */

@@ -10,8 +10,9 @@ import {
   type TechniqueGrade,
   type TechniqueState,
 } from '@mud/shared-next';
-import { LOCAL_EDITOR_CATALOG } from '../constants/world/editor-catalog';
+import { LOCAL_EDITOR_CATALOG } from './editor-catalog';
 
+// 本地目录只用于预览补齐与离线辅助，不参与正式玩法真源判定。
 const itemTemplateMap = new Map(LOCAL_EDITOR_CATALOG.items.map((item) => [item.itemId, item] as const));
 const techniqueTemplateMap = new Map(LOCAL_EDITOR_CATALOG.techniques.map((technique) => [technique.id, technique] as const));
 const realmLevelMap = new Map(LOCAL_EDITOR_CATALOG.realmLevels.map((realm) => [realm.realmLv, realm] as const));

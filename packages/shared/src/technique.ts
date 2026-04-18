@@ -3,14 +3,10 @@
  */
 import type {
   Attributes,
-  BodyTrainingState,
-  SkillDef,
-  TechniqueGrade,
-  TechniqueLayerDef,
-  TechniqueRealm,
-  TechniqueState,
-} from './types';
-import { TechniqueRealm as TechniqueRealmEnum } from './types';
+} from './attribute-types';
+import type { BodyTrainingState, TechniqueGrade, TechniqueLayerDef, TechniqueRealm, TechniqueState } from './cultivation-types';
+import type { SkillDef } from './skill-types';
+import { TechniqueRealm as TechniqueRealmEnum } from './cultivation-types';
 import {
   BODY_TRAINING_ATTR_KEYS,
   BODY_TRAINING_EXP_BASE,
@@ -246,8 +242,6 @@ export function calcTechniqueFinalAttrBonus(techniques: readonly TechniqueState[
 
   return result;
 }
-
-
 
 
 

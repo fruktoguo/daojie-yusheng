@@ -44,6 +44,8 @@ const world_runtime_npc_shop_query_service_1 = require("./world-runtime-npc-shop
 
 const world_runtime_quest_query_service_1 = require("./world-runtime-quest-query.service");
 
+const world_runtime_quest_state_service_1 = require("./world-runtime-quest-state.service");
+
 const world_runtime_detail_query_service_1 = require("./world-runtime-detail-query.service");
 
 const world_runtime_metrics_service_1 = require("./world-runtime-metrics.service");
@@ -74,9 +76,15 @@ const world_runtime_respawn_service_1 = require("./world-runtime-respawn.service
 
 const world_runtime_system_command_service_1 = require("./world-runtime-system-command.service");
 
-const world_runtime_craft_service_1 = require("./world-runtime-craft.service");
+const world_runtime_craft_tick_service_1 = require("./world-runtime-craft-tick.service");
 
-const world_runtime_npc_quest_shop_service_1 = require("./world-runtime-npc-quest-shop.service");
+const world_runtime_craft_mutation_service_1 = require("./world-runtime-craft-mutation.service");
+
+const world_runtime_craft_interrupt_service_1 = require("./world-runtime-craft-interrupt.service");
+
+const world_runtime_alchemy_service_1 = require("./world-runtime-alchemy.service");
+
+const world_runtime_npc_quest_write_service_1 = require("./world-runtime-npc-quest-write.service");
 
 const world_runtime_loot_container_service_1 = require("./world-runtime-loot-container.service");
 
@@ -88,15 +96,25 @@ const world_runtime_monster_action_apply_service_1 = require("./world-runtime-mo
 
 const world_runtime_basic_attack_service_1 = require("./world-runtime-basic-attack.service");
 
+const world_runtime_monster_system_command_service_1 = require("./world-runtime-monster-system-command.service");
+
 const world_runtime_player_combat_service_1 = require("./world-runtime-player-combat.service");
 
+const world_runtime_player_command_service_1 = require("./world-runtime-player-command.service");
+
 const world_runtime_item_ground_service_1 = require("./world-runtime-item-ground.service");
+
+const world_runtime_transfer_service_1 = require("./world-runtime-transfer.service");
+
+const world_runtime_npc_access_service_1 = require("./world-runtime-npc-access.service");
 
 const world_runtime_equipment_service_1 = require("./world-runtime-equipment.service");
 
 const world_runtime_cultivation_service_1 = require("./world-runtime-cultivation.service");
 
 const world_runtime_progression_service_1 = require("./world-runtime-progression.service");
+
+const world_runtime_enhancement_service_1 = require("./world-runtime-enhancement.service");
 
 const world_runtime_use_item_service_1 = require("./world-runtime-use-item.service");
 
@@ -274,6 +292,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     craftPanelRuntimeService;
     worldRuntimeNpcShopQueryService;
     worldRuntimeQuestQueryService;
+    worldRuntimeQuestStateService;
     worldRuntimeDetailQueryService;
     worldRuntimeMetricsService;
     worldRuntimeInstanceTickOrchestrationService;
@@ -289,15 +308,22 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     worldRuntimeGmQueueService;
     worldRuntimeRespawnService;
     worldRuntimeSystemCommandService;
-    worldRuntimeCraftService;
-    worldRuntimeNpcQuestShopService;
+    worldRuntimeCraftTickService;
+    worldRuntimeCraftMutationService;
+    worldRuntimeCraftInterruptService;
+    worldRuntimeAlchemyService;
+    worldRuntimeNpcQuestWriteService;
     worldRuntimeLootContainerService;
     worldRuntimeNavigationService;
     worldRuntimeCombatEffectsService;
     worldRuntimeMonsterActionApplyService;
     worldRuntimeBasicAttackService;
+    worldRuntimeMonsterSystemCommandService;
     worldRuntimePlayerCombatService;
+    worldRuntimePlayerCommandService;
     worldRuntimeItemGroundService;
+    worldRuntimeTransferService;
+    worldRuntimeNpcAccessService;
     worldRuntimeEquipmentService;
     worldRuntimeCultivationService;
     worldRuntimeProgressionService;
@@ -308,7 +334,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     worldRuntimeAutoCombatService;
     logger = new common_1.Logger(WorldRuntimeService_1.name);
     tick = 0;
-    constructor(contentTemplateRepository, templateRepository, mapPersistenceService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService, craftPanelRuntimeService, worldRuntimeNpcShopQueryService, worldRuntimeQuestQueryService, worldRuntimeDetailQueryService, worldRuntimeMetricsService, worldRuntimeInstanceTickOrchestrationService, worldRuntimeMovementService, worldRuntimeSummaryQueryService, worldRuntimeInstanceStateService, worldRuntimeInstanceQueryService, worldRuntimePendingCommandService, worldRuntimePlayerLocationService, worldRuntimeTickProgressService, worldRuntimeNpcQuestInteractionQueryService, worldRuntimeNpcShopService, worldRuntimeGmQueueService, worldRuntimeRespawnService, worldRuntimeSystemCommandService, worldRuntimeCraftService, worldRuntimeNpcQuestShopService, worldRuntimeLootContainerService, worldRuntimeNavigationService, worldRuntimeCombatEffectsService, worldRuntimeMonsterActionApplyService, worldRuntimeBasicAttackService, worldRuntimePlayerCombatService, worldRuntimeItemGroundService, worldRuntimeEquipmentService, worldRuntimeCultivationService, worldRuntimeProgressionService, worldRuntimeUseItemService, worldRuntimeRedeemCodeService, worldRuntimePlayerSkillDispatchService, worldRuntimeBattleEngageService, worldRuntimeAutoCombatService) {
+    constructor(contentTemplateRepository, templateRepository, mapPersistenceService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService, craftPanelRuntimeService, worldRuntimeNpcShopQueryService, worldRuntimeQuestQueryService, worldRuntimeQuestStateService, worldRuntimeDetailQueryService, worldRuntimeMetricsService, worldRuntimeInstanceTickOrchestrationService, worldRuntimeMovementService, worldRuntimeSummaryQueryService, worldRuntimeInstanceStateService, worldRuntimeInstanceQueryService, worldRuntimePendingCommandService, worldRuntimePlayerLocationService, worldRuntimeTickProgressService, worldRuntimeNpcQuestInteractionQueryService, worldRuntimeNpcShopService, worldRuntimeGmQueueService, worldRuntimeRespawnService, worldRuntimeSystemCommandService, worldRuntimeCraftTickService, worldRuntimeCraftMutationService, worldRuntimeCraftInterruptService, worldRuntimeAlchemyService, worldRuntimeNpcQuestWriteService, worldRuntimeLootContainerService, worldRuntimeNavigationService, worldRuntimeCombatEffectsService, worldRuntimeMonsterActionApplyService, worldRuntimeBasicAttackService, worldRuntimeMonsterSystemCommandService, worldRuntimePlayerCombatService, worldRuntimePlayerCommandService, worldRuntimeItemGroundService, worldRuntimeTransferService, worldRuntimeNpcAccessService, worldRuntimeEquipmentService, worldRuntimeCultivationService, worldRuntimeProgressionService, worldRuntimeEnhancementService, worldRuntimeUseItemService, worldRuntimeRedeemCodeService, worldRuntimePlayerSkillDispatchService, worldRuntimeBattleEngageService, worldRuntimeAutoCombatService) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.templateRepository = templateRepository;
         this.mapPersistenceService = mapPersistenceService;
@@ -320,6 +346,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.craftPanelRuntimeService = craftPanelRuntimeService;
         this.worldRuntimeNpcShopQueryService = worldRuntimeNpcShopQueryService;
         this.worldRuntimeQuestQueryService = worldRuntimeQuestQueryService;
+        this.worldRuntimeQuestStateService = worldRuntimeQuestStateService;
         this.worldRuntimeDetailQueryService = worldRuntimeDetailQueryService;
         this.worldRuntimeMetricsService = worldRuntimeMetricsService;
         this.worldRuntimeInstanceTickOrchestrationService = worldRuntimeInstanceTickOrchestrationService;
@@ -335,18 +362,26 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.worldRuntimeGmQueueService = worldRuntimeGmQueueService;
         this.worldRuntimeRespawnService = worldRuntimeRespawnService;
         this.worldRuntimeSystemCommandService = worldRuntimeSystemCommandService;
-        this.worldRuntimeCraftService = worldRuntimeCraftService;
-        this.worldRuntimeNpcQuestShopService = worldRuntimeNpcQuestShopService;
+        this.worldRuntimeCraftTickService = worldRuntimeCraftTickService;
+        this.worldRuntimeCraftMutationService = worldRuntimeCraftMutationService;
+        this.worldRuntimeCraftInterruptService = worldRuntimeCraftInterruptService;
+        this.worldRuntimeAlchemyService = worldRuntimeAlchemyService;
+        this.worldRuntimeNpcQuestWriteService = worldRuntimeNpcQuestWriteService;
         this.worldRuntimeLootContainerService = worldRuntimeLootContainerService;
         this.worldRuntimeNavigationService = worldRuntimeNavigationService;
         this.worldRuntimeCombatEffectsService = worldRuntimeCombatEffectsService;
         this.worldRuntimeMonsterActionApplyService = worldRuntimeMonsterActionApplyService;
         this.worldRuntimeBasicAttackService = worldRuntimeBasicAttackService;
+        this.worldRuntimeMonsterSystemCommandService = worldRuntimeMonsterSystemCommandService;
         this.worldRuntimePlayerCombatService = worldRuntimePlayerCombatService;
+        this.worldRuntimePlayerCommandService = worldRuntimePlayerCommandService;
         this.worldRuntimeItemGroundService = worldRuntimeItemGroundService;
+        this.worldRuntimeTransferService = worldRuntimeTransferService;
+        this.worldRuntimeNpcAccessService = worldRuntimeNpcAccessService;
         this.worldRuntimeEquipmentService = worldRuntimeEquipmentService;
         this.worldRuntimeCultivationService = worldRuntimeCultivationService;
         this.worldRuntimeProgressionService = worldRuntimeProgressionService;
+        this.worldRuntimeEnhancementService = worldRuntimeEnhancementService;
         this.worldRuntimeUseItemService = worldRuntimeUseItemService;
         this.worldRuntimeRedeemCodeService = worldRuntimeRedeemCodeService;
         this.worldRuntimePlayerSkillDispatchService = worldRuntimePlayerSkillDispatchService;
@@ -685,13 +720,13 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             if (!npcId) {
                 throw new common_1.BadRequestException('npcId is required');
             }
-            return this.worldRuntimeNpcQuestShopService.executeNpcQuestAction(playerId, npcId, this);
+            return this.worldRuntimeNpcQuestWriteService.executeNpcQuestAction(playerId, npcId, this);
         }
         throw new common_1.BadRequestException(`Unsupported actionId: ${actionId}`);
     }
     /** executeLegacyNpcAction：兼容旧版 NPC 交互入口，自动转成任务或对话命令。 */
     executeLegacyNpcAction(playerId, npcId) {
-        return this.worldRuntimeNpcQuestShopService.executeNpcQuestAction(playerId, npcId, this);
+        return this.worldRuntimeNpcQuestWriteService.executeNpcQuestAction(playerId, npcId, this);
     }
     /** enqueueUseItem：把排队使用物品请求排入下一次 tick。 */
     enqueueUseItem(playerId, slotIndexInput) {
@@ -1051,19 +1086,19 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     }
     /** enqueueNpcInteraction：把 NPC 交互请求排入下一次 tick。 */
     enqueueNpcInteraction(playerId, actionIdInput) {
-        return this.worldRuntimeNpcQuestShopService.enqueueNpcInteraction(playerId, actionIdInput, this);
+        return this.worldRuntimeNpcQuestWriteService.enqueueNpcInteraction(playerId, actionIdInput, this);
     }
     /** enqueueLegacyNpcInteraction：兼容旧版 NPC 交互入口。 */
     enqueueLegacyNpcInteraction(playerId, actionIdInput) {
-        return this.worldRuntimeNpcQuestShopService.enqueueLegacyNpcInteraction(playerId, actionIdInput, this);
+        return this.worldRuntimeNpcQuestWriteService.enqueueLegacyNpcInteraction(playerId, actionIdInput, this);
     }
     /** enqueueAcceptNpcQuest：把 NPC 任务接取请求排入下一次 tick。 */
     enqueueAcceptNpcQuest(playerId, npcIdInput, questIdInput) {
-        return this.worldRuntimeNpcQuestShopService.enqueueAcceptNpcQuest(playerId, npcIdInput, questIdInput, this);
+        return this.worldRuntimeNpcQuestWriteService.enqueueAcceptNpcQuest(playerId, npcIdInput, questIdInput, this);
     }
     /** enqueueSubmitNpcQuest：把 NPC 任务提交请求排入下一次 tick。 */
     enqueueSubmitNpcQuest(playerId, npcIdInput, questIdInput) {
-        return this.worldRuntimeNpcQuestShopService.enqueueSubmitNpcQuest(playerId, npcIdInput, questIdInput, this);
+        return this.worldRuntimeNpcQuestWriteService.enqueueSubmitNpcQuest(playerId, npcIdInput, questIdInput, this);
     }
     /** enqueueSpawnMonsterLoot：把妖兽掉落生成请求排入系统命令队列。 */
     enqueueSpawnMonsterLoot(instanceIdInput, monsterIdInput, xInput, yInput, rollsInput) {
@@ -1428,38 +1463,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     }
     /** applyTransfer：把跨图传送结果应用到目标实例。 */
     applyTransfer(transfer) {
-
-        const source = this.instances.get(transfer.fromInstanceId);
-        if (!source) {
-            return;
-        }
-        (0, movement_debug_1.logServerNextMovement)(this.logger, 'runtime.transfer.apply', {
-            playerId: transfer.playerId,
-            sessionId: transfer.sessionId,
-            fromInstanceId: transfer.fromInstanceId,
-            toMapId: transfer.targetMapId,
-            targetX: transfer.targetX,
-            targetY: transfer.targetY,
-            reason: transfer.reason,
-        });
-        source.disconnectPlayer(transfer.playerId);
-
-        const target = this.getOrCreatePublicInstance(transfer.targetMapId);
-        target.connectPlayer({
-            playerId: transfer.playerId,
-            sessionId: transfer.sessionId,
-            preferredX: transfer.targetX,
-            preferredY: transfer.targetY,
-        });
-
-        const runtimePlayer = this.playerRuntimeService.getPlayer(transfer.playerId);
-        target.setPlayerMoveSpeed(transfer.playerId, runtimePlayer?.attrs.numericStats.moveSpeed ?? 0);
-        this.playerLocations.set(transfer.playerId, {
-            instanceId: target.meta.instanceId,
-            sessionId: transfer.sessionId,
-        });
-
-        this.worldRuntimeNavigationService.handleTransfer(transfer, this);
+        this.worldRuntimeTransferService.applyTransfer(transfer, this);
     }
     /** materializeNavigationCommands：把导航意图落成可执行的移动或传送命令。 */
     materializeNavigationCommands() {
@@ -1511,91 +1515,34 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     }
     /** dispatchPlayerCommand：执行不依赖实例移动的玩家命令。 */
     dispatchPlayerCommand(playerId, command) {
-
-        const player = this.playerRuntimeService.getPlayer(playerId);
-        if (!player) {
-            return;
-        }
-        if (player.hp <= 0 && command.kind !== 'redeemCodes') {
-            return;
-        }
-        switch (command.kind) {
-            case 'useItem':
-                this.dispatchUseItem(playerId, command.slotIndex);
-                return;
-            case 'equip':
-                this.dispatchEquipItem(playerId, command.slotIndex);
-                return;
-            case 'dropItem':
-                this.dispatchDropItem(playerId, command.slotIndex, command.count);
-                return;
-            case 'moveTo':
-                this.dispatchMoveTo(playerId, command.x, command.y, command.allowNearestReachable, command.clientPathHint);
-                return;
-            case 'basicAttack':
-                this.dispatchBasicAttack(playerId, command.targetPlayerId, command.targetMonsterId, command.targetX, command.targetY);
-                return;
-            case 'engageBattle':
-                this.dispatchEngageBattle(playerId, command.targetPlayerId, command.targetMonsterId, command.targetX, command.targetY, command.locked);
-                return;
-            case 'takeGround':
-                this.dispatchTakeGround(playerId, command.sourceId, command.itemKey);
-                return;
-            case 'takeGroundAll':
-                this.dispatchTakeGroundAll(playerId, command.sourceId);
-                return;
-            case 'unequip':
-                this.dispatchUnequipItem(playerId, command.slot);
-                return;
-            case 'cultivate':
-                this.dispatchCultivateTechnique(playerId, command.techniqueId);
-                return;
-            case 'startAlchemy':
-                this.dispatchStartAlchemy(playerId, command.payload);
-                return;
-            case 'cancelAlchemy':
-                this.dispatchCancelAlchemy(playerId);
-                return;
-            case 'saveAlchemyPreset':
-                this.dispatchSaveAlchemyPreset(playerId, command.payload);
-                return;
-            case 'deleteAlchemyPreset':
-                this.dispatchDeleteAlchemyPreset(playerId, command.presetId);
-                return;
-            case 'startEnhancement':
-                this.dispatchStartEnhancement(playerId, command.payload);
-                return;
-            case 'cancelEnhancement':
-                this.dispatchCancelEnhancement(playerId);
-                return;
-            case 'redeemCodes':
-                this.dispatchRedeemCodes(playerId, command.codes);
-                return;
-            case 'breakthrough':
-                this.dispatchBreakthrough(playerId);
-                return;
-            case 'heavenGateAction':
-                this.dispatchHeavenGateAction(playerId, command.action, command.element);
-                return;
-            case 'castSkill':
-                this.dispatchCastSkill(playerId, command.skillId, command.targetPlayerId, command.targetMonsterId, command.targetRef);
-                return;
-            case 'buyNpcShopItem':
-                this.dispatchBuyNpcShopItem(playerId, command.npcId, command.itemId, command.quantity);
-                return;
-            case 'npcInteraction':
-                this.dispatchNpcInteraction(playerId, command.npcId);
-                return;
-            case 'interactNpcQuest':
-                this.dispatchInteractNpcQuest(playerId, command.npcId);
-                return;
-            case 'acceptNpcQuest':
-                this.dispatchAcceptNpcQuest(playerId, command.npcId, command.questId);
-                return;
-            case 'submitNpcQuest':
-                this.dispatchSubmitNpcQuest(playerId, command.npcId, command.questId);
-                return;
-        }
+        this.worldRuntimePlayerCommandService.dispatchPlayerCommand(playerId, command, {
+            playerRuntimeService: this.playerRuntimeService,
+            dispatchUseItem: (playerId, slotIndex) => this.dispatchUseItem(playerId, slotIndex),
+            dispatchEquipItem: (playerId, slotIndex) => this.dispatchEquipItem(playerId, slotIndex),
+            dispatchDropItem: (playerId, slotIndex, count) => this.dispatchDropItem(playerId, slotIndex, count),
+            dispatchMoveTo: (playerId, x, y, allowNearestReachable, clientPathHint) => this.dispatchMoveTo(playerId, x, y, allowNearestReachable, clientPathHint),
+            dispatchBasicAttack: (playerId, targetPlayerId, targetMonsterId, targetX, targetY) => this.dispatchBasicAttack(playerId, targetPlayerId, targetMonsterId, targetX, targetY),
+            dispatchEngageBattle: (playerId, targetPlayerId, targetMonsterId, targetX, targetY, locked) => this.dispatchEngageBattle(playerId, targetPlayerId, targetMonsterId, targetX, targetY, locked),
+            dispatchTakeGround: (playerId, sourceId, itemKey) => this.dispatchTakeGround(playerId, sourceId, itemKey),
+            dispatchTakeGroundAll: (playerId, sourceId) => this.dispatchTakeGroundAll(playerId, sourceId),
+            dispatchUnequipItem: (playerId, slot) => this.dispatchUnequipItem(playerId, slot),
+            dispatchCultivateTechnique: (playerId, techniqueId) => this.dispatchCultivateTechnique(playerId, techniqueId),
+            dispatchStartAlchemy: (playerId, payload) => this.dispatchStartAlchemy(playerId, payload),
+            dispatchCancelAlchemy: (playerId) => this.dispatchCancelAlchemy(playerId),
+            dispatchSaveAlchemyPreset: (playerId, payload) => this.dispatchSaveAlchemyPreset(playerId, payload),
+            dispatchDeleteAlchemyPreset: (playerId, presetId) => this.dispatchDeleteAlchemyPreset(playerId, presetId),
+            dispatchStartEnhancement: (playerId, payload) => this.dispatchStartEnhancement(playerId, payload),
+            dispatchCancelEnhancement: (playerId) => this.dispatchCancelEnhancement(playerId),
+            dispatchRedeemCodes: (playerId, codes) => this.dispatchRedeemCodes(playerId, codes),
+            dispatchBreakthrough: (playerId) => this.dispatchBreakthrough(playerId),
+            dispatchHeavenGateAction: (playerId, action, element) => this.dispatchHeavenGateAction(playerId, action, element),
+            dispatchCastSkill: (playerId, skillId, targetPlayerId, targetMonsterId, targetRef) => this.dispatchCastSkill(playerId, skillId, targetPlayerId, targetMonsterId, targetRef),
+            dispatchBuyNpcShopItem: (playerId, npcId, itemId, quantity) => this.dispatchBuyNpcShopItem(playerId, npcId, itemId, quantity),
+            dispatchNpcInteraction: (playerId, npcId) => this.dispatchNpcInteraction(playerId, npcId),
+            dispatchInteractNpcQuest: (playerId, npcId) => this.dispatchInteractNpcQuest(playerId, npcId),
+            dispatchAcceptNpcQuest: (playerId, npcId, questId) => this.dispatchAcceptNpcQuest(playerId, npcId, questId),
+            dispatchSubmitNpcQuest: (playerId, npcId, questId) => this.dispatchSubmitNpcQuest(playerId, npcId, questId),
+        });
     }
     /** dispatchRedeemCodes：执行兑换码结算并把结果回推给客户端。 */
     dispatchRedeemCodes(playerId, codes) {
@@ -1663,7 +1610,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     }
     /** dispatchNpcInteraction：执行 NPC 交互结算。 */
     dispatchNpcInteraction(playerId, npcId) {
-        this.worldRuntimeNpcQuestShopService.dispatchNpcInteraction(playerId, npcId, this);
+        this.worldRuntimeNpcQuestWriteService.dispatchNpcInteraction(playerId, npcId, this);
     }
     /** dispatchEquipItem：执行装备穿戴结算。 */
     dispatchEquipItem(playerId, slotIndex) {
@@ -1679,139 +1626,67 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     }
     /** dispatchStartAlchemy：启动炼丹流程。 */
     dispatchStartAlchemy(playerId, payload) {
-        this.worldRuntimeCraftService.dispatchStartAlchemy(playerId, payload, this);
+        this.worldRuntimeAlchemyService.dispatchStartAlchemy(playerId, payload, this);
     }
     /** dispatchCancelAlchemy：取消炼丹流程。 */
     dispatchCancelAlchemy(playerId) {
-        this.worldRuntimeCraftService.dispatchCancelAlchemy(playerId, this);
+        this.worldRuntimeAlchemyService.dispatchCancelAlchemy(playerId, this);
     }
     /** dispatchSaveAlchemyPreset：保存炼制预设。 */
     dispatchSaveAlchemyPreset(playerId, payload) {
-        this.worldRuntimeCraftService.dispatchSaveAlchemyPreset(playerId, payload, this);
+        this.worldRuntimeAlchemyService.dispatchSaveAlchemyPreset(playerId, payload, this);
     }
     /** dispatchDeleteAlchemyPreset：删除炼制预设。 */
     dispatchDeleteAlchemyPreset(playerId, presetId) {
-        this.worldRuntimeCraftService.dispatchDeleteAlchemyPreset(playerId, presetId, this);
+        this.worldRuntimeAlchemyService.dispatchDeleteAlchemyPreset(playerId, presetId, this);
     }
     /** dispatchStartEnhancement：启动强化流程。 */
     dispatchStartEnhancement(playerId, payload) {
-        this.worldRuntimeCraftService.dispatchStartEnhancement(playerId, payload, this);
+        this.worldRuntimeEnhancementService.dispatchStartEnhancement(playerId, payload, this);
     }
     /** dispatchCancelEnhancement：取消强化流程。 */
     dispatchCancelEnhancement(playerId) {
-        this.worldRuntimeCraftService.dispatchCancelEnhancement(playerId, this);
+        this.worldRuntimeEnhancementService.dispatchCancelEnhancement(playerId, this);
     }
     /** dispatchInteractNpcQuest：推进 NPC 对话型任务的交互进度。 */
     dispatchInteractNpcQuest(playerId, npcId) {
-        this.worldRuntimeNpcQuestShopService.dispatchInteractNpcQuest(playerId, npcId, this);
+        this.worldRuntimeNpcQuestWriteService.dispatchInteractNpcQuest(playerId, npcId, this);
     }
     /** dispatchAcceptNpcQuest：接取 NPC 任务并写入玩家任务列表。 */
     dispatchAcceptNpcQuest(playerId, npcId, questId) {
-        this.worldRuntimeNpcQuestShopService.dispatchAcceptNpcQuest(playerId, npcId, questId, this);
+        this.worldRuntimeNpcQuestWriteService.dispatchAcceptNpcQuest(playerId, npcId, questId, this);
     }
     /** dispatchSubmitNpcQuest：提交 NPC 任务并发放奖励。 */
     dispatchSubmitNpcQuest(playerId, npcId, questId) {
-        this.worldRuntimeNpcQuestShopService.dispatchSubmitNpcQuest(playerId, npcId, questId, this);
+        this.worldRuntimeNpcQuestWriteService.dispatchSubmitNpcQuest(playerId, npcId, questId, this);
     }
     /** dispatchSpawnMonsterLoot：按掉落表生成妖兽战利品。 */
     dispatchSpawnMonsterLoot(instanceId, x, y, monsterId, rolls) {
-
-        const instance = this.getInstanceRuntimeOrThrow(instanceId);
-
-        const items = this.contentTemplateRepository.rollMonsterDrops(monsterId, rolls);
-        if (items.length === 0) {
-            throw new common_1.NotFoundException(`Monster ${monsterId} produced no loot`);
-        }
-        for (const item of items) {
-            this.spawnGroundItem(instance, x, y, item);
-        }
+        this.worldRuntimeMonsterSystemCommandService.dispatchSpawnMonsterLoot(instanceId, x, y, monsterId, rolls, this);
     }
     /** dispatchDefeatMonster：直接结算妖兽被击败后的掉落。 */
     dispatchDefeatMonster(instanceId, runtimeId) {
-
-        const instance = this.getInstanceRuntimeOrThrow(instanceId);
-
-        const monster = instance.defeatMonster(runtimeId);
-        if (!monster) {
-            throw new common_1.NotFoundException(`Monster ${runtimeId} not found or already dead`);
-        }
-
-        const items = this.contentTemplateRepository.rollMonsterDrops(monster.monsterId, 1);
-        for (const item of items) {
-            this.spawnGroundItem(instance, monster.x, monster.y, item);
-        }
+        this.worldRuntimeMonsterSystemCommandService.dispatchDefeatMonster(instanceId, runtimeId, this);
     }
     /** dispatchDamagePlayer：对玩家直接施加伤害。 */
     dispatchDamagePlayer(playerId, amount) {
-
-        const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
-        if (player.hp <= 0) {
-            this.handlePlayerDefeat(playerId);
-            return;
-        }
-
-        const updated = this.playerRuntimeService.applyDamage(playerId, amount);
-        this.playerRuntimeService.recordActivity(playerId, this.resolveCurrentTickForPlayerId(playerId), {
-            interruptCultivation: true,
-        });
-        if (updated.hp <= 0) {
-            this.handlePlayerDefeat(playerId);
-        }
+        this.worldRuntimePlayerCombatService.dispatchDamagePlayer(playerId, amount, this);
     }
     /** dispatchDamageMonster：对妖兽直接施加伤害。 */
     dispatchDamageMonster(instanceId, runtimeId, amount) {
-
-        const instance = this.getInstanceRuntimeOrThrow(instanceId);
-
-        const target = instance.getMonster(runtimeId);
-        if (!target) {
-            throw new common_1.NotFoundException(`Monster ${runtimeId} not found`);
-        }
-
-        const outcome = instance.applyDamageToMonster(runtimeId, amount);
-        if (!outcome?.defeated) {
-            return;
-        }
-
-        const items = this.contentTemplateRepository.rollMonsterDrops(target.monsterId, 1);
-        for (const item of items) {
-            this.spawnGroundItem(instance, target.x, target.y, item);
-        }
+        this.worldRuntimeMonsterSystemCommandService.dispatchDamageMonster(instanceId, runtimeId, amount, this);
     }
     /** spawnGroundItem：在地面上生成物品堆。 */
     spawnGroundItem(instance, x, y, item) {
-
-        const pile = instance.dropGroundItem(x, y, item);
-        if (!pile) {
-            throw new common_1.BadRequestException(`Failed to spawn loot at ${x},${y}`);
-        }
+        this.worldRuntimeItemGroundService.spawnGroundItem(instance, x, y, item);
     }
     /** handlePlayerMonsterKill：处理玩家击杀妖兽后的奖励和进度。 */
     handlePlayerMonsterKill(instance, monster, killerPlayerId) {
         this.worldRuntimePlayerCombatService.handlePlayerMonsterKill(instance, monster, killerPlayerId, this);
     }
-    /** createNpcShopEnvelope：构建 NPC 商店封装结果。 */
-    createNpcShopEnvelope(playerId, npcId) {
-
-        const npc = this.resolveAdjacentNpc(playerId, npcId);
-        return this.worldRuntimeNpcShopQueryService.createEnvelopeForNpc(npc);
-    }
     /** resolveAdjacentNpc：校验并读取相邻 NPC。 */
     resolveAdjacentNpc(playerId, npcId) {
-
-        const location = this.getPlayerLocationOrThrow(playerId);
-
-        const instance = this.getInstanceRuntimeOrThrow(location.instanceId);
-
-        const npc = instance.getAdjacentNpc(playerId, npcId);
-        if (!npc) {
-            throw new common_1.NotFoundException('你离这位商人太远了');
-        }
-        return npc;
-    }
-    /** buildNpcShopState：构建 NPC 商店的可售状态。 */
-    buildNpcShopState(npc) {
-        return this.worldRuntimeNpcShopQueryService.buildShopState(npc);
+        return this.worldRuntimeNpcAccessService.resolveAdjacentNpc(playerId, npcId, this);
     }
     /** createNpcQuestsEnvelope：构建 NPC 任务封装结果。 */
     createNpcQuestsEnvelope(playerId, npcId) {
@@ -1819,39 +1694,9 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         const npc = this.resolveAdjacentNpc(playerId, npcId);
         return this.worldRuntimeQuestQueryService.createNpcQuestsEnvelope(playerId, npc);
     }
-    /** collectNpcQuestViews：收集玩家在该 NPC 处可见的任务。 */
-    collectNpcQuestViews(playerId, npc) {
-        return this.worldRuntimeQuestQueryService.collectNpcQuestViews(playerId, npc);
-    }
     /** refreshQuestStates：根据当前运行态刷新任务进度和状态。 */
     refreshQuestStates(playerId, forceDirty = false) {
-
-        const player = this.playerRuntimeService.getPlayer(playerId);
-        if (!player) {
-            return;
-        }
-
-        let changed = forceDirty;
-        for (const quest of player.quests.quests) {
-            const previousProgress = quest.progress;
-            const previousStatus = quest.status;
-            quest.progress = this.worldRuntimeQuestQueryService.resolveQuestProgress(playerId, quest);
-
-            const nextStatus = quest.status === 'completed'
-                ? 'completed'
-                : this.canQuestBecomeReady(playerId, quest)
-                    ? 'ready'
-                    : quest.status === 'ready'
-                        ? 'active'
-                        : quest.status;
-            if (quest.progress !== previousProgress || nextStatus !== previousStatus) {
-                quest.status = nextStatus;
-                changed = true;
-            }
-        }
-        if (changed) {
-            this.playerRuntimeService.markQuestStateDirty(playerId);
-        }
+        this.worldRuntimeQuestStateService.refreshQuestStates(playerId, forceDirty);
     }
     /** resolveQuestProgress：计算任务当前进度。 */
     resolveQuestProgress(playerId, quest) {
@@ -1867,70 +1712,15 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     }
     /** tryAcceptNextQuest：尝试自动接取下一环任务。 */
     tryAcceptNextQuest(playerId, nextQuestId) {
-        if (!nextQuestId) {
-            return null;
-        }
-
-        const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
-        if (player.quests.quests.some((entry) => entry.id === nextQuestId)) {
-            return null;
-        }
-
-        const nextQuest = this.createQuestStateFromSource(playerId, nextQuestId, 'active');
-        player.quests.quests.push(nextQuest);
-        this.playerRuntimeService.markQuestStateDirty(playerId);
-        return cloneQuestState(nextQuest);
+        return this.worldRuntimeQuestStateService.tryAcceptNextQuest(playerId, nextQuestId);
     }
     /** advanceKillQuestProgress：推进击杀类任务进度。 */
     advanceKillQuestProgress(playerId, monsterId, monsterName) {
-
-        const player = this.playerRuntimeService.getPlayer(playerId);
-        if (!player) {
-            return;
-        }
-
-        let changed = false;
-        for (const quest of player.quests.quests) {
-            if (quest.status !== 'active' || quest.objectiveType !== 'kill' || quest.targetMonsterId !== monsterId) {
-                continue;
-            }
-
-            const nextProgress = Math.min(quest.required, quest.progress + 1);
-            if (nextProgress !== quest.progress) {
-                quest.progress = nextProgress;
-                if (!quest.targetName || quest.targetName === quest.targetMonsterId) {
-                    quest.targetName = monsterName;
-                }
-                changed = true;
-            }
-        }
-        if (changed) {
-            this.refreshQuestStates(playerId, true);
-        }
+        this.worldRuntimeQuestStateService.advanceKillQuestProgress(playerId, monsterId, monsterName);
     }
     /** advanceLearnTechniqueQuest：推进学习功法类任务进度。 */
     advanceLearnTechniqueQuest(playerId, techniqueId) {
-
-        const player = this.playerRuntimeService.getPlayer(playerId);
-        if (!player) {
-            return;
-        }
-
-        let changed = false;
-        for (const quest of player.quests.quests) {
-            if (quest.status !== 'active' || quest.objectiveType !== 'learn_technique' || quest.targetTechniqueId !== techniqueId) {
-                continue;
-            }
-            if (quest.progress !== quest.required) {
-                quest.progress = quest.required;
-                changed = true;
-            }
-        }
-        if (changed) {
-            this.refreshQuestStates(playerId, true);
-            return;
-        }
-        this.refreshQuestStates(playerId);
+        this.worldRuntimeQuestStateService.advanceLearnTechniqueQuest(playerId, techniqueId);
     }
     /** buildQuestRewardItems：构建任务奖励物品列表。 */
     buildQuestRewardItems(quest) {
@@ -1942,23 +1732,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     }
     /** canReceiveRewardItems：判断玩家是否还能接收任务奖励。 */
     canReceiveRewardItems(playerId, rewards) {
-
-        const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
-
-        let freeSlots = Math.max(0, player.inventory.capacity - player.inventory.items.length);
-
-        const seenNewItemIds = new Set();
-        for (const reward of rewards) {
-            if (player.inventory.items.some((entry) => entry.itemId === reward.itemId) || seenNewItemIds.has(reward.itemId)) {
-                continue;
-            }
-            if (freeSlots <= 0) {
-                return false;
-            }
-            seenNewItemIds.add(reward.itemId);
-            freeSlots -= 1;
-        }
-        return true;
+        return this.worldRuntimeQuestStateService.canReceiveRewardItems(playerId, rewards);
     }
     /** resolveQuestNavigationTarget：解析任务对应的导航目标。 */
     resolveQuestNavigationTarget(quest) {
@@ -1966,27 +1740,17 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     }
     /** resolveNpcQuestMarker：解析 NPC 头顶的任务标记。 */
     resolveNpcQuestMarker(playerId, npcId) {
-        const npc = this.getNpcForPlayerMap(playerId, npcId);
-        return this.worldRuntimeNpcQuestInteractionQueryService.resolveNpcQuestMarker(playerId, npcId, npc);
+        return this.worldRuntimeNpcQuestInteractionQueryService.resolveNpcQuestMarker(playerId, npcId, this);
     }
     /** getNpcForPlayerMap：读取玩家当前地图中的 NPC。 */
     getNpcForPlayerMap(playerId, npcId) {
-
-        const location = this.playerLocations.get(playerId);
-        if (!location) {
-            return null;
-        }
-        return this.instances.get(location.instanceId)?.getNpc(npcId) ?? null;
+        return this.worldRuntimeNpcAccessService.getNpcForPlayerMap(playerId, npcId, this);
     }
     /** validateNpcShopPurchase：校验 NPC 商店购买条件。 */
     validateNpcShopPurchase(playerId, npcId, itemId, quantity) {
 
         const npc = this.resolveAdjacentNpc(playerId, npcId);
         return this.worldRuntimeNpcShopQueryService.validatePurchaseForNpc(playerId, npc, itemId, quantity);
-    }
-    /** getNpcShopCurrencyName：读取 NPC 商店货币名称。 */
-    getNpcShopCurrencyName() {
-        return this.worldRuntimeNpcShopQueryService.getCurrencyItemName();
     }
     /** decoratePlayerViewNpcs：为玩家视野中的 NPC 补充任务标记。 */
     decoratePlayerViewNpcs(playerId, view) {
@@ -2194,6 +1958,7 @@ exports.WorldRuntimeService = WorldRuntimeService = WorldRuntimeService_1 = __de
         craft_panel_runtime_service_1.CraftPanelRuntimeService,
         world_runtime_npc_shop_query_service_1.WorldRuntimeNpcShopQueryService,
         world_runtime_quest_query_service_1.WorldRuntimeQuestQueryService,
+        world_runtime_quest_state_service_1.WorldRuntimeQuestStateService,
         world_runtime_detail_query_service_1.WorldRuntimeDetailQueryService,
         world_runtime_metrics_service_1.WorldRuntimeMetricsService,
         world_runtime_instance_tick_orchestration_service_1.WorldRuntimeInstanceTickOrchestrationService,
@@ -2209,18 +1974,26 @@ exports.WorldRuntimeService = WorldRuntimeService = WorldRuntimeService_1 = __de
         world_runtime_gm_queue_service_1.WorldRuntimeGmQueueService,
         world_runtime_respawn_service_1.WorldRuntimeRespawnService,
         world_runtime_system_command_service_1.WorldRuntimeSystemCommandService,
-        world_runtime_craft_service_1.WorldRuntimeCraftService,
-        world_runtime_npc_quest_shop_service_1.WorldRuntimeNpcQuestShopService,
+        world_runtime_craft_tick_service_1.WorldRuntimeCraftTickService,
+        world_runtime_craft_mutation_service_1.WorldRuntimeCraftMutationService,
+        world_runtime_craft_interrupt_service_1.WorldRuntimeCraftInterruptService,
+        world_runtime_alchemy_service_1.WorldRuntimeAlchemyService,
+        world_runtime_npc_quest_write_service_1.WorldRuntimeNpcQuestWriteService,
         world_runtime_loot_container_service_1.WorldRuntimeLootContainerService,
         world_runtime_navigation_service_1.WorldRuntimeNavigationService,
         world_runtime_combat_effects_service_1.WorldRuntimeCombatEffectsService,
         world_runtime_monster_action_apply_service_1.WorldRuntimeMonsterActionApplyService,
         world_runtime_basic_attack_service_1.WorldRuntimeBasicAttackService,
+        world_runtime_monster_system_command_service_1.WorldRuntimeMonsterSystemCommandService,
         world_runtime_player_combat_service_1.WorldRuntimePlayerCombatService,
+        world_runtime_player_command_service_1.WorldRuntimePlayerCommandService,
         world_runtime_item_ground_service_1.WorldRuntimeItemGroundService,
+        world_runtime_transfer_service_1.WorldRuntimeTransferService,
+        world_runtime_npc_access_service_1.WorldRuntimeNpcAccessService,
         world_runtime_equipment_service_1.WorldRuntimeEquipmentService,
         world_runtime_cultivation_service_1.WorldRuntimeCultivationService,
         world_runtime_progression_service_1.WorldRuntimeProgressionService,
+        world_runtime_enhancement_service_1.WorldRuntimeEnhancementService,
         world_runtime_use_item_service_1.WorldRuntimeUseItemService,
         world_runtime_redeem_code_service_1.WorldRuntimeRedeemCodeService,
         world_runtime_player_skill_dispatch_service_1.WorldRuntimePlayerSkillDispatchService,

@@ -1,7 +1,7 @@
 /**
  * 地形系统：移动消耗、地形字符映射、可通行判定、地形耐久度计算。
  */
-import { TileType } from './types';
+import { TileType } from './world-core-types';
 import {
   BASE_MOVE_POINTS_PER_TICK,
   MAX_STORED_MOVE_POINTS,

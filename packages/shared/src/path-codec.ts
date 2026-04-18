@@ -6,7 +6,7 @@
  * - 每 3 步打包为 1 个 6 bit 字符
  * - 步数单独传输，末尾不足 3 步时补 0
  */
-import { Direction } from './types';
+import { Direction } from './world-core-types';
 
 /** PATH_PACK_ALPHABET：路径PACK ALPHABET。 */
 const PATH_PACK_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
@@ -98,7 +98,6 @@ export function unpackDirections(packed: string, stepCount: number): Direction[]
 
   return directions.length === stepCount ? directions : null;
 }
-
 
 
 

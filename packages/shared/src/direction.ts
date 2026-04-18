@@ -1,7 +1,7 @@
 /**
  * 四方向工具：方向与坐标偏移的互转。
  */
-import { Direction } from './types';
+import { Direction } from './world-core-types';
 
 /** 方向及其对应的坐标偏移 */
 export interface DirectionStep {

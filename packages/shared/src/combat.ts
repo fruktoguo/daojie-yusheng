@@ -11,7 +11,7 @@ import {
   REALM_DAMAGE_DISADVANTAGE_RATE,
 } from './constants/gameplay/combat';
 import type { ElementKey } from './numeric';
-import type { SkillDamageKind } from './types';
+import type { SkillDamageKind } from './skill-types';
 import {
   DAMAGE_TRAIL_PHYSICAL_COLOR,
   DAMAGE_TRAIL_SPELL_COLOR,

@@ -29,28 +29,28 @@ export function NextUiScaffold() {
       >
         <div className="next-ui-scaffold-grid">
           <div className="next-ui-scaffold-row">
-            <span className="panel-label ui-panel-label">角色</span>
-            <span className="panel-value ui-panel-value">{player?.name ?? '未登录'}</span>
+            <span className="next-ui-scaffold-label">角色</span>
+            <span className="next-ui-scaffold-value">{player?.name ?? '未登录'}</span>
           </div>
           <div className="next-ui-scaffold-row">
-            <span className="panel-label ui-panel-label">地图</span>
-            <span className="panel-value ui-panel-value">{shellState.runtime.mapId ?? '未知'}</span>
+            <span className="next-ui-scaffold-label">地图</span>
+            <span className="next-ui-scaffold-value">{shellState.runtime.mapId ?? '未知'}</span>
           </div>
           <div className="next-ui-scaffold-row">
-            <span className="panel-label ui-panel-label">背包</span>
-            <span className="panel-value ui-panel-value">{panelState.inventory?.items.length ?? 0} 项</span>
+            <span className="next-ui-scaffold-label">背包</span>
+            <span className="next-ui-scaffold-value">{panelState.inventory?.items.length ?? 0} 项</span>
           </div>
           <div className="next-ui-scaffold-row">
-            <span className="panel-label ui-panel-label">功法</span>
-            <span className="panel-value ui-panel-value">{panelState.techniques.length} 项</span>
+            <span className="next-ui-scaffold-label">功法</span>
+            <span className="next-ui-scaffold-value">{panelState.techniques.length} 项</span>
           </div>
           <div className="next-ui-scaffold-row">
-            <span className="panel-label ui-panel-label">行动</span>
-            <span className="panel-value ui-panel-value">{panelState.actions.length} 项</span>
+            <span className="next-ui-scaffold-label">行动</span>
+            <span className="next-ui-scaffold-value">{panelState.actions.length} 项</span>
           </div>
           <div className="next-ui-scaffold-row">
-            <span className="panel-label ui-panel-label">任务</span>
-            <span className="panel-value ui-panel-value">{panelState.quests?.length ?? 0} 项</span>
+            <span className="next-ui-scaffold-label">任务</span>
+            <span className="next-ui-scaffold-value">{panelState.quests?.length ?? 0} 项</span>
           </div>
         </div>
         <div className="next-ui-scaffold-actions">
@@ -96,7 +96,7 @@ export function NextUiScaffold() {
         </div>
       </UiSection>
       <div
-        className="next-ui-tooltip-probe ui-surface-pane ui-surface-pane--stack"
+        className="next-ui-tooltip-probe next-ui-surface-pane next-ui-surface-pane--stack"
         onPointerMove={(event) => {
           showNextTooltip(
             'Tooltip 骨架',

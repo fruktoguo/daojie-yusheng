@@ -18,15 +18,23 @@ const common_1 = require("@nestjs/common");
 
 const world_runtime_gm_queue_service_1 = require("./world-runtime-gm-queue.service");
 
+const world_runtime_monster_system_command_service_1 = require("./world-runtime-monster-system-command.service");
+
+const world_runtime_player_combat_service_1 = require("./world-runtime-player-combat.service");
+
 const world_runtime_respawn_service_1 = require("./world-runtime-respawn.service");
 
 /** world-runtime system-command orchestration：承接系统命令队列消费与分发。 */
 let WorldRuntimeSystemCommandService = class WorldRuntimeSystemCommandService {
     worldRuntimeGmQueueService;
+    worldRuntimeMonsterSystemCommandService;
+    worldRuntimePlayerCombatService;
     worldRuntimeRespawnService;
     logger = new common_1.Logger(WorldRuntimeSystemCommandService.name);
-    constructor(worldRuntimeGmQueueService, worldRuntimeRespawnService) {
+    constructor(worldRuntimeGmQueueService, worldRuntimeMonsterSystemCommandService, worldRuntimePlayerCombatService, worldRuntimeRespawnService) {
         this.worldRuntimeGmQueueService = worldRuntimeGmQueueService;
+        this.worldRuntimeMonsterSystemCommandService = worldRuntimeMonsterSystemCommandService;
+        this.worldRuntimePlayerCombatService = worldRuntimePlayerCombatService;
         this.worldRuntimeRespawnService = worldRuntimeRespawnService;
     }
     dispatchPendingSystemCommands(deps) {
@@ -47,16 +55,16 @@ let WorldRuntimeSystemCommandService = class WorldRuntimeSystemCommandService {
     dispatchSystemCommand(command, deps) {
         switch (command.kind) {
             case 'spawnMonsterLoot':
-                deps.dispatchSpawnMonsterLoot(command.instanceId, command.x, command.y, command.monsterId, command.rolls);
+                this.worldRuntimeMonsterSystemCommandService.dispatchSpawnMonsterLoot(command.instanceId, command.x, command.y, command.monsterId, command.rolls, deps);
                 return;
             case 'damageMonster':
-                deps.dispatchDamageMonster(command.instanceId, command.runtimeId, command.amount);
+                this.worldRuntimeMonsterSystemCommandService.dispatchDamageMonster(command.instanceId, command.runtimeId, command.amount, deps);
                 return;
             case 'defeatMonster':
-                deps.dispatchDefeatMonster(command.instanceId, command.runtimeId);
+                this.worldRuntimeMonsterSystemCommandService.dispatchDefeatMonster(command.instanceId, command.runtimeId, deps);
                 return;
             case 'damagePlayer':
-                deps.dispatchDamagePlayer(command.playerId, command.amount);
+                this.worldRuntimePlayerCombatService.dispatchDamagePlayer(command.playerId, command.amount, deps);
                 return;
             case 'respawnPlayer':
                 this.worldRuntimeRespawnService.respawnPlayer(command.playerId, deps);
@@ -102,5 +110,7 @@ exports.WorldRuntimeSystemCommandService = WorldRuntimeSystemCommandService;
 exports.WorldRuntimeSystemCommandService = WorldRuntimeSystemCommandService = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [world_runtime_gm_queue_service_1.WorldRuntimeGmQueueService,
+        world_runtime_monster_system_command_service_1.WorldRuntimeMonsterSystemCommandService,
+        world_runtime_player_combat_service_1.WorldRuntimePlayerCombatService,
         world_runtime_respawn_service_1.WorldRuntimeRespawnService])
 ], WorldRuntimeSystemCommandService);

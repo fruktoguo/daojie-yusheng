@@ -76,7 +76,7 @@ let itemSourceCatalog: ItemSourceCatalog | null = null;
 /** 正在进行中的物品来源目录加载任务。 */
 let itemSourceCatalogPromise: Promise<ItemSourceCatalog> | null = null;
 
-/** 按需加载物品来源目录。 */
+/** 按需加载物品来源目录。该 generated JSON 仍是运行时 tooltip/背包来源说明链路的一部分。 */
 function loadItemSourceCatalog(): Promise<ItemSourceCatalog> {
   if (itemSourceCatalog) {
     return Promise.resolve(itemSourceCatalog);
@@ -229,4 +229,3 @@ export function renderItemSourceListHtml(
       : ''
   }</div>`;
 }
-

@@ -23,9 +23,14 @@ function walkJsonFiles(dirPath, result = []) {
 function loadMapFiles() {
   return walkJsonFiles(mapsRoot).map((filePath) => {
     const raw = fs.readFileSync(filePath, "utf8");
+    const relativePath = path.relative(packageRoot, filePath);
     return {
       filePath,
-      relativePath: path.relative(packageRoot, filePath),
+      relativePath,
+      baseName: path.basename(filePath, ".json"),
+      composeGroupName: relativePath.includes(`${path.sep}compose${path.sep}`)
+        ? path.basename(path.dirname(filePath))
+        : null,
       map: JSON.parse(raw),
     };
   });
@@ -57,6 +62,24 @@ function validateTileShape(errors, mapInfo, width, height) {
   });
 }
 
+function validateMapFileIdentity(errors, mapInfo) {
+  if (mapInfo.baseName !== mapInfo.map.id) {
+    errors.push(`${mapInfo.map.id}: 文件名 ${mapInfo.baseName}.json 与 map.id 不一致 @ ${mapInfo.relativePath}`);
+  }
+}
+
+function validateComposeRules(errors, mapInfo) {
+  if (!mapInfo.composeGroupName) {
+    return;
+  }
+  if (!mapInfo.map.id.startsWith(`${mapInfo.composeGroupName}_`)) {
+    errors.push(`${mapInfo.map.id}: compose 子图 id 必须以前缀 ${mapInfo.composeGroupName}_ 开头 @ ${mapInfo.relativePath}`);
+  }
+  if (typeof mapInfo.map.parentMapId === "string") {
+    errors.push(`${mapInfo.map.id}: compose 子图不应直接声明 parentMapId -> ${mapInfo.map.parentMapId} @ ${mapInfo.relativePath}`);
+  }
+}
+
 function validatePortals(errors, mapInfo, mapById, width, height) {
   for (const portal of mapInfo.map.portals ?? []) {
     validatePoint(errors, mapInfo, `portal:${portal.targetMapId ?? "unknown"}`, portal.x, portal.y, width, height);
@@ -86,6 +109,9 @@ function validateParentMapRules(errors, mapInfo, mapById) {
   if (typeof parentMapId !== "string") {
     return;
   }
+  if (mapInfo.composeGroupName) {
+    errors.push(`${mapInfo.map.id}: parentMap 室内图不应落在 compose 目录下 @ ${mapInfo.relativePath}`);
+  }
   const parentMapInfo = mapById.get(parentMapId);
   if (!parentMapInfo) {
     errors.push(`${mapInfo.map.id}: parentMapId 不存在 -> ${parentMapId} @ ${mapInfo.relativePath}`);
@@ -93,6 +119,12 @@ function validateParentMapRules(errors, mapInfo, mapById) {
   }
   if (!Number.isInteger(mapInfo.map.floorLevel)) {
     errors.push(`${mapInfo.map.id}: parentMapId 已设置，但 floorLevel 非整数 @ ${mapInfo.relativePath}`);
+  }
+  if (mapInfo.map.floorLevel === 0) {
+    errors.push(`${mapInfo.map.id}: parentMapId 已设置，但 floorLevel 不能为 0 @ ${mapInfo.relativePath}`);
+  }
+  if (!mapInfo.map.id.startsWith(`${parentMapId}_`)) {
+    errors.push(`${mapInfo.map.id}: parentMap 室内图 id 应以前缀 ${parentMapId}_ 开头 @ ${mapInfo.relativePath}`);
   }
   const hasParentOriginX = Number.isInteger(mapInfo.map.parentOriginX);
   const hasParentOriginY = Number.isInteger(mapInfo.map.parentOriginY);
@@ -146,6 +178,8 @@ function main() {
   for (const mapInfo of mapById.values()) {
     const width = mapInfo.map.width;
     const height = mapInfo.map.height;
+    validateMapFileIdentity(errors, mapInfo);
+    validateComposeRules(errors, mapInfo);
     if (!Number.isInteger(width) || width <= 0 || !Number.isInteger(height) || height <= 0) {
       errors.push(`${mapInfo.map.id}: width/height 非法 -> ${width}x${height} @ ${mapInfo.relativePath}`);
       continue;
@@ -174,7 +208,7 @@ function main() {
 
   process.stdout.write("[content/map consistency] passed\n");
   process.stdout.write(`- checked maps: ${mapById.size}\n`);
-  process.stdout.write("- validated: tiles, spawn points, portals, npc anchors, landmarks, monster spawns, parent-map rules\n");
+  process.stdout.write("- validated: file/id identity, compose naming, tiles, spawn points, portals, npc anchors, landmarks, monster spawns, parent-map rules\n");
 }
 
 main();

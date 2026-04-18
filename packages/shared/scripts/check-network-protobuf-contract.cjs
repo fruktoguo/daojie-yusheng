@@ -11,12 +11,15 @@ const protobuf = require('protobufjs');
 const repoRoot = path.resolve(__dirname, '..', '..', '..');
 const protocolPath = path.resolve(__dirname, '../src/protocol.ts');
 const protobufPath = path.resolve(__dirname, '../src/network-protobuf.ts');
+const protobufSchemaPath = path.resolve(__dirname, '../src/network-protobuf-schema.ts');
 const serverAuditPath = path.resolve(repoRoot, 'packages/server/src/tools/next-protocol-audit.js');
 
 const protocolSource = fs.readFileSync(protocolPath, 'utf8');
 const protocolFile = ts.createSourceFile(protocolPath, protocolSource, ts.ScriptTarget.Latest, true);
 const protobufSource = fs.readFileSync(protobufPath, 'utf8');
 const protobufFile = ts.createSourceFile(protobufPath, protobufSource, ts.ScriptTarget.Latest, true);
+const protobufSchemaSource = fs.readFileSync(protobufSchemaPath, 'utf8');
+const protobufSchemaFile = ts.createSourceFile(protobufSchemaPath, protobufSchemaSource, ts.ScriptTarget.Latest, true);
 const serverAuditSource = fs.readFileSync(serverAuditPath, 'utf8');
 const serverAuditFile = ts.createSourceFile(serverAuditPath, serverAuditSource, ts.ScriptTarget.Latest, true);
 
@@ -315,9 +318,9 @@ function assertHelperInterfacesExist() {
 }
 
 function assertNetworkProtobufSchema() {
-  const lookupTypes = extractLookupTypeNames(protobufFile);
+  const lookupTypes = extractLookupTypeNames(protobufSchemaFile);
   assertSameKeys('network-protobuf lookupType names', EXPECTED_PROTOBUF_TYPES, lookupTypes);
-  const schemaText = extractTemplateLiteralText(protobufFile, 'PROTO_SCHEMA');
+  const schemaText = extractTemplateLiteralText(protobufSchemaFile, 'PROTO_SCHEMA');
   const root = protobuf.parse(schemaText).root;
   for (const typeName of EXPECTED_PROTOBUF_TYPES) {
     if (!root.lookupType(typeName)) {
@@ -327,8 +330,8 @@ function assertNetworkProtobufSchema() {
 }
 
 function assertProtobufEventWhitelists() {
-  const s2cEvents = extractSetMembers(protobufFile, 'PROTOBUF_NEXT_S2C_EVENTS', 'NEXT_S2C');
-  const c2sEvents = extractSetMembers(protobufFile, 'PROTOBUF_NEXT_C2S_EVENTS', 'NEXT_C2S');
+  const s2cEvents = extractSetMembers(protobufSchemaFile, 'PROTOBUF_NEXT_S2C_EVENTS', 'NEXT_S2C');
+  const c2sEvents = extractSetMembers(protobufSchemaFile, 'PROTOBUF_NEXT_C2S_EVENTS', 'NEXT_C2S');
   if (s2cEvents.length > 0 || c2sEvents.length > 0) {
     throw new Error(`protobuf event whitelist drifted. s2c=${s2cEvents.join(', ') || 'none'} c2s=${c2sEvents.join(', ') || 'none'}`);
   }
