@@ -44,6 +44,8 @@ const next_gm_constants_1 = require("./next-gm.constants");
 
 const next_managed_account_service_1 = require("./next-managed-account.service");
 
+const next_gm_map_query_service_1 = require("./next-gm-map-query.service");
+
 let NextGmWorldService = class NextGmWorldService {
     contentTemplateRepository;
     nextManagedAccountService;
@@ -55,11 +57,12 @@ let NextGmWorldService = class NextGmWorldService {
     suggestionRuntimeService;
     worldRuntimeService;
     runtimeMapConfigService;
+    nextGmMapQueryService;
     networkPerfStartedAt = Date.now();
     cpuPerfStartedAt = Date.now();
     pathfindingPerfStartedAt = Date.now();
     worldObserverIds = new Set();
-    constructor(contentTemplateRepository, nextManagedAccountService, runtimeGmStateService, mapTemplateRepository, playerPersistenceService, playerProgressionService, playerRuntimeService, suggestionRuntimeService, worldRuntimeService, runtimeMapConfigService) {
+    constructor(contentTemplateRepository, nextManagedAccountService, runtimeGmStateService, mapTemplateRepository, playerPersistenceService, playerProgressionService, playerRuntimeService, suggestionRuntimeService, worldRuntimeService, runtimeMapConfigService, nextGmMapQueryService) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.nextManagedAccountService = nextManagedAccountService;
         this.runtimeGmStateService = runtimeGmStateService;
@@ -70,6 +73,7 @@ let NextGmWorldService = class NextGmWorldService {
         this.suggestionRuntimeService = suggestionRuntimeService;
         this.worldRuntimeService = worldRuntimeService;
         this.runtimeMapConfigService = runtimeMapConfigService;
+        this.nextGmMapQueryService = nextGmMapQueryService;
     }
     collectManagedPlayerIds(runtimePlayers, persistedEntries) {
         return [
@@ -270,20 +274,7 @@ let NextGmWorldService = class NextGmWorldService {
         return { ok: true };
     }
     getMaps() {
-        return {
-            maps: this.mapTemplateRepository.list().map((template) => ({
-                id: template.id,
-                name: template.name,
-                width: template.width,
-                height: template.height,
-                description: template.source.description,
-                dangerLevel: template.source.dangerLevel,
-                recommendedRealm: template.source.recommendedRealm,
-                portalCount: template.portals.length,
-                npcCount: template.npcs.length,
-                monsterSpawnCount: template.source.monsterSpawns?.length ?? 0,
-            })).sort((left, right) => left.id.localeCompare(right.id, 'zh-Hans-CN')),
-        };
+        return this.nextGmMapQueryService.getMaps();
     }
     getMapRuntime(mapId, x, y, w, h, viewerId) {
 
@@ -741,7 +732,8 @@ exports.NextGmWorldService = NextGmWorldService = __decorate([
         player_runtime_service_1.PlayerRuntimeService,
         suggestion_runtime_service_1.SuggestionRuntimeService,
         world_runtime_service_1.WorldRuntimeService,
-        runtime_map_config_service_1.RuntimeMapConfigService])
+        runtime_map_config_service_1.RuntimeMapConfigService,
+        next_gm_map_query_service_1.NextGmMapQueryService])
 ], NextGmWorldService);
 function projectLegacyRuntimeTile(input) {
 
