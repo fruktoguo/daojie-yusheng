@@ -396,6 +396,9 @@
 - 本轮验证已补跑 `pnpm --filter @mud/server-next smoke:gm-next`、`pnpm --filter @mud/server-next smoke:gm-database`、根级 `pnpm build` 与 `pnpm verify:replace-ready`；其中 `gm-database` 因缺少 `SERVER_NEXT_DATABASE_URL/DATABASE_URL` 按预期跳过，`gm-next` 在无库本地口径下返回 `ok: true` 且标记 `skipped`
 - `packages/server/src/http/next/next-gm-player.service.js` 的 `resetHeavenGate()` 现在也改为 persistence-first：在线玩家不再直接形成 runtime-only 清空路径，而是先落 `progression.heavenGate/spiritualRoots`，再按保存结果回写在线 runtime
 - 本轮验证已再次补跑 `pnpm --filter @mud/server-next smoke:gm-next`、`pnpm --filter @mud/server-next smoke:gm-database`、根级 `pnpm build` 与 `pnpm verify:replace-ready`；结果与上一轮一致：`gm-next` 在无库本地口径下 `ok: true` 且标记 `skipped`，`gm-database` 因缺少 `SERVER_NEXT_DATABASE_URL/DATABASE_URL` 按预期跳过
+- `packages/server/src/network/world-gm-socket.service.js` 不再在 socket 层自行决定 mutate 后的 `queueStatePush()`；GM socket 的 4 个 `enqueue*` 现在只负责转发到 `runtime-gm-state.service.js`
+- `packages/server/src/runtime/gm/runtime-gm-state.service.js` 现在统一在 4 个 `enqueue*` 内按 `NEXT_GM_SOCKET_CONTRACT.pushStateAfterMutation` 决定是否排 GM 状态刷新，把“写入队列 + 刷新策略”收回 runtime GM state 边界内
+- 本轮验证再次通过：`pnpm --filter @mud/server-next smoke:gm-next` 返回 `ok: true` 且在无库口径下 `skipped`；`pnpm build` 与 `pnpm verify:replace-ready` 继续通过；`pnpm --filter @mud/server-next smoke:gm-database` 仍因缺少 `SERVER_NEXT_DATABASE_URL/DATABASE_URL` 按预期跳过
 
 最小验证：
 
