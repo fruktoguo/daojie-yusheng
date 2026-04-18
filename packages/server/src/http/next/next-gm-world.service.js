@@ -207,25 +207,6 @@ let NextGmWorldService = class NextGmWorldService {
         }
         return Array.from(catalog.values()).sort((left, right) => left.name.localeCompare(right.name, 'zh-Hans-CN') || left.buffId.localeCompare(right.buffId, 'zh-Hans-CN'));
     }
-    async getPlayerDetail(playerId) {
-
-        const account = (await this.nextManagedAccountService.getManagedAccountIndex([playerId])).get(playerId);
-
-        const runtime = this.playerRuntimeService.snapshot(playerId);
-        if (runtime) {
-            return {
-                player: this.toManagedPlayerRecord(runtime, this.playerRuntimeService.buildPersistenceSnapshot(playerId), account),
-            };
-        }
-
-        const persisted = await this.playerPersistenceService.loadPlayerSnapshot(playerId);
-        if (!persisted) {
-            return null;
-        }
-        return {
-            player: this.toManagedPlayerRecordFromPersistence(playerId, persisted, account),
-        };
-    }
     getSuggestions(query) {
 
         const page = Math.max(1, Math.trunc(Number(query?.page) || 1));
@@ -586,54 +567,6 @@ let NextGmWorldService = class NextGmWorldService {
             },
         };
     }
-    toManagedPlayerRecord(snapshot, persistedSnapshot, account = null) {
-
-        const summary = this.toManagedPlayerSummary(snapshot, account);
-        return {
-            ...summary,
-
-            account: buildManagedAccountView(account, summary.meta.online === true),
-            snapshot: this.toLegacyPlayerState(snapshot),
-            persistedSnapshot: persistedSnapshot ?? null,
-        };
-    }
-    toManagedPlayerRecordFromPersistence(playerId, persistedSnapshot, account = null) {
-
-        const player = this.toLegacyPlayerStateFromPersistence(playerId, persistedSnapshot);
-        return {
-            id: player.id,
-            name: player.name,
-            roleName: player.name,
-            displayName: player.displayName ?? player.name,
-            accountName: account?.username,
-            mapId: player.mapId,
-            mapName: this.resolveMapName(player.mapId),
-            realmLv: player.realmLv ?? 1,
-            realmLabel: player.realm?.displayName ?? player.realmName ?? '凡胎',
-            x: player.x,
-            y: player.y,
-            hp: player.hp,
-            maxHp: player.maxHp,
-            qi: player.qi,
-            dead: player.dead,
-            autoBattle: player.autoBattle,
-
-            autoBattleStationary: player.autoBattleStationary === true,
-
-            autoRetaliate: player.autoRetaliate !== false,
-            meta: {
-                userId: account?.userId,
-
-                isBot: player.isBot === true,
-                online: false,
-                inWorld: false,
-                dirtyFlags: [],
-            },
-            account: buildManagedAccountView(account, false),
-            snapshot: player,
-            persistedSnapshot,
-        };
-    }
     toLegacyPlayerState(snapshot) {
         return {
             id: snapshot.playerId,
@@ -835,27 +768,6 @@ function buildLegacyAuraResource(aura) {
         level: (0, shared_1.getAuraLevel)(aura, shared_1.DEFAULT_AURA_LEVEL_BASE_VALUE),
     };
 }
-function buildManagedAccountView(account, online) {
-    if (!account?.userId || !account.username) {
-        return undefined;
-    }
-
-    let totalOnlineSeconds = Number.isFinite(account.totalOnlineSeconds) ? Math.max(0, Math.trunc(account.totalOnlineSeconds)) : 0;
-    if (online && typeof account.currentOnlineStartedAt === 'string' && account.currentOnlineStartedAt) {
-
-        const sessionStartedAt = Date.parse(account.currentOnlineStartedAt);
-        if (Number.isFinite(sessionStartedAt)) {
-            totalOnlineSeconds += Math.max(0, Math.floor((Date.now() - sessionStartedAt) / 1000));
-        }
-    }
-    return {
-        userId: account.userId,
-        username: account.username,
-
-        createdAt: typeof account.createdAt === 'string' && account.createdAt ? account.createdAt : new Date(0).toISOString(),
-        totalOnlineSeconds,
-    };
-}
 function clamp(value, min, max) {
     return Math.max(min, Math.min(max, value));
 }
@@ -981,4 +893,3 @@ function cloneRatioDivisors(source) {
         elementDamageReduce: source.elementDamageReduce ? { ...source.elementDamageReduce } : undefined,
     };
 }
-

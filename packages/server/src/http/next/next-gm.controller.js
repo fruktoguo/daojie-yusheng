@@ -52,7 +52,7 @@ let NextGmController = class NextGmController {
         return this.nextGmWorldService.getMapRuntime(mapId, qx, qy, qw, qh, viewerId);
     }
     async getPlayer(playerId) {
-        const player = await this.nextGmWorldService.getPlayerDetail(playerId);
+        const player = await this.nextGmPlayerService.getPlayerDetail(playerId);
         if (!player) {
             throw new common_1.BadRequestException('目标玩家不存在');
         }
@@ -402,4 +402,3 @@ exports.NextGmController = NextGmController = __decorate([
         next_gm_mail_service_1.NextGmMailService,
         redeem_code_runtime_service_1.RedeemCodeRuntimeService])
 ], NextGmController);
-

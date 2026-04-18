@@ -34,6 +34,8 @@ const player_runtime_service_1 = require("../../runtime/player/player-runtime.se
 
 const world_runtime_service_1 = require("../../runtime/world/world-runtime.service");
 
+const next_managed_account_service_1 = require("./next-managed-account.service");
+
 const next_gm_contract_1 = require("./next-gm-contract");
 
 const next_gm_constants_1 = require("./next-gm.constants");
@@ -45,16 +47,37 @@ let NextGmPlayerService = class NextGmPlayerService {
     playerProgressionService;
     playerRuntimeService;
     worldRuntimeService;
-    constructor(contentTemplateRepository, mapTemplateRepository, playerPersistenceService, playerProgressionService, playerRuntimeService, worldRuntimeService) {
+    nextManagedAccountService;
+    constructor(contentTemplateRepository, mapTemplateRepository, playerPersistenceService, playerProgressionService, playerRuntimeService, worldRuntimeService, nextManagedAccountService) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.mapTemplateRepository = mapTemplateRepository;
         this.playerPersistenceService = playerPersistenceService;
         this.playerProgressionService = playerProgressionService;
         this.playerRuntimeService = playerRuntimeService;
         this.worldRuntimeService = worldRuntimeService;
+        this.nextManagedAccountService = nextManagedAccountService;
     }
     hasRuntimePlayer(playerId) {
         return Boolean(this.playerRuntimeService.snapshot(playerId));
+    }
+    async getPlayerDetail(playerId) {
+
+        const account = (await this.nextManagedAccountService.getManagedAccountIndex([playerId])).get(playerId);
+
+        const runtime = this.playerRuntimeService.snapshot(playerId);
+        if (runtime) {
+            return {
+                player: this.toManagedPlayerRecord(runtime, this.playerRuntimeService.buildPersistenceSnapshot(playerId), account),
+            };
+        }
+
+        const persisted = await this.playerPersistenceService.loadPlayerSnapshot(playerId);
+        if (!persisted) {
+            return null;
+        }
+        return {
+            player: this.toManagedPlayerRecordFromPersistence(playerId, persisted, account),
+        };
     }
     async updatePlayer(playerId, body) {
 
@@ -548,6 +571,251 @@ let NextGmPlayerService = class NextGmPlayerService {
         this.playerProgressionService.initializePlayer(snapshot);
         this.playerRuntimeService.rebuildActionState(snapshot, 0);
     }
+    toManagedPlayerSummary(snapshot, account = null) {
+
+        const player = this.toLegacyPlayerState(snapshot);
+        return {
+            id: player.id,
+            name: player.name,
+            roleName: player.name,
+            displayName: player.displayName ?? player.name,
+            accountName: account?.username,
+            mapId: player.mapId,
+            mapName: this.resolveMapName(player.mapId),
+            realmLv: player.realmLv ?? 1,
+            realmLabel: player.realm?.displayName ?? player.realmName ?? '凡胎',
+            x: player.x,
+            y: player.y,
+            hp: player.hp,
+            maxHp: player.maxHp,
+            qi: player.qi,
+            dead: player.dead,
+            autoBattle: player.autoBattle,
+
+            autoBattleStationary: player.autoBattleStationary === true,
+
+            autoRetaliate: player.autoRetaliate !== false,
+            meta: {
+                userId: account?.userId,
+
+                isBot: player.isBot === true,
+
+                online: player.online === true,
+
+                inWorld: player.inWorld !== false,
+                dirtyFlags: snapshot.persistentRevision > snapshot.persistedRevision ? ['persistence'] : [],
+            },
+        };
+    }
+    toManagedPlayerRecord(snapshot, persistedSnapshot, account = null) {
+
+        const summary = this.toManagedPlayerSummary(snapshot, account);
+        return {
+            ...summary,
+
+            account: buildManagedAccountView(account, summary.meta.online === true),
+            snapshot: this.toLegacyPlayerState(snapshot),
+            persistedSnapshot: persistedSnapshot ?? null,
+        };
+    }
+    toManagedPlayerRecordFromPersistence(playerId, persistedSnapshot, account = null) {
+
+        const player = this.toLegacyPlayerStateFromPersistence(playerId, persistedSnapshot);
+        return {
+            id: player.id,
+            name: player.name,
+            roleName: player.name,
+            displayName: player.displayName ?? player.name,
+            accountName: account?.username,
+            mapId: player.mapId,
+            mapName: this.resolveMapName(player.mapId),
+            realmLv: player.realmLv ?? 1,
+            realmLabel: player.realm?.displayName ?? player.realmName ?? '凡胎',
+            x: player.x,
+            y: player.y,
+            hp: player.hp,
+            maxHp: player.maxHp,
+            qi: player.qi,
+            dead: player.dead,
+            autoBattle: player.autoBattle,
+
+            autoBattleStationary: player.autoBattleStationary === true,
+
+            autoRetaliate: player.autoRetaliate !== false,
+            meta: {
+                userId: account?.userId,
+
+                isBot: player.isBot === true,
+                online: false,
+                inWorld: false,
+                dirtyFlags: [],
+            },
+            account: buildManagedAccountView(account, false),
+            snapshot: player,
+            persistedSnapshot,
+        };
+    }
+    toLegacyPlayerState(snapshot) {
+        return {
+            id: snapshot.playerId,
+            name: snapshot.name,
+            displayName: snapshot.displayName,
+            isBot: (0, next_gm_constants_1.isNextGmBotPlayerId)(snapshot.playerId),
+
+            online: typeof snapshot.sessionId === 'string' && snapshot.sessionId.length > 0,
+
+            inWorld: typeof snapshot.instanceId === 'string' && snapshot.instanceId.length > 0,
+
+            senseQiActive: snapshot.combat.senseQiActive === true,
+
+            autoRetaliate: snapshot.combat.autoRetaliate !== false,
+
+            autoBattleStationary: snapshot.combat.autoBattleStationary === true,
+
+            allowAoePlayerHit: snapshot.combat.allowAoePlayerHit === true,
+
+            autoIdleCultivation: snapshot.combat.autoIdleCultivation !== false,
+
+            autoSwitchCultivation: snapshot.combat.autoSwitchCultivation === true,
+
+            cultivationActive: snapshot.combat.cultivationActive === true,
+            realmLv: snapshot.realm?.realmLv ?? 1,
+            realmName: snapshot.realm?.displayName ?? snapshot.realm?.name ?? '凡胎',
+
+            realmStage: typeof snapshot.realm?.stage === 'string' ? snapshot.realm.stage : undefined,
+            realmReview: snapshot.realm?.review,
+
+            breakthroughReady: snapshot.realm?.breakthroughReady === true,
+            heavenGate: snapshot.heavenGate,
+            spiritualRoots: snapshot.spiritualRoots,
+            boneAgeBaseYears: snapshot.boneAgeBaseYears,
+            lifeElapsedTicks: snapshot.lifeElapsedTicks,
+            lifespanYears: snapshot.lifespanYears,
+            mapId: snapshot.templateId,
+            x: snapshot.x,
+            y: snapshot.y,
+            facing: snapshot.facing,
+            viewRange: Math.max(1, Math.round(snapshot.attrs.numericStats.viewRange)),
+            hp: snapshot.hp,
+            maxHp: snapshot.maxHp,
+            qi: snapshot.qi,
+
+            dead: snapshot.hp <= 0,
+            foundation: snapshot.foundation,
+            combatExp: snapshot.combatExp,
+            baseAttrs: { ...snapshot.attrs.baseAttrs },
+            bonuses: [],
+            temporaryBuffs: snapshot.buffs.buffs.map((entry) => cloneTemporaryBuff(entry)),
+            finalAttrs: { ...snapshot.attrs.finalAttrs },
+            numericStats: { ...snapshot.attrs.numericStats },
+            ratioDivisors: cloneRatioDivisors(snapshot.attrs.ratioDivisors),
+            inventory: {
+                capacity: snapshot.inventory.capacity,
+                items: snapshot.inventory.items.map((entry) => ({ ...entry })),
+            },
+            equipment: toLegacyEquipmentSlots(snapshot.equipment.slots),
+            techniques: snapshot.techniques.techniques.map((entry) => ({ ...entry })),
+            actions: snapshot.actions.actions.map((entry) => ({ ...entry })),
+            quests: snapshot.quests.quests.map((entry) => ({
+                ...entry,
+                rewardItemIds: Array.isArray(entry.rewardItemIds) ? entry.rewardItemIds.slice() : [],
+                rewards: Array.isArray(entry.rewards) ? entry.rewards.map((reward) => ({ ...reward })) : [],
+            })),
+
+            autoBattle: snapshot.combat.autoBattle === true,
+            autoBattleSkills: snapshot.combat.autoBattleSkills.map((entry) => ({ ...entry })),
+            combatTargetId: snapshot.combat.combatTargetId ?? undefined,
+
+            combatTargetLocked: snapshot.combat.combatTargetLocked === true,
+            cultivatingTechId: snapshot.techniques.cultivatingTechId ?? undefined,
+            pendingLogbookMessages: Array.isArray(snapshot.pendingLogbookMessages)
+                ? snapshot.pendingLogbookMessages.map((entry) => ({ ...entry }))
+                : [],
+            realm: snapshot.realm ? {
+                ...snapshot.realm,
+                heavenGate: snapshot.realm.heavenGate ? { ...snapshot.realm.heavenGate } : snapshot.realm.heavenGate,
+                breakthrough: snapshot.realm.breakthrough ? {
+                    ...snapshot.realm.breakthrough,
+                    requiredItems: Array.isArray(snapshot.realm.breakthrough.requiredItems)
+                        ? snapshot.realm.breakthrough.requiredItems.map((entry) => ({ ...entry }))
+                        : [],
+                } : snapshot.realm.breakthrough,
+            } : undefined,
+        };
+    }
+    toLegacyPlayerStateFromPersistence(playerId, snapshot) {
+
+        const realm = this.playerProgressionService.createRealmStateFromLevel(snapshot.progression?.realm?.realmLv ?? 1, snapshot.progression?.realm?.progress ?? 0);
+        return {
+            id: playerId,
+            name: playerId,
+            displayName: playerId,
+            mapId: snapshot.placement.templateId,
+            x: snapshot.placement.x,
+            y: snapshot.placement.y,
+            facing: snapshot.placement.facing,
+            viewRange: shared_1.VIEW_RADIUS,
+            hp: snapshot.vitals.hp,
+            maxHp: snapshot.vitals.maxHp,
+            qi: snapshot.vitals.qi,
+
+            dead: snapshot.vitals.hp <= 0,
+
+            autoBattle: snapshot.combat.autoBattle === true,
+
+            autoRetaliate: snapshot.combat.autoRetaliate !== false,
+
+            autoBattleStationary: snapshot.combat.autoBattleStationary === true,
+
+            allowAoePlayerHit: snapshot.combat.allowAoePlayerHit === true,
+
+            autoIdleCultivation: snapshot.combat.autoIdleCultivation !== false,
+
+            autoSwitchCultivation: snapshot.combat.autoSwitchCultivation === true,
+
+            senseQiActive: snapshot.combat.senseQiActive === true,
+            realmLv: realm.realmLv,
+            realmName: realm.displayName,
+            realmStage: realm.stage,
+            realmReview: realm.review,
+            breakthroughReady: realm.breakthroughReady,
+            heavenGate: snapshot.progression.heavenGate ?? null,
+            spiritualRoots: snapshot.progression.spiritualRoots ?? null,
+            boneAgeBaseYears: snapshot.progression.boneAgeBaseYears,
+            lifeElapsedTicks: snapshot.progression.lifeElapsedTicks,
+            lifespanYears: snapshot.progression.lifespanYears,
+            foundation: snapshot.progression.foundation,
+            combatExp: snapshot.progression.combatExp,
+            baseAttrs: { ...shared_1.DEFAULT_BASE_ATTRS },
+            bonuses: [],
+            temporaryBuffs: snapshot.buffs.buffs.map((entry) => cloneTemporaryBuff(entry)),
+            inventory: {
+                capacity: snapshot.inventory.capacity,
+                items: Array.isArray(snapshot.inventory.items) ? snapshot.inventory.items.map((entry) => ({ ...entry })) : [],
+            },
+            equipment: toLegacyEquipmentSlots(snapshot.equipment.slots),
+            techniques: Array.isArray(snapshot.techniques.techniques) ? snapshot.techniques.techniques.map((entry) => ({ ...entry })) : [],
+            actions: [],
+            quests: Array.isArray(snapshot.quests.entries) ? snapshot.quests.entries.map((entry) => ({ ...entry })) : [],
+            autoBattleSkills: Array.isArray(snapshot.combat.autoBattleSkills) ? snapshot.combat.autoBattleSkills.map((entry) => ({ ...entry })) : [],
+            combatTargetId: snapshot.combat.combatTargetId ?? undefined,
+
+            combatTargetLocked: snapshot.combat.combatTargetLocked === true,
+            cultivatingTechId: snapshot.techniques.cultivatingTechId ?? undefined,
+            pendingLogbookMessages: Array.isArray(snapshot.pendingLogbookMessages)
+                ? snapshot.pendingLogbookMessages.map((entry) => ({ ...entry }))
+                : [],
+            realm,
+        };
+    }
+    resolveMapName(mapId) {
+        try {
+            return this.mapTemplateRepository.getOrThrow(mapId).name;
+        }
+        catch {
+            return mapId;
+        }
+    }
 };
 exports.NextGmPlayerService = NextGmPlayerService;
 exports.NextGmPlayerService = NextGmPlayerService = __decorate([
@@ -557,10 +825,43 @@ exports.NextGmPlayerService = NextGmPlayerService = __decorate([
         player_persistence_service_1.PlayerPersistenceService,
         player_progression_service_1.PlayerProgressionService,
         player_runtime_service_1.PlayerRuntimeService,
-        world_runtime_service_1.WorldRuntimeService])
+        world_runtime_service_1.WorldRuntimeService,
+        next_managed_account_service_1.NextManagedAccountService])
 ], NextGmPlayerService);
+function buildManagedAccountView(account, online) {
+    if (!account?.userId || !account.username) {
+        return undefined;
+    }
+
+    let totalOnlineSeconds = Number.isFinite(account.totalOnlineSeconds) ? Math.max(0, Math.trunc(account.totalOnlineSeconds)) : 0;
+    if (online && typeof account.currentOnlineStartedAt === 'string' && account.currentOnlineStartedAt) {
+
+        const sessionStartedAt = Date.parse(account.currentOnlineStartedAt);
+        if (Number.isFinite(sessionStartedAt)) {
+            totalOnlineSeconds += Math.max(0, Math.floor((Date.now() - sessionStartedAt) / 1000));
+        }
+    }
+    return {
+        userId: account.userId,
+        username: account.username,
+
+        createdAt: typeof account.createdAt === 'string' && account.createdAt ? account.createdAt : new Date(0).toISOString(),
+        totalOnlineSeconds,
+    };
+}
 function clamp(value, min, max) {
     return Math.max(min, Math.min(max, value));
+}
+function toLegacyEquipmentSlots(slots) {
+
+    const bySlot = new Map(slots.map((entry) => [entry.slot, entry.item ? { ...entry.item } : null]));
+    return {
+        weapon: bySlot.get('weapon') ?? null,
+        head: bySlot.get('head') ?? null,
+        body: bySlot.get('body') ?? null,
+        legs: bySlot.get('legs') ?? null,
+        accessory: bySlot.get('accessory') ?? null,
+    };
 }
 function cloneTemporaryBuff(entry) {
     return {
@@ -568,5 +869,16 @@ function cloneTemporaryBuff(entry) {
         attrs: entry.attrs ? { ...entry.attrs } : undefined,
         stats: entry.stats ? { ...entry.stats } : undefined,
         qiProjection: Array.isArray(entry.qiProjection) ? entry.qiProjection.map((projection) => ({ ...projection })) : undefined,
+    };
+}
+function cloneRatioDivisors(source) {
+    return {
+        dodge: source.dodge,
+        crit: source.crit,
+        breakPower: source.breakPower,
+        resolvePower: source.resolvePower,
+        cooldownSpeed: source.cooldownSpeed,
+        moveSpeed: source.moveSpeed,
+        elementDamageReduce: source.elementDamageReduce ? { ...source.elementDamageReduce } : undefined,
     };
 }
