@@ -337,10 +337,7 @@ let WorldSessionBootstrapService = class WorldSessionBootstrapService {
         if (contract.isAuthenticatedEntry) {
 
             const allowAuthenticatedReuse = contract.effectiveIdentitySource === 'next'
-                ? AUTHENTICATED_NEXT_REUSE_PERSISTED_SOURCES.has(contract.identityPersistedSource ?? '')
-                : contract.effectiveIdentitySource === 'token'
-                    ? AUTHENTICATED_TOKEN_REUSE_PERSISTED_SOURCES.has(contract.identityPersistedSource ?? '')
-                    : false;
+                && AUTHENTICATED_NEXT_REUSE_PERSISTED_SOURCES.has(contract.identityPersistedSource ?? '');
             return {
                 allowImplicitDetachedResume: allowAuthenticatedReuse,
                 allowRequestedDetachedResume: allowAuthenticatedReuse,

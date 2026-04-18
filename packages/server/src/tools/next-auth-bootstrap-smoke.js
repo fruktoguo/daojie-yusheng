@@ -1667,16 +1667,17 @@ async function verifyGmBootstrapSessionPolicyContract() {
         || !playerConnectedSessionReuseAllowed) {
         throw new Error(`expected native next authenticated bootstrap to allow session reuse, got implicit=${playerImplicitDetachedResumeAllowed} requested=${playerRequestedDetachedResumeAllowed} connected=${playerConnectedSessionReuseAllowed}`);
     }
-    if (!tokenImplicitDetachedResumeAllowed
-        || !tokenRequestedDetachedResumeAllowed
-        || !tokenConnectedSessionReuseAllowed) {
-        throw new Error(`expected token_seed authenticated bootstrap to allow session reuse, got implicit=${tokenImplicitDetachedResumeAllowed} requested=${tokenRequestedDetachedResumeAllowed} connected=${tokenConnectedSessionReuseAllowed}`);
+    if (tokenBootstrapInput.requestedSessionId !== undefined
+        || tokenImplicitDetachedResumeAllowed
+        || tokenRequestedDetachedResumeAllowed
+        || tokenConnectedSessionReuseAllowed) {
+        throw new Error(`expected token/token_seed authenticated bootstrap to stay bootstrap-admissible but disable runtime session reuse, got requested=${tokenBootstrapInput.requestedSessionId} implicit=${tokenImplicitDetachedResumeAllowed} requestedReuse=${tokenRequestedDetachedResumeAllowed} connectedReuse=${tokenConnectedSessionReuseAllowed}`);
     }
-    if (nextTokenSeedBootstrapInput.requestedSessionId !== 'next_token_seed_requested_session'
-        || !nextTokenSeedImplicitDetachedResumeAllowed
-        || !nextTokenSeedRequestedDetachedResumeAllowed
-        || !nextTokenSeedConnectedSessionReuseAllowed) {
-        throw new Error(`expected next/token_seed authenticated bootstrap to align with token/token_seed reuse policy and keep requested sessionId, got requested=${nextTokenSeedBootstrapInput.requestedSessionId} implicit=${nextTokenSeedImplicitDetachedResumeAllowed} requestedReuse=${nextTokenSeedRequestedDetachedResumeAllowed} connectedReuse=${nextTokenSeedConnectedSessionReuseAllowed}`);
+    if (nextTokenSeedBootstrapInput.requestedSessionId !== undefined
+        || nextTokenSeedImplicitDetachedResumeAllowed
+        || nextTokenSeedRequestedDetachedResumeAllowed
+        || nextTokenSeedConnectedSessionReuseAllowed) {
+        throw new Error(`expected token_seed authenticated bootstrap to remain bootstrap-admissible but require bootstrap-owned promotion before any runtime session reuse, got requested=${nextTokenSeedBootstrapInput.requestedSessionId} implicit=${nextTokenSeedImplicitDetachedResumeAllowed} requestedReuse=${nextTokenSeedRequestedDetachedResumeAllowed} connectedReuse=${nextTokenSeedConnectedSessionReuseAllowed}`);
     }
     if (nextLegacyBackfillBootstrapInput.requestedSessionId !== undefined
         || nextLegacyBackfillImplicitDetachedResumeAllowed
@@ -2984,11 +2985,11 @@ async function verifyTokenSeedIdentityContract() {
     const tokenSeedConnectedSessionReuseAllowed = tokenSeedBootstrapService.shouldAllowConnectedSessionReuse(tokenSeedClient);
     const tokenSeedImplicitDetachedResumeAllowed = tokenSeedBootstrapService.shouldAllowImplicitDetachedResume(tokenSeedClient);
     const tokenSeedBootstrapInput = tokenSeedGateway.buildAuthenticatedBootstrapInput(tokenSeedClient, nextProtocolIdentity);
-    if (tokenSeedBootstrapInput.requestedSessionId !== 'token_seed_requested_session') {
-        throw new Error(`expected next protocol token_seed identity store hit to preserve requestedSessionId through gateway bootstrap input, got ${tokenSeedBootstrapInput.requestedSessionId}`);
+    if (tokenSeedBootstrapInput.requestedSessionId !== undefined) {
+        throw new Error(`expected next protocol token_seed identity store hit to ignore requestedSessionId until bootstrap-owned promotion completes, got ${tokenSeedBootstrapInput.requestedSessionId}`);
     }
-    if (!tokenSeedRequestedSessionIdAllowed || !tokenSeedConnectedSessionReuseAllowed || !tokenSeedImplicitDetachedResumeAllowed) {
-        throw new Error(`expected token/token_seed bootstrap session reuse policy to allow reuse, got implicit=${tokenSeedImplicitDetachedResumeAllowed} requested=${tokenSeedRequestedSessionIdAllowed} connected=${tokenSeedConnectedSessionReuseAllowed}`);
+    if (tokenSeedRequestedSessionIdAllowed || tokenSeedConnectedSessionReuseAllowed || tokenSeedImplicitDetachedResumeAllowed) {
+        throw new Error(`expected token/token_seed bootstrap session reuse policy to stay disabled before bootstrap-owned promotion completes, got implicit=${tokenSeedImplicitDetachedResumeAllowed} requested=${tokenSeedRequestedSessionIdAllowed} connected=${tokenSeedConnectedSessionReuseAllowed}`);
     }
     if (typeof nextStoreAuthService.promoteTokenSeedIdentityToNative === 'function'
         || typeof nextStoreAuthService.promotePersistedIdentityToNative === 'function') {
