@@ -36,7 +36,6 @@ import { ActionPanel } from './ui/panels/action-panel';
 import { LootPanel } from './ui/panels/loot-panel';
 import { SettingsPanel } from './ui/panels/settings-panel';
 import { WorldPanel } from './ui/panels/world-panel';
-import { SuggestionPanel } from './ui/suggestion-panel';
 import { ChangelogPanel } from './ui/changelog-panel';
 import { TutorialPanel } from './ui/tutorial-panel';
 import { getMonsterPresentation } from './monster-presentation';
@@ -79,6 +78,7 @@ import { createMainInventoryStateSource } from './main-inventory-state-source';
 import { createMainMailStateSource } from './main-mail-state-source';
 import { createMainQuestStateSource } from './main-quest-state-source';
 import { createMainSettingsStateSource } from './main-settings-state-source';
+import { createMainSuggestionStateSource } from './main-suggestion-state-source';
 import {
   initializeMapPerformanceConfig,
   MAP_PERFORMANCE_CONFIG_CHANGE_EVENT,
@@ -638,7 +638,7 @@ const lootPanel = new LootPanel();
 const worldPanel = new WorldPanel();
 const settingsPanel = new SettingsPanel();
 const mailStateSource = createMainMailStateSource({ socket });
-const suggestionPanel = new SuggestionPanel(socket);
+const suggestionStateSource = createMainSuggestionStateSource({ socket });
 const questStateSource = createMainQuestStateSource({
   questPanel,
   npcQuestModal,
@@ -3886,6 +3886,7 @@ function resetGameState() {
   lootPanel.clear();
   worldPanel.clear();
   mailStateSource.clear();
+  suggestionStateSource.clear();
   mapRuntime.reset();
   nextUiBridge.reset();
   nextUiBridge.syncPlayer(null);
@@ -4184,7 +4185,7 @@ function handleBootstrap(data: NEXT_S2C_Bootstrap): void {
   socket.sendRequestWorldSummary();
   refreshUiChrome();
   mailStateSource.initFromPlayer(myPlayer.id);
-  suggestionPanel.setPlayerId(myPlayer.id);
+  suggestionStateSource.initFromPlayer(myPlayer.id);
   flushPendingNextBootstrapEnvelope();
 }
 
@@ -4192,7 +4193,7 @@ socket.onBootstrap(handleBootstrap);
 
 // 意见收集更新
 socket.onSuggestionUpdate((data) => {
-  suggestionPanel.updateSuggestions(data.suggestions);
+  suggestionStateSource.handleSuggestionUpdate(data.suggestions);
 });
 
 socket.onMailSummary((data) => {

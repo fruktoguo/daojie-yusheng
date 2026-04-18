@@ -100,6 +100,23 @@ export class SuggestionPanel {
     this.render();
   }
 
+  /** clear：清理建议面板状态。 */
+  clear(): void {
+    this.suggestions = [];
+    this.playerId = '';
+    this.draftTitle = '';
+    this.draftDescription = '';
+    this.replyDraft = '';
+    this.searchKeyword = '';
+    this.selectedSuggestionId = null;
+    this.activeTab = 'all';
+    this.pageByTab = { all: 1, mine: 1 };
+    this.lastSuggestionSyncAt = 0;
+    this.lastRefreshRequestAt = 0;
+    this.updateHudUnreadState();
+    detailModalHost.close(SuggestionPanel.MODAL_OWNER);
+  }
+
   /** setupGlobalListeners：处理setup Global Listeners。 */
   private setupGlobalListeners(): void {
     document.getElementById('hud-open-suggestions')?.addEventListener('click', () => {
