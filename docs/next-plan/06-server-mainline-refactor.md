@@ -288,6 +288,10 @@
 - `world-runtime.service.js` 的 `listInstances()`、`getInstance()`、`listInstanceMonsters()`、`getInstanceMonster()`、`getInstanceTileState()` 已统一委托给 `WorldRuntimeInstanceQueryService`，只保留实例存在性校验和总编排 facade
 - 这组实例只读查询仍保持原 controller / world-sync / GM 调用面不变，不把 batch 4 扩散到持久化快照、脏实例追踪或任何写状态流程
 - 本轮验证已补跑 `pnpm --filter @mud/server-next audit:next-protocol`、根级 `pnpm build` 与 `pnpm verify:replace-ready`；结果继续通过，实例只读查询抽离未影响 runtime HTTP、GM 读取口径和 world-sync 审计链
+- `packages/server/src/http/next/next-gm-player.service.js` 现已接管 `getPlayerDetail()` 及玩家详情聚合 helper，`NextGmWorldService` 不再承接玩家详情读链
+- `packages/server/src/http/next/next-gm.controller.js` 的 `GET /api/gm/players/:playerId` 已改为转发到 `nextGmPlayerService.getPlayerDetail()`，不改路由面和返回结构
+- 这一刀只移动 GM 玩家详情只读查询，不触碰 `getState()`、`buildPerformanceSnapshot()`、地图 runtime 观测和任何 GM 写路径
+- 本轮验证已补跑 `pnpm --filter @mud/server-next smoke:gm-next`、`pnpm --filter @mud/server-next audit:next-protocol`、根级 `pnpm build` 与 `pnpm verify:replace-ready`；结果继续通过，其中 `gm-next` 在无库本地口径下返回 `ok: true` 且标记 `skipped`
 
 当前优先可拆的冷块：
 
