@@ -60,7 +60,7 @@
 - [ ] 继续整理主面板 patch-first 更新路径
 - [ ] 清掉仍依赖大块重建的 UI 区域
 - [ ] 收口详情弹层状态来源
-- [ ] 收口邮件面板状态来源
+- [x] 收口邮件面板状态来源
 - [ ] 收口建议面板状态来源
 - [ ] 收口任务面板状态来源
 - [ ] 收口市场面板状态来源
@@ -149,6 +149,8 @@
   - 已完成：inventory 状态来源与编排已从 `main.ts` 抽到 `packages/client/src/main-inventory-state-source.ts`，`socket.ts` 仍保持唯一事件消费层，`InventoryPanel` 保持原有 patch-first 更新路径
 - [ ] `market-panel.ts`
   - 只消费 market 相关低频结果与增量更新
+- [x] `mail-panel.ts`
+  - 已完成：mail 低频状态来源与结果分发已从 `main.ts` 抽到 `packages/client/src/main-mail-state-source.ts`，`socket.ts` 仍保持唯一事件消费层，`MailPanel` 保持原有内部请求、渲染与 patch 行为
 - [ ] `quest-panel.ts`
   - 只消费 quest 相关状态
   - 首刀已完成：quest 状态源与低频编排已从 `main.ts` 抽到 `packages/client/src/main-quest-state-source.ts`，`socket.ts` 仍保持唯一事件消费层，`QuestPanel` 保持 patch-first
