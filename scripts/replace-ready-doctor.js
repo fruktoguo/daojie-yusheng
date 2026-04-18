@@ -53,34 +53,34 @@ lines.push(`- full replace-ready: ${hasDatabase && hasShadowUrl && hasGmPassword
 ].filter(Boolean).join(' + ')}`);
 lines.push('');
 lines.push('recommended commands:');
-lines.push('- local: pnpm verify:server-next');
+lines.push('- local: pnpm verify:replace-ready');
 if (hasDatabase) {
-  lines.push('- with-db: pnpm verify:server-next:with-db');
-  lines.push('- proof with-db: pnpm verify:server-next:proof:with-db  # minimal auth/token/bootstrap proof chain');
+  lines.push('- with-db: pnpm verify:replace-ready:with-db');
+  lines.push('- proof with-db: pnpm verify:replace-ready:proof:with-db  # minimal auth/token/bootstrap proof chain');
 } else {
-  lines.push('- with-db: export DATABASE_URL or SERVER_NEXT_DATABASE_URL first, then run pnpm verify:server-next:with-db');
-  lines.push('- proof with-db: export DATABASE_URL or SERVER_NEXT_DATABASE_URL first, then run pnpm verify:server-next:proof:with-db  # minimal auth/token/bootstrap proof chain');
+  lines.push('- with-db: export DATABASE_URL or SERVER_NEXT_DATABASE_URL first, then run pnpm verify:replace-ready:with-db');
+  lines.push('- proof with-db: export DATABASE_URL or SERVER_NEXT_DATABASE_URL first, then run pnpm verify:replace-ready:proof:with-db  # minimal auth/token/bootstrap proof chain');
 }
 if (hasShadowUrl && hasGmPassword) {
-  lines.push('- shadow: pnpm verify:server-next:shadow');
+  lines.push('- shadow: pnpm verify:replace-ready:shadow');
   if (hasShadowDestructiveGate) {
-    lines.push('- shadow destructive: pnpm verify:server-next:shadow:destructive  # requires maintenance-active shadow target');
+    lines.push('- shadow destructive: pnpm verify:replace-ready:shadow:destructive  # requires maintenance-active shadow target');
   } else {
-    lines.push('- shadow destructive: export SERVER_NEXT_SHADOW_ALLOW_DESTRUCTIVE=1 during a maintenance window, then run pnpm verify:server-next:shadow:destructive');
+    lines.push('- shadow destructive: export SERVER_NEXT_SHADOW_ALLOW_DESTRUCTIVE=1 during a maintenance window, then run pnpm verify:replace-ready:shadow:destructive');
   }
-  lines.push('- acceptance: pnpm verify:server-next:acceptance');
+  lines.push('- acceptance: pnpm verify:replace-ready:acceptance');
 } else {
-  lines.push('- shadow: export SERVER_NEXT_SHADOW_URL/SERVER_NEXT_URL and SERVER_NEXT_GM_PASSWORD/GM_PASSWORD first, then run pnpm verify:server-next:shadow');
-  lines.push('- shadow destructive: export SERVER_NEXT_SHADOW_URL/SERVER_NEXT_URL, SERVER_NEXT_GM_PASSWORD/GM_PASSWORD and SERVER_NEXT_SHADOW_ALLOW_DESTRUCTIVE=1 during a maintenance window, then run pnpm verify:server-next:shadow:destructive');
-  lines.push('- acceptance: export SERVER_NEXT_SHADOW_URL/SERVER_NEXT_URL and SERVER_NEXT_GM_PASSWORD/GM_PASSWORD first, then run pnpm verify:server-next:acceptance');
+  lines.push('- shadow: export SERVER_NEXT_SHADOW_URL/SERVER_NEXT_URL and SERVER_NEXT_GM_PASSWORD/GM_PASSWORD first, then run pnpm verify:replace-ready:shadow');
+  lines.push('- shadow destructive: export SERVER_NEXT_SHADOW_URL/SERVER_NEXT_URL, SERVER_NEXT_GM_PASSWORD/GM_PASSWORD and SERVER_NEXT_SHADOW_ALLOW_DESTRUCTIVE=1 during a maintenance window, then run pnpm verify:replace-ready:shadow:destructive');
+  lines.push('- acceptance: export SERVER_NEXT_SHADOW_URL/SERVER_NEXT_URL and SERVER_NEXT_GM_PASSWORD/GM_PASSWORD first, then run pnpm verify:replace-ready:acceptance');
 }
 if (hasDatabase && hasShadowUrl && hasGmPassword) {
-  lines.push('- full: pnpm verify:server-next:full');
+  lines.push('- full: pnpm verify:replace-ready:full');
 } else {
-  lines.push('- full: export DATABASE_URL/SERVER_NEXT_DATABASE_URL, SERVER_NEXT_SHADOW_URL/SERVER_NEXT_URL and SERVER_NEXT_GM_PASSWORD/GM_PASSWORD first, then run pnpm verify:server-next:full');
+  lines.push('- full: export DATABASE_URL/SERVER_NEXT_DATABASE_URL, SERVER_NEXT_SHADOW_URL/SERVER_NEXT_URL and SERVER_NEXT_GM_PASSWORD/GM_PASSWORD first, then run pnpm verify:replace-ready:full');
 }
 lines.push('');
-lines.push('package-level historical names:');
+lines.push('package-level current commands:');
 lines.push('- pnpm verify:replace-ready');
 lines.push('- pnpm verify:replace-ready:doctor');
 lines.push('- pnpm verify:replace-ready:with-db');
@@ -89,6 +89,7 @@ lines.push('- pnpm verify:replace-ready:shadow');
 lines.push('- pnpm verify:replace-ready:shadow:destructive');
 lines.push('- pnpm verify:replace-ready:acceptance');
 lines.push('- pnpm verify:replace-ready:full');
+lines.push('compat aliases still available: pnpm verify:server-next*');
 lines.push('');
 lines.push('boundary summary:');
 lines.push('- local/with-db: 自动 proof');
