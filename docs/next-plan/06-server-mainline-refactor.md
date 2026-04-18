@@ -394,6 +394,8 @@
 - 在线玩家的非 `position` GM 更新不再直接形成 runtime-only 写路径，收口到“queue 或 persistence” 两类
 - `autoBattleSkills.autoBattleOrder` 已在 direct persistence 分支保留，消除在线/离线 GM 更新时这一字段的保存漂移
 - 本轮验证已补跑 `pnpm --filter @mud/server-next smoke:gm-next`、`pnpm --filter @mud/server-next smoke:gm-database`、根级 `pnpm build` 与 `pnpm verify:replace-ready`；其中 `gm-database` 因缺少 `SERVER_NEXT_DATABASE_URL/DATABASE_URL` 按预期跳过，`gm-next` 在无库本地口径下返回 `ok: true` 且标记 `skipped`
+- `packages/server/src/http/next/next-gm-player.service.js` 的 `resetHeavenGate()` 现在也改为 persistence-first：在线玩家不再直接形成 runtime-only 清空路径，而是先落 `progression.heavenGate/spiritualRoots`，再按保存结果回写在线 runtime
+- 本轮验证已再次补跑 `pnpm --filter @mud/server-next smoke:gm-next`、`pnpm --filter @mud/server-next smoke:gm-database`、根级 `pnpm build` 与 `pnpm verify:replace-ready`；结果与上一轮一致：`gm-next` 在无库本地口径下 `ok: true` 且标记 `skipped`，`gm-database` 因缺少 `SERVER_NEXT_DATABASE_URL/DATABASE_URL` 按预期跳过
 
 最小验证：
 
