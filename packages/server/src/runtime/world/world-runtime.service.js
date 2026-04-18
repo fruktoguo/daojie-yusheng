@@ -86,6 +86,8 @@ const world_runtime_basic_attack_service_1 = require("./world-runtime-basic-atta
 
 const world_runtime_player_combat_service_1 = require("./world-runtime-player-combat.service");
 
+const world_runtime_item_ground_service_1 = require("./world-runtime-item-ground.service");
+
 const world_runtime_use_item_service_1 = require("./world-runtime-use-item.service");
 
 const world_runtime_player_skill_dispatch_service_1 = require("./world-runtime-player-skill-dispatch.service");
@@ -281,13 +283,14 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     worldRuntimeMonsterActionApplyService;
     worldRuntimeBasicAttackService;
     worldRuntimePlayerCombatService;
+    worldRuntimeItemGroundService;
     worldRuntimeUseItemService;
     worldRuntimePlayerSkillDispatchService;
     worldRuntimeBattleEngageService;
     worldRuntimeAutoCombatService;
     logger = new common_1.Logger(WorldRuntimeService_1.name);
     tick = 0;
-    constructor(contentTemplateRepository, templateRepository, mapPersistenceService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService, craftPanelRuntimeService, worldRuntimeNpcShopQueryService, worldRuntimeQuestQueryService, worldRuntimeDetailQueryService, worldRuntimeMetricsService, worldRuntimeInstanceTickOrchestrationService, worldRuntimeMovementService, worldRuntimeSummaryQueryService, worldRuntimeInstanceStateService, worldRuntimeInstanceQueryService, worldRuntimePendingCommandService, worldRuntimePlayerLocationService, worldRuntimeTickProgressService, worldRuntimeNpcQuestInteractionQueryService, worldRuntimeGmQueueService, worldRuntimeRespawnService, worldRuntimeCraftService, worldRuntimeNpcQuestShopService, worldRuntimeLootContainerService, worldRuntimeNavigationService, worldRuntimeCombatEffectsService, worldRuntimeMonsterActionApplyService, worldRuntimeBasicAttackService, worldRuntimePlayerCombatService, worldRuntimeUseItemService, worldRuntimePlayerSkillDispatchService, worldRuntimeBattleEngageService, worldRuntimeAutoCombatService) {
+    constructor(contentTemplateRepository, templateRepository, mapPersistenceService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService, craftPanelRuntimeService, worldRuntimeNpcShopQueryService, worldRuntimeQuestQueryService, worldRuntimeDetailQueryService, worldRuntimeMetricsService, worldRuntimeInstanceTickOrchestrationService, worldRuntimeMovementService, worldRuntimeSummaryQueryService, worldRuntimeInstanceStateService, worldRuntimeInstanceQueryService, worldRuntimePendingCommandService, worldRuntimePlayerLocationService, worldRuntimeTickProgressService, worldRuntimeNpcQuestInteractionQueryService, worldRuntimeGmQueueService, worldRuntimeRespawnService, worldRuntimeCraftService, worldRuntimeNpcQuestShopService, worldRuntimeLootContainerService, worldRuntimeNavigationService, worldRuntimeCombatEffectsService, worldRuntimeMonsterActionApplyService, worldRuntimeBasicAttackService, worldRuntimePlayerCombatService, worldRuntimeItemGroundService, worldRuntimeUseItemService, worldRuntimePlayerSkillDispatchService, worldRuntimeBattleEngageService, worldRuntimeAutoCombatService) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.templateRepository = templateRepository;
         this.mapPersistenceService = mapPersistenceService;
@@ -320,6 +323,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.worldRuntimeMonsterActionApplyService = worldRuntimeMonsterActionApplyService;
         this.worldRuntimeBasicAttackService = worldRuntimeBasicAttackService;
         this.worldRuntimePlayerCombatService = worldRuntimePlayerCombatService;
+        this.worldRuntimeItemGroundService = worldRuntimeItemGroundService;
         this.worldRuntimeUseItemService = worldRuntimeUseItemService;
         this.worldRuntimePlayerSkillDispatchService = worldRuntimePlayerSkillDispatchService;
         this.worldRuntimeBattleEngageService = worldRuntimeBattleEngageService;
@@ -1696,30 +1700,15 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     }
     /** dispatchDropItem：执行丢弃物品结算。 */
     dispatchDropItem(playerId, slotIndex, count) {
-
-        const location = this.getPlayerLocationOrThrow(playerId);
-
-        const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
-
-        const item = this.playerRuntimeService.splitInventoryItem(playerId, slotIndex, count);
-
-        const instance = this.getInstanceRuntimeOrThrow(location.instanceId);
-
-        const pile = instance.dropGroundItem(player.x, player.y, item);
-        if (!pile) {
-            this.playerRuntimeService.receiveInventoryItem(playerId, item);
-            throw new common_1.BadRequestException(`Failed to drop item at ${player.x},${player.y}`);
-        }
-        this.refreshQuestStates(playerId);
-        this.queuePlayerNotice(playerId, `放下 ${formatItemStackLabel(item)}`, 'info');
+        this.worldRuntimeItemGroundService.dispatchDropItem(playerId, slotIndex, count, this);
     }
     /** dispatchTakeGround：执行地面或容器拾取结算。 */
     dispatchTakeGround(playerId, sourceId, itemKey) {
-        this.worldRuntimeLootContainerService.dispatchTakeGround(playerId, sourceId, itemKey, this);
+        this.worldRuntimeItemGroundService.dispatchTakeGround(playerId, sourceId, itemKey, this);
     }
     /** dispatchTakeGroundAll：执行一键拾取结算。 */
     dispatchTakeGroundAll(playerId, sourceId) {
-        this.worldRuntimeLootContainerService.dispatchTakeGroundAll(playerId, sourceId, this);
+        this.worldRuntimeItemGroundService.dispatchTakeGroundAll(playerId, sourceId, this);
     }
     /** dispatchBuyNpcShopItem：执行 NPC 商店购买结算。 */
     dispatchBuyNpcShopItem(playerId, npcId, itemId, quantity) {
@@ -2325,6 +2314,7 @@ exports.WorldRuntimeService = WorldRuntimeService = WorldRuntimeService_1 = __de
         world_runtime_monster_action_apply_service_1.WorldRuntimeMonsterActionApplyService,
         world_runtime_basic_attack_service_1.WorldRuntimeBasicAttackService,
         world_runtime_player_combat_service_1.WorldRuntimePlayerCombatService,
+        world_runtime_item_ground_service_1.WorldRuntimeItemGroundService,
         world_runtime_use_item_service_1.WorldRuntimeUseItemService,
         world_runtime_player_skill_dispatch_service_1.WorldRuntimePlayerSkillDispatchService,
         world_runtime_battle_engage_service_1.WorldRuntimeBattleEngageService,
