@@ -101,8 +101,6 @@ const world_runtime_normalization_helpers_1 = require("./world-runtime.normaliza
 const world_runtime_observation_helpers_1 = require("./world-runtime.observation.helpers");
 
 const world_runtime_path_planning_helpers_1 = require("./world-runtime.path-planning.helpers");
-const world_runtime_contract_1 = require("./world-runtime.contract");
-const world_runtime_state_1 = require("./world-runtime.state");
 const {
     normalizeRuntimeActionId,
     buildPublicInstanceId,
@@ -279,8 +277,6 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     worldRuntimeBattleEngageService;
     worldRuntimeAutoCombatService;
     logger = new common_1.Logger(WorldRuntimeService_1.name);
-    stateLayerContract = world_runtime_contract_1.WORLD_RUNTIME_STATE_CONTRACT;
-    runtimeState = (0, world_runtime_state_1.createWorldRuntimeStateStore)();
     tick = 0;
     constructor(contentTemplateRepository, templateRepository, mapPersistenceService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService, craftPanelRuntimeService, worldRuntimeNpcShopQueryService, worldRuntimeQuestQueryService, worldRuntimeDetailQueryService, worldRuntimeMetricsService, worldRuntimeInstanceTickOrchestrationService, worldRuntimeSummaryQueryService, worldRuntimeInstanceStateService, worldRuntimeInstanceQueryService, worldRuntimePendingCommandService, worldRuntimePlayerLocationService, worldRuntimeTickProgressService, worldRuntimeNpcQuestInteractionQueryService, worldRuntimeGmQueueService, worldRuntimeRespawnService, worldRuntimeCraftService, worldRuntimeNpcQuestShopService, worldRuntimeLootContainerService, worldRuntimeNavigationService, worldRuntimeCombatEffectsService, worldRuntimeMonsterActionApplyService, worldRuntimeBasicAttackService, worldRuntimePlayerSkillDispatchService, worldRuntimeBattleEngageService, worldRuntimeAutoCombatService) {
         this.contentTemplateRepository = contentTemplateRepository;
