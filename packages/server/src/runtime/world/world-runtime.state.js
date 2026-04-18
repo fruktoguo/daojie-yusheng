@@ -6,7 +6,6 @@ exports.createWorldRuntimeStateStore = void 0;
 function createWorldRuntimeStateStore() {
     return {
         instances: new Map(),
-        playerLocations: new Map(),
         containerStatesByInstanceId: new Map(),
         dirtyContainerPersistenceInstanceIds: new Set(),
     };
