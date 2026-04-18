@@ -7,6 +7,13 @@ cd "$(dirname "$0")"
 
 # 保存启动模式参数，决定走本地开发还是 Docker 启动流程。
 MODE="${1:-local}"
+# 指定 legacy 归档 docker 启动使用的 Compose 配置文件。
+LEGACY_COMPOSE_FILE="${LEGACY_COMPOSE_FILE:-docker-compose.legacy.yml}"
+
+# 统一封装 legacy 归档 compose 调用，避免误用 next 默认 compose。
+docker_compose_legacy() {
+  docker compose -f "$LEGACY_COMPOSE_FILE" "$@"
+}
 
 # 在脚本退出时回收本次拉起的服务端、客户端和共享监听进程。
 cleanup() {
@@ -159,7 +166,7 @@ wait_for_service_healthy() {
 # 记录containerID。
     local container_id=""
 # 记录containerID。
-    container_id="$(docker compose ps -q "$service_name" 2>/dev/null || true)"
+    container_id="$(docker_compose_legacy ps -q "$service_name" 2>/dev/null || true)"
 
     if [[ -n "$container_id" ]]; then
 # 记录status。
@@ -173,7 +180,7 @@ wait_for_service_healthy() {
           return 0
           ;;
         exited|dead)
-          echo "!! ${display_name} 容器异常退出，请执行 docker compose logs ${service_name} 排查"
+          echo "!! ${display_name} 容器异常退出，请执行 docker compose -f ${LEGACY_COMPOSE_FILE} logs ${service_name} 排查"
           return 1
           ;;
       esac
@@ -184,7 +191,7 @@ wait_for_service_healthy() {
     elapsed=$((elapsed + 1))
   done
 
-  echo "!! 等待 ${display_name} 超时，请执行 docker compose ps 或 docker compose logs ${service_name} 排查"
+  echo "!! 等待 ${display_name} 超时，请执行 docker compose -f ${LEGACY_COMPOSE_FILE} ps 或 docker compose -f ${LEGACY_COMPOSE_FILE} logs ${service_name} 排查"
   return 1
 }
 
@@ -256,7 +263,7 @@ ensure_local_infra() {
   fi
 
   echo "==> 自动启动本地基础设施容器: ${services[*]}"
-  if ! docker compose up -d "${services[@]}"; then
+  if ! docker_compose_legacy up -d "${services[@]}"; then
     echo "!! 基础设施容器启动失败"
     echo "   如果你使用的是自带数据库/Redis，请通过 SKIP_LOCAL_INFRA=1 ./start.sh 跳过自动拉起"
     exit 1
@@ -275,7 +282,7 @@ case "$MODE" in
   docker)
     echo "!! 当前脚本只服务于 legacy 归档线；next 默认请使用 ./start-next.sh"
     echo "==> Docker 模式启动..."
-    docker compose up --build
+    docker_compose_legacy up --build
     ;;
   local)
     echo "!! 当前脚本只服务于 legacy 归档线；next 默认请使用 ./start-next.sh"
