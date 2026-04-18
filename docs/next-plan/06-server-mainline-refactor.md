@@ -280,6 +280,10 @@
 - `world-runtime.service.js` 的 `buildDetail()` / `buildTileDetail()` 只保留 guard 与 context 组装，详情目标解析、tile detail 聚合、可见性判断与只读 payload 构造已委托给 `WorldRuntimeDetailQueryService`
 - `world-runtime.service.js` 仍保留 `normalizeCoordinate()`、`getPlayerLocationOrThrow()`、`getPlayerViewOrThrow()`、`getInstanceRuntimeOrThrow()` 等总编排 facade，不把第 4 批扩散到 tick 写状态或调用端改线
 - 本轮验证已补跑 `pnpm --filter @mud/server-next audit:next-protocol`、根级 `pnpm build` 与 `pnpm verify:replace-ready`，其中 `audit:next-protocol` 实际覆盖了 `RequestDetail` / `RequestTileDetail` 主链
+- 新增 `packages/server/src/runtime/world/world-runtime-summary-query.service.js`
+- `world-runtime.service.js` 的 `getRuntimeSummary()` 现已委托给 `WorldRuntimeSummaryQueryService`，仅保留实例列表与计数上下文采集；summary payload 与 tickPerf 汇总构造下沉为显式只读查询服务
+- 这一刀没有改 `world-runtime.controller.js`、`runtime-gm-state.service.js`、`next-gm-world.service.js` 的调用面，继续把 `world-runtime.service.js` 保留为总编排 facade，避免把 batch 4 扩散到更宽的调用链整理
+- 本轮验证已补跑 `pnpm --filter @mud/server-next audit:next-protocol`、根级 `pnpm build` 与 `pnpm verify:replace-ready`；结果继续通过，`audit:next-protocol` 在无库口径下完成整套 runtime bootstrap/protocol 检查并更新审计报告
 
 当前优先可拆的冷块：
 
