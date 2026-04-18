@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "compile": "pnpm --filter @mud/shared-next build && node ../../node_modules/.pnpm/node_modules/typescript/bin/tsc -p tsconfig.json",
+    "compile": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\" && pnpm --filter @mud/shared-next build && node ../../node_modules/.pnpm/node_modules/typescript/bin/tsc -p tsconfig.json",
     "build": "pnpm verify",
     "verify": "pnpm compile && pnpm smoke:all",
     "verify:with-db": "pnpm compile && pnpm smoke:all:with-db",
