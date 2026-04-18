@@ -96,6 +96,8 @@ const world_runtime_progression_service_1 = require("./world-runtime-progression
 
 const world_runtime_use_item_service_1 = require("./world-runtime-use-item.service");
 
+const world_runtime_redeem_code_service_1 = require("./world-runtime-redeem-code.service");
+
 const world_runtime_player_skill_dispatch_service_1 = require("./world-runtime-player-skill-dispatch.service");
 
 const world_runtime_battle_engage_service_1 = require("./world-runtime-battle-engage.service");
@@ -294,12 +296,13 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     worldRuntimeCultivationService;
     worldRuntimeProgressionService;
     worldRuntimeUseItemService;
+    worldRuntimeRedeemCodeService;
     worldRuntimePlayerSkillDispatchService;
     worldRuntimeBattleEngageService;
     worldRuntimeAutoCombatService;
     logger = new common_1.Logger(WorldRuntimeService_1.name);
     tick = 0;
-    constructor(contentTemplateRepository, templateRepository, mapPersistenceService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService, craftPanelRuntimeService, worldRuntimeNpcShopQueryService, worldRuntimeQuestQueryService, worldRuntimeDetailQueryService, worldRuntimeMetricsService, worldRuntimeInstanceTickOrchestrationService, worldRuntimeMovementService, worldRuntimeSummaryQueryService, worldRuntimeInstanceStateService, worldRuntimeInstanceQueryService, worldRuntimePendingCommandService, worldRuntimePlayerLocationService, worldRuntimeTickProgressService, worldRuntimeNpcQuestInteractionQueryService, worldRuntimeGmQueueService, worldRuntimeRespawnService, worldRuntimeCraftService, worldRuntimeNpcQuestShopService, worldRuntimeLootContainerService, worldRuntimeNavigationService, worldRuntimeCombatEffectsService, worldRuntimeMonsterActionApplyService, worldRuntimeBasicAttackService, worldRuntimePlayerCombatService, worldRuntimeItemGroundService, worldRuntimeEquipmentService, worldRuntimeCultivationService, worldRuntimeProgressionService, worldRuntimeUseItemService, worldRuntimePlayerSkillDispatchService, worldRuntimeBattleEngageService, worldRuntimeAutoCombatService) {
+    constructor(contentTemplateRepository, templateRepository, mapPersistenceService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService, craftPanelRuntimeService, worldRuntimeNpcShopQueryService, worldRuntimeQuestQueryService, worldRuntimeDetailQueryService, worldRuntimeMetricsService, worldRuntimeInstanceTickOrchestrationService, worldRuntimeMovementService, worldRuntimeSummaryQueryService, worldRuntimeInstanceStateService, worldRuntimeInstanceQueryService, worldRuntimePendingCommandService, worldRuntimePlayerLocationService, worldRuntimeTickProgressService, worldRuntimeNpcQuestInteractionQueryService, worldRuntimeGmQueueService, worldRuntimeRespawnService, worldRuntimeCraftService, worldRuntimeNpcQuestShopService, worldRuntimeLootContainerService, worldRuntimeNavigationService, worldRuntimeCombatEffectsService, worldRuntimeMonsterActionApplyService, worldRuntimeBasicAttackService, worldRuntimePlayerCombatService, worldRuntimeItemGroundService, worldRuntimeEquipmentService, worldRuntimeCultivationService, worldRuntimeProgressionService, worldRuntimeUseItemService, worldRuntimeRedeemCodeService, worldRuntimePlayerSkillDispatchService, worldRuntimeBattleEngageService, worldRuntimeAutoCombatService) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.templateRepository = templateRepository;
         this.mapPersistenceService = mapPersistenceService;
@@ -337,6 +340,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.worldRuntimeCultivationService = worldRuntimeCultivationService;
         this.worldRuntimeProgressionService = worldRuntimeProgressionService;
         this.worldRuntimeUseItemService = worldRuntimeUseItemService;
+        this.worldRuntimeRedeemCodeService = worldRuntimeRedeemCodeService;
         this.worldRuntimePlayerSkillDispatchService = worldRuntimePlayerSkillDispatchService;
         this.worldRuntimeBattleEngageService = worldRuntimeBattleEngageService;
         this.worldRuntimeAutoCombatService = worldRuntimeAutoCombatService;
@@ -1601,20 +1605,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     }
     /** dispatchRedeemCodes：执行兑换码结算并把结果回推给客户端。 */
     dispatchRedeemCodes(playerId, codes) {
-        this.redeemCodeRuntimeService.redeemCodes(playerId, codes)
-            .then((payload) => {
-
-            const socket = this.worldSessionService.getSocketByPlayerId(playerId);
-            if (socket) {
-                this.worldClientEventService.emitRedeemCodesResult(socket, { result: payload });
-            }
-        })
-            .catch((error) => {
-
-            const message = error instanceof Error ? error.message : String(error);
-            this.logger.warn(`处理玩家 ${playerId} 的兑换码失败：${message}`);
-            this.queuePlayerNotice(playerId, message, 'warn');
-        });
+        this.worldRuntimeRedeemCodeService.dispatchRedeemCodes(playerId, codes, this);
     }
     /** dispatchCastSkill：校验目标并把技能释放交给战斗服务。 */
     dispatchCastSkill(playerId, skillId, targetPlayerId, targetMonsterId, targetRef = null) {
@@ -2285,6 +2276,7 @@ exports.WorldRuntimeService = WorldRuntimeService = WorldRuntimeService_1 = __de
         world_runtime_cultivation_service_1.WorldRuntimeCultivationService,
         world_runtime_progression_service_1.WorldRuntimeProgressionService,
         world_runtime_use_item_service_1.WorldRuntimeUseItemService,
+        world_runtime_redeem_code_service_1.WorldRuntimeRedeemCodeService,
         world_runtime_player_skill_dispatch_service_1.WorldRuntimePlayerSkillDispatchService,
         world_runtime_battle_engage_service_1.WorldRuntimeBattleEngageService,
         world_runtime_auto_combat_service_1.WorldRuntimeAutoCombatService])

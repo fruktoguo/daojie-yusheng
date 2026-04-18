@@ -128,6 +128,8 @@ const world_runtime_alchemy_service_1 = require("./runtime/world/world-runtime-a
 
 const world_runtime_use_item_service_1 = require("./runtime/world/world-runtime-use-item.service");
 
+const world_runtime_redeem_code_service_1 = require("./runtime/world/world-runtime-redeem-code.service");
+
 const world_runtime_player_skill_dispatch_service_1 = require("./runtime/world/world-runtime-player-skill-dispatch.service");
 
 const world_runtime_battle_engage_service_1 = require("./runtime/world/world-runtime-battle-engage.service");
@@ -235,6 +237,7 @@ exports.AppModule = AppModule = __decorate([
             world_runtime_enhancement_service_1.WorldRuntimeEnhancementService,
             world_runtime_alchemy_service_1.WorldRuntimeAlchemyService,
             world_runtime_use_item_service_1.WorldRuntimeUseItemService,
+            world_runtime_redeem_code_service_1.WorldRuntimeRedeemCodeService,
             world_runtime_player_skill_dispatch_service_1.WorldRuntimePlayerSkillDispatchService,
             world_runtime_battle_engage_service_1.WorldRuntimeBattleEngageService,
             world_runtime_auto_combat_service_1.WorldRuntimeAutoCombatService,
