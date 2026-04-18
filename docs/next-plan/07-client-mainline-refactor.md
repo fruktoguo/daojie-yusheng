@@ -61,7 +61,7 @@
 - [ ] 清掉仍依赖大块重建的 UI 区域
 - [ ] 收口详情弹层状态来源
 - [x] 收口邮件面板状态来源
-- [ ] 收口建议面板状态来源
+- [x] 收口建议面板状态来源
 - [ ] 收口任务面板状态来源
 - [ ] 收口市场面板状态来源
 - [x] 收口设置面板状态来源
@@ -156,6 +156,8 @@
   - 首刀已完成：quest 状态源与低频编排已从 `main.ts` 抽到 `packages/client/src/main-quest-state-source.ts`，`socket.ts` 仍保持唯一事件消费层，`QuestPanel` 保持 patch-first
 - [x] `settings-panel.ts`
   - 已完成：settings 低频编排与状态来源已从 `main.ts` 抽到 `packages/client/src/main-settings-state-source.ts`，`socket.ts` 仍保持唯一事件消费层，`SettingsPanel` 保持原有渲染/交互行为
+- [x] `suggestion-panel.ts`
+  - 已完成：suggestion 低频状态来源与结果分发已从 `main.ts` 抽到 `packages/client/src/main-suggestion-state-source.ts`，`socket.ts` 仍保持唯一事件消费层，`SuggestionPanel` 保持原有内部请求、渲染与交互行为
 - [ ] `attr-panel.ts` / `technique-panel.ts`
   - 区分按需详情与高频自我状态
 
