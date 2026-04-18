@@ -151,7 +151,7 @@ shared 当前已有护栏：
 当前已落地的最小自动检查：
 
 - `pnpm --filter @mud/server-next audit:content-map-consistency`
-  - 已覆盖：map id 唯一性、tiles 尺寸、spawnPoint、portal 源/目标坐标、NPC 锚点、landmark、monster spawn 坐标合法性
+  - 已覆盖：map id 唯一性、tiles 尺寸、spawnPoint、portal 源/目标坐标、NPC 锚点、landmark、monster spawn 坐标合法性、室内图 `parentMapId / parentOrigin / 回到父图路径`
 
 ### 第 6 批：决定 generated 数据的去留
 
