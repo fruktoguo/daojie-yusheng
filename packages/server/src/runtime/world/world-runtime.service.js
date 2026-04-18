@@ -48,6 +48,8 @@ const world_runtime_detail_query_service_1 = require("./world-runtime-detail-que
 
 const world_runtime_summary_query_service_1 = require("./world-runtime-summary-query.service");
 
+const world_runtime_instance_query_service_1 = require("./world-runtime-instance-query.service");
+
 const world_runtime_npc_quest_interaction_query_service_1 = require("./world-runtime-npc-quest-interaction-query.service");
 
 const world_runtime_gm_queue_service_1 = require("./world-runtime-gm-queue.service");
@@ -242,6 +244,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     worldRuntimeQuestQueryService;
     worldRuntimeDetailQueryService;
     worldRuntimeSummaryQueryService;
+    worldRuntimeInstanceQueryService;
     worldRuntimeNpcQuestInteractionQueryService;
     worldRuntimeGmQueueService;
     worldRuntimeCraftService;
@@ -276,7 +279,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     tickDurationHistoryMs = [];
     syncFlushDurationHistoryMs = [];
     instanceTickProgressById = this.runtimeState.instanceTickProgressById;
-    constructor(contentTemplateRepository, templateRepository, mapPersistenceService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService, craftPanelRuntimeService, worldRuntimeNpcShopQueryService, worldRuntimeQuestQueryService, worldRuntimeDetailQueryService, worldRuntimeSummaryQueryService, worldRuntimeNpcQuestInteractionQueryService, worldRuntimeGmQueueService, worldRuntimeCraftService, worldRuntimeNpcQuestShopService, worldRuntimeLootContainerService, worldRuntimeNavigationService, worldRuntimeCombatEffectsService, worldRuntimeMonsterActionApplyService, worldRuntimeBasicAttackService, worldRuntimePlayerSkillDispatchService, worldRuntimeBattleEngageService, worldRuntimeAutoCombatService) {
+    constructor(contentTemplateRepository, templateRepository, mapPersistenceService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService, craftPanelRuntimeService, worldRuntimeNpcShopQueryService, worldRuntimeQuestQueryService, worldRuntimeDetailQueryService, worldRuntimeSummaryQueryService, worldRuntimeInstanceQueryService, worldRuntimeNpcQuestInteractionQueryService, worldRuntimeGmQueueService, worldRuntimeCraftService, worldRuntimeNpcQuestShopService, worldRuntimeLootContainerService, worldRuntimeNavigationService, worldRuntimeCombatEffectsService, worldRuntimeMonsterActionApplyService, worldRuntimeBasicAttackService, worldRuntimePlayerSkillDispatchService, worldRuntimeBattleEngageService, worldRuntimeAutoCombatService) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.templateRepository = templateRepository;
         this.mapPersistenceService = mapPersistenceService;
@@ -290,6 +293,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.worldRuntimeQuestQueryService = worldRuntimeQuestQueryService;
         this.worldRuntimeDetailQueryService = worldRuntimeDetailQueryService;
         this.worldRuntimeSummaryQueryService = worldRuntimeSummaryQueryService;
+        this.worldRuntimeInstanceQueryService = worldRuntimeInstanceQueryService;
         this.worldRuntimeNpcQuestInteractionQueryService = worldRuntimeNpcQuestInteractionQueryService;
         this.worldRuntimeGmQueueService = worldRuntimeGmQueueService;
         this.worldRuntimeCraftService = worldRuntimeCraftService;
@@ -317,19 +321,19 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     }
     /** listInstances：列出实例。 */
     listInstances() {
-        return Array.from(this.instances.values(), (instance) => instance.snapshot());
+        return this.worldRuntimeInstanceQueryService.listInstances(this.instances);
     }
     /** getInstance：读取指定实例。 */
     getInstance(instanceId) {
-        return this.instances.get(instanceId)?.snapshot() ?? null;
+        return this.worldRuntimeInstanceQueryService.getInstance(this.instances, instanceId);
     }
     /** listInstanceMonsters：列出实例妖兽。 */
     listInstanceMonsters(instanceId) {
-        return this.getInstanceRuntimeOrThrow(instanceId).listMonsters();
+        return this.worldRuntimeInstanceQueryService.listInstanceMonsters(this.getInstanceRuntimeOrThrow(instanceId));
     }
     /** getInstanceMonster：读取实例中的单只妖兽。 */
     getInstanceMonster(instanceId, runtimeId) {
-        return this.getInstanceRuntimeOrThrow(instanceId).getMonster(runtimeId);
+        return this.worldRuntimeInstanceQueryService.getInstanceMonster(this.getInstanceRuntimeOrThrow(instanceId), runtimeId);
     }
     /** getInstanceTileState：读取实例地块状态。 */
     getInstanceTileState(instanceId, x, y) {
@@ -338,18 +342,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         if (!instance) {
             return null;
         }
-
-        const aura = instance.getTileAura(x, y);
-        if (aura === null) {
-            return null;
-        }
-        return {
-            aura,
-            safeZone: instance.getSafeZoneAtTile(x, y),
-            container: instance.getContainerAtTile(x, y),
-            groundPile: instance.getTileGroundPile(x, y),
-            combat: instance.getTileCombatState(x, y),
-        };
+        return this.worldRuntimeInstanceQueryService.getInstanceTileState(instance, x, y);
     }
     /** getCombatEffects：读取当前实例战斗效果。 */
     getCombatEffects(instanceId) {
@@ -2665,6 +2658,7 @@ exports.WorldRuntimeService = WorldRuntimeService = WorldRuntimeService_1 = __de
         world_runtime_quest_query_service_1.WorldRuntimeQuestQueryService,
         world_runtime_detail_query_service_1.WorldRuntimeDetailQueryService,
         world_runtime_summary_query_service_1.WorldRuntimeSummaryQueryService,
+        world_runtime_instance_query_service_1.WorldRuntimeInstanceQueryService,
         world_runtime_npc_quest_interaction_query_service_1.WorldRuntimeNpcQuestInteractionQueryService,
         world_runtime_gm_queue_service_1.WorldRuntimeGmQueueService,
         world_runtime_craft_service_1.WorldRuntimeCraftService,

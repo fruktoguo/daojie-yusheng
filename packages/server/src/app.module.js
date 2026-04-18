@@ -76,6 +76,8 @@ const world_runtime_detail_query_service_1 = require("./runtime/world/world-runt
 
 const world_runtime_summary_query_service_1 = require("./runtime/world/world-runtime-summary-query.service");
 
+const world_runtime_instance_query_service_1 = require("./runtime/world/world-runtime-instance-query.service");
+
 const world_runtime_npc_quest_interaction_query_service_1 = require("./runtime/world/world-runtime-npc-quest-interaction-query.service");
 
 const world_runtime_gm_queue_service_1 = require("./runtime/world/world-runtime-gm-queue.service");
@@ -175,6 +177,7 @@ exports.AppModule = AppModule = __decorate([
             world_runtime_quest_query_service_1.WorldRuntimeQuestQueryService,
             world_runtime_detail_query_service_1.WorldRuntimeDetailQueryService,
             world_runtime_summary_query_service_1.WorldRuntimeSummaryQueryService,
+            world_runtime_instance_query_service_1.WorldRuntimeInstanceQueryService,
             world_runtime_npc_quest_interaction_query_service_1.WorldRuntimeNpcQuestInteractionQueryService,
             world_runtime_gm_queue_service_1.WorldRuntimeGmQueueService,
             world_runtime_craft_service_1.WorldRuntimeCraftService,
