@@ -127,6 +127,12 @@ shared 当前已有护栏：
 
 这一步不要求顺手改内容平衡，只要求把引用闭环压稳。
 
+当前已落地的最小自动检查：
+
+- `pnpm --filter @mud/server-next audit:content-reference-consistency`
+  - 已覆盖：monster drops / equipment / skill 引用、item mapUnlockId、breakthrough item requirement、resource-node item/drop 引用
+  - 尚未覆盖：monster 的地图级引用、item 的 buff/effect 外链、quest/technique/buff 全量引用闭环
+
 ### 第 5 批：跑地图结构清单
 
 - [ ] compose 地图规范
