@@ -44,6 +44,8 @@ const next_gm_constants_1 = require("./next-gm.constants");
 
 const next_managed_account_service_1 = require("./next-managed-account.service");
 
+const next_gm_editor_query_service_1 = require("./next-gm-editor-query.service");
+
 const next_gm_map_query_service_1 = require("./next-gm-map-query.service");
 
 let NextGmWorldService = class NextGmWorldService {
@@ -57,12 +59,13 @@ let NextGmWorldService = class NextGmWorldService {
     suggestionRuntimeService;
     worldRuntimeService;
     runtimeMapConfigService;
+    nextGmEditorQueryService;
     nextGmMapQueryService;
     networkPerfStartedAt = Date.now();
     cpuPerfStartedAt = Date.now();
     pathfindingPerfStartedAt = Date.now();
     worldObserverIds = new Set();
-    constructor(contentTemplateRepository, nextManagedAccountService, runtimeGmStateService, mapTemplateRepository, playerPersistenceService, playerProgressionService, playerRuntimeService, suggestionRuntimeService, worldRuntimeService, runtimeMapConfigService, nextGmMapQueryService) {
+    constructor(contentTemplateRepository, nextManagedAccountService, runtimeGmStateService, mapTemplateRepository, playerPersistenceService, playerProgressionService, playerRuntimeService, suggestionRuntimeService, worldRuntimeService, runtimeMapConfigService, nextGmEditorQueryService, nextGmMapQueryService) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.nextManagedAccountService = nextManagedAccountService;
         this.runtimeGmStateService = runtimeGmStateService;
@@ -73,6 +76,7 @@ let NextGmWorldService = class NextGmWorldService {
         this.suggestionRuntimeService = suggestionRuntimeService;
         this.worldRuntimeService = worldRuntimeService;
         this.runtimeMapConfigService = runtimeMapConfigService;
+        this.nextGmEditorQueryService = nextGmEditorQueryService;
         this.nextGmMapQueryService = nextGmMapQueryService;
     }
     collectManagedPlayerIds(runtimePlayers, persistedEntries) {
@@ -114,102 +118,7 @@ let NextGmWorldService = class NextGmWorldService {
         };
     }
     getEditorCatalog() {
-        return {
-            items: this.contentTemplateRepository.listItemTemplates(),
-            techniques: this.contentTemplateRepository.listTechniqueTemplates(),
-            realmLevels: this.playerProgressionService.listRealmLevels(),
-            buffs: this.buildEditorBuffCatalog(),
-        };
-    }
-    buildEditorBuffCatalog() {
-
-        const catalog = new Map();
-
-        const register = (input) => {
-
-            const buffId = typeof input?.buffId === 'string' ? input.buffId.trim() : '';
-            if (!buffId || catalog.has(buffId)) {
-                return;
-            }
-
-            const name = typeof input?.name === 'string' && input.name.trim() ? input.name.trim() : buffId;
-
-            const duration = Number.isFinite(input?.duration) ? Math.max(1, Math.trunc(Number(input.duration))) : 1;
-
-            const maxStacks = Number.isFinite(input?.maxStacks) ? Math.max(1, Math.trunc(Number(input.maxStacks))) : 1;
-
-            const shortMark = typeof input?.shortMark === 'string' && input.shortMark.trim()
-                ? input.shortMark.trim().slice(0, 1)
-                : (name[0] ?? buffId[0] ?? '益');
-            catalog.set(buffId, {
-                buffId,
-                name,
-
-                desc: typeof input?.desc === 'string' ? input.desc : '',
-                shortMark,
-
-                category: input?.category === 'debuff' ? 'debuff' : 'buff',
-
-                visibility: typeof input?.visibility === 'string' && input.visibility ? input.visibility : 'public',
-                remainingTicks: duration,
-                duration,
-                stacks: 1,
-                maxStacks,
-
-                sourceSkillId: typeof input?.sourceSkillId === 'string' && input.sourceSkillId.trim() ? input.sourceSkillId.trim() : 'gm:editor',
-
-                sourceSkillName: typeof input?.sourceSkillName === 'string' && input.sourceSkillName.trim() ? input.sourceSkillName.trim() : 'GM 编辑器',
-                realmLv: Number.isFinite(input?.realmLv) ? Math.max(1, Math.trunc(Number(input.realmLv))) : 1,
-
-                color: typeof input?.color === 'string' && input.color.trim() ? input.color.trim() : undefined,
-
-                attrs: input?.attrs && typeof input.attrs === 'object' ? { ...input.attrs } : undefined,
-                attrMode: input?.attrMode,
-
-                stats: input?.stats && typeof input.stats === 'object' ? { ...input.stats } : undefined,
-                statMode: input?.statMode,
-                qiProjection: Array.isArray(input?.qiProjection) ? input.qiProjection.map((entry) => ({ ...entry })) : undefined,
-            });
-        };
-        for (const technique of this.contentTemplateRepository.listTechniqueTemplates()) {
-            for (const skill of technique.skills ?? []) {
-                for (const effect of skill.effects ?? []) {
-                    if (effect?.type !== 'buff') {
-                        continue;
-                    }
-                    register({
-                        ...effect,
-                        sourceSkillId: skill.id,
-                        sourceSkillName: skill.name,
-                        realmLv: technique.realmLv,
-
-                        category: effect.category ?? (effect.target === 'self' ? 'buff' : 'debuff'),
-                    });
-                }
-            }
-        }
-        for (const item of this.contentTemplateRepository.listItemTemplates()) {
-            for (const buff of item.consumeBuffs ?? []) {
-                register({
-                    ...buff,
-                    sourceSkillId: `item:${item.itemId}`,
-                    sourceSkillName: item.name,
-                    category: buff.category ?? 'buff',
-                });
-            }
-            for (const effect of item.effects ?? []) {
-                if (effect?.type !== 'timed_buff' || !effect.buff) {
-                    continue;
-                }
-                register({
-                    ...effect.buff,
-                    sourceSkillId: `equip:${item.itemId}:${effect.effectId ?? 'effect'}`,
-                    sourceSkillName: item.name,
-                    category: effect.buff.category ?? 'buff',
-                });
-            }
-        }
-        return Array.from(catalog.values()).sort((left, right) => left.name.localeCompare(right.name, 'zh-Hans-CN') || left.buffId.localeCompare(right.buffId, 'zh-Hans-CN'));
+        return this.nextGmEditorQueryService.getEditorCatalog();
     }
     getSuggestions(query) {
 
@@ -733,6 +642,7 @@ exports.NextGmWorldService = NextGmWorldService = __decorate([
         suggestion_runtime_service_1.SuggestionRuntimeService,
         world_runtime_service_1.WorldRuntimeService,
         runtime_map_config_service_1.RuntimeMapConfigService,
+        next_gm_editor_query_service_1.NextGmEditorQueryService,
         next_gm_map_query_service_1.NextGmMapQueryService])
 ], NextGmWorldService);
 function projectLegacyRuntimeTile(input) {
