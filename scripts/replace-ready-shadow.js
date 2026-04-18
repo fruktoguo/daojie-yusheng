@@ -35,13 +35,13 @@ const gmPasswordEnvSource = resolveServerNextGmPasswordEnvSource();
 
 if (!shadowUrl) {
   process.stderr.write('replace-ready shadow requires SERVER_NEXT_SHADOW_URL or SERVER_NEXT_URL\n');
-  process.stderr.write('run pnpm verify:server-next:doctor first, then set SERVER_NEXT_SHADOW_URL or SERVER_NEXT_URL and rerun pnpm verify:server-next:shadow\n');
+  process.stderr.write('run pnpm verify:replace-ready:doctor first, then set SERVER_NEXT_SHADOW_URL or SERVER_NEXT_URL and rerun pnpm verify:replace-ready:shadow\n');
   process.exit(1);
 }
 
 if (!gmPassword) {
   process.stderr.write('replace-ready shadow requires SERVER_NEXT_GM_PASSWORD or GM_PASSWORD\n');
-  process.stderr.write('run pnpm verify:server-next:doctor first, then set SERVER_NEXT_GM_PASSWORD or GM_PASSWORD and rerun pnpm verify:server-next:shadow\n');
+  process.stderr.write('run pnpm verify:replace-ready:doctor first, then set SERVER_NEXT_GM_PASSWORD or GM_PASSWORD and rerun pnpm verify:replace-ready:shadow\n');
   process.exit(1);
 }
 
@@ -75,5 +75,5 @@ if (result.status !== 0) {
 process.stdout.write('[replace-ready:shadow] done step=smoke:shadow\n');
 process.stdout.write('[replace-ready:shadow] completed\n');
 process.stdout.write('[replace-ready:shadow] boundary=shadow automated acceptance only; this does not include gm-next, full database regression, or destructive proof\n');
-process.stdout.write('[replace-ready:shadow] next=run pnpm verify:server-next:acceptance for shadow + gm-next, or pnpm verify:server-next:shadow:destructive during a maintenance window\n');
+process.stdout.write('[replace-ready:shadow] next=run pnpm verify:replace-ready:acceptance for shadow + gm-next, or pnpm verify:replace-ready:shadow:destructive during a maintenance window\n');
 process.exit(0);

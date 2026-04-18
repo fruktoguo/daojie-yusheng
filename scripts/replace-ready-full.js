@@ -54,7 +54,7 @@ if (!databaseUrl || !shadowUrl || !gmPassword) {
     gmPassword ? null : 'SERVER_NEXT_GM_PASSWORD/GM_PASSWORD',
   ].filter(Boolean);
   process.stderr.write(`replace-ready full requires: ${missing.join(' + ')}\n`);
-  process.stderr.write('run pnpm verify:server-next:doctor first, then set the missing env and rerun pnpm verify:server-next:full\n');
+  process.stderr.write('run pnpm verify:replace-ready:doctor first, then set the missing env and rerun pnpm verify:replace-ready:full\n');
   process.exit(1);
 }
 
@@ -127,5 +127,5 @@ for (const step of steps) {
 
 process.stdout.write('[replace-ready:full] completed\n');
 process.stdout.write('[replace-ready:full] boundary=strictest automated gate only; this still does not equal complete GM/admin manual regression\n');
-process.stdout.write('[replace-ready:full] next=if you need destructive proof, run pnpm verify:server-next:shadow:destructive during a maintenance window with explicit approval\n');
+process.stdout.write('[replace-ready:full] next=if you need destructive proof, run pnpm verify:replace-ready:shadow:destructive during a maintenance window with explicit approval\n');
 process.exit(0);

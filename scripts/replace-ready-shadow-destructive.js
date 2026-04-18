@@ -40,13 +40,13 @@ const allowDestructive = normalizeBooleanEnv(process.env.SERVER_NEXT_SHADOW_ALLO
 
 if (!shadowUrl) {
   process.stderr.write('replace-ready shadow destructive requires SERVER_NEXT_SHADOW_URL or SERVER_NEXT_URL\n');
-  process.stderr.write('run pnpm verify:server-next:doctor first, then set SERVER_NEXT_SHADOW_URL or SERVER_NEXT_URL and rerun pnpm verify:server-next:shadow:destructive\n');
+  process.stderr.write('run pnpm verify:replace-ready:doctor first, then set SERVER_NEXT_SHADOW_URL or SERVER_NEXT_URL and rerun pnpm verify:replace-ready:shadow:destructive\n');
   process.exit(1);
 }
 
 if (!gmPassword) {
   process.stderr.write('replace-ready shadow destructive requires SERVER_NEXT_GM_PASSWORD or GM_PASSWORD\n');
-  process.stderr.write('run pnpm verify:server-next:doctor first, then set SERVER_NEXT_GM_PASSWORD or GM_PASSWORD and rerun pnpm verify:server-next:shadow:destructive\n');
+  process.stderr.write('run pnpm verify:replace-ready:doctor first, then set SERVER_NEXT_GM_PASSWORD or GM_PASSWORD and rerun pnpm verify:replace-ready:shadow:destructive\n');
   process.exit(1);
 }
 
