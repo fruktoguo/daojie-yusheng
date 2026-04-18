@@ -3,7 +3,7 @@ name: Build And Deploy
 on:
   push:
     branches:
-      - main
+      - next
   workflow_dispatch:
 
 permissions:
@@ -29,6 +29,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+
+      - name: Verify replace-ready baseline
+        run: pnpm verify:replace-ready
 
       - name: Normalize image owner
         id: prep
@@ -99,7 +102,10 @@ jobs:
           docker context rm production >/dev/null 2>&1 || true
           docker context create production --docker "host=ssh://${DEPLOY_SSH_USER}@${DEPLOY_SSH_HOST}:${DEPLOY_SSH_PORT:-22}"
 
-      - name: Deploy stack
+      - name: Verify replace-ready doctor
+        run: pnpm verify:replace-ready:doctor
+
+      - name: Deploy next stack
         env:
           CLIENT_IMAGE_TAG: sha-${{ github.sha }}
           SERVER_IMAGE_TAG: sha-${{ github.sha }}
