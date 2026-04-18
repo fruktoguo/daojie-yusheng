@@ -94,6 +94,8 @@ const world_runtime_tick_progress_service_1 = require("./runtime/world/world-run
 
 const world_runtime_npc_quest_interaction_query_service_1 = require("./runtime/world/world-runtime-npc-quest-interaction-query.service");
 
+const world_runtime_npc_shop_service_1 = require("./runtime/world/world-runtime-npc-shop.service");
+
 const world_runtime_gm_queue_service_1 = require("./runtime/world/world-runtime-gm-queue.service");
 
 const world_runtime_respawn_service_1 = require("./runtime/world/world-runtime-respawn.service");
@@ -220,6 +222,7 @@ exports.AppModule = AppModule = __decorate([
             world_runtime_player_location_service_1.WorldRuntimePlayerLocationService,
             world_runtime_tick_progress_service_1.WorldRuntimeTickProgressService,
             world_runtime_npc_quest_interaction_query_service_1.WorldRuntimeNpcQuestInteractionQueryService,
+            world_runtime_npc_shop_service_1.WorldRuntimeNpcShopService,
             world_runtime_gm_queue_service_1.WorldRuntimeGmQueueService,
             world_runtime_respawn_service_1.WorldRuntimeRespawnService,
             world_runtime_craft_service_1.WorldRuntimeCraftService,

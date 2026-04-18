@@ -66,6 +66,8 @@ const world_runtime_tick_progress_service_1 = require("./world-runtime-tick-prog
 
 const world_runtime_npc_quest_interaction_query_service_1 = require("./world-runtime-npc-quest-interaction-query.service");
 
+const world_runtime_npc_shop_service_1 = require("./world-runtime-npc-shop.service");
+
 const world_runtime_gm_queue_service_1 = require("./world-runtime-gm-queue.service");
 
 const world_runtime_respawn_service_1 = require("./world-runtime-respawn.service");
@@ -281,6 +283,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     worldRuntimePlayerLocationService;
     worldRuntimeTickProgressService;
     worldRuntimeNpcQuestInteractionQueryService;
+    worldRuntimeNpcShopService;
     worldRuntimeGmQueueService;
     worldRuntimeRespawnService;
     worldRuntimeCraftService;
@@ -302,7 +305,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     worldRuntimeAutoCombatService;
     logger = new common_1.Logger(WorldRuntimeService_1.name);
     tick = 0;
-    constructor(contentTemplateRepository, templateRepository, mapPersistenceService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService, craftPanelRuntimeService, worldRuntimeNpcShopQueryService, worldRuntimeQuestQueryService, worldRuntimeDetailQueryService, worldRuntimeMetricsService, worldRuntimeInstanceTickOrchestrationService, worldRuntimeMovementService, worldRuntimeSummaryQueryService, worldRuntimeInstanceStateService, worldRuntimeInstanceQueryService, worldRuntimePendingCommandService, worldRuntimePlayerLocationService, worldRuntimeTickProgressService, worldRuntimeNpcQuestInteractionQueryService, worldRuntimeGmQueueService, worldRuntimeRespawnService, worldRuntimeCraftService, worldRuntimeNpcQuestShopService, worldRuntimeLootContainerService, worldRuntimeNavigationService, worldRuntimeCombatEffectsService, worldRuntimeMonsterActionApplyService, worldRuntimeBasicAttackService, worldRuntimePlayerCombatService, worldRuntimeItemGroundService, worldRuntimeEquipmentService, worldRuntimeCultivationService, worldRuntimeProgressionService, worldRuntimeUseItemService, worldRuntimeRedeemCodeService, worldRuntimePlayerSkillDispatchService, worldRuntimeBattleEngageService, worldRuntimeAutoCombatService) {
+    constructor(contentTemplateRepository, templateRepository, mapPersistenceService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService, craftPanelRuntimeService, worldRuntimeNpcShopQueryService, worldRuntimeQuestQueryService, worldRuntimeDetailQueryService, worldRuntimeMetricsService, worldRuntimeInstanceTickOrchestrationService, worldRuntimeMovementService, worldRuntimeSummaryQueryService, worldRuntimeInstanceStateService, worldRuntimeInstanceQueryService, worldRuntimePendingCommandService, worldRuntimePlayerLocationService, worldRuntimeTickProgressService, worldRuntimeNpcQuestInteractionQueryService, worldRuntimeNpcShopService, worldRuntimeGmQueueService, worldRuntimeRespawnService, worldRuntimeCraftService, worldRuntimeNpcQuestShopService, worldRuntimeLootContainerService, worldRuntimeNavigationService, worldRuntimeCombatEffectsService, worldRuntimeMonsterActionApplyService, worldRuntimeBasicAttackService, worldRuntimePlayerCombatService, worldRuntimeItemGroundService, worldRuntimeEquipmentService, worldRuntimeCultivationService, worldRuntimeProgressionService, worldRuntimeUseItemService, worldRuntimeRedeemCodeService, worldRuntimePlayerSkillDispatchService, worldRuntimeBattleEngageService, worldRuntimeAutoCombatService) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.templateRepository = templateRepository;
         this.mapPersistenceService = mapPersistenceService;
@@ -325,6 +328,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.worldRuntimePlayerLocationService = worldRuntimePlayerLocationService;
         this.worldRuntimeTickProgressService = worldRuntimeTickProgressService;
         this.worldRuntimeNpcQuestInteractionQueryService = worldRuntimeNpcQuestInteractionQueryService;
+        this.worldRuntimeNpcShopService = worldRuntimeNpcShopService;
         this.worldRuntimeGmQueueService = worldRuntimeGmQueueService;
         this.worldRuntimeRespawnService = worldRuntimeRespawnService;
         this.worldRuntimeCraftService = worldRuntimeCraftService;
@@ -1039,7 +1043,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     }
     /** enqueueBuyNpcShopItem：把 NPC 商店购买请求排入下一次 tick。 */
     enqueueBuyNpcShopItem(playerId, npcIdInput, itemIdInput, quantityInput) {
-        return this.worldRuntimeNpcQuestShopService.enqueueBuyNpcShopItem(playerId, npcIdInput, itemIdInput, quantityInput, this);
+        return this.worldRuntimeNpcShopService.enqueueBuyNpcShopItem(playerId, npcIdInput, itemIdInput, quantityInput, this);
     }
     /** enqueueNpcInteraction：把 NPC 交互请求排入下一次 tick。 */
     enqueueNpcInteraction(playerId, actionIdInput) {
@@ -1715,7 +1719,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     }
     /** dispatchBuyNpcShopItem：执行 NPC 商店购买结算。 */
     dispatchBuyNpcShopItem(playerId, npcId, itemId, quantity) {
-        this.worldRuntimeNpcQuestShopService.dispatchBuyNpcShopItem(playerId, npcId, itemId, quantity, this);
+        this.worldRuntimeNpcShopService.dispatchBuyNpcShopItem(playerId, npcId, itemId, quantity, this);
     }
     /** dispatchNpcInteraction：执行 NPC 交互结算。 */
     dispatchNpcInteraction(playerId, npcId) {
@@ -2261,6 +2265,7 @@ exports.WorldRuntimeService = WorldRuntimeService = WorldRuntimeService_1 = __de
         world_runtime_player_location_service_1.WorldRuntimePlayerLocationService,
         world_runtime_tick_progress_service_1.WorldRuntimeTickProgressService,
         world_runtime_npc_quest_interaction_query_service_1.WorldRuntimeNpcQuestInteractionQueryService,
+        world_runtime_npc_shop_service_1.WorldRuntimeNpcShopService,
         world_runtime_gm_queue_service_1.WorldRuntimeGmQueueService,
         world_runtime_respawn_service_1.WorldRuntimeRespawnService,
         world_runtime_craft_service_1.WorldRuntimeCraftService,
