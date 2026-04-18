@@ -276,13 +276,15 @@
 - `CraftPanelRuntimeService` 的强化面板只读 payload/state/candidates/protection 展示构造已委托给 `CraftPanelEnhancementQueryService`
 - 强化写路径、资源消耗、保护物校验与 tick 推进仍保留在 `CraftPanelRuntimeService`，避免第 4 批这一刀越界到 batch 5 的状态域拆分
 - 本轮验证已补跑 `audit:next-protocol`、`smoke:progression`、`smoke:redeem-code`、`smoke:gm-next`、根级 `pnpm build` 与 `pnpm verify:replace-ready`
+- 新增 `packages/server/src/runtime/world/world-runtime-detail-query.service.js`
+- `world-runtime.service.js` 的 `buildDetail()` / `buildTileDetail()` 只保留 guard 与 context 组装，详情目标解析、tile detail 聚合、可见性判断与只读 payload 构造已委托给 `WorldRuntimeDetailQueryService`
+- `world-runtime.service.js` 仍保留 `normalizeCoordinate()`、`getPlayerLocationOrThrow()`、`getPlayerViewOrThrow()`、`getInstanceRuntimeOrThrow()` 等总编排 facade，不把第 4 批扩散到 tick 写状态或调用端改线
+- 本轮验证已补跑 `pnpm --filter @mud/server-next audit:next-protocol`、根级 `pnpm build` 与 `pnpm verify:replace-ready`，其中 `audit:next-protocol` 实际覆盖了 `RequestDetail` / `RequestTileDetail` 主链
 
 当前优先可拆的冷块：
 
-- 任务详情 / reward / target / navigation 解析
-- NPC quest marker / NPC 交互动作列表
-- NPC 商店只读查询与校验
-- 炼丹 / 强化面板的展示型数据构建
+- GM 只读辅助查询
+- 仍散在 `world-runtime.service.js` 的纯构建 / 归一 / 查询 helper
 
 最小验证：
 
