@@ -145,8 +145,8 @@
 - [ ] `action-panel.ts`
   - 保持 patch-first
   - 不因行动条、自动战斗、小变更整块重建
-- [ ] `inventory-panel.ts`
-  - 只消费背包相关 patch
+- [x] `inventory-panel.ts`
+  - 已完成：inventory 状态来源与编排已从 `main.ts` 抽到 `packages/client/src/main-inventory-state-source.ts`，`socket.ts` 仍保持唯一事件消费层，`InventoryPanel` 保持原有 patch-first 更新路径
 - [ ] `market-panel.ts`
   - 只消费 market 相关低频结果与增量更新
 - [ ] `quest-panel.ts`
