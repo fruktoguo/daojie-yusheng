@@ -1483,6 +1483,10 @@ async function playerControlCase(runtime) {
  */
 async function redeemCodesCase(runtime) {
 /**
+ * 记录认证。
+ */
+  var auth = await registerAndLoginPlayer(runtime.baseUrl, pid('audit_redeem'));
+/**
  * 记录GM令牌。
  */
   var gmToken = await loginGm(runtime.baseUrl);
@@ -1508,7 +1512,7 @@ async function redeemCodesCase(runtime) {
 /**
  * 记录socket。
  */
-  var socket = runtime.createSocket('redeem');
+  var socket = runtime.createSocket('redeem', { token: auth.accessToken, protocol: 'next' });
 /**
  * 记录会话。
  */

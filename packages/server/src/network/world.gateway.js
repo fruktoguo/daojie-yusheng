@@ -60,8 +60,6 @@ const world_session_service_1 = require("./world-session.service");
 
 const world_gateway_bootstrap_helper_1 = require("./world-gateway-bootstrap.helper");
 
-const world_gateway_gm_helper_1 = require("./world-gateway-gm.helper");
-
 const world_gateway_gm_command_helper_1 = require("./world-gateway-gm-command.helper");
 
 const world_gateway_gm_suggestion_helper_1 = require("./world-gateway-gm-suggestion.helper");
@@ -148,8 +146,6 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
     worldSessionService;
     /** 连接/hello 引导 helper。 */
     gatewayBootstrapHelper;
-    /** GM socket helper。 */
-    gatewayGmHelper;
     /** GM command helper。 */
     gatewayGmCommandHelper;
     gatewayGmSuggestionHelper;
@@ -189,7 +185,6 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         this.worldClientEventService = worldClientEventService;
         this.worldSessionService = worldSessionService;
         this.gatewayBootstrapHelper = new world_gateway_bootstrap_helper_1.WorldGatewayBootstrapHelper(this);
-        this.gatewayGmHelper = new world_gateway_gm_helper_1.WorldGatewayGmHelper(this);
         this.gatewayGmCommandHelper = new world_gateway_gm_command_helper_1.WorldGatewayGmCommandHelper(this);
         this.gatewayGmSuggestionHelper = new world_gateway_gm_suggestion_helper_1.WorldGatewayGmSuggestionHelper(this);
         this.gatewaySuggestionHelper = new world_gateway_suggestion_helper_1.WorldGatewaySuggestionHelper(this);

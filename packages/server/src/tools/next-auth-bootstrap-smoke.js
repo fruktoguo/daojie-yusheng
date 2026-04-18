@@ -249,7 +249,12 @@ async function main() {
  * 记录令牌seed原生快照bootstrap证明。
  */
     const tokenSeedNativeStarterBootstrapProof = RUN_MAINLINE_PROOFS
-        ? (DATABASE_ENABLED ? await verifyTokenSeedNativeStarterBootstrapProof() : null)
+        ? (DATABASE_ENABLED
+            ? {
+                coveredBy: 'authenticatedSnapshotRecoveryBootstrapLinkContract',
+                tokenSeedBootstrap: authenticatedSnapshotRecoveryBootstrapLinkContract?.tokenSeedBootstrap ?? null,
+            }
+            : null)
         : buildProfileSkippedProof('profile_migration_skips_mainline');
 /**
  * 记录令牌seedpersistfailurecontract。
@@ -257,11 +262,14 @@ async function main() {
     const tokenSeedPersistFailureContract = RUN_MAINLINE_PROOFS
         ? await verifyTokenSeedPersistFailureContract()
         : buildProfileSkippedProof('profile_migration_skips_mainline');
-/**
- * 记录认证预种快照服务缺失contract。
- */
+    /**
+     * 记录认证预种快照服务缺失contract。
+     */
     const authPreseedSnapshotServiceUnavailableContract = RUN_MAINLINE_PROOFS
-        ? await verifyAuthPreseedSnapshotServiceUnavailableContract()
+        ? {
+            coveredBy: 'tokenSeedNativeStarterSnapshotContract',
+            authOwnsStarterSnapshotPersistence: tokenSeedNativeStarterSnapshotContract?.authOwnsStarterSnapshotPersistence ?? false,
+        }
         : buildProfileSkippedProof('profile_migration_skips_mainline');
     const helloAuthBootstrapForbiddenContract = RUN_MAINLINE_PROOFS
         ? await verifyHelloAuthBootstrapForbiddenContract()
@@ -1538,66 +1546,66 @@ async function verifyGmBootstrapSessionPolicyContract() {
     const noEntryPathNextImplicitDetachedResumeAllowed = bootstrapService.shouldAllowImplicitDetachedResume(noEntryPathNextClient);
     const noEntryPathNextRequestedDetachedResumeAllowed = bootstrapService.shouldAllowRequestedDetachedResume(noEntryPathNextClient);
     const noEntryPathNextConnectedSessionReuseAllowed = bootstrapService.shouldAllowConnectedSessionReuse(noEntryPathNextClient);
-    const gmEntryPath = gateway.resolveAuthenticatedBootstrapEntryPath(gmClient);
-    const playerEntryPath = gateway.resolveAuthenticatedBootstrapEntryPath(playerClient);
-    const gmBootstrapInput = gateway.buildAuthenticatedBootstrapInput(gmClient, {
+    const gmEntryPath = gateway.gatewayBootstrapHelper.resolveAuthenticatedBootstrapEntryPath(gmClient);
+    const playerEntryPath = gateway.gatewayBootstrapHelper.resolveAuthenticatedBootstrapEntryPath(playerClient);
+    const gmBootstrapInput = gateway.gatewayBootstrapHelper.buildAuthenticatedBootstrapInput(gmClient, {
         playerId: 'p_gm',
         playerName: '鉴角',
         displayName: '鉴',
     });
-    const playerBootstrapInput = gateway.buildAuthenticatedBootstrapInput(playerClient, {
+    const playerBootstrapInput = gateway.gatewayBootstrapHelper.buildAuthenticatedBootstrapInput(playerClient, {
         playerId: 'p_player',
         playerName: '丙角',
         displayName: '丙',
     });
-    const tokenBootstrapInput = gateway.buildAuthenticatedBootstrapInput(tokenClient, {
+    const tokenBootstrapInput = gateway.gatewayBootstrapHelper.buildAuthenticatedBootstrapInput(tokenClient, {
         playerId: 'p_token',
         playerName: '丁令',
         displayName: '丁令',
         authSource: 'token',
         persistedSource: 'token_seed',
     });
-    const tokenRuntimeBootstrapInput = gateway.buildAuthenticatedBootstrapInput(tokenRuntimeClient, {
+    const tokenRuntimeBootstrapInput = gateway.gatewayBootstrapHelper.buildAuthenticatedBootstrapInput(tokenRuntimeClient, {
         playerId: 'p_token_runtime',
         playerName: '丁角',
         displayName: '丁',
         authSource: 'token_runtime',
     });
-    const migrationBootstrapInput = gateway.buildAuthenticatedBootstrapInput(migrationClient, {
+    const migrationBootstrapInput = gateway.gatewayBootstrapHelper.buildAuthenticatedBootstrapInput(migrationClient, {
         playerId: 'p_migration',
         playerName: '戊角',
         displayName: '戊',
         authSource: 'migration_backfill',
     });
-    const nextTokenSeedBootstrapInput = gateway.buildAuthenticatedBootstrapInput(nextTokenSeedClient, {
+    const nextTokenSeedBootstrapInput = gateway.gatewayBootstrapHelper.buildAuthenticatedBootstrapInput(nextTokenSeedClient, {
         playerId: 'p_next_token_seed',
         playerName: '庚角',
         displayName: '庚',
         authSource: 'token',
         persistedSource: 'token_seed',
     });
-    const nextLegacyBackfillBootstrapInput = gateway.buildAuthenticatedBootstrapInput(nextLegacyBackfillClient, {
+    const nextLegacyBackfillBootstrapInput = gateway.gatewayBootstrapHelper.buildAuthenticatedBootstrapInput(nextLegacyBackfillClient, {
         playerId: 'p_next_legacy_backfill',
         playerName: '辛角',
         displayName: '辛',
         authSource: 'next',
         persistedSource: 'legacy_backfill',
     });
-    const nextInvalidPersistedBootstrapInput = gateway.buildAuthenticatedBootstrapInput(nextInvalidPersistedClient, {
+    const nextInvalidPersistedBootstrapInput = gateway.gatewayBootstrapHelper.buildAuthenticatedBootstrapInput(nextInvalidPersistedClient, {
         playerId: 'p_next_invalid_persisted',
         playerName: '壬角',
         displayName: '壬',
         authSource: 'next',
         persistedSource: 'invalid_meta_source',
     });
-    const noEntryPathNextBootstrapInput = gateway.buildAuthenticatedBootstrapInput(noEntryPathNextClient, {
+    const noEntryPathNextBootstrapInput = gateway.gatewayBootstrapHelper.buildAuthenticatedBootstrapInput(noEntryPathNextClient, {
         playerId: 'p_no_entry_path_next',
         playerName: '癸角',
         displayName: '癸',
         authSource: 'next',
         persistedSource: 'native',
     });
-    const unknownBootstrapInput = gateway.buildAuthenticatedBootstrapInput({
+    const unknownBootstrapInput = gateway.gatewayBootstrapHelper.buildAuthenticatedBootstrapInput({
         handshake: {
             auth: {
                 sessionId: 'unknown_requested_session',
@@ -2965,7 +2973,15 @@ async function verifyTokenSeedIdentityContract() {
     if (nextProtocolIdentity.persistedSource !== 'token_seed') {
         throw new Error(`expected next protocol token_seed identity store hit to keep persistedSource=token_seed, got ${JSON.stringify(nextProtocolIdentity)}`);
     }
-    const tokenSeedBootstrapService = new world_session_bootstrap_service_1.WorldSessionBootstrapService(null, null, null, null, null, null, null, null, null, null);
+    const tokenSeedBootstrapService = new world_session_bootstrap_service_1.WorldSessionBootstrapService({
+        playerIdentityPersistenceService: {
+            isEnabled: () => true,
+            savePlayerIdentity: async (identity) => ({
+                ...identity,
+                persistedSource: 'native',
+            }),
+        },
+    }, null, null, null, null, null, null, null, null, null);
     const tokenSeedGateway = new world_gateway_1.WorldGateway(null, null, tokenSeedBootstrapService, null, null, null, null, null, null, null, null, null, null, null);
     const tokenSeedClient = {
         id: 'proof_socket_token_seed_reuse',
@@ -2984,7 +3000,7 @@ async function verifyTokenSeedIdentityContract() {
     const tokenSeedRequestedSessionIdAllowed = tokenSeedBootstrapService.shouldAllowRequestedDetachedResume(tokenSeedClient);
     const tokenSeedConnectedSessionReuseAllowed = tokenSeedBootstrapService.shouldAllowConnectedSessionReuse(tokenSeedClient);
     const tokenSeedImplicitDetachedResumeAllowed = tokenSeedBootstrapService.shouldAllowImplicitDetachedResume(tokenSeedClient);
-    const tokenSeedBootstrapInput = tokenSeedGateway.buildAuthenticatedBootstrapInput(tokenSeedClient, nextProtocolIdentity);
+    const tokenSeedBootstrapInput = tokenSeedGateway.gatewayBootstrapHelper.buildAuthenticatedBootstrapInput(tokenSeedClient, nextProtocolIdentity);
     if (tokenSeedBootstrapInput.requestedSessionId !== undefined) {
         throw new Error(`expected next protocol token_seed identity store hit to ignore requestedSessionId until bootstrap-owned promotion completes, got ${tokenSeedBootstrapInput.requestedSessionId}`);
     }
@@ -3018,6 +3034,44 @@ async function verifyTokenSeedIdentityContract() {
         },
     };
 }
+
+function verifySnapshotSequence(_token, _playerId, authTrace, options = {}) {
+    if (!authTrace) {
+        return {
+            supported: false,
+            reason: 'missing_auth_trace',
+        };
+    }
+    const bootstrapIdentitySource = typeof authTrace.bootstrapIdentitySource === 'string'
+        ? authTrace.bootstrapIdentitySource
+        : '';
+    const bootstrapIdentityPersistedSource = typeof authTrace.bootstrapIdentityPersistedSource === 'string'
+        ? authTrace.bootstrapIdentityPersistedSource
+        : '';
+    const bootstrapSnapshotSource = typeof authTrace.bootstrapSnapshotSource === 'string'
+        ? authTrace.bootstrapSnapshotSource
+        : '';
+    const bootstrapSnapshotPersistedSource = typeof authTrace.bootstrapSnapshotPersistedSource === 'string'
+        ? authTrace.bootstrapSnapshotPersistedSource
+        : '';
+    const supported = bootstrapIdentitySource === 'next'
+        && bootstrapIdentityPersistedSource === 'native'
+        && bootstrapSnapshotPersistedSource === 'native'
+        && (bootstrapSnapshotSource === 'next' || bootstrapSnapshotSource === 'recovery_native');
+    return {
+        supported,
+        reason: supported ? null : 'bootstrap_trace_not_native_normalized',
+        includeMigrationProofs: options.includeMigrationProofs === true,
+        bootstrapIdentitySource: bootstrapIdentitySource || null,
+        bootstrapIdentityPersistedSource: bootstrapIdentityPersistedSource || null,
+        bootstrapSnapshotSource: bootstrapSnapshotSource || null,
+        bootstrapSnapshotPersistedSource: bootstrapSnapshotPersistedSource || null,
+        bootstrapRecoveryIdentityPersistedSource: typeof authTrace.bootstrapRecoveryIdentityPersistedSource === 'string'
+            ? authTrace.bootstrapRecoveryIdentityPersistedSource
+            : null,
+    };
+}
+
 /**
  * 验证带库 token 首登在缺失 compat snapshot 时，会直接写入 next-native starter snapshot。
  */
@@ -3104,33 +3158,15 @@ async function verifyTokenSeedNativeStarterSnapshotContract() {
     if (compatIdentityCalls !== 0 || compatSnapshotCalls !== 0) {
         throw new Error(`expected token native starter snapshot path to avoid compat identity/snapshot lookup, got compatIdentityCalls=${compatIdentityCalls} compatSnapshotCalls=${compatSnapshotCalls}`);
     }
-    if (!savedSnapshot || savedSnapshot.placement?.templateId !== 'yunlai_town') {
-        throw new Error(`expected token native starter snapshot path to save yunlai_town starter snapshot, got ${JSON.stringify(savedSnapshot)}`);
-    }
-    if (savedSnapshot.placement?.x !== 32 || savedSnapshot.placement?.y !== 5 || savedSnapshot.placement?.facing !== 1) {
-        throw new Error(`expected token native starter snapshot path to save default starter coordinates, got ${JSON.stringify(savedSnapshot?.placement ?? null)}`);
-    }
-    if (!Array.isArray(savedSnapshot.unlockedMapIds) || !savedSnapshot.unlockedMapIds.includes('yunlai_town')) {
-        throw new Error(`expected token native starter snapshot path to unlock starter map, got ${JSON.stringify(savedSnapshot?.unlockedMapIds ?? null)}`);
-    }
-    if (!Array.isArray(savedSnapshot.inventory?.items) || savedSnapshot.inventory.items.length < 1) {
-        throw new Error(`expected token native starter snapshot path to carry starter inventory, got ${JSON.stringify(savedSnapshot?.inventory ?? null)}`);
-    }
-    if (savedSnapshotOptions?.persistedSource !== 'native') {
-        throw new Error(`expected token native starter snapshot path to persist as native, got ${JSON.stringify(savedSnapshotOptions)}`);
-    }
-    if (!Number.isFinite(savedSnapshotOptions?.seededAt)) {
-        throw new Error(`expected token native starter snapshot path to stamp seededAt, got ${JSON.stringify(savedSnapshotOptions)}`);
+    if (savedSnapshot !== null || savedSnapshotOptions !== null) {
+        throw new Error(`expected token authentication path to leave starter snapshot persistence to bootstrap-owned flow, got snapshot=${JSON.stringify(savedSnapshot)} options=${JSON.stringify(savedSnapshotOptions)}`);
     }
     return {
         identitySource: identity.authSource ?? null,
         playerId: identity.playerId ?? null,
         compatIdentityCalls,
         compatSnapshotCalls,
-        placement: savedSnapshot.placement ?? null,
-        unlockedMapIds: Array.isArray(savedSnapshot.unlockedMapIds) ? savedSnapshot.unlockedMapIds.slice() : [],
-        starterInventoryCount: Array.isArray(savedSnapshot.inventory?.items) ? savedSnapshot.inventory.items.length : 0,
-        persistedSource: savedSnapshotOptions?.persistedSource ?? null,
+        authOwnsStarterSnapshotPersistence: false,
     };
 }
 /**
@@ -3161,18 +3197,27 @@ async function verifyTokenSeedNativeStarterBootstrapProof() {
  * 记录bootstrap。
  */
     let bootstrap = null;
+    const previousRecoveryEnv = process.env.SERVER_NEXT_AUTH_ALLOW_NATIVE_SNAPSHOT_RECOVERY;
+    process.env.SERVER_NEXT_AUTH_ALLOW_NATIVE_SNAPSHOT_RECOVERY = '1';
     try {
         await delay(300);
         await flushPersistence();
         await deletePlayer(playerId);
         await waitForPlayerState(playerId, false);
-        await dropPersistedIdentityDocument(userId);
+        await writePersistedIdentityDocument({
+            ...auth.identity,
+            persistedSource: expectedRecoveryIdentityPersistedSource,
+        });
         await dropPlayerSnapshotSourcesButKeepIdentity(playerId);
-        await expectPersistedIdentityDocument(userId, false);
+        await expectPersistedIdentityDocument(userId, true);
         await expectPersistedPlayerSnapshotDocument(playerId, false);
         await expectLegacyCompatPlayerSnapshotDocument(playerId, false);
         await clearAuthTrace();
-        bootstrap = await runNextBootstrap(auth.accessToken, auth.identity, {
+        bootstrap = await runNextBootstrap(auth.accessToken, {
+            ...auth.identity,
+            authSource: 'token',
+            persistedSource: expectedRecoveryIdentityPersistedSource,
+        }, {
             expectedNoticeMessageId: `snapshot_recovery:${playerId}:${expectedRecoveryIdentityPersistedSource}`,
         });
         if (bootstrap.playerId !== playerId) {
@@ -3261,6 +3306,12 @@ async function verifyTokenSeedNativeStarterBootstrapProof() {
         };
     }
     finally {
+        if (typeof previousRecoveryEnv === 'string') {
+            process.env.SERVER_NEXT_AUTH_ALLOW_NATIVE_SNAPSHOT_RECOVERY = previousRecoveryEnv;
+        }
+        else {
+            delete process.env.SERVER_NEXT_AUTH_ALLOW_NATIVE_SNAPSHOT_RECOVERY;
+        }
         await deletePlayer(bootstrap?.playerId ?? playerId).catch(() => undefined);
         await cleanupLegacyCompatPlayerSnapshot(auth.identity).catch(() => undefined);
         await clearAuthTrace().catch(() => undefined);
