@@ -88,6 +88,8 @@ const world_runtime_player_combat_service_1 = require("./world-runtime-player-co
 
 const world_runtime_item_ground_service_1 = require("./world-runtime-item-ground.service");
 
+const world_runtime_equipment_service_1 = require("./world-runtime-equipment.service");
+
 const world_runtime_use_item_service_1 = require("./world-runtime-use-item.service");
 
 const world_runtime_player_skill_dispatch_service_1 = require("./world-runtime-player-skill-dispatch.service");
@@ -284,13 +286,14 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     worldRuntimeBasicAttackService;
     worldRuntimePlayerCombatService;
     worldRuntimeItemGroundService;
+    worldRuntimeEquipmentService;
     worldRuntimeUseItemService;
     worldRuntimePlayerSkillDispatchService;
     worldRuntimeBattleEngageService;
     worldRuntimeAutoCombatService;
     logger = new common_1.Logger(WorldRuntimeService_1.name);
     tick = 0;
-    constructor(contentTemplateRepository, templateRepository, mapPersistenceService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService, craftPanelRuntimeService, worldRuntimeNpcShopQueryService, worldRuntimeQuestQueryService, worldRuntimeDetailQueryService, worldRuntimeMetricsService, worldRuntimeInstanceTickOrchestrationService, worldRuntimeMovementService, worldRuntimeSummaryQueryService, worldRuntimeInstanceStateService, worldRuntimeInstanceQueryService, worldRuntimePendingCommandService, worldRuntimePlayerLocationService, worldRuntimeTickProgressService, worldRuntimeNpcQuestInteractionQueryService, worldRuntimeGmQueueService, worldRuntimeRespawnService, worldRuntimeCraftService, worldRuntimeNpcQuestShopService, worldRuntimeLootContainerService, worldRuntimeNavigationService, worldRuntimeCombatEffectsService, worldRuntimeMonsterActionApplyService, worldRuntimeBasicAttackService, worldRuntimePlayerCombatService, worldRuntimeItemGroundService, worldRuntimeUseItemService, worldRuntimePlayerSkillDispatchService, worldRuntimeBattleEngageService, worldRuntimeAutoCombatService) {
+    constructor(contentTemplateRepository, templateRepository, mapPersistenceService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService, craftPanelRuntimeService, worldRuntimeNpcShopQueryService, worldRuntimeQuestQueryService, worldRuntimeDetailQueryService, worldRuntimeMetricsService, worldRuntimeInstanceTickOrchestrationService, worldRuntimeMovementService, worldRuntimeSummaryQueryService, worldRuntimeInstanceStateService, worldRuntimeInstanceQueryService, worldRuntimePendingCommandService, worldRuntimePlayerLocationService, worldRuntimeTickProgressService, worldRuntimeNpcQuestInteractionQueryService, worldRuntimeGmQueueService, worldRuntimeRespawnService, worldRuntimeCraftService, worldRuntimeNpcQuestShopService, worldRuntimeLootContainerService, worldRuntimeNavigationService, worldRuntimeCombatEffectsService, worldRuntimeMonsterActionApplyService, worldRuntimeBasicAttackService, worldRuntimePlayerCombatService, worldRuntimeItemGroundService, worldRuntimeEquipmentService, worldRuntimeUseItemService, worldRuntimePlayerSkillDispatchService, worldRuntimeBattleEngageService, worldRuntimeAutoCombatService) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.templateRepository = templateRepository;
         this.mapPersistenceService = mapPersistenceService;
@@ -324,6 +327,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.worldRuntimeBasicAttackService = worldRuntimeBasicAttackService;
         this.worldRuntimePlayerCombatService = worldRuntimePlayerCombatService;
         this.worldRuntimeItemGroundService = worldRuntimeItemGroundService;
+        this.worldRuntimeEquipmentService = worldRuntimeEquipmentService;
         this.worldRuntimeUseItemService = worldRuntimeUseItemService;
         this.worldRuntimePlayerSkillDispatchService = worldRuntimePlayerSkillDispatchService;
         this.worldRuntimeBattleEngageService = worldRuntimeBattleEngageService;
@@ -1720,43 +1724,11 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     }
     /** dispatchEquipItem：执行装备穿戴结算。 */
     dispatchEquipItem(playerId, slotIndex) {
-
-        const item = this.playerRuntimeService.peekInventoryItem(playerId, slotIndex);
-        if (!item) {
-            throw new common_1.NotFoundException(`Inventory slot ${slotIndex} not found`);
-        }
-
-        const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
-
-        const lockReason = item.equipSlot
-            ? this.craftPanelRuntimeService.getLockedSlotReason(player, item.equipSlot)
-            : null;
-        if (lockReason) {
-            throw new common_1.BadRequestException(lockReason);
-        }
-        this.playerRuntimeService.equipItem(playerId, slotIndex);
-        this.queuePlayerNotice(playerId, `装备 ${item.name}`, 'success');
-        this.worldRuntimeCraftService.emitCraftPanelUpdate(playerId, 'alchemy', this);
-        this.worldRuntimeCraftService.emitCraftPanelUpdate(playerId, 'enhancement', this);
+        this.worldRuntimeEquipmentService.dispatchEquipItem(playerId, slotIndex, this);
     }
     /** dispatchUnequipItem：执行装备卸下结算。 */
     dispatchUnequipItem(playerId, slot) {
-
-        const item = this.playerRuntimeService.peekEquippedItem(playerId, slot);
-        if (!item) {
-            throw new common_1.NotFoundException(`Equipment slot ${slot} is empty`);
-        }
-
-        const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
-
-        const lockReason = this.craftPanelRuntimeService.getLockedSlotReason(player, slot);
-        if (lockReason) {
-            throw new common_1.BadRequestException(lockReason);
-        }
-        this.playerRuntimeService.unequipItem(playerId, slot);
-        this.queuePlayerNotice(playerId, `卸下 ${item.name}`, 'info');
-        this.worldRuntimeCraftService.emitCraftPanelUpdate(playerId, 'alchemy', this);
-        this.worldRuntimeCraftService.emitCraftPanelUpdate(playerId, 'enhancement', this);
+        this.worldRuntimeEquipmentService.dispatchUnequipItem(playerId, slot, this);
     }
     /** dispatchCultivateTechnique：执行功法修炼切换。 */
     dispatchCultivateTechnique(playerId, techniqueId) {
@@ -2315,6 +2287,7 @@ exports.WorldRuntimeService = WorldRuntimeService = WorldRuntimeService_1 = __de
         world_runtime_basic_attack_service_1.WorldRuntimeBasicAttackService,
         world_runtime_player_combat_service_1.WorldRuntimePlayerCombatService,
         world_runtime_item_ground_service_1.WorldRuntimeItemGroundService,
+        world_runtime_equipment_service_1.WorldRuntimeEquipmentService,
         world_runtime_use_item_service_1.WorldRuntimeUseItemService,
         world_runtime_player_skill_dispatch_service_1.WorldRuntimePlayerSkillDispatchService,
         world_runtime_battle_engage_service_1.WorldRuntimeBattleEngageService,

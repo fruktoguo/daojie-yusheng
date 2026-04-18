@@ -116,6 +116,8 @@ const world_runtime_player_combat_service_1 = require("./runtime/world/world-run
 
 const world_runtime_item_ground_service_1 = require("./runtime/world/world-runtime-item-ground.service");
 
+const world_runtime_equipment_service_1 = require("./runtime/world/world-runtime-equipment.service");
+
 const world_runtime_use_item_service_1 = require("./runtime/world/world-runtime-use-item.service");
 
 const world_runtime_player_skill_dispatch_service_1 = require("./runtime/world/world-runtime-player-skill-dispatch.service");
@@ -219,6 +221,7 @@ exports.AppModule = AppModule = __decorate([
             world_runtime_basic_attack_service_1.WorldRuntimeBasicAttackService,
             world_runtime_player_combat_service_1.WorldRuntimePlayerCombatService,
             world_runtime_item_ground_service_1.WorldRuntimeItemGroundService,
+            world_runtime_equipment_service_1.WorldRuntimeEquipmentService,
             world_runtime_use_item_service_1.WorldRuntimeUseItemService,
             world_runtime_player_skill_dispatch_service_1.WorldRuntimePlayerSkillDispatchService,
             world_runtime_battle_engage_service_1.WorldRuntimeBattleEngageService,
