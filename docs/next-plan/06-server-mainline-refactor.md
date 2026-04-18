@@ -450,6 +450,10 @@
 - `WorldRuntimeService` 的 `dispatchCultivateTechnique()` 已退为 facade，主修功法切换、craft panel 阻断判断和修炼提示由 `WorldRuntimeCultivationService` 承接
 - 这次不迁移 `dispatchStartAlchemy()` / `dispatchStartEnhancement()` 或其它 craft 链路，只移动 cultivateTechnique 这一条最小叶子业务域，`WorldRuntimeService` 仍保留相邻 craft/runtime 命令入口的总编排
 - 本轮验证已补跑 `pnpm --filter @mud/server-next smoke:world-runtime-cultivation`、`pnpm --filter @mud/server-next smoke:runtime`、根级串行 `pnpm build && pnpm verify:replace-ready`；结果全部通过
+- 新增 `packages/server/src/runtime/world/world-runtime-progression.service.js`
+- `WorldRuntimeService` 的 `dispatchBreakthrough()` / `dispatchHeavenGateAction()` 已退为 facade，突破与天门动作结算由 `WorldRuntimeProgressionService` 承接；当前 tick 透传不再留在主服务中
+- 这次不迁移更宽的 progression/runtime 链路，只移动突破与天门这一组最小叶子业务域，`WorldRuntimeService` 仍保留相邻命令入口的总编排
+- 本轮验证已补跑 `pnpm --filter @mud/server-next smoke:world-runtime-progression`、`pnpm --filter @mud/server-next smoke:runtime`、根级串行 `pnpm build && pnpm verify:replace-ready`；结果全部通过
 - 新增 `packages/server/src/runtime/world/world-runtime-enhancement.service.js`
 - `WorldRuntimeCraftService` 的 `dispatchStartEnhancement()` / `dispatchCancelEnhancement()` / `tickEnhancement()` 已退为 facade，强化写路径与面板刷新由 `WorldRuntimeEnhancementService` 承接；炼丹与 preset 仍留在 `WorldRuntimeCraftService`
 - 这次不迁移 `dispatchStartAlchemy()` / `dispatchCancelAlchemy()` / preset CRUD，只移动 enhancement 这一条更小的 craft 子域，`WorldRuntimeService` 仍保留 `dispatchStartEnhancement()` / `dispatchCancelEnhancement()` 的总编排入口
