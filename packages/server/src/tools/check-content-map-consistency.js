@@ -1,0 +1,142 @@
+"use strict";
+
+const fs = require("node:fs");
+const path = require("node:path");
+
+const packageRoot = path.resolve(__dirname, "..", "..");
+const mapsRoot = path.join(packageRoot, "data", "maps");
+
+function walkJsonFiles(dirPath, result = []) {
+  for (const entry of fs.readdirSync(dirPath, { withFileTypes: true })) {
+    const absolutePath = path.join(dirPath, entry.name);
+    if (entry.isDirectory()) {
+      walkJsonFiles(absolutePath, result);
+      continue;
+    }
+    if (entry.isFile() && entry.name.endsWith(".json")) {
+      result.push(absolutePath);
+    }
+  }
+  return result;
+}
+
+function loadMapFiles() {
+  return walkJsonFiles(mapsRoot).map((filePath) => {
+    const raw = fs.readFileSync(filePath, "utf8");
+    return {
+      filePath,
+      relativePath: path.relative(packageRoot, filePath),
+      map: JSON.parse(raw),
+    };
+  });
+}
+
+function isIntegerInBounds(value, maxExclusive) {
+  return Number.isInteger(value) && value >= 0 && value < maxExclusive;
+}
+
+function validatePoint(errors, mapInfo, label, x, y, width, height) {
+  if (!isIntegerInBounds(x, width) || !isIntegerInBounds(y, height)) {
+    errors.push(`${mapInfo.map.id}: ${label} 坐标越界 -> (${x}, ${y}) / ${width}x${height} @ ${mapInfo.relativePath}`);
+  }
+}
+
+function validateTileShape(errors, mapInfo, width, height) {
+  const tiles = mapInfo.map.tiles;
+  if (!Array.isArray(tiles)) {
+    errors.push(`${mapInfo.map.id}: 缺少 tiles 数组 @ ${mapInfo.relativePath}`);
+    return;
+  }
+  if (tiles.length !== height) {
+    errors.push(`${mapInfo.map.id}: tiles 行数 ${tiles.length} 与 height ${height} 不一致 @ ${mapInfo.relativePath}`);
+  }
+  tiles.forEach((row, index) => {
+    if (typeof row !== "string" || row.length !== width) {
+      errors.push(`${mapInfo.map.id}: 第 ${index + 1} 行 tile 宽度不合法 -> ${typeof row === "string" ? row.length : "non-string"}，期望 ${width} @ ${mapInfo.relativePath}`);
+    }
+  });
+}
+
+function validatePortals(errors, mapInfo, mapById, width, height) {
+  for (const portal of mapInfo.map.portals ?? []) {
+    validatePoint(errors, mapInfo, `portal:${portal.targetMapId ?? "unknown"}`, portal.x, portal.y, width, height);
+    if (typeof portal.targetMapId !== "string") {
+      errors.push(`${mapInfo.map.id}: portal 缺少 targetMapId @ ${mapInfo.relativePath}`);
+      continue;
+    }
+    const targetMapInfo = mapById.get(portal.targetMapId);
+    if (!targetMapInfo) {
+      errors.push(`${mapInfo.map.id}: portal 指向不存在的地图 ${portal.targetMapId} @ ${mapInfo.relativePath}`);
+      continue;
+    }
+    validatePoint(
+      errors,
+      targetMapInfo,
+      `portal-target-from:${mapInfo.map.id}`,
+      portal.targetX,
+      portal.targetY,
+      targetMapInfo.map.width,
+      targetMapInfo.map.height,
+    );
+  }
+}
+
+function validateAnchors(errors, mapInfo, key, width, height) {
+  for (const entry of mapInfo.map[key] ?? []) {
+    const entryId = typeof entry?.id === "string" ? entry.id : "unknown";
+    validatePoint(errors, mapInfo, `${key}:${entryId}`, entry?.x, entry?.y, width, height);
+  }
+}
+
+function main() {
+  const mapFiles = loadMapFiles();
+  const errors = [];
+  const mapById = new Map();
+
+  for (const mapInfo of mapFiles) {
+    const { map } = mapInfo;
+    if (typeof map?.id !== "string" || map.id.length === 0) {
+      errors.push(`地图文件缺少合法 id @ ${mapInfo.relativePath}`);
+      continue;
+    }
+    if (mapById.has(map.id)) {
+      errors.push(`检测到重复 map id: ${map.id} @ ${mapInfo.relativePath}`);
+      continue;
+    }
+    mapById.set(map.id, mapInfo);
+  }
+
+  for (const mapInfo of mapById.values()) {
+    const width = mapInfo.map.width;
+    const height = mapInfo.map.height;
+    if (!Number.isInteger(width) || width <= 0 || !Number.isInteger(height) || height <= 0) {
+      errors.push(`${mapInfo.map.id}: width/height 非法 -> ${width}x${height} @ ${mapInfo.relativePath}`);
+      continue;
+    }
+    validateTileShape(errors, mapInfo, width, height);
+    if (!mapInfo.map.spawnPoint) {
+      errors.push(`${mapInfo.map.id}: 缺少 spawnPoint @ ${mapInfo.relativePath}`);
+    } else {
+      validatePoint(errors, mapInfo, "spawnPoint", mapInfo.map.spawnPoint.x, mapInfo.map.spawnPoint.y, width, height);
+    }
+    validatePortals(errors, mapInfo, mapById, width, height);
+    validateAnchors(errors, mapInfo, "npcs", width, height);
+    validateAnchors(errors, mapInfo, "landmarks", width, height);
+    validateAnchors(errors, mapInfo, "monsterSpawns", width, height);
+  }
+
+  if (errors.length > 0) {
+    process.stderr.write("[content/map consistency] failed\n");
+    for (const error of errors) {
+      process.stderr.write(`- ${error}\n`);
+    }
+    process.exitCode = 1;
+    return;
+  }
+
+  process.stdout.write("[content/map consistency] passed\n");
+  process.stdout.write(`- checked maps: ${mapById.size}\n`);
+  process.stdout.write("- validated: tiles, spawn points, portals, npc anchors, landmarks, monster spawns\n");
+}
+
+main();
