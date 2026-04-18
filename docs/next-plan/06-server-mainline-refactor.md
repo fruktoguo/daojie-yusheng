@@ -292,6 +292,10 @@
 - `packages/server/src/http/next/next-gm.controller.js` 的 `GET /api/gm/players/:playerId` 已改为转发到 `nextGmPlayerService.getPlayerDetail()`，不改路由面和返回结构
 - 这一刀只移动 GM 玩家详情只读查询，不触碰 `getState()`、`buildPerformanceSnapshot()`、地图 runtime 观测和任何 GM 写路径
 - 本轮验证已补跑 `pnpm --filter @mud/server-next smoke:gm-next`、`pnpm --filter @mud/server-next audit:next-protocol`、根级 `pnpm build` 与 `pnpm verify:replace-ready`；结果继续通过，其中 `gm-next` 在无库本地口径下返回 `ok: true` 且标记 `skipped`
+- 新增 `packages/server/src/http/next/next-gm-map-query.service.js`
+- `packages/server/src/http/next/next-gm-world.service.js` 的 `getMaps()` 已委托给 `NextGmMapQueryService`，world service 仅保留 GM world facade，不再承接地图列表展示拼装
+- 这一刀只移动 GM 地图列表只读查询，不触碰 `getMapRuntime()`、`getState()`、`buildPerformanceSnapshot()` 或任何 GM 写路径
+- 本轮验证已补跑 `pnpm --filter @mud/server-next smoke:gm-next`、`pnpm --filter @mud/server-next audit:next-protocol`、根级 `pnpm build` 与 `pnpm verify:replace-ready`；结果继续通过，其中 `gm-next` 在无库本地口径下返回 `ok: true` 且标记 `skipped`
 
 当前优先可拆的冷块：
 
