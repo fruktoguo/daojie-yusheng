@@ -19,6 +19,7 @@ const world_session_service_1 = require("../../network/world-session.service");
 const world_client_event_service_1 = require("../../network/world-client-event.service");
 const player_runtime_service_1 = require("../player/player-runtime.service");
 const craft_panel_runtime_service_1 = require("../craft/craft-panel-runtime.service");
+const world_runtime_enhancement_service_1 = require("./world-runtime-enhancement.service");
 
 /** world-runtime craft orchestration：承接 craft 写路径编排、tick 推进和面板同步。 */
 let WorldRuntimeCraftService = class WorldRuntimeCraftService {
@@ -26,11 +27,13 @@ let WorldRuntimeCraftService = class WorldRuntimeCraftService {
     craftPanelRuntimeService;
     worldSessionService;
     worldClientEventService;
-    constructor(playerRuntimeService, craftPanelRuntimeService, worldSessionService, worldClientEventService) {
+    worldRuntimeEnhancementService;
+    constructor(playerRuntimeService, craftPanelRuntimeService, worldSessionService, worldClientEventService, worldRuntimeEnhancementService) {
         this.playerRuntimeService = playerRuntimeService;
         this.craftPanelRuntimeService = craftPanelRuntimeService;
         this.worldSessionService = worldSessionService;
         this.worldClientEventService = worldClientEventService;
+        this.worldRuntimeEnhancementService = worldRuntimeEnhancementService;
     }
     interruptCraftForReason(playerId, player, reason, deps) {
         this.flushCraftMutation(playerId, this.craftPanelRuntimeService.interruptAlchemy(player, reason), 'alchemy', deps);
@@ -69,20 +72,10 @@ let WorldRuntimeCraftService = class WorldRuntimeCraftService {
         this.flushCraftMutation(playerId, result, 'alchemy', deps);
     }
     dispatchStartEnhancement(playerId, payload, deps) {
-        const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
-        const result = this.craftPanelRuntimeService.startEnhancement(player, payload);
-        if (!result.ok) {
-            throw new common_1.BadRequestException(result.error ?? '启动强化失败');
-        }
-        this.flushCraftMutation(playerId, result, 'enhancement', deps);
+        this.worldRuntimeEnhancementService.dispatchStartEnhancement(playerId, payload, deps);
     }
     dispatchCancelEnhancement(playerId, deps) {
-        const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
-        const result = this.craftPanelRuntimeService.cancelEnhancement(player);
-        if (!result.ok) {
-            throw new common_1.BadRequestException(result.error ?? '取消强化失败');
-        }
-        this.flushCraftMutation(playerId, result, 'enhancement', deps);
+        this.worldRuntimeEnhancementService.dispatchCancelEnhancement(playerId, deps);
     }
     advanceCraftJobs(playerIds, deps) {
         for (const playerId of playerIds) {
@@ -94,7 +87,7 @@ let WorldRuntimeCraftService = class WorldRuntimeCraftService {
                 this.flushCraftMutation(playerId, this.craftPanelRuntimeService.tickAlchemy(player), 'alchemy', deps);
             }
             if (this.craftPanelRuntimeService.hasActiveEnhancementJob(player)) {
-                this.flushCraftMutation(playerId, this.craftPanelRuntimeService.tickEnhancement(player), 'enhancement', deps);
+                this.worldRuntimeEnhancementService.tickEnhancement(playerId, player, deps);
             }
         }
     }
@@ -150,7 +143,8 @@ exports.WorldRuntimeCraftService = WorldRuntimeCraftService = __decorate([
     __metadata("design:paramtypes", [player_runtime_service_1.PlayerRuntimeService,
         craft_panel_runtime_service_1.CraftPanelRuntimeService,
         world_session_service_1.WorldSessionService,
-        world_client_event_service_1.WorldClientEventService])
+        world_client_event_service_1.WorldClientEventService,
+        world_runtime_enhancement_service_1.WorldRuntimeEnhancementService])
 ], WorldRuntimeCraftService);
 
 function formatItemStackLabel(item) {
