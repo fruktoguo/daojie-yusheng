@@ -74,6 +74,7 @@ import {
   type ObserveAsideCard,
 } from './main-ui-helpers';
 import { createMainAttrDetailStateSource } from './main-attr-detail-state-source';
+import { createMainActionStateSource } from './main-action-state-source';
 import { createMainInventoryStateSource } from './main-inventory-state-source';
 import { createMainMarketStateSource } from './main-market-state-source';
 import { createMainMailStateSource } from './main-mail-state-source';
@@ -639,6 +640,20 @@ const worldPanel = new WorldPanel();
 const settingsPanel = new SettingsPanel();
 const mailStateSource = createMainMailStateSource({ socket });
 const suggestionStateSource = createMainSuggestionStateSource({ socket });
+const actionStateSource = createMainActionStateSource({
+  actionPanel,
+  socket,
+  beginTargeting,
+  cancelTargeting: () => cancelTargeting(),
+  hideObserveModal: () => hideObserveModal(),
+  openBreakthroughModal: () => openBreakthroughModal(),
+  openNpcShop: (npcId) => npcShopModal.open(npcId),
+  openNpcQuestPending: (npcId) => npcQuestModal.openPending(npcId),
+  openAlchemy: () => craftWorkbenchModal.openAlchemy(),
+  openEnhancement: () => craftWorkbenchModal.openEnhancement(),
+  getInfoRadius: () => getInfoRadius(),
+  getCurrentActionDef,
+});
 const techniqueStateSource = createMainTechniqueStateSource({
   techniquePanel,
   socket,
@@ -2535,61 +2550,6 @@ craftWorkbenchModal.setCallbacks({
   onStartEnhancement: (payload) => socket.sendStartEnhancement(payload),
   onCancelEnhancement: () => socket.sendCancelEnhancement(),
 });
-actionPanel.setCallbacks(
-  (actionId, requiresTarget, targetMode, range, actionName) => {
-    if (actionId === 'loot:open') {
-      beginTargeting(actionId, actionName ?? actionId, targetMode, range ?? 1);
-      return;
-    }
-    if (actionId === 'realm:breakthrough') {
-      cancelTargeting();
-      hideObserveModal();
-      openBreakthroughModal();
-      return;
-    }
-    if (actionId.startsWith('npc_shop:')) {
-      cancelTargeting();
-      hideObserveModal();
-      npcShopModal.open(actionId.slice('npc_shop:'.length));
-      return;
-    }
-    if (actionId.startsWith('npc_quests:')) {
-      cancelTargeting();
-      hideObserveModal();
-      const npcId = actionId.slice('npc_quests:'.length);
-      npcQuestModal.openPending(npcId);
-      socket.sendAction(actionId);
-      return;
-    }
-    if (actionId === 'alchemy:open') {
-      cancelTargeting();
-      hideObserveModal();
-      craftWorkbenchModal.openAlchemy();
-      return;
-    }
-    if (actionId === 'enhancement:open') {
-      cancelTargeting();
-      hideObserveModal();
-      craftWorkbenchModal.openEnhancement();
-      return;
-    }
-    if (requiresTarget) {
-      beginTargeting(actionId, actionName ?? actionId, targetMode, actionId === 'client:observe' ? getInfoRadius() : (range ?? 1));
-      return;
-    }
-    cancelTargeting();
-    hideObserveModal();
-    const action = getCurrentActionDef(actionId);
-    if (action?.type === 'skill') {
-      socket.sendCastSkill(actionId);
-      return;
-    }
-    socket.sendAction(actionId);
-  },
-  (skills) => {
-    socket.sendUpdateAutoBattleSkills(skills);
-  },
-);
 debugPanel.setCallbacks(() => {
   showToast('已发送回出生点请求');
   socket.sendDebugResetSpawn();
@@ -2744,7 +2704,7 @@ function handleTechniqueUpdate(data: NEXT_S2C_TechniqueUpdate): void {
   }
   bodyTrainingPanel.syncDynamic(nextBodyTraining, myPlayer?.foundation);
   if (myPlayer) {
-    actionPanel.syncDynamic(myPlayer.actions, myPlayer.autoBattle, myPlayer.autoRetaliate, myPlayer);
+    actionStateSource.syncDynamic(myPlayer.actions, myPlayer.autoBattle, myPlayer.autoRetaliate, myPlayer);
   }
   nextUiBridge.syncTechniques(mergedTechniques, nextCultivatingTechId);
   nextUiBridge.syncPlayer(myPlayer);
@@ -2799,10 +2759,10 @@ function handleActionsUpdate(data: NEXT_S2C_ActionsUpdate): void {
     clearCurrentPath();
   }
   if (shouldRefreshActionPanel) {
-    actionPanel.update(mergedActions, nextAutoBattle, nextAutoRetaliate, myPlayer ?? undefined);
+    actionStateSource.update(mergedActions, nextAutoBattle, nextAutoRetaliate, myPlayer ?? undefined);
     refreshUiChrome();
   } else {
-    actionPanel.syncDynamic(mergedActions, nextAutoBattle, nextAutoRetaliate, myPlayer ?? undefined);
+    actionStateSource.syncDynamic(mergedActions, nextAutoBattle, nextAutoRetaliate, myPlayer ?? undefined);
   }
   syncSenseQiOverlay();
   nextUiBridge.syncActions(mergedActions, nextAutoBattle, nextAutoRetaliate);
@@ -3723,7 +3683,7 @@ function resetGameState() {
   equipmentPanel.clear();
   techniqueStateSource.clear();
   questStateSource.clear();
-  actionPanel.clear();
+  actionStateSource.clear();
   entityDetailModal.clear();
   worldSummaryStateSource.clear();
   lootPanel.clear();
@@ -4023,7 +3983,7 @@ function handleBootstrap(data: NEXT_S2C_Bootstrap): void {
   techniqueStateSource.initFromPlayer(myPlayer);
   bodyTrainingPanel.initFromPlayer(myPlayer);
   questStateSource.initFromPlayer(myPlayer);
-  actionPanel.initFromPlayer(myPlayer);
+  actionStateSource.initFromPlayer(myPlayer);
   worldSummaryStateSource.init();
   refreshUiChrome();
   mailStateSource.initFromPlayer(myPlayer.id);
