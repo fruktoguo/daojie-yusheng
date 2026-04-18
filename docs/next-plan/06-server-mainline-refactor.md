@@ -393,6 +393,10 @@
 - `dispatchEngageBattle(...)` 的锁定目标、autoBattle 切换与首个命令 handoff 已委托给 `WorldRuntimeBattleEngageService`
 - `WorldRuntimeService` 仍保留 `handlePlayerMonsterKill()`、`handlePlayerDefeat()`、`processPendingRespawns()` 与 `respawnPlayer()`，说明这次只是第 5 批第十一刀的 player-combat engage orchestration 抽离，不是完整玩家战斗 / 复生域拆分
 - 本轮验证已补跑 `pnpm build`、`pnpm verify:replace-ready`、`pnpm --filter @mud/server-next smoke:combat` 与 `pnpm --filter @mud/server-next smoke:monster-combat`
+- 新增 `packages/server/src/runtime/world/world-runtime-respawn.service.js`
+- `WorldRuntimeService` 的 `processPendingRespawns()` / `respawnPlayer()` 已委托给 `WorldRuntimeRespawnService`，复生队列消费、目标实例解析、位置回填与运行态复原不再留在主服务中
+- `WorldRuntimeService` 仍保留 `advanceFrame()` 的调用时机、`dispatchSystemCommand()` 对 `respawnPlayer` 的编排入口，以及跨域错误收口，说明这次是第 5 批第十二刀的 respawn orchestration 抽离
+- 本轮验证已补跑 `pnpm --filter @mud/server-next smoke:runtime`、`pnpm --filter @mud/server-next smoke:player-respawn`、`pnpm --filter @mud/server-next smoke:gm-next`、根级串行 `pnpm build && pnpm verify:replace-ready`；结果全部通过
 
 这一批结束后，`world-runtime.service.js` 仍可以存在，但不该再同时拥有所有领域细节。
 
