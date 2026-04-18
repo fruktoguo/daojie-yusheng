@@ -132,26 +132,31 @@ let NextGmPlayerService = class NextGmPlayerService {
     async resetHeavenGate(playerId) {
 
         const runtime = this.playerRuntimeService.snapshot(playerId);
-        if (runtime) {
-            runtime.heavenGate = null;
-            runtime.spiritualRoots = null;
-            if (runtime.realm) {
-                runtime.realm.heavenGate = undefined;
-            }
-            this.repairRuntimeSnapshot(runtime);
-            runtime.selfRevision += 1;
-            runtime.persistentRevision += 1;
-            this.playerRuntimeService.restoreSnapshot(runtime);
-            return;
-        }
-
-        const persisted = await this.playerPersistenceService.loadPlayerSnapshot(playerId);
+        const persisted = runtime
+            ? this.playerRuntimeService.buildPersistenceSnapshot(playerId)
+            : await this.playerPersistenceService.loadPlayerSnapshot(playerId);
         if (!persisted) {
             throw new common_1.NotFoundException('目标玩家不存在');
         }
         persisted.progression.heavenGate = null;
         persisted.progression.spiritualRoots = null;
         await this.playerPersistenceService.savePlayerSnapshot(playerId, persisted);
+        if (!runtime) {
+            return;
+        }
+        const refreshedRuntime = this.playerRuntimeService.snapshot(playerId);
+        if (!refreshedRuntime) {
+            return;
+        }
+        refreshedRuntime.heavenGate = null;
+        refreshedRuntime.spiritualRoots = null;
+        if (refreshedRuntime.realm) {
+            refreshedRuntime.realm.heavenGate = undefined;
+        }
+        this.repairRuntimeSnapshot(refreshedRuntime);
+        refreshedRuntime.selfRevision += 1;
+        refreshedRuntime.persistentRevision += 1;
+        this.playerRuntimeService.restoreSnapshot(refreshedRuntime);
     }
     spawnBots(anchorPlayerId, count) {
         this.worldRuntimeService.enqueueGmSpawnBots(anchorPlayerId, count);
