@@ -201,10 +201,15 @@
 - [x] 给“数据迁移完成”补一条迁移 proof 链
 - [x] 跑通 `pnpm build`
 - [x] 跑通 `pnpm verify:replace-ready`
-- [x] 跑通 `pnpm verify:replace-ready:with-db`
-- [x] 跑通 `pnpm verify:replace-ready:acceptance`
-- [x] 跑通 `pnpm verify:replace-ready:full`
+- [ ] 跑通 `pnpm verify:replace-ready:with-db`
+- [ ] 跑通 `pnpm verify:replace-ready:acceptance`
+- [ ] 跑通 `pnpm verify:replace-ready:full`
 - [x] 确认这些门禁都以 next 主链为口径，不再默认证明 legacy 对齐
+
+补充说明：
+
+- 当前仓库只证明 `local` 已在本轮实跑通过。
+- `with-db / acceptance / full / shadow-destructive` 仍应以 `09` 文档里的环境阻塞与当前轮次实跑记录为准，不能沿用历史 `[x]` 口径。
 
 ## 12. legacy 归档收尾
 
@@ -212,7 +217,7 @@
 
 - [10 legacy 归档与最终切换](./10-legacy-archive-and-cutover.md)
 
-- [ ] 列出仍然必须保留的 legacy 文件范围
+- [x] 列出仍然必须保留的 legacy 文件范围
 - [ ] 把不再需要的 legacy 入口从主文档和主流程中移除
 - [ ] 把 legacy 剩余价值收束为“查规则 / 查旧数据格式 / 迁移来源”
 - [ ] 更新顶层说明文档，明确当前仓库只有 next 是活跃主线
