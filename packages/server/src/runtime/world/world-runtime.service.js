@@ -72,6 +72,8 @@ const world_runtime_gm_queue_service_1 = require("./world-runtime-gm-queue.servi
 
 const world_runtime_respawn_service_1 = require("./world-runtime-respawn.service");
 
+const world_runtime_system_command_service_1 = require("./world-runtime-system-command.service");
+
 const world_runtime_craft_service_1 = require("./world-runtime-craft.service");
 
 const world_runtime_npc_quest_shop_service_1 = require("./world-runtime-npc-quest-shop.service");
@@ -286,6 +288,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     worldRuntimeNpcShopService;
     worldRuntimeGmQueueService;
     worldRuntimeRespawnService;
+    worldRuntimeSystemCommandService;
     worldRuntimeCraftService;
     worldRuntimeNpcQuestShopService;
     worldRuntimeLootContainerService;
@@ -305,7 +308,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     worldRuntimeAutoCombatService;
     logger = new common_1.Logger(WorldRuntimeService_1.name);
     tick = 0;
-    constructor(contentTemplateRepository, templateRepository, mapPersistenceService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService, craftPanelRuntimeService, worldRuntimeNpcShopQueryService, worldRuntimeQuestQueryService, worldRuntimeDetailQueryService, worldRuntimeMetricsService, worldRuntimeInstanceTickOrchestrationService, worldRuntimeMovementService, worldRuntimeSummaryQueryService, worldRuntimeInstanceStateService, worldRuntimeInstanceQueryService, worldRuntimePendingCommandService, worldRuntimePlayerLocationService, worldRuntimeTickProgressService, worldRuntimeNpcQuestInteractionQueryService, worldRuntimeNpcShopService, worldRuntimeGmQueueService, worldRuntimeRespawnService, worldRuntimeCraftService, worldRuntimeNpcQuestShopService, worldRuntimeLootContainerService, worldRuntimeNavigationService, worldRuntimeCombatEffectsService, worldRuntimeMonsterActionApplyService, worldRuntimeBasicAttackService, worldRuntimePlayerCombatService, worldRuntimeItemGroundService, worldRuntimeEquipmentService, worldRuntimeCultivationService, worldRuntimeProgressionService, worldRuntimeUseItemService, worldRuntimeRedeemCodeService, worldRuntimePlayerSkillDispatchService, worldRuntimeBattleEngageService, worldRuntimeAutoCombatService) {
+    constructor(contentTemplateRepository, templateRepository, mapPersistenceService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService, craftPanelRuntimeService, worldRuntimeNpcShopQueryService, worldRuntimeQuestQueryService, worldRuntimeDetailQueryService, worldRuntimeMetricsService, worldRuntimeInstanceTickOrchestrationService, worldRuntimeMovementService, worldRuntimeSummaryQueryService, worldRuntimeInstanceStateService, worldRuntimeInstanceQueryService, worldRuntimePendingCommandService, worldRuntimePlayerLocationService, worldRuntimeTickProgressService, worldRuntimeNpcQuestInteractionQueryService, worldRuntimeNpcShopService, worldRuntimeGmQueueService, worldRuntimeRespawnService, worldRuntimeSystemCommandService, worldRuntimeCraftService, worldRuntimeNpcQuestShopService, worldRuntimeLootContainerService, worldRuntimeNavigationService, worldRuntimeCombatEffectsService, worldRuntimeMonsterActionApplyService, worldRuntimeBasicAttackService, worldRuntimePlayerCombatService, worldRuntimeItemGroundService, worldRuntimeEquipmentService, worldRuntimeCultivationService, worldRuntimeProgressionService, worldRuntimeUseItemService, worldRuntimeRedeemCodeService, worldRuntimePlayerSkillDispatchService, worldRuntimeBattleEngageService, worldRuntimeAutoCombatService) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.templateRepository = templateRepository;
         this.mapPersistenceService = mapPersistenceService;
@@ -331,6 +334,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.worldRuntimeNpcShopService = worldRuntimeNpcShopService;
         this.worldRuntimeGmQueueService = worldRuntimeGmQueueService;
         this.worldRuntimeRespawnService = worldRuntimeRespawnService;
+        this.worldRuntimeSystemCommandService = worldRuntimeSystemCommandService;
         this.worldRuntimeCraftService = worldRuntimeCraftService;
         this.worldRuntimeNpcQuestShopService = worldRuntimeNpcQuestShopService;
         this.worldRuntimeLootContainerService = worldRuntimeLootContainerService;
@@ -1499,21 +1503,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     }
     /** dispatchPendingSystemCommands：派发系统命令队列。 */
     dispatchPendingSystemCommands() {
-        if (this.worldRuntimeGmQueueService.getPendingSystemCommandCount() === 0) {
-            return;
-        }
-
-        const commands = this.worldRuntimeGmQueueService.drainPendingSystemCommands();
-        for (const command of commands) {
-            try {
-                this.dispatchSystemCommand(command);
-            }
-            catch (error) {
-
-                const message = error instanceof Error ? error.message : String(error);
-                this.logger.warn(`处理系统指令 ${command.kind} 失败：${message}`);
-            }
-        }
+        this.worldRuntimeSystemCommandService.dispatchPendingSystemCommands(this);
     }
     /** dispatchInstanceCommand：执行需要落到实例侧的移动或传送命令。 */
     dispatchInstanceCommand(playerId, command) {
@@ -1633,57 +1623,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     }
     /** dispatchSystemCommand：执行世界层系统命令。 */
     dispatchSystemCommand(command) {
-        switch (command.kind) {
-            case 'spawnMonsterLoot':
-                this.dispatchSpawnMonsterLoot(command.instanceId, command.x, command.y, command.monsterId, command.rolls);
-                return;
-            case 'damageMonster':
-                this.dispatchDamageMonster(command.instanceId, command.runtimeId, command.amount);
-                return;
-            case 'defeatMonster':
-                this.dispatchDefeatMonster(command.instanceId, command.runtimeId);
-                return;
-            case 'damagePlayer':
-                this.dispatchDamagePlayer(command.playerId, command.amount);
-                return;
-            case 'respawnPlayer':
-                this.respawnPlayer(command.playerId);
-                return;
-            case 'resetPlayerSpawn':
-                this.respawnPlayer(command.playerId);
-                return;
-            case 'gmUpdatePlayer':
-                this.worldRuntimeGmQueueService.dispatchGmUpdatePlayer(command, {
-                    playerRuntimeService: this.playerRuntimeService,
-                    resolveDefaultRespawnMapId: () => this.resolveDefaultRespawnMapId(),
-                    getOrCreatePublicInstance: (mapId) => this.getOrCreatePublicInstance(mapId),
-                    playerLocations: this.playerLocations,
-                    instances: this.instances,
-                    getPlayerViewOrThrow: (playerId) => this.getPlayerViewOrThrow(playerId),
-                    refreshPlayerContextActions: (playerId, view) => this.refreshPlayerContextActions(playerId, view),
-                    resolveCurrentTickForPlayerId: (playerId) => this.resolveCurrentTickForPlayerId(playerId),
-                });
-                return;
-            case 'gmResetPlayer':
-                this.respawnPlayer(command.playerId);
-                return;
-            case 'gmSpawnBots':
-                this.worldRuntimeGmQueueService.dispatchGmSpawnBots(command.anchorPlayerId, command.count, {
-                    playerRuntimeService: this.playerRuntimeService,
-                    resolveDefaultRespawnMapId: () => this.resolveDefaultRespawnMapId(),
-                    connectPlayer: (input) => this.connectPlayer(input),
-                    getPlayerViewOrThrow: (playerId) => this.getPlayerViewOrThrow(playerId),
-                    refreshPlayerContextActions: (playerId, view) => this.refreshPlayerContextActions(playerId, view),
-                    resolveCurrentTickForPlayerId: (playerId) => this.resolveCurrentTickForPlayerId(playerId),
-                });
-                return;
-            case 'gmRemoveBots':
-                this.worldRuntimeGmQueueService.dispatchGmRemoveBots(command.playerIds, command.all, {
-                    playerRuntimeService: this.playerRuntimeService,
-                    removePlayer: (playerId) => this.removePlayer(playerId),
-                });
-                return;
-        }
+        this.worldRuntimeSystemCommandService.dispatchSystemCommand(command, this);
     }
     /** dispatchUseItem：执行物品使用结算。 */
     dispatchUseItem(playerId, slotIndex) {
@@ -2268,6 +2208,7 @@ exports.WorldRuntimeService = WorldRuntimeService = WorldRuntimeService_1 = __de
         world_runtime_npc_shop_service_1.WorldRuntimeNpcShopService,
         world_runtime_gm_queue_service_1.WorldRuntimeGmQueueService,
         world_runtime_respawn_service_1.WorldRuntimeRespawnService,
+        world_runtime_system_command_service_1.WorldRuntimeSystemCommandService,
         world_runtime_craft_service_1.WorldRuntimeCraftService,
         world_runtime_npc_quest_shop_service_1.WorldRuntimeNpcQuestShopService,
         world_runtime_loot_container_service_1.WorldRuntimeLootContainerService,

@@ -466,6 +466,10 @@
 - `WorldRuntimeCraftService` 的 `dispatchStartAlchemy()` / `dispatchCancelAlchemy()` / `dispatchSaveAlchemyPreset()` / `dispatchDeleteAlchemyPreset()` / `tickAlchemy()` 已退为 facade，炼丹写路径与 preset 维护由 `WorldRuntimeAlchemyService` 承接；强化仍留在 `WorldRuntimeEnhancementService`
 - 这次不迁移 craft 总入口或 panel 通道，只移动 alchemy/preset 这一组剩余 craft 子域，`WorldRuntimeService` 仍保留 `dispatchStartAlchemy()` / `dispatchCancelAlchemy()` / preset 入口的总编排
 - 本轮验证已补跑 `pnpm --filter @mud/server-next smoke:world-runtime-alchemy`、`pnpm --filter @mud/server-next smoke:runtime`、根级串行 `pnpm build && pnpm verify:replace-ready`；结果全部通过
+- 新增 `packages/server/src/runtime/world/world-runtime-system-command.service.js`
+- `WorldRuntimeService` 的 `dispatchPendingSystemCommands()` / `dispatchSystemCommand()` 已退为 facade，系统命令队列消费与分发由 `WorldRuntimeSystemCommandService` 承接；`WorldRuntimeGmQueueService` 继续持有队列，`WorldRuntimeRespawnService` 继续承接复生编排
+- 这次不迁移 `spawnMonsterLoot / damageMonster / defeatMonster / damagePlayer` 等叶子执行本体，只移动 system-command orchestration，`WorldRuntimeService` 仍保留各业务域 facade 与跨域错误收口
+- 本轮验证已补跑 `pnpm --filter @mud/server-next smoke:runtime`、`pnpm --filter @mud/server-next smoke:player-respawn`、`pnpm --filter @mud/server-next smoke:gm-next`、根级串行 `pnpm build && pnpm verify:replace-ready`；结果全部通过，其中 `gm-next` 在无库本地口径下返回 `ok: true` 且标记 `skipped`
 - 新增 `packages/server/src/runtime/world/world-runtime-npc-shop.service.js`
 - `WorldRuntimeService` 的 `enqueueBuyNpcShopItem()` / `dispatchBuyNpcShopItem()` 已退为 facade，NPC 商店购买入队与结算由 `WorldRuntimeNpcShopService` 承接；quest 交互/接取/提交仍留在 `WorldRuntimeNpcQuestShopService`
 - 这次不迁移 NPC quest 写链，只把 NPC shop 这一条最小写路径从混合服务里剥开，`WorldRuntimeService` 仍保留 `dispatchNpcInteraction()` / `dispatchAcceptNpcQuest()` / `dispatchSubmitNpcQuest()` 的总编排入口
