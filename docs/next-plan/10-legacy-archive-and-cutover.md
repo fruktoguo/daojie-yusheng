@@ -130,7 +130,7 @@
 | --- | --- | --- | --- |
 | `legacy/server/src/database/entities/*.ts`、`legacy/server/data/runtime/suggestions.json`、`legacy/server/src/game/map.service.ts` | 一次性迁移脚本与迁移清单当前仍需要这些 legacy 真源定义来锁定输入表/文件/导出格式 | `docs/next-plan/03-required-data-migration-checklist.md`、`packages/server/src/tools/migrate-next-mainline-once.js`、人工迁移排查 | `03/04/09` 全部闭环后复查，优先在迁移 proof 固定后缩范围 |
 | `legacy/client/src/**`、`legacy/shared/src/**`、`legacy/server/src/game/**` | 作为行为基线、协议基线和 UI/玩法旧规则参考，不再是默认开发落点，但当前 `06/07/08` 收口时仍需对照 | `docs/next-plan/06-server-mainline-refactor.md`、`docs/next-plan/07-client-mainline-refactor.md`、`docs/next-plan/08-shared-content-and-map-cleanup.md`、人工比对排查 | `06/07/08` 达到可交接级别后复查，优先继续收缩到必要子目录 |
-| `legacy/client`、`legacy/server`、`legacy/shared` 包根与其显式启动入口 | 仅保留为归档运行/排查入口，不再参与默认 workspace 或默认 next 构建，但 `./start.sh` 和根级 `legacy:*` 命令仍可显式进入 | `start.sh`、根级 `package.json` 里的 `legacy:*` 命令、人工归档排查 | 当 `10` 的切换前/切换后检查完成后复查，评估是否还能进一步下沉为纯静态归档 |
+| `legacy/client`、`legacy/server`、`legacy/shared` 包根与其显式启动入口 | 仅保留为归档运行/排查入口，不再参与默认 workspace 或默认 next 构建；根级命令也已收口到 `archive:legacy:*` 命名 | `start.sh`、根级 `package.json` 里的 `archive:legacy:*` 命令、人工归档排查 | 当 `10` 的切换前/切换后检查完成后复查，评估是否还能进一步下沉为纯静态归档 |
 
 ## 切换前检查表
 
