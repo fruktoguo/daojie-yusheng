@@ -14,6 +14,7 @@
     "start:dev": "pnpm compile && node scripts/dev-hot.js",
     "smoke:shadow": "pnpm compile && node dist/tools/shadow-smoke.js",
     "smoke:world-runtime-instance-tick-orchestration": "pnpm compile && node dist/tools/world-runtime-instance-tick-orchestration-smoke.js",
+    "smoke:world-runtime-movement": "pnpm compile && node dist/tools/world-runtime-movement-smoke.js",
     "smoke:shadow:gm-database": "pnpm compile && node dist/tools/shadow-gm-database-proof.js",
     "smoke:all": "node dist/tools/smoke-suite.js",
     "smoke:all:with-db": "node dist/tools/smoke-suite.js --include-persistence",

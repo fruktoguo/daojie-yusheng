@@ -50,6 +50,8 @@ const world_runtime_metrics_service_1 = require("./world-runtime-metrics.service
 
 const world_runtime_instance_tick_orchestration_service_1 = require("./world-runtime-instance-tick-orchestration.service");
 
+const world_runtime_movement_service_1 = require("./world-runtime-movement.service");
+
 const world_runtime_summary_query_service_1 = require("./world-runtime-summary-query.service");
 
 const world_runtime_instance_state_service_1 = require("./world-runtime-instance-state.service");
@@ -259,6 +261,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     worldRuntimeDetailQueryService;
     worldRuntimeMetricsService;
     worldRuntimeInstanceTickOrchestrationService;
+    worldRuntimeMovementService;
     worldRuntimeSummaryQueryService;
     worldRuntimeInstanceStateService;
     worldRuntimeInstanceQueryService;
@@ -281,7 +284,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     worldRuntimeAutoCombatService;
     logger = new common_1.Logger(WorldRuntimeService_1.name);
     tick = 0;
-    constructor(contentTemplateRepository, templateRepository, mapPersistenceService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService, craftPanelRuntimeService, worldRuntimeNpcShopQueryService, worldRuntimeQuestQueryService, worldRuntimeDetailQueryService, worldRuntimeMetricsService, worldRuntimeInstanceTickOrchestrationService, worldRuntimeSummaryQueryService, worldRuntimeInstanceStateService, worldRuntimeInstanceQueryService, worldRuntimePendingCommandService, worldRuntimePlayerLocationService, worldRuntimeTickProgressService, worldRuntimeNpcQuestInteractionQueryService, worldRuntimeGmQueueService, worldRuntimeRespawnService, worldRuntimeCraftService, worldRuntimeNpcQuestShopService, worldRuntimeLootContainerService, worldRuntimeNavigationService, worldRuntimeCombatEffectsService, worldRuntimeMonsterActionApplyService, worldRuntimeBasicAttackService, worldRuntimePlayerCombatService, worldRuntimePlayerSkillDispatchService, worldRuntimeBattleEngageService, worldRuntimeAutoCombatService) {
+    constructor(contentTemplateRepository, templateRepository, mapPersistenceService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService, craftPanelRuntimeService, worldRuntimeNpcShopQueryService, worldRuntimeQuestQueryService, worldRuntimeDetailQueryService, worldRuntimeMetricsService, worldRuntimeInstanceTickOrchestrationService, worldRuntimeMovementService, worldRuntimeSummaryQueryService, worldRuntimeInstanceStateService, worldRuntimeInstanceQueryService, worldRuntimePendingCommandService, worldRuntimePlayerLocationService, worldRuntimeTickProgressService, worldRuntimeNpcQuestInteractionQueryService, worldRuntimeGmQueueService, worldRuntimeRespawnService, worldRuntimeCraftService, worldRuntimeNpcQuestShopService, worldRuntimeLootContainerService, worldRuntimeNavigationService, worldRuntimeCombatEffectsService, worldRuntimeMonsterActionApplyService, worldRuntimeBasicAttackService, worldRuntimePlayerCombatService, worldRuntimePlayerSkillDispatchService, worldRuntimeBattleEngageService, worldRuntimeAutoCombatService) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.templateRepository = templateRepository;
         this.mapPersistenceService = mapPersistenceService;
@@ -296,6 +299,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.worldRuntimeDetailQueryService = worldRuntimeDetailQueryService;
         this.worldRuntimeMetricsService = worldRuntimeMetricsService;
         this.worldRuntimeInstanceTickOrchestrationService = worldRuntimeInstanceTickOrchestrationService;
+        this.worldRuntimeMovementService = worldRuntimeMovementService;
         this.worldRuntimeSummaryQueryService = worldRuntimeSummaryQueryService;
         this.worldRuntimeInstanceStateService = worldRuntimeInstanceStateService;
         this.worldRuntimeInstanceQueryService = worldRuntimeInstanceQueryService;
@@ -1485,58 +1489,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     }
     /** dispatchInstanceCommand：执行需要落到实例侧的移动或传送命令。 */
     dispatchInstanceCommand(playerId, command) {
-
-        const location = this.playerLocations.get(playerId);
-        if (!location) {
-            return;
-        }
-
-        const player = this.playerRuntimeService.getPlayer(playerId);
-        if (!player || player.hp <= 0) {
-            return;
-        }
-
-        const instance = this.instances.get(location.instanceId);
-        if (!instance) {
-            return;
-        }
-        if (command.kind === 'move') {
-            instance.setPlayerMoveSpeed(playerId, player.attrs.numericStats.moveSpeed);
-            this.playerRuntimeService.recordActivity(playerId, this.resolveCurrentTickForPlayerId(playerId), {
-                interruptCultivation: true,
-            });
-            this.worldRuntimeCraftService.interruptCraftForReason(playerId, player, 'move', this);
-            instance.enqueueMove({
-                playerId,
-                direction: command.direction,
-
-                continuous: command.continuous === true,
-                maxSteps: command.maxSteps,
-                path: Array.isArray(command.path)
-                    ? command.path.map((entry) => ({ x: entry.x, y: entry.y }))
-                    : undefined,
-
-                resetBudget: command.resetBudget === true,
-            });
-            return;
-        }
-        this.playerRuntimeService.recordActivity(playerId, this.resolveCurrentTickForPlayerId(playerId), {
-            interruptCultivation: true,
-        });
-        this.worldRuntimeCraftService.interruptCraftForReason(playerId, player, 'move', this);
-
-        const manualTransfer = instance.tryPortalTransfer(playerId, 'manual_portal');
-        if (manualTransfer) {
-            this.applyTransfer(manualTransfer);
-            return;
-        }
-
-        const autoTransfer = instance.tryPortalTransfer(playerId, 'auto_portal');
-        if (autoTransfer) {
-            this.applyTransfer(autoTransfer);
-            return;
-        }
-        instance.enqueuePortalUse({ playerId });
+        this.worldRuntimeMovementService.dispatchInstanceCommand(playerId, command, this);
     }
     /** dispatchPlayerCommand：执行不依赖实例移动的玩家命令。 */
     dispatchPlayerCommand(playerId, command) {
@@ -2408,6 +2361,7 @@ exports.WorldRuntimeService = WorldRuntimeService = WorldRuntimeService_1 = __de
         world_runtime_detail_query_service_1.WorldRuntimeDetailQueryService,
         world_runtime_metrics_service_1.WorldRuntimeMetricsService,
         world_runtime_instance_tick_orchestration_service_1.WorldRuntimeInstanceTickOrchestrationService,
+        world_runtime_movement_service_1.WorldRuntimeMovementService,
         world_runtime_summary_query_service_1.WorldRuntimeSummaryQueryService,
         world_runtime_instance_state_service_1.WorldRuntimeInstanceStateService,
         world_runtime_instance_query_service_1.WorldRuntimeInstanceQueryService,
