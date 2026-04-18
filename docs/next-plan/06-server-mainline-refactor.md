@@ -284,6 +284,10 @@
 - `world-runtime.service.js` 的 `getRuntimeSummary()` 现已委托给 `WorldRuntimeSummaryQueryService`，仅保留实例列表与计数上下文采集；summary payload 与 tickPerf 汇总构造下沉为显式只读查询服务
 - 这一刀没有改 `world-runtime.controller.js`、`runtime-gm-state.service.js`、`next-gm-world.service.js` 的调用面，继续把 `world-runtime.service.js` 保留为总编排 facade，避免把 batch 4 扩散到更宽的调用链整理
 - 本轮验证已补跑 `pnpm --filter @mud/server-next audit:next-protocol`、根级 `pnpm build` 与 `pnpm verify:replace-ready`；结果继续通过，`audit:next-protocol` 在无库口径下完成整套 runtime bootstrap/protocol 检查并更新审计报告
+- 新增 `packages/server/src/runtime/world/world-runtime-instance-query.service.js`
+- `world-runtime.service.js` 的 `listInstances()`、`getInstance()`、`listInstanceMonsters()`、`getInstanceMonster()`、`getInstanceTileState()` 已统一委托给 `WorldRuntimeInstanceQueryService`，只保留实例存在性校验和总编排 facade
+- 这组实例只读查询仍保持原 controller / world-sync / GM 调用面不变，不把 batch 4 扩散到持久化快照、脏实例追踪或任何写状态流程
+- 本轮验证已补跑 `pnpm --filter @mud/server-next audit:next-protocol`、根级 `pnpm build` 与 `pnpm verify:replace-ready`；结果继续通过，实例只读查询抽离未影响 runtime HTTP、GM 读取口径和 world-sync 审计链
 
 当前优先可拆的冷块：
 
