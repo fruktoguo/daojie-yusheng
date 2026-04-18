@@ -372,12 +372,12 @@
 
 ### 第 6 批：把 GM 改动边界写死
 
-- [ ] 以 `next-gm-contract.js`、`next-gm-player.service.js`、`world-gm-socket.service.js` 为准，明确 GM 改动边界
-- [ ] 必须继续走 runtime queue 的：
+- [x] 以 `next-gm-contract.js`、`next-gm-player.service.js`、`world-gm-socket.service.js` 为准，明确 GM 改动边界
+- [x] 必须继续走 runtime queue 的：
   - `position`
   - 机器人 spawn/remove
   - runtime 在线玩家 reset
-- [ ] 允许直接改持久态的：
+- [x] 允许直接改持久态的：
   - `basic`
   - `realm`
   - `buffs`
@@ -386,7 +386,7 @@
   - `quests`
   - `mail`
   - `persisted`
-- [ ] 不允许在 gateway / controller 里散落第三种隐式写路径
+- [x] 不允许在 gateway / controller 里散落第三种隐式写路径
 
 本轮继续完成：
 
@@ -413,7 +413,7 @@
 - [x] `world-sync.service.js` 不再自己做大段 capture/diff 细节
 - [x] `world-projector.service.js` 不再自己承担 socket 发包
 - [ ] `world-runtime.service.js` 不再同时持有查询、展示、热路径、GM queue 全部细节
-- [ ] GM 写路径只剩 runtime queue 或 direct persistence 两类
+- [x] GM 写路径只剩 runtime queue 或 direct persistence 两类
 - [ ] 玩家主链不再出现多处兜底身份/快照/同步分支
 
 ## 本阶段不做的事

@@ -146,8 +146,8 @@
 - [ ] 继续拆 `packages/server/src/network/world-projector.service.js`
 - [ ] 把 tick 内状态写入口继续收束
 - [ ] 把玩家、地图、战斗、掉落、交互写路径继续分责
-- [ ] 明确哪些 GM 操作必须走 runtime queue
-- [ ] 明确哪些 GM 操作允许直改持久态
+- [x] 明确哪些 GM 操作必须走 runtime queue
+- [x] 明确哪些 GM 操作允许直改持久态
 - [ ] 把玩家从登录到进入世界到持久化的主链整理成单路径
 
 ## 8. 收口客户端主链
