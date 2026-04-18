@@ -77,17 +77,11 @@ let NextGmPlayerService = class NextGmPlayerService {
                 });
                 return;
             }
-
-            const next = runtime;
-            this.applyPlayerSnapshotMutation(next, snapshot, section);
-            this.repairRuntimeSnapshot(next);
-            next.selfRevision += 1;
-            next.persistentRevision += 1;
-            this.playerRuntimeService.restoreSnapshot(next);
-            return;
         }
 
-        const persisted = await this.playerPersistenceService.loadPlayerSnapshot(playerId);
+        const persisted = runtime
+            ? this.playerRuntimeService.buildPersistenceSnapshot(playerId)
+            : await this.playerPersistenceService.loadPlayerSnapshot(playerId);
         if (!persisted) {
             throw new common_1.NotFoundException('目标玩家不存在');
         }
@@ -98,6 +92,18 @@ let NextGmPlayerService = class NextGmPlayerService {
             this.applyPlayerSnapshotMutationToPersistence(persisted, snapshot, section);
         }
         await this.playerPersistenceService.savePlayerSnapshot(playerId, persisted);
+        if (!runtime || section === next_gm_contract_1.NEXT_GM_PLAYER_MUTATION_CONTRACT.runtimeQueueSection) {
+            return;
+        }
+        const refreshedRuntime = this.playerRuntimeService.snapshot(playerId);
+        if (!refreshedRuntime) {
+            return;
+        }
+        this.applyPlayerSnapshotMutation(refreshedRuntime, snapshot, section);
+        this.repairRuntimeSnapshot(refreshedRuntime);
+        refreshedRuntime.selfRevision += 1;
+        refreshedRuntime.persistentRevision += 1;
+        this.playerRuntimeService.restoreSnapshot(refreshedRuntime);
     }
     resetPlayer(playerId) {
         this.worldRuntimeService.enqueueGmResetPlayer(playerId);
@@ -427,6 +433,7 @@ let NextGmPlayerService = class NextGmPlayerService {
                     enabled: entry.enabled !== false,
 
                     skillEnabled: entry.skillEnabled !== false,
+                    autoBattleOrder: Number.isFinite(entry.autoBattleOrder) ? Math.max(0, Math.trunc(entry.autoBattleOrder)) : undefined,
                 }));
             }
             if (Array.isArray(snapshot.temporaryBuffs)) {
@@ -471,6 +478,7 @@ let NextGmPlayerService = class NextGmPlayerService {
                     enabled: entry.enabled !== false,
 
                     skillEnabled: entry.skillEnabled !== false,
+                    autoBattleOrder: Number.isFinite(entry.autoBattleOrder) ? Math.max(0, Math.trunc(entry.autoBattleOrder)) : undefined,
                 }));
             }
         }
