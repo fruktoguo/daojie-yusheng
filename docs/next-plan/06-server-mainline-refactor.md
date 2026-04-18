@@ -419,6 +419,9 @@
 - `WorldRuntimeService` 的 `lastTickDurationMs`、`lastSyncFlushDurationMs`、`lastTickPhaseDurations`、`tickDurationHistoryMs`、`syncFlushDurationHistoryMs` 已由 `WorldRuntimeMetricsService` 真正持有；`getRuntimeSummary()` 与 `recordSyncFlushDuration()` 保持 facade 入口不变
 - `WorldRuntimeService` 仍保留 `tick`、`tickAll()` / `advanceFrame()` 的外层编排顺序与错误收口，说明这次是第 5 批下一刀的 runtime metrics ownership 抽离，不是完整 tick runtime 域拆分
 - 本轮验证已补跑 `pnpm --filter @mud/server-next smoke:runtime`、`pnpm --filter @mud/server-next smoke:gm-next`、根级串行 `pnpm build && pnpm verify:replace-ready`；结果全部通过，其中 `gm-next` 在无库本地口径下返回 `ok: true` 且标记 `skipped`
+- 新增 `packages/server/src/runtime/world/world-runtime-instance-tick-orchestration.service.js`
+- `WorldRuntimeService` 的 `advanceFrame()` / `tickAll()` 现已退为 facade，实例级 tick 编排外壳由 `WorldRuntimeInstanceTickOrchestrationService` 承接；`WorldTickService` 的调用面保持不变
+- 这次不迁移任何新状态所有权，只移动实例级 tick 编排顺序、相位计时写入时机与 post-step follow-up 外壳，`WorldRuntimeService` 仍保留跨域事务边界、错误收口和业务域 facade
 
 这一批结束后，`world-runtime.service.js` 仍可以存在，但不该再同时拥有所有领域细节。
 
