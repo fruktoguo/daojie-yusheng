@@ -20,6 +20,8 @@ const shared_1 = require("@mud/shared-next");
 
 const os = require("os");
 
+const next_gm_contract_1 = require("../../http/next/next-gm-contract");
+
 const world_session_service_1 = require("../../network/world-session.service");
 
 const map_template_repository_1 = require("../map/map-template.repository");
@@ -88,20 +90,31 @@ let RuntimeGmStateService = class RuntimeGmStateService {
         }
     }
     /** 把 GM 的玩家变更请求转交给 world runtime 统一处理。 */
-    enqueueUpdatePlayer(payload) {
+    enqueueUpdatePlayer(requesterPlayerId, payload) {
         this.worldRuntimeService.enqueueGmUpdatePlayer(payload);
+        this.queueMutationStatePush(requesterPlayerId);
     }
     /** 把 GM 的玩家重置请求转交给 world runtime。 */
-    enqueueResetPlayer(playerId) {
+    enqueueResetPlayer(requesterPlayerId, playerId) {
         this.worldRuntimeService.enqueueGmResetPlayer(playerId);
+        this.queueMutationStatePush(requesterPlayerId);
     }
     /** 把 GM 的刷怪请求转交给 world runtime。 */
-    enqueueSpawnBots(anchorPlayerId, count) {
-        this.worldRuntimeService.enqueueGmSpawnBots(anchorPlayerId, count);
+    enqueueSpawnBots(requesterPlayerId, count) {
+        this.worldRuntimeService.enqueueGmSpawnBots(requesterPlayerId, count);
+        this.queueMutationStatePush(requesterPlayerId);
     }
     /** 把 GM 的批量删 bot 请求转交给 world runtime。 */
-    enqueueRemoveBots(playerIds, all) {
+    enqueueRemoveBots(requesterPlayerId, playerIds, all) {
         this.worldRuntimeService.enqueueGmRemoveBots(playerIds, all);
+        this.queueMutationStatePush(requesterPlayerId);
+    }
+    /** GM mutation 成功入队后，统一决定是否刷新 GM 面板状态。 */
+    queueMutationStatePush(requesterPlayerId) {
+        if (!next_gm_contract_1.NEXT_GM_SOCKET_CONTRACT.pushStateAfterMutation) {
+            return;
+        }
+        this.queueStatePush(requesterPlayerId);
     }
     /** GM 状态下发固定收敛到 next 事件。 */
     getGmStateEvent(client) {

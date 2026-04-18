@@ -15,8 +15,6 @@ exports.WorldGmSocketService = void 0;
 
 const common_1 = require("@nestjs/common");
 
-const next_gm_contract_1 = require("../http/next/next-gm-contract");
-
 const runtime_gm_state_service_1 = require("../runtime/gm/runtime-gm-state.service");
 
 /** GM Socket 下发服务：将 GM 操作转换为 runtime gm state 队列。 */
@@ -30,34 +28,25 @@ let WorldGmSocketService = class WorldGmSocketService {
     emitState(client) {
         this.runtimeGmStateService.emitState(client);
     }
-    queueStatePush(requesterPlayerId) {
-        if (next_gm_contract_1.NEXT_GM_SOCKET_CONTRACT.pushStateAfterMutation) {
-            this.runtimeGmStateService.queueStatePush(requesterPlayerId);
-        }
-    }
 
-    /** 触发 GM 请求：新增机器人并刷新状态推送。 */
+    /** 触发 GM 请求：新增机器人。 */
     enqueueSpawnBots(requesterPlayerId, count) {
         this.runtimeGmStateService.enqueueSpawnBots(requesterPlayerId, count);
-        this.queueStatePush(requesterPlayerId);
     }
 
-    /** 触发 GM 请求：移除机器人并刷新状态推送。 */
+    /** 触发 GM 请求：移除机器人。 */
     enqueueRemoveBots(requesterPlayerId, playerIds, all) {
-        this.runtimeGmStateService.enqueueRemoveBots(playerIds, all);
-        this.queueStatePush(requesterPlayerId);
+        this.runtimeGmStateService.enqueueRemoveBots(requesterPlayerId, playerIds, all);
     }
 
-    /** 触发 GM 请求：更新玩家并推送状态。 */
+    /** 触发 GM 请求：更新玩家。 */
     enqueueUpdatePlayer(requesterPlayerId, payload) {
-        this.runtimeGmStateService.enqueueUpdatePlayer(payload);
-        this.queueStatePush(requesterPlayerId);
+        this.runtimeGmStateService.enqueueUpdatePlayer(requesterPlayerId, payload);
     }
 
-    /** 触发 GM 请求：重置玩家并推送状态。 */
+    /** 触发 GM 请求：重置玩家。 */
     enqueueResetPlayer(requesterPlayerId, playerId) {
-        this.runtimeGmStateService.enqueueResetPlayer(playerId);
-        this.queueStatePush(requesterPlayerId);
+        this.runtimeGmStateService.enqueueResetPlayer(requesterPlayerId, playerId);
     }
 };
 exports.WorldGmSocketService = WorldGmSocketService;
