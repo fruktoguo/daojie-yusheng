@@ -16,6 +16,7 @@
     "smoke:world-runtime-instance-tick-orchestration": "pnpm compile && node dist/tools/world-runtime-instance-tick-orchestration-smoke.js",
     "smoke:world-runtime-movement": "pnpm compile && node dist/tools/world-runtime-movement-smoke.js",
     "smoke:world-runtime-equipment": "pnpm compile && node dist/tools/world-runtime-equipment-smoke.js",
+    "smoke:world-runtime-cultivation": "pnpm compile && node dist/tools/world-runtime-cultivation-smoke.js",
     "smoke:world-runtime-item-ground": "pnpm compile && node dist/tools/world-runtime-item-ground-smoke.js",
     "smoke:world-runtime-use-item": "pnpm compile && node dist/tools/world-runtime-use-item-smoke.js",
     "smoke:shadow:gm-database": "pnpm compile && node dist/tools/shadow-gm-database-proof.js",
