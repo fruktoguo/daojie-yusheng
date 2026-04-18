@@ -73,6 +73,7 @@ import {
   refreshZoomChrome as syncZoomChrome,
   type ObserveAsideCard,
 } from './main-ui-helpers';
+import { createMainAttrDetailStateSource } from './main-attr-detail-state-source';
 import { createMainInventoryStateSource } from './main-inventory-state-source';
 import { createMainMarketStateSource } from './main-market-state-source';
 import { createMainMailStateSource } from './main-mail-state-source';
@@ -637,6 +638,17 @@ const worldPanel = new WorldPanel();
 const settingsPanel = new SettingsPanel();
 const mailStateSource = createMainMailStateSource({ socket });
 const suggestionStateSource = createMainSuggestionStateSource({ socket });
+const attrDetailStateSource = createMainAttrDetailStateSource({
+  attrPanel,
+  socket,
+  getPlayer: () => myPlayer,
+  getLatestAttrUpdate: () => latestAttrUpdate,
+  setLatestAttrUpdate: (value) => {
+    latestAttrUpdate = value;
+  },
+  mergeAttrUpdatePatch,
+  cloneJson,
+});
 const questStateSource = createMainQuestStateSource({
   questPanel,
   npcQuestModal,
@@ -2874,7 +2886,7 @@ socket.onDetail((data) => {
   entityDetailModal.updateDetail(data);
 });
 socket.onAttrDetail((data) => {
-  applyAttrDetail(data);
+  attrDetailStateSource.handleAttrDetail(data);
 });
 socket.onAlchemyPanel((data) => {
   craftWorkbenchModal.updateAlchemy(data);
@@ -3064,38 +3076,6 @@ function showToast(message: string, kind: 'system' | 'chat' | 'quest' | 'combat'
     el.classList.remove('show');
     el.classList.add('hidden');
   }, durationMs);
-}
-
-function applyAttrDetail(data: NEXT_S2C_AttrDetail): void {
-  if (!myPlayer) {
-    return;
-  }
-  const nextSpecialStats = latestAttrUpdate?.specialStats
-    ? cloneJson(latestAttrUpdate.specialStats)
-    : {
-      foundation: Math.max(0, Math.floor(myPlayer.foundation ?? 0)),
-      combatExp: Math.max(0, Math.floor(myPlayer.combatExp ?? 0)),
-    };
-  latestAttrUpdate = mergeAttrUpdatePatch(latestAttrUpdate, {
-    baseAttrs: cloneJson(data.baseAttrs),
-    bonuses: cloneJson(data.bonuses),
-    finalAttrs: cloneJson(data.finalAttrs),
-    numericStats: cloneJson(data.numericStats),
-    ratioDivisors: cloneJson(data.ratioDivisors),
-    specialStats: nextSpecialStats,
-    alchemySkill: cloneJson(data.alchemySkill ?? myPlayer.alchemySkill),
-    gatherSkill: cloneJson(data.gatherSkill ?? myPlayer.gatherSkill),
-    enhancementSkill: cloneJson(data.enhancementSkill ?? myPlayer.enhancementSkill),
-  });
-  myPlayer.baseAttrs = cloneJson(data.baseAttrs);
-  myPlayer.bonuses = cloneJson(data.bonuses);
-  myPlayer.finalAttrs = cloneJson(data.finalAttrs);
-  myPlayer.numericStats = cloneJson(data.numericStats);
-  myPlayer.ratioDivisors = cloneJson(data.ratioDivisors);
-  myPlayer.alchemySkill = cloneJson(data.alchemySkill ?? myPlayer.alchemySkill);
-  myPlayer.gatherSkill = cloneJson(data.gatherSkill ?? myPlayer.gatherSkill);
-  myPlayer.enhancementSkill = cloneJson(data.enhancementSkill ?? myPlayer.enhancementSkill);
-  attrPanel.update(latestAttrUpdate);
 }
 
 async function handleQqGroupLinkClick(): Promise<void> {
@@ -3794,7 +3774,7 @@ function syncChatLogbookVisibility(): void {
 sidePanel.setTabChangeCallback((tabName) => {
   syncChatLogbookVisibility();
   if (tabName === 'attr') {
-    socket.sendRequestAttrDetail();
+    attrDetailStateSource.requestDetail();
   } else if (tabName === 'world') {
     socket.sendRequestLeaderboard();
     socket.sendRequestWorldSummary();
@@ -4035,7 +4015,7 @@ function handleBootstrap(data: NEXT_S2C_Bootstrap): void {
     shellVisible: true,
   });
   attrPanel.initFromPlayer(myPlayer);
-  socket.sendRequestAttrDetail();
+  attrDetailStateSource.init();
   inventoryStateSource.initFromPlayer(myPlayer);
   equipmentPanel.initFromPlayer(myPlayer);
   techniquePanel.initFromPlayer(myPlayer);
