@@ -31,7 +31,6 @@ import { EquipmentPanel } from './ui/panels/equipment-panel';
 import { TechniquePanel } from './ui/panels/technique-panel';
 import { BodyTrainingPanel } from './ui/panels/body-training-panel';
 import { QuestPanel } from './ui/panels/quest-panel';
-import { MarketPanel } from './ui/panels/market-panel';
 import { ActionPanel } from './ui/panels/action-panel';
 import { LootPanel } from './ui/panels/loot-panel';
 import { SettingsPanel } from './ui/panels/settings-panel';
@@ -75,6 +74,7 @@ import {
   type ObserveAsideCard,
 } from './main-ui-helpers';
 import { createMainInventoryStateSource } from './main-inventory-state-source';
+import { createMainMarketStateSource } from './main-market-state-source';
 import { createMainMailStateSource } from './main-mail-state-source';
 import { createMainQuestStateSource } from './main-quest-state-source';
 import { createMainSettingsStateSource } from './main-settings-state-source';
@@ -628,7 +628,6 @@ bodyTrainingPanel.setInfusionHandler((foundationSpent) => {
   socket.sendAction('body_training:infuse', String(foundationSpent));
 });
 const questPanel = new QuestPanel();
-const marketPanel = new MarketPanel();
 const actionPanel = new ActionPanel();
 const npcShopModal = new NpcShopModal();
 const npcQuestModal = new NpcQuestModal();
@@ -652,10 +651,15 @@ const questStateSource = createMainQuestStateSource({
   syncPlayerBridgeState: (player) => nextUiBridge.syncPlayer(player),
   refreshUiChrome: () => refreshUiChrome(),
 });
+const marketStateSource = createMainMarketStateSource({
+  socket,
+  getPlayer: () => myPlayer,
+  hydrateInventoryItem: (item) => hydrateSyncedItemStack(item),
+});
 const inventoryStateSource = createMainInventoryStateSource({
   inventoryPanel,
   questStateSource,
-  marketPanel,
+  marketStateSource,
   npcShopModal,
   craftWorkbenchModal,
   syncInventoryBridgeState: (inventory) => nextUiBridge.syncInventory(inventory),
@@ -2502,16 +2506,6 @@ equipmentPanel.setCallbacks(
 techniquePanel.setCallbacks(
   (techId) => socket.sendCultivate(techId),
 );
-marketPanel.setCallbacks({
-  onRequestMarket: () => socket.sendRequestMarket(),
-  onRequestListings: (payload) => socket.sendRequestMarketListings(payload),
-  onRequestItemBook: (itemKey) => socket.sendRequestMarketItemBook(itemKey),
-  onRequestTradeHistory: (page) => socket.sendRequestMarketTradeHistory(page),
-  onCreateSellOrder: (slotIndex, quantity, unitPrice) => socket.sendCreateMarketSellOrder(slotIndex, quantity, unitPrice),
-  onCreateBuyOrder: (itemKey, quantity, unitPrice) => socket.sendCreateMarketBuyOrder(itemKey, quantity, unitPrice),
-  onCancelOrder: (orderId) => socket.sendCancelMarketOrder(orderId),
-  onClaimStorage: () => socket.sendClaimMarketStorage(),
-});
 worldPanel.setCallbacks({
   onOpenLeaderboard: () => {
     renderLeaderboardModal();
@@ -4217,31 +4211,23 @@ socket.onMailOpResult((data) => {
 });
 
 socket.onMarketUpdate((data) => {
-  if (myPlayer) {
-    myPlayer.marketStorage = data.storage;
-  }
-  marketPanel.updateMarket(data);
+  marketStateSource.handleMarketUpdate(data);
 });
 socket.onMarketListings((data) => {
-  marketPanel.updateListings(data);
+  marketStateSource.handleMarketListings(data);
 });
 socket.onMarketOrders((data) => {
-  marketPanel.updateOrders(data);
+  marketStateSource.handleMarketOrders(data);
 });
 socket.onMarketStorage((data) => {
-  if (myPlayer) {
-    myPlayer.marketStorage = {
-      items: data.items.map((entry: { item: SyncedItemStack }) => hydrateSyncedItemStack(entry.item)),
-    };
-  }
-  marketPanel.updateStorage(data);
+  marketStateSource.handleMarketStorage(data);
 });
 
 socket.onMarketItemBook((data) => {
-  marketPanel.updateItemBook(data);
+  marketStateSource.handleMarketItemBook(data);
 });
 socket.onMarketTradeHistory((data) => {
-  marketPanel.updateTradeHistory(data);
+  marketStateSource.handleMarketTradeHistory(data);
 });
 socket.onNpcShop((data) => {
   npcShopModal.updateShop(hydrateNpcShopResponse(data));

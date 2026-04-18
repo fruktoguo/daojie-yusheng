@@ -1,14 +1,14 @@
 import { Inventory, PlayerState } from '@mud/shared-next';
+import type { MainMarketStateSource } from './main-market-state-source';
 import type { MainQuestStateSource } from './main-quest-state-source';
 import { CraftWorkbenchModal } from './ui/craft-workbench-modal';
 import { NpcShopModal } from './ui/npc-shop-modal';
 import { InventoryPanel } from './ui/panels/inventory-panel';
-import { MarketPanel } from './ui/panels/market-panel';
 
 type MainInventoryStateSourceOptions = {
   inventoryPanel: InventoryPanel;
   questStateSource: Pick<MainQuestStateSource, 'syncInventory'>;
-  marketPanel: MarketPanel;
+  marketStateSource: Pick<MainMarketStateSource, 'initFromPlayer' | 'syncInventory' | 'clear'>;
   npcShopModal: NpcShopModal;
   craftWorkbenchModal: CraftWorkbenchModal;
   syncInventoryBridgeState: (inventory: Inventory | null) => void;
@@ -36,7 +36,7 @@ export function createMainInventoryStateSource(options: MainInventoryStateSource
   return {
     initFromPlayer(player: PlayerState): void {
       options.inventoryPanel.initFromPlayer(player);
-      options.marketPanel.initFromPlayer(player);
+      options.marketStateSource.initFromPlayer(player);
       options.npcShopModal.initFromPlayer(player);
       options.craftWorkbenchModal.initFromPlayer(player);
     },
@@ -48,7 +48,7 @@ export function createMainInventoryStateSource(options: MainInventoryStateSource
     syncInventory(inventory: Inventory, player: PlayerState | null): void {
       options.inventoryPanel.update(inventory);
       options.questStateSource.syncInventory(inventory);
-      options.marketPanel.syncInventory(inventory);
+      options.marketStateSource.syncInventory(inventory);
       options.npcShopModal.syncInventory(inventory);
       options.craftWorkbenchModal.syncInventory();
       options.syncInventoryBridgeState(inventory);
@@ -57,7 +57,7 @@ export function createMainInventoryStateSource(options: MainInventoryStateSource
 
     clear(): void {
       options.inventoryPanel.clear();
-      options.marketPanel.clear();
+      options.marketStateSource.clear();
       options.npcShopModal.clear();
       options.craftWorkbenchModal.clear();
     },
