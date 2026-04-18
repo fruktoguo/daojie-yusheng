@@ -164,6 +164,7 @@
 - [ ] `attr-panel.ts` / `technique-panel.ts`
   - 区分按需详情与高频自我状态
   - 首刀已完成：attr 按需详情链 `sendRequestAttrDetail / onAttrDetail / applyAttrDetail` 已从 `main.ts` 抽到 `packages/client/src/main-attr-detail-state-source.ts`，高频 attr 自我状态仍留在 `main.ts`
+  - 第二刀已完成：`TechniquePanel` 的 callbacks、init/update/syncDynamic/clear 已从 `main.ts` 抽到 `packages/client/src/main-technique-state-source.ts`，高频 technique 合并与 `myPlayer` 写回仍留在 `main.ts`
 
 最小验证：
 
