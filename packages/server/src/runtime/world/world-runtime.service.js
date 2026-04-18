@@ -82,6 +82,8 @@ const world_runtime_monster_action_apply_service_1 = require("./world-runtime-mo
 
 const world_runtime_basic_attack_service_1 = require("./world-runtime-basic-attack.service");
 
+const world_runtime_player_combat_service_1 = require("./world-runtime-player-combat.service");
+
 const world_runtime_player_skill_dispatch_service_1 = require("./world-runtime-player-skill-dispatch.service");
 
 const world_runtime_battle_engage_service_1 = require("./world-runtime-battle-engage.service");
@@ -273,12 +275,13 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     worldRuntimeCombatEffectsService;
     worldRuntimeMonsterActionApplyService;
     worldRuntimeBasicAttackService;
+    worldRuntimePlayerCombatService;
     worldRuntimePlayerSkillDispatchService;
     worldRuntimeBattleEngageService;
     worldRuntimeAutoCombatService;
     logger = new common_1.Logger(WorldRuntimeService_1.name);
     tick = 0;
-    constructor(contentTemplateRepository, templateRepository, mapPersistenceService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService, craftPanelRuntimeService, worldRuntimeNpcShopQueryService, worldRuntimeQuestQueryService, worldRuntimeDetailQueryService, worldRuntimeMetricsService, worldRuntimeInstanceTickOrchestrationService, worldRuntimeSummaryQueryService, worldRuntimeInstanceStateService, worldRuntimeInstanceQueryService, worldRuntimePendingCommandService, worldRuntimePlayerLocationService, worldRuntimeTickProgressService, worldRuntimeNpcQuestInteractionQueryService, worldRuntimeGmQueueService, worldRuntimeRespawnService, worldRuntimeCraftService, worldRuntimeNpcQuestShopService, worldRuntimeLootContainerService, worldRuntimeNavigationService, worldRuntimeCombatEffectsService, worldRuntimeMonsterActionApplyService, worldRuntimeBasicAttackService, worldRuntimePlayerSkillDispatchService, worldRuntimeBattleEngageService, worldRuntimeAutoCombatService) {
+    constructor(contentTemplateRepository, templateRepository, mapPersistenceService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService, craftPanelRuntimeService, worldRuntimeNpcShopQueryService, worldRuntimeQuestQueryService, worldRuntimeDetailQueryService, worldRuntimeMetricsService, worldRuntimeInstanceTickOrchestrationService, worldRuntimeSummaryQueryService, worldRuntimeInstanceStateService, worldRuntimeInstanceQueryService, worldRuntimePendingCommandService, worldRuntimePlayerLocationService, worldRuntimeTickProgressService, worldRuntimeNpcQuestInteractionQueryService, worldRuntimeGmQueueService, worldRuntimeRespawnService, worldRuntimeCraftService, worldRuntimeNpcQuestShopService, worldRuntimeLootContainerService, worldRuntimeNavigationService, worldRuntimeCombatEffectsService, worldRuntimeMonsterActionApplyService, worldRuntimeBasicAttackService, worldRuntimePlayerCombatService, worldRuntimePlayerSkillDispatchService, worldRuntimeBattleEngageService, worldRuntimeAutoCombatService) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.templateRepository = templateRepository;
         this.mapPersistenceService = mapPersistenceService;
@@ -309,6 +312,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.worldRuntimeCombatEffectsService = worldRuntimeCombatEffectsService;
         this.worldRuntimeMonsterActionApplyService = worldRuntimeMonsterActionApplyService;
         this.worldRuntimeBasicAttackService = worldRuntimeBasicAttackService;
+        this.worldRuntimePlayerCombatService = worldRuntimePlayerCombatService;
         this.worldRuntimePlayerSkillDispatchService = worldRuntimePlayerSkillDispatchService;
         this.worldRuntimeBattleEngageService = worldRuntimeBattleEngageService;
         this.worldRuntimeAutoCombatService = worldRuntimeAutoCombatService;
@@ -1995,110 +1999,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     }
     /** handlePlayerMonsterKill：处理玩家击杀妖兽后的奖励和进度。 */
     handlePlayerMonsterKill(instance, monster, killerPlayerId) {
-        this.queuePlayerNotice(killerPlayerId, `${monster.name} 被你斩杀`, 'combat');
-        this.advanceKillQuestProgress(killerPlayerId, monster.monsterId, monster.name);
-        this.distributeMonsterKillProgress(instance, monster, killerPlayerId);
-
-        const killer = this.playerRuntimeService.getPlayer(killerPlayerId);
-
-        const lootRate = killer?.attrs.numericStats.lootRate ?? 0;
-
-        const rareLootRate = killer?.attrs.numericStats.rareLootRate ?? 0;
-
-        const items = this.contentTemplateRepository.rollMonsterDrops(monster.monsterId, 1, lootRate, rareLootRate);
-        for (const item of items) {
-            this.deliverMonsterLoot(killerPlayerId, instance, monster.x, monster.y, item);
-        }
-    }
-    /** distributeMonsterKillProgress：把妖兽击杀进度分给参与者。 */
-    distributeMonsterKillProgress(instance, monster, killerPlayerId) {
-
-        const participants = this.resolveMonsterExpParticipants(instance, monster.runtimeId, killerPlayerId);
-
-        const topContributionRealmLv = this.resolveMonsterTopContributionRealmLv(participants);
-
-        let totalContribution = 0;
-        for (const participant of participants) {
-            totalContribution += participant.contribution;
-        }
-        for (const participant of participants) {
-            const contributionRatio = totalContribution > 0 ? participant.contribution / totalContribution : 1;
-            this.playerRuntimeService.grantMonsterKillProgress(participant.playerId, {
-                monsterLevel: monster.level,
-                monsterName: monster.name,
-                monsterTier: monster.tier,
-                contributionRatio,
-                expAdjustmentRealmLv: Math.max(topContributionRealmLv, participant.realmLv),
-
-                isKiller: participant.playerId === killerPlayerId,
-            }, this.resolveCurrentTickForPlayerId(participant.playerId));
-        }
-    }
-    /** resolveMonsterExpParticipants：解析参与妖兽经验分配的玩家。 */
-    resolveMonsterExpParticipants(instance, runtimeId, killerPlayerId) {
-
-        const contributions = instance.getMonsterDamageContributionEntries(runtimeId);
-
-        const participants = [];
-
-        let hasKiller = false;
-        for (const entry of contributions) {
-            if (entry.damage <= 0) {
-                continue;
-            }
-
-            const player = this.playerRuntimeService.getPlayer(entry.playerId);
-            if (!player || player.instanceId !== instance.meta.instanceId) {
-                continue;
-            }
-            participants.push({
-                playerId: player.playerId,
-                contribution: entry.damage,
-                realmLv: Math.max(1, Math.floor(player.realm?.realmLv ?? 1)),
-            });
-            if (player.playerId === killerPlayerId) {
-                hasKiller = true;
-            }
-        }
-        if (participants.length > 0 && hasKiller) {
-            return participants;
-        }
-
-        const killer = this.playerRuntimeService.getPlayer(killerPlayerId);
-        if (!killer) {
-            return participants;
-        }
-        participants.push({
-            playerId: killerPlayerId,
-            contribution: 1,
-            realmLv: Math.max(1, Math.floor(killer.realm?.realmLv ?? 1)),
-        });
-        return participants;
-    }
-    /** resolveMonsterTopContributionRealmLv：找出妖兽战斗中的最高贡献境界。 */
-    resolveMonsterTopContributionRealmLv(participants) {
-
-        let topContribution = 0;
-
-        let topRealmLv = 1;
-        for (const participant of participants) {
-            if (participant.contribution <= topContribution) {
-                continue;
-            }
-            topContribution = participant.contribution;
-            topRealmLv = Math.max(1, participant.realmLv);
-        }
-        return topRealmLv;
-    }
-    /** deliverMonsterLoot：把妖兽掉落交付给玩家或落到地面。 */
-    deliverMonsterLoot(playerId, instance, x, y, item) {
-        if (this.playerRuntimeService.canReceiveInventoryItem(playerId, item.itemId)) {
-            this.playerRuntimeService.receiveInventoryItem(playerId, item);
-            this.queuePlayerNotice(playerId, `获得 ${formatItemStackLabel(item)}`, 'loot');
-            return;
-        }
-        this.spawnGroundItem(instance, x, y, item);
-        this.queuePlayerNotice(playerId, `${formatItemStackLabel(item)} 掉落在 (${x}, ${y}) 的地面上，但你的背包已满。`, 'loot');
+        this.worldRuntimePlayerCombatService.handlePlayerMonsterKill(instance, monster, killerPlayerId, this);
     }
     /** createNpcShopEnvelope：构建 NPC 商店封装结果。 */
     createNpcShopEnvelope(playerId, npcId) {
@@ -2433,8 +2334,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     }
     /** handlePlayerDefeat：标记玩家进入复生队列。 */
     handlePlayerDefeat(playerId) {
-        this.pendingCommands.delete(playerId);
-        this.worldRuntimeGmQueueService.markPendingRespawn(playerId);
+        this.worldRuntimePlayerCombatService.handlePlayerDefeat(playerId, this);
     }
     /** processPendingRespawns：处理等待复生的玩家。 */
     processPendingRespawns() {
@@ -2524,6 +2424,7 @@ exports.WorldRuntimeService = WorldRuntimeService = WorldRuntimeService_1 = __de
         world_runtime_combat_effects_service_1.WorldRuntimeCombatEffectsService,
         world_runtime_monster_action_apply_service_1.WorldRuntimeMonsterActionApplyService,
         world_runtime_basic_attack_service_1.WorldRuntimeBasicAttackService,
+        world_runtime_player_combat_service_1.WorldRuntimePlayerCombatService,
         world_runtime_player_skill_dispatch_service_1.WorldRuntimePlayerSkillDispatchService,
         world_runtime_battle_engage_service_1.WorldRuntimeBattleEngageService,
         world_runtime_auto_combat_service_1.WorldRuntimeAutoCombatService])
