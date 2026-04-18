@@ -1,6 +1,6 @@
 # next 原地硬切任务计划
 
-更新时间：2026-04-17
+更新时间：2026-04-18
 
 这份文档是原地硬切的实际执行清单。
 
@@ -201,15 +201,15 @@
 - [x] 给“数据迁移完成”补一条迁移 proof 链
 - [x] 跑通 `pnpm build`
 - [x] 跑通 `pnpm verify:replace-ready`
-- [ ] 跑通 `pnpm verify:replace-ready:with-db`
+- [x] 跑通 `pnpm verify:replace-ready:with-db`
 - [ ] 跑通 `pnpm verify:replace-ready:acceptance`
 - [ ] 跑通 `pnpm verify:replace-ready:full`
 - [x] 确认这些门禁都以 next 主链为口径，不再默认证明 legacy 对齐
 
 补充说明：
 
-- 当前仓库只证明 `local` 已在本轮实跑通过。
-- `with-db / acceptance / full / shadow-destructive` 仍应以 `09` 文档里的环境阻塞与当前轮次实跑记录为准，不能沿用历史 `[x]` 口径。
+- 当前仓库已证明 `local` 与 `with-db` 都在本轮实跑通过。
+- `acceptance / full / shadow-destructive` 仍应以 `09` 文档里的环境阻塞与当前轮次实跑记录为准，不能沿用历史 `[x]` 口径。
 
 ## 12. legacy 归档收尾
 

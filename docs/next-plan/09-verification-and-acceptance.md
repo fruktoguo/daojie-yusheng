@@ -22,7 +22,7 @@
 - [x] 给“数据迁移完成”补一条迁移 proof 链
 - [x] 跑通 `pnpm build`
 - [x] 跑通 `pnpm verify:replace-ready`
-- [ ] 跑通 `pnpm verify:replace-ready:with-db`
+- [x] 跑通 `pnpm verify:replace-ready:with-db`
 - [ ] 跑通 `pnpm verify:replace-ready:acceptance`
 - [ ] 跑通 `pnpm verify:replace-ready:full`
 - [x] 跑通必要的 protocol audit
@@ -49,8 +49,8 @@
 本轮参考结论是：
 
 - [x] `local`: ready
-- [ ] `with-db`: 缺 `DATABASE_URL` / `SERVER_NEXT_DATABASE_URL`
-- [ ] `proof with-db`: 缺 `DATABASE_URL` / `SERVER_NEXT_DATABASE_URL`
+- [x] `with-db`: ready，并已在本轮显式注入 `DATABASE_URL` / `SERVER_NEXT_DATABASE_URL` 后实跑通过
+- [x] `proof with-db`: ready（由 doctor 与 with-db 链路共同证明环境已齐备）
 - [ ] `shadow`: 缺 `SERVER_NEXT_SHADOW_URL` / `SERVER_NEXT_URL` 与 `SERVER_NEXT_GM_PASSWORD` / `GM_PASSWORD`
 - [ ] `acceptance`: 缺 `SERVER_NEXT_SHADOW_URL` / `SERVER_NEXT_URL` 与 `SERVER_NEXT_GM_PASSWORD` / `GM_PASSWORD`
 - [ ] `full`: 缺 DB + shadow URL + GM 密码
@@ -58,8 +58,8 @@
 
 这表示：
 
-- 当前 `with-db / proof with-db / shadow / acceptance / full / shadow-destructive` 仍先受环境变量与目标环境是否就绪约束。
-- 在环境 ready 之后，才进一步区分“待实跑”与“代码失败”；尤其 `acceptance`、`full`、`shadow-destructive` 不能再沿用历史结果冒充当前轮次完成。
+- 当前 `shadow / acceptance / full / shadow-destructive` 仍先受环境变量与目标环境是否就绪约束。
+- `with-db` 与 `proof with-db` 在当前本地 DB 环境下已 ready；其中 `with-db` 已在本轮实跑通过。`acceptance`、`full`、`shadow-destructive` 仍不能沿用历史结果冒充当前轮次完成。
 
 ## 执行顺序
 
@@ -226,13 +226,16 @@
 - [x] `pnpm build` 本地通过
 - [x] `pnpm verify:replace-ready` 本地通过，已拿到 `[replace-ready] completed mode=local`
 - [x] `pnpm verify:server-next:doctor`
-  - 本轮实跑结果：仅 `local` 为 `ready`；`with-db / proof with-db / shadow / acceptance / full / shadow-destructive` 均为环境未就绪，不再误记为当前环境 ready
+  - 本轮实跑结果：`local / with-db / proof with-db` 为 `ready`；`shadow / acceptance / full / shadow-destructive` 仍缺 shadow URL 与 GM 密码，`shadow-destructive` 还缺 maintenance-active target
 - [x] `pnpm --filter @mud/server-next audit:legacy-boundaries`
   - 本轮实跑结果：`docs/next-legacy-boundary-audit.md` 已刷新为 `matched 0/18 checks, 0 code hits`
 - [x] `pnpm --filter @mud/server-next smoke:next-auth-bootstrap`
   - 本轮实跑结果：local 无库 profile 下通过，输出 `reason=no_db_legacy_http_memory_fallback_disabled`
 - [x] `pnpm --filter @mud/server-next smoke:gm-next`
   - 本轮实跑结果：local 无库 profile 下通过，输出 `reason=no_db_legacy_http_memory_fallback_disabled`
+- [x] `pnpm verify:replace-ready:with-db`
+  - 本轮实跑结果：显式注入 `DATABASE_URL` 与 `SERVER_NEXT_DATABASE_URL` 后通过，输出 `[replace-ready:with-db] completed`
+  - 当前带库链路已覆盖到 `audit:server-next-protocol`，并刷新 `docs/next-protocol-audit.md`
 - [x] 迁移 proof 链已固定到 `04`
   - 当前仓库记录已包含：`migrate-next-mainline-once --write -> verify:replace-ready:proof:with-db -> smoke:persistence -> smoke:gm-database -> smoke:progression -> smoke:runtime`
 
