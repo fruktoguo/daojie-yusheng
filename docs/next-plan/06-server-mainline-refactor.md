@@ -415,6 +415,10 @@
 - 本轮验证已补跑 `pnpm --filter @mud/server-next smoke:runtime`、`pnpm --filter @mud/server-next smoke:gm-next`、根级串行 `pnpm build && pnpm verify:replace-ready`；结果全部通过，其中 `gm-next` 在无库本地口径下返回 `ok: true` 且标记 `skipped`
 - `packages/server/src/runtime/world/world-runtime-loot-container.service.js` 持有的 `containerStatesByInstanceId` / `dirtyContainerPersistenceInstanceIds` 现已在 `world-runtime.state.js` 与 `world-runtime.contract.js` 中同步删掉旧声明，状态真所有权与文档口径一致
 - 这不是新增 service 的一刀，而是把第 5 批第四刀的 loot/container 状态域真正收尾，避免 `runtimeState` / contract 继续误导为主服务仍持有容器状态
+- 新增 `packages/server/src/runtime/world/world-runtime-metrics.service.js`
+- `WorldRuntimeService` 的 `lastTickDurationMs`、`lastSyncFlushDurationMs`、`lastTickPhaseDurations`、`tickDurationHistoryMs`、`syncFlushDurationHistoryMs` 已由 `WorldRuntimeMetricsService` 真正持有；`getRuntimeSummary()` 与 `recordSyncFlushDuration()` 保持 facade 入口不变
+- `WorldRuntimeService` 仍保留 `tick`、`tickAll()` / `advanceFrame()` 的外层编排顺序与错误收口，说明这次是第 5 批下一刀的 runtime metrics ownership 抽离，不是完整 tick runtime 域拆分
+- 本轮验证已补跑 `pnpm --filter @mud/server-next smoke:runtime`、`pnpm --filter @mud/server-next smoke:gm-next`、根级串行 `pnpm build && pnpm verify:replace-ready`；结果全部通过，其中 `gm-next` 在无库本地口径下返回 `ok: true` 且标记 `skipped`
 
 这一批结束后，`world-runtime.service.js` 仍可以存在，但不该再同时拥有所有领域细节。
 
