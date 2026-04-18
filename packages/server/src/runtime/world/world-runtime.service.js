@@ -46,6 +46,8 @@ const world_runtime_quest_query_service_1 = require("./world-runtime-quest-query
 
 const world_runtime_detail_query_service_1 = require("./world-runtime-detail-query.service");
 
+const world_runtime_metrics_service_1 = require("./world-runtime-metrics.service");
+
 const world_runtime_summary_query_service_1 = require("./world-runtime-summary-query.service");
 
 const world_runtime_instance_state_service_1 = require("./world-runtime-instance-state.service");
@@ -253,6 +255,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     worldRuntimeNpcShopQueryService;
     worldRuntimeQuestQueryService;
     worldRuntimeDetailQueryService;
+    worldRuntimeMetricsService;
     worldRuntimeSummaryQueryService;
     worldRuntimeInstanceStateService;
     worldRuntimeInstanceQueryService;
@@ -276,19 +279,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     stateLayerContract = world_runtime_contract_1.WORLD_RUNTIME_STATE_CONTRACT;
     runtimeState = (0, world_runtime_state_1.createWorldRuntimeStateStore)();
     tick = 0;
-    lastTickDurationMs = 0;
-    lastSyncFlushDurationMs = 0;
-    lastTickPhaseDurations = {
-        pendingCommandsMs: 0,
-        systemCommandsMs: 0,
-        instanceTicksMs: 0,
-        transfersMs: 0,
-        monsterActionsMs: 0,
-        playerAdvanceMs: 0,
-    };
-    tickDurationHistoryMs = [];
-    syncFlushDurationHistoryMs = [];
-    constructor(contentTemplateRepository, templateRepository, mapPersistenceService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService, craftPanelRuntimeService, worldRuntimeNpcShopQueryService, worldRuntimeQuestQueryService, worldRuntimeDetailQueryService, worldRuntimeSummaryQueryService, worldRuntimeInstanceStateService, worldRuntimeInstanceQueryService, worldRuntimePendingCommandService, worldRuntimePlayerLocationService, worldRuntimeTickProgressService, worldRuntimeNpcQuestInteractionQueryService, worldRuntimeGmQueueService, worldRuntimeRespawnService, worldRuntimeCraftService, worldRuntimeNpcQuestShopService, worldRuntimeLootContainerService, worldRuntimeNavigationService, worldRuntimeCombatEffectsService, worldRuntimeMonsterActionApplyService, worldRuntimeBasicAttackService, worldRuntimePlayerSkillDispatchService, worldRuntimeBattleEngageService, worldRuntimeAutoCombatService) {
+    constructor(contentTemplateRepository, templateRepository, mapPersistenceService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService, craftPanelRuntimeService, worldRuntimeNpcShopQueryService, worldRuntimeQuestQueryService, worldRuntimeDetailQueryService, worldRuntimeMetricsService, worldRuntimeSummaryQueryService, worldRuntimeInstanceStateService, worldRuntimeInstanceQueryService, worldRuntimePendingCommandService, worldRuntimePlayerLocationService, worldRuntimeTickProgressService, worldRuntimeNpcQuestInteractionQueryService, worldRuntimeGmQueueService, worldRuntimeRespawnService, worldRuntimeCraftService, worldRuntimeNpcQuestShopService, worldRuntimeLootContainerService, worldRuntimeNavigationService, worldRuntimeCombatEffectsService, worldRuntimeMonsterActionApplyService, worldRuntimeBasicAttackService, worldRuntimePlayerSkillDispatchService, worldRuntimeBattleEngageService, worldRuntimeAutoCombatService) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.templateRepository = templateRepository;
         this.mapPersistenceService = mapPersistenceService;
@@ -301,6 +292,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.worldRuntimeNpcShopQueryService = worldRuntimeNpcShopQueryService;
         this.worldRuntimeQuestQueryService = worldRuntimeQuestQueryService;
         this.worldRuntimeDetailQueryService = worldRuntimeDetailQueryService;
+        this.worldRuntimeMetricsService = worldRuntimeMetricsService;
         this.worldRuntimeSummaryQueryService = worldRuntimeSummaryQueryService;
         this.worldRuntimeInstanceStateService = worldRuntimeInstanceStateService;
         this.worldRuntimeInstanceQueryService = worldRuntimeInstanceQueryService;
@@ -323,6 +315,21 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     }
     get pendingCommands() {
         return this.worldRuntimePendingCommandService.pendingCommands;
+    }
+    get lastTickDurationMs() {
+        return this.worldRuntimeMetricsService.lastTickDurationMs;
+    }
+    get lastSyncFlushDurationMs() {
+        return this.worldRuntimeMetricsService.lastSyncFlushDurationMs;
+    }
+    get lastTickPhaseDurations() {
+        return this.worldRuntimeMetricsService.lastTickPhaseDurations;
+    }
+    get tickDurationHistoryMs() {
+        return this.worldRuntimeMetricsService.tickDurationHistoryMs;
+    }
+    get syncFlushDurationHistoryMs() {
+        return this.worldRuntimeMetricsService.syncFlushDurationHistoryMs;
     }
     get instances() {
         return this.worldRuntimeInstanceStateService.instances;
@@ -1261,17 +1268,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             plannedLogicalTicks += steps;
         }
         if (plannedLogicalTicks <= 0) {
-            this.lastTickPhaseDurations = {
-                pendingCommandsMs: 0,
-                systemCommandsMs: 0,
-                instanceTicksMs: 0,
-                transfersMs: 0,
-                monsterActionsMs: 0,
-                playerAdvanceMs: 0,
-            };
-            this.lastTickDurationMs = roundDurationMs(performance.now() - startedAt);
-            /** pushDurationMetric：追加push耗时Metric。 */
-            pushDurationMetric(this.tickDurationHistoryMs, this.lastTickDurationMs);
+            this.worldRuntimeMetricsService.recordIdleFrame(startedAt);
             return 0;
         }
         this.processPendingRespawns();
@@ -1334,24 +1331,19 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         }
 
         const playerAdvanceMs = performance.now() - playerAdvanceStartedAt;
-        this.lastTickPhaseDurations = {
-            pendingCommandsMs: roundDurationMs(pendingCommandsMs),
-            systemCommandsMs: roundDurationMs(systemCommandsMs),
-            instanceTicksMs: roundDurationMs(instanceTicksMs),
-            transfersMs: roundDurationMs(transfersMs),
-            monsterActionsMs: roundDurationMs(monsterActionsMs),
-            playerAdvanceMs: roundDurationMs(playerAdvanceMs),
-        };
-        this.lastTickDurationMs = roundDurationMs(performance.now() - startedAt);
-        /** pushDurationMetric：追加push耗时Metric。 */
-        pushDurationMetric(this.tickDurationHistoryMs, this.lastTickDurationMs);
+        this.worldRuntimeMetricsService.recordFrameResult(startedAt, {
+            pendingCommandsMs,
+            systemCommandsMs,
+            instanceTicksMs,
+            transfersMs,
+            monsterActionsMs,
+            playerAdvanceMs,
+        });
         return totalLogicalTicks;
     }
     /** recordSyncFlushDuration：记录一次同步刷新耗时。 */
     recordSyncFlushDuration(durationMs) {
-        this.lastSyncFlushDurationMs = roundDurationMs(durationMs);
-        /** pushDurationMetric：追加push耗时Metric。 */
-        pushDurationMetric(this.syncFlushDurationHistoryMs, this.lastSyncFlushDurationMs);
+        this.worldRuntimeMetricsService.recordSyncFlushDuration(durationMs);
     }
     /** bootstrapPublicInstances：初始化所有公共地图实例。 */
     bootstrapPublicInstances() {
@@ -2613,6 +2605,7 @@ exports.WorldRuntimeService = WorldRuntimeService = WorldRuntimeService_1 = __de
         world_runtime_npc_shop_query_service_1.WorldRuntimeNpcShopQueryService,
         world_runtime_quest_query_service_1.WorldRuntimeQuestQueryService,
         world_runtime_detail_query_service_1.WorldRuntimeDetailQueryService,
+        world_runtime_metrics_service_1.WorldRuntimeMetricsService,
         world_runtime_summary_query_service_1.WorldRuntimeSummaryQueryService,
         world_runtime_instance_state_service_1.WorldRuntimeInstanceStateService,
         world_runtime_instance_query_service_1.WorldRuntimeInstanceQueryService,

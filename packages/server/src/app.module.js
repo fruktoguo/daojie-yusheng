@@ -74,6 +74,8 @@ const world_runtime_quest_query_service_1 = require("./runtime/world/world-runti
 
 const world_runtime_detail_query_service_1 = require("./runtime/world/world-runtime-detail-query.service");
 
+const world_runtime_metrics_service_1 = require("./runtime/world/world-runtime-metrics.service");
+
 const world_runtime_summary_query_service_1 = require("./runtime/world/world-runtime-summary-query.service");
 
 const world_runtime_instance_state_service_1 = require("./runtime/world/world-runtime-instance-state.service");
@@ -186,6 +188,7 @@ exports.AppModule = AppModule = __decorate([
             world_runtime_npc_shop_query_service_1.WorldRuntimeNpcShopQueryService,
             world_runtime_quest_query_service_1.WorldRuntimeQuestQueryService,
             world_runtime_detail_query_service_1.WorldRuntimeDetailQueryService,
+            world_runtime_metrics_service_1.WorldRuntimeMetricsService,
             world_runtime_summary_query_service_1.WorldRuntimeSummaryQueryService,
             world_runtime_instance_state_service_1.WorldRuntimeInstanceStateService,
             world_runtime_instance_query_service_1.WorldRuntimeInstanceQueryService,
