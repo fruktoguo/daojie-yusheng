@@ -249,10 +249,10 @@
 
 ### 第 4 批：先从 `world-runtime` 里拆冷路径和查询块
 
-- [ ] 从 `world-runtime.service.js` 先拆不直接写 tick 热状态的查询/详情块
-- [ ] 先拆 NPC / quest 查询、shop 校验、导航目标、面板详情、GM 只读辅助查询
-- [ ] 把纯构建/归一/查询 helper 挪成显式 query/domain 模块
-- [ ] 保持 `world-runtime.service.js` 暂时仍作为总编排层，但减掉查询杂质
+- [x] 从 `world-runtime.service.js` 先拆不直接写 tick 热状态的查询/详情块
+- [x] 先拆 NPC / quest 查询、shop 校验、导航目标、面板详情、GM 只读辅助查询
+- [x] 把纯构建/归一/查询 helper 挪成显式 query/domain 模块
+- [x] 保持 `world-runtime.service.js` 暂时仍作为总编排层，但减掉查询杂质
 
 本轮已完成：
 
@@ -308,11 +308,15 @@
 - `packages/server/src/http/next/next-gm-world.service.js` 的 `getMapRuntime()` 已委托给 `NextGmMapRuntimeQueryService`，world service 只保留 observer 标记与 GM world facade
 - 这一刀只移动 GM 地图窗口只读查询，不触碰 `updateMapTick()`、`updateMapTime()`、`reloadTickConfig()`、`getState()` 或任何 GM 写路径
 - 本轮验证已补跑 `pnpm --filter @mud/server-next smoke:gm-next`、`pnpm --filter @mud/server-next audit:next-protocol`、根级 `pnpm build` 与 `pnpm verify:replace-ready`；结果继续通过，其中 `gm-next` 在无库本地口径下返回 `ok: true` 且标记 `skipped`
+- 新增 `packages/server/src/http/next/next-gm-state-query.service.js`
+- `packages/server/src/http/next/next-gm-world.service.js` 的 `getState()` 已委托给 `NextGmStateQueryService`，在线/离线玩家摘要聚合、账号索引查询和 GM perf 组装不再留在 world service
+- 这一刀只移动 GM state 只读聚合，不触碰 `resetNetworkPerf()`、`resetCpuPerf()`、`resetPathfindingPerf()`、地图控制写路径或任何其它 GM 写操作
+- 本轮验证已补跑 `pnpm --filter @mud/server-next smoke:gm-next`、`pnpm --filter @mud/server-next audit:next-protocol`、根级 `pnpm build` 与 `pnpm verify:replace-ready`；结果继续通过，其中 `gm-next` 在无库本地口径下返回 `ok: true` 且标记 `skipped`
 
-当前优先可拆的冷块：
+第 4 批结论：
 
-- GM 只读辅助查询
-- 仍散在 `world-runtime.service.js` 的纯构建 / 归一 / 查询 helper
+- `world-runtime.service.js` 与 `next-gm-world.service.js` 的主要冷路径查询已下沉到显式 query service
+- 下一步应转入第 5 批的热路径状态域拆分，而不是继续在第 4 批里堆 facade 细拆
 
 最小验证：
 
