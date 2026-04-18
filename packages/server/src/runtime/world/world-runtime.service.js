@@ -263,8 +263,6 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     instances = this.runtimeState.instances;
     playerLocations = this.runtimeState.playerLocations;
     pendingCommands = this.runtimeState.pendingCommands;
-    pendingSystemCommands = this.runtimeState.pendingSystemCommands;
-    pendingRespawnPlayerIds = this.runtimeState.pendingRespawnPlayerIds;
     tick = 0;
     lastTickDurationMs = 0;
     lastSyncFlushDurationMs = 0;
@@ -383,7 +381,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             instanceId: targetInstance.meta.instanceId,
             sessionId: runtimePlayer.sessionId,
         });
-        this.pendingRespawnPlayerIds.delete(playerId);
+        this.worldRuntimeGmQueueService.clearPendingRespawn(playerId);
         this.logger.debug(`玩家 ${playerId} 已附着到实例 ${targetInstance.meta.instanceId}`);
         return this.getPlayerViewOrThrow(playerId);
     }
@@ -396,7 +394,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         }
         this.worldRuntimeNavigationService.clearNavigationIntent(playerId);
         this.pendingCommands.delete(playerId);
-        this.pendingRespawnPlayerIds.delete(playerId);
+        this.worldRuntimeGmQueueService.clearPendingRespawn(playerId);
 
         const disconnected = this.instances.get(location.instanceId)?.disconnectPlayer(playerId) ?? false;
         this.playerLocations.delete(playerId);
@@ -412,7 +410,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.worldSessionService.purgePlayerSession(normalizedPlayerId, reason);
         this.worldRuntimeNavigationService.clearNavigationIntent(normalizedPlayerId);
         this.pendingCommands.delete(normalizedPlayerId);
-        this.pendingRespawnPlayerIds.delete(normalizedPlayerId);
+        this.worldRuntimeGmQueueService.clearPendingRespawn(normalizedPlayerId);
 
         const disconnected = this.disconnectPlayer(normalizedPlayerId);
 
@@ -1005,7 +1003,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             throw new common_1.BadRequestException('monsterId is required');
         }
         this.getInstanceRuntimeOrThrow(instanceId);
-        this.pendingSystemCommands.push({
+        return this.worldRuntimeGmQueueService.enqueueSystemCommand({
             kind: 'spawnMonsterLoot',
             instanceId,
             monsterId,
@@ -1013,7 +1011,6 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             y: normalizeCoordinate(yInput, 'y'),
             rolls: normalizeRollCount(rollsInput),
         });
-        return { queued: true };
     }
     /** enqueueDefeatMonster：把妖兽击败请求排入系统命令队列。 */
     enqueueDefeatMonster(instanceIdInput, runtimeIdInput) {
@@ -1028,12 +1025,11 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             throw new common_1.BadRequestException('runtimeId is required');
         }
         this.getInstanceRuntimeOrThrow(instanceId);
-        this.pendingSystemCommands.push({
+        return this.worldRuntimeGmQueueService.enqueueSystemCommand({
             kind: 'defeatMonster',
             instanceId,
             runtimeId,
         });
-        return { queued: true };
     }
     /** enqueueDamageMonster：把妖兽受伤请求排入系统命令队列。 */
     enqueueDamageMonster(instanceIdInput, runtimeIdInput, amountInput) {
@@ -1053,13 +1049,12 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             throw new common_1.BadRequestException('amount is required');
         }
         this.getInstanceRuntimeOrThrow(instanceId);
-        this.pendingSystemCommands.push({
+        return this.worldRuntimeGmQueueService.enqueueSystemCommand({
             kind: 'damageMonster',
             instanceId,
             runtimeId,
             amount,
         });
-        return { queued: true };
     }
     /** enqueueDamagePlayer：把玩家受伤请求排入系统命令队列。 */
     enqueueDamagePlayer(playerIdInput, amountInput) {
@@ -1074,12 +1069,11 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             throw new common_1.BadRequestException('amount is required');
         }
         this.getPlayerLocationOrThrow(playerId);
-        this.pendingSystemCommands.push({
+        return this.worldRuntimeGmQueueService.enqueueSystemCommand({
             kind: 'damagePlayer',
             playerId,
             amount,
         });
-        return { queued: true };
     }
     /** enqueueRespawnPlayer：把玩家复生请求排入系统命令队列。 */
     enqueueRespawnPlayer(playerIdInput) {
@@ -1089,11 +1083,10 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             throw new common_1.BadRequestException('playerId is required');
         }
         this.getPlayerLocationOrThrow(playerId);
-        this.pendingSystemCommands.push({
+        return this.worldRuntimeGmQueueService.enqueueSystemCommand({
             kind: 'respawnPlayer',
             playerId,
         });
-        return { queued: true };
     }
     /** enqueueResetPlayerSpawn：把玩家重置出生点请求排入系统命令队列。 */
     enqueueResetPlayerSpawn(playerIdInput) {
@@ -1103,27 +1096,26 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             throw new common_1.BadRequestException('playerId is required');
         }
         this.getPlayerLocationOrThrow(playerId);
-        this.pendingSystemCommands.push({
+        return this.worldRuntimeGmQueueService.enqueueSystemCommand({
             kind: 'resetPlayerSpawn',
             playerId,
         });
-        return { queued: true };
     }
     /** enqueueGmUpdatePlayer：把 GM 更新玩家请求排入系统命令队列。 */
     enqueueGmUpdatePlayer(input) {
-        return this.worldRuntimeGmQueueService.enqueueGmUpdatePlayer(this.pendingSystemCommands, input);
+        return this.worldRuntimeGmQueueService.enqueueGmUpdatePlayer(input);
     }
     /** enqueueGmResetPlayer：把 GM 重置玩家请求排入系统命令队列。 */
     enqueueGmResetPlayer(playerIdInput) {
-        return this.worldRuntimeGmQueueService.enqueueGmResetPlayer(this.pendingSystemCommands, playerIdInput);
+        return this.worldRuntimeGmQueueService.enqueueGmResetPlayer(playerIdInput);
     }
     /** enqueueGmSpawnBots：把 GM 生成机器人请求排入系统命令队列。 */
     enqueueGmSpawnBots(anchorPlayerIdInput, countInput) {
-        return this.worldRuntimeGmQueueService.enqueueGmSpawnBots(this.pendingSystemCommands, anchorPlayerIdInput, countInput);
+        return this.worldRuntimeGmQueueService.enqueueGmSpawnBots(anchorPlayerIdInput, countInput);
     }
     /** enqueueGmRemoveBots：把 GM 移除机器人请求排入系统命令队列。 */
     enqueueGmRemoveBots(playerIdsInput, allInput) {
-        return this.worldRuntimeGmQueueService.enqueueGmRemoveBots(this.pendingSystemCommands, playerIdsInput, allInput);
+        return this.worldRuntimeGmQueueService.enqueueGmRemoveBots(playerIdsInput, allInput);
     }
     /** getPlayerView：读取玩家当前视野快照，并补上 NPC 任务标记。 */
     getPlayerView(playerId, radius) {
@@ -1169,7 +1161,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             mapTemplateCount: this.templateRepository.list().length,
             playerCount: this.playerLocations.size,
             pendingCommandCount: this.pendingCommands.size,
-            pendingSystemCommandCount: this.pendingSystemCommands.length,
+            pendingSystemCommandCount: this.worldRuntimeGmQueueService.getPendingSystemCommandCount(),
             tickDurationHistoryMs: this.tickDurationHistoryMs,
             syncFlushDurationHistoryMs: this.syncFlushDurationHistoryMs,
             lastTickPhaseDurations: this.lastTickPhaseDurations,
@@ -1369,8 +1361,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.instances.clear();
         this.playerLocations.clear();
         this.pendingCommands.clear();
-        this.pendingSystemCommands.length = 0;
-        this.pendingRespawnPlayerIds.clear();
+        this.worldRuntimeGmQueueService.resetState();
         this.worldRuntimeNavigationService.reset();
         this.instanceTickProgressById.clear();
         this.worldRuntimeLootContainerService.reset();
@@ -1567,11 +1558,11 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     }
     /** dispatchPendingSystemCommands：派发系统命令队列。 */
     dispatchPendingSystemCommands() {
-        if (this.pendingSystemCommands.length === 0) {
+        if (this.worldRuntimeGmQueueService.getPendingSystemCommandCount() === 0) {
             return;
         }
 
-        const commands = this.pendingSystemCommands.splice(0, this.pendingSystemCommands.length);
+        const commands = this.worldRuntimeGmQueueService.drainPendingSystemCommands();
         for (const command of commands) {
             try {
                 this.dispatchSystemCommand(command);
@@ -2538,16 +2529,15 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     /** handlePlayerDefeat：标记玩家进入复生队列。 */
     handlePlayerDefeat(playerId) {
         this.pendingCommands.delete(playerId);
-        this.pendingRespawnPlayerIds.add(playerId);
+        this.worldRuntimeGmQueueService.markPendingRespawn(playerId);
     }
     /** processPendingRespawns：处理等待复生的玩家。 */
     processPendingRespawns() {
-        if (this.pendingRespawnPlayerIds.size === 0) {
+        if (!this.worldRuntimeGmQueueService.hasPendingRespawns()) {
             return;
         }
 
-        const pending = Array.from(this.pendingRespawnPlayerIds);
-        this.pendingRespawnPlayerIds.clear();
+        const pending = this.worldRuntimeGmQueueService.drainPendingRespawnPlayerIds();
         for (const playerId of pending) {
             const player = this.playerRuntimeService.getPlayer(playerId);
             if (!player || player.hp > 0) {

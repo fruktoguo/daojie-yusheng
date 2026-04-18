@@ -8,8 +8,6 @@ function createWorldRuntimeStateStore() {
         instances: new Map(),
         playerLocations: new Map(),
         pendingCommands: new Map(),
-        pendingSystemCommands: [],
-        pendingRespawnPlayerIds: new Set(),
         instanceTickProgressById: new Map(),
         containerStatesByInstanceId: new Map(),
         dirtyContainerPersistenceInstanceIds: new Set(),

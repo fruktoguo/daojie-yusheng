@@ -16,12 +16,18 @@ const next_gm_constants_1 = require("../../http/next/next-gm.constants");
 /** GM runtime queue 服务：承接 GM 命令归一、入队与执行。 */
 let WorldRuntimeGmQueueService = class WorldRuntimeGmQueueService {
     nextGmBotSequence = 1;
-    enqueueGmUpdatePlayer(queue, input) {
+    pendingSystemCommands = [];
+    pendingRespawnPlayerIds = new Set();
+    enqueueSystemCommand(command) {
+        this.pendingSystemCommands.push(command);
+        return { queued: true };
+    }
+    enqueueGmUpdatePlayer(input) {
         const playerId = typeof input?.playerId === 'string' ? input.playerId.trim() : '';
         if (!playerId) {
             throw new common_1.BadRequestException('playerId is required');
         }
-        queue.push({
+        this.pendingSystemCommands.push({
             kind: 'gmUpdatePlayer',
             playerId,
             mapId: typeof input?.mapId === 'string' ? input.mapId.trim() : '',
@@ -32,15 +38,15 @@ let WorldRuntimeGmQueueService = class WorldRuntimeGmQueueService {
         });
         return { queued: true };
     }
-    enqueueGmResetPlayer(queue, playerIdInput) {
+    enqueueGmResetPlayer(playerIdInput) {
         const playerId = typeof playerIdInput === 'string' ? playerIdInput.trim() : '';
         if (!playerId) {
             throw new common_1.BadRequestException('playerId is required');
         }
-        queue.push({ kind: 'gmResetPlayer', playerId });
+        this.pendingSystemCommands.push({ kind: 'gmResetPlayer', playerId });
         return { queued: true };
     }
-    enqueueGmSpawnBots(queue, anchorPlayerIdInput, countInput) {
+    enqueueGmSpawnBots(anchorPlayerIdInput, countInput) {
         const anchorPlayerId = typeof anchorPlayerIdInput === 'string' ? anchorPlayerIdInput.trim() : '';
         if (!anchorPlayerId) {
             throw new common_1.BadRequestException('anchorPlayerId is required');
@@ -49,15 +55,45 @@ let WorldRuntimeGmQueueService = class WorldRuntimeGmQueueService {
         if (!Number.isFinite(count) || count <= 0) {
             throw new common_1.BadRequestException('count must be greater than 0');
         }
-        queue.push({ kind: 'gmSpawnBots', anchorPlayerId, count });
+        this.pendingSystemCommands.push({ kind: 'gmSpawnBots', anchorPlayerId, count });
         return { queued: true };
     }
-    enqueueGmRemoveBots(queue, playerIdsInput, allInput) {
+    enqueueGmRemoveBots(playerIdsInput, allInput) {
         const playerIds = Array.isArray(playerIdsInput)
             ? playerIdsInput.filter((entry) => typeof entry === 'string').map((entry) => entry.trim()).filter((entry) => entry.length > 0)
             : [];
-        queue.push({ kind: 'gmRemoveBots', playerIds, all: allInput === true });
+        this.pendingSystemCommands.push({ kind: 'gmRemoveBots', playerIds, all: allInput === true });
         return { queued: true };
+    }
+    markPendingRespawn(playerId) {
+        this.pendingRespawnPlayerIds.add(playerId);
+    }
+    clearPendingRespawn(playerId) {
+        this.pendingRespawnPlayerIds.delete(playerId);
+    }
+    getPendingSystemCommandCount() {
+        return this.pendingSystemCommands.length;
+    }
+    drainPendingSystemCommands() {
+        if (this.pendingSystemCommands.length === 0) {
+            return [];
+        }
+        return this.pendingSystemCommands.splice(0, this.pendingSystemCommands.length);
+    }
+    drainPendingRespawnPlayerIds() {
+        if (this.pendingRespawnPlayerIds.size === 0) {
+            return [];
+        }
+        const pending = Array.from(this.pendingRespawnPlayerIds);
+        this.pendingRespawnPlayerIds.clear();
+        return pending;
+    }
+    hasPendingRespawns() {
+        return this.pendingRespawnPlayerIds.size > 0;
+    }
+    resetState() {
+        this.pendingSystemCommands.length = 0;
+        this.pendingRespawnPlayerIds.clear();
     }
     dispatchGmUpdatePlayer(command, deps) {
         const playerId = command.playerId;

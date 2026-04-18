@@ -8,8 +8,6 @@ exports.WORLD_RUNTIME_STATE_CONTRACT = Object.freeze({
         'instances',
         'playerLocations',
         'pendingCommands',
-        'pendingSystemCommands',
-        'pendingRespawnPlayerIds',
         'instanceTickProgressById',
     ]),
     restoreBackedRuntime: Object.freeze([
