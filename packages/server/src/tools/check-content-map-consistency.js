@@ -81,6 +81,43 @@ function validatePortals(errors, mapInfo, mapById, width, height) {
   }
 }
 
+function validateParentMapRules(errors, mapInfo, mapById) {
+  const parentMapId = mapInfo.map.parentMapId;
+  if (typeof parentMapId !== "string") {
+    return;
+  }
+  const parentMapInfo = mapById.get(parentMapId);
+  if (!parentMapInfo) {
+    errors.push(`${mapInfo.map.id}: parentMapId 不存在 -> ${parentMapId} @ ${mapInfo.relativePath}`);
+    return;
+  }
+  if (!Number.isInteger(mapInfo.map.floorLevel)) {
+    errors.push(`${mapInfo.map.id}: parentMapId 已设置，但 floorLevel 非整数 @ ${mapInfo.relativePath}`);
+  }
+  const hasParentOriginX = Number.isInteger(mapInfo.map.parentOriginX);
+  const hasParentOriginY = Number.isInteger(mapInfo.map.parentOriginY);
+  if (mapInfo.map.spaceVisionMode === "parent_overlay") {
+    if (!hasParentOriginX || !hasParentOriginY) {
+      errors.push(`${mapInfo.map.id}: parent_overlay 缺少 parentOriginX/Y @ ${mapInfo.relativePath}`);
+    }
+  }
+  if (hasParentOriginX && hasParentOriginY) {
+    validatePoint(
+      errors,
+      parentMapInfo,
+      `parent-origin-from:${mapInfo.map.id}`,
+      mapInfo.map.parentOriginX,
+      mapInfo.map.parentOriginY,
+      parentMapInfo.map.width,
+      parentMapInfo.map.height,
+    );
+  }
+  const hasReturnPortal = (mapInfo.map.portals ?? []).some((portal) => portal?.targetMapId === parentMapId);
+  if (!hasReturnPortal) {
+    errors.push(`${mapInfo.map.id}: 缺少回到父图 ${parentMapId} 的 portal @ ${mapInfo.relativePath}`);
+  }
+}
+
 function validateAnchors(errors, mapInfo, key, width, height) {
   for (const entry of mapInfo.map[key] ?? []) {
     const entryId = typeof entry?.id === "string" ? entry.id : "unknown";
@@ -114,6 +151,7 @@ function main() {
       continue;
     }
     validateTileShape(errors, mapInfo, width, height);
+    validateParentMapRules(errors, mapInfo, mapById);
     if (!mapInfo.map.spawnPoint) {
       errors.push(`${mapInfo.map.id}: 缺少 spawnPoint @ ${mapInfo.relativePath}`);
     } else {
@@ -136,7 +174,7 @@ function main() {
 
   process.stdout.write("[content/map consistency] passed\n");
   process.stdout.write(`- checked maps: ${mapById.size}\n`);
-  process.stdout.write("- validated: tiles, spawn points, portals, npc anchors, landmarks, monster spawns\n");
+  process.stdout.write("- validated: tiles, spawn points, portals, npc anchors, landmarks, monster spawns, parent-map rules\n");
 }
 
 main();
