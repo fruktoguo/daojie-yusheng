@@ -54,9 +54,9 @@
 ### 第 2 批：清理主文档口径
 
 - [x] 更新 `README.md`
-- [ ] 更新 `docs/next-in-place-hard-cut-plan.md`
-- [ ] 更新 `docs/next-plan/README.md`
-- [ ] 确认主文档不再把 legacy 写成“默认落点”或“并行主线”
+- [x] 更新 `docs/next-in-place-hard-cut-plan.md`
+- [x] 更新 `docs/next-plan/README.md`
+- [x] 确认主文档不再把 legacy 写成“默认落点”或“并行主线”
 
 重点修正：
 
@@ -70,7 +70,7 @@
 - [x] 更新 `packages/server/README.md`
 - [x] 更新 `packages/server/TESTING.md`
 - [x] 更新 `packages/server/REPLACE-RUNBOOK.md`
-- [ ] 检查 `.github/workflows/*` 是否仍有误导性的旧主线描述
+- [x] 检查 `.github/workflows/*` 是否仍有误导性的旧主线描述
 
 目标：
 
@@ -80,8 +80,8 @@
 ### 第 4 批：把主流程中 legacy 入口移出
 
 - [ ] 从主任务文档中移除不再需要的 legacy 入口
-- [ ] 从主开发命令、默认启动路径、默认验证路径中移除 legacy 主入口
-- [ ] 保留 legacy 仅作为显式归档/排查入口
+- [x] 从主开发命令、默认启动路径、默认验证路径中移除 legacy 主入口
+- [x] 保留 legacy 仅作为显式归档/排查入口
 
 重点确认：
 
@@ -100,13 +100,13 @@
   - `pnpm verify:replace-ready:acceptance`
   - `pnpm verify:replace-ready:full`
 - [ ] `05` 中定义的主要 compat 面已退到可接受范围
-- [ ] `10` 白名单里的 legacy 范围已确定
+- [x] `10` 白名单里的 legacy 范围已确定
 
 ## 当前阻塞
 
 - `packages/server/src/network/world-legacy-player-repository.js` 已删除，legacy `users/players` 显式 migration 查询已内联到 `world-player-source.service.js`。
 - auth/snapshot 的 runtime migration bridge 还没完全退出主链。
-- GM legacy scope fallback 还没删。
+- client/server/shared 主链仍在把部分 legacy 范围当行为/协议/UI 基线对照，切换前检查还不能判定完成。
 - 工作区仍存在既有文档/运行手册脏改，切换前检查还不能判定完成。
 
 ### 第 6 批：做切换后检查
