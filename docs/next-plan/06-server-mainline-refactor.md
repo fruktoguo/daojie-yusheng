@@ -442,6 +442,10 @@
 - `WorldRuntimeService` 的 `dispatchDropItem()` / `dispatchTakeGround()` / `dispatchTakeGroundAll()` 已退为 facade，地面与容器物品的丢弃/拾取链路由 `WorldRuntimeItemGroundService` 承接；与 `WorldRuntimeLootContainerService` 的协作边界保持清晰
 - 这次不迁移 `dispatchEquipItem()` / `dispatchUnequipItem()` 或 market/NPC 商店链路，只移动 item-ground 这一组叶子业务域，`WorldRuntimeService` 仍保留其他物品/装备命令入口的总编排
 - 本轮验证已补跑 `pnpm --filter @mud/server-next smoke:world-runtime-item-ground`、`pnpm --filter @mud/server-next smoke:loot`、`pnpm --filter @mud/server-next smoke:runtime`、根级串行 `pnpm build && pnpm verify:replace-ready`；结果全部通过
+- 新增 `packages/server/src/runtime/world/world-runtime-redeem-code.service.js`
+- `WorldRuntimeService` 的 `dispatchRedeemCodes()` 已退为 facade，兑换码结算与结果回推由 `WorldRuntimeRedeemCodeService` 承接；socket 结果回写与失败提示不再留在主服务中
+- 这次不迁移 GM 兑换码管理或持久化层，只移动 runtime 侧 `redeemCodes` 这一条叶子业务域，`WorldRuntimeService` 仍保留其它命令入口的总编排
+- 本轮验证已补跑 `pnpm --filter @mud/server-next smoke:redeem-code`、`pnpm --filter @mud/server-next smoke:runtime`、根级串行 `pnpm build && pnpm verify:replace-ready`；结果全部通过，其中 `smoke:redeem-code` 在无库口径下返回 `ok: true` 且标记 `skipped`
 - 新增 `packages/server/src/runtime/world/world-runtime-equipment.service.js`
 - `WorldRuntimeService` 的 `dispatchEquipItem()` / `dispatchUnequipItem()` 已退为 facade，装备穿戴/卸下结算由 `WorldRuntimeEquipmentService` 承接；与 craft panel 锁槽校验和 panel update 的协作边界保持清晰
 - 这次不迁移 `dispatchCultivateTechnique()` 或 market/NPC 商店链路，只移动 equipment 这一组叶子业务域，`WorldRuntimeService` 仍保留其余相邻命令入口的总编排
