@@ -22,9 +22,9 @@
 - [x] 给“数据迁移完成”补一条迁移 proof 链
 - [x] 跑通 `pnpm build`
 - [x] 跑通 `pnpm verify:replace-ready`
-- [x] 跑通 `pnpm verify:replace-ready:with-db`
-- [x] 跑通 `pnpm verify:replace-ready:acceptance`
-- [x] 跑通 `pnpm verify:replace-ready:full`
+- [ ] 跑通 `pnpm verify:replace-ready:with-db`
+- [ ] 跑通 `pnpm verify:replace-ready:acceptance`
+- [ ] 跑通 `pnpm verify:replace-ready:full`
 - [x] 跑通必要的 protocol audit
 - [x] 跑通必要的 boundary audit
 - [x] 跑通 next-only 的关键 smoke
