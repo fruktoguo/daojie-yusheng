@@ -397,6 +397,10 @@
 - `WorldRuntimeService` 的 `processPendingRespawns()` / `respawnPlayer()` 已委托给 `WorldRuntimeRespawnService`，复生队列消费、目标实例解析、位置回填与运行态复原不再留在主服务中
 - `WorldRuntimeService` 仍保留 `advanceFrame()` 的调用时机、`dispatchSystemCommand()` 对 `respawnPlayer` 的编排入口，以及跨域错误收口，说明这次是第 5 批第十二刀的 respawn orchestration 抽离
 - 本轮验证已补跑 `pnpm --filter @mud/server-next smoke:runtime`、`pnpm --filter @mud/server-next smoke:player-respawn`、`pnpm --filter @mud/server-next smoke:gm-next`、根级串行 `pnpm build && pnpm verify:replace-ready`；结果全部通过
+- 新增 `packages/server/src/runtime/world/world-runtime-pending-command.service.js`
+- `WorldRuntimeService` 的 `pendingCommands` 已由 `WorldRuntimePendingCommandService` 真正持有，`dispatchPendingCommands()` 也已委托给新 service；`world-runtime.state.js` 与 `world-runtime.contract.js` 同步移除了该状态位
+- `WorldRuntimeService` 仍保留 `advanceFrame()` 的 tick 顺序、`dispatchInstanceCommand()` / `dispatchPlayerCommand()` 的编排壳，以及跨域错误收口，说明这次是第 5 批下一刀的 pending-command state ownership 抽离
+- 本轮验证已补跑 `pnpm --filter @mud/server-next smoke:runtime`、`pnpm --filter @mud/server-next smoke:gm-next`、根级串行 `pnpm build && pnpm verify:replace-ready`；结果全部通过，其中 `gm-next` 在无库本地口径下返回 `ok: true` 且标记 `skipped`
 
 这一批结束后，`world-runtime.service.js` 仍可以存在，但不该再同时拥有所有领域细节。
 
