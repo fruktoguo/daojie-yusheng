@@ -56,8 +56,8 @@ shared 当前已有护栏：
 - [ ] 检查地图文档、怪物包、任务、物品、功法之间的引用一致性
 - [ ] 检查 compose 地图结构规范
 - [ ] 检查室内地图规范
-- [ ] 检查传送点规范
-- [ ] 检查 NPC 锚点规范
+- [x] 检查传送点规范
+- [x] 检查 NPC 锚点规范
 - [ ] 决定哪些客户端 generated 数据继续保留
 - [ ] 决定哪些客户端 generated 数据可以删掉或重做
 
@@ -131,8 +131,8 @@ shared 当前已有护栏：
 
 - [ ] compose 地图规范
 - [ ] 室内地图规范
-- [ ] 传送点规范
-- [ ] NPC 锚点规范
+- [x] 传送点规范
+- [x] NPC 锚点规范
 - [ ] 室内/洞窟/副图与主图连通关系
 
 至少要明确：
@@ -141,6 +141,11 @@ shared 当前已有护栏：
 - portal 指向是否合法
 - 室内图是否有明确回到主图路径
 - NPC 是否落在合法地图与坐标
+
+当前已落地的最小自动检查：
+
+- `pnpm --filter @mud/server-next audit:content-map-consistency`
+  - 已覆盖：map id 唯一性、tiles 尺寸、spawnPoint、portal 源/目标坐标、NPC 锚点、landmark、monster spawn 坐标合法性
 
 ### 第 6 批：决定 generated 数据的去留
 
@@ -169,6 +174,10 @@ shared 当前已有护栏：
 
 - [ ] 每张地图都能回答 portal / npc / 室内层级是否合法
 - [ ] compose 规则不再靠隐式约定
+
+补充：
+
+- 当前 portal / NPC 锚点合法性已由 `audit:content-map-consistency` 做自动检查。
 
 ## 本阶段不做的事
 
