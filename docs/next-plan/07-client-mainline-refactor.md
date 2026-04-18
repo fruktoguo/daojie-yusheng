@@ -155,6 +155,8 @@
 - [ ] `quest-panel.ts`
   - 只消费 quest 相关状态
   - 首刀已完成：quest 状态源与低频编排已从 `main.ts` 抽到 `packages/client/src/main-quest-state-source.ts`，`socket.ts` 仍保持唯一事件消费层，`QuestPanel` 保持 patch-first
+- [x] `world-panel.ts` 的低频详情链
+  - 已完成：world leaderboard / world-summary 的低频状态来源、`WorldPanel` 回调 wiring 与详情弹层刷新已从 `main.ts` 抽到 `packages/client/src/main-world-summary-state-source.ts`，`socket.ts` 仍保持唯一事件消费层，`WorldPanel` 本体渲染不变
 - [x] `settings-panel.ts`
   - 已完成：settings 低频编排与状态来源已从 `main.ts` 抽到 `packages/client/src/main-settings-state-source.ts`，`socket.ts` 仍保持唯一事件消费层，`SettingsPanel` 保持原有渲染/交互行为
 - [x] `suggestion-panel.ts`
