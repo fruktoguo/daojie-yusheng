@@ -388,6 +388,13 @@
   - `persisted`
 - [ ] 不允许在 gateway / controller 里散落第三种隐式写路径
 
+本轮继续完成：
+
+- `packages/server/src/http/next/next-gm-player.service.js` 的 `updatePlayer()` 现在把 `position` 继续限定为 runtime queue，其余当前已处理 section 统一改为 direct persistence，再按保存结果回写在线 runtime
+- 在线玩家的非 `position` GM 更新不再直接形成 runtime-only 写路径，收口到“queue 或 persistence” 两类
+- `autoBattleSkills.autoBattleOrder` 已在 direct persistence 分支保留，消除在线/离线 GM 更新时这一字段的保存漂移
+- 本轮验证已补跑 `pnpm --filter @mud/server-next smoke:gm-next`、`pnpm --filter @mud/server-next smoke:gm-database`、根级 `pnpm build` 与 `pnpm verify:replace-ready`；其中 `gm-database` 因缺少 `SERVER_NEXT_DATABASE_URL/DATABASE_URL` 按预期跳过，`gm-next` 在无库本地口径下返回 `ok: true` 且标记 `skipped`
+
 最小验证：
 
 - `pnpm --filter @mud/server-next build`
