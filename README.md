@@ -93,4 +93,5 @@ pnpm verify:server-next:full
 - 根级主验证入口是 `verify:replace-ready*`
 - `verify:server-next*` 只保留为兼容别名
 - `./start-next.sh` 是默认本地启动脚本；`./start.sh` 只保留给 `legacy/` 归档排查
+- 根级 `docker-compose.yml` 现在默认对应 next full-stack 本地入口；legacy Docker 归档入口改为 `docker-compose.legacy.yml`
 - 任何“可以删 legacy / 可以宣布完整替换”的结论，都应以文档、audit、smoke、verify 与真实环境证据共同成立为准
