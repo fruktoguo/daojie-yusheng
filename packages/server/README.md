@@ -6,7 +6,7 @@
 
 - next 前后台迁移主后端
 - shadow / replace-ready 验收线
-- 阶段性备份与继续协作线
+- next 原地硬切执行后端
 
 它**不是**默认正式生产入口，也**不等于**已经完整替换旧游戏整体。
 
@@ -89,7 +89,7 @@
 ## 当前边界
 
 - 当前所有镜像、workflow、stack 和 smoke 默认只服务于 shadow / 备份线
-- 包内 `src/compat/legacy/` 当前只保留迁移参考与最小兼容核，不再承担默认 HTTP 主入口
+- active 主包里已不存在单独的 compat/legacy 主目录；遗留 compat 行为只允许作为显式 next 入口、proof 或迁移工具边界存在
 - 当前重点仍是：
   - `auth/token/bootstrap` 真源替换
   - replace-ready / shadow / with-db / GM-admin 证明链收口
