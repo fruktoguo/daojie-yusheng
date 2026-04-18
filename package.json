@@ -3,7 +3,7 @@
   "private": true,
   "scripts": {
     "build": "pnpm run build:next",
-    "build:next": "pnpm run build:config-editor && pnpm run build:client-next && pnpm run build:server-next",
+    "build:next": "pnpm run build:client-next && pnpm run build:server-next",
     "build:config-editor": "pnpm --filter @mud/config-editor build",
     "build:server-next": "pnpm --filter @mud/server-next compile",
     "check:item-sources": "node scripts/check-item-sources.mjs",

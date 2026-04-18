@@ -27,7 +27,7 @@ pnpm build
 
 注意：
 
-- `pnpm build` 现在只覆盖 next 主线构建：`config-editor`、`client-next`、`server-next compile`
+- `pnpm build` 现在只覆盖 next 主线构建：`client-next`、`server-next compile`
 - 它不再联动 `server-next` 的 smoke
 - 如果需要主证明链，应单独执行 `pnpm verify:server-next`
 
