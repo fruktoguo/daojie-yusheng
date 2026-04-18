@@ -446,6 +446,10 @@
 - `WorldRuntimeService` 的 `dispatchEquipItem()` / `dispatchUnequipItem()` 已退为 facade，装备穿戴/卸下结算由 `WorldRuntimeEquipmentService` 承接；与 craft panel 锁槽校验和 panel update 的协作边界保持清晰
 - 这次不迁移 `dispatchCultivateTechnique()` 或 market/NPC 商店链路，只移动 equipment 这一组叶子业务域，`WorldRuntimeService` 仍保留其余相邻命令入口的总编排
 - 本轮验证已补跑 `pnpm --filter @mud/server-next smoke:world-runtime-equipment`、`pnpm --filter @mud/server-next smoke:runtime`、根级串行 `pnpm build && pnpm verify:replace-ready`；结果全部通过
+- 新增 `packages/server/src/runtime/world/world-runtime-cultivation.service.js`
+- `WorldRuntimeService` 的 `dispatchCultivateTechnique()` 已退为 facade，主修功法切换、craft panel 阻断判断和修炼提示由 `WorldRuntimeCultivationService` 承接
+- 这次不迁移 `dispatchStartAlchemy()` / `dispatchStartEnhancement()` 或其它 craft 链路，只移动 cultivateTechnique 这一条最小叶子业务域，`WorldRuntimeService` 仍保留相邻 craft/runtime 命令入口的总编排
+- 本轮验证已补跑 `pnpm --filter @mud/server-next smoke:world-runtime-cultivation`、`pnpm --filter @mud/server-next smoke:runtime`、根级串行 `pnpm build && pnpm verify:replace-ready`；结果全部通过
 - `packages/server/src/runtime/world/world-runtime.state.js` 与 `packages/server/src/runtime/world/world-runtime.contract.js` 空壳已删除，`WorldRuntimeService` 不再保留无实际用途的 state-layer 包装
 - 这不是新增状态域，而是第 5 批收尾清理：在状态所有权都已下沉后，把空壳层彻底移除，避免继续误导为主服务仍通过统一 state store 托管热态
 
