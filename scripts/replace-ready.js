@@ -28,8 +28,8 @@ const verifyPackageScriptName = databaseUrl
   ? 'verify:replace-ready:with-db'
   : 'verify:replace-ready';
 const verifyDisplayScriptName = databaseUrl
-  ? 'verify:server-next:with-db'
-  : 'verify:server-next';
+  ? 'verify:replace-ready:with-db'
+  : 'verify:replace-ready';
 /**
  * 记录replace就绪状态mode。
  */
@@ -81,5 +81,5 @@ for (const step of steps) {
 
 process.stdout.write(`[replace-ready] completed mode=${replaceReadyMode}\n`);
 process.stdout.write('[replace-ready] boundary=local/with-db automated proof only; this does not include shadow acceptance, destructive proof, or complete GM/admin manual regression\n');
-process.stdout.write('[replace-ready] next=run pnpm verify:server-next:acceptance for shadow + gm-next, pnpm verify:server-next:full for the strictest automated gate, or pnpm verify:server-next:doctor to inspect missing env\n');
+process.stdout.write('[replace-ready] next=run pnpm verify:replace-ready:acceptance for shadow + gm-next, pnpm verify:replace-ready:full for the strictest automated gate, or pnpm verify:replace-ready:doctor to inspect missing env\n');
 process.exit(0);
