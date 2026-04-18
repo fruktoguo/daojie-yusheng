@@ -454,6 +454,10 @@
 - `WorldRuntimeCraftService` 的 `dispatchStartEnhancement()` / `dispatchCancelEnhancement()` / `tickEnhancement()` 已退为 facade，强化写路径与面板刷新由 `WorldRuntimeEnhancementService` 承接；炼丹与 preset 仍留在 `WorldRuntimeCraftService`
 - 这次不迁移 `dispatchStartAlchemy()` / `dispatchCancelAlchemy()` / preset CRUD，只移动 enhancement 这一条更小的 craft 子域，`WorldRuntimeService` 仍保留 `dispatchStartEnhancement()` / `dispatchCancelEnhancement()` 的总编排入口
 - 本轮验证已补跑 `pnpm --filter @mud/server-next smoke:world-runtime-enhancement`、`pnpm --filter @mud/server-next smoke:runtime`、根级串行 `pnpm build && pnpm verify:replace-ready`；结果全部通过
+- 新增 `packages/server/src/runtime/world/world-runtime-alchemy.service.js`
+- `WorldRuntimeCraftService` 的 `dispatchStartAlchemy()` / `dispatchCancelAlchemy()` / `dispatchSaveAlchemyPreset()` / `dispatchDeleteAlchemyPreset()` / `tickAlchemy()` 已退为 facade，炼丹写路径与 preset 维护由 `WorldRuntimeAlchemyService` 承接；强化仍留在 `WorldRuntimeEnhancementService`
+- 这次不迁移 craft 总入口或 panel 通道，只移动 alchemy/preset 这一组剩余 craft 子域，`WorldRuntimeService` 仍保留 `dispatchStartAlchemy()` / `dispatchCancelAlchemy()` / preset 入口的总编排
+- 本轮验证已补跑 `pnpm --filter @mud/server-next smoke:world-runtime-alchemy`、`pnpm --filter @mud/server-next smoke:runtime`、根级串行 `pnpm build && pnpm verify:replace-ready`；结果全部通过
 - `packages/server/src/runtime/world/world-runtime.state.js` 与 `packages/server/src/runtime/world/world-runtime.contract.js` 空壳已删除，`WorldRuntimeService` 不再保留无实际用途的 state-layer 包装
 - 这不是新增状态域，而是第 5 批收尾清理：在状态所有权都已下沉后，把空壳层彻底移除，避免继续误导为主服务仍通过统一 state store 托管热态
 
