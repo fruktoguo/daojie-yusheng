@@ -64,6 +64,8 @@ const world_runtime_basic_attack_service_1 = require("./world-runtime-basic-atta
 
 const world_runtime_player_skill_dispatch_service_1 = require("./world-runtime-player-skill-dispatch.service");
 
+const world_runtime_battle_engage_service_1 = require("./world-runtime-battle-engage.service");
+
 const world_runtime_auto_combat_service_1 = require("./world-runtime-auto-combat.service");
 
 const player_combat_service_1 = require("../combat/player-combat.service");
@@ -254,6 +256,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     worldRuntimeMonsterActionApplyService;
     worldRuntimeBasicAttackService;
     worldRuntimePlayerSkillDispatchService;
+    worldRuntimeBattleEngageService;
     worldRuntimeAutoCombatService;
     logger = new common_1.Logger(WorldRuntimeService_1.name);
     stateLayerContract = world_runtime_contract_1.WORLD_RUNTIME_STATE_CONTRACT;
@@ -277,7 +280,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     tickDurationHistoryMs = [];
     syncFlushDurationHistoryMs = [];
     instanceTickProgressById = this.runtimeState.instanceTickProgressById;
-    constructor(contentTemplateRepository, templateRepository, mapPersistenceService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService, craftPanelRuntimeService, worldRuntimeNpcShopQueryService, worldRuntimeQuestQueryService, worldRuntimeNpcQuestInteractionQueryService, worldRuntimeGmQueueService, worldRuntimeCraftService, worldRuntimeNpcQuestShopService, worldRuntimeLootContainerService, worldRuntimeNavigationService, worldRuntimeCombatEffectsService, worldRuntimeMonsterActionApplyService, worldRuntimeBasicAttackService, worldRuntimePlayerSkillDispatchService, worldRuntimeAutoCombatService) {
+    constructor(contentTemplateRepository, templateRepository, mapPersistenceService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService, craftPanelRuntimeService, worldRuntimeNpcShopQueryService, worldRuntimeQuestQueryService, worldRuntimeNpcQuestInteractionQueryService, worldRuntimeGmQueueService, worldRuntimeCraftService, worldRuntimeNpcQuestShopService, worldRuntimeLootContainerService, worldRuntimeNavigationService, worldRuntimeCombatEffectsService, worldRuntimeMonsterActionApplyService, worldRuntimeBasicAttackService, worldRuntimePlayerSkillDispatchService, worldRuntimeBattleEngageService, worldRuntimeAutoCombatService) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.templateRepository = templateRepository;
         this.mapPersistenceService = mapPersistenceService;
@@ -299,6 +302,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.worldRuntimeMonsterActionApplyService = worldRuntimeMonsterActionApplyService;
         this.worldRuntimeBasicAttackService = worldRuntimeBasicAttackService;
         this.worldRuntimePlayerSkillDispatchService = worldRuntimePlayerSkillDispatchService;
+        this.worldRuntimeBattleEngageService = worldRuntimeBattleEngageService;
         this.worldRuntimeAutoCombatService = worldRuntimeAutoCombatService;
     }
     /** onModuleInit：初始化公共实例的基础结构。 */
@@ -2058,59 +2062,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     }
     /** dispatchEngageBattle：执行战斗锁定或普通攻击的入口。 */
     dispatchEngageBattle(playerId, targetPlayerId, targetMonsterId, targetX, targetY, locked) {
-
-        const currentTick = this.resolveCurrentTickForPlayerId(playerId);
-
-        const currentPlayer = this.playerRuntimeService.getPlayerOrThrow(playerId);
-
-        const wasAutoBattleActive = currentPlayer.combat.autoBattle === true;
-        this.interruptManualCombat(playerId);
-        if (!targetMonsterId) {
-
-            const targetRef = targetPlayerId
-                ? `player:${targetPlayerId}`
-                : (targetX !== null && targetY !== null ? `tile:${targetX}:${targetY}` : null);
-            if (locked && targetRef) {
-                this.playerRuntimeService.updateCombatSettings(playerId, {
-                    autoBattle: true,
-                }, currentTick);
-                this.playerRuntimeService.setCombatTarget(playerId, targetRef, true, currentTick);
-                if (wasAutoBattleActive) {
-                    return;
-                }
-            }
-            this.dispatchBasicAttack(playerId, targetPlayerId, null, targetX, targetY);
-            return;
-        }
-
-        const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
-        if (!player.instanceId) {
-            throw new common_1.BadRequestException(`Player ${playerId} not attached to instance`);
-        }
-
-        const instance = this.getInstanceRuntimeOrThrow(player.instanceId);
-
-        const monster = instance.getMonster(targetMonsterId);
-        if (!monster?.alive) {
-            throw new common_1.NotFoundException(`Monster ${targetMonsterId} not found`);
-        }
-        this.playerRuntimeService.updateCombatSettings(playerId, {
-            autoBattle: true,
-        }, currentTick);
-        this.playerRuntimeService.setCombatTarget(playerId, monster.runtimeId, locked, currentTick);
-        if (wasAutoBattleActive) {
-            return;
-        }
-
-        const nextCommand = this.buildAutoCombatCommand(instance, player);
-        if (!nextCommand) {
-            return;
-        }
-        if (nextCommand.kind === 'move' || nextCommand.kind === 'portal') {
-            this.dispatchInstanceCommand(playerId, nextCommand);
-            return;
-        }
-        this.dispatchPlayerCommand(playerId, nextCommand);
+        this.worldRuntimeBattleEngageService.dispatchEngageBattle(playerId, targetPlayerId, targetMonsterId, targetX, targetY, locked, this);
     }
     /** dispatchCastSkillToMonster：把技能结算到妖兽目标上。 */
     dispatchCastSkillToMonster(attacker, skillId, targetMonsterId) {
@@ -3023,6 +2975,7 @@ exports.WorldRuntimeService = WorldRuntimeService = WorldRuntimeService_1 = __de
         world_runtime_monster_action_apply_service_1.WorldRuntimeMonsterActionApplyService,
         world_runtime_basic_attack_service_1.WorldRuntimeBasicAttackService,
         world_runtime_player_skill_dispatch_service_1.WorldRuntimePlayerSkillDispatchService,
+        world_runtime_battle_engage_service_1.WorldRuntimeBattleEngageService,
         world_runtime_auto_combat_service_1.WorldRuntimeAutoCombatService])
 ], WorldRuntimeService);
 // helper functions were split into dedicated helper modules for maintainability.
