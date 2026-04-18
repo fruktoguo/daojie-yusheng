@@ -171,13 +171,18 @@
 
 - [x] 跑 `pnpm --filter @mud/server-next migrate:legacy-next:once` 的样本/真实转换
 - [x] 用迁移后的 next 真源重新跑 `pnpm verify:replace-ready:proof:with-db`
-- [ ] 补 `pnpm --filter @mud/server-next smoke:persistence`
-- [ ] 涉及 GM scope 迁移时，补 `pnpm --filter @mud/server-next smoke:gm-database`
-- [ ] 记录迁移前后摘要：
+- [x] 补 `pnpm --filter @mud/server-next smoke:persistence`
+- [x] 涉及 GM scope 迁移时，补 `pnpm --filter @mud/server-next smoke:gm-database`
+- [x] 记录迁移前后摘要：
   - 迁了哪些域
   - 写入了哪些 next scope / 表
   - 丢弃了哪些可重建数据
   - 还剩哪些 legacy scope 未退役
+
+补充说明：
+
+- 这里的 `[x]` 表示 `04` 已固定历史 proof 链与摘要记录，见 `04-one-off-migration-script.md` 的正式转换 proof 链与本轮实跑记录。
+- 它不自动等价于“当前轮次 with-db / acceptance / full 已重新实跑完成”；当前轮次 gate 是否重跑，仍以上面的环境就绪度与当前验证结论为准。
 
 ## 失败归类规则
 
