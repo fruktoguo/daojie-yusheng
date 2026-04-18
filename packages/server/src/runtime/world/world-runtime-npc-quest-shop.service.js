@@ -15,33 +15,15 @@ exports.WorldRuntimeNpcQuestShopService = void 0;
 
 const common_1 = require("@nestjs/common");
 const player_runtime_service_1 = require("../player/player-runtime.service");
-const world_runtime_npc_shop_query_service_1 = require("./world-runtime-npc-shop-query.service");
 const world_runtime_normalization_helpers_1 = require("./world-runtime.normalization.helpers");
 
-const { normalizeShopQuantity, cloneQuestState, buildNpcQuestProgressText, formatItemStackLabel } = world_runtime_normalization_helpers_1;
+const { cloneQuestState, buildNpcQuestProgressText } = world_runtime_normalization_helpers_1;
 
 /** NPC / quest / shop 写路径编排服务：承接 queue 入口归一和交互写路径。 */
 let WorldRuntimeNpcQuestShopService = class WorldRuntimeNpcQuestShopService {
     playerRuntimeService;
-    worldRuntimeNpcShopQueryService;
-    constructor(playerRuntimeService, worldRuntimeNpcShopQueryService) {
+    constructor(playerRuntimeService) {
         this.playerRuntimeService = playerRuntimeService;
-        this.worldRuntimeNpcShopQueryService = worldRuntimeNpcShopQueryService;
-    }
-    enqueueBuyNpcShopItem(playerId, npcIdInput, itemIdInput, quantityInput, deps) {
-        deps.getPlayerLocationOrThrow(playerId);
-        const npcId = typeof npcIdInput === 'string' ? npcIdInput.trim() : '';
-        const itemId = typeof itemIdInput === 'string' ? itemIdInput.trim() : '';
-        if (!npcId) {
-            throw new common_1.BadRequestException('npcId is required');
-        }
-        if (!itemId) {
-            throw new common_1.BadRequestException('itemId is required');
-        }
-        const quantity = normalizeShopQuantity(quantityInput);
-        deps.validateNpcShopPurchase(playerId, npcId, itemId, quantity);
-        deps.pendingCommands.set(playerId, { kind: 'buyNpcShopItem', npcId, itemId, quantity });
-        return deps.getPlayerViewOrThrow(playerId);
     }
     enqueueNpcInteraction(playerId, actionIdInput, deps) {
         deps.getPlayerLocationOrThrow(playerId);
@@ -121,13 +103,6 @@ let WorldRuntimeNpcQuestShopService = class WorldRuntimeNpcQuestShopService {
         }
         deps.pendingCommands.set(playerId, { kind: 'submitNpcQuest', npcId, questId });
         return deps.getPlayerViewOrThrow(playerId);
-    }
-    dispatchBuyNpcShopItem(playerId, npcId, itemId, quantity, deps) {
-        const validated = deps.validateNpcShopPurchase(playerId, npcId, itemId, quantity);
-        this.playerRuntimeService.consumeInventoryItemByItemId(playerId, this.worldRuntimeNpcShopQueryService.getCurrencyItemId(), validated.totalCost);
-        this.playerRuntimeService.receiveInventoryItem(playerId, validated.item);
-        deps.refreshQuestStates(playerId);
-        deps.queuePlayerNotice(playerId, `购买 ${formatItemStackLabel(validated.item)}，消耗 ${this.worldRuntimeNpcShopQueryService.getCurrencyItemName()} x${validated.totalCost}`, 'success');
     }
     dispatchNpcInteraction(playerId, npcId, deps) {
         const npc = deps.resolveAdjacentNpc(playerId, npcId);
@@ -232,6 +207,5 @@ let WorldRuntimeNpcQuestShopService = class WorldRuntimeNpcQuestShopService {
 exports.WorldRuntimeNpcQuestShopService = WorldRuntimeNpcQuestShopService;
 exports.WorldRuntimeNpcQuestShopService = WorldRuntimeNpcQuestShopService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [player_runtime_service_1.PlayerRuntimeService,
-        world_runtime_npc_shop_query_service_1.WorldRuntimeNpcShopQueryService])
+    __metadata("design:paramtypes", [player_runtime_service_1.PlayerRuntimeService])
 ], WorldRuntimeNpcQuestShopService);
