@@ -122,6 +122,8 @@ const world_runtime_cultivation_service_1 = require("./runtime/world/world-runti
 
 const world_runtime_enhancement_service_1 = require("./runtime/world/world-runtime-enhancement.service");
 
+const world_runtime_alchemy_service_1 = require("./runtime/world/world-runtime-alchemy.service");
+
 const world_runtime_use_item_service_1 = require("./runtime/world/world-runtime-use-item.service");
 
 const world_runtime_player_skill_dispatch_service_1 = require("./runtime/world/world-runtime-player-skill-dispatch.service");
@@ -228,6 +230,7 @@ exports.AppModule = AppModule = __decorate([
             world_runtime_equipment_service_1.WorldRuntimeEquipmentService,
             world_runtime_cultivation_service_1.WorldRuntimeCultivationService,
             world_runtime_enhancement_service_1.WorldRuntimeEnhancementService,
+            world_runtime_alchemy_service_1.WorldRuntimeAlchemyService,
             world_runtime_use_item_service_1.WorldRuntimeUseItemService,
             world_runtime_player_skill_dispatch_service_1.WorldRuntimePlayerSkillDispatchService,
             world_runtime_battle_engage_service_1.WorldRuntimeBattleEngageService,
