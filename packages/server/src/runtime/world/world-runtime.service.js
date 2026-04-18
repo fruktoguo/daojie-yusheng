@@ -44,6 +44,8 @@ const world_runtime_npc_shop_query_service_1 = require("./world-runtime-npc-shop
 
 const world_runtime_quest_query_service_1 = require("./world-runtime-quest-query.service");
 
+const world_runtime_detail_query_service_1 = require("./world-runtime-detail-query.service");
+
 const world_runtime_npc_quest_interaction_query_service_1 = require("./world-runtime-npc-quest-interaction-query.service");
 
 const world_runtime_gm_queue_service_1 = require("./world-runtime-gm-queue.service");
@@ -140,16 +142,8 @@ const {
     formatCombatDamageBreakdown,
     formatCombatActionClause,
     formatCombatDamageType,
-    cloneVisibleBuff,
-    buildPlayerObservation,
-    buildMonsterObservation,
-    buildMonsterLootPreview,
     resolveObservedDropChance,
     compareStableText,
-    buildNpcObservation,
-    buildPortalTileEntityDetail,
-    buildGroundTileEntityDetail,
-    buildContainerTileEntityDetail,
     buildObservationInsight,
     computeObservationProgress,
     resolveObservationClarity,
@@ -157,7 +151,6 @@ const {
     formatCurrentMaxObservation,
     buildPortalDisplayName,
     buildPortalKindLabel,
-    buildPortalId,
 } = world_runtime_observation_helpers_1;
 const {
     chebyshevDistance,
@@ -181,7 +174,6 @@ const {
     popPathNode,
     directionFromStep,
     buildAutoBattleGoalPoints,
-    isTileVisibleInView,
     DIRECTION_OFFSET,
 } = world_runtime_path_planning_helpers_1;
 
@@ -246,6 +238,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     craftPanelRuntimeService;
     worldRuntimeNpcShopQueryService;
     worldRuntimeQuestQueryService;
+    worldRuntimeDetailQueryService;
     worldRuntimeNpcQuestInteractionQueryService;
     worldRuntimeGmQueueService;
     worldRuntimeCraftService;
@@ -280,7 +273,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     tickDurationHistoryMs = [];
     syncFlushDurationHistoryMs = [];
     instanceTickProgressById = this.runtimeState.instanceTickProgressById;
-    constructor(contentTemplateRepository, templateRepository, mapPersistenceService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService, craftPanelRuntimeService, worldRuntimeNpcShopQueryService, worldRuntimeQuestQueryService, worldRuntimeNpcQuestInteractionQueryService, worldRuntimeGmQueueService, worldRuntimeCraftService, worldRuntimeNpcQuestShopService, worldRuntimeLootContainerService, worldRuntimeNavigationService, worldRuntimeCombatEffectsService, worldRuntimeMonsterActionApplyService, worldRuntimeBasicAttackService, worldRuntimePlayerSkillDispatchService, worldRuntimeBattleEngageService, worldRuntimeAutoCombatService) {
+    constructor(contentTemplateRepository, templateRepository, mapPersistenceService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService, craftPanelRuntimeService, worldRuntimeNpcShopQueryService, worldRuntimeQuestQueryService, worldRuntimeDetailQueryService, worldRuntimeNpcQuestInteractionQueryService, worldRuntimeGmQueueService, worldRuntimeCraftService, worldRuntimeNpcQuestShopService, worldRuntimeLootContainerService, worldRuntimeNavigationService, worldRuntimeCombatEffectsService, worldRuntimeMonsterActionApplyService, worldRuntimeBasicAttackService, worldRuntimePlayerSkillDispatchService, worldRuntimeBattleEngageService, worldRuntimeAutoCombatService) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.templateRepository = templateRepository;
         this.mapPersistenceService = mapPersistenceService;
@@ -292,6 +285,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.craftPanelRuntimeService = craftPanelRuntimeService;
         this.worldRuntimeNpcShopQueryService = worldRuntimeNpcShopQueryService;
         this.worldRuntimeQuestQueryService = worldRuntimeQuestQueryService;
+        this.worldRuntimeDetailQueryService = worldRuntimeDetailQueryService;
         this.worldRuntimeNpcQuestInteractionQueryService = worldRuntimeNpcQuestInteractionQueryService;
         this.worldRuntimeGmQueueService = worldRuntimeGmQueueService;
         this.worldRuntimeCraftService = worldRuntimeCraftService;
@@ -884,7 +878,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     }
     /** buildDetail：构建目标详情，要求目标必须在当前视野内。 */
     buildDetail(playerId, input) {
-        this.getPlayerLocationOrThrow(playerId);
+        const location = this.getPlayerLocationOrThrow(playerId);
 
         const kind = input.kind;
 
@@ -897,171 +891,13 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         }
 
         const view = this.getPlayerViewOrThrow(playerId);
-
-        const location = this.getPlayerLocationOrThrow(playerId);
-
         const instance = this.getInstanceRuntimeOrThrow(location.instanceId);
-
         const viewer = this.playerRuntimeService.getPlayerOrThrow(playerId);
-        if (kind === 'npc') {
-            if (!view.localNpcs.some((entry) => entry.npcId === id)) {
-                return { kind, id, error: '目标不在当前视野内' };
-            }
-
-            const npc = instance.getNpc(id);
-            if (!npc) {
-                return { kind, id, error: '目标不存在' };
-            }
-            return {
-                kind,
-                id,
-                npc: {
-                    id: npc.npcId,
-                    name: npc.name,
-                    char: npc.char,
-                    color: npc.color,
-                    x: npc.x,
-                    y: npc.y,
-                    dialogue: npc.dialogue,
-                    role: npc.role ?? undefined,
-                    hasShop: npc.hasShop ? 1 : undefined,
-                    questCount: npc.quests.length > 0 ? npc.quests.length : undefined,
-                    questMarker: view.localNpcs.find((entry) => entry.npcId === npc.npcId)?.questMarker,
-                    observation: buildNpcObservation(npc),
-                },
-            };
-        }
-        if (kind === 'monster') {
-            if (!view.localMonsters.some((entry) => entry.runtimeId === id)) {
-                return { kind, id, error: '目标不在当前视野内' };
-            }
-
-            const monster = instance.getMonster(id);
-            if (!monster) {
-                return { kind, id, error: '目标不存在' };
-            }
-            return {
-                kind,
-                id,
-                monster: {
-                    id: monster.runtimeId,
-                    mid: monster.monsterId,
-                    name: monster.name,
-                    char: monster.char,
-                    color: monster.color,
-                    x: monster.x,
-                    y: monster.y,
-                    hp: monster.hp,
-                    maxHp: monster.maxHp,
-                    level: monster.level,
-                    tier: monster.tier,
-                    alive: monster.alive,
-                    respawnTicks: monster.respawnTicks,
-                    observation: buildMonsterObservation(viewer.attrs.finalAttrs.spirit, monster),
-                    buffs: monster.buffs.map((entry) => cloneVisibleBuff(entry)),
-                },
-            };
-        }
-        if (kind === 'player') {
-            if (id !== viewer.playerId && !view.visiblePlayers.some((entry) => entry.playerId === id)) {
-                return { kind, id, error: '目标不在当前视野内' };
-            }
-
-            const target = this.playerRuntimeService.getPlayer(id);
-            if (!target || target.instanceId !== location.instanceId) {
-                return { kind, id, error: '目标不存在' };
-            }
-            return {
-                kind,
-                id,
-                player: {
-                    id: target.playerId,
-                    x: target.x,
-                    y: target.y,
-                    hp: target.hp,
-                    maxHp: target.maxHp,
-                    qi: target.qi,
-                    maxQi: target.maxQi,
-
-                    observation: buildPlayerObservation(viewer.attrs.finalAttrs.spirit, target, viewer.playerId === target.playerId),
-                    buffs: target.buffs.buffs.map((entry) => cloneVisibleBuff(entry)),
-                },
-            };
-        }
-        if (kind === 'portal') {
-
-            const portal = view.localPortals.find((entry) => buildPortalId(entry.x, entry.y) === id);
-            if (!portal) {
-                return { kind, id, error: '目标不在当前视野内' };
-            }
-
-            const targetMapName = this.templateRepository.has(portal.targetMapId)
-                ? this.templateRepository.getOrThrow(portal.targetMapId).name
-                : undefined;
-            return {
-                kind,
-                id,
-                portal: {
-                    id,
-                    x: portal.x,
-                    y: portal.y,
-                    kind: portal.kind,
-                    targetMapId: portal.targetMapId,
-                    targetMapName,
-                    targetX: portal.targetX,
-                    targetY: portal.targetY,
-                    trigger: portal.trigger,
-                },
-            };
-        }
-        if (kind === 'container') {
-
-            const containerId = id.startsWith('container:') ? id.slice('container:'.length).trim() : '';
-            if (!containerId) {
-                return { kind, id, error: '目标不存在' };
-            }
-
-            const container = instance.getContainerById(containerId);
-
-            const viewRadius = Math.max(1, Math.round(viewer.attrs.numericStats.viewRange));
-            if (!container || !isTileVisibleInView(view, container.x, container.y, viewRadius)) {
-                return { kind, id, error: '目标不在当前视野内' };
-            }
-            return {
-                kind,
-                id,
-                container: {
-                    id,
-                    name: container.name,
-                    x: container.x,
-                    y: container.y,
-                    grade: container.grade,
-                    desc: container.desc?.trim() || undefined,
-                },
-            };
-        }
-        if (!view.localGroundPiles.some((entry) => entry.sourceId === id)) {
-            return { kind, id, error: '目标不在当前视野内' };
-        }
-
-        const pile = instance.getGroundPileBySourceId(id);
-        if (!pile) {
-            return { kind, id, error: '目标不存在' };
-        }
-        return {
-            kind,
-            id,
-            ground: {
-                sourceId: pile.sourceId,
-                x: pile.x,
-                y: pile.y,
-                items: pile.items.map((entry) => ({ ...entry.item })),
-            },
-        };
+        return this.worldRuntimeDetailQueryService.buildDetail({ view, viewer, location, instance }, { kind, id });
     }
     /** buildTileDetail：构建指定地块的详情，汇总实体、灵气和战斗状态。 */
     buildTileDetail(playerId, input) {
-        this.getPlayerLocationOrThrow(playerId);
+        const location = this.getPlayerLocationOrThrow(playerId);
 
         const x = normalizeCoordinate(typeof input.x === 'number' ? input.x : Number.NaN, 'x');
 
@@ -1070,147 +906,8 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         const view = this.getPlayerViewOrThrow(playerId);
 
         const viewer = this.playerRuntimeService.getPlayerOrThrow(playerId);
-
-        const viewRadius = Math.max(1, Math.round(viewer.attrs.numericStats.viewRange));
-        if (!isTileVisibleInView(view, x, y, viewRadius)) {
-            return {
-                x,
-                y,
-                error: '目标不在当前视野内',
-            };
-        }
-
-        const location = this.getPlayerLocationOrThrow(playerId);
-
         const instance = this.getInstanceRuntimeOrThrow(location.instanceId);
-
-        const aura = instance.getTileAura(x, y);
-        if (aura === null) {
-            return {
-                x,
-                y,
-                error: '目标不存在',
-            };
-        }
-
-        const groundPile = instance.getTileGroundPile(x, y);
-
-        const portal = instance.getPortalAtTile(x, y);
-
-        const safeZone = instance.getSafeZoneAtTile(x, y);
-
-        const container = instance.getContainerAtTile(x, y);
-
-        const npcs = view.localNpcs.filter((entry) => entry.x === x && entry.y === y);
-
-        const monsters = view.localMonsters.filter((entry) => entry.x === x && entry.y === y);
-
-        const players = [
-            ...(view.self.x === x && view.self.y === y ? [viewer.playerId] : []),
-            ...view.visiblePlayers.filter((entry) => entry.x === x && entry.y === y).map((entry) => entry.playerId),
-        ];
-
-        const entities = [];
-        if (portal) {
-            entities.push(buildPortalTileEntityDetail(portal, this.templateRepository.has(portal.targetMapId)
-                ? this.templateRepository.getOrThrow(portal.targetMapId).name
-                : undefined));
-        }
-        if (container) {
-            entities.push(buildContainerTileEntityDetail(container));
-        }
-        if (groundPile) {
-            entities.push(buildGroundTileEntityDetail(groundPile));
-        }
-        for (const targetPlayerId of players) {
-            const target = this.playerRuntimeService.getPlayer(targetPlayerId);
-            if (!target || target.instanceId !== location.instanceId) {
-                continue;
-            }
-            entities.push({
-                id: target.playerId,
-                name: target.name,
-                kind: 'player',
-                hp: target.hp,
-                maxHp: target.maxHp,
-                qi: target.qi,
-                maxQi: target.maxQi,
-
-                observation: buildPlayerObservation(viewer.attrs.finalAttrs.spirit, target, viewer.playerId === target.playerId),
-                buffs: target.buffs.buffs.map((entry) => cloneVisibleBuff(entry)),
-            });
-        }
-        for (const monsterView of monsters) {
-            const monster = instance.getMonster(monsterView.runtimeId);
-            if (!monster) {
-                continue;
-            }
-
-            const observation = buildMonsterObservation(viewer.attrs.finalAttrs.spirit, monster);
-            entities.push({
-                id: monster.runtimeId,
-                name: monster.name,
-                kind: 'monster',
-                monsterTier: monster.tier,
-                hp: monster.hp,
-                maxHp: monster.maxHp,
-                observation,
-
-                lootPreview: observation.clarity === 'complete'
-                    ? buildMonsterLootPreview(this.contentTemplateRepository, viewer, monster)
-                    : undefined,
-                buffs: monster.buffs.map((entry) => cloneVisibleBuff(entry)),
-            });
-        }
-        for (const npcView of npcs) {
-            const npc = instance.getNpc(npcView.npcId);
-            if (!npc) {
-                continue;
-            }
-            entities.push({
-                id: npc.npcId,
-                name: npc.name,
-                kind: 'npc',
-                npcQuestMarker: npcView.questMarker ?? null,
-                observation: buildNpcObservation(npc),
-            });
-        }
-        return {
-            x,
-            y,
-            aura,
-            safeZone: safeZone
-                ? {
-                    x: safeZone.x,
-                    y: safeZone.y,
-                    radius: safeZone.radius,
-                }
-                : undefined,
-            portal: portal
-                ? {
-                    id: buildPortalId(portal.x, portal.y),
-                    x: portal.x,
-                    y: portal.y,
-                    kind: portal.kind,
-                    targetMapId: portal.targetMapId,
-                    targetMapName: this.templateRepository.has(portal.targetMapId)
-                        ? this.templateRepository.getOrThrow(portal.targetMapId).name
-                        : undefined,
-                    targetX: portal.targetX,
-                    targetY: portal.targetY,
-                    trigger: portal.trigger,
-                }
-                : undefined,
-            ground: groundPile
-                ? {
-                    sourceId: groundPile.sourceId,
-                    x: groundPile.x,
-                    y: groundPile.y,
-                    items: groundPile.items.map((entry) => ({ ...entry })),
-                }
-                : undefined,
-            entities: entities.length > 0 ? entities : undefined,
-        };
+        return this.worldRuntimeDetailQueryService.buildTileDetail({ view, viewer, location, instance }, { x, y });
     }
     /** buildLootWindowSyncState：构建拿取窗口同步状态，供前端按需增量刷新。 */
     buildLootWindowSyncState(playerId, tileX, tileY) {
@@ -2965,6 +2662,7 @@ exports.WorldRuntimeService = WorldRuntimeService = WorldRuntimeService_1 = __de
         craft_panel_runtime_service_1.CraftPanelRuntimeService,
         world_runtime_npc_shop_query_service_1.WorldRuntimeNpcShopQueryService,
         world_runtime_quest_query_service_1.WorldRuntimeQuestQueryService,
+        world_runtime_detail_query_service_1.WorldRuntimeDetailQueryService,
         world_runtime_npc_quest_interaction_query_service_1.WorldRuntimeNpcQuestInteractionQueryService,
         world_runtime_gm_queue_service_1.WorldRuntimeGmQueueService,
         world_runtime_craft_service_1.WorldRuntimeCraftService,
