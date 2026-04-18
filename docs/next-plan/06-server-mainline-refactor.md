@@ -422,6 +422,10 @@
 - 新增 `packages/server/src/runtime/world/world-runtime-instance-tick-orchestration.service.js`
 - `WorldRuntimeService` 的 `advanceFrame()` / `tickAll()` 现已退为 facade，实例级 tick 编排外壳由 `WorldRuntimeInstanceTickOrchestrationService` 承接；`WorldTickService` 的调用面保持不变
 - 这次不迁移任何新状态所有权，只移动实例级 tick 编排顺序、相位计时写入时机与 post-step follow-up 外壳，`WorldRuntimeService` 仍保留跨域事务边界、错误收口和业务域 facade
+- 新增 `packages/server/src/runtime/world/world-runtime-movement.service.js`
+- `WorldRuntimeService` 的 `dispatchInstanceCommand()` 已退为 facade，实例侧移动 / 传送执行编排由 `WorldRuntimeMovementService` 承接；`WorldRuntimeNavigationService` 与 `WorldRuntimeBattleEngageService` 的调用面保持不变
+- 这次不迁移导航意图状态或 `MapInstanceRuntime` 占位实现，只移动 move/portal 分支的执行编排、传送 fallback 顺序和 craft 中断 handoff，`WorldRuntimeService` 仍保留 `applyTransfer()` 与跨域错误收口
+- 本轮验证已补跑 `pnpm --filter @mud/server-next smoke:world-runtime-movement`、`pnpm --filter @mud/server-next smoke:runtime`、根级串行 `pnpm build && pnpm verify:replace-ready`；结果全部通过
 - `packages/server/src/runtime/world/world-runtime.state.js` 与 `packages/server/src/runtime/world/world-runtime.contract.js` 空壳已删除，`WorldRuntimeService` 不再保留无实际用途的 state-layer 包装
 - 这不是新增状态域，而是第 5 批收尾清理：在状态所有权都已下沉后，把空壳层彻底移除，避免继续误导为主服务仍通过统一 state store 托管热态
 
