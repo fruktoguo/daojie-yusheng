@@ -163,6 +163,7 @@
   - 已完成：suggestion 低频状态来源与结果分发已从 `main.ts` 抽到 `packages/client/src/main-suggestion-state-source.ts`，`socket.ts` 仍保持唯一事件消费层，`SuggestionPanel` 保持原有内部请求、渲染与交互行为
 - [ ] `attr-panel.ts` / `technique-panel.ts`
   - 区分按需详情与高频自我状态
+  - 首刀已完成：attr 按需详情链 `sendRequestAttrDetail / onAttrDetail / applyAttrDetail` 已从 `main.ts` 抽到 `packages/client/src/main-attr-detail-state-source.ts`，高频 attr 自我状态仍留在 `main.ts`
 
 最小验证：
 
