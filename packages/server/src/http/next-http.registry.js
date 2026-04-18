@@ -6,6 +6,7 @@ const next_gm_admin_service_1 = require("./next/next-gm-admin.service");
 const next_gm_editor_query_service_1 = require("./next/next-gm-editor-query.service");
 const next_gm_mail_service_1 = require("./next/next-gm-mail.service");
 const next_gm_map_query_service_1 = require("./next/next-gm-map-query.service");
+const next_gm_suggestion_query_service_1 = require("./next/next-gm-suggestion-query.service");
 const next_gm_player_service_1 = require("./next/next-gm-player.service");
 const next_gm_world_service_1 = require("./next/next-gm-world.service");
 const next_gm_auth_guard_1 = require("./next/next-gm-auth.guard");
@@ -49,6 +50,7 @@ exports.NEXT_HTTP_PROVIDERS = [
     next_gm_editor_query_service_1.NextGmEditorQueryService,
     next_gm_mail_service_1.NextGmMailService,
     next_gm_map_query_service_1.NextGmMapQueryService,
+    next_gm_suggestion_query_service_1.NextGmSuggestionQueryService,
     next_gm_player_service_1.NextGmPlayerService,
     next_gm_world_service_1.NextGmWorldService,
 ];

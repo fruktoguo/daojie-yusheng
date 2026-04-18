@@ -48,6 +48,8 @@ const next_gm_editor_query_service_1 = require("./next-gm-editor-query.service")
 
 const next_gm_map_query_service_1 = require("./next-gm-map-query.service");
 
+const next_gm_suggestion_query_service_1 = require("./next-gm-suggestion-query.service");
+
 let NextGmWorldService = class NextGmWorldService {
     contentTemplateRepository;
     nextManagedAccountService;
@@ -61,11 +63,12 @@ let NextGmWorldService = class NextGmWorldService {
     runtimeMapConfigService;
     nextGmEditorQueryService;
     nextGmMapQueryService;
+    nextGmSuggestionQueryService;
     networkPerfStartedAt = Date.now();
     cpuPerfStartedAt = Date.now();
     pathfindingPerfStartedAt = Date.now();
     worldObserverIds = new Set();
-    constructor(contentTemplateRepository, nextManagedAccountService, runtimeGmStateService, mapTemplateRepository, playerPersistenceService, playerProgressionService, playerRuntimeService, suggestionRuntimeService, worldRuntimeService, runtimeMapConfigService, nextGmEditorQueryService, nextGmMapQueryService) {
+    constructor(contentTemplateRepository, nextManagedAccountService, runtimeGmStateService, mapTemplateRepository, playerPersistenceService, playerProgressionService, playerRuntimeService, suggestionRuntimeService, worldRuntimeService, runtimeMapConfigService, nextGmEditorQueryService, nextGmMapQueryService, nextGmSuggestionQueryService) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.nextManagedAccountService = nextManagedAccountService;
         this.runtimeGmStateService = runtimeGmStateService;
@@ -78,6 +81,7 @@ let NextGmWorldService = class NextGmWorldService {
         this.runtimeMapConfigService = runtimeMapConfigService;
         this.nextGmEditorQueryService = nextGmEditorQueryService;
         this.nextGmMapQueryService = nextGmMapQueryService;
+        this.nextGmSuggestionQueryService = nextGmSuggestionQueryService;
     }
     collectManagedPlayerIds(runtimePlayers, persistedEntries) {
         return [
@@ -121,42 +125,7 @@ let NextGmWorldService = class NextGmWorldService {
         return this.nextGmEditorQueryService.getEditorCatalog();
     }
     getSuggestions(query) {
-
-        const page = Math.max(1, Math.trunc(Number(query?.page) || 1));
-
-        const pageSize = clamp(Math.trunc(Number(query?.pageSize) || 10), 1, 50);
-
-        const keyword = typeof query?.keyword === 'string' ? query.keyword.trim() : '';
-
-        const normalizedKeyword = keyword.toLowerCase();
-
-        const filtered = this.suggestionRuntimeService.getAll().filter((entry) => {
-            if (!normalizedKeyword) {
-                return true;
-            }
-            return entry.title.toLowerCase().includes(normalizedKeyword)
-                || entry.description.toLowerCase().includes(normalizedKeyword)
-                || entry.authorName.toLowerCase().includes(normalizedKeyword)
-                || entry.replies.some((reply) => reply.content.toLowerCase().includes(normalizedKeyword));
-        });
-
-        const total = filtered.length;
-
-        const totalPages = Math.max(1, Math.ceil(total / pageSize));
-
-        const safePage = clamp(page, 1, totalPages);
-
-        const start = (safePage - 1) * pageSize;
-
-        const items = filtered.slice(start, start + pageSize);
-        return {
-            items,
-            total,
-            page: safePage,
-            pageSize,
-            totalPages,
-            keyword,
-        };
+        return this.nextGmSuggestionQueryService.getSuggestions(query);
     }
     async completeSuggestion(id) {
 
@@ -643,7 +612,8 @@ exports.NextGmWorldService = NextGmWorldService = __decorate([
         world_runtime_service_1.WorldRuntimeService,
         runtime_map_config_service_1.RuntimeMapConfigService,
         next_gm_editor_query_service_1.NextGmEditorQueryService,
-        next_gm_map_query_service_1.NextGmMapQueryService])
+        next_gm_map_query_service_1.NextGmMapQueryService,
+        next_gm_suggestion_query_service_1.NextGmSuggestionQueryService])
 ], NextGmWorldService);
 function projectLegacyRuntimeTile(input) {
 
