@@ -312,6 +312,9 @@
 - `packages/server/src/http/next/next-gm-world.service.js` 的 `getState()` 已委托给 `NextGmStateQueryService`，在线/离线玩家摘要聚合、账号索引查询和 GM perf 组装不再留在 world service
 - 这一刀只移动 GM state 只读聚合，不触碰 `resetNetworkPerf()`、`resetCpuPerf()`、`resetPathfindingPerf()`、地图控制写路径或任何其它 GM 写操作
 - 本轮验证已补跑 `pnpm --filter @mud/server-next smoke:gm-next`、`pnpm --filter @mud/server-next audit:next-protocol`、根级 `pnpm build` 与 `pnpm verify:replace-ready`；结果继续通过，其中 `gm-next` 在无库本地口径下返回 `ok: true` 且标记 `skipped`
+- `packages/server/src/runtime/world/world-runtime-gm-queue.service.js` 现已真正持有 `pendingSystemCommands` 与 `pendingRespawnPlayerIds`，不再只是 GM enqueue/disptach helper
+- `packages/server/src/runtime/world/world-runtime.state.js` 与 `packages/server/src/runtime/world/world-runtime.contract.js` 已同步移除这两个状态位，`WorldRuntimeService` 只保留 tick 顺序、系统命令派发壳与 `respawnPlayer()` 调度入口
+- 本轮验证已补跑 `pnpm --filter @mud/server-next smoke:runtime`、`pnpm --filter @mud/server-next smoke:player-respawn`、`pnpm --filter @mud/server-next smoke:gm-next`、根级 `pnpm build` 与 `pnpm verify:replace-ready`；其中 `pnpm build` 因并发清理 `packages/client/dist` 首次触发 Vite `ENOTEMPTY` 后已串行重跑通过，其余验证均直接通过
 
 第 4 批结论：
 
