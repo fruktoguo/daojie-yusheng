@@ -198,7 +198,7 @@
 - [09 验证门禁与验收](./09-verification-and-acceptance.md)
 
 - [x] 把 `local / with-db / acceptance / full / shadow-destructive` 继续固定为唯一门禁口径
-- [ ] 给“数据迁移完成”补一条迁移 proof 链
+- [x] 给“数据迁移完成”补一条迁移 proof 链
 - [x] 跑通 `pnpm build`
 - [x] 跑通 `pnpm verify:replace-ready`
 - [x] 跑通 `pnpm verify:replace-ready:with-db`
