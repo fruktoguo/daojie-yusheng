@@ -7,7 +7,6 @@ function createWorldRuntimeStateStore() {
     return {
         instances: new Map(),
         playerLocations: new Map(),
-        pendingCommands: new Map(),
         instanceTickProgressById: new Map(),
         containerStatesByInstanceId: new Map(),
         dirtyContainerPersistenceInstanceIds: new Set(),

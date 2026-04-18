@@ -50,6 +50,8 @@ const world_runtime_summary_query_service_1 = require("./world-runtime-summary-q
 
 const world_runtime_instance_query_service_1 = require("./world-runtime-instance-query.service");
 
+const world_runtime_pending_command_service_1 = require("./world-runtime-pending-command.service");
+
 const world_runtime_npc_quest_interaction_query_service_1 = require("./world-runtime-npc-quest-interaction-query.service");
 
 const world_runtime_gm_queue_service_1 = require("./world-runtime-gm-queue.service");
@@ -247,6 +249,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     worldRuntimeDetailQueryService;
     worldRuntimeSummaryQueryService;
     worldRuntimeInstanceQueryService;
+    worldRuntimePendingCommandService;
     worldRuntimeNpcQuestInteractionQueryService;
     worldRuntimeGmQueueService;
     worldRuntimeRespawnService;
@@ -265,7 +268,6 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     runtimeState = (0, world_runtime_state_1.createWorldRuntimeStateStore)();
     instances = this.runtimeState.instances;
     playerLocations = this.runtimeState.playerLocations;
-    pendingCommands = this.runtimeState.pendingCommands;
     tick = 0;
     lastTickDurationMs = 0;
     lastSyncFlushDurationMs = 0;
@@ -280,7 +282,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     tickDurationHistoryMs = [];
     syncFlushDurationHistoryMs = [];
     instanceTickProgressById = this.runtimeState.instanceTickProgressById;
-    constructor(contentTemplateRepository, templateRepository, mapPersistenceService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService, craftPanelRuntimeService, worldRuntimeNpcShopQueryService, worldRuntimeQuestQueryService, worldRuntimeDetailQueryService, worldRuntimeSummaryQueryService, worldRuntimeInstanceQueryService, worldRuntimeNpcQuestInteractionQueryService, worldRuntimeGmQueueService, worldRuntimeRespawnService, worldRuntimeCraftService, worldRuntimeNpcQuestShopService, worldRuntimeLootContainerService, worldRuntimeNavigationService, worldRuntimeCombatEffectsService, worldRuntimeMonsterActionApplyService, worldRuntimeBasicAttackService, worldRuntimePlayerSkillDispatchService, worldRuntimeBattleEngageService, worldRuntimeAutoCombatService) {
+    constructor(contentTemplateRepository, templateRepository, mapPersistenceService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService, craftPanelRuntimeService, worldRuntimeNpcShopQueryService, worldRuntimeQuestQueryService, worldRuntimeDetailQueryService, worldRuntimeSummaryQueryService, worldRuntimeInstanceQueryService, worldRuntimePendingCommandService, worldRuntimeNpcQuestInteractionQueryService, worldRuntimeGmQueueService, worldRuntimeRespawnService, worldRuntimeCraftService, worldRuntimeNpcQuestShopService, worldRuntimeLootContainerService, worldRuntimeNavigationService, worldRuntimeCombatEffectsService, worldRuntimeMonsterActionApplyService, worldRuntimeBasicAttackService, worldRuntimePlayerSkillDispatchService, worldRuntimeBattleEngageService, worldRuntimeAutoCombatService) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.templateRepository = templateRepository;
         this.mapPersistenceService = mapPersistenceService;
@@ -295,6 +297,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.worldRuntimeDetailQueryService = worldRuntimeDetailQueryService;
         this.worldRuntimeSummaryQueryService = worldRuntimeSummaryQueryService;
         this.worldRuntimeInstanceQueryService = worldRuntimeInstanceQueryService;
+        this.worldRuntimePendingCommandService = worldRuntimePendingCommandService;
         this.worldRuntimeNpcQuestInteractionQueryService = worldRuntimeNpcQuestInteractionQueryService;
         this.worldRuntimeGmQueueService = worldRuntimeGmQueueService;
         this.worldRuntimeRespawnService = worldRuntimeRespawnService;
@@ -308,6 +311,9 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.worldRuntimePlayerSkillDispatchService = worldRuntimePlayerSkillDispatchService;
         this.worldRuntimeBattleEngageService = worldRuntimeBattleEngageService;
         this.worldRuntimeAutoCombatService = worldRuntimeAutoCombatService;
+    }
+    get pendingCommands() {
+        return this.worldRuntimePendingCommandService.pendingCommands;
     }
     /** onModuleInit：初始化公共实例的基础结构。 */
     async onModuleInit() {
@@ -1364,7 +1370,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     async rebuildPersistentRuntimeAfterRestore() {
         this.instances.clear();
         this.playerLocations.clear();
-        this.pendingCommands.clear();
+        this.worldRuntimePendingCommandService.resetState();
         this.worldRuntimeGmQueueService.resetState();
         this.worldRuntimeNavigationService.reset();
         this.instanceTickProgressById.clear();
@@ -1542,23 +1548,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     }
     /** dispatchPendingCommands：派发玩家待执行命令。 */
     dispatchPendingCommands() {
-        for (const [playerId, command] of this.pendingCommands) {
-            try {
-                if (command.kind === 'move' || command.kind === 'portal') {
-                    this.dispatchInstanceCommand(playerId, command);
-                }
-                else {
-                    this.dispatchPlayerCommand(playerId, command);
-                }
-            }
-            catch (error) {
-
-                const message = error instanceof Error ? error.message : String(error);
-                this.logger.warn(`处理玩家 ${playerId} 的待执行指令失败：${command.kind}（${message}）`);
-                this.queuePlayerNotice(playerId, message, 'warn');
-            }
-        }
-        this.pendingCommands.clear();
+        this.worldRuntimePendingCommandService.dispatchPendingCommands(this);
     }
     /** dispatchPendingSystemCommands：派发系统命令队列。 */
     dispatchPendingSystemCommands() {
@@ -2607,6 +2597,7 @@ exports.WorldRuntimeService = WorldRuntimeService = WorldRuntimeService_1 = __de
         world_runtime_detail_query_service_1.WorldRuntimeDetailQueryService,
         world_runtime_summary_query_service_1.WorldRuntimeSummaryQueryService,
         world_runtime_instance_query_service_1.WorldRuntimeInstanceQueryService,
+        world_runtime_pending_command_service_1.WorldRuntimePendingCommandService,
         world_runtime_npc_quest_interaction_query_service_1.WorldRuntimeNpcQuestInteractionQueryService,
         world_runtime_gm_queue_service_1.WorldRuntimeGmQueueService,
         world_runtime_respawn_service_1.WorldRuntimeRespawnService,
