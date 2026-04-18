@@ -405,6 +405,10 @@
 - `WorldRuntimeService` 的 `pendingCommands` 已由 `WorldRuntimePendingCommandService` 真正持有，`dispatchPendingCommands()` 也已委托给新 service；`world-runtime.state.js` 与 `world-runtime.contract.js` 同步移除了该状态位
 - `WorldRuntimeService` 仍保留 `advanceFrame()` 的 tick 顺序、`dispatchInstanceCommand()` / `dispatchPlayerCommand()` 的编排壳，以及跨域错误收口，说明这次是第 5 批下一刀的 pending-command state ownership 抽离
 - 本轮验证已补跑 `pnpm --filter @mud/server-next smoke:runtime`、`pnpm --filter @mud/server-next smoke:gm-next`、根级串行 `pnpm build && pnpm verify:replace-ready`；结果全部通过，其中 `gm-next` 在无库本地口径下返回 `ok: true` 且标记 `skipped`
+- 新增 `packages/server/src/runtime/world/world-runtime-player-location.service.js`
+- `WorldRuntimeService` 的 `playerLocations` 已由 `WorldRuntimePlayerLocationService` 真正持有，连接/断开/传送/复生等链路仍通过主服务 facade 访问该索引；`world-runtime.state.js` 与 `world-runtime.contract.js` 同步移除了该状态位
+- `WorldRuntimeService` 仍保留跨域编排、tick 顺序与错误收口，说明这次是第 5 批下一刀的 player-location state ownership 抽离，不是完整 transfer/session 域拆分
+- 本轮验证已补跑 `pnpm --filter @mud/server-next smoke:runtime`、`pnpm --filter @mud/server-next smoke:gm-next`、根级串行 `pnpm build && pnpm verify:replace-ready`；结果全部通过，其中 `gm-next` 在无库本地口径下返回 `ok: true` 且标记 `skipped`
 
 这一批结束后，`world-runtime.service.js` 仍可以存在，但不该再同时拥有所有领域细节。
 
