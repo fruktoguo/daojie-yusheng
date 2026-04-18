@@ -288,7 +288,7 @@ case "$MODE" in
     echo "!! 当前脚本只服务于 legacy 归档线；next 默认请使用 ./start-next.sh"
     echo "==> 本地模式启动..."
     echo "==> 编译共享包..."
-    pnpm --filter @mud/shared build
+    pnpm --dir legacy/shared build
 
     if [[ -f "legacy/server/.env" ]]; then
       echo "==> 加载服务端环境配置 legacy/server/.env ..."
@@ -313,7 +313,7 @@ case "$MODE" in
     cleanup_existing_local_dev_processes
 
     echo "==> 启动共享包监听构建..."
-    (pnpm --filter @mud/shared build --watch) &
+    (pnpm --dir legacy/shared build --watch) &
 # 记录共享包watchpid。
     SHARED_WATCH_PID=$!
 

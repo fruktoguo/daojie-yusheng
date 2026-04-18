@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "prebuild": "pnpm --filter @mud/shared build",
+    "prebuild": "pnpm --dir ../shared build",
     "build": "nest build",
     "start": "node dist/main.js",
     "start:dev": "nest start --watch",

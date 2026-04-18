@@ -6,7 +6,7 @@
     "generate:editor-catalog": "node ../../scripts/generate-editor-catalog.mjs --client=client --shared=shared",
     "generate:item-sources": "node ./scripts/generate-item-sources.mjs",
     "generate:quest-catalog": "node ./scripts/generate-quest-catalog.mjs",
-    "prebuild": "pnpm --filter @mud/shared build && pnpm run generate:editor-catalog && pnpm run generate:item-sources && pnpm run generate:quest-catalog",
+    "prebuild": "pnpm --dir ../shared build && pnpm run generate:editor-catalog && pnpm run generate:item-sources && pnpm run generate:quest-catalog",
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview"
