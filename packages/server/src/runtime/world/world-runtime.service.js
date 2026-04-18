@@ -92,6 +92,8 @@ const world_runtime_equipment_service_1 = require("./world-runtime-equipment.ser
 
 const world_runtime_cultivation_service_1 = require("./world-runtime-cultivation.service");
 
+const world_runtime_progression_service_1 = require("./world-runtime-progression.service");
+
 const world_runtime_use_item_service_1 = require("./world-runtime-use-item.service");
 
 const world_runtime_player_skill_dispatch_service_1 = require("./world-runtime-player-skill-dispatch.service");
@@ -290,13 +292,14 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     worldRuntimeItemGroundService;
     worldRuntimeEquipmentService;
     worldRuntimeCultivationService;
+    worldRuntimeProgressionService;
     worldRuntimeUseItemService;
     worldRuntimePlayerSkillDispatchService;
     worldRuntimeBattleEngageService;
     worldRuntimeAutoCombatService;
     logger = new common_1.Logger(WorldRuntimeService_1.name);
     tick = 0;
-    constructor(contentTemplateRepository, templateRepository, mapPersistenceService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService, craftPanelRuntimeService, worldRuntimeNpcShopQueryService, worldRuntimeQuestQueryService, worldRuntimeDetailQueryService, worldRuntimeMetricsService, worldRuntimeInstanceTickOrchestrationService, worldRuntimeMovementService, worldRuntimeSummaryQueryService, worldRuntimeInstanceStateService, worldRuntimeInstanceQueryService, worldRuntimePendingCommandService, worldRuntimePlayerLocationService, worldRuntimeTickProgressService, worldRuntimeNpcQuestInteractionQueryService, worldRuntimeGmQueueService, worldRuntimeRespawnService, worldRuntimeCraftService, worldRuntimeNpcQuestShopService, worldRuntimeLootContainerService, worldRuntimeNavigationService, worldRuntimeCombatEffectsService, worldRuntimeMonsterActionApplyService, worldRuntimeBasicAttackService, worldRuntimePlayerCombatService, worldRuntimeItemGroundService, worldRuntimeEquipmentService, worldRuntimeCultivationService, worldRuntimeUseItemService, worldRuntimePlayerSkillDispatchService, worldRuntimeBattleEngageService, worldRuntimeAutoCombatService) {
+    constructor(contentTemplateRepository, templateRepository, mapPersistenceService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService, craftPanelRuntimeService, worldRuntimeNpcShopQueryService, worldRuntimeQuestQueryService, worldRuntimeDetailQueryService, worldRuntimeMetricsService, worldRuntimeInstanceTickOrchestrationService, worldRuntimeMovementService, worldRuntimeSummaryQueryService, worldRuntimeInstanceStateService, worldRuntimeInstanceQueryService, worldRuntimePendingCommandService, worldRuntimePlayerLocationService, worldRuntimeTickProgressService, worldRuntimeNpcQuestInteractionQueryService, worldRuntimeGmQueueService, worldRuntimeRespawnService, worldRuntimeCraftService, worldRuntimeNpcQuestShopService, worldRuntimeLootContainerService, worldRuntimeNavigationService, worldRuntimeCombatEffectsService, worldRuntimeMonsterActionApplyService, worldRuntimeBasicAttackService, worldRuntimePlayerCombatService, worldRuntimeItemGroundService, worldRuntimeEquipmentService, worldRuntimeCultivationService, worldRuntimeProgressionService, worldRuntimeUseItemService, worldRuntimePlayerSkillDispatchService, worldRuntimeBattleEngageService, worldRuntimeAutoCombatService) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.templateRepository = templateRepository;
         this.mapPersistenceService = mapPersistenceService;
@@ -332,6 +335,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.worldRuntimeItemGroundService = worldRuntimeItemGroundService;
         this.worldRuntimeEquipmentService = worldRuntimeEquipmentService;
         this.worldRuntimeCultivationService = worldRuntimeCultivationService;
+        this.worldRuntimeProgressionService = worldRuntimeProgressionService;
         this.worldRuntimeUseItemService = worldRuntimeUseItemService;
         this.worldRuntimePlayerSkillDispatchService = worldRuntimePlayerSkillDispatchService;
         this.worldRuntimeBattleEngageService = worldRuntimeBattleEngageService;
@@ -1692,11 +1696,11 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     }
     /** dispatchBreakthrough：触发修为突破结算。 */
     dispatchBreakthrough(playerId) {
-        this.playerRuntimeService.attemptBreakthrough(playerId, this.resolveCurrentTickForPlayerId(playerId));
+        this.worldRuntimeProgressionService.dispatchBreakthrough(playerId, this);
     }
     /** dispatchHeavenGateAction：执行天门关卡动作。 */
     dispatchHeavenGateAction(playerId, action, element) {
-        this.playerRuntimeService.handleHeavenGateAction(playerId, action, element, this.resolveCurrentTickForPlayerId(playerId));
+        this.worldRuntimeProgressionService.dispatchHeavenGateAction(playerId, action, element, this);
     }
     /** dispatchMoveTo：执行点位导航的首步推进。 */
     dispatchMoveTo(playerId, x, y, allowNearestReachable, clientPathHint = null) {
@@ -2279,6 +2283,7 @@ exports.WorldRuntimeService = WorldRuntimeService = WorldRuntimeService_1 = __de
         world_runtime_item_ground_service_1.WorldRuntimeItemGroundService,
         world_runtime_equipment_service_1.WorldRuntimeEquipmentService,
         world_runtime_cultivation_service_1.WorldRuntimeCultivationService,
+        world_runtime_progression_service_1.WorldRuntimeProgressionService,
         world_runtime_use_item_service_1.WorldRuntimeUseItemService,
         world_runtime_player_skill_dispatch_service_1.WorldRuntimePlayerSkillDispatchService,
         world_runtime_battle_engage_service_1.WorldRuntimeBattleEngageService,
