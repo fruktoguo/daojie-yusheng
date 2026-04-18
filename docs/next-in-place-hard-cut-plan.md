@@ -88,8 +88,9 @@
 - `packages/client`
 - `packages/server`
 - `packages/shared`
-- `packages/config-editor`
 - `packages/server/data`
+
+`packages/config-editor` 只作为可选辅助工具包保留，不再计入 hard cut 的活跃主线范围。
 
 ### 4.2 退化为参考 / 归档的目录
 
