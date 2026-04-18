@@ -422,6 +422,8 @@
 - 新增 `packages/server/src/runtime/world/world-runtime-instance-tick-orchestration.service.js`
 - `WorldRuntimeService` 的 `advanceFrame()` / `tickAll()` 现已退为 facade，实例级 tick 编排外壳由 `WorldRuntimeInstanceTickOrchestrationService` 承接；`WorldTickService` 的调用面保持不变
 - 这次不迁移任何新状态所有权，只移动实例级 tick 编排顺序、相位计时写入时机与 post-step follow-up 外壳，`WorldRuntimeService` 仍保留跨域事务边界、错误收口和业务域 facade
+- `packages/server/src/runtime/world/world-runtime.state.js` 与 `packages/server/src/runtime/world/world-runtime.contract.js` 空壳已删除，`WorldRuntimeService` 不再保留无实际用途的 state-layer 包装
+- 这不是新增状态域，而是第 5 批收尾清理：在状态所有权都已下沉后，把空壳层彻底移除，避免继续误导为主服务仍通过统一 state store 托管热态
 
 这一批结束后，`world-runtime.service.js` 仍可以存在，但不该再同时拥有所有领域细节。
 
