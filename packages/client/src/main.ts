@@ -80,6 +80,7 @@ import { createMainMailStateSource } from './main-mail-state-source';
 import { createMainQuestStateSource } from './main-quest-state-source';
 import { createMainSettingsStateSource } from './main-settings-state-source';
 import { createMainSuggestionStateSource } from './main-suggestion-state-source';
+import { createMainTechniqueStateSource } from './main-technique-state-source';
 import { createMainWorldSummaryStateSource } from './main-world-summary-state-source';
 import {
   initializeMapPerformanceConfig,
@@ -638,6 +639,10 @@ const worldPanel = new WorldPanel();
 const settingsPanel = new SettingsPanel();
 const mailStateSource = createMainMailStateSource({ socket });
 const suggestionStateSource = createMainSuggestionStateSource({ socket });
+const techniqueStateSource = createMainTechniqueStateSource({
+  techniquePanel,
+  socket,
+});
 const attrDetailStateSource = createMainAttrDetailStateSource({
   attrPanel,
   socket,
@@ -2518,9 +2523,6 @@ lootPanel.setCallbacks(
 equipmentPanel.setCallbacks(
   (slot) => socket.sendUnequip(slot),
 );
-techniquePanel.setCallbacks(
-  (techId) => socket.sendCultivate(techId),
-);
 npcShopModal.setCallbacks({
   onRequestShop: (npcId) => socket.sendRequestNpcShop(npcId),
   onBuyItem: (npcId, itemId, quantity) => socket.sendBuyNpcShopItem(npcId, itemId, quantity),
@@ -2735,10 +2737,10 @@ function handleTechniqueUpdate(data: NEXT_S2C_TechniqueUpdate): void {
     inventoryStateSource.syncPlayerContext(myPlayer);
   }
   if (shouldRefreshTechniquePanel) {
-    techniquePanel.update(mergedTechniques, nextCultivatingTechId, myPlayer ?? undefined);
+    techniqueStateSource.update(mergedTechniques, nextCultivatingTechId, myPlayer ?? undefined);
     refreshUiChrome();
   } else {
-    techniquePanel.syncDynamic(mergedTechniques, nextCultivatingTechId, myPlayer ?? undefined);
+    techniqueStateSource.syncDynamic(mergedTechniques, nextCultivatingTechId, myPlayer ?? undefined);
   }
   bodyTrainingPanel.syncDynamic(nextBodyTraining, myPlayer?.foundation);
   if (myPlayer) {
@@ -3719,7 +3721,7 @@ function resetGameState() {
   attrPanel.clear();
   inventoryStateSource.clear();
   equipmentPanel.clear();
-  techniquePanel.clear();
+  techniqueStateSource.clear();
   questStateSource.clear();
   actionPanel.clear();
   entityDetailModal.clear();
@@ -4018,7 +4020,7 @@ function handleBootstrap(data: NEXT_S2C_Bootstrap): void {
   attrDetailStateSource.init();
   inventoryStateSource.initFromPlayer(myPlayer);
   equipmentPanel.initFromPlayer(myPlayer);
-  techniquePanel.initFromPlayer(myPlayer);
+  techniqueStateSource.initFromPlayer(myPlayer);
   bodyTrainingPanel.initFromPlayer(myPlayer);
   questStateSource.initFromPlayer(myPlayer);
   actionPanel.initFromPlayer(myPlayer);
