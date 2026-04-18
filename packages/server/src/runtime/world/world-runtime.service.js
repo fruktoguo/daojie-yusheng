@@ -46,6 +46,8 @@ const world_runtime_quest_query_service_1 = require("./world-runtime-quest-query
 
 const world_runtime_detail_query_service_1 = require("./world-runtime-detail-query.service");
 
+const world_runtime_summary_query_service_1 = require("./world-runtime-summary-query.service");
+
 const world_runtime_npc_quest_interaction_query_service_1 = require("./world-runtime-npc-quest-interaction-query.service");
 
 const world_runtime_gm_queue_service_1 = require("./world-runtime-gm-queue.service");
@@ -239,6 +241,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     worldRuntimeNpcShopQueryService;
     worldRuntimeQuestQueryService;
     worldRuntimeDetailQueryService;
+    worldRuntimeSummaryQueryService;
     worldRuntimeNpcQuestInteractionQueryService;
     worldRuntimeGmQueueService;
     worldRuntimeCraftService;
@@ -273,7 +276,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     tickDurationHistoryMs = [];
     syncFlushDurationHistoryMs = [];
     instanceTickProgressById = this.runtimeState.instanceTickProgressById;
-    constructor(contentTemplateRepository, templateRepository, mapPersistenceService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService, craftPanelRuntimeService, worldRuntimeNpcShopQueryService, worldRuntimeQuestQueryService, worldRuntimeDetailQueryService, worldRuntimeNpcQuestInteractionQueryService, worldRuntimeGmQueueService, worldRuntimeCraftService, worldRuntimeNpcQuestShopService, worldRuntimeLootContainerService, worldRuntimeNavigationService, worldRuntimeCombatEffectsService, worldRuntimeMonsterActionApplyService, worldRuntimeBasicAttackService, worldRuntimePlayerSkillDispatchService, worldRuntimeBattleEngageService, worldRuntimeAutoCombatService) {
+    constructor(contentTemplateRepository, templateRepository, mapPersistenceService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService, craftPanelRuntimeService, worldRuntimeNpcShopQueryService, worldRuntimeQuestQueryService, worldRuntimeDetailQueryService, worldRuntimeSummaryQueryService, worldRuntimeNpcQuestInteractionQueryService, worldRuntimeGmQueueService, worldRuntimeCraftService, worldRuntimeNpcQuestShopService, worldRuntimeLootContainerService, worldRuntimeNavigationService, worldRuntimeCombatEffectsService, worldRuntimeMonsterActionApplyService, worldRuntimeBasicAttackService, worldRuntimePlayerSkillDispatchService, worldRuntimeBattleEngageService, worldRuntimeAutoCombatService) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.templateRepository = templateRepository;
         this.mapPersistenceService = mapPersistenceService;
@@ -286,6 +289,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.worldRuntimeNpcShopQueryService = worldRuntimeNpcShopQueryService;
         this.worldRuntimeQuestQueryService = worldRuntimeQuestQueryService;
         this.worldRuntimeDetailQueryService = worldRuntimeDetailQueryService;
+        this.worldRuntimeSummaryQueryService = worldRuntimeSummaryQueryService;
         this.worldRuntimeNpcQuestInteractionQueryService = worldRuntimeNpcQuestInteractionQueryService;
         this.worldRuntimeGmQueueService = worldRuntimeGmQueueService;
         this.worldRuntimeCraftService = worldRuntimeCraftService;
@@ -1165,22 +1169,19 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
 
         /** instances：当前已加载的地图实例集合。 */
         const instances = this.listInstances();
-        return {
+        return this.worldRuntimeSummaryQueryService.buildRuntimeSummary({
             tick: this.tick,
             lastTickDurationMs: this.lastTickDurationMs,
             lastSyncFlushDurationMs: this.lastSyncFlushDurationMs,
             mapTemplateCount: this.templateRepository.list().length,
-            instanceCount: instances.length,
             playerCount: this.playerLocations.size,
             pendingCommandCount: this.pendingCommands.size,
             pendingSystemCommandCount: this.pendingSystemCommands.length,
-            tickPerf: {
-                totalMs: summarizeDurations(this.lastTickDurationMs, this.tickDurationHistoryMs),
-                syncFlushMs: summarizeDurations(this.lastSyncFlushDurationMs, this.syncFlushDurationHistoryMs),
-                phases: this.lastTickPhaseDurations,
-            },
+            tickDurationHistoryMs: this.tickDurationHistoryMs,
+            syncFlushDurationHistoryMs: this.syncFlushDurationHistoryMs,
+            lastTickPhaseDurations: this.lastTickPhaseDurations,
             instances,
-        };
+        });
     }
     /** listDirtyPersistentInstances：列出需要持久化刷新的实例。 */
     listDirtyPersistentInstances() {
@@ -2663,6 +2664,7 @@ exports.WorldRuntimeService = WorldRuntimeService = WorldRuntimeService_1 = __de
         world_runtime_npc_shop_query_service_1.WorldRuntimeNpcShopQueryService,
         world_runtime_quest_query_service_1.WorldRuntimeQuestQueryService,
         world_runtime_detail_query_service_1.WorldRuntimeDetailQueryService,
+        world_runtime_summary_query_service_1.WorldRuntimeSummaryQueryService,
         world_runtime_npc_quest_interaction_query_service_1.WorldRuntimeNpcQuestInteractionQueryService,
         world_runtime_gm_queue_service_1.WorldRuntimeGmQueueService,
         world_runtime_craft_service_1.WorldRuntimeCraftService,
