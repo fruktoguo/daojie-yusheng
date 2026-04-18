@@ -7,8 +7,6 @@ exports.WORLD_RUNTIME_STATE_CONTRACT = Object.freeze({
     inMemoryRuntime: Object.freeze([
     ]),
     restoreBackedRuntime: Object.freeze([
-        'containerStatesByInstanceId',
-        'dirtyContainerPersistenceInstanceIds',
     ]),
     databaseSourceOfTruth: Object.freeze([
         'map document persistence',
