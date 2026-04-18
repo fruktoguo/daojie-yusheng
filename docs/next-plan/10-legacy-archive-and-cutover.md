@@ -25,7 +25,7 @@
 
 ## 任务
 
-- [ ] 列出仍然必须保留的 legacy 文件范围
+- [x] 列出仍然必须保留的 legacy 文件范围
 - [ ] 把不再需要的 legacy 入口从主文档中移除
 - [ ] 把不再需要的 legacy 入口从主流程中移除
 - [ ] 把 legacy 剩余价值收束为“查规则 / 查旧数据格式 / 迁移来源”
@@ -33,15 +33,15 @@
 - [ ] 更新部署 / 验证 / 运维文档，移除误导性的旧主线描述
 - [ ] 完成一次 next 主线切换前检查
 - [ ] 完成一次 next 主线切换后检查
-- [ ] 记录仍保留的 legacy 归档范围和原因
+- [x] 记录仍保留的 legacy 归档范围和原因
 
 ## 执行顺序
 
 ### 第 1 批：先列 legacy 保留白名单
 
-- [ ] 保留为归档/参考的 legacy 目录范围
-- [ ] 保留为迁移来源的 legacy 文件范围
-- [ ] 保留为审计/比对证据的 legacy 文件范围
+- [x] 保留为归档/参考的 legacy 目录范围
+- [x] 保留为迁移来源的 legacy 文件范围
+- [x] 保留为审计/比对证据的 legacy 文件范围
 
 至少分成三类：
 
@@ -123,6 +123,14 @@
 | 范围 | 保留原因 | 谁还在读 | 计划何时再评估 |
 | --- | --- | --- | --- |
 | `legacy/...` | 查旧规则 / 查旧数据格式 / 迁移输入 | 文档 / 脚本 / 人工排查 | 阶段性复查日期 |
+
+## 当前 legacy 保留白名单（2026-04-18）
+
+| 范围 | 保留原因 | 谁还在读 | 计划何时再评估 |
+| --- | --- | --- | --- |
+| `legacy/server/src/database/entities/*.ts`、`legacy/server/data/runtime/suggestions.json`、`legacy/server/src/game/map.service.ts` | 一次性迁移脚本与迁移清单当前仍需要这些 legacy 真源定义来锁定输入表/文件/导出格式 | `docs/next-plan/03-required-data-migration-checklist.md`、`packages/server/src/tools/migrate-next-mainline-once.js`、人工迁移排查 | `03/04/09` 全部闭环后复查，优先在迁移 proof 固定后缩范围 |
+| `legacy/client/src/**`、`legacy/shared/src/**`、`legacy/server/src/game/**` | 作为行为基线、协议基线和 UI/玩法旧规则参考，不再是默认开发落点，但当前 `06/07/08` 收口时仍需对照 | `docs/next-plan/06-server-mainline-refactor.md`、`docs/next-plan/07-client-mainline-refactor.md`、`docs/next-plan/08-shared-content-and-map-cleanup.md`、人工比对排查 | `06/07/08` 达到可交接级别后复查，优先继续收缩到必要子目录 |
+| `legacy/client`、`legacy/server`、`legacy/shared` 包根与其显式启动入口 | 仅保留为归档运行/排查入口，不再参与默认 workspace 或默认 next 构建，但 `./start.sh` 和根级 `legacy:*` 命令仍可显式进入 | `start.sh`、根级 `package.json` 里的 `legacy:*` 命令、人工归档排查 | 当 `10` 的切换前/切换后检查完成后复查，评估是否还能进一步下沉为纯静态归档 |
 
 ## 切换前检查表
 
