@@ -48,6 +48,8 @@ const world_runtime_detail_query_service_1 = require("./world-runtime-detail-que
 
 const world_runtime_metrics_service_1 = require("./world-runtime-metrics.service");
 
+const world_runtime_instance_tick_orchestration_service_1 = require("./world-runtime-instance-tick-orchestration.service");
+
 const world_runtime_summary_query_service_1 = require("./world-runtime-summary-query.service");
 
 const world_runtime_instance_state_service_1 = require("./world-runtime-instance-state.service");
@@ -256,6 +258,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     worldRuntimeQuestQueryService;
     worldRuntimeDetailQueryService;
     worldRuntimeMetricsService;
+    worldRuntimeInstanceTickOrchestrationService;
     worldRuntimeSummaryQueryService;
     worldRuntimeInstanceStateService;
     worldRuntimeInstanceQueryService;
@@ -279,7 +282,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     stateLayerContract = world_runtime_contract_1.WORLD_RUNTIME_STATE_CONTRACT;
     runtimeState = (0, world_runtime_state_1.createWorldRuntimeStateStore)();
     tick = 0;
-    constructor(contentTemplateRepository, templateRepository, mapPersistenceService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService, craftPanelRuntimeService, worldRuntimeNpcShopQueryService, worldRuntimeQuestQueryService, worldRuntimeDetailQueryService, worldRuntimeMetricsService, worldRuntimeSummaryQueryService, worldRuntimeInstanceStateService, worldRuntimeInstanceQueryService, worldRuntimePendingCommandService, worldRuntimePlayerLocationService, worldRuntimeTickProgressService, worldRuntimeNpcQuestInteractionQueryService, worldRuntimeGmQueueService, worldRuntimeRespawnService, worldRuntimeCraftService, worldRuntimeNpcQuestShopService, worldRuntimeLootContainerService, worldRuntimeNavigationService, worldRuntimeCombatEffectsService, worldRuntimeMonsterActionApplyService, worldRuntimeBasicAttackService, worldRuntimePlayerSkillDispatchService, worldRuntimeBattleEngageService, worldRuntimeAutoCombatService) {
+    constructor(contentTemplateRepository, templateRepository, mapPersistenceService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService, craftPanelRuntimeService, worldRuntimeNpcShopQueryService, worldRuntimeQuestQueryService, worldRuntimeDetailQueryService, worldRuntimeMetricsService, worldRuntimeInstanceTickOrchestrationService, worldRuntimeSummaryQueryService, worldRuntimeInstanceStateService, worldRuntimeInstanceQueryService, worldRuntimePendingCommandService, worldRuntimePlayerLocationService, worldRuntimeTickProgressService, worldRuntimeNpcQuestInteractionQueryService, worldRuntimeGmQueueService, worldRuntimeRespawnService, worldRuntimeCraftService, worldRuntimeNpcQuestShopService, worldRuntimeLootContainerService, worldRuntimeNavigationService, worldRuntimeCombatEffectsService, worldRuntimeMonsterActionApplyService, worldRuntimeBasicAttackService, worldRuntimePlayerSkillDispatchService, worldRuntimeBattleEngageService, worldRuntimeAutoCombatService) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.templateRepository = templateRepository;
         this.mapPersistenceService = mapPersistenceService;
@@ -293,6 +296,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.worldRuntimeQuestQueryService = worldRuntimeQuestQueryService;
         this.worldRuntimeDetailQueryService = worldRuntimeDetailQueryService;
         this.worldRuntimeMetricsService = worldRuntimeMetricsService;
+        this.worldRuntimeInstanceTickOrchestrationService = worldRuntimeInstanceTickOrchestrationService;
         this.worldRuntimeSummaryQueryService = worldRuntimeSummaryQueryService;
         this.worldRuntimeInstanceStateService = worldRuntimeInstanceStateService;
         this.worldRuntimeInstanceQueryService = worldRuntimeInstanceQueryService;
@@ -1240,106 +1244,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     }
     /** advanceFrame：推进世界帧，统筹实例 tick、命令派发和耗时统计。 */
     advanceFrame(frameDurationMs = 1000, getInstanceTickSpeed = null) {
-
-        const startedAt = performance.now();
-        this.worldRuntimeCombatEffectsService.resetFrameEffects();
-
-        const instanceStepPlans = [];
-
-        let plannedLogicalTicks = 0;
-        for (const instance of this.instances.values()) {
-            const speed = getInstanceTickSpeed
-                ? Math.max(0, Number(getInstanceTickSpeed(instance.template.id) ?? 1))
-                : 1;
-            if (!Number.isFinite(speed) || speed <= 0) {
-                continue;
-            }
-
-            const previousProgress = this.worldRuntimeTickProgressService.getProgress(instance.meta.instanceId);
-
-            const accumulated = previousProgress + speed * (Math.max(0, frameDurationMs) / 1000);
-
-            const steps = Math.floor(accumulated);
-            this.worldRuntimeTickProgressService.setProgress(instance.meta.instanceId, accumulated - steps);
-            if (steps <= 0) {
-                continue;
-            }
-            instanceStepPlans.push({ instance, steps });
-            plannedLogicalTicks += steps;
-        }
-        if (plannedLogicalTicks <= 0) {
-            this.worldRuntimeMetricsService.recordIdleFrame(startedAt);
-            return 0;
-        }
-        this.processPendingRespawns();
-        this.materializeNavigationCommands();
-        this.materializeAutoCombatCommands();
-
-        const pendingCommandsStartedAt = performance.now();
-        this.dispatchPendingCommands();
-
-        const pendingCommandsMs = performance.now() - pendingCommandsStartedAt;
-
-        const systemCommandsStartedAt = performance.now();
-        this.dispatchPendingSystemCommands();
-
-        const systemCommandsMs = performance.now() - systemCommandsStartedAt;
-
-        const steppedPlayerIds = new Set();
-
-        const blockedPlayerIds = this.worldRuntimeNavigationService.getBlockedPlayerIds();
-
-        let totalLogicalTicks = 0;
-
-        const instanceTicksStartedAt = performance.now();
-        for (const { instance, steps } of instanceStepPlans) {
-            for (let index = 0; index < steps; index += 1) {
-                this.tick += 1;
-                totalLogicalTicks += 1;
-
-                const result = instance.tickOnce();
-                for (const transfer of result.transfers) {
-                    this.applyTransfer(transfer);
-                }
-                for (const action of result.monsterActions) {
-                    this.applyMonsterAction(action);
-                }
-
-                const currentPlayerIds = instance.listPlayerIds();
-                if (currentPlayerIds.length > 0) {
-                    this.playerRuntimeService.advanceTickForPlayerIds(currentPlayerIds, instance.tick, {
-                        idleCultivationBlockedPlayerIds: blockedPlayerIds,
-                    });
-                    this.worldRuntimeCraftService.advanceCraftJobs(currentPlayerIds, this);
-                    for (const playerId of currentPlayerIds) {
-                        steppedPlayerIds.add(playerId);
-                    }
-                }
-            }
-        }
-
-        const instanceTicksMs = performance.now() - instanceTicksStartedAt;
-
-        const transfersMs = 0;
-
-        const monsterActionsMs = 0;
-
-        const playerAdvanceStartedAt = performance.now();
-        this.worldRuntimeLootContainerService.advanceContainerSearches(this.instances, this.playerLocations, this.tick);
-        for (const playerId of steppedPlayerIds) {
-            this.refreshQuestStates(playerId);
-        }
-
-        const playerAdvanceMs = performance.now() - playerAdvanceStartedAt;
-        this.worldRuntimeMetricsService.recordFrameResult(startedAt, {
-            pendingCommandsMs,
-            systemCommandsMs,
-            instanceTicksMs,
-            transfersMs,
-            monsterActionsMs,
-            playerAdvanceMs,
-        });
-        return totalLogicalTicks;
+        return this.worldRuntimeInstanceTickOrchestrationService.advanceFrame(this, frameDurationMs, getInstanceTickSpeed);
     }
     /** recordSyncFlushDuration：记录一次同步刷新耗时。 */
     recordSyncFlushDuration(durationMs) {
@@ -2606,6 +2511,7 @@ exports.WorldRuntimeService = WorldRuntimeService = WorldRuntimeService_1 = __de
         world_runtime_quest_query_service_1.WorldRuntimeQuestQueryService,
         world_runtime_detail_query_service_1.WorldRuntimeDetailQueryService,
         world_runtime_metrics_service_1.WorldRuntimeMetricsService,
+        world_runtime_instance_tick_orchestration_service_1.WorldRuntimeInstanceTickOrchestrationService,
         world_runtime_summary_query_service_1.WorldRuntimeSummaryQueryService,
         world_runtime_instance_state_service_1.WorldRuntimeInstanceStateService,
         world_runtime_instance_query_service_1.WorldRuntimeInstanceQueryService,
