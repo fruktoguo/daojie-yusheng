@@ -7,7 +7,6 @@ exports.WORLD_RUNTIME_STATE_CONTRACT = Object.freeze({
     inMemoryRuntime: Object.freeze([
         'instances',
         'playerLocations',
-        'instanceTickProgressById',
     ]),
     restoreBackedRuntime: Object.freeze([
         'containerStatesByInstanceId',

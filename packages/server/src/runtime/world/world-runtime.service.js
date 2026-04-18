@@ -52,6 +52,8 @@ const world_runtime_instance_query_service_1 = require("./world-runtime-instance
 
 const world_runtime_pending_command_service_1 = require("./world-runtime-pending-command.service");
 
+const world_runtime_tick_progress_service_1 = require("./world-runtime-tick-progress.service");
+
 const world_runtime_npc_quest_interaction_query_service_1 = require("./world-runtime-npc-quest-interaction-query.service");
 
 const world_runtime_gm_queue_service_1 = require("./world-runtime-gm-queue.service");
@@ -250,6 +252,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     worldRuntimeSummaryQueryService;
     worldRuntimeInstanceQueryService;
     worldRuntimePendingCommandService;
+    worldRuntimeTickProgressService;
     worldRuntimeNpcQuestInteractionQueryService;
     worldRuntimeGmQueueService;
     worldRuntimeRespawnService;
@@ -281,8 +284,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     };
     tickDurationHistoryMs = [];
     syncFlushDurationHistoryMs = [];
-    instanceTickProgressById = this.runtimeState.instanceTickProgressById;
-    constructor(contentTemplateRepository, templateRepository, mapPersistenceService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService, craftPanelRuntimeService, worldRuntimeNpcShopQueryService, worldRuntimeQuestQueryService, worldRuntimeDetailQueryService, worldRuntimeSummaryQueryService, worldRuntimeInstanceQueryService, worldRuntimePendingCommandService, worldRuntimeNpcQuestInteractionQueryService, worldRuntimeGmQueueService, worldRuntimeRespawnService, worldRuntimeCraftService, worldRuntimeNpcQuestShopService, worldRuntimeLootContainerService, worldRuntimeNavigationService, worldRuntimeCombatEffectsService, worldRuntimeMonsterActionApplyService, worldRuntimeBasicAttackService, worldRuntimePlayerSkillDispatchService, worldRuntimeBattleEngageService, worldRuntimeAutoCombatService) {
+    constructor(contentTemplateRepository, templateRepository, mapPersistenceService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService, craftPanelRuntimeService, worldRuntimeNpcShopQueryService, worldRuntimeQuestQueryService, worldRuntimeDetailQueryService, worldRuntimeSummaryQueryService, worldRuntimeInstanceQueryService, worldRuntimePendingCommandService, worldRuntimeTickProgressService, worldRuntimeNpcQuestInteractionQueryService, worldRuntimeGmQueueService, worldRuntimeRespawnService, worldRuntimeCraftService, worldRuntimeNpcQuestShopService, worldRuntimeLootContainerService, worldRuntimeNavigationService, worldRuntimeCombatEffectsService, worldRuntimeMonsterActionApplyService, worldRuntimeBasicAttackService, worldRuntimePlayerSkillDispatchService, worldRuntimeBattleEngageService, worldRuntimeAutoCombatService) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.templateRepository = templateRepository;
         this.mapPersistenceService = mapPersistenceService;
@@ -298,6 +300,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.worldRuntimeSummaryQueryService = worldRuntimeSummaryQueryService;
         this.worldRuntimeInstanceQueryService = worldRuntimeInstanceQueryService;
         this.worldRuntimePendingCommandService = worldRuntimePendingCommandService;
+        this.worldRuntimeTickProgressService = worldRuntimeTickProgressService;
         this.worldRuntimeNpcQuestInteractionQueryService = worldRuntimeNpcQuestInteractionQueryService;
         this.worldRuntimeGmQueueService = worldRuntimeGmQueueService;
         this.worldRuntimeRespawnService = worldRuntimeRespawnService;
@@ -314,6 +317,9 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     }
     get pendingCommands() {
         return this.worldRuntimePendingCommandService.pendingCommands;
+    }
+    get instanceTickProgressById() {
+        return this.worldRuntimeTickProgressService.instanceTickProgressById;
     }
     /** onModuleInit：初始化公共实例的基础结构。 */
     async onModuleInit() {
@@ -1230,12 +1236,12 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
                 continue;
             }
 
-            const previousProgress = this.instanceTickProgressById.get(instance.meta.instanceId) ?? 0;
+            const previousProgress = this.worldRuntimeTickProgressService.getProgress(instance.meta.instanceId);
 
             const accumulated = previousProgress + speed * (Math.max(0, frameDurationMs) / 1000);
 
             const steps = Math.floor(accumulated);
-            this.instanceTickProgressById.set(instance.meta.instanceId, accumulated - steps);
+            this.worldRuntimeTickProgressService.setProgress(instance.meta.instanceId, accumulated - steps);
             if (steps <= 0) {
                 continue;
             }
@@ -1373,7 +1379,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.worldRuntimePendingCommandService.resetState();
         this.worldRuntimeGmQueueService.resetState();
         this.worldRuntimeNavigationService.reset();
-        this.instanceTickProgressById.clear();
+        this.worldRuntimeTickProgressService.resetState();
         this.worldRuntimeLootContainerService.reset();
         this.worldRuntimeCombatEffectsService.resetAll();
         this.bootstrapPublicInstances();
@@ -1399,7 +1405,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
             createdAt: Date.now(),
         });
         this.instances.set(input.instanceId, instance);
-        this.instanceTickProgressById.set(input.instanceId, 0);
+        this.worldRuntimeTickProgressService.initializeInstance(input.instanceId);
         return instance;
     }
     /** getOrCreatePublicInstance：读取或创建公共地图实例。 */
@@ -2598,6 +2604,7 @@ exports.WorldRuntimeService = WorldRuntimeService = WorldRuntimeService_1 = __de
         world_runtime_summary_query_service_1.WorldRuntimeSummaryQueryService,
         world_runtime_instance_query_service_1.WorldRuntimeInstanceQueryService,
         world_runtime_pending_command_service_1.WorldRuntimePendingCommandService,
+        world_runtime_tick_progress_service_1.WorldRuntimeTickProgressService,
         world_runtime_npc_quest_interaction_query_service_1.WorldRuntimeNpcQuestInteractionQueryService,
         world_runtime_gm_queue_service_1.WorldRuntimeGmQueueService,
         world_runtime_respawn_service_1.WorldRuntimeRespawnService,
