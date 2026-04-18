@@ -434,6 +434,10 @@
 - `WorldRuntimeService` 的 `dispatchUseItem()` 已退为 facade，地图解锁、地块灵气提升和普通消耗品使用结算由 `WorldRuntimeUseItemService` 承接；物品使用后的 quest refresh / notice 也不再留在主服务中
 - 这次不迁移 `dispatchDropItem()` / `dispatchTakeGround()` / `dispatchEquipItem()` 等相邻物品链路，只移动 `useItem` 这一条叶子业务域，`WorldRuntimeService` 仍保留其它物品/装备命令入口的总编排
 - 本轮验证已补跑 `pnpm --filter @mud/server-next smoke:world-runtime-use-item`、`pnpm --filter @mud/server-next smoke:runtime`、根级串行 `pnpm build && pnpm verify:replace-ready`；结果全部通过
+- 新增 `packages/server/src/runtime/world/world-runtime-item-ground.service.js`
+- `WorldRuntimeService` 的 `dispatchDropItem()` / `dispatchTakeGround()` / `dispatchTakeGroundAll()` 已退为 facade，地面与容器物品的丢弃/拾取链路由 `WorldRuntimeItemGroundService` 承接；与 `WorldRuntimeLootContainerService` 的协作边界保持清晰
+- 这次不迁移 `dispatchEquipItem()` / `dispatchUnequipItem()` 或 market/NPC 商店链路，只移动 item-ground 这一组叶子业务域，`WorldRuntimeService` 仍保留其他物品/装备命令入口的总编排
+- 本轮验证已补跑 `pnpm --filter @mud/server-next smoke:world-runtime-item-ground`、`pnpm --filter @mud/server-next smoke:loot`、`pnpm --filter @mud/server-next smoke:runtime`、根级串行 `pnpm build && pnpm verify:replace-ready`；结果全部通过
 - `packages/server/src/runtime/world/world-runtime.state.js` 与 `packages/server/src/runtime/world/world-runtime.contract.js` 空壳已删除，`WorldRuntimeService` 不再保留无实际用途的 state-layer 包装
 - 这不是新增状态域，而是第 5 批收尾清理：在状态所有权都已下沉后，把空壳层彻底移除，避免继续误导为主服务仍通过统一 state store 托管热态
 
