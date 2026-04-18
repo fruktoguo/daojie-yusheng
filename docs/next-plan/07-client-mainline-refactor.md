@@ -63,7 +63,7 @@
 - [x] 收口邮件面板状态来源
 - [x] 收口建议面板状态来源
 - [ ] 收口任务面板状态来源
-- [ ] 收口市场面板状态来源
+- [x] 收口市场面板状态来源
 - [x] 收口设置面板状态来源
 - [ ] 检查 GM 页面、GM 世界查看器、地图编辑器是否长期保留
 - [ ] 明确哪些状态只能由 Socket 增量驱动
@@ -147,8 +147,9 @@
   - 不因行动条、自动战斗、小变更整块重建
 - [x] `inventory-panel.ts`
   - 已完成：inventory 状态来源与编排已从 `main.ts` 抽到 `packages/client/src/main-inventory-state-source.ts`，`socket.ts` 仍保持唯一事件消费层，`InventoryPanel` 保持原有 patch-first 更新路径
-- [ ] `market-panel.ts`
+- [x] `market-panel.ts`
   - 只消费 market 相关低频结果与增量更新
+  - 已完成：market 低频状态来源、`MarketPanel` 创建与结果分发已从 `main.ts` 抽到 `packages/client/src/main-market-state-source.ts`，`main.ts` 保留 socket 事件注册，`socket.ts` 仍保持唯一消费主入口，`MarketPanel` 内部渲染与请求行为保持不变
 - [x] `mail-panel.ts`
   - 已完成：mail 低频状态来源与结果分发已从 `main.ts` 抽到 `packages/client/src/main-mail-state-source.ts`，`socket.ts` 仍保持唯一事件消费层，`MailPanel` 保持原有内部请求、渲染与 patch 行为
 - [ ] `quest-panel.ts`
