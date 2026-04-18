@@ -76,6 +76,7 @@ import {
   refreshZoomChrome as syncZoomChrome,
   type ObserveAsideCard,
 } from './main-ui-helpers';
+import { createMainInventoryStateSource } from './main-inventory-state-source';
 import { createMainQuestStateSource } from './main-quest-state-source';
 import { createMainSettingsStateSource } from './main-settings-state-source';
 import {
@@ -650,6 +651,20 @@ const questStateSource = createMainQuestStateSource({
   syncQuestBridgeState: (quests) => nextUiBridge.syncQuests(quests),
   syncPlayerBridgeState: (player) => nextUiBridge.syncPlayer(player),
   refreshUiChrome: () => refreshUiChrome(),
+});
+const inventoryStateSource = createMainInventoryStateSource({
+  inventoryPanel,
+  questStateSource,
+  marketPanel,
+  npcShopModal,
+  craftWorkbenchModal,
+  syncInventoryBridgeState: (inventory) => nextUiBridge.syncInventory(inventory),
+  syncPlayerBridgeState: (player) => nextUiBridge.syncPlayer(player),
+  sendUseItem: (slotIndex, count) => socket.sendUseItem(slotIndex, count),
+  sendDropItem: (slotIndex, count) => socket.sendDropItem(slotIndex, count),
+  sendDestroyItem: (slotIndex, count) => socket.sendDestroyItem(slotIndex, count),
+  sendEquip: (slotIndex) => socket.sendEquip(slotIndex),
+  sendSortInventory: () => socket.sendSortInventory(),
 });
 const settingsStateSource = createMainSettingsStateSource({
   settingsPanel,
@@ -2473,13 +2488,6 @@ function showObserveModal(targetX: number, targetY: number): void {
 }
 
 // 统一绑定各面板回调，避免子面板直接依赖 socket
-inventoryPanel.setCallbacks(
-  (slotIndex, count) => socket.sendUseItem(slotIndex, count),
-  (slotIndex, count) => socket.sendDropItem(slotIndex, count),
-  (slotIndex, count) => socket.sendDestroyItem(slotIndex, count),
-  (slotIndex) => socket.sendEquip(slotIndex),
-  () => socket.sendSortInventory(),
-);
 lootPanel.setCallbacks(
   (sourceId, itemKey) => {
     socket.sendTakeLoot(sourceId, itemKey);
@@ -2643,7 +2651,7 @@ function handleRealmUpdate(data: NEXT_S2C_Realm): void {
     showToast,
     sendAction: (action, element) => socket.sendHeavenGateAction(action, element),
   });
-  inventoryPanel.syncPlayerContext(myPlayer ?? undefined);
+  inventoryStateSource.syncPlayerContext(myPlayer ?? undefined);
   refreshUiChrome();
 }
 
@@ -2683,7 +2691,7 @@ function handleAttrUpdate(data: NEXT_S2C_AttrUpdate): void {
     showToast,
     sendAction: (action, element) => socket.sendHeavenGateAction(action, element),
   });
-  inventoryPanel.syncPlayerContext(myPlayer ?? undefined);
+  inventoryStateSource.syncPlayerContext(myPlayer ?? undefined);
   nextUiBridge.syncAttrUpdate(latestAttrUpdate);
   refreshUiChrome();
 }
@@ -2696,20 +2704,14 @@ function handleInventoryUpdate(data: NEXT_S2C_InventoryUpdate): void {
   if (myPlayer) {
     myPlayer.inventory = mergedInventory;
   }
-  inventoryPanel.update(mergedInventory);
-  questStateSource.syncInventory(mergedInventory);
-  marketPanel.syncInventory(mergedInventory);
-  npcShopModal.syncInventory(mergedInventory);
-  craftWorkbenchModal.syncInventory();
-  nextUiBridge.syncInventory(mergedInventory);
-  nextUiBridge.syncPlayer(myPlayer);
+  inventoryStateSource.syncInventory(mergedInventory, myPlayer);
 }
 
 function handleEquipmentUpdate(data: NEXT_S2C_EquipmentUpdate): void {
   const mergedEquipment = mergeEquipmentUpdate(myPlayer?.equipment, data);
   if (myPlayer) {
     myPlayer.equipment = mergedEquipment;
-    inventoryPanel.syncPlayerContext(myPlayer);
+    inventoryStateSource.syncPlayerContext(myPlayer);
   }
   equipmentPanel.update(mergedEquipment);
   craftWorkbenchModal.syncEquipment();
@@ -2731,7 +2733,7 @@ function handleTechniqueUpdate(data: NEXT_S2C_TechniqueUpdate): void {
     myPlayer.techniques = mergedTechniques;
     myPlayer.cultivatingTechId = nextCultivatingTechId;
     myPlayer.bodyTraining = nextBodyTraining;
-    inventoryPanel.syncPlayerContext(myPlayer);
+    inventoryStateSource.syncPlayerContext(myPlayer);
   }
   if (shouldRefreshTechniquePanel) {
     techniquePanel.update(mergedTechniques, nextCultivatingTechId, myPlayer ?? undefined);
@@ -2930,7 +2932,7 @@ function handleNextMapStatic(data: NEXT_S2C_MapStatic): void {
   });
   if (myPlayer && data.minimapLibrary) {
     myPlayer.unlockedMinimapIds = data.minimapLibrary.map((entry) => entry.mapId).sort();
-    inventoryPanel.syncPlayerContext(myPlayer);
+    inventoryStateSource.syncPlayerContext(myPlayer);
   }
   if (myPlayer && data.mapId === myPlayer.mapId) {
     refreshUiChrome();
@@ -3873,15 +3875,12 @@ function resetGameState() {
   chatUI.setPersistenceScope(null);
   debugPanel.hide();
   attrPanel.clear();
-  inventoryPanel.clear();
+  inventoryStateSource.clear();
   equipmentPanel.clear();
   techniquePanel.clear();
   questStateSource.clear();
-  marketPanel.clear();
   actionPanel.clear();
-  npcShopModal.clear();
   entityDetailModal.clear();
-  craftWorkbenchModal.clear();
   detailModalHost.close(LEADERBOARD_MODAL_OWNER);
   detailModalHost.close(WORLD_SUMMARY_MODAL_OWNER);
   lootPanel.clear();
@@ -4175,14 +4174,11 @@ function handleBootstrap(data: NEXT_S2C_Bootstrap): void {
   });
   attrPanel.initFromPlayer(myPlayer);
   socket.sendRequestAttrDetail();
-  inventoryPanel.initFromPlayer(myPlayer);
-  marketPanel.initFromPlayer(myPlayer);
+  inventoryStateSource.initFromPlayer(myPlayer);
   equipmentPanel.initFromPlayer(myPlayer);
   techniquePanel.initFromPlayer(myPlayer);
   bodyTrainingPanel.initFromPlayer(myPlayer);
   questStateSource.initFromPlayer(myPlayer);
-  npcShopModal.initFromPlayer(myPlayer);
-  craftWorkbenchModal.initFromPlayer(myPlayer);
   actionPanel.initFromPlayer(myPlayer);
   socket.sendRequestLeaderboard();
   socket.sendRequestWorldSummary();
