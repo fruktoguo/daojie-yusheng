@@ -36,7 +36,6 @@ import { ActionPanel } from './ui/panels/action-panel';
 import { LootPanel } from './ui/panels/loot-panel';
 import { SettingsPanel } from './ui/panels/settings-panel';
 import { WorldPanel } from './ui/panels/world-panel';
-import { MailPanel } from './ui/mail-panel';
 import { SuggestionPanel } from './ui/suggestion-panel';
 import { ChangelogPanel } from './ui/changelog-panel';
 import { TutorialPanel } from './ui/tutorial-panel';
@@ -77,6 +76,7 @@ import {
   type ObserveAsideCard,
 } from './main-ui-helpers';
 import { createMainInventoryStateSource } from './main-inventory-state-source';
+import { createMainMailStateSource } from './main-mail-state-source';
 import { createMainQuestStateSource } from './main-quest-state-source';
 import { createMainSettingsStateSource } from './main-settings-state-source';
 import {
@@ -637,7 +637,7 @@ const craftWorkbenchModal = new CraftWorkbenchModal();
 const lootPanel = new LootPanel();
 const worldPanel = new WorldPanel();
 const settingsPanel = new SettingsPanel();
-const mailPanel = new MailPanel(socket);
+const mailStateSource = createMainMailStateSource({ socket });
 const suggestionPanel = new SuggestionPanel(socket);
 const questStateSource = createMainQuestStateSource({
   questPanel,
@@ -3885,7 +3885,7 @@ function resetGameState() {
   detailModalHost.close(WORLD_SUMMARY_MODAL_OWNER);
   lootPanel.clear();
   worldPanel.clear();
-  mailPanel.clear();
+  mailStateSource.clear();
   mapRuntime.reset();
   nextUiBridge.reset();
   nextUiBridge.syncPlayer(null);
@@ -4183,7 +4183,7 @@ function handleBootstrap(data: NEXT_S2C_Bootstrap): void {
   socket.sendRequestLeaderboard();
   socket.sendRequestWorldSummary();
   refreshUiChrome();
-  mailPanel.setPlayerId(myPlayer.id);
+  mailStateSource.initFromPlayer(myPlayer.id);
   suggestionPanel.setPlayerId(myPlayer.id);
   flushPendingNextBootstrapEnvelope();
 }
@@ -4196,15 +4196,15 @@ socket.onSuggestionUpdate((data) => {
 });
 
 socket.onMailSummary((data) => {
-  mailPanel.updateSummary(data.summary);
+  mailStateSource.handleMailSummary(data.summary);
 });
 
 socket.onMailPage((data) => {
-  mailPanel.updatePage(data.page);
+  mailStateSource.handleMailPage(data.page);
 });
 
 socket.onMailDetail((data) => {
-  mailPanel.updateDetail(data.detail, data.error);
+  mailStateSource.handleMailDetail(data.detail, data.error);
 });
 
 socket.onRedeemCodesResult((data) => {
@@ -4212,7 +4212,7 @@ socket.onRedeemCodesResult((data) => {
 });
 
 socket.onMailOpResult((data) => {
-  mailPanel.handleOpResult(data);
+  mailStateSource.handleMailOpResult(data);
 });
 
 socket.onMarketUpdate((data) => {
