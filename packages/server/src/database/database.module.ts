@@ -15,7 +15,6 @@ import { PersistentDocumentEntity } from './entities/persistent-document.entity'
 import { PlayerMailReceiptEntity } from './entities/player-mail-receipt.entity';
 import { RedeemCodeGroupEntity } from './entities/redeem-code-group.entity';
 import { RedeemCodeEntity } from './entities/redeem-code.entity';
-import { GmRiskOperationAuditEntity } from './entities/gm-risk-operation-audit.entity';
 import { PlayerCollectionsEntity } from './entities/player-collections.entity';
 import { PlayerSettingsEntity } from './entities/player-settings.entity';
 import { PlayerPresenceEntity } from './entities/player-presence.entity';
@@ -35,7 +34,6 @@ const DATABASE_ENTITIES = [
   PersistentDocumentEntity,
   RedeemCodeGroupEntity,
   RedeemCodeEntity,
-  GmRiskOperationAuditEntity,
   PlayerCollectionsEntity,
   PlayerSettingsEntity,
   PlayerPresenceEntity,
@@ -135,7 +133,6 @@ const { Client: PgClient } = require('pg') as {
       PersistentDocumentEntity,
       RedeemCodeGroupEntity,
       RedeemCodeEntity,
-      GmRiskOperationAuditEntity,
       PlayerCollectionsEntity,
       PlayerSettingsEntity,
       PlayerPresenceEntity,
