@@ -99,7 +99,6 @@ import {
   BASE_MAX_HP,
   HP_PER_CONSTITUTION,
   Direction,
-  isAuraQiResourceKey,
   parseQiResourceKey,
   VisibleTile,
   VIEW_RADIUS,
@@ -926,7 +925,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
       .filter((resource) => {
 /** parsedResource：定义该变量以承载业务值。 */
         const parsedResource = parseQiResourceKey(resource.key);
-        return Boolean(parsedResource && isAuraQiResourceKey(resource.key));
+        return Boolean(parsedResource);
       })
       .map((resource) => ({
         key: resource.key,
@@ -972,7 +971,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
         }
 /** parsedResource：定义该变量以承载业务值。 */
         const parsedResource = parseQiResourceKey(resource.key);
-        if (!parsedResource || !isAuraQiResourceKey(resource.key)) {
+        if (!parsedResource) {
           return resource;
         }
         if (this.qiProjectionService.getResourceVisibility(player, resource.key) === 'hidden') {

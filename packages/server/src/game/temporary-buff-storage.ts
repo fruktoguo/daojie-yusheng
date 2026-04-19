@@ -52,6 +52,8 @@ export interface PersistedTemporaryBuffSnapshot {
 /** maxStacks：定义该变量以承载业务值。 */
   maxStacks: number;
   sustainTicksElapsed?: number;
+  persistOnDeath?: boolean;
+  persistOnReturnToSpawn?: boolean;
   name?: string;
   shortMark?: string;
   category?: TemporaryBuffState['category'];
@@ -119,6 +121,8 @@ function buildKnownBuffState(
     infiniteDuration?: boolean;
     sustainCost?: TemporaryBuffState['sustainCost'];
     expireWithBuffId?: string;
+    persistOnDeath?: boolean;
+    persistOnReturnToSpawn?: boolean;
 /** duration：定义该变量以承载业务值。 */
     duration: number;
 /** maxStacks：定义该变量以承载业务值。 */
@@ -158,6 +162,8 @@ function buildKnownBuffState(
       ? normalizeNonNegativeInt(snapshot.sustainTicksElapsed, 0)
       : undefined,
     expireWithBuffId: known.expireWithBuffId,
+    persistOnDeath: known.persistOnDeath === true,
+    persistOnReturnToSpawn: known.persistOnReturnToSpawn === true,
   });
 }
 
@@ -242,6 +248,8 @@ function buildSkillBuffState(
     infiniteDuration: effect.infiniteDuration === true,
     sustainCost: effect.sustainCost,
     expireWithBuffId: effect.expireWithBuffId,
+    persistOnDeath: effect.persistOnDeath === true,
+    persistOnReturnToSpawn: effect.persistOnReturnToSpawn === true,
     duration: Math.max(1, effect.duration),
     maxStacks: Math.max(1, effect.maxStacks ?? 1),
   });
@@ -319,6 +327,8 @@ function buildMonsterInitialBuffState(
     infiniteDuration: effect.infiniteDuration === true,
     sustainCost: effect.sustainCost,
     expireWithBuffId: effect.expireWithBuffId,
+    persistOnDeath: effect.persistOnDeath === true,
+    persistOnReturnToSpawn: effect.persistOnReturnToSpawn === true,
     duration: Math.max(1, effect.duration),
     maxStacks: Math.max(1, effect.maxStacks ?? 1),
   });
@@ -377,6 +387,8 @@ function buildConsumableBuffState(
     infiniteDuration: buff.infiniteDuration === true,
     sustainCost: buff.sustainCost,
     expireWithBuffId: buff.expireWithBuffId,
+    persistOnDeath: buff.persistOnDeath === true,
+    persistOnReturnToSpawn: buff.persistOnReturnToSpawn === true,
     duration: Math.max(1, buff.duration),
     maxStacks: Math.max(1, buff.maxStacks ?? 1),
   });
@@ -445,6 +457,8 @@ function buildEquipmentTimedBuffState(
     stats: buff.stats,
     statMode: buff.statMode,
     qiProjection: buff.qiProjection,
+    persistOnDeath: buff.persistOnDeath === true,
+    persistOnReturnToSpawn: buff.persistOnReturnToSpawn === true,
     duration: Math.max(1, buff.duration),
     maxStacks: Math.max(1, buff.maxStacks ?? 1),
   });
@@ -509,6 +523,8 @@ export function normalizePersistedTemporaryBuffSnapshot(raw: unknown): Persisted
     maxStacks: normalizePositiveInt(raw.maxStacks, 1),
 /** sustainTicksElapsed：定义该变量以承载业务值。 */
     sustainTicksElapsed: raw.sustainTicksElapsed !== undefined ? normalizeNonNegativeInt(raw.sustainTicksElapsed, 0) : undefined,
+    persistOnDeath: raw.persistOnDeath === true,
+    persistOnReturnToSpawn: raw.persistOnReturnToSpawn === true,
 /** name：定义该变量以承载业务值。 */
     name: typeof raw.name === 'string' && raw.name.length > 0 ? raw.name : undefined,
 /** shortMark：定义该变量以承载业务值。 */
@@ -631,6 +647,8 @@ export function hydrateTemporaryBuffSnapshot(
     sustainCost: snapshot.sustainCost,
     sustainTicksElapsed: snapshot.sustainTicksElapsed,
     expireWithBuffId: snapshot.expireWithBuffId,
+    persistOnDeath: snapshot.persistOnDeath === true,
+    persistOnReturnToSpawn: snapshot.persistOnReturnToSpawn === true,
   });
 }
 
@@ -668,6 +686,8 @@ export function dehydrateTemporaryBuff(
     stacks: normalizePositiveInt(buff.stacks, 1),
     maxStacks: normalizePositiveInt(buff.maxStacks, 1),
     sustainTicksElapsed: buff.sustainCost ? normalizeNonNegativeInt(buff.sustainTicksElapsed, 0) : undefined,
+    persistOnDeath: buff.persistOnDeath === true,
+    persistOnReturnToSpawn: buff.persistOnReturnToSpawn === true,
   };
 
   if (canPersistAsMinimalSnapshot(buff, contentService)) {
@@ -693,6 +713,7 @@ export function dehydrateTemporaryBuff(
     infiniteDuration: buff.infiniteDuration,
     sustainCost: buff.sustainCost,
     expireWithBuffId: buff.expireWithBuffId,
+    persistOnDeath: buff.persistOnDeath,
+    persistOnReturnToSpawn: buff.persistOnReturnToSpawn,
   };
 }
-

@@ -869,6 +869,7 @@ export class ContentService implements OnModuleInit {
         .map((layer) => ({
           ...layer,
           attrs: this.normalizeTechniqueLayerAttrs(layer.attrs),
+          qiProjection: this.normalizeQiProjectionModifiers(layer.qiProjection),
 /** expToNext：定义该变量以承载业务值。 */
           expToNext: layer.expFactor === undefined
             ? Math.max(0, layer.expToNext ?? 0)
@@ -1576,6 +1577,8 @@ export class ContentService implements OnModuleInit {
             ),
             statMode: this.normalizeBuffModifierMode(buff.statMode),
             qiProjection: this.normalizeQiProjectionModifiers(buff.qiProjection),
+            persistOnDeath: buff.persistOnDeath === true,
+            persistOnReturnToSpawn: buff.persistOnReturnToSpawn === true,
           },
         }];
       }
@@ -1632,6 +1635,8 @@ export class ContentService implements OnModuleInit {
 /** infiniteDuration：定义该变量以承载业务值。 */
         infiniteDuration: entry.infiniteDuration === true,
         sustainCost: normalizeBuffSustainCost(entry.sustainCost),
+        persistOnDeath: entry.persistOnDeath === true,
+        persistOnReturnToSpawn: entry.persistOnReturnToSpawn === true,
 /** expireWithBuffId：定义该变量以承载业务值。 */
         expireWithBuffId: typeof entry.expireWithBuffId === 'string' && entry.expireWithBuffId.trim().length > 0
           ? entry.expireWithBuffId.trim()
@@ -2281,6 +2286,8 @@ export class ContentService implements OnModuleInit {
 /** infiniteDuration：定义该变量以承载业务值。 */
       infiniteDuration: input.infiniteDuration === true,
       sustainCost: normalizeBuffSustainCost(input.sustainCost),
+      persistOnDeath: input.persistOnDeath === true,
+      persistOnReturnToSpawn: input.persistOnReturnToSpawn === true,
 /** expireWithBuffId：定义该变量以承载业务值。 */
       expireWithBuffId: typeof input.expireWithBuffId === 'string' && input.expireWithBuffId.trim().length > 0
         ? input.expireWithBuffId.trim()

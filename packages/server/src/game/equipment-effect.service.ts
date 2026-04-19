@@ -497,6 +497,8 @@ export class EquipmentEffectService {
       stats: buff.stats,
       statMode: buff.statMode,
       qiProjection: buff.qiProjection,
+      persistOnDeath: buff.persistOnDeath === true,
+      persistOnReturnToSpawn: buff.persistOnReturnToSpawn === true,
     });
   }
 
@@ -530,6 +532,8 @@ export class EquipmentEffectService {
       existing.stats = nextBuff.stats;
       existing.statMode = nextBuff.statMode;
       existing.qiProjection = nextBuff.qiProjection;
+      existing.persistOnDeath = nextBuff.persistOnDeath;
+      existing.persistOnReturnToSpawn = nextBuff.persistOnReturnToSpawn;
       syncDynamicBuffPresentation(existing);
       return;
     }
@@ -602,4 +606,3 @@ export class EquipmentEffectService {
     return `${EQUIP_DYNAMIC_SOURCE_PREFIX}${entry.slot}:${entry.item.itemId}:${entry.effect.effectId ?? 'effect'}`;
   }
 }
-

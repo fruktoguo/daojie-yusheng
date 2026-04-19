@@ -143,7 +143,7 @@ export function getTileResourceFlowConfig(resourceKey: string): TileResourceFlow
 
 /** descriptor：定义该变量以承载业务值。 */
   const descriptor = parseQiResourceKey(resourceKey);
-  if (!descriptor || descriptor.family !== 'aura') {
+  if (!descriptor) {
     return null;
   }
   if (descriptor.form === 'refined') {
@@ -247,4 +247,3 @@ export function getTileResourceLabel(resourceKey: string): string {
   }
   return `${formLabel}${elementLabel}${familyLabel}`;
 }
-

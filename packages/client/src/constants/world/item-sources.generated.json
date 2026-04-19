@@ -1417,6 +1417,7 @@
       "count": 1
     }
   ],
+  "book.xuesha_huanling_jue": [],
   "book.yaohuo_liebo": [
     {
       "kind": "monster_drop",
@@ -4445,6 +4446,7 @@
       "count": 2
     }
   ],
+  "stone.blood_essence": [],
   "stonegall_core": [
     {
       "kind": "monster_drop",

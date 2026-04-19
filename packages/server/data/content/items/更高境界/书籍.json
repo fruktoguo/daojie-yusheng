@@ -5,5 +5,12 @@
     "type": "skill_book",
     "desc": "记载凝气成基法的修行法门，使用后学会凝气成基法。",
     "learnTechniqueId": "ningqi_chengji"
+  },
+  {
+    "itemId": "book.xuesha_huanling_jue",
+    "name": "《血煞唤灵决》",
+    "type": "skill_book",
+    "desc": "记载血煞唤灵决的修行法门，使用后学会血煞唤灵决。",
+    "learnTechniqueId": "xuesha_huanling_jue"
   }
 ]

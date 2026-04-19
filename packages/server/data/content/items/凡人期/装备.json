@@ -215,6 +215,7 @@
           "shortMark": "蚀",
           "category": "debuff",
           "visibility": "public",
+          "persistOnDeath": true,
           "color": "#6e4a3f",
           "maxStacks": 6442450941
         }

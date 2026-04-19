@@ -78,6 +78,17 @@ import {
   RETURN_TO_SPAWN_COOLDOWN_TICKS,
 } from '../constants/gameplay/action';
 import {
+  BLOOD_ESSENCE_ITEM_ID,
+  BLOOD_ESSENCE_SHA_GAIN,
+  PVP_SHA_INFUSION_BUFF_ID,
+  PVP_SHA_INFUSION_DECAY_TICKS,
+  PVP_SHA_INFUSION_SOURCE_ID,
+  PVP_SOUL_INJURY_BUFF_ID,
+  PVP_SOUL_INJURY_DURATION_TICKS,
+  PVP_SOUL_INJURY_SOURCE_ID,
+  REFINED_SHA_RESOURCE_KEY,
+} from '../constants/gameplay/pvp';
+import {
   FIRE_BURN_MARK_BOSS_MULTIPLIER,
   FIRE_BURN_MARK_BUFF_ID,
   FIRE_BURN_MARK_HP_RATIO_PER_STACK,
@@ -2457,6 +2468,8 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       sustainCost: effect.sustainCost,
       sustainTicksElapsed: effect.sustainCost ? 0 : undefined,
       expireWithBuffId: effect.expireWithBuffId,
+      persistOnDeath: effect.persistOnDeath === true,
+      persistOnReturnToSpawn: effect.persistOnReturnToSpawn === true,
     });
   }
 
@@ -2498,6 +2511,8 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       sustainCost: effect.sustainCost,
       sustainTicksElapsed: effect.sustainCost ? 0 : undefined,
       expireWithBuffId: effect.expireWithBuffId,
+      persistOnDeath: effect.persistOnDeath === true,
+      persistOnReturnToSpawn: effect.persistOnReturnToSpawn === true,
     });
   }
 
@@ -2575,11 +2590,237 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       existing.sustainCost = nextBuff.sustainCost;
       existing.sustainTicksElapsed = nextBuff.sustainTicksElapsed;
       existing.expireWithBuffId = nextBuff.expireWithBuffId;
+      existing.persistOnDeath = nextBuff.persistOnDeath;
+      existing.persistOnReturnToSpawn = nextBuff.persistOnReturnToSpawn;
       syncDynamicBuffPresentation(existing);
       return existing;
     }
     targetBuffs.push(syncDynamicBuffPresentation(nextBuff));
     return nextBuff;
+  }
+
+  private getPlayerRealmLevel(player: Pick<PlayerState, 'realm' | 'realmLv'>): number {
+    return Math.max(1, Math.floor(player.realm?.realmLv ?? player.realmLv ?? 1));
+  }
+
+  private getPlayerBloodEssenceCount(player: Pick<PlayerState, 'realm' | 'realmLv'>): number {
+/** realmLv：定义该变量以承载业务值。 */
+    const realmLv = this.getPlayerRealmLevel(player);
+    return realmLv * realmLv;
+  }
+
+  private buildPvPSoulInjuryBuffState(sourceRealmLv: number): TemporaryBuffState {
+    return syncDynamicBuffPresentation({
+      buffId: PVP_SOUL_INJURY_BUFF_ID,
+      name: '神魂受损',
+      desc: '神魂受创，神识 -1%；身死与遁返都不会清除，需静养满一时辰。',
+      baseDesc: '神魂受创，神识 -1%；身死与遁返都不会清除，需静养满一时辰。',
+      shortMark: '残',
+      category: 'debuff',
+      visibility: 'public',
+      remainingTicks: PVP_SOUL_INJURY_DURATION_TICKS + 1,
+      duration: PVP_SOUL_INJURY_DURATION_TICKS,
+      stacks: 1,
+      maxStacks: 1,
+      sourceSkillId: PVP_SOUL_INJURY_SOURCE_ID,
+      sourceSkillName: '杀孽',
+      realmLv: Math.max(1, Math.floor(sourceRealmLv)),
+      color: '#8a5a64',
+      attrs: {
+        spirit: -1,
+      },
+      attrMode: 'percent',
+      persistOnDeath: true,
+      persistOnReturnToSpawn: true,
+    });
+  }
+
+  private buildPvPShaInfusionBuffState(sourceRealmLv: number): TemporaryBuffState {
+    return syncDynamicBuffPresentation({
+      buffId: PVP_SHA_INFUSION_BUFF_ID,
+      name: '煞气入体',
+      desc: '每层攻击 +1%、防御 -2%；每十分钟自然消退一层，死亡时会按层数比例折损当前境界修为，不足时继续折损底蕴。',
+      baseDesc: '每层攻击 +1%、防御 -2%；每十分钟自然消退一层，死亡时会按层数比例折损当前境界修为，不足时继续折损底蕴。',
+      shortMark: '煞',
+      category: 'buff',
+      visibility: 'public',
+      remainingTicks: PVP_SHA_INFUSION_DECAY_TICKS + 1,
+      duration: PVP_SHA_INFUSION_DECAY_TICKS,
+      stacks: 1,
+      maxStacks: 999999,
+      sourceSkillId: PVP_SHA_INFUSION_SOURCE_ID,
+      sourceSkillName: '杀孽',
+      realmLv: Math.max(1, Math.floor(sourceRealmLv)),
+      color: '#7a2e2e',
+      stats: {
+        physAtk: 1,
+        spellAtk: 1,
+        physDef: -2,
+        spellDef: -2,
+      },
+      statMode: 'percent',
+      persistOnDeath: true,
+    });
+  }
+
+  private applyPvPSoulInjury(player: PlayerState): void {
+    player.temporaryBuffs ??= [];
+    this.applyBuffState(player.temporaryBuffs, this.buildPvPSoulInjuryBuffState(this.getPlayerRealmLevel(player)));
+    this.attrService.recalcPlayer(player);
+  }
+
+  private addPvPShaInfusionStack(player: PlayerState): number {
+    player.temporaryBuffs ??= [];
+/** existing：定义该变量以承载业务值。 */
+    const existing = player.temporaryBuffs.find((buff) => buff.buffId === PVP_SHA_INFUSION_BUFF_ID);
+    if (existing && existing.remainingTicks > 0) {
+      existing.name = '煞气入体';
+      existing.desc = '每层攻击 +1%、防御 -2%；每十分钟自然消退一层，死亡时会按层数比例折损当前境界修为，不足时继续折损底蕴。';
+      existing.baseDesc = existing.desc;
+      existing.shortMark = '煞';
+      existing.category = 'buff';
+      existing.visibility = 'public';
+      existing.duration = PVP_SHA_INFUSION_DECAY_TICKS;
+      existing.maxStacks = Math.max(999999, existing.maxStacks);
+      existing.stacks = Math.min(existing.maxStacks, existing.stacks + 1);
+      existing.sourceSkillId = PVP_SHA_INFUSION_SOURCE_ID;
+      existing.sourceSkillName = '杀孽';
+      existing.realmLv = this.getPlayerRealmLevel(player);
+      existing.color = '#7a2e2e';
+      existing.stats = {
+        physAtk: 1,
+        spellAtk: 1,
+        physDef: -2,
+        spellDef: -2,
+      };
+      existing.statMode = 'percent';
+      existing.persistOnDeath = true;
+      syncDynamicBuffPresentation(existing);
+      this.attrService.recalcPlayer(player);
+      return existing.stacks;
+    }
+/** created：定义该变量以承载业务值。 */
+    const created = this.buildPvPShaInfusionBuffState(this.getPlayerRealmLevel(player));
+    player.temporaryBuffs.push(created);
+    this.attrService.recalcPlayer(player);
+    return created.stacks;
+  }
+
+  private applyShaInfusionDeathPenalty(player: PlayerState): {
+    stacks: number;
+    loss: number;
+    consumedProgress: number;
+    consumedFoundation: number;
+  } {
+/** stacks：定义该变量以承载业务值。 */
+    const stacks = this.getEntityBuffStacks(player.temporaryBuffs, PVP_SHA_INFUSION_BUFF_ID);
+    if (stacks <= 0) {
+      return {
+        stacks: 0,
+        loss: 0,
+        consumedProgress: 0,
+        consumedFoundation: 0,
+      };
+    }
+    this.techniqueService.initializePlayerProgression(player);
+/** progressToNext：定义该变量以承载业务值。 */
+    const progressToNext = Math.max(
+      0,
+      Math.floor(
+        player.realm?.progressToNext
+          ?? this.contentService.getRealmLevelEntry(this.getPlayerRealmLevel(player))?.expToNext
+          ?? 0,
+      ),
+    );
+/** loss：定义该变量以承载业务值。 */
+    const loss = Math.max(0, Math.floor((progressToNext * stacks) / 100));
+    if (loss <= 0) {
+      return {
+        stacks,
+        loss: 0,
+        consumedProgress: 0,
+        consumedFoundation: 0,
+      };
+    }
+/** consumed：定义该变量以承载业务值。 */
+    const consumed = this.techniqueService.consumeRealmProgressAndFoundation(player, loss);
+    return {
+      stacks,
+      loss,
+      consumedProgress: consumed.consumedProgress,
+      consumedFoundation: consumed.consumedFoundation,
+    };
+  }
+
+  private applyPvPKillRewards(
+    killer: PlayerState,
+    victim: PlayerState,
+    deathSite: { mapId: string; x: number; y: number },
+    messages: WorldMessage[],
+  ): {
+    killerDirty: WorldDirtyFlag[];
+    victimAttrChanged: boolean;
+  } {
+    if (killer.isBot || victim.isBot || killer.id === victim.id) {
+      return { killerDirty: [], victimAttrChanged: false };
+    }
+
+/** killerDirty：定义该变量以承载业务值。 */
+    const killerDirty = new Set<WorldDirtyFlag>(['attr']);
+/** nextStacks：定义该变量以承载业务值。 */
+    const nextStacks = this.addPvPShaInfusionStack(killer);
+    messages.push({
+      playerId: killer.id,
+      text: `杀念入体，煞气入体加深至 ${nextStacks} 层。`,
+      kind: 'combat',
+    });
+
+/** alreadySoulInjured：定义该变量以承载业务值。 */
+    const alreadySoulInjured = this.entityHasActiveBuff(victim.temporaryBuffs, PVP_SOUL_INJURY_BUFF_ID);
+    if (alreadySoulInjured) {
+      return { killerDirty: [...killerDirty], victimAttrChanged: true };
+    }
+    this.applyPvPSoulInjury(victim);
+    messages.push({
+      playerId: victim.id,
+      text: '神魂受损，一时辰内神识 -1%；身死与遁返都不会清除。',
+      kind: 'combat',
+    });
+
+/** bloodEssenceCount：定义该变量以承载业务值。 */
+    const bloodEssenceCount = this.getPlayerBloodEssenceCount(victim);
+    if (bloodEssenceCount <= 0) {
+      return { killerDirty: [...killerDirty], victimAttrChanged: true };
+    }
+/** reward：定义该变量以承载业务值。 */
+    const reward = this.contentService.createItem(BLOOD_ESSENCE_ITEM_ID, bloodEssenceCount);
+    if (reward) {
+      if (this.inventoryService.addItem(killer, reward)) {
+        killerDirty.add('inv');
+        messages.push({
+          playerId: killer.id,
+          text: `你从 ${victim.name} 体内掠得 ${reward.name} x${bloodEssenceCount}。`,
+          kind: 'loot',
+        });
+      } else {
+        this.lootService.dropToGround(deathSite.mapId, deathSite.x, deathSite.y, reward);
+        killerDirty.add('loot');
+        messages.push({
+          playerId: killer.id,
+          text: `你的背包已满，${reward.name} x${bloodEssenceCount} 掉在了 ${victim.name} 倒下之处。`,
+          kind: 'loot',
+        });
+      }
+    }
+/** corpseShaGain：定义该变量以承载业务值。 */
+    const corpseShaGain = bloodEssenceCount * BLOOD_ESSENCE_SHA_GAIN;
+    this.mapService.addTileResourceValue(deathSite.mapId, deathSite.x, deathSite.y, REFINED_SHA_RESOURCE_KEY, corpseShaGain);
+    messages.push({
+      playerId: killer.id,
+      text: `${victim.name} 的尸身余煞在原地凝成 ${corpseShaGain} 点煞气。`,
+      kind: 'combat',
+    });
+    return { killerDirty: [...killerDirty], victimAttrChanged: true };
   }
 
 /** getRenderableBuffs：执行对应的业务逻辑。 */
@@ -3321,6 +3562,8 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
         if (defeated) {
           this.measureCpuSection('monster_death_post', '怪物: 死亡后处理', () => {
             this.registerPlayerDefeat(target);
+/** deathPenalty：定义该变量以承载业务值。 */
+            const deathPenalty = this.applyShaInfusionDeathPenalty(target);
             if (target.online === false) {
 /** mapName：定义该变量以承载业务值。 */
               const mapName = this.mapService.getMapMeta(target.mapId)?.name ?? target.mapId;
@@ -3336,6 +3579,13 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
                 : '你被击倒，已被护山阵法送回复活点。',
               kind: 'combat',
             });
+            if (deathPenalty.consumedProgress > 0 || deathPenalty.consumedFoundation > 0) {
+              allMessages.push({
+                playerId: target.id,
+                text: `体内煞气反噬，折损 ${deathPenalty.consumedProgress} 点境界修为${deathPenalty.consumedFoundation > 0 ? `，并再损 ${deathPenalty.consumedFoundation} 点底蕴` : ''}。`,
+                kind: 'combat',
+              });
+            }
             if (target.online === false) {
               this.removePlayerFromWorld(target, 'death');
             } else {
@@ -4233,6 +4483,8 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
 
     if (target.hp <= 0) {
       this.registerPlayerDefeat(target);
+/** deathPenalty：定义该变量以承载业务值。 */
+      const deathPenalty = this.applyShaInfusionDeathPenalty(target);
       if (target.online === false) {
 /** mapName：定义该变量以承载业务值。 */
         const mapName = this.mapService.getMapMeta(target.mapId)?.name ?? target.mapId;
@@ -4248,6 +4500,13 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
           : '你被击倒，已被护山阵法送回复活点。',
         kind: 'combat',
       });
+      if (deathPenalty.consumedProgress > 0 || deathPenalty.consumedFoundation > 0) {
+        messages.push({
+          playerId: target.id,
+          text: `体内煞气反噬，折损 ${deathPenalty.consumedProgress} 点境界修为${deathPenalty.consumedFoundation > 0 ? `，并再损 ${deathPenalty.consumedFoundation} 点底蕴` : ''}。`,
+          kind: 'combat',
+        });
+      }
       if (target.online === false) {
         this.removePlayerFromWorld(target, 'death');
       } else {
@@ -5307,7 +5566,26 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     this.tryActivatePlayerAutoRetaliate(target, attacker, dirtyPlayers);
 
     if (target.hp <= 0) {
+/** deathSite：定义该变量以承载业务值。 */
+      const deathSite = { mapId: target.mapId, x: target.x, y: target.y };
       this.registerPlayerDefeat(target, attacker);
+/** deathPenalty：定义该变量以承载业务值。 */
+      const deathPenalty = this.applyShaInfusionDeathPenalty(target);
+      if (deathPenalty.consumedProgress > 0 || deathPenalty.consumedFoundation > 0) {
+        messages.push({
+          playerId: target.id,
+          text: `体内煞气反噬，折损 ${deathPenalty.consumedProgress} 点境界修为${deathPenalty.consumedFoundation > 0 ? `，并再损 ${deathPenalty.consumedFoundation} 点底蕴` : ''}。`,
+          kind: 'combat',
+        });
+      }
+/** pvpRewards：定义该变量以承载业务值。 */
+      const pvpRewards = this.applyPvPKillRewards(attacker, target, deathSite, messages);
+      for (const flag of pvpRewards.killerDirty) {
+        dirty.add(flag);
+      }
+      if (pvpRewards.victimAttrChanged) {
+        dirtyPlayers.add(target.id);
+      }
       if (!attacker.isBot && !target.isBot) {
 /** mapName：定义该变量以承载业务值。 */
         const mapName = this.mapService.getMapMeta(target.mapId)?.name ?? target.mapId;
@@ -5729,12 +6007,33 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     const dirty = new Set<WorldDirtyFlag>(['attr', ...(cultivation.dirty as WorldDirtyFlag[])]);
 /** playerDefeated：定义该变量以承载业务值。 */
     let playerDefeated = false;
+/** dirtyPlayers：定义该变量以承载业务值。 */
+    const dirtyPlayers = new Set<string>();
 
     if (player.hp <= 0) {
 /** killer：定义该变量以承载业务值。 */
       const killer = this.resolvePlayerDotKiller(player, sourceCasterId);
+/** deathSite：定义该变量以承载业务值。 */
+      const deathSite = { mapId: player.mapId, x: player.x, y: player.y };
       this.registerPlayerDefeat(player, killer ?? undefined);
+/** deathPenalty：定义该变量以承载业务值。 */
+      const deathPenalty = this.applyShaInfusionDeathPenalty(player);
+      if (deathPenalty.consumedProgress > 0 || deathPenalty.consumedFoundation > 0) {
+        messages.push({
+          playerId: player.id,
+          text: `体内煞气反噬，折损 ${deathPenalty.consumedProgress} 点境界修为${deathPenalty.consumedFoundation > 0 ? `，并再损 ${deathPenalty.consumedFoundation} 点底蕴` : ''}。`,
+          kind: 'combat',
+        });
+      }
       if (killer) {
+/** pvpRewards：定义该变量以承载业务值。 */
+        const pvpRewards = this.applyPvPKillRewards(killer, player, deathSite, messages);
+        for (const flag of pvpRewards.killerDirty) {
+          this.playerService.markDirty(killer.id, flag);
+        }
+        if (pvpRewards.victimAttrChanged) {
+          dirtyPlayers.add(player.id);
+        }
 /** mapName：定义该变量以承载业务值。 */
         const mapName = this.mapService.getMapMeta(player.mapId)?.name ?? player.mapId;
         if (!killer.isBot && !player.isBot) {
@@ -5789,6 +6088,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     return {
       messages,
       dirty: [...dirty],
+      dirtyPlayers: [...dirtyPlayers],
       playerDefeated,
     };
   }
@@ -6787,7 +7087,9 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     player.questNavigation = undefined;
     player.mapNavigation = undefined;
     if (player.temporaryBuffs?.length) {
-      player.temporaryBuffs = player.temporaryBuffs.filter((buff) => buff.category !== 'debuff');
+      player.temporaryBuffs = player.temporaryBuffs.filter((buff) => (
+        buff.persistOnDeath === true || buff.category !== 'debuff'
+      ));
     }
     this.attrService.recalcPlayer(player);
     this.mapService.removeOccupant(player.mapId, player.x, player.y, player.id);
@@ -7755,7 +8057,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     player.y = spawn.y;
     player.facing = Direction.South;
     if (options.clearBuffs) {
-      player.temporaryBuffs = [];
+      player.temporaryBuffs = (player.temporaryBuffs ?? []).filter((buff) => buff.persistOnReturnToSpawn === true);
     }
     this.attrService.recalcPlayer(player);
     if (options.restoreVitals) {

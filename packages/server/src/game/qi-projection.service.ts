@@ -14,7 +14,7 @@ import {
   DEFAULT_PLAYER_QI_RESOURCE_KEYS,
   DEFAULT_QI_RESOURCE_DESCRIPTOR,
   getAuraLevel,
-  isAuraQiResourceKey,
+  parseQiResourceKey,
   matchesQiProjectionSelector,
   maxQiVisibility,
   PlayerState,
@@ -92,7 +92,7 @@ export class QiProjectionService {
 /** total：定义该变量以承载业务值。 */
     let total = 0;
     for (const resource of resources) {
-      if (!isAuraQiResourceKey(resource.key)) {
+      if (!parseQiResourceKey(resource.key)) {
         continue;
       }
       total += this.getEffectiveResourceValue(player, resource.key, resource.value);
@@ -229,4 +229,3 @@ export class QiProjectionService {
     ));
   }
 }
-

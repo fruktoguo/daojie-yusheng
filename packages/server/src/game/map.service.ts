@@ -60,7 +60,7 @@ import {
   Attributes,
   expandMapResourceNodeGroups,
   EquipmentSlots,
-  isAuraQiResourceKey,
+  parseQiResourceKey,
   LootSourceVariant,
 } from '@mud/shared';
 import * as fs from 'fs';
@@ -1081,7 +1081,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
             resourceStateChanged = true;
           }
 
-          if (isAuraQiResourceKey(resourceKey)) {
+          if (parseQiResourceKey(resourceKey)) {
 /** nextAuraValue：定义该变量以承载业务值。 */
             const nextAuraValue = this.syncTileAuraValue(mapId, state.x, state.y, resourceStateBucket, tile);
             if (getAuraLevel(nextAuraValue, this.auraLevelBaseValue) !== getAuraLevel(previousAuraValue, this.auraLevelBaseValue)) {
@@ -1629,7 +1629,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
 /** matched：定义该变量以承载业务值。 */
     let matched = false;
     for (const [resourceKey, stateMap] of resourceBucket.entries()) {
-      if (!isAuraQiResourceKey(resourceKey)) {
+      if (!parseQiResourceKey(resourceKey)) {
         continue;
       }
 /** state：定义该变量以承载业务值。 */
@@ -1657,7 +1657,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
 /** matched：定义该变量以承载业务值。 */
     let matched = false;
     for (const [resourceKey, stateMap] of resourceBucket.entries()) {
-      if (!isAuraQiResourceKey(resourceKey)) {
+      if (!parseQiResourceKey(resourceKey)) {
         continue;
       }
 /** state：定义该变量以承载业务值。 */
@@ -1700,7 +1700,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
 /** tileKeys：定义该变量以承载业务值。 */
     const tileKeys = new Set<string>();
     for (const [resourceKey, stateMap] of resourceBucket.entries()) {
-      if (!isAuraQiResourceKey(resourceKey)) {
+      if (!parseQiResourceKey(resourceKey)) {
         continue;
       }
       for (const key of stateMap.keys()) {
@@ -2624,7 +2624,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
 /** resources：定义该变量以承载业务值。 */
     const resources: Array<{ key: string; value: number }> = [];
     for (const resourceKey of resourceKeys) {
-      if (!isAuraQiResourceKey(resourceKey)) {
+      if (!parseQiResourceKey(resourceKey)) {
         continue;
       }
 /** value：定义该变量以承载业务值。 */
@@ -2897,7 +2897,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
       stateMap.delete(key);
       this.setTileResourceStateMap(this.resourceStates, mapId, normalizedResourceKey, stateMap);
     }
-    if (isAuraQiResourceKey(normalizedResourceKey)) {
+    if (parseQiResourceKey(normalizedResourceKey)) {
       this.syncTileAuraValue(mapId, x, y);
     }
     this.resourceStatesDirty = true;

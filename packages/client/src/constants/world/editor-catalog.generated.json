@@ -7419,6 +7419,52 @@
       ]
     },
     {
+      "id": "xuesha_huanling_jue",
+      "name": "血煞唤灵决",
+      "grade": "heaven",
+      "category": "internal",
+      "realmLv": 42,
+      "skills": [],
+      "layers": [
+        {
+          "level": 1,
+          "expToNext": 1092000
+        },
+        {
+          "level": 2,
+          "expToNext": 1218000
+        },
+        {
+          "level": 3,
+          "expToNext": 1365000
+        },
+        {
+          "level": 4,
+          "expToNext": 1533000
+        },
+        {
+          "level": 5,
+          "expToNext": 1722000
+        },
+        {
+          "level": 6,
+          "expToNext": 1932000
+        },
+        {
+          "level": 7,
+          "expToNext": 2184000
+        },
+        {
+          "level": 8,
+          "expToNext": 2478000
+        },
+        {
+          "level": 9,
+          "expToNext": 0
+        }
+      ]
+    },
+    {
       "id": "nourishing_qi_art",
       "name": "养气诀",
       "grade": "yellow",
@@ -10262,6 +10308,13 @@
       "learnTechniqueId": "mountain_insight_chart"
     },
     {
+      "itemId": "book.xuesha_huanling_jue",
+      "name": "《血煞唤灵决》",
+      "type": "skill_book",
+      "desc": "记载血煞唤灵决的修行法门，使用后学会血煞唤灵决。",
+      "learnTechniqueId": "xuesha_huanling_jue"
+    },
+    {
       "itemId": "book.nourishing_qi_art",
       "name": "《养气诀》",
       "type": "skill_book",
@@ -10427,6 +10480,7 @@
           "desc": "药力催得血气躁动，2400 息内暴击 +9%；即使身死，药势仍会残留到药尽为止。",
           "shortMark": "赤",
           "duration": 2400,
+          "persistOnDeath": true,
           "stats": {
             "crit": 9
           },
@@ -11453,6 +11507,7 @@
           "desc": "目力与判断更清楚，2400 息内命中 +9%、视野 +14%；身死也不会立刻散去。",
           "shortMark": "明",
           "duration": 2400,
+          "persistOnDeath": true,
           "stats": {
             "hit": 9,
             "viewRange": 14
@@ -11597,6 +11652,7 @@
           "desc": "下手更刁钻，2400 息内破招 +14%、命中 +7%；此药势即使身死也不会立刻散去。",
           "shortMark": "破",
           "duration": 2400,
+          "persistOnDeath": true,
           "stats": {
             "breakPower": 14,
             "hit": 7
@@ -11707,6 +11763,7 @@
           "desc": "脚下更轻，2400 息内移动速度 +22%、闪避 +7%；这股药劲即使身死也不会立刻散去。",
           "shortMark": "疾",
           "duration": 2400,
+          "persistOnDeath": true,
           "stats": {
             "moveSpeed": 22,
             "dodge": 7
@@ -11837,6 +11894,7 @@
             "shortMark": "蚀",
             "category": "debuff",
             "visibility": "public",
+            "persistOnDeath": true,
             "color": "#6e4a3f",
             "maxStacks": 6442450941
           }
@@ -12097,6 +12155,16 @@
       "type": "material",
       "level": 11,
       "desc": "可用于炼器的粗矿。"
+    },
+    {
+      "itemId": "stone.blood_essence",
+      "name": "血精石",
+      "type": "consumable",
+      "grade": "heaven",
+      "level": 42,
+      "groundLabel": "血",
+      "allowBatchUse": true,
+      "desc": "裹着血煞与残魄的晶石。捏碎后会为当前地块增加 10 点凝练煞气，可批量使用。"
     },
     {
       "itemId": "blood_feather",
@@ -12373,6 +12441,7 @@
           "desc": "云气托体，脚下更轻，移动速度提高；即使身死，这股轻云余势也会继续残留到药尽为止。",
           "shortMark": "飘",
           "duration": 1800,
+          "persistOnDeath": true,
           "valueStats": {
             "moveSpeed": 20
           }

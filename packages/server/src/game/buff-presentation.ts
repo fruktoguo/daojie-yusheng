@@ -1,5 +1,6 @@
 import type { TemporaryBuffState } from '@mud/shared';
 import { SOUL_DEVOUR_EROSION_BUFF_ID } from '../constants/gameplay/equipment';
+import { PVP_SHA_INFUSION_BUFF_ID, PVP_SOUL_INJURY_BUFF_ID } from '../constants/gameplay/pvp';
 import { FIRE_BURN_MARK_BUFF_ID } from '../constants/gameplay/technique-buffs';
 import { getBuffSustainCost, getBuffSustainResourceLabel, getNextBuffSustainCost } from './buff-sustain';
 
@@ -57,6 +58,13 @@ export function buildDynamicBuffDescription(
   if (buff.buffId === SOUL_DEVOUR_EROSION_BUFF_ID) {
     return `当前总层数 ${Math.max(0, Math.round(buff.stacks))}，四维已降低 ${formatDynamicPercent(getSoulDevourErosionRatio(buff.stacks))}；此残意即使身死也不会散去。`;
   }
+  if (buff.buffId === PVP_SOUL_INJURY_BUFF_ID) {
+    return '神魂受创，神识 -1%；身死与遁返都不会清除，需静养满一时辰。';
+  }
+  if (buff.buffId === PVP_SHA_INFUSION_BUFF_ID) {
+    const safeStacks = Math.max(0, Math.round(buff.stacks));
+    return `当前 ${safeStacks} 层；每层攻击 +1%、防御 -2%，死亡时会按层数比例折损当前境界修为，不足时继续折损底蕴。`;
+  }
   if (buff.buffId === FIRE_BURN_MARK_BUFF_ID) {
 /** safeStacks：定义该变量以承载业务值。 */
     const safeStacks = Math.max(0, Math.round(buff.stacks));
@@ -70,4 +78,3 @@ export function syncDynamicBuffPresentation<T extends Pick<TemporaryBuffState, '
   buff.desc = buildDynamicBuffDescription(buff);
   return buff;
 }
-

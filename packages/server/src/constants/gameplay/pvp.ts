@@ -1,0 +1,27 @@
+import { buildQiResourceKey } from '@mud/shared';
+
+/** 血精石物品 ID。 */
+export const BLOOD_ESSENCE_ITEM_ID = 'stone.blood_essence';
+/** 血精石每颗捏碎提供的煞气。 */
+export const BLOOD_ESSENCE_SHA_GAIN = 10;
+
+/** 玩家互杀后附加的神魂受损 Debuff ID。 */
+export const PVP_SOUL_INJURY_BUFF_ID = 'pvp.soul_injury';
+/** 神魂受损的来源标识。 */
+export const PVP_SOUL_INJURY_SOURCE_ID = 'pvp.kill';
+/** 神魂受损持续时间。 */
+export const PVP_SOUL_INJURY_DURATION_TICKS = 3600;
+
+/** 玩家击杀后叠加的煞气入体 Buff ID。 */
+export const PVP_SHA_INFUSION_BUFF_ID = 'pvp.sha_infusion';
+/** 煞气入体的来源标识。 */
+export const PVP_SHA_INFUSION_SOURCE_ID = 'pvp.kill';
+/** 煞气入体每层衰减间隔。 */
+export const PVP_SHA_INFUSION_DECAY_TICKS = 600;
+
+/** 血精石与尸身残煞注入的凝练煞气资源键。 */
+export const REFINED_SHA_RESOURCE_KEY = buildQiResourceKey({
+  family: 'sha',
+  form: 'refined',
+  element: 'neutral',
+});

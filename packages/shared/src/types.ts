@@ -449,6 +449,8 @@ export interface EquipmentBuffDef {
   qiProjection?: QiProjectionModifier[];
   valueStats?: PartialNumericStats;
   presentationScale?: number;
+  persistOnDeath?: boolean;
+  persistOnReturnToSpawn?: boolean;
 }
 
 /** Buff 维持代价定义 */
@@ -485,6 +487,8 @@ export interface ConsumableBuffDef {
   sustainCost?: BuffSustainCostDef;
   expireWithBuffId?: string;
   sourceSkillId?: string;
+  persistOnDeath?: boolean;
+  persistOnReturnToSpawn?: boolean;
 }
 
 /** 装备常驻数值效果 */
@@ -1220,6 +1224,7 @@ export interface TechniqueLayerDef {
 /** expToNext：定义该变量以承载业务值。 */
   expToNext: number;
   attrs?: Partial<Attributes>;
+  qiProjection?: QiProjectionModifier[];
 }
 
 /** 玩家大境界 */
@@ -1403,6 +1408,8 @@ export interface SkillBuffEffectDef {
   infiniteDuration?: boolean;
   sustainCost?: BuffSustainCostDef;
   expireWithBuffId?: string;
+  persistOnDeath?: boolean;
+  persistOnReturnToSpawn?: boolean;
 }
 
 /** 怪物出生自带 Buff 配置 */
@@ -1433,6 +1440,8 @@ export interface MonsterInitialBuffDef {
   infiniteDuration?: boolean;
   sustainCost?: BuffSustainCostDef;
   expireWithBuffId?: string;
+  persistOnDeath?: boolean;
+  persistOnReturnToSpawn?: boolean;
 }
 
 /** 技能地形效果定义 */
@@ -1526,6 +1535,8 @@ export interface TemporaryBuffState extends VisibleBuffState {
   sustainCost?: BuffSustainCostDef;
   sustainTicksElapsed?: number;
   expireWithBuffId?: string;
+  persistOnDeath?: boolean;
+  persistOnReturnToSpawn?: boolean;
 }
 
 /** 功法状态 */

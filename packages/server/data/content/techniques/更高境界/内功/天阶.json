@@ -400,5 +400,285 @@
     "skills": [],
     "realmLv": 31,
     "category": "internal"
+  },
+  {
+    "id": "xuesha_huanling_jue",
+    "name": "血煞唤灵决",
+    "grade": "heaven",
+    "layers": [
+      {
+        "level": 1,
+        "expFactor": 260,
+        "qiProjection": [
+          {
+            "selector": {
+              "families": [
+                "aura"
+              ],
+              "elements": [
+                "neutral"
+              ]
+            },
+            "visibility": "absorbable",
+            "efficiencyBpMultiplier": 9000
+          },
+          {
+            "selector": {
+              "families": [
+                "sha"
+              ],
+              "elements": [
+                "neutral"
+              ]
+            },
+            "visibility": "absorbable",
+            "efficiencyBpMultiplier": 12000
+          }
+        ]
+      },
+      {
+        "level": 2,
+        "expFactor": 290,
+        "qiProjection": [
+          {
+            "selector": {
+              "families": [
+                "aura"
+              ],
+              "elements": [
+                "neutral"
+              ]
+            },
+            "visibility": "absorbable",
+            "efficiencyBpMultiplier": 9000
+          },
+          {
+            "selector": {
+              "families": [
+                "sha"
+              ],
+              "elements": [
+                "neutral"
+              ]
+            },
+            "visibility": "absorbable",
+            "efficiencyBpMultiplier": 12000
+          }
+        ]
+      },
+      {
+        "level": 3,
+        "expFactor": 325,
+        "qiProjection": [
+          {
+            "selector": {
+              "families": [
+                "aura"
+              ],
+              "elements": [
+                "neutral"
+              ]
+            },
+            "visibility": "absorbable",
+            "efficiencyBpMultiplier": 9000
+          },
+          {
+            "selector": {
+              "families": [
+                "sha"
+              ],
+              "elements": [
+                "neutral"
+              ]
+            },
+            "visibility": "absorbable",
+            "efficiencyBpMultiplier": 12000
+          }
+        ]
+      },
+      {
+        "level": 4,
+        "expFactor": 365,
+        "qiProjection": [
+          {
+            "selector": {
+              "families": [
+                "aura"
+              ],
+              "elements": [
+                "neutral"
+              ]
+            },
+            "visibility": "absorbable",
+            "efficiencyBpMultiplier": 9000
+          },
+          {
+            "selector": {
+              "families": [
+                "sha"
+              ],
+              "elements": [
+                "neutral"
+              ]
+            },
+            "visibility": "absorbable",
+            "efficiencyBpMultiplier": 12000
+          }
+        ]
+      },
+      {
+        "level": 5,
+        "expFactor": 410,
+        "qiProjection": [
+          {
+            "selector": {
+              "families": [
+                "aura"
+              ],
+              "elements": [
+                "neutral"
+              ]
+            },
+            "visibility": "absorbable",
+            "efficiencyBpMultiplier": 9000
+          },
+          {
+            "selector": {
+              "families": [
+                "sha"
+              ],
+              "elements": [
+                "neutral"
+              ]
+            },
+            "visibility": "absorbable",
+            "efficiencyBpMultiplier": 12000
+          }
+        ]
+      },
+      {
+        "level": 6,
+        "expFactor": 460,
+        "qiProjection": [
+          {
+            "selector": {
+              "families": [
+                "aura"
+              ],
+              "elements": [
+                "neutral"
+              ]
+            },
+            "visibility": "absorbable",
+            "efficiencyBpMultiplier": 9000
+          },
+          {
+            "selector": {
+              "families": [
+                "sha"
+              ],
+              "elements": [
+                "neutral"
+              ]
+            },
+            "visibility": "absorbable",
+            "efficiencyBpMultiplier": 12000
+          }
+        ]
+      },
+      {
+        "level": 7,
+        "expFactor": 520,
+        "qiProjection": [
+          {
+            "selector": {
+              "families": [
+                "aura"
+              ],
+              "elements": [
+                "neutral"
+              ]
+            },
+            "visibility": "absorbable",
+            "efficiencyBpMultiplier": 9000
+          },
+          {
+            "selector": {
+              "families": [
+                "sha"
+              ],
+              "elements": [
+                "neutral"
+              ]
+            },
+            "visibility": "absorbable",
+            "efficiencyBpMultiplier": 12000
+          }
+        ]
+      },
+      {
+        "level": 8,
+        "expFactor": 590,
+        "qiProjection": [
+          {
+            "selector": {
+              "families": [
+                "aura"
+              ],
+              "elements": [
+                "neutral"
+              ]
+            },
+            "visibility": "absorbable",
+            "efficiencyBpMultiplier": 9000
+          },
+          {
+            "selector": {
+              "families": [
+                "sha"
+              ],
+              "elements": [
+                "neutral"
+              ]
+            },
+            "visibility": "absorbable",
+            "efficiencyBpMultiplier": 12000
+          }
+        ]
+      },
+      {
+        "level": 9,
+        "expFactor": 0,
+        "qiProjection": [
+          {
+            "selector": {
+              "families": [
+                "aura"
+              ],
+              "elements": [
+                "neutral"
+              ]
+            },
+            "visibility": "absorbable",
+            "efficiencyBpMultiplier": 9000
+          },
+          {
+            "selector": {
+              "families": [
+                "sha"
+              ],
+              "elements": [
+                "neutral"
+              ]
+            },
+            "visibility": "absorbable",
+            "efficiencyBpMultiplier": 12000
+          }
+        ]
+      }
+    ],
+    "skills": [],
+    "realmLv": 42,
+    "category": "internal"
   }
 ]

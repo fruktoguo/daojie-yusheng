@@ -10,6 +10,7 @@ import {
   BreakthroughRequirementView,
   BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER,
   calcTechniqueFinalAttrBonus,
+  calcTechniqueFinalQiProjection,
   CULTIVATE_EXP_PER_TICK,
   DEFAULT_PLAYER_REALM_STAGE,
   deriveTechniqueRealm,
@@ -503,6 +504,38 @@ export class TechniqueService {
 /** currentRealmLv：定义该变量以承载业务值。 */
     const currentRealmLv = Math.max(1, Math.floor(player.realm?.realmLv ?? player.realmLv ?? 1));
     this.applyResolvedRealmState(player, this.normalizeRealmState(currentRealmLv, progress));
+  }
+
+  consumeRealmProgressAndFoundation(player: PlayerState, amount: number): {
+    consumedProgress: number;
+    consumedFoundation: number;
+  } {
+    this.initializePlayerProgression(player);
+/** normalizedAmount：定义该变量以承载业务值。 */
+    const normalizedAmount = Math.max(0, Math.floor(Number(amount) || 0));
+    if (normalizedAmount <= 0) {
+      return {
+        consumedProgress: 0,
+        consumedFoundation: 0,
+      };
+    }
+/** currentRealmLv：定义该变量以承载业务值。 */
+    const currentRealmLv = Math.max(1, Math.floor(player.realm?.realmLv ?? player.realmLv ?? 1));
+/** currentProgress：定义该变量以承载业务值。 */
+    const currentProgress = Math.max(0, Math.floor(player.realm?.progress ?? 0));
+/** consumedProgress：定义该变量以承载业务值。 */
+    const consumedProgress = Math.min(currentProgress, normalizedAmount);
+    if (consumedProgress > 0) {
+      this.applyResolvedRealmState(player, this.normalizeRealmState(currentRealmLv, currentProgress - consumedProgress));
+    }
+/** remaining：定义该变量以承载业务值。 */
+    const remaining = normalizedAmount - consumedProgress;
+/** consumedFoundation：定义该变量以承载业务值。 */
+    const consumedFoundation = remaining > 0 ? this.consumeFoundation(player, remaining) : 0;
+    return {
+      consumedProgress,
+      consumedFoundation,
+    };
   }
 
 /** setRealmState：执行对应的业务逻辑。 */
@@ -2753,11 +2786,14 @@ export class TechniqueService {
     ));
 /** attrs：定义该变量以承载业务值。 */
     const attrs = calcTechniqueFinalAttrBonus(player.techniques);
-    if (Object.values(attrs).some((value) => value > 0)) {
+/** qiProjection：定义该变量以承载业务值。 */
+    const qiProjection = calcTechniqueFinalQiProjection(player.techniques);
+    if (Object.values(attrs).some((value) => value > 0) || qiProjection.length > 0) {
       nextBonuses.push({
         source: `${TECHNIQUE_SOURCE_PREFIX}aggregate`,
         label: '功法总池',
         attrs,
+        qiProjection: qiProjection.length > 0 ? qiProjection : undefined,
       });
     }
 /** bodyTrainingAttrs：定义该变量以承载业务值。 */

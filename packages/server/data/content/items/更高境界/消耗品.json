@@ -1,0 +1,12 @@
+[
+  {
+    "itemId": "stone.blood_essence",
+    "name": "血精石",
+    "type": "consumable",
+    "grade": "heaven",
+    "level": 42,
+    "groundLabel": "血",
+    "allowBatchUse": true,
+    "desc": "裹着血煞与残魄的晶石。捏碎后会为当前地块增加 10 点凝练煞气，可批量使用。"
+  }
+]

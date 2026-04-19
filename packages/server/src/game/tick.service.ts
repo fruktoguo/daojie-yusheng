@@ -77,6 +77,13 @@ import { PersistentDocumentService } from '../database/persistent-document.servi
 import { RETURN_TO_SPAWN_ACTION_ID, RETURN_TO_SPAWN_COOLDOWN_TICKS } from '../constants/gameplay/action';
 import { PLAYER_SPECIAL_STATS_SYNC_INTERVAL_MS } from '../constants/gameplay/attr';
 import {
+  BLOOD_ESSENCE_ITEM_ID,
+  BLOOD_ESSENCE_SHA_GAIN,
+  PVP_SHA_INFUSION_BUFF_ID,
+  PVP_SHA_INFUSION_DECAY_TICKS,
+  REFINED_SHA_RESOURCE_KEY,
+} from '../constants/gameplay/pvp';
+import {
   FIRE_BURN_MARK_BUFF_ID,
   FIRE_BURN_MARK_HP_RATIO_PER_STACK,
 } from '../constants/gameplay/technique-buffs';
@@ -1701,6 +1708,8 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       sustainCost: buff.sustainCost,
       sustainTicksElapsed: buff.sustainCost ? 0 : undefined,
       expireWithBuffId: buff.expireWithBuffId,
+      persistOnDeath: buff.persistOnDeath === true,
+      persistOnReturnToSpawn: buff.persistOnReturnToSpawn === true,
     });
   }
 
@@ -1742,6 +1751,8 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       existing.sustainCost = nextBuff.sustainCost;
       existing.sustainTicksElapsed = nextBuff.sustainTicksElapsed;
       existing.expireWithBuffId = nextBuff.expireWithBuffId;
+      existing.persistOnDeath = nextBuff.persistOnDeath;
+      existing.persistOnReturnToSpawn = nextBuff.persistOnReturnToSpawn;
       syncDynamicBuffPresentation(existing);
       return existing;
     }
@@ -1834,6 +1845,28 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       messages.push({
         playerId: player.id,
         text: `你捏碎 ${item.name}${actualCount > 1 ? ` x${actualCount}` : ''}，脚下凝练灵气增加 ${addedAura} 点。当前凝练灵气 ${nextAura}。`,
+        kind: 'loot',
+      });
+    }
+
+    if (item.itemId === BLOOD_ESSENCE_ITEM_ID) {
+/** addedSha：定义该变量以承载业务值。 */
+      const addedSha = BLOOD_ESSENCE_SHA_GAIN * actualCount;
+/** nextSha：定义该变量以承载业务值。 */
+      const nextSha = this.mapService.addTileResourceValue(
+        player.mapId,
+        player.x,
+        player.y,
+        REFINED_SHA_RESOURCE_KEY,
+        addedSha,
+      );
+      if (nextSha === null) {
+        messages.push({ playerId: player.id, text: '此地煞脉紊乱，血精石未能生效。', kind: 'system' });
+        return;
+      }
+      messages.push({
+        playerId: player.id,
+        text: `你捏碎 ${item.name}${actualCount > 1 ? ` x${actualCount}` : ''}，脚下凝练煞气增加 ${addedSha} 点。当前凝练煞气 ${nextSha}。`,
         kind: 'loot',
       });
     }
@@ -5015,6 +5048,22 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         buff.sustainTicksElapsed = Math.max(0, Math.floor(buff.sustainTicksElapsed ?? 0)) + 1;
         syncDynamicBuffPresentation(buff);
         resourceSpent = true;
+      }
+      if (buff.buffId === PVP_SHA_INFUSION_BUFF_ID) {
+        buff.remainingTicks -= 1;
+        if (buff.remainingTicks <= 0) {
+          if (buff.stacks > 1) {
+            buff.stacks -= 1;
+            buff.remainingTicks = PVP_SHA_INFUSION_DECAY_TICKS;
+            syncDynamicBuffPresentation(buff);
+            nextBuffs.push(buff);
+          } else {
+            removed = true;
+          }
+          continue;
+        }
+        nextBuffs.push(buff);
+        continue;
       }
       if (!buff.infiniteDuration) {
         buff.remainingTicks -= 1;
