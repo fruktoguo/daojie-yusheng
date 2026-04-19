@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 'use strict';
 
+require('./load-local-runtime-env');
+
 /**
  * 用途：执行 server-next 替换链路的验收验证流程。
  */
@@ -58,7 +60,11 @@ const steps = [
     label: 'replace-ready',
     kind: 'node',
     args: ['scripts/replace-ready.js'],
-    extraEnv: null,
+    extraEnv: {
+      DATABASE_URL: '',
+      SERVER_NEXT_DATABASE_URL: '',
+      SERVER_NEXT_SKIP_LOCAL_ENV_AUTOLOAD: '1',
+    },
   },
   {
     label: 'shadow',
@@ -71,6 +77,8 @@ const steps = [
     kind: 'pnpm',
     args: ['--filter', '@mud/server-next', 'smoke:gm-next'],
     extraEnv: {
+      DATABASE_URL: '',
+      SERVER_NEXT_DATABASE_URL: '',
       SERVER_NEXT_URL: shadowUrl,
     },
   },

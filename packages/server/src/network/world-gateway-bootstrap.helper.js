@@ -304,7 +304,7 @@ class WorldGatewayBootstrapHelper {
         if (!this.ensureConnectionProtocol(client)) {
             return;
         }
-        if (this.gateway.rejectWhenNotReady(client)) {
+        if (this.gateway.gatewayGuardHelper.rejectWhenNotReady(client)) {
             return;
         }
         if (typeof client.data.playerId === 'string') {
@@ -323,7 +323,7 @@ class WorldGatewayBootstrapHelper {
             return;
         }
         try {
-            if (this.gateway.rejectWhenNotReady(client)) {
+            if (this.gateway.gatewayGuardHelper.rejectWhenNotReady(client)) {
                 return;
             }
             if (typeof client.data.playerId === 'string' && client.data.playerId.trim()) {

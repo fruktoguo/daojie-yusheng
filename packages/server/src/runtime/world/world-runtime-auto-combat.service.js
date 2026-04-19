@@ -28,8 +28,8 @@ let WorldRuntimeAutoCombatService = class WorldRuntimeAutoCombatService {
         this.playerRuntimeService = playerRuntimeService;
     }
     materializeAutoCombatCommands(deps) {
-        for (const playerId of deps.playerLocations.keys()) {
-            if (deps.pendingCommands.has(playerId) || deps.worldRuntimeNavigationService.hasNavigationIntent(playerId)) {
+        for (const playerId of deps.listConnectedPlayerIds()) {
+            if (deps.hasPendingCommand(playerId) || deps.worldRuntimeNavigationService.hasNavigationIntent(playerId)) {
                 continue;
             }
             const player = this.playerRuntimeService.getPlayer(playerId);
@@ -39,11 +39,11 @@ let WorldRuntimeAutoCombatService = class WorldRuntimeAutoCombatService {
             if (!player.combat.autoBattle && !player.combat.autoRetaliate) {
                 continue;
             }
-            const location = deps.playerLocations.get(playerId);
+            const location = deps.getPlayerLocation(playerId);
             if (!location) {
                 continue;
             }
-            const instance = deps.instances.get(location.instanceId);
+            const instance = deps.getInstanceRuntime(location.instanceId);
             if (!instance) {
                 continue;
             }
@@ -56,7 +56,7 @@ let WorldRuntimeAutoCombatService = class WorldRuntimeAutoCombatService {
             }
             const command = this.buildAutoCombatCommand(instance, player, deps);
             if (command) {
-                deps.pendingCommands.set(playerId, command);
+                deps.enqueuePendingCommand(playerId, command);
             }
         }
     }

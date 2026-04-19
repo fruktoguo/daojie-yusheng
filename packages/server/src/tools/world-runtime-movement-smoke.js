@@ -5,20 +5,26 @@ const assert = require("node:assert/strict");
 const { WorldRuntimeMovementService } = require("../runtime/world/world-runtime-movement.service");
 
 function buildDeps(log) {
+    const playerLocations = new Map([['player:1', { instanceId: 'instance:1', sessionId: 'session:1' }]]);
+    const instanceRuntimes = new Map([['instance:1', {
+        setPlayerMoveSpeed(playerId, speed) { log.push(['setPlayerMoveSpeed', playerId, speed]); },
+        enqueueMove(payload) { log.push(['enqueueMove', payload]); },
+        tryPortalTransfer(playerId, mode) {
+            log.push(['tryPortalTransfer', playerId, mode]);
+            if (mode === 'manual_portal') {
+                return null;
+            }
+            return { fromInstanceId: 'instance:1', targetMapId: 'yunlai_town', targetX: 8, targetY: 9, playerId, sessionId: 'session:1', reason: mode };
+        },
+        enqueuePortalUse(payload) { log.push(['enqueuePortalUse', payload]); },
+    }]]);
     return {
-        playerLocations: new Map([['player:1', { instanceId: 'instance:1', sessionId: 'session:1' }]]),
-        instances: new Map([['instance:1', {
-            setPlayerMoveSpeed(playerId, speed) { log.push(['setPlayerMoveSpeed', playerId, speed]); },
-            enqueueMove(payload) { log.push(['enqueueMove', payload]); },
-            tryPortalTransfer(playerId, mode) {
-                log.push(['tryPortalTransfer', playerId, mode]);
-                if (mode === 'manual_portal') {
-                    return null;
-                }
-                return { fromInstanceId: 'instance:1', targetMapId: 'yunlai_town', targetX: 8, targetY: 9, playerId, sessionId: 'session:1', reason: mode };
-            },
-            enqueuePortalUse(payload) { log.push(['enqueuePortalUse', payload]); },
-        }]]),
+        getPlayerLocation(playerId) {
+            return playerLocations.get(playerId) ?? null;
+        },
+        getInstanceRuntime(instanceId) {
+            return instanceRuntimes.get(instanceId) ?? null;
+        },
         playerRuntimeService: {
             getPlayer(playerId) {
                 if (playerId !== 'player:1') return null;

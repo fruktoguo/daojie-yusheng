@@ -7,7 +7,7 @@ import {
   renderMailBodyPlain,
   renderMailTitlePlain,
 } from '@mud/shared-next';
-import type { SocketManager } from '../network/socket';
+import type { SocketSocialEconomySender } from '../network/socket-send-social-economy';
 import { getLocalItemTemplate } from '../content/local-templates';
 import { detailModalHost } from './detail-modal-host';
 import { createEmptyHint } from './ui-primitives';
@@ -109,7 +109,15 @@ export class MailPanel {
   /** 邮件详情区缓存的节点引用。 */
   private detailRefs: MailDetailRefs | null = null;
 
-  constructor(private readonly socket: SocketManager) {
+  constructor(private readonly socket: Pick<
+    SocketSocialEconomySender,
+    | 'sendRequestMailSummary'
+    | 'sendRequestMailPage'
+    | 'sendRequestMailDetail'
+    | 'sendMarkMailRead'
+    | 'sendClaimMailAttachments'
+    | 'sendDeleteMail'
+  >) {
     document.getElementById('hud-open-mail')?.addEventListener('click', () => this.open());
   }
 

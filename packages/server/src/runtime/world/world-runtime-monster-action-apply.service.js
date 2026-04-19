@@ -43,11 +43,11 @@ let WorldRuntimeMonsterActionApplyService = class WorldRuntimeMonsterActionApply
         this.applyMonsterBasicAttack(action, deps);
     }
     applyMonsterBasicAttack(action, deps) {
-        const location = deps.playerLocations.get(action.targetPlayerId);
+        const location = deps.getPlayerLocation(action.targetPlayerId);
         if (!location) {
             return;
         }
-        const instance = deps.instances.get(action.instanceId);
+        const instance = deps.getInstanceRuntime(action.instanceId);
         if (!instance) {
             return;
         }
@@ -87,7 +87,7 @@ let WorldRuntimeMonsterActionApplyService = class WorldRuntimeMonsterActionApply
         if (!action.skillId) {
             return;
         }
-        const instance = deps.instances.get(action.instanceId);
+        const instance = deps.getInstanceRuntime(action.instanceId);
         if (!instance) {
             return;
         }

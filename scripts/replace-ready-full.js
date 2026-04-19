@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 'use strict';
 
+require('./load-local-runtime-env');
+
 /**
  * 用途：执行 server-next 替换链路的全量验证流程。
  */
@@ -18,6 +20,7 @@ const {
   resolveServerNextShadowUrl,
   resolveServerNextShadowUrlEnvSource,
 } = require('../packages/server/src/config/env-alias');
+const { probeShadowTarget } = require('./shadow-target-probe');
 
 /**
  * 记录数据库地址。
@@ -93,39 +96,54 @@ const childEnv = {
   ...(gmPasswordEnvSource === 'SERVER_NEXT_GM_PASSWORD' ? null : { SERVER_NEXT_GM_PASSWORD: gmPassword }),
 };
 
-process.stdout.write('[replace-ready:full] steps=with-db -> gm-database -> gm-database-backup-persistence -> shadow -> gm-next\n');
-process.stdout.write('[replace-ready:full] gate=full\n');
-
-for (const step of steps) {
-/**
- * 记录命令。
- */
-  const command = step.kind === 'pnpm' ? 'pnpm' : nodeBin;
-  process.stdout.write(`[replace-ready:full] start step=${step.label}\n`);
-/**
- * 累计当前结果。
- */
-  const result = spawnSync(command, step.args, {
-    cwd: repoRoot,
-    stdio: 'inherit',
-    shell: step.kind === 'pnpm' ? process.platform === 'win32' : false,
-    env: {
-      ...childEnv,
-      ...(step.extraEnv ?? null),
-    },
-  });
-
-  if (result.error) {
-    throw result.error;
+async function main() {
+  const shadowProbe = await probeShadowTarget(shadowUrl);
+  if (!shadowProbe.ok) {
+    process.stderr.write(`replace-ready full blocked by shadow target: ${shadowProbe.reason}\n`);
+    process.stderr.write(`current /health payload=${JSON.stringify(shadowProbe.healthPayload ?? null)}\n`);
+    process.stderr.write('fix SERVER_NEXT_SHADOW_URL/SERVER_NEXT_URL first, then rerun pnpm verify:replace-ready:full\n');
+    process.exit(1);
   }
-  if (result.status !== 0) {
-    process.stderr.write(`[replace-ready:full] failed step=${step.label} status=${result.status ?? 1}\n`);
-    process.exit(result.status ?? 1);
+
+  process.stdout.write('[replace-ready:full] steps=with-db -> gm-database -> gm-database-backup-persistence -> shadow -> gm-next\n');
+  process.stdout.write('[replace-ready:full] gate=full\n');
+
+  for (const step of steps) {
+  /**
+   * 记录命令。
+   */
+    const command = step.kind === 'pnpm' ? 'pnpm' : nodeBin;
+    process.stdout.write(`[replace-ready:full] start step=${step.label}\n`);
+  /**
+   * 累计当前结果。
+   */
+    const result = spawnSync(command, step.args, {
+      cwd: repoRoot,
+      stdio: 'inherit',
+      shell: step.kind === 'pnpm' ? process.platform === 'win32' : false,
+      env: {
+        ...childEnv,
+        ...(step.extraEnv ?? null),
+      },
+    });
+
+    if (result.error) {
+      throw result.error;
+    }
+    if (result.status !== 0) {
+      process.stderr.write(`[replace-ready:full] failed step=${step.label} status=${result.status ?? 1}\n`);
+      process.exit(result.status ?? 1);
+    }
+    process.stdout.write(`[replace-ready:full] done step=${step.label}\n`);
   }
-  process.stdout.write(`[replace-ready:full] done step=${step.label}\n`);
+
+  process.stdout.write('[replace-ready:full] completed\n');
+  process.stdout.write('[replace-ready:full] boundary=strictest automated gate only; this still does not equal complete GM/admin manual regression\n');
+  process.stdout.write('[replace-ready:full] next=if you need destructive proof, run pnpm verify:replace-ready:shadow:destructive during a maintenance window with explicit approval\n');
+  process.exit(0);
 }
 
-process.stdout.write('[replace-ready:full] completed\n');
-process.stdout.write('[replace-ready:full] boundary=strictest automated gate only; this still does not equal complete GM/admin manual regression\n');
-process.stdout.write('[replace-ready:full] next=if you need destructive proof, run pnpm verify:replace-ready:shadow:destructive during a maintenance window with explicit approval\n');
-process.exit(0);
+main().catch((error) => {
+  process.stderr.write(`${error instanceof Error ? error.stack ?? error.message : String(error)}\n`);
+  process.exit(1);
+});

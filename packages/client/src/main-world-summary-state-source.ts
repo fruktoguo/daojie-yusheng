@@ -1,11 +1,11 @@
 import { NEXT_S2C_Leaderboard, NEXT_S2C_WorldSummary } from '@mud/shared-next';
-import type { SocketManager } from './network/socket';
+import type { SocketPanelSender } from './network/socket-send-panel';
 import { detailModalHost } from './ui/detail-modal-host';
 import { WorldPanel } from './ui/panels/world-panel';
 import { formatDisplayInteger } from './utils/number';
 
 type MainWorldSummaryStateSourceOptions = {
-  socket: Pick<SocketManager, 'sendRequestLeaderboard' | 'sendRequestWorldSummary'>;
+  socket: Pick<SocketPanelSender, 'sendRequestLeaderboard' | 'sendRequestWorldSummary'>;
   worldPanel: Pick<WorldPanel, 'setCallbacks'>;
 };
 

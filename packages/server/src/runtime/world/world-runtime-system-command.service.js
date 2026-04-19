@@ -20,22 +20,21 @@ const world_runtime_gm_queue_service_1 = require("./world-runtime-gm-queue.servi
 
 const world_runtime_monster_system_command_service_1 = require("./world-runtime-monster-system-command.service");
 
-const world_runtime_player_combat_service_1 = require("./world-runtime-player-combat.service");
-
-const world_runtime_respawn_service_1 = require("./world-runtime-respawn.service");
+const world_runtime_player_combat_outcome_service_1 = require("./world-runtime-player-combat-outcome.service");
+const world_runtime_gm_system_command_service_1 = require("./world-runtime-gm-system-command.service");
 
 /** world-runtime system-command orchestration：承接系统命令队列消费与分发。 */
 let WorldRuntimeSystemCommandService = class WorldRuntimeSystemCommandService {
     worldRuntimeGmQueueService;
     worldRuntimeMonsterSystemCommandService;
-    worldRuntimePlayerCombatService;
-    worldRuntimeRespawnService;
+    worldRuntimePlayerCombatOutcomeService;
+    worldRuntimeGmSystemCommandService;
     logger = new common_1.Logger(WorldRuntimeSystemCommandService.name);
-    constructor(worldRuntimeGmQueueService, worldRuntimeMonsterSystemCommandService, worldRuntimePlayerCombatService, worldRuntimeRespawnService) {
+    constructor(worldRuntimeGmQueueService, worldRuntimeMonsterSystemCommandService, worldRuntimePlayerCombatOutcomeService, worldRuntimeGmSystemCommandService) {
         this.worldRuntimeGmQueueService = worldRuntimeGmQueueService;
         this.worldRuntimeMonsterSystemCommandService = worldRuntimeMonsterSystemCommandService;
-        this.worldRuntimePlayerCombatService = worldRuntimePlayerCombatService;
-        this.worldRuntimeRespawnService = worldRuntimeRespawnService;
+        this.worldRuntimePlayerCombatOutcomeService = worldRuntimePlayerCombatOutcomeService;
+        this.worldRuntimeGmSystemCommandService = worldRuntimeGmSystemCommandService;
     }
     dispatchPendingSystemCommands(deps) {
         if (this.worldRuntimeGmQueueService.getPendingSystemCommandCount() === 0) {
@@ -64,44 +63,18 @@ let WorldRuntimeSystemCommandService = class WorldRuntimeSystemCommandService {
                 this.worldRuntimeMonsterSystemCommandService.dispatchDefeatMonster(command.instanceId, command.runtimeId, deps);
                 return;
             case 'damagePlayer':
-                this.worldRuntimePlayerCombatService.dispatchDamagePlayer(command.playerId, command.amount, deps);
+                this.worldRuntimePlayerCombatOutcomeService.dispatchDamagePlayer(command.playerId, command.amount, deps);
                 return;
             case 'respawnPlayer':
-                this.worldRuntimeRespawnService.respawnPlayer(command.playerId, deps);
+                this.worldRuntimePlayerCombatOutcomeService.respawnPlayer(command.playerId, deps);
                 return;
             case 'resetPlayerSpawn':
-                this.worldRuntimeRespawnService.respawnPlayer(command.playerId, deps);
+                this.worldRuntimePlayerCombatOutcomeService.respawnPlayer(command.playerId, deps);
                 return;
-            case 'gmUpdatePlayer':
-                this.worldRuntimeGmQueueService.dispatchGmUpdatePlayer(command, {
-                    playerRuntimeService: deps.playerRuntimeService,
-                    resolveDefaultRespawnMapId: () => deps.resolveDefaultRespawnMapId(),
-                    getOrCreatePublicInstance: (mapId) => deps.getOrCreatePublicInstance(mapId),
-                    playerLocations: deps.playerLocations,
-                    instances: deps.instances,
-                    getPlayerViewOrThrow: (playerId) => deps.getPlayerViewOrThrow(playerId),
-                    refreshPlayerContextActions: (playerId, view) => deps.refreshPlayerContextActions(playerId, view),
-                    resolveCurrentTickForPlayerId: (playerId) => deps.resolveCurrentTickForPlayerId(playerId),
-                });
-                return;
-            case 'gmResetPlayer':
-                this.worldRuntimeRespawnService.respawnPlayer(command.playerId, deps);
-                return;
-            case 'gmSpawnBots':
-                this.worldRuntimeGmQueueService.dispatchGmSpawnBots(command.anchorPlayerId, command.count, {
-                    playerRuntimeService: deps.playerRuntimeService,
-                    resolveDefaultRespawnMapId: () => deps.resolveDefaultRespawnMapId(),
-                    connectPlayer: (input) => deps.connectPlayer(input),
-                    getPlayerViewOrThrow: (playerId) => deps.getPlayerViewOrThrow(playerId),
-                    refreshPlayerContextActions: (playerId, view) => deps.refreshPlayerContextActions(playerId, view),
-                    resolveCurrentTickForPlayerId: (playerId) => deps.resolveCurrentTickForPlayerId(playerId),
-                });
-                return;
-            case 'gmRemoveBots':
-                this.worldRuntimeGmQueueService.dispatchGmRemoveBots(command.playerIds, command.all, {
-                    playerRuntimeService: deps.playerRuntimeService,
-                    removePlayer: (playerId) => deps.removePlayer(playerId),
-                });
+            default:
+                if (this.worldRuntimeGmSystemCommandService.dispatchGmSystemCommand(command, deps)) {
+                    return;
+                }
                 return;
         }
     }
@@ -111,6 +84,6 @@ exports.WorldRuntimeSystemCommandService = WorldRuntimeSystemCommandService = __
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [world_runtime_gm_queue_service_1.WorldRuntimeGmQueueService,
         world_runtime_monster_system_command_service_1.WorldRuntimeMonsterSystemCommandService,
-        world_runtime_player_combat_service_1.WorldRuntimePlayerCombatService,
-        world_runtime_respawn_service_1.WorldRuntimeRespawnService])
+        world_runtime_player_combat_outcome_service_1.WorldRuntimePlayerCombatOutcomeService,
+        world_runtime_gm_system_command_service_1.WorldRuntimeGmSystemCommandService])
 ], WorldRuntimeSystemCommandService);

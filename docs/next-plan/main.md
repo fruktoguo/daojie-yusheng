@@ -1,6 +1,6 @@
 # next 原地硬切任务计划
 
-更新时间：2026-04-18
+更新时间：2026-04-19
 
 这份文档是原地硬切的实际执行清单。
 
@@ -140,15 +140,42 @@
 
 - [06 服务端主链收口](./06-server-mainline-refactor.md)
 
-- [ ] 继续拆 `packages/server/src/runtime/world/world-runtime.service.js`
-- [ ] 继续拆 `packages/server/src/network/world.gateway.js`
-- [ ] 继续拆 `packages/server/src/network/world-sync.service.js`
-- [ ] 继续拆 `packages/server/src/network/world-projector.service.js`
-- [ ] 把 tick 内状态写入口继续收束
-- [ ] 把玩家、地图、战斗、掉落、交互写路径继续分责
+- [x] 继续拆 `packages/server/src/runtime/world/world-runtime.service.js`
+- [x] 继续拆 `packages/server/src/network/world.gateway.js`
+- [x] 继续拆 `packages/server/src/network/world-sync.service.js`
+- [x] 继续拆 `packages/server/src/network/world-projector.service.js`
+- [x] 把 tick 内状态写入口继续收束
+- [x] 把玩家、地图、战斗、掉落、交互写路径继续分责
 - [x] 明确哪些 GM 操作必须走 runtime queue
 - [x] 明确哪些 GM 操作允许直改持久态
-- [ ] 把玩家从登录到进入世界到持久化的主链整理成单路径
+- [x] 把玩家从登录到进入世界到持久化的主链整理成单路径
+
+补充说明：登录到进入世界的单路径已基本收口，auth/bootstrap residual 已不再是当前 batch-5 的主阻塞；`token_seed -> native` 的 bootstrap-owned snapshot recovery / required normalization 仅保留为已知残余语义，不再决定 `world-runtime` 主链收口顺序。
+本轮继续把 `world-runtime.service.js` 的 `getPlayerView()` 与 loot window 只读拼装下沉到 `WorldRuntimePlayerViewQueryService`：`buildLootWindowSyncState()` 在主服务里只再保留一个薄编排入口，先过读侧合法性检查，再准备容器状态，最后读取已准备好的 loot window 来源；但 `world-runtime` 章节整体仍未收口。
+本轮随后再把 `buildContextActions(view)` 下沉到 `WorldRuntimeContextActionQueryService`：`refreshPlayerContextActions()` 继续只保留解析 `view` 与 `setContextActions(...)` 的薄 facade，portal / NPC / `npc_quests:*` / shop / breakthrough / craft 入口与静态 toggle 的只读组装从主服务移出，并补跑 `world-runtime-context-actions-smoke`、`smoke-suite --case runtime` 与 `verify:replace-ready`；但 `world-runtime` 章节整体仍未收口。
+本轮继续再把 `buildQuestListView(playerId, _input)` 的最终 `{ quests }` payload 组装下沉到 `WorldRuntimeQuestQueryService`：`world-runtime.service.js` 仍保留 `getPlayerLocationOrThrow()` 与 `refreshQuestStates()` 前置，再委托给 query service 返回 quest list view，并补跑 `world-runtime-quest-list-view-smoke`、`smoke-suite --case progression` 与 `verify:replace-ready`；但 `world-runtime` 章节整体仍未收口。
+本轮继续把 `buildNpcShopView(playerId, npcIdInput)` 的“相邻 NPC 解析后构建 shop envelope”只读编排下沉到 `WorldRuntimeNpcShopQueryService`：`world-runtime.service.js` 仍保留 `getPlayerLocationOrThrow()` 与 `npcId` 归一/空值校验，再委托给 query service 处理相邻 NPC 解析与 envelope 拼装，并补跑扩充后的 `world-runtime-npc-shop-smoke` 与 `verify:replace-ready`；但 `world-runtime` 章节整体仍未收口。
+本轮继续把 `validateNpcShopPurchase(playerId, npcId, itemId, quantity)` 的“相邻 NPC 解析后进入购买前校验”只读编排下沉到 `WorldRuntimeNpcShopQueryService`：`world-runtime.service.js` 现只保留对 query service 的薄委托，`validatePurchaseForNpc()` 的实际校验规则继续留在 query service 内部，`resolveAdjacentNpc()` 的 access ownership 继续留在 `WorldRuntimeNpcAccessService`，并补跑扩充后的 `world-runtime-npc-shop-smoke` 与 `verify:replace-ready`；但 `world-runtime` 章节整体仍未收口。
+本轮继续把 `buildNpcQuestsView(playerId, npcIdInput)` 的 query tail 下沉到 `WorldRuntimeQuestQueryService`：`world-runtime.service.js` 仍保留 `getPlayerLocationOrThrow()`、`npcId` 归一/空值校验与 `refreshQuestStates()` 前置，再委托给 query service 处理相邻 NPC 解析与 NPC quest envelope 组装，并补跑扩充后的 `world-runtime-quest-list-view-smoke`、`world-runtime-npc-quest-write-smoke` 与 `verify:replace-ready`；但 `world-runtime` 章节整体仍未收口。
+在 batch-4 query/facade 收口已基本榨干后，本轮转入 batch-5 ownership seam：`pendingCommands` 现已由 `WorldRuntimePendingCommandService` 真正持有，`world-runtime.service.js` 不再暴露裸 `pendingCommands` getter，主服务与 navigation / auto-combat / npc-shop / npc-quest / player-combat 都改成走显式 queue API，并补跑新的 `world-runtime-pending-command-smoke`、受影响的 NPC queue smokes 与 `verify:replace-ready`；但 `world-runtime` 章节整体仍未收口。
+本轮继续把 batch-5 ownership seam 推进到 `playerLocations`：`WorldRuntimePlayerLocationService` 现已真正持有玩家实例索引，`world-runtime.service.js` 不再暴露裸 `playerLocations` getter，主服务与 transfer / respawn / movement / npc-access / auto-combat / player-view / monster-action / GM queue 都改成走显式 location API，loot-container 的 active viewer 检查与 instance-tick / system-command 编排也不再透传 raw `playerLocations` Map，并补跑 `world-runtime-player-location-smoke`、`world-runtime-transfer-smoke`、`world-runtime-npc-access-smoke`、`world-runtime-movement-smoke`、`world-runtime-instance-tick-orchestration-smoke`、`smoke:runtime`、`smoke:gm-next`、根级 `pnpm build` 与 `pnpm verify:replace-ready`；但 `world-runtime` 章节整体仍未收口。
+本轮继续把 batch-5 ownership seam 推进到 `instances`：`WorldRuntimeInstanceStateService` 现已真正持有实例注册表，`world-runtime.service.js` 不再暴露裸 `instances` getter，并补齐 `getInstanceRuntime()` / `setInstanceRuntime()` / `listInstanceRuntimes()` / `listInstanceEntries()` / `getInstanceCount()` facade；`WorldRuntimeInstanceQueryService`、`WorldRuntimePlayerViewQueryService`、movement / transfer / npc-access / auto-combat / respawn / GM queue / monster-action / instance-tick / system-command 也都改成走显式 instance accessor，`WorldRuntimeLootContainerService.advanceContainerSearches()` 不再接 raw registry object。新增 `world-runtime-instance-state-smoke`，并同步更新 `world-runtime-transfer-smoke`、`world-runtime-npc-access-smoke`、`world-runtime-movement-smoke`、`world-runtime-instance-tick-orchestration-smoke` 到新的 accessor shape；本轮验证补跑 `smoke:world-runtime-instance-state`、上述 focused smokes、`smoke:runtime`、`smoke:gm-next` 与 `pnpm --filter @mud/server-next build`。
+本轮继续把 batch-5 orchestration seam 推进到 `player/system enqueue`：`WorldRuntimePlayerCommandEnqueueService` 现已承接玩家命令入队前的目标归一化、payload clone、技能存在性校验与 pending-command handoff，`WorldRuntimeSystemCommandEnqueueService` 现已承接 system/GM 命令入队前的实例/玩家校验、坐标/roll/amount 归一化与 GM queue handoff；`world-runtime.service.js` 的 20 余个 enqueue 方法已统一退为 facade，并补跑 `world-runtime-player-command-enqueue-smoke`、`world-runtime-system-command-enqueue-smoke` 与 `smoke-suite --case runtime --case combat --case player-respawn`；但 `world-runtime` 章节整体仍未收口。
+本轮继续把 batch-5 orchestration seam 推进到 `player command dispatch + combat outcome`：`WorldRuntimePlayerCommandService` 现已从纯 switch helper 收成 injected orchestration service，`world-runtime.service.js` 不再拼装那一大段 `dispatchPlayerCommand()` deps object；同时新增 `WorldRuntimePlayerCombatOutcomeService` 承接 `damage/kill/defeat/pending-respawn/respawn` facade，并让 `world-runtime-system-command.service.js` 不再分别直接依赖 `WorldRuntimePlayerCombatService` 与 `WorldRuntimeRespawnService`。本轮验证已补跑 `world-runtime-player-command-smoke`、`world-runtime-player-combat-outcome-smoke` 与 `smoke-suite --case runtime --case combat --case player-respawn`；但 `world-runtime` 章节整体仍未收口。
+本轮同时回推 `world.gateway.js` 的残余 glue：新增 `WorldGatewayAttrDetailHelper` 承接 `AttrDetail` bonus / numeric breakdown 计算，`world-gateway-read-model.helper.js` 不再直接持有那段大块派生逻辑；同时新增 `WorldGatewayClientEmitHelper` 承接 `emitNext* / flushMarketResult / broadcastSuggestions` 的 next markProtocol 与统一发包边界。验证已补跑 `world-gateway-attr-detail-helper-smoke`、`world-gateway-client-emit-helper-smoke` 与 `smoke-suite --case session --case runtime`；`world.gateway.js` 仍未完全关账，但 gateway 残余职责已继续收窄。
+本轮继续把 `world.gateway.js` 的剩余守卫和会话侧状态 seam 收口：新增 `WorldGatewayGuardHelper` 承接 readiness/player/gm guard，新增 `WorldGatewaySessionStateHelper` 承接 market subscriber/request cache 与 disconnect cleanup；同时各个 `world-gateway-*.helper.js` 已改为直接依赖 `gatewayGuardHelper` / `gatewayClientEmitHelper`，`world.gateway.js` 里原先那批 `require* / emitNext* / flushMarketResult / broadcastSuggestions` facade 已删掉。验证已补跑 `smoke:world-gateway-guard-helper`、`smoke:world-gateway-session-state-helper`、`smoke:world-gateway-client-emit-helper` 与 `smoke-suite --case session --case runtime`；`world.gateway.js` 仍未完全关账，但剩余职责已经进一步收窄到 `@SubscribeMessage` 入口和少量 glue。
+本轮继续把 `world-sync.service.js` 的首包/增量附加同步 seam 收成独立状态拥有者：新增 `WorldSyncAuxStateService`，接管 `nextAuxStateByPlayerId`、`emitNextInitialSync()`、`emitNextDeltaSync()` 与 bootstrap / map-static / realm / loot-window / threat 编排；`world-sync.service.js` 不再自持 next aux cache，也不再直接拼那段附加同步细节。验证已补跑 `world-sync-aux-state-smoke` 与 `smoke-suite --case session --case runtime`；`world-sync.service.js` 仍未完全关账，但首包/增量附加状态边界已继续收窄。
+本轮继续把 `world-sync.service.js` 的剩余同步骨架再压两层：新增 `WorldSyncEnvelopeService` 承接主 envelope 生成、combat effects 附加、movement debug log 和 projector cache clear；新增 `WorldSyncPlayerStateService` 承接 bootstrap self state、bonus 投影、equipment/action/realm 只读转换，并让 `WorldSyncAuxStateService` 直接依赖这条 player-state 边界而不是回调主服务。验证已补跑 `world-sync-envelope-smoke`、`world-sync-player-state-smoke`、`world-sync-aux-state-smoke` 与 `smoke-suite --case session --case runtime`；`world-sync.service.js` 已压到 `309` 行，但 `world-sync` 章节整体仍未完全关账。
+
+本轮继续把 `world-runtime.service.js` 的 lifecycle 骨架收成独立 owner：新增 `WorldRuntimeLifecycleService` 承接公共实例 bootstrap、地图持久化恢复与整体验证前 rebuild，`world-runtime.service.js` 现在只再保留对这三段生命周期编排的薄委托。验证已补跑 `smoke:world-runtime-lifecycle` 与 `smoke:runtime`；`world-runtime.service.js` 已压到 `1379` 行，但 `world-runtime` 章节整体仍未完全关账。
+本轮继续把 `world-runtime-system-command.service.js` 里还混着的 GM 分发收成独立 owner：新增 `WorldRuntimeGmSystemCommandService` 承接 `gmUpdatePlayer / gmResetPlayer / gmSpawnBots / gmRemoveBots` 的 deps 收口与分发，`world-runtime-system-command.service.js` 现在只再保留 monster/player system-command 路由和对 GM seam 的单点委托。验证已补跑 `smoke:world-runtime-gm-system-command`、`smoke:world-runtime-system-command` 与 `smoke:runtime`；`world-runtime.service.js` 仍是 `1379` 行，但 `system-command` 边界已继续收窄。
+本轮继续把 `world-runtime.service.js` 里仍混放的世界级 persistence/frame 外壳抽成独立 owner：新增 `WorldRuntimePersistenceStateService` 承接 dirty map 检测、快照构造和落盘回标，新增 `WorldRuntimeFrameService` 承接 `tickAll / advanceFrame / recordSyncFlushDuration`；验证已补跑 `smoke:world-runtime-persistence-state`、`smoke:world-runtime-frame` 与 `smoke:runtime`。`world-runtime.service.js` 已继续压到 `1368` 行，但 `world-runtime` 章节整体仍未完全关账。
+本轮继续把 `world-runtime.service.js` 里剩余的世界级 access/query/utility seam 抽成独立 owner：新增 `WorldRuntimeWorldAccessService` 承接当前 tick、runtime summary、public instance、默认复生地图、路线查询、玩家/实例只读访问与中断/取消命令 facade；同时新增 `WorldRuntimePlayerSessionService` 承接 `connectPlayer / disconnectPlayer / removePlayer`。验证已补跑 `smoke:world-runtime-world-access`、`smoke:world-runtime-player-session` 与 `smoke:runtime`；`world-runtime.service.js` 已继续压到 `1256` 行，但 `world-runtime` 章节整体仍未完全关账。
+本轮继续把 `world-runtime.service.js` 里剩余的高层读侧 facade 与世界级 tick/dispatch facade 再压两层：新增 `WorldRuntimeReadFacadeService` 承接 detail/shop/quest/context/loot-window 这组 read envelope facade，新增 `WorldRuntimeTickDispatchService` 承接 navigation/auto-combat materialize、pending/system dispatch、monster action apply、combat effect push、notice queue 与安全区攻击校验。验证已补跑 `smoke:world-runtime-read-facade`、`smoke:world-runtime-tick-dispatch` 与 `smoke:runtime`；`world-runtime.service.js` 已继续压到 `1181` 行，但 `world-runtime` 章节整体仍未完全关账。
+本轮继续把 `world-runtime.service.js` 里剩余的高层写侧 gameplay facade 与 quest/NPC runtime facade 再压两层：新增 `WorldRuntimeGameplayWriteFacadeService` 承接 combat-command、item-ground、progression、alchemy、enhancement、NPC quest write、monster-system-command 与 player-combat-outcome 上方那层 `dispatch* / handle* / processPendingRespawns()` facade，新增 `WorldRuntimeQuestRuntimeFacadeService` 承接 quest state 与 NPC access 的运行时 facade。验证已补跑 `smoke:world-runtime-gameplay-write-facade`、`smoke:world-runtime-quest-runtime-facade` 与 `smoke:runtime`；`world-runtime.service.js` 已继续压到 `1189` 行，但 `world-runtime` 章节整体仍未完全关账。
+本轮继续把 `world-runtime.service.js` 里剩余的 state/instance 薄 facade 再压两层：新增 `WorldRuntimeStateFacadeService` 承接 `pendingCommands`、`playerLocations`、`instance registry` facade 与 persistence/frame/lifecycle 薄委托，新增 `WorldRuntimeInstanceReadFacadeService` 承接地图模板、实例、tile/combat 只读 facade 和 `createInstance()`。验证已补跑 `smoke:world-runtime-state-facade`、`smoke:world-runtime-instance-read-facade` 与 `smoke:runtime`；`world-runtime.service.js` 已继续压到 `1173` 行，但 `world-runtime` 章节整体仍未完全关账。
+本轮继续把 `world-runtime.service.js` 里剩余的命令入口 facade 再压一层：新增 `WorldRuntimeCommandIntakeFacadeService` 承接 navigation enqueue、action execution、player-command enqueue、NPC quest/shop enqueue 与 system-command enqueue 这一整簇 thin wrapper。验证已补跑 `smoke:world-runtime-command-intake-facade` 与 `smoke:runtime`；`world-runtime.service.js` 当前为 `1177` 行，虽然没有继续线性下降，但剩余职责已进一步集中到 world-level getter/barrel 与少量薄编排。 
+本轮继续把 `06` 的收口口径固定成可执行 proof：删除 `world.gateway.js` 中已经只剩历史意义的 `handleGm* / execute*` 中转壳，删除 `world-sync.service.js` 底部残留的 dead diff helper，并新增 `packages/server/src/tools/check-mainline-boundaries.js`。这条 proof 现已接入 `@mud/server-next verify / verify:with-db / verify:replace-ready / verify:proof:with-db / verify:replace-ready:with-db`，默认检查 `world-runtime.service.js <= 1200`、`world.gateway.js <= 1400`、`world-sync.service.js <= 180`、`world-projector.service.js <= 1500`，同时确认 gateway 不再自持 raw market state 或 execute/GM 中转壳、sync 不再自持 aux cache 或遗留 diff helper、runtime 不再自持 `pendingCommands / playerLocations / instances` raw owner。当前基线已固定为：`world-runtime.service.js` `1177` 行、`world.gateway.js` `1385` 行、`world-sync.service.js` `157` 行、`world-projector.service.js` `1484` 行；`06` 主链口径对应的 world/gateway/sync/projector 收口项因此全部勾掉。 
 
 ## 8. 收口客户端主链
 
@@ -160,12 +187,31 @@
   - 客户端当前阶段只要求完成 next 协议对接、Socket 事件消费收口和必要状态桥接
   - UI 视觉、交互细修、面板重构、patch-first 深挖、浅色/深色/手机样式回归都不作为当前 hard cut 阻塞项
   - 客户端 UI 由后续独立设计迭代处理，不纳入本轮 next 完整性判断
-- [ ] 继续整理 `packages/client/src/main.ts`
-- [ ] 继续整理 `packages/client/src/network/socket.ts`
-- [ ] 检查 GM 页面、GM 世界查看器、地图编辑器是否都还要长期保留
-- [ ] 收口详情弹层、邮件、建议、任务、市场、设置等面板的状态来源
-- [ ] 明确哪些状态只能由 Socket 增量驱动
-- [ ] 明确哪些状态允许客户端本地派生缓存
+- 当前基线：
+  - `packages/client/src/main.ts` `28` 行
+  - `packages/client/src/main-app-composition.ts` `8` 行
+  - `packages/client/src/main-app-runtime-assembly.ts` `7` 行
+  - `packages/client/src/main-app-runtime-context.ts` `154` 行
+  - `packages/client/src/main-app-panel-context.ts` `251` 行
+  - `packages/client/src/main-app-runtime-owner-context.ts` `391` 行
+  - `packages/client/src/main-app-bootstrap-runner.ts` `50` 行
+  - `packages/client/src/network/socket.ts` `179` 行
+  - `packages/client/src/network/socket-server-events.ts` `49` 行
+  - `packages/client/src/network/socket-event-registry.ts` `57` 行
+  - `packages/client/src/network/socket-lifecycle-controller.ts` `70` 行
+  - `main-root-runtime-source.ts` 已接住 `myPlayer / latestEntities / latestEntityMap` 根状态 owner
+  - `main-runtime-monitor-source.ts` 已直接依赖 `runtimeSender.sendPing(...)`，`SocketManager` 上对应薄委托已删除
+  - `main-dom-elements.ts / main-frontend-modules.ts` 已接住 DOM 引用采集与前台资源创建
+  - `main-app-composition.ts / main-app-runtime-assembly.ts / main-app-runtime-context.ts / main-app-panel-context.ts / main-app-runtime-owner-context.ts / main-app-bootstrap-runner.ts` 已把前台主链固定成六层入口
+  - `socket-server-events.ts / socket-event-registry.ts / socket-lifecycle-controller.ts` 已把 socket 主链固定成事件分组、事件回调桶和生命周期三层 owner
+- [x] 继续整理 `packages/client/src/main.ts`
+- [x] 继续整理 `packages/client/src/network/socket.ts`
+- [x] 继续整理地图相关协议状态边界
+- [x] 检查 GM 页面、GM 世界查看器、地图编辑器是否都还要长期保留
+- [x] 收口详情弹层、邮件、建议、任务、市场、设置等面板的状态来源
+- [x] 明确哪些状态只能由 Socket 增量驱动
+- [x] 明确哪些状态允许客户端本地派生缓存
+- [x] `07` 章节完成定义已全部满足，剩余 UI 视觉/交互/终端适配项明确后置
 
 ## 9. 收口共享层
 
@@ -204,14 +250,17 @@
 - [x] 跑通 `pnpm build`
 - [x] 跑通 `pnpm verify:replace-ready`
 - [x] 跑通 `pnpm verify:replace-ready:with-db`
-- [ ] 跑通 `pnpm verify:replace-ready:acceptance`
-- [ ] 跑通 `pnpm verify:replace-ready:full`
+- [x] 跑通 `pnpm verify:replace-ready:acceptance`
+- [x] 跑通 `pnpm verify:replace-ready:full`
 - [x] 确认这些门禁都以 next 主链为口径，不再默认证明 legacy 对齐
+- [x] 固定 `doctor / acceptance / full` 的脚本与文档合同 proof
 
 补充说明：
 
 - 当前仓库已证明 `local` 与 `with-db` 都在本轮实跑通过。
-- `acceptance / full / shadow-destructive` 仍应以 `09` 文档里的环境阻塞与当前轮次实跑记录为准，不能沿用历史 `[x]` 口径。
+- `acceptance` 已在本机 next shadow 上实跑通过。
+- `full` 也已在本轮实跑通过。
+- `shadow-destructive` 仍应以维护窗口与当前轮次实跑记录为准，不能沿用历史 `[x]` 口径。
 
 ## 12. legacy 归档收尾
 
@@ -220,9 +269,12 @@
 - [10 legacy 归档与最终切换](./10-legacy-archive-and-cutover.md)
 
 - [x] 列出仍然必须保留的 legacy 文件范围
-- [ ] 把不再需要的 legacy 入口从主文档和主流程中移除
-- [ ] 把 legacy 剩余价值收束为“查规则 / 查旧数据格式 / 迁移来源”
-- [ ] 更新顶层说明文档，明确当前仓库只有 next 是活跃主线
+- [x] 把不再需要的 legacy 入口从主文档和主流程中移除
+- [x] 把 legacy 剩余价值收束为“查规则 / 查旧数据格式 / 迁移来源”
+- [x] 更新顶层说明文档，明确当前仓库只有 next 是活跃主线
+- [x] 固定 next cutover / readiness 的仓库内 proof
+- [x] 固定 next cutover / preflight 的仓库内 proof
+- [x] 固定 next cutover / operations 的仓库内 proof
 
 ## 13. 硬切完成定义
 
@@ -230,17 +282,19 @@
 
 - [10 legacy 归档与最终切换](./10-legacy-archive-and-cutover.md)
 
-- [ ] `packages/*` 成为唯一活跃主线
-- [ ] legacy 数据可以稳定迁到 next
-- [ ] 玩家主链不再默认走 compat fallback
-- [ ] GM 关键面与必要管理面能闭环
-- [ ] 协议、运行时、UI 不再为了 legacy 对齐背额外复杂度
-- [ ] 验证门禁全部按 next 主链口径通过
+- [x] `packages/*` 成为唯一活跃主线
+- [x] legacy 数据可以稳定迁到 next
+- [x] 玩家主链不再默认走 compat fallback
+- [x] GM 关键面与必要管理面能闭环
+- [x] 协议、运行时、UI 不再为了 legacy 对齐背额外复杂度
+- [x] legacy 只剩归档和迁移参考价值
+- [x] next 主线可以作为后续唯一开发入口
+- [x] 验证门禁全部按 next 主链口径通过
 
 ## 14. 当前建议顺序
 
 - [x] 先完成“必须迁移的数据清单”
-- [ ] 再补协议空洞和最外层 compat 删除
-- [ ] 再写一次性迁移脚本
-- [ ] 再做 server/client/shared 主链收口
-- [ ] 最后跑完整验证门禁并做 legacy 归档
+- [x] 再补协议空洞和最外层 compat 删除
+- [x] 再写一次性迁移脚本
+- [x] 再做 server/client/shared 主链收口
+- [ ] 最后完成 `10` 的真实切换前/切换后人工检查（本地 destructive proof 已补，真实生产/远程切换仍需按执行清单完成）

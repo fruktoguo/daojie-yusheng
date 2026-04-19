@@ -42,11 +42,11 @@ let WorldRuntimeRespawnService = class WorldRuntimeRespawnService {
         if (!player) {
             return;
         }
-        const previous = deps.playerLocations.get(playerId);
+        const previous = deps.getPlayerLocation(playerId);
         const targetMapId = deps.resolveDefaultRespawnMapId();
         const targetInstance = deps.getOrCreatePublicInstance(targetMapId);
         if (previous) {
-            deps.instances.get(previous.instanceId)?.disconnectPlayer(playerId);
+            deps.getInstanceRuntime(previous.instanceId)?.disconnectPlayer(playerId);
         }
         const runtimePlayer = targetInstance.connectPlayer({
             playerId,
@@ -55,7 +55,7 @@ let WorldRuntimeRespawnService = class WorldRuntimeRespawnService {
             preferredY: targetInstance.template.spawnY,
         });
         targetInstance.setPlayerMoveSpeed(playerId, player.attrs.numericStats.moveSpeed);
-        deps.playerLocations.set(playerId, {
+        deps.setPlayerLocation(playerId, {
             instanceId: targetInstance.meta.instanceId,
             sessionId: runtimePlayer.sessionId,
         });

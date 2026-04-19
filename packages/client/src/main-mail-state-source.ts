@@ -1,4 +1,4 @@
-import type { SocketManager } from './network/socket';
+import type { SocketSocialEconomySender } from './network/socket-send-social-economy';
 import { MailPanel } from './ui/mail-panel';
 
 type MailSummaryState = Parameters<MailPanel['updateSummary']>[0];
@@ -8,7 +8,15 @@ type MailDetailError = Parameters<MailPanel['updateDetail']>[1];
 type MailOpResultState = Parameters<MailPanel['handleOpResult']>[0];
 
 type MainMailStateSourceOptions = {
-  socket: SocketManager;
+  socket: Pick<
+    SocketSocialEconomySender,
+    | 'sendRequestMailSummary'
+    | 'sendRequestMailPage'
+    | 'sendRequestMailDetail'
+    | 'sendMarkMailRead'
+    | 'sendClaimMailAttachments'
+    | 'sendDeleteMail'
+  >;
 };
 
 export type MainMailStateSource = ReturnType<typeof createMainMailStateSource>;

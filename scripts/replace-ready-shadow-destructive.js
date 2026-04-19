@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 'use strict';
 
+require('./load-local-runtime-env');
+
 /**
  * 用途：执行 server-next 替换链路的破坏性 shadow流程。
  */
@@ -56,8 +58,32 @@ if (!allowDestructive) {
   process.exit(1);
 }
 
-process.stdout.write('[replace-ready:shadow:destructive] steps=smoke:shadow:gm-database\n');
+process.stdout.write('[replace-ready:shadow:destructive] steps=preflight -> smoke:shadow:gm-database\n');
 process.stdout.write('[replace-ready:shadow:destructive] gate=shadow-destructive\n');
+process.stdout.write('[replace-ready:shadow:destructive] start step=preflight\n');
+
+const preflightResult = spawnSync('node', [path.join(repoRoot, 'scripts/replace-ready-shadow-destructive-preflight.js')], {
+  cwd: repoRoot,
+  stdio: 'inherit',
+  shell: process.platform === 'win32',
+  env: {
+    ...process.env,
+    ...(shadowUrlEnvSource === 'SERVER_NEXT_SHADOW_URL' ? null : { SERVER_NEXT_SHADOW_URL: shadowUrl }),
+    ...(gmPasswordEnvSource === 'SERVER_NEXT_GM_PASSWORD' ? null : { SERVER_NEXT_GM_PASSWORD: gmPassword }),
+    SERVER_NEXT_SHADOW_ALLOW_DESTRUCTIVE: '1',
+  },
+});
+
+if (preflightResult.error) {
+  throw preflightResult.error;
+}
+
+if (preflightResult.status !== 0) {
+  process.stderr.write(`[replace-ready:shadow:destructive] failed step=preflight status=${preflightResult.status ?? 1}\n`);
+  process.exit(preflightResult.status ?? 1);
+}
+
+process.stdout.write('[replace-ready:shadow:destructive] done step=preflight\n');
 process.stdout.write('[replace-ready:shadow:destructive] start step=smoke:shadow:gm-database\n');
 
 /**

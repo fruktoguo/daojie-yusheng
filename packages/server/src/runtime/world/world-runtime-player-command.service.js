@@ -15,11 +15,52 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.WorldRuntimePlayerCommandService = void 0;
 
 const common_1 = require("@nestjs/common");
+const player_runtime_service_1 = require("../player/player-runtime.service");
+const world_runtime_use_item_service_1 = require("./world-runtime-use-item.service");
+const world_runtime_equipment_service_1 = require("./world-runtime-equipment.service");
+const world_runtime_item_ground_service_1 = require("./world-runtime-item-ground.service");
+const world_runtime_navigation_service_1 = require("./world-runtime-navigation.service");
+const world_runtime_combat_command_service_1 = require("./world-runtime-combat-command.service");
+const world_runtime_cultivation_service_1 = require("./world-runtime-cultivation.service");
+const world_runtime_alchemy_service_1 = require("./world-runtime-alchemy.service");
+const world_runtime_enhancement_service_1 = require("./world-runtime-enhancement.service");
+const world_runtime_redeem_code_service_1 = require("./world-runtime-redeem-code.service");
+const world_runtime_progression_service_1 = require("./world-runtime-progression.service");
+const world_runtime_npc_shop_service_1 = require("./world-runtime-npc-shop.service");
+const world_runtime_npc_quest_write_service_1 = require("./world-runtime-npc-quest-write.service");
 
 /** world-runtime player-command orchestration：承接玩家命令路由与门禁。 */
 let WorldRuntimePlayerCommandService = class WorldRuntimePlayerCommandService {
+    playerRuntimeService;
+    worldRuntimeUseItemService;
+    worldRuntimeEquipmentService;
+    worldRuntimeItemGroundService;
+    worldRuntimeNavigationService;
+    worldRuntimeCombatCommandService;
+    worldRuntimeCultivationService;
+    worldRuntimeAlchemyService;
+    worldRuntimeEnhancementService;
+    worldRuntimeRedeemCodeService;
+    worldRuntimeProgressionService;
+    worldRuntimeNpcShopService;
+    worldRuntimeNpcQuestWriteService;
+    constructor(playerRuntimeService, worldRuntimeUseItemService, worldRuntimeEquipmentService, worldRuntimeItemGroundService, worldRuntimeNavigationService, worldRuntimeCombatCommandService, worldRuntimeCultivationService, worldRuntimeAlchemyService, worldRuntimeEnhancementService, worldRuntimeRedeemCodeService, worldRuntimeProgressionService, worldRuntimeNpcShopService, worldRuntimeNpcQuestWriteService) {
+        this.playerRuntimeService = playerRuntimeService;
+        this.worldRuntimeUseItemService = worldRuntimeUseItemService;
+        this.worldRuntimeEquipmentService = worldRuntimeEquipmentService;
+        this.worldRuntimeItemGroundService = worldRuntimeItemGroundService;
+        this.worldRuntimeNavigationService = worldRuntimeNavigationService;
+        this.worldRuntimeCombatCommandService = worldRuntimeCombatCommandService;
+        this.worldRuntimeCultivationService = worldRuntimeCultivationService;
+        this.worldRuntimeAlchemyService = worldRuntimeAlchemyService;
+        this.worldRuntimeEnhancementService = worldRuntimeEnhancementService;
+        this.worldRuntimeRedeemCodeService = worldRuntimeRedeemCodeService;
+        this.worldRuntimeProgressionService = worldRuntimeProgressionService;
+        this.worldRuntimeNpcShopService = worldRuntimeNpcShopService;
+        this.worldRuntimeNpcQuestWriteService = worldRuntimeNpcQuestWriteService;
+    }
     dispatchPlayerCommand(playerId, command, deps) {
-        const player = deps.playerRuntimeService.getPlayer(playerId);
+        const player = this.playerRuntimeService.getPlayer(playerId);
         if (!player) {
             return;
         }
@@ -28,79 +69,79 @@ let WorldRuntimePlayerCommandService = class WorldRuntimePlayerCommandService {
         }
         switch (command.kind) {
             case 'useItem':
-                deps.dispatchUseItem(playerId, command.slotIndex);
+                this.worldRuntimeUseItemService.dispatchUseItem(playerId, command.slotIndex, deps);
                 return;
             case 'equip':
-                deps.dispatchEquipItem(playerId, command.slotIndex);
+                this.worldRuntimeEquipmentService.dispatchEquipItem(playerId, command.slotIndex, deps);
                 return;
             case 'dropItem':
-                deps.dispatchDropItem(playerId, command.slotIndex, command.count);
+                this.worldRuntimeItemGroundService.dispatchDropItem(playerId, command.slotIndex, command.count, deps);
                 return;
             case 'moveTo':
-                deps.dispatchMoveTo(playerId, command.x, command.y, command.allowNearestReachable, command.clientPathHint);
+                this.worldRuntimeNavigationService.dispatchMoveTo(playerId, command.x, command.y, command.allowNearestReachable, command.clientPathHint, deps);
                 return;
             case 'basicAttack':
-                deps.dispatchBasicAttack(playerId, command.targetPlayerId, command.targetMonsterId, command.targetX, command.targetY);
+                this.worldRuntimeCombatCommandService.dispatchBasicAttack(playerId, command.targetPlayerId, command.targetMonsterId, command.targetX, command.targetY, deps);
                 return;
             case 'engageBattle':
-                deps.dispatchEngageBattle(playerId, command.targetPlayerId, command.targetMonsterId, command.targetX, command.targetY, command.locked);
+                this.worldRuntimeCombatCommandService.dispatchEngageBattle(playerId, command.targetPlayerId, command.targetMonsterId, command.targetX, command.targetY, command.locked, deps);
                 return;
             case 'takeGround':
-                deps.dispatchTakeGround(playerId, command.sourceId, command.itemKey);
+                this.worldRuntimeItemGroundService.dispatchTakeGround(playerId, command.sourceId, command.itemKey, deps);
                 return;
             case 'takeGroundAll':
-                deps.dispatchTakeGroundAll(playerId, command.sourceId);
+                this.worldRuntimeItemGroundService.dispatchTakeGroundAll(playerId, command.sourceId, deps);
                 return;
             case 'unequip':
-                deps.dispatchUnequipItem(playerId, command.slot);
+                this.worldRuntimeEquipmentService.dispatchUnequipItem(playerId, command.slot, deps);
                 return;
             case 'cultivate':
-                deps.dispatchCultivateTechnique(playerId, command.techniqueId);
+                this.worldRuntimeCultivationService.dispatchCultivateTechnique(playerId, command.techniqueId, deps);
                 return;
             case 'startAlchemy':
-                deps.dispatchStartAlchemy(playerId, command.payload);
+                this.worldRuntimeAlchemyService.dispatchStartAlchemy(playerId, command.payload, deps);
                 return;
             case 'cancelAlchemy':
-                deps.dispatchCancelAlchemy(playerId);
+                this.worldRuntimeAlchemyService.dispatchCancelAlchemy(playerId, deps);
                 return;
             case 'saveAlchemyPreset':
-                deps.dispatchSaveAlchemyPreset(playerId, command.payload);
+                this.worldRuntimeAlchemyService.dispatchSaveAlchemyPreset(playerId, command.payload, deps);
                 return;
             case 'deleteAlchemyPreset':
-                deps.dispatchDeleteAlchemyPreset(playerId, command.presetId);
+                this.worldRuntimeAlchemyService.dispatchDeleteAlchemyPreset(playerId, command.presetId, deps);
                 return;
             case 'startEnhancement':
-                deps.dispatchStartEnhancement(playerId, command.payload);
+                this.worldRuntimeEnhancementService.dispatchStartEnhancement(playerId, command.payload, deps);
                 return;
             case 'cancelEnhancement':
-                deps.dispatchCancelEnhancement(playerId);
+                this.worldRuntimeEnhancementService.dispatchCancelEnhancement(playerId, deps);
                 return;
             case 'redeemCodes':
-                deps.dispatchRedeemCodes(playerId, command.codes);
+                this.worldRuntimeRedeemCodeService.dispatchRedeemCodes(playerId, command.codes, deps);
                 return;
             case 'breakthrough':
-                deps.dispatchBreakthrough(playerId);
+                this.worldRuntimeProgressionService.dispatchBreakthrough(playerId, deps);
                 return;
             case 'heavenGateAction':
-                deps.dispatchHeavenGateAction(playerId, command.action, command.element);
+                this.worldRuntimeProgressionService.dispatchHeavenGateAction(playerId, command.action, command.element, deps);
                 return;
             case 'castSkill':
-                deps.dispatchCastSkill(playerId, command.skillId, command.targetPlayerId, command.targetMonsterId, command.targetRef);
+                this.worldRuntimeCombatCommandService.dispatchCastSkill(playerId, command.skillId, command.targetPlayerId, command.targetMonsterId, command.targetRef, deps);
                 return;
             case 'buyNpcShopItem':
-                deps.dispatchBuyNpcShopItem(playerId, command.npcId, command.itemId, command.quantity);
+                this.worldRuntimeNpcShopService.dispatchBuyNpcShopItem(playerId, command.npcId, command.itemId, command.quantity, deps);
                 return;
             case 'npcInteraction':
-                deps.dispatchNpcInteraction(playerId, command.npcId);
+                this.worldRuntimeNpcQuestWriteService.dispatchNpcInteraction(playerId, command.npcId, deps);
                 return;
             case 'interactNpcQuest':
-                deps.dispatchInteractNpcQuest(playerId, command.npcId);
+                this.worldRuntimeNpcQuestWriteService.dispatchInteractNpcQuest(playerId, command.npcId, deps);
                 return;
             case 'acceptNpcQuest':
-                deps.dispatchAcceptNpcQuest(playerId, command.npcId, command.questId);
+                this.worldRuntimeNpcQuestWriteService.dispatchAcceptNpcQuest(playerId, command.npcId, command.questId, deps);
                 return;
             case 'submitNpcQuest':
-                deps.dispatchSubmitNpcQuest(playerId, command.npcId, command.questId);
+                this.worldRuntimeNpcQuestWriteService.dispatchSubmitNpcQuest(playerId, command.npcId, command.questId, deps);
                 return;
         }
     }
@@ -108,5 +149,17 @@ let WorldRuntimePlayerCommandService = class WorldRuntimePlayerCommandService {
 exports.WorldRuntimePlayerCommandService = WorldRuntimePlayerCommandService;
 exports.WorldRuntimePlayerCommandService = WorldRuntimePlayerCommandService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [])
+    __metadata("design:paramtypes", [player_runtime_service_1.PlayerRuntimeService,
+        world_runtime_use_item_service_1.WorldRuntimeUseItemService,
+        world_runtime_equipment_service_1.WorldRuntimeEquipmentService,
+        world_runtime_item_ground_service_1.WorldRuntimeItemGroundService,
+        world_runtime_navigation_service_1.WorldRuntimeNavigationService,
+        world_runtime_combat_command_service_1.WorldRuntimeCombatCommandService,
+        world_runtime_cultivation_service_1.WorldRuntimeCultivationService,
+        world_runtime_alchemy_service_1.WorldRuntimeAlchemyService,
+        world_runtime_enhancement_service_1.WorldRuntimeEnhancementService,
+        world_runtime_redeem_code_service_1.WorldRuntimeRedeemCodeService,
+        world_runtime_progression_service_1.WorldRuntimeProgressionService,
+        world_runtime_npc_shop_service_1.WorldRuntimeNpcShopService,
+        world_runtime_npc_quest_write_service_1.WorldRuntimeNpcQuestWriteService])
 ], WorldRuntimePlayerCommandService);

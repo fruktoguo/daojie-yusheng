@@ -696,6 +696,33 @@ let WorldSessionBootstrapService = class WorldSessionBootstrapService {
         }
         return identity;
     }
+    /** 当 bootstrap 已选择 native 快照时，要求 token_seed 身份必须同步归一到 next/native。 */
+    async requireAuthenticatedTokenSeedNativeNormalization(identity, client, recoveryReason = 'unknown') {
+        const persistedSource = typeof identity?.persistedSource === 'string' ? identity.persistedSource.trim() : '';
+        if (persistedSource !== 'token_seed') {
+            return identity;
+        }
+        const persistenceService = this.worldPlayerAuthService?.playerIdentityPersistenceService;
+        const persistenceEnabled = Boolean(persistenceService?.isEnabled && persistenceService.isEnabled());
+        const promotedIdentity = await this.promoteAuthenticatedTokenSeedIdentity(identity, client);
+        const promotedPersistedSource = typeof promotedIdentity?.persistedSource === 'string' ? promotedIdentity.persistedSource.trim() : '';
+        const promotedAuthSource = typeof promotedIdentity?.authSource === 'string' ? promotedIdentity.authSource.trim() : '';
+        if (promotedPersistedSource === 'native' && promotedAuthSource === 'next') {
+            return promotedIdentity;
+        }
+        const normalizedUserId = typeof identity?.userId === 'string' ? identity.userId.trim() : '';
+        const normalizedPlayerId = typeof identity?.playerId === 'string' ? identity.playerId.trim() : '';
+        const failureStage = !persistenceEnabled
+            ? 'token_seed_native_promotion_persistence_disabled'
+            : promotedPersistedSource && promotedPersistedSource !== 'token_seed'
+                ? 'token_seed_native_promotion_invalid_result'
+                : 'token_seed_native_promotion_failed';
+        this.clearAuthenticatedSnapshotRecovery(client);
+        this.logger.warn(`玩家身份 token_seed 原生归一失败：userId=${normalizedUserId} playerId=${normalizedPlayerId} recoveryReason=${recoveryReason} stage=${failureStage} authSource=${promotedAuthSource || '未知'} persistedSource=${promotedPersistedSource || '未知'}`);
+        const normalizationError = new Error(`Authenticated next player identity normalization failed after native snapshot selection: playerId=${normalizedPlayerId || 'unknown'} recoveryReason=${recoveryReason} stage=${failureStage}`);
+        normalizationError.failureStage = failureStage;
+        throw normalizationError;
+    }
     /** 加载鉴权玩家快照，并在必要时做恢复或提示。 */
     async loadAuthenticatedPlayerSnapshot(identity, client = undefined) {
         this.rememberBootstrapIdentityPersistedSource(client, identity?.persistedSource ?? null);
@@ -707,20 +734,17 @@ let WorldSessionBootstrapService = class WorldSessionBootstrapService {
 
         const snapshot = snapshotResult.snapshot;
 
-        const authSource = typeof identity?.authSource === 'string' ? identity.authSource.trim() : '';
-
         const identityPersistedSource = typeof identity?.persistedSource === 'string' ? identity.persistedSource.trim() : '';
 
         const snapshotPersistedSource = typeof snapshotResult.persistedSource === 'string' ? snapshotResult.persistedSource.trim() : '';
 
         const shouldRememberPreseededRecovery = Boolean(snapshot)
-            && authSource === 'token'
             && identityPersistedSource === 'token_seed'
             && snapshotPersistedSource === 'native';
         if (snapshot
             || !this.worldPlayerSnapshotService.isPersistenceEnabled()) {
             if (shouldRememberPreseededRecovery) {
-                await this.promoteAuthenticatedTokenSeedIdentity(identity, client);
+                await this.requireAuthenticatedTokenSeedNativeNormalization(identity, client, `persisted_source:${identityPersistedSource}`);
                 this.rememberAuthenticatedSnapshotRecovery(client, {
                     identityPersistedSource,
                     snapshotPersistedSource,
@@ -738,6 +762,25 @@ let WorldSessionBootstrapService = class WorldSessionBootstrapService {
 
             const recoveredSnapshot = await this.worldPlayerSnapshotService.ensureNativeStarterSnapshot(identity.playerId);
             if (recoveredSnapshot.ok && recoveredSnapshot.snapshot) {
+                try {
+                    await this.requireAuthenticatedTokenSeedNativeNormalization(identity, client, recoveryPolicy.recoveryReason);
+                }
+                catch (error) {
+                    (0, world_player_token_service_1.recordAuthTrace)({
+                        type: 'snapshot_recovery',
+                        playerId: identity.playerId,
+
+                        authSource: typeof identity?.authSource === 'string' ? identity.authSource : null,
+
+                        identityPersistedSource: typeof identity?.persistedSource === 'string' ? identity.persistedSource : null,
+                        outcome: 'failure',
+                        reason: recoveryPolicy.recoveryReason,
+
+                        persistedSource: typeof recoveredSnapshot.persistedSource === 'string' ? recoveredSnapshot.persistedSource : null,
+                        failureStage: typeof error?.failureStage === 'string' ? error.failureStage : 'token_seed_native_promotion_failed',
+                    });
+                    throw error;
+                }
                 (0, world_player_token_service_1.recordAuthTrace)({
                     type: 'snapshot_recovery',
                     playerId: identity.playerId,
@@ -751,7 +794,6 @@ let WorldSessionBootstrapService = class WorldSessionBootstrapService {
                     persistedSource: typeof recoveredSnapshot.persistedSource === 'string' ? recoveredSnapshot.persistedSource : null,
                     failureStage: null,
                 });
-                await this.promoteAuthenticatedTokenSeedIdentity(identity, client);
                 this.rememberAuthenticatedSnapshotRecovery(client, {
                     identityPersistedSource,
                     snapshotPersistedSource: recoveredSnapshot.persistedSource ?? null,

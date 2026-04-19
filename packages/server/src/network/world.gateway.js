@@ -83,6 +83,9 @@ const world_gateway_craft_helper_1 = require("./world-gateway-craft.helper");
 const world_gateway_market_helper_1 = require("./world-gateway-market.helper");
 
 const world_gateway_read_model_helper_1 = require("./world-gateway-read-model.helper");
+const world_gateway_client_emit_helper_1 = require("./world-gateway-client-emit.helper");
+const world_gateway_guard_helper_1 = require("./world-gateway-guard.helper");
+const world_gateway_session_state_helper_1 = require("./world-gateway-session-state.helper");
 
 /** 鉴权后请求 sessionId 只允许从 next/token 两类来源带入。 */
 const AUTHENTICATED_REQUESTED_SESSION_ID_AUTH_SOURCES = new Set([
@@ -159,16 +162,13 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
     gatewayMarketHelper;
     gatewayReadModelHelper;
     gatewayActionHelper;
+    gatewayClientEmitHelper;
+    gatewayGuardHelper;
+    gatewaySessionStateHelper;
     /** Socket.IO server 实例。 */
     server;
     /** 入口日志。 */
     logger = new common_1.Logger(WorldGateway_1.name);
-    /** 用于过滤坊市订阅广播的玩家集合。 */
-    marketSubscriberPlayerIds = new Set();
-    /** 玩家对应的坊市列表请求页码缓存。 */
-    marketListingRequestsByPlayerId = new Map();
-    /** 玩家对应的成交历史请求页码缓存。 */
-    marketTradeHistoryRequestsByPlayerId = new Map();
     constructor(worldGmSocketService, worldProtocolProjectionService, sessionBootstrapService, healthReadinessService, playerPersistenceFlushService, playerRuntimeService, mailRuntimeService, marketRuntimeService, craftPanelRuntimeService, suggestionRuntimeService, leaderboardRuntimeService, worldRuntimeService, worldClientEventService, worldSessionService) {
         this.worldGmSocketService = worldGmSocketService;
         this.worldProtocolProjectionService = worldProtocolProjectionService;
@@ -197,6 +197,9 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         this.gatewayMarketHelper = new world_gateway_market_helper_1.WorldGatewayMarketHelper(this);
         this.gatewayReadModelHelper = new world_gateway_read_model_helper_1.WorldGatewayReadModelHelper(this);
         this.gatewayActionHelper = new world_gateway_action_helper_1.WorldGatewayActionHelper(this);
+        this.gatewayClientEmitHelper = new world_gateway_client_emit_helper_1.WorldGatewayClientEmitHelper(this);
+        this.gatewayGuardHelper = new world_gateway_guard_helper_1.WorldGatewayGuardHelper(this);
+        this.gatewaySessionStateHelper = new world_gateway_session_state_helper_1.WorldGatewaySessionStateHelper(this);
     }
     /** 处理 socket 连接：校验协议、阻断未就绪流量并触发鉴权引导。 */
     async handleConnection(client) {
@@ -209,13 +212,10 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         if (!binding) {
             return;
         }
+        this.gatewaySessionStateHelper.clearDisconnectedPlayerState(binding);
         if (binding.connected) {
             return;
         }
-        this.marketSubscriberPlayerIds.delete(binding.playerId);
-        this.marketListingRequestsByPlayerId.delete(binding.playerId);
-        this.marketTradeHistoryRequestsByPlayerId.delete(binding.playerId);
-        this.playerRuntimeService.detachSession(binding.playerId);
         await this.playerPersistenceFlushService.flushPlayer(binding.playerId).catch((error) => {
             this.logger.error(`刷新脱机玩家失败：${binding.playerId}`, error instanceof Error ? error.stack : String(error));
         });
@@ -226,55 +226,23 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         return this.gatewayBootstrapHelper.handleHello(client, payload);
     }
     handleNextHeartbeat(client, _payload) {
-
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
+        if (!this.gatewayGuardHelper.requirePlayerId(client)) {
             return;
         }
     }
-    rejectWhenNotReady(client) {
-        if (readBooleanEnv('SERVER_NEXT_ALLOW_UNREADY_TRAFFIC') || readBooleanEnv('SERVER_NEXT_SMOKE_ALLOW_UNREADY')) {
-            return false;
-        }
-
-        const health = this.healthReadinessService.build();
-        if (health.readiness.ok) {
-            return false;
-        }
-
-        const isMaintenance = health.readiness.maintenance?.active === true;
-        this.worldClientEventService.emitError(client, isMaintenance ? 'SERVER_BUSY' : 'SERVER_NOT_READY', isMaintenance ? '数据库维护中，请稍后重连' : '服务未就绪，请稍后重连');
-        client.disconnect(true);
-        return true;
-    }
     handleNextGmGetState(client, _payload) {
-        this.handleGmGetState(client, _payload);
-    }
-    handleGmGetState(client, _payload) {
         return this.gatewayGmCommandHelper.handleGmGetState(client, _payload);
     }
     handleNextGmSpawnBots(client, payload) {
-        this.handleGmSpawnBots(client, payload);
-    }
-    handleGmSpawnBots(client, payload) {
         return this.gatewayGmCommandHelper.handleGmSpawnBots(client, payload);
     }
     handleNextGmRemoveBots(client, payload) {
-        this.handleGmRemoveBots(client, payload);
-    }
-    handleGmRemoveBots(client, payload) {
         return this.gatewayGmCommandHelper.handleGmRemoveBots(client, payload);
     }
     handleNextGmUpdatePlayer(client, payload) {
-        this.handleGmUpdatePlayer(client, payload);
-    }
-    handleGmUpdatePlayer(client, payload) {
         return this.gatewayGmCommandHelper.handleGmUpdatePlayer(client, payload);
     }
     handleNextGmResetPlayer(client, payload) {
-        this.handleGmResetPlayer(client, payload);
-    }
-    handleGmResetPlayer(client, payload) {
         return this.gatewayGmCommandHelper.handleGmResetPlayer(client, payload);
     }
     handleNextMoveTo(client, payload) {
@@ -339,9 +307,6 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
     }
     handleNextRedeemCodes(client, payload) {
         return this.gatewayActionHelper.handleNextRedeemCodes(client, payload);
-    }
-    executeRedeemCodes(client, payload) {
-        return this.gatewayActionHelper.executeRedeemCodes(client, payload);
     }
     handleNextRequestMarket(client, payload) {
         return this.gatewayMarketHelper.handleNextRequestMarket(client, payload);
@@ -424,14 +389,8 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
     handleUsePortal(client) {
         return this.gatewayActionHelper.handleUsePortal(client);
     }
-    executeUseItem(client, payload) {
-        return this.gatewayInventoryHelper.executeUseItem(client, payload);
-    }
     handleNextUseItem(client, payload) {
         return this.gatewayInventoryHelper.handleNextUseItem(client, payload);
-    }
-    executeDropItem(client, payload) {
-        return this.gatewayInventoryHelper.executeDropItem(client, payload);
     }
     handleNextDropItem(client, payload) {
         return this.gatewayInventoryHelper.handleNextDropItem(client, payload);
@@ -439,20 +398,11 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
     handleTakeGround(client, payload) {
         return this.gatewayInventoryHelper.handleTakeGround(client, payload);
     }
-    executeEquip(client, payload) {
-        return this.gatewayInventoryHelper.executeEquip(client, payload);
-    }
     handleNextEquip(client, payload) {
         return this.gatewayInventoryHelper.handleNextEquip(client, payload);
     }
-    executeUnequip(client, payload) {
-        return this.gatewayInventoryHelper.executeUnequip(client, payload);
-    }
     handleNextUnequip(client, payload) {
         return this.gatewayInventoryHelper.handleNextUnequip(client, payload);
-    }
-    executeCultivate(client, payload) {
-        return this.gatewayActionHelper.executeCultivate(client, payload);
     }
     handleNextCultivate(client, payload) {
         return this.gatewayActionHelper.handleNextCultivate(client, payload);
@@ -463,38 +413,20 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
     handleNextRequestNpcShop(client, payload) {
         return this.gatewayNpcHelper.handleNextRequestNpcShop(client, payload);
     }
-    async executeCreateMarketSellOrder(client, payload) {
-        return this.gatewayMarketHelper.executeCreateMarketSellOrder(client, payload);
-    }
     async handleNextCreateMarketSellOrder(client, payload) {
         return this.gatewayMarketHelper.handleNextCreateMarketSellOrder(client, payload);
-    }
-    async executeCreateMarketBuyOrder(client, payload) {
-        return this.gatewayMarketHelper.executeCreateMarketBuyOrder(client, payload);
     }
     async handleNextCreateMarketBuyOrder(client, payload) {
         return this.gatewayMarketHelper.handleNextCreateMarketBuyOrder(client, payload);
     }
-    async executeBuyMarketItem(client, payload) {
-        return this.gatewayMarketHelper.executeBuyMarketItem(client, payload);
-    }
     async handleNextBuyMarketItem(client, payload) {
         return this.gatewayMarketHelper.handleNextBuyMarketItem(client, payload);
-    }
-    async executeSellMarketItem(client, payload) {
-        return this.gatewayMarketHelper.executeSellMarketItem(client, payload);
     }
     async handleNextSellMarketItem(client, payload) {
         return this.gatewayMarketHelper.handleNextSellMarketItem(client, payload);
     }
-    async executeCancelMarketOrder(client, payload) {
-        return this.gatewayMarketHelper.executeCancelMarketOrder(client, payload);
-    }
     async handleNextCancelMarketOrder(client, payload) {
         return this.gatewayMarketHelper.handleNextCancelMarketOrder(client, payload);
-    }
-    async executeClaimMarketStorage(client) {
-        return this.gatewayMarketHelper.executeClaimMarketStorage(client);
     }
     async handleNextClaimMarketStorage(client, payload) {
         return this.gatewayMarketHelper.handleNextClaimMarketStorage(client, payload);
@@ -508,103 +440,11 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
     handleSubmitNpcQuest(client, payload) {
         return this.gatewayNpcHelper.handleSubmitNpcQuest(client, payload);
     }
-    executeBuyNpcShopItem(client, payload) {
-        return this.gatewayNpcHelper.executeBuyNpcShopItem(client, payload);
-    }
     handleNextBuyNpcShopItem(client, payload) {
         return this.gatewayNpcHelper.handleNextBuyNpcShopItem(client, payload);
     }
     handlePing(client, payload) {
         this.worldClientEventService.emitPong(client, payload);
-    }
-    emitNextQuests(client, payload) {
-        this.worldClientEventService.markProtocol(client, 'next');
-        this.worldClientEventService.emitQuests(client, payload);
-    }
-    emitNextSuggestionUpdate(client, suggestions) {
-        this.worldClientEventService.markProtocol(client, 'next');
-        this.worldClientEventService.emitSuggestionUpdate(client, suggestions);
-    }
-    emitNextMailSummary(client, summary) {
-        this.worldClientEventService.markProtocol(client, 'next');
-        this.worldClientEventService.emitMailSummary(client, summary);
-    }
-    async emitNextMailSummaryForPlayer(client, playerId) {
-        this.worldClientEventService.markProtocol(client, 'next');
-        await this.worldClientEventService.emitMailSummaryForPlayer(client, playerId);
-    }
-    emitNextMailPage(client, page) {
-        this.worldClientEventService.markProtocol(client, 'next');
-        this.worldClientEventService.emitMailPage(client, page);
-    }
-    emitNextMailDetail(client, detail) {
-        this.worldClientEventService.markProtocol(client, 'next');
-        this.worldClientEventService.emitMailDetail(client, detail);
-    }
-    emitNextMailOperationResult(client, payload) {
-        this.worldClientEventService.markProtocol(client, 'next');
-        this.worldClientEventService.emitMailOperationResult(client, payload);
-    }
-    emitNextMarketUpdate(client, payload) {
-        this.worldClientEventService.markProtocol(client, 'next');
-        this.worldClientEventService.emitMarketUpdate(client, payload);
-    }
-    emitNextMarketListings(client, payload) {
-        this.worldClientEventService.markProtocol(client, 'next');
-        this.worldClientEventService.emitMarketListings(client, payload);
-    }
-    emitNextMarketOrders(client, payload) {
-        this.worldClientEventService.markProtocol(client, 'next');
-        this.worldClientEventService.emitMarketOrders(client, payload);
-    }
-    emitNextMarketStorage(client, payload) {
-        this.worldClientEventService.markProtocol(client, 'next');
-        this.worldClientEventService.emitMarketStorage(client, payload);
-    }
-    emitNextMarketItemBook(client, payload) {
-        this.worldClientEventService.markProtocol(client, 'next');
-        this.worldClientEventService.emitMarketItemBook(client, payload);
-    }
-    emitNextMarketTradeHistory(client, payload) {
-        this.worldClientEventService.markProtocol(client, 'next');
-        this.worldClientEventService.emitMarketTradeHistory(client, payload);
-    }
-    emitNextNpcShop(client, payload) {
-        this.worldClientEventService.markProtocol(client, 'next');
-        this.worldClientEventService.emitNpcShop(client, payload);
-    }
-    requirePlayerId(client) {
-
-        const playerId = typeof client.data.playerId === 'string' ? client.data.playerId : '';
-        if (playerId) {
-            return playerId;
-        }
-        this.worldClientEventService.emitNotReady(client);
-        return null;
-    }
-    requireGm(client) {
-
-        const playerId = this.requirePlayerId(client);
-        if (!playerId) {
-            return null;
-        }
-        if (client.data?.isGm === true) {
-            return playerId;
-        }
-        this.worldClientEventService.emitError(client, 'GM_FORBIDDEN', 'GM 权限不足');
-        return null;
-    }
-    flushMarketResult(result) {
-        this.worldClientEventService.flushMarketResult(this.marketSubscriberPlayerIds, result, {
-            marketListingRequests: this.marketListingRequestsByPlayerId,
-            marketTradeHistoryRequests: this.marketTradeHistoryRequestsByPlayerId,
-        });
-    }
-    async emitMailSummary(client, playerId) {
-        await this.worldClientEventService.emitMailSummaryForPlayer(client, playerId);
-    }
-    broadcastSuggestions() {
-        this.worldClientEventService.broadcastSuggestionUpdate();
     }
 };
 exports.WorldGateway = WorldGateway;
@@ -1223,16 +1063,6 @@ exports.WorldGateway = WorldGateway = WorldGateway_1 = __decorate([
         world_client_event_service_1.WorldClientEventService,
         world_session_service_1.WorldSessionService])
 ], WorldGateway);
-function readBooleanEnv(key) {
-
-    const value = process.env[key];
-    if (typeof value !== 'string') {
-        return false;
-    }
-
-    const normalized = value.trim().toLowerCase();
-    return normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'on';
-}
 function buildAttrDetailBonuses(player) {
 
     const bonuses = [];

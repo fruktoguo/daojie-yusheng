@@ -21,6 +21,12 @@
 - 这份文件只负责解释“跑什么、证明什么、不能证明什么”，不负责替代任务账本或运维手册。
 - README / TESTING / REPLACE-RUNBOOK / workflow / package wrapper 当前统一使用 `local / with-db / acceptance / full / shadow-destructive` 五层 gate 命名。
 - 根级主入口现在是 `verify:replace-ready*`；`verify:server-next*` 只保留为兼容别名。
+- 根级 `verify:replace-ready*` 和 `packages/server` 包内直接执行的 `verify/smoke` 现在都会默认尝试加载本地 env：
+  - `.runtime/server-next.local.env`
+  - `.env`
+  - `.env.local`
+  - `packages/server/.env`
+  - `packages/server/.env.local`
 - `smoke-suite` 当前只承担 `local / with-db` 子集执行，并会在运行时打印自己回答什么、明确不回答什么。
 - 当前 `next-auth-bootstrap`、`gm-next` 和 `smoke-suite/readiness-gate` 都已经在脚本输出里显式打印 `answers / excludes / completionMapping`，不再只靠外部口头解释完成定义。
 
@@ -57,6 +63,7 @@
 - 回答的问题：维护窗口里的 destructive 闭环是否可控。
 - 典型内容：`SERVER_NEXT_SHADOW_ALLOW_DESTRUCTIVE=1` 下的 shadow `backup -> download -> restore`。
 - 不回答的问题：日常替换是否完成、是否可以把 legacy/compat 直接删光。
+- 推荐先跑：`pnpm verify:replace-ready:shadow:destructive:preflight`
 
 ## 自动 Proof 与人工回归
 
@@ -182,6 +189,7 @@
 - 不自启本地服务
 - 直接打 `SERVER_NEXT_SHADOW_URL` 或 `SERVER_NEXT_URL`
 - 验收 `/health`、GM 登录、`/gm/state`、`/gm/maps`、`/gm/editor-catalog`、`/gm/maps/:mapId/runtime`，以及最小 next 会话链
+  - 若 shadow 前面有统一入口层，`/health` 允许只暴露外层 liveness；readiness 继续由 GM 只读面与最小 next 会话链补证
 
 ### 5. 增强验收
 

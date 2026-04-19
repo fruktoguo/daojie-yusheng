@@ -27,8 +27,9 @@ function createService(player, log = []) {
 function testExecuteNpcQuestActionQueuesSubmit() {
     const player = { templateId: 'map_a' };
     const service = createService(player);
+    const queued = new Map();
     const deps = {
-        pendingCommands: new Map(),
+        enqueuePendingCommand(playerId, command) { queued.set(playerId, command); },
         buildNpcQuestsView() {
             return {
                 quests: [{ id: 'quest:ready', status: 'ready', submitNpcId: 'npc_a' }],
@@ -36,7 +37,7 @@ function testExecuteNpcQuestActionQueuesSubmit() {
         },
     };
     const result = service.executeNpcQuestAction('player:1', 'npc_a', deps);
-    assert.deepEqual(deps.pendingCommands.get('player:1'), {
+    assert.deepEqual(queued.get('player:1'), {
         kind: 'submitNpcQuest',
         npcId: 'npc_a',
         questId: 'quest:ready',
@@ -46,8 +47,9 @@ function testExecuteNpcQuestActionQueuesSubmit() {
 
 function testEnqueueNpcInteraction() {
     const service = createService({ templateId: 'map_a' });
+    const queued = new Map();
     const deps = {
-        pendingCommands: new Map(),
+        enqueuePendingCommand(playerId, command) { queued.set(playerId, command); },
         getPlayerLocationOrThrow() {
             return { instanceId: 'public:yunlai_town' };
         },
@@ -56,7 +58,7 @@ function testEnqueueNpcInteraction() {
         },
     };
     const result = service.enqueueNpcInteraction('player:1', ' npc:npc_a ', deps);
-    assert.deepEqual(deps.pendingCommands.get('player:1'), {
+    assert.deepEqual(queued.get('player:1'), {
         kind: 'npcInteraction',
         npcId: 'npc_a',
     });
@@ -65,8 +67,9 @@ function testEnqueueNpcInteraction() {
 
 function testEnqueueAcceptAndSubmitNpcQuest() {
     const service = createService({ templateId: 'map_a' });
+    const queued = new Map();
     const deps = {
-        pendingCommands: new Map(),
+        enqueuePendingCommand(playerId, command) { queued.set(playerId, command); },
         getPlayerLocationOrThrow() {
             return { instanceId: 'public:yunlai_town' };
         },
@@ -75,14 +78,14 @@ function testEnqueueAcceptAndSubmitNpcQuest() {
         },
     };
     const acceptView = service.enqueueAcceptNpcQuest('player:1', ' npc_a ', ' quest:accept ', deps);
-    assert.deepEqual(deps.pendingCommands.get('player:1'), {
+    assert.deepEqual(queued.get('player:1'), {
         kind: 'acceptNpcQuest',
         npcId: 'npc_a',
         questId: 'quest:accept',
     });
     assert.deepEqual(acceptView, { tick: 2 });
     const submitView = service.enqueueSubmitNpcQuest('player:1', ' npc_a ', ' quest:submit ', deps);
-    assert.deepEqual(deps.pendingCommands.get('player:1'), {
+    assert.deepEqual(queued.get('player:1'), {
         kind: 'submitNpcQuest',
         npcId: 'npc_a',
         questId: 'quest:submit',
@@ -92,8 +95,9 @@ function testEnqueueAcceptAndSubmitNpcQuest() {
 
 function testEnqueueLegacyNpcInteractionDelegates() {
     const service = createService({ templateId: 'map_a' });
+    const queued = new Map();
     const deps = {
-        pendingCommands: new Map(),
+        enqueuePendingCommand(playerId, command) { queued.set(playerId, command); },
         getPlayerLocationOrThrow() {
             return { instanceId: 'public:yunlai_town' };
         },
@@ -102,7 +106,7 @@ function testEnqueueLegacyNpcInteractionDelegates() {
         },
     };
     service.enqueueLegacyNpcInteraction('player:1', 'npc:npc_b', deps);
-    assert.deepEqual(deps.pendingCommands.get('player:1'), {
+    assert.deepEqual(queued.get('player:1'), {
         kind: 'npcInteraction',
         npcId: 'npc_b',
     });
@@ -111,8 +115,9 @@ function testEnqueueLegacyNpcInteractionDelegates() {
 function testExecuteNpcQuestActionQueuesAccept() {
     const player = { templateId: 'map_a' };
     const service = createService(player);
+    const queued = new Map();
     const deps = {
-        pendingCommands: new Map(),
+        enqueuePendingCommand(playerId, command) { queued.set(playerId, command); },
         buildNpcQuestsView() {
             return {
                 quests: [{ id: 'quest:available', status: 'available' }],
@@ -120,7 +125,7 @@ function testExecuteNpcQuestActionQueuesAccept() {
         },
     };
     service.executeNpcQuestAction('player:1', 'npc_a', deps);
-    assert.deepEqual(deps.pendingCommands.get('player:1'), {
+    assert.deepEqual(queued.get('player:1'), {
         kind: 'acceptNpcQuest',
         npcId: 'npc_a',
         questId: 'quest:available',
@@ -130,8 +135,9 @@ function testExecuteNpcQuestActionQueuesAccept() {
 function testExecuteNpcQuestActionQueuesTalkInteract() {
     const player = { templateId: 'map_a' };
     const service = createService(player);
+    const queued = new Map();
     const deps = {
-        pendingCommands: new Map(),
+        enqueuePendingCommand(playerId, command) { queued.set(playerId, command); },
         buildNpcQuestsView() {
             return {
                 quests: [{
@@ -145,7 +151,7 @@ function testExecuteNpcQuestActionQueuesTalkInteract() {
         },
     };
     service.executeNpcQuestAction('player:1', 'npc_a', deps);
-    assert.deepEqual(deps.pendingCommands.get('player:1'), {
+    assert.deepEqual(queued.get('player:1'), {
         kind: 'interactNpcQuest',
         npcId: 'npc_a',
     });

@@ -62,7 +62,7 @@ let WorldRuntimeNavigationService = class WorldRuntimeNavigationService {
         const player = this.playerRuntimeService.getPlayer(playerId);
         this.clearNavigationIntent(playerId);
         this.interruptManualNavigation(playerId, deps);
-        deps.pendingCommands.set(playerId, {
+        deps.enqueuePendingCommand(playerId, {
             kind: 'move',
             direction,
             continuous: true,
@@ -86,7 +86,7 @@ let WorldRuntimeNavigationService = class WorldRuntimeNavigationService {
         const player = this.playerRuntimeService.getPlayer(playerId);
         this.interruptManualNavigation(playerId, deps);
         const clientPathHint = decodeClientPathHint(packedPathInput, packedPathStepsInput, pathStartXInput, pathStartYInput);
-        deps.pendingCommands.set(playerId, {
+        deps.enqueuePendingCommand(playerId, {
             kind: 'moveTo',
             x,
             y,
@@ -110,7 +110,7 @@ let WorldRuntimeNavigationService = class WorldRuntimeNavigationService {
         deps.getPlayerLocationOrThrow(playerId);
         this.clearNavigationIntent(playerId);
         this.interruptManualNavigation(playerId, deps);
-        deps.pendingCommands.set(playerId, { kind: 'portal' });
+        deps.enqueuePendingCommand(playerId, { kind: 'portal' });
         return deps.getPlayerViewOrThrow(playerId);
     }
     navigateQuest(playerId, questIdInput, deps) {
@@ -173,7 +173,7 @@ let WorldRuntimeNavigationService = class WorldRuntimeNavigationService {
             return;
         }
         for (const [playerId, intent] of this.navigationIntents) {
-            if (deps.pendingCommands.has(playerId)) {
+            if (deps.hasPendingCommand(playerId)) {
                 continue;
             }
             const player = this.playerRuntimeService.getPlayer(playerId);
@@ -189,10 +189,10 @@ let WorldRuntimeNavigationService = class WorldRuntimeNavigationService {
                     continue;
                 }
                 if (step.kind === 'portal') {
-                    deps.pendingCommands.set(playerId, { kind: 'portal' });
+                    deps.enqueuePendingCommand(playerId, { kind: 'portal' });
                     continue;
                 }
-                deps.pendingCommands.set(playerId, {
+                deps.enqueuePendingCommand(playerId, {
                     kind: 'move',
                     direction: step.direction,
                     continuous: true,

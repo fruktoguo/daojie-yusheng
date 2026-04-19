@@ -1,15 +1,23 @@
 import type { Suggestion } from '@mud/shared-next';
-import type { SocketManager } from './network/socket';
+import type { SocketSocialEconomySender } from './network/socket-send-social-economy';
 import { SuggestionPanel } from './ui/suggestion-panel';
 
 type MainSuggestionStateSourceOptions = {
-  socket: SocketManager;
+  socket: Pick<
+    SocketSocialEconomySender,
+    | 'sendRequestSuggestions'
+    | 'sendCreateSuggestion'
+    | 'sendReplySuggestion'
+    | 'sendVoteSuggestion'
+    | 'sendMarkSuggestionRepliesRead'
+  >;
+  isSocketConnected: () => boolean;
 };
 
 export type MainSuggestionStateSource = ReturnType<typeof createMainSuggestionStateSource>;
 
 export function createMainSuggestionStateSource(options: MainSuggestionStateSourceOptions) {
-  const suggestionPanel = new SuggestionPanel(options.socket);
+  const suggestionPanel = new SuggestionPanel(options.socket, options.isSocketConnected);
 
   return {
     initFromPlayer(playerId: string): void {

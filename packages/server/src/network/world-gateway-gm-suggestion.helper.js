@@ -10,26 +10,26 @@ class WorldGatewayGmSuggestionHelper {
         this.gateway = gateway;
     }
     async handleGmMarkSuggestionCompleted(client, payload) {
-        const playerId = this.gateway.requireGm(client);
+        const playerId = this.gateway.gatewayGuardHelper.requireGm(client);
         if (!playerId) {
             return;
         }
         try {
             await this.gateway.suggestionRuntimeService.markCompleted(payload?.suggestionId ?? '');
-            this.gateway.broadcastSuggestions();
+            this.gateway.gatewayClientEmitHelper.broadcastSuggestions();
         }
         catch (error) {
             this.gateway.worldClientEventService.emitGatewayError(client, 'GM_MARK_SUGGESTION_COMPLETED_FAILED', error);
         }
     }
     async handleGmRemoveSuggestion(client, payload) {
-        const playerId = this.gateway.requireGm(client);
+        const playerId = this.gateway.gatewayGuardHelper.requireGm(client);
         if (!playerId) {
             return;
         }
         try {
             await this.gateway.suggestionRuntimeService.remove(payload?.suggestionId ?? '');
-            this.gateway.broadcastSuggestions();
+            this.gateway.gatewayClientEmitHelper.broadcastSuggestions();
         }
         catch (error) {
             this.gateway.worldClientEventService.emitGatewayError(client, 'GM_REMOVE_SUGGESTION_FAILED', error);

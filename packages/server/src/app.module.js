@@ -45,6 +45,9 @@ const world_sync_map_snapshot_service_1 = require("./network/world-sync-map-snap
 const world_sync_map_static_aux_service_1 = require("./network/world-sync-map-static-aux.service");
 
 const world_sync_threat_service_1 = require("./network/world-sync-threat.service");
+const world_sync_aux_state_service_1 = require("./network/world-sync-aux-state.service");
+const world_sync_envelope_service_1 = require("./network/world-sync-envelope.service");
+const world_sync_player_state_service_1 = require("./network/world-sync-player-state.service");
 
 const world_sync_service_1 = require("./network/world-sync.service");
 
@@ -76,7 +79,24 @@ const world_runtime_quest_state_service_1 = require("./runtime/world/world-runti
 
 const world_runtime_detail_query_service_1 = require("./runtime/world/world-runtime-detail-query.service");
 
+const world_runtime_context_action_query_service_1 = require("./runtime/world/world-runtime-context-action-query.service");
+
+const world_runtime_player_view_query_service_1 = require("./runtime/world/world-runtime-player-view-query.service");
+
 const world_runtime_metrics_service_1 = require("./runtime/world/world-runtime-metrics.service");
+
+const world_runtime_frame_service_1 = require("./runtime/world/world-runtime-frame.service");
+const world_runtime_lifecycle_service_1 = require("./runtime/world/world-runtime-lifecycle.service");
+const world_runtime_persistence_state_service_1 = require("./runtime/world/world-runtime-persistence-state.service");
+const world_runtime_player_session_service_1 = require("./runtime/world/world-runtime-player-session.service");
+const world_runtime_command_intake_facade_service_1 = require("./runtime/world/world-runtime-command-intake-facade.service");
+const world_runtime_gameplay_write_facade_service_1 = require("./runtime/world/world-runtime-gameplay-write-facade.service");
+const world_runtime_instance_read_facade_service_1 = require("./runtime/world/world-runtime-instance-read-facade.service");
+const world_runtime_quest_runtime_facade_service_1 = require("./runtime/world/world-runtime-quest-runtime-facade.service");
+const world_runtime_read_facade_service_1 = require("./runtime/world/world-runtime-read-facade.service");
+const world_runtime_state_facade_service_1 = require("./runtime/world/world-runtime-state-facade.service");
+const world_runtime_tick_dispatch_service_1 = require("./runtime/world/world-runtime-tick-dispatch.service");
+const world_runtime_world_access_service_1 = require("./runtime/world/world-runtime-world-access.service");
 
 const world_runtime_instance_tick_orchestration_service_1 = require("./runtime/world/world-runtime-instance-tick-orchestration.service");
 
@@ -125,8 +145,11 @@ const world_runtime_basic_attack_service_1 = require("./runtime/world/world-runt
 const world_runtime_monster_system_command_service_1 = require("./runtime/world/world-runtime-monster-system-command.service");
 
 const world_runtime_player_combat_service_1 = require("./runtime/world/world-runtime-player-combat.service");
+const world_runtime_player_combat_outcome_service_1 = require("./runtime/world/world-runtime-player-combat-outcome.service");
+const world_runtime_gm_system_command_service_1 = require("./runtime/world/world-runtime-gm-system-command.service");
 
 const world_runtime_player_command_service_1 = require("./runtime/world/world-runtime-player-command.service");
+const world_runtime_player_command_enqueue_service_1 = require("./runtime/world/world-runtime-player-command-enqueue.service");
 
 const world_runtime_item_ground_service_1 = require("./runtime/world/world-runtime-item-ground.service");
 
@@ -153,6 +176,9 @@ const world_runtime_player_skill_dispatch_service_1 = require("./runtime/world/w
 const world_runtime_battle_engage_service_1 = require("./runtime/world/world-runtime-battle-engage.service");
 
 const world_runtime_auto_combat_service_1 = require("./runtime/world/world-runtime-auto-combat.service");
+const world_runtime_combat_command_service_1 = require("./runtime/world/world-runtime-combat-command.service");
+const world_runtime_action_execution_service_1 = require("./runtime/world/world-runtime-action-execution.service");
+const world_runtime_system_command_enqueue_service_1 = require("./runtime/world/world-runtime-system-command-enqueue.service");
 
 const map_template_repository_1 = require("./runtime/map/map-template.repository");
 
@@ -229,7 +255,21 @@ exports.AppModule = AppModule = __decorate([
             world_runtime_quest_query_service_1.WorldRuntimeQuestQueryService,
             world_runtime_quest_state_service_1.WorldRuntimeQuestStateService,
             world_runtime_detail_query_service_1.WorldRuntimeDetailQueryService,
+            world_runtime_context_action_query_service_1.WorldRuntimeContextActionQueryService,
+            world_runtime_player_view_query_service_1.WorldRuntimePlayerViewQueryService,
             world_runtime_metrics_service_1.WorldRuntimeMetricsService,
+            world_runtime_frame_service_1.WorldRuntimeFrameService,
+            world_runtime_lifecycle_service_1.WorldRuntimeLifecycleService,
+            world_runtime_persistence_state_service_1.WorldRuntimePersistenceStateService,
+            world_runtime_player_session_service_1.WorldRuntimePlayerSessionService,
+            world_runtime_command_intake_facade_service_1.WorldRuntimeCommandIntakeFacadeService,
+            world_runtime_gameplay_write_facade_service_1.WorldRuntimeGameplayWriteFacadeService,
+            world_runtime_instance_read_facade_service_1.WorldRuntimeInstanceReadFacadeService,
+            world_runtime_quest_runtime_facade_service_1.WorldRuntimeQuestRuntimeFacadeService,
+            world_runtime_read_facade_service_1.WorldRuntimeReadFacadeService,
+            world_runtime_state_facade_service_1.WorldRuntimeStateFacadeService,
+            world_runtime_tick_dispatch_service_1.WorldRuntimeTickDispatchService,
+            world_runtime_world_access_service_1.WorldRuntimeWorldAccessService,
             world_runtime_instance_tick_orchestration_service_1.WorldRuntimeInstanceTickOrchestrationService,
             world_runtime_movement_service_1.WorldRuntimeMovementService,
             world_runtime_summary_query_service_1.WorldRuntimeSummaryQueryService,
@@ -254,7 +294,10 @@ exports.AppModule = AppModule = __decorate([
             world_runtime_basic_attack_service_1.WorldRuntimeBasicAttackService,
             world_runtime_monster_system_command_service_1.WorldRuntimeMonsterSystemCommandService,
             world_runtime_player_combat_service_1.WorldRuntimePlayerCombatService,
+            world_runtime_player_combat_outcome_service_1.WorldRuntimePlayerCombatOutcomeService,
+            world_runtime_gm_system_command_service_1.WorldRuntimeGmSystemCommandService,
             world_runtime_player_command_service_1.WorldRuntimePlayerCommandService,
+            world_runtime_player_command_enqueue_service_1.WorldRuntimePlayerCommandEnqueueService,
             world_runtime_item_ground_service_1.WorldRuntimeItemGroundService,
             world_runtime_transfer_service_1.WorldRuntimeTransferService,
             world_runtime_npc_access_service_1.WorldRuntimeNpcAccessService,
@@ -268,6 +311,9 @@ exports.AppModule = AppModule = __decorate([
             world_runtime_player_skill_dispatch_service_1.WorldRuntimePlayerSkillDispatchService,
             world_runtime_battle_engage_service_1.WorldRuntimeBattleEngageService,
             world_runtime_auto_combat_service_1.WorldRuntimeAutoCombatService,
+            world_runtime_combat_command_service_1.WorldRuntimeCombatCommandService,
+            world_runtime_action_execution_service_1.WorldRuntimeActionExecutionService,
+            world_runtime_system_command_enqueue_service_1.WorldRuntimeSystemCommandEnqueueService,
             runtime_map_config_service_1.RuntimeMapConfigService,
             player_combat_service_1.PlayerCombatService,
             map_persistence_service_1.MapPersistenceService,
@@ -301,6 +347,9 @@ exports.AppModule = AppModule = __decorate([
             world_sync_map_snapshot_service_1.WorldSyncMapSnapshotService,
             world_sync_map_static_aux_service_1.WorldSyncMapStaticAuxService,
             world_sync_threat_service_1.WorldSyncThreatService,
+            world_sync_aux_state_service_1.WorldSyncAuxStateService,
+            world_sync_envelope_service_1.WorldSyncEnvelopeService,
+            world_sync_player_state_service_1.WorldSyncPlayerStateService,
             world_sync_service_1.WorldSyncService,
             runtime_maintenance_service_1.RuntimeMaintenanceService,
             world_runtime_service_1.WorldRuntimeService,

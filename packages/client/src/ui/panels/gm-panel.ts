@@ -1,6 +1,7 @@
 /**
  * GM 管理面板
  * 提供服务端性能监控、在线玩家列表、玩家编辑、机器人控制与意见管理
+ * 当前作为 GM 工具面板继续保留，由独立 GM 入口驱动，不并入玩家主线 main.ts。
  */
 import { NEXT_C2S_GmUpdatePlayer, GmPlayerSummary, NEXT_S2C_GmState, Suggestion } from '@mud/shared-next';
 

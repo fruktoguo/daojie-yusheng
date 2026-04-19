@@ -1,10 +1,10 @@
 import { ActionDef, AutoBattleSkillConfig, PlayerState } from '@mud/shared-next';
-import type { SocketManager } from './network/socket';
+import type { SocketRuntimeSender } from './network/socket-send-runtime';
 import { ActionPanel } from './ui/panels/action-panel';
 
 type MainActionStateSourceOptions = {
   actionPanel: Pick<ActionPanel, 'setCallbacks' | 'initFromPlayer' | 'update' | 'syncDynamic' | 'clear'>;
-  socket: Pick<SocketManager, 'sendAction' | 'sendCastSkill' | 'sendUpdateAutoBattleSkills'>;
+  socket: Pick<SocketRuntimeSender, 'sendAction' | 'sendCastSkill' | 'sendUpdateAutoBattleSkills'>;
   beginTargeting: (actionId: string, actionName: string, targetMode?: string, range?: number) => void;
   cancelTargeting: () => void;
   hideObserveModal: () => void;

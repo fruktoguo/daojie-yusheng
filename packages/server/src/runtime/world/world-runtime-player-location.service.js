@@ -15,6 +15,21 @@ const common_1 = require("@nestjs/common");
 /** world-runtime player location state：承接玩家所在实例索引的状态所有权。 */
 let WorldRuntimePlayerLocationService = class WorldRuntimePlayerLocationService {
     playerLocations = new Map();
+    getPlayerLocation(playerId) {
+        return this.playerLocations.get(playerId) ?? null;
+    }
+    setPlayerLocation(playerId, location) {
+        this.playerLocations.set(playerId, location);
+    }
+    clearPlayerLocation(playerId) {
+        this.playerLocations.delete(playerId);
+    }
+    getPlayerLocationCount() {
+        return this.playerLocations.size;
+    }
+    listConnectedPlayerIds() {
+        return this.playerLocations.keys();
+    }
     resetState() {
         this.playerLocations.clear();
     }

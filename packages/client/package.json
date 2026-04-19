@@ -3,12 +3,13 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
+    "proof:mainline-boundaries": "node ./scripts/check-client-mainline-boundaries.js",
     "generate:editor-catalog": "node ../../scripts/generate-editor-catalog.mjs --client=client-next --shared=shared-next",
     "generate:item-sources": "node ./scripts/generate-item-sources.mjs",
     "prebuild": "pnpm --filter @mud/shared-next build && pnpm run generate:editor-catalog && pnpm run generate:item-sources",
     "dev": "vite",
     "dev:react-ui-prototype": "vite --open /react-ui-prototype.html",
-    "build": "tsc --noEmit && vite build",
+    "build": "tsc --noEmit && vite build && pnpm run proof:mainline-boundaries",
     "preview": "vite preview"
   },
   "dependencies": {

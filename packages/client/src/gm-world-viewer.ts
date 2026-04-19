@@ -1,6 +1,7 @@
 /**
  * GM 世界管理查看器 —— 复用 TextRenderer + Camera 渲染运行时地图
  * 上帝视角，无迷雾，支持拖动、缩放、选中查看
+ * 当前作为 GM 独立运行时查看工具继续保留，不并入玩家主线 main.ts，也不作为 next cutover 的前台阻塞项。
  */
 import {
   GM_WORLD_DEFAULT_ZOOM,

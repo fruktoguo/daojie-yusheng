@@ -11,6 +11,8 @@
 当前 `server-next` 的 shadow 演练、环境变量矩阵、replace-ready 五层门禁、`gm/database/*` 演练步骤，统一看：
 
 - [docs/server-next-operations.md](../../docs/server-next-operations.md)
+- [docs/next-plan/10-cutover-execution-checklist.md](../../docs/next-plan/10-cutover-execution-checklist.md)
+- [docs/next-plan/10-cutover-execution-log-template.md](../../docs/next-plan/10-cutover-execution-log-template.md)
 
 快速入口：
 
@@ -18,6 +20,7 @@
 - 最小带库 proof：`pnpm verify:replace-ready:proof:with-db`
 - 带库闭环：`pnpm verify:replace-ready:with-db`
 - shadow：`pnpm verify:replace-ready:shadow`
+- 维护窗口 destructive preflight：`pnpm verify:replace-ready:shadow:destructive:preflight`
 - 增强验收：`pnpm verify:replace-ready:acceptance`
 - 最严格自动化链：`pnpm verify:replace-ready:full`
 - 维护窗口 destructive proof：`pnpm verify:replace-ready:shadow:destructive`

@@ -10,14 +10,14 @@ class WorldGatewayGmCommandHelper {
         this.gateway = gateway;
     }
     handleGmGetState(client, _payload) {
-        const playerId = this.gateway.requireGm(client);
+        const playerId = this.gateway.gatewayGuardHelper.requireGm(client);
         if (!playerId) {
             return;
         }
         this.gateway.worldGmSocketService.emitState(client);
     }
     handleGmSpawnBots(client, payload) {
-        const playerId = this.gateway.requireGm(client);
+        const playerId = this.gateway.gatewayGuardHelper.requireGm(client);
         if (!playerId) {
             return;
         }
@@ -29,7 +29,7 @@ class WorldGatewayGmCommandHelper {
         }
     }
     handleGmRemoveBots(client, payload) {
-        const playerId = this.gateway.requireGm(client);
+        const playerId = this.gateway.gatewayGuardHelper.requireGm(client);
         if (!playerId) {
             return;
         }
@@ -41,7 +41,7 @@ class WorldGatewayGmCommandHelper {
         }
     }
     handleGmUpdatePlayer(client, payload) {
-        const requesterPlayerId = this.gateway.requireGm(client);
+        const requesterPlayerId = this.gateway.gatewayGuardHelper.requireGm(client);
         if (!requesterPlayerId) {
             return;
         }
@@ -53,7 +53,7 @@ class WorldGatewayGmCommandHelper {
         }
     }
     handleGmResetPlayer(client, payload) {
-        const requesterPlayerId = this.gateway.requireGm(client);
+        const requesterPlayerId = this.gateway.gatewayGuardHelper.requireGm(client);
         if (!requesterPlayerId) {
             return;
         }

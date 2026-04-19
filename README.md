@@ -7,6 +7,7 @@
 说明：
 
 - 目录主线已经统一到 `packages/*`
+- `legacy/*` 当前只保留三类价值：查旧规则、查旧数据格式、迁移输入
 - 包名与部分命令仍保留历史名：
   - `@mud/client-next`
   - `@mud/shared-next`

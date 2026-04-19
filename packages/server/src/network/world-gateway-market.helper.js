@@ -10,31 +10,31 @@ class WorldGatewayMarketHelper {
         this.gateway = gateway;
     }
     handleNextRequestMarket(client, _payload) {
-        const playerId = this.gateway.requirePlayerId(client);
+        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
             return;
         }
         try {
-            this.gateway.marketSubscriberPlayerIds.add(playerId);
-            this.gateway.marketListingRequestsByPlayerId.set(playerId, { page: 1 });
+            this.gateway.gatewaySessionStateHelper.subscribeMarket(playerId);
+            this.gateway.gatewaySessionStateHelper.setMarketListingsRequest(playerId, { page: 1 });
             const response = this.gateway.marketRuntimeService.buildMarketUpdate(playerId);
-            this.gateway.emitNextMarketUpdate(client, response);
-            this.gateway.emitNextMarketListings(client, this.gateway.marketRuntimeService.buildMarketListingsPage(this.gateway.marketListingRequestsByPlayerId.get(playerId)));
-            this.gateway.emitNextMarketOrders(client, this.gateway.marketRuntimeService.buildMarketOrders(playerId));
-            this.gateway.emitNextMarketStorage(client, this.gateway.marketRuntimeService.buildMarketStorage(playerId));
+            this.gateway.gatewayClientEmitHelper.emitNextMarketUpdate(client, response);
+            this.gateway.gatewayClientEmitHelper.emitNextMarketListings(client, this.gateway.marketRuntimeService.buildMarketListingsPage(this.gateway.gatewaySessionStateHelper.getMarketListingsRequest(playerId)));
+            this.gateway.gatewayClientEmitHelper.emitNextMarketOrders(client, this.gateway.marketRuntimeService.buildMarketOrders(playerId));
+            this.gateway.gatewayClientEmitHelper.emitNextMarketStorage(client, this.gateway.marketRuntimeService.buildMarketStorage(playerId));
         }
         catch (error) {
             this.gateway.worldClientEventService.emitGatewayError(client, 'REQUEST_MARKET_FAILED', error);
         }
     }
     handleNextRequestMarketListings(client, payload) {
-        const playerId = this.gateway.requirePlayerId(client);
+        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
             return;
         }
         try {
-            this.gateway.marketSubscriberPlayerIds.add(playerId);
-            this.gateway.marketListingRequestsByPlayerId.set(playerId, { ...(payload ?? {}) });
+            this.gateway.gatewaySessionStateHelper.subscribeMarket(playerId);
+            this.gateway.gatewaySessionStateHelper.setMarketListingsRequest(playerId, payload ?? {});
             this.gateway.worldClientEventService.markProtocol(client, 'next');
             this.gateway.worldClientEventService.emitMarketListings(client, this.gateway.marketRuntimeService.buildMarketListingsPage(payload));
         }
@@ -46,13 +46,13 @@ class WorldGatewayMarketHelper {
         this.executeRequestMarketItemBook(client, payload);
     }
     executeRequestMarketItemBook(client, payload) {
-        const playerId = this.gateway.requirePlayerId(client);
+        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
             return;
         }
         try {
             const response = this.gateway.marketRuntimeService.buildItemBook(payload?.itemKey ?? '');
-            this.gateway.emitNextMarketItemBook(client, response);
+            this.gateway.gatewayClientEmitHelper.emitNextMarketItemBook(client, response);
         }
         catch (error) {
             this.gateway.worldClientEventService.emitGatewayError(client, 'REQUEST_MARKET_ITEM_BOOK_FAILED', error);
@@ -62,21 +62,21 @@ class WorldGatewayMarketHelper {
         this.executeRequestMarketTradeHistory(client, payload);
     }
     executeRequestMarketTradeHistory(client, payload) {
-        const playerId = this.gateway.requirePlayerId(client);
+        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
             return;
         }
         try {
-            this.gateway.marketTradeHistoryRequestsByPlayerId.set(playerId, Number.isFinite(payload?.page) ? Math.max(1, Math.trunc(payload.page)) : 1);
+            this.gateway.gatewaySessionStateHelper.setMarketTradeHistoryRequest(playerId, payload?.page);
             const response = this.gateway.marketRuntimeService.buildTradeHistoryPage(playerId, payload?.page);
-            this.gateway.emitNextMarketTradeHistory(client, response);
+            this.gateway.gatewayClientEmitHelper.emitNextMarketTradeHistory(client, response);
         }
         catch (error) {
             this.gateway.worldClientEventService.emitGatewayError(client, 'REQUEST_MARKET_TRADE_HISTORY_FAILED', error);
         }
     }
     async executeCreateMarketSellOrder(client, payload) {
-        const playerId = this.gateway.requirePlayerId(client);
+        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
             return;
         }
@@ -86,7 +86,7 @@ class WorldGatewayMarketHelper {
                 quantity: payload?.quantity,
                 unitPrice: payload?.unitPrice,
             });
-            this.gateway.flushMarketResult(result);
+            this.gateway.gatewayClientEmitHelper.flushMarketResult(result);
         }
         catch (error) {
             this.gateway.worldClientEventService.emitGatewayError(client, 'CREATE_MARKET_SELL_ORDER_FAILED', error);
@@ -96,7 +96,7 @@ class WorldGatewayMarketHelper {
         await this.executeCreateMarketSellOrder(client, payload);
     }
     async executeCreateMarketBuyOrder(client, payload) {
-        const playerId = this.gateway.requirePlayerId(client);
+        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
             return;
         }
@@ -107,7 +107,7 @@ class WorldGatewayMarketHelper {
                 quantity: payload?.quantity,
                 unitPrice: payload?.unitPrice,
             });
-            this.gateway.flushMarketResult(result);
+            this.gateway.gatewayClientEmitHelper.flushMarketResult(result);
         }
         catch (error) {
             this.gateway.worldClientEventService.emitGatewayError(client, 'CREATE_MARKET_BUY_ORDER_FAILED', error);
@@ -117,7 +117,7 @@ class WorldGatewayMarketHelper {
         await this.executeCreateMarketBuyOrder(client, payload);
     }
     async executeBuyMarketItem(client, payload) {
-        const playerId = this.gateway.requirePlayerId(client);
+        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
             return;
         }
@@ -126,7 +126,7 @@ class WorldGatewayMarketHelper {
                 itemKey: payload?.itemKey ?? '',
                 quantity: payload?.quantity,
             });
-            this.gateway.flushMarketResult(result);
+            this.gateway.gatewayClientEmitHelper.flushMarketResult(result);
         }
         catch (error) {
             this.gateway.worldClientEventService.emitGatewayError(client, 'BUY_MARKET_ITEM_FAILED', error);
@@ -136,7 +136,7 @@ class WorldGatewayMarketHelper {
         await this.executeBuyMarketItem(client, payload);
     }
     async executeSellMarketItem(client, payload) {
-        const playerId = this.gateway.requirePlayerId(client);
+        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
             return;
         }
@@ -145,7 +145,7 @@ class WorldGatewayMarketHelper {
                 slotIndex: payload?.slotIndex,
                 quantity: payload?.quantity,
             });
-            this.gateway.flushMarketResult(result);
+            this.gateway.gatewayClientEmitHelper.flushMarketResult(result);
         }
         catch (error) {
             this.gateway.worldClientEventService.emitGatewayError(client, 'SELL_MARKET_ITEM_FAILED', error);
@@ -155,7 +155,7 @@ class WorldGatewayMarketHelper {
         await this.executeSellMarketItem(client, payload);
     }
     async executeCancelMarketOrder(client, payload) {
-        const playerId = this.gateway.requirePlayerId(client);
+        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
             return;
         }
@@ -163,7 +163,7 @@ class WorldGatewayMarketHelper {
             const result = await this.gateway.marketRuntimeService.cancelOrder(playerId, {
                 orderId: payload?.orderId ?? '',
             });
-            this.gateway.flushMarketResult(result);
+            this.gateway.gatewayClientEmitHelper.flushMarketResult(result);
         }
         catch (error) {
             this.gateway.worldClientEventService.emitGatewayError(client, 'CANCEL_MARKET_ORDER_FAILED', error);
@@ -173,13 +173,13 @@ class WorldGatewayMarketHelper {
         await this.executeCancelMarketOrder(client, payload);
     }
     async executeClaimMarketStorage(client) {
-        const playerId = this.gateway.requirePlayerId(client);
+        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
             return;
         }
         try {
             const result = await this.gateway.marketRuntimeService.claimStorage(playerId);
-            this.gateway.flushMarketResult(result);
+            this.gateway.gatewayClientEmitHelper.flushMarketResult(result);
         }
         catch (error) {
             this.gateway.worldClientEventService.emitGatewayError(client, 'CLAIM_MARKET_STORAGE_FAILED', error);

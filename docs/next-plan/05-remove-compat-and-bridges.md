@@ -169,10 +169,10 @@
 
 本轮已收口的子步：
 
-- next 协议下，已加载 `legacy_backfill / legacy_sync` 身份不再做运行时原地提升；未迁移到 next native 的 identity 直接被拒绝。
+- next 协议下，已加载 `legacy_backfill / legacy_sync` 身份现在会在 `world-player-auth.service.js` 的 auth 边界直接被拒绝，不再继续进入 bootstrap 合同裁判或运行时主链。
 - `WorldPlayerAuthService` 已删除 `authenticateViaMigration()` / `shouldPreferMigrationBackfill()` / `ensureLegacyBackfillSnapshot()`，显式 `migration` 协议窗口不再触发运行时 backfill。
 - `WorldPlayerSnapshotService` 已删除 `ensureMigrationBackfillSnapshot()`；runtime 不再从 migration 源补种 native snapshot。
-- `next-auth-bootstrap-smoke.js` 已移除 `migration_backfill` 运行时认证 / snapshot 补种证明，只保留 explicit migration source gate 与 next/token_seed 主链证明。
+- `next-auth-bootstrap-smoke.js` 已把 mainline proof 收紧到“仅 `native / token_seed` 可进入 next auth 主链”，并移除把 `legacy_backfill` 当作可达 mainline 身份的旧假设；migration proof 仍只保留 explicit migration source gate。
 - `WorldPlayerSourceService` 已删除 direct legacy `users/players` SQL 读取与连接池；migration wrapper 现只保留空返回契约，不再打开 legacy 数据库读取。
 
 ### 第 3 批：删运行时 / 持久化 compat 装载

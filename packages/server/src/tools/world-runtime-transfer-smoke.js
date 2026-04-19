@@ -7,6 +7,7 @@ const { WorldRuntimeTransferService } = require("../runtime/world/world-runtime-
 function testMissingSourceIsNoop() {
     const log = [];
     const service = new WorldRuntimeTransferService();
+    const playerLocations = new Map();
     service.applyTransfer({
         playerId: 'player:1',
         sessionId: 'session:1',
@@ -16,8 +17,12 @@ function testMissingSourceIsNoop() {
         targetY: 9,
         reason: 'portal',
     }, {
-        instances: new Map(),
-        playerLocations: new Map(),
+        getInstanceRuntime() {
+            return null;
+        },
+        setPlayerLocation(playerId, location) {
+            playerLocations.set(playerId, location);
+        },
         playerRuntimeService: {
             getPlayer() {
                 log.push('getPlayer');
@@ -35,6 +40,7 @@ function testMissingSourceIsNoop() {
         },
     });
     assert.deepEqual(log, []);
+    assert.equal(playerLocations.size, 0);
 }
 
 function testApplyTransfer() {
@@ -64,9 +70,14 @@ function testApplyTransfer() {
         targetY: 9,
         reason: 'auto_portal',
     };
+    const instanceRuntimes = new Map([['instance:old', source]]);
     service.applyTransfer(transfer, {
-        instances: new Map([['instance:old', source]]),
-        playerLocations,
+        getInstanceRuntime(instanceId) {
+            return instanceRuntimes.get(instanceId) ?? null;
+        },
+        setPlayerLocation(playerId, location) {
+            playerLocations.set(playerId, location);
+        },
         playerRuntimeService: {
             getPlayer(playerId) {
                 log.push(['getPlayer', playerId]);

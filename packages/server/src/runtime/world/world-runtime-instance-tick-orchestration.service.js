@@ -19,7 +19,7 @@ let WorldRuntimeInstanceTickOrchestrationService = class WorldRuntimeInstanceTic
         deps.worldRuntimeCombatEffectsService.resetFrameEffects();
         const instanceStepPlans = [];
         let plannedLogicalTicks = 0;
-        for (const instance of deps.instances.values()) {
+        for (const instance of deps.listInstanceRuntimes()) {
             const speed = getInstanceTickSpeed
                 ? Math.max(0, Number(getInstanceTickSpeed(instance.template.id) ?? 1))
                 : 1;
@@ -80,7 +80,12 @@ let WorldRuntimeInstanceTickOrchestrationService = class WorldRuntimeInstanceTic
         const transfersMs = 0;
         const monsterActionsMs = 0;
         const playerAdvanceStartedAt = performance.now();
-        deps.worldRuntimeLootContainerService.advanceContainerSearches(deps.instances, deps.playerLocations, deps.tick);
+        deps.worldRuntimeLootContainerService.advanceContainerSearches({
+            getInstanceRuntime: (instanceId) => deps.getInstanceRuntime(instanceId),
+        }, {
+            listConnectedPlayerIds: () => deps.listConnectedPlayerIds(),
+            getPlayerLocation: (playerId) => deps.getPlayerLocation(playerId),
+        }, deps.tick);
         for (const playerId of steppedPlayerIds) {
             deps.refreshQuestStates(playerId);
         }

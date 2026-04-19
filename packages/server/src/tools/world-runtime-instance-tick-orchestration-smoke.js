@@ -6,22 +6,30 @@ const { WorldRuntimeInstanceTickOrchestrationService } = require("../runtime/wor
 
 function createDeps(log) {
     const progress = new Map([['instance:1', 0]]);
+    const instanceRuntimes = new Map([['instance:1', {
+        meta: { instanceId: 'instance:1' },
+        template: { id: 'yunlai_town' },
+        tick: 3,
+        tickOnce() {
+            log.push('instance.tickOnce');
+            return { transfers: [{ id: 'transfer:1' }], monsterActions: [{ id: 'action:1' }] };
+        },
+        listPlayerIds() {
+            log.push('instance.listPlayerIds');
+            return ['player:1'];
+        },
+    }]]);
     return {
         tick: 0,
-        instances: new Map([['instance:1', {
-            meta: { instanceId: 'instance:1' },
-            template: { id: 'yunlai_town' },
-            tick: 3,
-            tickOnce() {
-                log.push('instance.tickOnce');
-                return { transfers: [{ id: 'transfer:1' }], monsterActions: [{ id: 'action:1' }] };
-            },
-            listPlayerIds() {
-                log.push('instance.listPlayerIds');
-                return ['player:1'];
-            },
-        }]]),
-        playerLocations: new Map(),
+        listInstanceRuntimes() { return instanceRuntimes.values(); },
+        getInstanceRuntime(instanceId) { return instanceRuntimes.get(instanceId) ?? null; },
+        listConnectedPlayerIds() { return ['player:1'].values(); },
+        getPlayerLocation(playerId) {
+            if (playerId !== 'player:1') {
+                return null;
+            }
+            return { instanceId: 'instance:1', sessionId: 'session:1' };
+        },
         worldRuntimeCombatEffectsService: { resetFrameEffects() { log.push('resetFrameEffects'); } },
         worldRuntimeTickProgressService: {
             getProgress(instanceId) { log.push(`getProgress:${instanceId}`); return progress.get(instanceId) ?? 0; },
@@ -43,7 +51,17 @@ function createDeps(log) {
         applyMonsterAction() { log.push('applyMonsterAction'); },
         playerRuntimeService: { advanceTickForPlayerIds() { log.push('advanceTickForPlayerIds'); } },
         worldRuntimeCraftTickService: { advanceCraftJobs() { log.push('advanceCraftJobs'); } },
-        worldRuntimeLootContainerService: { advanceContainerSearches() { log.push('advanceContainerSearches'); } },
+        worldRuntimeLootContainerService: {
+            advanceContainerSearches(instanceAccess, playerLocationIndex) {
+                assert.equal(typeof instanceAccess.getInstanceRuntime, 'function');
+                assert.equal(instanceAccess.getInstanceRuntime('instance:1'), instanceRuntimes.get('instance:1'));
+                assert.equal(typeof playerLocationIndex.listConnectedPlayerIds, 'function');
+                assert.equal(typeof playerLocationIndex.getPlayerLocation, 'function');
+                assert.deepEqual(Array.from(playerLocationIndex.listConnectedPlayerIds()), ['player:1']);
+                assert.deepEqual(playerLocationIndex.getPlayerLocation('player:1'), { instanceId: 'instance:1', sessionId: 'session:1' });
+                log.push('advanceContainerSearches');
+            },
+        },
         refreshQuestStates(playerId) { log.push(`refreshQuestStates:${playerId}`); },
     };
 }

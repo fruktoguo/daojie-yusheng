@@ -12,7 +12,7 @@ class WorldGatewayMovementHelper {
         this.gateway = gateway;
     }
     handleNextMoveTo(client, payload) {
-        const playerId = this.gateway.requirePlayerId(client);
+        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
             return;
         }
@@ -39,7 +39,7 @@ class WorldGatewayMovementHelper {
         }
     }
     handleNextNavigateQuest(client, payload) {
-        const playerId = this.gateway.requirePlayerId(client);
+        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
             return;
         }
@@ -63,7 +63,7 @@ class WorldGatewayMovementHelper {
         }
     }
     handleMove(client, payload) {
-        const playerId = this.gateway.requirePlayerId(client);
+        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
             return;
         }

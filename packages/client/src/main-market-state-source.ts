@@ -9,12 +9,12 @@ import {
   PlayerState,
   SyncedItemStack,
 } from '@mud/shared-next';
-import type { SocketManager } from './network/socket';
+import type { SocketSocialEconomySender } from './network/socket-send-social-economy';
 import { MarketPanel } from './ui/panels/market-panel';
 
 type MainMarketStateSourceOptions = {
   socket: Pick<
-    SocketManager,
+    SocketSocialEconomySender,
     | 'sendRequestMarket'
     | 'sendRequestMarketListings'
     | 'sendRequestMarketItemBook'

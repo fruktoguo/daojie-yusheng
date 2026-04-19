@@ -12,19 +12,19 @@ class WorldGatewayNpcHelper {
         this.gateway = gateway;
     }
     handleNextRequestNpcShop(client, payload) {
-        const playerId = this.gateway.requirePlayerId(client);
+        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
             return;
         }
         try {
-            this.gateway.emitNextNpcShop(client, this.gateway.worldRuntimeService.buildNpcShopView(playerId, payload?.npcId));
+            this.gateway.gatewayClientEmitHelper.emitNextNpcShop(client, this.gateway.worldRuntimeService.buildNpcShopView(playerId, payload?.npcId));
         }
         catch (error) {
             this.gateway.worldClientEventService.emitGatewayError(client, 'NPC_SHOP_REQUEST_FAILED', error);
         }
     }
     handleRequestNpcQuests(client, payload) {
-        const playerId = this.gateway.requirePlayerId(client);
+        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
             return;
         }
@@ -36,7 +36,7 @@ class WorldGatewayNpcHelper {
         }
     }
     handleAcceptNpcQuest(client, payload) {
-        const playerId = this.gateway.requirePlayerId(client);
+        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
             return;
         }
@@ -48,7 +48,7 @@ class WorldGatewayNpcHelper {
         }
     }
     handleSubmitNpcQuest(client, payload) {
-        const playerId = this.gateway.requirePlayerId(client);
+        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
             return;
         }
@@ -60,7 +60,7 @@ class WorldGatewayNpcHelper {
         }
     }
     executeBuyNpcShopItem(client, payload) {
-        const playerId = this.gateway.requirePlayerId(client);
+        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
             return;
         }

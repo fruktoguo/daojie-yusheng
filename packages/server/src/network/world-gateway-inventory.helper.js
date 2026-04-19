@@ -10,7 +10,7 @@ class WorldGatewayInventoryHelper {
         this.gateway = gateway;
     }
     handleNextDestroyItem(client, payload) {
-        const playerId = this.gateway.requirePlayerId(client);
+        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
             return;
         }
@@ -26,7 +26,7 @@ class WorldGatewayInventoryHelper {
         }
     }
     handleNextSortInventory(client, _payload) {
-        const playerId = this.gateway.requirePlayerId(client);
+        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
             return;
         }
@@ -42,7 +42,7 @@ class WorldGatewayInventoryHelper {
         }
     }
     executeUseItem(client, payload) {
-        const playerId = this.gateway.requirePlayerId(client);
+        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
             return;
         }
@@ -57,7 +57,7 @@ class WorldGatewayInventoryHelper {
         this.executeUseItem(client, payload);
     }
     executeDropItem(client, payload) {
-        const playerId = this.gateway.requirePlayerId(client);
+        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
             return;
         }
@@ -72,7 +72,7 @@ class WorldGatewayInventoryHelper {
         this.executeDropItem(client, payload);
     }
     handleTakeGround(client, payload) {
-        const playerId = this.gateway.requirePlayerId(client);
+        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
             return;
         }
@@ -88,7 +88,7 @@ class WorldGatewayInventoryHelper {
         }
     }
     executeEquip(client, payload) {
-        const playerId = this.gateway.requirePlayerId(client);
+        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
             return;
         }
@@ -103,7 +103,7 @@ class WorldGatewayInventoryHelper {
         this.executeEquip(client, payload);
     }
     executeUnequip(client, payload) {
-        const playerId = this.gateway.requirePlayerId(client);
+        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
             return;
         }

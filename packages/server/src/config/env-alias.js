@@ -9,6 +9,9 @@ exports.resolveServerNextUrlEnvSource = resolveServerNextUrlEnvSource;
 exports.resolveServerNextUrl = resolveServerNextUrl;
 exports.resolveServerNextShadowUrlEnvSource = resolveServerNextShadowUrlEnvSource;
 exports.resolveServerNextShadowUrl = resolveServerNextShadowUrl;
+const path = require('node:path');
+require(path.resolve(__dirname, '../../../../scripts/load-local-runtime-env.js'));
+
 function readTrimmedEnv() {
     var names = [];
     for (var _i = 0; _i < arguments.length; _i++) {

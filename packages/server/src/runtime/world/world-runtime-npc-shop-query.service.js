@@ -36,6 +36,14 @@ let WorldRuntimeNpcShopQueryService = class WorldRuntimeNpcShopQueryService {
     getCurrencyItemName() {
         return this.contentTemplateRepository.createItem(NPC_SHOP_CURRENCY_ITEM_ID, 1)?.name ?? NPC_SHOP_CURRENCY_ITEM_ID;
     }
+    buildNpcShopView(playerId, npcId, deps) {
+        const npc = deps.resolveAdjacentNpc(playerId, npcId);
+        return this.createEnvelopeForNpc(npc);
+    }
+    validateNpcShopPurchase(playerId, npcId, itemId, quantity, deps) {
+        const npc = deps.resolveAdjacentNpc(playerId, npcId);
+        return this.validatePurchaseForNpc(playerId, npc, itemId, quantity);
+    }
     createEnvelopeForNpc(npc) {
         if (!npc.hasShop) {
             return {

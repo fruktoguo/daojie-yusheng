@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 'use strict';
 
+require('./load-local-runtime-env');
+
 /**
  * 用途：执行 server-next 替换链路的shadow流程。
  */
@@ -15,6 +17,7 @@ const {
   resolveServerNextShadowUrl,
   resolveServerNextShadowUrlEnvSource,
 } = require('../packages/server/src/config/env-alias');
+const { probeShadowTarget } = require('./shadow-target-probe');
 
 /**
  * 记录shadow 环境地址。
@@ -45,35 +48,47 @@ if (!gmPassword) {
   process.exit(1);
 }
 
-process.stdout.write('[replace-ready:shadow] steps=smoke:shadow\n');
-process.stdout.write('[replace-ready:shadow] gate=shadow\n');
-process.stdout.write('[replace-ready:shadow] start step=smoke:shadow\n');
+async function main() {
+  const shadowProbe = await probeShadowTarget(shadowUrl);
+  if (!shadowProbe.ok) {
+    throw new Error(`shadow target ${shadowProbe.reason}; current /health payload=${JSON.stringify(shadowProbe.healthPayload ?? null)}`);
+  }
 
-/**
- * 累计当前结果。
- */
-const result = spawnSync('pnpm', ['--filter', '@mud/server-next', 'smoke:shadow'], {
-  cwd: repoRoot,
-  stdio: 'inherit',
-  shell: process.platform === 'win32',
-  env: {
-    ...process.env,
-    ...(shadowUrlEnvSource === 'SERVER_NEXT_SHADOW_URL' ? null : { SERVER_NEXT_SHADOW_URL: shadowUrl }),
-    ...(gmPasswordEnvSource === 'SERVER_NEXT_GM_PASSWORD' ? null : { SERVER_NEXT_GM_PASSWORD: gmPassword }),
-  },
+  process.stdout.write('[replace-ready:shadow] steps=smoke:shadow\n');
+  process.stdout.write('[replace-ready:shadow] gate=shadow\n');
+  process.stdout.write('[replace-ready:shadow] start step=smoke:shadow\n');
+
+  /**
+   * 累计当前结果。
+   */
+  const result = spawnSync('pnpm', ['--filter', '@mud/server-next', 'smoke:shadow'], {
+    cwd: repoRoot,
+    stdio: 'inherit',
+    shell: process.platform === 'win32',
+    env: {
+      ...process.env,
+      ...(shadowUrlEnvSource === 'SERVER_NEXT_SHADOW_URL' ? null : { SERVER_NEXT_SHADOW_URL: shadowUrl }),
+      ...(gmPasswordEnvSource === 'SERVER_NEXT_GM_PASSWORD' ? null : { SERVER_NEXT_GM_PASSWORD: gmPassword }),
+    },
+  });
+
+  if (result.error) {
+    throw result.error;
+  }
+
+  if (result.status !== 0) {
+    process.stderr.write(`[replace-ready:shadow] failed step=smoke:shadow status=${result.status ?? 1}\n`);
+    process.exit(result.status ?? 1);
+  }
+
+  process.stdout.write('[replace-ready:shadow] done step=smoke:shadow\n');
+  process.stdout.write('[replace-ready:shadow] completed\n');
+  process.stdout.write('[replace-ready:shadow] boundary=shadow automated acceptance only; this does not include gm-next, full database regression, or destructive proof\n');
+  process.stdout.write('[replace-ready:shadow] next=run pnpm verify:replace-ready:acceptance for shadow + gm-next, or pnpm verify:replace-ready:shadow:destructive during a maintenance window\n');
+  process.exit(0);
+}
+
+main().catch((error) => {
+  process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+  process.exit(1);
 });
-
-if (result.error) {
-  throw result.error;
-}
-
-if (result.status !== 0) {
-  process.stderr.write(`[replace-ready:shadow] failed step=smoke:shadow status=${result.status ?? 1}\n`);
-  process.exit(result.status ?? 1);
-}
-
-process.stdout.write('[replace-ready:shadow] done step=smoke:shadow\n');
-process.stdout.write('[replace-ready:shadow] completed\n');
-process.stdout.write('[replace-ready:shadow] boundary=shadow automated acceptance only; this does not include gm-next, full database regression, or destructive proof\n');
-process.stdout.write('[replace-ready:shadow] next=run pnpm verify:replace-ready:acceptance for shadow + gm-next, or pnpm verify:replace-ready:shadow:destructive during a maintenance window\n');
-process.exit(0);

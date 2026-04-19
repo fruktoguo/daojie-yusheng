@@ -9,6 +9,7 @@ const pg_1 = require("pg");
 const socket_io_client_1 = require("socket.io-client");
 const shared_1 = require("@mud/shared-next");
 const env_alias_1 = require("../config/env-alias");
+const next_gm_contract_1 = require("../http/next/next-gm-contract");
 /**
  * 指定烟测要连接的 server-next 地址。
  */
@@ -105,6 +106,7 @@ async function main() {
         }, null, 2));
         return;
     }
+    await resetLocalGmPasswordRecordIfNeeded();
     auth = await registerAndLoginPlayer();
     gmToken = await loginGm();
     protocolGuardSocket = (0, socket_io_client_1.io)(SERVER_NEXT_URL, {
@@ -1066,6 +1068,26 @@ async function loginGm() {
         throw new Error(`unexpected GM login payload: ${JSON.stringify(payload)}`);
     }
     return token;
+}
+/**
+ * 在本地带库 proof 环境下，把 GM 密码记录重置成当前 env 口径，避免历史持久化密码污染 smoke。
+ */
+async function resetLocalGmPasswordRecordIfNeeded() {
+    if (!hasDatabaseUrl) {
+        return;
+    }
+    if (!SERVER_NEXT_URL.startsWith('http://127.0.0.1:')) {
+        return;
+    }
+    const pool = new pg_1.Pool({
+        connectionString: SERVER_NEXT_DATABASE_URL,
+    });
+    try {
+        await pool.query('DELETE FROM persistent_documents WHERE scope = $1 AND key = $2', [next_gm_contract_1.NEXT_GM_AUTH_CONTRACT.passwordRecordScope, next_gm_contract_1.NEXT_GM_AUTH_CONTRACT.passwordRecordKey]);
+    }
+    finally {
+        await pool.end().catch(() => undefined);
+    }
 }
 /**
  * 统一发送 JSON 请求并校验基础响应格式。

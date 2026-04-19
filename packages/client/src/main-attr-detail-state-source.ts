@@ -1,10 +1,10 @@
 import { NEXT_S2C_AttrDetail, NEXT_S2C_AttrUpdate, PlayerState } from '@mud/shared-next';
-import type { SocketManager } from './network/socket';
+import type { SocketPanelSender } from './network/socket-send-panel';
 import { AttrPanel } from './ui/panels/attr-panel';
 
 type MainAttrDetailStateSourceOptions = {
   attrPanel: Pick<AttrPanel, 'update'>;
-  socket: Pick<SocketManager, 'sendRequestAttrDetail'>;
+  socket: Pick<SocketPanelSender, 'sendRequestAttrDetail'>;
   getPlayer: () => PlayerState | null;
   getLatestAttrUpdate: () => NEXT_S2C_AttrUpdate | null;
   setLatestAttrUpdate: (value: NEXT_S2C_AttrUpdate | null) => void;

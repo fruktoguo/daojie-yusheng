@@ -15,11 +15,11 @@ const common_1 = require("@nestjs/common");
 
 /** 世界运行时实例查询服务：承接 instance 维度的只读查询。 */
 let WorldRuntimeInstanceQueryService = class WorldRuntimeInstanceQueryService {
-    listInstances(instances) {
-        return Array.from(instances.values(), (instance) => instance.snapshot());
+    listInstances(runtime) {
+        return Array.from(runtime.listInstanceRuntimes(), (instance) => instance.snapshot());
     }
-    getInstance(instances, instanceId) {
-        return instances.get(instanceId)?.snapshot() ?? null;
+    getInstance(runtime, instanceId) {
+        return runtime.getInstanceRuntime(instanceId)?.snapshot() ?? null;
     }
     listInstanceMonsters(instance) {
         return instance.listMonsters();

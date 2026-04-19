@@ -24,11 +24,11 @@ let WorldRuntimeNpcAccessService = class WorldRuntimeNpcAccessService {
         return npc;
     }
     getNpcForPlayerMap(playerId, npcId, deps) {
-        const location = deps.playerLocations.get(playerId);
+        const location = deps.getPlayerLocation(playerId);
         if (!location) {
             return null;
         }
-        return deps.instances.get(location.instanceId)?.getNpc(npcId) ?? null;
+        return deps.getInstanceRuntime(location.instanceId)?.getNpc(npcId) ?? null;
     }
 };
 exports.WorldRuntimeNpcAccessService = WorldRuntimeNpcAccessService;

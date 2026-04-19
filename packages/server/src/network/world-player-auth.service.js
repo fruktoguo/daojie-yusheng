@@ -140,6 +140,25 @@ let WorldPlayerAuthService = class WorldPlayerAuthService {
                 });
                 return null;
             }
+            const nextProtocolBlockedPersistedSource = nextProtocolStrict
+                && (nextPersistedSource === 'legacy_sync' || nextPersistedSource === 'legacy_backfill');
+            if (nextProtocolBlockedPersistedSource) {
+                this.logger.warn(`NEXT 协议拒绝 legacy persistedSource 身份：userId=${normalizedNextIdentity.userId} playerId=${normalizedNextIdentity.playerId} persistedSource=${nextPersistedSource}`);
+                (0, world_player_token_service_1.recordAuthTrace)({
+                    type: 'identity',
+                    source: 'miss',
+                    userId: normalizedNextIdentity.userId,
+                    playerId: normalizedNextIdentity.playerId,
+                    persistedSource: nextPersistedSource,
+                    persistenceEnabled: identityPersistenceEnabled,
+                    nextLoadHit: true,
+                    compatTried: false,
+                    persistAttempted: false,
+                    persistSucceeded: null,
+                    persistFailureStage: 'next_protocol_legacy_persisted_identity_blocked',
+                });
+                return null;
+            }
             if (nextPersistedSource !== 'native'
                 && nextPersistedSource !== 'legacy_sync'
                 && nextPersistedSource !== 'legacy_backfill'

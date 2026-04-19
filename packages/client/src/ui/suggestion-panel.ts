@@ -1,5 +1,5 @@
 import { type Suggestion, type SuggestionReply } from '@mud/shared-next';
-import type { SocketManager } from '../network/socket';
+import type { SocketSocialEconomySender } from '../network/socket-send-social-economy';
 import { detailModalHost } from './detail-modal-host';
 import { SUGGESTION_PANEL_REFRESH_INTERVAL_MS } from '../constants/ui/suggestion';
 
@@ -76,7 +76,17 @@ export class SuggestionPanel {
   /** delegatedEventsBound：delegated事件Bound。 */
   private delegatedEventsBound = false;
 
-  constructor(private readonly socket: SocketManager) {
+  constructor(
+    private readonly socket: Pick<
+      SocketSocialEconomySender,
+      | 'sendRequestSuggestions'
+      | 'sendCreateSuggestion'
+      | 'sendReplySuggestion'
+      | 'sendVoteSuggestion'
+      | 'sendMarkSuggestionRepliesRead'
+    >,
+    private readonly isConnected: () => boolean,
+  ) {
     this.setupGlobalListeners();
   }
 
@@ -145,7 +155,7 @@ export class SuggestionPanel {
 
   /** requestSuggestionsIfNeeded：处理请求Suggestions If Needed。 */
   private requestSuggestionsIfNeeded(): void {
-    if (!this.socket.connected) {
+    if (!this.isConnected()) {
       return;
     }
 

@@ -121,11 +121,18 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
         this.containerStatesByInstanceId.set(instanceId, next);
         this.dirtyContainerPersistenceInstanceIds.delete(instanceId);
     }
-    buildContainerLootSource(instanceId, container, currentTick) {
+    prepareContainerLootSource(instanceId, container, currentTick) {
         const containerState = this.ensureContainerState(instanceId, container, currentTick);
         if (!containerState.activeSearch && hasHiddenContainerEntries(containerState.entries)) {
             this.beginContainerSearch(containerState, container.grade);
             this.markContainerPersistenceDirty(instanceId);
+        }
+        return containerState;
+    }
+    getPreparedContainerLootSource(instanceId, container) {
+        const containerState = this.containerStatesByInstanceId.get(instanceId)?.get(buildContainerSourceId(instanceId, container.id));
+        if (!containerState) {
+            return null;
         }
         return {
             sourceId: containerState.sourceId,
@@ -228,9 +235,9 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
             remainingTicks: totalTicks,
         };
     }
-    advanceContainerSearches(instances, playerLocations, currentTick) {
+    advanceContainerSearches(instanceAccess, playerLocationIndex, currentTick) {
         for (const [instanceId, states] of this.containerStatesByInstanceId) {
-            const instance = instances.get(instanceId);
+            const instance = instanceAccess.getInstanceRuntime(instanceId);
             if (!instance) {
                 continue;
             }
@@ -241,7 +248,7 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
                     continue;
                 }
                 if (!state.activeSearch) {
-                    if (hasHiddenContainerEntries(state.entries) && this.hasActiveContainerViewer(instanceId, runtimeContainer.x, runtimeContainer.y, playerLocations)) {
+                    if (hasHiddenContainerEntries(state.entries) && this.hasActiveContainerViewer(instanceId, runtimeContainer.x, runtimeContainer.y, playerLocationIndex)) {
                         this.beginContainerSearch(state, runtimeContainer.grade);
                         changed = true;
                     }
@@ -257,7 +264,7 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
                     target.visible = true;
                 }
                 state.activeSearch = undefined;
-                if (hasHiddenContainerEntries(state.entries) && this.hasActiveContainerViewer(instanceId, runtimeContainer.x, runtimeContainer.y, playerLocations)) {
+                if (hasHiddenContainerEntries(state.entries) && this.hasActiveContainerViewer(instanceId, runtimeContainer.x, runtimeContainer.y, playerLocationIndex)) {
                     this.beginContainerSearch(state, runtimeContainer.grade);
                 }
             }
@@ -266,8 +273,12 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
             }
         }
     }
-    hasActiveContainerViewer(instanceId, tileX, tileY, playerLocations) {
-        for (const [playerId, location] of playerLocations) {
+    hasActiveContainerViewer(instanceId, tileX, tileY, playerLocationIndex) {
+        for (const playerId of playerLocationIndex.listConnectedPlayerIds()) {
+            const location = playerLocationIndex.getPlayerLocation(playerId);
+            if (!location) {
+                continue;
+            }
             if (location.instanceId !== instanceId) {
                 continue;
             }

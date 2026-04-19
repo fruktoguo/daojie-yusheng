@@ -15,6 +15,21 @@ const common_1 = require("@nestjs/common");
 /** world-runtime pending command state：承接玩家待执行命令队列所有权与消费。 */
 let WorldRuntimePendingCommandService = class WorldRuntimePendingCommandService {
     pendingCommands = new Map();
+    enqueuePendingCommand(playerId, command) {
+        this.pendingCommands.set(playerId, command);
+    }
+    getPendingCommand(playerId) {
+        return this.pendingCommands.get(playerId);
+    }
+    hasPendingCommand(playerId) {
+        return this.pendingCommands.has(playerId);
+    }
+    clearPendingCommand(playerId) {
+        this.pendingCommands.delete(playerId);
+    }
+    getPendingCommandCount() {
+        return this.pendingCommands.size;
+    }
     dispatchPendingCommands(deps) {
         for (const [playerId, command] of this.pendingCommands) {
             try {

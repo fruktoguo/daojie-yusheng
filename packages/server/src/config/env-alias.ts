@@ -1,3 +1,7 @@
+import path from 'node:path';
+
+require(path.resolve(__dirname, '../../../../scripts/load-local-runtime-env.js'));
+
 export function readTrimmedEnv(...names: string[]): string {
   for (const name of names) {
     const rawValue = process.env[name];

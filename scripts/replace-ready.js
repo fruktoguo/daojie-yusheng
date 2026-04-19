@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 'use strict';
 
+require('./load-local-runtime-env');
+
 /**
  * 用途：执行 server-next 替换链路的默认验证流程。
  */

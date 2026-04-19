@@ -68,14 +68,20 @@ function testResolveAdjacentNpcThrowsWhenTooFar() {
 function testGetNpcForPlayerMapSuccess() {
     const service = new WorldRuntimeNpcAccessService();
     const npc = { npcId: 'npc_a', name: '阿青' };
+    const instanceRuntimes = new Map([['public:yunlai_town', {
+        getNpc(npcId) {
+            assert.equal(npcId, 'npc_a');
+            return npc;
+        },
+    }]]);
     const result = service.getNpcForPlayerMap('player:1', 'npc_a', {
-        playerLocations: new Map([['player:1', { instanceId: 'public:yunlai_town' }]]),
-        instances: new Map([['public:yunlai_town', {
-            getNpc(npcId) {
-                assert.equal(npcId, 'npc_a');
-                return npc;
-            },
-        }]]),
+        getPlayerLocation(playerId) {
+            assert.equal(playerId, 'player:1');
+            return { instanceId: 'public:yunlai_town' };
+        },
+        getInstanceRuntime(instanceId) {
+            return instanceRuntimes.get(instanceId) ?? null;
+        },
     });
     assert.equal(result, npc);
 }
@@ -83,8 +89,12 @@ function testGetNpcForPlayerMapSuccess() {
 function testGetNpcForPlayerMapReturnsNullWithoutLocation() {
     const service = new WorldRuntimeNpcAccessService();
     const result = service.getNpcForPlayerMap('player:1', 'npc_a', {
-        playerLocations: new Map(),
-        instances: new Map(),
+        getPlayerLocation() {
+            return null;
+        },
+        getInstanceRuntime() {
+            return null;
+        },
     });
     assert.equal(result, null);
 }
@@ -92,8 +102,12 @@ function testGetNpcForPlayerMapReturnsNullWithoutLocation() {
 function testGetNpcForPlayerMapReturnsNullWithoutInstance() {
     const service = new WorldRuntimeNpcAccessService();
     const result = service.getNpcForPlayerMap('player:1', 'npc_a', {
-        playerLocations: new Map([['player:1', { instanceId: 'missing' }]]),
-        instances: new Map(),
+        getPlayerLocation() {
+            return { instanceId: 'missing' };
+        },
+        getInstanceRuntime() {
+            return null;
+        },
     });
     assert.equal(result, null);
 }

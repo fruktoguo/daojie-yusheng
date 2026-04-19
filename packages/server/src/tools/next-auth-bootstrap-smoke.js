@@ -2095,7 +2095,16 @@ async function verifyAuthenticatedMissingSnapshotRecoveryContract() {
 /**
  * 记录恢复bootstrap服务。
  */
-    const recoveryBootstrapService = new world_session_bootstrap_service_1.WorldSessionBootstrapService(null, {
+    const recoveryBootstrapService = new world_session_bootstrap_service_1.WorldSessionBootstrapService({
+        playerIdentityPersistenceService: {
+            isEnabled: () => true,
+            savePlayerIdentity: async (identity) => ({
+                ...identity,
+                authSource: 'next',
+                persistedSource: 'native',
+            }),
+        },
+    }, {
         isPersistenceEnabled: () => true,
         loadPlayerSnapshot: async (playerId, fallbackReason) => {
             recoveryCalls.push({
@@ -2135,6 +2144,35 @@ async function verifyAuthenticatedMissingSnapshotRecoveryContract() {
     let unknownSourceRejectedError = null;
     let nextMissingPersistedSourceError = null;
     let tokenLegacyBackfillRejectedError = null;
+    let promotionFailureError = null;
+    let promotionFailureSeedCalls = 0;
+    const promotionFailureBootstrapService = new world_session_bootstrap_service_1.WorldSessionBootstrapService({
+        playerIdentityPersistenceService: {
+            isEnabled: () => true,
+            savePlayerIdentity: async () => {
+                throw new Error('forced_token_seed_native_promotion_failure');
+            },
+        },
+    }, {
+        isPersistenceEnabled: () => true,
+        loadPlayerSnapshot: async () => null,
+        ensureNativeStarterSnapshot: async () => {
+            promotionFailureSeedCalls += 1;
+            return {
+                ok: true,
+                snapshot: {
+                    version: 1,
+                    placement: {
+                        templateId: 'yunlai_town',
+                        x: 32,
+                        y: 5,
+                        facing: 1,
+                    },
+                },
+                persistedSource: 'native',
+            };
+        },
+    }, null, null, null, null, null, null, null, null);
     try {
 /** 
  * 记录tokenseedsnapshot。
@@ -2220,6 +2258,26 @@ async function verifyAuthenticatedMissingSnapshotRecoveryContract() {
             || !legacyBackfillRejectedError.message.includes('recoveryReason=persisted_source:legacy_backfill')) {
             throw new Error(`expected authenticated missing snapshot legacy_backfill recovery to be rejected, got ${legacyBackfillRejectedError instanceof Error ? legacyBackfillRejectedError.message : String(legacyBackfillRejectedError)}`);
         }
+        try {
+            await promotionFailureBootstrapService.loadAuthenticatedPlayerSnapshot({
+                userId: 'proof_user_missing_snapshot_token_seed_promotion_failure',
+                playerId: 'proof_player_missing_snapshot_token_seed_promotion_failure',
+                authSource: 'token',
+                persistedSource: 'token_seed',
+            }, {
+                data: {
+                    authenticatedSnapshotRecovery: null,
+                },
+            });
+        }
+        catch (error) {
+            promotionFailureError = error;
+        }
+        if (!(promotionFailureError instanceof Error)
+            || !promotionFailureError.message.includes('stage=token_seed_native_promotion_failed')
+            || promotionFailureSeedCalls !== 1) {
+            throw new Error(`expected authenticated missing snapshot recovery to fail hard when token_seed native normalization fails, got error=${promotionFailureError instanceof Error ? promotionFailureError.message : String(promotionFailureError)} promotionFailureSeedCalls=${promotionFailureSeedCalls}`);
+        }
     }
     finally {
         if (typeof previousRecoveryEnv === 'string') {
@@ -2277,6 +2335,7 @@ async function verifyAuthenticatedMissingSnapshotRecoveryContract() {
         tokenSeedRecoveryEnabled: true,
         legacyBackfillRecoveryEnabled: false,
         recoverySeedCalls,
+        promotionFailureStage: typeof promotionFailureError?.message === 'string' ? promotionFailureError.message : null,
         unknownSourceRejectedRecoveryReason: typeof unknownSourceRejectedError?.message === 'string' ? unknownSourceRejectedError.message : null,
         nextMissingPersistedSourceRecoveryReason: typeof nextMissingPersistedSourceError?.message === 'string' ? nextMissingPersistedSourceError.message : null,
         tokenLegacyBackfillRecoveryReason: typeof tokenLegacyBackfillRejectedError?.message === 'string' ? tokenLegacyBackfillRejectedError.message : null,
@@ -2513,7 +2572,16 @@ async function verifyAuthenticatedSnapshotRecoveryTraceContract() {
         const previousRecoveryEnv = process.env.SERVER_NEXT_AUTH_ALLOW_NATIVE_SNAPSHOT_RECOVERY;
         process.env.SERVER_NEXT_AUTH_ALLOW_NATIVE_SNAPSHOT_RECOVERY = '1';
         try {
-        const bootstrapService = new world_session_bootstrap_service_1.WorldSessionBootstrapService(null, {
+        const bootstrapService = new world_session_bootstrap_service_1.WorldSessionBootstrapService({
+            playerIdentityPersistenceService: {
+                isEnabled: () => true,
+                savePlayerIdentity: async (identity) => ({
+                    ...identity,
+                    authSource: 'next',
+                    persistedSource: 'native',
+                }),
+            },
+        }, {
             isPersistenceEnabled: () => true,
             loadPlayerSnapshot: async () => null,
             ensureNativeStarterSnapshot: async (playerId) => ({
@@ -2539,6 +2607,31 @@ async function verifyAuthenticatedSnapshotRecoveryTraceContract() {
                 failureStage: 'native_snapshot_recovery_seed_failed',
             }),
         }, null, null, null, null, null, null, null, null);
+        const promotionFailureBootstrapService = new world_session_bootstrap_service_1.WorldSessionBootstrapService({
+            playerIdentityPersistenceService: {
+                isEnabled: () => true,
+                savePlayerIdentity: async () => {
+                    throw new Error('forced_token_seed_native_promotion_failure');
+                },
+            },
+        }, {
+            isPersistenceEnabled: () => true,
+            loadPlayerSnapshot: async () => null,
+            ensureNativeStarterSnapshot: async () => ({
+                ok: true,
+                seeded: true,
+                snapshot: {
+                    version: 1,
+                    placement: {
+                        templateId: 'yunlai_town',
+                        x: 32,
+                        y: 5,
+                        facing: 1,
+                    },
+                },
+                persistedSource: 'native',
+            }),
+        }, null, null, null, null, null, null, null, null);
         const tokenSeedPlayerId = 'proof_player_snapshot_recovery_trace_token_seed';
         (0, world_player_token_service_1.clearAuthTrace)();
         await bootstrapService.loadAuthenticatedPlayerSnapshot({
@@ -2551,7 +2644,7 @@ async function verifyAuthenticatedSnapshotRecoveryTraceContract() {
         if (tokenSeedTrace.entry?.outcome !== 'success'
             || tokenSeedTrace.entry?.reason !== 'persisted_source:token_seed'
             || tokenSeedTrace.entry?.persistedSource !== 'native'
-            || tokenSeedTrace.entry?.identityPersistedSource !== 'token_seed'
+            || tokenSeedTrace.entry?.identityPersistedSource !== 'native'
             || Number(tokenSeedTrace.summary?.snapshotRecovery?.successCount ?? 0) < 1) {
             throw new Error(`expected token_seed snapshot recovery trace success record, got ${JSON.stringify(tokenSeedTrace)}`);
         }
@@ -2621,6 +2714,29 @@ async function verifyAuthenticatedSnapshotRecoveryTraceContract() {
             || Number(failureTrace.summary?.snapshotRecovery?.failedCount ?? 0) < 1) {
             throw new Error(`expected snapshot recovery trace failure record, got error=${failureError instanceof Error ? failureError.message : String(failureError)} trace=${JSON.stringify(failureTrace)}`);
         }
+        const promotionFailurePlayerId = 'proof_player_snapshot_recovery_trace_promotion_failure';
+        (0, world_player_token_service_1.clearAuthTrace)();
+        let promotionFailureError = null;
+        try {
+            await promotionFailureBootstrapService.loadAuthenticatedPlayerSnapshot({
+                userId: 'proof_user_snapshot_recovery_trace_promotion_failure',
+                playerId: promotionFailurePlayerId,
+                authSource: 'token',
+                persistedSource: 'token_seed',
+            });
+        }
+        catch (error) {
+            promotionFailureError = error;
+        }
+        const promotionFailureTrace = findLatestSnapshotRecoveryTrace(promotionFailurePlayerId);
+        if (!(promotionFailureError instanceof Error)
+            || promotionFailureTrace.entry?.outcome !== 'failure'
+            || promotionFailureTrace.entry?.reason !== 'persisted_source:token_seed'
+            || promotionFailureTrace.entry?.failureStage !== 'token_seed_native_promotion_failed'
+            || promotionFailureTrace.entry?.persistedSource !== 'native'
+            || Number(promotionFailureTrace.summary?.snapshotRecovery?.failedCount ?? 0) < 1) {
+            throw new Error(`expected snapshot recovery trace to record token_seed native normalization failure, got error=${promotionFailureError instanceof Error ? promotionFailureError.message : String(promotionFailureError)} trace=${JSON.stringify(promotionFailureTrace)}`);
+        }
         return {
             tokenSeedSuccess: {
                 outcome: tokenSeedTrace.entry?.outcome ?? null,
@@ -2640,6 +2756,11 @@ async function verifyAuthenticatedSnapshotRecoveryTraceContract() {
                 outcome: failureTrace.entry?.outcome ?? null,
                 reason: failureTrace.entry?.reason ?? null,
                 failureStage: failureTrace.entry?.failureStage ?? null,
+            },
+            promotionFailure: {
+                outcome: promotionFailureTrace.entry?.outcome ?? null,
+                reason: promotionFailureTrace.entry?.reason ?? null,
+                failureStage: promotionFailureTrace.entry?.failureStage ?? null,
             },
         };
         }
@@ -2922,6 +3043,18 @@ async function verifyTokenSeedIdentityContract() {
         persistedSource: 'token_seed',
         authSource: 'next',
     };
+    const nextLegacyBackfillIdentity = {
+        ...nextStoreIdentity,
+        playerId: 'proof_player_legacy_backfill',
+        playerName: 'proof legacy backfill',
+        persistedSource: 'legacy_backfill',
+    };
+    const nextLegacySyncIdentity = {
+        ...nextStoreIdentity,
+        playerId: 'proof_player_legacy_sync',
+        playerName: 'proof legacy sync',
+        persistedSource: 'legacy_sync',
+    };
     const nextStoreAuthService = new world_player_auth_service_1.WorldPlayerAuthService({
         validatePlayerToken: () => payload,
         resolvePlayerIdentityFromPayload: () => ({
@@ -2973,6 +3106,64 @@ async function verifyTokenSeedIdentityContract() {
     if (nextProtocolIdentity.persistedSource !== 'token_seed') {
         throw new Error(`expected next protocol token_seed identity store hit to keep persistedSource=token_seed, got ${JSON.stringify(nextProtocolIdentity)}`);
     }
+    const legacyBackfillAuthService = new world_player_auth_service_1.WorldPlayerAuthService({
+        validatePlayerToken: () => payload,
+        resolvePlayerIdentityFromPayload: () => ({
+            userId: payload.sub,
+            username: payload.username,
+            displayName: payload.displayName,
+            playerId: payload.playerId,
+            playerName: payload.playerName,
+        }),
+    }, {
+        isEnabled: () => true,
+        loadPlayerIdentity: async () => nextLegacyBackfillIdentity,
+        savePlayerIdentity: async (input) => input,
+    }, {
+        resolvePlayerIdentityForMigration: async () => {
+            compatIdentityCalls += 1;
+            return null;
+        },
+        loadPlayerSnapshotForMigration: async () => {
+            compatSnapshotCalls += 1;
+            return null;
+        },
+    });
+    const legacySyncAuthService = new world_player_auth_service_1.WorldPlayerAuthService({
+        validatePlayerToken: () => payload,
+        resolvePlayerIdentityFromPayload: () => ({
+            userId: payload.sub,
+            username: payload.username,
+            displayName: payload.displayName,
+            playerId: payload.playerId,
+            playerName: payload.playerName,
+        }),
+    }, {
+        isEnabled: () => true,
+        loadPlayerIdentity: async () => nextLegacySyncIdentity,
+        savePlayerIdentity: async (input) => input,
+    }, {
+        resolvePlayerIdentityForMigration: async () => {
+            compatIdentityCalls += 1;
+            return null;
+        },
+        loadPlayerSnapshotForMigration: async () => {
+            compatSnapshotCalls += 1;
+            return null;
+        },
+    });
+    const nextProtocolLegacyBackfillIdentity = await legacyBackfillAuthService.authenticatePlayerToken('proof.token.token_seed', {
+        protocol: 'next',
+    });
+    if (nextProtocolLegacyBackfillIdentity !== null) {
+        throw new Error(`expected next protocol auth to reject loaded legacy_backfill identity before bootstrap, got ${JSON.stringify(nextProtocolLegacyBackfillIdentity)}`);
+    }
+    const nextProtocolLegacySyncIdentity = await legacySyncAuthService.authenticatePlayerToken('proof.token.token_seed', {
+        protocol: 'next',
+    });
+    if (nextProtocolLegacySyncIdentity !== null) {
+        throw new Error(`expected next protocol auth to reject loaded legacy_sync identity before bootstrap, got ${JSON.stringify(nextProtocolLegacySyncIdentity)}`);
+    }
     const tokenSeedBootstrapService = new world_session_bootstrap_service_1.WorldSessionBootstrapService({
         playerIdentityPersistenceService: {
             isEnabled: () => true,
@@ -3017,6 +3208,77 @@ async function verifyTokenSeedIdentityContract() {
     if (!promotedIdentity || promotedIdentity.authSource !== 'next' || promotedIdentity.persistedSource !== 'native') {
         throw new Error(`expected bootstrap-owned token_seed promotion to normalize into next/native, got ${JSON.stringify(promotedIdentity)}`);
     }
+    const preseededPromotionFailureBootstrapService = new world_session_bootstrap_service_1.WorldSessionBootstrapService({
+        playerIdentityPersistenceService: {
+            isEnabled: () => true,
+            savePlayerIdentity: async () => {
+                throw new Error('forced_token_seed_native_promotion_failure');
+            },
+        },
+    }, {
+        isPersistenceEnabled: () => true,
+        loadPlayerSnapshotResult: async () => ({
+            snapshot: {
+                version: 1,
+                placement: {
+                    templateId: 'yunlai_town',
+                    x: 3,
+                    y: 3,
+                    facing: 1,
+                },
+            },
+            source: 'next',
+            persistedSource: 'native',
+            fallbackReason: 'persistence_enabled_blocked:token',
+            seedPersisted: false,
+        }),
+    }, null, null, null, null, null, null, null, null);
+    const preseededPromotionFailureClient = {
+        id: 'proof_socket_token_seed_preseeded_promotion_failure',
+        data: {
+            protocol: 'next',
+            bootstrapEntryPath: 'connect_token',
+            bootstrapIdentitySource: 'token',
+            bootstrapIdentityPersistedSource: 'token_seed',
+            authenticatedSnapshotRecovery: null,
+        },
+    };
+    let preseededPromotionFailureError = null;
+    try {
+        await preseededPromotionFailureBootstrapService.loadAuthenticatedPlayerSnapshot({
+            ...nextProtocolIdentity,
+        }, preseededPromotionFailureClient);
+    }
+    catch (error) {
+        preseededPromotionFailureError = error;
+    }
+    if (!(preseededPromotionFailureError instanceof Error)
+        || !preseededPromotionFailureError.message.includes('stage=token_seed_native_promotion_failed')) {
+        throw new Error(`expected preseeded token_seed native snapshot path to fail hard on native normalization failure, got ${preseededPromotionFailureError instanceof Error ? preseededPromotionFailureError.message : String(preseededPromotionFailureError)}`);
+    }
+    let nextAuthSourcePreseededPromotionFailureError = null;
+    try {
+        await preseededPromotionFailureBootstrapService.loadAuthenticatedPlayerSnapshot({
+            ...nextProtocolIdentity,
+            authSource: 'next',
+        }, {
+            id: 'proof_socket_token_seed_preseeded_promotion_failure_next',
+            data: {
+                protocol: 'next',
+                bootstrapEntryPath: 'connect_token',
+                bootstrapIdentitySource: 'next',
+                bootstrapIdentityPersistedSource: 'token_seed',
+                authenticatedSnapshotRecovery: null,
+            },
+        });
+    }
+    catch (error) {
+        nextAuthSourcePreseededPromotionFailureError = error;
+    }
+    if (!(nextAuthSourcePreseededPromotionFailureError instanceof Error)
+        || !nextAuthSourcePreseededPromotionFailureError.message.includes('stage=token_seed_native_promotion_failed')) {
+        throw new Error(`expected preseeded next/token_seed native snapshot path to fail hard on native normalization failure, got ${nextAuthSourcePreseededPromotionFailureError instanceof Error ? nextAuthSourcePreseededPromotionFailureError.message : String(nextAuthSourcePreseededPromotionFailureError)}`);
+    }
     return {
         identitySource: identity.authSource ?? null,
         playerId: identity.playerId ?? null,
@@ -3024,8 +3286,12 @@ async function verifyTokenSeedIdentityContract() {
         compatSnapshotCalls,
         nextProtocolAuthSource: nextProtocolIdentity.authSource ?? null,
         nextProtocolPersistedSource: nextProtocolIdentity.persistedSource ?? null,
+        nextProtocolLegacyBackfillIdentityBlocked: nextProtocolLegacyBackfillIdentity === null,
+        nextProtocolLegacySyncIdentityBlocked: nextProtocolLegacySyncIdentity === null,
         promotedAuthSource: promotedIdentity.authSource ?? null,
         promotedPersistedSource: promotedIdentity.persistedSource ?? null,
+        preseededPromotionFailureStage: preseededPromotionFailureError?.message ?? null,
+        nextAuthSourcePreseededPromotionFailureStage: nextAuthSourcePreseededPromotionFailureError?.message ?? null,
         requestedSessionId: tokenSeedBootstrapInput.requestedSessionId ?? null,
         sessionReusePolicy: {
             implicit: tokenSeedImplicitDetachedResumeAllowed,

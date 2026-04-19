@@ -12,7 +12,7 @@ class WorldGatewayCraftHelper {
         this.gateway = gateway;
     }
     handleNextRequestAlchemyPanel(client, payload) {
-        const playerId = this.gateway.requirePlayerId(client);
+        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
             return;
         }
@@ -29,7 +29,7 @@ class WorldGatewayCraftHelper {
         }
     }
     handleNextRequestEnhancementPanel(client, _payload) {
-        const playerId = this.gateway.requirePlayerId(client);
+        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
             return;
         }
@@ -46,7 +46,7 @@ class WorldGatewayCraftHelper {
         }
     }
     handleNextStartAlchemy(client, payload) {
-        const playerId = this.gateway.requirePlayerId(client);
+        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
             return;
         }
@@ -59,7 +59,7 @@ class WorldGatewayCraftHelper {
         }
     }
     handleNextCancelAlchemy(client, _payload) {
-        const playerId = this.gateway.requirePlayerId(client);
+        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
             return;
         }
@@ -72,7 +72,7 @@ class WorldGatewayCraftHelper {
         }
     }
     handleNextSaveAlchemyPreset(client, payload) {
-        const playerId = this.gateway.requirePlayerId(client);
+        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
             return;
         }
@@ -85,7 +85,7 @@ class WorldGatewayCraftHelper {
         }
     }
     handleNextDeleteAlchemyPreset(client, payload) {
-        const playerId = this.gateway.requirePlayerId(client);
+        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
             return;
         }
@@ -98,7 +98,7 @@ class WorldGatewayCraftHelper {
         }
     }
     handleNextStartEnhancement(client, payload) {
-        const playerId = this.gateway.requirePlayerId(client);
+        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
             return;
         }
@@ -111,7 +111,7 @@ class WorldGatewayCraftHelper {
         }
     }
     handleNextCancelEnhancement(client, _payload) {
-        const playerId = this.gateway.requirePlayerId(client);
+        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
             return;
         }

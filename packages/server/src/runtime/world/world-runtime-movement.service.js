@@ -15,7 +15,7 @@ const common_1 = require("@nestjs/common");
 /** world-runtime movement orchestration：承接实例侧移动/传送执行编排。 */
 let WorldRuntimeMovementService = class WorldRuntimeMovementService {
     dispatchInstanceCommand(playerId, command, deps) {
-        const location = deps.playerLocations.get(playerId);
+        const location = deps.getPlayerLocation(playerId);
         if (!location) {
             return;
         }
@@ -23,7 +23,7 @@ let WorldRuntimeMovementService = class WorldRuntimeMovementService {
         if (!player || player.hp <= 0) {
             return;
         }
-        const instance = deps.instances.get(location.instanceId);
+        const instance = deps.getInstanceRuntime(location.instanceId);
         if (!instance) {
             return;
         }

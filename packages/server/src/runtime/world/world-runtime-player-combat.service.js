@@ -134,7 +134,7 @@ let WorldRuntimePlayerCombatService = class WorldRuntimePlayerCombatService {
         }
     }
     handlePlayerDefeat(playerId, deps) {
-        deps.pendingCommands.delete(playerId);
+        deps.clearPendingCommand(playerId);
         deps.worldRuntimeGmQueueService.markPendingRespawn(playerId);
     }
 };

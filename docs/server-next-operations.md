@@ -18,6 +18,12 @@
 - `packages/server` 是当前目录主线；`server-next` 主要保留为包名与历史命令名。
 - 所有 `verify:replace-ready*`、`shadow`、`gm/database` 相关命令，默认都只证明替换链路与运维链路可演练，不等于“已经可完整接班”。
 - 根级主入口现在是 `verify:replace-ready*`；`verify:server-next*` 只保留为兼容别名。
+- 根级 `verify:replace-ready*` 和 `packages/server` 包内直接执行的 `verify/smoke` 现在都会默认尝试加载本地 env：
+  - `.runtime/server-next.local.env`
+  - `.env`
+  - `.env.local`
+  - `packages/server/.env`
+  - `packages/server/.env.local`
 - 当前推荐把文档里的门禁理解成五层：
   - `local`：本地主证明链
   - `with-db`：本地主证明链 + 持久化带库 proof
@@ -95,10 +101,12 @@
 
 ### 7. 维护窗口破坏性 proof
 
+- `pnpm verify:replace-ready:shadow:destructive:preflight`
 - `pnpm verify:replace-ready:shadow:destructive`
 
 用途：
 
+- `preflight` 只回答 destructive 开关与 target `maintenance-active` 是否就绪
 - 只在维护窗口执行
 - 需要显式设置 `SERVER_NEXT_SHADOW_ALLOW_DESTRUCTIVE=1`
 - 用于 shadow 上单独验证 `backup -> download -> restore`
@@ -218,6 +226,11 @@ shadow-destructive 额外需要：
 - `gm-next` 输出里需要人工核对的只读摘要
 - 真实 shadow / GM 环境是否按 runbook 完成演练
 
+真实切换当天统一按下面两份文档执行与回写：
+
+- [10-cutover-execution-checklist.md](./next-plan/10-cutover-execution-checklist.md)
+- [10-cutover-execution-log-template.md](./next-plan/10-cutover-execution-log-template.md)
+
 ### 和 task-breakdown 对齐
 
 - `T11` 负责把 `local / acceptance / full / shadow-destructive` 四层口径写死
@@ -281,9 +294,10 @@ node node_modules/.pnpm/node_modules/typescript/bin/tsc -p packages/server/tscon
 1. `SERVER_NEXT_SHADOW_URL` 或 `SERVER_NEXT_URL` 已指向目标 shadow
 2. `SERVER_NEXT_GM_PASSWORD` 或 `GM_PASSWORD` 已就绪
 3. `SERVER_NEXT_SHADOW_ALLOW_DESTRUCTIVE=1` 已显式设置
-4. 维护窗口、回滚预案、负责人已经确认
-5. 先执行非破坏性 `shadow` / `gm-next` 验证，再执行 destructive proof
-6. destructive 结束后立刻检查 `backup / download / restore / checkpoint metadata`
+4. `pnpm verify:replace-ready:shadow:destructive:preflight` 已确认 target `maintenance-active`
+5. 维护窗口、回滚预案、负责人已经确认
+6. 先执行非破坏性 `shadow` / `gm-next` 验证，再执行 destructive proof
+7. destructive 结束后立刻检查 `backup / download / restore / checkpoint metadata`
 
 ### 已部署 shadow
 
@@ -301,7 +315,7 @@ node node_modules/.pnpm/node_modules/typescript/bin/tsc -p packages/server/tscon
 
 ## 观察重点
 
-- `/health` 是否符合 readiness 语义
+- `/health` 是否至少提供可用 liveness；若 shadow 前面还有统一入口层，允许只返回外层 `status=ok`，其余 readiness 继续由 GM 只读面与最小 next 会话链补证
 - next socket 是否只收到 next 事件，不混入 legacy `s:*`
 - guest canonical 会话语义是否保持：首登不依赖客户端自带 `playerId`，重连只认 detached `sessionId`
 - `gm/maps`、`gm/editor-catalog`、`gm/maps/:mapId/runtime` 三个管理只读面是否稳定

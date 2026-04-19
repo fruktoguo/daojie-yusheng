@@ -17,7 +17,7 @@ const movement_debug_1 = require("../../debug/movement-debug");
 let WorldRuntimeTransferService = class WorldRuntimeTransferService {
     logger = new common_1.Logger(WorldRuntimeTransferService.name);
     applyTransfer(transfer, deps) {
-        const source = deps.instances.get(transfer.fromInstanceId);
+        const source = deps.getInstanceRuntime(transfer.fromInstanceId);
         if (!source) {
             return;
         }
@@ -40,7 +40,7 @@ let WorldRuntimeTransferService = class WorldRuntimeTransferService {
         });
         const runtimePlayer = deps.playerRuntimeService.getPlayer(transfer.playerId);
         target.setPlayerMoveSpeed(transfer.playerId, runtimePlayer?.attrs.numericStats.moveSpeed ?? 0);
-        deps.playerLocations.set(transfer.playerId, {
+        deps.setPlayerLocation(transfer.playerId, {
             instanceId: target.meta.instanceId,
             sessionId: transfer.sessionId,
         });

@@ -15,6 +15,21 @@ const common_1 = require("@nestjs/common");
 /** world-runtime instance registry state：承接实例注册表状态所有权。 */
 let WorldRuntimeInstanceStateService = class WorldRuntimeInstanceStateService {
     instances = new Map();
+    getInstanceRuntime(instanceId) {
+        return this.instances.get(instanceId) ?? null;
+    }
+    setInstanceRuntime(instanceId, instance) {
+        this.instances.set(instanceId, instance);
+    }
+    listInstanceRuntimes() {
+        return this.instances.values();
+    }
+    listInstanceEntries() {
+        return this.instances.entries();
+    }
+    getInstanceCount() {
+        return this.instances.size;
+    }
     resetState() {
         this.instances.clear();
     }

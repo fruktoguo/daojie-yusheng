@@ -15,7 +15,7 @@ class WorldGatewayActionHelper {
         this.executeRedeemCodes(client, payload);
     }
     handleUseAction(client, payload) {
-        const playerId = this.gateway.requirePlayerId(client);
+        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
             return;
         }
@@ -83,7 +83,7 @@ class WorldGatewayActionHelper {
     }
     emitProtocolActionResult(client, playerId, result) {
         if (result.kind === 'npcShop' && result.npcShop) {
-            this.gateway.emitNextNpcShop(client, result.npcShop);
+            this.gateway.gatewayClientEmitHelper.emitNextNpcShop(client, result.npcShop);
             return;
         }
         if (result.kind !== 'npcQuests') {
@@ -92,10 +92,10 @@ class WorldGatewayActionHelper {
         if (this.gateway.worldClientEventService.getExplicitProtocol(client) === 'next' && result.npcQuests) {
             client.emit(shared_1.NEXT_S2C.NpcQuests, result.npcQuests);
         }
-        this.gateway.emitNextQuests(client, this.gateway.worldRuntimeService.buildQuestListView(playerId));
+        this.gateway.gatewayClientEmitHelper.emitNextQuests(client, this.gateway.worldRuntimeService.buildQuestListView(playerId));
     }
     executeRedeemCodes(client, payload) {
-        const playerId = this.gateway.requirePlayerId(client);
+        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
             return;
         }
@@ -107,7 +107,7 @@ class WorldGatewayActionHelper {
         }
     }
     handleUsePortal(client) {
-        const playerId = this.gateway.requirePlayerId(client);
+        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
             return;
         }
@@ -119,7 +119,7 @@ class WorldGatewayActionHelper {
         }
     }
     executeCultivate(client, payload) {
-        const playerId = this.gateway.requirePlayerId(client);
+        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
             return;
         }
@@ -134,7 +134,7 @@ class WorldGatewayActionHelper {
         this.executeCultivate(client, payload);
     }
     handleCastSkill(client, payload) {
-        const playerId = this.gateway.requirePlayerId(client);
+        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
             return;
         }

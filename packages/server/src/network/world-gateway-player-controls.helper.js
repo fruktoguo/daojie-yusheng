@@ -10,28 +10,28 @@ class WorldGatewayPlayerControlsHelper {
         this.gateway = gateway;
     }
     handleNextChat(client, payload) {
-        const playerId = this.gateway.requirePlayerId(client);
+        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
             return;
         }
         this.gateway.worldClientEventService.broadcastChat(playerId, payload);
     }
     handleNextAckSystemMessages(client, payload) {
-        const playerId = this.gateway.requirePlayerId(client);
+        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
             return;
         }
         this.gateway.worldClientEventService.acknowledgeSystemMessages(playerId, payload);
     }
     handleNextDebugResetSpawn(client, _payload) {
-        const playerId = this.gateway.requirePlayerId(client);
+        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
             return;
         }
         this.gateway.worldRuntimeService.enqueueResetPlayerSpawn(playerId);
     }
     handleNextUpdateAutoBattleSkills(client, payload) {
-        const playerId = this.gateway.requirePlayerId(client);
+        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
             return;
         }
@@ -43,7 +43,7 @@ class WorldGatewayPlayerControlsHelper {
         }
     }
     handleNextUpdateAutoUsePills(client, payload) {
-        const playerId = this.gateway.requirePlayerId(client);
+        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
             return;
         }
@@ -55,7 +55,7 @@ class WorldGatewayPlayerControlsHelper {
         }
     }
     handleNextUpdateCombatTargetingRules(client, payload) {
-        const playerId = this.gateway.requirePlayerId(client);
+        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
             return;
         }
@@ -67,7 +67,7 @@ class WorldGatewayPlayerControlsHelper {
         }
     }
     handleNextUpdateAutoBattleTargetingMode(client, payload) {
-        const playerId = this.gateway.requirePlayerId(client);
+        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
             return;
         }
@@ -79,7 +79,7 @@ class WorldGatewayPlayerControlsHelper {
         }
     }
     handleNextUpdateTechniqueSkillAvailability(client, payload) {
-        const playerId = this.gateway.requirePlayerId(client);
+        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
             return;
         }
@@ -91,7 +91,7 @@ class WorldGatewayPlayerControlsHelper {
         }
     }
     handleNextHeavenGateAction(client, payload) {
-        const playerId = this.gateway.requirePlayerId(client);
+        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
             return;
         }
@@ -103,12 +103,12 @@ class WorldGatewayPlayerControlsHelper {
         }
     }
     handleRequestQuests(client, _payload) {
-        const playerId = this.gateway.requirePlayerId(client);
+        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
             return;
         }
         try {
-            this.gateway.emitNextQuests(client, this.gateway.worldRuntimeService.buildQuestListView(playerId));
+            this.gateway.gatewayClientEmitHelper.emitNextQuests(client, this.gateway.worldRuntimeService.buildQuestListView(playerId));
         }
         catch (error) {
             this.gateway.worldClientEventService.emitGatewayError(client, 'REQUEST_QUESTS_FAILED', error);

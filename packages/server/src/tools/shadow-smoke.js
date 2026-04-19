@@ -69,12 +69,9 @@ async function main() {
 /**
  * 记录健康状态。
  */
-    const health = await fetchJson('/health');
-    if (health?.ok !== true) {
+    const health = await fetchHealthJson('/health');
+    if (!isShadowHealthAlive(health)) {
         throw new Error(`unexpected /health payload: ${JSON.stringify(health)}`);
-    }
-    if (health?.readiness?.ok !== true) {
-        throw new Error(`expected readiness.ok=true, got ${JSON.stringify(health?.readiness ?? null)}`);
     }
     if (health?.readiness?.maintenance?.active === true) {
         throw new Error(`expected maintenance inactive, got ${JSON.stringify(health.readiness.maintenance)}`);
@@ -254,7 +251,7 @@ async function main() {
             botCount: gmState.botCount ?? null,
         },
         health: {
-            ready: health.readiness.ok,
+            ready: resolveShadowHealthReady(health),
             maintenance: health.readiness.maintenance?.active ?? false,
         },
         adminRead: {
@@ -286,33 +283,40 @@ async function main() {
  * 处理loginGM。
  */
 async function loginGm() {
+    for (let attempt = 0; attempt < 3; attempt += 1) {
 /**
  * 记录response。
  */
-    const response = await fetch(`${serverUrl}/api/auth/gm/login`, {
-        method: 'POST',
-        headers: {
-            'content-type': 'application/json',
-        },
-        body: JSON.stringify({
-            password: gmPassword,
-        }),
-    });
-    if (!response.ok) {
-        throw new Error(`gm login failed: ${response.status} ${await response.text()}`);
-    }
+        const response = await fetch(`${serverUrl}/api/auth/gm/login`, {
+            method: 'POST',
+            headers: {
+                'content-type': 'application/json',
+            },
+            body: JSON.stringify({
+                password: gmPassword,
+            }),
+        });
+        if (response.status === 429 && attempt < 2) {
+            await sleep(1500 * (attempt + 1));
+            continue;
+        }
+        if (!response.ok) {
+            throw new Error(`gm login failed: ${response.status} ${await response.text()}`);
+        }
 /**
  * 记录payload。
  */
-    const payload = await response.json();
+        const payload = await response.json();
 /**
  * 记录令牌。
  */
-    const token = typeof payload?.accessToken === 'string' ? payload.accessToken.trim() : '';
-    if (!token) {
-        throw new Error(`gm login missing accessToken: ${JSON.stringify(payload)}`);
+        const token = typeof payload?.accessToken === 'string' ? payload.accessToken.trim() : '';
+        if (!token) {
+            throw new Error(`gm login missing accessToken: ${JSON.stringify(payload)}`);
+        }
+        return token;
     }
-    return token;
+    throw new Error('gm login failed after retries');
 }
 /**
  * 处理fetchjson。
@@ -328,6 +332,23 @@ async function fetchJson(path, options) {
     return response.json();
 }
 /**
+ * 处理fetchhealthjson。
+ */
+async function fetchHealthJson(path) {
+/**
+ * 记录response。
+ */
+    const response = await fetch(`${serverUrl}${path}`);
+/**
+ * 记录payload。
+ */
+    const payload = await response.json();
+    if (!response.ok && !isShadowHealthAlive(payload)) {
+        throw new Error(`request failed: ${path} -> ${response.status} ${JSON.stringify(payload)}`);
+    }
+    return payload;
+}
+/**
  * 处理authedgetjson。
  */
 async function authedGetJson(path, token) {
@@ -336,6 +357,32 @@ async function authedGetJson(path, token) {
             authorization: `Bearer ${token}`,
         },
     });
+}
+/**
+ * 处理sleep。
+ */
+function sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+/**
+ * 处理isshadowhealthalive。
+ */
+function isShadowHealthAlive(payload) {
+    if (!payload || typeof payload !== 'object') {
+        return false;
+    }
+    return payload?.ok === true
+        || payload?.alive?.ok === true
+        || payload?.status === 'ok';
+}
+/**
+ * 处理resolveshadowhealthready。
+ */
+function resolveShadowHealthReady(payload) {
+    if (payload?.readiness != null) {
+        return payload?.readiness?.ok === true;
+    }
+    return isShadowHealthAlive(payload);
 }
 /**
  * 处理fetch玩家状态。

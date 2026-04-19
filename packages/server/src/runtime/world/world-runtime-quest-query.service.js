@@ -46,6 +46,15 @@ let WorldRuntimeQuestQueryService = class WorldRuntimeQuestQueryService {
         this.templateRepository = templateRepository;
         this.playerRuntimeService = playerRuntimeService;
     }
+    buildQuestListView(playerId) {
+        return {
+            quests: this.playerRuntimeService.listQuests(playerId),
+        };
+    }
+    buildNpcQuestsView(playerId, npcId, deps) {
+        const npc = deps.resolveAdjacentNpc(playerId, npcId);
+        return this.createNpcQuestsEnvelope(playerId, npc);
+    }
     createNpcQuestsEnvelope(playerId, npc) {
         return {
             npcId: npc.npcId,

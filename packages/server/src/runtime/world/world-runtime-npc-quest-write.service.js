@@ -108,7 +108,7 @@ let WorldRuntimeNpcQuestWriteService = class WorldRuntimeNpcQuestWriteService {
         if (!npcId) {
             throw new common_1.BadRequestException('npcId is required');
         }
-        deps.pendingCommands.set(playerId, { kind: 'npcInteraction', npcId });
+        deps.enqueuePendingCommand(playerId, { kind: 'npcInteraction', npcId });
         return deps.getPlayerViewOrThrow(playerId);
     }
     enqueueLegacyNpcInteraction(playerId, actionIdInput, deps) {
@@ -124,7 +124,7 @@ let WorldRuntimeNpcQuestWriteService = class WorldRuntimeNpcQuestWriteService {
         if (!questId) {
             throw new common_1.BadRequestException('questId is required');
         }
-        deps.pendingCommands.set(playerId, { kind: 'acceptNpcQuest', npcId, questId });
+        deps.enqueuePendingCommand(playerId, { kind: 'acceptNpcQuest', npcId, questId });
         return deps.getPlayerViewOrThrow(playerId);
     }
     enqueueSubmitNpcQuest(playerId, npcIdInput, questIdInput, deps) {
@@ -137,7 +137,7 @@ let WorldRuntimeNpcQuestWriteService = class WorldRuntimeNpcQuestWriteService {
         if (!questId) {
             throw new common_1.BadRequestException('questId is required');
         }
-        deps.pendingCommands.set(playerId, { kind: 'submitNpcQuest', npcId, questId });
+        deps.enqueuePendingCommand(playerId, { kind: 'submitNpcQuest', npcId, questId });
         return deps.getPlayerViewOrThrow(playerId);
     }
     executeNpcQuestAction(playerId, npcId, deps) {
@@ -149,7 +149,7 @@ let WorldRuntimeNpcQuestWriteService = class WorldRuntimeNpcQuestWriteService {
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
         const readyQuest = questsView.quests.find((entry) => entry.status === 'ready' && entry.submitNpcId === normalizedNpcId);
         if (readyQuest) {
-            deps.pendingCommands.set(playerId, {
+            deps.enqueuePendingCommand(playerId, {
                 kind: 'submitNpcQuest',
                 npcId: normalizedNpcId,
                 questId: readyQuest.id,
@@ -158,7 +158,7 @@ let WorldRuntimeNpcQuestWriteService = class WorldRuntimeNpcQuestWriteService {
         }
         const availableQuest = questsView.quests.find((entry) => entry.status === 'available');
         if (availableQuest) {
-            deps.pendingCommands.set(playerId, {
+            deps.enqueuePendingCommand(playerId, {
                 kind: 'acceptNpcQuest',
                 npcId: normalizedNpcId,
                 questId: availableQuest.id,
@@ -170,7 +170,7 @@ let WorldRuntimeNpcQuestWriteService = class WorldRuntimeNpcQuestWriteService {
             && entry.targetNpcId === normalizedNpcId
             && (!entry.targetMapId || entry.targetMapId === player.templateId));
         if (talkQuest) {
-            deps.pendingCommands.set(playerId, {
+            deps.enqueuePendingCommand(playerId, {
                 kind: 'interactNpcQuest',
                 npcId: normalizedNpcId,
             });

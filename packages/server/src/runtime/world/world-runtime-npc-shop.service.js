@@ -41,7 +41,7 @@ let WorldRuntimeNpcShopService = class WorldRuntimeNpcShopService {
         }
         const quantity = normalizeShopQuantity(quantityInput);
         deps.validateNpcShopPurchase(playerId, npcId, itemId, quantity);
-        deps.pendingCommands.set(playerId, { kind: 'buyNpcShopItem', npcId, itemId, quantity });
+        deps.enqueuePendingCommand(playerId, { kind: 'buyNpcShopItem', npcId, itemId, quantity });
         return deps.getPlayerViewOrThrow(playerId);
     }
     dispatchBuyNpcShopItem(playerId, npcId, itemId, quantity, deps) {

@@ -100,19 +100,19 @@ let WorldRuntimeGmQueueService = class WorldRuntimeGmQueueService {
         const player = deps.playerRuntimeService.getPlayerOrThrow(playerId);
         const nextMapId = command.mapId || player.templateId || deps.resolveDefaultRespawnMapId();
         const targetInstance = deps.getOrCreatePublicInstance(nextMapId);
-        const previous = deps.playerLocations.get(playerId) ?? null;
+        const previous = deps.getPlayerLocation(playerId);
         const sessionId = previous?.sessionId ?? player.sessionId ?? `session:${playerId}`;
         if (!previous) {
             deps.playerRuntimeService.ensurePlayer(playerId, sessionId);
             const runtimePlayer = targetInstance.connectPlayer({ playerId, sessionId, preferredX: command.x, preferredY: command.y });
             targetInstance.setPlayerMoveSpeed(playerId, player.attrs.numericStats.moveSpeed);
-            deps.playerLocations.set(playerId, { instanceId: targetInstance.meta.instanceId, sessionId: runtimePlayer.sessionId });
+            deps.setPlayerLocation(playerId, { instanceId: targetInstance.meta.instanceId, sessionId: runtimePlayer.sessionId });
         }
         else if (previous.instanceId !== targetInstance.meta.instanceId) {
-            deps.instances.get(previous.instanceId)?.disconnectPlayer(playerId);
+            deps.getInstanceRuntime(previous.instanceId)?.disconnectPlayer(playerId);
             const runtimePlayer = targetInstance.connectPlayer({ playerId, sessionId, preferredX: command.x, preferredY: command.y });
             targetInstance.setPlayerMoveSpeed(playerId, player.attrs.numericStats.moveSpeed);
-            deps.playerLocations.set(playerId, { instanceId: targetInstance.meta.instanceId, sessionId: runtimePlayer.sessionId });
+            deps.setPlayerLocation(playerId, { instanceId: targetInstance.meta.instanceId, sessionId: runtimePlayer.sessionId });
         }
         else if (command.x !== undefined && command.y !== undefined) {
             targetInstance.relocatePlayer(playerId, command.x, command.y);

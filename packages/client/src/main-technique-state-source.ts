@@ -1,10 +1,10 @@
 import { PlayerState, TechniqueState } from '@mud/shared-next';
-import type { SocketManager } from './network/socket';
+import type { SocketRuntimeSender } from './network/socket-send-runtime';
 import { TechniquePanel } from './ui/panels/technique-panel';
 
 type MainTechniqueStateSourceOptions = {
   techniquePanel: Pick<TechniquePanel, 'setCallbacks' | 'initFromPlayer' | 'update' | 'syncDynamic' | 'clear'>;
-  socket: Pick<SocketManager, 'sendCultivate'>;
+  socket: Pick<SocketRuntimeSender, 'sendCultivate'>;
 };
 
 export type MainTechniqueStateSource = ReturnType<typeof createMainTechniqueStateSource>;
