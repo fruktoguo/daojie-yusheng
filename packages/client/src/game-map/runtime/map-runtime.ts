@@ -15,6 +15,7 @@ import type {
 } from '../types';
 import { ViewportController } from '../viewport/viewport-controller';
 import { DEFAULT_SAFE_AREA } from '../../constants/world/map-runtime';
+import { MAP_TARGET_FPS_RANGE } from '../../constants/ui/performance';
 
 /** MapRuntime：封装相关状态与行为。 */
 export class MapRuntime implements MapRuntimeApi {
@@ -38,6 +39,9 @@ export class MapRuntime implements MapRuntimeApi {
 /** frameHandle：定义该变量以承载业务值。 */
   private frameHandle: number | null = null;
   private lastFrameAt = performance.now();
+  private nextFrameAt = performance.now();
+  private targetFps = MAP_TARGET_FPS_RANGE.defaultValue;
+  private renderFrameObserver: ((frameAtMs: number) => void) | null = null;
 
 /** attach：执行对应的业务逻辑。 */
   attach(host: HTMLElement): void {
@@ -67,6 +71,19 @@ export class MapRuntime implements MapRuntimeApi {
     this.renderer.destroy();
     this.minimap.clear();
     this.interaction.destroy();
+  }
+
+/** setViewportSize：执行对应的业务逻辑。 */
+  setRenderFrameObserver(observer: ((frameAtMs: number) => void) | null): void {
+    this.renderFrameObserver = observer;
+  }
+
+/** setViewportSize：执行对应的业务逻辑。 */
+  setTargetFps(targetFps: number): void {
+    this.targetFps = Number.isFinite(targetFps)
+      ? Math.max(MAP_TARGET_FPS_RANGE.min, Math.min(MAP_TARGET_FPS_RANGE.max, Math.round(targetFps)))
+      : MAP_TARGET_FPS_RANGE.defaultValue;
+    this.nextFrameAt = performance.now();
   }
 
 /** setViewportSize：执行对应的业务逻辑。 */
@@ -233,14 +250,24 @@ export class MapRuntime implements MapRuntimeApi {
       return;
     }
     this.lastFrameAt = performance.now();
+    this.nextFrameAt = this.lastFrameAt;
 /** frame：通过常量导出可复用函数行为。 */
     const frame = () => {
       this.frameHandle = requestAnimationFrame(frame);
 /** now：定义该变量以承载业务值。 */
       const now = performance.now();
+/** minFrameIntervalMs：定义该变量以承载业务值。 */
+      const minFrameIntervalMs = 1000 / Math.max(MAP_TARGET_FPS_RANGE.min, this.targetFps);
+      if (now < this.nextFrameAt) {
+        return;
+      }
 /** dt：定义该变量以承载业务值。 */
       const dt = (now - this.lastFrameAt) / 1000;
       this.lastFrameAt = now;
+      this.nextFrameAt += minFrameIntervalMs;
+      while (this.nextFrameAt <= now) {
+        this.nextFrameAt += minFrameIntervalMs;
+      }
       this.camera.update(dt);
 /** timing：定义该变量以承载业务值。 */
       const timing = this.store.getTickTiming();
@@ -249,6 +276,7 @@ export class MapRuntime implements MapRuntimeApi {
         ? Math.min((now - timing.startedAt) / timing.durationMs, 1)
         : 1;
       this.renderer.render(this.currentScene, this.camera.getState(), this.projection, progress);
+      this.renderFrameObserver?.(now);
     };
     this.frameHandle = requestAnimationFrame(frame);
   }
@@ -267,4 +295,3 @@ export class MapRuntime implements MapRuntimeApi {
 export function createMapRuntime(): MapRuntimeApi {
   return new MapRuntime();
 }
-

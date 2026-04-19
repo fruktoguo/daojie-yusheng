@@ -224,6 +224,8 @@ export interface MapRuntimeApi {
   attach(host: HTMLElement): void;
   detach(): void;
   destroy(): void;
+  setRenderFrameObserver(observer: ((frameAtMs: number) => void) | null): void;
+  setTargetFps(targetFps: number): void;
   setViewportSize(width: number, height: number, dpr: number, viewportScale?: number): void;
   setSafeArea(insets: MapSafeAreaInsets): void;
   setZoom(level: number): void;

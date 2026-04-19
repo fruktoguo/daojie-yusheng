@@ -2751,6 +2751,29 @@
       justify-content: flex-end;
       gap: 8px;
     }
+    .settings-performance-actions--numeric {
+      align-items: center;
+      flex-wrap: nowrap;
+    }
+    .settings-performance-number-input {
+      width: 88px;
+      min-height: 34px;
+      padding: 6px 8px;
+      border: 1px solid var(--input-border);
+      background: var(--surface-base);
+      color: var(--ink-black);
+      font: inherit;
+      text-align: right;
+    }
+    .settings-performance-number-input:focus {
+      border-color: var(--input-border-strong);
+      outline: none;
+    }
+    .settings-performance-number-unit {
+      color: var(--ink-grey);
+      font-size: var(--font-size-12);
+      white-space: nowrap;
+    }
     .settings-redeem-textarea {
       min-height: 140px;
       resize: vertical;
@@ -2909,6 +2932,13 @@
       }
       .settings-performance-actions > button {
         flex: 1 1 auto;
+      }
+      .settings-performance-actions--numeric {
+        justify-content: flex-start;
+      }
+      .settings-performance-number-input {
+        width: 100%;
+        max-width: 120px;
       }
       .suggestion-summary-grid {
         grid-template-columns: minmax(0, 1fr);

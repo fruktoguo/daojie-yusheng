@@ -262,8 +262,6 @@ let currentTimeStateSyncedAt = performance.now();
 let currentTimeTickIntervalMs = 1000;
 /** currentTimeTickIntervalUpdatedAt：定义该变量以承载业务值。 */
 let currentTimeTickIntervalUpdatedAt = performance.now();
-/** fpsMonitorFrameRequestId：定义该变量以承载业务值。 */
-let fpsMonitorFrameRequestId: number | null = null;
 /** fpsMonitorEnabled：定义该变量以承载业务值。 */
 let fpsMonitorEnabled = false;
 /** fpsSampleFrameCount：定义该变量以承载业务值。 */
@@ -369,10 +367,9 @@ function resolveFpsLowStats(): Pick<FpsSampleStats, 'low' | 'onePercentLow'> {
   };
 }
 
-/** tickFpsMonitor：执行对应的业务逻辑。 */
-function tickFpsMonitor(now: number): void {
+/** recordFpsMonitorFrame：执行对应的业务逻辑。 */
+function recordFpsMonitorFrame(now: number): void {
   if (!fpsMonitorEnabled) {
-    fpsMonitorFrameRequestId = null;
     return;
   }
 
@@ -403,8 +400,6 @@ function tickFpsMonitor(now: number): void {
     fpsSampleFrameCount = 0;
     fpsSampleStartedAt = now;
   }
-
-  fpsMonitorFrameRequestId = requestAnimationFrame(tickFpsMonitor);
 }
 
 /** startFpsMonitor：执行对应的业务逻辑。 */
@@ -420,16 +415,11 @@ function startFpsMonitor(): void {
     low: null,
     onePercentLow: null,
   });
-  fpsMonitorFrameRequestId = requestAnimationFrame(tickFpsMonitor);
 }
 
 /** stopFpsMonitor：执行对应的业务逻辑。 */
 function stopFpsMonitor(): void {
   fpsMonitorEnabled = false;
-  if (fpsMonitorFrameRequestId !== null) {
-    cancelAnimationFrame(fpsMonitorFrameRequestId);
-    fpsMonitorFrameRequestId = null;
-  }
   resetFpsMonitorSamples();
   renderFpsStats({
     fps: null,
@@ -700,10 +690,19 @@ renderCurrentTime(null);
 renderPingLatency(null, '待测');
 bindResponsiveViewportCss(window);
 initializeUiStyleConfig();
+/** socket：定义该变量以承载业务值。 */
+const socket = new SocketManager();
+/** mapRuntime：定义该变量以承载业务值。 */
+const mapRuntime = createMapRuntime();
+mapRuntime.setRenderFrameObserver((frameAtMs) => {
+  recordFpsMonitorFrame(frameAtMs);
+});
+mapRuntime.setTargetFps(initialMapPerformanceConfig.targetFps);
 window.addEventListener(MAP_PERFORMANCE_CONFIG_CHANGE_EVENT, (event) => {
 /** config：定义该变量以承载业务值。 */
   const config = (event as CustomEvent<MapPerformanceConfig>).detail;
   syncFpsMonitorVisibility(config.showFpsMonitor);
+  mapRuntime.setTargetFps(config.targetFps);
 });
 startClientVersionReload({
   onBeforeReload: () => {
@@ -716,10 +715,6 @@ window.setInterval(() => {
   }
   renderCurrentTime(currentTimeState);
 }, CURRENT_TIME_REFRESH_MS);
-/** socket：定义该变量以承载业务值。 */
-const socket = new SocketManager();
-/** mapRuntime：定义该变量以承载业务值。 */
-const mapRuntime = createMapRuntime();
 /** loginUI：定义该变量以承载业务值。 */
 const loginUI = new LoginUI(socket);
 /** hud：定义该变量以承载业务值。 */
