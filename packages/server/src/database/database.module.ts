@@ -15,6 +15,10 @@ import { PersistentDocumentEntity } from './entities/persistent-document.entity'
 import { PlayerMailReceiptEntity } from './entities/player-mail-receipt.entity';
 import { RedeemCodeGroupEntity } from './entities/redeem-code-group.entity';
 import { RedeemCodeEntity } from './entities/redeem-code.entity';
+import { GmRiskOperationAuditEntity } from './entities/gm-risk-operation-audit.entity';
+import { PlayerCollectionsEntity } from './entities/player-collections.entity';
+import { PlayerSettingsEntity } from './entities/player-settings.entity';
+import { PlayerPresenceEntity } from './entities/player-presence.entity';
 import { PersistentDocumentService } from './persistent-document.service';
 import { RedisService } from './redis.service';
 
@@ -31,6 +35,10 @@ const DATABASE_ENTITIES = [
   PersistentDocumentEntity,
   RedeemCodeGroupEntity,
   RedeemCodeEntity,
+  GmRiskOperationAuditEntity,
+  PlayerCollectionsEntity,
+  PlayerSettingsEntity,
+  PlayerPresenceEntity,
 ];
 
 /** PRESYNC_BIGINT_COLUMNS：定义该变量以承载业务值。 */
@@ -127,6 +135,10 @@ const { Client: PgClient } = require('pg') as {
       PersistentDocumentEntity,
       RedeemCodeGroupEntity,
       RedeemCodeEntity,
+      GmRiskOperationAuditEntity,
+      PlayerCollectionsEntity,
+      PlayerSettingsEntity,
+      PlayerPresenceEntity,
     ]),
   ],
   providers: [RedisService, PersistentDocumentService],
@@ -136,7 +148,7 @@ const { Client: PgClient } = require('pg') as {
 export class DatabaseModule {}
 
 /** buildBasePostgresOptions：执行对应的业务逻辑。 */
-function buildBasePostgresOptions(cfg: ConfigService): PgBootstrapConnectionOptions {
+export function buildBasePostgresOptions(cfg: ConfigService): PgBootstrapConnectionOptions {
 /** url：定义该变量以承载业务值。 */
   const url = cfg.get<string>('DATABASE_URL');
   if (url) {
@@ -155,7 +167,7 @@ function buildBasePostgresOptions(cfg: ConfigService): PgBootstrapConnectionOpti
 }
 
 /** applyPreSynchronizeCompatibilityFixes：执行对应的业务逻辑。 */
-async function applyPreSynchronizeCompatibilityFixes(connectionOptions: PgBootstrapConnectionOptions): Promise<void> {
+export async function applyPreSynchronizeCompatibilityFixes(connectionOptions: PgBootstrapConnectionOptions): Promise<void> {
 /** client：定义该变量以承载业务值。 */
   const client = new PgClient(connectionOptions);
   await client.connect();
@@ -242,4 +254,3 @@ async function applyPreSynchronizeCompatibilityFixes(connectionOptions: PgBootst
 function quotePgIdentifier(value: string): string {
   return `"${value.replace(/"/g, '""')}"`;
 }
-

@@ -1727,60 +1727,8 @@ export class GmService {
   }
 
   /** 将离线玩家状态持久化到数据库 */
-  private async persistOfflinePlayer(entity: PlayerEntity, player: PlayerState): Promise<void> {
-    this.techniqueService.preparePlayerForPersistence(player);
-/** persisted：定义该变量以承载业务值。 */
-    const persisted = buildPersistedPlayerCollections(player, this.contentService, this.mapService);
-    await this.playerRepo.update(entity.id, {
-      name: player.name,
-      mapId: player.mapId,
-      respawnMapId: player.respawnMapId,
-      x: player.x,
-      y: player.y,
-      facing: player.facing,
-      viewRange: player.viewRange,
-      hp: player.hp,
-      maxHp: player.maxHp,
-      qi: player.qi,
-      dead: player.dead,
-      foundation: player.foundation,
-      combatExp: player.combatExp,
-      boneAgeBaseYears: player.boneAgeBaseYears,
-      lifeElapsedTicks: player.lifeElapsedTicks,
-      lifespanYears: player.lifespanYears,
-      baseAttrs: player.baseAttrs as any,
-      bonuses: player.bonuses as any,
-      temporaryBuffs: persisted.temporaryBuffs as any,
-      inventory: persisted.inventory as any,
-      equipment: persisted.equipment as any,
-      techniques: persisted.techniques as any,
-      quests: persisted.quests as any,
-      revealedBreakthroughRequirementIds: player.revealedBreakthroughRequirementIds as any,
-      unlockedMinimapIds: player.unlockedMinimapIds as any,
-      autoBattle: player.autoBattle,
-      autoBattleSkills: player.autoBattleSkills as any,
-      autoUsePills: (player.autoUsePills ?? []) as any,
-      combatTargetingRules: player.combatTargetingRules as any,
-      autoBattleTargetingMode: player.autoBattleTargetingMode,
-      combatTargetId: player.combatTargetId ?? null,
-/** combatTargetLocked：定义该变量以承载业务值。 */
-      combatTargetLocked: player.combatTargetLocked === true,
-      autoRetaliate: player.autoRetaliate,
-/** autoBattleStationary：定义该变量以承载业务值。 */
-      autoBattleStationary: player.autoBattleStationary === true,
-/** allowAoePlayerHit：定义该变量以承载业务值。 */
-      allowAoePlayerHit: player.allowAoePlayerHit === true,
-      autoIdleCultivation: player.autoIdleCultivation,
-/** autoSwitchCultivation：定义该变量以承载业务值。 */
-      autoSwitchCultivation: player.autoSwitchCultivation === true,
-      cultivatingTechId: player.cultivatingTechId ?? null,
-/** online：定义该变量以承载业务值。 */
-      online: player.online === true,
-/** inWorld：定义该变量以承载业务值。 */
-      inWorld: player.inWorld !== false,
-      lastHeartbeatAt: player.lastHeartbeatAt ? new Date(player.lastHeartbeatAt) : null,
-      offlineSinceAt: player.offlineSinceAt ? new Date(player.offlineSinceAt) : null,
-    });
+  private async persistOfflinePlayer(_entity: PlayerEntity, player: PlayerState): Promise<void> {
+    await this.playerService.saveDetachedPlayerState(player);
   }
 
 /** enqueue：执行对应的业务逻辑。 */

@@ -41,11 +41,15 @@ import {
   hasVisibleNameGrapheme,
   VIEW_RADIUS,
   clonePlainValue,
+  isPlainEqual,
   S2C,
   S2C_SystemMsg,
 } from '@mud/shared';
 import { Socket } from 'socket.io';
 import { PlayerEntity } from '../database/entities/player.entity';
+import { PlayerCollectionsEntity } from '../database/entities/player-collections.entity';
+import { PlayerSettingsEntity } from '../database/entities/player-settings.entity';
+import { PlayerPresenceEntity } from '../database/entities/player-presence.entity';
 import { UserEntity } from '../database/entities/user.entity';
 import { RedisService } from '../database/redis.service';
 import { ContentService } from './content.service';
@@ -105,6 +109,83 @@ const PLAYER_BIGINT_PERSIST_COLUMNS = [
   'deathCount',
 ] as const;
 
+interface PlayerCorePersistenceSnapshot {
+  name: string;
+  mapId: string;
+  respawnMapId: string;
+  x: number;
+  y: number;
+  facing: number;
+  viewRange: number;
+  hp: number;
+  maxHp: number;
+  qi: number;
+  dead: boolean;
+  foundation: number;
+  combatExp: number;
+  playerKillCount: number;
+  monsterKillCount: number;
+  eliteMonsterKillCount: number;
+  bossMonsterKillCount: number;
+  deathCount: number;
+  boneAgeBaseYears: number;
+  lifeElapsedTicks: number;
+  lifespanYears: number | null;
+  baseAttrs: unknown;
+  bonuses: unknown;
+  questCrossMapNavCooldownUntilLifeTicks: number;
+  revealedBreakthroughRequirementIds: unknown;
+  heavenGate: unknown | null;
+  spiritualRoots: unknown | null;
+}
+
+interface PlayerPresencePersistenceSnapshot {
+  online: boolean;
+  inWorld: boolean;
+  lastHeartbeatAt: Date | null;
+  offlineSinceAt: Date | null;
+}
+
+interface PlayerCollectionsPersistenceSnapshot {
+  temporaryBuffs: unknown;
+  inventory: unknown;
+  marketStorage: unknown;
+  equipment: unknown;
+  techniques: unknown;
+  bodyTraining: unknown;
+  quests: unknown;
+}
+
+interface PlayerSettingsPersistenceSnapshot {
+  unlockedMinimapIds: unknown;
+  alchemySkill: unknown;
+  gatherSkill: unknown;
+  alchemyPresets: unknown;
+  alchemyJob: unknown | null;
+  enhancementSkillLevel: number;
+  enhancementJob: unknown | null;
+  enhancementRecords: unknown;
+  autoBattle: boolean;
+  autoBattleSkills: unknown;
+  autoUsePills: unknown;
+  combatTargetingRules: unknown;
+  autoBattleTargetingMode: string;
+  combatTargetId: string | null;
+  combatTargetLocked: boolean;
+  autoRetaliate: boolean | undefined;
+  autoBattleStationary: boolean;
+  allowAoePlayerHit: boolean;
+  autoIdleCultivation: boolean | undefined;
+  autoSwitchCultivation: boolean;
+  cultivatingTechId: string | null;
+}
+
+interface PlayerPersistedGroups {
+  collections: PlayerCollectionsEntity | null;
+  settings: PlayerSettingsEntity | null;
+  presence: PlayerPresenceEntity | null;
+}
+
 /** normalizeUnlockedMinimapIds：执行对应的业务逻辑。 */
 function normalizeUnlockedMinimapIds(value: unknown): string[] {
   if (!Array.isArray(value)) {
@@ -149,11 +230,25 @@ export class PlayerService implements OnModuleInit {
   private dirtyFlags: Map<string, Set<DirtyFlag>> = new Map();
 /** pendingLogbookPersistions：定义该变量以承载业务值。 */
   private pendingLogbookPersistions: Map<string, Promise<void>> = new Map();
+/** pendingPresencePersistions：定义该变量以承载业务值。 */
+  private pendingPresencePersistions: Map<string, Promise<void>> = new Map();
+/** lastPersistedCoreSnapshots：定义该变量以承载业务值。 */
+  private lastPersistedCoreSnapshots: Map<string, PlayerCorePersistenceSnapshot> = new Map();
+/** lastPersistedCollectionsSnapshots：定义该变量以承载业务值。 */
+  private lastPersistedCollectionsSnapshots: Map<string, PlayerCollectionsPersistenceSnapshot> = new Map();
+/** lastPersistedSettingsSnapshots：定义该变量以承载业务值。 */
+  private lastPersistedSettingsSnapshots: Map<string, PlayerSettingsPersistenceSnapshot> = new Map();
   private readonly logger = new Logger(PlayerService.name);
 
   constructor(
     @InjectRepository(PlayerEntity)
     private readonly playerRepo: Repository<PlayerEntity>,
+    @InjectRepository(PlayerCollectionsEntity)
+    private readonly playerCollectionsRepo: Repository<PlayerCollectionsEntity>,
+    @InjectRepository(PlayerSettingsEntity)
+    private readonly playerSettingsRepo: Repository<PlayerSettingsEntity>,
+    @InjectRepository(PlayerPresenceEntity)
+    private readonly playerPresenceRepo: Repository<PlayerPresenceEntity>,
     @InjectRepository(UserEntity)
     private readonly userRepo: Repository<UserEntity>,
     private readonly redisService: RedisService,
@@ -168,6 +263,7 @@ export class PlayerService implements OnModuleInit {
     await this.ensureUserCounterColumnCapacity();
     await this.ensurePlayerCounterColumnCapacity();
     await this.ensureDisplayNameUniquenessPolicy();
+    await this.ensureSplitPlayerPersistenceBackfilled();
     await this.normalizePersistedRoleNames();
   }
 
@@ -195,6 +291,47 @@ export class PlayerService implements OnModuleInit {
 /** buildPersistedCollections：处理当前场景中的对应操作。 */
   private buildPersistedCollections(state: PlayerState) {
     return buildPersistedPlayerCollections(state, this.contentService, this.mapService);
+  }
+
+  private buildPlayerCollectionsPersistenceSnapshot(
+    persisted: ReturnType<PlayerService['buildPersistedCollections']>,
+  ): PlayerCollectionsPersistenceSnapshot {
+    return {
+      temporaryBuffs: persisted.temporaryBuffs as any,
+      inventory: persisted.inventory as any,
+      marketStorage: persisted.marketStorage as any,
+      equipment: persisted.equipment as any,
+      techniques: persisted.techniques as any,
+      bodyTraining: persisted.bodyTraining as any,
+      quests: persisted.quests as any,
+    };
+  }
+
+  private buildPlayerSettingsPersistenceSnapshot(state: PlayerState): PlayerSettingsPersistenceSnapshot {
+    this.normalizePersistedTechniqueState(state);
+    return {
+      unlockedMinimapIds: state.unlockedMinimapIds as any,
+      alchemySkill: state.alchemySkill as any,
+      gatherSkill: state.gatherSkill as any,
+      alchemyPresets: (state.alchemyPresets ?? []) as any,
+      alchemyJob: clonePlainValue(state.alchemyJob ?? null),
+      enhancementSkillLevel: Math.max(1, Math.floor(Number(state.enhancementSkill?.level ?? state.enhancementSkillLevel) || 1)),
+      enhancementJob: clonePlainValue(state.enhancementJob ?? null),
+      enhancementRecords: (state.enhancementSkill ?? null) as any,
+      autoBattle: state.autoBattle,
+      autoBattleSkills: state.autoBattleSkills as any,
+      autoUsePills: (state.autoUsePills ?? []) as any,
+      combatTargetingRules: state.combatTargetingRules as any,
+      autoBattleTargetingMode: normalizeAutoBattleTargetingMode(state.autoBattleTargetingMode),
+      combatTargetId: state.combatTargetId ?? null,
+      combatTargetLocked: state.combatTargetLocked === true,
+      autoRetaliate: state.autoRetaliate,
+      autoBattleStationary: state.autoBattleStationary === true,
+      allowAoePlayerHit: state.allowAoePlayerHit === true,
+      autoIdleCultivation: state.autoIdleCultivation,
+      autoSwitchCultivation: state.autoSwitchCultivation === true,
+      cultivatingTechId: state.cultivatingTechId ?? null,
+    };
   }
 
 /** normalizePersistedTechniqueState：执行对应的业务逻辑。 */
@@ -259,10 +396,13 @@ export class PlayerService implements OnModuleInit {
     this.pendingLogbookPersistions.set(playerId, trackedTask);
   }
 
-/** buildPlayerPersistencePayload：处理当前场景中的对应操作。 */
-  private buildPlayerPersistencePayload(state: PlayerState, persisted: ReturnType<PlayerService['buildPersistedCollections']>) {
+/** buildPlayerCorePersistenceSnapshot：处理当前场景中的对应操作。 */
+  private buildPlayerCorePersistenceSnapshot(
+    state: PlayerState,
+  ): PlayerCorePersistenceSnapshot {
     this.normalizePersistedTechniqueState(state);
     return {
+      name: state.name,
       mapId: state.mapId,
       respawnMapId: this.mapService.resolvePlayerRespawnMapId(state.respawnMapId),
       x: state.x,
@@ -273,67 +413,281 @@ export class PlayerService implements OnModuleInit {
       maxHp: state.maxHp,
       qi: state.qi,
       dead: state.dead,
-      foundation: state.foundation,
-      combatExp: state.combatExp,
+      foundation: normalizeNonNegativeCounter(state.foundation),
+      combatExp: normalizeNonNegativeCounter(state.combatExp),
       playerKillCount: state.playerKillCount ?? 0,
       monsterKillCount: state.monsterKillCount ?? 0,
       eliteMonsterKillCount: state.eliteMonsterKillCount ?? 0,
       bossMonsterKillCount: state.bossMonsterKillCount ?? 0,
       deathCount: state.deathCount ?? 0,
-      boneAgeBaseYears: state.boneAgeBaseYears,
-      lifeElapsedTicks: state.lifeElapsedTicks,
-      lifespanYears: state.lifespanYears,
+      boneAgeBaseYears: normalizeBoneAgeBaseYears(state.boneAgeBaseYears),
+      lifeElapsedTicks: normalizeLifeElapsedTicks(state.lifeElapsedTicks),
+      lifespanYears: normalizeLifespanYears(state.lifespanYears),
       baseAttrs: state.baseAttrs as any,
       bonuses: state.bonuses as any,
-      temporaryBuffs: persisted.temporaryBuffs as any,
-      inventory: persisted.inventory as any,
-      marketStorage: persisted.marketStorage as any,
-      equipment: persisted.equipment as any,
-      techniques: persisted.techniques as any,
-      bodyTraining: persisted.bodyTraining as any,
-      quests: persisted.quests as any,
       questCrossMapNavCooldownUntilLifeTicks: state.questCrossMapNavCooldownUntilLifeTicks ?? 0,
       revealedBreakthroughRequirementIds: state.revealedBreakthroughRequirementIds as any,
-      heavenGate: this.toNullableJsonbValue(state.heavenGate),
-      spiritualRoots: this.toNullableJsonbValue(state.spiritualRoots),
-      unlockedMinimapIds: state.unlockedMinimapIds as any,
-      alchemySkill: state.alchemySkill as any,
-      gatherSkill: state.gatherSkill as any,
-      alchemyPresets: (state.alchemyPresets ?? []) as any,
-      alchemyJob: this.toNullableJsonbValue(state.alchemyJob),
-      enhancementSkillLevel: Math.max(1, Math.floor(Number(state.enhancementSkill?.level ?? state.enhancementSkillLevel) || 1)),
-      enhancementJob: this.toNullableJsonbValue(state.enhancementJob),
-      enhancementRecords: (state.enhancementSkill ?? null) as any,
-      autoBattle: state.autoBattle,
-      autoBattleSkills: state.autoBattleSkills as any,
-      autoUsePills: (state.autoUsePills ?? []) as any,
-      combatTargetingRules: state.combatTargetingRules as any,
-      autoBattleTargetingMode: state.autoBattleTargetingMode,
-      combatTargetId: state.combatTargetId ?? null,
-/** combatTargetLocked：定义该变量以承载业务值。 */
-      combatTargetLocked: state.combatTargetLocked === true,
-      autoRetaliate: state.autoRetaliate,
-/** autoBattleStationary：定义该变量以承载业务值。 */
-      autoBattleStationary: state.autoBattleStationary === true,
-/** allowAoePlayerHit：定义该变量以承载业务值。 */
-      allowAoePlayerHit: state.allowAoePlayerHit === true,
-      autoIdleCultivation: state.autoIdleCultivation,
-/** autoSwitchCultivation：定义该变量以承载业务值。 */
-      autoSwitchCultivation: state.autoSwitchCultivation === true,
-      cultivatingTechId: state.cultivatingTechId ?? null,
-      pendingLogbookMessages: (state.pendingLogbookMessages ?? []) as any,
-/** online：定义该变量以承载业务值。 */
+      heavenGate: clonePlainValue(state.heavenGate ?? null),
+      spiritualRoots: clonePlainValue(state.spiritualRoots ?? null),
+    };
+  }
+
+  /** buildPlayerCorePersistencePayload：处理当前场景中的对应操作。 */
+  private buildPlayerCorePersistencePayload(snapshot: PlayerCorePersistenceSnapshot) {
+    return {
+      mapId: snapshot.mapId,
+      respawnMapId: snapshot.respawnMapId,
+      x: snapshot.x,
+      y: snapshot.y,
+      facing: snapshot.facing,
+      viewRange: snapshot.viewRange,
+      hp: snapshot.hp,
+      maxHp: snapshot.maxHp,
+      qi: snapshot.qi,
+      dead: snapshot.dead,
+      foundation: snapshot.foundation,
+      combatExp: snapshot.combatExp,
+      playerKillCount: snapshot.playerKillCount,
+      monsterKillCount: snapshot.monsterKillCount,
+      eliteMonsterKillCount: snapshot.eliteMonsterKillCount,
+      bossMonsterKillCount: snapshot.bossMonsterKillCount,
+      deathCount: snapshot.deathCount,
+      boneAgeBaseYears: snapshot.boneAgeBaseYears,
+      lifeElapsedTicks: snapshot.lifeElapsedTicks,
+      lifespanYears: snapshot.lifespanYears,
+      baseAttrs: snapshot.baseAttrs as any,
+      bonuses: snapshot.bonuses as any,
+      questCrossMapNavCooldownUntilLifeTicks: snapshot.questCrossMapNavCooldownUntilLifeTicks,
+      revealedBreakthroughRequirementIds: snapshot.revealedBreakthroughRequirementIds as any,
+      heavenGate: this.toNullableJsonbValue(snapshot.heavenGate),
+      spiritualRoots: this.toNullableJsonbValue(snapshot.spiritualRoots),
+    };
+  }
+
+  private buildPlayerCollectionsPersistencePayload(snapshot: PlayerCollectionsPersistenceSnapshot) {
+    return {
+      temporaryBuffs: snapshot.temporaryBuffs as any,
+      inventory: snapshot.inventory as any,
+      marketStorage: snapshot.marketStorage as any,
+      equipment: snapshot.equipment as any,
+      techniques: snapshot.techniques as any,
+      bodyTraining: snapshot.bodyTraining as any,
+      quests: snapshot.quests as any,
+    };
+  }
+
+  private buildPlayerSettingsPersistencePayload(snapshot: PlayerSettingsPersistenceSnapshot) {
+    return {
+      unlockedMinimapIds: snapshot.unlockedMinimapIds as any,
+      alchemySkill: snapshot.alchemySkill as any,
+      gatherSkill: snapshot.gatherSkill as any,
+      alchemyPresets: snapshot.alchemyPresets as any,
+      alchemyJob: this.toNullableJsonbValue(snapshot.alchemyJob),
+      enhancementSkillLevel: snapshot.enhancementSkillLevel,
+      enhancementJob: this.toNullableJsonbValue(snapshot.enhancementJob),
+      enhancementRecords: snapshot.enhancementRecords as any,
+      autoBattle: snapshot.autoBattle,
+      autoBattleSkills: snapshot.autoBattleSkills as any,
+      autoUsePills: snapshot.autoUsePills as any,
+      combatTargetingRules: snapshot.combatTargetingRules as any,
+      autoBattleTargetingMode: snapshot.autoBattleTargetingMode,
+      combatTargetId: snapshot.combatTargetId,
+      combatTargetLocked: snapshot.combatTargetLocked,
+      autoRetaliate: snapshot.autoRetaliate,
+      autoBattleStationary: snapshot.autoBattleStationary,
+      allowAoePlayerHit: snapshot.allowAoePlayerHit,
+      autoIdleCultivation: snapshot.autoIdleCultivation,
+      autoSwitchCultivation: snapshot.autoSwitchCultivation,
+      cultivatingTechId: snapshot.cultivatingTechId,
+    };
+  }
+
+  /** buildPlayerPresencePersistenceSnapshot：处理当前场景中的对应操作。 */
+  private buildPlayerPresencePersistenceSnapshot(state: PlayerState): PlayerPresencePersistenceSnapshot {
+    return {
       online: state.online === true,
-/** inWorld：定义该变量以承载业务值。 */
       inWorld: state.inWorld !== false,
       lastHeartbeatAt: state.lastHeartbeatAt ? new Date(state.lastHeartbeatAt) : null,
       offlineSinceAt: state.offlineSinceAt ? new Date(state.offlineSinceAt) : null,
     };
   }
 
+  /** rememberPersistedCoreSnapshot：处理当前场景中的对应操作。 */
+  private rememberPersistedCoreSnapshot(playerId: string, snapshot: PlayerCorePersistenceSnapshot): void {
+    this.lastPersistedCoreSnapshots.set(playerId, clonePlainValue(snapshot));
+  }
+
+  private rememberPersistedCollectionsSnapshot(playerId: string, snapshot: PlayerCollectionsPersistenceSnapshot): void {
+    this.lastPersistedCollectionsSnapshots.set(playerId, clonePlainValue(snapshot));
+  }
+
+  private rememberPersistedSettingsSnapshot(playerId: string, snapshot: PlayerSettingsPersistenceSnapshot): void {
+    this.lastPersistedSettingsSnapshots.set(playerId, clonePlainValue(snapshot));
+  }
+
+  /** hasCorePersistenceSnapshotChanged：处理当前场景中的对应操作。 */
+  private hasCorePersistenceSnapshotChanged(playerId: string, snapshot: PlayerCorePersistenceSnapshot): boolean {
+    return !isPlainEqual(this.lastPersistedCoreSnapshots.get(playerId) ?? null, snapshot);
+  }
+
+  private hasCollectionsPersistenceSnapshotChanged(playerId: string, snapshot: PlayerCollectionsPersistenceSnapshot): boolean {
+    return !isPlainEqual(this.lastPersistedCollectionsSnapshots.get(playerId) ?? null, snapshot);
+  }
+
+  private hasSettingsPersistenceSnapshotChanged(playerId: string, snapshot: PlayerSettingsPersistenceSnapshot): boolean {
+    return !isPlainEqual(this.lastPersistedSettingsSnapshots.get(playerId) ?? null, snapshot);
+  }
+
+  /** schedulePlayerPresencePersistence：处理当前场景中的对应操作。 */
+  private schedulePlayerPresencePersistence(playerId: string): void {
+/** player：定义该变量以承载业务值。 */
+    const player = this.players.get(playerId);
+    if (!player || player.isBot) {
+      return;
+    }
+/** snapshot：定义该变量以承载业务值。 */
+    const snapshot = this.buildPlayerPresencePersistenceSnapshot(player);
+/** previous：定义该变量以承载业务值。 */
+    const previous = this.pendingPresencePersistions.get(playerId) ?? Promise.resolve();
+/** task：定义该变量以承载业务值。 */
+    const task: Promise<void> = previous
+      .catch(() => {})
+      .then(async () => {
+        await this.playerPresenceRepo.save(this.playerPresenceRepo.create({
+          playerId,
+          ...snapshot,
+        }));
+        await this.playerRepo.update(playerId, {
+          online: snapshot.online,
+          inWorld: snapshot.inWorld,
+          lastHeartbeatAt: snapshot.lastHeartbeatAt,
+          offlineSinceAt: snapshot.offlineSinceAt,
+        });
+      });
+/** trackedTask：定义该变量以承载业务值。 */
+    const trackedTask = task.finally(() => {
+      if (this.pendingPresencePersistions.get(playerId) === trackedTask) {
+        this.pendingPresencePersistions.delete(playerId);
+      }
+    });
+    this.pendingPresencePersistions.set(playerId, trackedTask);
+  }
+
   /** 将玩家状态同步到 Redis 缓存 */
   private syncPlayerCache(state: PlayerState): Promise<void> {
     return this.redisService.setPlayer(state, this.buildPersistedCollections(state));
+  }
+
+  private async ensureSplitPlayerPersistenceBackfilled(): Promise<void> {
+    const players = await this.playerRepo.find();
+    if (players.length === 0) {
+      return;
+    }
+    const playerIds = players.map((player) => player.id);
+    const [collectionsRows, settingsRows, presenceRows] = await Promise.all([
+      this.playerCollectionsRepo.findBy({ playerId: In(playerIds) }),
+      this.playerSettingsRepo.findBy({ playerId: In(playerIds) }),
+      this.playerPresenceRepo.findBy({ playerId: In(playerIds) }),
+    ]);
+    const collectionIds = new Set(collectionsRows.map((row) => row.playerId));
+    const settingsIds = new Set(settingsRows.map((row) => row.playerId));
+    const presenceIds = new Set(presenceRows.map((row) => row.playerId));
+
+    const collectionsToInsert = players
+      .filter((player) => !collectionIds.has(player.id))
+      .map((player) => this.playerCollectionsRepo.create({
+        playerId: player.id,
+        temporaryBuffs: player.temporaryBuffs,
+        inventory: player.inventory,
+        marketStorage: player.marketStorage,
+        equipment: player.equipment,
+        techniques: player.techniques,
+        bodyTraining: player.bodyTraining,
+        quests: player.quests,
+      }));
+    const settingsToInsert = players
+      .filter((player) => !settingsIds.has(player.id))
+      .map((player) => {
+/** snapshot：定义该变量以承载业务值。 */
+        const snapshot: PlayerSettingsPersistenceSnapshot = {
+          unlockedMinimapIds: player.unlockedMinimapIds as any,
+          alchemySkill: player.alchemySkill as any,
+          gatherSkill: player.gatherSkill as any,
+          alchemyPresets: (player.alchemyPresets ?? []) as any,
+          alchemyJob: clonePlainValue(player.alchemyJob ?? null),
+          enhancementSkillLevel: Math.max(1, Math.floor(Number(player.enhancementSkillLevel) || 1)),
+          enhancementJob: clonePlainValue(player.enhancementJob ?? null),
+          enhancementRecords: (player.enhancementRecords ?? null) as any,
+          autoBattle: player.autoBattle === true,
+          autoBattleSkills: (player.autoBattleSkills ?? []) as any,
+          autoUsePills: (player.autoUsePills ?? []) as any,
+          combatTargetingRules: player.combatTargetingRules as any,
+          autoBattleTargetingMode: normalizeAutoBattleTargetingMode(player.autoBattleTargetingMode),
+          combatTargetId: player.combatTargetId ?? null,
+          combatTargetLocked: player.combatTargetLocked === true,
+          autoRetaliate: player.autoRetaliate,
+          autoBattleStationary: player.autoBattleStationary === true,
+          allowAoePlayerHit: player.allowAoePlayerHit === true,
+          autoIdleCultivation: player.autoIdleCultivation,
+          autoSwitchCultivation: player.autoSwitchCultivation === true,
+          cultivatingTechId: player.cultivatingTechId ?? null,
+        };
+        return this.playerSettingsRepo.create({
+          playerId: player.id,
+          ...this.buildPlayerSettingsPersistencePayload(snapshot),
+        });
+      });
+    const presenceToInsert = players
+      .filter((player) => !presenceIds.has(player.id))
+      .map((player) => this.playerPresenceRepo.create({
+        playerId: player.id,
+        online: player.online,
+        inWorld: player.inWorld,
+        lastHeartbeatAt: player.lastHeartbeatAt,
+        offlineSinceAt: player.offlineSinceAt,
+      }));
+
+    if (collectionsToInsert.length > 0) {
+      await this.playerCollectionsRepo.save(collectionsToInsert);
+    }
+    if (settingsToInsert.length > 0) {
+      await this.playerSettingsRepo.save(settingsToInsert);
+    }
+    if (presenceToInsert.length > 0) {
+      await this.playerPresenceRepo.save(presenceToInsert);
+    }
+  }
+
+  private async loadPlayerPersistedGroups(playerId: string): Promise<PlayerPersistedGroups> {
+    const [collections, settings, presence] = await Promise.all([
+      this.playerCollectionsRepo.findOne({ where: { playerId } }),
+      this.playerSettingsRepo.findOne({ where: { playerId } }),
+      this.playerPresenceRepo.findOne({ where: { playerId } }),
+    ]);
+    return { collections, settings, presence };
+  }
+
+  private async loadPlayerPersistedGroupsByIds(playerIds: string[]): Promise<Map<string, PlayerPersistedGroups>> {
+    const result = new Map<string, PlayerPersistedGroups>();
+    if (playerIds.length === 0) {
+      return result;
+    }
+    const [collectionsRows, settingsRows, presenceRows] = await Promise.all([
+      this.playerCollectionsRepo.findBy({ playerId: In(playerIds) }),
+      this.playerSettingsRepo.findBy({ playerId: In(playerIds) }),
+      this.playerPresenceRepo.findBy({ playerId: In(playerIds) }),
+    ]);
+    const collectionsById = new Map(collectionsRows.map((row) => [row.playerId, row]));
+    const settingsById = new Map(settingsRows.map((row) => [row.playerId, row]));
+    const presenceById = new Map(presenceRows.map((row) => [row.playerId, row]));
+    for (const playerId of playerIds) {
+      result.set(playerId, {
+        collections: collectionsById.get(playerId) ?? null,
+        settings: settingsById.get(playerId) ?? null,
+        presence: presenceById.get(playerId) ?? null,
+      });
+    }
+    return result;
   }
 
   /** 从 PG 加载玩家存档，写入内存 + Redis */
@@ -346,10 +700,11 @@ export class PlayerService implements OnModuleInit {
     if (user) {
       await this.settleRecoveredOnlineSession(user);
     }
+    const groups = await this.loadPlayerPersistedGroups(entity.id);
 /** state：定义该变量以承载业务值。 */
     const state = this.hydratePlayerState(entity, user
       ? resolveDisplayName(user.displayName, user.username)
-      : entity.name);
+      : entity.name, groups);
 /** resolvedPosition：定义该变量以承载业务值。 */
     const resolvedPosition = this.resolveRetainedPlayerPosition(state);
     if (resolvedPosition.mapId !== state.mapId || resolvedPosition.x !== state.x || resolvedPosition.y !== state.y) {
@@ -364,6 +719,10 @@ export class PlayerService implements OnModuleInit {
     }
     this.players.set(state.id, state);
     await this.syncPlayerCache(state);
+    const persisted = this.buildPersistedCollections(state);
+    this.rememberPersistedCoreSnapshot(state.id, this.buildPlayerCorePersistenceSnapshot(state));
+    this.rememberPersistedCollectionsSnapshot(state.id, this.buildPlayerCollectionsPersistenceSnapshot(persisted));
+    this.rememberPersistedSettingsSnapshot(state.id, this.buildPlayerSettingsPersistenceSnapshot(state));
     return state;
   }
 
@@ -400,6 +759,8 @@ export class PlayerService implements OnModuleInit {
     });
 /** userById：定义该变量以承载业务值。 */
     const userById = new Map(users.map((user) => [user.id, user]));
+/** groupsById：定义该变量以承载业务值。 */
+    const groupsById = await this.loadPlayerPersistedGroupsByIds(entities.map((entity) => entity.id));
 
 /** restored：定义该变量以承载业务值。 */
     let restored = 0;
@@ -418,7 +779,7 @@ export class PlayerService implements OnModuleInit {
         ? resolveDisplayName(user.displayName, user.username)
         : entity.name;
 /** state：定义该变量以承载业务值。 */
-      const state = this.hydratePlayerState(entity, displayName);
+      const state = this.hydratePlayerState(entity, displayName, groupsById.get(entity.id));
 
       if (state.online === true) {
         recoveredOnline += 1;
@@ -443,7 +804,10 @@ export class PlayerService implements OnModuleInit {
       this.players.set(state.id, state);
       this.userToPlayer.set(entity.userId, state.id);
       this.mapService.addOccupant(state.mapId, state.x, state.y, state.id, 'player');
-      await this.persistPlayerState(state);
+      await this.persistPlayerCoreState(state, { force: true });
+      await this.persistPlayerCollectionsState(state, { force: true });
+      await this.persistPlayerSettingsState(state, { force: true });
+      await this.persistPlayerPresenceState(state, { force: true });
       await this.syncPlayerCache(state);
       restored += 1;
     }
@@ -512,7 +876,19 @@ export class PlayerService implements OnModuleInit {
 /** persisted：定义该变量以承载业务值。 */
     const persisted = this.buildPersistedCollections(state);
 /** payload：定义该变量以承载业务值。 */
-    const payload = this.buildPlayerPersistencePayload(state, persisted);
+    const coreSnapshot = this.buildPlayerCorePersistenceSnapshot(state);
+/** collectionsSnapshot：定义该变量以承载业务值。 */
+    const collectionsSnapshot = this.buildPlayerCollectionsPersistenceSnapshot(persisted);
+/** settingsSnapshot：定义该变量以承载业务值。 */
+    const settingsSnapshot = this.buildPlayerSettingsPersistenceSnapshot(state);
+/** payload：定义该变量以承载业务值。 */
+    const payload = {
+      ...this.buildPlayerCorePersistencePayload(coreSnapshot),
+      ...this.buildPlayerCollectionsPersistencePayload(collectionsSnapshot),
+      ...this.buildPlayerSettingsPersistencePayload(settingsSnapshot),
+      ...this.buildPlayerPresencePersistenceSnapshot(state),
+      pendingLogbookMessages: (state.pendingLogbookMessages ?? []) as any,
+    };
 
     await this.playerRepo.createQueryBuilder()
       .insert()
@@ -524,7 +900,22 @@ export class PlayerService implements OnModuleInit {
         ...payload,
       })
       .execute();
+    await this.playerCollectionsRepo.save(this.playerCollectionsRepo.create({
+      playerId: state.id,
+      ...this.buildPlayerCollectionsPersistencePayload(collectionsSnapshot),
+    }));
+    await this.playerSettingsRepo.save(this.playerSettingsRepo.create({
+      playerId: state.id,
+      ...this.buildPlayerSettingsPersistencePayload(settingsSnapshot),
+    }));
+    await this.playerPresenceRepo.save(this.playerPresenceRepo.create({
+      playerId: state.id,
+      ...this.buildPlayerPresencePersistenceSnapshot(state),
+    }));
     this.players.set(state.id, state);
+    this.rememberPersistedCoreSnapshot(state.id, coreSnapshot);
+    this.rememberPersistedCollectionsSnapshot(state.id, collectionsSnapshot);
+    this.rememberPersistedSettingsSnapshot(state.id, settingsSnapshot);
     await this.redisService.setPlayer(state, persisted);
   }
 
@@ -533,7 +924,39 @@ export class PlayerService implements OnModuleInit {
 /** state：定义该变量以承载业务值。 */
     const state = this.players.get(playerId);
     if (!state || state.isBot) return;
-    await this.persistPlayerState(state);
+    await this.persistPlayerCoreState(state, { force: true });
+    await this.persistPlayerCollectionsState(state, { force: true });
+    await this.persistPlayerSettingsState(state, { force: true });
+    await this.persistPlayerPresenceState(state, { force: true });
+  }
+
+  async savePlayerCollections(playerId: string): Promise<void> {
+    const state = this.players.get(playerId);
+    if (!state || state.isBot) return;
+    await this.persistPlayerCollectionsState(state, { force: true });
+  }
+
+  async saveOfflineMarketStorage(playerId: string, marketStorage: PlayerState['marketStorage']): Promise<void> {
+    const entity = await this.playerCollectionsRepo.findOne({ where: { playerId } });
+    if (entity) {
+      entity.marketStorage = (marketStorage ?? { items: [] }) as any;
+      await this.playerCollectionsRepo.save(entity);
+    } else {
+      await this.playerCollectionsRepo.save(this.playerCollectionsRepo.create({
+        playerId,
+        marketStorage: (marketStorage ?? { items: [] }) as any,
+      }));
+    }
+    await this.playerRepo.update(playerId, {
+      marketStorage: (marketStorage ?? { items: [] }) as any,
+    });
+  }
+
+  async saveDetachedPlayerState(state: PlayerState): Promise<void> {
+    await this.persistPlayerCoreState(state, { force: true });
+    await this.persistPlayerCollectionsState(state, { force: true });
+    await this.persistPlayerSettingsState(state, { force: true });
+    await this.persistPlayerPresenceState(state, { force: true });
   }
 
   /** 批量落盘所有已加载玩家 */
@@ -543,11 +966,23 @@ export class PlayerService implements OnModuleInit {
     if (states.length === 0) return;
 /** failures：定义该变量以承载业务值。 */
     const failures: string[] = [];
+/** persistedCount：定义该变量以承载业务值。 */
+    let persistedCount = 0;
     for (let index = 0; index < states.length; index += PLAYER_PERSIST_CONCURRENCY) {
       const batch = states.slice(index, index + PLAYER_PERSIST_CONCURRENCY);
-      const results = await Promise.allSettled(batch.map((state) => this.persistPlayerState(state)));
+      const results = await Promise.allSettled(batch.map(async (state) => {
+        const [coreChanged, collectionsChanged, settingsChanged] = await Promise.all([
+          this.persistPlayerCoreState(state),
+          this.persistPlayerCollectionsState(state),
+          this.persistPlayerSettingsState(state),
+        ]);
+        return coreChanged || collectionsChanged || settingsChanged;
+      }));
       results.forEach((result, batchIndex) => {
         if (result.status === 'fulfilled') {
+          if (result.value) {
+            persistedCount += 1;
+          }
           return;
         }
 /** reason：定义该变量以承载业务值。 */
@@ -558,12 +993,20 @@ export class PlayerService implements OnModuleInit {
     if (failures.length > 0) {
       throw new Error(`玩家批量落盘失败 ${failures.length}/${states.length} 项: ${failures.slice(0, 3).join('; ')}`);
     }
-    this.logger.log(`批量落盘 ${states.length} 名玩家`);
+    if (persistedCount > 0) {
+      this.logger.log(`批量落盘 ${persistedCount}/${states.length} 名玩家`);
+    }
   }
 
   /** 将玩家加入内存并同步 Redis（用于存档恢复后的注册） */
   addPlayer(state: PlayerState) {
     this.players.set(state.id, state);
+    if (!state.isBot) {
+      const persisted = this.buildPersistedCollections(state);
+      this.rememberPersistedCoreSnapshot(state.id, this.buildPlayerCorePersistenceSnapshot(state));
+      this.rememberPersistedCollectionsSnapshot(state.id, this.buildPlayerCollectionsPersistenceSnapshot(persisted));
+      this.rememberPersistedSettingsSnapshot(state.id, this.buildPlayerSettingsPersistenceSnapshot(state));
+    }
     this.syncPlayerCache(state).catch(() => {});
   }
 
@@ -578,6 +1021,10 @@ export class PlayerService implements OnModuleInit {
     this.socketMap.delete(playerId);
     this.dirtyFlags.delete(playerId);
     this.pendingLogbookPersistions.delete(playerId);
+    this.pendingPresencePersistions.delete(playerId);
+    this.lastPersistedCoreSnapshots.delete(playerId);
+    this.lastPersistedCollectionsSnapshots.delete(playerId);
+    this.lastPersistedSettingsSnapshots.delete(playerId);
 /** userId：定义该变量以承载业务值。 */
     const userId = this.getUserIdByPlayerId(playerId);
     if (userId) {
@@ -593,6 +1040,10 @@ export class PlayerService implements OnModuleInit {
     this.socketMap.delete(playerId);
     this.dirtyFlags.delete(playerId);
     this.pendingLogbookPersistions.delete(playerId);
+    this.pendingPresencePersistions.delete(playerId);
+    this.lastPersistedCoreSnapshots.delete(playerId);
+    this.lastPersistedCollectionsSnapshots.delete(playerId);
+    this.lastPersistedSettingsSnapshots.delete(playerId);
 /** userId：定义该变量以承载业务值。 */
     const userId = this.getUserIdByPlayerId(playerId);
     if (userId) {
@@ -692,6 +1143,10 @@ export class PlayerService implements OnModuleInit {
     this.onlineSessionStartedAtByUserId.clear();
     this.dirtyFlags.clear();
     this.pendingLogbookPersistions.clear();
+    this.pendingPresencePersistions.clear();
+    this.lastPersistedCoreSnapshots.clear();
+    this.lastPersistedCollectionsSnapshots.clear();
+    this.lastPersistedSettingsSnapshots.clear();
   }
 
 /** getPlayerByUserId：执行对应的业务逻辑。 */
@@ -830,6 +1285,7 @@ export class PlayerService implements OnModuleInit {
         .execute()
         .catch(() => {});
     }
+    this.schedulePlayerPresencePersistence(playerId);
     this.syncPlayerRealtimeState(playerId);
   }
 
@@ -877,6 +1333,7 @@ export class PlayerService implements OnModuleInit {
           .catch(() => {});
       }
     }
+    this.schedulePlayerPresencePersistence(playerId);
     this.syncPlayerRealtimeState(playerId);
   }
 
@@ -1479,11 +1936,21 @@ export class PlayerService implements OnModuleInit {
   }
 
 /** hydratePlayerState：执行对应的业务逻辑。 */
-  private hydratePlayerState(entity: PlayerEntity, displayName: string): PlayerState {
+  private hydratePlayerState(
+    entity: PlayerEntity,
+    displayName: string,
+    groups?: Partial<PlayerPersistedGroups> | null,
+  ): PlayerState {
 /** legacyEnhancementSkillLevel：定义该变量以承载业务值。 */
-    const legacyEnhancementSkillLevel = Math.max(1, Math.floor(Number(entity.enhancementSkillLevel) || 1));
+    const legacyEnhancementSkillLevel = Math.max(1, Math.floor(Number(groups?.settings?.enhancementSkillLevel ?? entity.enhancementSkillLevel) || 1));
 /** enhancementSkillFallbackExpToNext：定义该变量以承载业务值。 */
     const enhancementSkillFallbackExpToNext = Math.max(0, this.contentService.getRealmLevelEntry(legacyEnhancementSkillLevel)?.expToNext ?? 60);
+/** collections：定义该变量以承载业务值。 */
+    const collections = groups?.collections ?? null;
+/** settings：定义该变量以承载业务值。 */
+    const settings = groups?.settings ?? null;
+/** presence：定义该变量以承载业务值。 */
+    const presence = groups?.presence ?? null;
 /** state：定义该变量以承载业务值。 */
     const state: PlayerState = {
       id: entity.id,
@@ -1512,77 +1979,77 @@ export class PlayerService implements OnModuleInit {
       lifespanYears: normalizeLifespanYears(entity.lifespanYears),
       baseAttrs: (entity.baseAttrs ?? { ...DEFAULT_BASE_ATTRS }) as Attributes,
       bonuses: (entity.bonuses ?? []) as AttrBonus[],
-      temporaryBuffs: this.normalizeTemporaryBuffs(hydrateTemporaryBuffSnapshots(entity.temporaryBuffs, this.contentService)),
-      inventory: hydrateInventorySnapshot(entity.inventory, this.contentService),
-      marketStorage: hydrateMarketStorageSnapshot(entity.marketStorage, this.contentService),
-      equipment: hydrateEquipmentSnapshot(entity.equipment, this.contentService),
-      techniques: hydrateTechniqueSnapshots(entity.techniques),
-      bodyTraining: hydrateBodyTrainingSnapshot(entity.bodyTraining),
-      quests: this.normalizeQuests(hydrateQuestSnapshots(entity.quests, this.mapService, this.contentService)),
+      temporaryBuffs: this.normalizeTemporaryBuffs(hydrateTemporaryBuffSnapshots(collections?.temporaryBuffs ?? entity.temporaryBuffs, this.contentService)),
+      inventory: hydrateInventorySnapshot(collections?.inventory ?? entity.inventory, this.contentService),
+      marketStorage: hydrateMarketStorageSnapshot(collections?.marketStorage ?? entity.marketStorage, this.contentService),
+      equipment: hydrateEquipmentSnapshot(collections?.equipment ?? entity.equipment, this.contentService),
+      techniques: hydrateTechniqueSnapshots(collections?.techniques ?? entity.techniques),
+      bodyTraining: hydrateBodyTrainingSnapshot(collections?.bodyTraining ?? entity.bodyTraining),
+      quests: this.normalizeQuests(hydrateQuestSnapshots(collections?.quests ?? entity.quests, this.mapService, this.contentService)),
       questCrossMapNavCooldownUntilLifeTicks: normalizeLifeElapsedTicks(entity.questCrossMapNavCooldownUntilLifeTicks),
       revealedBreakthroughRequirementIds: Array.isArray(entity.revealedBreakthroughRequirementIds)
         ? entity.revealedBreakthroughRequirementIds.filter((entry): entry is string => typeof entry === 'string')
         : [],
       heavenGate: this.techniqueService.normalizeHeavenGateState(entity.heavenGate),
       spiritualRoots: this.techniqueService.normalizeHeavenGateRoots(entity.spiritualRoots),
-      unlockedMinimapIds: normalizeUnlockedMinimapIds(entity.unlockedMinimapIds),
+      unlockedMinimapIds: normalizeUnlockedMinimapIds(settings?.unlockedMinimapIds ?? entity.unlockedMinimapIds),
       alchemySkill: normalizeAlchemySkillState(
-        entity.alchemySkill,
+        settings?.alchemySkill ?? entity.alchemySkill,
         this.contentService.getRealmLevelEntry(1)?.expToNext ?? 60,
       ),
       gatherSkill: normalizeAlchemySkillState(
-        entity.gatherSkill,
+        settings?.gatherSkill ?? entity.gatherSkill,
         this.contentService.getRealmLevelEntry(1)?.expToNext ?? 60,
       ),
-      alchemyPresets: normalizePlayerAlchemyPresets(entity.alchemyPresets),
-      alchemyJob: normalizePlayerAlchemyJob(entity.alchemyJob),
+      alchemyPresets: normalizePlayerAlchemyPresets(settings?.alchemyPresets ?? entity.alchemyPresets),
+      alchemyJob: normalizePlayerAlchemyJob(settings?.alchemyJob ?? entity.alchemyJob),
       enhancementSkill: normalizeAlchemySkillState(
-        Array.isArray(entity.enhancementRecords)
+        Array.isArray(settings?.enhancementRecords ?? entity.enhancementRecords)
           ? {
               level: legacyEnhancementSkillLevel,
               exp: 0,
               expToNext: enhancementSkillFallbackExpToNext,
             }
-          : entity.enhancementRecords,
+          : settings?.enhancementRecords ?? entity.enhancementRecords,
         enhancementSkillFallbackExpToNext,
       ),
       enhancementSkillLevel: legacyEnhancementSkillLevel,
-      enhancementJob: normalizePlayerEnhancementJob(entity.enhancementJob),
+      enhancementJob: normalizePlayerEnhancementJob(settings?.enhancementJob ?? entity.enhancementJob),
       enhancementRecords: [],
-      autoBattle: entity.autoBattle ?? false,
-      autoBattleSkills: (entity.autoBattleSkills ?? []) as AutoBattleSkillConfig[],
-      autoUsePills: normalizeAutoUsePillConfigs(entity.autoUsePills),
+      autoBattle: settings?.autoBattle ?? entity.autoBattle ?? false,
+      autoBattleSkills: ((settings?.autoBattleSkills ?? entity.autoBattleSkills) ?? []) as AutoBattleSkillConfig[],
+      autoUsePills: normalizeAutoUsePillConfigs(settings?.autoUsePills ?? entity.autoUsePills),
       combatTargetingRules: normalizeCombatTargetingRules(
-        entity.combatTargetingRules,
-        buildDefaultCombatTargetingRules({ includeAllPlayersHostile: entity.allowAoePlayerHit === true }),
+        settings?.combatTargetingRules ?? entity.combatTargetingRules,
+        buildDefaultCombatTargetingRules({ includeAllPlayersHostile: (settings?.allowAoePlayerHit ?? entity.allowAoePlayerHit) === true }),
       ),
-      autoBattleTargetingMode: normalizeAutoBattleTargetingMode(entity.autoBattleTargetingMode),
-      combatTargetId: entity.combatTargetId ?? undefined,
+      autoBattleTargetingMode: normalizeAutoBattleTargetingMode(settings?.autoBattleTargetingMode ?? entity.autoBattleTargetingMode),
+      combatTargetId: settings?.combatTargetId ?? entity.combatTargetId ?? undefined,
 /** combatTargetLocked：定义该变量以承载业务值。 */
-      combatTargetLocked: entity.combatTargetLocked === true,
-      autoRetaliate: entity.autoRetaliate ?? true,
+      combatTargetLocked: settings?.combatTargetLocked ?? entity.combatTargetLocked === true,
+      autoRetaliate: settings?.autoRetaliate ?? entity.autoRetaliate ?? true,
 /** autoBattleStationary：定义该变量以承载业务值。 */
-      autoBattleStationary: entity.autoBattleStationary === true,
+      autoBattleStationary: settings?.autoBattleStationary ?? entity.autoBattleStationary === true,
       allowAoePlayerHit: hasCombatTargetingRule(
         normalizeCombatTargetingRules(
-          entity.combatTargetingRules,
-          buildDefaultCombatTargetingRules({ includeAllPlayersHostile: entity.allowAoePlayerHit === true }),
+          settings?.combatTargetingRules ?? entity.combatTargetingRules,
+          buildDefaultCombatTargetingRules({ includeAllPlayersHostile: (settings?.allowAoePlayerHit ?? entity.allowAoePlayerHit) === true }),
         ),
         'hostile',
         'all_players',
       ),
-      autoIdleCultivation: entity.autoIdleCultivation ?? true,
+      autoIdleCultivation: settings?.autoIdleCultivation ?? entity.autoIdleCultivation ?? true,
 /** autoSwitchCultivation：定义该变量以承载业务值。 */
-      autoSwitchCultivation: entity.autoSwitchCultivation === true,
+      autoSwitchCultivation: settings?.autoSwitchCultivation ?? entity.autoSwitchCultivation === true,
       cultivationActive: false,
       actions: [],
-      cultivatingTechId: entity.cultivatingTechId ?? undefined,
+      cultivatingTechId: settings?.cultivatingTechId ?? entity.cultivatingTechId ?? undefined,
       pendingLogbookMessages: this.normalizePendingLogbookMessages(entity.pendingLogbookMessages),
       idleTicks: 0,
-      online: entity.online ?? false,
-      inWorld: entity.inWorld ?? false,
-      lastHeartbeatAt: entity.lastHeartbeatAt?.getTime(),
-      offlineSinceAt: entity.offlineSinceAt?.getTime(),
+      online: presence?.online ?? entity.online ?? false,
+      inWorld: presence?.inWorld ?? entity.inWorld ?? false,
+      lastHeartbeatAt: (presence?.lastHeartbeatAt ?? entity.lastHeartbeatAt)?.getTime(),
+      offlineSinceAt: (presence?.offlineSinceAt ?? entity.offlineSinceAt)?.getTime(),
     };
     this.techniqueService.initializePlayerProgression(state);
     this.equipmentService.rebuildBonuses(state);
@@ -1609,25 +2076,95 @@ export class PlayerService implements OnModuleInit {
     state.combatTargetLocked = false;
     state.retaliatePlayerTargetId = undefined;
     state.idleTicks = 0;
-    await this.persistPlayerState(state);
+    await this.persistPlayerCoreState(state, { force: true });
+    await this.persistPlayerCollectionsState(state, { force: true });
+    await this.persistPlayerSettingsState(state, { force: true });
+    await this.persistPlayerPresenceState(state, { force: true });
     await this.syncPlayerCache(state);
   }
 
-/** persistPlayerState：执行对应的业务逻辑。 */
-  private async persistPlayerState(state: PlayerState): Promise<void> {
-    this.techniqueService.preparePlayerForPersistence(state);
-/** persisted：定义该变量以承载业务值。 */
-    const persisted = this.buildPersistedCollections(state);
-/** payload：定义该变量以承载业务值。 */
-    const payload = this.buildPlayerPersistencePayload(state, persisted);
+/** persistPlayerPresenceState：执行对应的业务逻辑。 */
+  private async persistPlayerPresenceState(state: PlayerState, _options?: { force?: boolean }): Promise<void> {
+    const snapshot = this.buildPlayerPresencePersistenceSnapshot(state);
+    await this.playerPresenceRepo.save(this.playerPresenceRepo.create({
+      playerId: state.id,
+      ...snapshot,
+    }));
     await this.playerRepo.createQueryBuilder()
       .update(PlayerEntity)
       .set({
-        name: state.name,
+        online: snapshot.online,
+        inWorld: snapshot.inWorld,
+        lastHeartbeatAt: snapshot.lastHeartbeatAt,
+        offlineSinceAt: snapshot.offlineSinceAt,
+      })
+      .where('id = :id', { id: state.id })
+      .execute();
+  }
+
+/** persistPlayerCollectionsState：执行对应的业务逻辑。 */
+  private async persistPlayerCollectionsState(state: PlayerState, options?: { force?: boolean }): Promise<boolean> {
+    const persisted = this.buildPersistedCollections(state);
+    const snapshot = this.buildPlayerCollectionsPersistenceSnapshot(persisted);
+    if (options?.force !== true && !this.hasCollectionsPersistenceSnapshotChanged(state.id, snapshot)) {
+      return false;
+    }
+    await this.playerCollectionsRepo.save(this.playerCollectionsRepo.create({
+      playerId: state.id,
+      ...this.buildPlayerCollectionsPersistencePayload(snapshot),
+    }));
+    await this.playerRepo.createQueryBuilder()
+      .update(PlayerEntity)
+      .set({
+        ...this.buildPlayerCollectionsPersistencePayload(snapshot),
+      })
+      .where('id = :id', { id: state.id })
+      .execute();
+    this.rememberPersistedCollectionsSnapshot(state.id, snapshot);
+    return true;
+  }
+
+/** persistPlayerSettingsState：执行对应的业务逻辑。 */
+  private async persistPlayerSettingsState(state: PlayerState, options?: { force?: boolean }): Promise<boolean> {
+    const snapshot = this.buildPlayerSettingsPersistenceSnapshot(state);
+    if (options?.force !== true && !this.hasSettingsPersistenceSnapshotChanged(state.id, snapshot)) {
+      return false;
+    }
+    await this.playerSettingsRepo.save(this.playerSettingsRepo.create({
+      playerId: state.id,
+      ...this.buildPlayerSettingsPersistencePayload(snapshot),
+    }));
+    await this.playerRepo.createQueryBuilder()
+      .update(PlayerEntity)
+      .set({
+        ...this.buildPlayerSettingsPersistencePayload(snapshot),
+      })
+      .where('id = :id', { id: state.id })
+      .execute();
+    this.rememberPersistedSettingsSnapshot(state.id, snapshot);
+    return true;
+  }
+
+/** persistPlayerCoreState：执行对应的业务逻辑。 */
+  private async persistPlayerCoreState(state: PlayerState, options?: { force?: boolean }): Promise<boolean> {
+    this.techniqueService.preparePlayerForPersistence(state);
+/** snapshot：定义该变量以承载业务值。 */
+    const snapshot = this.buildPlayerCorePersistenceSnapshot(state);
+    if (options?.force !== true && !this.hasCorePersistenceSnapshotChanged(state.id, snapshot)) {
+      return false;
+    }
+/** payload：定义该变量以承载业务值。 */
+    const payload = this.buildPlayerCorePersistencePayload(snapshot);
+    await this.playerRepo.createQueryBuilder()
+      .update(PlayerEntity)
+      .set({
+        name: snapshot.name,
         ...payload,
       })
       .where('id = :id', { id: state.id })
       .execute();
+    this.rememberPersistedCoreSnapshot(state.id, snapshot);
+    return true;
   }
 
   private computeOnlineSessionSeconds(startedAt: number | Date | null | undefined, endedAt = Date.now()): number {

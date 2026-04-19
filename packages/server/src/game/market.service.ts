@@ -1636,8 +1636,7 @@ export class MarketService implements OnModuleInit {
     }
 /** storage：定义该变量以承载业务值。 */
     const storage = this.normalizeStorage(entity.marketStorage);
-    entity.marketStorage = this.toPersistedStorage(this.mergeStorageItem(storage, item)) as unknown as Record<string, unknown>;
-    await context.playerRepo.save(entity);
+    await this.playerService.saveOfflineMarketStorage(playerId, this.mergeStorageItem(storage, item));
   }
 
 /** mergeStorageItem：执行对应的业务逻辑。 */
@@ -2043,18 +2042,7 @@ export class MarketService implements OnModuleInit {
 /** persistTouchedOnlinePlayers：执行对应的业务逻辑。 */
   private async persistTouchedOnlinePlayers(context: MarketMutationContext): Promise<void> {
     for (const playerId of context.touchedOnlinePlayerIds) {
-      const player = this.playerService.getPlayer(playerId);
-      if (!player) {
-        continue;
-      }
-      await context.playerRepo.save(context.playerRepo.create({
-        id: playerId,
-        inventory: {
-          capacity: player.inventory.capacity,
-          items: player.inventory.items.map((item) => ({ ...item })),
-        } as unknown as Record<string, unknown>,
-        marketStorage: this.toPersistedStorage(player.marketStorage ?? { items: [] }) as unknown as Record<string, unknown>,
-      }));
+      await this.playerService.savePlayerCollections(playerId);
     }
   }
 
