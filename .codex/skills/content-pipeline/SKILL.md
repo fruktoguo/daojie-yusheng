@@ -1,6 +1,6 @@
 ---
 name: content-pipeline
-description: Use this skill when reorganizing or syncing game content in this repo after editing techniques, items, monsters, drops, or editor-visible catalog data. Covers organize-techniques, sync-technique-books, sync-qi-items, and generate-editor-catalog for client and client-next.
+description: Use this skill when reorganizing or syncing game content in this repo after editing techniques, items, monsters, drops, or editor-visible catalog data. Covers organize-techniques, sync-technique-books, sync-qi-items, and generate-editor-catalog for client.
 ---
 
 # 内容流水线
@@ -32,7 +32,6 @@ description: Use this skill when reorganizing or syncing game content in this re
 生成物，不要手改：
 
 - `packages/client/src/constants/world/editor-catalog.generated.json`
-- `packages/client-next/src/constants/world/editor-catalog.generated.json`
 
 ## 选脚本规则
 
@@ -78,7 +77,6 @@ pnpm sync:qi-items
 
 ```bash
 pnpm generate:editor-catalog
-pnpm generate:editor-catalog:next
 ```
 
 对应脚本：
@@ -86,6 +84,7 @@ pnpm generate:editor-catalog:next
 - `scripts/generate-editor-catalog.mjs`
 
 只改旧客户端就只跑旧客户端目录，只改 next 就只跑 next；两边都受影响时再都跑。
+当前分支只维护 `packages/client`，不再处理已移除的另一套客户端目录生成。
 
 ## 强制流程
 

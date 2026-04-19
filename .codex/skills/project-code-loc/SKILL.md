@@ -32,9 +32,9 @@ description: Use this skill when you need to count a repository's source-code li
   - 常见工具配置文件，例如 `vite.config.ts`、`vitest.config.ts`、`jest.config.ts`、`tailwind.config.ts`、`webpack.config.js`
 - 不把 `json`、`yaml`、`toml`、`ini`、lockfile 这类配置或数据文件纳入源码行数。
 - 默认区域识别：
-  - `packages/client`、`packages/client-next`、`packages/config-editor` 归为 `frontend`
-  - `packages/server`、`packages/server-next` 归为 `backend`
-  - `packages/shared`、`packages/shared-next` 归为 `shared`
+  - `packages/client`、`packages/config-editor` 归为 `frontend`
+  - `packages/server` 归为 `backend`
+  - `packages/shared` 归为 `shared`
   - 其他路径归为 `other`
 
 ## 常用命令

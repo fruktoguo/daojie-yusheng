@@ -1,6 +1,6 @@
 ---
 name: network-protocol-author
-description: Use this skill when creating or refactoring network protocols and packet emission in this repo, including shared socket payload types, server/server-next emit paths, bootstrap/static/detail/delta splitting, AOI broadcast design, protobuf payload shaping, and minimizing packet size by excluding static information from high-frequency messages.
+description: Use this skill when creating or refactoring network protocols and packet emission in this repo, including shared socket payload types, server emit paths, bootstrap/static/detail/delta splitting, AOI broadcast design, protobuf payload shaping, and minimizing packet size by excluding static information from high-frequency messages.
 ---
 
 # 网络协议与发包
@@ -11,7 +11,7 @@ description: Use this skill when creating or refactoring network protocols and p
 
 - 修改 `packages/shared/src/protocol.ts`
 - 修改 `packages/shared/src/network-protobuf.ts`
-- 修改 `packages/server/src/game/` 或 `packages/server-next/src/` 的发包逻辑
+- 修改 `packages/server/src/game/` 的发包逻辑
 - 新增 socket 事件、重构现有 delta、拆分 bootstrap/static/detail/panel/world/self 同步
 - 审查某段广播是否发太多、发太宽、发错层
 
@@ -23,9 +23,6 @@ description: Use this skill when creating or refactoring network protocols and p
 - `packages/shared/src/network-protobuf.ts`
 - `docs/next-protocol-audit.md`
 - `docs/qi-system-design.md`
-- `packages/server-next/src/tools/next-protocol-audit.js`
-
-如果任务落在 `server-next`，改完后优先串 `server-next-verify` 做协议审计。
 
 ## 先分层，再发包
 
@@ -61,7 +58,7 @@ description: Use this skill when creating or refactoring network protocols and p
 5. 如果字段是玩家相关投影结果，只发给相关玩家，不做公共广播。
 6. 如果已有现成层级可复用，优先沿用 `MapStatic`、`WorldDelta`、`SelfDelta`、`PanelDelta`、`Detail` 等现有事件，不要平地起新大包。
 7. 需要二进制高频链路时，优先把字段做成真正的 protobuf message，不要在 protobuf 里再塞 JSON 字符串。
-8. 改完后执行最小必要验证；涉及 next 协议优先跑 `pnpm audit:server-next-protocol`。
+8. 改完后执行最小必要验证；默认优先跑 `pnpm build` 或服务端相关最小编译验证。
 
 ## 硬规则
 
@@ -88,4 +85,4 @@ description: Use this skill when creating or refactoring network protocols and p
 - 哪些字段留在高频包，为什么必须留
 - 哪些字段被拆到首包、静态包或详情包
 - 是否遵守了最小包体和“高频不发静态信息”
-- 是否执行了 `pnpm audit:server-next-protocol`、`pnpm build` 或其他直接验证
+- 是否执行了 `pnpm build` 或其他直接验证

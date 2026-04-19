@@ -58,7 +58,6 @@ description: Use this skill when creating, expanding, or rewriting cultivation t
 客户端生成目录不是手改目标：
 
 - `packages/client/src/constants/world/editor-catalog.generated.json`
-- `packages/client-next/src/constants/world/editor-catalog.generated.json`
 
 ## 写技能前必须先做的事
 

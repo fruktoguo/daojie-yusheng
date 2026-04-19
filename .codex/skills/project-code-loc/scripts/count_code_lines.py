@@ -231,11 +231,11 @@ def detect_area(relative_path: PurePosixPath) -> str:
     parts = relative_path.parts
     if len(parts) >= 2 and parts[0] == "packages":
         package_name = parts[1]
-        if package_name in {"client", "client-next", "config-editor"}:
+        if package_name in {"client", "config-editor"}:
             return "frontend"
-        if package_name in {"server", "server-next"}:
+        if package_name in {"server"}:
             return "backend"
-        if package_name in {"shared", "shared-next"}:
+        if package_name in {"shared"}:
             return "shared"
     return "other"
 
