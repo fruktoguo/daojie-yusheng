@@ -269,6 +269,7 @@ interface AnimEntity {
   color: string;
   name?: string;
   kind?: string;
+  hostile?: boolean;
   monsterTier?: MonsterTier;
   monsterScale?: number;
   hp?: number;
@@ -771,7 +772,7 @@ export class TextRenderer implements IRenderer {
   /** 更新实体列表，记录旧位置用于插值动画 */
   updateEntities(
 /** list：定义该变量以承载业务值。 */
-    list: readonly { id: string; wx: number; wy: number; char: string; color: string; name?: string; kind?: string; monsterTier?: MonsterTier; monsterScale?: number; hp?: number; maxHp?: number; respawnRemainingTicks?: number; respawnTotalTicks?: number; npcQuestMarker?: NpcQuestMarker | null; buffs?: VisibleBuffState[] }[],
+    list: readonly { id: string; wx: number; wy: number; char: string; color: string; name?: string; kind?: string; hostile?: boolean; monsterTier?: MonsterTier; monsterScale?: number; hp?: number; maxHp?: number; respawnRemainingTicks?: number; respawnTotalTicks?: number; npcQuestMarker?: NpcQuestMarker | null; buffs?: VisibleBuffState[] }[],
     movedId?: string,
     shiftX = 0,
     shiftY = 0,
@@ -836,6 +837,7 @@ export class TextRenderer implements IRenderer {
         anim.color = e.color;
         anim.name = e.name;
         anim.kind = e.kind;
+        anim.hostile = e.hostile;
         anim.monsterTier = e.monsterTier;
         anim.monsterScale = e.monsterScale;
         anim.hp = e.hp;
@@ -857,6 +859,7 @@ export class TextRenderer implements IRenderer {
           color: e.color,
           name: e.name,
           kind: e.kind,
+          hostile: e.hostile,
           monsterTier: e.monsterTier,
           monsterScale: e.monsterScale,
           hp: e.hp,
@@ -1006,7 +1009,13 @@ export class TextRenderer implements IRenderer {
           const barW = visualCellSize - 6;
           ctx.fillStyle = 'rgba(0,0,0,0.45)';
           ctx.fillRect(barX, barY, barW, 3);
-          ctx.fillStyle = isMonster ? '#d15252' : isNpc ? '#58a8ff' : isContainer ? '#c18b46' : '#63c46b';
+          ctx.fillStyle = anim.hostile === true
+            ? '#d15252'
+            : isNpc
+              ? '#58a8ff'
+              : isContainer
+                ? '#c18b46'
+                : '#63c46b';
           ctx.fillRect(barX, barY, barW * ratio, 3);
           if (isContainer && (anim.respawnRemainingTicks ?? 0) > 0) {
             ctx.textBaseline = 'top';
@@ -2610,4 +2619,3 @@ export class TextRenderer implements IRenderer {
   }
 
 }
-

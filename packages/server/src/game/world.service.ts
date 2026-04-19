@@ -2003,11 +2003,27 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     dirtyPlayers.add(target.id);
   }
 
+  private registerPlayerRetaliator(
+    target: PlayerState,
+    attacker: PlayerState,
+    dirtyPlayers: Set<string>,
+  ): void {
+    if (target.id === attacker.id || target.hp <= 0) {
+      return;
+    }
+    if (target.retaliatePlayerTargetId === attacker.id) {
+      return;
+    }
+    target.retaliatePlayerTargetId = attacker.id;
+    dirtyPlayers.add(target.id);
+  }
+
   private tryActivatePlayerAutoRetaliate(
     target: PlayerState,
     attacker: PlayerState,
     dirtyPlayers: Set<string>,
   ): void {
+    this.registerPlayerRetaliator(target, attacker, dirtyPlayers);
     if (
       target.hp <= 0
       || target.autoRetaliate === false
@@ -2021,7 +2037,6 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     target.autoBattle = true;
     target.combatTargetId = this.getPlayerThreatId(attacker);
     target.combatTargetLocked = true;
-    target.retaliatePlayerTargetId = attacker.id;
     dirtyPlayers.add(target.id);
   }
 
@@ -6009,6 +6024,11 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     let playerDefeated = false;
 /** dirtyPlayers：定义该变量以承载业务值。 */
     const dirtyPlayers = new Set<string>();
+/** retaliationKiller：定义该变量以承载业务值。 */
+    const retaliationKiller = sourceCasterId ? this.playerService.getPlayer(sourceCasterId) : undefined;
+    if (retaliationKiller && retaliationKiller.mapId === player.mapId && retaliationKiller.inWorld !== false) {
+      this.registerPlayerRetaliator(player, retaliationKiller, dirtyPlayers);
+    }
 
     if (player.hp <= 0) {
 /** killer：定义该变量以承载业务值。 */

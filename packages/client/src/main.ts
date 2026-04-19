@@ -84,6 +84,7 @@ import {
 import {
   ActionDef,
   AccountRedeemCodesRes,
+  buildDefaultCombatTargetingRules,
   buildEffectiveTargetingGeometry,
   resolveTargetingGeometry,
   computeAffectedCellsFromAnchor,
@@ -138,7 +139,9 @@ import {
   getTileTraversalCost,
   clonePlainValue,
   getFirstGrapheme,
+  hasCombatTargetingRule,
   isPlainEqual,
+  normalizeCombatTargetingRules,
 } from '@mud/shared';
 
 /** canvasHost：定义该变量以承载业务值。 */
@@ -851,6 +854,7 @@ type ObservedEntity = {
   color: string;
   name?: string;
   kind?: string;
+  hostile?: boolean;
   monsterTier?: MonsterTier;
   monsterScale?: number;
   hp?: number;
@@ -871,6 +875,37 @@ function isCrowdEntityKind(kind: string | null | undefined): boolean {
 /** isPlayerLikeEntityKind：执行对应的业务逻辑。 */
 function isPlayerLikeEntityKind(kind: string | null | undefined): boolean {
   return kind === 'player' || isCrowdEntityKind(kind);
+}
+
+/** isEntityHostileToMe：执行对应的业务逻辑。 */
+function isEntityHostileToMe(entity: Pick<ObservedEntity, 'id' | 'kind'>): boolean {
+  if (!myPlayer) {
+    return false;
+  }
+/** rules：定义该变量以承载业务值。 */
+  const rules = normalizeCombatTargetingRules(
+    myPlayer.combatTargetingRules,
+    buildDefaultCombatTargetingRules({ includeAllPlayersHostile: myPlayer.allowAoePlayerHit === true }),
+  );
+  if (entity.kind === 'monster') {
+    return hasCombatTargetingRule(rules, 'hostile', 'monster');
+  }
+  if (entity.kind === 'player') {
+    return hasCombatTargetingRule(rules, 'hostile', 'all_players')
+      || (
+        hasCombatTargetingRule(rules, 'hostile', 'retaliators')
+        && myPlayer.retaliatePlayerTargetId === entity.id
+      );
+  }
+  return false;
+}
+
+/** decorateObservedEntitiesForDisplay：执行对应的业务逻辑。 */
+function decorateObservedEntitiesForDisplay(entities: ObservedEntity[]): ObservedEntity[] {
+  return entities.map((entity) => ({
+    ...entity,
+    hostile: isEntityHostileToMe(entity),
+  }));
 }
 
 /** ObserveEntityCardData：定义该类型的结构与数据语义。 */
@@ -2978,6 +3013,9 @@ socket.onActionsUpdate((data) => {
     myPlayer.cultivationActive = nextCultivationActive;
     myPlayer.senseQiActive = nextSenseQiActive;
   }
+  latestEntities = decorateObservedEntitiesForDisplay(latestEntities);
+  latestEntityMap = new Map(latestEntities.map((entity) => [entity.id, entity]));
+  mapRuntime.replaceVisibleEntities(latestEntities);
   if (!previousAutoBattle && nextAutoBattle && (pathTarget || pathCells.length > 0)) {
     clearCurrentPath();
   }
@@ -4096,11 +4134,12 @@ socket.onInit((data: S2C_Init) => {
   syncSenseQiOverlay();
 
 /** entities：定义该变量以承载业务值。 */
-  const entities = getLatestObservedEntitiesSnapshot() as ObservedEntity[];
+  const entities = decorateObservedEntitiesForDisplay(getLatestObservedEntitiesSnapshot() as ObservedEntity[]);
   latestTechniqueMap = new Map((myPlayer.techniques ?? []).map((technique) => [technique.techId, cloneJson(technique)]));
   latestActionMap = new Map((myPlayer.actions ?? []).map((action) => [action.id, cloneJson(action)]));
   latestEntities = entities;
   latestEntityMap = new Map(entities.map((entity) => [entity.id, entity]));
+  mapRuntime.replaceVisibleEntities(latestEntities);
 
   clearCurrentPath();
   mapRuntime.setPathCells(pathCells);
@@ -4271,9 +4310,10 @@ socket.onTick((data: S2C_Tick) => {
   const moved = !mapChanged && (myPlayer.x !== oldX || myPlayer.y !== oldY);
 
 /** entities：定义该变量以承载业务值。 */
-  const entities = getLatestObservedEntitiesSnapshot() as ObservedEntity[];
+  const entities = decorateObservedEntitiesForDisplay(getLatestObservedEntitiesSnapshot() as ObservedEntity[]);
   latestEntities = entities;
   latestEntityMap = new Map(entities.map((entity) => [entity.id, entity]));
+  mapRuntime.replaceVisibleEntities(latestEntities);
   syncTargetingOverlay();
   refreshHudChrome();
 

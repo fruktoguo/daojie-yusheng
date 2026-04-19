@@ -41,6 +41,7 @@ export interface ObservedMapEntity {
   color: string;
   name?: string;
   kind?: string;
+  hostile?: boolean;
   monsterTier?: MonsterTier;
   monsterScale?: number;
   hp?: number;
@@ -245,4 +246,3 @@ export interface MapRuntimeApi {
   getVisibleTileAt(x: number, y: number): Tile | null;
   getGroundPileAt(x: number, y: number): GroundItemPileView | null;
 }
-

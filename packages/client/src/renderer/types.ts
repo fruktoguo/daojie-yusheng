@@ -65,6 +65,7 @@ export interface IRenderer {
       color: string;
       name?: string;
       kind?: string;
+      hostile?: boolean;
       hp?: number;
       maxHp?: number;
       respawnRemainingTicks?: number;
@@ -93,4 +94,3 @@ export interface IRenderer {
   renderAttackTrails(camera: Camera): void;
   destroy(): void;
 }
-
