@@ -2948,6 +2948,8 @@ socket.onActionsUpdate((data) => {
   const previousAllowAoePlayerHit = myPlayer?.allowAoePlayerHit ?? false;
 /** previousCombatTargetingRules：定义该变量以承载业务值。 */
   const previousCombatTargetingRules = myPlayer?.combatTargetingRules;
+/** previousRetaliatePlayerTargetId：定义该变量以承载业务值。 */
+  const previousRetaliatePlayerTargetId = myPlayer?.retaliatePlayerTargetId ?? null;
 /** previousAutoIdleCultivation：定义该变量以承载业务值。 */
   const previousAutoIdleCultivation = myPlayer?.autoIdleCultivation ?? true;
 /** previousAutoSwitchCultivation：定义该变量以承载业务值。 */
@@ -2962,6 +2964,8 @@ socket.onActionsUpdate((data) => {
   const nextCombatTargetingRules = data.combatTargetingRules ?? myPlayer?.combatTargetingRules;
 /** nextAutoBattleTargetingMode：定义该变量以承载业务值。 */
   const nextAutoBattleTargetingMode = data.autoBattleTargetingMode ?? myPlayer?.autoBattleTargetingMode ?? 'auto';
+/** nextRetaliatePlayerTargetId：定义该变量以承载业务值。 */
+  const nextRetaliatePlayerTargetId = data.retaliatePlayerTargetId ?? myPlayer?.retaliatePlayerTargetId ?? null;
 /** nextAutoRetaliate：定义该变量以承载业务值。 */
   const nextAutoRetaliate = data.autoRetaliate ?? myPlayer?.autoRetaliate ?? true;
 /** nextAutoBattleStationary：定义该变量以承载业务值。 */
@@ -2984,6 +2988,7 @@ socket.onActionsUpdate((data) => {
     || previousAutoBattleStationary !== nextAutoBattleStationary
     || previousAllowAoePlayerHit !== nextAllowAoePlayerHit
     || !isPlainEqual(previousCombatTargetingRules ?? null, nextCombatTargetingRules ?? null)
+    || previousRetaliatePlayerTargetId !== nextRetaliatePlayerTargetId
     || previousAutoIdleCultivation !== nextAutoIdleCultivation
     || previousAutoSwitchCultivation !== nextAutoSwitchCultivation
     || previousCultivationActive !== nextCultivationActive
@@ -3003,6 +3008,7 @@ socket.onActionsUpdate((data) => {
     myPlayer.autoUsePills = nextAutoUsePills;
     myPlayer.combatTargetingRules = nextCombatTargetingRules;
     myPlayer.autoBattleTargetingMode = nextAutoBattleTargetingMode;
+    myPlayer.retaliatePlayerTargetId = nextRetaliatePlayerTargetId ?? undefined;
     myPlayer.autoRetaliate = data.autoRetaliate ?? (myPlayer.autoRetaliate !== false);
     myPlayer.autoBattleStationary = nextAutoBattleStationary;
     myPlayer.allowAoePlayerHit = nextAllowAoePlayerHit;

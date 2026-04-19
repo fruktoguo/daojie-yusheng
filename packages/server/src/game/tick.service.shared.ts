@@ -66,6 +66,8 @@ export interface ActionPanelSyncState {
   combatTargetingRules: NonNullable<PlayerState['combatTargetingRules']>;
 /** autoBattleTargetingMode：定义该变量以承载业务值。 */
   autoBattleTargetingMode: PlayerState['autoBattleTargetingMode'];
+/** retaliatePlayerTargetId：定义该变量以承载业务值。 */
+  retaliatePlayerTargetId: string | null;
 /** autoRetaliate：定义该变量以承载业务值。 */
   autoRetaliate: boolean;
 /** autoBattleStationary：定义该变量以承载业务值。 */
@@ -128,4 +130,3 @@ export const DEFAULT_TICK_CONFIG_DOCUMENT: TickConfigDocument = {
   offlinePlayerTimeoutSec: 60,
   auraLevelBaseValue: DEFAULT_AURA_LEVEL_BASE_VALUE,
 };
-

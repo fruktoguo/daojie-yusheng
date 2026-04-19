@@ -3842,6 +3842,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       autoUsePills: this.cloneStructured(player.autoUsePills ?? []),
       combatTargetingRules: this.cloneStructured(combatTargetingRules),
       autoBattleTargetingMode: player.autoBattleTargetingMode,
+      retaliatePlayerTargetId: player.retaliatePlayerTargetId ?? null,
 /** autoRetaliate：定义该变量以承载业务值。 */
       autoRetaliate: player.autoRetaliate !== false,
 /** autoBattleStationary：定义该变量以承载业务值。 */
@@ -4051,6 +4052,9 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     if (!previousPanelState || previousPanelState.autoBattleTargetingMode !== nextPanelState.autoBattleTargetingMode) {
       update.autoBattleTargetingMode = nextPanelState.autoBattleTargetingMode;
     }
+    if (!previousPanelState || previousPanelState.retaliatePlayerTargetId !== nextPanelState.retaliatePlayerTargetId) {
+      update.retaliatePlayerTargetId = nextPanelState.retaliatePlayerTargetId;
+    }
     if (!previousPanelState || previousPanelState.autoRetaliate !== nextPanelState.autoRetaliate) {
       update.autoRetaliate = nextPanelState.autoRetaliate;
     }
@@ -4080,6 +4084,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       || update.autoUsePills !== undefined
       || update.combatTargetingRules !== undefined
       || update.autoBattleTargetingMode !== undefined
+      || update.retaliatePlayerTargetId !== undefined
       || update.autoRetaliate !== undefined
       || update.autoBattleStationary !== undefined
       || update.allowAoePlayerHit !== undefined

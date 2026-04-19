@@ -208,6 +208,8 @@ message ActionsUpdatePayload {
   optional bool clearAutoUsePills = 14;
   optional string combatTargetingRulesJson = 15;
   optional bool clearCombatTargetingRules = 16;
+  optional string retaliatePlayerTargetId = 17;
+  optional bool clearRetaliatePlayerTargetId = 18;
 }
 
 message ActionUpdateEntryPayload {
@@ -1031,6 +1033,11 @@ function toWireActionsUpdate(payload: S2C_ActionsUpdate): Record<string, unknown
     wire.combatTargetingRulesJson = JSON.stringify(payload.combatTargetingRules);
   }
   if (payload.autoBattleTargetingMode !== undefined) wire.autoBattleTargetingMode = payload.autoBattleTargetingMode;
+  if (payload.retaliatePlayerTargetId === null) {
+    wire.clearRetaliatePlayerTargetId = true;
+  } else if (payload.retaliatePlayerTargetId !== undefined) {
+    wire.retaliatePlayerTargetId = payload.retaliatePlayerTargetId;
+  }
   if (payload.autoRetaliate !== undefined) wire.autoRetaliate = payload.autoRetaliate;
   if (payload.autoBattleStationary !== undefined) wire.autoBattleStationary = payload.autoBattleStationary;
   if (payload.allowAoePlayerHit !== undefined) wire.allowAoePlayerHit = payload.allowAoePlayerHit;
@@ -1071,6 +1078,11 @@ function fromWireActionsUpdate(wire: Record<string, unknown>): S2C_ActionsUpdate
     payload.combatTargetingRules = parseJson<S2C_ActionsUpdate['combatTargetingRules']>(wire.combatTargetingRulesJson);
   }
   if (typeof wire.autoBattleTargetingMode === 'string') payload.autoBattleTargetingMode = wire.autoBattleTargetingMode as S2C_ActionsUpdate['autoBattleTargetingMode'];
+  if (wire.clearRetaliatePlayerTargetId === true) {
+    payload.retaliatePlayerTargetId = null;
+  } else if (typeof wire.retaliatePlayerTargetId === 'string') {
+    payload.retaliatePlayerTargetId = wire.retaliatePlayerTargetId;
+  }
   if (hasOwn(wire, 'autoRetaliate')) payload.autoRetaliate = Boolean(wire.autoRetaliate);
   if (hasOwn(wire, 'autoBattleStationary')) payload.autoBattleStationary = Boolean(wire.autoBattleStationary);
   if (hasOwn(wire, 'allowAoePlayerHit')) payload.allowAoePlayerHit = Boolean(wire.allowAoePlayerHit);

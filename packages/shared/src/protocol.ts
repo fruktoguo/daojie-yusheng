@@ -1081,6 +1081,7 @@ export interface S2C_ActionsUpdate {
   autoBattleTargetingMode?: AutoBattleTargetingMode;
   combatTargetId?: string | null;
   combatTargetLocked?: boolean;
+  retaliatePlayerTargetId?: string | null;
   autoRetaliate?: boolean;
   autoBattleStationary?: boolean;
   allowAoePlayerHit?: boolean;
