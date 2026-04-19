@@ -72,6 +72,146 @@
         "name": "凝相丹",
         "type": "consumable",
         "count": 1
+      },
+      {
+        "itemId": "mat.moondew_grass",
+        "name": "月露草",
+        "type": "material",
+        "count": 10,
+        "chance": 1
+      },
+      {
+        "itemId": "mat.red_flame_leaf",
+        "name": "赤火叶",
+        "type": "material",
+        "count": 10,
+        "chance": 1
+      },
+      {
+        "itemId": "mat.green_spirit_stem",
+        "name": "青灵茎",
+        "type": "material",
+        "count": 10,
+        "chance": 1
+      },
+      {
+        "itemId": "mat.frost_lotus_petal",
+        "name": "寒莲瓣",
+        "type": "material",
+        "count": 10,
+        "chance": 1
+      },
+      {
+        "itemId": "mat.clear_mind_flower",
+        "name": "明心花",
+        "type": "material",
+        "count": 10,
+        "chance": 1
+      },
+      {
+        "itemId": "mat.bloodbud_fruit",
+        "name": "赤芽果",
+        "type": "material",
+        "count": 10,
+        "chance": 1
+      },
+      {
+        "itemId": "mat.breakarray_shard",
+        "name": "破纹砂",
+        "type": "material",
+        "count": 10,
+        "chance": 1
+      },
+      {
+        "itemId": "mat.swiftwind_reed",
+        "name": "疾风苇",
+        "type": "material",
+        "count": 10,
+        "chance": 1
+      },
+      {
+        "itemId": "mat.bitterheart_vine",
+        "name": "苦心藤",
+        "type": "material",
+        "count": 10,
+        "chance": 1
+      },
+      {
+        "itemId": "mat.sunmelt_seed",
+        "name": "融阳子",
+        "type": "material",
+        "count": 10,
+        "chance": 1
+      },
+      {
+        "itemId": "mat.longvein_vine",
+        "name": "长脉藤",
+        "type": "material",
+        "count": 10,
+        "chance": 1
+      },
+      {
+        "itemId": "mat.returnspring_leaf",
+        "name": "回春叶",
+        "type": "material",
+        "count": 10,
+        "chance": 1
+      },
+      {
+        "itemId": "mat.coldmarrow_reed",
+        "name": "寒髓苇",
+        "type": "material",
+        "count": 10,
+        "chance": 1
+      },
+      {
+        "itemId": "mat.moonwell_stamen",
+        "name": "月井蕊",
+        "type": "material",
+        "count": 10,
+        "chance": 1
+      },
+      {
+        "itemId": "mat.scorchheart_petal",
+        "name": "灼心瓣",
+        "type": "material",
+        "count": 10,
+        "chance": 1
+      },
+      {
+        "itemId": "mat.flamegrain_spike",
+        "name": "炎穗芒",
+        "type": "material",
+        "count": 10,
+        "chance": 1
+      },
+      {
+        "itemId": "mat.bearingroot_ginseng",
+        "name": "承脉参",
+        "type": "material",
+        "count": 10,
+        "chance": 1
+      },
+      {
+        "itemId": "mat.stonecore_lingzhi",
+        "name": "岩髓芝",
+        "type": "material",
+        "count": 10,
+        "chance": 1
+      },
+      {
+        "itemId": "mat.goldthread_briar",
+        "name": "金芒棘",
+        "type": "material",
+        "count": 10,
+        "chance": 1
+      },
+      {
+        "itemId": "mat.ironvein_caltrop",
+        "name": "铁脉蒺",
+        "type": "material",
+        "count": 10,
+        "chance": 1
       }
     ],
     "aggroMode": "always"

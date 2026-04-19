@@ -3272,7 +3272,17 @@
       "chapter": "序章·断道入镇"
     }
   ],
-  "mat.bearingroot_ginseng": [],
+  "mat.bearingroot_ginseng": [
+    {
+      "kind": "monster_drop",
+      "mapId": "ruined_cavern_manor",
+      "mapName": "破败洞府",
+      "monsterId": "m_huanling_zhenren",
+      "monsterName": "重伤的唤灵真人",
+      "chance": 1,
+      "count": 10
+    }
+  ],
   "mat.beast_bone": [
     {
       "kind": "monster_drop",
@@ -3291,25 +3301,215 @@
       "count": 1
     }
   ],
-  "mat.bitterheart_vine": [],
-  "mat.bloodbud_fruit": [],
-  "mat.breakarray_shard": [],
-  "mat.clear_mind_flower": [],
-  "mat.coldmarrow_reed": [],
-  "mat.flamegrain_spike": [],
-  "mat.frost_lotus_petal": [],
-  "mat.goldthread_briar": [],
-  "mat.green_spirit_stem": [],
-  "mat.ironvein_caltrop": [],
-  "mat.longvein_vine": [],
-  "mat.moondew_grass": [],
-  "mat.moonwell_stamen": [],
-  "mat.red_flame_leaf": [],
-  "mat.returnspring_leaf": [],
-  "mat.scorchheart_petal": [],
-  "mat.stonecore_lingzhi": [],
-  "mat.sunmelt_seed": [],
-  "mat.swiftwind_reed": [],
+  "mat.bitterheart_vine": [
+    {
+      "kind": "monster_drop",
+      "mapId": "ruined_cavern_manor",
+      "mapName": "破败洞府",
+      "monsterId": "m_huanling_zhenren",
+      "monsterName": "重伤的唤灵真人",
+      "chance": 1,
+      "count": 10
+    }
+  ],
+  "mat.bloodbud_fruit": [
+    {
+      "kind": "monster_drop",
+      "mapId": "ruined_cavern_manor",
+      "mapName": "破败洞府",
+      "monsterId": "m_huanling_zhenren",
+      "monsterName": "重伤的唤灵真人",
+      "chance": 1,
+      "count": 10
+    }
+  ],
+  "mat.breakarray_shard": [
+    {
+      "kind": "monster_drop",
+      "mapId": "ruined_cavern_manor",
+      "mapName": "破败洞府",
+      "monsterId": "m_huanling_zhenren",
+      "monsterName": "重伤的唤灵真人",
+      "chance": 1,
+      "count": 10
+    }
+  ],
+  "mat.clear_mind_flower": [
+    {
+      "kind": "monster_drop",
+      "mapId": "ruined_cavern_manor",
+      "mapName": "破败洞府",
+      "monsterId": "m_huanling_zhenren",
+      "monsterName": "重伤的唤灵真人",
+      "chance": 1,
+      "count": 10
+    }
+  ],
+  "mat.coldmarrow_reed": [
+    {
+      "kind": "monster_drop",
+      "mapId": "ruined_cavern_manor",
+      "mapName": "破败洞府",
+      "monsterId": "m_huanling_zhenren",
+      "monsterName": "重伤的唤灵真人",
+      "chance": 1,
+      "count": 10
+    }
+  ],
+  "mat.flamegrain_spike": [
+    {
+      "kind": "monster_drop",
+      "mapId": "ruined_cavern_manor",
+      "mapName": "破败洞府",
+      "monsterId": "m_huanling_zhenren",
+      "monsterName": "重伤的唤灵真人",
+      "chance": 1,
+      "count": 10
+    }
+  ],
+  "mat.frost_lotus_petal": [
+    {
+      "kind": "monster_drop",
+      "mapId": "ruined_cavern_manor",
+      "mapName": "破败洞府",
+      "monsterId": "m_huanling_zhenren",
+      "monsterName": "重伤的唤灵真人",
+      "chance": 1,
+      "count": 10
+    }
+  ],
+  "mat.goldthread_briar": [
+    {
+      "kind": "monster_drop",
+      "mapId": "ruined_cavern_manor",
+      "mapName": "破败洞府",
+      "monsterId": "m_huanling_zhenren",
+      "monsterName": "重伤的唤灵真人",
+      "chance": 1,
+      "count": 10
+    }
+  ],
+  "mat.green_spirit_stem": [
+    {
+      "kind": "monster_drop",
+      "mapId": "ruined_cavern_manor",
+      "mapName": "破败洞府",
+      "monsterId": "m_huanling_zhenren",
+      "monsterName": "重伤的唤灵真人",
+      "chance": 1,
+      "count": 10
+    }
+  ],
+  "mat.ironvein_caltrop": [
+    {
+      "kind": "monster_drop",
+      "mapId": "ruined_cavern_manor",
+      "mapName": "破败洞府",
+      "monsterId": "m_huanling_zhenren",
+      "monsterName": "重伤的唤灵真人",
+      "chance": 1,
+      "count": 10
+    }
+  ],
+  "mat.longvein_vine": [
+    {
+      "kind": "monster_drop",
+      "mapId": "ruined_cavern_manor",
+      "mapName": "破败洞府",
+      "monsterId": "m_huanling_zhenren",
+      "monsterName": "重伤的唤灵真人",
+      "chance": 1,
+      "count": 10
+    }
+  ],
+  "mat.moondew_grass": [
+    {
+      "kind": "monster_drop",
+      "mapId": "ruined_cavern_manor",
+      "mapName": "破败洞府",
+      "monsterId": "m_huanling_zhenren",
+      "monsterName": "重伤的唤灵真人",
+      "chance": 1,
+      "count": 10
+    }
+  ],
+  "mat.moonwell_stamen": [
+    {
+      "kind": "monster_drop",
+      "mapId": "ruined_cavern_manor",
+      "mapName": "破败洞府",
+      "monsterId": "m_huanling_zhenren",
+      "monsterName": "重伤的唤灵真人",
+      "chance": 1,
+      "count": 10
+    }
+  ],
+  "mat.red_flame_leaf": [
+    {
+      "kind": "monster_drop",
+      "mapId": "ruined_cavern_manor",
+      "mapName": "破败洞府",
+      "monsterId": "m_huanling_zhenren",
+      "monsterName": "重伤的唤灵真人",
+      "chance": 1,
+      "count": 10
+    }
+  ],
+  "mat.returnspring_leaf": [
+    {
+      "kind": "monster_drop",
+      "mapId": "ruined_cavern_manor",
+      "mapName": "破败洞府",
+      "monsterId": "m_huanling_zhenren",
+      "monsterName": "重伤的唤灵真人",
+      "chance": 1,
+      "count": 10
+    }
+  ],
+  "mat.scorchheart_petal": [
+    {
+      "kind": "monster_drop",
+      "mapId": "ruined_cavern_manor",
+      "mapName": "破败洞府",
+      "monsterId": "m_huanling_zhenren",
+      "monsterName": "重伤的唤灵真人",
+      "chance": 1,
+      "count": 10
+    }
+  ],
+  "mat.stonecore_lingzhi": [
+    {
+      "kind": "monster_drop",
+      "mapId": "ruined_cavern_manor",
+      "mapName": "破败洞府",
+      "monsterId": "m_huanling_zhenren",
+      "monsterName": "重伤的唤灵真人",
+      "chance": 1,
+      "count": 10
+    }
+  ],
+  "mat.sunmelt_seed": [
+    {
+      "kind": "monster_drop",
+      "mapId": "ruined_cavern_manor",
+      "mapName": "破败洞府",
+      "monsterId": "m_huanling_zhenren",
+      "monsterName": "重伤的唤灵真人",
+      "chance": 1,
+      "count": 10
+    }
+  ],
+  "mat.swiftwind_reed": [
+    {
+      "kind": "monster_drop",
+      "mapId": "ruined_cavern_manor",
+      "mapName": "破败洞府",
+      "monsterId": "m_huanling_zhenren",
+      "monsterName": "重伤的唤灵真人",
+      "chance": 1,
+      "count": 10
+    }
+  ],
   "mine_crystal_core": [
     {
       "kind": "monster_drop",
