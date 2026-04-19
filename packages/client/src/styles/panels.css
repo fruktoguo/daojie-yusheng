@@ -6291,6 +6291,33 @@
     .enhancement-action-row--stacked .small-btn {
       min-height: 36px;
     }
+    .enhancement-formula-pill {
+      align-self: flex-start;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 28px;
+      padding: 0 12px;
+      border: 1px solid var(--wash-ink);
+      border-radius: 999px;
+      background: var(--surface-muted);
+      color: var(--ink-grey);
+      font: inherit;
+      font-size: var(--font-size-12);
+      line-height: 1;
+      cursor: help;
+      transition: border-color 140ms ease, background 140ms ease, color 140ms ease, transform 140ms ease;
+    }
+    .enhancement-formula-pill:hover {
+      border-color: var(--line-strong);
+      background: color-mix(in srgb, var(--surface-muted) 76%, var(--accent-soft) 24%);
+      color: var(--ink-black);
+      transform: translateY(-1px);
+    }
+    .enhancement-formula-pill:focus-visible {
+      outline: 2px solid var(--line-strong);
+      outline-offset: 2px;
+    }
     .enhancement-empty-state {
       display: flex;
       align-items: center;
@@ -6344,6 +6371,16 @@
     :root[data-color-mode="dark"] .enhancement-card-head-value {
       border-color: rgba(236, 222, 192, 0.18);
       background: rgba(70, 56, 45, 0.9);
+    }
+    :root[data-color-mode="dark"] .enhancement-formula-pill {
+      border-color: rgba(236, 222, 192, 0.2);
+      background: rgba(50, 40, 31, 0.92);
+      color: rgba(230, 217, 193, 0.76);
+    }
+    :root[data-color-mode="dark"] .enhancement-formula-pill:hover {
+      border-color: rgba(236, 222, 192, 0.42);
+      background: rgba(74, 59, 46, 0.98);
+      color: rgba(248, 238, 219, 0.96);
     }
     :root[data-color-mode="dark"] .enhancement-target-slot-extra {
       border-left-color: rgba(236, 222, 192, 0.16);

@@ -992,6 +992,12 @@
   .detail-modal-card.detail-modal--enhancement .enhancement-history-head .enhancement-protection-note {
     display: none;
   }
+  .detail-modal-card.detail-modal--enhancement .enhancement-formula-pill {
+    display: inline-flex;
+    min-height: 26px;
+    padding: 0 10px;
+    font-size: var(--font-size-11);
+  }
   .detail-modal-card.detail-modal--enhancement .enhancement-target-level-row {
     grid-template-columns: 42px minmax(0, 1fr) 42px;
     gap: 6px;

@@ -213,7 +213,6 @@ const COMBAT_TARGETING_GROUPS: CombatTargetingGroup[] = [
     summary: '勾选后，这些单位会被你视为敌方目标，可多选组合。',
     options: [
       { key: 'monster', label: '妖兽单位', summary: '把野外与副本中的妖兽视为敌方目标。' },
-      { key: 'all_players', label: '全部玩家', summary: '把所有玩家都纳入敌方目标。' },
       { key: 'retaliators', label: '反击对象', summary: '把主动攻击过你的玩家纳入敌方目标。' },
       { key: 'party', label: '协同行列', summary: '预留给队伍、同行等协作关系的敌友识别。', disabled: true },
       { key: 'sect', label: '同道关系', summary: '预留给宗门、阵营等长期关系的敌友识别。', disabled: true },
@@ -782,7 +781,7 @@ export class ActionPanel {
 
 /** isHiddenActionId：执行对应的业务逻辑。 */
   private isHiddenActionId(actionId: string): boolean {
-    return actionId === 'toggle:allow_aoe_player_hit';
+    return false;
   }
 
 /** isUtilityActionId：执行对应的业务逻辑。 */
@@ -794,6 +793,7 @@ export class ActionPanel {
   private isSwitchActionId(actionId: string): boolean {
     return actionId === 'toggle:auto_battle'
       || actionId === 'toggle:auto_retaliate'
+      || actionId === 'toggle:allow_aoe_player_hit'
       || actionId === 'toggle:auto_battle_stationary'
       || actionId === 'toggle:auto_idle_cultivation'
       || actionId === 'toggle:auto_switch_cultivation'
@@ -808,6 +808,8 @@ export class ActionPanel {
         return '自动战斗';
       case 'toggle:auto_retaliate':
         return '自动反击';
+      case 'toggle:allow_aoe_player_hit':
+        return '全体攻击';
       case 'toggle:auto_battle_stationary':
         return '原地战斗';
       case 'toggle:auto_idle_cultivation':
@@ -829,6 +831,8 @@ export class ActionPanel {
         return { active: this.autoBattle, label: this.autoBattle ? '开' : '关' };
       case 'toggle:auto_retaliate':
         return { active: this.autoRetaliate, label: this.autoRetaliate ? '开' : '关' };
+      case 'toggle:allow_aoe_player_hit':
+        return { active: this.allowAoePlayerHit, label: this.allowAoePlayerHit ? '开' : '关' };
       case 'toggle:auto_battle_stationary':
         return { active: this.autoBattleStationary, label: this.autoBattleStationary ? '开' : '关' };
       case 'toggle:auto_idle_cultivation':

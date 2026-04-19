@@ -882,6 +882,9 @@ function isEntityHostileToMe(entity: Pick<ObservedEntity, 'id' | 'kind'>): boole
   if (!myPlayer) {
     return false;
   }
+  if (entity.id === myPlayer.id) {
+    return false;
+  }
 /** rules：定义该变量以承载业务值。 */
   const rules = normalizeCombatTargetingRules(
     myPlayer.combatTargetingRules,

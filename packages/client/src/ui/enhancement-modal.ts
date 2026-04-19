@@ -20,6 +20,7 @@ import { formatAdaptiveRatePercent, formatDisplayInteger } from '../utils/number
 import { confirmModalHost } from './confirm-modal-host';
 import { detailModalHost } from './detail-modal-host';
 import { describeEquipmentBonuses } from './equipment-tooltip';
+import { FloatingTooltip, prefersPinnedTooltipInteraction } from './floating-tooltip';
 
 /** EnhancementModalCallbacks：定义该接口的能力与字段约束。 */
 interface EnhancementModalCallbacks {
@@ -178,9 +179,19 @@ function formatHistoryDateTime(timestamp: number | undefined): string {
   return new Date(Number(timestamp)).toLocaleString('zh-CN');
 }
 
-/** getEnhancementFormulaNote：执行对应的业务逻辑。 */
-function getEnhancementFormulaNote(): string {
-  return '每一阶都会单独结算成功率、耗时和消耗，面板当前显示的是首阶结果，后续只要资源足够就会继续冲到目标等级。基础成功率按目标强化等级取表：+1=50%，+2~+3=45%，+4~+6=40%，+7~+10=35%，+11~+20=30%。若角色强化等级低于装备等级，则基础成功率=基础成功率×0.9^(装备等级-强化等级)；若角色强化等级高于装备等级，则额外成功修正=强化锤成功修正+(强化等级-装备等级)×0.2%。最终成功率计算为：修正<0时，最终成功率=修正后基础成功率÷(1+|修正|)；修正>=0且修正后基础成功率<=50%时，先算S=修正后基础成功率×(1+修正)，若S<=50%则最终=S，否则最终=1-0.25÷S；修正后基础成功率>50%时，最终成功率=1-(1-修正后基础成功率)÷(1+修正)。首阶耗时=ceil((5+装备等级-1)×耗时倍率)，其中总速度修正=强化锤速度修正+max(0,强化等级-装备等级)×2%，正修正的耗时倍率=1/(1+总速度修正)，负修正的耗时倍率=1+|总速度修正|。首阶灵石=ceil(装备等级÷10)；若该阶需要额外材料，则灵石改为 floor(装备等级÷10)，且最低为 1。';
+/** getEnhancementFormulaTooltipLines：执行对应的业务逻辑。 */
+function getEnhancementFormulaTooltipLines(): string[] {
+  return [
+    '每一阶都会单独结算成功率、耗时和消耗；面板当前显示的是首阶结果，后续只要资源足够就会继续冲到目标等级。',
+    '基础成功率按目标强化等级取表：+1=50%，+2~+3=45%，+4~+6=40%，+7~+10=35%，+11~+20=30%。',
+    '若角色强化等级低于装备等级，则基础成功率 = 基础成功率 × 0.9^(装备等级-强化等级)。',
+    '若角色强化等级高于装备等级，则额外成功修正 = 强化锤成功修正 + (强化等级-装备等级) × 0.2%。',
+    '最终成功率：修正 < 0 时，最终成功率 = 修正后基础成功率 ÷ (1 + |修正|)。',
+    '最终成功率：修正 >= 0 且修正后基础成功率 <= 50% 时，先算 S = 修正后基础成功率 × (1 + 修正)；若 S <= 50% 则最终 = S，否则最终 = 1 - 0.25 ÷ S。',
+    '最终成功率：修正后基础成功率 > 50% 时，最终成功率 = 1 - (1 - 修正后基础成功率) ÷ (1 + 修正)。',
+    '首阶耗时 = ceil((5 + 装备等级 - 1) × 耗时倍率)。总速度修正 = 强化锤速度修正 + max(0,强化等级 - 装备等级) × 2%；正修正耗时倍率 = 1 / (1 + 总速度修正)，负修正耗时倍率 = 1 + |总速度修正|。',
+    '首阶灵石 = ceil(装备等级 ÷ 10)；若该阶需要额外材料，则灵石改为 floor(装备等级 ÷ 10)，且最低为 1。',
+  ];
 }
 
 /** EnhancementModal：封装相关状态与行为。 */
@@ -223,6 +234,7 @@ export class EnhancementModal {
   private activeHistorySessionKey: string | null = null;
   private historyExpanded = false;
   private protectionExpanded = false;
+  private readonly formulaTooltip = new FloatingTooltip();
 
 /** setCallbacks：执行对应的业务逻辑。 */
   setCallbacks(callbacks: EnhancementModalCallbacks): void {
@@ -448,6 +460,7 @@ export class EnhancementModal {
     const activeJob = this.getActiveJob();
 /** hammerName：定义该变量以承载业务值。 */
     const hammerName = this.equipment.weapon?.name ?? '未装备';
+    this.formulaTooltip.hide(true);
     detailModalHost.open({
       ownerId: EnhancementModal.MODAL_OWNER,
       variantClass: 'detail-modal--enhancement',
@@ -460,9 +473,14 @@ export class EnhancementModal {
         confirmModalHost.close(EnhancementModal.PICKER_OWNER);
         confirmModalHost.close(EnhancementModal.HISTORY_LIST_OWNER);
         confirmModalHost.close(EnhancementModal.HISTORY_DETAIL_OWNER);
+        this.formulaTooltip.hide(true);
         this.stopCountdown();
       },
     });
+  }
+
+  private renderEnhancementFormulaPill(): string {
+    return '<button class="enhancement-formula-pill" type="button" data-enhancement-formula-tooltip="1">强化规则</button>';
   }
 
   private buildBodyHtml(
@@ -944,7 +962,7 @@ export class EnhancementModal {
             </div>
             <div class="enhancement-action-row enhancement-action-row--stacked">
               <button class="small-btn" type="button" data-enhancement-start="1">开始强化</button>
-              <span class="enhancement-action-note">${escapeHtml(getEnhancementFormulaNote())}</span>
+              ${this.renderEnhancementFormulaPill()}
             </div>
           </div>
           <div class="enhancement-workbench-main">
@@ -1063,7 +1081,7 @@ export class EnhancementModal {
           </div>
           <div class="enhancement-action-row enhancement-action-row--stacked">
             <button class="small-btn" type="button" data-enhancement-start="1">开始强化</button>
-            <span class="enhancement-action-note">${escapeHtml(getEnhancementFormulaNote())}</span>
+            ${this.renderEnhancementFormulaPill()}
           </div>
         </div>
         <div class="enhancement-workbench-main">
@@ -1239,6 +1257,7 @@ export class EnhancementModal {
 
 /** bindEvents：执行对应的业务逻辑。 */
   private bindEvents(body: HTMLElement): void {
+    this.bindFormulaTooltip(body);
     body.querySelector('[data-enhancement-refresh="1"]')?.addEventListener('click', () => {
       this.loading = true;
       this.render();
@@ -1404,6 +1423,51 @@ export class EnhancementModal {
         return;
       }
       this.callbacks?.onCancelEnhancement();
+    });
+  }
+
+  private bindFormulaTooltip(body: HTMLElement): void {
+    const tapMode = prefersPinnedTooltipInteraction();
+    body.querySelectorAll<HTMLElement>('[data-enhancement-formula-tooltip="1"]').forEach((node) => {
+      if (node.dataset.enhancementFormulaTooltipBound === '1') {
+        return;
+      }
+      node.dataset.enhancementFormulaTooltipBound = '1';
+      const showTooltip = (clientX: number, clientY: number, pin = false): void => {
+        const lines = getEnhancementFormulaTooltipLines();
+        if (pin) {
+          this.formulaTooltip.showPinned(node, '强化规则', lines, clientX, clientY);
+          return;
+        }
+        this.formulaTooltip.show('强化规则', lines, clientX, clientY);
+      };
+      node.addEventListener('click', (event) => {
+        if (!tapMode) {
+          return;
+        }
+        if (this.formulaTooltip.isPinnedTo(node)) {
+          this.formulaTooltip.hide(true);
+          return;
+        }
+        showTooltip(event.clientX, event.clientY, true);
+        event.preventDefault();
+        event.stopPropagation();
+      }, true);
+      node.addEventListener('pointerenter', (event) => {
+        if (tapMode && this.formulaTooltip.isPinned()) {
+          return;
+        }
+        showTooltip(event.clientX, event.clientY);
+      });
+      node.addEventListener('pointermove', (event) => {
+        if (tapMode && this.formulaTooltip.isPinned()) {
+          return;
+        }
+        this.formulaTooltip.move(event.clientX, event.clientY);
+      });
+      node.addEventListener('pointerleave', () => {
+        this.formulaTooltip.hide();
+      });
     });
   }
 
