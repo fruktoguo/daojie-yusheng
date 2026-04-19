@@ -1417,7 +1417,17 @@
       "count": 1
     }
   ],
-  "book.xuesha_huanling_jue": [],
+  "book.xuesha_huanling_jue": [
+    {
+      "kind": "monster_drop",
+      "mapId": "ruined_cavern_manor",
+      "mapName": "破败洞府",
+      "monsterId": "m_huanling_zhenren",
+      "monsterName": "重伤的唤灵真人",
+      "chance": 0.02,
+      "count": 1
+    }
+  ],
   "book.yaohuo_liebo": [
     {
       "kind": "monster_drop",
@@ -3280,7 +3290,7 @@
       "monsterId": "m_huanling_zhenren",
       "monsterName": "重伤的唤灵真人",
       "chance": 1,
-      "count": 10
+      "count": 50
     }
   ],
   "mat.beast_bone": [
@@ -3309,7 +3319,7 @@
       "monsterId": "m_huanling_zhenren",
       "monsterName": "重伤的唤灵真人",
       "chance": 1,
-      "count": 10
+      "count": 50
     }
   ],
   "mat.bloodbud_fruit": [
@@ -3320,7 +3330,7 @@
       "monsterId": "m_huanling_zhenren",
       "monsterName": "重伤的唤灵真人",
       "chance": 1,
-      "count": 10
+      "count": 50
     }
   ],
   "mat.breakarray_shard": [
@@ -3331,7 +3341,7 @@
       "monsterId": "m_huanling_zhenren",
       "monsterName": "重伤的唤灵真人",
       "chance": 1,
-      "count": 10
+      "count": 50
     }
   ],
   "mat.clear_mind_flower": [
@@ -3342,7 +3352,7 @@
       "monsterId": "m_huanling_zhenren",
       "monsterName": "重伤的唤灵真人",
       "chance": 1,
-      "count": 10
+      "count": 50
     }
   ],
   "mat.coldmarrow_reed": [
@@ -3353,7 +3363,7 @@
       "monsterId": "m_huanling_zhenren",
       "monsterName": "重伤的唤灵真人",
       "chance": 1,
-      "count": 10
+      "count": 50
     }
   ],
   "mat.flamegrain_spike": [
@@ -3364,7 +3374,7 @@
       "monsterId": "m_huanling_zhenren",
       "monsterName": "重伤的唤灵真人",
       "chance": 1,
-      "count": 10
+      "count": 50
     }
   ],
   "mat.frost_lotus_petal": [
@@ -3375,7 +3385,7 @@
       "monsterId": "m_huanling_zhenren",
       "monsterName": "重伤的唤灵真人",
       "chance": 1,
-      "count": 10
+      "count": 50
     }
   ],
   "mat.goldthread_briar": [
@@ -3386,7 +3396,7 @@
       "monsterId": "m_huanling_zhenren",
       "monsterName": "重伤的唤灵真人",
       "chance": 1,
-      "count": 10
+      "count": 50
     }
   ],
   "mat.green_spirit_stem": [
@@ -3397,7 +3407,7 @@
       "monsterId": "m_huanling_zhenren",
       "monsterName": "重伤的唤灵真人",
       "chance": 1,
-      "count": 10
+      "count": 50
     }
   ],
   "mat.ironvein_caltrop": [
@@ -3408,7 +3418,7 @@
       "monsterId": "m_huanling_zhenren",
       "monsterName": "重伤的唤灵真人",
       "chance": 1,
-      "count": 10
+      "count": 50
     }
   ],
   "mat.longvein_vine": [
@@ -3419,7 +3429,7 @@
       "monsterId": "m_huanling_zhenren",
       "monsterName": "重伤的唤灵真人",
       "chance": 1,
-      "count": 10
+      "count": 50
     }
   ],
   "mat.moondew_grass": [
@@ -3430,7 +3440,7 @@
       "monsterId": "m_huanling_zhenren",
       "monsterName": "重伤的唤灵真人",
       "chance": 1,
-      "count": 10
+      "count": 50
     }
   ],
   "mat.moonwell_stamen": [
@@ -3441,7 +3451,7 @@
       "monsterId": "m_huanling_zhenren",
       "monsterName": "重伤的唤灵真人",
       "chance": 1,
-      "count": 10
+      "count": 50
     }
   ],
   "mat.red_flame_leaf": [
@@ -3452,7 +3462,7 @@
       "monsterId": "m_huanling_zhenren",
       "monsterName": "重伤的唤灵真人",
       "chance": 1,
-      "count": 10
+      "count": 50
     }
   ],
   "mat.returnspring_leaf": [
@@ -3463,7 +3473,7 @@
       "monsterId": "m_huanling_zhenren",
       "monsterName": "重伤的唤灵真人",
       "chance": 1,
-      "count": 10
+      "count": 50
     }
   ],
   "mat.scorchheart_petal": [
@@ -3474,7 +3484,7 @@
       "monsterId": "m_huanling_zhenren",
       "monsterName": "重伤的唤灵真人",
       "chance": 1,
-      "count": 10
+      "count": 50
     }
   ],
   "mat.stonecore_lingzhi": [
@@ -3485,7 +3495,7 @@
       "monsterId": "m_huanling_zhenren",
       "monsterName": "重伤的唤灵真人",
       "chance": 1,
-      "count": 10
+      "count": 50
     }
   ],
   "mat.sunmelt_seed": [
@@ -3496,7 +3506,7 @@
       "monsterId": "m_huanling_zhenren",
       "monsterName": "重伤的唤灵真人",
       "chance": 1,
-      "count": 10
+      "count": 50
     }
   ],
   "mat.swiftwind_reed": [
@@ -3507,7 +3517,7 @@
       "monsterId": "m_huanling_zhenren",
       "monsterName": "重伤的唤灵真人",
       "chance": 1,
-      "count": 10
+      "count": 50
     }
   ],
   "mine_crystal_core": [
