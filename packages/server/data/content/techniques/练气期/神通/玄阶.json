@@ -96,7 +96,7 @@
       {
         "id": "skill.wildsunder_fall",
         "name": "崩界天陨",
-        "desc": "以裂岳真意锁住落点，轰然震塌一片地脉；命中、破招、暴击与体魄越高，塌势越重。",
+        "desc": "以裂岳真意锁住落点，轰然震塌一片地脉；功法层数越高，塌势越重。",
         "cooldown": 1800,
         "costMultiplier": 8,
         "range": 8,
@@ -119,7 +119,7 @@
               "args": [
                 {
                   "var": "caster.stat.physAtk",
-                  "scale": 16
+                  "scale": 30
                 },
                 {
                   "op": "add",
@@ -128,22 +128,6 @@
                     {
                       "var": "techLevel",
                       "scale": 0.2
-                    },
-                    {
-                      "var": "caster.stat.hit",
-                      "scale": 0.002
-                    },
-                    {
-                      "var": "caster.stat.breakPower",
-                      "scale": 0.0034
-                    },
-                    {
-                      "var": "caster.stat.crit",
-                      "scale": 0.0018
-                    },
-                    {
-                      "var": "caster.attr.constitution",
-                      "scale": 0.0026
                     }
                   ]
                 }
@@ -252,7 +236,7 @@
       {
         "id": "skill.voidflame_cataclysm",
         "name": "劫光灭域",
-        "desc": "引太虚劫光覆落成域，命中、破招、暴击与神识越高，寂灭波就越深。",
+        "desc": "引太虚劫光覆落成域，功法层数越高，劫光越盛。",
         "cooldown": 1800,
         "costMultiplier": 8,
         "range": 9,
@@ -276,7 +260,7 @@
               "args": [
                 {
                   "var": "caster.stat.spellAtk",
-                  "scale": 17
+                  "scale": 30
                 },
                 {
                   "op": "add",
@@ -285,22 +269,6 @@
                     {
                       "var": "techLevel",
                       "scale": 0.2
-                    },
-                    {
-                      "var": "caster.stat.hit",
-                      "scale": 0.0024
-                    },
-                    {
-                      "var": "caster.stat.breakPower",
-                      "scale": 0.0024
-                    },
-                    {
-                      "var": "caster.stat.crit",
-                      "scale": 0.0024
-                    },
-                    {
-                      "var": "caster.attr.spirit",
-                      "scale": 0.0026
                     }
                   ]
                 }
