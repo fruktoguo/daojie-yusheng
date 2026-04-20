@@ -1,4 +1,4 @@
-import { NEXT_S2C_Leaderboard, NEXT_S2C_WorldSummary } from '@mud/shared-next';
+import { NEXT_S2C_Leaderboard, NEXT_S2C_LeaderboardPlayerLocations, NEXT_S2C_WorldSummary } from '@mud/shared-next';
 import type { SocketPanelSender } from './network/socket-send-panel';
 import { detailModalHost } from './ui/detail-modal-host';
 import { WorldPanel } from './ui/panels/world-panel';
@@ -13,7 +13,7 @@ type MainWorldSummaryStateSourceOptions = {
  * socket：socket相关字段。
  */
 
-  socket: Pick<SocketPanelSender, 'sendRequestLeaderboard' | 'sendRequestWorldSummary'>;  
+  socket: Pick<SocketPanelSender, 'sendRequestLeaderboard' | 'sendRequestLeaderboardPlayerLocations' | 'sendRequestWorldSummary'>;  
   /**
  * worldPanel：世界面板相关字段。
  */
@@ -23,6 +23,7 @@ type MainWorldSummaryStateSourceOptions = {
 
 const LEADERBOARD_MODAL_OWNER = 'world:leaderboard';
 const WORLD_SUMMARY_MODAL_OWNER = 'world:summary';
+const LEADERBOARD_PLAYER_LOCATION_REFRESH_INTERVAL_MS = 10_000;
 /**
  * cloneJson：构建Json。
  * @param value T 参数说明。
@@ -94,6 +95,8 @@ export type MainWorldSummaryStateSource = ReturnType<typeof createMainWorldSumma
 export function createMainWorldSummaryStateSource(options: MainWorldSummaryStateSourceOptions) {
   let latestLeaderboard: NEXT_S2C_Leaderboard | null = null;
   let latestWorldSummary: NEXT_S2C_WorldSummary | null = null;  
+  let leaderboardPlayerLocationById = new Map<string, NEXT_S2C_LeaderboardPlayerLocations['entries'][number]>();
+  let leaderboardLocationTimer: number | null = null;
   /**
  * renderLeaderboardModal：执行Leaderboard弹层相关逻辑。
  * @returns 无返回值，直接更新Leaderboard弹层相关状态。
@@ -133,6 +136,16 @@ export function createMainWorldSummaryStateSource(options: MainWorldSummaryState
           `))}
         </div>
         <div class="panel-section">
+          <div class="panel-section-title">玩家击杀榜</div>
+          ${renderLeaderboardRows(data.boards.playerKills.map((entry) => `
+            <div class="observe-modal-row observe-modal-row--stack">
+              <span class="observe-modal-label">#${entry.rank} ${escapeHtml(entry.playerName)}</span>
+              <span class="observe-modal-value">击杀玩家 ${formatDisplayInteger(entry.playerKillCount)}</span>
+              <span class="observe-modal-subvalue" data-leaderboard-player-location="${escapeHtml(entry.playerId)}">${escapeHtml(formatLeaderboardPlayerLocation(entry.playerId))}</span>
+            </div>
+          `))}
+        </div>
+        <div class="panel-section">
           <div class="panel-section-title">至尊属性</div>
           ${renderLeaderboardRows(data.boards.supremeAttrs.map((entry) => `
             <div class="observe-modal-row">
@@ -146,9 +159,13 @@ export function createMainWorldSummaryStateSource(options: MainWorldSummaryState
       ownerId: LEADERBOARD_MODAL_OWNER,
       variantClass: 'detail-modal--quest',
       title: '天下榜',
-      subtitle: data ? `Top ${data.limit} · ${formatLeaderboardGeneratedAt(data.generatedAt)}` : '加载中',
+      subtitle: data ? `Top ${data.limit} · 榜册十分钟一更 · 坐标十秒一追索 · ${formatLeaderboardGeneratedAt(data.generatedAt)}` : '加载中',
       bodyHtml,
+      onClose: () => {
+        stopLeaderboardLocationPolling();
+      },
     });
+    requestVisibleLeaderboardPlayerLocations();
   }  
   /**
  * renderWorldSummaryModal：执行世界摘要弹层相关逻辑。
@@ -207,6 +224,7 @@ export function createMainWorldSummaryStateSource(options: MainWorldSummaryState
   options.worldPanel.setCallbacks({
     onOpenLeaderboard: () => {
       renderLeaderboardModal();
+      startLeaderboardLocationPolling();
       options.socket.sendRequestLeaderboard();
     },
     onOpenWorldSummary: () => {
@@ -234,6 +252,8 @@ export function createMainWorldSummaryStateSource(options: MainWorldSummaryState
     clear(): void {
       latestLeaderboard = null;
       latestWorldSummary = null;
+      leaderboardPlayerLocationById.clear();
+      stopLeaderboardLocationPolling();
       detailModalHost.close(LEADERBOARD_MODAL_OWNER);
       detailModalHost.close(WORLD_SUMMARY_MODAL_OWNER);
     },    
@@ -253,6 +273,19 @@ export function createMainWorldSummaryStateSource(options: MainWorldSummaryState
       }
     },    
     /**
+ * handleLeaderboardPlayerLocations：处理玩家击杀榜坐标追索结果并更新相关状态。
+ * @param data NEXT_S2C_LeaderboardPlayerLocations 原始数据。
+ * @returns 无返回值，直接更新玩家击杀榜坐标追索结果相关状态。
+ */
+
+    handleLeaderboardPlayerLocations(data: NEXT_S2C_LeaderboardPlayerLocations): void {
+      leaderboardPlayerLocationById = new Map(data.entries.map((entry) => [entry.playerId, cloneJson(entry)]));
+      if (!detailModalHost.isOpenFor(LEADERBOARD_MODAL_OWNER)) {
+        return;
+      }
+      renderLeaderboardModal();
+    },    
+    /**
  * handleWorldSummary：处理世界摘要并更新相关状态。
  * @param data NEXT_S2C_WorldSummary 原始数据。
  * @returns 无返回值，直接更新世界摘要相关状态。
@@ -268,4 +301,44 @@ export function createMainWorldSummaryStateSource(options: MainWorldSummaryState
       }
     },
   };
+
+  function startLeaderboardLocationPolling(): void {
+    if (leaderboardLocationTimer !== null) {
+      return;
+    }
+    leaderboardLocationTimer = window.setInterval(() => {
+      requestVisibleLeaderboardPlayerLocations();
+    }, LEADERBOARD_PLAYER_LOCATION_REFRESH_INTERVAL_MS);
+  }
+
+  function stopLeaderboardLocationPolling(): void {
+    if (leaderboardLocationTimer === null) {
+      return;
+    }
+    window.clearInterval(leaderboardLocationTimer);
+    leaderboardLocationTimer = null;
+  }
+
+  function requestVisibleLeaderboardPlayerLocations(): void {
+    if (!detailModalHost.isOpenFor(LEADERBOARD_MODAL_OWNER) || !latestLeaderboard) {
+      return;
+    }
+    const playerIds = latestLeaderboard.boards.playerKills
+      .map((entry) => entry.playerId)
+      .filter((entry) => typeof entry === 'string' && entry.length > 0);
+    if (playerIds.length <= 0) {
+      return;
+    }
+    options.socket.sendRequestLeaderboardPlayerLocations(playerIds);
+  }
+
+  function formatLeaderboardPlayerLocation(playerId: string): string {
+    const entry = leaderboardPlayerLocationById.get(playerId);
+    if (!entry) {
+      return '坐标：天机追索中';
+    }
+    return entry.online
+      ? `坐标：${entry.mapName} (${formatDisplayInteger(entry.x)}, ${formatDisplayInteger(entry.y)})`
+      : `离线坐标：${entry.mapName} (${formatDisplayInteger(entry.x)}, ${formatDisplayInteger(entry.y)})`;
+  }
 }

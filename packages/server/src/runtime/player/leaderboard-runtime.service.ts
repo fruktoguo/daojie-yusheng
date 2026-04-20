@@ -30,6 +30,8 @@ const market_1 = require("../../constants/gameplay/market");
 
 const market_runtime_service_1 = require("../market/market-runtime.service");
 
+const map_template_repository_1 = require("../map/map-template.repository");
+
 const player_runtime_service_1 = require("./player-runtime.service");
 
 /** 排行榜运行时：按在线玩家快照聚合榜单与世界摘要，结果做短缓存。 */
@@ -60,14 +62,20 @@ let LeaderboardRuntimeService = class LeaderboardRuntimeService {
  */
 
     marketRuntimeService;
+    /**
+ * mapTemplateRepository：地图模板仓库，用于把地图 ID 转成展示名称。
+ */
+
+    mapTemplateRepository;
     /** 缓存后的排行榜结果。 */
     cachedLeaderboard = null;
     /** 缓存后的世界摘要。 */
     cachedWorldSummary = null;
     /** 注入玩家运行时和坊市运行时。 */
-    constructor(playerRuntimeService, marketRuntimeService) {
+    constructor(playerRuntimeService, marketRuntimeService, mapTemplateRepository) {
         this.playerRuntimeService = playerRuntimeService;
         this.marketRuntimeService = marketRuntimeService;
+        this.mapTemplateRepository = mapTemplateRepository;
     }
     /** 构造各榜单快照，按需截断返回。 */
     buildLeaderboard(limit) {
@@ -118,6 +126,45 @@ let LeaderboardRuntimeService = class LeaderboardRuntimeService {
         this.cachedWorldSummary = payload;
         return payload;
     }
+    /** 构造玩家击杀榜坐标追索快照。 */
+    buildLeaderboardPlayerLocations(playerIds) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+
+        const normalizedIds = Array.isArray(playerIds)
+            ? playerIds
+                .map((entry) => typeof entry === 'string' ? entry.trim() : '')
+                .filter((entry, index, list) => entry.length > 0 && list.indexOf(entry) === index)
+                .slice(0, MAX_LEADERBOARD_LIMIT)
+            : [];
+        if (normalizedIds.length === 0) {
+            return { entries: [] };
+        }
+        const snapshotsByPlayerId = new Map(this.collectOnlineSnapshots().map((snapshot) => [snapshot.playerId, snapshot]));
+        return {
+            entries: normalizedIds.map((playerId) => {
+                const snapshot = snapshotsByPlayerId.get(playerId);
+                if (!snapshot) {
+                    return {
+                        playerId,
+                        mapId: '',
+                        mapName: '离线',
+                        x: 0,
+                        y: 0,
+                        online: false,
+                    };
+                }
+                return {
+                    playerId,
+                    mapId: snapshot.mapId,
+                    mapName: snapshot.mapName,
+                    x: snapshot.x,
+                    y: snapshot.y,
+                    online: snapshot.online,
+                };
+            }),
+        };
+    }
     /** 把缓存中的榜单裁剪到指定长度。 */
     sliceLeaderboard(source, limit) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -154,6 +201,11 @@ let LeaderboardRuntimeService = class LeaderboardRuntimeService {
         return {
             playerId: player.playerId,
             playerName: normalizePlayerName(player),
+            mapId: typeof player.templateId === 'string' ? player.templateId : '',
+            mapName: this.resolveMapName(player.templateId),
+            x: Math.trunc(Number.isFinite(player.x) ? player.x : 0),
+            y: Math.trunc(Number.isFinite(player.y) ? player.y : 0),
+            online: typeof player.sessionId === 'string' && player.sessionId.length > 0,
             realmLv: Math.max(1, toNonNegativeInteger(player.realm?.realmLv, 1)),
             realmName: typeof player.realm?.displayName === 'string' && player.realm.displayName.trim()
                 ? player.realm.displayName.trim()
@@ -354,12 +406,22 @@ let LeaderboardRuntimeService = class LeaderboardRuntimeService {
         const storage = this.marketRuntimeService.buildMarketStorage(playerId);
         return (storage?.items ?? []).reduce((total, entry) => entry?.item?.itemId === itemId ? total + toNonNegativeInteger(entry.count, 0) : total, 0);
     }
+    /** 把运行时地图 ID 转成中文地图名。 */
+    resolveMapName(mapId) {
+        const normalizedMapId = typeof mapId === 'string' ? mapId.trim() : '';
+        if (!normalizedMapId) {
+            return '未知地图';
+        }
+        const summary = this.mapTemplateRepository.listSummaries().find((entry) => entry.id === normalizedMapId);
+        return summary?.name ?? normalizedMapId;
+    }
 };
 exports.LeaderboardRuntimeService = LeaderboardRuntimeService;
 exports.LeaderboardRuntimeService = LeaderboardRuntimeService = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [player_runtime_service_1.PlayerRuntimeService,
-        market_runtime_service_1.MarketRuntimeService])
+        market_runtime_service_1.MarketRuntimeService,
+        map_template_repository_1.MapTemplateRepository])
 ], LeaderboardRuntimeService);
 export { LeaderboardRuntimeService };
 /**

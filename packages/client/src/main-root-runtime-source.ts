@@ -18,6 +18,31 @@ type MainRootRuntimeSourceOptions = {
 
   getLatestObservedEntitiesSnapshot: () => readonly ObservedMapEntity[];
 };
+
+const PVP_SHA_INFUSION_BUFF_ID = 'pvp.sha_infusion';
+const PVP_SHA_DEMONIZED_STACK_THRESHOLD = 20;
+
+function isDemonizedPlayerEntity(entity: Pick<MainRuntimeObservedEntity, 'kind' | 'buffs'>): boolean {
+  return entity.kind === 'player' && (entity.buffs ?? []).some((buff) => (
+    buff.buffId === PVP_SHA_INFUSION_BUFF_ID
+    && Math.max(0, Math.round(buff.stacks ?? 0)) > PVP_SHA_DEMONIZED_STACK_THRESHOLD
+  ));
+}
+
+function decorateObservedEntity(entity: MainRuntimeObservedEntity, player: PlayerState | null): MainRuntimeObservedEntity {
+  const badge = entity.badge ?? (isDemonizedPlayerEntity(entity)
+    ? { text: '魔', tone: 'demonic' as const }
+    : undefined);
+  const hostile = entity.kind === 'player'
+    && player !== null
+    && entity.id !== player.id
+    && (player.allowAoePlayerHit === true || player.retaliatePlayerTargetId === entity.id);
+  return {
+    ...entity,
+    badge,
+    hostile,
+  };
+}
 /**
  * MainRootRuntimeSource：统一结构类型，保证协议与运行时一致性。
  */
@@ -35,6 +60,24 @@ export function createMainRootRuntimeSource(options: MainRootRuntimeSourceOption
   let player: PlayerState | null = null;
   let latestEntities: MainRuntimeObservedEntity[] = [];
   let latestEntityMap = new Map<string, MainRuntimeObservedEntity>();  
+
+  function rebuildObservedEntityMap(entities: MainRuntimeObservedEntity[]): void {
+    latestEntityMap = new Map(entities.map((entity) => [entity.id, entity]));
+  }
+
+  function decorateObservedEntities(entities: MainRuntimeObservedEntity[]): MainRuntimeObservedEntity[] {
+    return entities.map((entity) => decorateObservedEntity(entity, player));
+  }
+
+  function refreshObservedDecorations(): void {
+    if (latestEntities.length === 0) {
+      latestEntityMap.clear();
+      return;
+    }
+    latestEntities = decorateObservedEntities(latestEntities);
+    rebuildObservedEntityMap(latestEntities);
+    options.replaceVisibleEntities(latestEntities);
+  }
   /**
  * setLatestObservedEntities：写入最新ObservedEntity。
  * @param entities MainRuntimeObservedEntity[] 参数说明。
@@ -43,7 +86,8 @@ export function createMainRootRuntimeSource(options: MainRootRuntimeSourceOption
 
 
   function setLatestObservedEntities(entities: MainRuntimeObservedEntity[]): void {
-    latestEntities = entities;
+    latestEntities = decorateObservedEntities(entities);
+    rebuildObservedEntityMap(latestEntities);
   }  
   /**
  * setLatestObservedEntityMap：写入最新ObservedEntity地图。
@@ -53,7 +97,7 @@ export function createMainRootRuntimeSource(options: MainRootRuntimeSourceOption
 
 
   function setLatestObservedEntityMap(map: Map<string, MainRuntimeObservedEntity>): void {
-    latestEntityMap = map;
+    latestEntityMap = new Map(Array.from(map.entries(), ([id, entity]) => [id, decorateObservedEntity(entity, player)]));
   }  
   /**
  * syncObservedSnapshot：处理Observed快照并更新相关状态。
@@ -64,11 +108,13 @@ export function createMainRootRuntimeSource(options: MainRootRuntimeSourceOption
   function syncObservedSnapshot(): MainRuntimeObservedEntity[] {
     const entities = options.getLatestObservedEntitiesSnapshot().map<MainRuntimeObservedEntity>((entity) => ({
       ...entity,
+      badge: entity.badge ?? undefined,
+      hostile: entity.hostile === true,
+      monsterScale: entity.monsterScale,
       npcQuestMarker: entity.npcQuestMarker ?? undefined,
       observation: entity.observation ?? undefined,
     }));
     setLatestObservedEntities(entities);
-    setLatestObservedEntityMap(new Map(entities.map((entity) => [entity.id, entity])));
     return entities;
   }  
   /**
@@ -83,7 +129,7 @@ export function createMainRootRuntimeSource(options: MainRootRuntimeSourceOption
     playerId: string,
     patch: Partial<Pick<MainRuntimeObservedEntity, 'char' | 'name'>>,
   ): void {
-    latestEntities = latestEntities.map((entity) => {
+    latestEntities = decorateObservedEntities(latestEntities.map((entity) => {
       if (entity.id !== playerId) {
         return entity;
       }
@@ -92,8 +138,8 @@ export function createMainRootRuntimeSource(options: MainRootRuntimeSourceOption
         ...(patch.char !== undefined ? { char: patch.char } : {}),
         ...(patch.name !== undefined ? { name: patch.name } : {}),
       };
-    });
-    latestEntityMap = new Map(latestEntities.map((entity) => [entity.id, entity]));
+    }));
+    rebuildObservedEntityMap(latestEntities);
     options.replaceVisibleEntities(latestEntities);
   }
 
@@ -115,6 +161,7 @@ export function createMainRootRuntimeSource(options: MainRootRuntimeSourceOption
 
     setPlayer(nextPlayer: PlayerState | null): void {
       player = nextPlayer;
+      refreshObservedDecorations();
     },    
     /**
  * hasPlayer：判断玩家是否满足条件。
@@ -168,6 +215,7 @@ export function createMainRootRuntimeSource(options: MainRootRuntimeSourceOption
 
     setLatestObservedEntities,
     setLatestObservedEntityMap,
+    refreshObservedDecorations,
     syncObservedSnapshot,    
     /**
  * clearObservedEntities：执行clearObservedEntity相关逻辑。

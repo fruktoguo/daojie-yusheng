@@ -17,6 +17,7 @@ import type {
 } from '../types';
 import { ViewportController } from '../viewport/viewport-controller';
 import { DEFAULT_SAFE_AREA } from '../../constants/world/map-runtime';
+import { MAP_TARGET_FPS_RANGE } from '../../constants/ui/performance';
 
 /** 地图运行时编排器，驱动 store、场景、投影、渲染、交互与小地图同步。 */
 export class MapRuntime implements MapRuntimeApi {
@@ -52,6 +53,9 @@ export class MapRuntime implements MapRuntimeApi {
   private frameHandle: number | null = null;
   /** 上一帧时间戳，计算插值推进进度。 */
   private lastFrameAt = performance.now();
+  private nextFrameAt = performance.now();
+  private targetFps = MAP_TARGET_FPS_RANGE.defaultValue;
+  private renderFrameObserver: ((frameAtMs: number) => void) | null = null;
   /** 当前可用安全区域。 */
   private safeArea: MapSafeAreaInsets = { ...DEFAULT_SAFE_AREA };
 
@@ -84,6 +88,19 @@ export class MapRuntime implements MapRuntimeApi {
     this.renderer.destroy();
     this.minimap.clear();
     this.interaction.destroy();
+  }
+
+  /** 注入渲染帧观察者，用于把真实渲染节拍回传给外层监控。 */
+  setRenderFrameObserver(observer: ((frameAtMs: number) => void) | null): void {
+    this.renderFrameObserver = observer;
+  }
+
+  /** 设置地图渲染循环的目标 FPS 上限。 */
+  setTargetFps(targetFps: number): void {
+    this.targetFps = Number.isFinite(targetFps)
+      ? Math.max(MAP_TARGET_FPS_RANGE.min, Math.min(MAP_TARGET_FPS_RANGE.max, Math.round(targetFps)))
+      : MAP_TARGET_FPS_RANGE.defaultValue;
+    this.nextFrameAt = performance.now();
   }
 
   /** 同步容器尺寸与 DPI，触发画布与小地图重排。 */
@@ -297,17 +314,27 @@ export class MapRuntime implements MapRuntimeApi {
       return;
     }
     this.lastFrameAt = performance.now();
+    this.nextFrameAt = this.lastFrameAt;
     const frame = () => {
       this.frameHandle = requestAnimationFrame(frame);
       const now = performance.now();
+      const minFrameIntervalMs = 1000 / Math.max(MAP_TARGET_FPS_RANGE.min, this.targetFps);
+      if (now < this.nextFrameAt) {
+        return;
+      }
       const dt = (now - this.lastFrameAt) / 1000;
       this.lastFrameAt = now;
+      this.nextFrameAt += minFrameIntervalMs;
+      while (this.nextFrameAt <= now) {
+        this.nextFrameAt += minFrameIntervalMs;
+      }
       this.camera.update(dt);
       const timing = this.store.getTickTiming();
       const progress = timing.durationMs > 0
         ? Math.min((now - timing.startedAt) / timing.durationMs, 1)
         : 1;
       this.renderer.render(this.currentScene, this.camera.getState(), this.projection, progress);
+      this.renderFrameObserver?.(now);
     };
     this.frameHandle = requestAnimationFrame(frame);
   }

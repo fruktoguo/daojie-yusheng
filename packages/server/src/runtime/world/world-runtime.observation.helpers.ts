@@ -130,6 +130,7 @@ function cloneVisibleBuff(source) {
 /** 构建玩家观察面板的属性项与可见度信息。 */
 function buildPlayerObservation(viewerSpirit, target, selfView = false) {
     return buildObservationInsight(viewerSpirit, target.attrs.finalAttrs.spirit, [
+        { threshold: 0.08, label: '形象', value: target.displayName?.trim() || target.name },
         { threshold: 0.15, label: '气血', value: formatCurrentMaxObservation(target.hp, target.maxHp) },
         { threshold: 0.28, label: '灵力', value: formatCurrentMaxObservation(target.qi, target.maxQi) },
         { threshold: 0.42, label: '体魄', value: String(target.attrs.finalAttrs.constitution) },
@@ -394,7 +395,7 @@ function buildPortalKindLabel(kind) {
         case 'gate':
             return '关隘';
         default:
-            return '传送点';
+            return '传送阵';
     }
 }
 /** 由坐标生成稳定传送点 ID。 */

@@ -15,17 +15,17 @@
 
 ## 文档分工
 
-- 仓库级总入口与权威缺口分析看 [../../docs/next-gap-analysis.md](../../docs/next-gap-analysis.md)
-- 任务粒度、依赖关系、当前轮次进展看 [../../docs/next-remaining-task-breakdown.md](../../docs/next-remaining-task-breakdown.md)
-- 执行顺序、完成定义、批次拆分看 [../../docs/next-remaining-execution-plan.md](../../docs/next-remaining-execution-plan.md)
-- 一页摘要版工程账本看 [../../docs/next-remaining-engineering-ledger.md](../../docs/next-remaining-engineering-ledger.md)
-- legacy 清理门槛看 [../../docs/next-legacy-removal-checklist.md](../../docs/next-legacy-removal-checklist.md)
+- 仓库级主计划与当前完成定义看 [../../docs/next-plan/main.md](../../docs/next-plan/main.md)
+- 原地硬切策略基线看 [../../docs/next-in-place-hard-cut-plan.md](../../docs/next-in-place-hard-cut-plan.md)
+- 当前 blocker 看板看 [../../docs/next-replacement-blocker-board.md](../../docs/next-replacement-blocker-board.md)
+- packages blocker 分布看 [../../docs/next-package-migration-board.md](../../docs/next-package-migration-board.md)
+- legacy 收尾与 cutover 看 [../../docs/next-plan/10-legacy-archive-and-cutover.md](../../docs/next-plan/10-legacy-archive-and-cutover.md)
 
 ## 这份包内文件的职责
 
 这个文件只做两件事：
 
 1. 给 `server-next` 包内读文档的人提供一个最短入口。
-2. 明确包内文档和仓库级 `docs/next-gap-analysis.md` 的分工，不再重复维护一份同内容长文。
+2. 明确包内文档和仓库级主计划 / blocker 看板的分工，不再重复维护一份同内容长文。
 
-如果你要继续推进具体改造，优先看仓库级 `docs/next-gap-analysis.md`，然后按 `T11 / T12 / T25 -> T01 / T03 / T05 / T07 -> T15 / T16 / T19 / T22` 的顺序往下做。
+如果你要继续推进具体改造，优先看仓库级 `docs/next-plan/main.md` 和 blocker 看板，再回到具体代码链路。

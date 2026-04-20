@@ -2,8 +2,14 @@
  * 游戏核心流程常量（Tick、在线态与基础结算）。
  */
 
-/** Tick 间隔（毫秒） */
+/** 玩家动作节流间隔（毫秒），用于输入节流与单次操作冷却。 */
 export const TICK_INTERVAL = 1000;
+
+/** 世界运行时主循环间隔（毫秒），当前服务端按 10Hz 推进。 */
+export const WORLD_TICK_INTERVAL_MS = 100;
+
+/** 世界运行时主循环频率（Hz）。 */
+export const WORLD_TICK_RATE_HZ = 1000 / WORLD_TICK_INTERVAL_MS;
 
 /** 单 tick 最大处理时间（毫秒） */
 export const TICK_BUDGET = 200;

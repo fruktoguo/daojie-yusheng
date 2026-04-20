@@ -84,7 +84,7 @@ let WorldProjectorService = class WorldProjectorService {
             mapEnter: buildMapEnter(view),
             worldDelta: buildFullWorldDelta(view),
             selfDelta: buildFullSelfDelta(player),
-            panelDelta: buildFullPanelDelta(player),
+            panelDelta: buildBootstrapPanelDelta(player),
         };
     }
     /** 生成常规增量投影；首次或换图时回退为完整包。 */
@@ -205,10 +205,14 @@ function buildFullWorldDelta(view) {
 
     const players = [{
             id: view.playerId,
+            n: view.self.displayName ?? view.self.name,
+            ch: resolvePlayerRenderChar(view.self.displayName, view.self.name),
             x: view.self.x,
             y: view.self.y,
         }, ...Array.from(view.visiblePlayers, (entry) => ({
             id: entry.playerId,
+            n: entry.name,
+            ch: resolvePlayerRenderChar(entry.displayName, entry.name),
             x: entry.x,
             y: entry.y,
         }))];
@@ -238,6 +242,8 @@ function buildFullWorldDelta(view) {
 
     const portals = Array.from(view.localPortals, (entry) => ({
         id: buildPortalId(entry.x, entry.y),
+        n: entry.kind === 'stairs' ? '楼梯' : '传送阵',
+        ch: entry.kind === 'stairs' ? '梯' : '阵',
         x: entry.x,
         y: entry.y,
         tm: entry.targetMapId,
@@ -331,6 +337,37 @@ function buildFullPanelDelta(player) {
     };
 }
 /**
+ * buildBootstrapPanelDelta：构建首连轻量面板Delta。
+ * @param player 玩家对象。
+ * @returns 无返回值，直接更新Bootstrap面板Delta相关状态。
+ */
+
+function buildBootstrapPanelDelta(player) {
+    return {
+        inv: {
+            r: player.inventory.revision,
+        },
+        eq: {
+            r: player.equipment.revision,
+            slots: [],
+        },
+        tech: {
+            r: player.techniques.revision,
+            techniques: [],
+        },
+        attr: {
+            r: player.attrs.revision,
+        },
+        act: {
+            r: player.actions.revision,
+            actions: [],
+        },
+        buff: {
+            r: player.buffs.revision,
+        },
+    };
+}
+/**
  * captureWorldState：执行capture世界状态相关逻辑。
  * @param view 参数说明。
  * @returns 无返回值，直接更新capture世界状态相关状态。
@@ -341,9 +378,13 @@ function captureWorldState(view) {
         instanceId: view.instance.instanceId,
         worldRevision: view.worldRevision,
         players: new Map([[view.playerId, {
+                n: view.self.displayName ?? view.self.name,
+                ch: resolvePlayerRenderChar(view.self.displayName, view.self.name),
                 x: view.self.x,
                 y: view.self.y,
             }], ...view.visiblePlayers.map((entry) => [entry.playerId, {
+                n: entry.name,
+                ch: resolvePlayerRenderChar(entry.displayName, entry.name),
                 x: entry.x,
                 y: entry.y,
             }])]),
@@ -367,6 +408,8 @@ function captureWorldState(view) {
                 tr: entry.tier,
             }])),
         portals: new Map(view.localPortals.map((entry) => [buildPortalId(entry.x, entry.y), {
+                n: entry.kind === 'stairs' ? '楼梯' : '传送阵',
+                ch: entry.kind === 'stairs' ? '梯' : '阵',
                 x: entry.x,
                 y: entry.y,
                 tm: entry.targetMapId,
@@ -500,6 +543,7 @@ function captureActionPanelSlice(player) {
         autoUsePills: (0, player_combat_config_helpers_1.cloneAutoUsePillList)(player.combat.autoUsePills),
         combatTargetingRules: (0, player_combat_config_helpers_1.cloneCombatTargetingRules)(player.combat.combatTargetingRules),
         autoBattleTargetingMode: player.combat.autoBattleTargetingMode,
+        retaliatePlayerTargetId: player.combat.retaliatePlayerTargetId,
         combatTargetId: player.combat.combatTargetId,
         combatTargetLocked: player.combat.combatTargetLocked,
         autoRetaliate: player.combat.autoRetaliate,
@@ -599,6 +643,7 @@ function buildFullActionDelta(player) {
         autoUsePills: (0, player_combat_config_helpers_1.cloneAutoUsePillList)(player.combat.autoUsePills),
         combatTargetingRules: (0, player_combat_config_helpers_1.cloneCombatTargetingRules)(player.combat.combatTargetingRules),
         autoBattleTargetingMode: player.combat.autoBattleTargetingMode,
+        retaliatePlayerTargetId: player.combat.retaliatePlayerTargetId,
         combatTargetId: player.combat.combatTargetId,
         combatTargetLocked: player.combat.combatTargetLocked,
         autoRetaliate: player.combat.autoRetaliate,
@@ -826,6 +871,7 @@ function buildPanelDelta(previous, player) {
         || !(0, player_combat_config_helpers_1.isSameAutoUsePillList)(previousAction.autoUsePills ?? [], player.combat.autoUsePills ?? [])
         || !(0, player_combat_config_helpers_1.isSameCombatTargetingRules)(previousAction.combatTargetingRules ?? null, player.combat.combatTargetingRules ?? null)
         || previousAction.autoBattleTargetingMode !== player.combat.autoBattleTargetingMode
+        || previousAction.retaliatePlayerTargetId !== player.combat.retaliatePlayerTargetId
         || previousAction.combatTargetId !== player.combat.combatTargetId
         || previousAction.combatTargetLocked !== player.combat.combatTargetLocked
         || previousAction.autoRetaliate !== player.combat.autoRetaliate
@@ -843,6 +889,7 @@ function buildPanelDelta(previous, player) {
             autoUsePills: (0, player_combat_config_helpers_1.cloneAutoUsePillList)(player.combat.autoUsePills),
             combatTargetingRules: (0, player_combat_config_helpers_1.cloneCombatTargetingRules)(player.combat.combatTargetingRules),
             autoBattleTargetingMode: player.combat.autoBattleTargetingMode,
+            retaliatePlayerTargetId: player.combat.retaliatePlayerTargetId,
             combatTargetId: player.combat.combatTargetId,
             combatTargetLocked: player.combat.combatTargetLocked,
             autoRetaliate: player.combat.autoRetaliate,
@@ -881,8 +928,30 @@ function diffPlayerEntries(previous, current) {
     const result = [];
     for (const [playerId, entry] of current) {
         const prev = previous.get(playerId);
-        if (!prev || prev.x !== entry.x || prev.y !== entry.y) {
-            result.push({ id: playerId, x: entry.x, y: entry.y });
+        if (!prev) {
+            result.push({ id: playerId, n: entry.n, ch: entry.ch, x: entry.x, y: entry.y });
+            continue;
+        }
+        const delta = { id: playerId };
+        let changed = false;
+        if (prev.n !== entry.n) {
+            delta.n = entry.n;
+            changed = true;
+        }
+        if (prev.ch !== entry.ch) {
+            delta.ch = entry.ch;
+            changed = true;
+        }
+        if (prev.x !== entry.x) {
+            delta.x = entry.x;
+            changed = true;
+        }
+        if (prev.y !== entry.y) {
+            delta.y = entry.y;
+            changed = true;
+        }
+        if (changed) {
+            result.push(delta);
         }
     }
     for (const playerId of previous.keys()) {
@@ -987,8 +1056,38 @@ function diffPortalEntries(previous, current) {
     const result = [];
     for (const [portalId, entry] of current) {
         const prev = previous.get(portalId);
-        if (!prev || prev.x !== entry.x || prev.y !== entry.y || prev.tm !== entry.tm || prev.tr !== entry.tr) {
-            result.push({ id: portalId, x: entry.x, y: entry.y, tm: entry.tm, tr: entry.tr });
+        if (!prev) {
+            result.push({ id: portalId, n: entry.n, ch: entry.ch, x: entry.x, y: entry.y, tm: entry.tm, tr: entry.tr });
+            continue;
+        }
+        const delta = { id: portalId };
+        let changed = false;
+        if (prev.n !== entry.n) {
+            delta.n = entry.n;
+            changed = true;
+        }
+        if (prev.ch !== entry.ch) {
+            delta.ch = entry.ch;
+            changed = true;
+        }
+        if (prev.x !== entry.x) {
+            delta.x = entry.x;
+            changed = true;
+        }
+        if (prev.y !== entry.y) {
+            delta.y = entry.y;
+            changed = true;
+        }
+        if (prev.tm !== entry.tm) {
+            delta.tm = entry.tm;
+            changed = true;
+        }
+        if (prev.tr !== entry.tr) {
+            delta.tr = entry.tr;
+            changed = true;
+        }
+        if (changed) {
+            result.push(delta);
         }
     }
     for (const portalId of previous.keys()) {
@@ -1943,6 +2042,14 @@ function cloneVisibleBuff(source) {
 
 function buildPortalId(x, y) {
     return `${x}:${y}`;
+}
+function resolvePlayerRenderChar(displayName, name) {
+    const normalizedDisplayName = typeof displayName === 'string' ? displayName.trim() : '';
+    if (normalizedDisplayName) {
+        return normalizedDisplayName;
+    }
+    const normalizedName = typeof name === 'string' ? name.trim() : '';
+    return normalizedName ? [...normalizedName][0] ?? '@' : '@';
 }
 
 export { WorldProjectorService };

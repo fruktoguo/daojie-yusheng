@@ -706,8 +706,9 @@ async function hello(runtime, socket, payload) {
   await socket.waitForEvent(NEXT_S2C.MapEnter);
   await socket.waitForEvent(NEXT_S2C.WorldDelta);
   await socket.waitForEvent(NEXT_S2C.SelfDelta);
-  await socket.waitForEvent(NEXT_S2C.PanelDelta);
-  await socket.waitForEvent(NEXT_S2C.Bootstrap);
+  var panelDelta = await socket.waitForEvent(NEXT_S2C.PanelDelta);
+  assertInitialPanelDeltaIsRevisionOnly(panelDelta);
+  var bootstrap = await socket.waitForEvent(NEXT_S2C.Bootstrap);
   await socket.waitForEvent(NEXT_S2C.MapStatic);
   await socket.waitForEvent(NEXT_S2C.Realm);
   await socket.waitForEvent(NEXT_S2C.LootWindowUpdate);
@@ -716,6 +717,7 @@ async function hello(runtime, socket, payload) {
     playerId: playerId,
     sessionId: typeof initSession?.sid === 'string' ? initSession.sid : '',
     initSession: initSession,
+    bootstrap: bootstrap,
   };
 }
 /**
@@ -741,7 +743,8 @@ async function awaitAuthenticatedBootstrap(runtime, socket, timeoutMs) {
   await socket.waitForEvent(NEXT_S2C.MapEnter, function () { return true; }, timeoutMs);
   await socket.waitForEvent(NEXT_S2C.WorldDelta, function () { return true; }, timeoutMs);
   await socket.waitForEvent(NEXT_S2C.SelfDelta, function () { return true; }, timeoutMs);
-  await socket.waitForEvent(NEXT_S2C.PanelDelta, function () { return true; }, timeoutMs);
+  var panelDelta = await socket.waitForEvent(NEXT_S2C.PanelDelta, function () { return true; }, timeoutMs);
+  assertInitialPanelDeltaIsRevisionOnly(panelDelta);
   await socket.waitForEvent(NEXT_S2C.Bootstrap, function () { return true; }, timeoutMs);
   await socket.waitForEvent(NEXT_S2C.MapStatic, function () { return true; }, timeoutMs);
   await socket.waitForEvent(NEXT_S2C.Realm, function () { return true; }, timeoutMs);
@@ -752,6 +755,55 @@ async function awaitAuthenticatedBootstrap(runtime, socket, timeoutMs) {
     sessionId: typeof initSession?.sid === 'string' ? initSession.sid : '',
     initSession: initSession,
   };
+}
+/**
+ * 断言首连 panel delta 只承担 revision 占位，而不再重复整包面板快照。
+ */
+function assertInitialPanelDeltaIsRevisionOnly(payload) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+  if (!payload || typeof payload !== 'object') {
+    throw new Error('expected initial PanelDelta payload to be an object');
+  }
+  assertPanelSectionRevisionOnly('inv', payload.inv, ['r']);
+  assertPanelSectionRevisionOnly('eq', payload.eq, ['r', 'slots'], function (value) {
+    return Array.isArray(value) && value.length === 0;
+  });
+  assertPanelSectionRevisionOnly('tech', payload.tech, ['r', 'techniques'], function (value) {
+    return Array.isArray(value) && value.length === 0;
+  });
+  assertPanelSectionRevisionOnly('attr', payload.attr, ['r']);
+  assertPanelSectionRevisionOnly('act', payload.act, ['r', 'actions'], function (value) {
+    return Array.isArray(value) && value.length === 0;
+  });
+  assertPanelSectionRevisionOnly('buff', payload.buff, ['r']);
+}
+/**
+ * 断言单个 panel section 只带允许的轻量字段。
+ */
+function assertPanelSectionRevisionOnly(label, payload, allowedKeys, validateOptional) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+  if (!payload || typeof payload !== 'object' || typeof payload.r !== 'number') {
+    throw new Error('expected initial PanelDelta.' + label + ' to include numeric revision');
+  }
+  var allowedKeySet = new Set(allowedKeys);
+  for (const key of Object.keys(payload)) {
+    if (!allowedKeySet.has(key)) {
+      throw new Error('expected initial PanelDelta.' + label + ' to avoid duplicate bootstrap field "' + key + '"');
+    }
+  }
+  if (!validateOptional) {
+    return;
+  }
+  for (const key of allowedKeys) {
+    if (key === 'r' || payload[key] === undefined) {
+      continue;
+    }
+    if (!validateOptional(payload[key], key)) {
+      throw new Error('expected initial PanelDelta.' + label + '.' + key + ' to stay empty during bootstrap');
+    }
+  }
 }
 /**
  * 收集legacys2cevents。
@@ -813,14 +865,7 @@ async function bootstrapCase(runtime) {
  * 记录玩家ID。
  */
   var playerId = session.playerId;
-  await socket.waitForEvent(NEXT_S2C.PanelDelta, function (payload) {
-    return !!(payload?.attr
-      && Array.isArray(payload.attr.bonuses)
-      && payload.attr.specialStats
-      && Object.prototype.hasOwnProperty.call(payload.attr, 'boneAgeBaseYears')
-      && Object.prototype.hasOwnProperty.call(payload.attr, 'lifeElapsedTicks')
-      && Object.prototype.hasOwnProperty.call(payload.attr, 'realmProgressToNext'));
-  }, 5000);
+  assertBootstrapSelfCarriesAttrSurface(session.bootstrap);
 /**
  * 记录before。
  */
@@ -866,6 +911,24 @@ async function statPanelCase(runtime) {
   await emitAndWait(socket, NEXT_C2S.RequestWorldSummary, {}, NEXT_S2C.WorldSummary, function (payload) {
     return payload && typeof payload.generatedAt === 'number' && payload.summary !== undefined;
   }, 5000);
+}
+
+function assertBootstrapSelfCarriesAttrSurface(payload) {
+  if (!payload || typeof payload !== 'object' || !payload.self || typeof payload.self !== 'object') {
+    throw new Error('expected Bootstrap.self payload to exist');
+  }
+  if (!Array.isArray(payload.self.bonuses)) {
+    throw new Error('expected Bootstrap.self.bonuses to be present');
+  }
+  if (payload.self.specialStats !== undefined && typeof payload.self.specialStats !== 'object') {
+    throw new Error('expected Bootstrap.self.specialStats to stay object-shaped when present');
+  }
+  if (!Object.prototype.hasOwnProperty.call(payload.self, 'boneAgeBaseYears')) {
+    throw new Error('expected Bootstrap.self.boneAgeBaseYears to be present');
+  }
+  if (!Object.prototype.hasOwnProperty.call(payload.self, 'lifeElapsedTicks')) {
+    throw new Error('expected Bootstrap.self.lifeElapsedTicks to be present');
+  }
 }
 /**
  * 处理炼丹与强化面板 case。

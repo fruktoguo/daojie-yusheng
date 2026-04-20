@@ -27,12 +27,12 @@ if (!sourceFile) {
 const EXPECTED_INTERFACES = {
   NEXT_S2C_Bootstrap: {
     self: { type: 'PlayerState', optional: false },
-    mapMeta: { type: 'MapMeta', optional: false },
+    mapMeta: { type: 'MapMeta', optional: true },
     minimap: { type: 'MapMinimapSnapshot', optional: true },
     visibleMinimapMarkers: { type: 'MapMinimapMarker[]', optional: true },
-    minimapLibrary: { type: 'MapMinimapArchiveEntry[]', optional: false },
-    tiles: { type: 'VisibleTile[][]', optional: false },
-    players: { type: 'RenderEntity[]', optional: false },
+    minimapLibrary: { type: 'MapMinimapArchiveEntry[]', optional: true },
+    tiles: { type: 'VisibleTile[][]', optional: true },
+    players: { type: 'RenderEntity[]', optional: true },
     time: { type: 'GameTimeState', optional: true },
     auraLevelBaseValue: { type: 'number', optional: true },
   },

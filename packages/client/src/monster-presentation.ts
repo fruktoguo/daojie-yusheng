@@ -1,4 +1,4 @@
-import type { MonsterTier } from '@mud/shared-next';
+import type { MonsterTier, RenderEntity } from '@mud/shared-next';
 
 /** 怪物在界面中的展示信息。 */
 export interface MonsterPresentation {
@@ -8,15 +8,10 @@ export interface MonsterPresentation {
 
   label: string;  
   /**
- * badgeText：badgeText名称或显示文本。
+ * badge：badge相关字段。
  */
 
-  badgeText?: string;  
-  /**
- * badgeClassName：badgeClass名称名称或显示文本。
- */
-
-  badgeClassName?: string;  
+  badge?: RenderEntity['badge'];  
   /**
  * scale：scale相关字段。
  */
@@ -47,16 +42,14 @@ export function getMonsterPresentation(
   if (tier === 'variant') {
     return {
       label,
-      badgeText: '异',
-      badgeClassName: 'monster-badge monster-badge--variant',
+      badge: { text: '异', tone: 'variant' },
       scale: 1.2,
     };
   }
   if (tier === 'demon_king') {
     return {
       label,
-      badgeText: '王',
-      badgeClassName: 'monster-badge monster-badge--boss',
+      badge: { text: '王', tone: 'boss' },
       scale: 1.5,
     };
   }
@@ -66,3 +59,16 @@ export function getMonsterPresentation(
   };
 }
 
+/** 将实体徽记映射为现有 UI 徽记类名。 */
+export function getEntityBadgeClassName(badge: RenderEntity['badge'] | null | undefined): string | null {
+  if (!badge) {
+    return null;
+  }
+  if (badge.tone === 'boss') {
+    return 'monster-badge monster-badge--boss';
+  }
+  if (badge.tone === 'demonic') {
+    return 'monster-badge monster-badge--demonic';
+  }
+  return 'monster-badge monster-badge--variant';
+}

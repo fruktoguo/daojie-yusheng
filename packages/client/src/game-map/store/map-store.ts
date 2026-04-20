@@ -42,6 +42,8 @@ import type {
 } from '../types';
 
 let latestObservedEntitiesSnapshot: readonly ObservedMapEntity[] = [];
+const PVP_SHA_INFUSION_BUFF_ID = 'pvp.sha_infusion';
+const PVP_SHA_DEMONIZED_STACK_THRESHOLD = 20;
 
 /** 获取最近一次刷新后的可见实体快照，供 UI 和交互层读取。 */
 export function getLatestObservedEntitiesSnapshot(): readonly ObservedMapEntity[] {
@@ -71,6 +73,30 @@ function applyNullablePatch<T>(value: T | null | undefined, fallback: T | undefi
   return fallback;
 }
 
+function isDemonizedBuffCarrier(buffs: readonly { buffId: string; stacks: number }[] | null | undefined): boolean {
+  return (buffs ?? []).some((buff) => (
+    buff.buffId === PVP_SHA_INFUSION_BUFF_ID
+    && Math.max(0, Math.round(buff.stacks ?? 0)) > PVP_SHA_DEMONIZED_STACK_THRESHOLD
+  ));
+}
+
+function decorateObservedEntity(entity: ObservedMapEntity, player: PlayerState | null): ObservedMapEntity {
+  const badge = entity.badge ?? (
+    entity.kind === 'player' && isDemonizedBuffCarrier(entity.buffs)
+      ? { text: '魔', tone: 'demonic' as const }
+      : undefined
+  );
+  const hostile = entity.kind === 'player'
+    && player !== null
+    && entity.id !== player.id
+    && (player.allowAoePlayerHit === true || player.retaliatePlayerTargetId === entity.id);
+  return {
+    ...entity,
+    badge,
+    hostile,
+  };
+}
+
 /** 将服务端渲染实体标准化为本地可观察实体快照。 */
 function toObservedEntity(entity: RenderEntity): ObservedMapEntity {
   return {
@@ -79,6 +105,8 @@ function toObservedEntity(entity: RenderEntity): ObservedMapEntity {
     wy: entity.y,
     char: entity.char,
     color: entity.color,
+    badge: entity.badge,
+    hostile: false,
     name: entity.name,
     kind: entity.kind ?? 'player',
     monsterTier: entity.monsterTier,
@@ -101,6 +129,8 @@ function mergeObservedEntityPatch(patch: TickRenderEntity, previous?: ObservedMa
     wy: patch.y,
     char: patch.char ?? previous?.char ?? '?',
     color: patch.color ?? previous?.color ?? '#fff',
+    badge: previous?.badge,
+    hostile: previous?.hostile,
     name: applyNullablePatch(patch.name, previous?.name),
     kind: applyNullablePatch(patch.kind, previous?.kind),
     monsterTier: applyNullablePatch(patch.monsterTier, previous?.monsterTier),
@@ -123,6 +153,8 @@ function buildLocalPlayerEntity(player: PlayerState, previous?: ObservedMapEntit
     wy: player.y,
     char: previous?.char ?? '我',
     color: previous?.color ?? '#7ee787',
+    badge: previous?.badge,
+    hostile: false,
     name: player.name,
     kind: 'player',
     hp: player.hp,
@@ -131,7 +163,7 @@ function buildLocalPlayerEntity(player: PlayerState, previous?: ObservedMapEntit
     maxQi: player.numericStats?.maxQi,
     npcQuestMarker: previous?.npcQuestMarker,
     observation: previous?.observation,
-    buffs: previous?.buffs,
+    buffs: player.temporaryBuffs ? cloneJson(player.temporaryBuffs) : previous?.buffs,
   };
 }
 
@@ -281,31 +313,44 @@ export class MapStore {
     const player = cloneJson(data.self);
     this.player = player;
     this.time = data.time ?? null;
-    if (shouldResetRememberedMap(player.mapId, data.mapMeta, data.minimap ?? null)) {
+    const mapMeta = data.mapMeta ?? getCachedMapMeta(player.mapId);
+    const minimapLibrary = data.minimapLibrary ?? [];
+    const visibleTiles = Array.isArray(data.tiles) ? data.tiles : [];
+    const renderPlayers = Array.isArray(data.players) ? data.players : [];
+    if (mapMeta && shouldResetRememberedMap(player.mapId, mapMeta, data.minimap ?? null)) {
       deleteRememberedMap(player.mapId);
     }
-    this.mapMeta = data.mapMeta;
-    cacheMapMeta(data.mapMeta);
+    if (mapMeta) {
+      this.mapMeta = mapMeta;
+      cacheMapMeta(mapMeta);
+    }
     this.visibleMinimapMarkers = cloneJson(data.visibleMinimapMarkers ?? []);
     rememberVisibleMarkers(player.mapId, this.visibleMinimapMarkers);
-    cacheUnlockedMinimapLibrary(data.minimapLibrary);
-    player.unlockedMinimapIds = data.minimapLibrary.map((entry) => entry.mapId).sort();
+    if (minimapLibrary.length > 0) {
+      cacheUnlockedMinimapLibrary(minimapLibrary);
+      player.unlockedMinimapIds = minimapLibrary.map((entry) => entry.mapId).sort();
+    }
+    if (!Array.isArray(player.unlockedMinimapIds)) {
+      player.unlockedMinimapIds = [];
+    }
     this.minimapSnapshot = data.minimap ?? (
       player.unlockedMinimapIds.includes(player.mapId)
         ? getCachedMapSnapshot(player.mapId)
         : null
     );
     if (data.minimap) {
-      cacheMapSnapshot(player.mapId, data.minimap, { meta: data.mapMeta, unlocked: true });
+      cacheMapSnapshot(player.mapId, data.minimap, { meta: mapMeta ?? null, unlocked: true });
     }
 
     this.tileCache.clear();
     this.visibleTiles.clear();
     hydrateTileCacheFromMemory(player.mapId, this.tileCache);
-    this.cacheVisibleTiles(player.mapId, data.tiles, player.x - this.getViewRadius(), player.y - this.getViewRadius());
+    if (visibleTiles.length > 0) {
+      this.cacheVisibleTiles(player.mapId, visibleTiles, player.x - this.getViewRadius(), player.y - this.getViewRadius());
+    }
     this.awaitingFullVisibilityMapId = null;
 
-    this.entities = [buildLocalPlayerEntity(player), ...data.players.map(toObservedEntity).filter((entry) => entry.id !== player.id)];
+    this.entities = [buildLocalPlayerEntity(player), ...renderPlayers.map(toObservedEntity).filter((entry) => entry.id !== player.id)];
     this.entityMap = new Map(this.entities.map((entry) => [entry.id, entry]));
     publishLatestObservedEntitiesSnapshot(this.entities);
     this.groundPiles.clear();
@@ -543,7 +588,7 @@ export class MapStore {
 
   /** 用新实体数组替换当前可见实体并更新过渡信息。 */
   replaceVisibleEntities(entities: ObservedMapEntity[], transition: MapEntityTransition | null = null): void {
-    this.entities = entities.map((entry) => cloneJson(entry));
+    this.entities = entities.map((entry) => decorateObservedEntity(cloneJson(entry), this.player));
     this.entityMap = new Map(this.entities.map((entry) => [entry.id, entry]));
     publishLatestObservedEntitiesSnapshot(this.entities);
     this.entityTransition = transition;
@@ -727,8 +772,9 @@ export class MapStore {
       nextMap.set(next.id, next);
     }
 
-    this.entityMap = nextMap;
-    return merged;
+    const decorated = merged.map((entity) => decorateObservedEntity(entity, this.player));
+    this.entityMap = new Map(decorated.map((entity) => [entity.id, entity]));
+    return decorated;
   }
 
   /** 合并地面物品增量，返回新 map 用于下发。 */
@@ -856,8 +902,4 @@ export class MapStore {
     }
   }
 }
-
-
-
-
 

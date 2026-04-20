@@ -73,6 +73,11 @@ export interface PlayerState {
 
   allowAoePlayerHit?: boolean;  
   /**
+ * retaliatePlayerTargetId：当前反击锁定的玩家目标。
+ */
+
+  retaliatePlayerTargetId?: string | null;  
+  /**
  * autoIdleCultivation：autoIdleCultivation相关字段。
  */
 
@@ -137,6 +142,11 @@ export interface PlayerState {
  */
 
   lifespanYears?: number | null;  
+  /**
+ * instanceId：实例ID标识。
+ */
+
+  instanceId?: string;  
   /**
  * mapId：地图ID标识。
  */

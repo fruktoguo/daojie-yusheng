@@ -72,8 +72,8 @@ let WorldRuntimePlayerCombatOutcomeService = class WorldRuntimePlayerCombatOutco
  * @returns 无返回值，直接更新玩家Defeat相关状态。
  */
 
-    handlePlayerDefeat(playerId, deps) {
-        this.worldRuntimePlayerCombatService.handlePlayerDefeat(playerId, deps);
+    handlePlayerDefeat(playerId, deps, killerPlayerId = null) {
+        this.worldRuntimePlayerCombatService.handlePlayerDefeat(playerId, deps, killerPlayerId);
     }    
     /**
  * processPendingRespawns：处理待处理重生并更新相关状态。

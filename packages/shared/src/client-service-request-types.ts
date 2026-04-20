@@ -174,8 +174,20 @@ export interface RequestLeaderboardView {
   limit?: number;
 }
 
+/** 请求玩家击杀榜坐标追索结果。 */
+export interface RequestLeaderboardPlayerLocationsView {
+/**
+ * playerIds：玩家ID列表。
+ */
+
+  playerIds: string[];
+}
+
 /** 请求世界概览。 */
 export interface RequestWorldSummaryView {}
+
+/** 停止当前连续采摘。 */
+export interface StopLootHarvestView {}
 
 /** 创建卖单。 */
 export interface CreateMarketSellOrderView {

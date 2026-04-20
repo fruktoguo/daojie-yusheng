@@ -229,6 +229,49 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
             actionsDirty: false,
         };
     }
+    /** 消耗当前境界修为与底蕴，优先扣进度，不足再扣底蕴。 */
+    consumeRealmProgressAndFoundation(player, amount) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+
+        const normalized = normalizeProgressionAmount(amount);
+        if (normalized <= 0) {
+            return {
+                changed: false,
+                consumedProgress: 0,
+                consumedFoundation: 0,
+            };
+        }
+
+        const currentRealm = this.normalizeRealmState(player.realm);
+        const consumedProgress = Math.min(currentRealm.progress, normalized);
+        const remaining = Math.max(0, normalized - consumedProgress);
+        const consumedFoundation = Math.min(player.foundation, remaining);
+        const nextProgress = Math.max(0, currentRealm.progress - consumedProgress);
+        const nextRealm = this.createRealmStateFromLevel(currentRealm.realmLv, nextProgress);
+        if (consumedFoundation > 0) {
+            player.foundation -= consumedFoundation;
+        }
+        const realmChanged = nextRealm.progress !== currentRealm.progress
+            || nextRealm.breakthroughReady !== currentRealm.breakthroughReady;
+        const attrRecalculated = realmChanged
+            ? this.applyResolvedRealmState(player, nextRealm, { bumpPersistentRevision: false })
+            : false;
+        const changed = consumedProgress > 0 || consumedFoundation > 0;
+        this.finalizeProgressionMutation(player, {
+            changed,
+            panelDirty: !attrRecalculated && consumedFoundation > 0,
+            attrRecalculated,
+            techniquesDirty: false,
+            actionsDirty: nextRealm.breakthroughReady !== currentRealm.breakthroughReady,
+            notices: [],
+        });
+        return {
+            changed,
+            consumedProgress,
+            consumedFoundation,
+        };
+    }
     /** 增加战斗经验。 */
     gainCombatExp(player, amount) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -701,6 +744,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
         const filePath = (0, project_path_1.resolveProjectPath)(...REALM_LEVELS_PATH);
 
         const raw = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+        const expMultiplier = normalizePositiveInt(raw?.expMultiplier, 1);
         this.realmLevels.clear();
         for (const entry of raw.levels ?? []) {
             const realmLv = normalizePositiveInt(entry.realmLv, 0);
@@ -720,7 +764,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
 
                 review: typeof entry.review === 'string' && entry.review.trim() ? entry.review.trim() : undefined,
                 lifespanYears: normalizeNullablePositiveInt(entry.lifespanYears),
-                expToNext: normalizePositiveInt(entry.expToNext, 0),
+                expToNext: normalizePositiveInt(entry.expToNext, 0) * expMultiplier,
             });
         }
 

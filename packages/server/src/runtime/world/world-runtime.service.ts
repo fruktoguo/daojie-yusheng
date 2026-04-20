@@ -1533,8 +1533,8 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.worldRuntimeTickDispatchService.applyMonsterSkill(action, this);
     }
     /** handlePlayerDefeat：标记玩家进入复生队列。 */
-    handlePlayerDefeat(playerId) {
-        this.worldRuntimeGameplayWriteFacadeService.handlePlayerDefeat(playerId, this);
+    handlePlayerDefeat(playerId, killerPlayerId = null) {
+        this.worldRuntimeGameplayWriteFacadeService.handlePlayerDefeat(playerId, this, killerPlayerId);
     }
     /** processPendingRespawns：处理等待复生的玩家。 */
     processPendingRespawns() {

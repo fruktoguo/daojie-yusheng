@@ -4,7 +4,7 @@ import type { MapMinimapArchiveEntry, MapMinimapMarker, MapMinimapSnapshot } fro
 import type { MapMeta, GameTimeState, RenderEntity, VisibleTile } from './world-core-types';
 import type { VisibleTilePatchView } from './world-patch-types';
 
-/** 首次连接引导包视图。 */
+/** 首次连接引导包视图。玩家完整面板状态以 self 为真源，避免再由首连 PanelDelta 重复整包下发。 */
 export interface BootstrapView {
 /**
  * self：self相关字段。
@@ -15,7 +15,7 @@ export interface BootstrapView {
  * mapMeta：地图Meta相关字段。
  */
 
-  mapMeta: MapMeta;  
+  mapMeta?: MapMeta;  
   /**
  * minimap：缓存或索引容器。
  */
@@ -30,17 +30,17 @@ export interface BootstrapView {
  * minimapLibrary：minimapLibrary相关字段。
  */
 
-  minimapLibrary: MapMinimapArchiveEntry[];  
+  minimapLibrary?: MapMinimapArchiveEntry[];  
   /**
  * tiles：tile相关字段。
  */
 
-  tiles: VisibleTile[][];  
+  tiles?: VisibleTile[][];  
   /**
  * players：集合字段。
  */
 
-  players: RenderEntity[];  
+  players?: RenderEntity[];  
   /**
  * time：时间相关字段。
  */

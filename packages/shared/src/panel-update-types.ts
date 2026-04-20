@@ -309,6 +309,11 @@ export interface ActionsUpdateView {
 
   combatTargetLocked?: boolean;  
   /**
+ * retaliatePlayerTargetId：当前反击锁定的玩家目标。
+ */
+
+  retaliatePlayerTargetId?: string | null;  
+  /**
  * autoRetaliate：autoRetaliate相关字段。
  */
 
@@ -436,6 +441,11 @@ export interface PanelActionDeltaView {
  */
 
   combatTargetLocked?: boolean;  
+  /**
+ * retaliatePlayerTargetId：当前反击锁定的玩家目标。
+ */
+
+  retaliatePlayerTargetId?: string | null;  
   /**
  * autoRetaliate：autoRetaliate相关字段。
  */

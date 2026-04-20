@@ -43,6 +43,7 @@ import type {
   RequestDetailView,
   RequestEnhancementPanelView,
   RequestLeaderboardView,
+  RequestLeaderboardPlayerLocationsView,
   RequestMailDetailView,
   RequestMailPageView,
   RequestMailSummaryView,
@@ -59,6 +60,7 @@ import type {
   SortInventoryView,
   StartAlchemyView,
   StartEnhancementView,
+  StopLootHarvestView,
   SubmitNpcQuestView,
   TakeLootView,
   UnequipView,
@@ -155,8 +157,12 @@ export interface NEXT_C2S_RequestMarketTradeHistory extends RequestMarketTradeHi
 export interface NEXT_C2S_RequestAttrDetail extends RequestAttrDetailView {}
 /** 请求排行榜数据。 */
 export interface NEXT_C2S_RequestLeaderboard extends RequestLeaderboardView {}
+/** 请求玩家击杀榜坐标追索结果。 */
+export interface NEXT_C2S_RequestLeaderboardPlayerLocations extends RequestLeaderboardPlayerLocationsView {}
 /** 请求世界概览统计。 */
 export interface NEXT_C2S_RequestWorldSummary extends RequestWorldSummaryView {}
+/** 停止当前连续采摘。 */
+export interface NEXT_C2S_StopLootHarvest extends StopLootHarvestView {}
 /** 创建坊市卖单。 */
 export interface NEXT_C2S_CreateMarketSellOrder extends CreateMarketSellOrderView {}
 /** 创建坊市买单。 */

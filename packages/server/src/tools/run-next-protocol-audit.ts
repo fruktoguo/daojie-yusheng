@@ -6,7 +6,7 @@
 
 const childProcess = require("node:child_process");
 const path = require("node:path");
-const lib = require("./next-protocol-audit-lib");
+const lib = require("./next-protocol-audit-lib.js");
 const serverEntry = path.join(lib.distRoot, "main.js");
 /**
  * 启动审计服务端。

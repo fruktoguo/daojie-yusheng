@@ -12,6 +12,13 @@ export const NEXT_GM_AUTH_CONTRACT = Object.freeze({
   passwordRecordKey: 'gm_auth',
   identityPersistedSource: 'native',
   tokenValidatorOwner: 'runtime_gm_auth_service',
+  defaultInsecurePassword: 'admin123',
+  allowInsecureLocalPasswordEnvNames: [
+    'SERVER_NEXT_ALLOW_INSECURE_LOCAL_GM_PASSWORD',
+    'GM_ALLOW_INSECURE_LOCAL_GM_PASSWORD',
+  ],
+  explicitPasswordEnvNames: ['SERVER_NEXT_GM_PASSWORD', 'GM_PASSWORD'],
+  insecureLocalPasswordRuntimeEnvs: ['development', 'dev', 'local', 'test'],
 });
 
 export const NEXT_GM_MAIL_RECIPIENT_CONTRACT = Object.freeze({

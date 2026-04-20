@@ -1,6 +1,6 @@
 /** 渲染器能力约束，确保 TextRenderer 与其他实现保持一致。 */
 
-import { GameTimeState, GridPoint, NpcQuestMarker, TargetingShape, Tile } from '@mud/shared-next';
+import { GameTimeState, GridPoint, NpcQuestMarker, RenderEntity, TargetingShape, Tile, VisibleBuffState } from '@mud/shared-next';
 import { Camera } from './camera';
 
 /** 浮动文本可选样式。 */
@@ -130,6 +130,11 @@ export interface IRenderer {
 
       color: string;      
       /**
+ * badge：badge相关字段。
+ */
+
+      badge?: RenderEntity['badge'];      
+      /**
  * name：名称名称或显示文本。
  */
 
@@ -139,6 +144,16 @@ export interface IRenderer {
  */
 
       kind?: string;      
+      /**
+ * monsterTier：怪物Tier相关字段。
+ */
+
+      monsterTier?: RenderEntity['monsterTier'];      
+      /**
+ * monsterScale：怪物Scale相关字段。
+ */
+
+      monsterScale?: RenderEntity['monsterScale'];      
       /**
  * hp：hp相关字段。
  */
@@ -154,6 +169,16 @@ export interface IRenderer {
  */
 
       npcQuestMarker?: NpcQuestMarker;
+      /**
+ * hostile：hostile相关字段。
+ */
+
+      hostile?: boolean;
+      /**
+ * buffs：buff相关字段。
+ */
+
+      buffs?: VisibleBuffState[];
     }[],
     movedId?: string,
     shiftX?: number,
@@ -177,6 +202,5 @@ export interface IRenderer {
   renderAttackTrails(camera: Camera): void;
   destroy(): void;
 }
-
 
 

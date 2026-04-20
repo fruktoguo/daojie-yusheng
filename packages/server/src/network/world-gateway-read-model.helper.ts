@@ -84,6 +84,28 @@ class WorldGatewayReadModelHelper {
         }
     }    
     /**
+ * handleNextRequestLeaderboardPlayerLocations：处理玩家击杀榜坐标追索请求并更新相关状态。
+ * @param client 参数说明。
+ * @param payload 载荷参数。
+ * @returns 无返回值，直接更新玩家击杀榜坐标追索相关状态。
+ */
+
+    handleNextRequestLeaderboardPlayerLocations(client, payload) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
+        if (!playerId) {
+            return;
+        }
+        try {
+            this.gateway.worldClientEventService.markProtocol(client, 'next');
+            client.emit(shared_1.NEXT_S2C.LeaderboardPlayerLocations, this.gateway.leaderboardRuntimeService.buildLeaderboardPlayerLocations(payload?.playerIds));
+        }
+        catch (error) {
+            this.gateway.worldClientEventService.emitGatewayError(client, 'REQUEST_LEADERBOARD_PLAYER_LOCATIONS_FAILED', error);
+        }
+    }    
+    /**
  * handleNextRequestWorldSummary：处理NextRequest世界摘要并更新相关状态。
  * @param client 参数说明。
  * @param _payload 参数说明。

@@ -20,6 +20,7 @@ const common_1 = require("@nestjs/common");
 const shared_1 = require("@mud/shared-next");
 
 const next_gm_constants_1 = require("../../http/next/next-gm.constants");
+const pvp_1 = require("../../constants/gameplay/pvp");
 
 const content_template_repository_1 = require("../../content/content-template.repository");
 
@@ -171,6 +172,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
                 autoUsePills: [],
                 combatTargetingRules: undefined,
                 autoBattleTargetingMode: 'auto',
+                retaliatePlayerTargetId: null,
                 combatTargetId: null,
                 combatTargetLocked: false,
                 allowAoePlayerHit: false,
@@ -1658,6 +1660,28 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         return this.setCombatTarget(playerId, null, false, currentTick);
     }    
     /**
+ * setRetaliatePlayerTarget：写入当前反击锁定的玩家目标。
+ * @param playerId 玩家 ID。
+ * @param targetPlayerId 参数说明。
+ * @param currentTick 参数说明。
+ * @returns 无返回值，直接更新当前反击锁定的玩家目标相关状态。
+ */
+
+    setRetaliatePlayerTarget(playerId, targetPlayerId, currentTick = 0) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+
+        const player = this.getPlayerOrThrow(playerId);
+        const normalizedTargetId = typeof targetPlayerId === 'string' && targetPlayerId.trim() ? targetPlayerId.trim() : null;
+        if (player.combat.retaliatePlayerTargetId === normalizedTargetId) {
+            return player;
+        }
+        player.combat.retaliatePlayerTargetId = normalizedTargetId;
+        this.rebuildActionState(player, currentTick);
+        this.bumpPersistentRevision(player);
+        return player;
+    }    
+    /**
  * applyTemporaryBuff：处理TemporaryBuff并更新相关状态。
  * @param playerId 玩家 ID。
  * @param buff 参数说明。
@@ -1689,6 +1713,139 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         player.buffs.revision += 1;
         this.playerAttributesService.recalculate(player);
         return player;
+    }
+    /** 施加神魂受损 Debuff。 */
+    applyPvPSoulInjury(playerId) {
+        return this.applyOrRefreshPvpBuff(playerId, buildPvPSoulInjuryBuffState(getPlayerRealmLevel(this.getPlayerOrThrow(playerId))));
+    }
+    /** 增加一层煞气入体。 */
+    addPvPShaInfusionStack(playerId) {
+        const player = this.getPlayerOrThrow(playerId);
+        const next = this.applyOrRefreshPvpBuff(playerId, buildPvPShaInfusionBuffState(getPlayerRealmLevel(player)), 1);
+        return next.stacks;
+    }
+    /** 增加煞气反噬层数。 */
+    addPvPShaBacklashStacks(playerId, addedStacks) {
+        if (addedStacks <= 0) {
+            return this.getBuffStacks(playerId, pvp_1.PVP_SHA_BACKLASH_BUFF_ID);
+        }
+        const player = this.getPlayerOrThrow(playerId);
+        const next = this.applyOrRefreshPvpBuff(playerId, buildPvPShaBacklashBuffState(getPlayerRealmLevel(player), addedStacks), addedStacks);
+        return next.stacks;
+    }
+    /** 查询指定 Buff 当前层数。 */
+    getBuffStacks(playerId, buffId) {
+        const player = this.getPlayerOrThrow(playerId);
+        return getEntityBuffStacks(player.buffs.buffs, buffId);
+    }
+    /** 判断玩家是否持有生效中的 Buff。 */
+    hasActiveBuff(playerId, buffId, minStacks = 1) {
+        const player = this.getPlayerOrThrow(playerId);
+        return entityHasActiveBuff(player.buffs.buffs, buffId, minStacks);
+    }
+    /** 身死时结算煞气反噬，折损修为并转化为煞气反噬层数。 */
+    applyShaInfusionDeathPenalty(playerId) {
+        const player = this.getPlayerOrThrow(playerId);
+        const stacks = getEntityBuffStacks(player.buffs.buffs, pvp_1.PVP_SHA_INFUSION_BUFF_ID);
+        if (stacks <= 0) {
+            return {
+                stacks: 0,
+                loss: 0,
+                consumedProgress: 0,
+                consumedFoundation: 0,
+                backlashAddedStacks: 0,
+                backlashTotalStacks: this.getBuffStacks(playerId, pvp_1.PVP_SHA_BACKLASH_BUFF_ID),
+                remainingInfusionStacks: 0,
+            };
+        }
+        const backlashAddedStacks = Math.max(1, Math.ceil(stacks / pvp_1.PVP_SHA_BACKLASH_STACK_DIVISOR));
+        const remainingInfusionStacks = this.consumePvpBuffStacks(playerId, pvp_1.PVP_SHA_INFUSION_BUFF_ID, backlashAddedStacks);
+        const backlashTotalStacks = this.addPvPShaBacklashStacks(playerId, backlashAddedStacks);
+        const progressToNext = Math.max(0, Math.floor(player.realm?.progressToNext ?? 0));
+        const loss = Math.max(0, Math.floor((progressToNext * stacks) / 100));
+        if (loss <= 0) {
+            return {
+                stacks,
+                loss: 0,
+                consumedProgress: 0,
+                consumedFoundation: 0,
+                backlashAddedStacks,
+                backlashTotalStacks,
+                remainingInfusionStacks,
+            };
+        }
+        const consumed = this.playerProgressionService.consumeRealmProgressAndFoundation(player, loss);
+        return {
+            stacks,
+            loss,
+            consumedProgress: consumed.consumedProgress,
+            consumedFoundation: consumed.consumedFoundation,
+            backlashAddedStacks,
+            backlashTotalStacks,
+            remainingInfusionStacks,
+        };
+    }
+    /** 按 PVP 规则刷新或叠加指定 Buff。 */
+    applyOrRefreshPvpBuff(playerId, buff, stackDelta = 0) {
+        const player = this.getPlayerOrThrow(playerId);
+        const existing = player.buffs.buffs.find((entry) => entry.buffId === buff.buffId);
+        if (existing) {
+            existing.name = buff.name;
+            existing.desc = buff.desc;
+            existing.baseDesc = buff.baseDesc;
+            existing.shortMark = buff.shortMark;
+            existing.category = buff.category;
+            existing.visibility = buff.visibility;
+            existing.remainingTicks = Math.max(1, Math.round(buff.duration));
+            existing.duration = Math.max(1, Math.round(buff.duration));
+            existing.maxStacks = Math.max(existing.maxStacks ?? 1, buff.maxStacks ?? 1);
+            existing.stacks = Math.min(existing.maxStacks, Math.max(1, Math.round(existing.stacks + (stackDelta || buff.stacks || 0))));
+            existing.sourceSkillId = buff.sourceSkillId;
+            existing.sourceSkillName = buff.sourceSkillName;
+            existing.realmLv = buff.realmLv;
+            existing.color = buff.color;
+            existing.attrs = buff.attrs ? { ...buff.attrs } : undefined;
+            existing.attrMode = buff.attrMode;
+            existing.stats = buff.stats ? { ...buff.stats } : undefined;
+            existing.statMode = buff.statMode;
+            existing.qiProjection = buff.qiProjection ? buff.qiProjection.map((entry) => ({ ...entry })) : undefined;
+        }
+        else {
+            const created = cloneTemporaryBuff(buff);
+            created.stacks = Math.max(1, Math.round(stackDelta || buff.stacks || 1));
+            player.buffs.buffs.push(created);
+        }
+        player.buffs.buffs.sort((left, right) => left.buffId.localeCompare(right.buffId, 'zh-Hans-CN'));
+        player.buffs.revision += 1;
+        this.playerAttributesService.recalculate(player);
+        this.bumpPersistentRevision(player);
+        return player.buffs.buffs.find((entry) => entry.buffId === buff.buffId);
+    }
+    /** 消耗指定 PVP Buff 层数并返回剩余层数。 */
+    consumePvpBuffStacks(playerId, buffId, consumedStacks) {
+        if (consumedStacks <= 0) {
+            return this.getBuffStacks(playerId, buffId);
+        }
+        const player = this.getPlayerOrThrow(playerId);
+        const index = player.buffs.buffs.findIndex((entry) => entry.buffId === buffId && entry.remainingTicks > 0);
+        if (index < 0) {
+            return 0;
+        }
+        const existing = player.buffs.buffs[index];
+        const nextStacks = Math.max(0, Math.round(existing.stacks) - consumedStacks);
+        if (nextStacks <= 0) {
+            player.buffs.buffs.splice(index, 1);
+            player.buffs.revision += 1;
+            this.playerAttributesService.recalculate(player);
+            this.bumpPersistentRevision(player);
+            return 0;
+        }
+        existing.stacks = nextStacks;
+        existing.remainingTicks = Math.max(1, Math.round(existing.duration || 1));
+        player.buffs.revision += 1;
+        this.playerAttributesService.recalculate(player);
+        this.bumpPersistentRevision(player);
+        return nextStacks;
     }    
     /**
  * advanceTick：执行advancetick相关逻辑。
@@ -1797,8 +1954,9 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             player.qi = player.maxQi;
             changed = true;
         }
-        if (player.buffs.buffs.length > 0) {
-            player.buffs.buffs.length = 0;
+        const keptBuffs = player.buffs.buffs.filter((buff) => shouldKeepBuffOnRespawn(buff));
+        if (!isSameBuffIdSequence(player.buffs.buffs, keptBuffs)) {
+            player.buffs.buffs = keptBuffs;
             player.buffs.revision += 1;
             changed = true;
             this.playerAttributesService.recalculate(player);
@@ -1811,6 +1969,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             player.combat.autoBattle = false;
             changed = true;
         }
+        player.combat.retaliatePlayerTargetId = null;
         player.combat.combatTargetId = null;
         player.combat.combatTargetLocked = false;
         player.combat.cultivationActive = false;
@@ -1851,6 +2010,8 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         }
 
         const player = this.createFreshPlayer(normalizedPlayerId, null);
+        player.instanceId = normalizePlayerPlacementInstanceId(placement?.instanceId)
+            ?? buildPublicPlayerInstanceId(templateId);
         player.templateId = templateId;
         player.x = Number.isFinite(placement?.x) ? Math.trunc(placement.x) : 0;
         player.y = Number.isFinite(placement?.y) ? Math.trunc(placement.y) : 0;
@@ -1972,7 +2133,8 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             displayName: playerId,
             persistentRevision: 1,
             persistedRevision: 1,
-            instanceId: '',
+            instanceId: normalizePlayerPlacementInstanceId(snapshot.placement.instanceId)
+                ?? buildPublicPlayerInstanceId(snapshot.placement.templateId),
             templateId: snapshot.placement.templateId,
             x: snapshot.placement.x,
             y: snapshot.placement.y,
@@ -2044,6 +2206,9 @@ let PlayerRuntimeService = class PlayerRuntimeService {
                 autoUsePills: (0, player_combat_config_helpers_1.normalizePersistedAutoUsePills)(snapshot.combat?.autoUsePills),
                 combatTargetingRules: (0, player_combat_config_helpers_1.normalizePersistedCombatTargetingRules)(snapshot.combat?.combatTargetingRules),
                 autoBattleTargetingMode: normalizePersistedAutoBattleTargetingMode(snapshot.combat?.autoBattleTargetingMode),
+                retaliatePlayerTargetId: typeof snapshot.combat?.retaliatePlayerTargetId === 'string' && snapshot.combat.retaliatePlayerTargetId.trim()
+                    ? snapshot.combat.retaliatePlayerTargetId.trim()
+                    : null,
 
                 combatTargetId: typeof snapshot.combat?.combatTargetId === 'string' && snapshot.combat.combatTargetId.trim()
                     ? snapshot.combat.combatTargetId.trim()
@@ -2273,6 +2438,7 @@ function cloneRuntimePlayerState(player) {
             autoUsePills: (0, player_combat_config_helpers_1.cloneAutoUsePillList)(player.combat.autoUsePills),
             combatTargetingRules: (0, player_combat_config_helpers_1.cloneCombatTargetingRules)(player.combat.combatTargetingRules),
             autoBattleTargetingMode: player.combat.autoBattleTargetingMode,
+            retaliatePlayerTargetId: player.combat.retaliatePlayerTargetId,
             combatTargetId: player.combat.combatTargetId,
             combatTargetLocked: player.combat.combatTargetLocked,
             allowAoePlayerHit: player.combat.allowAoePlayerHit,
@@ -2412,11 +2578,14 @@ function cloneHeavenGateRoots(roots) {
  */
 
 function buildRuntimePlayerPersistenceSnapshot(player) {
+    const templateId = typeof player.templateId === 'string' ? player.templateId.trim() : '';
     return {
         version: 1,
         savedAt: Date.now(),
         placement: {
-            templateId: player.templateId,
+            instanceId: normalizePlayerPlacementInstanceId(player.instanceId)
+                ?? (templateId ? buildPublicPlayerInstanceId(templateId) : ''),
+            templateId,
             x: player.x,
             y: player.y,
             facing: player.facing,
@@ -2483,6 +2652,7 @@ function buildRuntimePlayerPersistenceSnapshot(player) {
             autoUsePills: (0, player_combat_config_helpers_1.cloneAutoUsePillList)(player.combat.autoUsePills),
             combatTargetingRules: (0, player_combat_config_helpers_1.cloneCombatTargetingRules)(player.combat.combatTargetingRules),
             autoBattleTargetingMode: player.combat.autoBattleTargetingMode,
+            retaliatePlayerTargetId: player.combat.retaliatePlayerTargetId,
             combatTargetId: player.combat.combatTargetId,
             combatTargetLocked: player.combat.combatTargetLocked,
             allowAoePlayerHit: player.combat.allowAoePlayerHit,
@@ -2494,6 +2664,18 @@ function buildRuntimePlayerPersistenceSnapshot(player) {
         pendingLogbookMessages: player.pendingLogbookMessages.map((entry) => ({ ...entry })),
         runtimeBonuses: player.runtimeBonuses.map((entry) => cloneRuntimeBonus(entry)),
     };
+}
+
+function normalizePlayerPlacementInstanceId(value) {
+    if (typeof value !== 'string') {
+        return null;
+    }
+    const normalized = value.trim();
+    return normalized ? normalized : null;
+}
+
+function buildPublicPlayerInstanceId(templateId) {
+    return `public:${templateId}`;
 }
 /**
  * createCraftSkillState：构建并返回目标对象。
@@ -3230,9 +3412,16 @@ function tickTemporaryBuffs(buffs) {
 
     let changed = false;
     for (const buff of buffs) {
-        if (buff.remainingTicks > 0) {
-            buff.remainingTicks -= 1;
-            changed = true;
+        if (buff.remainingTicks <= 0) {
+            continue;
+        }
+        buff.remainingTicks -= 1;
+        changed = true;
+        if (buff.remainingTicks <= 0 && isDecayStackBuff(buff)) {
+            if (buff.stacks > 1) {
+                buff.stacks -= 1;
+                buff.remainingTicks = Math.max(1, Math.round(buff.duration || 1));
+            }
         }
     }
 
@@ -3355,6 +3544,117 @@ function cloneTemporaryBuff(source) {
         stats: source.stats ? { ...source.stats } : undefined,
         qiProjection: source.qiProjection ? source.qiProjection.map((entry) => ({ ...entry })) : undefined,
     };
+}
+
+function buildPvPSoulInjuryBuffState(sourceRealmLv) {
+    return {
+        buffId: pvp_1.PVP_SOUL_INJURY_BUFF_ID,
+        name: '神魂受损',
+        desc: '神魂受创；身死与遁返都不会清除，需静养满一时辰。',
+        baseDesc: '神魂受创；身死与遁返都不会清除，需静养满一时辰。',
+        shortMark: '残',
+        category: 'debuff',
+        visibility: 'public',
+        remainingTicks: pvp_1.PVP_SOUL_INJURY_DURATION_TICKS,
+        duration: pvp_1.PVP_SOUL_INJURY_DURATION_TICKS,
+        stacks: 1,
+        maxStacks: 1,
+        sourceSkillId: pvp_1.PVP_SOUL_INJURY_SOURCE_ID,
+        sourceSkillName: '杀孽',
+        realmLv: Math.max(1, Math.floor(sourceRealmLv)),
+        color: '#8a5a64',
+    };
+}
+
+function getPlayerRealmLevel(player) {
+    return Math.max(1, Math.floor(player.realm?.realmLv ?? 1));
+}
+
+function buildPvPShaInfusionBuffState(sourceRealmLv) {
+    return {
+        buffId: pvp_1.PVP_SHA_INFUSION_BUFF_ID,
+        name: '煞气入体',
+        desc: `每层攻击 +1%（最高 +${pvp_1.PVP_SHA_INFUSION_ATTACK_CAP_PERCENT}%）、防御 -2%；每十分钟自然消退一层，死亡时会按层数比例折损当前境界修为，不足时继续折损底蕴。`,
+        baseDesc: `每层攻击 +1%（最高 +${pvp_1.PVP_SHA_INFUSION_ATTACK_CAP_PERCENT}%）、防御 -2%；每十分钟自然消退一层，死亡时会按层数比例折损当前境界修为，不足时继续折损底蕴。`,
+        shortMark: '煞',
+        category: 'buff',
+        visibility: 'public',
+        remainingTicks: pvp_1.PVP_SHA_INFUSION_DECAY_TICKS,
+        duration: pvp_1.PVP_SHA_INFUSION_DECAY_TICKS,
+        stacks: 1,
+        maxStacks: 999999,
+        sourceSkillId: pvp_1.PVP_SHA_INFUSION_SOURCE_ID,
+        sourceSkillName: '杀孽',
+        realmLv: Math.max(1, Math.floor(sourceRealmLv)),
+        color: '#7a2e2e',
+        stats: {
+            physAtk: 1,
+            spellAtk: 1,
+            physDef: -2,
+            spellDef: -2,
+        },
+        statMode: 'percent',
+    };
+}
+
+function buildPvPShaBacklashBuffState(sourceRealmLv, stacks) {
+    return {
+        buffId: pvp_1.PVP_SHA_BACKLASH_BUFF_ID,
+        name: '煞气反噬',
+        desc: `每层攻击 -${pvp_1.PVP_SHA_BACKLASH_PERCENT_PER_STACK}%、防御 -${pvp_1.PVP_SHA_BACKLASH_PERCENT_PER_STACK}%；每十分钟自然消退一层。`,
+        baseDesc: `每层攻击 -${pvp_1.PVP_SHA_BACKLASH_PERCENT_PER_STACK}%、防御 -${pvp_1.PVP_SHA_BACKLASH_PERCENT_PER_STACK}%；每十分钟自然消退一层。`,
+        shortMark: '蚀',
+        category: 'debuff',
+        visibility: 'public',
+        remainingTicks: pvp_1.PVP_SHA_BACKLASH_DECAY_TICKS,
+        duration: pvp_1.PVP_SHA_BACKLASH_DECAY_TICKS,
+        stacks: Math.max(1, Math.floor(stacks)),
+        maxStacks: 999999,
+        sourceSkillId: pvp_1.PVP_SHA_BACKLASH_SOURCE_ID,
+        sourceSkillName: '煞气反噬',
+        realmLv: Math.max(1, Math.floor(sourceRealmLv)),
+        color: '#6d2626',
+        stats: {
+            physAtk: -pvp_1.PVP_SHA_BACKLASH_PERCENT_PER_STACK,
+            spellAtk: -pvp_1.PVP_SHA_BACKLASH_PERCENT_PER_STACK,
+            physDef: -pvp_1.PVP_SHA_BACKLASH_PERCENT_PER_STACK,
+            spellDef: -pvp_1.PVP_SHA_BACKLASH_PERCENT_PER_STACK,
+        },
+        statMode: 'percent',
+    };
+}
+
+function entityHasActiveBuff(buffs, buffId, minStacks = 1) {
+    return buffs.some((buff) => buff.buffId === buffId
+        && buff.remainingTicks > 0
+        && Math.max(0, Math.round(buff.stacks ?? 0)) >= minStacks);
+}
+
+function getEntityBuffStacks(buffs, buffId) {
+    const target = buffs.find((buff) => buff.buffId === buffId && buff.remainingTicks > 0);
+    return target ? Math.max(0, Math.round(target.stacks ?? 0)) : 0;
+}
+
+function isDecayStackBuff(buff) {
+    return buff.buffId === pvp_1.PVP_SHA_INFUSION_BUFF_ID || buff.buffId === pvp_1.PVP_SHA_BACKLASH_BUFF_ID;
+}
+
+function shouldKeepBuffOnRespawn(buff) {
+    return buff.buffId === pvp_1.PVP_SOUL_INJURY_BUFF_ID
+        || buff.buffId === pvp_1.PVP_SHA_INFUSION_BUFF_ID
+        || buff.buffId === pvp_1.PVP_SHA_BACKLASH_BUFF_ID;
+}
+
+function isSameBuffIdSequence(left, right) {
+    if (left.length !== right.length) {
+        return false;
+    }
+    for (let index = 0; index < left.length; index += 1) {
+        if (left[index]?.buffId !== right[index]?.buffId || left[index]?.stacks !== right[index]?.stacks || left[index]?.remainingTicks !== right[index]?.remainingTicks) {
+            return false;
+        }
+    }
+    return true;
 }
 /**
  * toConsumableTemporaryBuff：执行toConsumableTemporaryBuff相关逻辑。

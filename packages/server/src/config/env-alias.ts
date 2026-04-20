@@ -13,6 +13,13 @@ type DatabaseEnvSource = 'SERVER_NEXT_DATABASE_URL' | 'DATABASE_URL';
 
 type GmPasswordEnvSource = 'SERVER_NEXT_GM_PASSWORD' | 'GM_PASSWORD';
 /**
+ * GmInsecureDefaultPasswordEnvSource：统一结构类型，保证协议与运行时一致性。
+ */
+
+type GmInsecureDefaultPasswordEnvSource =
+  | 'SERVER_NEXT_ALLOW_INSECURE_LOCAL_GM_PASSWORD'
+  | 'GM_ALLOW_INSECURE_LOCAL_GM_PASSWORD';
+/**
  * ServerUrlEnvSource：统一结构类型，保证协议与运行时一致性。
  */
 
@@ -104,6 +111,32 @@ export function resolveServerNextGmPassword(defaultValue = ''): string {
   return readTrimmedEnv('SERVER_NEXT_GM_PASSWORD', 'GM_PASSWORD') || defaultValue;
 }
 /**
+ * resolveServerNextAllowInsecureLocalGmPasswordEnvSource：规范化或转换显式本地 GM 降级开关来源。
+ * @returns 返回显式本地 GM 降级开关来源。
+ */
+
+
+export function resolveServerNextAllowInsecureLocalGmPasswordEnvSource(): GmInsecureDefaultPasswordEnvSource | null {
+  if (readTrimmedEnv('SERVER_NEXT_ALLOW_INSECURE_LOCAL_GM_PASSWORD')) {
+    return 'SERVER_NEXT_ALLOW_INSECURE_LOCAL_GM_PASSWORD';
+  }
+
+  if (readTrimmedEnv('GM_ALLOW_INSECURE_LOCAL_GM_PASSWORD')) {
+    return 'GM_ALLOW_INSECURE_LOCAL_GM_PASSWORD';
+  }
+
+  return null;
+}
+/**
+ * resolveServerNextAllowInsecureLocalGmPassword：解析显式本地 GM 降级开关。
+ * @returns 返回是否开启显式本地 GM 降级。
+ */
+
+
+export function resolveServerNextAllowInsecureLocalGmPassword(): boolean {
+  return readBooleanEnv('SERVER_NEXT_ALLOW_INSECURE_LOCAL_GM_PASSWORD', 'GM_ALLOW_INSECURE_LOCAL_GM_PASSWORD');
+}
+/**
  * resolveServerNextUrlEnvSource：规范化或转换ServerNextUrlEnv来源。
  * @returns 返回ServerNextUrlEnv来源。
  */
@@ -154,4 +187,15 @@ export function resolveServerNextShadowUrlEnvSource(): ShadowUrlEnvSource | null
 
 export function resolveServerNextShadowUrl(): string {
   return readTrimmedEnv('SERVER_NEXT_SHADOW_URL', 'SERVER_NEXT_URL');
+}
+/**
+ * readBooleanEnv：读取布尔环境变量。
+ * @param names string[] 参数说明。
+ * @returns 返回布尔值。
+ */
+
+
+export function readBooleanEnv(...names: string[]): boolean {
+  const rawValue = readTrimmedEnv(...names).toLowerCase();
+  return ['1', 'true', 'yes', 'on'].includes(rawValue);
 }

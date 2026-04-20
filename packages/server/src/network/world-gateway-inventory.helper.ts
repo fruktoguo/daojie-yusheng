@@ -3,6 +3,7 @@
 
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.WorldGatewayInventoryHelper = void 0;
+const shared_1 = require("@mud/shared-next");
 
 /** 世界 socket 背包/装备 helper：只收敛 inventory/equipment 相关入口。 */
 class WorldGatewayInventoryHelper {
@@ -155,6 +156,28 @@ class WorldGatewayInventoryHelper {
         }
         catch (error) {
             this.gateway.worldClientEventService.emitGatewayError(client, 'TAKE_GROUND_FAILED', error);
+        }
+    }    
+    /**
+ * handleStopLootHarvest：处理停止连续采摘并更新相关状态。
+ * @param client 参数说明。
+ * @param _payload 参数说明。
+ * @returns 无返回值，直接更新停止连续采摘相关状态。
+ */
+
+    handleStopLootHarvest(client, _payload) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
+        if (!playerId) {
+            return;
+        }
+        try {
+            this.gateway.playerRuntimeService.clearLootWindow(playerId);
+            client.emit(shared_1.NEXT_S2C.LootWindowUpdate, { window: null });
+        }
+        catch (error) {
+            this.gateway.worldClientEventService.emitGatewayError(client, 'STOP_LOOT_HARVEST_FAILED', error);
         }
     }    
     /**

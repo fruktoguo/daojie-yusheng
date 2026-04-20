@@ -73,6 +73,16 @@ export interface ObservedMapEntity {
 
   color: string;  
   /**
+ * badge：badge相关字段。
+ */
+
+  badge?: RenderEntity['badge'];  
+  /**
+ * hostile：hostile相关字段。
+ */
+
+  hostile?: boolean;  
+  /**
  * name：名称名称或显示文本。
  */
 
@@ -684,7 +694,7 @@ export interface MapBootstrapInput {
  * mapMeta：地图Meta相关字段。
  */
 
-  mapMeta: MapMeta;  
+  mapMeta?: MapMeta;  
   /**
  * minimap：缓存或索引容器。
  */
@@ -699,17 +709,17 @@ export interface MapBootstrapInput {
  * minimapLibrary：minimapLibrary相关字段。
  */
 
-  minimapLibrary: MapMinimapArchiveEntry[];  
+  minimapLibrary?: MapMinimapArchiveEntry[];  
   /**
  * tiles：tile相关字段。
  */
 
-  tiles: VisibleTile[][];  
+  tiles?: VisibleTile[][];  
   /**
  * players：集合字段。
  */
 
-  players: RenderEntity[];  
+  players?: RenderEntity[];  
   /**
  * time：时间相关字段。
  */
@@ -722,6 +732,8 @@ export interface MapRuntimeApi {
   attach(host: HTMLElement): void;
   detach(): void;
   destroy(): void;
+  setRenderFrameObserver(observer: ((frameAtMs: number) => void) | null): void;
+  setTargetFps(targetFps: number): void;
   setViewportSize(width: number, height: number, dpr: number, viewportScale?: number): void;
   setSafeArea(insets: MapSafeAreaInsets): void;
   setZoom(level: number): void;
@@ -746,5 +758,3 @@ export interface MapRuntimeApi {
   getVisibleTileAt(x: number, y: number): Tile | null;
   getGroundPileAt(x: number, y: number): GroundItemPileView | null;
 }
-
-

@@ -88,6 +88,7 @@ export const NEXT_C2S = {
   RequestMarketTradeHistory: 'n:c:requestMarketTradeHistory',
   RequestAttrDetail: 'n:c:requestAttrDetail',
   RequestLeaderboard: 'n:c:requestLeaderboard',
+  RequestLeaderboardPlayerLocations: 'n:c:requestLeaderboardPlayerLocations',
   RequestWorldSummary: 'n:c:requestWorldSummary',
   CreateMarketSellOrder: 'n:c:createMarketSellOrder',
   CreateMarketBuyOrder: 'n:c:createMarketBuyOrder',
@@ -99,6 +100,7 @@ export const NEXT_C2S = {
   UseItem: 'n:c:useItem',
   DropItem: 'n:c:dropItem',
   DestroyItem: 'n:c:destroyItem',
+  StopLootHarvest: 'n:c:stopLootHarvest',
   TakeGround: 'n:c:takeGround',
   SortInventory: 'n:c:sortInventory',
   Equip: 'n:c:equip',
@@ -156,6 +158,7 @@ export const NEXT_S2C = {
   MarketTradeHistory: 'n:s:marketTradeHistory',
   AttrDetail: 'n:s:attrDetail',
   Leaderboard: 'n:s:leaderboard',
+  LeaderboardPlayerLocations: 'n:s:leaderboardPlayerLocations',
   WorldSummary: 'n:s:worldSummary',
   Detail: 'n:s:detail',
   TileDetail: 'n:s:tileDetail',
@@ -186,7 +189,7 @@ export interface NEXT_S2C_MapStatic extends MapStaticView {
   tilePatches?: VisibleTilePatch[];
 }
 
-/** 面板总增量，按模块拆分下发。 */
+/** 面板总增量，按模块拆分下发。首连阶段允许只发 revision 占位，完整面板以 Bootstrap.self 为真源。 */
 export interface NEXT_S2C_PanelDelta {
 /**
  * inv：inv相关字段。
@@ -489,10 +492,20 @@ export interface NEXT_C2S_PayloadMap extends Record<NEXT_C2S_EventName, unknown>
 
   [NEXT_C2S.RequestLeaderboard]: RequestPayloads.NEXT_C2S_RequestLeaderboard;  
   /**
+ * [NEXT_C2S.RequestLeaderboardPlayerLocations]：NEXT_C2S_PayloadMap 协议映射条目，用于描述事件到 payload 类型的映射。
+ */
+
+  [NEXT_C2S.RequestLeaderboardPlayerLocations]: RequestPayloads.NEXT_C2S_RequestLeaderboardPlayerLocations;  
+  /**
  * [NEXT_C2S.RequestWorldSummary]：NEXT_C2S_PayloadMap 协议映射条目，用于描述事件到 payload 类型的映射。
  */
 
   [NEXT_C2S.RequestWorldSummary]: RequestPayloads.NEXT_C2S_RequestWorldSummary;  
+  /**
+ * [NEXT_C2S.StopLootHarvest]：NEXT_C2S_PayloadMap 协议映射条目，用于描述事件到 payload 类型的映射。
+ */
+
+  [NEXT_C2S.StopLootHarvest]: RequestPayloads.NEXT_C2S_StopLootHarvest;  
   /**
  * [NEXT_C2S.CreateMarketSellOrder]：NEXT_C2S_PayloadMap 协议映射条目，用于描述事件到 payload 类型的映射。
  */
@@ -812,6 +825,11 @@ export interface NEXT_S2C_PayloadMap extends Record<NEXT_S2C_EventName, unknown>
  */
 
   [NEXT_S2C.Leaderboard]: ResponsePayloads.NEXT_S2C_Leaderboard;  
+  /**
+ * [NEXT_S2C.LeaderboardPlayerLocations]：NEXT_S2C_PayloadMap 协议映射条目，用于描述事件到 payload 类型的映射。
+ */
+
+  [NEXT_S2C.LeaderboardPlayerLocations]: ResponsePayloads.NEXT_S2C_LeaderboardPlayerLocations;  
   /**
  * [NEXT_S2C.WorldSummary]：NEXT_S2C_PayloadMap 协议映射条目，用于描述事件到 payload 类型的映射。
  */

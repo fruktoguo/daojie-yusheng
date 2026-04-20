@@ -124,6 +124,11 @@ type MainBootstrapAssemblyOptions = {
  */
 
     showFpsMonitor: boolean;
+    /**
+ * targetFps：目标渲染帧率。
+ */
+
+    targetFps: number;
   };  
   /**
  * runtimeMonitorSource：运行态Monitor来源相关字段。
@@ -132,6 +137,7 @@ type MainBootstrapAssemblyOptions = {
   runtimeMonitorSource: Pick<
     MainRuntimeMonitorSource,
     | 'initialize'
+    | 'recordFpsMonitorFrame'
     | 'syncFpsMonitorVisibility'
     | 'handleVersionReloadBefore'
     | 'scheduleConnectionRecovery'
@@ -239,6 +245,7 @@ type MainBootstrapAssemblyOptions = {
     | 'handleAlchemyPanel'
     | 'handleEnhancementPanel'
     | 'handleLeaderboard'
+    | 'handleLeaderboardPlayerLocations'
     | 'handleWorldSummary'
     | 'handleNpcQuests'
     | 'handleQuests'
@@ -358,6 +365,16 @@ type MainBootstrapAssemblyOptions = {
 
     attach: (host: HTMLElement) => void;    
     /**
+ * setRenderFrameObserver：渲染帧观察器。
+ */
+
+    setRenderFrameObserver: (observer: ((frameAtMs: number) => void) | null) => void;
+    /**
+ * setTargetFps：地图目标渲染 FPS。
+ */
+
+    setTargetFps: (targetFps: number) => void;
+    /**
  * setMoveHandler：MoveHandler相关字段。
  */
 
@@ -436,6 +453,7 @@ type MainBootstrapAssemblyOptions = {
   panelSender: Pick<
     SocketPanelSender,
     | 'sendTakeLoot'
+    | 'sendStopLootHarvest'
     | 'sendUnequip'
     | 'sendRequestNpcShop'
     | 'sendBuyNpcShopItem'
@@ -486,9 +504,14 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
   options.uiStateSource.refreshZoomChrome();
   bindResponsiveViewportCss(options.windowRef);
   options.runtimeMonitorSource.initialize(options.initialMapPerformanceConfig.showFpsMonitor);
+  options.mapRuntime.setRenderFrameObserver((frameAtMs) => {
+    options.runtimeMonitorSource.recordFpsMonitorFrame(frameAtMs);
+  });
+  options.mapRuntime.setTargetFps(options.initialMapPerformanceConfig.targetFps);
   options.windowRef.addEventListener(MAP_PERFORMANCE_CONFIG_CHANGE_EVENT, (event) => {
     const config = (event as CustomEvent<MapPerformanceConfig>).detail;
     options.runtimeMonitorSource.syncFpsMonitorVisibility(config.showFpsMonitor);
+    options.mapRuntime.setTargetFps(config.targetFps);
   });
 
   bindMainStartup({
@@ -619,6 +642,7 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
     onAlchemyPanel: (data) => options.detailStateSource.handleAlchemyPanel(data),
     onEnhancementPanel: (data) => options.detailStateSource.handleEnhancementPanel(data),
     onLeaderboard: (data) => options.detailStateSource.handleLeaderboard(data),
+    onLeaderboardPlayerLocations: (data) => options.detailStateSource.handleLeaderboardPlayerLocations(data),
     onWorldSummary: (data) => options.detailStateSource.handleWorldSummary(data),
     onNpcQuests: (data) => options.detailStateSource.handleNpcQuests(data),
     onQuests: (data) => options.detailStateSource.handleQuests(data),

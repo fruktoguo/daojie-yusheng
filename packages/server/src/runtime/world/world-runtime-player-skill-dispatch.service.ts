@@ -18,6 +18,7 @@ exports.WorldRuntimePlayerSkillDispatchService = void 0;
 const common_1 = require("@nestjs/common");
 const shared_1 = require("@mud/shared-next");
 const player_combat_service_1 = require("../combat/player-combat.service");
+const player_combat_config_helpers_1 = require("../player/player-combat-config.helpers");
 const player_runtime_service_1 = require("../player/player-runtime.service");
 const world_runtime_normalization_helpers_1 = require("./world-runtime.normalization.helpers");
 const { findPlayerSkill, getSkillEffectColor, resolveRuntimeSkillRange } = world_runtime_normalization_helpers_1;
@@ -102,6 +103,9 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
         if (attacker.instanceId !== target.instanceId) {
             throw new common_1.BadRequestException(`Target ${targetPlayerId} not in same instance`);
         }
+        if (!(0, player_combat_config_helpers_1.canPlayerDealDamageToPlayer)(attacker, target)) {
+            throw new common_1.BadRequestException('当前目标不在可攻击名单内');
+        }
         const distance = chebyshevDistance(attacker.x, attacker.y, target.x, target.y);
         const result = this.playerCombatService.castSkill(attacker, target, skillId, currentTick, distance);
         const effectColor = getSkillEffectColor(skill);
@@ -113,7 +117,7 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
         this.playerRuntimeService.recordActivity(target.playerId, currentTick, { interruptCultivation: true });
         const updatedTarget = this.playerRuntimeService.getPlayer(target.playerId);
         if (updatedTarget && updatedTarget.hp <= 0) {
-            deps.handlePlayerDefeat(updatedTarget.playerId);
+            deps.handlePlayerDefeat(updatedTarget.playerId, attacker.playerId);
         }
     }    
     /**
@@ -135,6 +139,9 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
         if (targetPlayerId) {
             const target = this.playerRuntimeService.getPlayer(targetPlayerId);
             if (!target || target.playerId === attacker.playerId || target.instanceId !== attacker.instanceId || target.hp <= 0) {
+                return null;
+            }
+            if (!(0, player_combat_config_helpers_1.canPlayerDealDamageToPlayer)(attacker, target)) {
                 return null;
             }
             return { kind: 'player', playerId: target.playerId };

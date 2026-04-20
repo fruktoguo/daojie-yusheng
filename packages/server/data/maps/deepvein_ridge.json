@@ -5,6 +5,7 @@
   "height": 60,
   "routeDomain": "system",
   "terrainProfileId": "earth_stone_wild",
+  "terrainRealmLv": 19,
   "spaceVisionMode": "isolated",
   "description": "练气期土行地图厚脉岭。整张图从右侧山脚切入，入口外层只露一小块石坪，之后一路被岩层、灵石矿和玄铁矿压住，必须沿着斜向内压的矿脉和断层不断掘进，最终抵达左上最深处的镇岳石府前庭。",
   "dangerLevel": 4,
@@ -16,37 +17,37 @@
     "崖崖ooLoooooooooooooo铁oooLoooLoooooooooooooo铁oooLoooLooooooo崖崖",
     "崖崖ooo铁崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖ooo铁oooLoooLoooooooooooooo铁oooLoo崖崖",
     "崖崖oooo崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖oooooooooooo铁oooLoooLoooooooooooo崖崖",
-    "崖崖oo崖oooLoooooooooo崖崖崖崖崖oooLoooLoooooooooooooo铁oooLoooLooo崖崖",
-    "崖崖oo崖oLLLLLLLLLLLLo崖崖崖崖崖oooooooo铁oooLoooLoooooooooooooo铁oo崖崖",
-    "崖崖oL崖oLL铁铁P铁铁铁铁铁LL铁崖崖崖崖崖ooLoooooooooooooo铁oooLoooLoooooooo崖崖",
-    "崖崖oo崖oLL铁;=;;铁铁铁,Looooooooo铁oooLoooLoooooooooooooo铁oooLooo崖崖",
-    "崖崖oo崖oLL铁;;;;铁铁,,,oooLoooo崖崖崖ooooooo铁oooLoooLooooooooooooo崖崖",
-    "崖崖oL崖oLL铁,,,,,,,,,,ooo铁ooo崖崖崖oLoooooooooooooo铁oooLoooLoooo崖崖",
-    "崖崖oo崖oLL,,,,,,,,,,ooooooooooooo铁oooLoooLoooooooooooooo铁ooo崖崖",
-    "崖崖Lo崖oLL铁,:,,,铁铁,LoooLoooLooo铁铁铁oooooooo铁oooLoooLooooooooo崖崖",
-    "崖崖o铁崖oLL铁铁铁::铁铁铁LLoooooooo铁oo铁铁铁,^^^ooooooooooooo铁oooLoooL崖崖",
-    "崖崖oo崖oLLLLLLL::LLLooLoooooooo铁铁铁^^;^oooLoooLoooooooooooooo崖崖",
-    "崖崖Lo崖oLLLLLLLLL:LLooo铁oooLoo^^,^^^oooooooooo铁oooLoooLooooo崖崖",
-    "崖崖oo崖oo铁oooLoooLoooooooooooo^;;;;^LoooLoooooooooooooo铁oooL崖崖",
-    "崖崖oo崖崖崖ooooooooo铁oLLLoooLo^^,;,;,ooo铁oo铁oooLoooLoooooooooo崖崖",
-    "崖崖铁oooLoooLoooooo,LLLooo,铁^oo;;;oLoo铁LLLoooooooo铁oooLoooLo崖崖",
-    "崖崖ooooooo铁铁铁o,oL,,,Looo,,,,o,ooooo铁oLLLLooLoooooooooooooo铁崖崖",
-    "崖崖oooLooo铁铁oooooo,oo铁ooo,oooLo,oooooL铁铁Looo铁oooLoooLoooooo崖崖",
-    "崖崖oooo铁oo铁铁oooLo崖崖oooo,oooo^o铁oooo,oL铁铁Loooooooooooo铁oooLo崖崖",
-    "崖崖ooooooooooooo铁崖崖oL,o;;;o;^ooooooooLLLLo,LoooLooo,ooooooo崖崖",
-    "崖崖oooLoooLoo崖崖oo崖崖o,,o;,;oLoLoooLo,;;;LLooooo,o铁oooLoooLoo崖崖",
-    "崖崖oooooooo铁o崖崖LoooLooo;;;oLoooooo铁o;,;LLoLoooo;;;ooo,;oo铁o崖崖",
-    "崖崖ooLooooo,o崖崖ooooo,o:oLoooLoooooo,;;;,ooo铁o,o;,;oLooooooo崖崖",
-    "崖崖ooo铁ooo,,,oLo,oooo:崖崖oo,oo铁oooLoooLooooooooo;;;oo铁oo,Loo崖崖",
-    "崖崖oooooooo,ooo铁oo;,:o崖崖ooo崖崖崖oooooooo铁o,oLo,;Looooo,ooooo,崖崖",
-    "崖崖ooLoooLoooooooo,,,o崖崖铁oooLoooLo,oooo崖崖ooo::o铁oooLoooLoo,崖崖",
-    "崖崖ooooooo铁oooLo,o:,;ooo崖崖ooooooo铁oooLo崖崖崖o,ooooooooooo,;P,,崖",
-    "崖崖oLooooooooooo,:o铁oo,L崖崖oLooooooooooo崖崖崖铁oo;;;o,Looooooo,崖崖",
-    "崖崖oo铁oooLoooLoo:崖ooooo,崖崖oo铁oooLoooLoo崖崖崖o,o;,;ooo铁oooLoo,崖崖",
-    "崖崖ooooooooooo铁o崖崖Looo,,,oooooooooooo铁o崖崖崖ooo;;:oooo,oooooo崖崖",
-    "崖崖oLoooLo,ooooo崖崖ooooo,oooLoooLooooooo崖崖崖ooo::oooL,;oLoooo崖崖",
-    "崖崖oooooo,,,oLoooLoooooLLLoooooo铁oooLoo崖崖崖o::oo,;oooooo铁ooo崖崖",
-    "崖崖Loooooo,ooooooo铁oooLLLLLoooooooooooo崖崖崖oooLoooLooooooooo崖崖",
+    "崖崖oo崖ooo铁oooooooooo崖崖崖崖崖oooLoooLoooooooooooooo铁oooLoooLooo崖崖",
+    "崖崖oo崖oL铁铁LL铁LLL铁L铁o崖崖崖崖崖oooooooo铁oooLoooLoooooooooooooo铁oo崖崖",
+    "崖崖oL崖o铁L铁铁P铁铁铁铁铁L铁铁崖崖崖崖崖ooLoooooooooooooo铁oooLoooLoooooooo崖崖",
+    "崖崖oo崖o铁铁铁;=;;铁铁铁,铁ooooooooo铁oooLoooLoooooooooooooo铁oooLooo崖崖",
+    "崖崖oo崖oL铁铁;;;;铁铁,,,oooLoooo崖崖崖ooooooo铁oooLoooLooooooooooooo崖崖",
+    "崖崖oL崖oL铁铁,,,,,,,,,,ooo铁ooo崖崖崖oLoooooooooooooo铁oooLoooLoooo崖崖",
+    "崖崖oo崖o铁铁,,,,,,,,,,ooooooooooooo铁oooLoooLoooooooooooooo铁ooo崖崖",
+    "崖崖Lo崖o铁铁铁,:,,,铁铁,LoooLoooLooo铁铁铁oooooooo铁oooLoooLooooooooo崖崖",
+    "崖崖o铁崖o铁铁铁铁铁::铁铁铁铁铁oooooooo铁oo铁铁铁,^^^ooooooooooooo铁oooLoooL崖崖",
+    "崖崖oo崖oL铁铁铁铁铁铁铁:铁铁LooLoooooooo铁铁铁^^;^oooLoooLoooooooooooooo崖崖",
+    "崖崖Lo崖oL铁铁铁铁铁铁L铁:铁Looo铁oooLoo^^,^^^oooooooooo铁oooLoooLooooo崖崖",
+    "崖崖oo崖oo铁oooL,,,Loooooooooooo^;;;;^LoooLoooooooooooooo铁oooL崖崖",
+    "崖崖oo崖崖崖ooooo,,oo铁oL铁铁oooLo^^,;,;,ooo铁oo铁oooLoooLoooooooooo崖崖",
+    "崖崖铁oooLoooLo,,,,o,铁铁铁ooo,铁^oo;;;oLoo铁铁铁Loooooooo铁oooLoooLo崖崖",
+    "崖崖ooooooo铁铁铁,,,L,,,Looo,,,,o,ooooo铁oL铁铁铁ooLoooooooooooooo铁崖崖",
+    "崖崖oooLooo铁铁o,,,oo,oo铁oo,,oooLo,ooooo铁铁铁Looo铁oooLoooLoooooo崖崖",
+    "崖崖oooo铁oo铁铁oooLo崖崖oooo,,ooo^o铁oooo,oL铁铁铁ooooooooo,,,铁oooLo崖崖",
+    "崖崖ooooooooooooo铁崖崖oL,o;;;o;^ooooo,,oL铁L铁o,Lo,,,oo,,,oooooo崖崖",
+    "崖崖oooLoooLoo崖崖oo崖崖o,,o;,;oLoLoooL,,;;;铁铁oooo,,,铁ooo,,ooLoo崖崖",
+    "崖崖oooooooo铁o崖崖LoooLooo;;;o铁oooooo,,;,;铁LoLooo,;;;ooo,;oo铁o崖崖",
+    "崖崖ooLooooo,o崖崖,,,oo,o:oLoooLooooo,,;;;,,oo铁o,o;,;oLooooooo崖崖",
+    "崖崖ooo铁ooo,,,oL,,,ooo:崖崖oo,oo铁oooLoooLo,,oooooo;;;oo铁oo,Loo崖崖",
+    "崖崖oooooooo,ooo,,,;,:o崖崖ooo崖崖崖oooooooo铁o,,,,,;Looooo,ooooo,崖崖",
+    "崖崖ooLoooLooooo,,,,,,o崖崖铁oooLoooLo,oooo崖崖ooo::o铁oooLoooLoo,崖崖",
+    "崖崖ooooooo铁oooL,,o:,;o,,崖崖ooooooo铁oooLo崖崖崖o,ooooooooooo,;P,,崖",
+    "崖崖oLooooooooooo,:o铁o,,,崖崖oLooooooooooo崖崖崖铁oo;;;o,Looooooo,崖崖",
+    "崖崖oo铁oooLoooLoo:崖ooo,,,崖崖oo铁oooLoooLoo崖崖崖o,o;,;ooo铁oooLoo,崖崖",
+    "崖崖ooooooooooo铁o崖崖Looo,,,oooooooooooo铁o崖崖崖ooo;;:ooo,,,ooooo崖崖",
+    "崖崖oLoooLo,ooooo崖崖ooooo,oooLoooLooooooo崖崖崖ooo::oooL,;,Loooo崖崖",
+    "崖崖oooooo,,,oLoooLoooo铁铁铁Loooooo铁oooLoo崖崖崖o::oo,;oooooo铁ooo崖崖",
+    "崖崖Loooooo,ooooooo铁ooo铁铁铁铁Loooooooooooo崖崖崖oooLoooLooooooooo崖崖",
     "崖崖o铁oooLoooLoooooooooooooo铁oooLoooLooo崖崖崖oooooooo铁oooLoooL崖崖",
     "崖崖oooooooooo崖崖崖oLoooLoooooooooooooo铁oo崖崖崖ooLoooooooooooooo崖崖",
     "崖崖LoooLoooooooooooooo铁oooLoooLoooooooo崖崖崖ooo铁oooLoooLooooo崖崖",
@@ -181,7 +182,7 @@
       "name": "回渡石坪",
       "x": 56,
       "y": 30,
-      "desc": "厚脉岭最外层唯一还能站稳脚跟的石坪，背后就是栖真渡，往前一步便是整座山体压下来的采脉路。"
+      "desc": "厚脉岭最外层唯一还能站稳脚跟的石坪，背后就是栖���渡，往前一步便是整座山体压下来的采脉路。"
     },
     {
       "id": "lm_deepvein_foothill_pocket",
@@ -224,6 +225,86 @@
       "x": 10,
       "y": 8,
       "desc": "最深处的石府前庭只剩一道被强行压住的旧门，门后还连着更深的地脉缝，就是归藏脉窟外围。"
+    }
+  ],
+  "resourceNodeGroups": [
+    {
+      "resourceNodeId": "landmark.herb.bearingroot_ginseng",
+      "idPrefix": "lm_deepvein_bearingroot",
+      "name": "承脉参",
+      "placements": [
+        {
+          "x": 57,
+          "y": 32
+        },
+        {
+          "x": 50,
+          "y": 23
+        },
+        {
+          "x": 42,
+          "y": 28
+        },
+        {
+          "x": 34,
+          "y": 24
+        },
+        {
+          "x": 28,
+          "y": 18
+        },
+        {
+          "x": 21,
+          "y": 31
+        },
+        {
+          "x": 12,
+          "y": 17
+        },
+        {
+          "x": 8,
+          "y": 12
+        }
+      ]
+    },
+    {
+      "resourceNodeId": "landmark.herb.stonecore_lingzhi",
+      "idPrefix": "lm_deepvein_stonecore",
+      "name": "岩髓芝",
+      "placements": [
+        {
+          "x": 51,
+          "y": 34
+        },
+        {
+          "x": 45,
+          "y": 24
+        },
+        {
+          "x": 38,
+          "y": 26
+        },
+        {
+          "x": 32,
+          "y": 14
+        },
+        {
+          "x": 22,
+          "y": 22
+        },
+        {
+          "x": 15,
+          "y": 27
+        },
+        {
+          "x": 13,
+          "y": 20
+        },
+        {
+          "x": 16,
+          "y": 9
+        }
+      ]
     }
   ],
   "npcs": [
@@ -278,144 +359,57 @@
       "x": 30,
       "y": 18,
       "count": 1,
-      "maxAlive": 1,
       "radius": 3,
-      "wanderRadius": 3
+      "maxAlive": 1
     },
     {
       "id": "spawn_deepvein_stele_bearer_b",
-      "templateId": "m_deepvein_stele_bearer",
       "x": 36,
       "y": 25,
+      "templateId": "m_deepvein_stele_bearer",
       "count": 1,
-      "maxAlive": 1,
       "radius": 3,
-      "wanderRadius": 3
+      "maxAlive": 1
     },
     {
       "id": "spawn_deepvein_stele_bearer_c",
-      "templateId": "m_deepvein_stele_bearer",
       "x": 21,
       "y": 20,
+      "templateId": "m_deepvein_stele_bearer",
       "count": 1,
-      "maxAlive": 1,
       "radius": 3,
-      "wanderRadius": 3
+      "maxAlive": 1
     },
     {
       "id": "m_deepvein_heavy_guard",
       "x": 23,
       "y": 24,
       "count": 1,
-      "maxAlive": 1,
       "radius": 3,
-      "wanderRadius": 3
+      "maxAlive": 1
     },
     {
       "id": "spawn_deepvein_heavy_guard_b",
-      "templateId": "m_deepvein_heavy_guard",
       "x": 18,
       "y": 29,
+      "templateId": "m_deepvein_heavy_guard",
       "count": 1,
-      "maxAlive": 1,
       "radius": 3,
-      "wanderRadius": 3
+      "maxAlive": 1
     },
     {
       "id": "spawn_deepvein_heavy_guard_c",
-      "templateId": "m_deepvein_heavy_guard",
       "x": 13,
       "y": 16,
+      "templateId": "m_deepvein_heavy_guard",
       "count": 1,
-      "maxAlive": 1,
       "radius": 3,
-      "wanderRadius": 3
+      "maxAlive": 1
     },
     {
       "id": "m_deepvein_earth_effigy",
       "x": 11,
       "y": 12
-    }
-  ],
-  "terrainRealmLv": 19,
-  "resourceNodeGroups": [
-    {
-      "resourceNodeId": "landmark.herb.bearingroot_ginseng",
-      "idPrefix": "lm_deepvein_bearingroot",
-      "name": "承脉参",
-      "placements": [
-        {
-          "x": 55,
-          "y": 29
-        },
-        {
-          "x": 48,
-          "y": 25
-        },
-        {
-          "x": 42,
-          "y": 28
-        },
-        {
-          "x": 34,
-          "y": 24
-        },
-        {
-          "x": 28,
-          "y": 18
-        },
-        {
-          "x": 20,
-          "y": 30
-        },
-        {
-          "x": 14,
-          "y": 17
-        },
-        {
-          "x": 10,
-          "y": 12
-        }
-      ]
-    },
-    {
-      "resourceNodeId": "landmark.herb.stonecore_lingzhi",
-      "idPrefix": "lm_deepvein_stonecore",
-      "name": "岩髓芝",
-      "placements": [
-        {
-          "x": 52,
-          "y": 32
-        },
-        {
-          "x": 45,
-          "y": 22
-        },
-        {
-          "x": 38,
-          "y": 26
-        },
-        {
-          "x": 30,
-          "y": 15
-        },
-        {
-          "x": 24,
-          "y": 24
-        },
-        {
-          "x": 16,
-          "y": 28
-        },
-        {
-          "x": 12,
-          "y": 20
-        },
-        {
-          "x": 8,
-          "y": 9
-        }
-      ]
     }
   ]
 }

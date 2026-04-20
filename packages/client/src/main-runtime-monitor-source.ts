@@ -264,7 +264,6 @@ export function createMainRuntimeMonitorSource(
   let currentTimeStateSyncedAt = performance.now();
   let currentTimeTickIntervalMs = 1000;
   let currentTimeIntervalId: number | null = null;
-  let fpsMonitorFrameRequestId: number | null = null;
   let fpsMonitorEnabled = false;
   let fpsSampleFrameCount = 0;
   let fpsSampleStartedAt = performance.now();
@@ -372,17 +371,15 @@ export function createMainRuntimeMonitorSource(
     };
   }  
   /**
- * tickFpsMonitor：执行tickFpMonitor相关逻辑。
+ * recordFpsMonitorFrame：记录真实渲染帧并更新 FPS 采样。
  * @param now number 参数说明。
- * @returns 无返回值，直接更新tickFpMonitor相关状态。
+ * @returns 无返回值，直接更新 FPS 采样相关状态。
  */
 
-
-  function tickFpsMonitor(now: number): void {
+  function recordFpsMonitorFrame(now: number): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (!fpsMonitorEnabled) {
-      fpsMonitorFrameRequestId = null;
       return;
     }
 
@@ -409,8 +406,6 @@ export function createMainRuntimeMonitorSource(
       fpsSampleFrameCount = 0;
       fpsSampleStartedAt = now;
     }
-
-    fpsMonitorFrameRequestId = options.windowRef.requestAnimationFrame(tickFpsMonitor);
   }  
   /**
  * startFpsMonitor：执行开始FpMonitor相关逻辑。
@@ -434,7 +429,6 @@ export function createMainRuntimeMonitorSource(
     elements.fpsRateEl.hidden = false;
     resetFpsMonitorSamples();
     renderFpsStats({ fps: null, low: null, onePercentLow: null });
-    fpsMonitorFrameRequestId = options.windowRef.requestAnimationFrame(tickFpsMonitor);
   }  
   /**
  * stopFpsMonitor：执行stopFpMonitor相关逻辑。
@@ -446,10 +440,6 @@ export function createMainRuntimeMonitorSource(
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     fpsMonitorEnabled = false;
-    if (fpsMonitorFrameRequestId !== null) {
-      options.windowRef.cancelAnimationFrame(fpsMonitorFrameRequestId);
-      fpsMonitorFrameRequestId = null;
-    }
     resetFpsMonitorSamples();
     renderFpsStats({ fps: null, low: null, onePercentLow: null });
     if (elements.fpsRateEl) {
@@ -844,6 +834,7 @@ export function createMainRuntimeMonitorSource(
   return {
     initialize,
     handleVersionReloadBefore: options.onBeforeVersionReload,
+    recordFpsMonitorFrame,
     syncFpsMonitorVisibility,
     syncCurrentTimeState,
     syncCurrentTimeTickInterval,    

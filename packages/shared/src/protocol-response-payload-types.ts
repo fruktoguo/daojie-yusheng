@@ -1,4 +1,4 @@
-import type { LeaderboardView, RealmUpdateView, WorldSummaryView } from './protocol-envelope-types';
+import type { LeaderboardPlayerLocationsView, LeaderboardView, RealmUpdateView, WorldSummaryView } from './protocol-envelope-types';
 import type {
   ContainerDetailView,
   GroundDetailView,
@@ -289,6 +289,8 @@ export interface NEXT_S2C_TileRuntimeDetail extends TileRuntimeDetailView {}
 export interface NEXT_S2C_QuestUpdate extends QuestUpdateView {}
 /** 排行榜同步包。 */
 export interface NEXT_S2C_Leaderboard extends LeaderboardView {}
+/** 玩家击杀榜坐标追索同步包。 */
+export interface NEXT_S2C_LeaderboardPlayerLocations extends LeaderboardPlayerLocationsView {}
 /** 世界概览同步包。 */
 export interface NEXT_S2C_WorldSummary extends WorldSummaryView {}
 /** 系统消息，支持浮字展示。 */

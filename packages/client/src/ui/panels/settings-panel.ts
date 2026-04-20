@@ -29,9 +29,11 @@ import {
 } from '../ui-style-config';
 import {
   getMapPerformanceConfig,
+  MapPerformanceConfig,
   resetMapPerformanceConfig,
   updateMapPerformanceConfig,
 } from '../performance-config';
+import { MAP_TARGET_FPS_RANGE } from '../../constants/ui/performance';
 
 /** 设置面板初始化依赖，提供账号信息读取、保存回调、兑换提交和登出回调。 */
 type SettingsPanelOptions = {
@@ -352,8 +354,9 @@ export class SettingsPanel {
     const config = getMapPerformanceConfig();
     const statusEl = body.querySelector<HTMLElement>('#settings-performance-status');
     const resetButton = body.querySelector<HTMLButtonElement>('#settings-performance-reset');
+    const fpsNumberInput = body.querySelector<HTMLInputElement>('[data-performance-target-fps-number]');
 
-    this.syncPerformanceFpsButtons(body, config.showFpsMonitor);
+    this.syncPerformanceControls(body, config);
 
     body.querySelectorAll<HTMLButtonElement>('[data-performance-fps-toggle]').forEach((button) => {
       button.addEventListener('click', () => {
@@ -361,14 +364,34 @@ export class SettingsPanel {
         const nextConfig = updateMapPerformanceConfig({
           showFpsMonitor: nextValue,
         });
-        this.syncPerformanceFpsButtons(body, nextConfig.showFpsMonitor);
+        this.syncPerformanceControls(body, nextConfig);
         setStatus(statusEl, nextConfig.showFpsMonitor ? '已开启地图帧率浮层，并自动保存到本机' : '已关闭地图帧率浮层，并自动保存到本机', 'success');
       });
     });
 
+    if (fpsNumberInput) {
+      const applyTargetFps = (rawValue: string) => {
+        const parsed = Number.parseInt(rawValue, 10);
+        const nextValue = Number.isFinite(parsed)
+          ? Math.max(MAP_TARGET_FPS_RANGE.min, Math.min(MAP_TARGET_FPS_RANGE.max, parsed))
+          : MAP_TARGET_FPS_RANGE.defaultValue;
+        const nextConfig = updateMapPerformanceConfig({
+          targetFps: nextValue,
+        });
+        this.syncPerformanceControls(body, nextConfig);
+        setStatus(statusEl, `已将地图渲染帧率上限更新为 ${nextConfig.targetFps} FPS，并自动保存到本机`, 'success');
+      };
+      fpsNumberInput.addEventListener('change', () => {
+        applyTargetFps(fpsNumberInput.value);
+      });
+      fpsNumberInput.addEventListener('blur', () => {
+        applyTargetFps(fpsNumberInput.value);
+      });
+    }
+
     resetButton?.addEventListener('click', () => {
       const nextConfig = resetMapPerformanceConfig();
-      this.syncPerformanceFpsButtons(body, nextConfig.showFpsMonitor);
+      this.syncPerformanceControls(body, nextConfig);
       setStatus(statusEl, '性能设置已恢复默认，并自动保存到本机', 'success');
     });
   }
@@ -418,13 +441,17 @@ export class SettingsPanel {
     }
   }
 
-  /** syncPerformanceFpsButtons：同步性能FPS按钮。 */
-  private syncPerformanceFpsButtons(body: HTMLElement, showFpsMonitor: boolean): void {
+  /** syncPerformanceControls：同步性能设置控件。 */
+  private syncPerformanceControls(body: HTMLElement, config: MapPerformanceConfig): void {
     body.querySelectorAll<HTMLButtonElement>('[data-performance-fps-toggle]').forEach((button) => {
-      const active = (button.dataset.performanceFpsToggle === 'on') === showFpsMonitor;
+      const active = (button.dataset.performanceFpsToggle === 'on') === config.showFpsMonitor;
       button.classList.toggle('active', active);
       button.setAttribute('aria-pressed', active ? 'true' : 'false');
     });
+    const fpsNumberInput = body.querySelector<HTMLInputElement>('[data-performance-target-fps-number]');
+    if (fpsNumberInput) {
+      fpsNumberInput.value = String(config.targetFps);
+    }
   }
 
   /** renderAccountTab：渲染账号Tab。 */
@@ -621,6 +648,25 @@ export class SettingsPanel {
                 data-performance-fps-toggle="on"
                 aria-pressed="${config.showFpsMonitor ? 'true' : 'false'}"
               >显示</button>
+            </div>
+          </div>
+          <div class="settings-performance-row ui-data-table-row">
+            <div class="settings-performance-meta ui-data-table-meta">
+              <div class="settings-performance-name ui-data-table-name">地图渲染帧率上限</div>
+              <div class="settings-performance-desc ui-data-table-desc">默认 60 FPS，可按设备情况自行调整。仅限制地图渲染循环，最低 ${MAP_TARGET_FPS_RANGE.min}，最高 ${MAP_TARGET_FPS_RANGE.max}。</div>
+            </div>
+            <div class="settings-performance-actions ui-inline-actions-end-wrap settings-performance-actions--numeric">
+              <input
+                class="settings-performance-number-input ui-input"
+                type="number"
+                inputmode="numeric"
+                min="${MAP_TARGET_FPS_RANGE.min}"
+                max="${MAP_TARGET_FPS_RANGE.max}"
+                step="1"
+                value="${config.targetFps}"
+                data-performance-target-fps-number="1"
+              />
+              <span class="settings-performance-number-unit">FPS</span>
             </div>
           </div>
         </div>

@@ -1262,6 +1262,46 @@
       min-height: 0;
       overflow: hidden;
     }
+    .detail-modal-card.detail-modal--targeting-plan {
+      --detail-modal-compact-scale: 0.88;
+      width: min(920px, calc(100vw - 24px));
+      height: min(70dvh, calc(100dvh - var(--detail-modal-padding-top) - var(--detail-modal-padding-bottom) - (var(--detail-modal-safe-gap) * 2) - 16px));
+      max-height: none;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      zoom: var(--detail-modal-compact-scale);
+      background:
+        radial-gradient(circle at top right, rgba(84, 119, 55, 0.1), transparent 28%),
+        radial-gradient(circle at left bottom, rgba(214, 188, 142, 0.12), transparent 30%),
+        var(--surface-gradient-paper);
+      box-shadow: 14px 14px 0 rgba(0, 0, 0, 0.16);
+    }
+    .detail-modal-card.detail-modal--targeting-plan #detail-modal-body {
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+    }
+    .detail-modal-card.detail-modal--combat-settings {
+      --detail-modal-compact-scale: 0.88;
+      width: min(980px, calc(100vw - 24px));
+      height: min(74dvh, calc(100dvh - var(--detail-modal-padding-top) - var(--detail-modal-padding-bottom) - (var(--detail-modal-safe-gap) * 2) - 16px));
+      max-height: none;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      zoom: var(--detail-modal-compact-scale);
+      background:
+        radial-gradient(circle at top right, rgba(196, 108, 63, 0.12), transparent 28%),
+        radial-gradient(circle at left bottom, rgba(84, 119, 55, 0.1), transparent 32%),
+        var(--surface-gradient-paper);
+      box-shadow: 14px 14px 0 rgba(0, 0, 0, 0.16);
+    }
+    .detail-modal-card.detail-modal--combat-settings #detail-modal-body {
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+    }
     .detail-modal-card.detail-modal--tutorial {
       width: min(1180px, calc(100vw - 24px));
       height: min(68dvh, calc(100dvh - (var(--detail-modal-padding, 12px) * 2)));
@@ -1304,6 +1344,8 @@
       .detail-modal-card.detail-modal--technique,
       .detail-modal-card.detail-modal--skill-management,
       .detail-modal-card.detail-modal--skill-preset,
+      .detail-modal-card.detail-modal--combat-settings,
+      .detail-modal-card.detail-modal--targeting-plan,
       .detail-modal-card.detail-modal--suggestion {
         transform: scale(var(--detail-modal-compact-scale, 1));
         transform-origin: center center;
@@ -2019,6 +2061,20 @@
       justify-content: space-between;
       gap: 12px;
     }
+    .settings-performance-actions--numeric {
+      align-items: center;
+      gap: 8px;
+    }
+    .settings-performance-number-input {
+      width: 88px;
+      min-width: 0;
+      text-align: right;
+    }
+    .settings-performance-number-unit {
+      font-size: var(--font-size-role-body-12);
+      color: var(--ink-grey);
+      white-space: nowrap;
+    }
     .settings-redeem-textarea {
       min-height: 140px;
       resize: vertical;
@@ -2170,6 +2226,12 @@
       }
       .settings-performance-actions > button {
         flex: 1 1 auto;
+      }
+      .settings-performance-actions--numeric {
+        justify-content: flex-start;
+      }
+      .settings-performance-number-input {
+        width: 100%;
       }
       .suggestion-summary-grid {
         grid-template-columns: minmax(0, 1fr);
@@ -4567,6 +4629,572 @@
         min-height: 140px;
       }
     }
+    .targeting-plan-shell {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      height: 100%;
+      min-height: 0;
+    }
+    .targeting-plan-hero {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+    .targeting-plan-card {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      min-height: 0;
+      padding: 12px;
+      border: 1px solid var(--wash-ink);
+      background: var(--surface-muted-strong);
+    }
+    .targeting-plan-current {
+      font-family: var(--font-role-title);
+      font-size: var(--font-size-role-title-16);
+      color: var(--ink-black);
+    }
+    .targeting-plan-options {
+      flex: 1 1 auto;
+    }
+    .targeting-plan-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .targeting-plan-option {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 6px;
+      width: 100%;
+      min-height: 96px;
+      padding: 12px;
+      border: 1px solid rgba(34, 26, 19, 0.12);
+      background: var(--paper-white);
+      color: inherit;
+      text-align: left;
+      cursor: pointer;
+      transition: border-color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+    }
+    .targeting-plan-option:hover {
+      border-color: rgba(84, 119, 55, 0.28);
+      box-shadow: 8px 8px 0 rgba(0, 0, 0, 0.05);
+      transform: translate(-1px, -1px);
+    }
+    .targeting-plan-option.active {
+      border-color: #547737;
+      background: rgba(84, 119, 55, 0.08);
+      box-shadow: inset 0 -2px 0 #547737;
+    }
+    .targeting-plan-option-title {
+      font-size: var(--font-size-13);
+      color: var(--ink-black);
+    }
+    .targeting-plan-option-copy {
+      font-size: var(--font-size-12);
+      line-height: 1.55;
+      color: var(--ink-grey);
+    }
+    :root[data-color-mode="dark"] .targeting-plan-option.active {
+      border-color: rgba(120, 167, 84, 0.4);
+      background: rgba(84, 119, 55, 0.18);
+      box-shadow: inset 0 -2px 0 rgba(120, 167, 84, 0.75);
+    }
+    .auto-pill-shell {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      height: 100%;
+      min-height: 0;
+      position: relative;
+    }
+    .auto-pill-topbar {
+      display: flex;
+      align-items: stretch;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .auto-pill-hero-card {
+      flex: 1 1 auto;
+    }
+    .auto-pill-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      gap: 6px;
+      flex: 0 0 auto;
+    }
+    .combat-settings-hero-card {
+      flex: 1 1 auto;
+    }
+    .combat-settings-tabs {
+      flex: 0 0 auto;
+    }
+    .combat-settings-panel-body {
+      flex: 1 1 auto;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    .combat-settings-panel-body .auto-pill-slot-grid {
+      flex: 1 1 auto;
+    }
+    .combat-settings-targeting-shell {
+      display: grid;
+      gap: 10px;
+      min-height: 0;
+      padding: 12px;
+      border: 1px solid rgba(34, 26, 19, 0.12);
+      background: rgba(255, 251, 244, 0.72);
+      overflow-y: auto;
+      overscroll-behavior: contain;
+    }
+    .combat-settings-targeting-head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px 10px;
+    }
+    .combat-settings-targeting-badge {
+      padding: 3px 8px;
+      border: 1px dashed rgba(34, 26, 19, 0.16);
+      background: rgba(214, 188, 142, 0.12);
+      font-size: var(--font-size-11);
+      color: var(--ink-grey);
+      white-space: nowrap;
+    }
+    .combat-settings-targeting-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .combat-settings-targeting-card {
+      display: grid;
+      gap: 10px;
+      min-height: 0;
+      padding: 12px;
+      border: 1px solid rgba(34, 26, 19, 0.1);
+      background: var(--surface-muted-strong);
+    }
+    .combat-settings-toggle-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .combat-settings-toggle-chip {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      width: 100%;
+      min-height: 76px;
+      padding: 10px;
+      border: 1px solid rgba(34, 26, 19, 0.12);
+      background: var(--paper-white);
+      color: inherit;
+      text-align: left;
+      cursor: pointer;
+      transition: border-color 0.16s ease, background 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+    }
+    .combat-settings-toggle-chip:hover {
+      border-color: rgba(125, 27, 27, 0.18);
+      background: rgba(255, 251, 244, 0.94);
+      box-shadow: 8px 8px 0 rgba(0, 0, 0, 0.04);
+      transform: translate(-1px, -1px);
+    }
+    .combat-settings-toggle-chip.active {
+      border-color: rgba(125, 27, 27, 0.26);
+      background: linear-gradient(180deg, rgba(197, 60, 60, 0.08), rgba(255, 251, 244, 0.96));
+      box-shadow: inset 0 -2px 0 rgba(125, 27, 27, 0.5);
+    }
+    .combat-settings-toggle-chip:disabled {
+      color: inherit;
+      opacity: 0.72;
+      cursor: not-allowed;
+      box-shadow: none;
+      transform: none;
+    }
+    .combat-settings-toggle-chip-box {
+      flex: 0 0 16px;
+      width: 16px;
+      height: 16px;
+      margin-top: 1px;
+      border: 1px solid rgba(34, 26, 19, 0.2);
+      background: rgba(243, 236, 226, 0.88);
+      box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.52);
+    }
+    .combat-settings-toggle-chip.active .combat-settings-toggle-chip-box {
+      border-color: rgba(125, 27, 27, 0.26);
+      background: rgba(125, 27, 27, 0.12);
+      box-shadow: inset 0 0 0 3px rgba(125, 27, 27, 0.4);
+    }
+    .combat-settings-toggle-chip-content {
+      display: grid;
+      gap: 4px;
+      min-width: 0;
+    }
+    .combat-settings-toggle-chip-title {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+      font-size: var(--font-size-12);
+      color: var(--ink-black);
+    }
+    .combat-settings-toggle-chip-disabled-tag {
+      padding: 1px 6px;
+      border: 1px dashed rgba(34, 26, 19, 0.16);
+      background: rgba(214, 188, 142, 0.12);
+      font-size: var(--font-size-10);
+      color: var(--ink-grey);
+      line-height: 1.3;
+    }
+    .combat-settings-toggle-chip-copy {
+      font-size: var(--font-size-11);
+      line-height: 1.5;
+      color: var(--ink-grey);
+    }
+    .auto-pill-slot-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(92px, 92px));
+      gap: 8px;
+      min-height: 0;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      padding: 2px 2px 6px;
+      align-content: start;
+    }
+    .auto-pill-slot-unit {
+      display: grid;
+      gap: 6px;
+    }
+    .auto-pill-slot {
+      display: grid;
+      grid-template-rows: 1fr auto;
+      gap: 8px;
+      min-height: 92px;
+      padding: 10px 8px;
+      border: 1px solid rgba(34, 26, 19, 0.12);
+      background: var(--surface-muted-strong);
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
+    }
+    .auto-pill-slot:hover {
+      border-color: rgba(125, 27, 27, 0.16);
+      background: rgba(255, 251, 244, 0.92);
+    }
+    .auto-pill-slot.active {
+      border-color: rgba(125, 27, 27, 0.22);
+      box-shadow: inset 0 -2px 0 rgba(125, 27, 27, 0.5);
+    }
+    .auto-pill-slot.filled {
+      background: linear-gradient(180deg, rgba(197, 60, 60, 0.06), rgba(255, 251, 244, 0.94));
+    }
+    .auto-pill-slot.empty {
+      background: linear-gradient(180deg, rgba(248, 240, 227, 0.68), rgba(243, 236, 226, 0.82));
+    }
+    .auto-pill-slot-name {
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      align-self: center;
+      font-family: var(--font-role-title);
+      font-size: var(--font-size-12);
+      line-height: 1.45;
+      color: var(--ink-black);
+      word-break: break-word;
+    }
+    .auto-pill-slot-count,
+    .auto-pill-slot-label {
+      font-size: var(--font-size-11);
+      color: var(--ink-grey);
+    }
+    .auto-pill-slot-empty {
+      align-self: center;
+      font-size: 24px;
+      color: var(--ink-light);
+      line-height: 1;
+    }
+    .auto-pill-slot-summary {
+      min-height: 32px;
+      font-size: var(--font-size-10);
+      line-height: 1.4;
+      color: var(--ink-grey);
+      text-align: center;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .auto-pill-slot-condition-btn {
+      width: 100%;
+      padding-inline: 0;
+    }
+    .auto-pill-subdialog-backdrop {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background: rgba(24, 18, 14, 0.22);
+      backdrop-filter: blur(2px);
+    }
+    .auto-pill-subdialog {
+      width: min(100%, 760px);
+      max-height: 100%;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      gap: 10px;
+      padding: 14px;
+      border: 1px solid rgba(34, 26, 19, 0.12);
+      background:
+        radial-gradient(circle at top right, rgba(196, 108, 63, 0.08), transparent 28%),
+        radial-gradient(circle at left bottom, rgba(84, 119, 55, 0.08), transparent 32%),
+        var(--surface-gradient-paper);
+      box-shadow: 12px 12px 0 rgba(0, 0, 0, 0.12);
+      overflow: hidden;
+    }
+    .auto-pill-subdialog--picker {
+      width: min(100%, 760px);
+    }
+    .auto-pill-subdialog--condition {
+      width: min(100%, 680px);
+    }
+    .auto-pill-subdialog-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .auto-pill-main-card,
+    .auto-pill-condition-summary-card {
+      display: grid;
+      gap: 8px;
+      padding: 12px;
+      border: 1px solid rgba(34, 26, 19, 0.12);
+      background: var(--surface-muted-strong);
+    }
+    .auto-pill-main-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .auto-pill-picker-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 10px;
+      min-height: 0;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      padding-right: 2px;
+      align-content: start;
+    }
+    .auto-pill-picker-card {
+      display: grid;
+      gap: 8px;
+      min-height: 126px;
+      padding: 12px;
+      border: 1px solid rgba(34, 26, 19, 0.12);
+      background: var(--surface-muted-strong);
+      text-align: left;
+      cursor: pointer;
+      transition: border-color 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
+    }
+    .auto-pill-picker-card:hover {
+      border-color: rgba(125, 27, 27, 0.16);
+      background: rgba(255, 251, 244, 0.9);
+    }
+    .auto-pill-picker-card.selected {
+      border-color: rgba(125, 27, 27, 0.22);
+      background: linear-gradient(180deg, rgba(197, 60, 60, 0.08), rgba(255, 251, 244, 0.94));
+      box-shadow: inset 0 -2px 0 rgba(125, 27, 27, 0.5);
+    }
+    .auto-pill-picker-title {
+      font-family: var(--font-role-title);
+      font-size: var(--font-size-role-title-14);
+      color: var(--ink-black);
+      line-height: 1.45;
+    }
+    .auto-pill-picker-count,
+    .auto-pill-picker-meta,
+    .auto-pill-config-summary {
+      font-size: var(--font-size-12);
+      line-height: 1.55;
+      color: var(--ink-grey);
+    }
+    .auto-pill-card-title-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+    }
+    .auto-pill-card-title {
+      font-family: var(--font-role-title);
+      font-size: var(--font-size-role-title-14);
+      color: var(--ink-black);
+    }
+    .auto-pill-card-count {
+      padding: 3px 8px;
+      border: 1px solid rgba(34, 26, 19, 0.12);
+      background: var(--paper-white);
+      font-size: var(--font-size-11);
+      color: var(--ink-grey);
+    }
+    .auto-pill-card-meta,
+    .auto-pill-config-summary {
+      font-size: var(--font-size-12);
+      line-height: 1.55;
+      color: var(--ink-grey);
+    }
+    .auto-pill-condition-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding-top: 10px;
+      border-top: 1px solid rgba(34, 26, 19, 0.08);
+    }
+    .auto-pill-condition-panel--standalone {
+      padding-top: 0;
+      border-top: none;
+    }
+    .auto-pill-condition-editor {
+      display: grid;
+      gap: 10px;
+      min-height: 0;
+    }
+    .auto-pill-condition-head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .auto-pill-condition-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .auto-pill-condition-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 88px auto auto;
+      gap: 8px;
+      align-items: center;
+    }
+    .auto-pill-condition-row--wide {
+      grid-template-columns: minmax(0, 1fr) auto;
+    }
+    .auto-pill-condition-row select,
+    .auto-pill-condition-row input {
+      width: 100%;
+      min-width: 0;
+      padding: 8px 10px;
+      border: 1px solid rgba(34, 26, 19, 0.14);
+      background: var(--paper-white);
+      color: var(--ink-black);
+      font-size: var(--font-size-12);
+    }
+    .auto-pill-condition-unit {
+      font-size: var(--font-size-12);
+      color: var(--ink-grey);
+    }
+    .auto-pill-condition-static {
+      padding: 9px 10px;
+      border: 1px solid rgba(34, 26, 19, 0.1);
+      background: var(--paper-white);
+      font-size: var(--font-size-12);
+      color: var(--ink-grey);
+      line-height: 1.55;
+    }
+    .auto-pill-condition-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    :root[data-color-mode="dark"] .auto-pill-slot:hover,
+    :root[data-color-mode="dark"] .auto-pill-picker-card:hover {
+      border-color: rgba(196, 92, 92, 0.24);
+      background: rgba(44, 36, 31, 0.9);
+    }
+    :root[data-color-mode="dark"] .auto-pill-slot.active,
+    :root[data-color-mode="dark"] .auto-pill-picker-card.selected {
+      border-color: rgba(196, 92, 92, 0.28);
+      background: linear-gradient(180deg, rgba(125, 40, 40, 0.22), rgba(44, 36, 31, 0.94));
+      box-shadow: inset 0 -2px 0 rgba(196, 92, 92, 0.6);
+    }
+    :root[data-color-mode="dark"] .combat-settings-targeting-shell {
+      border-color: rgba(212, 176, 137, 0.16);
+      background: rgba(44, 36, 31, 0.66);
+    }
+    :root[data-color-mode="dark"] .combat-settings-targeting-badge {
+      border-color: rgba(212, 176, 137, 0.24);
+      background: rgba(212, 176, 137, 0.08);
+      color: var(--ink-light);
+    }
+    :root[data-color-mode="dark"] .combat-settings-targeting-card,
+    :root[data-color-mode="dark"] .combat-settings-toggle-chip {
+      border-color: rgba(212, 176, 137, 0.14);
+      background: rgba(55, 46, 40, 0.92);
+    }
+    :root[data-color-mode="dark"] .combat-settings-toggle-chip:hover {
+      border-color: rgba(196, 92, 92, 0.24);
+      background: rgba(58, 48, 42, 0.96);
+      box-shadow: 8px 8px 0 rgba(0, 0, 0, 0.12);
+    }
+    :root[data-color-mode="dark"] .combat-settings-toggle-chip.active {
+      border-color: rgba(196, 92, 92, 0.3);
+      background: linear-gradient(180deg, rgba(125, 40, 40, 0.24), rgba(55, 46, 40, 0.96));
+      box-shadow: inset 0 -2px 0 rgba(196, 92, 92, 0.62);
+    }
+    :root[data-color-mode="dark"] .combat-settings-toggle-chip-box {
+      border-color: rgba(212, 176, 137, 0.22);
+      background: rgba(70, 60, 52, 0.96);
+      box-shadow: inset 0 0 0 2px rgba(30, 24, 20, 0.42);
+    }
+    :root[data-color-mode="dark"] .combat-settings-toggle-chip.active .combat-settings-toggle-chip-box {
+      border-color: rgba(196, 92, 92, 0.3);
+      background: rgba(125, 40, 40, 0.3);
+      box-shadow: inset 0 0 0 3px rgba(196, 92, 92, 0.44);
+    }
+    :root[data-color-mode="dark"] .combat-settings-toggle-chip-title {
+      color: var(--ink-black);
+    }
+    :root[data-color-mode="dark"] .combat-settings-toggle-chip-disabled-tag {
+      border-color: rgba(212, 176, 137, 0.2);
+      background: rgba(212, 176, 137, 0.08);
+      color: var(--ink-light);
+    }
+    :root[data-color-mode="dark"] .auto-pill-subdialog {
+      border-color: rgba(212, 176, 137, 0.2);
+      background:
+        radial-gradient(circle at top right, rgba(125, 40, 40, 0.16), transparent 28%),
+        radial-gradient(circle at left bottom, rgba(84, 119, 55, 0.12), transparent 32%),
+        rgba(44, 36, 31, 0.98);
+      box-shadow: 12px 12px 0 rgba(0, 0, 0, 0.22);
+    }
+    @media (max-width: 900px) {
+      .targeting-plan-hero,
+      .targeting-plan-grid,
+      .combat-settings-targeting-grid,
+      .combat-settings-toggle-grid {
+        grid-template-columns: 1fr;
+      }
+      .auto-pill-topbar,
+      .auto-pill-subdialog-head {
+        flex-direction: column;
+      }
+      .auto-pill-slot-grid {
+        grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+      }
+      .auto-pill-condition-row,
+      .auto-pill-condition-row--wide {
+        grid-template-columns: 1fr;
+      }
+    }
 
     .world-hero {
       display: grid;
@@ -4682,6 +5310,11 @@
     }
     .monster-badge--boss {
       background: linear-gradient(180deg, rgba(132, 47, 34, 0.96), rgba(88, 24, 20, 0.96));
+    }
+    .monster-badge--demonic {
+      background: linear-gradient(180deg, rgba(151, 36, 36, 0.96), rgba(89, 18, 18, 0.96));
+      border-color: rgba(255, 184, 184, 0.54);
+      box-shadow: inset 0 1px 0 rgba(255, 232, 232, 0.12), 0 0 10px rgba(188, 44, 44, 0.18);
     }
     .entity-meta,
     .suggestion-desc {

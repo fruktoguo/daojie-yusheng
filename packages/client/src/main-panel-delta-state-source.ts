@@ -35,6 +35,11 @@ type MainPanelDeltaStateSourceOptions = {
 
   getPlayer: () => PlayerState | null;  
   /**
+ * refreshObservedDecorations：刷新地图实体展示装饰。
+ */
+
+  refreshObservedDecorations: () => void;  
+  /**
  * attrPanel：attr面板相关字段。
  */
 
@@ -930,6 +935,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
       const previousAutoRetaliate = player?.autoRetaliate ?? true;
       const previousAutoBattleStationary = player?.autoBattleStationary ?? false;
       const previousAllowAoePlayerHit = player?.allowAoePlayerHit ?? false;
+      const previousRetaliatePlayerTargetId = player?.retaliatePlayerTargetId ?? null;
       const previousAutoIdleCultivation = player?.autoIdleCultivation ?? true;
       const previousAutoSwitchCultivation = player?.autoSwitchCultivation ?? false;
       const previousCultivationActive = player?.cultivationActive ?? false;
@@ -937,6 +943,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
       const nextAutoRetaliate = data.autoRetaliate ?? player?.autoRetaliate ?? true;
       const nextAutoBattleStationary = data.autoBattleStationary ?? player?.autoBattleStationary ?? false;
       const nextAllowAoePlayerHit = data.allowAoePlayerHit ?? player?.allowAoePlayerHit ?? false;
+      const nextRetaliatePlayerTargetId = data.retaliatePlayerTargetId ?? player?.retaliatePlayerTargetId ?? null;
       const nextAutoIdleCultivation = data.autoIdleCultivation ?? player?.autoIdleCultivation ?? true;
       const nextAutoSwitchCultivation = data.autoSwitchCultivation ?? player?.autoSwitchCultivation ?? false;
       const nextCultivationActive = data.cultivationActive ?? player?.cultivationActive ?? false;
@@ -946,6 +953,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
         || previousAutoRetaliate !== nextAutoRetaliate
         || previousAutoBattleStationary !== nextAutoBattleStationary
         || previousAllowAoePlayerHit !== nextAllowAoePlayerHit
+        || previousRetaliatePlayerTargetId !== nextRetaliatePlayerTargetId
         || previousAutoIdleCultivation !== nextAutoIdleCultivation
         || previousAutoSwitchCultivation !== nextAutoSwitchCultivation
         || previousCultivationActive !== nextCultivationActive
@@ -963,10 +971,14 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
         player.autoRetaliate = data.autoRetaliate ?? (player.autoRetaliate !== false);
         player.autoBattleStationary = nextAutoBattleStationary;
         player.allowAoePlayerHit = nextAllowAoePlayerHit;
+        player.retaliatePlayerTargetId = nextRetaliatePlayerTargetId;
         player.autoIdleCultivation = nextAutoIdleCultivation;
         player.autoSwitchCultivation = nextAutoSwitchCultivation;
         player.cultivationActive = nextCultivationActive;
         player.senseQiActive = nextSenseQiActive;
+        if (previousAllowAoePlayerHit !== nextAllowAoePlayerHit || previousRetaliatePlayerTargetId !== nextRetaliatePlayerTargetId) {
+          options.refreshObservedDecorations();
+        }
       }
       if (!previousAutoBattle && nextAutoBattle && options.navigation.hasActivePath()) {
         options.navigation.clearCurrentPath();

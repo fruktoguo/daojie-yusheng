@@ -43,6 +43,11 @@ type MainRuntimeDeltaStateSourceOptions = {
 
   setLatestObservedEntityMap: (map: Map<string, ObservedEntity>) => void;  
   /**
+ * refreshObservedDecorations：刷新地图实体展示装饰。
+ */
+
+  refreshObservedDecorations: () => void;  
+  /**
  * getLatestAttrUpdate：LatestAttrUpdate相关字段。
  */
 
@@ -391,9 +396,9 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
       id: patch.id,
       x: patch.x ?? previous?.wx ?? (isSelf ? player?.x : undefined) ?? 0,
       y: patch.y ?? previous?.wy ?? (isSelf ? player?.y : undefined) ?? 0,
-      char: previous?.char ?? getFirstGrapheme(isSelf ? (player?.displayName ?? player?.name) : previous?.name, isSelf ? '我' : '人'),
+      char: patch.ch ?? previous?.char ?? getFirstGrapheme(isSelf ? (player?.displayName ?? player?.name) : (patch.n ?? previous?.name), isSelf ? '我' : '人'),
       color: previous?.color ?? NEXT_PLAYER_ENTITY_COLOR,
-      name: previous?.name ?? fallbackName,
+      name: patch.n ?? previous?.name ?? fallbackName,
       kind: previous?.kind === 'crowd' ? 'crowd' : 'player',
       hp: isSelf ? (player?.hp ?? previous?.hp) : previous?.hp,
       maxHp: isSelf ? (player?.maxHp ?? previous?.maxHp) : previous?.maxHp,
@@ -471,9 +476,9 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
       id: patch.id,
       x: patch.x ?? previous?.wx ?? 0,
       y: patch.y ?? previous?.wy ?? 0,
-      char: previous?.char ?? '门',
+      char: patch.ch ?? previous?.char ?? '阵',
       color: previous?.color ?? NEXT_PORTAL_ENTITY_COLOR,
-      name: patch.tm ?? previous?.name ?? '传送门',
+      name: patch.n ?? previous?.name ?? '传送阵',
       kind: (previous?.kind ?? 'portal') as TickRenderEntity['kind'],
       hp: previous?.hp,
       maxHp: previous?.maxHp,
@@ -905,6 +910,7 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
       const player = options.getPlayer();
       if (data.buff && player) {
         player.temporaryBuffs = mergeVisibleBuffStates(player.temporaryBuffs, data.buff);
+        options.refreshObservedDecorations();
       }
     },
   };

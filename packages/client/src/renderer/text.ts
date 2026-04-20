@@ -15,6 +15,7 @@ import {
   TILE_VISUAL_GLYPHS,
   TILE_VISUAL_GLYPH_COLORS,
   normalizeAuraLevelBaseValue,
+  RenderEntity,
   SENSE_QI_OVERLAY_STYLE,
   Tile,
   type MonsterTier,
@@ -46,7 +47,7 @@ import {
   type TimeAtmosphereProfile,
 } from '../constants/visuals/time-atmosphere';
 import { buildCanvasFont } from '../constants/ui/text';
-import { getMonsterPresentation } from '../monster-presentation';
+import { getEntityBadgeClassName, getMonsterPresentation } from '../monster-presentation';
 import { TextMeasureCache } from './text-measure-cache';
 import { TileSpriteCache } from './tile-sprite-cache';
 
@@ -326,6 +327,11 @@ interface AnimEntity {
 
   color: string;  
   /**
+ * badge：badge相关字段。
+ */
+
+  badge?: RenderEntity['badge'];  
+  /**
  * name：名称名称或显示文本。
  */
 
@@ -360,6 +366,11 @@ interface AnimEntity {
  */
 
   npcQuestMarker?: NpcQuestMarker;  
+  /**
+ * hostile：hostile相关字段。
+ */
+
+  hostile?: boolean;  
   /**
  * buffs：buff相关字段。
  */
@@ -1052,6 +1063,10 @@ export class TextRenderer implements IRenderer {
  */
  color: string;    
  /**
+ * badge：badge相关字段。
+ */
+ badge?: RenderEntity['badge'] | null;    
+ /**
  * name：名称名称或显示文本。
  */
  name?: string;    
@@ -1079,6 +1094,10 @@ export class TextRenderer implements IRenderer {
  * npcQuestMarker：NPC任务Marker相关字段。
  */
  npcQuestMarker?: NpcQuestMarker | null;    
+ /**
+ * hostile：hostile相关字段。
+ */
+ hostile?: boolean;    
  /**
  * buffs：buff相关字段。
  */
@@ -1140,6 +1159,7 @@ export class TextRenderer implements IRenderer {
         anim.gridY = e.wy;
         anim.char = e.char;
         anim.color = e.color;
+        anim.badge = e.badge ?? undefined;
         anim.name = e.name;
         anim.kind = e.kind;
         anim.monsterTier = e.monsterTier;
@@ -1147,6 +1167,7 @@ export class TextRenderer implements IRenderer {
         anim.hp = e.hp;
         anim.maxHp = e.maxHp;
         anim.npcQuestMarker = e.npcQuestMarker ?? undefined;
+        anim.hostile = e.hostile;
         anim.buffs = e.buffs;
       } else {
         this.entities.set(e.id, {
@@ -1159,6 +1180,7 @@ export class TextRenderer implements IRenderer {
           targetWY: twy,
           char: e.char,
           color: e.color,
+          badge: e.badge ?? undefined,
           name: e.name,
           kind: e.kind,
           monsterTier: e.monsterTier,
@@ -1166,6 +1188,7 @@ export class TextRenderer implements IRenderer {
           hp: e.hp,
           maxHp: e.maxHp,
           npcQuestMarker: e.npcQuestMarker ?? undefined,
+          hostile: e.hostile,
           buffs: e.buffs,
         });
       }
@@ -1286,11 +1309,11 @@ export class TextRenderer implements IRenderer {
         ctx.font = buildCanvasFont('label', renderedCellSize * (isCrowd ? 0.24 : 0.3));
         const labelY = visualSy - Math.max(6, renderedCellSize * 0.18);
         const labelColor = isCrowd ? '#f4dfaf' : isMonster ? '#ffddcc' : isPlayer ? '#d8f3c3' : isContainer ? '#ffe3b8' : '#cce7ff';
-        if (isMonster && monsterPresentation?.badgeText) {
-          this.drawMonsterBadgeLabel(
+        const badge = anim.badge ?? monsterPresentation?.badge;
+        if (badge) {
+          this.drawEntityBadgeLabel(
             label,
-            monsterPresentation.badgeText,
-            monsterPresentation.badgeClassName ?? 'monster-badge',
+            badge,
             sx + renderedCellSize / 2,
             labelY,
             renderedCellSize,
@@ -1317,7 +1340,15 @@ export class TextRenderer implements IRenderer {
           const barW = visualCellSize - 6;
           ctx.fillStyle = 'rgba(0,0,0,0.45)';
           ctx.fillRect(barX, barY, barW, 3);
-          ctx.fillStyle = isMonster ? '#d15252' : isNpc ? '#58a8ff' : isContainer ? '#c18b46' : '#63c46b';
+          ctx.fillStyle = anim.hostile === true
+            ? '#d15252'
+            : isMonster
+              ? '#d15252'
+              : isNpc
+                ? '#58a8ff'
+                : isContainer
+                  ? '#c18b46'
+                  : '#63c46b';
           ctx.fillRect(barX, barY, barW * ratio, 3);
         }
 
@@ -1429,22 +1460,20 @@ export class TextRenderer implements IRenderer {
     return invT * invT * start + 2 * invT * t * control + t * t * end;
   }  
   /**
- * drawMonsterBadgeLabel：执行draw怪物BadgeLabel相关逻辑。
+ * drawEntityBadgeLabel：执行draw实体BadgeLabel相关逻辑。
  * @param label string 参数说明。
- * @param badgeText string 参数说明。
- * @param badgeClassName string 参数说明。
+ * @param badge RenderEntity['badge'] 参数说明。
  * @param centerX number 参数说明。
  * @param baselineY number 参数说明。
  * @param cellSize number 参数说明。
  * @param labelColor string 参数说明。
- * @returns 无返回值，直接更新draw怪物BadgeLabel相关状态。
+ * @returns 无返回值，直接更新draw实体BadgeLabel相关状态。
  */
 
 
-  private drawMonsterBadgeLabel(
+  private drawEntityBadgeLabel(
     label: string,
-    badgeText: string,
-    badgeClassName: string,
+    badge: NonNullable<RenderEntity['badge']>,
     centerX: number,
     baselineY: number,
     cellSize: number,
@@ -1460,10 +1489,17 @@ export class TextRenderer implements IRenderer {
     const badgeHeight = Math.max(12, cellSize * 0.28);
     const badgeRadius = Math.max(4, badgeHeight * 0.38);
     const badgeTextSize = Math.max(9, cellSize * 0.2);
-    const badgeWidth = Math.max(16, badgeText.length * badgeTextSize + badgePaddingX * 2);
+    const badgeWidth = Math.max(16, badge.text.length * badgeTextSize + badgePaddingX * 2);
     const gap = Math.max(4, cellSize * 0.08);
-    const fill = badgeClassName.includes('--boss') ? 'rgba(120, 32, 24, 0.92)' : 'rgba(42, 54, 91, 0.92)';
-    const stroke = badgeClassName.includes('--boss') ? 'rgba(255, 188, 156, 0.86)' : 'rgba(185, 211, 255, 0.82)';
+    const badgeClassName = getEntityBadgeClassName(badge);
+    const fill = badgeClassName?.includes('--boss') || badge.tone === 'demonic'
+      ? 'rgba(120, 32, 24, 0.92)'
+      : 'rgba(42, 54, 91, 0.92)';
+    const stroke = badgeClassName?.includes('--boss')
+      ? 'rgba(255, 188, 156, 0.86)'
+      : badge.tone === 'demonic'
+        ? 'rgba(255, 151, 151, 0.84)'
+        : 'rgba(185, 211, 255, 0.82)';
     const textColor = '#fff6eb';
 
     ctx.save();
@@ -1486,7 +1522,7 @@ export class TextRenderer implements IRenderer {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = textColor;
-    ctx.fillText(badgeText, left + badgeWidth / 2, badgeY + badgeHeight / 2 + 0.5);
+    ctx.fillText(badge.text, left + badgeWidth / 2, badgeY + badgeHeight / 2 + 0.5);
     ctx.restore();
 
     this.drawOutlinedText(

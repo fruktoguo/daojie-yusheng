@@ -47,6 +47,11 @@ type MainLowFrequencySocketBindingsOptions = {
 
   onLeaderboard: (data: NEXT_S2C_EventPayload<typeof NEXT_S2C.Leaderboard>) => void;  
   /**
+ * onLeaderboardPlayerLocations：玩家击杀榜坐标追索结果。
+ */
+
+  onLeaderboardPlayerLocations: (data: NEXT_S2C_EventPayload<typeof NEXT_S2C.LeaderboardPlayerLocations>) => void;
+  /**
  * onWorldSummary：on世界摘要状态或数据块。
  */
 
@@ -177,6 +182,7 @@ export function bindMainLowFrequencySocketEvents(options: MainLowFrequencySocket
   options.socket.on(NEXT_S2C.AlchemyPanel, options.onAlchemyPanel);
   options.socket.on(NEXT_S2C.EnhancementPanel, options.onEnhancementPanel);
   options.socket.on(NEXT_S2C.Leaderboard, options.onLeaderboard);
+  options.socket.on(NEXT_S2C.LeaderboardPlayerLocations, options.onLeaderboardPlayerLocations);
   options.socket.on(NEXT_S2C.WorldSummary, options.onWorldSummary);
   options.socket.on(NEXT_S2C.NpcQuests, options.onNpcQuests);
   options.socket.on(NEXT_S2C.Quests, options.onQuests);

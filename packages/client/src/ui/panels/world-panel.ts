@@ -6,7 +6,7 @@ import { ActionDef, gridDistance, MapMeta, MonsterTier, PlayerState, QuestState 
 import { preserveSelection } from '../selection-preserver';
 import { TECH_REALM_LABELS, TECH_REALM_NAME_BY_KEY, WORLD_GUIDE } from '../../constants/world/world-panel';
 import { formatDisplayCurrentMax, formatDisplayInteger } from '../../utils/number';
-import { getMonsterPresentation } from '../../monster-presentation';
+import { getEntityBadgeClassName, getMonsterPresentation } from '../../monster-presentation';
 import { assessMapDanger } from '../../utils/map-danger';
 
 /** 世界面板可见实体来源。 */
@@ -799,8 +799,9 @@ export class WorldPanel {
   /** renderMonsterName：渲染妖兽名称。 */
   private renderMonsterName(monster: NearbyMonsterView): string {
     const presentation = getMonsterPresentation(monster.name, monster.tier);
-    const badge = presentation.badgeText
-      ? `<span class="${presentation.badgeClassName}">${escapeHtml(presentation.badgeText)}</span>`
+    const badgeClassName = getEntityBadgeClassName(presentation.badge);
+    const badge = presentation.badge && badgeClassName
+      ? `<span class="${badgeClassName}">${escapeHtml(presentation.badge.text)}</span>`
       : '';
     return `${badge}${escapeHtml(presentation.label)}`;
   }

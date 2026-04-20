@@ -4,6 +4,7 @@ import type {
   LeaderboardDeathEntry,
   LeaderboardMonsterKillEntry,
   LeaderboardPlayerKillEntry,
+  LeaderboardPlayerLocationEntry,
   LeaderboardRealmEntry,
   LeaderboardSpiritStoneEntry,
   LeaderboardSupremeAttrEntry,
@@ -86,4 +87,13 @@ export interface WorldSummaryView {
  */
 
   summary: LeaderboardWorldSummary;
+}
+
+/** 玩家击杀榜坐标追索同步视图。 */
+export interface LeaderboardPlayerLocationsView {
+/**
+ * entries：entries相关字段。
+ */
+
+  entries: LeaderboardPlayerLocationEntry[];
 }

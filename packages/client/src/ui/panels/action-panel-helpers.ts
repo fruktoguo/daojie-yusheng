@@ -1,4 +1,4 @@
-import { ActionDef, AutoBattleSkillConfig, PlayerState, SkillDef, type ElementKey, type SkillDamageKind } from '@mud/shared-next';
+import { ActionDef, AutoBattleSkillConfig, ItemStack, PlayerState, SkillDef, type ElementKey, type SkillDamageKind } from '@mud/shared-next';
 import { getElementKeyLabel } from '../../domain-labels';
 
 /** normalizeShortcutKey：规范化Shortcut Key。 */
@@ -45,6 +45,16 @@ export function readBoolean(...values: unknown[]): boolean {
     }
   }
   return true;
+}
+
+/** 判断道具是否适合作为自动吃药候选。 */
+export function isAutoUseConsumableCandidate(
+  item: Pick<ItemStack, 'healAmount' | 'healPercent' | 'qiPercent' | 'consumeBuffs'>,
+): boolean {
+  return (item.healAmount ?? 0) > 0
+    || (item.healPercent ?? 0) > 0
+    || (item.qiPercent ?? 0) > 0
+    || (item.consumeBuffs?.length ?? 0) > 0;
 }
 
 /** decodePresetTextValue：解码预设文本值。 */
@@ -182,7 +192,6 @@ export function getSkillEnabledTechniques(player: PlayerState): PlayerState['tec
 export type ActionPanelAction = ActionDef;
 /** ActionPanelSkillDraft：动作面板里的自动战斗技能草稿。 */
 export type ActionPanelSkillDraft = AutoBattleSkillConfig;
-
 
 
 

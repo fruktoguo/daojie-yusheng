@@ -5,6 +5,7 @@ import {
   NEXT_S2C_Detail,
   NEXT_S2C_EnhancementPanel,
   NEXT_S2C_Leaderboard,
+  NEXT_S2C_LeaderboardPlayerLocations,
   NEXT_S2C_LootWindowUpdate,
   NEXT_S2C_NpcQuests,
   NEXT_S2C_NpcShop,
@@ -63,6 +64,11 @@ type MainDetailStateSourceOptions = {
  */
 
   handleLeaderboard: (data: NEXT_S2C_Leaderboard) => void;  
+  /**
+ * handleLeaderboardPlayerLocations：玩家击杀榜坐标追索结果。
+ */
+
+  handleLeaderboardPlayerLocations: (data: NEXT_S2C_LeaderboardPlayerLocations) => void;
   /**
  * handleWorldSummary：世界摘要状态或数据块。
  */
@@ -172,6 +178,15 @@ export function createMainDetailStateSource(options: MainDetailStateSourceOption
 
     handleLeaderboard(data: NEXT_S2C_Leaderboard): void {
       options.handleLeaderboard(data);
+    },    
+    /**
+ * handleLeaderboardPlayerLocations：处理玩家击杀榜坐标追索结果并更新相关状态。
+ * @param data NEXT_S2C_LeaderboardPlayerLocations 原始数据。
+ * @returns 无返回值，直接更新玩家击杀榜坐标追索结果相关状态。
+ */
+
+    handleLeaderboardPlayerLocations(data: NEXT_S2C_LeaderboardPlayerLocations): void {
+      options.handleLeaderboardPlayerLocations(data);
     },    
     /**
  * handleWorldSummary：处理世界摘要并更新相关状态。

@@ -87,6 +87,40 @@ export interface LeaderboardPlayerKillEntry extends LeaderboardPlayerEntry {
   playerKillCount: number;
 }
 
+/** 玩家击杀榜追索坐标条目。 */
+export interface LeaderboardPlayerLocationEntry {
+/**
+ * playerId：玩家ID标识。
+ */
+
+  playerId: string;
+  /**
+ * mapId：地图ID标识。
+ */
+
+  mapId: string;
+  /**
+ * mapName：地图名称名称或显示文本。
+ */
+
+  mapName: string;
+  /**
+ * x：x相关字段。
+ */
+
+  x: number;
+  /**
+ * y：y相关字段。
+ */
+
+  y: number;
+  /**
+ * online：在线状态。
+ */
+
+  online: boolean;
+}
+
 /** 死亡榜条目。 */
 export interface LeaderboardDeathEntry extends LeaderboardPlayerEntry {
 /**

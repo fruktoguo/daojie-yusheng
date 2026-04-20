@@ -2,7 +2,8 @@
 "use strict";
 
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.normalizePersistedCombatTargetingRules = exports.isSameCombatTargetingRules = exports.cloneCombatTargetingRules = exports.normalizePersistedAutoUsePills = exports.isSameAutoUsePillList = exports.cloneAutoUsePillList = void 0;
+exports.canPlayerDealDamageToPlayer = exports.isPlayerPassivelyHostileTarget = exports.normalizePersistedCombatTargetingRules = exports.isSameCombatTargetingRules = exports.cloneCombatTargetingRules = exports.normalizePersistedAutoUsePills = exports.isSameAutoUsePillList = exports.cloneAutoUsePillList = void 0;
+const pvp_1 = require("../../constants/gameplay/pvp");
 /**
  * cloneAutoUsePillCondition：构建AutoUsePillCondition。
  * @param input 输入参数。
@@ -155,14 +156,20 @@ exports.normalizePersistedAutoUsePills = normalizePersistedAutoUsePills;
  */
 
 function cloneCombatTargetingRules(input) {
-    return input
-        ? {
-            includeNormalMonsters: input.includeNormalMonsters !== false,
-            includeEliteMonsters: input.includeEliteMonsters !== false,
-            includeBosses: input.includeBosses !== false,
-            includePlayers: input.includePlayers === true,
-        }
-        : undefined;
+    if (!input) {
+        return undefined;
+    }
+    const defaults = buildDefaultCombatTargetingRules(input.includePlayers === true);
+    const hostile = normalizeCombatTargetingScope(input.hostile, 'hostile', defaults.hostile);
+    const friendly = normalizeCombatTargetingScope(input.friendly, 'friendly', defaults.friendly);
+    return {
+        hostile,
+        friendly,
+        includeNormalMonsters: hostile.includes('monster'),
+        includeEliteMonsters: hostile.includes('monster'),
+        includeBosses: hostile.includes('monster'),
+        includePlayers: hostile.includes('all_players'),
+    };
 }
 exports.cloneCombatTargetingRules = cloneCombatTargetingRules;
 /**
@@ -180,6 +187,23 @@ function isSameCombatTargetingRules(left, right) {
     }
     if (!left || !right) {
         return left === right;
+    }
+    const leftHostile = Array.isArray(left.hostile) ? left.hostile : [];
+    const rightHostile = Array.isArray(right.hostile) ? right.hostile : [];
+    const leftFriendly = Array.isArray(left.friendly) ? left.friendly : [];
+    const rightFriendly = Array.isArray(right.friendly) ? right.friendly : [];
+    if (leftHostile.length !== rightHostile.length || leftFriendly.length !== rightFriendly.length) {
+        return false;
+    }
+    for (let index = 0; index < leftHostile.length; index += 1) {
+        if (leftHostile[index] !== rightHostile[index]) {
+            return false;
+        }
+    }
+    for (let index = 0; index < leftFriendly.length; index += 1) {
+        if (leftFriendly[index] !== rightFriendly[index]) {
+            return false;
+        }
     }
     return left.includeNormalMonsters === right.includeNormalMonsters
         && left.includeEliteMonsters === right.includeEliteMonsters
@@ -200,6 +224,8 @@ function normalizePersistedCombatTargetingRules(input) {
         return undefined;
     }
     return cloneCombatTargetingRules({
+        hostile: input.hostile,
+        friendly: input.friendly,
         includeNormalMonsters: input.includeNormalMonsters,
         includeEliteMonsters: input.includeEliteMonsters,
         includeBosses: input.includeBosses,
@@ -207,6 +233,52 @@ function normalizePersistedCombatTargetingRules(input) {
     });
 }
 exports.normalizePersistedCombatTargetingRules = normalizePersistedCombatTargetingRules;
+function buildDefaultCombatTargetingRules(includeAllPlayersHostile = false) {
+    const hostile = ['monster', 'demonized_players', 'retaliators', 'terrain'];
+    if (includeAllPlayersHostile === true && !hostile.includes('all_players')) {
+        hostile.push('all_players');
+    }
+    return {
+        hostile,
+        friendly: ['non_hostile_players'],
+    };
+}
+function normalizeCombatTargetingScope(input, scope, fallback) {
+    const allowed = scope === 'hostile'
+        ? new Set(['monster', 'all_players', 'demonized_players', 'retaliators', 'party', 'sect', 'terrain'])
+        : new Set(['monster', 'all_players', 'retaliators', 'non_hostile_players', 'terrain', 'party', 'sect']);
+    const source = Array.isArray(input) ? input : fallback;
+    const normalized = [];
+    const seen = new Set();
+    for (const raw of source) {
+        if (!allowed.has(raw) || seen.has(raw)) {
+            continue;
+        }
+        seen.add(raw);
+        normalized.push(raw);
+    }
+    return normalized;
+}
+function isPlayerPassivelyHostileTarget(target) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    return Array.isArray(target?.buffs)
+        && target.buffs.some((buff) => buff?.buffId === pvp_1.PVP_SHA_INFUSION_BUFF_ID
+            && Math.max(0, Math.round(buff?.stacks ?? 0)) > pvp_1.PVP_SHA_DEMONIZED_STACK_THRESHOLD
+            && Math.max(0, Math.round(buff?.remainingTicks ?? 0)) > 0);
+}
+exports.isPlayerPassivelyHostileTarget = isPlayerPassivelyHostileTarget;
+function canPlayerDealDamageToPlayer(attacker, target) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    if (!attacker || !target || attacker.playerId === target.playerId) {
+        return false;
+    }
+    return attacker.combat?.allowAoePlayerHit === true
+        || attacker.combat?.retaliatePlayerTargetId === target.playerId
+        || isPlayerPassivelyHostileTarget(target);
+}
+exports.canPlayerDealDamageToPlayer = canPlayerDealDamageToPlayer;
 export {
     cloneAutoUsePillList,
     isSameAutoUsePillList,
@@ -214,4 +286,6 @@ export {
     cloneCombatTargetingRules,
     isSameCombatTargetingRules,
     normalizePersistedCombatTargetingRules,
+    isPlayerPassivelyHostileTarget,
+    canPlayerDealDamageToPlayer,
 };

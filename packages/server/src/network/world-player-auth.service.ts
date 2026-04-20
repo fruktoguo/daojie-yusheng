@@ -25,12 +25,12 @@ type AuthSource = 'next' | 'token' | 'token_runtime';
  */
 
 
-interface AuthenticatePlayerTokenOptions {
+export interface AuthenticatePlayerTokenOptions {
 /**
  * protocol：protocol相关字段。
  */
 
-  protocol?: unknown;
+  protocol?: string | null;
 }
 /**
  * TokenIdentity：定义接口结构约束，明确可交付字段含义。
@@ -74,27 +74,27 @@ interface PlayerIdentityLike extends TokenIdentity {
  * persistedSource：persisted来源相关字段。
  */
 
-  persistedSource?: unknown;  
+  persistedSource?: string | null;  
   /**
  * authSource：认证来源相关字段。
  */
 
-  authSource?: unknown;  
+  authSource?: string | null;  
   /**
  * nextLoadHit：nextLoadHit相关字段。
  */
 
-  nextLoadHit?: unknown;  
+  nextLoadHit?: boolean;  
   /**
  * updatedAt：updatedAt相关字段。
  */
 
-  updatedAt?: unknown;  
+  updatedAt?: number;  
   /**
  * version：version相关字段。
  */
 
-  version?: unknown;
+  version?: number;
   [key: string]: unknown;
 }
 /**
@@ -102,7 +102,7 @@ interface PlayerIdentityLike extends TokenIdentity {
  */
 
 
-interface AuthenticatedPlayerIdentity extends PlayerIdentityLike {
+export interface AuthenticatedPlayerIdentity extends PlayerIdentityLike {
 /**
  * authSource：认证来源相关字段。
  */
@@ -214,6 +214,32 @@ function hasExplicitTokenPlayerIdentityClaims(
 
 function normalizeProtocol(protocol: unknown): string {
   return typeof protocol === 'string' ? protocol.trim().toLowerCase() : '';
+}
+
+function normalizeIdentityString(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function normalizeLoadedPlayerIdentity(
+  identity: PlayerIdentityLike | null | undefined,
+): PlayerIdentityLike | null {
+  const userId = normalizeIdentityString(identity?.userId);
+  const username = normalizeIdentityString(identity?.username);
+  const displayName = normalizeIdentityString(identity?.displayName);
+  const playerId = normalizeIdentityString(identity?.playerId);
+  const playerName = normalizeIdentityString(identity?.playerName);
+  if (!userId || !username || !displayName || !playerId || !playerName) {
+    return null;
+  }
+
+  return {
+    ...identity,
+    userId,
+    username,
+    displayName,
+    playerId,
+    playerName,
+  };
 }
 /**
  * isExplicitMigrationProtocol：判断ExplicitMigrationProtocol是否满足条件。
@@ -350,6 +376,26 @@ export class WorldPlayerAuthService {
     }
 
     if (nextIdentity) {
+      const normalizedNextIdentity = normalizeLoadedPlayerIdentity(nextIdentity);
+      if (!normalizedNextIdentity) {
+        this.logger.error(`玩家身份 next 记录缺少必要字段：userId=${normalizeIdentityString(nextIdentity.userId) || payload.sub} playerId=${normalizeIdentityString(nextIdentity.playerId) || '未知'}`);
+        recordAuthTrace({
+          type: 'identity',
+          source: 'next_invalid',
+          userId: normalizeIdentityString(nextIdentity.userId) || payload.sub,
+          playerId: normalizeIdentityString(nextIdentity.playerId) || null,
+          persistedSource: normalizePersistedSource(nextIdentity),
+          persistenceEnabled: identityPersistenceEnabled,
+          nextLoadHit: true,
+          compatTried: false,
+          persistAttempted: false,
+          persistSucceeded: null,
+          persistFailureStage: 'next_identity_shape_invalid',
+        });
+        return null;
+      }
+
+      nextIdentity = normalizedNextIdentity;
       const nextPersistedSource = normalizePersistedSource(nextIdentity);
       if (!nextPersistedSource) {
         this.logger.error(`玩家身份 next 记录缺少 persistedSource：userId=${nextIdentity.userId} playerId=${nextIdentity.playerId}`);

@@ -1,27 +1,8 @@
-// @ts-nocheck
-"use strict";
+import { Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
+import { DEFAULT_INVENTORY_CAPACITY } from '@mud/shared-next';
+import { Pool, type PoolClient } from 'pg';
 
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-
-var PlayerPersistenceService_1;
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.PlayerPersistenceService = void 0;
-
-const common_1 = require("@nestjs/common");
-
-const pg_1 = require("pg");
-
-const shared_1 = require("@mud/shared-next");
-
-const env_alias_1 = require("../config/env-alias");
-
-const PLAYER_SNAPSHOT_SCOPE = 'server_next_player_snapshots_v1';
+import { resolveServerNextDatabaseUrl } from '../config/env-alias';
 
 const PLAYER_SNAPSHOT_TABLE = 'server_next_player_snapshot';
 
@@ -29,6 +10,7 @@ const CREATE_PLAYER_SNAPSHOT_TABLE_SQL = `
   CREATE TABLE IF NOT EXISTS ${PLAYER_SNAPSHOT_TABLE} (
     player_id varchar(100) PRIMARY KEY,
     template_id varchar(120) NOT NULL,
+    instance_id varchar(160),
     persisted_source varchar(32) NOT NULL,
     seeded_at bigint,
     saved_at bigint NOT NULL,
@@ -47,99 +29,227 @@ const CREATE_PLAYER_SNAPSHOT_SOURCE_INDEX_SQL = `
   ON ${PLAYER_SNAPSHOT_TABLE}(persisted_source)
 `;
 
+const ALTER_PLAYER_SNAPSHOT_ADD_INSTANCE_ID_SQL = `
+  ALTER TABLE ${PLAYER_SNAPSHOT_TABLE}
+  ADD COLUMN IF NOT EXISTS instance_id varchar(160)
+`;
+
+const CREATE_PLAYER_SNAPSHOT_INSTANCE_INDEX_SQL = `
+  CREATE INDEX IF NOT EXISTS server_next_player_snapshot_instance_idx
+  ON ${PLAYER_SNAPSHOT_TABLE}(instance_id)
+`;
+
 const PLAYER_SNAPSHOT_META_KEY = '__snapshotMeta';
-
 const PLAYER_SNAPSHOT_PERSISTED_SOURCE_NATIVE = 'native';
-
 const PLAYER_SNAPSHOT_PERSISTED_SOURCE_LEGACY_SEEDED = 'legacy_seeded';
+const MAX_PENDING_LOGBOOK_MESSAGES = 200;
 
-let PlayerPersistenceService = PlayerPersistenceService_1 = class PlayerPersistenceService {
-/**
- * logger：日志器引用。
- */
+type PlayerSnapshotPersistedSource =
+  | typeof PLAYER_SNAPSHOT_PERSISTED_SOURCE_NATIVE
+  | typeof PLAYER_SNAPSHOT_PERSISTED_SOURCE_LEGACY_SEEDED;
 
-    logger = new common_1.Logger(PlayerPersistenceService_1.name);    
-    /**
- * pool：缓存或索引容器。
- */
+type PendingLogbookKind = 'system' | 'chat' | 'quest' | 'combat' | 'loot' | 'grudge';
 
-    pool = null;    
-    /**
- * enabled：启用开关或状态标识。
- */
+interface PlayerSnapshotPlacement {
+  instanceId: string;
+  templateId: string;
+  x: number;
+  y: number;
+  facing: number;
+}
 
-    enabled = false;    
-    /**
- * onModuleInit：执行on模块Init相关逻辑。
- * @returns 无返回值，直接更新on模块Init相关状态。
- */
+interface PlayerSnapshotVitals {
+  hp: number;
+  maxHp: number;
+  qi: number;
+  maxQi: number;
+}
 
-    async onModuleInit() {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+interface PlayerSnapshotProgression {
+  foundation: number;
+  combatExp: number;
+  bodyTraining: Record<string, unknown> | null;
+  alchemySkill: Record<string, unknown> | null;
+  gatherSkill: Record<string, unknown> | null;
+  alchemyPresets: unknown[];
+  alchemyJob: Record<string, unknown> | null;
+  enhancementSkill: Record<string, unknown> | null;
+  enhancementSkillLevel: number;
+  enhancementJob: Record<string, unknown> | null;
+  enhancementRecords: unknown[];
+  boneAgeBaseYears: number;
+  lifeElapsedTicks: number;
+  lifespanYears: number | null;
+  realm: Record<string, unknown> | null;
+  heavenGate: Record<string, unknown> | null;
+  spiritualRoots: Record<string, unknown> | null;
+}
 
+interface PlayerSnapshotInventory {
+  revision: number;
+  capacity: number;
+  items: unknown[];
+}
 
-        const databaseUrl = (0, env_alias_1.resolveServerNextDatabaseUrl)();
-        if (!databaseUrl.trim()) {
-            this.logger.log('玩家快照持久化已禁用：未提供 SERVER_NEXT_DATABASE_URL/DATABASE_URL');
-            return;
-        }
-        this.pool = new pg_1.Pool({
-            connectionString: databaseUrl,
-        });
-        try {
-            await ensurePlayerSnapshotTable(this.pool);
-            this.enabled = true;
-            this.logger.log('玩家快照持久化已启用（server_next_player_snapshot）');
-        }
-        catch (error) {
-            this.logger.error('玩家快照持久化初始化失败，已回退为禁用模式', error instanceof Error ? error.stack : String(error));
-            await this.safeClosePool();
-        }
-    }    
-    /**
- * onModuleDestroy：执行on模块Destroy相关逻辑。
- * @returns 无返回值，直接更新on模块Destroy相关状态。
- */
+interface PlayerSnapshotEquipment {
+  revision: number;
+  slots: unknown[];
+}
 
-    async onModuleDestroy() {
-        await this.safeClosePool();
-    }    
-    /**
- * isEnabled：判断启用是否满足条件。
- * @returns 无返回值，完成启用的条件判断。
- */
+interface PlayerSnapshotTechniques {
+  revision: number;
+  techniques: unknown[];
+  cultivatingTechId: string | null;
+}
 
-    isEnabled() {
-        return this.enabled && this.pool !== null;
-    }    
-    /**
- * loadPlayerSnapshot：读取玩家快照并返回结果。
- * @param playerId 玩家 ID。
- * @returns 无返回值，完成玩家快照的读取/组装。
- */
+interface PlayerSnapshotBuffs {
+  revision: number;
+  buffs: unknown[];
+}
 
-    async loadPlayerSnapshot(playerId) {
+interface PlayerSnapshotQuests {
+  revision: number;
+  entries: unknown[];
+}
 
-        const record = await this.loadPlayerSnapshotRecord(playerId);
-        return record?.snapshot ?? null;
-    }    
-    /**
- * loadPlayerSnapshotRecord：读取玩家快照Record并返回结果。
- * @param playerId 玩家 ID。
- * @returns 无返回值，完成玩家快照Record的读取/组装。
- */
+interface PlayerSnapshotCombat {
+  autoBattle: boolean;
+  autoRetaliate: boolean;
+  autoBattleStationary: boolean;
+  combatTargetId: string | null;
+  combatTargetLocked: boolean;
+  allowAoePlayerHit: boolean;
+  autoIdleCultivation: boolean;
+  autoSwitchCultivation: boolean;
+  senseQiActive: boolean;
+  autoBattleSkills: unknown[];
+}
 
-    async loadPlayerSnapshotRecord(playerId) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+interface PendingLogbookMessageSnapshot {
+  id: string;
+  kind: PendingLogbookKind;
+  text: string;
+  from?: string;
+  at: number;
+}
 
-        if (!this.pool || !this.enabled) {
-            return null;
-        }
+interface RuntimeBonusSnapshot {
+  source: string;
+  label?: string;
+  attrs?: Record<string, unknown>;
+  stats?: Record<string, unknown>;
+  qiProjection?: Array<Record<string, unknown>>;
+  meta?: Record<string, unknown>;
+}
 
-        const result = await this.pool.query(`
+export interface PersistedPlayerSnapshot {
+  version: 1;
+  savedAt: number;
+  placement: PlayerSnapshotPlacement;
+  vitals: PlayerSnapshotVitals;
+  progression: PlayerSnapshotProgression;
+  unlockedMapIds: string[];
+  inventory: PlayerSnapshotInventory;
+  equipment: PlayerSnapshotEquipment;
+  techniques: PlayerSnapshotTechniques;
+  buffs: PlayerSnapshotBuffs;
+  quests: PlayerSnapshotQuests;
+  combat: PlayerSnapshotCombat;
+  pendingLogbookMessages: PendingLogbookMessageSnapshot[];
+  runtimeBonuses: RuntimeBonusSnapshot[];
+}
+
+interface PersistedPlayerSnapshotPayload extends PersistedPlayerSnapshot {
+  [PLAYER_SNAPSHOT_META_KEY]?: {
+    persistedSource: PlayerSnapshotPersistedSource;
+    seededAt?: number;
+  };
+}
+
+export interface PersistedPlayerSnapshotRecord {
+  snapshot: PersistedPlayerSnapshot;
+  persistedSource: PlayerSnapshotPersistedSource;
+  seededAt: number | null;
+}
+
+interface PersistedPlayerSnapshotRow {
+  player_id?: unknown;
+  template_id?: unknown;
+  instance_id?: unknown;
+  persisted_source?: unknown;
+  seeded_at?: unknown;
+  saved_at?: unknown;
+  updated_at?: unknown;
+  payload?: unknown;
+}
+
+interface SavePlayerSnapshotOptions {
+  persistedSource?: PlayerSnapshotPersistedSource;
+  seededAt?: number;
+}
+
+export interface ListedPlayerSnapshot {
+  playerId: string;
+  snapshot: PersistedPlayerSnapshot;
+  updatedAt: number;
+}
+
+@Injectable()
+export class PlayerPersistenceService implements OnModuleInit, OnModuleDestroy {
+  private readonly logger = new Logger(PlayerPersistenceService.name);
+  private pool: Pool | null = null;
+  private enabled = false;
+
+  async onModuleInit(): Promise<void> {
+    const databaseUrl = resolveServerNextDatabaseUrl();
+    if (!databaseUrl.trim()) {
+      this.logger.log('玩家快照持久化已禁用：未提供 SERVER_NEXT_DATABASE_URL/DATABASE_URL');
+      return;
+    }
+
+    this.pool = new Pool({
+      connectionString: databaseUrl,
+    });
+
+    try {
+      await ensurePlayerSnapshotTable(this.pool);
+      this.enabled = true;
+      this.logger.log('玩家快照持久化已启用（server_next_player_snapshot）');
+    } catch (error: unknown) {
+      this.logger.error(
+        '玩家快照持久化初始化失败，已回退为禁用模式',
+        error instanceof Error ? error.stack : String(error),
+      );
+      await this.safeClosePool();
+    }
+  }
+
+  async onModuleDestroy(): Promise<void> {
+    await this.safeClosePool();
+  }
+
+  isEnabled(): boolean {
+    return this.enabled && this.pool !== null;
+  }
+
+  async loadPlayerSnapshot(playerId: string): Promise<PersistedPlayerSnapshot | null> {
+    const record = await this.loadPlayerSnapshotRecord(playerId);
+    return record?.snapshot ?? null;
+  }
+
+  async loadPlayerSnapshotRecord(
+    playerId: string,
+  ): Promise<PersistedPlayerSnapshotRecord | null> {
+    if (!this.pool || !this.enabled) {
+      return null;
+    }
+
+    const result = await this.pool.query<PersistedPlayerSnapshotRow>(
+      `
         SELECT
           player_id,
           template_id,
+          instance_id,
           persisted_source,
           seeded_at,
           saved_at,
@@ -148,542 +258,543 @@ let PlayerPersistenceService = PlayerPersistenceService_1 = class PlayerPersiste
         FROM ${PLAYER_SNAPSHOT_TABLE}
         WHERE player_id = $1
         LIMIT 1
-      `, [playerId]);
-        if (result.rowCount === 0) {
-            return null;
-        }
+      `,
+      [playerId],
+    );
+    if ((result.rowCount ?? 0) === 0) {
+      return null;
+    }
 
-        const record = normalizePersistedPlayerSnapshotRow(result.rows[0]);
-        if (!record) {
+    const record = normalizePersistedPlayerSnapshotRow(result.rows[0]);
+    if (record) {
+      return record;
+    }
 
-            const message = `Persisted player snapshot record invalid: playerId=${playerId} table=${PLAYER_SNAPSHOT_TABLE}`;
-            this.logger.error(message);
-            throw new Error(message);
-        }
-        return record;
-    }    
-    /**
- * listPlayerSnapshots：读取玩家快照并返回结果。
- * @returns 无返回值，完成玩家快照的读取/组装。
- */
+    const message = `Persisted player snapshot record invalid: playerId=${playerId} table=${PLAYER_SNAPSHOT_TABLE}`;
+    this.logger.error(message);
+    throw new Error(message);
+  }
 
-    async listPlayerSnapshots() {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+  async listPlayerSnapshots(): Promise<ListedPlayerSnapshot[]> {
+    if (!this.pool || !this.enabled) {
+      return [];
+    }
 
-        if (!this.pool || !this.enabled) {
-            return [];
-        }
-
-        const result = await this.pool.query(`
+    const result = await this.pool.query<PersistedPlayerSnapshotRow>(
+      `
         SELECT
           player_id,
+          template_id,
+          instance_id,
+          saved_at,
           updated_at,
           payload
         FROM ${PLAYER_SNAPSHOT_TABLE}
         ORDER BY player_id ASC
-      `);
-        return result.rows
-            .map((row) => {
-            const playerId = typeof row?.player_id === 'string' ? row.player_id.trim() : '';
-            const record = normalizePersistedPlayerSnapshotRow(row);
+      `,
+    );
 
-            const snapshot = record?.snapshot ?? null;
-            if (!playerId || !snapshot) {
-                return null;
-            }
-            return {
-                playerId,
-                snapshot,
-                updatedAt: row?.updated_at instanceof Date
-                    ? row.updated_at.getTime()
-                    : Date.parse(String(row?.updated_at ?? '')) || 0,
-            };
-        })
-            .filter((entry) => entry !== null);
-    }    
-    /**
- * savePlayerSnapshot：执行save玩家快照相关逻辑。
- * @param playerId 玩家 ID。
- * @param snapshot 参数说明。
- * @param options 选项参数。
- * @returns 无返回值，直接更新save玩家快照相关状态。
- */
-
-    async savePlayerSnapshot(playerId, snapshot, options = undefined) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        if (!this.pool || !this.enabled) {
-            return;
+    return result.rows
+      .map((row): ListedPlayerSnapshot | null => {
+        const playerId = typeof row.player_id === 'string' ? row.player_id.trim() : '';
+        const record = normalizePersistedPlayerSnapshotRow(row);
+        if (!playerId || !record?.snapshot) {
+          return null;
         }
 
-        const normalizedSnapshot = normalizePlayerSnapshotPayload(snapshot);
-        if (!normalizedSnapshot) {
-            return;
-        }
+        return {
+          playerId,
+          snapshot: record.snapshot,
+          updatedAt: normalizeUpdatedAt(row.updated_at),
+        };
+      })
+      .filter((entry): entry is ListedPlayerSnapshot => entry !== null);
+  }
 
-        const persistedSource = normalizePlayerSnapshotPersistedSource(options?.persistedSource)
-            ?? PLAYER_SNAPSHOT_PERSISTED_SOURCE_NATIVE;
+  async savePlayerSnapshot(
+    playerId: string,
+    snapshot: unknown,
+    options: SavePlayerSnapshotOptions | undefined = undefined,
+  ): Promise<void> {
+    if (!this.pool || !this.enabled) {
+      return;
+    }
 
-        const payload = buildPersistedPlayerSnapshotPayload(normalizedSnapshot, {
-            persistedSource,
-            seededAt: options?.seededAt,
-        });
-        await this.pool.query(`
+    const normalizedSnapshot = normalizePlayerSnapshotPayload(snapshot);
+    if (!normalizedSnapshot) {
+      return;
+    }
+
+    const persistedSource =
+      normalizePlayerSnapshotPersistedSource(options?.persistedSource)
+      ?? PLAYER_SNAPSHOT_PERSISTED_SOURCE_NATIVE;
+
+    const payload = buildPersistedPlayerSnapshotPayload(normalizedSnapshot, {
+      persistedSource,
+      seededAt: options?.seededAt,
+    });
+
+    await this.pool.query(
+      `
         INSERT INTO ${PLAYER_SNAPSHOT_TABLE}(
           player_id,
           template_id,
+          instance_id,
           persisted_source,
           seeded_at,
           saved_at,
           updated_at,
           payload
         )
-        VALUES ($1, $2, $3, $4, $5, now(), $6::jsonb)
+        VALUES ($1, $2, $3, $4, $5, $6, now(), $7::jsonb)
         ON CONFLICT (player_id)
         DO UPDATE SET
           template_id = EXCLUDED.template_id,
+          instance_id = EXCLUDED.instance_id,
           persisted_source = EXCLUDED.persisted_source,
           seeded_at = EXCLUDED.seeded_at,
           saved_at = EXCLUDED.saved_at,
           updated_at = now(),
           payload = EXCLUDED.payload
-      `, [
-            playerId,
-            normalizedSnapshot.placement.templateId,
-            persistedSource,
-            Number.isFinite(options?.seededAt) ? Math.max(0, Math.trunc(options.seededAt)) : null,
-            Math.max(0, Math.trunc(normalizedSnapshot.savedAt)),
-            JSON.stringify(payload),
-        ]);
-    }    
-    /**
- * safeClosePool：执行safeClosePool相关逻辑。
- * @returns 无返回值，直接更新safeClosePool相关状态。
- */
+      `,
+      [
+        playerId,
+        normalizedSnapshot.placement.templateId,
+        normalizePlayerSnapshotPlacementInstanceId(normalizedSnapshot.placement.instanceId),
+        persistedSource,
+        Number.isFinite(options?.seededAt) ? Math.max(0, Math.trunc(options.seededAt)) : null,
+        Math.max(0, Math.trunc(normalizedSnapshot.savedAt)),
+        JSON.stringify(payload),
+      ],
+    );
+  }
 
-    async safeClosePool() {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-
-        const pool = this.pool;
-        this.pool = null;
-        this.enabled = false;
-        if (pool) {
-            await pool.end().catch(() => undefined);
-        }
+  private async safeClosePool(): Promise<void> {
+    const pool = this.pool;
+    this.pool = null;
+    this.enabled = false;
+    if (pool) {
+      await pool.end().catch(() => undefined);
     }
-};
-exports.PlayerPersistenceService = PlayerPersistenceService;
-exports.PlayerPersistenceService = PlayerPersistenceService = PlayerPersistenceService_1 = __decorate([
-    (0, common_1.Injectable)()
-], PlayerPersistenceService);
-/**
- * ensurePlayerSnapshotTable：执行ensure玩家快照表相关逻辑。
- * @param pool 参数说明。
- * @returns 无返回值，直接更新ensure玩家快照表相关状态。
- */
-
-async function ensurePlayerSnapshotTable(pool) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const client = await pool.connect();
-    try {
-        await client.query('BEGIN');
-        await client.query(CREATE_PLAYER_SNAPSHOT_TABLE_SQL);
-        await client.query(CREATE_PLAYER_SNAPSHOT_TEMPLATE_INDEX_SQL);
-        await client.query(CREATE_PLAYER_SNAPSHOT_SOURCE_INDEX_SQL);
-        await client.query('COMMIT');
-    }
-    catch (error) {
-        await client.query('ROLLBACK').catch(() => undefined);
-        throw error;
-    }
-    finally {
-        client.release();
-    }
+  }
 }
-export { PlayerPersistenceService };
-/**
- * normalizePersistedPlayerSnapshotRow：判断Persisted玩家快照Row是否满足条件。
- * @param row 参数说明。
- * @returns 无返回值，直接更新Persisted玩家快照Row相关状态。
- */
 
-function normalizePersistedPlayerSnapshotRow(row) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    if (!row || typeof row !== 'object') {
-        return null;
-    }
-    const record = normalizePlayerSnapshotRecord(row.payload);
-    if (!record?.snapshot) {
-        return null;
-    }
-    return {
-        snapshot: {
-            ...record.snapshot,
-            savedAt: Number.isFinite(row.saved_at)
-                ? Math.max(0, Math.trunc(row.saved_at))
-                : record.snapshot.savedAt,
-            placement: {
-                ...record.snapshot.placement,
-                templateId: typeof row.template_id === 'string' && row.template_id.trim()
-                    ? row.template_id.trim()
-                    : record.snapshot.placement.templateId,
-            },
-        },
-        persistedSource: normalizePlayerSnapshotPersistedSource(row.persisted_source)
-            ?? record.persistedSource,
-        seededAt: Number.isFinite(row.seeded_at) ? Math.max(0, Math.trunc(row.seeded_at)) : record.seededAt,
-    };
+async function ensurePlayerSnapshotTable(pool: Pool): Promise<void> {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(CREATE_PLAYER_SNAPSHOT_TABLE_SQL);
+    await client.query(ALTER_PLAYER_SNAPSHOT_ADD_INSTANCE_ID_SQL);
+    await client.query(CREATE_PLAYER_SNAPSHOT_TEMPLATE_INDEX_SQL);
+    await client.query(CREATE_PLAYER_SNAPSHOT_INSTANCE_INDEX_SQL);
+    await client.query(CREATE_PLAYER_SNAPSHOT_SOURCE_INDEX_SQL);
+    await client.query('COMMIT');
+  } catch (error: unknown) {
+    await rollbackQuietly(client);
+    throw error;
+  } finally {
+    client.release();
+  }
 }
-/**
- * normalizePlayerSnapshotRecord：规范化或转换玩家快照Record。
- * @param raw 参数说明。
- * @returns 无返回值，直接更新玩家快照Record相关状态。
- */
 
-function normalizePlayerSnapshotRecord(raw) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+function normalizePersistedPlayerSnapshotRow(
+  row: PersistedPlayerSnapshotRow | null | undefined,
+): PersistedPlayerSnapshotRecord | null {
+  if (!row || typeof row !== 'object') {
+    return null;
+  }
 
+  const record = normalizePlayerSnapshotRecord(row.payload);
+  if (!record?.snapshot) {
+    return null;
+  }
 
-    const snapshot = normalizePlayerSnapshotPayload(raw);
-    if (!snapshot) {
-        return null;
-    }
-
-    const meta = raw && typeof raw === 'object' ? raw[PLAYER_SNAPSHOT_META_KEY] : null;
-    return {
-        snapshot,
-        persistedSource: normalizePlayerSnapshotPersistedSource(meta?.persistedSource)
-            ?? PLAYER_SNAPSHOT_PERSISTED_SOURCE_NATIVE,
-        seededAt: Number.isFinite(meta?.seededAt) ? Math.max(0, Math.trunc(meta.seededAt)) : null,
-    };
+  return {
+    snapshot: {
+      ...record.snapshot,
+      savedAt: normalizeSnapshotSavedAt(row.saved_at, record.snapshot.savedAt),
+      placement: {
+        ...record.snapshot.placement,
+        instanceId:
+          normalizePlayerSnapshotPlacementInstanceId(row.instance_id)
+          ?? record.snapshot.placement.instanceId
+          ?? buildPublicPlayerInstanceId(record.snapshot.placement.templateId),
+        templateId:
+          typeof row.template_id === 'string' && row.template_id.trim()
+            ? row.template_id.trim()
+            : record.snapshot.placement.templateId,
+      },
+    },
+    persistedSource:
+      normalizePlayerSnapshotPersistedSource(row.persisted_source) ?? record.persistedSource,
+    seededAt: normalizeOptionalNonNegativeInteger(row.seeded_at, record.seededAt),
+  };
 }
-/**
- * normalizePlayerSnapshotPayload：读取玩家快照载荷并返回结果。
- * @param raw 参数说明。
- * @returns 无返回值，直接更新玩家快照载荷相关状态。
- */
 
-function normalizePlayerSnapshotPayload(raw) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+function normalizePlayerSnapshotRecord(
+  raw: unknown,
+): PersistedPlayerSnapshotRecord | null {
+  const snapshot = normalizePlayerSnapshotPayload(raw);
+  if (!snapshot) {
+    return null;
+  }
 
-    if (!raw || typeof raw !== 'object') {
-        return null;
-    }
-
-    const snapshot = raw;
-    if (snapshot.version !== 1 || typeof snapshot.placement?.templateId !== 'string') {
-        return null;
-    }
-
-    const vitals = snapshot.vitals ?? {};
-
-    const inventory = snapshot.inventory ?? {};
-
-    const equipment = snapshot.equipment ?? {};
-
-    const techniques = snapshot.techniques ?? {};
-
-    const buffs = snapshot.buffs ?? {};
-
-    const quests = snapshot.quests ?? {};
-
-    const combat = snapshot.combat ?? {};
-
-    const progression = snapshot.progression ?? {};
-    return {
-        version: 1,
-        savedAt: Number.isFinite(snapshot.savedAt) ? Number(snapshot.savedAt) : Date.now(),
-        placement: {
-            templateId: snapshot.placement.templateId,
-            x: Number.isFinite(snapshot.placement.x) ? Math.trunc(snapshot.placement.x) : 0,
-            y: Number.isFinite(snapshot.placement.y) ? Math.trunc(snapshot.placement.y) : 0,
-            facing: Number.isFinite(snapshot.placement.facing) ? Math.trunc(snapshot.placement.facing) : 1,
-        },
-        vitals: {
-            hp: isFiniteNumber(vitals.hp) ? Math.trunc(vitals.hp) : 100,
-            maxHp: isFiniteNumber(vitals.maxHp) ? Math.trunc(vitals.maxHp) : 100,
-            qi: isFiniteNumber(vitals.qi) ? Math.trunc(vitals.qi) : 0,
-            maxQi: isFiniteNumber(vitals.maxQi) ? Math.trunc(vitals.maxQi) : 100,
-        },
-        progression: {
-            foundation: isFiniteNumber(progression.foundation) ? Math.trunc(progression.foundation) : 0,
-            combatExp: isFiniteNumber(progression.combatExp) ? Math.trunc(progression.combatExp) : 0,
-
-            bodyTraining: typeof progression.bodyTraining === 'object' && progression.bodyTraining ? progression.bodyTraining : null,
-            alchemySkill: typeof progression.alchemySkill === 'object' && progression.alchemySkill ? progression.alchemySkill : null,
-            gatherSkill: typeof progression.gatherSkill === 'object' && progression.gatherSkill ? progression.gatherSkill : null,
-            alchemyPresets: Array.isArray(progression.alchemyPresets) ? progression.alchemyPresets : [],
-            alchemyJob: typeof progression.alchemyJob === 'object' && progression.alchemyJob ? progression.alchemyJob : null,
-            enhancementSkill: typeof progression.enhancementSkill === 'object' && progression.enhancementSkill ? progression.enhancementSkill : null,
-            enhancementSkillLevel: isFiniteNumber(progression.enhancementSkillLevel) ? Math.max(1, Math.trunc(progression.enhancementSkillLevel)) : 1,
-            enhancementJob: typeof progression.enhancementJob === 'object' && progression.enhancementJob ? progression.enhancementJob : null,
-            enhancementRecords: Array.isArray(progression.enhancementRecords) ? progression.enhancementRecords : [],
-            boneAgeBaseYears: isFiniteNumber(progression.boneAgeBaseYears) ? Math.trunc(progression.boneAgeBaseYears) : 16,
-            lifeElapsedTicks: isFiniteNumber(progression.lifeElapsedTicks) ? Number(progression.lifeElapsedTicks) : 0,
-            lifespanYears: isFiniteNumber(progression.lifespanYears) ? Math.trunc(progression.lifespanYears) : null,
-
-            realm: typeof progression.realm === 'object' && progression.realm ? progression.realm : null,
-
-            heavenGate: typeof progression.heavenGate === 'object' && progression.heavenGate ? progression.heavenGate : null,
-
-            spiritualRoots: typeof progression.spiritualRoots === 'object' && progression.spiritualRoots ? progression.spiritualRoots : null,
-        },
-        unlockedMapIds: Array.isArray(snapshot.unlockedMapIds)
-            ? Array.from(new Set(snapshot.unlockedMapIds.filter((entry) => typeof entry === 'string' && entry.trim().length > 0))).sort((left, right) => left.localeCompare(right, 'zh-Hans-CN'))
-            : [],
-        inventory: {
-            revision: isFiniteNumber(inventory.revision) ? Math.trunc(inventory.revision) : 1,
-            capacity: isFiniteNumber(inventory.capacity)
-                ? Math.max(shared_1.DEFAULT_INVENTORY_CAPACITY, Math.trunc(inventory.capacity))
-                : shared_1.DEFAULT_INVENTORY_CAPACITY,
-            items: Array.isArray(inventory.items) ? inventory.items : [],
-        },
-        equipment: {
-            revision: isFiniteNumber(equipment.revision) ? Math.trunc(equipment.revision) : 1,
-            slots: Array.isArray(equipment.slots) ? equipment.slots : [],
-        },
-        techniques: {
-            revision: isFiniteNumber(techniques.revision) ? Math.trunc(techniques.revision) : 1,
-            techniques: Array.isArray(techniques.techniques) ? techniques.techniques : [],
-
-            cultivatingTechId: typeof techniques.cultivatingTechId === 'string' || techniques.cultivatingTechId === null
-                ? techniques.cultivatingTechId
-                : null,
-        },
-        buffs: {
-            revision: isFiniteNumber(buffs.revision) ? Math.trunc(buffs.revision) : 1,
-            buffs: Array.isArray(buffs.buffs) ? buffs.buffs : [],
-        },
-        quests: {
-            revision: isFiniteNumber(quests.revision) ? Math.trunc(quests.revision) : 1,
-            entries: Array.isArray(quests.entries) ? quests.entries : [],
-        },
-        combat: {
-
-            autoBattle: combat.autoBattle === true,
-
-            autoRetaliate: combat.autoRetaliate !== false,
-
-            autoBattleStationary: combat.autoBattleStationary === true,
-
-            combatTargetId: typeof combat.combatTargetId === 'string' && combat.combatTargetId.trim()
-                ? combat.combatTargetId.trim()
-                : null,
-
-            combatTargetLocked: combat.combatTargetLocked === true,
-
-            allowAoePlayerHit: combat.allowAoePlayerHit === true,
-
-            autoIdleCultivation: combat.autoIdleCultivation !== false,
-
-            autoSwitchCultivation: combat.autoSwitchCultivation === true,
-
-            senseQiActive: combat.senseQiActive === true,
-            autoBattleSkills: Array.isArray(combat.autoBattleSkills) ? combat.autoBattleSkills : [],
-        },
-        pendingLogbookMessages: normalizePendingLogbookMessages(resolveSnapshotArray(snapshot, 'pendingLogbookMessages')),
-        runtimeBonuses: normalizeRuntimeBonuses(resolveSnapshotArray(snapshot, 'runtimeBonuses')),
-    };
+  const meta = resolveSnapshotMeta(raw);
+  return {
+    snapshot,
+    persistedSource:
+      normalizePlayerSnapshotPersistedSource(meta?.persistedSource)
+      ?? PLAYER_SNAPSHOT_PERSISTED_SOURCE_NATIVE,
+    seededAt: normalizeOptionalNonNegativeInteger(meta?.seededAt, null),
+  };
 }
-/**
- * buildPersistedPlayerSnapshotPayload：构建并返回目标对象。
- * @param snapshot 参数说明。
- * @param meta 参数说明。
- * @returns 无返回值，直接更新Persisted玩家快照载荷相关状态。
- */
 
-function buildPersistedPlayerSnapshotPayload(snapshot, meta) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+function normalizePlayerSnapshotPayload(raw: unknown): PersistedPlayerSnapshot | null {
+  if (!raw || typeof raw !== 'object') {
+    return null;
+  }
 
+  const snapshot = raw as Record<string, unknown>;
+  const placementInput =
+    snapshot.placement && typeof snapshot.placement === 'object'
+      ? (snapshot.placement as Record<string, unknown>)
+      : null;
+  if (snapshot.version !== 1 || typeof placementInput?.templateId !== 'string') {
+    return null;
+  }
 
-    const payload = {
-        ...snapshot,
-    };
-    payload[PLAYER_SNAPSHOT_META_KEY] = {
-        persistedSource: normalizePlayerSnapshotPersistedSource(meta?.persistedSource)
-            ?? PLAYER_SNAPSHOT_PERSISTED_SOURCE_NATIVE,
-    };
-    if (Number.isFinite(meta?.seededAt)) {
-        payload[PLAYER_SNAPSHOT_META_KEY].seededAt = Math.max(0, Math.trunc(meta.seededAt));
-    }
-    return payload;
+  const normalizedTemplateId = placementInput.templateId.trim();
+  if (!normalizedTemplateId) {
+    return null;
+  }
+
+  const normalizedInstanceId =
+    normalizePlayerSnapshotPlacementInstanceId(placementInput.instanceId)
+    ?? buildPublicPlayerInstanceId(normalizedTemplateId);
+
+  const vitals = asRecord(snapshot.vitals);
+  const inventory = asRecord(snapshot.inventory);
+  const equipment = asRecord(snapshot.equipment);
+  const techniques = asRecord(snapshot.techniques);
+  const buffs = asRecord(snapshot.buffs);
+  const quests = asRecord(snapshot.quests);
+  const combat = asRecord(snapshot.combat);
+  const progression = asRecord(snapshot.progression);
+
+  return {
+    version: 1,
+    savedAt: isFiniteNumber(snapshot.savedAt) ? Number(snapshot.savedAt) : Date.now(),
+    placement: {
+      instanceId: normalizedInstanceId,
+      templateId: normalizedTemplateId,
+      x: isFiniteNumber(placementInput.x) ? Math.trunc(placementInput.x) : 0,
+      y: isFiniteNumber(placementInput.y) ? Math.trunc(placementInput.y) : 0,
+      facing: isFiniteNumber(placementInput.facing) ? Math.trunc(placementInput.facing) : 1,
+    },
+    vitals: {
+      hp: isFiniteNumber(vitals?.hp) ? Math.trunc(vitals.hp) : 100,
+      maxHp: isFiniteNumber(vitals?.maxHp) ? Math.trunc(vitals.maxHp) : 100,
+      qi: isFiniteNumber(vitals?.qi) ? Math.trunc(vitals.qi) : 0,
+      maxQi: isFiniteNumber(vitals?.maxQi) ? Math.trunc(vitals.maxQi) : 100,
+    },
+    progression: {
+      foundation: isFiniteNumber(progression?.foundation) ? Math.trunc(progression.foundation) : 0,
+      combatExp: isFiniteNumber(progression?.combatExp) ? Math.trunc(progression.combatExp) : 0,
+      bodyTraining: asRecordOrNull(progression?.bodyTraining),
+      alchemySkill: asRecordOrNull(progression?.alchemySkill),
+      gatherSkill: asRecordOrNull(progression?.gatherSkill),
+      alchemyPresets: Array.isArray(progression?.alchemyPresets) ? progression.alchemyPresets : [],
+      alchemyJob: asRecordOrNull(progression?.alchemyJob),
+      enhancementSkill: asRecordOrNull(progression?.enhancementSkill),
+      enhancementSkillLevel: isFiniteNumber(progression?.enhancementSkillLevel)
+        ? Math.max(1, Math.trunc(progression.enhancementSkillLevel))
+        : 1,
+      enhancementJob: asRecordOrNull(progression?.enhancementJob),
+      enhancementRecords: Array.isArray(progression?.enhancementRecords)
+        ? progression.enhancementRecords
+        : [],
+      boneAgeBaseYears: isFiniteNumber(progression?.boneAgeBaseYears)
+        ? Math.trunc(progression.boneAgeBaseYears)
+        : 16,
+      lifeElapsedTicks: isFiniteNumber(progression?.lifeElapsedTicks)
+        ? Number(progression.lifeElapsedTicks)
+        : 0,
+      lifespanYears: isFiniteNumber(progression?.lifespanYears)
+        ? Math.trunc(progression.lifespanYears)
+        : null,
+      realm: asRecordOrNull(progression?.realm),
+      heavenGate: asRecordOrNull(progression?.heavenGate),
+      spiritualRoots: asRecordOrNull(progression?.spiritualRoots),
+    },
+    unlockedMapIds: normalizeUnlockedMapIds(snapshot.unlockedMapIds),
+    inventory: {
+      revision: isFiniteNumber(inventory?.revision) ? Math.trunc(inventory.revision) : 1,
+      capacity: isFiniteNumber(inventory?.capacity)
+        ? Math.max(DEFAULT_INVENTORY_CAPACITY, Math.trunc(inventory.capacity))
+        : DEFAULT_INVENTORY_CAPACITY,
+      items: Array.isArray(inventory?.items) ? inventory.items : [],
+    },
+    equipment: {
+      revision: isFiniteNumber(equipment?.revision) ? Math.trunc(equipment.revision) : 1,
+      slots: Array.isArray(equipment?.slots) ? equipment.slots : [],
+    },
+      techniques: {
+        revision: isFiniteNumber(techniques?.revision) ? Math.trunc(techniques.revision) : 1,
+        techniques: Array.isArray(techniques?.techniques) ? techniques.techniques : [],
+        cultivatingTechId:
+          typeof techniques?.cultivatingTechId === 'string' || techniques?.cultivatingTechId === null
+            ? (techniques.cultivatingTechId as string | null)
+            : null,
+      },
+    buffs: {
+      revision: isFiniteNumber(buffs?.revision) ? Math.trunc(buffs.revision) : 1,
+      buffs: Array.isArray(buffs?.buffs) ? buffs.buffs : [],
+    },
+    quests: {
+      revision: isFiniteNumber(quests?.revision) ? Math.trunc(quests.revision) : 1,
+      entries: Array.isArray(quests?.entries) ? quests.entries : [],
+    },
+    combat: {
+      autoBattle: combat?.autoBattle === true,
+      autoRetaliate: combat?.autoRetaliate !== false,
+      autoBattleStationary: combat?.autoBattleStationary === true,
+      combatTargetId:
+        typeof combat?.combatTargetId === 'string' && combat.combatTargetId.trim()
+          ? combat.combatTargetId.trim()
+          : null,
+      combatTargetLocked: combat?.combatTargetLocked === true,
+      allowAoePlayerHit: combat?.allowAoePlayerHit === true,
+      autoIdleCultivation: combat?.autoIdleCultivation !== false,
+      autoSwitchCultivation: combat?.autoSwitchCultivation === true,
+      senseQiActive: combat?.senseQiActive === true,
+      autoBattleSkills: Array.isArray(combat?.autoBattleSkills) ? combat.autoBattleSkills : [],
+    },
+    pendingLogbookMessages: normalizePendingLogbookMessages(
+      resolveSnapshotArray(snapshot, 'pendingLogbookMessages'),
+    ),
+    runtimeBonuses: normalizeRuntimeBonuses(resolveSnapshotArray(snapshot, 'runtimeBonuses')),
+  };
 }
-/**
- * normalizePlayerSnapshotPersistedSource：判断玩家快照Persisted来源是否满足条件。
- * @param value 参数说明。
- * @returns 无返回值，直接更新玩家快照Persisted来源相关状态。
- */
 
-function normalizePlayerSnapshotPersistedSource(value) {
-    return value === PLAYER_SNAPSHOT_PERSISTED_SOURCE_LEGACY_SEEDED
-        ? PLAYER_SNAPSHOT_PERSISTED_SOURCE_LEGACY_SEEDED
-        : value === PLAYER_SNAPSHOT_PERSISTED_SOURCE_NATIVE
-            ? PLAYER_SNAPSHOT_PERSISTED_SOURCE_NATIVE
-            : null;
+function buildPersistedPlayerSnapshotPayload(
+  snapshot: PersistedPlayerSnapshot,
+  meta: {
+    persistedSource?: PlayerSnapshotPersistedSource;
+    seededAt?: number;
+  } | null | undefined,
+): PersistedPlayerSnapshotPayload {
+  const payload: PersistedPlayerSnapshotPayload = {
+    ...snapshot,
+  };
+  payload[PLAYER_SNAPSHOT_META_KEY] = {
+    persistedSource:
+      normalizePlayerSnapshotPersistedSource(meta?.persistedSource)
+      ?? PLAYER_SNAPSHOT_PERSISTED_SOURCE_NATIVE,
+  };
+  if (Number.isFinite(meta?.seededAt)) {
+    payload[PLAYER_SNAPSHOT_META_KEY]!.seededAt = Math.max(0, Math.trunc(meta!.seededAt!));
+  }
+  return payload;
 }
-/**
- * isFiniteNumber：判断FiniteNumber是否满足条件。
- * @param value 参数说明。
- * @returns 无返回值，完成FiniteNumber的条件判断。
- */
 
-function isFiniteNumber(value) {
-    return typeof value === 'number' && Number.isFinite(value);
+function normalizePlayerSnapshotPersistedSource(
+  value: unknown,
+): PlayerSnapshotPersistedSource | null {
+  if (value === PLAYER_SNAPSHOT_PERSISTED_SOURCE_LEGACY_SEEDED) {
+    return PLAYER_SNAPSHOT_PERSISTED_SOURCE_LEGACY_SEEDED;
+  }
+  if (value === PLAYER_SNAPSHOT_PERSISTED_SOURCE_NATIVE) {
+    return PLAYER_SNAPSHOT_PERSISTED_SOURCE_NATIVE;
+  }
+  return null;
 }
-/**
- * normalizeRuntimeBonuses：规范化或转换运行态Bonuse。
- * @param value 参数说明。
- * @returns 无返回值，直接更新运行态Bonuse相关状态。
- */
 
-function normalizeRuntimeBonuses(value) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+function normalizePlayerSnapshotPlacementInstanceId(value: unknown): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const normalized = value.trim();
+  return normalized ? normalized : null;
+}
 
-    if (!Array.isArray(value)) {
-        return [];
-    }
-    return value
-        .filter((entry) => entry && typeof entry === 'object')
-        .map((entry) => ({
+function buildPublicPlayerInstanceId(templateId: string): string {
+  return `public:${templateId}`;
+}
 
-        source: canonicalizeRuntimeBonusSource(typeof entry.source === 'string' ? entry.source : ''),
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value);
+}
 
-        label: typeof entry.label === 'string' ? entry.label : undefined,
-
-        attrs: entry.attrs && typeof entry.attrs === 'object' ? { ...entry.attrs } : undefined,
-
-        stats: entry.stats && typeof entry.stats === 'object' ? { ...entry.stats } : undefined,
-        qiProjection: Array.isArray(entry.qiProjection) ? entry.qiProjection.map((item) => ({ ...item })) : undefined,
-
-        meta: entry.meta && typeof entry.meta === 'object' ? { ...entry.meta } : undefined,
+function normalizeRuntimeBonuses(value: unknown[]): RuntimeBonusSnapshot[] {
+  return value
+    .filter((entry): entry is Record<string, unknown> => !!entry && typeof entry === 'object')
+    .map((entry): RuntimeBonusSnapshot => ({
+      source: canonicalizeRuntimeBonusSource(entry.source),
+      label: typeof entry.label === 'string' ? entry.label : undefined,
+      attrs: asRecordOrUndefined(entry.attrs),
+      stats: asRecordOrUndefined(entry.stats),
+      qiProjection: Array.isArray(entry.qiProjection)
+        ? entry.qiProjection
+            .filter((item): item is Record<string, unknown> => !!item && typeof item === 'object')
+            .map((item) => ({ ...item }))
+        : undefined,
+      meta: asRecordOrUndefined(entry.meta),
     }))
-        .filter((entry) => entry.source.length > 0);
+    .filter((entry) => entry.source.length > 0);
 }
-/**
- * resolveSnapshotArray：规范化或转换快照Array。
- * @param snapshot 参数说明。
- * @param key 参数说明。
- * @returns 无返回值，直接更新快照Array相关状态。
- */
 
-function resolveSnapshotArray(snapshot, key) {
-    const value = snapshot?.[key];
-    return Array.isArray(value) ? value : [];
+function resolveSnapshotArray(
+  snapshot: Record<string, unknown>,
+  key: string,
+): unknown[] {
+  const value = snapshot[key];
+  return Array.isArray(value) ? value : [];
 }
-/**
- * canonicalizeRuntimeBonusSource：判断canonicalize运行态Bonu来源是否满足条件。
- * @param source 来源对象。
- * @returns 无返回值，完成canonicalize运行态Bonu来源的条件判断。
- */
 
-function canonicalizeRuntimeBonusSource(source) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const normalized = typeof source === 'string' ? source.trim() : '';
-    if (!normalized) {
-        return '';
-    }
-    if (normalized === 'technique:aggregate') {
-        return 'runtime:technique_aggregate';
-    }
-    if (normalized === 'realm:state') {
-        return 'runtime:realm_state';
-    }
-    if (normalized === 'realm:stage') {
-        return 'runtime:realm_stage';
-    }
-    if (normalized === 'heaven_gate:roots') {
-        return 'runtime:heaven_gate_roots';
-    }
-    if (normalized.startsWith('equip:')) {
-        return `equipment:${normalized.slice('equip:'.length)}`;
-    }
-    return normalized;
+function canonicalizeRuntimeBonusSource(source: unknown): string {
+  const normalized = typeof source === 'string' ? source.trim() : '';
+  if (!normalized) {
+    return '';
+  }
+  if (normalized === 'technique:aggregate') {
+    return 'runtime:technique_aggregate';
+  }
+  if (normalized === 'realm:state') {
+    return 'runtime:realm_state';
+  }
+  if (normalized === 'realm:stage') {
+    return 'runtime:realm_stage';
+  }
+  if (normalized === 'heaven_gate:roots') {
+    return 'runtime:heaven_gate_roots';
+  }
+  if (normalized.startsWith('equip:')) {
+    return `equipment:${normalized.slice('equip:'.length)}`;
+  }
+  return normalized;
 }
-/**
- * normalizePendingLogbookMessages：规范化或转换待处理LogbookMessage。
- * @param value 参数说明。
- * @returns 无返回值，直接更新PendingLogbookMessage相关状态。
- */
 
-function normalizePendingLogbookMessages(value) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+function normalizePendingLogbookMessages(
+  value: unknown[],
+): PendingLogbookMessageSnapshot[] {
+  const normalized: PendingLogbookMessageSnapshot[] = [];
+  const indexById = new Map<string, number>();
 
-    if (!Array.isArray(value)) {
-        return [];
+  for (const entry of value) {
+    if (!isPendingLogbookMessage(entry)) {
+      continue;
     }
 
-    const normalized = [];
-
-    const indexById = new Map();
-    for (const entry of value) {
-        if (!isPendingLogbookMessage(entry)) {
-            continue;
-        }
-
-        const candidate = {
-            id: entry.id.trim(),
-            kind: normalizePendingLogbookKind(entry.kind),
-            text: entry.text.trim(),
-
-            from: typeof entry.from === 'string' && entry.from.trim().length > 0 ? entry.from.trim() : undefined,
-            at: Math.max(0, Math.trunc(entry.at)),
-        };
-        if (!candidate.id || !candidate.text) {
-            continue;
-        }
-
-        const existingIndex = indexById.get(candidate.id);
-        if (existingIndex !== undefined) {
-            normalized[existingIndex] = candidate;
-        }
-        else {
-            indexById.set(candidate.id, normalized.length);
-            normalized.push(candidate);
-        }
+    const candidate: PendingLogbookMessageSnapshot = {
+      id: entry.id.trim(),
+      kind: normalizePendingLogbookKind(entry.kind),
+      text: entry.text.trim(),
+      from:
+        typeof entry.from === 'string' && entry.from.trim().length > 0
+          ? entry.from.trim()
+          : undefined,
+      at: Math.max(0, Math.trunc(entry.at)),
+    };
+    if (!candidate.id || !candidate.text) {
+      continue;
     }
-    return normalized.slice(-200);
+
+    const existingIndex = indexById.get(candidate.id);
+    if (existingIndex !== undefined) {
+      normalized[existingIndex] = candidate;
+      continue;
+    }
+    indexById.set(candidate.id, normalized.length);
+    normalized.push(candidate);
+  }
+
+  return normalized.slice(-MAX_PENDING_LOGBOOK_MESSAGES);
 }
-/**
- * isPendingLogbookMessage：判断待处理LogbookMessage是否满足条件。
- * @param value 参数说明。
- * @returns 无返回值，完成PendingLogbookMessage的条件判断。
- */
 
-function isPendingLogbookMessage(value) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+function isPendingLogbookMessage(
+  value: unknown,
+): value is {
+  id: string;
+  kind: PendingLogbookKind;
+  text: string;
+  from?: string;
+  at: number;
+} {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
 
-    if (!value || typeof value !== 'object') {
-        return false;
-    }
-
-    const candidate = value;
-    return typeof candidate.id === 'string'
-        && normalizePendingLogbookKind(candidate.kind) === candidate.kind
-        && typeof candidate.text === 'string'
-        && (candidate.from === undefined || typeof candidate.from === 'string')
-        && isFiniteNumber(candidate.at);
+  const candidate = value as Record<string, unknown>;
+  return (
+    typeof candidate.id === 'string'
+    && normalizePendingLogbookKind(candidate.kind) === candidate.kind
+    && typeof candidate.text === 'string'
+    && (candidate.from === undefined || typeof candidate.from === 'string')
+    && isFiniteNumber(candidate.at)
+  );
 }
-/**
- * normalizePendingLogbookKind：规范化或转换待处理LogbookKind。
- * @param value 参数说明。
- * @returns 无返回值，直接更新PendingLogbookKind相关状态。
- */
 
-function normalizePendingLogbookKind(value) {
-    switch (value) {
-        case 'system':
-        case 'chat':
-        case 'quest':
-        case 'combat':
-        case 'loot':
-        case 'grudge':
-            return value;
-        default:
-            return 'grudge';
-    }
+function normalizePendingLogbookKind(value: unknown): PendingLogbookKind {
+  switch (value) {
+    case 'system':
+    case 'chat':
+    case 'quest':
+    case 'combat':
+    case 'loot':
+    case 'grudge':
+      return value;
+    default:
+      return 'grudge';
+  }
 }
-//# sourceMappingURL=player-persistence.service.js.map
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' ? (value as Record<string, unknown>) : null;
+}
+
+function asRecordOrNull(value: unknown): Record<string, unknown> | null {
+  return asRecord(value);
+}
+
+function asRecordOrUndefined(value: unknown): Record<string, unknown> | undefined {
+  return asRecord(value) ?? undefined;
+}
+
+function normalizeUnlockedMapIds(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return Array.from(
+    new Set(
+      value.filter((entry): entry is string => typeof entry === 'string' && entry.trim().length > 0),
+    ),
+  ).sort((left, right) => left.localeCompare(right, 'zh-Hans-CN'));
+}
+
+function normalizeUpdatedAt(value: unknown): number {
+  if (value instanceof Date) {
+    return value.getTime();
+  }
+  return Date.parse(String(value ?? '')) || 0;
+}
+
+function normalizeSnapshotSavedAt(value: unknown, fallback: number): number {
+  return isFiniteNumber(value) ? Math.max(0, Math.trunc(value)) : fallback;
+}
+
+function normalizeOptionalNonNegativeInteger(value: unknown, fallback: number | null): number | null {
+  return isFiniteNumber(value) ? Math.max(0, Math.trunc(value)) : fallback;
+}
+
+function resolveSnapshotMeta(raw: unknown): { persistedSource?: unknown; seededAt?: unknown } | null {
+  if (!raw || typeof raw !== 'object') {
+    return null;
+  }
+  const meta = (raw as Record<string, unknown>)[PLAYER_SNAPSHOT_META_KEY];
+  return meta && typeof meta === 'object' ? (meta as Record<string, unknown>) : null;
+}
+
+async function rollbackQuietly(client: PoolClient): Promise<void> {
+  await client.query('ROLLBACK').catch(() => undefined);
+}

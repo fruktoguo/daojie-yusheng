@@ -1,230 +1,259 @@
-// @ts-nocheck
-"use strict";
+import { Inject, Injectable, Logger } from '@nestjs/common';
 
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+import {
+  type PersistedPlayerSnapshot,
+  type PersistedPlayerSnapshotRecord,
+  PlayerPersistenceService,
+} from '../persistence/player-persistence.service';
+import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
+import { WorldPlayerSourceService } from './world-player-source.service';
+import { recordAuthTrace } from './world-player-token.service';
 
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
+const ALLOWED_SNAPSHOT_PERSISTED_SOURCES = new Set([
+  'native',
+  'legacy_sync',
+  'legacy_backfill',
+  'token_seed',
+] as const);
 
-var __metadata = (this && this.__metadata) || function (k, v) {
-    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldPlayerSnapshotService = void 0;
+type SnapshotPersistedSource = 'native' | 'legacy_sync' | 'legacy_backfill' | 'token_seed';
+type SnapshotResultSource = 'next' | 'miss';
+type NativeStarterFailureStage =
+  | 'native_snapshot_recovery_persistence_disabled'
+  | 'native_snapshot_recovery_load_failed'
+  | 'native_snapshot_recovery_build_failed'
+  | 'native_snapshot_recovery_seed_failed';
 
-const common_1 = require("@nestjs/common");
+interface MigrationSnapshotSourceOptions {
+  allowMigrationSource: boolean;
+  allowLegacyHttpIdentityFallback: false;
+  reason: string;
+}
 
-const player_persistence_service_1 = require("../persistence/player-persistence.service");
+interface NativeStarterSnapshotResult {
+  ok: boolean;
+  seeded?: boolean;
+  snapshot?: PersistedPlayerSnapshot;
+  persistedSource?: SnapshotPersistedSource | null;
+  failureStage?: NativeStarterFailureStage;
+}
 
-const player_runtime_service_1 = require("../runtime/player/player-runtime.service");
+interface LoadPlayerSnapshotResult {
+  snapshot: PersistedPlayerSnapshot | null;
+  source: SnapshotResultSource;
+  persistedSource: SnapshotPersistedSource | null;
+  fallbackReason: string | null;
+  seedPersisted: boolean;
+}
 
-const world_player_source_service_1 = require("./world-player-source.service");
+interface PlayerRuntimeSnapshotPort {
+  buildStarterPersistenceSnapshot(playerId: string): PersistedPlayerSnapshot | null;
+}
 
-const world_player_token_service_1 = require("./world-player-token.service");
+interface WorldPlayerSourcePort {
+  loadNextPlayerSnapshotRecord?(playerId: string): Promise<PersistedPlayerSnapshotRecord | null>;
+  loadPlayerSnapshotForMigration?(
+    playerId: string,
+    options: MigrationSnapshotSourceOptions,
+  ): Promise<PersistedPlayerSnapshot | null>;
+}
 
-/** 玩家快照服务：主链只读 next 持久化记录，legacy 只允许显式 migration backfill。 */
-let WorldPlayerSnapshotService = class WorldPlayerSnapshotService {
-    /** 记录快照加载、回填和恢复过程。 */
-    logger = new common_1.Logger(WorldPlayerSnapshotService.name);
-    /** next 玩家快照持久化入口。 */
-    playerPersistenceService;
-    /** 玩家 runtime，用于生成 starter snapshot。 */
-    playerRuntimeService;
-    /** migration 来源服务。 */
-    worldPlayerSourceService;    
-    /**
- * 构造器：初始化 当前 实例并建立基础状态。
- * @param playerPersistenceService 参数说明。
- * @param playerRuntimeService 参数说明。
- * @param worldPlayerSourceService 参数说明。
- * @returns 无返回值，完成实例初始化。
- */
+function normalizeSnapshotPersistedSource(persistedSource: unknown): SnapshotPersistedSource | null {
+  const normalizedPersistedSource = typeof persistedSource === 'string'
+    ? persistedSource.trim()
+    : '';
+  return ALLOWED_SNAPSHOT_PERSISTED_SOURCES.has(normalizedPersistedSource as SnapshotPersistedSource)
+    ? (normalizedPersistedSource as SnapshotPersistedSource)
+    : null;
+}
 
-    constructor(playerPersistenceService, playerRuntimeService, worldPlayerSourceService) {
-        this.playerPersistenceService = playerPersistenceService;
-        this.playerRuntimeService = playerRuntimeService;
-        this.worldPlayerSourceService = worldPlayerSourceService;
+@Injectable()
+export class WorldPlayerSnapshotService {
+  private readonly logger = new Logger(WorldPlayerSnapshotService.name);
+  private readonly playerRuntimeService: PlayerRuntimeSnapshotPort;
+  private readonly worldPlayerSourceService: WorldPlayerSourcePort;
+
+  constructor(
+    private readonly playerPersistenceService: PlayerPersistenceService,
+    @Inject(PlayerRuntimeService)
+    playerRuntimeService: unknown,
+    @Inject(WorldPlayerSourceService)
+    worldPlayerSourceService: unknown,
+  ) {
+    this.playerRuntimeService = playerRuntimeService as PlayerRuntimeSnapshotPort;
+    this.worldPlayerSourceService = worldPlayerSourceService as WorldPlayerSourcePort;
+  }
+
+  buildMigrationSnapshotSourceOptions(reason: string): MigrationSnapshotSourceOptions {
+    return {
+      allowMigrationSource: true,
+      allowLegacyHttpIdentityFallback: false,
+      reason,
+    };
+  }
+
+  isPersistenceEnabled(): boolean {
+    return this.playerPersistenceService.isEnabled();
+  }
+
+  async loadNextPlayerSnapshotRecord(playerId: string): Promise<PersistedPlayerSnapshotRecord | null> {
+    if (typeof this.worldPlayerSourceService?.loadNextPlayerSnapshotRecord === 'function') {
+      return this.worldPlayerSourceService.loadNextPlayerSnapshotRecord(playerId);
     }
-    /** 生成显式 migration 快照来源选项。 */
-    buildMigrationSnapshotSourceOptions(reason) {
+    return this.playerPersistenceService.loadPlayerSnapshotRecord(playerId);
+  }
+
+  async loadMigrationPlayerSnapshot(playerId: string): Promise<PersistedPlayerSnapshot | null> {
+    const migrationSourceOptions = this.buildMigrationSnapshotSourceOptions('snapshot_backfill');
+    if (typeof this.worldPlayerSourceService?.loadPlayerSnapshotForMigration !== 'function') {
+      throw new Error('migration snapshot source unavailable');
+    }
+    return this.worldPlayerSourceService.loadPlayerSnapshotForMigration(playerId, migrationSourceOptions);
+  }
+
+  async ensureNativeStarterSnapshot(playerId: string): Promise<NativeStarterSnapshotResult> {
+    const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : '';
+    if (!normalizedPlayerId || !this.playerPersistenceService.isEnabled()) {
+      return {
+        ok: false,
+        failureStage: 'native_snapshot_recovery_persistence_disabled',
+      };
+    }
+
+    try {
+      const existingSnapshotRecord = await this.loadNextPlayerSnapshotRecord(normalizedPlayerId);
+      if (existingSnapshotRecord?.snapshot) {
         return {
-            allowMigrationSource: true,
-            allowLegacyHttpIdentityFallback: false,
-            reason,
+          ok: true,
+          seeded: false,
+          snapshot: existingSnapshotRecord.snapshot,
+          persistedSource: normalizeSnapshotPersistedSource(existingSnapshotRecord.persistedSource),
         };
+      }
+    } catch (error: unknown) {
+      this.logger.warn(
+        `玩家原生初始快照恢复加载失败：playerId=${normalizedPlayerId} error=${error instanceof Error ? error.message : String(error)}`,
+      );
+      return {
+        ok: false,
+        failureStage: 'native_snapshot_recovery_load_failed',
+      };
     }
-    /** 判断快照持久化是否已经就绪。 */
-    isPersistenceEnabled() {
-        return this.playerPersistenceService.isEnabled();
+
+    const starterSnapshot = this.playerRuntimeService.buildStarterPersistenceSnapshot(normalizedPlayerId);
+    if (!starterSnapshot) {
+      this.logger.warn(`玩家原生初始快照恢复构建失败：playerId=${normalizedPlayerId}`);
+      return {
+        ok: false,
+        failureStage: 'native_snapshot_recovery_build_failed',
+      };
     }
-    /** 读取 next 玩家快照记录。 */
-    async loadNextPlayerSnapshotRecord(playerId) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        if (typeof this.worldPlayerSourceService?.loadNextPlayerSnapshotRecord === 'function') {
-            return this.worldPlayerSourceService.loadNextPlayerSnapshotRecord(playerId);
-        }
-        return this.playerPersistenceService.loadPlayerSnapshotRecord(playerId);
+    try {
+      await this.playerPersistenceService.savePlayerSnapshot(normalizedPlayerId, starterSnapshot, {
+        persistedSource: 'native',
+        seededAt: Date.now(),
+      });
+      return {
+        ok: true,
+        seeded: true,
+        snapshot: starterSnapshot,
+        persistedSource: 'native',
+      };
+    } catch (error: unknown) {
+      this.logger.warn(
+        `玩家原生初始快照恢复保存失败：playerId=${normalizedPlayerId} error=${error instanceof Error ? error.message : String(error)}`,
+      );
+      return {
+        ok: false,
+        failureStage: 'native_snapshot_recovery_seed_failed',
+      };
     }
-    /** 从兼容来源读取迁移用快照。 */
-    async loadMigrationPlayerSnapshot(playerId) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+  }
 
-
-        const migrationSourceOptions = this.buildMigrationSnapshotSourceOptions('snapshot_backfill');
-        if (typeof this.worldPlayerSourceService?.loadPlayerSnapshotForMigration !== 'function') {
-            throw new Error('migration snapshot source unavailable');
-        }
-        return this.worldPlayerSourceService.loadPlayerSnapshotForMigration(playerId, migrationSourceOptions);
-    }
-    /** 在 next 身份首次进入时补齐 starter snapshot。 */
-    async ensureNativeStarterSnapshot(playerId) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-
-        const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : '';
-        if (!normalizedPlayerId || !this.playerPersistenceService.isEnabled()) {
-            return {
-                ok: false,
-                failureStage: 'native_snapshot_recovery_persistence_disabled',
-            };
-        }
-        try {
-
-            const existingSnapshotRecord = await this.loadNextPlayerSnapshotRecord(normalizedPlayerId);
-            if (existingSnapshotRecord?.snapshot) {
-                return {
-                    ok: true,
-                    seeded: false,
-                    snapshot: existingSnapshotRecord.snapshot,
-
-                    persistedSource: typeof existingSnapshotRecord.persistedSource === 'string'
-                        ? existingSnapshotRecord.persistedSource
-                        : null,
-                };
-            }
-        }
-        catch (error) {
-            this.logger.warn(`玩家原生初始快照恢复加载失败：playerId=${normalizedPlayerId} error=${error instanceof Error ? error.message : String(error)}`);
-            return {
-                ok: false,
-                failureStage: 'native_snapshot_recovery_load_failed',
-            };
-        }
-
-        const starterSnapshot = this.playerRuntimeService.buildStarterPersistenceSnapshot(normalizedPlayerId);
-        if (!starterSnapshot) {
-            this.logger.warn(`玩家原生初始快照恢复构建失败：playerId=${normalizedPlayerId}`);
-            return {
-                ok: false,
-                failureStage: 'native_snapshot_recovery_build_failed',
-            };
-        }
-        try {
-            await this.playerPersistenceService.savePlayerSnapshot(normalizedPlayerId, starterSnapshot, {
-                persistedSource: 'native',
-                seededAt: Date.now(),
-            });
-            return {
-                ok: true,
-                seeded: true,
-                snapshot: starterSnapshot,
-                persistedSource: 'native',
-            };
-        }
-        catch (error) {
-            this.logger.warn(`玩家原生初始快照恢复保存失败：playerId=${normalizedPlayerId} error=${error instanceof Error ? error.message : String(error)}`);
-            return {
-                ok: false,
-                failureStage: 'native_snapshot_recovery_seed_failed',
-            };
-        }
-    }
-    /** 读取快照并携带来源、回退和种子信息。主链 miss 时只返回 next-only miss。 */
-    async loadPlayerSnapshotResult(playerId, fallbackReason = null) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-
-        let nextSnapshotRecord = null;
-        try {
-            nextSnapshotRecord = await this.loadNextPlayerSnapshotRecord(playerId);
-        }
-        catch (error) {
-
-            const message = `Player snapshot next record load failed: playerId=${playerId} error=${error instanceof Error ? error.message : String(error)}`;
-            this.logger.error(message);
-            (0, world_player_token_service_1.recordAuthTrace)({
-                type: 'snapshot',
-                playerId,
-                source: 'next_invalid',
-                persistedSource: null,
-                fallbackReason,
-                fallbackHit: false,
-            });
-            throw new Error(message);
-        }
-        if (nextSnapshotRecord?.snapshot) {
-            this.logger.debug(`玩家快照来源=next persistedSource=${nextSnapshotRecord.persistedSource} playerId=${playerId}`);
-            (0, world_player_token_service_1.recordAuthTrace)({
-                type: 'snapshot',
-                playerId,
-                source: 'next',
-                persistedSource: nextSnapshotRecord.persistedSource,
-                fallbackReason,
-                fallbackHit: false,
-            });
-            return {
-                snapshot: nextSnapshotRecord.snapshot,
-                source: 'next',
-                persistedSource: nextSnapshotRecord.persistedSource ?? null,
-                fallbackReason,
-                seedPersisted: false,
-            };
-        }
-        return buildNextOnlySnapshotMissResult(playerId, fallbackReason, this.logger);
-    }
-    /** 读取快照，保持旧调用方兼容。 */
-    async loadPlayerSnapshot(playerId, fallbackReason = null) {
-
-        const result = await this.loadPlayerSnapshotResult(playerId, fallbackReason);
-        return result.snapshot;
-    }
-};
-exports.WorldPlayerSnapshotService = WorldPlayerSnapshotService;
-exports.WorldPlayerSnapshotService = WorldPlayerSnapshotService = __decorate([
-    (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [player_persistence_service_1.PlayerPersistenceService,
-        player_runtime_service_1.PlayerRuntimeService,
-        world_player_source_service_1.WorldPlayerSourceService])
-], WorldPlayerSnapshotService);
-/**
- * buildNextOnlySnapshotMissResult：构建并返回目标对象。
- * @param playerId 玩家 ID。
- * @param fallbackReason 参数说明。
- * @param logger 参数说明。
- * @returns 无返回值，直接更新NextOnly快照Miss结果相关状态。
- */
-
-function buildNextOnlySnapshotMissResult(playerId, fallbackReason, logger) {
-    logger.debug(`玩家快照来源=miss playerId=${playerId} nextOnly=true fallbackReason=${fallbackReason ?? '无'}`);
-    (0, world_player_token_service_1.recordAuthTrace)({
+  async loadPlayerSnapshotResult(
+    playerId: string,
+    fallbackReason: string | null = null,
+  ): Promise<LoadPlayerSnapshotResult> {
+    let nextSnapshotRecord: PersistedPlayerSnapshotRecord | null = null;
+    try {
+      nextSnapshotRecord = await this.loadNextPlayerSnapshotRecord(playerId);
+    } catch (error: unknown) {
+      const message = `Player snapshot next record load failed: playerId=${playerId} error=${error instanceof Error ? error.message : String(error)}`;
+      this.logger.error(message);
+      recordAuthTrace({
         type: 'snapshot',
         playerId,
-        source: 'miss',
-        allowLegacyFallback: false,
-        fallbackReason,
-        fallbackHit: false,
-    });
-    return {
-        snapshot: null,
-        source: 'miss',
+        source: 'next_invalid',
         persistedSource: null,
         fallbackReason,
+        fallbackHit: false,
+      });
+      throw new Error(message);
+    }
+
+    if (nextSnapshotRecord?.snapshot) {
+      const normalizedPersistedSource = normalizeSnapshotPersistedSource(nextSnapshotRecord.persistedSource);
+      if (!normalizedPersistedSource) {
+        const message = `Player snapshot next record persistedSource invalid: playerId=${playerId} persistedSource=${typeof nextSnapshotRecord.persistedSource === 'string' ? nextSnapshotRecord.persistedSource : 'unknown'}`;
+        this.logger.error(message);
+        recordAuthTrace({
+          type: 'snapshot',
+          playerId,
+          source: 'next_invalid',
+          persistedSource: null,
+          fallbackReason,
+          fallbackHit: false,
+        });
+        throw new Error(message);
+      }
+      this.logger.debug(`玩家快照来源=next persistedSource=${normalizedPersistedSource} playerId=${playerId}`);
+      recordAuthTrace({
+        type: 'snapshot',
+        playerId,
+        source: 'next',
+        persistedSource: normalizedPersistedSource,
+        fallbackReason,
+        fallbackHit: false,
+      });
+      return {
+        snapshot: nextSnapshotRecord.snapshot,
+        source: 'next',
+        persistedSource: normalizedPersistedSource,
+        fallbackReason,
         seedPersisted: false,
-    };
+      };
+    }
+    return buildNextOnlySnapshotMissResult(playerId, fallbackReason, this.logger);
+  }
+
+  async loadPlayerSnapshot(
+    playerId: string,
+    fallbackReason: string | null = null,
+  ): Promise<PersistedPlayerSnapshot | null> {
+    const result = await this.loadPlayerSnapshotResult(playerId, fallbackReason);
+    return result.snapshot;
+  }
 }
-export { WorldPlayerSnapshotService };
-//# sourceMappingURL=world-player-snapshot.service.js.map
+
+function buildNextOnlySnapshotMissResult(
+  playerId: string,
+  fallbackReason: string | null,
+  logger: Logger,
+): LoadPlayerSnapshotResult {
+  logger.debug(`玩家快照来源=miss playerId=${playerId} nextOnly=true fallbackReason=${fallbackReason ?? '无'}`);
+  recordAuthTrace({
+    type: 'snapshot',
+    playerId,
+    source: 'miss',
+    allowLegacyFallback: false,
+    fallbackReason,
+    fallbackHit: false,
+  });
+  return {
+    snapshot: null,
+    source: 'miss',
+    persistedSource: null,
+    fallbackReason,
+    seedPersisted: false,
+  };
+}

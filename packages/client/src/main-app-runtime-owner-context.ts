@@ -223,6 +223,7 @@ export function createMainRuntimeOwnerContext(options: CreateMainRuntimeOwnerCon
 
   panelDeltaStateSource = createMainPanelDeltaStateSource({
     getPlayer: () => rootRuntimeSource.getPlayer(),
+    refreshObservedDecorations: () => rootRuntimeSource.refreshObservedDecorations(),
     attrPanel,
     equipmentPanel,
     bodyTrainingPanel,
@@ -257,6 +258,7 @@ export function createMainRuntimeOwnerContext(options: CreateMainRuntimeOwnerCon
     getLatestEntityById: (id) => rootRuntimeSource.getLatestEntityById(id),
     setLatestObservedEntities: (entities) => rootRuntimeSource.setLatestObservedEntities(entities),
     setLatestObservedEntityMap: (value) => rootRuntimeSource.setLatestObservedEntityMap(value),
+    refreshObservedDecorations: () => rootRuntimeSource.refreshObservedDecorations(),
     getLatestAttrUpdate: () => panelDeltaStateSource.getLatestAttrUpdate(),
     setLatestAttrUpdate: (value) => panelDeltaStateSource.setLatestAttrUpdate(value),
     mergeAttrUpdatePatch: (current, patch) => panelDeltaStateSource.mergeAttrUpdatePatch(current, patch),

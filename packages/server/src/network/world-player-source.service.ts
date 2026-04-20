@@ -271,6 +271,7 @@ function toPlayerSnapshotFromMigrationRow(row) {
         version: 1,
         savedAt: Date.now(),
         placement: {
+            instanceId: buildPublicPlayerInstanceId(currentMapId),
             templateId: currentMapId,
             x: toFiniteInt(row.x, 0),
             y: toFiniteInt(row.y, 0),
@@ -340,6 +341,10 @@ function toPlayerSnapshotFromMigrationRow(row) {
             autoBattleSkills: normalizeAutoBattleSkills(row.autoBattleSkills),
         },
     };
+}
+
+function buildPublicPlayerInstanceId(templateId) {
+    return `public:${templateId}`;
 }
 exports.toPlayerSnapshotFromMigrationRow = toPlayerSnapshotFromMigrationRow;
 export { WorldPlayerSourceService, toPlayerSnapshotFromMigrationRow };

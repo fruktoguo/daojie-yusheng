@@ -537,6 +537,14 @@ export interface RenderEntity {
 
   color: string;  
   /**
+ * badge：badge相关字段。
+ */
+
+  badge?: {
+    text: string;
+    tone?: 'variant' | 'boss' | 'demonic';
+  };  
+  /**
  * name：名称名称或显示文本。
  */
 

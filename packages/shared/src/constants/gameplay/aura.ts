@@ -1,3 +1,5 @@
+import { WORLD_TICK_INTERVAL_MS } from './core';
+
 /**
  * 灵气与感气系统常量。
  */
@@ -18,7 +20,8 @@ export const DEFAULT_AURA_LEVEL_BASE_VALUE = 1000;
  * 说明：
  * - 当地块没有源点回补时，灵气值经过该时长后会衰减到原来的一半。
  * - 当地块存在源点回补时，当前灵气值与源点基准值之间的差值，经过该时长后会缩小为原来的一半。
- * - 当前配置为 86400，按 1Hz tick 计算即约为现实中的 24 小时。
+ * - 当前配置为 86400 tick；真实时间取决于世界主循环间隔。
+ * - 以当前 `WORLD_TICK_INTERVAL_MS=100` 计算，约为现实中的 2.4 小时。
  */
 export const TILE_AURA_HALF_LIFE_TICKS = 86400;
 

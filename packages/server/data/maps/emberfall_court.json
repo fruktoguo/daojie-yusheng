@@ -5,6 +5,7 @@
   "height": 56,
   "routeDomain": "system",
   "terrainProfileId": "earth_stone_wild",
+  "terrainRealmLv": 19,
   "spaceVisionMode": "isolated",
   "description": "练气期火行地图赤陨庭。整张图从上方火阶切入，主路沿着断层台地一层层往坑炉中心下压，外围是焦土和焦坡，中层被熔裂带切成多层回折路线，最深处则收成一块被熔池包围的炉心台。",
   "dangerLevel": 4,
@@ -13,7 +14,7 @@
     "崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖",
     "崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖",
     "崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖",
-    "崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖=崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖",
+    "崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖P崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖",
     "崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖=崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖",
     "崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖^^^^^^=^^^^^^崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖",
     "崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖^^^^^^^^^=^^^^^^^^^崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖",
@@ -52,7 +53,7 @@
     "崖崖崖崖崖崖崖^^^崖;熔熔;崖;熔熔;;;;;:;;;;;;;;;;;;;熔熔;崖;熔熔;崖^^^崖崖崖崖崖崖",
     "崖崖崖崖崖崖崖崖^^崖;熔熔;崖;熔熔熔熔熔熔熔:熔熔熔熔熔熔熔熔熔熔熔熔熔熔熔;崖;熔熔;崖^^崖崖崖崖崖崖崖",
     "崖崖崖崖崖崖崖崖^^崖^熔熔;崖;^熔熔熔熔熔熔:熔熔熔熔熔熔熔熔熔熔熔熔熔熔熔;崖;熔熔^崖^^崖崖崖崖崖崖崖",
-    "崖崖崖崖崖崖崖崖崖^崖^熔熔;崖,;;;;;;;:;;;;;;;;;;;;;;;,崖;熔熔^崖^崖崖崖崖崖崖崖崖",
+    "崖崖崖崖崖崖崖崖崖^崖^熔熔;崖,;;;;;;;:;;;;;;;;;;;;;;;P崖;熔熔^崖^崖崖崖崖崖崖崖崖",
     "崖崖崖崖崖崖崖崖崖崖崖^熔熔;崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖崖;熔熔^崖崖崖崖崖崖崖崖崖崖",
     "崖崖崖崖崖崖崖崖崖崖崖^熔熔^;;;;;;;;;;;;;;;;;;;;;;;;;;;^熔熔^崖崖崖崖崖崖崖崖崖崖",
     "崖崖崖崖崖崖崖崖崖崖崖崖熔熔熔熔熔熔熔熔熔熔熔熔熔熔熔熔熔熔熔熔熔熔熔熔熔熔熔熔熔熔熔熔熔崖崖崖崖崖崖崖崖崖崖崖",
@@ -222,6 +223,133 @@
       "desc": "炉壁最深处裂开了一道向下的旧隙，热气沿着缝往更深处倒灌，穿过去就是归藏脉窟外围。"
     }
   ],
+  "resourceNodeGroups": [
+    {
+      "resourceNodeId": "landmark.herb.sunmelt_seed",
+      "idPrefix": "lm_ember_sunmelt",
+      "name": "融阳子",
+      "placements": [
+        {
+          "x": 22,
+          "y": 5
+        },
+        {
+          "x": 8,
+          "y": 15
+        },
+        {
+          "x": 48,
+          "y": 15
+        },
+        {
+          "x": 21,
+          "y": 28
+        },
+        {
+          "x": 9,
+          "y": 32
+        },
+        {
+          "x": 5,
+          "y": 34
+        },
+        {
+          "x": 40,
+          "y": 30
+        },
+        {
+          "x": 50,
+          "y": 37
+        },
+        {
+          "x": 14,
+          "y": 36
+        },
+        {
+          "x": 28,
+          "y": 52
+        }
+      ]
+    },
+    {
+      "resourceNodeId": "landmark.herb.scorchheart_petal",
+      "idPrefix": "lm_ember_scorchheart",
+      "name": "灼心瓣",
+      "placements": [
+        {
+          "x": 17,
+          "y": 7
+        },
+        {
+          "x": 43,
+          "y": 10
+        },
+        {
+          "x": 21,
+          "y": 17
+        },
+        {
+          "x": 9,
+          "y": 28
+        },
+        {
+          "x": 30,
+          "y": 30
+        },
+        {
+          "x": 19,
+          "y": 35
+        },
+        {
+          "x": 45,
+          "y": 37
+        },
+        {
+          "x": 34,
+          "y": 51
+        }
+      ]
+    },
+    {
+      "resourceNodeId": "landmark.herb.flamegrain_spike",
+      "idPrefix": "lm_ember_flamegrain",
+      "name": "炎穗芒",
+      "placements": [
+        {
+          "x": 39,
+          "y": 7
+        },
+        {
+          "x": 6,
+          "y": 21
+        },
+        {
+          "x": 37,
+          "y": 23
+        },
+        {
+          "x": 22,
+          "y": 32
+        },
+        {
+          "x": 8,
+          "y": 42
+        },
+        {
+          "x": 24,
+          "y": 47
+        },
+        {
+          "x": 48,
+          "y": 28
+        },
+        {
+          "x": 42,
+          "y": 47
+        }
+      ]
+    }
+  ],
   "npcs": [
     {
       "id": "npc_ember_forge_drifter",
@@ -274,191 +402,57 @@
       "x": 14,
       "y": 24,
       "count": 1,
-      "maxAlive": 1,
       "radius": 3,
-      "wanderRadius": 3
+      "maxAlive": 1
     },
     {
       "id": "spawn_ember_bone_patrol_b",
-      "templateId": "m_ember_bone_patrol",
       "x": 24,
       "y": 18,
+      "templateId": "m_ember_bone_patrol",
       "count": 1,
-      "maxAlive": 1,
       "radius": 3,
-      "wanderRadius": 3
+      "maxAlive": 1
     },
     {
       "id": "spawn_ember_bone_patrol_c",
-      "templateId": "m_ember_bone_patrol",
       "x": 28,
       "y": 22,
+      "templateId": "m_ember_bone_patrol",
       "count": 1,
-      "maxAlive": 1,
       "radius": 3,
-      "wanderRadius": 3
+      "maxAlive": 1
     },
     {
       "id": "m_ember_flame_guard",
       "x": 19,
       "y": 42,
       "count": 1,
-      "maxAlive": 1,
       "radius": 3,
-      "wanderRadius": 3
+      "maxAlive": 1
     },
     {
       "id": "spawn_ember_flame_guard_b",
-      "templateId": "m_ember_flame_guard",
       "x": 35,
       "y": 39,
+      "templateId": "m_ember_flame_guard",
       "count": 1,
-      "maxAlive": 1,
       "radius": 3,
-      "wanderRadius": 3
+      "maxAlive": 1
     },
     {
       "id": "spawn_ember_flame_guard_c",
-      "templateId": "m_ember_flame_guard",
       "x": 29,
       "y": 42,
+      "templateId": "m_ember_flame_guard",
       "count": 1,
-      "maxAlive": 1,
       "radius": 3,
-      "wanderRadius": 3
+      "maxAlive": 1
     },
     {
       "id": "m_ember_furnace_lord",
       "x": 28,
       "y": 30
-    }
-  ],
-  "terrainRealmLv": 19,
-  "resourceNodeGroups": [
-    {
-      "resourceNodeId": "landmark.herb.sunmelt_seed",
-      "idPrefix": "lm_ember_sunmelt",
-      "name": "融阳子",
-      "placements": [
-        {
-          "x": 28,
-          "y": 4
-        },
-        {
-          "x": 8,
-          "y": 15
-        },
-        {
-          "x": 48,
-          "y": 15
-        },
-        {
-          "x": 27,
-          "y": 23
-        },
-        {
-          "x": 14,
-          "y": 27
-        },
-        {
-          "x": 6,
-          "y": 37
-        },
-        {
-          "x": 34,
-          "y": 37
-        },
-        {
-          "x": 50,
-          "y": 37
-        },
-        {
-          "x": 20,
-          "y": 40
-        },
-        {
-          "x": 28,
-          "y": 52
-        }
-      ]
-    },
-    {
-      "resourceNodeId": "landmark.herb.scorchheart_petal",
-      "idPrefix": "lm_ember_scorchheart",
-      "name": "灼心瓣",
-      "placements": [
-        {
-          "x": 18,
-          "y": 8
-        },
-        {
-          "x": 42,
-          "y": 12
-        },
-        {
-          "x": 24,
-          "y": 20
-        },
-        {
-          "x": 10,
-          "y": 28
-        },
-        {
-          "x": 30,
-          "y": 30
-        },
-        {
-          "x": 20,
-          "y": 38
-        },
-        {
-          "x": 44,
-          "y": 38
-        },
-        {
-          "x": 28,
-          "y": 46
-        }
-      ]
-    },
-    {
-      "resourceNodeId": "landmark.herb.flamegrain_spike",
-      "idPrefix": "lm_ember_flamegrain",
-      "name": "炎穗芒",
-      "placements": [
-        {
-          "x": 32,
-          "y": 8
-        },
-        {
-          "x": 14,
-          "y": 18
-        },
-        {
-          "x": 36,
-          "y": 24
-        },
-        {
-          "x": 22,
-          "y": 32
-        },
-        {
-          "x": 8,
-          "y": 42
-        },
-        {
-          "x": 30,
-          "y": 42
-        },
-        {
-          "x": 48,
-          "y": 28
-        },
-        {
-          "x": 40,
-          "y": 46
-        }
-      ]
     }
   ]
 }

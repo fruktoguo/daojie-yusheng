@@ -806,6 +806,16 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         return this.gatewayReadModelHelper.handleNextRequestLeaderboard(client, payload);
     }    
     /**
+ * handleNextRequestLeaderboardPlayerLocations：处理玩家击杀榜坐标追索请求并更新相关状态。
+ * @param client 参数说明。
+ * @param payload 载荷参数。
+ * @returns 无返回值，直接更新玩家击杀榜坐标追索相关状态。
+ */
+
+    handleNextRequestLeaderboardPlayerLocations(client, payload) {
+        return this.gatewayReadModelHelper.handleNextRequestLeaderboardPlayerLocations(client, payload);
+    }    
+    /**
  * handleNextRequestWorldSummary：处理NextRequest世界摘要并更新相关状态。
  * @param client 参数说明。
  * @param _payload 参数说明。
@@ -873,6 +883,16 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
 
     handleTakeGround(client, payload) {
         return this.gatewayInventoryHelper.handleTakeGround(client, payload);
+    }    
+    /**
+ * handleStopLootHarvest：处理停止连续采摘并更新相关状态。
+ * @param client 参数说明。
+ * @param payload 载荷参数。
+ * @returns 无返回值，直接更新停止连续采摘相关状态。
+ */
+
+    handleStopLootHarvest(client, payload) {
+        return this.gatewayInventoryHelper.handleStopLootHarvest(client, payload);
     }    
     /**
  * handleNextEquip：处理NextEquip并更新相关状态。
@@ -1449,6 +1469,14 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], WorldGateway.prototype, "handleNextRequestLeaderboard", null);
 __decorate([
+    (0, websockets_1.SubscribeMessage)(shared_1.NEXT_C2S.RequestLeaderboardPlayerLocations),
+    __param(0, (0, websockets_1.ConnectedSocket)()),
+    __param(1, (0, websockets_1.MessageBody)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
+    __metadata("design:returntype", void 0)
+], WorldGateway.prototype, "handleNextRequestLeaderboardPlayerLocations", null);
+__decorate([
     (0, websockets_1.SubscribeMessage)(shared_1.NEXT_C2S.RequestWorldSummary),
     __param(0, (0, websockets_1.ConnectedSocket)()),
     __param(1, (0, websockets_1.MessageBody)()),
@@ -1503,6 +1531,14 @@ __decorate([
     __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
     __metadata("design:returntype", void 0)
 ], WorldGateway.prototype, "handleTakeGround", null);
+__decorate([
+    (0, websockets_1.SubscribeMessage)(shared_1.NEXT_C2S.StopLootHarvest),
+    __param(0, (0, websockets_1.ConnectedSocket)()),
+    __param(1, (0, websockets_1.MessageBody)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
+    __metadata("design:returntype", void 0)
+], WorldGateway.prototype, "handleStopLootHarvest", null);
 __decorate([
     (0, websockets_1.SubscribeMessage)(shared_1.NEXT_C2S.Equip),
     __param(0, (0, websockets_1.ConnectedSocket)()),

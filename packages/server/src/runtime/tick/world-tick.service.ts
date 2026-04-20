@@ -1,119 +1,89 @@
-// @ts-nocheck
-"use strict";
+import { Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
+import { gameplayConstants } from '@mud/shared-next';
 
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+import { WorldSyncService } from '../../network/world-sync.service';
+import { RuntimeGmStateService } from '../gm/runtime-gm-state.service';
+import { RuntimeMapConfigService } from '../map/runtime-map-config.service';
+import { RuntimeMaintenanceService } from '../world/runtime-maintenance.service';
+import { WorldRuntimeService } from '../world/world-runtime.service';
 
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
+interface RuntimeGmStatePort {
+  flushQueuedStatePushes(): void;
+}
 
-var __metadata = (this && this.__metadata) || function (k, v) {
-    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
-};
+interface RuntimeMaintenancePort {
+  isRuntimeMaintenanceActive(): boolean;
+}
 
-var WorldTickService_1;
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldTickService = void 0;
+interface RuntimeMapConfigPort {
+  getMapTickSpeed(mapId: string): number;
+}
 
-const common_1 = require("@nestjs/common");
+interface WorldRuntimePort {
+  advanceFrame(frameDurationMs: number, getMapTickSpeed: (mapId: string) => number): void;
+  recordSyncFlushDuration(durationMs: number): void;
+}
 
-const runtime_gm_state_service_1 = require("../gm/runtime-gm-state.service");
+interface WorldSyncPort {
+  flushConnectedPlayers(): void;
+}
 
-const world_sync_service_1 = require("../../network/world-sync.service");
+@Injectable()
+export class WorldTickService implements OnModuleInit, OnModuleDestroy {
+  private readonly logger = new Logger(WorldTickService.name);
+  private timer: ReturnType<typeof setInterval> | null = null;
 
-const runtime_map_config_service_1 = require("../map/runtime-map-config.service");
+  constructor(
+    @Inject(RuntimeGmStateService)
+    private readonly runtimeGmStateService: RuntimeGmStatePort,
+    @Inject(RuntimeMaintenanceService)
+    private readonly runtimeMaintenanceService: RuntimeMaintenancePort,
+    @Inject(RuntimeMapConfigService)
+    private readonly mapRuntimeConfigService: RuntimeMapConfigPort,
+    @Inject(WorldRuntimeService)
+    private readonly worldRuntimeService: WorldRuntimePort,
+    @Inject(WorldSyncService)
+    private readonly worldSyncService: WorldSyncPort,
+  ) {}
 
-const runtime_maintenance_service_1 = require("../world/runtime-maintenance.service");
+  private getMapTickSpeed(mapId: string): number {
+    return this.mapRuntimeConfigService.getMapTickSpeed(mapId);
+  }
 
-const world_runtime_service_1 = require("../world/world-runtime.service");
-
-/** 世界主循环的固定 tick 间隔（ms），当前按 1Hz 推进。 */
-const WORLD_TICK_INTERVAL_MS = 100;
-
-let WorldTickService = WorldTickService_1 = class WorldTickService {
-/**
- * runtimeGmStateService：运行态GM状态服务引用。
- */
-
-    runtimeGmStateService;    
-    /**
- * runtimeMaintenanceService：运行态Maintenance服务引用。
- */
-
-    runtimeMaintenanceService;    
-    /**
- * mapRuntimeConfigService：地图运行态配置服务引用。
- */
-
-    mapRuntimeConfigService;    
-    /**
- * worldRuntimeService：世界运行态服务引用。
- */
-
-    worldRuntimeService;    
-    /**
- * worldSyncService：世界Sync服务引用。
- */
-
-    worldSyncService;
-    /** 运行时全局日志器，记录 tick 启停和异常。 */
-    logger = new common_1.Logger(WorldTickService_1.name);
-    /** 当前 tick 定时器句柄。 */
-    timer = null;
-    /** 注入 world tick 所需的维护、地图、世界与同步服务。 */
-    constructor(runtimeGmStateService, runtimeMaintenanceService, mapRuntimeConfigService, worldRuntimeService, worldSyncService) {
-        this.runtimeGmStateService = runtimeGmStateService;
-        this.runtimeMaintenanceService = runtimeMaintenanceService;
-        this.mapRuntimeConfigService = mapRuntimeConfigService;
-        this.worldRuntimeService = worldRuntimeService;
-        this.worldSyncService = worldSyncService;
-    }
-    /** 读取某张地图的 tick 倍速，让 world runtime 按地图配置推进。 */
-    getMapTickSpeed(mapId) {
-        return this.mapRuntimeConfigService.getMapTickSpeed(mapId);
-    }    
-    /**
- * onModuleInit：执行on模块Init相关逻辑。
- * @returns 无返回值，直接更新on模块Init相关状态。
- */
-
-    onModuleInit() {
-        this.timer = setInterval(() => {
-            try {
-                if (this.runtimeMaintenanceService.isRuntimeMaintenanceActive()) {
-                    return;
-                }
-                this.worldRuntimeService.advanceFrame(WORLD_TICK_INTERVAL_MS, (mapId) => this.getMapTickSpeed(mapId));
-
-                const syncStartedAt = performance.now();
-                this.worldSyncService.flushConnectedPlayers();
-                this.worldRuntimeService.recordSyncFlushDuration(performance.now() - syncStartedAt);
-                this.runtimeGmStateService.flushQueuedStatePushes();
-            }
-            catch (error) {
-                this.logger.error('世界 Tick 执行失败', error instanceof Error ? error.stack : String(error));
-            }
-        }, WORLD_TICK_INTERVAL_MS);
-        this.timer.unref();
-        this.logger.log(`世界 Tick 已启动，间隔 ${WORLD_TICK_INTERVAL_MS}ms`);
-    }
-    /** 停止 tick 定时器，避免服务销毁后继续推进状态。 */
-    onModuleDestroy() {
-        if (this.timer) {
-            clearInterval(this.timer);
-            this.timer = null;
+  onModuleInit(): void {
+    this.timer = setInterval(() => {
+      try {
+        if (this.runtimeMaintenanceService.isRuntimeMaintenanceActive()) {
+          return;
         }
+
+        this.worldRuntimeService.advanceFrame(
+          gameplayConstants.WORLD_TICK_INTERVAL_MS,
+          (mapId: string) => this.getMapTickSpeed(mapId),
+        );
+
+        const syncStartedAt = performance.now();
+        this.worldSyncService.flushConnectedPlayers();
+        this.worldRuntimeService.recordSyncFlushDuration(performance.now() - syncStartedAt);
+        this.runtimeGmStateService.flushQueuedStatePushes();
+      } catch (error: unknown) {
+        this.logger.error(
+          '世界 Tick 执行失败',
+          error instanceof Error ? error.stack : String(error),
+        );
+      }
+    }, gameplayConstants.WORLD_TICK_INTERVAL_MS);
+
+    this.timer.unref();
+    this.logger.log(`世界 Tick 已启动，间隔 ${gameplayConstants.WORLD_TICK_INTERVAL_MS}ms`);
+  }
+
+  onModuleDestroy(): void {
+    if (!this.timer) {
+      return;
     }
-};
-exports.WorldTickService = WorldTickService;
-exports.WorldTickService = WorldTickService = WorldTickService_1 = __decorate([
-    (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [runtime_gm_state_service_1.RuntimeGmStateService,
-        runtime_maintenance_service_1.RuntimeMaintenanceService,
-        runtime_map_config_service_1.RuntimeMapConfigService,
-        world_runtime_service_1.WorldRuntimeService,
-        world_sync_service_1.WorldSyncService])
-], WorldTickService);
-export { WorldTickService };
+
+    clearInterval(this.timer);
+    this.timer = null;
+  }
+}

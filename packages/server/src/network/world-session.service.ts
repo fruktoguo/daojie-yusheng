@@ -1,399 +1,329 @@
-// @ts-nocheck
-"use strict";
-
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldSessionService = exports.WORLD_SESSION_CONTRACT = void 0;
-
-const common_1 = require("@nestjs/common");
-
-const shared_1 = require("@mud/shared-next");
+import { Injectable } from '@nestjs/common';
+import { NEXT_S2C } from '@mud/shared-next';
 
 const DEFAULT_SESSION_DETACH_EXPIRE_MS = 15_000;
-
 const MAX_REQUESTED_SESSION_ID_LENGTH = 128;
 
-const WORLD_SESSION_CONTRACT = Object.freeze({
-    sourceOfTruth: 'single_process_memory',
-    connectedReuse: 'reuse_current_session_only_when_allowConnectedSessionReuse',
-    detachedResume: 'implicit_or_requested_within_detach_window',
-    detachExpireEnvKey: 'SERVER_NEXT_SESSION_DETACH_EXPIRE_MS',
-    zeroExpireBehavior: 'expire_immediately_and_enqueue_for_reaper',
+export const WORLD_SESSION_CONTRACT = Object.freeze({
+  sourceOfTruth: 'single_process_memory',
+  connectedReuse: 'reuse_current_session_only_when_allowConnectedSessionReuse',
+  detachedResume: 'implicit_or_requested_within_detach_window',
+  detachExpireEnvKey: 'SERVER_NEXT_SESSION_DETACH_EXPIRE_MS',
+  zeroExpireBehavior: 'expire_immediately_and_enqueue_for_reaper',
 });
-exports.WORLD_SESSION_CONTRACT = WORLD_SESSION_CONTRACT;
 
-/** 世界会话管理入口：管理 socket 与 player 绑定、会话恢复、断线回收。 */
-function resolveSessionDetachExpireMs() {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-
-    const raw = process.env.SERVER_NEXT_SESSION_DETACH_EXPIRE_MS;
-
-    const parsed = Number(raw);
-    if (Number.isFinite(parsed)) {
-        return Math.max(0, Math.trunc(parsed));
-    }
-    return DEFAULT_SESSION_DETACH_EXPIRE_MS;
+interface SocketPort {
+  id: string;
+  emit(event: string, payload: unknown): void;
+  disconnect(close?: boolean): void;
 }
 
-/** 清洗客户端提交的 sessionId，限制长度与合法字符。 */
-function sanitizeRequestedSessionId(rawSessionId) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    if (typeof rawSessionId !== 'string') {
-        return '';
-    }
-
-    const normalizedSessionId = rawSessionId.trim();
-    if (!normalizedSessionId || normalizedSessionId.length > MAX_REQUESTED_SESSION_ID_LENGTH) {
-        return '';
-    }
-    if (!/^[A-Za-z0-9:_-]+$/.test(normalizedSessionId)) {
-        return '';
-    }
-    return normalizedSessionId;
+export interface WorldSessionBinding {
+  playerId: string;
+  sessionId: string;
+  socketId: string | null;
+  resumed: boolean;
+  connected: boolean;
+  detachedAt: number | null;
+  expireAt: number | null;
 }
 
-let WorldSessionService = class WorldSessionService {
-    /** socketId -> Socket 实例，供断线清理和广播回查。 */
-    socketsById = new Map();
-    /** socketId -> 会话绑定。 */
-    bindingBySocketId = new Map();
-    /** playerId -> 当前会话绑定。 */
-    bindingByPlayerId = new Map();
-    /** sessionId -> 当前或保留中的会话绑定。 */
-    bindingBySessionId = new Map();
-    /** playerId -> 过期回收定时器。 */
-    expiryTimerByPlayerId = new Map();
-    /** 已过期但尚未消费的绑定集合。 */
-    expiredBindings = new Map();
-    /** 已被主动 purge 的玩家集合。 */
-    purgedPlayerIds = new Set();
-    /** 递增会话序号，用于生成稳定且可读的 sessionId。 */
-    nextSessionSequence = 1;
-    /** guest 玩家序号，保证临时身份可唯一区分。 */
-    nextGuestPlayerSequence = 1;
-    /** 断线保留窗口时长。 */
-    sessionDetachExpireMs = resolveSessionDetachExpireMs();
+interface RegisterSocketOptions {
+  allowImplicitDetachedResume?: boolean;
+  allowRequestedDetachedResume?: boolean;
+  allowConnectedSessionReuse?: boolean;
+}
 
-    /** 注册 socket 与 player 绑定，支持断线重连恢复与连接替换。 */
-    registerSocket(client, playerId, requestedSessionId, options = undefined) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+type SessionTimer = ReturnType<typeof setTimeout>;
 
-        this.socketsById.set(client.id, client);
+function resolveSessionDetachExpireMs(): number {
+  const raw = process.env.SERVER_NEXT_SESSION_DETACH_EXPIRE_MS;
+  const parsed = Number(raw);
+  if (Number.isFinite(parsed)) {
+    return Math.max(0, Math.trunc(parsed));
+  }
+  return DEFAULT_SESSION_DETACH_EXPIRE_MS;
+}
 
-        const previous = this.bindingByPlayerId.get(playerId);
+function sanitizeRequestedSessionId(rawSessionId: unknown): string {
+  if (typeof rawSessionId !== 'string') {
+    return '';
+  }
 
-        const requested = sanitizeRequestedSessionId(requestedSessionId);
+  const normalizedSessionId = rawSessionId.trim();
+  if (!normalizedSessionId || normalizedSessionId.length > MAX_REQUESTED_SESSION_ID_LENGTH) {
+    return '';
+  }
+  if (!/^[A-Za-z0-9:_-]+$/.test(normalizedSessionId)) {
+    return '';
+  }
+  return normalizedSessionId;
+}
 
-        const hasDetachedBinding = previous && !previous.connected;
+@Injectable()
+export class WorldSessionService {
+  private readonly socketsById = new Map<string, SocketPort>();
+  private readonly bindingBySocketId = new Map<string, WorldSessionBinding>();
+  private readonly bindingByPlayerId = new Map<string, WorldSessionBinding>();
+  private readonly bindingBySessionId = new Map<string, WorldSessionBinding>();
+  private readonly expiryTimerByPlayerId = new Map<string, SessionTimer>();
+  private readonly expiredBindings = new Map<string, WorldSessionBinding>();
+  private readonly purgedPlayerIds = new Set<string>();
+  private nextSessionSequence = 1;
+  private nextGuestPlayerSequence = 1;
+  private readonly sessionDetachExpireMs = resolveSessionDetachExpireMs();
 
-        const allowImplicitDetachedResume = options?.allowImplicitDetachedResume !== false;
+  registerSocket(
+    client: SocketPort,
+    playerId: string,
+    requestedSessionId?: string,
+    options: RegisterSocketOptions | undefined = undefined,
+  ): WorldSessionBinding {
+    this.socketsById.set(client.id, client);
 
-        const allowRequestedDetachedResume = options?.allowRequestedDetachedResume !== false;
+    const previous = this.bindingByPlayerId.get(playerId);
+    const requested = sanitizeRequestedSessionId(requestedSessionId);
+    const hasDetachedBinding = previous && !previous.connected;
+    const allowImplicitDetachedResume = options?.allowImplicitDetachedResume !== false;
+    const allowRequestedDetachedResume = options?.allowRequestedDetachedResume !== false;
+    const allowConnectedSessionReuse = options?.allowConnectedSessionReuse !== false;
 
-        const allowConnectedSessionReuse = options?.allowConnectedSessionReuse !== false;
+    const resumeMatched = Boolean(
+      hasDetachedBinding
+        && (
+          requested
+            ? allowRequestedDetachedResume && requested === previous?.sessionId
+            : allowImplicitDetachedResume
+        ),
+    );
 
-        const resumeMatched = hasDetachedBinding && (requested
-            ? allowRequestedDetachedResume && requested === previous.sessionId
-            : allowImplicitDetachedResume);
+    const reuseConnectedSession = previous?.connected === true
+      && allowConnectedSessionReuse
+      && (!requested || requested === previous.sessionId);
 
-        const reuseConnectedSession = previous?.connected === true
-            && allowConnectedSessionReuse
-            && (!requested || requested === previous.sessionId);
+    const sessionId = resumeMatched
+      ? previous!.sessionId
+      : reuseConnectedSession
+        ? previous!.sessionId
+        : this.createSessionId(playerId);
 
-        const sessionId = resumeMatched
-            ? previous.sessionId
-            : reuseConnectedSession
-                ? previous.sessionId
-                : this.createSessionId(playerId);
+    const binding: WorldSessionBinding = {
+      playerId,
+      sessionId,
+      socketId: client.id,
+      resumed: resumeMatched,
+      connected: true,
+      detachedAt: null,
+      expireAt: null,
+    };
 
-        const binding = {
-            playerId,
-            sessionId,
-            socketId: client.id,
+    this.clearExpiry(playerId);
+    this.expiredBindings.delete(playerId);
+    if (previous?.sessionId && previous.sessionId !== sessionId) {
+      this.bindingBySessionId.delete(previous.sessionId);
+    }
+    this.bindingBySocketId.set(client.id, binding);
+    this.bindingByPlayerId.set(playerId, binding);
+    this.bindingBySessionId.set(sessionId, binding);
 
-            resumed: resumeMatched === true,
-            connected: true,
-            detachedAt: null,
-            expireAt: null,
-        };
-        this.clearExpiry(playerId);
-        this.expiredBindings.delete(playerId);
-        if (previous?.sessionId && previous.sessionId !== sessionId) {
-            this.bindingBySessionId.delete(previous.sessionId);
-        }
-        this.bindingBySocketId.set(client.id, binding);
-        this.bindingByPlayerId.set(playerId, binding);
-        this.bindingBySessionId.set(sessionId, binding);
-        if (previous && previous.connected && previous.socketId && previous.socketId !== client.id) {
-            this.bindingBySocketId.delete(previous.socketId);
+    if (previous && previous.connected && previous.socketId && previous.socketId !== client.id) {
+      this.bindingBySocketId.delete(previous.socketId);
+      const previousSocket = this.socketsById.get(previous.socketId);
+      if (previousSocket) {
+        previousSocket.emit(NEXT_S2C.Kick, { reason: 'replaced' });
+        previousSocket.disconnect(true);
+      }
+    }
+    return binding;
+  }
 
-            const previousSocket = this.socketsById.get(previous.socketId);
-            if (previousSocket) {
-                previousSocket.emit(shared_1.NEXT_S2C.Kick, { reason: 'replaced' });
-                previousSocket.disconnect(true);
-            }
-        }
-        return binding;
-    }    
-    /**
- * unregisterSocket：判断unregisterSocket是否满足条件。
- * @param socketId socket ID。
- * @returns 无返回值，直接更新unregisterSocket相关状态。
- */
+  normalizeRequestedSessionId(rawSessionId: unknown): string {
+    return sanitizeRequestedSessionId(rawSessionId);
+  }
 
-    unregisterSocket(socketId) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+  unregisterSocket(socketId: string): WorldSessionBinding | null {
+    this.socketsById.delete(socketId);
 
-        this.socketsById.delete(socketId);
+    const binding = this.bindingBySocketId.get(socketId);
+    if (!binding) {
+      return null;
+    }
+    this.bindingBySocketId.delete(socketId);
 
-        const binding = this.bindingBySocketId.get(socketId);
-        if (!binding) {
-            return null;
-        }
-        this.bindingBySocketId.delete(socketId);
-
-        const current = this.bindingByPlayerId.get(binding.playerId);
-        if (!current || current.socketId !== socketId) {
-            return null;
-        }
-
-        const detachedAt = Date.now();
-
-        const detachedBinding = {
-            playerId: binding.playerId,
-            sessionId: binding.sessionId,
-            socketId: null,
-            resumed: false,
-            connected: false,
-            detachedAt,
-            expireAt: detachedAt + this.sessionDetachExpireMs,
-        };
-        this.clearExpiry(binding.playerId);
-        this.expiredBindings.delete(binding.playerId);
-        if (this.sessionDetachExpireMs <= 0) {
-            this.bindingByPlayerId.delete(binding.playerId);
-            this.bindingBySessionId.delete(detachedBinding.sessionId);
-            this.expiredBindings.set(binding.playerId, detachedBinding);
-            return detachedBinding;
-        }
-        this.bindingByPlayerId.set(binding.playerId, detachedBinding);
-        this.bindingBySessionId.set(detachedBinding.sessionId, detachedBinding);
-        this.scheduleExpiry(detachedBinding);
-        return detachedBinding;
+    const current = this.bindingByPlayerId.get(binding.playerId);
+    if (!current || current.socketId !== socketId) {
+      return null;
     }
 
-    /** 查询玩家当前会话绑定（含在线与离线）。 */
-    getBinding(playerId) {
-        return this.bindingByPlayerId.get(playerId) ?? null;
-    }    
-    /**
- * getBindingBySessionId：读取BindingBySessionID。
- * @param sessionId session ID。
- * @returns 无返回值，完成BindingBySessionID的读取/组装。
- */
+    const detachedAt = Date.now();
+    const detachedBinding: WorldSessionBinding = {
+      playerId: binding.playerId,
+      sessionId: binding.sessionId,
+      socketId: null,
+      resumed: false,
+      connected: false,
+      detachedAt,
+      expireAt: detachedAt + this.sessionDetachExpireMs,
+    };
 
-    getBindingBySessionId(sessionId) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+    this.clearExpiry(binding.playerId);
+    this.expiredBindings.delete(binding.playerId);
+    if (this.sessionDetachExpireMs <= 0) {
+      this.bindingByPlayerId.delete(binding.playerId);
+      this.bindingBySessionId.delete(detachedBinding.sessionId);
+      this.expiredBindings.set(binding.playerId, detachedBinding);
+      return detachedBinding;
+    }
+    this.bindingByPlayerId.set(binding.playerId, detachedBinding);
+    this.bindingBySessionId.set(detachedBinding.sessionId, detachedBinding);
+    this.scheduleExpiry(detachedBinding);
+    return detachedBinding;
+  }
 
+  getBinding(playerId: string): WorldSessionBinding | null {
+    return this.bindingByPlayerId.get(playerId) ?? null;
+  }
 
-        const normalizedSessionId = sanitizeRequestedSessionId(sessionId);
-        if (!normalizedSessionId) {
-            return null;
-        }
-        return this.bindingBySessionId.get(normalizedSessionId) ?? null;
+  getBindingBySessionId(sessionId: string): WorldSessionBinding | null {
+    const normalizedSessionId = sanitizeRequestedSessionId(sessionId);
+    if (!normalizedSessionId) {
+      return null;
+    }
+    return this.bindingBySessionId.get(normalizedSessionId) ?? null;
+  }
+
+  getDetachedBindingBySessionId(sessionId: string): WorldSessionBinding | null {
+    const binding = this.getBindingBySessionId(sessionId);
+    if (!binding || binding.connected === true) {
+      return null;
+    }
+    if (typeof binding.expireAt === 'number' && Number.isFinite(binding.expireAt) && binding.expireAt <= Date.now()) {
+      this.bindingBySessionId.delete(binding.sessionId);
+      this.bindingByPlayerId.delete(binding.playerId);
+      this.clearExpiry(binding.playerId);
+      this.expiredBindings.set(binding.playerId, binding);
+      return null;
+    }
+    return binding;
+  }
+
+  getBindingBySocketId(socketId: string): WorldSessionBinding | null {
+    return this.bindingBySocketId.get(socketId) ?? null;
+  }
+
+  createGuestPlayerId(): string {
+    const sequence = this.nextGuestPlayerSequence++;
+    return `guest_${Date.now().toString(36)}_${sequence.toString(36)}`;
+  }
+
+  isGuestPlayerId(playerId: string): boolean {
+    return typeof playerId === 'string' && playerId.trim().startsWith('guest_');
+  }
+
+  getSocketByPlayerId(playerId: string): SocketPort | null {
+    const binding = this.bindingByPlayerId.get(playerId);
+    return binding?.socketId ? (this.socketsById.get(binding.socketId) ?? null) : null;
+  }
+
+  listBindings(): WorldSessionBinding[] {
+    return Array.from(this.bindingByPlayerId.values()).filter((binding) => binding.connected);
+  }
+
+  consumeExpiredBindings(): WorldSessionBinding[] {
+    const bindings = Array.from(this.expiredBindings.values());
+    this.expiredBindings.clear();
+    return bindings;
+  }
+
+  requeueExpiredBinding(binding: Partial<WorldSessionBinding> | null | undefined): boolean {
+    const playerId = typeof binding?.playerId === 'string' ? binding.playerId.trim() : '';
+    const sessionId = typeof binding?.sessionId === 'string' ? binding.sessionId.trim() : '';
+    if (!playerId || !sessionId || binding?.connected) {
+      return false;
+    }
+    this.expiredBindings.set(playerId, {
+      playerId,
+      sessionId,
+      socketId: null,
+      resumed: false,
+      connected: false,
+      detachedAt: Number.isFinite(binding?.detachedAt) ? binding.detachedAt : Date.now(),
+      expireAt: Number.isFinite(binding?.expireAt) ? binding.expireAt : Date.now(),
+    });
+    return true;
+  }
+
+  consumePurgedPlayerIds(): string[] {
+    const playerIds = Array.from(this.purgedPlayerIds);
+    this.purgedPlayerIds.clear();
+    return playerIds;
+  }
+
+  purgePlayerSession(playerId: string, reason = 'removed'): boolean {
+    const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : '';
+    if (!normalizedPlayerId) {
+      return false;
     }
 
-    /** 查询断线状态下仍在保留窗口内的会话。 */
-    getDetachedBindingBySessionId(sessionId) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-
-        const binding = this.getBindingBySessionId(sessionId);
-        if (!binding || binding.connected === true) {
-            return null;
-        }
-        if (typeof binding.expireAt === 'number' && Number.isFinite(binding.expireAt) && binding.expireAt <= Date.now()) {
-            this.bindingBySessionId.delete(binding.sessionId);
-            this.bindingByPlayerId.delete(binding.playerId);
-            this.clearExpiry(binding.playerId);
-            this.expiredBindings.set(binding.playerId, binding);
-            return null;
-        }
-        return binding;
+    const binding = this.bindingByPlayerId.get(normalizedPlayerId) ?? null;
+    if (!binding) {
+      this.clearExpiry(normalizedPlayerId);
+      this.expiredBindings.delete(normalizedPlayerId);
+      this.purgedPlayerIds.add(normalizedPlayerId);
+      return false;
     }
-
-    /** 查询 socket 对应绑定，供 socket 事件入口做身份映射。 */
-    getBindingBySocketId(socketId) {
-        return this.bindingBySocketId.get(socketId) ?? null;
+    this.bindingByPlayerId.delete(normalizedPlayerId);
+    this.clearExpiry(normalizedPlayerId);
+    this.expiredBindings.delete(normalizedPlayerId);
+    this.bindingBySessionId.delete(binding.sessionId);
+    if (binding.socketId) {
+      this.bindingBySocketId.delete(binding.socketId);
+      const socket = this.socketsById.get(binding.socketId) ?? null;
+      this.socketsById.delete(binding.socketId);
+      if (socket) {
+        socket.emit(NEXT_S2C.Kick, { reason });
+        socket.disconnect(true);
+      }
     }
+    this.purgedPlayerIds.add(normalizedPlayerId);
+    return true;
+  }
 
-    /** 生产 guest 身份。 */
-    createGuestPlayerId() {
-
-        const sequence = this.nextGuestPlayerSequence++;
-        return `guest_${Date.now().toString(36)}_${sequence.toString(36)}`;
+  purgeAllSessions(reason = 'removed'): string[] {
+    const playerIds = Array.from(this.bindingByPlayerId.keys());
+    for (const playerId of playerIds) {
+      this.purgePlayerSession(playerId, reason);
     }
+    return playerIds;
+  }
 
-    /** 判断 playerId 是否为临时 guest 账号。 */
-    isGuestPlayerId(playerId) {
-        return typeof playerId === 'string' && playerId.trim().startsWith('guest_');
+  private createSessionId(playerId: string): string {
+    const sequence = this.nextSessionSequence++;
+    return `${playerId}:${Date.now().toString(36)}:${sequence.toString(36)}`;
+  }
+
+  private scheduleExpiry(binding: WorldSessionBinding): void {
+    this.clearExpiry(binding.playerId);
+    const delay = Math.max(0, (binding.expireAt ?? Date.now()) - Date.now());
+    const timer = setTimeout(() => {
+      const current = this.bindingByPlayerId.get(binding.playerId);
+      if (!current || current.connected || current.expireAt !== binding.expireAt) {
+        return;
+      }
+      this.bindingByPlayerId.delete(binding.playerId);
+      this.bindingBySessionId.delete(current.sessionId);
+      this.expiredBindings.set(binding.playerId, current);
+      this.expiryTimerByPlayerId.delete(binding.playerId);
+    }, delay);
+    timer.unref();
+    this.expiryTimerByPlayerId.set(binding.playerId, timer);
+  }
+
+  private clearExpiry(playerId: string): void {
+    const timer = this.expiryTimerByPlayerId.get(playerId);
+    if (timer) {
+      clearTimeout(timer);
+      this.expiryTimerByPlayerId.delete(playerId);
     }
-
-    /** 根据 playerId 获取当前 socket，未在线则返回 null。 */
-    getSocketByPlayerId(playerId) {
-
-        const binding = this.bindingByPlayerId.get(playerId);
-        return binding?.socketId ? (this.socketsById.get(binding.socketId) ?? null) : null;
-    }
-
-    /** 列出当前在线会话绑定。 */
-    listBindings() {
-        return Array.from(this.bindingByPlayerId.values()).filter((binding) => binding.connected);
-    }
-
-    /** 消费并清空已回收会话集合。 */
-    consumeExpiredBindings() {
-
-        const bindings = Array.from(this.expiredBindings.values());
-        this.expiredBindings.clear();
-        return bindings;
-    }    
-    /**
- * requeueExpiredBinding：执行requeueExpiredBinding相关逻辑。
- * @param binding 参数说明。
- * @returns 无返回值，直接更新requeueExpiredBinding相关状态。
- */
-
-    requeueExpiredBinding(binding) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-
-        const playerId = typeof binding?.playerId === 'string' ? binding.playerId.trim() : '';
-        if (!playerId || binding?.connected) {
-            return false;
-        }
-        this.expiredBindings.set(playerId, {
-            ...binding,
-            playerId,
-            socketId: null,
-            resumed: false,
-            connected: false,
-            detachedAt: Number.isFinite(binding?.detachedAt) ? binding.detachedAt : Date.now(),
-            expireAt: Number.isFinite(binding?.expireAt) ? binding.expireAt : Date.now(),
-        });
-        return true;
-    }
-
-    /** 消费并清空被 purge 的玩家集合。 */
-    consumePurgedPlayerIds() {
-
-        const playerIds = Array.from(this.purgedPlayerIds);
-        this.purgedPlayerIds.clear();
-        return playerIds;
-    }
-
-    /** 按 playerId 强制 purge 会话并可选记录关闭原因。 */
-    purgePlayerSession(playerId, reason = 'removed') {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-
-        const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : '';
-        if (!normalizedPlayerId) {
-            return false;
-        }
-
-        const binding = this.bindingByPlayerId.get(normalizedPlayerId) ?? null;
-        if (!binding) {
-            this.clearExpiry(normalizedPlayerId);
-            this.expiredBindings.delete(normalizedPlayerId);
-            this.purgedPlayerIds.add(normalizedPlayerId);
-            return false;
-        }
-        this.bindingByPlayerId.delete(normalizedPlayerId);
-        this.clearExpiry(normalizedPlayerId);
-        this.expiredBindings.delete(normalizedPlayerId);
-        this.bindingBySessionId.delete(binding.sessionId);
-        if (binding.socketId) {
-            this.bindingBySocketId.delete(binding.socketId);
-
-            const socket = this.socketsById.get(binding.socketId) ?? null;
-            this.socketsById.delete(binding.socketId);
-            if (socket) {
-                socket.emit(shared_1.NEXT_S2C.Kick, { reason });
-                socket.disconnect(true);
-            }
-        }
-        this.purgedPlayerIds.add(normalizedPlayerId);
-        return true;
-    }
-
-    /** 统一清理所有会话，用于重启切换或管理员命令。 */
-    purgeAllSessions(reason = 'removed') {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-
-        const playerIds = Array.from(this.bindingByPlayerId.keys());
-        for (const playerId of playerIds) {
-            this.purgePlayerSession(playerId, reason);
-        }
-        return playerIds;
-    }
-
-    /** 生成新的 sessionId（按 playerId + 时间 + sequence）。 */
-    createSessionId(playerId) {
-
-        const sequence = this.nextSessionSequence++;
-        return `${playerId}:${Date.now().toString(36)}:${sequence.toString(36)}`;
-    }
-
-    /** 为断线会话建立过期计时，过期后进入待回收列表。 */
-    scheduleExpiry(binding) {
-        this.clearExpiry(binding.playerId);
-
-        const delay = Math.max(0, (binding.expireAt ?? Date.now()) - Date.now());
-
-        const timer = setTimeout(() => {
-
-            const current = this.bindingByPlayerId.get(binding.playerId);
-            if (!current || current.connected || current.expireAt !== binding.expireAt) {
-                return;
-            }
-            this.bindingByPlayerId.delete(binding.playerId);
-            this.bindingBySessionId.delete(current.sessionId);
-            this.expiredBindings.set(binding.playerId, current);
-            this.expiryTimerByPlayerId.delete(binding.playerId);
-        }, delay);
-        timer.unref();
-        this.expiryTimerByPlayerId.set(binding.playerId, timer);
-    }    
-    /**
- * clearExpiry：执行clearExpiry相关逻辑。
- * @param playerId 玩家 ID。
- * @returns 无返回值，直接更新clearExpiry相关状态。
- */
-
-    clearExpiry(playerId) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-
-        const timer = this.expiryTimerByPlayerId.get(playerId);
-        if (timer) {
-            clearTimeout(timer);
-            this.expiryTimerByPlayerId.delete(playerId);
-        }
-    }
-};
-exports.WorldSessionService = WorldSessionService;
-exports.WorldSessionService = WorldSessionService = __decorate([
-    (0, common_1.Injectable)()
-], WorldSessionService);
-export { WORLD_SESSION_CONTRACT, WorldSessionService };
-//# sourceMappingURL=world-session.service.js.map
+  }
+}

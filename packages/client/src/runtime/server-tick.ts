@@ -1,9 +1,11 @@
+import { gameplayConstants } from '@mud/shared-next';
+
 /** 当前估算服务端 tick（可为空表示还未接收到服务端节拍基准）。 */
 let currentServerTick: number | null = null;
 /** 当前服务端 tick 时间戳（ms），用于换算本地延迟后 tick。 */
 let currentServerTickSyncedAt = performance.now();
-/** 服务端 tick 间隔，默认按 1 秒一次用于兜底。 */
-let currentServerTickIntervalMs = 1000;
+/** 服务端 world tick 间隔，默认按 shared 主线的 100ms 兜底。 */
+let currentServerTickIntervalMs = gameplayConstants.WORLD_TICK_INTERVAL_MS;
 
 /** 同步服务端下发的基准 tick，并重置本地估算时间基点。 */
 export function syncEstimatedServerTick(serverTick: number | null | undefined): void {
@@ -52,6 +54,4 @@ export function resolveInventoryCooldownLeft(cooldown: number, startedAtTick: nu
   const elapsedTicks = Math.max(0, currentTick - Math.max(0, Math.floor(startedAtTick)));
   return Math.max(0, normalizedCooldown - elapsedTicks);
 }
-
-
 

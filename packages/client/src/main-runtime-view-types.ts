@@ -31,6 +31,11 @@ export type MainRuntimeObservedEntity = {
 
   color: string;  
   /**
+ * badge：badge相关字段。
+ */
+
+  badge?: RenderEntity['badge'];  
+  /**
  * name：名称名称或显示文本。
  */
 
@@ -40,6 +45,11 @@ export type MainRuntimeObservedEntity = {
  */
 
   kind?: string;  
+  /**
+ * monsterScale：怪物Scale相关字段。
+ */
+
+  monsterScale?: number;  
   /**
  * monsterTier：怪物Tier相关字段。
  */
@@ -75,6 +85,11 @@ export type MainRuntimeObservedEntity = {
  */
 
   observation?: RenderEntity['observation'];  
+  /**
+ * hostile：hostile相关字段。
+ */
+
+  hostile?: boolean;  
   /**
  * buffs：buff相关字段。
  */

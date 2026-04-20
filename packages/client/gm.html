@@ -1554,16 +1554,23 @@
           </div>
           <div class="summary-grid">
             <div class="summary-card"><div class="panel-title">机器人</div><div id="summary-bots" class="panel-value">0</div></div>
+            <div class="summary-card"><div class="panel-title">和平模式</div><div id="summary-peace-mode" class="panel-value">关闭</div></div>
             <div class="summary-card"><div class="panel-title">最近单图 tick</div><div id="summary-tick" class="panel-value">0 ms</div></div>
             <div class="summary-card"><div class="panel-title">tick 占窗</div><div id="summary-tick-window" class="panel-value">0%</div></div>
             <div class="summary-card"><div class="panel-title">CPU 压力</div><div id="summary-cpu" class="panel-value">0%</div></div>
-            <div class="summary-card"><div class="panel-title">内存占用</div><div id="summary-memory" class="panel-value">0 MB</div></div>
           </div>
           <div class="summary-grid">
+            <div class="summary-card"><div class="panel-title">内存占用</div><div id="summary-memory" class="panel-value">0 MB</div></div>
             <div class="summary-card"><div class="panel-title">累计上行</div><div id="summary-net-in" class="panel-value">0 B</div></div>
             <div class="summary-card"><div class="panel-title">累计下行</div><div id="summary-net-out" class="panel-value">0 B</div></div>
             <div class="summary-card"><div class="panel-title">寻路队列</div><div id="summary-path-queue" class="panel-value">0</div></div>
             <div class="summary-card"><div class="panel-title">寻路线程</div><div id="summary-path-workers" class="panel-value">0 / 0</div></div>
+          </div>
+          <div class="button-row" style="margin-bottom: 12px;">
+            <button id="toggle-peace-mode" class="small-btn" type="button">切换和平模式</button>
+            <div class="editor-note">开启后会立刻关闭所有玩家的全体攻击，并允许玩家在任意位置重叠。</div>
+          </div>
+          <div class="summary-grid">
             <div class="summary-card"><div class="panel-title">寻路取消</div><div id="summary-path-cancelled" class="panel-value">0</div></div>
           </div>
           <div class="button-row" style="margin-bottom: 12px;">
@@ -1747,11 +1754,40 @@
           <select id="player-sort" class="search-input" style="flex:0 0 210px;">
             <option value="realm-desc">境界从高到低</option>
             <option value="realm-asc">境界从低到高</option>
+            <option value="risk-desc">风险从高到低</option>
+            <option value="risk-asc">风险从低到高</option>
             <option value="online">在线优先</option>
             <option value="map">按地图</option>
             <option value="name">按角色名</option>
           </select>
+          <select id="player-presence-filter" class="search-input" style="flex:0 0 180px;">
+            <option value="all">在线状态: 全部</option>
+            <option value="online">在线</option>
+            <option value="offline-hanging">离线挂机</option>
+            <option value="offline">离线</option>
+          </select>
+          <select id="player-behavior-filter" class="search-input" style="flex:0 0 180px;">
+            <option value="all">行为: 全部</option>
+            <option value="combat">战斗</option>
+            <option value="cultivation">修炼</option>
+            <option value="alchemy">炼丹</option>
+            <option value="enhancement">强化</option>
+            <option value="gather">采集</option>
+          </select>
+          <select id="player-account-status-filter" class="search-input" style="flex:0 0 180px;">
+            <option value="all">账号状态: 全部</option>
+            <option value="normal">正常</option>
+            <option value="banned">封禁</option>
+            <option value="abnormal">异常</option>
+          </select>
         </div>
+        <div class="filter-row" style="margin-top: 10px; align-items: center;">
+          <input id="player-bulk-ban-risk-threshold" class="number-input" type="number" min="0" max="200" value="70" style="flex:0 0 180px;" />
+          <input id="player-bulk-ban-reason" class="search-input" type="text" placeholder="批量封号原因（可选）" style="flex:1 1 280px;" />
+          <button id="player-bulk-ban-by-risk" class="small-btn danger" type="button">预览并批量封号</button>
+        </div>
+        <div id="player-bulk-ban-preview" class="editor-note" style="margin-top: 8px; min-height: 22px;">尚未生成批量封号预览。</div>
+        <div id="player-risk-audit-list" class="network-list" style="margin-top: 12px;"></div>
         <div id="player-list" class="player-list"></div>
         <div class="button-row" style="justify-content: space-between; margin-top: 12px;">
           <button id="player-page-prev" class="small-btn" type="button">上一页</button>
@@ -1795,6 +1831,7 @@
             <button id="editor-tab-items" class="workspace-tab" type="button">物品</button>
             <button id="editor-tab-quests" class="workspace-tab" type="button">任务</button>
             <button id="editor-tab-mail" class="workspace-tab" type="button">邮件</button>
+            <button id="editor-tab-risk" class="workspace-tab" type="button">风险检测</button>
             <button id="editor-tab-persisted" class="workspace-tab" type="button">持久化 JSON</button>
           </div>
           <div id="editor-visual-panel" class="editor-tab-panel">
@@ -1898,6 +1935,17 @@
           <div class="button-row" style="margin-bottom: 16px;">
             <button id="shortcut-compensate-combat-exp-2026-04-09" class="small-btn primary" type="button">战斗经验补偿-2026-04-09</button>
             <button id="shortcut-compensate-foundation-2026-04-09" class="small-btn primary" type="button">底蕴补偿-2026-04-09</button>
+          </div>
+        </div>
+        <div class="editor-section">
+          <div class="editor-section-head">
+            <div>
+              <div class="editor-section-title">草药库存</div>
+              <div class="editor-section-note">给当前所有已加载地图里的草药采集点统一补充库存，按地图 tick 批量生效。</div>
+            </div>
+          </div>
+          <div class="button-row" style="margin-bottom: 16px;">
+            <button id="shortcut-add-herb-stock-1000" class="small-btn primary" type="button">全图草药库存 +1000</button>
           </div>
         </div>
         <div class="editor-section">

@@ -6,6 +6,7 @@
 import {
   DEFAULT_MAP_PERFORMANCE_CONFIG,
   MAP_PERFORMANCE_CONFIG_CHANGE_EVENT,
+  MAP_TARGET_FPS_RANGE,
   MAP_PERFORMANCE_STORAGE_KEY,
   type MapPerformanceConfig,
 } from '../constants/ui/performance';
@@ -54,7 +55,10 @@ export function updateMapPerformanceConfig(patch: Partial<MapPerformanceConfig>)
     ...patch,
   });
   persistConfig(currentConfig);
-  if (previousConfig.showFpsMonitor !== currentConfig.showFpsMonitor) {
+  if (
+    previousConfig.showFpsMonitor !== currentConfig.showFpsMonitor
+    || previousConfig.targetFps !== currentConfig.targetFps
+  ) {
     window.dispatchEvent(new CustomEvent<MapPerformanceConfig>(MAP_PERFORMANCE_CONFIG_CHANGE_EVENT, {
       detail: cloneConfig(currentConfig),
     }));
@@ -77,8 +81,13 @@ export function resetMapPerformanceConfig(): MapPerformanceConfig {
 
 /** normalizeConfig：规范化配置。 */
 function normalizeConfig(raw: Partial<MapPerformanceConfig> | null | undefined): MapPerformanceConfig {
+  /** parsedTargetFps：目标帧率配置值。 */
+  const parsedTargetFps = Number.parseInt(String(raw?.targetFps ?? ''), 10);
   return {
     showFpsMonitor: raw?.showFpsMonitor === true,
+    targetFps: Number.isFinite(parsedTargetFps)
+      ? Math.max(MAP_TARGET_FPS_RANGE.min, Math.min(MAP_TARGET_FPS_RANGE.max, parsedTargetFps))
+      : MAP_TARGET_FPS_RANGE.defaultValue,
   };
 }
 
@@ -112,9 +121,9 @@ function readStoredConfig(): Partial<MapPerformanceConfig> | null {
 function cloneConfig(config: MapPerformanceConfig): MapPerformanceConfig {
   return {
     showFpsMonitor: config.showFpsMonitor,
+    targetFps: config.targetFps,
   };
 }
-
 
 
 

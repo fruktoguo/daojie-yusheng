@@ -426,6 +426,21 @@ let WorldSessionBootstrapService = class WorldSessionBootstrapService {
     shouldAllowRequestedDetachedResume(client) {
         return this.resolveBootstrapSessionReusePolicy(client).allowRequestedDetachedResume;
     }
+    /** 统一裁定 authenticated bootstrap 是否接受客户端携带的 requested sessionId。 */
+    resolveBootstrapRequestedSessionId(client, requestedSessionId) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+        const normalizedSessionId = this.worldSessionService?.normalizeRequestedSessionId
+            ? this.worldSessionService.normalizeRequestedSessionId(requestedSessionId)
+            : this.inspectRequestedSessionId(requestedSessionId, client, 'bootstrap').sessionId;
+        if (!normalizedSessionId) {
+            return undefined;
+        }
+        if (!this.shouldAllowRequestedDetachedResume(client)) {
+            return undefined;
+        }
+        return normalizedSessionId;
+    }
     /** 清理 bootstrap 阶段缓存的快照恢复结果。 */
     clearAuthenticatedSnapshotRecovery(client) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -557,8 +572,9 @@ let WorldSessionBootstrapService = class WorldSessionBootstrapService {
             throw new Error(authenticatedBootstrapContractViolation.stage);
         }
         this.prepareBootstrapRuntime(client, input.playerId);
+        const requestedSessionId = this.resolveBootstrapRequestedSessionId(client, input.requestedSessionId);
 
-        const binding = this.worldSessionService.registerSocket(client, input.playerId, input.requestedSessionId, {
+        const binding = this.worldSessionService.registerSocket(client, input.playerId, requestedSessionId, {
             allowImplicitDetachedResume: this.shouldAllowImplicitDetachedResume(client),
             allowRequestedDetachedResume: this.shouldAllowRequestedDetachedResume(client),
             allowConnectedSessionReuse: this.shouldAllowConnectedSessionReuse(client),
@@ -576,6 +592,7 @@ let WorldSessionBootstrapService = class WorldSessionBootstrapService {
         this.worldRuntimeService.connectPlayer({
             playerId: binding.playerId,
             sessionId: binding.sessionId,
+            instanceId: player.instanceId || undefined,
             mapId: input.mapId ?? (player.templateId || undefined),
             preferredX: input.preferredX ?? (player.templateId ? player.x : undefined),
             preferredY: input.preferredY ?? (player.templateId ? player.y : undefined),
@@ -607,13 +624,13 @@ let WorldSessionBootstrapService = class WorldSessionBootstrapService {
         const bootstrapSnapshotSource = this.resolveBootstrapSnapshotSource(client);
 
         const bootstrapSnapshotPersistedSource = this.resolveBootstrapSnapshotPersistedSource(client);
-        this.logger.debug(`会话引导已就绪：playerId=${binding.playerId} sessionId=${binding.sessionId} mapId=${player.templateId || input.mapId || '未知'} requestedSessionId=${input.requestedSessionId ?? ''} protocol=${client.data.protocol ?? '未知'} gm=${client.data.isGm === true} entryPath=${bootstrapEntryPath ?? '未知'} identitySource=${bootstrapIdentitySource ?? '未知'}`);
+        this.logger.debug(`会话引导已就绪：playerId=${binding.playerId} sessionId=${binding.sessionId} mapId=${player.templateId || input.mapId || '未知'} requestedSessionId=${requestedSessionId ?? ''} protocol=${client.data.protocol ?? '未知'} gm=${client.data.isGm === true} entryPath=${bootstrapEntryPath ?? '未知'} identitySource=${bootstrapIdentitySource ?? '未知'}`);
         (0, world_player_token_service_1.recordAuthTrace)({
             type: 'bootstrap',
             playerId: binding.playerId,
             sessionId: binding.sessionId,
             mapId: player.templateId || input.mapId || 'unknown',
-            requestedSessionId: input.requestedSessionId ?? null,
+            requestedSessionId: requestedSessionId ?? null,
 
             gm: client.data.isGm === true,
             protocol: client.data.protocol ?? 'unknown',

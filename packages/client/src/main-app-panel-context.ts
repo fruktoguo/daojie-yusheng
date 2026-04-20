@@ -184,6 +184,7 @@ export function createMainPanelContext(options: CreateMainPanelContextOptions) {
     hydrateNpcShopResponse: (data) => detailHydrationSource.hydrateNpcShopResponse(data),
     handleAttrDetail: (data) => attrDetailStateSource.handleAttrDetail(data),
     handleLeaderboard: (data) => worldSummaryStateSource.handleLeaderboard(data),
+    handleLeaderboardPlayerLocations: (data) => worldSummaryStateSource.handleLeaderboardPlayerLocations(data),
     handleWorldSummary: (data) => worldSummaryStateSource.handleWorldSummary(data),
     handleNpcQuests: (data) => questStateSource.handleNpcQuests(data),
     handleQuestUpdate: (data) => questStateSource.handleQuestUpdate(data, rootRuntimeSource.getPlayer()),

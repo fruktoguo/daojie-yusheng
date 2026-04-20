@@ -397,8 +397,8 @@ let WorldRuntimeGameplayWriteFacadeService = class WorldRuntimeGameplayWriteFaca
  * @returns 无返回值，直接更新玩家Defeat相关状态。
  */
 
-    handlePlayerDefeat(playerId, deps) {
-        deps.worldRuntimePlayerCombatOutcomeService.handlePlayerDefeat(playerId, deps);
+    handlePlayerDefeat(playerId, deps, killerPlayerId = null) {
+        deps.worldRuntimePlayerCombatOutcomeService.handlePlayerDefeat(playerId, deps, killerPlayerId);
     }    
     /**
  * processPendingRespawns：处理待处理重生并更新相关状态。

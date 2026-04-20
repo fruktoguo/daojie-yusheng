@@ -92,6 +92,7 @@ type MainStartupBindingsOptions = {
     setCallbacks: (
       onTakeOne: (sourceId: string, itemKey: string) => void,
       onTakeAll: (sourceId: string) => void,
+      onStopHarvest?: () => void,
     ) => void;
   };  
   /**
@@ -277,6 +278,7 @@ type MainStartupBindingsOptions = {
   panelSender: Pick<
     SocketPanelSender,
     | 'sendTakeLoot'
+    | 'sendStopLootHarvest'
     | 'sendUnequip'
     | 'sendRequestNpcShop'
     | 'sendBuyNpcShopItem'
@@ -383,6 +385,9 @@ export function bindMainStartup(options: MainStartupBindingsOptions): void {
     },
     (sourceId) => {
       options.panelSender.sendTakeLoot(sourceId, undefined, true);
+    },
+    () => {
+      options.panelSender.sendStopLootHarvest();
     },
   );
 

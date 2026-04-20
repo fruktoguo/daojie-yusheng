@@ -10,7 +10,7 @@ import {
   TileType,
   VisibleBuffState,
 } from '@mud/shared-next';
-import { getMonsterPresentation } from './monster-presentation';
+import { getEntityBadgeClassName, getMonsterPresentation } from './monster-presentation';
 import { getEntityKindLabel, getTileTypeLabel } from './domain-labels';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from './ui/floating-tooltip';
 import { createObserveModalController, type ObserveAsideCard } from './main-ui-helpers';
@@ -53,6 +53,11 @@ type ObserveEntity = {
  */
 
   color: string;  
+  /**
+ * badge：badge相关字段。
+ */
+
+  badge?: RenderEntity['badge'];  
   /**
  * name：名称名称或显示文本。
  */
@@ -111,7 +116,7 @@ type ObserveEntity = {
 
 type ObserveEntityCardData = Pick<
   ObserveEntity,
-  'id' | 'name' | 'kind' | 'monsterTier' | 'hp' | 'maxHp' | 'qi' | 'maxQi' | 'npcQuestMarker' | 'observation' | 'buffs'
+  'id' | 'name' | 'kind' | 'monsterTier' | 'badge' | 'hp' | 'maxHp' | 'qi' | 'maxQi' | 'npcQuestMarker' | 'observation' | 'buffs'
 >;
 /**
  * ActiveObservedTile：统一结构类型，保证协议与运行时一致性。
@@ -729,8 +734,10 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
       ? getMonsterPresentation(entity.name, entity.monsterTier)
       : null;
     const title = monsterPresentation?.label ?? entity.name ?? entity.id;
-    const badge = monsterPresentation?.badgeText
-      ? `<span class="${monsterPresentation.badgeClassName}">${escapeHtml(monsterPresentation.badgeText)}</span>`
+    const badge = entity.badge ?? monsterPresentation?.badge;
+    const badgeClassName = getEntityBadgeClassName(badge);
+    const badgeHtml = badge && badgeClassName
+      ? `<span class="${badgeClassName}">${escapeHtml(badge.text)}</span>`
       : '';
     const vitalRows = [
       { label: '生命', value: formatCurrentMax(entity.hp, entity.maxHp) },
@@ -757,7 +764,7 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
     const typeAttr = detailKind ? ' type="button"' : '';
     return `<${tag} class="observe-entity-card${detailKind ? ' observe-entity-card--interactive' : ''}"${typeAttr}${detailAttrs}>
       <div class="observe-entity-head">
-        <span class="observe-entity-name">${badge}${escapeHtml(title)}</span>
+        <span class="observe-entity-name">${badgeHtml}${escapeHtml(title)}</span>
         <span class="observe-entity-kind">${escapeHtml(getEntityKindLabel(entity.kind, '未知'))}</span>
       </div>
       <div class="observe-entity-verdict">${escapeHtml(entity.observation?.verdict ?? '神识轻拂而过，未得更多回响。')}</div>

@@ -18,6 +18,7 @@ exports.WorldRuntimePlayerCombatService = void 0;
 const common_1 = require("@nestjs/common");
 
 const content_template_repository_1 = require("../../content/content-template.repository");
+const pvp_1 = require("../../constants/gameplay/pvp");
 
 const player_runtime_service_1 = require("../player/player-runtime.service");
 
@@ -219,9 +220,50 @@ let WorldRuntimePlayerCombatService = class WorldRuntimePlayerCombatService {
  * @returns 无返回值，直接更新玩家Defeat相关状态。
  */
 
-    handlePlayerDefeat(playerId, deps) {
+    handlePlayerDefeat(playerId, deps, killerPlayerId = null) {
+        const victim = this.playerRuntimeService.getPlayer(playerId);
+        if (!victim || victim.hp > 0) {
+            deps.clearPendingCommand(playerId);
+            deps.worldRuntimeGmQueueService.markPendingRespawn(playerId);
+            return;
+        }
+        const deathSite = resolvePlayerDeathSite(victim, deps);
+        const deathPenalty = this.playerRuntimeService.applyShaInfusionDeathPenalty(playerId);
+        pushShaDeathPenaltyMessages(deps, playerId, deathPenalty);
+        const killer = typeof killerPlayerId === 'string' && killerPlayerId.trim()
+            ? this.playerRuntimeService.getPlayer(killerPlayerId)
+            : null;
+        if (killer && killer.playerId !== victim.playerId) {
+            this.applyPvPKillRewards(killer, victim, deathSite, deps);
+        }
         deps.clearPendingCommand(playerId);
         deps.worldRuntimeGmQueueService.markPendingRespawn(playerId);
+    }
+    /** 处理玩家互杀奖励与惩罚。 */
+    applyPvPKillRewards(killer, victim, deathSite, deps) {
+        if (killer.isBot || victim.isBot || killer.playerId === victim.playerId) {
+            return;
+        }
+        if (killer.combat?.allowAoePlayerHit === true) {
+            const nextStacks = this.playerRuntimeService.addPvPShaInfusionStack(killer.playerId);
+            deps.queuePlayerNotice(killer.playerId, `杀念入体，煞气入体加深至 ${nextStacks} 层。`, 'combat');
+        }
+        if (!this.playerRuntimeService.hasActiveBuff(victim.playerId, pvp_1.PVP_SOUL_INJURY_BUFF_ID)) {
+            this.playerRuntimeService.applyPvPSoulInjury(victim.playerId);
+            deps.queuePlayerNotice(victim.playerId, '神魂受损；身死与遁返都不会清除，需静养一时辰。', 'combat');
+        }
+        const bloodEssenceCount = Math.max(1, Math.floor((victim.realm?.realmLv ?? 1) ** 2));
+        const reward = this.contentTemplateRepository.createItem(pvp_1.BLOOD_ESSENCE_ITEM_ID, bloodEssenceCount);
+        if (reward && deathSite.instance) {
+            if (this.playerRuntimeService.canReceiveInventoryItem(killer.playerId, reward.itemId)) {
+                this.playerRuntimeService.receiveInventoryItem(killer.playerId, reward);
+                deps.queuePlayerNotice(killer.playerId, `你从 ${victim.name} 体内掠得 ${reward.name} x${bloodEssenceCount}。`, 'loot');
+            }
+            else {
+                deps.spawnGroundItem(deathSite.instance, deathSite.x, deathSite.y, reward);
+                deps.queuePlayerNotice(killer.playerId, `你的背包已满，${reward.name} x${bloodEssenceCount} 掉在了 ${victim.name} 倒下之处。`, 'loot');
+            }
+        }
     }
 };
 exports.WorldRuntimePlayerCombatService = WorldRuntimePlayerCombatService;
@@ -232,3 +274,21 @@ exports.WorldRuntimePlayerCombatService = WorldRuntimePlayerCombatService = __de
 ], WorldRuntimePlayerCombatService);
 
 export { WorldRuntimePlayerCombatService };
+
+function resolvePlayerDeathSite(victim, deps) {
+    const instance = victim.instanceId ? deps.getInstanceRuntime(victim.instanceId) : null;
+    return {
+        instance,
+        x: victim.x,
+        y: victim.y,
+    };
+}
+
+function pushShaDeathPenaltyMessages(deps, playerId, deathPenalty) {
+    if ((deathPenalty.consumedProgress ?? 0) > 0 || (deathPenalty.consumedFoundation ?? 0) > 0) {
+        deps.queuePlayerNotice(playerId, `体内煞气反噬，折损 ${deathPenalty.consumedProgress} 点境界修为${deathPenalty.consumedFoundation > 0 ? `，并再损 ${deathPenalty.consumedFoundation} 点底蕴` : ''}。`, 'combat');
+    }
+    if ((deathPenalty.backlashAddedStacks ?? 0) > 0) {
+        deps.queuePlayerNotice(playerId, `身死之后，${deathPenalty.backlashAddedStacks} 层煞气入体转为煞气反噬；当前煞气反噬 ${deathPenalty.backlashTotalStacks} 层，煞气入体余 ${deathPenalty.remainingInfusionStacks} 层。`, 'combat');
+    }
+}

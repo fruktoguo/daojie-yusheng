@@ -4,47 +4,15 @@
  */
 
 export interface SharedTutorialTopicSection {
-/**
- * title：title名称或显示文本。
- */
-
-  title: string;  
-  /**
- * items：集合字段。
- */
-
+  title: string;
   items: string[];
 }
-/**
- * SharedTutorialTopic：定义接口结构约束，明确可交付字段含义。
- */
-
 
 export interface SharedTutorialTopic {
-/**
- * id：ID标识。
- */
-
-  id: string;  
-  /**
- * label：label名称或显示文本。
- */
-
-  label: string;  
-  /**
- * summary：摘要状态或数据块。
- */
-
-  summary: string;  
-  /**
- * sections：section相关字段。
- */
-
-  sections: SharedTutorialTopicSection[];  
-  /**
- * tips：tip相关字段。
- */
-
+  id: string;
+  label: string;
+  summary: string;
+  sections: SharedTutorialTopicSection[];
   tips?: string[];
 }
 

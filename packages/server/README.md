@@ -46,7 +46,9 @@
 
 ### 当前状态与缺口
 
-- 仓库权威说明：[../../docs/next-gap-analysis.md](../../docs/next-gap-analysis.md)
+- 仓库主计划：[../../docs/next-plan/main.md](../../docs/next-plan/main.md)
+- 仓库策略基线：[../../docs/next-in-place-hard-cut-plan.md](../../docs/next-in-place-hard-cut-plan.md)
+- 当前 blocker 看板：[../../docs/next-replacement-blocker-board.md](../../docs/next-replacement-blocker-board.md)
 - 包内兼容入口：[./NEXT-GAP-ANALYSIS.md](./NEXT-GAP-ANALYSIS.md)
 
 ### 运维、验证、shadow 演练
@@ -57,9 +59,8 @@
 
 ### 计划、任务与收尾标准
 
-- 执行方案：[../../docs/next-remaining-execution-plan.md](../../docs/next-remaining-execution-plan.md)
-- 任务详单：[../../docs/next-remaining-task-breakdown.md](../../docs/next-remaining-task-breakdown.md)
-- legacy 清理门槛：[../../docs/next-legacy-removal-checklist.md](../../docs/next-legacy-removal-checklist.md)
+- 当前任务总表：[../../docs/next-plan/main.md](../../docs/next-plan/main.md)
+- cutover 与 legacy 归档：[../../docs/next-plan/10-legacy-archive-and-cutover.md](../../docs/next-plan/10-legacy-archive-and-cutover.md)
 
 ### 自动生成或低重复报告
 

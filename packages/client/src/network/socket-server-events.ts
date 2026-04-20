@@ -53,6 +53,7 @@ export const GAMEPLAY_SERVER_EVENTS = [
   NEXT_S2C.MarketTradeHistory,
   NEXT_S2C.AttrDetail,
   NEXT_S2C.Leaderboard,
+  NEXT_S2C.LeaderboardPlayerLocations,
   NEXT_S2C.WorldSummary,
   NEXT_S2C.NpcShop,
   NEXT_S2C.AlchemyPanel,

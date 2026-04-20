@@ -35,8 +35,8 @@ const GM_AUTH_SCOPE = next_gm_contract_1.NEXT_GM_AUTH_CONTRACT.passwordRecordSco
 /** persistent_documents 里保存 GM 密码的 key。 */
 const GM_AUTH_KEY = next_gm_contract_1.NEXT_GM_AUTH_CONTRACT.passwordRecordKey;
 
-/** 没有配置时使用的默认 GM 密码。 */
-const DEFAULT_GM_PASSWORD = 'admin123';
+/** 仅用于显式本地降级方案的默认 GM 密码。 */
+const DEFAULT_GM_PASSWORD = next_gm_contract_1.NEXT_GM_AUTH_CONTRACT.defaultInsecurePassword;
 const DEVELOPMENT_LIKE_ENVS = new Set(['', 'development', 'dev', 'local', 'test']);
 
 /** 默认 token 有效期。 */
@@ -59,6 +59,7 @@ let RuntimeGmAuthService = class RuntimeGmAuthService {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         assertConfiguredGmPassword();
+        this.warnIfUsingInsecureLocalPassword();
 
         const databaseUrl = (0, env_alias_1.resolveServerNextDatabaseUrl)();
         if (!databaseUrl.trim()) {
@@ -123,6 +124,9 @@ let RuntimeGmAuthService = class RuntimeGmAuthService {
         const normalizedPassword = typeof newPassword === 'string' ? newPassword.trim() : '';
         if (normalizedPassword.length < 6) {
             throw new common_1.BadRequestException('GM 密码至少需要 6 位');
+        }
+        if (normalizedPassword === DEFAULT_GM_PASSWORD && !canUseInsecureLocalGmPassword()) {
+            throw new common_1.BadRequestException('禁止把 GM 密码设置为默认值 admin123；如需本地临时降级，必须在开发环境显式开启 SERVER_NEXT_ALLOW_INSECURE_LOCAL_GM_PASSWORD=1。');
         }
         if (!this.persistenceEnabled || !this.pool) {
             throw new common_1.BadRequestException('未启用数据库持久化，当前不支持修改 GM 密码');
@@ -272,8 +276,23 @@ let RuntimeGmAuthService = class RuntimeGmAuthService {
 
     getInitialPassword() {
         assertConfiguredGmPassword();
-        return (0, env_alias_1.resolveServerNextGmPassword)(DEFAULT_GM_PASSWORD);
+        const configuredPassword = (0, env_alias_1.resolveServerNextGmPassword)('');
+        if (configuredPassword) {
+            return configuredPassword;
+        }
+        return DEFAULT_GM_PASSWORD;
     }    
+    /**
+ * warnIfUsingInsecureLocalPassword：记录显式本地降级警告。
+ * @returns 无返回值，直接更新warnIfUsingInsecureLocalPassword相关状态。
+ */
+
+    warnIfUsingInsecureLocalPassword() {
+        if (!canUseInsecureLocalGmPassword()) {
+            return;
+        }
+        this.logger.warn('GM 鉴权当前显式启用了本地不安全降级：使用默认密码 admin123。该模式仅允许 development/dev/local/test，且不得用于 shadow、acceptance、full 或生产环境。');
+    }
     /**
  * closePool：执行closePool相关逻辑。
  * @returns 无返回值，直接更新closePool相关状态。
@@ -448,16 +467,26 @@ function safeEqual(left, right) {
 function assertConfiguredGmPassword() {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    const password = (0, env_alias_1.resolveServerNextGmPassword)(DEFAULT_GM_PASSWORD);
-    if (isDevelopmentLikeEnv()) {
+    const envSource = (0, env_alias_1.resolveServerNextGmPasswordEnvSource)();
+    const password = (0, env_alias_1.resolveServerNextGmPassword)('');
+    const allowInsecureLocalPassword = (0, env_alias_1.resolveServerNextAllowInsecureLocalGmPassword)();
+    if (allowInsecureLocalPassword && !isDevelopmentLikeEnv()) {
+        throw new Error('SERVER_NEXT_ALLOW_INSECURE_LOCAL_GM_PASSWORD 或 GM_ALLOW_INSECURE_LOCAL_GM_PASSWORD 只能在 development/dev/local/test 环境使用。');
+    }
+    if (password && password !== DEFAULT_GM_PASSWORD) {
         return;
     }
-    const envSource = (0, env_alias_1.resolveServerNextGmPasswordEnvSource)();
-    if (!envSource) {
-        throw new Error('非开发环境必须显式配置 SERVER_NEXT_GM_PASSWORD 或 GM_PASSWORD，禁止继续回退默认 GM 密码。');
-    }
     if (password === DEFAULT_GM_PASSWORD) {
-        throw new Error('非开发环境禁止使用默认 GM 密码 admin123，请改为安全配置中的独立密码。');
+        if (allowInsecureLocalPassword) {
+            return;
+        }
+        if (envSource) {
+            throw new Error('禁止把 GM 密码显式配置为默认值 admin123；如需本地临时降级，必须删除显式密码并仅在开发环境设置 SERVER_NEXT_ALLOW_INSECURE_LOCAL_GM_PASSWORD=1。');
+        }
+        throw new Error('必须显式配置 SERVER_NEXT_GM_PASSWORD 或 GM_PASSWORD；禁止默认回退到 admin123。仅本地开发可通过 SERVER_NEXT_ALLOW_INSECURE_LOCAL_GM_PASSWORD=1 临时启用默认密码。');
+    }
+    if (!envSource && !allowInsecureLocalPassword) {
+        throw new Error('必须显式配置 SERVER_NEXT_GM_PASSWORD 或 GM_PASSWORD；如需本地开发临时使用默认密码，必须显式设置 SERVER_NEXT_ALLOW_INSECURE_LOCAL_GM_PASSWORD=1，且仅限 development/dev/local/test。');
     }
 }
 /**
@@ -468,4 +497,12 @@ function assertConfiguredGmPassword() {
 function isDevelopmentLikeEnv() {
     const runtimeEnv = String(process.env.SERVER_NEXT_RUNTIME_ENV ?? process.env.APP_ENV ?? process.env.NODE_ENV ?? '').trim().toLowerCase();
     return DEVELOPMENT_LIKE_ENVS.has(runtimeEnv);
+}
+/**
+ * canUseInsecureLocalGmPassword：判断是否允许显式本地 GM 不安全降级。
+ * @returns 返回是否允许显式本地 GM 不安全降级。
+ */
+
+function canUseInsecureLocalGmPassword() {
+    return isDevelopmentLikeEnv() && (0, env_alias_1.resolveServerNextAllowInsecureLocalGmPassword)();
 }

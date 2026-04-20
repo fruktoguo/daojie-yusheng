@@ -77,8 +77,32 @@ export interface AutoUsePillConfig {
   conditions: AutoUsePillCondition[];
 }
 
+/** 战斗目标规则分组。 */
+export type CombatTargetingRuleScope = 'hostile' | 'friendly';
+
+/** 战斗目标规则键。 */
+export type CombatTargetingRuleKey =
+  | 'monster'
+  | 'demonized_players'
+  | 'retaliators'
+  | 'party'
+  | 'sect'
+  | 'terrain'
+  | 'non_hostile_players'
+  | 'all_players';
+
 /** 战斗目标筛选规则。 */
 export interface CombatTargetingRules {
+/**
+ * hostile：敌对目标规则集合。
+ */
+
+  hostile?: CombatTargetingRuleKey[];
+  /**
+ * friendly：友方目标规则集合。
+ */
+
+  friendly?: CombatTargetingRuleKey[];
 /**
  * includeNormalMonsters：集合字段。
  */

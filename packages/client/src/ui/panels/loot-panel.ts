@@ -26,6 +26,8 @@ export class LootPanel {
   private onTake: ((sourceId: string, itemKey: string) => void) | null = null;
   /** onTakeAll：on Take All。 */
   private onTakeAll: ((sourceId: string) => void) | null = null;  
+  /** onStopHarvest：停止连续采摘。 */
+  private onStopHarvest: (() => void) | null = null;
   /**
  * setCallbacks：写入Callback。
  * @param onTake (sourceId: string, itemKey: string) => void 参数说明。
@@ -37,9 +39,11 @@ export class LootPanel {
   setCallbacks(
     onTake: (sourceId: string, itemKey: string) => void,
     onTakeAll: (sourceId: string) => void,
+    onStopHarvest?: () => void,
   ): void {
     this.onTake = onTake;
     this.onTakeAll = onTakeAll;
+    this.onStopHarvest = onStopHarvest ?? null;
   }
 
   /** clear：清理clear。 */
@@ -140,7 +144,7 @@ export class LootPanel {
     }
     body.dataset.lootBound = 'true';
     body.addEventListener('click', (event) => {
-      const target = event.target instanceof HTMLElement ? event.target.closest<HTMLElement>('[data-loot-take],[data-loot-take-all]') : null;
+      const target = event.target instanceof HTMLElement ? event.target.closest<HTMLElement>('[data-loot-take],[data-loot-take-all],[data-loot-stop-harvest]') : null;
       if (!target || !(target instanceof HTMLButtonElement)) {
         return;
       }
@@ -159,6 +163,10 @@ export class LootPanel {
       }
       if (target.dataset.lootTakeAll === 'true') {
         this.onTakeAll?.(sourceId);
+        return;
+      }
+      if (target.dataset.lootStopHarvest === 'true') {
+        this.onStopHarvest?.();
       }
     });
   }
@@ -182,6 +190,13 @@ export class LootPanel {
       takeAllButton.dataset.lootTakeAll = 'true';
       takeAllButton.dataset.sourceId = source.sourceId;
       actions.append(takeAllButton);
+    }
+    if (source.search && source.search.remainingTicks > 0) {
+      const stopButton = createElement('button', 'small-btn ghost', '停止采摘');
+      stopButton.type = 'button';
+      stopButton.dataset.lootStopHarvest = 'true';
+      stopButton.dataset.sourceId = source.sourceId;
+      actions.append(stopButton);
     }
     if (source.desc) {
       actions.append(createElement('div', 'loot-source-desc', source.desc));
@@ -261,4 +276,3 @@ function createElement<K extends keyof HTMLElementTagNameMap>(tagName: K, classN
   }
   return element;
 }
-

@@ -16,7 +16,15 @@ type MainActionStateSourceOptions = {
  * socket：socket相关字段。
  */
 
-  socket: Pick<SocketRuntimeSender, 'sendAction' | 'sendCastSkill' | 'sendUpdateAutoBattleSkills'>;  
+  socket: Pick<
+    SocketRuntimeSender,
+    | 'sendAction'
+    | 'sendCastSkill'
+    | 'sendUpdateAutoBattleSkills'
+    | 'sendUpdateAutoUsePills'
+    | 'sendUpdateCombatTargetingRules'
+    | 'sendUpdateAutoBattleTargetingMode'
+  >;  
   /**
  * beginTargeting：beginTargeting相关字段。
  */
@@ -135,6 +143,15 @@ export function createMainActionStateSource(options: MainActionStateSourceOption
     },
     (skills: AutoBattleSkillConfig[]) => {
       options.socket.sendUpdateAutoBattleSkills(skills);
+    },
+    (pills) => {
+      options.socket.sendUpdateAutoUsePills(pills);
+    },
+    (rules) => {
+      options.socket.sendUpdateCombatTargetingRules(rules);
+    },
+    (mode) => {
+      options.socket.sendUpdateAutoBattleTargetingMode(mode);
     },
   );
 

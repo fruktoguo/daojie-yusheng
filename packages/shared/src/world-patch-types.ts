@@ -143,6 +143,16 @@ export interface WorldPlayerPatchView {
 
   id: string;  
   /**
+ * n：n相关字段。
+ */
+
+  n?: string;  
+  /**
+ * ch：ch相关字段。
+ */
+
+  ch?: string;  
+  /**
  * x：x相关字段。
  */
 
@@ -279,6 +289,16 @@ export interface WorldPortalPatchView {
  */
 
   id: string;  
+  /**
+ * n：n相关字段。
+ */
+
+  n?: string;  
+  /**
+ * ch：ch相关字段。
+ */
+
+  ch?: string;  
   /**
  * x：x相关字段。
  */

@@ -66,6 +66,14 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
       deps.emitEvent(NEXT_C2S.TakeGround, { sourceId, itemKey, takeAll });
     },    
     /**
+ * sendStopLootHarvest：停止当前连续采摘。
+ * @returns 无返回值，直接更新停止当前连续采摘相关状态。
+ */
+
+    sendStopLootHarvest(): void {
+      deps.emitEvent(NEXT_C2S.StopLootHarvest, {});
+    },    
+    /**
  * sendSortInventory：执行sendSort背包相关逻辑。
  * @returns 无返回值，直接更新sendSort背包相关状态。
  */
@@ -112,6 +120,17 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
 
     sendRequestLeaderboard(limit?: NEXT_C2S_EventPayload<typeof NEXT_C2S.RequestLeaderboard>['limit']): void {
       deps.emitEvent(NEXT_C2S.RequestLeaderboard, { limit });
+    },    
+    /**
+ * sendRequestLeaderboardPlayerLocations：执行sendRequestLeaderboard玩家坐标追索相关逻辑。
+ * @param playerIds 玩家ID列表。
+ * @returns 无返回值，直接更新sendRequestLeaderboard玩家坐标追索相关状态。
+ */
+
+    sendRequestLeaderboardPlayerLocations(
+      playerIds: NEXT_C2S_EventPayload<typeof NEXT_C2S.RequestLeaderboardPlayerLocations>['playerIds'],
+    ): void {
+      deps.emitEvent(NEXT_C2S.RequestLeaderboardPlayerLocations, { playerIds });
     },    
     /**
  * sendRequestWorldSummary：执行sendRequest世界摘要相关逻辑。

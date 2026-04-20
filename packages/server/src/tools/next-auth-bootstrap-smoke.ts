@@ -324,6 +324,9 @@ async function main() {
     const gmBootstrapSessionPolicyContract = RUN_MAINLINE_PROOFS
         ? await verifyGmBootstrapSessionPolicyContract()
         : buildProfileSkippedProof('profile_migration_skips_mainline');
+    const malformedNextRecordGuardContract = RUN_MAINLINE_PROOFS
+        ? await verifyMalformedNextIdentityAndSnapshotRecordGuardContract()
+        : buildProfileSkippedProof('profile_migration_skips_mainline');
     await expectNextSocketAuthFailure('invalid.next.token');
     await expectNextSocketAuthFailure(auth.refreshToken);
     await expectNextSocketAuthFailure(auth.accessToken, 'AUTH_SESSION_ID_INVALID', {
@@ -356,6 +359,7 @@ async function main() {
                 helloAuthBootstrapForbiddenContract,
                 implicitLegacyProtocolEntryContract,
                 gmBootstrapSessionPolicyContract,
+                malformedNextRecordGuardContract,
                 invalidRequestedSessionIdRejected: true,
                 authenticatedSessionProof: buildProfileSkippedProof('no_db_next_protocol_rejects_token_runtime'),
                 nextProtocolRejectsLegacyEventContract: buildProfileSkippedProof('no_db_next_protocol_rejects_token_runtime'),
@@ -465,6 +469,7 @@ async function main() {
                 helloAuthBootstrapForbiddenContract,
                 implicitLegacyProtocolEntryContract,
                 gmBootstrapSessionPolicyContract,
+                malformedNextRecordGuardContract,
                 invalidRequestedSessionIdRejected: true,
                 authenticatedSessionProof,
                 nextProtocolRejectsLegacyEventContract,
@@ -1968,6 +1973,22 @@ async function verifyGmBootstrapSessionPolicyContract() {
     if (unknownContractViolation?.stage !== 'next_bootstrap_identity_source_blocked') {
         throw new Error(`expected unknown next bootstrap contract to be blocked by identity source, got ${JSON.stringify(unknownContractViolation)}`);
     }
+    const gmResolvedRequestedSessionId = bootstrapService.resolveBootstrapRequestedSessionId(gmClient, 'gm_requested_session');
+    const playerResolvedRequestedSessionId = bootstrapService.resolveBootstrapRequestedSessionId(playerClient, '  player_requested_session  ');
+    const tokenResolvedRequestedSessionId = bootstrapService.resolveBootstrapRequestedSessionId(tokenClient, 'token_requested_session');
+    const nextInvalidPersistedResolvedRequestedSessionId = bootstrapService.resolveBootstrapRequestedSessionId(nextInvalidPersistedClient, 'next_invalid_requested_session');
+    if (gmResolvedRequestedSessionId !== undefined) {
+        throw new Error(`expected GM bootstrap requested session resolution to stay blocked, got ${gmResolvedRequestedSessionId}`);
+    }
+    if (playerResolvedRequestedSessionId !== 'player_requested_session') {
+        throw new Error(`expected next/native bootstrap requested session resolution to trim and keep the requested sessionId, got ${playerResolvedRequestedSessionId}`);
+    }
+    if (tokenResolvedRequestedSessionId !== undefined) {
+        throw new Error(`expected token/token_seed bootstrap requested session resolution to stay blocked before promotion, got ${tokenResolvedRequestedSessionId}`);
+    }
+    if (nextInvalidPersistedResolvedRequestedSessionId !== undefined) {
+        throw new Error(`expected invalid persistedSource bootstrap requested session resolution to stay blocked, got ${nextInvalidPersistedResolvedRequestedSessionId}`);
+    }
     return {
         implicitDetachedResumeAllowed,
         requestedDetachedResumeAllowed,
@@ -1996,10 +2017,14 @@ async function verifyGmBootstrapSessionPolicyContract() {
         playerEntryPath,
         gmRequestedSessionId: gmBootstrapInput.requestedSessionId ?? null,
         playerRequestedSessionId: playerBootstrapInput.requestedSessionId ?? null,
+        gmResolvedRequestedSessionId: gmResolvedRequestedSessionId ?? null,
+        playerResolvedRequestedSessionId: playerResolvedRequestedSessionId ?? null,
         nextTokenSeedRequestedSessionId: nextTokenSeedBootstrapInput.requestedSessionId ?? null,
         nextLegacyBackfillRequestedSessionId: nextLegacyBackfillBootstrapInput.requestedSessionId ?? null,
+        tokenResolvedRequestedSessionId: tokenResolvedRequestedSessionId ?? null,
         tokenRuntimeRequestedSessionId: tokenRuntimeBootstrapInput.requestedSessionId ?? null,
         migrationRequestedSessionId: migrationBootstrapInput.requestedSessionId ?? null,
+        nextInvalidPersistedResolvedRequestedSessionId: nextInvalidPersistedResolvedRequestedSessionId ?? null,
         nextInvalidPersistedRequestedSessionId: nextInvalidPersistedBootstrapInput.requestedSessionId ?? null,
         noEntryPathNextRequestedSessionId: noEntryPathNextBootstrapInput.requestedSessionId ?? null,
         unknownRequestedSessionId: unknownBootstrapInput.requestedSessionId ?? null,
@@ -2010,6 +2035,98 @@ async function verifyGmBootstrapSessionPolicyContract() {
         tokenInvalidPersistedContractViolationStage: tokenInvalidPersistedContractViolation?.stage ?? null,
         nextInvalidPersistedContractViolationStage: nextInvalidPersistedContractViolation?.stage ?? null,
         unknownContractViolationStage: unknownContractViolation?.stage ?? null,
+    };
+}
+
+async function verifyMalformedNextIdentityAndSnapshotRecordGuardContract() {
+    const authService = new world_player_auth_service_1.WorldPlayerAuthService({
+        validatePlayerToken() {
+            return {
+                sub: 'proof_user_invalid_next_identity_shape',
+                username: 'proof_invalid_next_identity_shape',
+                playerId: 'proof_player_invalid_next_identity_shape',
+                playerName: '无效角色',
+                displayName: '无效',
+            };
+        },
+        resolvePlayerIdentityFromPayload(payload) {
+            return {
+                userId: payload.sub,
+                username: payload.username,
+                displayName: payload.displayName,
+                playerId: payload.playerId,
+                playerName: payload.playerName,
+            };
+        },
+    }, {
+        isEnabled() {
+            return true;
+        },
+        async loadPlayerIdentity() {
+            return null;
+        },
+        async savePlayerIdentity() {
+            throw new Error('unexpected_save_player_identity');
+        },
+    }, {
+        async loadNextPlayerIdentity() {
+            return {
+                userId: 'proof_user_invalid_next_identity_shape',
+                username: 'proof_invalid_next_identity_shape',
+                displayName: '  ',
+                playerId: 'proof_player_invalid_next_identity_shape',
+                playerName: '无效角色',
+                persistedSource: 'native',
+            };
+        },
+    });
+    const malformedIdentity = await authService.authenticatePlayerToken('proof.token.invalid_next_identity_shape', {
+        protocol: 'next',
+    });
+    if (malformedIdentity !== null) {
+        throw new Error(`expected malformed next identity record to be rejected before bootstrap, got ${JSON.stringify(malformedIdentity)}`);
+    }
+    const snapshotService = new world_player_snapshot_service_1.WorldPlayerSnapshotService({
+        isEnabled() {
+            return true;
+        },
+        async loadPlayerSnapshotRecord() {
+            return null;
+        },
+        async savePlayerSnapshot() {
+            throw new Error('unexpected_save_player_snapshot');
+        },
+    }, {
+        buildStarterPersistenceSnapshot() {
+            throw new Error('unexpected_build_starter_snapshot');
+        },
+    }, {
+        async loadNextPlayerSnapshotRecord() {
+            return {
+                snapshot: {
+                    identity: {
+                        id: 'proof_snapshot_player_invalid_persisted_source',
+                    },
+                },
+                persistedSource: 'invalid_snapshot_source',
+            };
+        },
+    });
+    let snapshotError = null;
+    try {
+        await snapshotService.loadPlayerSnapshotResult('proof_snapshot_player_invalid_persisted_source');
+    }
+    catch (error) {
+        snapshotError = error;
+    }
+    if (!(snapshotError instanceof Error) || !snapshotError.message.includes('persistedSource invalid')) {
+        throw new Error(`expected invalid next snapshot record persistedSource to fail hard, got ${snapshotError instanceof Error ? snapshotError.message : String(snapshotError)}`);
+    }
+    return {
+        malformedNextIdentityRejected: true,
+        malformedNextIdentityFailureStage: 'next_identity_shape_invalid',
+        invalidSnapshotPersistedSourceRejected: true,
+        invalidSnapshotPersistedSourceMessage: snapshotError.message,
     };
 }
 /**

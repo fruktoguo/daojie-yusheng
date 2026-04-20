@@ -227,6 +227,133 @@
       "desc": "井下旧阵还留着一口能往更深处开的门，穿过去就是归藏脉窟外围的混行地带。"
     }
   ],
+  "resourceNodeGroups": [
+    {
+      "resourceNodeId": "landmark.herb.frost_lotus_petal",
+      "idPrefix": "lm_cold_frost_lotus",
+      "name": "寒莲瓣",
+      "placements": [
+        {
+          "x": 14,
+          "y": 6
+        },
+        {
+          "x": 50,
+          "y": 9
+        },
+        {
+          "x": 35,
+          "y": 5
+        },
+        {
+          "x": 15,
+          "y": 23
+        },
+        {
+          "x": 3,
+          "y": 22
+        },
+        {
+          "x": 31,
+          "y": 22
+        },
+        {
+          "x": 58,
+          "y": 36
+        },
+        {
+          "x": 6,
+          "y": 46
+        },
+        {
+          "x": 30,
+          "y": 58
+        },
+        {
+          "x": 51,
+          "y": 50
+        }
+      ]
+    },
+    {
+      "resourceNodeId": "landmark.herb.coldmarrow_reed",
+      "idPrefix": "lm_cold_coldmarrow",
+      "name": "寒髓苇",
+      "placements": [
+        {
+          "x": 10,
+          "y": 9
+        },
+        {
+          "x": 17,
+          "y": 13
+        },
+        {
+          "x": 42,
+          "y": 12
+        },
+        {
+          "x": 48,
+          "y": 18
+        },
+        {
+          "x": 10,
+          "y": 30
+        },
+        {
+          "x": 28,
+          "y": 44
+        },
+        {
+          "x": 45,
+          "y": 46
+        },
+        {
+          "x": 53,
+          "y": 35
+        }
+      ]
+    },
+    {
+      "resourceNodeId": "landmark.herb.moonwell_stamen",
+      "idPrefix": "lm_cold_moonwell_stamen",
+      "name": "月井蕊",
+      "placements": [
+        {
+          "x": 4,
+          "y": 18
+        },
+        {
+          "x": 16,
+          "y": 35
+        },
+        {
+          "x": 36,
+          "y": 9
+        },
+        {
+          "x": 38,
+          "y": 24
+        },
+        {
+          "x": 50,
+          "y": 39
+        },
+        {
+          "x": 20,
+          "y": 44
+        },
+        {
+          "x": 21,
+          "y": 52
+        },
+        {
+          "x": 55,
+          "y": 16
+        }
+      ]
+    }
+  ],
   "npcs": [
     {
       "id": "npc_cold_ferry_guide",
@@ -279,190 +406,57 @@
       "x": 24,
       "y": 31,
       "count": 1,
-      "maxAlive": 1,
       "radius": 3,
-      "wanderRadius": 3
+      "maxAlive": 1
     },
     {
       "id": "spawn_cold_moonscale_b",
-      "templateId": "m_cold_moonscale",
       "x": 18,
       "y": 23,
+      "templateId": "m_cold_moonscale",
       "count": 1,
-      "maxAlive": 1,
       "radius": 3,
-      "wanderRadius": 3
+      "maxAlive": 1
     },
     {
       "id": "spawn_cold_moonscale_c",
-      "templateId": "m_cold_moonscale",
       "x": 37,
       "y": 30,
+      "templateId": "m_cold_moonscale",
       "count": 1,
-      "maxAlive": 1,
       "radius": 3,
-      "wanderRadius": 3
+      "maxAlive": 1
     },
     {
       "id": "m_cold_bridge_patrol",
       "x": 34,
       "y": 41,
       "count": 1,
-      "maxAlive": 1,
       "radius": 3,
-      "wanderRadius": 3
+      "maxAlive": 1
     },
     {
       "id": "spawn_cold_bridge_patrol_b",
-      "templateId": "m_cold_bridge_patrol",
       "x": 48,
       "y": 24,
+      "templateId": "m_cold_bridge_patrol",
       "count": 1,
-      "maxAlive": 1,
       "radius": 3,
-      "wanderRadius": 3
+      "maxAlive": 1
     },
     {
       "id": "spawn_cold_bridge_patrol_c",
-      "templateId": "m_cold_bridge_patrol",
       "x": 34,
       "y": 54,
+      "templateId": "m_cold_bridge_patrol",
       "count": 1,
-      "maxAlive": 1,
       "radius": 3,
-      "wanderRadius": 3
+      "maxAlive": 1
     },
     {
       "id": "m_cold_abyss_drake",
       "x": 30,
       "y": 30
-    }
-  ],
-  "resourceNodeGroups": [
-    {
-      "resourceNodeId": "landmark.herb.frost_lotus_petal",
-      "idPrefix": "lm_cold_frost_lotus",
-      "name": "寒莲瓣",
-      "placements": [
-        {
-          "x": 14,
-          "y": 6
-        },
-        {
-          "x": 50,
-          "y": 9
-        },
-        {
-          "x": 35,
-          "y": 5
-        },
-        {
-          "x": 20,
-          "y": 19
-        },
-        {
-          "x": 3,
-          "y": 22
-        },
-        {
-          "x": 37,
-          "y": 29
-        },
-        {
-          "x": 58,
-          "y": 36
-        },
-        {
-          "x": 6,
-          "y": 46
-        },
-        {
-          "x": 30,
-          "y": 58
-        },
-        {
-          "x": 51,
-          "y": 50
-        }
-      ]
-    },
-    {
-      "resourceNodeId": "landmark.herb.coldmarrow_reed",
-      "idPrefix": "lm_cold_coldmarrow",
-      "name": "寒髓苇",
-      "placements": [
-        {
-          "x": 10,
-          "y": 9
-        },
-        {
-          "x": 18,
-          "y": 14
-        },
-        {
-          "x": 30,
-          "y": 12
-        },
-        {
-          "x": 48,
-          "y": 18
-        },
-        {
-          "x": 10,
-          "y": 30
-        },
-        {
-          "x": 24,
-          "y": 38
-        },
-        {
-          "x": 42,
-          "y": 46
-        },
-        {
-          "x": 55,
-          "y": 28
-        }
-      ]
-    },
-    {
-      "resourceNodeId": "landmark.herb.moonwell_stamen",
-      "idPrefix": "lm_cold_moonwell_stamen",
-      "name": "月井蕊",
-      "placements": [
-        {
-          "x": 4,
-          "y": 18
-        },
-        {
-          "x": 16,
-          "y": 26
-        },
-        {
-          "x": 28,
-          "y": 9
-        },
-        {
-          "x": 38,
-          "y": 24
-        },
-        {
-          "x": 50,
-          "y": 34
-        },
-        {
-          "x": 20,
-          "y": 44
-        },
-        {
-          "x": 32,
-          "y": 54
-        },
-        {
-          "x": 55,
-          "y": 16
-        }
-      ]
     }
   ]
 }

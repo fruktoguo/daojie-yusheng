@@ -457,7 +457,9 @@ export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOpti
       options.hideObserveModal();
       latestNextInitSession = latestNextInitSession?.pid === data.self.id ? latestNextInitSession : null;
       latestNextMapEnter = latestNextMapEnter?.mid === data.self.mapId ? latestNextMapEnter : null;
-      options.syncAuraLevelBaseValue(data.auraLevelBaseValue);
+      if (typeof data.auraLevelBaseValue === 'number') {
+        options.syncAuraLevelBaseValue(data.auraLevelBaseValue);
+      }
 
       const player = data.self;
       player.techniques = options.resolvePreviewTechniques(player.techniques);

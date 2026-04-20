@@ -61,6 +61,7 @@ let PlayerCombatService = class PlayerCombatService {
                 this.playerRuntimeService.applyTemporaryBuff(target.playerId, buff);
             },
         });
+        this.playerRuntimeService.setRetaliatePlayerTarget(target.playerId, attacker.playerId, currentTick);
         if (result.totalDamage > 0) {
             this.playerRuntimeService.applyDamage(target.playerId, result.totalDamage);
         }
@@ -337,7 +338,10 @@ function resolveDamage(attacker, target, effect, baseDamage) {
     if (crit) {
         damage = Math.max(1, Math.round(damage * ((200 + Math.max(0, attackerStats.critDamage) / 10) / 100)));
     }
-    return Math.max(1, Math.round(damage * (0, shared_1.getRealmGapDamageMultiplier)(1, 1)));
+    return Math.max(1, Math.round(damage * (0, shared_1.getRealmGapDamageMultiplier)(
+        Math.max(1, attacker.realm?.realmLv ?? 1),
+        Math.max(1, target.realm?.realmLv ?? 1),
+    )));
 }
 /**
  * inferDamageKind：执行inferDamageKind相关逻辑。
