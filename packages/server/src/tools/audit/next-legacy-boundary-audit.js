@@ -30,7 +30,7 @@ const CHECKS = [
     id: "auth.identity.legacy_source",
     category: "P0 auth/bootstrap 真源",
     description: "玩家身份解析仍经由 legacy player source",
-    file: "packages/server/src/network/world-player-auth.service.js",
+    file: "packages/server/src/network/world-player-auth.service.ts",
     pattern: "worldLegacyPlayerSourceService.resolvePlayerIdentityFromCompatSource(",
   },
   {
@@ -44,7 +44,7 @@ const CHECKS = [
     id: "legacy_http.controllers",
     category: "P0 legacy HTTP/GM/admin",
     description: "AppModule 仍挂载 legacy 账号/GM/admin 控制器",
-    file: "packages/server/src/app.module.js",
+    file: "packages/server/src/app.module.ts",
     pattern: "Legacy",
     include: [
       "Controller",
@@ -54,7 +54,7 @@ const CHECKS = [
     id: "legacy_http.providers",
     category: "P0 legacy HTTP/GM/admin",
     description: "AppModule 仍注入 legacy auth/GM compat provider",
-    file: "packages/server/src/app.module.js",
+    file: "packages/server/src/app.module.ts",
     pattern: "Legacy",
     include: [
       "Service",

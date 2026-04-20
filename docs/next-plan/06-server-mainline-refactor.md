@@ -4,6 +4,15 @@
 
 ## 当前基线
 
+补充（2026-04-20，server TS loop 当前进度）：
+
+- bootstrap/config 入口簇已从手写 `.js` 真源迁到 `.ts`：`packages/server/src/config/env-alias.ts`、`packages/server/src/config/server-cors.ts`、`packages/server/src/main.ts`
+- HTTP/bootstrap 簇已从手写 `.js` 真源迁到 `.ts`：`packages/server/src/app.module.ts`、`packages/server/src/http/next-http.registry.ts` 与 `packages/server/src/http/next/*.ts`
+- 前三轮 TS loop 迁移均不改变 next 主链行为、协议、持久化与 GM/admin 语义；已补跑 `pnpm --filter @mud/server-next compile`、`smoke:readiness-gate`、`smoke:next-auth-bootstrap`、`smoke:gm-next`
+- 第 3 轮已继续收掉 auth 叶子真源：`packages/server/src/auth/account-validation.ts`、`packages/server/src/auth/password-hash.ts`、`packages/server/src/auth/player-token-verify.ts`
+- 第 4-6 轮继续沿 network/auth 最小链路推进：`packages/server/src/network/world-player-token-codec.service.ts`、`packages/server/src/network/world-player-token.service.ts` 与 `packages/server/src/network/world-player-auth.service.ts` 已从手写 `.js` 真源迁到 `.ts`
+- `06` 继续只负责 world/gateway/sync/runtime 主链收口，不重复展开 HTTP/bootstrap 与 auth 叶子迁移细节；当前 `packages/server/src` 剩余手写 `.js` 真源基线为 `248`
+
 当前最重的服务端主链文件已经说明这不是“文件偏长”，而是“职责失控”：
 
 - `packages/server/src/runtime/world/world-runtime.service.js`
@@ -24,8 +33,8 @@
 - `packages/server/src/network/world-session-bootstrap.service.js`
   - `776` 行
   - 当前混着：session reuse 策略、bootstrap 入口、身份提升后首包同步准备。
-- `packages/server/src/network/world-player-auth.service.js`
-  - `691` 行
+- `packages/server/src/network/world-player-auth.service.ts`
+  - `408` 行
   - 当前混着：token 鉴权、身份提升、migration backfill、持久化来源归一。
 - `packages/server/src/network/world-player-snapshot.service.js`
   - `284` 行
@@ -215,7 +224,7 @@
 ### 第 2 批：收口登录到进入世界的单路径
 
 - [x] 以 `world-session-bootstrap.service.js` 为中心，把 `gateway -> auth -> snapshot -> session binding -> init sync` 串成唯一主链
-- [x] 明确 `world-player-auth.service.js` 只负责：
+- [x] 明确 `world-player-auth.service.ts` 只负责：
   - token -> identity
   - persistedSource 归一
   - migration identity 收口
@@ -230,27 +239,27 @@
 
 当前已完成的首刀：
 
-- `world-player-auth.service.js` 不再在 `authenticatePlayerToken()` 里前置执行 `token_seed` starter snapshot 准入
+- `world-player-auth.service.ts` 不再在 `authenticatePlayerToken()` 里前置执行 `token_seed` starter snapshot 准入
 - `token_seed` 身份在持久化成功后直接从 auth 返回，由 `world-session-bootstrap.service.js -> loadAuthenticatedPlayerSnapshot()` 接管缺快照时的恢复/阻断
 - `next-auth-bootstrap-smoke.js` 已同步把这条责任边界改成“bootstrap/snapshot 阶段负责 snapshot readiness”
 
 本轮继续完成：
 
-- `world-player-auth.service.js` 不再对已加载的 next 身份执行 `nextProtocolStrict` 二次拦截
+- `world-player-auth.service.ts` 不再对已加载的 next 身份执行 `nextProtocolStrict` 二次拦截
 - `world-session-bootstrap.service.js -> resolveAuthenticatedBootstrapContractViolation()` 成为 next 主链准入的唯一合同裁判
 
 本轮继续完成：
 
 - `world-session-bootstrap.service.js` 现在自持 `token_seed -> native` 的 required normalization；一旦 bootstrap 已选择 native 快照，归一失败会直接阻断会话成功
-- `world-player-auth.service.js` 不再暴露 `promoteTokenSeedIdentityToNative()` 一类 bootstrap 回调职责
+- `world-player-auth.service.ts` 不再暴露 `promoteTokenSeedIdentityToNative()` 一类 bootstrap 回调职责
 - `next-auth-bootstrap-smoke.js` 已同步验证“auth 返回 token/token_seed，bootstrap 在快照成功后提升为 next/native”的新边界
 - 已进一步收紧：`token/token_seed` 仍可进入 bootstrap，但在 bootstrap 自持提升完成前不再享有 detached-session implicit reuse、requested session reuse 或 connected-session reuse；运行时 session reuse 仅保留给 `next/native`
-- 本轮继续收紧：next 协议下，已加载 `legacy_backfill / legacy_sync` 身份会在 `world-player-auth.service.js` 的 auth 边界直接被拒绝，不再进入 `world-session-bootstrap.service.js` 的 bootstrap 合同裁判；`token_seed -> native` 的 snapshot recovery / required normalization 已由 bootstrap/snapshot 单路径承接，不再决定后续 `world-runtime` batch-5 ownership seam 的执行顺序。
+- 本轮继续收紧：next 协议下，已加载 `legacy_backfill / legacy_sync` 身份会在 `world-player-auth.service.ts` 的 auth 边界直接被拒绝，不再进入 `world-session-bootstrap.service.js` 的 bootstrap 合同裁判；`token_seed -> native` 的 snapshot recovery / required normalization 已由 bootstrap/snapshot 单路径承接，不再决定后续 `world-runtime` batch-5 ownership seam 的执行顺序。
 
 当前结论：
 
 - 登录到进入世界的主链编排已收束到 `world-session-bootstrap.service.js`
-- `world-player-auth.service.js` 与 `world-player-snapshot.service.js` 的职责边界已按本批目标收口
+- `world-player-auth.service.ts` 与 `world-player-snapshot.service.js` 的职责边界已按本批目标收口
 - 下一阶段重心切到 batch 3：把同步与投影拆成三层
 
 最小验证：
@@ -288,7 +297,7 @@
 - 新增 `packages/server/src/network/world-sync-quest-loot.service.js`
 - `world-sync.service.js` 不再自持 `lastQuestRevisionByPlayerId` / `lootWindowByPlayerId`，quest revision 检查与 loot window build/open/cleanup 已委托给 `WorldSyncQuestLootService`
 - `world-client-event.service.js` 的 `emitLootWindowUpdate()` 已改为直接复用 `WorldSyncQuestLootService`
-- `app.module.js` 已完成 batch 3 首刀 provider 接线，`world-sync.service.js` 继续保留 world/self/panel delta、threat、minimap 等主编排与热路径
+- `app.module.ts` 已完成 batch 3 首刀 provider 接线，`world-sync.service.js` 继续保留 world/self/panel delta、threat、minimap 等主编排与热路径
 - 为恢复 batch 3 验证链，补齐了 `world-gateway-read-model.helper.js` 的 `AttrDetail.numericStatBreakdowns` 结构，使其重新符合 shared 协议约定
 - 新增 `packages/server/src/network/world-sync-threat.service.js`
 - `world-sync.service.js` 的 threat arrow build / diff / emit 冷路径已委托给 `WorldSyncThreatService`，`nextAuxStateByPlayerId.threatArrows` 仍暂留在 sync 编排层，避免第二刀同时扩大到 minimap cache 边界

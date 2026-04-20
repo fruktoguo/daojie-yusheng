@@ -49,7 +49,7 @@
 - 状态：已修
 - 风险：公网环境下属于事故级安全风险
 - 现状：
-  - `packages/server/src/network/world-player-token-codec.service.js`
+  - `packages/server/src/network/world-player-token-codec.service.ts`
   - 非开发环境若缺少 `SERVER_NEXT_PLAYER_TOKEN_SECRET / NEXT_PLAYER_TOKEN_SECRET` 会直接 fail-fast
   - 仅开发态保留内置 dev secret 回退
 - 本轮处理：
@@ -72,8 +72,8 @@
 - 状态：已修
 - 风险：跨域暴露面过大
 - 现状：
-  - `packages/server/src/config/server-cors.js`
-  - `packages/server/src/main.js`
+  - `packages/server/src/config/server-cors.ts`
+  - `packages/server/src/main.ts`
   - `packages/server/src/network/world.gateway.js`
 - 本轮处理：
   - HTTP 与 Socket 共用同一套 CORS 配置解析
@@ -85,9 +85,9 @@
 - 状态：已修
 - 风险：登录、注册、刷新接口容易遭暴力尝试
 - 现状：
-  - `packages/server/src/http/next/next-auth.controller.js`
-  - `packages/server/src/http/next/next-gm-auth.controller.js`
-  - `packages/server/src/http/next/next-auth-rate-limit.service.js`
+  - `packages/server/src/http/next/next-auth.controller.ts`
+  - `packages/server/src/http/next/next-gm-auth.controller.ts`
+  - `packages/server/src/http/next/next-auth-rate-limit.service.ts`
 - 本轮处理：
   - 已覆盖 `register / login / refresh / gm-login`
   - 限流同时按 IP 与账号/主体两个维度累计失败窗口

@@ -266,7 +266,7 @@
 - 风险：会直接打到所有还没完成 next identity 落库的旧账号。
 - 并行性：`不可与其他 auth/bootstrap 真源改动并行混改`
 - 相关文件：
-   - `../packages/server/src/network/world-player-auth.service.js`
+   - `../packages/server/src/network/world-player-auth.service.ts`
    - `../packages/server/src/persistence/player-identity-persistence.service.js`
 
 ### T02 把 `WorldPlayerSourceService` 从 legacy facade 变成 next-native source
@@ -287,7 +287,7 @@
 - 风险：这是 identity 和 snapshot 的共同上游，切错会同时影响登录与 bootstrap。
 - 并行性：`不建议与 T01/T03/T05 并行混改`
 - 相关文件：
-   - `../packages/server/src/http/next/next-player-auth.service.js`
+   - `../packages/server/src/http/next/next-player-auth.service.ts`
    - `../packages/server/src/network/world-player-source.service.js`
    - `../packages/server/src/network/world-legacy-player-source.service.js`
 
@@ -409,7 +409,7 @@
 - 风险：过早削弱 trace 会丢失真源替换期的排障抓手。
 - 并行性：`可安全并行做观测整理，不能拿它替代真源替换`
 - 相关文件：
-  - `../packages/server/src/network/world-player-token.service.js`
+   - `../packages/server/src/network/world-player-token.service.ts`
   - `../packages/server/src/tools/next-auth-bootstrap-smoke.js`
 
 ## 二、P1 证明链与运营面闭环
@@ -893,14 +893,14 @@
 
 | 任务 | 收益 | 风险 | subagent | 首改文件 |
 | --- | --- | --- | --- | --- |
-| `T01` identity fallback 收口 | 高 | 高 | 不适合 | `../packages/server/src/network/world-player-auth.service.js` |
+| `T01` identity fallback 收口 | 高 | 高 | 不适合 | `../packages/server/src/network/world-player-auth.service.ts` |
 | `T02` player source next-native 化 | 高 | 高 | 不适合 | `../packages/server/src/network/world-player-source.service.js` |
 | `T03` snapshot fallback 收口 | 高 | 高 | 不适合 | `../packages/server/src/network/world-session-bootstrap.service.js` |
 | `T04` snapshot 真源主链 next-native 化 | 高 | 高 | 不适合 | `../packages/server/src/network/world-player-snapshot.service.js` |
 | `T05` bootstrap 单线入口 | 高 | 高 | 不适合 | `../packages/server/src/network/world.gateway.js` |
 | `T06` guest/authenticated/GM bootstrap 拆分 | 中 | 高 | 不适合 | `../packages/server/src/network/world.gateway.js` |
 | `T07` session 真源边界定稿 | 高 | 高 | 不适合 | `../packages/server/src/network/world-session.service.js` |
-| `T08` trace 降级为可选观测 | 中 | 中 | 适合 | `../packages/server/src/network/world-player-token.service.js` |
+| `T08` trace 降级为可选观测 | 中 | 中 | 适合 | `../packages/server/src/network/world-player-token.service.ts` |
 
 ### 证明链 / 运营面看板
 
@@ -1191,7 +1191,7 @@
 
 ### 17.1 实际代码改动
 
-- 文件：`packages/server/src/network/world-player-auth.service.js`
+- 文件：`packages/server/src/network/world-player-auth.service.ts`
 - 改动：新增 next-token-runtime 严格开关
   - 新增环境开关读取：`SERVER_NEXT_AUTH_BLOCK_TOKEN_RUNTIME_ON_NEXT_PROTOCOL` / `NEXT_AUTH_BLOCK_TOKEN_RUNTIME_ON_NEXT_PROTOCOL`
   - `allowTokenRuntimeIdentity` 调整为“默认兼容、开关开启后 next 协议禁用 token_runtime”
@@ -1269,7 +1269,7 @@
 
 #### A. auth / bootstrap / snapshot / session
 
-- [packages/server/src/network/world-player-auth.service.js](../packages/server/src/network/world-player-auth.service.js)
+- [packages/server/src/network/world-player-auth.service.ts](../packages/server/src/network/world-player-auth.service.ts)
   仍保留 `resolveMigrationIdentity`、`loadMigrationSnapshot`、`shouldPreferCompatBackfill`、`authenticateViaCompatMigration`，说明 identity 主链仍有 migration/backfill 语义
 - [packages/server/src/network/world-player-snapshot.service.js](../packages/server/src/network/world-player-snapshot.service.js)
   仍保留 `ensureCompatBackfillSnapshot` 与 migration snapshot 装载，说明 snapshot 还处于“next 持久化 + compat 迁移工具”过渡态

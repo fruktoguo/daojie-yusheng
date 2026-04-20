@@ -92,7 +92,7 @@
 
 如果现在要继续“实打实往前改”，最值得先盯的是下面这些文件：
 
-- [packages/server/src/network/world-player-auth.service.js](../packages/server/src/network/world-player-auth.service.js)
+- [packages/server/src/network/world-player-auth.service.ts](../packages/server/src/network/world-player-auth.service.ts)
   这里决定 `T01` 是否能把 next 协议 authenticated 入场彻底收成仅认 next identity
 - [packages/server/src/network/world-session-bootstrap.service.js](../packages/server/src/network/world-session-bootstrap.service.js)
   这里决定 `T03/T05` 是否能把 snapshot runtime fallback 和 bootstrap 入口彻底收成单线

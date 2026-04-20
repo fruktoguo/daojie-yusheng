@@ -29,7 +29,7 @@
 
 | 层 | 目录 | 说明 |
 | --- | --- | --- |
-| 入口层 | `packages/server/src/main.js` `app.module.js` | Nest 主模块，注册 HTTP、Socket、runtime、persistence |
+| 入口层 | `packages/server/src/main.ts` `app.module.ts` | Nest 主模块，注册 HTTP、Socket、runtime、persistence |
 | HTTP 层 | `packages/server/src/http/` | 玩家鉴权、账号修改、GM、数据库维护接口 |
 | Socket 层 | `packages/server/src/network/` | 世界网关、会话绑定、bootstrap、同步、客户端事件下发 |
 | Runtime 层 | `packages/server/src/runtime/` | 世界/tick/实例、玩家、战斗、市场、邮件、建议、兑换码、工坊 |

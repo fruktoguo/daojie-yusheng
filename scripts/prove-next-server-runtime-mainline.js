@@ -5,27 +5,40 @@ const path = require("node:path");
 
 const repoRoot = path.resolve(__dirname, "..");
 const runtimeRoot = path.join(repoRoot, "packages/server/src/runtime");
-const SOURCE_EXTENSIONS = [".js"];
+const SOURCE_EXTENSIONS = [".js", ".ts"];
 const IMPORT_PATTERN = /require\(['\"]([^'\"]+)['\"]\)|from ['\"]([^'\"]+)['\"]/g;
 
 const ALLOWED_RUNTIME_TO_NETWORK = new Set([
   `packages${path.sep}server${path.sep}src${path.sep}network${path.sep}world-session.service.js`,
   `packages${path.sep}server${path.sep}src${path.sep}network${path.sep}world-client-event.service.js`,
-  `packages${path.sep}server${path.sep}src${path.sep}network${path.sep}world-player-token.service.js`,
+  `packages${path.sep}server${path.sep}src${path.sep}network${path.sep}world-player-token.service.ts`,
   `packages${path.sep}server${path.sep}src${path.sep}network${path.sep}world-sync.service.js`,
 ]);
 
 const ALLOWED_RUNTIME_TO_HTTP = new Set([
-  `packages${path.sep}server${path.sep}src${path.sep}http${path.sep}next${path.sep}next-gm.constants.js`,
-  `packages${path.sep}server${path.sep}src${path.sep}http${path.sep}next${path.sep}next-gm-contract.js`,
+  `packages${path.sep}server${path.sep}src${path.sep}http${path.sep}next${path.sep}next-gm.constants.ts`,
+  `packages${path.sep}server${path.sep}src${path.sep}http${path.sep}next${path.sep}next-gm-contract.ts`,
 ]);
 
 const FORBIDDEN_NETWORK_RUNTIME_BYPASSES = [
   `packages${path.sep}server${path.sep}src${path.sep}network${path.sep}world-player-source.service.js`,
   `packages${path.sep}server${path.sep}src${path.sep}network${path.sep}world-player-snapshot.service.js`,
-  `packages${path.sep}server${path.sep}src${path.sep}network${path.sep}world-player-auth.service.js`,
+  `packages${path.sep}server${path.sep}src${path.sep}network${path.sep}world-player-auth.service.ts`,
   `packages${path.sep}server${path.sep}src${path.sep}network${path.sep}world-auth.registry.js`,
 ];
+
+function resolveImportTarget(absoluteTarget) {
+  if (fs.existsSync(absoluteTarget)) {
+    return absoluteTarget;
+  }
+  if (fs.existsSync(`${absoluteTarget}.ts`)) {
+    return `${absoluteTarget}.ts`;
+  }
+  if (fs.existsSync(`${absoluteTarget}.js`)) {
+    return `${absoluteTarget}.js`;
+  }
+  return absoluteTarget;
+}
 
 function collectFiles(root) {
   const queue = [root];
@@ -55,12 +68,9 @@ function collectImports(filePath, source) {
       continue;
     }
     const absoluteTarget = path.resolve(path.dirname(filePath), request);
-    const withExtension = fs.existsSync(absoluteTarget)
-      ? absoluteTarget
-      : (fs.existsSync(`${absoluteTarget}.js`) ? `${absoluteTarget}.js` : absoluteTarget);
     imports.push({
       request,
-      absoluteTarget: withExtension,
+      absoluteTarget: resolveImportTarget(absoluteTarget),
       line: source.slice(0, match.index ?? 0).split(/\r?\n/).length,
     });
   }

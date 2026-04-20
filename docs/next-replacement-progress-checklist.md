@@ -1,6 +1,6 @@
 # next 替换进度清单
 
-更新时间：2026-04-16（基于实跑与审计，不再按 `TODO` 锚点计数）
+更新时间：2026-04-20（基于实跑与审计，不再按 `TODO` 锚点计数）
 
 ## 说明
 
@@ -25,7 +25,7 @@
 
 | blocker 组 | 当前主要区域 | 本轮结论 |
 | --- | --- | --- |
-| auth/token/bootstrap 真源未 fully next-native | `packages/server/src/network` | `next-legacy-boundary-audit` 当前仍命中 `4 / 22`，核心在 token codec 与 legacy source |
+| auth/token/bootstrap 真源未 fully next-native | `packages/server/src/network` | `next-legacy-boundary-audit` 当前已清到 `0 / 18`；剩余阻塞转为 `world-player-source / world-player-snapshot / world-session-bootstrap` 等真源仍未 fully next-native |
 | with-db / acceptance / full / shadow 仍缺本轮实环境复证 | `packages/server` | 本轮仅无库 local gate 复跑为绿，带库与 shadow 仍待环境 |
 | world sync / 首包 / projector 尾项 | `packages/server/src/network` | `MapStatic` / `Bootstrap` 仍明显偏重，legacy combat effects 仍在同步链 |
 | client patch-first / alias 尾项 | `packages/client/src/ui` | 主 socket 已 next-only，但局部面板仍有整块重绘点 |
@@ -34,8 +34,9 @@
 
 ## 当前最需要盯的文件带
 
-- `packages/server/src/network/world-player-token-codec.service.js`
-- `packages/server/src/network/world-legacy-player-repository.js`
+- `packages/server/src/network/world-player-token-codec.service.ts`
+- `packages/server/src/network/world-player-source.service.js`
+- `packages/server/src/network/world-player-snapshot.service.js`
 - `packages/server/src/network/world-sync.service.js`
 - `packages/client/src/ui/panels/action-panel.ts`
 - `docs/next-legacy-boundary-audit.md`

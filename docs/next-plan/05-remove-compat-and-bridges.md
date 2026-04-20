@@ -47,7 +47,7 @@
 当前建议直接按下面顺序拆：
 
 1. 先修文档里的假完成勾选
-2. 单独修 `world-player-auth.service.js` / `world-player-snapshot.service.js` 的 `compat_*` trace 与 failureStage
+2. 单独修 `world-player-auth.service.ts` / `world-player-snapshot.service.js` 的 `compat_*` trace 与 failureStage
 3. 同步修 `next-auth-bootstrap-smoke.js` 对旧命名的断言
 4. 最后再删 runtime bridge 和 legacy source
 
@@ -59,8 +59,8 @@
   - `world-legacy-player-repository.js` 已删，legacy `users` / `players` 显式 migration 查询也已从本服务删除。
   - 当前仅保留 `resolvePlayerIdentityForMigration / loadPlayerSnapshotForMigration` no-op wrapper，避免外部调用面立即断裂。
   - `allowCompatMigration` 命名已删；还残留 `legacy:vitals_baseline` 规范化兼容，但不再保留 legacy 库读取本体。
-- `packages/server/src/network/world-player-auth.service.js`
-  - `compat_*` failureStage 已收口，但仍保留 `legacy_backfill` / `legacy_sync` 来源提升、migration backfill 保存与快照补种主逻辑。
+- `packages/server/src/network/world-player-auth.service.ts`
+  - `compat_*` failureStage 已收口；当前保留的是 token 鉴权、`token_seed` 保存、persistedSource 归一与 next 协议下 legacy persistedSource 拒绝，migration source/snapshot 残余主要已落到 `world-player-source.service.js` / `world-player-snapshot.service.js`。
 - `packages/server/src/network/world-player-snapshot.service.js`
   - `compat_snapshot_*` failureStage 已删，仍保留 migration snapshot load / save / miss 失败分支本体。
 - `packages/server/src/network/world-session-bootstrap.service.js`
@@ -121,7 +121,7 @@
 ### 第 1 批：先删 facade / alias / 命名兼容
 
 - [x] 删除 `world-player-source.service.js` 中剩余 compat 命名、布尔参数、注释口径
-- [x] 删除 `world-player-auth.service.js` / `world-player-snapshot.service.js` 中仍保留的 `compat_*` failureStage / trace 命名
+- [x] 删除 `world-player-auth.service.ts` / `world-player-snapshot.service.js` 中仍保留的 `compat_*` failureStage / trace 命名
 - [x] 删除只为兼容旧命名存在的 wrapper / facade，而不是继续新增别名
 
 删除前提：
@@ -144,7 +144,7 @@
 
 - [x] 在 `04` 的一次性迁移脚本覆盖身份与玩家快照后，删除 `world-legacy-player-repository.js`
 - [x] 删除 `world-player-source.service.js` 对 legacy `users/players` 的读取
-- [x] 删除 `world-player-auth.service.js` 中 `legacy_backfill` / `legacy_sync` 的运行时提升路径
+- [x] 删除 `world-player-auth.service.ts` 中 `legacy_backfill` / `legacy_sync` 的运行时提升路径
 - [x] 删除 `world-player-snapshot.service.js` 中 migration backfill snapshot 补种主逻辑
 - [x] 同步收紧 `next-auth-bootstrap-smoke.js`，把 migration-only proof 缩成“脚本迁移后禁止 runtime backfill”
 
@@ -169,7 +169,7 @@
 
 本轮已收口的子步：
 
-- next 协议下，已加载 `legacy_backfill / legacy_sync` 身份现在会在 `world-player-auth.service.js` 的 auth 边界直接被拒绝，不再继续进入 bootstrap 合同裁判或运行时主链。
+- next 协议下，已加载 `legacy_backfill / legacy_sync` 身份现在会在 `world-player-auth.service.ts` 的 auth 边界直接被拒绝，不再继续进入 bootstrap 合同裁判或运行时主链。
 - `WorldPlayerAuthService` 已删除 `authenticateViaMigration()` / `shouldPreferMigrationBackfill()` / `ensureLegacyBackfillSnapshot()`，显式 `migration` 协议窗口不再触发运行时 backfill。
 - `WorldPlayerSnapshotService` 已删除 `ensureMigrationBackfillSnapshot()`；runtime 不再从 migration 源补种 native snapshot。
 - `next-auth-bootstrap-smoke.js` 已把 mainline proof 收紧到“仅 `native / token_seed` 可进入 next auth 主链”，并移除把 `legacy_backfill` 当作可达 mainline 身份的旧假设；migration proof 仍只保留 explicit migration source gate。

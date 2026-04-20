@@ -681,8 +681,8 @@
 仍卡住的模块：
 
 - world-session-bootstrap.service.js](../packages/server/src/network/world-session-bootstrap.service.js)
-- world-player-auth.service.js](../packages/server/src/network/world-player-auth.service.js)
-- world-player-token.service.js](../packages/server/src/network/world-player-token.service.js)
+- world-player-auth.service.ts](../packages/server/src/network/world-player-auth.service.ts)
+- world-player-token.service.ts](../packages/server/src/network/world-player-token.service.ts)
 - world-player-token-compat.js](../packages/server/src/network/world-player-token-compat.js)
 - world-legacy-jwt.service.js](../packages/server/src/network/world-legacy-jwt.service.js)
 
@@ -863,12 +863,12 @@
 
 当前阻塞模块：
 
-- `packages/server/src/network/world-player-auth.service.js`
+- `packages/server/src/network/world-player-auth.service.ts`
   - `../packages/server/src/network/world-player-snapshot.service.js`
 - `packages/server/src/network/world-player-source.service.js`
 - `packages/server/src/network/world-legacy-player-source.service.js`
 - `packages/server/src/network/world-legacy-player-repository.js`
-- `packages/server/src/http/next/next-player-auth.service.js`
+- `packages/server/src/http/next/next-player-auth.service.ts`
 
 还剩的具体工程块：
 
@@ -939,7 +939,7 @@
 
 当前阻塞模块：
 
-- `packages/server/src/app.module.js`
+- `packages/server/src/app.module.ts`
 - `packages/server/src/network/world-sync.service.js`
 - `packages/server/src/network/world-legacy-sync.service.js`
 - `packages/server/src/network/world-protocol-projection.service.js`
