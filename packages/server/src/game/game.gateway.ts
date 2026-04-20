@@ -61,6 +61,7 @@ import {
   C2S_RequestMarketTradeHistory,
   C2S_RequestAttrDetail,
   C2S_RequestLeaderboard,
+  C2S_RequestLeaderboardPlayerLocations,
   C2S_RequestWorldSummary,
   C2S_CreateMarketSellOrder,
   C2S_CreateMarketBuyOrder,
@@ -93,6 +94,7 @@ import {
   S2C_TileRuntimeDetail,
   S2C_AttrDetail,
   S2C_Leaderboard,
+  S2C_LeaderboardPlayerLocations,
   S2C_WorldSummary,
   DEFAULT_BASE_ATTRS,
   DEFAULT_BONE_AGE_YEARS,
@@ -1558,6 +1560,19 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
 /** payload：定义该变量以承载业务值。 */
     const payload = await this.leaderboardService.buildLeaderboard(data.limit);
     client.emit(S2C.Leaderboard, payload satisfies S2C_Leaderboard);
+  }
+
+  @SubscribeMessage(C2S.RequestLeaderboardPlayerLocations)
+/** handleRequestLeaderboardPlayerLocations：处理当前场景中的对应操作。 */
+  async handleRequestLeaderboardPlayerLocations(client: Socket, data: C2S_RequestLeaderboardPlayerLocations) {
+/** playerId：定义该变量以承载业务值。 */
+    const playerId = client.data?.playerId as string;
+    if (!playerId) {
+      return;
+    }
+/** payload：定义该变量以承载业务值。 */
+    const payload = await this.leaderboardService.buildPlayerLocations(data.playerIds);
+    client.emit(S2C.LeaderboardPlayerLocations, payload satisfies S2C_LeaderboardPlayerLocations);
   }
 
   @SubscribeMessage(C2S.RequestWorldSummary)

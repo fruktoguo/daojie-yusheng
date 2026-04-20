@@ -3,10 +3,12 @@ import {
   LeaderboardDeathEntry,
   LeaderboardMonsterKillEntry,
   LeaderboardPlayerKillEntry,
+  LeaderboardPlayerLocationEntry,
   LeaderboardRealmEntry,
   LeaderboardSpiritStoneEntry,
   LeaderboardSupremeAttrEntry,
   S2C_Leaderboard,
+  S2C_LeaderboardPlayerLocations,
 } from '@mud/shared';
 import { formatDisplayInteger } from '../utils/number';
 import { detailModalHost } from './detail-modal-host';
@@ -18,6 +20,7 @@ type LeaderboardTab = 'realm' | 'monsterKills' | 'spiritStones' | 'playerKills' 
 const LEADERBOARD_OWNER_ID = 'leaderboard-modal';
 /** LEADERBOARD_LIMIT：定义该变量以承载业务值。 */
 const LEADERBOARD_LIMIT = 10;
+const LEADERBOARD_PLAYER_LOCATION_REFRESH_INTERVAL_MS = 10_000;
 
 /** LEADERBOARD_TAB_LABELS：定义该变量以承载业务值。 */
 const LEADERBOARD_TAB_LABELS: Record<LeaderboardTab, string> = {
@@ -66,16 +69,23 @@ export class LeaderboardModal {
   private activeTab: LeaderboardTab = 'realm';
   private loading = false;
   private requestData: ((limit: number) => void) | null = null;
+  private requestPlayerLocations: ((playerIds: string[]) => void) | null = null;
+  private playerLocationById = new Map<string, LeaderboardPlayerLocationEntry>();
+  private playerKillLocationNodes = new Map<string, HTMLElement>();
+  private locationTimer: number | null = null;
 
   setCallbacks(callbacks: {
     onRequestData: (limit: number) => void;
+    onRequestPlayerLocations?: (playerIds: string[]) => void;
   }): void {
     this.requestData = callbacks.onRequestData;
+    this.requestPlayerLocations = callbacks.onRequestPlayerLocations ?? null;
   }
 
 /** open：执行对应的业务逻辑。 */
   open(): void {
     this.loading = true;
+    this.startLocationPolling();
     this.render();
     this.requestData?.(LEADERBOARD_LIMIT);
   }
@@ -86,7 +96,17 @@ export class LeaderboardModal {
     this.loading = false;
     if (detailModalHost.isOpenFor(LEADERBOARD_OWNER_ID)) {
       this.render();
+      this.requestVisiblePlayerKillLocations();
     }
+  }
+
+/** applyPlayerLocations：执行对应的业务逻辑。 */
+  applyPlayerLocations(data: S2C_LeaderboardPlayerLocations): void {
+    this.playerLocationById.clear();
+    for (const entry of data.entries) {
+      this.playerLocationById.set(entry.playerId, entry);
+    }
+    this.syncPlayerKillLocationNodes();
   }
 
 /** render：执行对应的业务逻辑。 */
@@ -98,6 +118,10 @@ export class LeaderboardModal {
       subtitle: this.buildSubtitle(),
       hint: '点击空白处关闭',
       bodyHtml: this.renderBodyHtml(),
+      onClose: () => {
+        this.stopLocationPolling();
+        this.playerKillLocationNodes.clear();
+      },
       onAfterRender: (body) => {
         body.querySelectorAll<HTMLButtonElement>('[data-leaderboard-tab]').forEach((button) => {
           button.addEventListener('click', () => {
@@ -108,6 +132,7 @@ export class LeaderboardModal {
             }
             this.activeTab = tab;
             this.render();
+            this.requestVisiblePlayerKillLocations();
           });
         });
         body.querySelectorAll<HTMLButtonElement>('[data-leaderboard-refresh]').forEach((button) => {
@@ -117,6 +142,8 @@ export class LeaderboardModal {
             this.requestData?.(LEADERBOARD_LIMIT);
           });
         });
+        this.capturePlayerKillLocationNodes(body);
+        this.syncPlayerKillLocationNodes();
       },
     });
   }
@@ -127,7 +154,9 @@ export class LeaderboardModal {
     const limit = this.data?.limit ?? LEADERBOARD_LIMIT;
 /** generatedAt：定义该变量以承载业务值。 */
     const generatedAt = formatGeneratedAt(this.data?.generatedAt);
-    return `收录前 ${formatDisplayInteger(limit)} 名 · 十分钟一更 · ${generatedAt}`;
+    return this.activeTab === 'playerKills'
+      ? `收录前 ${formatDisplayInteger(limit)} 名 · 榜册十分钟一更 · 坐标十秒一追索 · ${generatedAt}`
+      : `收录前 ${formatDisplayInteger(limit)} 名 · 十分钟一更 · ${generatedAt}`;
   }
 
 /** renderBodyHtml：执行对应的业务逻辑。 */
@@ -218,13 +247,23 @@ export class LeaderboardModal {
 
 /** renderPlayerKillBoard：执行对应的业务逻辑。 */
   private renderPlayerKillBoard(entries: LeaderboardPlayerKillEntry[]): string {
-    return this.renderStandardList(
-      entries.map((entry) => ({
-        rank: entry.rank,
-        name: entry.playerName,
-        value: `击杀玩家 ${formatDisplayInteger(entry.playerKillCount)}`,
-      })),
-    );
+    if (entries.length === 0) {
+      return '<div class="empty-hint">暂无榜册内容。</div>';
+    }
+    return `
+      <div class="leaderboard-list">
+        ${entries.map((entry) => `
+          <div class="leaderboard-row">
+            <div class="leaderboard-rank">#${formatDisplayInteger(entry.rank)}</div>
+            <div class="leaderboard-main">
+              <div class="leaderboard-name">${escapeHtml(entry.playerName)}</div>
+              <div class="leaderboard-meta">击杀玩家 ${formatDisplayInteger(entry.playerKillCount)}</div>
+              <div class="leaderboard-submeta" data-leaderboard-player-location="${escapeHtml(entry.playerId)}">${escapeHtml(this.formatPlayerLocationText(entry.playerId))}</div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
   }
 
 /** renderDeathBoard：执行对应的业务逻辑。 */
@@ -293,5 +332,67 @@ export class LeaderboardModal {
         `).join('')}
       </div>
     `;
+  }
+
+  private startLocationPolling(): void {
+    if (this.locationTimer !== null) {
+      return;
+    }
+    this.locationTimer = window.setInterval(() => {
+      this.requestVisiblePlayerKillLocations();
+    }, LEADERBOARD_PLAYER_LOCATION_REFRESH_INTERVAL_MS);
+  }
+
+  private stopLocationPolling(): void {
+    if (this.locationTimer !== null) {
+      window.clearInterval(this.locationTimer);
+      this.locationTimer = null;
+    }
+  }
+
+  private requestVisiblePlayerKillLocations(): void {
+    if (!detailModalHost.isOpenFor(LEADERBOARD_OWNER_ID) || this.activeTab !== 'playerKills') {
+      return;
+    }
+/** playerIds：定义该变量以承载业务值。 */
+    const playerIds = (this.data?.boards.playerKills ?? [])
+      .map((entry) => entry.playerId)
+      .filter((entry) => typeof entry === 'string' && entry.length > 0);
+    if (playerIds.length <= 0) {
+      return;
+    }
+    this.requestPlayerLocations?.(playerIds);
+  }
+
+  private capturePlayerKillLocationNodes(body: HTMLElement): void {
+    this.playerKillLocationNodes.clear();
+    body.querySelectorAll<HTMLElement>('[data-leaderboard-player-location]').forEach((node) => {
+/** playerId：定义该变量以承载业务值。 */
+      const playerId = node.dataset.leaderboardPlayerLocation;
+      if (!playerId) {
+        return;
+      }
+      this.playerKillLocationNodes.set(playerId, node);
+    });
+  }
+
+  private syncPlayerKillLocationNodes(): void {
+    if (this.activeTab !== 'playerKills' || this.playerKillLocationNodes.size <= 0) {
+      return;
+    }
+    for (const [playerId, node] of this.playerKillLocationNodes.entries()) {
+      node.textContent = this.formatPlayerLocationText(playerId);
+    }
+  }
+
+  private formatPlayerLocationText(playerId: string): string {
+/** entry：定义该变量以承载业务值。 */
+    const entry = this.playerLocationById.get(playerId);
+    if (!entry) {
+      return '坐标：天机追索中';
+    }
+    return entry.online
+      ? `坐标：${entry.mapName} (${formatDisplayInteger(entry.x)}, ${formatDisplayInteger(entry.y)})`
+      : `离线坐标：${entry.mapName} (${formatDisplayInteger(entry.x)}, ${formatDisplayInteger(entry.y)})`;
   }
 }

@@ -2685,6 +2685,7 @@ worldSummaryModal.setCallbacks({
 });
 leaderboardModal.setCallbacks({
   onRequestData: (limit) => socket.sendRequestLeaderboard(limit),
+  onRequestPlayerLocations: (playerIds) => socket.sendRequestLeaderboardPlayerLocations(playerIds),
 });
 questPanel.setCallbacks((questId) => {
   clearCurrentPath();
@@ -2941,6 +2942,9 @@ socket.onAttrDetail((data) => {
 });
 socket.onLeaderboard((data) => {
   leaderboardModal.applyData(data);
+});
+socket.onLeaderboardPlayerLocations((data) => {
+  leaderboardModal.applyPlayerLocations(data);
 });
 socket.onWorldSummary((data) => {
   worldSummaryModal.applyData(data);

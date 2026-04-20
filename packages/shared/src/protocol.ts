@@ -61,6 +61,7 @@ export const C2S = {
   RequestMarketTradeHistory: 'c:requestMarketTradeHistory',
   RequestAttrDetail: 'c:requestAttrDetail',
   RequestLeaderboard: 'c:requestLeaderboard',
+  RequestLeaderboardPlayerLocations: 'c:requestLeaderboardPlayerLocations',
   RequestWorldSummary: 'c:requestWorldSummary',
   CreateMarketSellOrder: 'c:createMarketSellOrder',
   CreateMarketBuyOrder: 'c:createMarketBuyOrder',
@@ -121,6 +122,7 @@ export const S2C = {
   MarketTradeHistory: 's:marketTradeHistory',
   AttrDetail: 's:attrDetail',
   Leaderboard: 's:leaderboard',
+  LeaderboardPlayerLocations: 's:leaderboardPlayerLocations',
   WorldSummary: 's:worldSummary',
   NpcShop: 's:npcShop',
   AlchemyPanel: 's:alchemyPanel',
@@ -351,6 +353,12 @@ export interface C2S_RequestAttrDetail {}
 /** C2S_RequestLeaderboard：定义该接口的能力与字段约束。 */
 export interface C2S_RequestLeaderboard {
   limit?: number;
+}
+
+/** C2S_RequestLeaderboardPlayerLocations：定义该接口的能力与字段约束。 */
+export interface C2S_RequestLeaderboardPlayerLocations {
+/** playerIds：定义该变量以承载业务值。 */
+  playerIds: string[];
 }
 
 /** C2S_RequestWorldSummary：定义该接口的能力与字段约束。 */
@@ -1474,6 +1482,22 @@ export interface LeaderboardBodyTrainingEntry extends LeaderboardPlayerEntry {
   expToNext: number;
 }
 
+/** LeaderboardPlayerLocationEntry：定义该接口的能力与字段约束。 */
+export interface LeaderboardPlayerLocationEntry {
+/** playerId：定义该变量以承载业务值。 */
+  playerId: string;
+/** mapId：定义该变量以承载业务值。 */
+  mapId: string;
+/** mapName：定义该变量以承载业务值。 */
+  mapName: string;
+/** x：定义该变量以承载业务值。 */
+  x: number;
+/** y：定义该变量以承载业务值。 */
+  y: number;
+/** online：定义该变量以承载业务值。 */
+  online: boolean;
+}
+
 /** LeaderboardSupremeAttrEntry：定义该接口的能力与字段约束。 */
 export interface LeaderboardSupremeAttrEntry {
 /** attr：定义该变量以承载业务值。 */
@@ -1558,6 +1582,14 @@ export interface S2C_Leaderboard {
 /** supremeAttrs：定义该变量以承载业务值。 */
     supremeAttrs: LeaderboardSupremeAttrEntry[];
   };
+}
+
+/** S2C_LeaderboardPlayerLocations：定义该接口的能力与字段约束。 */
+export interface S2C_LeaderboardPlayerLocations {
+/** generatedAt：定义该变量以承载业务值。 */
+  generatedAt: number;
+/** entries：定义该变量以承载业务值。 */
+  entries: LeaderboardPlayerLocationEntry[];
 }
 
 /** S2C_WorldSummary：定义该接口的能力与字段约束。 */

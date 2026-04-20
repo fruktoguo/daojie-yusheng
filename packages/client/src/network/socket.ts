@@ -23,6 +23,7 @@ import {
   C2S_RequestMarketTradeHistory,
   C2S_RequestAttrDetail,
   C2S_RequestLeaderboard,
+  C2S_RequestLeaderboardPlayerLocations,
   C2S_RequestWorldSummary,
   C2S_CreateMarketSellOrder,
   C2S_CreateMarketBuyOrder,
@@ -57,6 +58,7 @@ import {
   S2C_MarketTradeHistory,
   S2C_AttrDetail,
   S2C_Leaderboard,
+  S2C_LeaderboardPlayerLocations,
   S2C_WorldSummary,
   S2C_NpcShop,
   S2C_AlchemyPanel,
@@ -122,6 +124,7 @@ export class SocketManager {
   private onMarketTradeHistoryCallbacks: Array<(data: S2C_MarketTradeHistory) => void> = [];
   private onAttrDetailCallbacks: Array<(data: S2C_AttrDetail) => void> = [];
   private onLeaderboardCallbacks: Array<(data: S2C_Leaderboard) => void> = [];
+  private onLeaderboardPlayerLocationsCallbacks: Array<(data: S2C_LeaderboardPlayerLocations) => void> = [];
   private onWorldSummaryCallbacks: Array<(data: S2C_WorldSummary) => void> = [];
   private onNpcShopCallbacks: Array<(data: S2C_NpcShop) => void> = [];
   private onAlchemyPanelCallbacks: Array<(data: S2C_AlchemyPanel) => void> = [];
@@ -179,6 +182,7 @@ export class SocketManager {
     this.bindServerEvent(S2C.MarketTradeHistory, this.onMarketTradeHistoryCallbacks);
     this.bindServerEvent(S2C.AttrDetail, this.onAttrDetailCallbacks);
     this.bindServerEvent(S2C.Leaderboard, this.onLeaderboardCallbacks);
+    this.bindServerEvent(S2C.LeaderboardPlayerLocations, this.onLeaderboardPlayerLocationsCallbacks);
     this.bindServerEvent(S2C.WorldSummary, this.onWorldSummaryCallbacks);
     this.bindServerEvent(S2C.NpcShop, this.onNpcShopCallbacks);
     this.bindServerEvent(S2C.AlchemyPanel, this.onAlchemyPanelCallbacks);
@@ -463,6 +467,14 @@ export class SocketManager {
     this.emitServer(C2S.RequestLeaderboard, { limit } satisfies C2S_RequestLeaderboard);
   }
 
+/** sendRequestLeaderboardPlayerLocations：处理当前场景中的对应操作。 */
+  sendRequestLeaderboardPlayerLocations(playerIds: string[]) {
+    this.emitServer(
+      C2S.RequestLeaderboardPlayerLocations,
+      { playerIds } satisfies C2S_RequestLeaderboardPlayerLocations,
+    );
+  }
+
 /** sendRequestWorldSummary：处理当前场景中的对应操作。 */
   sendRequestWorldSummary() {
     this.emitServer(C2S.RequestWorldSummary, {} satisfies C2S_RequestWorldSummary);
@@ -631,6 +643,7 @@ export class SocketManager {
   onMarketTradeHistory(cb: (data: S2C_MarketTradeHistory) => void) { this.onMarketTradeHistoryCallbacks.push(cb); }
   onAttrDetail(cb: (data: S2C_AttrDetail) => void) { this.onAttrDetailCallbacks.push(cb); }
   onLeaderboard(cb: (data: S2C_Leaderboard) => void) { this.onLeaderboardCallbacks.push(cb); }
+  onLeaderboardPlayerLocations(cb: (data: S2C_LeaderboardPlayerLocations) => void) { this.onLeaderboardPlayerLocationsCallbacks.push(cb); }
   onWorldSummary(cb: (data: S2C_WorldSummary) => void) { this.onWorldSummaryCallbacks.push(cb); }
   onNpcShop(cb: (data: S2C_NpcShop) => void) { this.onNpcShopCallbacks.push(cb); }
   onAlchemyPanel(cb: (data: S2C_AlchemyPanel) => void) { this.onAlchemyPanelCallbacks.push(cb); }

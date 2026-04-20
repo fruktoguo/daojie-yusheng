@@ -6,22 +6,25 @@ import {
   LeaderboardDeathEntry,
   LeaderboardMonsterKillEntry,
   LeaderboardPlayerKillEntry,
+  LeaderboardPlayerLocationEntry,
   LeaderboardRealmEntry,
   LeaderboardSpiritStoneEntry,
   LeaderboardSupremeAttrEntry,
   LeaderboardWorldSummary,
   PlayerState,
   S2C_Leaderboard,
+  S2C_LeaderboardPlayerLocations,
   S2C_WorldSummary,
   calculateMarketTradeTotalCost,
 } from '@mud/shared';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { MarketOrderEntity } from '../database/entities/market-order.entity';
 import { PlayerEntity } from '../database/entities/player.entity';
 import { MARKET_CURRENCY_ITEM_ID } from '../constants/gameplay/market';
 import { AlchemyService } from './alchemy.service';
 import { AttrService } from './attr.service';
 import { EnhancementService } from './enhancement.service';
+import { MapService } from './map.service';
 import { PlayerService } from './player.service';
 import { TechniqueService } from './technique.service';
 
@@ -112,6 +115,7 @@ export class LeaderboardService {
     private readonly techniqueService: TechniqueService,
     private readonly alchemyService: AlchemyService,
     private readonly enhancementService: EnhancementService,
+    private readonly mapService: MapService,
   ) {}
 
 /** buildLeaderboard：执行对应的业务逻辑。 */
@@ -186,6 +190,63 @@ export class LeaderboardService {
     return payload;
   }
 
+  async buildPlayerLocations(playerIds: string[]): Promise<S2C_LeaderboardPlayerLocations> {
+/** normalizedIds：定义该变量以承载业务值。 */
+    const normalizedIds = [...new Set(
+      (playerIds ?? [])
+        .filter((entry): entry is string => typeof entry === 'string')
+        .map((entry) => entry.trim())
+        .filter((entry) => entry.length > 0),
+    )].slice(0, MAX_LEADERBOARD_LIMIT);
+    if (normalizedIds.length <= 0) {
+      return {
+        generatedAt: Date.now(),
+        entries: [],
+      };
+    }
+
+/** livePlayersById：定义该变量以承载业务值。 */
+    const livePlayersById = new Map(
+      this.playerService.getAllPlayers()
+        .filter((player) => player.isBot !== true)
+        .map((player) => [player.id, player] as const),
+    );
+/** entries：定义该变量以承载业务值。 */
+    const entries: LeaderboardPlayerLocationEntry[] = [];
+/** missingIds：定义该变量以承载业务值。 */
+    const missingIds: string[] = [];
+
+    for (const playerId of normalizedIds) {
+      const livePlayer = livePlayersById.get(playerId);
+      if (livePlayer) {
+        entries.push(this.createPlayerLocationEntry(livePlayer));
+      } else {
+        missingIds.push(playerId);
+      }
+    }
+
+    if (missingIds.length > 0) {
+/** entities：定义该变量以承载业务值。 */
+      const entities = await this.playerRepo.find({
+        where: { id: In(missingIds) },
+      });
+/** entityById：定义该变量以承载业务值。 */
+      const entityById = new Map(entities.map((entity) => [entity.id, entity] as const));
+      for (const playerId of missingIds) {
+        const entity = entityById.get(playerId);
+        if (!entity) {
+          continue;
+        }
+        entries.push(this.createPlayerLocationEntry(this.playerService.hydrateStoredPlayerForRead(entity)));
+      }
+    }
+
+    return {
+      generatedAt: Date.now(),
+      entries,
+    };
+  }
+
 /** collectSnapshots：执行对应的业务逻辑。 */
   private async collectSnapshots(): Promise<LeaderboardSnapshot[]> {
 /** livePlayers：定义该变量以承载业务值。 */
@@ -235,6 +296,19 @@ export class LeaderboardService {
         perception: Math.max(0, Math.floor(finalAttrs.perception ?? 0)),
         talent: Math.max(0, Math.floor(finalAttrs.talent ?? 0)),
       },
+    };
+  }
+
+  private createPlayerLocationEntry(player: PlayerState): LeaderboardPlayerLocationEntry {
+/** mapMeta：定义该变量以承载业务值。 */
+    const mapMeta = this.mapService.getMapMeta(player.mapId);
+    return {
+      playerId: player.id,
+      mapId: player.mapId,
+      mapName: mapMeta?.name ?? player.mapId,
+      x: Math.max(0, Math.floor(player.x ?? 0)),
+      y: Math.max(0, Math.floor(player.y ?? 0)),
+      online: player.online === true,
     };
   }
 
