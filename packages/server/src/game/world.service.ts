@@ -2254,8 +2254,21 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
   ): boolean {
 /** playerStats：定义该变量以承载业务值。 */
     const playerStats = this.attrService.getPlayerNumericStats(player);
+/** targetRef：定义该变量以承载业务值。 */
+    const targetRef = this.getTargetRef(target);
     if (skill.requiresTarget !== false) {
-      return isPointInRange(player, target, this.buildEffectiveSkillGeometry(skill, playerStats).range);
+      if (!isPointInRange(player, target, this.buildEffectiveSkillGeometry(skill, playerStats).range)) {
+        return false;
+      }
+/** selectedTargets：定义该变量以承载业务值。 */
+      const selectedTargets = this.selectSkillTargetsFromAnchor(
+        player,
+        skill,
+        { x: target.x, y: target.y },
+        playerStats,
+        target,
+      );
+      return selectedTargets.some((entry) => this.getTargetRef(entry) === targetRef);
     }
     if (!this.isAutoBattleHostileNoTargetSkill(skill)) {
       return true;
@@ -2268,8 +2281,6 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       { x: player.x, y: player.y },
       playerStats,
     );
-/** targetRef：定义该变量以承载业务值。 */
-    const targetRef = this.getTargetRef(target);
     return selectedTargets.some((entry) => this.getTargetRef(entry) === targetRef);
   }
 
@@ -8006,8 +8017,14 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     }
 /** rules：定义该变量以承载业务值。 */
     const rules = this.getPlayerCombatTargetingRules(attacker);
+/** lockedPlayerTargetMatched：定义该变量以承载业务值。 */
+    const lockedPlayerTargetMatched = attacker.combatTargetLocked === true
+      && attacker.combatTargetId === this.getPlayerThreatId(target);
     return hasCombatTargetingRule(rules, 'hostile', 'all_players')
-      || (hasCombatTargetingRule(rules, 'hostile', 'retaliators') && attacker.retaliatePlayerTargetId === target.id);
+      || (
+        hasCombatTargetingRule(rules, 'hostile', 'retaliators')
+        && (attacker.retaliatePlayerTargetId === target.id || lockedPlayerTargetMatched)
+      );
   }
 
 /** canPlayerTreatPlayer：执行对应的业务逻辑。 */
